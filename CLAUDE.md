@@ -91,6 +91,16 @@ recommendation. Nothing is ported before the user agrees.
 
 - Renderer: `wgpu`, pinned to the Vulkan backend, behind a small trait so it can be replaced. Custom engine on `winit` plus separate audio and asset crates; the simulation is an engine-agnostic crate.
 - Reverse-engineering notes live in `../rainworld-re`, never only in the conversation. Agents check it before investigating and extend it afterwards; ask in the report what was added.
+- Target: base game first, with Remix (MMF) off. Remix, More Slugcats,
+  Watcher and Jolly Co-op are to be supported later, so keep their
+  branches documented in `../rainworld-re` notes and don't design them
+  out; omitted DLC branches are listed in `docs/DIVERGENCES.md`.
+- Current phase is the player controller in a single room, not the game:
+  - Death freezes the body until R respawns it (revisit once the real
+    game loop exists).
+  - Room-exit shortcuts can't be entered (no other rooms yet); in-room
+    shortcut pipes work.
+  - Water uses the game's full wavy surface simulation.
 
 ## Code style
 
