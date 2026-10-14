@@ -2,7 +2,7 @@
 //!
 //! Behaviour: `slugcat-movement.md` sections 6 and 9, `horizontal-beams.md` sections 2-4.
 //! Vertical poles are in `poles.rs`, `LedgeGrab` in `ledge.rs`, `Flip`, `Roll`,
-//! `RocketJump` and `BellySlide` in `advanced.rs`.
+//! `RocketJump` and `BellySlide` in `advanced.rs`, `CorridorTurn` in `corridor.rs`.
 
 use rw_assets::{Room, Terrain};
 
@@ -37,6 +37,7 @@ impl Player {
             Animation::RocketJump => self.rocket_jump(),
             Animation::Flip => self.flip(),
             Animation::BellySlide => self.belly_slide(room),
+            Animation::CorridorTurn => self.corridor_turn(),
             Animation::Dead => {}
         }
     }

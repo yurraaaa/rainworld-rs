@@ -5,12 +5,13 @@
 //! `slope-collision.md` section 5. Stats are the
 //! Survivor's (every `SlugcatStats` factor 1, no adrenaline, never exhausted). Fall
 //! damage, stun and death: `falls.md`. Skid, flip, roll, belly slide and rocket jump:
-//! `advanced-moves.md`. Shortcuts: `shortcuts.md`.
+//! `advanced-moves.md`. Corridors: `corridors.md`. Shortcuts: `shortcuts.md`.
 //! What is not ported is listed in `docs/DIVERGENCES.md`.
 
 mod advanced;
 mod animation;
 mod body_mode;
+mod corridor;
 mod falls;
 mod input;
 mod jump;
@@ -43,6 +44,8 @@ const UNCONSCIOUS_SURFACE_FRICTION: f32 = 0.3;
 const RUN_SPEED_FAC: f32 = 1.0;
 /// `poleClimbSpeedFac` of the Survivor.
 const POLE_CLIMB_SPEED_FAC: f32 = 1.0;
+/// `corridorClimbSpeedFac` of the Survivor.
+const CORRIDOR_CLIMB_SPEED_FAC: f32 = 1.0;
 /// `EffectiveRoomGravity`: room gravity 1 (no gravity effects are ported).
 const ROOM_GRAVITY: f32 = 1.0;
 
@@ -60,6 +63,8 @@ pub enum BodyMode {
     WallClimb,
     /// On a beam or pole (hanging, climbing, pulling up or standing on it).
     ClimbingOnBeam,
+    /// Squeezed into a one-tile tunnel or shaft.
+    CorridorClimb,
     /// Stun counter above 0.
     Stunned,
     Dead,
@@ -102,6 +107,8 @@ pub enum Animation {
     RocketJump,
     /// Sliding on the belly.
     BellySlide,
+    /// Turning around inside a one-tile tunnel or shaft.
+    CorridorTurn,
     Dead,
 }
 
@@ -195,6 +202,24 @@ pub struct Player {
     rocket_jump_from_belly_slide: bool,
     /// Ticks left in which a landing may turn into a roll (`allowRoll`).
     allow_roll: i32,
+
+    /// Consecutive ticks wedged in a corridor; corridor mode starts above 2.
+    go_into_corridor_climb: i32,
+    /// Dropping out of the bottom of a shaft in `Default` mode.
+    corridor_drop: bool,
+    /// Direction of a running corridor U-turn.
+    corridor_turn_dir: Option<(i32, i32)>,
+    corridor_turn_counter: i32,
+    /// Ticks left in which a corridor shoot or slide is a "success".
+    can_corridor_jump: i32,
+    vertical_corridor_slide_counter: i32,
+    horizontal_corridor_slide_counter: i32,
+    /// Moving tail-first in a corridor; above 10 it slows the climb.
+    backwards_counter: i32,
+    /// After a successful shaft shoot: no beam grabs while jump and up stay held.
+    shoot_up_counter: i32,
+    /// Beam tile to catch after crawling head-first out of a shaft with down held.
+    drop_grab_tile: Option<(i32, i32)>,
 }
 
 impl Default for Player {
@@ -264,6 +289,16 @@ impl Player {
             flip_from_slide: false,
             rocket_jump_from_belly_slide: false,
             allow_roll: 0,
+            go_into_corridor_climb: 0,
+            corridor_drop: false,
+            corridor_turn_dir: None,
+            corridor_turn_counter: 0,
+            can_corridor_jump: 0,
+            vertical_corridor_slide_counter: 0,
+            horizontal_corridor_slide_counter: 0,
+            backwards_counter: 0,
+            shoot_up_counter: 0,
+            drop_grab_tile: None,
         }
     }
 
@@ -387,8 +422,12 @@ impl Player {
         if self.pole_skip_penalty > 0 {
             self.pole_skip_penalty -= 1;
         }
-        // No corridor mode is ported, so this only counts up.
-        self.time_since_in_corridor_mode = self.time_since_in_corridor_mode.saturating_add(1);
+        self.count_shoot_up();
+        if self.body_mode == BodyMode::CorridorClimb {
+            self.time_since_in_corridor_mode = 0;
+        } else {
+            self.time_since_in_corridor_mode = self.time_since_in_corridor_mode.saturating_add(1);
+        }
         self.update_allow_roll(room);
         self.update_jump_buffer(room);
         if self.body_mode == BodyMode::WallClimb {
@@ -408,6 +447,15 @@ impl Player {
         }
         if self.slow_movement_stun > 0 {
             self.slow_movement_stun -= 1;
+        }
+        if self.backwards_counter > 0 {
+            self.backwards_counter -= 1;
+        }
+        if self.vertical_corridor_slide_counter > 0 {
+            self.vertical_corridor_slide_counter -= 1;
+        }
+        if self.horizontal_corridor_slide_counter > 0 {
+            self.horizontal_corridor_slide_counter -= 1;
         }
         self.jump_stun -= self.jump_stun.signum();
     }
@@ -485,16 +533,17 @@ impl Player {
         }
     }
 
-    /// Wall-slide braking, ceiling un-standing, the stacked-body nudge and the camera
+    /// Wall-slide braking (not in corridors), ceiling un-standing, the stacked-body nudge and the camera
     /// clamp: the parts of `Player.Update` between reading input and physics.
     fn update_after_input(&mut self, room: &Room) {
         let x = i32::from(self.input[0].x);
         let friction = self.body.params.surface_friction;
         let head_above = self.body.chunks[HEAD].pos.y > self.body.chunks[HIPS].pos.y;
         let brake = (1.0 - friction * if head_above { 2.0 } else { 0.5 }).clamp(0.0, 1.0);
+        let in_corridor = self.body_mode == BodyMode::CorridorClimb;
         for c in &mut self.body.chunks {
             let cx = i32::from(c.contact().x);
-            if cx != 0 && x == cx && c.vel.y < 0.0 {
+            if cx != 0 && x == cx && c.vel.y < 0.0 && !in_corridor {
                 c.vel.y *= brake;
             }
         }

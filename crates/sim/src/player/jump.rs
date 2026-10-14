@@ -1,7 +1,8 @@
 //! `Player.Jump` and `Player.WallJump` (Survivor values, no adrenaline or exhaustion).
 //!
 //! Behaviour: `slugcat-movement.md` section 5, `slope-collision.md` section 5,
-//! `vertical-poles.md` section 6, `ledge-grab.md` section 3, `advanced-moves.md`
+//! `vertical-poles.md` section 6, `ledge-grab.md` section 3, `corridors.md` section 5,
+//! `advanced-moves.md`
 //! sections 1-3 (the roll, belly-slide and flip jumps are in `advanced.rs`).
 
 use rw_assets::Room;
@@ -23,6 +24,14 @@ impl Player {
                 -head_contact
             };
             self.wall_jump(room, dir);
+            return;
+        }
+        if self.body_mode == BodyMode::CorridorClimb {
+            let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
+            head.vel.y = 6.0;
+            hips.vel.y = 5.0;
+            self.standing = true;
+            self.jump_boost = 8.0;
             return;
         }
         if self.animation == Animation::LedgeGrab {
