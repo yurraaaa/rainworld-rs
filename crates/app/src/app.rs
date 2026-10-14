@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
-use rw_render::{BodyStatus, Camera, Renderer, RoomLayers, WaterSurface, WgpuRenderer};
+use rw_render::{Camera, Renderer, RoomLayers, WaterSurface, WgpuRenderer};
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
 use winit::event::{ElementState, KeyEvent, WindowEvent};
@@ -161,7 +161,7 @@ impl App {
         ));
         r.draw_room(self.layers);
         let time = (self.game.ticks() as f32 + alpha) / TICK_RATE as f32;
-        r.draw_object(self.game.body(), alpha, BodyStatus::ALIVE, time);
+        r.draw_object(self.game.body(), alpha, self.game.status(), time);
         if let Some(water) = &self.water {
             r.draw_water(water);
         }

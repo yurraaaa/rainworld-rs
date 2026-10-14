@@ -5,6 +5,7 @@
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 use rw_assets::Room;
+use rw_render::BodyStatus;
 use rw_sim::{Input, PhysicalObject, Player};
 
 /// A room with one player in it.
@@ -56,6 +57,14 @@ impl Game {
     #[must_use]
     pub fn player_dead(&self) -> bool {
         self.player.is_dead()
+    }
+
+    #[must_use]
+    pub fn status(&self) -> BodyStatus {
+        BodyStatus {
+            stunned: self.player.is_stunned(),
+            dead: self.player.is_dead(),
+        }
     }
 
     #[must_use]
