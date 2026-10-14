@@ -192,6 +192,13 @@ impl PaletteTexture {
         self.texels[y * Self::WIDTH + x]
     }
 
+    /// `RoomPalette.blackColor`: texel (2, 7), the top row's third texel (the colour of
+    /// the slugcat's eyes, among others).
+    #[must_use]
+    pub fn black_color(&self) -> [u8; 4] {
+        self.texel(2, 7)
+    }
+
     /// `_fogAmount` (`ApplyPalette`): `1 - R` of texel (9, 7), or `1 + B` when R and G
     /// are 0 and B is not.
     #[must_use]

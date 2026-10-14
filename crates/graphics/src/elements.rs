@@ -48,6 +48,10 @@ pub const LEGS_A_ON_POLE: [&str; 7] = [
 
 pub const LEGS_A_AIR: &str = "LegsAAir0";
 pub const LEGS_A_WALL: &str = "LegsAWall";
+/// Standing on a pole tip.
+pub const LEGS_A_POLE: &str = "LegsAPole";
+/// Climbing a vertical pole.
+pub const LEGS_A_VERTICAL_POLE: &str = "LegsAVerticalPole";
 
 /// `PlayerArm{i}`: an arm about `2 * i` px long.
 pub const PLAYER_ARM: [&str; 13] = [

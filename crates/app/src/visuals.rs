@@ -85,6 +85,13 @@ impl Visuals {
         self.changed = false;
     }
 
+    /// The palette's `blackColor` (the slugcat's eye colour), as stored.
+    #[must_use]
+    pub fn black_color(&self) -> rw_graphics::Color {
+        let [r, g, b, a] = self.palette.black_color().map(|c| f32::from(c) / 255.0);
+        rw_graphics::Color { r, g, b, a }
+    }
+
     /// The game's window at `alpha` between ticks, `seconds` of shader time in.
     #[must_use]
     pub fn view(&self, alpha: f32, seconds: f32) -> LevelView {

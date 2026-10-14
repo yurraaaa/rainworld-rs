@@ -69,7 +69,7 @@ impl LevelPipeline {
         });
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("level.wgsl"),
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("level.wgsl"))),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("../shaders/level.wgsl"))),
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("level"),

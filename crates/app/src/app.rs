@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
+use rw_graphics::Layer;
 use rw_render::{Camera, Renderer, RoomCamera, RoomLayers, WaterSurface, WgpuRenderer};
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
@@ -18,7 +19,8 @@ use winit::keyboard::PhysicalKey;
 use winit::window::{Window, WindowId};
 
 use crate::game::Game;
-use crate::input::{Action, Command, InputState};
+use crate::input::{Action, Command, InputState, Script};
+use crate::sprites::SpriteAssets;
 use crate::timestep::{FixedTimestep, TICK_RATE};
 use crate::visuals::Visuals;
 
@@ -30,10 +32,15 @@ const MARGIN: f32 = 16.0;
 /// # Errors
 /// When the event loop cannot be created or exits with an error, or when the window
 /// or renderer could not be created.
-pub fn run(game: Game, visuals: Option<Visuals>, options: Options) -> Result<(), Box<dyn Error>> {
+pub fn run(
+    game: Game,
+    visuals: Option<Visuals>,
+    sprites: Option<SpriteAssets>,
+    options: Options,
+) -> Result<(), Box<dyn Error>> {
     let event_loop = EventLoop::new()?;
     event_loop.set_control_flow(ControlFlow::Poll);
-    let mut app = App::new(game, visuals, options);
+    let mut app = App::new(game, visuals, sprites, options);
     event_loop.run_app(&mut app)?;
     match app.fatal.take() {
         Some(e) => Err(e),
@@ -47,6 +54,8 @@ pub struct Options {
     pub screenshot: Option<PathBuf>,
     /// Start in the debug view.
     pub debug_view: bool,
+    /// Input steps played instead of the keyboard; the screenshot waits for them.
+    pub script: Option<Script>,
 }
 
 /// Window and renderer, created on `resumed`.
@@ -63,6 +72,8 @@ struct App {
     layers: RoomLayers,
     /// The level graphic, when the room's images and palettes loaded.
     visuals: Option<Visuals>,
+    /// The slugcat's atlas; without it the body is drawn as circles.
+    sprites: Option<SpriteAssets>,
     /// Show the level graphic (V toggles) rather than the debug tiles.
     show_visuals: bool,
     /// Flat at the room's water row until the sim provides the wavy surface.
@@ -70,6 +81,8 @@ struct App {
     view: Option<View>,
     /// `--screenshot`: save a frame here once a second has been simulated, then quit.
     screenshot_and_quit: Option<PathBuf>,
+    /// `--script`: replaces the keyboard until it runs out.
+    script: Option<Script>,
     /// Quit after the current frame is presented.
     quit_after_frame: bool,
     /// Error that ended the loop, reported by [`run`].
@@ -77,8 +90,14 @@ struct App {
 }
 
 impl App {
-    fn new(game: Game, visuals: Option<Visuals>, options: Options) -> Self {
+    fn new(
+        game: Game,
+        visuals: Option<Visuals>,
+        sprites: Option<SpriteAssets>,
+        options: Options,
+    ) -> Self {
         Self {
+            sprites,
             show_visuals: visuals.is_some() && !options.debug_view,
             visuals,
             water: WaterSurface::for_room(game.room()),
@@ -89,6 +108,7 @@ impl App {
             layers: RoomLayers::default(),
             view: None,
             screenshot_and_quit: options.screenshot,
+            script: options.script,
             quit_after_frame: false,
             fatal: None,
         }
@@ -113,6 +133,9 @@ impl App {
         let mut renderer =
             WgpuRenderer::new(Arc::clone(&window), (physical.width, physical.height))?;
         renderer.set_room(room);
+        if let Some(sprites) = &self.sprites {
+            sprites.upload(&mut renderer);
+        }
         Ok(View { window, renderer })
     }
 
@@ -168,7 +191,12 @@ impl App {
         let elapsed = self.last_frame.map_or_else(Default::default, |t| now - t);
         self.last_frame = Some(now);
         for _ in 0..self.clock.advance(elapsed) {
-            let input = self.input.take_tick_input();
+            let keys = self.input.take_tick_input();
+            let input = self
+                .script
+                .as_mut()
+                .and_then(Script::next_input)
+                .unwrap_or(keys);
             self.game.tick(input);
             if let Some(visuals) = &mut self.visuals {
                 visuals.tick(self.game.camera_follow().as_ref());
@@ -179,6 +207,16 @@ impl App {
             1.0
         } else {
             self.clock.alpha()
+        };
+        // The slugcat's sprites (also in the debug view), eyes in the palette's black.
+        let face = self
+            .visuals
+            .as_ref()
+            .map_or(rw_graphics::Color::BLACK, Visuals::black_color);
+        let sprites = if self.sprites.is_some() {
+            self.game.draw_list(alpha, face)
+        } else {
+            None
         };
 
         let Some(view) = &mut self.view else { return };
@@ -209,17 +247,28 @@ impl App {
                 r.draw_room(self.layers);
             }
         }
-        if let Some(body) = self.game.body() {
-            r.draw_object(body, alpha, self.game.status(), time);
+        // Sprites sit at `room - camPos`; the debug view's stage is the room itself.
+        let cam_pos = level.as_ref().map_or([0.0, 0.0], |l| l.origin);
+        match &sprites {
+            Some(list) => r.draw_sprites(list, Layer::Midground, cam_pos),
+            None => {
+                if let Some(body) = self.game.body() {
+                    r.draw_object(body, alpha, self.game.status(), time);
+                }
+            }
         }
         if let Some(level) = level {
             r.draw_level(level);
+        }
+        if let Some(list) = &sprites {
+            r.draw_sprites(list, Layer::Foreground, cam_pos);
         }
         r.draw_shortcut_vessel(self.game.vessel_tile());
         if let Some(water) = &self.water {
             r.draw_water(water);
         }
-        if self.game.ticks() >= u64::from(TICK_RATE)
+        let script_ticks = self.script.as_ref().map_or(0, Script::len);
+        if self.game.ticks() >= u64::from(TICK_RATE.max(script_ticks))
             && let Some(path) = self.screenshot_and_quit.take()
         {
             log::info!("saving screenshot to {}", path.display());

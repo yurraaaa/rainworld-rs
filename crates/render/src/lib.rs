@@ -1,6 +1,7 @@
 //! Renderer: the room's level graphic (camera image through the palette) or its debug
-//! tile geometry, shortcut tubes, water and body chunks, drawn through the small
-//! [`Renderer`] trait so the backend can be replaced.
+//! tile geometry, shortcut tubes, water, body chunks and Futile atlas sprites (an
+//! `rw_graphics::DrawList`), drawn through the small [`Renderer`] trait so the backend
+//! can be replaced.
 //!
 //! The only backend is [`WgpuRenderer`] (wgpu pinned to Vulkan). Everything that does
 //! not need a GPU (camera, interpolation, tessellation, tile geometry) lives in plain
@@ -18,6 +19,8 @@ mod level_gpu;
 mod mesh;
 mod room_camera;
 mod room_geometry;
+mod sprite_gpu;
+mod sprites;
 mod status;
 #[cfg(test)]
 mod test_room;
@@ -31,10 +34,12 @@ pub use level::{LevelGraphics, LevelParams, LevelView};
 pub use mesh::{Color, Mesh, Vertex};
 pub use room_camera::{Follow, RoomCamera};
 pub use room_geometry::{RoomDebugGeometry, RoomShape, SlopeGeometry};
+pub use sprites::{Batch, DrawQueue, NodeMatrix, SpriteAtlas, SpriteBatch, SpriteVertex};
 pub use status::{BodyStatus, BodyStyle};
 pub use water::WaterSurface;
 
-use rw_assets::{Room, TILE_SIZE};
+use rw_assets::{PngImage, Room, TILE_SIZE};
+use rw_graphics::{DrawList, Layer};
 use rw_sim::PhysicalObject;
 
 /// Which room layers [`Renderer::draw_room`] draws this frame.
@@ -79,11 +84,24 @@ pub trait Renderer {
     /// Uploads the level graphic of one camera, replacing the previous one.
     fn set_level(&mut self, level: &LevelGraphics<'_>);
 
-    /// Draws the level set by [`set_level`](Renderer::set_level) over the shapes queued
-    /// so far this frame (sprites behind it show only through sky and depth >= 5, see
-    /// the `level` module), then the room layers and later shapes. The frame is clipped
+    /// Draws the level set by [`set_level`](Renderer::set_level) over the shapes and
+    /// sprites queued so far this frame (they show only through sky and depth >= 5, see
+    /// the `level` module), then the room layers and later draws. The frame is clipped
     /// to the game's window `view.origin .. view.origin + view.size`.
     fn draw_level(&mut self, view: LevelView);
+
+    /// Uploads the sprite atlas (frame data and its RGBA image) for
+    /// [`draw_sprites`](Renderer::draw_sprites), replacing the previous one.
+    fn set_atlas(&mut self, atlas: &SpriteAtlas, image: &PngImage);
+
+    /// Queues the items of `list` in `layer`, in order, as Futile draws them
+    /// (`Futile/Basic`: texel times colour, alpha blended) at stage positions
+    /// `pos - cam_pos`; `cam_pos` is the game's `floor(camera) - 0.02` (the level view
+    /// origin), and the same for every call in a frame. Call it with
+    /// [`Layer::Midground`] before [`draw_level`](Renderer::draw_level) and
+    /// [`Layer::Foreground`] after, as the game's containers order them. Nothing is
+    /// drawn before an atlas is set.
+    fn draw_sprites(&mut self, list: &DrawList, layer: Layer, cam_pos: [f32; 2]);
 
     /// Filled circle.
     fn draw_circle(&mut self, centre: [f32; 2], radius: f32, color: Color);

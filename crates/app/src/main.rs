@@ -1,10 +1,13 @@
 //! rainworld-rs: a room from the installed game, drawn as the game draws its level
 //! graphic (or as debug tiles), with a slugcat body.
 //!
-//! Usage: `rainworld-rs [ROOM] [--seed N] [--screenshot FILE.ppm] [--debug-view]`
-//! (default room `summit`, seed 1; `--screenshot` saves the frame after one second and
-//! quits; `--debug-view` starts in the debug view). The game
-//! directory comes from `RW_DIR`; it is only read.
+//! Usage: `rainworld-rs [ROOM] [--seed N] [--screenshot FILE.ppm] [--debug-view]
+//! [--spawn X,Y] [--script STEPS]` (default room `summit`, seed 1; `--screenshot` saves
+//! the frame after one second, or once the script has run, and quits; `--debug-view`
+//! starts in the debug view; `--spawn` puts the player on tile X,Y; `--script` plays
+//! `X,Y,J:TICKS;...` input steps instead of the keyboard). The game directory comes
+//! from `RW_DIR`; it is only read. The asset cache (sprite atlas, noise texture) is
+//! `rw_assets::AssetCache::from_env`.
 //!
 //! `ROOM` is a room name looked up as the game does (`world/<prefix>-rooms`, gates,
 //! `levels`), e.g. `summit` or `SU_B04`.
@@ -16,6 +19,7 @@
 mod app;
 mod game;
 mod input;
+mod sprites;
 mod timestep;
 mod visuals;
 
@@ -24,6 +28,8 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use rw_assets::{AssetCache, Room, StreamingAssets};
+
+use crate::input::Script;
 
 const DEFAULT_RW_DIR: &str = "/home/yura/.local/share/Steam/steamapps/common/Rain World";
 const DEFAULT_ROOM: &str = "summit";
@@ -38,11 +44,15 @@ struct Args {
     screenshot: Option<PathBuf>,
     /// Start in the debug view instead of the level graphic.
     debug_view: bool,
+    /// Player tile instead of a random spawn tile.
+    spawn: Option<(i32, i32)>,
+    /// Input steps played instead of the keyboard.
+    script: Option<Script>,
 }
 
 impl Args {
-    /// Parses `[ROOM] [--seed N] [--screenshot FILE] [--debug-view]` (program name
-    /// already removed).
+    /// Parses `[ROOM] [--seed N] [--screenshot FILE] [--debug-view] [--spawn X,Y]
+    /// [--script STEPS]` (program name already removed).
     fn parse<I>(args: I) -> Result<Self, String>
     where
         I: IntoIterator,
@@ -53,6 +63,8 @@ impl Args {
         let mut seed = DEFAULT_SEED;
         let mut screenshot = None;
         let mut debug_view = false;
+        let mut spawn = None;
+        let mut script = None;
         while let Some(arg) = args.next() {
             match arg.as_str() {
                 "--seed" => {
@@ -66,10 +78,22 @@ impl Args {
                     screenshot = Some(PathBuf::from(value));
                 }
                 "--debug-view" => debug_view = true,
+                "--spawn" => {
+                    let value = args.next().ok_or("--spawn needs X,Y")?;
+                    let (x, y) = value
+                        .split_once(',')
+                        .and_then(|(x, y)| Some((x.parse().ok()?, y.parse().ok()?)))
+                        .ok_or_else(|| format!("invalid spawn tile {value:?}"))?;
+                    spawn = Some((x, y));
+                }
+                "--script" => {
+                    let value = args.next().ok_or("--script needs steps")?;
+                    script = Some(Script::parse(&value)?);
+                }
                 "-h" | "--help" => {
                     return Err(
                         "usage: rainworld-rs [ROOM] [--seed N] [--screenshot FILE.ppm] \
-                                [--debug-view]"
+                                [--debug-view] [--spawn X,Y] [--script X,Y,J:TICKS;...]"
                             .to_owned(),
                     );
                 }
@@ -84,6 +108,8 @@ impl Args {
             seed,
             screenshot,
             debug_view,
+            spawn,
+            script,
         })
     }
 }
@@ -130,11 +156,16 @@ fn run() -> Result<(), Box<dyn Error>> {
     let visuals = visuals::Visuals::load(&assets, &cache, &room)
         .inspect_err(|e| log::warn!("no level graphic ({e}); showing the debug view"))
         .ok();
+    let sprites = sprites::SpriteAssets::load(&cache)
+        .inspect_err(|e| log::warn!("no slugcat sprites ({e}); drawing the circle body"))
+        .ok();
     let options = app::Options {
         screenshot: args.screenshot,
         debug_view: args.debug_view,
+        script: args.script,
     };
-    app::run(game::Game::new(room, args.seed), visuals, options)
+    let game = game::Game::new(room, args.seed, args.spawn);
+    app::run(game, visuals, sprites, options)
 }
 
 fn main() -> ExitCode {
@@ -169,6 +200,8 @@ mod tests {
                 seed: 1,
                 screenshot: None,
                 debug_view: false,
+                spawn: None,
+                script: None,
             })
         );
     }
@@ -180,6 +213,8 @@ mod tests {
             seed: 7,
             screenshot: None,
             debug_view: false,
+            spawn: None,
+            script: None,
         });
         assert_eq!(Args::parse(["SU_A22", "--seed", "7"]), want);
         assert_eq!(Args::parse(["--seed", "7", "SU_A22"]), want);
@@ -190,6 +225,21 @@ mod tests {
         let args = Args::parse(["--screenshot", "/tmp/x.ppm"]).expect("parses");
         assert_eq!(args.screenshot, Some(PathBuf::from("/tmp/x.ppm")));
         assert!(Args::parse(["--screenshot"]).is_err());
+    }
+
+    #[test]
+    fn spawn_and_script() {
+        let args = Args::parse(["--spawn", "12,-3", "--script", "0,1,0:2;1,0,1:3"]).unwrap();
+        assert_eq!(args.spawn, Some((12, -3)));
+        let mut script = args.script.expect("script");
+        assert_eq!(script.len(), 5);
+        let up = rw_sim::Input::new(0, 1, false);
+        let jump_right = rw_sim::Input::new(1, 0, true);
+        let inputs: Vec<_> = std::iter::from_fn(|| script.next_input()).collect();
+        assert_eq!(inputs, [up, up, jump_right, jump_right, jump_right]);
+        assert!(Args::parse(["--spawn", "1"]).is_err());
+        assert!(Args::parse(["--script", "2,0,0:1"]).is_err());
+        assert!(Args::parse(["--script", "0,0:1"]).is_err());
     }
 
     #[test]
