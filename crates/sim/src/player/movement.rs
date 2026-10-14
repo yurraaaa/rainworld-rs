@@ -2,7 +2,7 @@
 //! grab and jump dispatch. Runs after physics every tick.
 //!
 //! Behaviour: `slugcat-movement.md` sections 3-4, `horizontal-beams.md` section 1,
-//! `vertical-poles.md` sections 0-1, `ledge-grab.md` section 1.
+//! `vertical-poles.md` sections 0-1, `ledge-grab.md` section 1, `corridors.md` section 1.
 
 use rw_assets::{Room, ShortcutType, Terrain};
 
@@ -36,12 +36,18 @@ impl Player {
             self.flip_direction = run_dir;
         }
 
+        // The pairs are counted before the feet pin moves the hips, the rest after.
+        let pairs = self.corridor_pairs(room);
         self.update_feet_stuck_pos(room);
-        // Corridor detection (`goIntoCorridorClimb`) is not ported: ground
-        // classification always runs (docs/DIVERGENCES.md D3).
-        self.classify_ground(room);
+        if self.in_corridor(room, pairs) {
+            self.go_into_corridor_climb += 1;
+        } else {
+            self.go_into_corridor_climb = 0;
+            self.classify_ground(room);
+        }
         self.squeeze_up_through_gap(room);
         self.toggle_standing(room);
+        self.enter_corridor_mode(room);
 
         self.dynamic_run_speed = [3.6, 3.6];
         self.update_animation(room);
@@ -285,13 +291,15 @@ impl Player {
 
     /// The horizontal run force toward `dynamic_run_speed` and ground friction.
     fn apply_run_force(&mut self, run_dir: i32) {
-        if matches!(
-            self.animation,
-            Animation::ClimbOnBeam
-                | Animation::HangFromBeam
-                | Animation::GetUpOnBeam
-                | Animation::LedgeGrab
-        ) || (self.dynamic_run_speed[0] <= 0.0 && self.dynamic_run_speed[1] <= 0.0)
+        if self.body_mode == BodyMode::CorridorClimb
+            || matches!(
+                self.animation,
+                Animation::ClimbOnBeam
+                    | Animation::HangFromBeam
+                    | Animation::GetUpOnBeam
+                    | Animation::LedgeGrab
+            )
+            || (self.dynamic_run_speed[0] <= 0.0 && self.dynamic_run_speed[1] <= 0.0)
         {
             return;
         }

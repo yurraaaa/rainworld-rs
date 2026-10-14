@@ -16,26 +16,34 @@ const DOWN: Input = Input::new(0, -1, false);
 const LEFT: Input = Input::new(-1, 0, false);
 
 /// A room drawn bottom row first; starts as Air with Solid rows 0 and 1 (floor top 40).
-struct Grid {
+pub(super) struct Grid {
     rows: Vec<Vec<u8>>,
 }
 
 impl Grid {
-    fn new(w: usize, h: usize) -> Self {
+    pub(super) fn new(w: usize, h: usize) -> Self {
         let mut rows = vec![vec![b'.'; w]; h];
         rows[0].fill(b'#');
         rows[1].fill(b'#');
         Self { rows }
     }
 
-    fn set(mut self, x: usize, ys: RangeInclusive<usize>, cell: u8) -> Self {
+    pub(super) fn set(mut self, x: usize, ys: RangeInclusive<usize>, cell: u8) -> Self {
         for y in ys {
             self.rows[y][x] = cell;
         }
         self
     }
 
-    fn room(&self) -> Room {
+    /// Sets row `y` over the columns `xs` to `cell`.
+    pub(super) fn row(mut self, y: usize, xs: RangeInclusive<usize>, cell: u8) -> Self {
+        for x in xs {
+            self.rows[y][x] = cell;
+        }
+        self
+    }
+
+    pub(super) fn room(&self) -> Room {
         let text: Vec<String> = self
             .rows
             .iter()

@@ -45,15 +45,10 @@ The shortcut map itself (`rw_assets::ShortcutMap`) is the game's `ShortcutMapper
 `rw_sim::Player` ports base slugcat movement (`rainworld-re/notes/slugcat-movement.md`,
 `horizontal-beams.md`, `slope-collision.md` section 5) for the Survivor with every
 `SlugcatStats` factor 1, no adrenaline, never exhausted. Stun and death are D4; vertical
-poles and ledge grabs are D6; skid, flip, roll, belly slide and rocket jump are D9.
+poles and ledge grabs are D6; skid, flip, roll, belly slide and rocket jump are D9;
+corridors are D10.
 
 **What differs from the game where the game's behaviour is kept out of scope:**
-- **No corridor detection.** The game counts chunks wedged between opposite solid tiles
-  (`goIntoCorridorClimb`) and, inside one-tile corridors, skips ground classification and
-  switches to `CorridorClimb`. The port always classifies (Default / Stand / Crawl), so
-  in a one-tile tunnel the player behaves as on open ground. A vertical pole inside a
-  one-tile shaft (smallroom's poles above row 24) is therefore
-  climbed in `ClimbOnBeam`, where the game switches to `CorridorClimb`.
 - **Stacked-body nudge.** When the head is exactly below the hips with no horizontal
   speed, the game gives the head a random x speed in [-1, 1] (hips the opposite); the
   port uses `0.5 * flipDirection` (deterministic, the mean magnitude).
@@ -67,8 +62,7 @@ poles and ledge grabs are D6; skid, flip, roll, belly slide and rocket jump are 
 
 **Why.** Each is either outside the stage-one scope or depends on randomness (D1).
 
-**Affects.** Movement in corridors (including poles in shafts), the rare stacked-head
-case and initial facing.
+**Affects.** The rare stacked-head case and initial facing.
 
 ## D4: Falls, stun and death
 
@@ -143,26 +137,25 @@ up-press trigger, `HangUnderVerticalBeam`, the `ClimbOnBeam` branch of `Jump`, a
 `LedgeGrab` (trigger, haul-up, drop, the `WallJump` hop and the no-x jump)
 (`rainworld-re/notes/vertical-poles.md`, `ledge-grab.md`), base game with Remix off.
 `slowMovementStun` is ported as state with its effects on the run force, the beam
-shuffle and pole climbing; only the slide-up hop sets it so far.
+shuffle and pole climbing; the slide-up hop sets it, as do the belly slide (D9) and
+corridors (D10).
 
 **What differs:**
 - **Remix (MMF) branches omitted:** the climbing-grip throw recoil on a pole
   (`cfgClimbingGrip`; throwing is not ported), the vine grab's exclusion of
-  `ClimbOnBeam`, and corridor shoot-up on a pole ignoring `shootUpCounter` (corridors
-  and vines are not ported).
+  `ClimbOnBeam` (vines are not ported). The corridor exit onto a pole is in D10.
 - **More Slugcats / Watcher omitted:** the slugpup's smaller slide-up hop (2.25 px,
   +1 vy, 0.3x lift, 0.5x slide forces) and the slugpup, Rivulet and Gourmand
   (`PainJumps`) sideways pole jump values, Saint's `monkAscension` blocking the grab,
   and the ripple-levitation freeze of the facing (`rippleActivating`).
-- **Not ported entries to the pole:** `CorridorClimb` and `dropGrabTile` (corridors),
-  `ZeroGPoleGrab` (zero gravity) and the deer antlers. Sounds, the blink and
+- **Not ported entries to the pole:** `ZeroGPoleGrab` (zero gravity) and the deer antlers. Sounds, the blink and
   `AerobicIncrease` on the pole are not ported (no effect on movement for the
   Survivor, who is never exhausted).
 
-**Why.** Remix and DLC are out of the base-game scope; the rest waits for corridors,
-zero gravity, grabbing and audio.
+**Why.** Remix and DLC are out of the base-game scope; the rest waits for zero gravity,
+grabbing and audio.
 
-**Affects.** Remix / DLC play on poles; entering a pole from a corridor.
+**Affects.** Remix / DLC play on poles.
 
 ## D7: Room graphics (level image and palette)
 
@@ -290,11 +283,45 @@ throwing, creatures, adrenaline and audio.
 **Affects.** Remix wall pounces, item tricks during slides, slides and rolls into
 creatures, DLC slugcats.
 
+## D10: Corridors
+
+`Player` ports corridor detection (`goIntoCorridorClimb` over the eight directions, the
+3-tick entry with ground classification skipped while counting, immediate exit), the
+`CorridorClimb` body mode (damping, gravity compensation, the climb push for the first
+chunk with an open tile ahead, centring, `backwardsCounter`), the shaft shoot and tunnel
+slide with their counters and `slowMovementStun`, the U-turn (`CorridorTurn`, 40 ticks
+on a `Pull` rod), `corridorDrop`, `dropGrabTile` and its catch in `Default` mode, the
+exits onto vertical poles and horizontal beams, the `Jump` branch, `shootUpCounter`,
+`timeSinceInCorridorMode` and the corridor exclusions of wall-slide braking and the run
+force (`rainworld-re/notes/corridors.md`), base game with Remix off, Survivor values.
+
+**What differs:**
+- **U-turn jiggle.** On the first 30 ticks of a `CorridorTurn` the game adds a unit
+  vector at a random angle to the head's velocity. `Player` has no random source in its
+  update, so the port adds nothing (the mean). Because the rod only pulls during the
+  turn, the random walk tends to bring the chunks closer in the game; the port's turn is
+  deterministic and still swaps the ends in a straight tunnel.
+- **Remix (MMF) omitted:** the pole exit from a corridor ignoring `shootUpCounter`
+  (`ModManager.MMF ||` in the up-exit test), and the MMF use of `EffectiveRoomGravity`
+  in the water term.
+- **More Slugcats / Watcher omitted:** the slugpup's halved shoot, slide and slide
+  damping factor, the Rivulet (14) and slugpup (4) `jumpBoost` of the corridor `Jump`
+  branch, Saint's `monkAscension` blocking the beam exits.
+- **Not ported:** the zero-gravity branches (shaft `canCorridorJump` with the head down,
+  the zero-G slides), the `- buoyancy * submersion` term of the damping (submersion is
+  not ported), carried objects dragged through corridors, adrenaline factors, sounds and
+  the `WaterDrip` particles of the slides (their random draws are cosmetic).
+
+**Why.** No random source is passed to the player update; Remix, DLC, zero gravity,
+water submersion and grabbing are out of scope.
+
+**Affects.** The exact path of a corridor U-turn; Remix / DLC play in corridors.
+
 ## Not ported yet (not divergences, just absent)
 
-Player (stage one leaves out): `CorridorClimb` / `CorridorTurn` and corridor jumps, water (`Swimming`, `DeepSwim`, `SurfaceSwim`, submersion lifts),
-zero gravity, grabbing / throwing / eating (`GrabUpdate`), `slowMovementStun` sources other than the slide-up hop and the belly slide, adrenaline, the WALLSTUCK safety
-(needs `VisualContact`), `dropGrabTile`, carried-object speed factors, vines, tube worm,
+Player (stage one leaves out): water (`Swimming`, `DeepSwim`, `SurfaceSwim`, submersion lifts),
+zero gravity, grabbing / throwing / eating (`GrabUpdate`), `slowMovementStun` from exhaustion, lungs and throwing, adrenaline, the WALLSTUCK safety
+(needs `VisualContact`), carried-object speed factors, vines, tube worm,
 Jolly co-op, MSC / Watcher class mechanics. Ported because ground classification
 produces them anyway: wall slide and wall jump (`WallClimb`, `canWallJump`, `jumpStun`;
 only the wall-jump impulse has a test), `LedgeCrawl`, `CrawlTurn`, the crouch super-jump

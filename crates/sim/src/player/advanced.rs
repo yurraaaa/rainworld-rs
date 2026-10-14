@@ -9,9 +9,9 @@ use std::f32::consts::PI;
 use rw_assets::{Room, Terrain};
 
 use super::{Animation, BodyMode, HEAD, HIPS, Player};
-use crate::Vec2;
 use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
+use crate::{ConnectionKind, Vec2};
 
 /// Rod length while `roll_direction != 0` (roll, belly slide, whiplash flip).
 pub(super) const ROLL_ROD_LENGTH: f32 = 10.0;
@@ -31,9 +31,16 @@ impl Player {
         }
     }
 
-    /// Roll bookkeeping after `UpdateBodyMode`: count, shorten the rod, and drop the
-    /// direction once the body left `Default` mode or after 200 ticks.
+    /// Rod bookkeeping after `UpdateBodyMode`: the rod type, then roll counting, the
+    /// shortened rod, and dropping the direction once the body left `Default` mode or
+    /// after 200 ticks.
     pub(super) fn count_roll(&mut self) {
+        // A corridor U-turn lets the chunks pass through each other.
+        self.body.connections[0].kind = if self.corridor_turn_dir.is_some() {
+            ConnectionKind::Pull
+        } else {
+            ConnectionKind::Normal
+        };
         if self.roll_direction == 0 {
             self.body.connections[0].distance = crate::slugcat::ROD_LENGTH;
             return;

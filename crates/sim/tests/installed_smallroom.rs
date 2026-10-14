@@ -6,8 +6,8 @@
 //! The room's 44 pole tiles: column 18 rows 10-14 and 17-30, column 20 rows 24-30,
 //! column 27 rows 24-25, column 29 rows 10-25 ((18,10), (29,10), (18,27) and (20,27)
 //! are Floor tiles; (18,21) and (29,21) also carry the row-21 horizontal beam that runs
-//! between them). Above row 24 every pole sits in a one-tile shaft, which the game
-//! climbs in `CorridorClimb` (not ported), so the tests stay below it.
+//! between them). Above row 24 every pole sits in a one-tile shaft (rows 25-27), which
+//! the game climbs in `CorridorClimb` (`corridors.md`).
 
 use std::path::PathBuf;
 
@@ -192,8 +192,8 @@ fn smallroom_hang_under_the_short_pole() {
     // (510 - y) / 10 to its vel.y and the squeeze-up adds 1 to both chunks' y and
     // vel.y, then the hang raises it to 495 + vel.y (row 25) and switches to
     // ClimbOnBeam, 35 px above the hips; tick 11 the rod yanks the hips up at 13 px/tick.
-    // From tick 12 the head is in the one-tile shaft and from tick 14 the game climbs
-    // it in CorridorClimb (not ported), so the table stops at tick 12.
+    // From tick 12 the head is in the one-tile shaft; the table stops there and the
+    // corridor entry is checked below.
     const HANG: Animation = Animation::HangUnderVerticalBeam;
     const CLIMB: Animation = Animation::ClimbOnBeam;
     let expected = [
@@ -235,4 +235,64 @@ fn smallroom_hang_under_the_short_pole() {
         );
         assert_eq!(p.head().pos.x, 410.0, "tick {tick}");
     }
+    // Tick 12 put the head into (20, 25), walled left and right: corridor counting
+    // starts (classification skipped), the pole climb goes on for ticks 12 and 13, and
+    // on tick 14 (the third counted tick) the mode becomes CorridorClimb.
+    p.update(&room, UP);
+    assert_eq!(p.animation(), CLIMB);
+    assert_eq!(p.body_mode(), BodyMode::ClimbingOnBeam);
+    p.update(&room, UP);
+    assert_eq!(p.body_mode(), BodyMode::CorridorClimb);
+    assert_eq!(p.animation(), Animation::None);
+    // Rows 25-27 are walled on both sides, so the pole exit (it needs an open side at
+    // the head) waits until the head reaches row 28; from then on it fires every tick.
+    let mut ticks = 0;
+    while p.head().pos.y < 560.0 {
+        p.update(&room, UP);
+        if p.head().pos.y < 560.0 {
+            assert_eq!(p.body_mode(), BodyMode::CorridorClimb);
+        }
+        ticks += 1;
+        assert!(ticks < 40);
+    }
+    assert_eq!(p.animation(), CLIMB);
+    for _ in 0..10 {
+        p.update(&room, UP);
+        assert_eq!(p.animation(), CLIMB);
+    }
+    // The hips have left the shaft (row 28): plain pole climbing.
+    assert!(p.hips().pos.y >= 560.0);
+    assert_eq!(p.body_mode(), BodyMode::ClimbingOnBeam);
+}
+
+#[test]
+fn smallroom_slide_down_out_of_the_shaft_catches_the_pole() {
+    let Some(room) = smallroom() else { return };
+    // Into column 20's shaft as in the hang test: CorridorClimb from tick 14.
+    let mut p = Player::upright(Vec2::new(410.0, 458.0));
+    for _ in 0..20 {
+        p.update(&room, UP);
+    }
+    assert_eq!(p.body_mode(), BodyMode::CorridorClimb);
+    // Holding down, head up: with the hips in (20, 24), just under the shaft walls,
+    // `dropGrabTile` remembers that tile (it has the pole). Once the hips are out
+    // the body is in Default and the first tick a chunk is in that tile the head is
+    // put at its middle (410, 490) and grabs the pole (corridors.md section 4).
+    let down = Input::new(0, -1, false);
+    let mut ticks = 0;
+    while p.animation() != Animation::ClimbOnBeam {
+        p.update(&room, down);
+        if p.animation() != Animation::ClimbOnBeam {
+            assert_eq!(p.body_mode(), BodyMode::CorridorClimb);
+        }
+        ticks += 1;
+        assert!(ticks < 40, "{:?}", p.head().pos);
+    }
+    assert_eq!(p.body_mode(), BodyMode::Default);
+    assert_eq!(p.head().pos, Vec2::new(410.0, 490.0));
+    // Still holding down: slides to the pole's bottom end and hangs under it.
+    for _ in 0..10 {
+        p.update(&room, down);
+    }
+    assert_eq!(p.animation(), Animation::HangUnderVerticalBeam);
 }

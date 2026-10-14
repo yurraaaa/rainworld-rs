@@ -1,7 +1,7 @@
 //! `Player.UpdateBodyMode`: per-mode forces and run-speed caps.
 //!
 //! Behaviour: `slugcat-movement.md` section 6, `slope-collision.md` section 5,
-//! `horizontal-beams.md` section 3 (foot assist).
+//! `horizontal-beams.md` section 3 (foot assist). `CorridorClimb` is in `corridor.rs`.
 
 use rw_assets::{Room, Terrain};
 
@@ -12,6 +12,9 @@ use crate::room_ext::RoomExt;
 impl Player {
     pub(super) fn update_body_mode(&mut self, room: &Room) {
         self.dive_force = (self.dive_force - 0.05).max(0.0);
+        if !matches!(self.body_mode, BodyMode::Default | BodyMode::CorridorClimb) {
+            self.drop_grab_tile = None;
+        }
         self.count_ground_frames();
         match self.body_mode {
             BodyMode::Default => self.default_mode(room),
@@ -19,6 +22,7 @@ impl Player {
             BodyMode::Stand => self.stand_mode(room),
             BodyMode::WallClimb => self.wall_climb_mode(room),
             BodyMode::ClimbingOnBeam => self.climbing_on_beam_mode(room),
+            BodyMode::CorridorClimb => self.corridor_climb_mode(room),
             // Set only while `movement_update` is skipped.
             BodyMode::Stunned | BodyMode::Dead => {}
         }
@@ -89,7 +93,7 @@ impl Player {
             head.vel.y -= 1.2 * self.dive_force;
             hips.vel.y += 1.2 * self.dive_force;
         }
-        // `dropGrabTile` (corridor drop onto a pole) is never set: corridors are not ported.
+        self.catch_drop_grab_tile(room);
     }
 
     /// Diagonal-down guard: falling toward a one-way floor that ends against a wall in

@@ -8,6 +8,7 @@ use rw_assets::Room;
 use rw_assets::ShortcutType;
 
 mod advanced;
+mod corridor;
 mod poles;
 
 use super::{Animation, BodyMode, HEAD, HIPS, INPUT_HISTORY, Input, Player};
