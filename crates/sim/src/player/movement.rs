@@ -17,6 +17,15 @@ const FOUR_DIRECTIONS: [(f32, f32); 4] = [(-1.0, 0.0), (0.0, -1.0), (1.0, 0.0), 
 impl Player {
     pub(super) fn movement_update(&mut self, room: &Room) {
         self.direct_into_holes(room);
+        if self.animation != Animation::RocketJump {
+            self.rocket_jump_from_belly_slide = false;
+        }
+        if self.animation != Animation::Flip {
+            self.flip_from_slide = false;
+        }
+        if self.animation != Animation::BellySlide {
+            self.whiplash_jump = false;
+        }
 
         let mut run_dir = self.input_x();
         if self.jump_stun != 0 {
@@ -47,8 +56,11 @@ impl Player {
         }
         self.trigger_beam_tip(room);
         self.update_body_mode(room);
-        // 10 while rolling (not ported), 12 for pups.
-        self.body.connections[0].distance = crate::slugcat::ROD_LENGTH;
+        // A roll or belly slide runs toward its direction whatever x is held.
+        if self.roll_direction != 0 {
+            run_dir = self.roll_direction;
+        }
+        self.count_roll();
         self.grab_beam(room);
         self.apply_run_force(run_dir);
         self.dispatch_jump(room);

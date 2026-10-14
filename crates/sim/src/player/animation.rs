@@ -1,7 +1,8 @@
 //! `Player.UpdateAnimation` for the ported animations.
 //!
 //! Behaviour: `slugcat-movement.md` sections 6 and 9, `horizontal-beams.md` sections 2-4.
-//! Vertical poles are in `poles.rs`, `LedgeGrab` in `ledge.rs`.
+//! Vertical poles are in `poles.rs`, `LedgeGrab` in `ledge.rs`, `Flip`, `Roll`,
+//! `RocketJump` and `BellySlide` in `advanced.rs`.
 
 use rw_assets::{Room, Terrain};
 
@@ -12,6 +13,9 @@ use crate::room_ext::RoomExt;
 
 impl Player {
     pub(super) fn update_animation(&mut self, room: &Room) {
+        if self.animation != Animation::Roll {
+            self.stop_rolling_counter = 0;
+        }
         if self.animation != Animation::ClimbOnBeam {
             self.slide_up_pole = 0;
         }
@@ -29,6 +33,10 @@ impl Player {
             Animation::GetUpToBeamTip => self.get_up_to_beam_tip(room),
             Animation::BeamTip => self.beam_tip(room),
             Animation::HangUnderVerticalBeam => self.hang_under_vertical_beam(room),
+            Animation::Roll => self.roll(room),
+            Animation::RocketJump => self.rocket_jump(),
+            Animation::Flip => self.flip(),
+            Animation::BellySlide => self.belly_slide(room),
             Animation::Dead => {}
         }
     }

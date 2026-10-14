@@ -1,14 +1,16 @@
 //! `Player.Jump` and `Player.WallJump` (Survivor values, no adrenaline or exhaustion).
 //!
 //! Behaviour: `slugcat-movement.md` section 5, `slope-collision.md` section 5,
-//! `vertical-poles.md` section 6, `ledge-grab.md` section 3.
+//! `vertical-poles.md` section 6, `ledge-grab.md` section 3, `advanced-moves.md`
+//! sections 1-3 (the roll, belly-slide and flip jumps are in `advanced.rs`).
 
 use rw_assets::Room;
 
 use super::{Animation, BodyMode, HEAD, HIPS, Player};
 
 impl Player {
-    /// A jump from the ground, a beam or pole top, a wall-climb, a ledge or a pole.
+    /// A jump from the ground, a beam or pole top, a wall-climb, a ledge, a pole, a
+    /// roll or a belly slide; or the start of a belly slide.
     pub(super) fn jump(&mut self, room: &Room) {
         self.feet_stuck_pos = None;
         if self.body_mode == BodyMode::WallClimb {
@@ -33,16 +35,26 @@ impl Player {
             self.jump_off_pole();
             return;
         }
-        // Belly slide (jump while lowering to all fours with down-diagonal held toward
-        // the facing): not ported; that case jumps normally (docs/DIVERGENCES.md D3).
+        if self.animation == Animation::Roll {
+            self.roll_jump();
+            return;
+        }
+        if self.animation == Animation::BellySlide {
+            self.belly_slide_jump(room);
+            return;
+        }
+        if self.starts_belly_slide() {
+            return;
+        }
         let mut x_dir = self.input_x();
         self.animation = Animation::None;
         if self.standing {
-            // The skid flip jump (`slideCounter` 1..9) is not ported.
-            let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
-            head.vel.y = 4.0;
-            hips.vel.y = 3.0;
-            self.jump_boost = 8.0;
+            if !self.flip_jump() {
+                let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
+                head.vel.y = 4.0;
+                hips.vel.y = 3.0;
+                self.jump_boost = 8.0;
+            }
         } else {
             let mut hop = 1.5;
             if self.super_launch_jump >= 20 {

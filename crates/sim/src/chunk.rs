@@ -132,7 +132,7 @@ impl BodyChunk {
     }
 
     /// First half of `BodyChunk.Update`: gravity, air drag, history shift, `pos += vel`
-    /// and the per-tick resets. Collision follows in [`BodyChunk::collide`].
+    /// and the per-tick resets. [`crate::PhysicalObject`] then runs the collision stages.
     pub(crate) fn integrate(&mut self, p: &PhysicsParams) {
         if self.vel.y.is_nan() {
             self.vel.y = 0.0;
@@ -149,73 +149,12 @@ impl BodyChunk {
         self.last_contact = self.contact;
     }
 
-    /// Second half of `BodyChunk.Update`: vertical, slope and horizontal collision,
-    /// then the room-range clamp. `lowest_last_y` is the lowest `last_pos.y` of all the
-    /// owner's chunks (starting from the room's pixel height), read by one-way floors.
-    /// Impacts are appended to `impacts` in the order the sweeps find them.
-    pub(crate) fn collide(
-        &mut self,
-        room: &Room,
-        p: &PhysicsParams,
-        lowest_last_y: f32,
-        index: usize,
-        impacts: &mut Vec<TerrainImpact>,
-    ) {
-        if self.collide_with_terrain {
-            self.collide_vertical(room, p, lowest_last_y, index, impacts);
-            if self.collide_with_slopes {
-                self.collide_slopes(room, p);
-            }
-            self.collide_horizontal(room, p, index, impacts);
-        } else {
-            self.contact = Contact::default();
-        }
-        self.restrict_to_room(room);
-    }
-
-    /// The game's `SolidFloor`: Solid, or a one-way Floor that the whole body was above.
-    fn is_solid_floor(&self, room: &Room, x: i32, y: i32, lowest_last_y: f32) -> bool {
-        match room.tile(x, y).terrain {
-            Terrain::Solid => true,
-            Terrain::Floor => !self.go_through_floors && tile_y(lowest_last_y) > y,
-            _ => false,
-        }
-    }
-
-    /// Reports a hit on the `side` surface if the velocity into it exceeds the threshold.
-    fn report_impact(
-        &self,
-        side: Contact,
-        p: &PhysicsParams,
-        index: usize,
-        impacts: &mut Vec<TerrainImpact>,
-    ) {
-        let speed = f32::from(side.x) * self.vel.x + f32::from(side.y) * self.vel.y;
-        if speed <= p.impact_threshold {
-            return;
-        }
-        let last = self.last_contact;
-        let first_contact = if side.y != 0 {
-            last.y != side.y
-        } else {
-            last.x != side.x
-        };
-        impacts.push(TerrainImpact {
-            chunk: index,
-            direction: side,
-            speed,
-            first_contact,
-        });
-    }
-
-    fn collide_vertical(
-        &mut self,
-        room: &Room,
-        p: &PhysicsParams,
-        lowest_last_y: f32,
-        index: usize,
-        impacts: &mut Vec<TerrainImpact>,
-    ) {
+    /// `CheckVerticalCollision` up to the hit: sweeps the rows passed this tick and snaps
+    /// onto the first floor or ceiling found, returning its side. The owner is told of
+    /// the hit ([`BodyChunk::impact`]) before [`BodyChunk::bounce_off`] finishes it.
+    /// `lowest_last_y` is the lowest `last_pos.y` of all the owner's chunks (starting
+    /// from the room's pixel height), read by one-way floors.
+    pub(crate) fn sweep_vertical(&mut self, room: &Room, lowest_last_y: f32) -> Option<Contact> {
         self.contact.y = 0;
         let r = self.terrain_rad();
         let (_, last_ty) = tile_of(self.last_pos);
@@ -227,63 +166,46 @@ impl BodyChunk {
         if self.pos.y > self.last_pos.y {
             let first = tile_y(self.last_pos.y + r);
             let last = tile_y(self.pos.y + r + 0.01);
-            'rows: for row in first..=last {
+            for row in first..=last {
                 for col in x0..=x1 {
                     if room.is_solid_tile(col, row)
                         && !room.is_solid_tile(col, row - 1)
                         && (last_ty < row || last_solid)
                     {
                         self.pos.y = row as f32 * TILE_SIZE - r;
-                        self.report_impact(Contact { x: 0, y: 1 }, p, index, impacts);
-                        self.contact.y = 1;
-                        self.vel.y = -self.vel.y.abs() * p.bounce;
-                        if self.vel.y.abs() < bounce_threshold(p) {
-                            self.vel.y = 0.0;
-                        }
-                        self.vel.x *= friction_factor(p);
-                        break 'rows;
+                        return Some(Contact { x: 0, y: 1 });
                     }
                     checks += 1;
                     if checks > MAX_REPEATS {
-                        break 'rows;
+                        return None;
                     }
                 }
             }
         } else if self.pos.y < self.last_pos.y {
             let first = tile_y(self.last_pos.y - r);
             let last = tile_y(self.pos.y - r - 0.01);
-            'rows: for row in (last..=first).rev() {
+            for row in (last..=first).rev() {
                 for col in x0..=x1 {
                     if self.is_solid_floor(room, col, row, lowest_last_y)
                         && !self.is_solid_floor(room, col, row + 1, lowest_last_y)
                         && (last_ty > row || last_solid)
                     {
                         self.pos.y = (row as f32 + 1.0) * TILE_SIZE + r;
-                        self.report_impact(Contact { x: 0, y: -1 }, p, index, impacts);
-                        self.contact.y = -1;
-                        self.vel.y = self.vel.y.abs() * p.bounce;
-                        if self.vel.y < p.gravity || self.vel.y < bounce_threshold(p) {
-                            self.vel.y = 0.0;
-                        }
-                        self.vel.x *= friction_factor(p);
-                        break 'rows;
+                        return Some(Contact { x: 0, y: -1 });
                     }
                     checks += 1;
                     if checks > MAX_REPEATS {
-                        break 'rows;
+                        return None;
                     }
                 }
             }
         }
+        None
     }
 
-    fn collide_horizontal(
-        &mut self,
-        room: &Room,
-        p: &PhysicsParams,
-        index: usize,
-        impacts: &mut Vec<TerrainImpact>,
-    ) {
+    /// `CheckHorizontalCollision` up to the hit: as [`BodyChunk::sweep_vertical`] for
+    /// walls, by the direction of `vel.x`.
+    pub(crate) fn sweep_horizontal(&mut self, room: &Room) -> Option<Contact> {
         self.contact.x = 0;
         let r = self.terrain_rad();
         let (last_tx, _) = tile_of(self.last_pos);
@@ -295,58 +217,112 @@ impl BodyChunk {
         if self.vel.x > 0.0 {
             let first = tile_x(self.last_pos.x + r);
             let last = tile_x(self.pos.x + r + 0.01);
-            'cols: for col in first..=last {
+            for col in first..=last {
                 for row in y0..=y1 {
                     if room.is_solid_tile(col, row)
                         && !room.is_solid_tile(col - 1, row)
                         && (last_tx < col || last_solid)
                     {
                         self.pos.x = col as f32 * TILE_SIZE - r;
-                        self.report_impact(Contact { x: 1, y: 0 }, p, index, impacts);
-                        self.contact.x = 1;
-                        self.vel.x = -self.vel.x.abs() * p.bounce;
-                        if self.vel.x.abs() < bounce_threshold(p) {
-                            self.vel.x = 0.0;
-                        }
-                        self.vel.y *= friction_factor(p);
-                        break 'cols;
+                        return Some(Contact { x: 1, y: 0 });
                     }
                     checks += 1;
                     if checks > MAX_REPEATS {
-                        break 'cols;
+                        return None;
                     }
                 }
             }
         } else if self.vel.x < 0.0 {
             let first = tile_x(self.last_pos.x - r);
             let last = tile_x(self.pos.x - r - 0.01);
-            'cols: for col in (last..=first).rev() {
+            for col in (last..=first).rev() {
                 for row in y0..=y1 {
                     if room.is_solid_tile(col, row)
                         && !room.is_solid_tile(col + 1, row)
                         && (last_tx > col || last_solid)
                     {
                         self.pos.x = (col as f32 + 1.0) * TILE_SIZE + r;
-                        self.report_impact(Contact { x: -1, y: 0 }, p, index, impacts);
-                        self.contact.x = -1;
-                        self.vel.x = self.vel.x.abs() * p.bounce;
-                        if self.vel.x.abs() < bounce_threshold(p) {
-                            self.vel.x = 0.0;
-                        }
-                        self.vel.y *= friction_factor(p);
-                        break 'cols;
+                        return Some(Contact { x: -1, y: 0 });
                     }
                     checks += 1;
                     if checks > MAX_REPEATS {
-                        break 'cols;
+                        return None;
                     }
                 }
             }
         }
+        None
+    }
+
+    /// The `TerrainImpact` call for a hit on `side`, if the velocity into it exceeds the
+    /// threshold. Read before the bounce.
+    pub(crate) fn impact(
+        &self,
+        side: Contact,
+        p: &PhysicsParams,
+        index: usize,
+    ) -> Option<TerrainImpact> {
+        let speed = f32::from(side.x) * self.vel.x + f32::from(side.y) * self.vel.y;
+        if speed <= p.impact_threshold {
+            return None;
+        }
+        let last = self.last_contact;
+        let first_contact = if side.y != 0 {
+            last.y != side.y
+        } else {
+            last.x != side.x
+        };
+        Some(TerrainImpact {
+            chunk: index,
+            direction: side,
+            speed,
+            first_contact,
+        })
+    }
+
+    /// The rest of a flat-tile hit on `side`: contact, bounce (cancelled below
+    /// `1 + 9 * (1 - bounce)`, and below gravity on floors) and tangential friction.
+    pub(crate) fn bounce_off(&mut self, side: Contact, p: &PhysicsParams) {
+        let threshold = 1.0 + 9.0 * (1.0 - p.bounce);
+        let friction = (p.surface_friction * 2.0).clamp(0.0, 1.0);
+        if side.y != 0 {
+            self.contact.y = side.y;
+            self.vel.y = -f32::from(side.y) * self.vel.y.abs() * p.bounce;
+            let small = if side.y < 0 {
+                self.vel.y < p.gravity || self.vel.y < threshold
+            } else {
+                self.vel.y.abs() < threshold
+            };
+            if small {
+                self.vel.y = 0.0;
+            }
+            self.vel.x *= friction;
+        } else {
+            self.contact.x = side.x;
+            self.vel.x = -f32::from(side.x) * self.vel.x.abs() * p.bounce;
+            if self.vel.x.abs() < threshold {
+                self.vel.x = 0.0;
+            }
+            self.vel.y *= friction;
+        }
+    }
+
+    /// Clears the contact of a chunk that does not collide with terrain.
+    pub(crate) fn clear_contact(&mut self) {
+        self.contact = Contact::default();
+    }
+
+    /// The game's `SolidFloor`: Solid, or a one-way Floor that the whole body was above.
+    fn is_solid_floor(&self, room: &Room, x: i32, y: i32, lowest_last_y: f32) -> bool {
+        match room.tile(x, y).terrain {
+            Terrain::Solid => true,
+            Terrain::Floor => !self.go_through_floors && tile_y(lowest_last_y) > y,
+            _ => false,
+        }
     }
 
     /// `checkAgainstSlopesVertically`: lift onto (or push below) a 45 degree slope line.
-    fn collide_slopes(&mut self, room: &Room, p: &PhysicsParams) {
+    pub(crate) fn collide_slopes(&mut self, room: &Room, p: &PhysicsParams) {
         // `slopeRad`; the game's later `slopeRad = TerrainRad - 1` write is dead.
         let r = self.terrain_rad();
         let (tx, ty) = tile_of(self.pos);
@@ -415,7 +391,7 @@ impl BodyChunk {
         }
     }
 
-    fn restrict_to_room(&mut self, room: &Room) {
+    pub(crate) fn restrict_to_room(&mut self, room: &Room) {
         let range = self.restrict_in_room_range;
         if self.pos.x < -range {
             self.vel.x = 0.0;
@@ -432,16 +408,6 @@ impl BodyChunk {
             self.pos.y = room.pixel_height() + range;
         }
     }
-}
-
-/// Speed below which a bounce is cancelled: `1 + 9 * (1 - bounce)`.
-fn bounce_threshold(p: &PhysicsParams) -> f32 {
-    1.0 + 9.0 * (1.0 - p.bounce)
-}
-
-/// Multiplier on the tangential velocity at a flat-tile hit: `clamp(2 * friction, 0, 1)`.
-fn friction_factor(p: &PhysicsParams) -> f32 {
-    (p.surface_friction * 2.0).clamp(0.0, 1.0)
 }
 
 fn tile_of(pos: Vec2) -> (i32, i32) {

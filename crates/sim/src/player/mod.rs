@@ -4,9 +4,11 @@
 //! jumps), `horizontal-beams.md`, `vertical-poles.md`, `ledge-grab.md` and
 //! `slope-collision.md` section 5. Stats are the
 //! Survivor's (every `SlugcatStats` factor 1, no adrenaline, never exhausted). Fall
-//! damage, stun and death: `falls.md`. Shortcuts: `shortcuts.md`.
+//! damage, stun and death: `falls.md`. Skid, flip, roll, belly slide and rocket jump:
+//! `advanced-moves.md`. Shortcuts: `shortcuts.md`.
 //! What is not ported is listed in `docs/DIVERGENCES.md`.
 
+mod advanced;
 mod animation;
 mod body_mode;
 mod falls;
@@ -92,6 +94,14 @@ pub enum Animation {
     BeamTip,
     /// Hanging from the bottom end of a vertical pole.
     HangUnderVerticalBeam,
+    /// Somersault of the skid flip jump or the belly-slide whiplash jump.
+    Flip,
+    /// Rolling along the ground after a down-diagonal landing.
+    Roll,
+    /// Launched body-first out of a roll or belly slide.
+    RocketJump,
+    /// Sliding on the belly.
+    BellySlide,
     Dead,
 }
 
@@ -169,6 +179,22 @@ pub struct Player {
     pullup_softlock_safety: i32,
     straight_up_on_horizontal_beam: bool,
     up_on_horizontal_beam_pos: Vec2,
+
+    /// Running direction a Stand skid starts from (`slideDirection`).
+    slide_direction: i32,
+    init_slide_counter: i32,
+    /// Ticks into the turn-around skid; 0 when not skidding.
+    slide_counter: i32,
+    /// Direction of a roll or belly slide (and after a whiplash flip); 0 otherwise.
+    roll_direction: i32,
+    roll_counter: i32,
+    stop_rolling_counter: i32,
+    exit_belly_slide_counter: i32,
+    whiplash_jump: bool,
+    flip_from_slide: bool,
+    rocket_jump_from_belly_slide: bool,
+    /// Ticks left in which a landing may turn into a roll (`allowRoll`).
+    allow_roll: i32,
 }
 
 impl Default for Player {
@@ -227,6 +253,17 @@ impl Player {
             pullup_softlock_safety: 0,
             straight_up_on_horizontal_beam: false,
             up_on_horizontal_beam_pos: Vec2::ZERO,
+            slide_direction: 0,
+            init_slide_counter: 0,
+            slide_counter: 0,
+            roll_direction: 0,
+            roll_counter: 0,
+            stop_rolling_counter: 0,
+            exit_belly_slide_counter: 0,
+            whiplash_jump: false,
+            flip_from_slide: false,
+            rocket_jump_from_belly_slide: false,
+            allow_roll: 0,
         }
     }
 
@@ -295,8 +332,8 @@ impl Player {
     /// One 40 Hz tick (`Player.Update`, the movement-relevant parts in the game's order):
     /// counters and the jump-press buffer, reading `input` (ignored while stunned or
     /// dead), wall-slide braking, the stun and shortcut-delay countdowns and
-    /// out-of-room destruction, physics (`PhysicalObject.Update`) with its terrain
-    /// impacts or, while entering a shortcut, the pull-in instead, resetting
+    /// out-of-room destruction, physics (`PhysicalObject.Update`, which delivers terrain
+    /// impacts mid-collision) or, while entering a shortcut, the pull-in instead, resetting
     /// `GoThroughFloors`, then the movement state machine unless stunned, dead or
     /// entering. Impulses chosen this tick act in the next tick's physics. A dead body
     /// keeps falling as plain physics. Does nothing while inside a shortcut (the body
@@ -323,8 +360,7 @@ impl Player {
             self.pull_into_shortcut(room, entrance);
         } else {
             self.short_cut_rad_add = shortcut::RAD_ADD_RESET;
-            self.body.update(room);
-            self.deliver_terrain_impacts();
+            self.update_physics(room);
         }
         self.body.set_go_through_floors(false);
         if self.stun < 1 && !self.dead && self.entering_shortcut.is_none() && self.vessel.is_none()
@@ -341,6 +377,7 @@ impl Player {
         }
         // No corridor mode is ported, so this only counts up.
         self.time_since_in_corridor_mode = self.time_since_in_corridor_mode.saturating_add(1);
+        self.update_allow_roll(room);
         self.update_jump_buffer(room);
         if self.body_mode == BodyMode::WallClimb {
             self.wall_slide_counter += 1;

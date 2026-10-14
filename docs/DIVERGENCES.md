@@ -45,7 +45,7 @@ The shortcut map itself (`rw_assets::ShortcutMap`) is the game's `ShortcutMapper
 `rw_sim::Player` ports base slugcat movement (`rainworld-re/notes/slugcat-movement.md`,
 `horizontal-beams.md`, `slope-collision.md` section 5) for the Survivor with every
 `SlugcatStats` factor 1, no adrenaline, never exhausted. Stun and death are D4; vertical
-poles and ledge grabs are D6.
+poles and ledge grabs are D6; skid, flip, roll, belly slide and rocket jump are D7.
 
 **What differs from the game where the game's behaviour is kept out of scope:**
 - **No corridor detection.** The game counts chunks wedged between opposite solid tiles
@@ -54,10 +54,6 @@ poles and ledge grabs are D6.
   in a one-tile tunnel the player behaves as on open ground. A vertical pole inside a
   one-tile shaft (smallroom's poles above row 24) is therefore
   climbed in `ClimbOnBeam`, where the game switches to `CorridorClimb`.
-- **Belly slide.** A jump while lowering to all fours with down-diagonal toward the
-  facing starts `BellySlide` in the game; the port does an ordinary crouch jump.
-- **Skid and flip jump.** The Stand-mode turn-around skid (`slideCounter`,
-  `initSlideCounter`) is not ported, so the skid flip jump never happens.
 - **Stacked-body nudge.** When the head is exactly below the hips with no horizontal
   speed, the game gives the head a random x speed in [-1, 1] (hips the opposite); the
   port uses `0.5 * flipDirection` (deterministic, the mean magnitude).
@@ -65,17 +61,24 @@ poles and ledge grabs are D6.
   constructor; `Player::new` faces right.
 - **Input.** `Input` carries x, y and jump only; `downDiagonal` is derived digitally
   (down plus left/right gives that side, the Remix rule). No analogue stick, map
-  button stand-still, throw / pick-up / special.
+  button stand-still, throw / pick-up / special. The game's `checkInput` substitution
+  of `x := downDiagonal` while rolling with x = 0 therefore never applies (a digital
+  down-diagonal always has x set).
 
 **Why.** Each is either outside the stage-one scope or depends on randomness (D1).
 
-**Affects.** Movement in corridors (including poles in shafts), belly slides, skids,
-the rare stacked-head case and initial facing.
+**Affects.** Movement in corridors (including poles in shafts), the rare stacked-head
+case and initial facing.
 
 ## D4: Falls, stun and death
 
-Body chunks report flat-tile hits (`TerrainImpact`), and `Player` ports the Survivor's
-fall damage, stun and death (`rainworld-re/notes/falls.md`) with Remix off: death on a
+Body chunks report flat-tile hits (`TerrainImpact`) to their owner at the moment the game
+calls it: inside the chunk's collision, after the position snap and before the bounce
+(`PhysicalObject::update_with` and the `TerrainImpactHandler` trait; `Player` is the
+handler), so the landing roll (D7) changes velocities in the middle of the sweep as in
+the game. `Player` ports the landing roll's pre-emption of damage on that impact and the
+Survivor's fall damage, stun and death (`rainworld-re/notes/falls.md`) with Remix off:
+death on a
 floor first contact above 60, stun `LerpMap(speed, 35, 60, 40, 140, 2.5)` above 35,
 neutral input and no `MovementUpdate` while stunned or dead, surface friction 0.3 while
 not conscious, and death plus destruction below the room bottom (-500, -250 in
@@ -88,19 +91,12 @@ is gone (`Player::is_destroyed`; the app drops it and draws nothing until R).
   `rw_sim::Player` keeps simulating it; the app (`Game::tick`) stops ticking a dead
   player and draws it where it stopped until R respawns a new one. R also respawns
   after the body fell out of the room (the game has no respawn).
-- **Landing roll never happens.** The first branch of `Player.TerrainImpact` (a
-  down-diagonal landing becomes a `Roll` and skips fall damage) is a stub that never
-  rolls (`Player::lands_in_roll`), so a held down-diagonal does not save the player.
-- **Impacts are applied after physics.** The game calls `TerrainImpact` in the middle of
-  each chunk's collision; the port collects the calls in the same order and handles them
-  right after `PhysicalObject::update`. No ported branch touches chunk state, so this is
-  exact for now; the landing roll changes velocities and will need the mid-sweep call.
 - **`Player.Stun` side effects.** The game un-stands the player (and drops grasps) when
   the stun exceeds `Random.Range(5, 12)`; the port uses 8. Fall stuns are at least 40, so
   falls are unaffected. Malnourished stun scaling, grasps, spear and slugpup drops, sounds
   and the face blink are not ported.
 - **Remix (MMF) branches omitted:** falling into a room-exit or normal shortcut entrance
-  at speed > 5 (enters the shortcut instead of taking damage) and the wall pounce.
+  at speed > 5 (enters the shortcut instead of taking damage) and the wall pounce (D7).
 - **More Slugcats omitted:** Gourmand's thresholds (death above 80, stun above 40
   with the 40..140 ticks mapped over speeds 40..80), tongue attachment and being carried by another player blocking fall damage,
   Sofanthiel's sound. Base-game branches with no ported counterpart: the Pomegranate
@@ -109,12 +105,9 @@ is gone (`Player::is_destroyed`; the app drops it and draws nothing until R).
   inverted water (DLC) is not modelled.
 
 **Why.** The freeze and the respawn are design decisions for the single-room
-player-controller phase;
-the roll belongs to the advanced-moves stage; the rest is out of the base-game scope or
-randomness (D1).
+player-controller phase; the rest is out of the base-game scope or randomness (D1).
 
-**Affects.** What happens after death, hard landings with a held down-diagonal, and
-Remix / More Slugcats play.
+**Affects.** What happens after death and Remix / More Slugcats play.
 
 ## D5: Shortcuts
 
@@ -171,12 +164,43 @@ zero gravity, grabbing and audio.
 
 **Affects.** Remix / DLC play on poles; entering a pole from a corridor.
 
+## D7: Skid, flip, roll, belly slide and rocket jump
+
+`Player` ports the Stand-mode turn-around skid and its flip jump, `Flip`, the landing
+roll in `TerrainImpact` (`allowRoll`, `consistentDownDiagonal`), `Roll` and the roll
+jump, `BellySlide` (start, forces, drop through a one-tile hole, exits, the rocket and
+whiplash jumps), `RocketJump`, the 10 px rod while `rollDirection != 0` and the belly
+slide's `slowMovementStun` (`rainworld-re/notes/advanced-moves.md`), base game with Remix
+off, Survivor values, no adrenaline. As in the game, the whiplash flip turns with the
+last `slideDirection` written by a Stand-mode skid check (0 if none), not the slide's
+direction.
+
+**What differs:**
+- **Remix (MMF) wall pounce omitted** (`cfgWallpounce`: a fast head-first wall hit with
+  a buffered jump launches a `RocketJump` away from the wall).
+- **Held items:** the long belly slide (`longBellySlide`, started by throwing during a
+  slide, with its 39-tick push, 34-tick jump window and own exit and jump values),
+  picking up an item during the whiplash jump, and the thrown-spear roll are not ported
+  (no grabbing or throwing).
+- **Other creatures:** a belly slide or roll hitting a creature (stun, `rollCounter`
+  cap, "slugsmash") is not ported (no creatures).
+- **More Slugcats / Watcher omitted:** Rivulet, slugpup and Gourmand values (skid and
+  flip jump, roll jump, belly-slide push, kick and jumps, roll durations), the pyro
+  jump's `Flip`, and the Watcher curved-terrain drop-through test.
+- **Not ported:** adrenaline factors, sounds, `WaterDrip` and `ExplosionSpikes`
+  particles (their random draws are cosmetic), `AerobicIncrease` (the Survivor is never
+  exhausted).
+
+**Why.** Remix and DLC are out of the base-game scope; the rest waits for grabbing,
+throwing, creatures, adrenaline and audio.
+
+**Affects.** Remix wall pounces, item tricks during slides, slides and rolls into
+creatures, DLC slugcats.
+
 ## Not ported yet (not divergences, just absent)
 
-Player (stage one leaves out): landing roll and MMF wall pounce in `TerrainImpact`,
-`CorridorClimb` / `CorridorTurn` and corridor jumps, roll, belly slide,
-flip, rocket jump, water (`Swimming`, `DeepSwim`, `SurfaceSwim`, submersion lifts),
-zero gravity, grabbing / throwing / eating (`GrabUpdate`), `slowMovementStun` sources other than the slide-up hop, adrenaline, the WALLSTUCK safety
+Player (stage one leaves out): `CorridorClimb` / `CorridorTurn` and corridor jumps, water (`Swimming`, `DeepSwim`, `SurfaceSwim`, submersion lifts),
+zero gravity, grabbing / throwing / eating (`GrabUpdate`), `slowMovementStun` sources other than the slide-up hop and the belly slide, adrenaline, the WALLSTUCK safety
 (needs `VisualContact`), `dropGrabTile`, carried-object speed factors, vines, tube worm,
 Jolly co-op, MSC / Watcher class mechanics. Ported because ground classification
 produces them anyway: wall slide and wall jump (`WallClimb`, `canWallJump`, `jumpStun`;
