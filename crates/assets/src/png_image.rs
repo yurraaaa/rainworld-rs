@@ -105,12 +105,10 @@ impl PngImage {
     /// coordinate `v` (0 = bottom) addresses the same texel in wgpu as in Unity.
     #[must_use]
     pub fn rgba_bottom_up(&self) -> Vec<u8> {
-        self.pixels
-            .chunks_exact(self.width)
-            .rev()
-            .flatten()
-            .flatten()
-            .copied()
-            .collect()
+        let mut out = Vec::with_capacity(self.pixels.len() * 4);
+        for row in self.pixels.chunks_exact(self.width).rev() {
+            out.extend_from_slice(row.as_flattened());
+        }
+        out
     }
 }

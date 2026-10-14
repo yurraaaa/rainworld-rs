@@ -189,7 +189,8 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   the port draws straight into the window at its resolution (level pixels sampled
   nearest, sprites at full resolution), letterboxed to the 1366x768 aspect.
 - **Camera switch timing.** The game loads the next camera's image asynchronously and
-  cuts when it has loaded (usually the next frame); the port loads it in the same tick.
+  cuts when it has loaded (usually the next frame); the port decodes every camera's
+  image when the room loads and cuts in the same tick.
 - **Camera in shortcuts.** While the player is in a shortcut the camera follows the
   centre of the vessel's tile; the game uses the vessel's interpolated on-screen position.
 - **Fade quantisation.** The blended palette is stored as 8-bit texels like the game's

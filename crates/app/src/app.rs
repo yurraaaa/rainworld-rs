@@ -170,12 +170,8 @@ impl App {
         for _ in 0..self.clock.advance(elapsed) {
             let input = self.input.take_tick_input();
             self.game.tick(input);
-            if let Some(visuals) = &mut self.visuals
-                && let Err(e) = visuals.tick(self.game.camera_follow().as_ref())
-            {
-                log::error!("level graphic: {e}; showing the debug view");
-                self.visuals = None;
-                self.show_visuals = false;
+            if let Some(visuals) = &mut self.visuals {
+                visuals.tick(self.game.camera_follow().as_ref());
             }
         }
         // A frozen body is drawn where it stopped, not between its last two ticks.

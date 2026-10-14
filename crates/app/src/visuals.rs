@@ -14,14 +14,15 @@ pub struct Visuals {
     room: RoomVisuals,
     noise: NoiseTexture,
     camera: RoomCamera,
-    image: PngImage,
+    /// Every camera's image, decoded once at load so switching never stalls.
+    images: Vec<PngImage>,
     palette: PaletteTexture,
     /// The image or palette changed since the last upload.
     changed: bool,
 }
 
 impl Visuals {
-    /// Loads the room's settings, palettes, noise texture and the image of camera 0.
+    /// Loads the room's settings, palettes, noise texture and every camera's image.
     ///
     /// # Errors
     /// When any of those cannot be loaded.
@@ -38,9 +39,12 @@ impl Visuals {
             s.grime
         );
         let camera = RoomCamera::new(room.cameras(), RoomCamera::SCREEN_SIZE);
+        let images = (0..room.cameras().len())
+            .map(|i| visuals.camera_image(i))
+            .collect::<Result<_, _>>()?;
         Ok(Self {
             noise: NoiseTexture::load(assets)?,
-            image: visuals.camera_image(camera.current())?,
+            images,
             palette: visuals.palette_for_camera(camera.current()),
             room: visuals,
             camera,
@@ -48,20 +52,15 @@ impl Visuals {
         })
     }
 
-    /// One 40 Hz tick of the room camera; on a camera switch loads that camera's image
-    /// and palette fade.
-    ///
-    /// # Errors
-    /// When the new camera's image cannot be loaded.
-    pub fn tick(&mut self, follow: Option<&Follow>) -> Result<(), AssetError> {
+    /// One 40 Hz tick of the room camera; on a camera switch selects that camera's
+    /// image and palette fade.
+    pub fn tick(&mut self, follow: Option<&Follow>) {
         if self.camera.update(follow) {
             let current = self.camera.current();
             log::info!("camera {}", current + 1);
-            self.image = self.room.camera_image(current)?;
             self.palette = self.room.palette_for_camera(current);
             self.changed = true;
         }
-        Ok(())
     }
 
     /// Uploads the shown camera's graphic if it changed.
@@ -72,7 +71,7 @@ impl Visuals {
         let current = self.camera.current();
         renderer.set_level(&LevelGraphics {
             camera_pos: self.camera.position(current),
-            image: &self.image,
+            image: &self.images[current],
             palette: &self.palette,
             noise: &self.noise,
             params: LevelParams::new(self.room.settings(), &self.palette),
