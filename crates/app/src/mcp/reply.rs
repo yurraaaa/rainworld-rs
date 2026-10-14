@@ -97,3 +97,19 @@ pub struct Screenshot {
     pub height: u32,
     pub saved: Option<PathBuf>,
 }
+
+/// The process manager's state.
+#[derive(Debug, Clone, Serialize)]
+pub struct ProcessState {
+    /// Frames run since `load_process`.
+    pub frame: u64,
+    /// The current process, `None` between the two halves of a switch.
+    pub process: Option<String>,
+    pub upcoming: Option<String>,
+    /// `fadeToBlack`: 1 is black.
+    pub fade_to_black: f32,
+    /// The fade sprite's alpha, while it is shown.
+    pub fade_alpha: Option<f32>,
+    /// The game's tick, when the game is the current process.
+    pub game_tick: Option<u64>,
+}

@@ -6,17 +6,21 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use rw_assets::{Room, SoundTable, StreamingAssets, UnityResources};
+use rw_menu::{KeyboardKey, MainLoopProcess, ProcessId};
 use rw_render::{RoomLayers, WgpuRenderer};
 use rw_sim::{Input, Vec2};
 
 use super::params::{
-    InputParam, ListRoomsParams, LoadRoomParams, RespawnParams, ScreenshotParams, SetPlayerParams,
-    StepParams, StepSequenceParams, TilesParams, ViewParam,
+    InputParam, ListRoomsParams, LoadProcessParams, LoadRoomParams, ProcessParam, RespawnParams,
+    ScreenshotParams, SetPlayerParams, StepParams, StepProcessParams, StepSequenceParams,
+    TilesParams, ViewParam,
 };
 use super::reply::{
-    ChunkState, ImpactState, PlayerState, RoomInfo, RoomList, Screenshot, State, StepTrace,
+    ChunkState, ImpactState, PlayerState, ProcessState, RoomInfo, RoomList, Screenshot, State,
+    StepTrace,
 };
 use super::tiles::TileDump;
+use crate::frontend::{AppContext, Frontend, FrontendRenderer, GameSetup};
 use crate::game::Game;
 use crate::scene::{Framing, Scene, SceneRenderer, SceneView};
 use crate::sprites::SpriteAssets;
@@ -28,22 +32,27 @@ const MAX_TICKS: u64 = 40 * 60 * 10;
 const MAX_IMAGE_SIDE: f32 = 4096.0;
 /// Most tiles one `get_tiles` call returns.
 const MAX_TILES: i64 = 40_000;
+/// Seconds per `step_process` frame.
+const FRAME_SECONDS: f32 = 1.0 / 40.0;
 
 pub struct Session {
     assets: StreamingAssets,
-    resources: UnityResources,
+    resources: Arc<UnityResources>,
     sprites: Option<Arc<SpriteAssets>>,
     /// `sounds.txt`: the sounds' random draws are made as in the window.
     sound_table: Arc<SoundTable>,
+    /// Room mode (`load_room`).
     scene: Option<Scene>,
+    /// Process mode (`load_process`) and its frame count.
+    frontend: Option<(Frontend, u64)>,
     /// Created on the first screenshot.
-    renderer: Option<SceneRenderer<WgpuRenderer>>,
+    renderer: Option<FrontendRenderer<WgpuRenderer>>,
 }
 
 impl Session {
     /// A session with no room loaded; loads the slugcat atlas from `resources`.
     #[must_use]
-    pub fn new(assets: StreamingAssets, resources: UnityResources) -> Self {
+    pub fn new(assets: StreamingAssets, resources: Arc<UnityResources>) -> Self {
         let sprites = SpriteAssets::load(&resources)
             .inspect_err(|e| log::warn!("no slugcat sprites ({e}); drawing the circle body"))
             .ok()
@@ -54,6 +63,7 @@ impl Session {
             resources,
             sprites,
             scene: None,
+            frontend: None,
             renderer: None,
         }
     }
@@ -61,6 +71,11 @@ impl Session {
     /// The loaded scene, for the mirror window.
     pub fn scene_mut(&mut self) -> Option<&mut Scene> {
         self.scene.as_mut()
+    }
+
+    /// The loaded process manager, for the mirror window.
+    pub fn frontend_mut(&mut self) -> Option<&mut Frontend> {
+        self.frontend.as_mut().map(|(f, _)| f)
     }
 
     pub fn sprites(&self) -> Option<Arc<SpriteAssets>> {
@@ -150,6 +165,7 @@ impl Session {
         game.set_sound_table(Arc::clone(&self.sound_table));
         log::info!("loaded room {name}");
         self.scene = Some(Scene::new(game, visuals));
+        self.frontend = None;
         self.room_info()
     }
 
@@ -278,6 +294,9 @@ impl Session {
         if !(scale > 0.0 && scale <= 4.0) {
             return Err("scale must be in (0, 4]".to_owned());
         }
+        if self.frontend.is_some() {
+            return self.process_screenshot(params, level, scale);
+        }
         let scene = self.scene()?;
         let (framing, size) = match params.crop_radius {
             Some(r) if r > 0.0 => {
@@ -298,17 +317,65 @@ impl Session {
             },
             framing,
         };
-        if self.renderer.is_none() {
-            let renderer = WgpuRenderer::headless((pixels[0], pixels[1]))
-                .map_err(|e| format!("no GPU renderer: {e}"))?;
-            self.renderer = Some(SceneRenderer::new(renderer, self.sprites.clone()));
-        }
+        self.ensure_renderer(pixels)?;
         let (Some(scene), Some(target)) = (self.scene.as_mut(), self.renderer.as_mut()) else {
             return Err("no room loaded; call load_room first".to_owned());
         };
-        target.renderer.set_frame_size((pixels[0], pixels[1]));
-        scene.draw(target, 1.0, view);
+        target.scene.renderer.set_frame_size((pixels[0], pixels[1]));
+        scene.draw(&mut target.scene, 1.0, view);
+        Self::encode(target, params)
+    }
+
+    fn ensure_renderer(&mut self, pixels: [u32; 2]) -> Result<(), String> {
+        if self.renderer.is_none() {
+            let renderer = WgpuRenderer::headless((pixels[0], pixels[1]))
+                .map_err(|e| format!("no GPU renderer: {e}"))?;
+            self.renderer = Some(FrontendRenderer::new(SceneRenderer::new(
+                renderer,
+                self.sprites.clone(),
+            )));
+        }
+        Ok(())
+    }
+
+    /// The process manager's frame (menu stage or game, and the fade) at the game's
+    /// screen size times `scale`.
+    fn process_screenshot(
+        &mut self,
+        params: &ScreenshotParams,
+        level: bool,
+        scale: f32,
+    ) -> Result<Screenshot, String> {
+        if params.crop_radius.is_some() {
+            return Err("crop_radius needs a room (load_room)".to_owned());
+        }
+        let size = rw_render::Resolution::DEFAULT.size_f32();
+        let pixels = size.map(|s| (s * scale).round().clamp(1.0, MAX_IMAGE_SIDE) as u32);
+        self.ensure_renderer(pixels)?;
+        let (Some((frontend, _)), Some(target)) = (self.frontend.as_mut(), self.renderer.as_mut())
+        else {
+            return Err("no process loaded".to_owned());
+        };
+        target.scene.renderer.set_frame_size((pixels[0], pixels[1]));
+        let view = SceneView {
+            level,
+            layers: RoomLayers {
+                tiles: true,
+                grid: params.grid.unwrap_or(false),
+            },
+            framing: Framing::Auto,
+        };
+        frontend.draw(target, view);
+        Self::encode(target, params)
+    }
+
+    /// Renders the queued frame and encodes it, saving it when asked.
+    fn encode(
+        target: &mut FrontendRenderer<WgpuRenderer>,
+        params: &ScreenshotParams,
+    ) -> Result<Screenshot, String> {
         let image = target
+            .scene
             .renderer
             .render_image()
             .map_err(|e| format!("rendering failed: {e}"))?;
@@ -329,6 +396,95 @@ impl Session {
             width: image.width(),
             height: image.height(),
             saved,
+        })
+    }
+
+    /// Starts a process manager (boot fade, `Initialization`, then `params.process`),
+    /// replacing any loaded room.
+    ///
+    /// # Errors
+    /// When the room is not found or the fonts cannot be loaded.
+    pub fn load_process(&mut self, params: &LoadProcessParams) -> Result<ProcessState, String> {
+        let name = params.room.as_deref().unwrap_or("summit").to_lowercase();
+        let path = self
+            .assets
+            .find_room_file(&name, ".txt")
+            .ok_or_else(|| format!("room {name:?} not found (see list_rooms)"))?;
+        let room =
+            Room::load(&path).map_err(|e| format!("loading room {}: {e}", path.display()))?;
+        let setup = GameSetup {
+            settings: Game::room_settings(&self.assets, &room),
+            room,
+            seed: params.seed.unwrap_or(1),
+            spawn: None,
+            sound_table: Arc::clone(&self.sound_table),
+        };
+        let start = match params.process.unwrap_or_default() {
+            ProcessParam::FontTest => ProcessId::FontTest,
+            ProcessParam::Game => ProcessId::Game,
+        };
+        let ctx = AppContext::new(
+            self.assets.clone(),
+            Arc::clone(&self.resources),
+            rw_render::Resolution::DEFAULT,
+            setup,
+            start,
+        )
+        .map_err(|e| format!("loading the fonts: {e}"))?;
+        self.frontend = Some((Frontend::new(ctx), 0));
+        self.scene = None;
+        self.process_state()
+    }
+
+    /// Runs process manager frames of 1/40 s holding menu `keys`.
+    ///
+    /// # Errors
+    /// Without a process, or on an unknown key or too many frames.
+    pub fn step_process(&mut self, params: &StepProcessParams) -> Result<ProcessState, String> {
+        let frames = u64::from(params.frames.unwrap_or(1));
+        if frames > MAX_TICKS {
+            return Err(format!("at most {MAX_TICKS} frames per call"));
+        }
+        let keys = params
+            .keys
+            .iter()
+            .flatten()
+            .map(|k| KeyParse::key(k))
+            .collect::<Result<Vec<_>, _>>()?;
+        let (frontend, count) = self
+            .frontend
+            .as_mut()
+            .ok_or("no process loaded; call load_process first")?;
+        for &key in &keys {
+            frontend.ctx.menu.input.set_key(key, true);
+        }
+        for _ in 0..frames {
+            frontend.update(FRAME_SECONDS);
+            *count += 1;
+        }
+        for &key in &keys {
+            frontend.ctx.menu.input.set_key(key, false);
+        }
+        self.process_state()
+    }
+
+    /// The process manager's state.
+    ///
+    /// # Errors
+    /// Without a process.
+    pub fn process_state(&self) -> Result<ProcessState, String> {
+        let (frontend, frame) = self
+            .frontend
+            .as_ref()
+            .ok_or("no process loaded; call load_process first")?;
+        let m = &frontend.manager;
+        Ok(ProcessState {
+            frame: *frame,
+            process: m.current().map(|p| format!("{:?}", p.id())),
+            upcoming: m.upcoming().map(|id| format!("{id:?}")),
+            fade_to_black: m.fade_to_black(),
+            fade_alpha: m.fade_sprite().map(|s| s.alpha),
+            game_tick: frontend.game().map(|g| g.scene.game().ticks()),
         })
     }
 
@@ -362,6 +518,28 @@ impl Session {
             player,
         }
         .to_string())
+    }
+}
+
+/// Menu key names of `step_process`.
+struct KeyParse;
+
+impl KeyParse {
+    fn key(name: &str) -> Result<KeyboardKey, String> {
+        Ok(match name {
+            "UpArrow" => KeyboardKey::UpArrow,
+            "DownArrow" => KeyboardKey::DownArrow,
+            "LeftArrow" => KeyboardKey::LeftArrow,
+            "RightArrow" => KeyboardKey::RightArrow,
+            "Return" => KeyboardKey::Return,
+            "Space" => KeyboardKey::Space,
+            "Z" => KeyboardKey::Z,
+            "X" => KeyboardKey::X,
+            "C" => KeyboardKey::C,
+            "Escape" => KeyboardKey::Escape,
+            "LeftShift" => KeyboardKey::LeftShift,
+            _ => return Err(format!("unknown key {name:?}")),
+        })
     }
 }
 

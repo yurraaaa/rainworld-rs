@@ -1,0 +1,13 @@
+[package]
+name = "rw-menu"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+rw-assets.workspace = true
+rw-render.workspace = true
+rw-graphics.workspace = true
+log.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

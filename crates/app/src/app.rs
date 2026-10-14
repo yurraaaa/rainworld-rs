@@ -1,43 +1,44 @@
 //! Window, event loop and frame pacing.
 //!
-//! Each redraw: advance the [`FixedTimestep`], run that many 40 Hz ticks (one
-//! [`Input`](rw_sim::Input) per tick), then render with the leftover fraction as
-//! the interpolation factor. Each tick's sound events go to the [`Audio`] output, and
-//! each frame mixes it.
+//! Each redraw hands the frame's real time to the process manager
+//! ([`Frontend::update`]): the current process runs its 40 Hz ticks (gameplay input
+//! per tick, sound events to the [`rw_audio::Audio`] output) and its per-frame update,
+//! and the switch fade advances. Then the frame is drawn with the leftover tick
+//! fraction as the interpolation factor.
 
 use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
-use rw_audio::{Audio, ListenerInput};
-use rw_render::{Renderer, Resolution, RoomLayers, WgpuRenderer};
-use rw_sim::{SoundEvent, Vec2};
+use rw_menu::{KeyboardKey, ProcessId};
+use rw_render::{PresentRect, Renderer, Resolution, RoomLayers, WgpuRenderer};
 use winit::application::ApplicationHandler;
-use winit::dpi::PhysicalSize;
-use winit::event::{ElementState, KeyEvent, WindowEvent};
+use winit::dpi::{PhysicalPosition, PhysicalSize};
+use winit::event::{ElementState, KeyEvent, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::PhysicalKey;
 use winit::window::{Fullscreen, Window, WindowId};
 
-use crate::input::{Action, Command, InputState, Script};
-use crate::scene::{Framing, Scene, SceneRenderer, SceneView};
+use crate::frontend::{Frontend, FrontendRenderer};
+use crate::input::{Action, Command, Script, WinitKey};
+use crate::scene::{Framing, SceneRenderer, SceneView};
 use crate::sprites::SpriteAssets;
-use crate::timestep::{FixedTimestep, TICK_RATE};
+use crate::timestep::{FrameClock, TICK_RATE};
 
-/// Runs the window until it is closed or Esc is pressed.
+/// Runs the window until it is closed or Esc is pressed in the game.
 ///
 /// # Errors
 /// When the event loop cannot be created or exits with an error, or when the window
 /// or renderer could not be created.
 pub fn run(
-    scene: Scene,
+    frontend: Frontend,
     sprites: Option<Arc<SpriteAssets>>,
     options: Options,
 ) -> Result<(), Box<dyn Error>> {
     let event_loop = EventLoop::new()?;
     event_loop.set_control_flow(ControlFlow::Poll);
-    let mut app = App::new(scene, sprites, options);
+    let mut app = App::new(frontend, sprites, options);
     event_loop.run_app(&mut app)?;
     match app.fatal.take() {
         Some(e) => Err(e),
@@ -51,27 +52,22 @@ pub struct Options {
     pub screenshot: Option<PathBuf>,
     /// Start in the debug view.
     pub debug_view: bool,
-    /// Input steps played instead of the keyboard; the screenshot waits for them.
-    pub script: Option<Script>,
     /// The game's screen size the frame is drawn at.
     pub resolution: Resolution,
     /// A window of `resolution` instead of the game's default borderless full screen.
     pub windowed: bool,
-    /// The sound output; `None` plays silently.
-    pub audio: Option<Audio>,
+    pub title: String,
 }
 
 /// Window and renderer, created on `resumed`.
 struct View {
     window: Arc<Window>,
-    renderer: SceneRenderer<WgpuRenderer>,
+    renderer: FrontendRenderer<WgpuRenderer>,
 }
 
 struct App {
-    scene: Scene,
-    input: InputState,
-    clock: FixedTimestep,
-    last_frame: Option<Instant>,
+    frontend: Frontend,
+    clock: FrameClock,
     layers: RoomLayers,
     /// The slugcat's atlas; without it the body is drawn as circles.
     sprites: Option<Arc<SpriteAssets>>,
@@ -80,11 +76,11 @@ struct App {
     view: Option<View>,
     /// `--screenshot`: save a frame here once a second has been simulated, then quit.
     screenshot_and_quit: Option<PathBuf>,
-    /// `--script`: replaces the keyboard until it runs out.
-    script: Option<Script>,
     resolution: Resolution,
     windowed: bool,
-    audio: Option<Audio>,
+    title: String,
+    /// The current process and the frames it has run, for `--screenshot` of a menu.
+    process_frames: (Option<ProcessId>, u64),
     /// Quit after the current frame is presented.
     quit_after_frame: bool,
     /// Error that ended the loop, reported by [`run`].
@@ -92,21 +88,19 @@ struct App {
 }
 
 impl App {
-    fn new(scene: Scene, sprites: Option<Arc<SpriteAssets>>, options: Options) -> Self {
+    fn new(frontend: Frontend, sprites: Option<Arc<SpriteAssets>>, options: Options) -> Self {
         Self {
             sprites,
-            show_visuals: scene.visuals().is_some() && !options.debug_view,
-            scene,
-            input: InputState::default(),
-            clock: FixedTimestep::default(),
-            last_frame: None,
+            show_visuals: !options.debug_view,
+            frontend,
+            clock: FrameClock::default(),
             layers: RoomLayers::default(),
             view: None,
             screenshot_and_quit: options.screenshot,
-            script: options.script,
             resolution: options.resolution,
             windowed: options.windowed,
-            audio: options.audio,
+            title: options.title,
+            process_frames: (None, 0),
             quit_after_frame: false,
             fatal: None,
         }
@@ -117,10 +111,9 @@ impl App {
     /// physical pixels, not resizable (`resizableWindow: 0`). Either way the frame is
     /// drawn at the resolution and scaled to the window.
     fn create_view(&self, event_loop: &ActiveEventLoop) -> Result<View, Box<dyn Error>> {
-        let room = self.scene.game().room();
         let (width, height) = self.resolution.size();
         let attrs = Window::default_attributes()
-            .with_title(format!("rainworld-rs - {}", room.name()))
+            .with_title(format!("rainworld-rs - {}", self.title))
             .with_inner_size(PhysicalSize::new(width, height))
             .with_resizable(false)
             .with_fullscreen((!self.windowed).then_some(Fullscreen::Borderless(None)));
@@ -139,7 +132,7 @@ impl App {
             (physical.width, physical.height),
             self.resolution,
         )?;
-        let renderer = SceneRenderer::new(renderer, self.sprites.clone());
+        let renderer = FrontendRenderer::new(SceneRenderer::new(renderer, self.sprites.clone()));
         Ok(View { window, renderer })
     }
 
@@ -148,28 +141,37 @@ impl App {
         event_loop.exit();
     }
 
+    fn in_game(&self) -> bool {
+        self.frontend.game().is_some()
+    }
+
     fn on_key(&mut self, event_loop: &ActiveEventLoop, event: &KeyEvent) {
         let PhysicalKey::Code(code) = event.physical_key else {
             return;
         };
         let pressed = event.state == ElementState::Pressed;
         if let Some(action) = Action::from_key(code) {
-            self.input.set(action, pressed);
+            self.frontend.ctx.input.set(action, pressed);
+        }
+        if let Some(key) = KeyboardKey::from_winit(code) {
+            self.frontend.ctx.menu.input.set_key(key, pressed);
         }
         if !pressed || event.repeat {
             return;
         }
         match Command::from_key(code) {
-            Some(Command::Quit) => {
+            // In the menus Esc is UI cancel.
+            Some(Command::Quit) if self.in_game() => {
                 log::info!("quit (Esc)");
                 event_loop.exit();
             }
             Some(Command::Respawn) => {
-                self.scene.game_mut().respawn();
-                self.clock.reset();
+                if let Some(game) = self.frontend.game_mut() {
+                    game.scene.game_mut().respawn();
+                }
             }
             Some(Command::ToggleView) => {
-                self.show_visuals = !self.show_visuals && self.scene.visuals().is_some();
+                self.show_visuals = !self.show_visuals;
                 log::info!(
                     "{} view",
                     if self.show_visuals { "visual" } else { "debug" }
@@ -180,46 +182,67 @@ impl App {
                 log::info!("grid {}", if self.layers.grid { "on" } else { "off" });
             }
             Some(Command::Screenshot) => {
-                let path = PathBuf::from(format!("screenshot-{}.ppm", self.scene.game().ticks()));
+                let path = PathBuf::from(format!("screenshot-{}.ppm", self.process_frames.1));
                 log::info!("saving screenshot to {}", path.display());
                 if let Some(view) = &mut self.view {
-                    view.renderer.renderer.capture_next_frame(path);
+                    view.renderer.scene.renderer.capture_next_frame(path);
                 }
             }
-            None => {}
+            _ => {}
+        }
+    }
+
+    /// The cursor in stage pixels (y up), through the frame's place in the window.
+    fn on_cursor(&mut self, pos: PhysicalPosition<f64>) {
+        let Some(view) = &self.view else { return };
+        let window = view.window.inner_size();
+        let frame = self.resolution.size();
+        let Some(rect) = PresentRect::fit(frame, (window.width, window.height)) else {
+            return;
+        };
+        let [w, h] = self.frontend.ctx.menu.screen_size;
+        let x = (pos.x as f32 - rect.x as f32) * w / rect.width as f32;
+        let y = h - (pos.y as f32 - rect.y as f32) * h / rect.height as f32;
+        self.frontend.ctx.menu.input.mouse.pos = [x, y];
+    }
+
+    /// Whether a `--screenshot` run has simulated enough: a second (and the script)
+    /// of the game, or a second of a menu with its fade finished.
+    fn screenshot_due(&self) -> bool {
+        match self.frontend.game() {
+            Some(game) => {
+                let script = self.frontend.ctx.script.as_ref().map_or(0, Script::len);
+                game.scene.game().ticks() >= u64::from(TICK_RATE.max(script))
+            }
+            None => {
+                self.frontend.manager.fade_to_black() == 0.0
+                    && self.process_frames.1 >= u64::from(TICK_RATE)
+            }
         }
     }
 
     fn frame(&mut self, event_loop: &ActiveEventLoop) {
-        let now = Instant::now();
-        let elapsed = self.last_frame.map_or_else(Default::default, |t| now - t);
-        self.last_frame = Some(now);
-        for _ in 0..self.clock.advance(elapsed) {
-            let keys = self.input.take_tick_input();
-            let input = self
-                .script
-                .as_mut()
-                .and_then(Script::next_input)
-                .unwrap_or(keys);
-            let events = self.scene.tick(input);
-            self.hear_tick(events);
+        let dt = self.clock.delta(Instant::now());
+        self.frontend.update(dt);
+        let id = self.frontend.current_id();
+        if self.process_frames.0 == id {
+            self.process_frames.1 += 1;
+        } else {
+            self.process_frames = (id, 0);
         }
-        if let Some(audio) = &mut self.audio {
-            audio.frame(self.clock.alpha(), self.scene.game().water());
-        }
+        let screenshot = self
+            .screenshot_due()
+            .then(|| self.screenshot_and_quit.take())
+            .flatten();
         let Some(view) = &mut self.view else { return };
         let scene_view = SceneView {
             level: self.show_visuals,
             layers: self.layers,
             framing: Framing::Auto,
         };
-        self.scene
-            .draw(&mut view.renderer, self.clock.alpha(), scene_view);
-        let r = &mut view.renderer.renderer;
-        let script_ticks = self.script.as_ref().map_or(0, Script::len);
-        if self.scene.game().ticks() >= u64::from(TICK_RATE.max(script_ticks))
-            && let Some(path) = self.screenshot_and_quit.take()
-        {
+        self.frontend.draw(&mut view.renderer, scene_view);
+        let r = &mut view.renderer.scene.renderer;
+        if let Some(path) = screenshot {
             log::info!("saving screenshot to {}", path.display());
             r.capture_next_frame(path);
             self.quit_after_frame = true;
@@ -229,23 +252,6 @@ impl App {
         } else if self.quit_after_frame {
             event_loop.exit();
         }
-    }
-
-    /// Feeds a tick's sound events and the listener to the audio output.
-    fn hear_tick(&mut self, events: Vec<SoundEvent>) {
-        let Some(audio) = &mut self.audio else { return };
-        let game = self.scene.game();
-        let camera_pos = self
-            .scene
-            .visuals()
-            .map_or(Vec2::ZERO, |v| Vec2::from(v.camera_pos()));
-        let listener = ListenerInput {
-            camera_pos,
-            screen_width: self.resolution.size_f32()[0],
-            follow: Some(game.sound_follow()),
-        };
-        let chunks = game.body().map(|b| &b.chunks[..]);
-        audio.tick(events, &listener, chunks, game.water());
     }
 }
 
@@ -271,11 +277,31 @@ impl ApplicationHandler for App {
             }
             WindowEvent::Resized(size) => {
                 if let Some(view) = &mut self.view {
-                    view.renderer.renderer.resize(size.width, size.height);
+                    view.renderer.scene.renderer.resize(size.width, size.height);
                 }
             }
-            WindowEvent::Focused(false) => self.input.clear(),
+            WindowEvent::Focused(false) => {
+                self.frontend.ctx.input.clear();
+                self.frontend.ctx.menu.input.clear();
+            }
             WindowEvent::KeyboardInput { event, .. } => self.on_key(event_loop, &event),
+            WindowEvent::CursorMoved { position, .. } => self.on_cursor(position),
+            WindowEvent::MouseInput { state, button, .. } => {
+                let index = match button {
+                    MouseButton::Left => 0,
+                    MouseButton::Right => 1,
+                    MouseButton::Middle => 2,
+                    _ => return,
+                };
+                self.frontend.ctx.menu.input.mouse.buttons[index] = state == ElementState::Pressed;
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                let lines = match delta {
+                    MouseScrollDelta::LineDelta(_, y) => y,
+                    MouseScrollDelta::PixelDelta(p) => p.y as f32 / 20.0,
+                };
+                self.frontend.ctx.menu.input.mouse.scroll += lines;
+            }
             WindowEvent::RedrawRequested => self.frame(event_loop),
             _ => {}
         }
@@ -288,6 +314,7 @@ impl ApplicationHandler for App {
     }
 
     fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
-        log::info!("exiting after {} ticks", self.scene.game().ticks());
+        let ticks = self.frontend.game().map_or(0, |g| g.scene.game().ticks());
+        log::info!("exiting after {ticks} game ticks");
     }
 }

@@ -320,6 +320,16 @@ mod tests {
             self.order.push("level");
         }
         fn set_atlas(&mut self, _: &SpriteAtlas, _: &PngImage) {}
+        fn set_stage_texture(
+            &mut self,
+            _: rw_render::StageTextureId,
+            _: &PngImage,
+            _: rw_render::TextureSampling,
+        ) {
+        }
+        fn remove_stage_texture(&mut self, _: rw_render::StageTextureId) {}
+        fn draw_stage(&mut self, _: &rw_render::StageBatch, _: [f32; 2]) {}
+        fn set_background(&mut self, _: Color) {}
         fn draw_sprites(&mut self, _: &DrawList, layer: Layer, _: [f32; 2]) {
             self.sprite_calls += 1;
             self.order.push(match layer {

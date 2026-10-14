@@ -26,8 +26,8 @@ use rw_assets::{StreamingAssets, UnityResources};
 use serde::Serialize;
 
 use params::{
-    ListRoomsParams, LoadRoomParams, RespawnParams, ScreenshotParams, SetPlayerParams, StepParams,
-    StepSequenceParams, TilesParams,
+    ListRoomsParams, LoadProcessParams, LoadRoomParams, RespawnParams, ScreenshotParams,
+    SetPlayerParams, StepParams, StepProcessParams, StepSequenceParams, TilesParams,
 };
 pub use session::Session;
 
@@ -35,7 +35,9 @@ const INSTRUCTIONS: &str = "Drives rainworld-rs, a reimplementation of Rain Worl
 slugcat controller in single rooms. Call load_room first. The simulation runs at 40 ticks \
 per second and only advances in step / step_sequence, so runs are deterministic: the \
 same room, seed and inputs give the same result. Positions are room pixels, y up, 20 px \
-per tile. Use get_tiles to read the geometry and screenshot to look at the scene.";
+per tile. Use get_tiles to read the geometry and screenshot to look at the scene. \
+load_process instead starts the process manager (boot fade, then a menu screen or the \
+game); step_process advances it frame by frame (1/40 s each) and screenshot draws it.";
 
 /// Serves MCP on stdin/stdout until the client disconnects; with `window`, also shows
 /// the driven scene in a window.
@@ -44,7 +46,7 @@ per tile. Use get_tiles to read the geometry and screenshot to look at the scene
 /// When the runtime, the transport or the window fails.
 pub fn run(
     assets: StreamingAssets,
-    resources: UnityResources,
+    resources: Arc<UnityResources>,
     window: bool,
 ) -> Result<(), Box<dyn Error>> {
     let session = Arc::new(Mutex::new(Session::new(assets, resources)));
@@ -168,7 +170,8 @@ impl Server {
 
     #[tool(
         description = "Render the current frame as the window shows it (level graphic or debug \
-        tiles, with the slugcat) and return it as a PNG image."
+        tiles, with the slugcat; or the loaded process with its fade) and return it as a \
+        PNG image."
     )]
     fn screenshot(
         &self,
@@ -185,6 +188,29 @@ impl Server {
             ContentBlock::image(data, "image/png"),
             ContentBlock::text(info.to_string()),
         ]))
+    }
+
+    #[tool(
+        description = "Start the process manager as the game boots (black, Initialization, \
+        fade) into a process: font_test (labels in the game's fonts over the flat main-menu \
+        scene; menu submit goes on to the game) or game. Replaces any loaded room."
+    )]
+    fn load_process(
+        &self,
+        Parameters(p): Parameters<LoadProcessParams>,
+    ) -> Result<CallToolResult, String> {
+        Self::json(&self.session()?.load_process(&p)?)
+    }
+
+    #[tool(
+        description = "Run process manager frames of 1/40 s (one process tick each once \
+        running), holding menu keys; returns the current process and the fade state."
+    )]
+    fn step_process(
+        &self,
+        Parameters(p): Parameters<StepProcessParams>,
+    ) -> Result<CallToolResult, String> {
+        Self::json(&self.session()?.step_process(&p)?)
     }
 
     #[tool(

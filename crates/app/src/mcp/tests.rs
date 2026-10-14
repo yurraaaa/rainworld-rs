@@ -30,7 +30,7 @@ impl Session {
             return None;
         }
         let resources = UnityResources::open(assets.data_dir()).expect("Unity resources");
-        Some(Self::new(assets, resources))
+        Some(Self::new(assets, std::sync::Arc::new(resources)))
     }
 
     fn load(&mut self, name: &str, seed: u64) {

@@ -1897,6 +1897,7 @@ dependencies = [
  "rw-assets",
  "rw-audio",
  "rw-graphics",
+ "rw-menu",
  "rw-random",
  "rw-render",
  "rw-sim",
@@ -2139,6 +2140,17 @@ dependencies = [
  "rw-random",
  "rw-sim",
  "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "rw-menu"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "rw-assets",
+ "rw-graphics",
+ "rw-render",
  "serde_json",
 ]
 

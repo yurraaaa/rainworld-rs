@@ -109,3 +109,34 @@ pub struct TilesParams {
     /// Inclusive tile rectangle [x0, y0, x1, y1] (y up); default the whole room.
     pub rect: Option<[i32; 4]>,
 }
+
+/// A process `load_process` can start.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ProcessParam {
+    /// The M0 test screen: labels in both fonts over the flat main-menu scene.
+    #[default]
+    FontTest,
+    /// The single-room game.
+    Game,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, JsonSchema)]
+pub struct LoadProcessParams {
+    /// Started by `Initialization` after the boot fade (default "font_test").
+    pub process: Option<ProcessParam>,
+    /// Room of the game process (default "summit").
+    pub room: Option<String>,
+    /// Seed of the game process (default 1).
+    pub seed: Option<u64>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, JsonSchema)]
+pub struct StepProcessParams {
+    /// Frames of 1/40 s to run (default 1). Each frame is one process manager update;
+    /// at 40 frames per second a process ticks once per frame.
+    pub frames: Option<u32>,
+    /// Menu keys held for these frames: Rewired names "UpArrow", "DownArrow",
+    /// "LeftArrow", "RightArrow", "Return", "Space", "Z", "X", "Escape".
+    pub keys: Option<Vec<String>>,
+}

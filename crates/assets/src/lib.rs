@@ -4,18 +4,21 @@
 
 pub mod ambient;
 mod files;
+mod font_config;
 mod noise;
 mod palette;
 mod png_image;
 pub mod room;
 mod room_visuals;
 mod settings;
+mod short_strings;
 pub mod shortcut;
 pub mod sound_table;
 pub mod unity;
 
 pub use ambient::{AmbientKind, AmbientSound};
 pub use files::{AssetError, StreamingAssets};
+pub use font_config::{FontChar, FontConfig, FontConfigError, FontKerning};
 pub use noise::NoiseTexture;
 pub use palette::{EffectColors, PaletteImage, PaletteTexture, RoomPalette};
 pub use png_image::PngImage;
@@ -25,6 +28,7 @@ pub use room::{
 };
 pub use room_visuals::RoomVisuals;
 pub use settings::{FadePalette, RegionTemplates, RoomSettings, SettingsFile};
+pub use short_strings::ShortStrings;
 pub use shortcut::{ShortcutData, ShortcutMap, ShortcutType};
 pub use sound_table::{
     ClipNames, ClipVariation, SoundClip, SoundSample, SoundTable, SoundTrigger, TriggerState,

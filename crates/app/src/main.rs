@@ -2,11 +2,15 @@
 //! graphic (or as debug tiles), with a slugcat body.
 //!
 //! Usage: `rainworld-rs [ROOM] [--seed N] [--screenshot FILE.ppm] [--debug-view]
-//! [--spawn X,Y] [--script STEPS] [--resolution WxH] [--windowed] [--mute]` (default room
+//! [--spawn X,Y] [--script STEPS] [--resolution WxH] [--windowed] [--mute]
+//! [--process NAME]` (default room
 //! `summit`, seed 1; `--screenshot` saves the frame after one second, or once the
 //! script has run, and quits; `--debug-view` starts in the debug view; `--spawn` puts
 //! the player on tile X,Y; `--script` plays `X,Y,J:TICKS;...` input steps instead of
-//! the keyboard; `--resolution` is one of the game's screen sizes, default 1366x768).
+//! the keyboard; `--resolution` is one of the game's screen sizes, default 1366x768;
+//! `--process` starts another process than the game after `Initialization`:
+//! `font-test`, the M0 screen of labels and a flat illustration, whose UI submit goes on
+//! to the game).
 //! As in the game the frame is shown full screen, scaled; `--windowed` (implied by
 //! `--screenshot`) shows it 1:1 in a window of the resolution. Sound plays on the default
 //! output device unless `--mute` (or `--screenshot`); either way the sim makes the
@@ -22,9 +26,11 @@
 //!
 //! Controls: arrows/WASD move, Space/Z jump, R respawn, V level graphic / debug view,
 //! G tile grid, F12 screenshot
-//! (`screenshot-<tick>.ppm` in the working directory), Esc quit.
+//! (`screenshot-<frame>.ppm` in the working directory), Esc quit (in the game). Menus
+//! take Rewired's default UI keys: arrows, Enter/Space/Z submit, Esc cancel.
 
 mod app;
+mod frontend;
 mod game;
 mod input;
 mod mcp;
@@ -39,8 +45,10 @@ use std::process::ExitCode;
 use std::sync::Arc;
 
 use rw_assets::{Room, StreamingAssets, UnityResources};
+use rw_menu::ProcessId;
 use rw_render::Resolution;
 
+use crate::frontend::{AppContext, Frontend, GameSetup};
 use crate::input::Script;
 
 const DEFAULT_RW_DIR: &str = "/home/yura/.local/share/Steam/steamapps/common/Rain World";
@@ -70,6 +78,8 @@ struct Args {
     windowed: bool,
     /// No sound output.
     mute: bool,
+    /// The process `Initialization` starts.
+    start: ProcessId,
 }
 
 impl Args {
@@ -93,6 +103,7 @@ impl Args {
         let mut resolution = Resolution::DEFAULT;
         let mut windowed = false;
         let mut mute = false;
+        let mut start = ProcessId::Game;
         while let Some(arg) = args.next() {
             match arg.as_str() {
                 "--seed" => {
@@ -110,6 +121,14 @@ impl Args {
                 "--window" => window = true,
                 "--windowed" => windowed = true,
                 "--mute" => mute = true,
+                "--process" => {
+                    let value = args.next().ok_or("--process needs a name")?;
+                    start = match value.as_str() {
+                        "game" => ProcessId::Game,
+                        "font-test" => ProcessId::FontTest,
+                        _ => return Err(format!("unknown process {value:?} (game, font-test)")),
+                    };
+                }
                 "--resolution" => {
                     let value = args.next().ok_or("--resolution needs WxH")?;
                     resolution = value.parse()?;
@@ -130,7 +149,8 @@ impl Args {
                     return Err(
                         "usage: rainworld-rs [ROOM] [--seed N] [--screenshot FILE.ppm] \
                                 [--debug-view] [--spawn X,Y] [--script X,Y,J:TICKS;...] \
-                                [--resolution WxH] [--windowed] [--mute]\n       \
+                                [--resolution WxH] [--windowed] [--mute] \
+                                [--process game|font-test]\n       \
                                 rainworld-rs --mcp [--window]"
                             .to_owned(),
                     );
@@ -153,6 +173,7 @@ impl Args {
             resolution,
             windowed,
             mute,
+            start,
         })
     }
 }
@@ -179,6 +200,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     let assets = StreamingAssets::new(assets);
     let resources = UnityResources::open(assets.data_dir())
         .map_err(|e| format!("reading the game's Unity resources: {e}"))?;
+    let resources = Arc::new(resources);
     if args.mcp {
         return mcp::run(assets, resources, args.window);
     }
@@ -199,9 +221,6 @@ fn run() -> Result<(), Box<dyn Error>> {
         room.height(),
         args.seed
     );
-    let visuals = visuals::Visuals::load(&assets, &resources, &room, args.resolution.size_f32())
-        .inspect_err(|e| log::warn!("no level graphic ({e}); showing the debug view"))
-        .ok();
     let sprites = sprites::SpriteAssets::load(&resources)
         .inspect_err(|e| log::warn!("no slugcat sprites ({e}); drawing the circle body"))
         .ok()
@@ -209,28 +228,34 @@ fn run() -> Result<(), Box<dyn Error>> {
     let table = game::Game::load_sound_table(&assets);
     let settings = game::Game::room_settings(&assets, &room);
     // A screenshot run stays silent, like `--mute`.
-    let mut audio = if args.mute || args.screenshot.is_some() {
+    let audio = if args.mute || args.screenshot.is_some() {
         None
     } else {
         rw_audio::Audio::new(&assets, Arc::clone(&table))
             .inspect_err(|e| log::warn!("no audio output ({e}); playing silently"))
             .ok()
     };
-    if let Some(audio) = &mut audio {
-        audio.set_ambients(&settings.ambient_sounds);
-    }
+    let title = room.name().to_owned();
+    let setup = GameSetup {
+        room,
+        settings,
+        seed: args.seed,
+        spawn: args.spawn,
+        sound_table: table,
+    };
+    let mut ctx = AppContext::new(assets, resources, args.resolution, setup, args.start)
+        .map_err(|e| format!("loading the fonts: {e}"))?;
+    ctx.audio = audio;
+    ctx.script = args.script;
     let options = app::Options {
         // A screenshot run never covers the screen.
         windowed: args.windowed || args.screenshot.is_some(),
         screenshot: args.screenshot,
         debug_view: args.debug_view,
-        script: args.script,
         resolution: args.resolution,
-        audio,
+        title,
     };
-    let mut game = game::Game::new(room, &settings, args.seed, args.spawn);
-    game.set_sound_table(table);
-    app::run(scene::Scene::new(game, visuals), sprites, options)
+    app::run(Frontend::new(ctx), sprites, options)
 }
 
 fn main() -> ExitCode {
@@ -272,6 +297,7 @@ mod tests {
                 resolution: Resolution::DEFAULT,
                 windowed: false,
                 mute: false,
+                start: ProcessId::Game,
             })
         );
     }
@@ -290,6 +316,7 @@ mod tests {
             resolution: Resolution::DEFAULT,
             windowed: false,
             mute: false,
+            start: ProcessId::Game,
         });
         assert_eq!(Args::parse(["SU_A22", "--seed", "7"]), want);
         assert_eq!(Args::parse(["--seed", "7", "SU_A22"]), want);
@@ -308,6 +335,13 @@ mod tests {
     fn mute() {
         assert!(Args::parse(["--mute"]).expect("parses").mute);
         assert!(!Args::parse(["--windowed"]).expect("parses").mute);
+    }
+
+    #[test]
+    fn process() {
+        let args = Args::parse(["--process", "font-test"]).expect("parses");
+        assert_eq!(args.start, ProcessId::FontTest);
+        assert!(Args::parse(["--process", "nope"]).is_err());
     }
 
     #[test]

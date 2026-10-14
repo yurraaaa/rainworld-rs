@@ -4,8 +4,33 @@
 //! [`InputState::take_tick_input`] produces an [`Input`]. A key pressed and released
 //! between two ticks still counts for the next tick, so short taps are never lost.
 
+use rw_menu::KeyboardKey;
 use rw_sim::Input;
 use winit::keyboard::KeyCode;
+
+/// The physical key behind a Rewired keyboard key (menu input).
+pub trait WinitKey: Sized {
+    fn from_winit(code: KeyCode) -> Option<Self>;
+}
+
+impl WinitKey for KeyboardKey {
+    fn from_winit(code: KeyCode) -> Option<Self> {
+        Some(match code {
+            KeyCode::Enter | KeyCode::NumpadEnter => Self::Return,
+            KeyCode::Escape => Self::Escape,
+            KeyCode::Space => Self::Space,
+            KeyCode::KeyC => Self::C,
+            KeyCode::KeyX => Self::X,
+            KeyCode::KeyZ => Self::Z,
+            KeyCode::ArrowUp => Self::UpArrow,
+            KeyCode::ArrowDown => Self::DownArrow,
+            KeyCode::ArrowRight => Self::RightArrow,
+            KeyCode::ArrowLeft => Self::LeftArrow,
+            KeyCode::ShiftLeft => Self::LeftShift,
+            _ => return None,
+        })
+    }
+}
 
 /// A held game action.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -186,6 +211,20 @@ mod tests {
         assert_eq!(Action::from_key(KeyCode::Space), Some(Action::Jump));
         assert_eq!(Action::from_key(KeyCode::KeyZ), Some(Action::Jump));
         assert_eq!(Action::from_key(KeyCode::KeyQ), None);
+    }
+
+    #[test]
+    fn menu_keys() {
+        assert_eq!(
+            KeyboardKey::from_winit(KeyCode::Enter),
+            Some(KeyboardKey::Return)
+        );
+        assert_eq!(
+            KeyboardKey::from_winit(KeyCode::ArrowUp),
+            Some(KeyboardKey::UpArrow)
+        );
+        // WASD are not in Rewired's default UI map.
+        assert_eq!(KeyboardKey::from_winit(KeyCode::KeyW), None);
     }
 
     #[test]

@@ -11,7 +11,7 @@ use bytemuck::{Pod, Zeroable};
 use rw_graphics::{Atlas, AtlasFrame, DrawItem, DrawList, Layer, Mesh as SpriteMesh, Sprite};
 use rw_sim::Vec2;
 
-use crate::{Mesh, WaterSprites, WaterVertex};
+use crate::{Mesh, StageBatch, StageDraw, WaterSprites, WaterVertex};
 
 /// One textured vertex: stage position (room pixels minus the camera position),
 /// texture coordinate (`v` = 0 at the image's bottom row, as Unity) and colour.
@@ -60,6 +60,8 @@ pub enum Batch {
     Level,
     /// Water triangles drawn with one of the game's water shaders.
     Water(WaterShader, Range<u32>),
+    /// Stage quads (screen pixels) of one texture and shader.
+    Stage(StageDraw),
 }
 
 /// Which water shader a [`Batch::Water`] uses.
@@ -86,6 +88,10 @@ enum Event {
         shader: WaterShader,
         vertices: Range<u32>,
     },
+    Stage {
+        shapes_before: u32,
+        draw: StageDraw,
+    },
 }
 
 /// One frame's debug shapes and sprites with their order.
@@ -95,6 +101,8 @@ pub struct DrawQueue {
     pub sprites: SpriteBatch,
     /// Water triangles (`WaterSprites`), in stage pixels.
     pub water: Vec<WaterVertex>,
+    /// Stage quads, in screen pixels.
+    pub stage: StageBatch,
     events: Vec<Event>,
 }
 
@@ -262,7 +270,21 @@ impl DrawQueue {
         self.shapes.clear();
         self.sprites.clear();
         self.water.clear();
+        self.stage.clear();
         self.events.clear();
+    }
+
+    /// Queues `batch`'s stage draws after everything queued so far.
+    pub fn push_stage(&mut self, batch: &StageBatch) {
+        let first = self.stage.draws.len();
+        self.stage.append(batch);
+        let shapes_before = self.shapes.vertex_count();
+        for draw in &self.stage.draws[first..] {
+            self.events.push(Event::Stage {
+                shapes_before,
+                draw: draw.clone(),
+            });
+        }
     }
 
     /// Queues the water's surface band, then its body, after everything so far.
@@ -321,7 +343,8 @@ impl DrawQueue {
             let shapes_before = match event {
                 Event::Sprites { shapes_before, .. }
                 | Event::Level { shapes_before }
-                | Event::Water { shapes_before, .. } => *shapes_before,
+                | Event::Water { shapes_before, .. }
+                | Event::Stage { shapes_before, .. } => *shapes_before,
             };
             if shapes_before > shapes_done {
                 out.push(Batch::Shapes(shapes_done..shapes_before));
@@ -333,6 +356,7 @@ impl DrawQueue {
                 Event::Water {
                     shader, vertices, ..
                 } => Batch::Water(*shader, vertices.clone()),
+                Event::Stage { draw, .. } => Batch::Stage(draw.clone()),
             });
         }
         let total = self.shapes.vertex_count();

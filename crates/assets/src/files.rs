@@ -34,6 +34,15 @@ impl StreamingAssets {
         self.0.join(relative.to_lowercase())
     }
 
+    /// `AssetManager.ResolveFilePath` with no mods active: `<StreamingAssets>/<path>`
+    /// with `/` as separator and the path lower-cased. (The game looks in `mergedmods/`
+    /// and the active mods first; the port runs the base game with none.)
+    #[must_use]
+    pub fn resolve_file_path(&self, path: &str) -> PathBuf {
+        let relative: PathBuf = path.replace('\\', "/").to_lowercase().split('/').collect();
+        self.0.join(relative)
+    }
+
     /// `AssetBundles/<name>` (that directory keeps its mixed-case name on disk).
     #[must_use]
     pub fn asset_bundle(&self, name: &str) -> PathBuf {

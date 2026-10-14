@@ -13,6 +13,7 @@ use winit::keyboard::PhysicalKey;
 use winit::window::{Window, WindowId};
 
 use super::{Server, Session};
+use crate::frontend::FrontendRenderer;
 use crate::input::Command;
 use crate::scene::{Framing, SceneRenderer, SceneView};
 
@@ -50,7 +51,7 @@ struct McpEnded;
 
 struct Mirror {
     session: Arc<Mutex<Session>>,
-    view: Option<(Arc<Window>, SceneRenderer<WgpuRenderer>)>,
+    view: Option<(Arc<Window>, FrontendRenderer<WgpuRenderer>)>,
     level: bool,
     layers: RoomLayers,
     fatal: Option<Box<dyn Error>>,
@@ -60,7 +61,7 @@ impl Mirror {
     fn create_view(
         &self,
         event_loop: &ActiveEventLoop,
-    ) -> Result<(Arc<Window>, SceneRenderer<WgpuRenderer>), Box<dyn Error>> {
+    ) -> Result<(Arc<Window>, FrontendRenderer<WgpuRenderer>), Box<dyn Error>> {
         // Windowed, so a driven session never covers the screen.
         let resolution = Resolution::DEFAULT;
         let attrs = Window::default_attributes()
@@ -72,7 +73,10 @@ impl Mirror {
         let renderer =
             WgpuRenderer::new(Arc::clone(&window), (size.width, size.height), resolution)?;
         let sprites = self.session.lock().map_err(|e| e.to_string())?.sprites();
-        Ok((window, SceneRenderer::new(renderer, sprites)))
+        Ok((
+            window,
+            FrontendRenderer::new(SceneRenderer::new(renderer, sprites)),
+        ))
     }
 
     fn redraw(&mut self) -> Result<(), Box<dyn Error>> {
@@ -80,23 +84,21 @@ impl Mirror {
             return Ok(());
         };
         let mut session = self.session.lock().map_err(|e| e.to_string())?;
-        match session.scene_mut() {
-            Some(scene) => {
-                let view = SceneView {
-                    level: self.level,
-                    layers: self.layers,
-                    framing: Framing::Auto,
-                };
-                scene.draw(target, 1.0, view);
-            }
-            None => {
-                target
-                    .renderer
-                    .begin_frame(Camera::fit([1.0, 1.0], target.renderer.size(), 0.0))
-            }
+        let view = SceneView {
+            level: self.level,
+            layers: self.layers,
+            framing: Framing::Auto,
+        };
+        if let Some(frontend) = session.frontend_mut() {
+            frontend.draw(target, view);
+        } else if let Some(scene) = session.scene_mut() {
+            scene.draw(&mut target.scene, 1.0, view);
+        } else {
+            let r = &mut target.scene.renderer;
+            r.begin_frame(Camera::fit([1.0, 1.0], r.size(), 0.0));
         }
         drop(session);
-        target.renderer.present()?;
+        target.scene.renderer.present()?;
         Ok(())
     }
 }
@@ -125,7 +127,7 @@ impl ApplicationHandler<McpEnded> for Mirror {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::Resized(size) => {
                 if let Some((_, target)) = &mut self.view {
-                    target.renderer.resize(size.width, size.height);
+                    target.scene.renderer.resize(size.width, size.height);
                 }
             }
             WindowEvent::KeyboardInput { event, .. }

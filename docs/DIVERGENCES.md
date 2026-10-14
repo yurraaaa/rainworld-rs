@@ -433,6 +433,56 @@ real-time audio rather than the sim.
 
 **Affects.** What is heard, never the sim (its draws do not depend on the audio).
 
+## D13: Front end (process manager, fonts, menu input; milestone M0)
+
+**What.**
+- **Start process.** `Initialization` is reduced to one tick: fonts, strings and
+  settings are loaded before the manager starts, and it requests the start process at
+  once. The game's distribution build starts `IntroRoll` (`setup.startScreen`); the
+  port starts `Game` (or `--process font-test`) until IntroRoll and the main menu are
+  ported. The boot fade, the switch and the 0.45 s fade-in follow the game, so the
+  game now appears after about three black frames and a fade, as in the game.
+- **Port-only process.** `ProcessId::FontTest` (labels in both fonts over the flat
+  main-menu scene) is not a game screen; it exists to compare drawing by eye.
+- **Flat scenes.** Menu scenes will be shown in the game's flat mode (`flatmode.txt`:
+  one `<scene> - Flat.png`) until depth scenes (`MenuDepthIllustration`, its shaders and
+  the camera drift) are ported.
+- **Missing side processes.** No music player, menu microphone, dialogs or Steam
+  manager; the switch queue is only filled while a dialog runs, so it stays empty.
+  Mod finalization completes in the same frame (no mods); `progression.Revert`,
+  `options` and save loading are not done. Of `HardCleanFutileAssets` only the
+  illustration atlases a process loaded are freed.
+- **File resolution.** `AssetManager.ResolveFilePath` looks in `mergedmods/` and the
+  active mods first; the port runs the base game with no mods and reads
+  `StreamingAssets/<lower-cased path>` only.
+- **Strings.** English only; an encrypted `strings.txt` (leading `1`, xor with a key
+  string in the game's code) is not read (no vanilla file is encrypted). Mods' string
+  files are not merged.
+- **Text layout.** `FFont`'s Thai placement rules and other languages' fonts are not
+  ported.
+- **Menu input.** Keyboard only, from Rewired's shipped default UI map (decoded from
+  `level0`, `rainworld-re/notes/menu.md`): arrows move, Return/Space/Z submit, Escape
+  cancel, X "alternate". Saved custom bindings (`RewiredSaveData` in PlayerPrefs),
+  gamepads and the options' `mouseButtonMappings` are not read. When two opposite keys
+  of an axis are held the port sums them to 0 (Rewired's rule not checked). Whether the
+  default mouse map (left button = UI submit, map category 1) is active for player 0 is
+  not settled; the port records mouse position and buttons for the menus to read
+  directly, as `Menu` does with `Input.GetMouseButton`. In the game, Esc still quits.
+- **Frame time.** `Time.deltaTime` is capped at 1/3 s, Unity's default
+  `maximumDeltaTime`; the game's own setting is not checked. (The game previously ran on
+  a fixed timestep with a 250 ms cap; it now runs under `MainLoopProcess.RawUpdate`:
+  ticks only while more than one is accumulated, at most three per frame.)
+- **Random stream (D1).** The menus draw no random numbers yet; the game process
+  still seeds the stream from `--seed` when it is created.
+- **Gameplay keys (noted, not changed).** Rewired's default gameplay keyboard map is
+  Z jump, X throw, LeftShift pick up, Space map, C special, Escape pause, arrows move;
+  the port's gameplay keys (arrows/WASD, Space/Z jump) predate this and are unchanged.
+
+**Why.** The menus are ported screen by screen; until IntroRoll and MainMenu exist the
+player goes straight to the game, as before.
+
+**Affects.** What is shown at start-up and between processes; no gameplay.
+
 ## Not ported yet (not divergences, just absent)
 
 Player (stage one leaves out): zero gravity, grabbing / throwing / eating (`GrabUpdate`),
@@ -446,3 +496,7 @@ charge and dive force (untested).
 Physics: burrowing, terrain curves (`TerrainCurve`), `setPos`
 (cross-object position writes), the curved-terrain `TerrainImpact` call, grabs (`grabbedBy` skips the room-range clamp, and grabs force `goThroughFloors`), and
 `DefaultTile`.
+
+Front end: every menu screen (IntroRoll, MainMenu, SlugcatSelect, options, sleep and
+death screens, pause menu, slideshows), menu objects and selection, the `MenuText`,
+scene and hold-button shaders, menu sounds and music.

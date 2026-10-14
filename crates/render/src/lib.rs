@@ -1,7 +1,8 @@
 //! Renderer: the room's level graphic (camera image through the palette) or its debug
 //! tile geometry, shortcut tubes, water, body chunks and Futile atlas sprites (an
-//! `rw_graphics::DrawList`), drawn through the small [`Renderer`] trait so the backend
-//! can be replaced.
+//! `rw_graphics::DrawList`), and Futile stage quads in screen pixels for the menus and
+//! the process fade ([`StageBatch`]), drawn through the small [`Renderer`] trait so the
+//! backend can be replaced.
 //!
 //! The only backend is [`WgpuRenderer`] (wgpu pinned to Vulkan). Everything that does
 //! not need a GPU (camera, interpolation, tessellation, tile geometry) lives in plain
@@ -24,6 +25,8 @@ mod room_camera;
 mod room_geometry;
 mod sprite_gpu;
 mod sprites;
+mod stage;
+mod stage_gpu;
 mod status;
 #[cfg(test)]
 mod test_room;
@@ -43,6 +46,9 @@ pub use room_camera::{Follow, RoomCamera};
 pub use room_geometry::{RoomDebugGeometry, RoomShape, SlopeGeometry};
 pub use sprites::{
     Batch, DrawQueue, NodeMatrix, SpriteAtlas, SpriteBatch, SpriteVertex, WaterShader,
+};
+pub use stage::{
+    StageBatch, StageDraw, StageShader, StageTextureId, TextureFilter, TextureSampling,
 };
 pub use status::{BodyStatus, BodyStyle};
 pub use water::WaterSurface;
@@ -118,6 +124,26 @@ pub trait Renderer {
     /// [`Layer::Foreground`] after, as the game's containers order them. Nothing is
     /// drawn before an atlas is set.
     fn draw_sprites(&mut self, list: &DrawList, layer: Layer, cam_pos: [f32; 2]);
+
+    /// Uploads a stage texture under `id`, replacing any texture of that id.
+    fn set_stage_texture(
+        &mut self,
+        id: StageTextureId,
+        image: &PngImage,
+        sampling: TextureSampling,
+    );
+
+    /// Frees a stage texture.
+    fn remove_stage_texture(&mut self, id: StageTextureId);
+
+    /// Queues stage quads after everything queued so far, in screen pixels of a screen
+    /// of `screen_size` (y up, origin bottom-left) fitted to the frame. Draws whose
+    /// texture is not uploaded are skipped.
+    fn draw_stage(&mut self, batch: &StageBatch, screen_size: [f32; 2]);
+
+    /// The colour the frame is cleared to when no level is drawn (Futile's camera
+    /// clears to black; the debug view uses a dark blue). Reset by `begin_frame`.
+    fn set_background(&mut self, color: Color);
 
     /// Filled circle.
     fn draw_circle(&mut self, centre: [f32; 2], radius: f32, color: Color);

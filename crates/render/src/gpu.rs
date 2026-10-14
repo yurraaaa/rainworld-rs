@@ -9,8 +9,9 @@
 //! A second one draws the level graphic (`level_gpu`): the shapes and sprites queued
 //! before [`Renderer::draw_level`] go to an offscreen "behind" target first, which the
 //! level shader reads to let them show through sky and far pixels. A third draws the
-//! atlas sprites (`sprite_gpu`), and a fourth the game's water (`water_gpu`), which
-//! reads the level textures and the "behind" target too. Draw calls keep their call
+//! atlas sprites (`sprite_gpu`), a fourth the game's water (`water_gpu`), which
+//! reads the level textures and the "behind" target too, and a fifth the stage quads
+//! (`stage_gpu`: `Futile/Basic` and `EdgeFade`, one texture per draw). Draw calls keep their call
 //! order across pipelines ([`DrawQueue`]). The WGSL shaders are compiled at runtime by
 //! wgpu.
 //!
@@ -28,11 +29,12 @@ use wgpu::util::DeviceExt;
 use crate::level_gpu::{LevelPipeline, LevelTextures};
 use crate::present_gpu::PresentPipeline;
 use crate::sprite_gpu::SpritePipeline;
+use crate::stage_gpu::StagePipeline;
 use crate::water_gpu::{WaterBinding, WaterPipeline};
 use crate::{
     Batch, Camera, Color, DrawQueue, FrameImage, LevelGraphics, LevelView, Mesh, PresentRect,
-    RenderError, Renderer, Resolution, RoomDebugGeometry, RoomLayers, SpriteAtlas, Vertex,
-    WaterSprites,
+    RenderError, Renderer, Resolution, RoomDebugGeometry, RoomLayers, SpriteAtlas, StageBatch,
+    StageTextureId, TextureSampling, Vertex, WaterSprites,
 };
 
 const BACKGROUND: wgpu::Color = wgpu::Color {
@@ -70,6 +72,11 @@ pub struct WgpuRenderer {
     level_view: Option<LevelView>,
     sprite_pipeline: SpritePipeline,
     water_pipeline: WaterPipeline,
+    stage_pipeline: StagePipeline,
+    /// The screen size stage quads are placed in this frame.
+    stage_screen: [f32; 2],
+    /// This frame's clear colour without a level.
+    background: wgpu::Color,
     /// This frame's `_waterDepth`.
     water_depth: f32,
     atlas: Option<SpriteAtlas>,
@@ -270,6 +277,7 @@ impl WgpuRenderer {
         let level_pipeline = LevelPipeline::new(&device, format);
         let sprite_pipeline = SpritePipeline::new(&device, format);
         let water_pipeline = WaterPipeline::new(&device, format);
+        let stage_pipeline = StagePipeline::new(&device, format);
         let frame = FrameTargets::new(&device, format, frame_size);
         let mut present_pipeline = PresentPipeline::new(&device, format);
         present_pipeline.bind(&device, &frame.view);
@@ -289,6 +297,9 @@ impl WgpuRenderer {
             level_view: None,
             sprite_pipeline,
             water_pipeline,
+            stage_pipeline,
+            stage_screen: [frame_size.0 as f32, frame_size.1 as f32],
+            background: BACKGROUND,
             water_depth: 0.0,
             atlas: None,
             stage_origin: [0.0, 0.0],
@@ -467,6 +478,7 @@ impl WgpuRenderer {
                 }
                 Batch::Sprites(range) => self.sprite_pipeline.draw(pass, range.clone()),
                 Batch::Level => {}
+                Batch::Stage(draw) => self.stage_pipeline.draw(pass, draw),
                 Batch::Water(shader, range) => {
                     if let Some(bind_group) = water {
                         self.water_pipeline
@@ -683,6 +695,7 @@ impl Renderer for WgpuRenderer {
         self.layers = None;
         self.level_view = None;
         self.stage_origin = [0.0, 0.0];
+        self.background = BACKGROUND;
     }
 
     fn draw_room(&mut self, layers: RoomLayers) {
@@ -721,6 +734,30 @@ impl Renderer for WgpuRenderer {
     fn draw_water_sprites(&mut self, sprites: &WaterSprites, depth: f32) {
         self.water_depth = depth;
         self.queue_draws.push_water(sprites);
+    }
+
+    fn set_stage_texture(
+        &mut self,
+        id: StageTextureId,
+        image: &PngImage,
+        sampling: TextureSampling,
+    ) {
+        self.stage_pipeline
+            .set_texture(&self.device, &self.queue, id, image, sampling);
+    }
+
+    fn remove_stage_texture(&mut self, id: StageTextureId) {
+        self.stage_pipeline.remove_texture(id);
+    }
+
+    fn draw_stage(&mut self, batch: &StageBatch, screen_size: [f32; 2]) {
+        self.stage_screen = screen_size;
+        self.queue_draws.push_stage(batch);
+    }
+
+    fn set_background(&mut self, color: Color) {
+        let [r, g, b, a] = color.0.map(f64::from);
+        self.background = wgpu::Color { r, g, b, a };
     }
 
     fn set_atlas(&mut self, atlas: &SpriteAtlas, image: &PngImage) {
@@ -762,6 +799,14 @@ impl Renderer for WgpuRenderer {
         );
         self.water_pipeline
             .upload(&self.device, &self.queue, &self.queue_draws.water);
+        let stage_camera = Camera::window([0.0, 0.0], self.stage_screen, self.frame.size);
+        self.stage_pipeline.upload(
+            &self.device,
+            &self.queue,
+            &self.queue_draws.stage.vertices,
+            &self.queue_draws.stage.indices,
+            &stage_camera,
+        );
         let batches = self.queue_draws.batches();
         let split = batches.iter().position(|b| *b == Batch::Level);
 
@@ -801,7 +846,7 @@ impl Renderer for WgpuRenderer {
         let clear = if level.is_some() {
             wgpu::Color::BLACK
         } else {
-            BACKGROUND
+            self.background
         };
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
