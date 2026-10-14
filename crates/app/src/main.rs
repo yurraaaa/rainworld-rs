@@ -2,10 +2,13 @@
 //! graphic (or as debug tiles), with a slugcat body.
 //!
 //! Usage: `rainworld-rs [ROOM] [--seed N] [--screenshot FILE.ppm] [--debug-view]
-//! [--spawn X,Y] [--script STEPS]` (default room `summit`, seed 1; `--screenshot` saves
-//! the frame after one second, or once the script has run, and quits; `--debug-view`
-//! starts in the debug view; `--spawn` puts the player on tile X,Y; `--script` plays
-//! `X,Y,J:TICKS;...` input steps instead of the keyboard).
+//! [--spawn X,Y] [--script STEPS] [--resolution WxH] [--windowed]` (default room
+//! `summit`, seed 1; `--screenshot` saves the frame after one second, or once the
+//! script has run, and quits; `--debug-view` starts in the debug view; `--spawn` puts
+//! the player on tile X,Y; `--script` plays `X,Y,J:TICKS;...` input steps instead of
+//! the keyboard; `--resolution` is one of the game's screen sizes, default 1366x768).
+//! As in the game the frame is shown full screen, scaled; `--windowed` (implied by
+//! `--screenshot`) shows it 1:1 in a window of the resolution.
 //!
 //! `rainworld-rs --mcp [--window]` serves the MCP tools of [`mcp`] on stdin/stdout
 //! instead (headless; `--window` also shows the driven scene). The game directory comes
@@ -34,6 +37,7 @@ use std::process::ExitCode;
 use std::sync::Arc;
 
 use rw_assets::{AssetCache, Room, StreamingAssets};
+use rw_render::Resolution;
 
 use crate::input::Script;
 
@@ -58,11 +62,16 @@ struct Args {
     mcp: bool,
     /// With `mcp`: also show the scene in a window.
     window: bool,
+    /// The game's screen size.
+    resolution: Resolution,
+    /// A window instead of full screen.
+    windowed: bool,
 }
 
 impl Args {
     /// Parses `[ROOM] [--seed N] [--screenshot FILE] [--debug-view] [--spawn X,Y]
-    /// [--script STEPS]` (program name already removed).
+    /// [--script STEPS] [--resolution WxH] [--windowed]` or `--mcp [--window]` (program
+    /// name already removed).
     fn parse<I>(args: I) -> Result<Self, String>
     where
         I: IntoIterator,
@@ -77,6 +86,8 @@ impl Args {
         let mut script = None;
         let mut mcp = false;
         let mut window = false;
+        let mut resolution = Resolution::DEFAULT;
+        let mut windowed = false;
         while let Some(arg) = args.next() {
             match arg.as_str() {
                 "--seed" => {
@@ -92,6 +103,11 @@ impl Args {
                 "--debug-view" => debug_view = true,
                 "--mcp" => mcp = true,
                 "--window" => window = true,
+                "--windowed" => windowed = true,
+                "--resolution" => {
+                    let value = args.next().ok_or("--resolution needs WxH")?;
+                    resolution = value.parse()?;
+                }
                 "--spawn" => {
                     let value = args.next().ok_or("--spawn needs X,Y")?;
                     let (x, y) = value
@@ -107,7 +123,8 @@ impl Args {
                 "-h" | "--help" => {
                     return Err(
                         "usage: rainworld-rs [ROOM] [--seed N] [--screenshot FILE.ppm] \
-                                [--debug-view] [--spawn X,Y] [--script X,Y,J:TICKS;...]\n       \
+                                [--debug-view] [--spawn X,Y] [--script X,Y,J:TICKS;...] \
+                                [--resolution WxH] [--windowed]\n       \
                                 rainworld-rs --mcp [--window]"
                             .to_owned(),
                     );
@@ -127,6 +144,8 @@ impl Args {
             script,
             mcp,
             window,
+            resolution,
+            windowed,
         })
     }
 }
@@ -173,7 +192,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         room.height(),
         args.seed
     );
-    let visuals = visuals::Visuals::load(&assets, &cache, &room)
+    let visuals = visuals::Visuals::load(&assets, &cache, &room, args.resolution.size_f32())
         .inspect_err(|e| log::warn!("no level graphic ({e}); showing the debug view"))
         .ok();
     let sprites = sprites::SpriteAssets::load(&cache)
@@ -181,9 +200,12 @@ fn run() -> Result<(), Box<dyn Error>> {
         .ok()
         .map(Arc::new);
     let options = app::Options {
+        // A screenshot run never covers the screen.
+        windowed: args.windowed || args.screenshot.is_some(),
         screenshot: args.screenshot,
         debug_view: args.debug_view,
         script: args.script,
+        resolution: args.resolution,
     };
     let game = game::Game::new(room, args.seed, args.spawn);
     app::run(scene::Scene::new(game, visuals), sprites, options)
@@ -225,6 +247,8 @@ mod tests {
                 script: None,
                 mcp: false,
                 window: false,
+                resolution: Resolution::DEFAULT,
+                windowed: false,
             })
         );
     }
@@ -240,9 +264,20 @@ mod tests {
             script: None,
             mcp: false,
             window: false,
+            resolution: Resolution::DEFAULT,
+            windowed: false,
         });
         assert_eq!(Args::parse(["SU_A22", "--seed", "7"]), want);
         assert_eq!(Args::parse(["--seed", "7", "SU_A22"]), want);
+    }
+
+    #[test]
+    fn resolution_and_windowed() {
+        let args = Args::parse(["--resolution", "1024x768", "--windowed"]).expect("parses");
+        assert_eq!(args.resolution, Resolution::new(1024, 768));
+        assert!(args.windowed);
+        assert!(Args::parse(["--resolution", "1920x1080"]).is_err());
+        assert!(Args::parse(["--resolution"]).is_err());
     }
 
     #[test]

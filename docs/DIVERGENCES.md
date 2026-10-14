@@ -173,9 +173,18 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   CPU; GPUs decode DXT1 with their own rounding, so texels may differ by 1/255 from what
   the game's GPU samples (the export's red channel is within 1/255 of a rounded 2:1-mix
   decode of the stored blocks). Only mip 0 is kept (the shader always magnifies it).
-- **Resolution.** The game renders a 1366x768 screen and the window shows it scaled;
-  the port draws straight into the window at its resolution (level pixels sampled
-  nearest, sprites at full resolution), letterboxed to the 1366x768 aspect.
+- **Window and scaling.** As in the game, the whole frame (level, sprites, debug
+  overlays) is drawn without antialiasing into an offscreen frame of the `ScreenSize`
+  option (`--resolution`, the game's five choices, 1366x768 by default), shown full
+  screen by default, scaled to the largest fitting rectangle of its aspect (fractional
+  scale) with black bars, or with `--windowed` 1:1 in a non-resizable window of that
+  size (`rainworld-re/notes/room-rendering.md` section 10). Differences: the filter of
+  the scaled case is Unity-internal and not in the game's code; the port assumes
+  bilinear. `--screenshot` runs and the MCP mirror window are always windowed (MCP
+  screenshots are headless and return the frame itself, at a size the caller can
+  change), and a window the window manager sizes differently from the resolution is
+  letterboxed the same way. The Steam Deck case (1229x768 full screen as a 1280x800
+  window) is not ported.
 - **Camera switch timing.** The game loads the next camera's image asynchronously and
   cuts when it has loaded (usually the next frame); the port decodes every camera's
   image when the room loads and cuts in the same tick.
@@ -198,7 +207,7 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
 not ported yet (rain cycle, room effects, objects) or are invisible at this stage.
 
 **Affects.** Exact pixel colours of cloud shadows (noise rounding) and rooms with the
-listed effects; window scaling.
+listed effects; the softness of the frame when scaled full screen.
 
 ## D8: Slugcat graphics (`rw_graphics::PlayerGraphics`)
 
@@ -236,11 +245,11 @@ the generic Default/Stand poses, as in the game).
   (`SlugcatName` has White, Yellow and Red).
 - **Drawing (`rw_render` sprites).** `Futile_White` meshes (the tail) sample the centre
   of `RainWorld_White` in the `rainWorld` atlas instead of the runtime 16x16 white
-  texture (both opaque white, so the colour is the same). The sprites go through the
-  renderer's 4x MSAA like the debug shapes, so quad and tail edges are antialiased
-  where the game's 1366x768 screen has hard pixel edges; texels stay point sampled.
-  The debug view (V) draws the sprites over the debug tiles, with the stage at the room
-  origin.
+  texture (both opaque white, so the colour is the same). Sprites are drawn without
+  antialiasing into the game-resolution frame (D7), so edges are hard pixel edges as in
+  the game. The debug view (V) is not the game's: it shows the physical body (chunk
+  circles with their radii, connection rods, contact marks, stun/dead styling) instead
+  of the sprites, whose state is still updated every frame.
 - **Legs on curved terrain.** The grounded legs ignore `terrainCurveNormal` (not
   ported; it is only set by `TerrainCurve` objects, which the port has none of).
 

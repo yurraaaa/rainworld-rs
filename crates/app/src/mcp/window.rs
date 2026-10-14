@@ -4,9 +4,9 @@
 use std::error::Error;
 use std::sync::{Arc, Mutex};
 
-use rw_render::{Camera, Renderer, RoomCamera, RoomLayers, WgpuRenderer};
+use rw_render::{Camera, Renderer, Resolution, RoomLayers, WgpuRenderer};
 use winit::application::ApplicationHandler;
-use winit::dpi::LogicalSize;
+use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::PhysicalKey;
@@ -61,13 +61,16 @@ impl Mirror {
         &self,
         event_loop: &ActiveEventLoop,
     ) -> Result<(Arc<Window>, SceneRenderer<WgpuRenderer>), Box<dyn Error>> {
-        let [w, h] = RoomCamera::SCREEN_SIZE;
+        // Windowed, so a driven session never covers the screen.
+        let resolution = Resolution::DEFAULT;
         let attrs = Window::default_attributes()
             .with_title("rainworld-rs - MCP")
-            .with_inner_size(LogicalSize::new(w, h));
+            .with_inner_size(PhysicalSize::new(resolution.width, resolution.height))
+            .with_resizable(false);
         let window = Arc::new(event_loop.create_window(attrs)?);
         let size = window.inner_size();
-        let renderer = WgpuRenderer::new(Arc::clone(&window), (size.width, size.height))?;
+        let renderer =
+            WgpuRenderer::new(Arc::clone(&window), (size.width, size.height), resolution)?;
         let sprites = self.session.lock().map_err(|e| e.to_string())?.sprites();
         Ok((window, SceneRenderer::new(renderer, sprites)))
     }
