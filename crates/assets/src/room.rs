@@ -2,12 +2,15 @@
 //!
 //! Format: `rainworld-re/notes/room-format.md`. Only lines 0, 1, 3 and 11 are read;
 //! the light angle, placed items, baked AI data and the `_settings.txt` file are skipped.
+//! The shortcut map ([`crate::ShortcutMap`]) is derived from the grid on parse.
 
 use std::error::Error;
 use std::fmt;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+
+use crate::ShortcutMap;
 
 /// Side of a square tile in room pixels.
 pub const TILE_SIZE: f32 = 20.0;
@@ -265,6 +268,7 @@ pub struct Room {
     cameras: Vec<[f32; 2]>,
     /// Column-major as in the file: x outer, y from the top row down.
     tiles: Box<[Tile]>,
+    pub(crate) shortcut_map: ShortcutMap,
 }
 
 impl Room {
@@ -333,7 +337,7 @@ impl Room {
             .map(|(i, cell)| Tile::parse(i, cell))
             .collect::<Result<Box<[Tile]>, RoomError>>()?;
 
-        Ok(Self {
+        let mut room = Self {
             name,
             width,
             height,
@@ -341,7 +345,10 @@ impl Room {
             water_in_front,
             cameras,
             tiles,
-        })
+            shortcut_map: ShortcutMap::default(),
+        };
+        room.shortcut_map = ShortcutMap::new(&room);
+        Ok(room)
     }
 
     /// Reads and parses a geometry file. Never writes.

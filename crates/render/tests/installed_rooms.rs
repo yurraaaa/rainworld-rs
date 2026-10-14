@@ -5,7 +5,7 @@
 use std::path::PathBuf;
 
 use rw_assets::{Room, Shortcut};
-use rw_render::{RoomDebugGeometry, RoomShape, ShortcutPaths, WaterSurface};
+use rw_render::{RoomDebugGeometry, RoomShape, WaterSurface};
 
 const DEFAULT_RW_DIR: &str = "/home/yura/.local/share/Steam/steamapps/common/Rain World";
 
@@ -23,10 +23,19 @@ fn load(name: &str) -> Option<Room> {
 /// Shapes of one kind from [`RoomDebugGeometry::debug_shapes`].
 trait ShapeQuery {
     fn links(&self) -> Vec<((i32, i32), (i32, i32))>;
+    fn shortcut_paths(&self) -> Vec<Vec<(i32, i32)>>;
     fn entrances(&self) -> Vec<((i32, i32), (i32, i32))>;
 }
 
 impl ShapeQuery for Room {
+    fn shortcut_paths(&self) -> Vec<Vec<(i32, i32)>> {
+        self.shortcut_map()
+            .shortcuts()
+            .iter()
+            .map(|s| s.path.clone())
+            .collect()
+    }
+
     fn links(&self) -> Vec<((i32, i32), (i32, i32))> {
         self.debug_shapes()
             .into_iter()
@@ -72,7 +81,7 @@ fn smallroom_tubes() {
     let paths = room.shortcut_paths();
     assert_eq!(paths.len(), 28);
     // Entrance (12,26), open upwards, winds to the entrance at (8,23).
-    assert_eq!(room.hole_direction(12, 26), (0, 1));
+    assert_eq!(room.shortcut_hole_direction(12, 26), (0, 1));
     assert!(paths.contains(&vec![
         (12, 26),
         (12, 25),
@@ -87,11 +96,11 @@ fn smallroom_tubes() {
     let straight: Vec<(i32, i32)> = (8..=14).rev().map(|x| (x, 18)).collect();
     assert!(paths.contains(&straight));
     assert!(paths.contains(&straight.iter().rev().copied().collect()));
-    assert_eq!(room.hole_direction(14, 18), (1, 0));
-    assert_eq!(room.hole_direction(8, 18), (-1, 0));
+    assert_eq!(room.shortcut_hole_direction(14, 18), (1, 0));
+    assert_eq!(room.shortcut_hole_direction(8, 18), (-1, 0));
     // Into the den at (14,25); entrances above slopes open downwards.
     assert!(paths.contains(&vec![(14, 26), (14, 25)]));
-    assert_eq!(room.hole_direction(27, 26), (0, -1));
+    assert_eq!(room.shortcut_hole_direction(27, 26), (0, -1));
     // Each step is drawn once and joins neighbouring tiles.
     let links = room.links();
     for (a, b) in &links {

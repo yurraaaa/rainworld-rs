@@ -22,25 +22,23 @@ distributions. An injectable, seedable generator makes tests deterministic.
 **Affects.** Exact spawn tiles and the initial 1 px chunk jitter only. Physics after
 placement is deterministic and does not use randomness.
 
-## D2: Spawning in rooms without shortcuts, shelters, and the shortcut map
+## D2: Spawning in rooms without shortcuts and in shelters
 
 **What.**
 - The game's first spawn phase throws (`shortcuts[0]` on an empty array) in a room with
   no shortcuts. The port skips that phase and goes on to the fallbacks.
 - The shelter branches of `DetermineSafeSpawnTile` are not ported, because room files do
   not say whether a room is a shelter.
-- Which shortcut leads to which node comes from the game's `ShortcutMapper`, which has
-  not been decompiled. The port derives it from tile flags: room exits, then dens,
-  then region transports, each scanned top row first and left to right (as in
-  `room-format.md` section 5). It traces each shortcut from its entrance along flagged
-  tiles, and orders shortcuts by entrance in the same scan order. The tracing and the
-  shortcut order are INFERRED.
+- The game draws the node from the abstract room's leading Exit and Den nodes; the port
+  counts the room-exit and den tiles of the shortcut map instead (INFERRED to be the
+  same count; the abstract node list comes from world data the port does not load).
+
+The shortcut map itself (`rw_assets::ShortcutMap`) is the game's `ShortcutMapper`
+(node order, shortcut order, tube walk, types), no longer inferred.
 
 **Why.** The game's behaviour is a crash or depends on world data the room file lacks.
-The shortcut mapping is a stand-in until `ShortcutMapper` is read.
 
-**Affects.** Spawn tiles in rooms without shortcuts, in shelters, and in rooms where
-several shortcuts lead to exit/den nodes in a different order than the game's.
+**Affects.** Spawn tiles in rooms without shortcuts and in shelters.
 
 ## D3: Player movement (stage one)
 
@@ -66,11 +64,6 @@ several shortcuts lead to exit/den nodes in a different order than the game's.
   port uses `0.5 * flipDirection` (deterministic, the mean magnitude).
 - **Initial facing.** The game picks `flipDirection` = +/-1 at random in the
   constructor; `Player::new` faces right.
-- **`DirectIntoHoles` and shortcut entrances.** The game steers into a hole whose far
-  side is a shortcut entrance only for Normal or RoomExit shortcuts. The port classifies
-  the entrance with the inferred tile-flag tracing of D2: a tube ending in a room exit,
-  or in another entrance or a dead end (indistinguishable from flags), counts as
-  drawing the player in; dens and transports do not.
 - **Input.** `Input` carries x, y and jump only; `downDiagonal` is derived digitally
   (down plus left/right gives that side, the Remix rule). No analogue stick, map
   button stand-still, throw / pick-up / special.
@@ -78,7 +71,7 @@ several shortcuts lead to exit/den nodes in a different order than the game's.
 **Why.** Each is either outside the stage-one scope or depends on randomness (D1).
 
 **Affects.** Movement in corridors, on vertical poles, belly slides, skids, the rare
-stacked-head case, initial facing, and steering into some shortcut holes.
+stacked-head case and initial facing.
 
 ## D4: Falls, stun and death
 
@@ -86,15 +79,16 @@ Body chunks report flat-tile hits (`TerrainImpact`), and `Player` ports the Surv
 fall damage, stun and death (`rainworld-re/notes/falls.md`) with Remix off: death on a
 floor first contact above 60, stun `LerpMap(speed, 35, 60, 40, 140, 2.5)` above 35,
 neutral input and no `MovementUpdate` while stunned or dead, surface friction 0.3 while
-not conscious, and death below the room bottom (-500, -250 in `WallClimb`) unless the
-room's water catches the body.
+not conscious, and death plus destruction below the room bottom (-500, -250 in
+`WallClimb`) unless the room's water catches the body. As in the game, a destroyed body
+is gone (`Player::is_destroyed`; the app drops it and draws nothing until R).
 
 **What differs:**
 - **Death freezes the body** (CLAUDE.md decision). The game keeps simulating a dead
-  player as plain physics and shows the death screen (story) or ends the round (arena);
-  a body that fell out of the room is also destroyed. `rw_sim::Player` keeps simulating
-  it and keeps the body after falling out; the app (`Game::tick`) stops ticking a dead
-  player and draws it where it stopped until R respawns a new one.
+  player as plain physics and shows the death screen (story) or ends the round (arena).
+  `rw_sim::Player` keeps simulating it; the app (`Game::tick`) stops ticking a dead
+  player and draws it where it stopped until R respawns a new one. R also respawns
+  after the body fell out of the room (the game has no respawn).
 - **Landing roll never happens.** The first branch of `Player.TerrainImpact` (a
   down-diagonal landing becomes a `Roll` and skips fall damage) is a stub that never
   rolls (`Player::lands_in_roll`), so a held down-diagonal does not save the player.
@@ -115,20 +109,45 @@ room's water catches the body.
 - **Water.** Only the out-of-room exemption reads the water level (no water physics);
   inverted water (DLC) is not modelled.
 
-**Why.** The freeze is a design decision for the single-room player-controller phase;
+**Why.** The freeze and the respawn are design decisions for the single-room
+player-controller phase;
 the roll belongs to the advanced-moves stage; the rest is out of the base-game scope or
 randomness (D1).
 
 **Affects.** What happens after death, hard landings with a held down-diagonal, and
 Remix / More Slugcats play.
 
+## D5: Shortcuts
+
+`rw_assets::ShortcutMap` is the game's `ShortcutMapper`; `Player` ports entering by
+pressing into a hole, the pull-in, the vessel (`rw_sim::ShortcutHandler`, one tile per
+three ticks) and the spit-out at the far entrance (`rainworld-re/notes/shortcuts.md`),
+base game with Remix off.
+
+**What differs:**
+- **Room-exit entrances can't be entered** (CLAUDE.md decision; there are no other
+  rooms). The game lets the player enter a RoomExit shortcut and takes it to the
+  connected room (or, in an arena, ends the player's round). `DirectIntoHoles` still
+  steers toward room-exit holes, as in the game.
+- **One vessel, owned by the player.** The game's `ShortcutHandler` keeps a list of
+  vessels for every creature, with Jolly co-op waits and the between-rooms lobby; the
+  port has one player whose vessel lives on `Player`, `wait` is always 0, and the
+  handler is only the three-tick divider.
+- **Not ported:** being pulled in by a carried object (no grasps), `cantBeGrabbedCounter`,
+  shortcut sounds and the entrance blink, MSC tongue release, the arena hooks of
+  `SpitOutOfShortCut`, and Remix falling into a shortcut (D4).
+
+**Why.** The room-exit block is a design decision for the single-room phase; the rest
+is outside the single-player, base-game scope.
+
+**Affects.** Room-exit shortcuts, multiple creatures in tubes, co-op.
+
 ## Not ported yet (not divergences, just absent)
 
 Player (stage one leaves out): landing roll and MMF wall pounce in `TerrainImpact`,
 `LedgeGrab`, `CorridorClimb` / `CorridorTurn` and corridor jumps, roll, belly slide,
 flip, rocket jump, water (`Swimming`, `DeepSwim`, `SurfaceSwim`, submersion lifts),
-zero gravity, grabbing / throwing / eating (`GrabUpdate`), shortcuts (entering,
-`enteringShortCut`), `slowMovementStun` sources, adrenaline, the WALLSTUCK safety
+zero gravity, grabbing / throwing / eating (`GrabUpdate`), `slowMovementStun` sources, adrenaline, the WALLSTUCK safety
 (needs `VisualContact`), `dropGrabTile`, carried-object speed factors, vines, tube worm,
 Jolly co-op, MSC / Watcher class mechanics. Ported because ground classification
 produces them anyway: wall slide and wall jump (`WallClimb`, `canWallJump`, `jumpStun`;

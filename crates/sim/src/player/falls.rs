@@ -21,7 +21,7 @@ const UNSTAND_STUN: i32 = 8;
 
 impl Player {
     /// Whether the player is dead. A dead body is still plain physics in
-    /// [`Player::update`]; the app freezes it.
+    /// [`Player::update`] (the app freezes it) unless it was destroyed.
     #[must_use]
     pub fn is_dead(&self) -> bool {
         self.dead
@@ -78,19 +78,29 @@ impl Player {
         }
     }
 
-    /// The `Creature.Update` steps before physics: stun countdown, then death below
-    /// the room.
+    /// Whether the body fell out of the room and was removed from the game. Nothing
+    /// is left to simulate or draw.
+    #[must_use]
+    pub fn is_destroyed(&self) -> bool {
+        self.destroyed
+    }
+
+    /// The `Creature.Update` steps before physics: stun and shortcut-delay
+    /// countdowns, then death and destruction below the room.
     pub(super) fn creature_update(&mut self, room: &Room) {
         if self.stun > 0 {
             self.stun -= 1;
         }
+        if self.shortcut_delay > 0 {
+            self.shortcut_delay -= 1;
+        }
         if self.fell_out_of_room(room) {
             self.die();
+            self.destroyed = true;
         }
     }
 
     /// Head below the out-of-room limit in a room whose water does not catch it.
-    /// The game also destroys the creature; the port keeps the dead body.
     fn fell_out_of_room(&self, room: &Room) -> bool {
         let head = &self.body.chunks[HEAD];
         let mut limit = -head.restrict_in_room_range + 1.0;

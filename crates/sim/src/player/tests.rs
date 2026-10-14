@@ -5,9 +5,12 @@
 
 use rw_assets::Room;
 
+use rw_assets::ShortcutType;
+
 use super::{Animation, BodyMode, HEAD, HIPS, INPUT_HISTORY, Input, Player};
+use crate::shortcut::ShortcutVessel;
 use crate::tests::{room, room_with_water};
-use crate::{Contact, TerrainImpact, Vec2};
+use crate::{Contact, ShortcutHandler, TerrainImpact, Vec2};
 
 const EPS: f32 = 1e-4;
 const G: f32 = 0.9;
@@ -45,6 +48,11 @@ impl Player {
             self.update(room, input);
         }
     }
+}
+
+fn assert_vec(actual: Vec2, x: f32, y: f32) {
+    assert_close(actual.x, x, "x");
+    assert_close(actual.y, y, "y");
 }
 
 fn assert_close(actual: f32, expected: f32, what: &str) {
@@ -690,4 +698,274 @@ fn landing_above_60_kills() {
     // (-62 - 0.9) * 0.999 = -62.837: y 37.2, through the floor top 40 in one tick.
     p.update(&r, Input::NONE);
     assert!(p.is_dead());
+}
+
+// ---- shortcuts (shortcuts.md) ---------------------------------------------------------
+
+/// A wall at x = 4 with a Normal pipe through it: entrance (3,1) opens left (Air at
+/// (2,1)), tube tile (4,1), entrance (5,1) opens right. Floor top at 20.
+fn pipe_room() -> Room {
+    room(&[
+        "###########",
+        "#...#.....#",
+        "#...#.....#",
+        "#..ExE....#",
+        "###########",
+    ])
+}
+
+impl Player {
+    /// Lying on the floor of `pipe_room` with the head in the entrance (3,1).
+    fn at_pipe_mouth() -> Self {
+        Self::lying_at(Vec2::new(53.0, 28.0))
+    }
+
+    /// Ticks `handler` and the player as the game orders them, `ticks` times.
+    fn run_with_shortcuts(
+        &mut self,
+        room: &Room,
+        handler: &mut ShortcutHandler,
+        input: Input,
+        ticks: usize,
+    ) {
+        for _ in 0..ticks {
+            handler.update(room, self);
+            self.update(room, input);
+        }
+    }
+}
+
+#[test]
+fn entering_needs_input_exactly_into_the_hole() {
+    let r = pipe_room();
+    // (3,1): left (2,1) is Air, so the hole faces left and only right enters.
+    assert_eq!(r.shortcut_hole_direction(3, 1), (-1, 0));
+    for (input, enters) in [
+        (RIGHT, true),
+        (Input::new(-1, 0, false), false),
+        (Input::new(0, 1, false), false),
+        (Input::new(0, -1, false), false),
+        (Input::new(1, 1, false), false),
+        (Input::new(1, -1, false), false),
+        (Input::NONE, false),
+    ] {
+        let mut p = Player::at_pipe_mouth();
+        p.update(&r, input);
+        assert_eq!(p.head().pos.tile(), (3, 1));
+        let expected = enters.then_some((3, 1));
+        assert_eq!(p.entering_shortcut(), expected, "{input:?}");
+    }
+}
+
+#[test]
+fn no_entry_during_shortcut_delay() {
+    let r = pipe_room();
+    let mut p = Player::at_pipe_mouth();
+    p.shortcut_delay = 2;
+    // Counted down to 1 before `MovementUpdate`: still blocked.
+    p.update(&r, RIGHT);
+    assert_eq!(p.shortcut_delay(), 1);
+    assert_eq!(p.entering_shortcut(), None);
+    // Down to 0: enters.
+    p.update(&r, RIGHT);
+    assert_eq!(p.entering_shortcut(), Some((3, 1)));
+}
+
+#[test]
+fn no_entry_while_stunned_and_stun_cancels_the_pull() {
+    let r = pipe_room();
+    let mut p = Player::at_pipe_mouth();
+    p.stun(20);
+    p.update(&r, RIGHT);
+    assert_eq!(p.entering_shortcut(), None);
+
+    // Entering with the hips far away: a stun of 10 or more cancels after the pull.
+    let mut p = Player::at_pipe_mouth();
+    p.entering_shortcut = Some((3, 1));
+    p.stun = 11;
+    p.update(&r, Input::NONE);
+    assert_eq!(p.entering_shortcut(), None);
+    assert!(!p.in_shortcut());
+}
+
+#[test]
+fn room_exits_dens_and_dead_ends_cannot_be_entered() {
+    // Each entrance at (1,1) opens right (Air at (2,1)); left is the tube end.
+    for (rows, kind) in [
+        (["#####", "#...#", "XE..#", "#####"], ShortcutType::RoomExit),
+        (
+            ["#####", "#...#", "DE..#", "#####"],
+            ShortcutType::CreatureHole,
+        ),
+        (["#####", "#...#", "#E..#", "#####"], ShortcutType::DeadEnd),
+    ] {
+        let r = room(&rows);
+        assert_eq!(r.shortcut_map().type_at((1, 1)), kind);
+        // Head in (1,1), pressing left into the hole.
+        let mut p = Player::lying_at(Vec2::new(47.0, 28.0));
+        p.body.chunks[HEAD].reset_at(Vec2::new(30.0, 29.0));
+        p.update(&r, Input::new(-1, 0, false));
+        assert_eq!(p.head().pos.tile(), (1, 1));
+        assert_eq!(p.entering_shortcut(), None, "{kind:?}");
+    }
+}
+
+#[test]
+fn pull_in_moves_4_5_px_per_tick_and_snaps_within_10() {
+    let r = pipe_room();
+    let mut p = Player::new();
+    // Target: middle of (3,1) (70, 30) plus 5 px into the tube (hole (-1,0)): (75, 30).
+    p.body.chunks[HEAD].reset_at(Vec2::new(65.0, 30.0));
+    p.body.chunks[HIPS].reset_at(Vec2::new(48.0, 30.0));
+    p.body.chunks[HEAD].vel = Vec2::new(1.0, -2.0);
+    p.entering_shortcut = Some((3, 1));
+    // Tick 1: head at distance 10 (not < 10) moves to 69.5; hips 27 -> 22.5.
+    p.update(&r, Input::NONE);
+    assert_vec(p.head().pos, 69.5, 30.0);
+    assert_vec(p.head().last_pos, 65.0, 30.0);
+    assert_vec(p.head().vel, 0.06, -0.12);
+    assert_vec(p.hips().pos, 52.5, 30.0);
+    // Tick 2: head (5.5 away) snaps to the target; hips 22.5 -> 18.
+    p.update(&r, Input::NONE);
+    assert_vec(p.head().pos, 75.0, 30.0);
+    assert_vec(p.head().last_pos, 75.0, 30.0);
+    assert_vec(p.hips().pos, 57.0, 30.0);
+    // Ticks 3, 4: hips 18 -> 13.5 -> 9.
+    p.run(&r, Input::NONE, 2);
+    assert_vec(p.hips().pos, 66.0, 30.0);
+    assert!(!p.in_shortcut());
+    assert_eq!(p.entering_shortcut(), Some((3, 1)));
+    // Tick 5: hips within 10 snaps; nothing moved, so the player goes in.
+    p.update(&r, Input::NONE);
+    assert!(p.in_shortcut());
+    assert_eq!(p.entering_shortcut(), None);
+    assert_eq!(p.shortcut_vessel_tile(), Some((3, 1)));
+}
+
+#[test]
+fn vessel_moves_one_tile_every_third_tick() {
+    // Pipe (3,1) -> (4,1) .. (6,1) -> (7,1): 4 steps.
+    let r = room(&[
+        "############",
+        "#...###....#",
+        "#..ExxxE...#",
+        "############",
+    ]);
+    let mut p = Player::new();
+    p.vessel = Some(ShortcutVessel::new((3, 1)));
+    let mut handler = ShortcutHandler::new();
+    let mut tiles = Vec::new();
+    for _ in 0..12 {
+        handler.update(&r, &mut p);
+        tiles.push(p.shortcut_vessel_tile());
+    }
+    let expected: Vec<_> = [3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6]
+        .map(|x| Some((x, 1)))
+        .into_iter()
+        .chain([None])
+        .collect();
+    assert_eq!(tiles, expected);
+    // Out at (7,1), hole (1,0): head 2.5 px out of the middle (150, 30), hips 2.5 in.
+    assert_vec(p.head().pos, 152.5, 30.0);
+    assert_vec(p.hips().pos, 147.5, 30.0);
+}
+
+#[test]
+fn player_is_not_updated_inside_a_shortcut() {
+    let r = pipe_room();
+    let mut p = Player::new();
+    p.vessel = Some(ShortcutVessel::new((3, 1)));
+    let before = p.clone();
+    p.update(&r, RIGHT);
+    assert_eq!(p, before);
+}
+
+#[test]
+fn spit_out_keeps_animation_and_sets_delay_and_velocity() {
+    let r = pipe_room();
+    let mut p = Player::upright_at(Vec2::new(53.0, 28.0));
+    p.animation = Animation::StandUp;
+    p.body_mode = BodyMode::Stand;
+    p.vessel = Some(ShortcutVessel::new((4, 1)));
+    p.vessel.as_mut().expect("vessel").last_pos = (3, 1);
+    let mut handler = ShortcutHandler::new();
+    handler.update(&r, &mut p);
+    handler.update(&r, &mut p);
+    handler.update(&r, &mut p);
+    // Out of (5,1), hole (1,0), middle (110, 30).
+    assert!(!p.in_shortcut());
+    assert_vec(p.head().pos, 112.5, 30.0);
+    assert_vec(p.hips().pos, 107.5, 30.0);
+    for c in p.chunks() {
+        assert_vec(c.vel, 2.0, 0.0);
+        assert_eq!(c.last_pos, c.pos);
+    }
+    assert_eq!(p.shortcut_delay(), 20);
+    assert_eq!(p.animation(), Animation::StandUp);
+    assert_eq!(p.body_mode(), BodyMode::Stand);
+    assert!(p.is_standing());
+}
+
+#[test]
+fn region_transport_without_destination_walks_back_out() {
+    // (3,1) opens left; tube (4,1) to the region transport (5,1).
+    let r = room(&["######", "#....#", "#..ExT", "######"]);
+    assert_eq!(
+        r.shortcut_map().type_at((3, 1)),
+        ShortcutType::RegionTransportation
+    );
+    let mut p = Player::new();
+    p.vessel = Some(ShortcutVessel::new((3, 1)));
+    let mut handler = ShortcutHandler::new();
+    let mut tiles = Vec::new();
+    for _ in 0..5 {
+        for _ in 0..3 {
+            handler.update(&r, &mut p);
+        }
+        tiles.push(p.shortcut_vessel_tile());
+    }
+    // In to the node, one stalled update there, then back (nothing is skipped when
+    // the vessel stood still) and out of the start entrance.
+    assert_eq!(
+        tiles,
+        vec![Some((4, 1)), Some((5, 1)), Some((5, 1)), Some((4, 1)), None]
+    );
+    // Hole (-1,0) at (3,1), middle (70, 30): head 2.5 px to the left.
+    assert_vec(p.head().pos, 67.5, 30.0);
+    assert_vec(p.head().vel, -2.0, 0.0);
+}
+
+#[test]
+fn walking_into_a_pipe_comes_out_the_other_side() {
+    let r = pipe_room();
+    let mut p = Player::at_pipe_mouth();
+    let mut handler = ShortcutHandler::new();
+    let mut ticks = 0;
+    while !p.in_shortcut() {
+        p.run_with_shortcuts(&r, &mut handler, RIGHT, 1);
+        ticks += 1;
+        assert!(ticks < 40, "never entered");
+    }
+    while p.in_shortcut() {
+        p.run_with_shortcuts(&r, &mut handler, RIGHT, 1);
+        ticks += 1;
+        assert!(ticks < 80, "never came out");
+    }
+    assert!(p.head().pos.x > 100.0, "{:?}", p.head());
+    assert!(p.shortcut_delay() > 0);
+}
+
+#[test]
+fn falling_out_of_the_room_destroys_the_body() {
+    let r = open_room(20, 10, -1);
+    let mut p = Player::lying_at(Vec2::new(100.0, -480.0));
+    p.fall_to_death(&r, -500.0);
+    assert!(p.is_destroyed());
+    let before = p.clone();
+    p.update(&r, RIGHT);
+    assert_eq!(p, before);
+    // Caught by water: never destroyed.
+    let mut p = Player::lying_at(Vec2::new(100.0, -480.0));
+    p.run(&open_room(20, 10, 3), Input::NONE, 300);
+    assert!(!p.is_destroyed());
 }

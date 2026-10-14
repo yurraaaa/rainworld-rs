@@ -3,7 +3,7 @@
 //! Behaviour: `rainworld-re/notes/slugcat-movement.md` (tick order, input, body modes,
 //! jumps), `horizontal-beams.md` and `slope-collision.md` section 5. Stats are the
 //! Survivor's (every `SlugcatStats` factor 1, no adrenaline, never exhausted). Fall
-//! damage, stun and death: `falls.md`.
+//! damage, stun and death: `falls.md`. Shortcuts: `shortcuts.md`.
 //! What is not ported is listed in `docs/DIVERGENCES.md`.
 
 mod animation;
@@ -12,6 +12,7 @@ mod falls;
 mod input;
 mod jump;
 mod movement;
+mod shortcut;
 #[cfg(test)]
 mod tests;
 
@@ -21,6 +22,7 @@ use rw_assets::{Room, Terrain};
 pub use input::{INPUT_HISTORY, Input};
 
 use crate::room_ext::RoomExt;
+use crate::shortcut::ShortcutVessel;
 use crate::{BodyChunk, PhysicalObject, Vec2, determine_safe_spawn_tile, place_in_room};
 
 /// Index of the head chunk (`bodyChunks[0]`, `mainBodyChunk`).
@@ -99,6 +101,17 @@ pub struct Player {
     /// Ticks of stun left (`Creature.stun`).
     stun: i32,
     dead: bool,
+    /// Fell out of the room: removed from the game (`Destroy`).
+    destroyed: bool,
+
+    /// Ticks before a shortcut can be entered (`shortcutDelay`).
+    shortcut_delay: i32,
+    /// Entrance being pulled into (`enteringShortCut`).
+    entering_shortcut: Option<(i32, i32)>,
+    /// Growth of the pull-in snap radius (`shortCutRadAdd`).
+    short_cut_rad_add: f32,
+    /// Set while inside a tube; the body is then out of the room.
+    vessel: Option<ShortcutVessel>,
 
     /// Coyote time: ticks left in which a jump is still allowed.
     can_jump: i32,
@@ -159,6 +172,11 @@ impl Player {
             flip_direction: 1,
             stun: 0,
             dead: false,
+            destroyed: false,
+            shortcut_delay: 0,
+            entering_shortcut: None,
+            short_cut_rad_add: 0.0,
+            vessel: None,
             can_jump: 0,
             want_to_jump: 0,
             jump_boost: 0.0,
@@ -252,11 +270,17 @@ impl Player {
 
     /// One 40 Hz tick (`Player.Update`, the movement-relevant parts in the game's order):
     /// counters and the jump-press buffer, reading `input` (ignored while stunned or
-    /// dead), wall-slide braking, the stun countdown and out-of-room death, physics
-    /// (`PhysicalObject.Update`) with its terrain impacts, resetting `GoThroughFloors`,
-    /// then the movement state machine unless stunned or dead. Impulses chosen this
-    /// tick act in the next tick's physics. A dead body keeps falling as plain physics.
+    /// dead), wall-slide braking, the stun and shortcut-delay countdowns and
+    /// out-of-room destruction, physics (`PhysicalObject.Update`) with its terrain
+    /// impacts or, while entering a shortcut, the pull-in instead, resetting
+    /// `GoThroughFloors`, then the movement state machine unless stunned, dead or
+    /// entering. Impulses chosen this tick act in the next tick's physics. A dead body
+    /// keeps falling as plain physics. Does nothing while inside a shortcut (the body
+    /// is out of the room; [`crate::ShortcutHandler`] moves it) or once destroyed.
     pub fn update(&mut self, room: &Room, input: Input) {
+        if self.destroyed || self.vessel.is_some() {
+            return;
+        }
         self.body.params = crate::slugcat::PARAMS;
         self.body.params.surface_friction = if self.is_conscious() {
             SURFACE_FRICTION
@@ -268,10 +292,19 @@ impl Player {
         self.set_unconscious_modes();
         self.update_after_input(room);
         self.creature_update(room);
-        self.body.update(room);
-        self.deliver_terrain_impacts();
+        if self.destroyed {
+            return;
+        }
+        if let Some(entrance) = self.entering_shortcut {
+            self.pull_into_shortcut(room, entrance);
+        } else {
+            self.short_cut_rad_add = shortcut::RAD_ADD_RESET;
+            self.body.update(room);
+            self.deliver_terrain_impacts();
+        }
         self.body.set_go_through_floors(false);
-        if self.stun < 1 && !self.dead {
+        if self.stun < 1 && !self.dead && self.entering_shortcut.is_none() && self.vessel.is_none()
+        {
             self.movement_update(room);
         }
     }

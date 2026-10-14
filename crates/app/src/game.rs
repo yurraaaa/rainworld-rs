@@ -1,4 +1,5 @@
-//! Simulation state owned by the app: the room, the player and the spawn RNG.
+//! Simulation state owned by the app: the room, the player, the shortcut divider and the
+//! spawn RNG.
 //!
 //! This is the only place the app touches the simulation.
 
@@ -6,12 +7,14 @@ use rand::SeedableRng;
 use rand::rngs::StdRng;
 use rw_assets::Room;
 use rw_render::BodyStatus;
-use rw_sim::{Input, PhysicalObject, Player};
+use rw_sim::{Input, PhysicalObject, Player, ShortcutHandler};
 
-/// A room with one player in it.
+/// A room with (at most) one player in it.
 pub struct Game {
     room: Room,
-    player: Player,
+    /// `None` once the body fell out of the room and was destroyed.
+    player: Option<Player>,
+    shortcuts: ShortcutHandler,
     rng: StdRng,
     tick: u64,
 }
@@ -25,7 +28,8 @@ impl Game {
         log::info!("spawned player");
         Self {
             room,
-            player,
+            player: Some(player),
+            shortcuts: ShortcutHandler::new(),
             rng,
             tick: 0,
         }
@@ -34,20 +38,33 @@ impl Game {
     /// Replaces the player with a fresh one at a new spawn tile (continuing the seeded
     /// sequence).
     pub fn respawn(&mut self) {
-        self.player = Player::spawn(&self.room, &mut self.rng);
+        self.player = Some(Player::spawn(&self.room, &mut self.rng));
         log::info!("respawned player");
     }
 
-    /// One 40 Hz simulation tick. A dead player is frozen until [`Game::respawn`]
+    /// One 40 Hz simulation tick: shortcut vessels, then the player, as the game orders
+    /// them. A dead player is frozen until [`Game::respawn`]; a destroyed one is gone
     /// (docs/DIVERGENCES.md D4).
     pub fn tick(&mut self, input: Input) {
-        if !self.player.is_dead() {
-            let was_stunned = self.player.is_stunned();
-            self.player.update(&self.room, input);
-            if self.player.is_dead() {
+        if let Some(player) = &mut self.player
+            && !player.is_dead()
+        {
+            let was_in_shortcut = player.in_shortcut();
+            self.shortcuts.update(&self.room, player);
+            let was_stunned = player.is_stunned();
+            player.update(&self.room, input);
+            if player.is_destroyed() {
+                log::info!("player fell out of the room and was destroyed; R respawns");
+                self.player = None;
+            } else if player.is_dead() {
                 log::info!("player died; R respawns");
-            } else if self.player.is_stunned() && !was_stunned {
-                log::info!("player stunned for {} ticks", self.player.stun_ticks());
+            } else if player.is_stunned() && !was_stunned {
+                log::info!("player stunned for {} ticks", player.stun_ticks());
+            } else if player.in_shortcut() != was_in_shortcut {
+                log::info!(
+                    "player {} a shortcut",
+                    if was_in_shortcut { "left" } else { "entered" }
+                );
             }
         }
         self.tick += 1;
@@ -56,14 +73,14 @@ impl Game {
     /// Whether the player is dead and frozen.
     #[must_use]
     pub fn player_dead(&self) -> bool {
-        self.player.is_dead()
+        self.player.as_ref().is_some_and(Player::is_dead)
     }
 
     #[must_use]
     pub fn status(&self) -> BodyStatus {
         BodyStatus {
-            stunned: self.player.is_stunned(),
-            dead: self.player.is_dead(),
+            stunned: self.player.as_ref().is_some_and(Player::is_stunned),
+            dead: self.player_dead(),
         }
     }
 
@@ -72,9 +89,19 @@ impl Game {
         &self.room
     }
 
+    /// The player's body while it is in the room (not destroyed, not in a shortcut).
     #[must_use]
-    pub fn body(&self) -> &PhysicalObject {
-        &self.player.body
+    pub fn body(&self) -> Option<&PhysicalObject> {
+        self.player
+            .as_ref()
+            .filter(|p| !p.in_shortcut())
+            .map(|p| &p.body)
+    }
+
+    /// The shortcut tile the player is travelling through, if any.
+    #[must_use]
+    pub fn vessel_tile(&self) -> Option<(i32, i32)> {
+        self.player.as_ref().and_then(Player::shortcut_vessel_tile)
     }
 
     /// Ticks simulated since start.
@@ -98,37 +125,55 @@ mod tests {
         Room::parse(&text).expect("test room parses")
     }
 
+    impl Game {
+        fn player(&self) -> &Player {
+            self.player.as_ref().expect("player present")
+        }
+
+        fn head_y(&self) -> f32 {
+            self.body().expect("body in room").chunks[0].pos.y
+        }
+    }
+
     #[test]
     fn player_starts_on_all_fours_and_falls() {
         let mut game = Game::new(open_room(), 1);
-        assert!(!game.player.is_standing());
-        let before = game.body().chunks[0].pos.y;
+        assert!(!game.player().is_standing());
+        let before = game.head_y();
         for _ in 0..5 {
             game.tick(Input::NONE);
         }
         assert_eq!(game.ticks(), 5);
-        assert!(
-            game.body().chunks[0].pos.y < before,
-            "gravity pulls it down"
-        );
+        assert!(game.head_y() < before, "gravity pulls it down");
     }
 
     #[test]
-    fn dead_player_freezes_until_respawn() {
-        // The all-Air room has an open bottom: the player falls out and dies.
+    fn falling_out_removes_the_player_until_respawn() {
+        // The all-Air room has an open bottom: the player falls out and is destroyed.
         let mut game = Game::new(open_room(), 1);
         for _ in 0..400 {
-            if game.player_dead() {
+            if game.player.is_none() {
                 break;
             }
             game.tick(Input::NONE);
         }
-        assert!(game.player_dead());
-        let frozen = game.body().clone();
+        assert!(game.player.is_none());
+        assert!(game.body().is_none());
+        assert!(!game.player_dead());
+        game.tick(Input::NONE);
+        game.respawn();
+        assert!(game.body().is_some());
+    }
+
+    #[test]
+    fn dead_player_freezes_until_respawn() {
+        let mut game = Game::new(open_room(), 1);
+        game.player.as_mut().expect("player").die();
+        let frozen = game.body().expect("body").clone();
         for _ in 0..10 {
             game.tick(Input::NONE);
         }
-        assert_eq!(game.body(), &frozen);
+        assert_eq!(game.body(), Some(&frozen));
         game.respawn();
         assert!(!game.player_dead());
     }
@@ -144,11 +189,11 @@ mod tests {
             });
         }
         game.respawn();
-        assert!(!game.player.is_standing());
+        assert!(!game.player().is_standing());
         assert_eq!(
-            game.player.input_history(),
+            game.player().input_history(),
             &[Input::NONE; rw_sim::INPUT_HISTORY]
         );
-        assert_eq!(game.body().chunks[0].vel, rw_sim::Vec2::ZERO);
+        assert_eq!(game.body().expect("body").chunks[0].vel, rw_sim::Vec2::ZERO);
     }
 }

@@ -6,7 +6,7 @@
 
 use rw_assets::{Room, Shortcut, Slope, TILE_SIZE, Terrain};
 
-use crate::{Mesh, ShortcutPaths};
+use crate::Mesh;
 
 /// What to draw for one tile feature, in tile coordinates (y up).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -38,7 +38,7 @@ pub enum RoomShape {
         x: i32,
         y: i32,
     },
-    /// `hole` is the open side, see [`ShortcutPaths::hole_direction`].
+    /// `hole` is the open side, see [`Room::shortcut_hole_direction`].
     ShortcutEntrance {
         x: i32,
         y: i32,
@@ -136,7 +136,7 @@ impl RoomDebugGeometry for Room {
                     Terrain::ShortcutEntrance => out.push(RoomShape::ShortcutEntrance {
                         x,
                         y,
-                        hole: self.hole_direction(x, y),
+                        hole: self.shortcut_hole_direction(x, y),
                     }),
                 }
                 if tile.vertical_pole() {
@@ -154,10 +154,13 @@ impl RoomDebugGeometry for Room {
                 }
             }
         }
+        // A dead end's path repeats its last tile; that step draws nothing.
         let mut links: Vec<((i32, i32), (i32, i32))> = self
-            .shortcut_paths()
+            .shortcut_map()
+            .shortcuts()
             .iter()
-            .flat_map(|path| path.windows(2).map(|w| (w[0].min(w[1]), w[0].max(w[1]))))
+            .flat_map(|s| s.path.windows(2).map(|w| (w[0].min(w[1]), w[0].max(w[1]))))
+            .filter(|(a, b)| a != b)
             .collect();
         links.sort_unstable();
         links.dedup();

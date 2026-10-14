@@ -14,7 +14,6 @@ mod error;
 mod gpu;
 mod mesh;
 mod room_geometry;
-mod shortcut;
 mod status;
 #[cfg(test)]
 mod test_room;
@@ -26,7 +25,6 @@ pub use error::RenderError;
 pub use gpu::WgpuRenderer;
 pub use mesh::{Color, Mesh, Vertex};
 pub use room_geometry::{RoomDebugGeometry, RoomShape, SlopeGeometry};
-pub use shortcut::ShortcutPaths;
 pub use status::{BodyStatus, BodyStyle};
 pub use water::WaterSurface;
 

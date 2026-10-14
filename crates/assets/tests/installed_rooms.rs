@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-use rw_assets::{Room, Shortcut, Terrain, Tile};
+use rw_assets::{Room, Shortcut, ShortcutType, Terrain, Tile};
 
 const DEFAULT_RW_DIR: &str = "/home/yura/.local/share/Steam/steamapps/common/Rain World";
 
@@ -80,6 +80,138 @@ fn smallroom_matches_reference() {
     assert_eq!(count(&room, |t| t.shortcut != Shortcut::None), 227);
     assert_eq!(count(&room, |t| t.shortcut == Shortcut::RoomExit), 2);
     assert_eq!(count(&room, |t| t.shortcut == Shortcut::CreatureDen), 4);
+}
+
+/// Shortcut maps below were traced by hand on an ASCII dump of the level grids
+/// (`shortcuts.md` section 1 rules), not from this crate.
+#[test]
+fn summit_shortcut_map() {
+    let Some(sa) = streaming_assets() else { return };
+    let room = Room::load_level(&sa, "Summit").expect("summit loads");
+    let map = room.shortcut_map();
+    // Room exits (13,16) and (34,16), each under its entrance; no dens.
+    assert_eq!(map.nodes(), &[(13, 16), (34, 16)]);
+    let table: Vec<_> = map
+        .shortcuts()
+        .iter()
+        .map(|s| (s.start, s.kind, s.dest_node, s.length, s.path.clone()))
+        .collect();
+    assert_eq!(
+        table,
+        vec![
+            (
+                (13, 17),
+                ShortcutType::RoomExit,
+                Some(0),
+                1,
+                vec![(13, 17), (13, 16)]
+            ),
+            (
+                (34, 17),
+                ShortcutType::RoomExit,
+                Some(1),
+                1,
+                vec![(34, 17), (34, 16)]
+            ),
+        ]
+    );
+    // Left and right are Solid, down is the exit tile (Solid): up.
+    assert_eq!(room.shortcut_hole_direction(13, 17), (0, 1));
+    assert_eq!(room.shortcut_hole_direction(34, 17), (0, 1));
+}
+
+#[test]
+fn smallroom_shortcut_map() {
+    let Some(sa) = streaming_assets() else { return };
+    let room = Room::load_level(&sa, "SmallRoom").expect("smallroom loads");
+    let map = room.shortcut_map();
+    // Exits (33,25), (35,25); dens top row first: (14,25), (29,8), (21,2), (26,2).
+    assert_eq!(
+        map.nodes(),
+        &[(33, 25), (35, 25), (14, 25), (29, 8), (21, 2), (26, 2)]
+    );
+    let starts: Vec<_> = map.shortcuts().iter().map(|s| s.start).collect();
+    assert_eq!(
+        starts,
+        vec![
+            (8, 29),
+            (39, 29),
+            (12, 26),
+            (14, 26),
+            (27, 26),
+            (29, 26),
+            (33, 26),
+            (35, 26),
+            (5, 25),
+            (42, 25),
+            (8, 23),
+            (33, 23),
+            (39, 23),
+            (8, 18),
+            (14, 18),
+            (39, 18),
+            (5, 16),
+            (42, 16),
+            (14, 12),
+            (33, 12),
+            (7, 10),
+            (40, 10),
+            (18, 9),
+            (29, 9),
+            (19, 3),
+            (21, 3),
+            (26, 3),
+            (28, 3),
+        ]
+    );
+    // Node shortcuts: one tile down into the node.
+    for (start, kind, node) in [
+        ((14, 26), ShortcutType::CreatureHole, 2),
+        ((29, 9), ShortcutType::CreatureHole, 3),
+        ((21, 3), ShortcutType::CreatureHole, 4),
+        ((26, 3), ShortcutType::CreatureHole, 5),
+        ((33, 26), ShortcutType::RoomExit, 0),
+        ((35, 26), ShortcutType::RoomExit, 1),
+    ] {
+        let s = map.data_at(start).expect("indexed");
+        assert_eq!((s.kind, s.dest_node, s.length), (kind, Some(node), 1));
+        assert_eq!(s.dest, map.nodes()[node]);
+    }
+    // Every other entrance is a Normal pipe whose far end leads back.
+    for s in map.shortcuts() {
+        if s.dest_node.is_none() {
+            assert_eq!(s.kind, ShortcutType::Normal, "{:?}", s.start);
+            assert_eq!(map.data_at(s.dest).expect("indexed").dest, s.start);
+        }
+    }
+    // Straight pipes with an Air path tile at (10,18) and (37,23).
+    let straight: Vec<(i32, i32)> = (8..=14).map(|x| (x, 18)).collect();
+    let s = map.data_at((8, 18)).expect("indexed");
+    assert_eq!(
+        (s.kind, s.length, &s.path),
+        (ShortcutType::Normal, 6, &straight)
+    );
+    assert_eq!(map.data_at((33, 23)).expect("indexed").dest, (39, 23));
+    // The winding pipe from (12,26).
+    let s = map.data_at((12, 26)).expect("indexed");
+    assert_eq!(
+        s.path,
+        vec![
+            (12, 26),
+            (12, 25),
+            (11, 25),
+            (10, 25),
+            (9, 25),
+            (9, 24),
+            (9, 23),
+            (8, 23)
+        ]
+    );
+    // Hole directions: Air to the left / right, a Floor above, Air below.
+    assert_eq!(room.shortcut_hole_direction(8, 18), (-1, 0));
+    assert_eq!(room.shortcut_hole_direction(14, 18), (1, 0));
+    assert_eq!(room.shortcut_hole_direction(12, 26), (0, 1));
+    assert_eq!(room.shortcut_hole_direction(27, 26), (0, -1));
 }
 
 #[test]

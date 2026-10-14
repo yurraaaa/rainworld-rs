@@ -15,7 +15,8 @@ const EPS: f32 = 1e-4;
 
 /// Builds a room from ASCII rows, top row first.
 /// `.` Air, `#` Solid, `/` Slope, `-` Floor, `=` Air with a horizontal beam,
-/// `E` shortcut entrance, `X` Solid room exit.
+/// `E` shortcut entrance, `x` Solid shortcut path, `X` Solid room exit, `D` Solid den,
+/// `T` Solid region transport.
 pub(crate) fn room(rows: &[&str]) -> Room {
     room_with_water(rows, -1)
 }
@@ -34,7 +35,10 @@ pub(crate) fn room_with_water(rows: &[&str], water_level: i32) -> Room {
                 b'-' => "3",
                 b'=' => "0,2",
                 b'E' => "4,3",
+                b'x' => "1,3",
                 b'X' => "1,3,4",
+                b'D' => "1,3,5",
+                b'T' => "1,3,12",
                 other => panic!("unknown cell {}", other as char),
             };
             grid.push_str(cell);

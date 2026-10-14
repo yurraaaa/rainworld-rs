@@ -3,12 +3,11 @@
 //!
 //! Behaviour: `slugcat-movement.md` sections 3-4, `horizontal-beams.md` section 1.
 
-use rw_assets::{Room, Shortcut, Terrain};
+use rw_assets::{Room, ShortcutType, Terrain};
 
 use super::{Animation, BodyMode, HEAD, HIPS, Player, ROOM_GRAVITY};
 use crate::Vec2;
 use crate::room_ext::RoomExt;
-use crate::spawn::trace_shortcut;
 
 /// The four neighbour directions as `Custom.fourDirections`.
 const FOUR_DIRECTIONS: [(f32, f32); 4] = [(-1.0, 0.0), (0.0, -1.0), (1.0, 0.0), (0.0, 1.0)];
@@ -50,6 +49,8 @@ impl Player {
         self.grab_horizontal_beam(room);
         self.apply_run_force(run_dir);
         self.dispatch_jump(room);
+        self.enter_shortcut_by_input(room);
+        // GrabUpdate: not ported.
     }
 
     /// `DirectIntoHoles`: pushing straight into a one-tile gap steers the head into it.
@@ -79,24 +80,17 @@ impl Player {
         if !walls_x && !walls_y {
             return;
         }
+        // Only Normal and RoomExit shortcuts draw the player in.
         let beyond = head + step * 2.0;
         if room.tile_at_pos(beyond).terrain == Terrain::ShortcutEntrance
-            && !Self::shortcut_draws_player(room, beyond.tile())
+            && !matches!(
+                room.shortcut_map().type_at(beyond.tile()),
+                ShortcutType::Normal | ShortcutType::RoomExit
+            )
         {
             return;
         }
         self.body.chunks[HEAD].vel += (target.tile_middle() - head) * 0.1;
-    }
-
-    /// Whether a shortcut entrance is a normal shortcut or room exit (the kinds the
-    /// player is steered into). Derived from the tile flags, as the spawn code does.
-    fn shortcut_draws_player(room: &Room, entrance: (i32, i32)) -> bool {
-        match trace_shortcut(room, entrance) {
-            // Entrance to entrance (a normal shortcut) or a dead end; the flags cannot
-            // tell them apart, so treat it as a normal shortcut.
-            None => true,
-            Some((x, y)) => room.tile(x, y).shortcut == Shortcut::RoomExit,
-        }
     }
 
     /// The anti-slide pin of the hips while standing still (`feetStuckPos`).

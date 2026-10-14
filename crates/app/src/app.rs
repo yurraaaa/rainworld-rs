@@ -161,7 +161,10 @@ impl App {
         ));
         r.draw_room(self.layers);
         let time = (self.game.ticks() as f32 + alpha) / TICK_RATE as f32;
-        r.draw_object(self.game.body(), alpha, self.game.status(), time);
+        if let Some(body) = self.game.body() {
+            r.draw_object(body, alpha, self.game.status(), time);
+        }
+        r.draw_shortcut_vessel(self.game.vessel_tile());
         if let Some(water) = &self.water {
             r.draw_water(water);
         }
