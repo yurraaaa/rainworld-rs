@@ -1,8 +1,8 @@
 //! A single circular body chunk: integration and tile collision (`BodyChunk.Update`).
 //!
 //! Behaviour: `rainworld-re/notes/physics-core.md` sections 3-4 and
-//! `slope-collision.md` section 3. Water, burrowing, terrain curves, `setPos` and the
-//! `TerrainImpact` callback are not ported.
+//! `slope-collision.md` section 3, impact reports `falls.md` section 1. Water,
+//! burrowing, terrain curves and `setPos` are not ported.
 
 use rw_assets::{Room, Slope, TILE_SIZE, Terrain, tile_centre, tile_position};
 
@@ -26,6 +26,24 @@ pub struct PhysicsParams {
     pub bounce: f32,
     /// Tangential friction on terrain contact (0.5 for a conscious player).
     pub surface_friction: f32,
+    /// A flat-tile hit faster than this along its axis is reported (`impactTreshhold`).
+    pub impact_threshold: f32,
+}
+
+/// A flat-tile hit reported to the owner (`PhysicalObject.TerrainImpact`).
+///
+/// Found before the bounce, from `vel` after this tick's gravity and drag. Slopes
+/// never report.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TerrainImpact {
+    /// Index of the chunk in its owner.
+    pub chunk: usize,
+    /// Side the surface is on: floor (0, -1), ceiling (0, 1), walls (-1, 0) / (1, 0).
+    pub direction: Contact,
+    /// Absolute velocity along `direction` (px/tick).
+    pub speed: f32,
+    /// The chunk did not touch that side on the previous tick.
+    pub first_contact: bool,
 }
 
 /// Contact direction on each axis: -1, 0 or +1 (`IntVector2 contactPoint`).
@@ -134,13 +152,21 @@ impl BodyChunk {
     /// Second half of `BodyChunk.Update`: vertical, slope and horizontal collision,
     /// then the room-range clamp. `lowest_last_y` is the lowest `last_pos.y` of all the
     /// owner's chunks (starting from the room's pixel height), read by one-way floors.
-    pub(crate) fn collide(&mut self, room: &Room, p: &PhysicsParams, lowest_last_y: f32) {
+    /// Impacts are appended to `impacts` in the order the sweeps find them.
+    pub(crate) fn collide(
+        &mut self,
+        room: &Room,
+        p: &PhysicsParams,
+        lowest_last_y: f32,
+        index: usize,
+        impacts: &mut Vec<TerrainImpact>,
+    ) {
         if self.collide_with_terrain {
-            self.collide_vertical(room, p, lowest_last_y);
+            self.collide_vertical(room, p, lowest_last_y, index, impacts);
             if self.collide_with_slopes {
                 self.collide_slopes(room, p);
             }
-            self.collide_horizontal(room, p);
+            self.collide_horizontal(room, p, index, impacts);
         } else {
             self.contact = Contact::default();
         }
@@ -156,7 +182,40 @@ impl BodyChunk {
         }
     }
 
-    fn collide_vertical(&mut self, room: &Room, p: &PhysicsParams, lowest_last_y: f32) {
+    /// Reports a hit on the `side` surface if the velocity into it exceeds the threshold.
+    fn report_impact(
+        &self,
+        side: Contact,
+        p: &PhysicsParams,
+        index: usize,
+        impacts: &mut Vec<TerrainImpact>,
+    ) {
+        let speed = f32::from(side.x) * self.vel.x + f32::from(side.y) * self.vel.y;
+        if speed <= p.impact_threshold {
+            return;
+        }
+        let last = self.last_contact;
+        let first_contact = if side.y != 0 {
+            last.y != side.y
+        } else {
+            last.x != side.x
+        };
+        impacts.push(TerrainImpact {
+            chunk: index,
+            direction: side,
+            speed,
+            first_contact,
+        });
+    }
+
+    fn collide_vertical(
+        &mut self,
+        room: &Room,
+        p: &PhysicsParams,
+        lowest_last_y: f32,
+        index: usize,
+        impacts: &mut Vec<TerrainImpact>,
+    ) {
         self.contact.y = 0;
         let r = self.terrain_rad();
         let (_, last_ty) = tile_of(self.last_pos);
@@ -175,6 +234,7 @@ impl BodyChunk {
                         && (last_ty < row || last_solid)
                     {
                         self.pos.y = row as f32 * TILE_SIZE - r;
+                        self.report_impact(Contact { x: 0, y: 1 }, p, index, impacts);
                         self.contact.y = 1;
                         self.vel.y = -self.vel.y.abs() * p.bounce;
                         if self.vel.y.abs() < bounce_threshold(p) {
@@ -199,6 +259,7 @@ impl BodyChunk {
                         && (last_ty > row || last_solid)
                     {
                         self.pos.y = (row as f32 + 1.0) * TILE_SIZE + r;
+                        self.report_impact(Contact { x: 0, y: -1 }, p, index, impacts);
                         self.contact.y = -1;
                         self.vel.y = self.vel.y.abs() * p.bounce;
                         if self.vel.y < p.gravity || self.vel.y < bounce_threshold(p) {
@@ -216,7 +277,13 @@ impl BodyChunk {
         }
     }
 
-    fn collide_horizontal(&mut self, room: &Room, p: &PhysicsParams) {
+    fn collide_horizontal(
+        &mut self,
+        room: &Room,
+        p: &PhysicsParams,
+        index: usize,
+        impacts: &mut Vec<TerrainImpact>,
+    ) {
         self.contact.x = 0;
         let r = self.terrain_rad();
         let (last_tx, _) = tile_of(self.last_pos);
@@ -235,6 +302,7 @@ impl BodyChunk {
                         && (last_tx < col || last_solid)
                     {
                         self.pos.x = col as f32 * TILE_SIZE - r;
+                        self.report_impact(Contact { x: 1, y: 0 }, p, index, impacts);
                         self.contact.x = 1;
                         self.vel.x = -self.vel.x.abs() * p.bounce;
                         if self.vel.x.abs() < bounce_threshold(p) {
@@ -259,6 +327,7 @@ impl BodyChunk {
                         && (last_tx > col || last_solid)
                     {
                         self.pos.x = (col as f32 + 1.0) * TILE_SIZE + r;
+                        self.report_impact(Contact { x: -1, y: 0 }, p, index, impacts);
                         self.contact.x = -1;
                         self.vel.x = self.vel.x.abs() * p.bounce;
                         if self.vel.x.abs() < bounce_threshold(p) {

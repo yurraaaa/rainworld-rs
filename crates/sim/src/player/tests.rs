@@ -6,8 +6,8 @@
 use rw_assets::Room;
 
 use super::{Animation, BodyMode, HEAD, HIPS, INPUT_HISTORY, Input, Player};
-use crate::Vec2;
-use crate::tests::room;
+use crate::tests::{room, room_with_water};
+use crate::{Contact, TerrainImpact, Vec2};
 
 const EPS: f32 = 1e-4;
 const G: f32 = 0.9;
@@ -453,4 +453,241 @@ fn beam_shuffle_settles_at_momentum_balance_speed() {
     assert!((speed - 1.1875).abs() < 0.01, "shuffle speed {speed}");
     assert_eq!(p.body.chunks[HEAD].pos.y, 410.0);
     assert_eq!(p.animation(), Animation::HangFromBeam);
+}
+
+// ---- falls: impacts, stun, death (falls.md) -------------------------------------------
+
+const FLOOR: Contact = Contact { x: 0, y: -1 };
+const CEILING: Contact = Contact { x: 0, y: 1 };
+const WALLS: [Contact; 2] = [Contact { x: 1, y: 0 }, Contact { x: -1, y: 0 }];
+
+fn hit(chunk: usize, direction: Contact, speed: f32, first_contact: bool) -> TerrainImpact {
+    TerrainImpact {
+        chunk,
+        direction,
+        speed,
+        first_contact,
+    }
+}
+
+#[test]
+fn fall_stun_ticks_follow_the_lerp_map() {
+    // int(40 + 100 * ((speed - 35) / 25)^2.5).
+    assert_eq!(Player::fall_stun_ticks(35.0), 40);
+    // t = 0.5: 0.5^2.5 = 0.1767767 => 57.68 => 57.
+    assert_eq!(Player::fall_stun_ticks(47.5), 57);
+    assert_eq!(Player::fall_stun_ticks(60.0), 140);
+    // Clamped above 60 (walls and ceilings).
+    assert_eq!(Player::fall_stun_ticks(80.0), 140);
+}
+
+#[test]
+fn impact_stuns_above_35_on_every_side() {
+    for dir in [FLOOR, CEILING, WALLS[0], WALLS[1]] {
+        let mut p = Player::upright_at(Vec2::new(100.0, 48.0));
+        // Not above 35: nothing.
+        p.terrain_impact(hit(HIPS, dir, 35.0, true));
+        assert_eq!(p.stun_ticks(), 0, "{dir:?}");
+        assert!(p.is_standing() && p.is_conscious());
+        p.terrain_impact(hit(HIPS, dir, 47.5, true));
+        assert_eq!(p.stun_ticks(), 57, "{dir:?}");
+        // Stun > 8 un-stands.
+        assert!(!p.is_standing() && p.is_stunned() && !p.is_conscious());
+        // 40: t = 0.2, 0.2^2.5 = 0.0178885 => 41; the longer stun is kept.
+        p.terrain_impact(hit(HEAD, dir, 40.0, true));
+        assert_eq!(p.stun_ticks(), 57, "{dir:?}");
+        assert!(!p.is_dead());
+    }
+}
+
+#[test]
+fn death_above_60_on_floors_only() {
+    let mut p = Player::new();
+    p.terrain_impact(hit(HIPS, FLOOR, 60.0, true));
+    assert!(!p.is_dead());
+    assert_eq!(p.stun_ticks(), 140);
+
+    let mut p = Player::new();
+    p.terrain_impact(hit(HIPS, FLOOR, 60.5, true));
+    assert!(p.is_dead() && !p.is_conscious());
+    assert_eq!(p.stun_ticks(), 0, "death takes the place of stun");
+
+    for dir in [CEILING, WALLS[0], WALLS[1]] {
+        let mut p = Player::new();
+        p.terrain_impact(hit(HEAD, dir, 75.0, true));
+        assert!(!p.is_dead(), "{dir:?}");
+        assert_eq!(p.stun_ticks(), 140, "{dir:?}");
+    }
+}
+
+#[test]
+fn impact_without_first_contact_does_nothing() {
+    let mut p = Player::new();
+    p.terrain_impact(hit(HIPS, FLOOR, 100.0, false));
+    assert!(!p.is_dead());
+    assert_eq!(p.stun_ticks(), 0);
+}
+
+#[test]
+fn input_is_neutral_on_every_stun_tick() {
+    let r = flat_room();
+    let mut p = Player::lying_at(Vec2::new(100.0, 48.0));
+    p.run(&r, Input::NONE, 20);
+    // Stun 2: checkInput reads nothing while stun != 0 (before the countdown).
+    p.stun(2);
+    p.update(&r, RIGHT);
+    assert_eq!(p.input_history()[0], Input::NONE);
+    assert_eq!(p.stun_ticks(), 1);
+    p.update(&r, RIGHT);
+    assert_eq!(p.input_history()[0], Input::NONE);
+    assert_eq!(p.stun_ticks(), 0);
+    p.update(&r, RIGHT);
+    assert_eq!(p.input_history()[0], RIGHT);
+
+    p.die();
+    p.update(&r, RIGHT);
+    assert_eq!(p.input_history()[0], Input::NONE);
+}
+
+#[test]
+fn movement_is_skipped_until_stun_reaches_zero() {
+    let r = flat_room();
+    let mut p = Player::lying_at(Vec2::new(100.0, 48.0));
+    p.run(&r, Input::NONE, 20);
+    assert_eq!(p.body_mode(), BodyMode::Crawl);
+    p.stun(40);
+    // Ticks 1..39: Stunned mode stays (MovementUpdate would reclassify it).
+    p.run(&r, Input::NONE, 39);
+    assert_eq!(p.stun_ticks(), 1);
+    assert_eq!(p.body_mode(), BodyMode::Stunned);
+    assert_eq!(p.animation(), Animation::None);
+    // Tick 40 counts 1 -> 0 before physics, so MovementUpdate runs again.
+    p.update(&r, Input::NONE);
+    assert_eq!(p.stun_ticks(), 0);
+    assert_eq!(p.body_mode(), BodyMode::Crawl);
+}
+
+#[test]
+fn friction_is_0_3_while_not_conscious() {
+    let r = flat_room();
+    let mut p = Player::lying_at(Vec2::new(100.0, 48.0));
+    p.update(&r, Input::NONE);
+    assert_eq!(p.body.params.surface_friction, 0.5);
+    // Stunned is stun >= 10, read before the countdown.
+    p.stun(10);
+    p.update(&r, Input::NONE);
+    assert_eq!(p.body.params.surface_friction, 0.3);
+    // Stun 9: conscious again, though still without input or movement.
+    p.update(&r, Input::NONE);
+    assert_eq!(p.body.params.surface_friction, 0.5);
+    assert_eq!(p.body_mode(), BodyMode::Stunned);
+
+    let mut p = Player::lying_at(Vec2::new(100.0, 48.0));
+    p.die();
+    p.update(&r, Input::NONE);
+    assert_eq!(p.body.params.surface_friction, 0.3);
+    assert_eq!(p.body_mode(), BodyMode::Dead);
+    assert_eq!(p.animation(), Animation::Dead);
+}
+
+/// An all-Air `w` x `h` room: the tiles below it repeat the Air bottom row.
+fn open_room(w: usize, h: usize, water_level: i32) -> Room {
+    let row = ".".repeat(w);
+    room_with_water(&vec![row.as_str(); h], water_level)
+}
+
+impl Player {
+    /// Steps the player down through the room bottom; checks that it dies exactly on
+    /// the first tick that starts with the head below `limit`. Returns the ticks taken.
+    fn fall_to_death(&mut self, room: &Room, limit: f32) -> usize {
+        for tick in 1..400 {
+            let start_y = self.body.chunks[HEAD].pos.y;
+            self.update(room, Input::NONE);
+            assert_eq!(
+                self.is_dead(),
+                start_y < limit,
+                "tick {tick}: head was at {start_y}"
+            );
+            if self.is_dead() {
+                return tick;
+            }
+        }
+        panic!("never fell out: {:?}", self.head());
+    }
+}
+
+#[test]
+fn falling_below_minus_500_kills() {
+    // Creature.Update: limit max(-1200 + 1, -500) = -500, checked before physics.
+    let mut p = Player::lying_at(Vec2::new(100.0, -480.0));
+    assert!(p.fall_to_death(&open_room(20, 10, -1), -500.0) > 1);
+    // defaultWaterLevel < -10 does not catch the body either.
+    let mut p = Player::lying_at(Vec2::new(100.0, -480.0));
+    p.fall_to_death(&open_room(20, 10, -11), -500.0);
+}
+
+#[test]
+fn wall_climb_raises_the_out_of_room_limit_to_minus_250() {
+    let r = open_room(20, 10, -1);
+    let mut p = Player::lying_at(Vec2::new(100.0, -251.0));
+    p.update(&r, Input::NONE);
+    assert!(!p.is_dead());
+    let mut p = Player::lying_at(Vec2::new(100.0, -251.0));
+    p.body_mode = BodyMode::WallClimb;
+    p.update(&r, Input::NONE);
+    assert!(p.is_dead());
+}
+
+#[test]
+fn water_room_never_kills_below_the_bottom() {
+    let r = open_room(20, 10, 3);
+    let mut p = Player::lying_at(Vec2::new(100.0, -480.0));
+    p.run(&r, Input::NONE, 300);
+    assert!(!p.is_dead());
+    // Held by the room-range clamp instead.
+    assert_eq!(p.head().pos.y, -1200.0);
+}
+
+#[test]
+fn long_drop_in_a_tall_room_stuns() {
+    // 30 x 70 tiles, floor rows 0 and 1 (top 40).
+    let mut rows = vec![".".repeat(30); 68];
+    rows.push("#".repeat(30));
+    rows.push("#".repeat(30));
+    let refs: Vec<&str> = rows.iter().map(String::as_str).collect();
+    let r = room(&refs);
+    let mut p = Player::lying_at(Vec2::new(100.0, 1300.0));
+    // Free fall v <- (v - 0.9) * 0.999, y += v from y 1300: after 52 ticks both
+    // chunks are still above the floor; tick 53 takes them to y 35.41 (below 40 + rad)
+    // at v = -46.434, so both report a floor first contact, head first.
+    p.run(&r, Input::NONE, 52);
+    assert_eq!(p.stun_ticks(), 0);
+    assert!(p.body.impacts().is_empty());
+    p.update(&r, Input::NONE);
+    let impacts = p.body.impacts();
+    assert_eq!(impacts.len(), 2, "{impacts:?}");
+    for (i, imp) in impacts.iter().enumerate() {
+        assert_eq!(
+            (imp.chunk, imp.direction, imp.first_contact),
+            (i, FLOOR, true)
+        );
+        assert!((imp.speed - 46.434).abs() < 1e-2, "{imp:?}");
+    }
+    // t = 11.434 / 25 = 0.45736, t^2.5 = 0.14147 => 54.
+    assert_eq!(p.stun_ticks(), 54);
+    assert!(p.is_stunned() && !p.is_dead());
+    p.update(&r, Input::NONE);
+    assert_eq!(p.body_mode(), BodyMode::Stunned);
+}
+
+#[test]
+fn landing_above_60_kills() {
+    let r = flat_room();
+    let mut p = Player::lying_at(Vec2::new(100.0, 100.0));
+    for c in &mut p.body.chunks {
+        c.vel.y = -62.0;
+    }
+    // (-62 - 0.9) * 0.999 = -62.837: y 37.2, through the floor top 40 in one tick.
+    p.update(&r, Input::NONE);
+    assert!(p.is_dead());
 }

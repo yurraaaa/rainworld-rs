@@ -144,7 +144,12 @@ impl App {
             let input = self.input.take_tick_input();
             self.game.tick(input);
         }
-        let alpha = self.clock.alpha();
+        // A frozen body is drawn where it stopped, not between its last two ticks.
+        let alpha = if self.game.player_dead() {
+            1.0
+        } else {
+            self.clock.alpha()
+        };
 
         let Some(view) = &mut self.view else { return };
         let r = &mut view.renderer;

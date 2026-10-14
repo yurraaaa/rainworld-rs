@@ -19,6 +19,8 @@ impl Player {
             BodyMode::Stand => self.stand_mode(room),
             BodyMode::WallClimb => self.wall_climb_mode(room),
             BodyMode::ClimbingOnBeam => self.climbing_on_beam_mode(room),
+            // Set only while `movement_update` is skipped.
+            BodyMode::Stunned | BodyMode::Dead => {}
         }
     }
 
