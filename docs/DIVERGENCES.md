@@ -44,17 +44,16 @@ The shortcut map itself (`rw_assets::ShortcutMap`) is the game's `ShortcutMapper
 
 `rw_sim::Player` ports base slugcat movement (`rainworld-re/notes/slugcat-movement.md`,
 `horizontal-beams.md`, `slope-collision.md` section 5) for the Survivor with every
-`SlugcatStats` factor 1, no adrenaline, never exhausted. Stun and death are D4.
+`SlugcatStats` factor 1, no adrenaline, never exhausted. Stun and death are D4; vertical
+poles and ledge grabs are D6.
 
 **What differs from the game where the game's behaviour is kept out of scope:**
 - **No corridor detection.** The game counts chunks wedged between opposite solid tiles
   (`goIntoCorridorClimb`) and, inside one-tile corridors, skips ground classification and
   switches to `CorridorClimb`. The port always classifies (Default / Stand / Crawl), so
-  in a one-tile tunnel the player behaves as on open ground.
-- **Vertical poles.** `GrabVerticalPole`, `ClimbOnBeam`, `HangUnderVerticalBeam`,
-  `BeamTip`, `GetUpToBeamTip` are not ported. Holding up in a tile with both beam kinds
-  hangs from the horizontal beam (the game climbs the pole), and an up press while
-  hanging in a tile with a vertical pole does nothing (the game switches to the pole).
+  in a one-tile tunnel the player behaves as on open ground. A vertical pole inside a
+  one-tile shaft (smallroom's poles above row 24) is therefore
+  climbed in `ClimbOnBeam`, where the game switches to `CorridorClimb`.
 - **Belly slide.** A jump while lowering to all fours with down-diagonal toward the
   facing starts `BellySlide` in the game; the port does an ordinary crouch jump.
 - **Skid and flip jump.** The Stand-mode turn-around skid (`slideCounter`,
@@ -70,8 +69,8 @@ The shortcut map itself (`rw_assets::ShortcutMap`) is the game's `ShortcutMapper
 
 **Why.** Each is either outside the stage-one scope or depends on randomness (D1).
 
-**Affects.** Movement in corridors, on vertical poles, belly slides, skids, the rare
-stacked-head case and initial facing.
+**Affects.** Movement in corridors (including poles in shafts), belly slides, skids,
+the rare stacked-head case and initial facing.
 
 ## D4: Falls, stun and death
 
@@ -142,12 +141,42 @@ is outside the single-player, base-game scope.
 
 **Affects.** Room-exit shortcuts, multiple creatures in tubes, co-op.
 
+## D6: Vertical poles and ledge grabs
+
+`Player` ports `GrabVerticalPole`, the pole under-hang grab, `ClimbOnBeam` (climb and
+slide forces, side offset and switching, the neighbour-pole hop, the exits to horizontal
+beams, `StandUp` at the bottom, the slide-up hop), `GetUpToBeamTip`, `BeamTip` and its
+up-press trigger, `HangUnderVerticalBeam`, the `ClimbOnBeam` branch of `Jump`, and
+`LedgeGrab` (trigger, haul-up, drop, the `WallJump` hop and the no-x jump)
+(`rainworld-re/notes/vertical-poles.md`, `ledge-grab.md`), base game with Remix off.
+`slowMovementStun` is ported as state with its effects on the run force, the beam
+shuffle and pole climbing; only the slide-up hop sets it so far.
+
+**What differs:**
+- **Remix (MMF) branches omitted:** the climbing-grip throw recoil on a pole
+  (`cfgClimbingGrip`; throwing is not ported), the vine grab's exclusion of
+  `ClimbOnBeam`, and corridor shoot-up on a pole ignoring `shootUpCounter` (corridors
+  and vines are not ported).
+- **More Slugcats / Watcher omitted:** the slugpup's smaller slide-up hop (2.25 px,
+  +1 vy, 0.3x lift, 0.5x slide forces) and the slugpup, Rivulet and Gourmand
+  (`PainJumps`) sideways pole jump values, Saint's `monkAscension` blocking the grab,
+  and the ripple-levitation freeze of the facing (`rippleActivating`).
+- **Not ported entries to the pole:** `CorridorClimb` and `dropGrabTile` (corridors),
+  `ZeroGPoleGrab` (zero gravity) and the deer antlers. Sounds, the blink and
+  `AerobicIncrease` on the pole are not ported (no effect on movement for the
+  Survivor, who is never exhausted).
+
+**Why.** Remix and DLC are out of the base-game scope; the rest waits for corridors,
+zero gravity, grabbing and audio.
+
+**Affects.** Remix / DLC play on poles; entering a pole from a corridor.
+
 ## Not ported yet (not divergences, just absent)
 
 Player (stage one leaves out): landing roll and MMF wall pounce in `TerrainImpact`,
-`LedgeGrab`, `CorridorClimb` / `CorridorTurn` and corridor jumps, roll, belly slide,
+`CorridorClimb` / `CorridorTurn` and corridor jumps, roll, belly slide,
 flip, rocket jump, water (`Swimming`, `DeepSwim`, `SurfaceSwim`, submersion lifts),
-zero gravity, grabbing / throwing / eating (`GrabUpdate`), `slowMovementStun` sources, adrenaline, the WALLSTUCK safety
+zero gravity, grabbing / throwing / eating (`GrabUpdate`), `slowMovementStun` sources other than the slide-up hop, adrenaline, the WALLSTUCK safety
 (needs `VisualContact`), `dropGrabTile`, carried-object speed factors, vines, tube worm,
 Jolly co-op, MSC / Watcher class mechanics. Ported because ground classification
 produces them anyway: wall slide and wall jump (`WallClimb`, `canWallJump`, `jumpStun`;
