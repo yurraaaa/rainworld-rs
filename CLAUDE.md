@@ -141,6 +141,11 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   Vulkan backend and winit do), and avoid desktop-only assumptions in the
   sim, assets and render crates. Touch input and getting the user's game
   files onto the device are open questions for later.
+- Audio: `rw-audio` on `kira`. FSB5 Vorbis clips need FMOD's Vorbis setup
+  headers; the port ships that header table (record its source and licence
+  in `../rainworld-re/notes/sound.md`). The sim makes the game's random
+  draws for every sound it plays (about 7 per one-shot), so the shared
+  UnityRandom stream stays in step with the game even when audio is off.
 
 ## Code style
 
