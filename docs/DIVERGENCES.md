@@ -142,6 +142,44 @@ is outside the single-player, base-game scope.
 
 **Affects.** Room-exit shortcuts, multiple creatures in tubes, co-op.
 
+## D6: Slugcat graphics (`rw_graphics::PlayerGraphics`)
+
+`PlayerGraphics` ports the base-game Survivor's `PlayerGraphics`, `SlugcatHand`, `Limb`,
+`BodyPart`, `TailSegment` and `GenericBodyPart` for the ported body modes
+(`rainworld-re/notes/slugcat-graphics.md`), Remix off.
+
+**What differs:**
+- **Random numbers.** Cosmetic randomness (blink timing, the 1 px reset jitter, beam
+  balance, long-fall hand flailing) draws from a caller-supplied `rand::Rng`, not
+  `UnityEngine.Random`: same distributions, different sequence (as D1). `Random.value`
+  is `[0, 1)` instead of `[0, 1]`.
+- **`aerobicLevel` is 0.** The player has no aerobic level yet, so breathing runs at the
+  resting pace (`breath += 1/60` per tick), never pants, and the exhausted face and
+  head bob never show.
+- **Shortcut entry timing.** The game's extra graphics update while being pulled into a
+  shortcut runs inside `Creature.Update`, before the pull moves the chunks; the port runs
+  it after `Player::update`, so it sees the pulled positions. The reset on leaving a
+  tube likewise uses the chunk positions after that tick's movement.
+- **No look targets.** With no other objects in the room the game's `PlayerObjectLooker`
+  never finds a target, so `lookDirection` stays 0 as in the game; the looker itself, the
+  rain-warning look-up, `LookAtNothing` and the afraid-of-creature poses (and their
+  blink and aerobic effects) are not ported.
+- **Not ported:** grasps (holding, throwing, eating, swallowing, spear on back, reaching
+  for flies, heavy carry), swimming and submersion (taken as 0), corridor climbing and
+  corridor turns, rolls and flips, ledge grab, vertical poles (`ClimbOnBeam`,
+  `HangUnderVerticalBeam`, `BeamTip`, `GetUpToBeamTip`), zero gravity, the sleep curl,
+  adrenaline jitter, malnourishment and hypothermia tints, the Mark (sprites 10 and 11
+  have alpha 0 and are left out of the draw list), the light source, and every More
+  Slugcats, Watcher and Jolly Co-op branch (pups, Gourmand/Spear/Saint/Rivulet/Artificer
+  parts and sizes, gowns, custom and Jolly colours). The Nightcat colour is not offered
+  (`SlugcatName` has White, Yellow and Red).
+
+**Why.** Randomness as D1; the rest depends on player state that is not ported yet or
+is outside the base-game scope.
+
+**Affects.** Exact blink timing and jitter; the look of the slugcat in the unported
+states (they fall back to the nearest ported pose: Default for the airborne ones).
+
 ## Not ported yet (not divergences, just absent)
 
 Player (stage one leaves out): landing roll and MMF wall pounce in `TerrainImpact`,

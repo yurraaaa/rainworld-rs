@@ -268,6 +268,18 @@ impl Player {
         &self.input
     }
 
+    /// Frame counter of the current gait or animation (`animationFrame`), read by the graphics.
+    #[must_use]
+    pub fn animation_frame(&self) -> i32 {
+        self.animation_frame
+    }
+
+    /// Crouch super-jump charge (`superLaunchJump`, 0..=20), read by the graphics.
+    #[must_use]
+    pub fn super_launch_jump(&self) -> i32 {
+        self.super_launch_jump
+    }
+
     /// One 40 Hz tick (`Player.Update`, the movement-relevant parts in the game's order):
     /// counters and the jump-press buffer, reading `input` (ignored while stunned or
     /// dead), wall-slide braking, the stun and shortcut-delay countdowns and
