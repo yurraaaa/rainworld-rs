@@ -22,7 +22,7 @@ use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerConfig};
 use rmcp::{ServerHandler, ServiceExt, tool, tool_handler, tool_router};
-use rw_assets::{AssetCache, StreamingAssets};
+use rw_assets::{StreamingAssets, UnityResources};
 use serde::Serialize;
 
 use params::{
@@ -42,8 +42,12 @@ per tile. Use get_tiles to read the geometry and screenshot to look at the scene
 ///
 /// # Errors
 /// When the runtime, the transport or the window fails.
-pub fn run(assets: StreamingAssets, cache: AssetCache, window: bool) -> Result<(), Box<dyn Error>> {
-    let session = Arc::new(Mutex::new(Session::new(assets, cache)));
+pub fn run(
+    assets: StreamingAssets,
+    resources: UnityResources,
+    window: bool,
+) -> Result<(), Box<dyn Error>> {
+    let session = Arc::new(Mutex::new(Session::new(assets, resources)));
     if window {
         window::run(session)
     } else {

@@ -107,10 +107,11 @@ recommendation. Nothing is ported before the user agrees.
     shortcut pipes work.
   - Water uses the game's full wavy surface simulation.
 - Game assets inside Unity files (sprite atlases, the noise texture,
-  audio) are extracted for now with AssetRipper
-  (`~/.local/share/assetripper/2.0.0/`, `../rainworld-re/tools/extract_atlases.sh`)
-  into a local cache outside the repo; never commit game assets. A native
-  Rust reader for Unity asset files replaces this later.
+  audio) are read natively at startup from the installed game's Unity files
+  by `rw_assets::unity` (`../rainworld-re/notes/unity-assets.md`); there is
+  no asset cache. AssetRipper (`~/.local/share/assetripper/2.0.0/`,
+  `../rainworld-re/tools/extract_atlases.sh`) remains a debugging aid and
+  the oracle of the reader's installed tests; never commit game assets.
 - Slugcat (and later creature) graphics live in `rw-graphics`: the
   cosmetic graphics simulation (tail, limbs, head, frame choice) depends
   on `rw-sim` and `rw-assets` and outputs a backend-agnostic sprite list
@@ -134,6 +135,12 @@ so it serves the checkout's current code). Tools: `list_rooms`,
 - To check behaviour, prefer these tools over `--screenshot`/`--script`.
   Briefs for agents that check behaviour should say so.
 - `--mcp --window` also shows the driven scene in a window.
+- Long-term goal: an Android port at the end of the project. Don't rule it
+  out: keep platform-specific code (windowing, file paths to the game data,
+  input) behind small seams, prefer crates that support Android (wgpu's
+  Vulkan backend and winit do), and avoid desktop-only assumptions in the
+  sim, assets and render crates. Touch input and getting the user's game
+  files onto the device are open questions for later.
 
 ## Code style
 

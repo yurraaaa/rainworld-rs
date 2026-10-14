@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{CallToolResult, ContentBlock};
-use rw_assets::{AssetCache, StreamingAssets};
+use rw_assets::{StreamingAssets, UnityResources};
 
 use super::params::{
     InputParam, ListRoomsParams, LoadRoomParams, RespawnParams, ScreenshotParams, SetPlayerParams,
@@ -29,8 +29,8 @@ impl Session {
             eprintln!("skipping: no game under {}", assets.path().display());
             return None;
         }
-        let cache = AssetCache::from_env().expect("asset cache directory");
-        Some(Self::new(assets, cache))
+        let resources = UnityResources::open(assets.data_dir()).expect("Unity resources");
+        Some(Self::new(assets, resources))
     }
 
     fn load(&mut self, name: &str, seed: u64) {

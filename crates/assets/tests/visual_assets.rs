@@ -10,8 +10,8 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use rw_assets::{
-    AssetCache, EffectColors, NoiseTexture, PaletteImage, PaletteTexture, PngImage, RoomSettings,
-    RoomVisuals, StreamingAssets,
+    EffectColors, NoiseTexture, PaletteImage, PaletteTexture, PngImage, RoomSettings, RoomVisuals,
+    StreamingAssets, UnityResources,
 };
 
 const DEFAULT_RW_DIR: &str = "/home/yura/.local/share/Steam/steamapps/common/Rain World";
@@ -199,11 +199,8 @@ fn palette_with_effect_colours_and_fade() {
 #[test]
 fn noise_texture_is_dxt1_copy_of_noise_png() {
     let Some(sa) = assets() else { return };
-    let Some(cache) = AssetCache::from_env().filter(|c| c.noise_png().is_file()) else {
-        eprintln!("skipping: no noise texture in the asset cache");
-        return;
-    };
-    let noise = NoiseTexture::load(&cache).expect("cached noise texture");
+    let resources = UnityResources::open(sa.data_dir()).expect("resources.assets");
+    let noise = NoiseTexture::load(&resources).expect("noise texture");
     let streaming = PngImage::load(&sa.file("palettes/noise.png")).expect("noise.png");
     let png = NoiseTexture::from_image(&streaming).expect("64x64");
     let (max, mean) = noise_diff(&noise, &png, false);

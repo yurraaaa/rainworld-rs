@@ -22,6 +22,12 @@ impl StreamingAssets {
         &self.0
     }
 
+    /// `RainWorld_Data`, the directory holding `StreamingAssets` and the Unity files.
+    #[must_use]
+    pub fn data_dir(&self) -> &Path {
+        self.0.parent().unwrap_or(&self.0)
+    }
+
     /// `<StreamingAssets>/<relative>` with `relative` lowercased.
     #[must_use]
     pub fn file(&self, relative: &str) -> PathBuf {

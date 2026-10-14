@@ -2,8 +2,8 @@
 //! game's room camera that chooses it.
 
 use rw_assets::{
-    AssetCache, AssetError, NoiseTexture, PaletteTexture, PngImage, Room, RoomVisuals,
-    StreamingAssets,
+    AssetError, NoiseTexture, PaletteTexture, PngImage, Room, RoomVisuals, StreamingAssets,
+    UnityResources,
 };
 use rw_render::{Follow, LevelGraphics, LevelParams, LevelView, Renderer, RoomCamera};
 
@@ -24,13 +24,14 @@ pub struct Visuals {
 
 impl Visuals {
     /// Loads the room's settings, palettes and every camera's image, and the noise
-    /// texture from the asset cache; the room camera shows `screen` pixels (`sSize`).
+    /// texture from the game's Unity resources; the room camera shows `screen` pixels
+    /// (`sSize`).
     ///
     /// # Errors
     /// When any of those cannot be loaded.
     pub fn load(
         assets: &StreamingAssets,
-        cache: &AssetCache,
+        resources: &UnityResources,
         room: &Room,
         screen: [f32; 2],
     ) -> Result<Self, AssetError> {
@@ -50,7 +51,7 @@ impl Visuals {
             .map(|i| visuals.camera_image(i))
             .collect::<Result<_, _>>()?;
         Ok(Self {
-            noise: NoiseTexture::load(cache)?,
+            noise: NoiseTexture::load(resources)?,
             images,
             palette: visuals.palette_for_camera(camera.current()),
             room: visuals,

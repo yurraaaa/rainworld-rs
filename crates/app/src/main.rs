@@ -12,8 +12,8 @@
 //!
 //! `rainworld-rs --mcp [--window]` serves the MCP tools of [`mcp`] on stdin/stdout
 //! instead (headless; `--window` also shows the driven scene). The game directory comes
-//! from `RW_DIR`; it is only read. The asset cache (sprite atlas, noise texture) is
-//! `rw_assets::AssetCache::from_env`.
+//! from `RW_DIR`; it is only read, including its Unity files (sprite atlas, noise
+//! texture), with `rw_assets::UnityResources`.
 //!
 //! `ROOM` is a room name looked up as the game does (`world/<prefix>-rooms`, gates,
 //! `levels`), e.g. `summit` or `SU_B04`.
@@ -36,7 +36,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::Arc;
 
-use rw_assets::{AssetCache, Room, StreamingAssets};
+use rw_assets::{Room, StreamingAssets, UnityResources};
 use rw_render::Resolution;
 
 use crate::input::Script;
@@ -170,10 +170,10 @@ fn run() -> Result<(), Box<dyn Error>> {
     let args = Args::parse(std::env::args().skip(1))?;
     let assets = GameDir::from_env().streaming_assets();
     let assets = StreamingAssets::new(assets);
-    let cache =
-        AssetCache::from_env().ok_or("no asset cache directory: set RW_ASSET_CACHE (or HOME)")?;
+    let resources = UnityResources::open(assets.data_dir())
+        .map_err(|e| format!("reading the game's Unity resources: {e}"))?;
     if args.mcp {
-        return mcp::run(assets, cache, args.window);
+        return mcp::run(assets, resources, args.window);
     }
     let path = assets
         .find_room_file(&args.room.to_lowercase(), ".txt")
@@ -192,10 +192,10 @@ fn run() -> Result<(), Box<dyn Error>> {
         room.height(),
         args.seed
     );
-    let visuals = visuals::Visuals::load(&assets, &cache, &room, args.resolution.size_f32())
+    let visuals = visuals::Visuals::load(&assets, &resources, &room, args.resolution.size_f32())
         .inspect_err(|e| log::warn!("no level graphic ({e}); showing the debug view"))
         .ok();
-    let sprites = sprites::SpriteAssets::load(&cache)
+    let sprites = sprites::SpriteAssets::load(&resources)
         .inspect_err(|e| log::warn!("no slugcat sprites ({e}); drawing the circle body"))
         .ok()
         .map(Arc::new);

@@ -1105,17 +1105,16 @@ fn atlas_json_parses_frames() {
 
 #[test]
 fn installed_atlas_has_the_slugcat_frames() {
-    // Reads the extracted rainWorld atlas from the asset cache when present
-    // (`RW_ASSET_CACHE`); skipped otherwise, as the cache holds game data.
-    let Some(cache) = rw_assets::AssetCache::from_env() else {
+    // Reads the rainWorld atlas from the installed game (`RW_DIR`) when present.
+    let game = std::env::var_os("RW_DIR").map_or_else(
+        || std::path::PathBuf::from("/home/yura/.local/share/Steam/steamapps/common/Rain World"),
+        std::path::PathBuf::from,
+    );
+    let Ok(resources) = rw_assets::UnityResources::open(game.join("RainWorld_Data")) else {
+        eprintln!("skipped: no game under {}", game.display());
         return;
     };
-    let path = cache.atlas_json("rainWorld");
-    if !path.exists() {
-        eprintln!("skipped: no atlas at {}", path.display());
-        return;
-    }
-    let atlas = Atlas::from_cache(&cache, "rainWorld").unwrap();
+    let atlas = Atlas::from_resources(&resources, "rainWorld").unwrap();
     // sprite-atlases.md: 620 frames, 464 x 512.
     assert_eq!(atlas.frames.len(), 620);
     assert_eq!((atlas.size.w, atlas.size.h), (464, 512));

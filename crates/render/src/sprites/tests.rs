@@ -215,14 +215,16 @@ fn water_after_the_level_and_foreground_band_then_body() {
 
 #[test]
 fn installed_atlas_uvs() {
-    // The extracted rainWorld atlas (464x512), when the cache has it.
-    let Some(cache) = rw_assets::AssetCache::from_env() else {
+    // The installed game's rainWorld atlas (464x512), when `RW_DIR` has the game.
+    let game = std::env::var_os("RW_DIR").map_or_else(
+        || std::path::PathBuf::from("/home/yura/.local/share/Steam/steamapps/common/Rain World"),
+        std::path::PathBuf::from,
+    );
+    let Ok(resources) = rw_assets::UnityResources::open(game.join("RainWorld_Data")) else {
+        eprintln!("skipped: no game under {}", game.display());
         return;
     };
-    let Ok(atlas) = Atlas::from_cache(&cache, "rainWorld") else {
-        eprintln!("skipped: no rainWorld atlas in {}", cache.root.display());
-        return;
-    };
+    let atlas = Atlas::from_resources(&resources, "rainWorld").unwrap();
     let a = SpriteAtlas::new(atlas).expect("RainWorld_White present");
     // BodyA: frame (358, 50, 14, 19); FaceA0: (379, 301, 12, 7); HeadA15: (312, 176, 24, 15).
     for (name, [x, y, w, h]) in [

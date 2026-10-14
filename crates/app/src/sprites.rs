@@ -1,6 +1,6 @@
-//! The slugcat's sprite atlas (`rainWorld`) from the asset cache.
+//! The slugcat's sprite atlas (`rainWorld`) from the game's `resources.assets`.
 
-use rw_assets::{AssetCache, PngImage};
+use rw_assets::{PngImage, UnityResources};
 use rw_graphics::Atlas;
 use rw_render::{Renderer, SpriteAtlas};
 
@@ -14,27 +14,21 @@ pub struct SpriteAssets {
 }
 
 impl SpriteAssets {
-    /// Loads `rainWorld.json` and `rainWorld.png` from `cache`.
+    /// Loads the TextAsset and Texture2D `Atlases/rainWorld`, as Futile does.
     ///
     /// # Errors
-    /// A message naming what is missing and how to extract it.
-    pub fn load(cache: &AssetCache) -> Result<Self, String> {
-        let json = cache.atlas_json(ATLAS);
-        if !json.is_file() {
-            return Err(format!(
-                "no sprite atlas at {}; {}",
-                json.display(),
-                cache.fill_hint()
-            ));
-        }
-        let atlas = Atlas::from_cache(cache, ATLAS).map_err(|e| e.to_string())?;
+    /// A message naming what could not be read.
+    pub fn load(resources: &UnityResources) -> Result<Self, String> {
+        let atlas = Atlas::from_resources(resources, ATLAS).map_err(|e| e.to_string())?;
         let atlas = SpriteAtlas::new(atlas).ok_or_else(|| {
             format!(
                 "atlas {ATLAS} has no {} element",
                 SpriteAtlas::WHITE_ELEMENT
             )
         })?;
-        let image = PngImage::load(&cache.atlas_png(ATLAS)).map_err(|e| e.to_string())?;
+        let image = resources
+            .texture_image(&format!("Atlases/{ATLAS}"))
+            .map_err(|e| e.to_string())?;
         Ok(Self { atlas, image })
     }
 

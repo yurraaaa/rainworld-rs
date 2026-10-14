@@ -5,7 +5,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use rw_assets::{AssetCache, Room, StreamingAssets};
+use rw_assets::{Room, StreamingAssets, UnityResources};
 use rw_render::{RoomLayers, WgpuRenderer};
 use rw_sim::{Input, Vec2};
 
@@ -31,7 +31,7 @@ const MAX_TILES: i64 = 40_000;
 
 pub struct Session {
     assets: StreamingAssets,
-    cache: AssetCache,
+    resources: UnityResources,
     sprites: Option<Arc<SpriteAssets>>,
     scene: Option<Scene>,
     /// Created on the first screenshot.
@@ -39,16 +39,16 @@ pub struct Session {
 }
 
 impl Session {
-    /// A session with no room loaded; loads the slugcat atlas from `cache` if present.
+    /// A session with no room loaded; loads the slugcat atlas from `resources`.
     #[must_use]
-    pub fn new(assets: StreamingAssets, cache: AssetCache) -> Self {
-        let sprites = SpriteAssets::load(&cache)
+    pub fn new(assets: StreamingAssets, resources: UnityResources) -> Self {
+        let sprites = SpriteAssets::load(&resources)
             .inspect_err(|e| log::warn!("no slugcat sprites ({e}); drawing the circle body"))
             .ok()
             .map(Arc::new);
         Self {
             assets,
-            cache,
+            resources,
             sprites,
             scene: None,
             renderer: None,
@@ -135,7 +135,7 @@ impl Session {
             Room::load(&path).map_err(|e| format!("loading room {}: {e}", path.display()))?;
         let visuals = Visuals::load(
             &self.assets,
-            &self.cache,
+            &self.resources,
             &room,
             rw_render::Resolution::DEFAULT.size_f32(),
         )

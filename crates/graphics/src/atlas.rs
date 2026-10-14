@@ -1,14 +1,14 @@
-//! Futile atlas frame data: the TexturePacker JSON next to each atlas PNG.
+//! Futile atlas frame data: the TexturePacker JSON next to each atlas texture.
 //!
-//! The atlases live inside the game's Unity files and are extracted with AssetRipper
-//! into the local [`AssetCache`] (`rainworld-re/tools/extract_atlases.sh`, see
-//! `rainworld-re/notes/sprite-atlases.md`).
+//! The atlases are Unity resources `Atlases/<name>` in `resources.assets` (a TextAsset
+//! and a Texture2D of the same path), read with [`UnityResources`]
+//! (`rainworld-re/notes/sprite-atlases.md`, `unity-assets.md`).
 
 use std::collections::HashMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
-use rw_assets::AssetCache;
+use rw_assets::{AssetError, UnityResources};
 
 use serde::Deserialize;
 
@@ -66,6 +66,8 @@ pub enum AtlasError {
         source: std::io::Error,
     },
     Json(serde_json::Error),
+    /// The atlas resource could not be read.
+    Asset(AssetError),
     /// A frame Futile would reject.
     Rotated(String),
 }
@@ -75,6 +77,7 @@ impl fmt::Display for AtlasError {
         match self {
             Self::Io { path, source } => write!(f, "cannot read {}: {source}", path.display()),
             Self::Json(e) => write!(f, "bad atlas JSON: {e}"),
+            Self::Asset(e) => write!(f, "cannot load atlas: {e}"),
             Self::Rotated(name) => write!(f, "atlas frame {name} is rotated"),
         }
     }
@@ -85,6 +88,7 @@ impl std::error::Error for AtlasError {
         match self {
             Self::Io { source, .. } => Some(source),
             Self::Json(e) => Some(e),
+            Self::Asset(e) => Some(e),
             Self::Rotated(_) => None,
         }
     }
@@ -109,7 +113,15 @@ impl Atlas {
     /// # Errors
     /// [`AtlasError::Json`] for malformed data, [`AtlasError::Rotated`] for a rotated frame.
     pub fn parse(json: &str) -> Result<Self, AtlasError> {
-        let file: AtlasFile = serde_json::from_str(json).map_err(AtlasError::Json)?;
+        Self::parse_bytes(json.as_bytes())
+    }
+
+    /// Parses TexturePacker JSON bytes (a TextAsset's script).
+    ///
+    /// # Errors
+    /// As [`Atlas::parse`].
+    pub fn parse_bytes(json: &[u8]) -> Result<Self, AtlasError> {
+        let file: AtlasFile = serde_json::from_slice(json).map_err(AtlasError::Json)?;
         let mut frames = HashMap::with_capacity(file.frames.len());
         for (key, frame) in file.frames {
             // Futile cuts at the last '.'.
@@ -142,12 +154,16 @@ impl Atlas {
         Self::parse(&text)
     }
 
-    /// Loads atlas `name`'s frame data from the asset cache.
+    /// Atlas `name`'s frame data: the TextAsset `Atlases/<name>`, as Futile's
+    /// `FAtlas` loads it.
     ///
     /// # Errors
-    /// As [`Atlas::load`].
-    pub fn from_cache(cache: &AssetCache, name: &str) -> Result<Self, AtlasError> {
-        Self::load(cache.atlas_json(name))
+    /// [`AtlasError::Asset`] when it cannot be read, otherwise as [`Atlas::parse`].
+    pub fn from_resources(resources: &UnityResources, name: &str) -> Result<Self, AtlasError> {
+        let json = resources
+            .text(&format!("Atlases/{name}"))
+            .map_err(AtlasError::Asset)?;
+        Self::parse_bytes(&json)
     }
 
     #[must_use]

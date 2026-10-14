@@ -1,12 +1,11 @@
 //! The level shader's `_NoiseTex`: Unity resource `Palettes/noise`, a 64x64 DXT1
 //! texture with bilinear filter and repeat wrap inside `resources.assets`
-//! (`rainworld-re/notes/room-rendering.md` section 5), read from AssetRipper's export
-//! of it in the [`AssetCache`]. It is a DXT1-compressed copy of
+//! (`rainworld-re/notes/room-rendering.md` section 5). It is a DXT1-compressed copy of
 //! `StreamingAssets/palettes/noise.png`, so it differs from that file by up to 20/255.
 //!
 //! Only the red channel of mip 0 is kept: the shader reads `.x` and always magnifies.
 
-use crate::{AssetCache, AssetError, PngImage};
+use crate::{AssetError, PngImage, UnityResources};
 
 /// Red channel of mip 0, row 0 = Unity bottom row (texture `v` = 0).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -17,20 +16,13 @@ pub struct NoiseTexture {
 impl NoiseTexture {
     pub const SIZE: usize = 64;
 
-    /// Reads `palettes/noise.png` from the asset cache.
+    /// The Unity resource `Palettes/noise`, decoded from its DXT1 blocks.
     ///
     /// # Errors
-    /// [`AssetError::Missing`] when the cache has no noise texture (with a hint on how
-    /// to extract it), else when it cannot be decoded or is not 64x64.
-    pub fn load(cache: &AssetCache) -> Result<Self, AssetError> {
-        let path = cache.noise_png();
-        if !path.is_file() {
-            return Err(AssetError::Missing {
-                what: format!("noise texture {}; {}", path.display(), cache.fill_hint()),
-            });
-        }
-        let image = PngImage::load(&path)?;
-        Self::from_image(&image).map_err(|m| AssetError::format(&path, m))
+    /// When it cannot be read or decoded, or is not 64x64.
+    pub fn load(resources: &UnityResources) -> Result<Self, AssetError> {
+        let image = resources.texture_image("Palettes/noise")?;
+        Self::from_image(&image).map_err(|m| AssetError::format(resources.file().path(), m))
     }
 
     /// The red channel of a 64x64 image (PNG rows top first).
