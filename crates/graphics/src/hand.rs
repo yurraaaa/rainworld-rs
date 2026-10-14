@@ -136,6 +136,13 @@ impl SlugcatHand {
                     );
                 }
             }
+            BodyMode::CorridorClimb => {
+                free = false;
+                self.limb.mode = LimbMode::HuntAbsolutePosition;
+                if self.limb.part.pos.dist_no_sqrt(head.pos) >= 20.0 * 20.0 {
+                    self.corridor_grip(cx.room, player);
+                }
+            }
             BodyMode::WallClimb => {
                 free = false;
                 self.limb.mode = LimbMode::HuntAbsolutePosition;
@@ -179,6 +186,30 @@ impl SlugcatHand {
             self.limb.absolute_hunt_pos = target;
         }
         free
+    }
+
+    /// CorridorClimb, hand stretched 20 px from the head: grip the corridor wall about
+    /// 20 px ahead (along the body, bent toward the held direction), hand 0 to the
+    /// body's left, hand 1 to its right.
+    fn corridor_grip(&mut self, room: &Room, player: &Player) {
+        let head = player.head().pos;
+        let along = player.hips().pos.direction_to(head);
+        let input = player.input_history()[0];
+        let held = Vec2::new(input.x as f32, input.y as f32).normalized();
+        let side = 6.0 - 12.0 * self.limb.limb_number as f32;
+        let goal = head + (along + held * 1.5).normalized() * 20.0 + along.perpendicular() * side;
+        self.limb.find_grip(
+            room,
+            GripSearch {
+                attached: head,
+                search_from: head,
+                max_radius: 100.0,
+                goal,
+                forbidden_x: 2,
+                forbidden_y: 2,
+                behind_walls: false,
+            },
+        );
     }
 
     /// ClimbOnBeam: the hands grip the pole above and below the head in turn, by the

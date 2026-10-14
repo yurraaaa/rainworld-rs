@@ -213,16 +213,21 @@ listed effects; the softness of the frame when scaled full screen.
 
 `PlayerGraphics` ports the base-game Survivor's `PlayerGraphics`, `SlugcatHand`, `Limb`,
 `BodyPart`, `TailSegment` and `GenericBodyPart` for the ported body modes and animations, including the vertical-pole poses
-(`ClimbOnBeam`, `GetUpToBeamTip`, `BeamTip`, `HangUnderVerticalBeam`), `LedgeGrab` and
-the roll/flip tail fling (`rainworld-re/notes/slugcat-graphics.md`), Remix off. The
-belly slide and rocket jump have no branch of their own in `PlayerGraphics` (they use
-the generic Default/Stand poses, as in the game).
+(`ClimbOnBeam`, `GetUpToBeamTip`, `BeamTip`, `HangUnderVerticalBeam`), `LedgeGrab`,
+the roll/flip tail fling and the corridor branches (`CorridorClimb` legs and
+`LegsAClimbing` frames, the doubled downward head lead, the hands gripping the corridor
+walls ahead, the `CorridorTurn` jitter and blink), plus the pokes `Player.Update` makes
+into its graphics: `Player.Blink` from hard landings (`TerrainImpact`, speed > 12) and
+the pole slide-up hop, and the 10 px/tick push of every body part when a corridor turn
+ends (`rainworld-re/notes/slugcat-graphics.md`), Remix off. The skid, belly slide,
+rocket jump, corridor shoots and slides and corridor drops have no branch of their own
+in `PlayerGraphics` (they use the generic poses of their body mode, as in the game).
 
 **What differs:**
 - **Random numbers.** Cosmetic randomness (blink timing, the 1 px reset jitter, beam
-  balance, long-fall hand flailing) draws from a caller-supplied `rand::Rng`, not
-  `UnityEngine.Random`: same distributions, different sequence (as D1). `Random.value`
-  is `[0, 1)` instead of `[0, 1]`.
+  balance, long-fall hand flailing, the corridor-turn jitter) draws from a
+  caller-supplied `rand::Rng`, not `UnityEngine.Random`: same distributions, different
+  sequence (as D1). `Random.value` is `[0, 1)` instead of `[0, 1]`.
 - **`aerobicLevel` is 0.** The player has no aerobic level yet, so breathing runs at the
   resting pace (`breath += 1/60` per tick), never pants, and the exhausted face and
   head bob never show.
@@ -235,9 +240,10 @@ the generic Default/Stand poses, as in the game).
   rain-warning look-up, `LookAtNothing` and the afraid-of-creature poses (and their
   blink and aerobic effects) are not ported.
 - **Not ported:** grasps (holding, throwing, eating, swallowing, spear on back, reaching
-  for flies, heavy carry), swimming and submersion (taken as 0), corridor climbing and
-  corridor turns, zero gravity (`ZeroGPoleGrab`, `ZeroGSwim`), antler and vine climbing,
-  the sleep curl,
+  for flies, heavy carry, and the `Blink` calls of eating, mauling and throwing),
+  swimming and submersion (taken as 0; also the regain-footing `Blink(5)` while
+  swimming), the map-button stand-still blink,
+  zero gravity (`ZeroGPoleGrab`, `ZeroGSwim`), antler and vine climbing, the sleep curl,
   adrenaline jitter, malnourishment and hypothermia tints, the Mark (sprites 10 and 11
   have alpha 0 and are left out of the draw list), the light source, and every More
   Slugcats, Watcher and Jolly Co-op branch (pups, Gourmand/Spear/Saint/Rivulet/Artificer

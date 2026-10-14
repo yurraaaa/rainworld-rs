@@ -220,6 +220,8 @@ pub struct Player {
     shoot_up_counter: i32,
     /// Beam tile to catch after crawling head-first out of a shaft with down held.
     drop_grab_tile: Option<(i32, i32)>,
+    /// Largest `Player.Blink(n)` this tick, for the graphics; 0 when none.
+    blink_request: i32,
 }
 
 impl Default for Player {
@@ -299,6 +301,7 @@ impl Player {
             backwards_counter: 0,
             shoot_up_counter: 0,
             drop_grab_tile: None,
+            blink_request: 0,
         }
     }
 
@@ -376,6 +379,24 @@ impl Player {
         self.super_launch_jump
     }
 
+    /// Direction of a running corridor U-turn (`corridorTurnDir`), read by the graphics.
+    #[must_use]
+    pub fn corridor_turn_dir(&self) -> Option<(i32, i32)> {
+        self.corridor_turn_dir
+    }
+
+    /// `Player.Blink(n)` raised this tick (largest `n`, 0 if none); the graphics close
+    /// the eyes for at least that many ticks.
+    #[must_use]
+    pub fn blink_request(&self) -> i32 {
+        self.blink_request
+    }
+
+    /// `Player.Blink`.
+    fn blink(&mut self, ticks: i32) {
+        self.blink_request = self.blink_request.max(ticks);
+    }
+
     /// One 40 Hz tick (`Player.Update`, the movement-relevant parts in the game's order):
     /// counters and the jump-press buffer, reading `input` (ignored while stunned or
     /// dead), wall-slide braking, the stun and shortcut-delay countdowns and
@@ -386,6 +407,7 @@ impl Player {
     /// keeps falling as plain physics. Does nothing while inside a shortcut (the body
     /// is out of the room; [`crate::ShortcutHandler`] moves it) or once destroyed.
     pub fn update(&mut self, room: &Room, input: Input) {
+        self.blink_request = 0;
         if self.destroyed || self.vessel.is_some() {
             return;
         }

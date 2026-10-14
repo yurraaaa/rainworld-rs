@@ -172,6 +172,9 @@ impl TerrainImpactHandler for Player {
     /// `Player.TerrainImpact` with Remix off: the landing roll pre-empts everything on
     /// this impact; otherwise a first contact kills on a floor above 60 or stuns above 35.
     fn terrain_impact(&mut self, chunks: &mut [BodyChunk], impact: TerrainImpact) {
+        if impact.speed > 12.0 {
+            self.blink((impact.speed as i32).clamp(12, 60) / 2);
+        }
         if self.lands_in_roll(&impact) {
             self.start_landing_roll(chunks);
             return;
