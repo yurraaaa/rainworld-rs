@@ -131,6 +131,6 @@ fn waterreactor_surface_sits_mid_row() {
     assert_eq!(room.water_level(), Some(5));
     let surface = WaterSurface::for_room(&room).expect("room has water");
     assert_eq!(surface.span(), [-220.0, room.pixel_width() + 220.0]);
-    assert!(surface.heights().iter().all(|&h| h == 110.0));
+    assert!(surface.heights().all(|h| h == 110.0));
     assert!(WaterSurface::for_room(&load("summit").expect("summit")).is_none());
 }

@@ -2,17 +2,24 @@
 //!
 //! Behaviour: `slugcat-movement.md` sections 6 and 9, `horizontal-beams.md` sections 2-4.
 //! Vertical poles are in `poles.rs`, `LedgeGrab` in `ledge.rs`, `Flip`, `Roll`,
-//! `RocketJump` and `BellySlide` in `advanced.rs`, `CorridorTurn` in `corridor.rs`.
+//! `RocketJump` and `BellySlide` in `advanced.rs`, `CorridorTurn` in `corridor.rs`,
+//! `DeepSwim` and `SurfaceSwim` in `swim.rs`.
 
 use rw_assets::{Room, Terrain};
+use rw_random::UnityRandom;
 
 use super::{Animation, BodyMode, HEAD, HIPS, POLE_CLIMB_SPEED_FAC, Player, RUN_SPEED_FAC};
-use crate::Vec2;
 use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
+use crate::{Vec2, Water};
 
 impl Player {
-    pub(super) fn update_animation(&mut self, room: &Room) {
+    pub(super) fn update_animation(
+        &mut self,
+        room: &Room,
+        water: Option<&Water>,
+        rng: &mut UnityRandom,
+    ) {
         if self.animation != Animation::Roll {
             self.stop_rolling_counter = 0;
         }
@@ -37,7 +44,9 @@ impl Player {
             Animation::RocketJump => self.rocket_jump(),
             Animation::Flip => self.flip(),
             Animation::BellySlide => self.belly_slide(room),
-            Animation::CorridorTurn => self.corridor_turn(),
+            Animation::CorridorTurn => self.corridor_turn(rng),
+            Animation::DeepSwim => self.deep_swim(water),
+            Animation::SurfaceSwim => self.surface_swim(water),
             Animation::Dead => {}
         }
     }

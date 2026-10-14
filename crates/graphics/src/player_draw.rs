@@ -100,7 +100,10 @@ impl PlayerGraphics {
         let [head, face] = self.head_sprites(player, &f, t, face_color);
         slots[3] = Some(DrawItem::Sprite(head));
         slots[9] = Some(DrawItem::Sprite(face));
-        slots[4] = Some(DrawItem::Sprite(self.legs_sprite(player, &f, t)));
+        // Hidden while swimming under water.
+        if player.animation() != Animation::DeepSwim {
+            slots[4] = Some(DrawItem::Sprite(self.legs_sprite(player, &f, t)));
+        }
         for j in 0..2 {
             let (arm, cap) = self.hand_sprites(player, &f, t, j);
             slots[5 + j] = arm.map(DrawItem::Sprite);

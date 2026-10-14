@@ -60,7 +60,7 @@ fn skid_starts_after_more_than_ten_ticks_running_one_way() {
             (p.slide_direction, p.init_slide_counter),
             (1, ticks as i32 - 1)
         );
-        p.update(&r, LEFT);
+        p.step(&r, LEFT);
         if skids {
             assert_eq!((p.slide_counter, p.slide_direction), (1, 1));
         } else {
@@ -153,7 +153,7 @@ fn flip_torque_uses_slide_direction() {
     let mut p = Player::upright_at(Vec2::new(100.0, 48.0));
     p.animation = Animation::Flip;
     p.slide_direction = 1;
-    p.update(&r, Input::NONE);
+    p.step(&r, Input::NONE);
     assert_eq!(p.animation(), Animation::None);
     assert!(p.is_standing());
 }
@@ -255,14 +255,14 @@ fn allow_roll_and_consistent_down_diagonal_counters() {
     let r = flat_room();
     // In the air (tile 20 px under the hips is Air): allowRoll held at 15.
     let mut p = Player::upright_at(Vec2::new(100.0, 200.0));
-    p.update(&r, DOWN_RIGHT);
+    p.step(&r, DOWN_RIGHT);
     assert_eq!(p.allow_roll, 15);
     // +1 per tick while the same down-diagonal is held as the tick before.
     assert_eq!(p.consistent_down_diagonal, 0);
-    p.update(&r, DOWN_RIGHT);
-    p.update(&r, DOWN_RIGHT);
+    p.step(&r, DOWN_RIGHT);
+    p.step(&r, DOWN_RIGHT);
     assert_eq!(p.consistent_down_diagonal, 2);
-    p.update(&r, DOWN);
+    p.step(&r, DOWN);
     assert_eq!(p.consistent_down_diagonal, 0);
     // On the floor: only counts down.
     let mut p = Player::upright_at(Vec2::new(100.0, 48.0));
@@ -303,7 +303,7 @@ fn landing_roll_changes_velocities_mid_sweep() {
     let head_vx = 9.99_f32 + (9.0 - 9.99) * 0.7;
     let vy = (-20.0 - G) * DRAG;
     let mut p = falling_into_corner(DOWN_RIGHT);
-    p.update(&r, DOWN_RIGHT);
+    p.step(&r, DOWN_RIGHT);
     let expected = [
         TerrainImpact {
             chunk: HEAD,
@@ -336,7 +336,7 @@ fn landing_roll_changes_velocities_mid_sweep() {
 
     // Without the diagonal the wall is hit at the unchanged 9.99.
     let mut p = falling_into_corner(RIGHT);
-    p.update(&r, RIGHT);
+    p.step(&r, RIGHT);
     assert_close(p.body.impacts()[1].speed, 9.99, "wall without roll");
     assert_eq!(p.body.connections[0].distance, 17.0);
 }
@@ -477,9 +477,9 @@ fn belly_slide_starts_from_down_on_fours_with_the_facing_diagonal() {
     p.run(&r, Input::NONE, 10);
     // Down-right: standing off, Stand mode lowers to DownOnFours; the jump press
     // fires one tick later while still lowering.
-    p.update(&r, Input::new(1, -1, true));
+    p.step(&r, Input::new(1, -1, true));
     assert_eq!(p.animation(), Animation::DownOnFours);
-    p.update(&r, Input::new(1, -1, true));
+    p.step(&r, Input::new(1, -1, true));
     assert_eq!(p.animation(), Animation::BellySlide);
     assert_eq!((p.roll_direction, p.roll_counter), (1, 0));
     assert!(!p.is_standing());
@@ -487,9 +487,9 @@ fn belly_slide_starts_from_down_on_fours_with_the_facing_diagonal() {
     // Plain down: an ordinary crouch jump.
     let mut p = Player::upright_at(Vec2::new(100.0, 48.0));
     p.run(&r, Input::NONE, 10);
-    p.update(&r, Input::new(0, -1, true));
+    p.step(&r, Input::new(0, -1, true));
     assert_eq!(p.animation(), Animation::DownOnFours);
-    p.update(&r, Input::new(0, -1, true));
+    p.step(&r, Input::new(0, -1, true));
     assert_eq!(p.animation(), Animation::None);
     assert_eq!(p.jump_boost, 6.0);
 }
@@ -642,17 +642,17 @@ fn belly_slide_whiplash_jump() {
 fn rod_is_10_while_roll_direction_is_set() {
     let r = flat_room();
     let mut p = Player::sliding(0, DOWN_RIGHT);
-    p.update(&r, DOWN_RIGHT);
+    p.step(&r, DOWN_RIGHT);
     assert_eq!(p.body.connections[0].distance, 10.0);
     assert_eq!(p.roll_counter, 1);
     // Out of Default mode with no rolling animation: the direction is dropped (rod
     // still 10 that tick), and the rod is 17 again the tick after.
     let mut p = Player::upright_at(Vec2::new(100.0, 48.0));
     p.roll_direction = 1;
-    p.update(&r, Input::NONE);
+    p.step(&r, Input::NONE);
     assert_eq!(p.body.connections[0].distance, 10.0);
     assert_eq!(p.roll_direction, 0);
-    p.update(&r, Input::NONE);
+    p.step(&r, Input::NONE);
     assert_eq!(p.body.connections[0].distance, 17.0);
 }
 
@@ -661,12 +661,12 @@ fn reversing_and_jumping_during_the_skid_flips() {
     let r = flat_room();
     let mut p = Player::upright_at(Vec2::new(100.0, 48.0));
     p.run(&r, RIGHT, 12);
-    p.update(&r, LEFT);
+    p.step(&r, LEFT);
     assert_eq!(p.slide_counter, 1);
     // Press on skid tick 2; the buffered jump fires the next tick (counter 3, in 1..9)
     // as the last step of the tick, so the set velocities are what remains.
-    p.update(&r, Input::new(-1, 0, true));
-    p.update(&r, Input::new(-1, 0, true));
+    p.step(&r, Input::new(-1, 0, true));
+    p.step(&r, Input::new(-1, 0, true));
     assert_eq!(p.animation(), Animation::Flip);
     assert_eq!(p.slide_counter, 0);
     assert_eq!(p.body.chunks[HEAD].vel.y, 9.0);

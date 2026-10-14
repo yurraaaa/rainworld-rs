@@ -6,11 +6,13 @@
 //! (docs/DIVERGENCES.md D4, D9).
 
 use rw_assets::Room;
+use rw_random::UnityRandom;
 
 use super::{Animation, BodyMode, HEAD, HIPS, Player};
 use crate::float_ext::FloatExt;
 use crate::{
     BodyChunk, DEFAULT_RESTRICT_IN_ROOM_RANGE, PhysicalObject, TerrainImpact, TerrainImpactHandler,
+    Water,
 };
 
 /// Floor impacts faster than this kill (Survivor; Gourmand 80).
@@ -19,9 +21,8 @@ pub(super) const FALL_DEATH_SPEED: f32 = 60.0;
 pub(super) const FALL_STUN_SPEED: f32 = 35.0;
 /// `Stunned` holds from this many stun ticks up.
 const STUNNED_FROM: i32 = 10;
-/// `Player.Stun` un-stands the player above `Random.Range(5, 12)`; the port uses the
-/// mean (docs/DIVERGENCES.md D4).
-const UNSTAND_STUN: i32 = 8;
+/// `Player.Stun` un-stands the player when the stun exceeds `Random.Range(5, 12)`.
+const UNSTAND_STUN_DRAW: (i32, i32) = (5, 12);
 
 impl Player {
     /// Whether the player is dead. A dead body is still plain physics in
@@ -49,10 +50,15 @@ impl Player {
         self.stun
     }
 
-    /// `Player.Stun`: keeps the longer of the current and the new stun; a stun above
-    /// 8 ticks also stops standing and releases the feet pin.
-    pub fn stun(&mut self, ticks: i32) {
-        if ticks > UNSTAND_STUN {
+    /// `Player.Stun`: keeps the longer of the current and the new stun; a stun longer
+    /// than a random 5..=11 ticks also stops standing and releases the feet pin.
+    pub fn stun(&mut self, ticks: i32, rng: &mut UnityRandom) {
+        let threshold = rng.range_i32(UNSTAND_STUN_DRAW.0, UNSTAND_STUN_DRAW.1);
+        self.stun_unstanding_above(ticks, threshold);
+    }
+
+    fn stun_unstanding_above(&mut self, ticks: i32, threshold: i32) {
+        if ticks > threshold {
             self.standing = false;
             self.feet_stuck_pos = None;
         }
@@ -91,21 +97,21 @@ impl Player {
 
     /// The `Creature.Update` steps before physics: stun and shortcut-delay
     /// countdowns, then death and destruction below the room.
-    pub(super) fn creature_update(&mut self, room: &Room) {
+    pub(super) fn creature_update(&mut self, water: Option<&Water>) {
         if self.stun > 0 {
             self.stun -= 1;
         }
         if self.shortcut_delay > 0 {
             self.shortcut_delay -= 1;
         }
-        if self.fell_out_of_room(room) {
+        if self.fell_out_of_room(water) {
             self.die();
             self.destroyed = true;
         }
     }
 
     /// Head below the out-of-room limit in a room whose water does not catch it.
-    fn fell_out_of_room(&self, room: &Room) -> bool {
+    fn fell_out_of_room(&self, water: Option<&Water>) -> bool {
         let head = &self.body.chunks[HEAD];
         let mut limit = -head.restrict_in_room_range + 1.0;
         if head.restrict_in_room_range == DEFAULT_RESTRICT_IN_ROOM_RANGE {
@@ -117,7 +123,7 @@ impl Player {
             limit = limit.max(floor);
         }
         // `!room.water || room.defaultWaterLevel < -10` (inverted water is DLC).
-        let water_catches = room.water_level().is_some_and(|level| level >= -10);
+        let water_catches = water.is_some_and(|w| w.level_row() >= -10);
         head.pos.y < limit && !water_catches
     }
 
@@ -125,10 +131,10 @@ impl Player {
     /// impacts mid-collision. The body is moved out for the call, so
     /// [`TerrainImpactHandler::terrain_impact`] reaches the chunks only through its
     /// argument.
-    pub(super) fn update_physics(&mut self, room: &Room) {
+    pub(super) fn update_physics(&mut self, room: &Room, water: Option<&Water>) {
         let placeholder = PhysicalObject::new(Vec::new(), self.body.params);
         let mut body = std::mem::replace(&mut self.body, placeholder);
-        body.update_with(room, self);
+        body.update_with(room, water, self);
         self.body = body;
     }
 
@@ -185,7 +191,9 @@ impl TerrainImpactHandler for Player {
         if impact.speed > FALL_DEATH_SPEED && impact.direction.y < 0 {
             self.die();
         } else if impact.speed > FALL_STUN_SPEED {
-            self.stun(Self::fall_stun_ticks(impact.speed));
+            // Fall stuns are at least 40 ticks, longer than any draw of the un-standing
+            // threshold, so the draw cannot matter and is not made.
+            self.stun_unstanding_above(Self::fall_stun_ticks(impact.speed), UNSTAND_STUN_DRAW.1);
         }
     }
 }

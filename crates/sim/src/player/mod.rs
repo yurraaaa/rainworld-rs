@@ -6,6 +6,7 @@
 //! Survivor's (every `SlugcatStats` factor 1, no adrenaline, never exhausted). Fall
 //! damage, stun and death: `falls.md`. Skid, flip, roll, belly slide and rocket jump:
 //! `advanced-moves.md`. Corridors: `corridors.md`. Shortcuts: `shortcuts.md`.
+//! Swimming, breath and drowning: `water.md`.
 //! What is not ported is listed in `docs/DIVERGENCES.md`.
 
 mod advanced;
@@ -19,17 +20,19 @@ mod ledge;
 mod movement;
 mod poles;
 mod shortcut;
+mod swim;
 #[cfg(test)]
 mod tests;
 
 use rand::Rng;
 use rw_assets::{Room, Terrain};
+use rw_random::UnityRandom;
 
 pub use input::{INPUT_HISTORY, Input};
 
 use crate::room_ext::RoomExt;
 use crate::shortcut::ShortcutVessel;
-use crate::{BodyChunk, PhysicalObject, Vec2, determine_safe_spawn_tile, place_in_room};
+use crate::{BodyChunk, PhysicalObject, Vec2, Water, determine_safe_spawn_tile, place_in_room};
 
 /// Index of the head chunk (`bodyChunks[0]`, `mainBodyChunk`).
 pub const HEAD: usize = 0;
@@ -65,6 +68,8 @@ pub enum BodyMode {
     ClimbingOnBeam,
     /// Squeezed into a one-tile tunnel or shaft.
     CorridorClimb,
+    /// In water (`DeepSwim` or `SurfaceSwim`).
+    Swimming,
     /// Stun counter above 0.
     Stunned,
     Dead,
@@ -109,6 +114,10 @@ pub enum Animation {
     BellySlide,
     /// Turning around inside a one-tile tunnel or shaft.
     CorridorTurn,
+    /// Swimming under water with strokes and boosts.
+    DeepSwim,
+    /// Paddling at the surface, head held above it.
+    SurfaceSwim,
     Dead,
 }
 
@@ -222,6 +231,25 @@ pub struct Player {
     drop_grab_tile: Option<(i32, i32)>,
     /// Largest `Player.Blink(n)` this tick, for the graphics; 0 when none.
     blink_request: i32,
+
+    /// Breath left: 1 full, 0 out of air (below 0 briefly while heading up).
+    air_in_lungs: f32,
+    /// Came up for air with less than a third left: slow recovery until full.
+    lungs_exhausted: bool,
+    /// The head was under water (submersion above 0.9) last tick.
+    submerged: bool,
+    /// Drowning progress: death at 1.
+    drown: f32,
+    /// Strength of the current swim stroke.
+    swim_force: f32,
+    /// Stroke phase: 0..4 under water, also drives the swimming poses.
+    swim_cycle: f32,
+    /// Ticks before the next surface jump or deep-swim boost.
+    water_jump_delay: i32,
+    /// `waterFriction`, set by the swim animations, used by next tick's physics.
+    water_friction: f32,
+    /// `waterRetardationImmunity` from the dive force, used by next tick's physics.
+    water_retardation_immunity: f32,
 }
 
 impl Default for Player {
@@ -231,9 +259,9 @@ impl Default for Player {
 }
 
 impl Player {
-    /// A Survivor at the origin, as the `Player` constructor leaves it: not standing,
-    /// `Default` body mode, no animation, facing right (the game picks the facing at
-    /// random). Place it with [`Player::place`] or create it with [`Player::spawn`].
+    /// A Survivor at the origin, as the `Player` constructor leaves it (not standing,
+    /// `Default` body mode, no animation, full lungs) but always facing right; the game's
+    /// constructor picks the facing at random ([`Player::create`]).
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -302,14 +330,34 @@ impl Player {
             shoot_up_counter: 0,
             drop_grab_tile: None,
             blink_request: 0,
+            air_in_lungs: 1.0,
+            lungs_exhausted: false,
+            submerged: false,
+            drown: 0.0,
+            swim_force: 0.0,
+            swim_cycle: 0.0,
+            water_jump_delay: 0,
+            water_friction: crate::slugcat::PARAMS.water_friction,
+            water_retardation_immunity: 0.0,
         }
     }
 
-    /// A new player on a spawn tile chosen by [`determine_safe_spawn_tile`], placed by
-    /// [`place_in_room`]; both draw from `rng`.
-    pub fn spawn<R: Rng + ?Sized>(room: &Room, rng: &mut R) -> Self {
-        let tile = determine_safe_spawn_tile(room, rng);
+    /// The `Player` constructor: [`Player::new`] facing left or right with even odds.
+    pub fn create(rng: &mut UnityRandom) -> Self {
         let mut player = Self::new();
+        if rng.value() < 0.5 {
+            player.flip_direction = -1;
+            player.last_flip_direction = -1;
+        }
+        player
+    }
+
+    /// A new player ([`Player::create`], facing drawn from `facing_rng`) on a spawn
+    /// tile chosen by [`determine_safe_spawn_tile`], placed by [`place_in_room`]; both
+    /// draw from `rng`.
+    pub fn spawn<R: Rng + ?Sized>(room: &Room, rng: &mut R, facing_rng: &mut UnityRandom) -> Self {
+        let tile = determine_safe_spawn_tile(room, rng);
+        let mut player = Self::create(facing_rng);
         player.place(tile, rng);
         player
     }
@@ -398,15 +446,26 @@ impl Player {
     }
 
     /// One 40 Hz tick (`Player.Update`, the movement-relevant parts in the game's order):
-    /// counters and the jump-press buffer, reading `input` (ignored while stunned or
-    /// dead), wall-slide braking, the stun and shortcut-delay countdowns and
-    /// out-of-room destruction, physics (`PhysicalObject.Update`, which delivers terrain
-    /// impacts mid-collision) or, while entering a shortcut, the pull-in instead, resetting
-    /// `GoThroughFloors`, then the movement state machine unless stunned, dead or
-    /// entering. Impulses chosen this tick act in the next tick's physics. A dead body
-    /// keeps falling as plain physics. Does nothing while inside a shortcut (the body
-    /// is out of the room; [`crate::ShortcutHandler`] moves it) or once destroyed.
-    pub fn update(&mut self, room: &Room, input: Input) {
+    /// counters and the jump-press buffer, breathing (`LungUpdate`), reading `input`
+    /// (ignored while stunned or dead), wall-slide braking, the stun and shortcut-delay
+    /// countdowns and out-of-room destruction, physics (`PhysicalObject.Update`, which
+    /// delivers terrain impacts mid-collision) or, while entering a shortcut, the pull-in
+    /// instead, resetting `GoThroughFloors`, then the movement state machine unless
+    /// stunned, dead or entering. Impulses chosen this tick act in the next tick's
+    /// physics. A dead body keeps falling as plain physics. Does nothing while inside a
+    /// shortcut (the body is out of the room; [`crate::ShortcutHandler`] moves it) or once
+    /// destroyed.
+    ///
+    /// `water` is the room's [`Water`] (`None` for a room without water); update it first
+    /// each tick, as the room does. The game's random draws (stun threshold, stacked-body
+    /// nudge, corridor-turn jiggle, drowning flail) come from `rng`.
+    pub fn update(
+        &mut self,
+        room: &Room,
+        water: Option<&Water>,
+        input: Input,
+        rng: &mut UnityRandom,
+    ) {
         self.blink_request = 0;
         if self.destroyed || self.vessel.is_some() {
             return;
@@ -417,11 +476,16 @@ impl Player {
         } else {
             UNCONSCIOUS_SURFACE_FRICTION
         };
+        self.body.params.water_friction = self.water_friction;
+        self.body.params.water_retardation_immunity = self.water_retardation_immunity;
         self.update_counters_before_input(room);
+        if !self.dead {
+            self.lung_update(room, water, rng);
+        }
         self.read_input(input);
         self.set_unconscious_modes();
-        self.update_after_input(room);
-        self.creature_update(room);
+        self.update_after_input(room, rng);
+        self.creature_update(water);
         if self.destroyed {
             return;
         }
@@ -429,12 +493,12 @@ impl Player {
             self.pull_into_shortcut(room, entrance);
         } else {
             self.short_cut_rad_add = shortcut::RAD_ADD_RESET;
-            self.update_physics(room);
+            self.update_physics(room, water);
         }
         self.body.set_go_through_floors(false);
         if self.stun < 1 && !self.dead && self.entering_shortcut.is_none() && self.vessel.is_none()
         {
-            self.movement_update(room);
+            self.movement_update(room, water, rng);
         }
     }
 
@@ -460,6 +524,9 @@ impl Player {
         self.can_wall_jump -= self.can_wall_jump.signum();
         if self.no_grab_counter > 0 {
             self.no_grab_counter -= 1;
+        }
+        if self.water_jump_delay > 0 {
+            self.water_jump_delay -= 1;
         }
         if self.force_feet_to_horizontal_beam_tile > 0 {
             self.force_feet_to_horizontal_beam_tile -= 1;
@@ -555,18 +622,21 @@ impl Player {
         }
     }
 
-    /// Wall-slide braking (not in corridors), ceiling un-standing, the stacked-body nudge and the camera
-    /// clamp: the parts of `Player.Update` between reading input and physics.
-    fn update_after_input(&mut self, room: &Room) {
+    /// Wall-slide braking (not swimming, not in corridors), ceiling un-standing, the
+    /// stacked-body nudge and the camera clamp: the parts of `Player.Update` between
+    /// reading input and physics.
+    fn update_after_input(&mut self, room: &Room, rng: &mut UnityRandom) {
         let x = i32::from(self.input[0].x);
         let friction = self.body.params.surface_friction;
         let head_above = self.body.chunks[HEAD].pos.y > self.body.chunks[HIPS].pos.y;
         let brake = (1.0 - friction * if head_above { 2.0 } else { 0.5 }).clamp(0.0, 1.0);
         let in_corridor = self.body_mode == BodyMode::CorridorClimb;
-        for c in &mut self.body.chunks {
-            let cx = i32::from(c.contact().x);
-            if cx != 0 && x == cx && c.vel.y < 0.0 && !in_corridor {
-                c.vel.y *= brake;
+        if self.body_mode != BodyMode::Swimming {
+            for c in &mut self.body.chunks {
+                let cx = i32::from(c.contact().x);
+                if cx != 0 && x == cx && c.vel.y < 0.0 && !in_corridor {
+                    c.vel.y *= brake;
+                }
             }
         }
 
@@ -574,16 +644,15 @@ impl Player {
             self.standing = false;
         }
 
-        // Head exactly below the hips and nothing moving sideways: the game kicks the
-        // head sideways by a random speed in [-1, 1]; the port uses the facing
-        // (docs/DIVERGENCES.md D3).
+        // Head exactly below the hips and nothing moving sideways: kick the head
+        // sideways by a random speed in [-1, 1] (`Random.Range(-1f, 1f)`).
         let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
         if head.pos.x == hips.pos.x
             && head.vel.x == 0.0
             && hips.vel.x == 0.0
             && head.pos.y < hips.pos.y
         {
-            head.vel.x = 0.5 * self.flip_direction as f32;
+            head.vel.x = rng.range_f32(-1.0, 1.0);
             hips.vel.x = -head.vel.x;
         }
 

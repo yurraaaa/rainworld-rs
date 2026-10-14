@@ -1,18 +1,23 @@
-//! Simulation state owned by the app: the room, the player and its graphics module,
-//! the shortcut divider and the RNGs.
+//! Simulation state owned by the app: the room, its water, the player and its
+//! graphics module, the shortcut divider and the RNGs.
 //!
 //! This is the only place the app touches the simulation.
 
 use rand::SeedableRng;
 use rand::rngs::StdRng;
-use rw_assets::Room;
+use rw_assets::{Room, RoomSettings, StreamingAssets};
 use rw_graphics::{Color, DrawList, PlayerGraphics, SlugcatName};
-use rw_render::{BodyStatus, Follow};
-use rw_sim::{Input, PhysicalObject, Player, ShortcutHandler, Vec2};
+use rw_random::UnityRandom;
+use rw_render::{BodyStatus, Follow, WaterSurface};
+use rw_sim::{Input, PhysicalObject, Player, ShortcutHandler, Vec2, Water};
 
 /// A room with (at most) one player in it.
 pub struct Game {
     room: Room,
+    /// The room's settings (the water's wave values).
+    settings: RoomSettings,
+    /// The room's water surface, `None` without water.
+    water: Option<Water>,
     /// `None` once the body fell out of the room and was destroyed.
     player: Option<Player>,
     /// The player's graphics module; replaced with the player.
@@ -20,6 +25,8 @@ pub struct Game {
     shortcuts: ShortcutHandler,
     /// Spawn positions.
     rng: StdRng,
+    /// The game's `UnityEngine.Random`: the player's and the water's random draws.
+    sim_rng: UnityRandom,
     /// Cosmetic randomness, separate so graphics never shift the spawn sequence.
     graphics_rng: StdRng,
     /// `--spawn`: place the player on this tile instead of a random spawn tile.
@@ -28,31 +35,60 @@ pub struct Game {
 }
 
 impl Game {
-    /// Spawns the player into `room` at a spawn tile chosen with `seed`, or on
-    /// `spawn_tile` when given.
+    /// Spawns the player into `room` (water waves from `settings`) at a spawn tile
+    /// chosen with `seed`, or on `spawn_tile` when given.
     #[must_use]
-    pub fn new(room: Room, seed: u64, spawn_tile: Option<(i32, i32)>) -> Self {
+    pub fn new(
+        room: Room,
+        settings: &RoomSettings,
+        seed: u64,
+        spawn_tile: Option<(i32, i32)>,
+    ) -> Self {
         let mut rng = StdRng::seed_from_u64(seed);
+        let mut sim_rng = UnityRandom::new(seed as i32);
         let mut graphics_rng = StdRng::seed_from_u64(seed.wrapping_add(1));
-        let player = Self::spawn_player(&room, spawn_tile, &mut rng);
+        let player = Self::spawn_player(&room, spawn_tile, &mut rng, &mut sim_rng);
         let graphics = PlayerGraphics::new(&player, SlugcatName::White, &mut graphics_rng);
         log::info!("spawned player");
         Self {
+            water: Water::new(&room, settings),
+            settings: settings.clone(),
             room,
             player: Some(player),
             graphics: Some(graphics),
             shortcuts: ShortcutHandler::new(),
             rng,
+            sim_rng,
             graphics_rng,
             spawn_tile,
             tick: 0,
         }
     }
 
+    /// The settings of `room` (Survivor timeline), or the defaults when they cannot be
+    /// read.
+    #[must_use]
+    pub fn room_settings(assets: &StreamingAssets, room: &Room) -> RoomSettings {
+        let region = assets.region_of_room(&room.name().to_lowercase());
+        RoomSettings::load(assets, room.name(), region.as_deref(), Some("white"))
+            .inspect_err(|e| log::warn!("room settings ({e}); using the defaults"))
+            .unwrap_or(RoomSettings::ANCESTOR)
+    }
+
+    #[must_use]
+    pub fn settings(&self) -> &RoomSettings {
+        &self.settings
+    }
+
     /// Replaces the player with a fresh one at a new spawn tile (continuing the seeded
     /// sequence).
     pub fn respawn(&mut self) {
-        let player = Self::spawn_player(&self.room, self.spawn_tile, &mut self.rng);
+        let player = Self::spawn_player(
+            &self.room,
+            self.spawn_tile,
+            &mut self.rng,
+            &mut self.sim_rng,
+        );
         self.graphics = Some(PlayerGraphics::new(
             &player,
             SlugcatName::White,
@@ -62,19 +98,25 @@ impl Game {
         log::info!("respawned player");
     }
 
-    fn spawn_player(room: &Room, tile: Option<(i32, i32)>, rng: &mut StdRng) -> Player {
+    fn spawn_player(
+        room: &Room,
+        tile: Option<(i32, i32)>,
+        rng: &mut StdRng,
+        sim_rng: &mut UnityRandom,
+    ) -> Player {
         match tile {
             Some(tile) => {
-                let mut player = Player::new();
+                let mut player = Player::create(sim_rng);
                 player.place(tile, rng);
                 player
             }
-            None => Player::spawn(room, rng),
+            None => Player::spawn(room, rng, sim_rng),
         }
     }
 
-    /// One 40 Hz simulation tick: shortcut vessels, then the player and right after it
-    /// its graphics module, as the game orders them. A dead player is frozen until [`Game::respawn`]; a destroyed one is gone
+    /// One 40 Hz simulation tick: shortcut vessels, the water surface (pushed by the
+    /// body), then the player and right after it its graphics module, as the game
+    /// orders them. A dead player is frozen until [`Game::respawn`]; a destroyed one is gone
     /// (docs/DIVERGENCES.md D4).
     pub fn tick(&mut self, input: Input) {
         if let Some(player) = &mut self.player
@@ -83,9 +125,22 @@ impl Game {
             let was_in_shortcut = player.in_shortcut();
             self.shortcuts.update(&self.room, player);
             let was_stunned = player.is_stunned();
-            player.update(&self.room, input);
+            if let Some(water) = &mut self.water {
+                let chunks = if player.in_shortcut() {
+                    &mut [][..]
+                } else {
+                    &mut player.body.chunks[..]
+                };
+                water.update(&self.room, chunks.iter_mut(), &mut self.sim_rng);
+            }
+            player.update(&self.room, self.water.as_ref(), input, &mut self.sim_rng);
             if let Some(graphics) = &mut self.graphics {
-                graphics.update(player, &self.room, &mut self.graphics_rng);
+                graphics.update(
+                    player,
+                    &self.room,
+                    self.water.as_ref(),
+                    &mut self.graphics_rng,
+                );
             }
             if player.is_destroyed() {
                 log::info!("player fell out of the room and was destroyed; R respawns");
@@ -110,6 +165,14 @@ impl Game {
     pub fn draw_list(&mut self, alpha: f32, face_color: Color) -> Option<DrawList> {
         let (player, graphics) = (self.player.as_ref()?, self.graphics.as_mut()?);
         Some(graphics.draw(player, alpha, face_color))
+    }
+
+    /// The water surface as drawn at `alpha` between ticks; `None` without water.
+    #[must_use]
+    pub fn water_surface(&self, alpha: f32) -> Option<WaterSurface> {
+        let water = self.water.as_ref()?;
+        let points = water.draw_points(alpha).map(Vec2::to_array).collect();
+        Some(WaterSurface::from_points(points))
     }
 
     /// Whether the player is dead and frozen.
@@ -220,7 +283,7 @@ pub(crate) mod tests {
 
     #[test]
     fn player_starts_on_all_fours_and_falls() {
-        let mut game = Game::new(open_room(), 1, None);
+        let mut game = Game::new(open_room(), &RoomSettings::ANCESTOR, 1, None);
         assert!(!game.player().is_standing());
         let before = game.head_y();
         for _ in 0..5 {
@@ -233,7 +296,7 @@ pub(crate) mod tests {
     #[test]
     fn falling_out_removes_the_player_until_respawn() {
         // The all-Air room has an open bottom: the player falls out and is destroyed.
-        let mut game = Game::new(open_room(), 1, None);
+        let mut game = Game::new(open_room(), &RoomSettings::ANCESTOR, 1, None);
         for _ in 0..400 {
             if game.player.is_none() {
                 break;
@@ -250,7 +313,7 @@ pub(crate) mod tests {
 
     #[test]
     fn dead_player_freezes_until_respawn() {
-        let mut game = Game::new(open_room(), 1, None);
+        let mut game = Game::new(open_room(), &RoomSettings::ANCESTOR, 1, None);
         game.player.as_mut().expect("player").die();
         let frozen = game.body().expect("body").clone();
         for _ in 0..10 {
@@ -263,7 +326,7 @@ pub(crate) mod tests {
 
     #[test]
     fn respawn_gives_a_fresh_player() {
-        let mut game = Game::new(open_room(), 1, None);
+        let mut game = Game::new(open_room(), &RoomSettings::ANCESTOR, 1, None);
         for _ in 0..10 {
             game.tick(Input {
                 x: 1,

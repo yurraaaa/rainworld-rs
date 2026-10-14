@@ -25,8 +25,6 @@ pub struct Scene {
     game: Game,
     /// The level graphic, when the room's images and palettes loaded.
     visuals: Option<Visuals>,
-    /// Flat at the room's water row until the sim provides the wavy surface.
-    water: Option<WaterSurface>,
 }
 
 /// How a frame is drawn.
@@ -63,7 +61,6 @@ impl Scene {
     pub fn new(game: Game, visuals: Option<Visuals>) -> Self {
         Self {
             id: NEXT_SCENE_ID.fetch_add(1, Ordering::Relaxed),
-            water: WaterSurface::for_room(game.room()),
             game,
             visuals,
         }
@@ -142,9 +139,10 @@ impl Scene {
                 Camera::fit([room.pixel_width(), room.pixel_height()], r.size(), MARGIN)
             }
         };
+        let water = self.game.water_surface(alpha);
         FrameDraw {
             game: &self.game,
-            water: self.water.as_ref(),
+            water: water.as_ref(),
             level,
             sprites: sprites.as_ref(),
             layers: view.layers,
@@ -305,7 +303,7 @@ mod tests {
 
     #[test]
     fn debug_view_draws_colliders_and_no_sprites() {
-        let mut game = Game::new(open_room(), 1, None);
+        let mut game = Game::new(open_room(), &rw_assets::RoomSettings::ANCESTOR, 1, None);
         let sprites = game.draw_list(1.0, SpriteColor::BLACK).expect("player");
         let chunks = game.body().expect("body").chunks.len();
         let r = Recorder::record(&game, None, &sprites);
@@ -318,7 +316,7 @@ mod tests {
 
     #[test]
     fn visual_view_draws_sprites_around_the_level() {
-        let mut game = Game::new(open_room(), 1, None);
+        let mut game = Game::new(open_room(), &rw_assets::RoomSettings::ANCESTOR, 1, None);
         let sprites = game.draw_list(1.0, SpriteColor::BLACK).expect("player");
         let level = LevelView {
             origin: [-100.0, -50.0],

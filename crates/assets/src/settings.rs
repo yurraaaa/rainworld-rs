@@ -1,6 +1,7 @@
 //! Room settings files (`<room>_settings.txt`) and their template inheritance, for the
-//! values the room graphics need: `Palette`, `FadePalette`, `EffectColorA/B`, `Clouds`
-//! and `Grime`. Mirrors `RoomSettings` (constructor, `FindParent`, `Load`) and
+//! values the room graphics and water need: `Palette`, `FadePalette`, `EffectColorA/B`,
+//! `Clouds`, `Grime` and the water surface's `WaveSpeed`, `WaveLength`, `WaveAmplitude`,
+//! `SecondWaveLength` and `SecondWaveAmplitude`. Mirrors `RoomSettings` (constructor, `FindParent`, `Load`) and
 //! `Region.GetRoomSettingsTemplate`; see `rainworld-re/notes/room-format.md` section 6.
 //!
 //! A value missing from a room's file comes from its parent: the template named by its
@@ -40,6 +41,11 @@ pub struct SettingsFile {
     pub clouds: Option<f32>,
     pub grime: Option<f32>,
     pub fade_palette: Option<FadePalette>,
+    pub wave_speed: Option<f32>,
+    pub wave_length: Option<f32>,
+    pub wave_amplitude: Option<f32>,
+    pub second_wave_length: Option<f32>,
+    pub second_wave_amplitude: Option<f32>,
 }
 
 /// A room's settings after inheritance.
@@ -53,6 +59,12 @@ pub struct RoomSettings {
     pub clouds: f32,
     pub grime: f32,
     pub fade_palette: Option<FadePalette>,
+    /// Water surface wave settings, each 0..=1 (mapped to px and cycles by `Water`).
+    pub wave_speed: f32,
+    pub wave_length: f32,
+    pub wave_amplitude: f32,
+    pub second_wave_length: f32,
+    pub second_wave_amplitude: f32,
 }
 
 /// A region's settings templates (`Room Setting Templates:` in `properties.txt`).
@@ -85,6 +97,11 @@ impl SettingsFile {
                 "Clouds" => file.clouds = Some(Self::float(value)?),
                 "Grime" => file.grime = Some(Self::float(value)?),
                 "FadePalette" => file.fade_palette = Some(Self::fade_palette(value)?),
+                "WaveSpeed" => file.wave_speed = Some(Self::float(value)?),
+                "WaveLength" => file.wave_length = Some(Self::float(value)?),
+                "WaveAmplitude" => file.wave_amplitude = Some(Self::float(value)?),
+                "SecondWaveLength" => file.second_wave_length = Some(Self::float(value)?),
+                "SecondWaveAmplitude" => file.second_wave_amplitude = Some(Self::float(value)?),
                 _ => {}
             }
         }
@@ -134,6 +151,13 @@ impl SettingsFile {
             clouds: self.clouds.unwrap_or(parent.clouds),
             grime: self.grime.unwrap_or(parent.grime),
             fade_palette: self.fade_palette.clone(),
+            wave_speed: self.wave_speed.unwrap_or(parent.wave_speed),
+            wave_length: self.wave_length.unwrap_or(parent.wave_length),
+            wave_amplitude: self.wave_amplitude.unwrap_or(parent.wave_amplitude),
+            second_wave_length: self.second_wave_length.unwrap_or(parent.second_wave_length),
+            second_wave_amplitude: self
+                .second_wave_amplitude
+                .unwrap_or(parent.second_wave_amplitude),
         }
     }
 
@@ -156,6 +180,11 @@ impl RoomSettings {
         clouds: 0.0,
         grime: 0.5,
         fade_palette: None,
+        wave_speed: 0.75,
+        wave_length: 0.5,
+        wave_amplitude: 0.0,
+        second_wave_length: 1.0 / 6.0,
+        second_wave_amplitude: 0.0,
     };
 
     /// Loads the settings of `room` as the game does: `<room>_settings-<timeline>.txt`
@@ -324,6 +353,16 @@ mod tests {
                 fades: vec![0.5, 0.25]
             })
         );
+    }
+
+    #[test]
+    fn wave_settings_inherit() {
+        let f = SettingsFile::parse("WaveAmplitude: 0.0326087\nSecondWaveLength: 0.5\n")
+            .expect("parses");
+        let s = f.resolve(&RoomSettings::ANCESTOR);
+        assert_eq!((s.wave_amplitude, s.second_wave_length), (0.032_608_7, 0.5));
+        assert_eq!((s.wave_speed, s.wave_length), (0.75, 0.5));
+        assert_eq!(s.second_wave_amplitude, 0.0);
     }
 
     #[test]

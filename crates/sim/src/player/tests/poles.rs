@@ -82,7 +82,7 @@ impl Player {
             if self.animation == animation {
                 return;
             }
-            self.update(room, input);
+            self.step(room, input);
         }
         assert_eq!(self.animation, animation, "not reached in {limit} ticks");
     }
@@ -99,7 +99,7 @@ fn tall_pole() -> Room {
 fn airborne_grab_snaps_the_head_onto_the_pole() {
     let r = tall_pole();
     let mut p = Player::upright_at(Vec2::new(107.0, 300.0));
-    p.update(&r, UP);
+    p.step(&r, UP);
     // Head tile (5, 15) has the pole: ClimbOnBeam, head x := 110, head vel := 0; facing
     // from the side: 107 < 110 gives -1. The hips are not moved.
     assert_eq!(p.animation(), Animation::ClimbOnBeam);
@@ -115,7 +115,7 @@ fn fast_head_faces_its_velocity_when_grabbing() {
     let mut p = Player::upright_at(Vec2::new(101.0, 300.0));
     p.body.chunks[HEAD].vel.x = 6.0;
     p.body.chunks[HIPS].vel.x = 6.0;
-    p.update(&r, UP);
+    p.step(&r, UP);
     // After physics head x = 106.994 (< 110, side says -1) but |vel.x| = 5.994 > 5 on
     // the head's own column: facing from the velocity, +1.
     assert_eq!(p.animation(), Animation::ClimbOnBeam);
@@ -136,7 +136,7 @@ fn standing_between_two_poles_grabs_the_last_candidate() {
     let mut p = Player::upright_at(Vec2::new(110.0, 48.0));
     p.run(&r, Input::NONE, 10);
     assert_eq!(p.body_mode(), BodyMode::Stand);
-    p.update(&r, UP);
+    p.step(&r, UP);
     // Grounded, no x: candidates 0 (none), -1 (column 4: head x := 90), +1 (column 6:
     // 90 < 130 so facing -1, head x := 130). The last match wins.
     assert_eq!(p.animation(), Animation::ClimbOnBeam);
@@ -149,7 +149,7 @@ fn x_input_limits_the_grab_to_the_head_column() {
     let r = two_poles();
     let mut p = Player::upright_at(Vec2::new(110.0, 48.0));
     p.run(&r, Input::NONE, 10);
-    p.update(&r, Input::new(1, 1, false));
+    p.step(&r, Input::new(1, 1, false));
     assert_eq!(p.animation(), Animation::None);
 }
 
@@ -158,7 +158,7 @@ fn vertical_pole_overrides_a_same_tick_beam_grab() {
     // Both flags in tile (5, 15) only.
     let r = Grid::new(12, 30).set(5, 15..=15, b'+').room();
     let mut p = Player::upright_at(Vec2::new(107.0, 290.0));
-    p.update(&r, UP);
+    p.step(&r, UP);
     // Physics: both vel.y = -0.9 * 0.999; Default standing: hips -= 4. The beam grab
     // snaps head y to 310 and scales hips vel.y by 0.25; then the pole takes over:
     // ClimbOnBeam, head x := 110, head vel := 0.
@@ -180,7 +180,7 @@ fn pole_end_above_the_head_hangs_under_it() {
     for c in &mut p.body.chunks {
         c.vel.y = -12.0;
     }
-    p.update(&r, UP);
+    p.step(&r, UP);
     // Physics: head 318 - 12.9 * 0.999 = 305.11 (row 15, pole above, none here).
     // Under-hang: head := middle (110, 310) + (0, 5), head vel := 0, hips vel
     // (0, -12.887 - 4) clamped to length 9.
@@ -261,7 +261,7 @@ fn climb_speeds_match_the_momentum_balance() {
 fn holding_the_other_side_switches_sides() {
     let r = tall_pole();
     let mut p = Player::on_pole_at(Vec2::new(115.0, 300.0), 1);
-    p.update(&r, LEFT);
+    p.step(&r, LEFT);
     // Facing follows x first; then head x (115 + 110 - 5) / 2, hips (7 * 115 + 105) / 8.
     assert_eq!(p.flip_direction(), -1);
     assert_close(p.body.chunks[HEAD].pos.x, 110.0, "head x");
@@ -279,8 +279,8 @@ fn pressing_toward_the_facing_side_hops_to_a_neighbour_pole() {
         .set(6, 2..=28, b'|')
         .room();
     let mut p = Player::on_pole_at(Vec2::new(115.0, 300.0), 1);
-    p.update(&r, Input::NONE);
-    p.update(&r, RIGHT);
+    p.step(&r, Input::NONE);
+    p.step(&r, RIGHT);
     // x edge toward the facing side with a pole in (6, row): head x := 130 - 5,
     // facing reversed, jumpStun = 11 * -1.
     assert_eq!(p.body.chunks[HEAD].pos.x, 125.0);
@@ -301,16 +301,16 @@ fn x_press_moves_onto_a_crossing_beam() {
     }
     let r = g.set(5, 15..=15, b'+').room();
     let mut p = Player::on_pole_at(Vec2::new(105.0, 293.0), -1);
-    p.update(&r, Input::NONE);
-    p.update(&r, LEFT);
+    p.step(&r, Input::NONE);
+    p.step(&r, LEFT);
     // x edge toward the facing side (-1 == flip == last flip) with the head in a beam
     // tile and no solid below: HangFromBeam.
     assert_eq!(p.animation(), Animation::HangFromBeam);
 
     // Hips in the beam tile, head above it: StandOnBeam.
     let mut p = Player::on_pole_at(Vec2::new(105.0, 312.0), -1);
-    p.update(&r, Input::NONE);
-    p.update(&r, LEFT);
+    p.step(&r, Input::NONE);
+    p.step(&r, LEFT);
     assert_eq!(p.animation(), Animation::StandOnBeam);
 }
 
@@ -323,8 +323,8 @@ fn hang_from_beam_up_press_switches_to_the_pole() {
         .room();
     let mut p = Player::upright_at(Vec2::new(103.0, 300.0));
     p.animation = Animation::HangFromBeam;
-    p.update(&r, Input::NONE);
-    p.update(&r, UP);
+    p.step(&r, Input::NONE);
+    p.step(&r, UP);
     // Up edge in a tile with a pole: ClimbOnBeam, facing -1 (head x < 110).
     assert_eq!(p.animation(), Animation::ClimbOnBeam);
     assert_eq!(p.flip_direction(), -1);
@@ -387,11 +387,11 @@ fn pole_jump_velocities() {
 fn pole_jump_fires_one_tick_after_the_press() {
     let r = tall_pole();
     let mut p = Player::on_pole_at(Vec2::new(115.0, 300.0), 1);
-    p.update(&r, RIGHT);
+    p.step(&r, RIGHT);
     let jump_right = Input::new(1, 0, true);
-    p.update(&r, jump_right);
+    p.step(&r, jump_right);
     assert_eq!(p.animation(), Animation::ClimbOnBeam);
-    p.update(&r, jump_right);
+    p.step(&r, jump_right);
     // Dispatch is the last thing in the tick: the set velocities are untouched.
     assert_eq!(p.animation(), Animation::None);
     assert_vec(p.body.chunks[HEAD].vel, 6.0, 8.0);
@@ -429,7 +429,7 @@ fn slide_up_hop_lifts_then_slows() {
     // Leaving the pole clears the slide.
     p.slide_up_pole = 5;
     p.animation = Animation::None;
-    p.update_animation(&r);
+    p.update_animation(&r, None, &mut super::test_rng());
     assert_eq!(p.slide_up_pole, 0);
 }
 
@@ -461,21 +461,21 @@ fn climbing_off_the_top_stands_on_the_tip() {
 
     // A down edge steps off.
     let mut q = p.clone();
-    q.update(&r, DOWN);
+    q.step(&r, DOWN);
     assert_eq!(q.animation(), Animation::None);
 
     // An up edge on the tip: the block's own up exit is undone by the trigger in the
     // same tick, leaving hips vel 0 and canJump 0.
     let mut q = p.clone();
-    q.update(&r, UP);
+    q.step(&r, UP);
     assert_eq!(q.animation(), Animation::BeamTip);
     assert_eq!(q.can_jump, 0);
     assert_vec(q.body.chunks[HIPS].vel, 0.0, 0.0);
 
     // Jump: an ordinary standing jump, one tick after the press.
     let mut q = p.clone();
-    q.update(&r, JUMP);
-    q.update(&r, JUMP);
+    q.step(&r, JUMP);
+    q.step(&r, JUMP);
     assert_eq!(q.animation(), Animation::None);
     assert_close(q.body.chunks[HEAD].vel.y, 4.0, "head");
     assert_close(q.body.chunks[HIPS].vel.y, 3.0, "hips");
@@ -487,7 +487,7 @@ fn up_press_above_a_pole_top_lands_on_the_tip() {
     let r = short_pole();
     let mut p = Player::upright_at(Vec2::new(110.0, 333.0));
     p.body.chunks[HIPS].vel = Vec2::new(1.0, -2.0);
-    p.update(&r, UP);
+    p.step(&r, UP);
     // Hips in (5, 16), no pole there, pole in the tile 20 px below: BeamTip, hips
     // vel := 0. The body mode this tick is still Default (the animation pass already
     // ran), and standing it adds -4 to the hips.
@@ -496,7 +496,7 @@ fn up_press_above_a_pole_top_lands_on_the_tip() {
     // Without the edge nothing happens.
     let mut p = Player::upright_at(Vec2::new(110.0, 333.0));
     p.input[0] = UP;
-    p.update(&r, UP);
+    p.step(&r, UP);
     assert_eq!(p.animation(), Animation::None);
 }
 
@@ -584,7 +584,7 @@ impl Player {
 fn ledge_grab_triggers_on_a_wall_top_at_head_height() {
     let r = ledge_grid().room();
     let mut p = Player::at_wall(196.0);
-    p.update(&r, RIGHT);
+    p.step(&r, RIGHT);
     // Head hits the wall (contact x = 1 = input), y 195.1 > 190 (middle of row 9),
     // WallClimb; (8, 9) open, (9, 7) open, (10, 10) open.
     assert_eq!(p.animation(), Animation::LedgeGrab);
@@ -595,28 +595,28 @@ fn ledge_grab_triggers_on_a_wall_top_at_head_height() {
 fn ledge_grab_negatives() {
     // Head below the tile middle.
     let mut p = Player::at_wall(189.0);
-    p.update(&ledge_grid().room(), RIGHT);
+    p.step(&ledge_grid().room(), RIGHT);
     assert_eq!(p.body_mode(), BodyMode::WallClimb);
     assert_eq!(p.animation(), Animation::None);
     // Wall continues above the head.
     let mut p = Player::at_wall(196.0);
-    p.update(&ledge_grid().set(10, 10..=10, b'#').room(), RIGHT);
+    p.step(&ledge_grid().set(10, 10..=10, b'#').room(), RIGHT);
     assert_eq!(p.animation(), Animation::None);
     // Solid two tiles under the head.
     let mut p = Player::at_wall(196.0);
-    p.update(&ledge_grid().set(9, 2..=7, b'#').room(), RIGHT);
+    p.step(&ledge_grid().set(9, 2..=7, b'#').room(), RIGHT);
     assert_eq!(p.animation(), Animation::None);
     // A one-way floor there counts as solid too.
     let mut p = Player::at_wall(196.0);
-    p.update(&ledge_grid().set(9, 7..=7, b'-').room(), RIGHT);
+    p.step(&ledge_grid().set(9, 7..=7, b'-').room(), RIGHT);
     assert_eq!(p.animation(), Animation::None);
     // Solid behind the head.
     let mut p = Player::at_wall(196.0);
-    p.update(&ledge_grid().set(8, 9..=9, b'#').room(), RIGHT);
+    p.step(&ledge_grid().set(8, 9..=9, b'#').room(), RIGHT);
     assert_eq!(p.animation(), Animation::None);
     // No x input.
     let mut p = Player::at_wall(196.0);
-    p.update(&ledge_grid().room(), Input::NONE);
+    p.step(&ledge_grid().room(), Input::NONE);
     assert_eq!(p.animation(), Animation::None);
 }
 
@@ -679,7 +679,7 @@ fn ledge_grab_block_pulls_the_head_up_and_toward_the_wall() {
 fn ledge_grab_jumps() {
     let r = ledge_grid().room();
     let mut grabbed = Player::at_wall(196.0);
-    grabbed.update(&r, RIGHT);
+    grabbed.step(&r, RIGHT);
     assert_eq!(grabbed.animation(), Animation::LedgeGrab);
 
     // x toward the wall: WallJump(-x) in its hop variant (head on the wall, open above
@@ -708,14 +708,14 @@ fn ledge_grab_jumps() {
 fn holding_toward_the_wall_climbs_over_the_top() {
     let r = ledge_grid().room();
     let mut p = Player::at_wall(196.0);
-    p.update(&r, RIGHT);
+    p.step(&r, RIGHT);
     assert_eq!(p.animation(), Animation::LedgeGrab);
     // The grab hauls the head over the top (4 ticks), then ground classification finds
     // the head on the wall top with the hips against the wall: LedgeCrawl, then StandUp.
     let mut ticks = 0;
     let mut crawled = false;
     while !(p.body_mode() == BodyMode::Stand && p.body.chunks[HIPS].pos.y > 200.0) {
-        p.update(&r, RIGHT);
+        p.step(&r, RIGHT);
         crawled |= p.animation() == Animation::LedgeCrawl;
         ticks += 1;
         assert!(ticks < 80, "never got up: {:?}", p.chunks());
@@ -732,10 +732,10 @@ fn holding_toward_the_wall_climbs_over_the_top() {
 fn ledge_jump_without_wall_contact_kicks_off_the_wall() {
     let r = ledge_grid().room();
     let mut p = Player::at_wall(196.0);
-    p.update(&r, RIGHT);
+    p.step(&r, RIGHT);
     let jump_right = Input::new(1, 0, true);
-    p.update(&r, jump_right);
-    p.update(&r, jump_right);
+    p.step(&r, jump_right);
+    p.step(&r, jump_right);
     // The press is dispatched on this tick (canJump = 1 from the grab block). The block
     // pulls the head toward x 190 + counter, short of touching the wall (head x 191),
     // and this tick's physics did not push it in: no contact, so WallJump's ledge flag

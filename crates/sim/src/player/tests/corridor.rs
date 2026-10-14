@@ -129,7 +129,7 @@ fn corridor_mode_needs_three_ticks_and_leaves_at_once() {
     while p.go_into_corridor_climb == 0 {
         let xs = Vec2::new(p.body.chunks[HEAD].pos.x, p.body.chunks[HIPS].pos.x);
         prev = (p.body_mode, p.can_jump, xs);
-        p.update(&r, LEFT);
+        p.step(&r, LEFT);
         ticks += 1;
         assert!(ticks < 100, "never entered");
     }
@@ -144,11 +144,11 @@ fn corridor_mode_needs_three_ticks_and_leaves_at_once() {
     // Ticks 1 and 2: the old mode stays and canJump is not refreshed (5 -> 4 -> 3).
     assert_eq!(p.body_mode, prev.0);
     assert_eq!(p.can_jump, 4);
-    p.update(&r, LEFT);
+    p.step(&r, LEFT);
     assert_eq!(p.go_into_corridor_climb, 2);
     assert_eq!(p.body_mode, prev.0);
     assert_eq!(p.can_jump, 3);
-    p.update(&r, LEFT);
+    p.step(&r, LEFT);
     assert_eq!(p.go_into_corridor_climb, 3);
     assert_eq!(p.body_mode, BodyMode::CorridorClimb);
     assert_eq!(p.animation, Animation::None);
@@ -162,7 +162,7 @@ fn corridor_mode_needs_three_ticks_and_leaves_at_once() {
     let mut ticks = 0;
     loop {
         let before = (p.body.chunks[HEAD].pos.x, p.body.chunks[HIPS].pos.x);
-        p.update(&r, RIGHT);
+        p.step(&r, RIGHT);
         let (head, hips) = (p.body.chunks[HEAD].pos.x, p.body.chunks[HIPS].pos.x);
         if p.body_mode != BodyMode::CorridorClimb {
             assert!(head >= 400.0 && hips >= 420.0, "{head} {hips}");
@@ -187,7 +187,7 @@ fn corridor_mode_needs_three_ticks_and_leaves_at_once() {
 fn tunnel_push_damping_and_steady_speed() {
     let r = tunnel_room();
     let mut p = Player::in_corridor_at(Vec2::new(127.0, 110.0), Vec2::new(110.0, 110.0));
-    p.update(&r, RIGHT);
+    p.step(&r, RIGHT);
     // Physics leaves everything still. Damping keeps vel 0 and the gravity term gives
     // vel.y 0.9; the head (open tile ahead) gets +1.2 in x and is centred,
     // 0.9 * 0.8 - 0 * 0.2 = 0.72, and so are the hips (y not held); then the head's
@@ -197,7 +197,7 @@ fn tunnel_push_damping_and_steady_speed() {
     // The rod conserves the mean, so the mean x velocity follows m' = A m + 0.66.
     let mut m = 0.66;
     for _ in 0..30 {
-        p.update(&r, RIGHT);
+        p.step(&r, RIGHT);
         m = A * m + PUSH_MEAN;
         assert_close(p.mean_vel().x, m, "mean vel.x");
     }
@@ -234,7 +234,7 @@ fn shaft_shoot_success_from_the_bottom() {
     let r = shaft_room();
     // Hips in the bottom tile (5, 2) with Solid (5, 1) below: canCorridorJump = 5.
     let mut p = Player::in_corridor_at(Vec2::new(110.0, 67.0), Vec2::new(110.0, 50.0));
-    p.update(&r, UP_JUMP);
+    p.step(&r, UP_JUMP);
     // +15 / +10, then slide damping 0.9 (counter 22 >= 10) and gravity term
     // 0.9 * lerp(1, 0.2, 1) = 0.18: 13.68 / 9.18. Up held: the head's push with
     // slowMovementStun 2 is 1.2 * lerp(0.1, 1, 0.8) = 0.984, plus 0.0984.
@@ -245,12 +245,12 @@ fn shaft_shoot_success_from_the_bottom() {
     assert_eq!(p.slow_movement_stun, 2);
     assert_eq!(p.can_corridor_jump, 0);
     // Holding up and jump while rising keeps the shoot-up counter and the grab block.
-    p.update(&r, UP_JUMP);
+    p.step(&r, UP_JUMP);
     assert_eq!(p.shoot_up_counter, 29);
     assert_eq!(p.no_grab_counter, 1);
     // Released: cleared (it sees last tick's input, so one tick later).
-    p.update(&r, UP);
-    p.update(&r, UP);
+    p.step(&r, UP);
+    p.step(&r, UP);
     assert_eq!(p.shoot_up_counter, 0);
 }
 
@@ -258,7 +258,7 @@ fn shaft_shoot_success_from_the_bottom() {
 fn shaft_shoot_fail_midway_and_slide_recovery() {
     let r = shaft_room();
     let mut p = Player::in_corridor_at(Vec2::new(110.0, 227.0), Vec2::new(110.0, 210.0));
-    p.update(&r, JUMP);
+    p.step(&r, JUMP);
     // Same impulse and damping, no push: 13.68 / 9.18.
     assert_close(p.body.chunks[HEAD].vel.y, 13.68, "head");
     assert_close(p.body.chunks[HIPS].vel.y, 9.18, "hips");
@@ -269,14 +269,14 @@ fn shaft_shoot_fail_midway_and_slide_recovery() {
     // new shoot.
     p.run(&r, Input::NONE, 19);
     assert_eq!(p.slow_movement_stun, 0);
-    p.update(&r, JUMP);
+    p.step(&r, JUMP);
     assert_eq!(p.vertical_corridor_slide_counter, 14);
     assert_eq!(p.slow_movement_stun, 0);
     // The counter reaches 1 on tick 33: slowMovementStun = 15.
     p.run(&r, Input::NONE, 12);
     assert_eq!(p.vertical_corridor_slide_counter, 2);
     assert_eq!(p.slow_movement_stun, 0);
-    p.update(&r, Input::NONE);
+    p.step(&r, Input::NONE);
     assert_eq!(p.body_mode, BodyMode::CorridorClimb);
     assert_eq!(p.vertical_corridor_slide_counter, 1);
     assert_eq!(p.slow_movement_stun, 15);
@@ -287,7 +287,7 @@ fn tunnel_slide_success_against_the_back_wall() {
     let r = tunnel_room();
     // Hips in (3, 5) against Solid (2, 5), head free ahead, both 2 px above the middle.
     let mut p = Player::in_corridor_at(Vec2::new(87.0, 112.0), Vec2::new(70.0, 112.0));
-    p.update(&r, Input::new(1, 0, true));
+    p.step(&r, Input::new(1, 0, true));
     // +12 px, y snapped to the head tile's middle, +7 vel.x, x 0.9 slide damping: 6.3;
     // vel.y 0 * 0.9 + 0.9, centred 0.72 on both. The head's push with stun 5:
     // 1.2 * lerp(0.1, 1, 0.5) = 0.66, plus 0.066.
@@ -303,7 +303,7 @@ fn tunnel_slide_success_against_the_back_wall() {
 fn tunnel_slide_fail_without_direction() {
     let r = tunnel_room();
     let mut p = Player::in_corridor_at(Vec2::new(87.0, 112.0), Vec2::new(70.0, 112.0));
-    p.update(&r, JUMP);
+    p.step(&r, JUMP);
     // No x: the fail push +6 / +4, x 0.9: 5.4 / 3.6; stun 15 leaves a 0.12 push for
     // no input. No snap.
     assert_vec(p.body.chunks[HEAD].vel, 5.4, G);
@@ -320,9 +320,9 @@ fn jump_dispatch_in_corridor_mode_sets_6_and_5() {
     // block (no up for a turn, head not up for a shoot); a tick later `Jump` runs.
     let mut p = Player::in_corridor_at(Vec2::new(110.0, 193.0), Vec2::new(110.0, 210.0));
     p.can_jump = 5;
-    p.update(&r, JUMP);
+    p.step(&r, JUMP);
     assert_eq!(p.vertical_corridor_slide_counter, 0);
-    p.update(&r, JUMP);
+    p.step(&r, JUMP);
     assert_close(p.body.chunks[HEAD].vel.y, 6.0, "head");
     assert_close(p.body.chunks[HIPS].vel.y, 5.0, "hips");
     assert!(p.standing);
@@ -336,18 +336,18 @@ fn corridor_turn_takes_40_ticks_with_a_pull_rod() {
     let r = tunnel_room();
     let mut p = Player::in_corridor_at(Vec2::new(227.0, 110.0), Vec2::new(210.0, 110.0));
     // Jump with x pointing away from the head: turn toward (-1, 0).
-    p.update(&r, Input::new(-1, 0, true));
+    p.step(&r, Input::new(-1, 0, true));
     assert_eq!(p.corridor_turn_dir, Some((-1, 0)));
     assert_eq!(p.animation, Animation::None);
     assert_eq!(p.body.connections[0].kind, ConnectionKind::Pull);
     for tick in 1..=40 {
-        p.update(&r, LEFT);
+        p.step(&r, LEFT);
         assert_eq!(p.animation, Animation::CorridorTurn, "tick {tick}");
         assert_eq!(p.corridor_turn_counter, tick);
         assert_eq!(p.slow_movement_stun, 10);
     }
     // Tick 41 pushes out (head 6, hips 5 toward -x) and ends the turn.
-    p.update(&r, LEFT);
+    p.step(&r, LEFT);
     assert_eq!(p.animation, Animation::None);
     assert_eq!(p.corridor_turn_dir, None);
     assert_eq!(p.body.connections[0].kind, ConnectionKind::Normal);
@@ -360,7 +360,7 @@ fn corridor_turn_takes_40_ticks_with_a_pull_rod() {
     // In a shaft head down, jump with up turns toward (0, 1).
     let r = shaft_room();
     let mut p = Player::in_corridor_at(Vec2::new(110.0, 193.0), Vec2::new(110.0, 210.0));
-    p.update(&r, UP_JUMP);
+    p.step(&r, UP_JUMP);
     assert_eq!(p.corridor_turn_dir, Some((0, 1)));
 }
 
@@ -378,19 +378,19 @@ fn shaft_over_pole_room() -> Room {
 fn corridor_drop_falls_in_default_mode() {
     let r = shaft_over_pole_room();
     let mut p = Player::in_corridor_at(Vec2::new(110.0, 253.0), Vec2::new(110.0, 270.0));
-    p.update(&r, Input::new(0, -1, true));
+    p.step(&r, Input::new(0, -1, true));
     assert!(p.corridor_drop);
     assert_eq!(p.can_corridor_jump, 0);
     // Next tick still wedged (counter > 2) but Default, falling.
-    p.update(&r, DOWN);
+    p.step(&r, DOWN);
     assert_eq!(p.body_mode, BodyMode::Default);
     assert!(p.go_into_corridor_climb > 2);
     assert!(p.corridor_drop);
     // Releasing down ends the drop; the mode returns a tick later.
-    p.update(&r, Input::NONE);
+    p.step(&r, Input::NONE);
     assert!(!p.corridor_drop);
     assert_eq!(p.body_mode, BodyMode::Default);
-    p.update(&r, Input::NONE);
+    p.step(&r, Input::NONE);
     assert_eq!(p.body_mode, BodyMode::CorridorClimb);
 }
 
@@ -401,7 +401,7 @@ fn crawling_head_first_out_of_a_shaft_catches_the_pole_below() {
     let mut seen_tile = false;
     let mut ticks = 0;
     while p.animation != Animation::ClimbOnBeam {
-        p.update(&r, DOWN);
+        p.step(&r, DOWN);
         // With the head in (5, 9), under the shaft's walls, and no beam there, the tile
         // below with the pole is remembered.
         if p.body_mode == BodyMode::CorridorClimb && p.tile_pos(HEAD) == (5, 9) {
@@ -446,7 +446,7 @@ fn pole_in_a_shaft_is_climbed_in_corridor_mode_then_grabbed_above() {
     assert!((speed - steady_speed()).abs() < 1e-2, "speed {speed}");
     let mut ticks = 0;
     loop {
-        p.update(&r, UP);
+        p.step(&r, UP);
         let (head, hips) = (p.tile_pos(HEAD).1, p.tile_pos(HIPS).1);
         if head <= 10 {
             assert_eq!(p.body_mode, BodyMode::CorridorClimb);
@@ -477,7 +477,7 @@ fn tunnel_onto_a_horizontal_beam() {
     let mut p = Player::in_corridor_at(Vec2::new(87.0, 210.0), Vec2::new(70.0, 210.0));
     let mut ticks = 0;
     while p.animation != Animation::HangFromBeam {
-        p.update(&r, RIGHT);
+        p.step(&r, RIGHT);
         ticks += 1;
         assert!(ticks < 100, "{:?}", p.body.chunks[HEAD].pos);
     }

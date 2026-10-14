@@ -5,6 +5,7 @@
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 use rw_assets::Room;
+use rw_random::UnityRandom;
 use rw_sim::{Animation, BodyMode, HEAD, HIPS, Input, Player, Vec2};
 
 use crate::{
@@ -78,8 +79,8 @@ fn run(
     rng: &mut StdRng,
 ) {
     for _ in 0..ticks {
-        player.update(room, input);
-        graphics.update(player, room, rng);
+        player.update(room, None, input, &mut UnityRandom::new(0));
+        graphics.update(player, room, None, rng);
     }
 }
 
@@ -359,8 +360,8 @@ fn first_update_resets_to_the_chunks() {
     let (mut p, mut g) = grounded_player(&mut rng);
     // Culled until the first update: nothing is drawn.
     assert!(g.draw(&p, 0.0, Color::BLACK).items.is_empty());
-    p.update(&r, Input::NONE);
-    g.update(&p, &r, &mut rng);
+    p.update(&r, None, Input::NONE, &mut UnityRandom::new(0));
+    g.update(&p, &r, None, &mut rng);
     // The reset puts both draw positions at the chunks, then the tick shifts
     // [1] = [0]: last tick's draw positions are the chunk positions.
     assert_eq!(g.draw_positions[0][1], p.head().pos);
@@ -476,7 +477,7 @@ fn face_by_blink_and_consciousness() {
     let head = *g.draw(&p, 1.0, black).sprite(3).unwrap();
     assert_vec(face.pos, head.pos.x, head.pos.y - 2.0, "face pos");
     // Stunned: FaceStunned, head frame 0, face rotated with the head.
-    p.stun(40);
+    p.stun(40, &mut UnityRandom::new(0));
     run(&mut p, &mut g, &r, Input::NONE, 1, &mut rng);
     let list = g.draw(&p, 1.0, black);
     let (face, head) = (list.sprite(9).unwrap(), list.sprite(3).unwrap());
@@ -890,7 +891,7 @@ fn corridor_legs_in_a_tunnel_and_a_shaft() {
     place(&mut p, IN_TUNNEL);
     assert_eq!(PlayerGraphics::corridor_legs_turn(&r, &p), 0.0);
     g.legs_direction = Vec2::new(0.0, -1.0);
-    g.update(&p, &r, &mut rng);
+    g.update(&p, &r, None, &mut rng);
     let h = std::f32::consts::FRAC_1_SQRT_2;
     assert_vec(g.legs_direction, -h, -h, "tunnel legs direction");
     let legs = *g.draw(&p, 1.0, Color::BLACK).sprite(4).unwrap();
@@ -907,7 +908,7 @@ fn corridor_legs_in_a_tunnel_and_a_shaft() {
     place(&mut p, in_shaft);
     assert_eq!(PlayerGraphics::corridor_legs_turn(&r, &p), 0.0);
     g.legs_direction = Vec2::new(1.0, 0.0);
-    g.update(&p, &r, &mut rng);
+    g.update(&p, &r, None, &mut rng);
     // (1, 0) + (0, -1) normalised; rotation VecToDeg(-0.7071, 0.7071) = -45.
     assert_vec(g.legs_direction, h, -h, "shaft legs direction");
     let legs = *g.draw(&p, 1.0, Color::BLACK).sprite(4).unwrap();
@@ -986,7 +987,7 @@ fn corridor_hands_grip_the_walls_ahead() {
         place(&mut p, IN_TUNNEL);
         hand_behind(&mut g, 0);
         hand_behind(&mut g, 1);
-        g.update(&p, &r, &mut rng);
+        g.update(&p, &r, None, &mut rng);
         assert_vec(g.hands[0].limb.absolute_hunt_pos, 230.0, 60.0, "hand 0");
         assert_vec(g.hands[1].limb.absolute_hunt_pos, 230.0, 40.0, "hand 1");
     }
@@ -997,7 +998,7 @@ fn corridor_hands_grip_the_walls_ahead() {
     let (mut p, mut g) = corridor_player(&r, IN_TUNNEL, up, &mut rng);
     place(&mut p, IN_TUNNEL);
     hand_behind(&mut g, 0);
-    g.update(&p, &r, &mut rng);
+    g.update(&p, &r, None, &mut rng);
     assert_vec(
         g.hands[0].limb.absolute_hunt_pos,
         221.094_01,
@@ -1035,7 +1036,7 @@ fn corridor_turn_pose_and_push() {
     // segments, 2 hands, head, legs) by -10 * corridorTurnDir = (10, 0).
     g.player_pokes(&p);
     while p.corridor_turn_dir().is_some() {
-        p.update(&r, Input::NONE);
+        p.update(&r, None, Input::NONE, &mut UnityRandom::new(0));
     }
     for part in g.body_parts_mut() {
         part.vel = Vec2::ZERO;

@@ -142,7 +142,8 @@ impl Session {
         .inspect_err(|e| log::warn!("no level graphic for {name} ({e})"))
         .ok();
         let spawn = params.spawn_tile.map(|[x, y]| (x, y));
-        let game = Game::new(room, params.seed.unwrap_or(1), spawn);
+        let settings = Game::room_settings(&self.assets, &room);
+        let game = Game::new(room, &settings, params.seed.unwrap_or(1), spawn);
         log::info!("loaded room {name}");
         self.scene = Some(Scene::new(game, visuals));
         self.room_info()
@@ -222,7 +223,8 @@ impl Session {
         match params.seed {
             Some(seed) => {
                 let room = scene.game().room().clone();
-                *scene.game_mut() = Game::new(room, seed, None);
+                let settings = scene.game().settings().clone();
+                *scene.game_mut() = Game::new(room, &settings, seed, None);
             }
             None => scene.game_mut().respawn(),
         }

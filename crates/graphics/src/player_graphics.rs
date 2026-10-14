@@ -1,16 +1,16 @@
 //! `PlayerGraphics`: the slugcat's cosmetic simulation, ticked after the player.
 //!
 //! Behaviour: `rainworld-re/notes/slugcat-graphics.md` sections 1-3 (base game,
-//! Remix off, Survivor stats), including the vertical-pole, ledge-grab, roll/flip and
-//! corridor branches. Not ported (docs/DIVERGENCES.md D8): look and fear targets, grasps
-//! (throwing, eating, carrying), swimming, zero gravity, sleep curl, pups, the Mark,
-//! DLC. `aerobicLevel` is not in the port and is 0.
+//! Remix off, Survivor stats), including the vertical-pole, ledge-grab, roll/flip,
+//! corridor and swimming (`water.md`) branches. Not ported (docs/DIVERGENCES.md D8):
+//! look and fear targets, grasps (throwing, eating, carrying), zero gravity, sleep
+//! curl, pups, the Mark, DLC. `aerobicLevel` is not in the port and is 0.
 
 use std::f32::consts::TAU;
 
 use rand::Rng;
 use rw_assets::{Room, Terrain, tile_centre};
-use rw_sim::{Animation, BodyMode, Player, Vec2};
+use rw_sim::{Animation, BodyMode, Player, Vec2, Water};
 
 use crate::body_part::{BodyPart, PointConnection};
 use crate::draw::{Color, SlugcatName};
@@ -176,13 +176,20 @@ impl PlayerGraphics {
     /// While the body is pulled into a shortcut the game runs an extra update from
     /// `Creature.Update` and drags the parts toward the hole; inside the tube nothing
     /// runs; leaving it resets (`SpitOutOfShortCut`) and starts a new sprite leaser.
-    pub fn update<R: Rng + ?Sized>(&mut self, player: &Player, room: &Room, rng: &mut R) {
+    /// `water` is the room's water, as passed to `Player::update`.
+    pub fn update<R: Rng + ?Sized>(
+        &mut self,
+        player: &Player,
+        room: &Room,
+        water: Option<&Water>,
+        rng: &mut R,
+    ) {
         if player.is_destroyed() {
             return;
         }
         self.player_pokes(player);
         if let Some(entrance) = self.entering_shortcut.take() {
-            self.tick(player, room, rng);
+            self.tick(player, room, water, rng);
             let hole = room.shortcut_hole_direction(entrance.0, entrance.1);
             let target = Vec2::from(tile_centre(entrance.0, entrance.1))
                 + Vec2::new(hole.0 as f32, hole.1 as f32) * -5.0;
@@ -197,7 +204,7 @@ impl PlayerGraphics {
             self.reset(player, rng);
             self.sprites = SpriteMemory::default();
         }
-        self.tick(player, room, rng);
+        self.tick(player, room, water, rng);
         self.entering_shortcut = player.entering_shortcut();
     }
 
@@ -242,7 +249,13 @@ impl PlayerGraphics {
     }
 
     /// `PlayerGraphics.Update` for the ported states.
-    fn tick<R: Rng + ?Sized>(&mut self, player: &Player, room: &Room, rng: &mut R) {
+    fn tick<R: Rng + ?Sized>(
+        &mut self,
+        player: &Player,
+        room: &Room,
+        water: Option<&Water>,
+        rng: &mut R,
+    ) {
         // `GraphicsModule.Update`: `ShouldBeCulled` is false for the player, so the
         // first update un-culls and resets.
         if self.culled {
@@ -295,12 +308,19 @@ impl PlayerGraphics {
         {
             self.beam_balance(player, rng);
         }
-        self.update_tail(player, room, fast, tail_drag);
+        self.update_tail(player, room, water, fast, tail_drag);
 
         self.blink -= 1;
         if self.blink < -rng.range_int(2, 1800) {
             let max = rng.range_int(3, 10);
             self.blink = rng.range_int(3, max);
+        }
+        // Short of breath after a dive: the head bobs with the swim cycle, eyes shut.
+        if !player.is_dead() && player.lungs_exhausted() {
+            let bob = (player.swim_cycle() * TAU).sin();
+            self.head.vel.y += bob;
+            self.draw_positions[0][0].y += bob * 2.5;
+            self.blink = 1;
         }
         // No object looker target exists in a room without other objects.
         self.last_look_dir = self.look_direction;
@@ -316,7 +336,7 @@ impl PlayerGraphics {
 
         self.update_head(player, room);
         self.update_legs(player, room);
-        self.update_hands(player, room, rng);
+        self.update_hands(player, room, water, rng);
     }
 
     /// The body-mode block of `PlayerGraphics.Update`: draw offsets and pokes at the
@@ -378,6 +398,13 @@ impl PlayerGraphics {
             }
             // Other Default animations: the tail hangs loose.
             BodyMode::Default => tail_drag = 0.0,
+            BodyMode::Swimming
+                if player.animation() == Animation::DeepSwim
+                    || player.input_history()[0].x != 0 =>
+            {
+                let side = head.pos.direction_to(hips.pos).perpendicular();
+                self.draw_positions[1][0] += side * ((player.swim_cycle() * TAU).sin() * 5.0);
+            }
             _ => {}
         }
         (fast, tail_drag)
@@ -458,9 +485,17 @@ impl PlayerGraphics {
     }
 
     /// The tail loop: each segment updates against its anchor, is damped and pulled
-    /// down by `tail_drag`, kept within `9 * (l + 1)` px of the hips, and pushed away
-    /// from the body by a force halving per segment.
-    fn update_tail(&mut self, player: &Player, room: &Room, fast: bool, mut tail_drag: f32) {
+    /// down by `tail_drag` (both fading as the hips sink in water), kept within
+    /// `9 * (l + 1)` px of the hips, and pushed away from the body by a force halving
+    /// per segment.
+    fn update_tail(
+        &mut self,
+        player: &Player,
+        room: &Room,
+        water: Option<&Water>,
+        fast: bool,
+        mut tail_drag: f32,
+    ) {
         let hips = player.hips();
         let flip = player.flip_direction() as f32;
         let mut push_from = if fast {
@@ -470,7 +505,8 @@ impl PlayerGraphics {
         };
         let mut next_push_from = hips.pos;
         let mut push = 28.0;
-        // No water: submersion is 0. Room gravity is 1.
+        let dry = 1.0 - hips.submersion(water);
+        // Room gravity is 1.
         for l in 0..self.tail.len() {
             let (before, rest) = self.tail.split_at_mut(l);
             let anchor = match before.last_mut() {
@@ -479,8 +515,8 @@ impl PlayerGraphics {
             };
             rest[0].update(room, anchor);
             let p = &mut rest[0].part;
-            p.vel *= 0.75_f32.lerp_to(0.95, tail_drag);
-            p.vel.y -= 0.1_f32.lerp_to(0.5, tail_drag);
+            p.vel *= 0.75_f32.lerp_to(0.95, tail_drag * dry);
+            p.vel.y -= 0.1_f32.lerp_to(0.5, tail_drag) * dry;
             tail_drag = (tail_drag * 10.0 + 1.0) / 11.0;
             let reach = 9.0 * (l + 1) as f32;
             if p.pos.distance(hips.pos) >= reach {
@@ -651,12 +687,19 @@ impl PlayerGraphics {
     }
 
     /// Both hands, hand 0 first (hand 1 reads where hand 0 went).
-    fn update_hands<R: Rng + ?Sized>(&mut self, player: &Player, room: &Room, rng: &mut R) {
+    fn update_hands<R: Rng + ?Sized>(
+        &mut self,
+        player: &Player,
+        room: &Room,
+        water: Option<&Water>,
+        rng: &mut R,
+    ) {
         for i in 0..self.hands.len() {
             let hand0 = &self.hands[0].limb;
             let mut cx = HandContext {
                 player,
                 room,
+                water,
                 balance_counter: self.balance_counter,
                 disbalance: &mut self.disbalance_amount,
                 head_vel: &mut self.head.vel,

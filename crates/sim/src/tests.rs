@@ -68,6 +68,7 @@ fn frictionless(bounce: f32, surface_friction: f32) -> PhysicsParams {
         bounce,
         surface_friction,
         impact_threshold: 1.0,
+        ..slugcat::PARAMS
     }
 }
 
@@ -167,6 +168,7 @@ fn floor_bounce_below_gravity_is_cancelled() {
         bounce: 1.0,
         surface_friction: 0.5,
         impact_threshold: 1.0,
+        ..slugcat::PARAMS
     };
     let mut obj = single((50.0, 55.0), (0.0, 0.0), 10.0, params);
     obj.update(&r);

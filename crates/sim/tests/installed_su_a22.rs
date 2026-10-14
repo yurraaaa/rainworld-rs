@@ -11,7 +11,8 @@ use std::path::PathBuf;
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 use rw_assets::Room;
-use rw_sim::{BodyMode, Input, Player};
+use rw_random::UnityRandom;
+use rw_sim::{BodyMode, Input, Player, determine_safe_spawn_tile};
 
 const DEFAULT_RW_DIR: &str = "/home/yura/.local/share/Steam/steamapps/common/Rain World";
 
@@ -34,18 +35,21 @@ fn su_a22() -> Option<Room> {
 #[test]
 fn su_a22_seed_1_spawn_clings_in_the_shortcut_mouth_tunnel() {
     let Some(room) = su_a22() else { return };
-    // The app's spawn: StdRng seeded with the seed, then `Player::spawn`.
-    let mut p = Player::spawn(&room, &mut StdRng::seed_from_u64(1));
+    // The spawn tile and offsets of the StdRng seed-1 sequence this test was written for.
+    let mut rng = StdRng::seed_from_u64(1);
+    let tile = determine_safe_spawn_tile(&room, &mut rng);
+    let mut p = Player::create(&mut UnityRandom::new(1));
+    p.place(tile, &mut rng);
     assert_eq!(p.head().pos.tile(), (12, 16));
     assert_eq!(p.hips().pos.tile(), (12, 16));
     let still = Input::new(0, 0, false);
-    p.update(&room, still);
-    p.update(&room, still);
+    p.update(&room, None, still, &mut UnityRandom::new(0));
+    p.update(&room, None, still, &mut UnityRandom::new(0));
     assert_ne!(p.body_mode(), BodyMode::CorridorClimb);
-    p.update(&room, still);
+    p.update(&room, None, still, &mut UnityRandom::new(0));
     assert_eq!(p.body_mode(), BodyMode::CorridorClimb);
     for _ in 0..57 {
-        p.update(&room, still);
+        p.update(&room, None, still, &mut UnityRandom::new(0));
     }
     assert_eq!(p.body_mode(), BodyMode::CorridorClimb);
     assert_eq!(p.head().pos.tile(), (13, 16));

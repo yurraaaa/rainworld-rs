@@ -4,17 +4,20 @@
 //! gravity 0.9, air friction 0.999, surface friction 0.5.
 
 use rw_assets::Room;
+use rw_random::UnityRandom;
 
 use rw_assets::ShortcutType;
 
 mod advanced;
 mod corridor;
 mod poles;
+mod swim;
 
 use super::{Animation, BodyMode, HEAD, HIPS, INPUT_HISTORY, Input, Player};
 use crate::shortcut::ShortcutVessel;
 use crate::tests::{room, room_with_water};
-use crate::{Contact, ShortcutHandler, TerrainImpact, TerrainImpactHandler, Vec2};
+use crate::{Contact, ShortcutHandler, TerrainImpact, TerrainImpactHandler, Vec2, Water};
+use rw_assets::RoomSettings;
 
 const EPS: f32 = 1e-4;
 const G: f32 = 0.9;
@@ -54,11 +57,21 @@ impl Player {
         self.body.chunks = chunks;
     }
 
+    /// [`Player::update`] in a room without water, with a fixed random sequence.
+    fn step(&mut self, room: &Room, input: Input) {
+        self.update(room, None, input, &mut test_rng());
+    }
+
     fn run(&mut self, room: &Room, input: Input, ticks: usize) {
         for _ in 0..ticks {
-            self.update(room, input);
+            self.step(room, input);
         }
     }
+}
+
+/// The tests' random source; every call starts the same sequence.
+fn test_rng() -> UnityRandom {
+    UnityRandom::new(0)
 }
 
 fn assert_vec(actual: Vec2, x: f32, y: f32) {
@@ -90,7 +103,7 @@ fn input_history_keeps_ten_newest_first() {
     let mut p = Player::upright_at(Vec2::new(100.0, 48.0));
     for i in 0..12 {
         let x = if i % 2 == 0 { 1 } else { -1 };
-        p.update(&r, Input::new(x, 0, i == 11));
+        p.step(&r, Input::new(x, 0, i == 11));
     }
     let h = p.input_history();
     assert_eq!(h.len(), INPUT_HISTORY);
@@ -98,7 +111,7 @@ fn input_history_keeps_ten_newest_first() {
     assert_eq!(h[1], Input::new(1, 0, false));
     assert_eq!(h[9], Input::new(1, 0, false)); // tick index 2
     // Out-of-range axes are reduced to their sign.
-    p.update(
+    p.step(
         &r,
         Input {
             x: 5,
@@ -123,7 +136,7 @@ fn run_accelerates_by_1_2_per_tick_up_to_stand_caps() {
     let mut expected = [0.0_f32; 2];
     let caps = [4.2_f32, 4.0];
     for tick in 1..=6 {
-        p.update(&r, RIGHT);
+        p.step(&r, RIGHT);
         assert_eq!(p.body_mode(), BodyMode::Stand, "tick {tick}");
         for i in 0..2 {
             let v = expected[i] * DRAG;
@@ -149,7 +162,7 @@ fn releasing_direction_applies_ground_friction_and_stops() {
     // After three ticks both chunks move at 3.596_401 (see the run test).
     let v3 = (1.2_f32 * DRAG + 1.2) * DRAG + 1.2;
     let x_release = p.body.chunks[HIPS].pos.x;
-    p.update(&r, Input::NONE);
+    p.step(&r, Input::NONE);
     // No input on the ground: v += (0 - v) * 0.5^1.5 after the physics drag.
     let v4 = v3 * DRAG * (1.0 - GROUND_BLEND);
     for i in 0..2 {
@@ -178,10 +191,10 @@ fn standing_jump_fires_one_tick_after_press_and_boost_decays() {
     let r = flat_room();
     let mut p = Player::upright_at(Vec2::new(100.0, 48.0));
     // The press edge is read before the new input, so the buffer starts next tick.
-    p.update(&r, JUMP);
+    p.step(&r, JUMP);
     assert_eq!(p.want_to_jump, 0);
     assert!(p.body.chunks[HEAD].vel.y < 4.0);
-    p.update(&r, JUMP);
+    p.step(&r, JUMP);
     // Standing jump sets vel.y = 4 / 3 and jumpBoost = 8.
     assert_eq!(p.body.chunks[HEAD].vel.y, 4.0);
     assert_eq!(p.body.chunks[HIPS].vel.y, 3.0);
@@ -195,7 +208,7 @@ fn standing_jump_fires_one_tick_after_press_and_boost_decays() {
     let adds = [2.25_f32, 1.8, 1.35, 0.9, 0.45, 0.0, 0.0, 0.0];
     let mut sum = 7.0_f32;
     for (k, (&boost, &add)) in boosts.iter().zip(&adds).enumerate() {
-        p.update(&r, JUMP);
+        p.step(&r, JUMP);
         sum = (sum - 2.0 * G) * DRAG + 2.0 * add;
         assert_eq!(p.body_mode(), BodyMode::Default, "airborne tick {k}");
         assert_close(
@@ -215,10 +228,10 @@ fn standing_jump_fires_one_tick_after_press_and_boost_decays() {
 fn tapped_jump_gets_no_boost() {
     let r = flat_room();
     let mut p = Player::upright_at(Vec2::new(100.0, 48.0));
-    p.update(&r, JUMP);
-    p.update(&r, Input::NONE); // the jump fires this tick from the buffer
+    p.step(&r, JUMP);
+    p.step(&r, Input::NONE); // the jump fires this tick from the buffer
     assert_eq!(p.jump_boost, 8.0);
-    p.update(&r, Input::NONE);
+    p.step(&r, Input::NONE);
     // Released: jumpBoost = 0 and no add.
     assert_eq!(p.jump_boost, 0.0);
     assert!((p.vel_sum_y() - (7.0 - 2.0 * G) * DRAG).abs() < 1e-3);
@@ -234,7 +247,7 @@ fn coyote_time_allows_jumps_four_ticks_after_leaving_ground() {
         p.can_jump = 5;
         for tick in 1..=press_tick + 1 {
             let jump = tick >= press_tick;
-            p.update(&r, Input::new(0, 0, jump));
+            p.step(&r, Input::new(0, 0, jump));
         }
         // A crouched jump (not standing) sets jumpBoost = 6.
         assert_eq!(p.jump_boost == 6.0, jumps, "press at tick {press_tick}");
@@ -264,7 +277,7 @@ fn jump_buffer_lasts_five_ticks_before_landing() {
         let mut p = Player::lying_at(Vec2::new(60.0, y0));
         for tick in 1..=landing {
             // x held keeps a crawl landing from cancelling the buffer.
-            p.update(&r, Input::new(1, 0, tick == press_tick));
+            p.step(&r, Input::new(1, 0, tick == press_tick));
             if tick < landing {
                 assert_eq!(p.body.chunks[HEAD].contact().y, 0, "tick {tick}");
             }
@@ -292,7 +305,7 @@ fn crouched_still_jump_fires_on_release() {
     // Crawling with no direction: the press buffer is cleared, the charge counts.
     assert_eq!(p.jump_boost, 0.0);
     assert_eq!(p.super_launch_jump, 4);
-    p.update(&r, Input::NONE);
+    p.step(&r, Input::NONE);
     // Release sets wantToJump = 1: crouch jump, jumpBoost 6.
     assert_eq!(p.jump_boost, 6.0);
 }
@@ -306,8 +319,8 @@ fn wall_jump_from_wall_climb() {
     // Tick 2: the head (151.2 + 9 >= 160) hits the wall: contact x = 1 = input.
     assert_eq!(p.body_mode(), BodyMode::WallClimb);
     assert_eq!(p.can_wall_jump, -15);
-    p.update(&r, Input::new(1, 0, true));
-    p.update(&r, Input::new(1, 0, true));
+    p.step(&r, Input::new(1, 0, true));
+    p.step(&r, Input::new(1, 0, true));
     // No footing: head (6 * dir, 8), hips (5 * dir, 7), dir = sign(canWallJump) = -1.
     assert_eq!(p.body.chunks[HEAD].vel, Vec2::new(-6.0, 8.0));
     assert_eq!(p.body.chunks[HIPS].vel, Vec2::new(-5.0, 7.0));
@@ -324,7 +337,7 @@ fn up_press_stands_up_from_crawl() {
     p.run(&r, Input::NONE, 20);
     assert_eq!(p.body_mode(), BodyMode::Crawl);
     assert!(!p.is_standing());
-    p.update(&r, Input::new(0, 1, false));
+    p.step(&r, Input::new(0, 1, false));
     assert!(p.is_standing());
     p.run(&r, Input::NONE, 60);
     assert_eq!(p.body_mode(), BodyMode::Stand);
@@ -333,7 +346,7 @@ fn up_press_stands_up_from_crawl() {
     assert!(head.pos.y - hips.pos.y > 16.5, "{head:?} {hips:?}");
     assert!((head.pos.x - hips.pos.x).abs() < 1.0);
     // Down press lowers to all fours again.
-    p.update(&r, Input::new(0, -1, false));
+    p.step(&r, Input::new(0, -1, false));
     assert!(!p.is_standing());
     p.run(&r, Input::NONE, 40);
     assert_eq!(p.body_mode(), BodyMode::Crawl);
@@ -358,11 +371,11 @@ fn one_way_floor_holds_until_down_is_held() {
     assert_eq!(p.body_mode(), BodyMode::Crawl);
     assert_eq!(p.body.chunks[HIPS].pos.y, 128.0, "rests on the floor tiles");
     let down = Input::new(0, -1, false);
-    p.update(&r, down);
+    p.step(&r, down);
     // Crawl + down sets GoThroughFloors after this tick's physics.
     assert!(p.body.chunks.iter().all(|c| c.go_through_floors));
     let rest: Vec<f32> = p.chunks().iter().map(|c| c.pos.y).collect();
-    p.update(&r, down);
+    p.step(&r, down);
     for (c, y) in p.chunks().iter().zip(rest) {
         assert_eq!(c.contact().y, 0, "falls through: {c:?}");
         assert!(c.pos.y < y);
@@ -399,7 +412,7 @@ fn on_ramp() -> Player {
 fn stand_on_slope_scales_caps_and_pulls_hips_down() {
     let r = ramp_room();
     let mut p = on_ramp();
-    p.update(&r, Input::NONE);
+    p.step(&r, Input::NONE);
     let hips = &p.body.chunks[HIPS];
     assert_eq!(hips.on_slope(), -1);
     assert_eq!(p.body_mode(), BodyMode::Stand);
@@ -415,8 +428,8 @@ fn slope_jump_kicks_downhill() {
     let r = ramp_room();
     // No x input: head += onSlope * 1.8, hips += onSlope * 1.2 (onSlope = -1).
     let mut p = on_ramp();
-    p.update(&r, JUMP);
-    p.update(&r, JUMP);
+    p.step(&r, JUMP);
+    p.step(&r, JUMP);
     assert_eq!(p.jump_boost, 8.0);
     assert_close(p.body.chunks[HEAD].vel.x, -1.8, "head");
     assert_close(p.body.chunks[HIPS].vel.x, -1.2, "hips");
@@ -424,8 +437,8 @@ fn slope_jump_kicks_downhill() {
     // Jumping uphill (x = -onSlope = +1): the run force first adds 1.2 to both, then
     // only the hips get onSlope * 8.
     let mut p = on_ramp();
-    p.update(&r, JUMP);
-    p.update(&r, Input::new(1, 0, true));
+    p.step(&r, JUMP);
+    p.step(&r, Input::new(1, 0, true));
     assert_close(p.body.chunks[HEAD].vel.x, 1.2, "head");
     assert_close(p.body.chunks[HIPS].vel.x, 1.2 - 8.0, "hips");
 }
@@ -439,8 +452,8 @@ fn pole_hop_off_a_beam_while_passing_through() {
     rows[29 - 10] = "============";
     let r = room(&rows);
     let mut p = Player::upright_at(Vec2::new(110.0, 210.0));
-    p.update(&r, Input::new(1, 0, true));
-    p.update(&r, Input::new(1, 0, true));
+    p.step(&r, Input::new(1, 0, true));
+    p.step(&r, Input::new(1, 0, true));
     // Hop: vel.y 4.5 / 3.5 set before physics, then the held boost: jumpBoost 6 -> 4.5,
     // both += 5.5 * 0.3. Sum: (8 - 1.8) * 0.999 + 3.3.
     assert_eq!(p.pole_skip_penalty, 6);
@@ -553,18 +566,18 @@ fn input_is_neutral_on_every_stun_tick() {
     let mut p = Player::lying_at(Vec2::new(100.0, 48.0));
     p.run(&r, Input::NONE, 20);
     // Stun 2: checkInput reads nothing while stun != 0 (before the countdown).
-    p.stun(2);
-    p.update(&r, RIGHT);
+    p.stun(2, &mut test_rng());
+    p.step(&r, RIGHT);
     assert_eq!(p.input_history()[0], Input::NONE);
     assert_eq!(p.stun_ticks(), 1);
-    p.update(&r, RIGHT);
+    p.step(&r, RIGHT);
     assert_eq!(p.input_history()[0], Input::NONE);
     assert_eq!(p.stun_ticks(), 0);
-    p.update(&r, RIGHT);
+    p.step(&r, RIGHT);
     assert_eq!(p.input_history()[0], RIGHT);
 
     p.die();
-    p.update(&r, RIGHT);
+    p.step(&r, RIGHT);
     assert_eq!(p.input_history()[0], Input::NONE);
 }
 
@@ -574,14 +587,14 @@ fn movement_is_skipped_until_stun_reaches_zero() {
     let mut p = Player::lying_at(Vec2::new(100.0, 48.0));
     p.run(&r, Input::NONE, 20);
     assert_eq!(p.body_mode(), BodyMode::Crawl);
-    p.stun(40);
+    p.stun(40, &mut test_rng());
     // Ticks 1..39: Stunned mode stays (MovementUpdate would reclassify it).
     p.run(&r, Input::NONE, 39);
     assert_eq!(p.stun_ticks(), 1);
     assert_eq!(p.body_mode(), BodyMode::Stunned);
     assert_eq!(p.animation(), Animation::None);
     // Tick 40 counts 1 -> 0 before physics, so MovementUpdate runs again.
-    p.update(&r, Input::NONE);
+    p.step(&r, Input::NONE);
     assert_eq!(p.stun_ticks(), 0);
     assert_eq!(p.body_mode(), BodyMode::Crawl);
 }
@@ -590,20 +603,20 @@ fn movement_is_skipped_until_stun_reaches_zero() {
 fn friction_is_0_3_while_not_conscious() {
     let r = flat_room();
     let mut p = Player::lying_at(Vec2::new(100.0, 48.0));
-    p.update(&r, Input::NONE);
+    p.step(&r, Input::NONE);
     assert_eq!(p.body.params.surface_friction, 0.5);
     // Stunned is stun >= 10, read before the countdown.
-    p.stun(10);
-    p.update(&r, Input::NONE);
+    p.stun(10, &mut test_rng());
+    p.step(&r, Input::NONE);
     assert_eq!(p.body.params.surface_friction, 0.3);
     // Stun 9: conscious again, though still without input or movement.
-    p.update(&r, Input::NONE);
+    p.step(&r, Input::NONE);
     assert_eq!(p.body.params.surface_friction, 0.5);
     assert_eq!(p.body_mode(), BodyMode::Stunned);
 
     let mut p = Player::lying_at(Vec2::new(100.0, 48.0));
     p.die();
-    p.update(&r, Input::NONE);
+    p.step(&r, Input::NONE);
     assert_eq!(p.body.params.surface_friction, 0.3);
     assert_eq!(p.body_mode(), BodyMode::Dead);
     assert_eq!(p.animation(), Animation::Dead);
@@ -621,7 +634,7 @@ impl Player {
     fn fall_to_death(&mut self, room: &Room, limit: f32) -> usize {
         for tick in 1..400 {
             let start_y = self.body.chunks[HEAD].pos.y;
-            self.update(room, Input::NONE);
+            self.step(room, Input::NONE);
             assert_eq!(
                 self.is_dead(),
                 start_y < limit,
@@ -649,22 +662,29 @@ fn falling_below_minus_500_kills() {
 fn wall_climb_raises_the_out_of_room_limit_to_minus_250() {
     let r = open_room(20, 10, -1);
     let mut p = Player::lying_at(Vec2::new(100.0, -251.0));
-    p.update(&r, Input::NONE);
+    p.step(&r, Input::NONE);
     assert!(!p.is_dead());
     let mut p = Player::lying_at(Vec2::new(100.0, -251.0));
     p.body_mode = BodyMode::WallClimb;
-    p.update(&r, Input::NONE);
+    p.step(&r, Input::NONE);
     assert!(p.is_dead());
 }
 
 #[test]
 fn water_room_never_kills_below_the_bottom() {
+    // falls.md section 5: with `room.water` and `defaultWaterLevel >= -10` there is no
+    // out-of-room death. The head starts 100 px below the -500 limit.
     let r = open_room(20, 10, 3);
-    let mut p = Player::lying_at(Vec2::new(100.0, -480.0));
-    p.run(&r, Input::NONE, 300);
-    assert!(!p.is_dead());
-    // Held by the room-range clamp instead.
-    assert_eq!(p.head().pos.y, -1200.0);
+    let water = Water::new(&r, &RoomSettings::ANCESTOR);
+    let mut p = Player::lying_at(Vec2::new(100.0, -600.0));
+    for _ in 0..40 {
+        p.update(&r, water.as_ref(), Input::NONE, &mut test_rng());
+    }
+    assert!(!p.is_dead() && !p.is_destroyed());
+    // Without the water object the same body dies on the first tick.
+    let mut p = Player::lying_at(Vec2::new(100.0, -600.0));
+    p.step(&r, Input::NONE);
+    assert!(p.is_destroyed());
 }
 
 #[test]
@@ -682,7 +702,7 @@ fn long_drop_in_a_tall_room_stuns() {
     p.run(&r, Input::NONE, 52);
     assert_eq!(p.stun_ticks(), 0);
     assert!(p.body.impacts().is_empty());
-    p.update(&r, Input::NONE);
+    p.step(&r, Input::NONE);
     let impacts = p.body.impacts();
     assert_eq!(impacts.len(), 2, "{impacts:?}");
     for (i, imp) in impacts.iter().enumerate() {
@@ -695,7 +715,7 @@ fn long_drop_in_a_tall_room_stuns() {
     // t = 11.434 / 25 = 0.45736, t^2.5 = 0.14147 => 54.
     assert_eq!(p.stun_ticks(), 54);
     assert!(p.is_stunned() && !p.is_dead());
-    p.update(&r, Input::NONE);
+    p.step(&r, Input::NONE);
     assert_eq!(p.body_mode(), BodyMode::Stunned);
 }
 
@@ -707,7 +727,7 @@ fn landing_above_60_kills() {
         c.vel.y = -62.0;
     }
     // (-62 - 0.9) * 0.999 = -62.837: y 37.2, through the floor top 40 in one tick.
-    p.update(&r, Input::NONE);
+    p.step(&r, Input::NONE);
     assert!(p.is_dead());
 }
 
@@ -741,7 +761,7 @@ impl Player {
     ) {
         for _ in 0..ticks {
             handler.update(room, self);
-            self.update(room, input);
+            self.step(room, input);
         }
     }
 }
@@ -761,7 +781,7 @@ fn entering_needs_input_exactly_into_the_hole() {
         (Input::NONE, false),
     ] {
         let mut p = Player::at_pipe_mouth();
-        p.update(&r, input);
+        p.step(&r, input);
         assert_eq!(p.head().pos.tile(), (3, 1));
         let expected = enters.then_some((3, 1));
         assert_eq!(p.entering_shortcut(), expected, "{input:?}");
@@ -774,11 +794,11 @@ fn no_entry_during_shortcut_delay() {
     let mut p = Player::at_pipe_mouth();
     p.shortcut_delay = 2;
     // Counted down to 1 before `MovementUpdate`: still blocked.
-    p.update(&r, RIGHT);
+    p.step(&r, RIGHT);
     assert_eq!(p.shortcut_delay(), 1);
     assert_eq!(p.entering_shortcut(), None);
     // Down to 0: enters.
-    p.update(&r, RIGHT);
+    p.step(&r, RIGHT);
     assert_eq!(p.entering_shortcut(), Some((3, 1)));
 }
 
@@ -786,15 +806,15 @@ fn no_entry_during_shortcut_delay() {
 fn no_entry_while_stunned_and_stun_cancels_the_pull() {
     let r = pipe_room();
     let mut p = Player::at_pipe_mouth();
-    p.stun(20);
-    p.update(&r, RIGHT);
+    p.stun(20, &mut test_rng());
+    p.step(&r, RIGHT);
     assert_eq!(p.entering_shortcut(), None);
 
     // Entering with the hips far away: a stun of 10 or more cancels after the pull.
     let mut p = Player::at_pipe_mouth();
     p.entering_shortcut = Some((3, 1));
     p.stun = 11;
-    p.update(&r, Input::NONE);
+    p.step(&r, Input::NONE);
     assert_eq!(p.entering_shortcut(), None);
     assert!(!p.in_shortcut());
 }
@@ -815,7 +835,7 @@ fn room_exits_dens_and_dead_ends_cannot_be_entered() {
         // Head in (1,1), pressing left into the hole.
         let mut p = Player::lying_at(Vec2::new(47.0, 28.0));
         p.body.chunks[HEAD].reset_at(Vec2::new(30.0, 29.0));
-        p.update(&r, Input::new(-1, 0, false));
+        p.step(&r, Input::new(-1, 0, false));
         assert_eq!(p.head().pos.tile(), (1, 1));
         assert_eq!(p.entering_shortcut(), None, "{kind:?}");
     }
@@ -831,13 +851,13 @@ fn pull_in_moves_4_5_px_per_tick_and_snaps_within_10() {
     p.body.chunks[HEAD].vel = Vec2::new(1.0, -2.0);
     p.entering_shortcut = Some((3, 1));
     // Tick 1: head at distance 10 (not < 10) moves to 69.5; hips 27 -> 22.5.
-    p.update(&r, Input::NONE);
+    p.step(&r, Input::NONE);
     assert_vec(p.head().pos, 69.5, 30.0);
     assert_vec(p.head().last_pos, 65.0, 30.0);
     assert_vec(p.head().vel, 0.06, -0.12);
     assert_vec(p.hips().pos, 52.5, 30.0);
     // Tick 2: head (5.5 away) snaps to the target; hips 22.5 -> 18.
-    p.update(&r, Input::NONE);
+    p.step(&r, Input::NONE);
     assert_vec(p.head().pos, 75.0, 30.0);
     assert_vec(p.head().last_pos, 75.0, 30.0);
     assert_vec(p.hips().pos, 57.0, 30.0);
@@ -847,7 +867,7 @@ fn pull_in_moves_4_5_px_per_tick_and_snaps_within_10() {
     assert!(!p.in_shortcut());
     assert_eq!(p.entering_shortcut(), Some((3, 1)));
     // Tick 5: hips within 10 snaps; nothing moved, so the player goes in.
-    p.update(&r, Input::NONE);
+    p.step(&r, Input::NONE);
     assert!(p.in_shortcut());
     assert_eq!(p.entering_shortcut(), None);
     assert_eq!(p.shortcut_vessel_tile(), Some((3, 1)));
@@ -887,7 +907,7 @@ fn player_is_not_updated_inside_a_shortcut() {
     let mut p = Player::new();
     p.vessel = Some(ShortcutVessel::new((3, 1)));
     let before = p.clone();
-    p.update(&r, RIGHT);
+    p.step(&r, RIGHT);
     assert_eq!(p, before);
 }
 
@@ -973,10 +993,6 @@ fn falling_out_of_the_room_destroys_the_body() {
     p.fall_to_death(&r, -500.0);
     assert!(p.is_destroyed());
     let before = p.clone();
-    p.update(&r, RIGHT);
+    p.step(&r, RIGHT);
     assert_eq!(p, before);
-    // Caught by water: never destroyed.
-    let mut p = Player::lying_at(Vec2::new(100.0, -480.0));
-    p.run(&open_room(20, 10, 3), Input::NONE, 300);
-    assert!(!p.is_destroyed());
 }

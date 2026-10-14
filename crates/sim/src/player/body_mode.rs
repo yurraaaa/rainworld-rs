@@ -6,12 +6,14 @@
 use rw_assets::{Room, Terrain};
 
 use super::{Animation, BodyMode, HEAD, HIPS, Player, ROOM_GRAVITY, RUN_SPEED_FAC};
-use crate::Vec2;
+use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
+use crate::{Vec2, Water};
 
 impl Player {
-    pub(super) fn update_body_mode(&mut self, room: &Room) {
+    pub(super) fn update_body_mode(&mut self, room: &Room, water: Option<&Water>) {
         self.dive_force = (self.dive_force - 0.05).max(0.0);
+        self.water_retardation_immunity = self.dive_force.inverse_lerp(0.0, 0.3) * 0.85;
         if !matches!(self.body_mode, BodyMode::Default | BodyMode::CorridorClimb) {
             self.drop_grab_tile = None;
         }
@@ -20,9 +22,10 @@ impl Player {
             BodyMode::Default => self.default_mode(room),
             BodyMode::Crawl => self.crawl_mode(room),
             BodyMode::Stand => self.stand_mode(room),
-            BodyMode::WallClimb => self.wall_climb_mode(room),
+            BodyMode::WallClimb => self.wall_climb_mode(room, water),
             BodyMode::ClimbingOnBeam => self.climbing_on_beam_mode(room),
-            BodyMode::CorridorClimb => self.corridor_climb_mode(room),
+            BodyMode::CorridorClimb => self.corridor_climb_mode(room, water),
+            BodyMode::Swimming => self.swimming_mode(room),
             // Set only while `movement_update` is skipped.
             BodyMode::Stunned | BodyMode::Dead => {}
         }
@@ -316,8 +319,9 @@ impl Player {
         false
     }
 
-    /// Head pressed against a wall: wall-jump window and slowing wall slide.
-    fn wall_climb_mode(&mut self, room: &Room) {
+    /// Head pressed against a wall: wall-jump window, slowing wall slide, and the hips
+    /// lifted by their submersion.
+    fn wall_climb_mode(&mut self, room: &Room, water: Option<&Water>) {
         let x = self.input_x();
         let (head, hips) = (&self.body.chunks[HEAD], &self.body.chunks[HIPS]);
         if head.pos.y > hips.pos.y {
@@ -333,7 +337,8 @@ impl Player {
                 c.pos.y += lift;
             }
         }
-        // Hips buoyancy when submerged: water is not ported.
+        let lift = self.body.chunks[HIPS].submersion(water) * ROOM_GRAVITY;
+        self.body.chunks[HIPS].vel.y += lift;
     }
 
     /// On a beam or pole: keep the feet on horizontal beam tiles while getting up /

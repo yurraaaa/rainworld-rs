@@ -6,3 +6,4 @@ edition.workspace = true
 [dependencies]
 rw-assets.workspace = true
 rand.workspace = true
+rw-random.workspace = true

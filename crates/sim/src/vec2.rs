@@ -49,6 +49,11 @@ impl Vec2 {
         Self::new(-n.y, n.x)
     }
 
+    /// `Custom.RNV`: a unit vector at a random angle (`DegToVec(Random.value * 360)`).
+    pub fn random_unit(rng: &mut rw_random::UnityRandom) -> Self {
+        Self::from_degrees(rng.value() * 360.0)
+    }
+
     /// `Custom.DegToVec`: unit vector `deg` degrees clockwise from straight up.
     #[must_use]
     pub fn from_degrees(deg: f32) -> Self {
@@ -77,6 +82,47 @@ impl Vec2 {
         } else {
             d.normalized()
         }
+    }
+
+    #[must_use]
+    pub fn dot(self, other: Self) -> f32 {
+        self.x * other.x + self.y * other.y
+    }
+
+    /// `Vector2.Angle`: the unsigned angle between the two directions in degrees; 0 when
+    /// either is (nearly) zero.
+    #[must_use]
+    pub fn angle_to(self, other: Self) -> f32 {
+        let denominator =
+            ((self.x * self.x + self.y * self.y) * (other.x * other.x + other.y * other.y)).sqrt();
+        if denominator < 1e-15 {
+            return 0.0;
+        }
+        (self.dot(other) / denominator)
+            .clamp(-1.0, 1.0)
+            .acos()
+            .to_degrees()
+    }
+
+    /// `Vector3.Slerp` in the plane: turns toward `to` along the shorter arc by the
+    /// fraction `t` (clamped to 0..=1) and lerps the length. Opposite directions turn
+    /// counter-clockwise (INFERRED; Unity's choice of axis there is not known).
+    #[must_use]
+    pub fn slerp(self, to: Self, t: f32) -> Self {
+        let t = t.clamp(0.0, 1.0);
+        let (la, lb) = (self.length(), to.length());
+        if la < 1e-5 || lb < 1e-5 {
+            return self.lerp(to, t);
+        }
+        let (a, b) = (self / la, to / lb);
+        let mut angle = a.angle_to(b).to_radians();
+        let cross = a.x * b.y - a.y * b.x;
+        if cross < 0.0 {
+            angle = -angle;
+        }
+        let turn = angle * t;
+        let (s, c) = turn.sin_cos();
+        Self::new(a.x * c - a.y * s, a.x * s + a.y * c) * (la + (lb - la) * t)
     }
 
     /// As an array, for the `rw_assets` tile helpers.
@@ -175,5 +221,20 @@ mod tests {
             Vec2::new(1.0, 1.0).direction_to(Vec2::new(4.0, 5.0)),
             Vec2::new(0.6, 0.8)
         );
+    }
+
+    #[test]
+    fn angle_and_slerp() {
+        let right = Vec2::new(1.0, 0.0);
+        let up = Vec2::new(0.0, 1.0);
+        assert!((right.angle_to(up) - 90.0).abs() < 1e-4);
+        assert_eq!(Vec2::ZERO.angle_to(up), 0.0);
+        let half = right.slerp(up, 0.5);
+        let s = std::f32::consts::FRAC_1_SQRT_2;
+        assert!((half.x - s).abs() < 1e-6 && (half.y - s).abs() < 1e-6);
+        // Clockwise targets turn clockwise.
+        let down_half = right.slerp(Vec2::new(0.0, -1.0), 0.5);
+        assert!((down_half.x - s).abs() < 1e-6 && (down_half.y + s).abs() < 1e-6);
+        assert_eq!(right.slerp(up, 0.0), right);
     }
 }

@@ -12,15 +12,14 @@ mod palette {
     pub const SURFACE: Color = Color::rgba(0.55, 0.80, 1.0, 0.85);
 }
 
-/// Water surface heights sampled at fixed x spacing, in room pixels (y up).
+/// Water surface points left to right, in room pixels (y up).
 ///
-/// The game's surface points are 20 px apart from `x = -220` to `pixel_width + 220`;
-/// feed per-frame heights through [`WaterSurface::heights_mut`].
+/// The game's surface points are about 20 px apart from `x = -220` to
+/// `pixel_width + 220`; the simulation's wavy surface is passed in per frame with
+/// [`WaterSurface::from_points`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct WaterSurface {
-    left: f32,
-    spacing: f32,
-    heights: Vec<f32>,
+    points: Vec<[f32; 2]>,
 }
 
 impl WaterSurface {
@@ -34,11 +33,18 @@ impl WaterSurface {
     /// Surface points `left, left + spacing, ...` with the given heights.
     #[must_use]
     pub fn new(left: f32, spacing: f32, heights: Vec<f32>) -> Self {
-        Self {
-            left,
-            spacing,
-            heights,
-        }
+        let points = heights
+            .into_iter()
+            .enumerate()
+            .map(|(i, h)| [left + i as f32 * spacing, h])
+            .collect();
+        Self { points }
+    }
+
+    /// Surface through `points` (left to right).
+    #[must_use]
+    pub fn from_points(points: Vec<[f32; 2]>) -> Self {
+        Self { points }
     }
 
     /// A flat surface at `level` over the game's span for a room `pixel_width` wide.
@@ -59,28 +65,23 @@ impl WaterSurface {
         ))
     }
 
-    #[must_use]
-    pub fn heights(&self) -> &[f32] {
-        &self.heights
-    }
-
-    pub fn heights_mut(&mut self) -> &mut [f32] {
-        &mut self.heights
+    /// Heights of the surface points.
+    pub fn heights(&self) -> impl Iterator<Item = f32> + '_ {
+        self.points.iter().map(|p| p[1])
     }
 
     /// `[first x, last x]` of the surface points.
     #[must_use]
     pub fn span(&self) -> [f32; 2] {
-        let n = self.heights.len().saturating_sub(1) as f32;
-        [self.left, self.left + n * self.spacing]
+        match (self.points.first(), self.points.last()) {
+            (Some(a), Some(b)) => [a[0], b[0]],
+            _ => [0.0, 0.0],
+        }
     }
 
     /// Surface points as room-pixel `[x, y]`.
     pub fn points(&self) -> impl Iterator<Item = [f32; 2]> + '_ {
-        self.heights
-            .iter()
-            .enumerate()
-            .map(|(i, &h)| [self.left + i as f32 * self.spacing, h])
+        self.points.iter().copied()
     }
 
     /// Translucent body from each surface segment down to `bottom`, with a bright
@@ -108,14 +109,13 @@ mod tests {
     fn flat_surface_spans_the_overhang() {
         let s = WaterSurface::flat(960.0, 110.0);
         assert_eq!(s.span(), [-220.0, 1180.0]);
-        assert_eq!(s.heights().len(), 71);
+        assert_eq!(s.heights().count(), 71);
         assert!(s.points().all(|p| p[1] == 110.0));
     }
 
     #[test]
     fn mesh_fills_from_bottom_to_surface() {
-        let mut s = WaterSurface::new(0.0, 20.0, vec![50.0, 60.0, 40.0]);
-        s.heights_mut()[2] = 45.0;
+        let s = WaterSurface::new(0.0, 20.0, vec![50.0, 60.0, 45.0]);
         let mesh = s.mesh(-10.0);
         let body: Vec<[f32; 2]> = mesh
             .vertices()

@@ -49,11 +49,11 @@ poles and ledge grabs are D6; skid, flip, roll, belly slide and rocket jump are 
 corridors are D10.
 
 **What differs from the game where the game's behaviour is kept out of scope:**
-- **Stacked-body nudge.** When the head is exactly below the hips with no horizontal
-  speed, the game gives the head a random x speed in [-1, 1] (hips the opposite); the
-  port uses `0.5 * flipDirection` (deterministic, the mean magnitude).
-- **Initial facing.** The game picks `flipDirection` = +/-1 at random in the
-  constructor; `Player::new` faces right.
+- **Random numbers.** The player's draws (stacked-body nudge `Random.Range(-1, 1)`,
+  initial facing in `Player::create`, the `Stun` threshold, the corridor-turn jiggle,
+  the water) come from `rw_random::UnityRandom`, the game's generator, but the call
+  order is not the game's (the game shares one generator with every other object and
+  cosmetic draw), so the sequence differs. `Player::new` (tests) faces right.
 - **Input.** `Input` carries x, y and jump only; `downDiagonal` is derived digitally
   (down plus left/right gives that side, the Remix rule). No analogue stick, map
   button stand-still, throw / pick-up / special. The game's `checkInput` substitution
@@ -62,7 +62,7 @@ corridors are D10.
 
 **Why.** Each is either outside the stage-one scope or depends on randomness (D1).
 
-**Affects.** The rare stacked-head case and initial facing.
+**Affects.** Exact random outcomes (stacked head, initial facing, stun threshold).
 
 ## D4: Falls, stun and death
 
@@ -86,8 +86,9 @@ is gone (`Player::is_destroyed`; the app drops it and draws nothing until R).
   player and draws it where it stopped until R respawns a new one. R also respawns
   after the body fell out of the room (the game has no respawn).
 - **`Player.Stun` side effects.** The game un-stands the player (and drops grasps) when
-  the stun exceeds `Random.Range(5, 12)`; the port uses 8. Fall stuns are at least 40, so
-  falls are unaffected. Malnourished stun scaling, grasps, spear and slugpup drops, sounds
+  the stun exceeds `Random.Range(5, 12)`; the port draws it (`UnityRandom`, D3) except
+  on the fall-impact path, where the stun is at least 40 and the threshold at most 11, so
+  the port skips the draw (one fewer draw in the sequence). Malnourished stun scaling, grasps, spear and slugpup drops, sounds
   and the face blink are not ported.
 - **Remix (MMF) branches omitted:** falling into a room-exit or normal shortcut entrance
   at speed > 5 (enters the shortcut instead of taking damage) and the wall pounce (D9).
@@ -95,8 +96,7 @@ is gone (`Player::is_destroyed`; the app drops it and draws nothing until R).
   with the 40..140 ticks mapped over speeds 40..80), tongue attachment and being carried by another player blocking fall damage,
   Sofanthiel's sound. Base-game branches with no ported counterpart: the Pomegranate
   grasp and the deer-antlers ride cancelling fall damage.
-- **Water.** Only the out-of-room exemption reads the water level (no water physics);
-  inverted water (DLC) is not modelled.
+- **Water.** Drowning is D11; inverted water (DLC) is not modelled.
 
 **Why.** The freeze and the respawn are design decisions for the single-room
 player-controller phase; the rest is out of the base-game scope or randomness (D1).
@@ -228,6 +228,9 @@ in `PlayerGraphics` (they use the generic poses of their body mode, as in the ga
   balance, long-fall hand flailing, the corridor-turn jitter) draws from a
   caller-supplied `rand::Rng`, not `UnityEngine.Random`: same distributions, different
   sequence (as D1). `Random.value` is `[0, 1)` instead of `[0, 1]`.
+- **Swimming** is ported (draw offset from `swimCycle`, tail drag scaled by hip
+  submersion, the `lungsExhausted` head bob and blink, the swimming hand targets, legs
+  hidden in `DeepSwim`); bubbles, splashes and the depth tint are not (D11).
 - **`aerobicLevel` is 0.** The player has no aerobic level yet, so breathing runs at the
   resting pace (`breath += 1/60` per tick), never pants, and the exhausted face and
   head bob never show.
@@ -241,8 +244,7 @@ in `PlayerGraphics` (they use the generic poses of their body mode, as in the ga
   blink and aerobic effects) are not ported.
 - **Not ported:** grasps (holding, throwing, eating, swallowing, spear on back, reaching
   for flies, heavy carry, and the `Blink` calls of eating, mauling and throwing),
-  swimming and submersion (taken as 0; also the regain-footing `Blink(5)` while
-  swimming), the map-button stand-still blink,
+  the map-button stand-still blink,
   zero gravity (`ZeroGPoleGrab`, `ZeroGSwim`), antler and vine climbing, the sleep curl,
   adrenaline jitter, malnourishment and hypothermia tints, the Mark (sprites 10 and 11
   have alpha 0 and are left out of the draw list), the light source, and every More
@@ -311,11 +313,8 @@ exits onto vertical poles and horizontal beams, the `Jump` branch, `shootUpCount
 force (`rainworld-re/notes/corridors.md`), base game with Remix off, Survivor values.
 
 **What differs:**
-- **U-turn jiggle.** On the first 30 ticks of a `CorridorTurn` the game adds a unit
-  vector at a random angle to the head's velocity. `Player` has no random source in its
-  update, so the port adds nothing (the mean). Because the rod only pulls during the
-  turn, the random walk tends to bring the chunks closer in the game; the port's turn is
-  deterministic and still swaps the ends in a straight tunnel.
+- **U-turn jiggle.** Ported (`Vec2::random_unit` on the first 30 ticks); the draws come
+  from `UnityRandom` in a different call order than the game's (D3).
 - **Remix (MMF) omitted:** the pole exit from a corridor ignoring `shootUpCounter`
   (`ModManager.MMF ||` in the up-exit test), and the MMF use of `EffectiveRoomGravity`
   in the water term.
@@ -323,25 +322,57 @@ force (`rainworld-re/notes/corridors.md`), base game with Remix off, Survivor va
   damping factor, the Rivulet (14) and slugpup (4) `jumpBoost` of the corridor `Jump`
   branch, Saint's `monkAscension` blocking the beam exits.
 - **Not ported:** the zero-gravity branches (shaft `canCorridorJump` with the head down,
-  the zero-G slides), the `- buoyancy * submersion` term of the damping (submersion is
-  not ported), carried objects dragged through corridors, adrenaline factors, sounds and
+  the zero-G slides), carried objects dragged through corridors, adrenaline factors, sounds and
   the `WaterDrip` particles of the slides (their random draws are cosmetic).
 
-**Why.** No random source is passed to the player update; Remix, DLC, zero gravity,
-water submersion and grabbing are out of scope.
+**Why.** Remix, DLC, zero gravity and grabbing are out of scope.
 
-**Affects.** The exact path of a corridor U-turn; Remix / DLC play in corridors.
+**Affects.** Remix / DLC play in corridors.
+
+## D11: Water and swimming
+
+`rw_sim::Water` ports the room's `Water` object with the full wavy surface (front and
+back point rows every 20 px, splashes when a chunk crosses at |vy| > 3, straddle drag,
+the wave equation with solid-tile damping, jitter, drift correction and neighbour blend,
+the smoothing and the `waveSpeed`/`waveLength`/`waveAmplitude`/second-wave offsets from
+the room settings). `BodyChunk` ports submersion, buoyancy, water friction and the skim
+rule; `Player` ports `LungUpdate` (lungs 128 as in a release build, drowning), the
+`Swimming` body mode, `DeepSwim` and `SurfaceSwim`, the swimming exits and the grab
+restrictions (`rainworld-re/notes/water.md`), base game with Remix off, Survivor values.
+
+**What differs:**
+- **Random numbers.** `UnityRandom`, but not the game's call order (D3).
+- **Remix (MMF) omitted:** `swimBoostCost` 0.18 (base 0.2), the `cfgSwimBreathLeniency`
+  curve, `cfgFreeSwimBoosts`, `EffectiveRoomGravity` in the corridor buoyancy term and
+  the submersion cap above the room.
+- **DLC omitted:** inverted water, the More Slugcats `PointSubmerged` `<` test (base
+  uses `<=`), the Rivulet/Artificer/Saint/Watcher/energy-cell/jetfish branches and the
+  More Slugcats flood.
+- **Not ported:** `WaterCutoff` and `AirPocket` placed objects (no base-game room
+  uses them), `WaterViscosity` (unused in the base game), rain rumble, screen shake and
+  flooding, lethal water, splashes, bubbles and sounds, ripple waves from explosions,
+  `aerobicLevel` (stays 0; for the Survivor it only feeds graphics), the analogue swim
+  direction (digital input only).
+- **Slerp for opposite vectors.** Unity's `Vector3.Slerp` between antiparallel vectors
+  picks an axis the notes do not record; the port turns counter-clockwise.
+- **Drawing.** Only the front surface strip is drawn (no back strip, no
+  `ApplyDepthOnVector` perspective).
+
+**Why.** Remix and DLC are out of the base-game scope; the rest is cosmetic or needs
+objects and effects that are not ported.
+
+**Affects.** Exact wave and swim paths; Remix / DLC water; how the water looks.
 
 ## Not ported yet (not divergences, just absent)
 
-Player (stage one leaves out): water (`Swimming`, `DeepSwim`, `SurfaceSwim`, submersion lifts),
-zero gravity, grabbing / throwing / eating (`GrabUpdate`), `slowMovementStun` from exhaustion, lungs and throwing, adrenaline, the WALLSTUCK safety
+Player (stage one leaves out): zero gravity, grabbing / throwing / eating (`GrabUpdate`),
+`slowMovementStun` from exhaustion, throwing, adrenaline, the WALLSTUCK safety
 (needs `VisualContact`), carried-object speed factors, vines, tube worm,
 Jolly co-op, MSC / Watcher class mechanics. Ported because ground classification
 produces them anyway: wall slide and wall jump (`WallClimb`, `canWallJump`, `jumpStun`;
 only the wall-jump impulse has a test), `LedgeCrawl`, `CrawlTurn`, the crouch super-jump
 charge and dive force (untested).
 
-Physics: Water (buoyancy, water friction), burrowing, terrain curves (`TerrainCurve`), `setPos`
+Physics: burrowing, terrain curves (`TerrainCurve`), `setPos`
 (cross-object position writes), the curved-terrain `TerrainImpact` call, grabs (`grabbedBy` skips the room-range clamp, and grabs force `goThroughFloors`), and
 `DefaultTile`.

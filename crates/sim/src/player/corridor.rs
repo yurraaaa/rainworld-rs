@@ -5,11 +5,12 @@
 //! Behaviour: `corridors.md`, base game with Remix off (docs/DIVERGENCES.md D10).
 
 use rw_assets::Room;
+use rw_random::UnityRandom;
 
 use super::{Animation, BodyMode, CORRIDOR_CLIMB_SPEED_FAC, HEAD, HIPS, Player};
-use crate::Vec2;
 use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
+use crate::{Vec2, Water};
 
 /// `Custom.eightDirections`: W, SW, S, SE, E, NE, N, NW; entry `i + 4` is opposite `i`.
 const EIGHT_DIRECTIONS: [(i32, i32); 8] = [
@@ -100,7 +101,7 @@ impl Player {
     }
 
     /// The `CorridorClimb` branch of `UpdateBodyMode`.
-    pub(super) fn corridor_climb_mode(&mut self, room: &Room) {
+    pub(super) fn corridor_climb_mode(&mut self, room: &Room, water: Option<&Water>) {
         self.body.set_go_through_floors(true);
         self.roll_direction = 0;
         if self.corridor_turn_dir.is_some() {
@@ -130,7 +131,7 @@ impl Player {
         {
             self.slow_movement_stun = 15;
         }
-        self.corridor_damping();
+        self.corridor_damping(water);
         self.corridor_climb_force(room);
         let (head, hips) = (&self.body.chunks[HEAD], &self.body.chunks[HIPS]);
         self.standing = head.pos.y > hips.pos.y + 5.0;
@@ -274,9 +275,9 @@ impl Player {
         }
     }
 
-    /// Velocity damping (weaker during a slide) and gravity compensation (weaker early
-    /// in a vertical slide).
-    fn corridor_damping(&mut self) {
+    /// Velocity damping (weaker during a slide), gravity compensation (weaker early
+    /// in a vertical slide) and cancelled buoyancy.
+    fn corridor_damping(&mut self, water: Option<&Water>) {
         let friction = self.body.params.surface_friction;
         let gravity = self.body.params.gravity;
         let slides = self
@@ -290,9 +291,15 @@ impl Player {
                 0.2,
                 (self.vertical_corridor_slide_counter as f32).inverse_lerp(0.0, 10.0),
             );
+        let buoyancy = self.body.params.buoyancy;
         for c in &mut self.body.chunks {
             c.vel *= keep;
             c.vel.y += lift;
+        }
+        for c in &mut self.body.chunks {
+            // Base game: not scaled by room gravity (Remix scales it).
+            let sink = buoyancy * c.submersion(water);
+            c.vel.y -= sink;
         }
         self.dynamic_run_speed = [0.0, 0.0];
     }
@@ -371,11 +378,10 @@ impl Player {
         }
     }
 
-    /// `CorridorTurn`: 40 ticks of slowed wriggling, the last 10 pushing head and hips
-    /// apart along the new direction, then a push out that way. The game adds a random
-    /// unit vector to the head on the first 30 ticks; the port adds its mean, zero
-    /// (docs/DIVERGENCES.md D10).
-    pub(super) fn corridor_turn(&mut self) {
+    /// `CorridorTurn`: 40 ticks of slowed wriggling (a random unit vector added to the
+    /// head on the first 30), the last 10 pushing head and hips apart along the new
+    /// direction, then a push out that way.
+    pub(super) fn corridor_turn(&mut self, rng: &mut UnityRandom) {
         let Some((dx, dy)) = self.corridor_turn_dir else {
             self.animation = Animation::None;
             return;
@@ -388,7 +394,9 @@ impl Player {
             self.slow_movement_stun = self.slow_movement_stun.max(10);
             head.vel *= 0.5;
             hips.vel *= 0.5;
-            if self.corridor_turn_counter >= CORRIDOR_TURN_JIGGLE_TICKS {
+            if self.corridor_turn_counter < CORRIDOR_TURN_JIGGLE_TICKS {
+                head.vel += Vec2::random_unit(rng);
+            } else {
                 head.vel += dir * 0.5;
                 hips.vel -= dir * 0.5;
             }

@@ -4,7 +4,7 @@
 
 use rw_assets::Room;
 
-use crate::{BodyChunk, Contact, PhysicsParams, TerrainImpact, Vec2};
+use crate::{BodyChunk, Contact, PhysicsParams, TerrainImpact, Vec2, Water};
 
 /// The owner of a [`PhysicalObject`]: receives terrain impacts during physics
 /// (`PhysicalObject.TerrainImpact`, overridden by creatures).
@@ -130,6 +130,9 @@ pub mod slugcat {
         bounce: 0.1,
         surface_friction: 0.5,
         impact_threshold: 1.0,
+        buoyancy: 0.95,
+        water_friction: 0.96,
+        water_retardation_immunity: 0.0,
     };
 }
 
@@ -169,6 +172,13 @@ impl PhysicalObject {
         }
     }
 
+    /// `PhysicalObject.Submersion`: the chunks' mean submersion.
+    #[must_use]
+    pub fn submersion(&self, water: Option<&Water>) -> f32 {
+        let sum: f32 = self.chunks.iter().map(|c| c.submersion(water)).sum();
+        sum / self.chunks.len() as f32
+    }
+
     /// Mutable references to two different chunks.
     ///
     /// # Panics
@@ -186,23 +196,28 @@ impl PhysicalObject {
         }
     }
 
-    /// One physics tick: every chunk in index order, then every connection. Terrain
-    /// impacts are only recorded ([`PhysicalObject::impacts`]).
+    /// One physics tick in a room without water: every chunk in index order, then
+    /// every connection. Terrain impacts are only recorded ([`PhysicalObject::impacts`]).
     ///
     /// Chunk `i` sees the already-updated `last_pos` of chunks before it and the
     /// previous tick's of chunks after it, as in the game.
     pub fn update(&mut self, room: &Room) {
-        self.update_with(room, &mut ());
+        self.update_with(room, None, &mut ());
     }
 
     /// [`PhysicalObject::update`] with an owner that receives each terrain impact at the
     /// moment the game calls `TerrainImpact`: inside the chunk's collision, after the
     /// position snap and before the bounce, so changes it makes to any chunk act on the
-    /// rest of the tick's physics.
-    pub fn update_with(&mut self, room: &Room, owner: &mut dyn TerrainImpactHandler) {
+    /// rest of the tick's physics. `water` is the room's water (buoyancy and drag).
+    pub fn update_with(
+        &mut self,
+        room: &Room,
+        water: Option<&Water>,
+        owner: &mut dyn TerrainImpactHandler,
+    ) {
         self.impacts.clear();
         for i in 0..self.chunks.len() {
-            self.chunks[i].integrate(&self.params);
+            self.chunks[i].integrate(&self.params, water);
             if self.chunks[i].collide_with_terrain {
                 let lowest = self.lowest_last_y(room.pixel_height());
                 if let Some(side) = self.chunks[i].sweep_vertical(room, lowest) {
@@ -218,6 +233,7 @@ impl PhysicalObject {
                 self.chunks[i].clear_contact();
             }
             self.chunks[i].restrict_to_room(room);
+            self.chunks[i].count_splash_stop(water);
         }
         for c in &self.connections {
             c.apply(&mut self.chunks);

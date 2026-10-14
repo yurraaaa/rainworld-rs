@@ -12,6 +12,7 @@
 use std::path::PathBuf;
 
 use rw_assets::Room;
+use rw_random::UnityRandom;
 use rw_sim::{Animation, BodyMode, HEAD, HIPS, Input, Player, ShortcutHandler, Vec2};
 
 const DEFAULT_RW_DIR: &str = "/home/yura/.local/share/Steam/steamapps/common/Rain World";
@@ -41,7 +42,7 @@ fn smallroom_straight_pipe_end_to_end() {
     let mut tick = 0;
     while !p.in_shortcut() {
         handler.update(&room, &mut p);
-        p.update(&room, right);
+        p.update(&room, None, right, &mut UnityRandom::new(0));
         tick += 1;
         assert!(tick < 30, "never entered: {:?}", p.head());
     }
@@ -56,7 +57,7 @@ fn smallroom_straight_pipe_end_to_end() {
             break;
         };
         seen.push(tile);
-        p.update(&room, right);
+        p.update(&room, None, right, &mut UnityRandom::new(0));
         assert!(seen.len() < 40, "never came out");
     }
     // Before the first move the vessel waits 0-2 ticks on the entrance, by phase.
@@ -75,7 +76,7 @@ fn smallroom_straight_pipe_end_to_end() {
     }
     assert_eq!(p.shortcut_delay(), 20);
     // The player's own update runs in the same tick and counts the delay down.
-    p.update(&room, Input::NONE);
+    p.update(&room, None, Input::NONE, &mut UnityRandom::new(0));
     assert_eq!(p.shortcut_delay(), 19);
 }
 
@@ -102,10 +103,10 @@ fn smallroom_climb_the_right_pole_onto_the_beam() {
     // columns 28, 27, 29; only (29, 12) has a pole. Head x := 590, facing -1.
     let mut p = Player::upright(Vec2::new(570.0, 228.0));
     for _ in 0..3 {
-        p.update(&room, Input::NONE);
+        p.update(&room, None, Input::NONE, &mut UnityRandom::new(0));
     }
     assert_eq!(p.body_mode(), BodyMode::Stand);
-    p.update(&room, UP);
+    p.update(&room, None, UP, &mut UnityRandom::new(0));
     assert_eq!(p.animation(), Animation::ClimbOnBeam);
     assert_eq!(p.head().pos.x, 590.0);
     assert_eq!(p.flip_direction(), -1);
@@ -113,11 +114,11 @@ fn smallroom_climb_the_right_pole_onto_the_beam() {
     // Steady climb (vertical-poles.md section 2: v' = 0.999 (0.75 v + 0.5)).
     let steady = 0.999 * 0.5 / (1.0 - 0.999 * 0.75);
     for _ in 0..30 {
-        p.update(&room, UP);
+        p.update(&room, None, UP, &mut UnityRandom::new(0));
     }
     let y0 = p.hips().pos.y;
     for _ in 0..40 {
-        p.update(&room, UP);
+        p.update(&room, None, UP, &mut UnityRandom::new(0));
     }
     let speed = (p.hips().pos.y - y0) / 40.0;
     assert!((speed - steady).abs() < 1e-3, "climb speed {speed}");
@@ -125,27 +126,32 @@ fn smallroom_climb_the_right_pole_onto_the_beam() {
     // head row 24, the last row before the shaft.
     let mut ticks = 0;
     while p.head().pos.y < 480.0 {
-        p.update(&room, UP);
+        p.update(&room, None, UP, &mut UnityRandom::new(0));
         assert_eq!(p.animation(), Animation::ClimbOnBeam);
         ticks += 1;
         assert!(ticks < 100);
     }
     // Slide back down to head row 21 and hold still there.
     while p.head().pos.y >= 440.0 {
-        p.update(&room, Input::new(0, -1, false));
+        p.update(
+            &room,
+            None,
+            Input::new(0, -1, false),
+            &mut UnityRandom::new(0),
+        );
         assert_eq!(p.animation(), Animation::ClimbOnBeam);
     }
     for _ in 0..30 {
-        p.update(&room, Input::NONE);
+        p.update(&room, None, Input::NONE, &mut UnityRandom::new(0));
     }
     assert_eq!(p.head().pos.y as i32 / 20, 21);
     // A left press toward the facing side with the head in the beam tile: hang from it,
     // then shuffle left along it.
     let left = Input::new(-1, 0, false);
-    p.update(&room, left);
+    p.update(&room, None, left, &mut UnityRandom::new(0));
     assert_eq!(p.animation(), Animation::HangFromBeam);
     for _ in 0..60 {
-        p.update(&room, left);
+        p.update(&room, None, left, &mut UnityRandom::new(0));
     }
     assert_eq!(p.animation(), Animation::HangFromBeam);
     assert_eq!(p.head().pos.y, 430.0);
@@ -158,15 +164,15 @@ fn smallroom_climb_the_left_pole_to_the_ceiling() {
     // Column 17 on Solid (17, 10): the grab finds (18, 12) as the +1 candidate.
     let mut p = Player::upright(Vec2::new(350.0, 228.0));
     for _ in 0..3 {
-        p.update(&room, Input::NONE);
+        p.update(&room, None, Input::NONE, &mut UnityRandom::new(0));
     }
-    p.update(&room, UP);
+    p.update(&room, None, UP, &mut UnityRandom::new(0));
     assert_eq!(p.animation(), Animation::ClimbOnBeam);
     assert_eq!(p.head().pos.x, 370.0);
     // Pole rows 11-14 end under Solid (18, 15): the head stops against the ceiling at
     // 300 - 9 and the player stays on the pole.
     for _ in 0..80 {
-        p.update(&room, UP);
+        p.update(&room, None, UP, &mut UnityRandom::new(0));
     }
     assert_eq!(p.animation(), Animation::ClimbOnBeam);
     // Snapped to 291 by the ceiling, then the rod (applied after the chunks) moves it
@@ -213,7 +219,7 @@ fn smallroom_hang_under_the_short_pole() {
     ];
     let mut p = Player::upright(Vec2::new(410.0, 458.0));
     for (tick, &(head_y, head_vy, hips_y, hips_vy, animation)) in expected.iter().enumerate() {
-        p.update(&room, UP);
+        p.update(&room, None, UP, &mut UnityRandom::new(0));
         let got = (
             p.head().pos.y,
             p.head().vel.y,
@@ -238,17 +244,17 @@ fn smallroom_hang_under_the_short_pole() {
     // Tick 12 put the head into (20, 25), walled left and right: corridor counting
     // starts (classification skipped), the pole climb goes on for ticks 12 and 13, and
     // on tick 14 (the third counted tick) the mode becomes CorridorClimb.
-    p.update(&room, UP);
+    p.update(&room, None, UP, &mut UnityRandom::new(0));
     assert_eq!(p.animation(), CLIMB);
     assert_eq!(p.body_mode(), BodyMode::ClimbingOnBeam);
-    p.update(&room, UP);
+    p.update(&room, None, UP, &mut UnityRandom::new(0));
     assert_eq!(p.body_mode(), BodyMode::CorridorClimb);
     assert_eq!(p.animation(), Animation::None);
     // Rows 25-27 are walled on both sides, so the pole exit (it needs an open side at
     // the head) waits until the head reaches row 28; from then on it fires every tick.
     let mut ticks = 0;
     while p.head().pos.y < 560.0 {
-        p.update(&room, UP);
+        p.update(&room, None, UP, &mut UnityRandom::new(0));
         if p.head().pos.y < 560.0 {
             assert_eq!(p.body_mode(), BodyMode::CorridorClimb);
         }
@@ -257,7 +263,7 @@ fn smallroom_hang_under_the_short_pole() {
     }
     assert_eq!(p.animation(), CLIMB);
     for _ in 0..10 {
-        p.update(&room, UP);
+        p.update(&room, None, UP, &mut UnityRandom::new(0));
         assert_eq!(p.animation(), CLIMB);
     }
     // The hips have left the shaft (row 28): plain pole climbing.
@@ -271,7 +277,7 @@ fn smallroom_slide_down_out_of_the_shaft_catches_the_pole() {
     // Into column 20's shaft as in the hang test: CorridorClimb from tick 14.
     let mut p = Player::upright(Vec2::new(410.0, 458.0));
     for _ in 0..20 {
-        p.update(&room, UP);
+        p.update(&room, None, UP, &mut UnityRandom::new(0));
     }
     assert_eq!(p.body_mode(), BodyMode::CorridorClimb);
     // Holding down, head up: with the hips in (20, 24), just under the shaft walls,
@@ -281,7 +287,7 @@ fn smallroom_slide_down_out_of_the_shaft_catches_the_pole() {
     let down = Input::new(0, -1, false);
     let mut ticks = 0;
     while p.animation() != Animation::ClimbOnBeam {
-        p.update(&room, down);
+        p.update(&room, None, down, &mut UnityRandom::new(0));
         if p.animation() != Animation::ClimbOnBeam {
             assert_eq!(p.body_mode(), BodyMode::CorridorClimb);
         }
@@ -292,7 +298,7 @@ fn smallroom_slide_down_out_of_the_shaft_catches_the_pole() {
     assert_eq!(p.head().pos, Vec2::new(410.0, 490.0));
     // Still holding down: slides to the pole's bottom end and hangs under it.
     for _ in 0..10 {
-        p.update(&room, down);
+        p.update(&room, None, down, &mut UnityRandom::new(0));
     }
     assert_eq!(p.animation(), Animation::HangUnderVerticalBeam);
 }

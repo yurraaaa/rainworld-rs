@@ -7,6 +7,7 @@
 use std::path::PathBuf;
 
 use rw_assets::Room;
+use rw_random::UnityRandom;
 use rw_sim::{BodyMode, HEAD, HIPS, Input, Player, Vec2};
 
 const DEFAULT_RW_DIR: &str = "/home/yura/.local/share/Steam/steamapps/common/Rain World";
@@ -40,20 +41,20 @@ fn su_a14_tunnel_crawl_speed_and_exit() {
     p.body.chunks[HEAD].reset_at(Vec2::new(347.0, 410.0));
     let right = Input::new(1, 0, false);
     // Three ticks of counting, then CorridorClimb.
-    p.update(&room, right);
-    p.update(&room, right);
+    p.update(&room, None, right, &mut UnityRandom::new(0));
+    p.update(&room, None, right, &mut UnityRandom::new(0));
     assert_ne!(p.body_mode(), BodyMode::CorridorClimb);
-    p.update(&room, right);
+    p.update(&room, None, right, &mut UnityRandom::new(0));
     assert_eq!(p.body_mode(), BodyMode::CorridorClimb);
     // Steady speed: the mean end velocity m solves m = 0.75 * 0.999 m + 1.32 / 2, and
     // physics moves by 0.999 m.
     let steady = 0.999 * 0.66 / (1.0 - 0.75 * 0.999);
     for _ in 0..40 {
-        p.update(&room, right);
+        p.update(&room, None, right, &mut UnityRandom::new(0));
     }
     let x0 = mean_x(&p);
     for _ in 0..10 {
-        p.update(&room, right);
+        p.update(&room, None, right, &mut UnityRandom::new(0));
     }
     let speed = (mean_x(&p) - x0) / 10.0;
     assert!(
@@ -64,10 +65,10 @@ fn su_a14_tunnel_crawl_speed_and_exit() {
     // Out under the open room: no opposite pairs left, so classification is back.
     let mut ticks = 0;
     while p.hips().pos.x < 680.0 {
-        p.update(&room, right);
+        p.update(&room, None, right, &mut UnityRandom::new(0));
         ticks += 1;
         assert!(ticks < 200, "stuck at {:?}", p.hips().pos);
     }
-    p.update(&room, right);
+    p.update(&room, None, right, &mut UnityRandom::new(0));
     assert_ne!(p.body_mode(), BodyMode::CorridorClimb);
 }

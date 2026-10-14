@@ -1,16 +1,20 @@
 //! A single circular body chunk: integration and tile collision (`BodyChunk.Update`).
 //!
 //! Behaviour: `rainworld-re/notes/physics-core.md` sections 3-4 and
-//! `slope-collision.md` section 3, impact reports `falls.md` section 1. Water,
-//! burrowing, terrain curves and `setPos` are not ported.
+//! `slope-collision.md` section 3, impact reports `falls.md` section 1, water
+//! `water.md` section 2. Burrowing, terrain curves and `setPos` are not ported.
 
 use rw_assets::{Room, Slope, TILE_SIZE, Terrain, tile_centre, tile_position};
 
-use crate::Vec2;
+use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
+use crate::{Vec2, Water};
 
 /// Default `restrictInRoomRange`: how far outside the room (px) a chunk may go.
 pub const DEFAULT_RESTRICT_IN_ROOM_RANGE: f32 = 1200.0;
+
+/// `EffectiveRoomGravity`: no gravity effects are ported.
+const ROOM_GRAVITY: f32 = 1.0;
 
 /// The game's emergency limit on tile checks per collision sweep.
 const MAX_REPEATS: u32 = 100_000;
@@ -28,6 +32,12 @@ pub struct PhysicsParams {
     pub surface_friction: f32,
     /// A flat-tile hit faster than this along its axis is reported (`impactTreshhold`).
     pub impact_threshold: f32,
+    /// Upward push per tick at full submersion, times room gravity.
+    pub buoyancy: f32,
+    /// Velocity multiplier per tick fully under water (below 10 px/tick).
+    pub water_friction: f32,
+    /// How much of the extra drag on fast chunks under water is avoided (0..=1).
+    pub water_retardation_immunity: f32,
 }
 
 /// A flat-tile hit reported to the owner (`PhysicalObject.TerrainImpact`).
@@ -72,6 +82,8 @@ pub struct BodyChunk {
     pub go_through_floors: bool,
     /// How far outside the room the chunk is allowed (px).
     pub restrict_in_room_range: f32,
+    /// Ticks before this chunk can splash the water surface again (`splashStop`).
+    pub splash_stop: i32,
     contact: Contact,
     last_contact: Contact,
     on_slope: i8,
@@ -93,6 +105,7 @@ impl BodyChunk {
             collide_with_slopes: true,
             go_through_floors: false,
             restrict_in_room_range: DEFAULT_RESTRICT_IN_ROOM_RANGE,
+            splash_stop: 0,
             contact: Contact::default(),
             last_contact: Contact::default(),
             on_slope: 0,
@@ -131,9 +144,10 @@ impl BodyChunk {
         self.vel = Vec2::ZERO;
     }
 
-    /// First half of `BodyChunk.Update`: gravity, air drag, history shift, `pos += vel`
-    /// and the per-tick resets. [`crate::PhysicalObject`] then runs the collision stages.
-    pub(crate) fn integrate(&mut self, p: &PhysicsParams) {
+    /// First half of `BodyChunk.Update`: gravity, water or air drag, history shift,
+    /// `pos += vel` and the per-tick resets. [`crate::PhysicalObject`] then runs the
+    /// collision stages.
+    pub(crate) fn integrate(&mut self, p: &PhysicsParams, water: Option<&Water>) {
         if self.vel.y.is_nan() {
             self.vel.y = 0.0;
         }
@@ -141,12 +155,47 @@ impl BodyChunk {
             self.vel.x = 0.0;
         }
         self.vel.y -= p.gravity;
-        self.vel *= p.air_friction;
+        // The base game's test: the chunk's bottom at or below the surface.
+        match water {
+            Some(w) if self.pos.y - self.rad <= w.level_at(self.pos.x) => {
+                self.water_drag(p, w.submersion(self));
+            }
+            _ => self.vel *= p.air_friction,
+        }
         self.last_last_pos = self.last_pos;
         self.last_pos = self.pos;
         self.pos += self.vel;
         self.on_slope = 0;
         self.last_contact = self.contact;
+    }
+
+    /// In water: a fast, shallow, downward skim along the surface bounces up
+    /// (stone skipping); otherwise buoyancy, then drag blended from air to water
+    /// friction by `submersion`, harder on chunks faster than 10 px/tick unless immune.
+    fn water_drag(&mut self, p: &PhysicsParams, submersion: f32) {
+        let v = self.vel;
+        if v.x > v.y * 5.0 && v.x.abs() > 10.0 && v.y < 0.0 && submersion < 0.5 {
+            self.vel.y *= -0.5;
+            self.vel.x *= 0.75;
+            return;
+        }
+        self.vel.y += p.buoyancy * ROOM_GRAVITY * submersion;
+        let fast = (1.0 / (self.vel.length() - 10.0).max(1.0)).powf(0.5);
+        let water = (p.water_friction * p.water_retardation_immunity).lerp(p.water_friction, fast);
+        self.vel *= p.air_friction.lerp(water, submersion);
+    }
+
+    /// End of `BodyChunk.Update`: a fresh splash window (10) waits until the chunk is
+    /// fully in or out of the water; after that it counts down every tick.
+    pub(crate) fn count_splash_stop(&mut self, water: Option<&Water>) {
+        if self.splash_stop == 10 {
+            let s = self.submersion(water);
+            if s == 0.0 || s == 1.0 {
+                self.splash_stop -= 1;
+            }
+        } else if self.splash_stop > 0 {
+            self.splash_stop -= 1;
+        }
     }
 
     /// `CheckVerticalCollision` up to the hit: sweeps the rows passed this tick and snaps

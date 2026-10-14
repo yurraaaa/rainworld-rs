@@ -207,7 +207,8 @@ fn run() -> Result<(), Box<dyn Error>> {
         script: args.script,
         resolution: args.resolution,
     };
-    let game = game::Game::new(room, args.seed, args.spawn);
+    let settings = game::Game::room_settings(&assets, &room);
+    let game = game::Game::new(room, &settings, args.seed, args.spawn);
     app::run(scene::Scene::new(game, visuals), sprites, options)
 }
 

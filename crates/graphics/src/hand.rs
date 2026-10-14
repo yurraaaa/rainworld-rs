@@ -3,11 +3,12 @@
 
 use rand::Rng;
 use rw_assets::{Room, Terrain};
-use rw_sim::{Animation, BodyMode, HEAD, HIPS, Player, Vec2};
+use rw_sim::{Animation, BodyMode, HEAD, HIPS, Player, Vec2, Water};
 
 use crate::body_part::{BodyPart, PointConnection};
 use crate::limb::{GripSearch, Limb, LimbMode};
-use crate::math::{CustomVec, UnityRandom};
+use crate::math::{CustomVec, Mathf, UnityRandom};
+use std::f32::consts::TAU;
 
 /// One slugcat hand.
 #[derive(Debug, Clone, PartialEq)]
@@ -21,6 +22,7 @@ pub struct SlugcatHand {
 pub(crate) struct HandContext<'a, R: Rng + ?Sized> {
     pub player: &'a Player,
     pub room: &'a Room,
+    pub water: Option<&'a Water>,
     pub balance_counter: f32,
     pub disbalance: &'a mut f32,
     pub head_vel: &'a mut Vec2,
@@ -153,6 +155,10 @@ impl SlugcatHand {
                     head.pos.y + 3.0
                 };
             }
+            BodyMode::Swimming => {
+                free = false;
+                self.swim_target(player, cx.water, sign);
+            }
             BodyMode::Default
                 if cx.airborne_counter > 180.0 && head.vel.distance(Vec2::ZERO) >= 4.0 =>
             {
@@ -210,6 +216,39 @@ impl SlugcatHand {
                 behind_walls: false,
             },
         );
+    }
+
+    /// Swimming: under water the hands sweep from forward to back along the stroke
+    /// (relative to the body); at the surface they paddle around a point 7 px under it.
+    fn swim_target(&mut self, player: &Player, water: Option<&Water>, sign: f32) {
+        let cycle = player.swim_cycle();
+        let stroke = if cycle < 3.0 {
+            cycle / 3.0
+        } else {
+            1.0 - (cycle - 3.0)
+        };
+        if player.animation() == Animation::DeepSwim {
+            self.limb.mode = LimbMode::HuntRelativePosition;
+            let reach = (1.0_f32 - stroke.inverse_lerp(0.5, 1.0)).powf(1.5);
+            let mut target = Vec2::from_deg((20.0 + reach * 140.0) * sign) * 20.0;
+            if cycle < 3.0 {
+                target.x *= 0.5;
+            }
+            self.limb.relative_hunt_pos = target;
+        } else {
+            self.limb.mode = LimbMode::HuntAbsolutePosition;
+            let x = f32::from(player.input_history()[0].x);
+            let head = player.head().pos;
+            let sweep = x * 10.0 * -(stroke * TAU).sin();
+            let mut target = self.limb.absolute_hunt_pos;
+            target.x = head.x + (sign * 30.0).lerp_to(sweep, 0.5);
+            target.y = water.map_or(f32::MIN, |w| w.level_at(target.x)) - 7.0;
+            let (turn, radius) = if x == 0.0 { (1.0, 5.0) } else { (-x, 10.0) };
+            target += Vec2::from_deg(360.0 * stroke * turn) * (sign * radius);
+            self.limb.absolute_hunt_pos = target;
+        }
+        self.limb.hunt_speed = 5.0;
+        self.limb.quickness = 0.5;
     }
 
     /// ClimbOnBeam: the hands grip the pole above and below the head in turn, by the

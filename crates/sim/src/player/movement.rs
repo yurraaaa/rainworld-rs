@@ -5,17 +5,23 @@
 //! `vertical-poles.md` sections 0-1, `ledge-grab.md` section 1, `corridors.md` section 1.
 
 use rw_assets::{Room, ShortcutType, Terrain};
+use rw_random::UnityRandom;
 
 use super::{Animation, BodyMode, HEAD, HIPS, Player, ROOM_GRAVITY};
-use crate::Vec2;
 use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
+use crate::{Vec2, Water};
 
 /// The four neighbour directions as `Custom.fourDirections`.
 const FOUR_DIRECTIONS: [(f32, f32); 4] = [(-1.0, 0.0), (0.0, -1.0), (1.0, 0.0), (0.0, 1.0)];
 
 impl Player {
-    pub(super) fn movement_update(&mut self, room: &Room) {
+    pub(super) fn movement_update(
+        &mut self,
+        room: &Room,
+        water: Option<&Water>,
+        rng: &mut UnityRandom,
+    ) {
         self.direct_into_holes(room);
         if self.animation != Animation::RocketJump {
             self.rocket_jump_from_belly_slide = false;
@@ -48,9 +54,10 @@ impl Player {
         self.squeeze_up_through_gap(room);
         self.toggle_standing(room);
         self.enter_corridor_mode(room);
+        self.classify_swimming(room, water);
 
         self.dynamic_run_speed = [3.6, 3.6];
-        self.update_animation(room);
+        self.update_animation(room, water, rng);
         self.trigger_ledge_grab(room);
         if self.body_mode == BodyMode::Crawl {
             self.crawl_turn_delay += 1;
@@ -61,13 +68,13 @@ impl Player {
             self.standing = false;
         }
         self.trigger_beam_tip(room);
-        self.update_body_mode(room);
+        self.update_body_mode(room, water);
         // A roll or belly slide runs toward its direction whatever x is held.
         if self.roll_direction != 0 {
             run_dir = self.roll_direction;
         }
         self.count_roll();
-        self.grab_beam(room);
+        self.grab_beam(room, water);
         self.apply_run_force(run_dir);
         self.dispatch_jump(room);
         self.enter_shortcut_by_input(room);
@@ -245,10 +252,11 @@ impl Player {
         }
     }
 
-    /// Holding up grabs a horizontal beam whose tile the head passed through this tick,
-    /// then a vertical pole (which overrides it), then a pole end above the head.
-    fn grab_beam(&mut self, room: &Room) {
-        let want_to_grab = self.input_y() > 0;
+    /// Holding up (not mostly under water) grabs a horizontal beam whose tile the head
+    /// passed through this tick, then a vertical pole (which overrides it), then a pole
+    /// end above the head.
+    pub(super) fn grab_beam(&mut self, room: &Room, water: Option<&Water>) {
+        let want_to_grab = self.input_y() > 0 && self.body.submersion(water) <= 0.9;
         let (head, hips) = (&self.body.chunks[HEAD], &self.body.chunks[HIPS]);
         let can_grab = want_to_grab
             && self.no_grab_counter == 0
@@ -258,6 +266,7 @@ impl Player {
                     | BodyMode::WallClimb
                     | BodyMode::Stand
                     | BodyMode::ClimbingOnBeam
+                    | BodyMode::Swimming
             )
             && (self.time_since_in_corridor_mode >= 20
                 || hips.pos.y <= head.pos.y
@@ -267,6 +276,7 @@ impl Player {
                 Animation::ClimbOnBeam
                     | Animation::HangFromBeam
                     | Animation::GetUpOnBeam
+                    | Animation::DeepSwim
                     | Animation::HangUnderVerticalBeam
                     | Animation::GetUpToBeamTip
             );
