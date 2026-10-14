@@ -41,6 +41,21 @@ impl Vec2 {
         }
     }
 
+    /// `Custom.PerpendicularVector`: the unit vector turned a quarter turn
+    /// counter-clockwise (zero for a zero vector).
+    #[must_use]
+    pub fn perpendicular(self) -> Self {
+        let n = self.normalized();
+        Self::new(-n.y, n.x)
+    }
+
+    /// `Custom.DegToVec`: unit vector `deg` degrees clockwise from straight up.
+    #[must_use]
+    pub fn from_degrees(deg: f32) -> Self {
+        let rad = deg.to_radians();
+        Self::new(rad.sin(), rad.cos())
+    }
+
     /// Scaled down to length `max` if longer (`Vector2.ClampMagnitude`).
     #[must_use]
     pub fn clamp_length(self, max: f32) -> Self {

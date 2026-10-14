@@ -1,6 +1,9 @@
 //! Unity / `RWCustom.Custom` scalar helpers on `f32`.
 
 pub(crate) trait FloatExt: Sized {
+    /// `Mathf.Lerp`: `self` at `t = 0`, `to` at `t = 1`, `t` clamped to `[0, 1]`.
+    fn lerp(self, to: f32, t: f32) -> f32;
+
     /// `Mathf.InverseLerp`: where `self` lies between `a` and `b`, clamped to `[0, 1]`.
     fn inverse_lerp(self, a: f32, b: f32) -> f32;
 
@@ -14,6 +17,10 @@ pub(crate) trait FloatExt: Sized {
 }
 
 impl FloatExt for f32 {
+    fn lerp(self, to: f32, t: f32) -> f32 {
+        self + (to - self) * t.clamp(0.0, 1.0)
+    }
+
     fn inverse_lerp(self, a: f32, b: f32) -> f32 {
         if a == b {
             0.0

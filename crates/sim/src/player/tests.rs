@@ -7,12 +7,13 @@ use rw_assets::Room;
 
 use rw_assets::ShortcutType;
 
+mod advanced;
 mod poles;
 
 use super::{Animation, BodyMode, HEAD, HIPS, INPUT_HISTORY, Input, Player};
 use crate::shortcut::ShortcutVessel;
 use crate::tests::{room, room_with_water};
-use crate::{Contact, ShortcutHandler, TerrainImpact, Vec2};
+use crate::{Contact, ShortcutHandler, TerrainImpact, TerrainImpactHandler, Vec2};
 
 const EPS: f32 = 1e-4;
 const G: f32 = 0.9;
@@ -43,6 +44,13 @@ impl Player {
 
     fn vel_sum_y(&self) -> f32 {
         self.body.chunks[HEAD].vel.y + self.body.chunks[HIPS].vel.y
+    }
+
+    /// `TerrainImpact` as physics would deliver it, with the player's own chunks.
+    fn receive_impact(&mut self, impact: TerrainImpact) {
+        let mut chunks = std::mem::take(&mut self.body.chunks);
+        self.terrain_impact(&mut chunks, impact);
+        self.body.chunks = chunks;
     }
 
     fn run(&mut self, room: &Room, input: Input, ticks: usize) {
@@ -496,15 +504,15 @@ fn impact_stuns_above_35_on_every_side() {
     for dir in [FLOOR, CEILING, WALLS[0], WALLS[1]] {
         let mut p = Player::upright_at(Vec2::new(100.0, 48.0));
         // Not above 35: nothing.
-        p.terrain_impact(hit(HIPS, dir, 35.0, true));
+        p.receive_impact(hit(HIPS, dir, 35.0, true));
         assert_eq!(p.stun_ticks(), 0, "{dir:?}");
         assert!(p.is_standing() && p.is_conscious());
-        p.terrain_impact(hit(HIPS, dir, 47.5, true));
+        p.receive_impact(hit(HIPS, dir, 47.5, true));
         assert_eq!(p.stun_ticks(), 57, "{dir:?}");
         // Stun > 8 un-stands.
         assert!(!p.is_standing() && p.is_stunned() && !p.is_conscious());
         // 40: t = 0.2, 0.2^2.5 = 0.0178885 => 41; the longer stun is kept.
-        p.terrain_impact(hit(HEAD, dir, 40.0, true));
+        p.receive_impact(hit(HEAD, dir, 40.0, true));
         assert_eq!(p.stun_ticks(), 57, "{dir:?}");
         assert!(!p.is_dead());
     }
@@ -513,18 +521,18 @@ fn impact_stuns_above_35_on_every_side() {
 #[test]
 fn death_above_60_on_floors_only() {
     let mut p = Player::new();
-    p.terrain_impact(hit(HIPS, FLOOR, 60.0, true));
+    p.receive_impact(hit(HIPS, FLOOR, 60.0, true));
     assert!(!p.is_dead());
     assert_eq!(p.stun_ticks(), 140);
 
     let mut p = Player::new();
-    p.terrain_impact(hit(HIPS, FLOOR, 60.5, true));
+    p.receive_impact(hit(HIPS, FLOOR, 60.5, true));
     assert!(p.is_dead() && !p.is_conscious());
     assert_eq!(p.stun_ticks(), 0, "death takes the place of stun");
 
     for dir in [CEILING, WALLS[0], WALLS[1]] {
         let mut p = Player::new();
-        p.terrain_impact(hit(HEAD, dir, 75.0, true));
+        p.receive_impact(hit(HEAD, dir, 75.0, true));
         assert!(!p.is_dead(), "{dir:?}");
         assert_eq!(p.stun_ticks(), 140, "{dir:?}");
     }
@@ -533,7 +541,7 @@ fn death_above_60_on_floors_only() {
 #[test]
 fn impact_without_first_contact_does_nothing() {
     let mut p = Player::new();
-    p.terrain_impact(hit(HIPS, FLOOR, 100.0, false));
+    p.receive_impact(hit(HIPS, FLOOR, 100.0, false));
     assert!(!p.is_dead());
     assert_eq!(p.stun_ticks(), 0);
 }

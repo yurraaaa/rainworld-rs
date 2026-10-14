@@ -1,13 +1,17 @@
 //! Fall damage, stun and death: `Player.TerrainImpact`, `Stun`, `Die` and the
 //! `Creature.Update` parts that count stun down and kill a body below the room.
 //!
-//! Behaviour: `rainworld-re/notes/falls.md`. Remix (MMF) is off: no fall into a
-//! shortcut, no wall pounce (docs/DIVERGENCES.md D4).
+//! Behaviour: `rainworld-re/notes/falls.md`, landing roll `advanced-moves.md`
+//! section 5. Remix (MMF) is off: no fall into a shortcut, no wall pounce
+//! (docs/DIVERGENCES.md D4, D9).
 
 use rw_assets::Room;
 
-use super::{Animation, BodyMode, HEAD, Player};
-use crate::{DEFAULT_RESTRICT_IN_ROOM_RANGE, TerrainImpact};
+use super::{Animation, BodyMode, HEAD, HIPS, Player};
+use crate::float_ext::FloatExt;
+use crate::{
+    BodyChunk, DEFAULT_RESTRICT_IN_ROOM_RANGE, PhysicalObject, TerrainImpact, TerrainImpactHandler,
+};
 
 /// Floor impacts faster than this kill (Survivor; Gourmand 80).
 pub(super) const FALL_DEATH_SPEED: f32 = 60.0;
@@ -117,20 +121,59 @@ impl Player {
         head.pos.y < limit && !water_catches
     }
 
-    /// Hands this tick's terrain impacts to [`Player::terrain_impact`] in the game's
-    /// order. They are found during physics but applied after it; that is exact while
-    /// no handler branch changes chunk velocities (the landing roll will).
-    pub(super) fn deliver_terrain_impacts(&mut self) {
-        for i in 0..self.body.impacts().len() {
-            let impact = self.body.impacts()[i];
-            self.terrain_impact(impact);
-        }
+    /// `PhysicalObject.Update` with the player as the owner that receives terrain
+    /// impacts mid-collision. The body is moved out for the call, so
+    /// [`TerrainImpactHandler::terrain_impact`] reaches the chunks only through its
+    /// argument.
+    pub(super) fn update_physics(&mut self, room: &Room) {
+        let placeholder = PhysicalObject::new(Vec::new(), self.body.params);
+        let mut body = std::mem::replace(&mut self.body, placeholder);
+        body.update_with(room, self);
+        self.body = body;
     }
 
-    /// `Player.TerrainImpact` with Remix off: the landing roll pre-empts everything,
-    /// otherwise a first contact kills on a floor above 60 or stuns above 35.
-    pub(super) fn terrain_impact(&mut self, impact: TerrainImpact) {
+    /// The landing-roll test that comes first in `Player.TerrainImpact`: a down-diagonal
+    /// held for 2 (speed above 24) or 7 consecutive ticks, a recent airborne moment
+    /// (`allowRoll`) and a floor hit above 12 (any speed from a flip or a belly-slide
+    /// rocket jump).
+    fn lands_in_roll(&self, impact: &TerrainImpact) -> bool {
+        let rocket_from_slide =
+            self.animation == Animation::RocketJump && self.rocket_jump_from_belly_slide;
+        let held_for = if impact.speed > 24.0 { 1 } else { 6 };
+        self.input[0].down_diagonal() != 0
+            && self.animation != Animation::Roll
+            && (impact.speed > 12.0 || self.animation == Animation::Flip || rocket_from_slide)
+            && impact.direction.y < 0
+            && self.allow_roll > 0
+            && self.consistent_down_diagonal > held_for
+    }
+
+    /// Starts the landing roll toward the held down-diagonal, steering both chunks'
+    /// x velocity 70% of the way to `9 * input.x`.
+    fn start_landing_roll(&mut self, chunks: &mut [BodyChunk]) {
+        if self.animation == Animation::RocketJump && self.rocket_jump_from_belly_slide {
+            chunks[HIPS].vel.y += 3.0;
+            chunks[HIPS].pos.y += 3.0;
+            chunks[HEAD].vel.y -= 3.0;
+            chunks[HEAD].pos.y -= 3.0;
+        }
+        self.animation = Animation::Roll;
+        self.roll_direction = i32::from(self.input[0].down_diagonal());
+        self.roll_counter = 0;
+        let target = 9.0 * f32::from(self.input[0].x);
+        for c in &mut chunks[HEAD..=HIPS] {
+            c.vel.x = c.vel.x.lerp(target, 0.7);
+        }
+        self.standing = false;
+    }
+}
+
+impl TerrainImpactHandler for Player {
+    /// `Player.TerrainImpact` with Remix off: the landing roll pre-empts everything on
+    /// this impact; otherwise a first contact kills on a floor above 60 or stuns above 35.
+    fn terrain_impact(&mut self, chunks: &mut [BodyChunk], impact: TerrainImpact) {
         if self.lands_in_roll(&impact) {
+            self.start_landing_roll(chunks);
             return;
         }
         if !impact.first_contact {
@@ -141,13 +184,5 @@ impl Player {
         } else if impact.speed > FALL_STUN_SPEED {
             self.stun(Self::fall_stun_ticks(impact.speed));
         }
-    }
-
-    /// Hook for the landing roll (`advanced-moves.md` section 5), which turns a
-    /// down-diagonal landing into a roll and skips fall damage. Not ported yet: never
-    /// rolls. Porting it needs `allowRoll` and the roll animation, and its velocity
-    /// change must land mid-physics (see [`Player::deliver_terrain_impacts`]).
-    fn lands_in_roll(&self, _impact: &TerrainImpact) -> bool {
-        false
     }
 }

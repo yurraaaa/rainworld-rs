@@ -4,7 +4,19 @@
 
 use rw_assets::Room;
 
-use crate::{BodyChunk, PhysicsParams, TerrainImpact, Vec2};
+use crate::{BodyChunk, Contact, PhysicsParams, TerrainImpact, Vec2};
+
+/// The owner of a [`PhysicalObject`]: receives terrain impacts during physics
+/// (`PhysicalObject.TerrainImpact`, overridden by creatures).
+pub trait TerrainImpactHandler {
+    /// Called for each impact mid-collision, with all of the object's chunks.
+    fn terrain_impact(&mut self, chunks: &mut [BodyChunk], impact: TerrainImpact);
+}
+
+/// No owner: impacts are only recorded.
+impl TerrainImpactHandler for () {
+    fn terrain_impact(&mut self, _chunks: &mut [BodyChunk], _impact: TerrainImpact) {}
+}
 
 /// When a [`BodyChunkConnection`] acts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -174,24 +186,55 @@ impl PhysicalObject {
         }
     }
 
-    /// One physics tick: every chunk in index order, then every connection.
+    /// One physics tick: every chunk in index order, then every connection. Terrain
+    /// impacts are only recorded ([`PhysicalObject::impacts`]).
     ///
     /// Chunk `i` sees the already-updated `last_pos` of chunks before it and the
     /// previous tick's of chunks after it, as in the game.
     pub fn update(&mut self, room: &Room) {
+        self.update_with(room, &mut ());
+    }
+
+    /// [`PhysicalObject::update`] with an owner that receives each terrain impact at the
+    /// moment the game calls `TerrainImpact`: inside the chunk's collision, after the
+    /// position snap and before the bounce, so changes it makes to any chunk act on the
+    /// rest of the tick's physics.
+    pub fn update_with(&mut self, room: &Room, owner: &mut dyn TerrainImpactHandler) {
         self.impacts.clear();
         for i in 0..self.chunks.len() {
             self.chunks[i].integrate(&self.params);
-            let lowest = self.lowest_last_y(room.pixel_height());
-            self.chunks[i].collide(room, &self.params, lowest, i, &mut self.impacts);
+            if self.chunks[i].collide_with_terrain {
+                let lowest = self.lowest_last_y(room.pixel_height());
+                if let Some(side) = self.chunks[i].sweep_vertical(room, lowest) {
+                    self.hit(i, side, owner);
+                }
+                if self.chunks[i].collide_with_slopes {
+                    self.chunks[i].collide_slopes(room, &self.params);
+                }
+                if let Some(side) = self.chunks[i].sweep_horizontal(room) {
+                    self.hit(i, side, owner);
+                }
+            } else {
+                self.chunks[i].clear_contact();
+            }
+            self.chunks[i].restrict_to_room(room);
         }
         for c in &self.connections {
             c.apply(&mut self.chunks);
         }
     }
 
-    /// Terrain impacts found by the last [`PhysicalObject::update`], in the order the
-    /// game calls `TerrainImpact` (chunk index, then ceiling/floor before walls).
+    /// Chunk `i` hit the surface on `side`: report the impact, then bounce.
+    fn hit(&mut self, i: usize, side: Contact, owner: &mut dyn TerrainImpactHandler) {
+        if let Some(impact) = self.chunks[i].impact(side, &self.params, i) {
+            self.impacts.push(impact);
+            owner.terrain_impact(&mut self.chunks, impact);
+        }
+        self.chunks[i].bounce_off(side, &self.params);
+    }
+
+    /// Terrain impacts of the last update, in the order the game calls `TerrainImpact`
+    /// (chunk index, then ceiling/floor before walls).
     #[must_use]
     pub fn impacts(&self) -> &[TerrainImpact] {
         &self.impacts

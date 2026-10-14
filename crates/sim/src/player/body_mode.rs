@@ -49,7 +49,8 @@ impl Player {
             .chunks
             .iter()
             .all(|c| c.contact().x == 0 && c.contact().y == 0);
-        if y < 0 {
+        // A roll with x held keeps floors solid.
+        if y < 0 && (self.animation != Animation::Roll || x == 0) {
             self.body.set_go_through_floors(true);
             if self.input[0].down_diagonal() != 0 && self.consistent_down_diagonal > 6 && no_contact
             {
@@ -272,7 +273,7 @@ impl Player {
         if self.animation_frame > 6 {
             self.animation_frame = 0;
         }
-        // The turn-around skid (`slideCounter`, `initSlideCounter`) is not ported.
+        self.skid();
     }
 
     /// Whether to lower to all fours; at a ledge edge it instead nudges the hips back
