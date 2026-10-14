@@ -22,7 +22,7 @@ pub use body_part::{BodyPart, PointConnection};
 pub use draw::{Color, DrawItem, DrawList, Layer, Mesh, SlugcatName, Sprite};
 pub use hand::SlugcatHand;
 pub use limb::{GripSearch, Limb, LimbMode};
-pub use math::{CustomVec, Mathf, UnityRandom};
+pub use math::{CustomVec, Mathf};
 pub use player_draw::{SPRITE_COUNT, SPRITE_LAYERS, TAIL_TRIANGLES};
 pub use player_graphics::PlayerGraphics;
 pub use tail::{TailAnchor, TailSegment};

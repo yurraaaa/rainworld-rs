@@ -100,8 +100,14 @@ fn stepping_settles_then_walks_left() {
     let Some(mut session) = Session::installed() else {
         return;
     };
-    // Summit, seed 1, spawns on a ledge with a wall to the right.
-    session.load("summit", 1);
+    // Summit's left block top (11, 17): a ledge with a wall to the right.
+    session
+        .load_room(&LoadRoomParams {
+            name: "summit".to_owned(),
+            seed: Some(1),
+            spawn_tile: Some([11, 17]),
+        })
+        .expect("room loads");
     let settled = session.run(80, InputParam::default());
     assert_eq!(settled.tick, 80);
     let player = settled.player.as_ref().expect("player");

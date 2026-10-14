@@ -8,8 +8,6 @@
 
 use std::path::PathBuf;
 
-use rand::SeedableRng;
-use rand::rngs::StdRng;
 use rw_assets::Room;
 use rw_random::UnityRandom;
 use rw_sim::{BodyMode, Input, Player, determine_safe_spawn_tile};
@@ -35,10 +33,11 @@ fn su_a22() -> Option<Room> {
 #[test]
 fn su_a22_seed_1_spawn_clings_in_the_shortcut_mouth_tunnel() {
     let Some(room) = su_a22() else { return };
-    // The spawn tile and offsets of the StdRng seed-1 sequence this test was written for.
-    let mut rng = StdRng::seed_from_u64(1);
+    // Spawn tile, facing and chunk offsets from one `UnityRandom` stream, in the game's
+    // order.
+    let mut rng = UnityRandom::new(1);
     let tile = determine_safe_spawn_tile(&room, &mut rng);
-    let mut p = Player::create(&mut UnityRandom::new(1));
+    let mut p = Player::create(&mut rng);
     p.place(tile, &mut rng);
     assert_eq!(p.head().pos.tile(), (12, 16));
     assert_eq!(p.hips().pos.tile(), (12, 16));

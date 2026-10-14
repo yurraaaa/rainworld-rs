@@ -4,8 +4,6 @@
 
 use std::path::PathBuf;
 
-use rand::SeedableRng;
-use rand::rngs::StdRng;
 use rw_assets::{Room, Slope, Terrain, tile_position};
 use rw_random::UnityRandom;
 use rw_sim::{
@@ -56,13 +54,14 @@ fn summit_slopes_identify_by_neighbour_rule() {
 #[test]
 fn summit_spawned_slugcat_comes_to_rest_on_block_top() {
     let Some(room) = summit() else { return };
-    // These seeds spawn on the open top of a block ((11,17) or (36,17), row 16 Solid).
+    // These `UnityRandom` seeds spawn on the open top of a block ((36,17) for 6 and 16,
+    // (11,17) for 12; row 16 Solid). Most other small seeds pick a shortcut entrance.
     // Surface friction is the player's not-conscious 0.3: with the conscious 0.5 a
     // flat landing multiplies vel.x by clamp(2 * 0.5, 0, 1) = 1, so a bare body
     // without the Player's ground friction slides off the block. The conscious case is
     // `summit_spawned_player_rests_on_block_top_then_stands`.
-    for seed in [1, 3, 7] {
-        let mut rng = StdRng::seed_from_u64(seed);
+    for seed in [6, 12, 16] {
+        let mut rng = UnityRandom::new(seed);
         let tile = determine_safe_spawn_tile(&room, &mut rng);
         // The spawn predicate: inside, y > 0, not Solid, three Solid tiles below.
         assert!(room.contains(tile.0, tile.1) && tile.1 > 0);
@@ -123,11 +122,11 @@ fn run(p: &mut Player, room: &Room, input: Input, ticks: usize) {
 #[test]
 fn summit_spawned_player_rests_on_block_top_then_stands() {
     let Some(room) = summit() else { return };
-    for seed in [1, 3, 7] {
-        // The tiles and offsets of the StdRng sequences this test was written for.
-        let mut rng = StdRng::seed_from_u64(seed);
+    for seed in [6, 12, 16] {
+        // Spawn tile, facing and chunk offsets from one stream, in the game's order.
+        let mut rng = UnityRandom::new(seed);
         let tile = determine_safe_spawn_tile(&room, &mut rng);
-        let mut p = Player::create(&mut UnityRandom::new(seed as i32));
+        let mut p = Player::create(&mut rng);
         p.place(tile, &mut rng);
         // Conscious friction 0.5: the Player ground friction stops the body.
         run(&mut p, &room, Input::NONE, 400);

@@ -2,9 +2,8 @@
 //! `rainworld-re/notes/physics-core.md` / `slope-collision.md`; the derivation is in
 //! the comment next to each assertion.
 
-use rand::SeedableRng;
-use rand::rngs::StdRng;
 use rw_assets::Room;
+use rw_random::UnityRandom;
 
 use crate::{
     BodyChunk, BodyChunkConnection, ConnectionKind, Contact, PhysicalObject, PhysicsParams,
@@ -637,7 +636,7 @@ fn spawn_tries_stay_near_the_exit_shortcut() {
         "################",
     ]);
     for seed in 0..32 {
-        let (x, y) = determine_safe_spawn_tile(&r, &mut StdRng::seed_from_u64(seed));
+        let (x, y) = determine_safe_spawn_tile(&r, &mut UnityRandom::new(seed));
         assert_eq!(y, 2, "seed {seed}");
         assert!((1..=10).contains(&x), "seed {seed}: x {x}");
     }
@@ -649,8 +648,26 @@ fn spawn_fallback_two_picks_the_only_tile_with_ground() {
     let r = room(&["#####", "#.###", "#####", "#####"]);
     for seed in 0..8 {
         assert_eq!(
-            determine_safe_spawn_tile(&r, &mut StdRng::seed_from_u64(seed)),
+            determine_safe_spawn_tile(&r, &mut UnityRandom::new(seed)),
             (1, 2)
+        );
+    }
+}
+
+#[test]
+fn spawn_fallback_picks_with_unity_range() {
+    // No shortcuts: the shortcut phase draws its node value and stops (D2), then
+    // fallback 2 lists (1,2), (2,2), (3,2) (x outer) and takes `Random.Range(0, 3)`,
+    // the next word mod 3.
+    let r = room(&["#####", "#...#", "#####", "#####"]);
+    for seed in 0..8 {
+        let mut g = UnityRandom::new(seed);
+        g.value();
+        let want = (1 + (g.next_u32() % 3) as i32, 2);
+        assert_eq!(
+            determine_safe_spawn_tile(&r, &mut UnityRandom::new(seed)),
+            want,
+            "seed {seed}"
         );
     }
 }
@@ -660,7 +677,7 @@ fn spawn_fallback_three_needs_only_solid_directly_below() {
     // No tile has three Solid below; (1,2) is the only one with Solid directly below.
     let r = room(&[".....", ".#...", "....."]);
     assert_eq!(
-        determine_safe_spawn_tile(&r, &mut StdRng::seed_from_u64(1)),
+        determine_safe_spawn_tile(&r, &mut UnityRandom::new(1)),
         (1, 2)
     );
 }
@@ -668,11 +685,11 @@ fn spawn_fallback_three_needs_only_solid_directly_below() {
 #[test]
 fn spawn_fallback_four_and_last_resort() {
     let r = open_room(3, 3);
-    let (_, y) = determine_safe_spawn_tile(&r, &mut StdRng::seed_from_u64(1));
+    let (_, y) = determine_safe_spawn_tile(&r, &mut UnityRandom::new(1));
     assert!(y >= 1);
     let solid = room(&["###", "###"]);
     assert_eq!(
-        determine_safe_spawn_tile(&solid, &mut StdRng::seed_from_u64(1)),
+        determine_safe_spawn_tile(&solid, &mut UnityRandom::new(1)),
         (0, 0)
     );
 }
@@ -681,9 +698,15 @@ fn spawn_fallback_four_and_last_resort() {
 fn place_in_room_puts_chunks_on_unit_circle_around_tile_middle() {
     let mut obj = PhysicalObject::slugcat();
     obj.chunks[0].vel = Vec2::new(3.0, 4.0);
-    place_in_room(&mut obj, (3, 2), &mut StdRng::seed_from_u64(9));
+    place_in_room(&mut obj, (3, 2), &mut UnityRandom::new(9));
     // Middle of tile (3,2) = (10 + 60, 10 + 40).
     let mid = Vec2::new(70.0, 50.0);
+    // Each chunk in turn: `Custom.DegToVec(Random.value * 360)`.
+    let mut g = UnityRandom::new(9);
+    for c in &obj.chunks {
+        let want = mid + Vec2::from_degrees(g.value() * 360.0);
+        assert_eq!(c.pos, want);
+    }
     for c in &obj.chunks {
         assert!((c.pos.distance(mid) - 1.0).abs() < 1e-5);
         assert_eq!(c.last_pos, c.pos);

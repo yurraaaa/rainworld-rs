@@ -3,19 +3,19 @@
 //! Behaviour: `rainworld-re/notes/slugcat-graphics.md` sections 1-3 (base game,
 //! Remix off, Survivor stats), including the vertical-pole, ledge-grab, roll/flip,
 //! corridor and swimming (`water.md`) branches. Not ported (docs/DIVERGENCES.md D8):
-//! look and fear targets, grasps (throwing, eating, carrying), zero gravity, sleep
+//! look and fear targets (the empty-room looker's random draws are kept), grasps (throwing, eating, carrying), zero gravity, sleep
 //! curl, pups, the Mark, DLC. `aerobicLevel` is not in the port and is 0.
 
 use std::f32::consts::TAU;
 
-use rand::Rng;
 use rw_assets::{Room, Terrain, tile_centre};
+use rw_random::UnityRandom;
 use rw_sim::{Animation, BodyMode, Player, Vec2, Water};
 
 use crate::body_part::{BodyPart, PointConnection};
 use crate::draw::{Color, SlugcatName};
 use crate::hand::{HandContext, SlugcatHand};
-use crate::math::{CustomVec, Mathf, UnityRandom};
+use crate::math::{CustomVec, Mathf};
 use crate::tail::{TailAnchor, TailSegment};
 
 /// `Player.aerobicLevel`: not ported, so breathing stays at its resting pace.
@@ -105,12 +105,14 @@ pub struct PlayerGraphics {
     entering_shortcut: Option<(i32, i32)>,
     /// The player's corridor turn direction at the last update.
     corridor_turn_dir: Option<(i32, i32)>,
+    /// `objectLooker.timeLookingAtThis`; only its random draws matter without targets.
+    look_time: i32,
 }
 
 impl PlayerGraphics {
     /// The `PlayerGraphics` constructor for a base-game slugcat: parts at the chunks
     /// with a random 1 px offset each.
-    pub fn new<R: Rng + ?Sized>(player: &Player, slugcat: SlugcatName, rng: &mut R) -> Self {
+    pub fn new(player: &Player, slugcat: SlugcatName, rng: &mut UnityRandom) -> Self {
         let (head_pos, hips_pos) = (player.head().pos, player.hips().pos);
         let tail = TAIL_SEGMENTS.map(|(rad, connection_rad, affect)| {
             let mut seg = TailSegment::new(rad, connection_rad, affect);
@@ -153,12 +155,13 @@ impl PlayerGraphics {
             in_shortcut: false,
             entering_shortcut: None,
             corridor_turn_dir: player.corridor_turn_dir(),
+            look_time: 0,
         }
     }
 
     /// `PlayerGraphics.Reset`: draw positions at the chunks, every part at its chunk
     /// with a random 1 px offset, at rest.
-    pub fn reset<R: Rng + ?Sized>(&mut self, player: &Player, rng: &mut R) {
+    pub fn reset(&mut self, player: &Player, rng: &mut UnityRandom) {
         let (head_pos, hips_pos) = (player.head().pos, player.hips().pos);
         self.draw_positions = [[head_pos; 2], [hips_pos; 2]];
         for seg in &mut self.tail {
@@ -177,12 +180,12 @@ impl PlayerGraphics {
     /// `Creature.Update` and drags the parts toward the hole; inside the tube nothing
     /// runs; leaving it resets (`SpitOutOfShortCut`) and starts a new sprite leaser.
     /// `water` is the room's water, as passed to `Player::update`.
-    pub fn update<R: Rng + ?Sized>(
+    pub fn update(
         &mut self,
         player: &Player,
         room: &Room,
         water: Option<&Water>,
-        rng: &mut R,
+        rng: &mut UnityRandom,
     ) {
         if player.is_destroyed() {
             return;
@@ -249,13 +252,7 @@ impl PlayerGraphics {
     }
 
     /// `PlayerGraphics.Update` for the ported states.
-    fn tick<R: Rng + ?Sized>(
-        &mut self,
-        player: &Player,
-        room: &Room,
-        water: Option<&Water>,
-        rng: &mut R,
-    ) {
+    fn tick(&mut self, player: &Player, room: &Room, water: Option<&Water>, rng: &mut UnityRandom) {
         // `GraphicsModule.Update`: `ShouldBeCulled` is false for the player, so the
         // first update un-culls and resets.
         if self.culled {
@@ -311,16 +308,23 @@ impl PlayerGraphics {
         self.update_tail(player, room, water, fast, tail_drag);
 
         self.blink -= 1;
-        if self.blink < -rng.range_int(2, 1800) {
-            let max = rng.range_int(3, 10);
-            self.blink = rng.range_int(3, max);
+        if self.blink < -rng.range_i32(2, 1800) {
+            let max = rng.range_i32(3, 10);
+            self.blink = rng.range_i32(3, max);
         }
         // Short of breath after a dive: the head bobs with the swim cycle, eyes shut.
         if !player.is_dead() && player.lungs_exhausted() {
+            self.look_time = 0;
             let bob = (player.swim_cycle() * TAU).sin();
             self.head.vel.y += bob;
             self.draw_positions[0][0].y += bob * 2.5;
             self.blink = 1;
+        }
+        if rng.value() < 0.1 {
+            self.update_looker(rng);
+        }
+        if rng.value() < 0.0025 {
+            self.look_time = 0;
         }
         // No object looker target exists in a room without other objects.
         self.last_look_dir = self.look_direction;
@@ -420,11 +424,21 @@ impl PlayerGraphics {
         }
     }
 
+    /// `PlayerObjectLooker.Update` with nothing else in the room to look at: after a
+    /// tick of looking, interest drops below 0.2 at 8 ticks and then each update looks
+    /// away (`LookAtNothing`) with even odds.
+    fn update_looker(&mut self, rng: &mut UnityRandom) {
+        self.look_time += 1;
+        if self.look_time >= 8 && rng.value() < 0.5 {
+            self.look_time = 0;
+        }
+    }
+
     /// CorridorTurn: the body and hips draw positions jump up to 3 and 2 px in random
     /// directions every tick, eyes shut.
-    fn corridor_turn_jitter<R: Rng + ?Sized>(&mut self, rng: &mut R) {
+    fn corridor_turn_jitter(&mut self, rng: &mut UnityRandom) {
         for (dp, reach) in self.draw_positions.iter_mut().zip([3.0, 2.0]) {
-            let dir = Vec2::from_deg(rng.value() * 360.0);
+            let dir = Vec2::random_unit(rng);
             dp[0] += dir * (reach * rng.value());
         }
         self.blink = 5;
@@ -460,7 +474,7 @@ impl PlayerGraphics {
     /// Wobble while standing on a beam or pole tip: disbalance grows when moving fast
     /// (much faster on a tip) and decays otherwise; the balance counter advances faster
     /// when disbalanced.
-    fn beam_balance<R: Rng + ?Sized>(&mut self, player: &Player, rng: &mut R) {
+    fn beam_balance(&mut self, player: &Player, rng: &mut UnityRandom) {
         let (head, hips) = (player.head(), player.hips());
         if head.vel.x.abs() > 2.0 {
             self.disbalance_amount += if player.animation() == Animation::BeamTip {
@@ -584,7 +598,7 @@ impl PlayerGraphics {
                 ..connection
             });
             let turn = Self::corridor_legs_turn(room, player);
-            self.legs_direction += Vec2::from_deg(head.pos.aim_to(hips.pos) + turn);
+            self.legs_direction += Vec2::from_degrees(head.pos.aim_to(hips.pos) + turn);
         } else if hips.contact().y == -1 || animation == Animation::StandOnBeam {
             self.legs.connect_to_point(PointConnection {
                 point: hips.pos + Vec2::new(self.legs_direction.x * 8.0, 1.0),
@@ -687,12 +701,12 @@ impl PlayerGraphics {
     }
 
     /// Both hands, hand 0 first (hand 1 reads where hand 0 went).
-    fn update_hands<R: Rng + ?Sized>(
+    fn update_hands(
         &mut self,
         player: &Player,
         room: &Room,
         water: Option<&Water>,
-        rng: &mut R,
+        rng: &mut UnityRandom,
     ) {
         for i in 0..self.hands.len() {
             let hand0 = &self.hands[0].limb;

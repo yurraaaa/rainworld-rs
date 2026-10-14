@@ -1,13 +1,13 @@
 //! `SlugcatHand`: a hand on the head chunk that reaches for terrain and beams while
 //! the body mode needs it and retracts (hidden) otherwise.
 
-use rand::Rng;
 use rw_assets::{Room, Terrain};
+use rw_random::UnityRandom;
 use rw_sim::{Animation, BodyMode, HEAD, HIPS, Player, Vec2, Water};
 
 use crate::body_part::{BodyPart, PointConnection};
 use crate::limb::{GripSearch, Limb, LimbMode};
-use crate::math::{CustomVec, Mathf, UnityRandom};
+use crate::math::{CustomVec, Mathf};
 use std::f32::consts::TAU;
 
 /// One slugcat hand.
@@ -19,7 +19,7 @@ pub struct SlugcatHand {
 }
 
 /// Graphics state a hand reads or pokes while it updates.
-pub(crate) struct HandContext<'a, R: Rng + ?Sized> {
+pub(crate) struct HandContext<'a> {
     pub player: &'a Player,
     pub room: &'a Room,
     pub water: Option<&'a Water>,
@@ -29,7 +29,7 @@ pub(crate) struct HandContext<'a, R: Rng + ?Sized> {
     pub airborne_counter: f32,
     /// Hand 0's position and `reached_snap_position`, read by hand 1 while crawling.
     pub hand0: (Vec2, bool),
-    pub rng: &'a mut R,
+    pub rng: &'a mut UnityRandom,
 }
 
 impl SlugcatHand {
@@ -43,13 +43,13 @@ impl SlugcatHand {
     }
 
     /// `Limb.Reset` at `point`; the hunt target keeps its old value, as in the game.
-    pub fn reset<R: Rng + ?Sized>(&mut self, point: Vec2, rng: &mut R) {
+    pub fn reset(&mut self, point: Vec2, rng: &mut UnityRandom) {
         self.limb.part.reset(point, rng);
     }
 
     /// `SlugcatHand.Update` with empty grasps, base game: hunt, stay within 20 px of
     /// the head chunk, then follow the body mode or retract after 5 idle ticks.
-    pub(crate) fn update<R: Rng + ?Sized>(&mut self, cx: &mut HandContext<'_, R>) {
+    pub(crate) fn update(&mut self, cx: &mut HandContext<'_>) {
         let head = cx.player.head();
         self.limb.update(cx.room, head, cx.player.hips().pos);
         self.limb.part.connect_to_point(PointConnection {
@@ -83,7 +83,7 @@ impl SlugcatHand {
 
     /// `SlugcatHand.EngageInMovement` for the ported body modes and animations: sets
     /// the hand's target and returns whether the hand is free (true = retract).
-    fn engage_in_movement<R: Rng + ?Sized>(&mut self, cx: &mut HandContext<'_, R>) -> bool {
+    fn engage_in_movement(&mut self, cx: &mut HandContext<'_>) -> bool {
         let player = cx.player;
         let head = player.head();
         let flip = player.flip_direction();
@@ -230,7 +230,7 @@ impl SlugcatHand {
         if player.animation() == Animation::DeepSwim {
             self.limb.mode = LimbMode::HuntRelativePosition;
             let reach = (1.0_f32 - stroke.inverse_lerp(0.5, 1.0)).powf(1.5);
-            let mut target = Vec2::from_deg((20.0 + reach * 140.0) * sign) * 20.0;
+            let mut target = Vec2::from_degrees((20.0 + reach * 140.0) * sign) * 20.0;
             if cycle < 3.0 {
                 target.x *= 0.5;
             }
@@ -244,7 +244,7 @@ impl SlugcatHand {
             target.x = head.x + (sign * 30.0).lerp_to(sweep, 0.5);
             target.y = water.map_or(f32::MIN, |w| w.level_at(target.x)) - 7.0;
             let (turn, radius) = if x == 0.0 { (1.0, 5.0) } else { (-x, 10.0) };
-            target += Vec2::from_deg(360.0 * stroke * turn) * (sign * radius);
+            target += Vec2::from_degrees(360.0 * stroke * turn) * (sign * radius);
             self.limb.absolute_hunt_pos = target;
         }
         self.limb.hunt_speed = 5.0;
@@ -294,7 +294,7 @@ impl SlugcatHand {
     /// StandOnBeam: arms out for balance (relative target swaying with the balance
     /// counter), gripping the beam when one is in reach; folded in while balanced.
     /// Returns whether the hand is free.
-    fn stand_on_beam_target<R: Rng + ?Sized>(&mut self, cx: &mut HandContext<'_, R>) -> bool {
+    fn stand_on_beam_target(&mut self, cx: &mut HandContext<'_>) -> bool {
         let player = cx.player;
         let head = player.head().pos;
         let limb = self.limb.limb_number;
@@ -346,9 +346,9 @@ impl SlugcatHand {
 
     /// A long fall: the hands grab at random terrain ahead, or flail relative to the
     /// body scaled by the speed.
-    fn flail_target<R: Rng + ?Sized>(&mut self, cx: &mut HandContext<'_, R>, sign: f32) {
+    fn flail_target(&mut self, cx: &mut HandContext<'_>, sign: f32) {
         let (head, hips) = (&cx.player.chunks()[HEAD], &cx.player.chunks()[HIPS]);
-        let jitter = Vec2::from_deg(cx.rng.value() * 360.0) * (40.0 * cx.rng.value());
+        let jitter = Vec2::random_unit(cx.rng) * (40.0 * cx.rng.value());
         let ahead = head.pos + head.vel * 4.0 + jitter;
         if cx.room.tile_at(ahead.to_array()).terrain != Terrain::Air {
             self.limb.mode = LimbMode::HuntAbsolutePosition;
@@ -364,7 +364,7 @@ impl SlugcatHand {
         rel.y = head.vel.y * if upright { -3.0 } else { -0.9 } + (head.vel.x * 0.6).abs() + 1.0;
         let speed = head.vel.length();
         if speed > 10.0 {
-            let a = Vec2::from_deg(cx.rng.value() * 360.0);
+            let a = Vec2::random_unit(cx.rng);
             *rel += a * (cx.rng.value() * cx.rng.value() * speed);
         }
         self.limb.hunt_speed = 8.0;

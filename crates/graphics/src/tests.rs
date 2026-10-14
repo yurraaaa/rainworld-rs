@@ -2,8 +2,6 @@
 //! `rainworld-re/notes/slugcat-graphics.md` and `sprite-atlases.md` (derivations next
 //! to each assertion), not from another run of this code.
 
-use rand::SeedableRng;
-use rand::rngs::StdRng;
 use rw_assets::Room;
 use rw_random::UnityRandom;
 use rw_sim::{Animation, BodyMode, HEAD, HIPS, Input, Player, Vec2};
@@ -62,7 +60,7 @@ fn assert_vec(actual: Vec2, x: f32, y: f32, what: &str) {
 
 /// A player lying on the flat room's ground, head to the right of the hips, with
 /// its graphics.
-fn grounded_player(rng: &mut StdRng) -> (Player, PlayerGraphics) {
+fn grounded_player(rng: &mut UnityRandom) -> (Player, PlayerGraphics) {
     let mut player = Player::new();
     player.body.chunks[HIPS].reset_at(Vec2::new(100.0, 48.0));
     player.body.chunks[HEAD].reset_at(Vec2::new(117.0, 49.0));
@@ -76,7 +74,7 @@ fn run(
     room: &Room,
     input: Input,
     ticks: usize,
-    rng: &mut StdRng,
+    rng: &mut UnityRandom,
 ) {
     for _ in 0..ticks {
         player.update(room, None, input, &mut UnityRandom::new(0));
@@ -340,7 +338,7 @@ fn breathing_scales_the_body() {
 #[test]
 fn breath_advances_one_sixtieth_per_tick_until_death() {
     // breath += 1 / lerp(60, 15, aerobicLevel^1.5) with aerobicLevel 0.
-    let mut rng = StdRng::seed_from_u64(1);
+    let mut rng = UnityRandom::new(1);
     let r = flat_room();
     let (mut p, mut g) = grounded_player(&mut rng);
     run(&mut p, &mut g, &r, Input::NONE, 30, &mut rng);
@@ -355,7 +353,7 @@ fn breath_advances_one_sixtieth_per_tick_until_death() {
 
 #[test]
 fn first_update_resets_to_the_chunks() {
-    let mut rng = StdRng::seed_from_u64(2);
+    let mut rng = UnityRandom::new(2);
     let r = flat_room();
     let (mut p, mut g) = grounded_player(&mut rng);
     // Culled until the first update: nothing is drawn.
@@ -377,7 +375,7 @@ fn draw_list_follows_the_game_sprite_order() {
         .collect();
     assert_eq!(foreground, [7, 8, 10, 11]);
 
-    let mut rng = StdRng::seed_from_u64(3);
+    let mut rng = UnityRandom::new(3);
     let r = flat_room();
     let (mut p, mut g) = grounded_player(&mut rng);
     // Crawling: the hands are engaged (EngageInMovement returns false), arms drawn.
@@ -413,7 +411,7 @@ fn draw_list_follows_the_game_sprite_order() {
 
 #[test]
 fn legs_frame_by_state() {
-    let mut rng = StdRng::seed_from_u64(4);
+    let mut rng = UnityRandom::new(4);
     let r = flat_room();
     let (mut p, mut g) = grounded_player(&mut rng);
     // Crawl: LegsACrawling{frame / 2}, mirrored by the facing.
@@ -452,7 +450,7 @@ fn legs_frame_by_state() {
 
 #[test]
 fn face_by_blink_and_consciousness() {
-    let mut rng = StdRng::seed_from_u64(5);
+    let mut rng = UnityRandom::new(5);
     let r = flat_room();
     let (mut p, mut g) = grounded_player(&mut rng);
     run(&mut p, &mut g, &r, Input::new(0, 1, false), 1, &mut rng);
@@ -508,7 +506,7 @@ fn sprites_stay_on_the_body_through_mixed_movement() {
     rows[19] = "#".repeat(30);
     let refs: Vec<&str> = rows.iter().map(String::as_str).collect();
     let r = room(&refs);
-    let mut rng = StdRng::seed_from_u64(6);
+    let mut rng = UnityRandom::new(6);
     let (mut p, mut g) = grounded_player(&mut rng);
     let mut caps_drawn = 0;
     let script = [
@@ -571,7 +569,7 @@ fn pole_room() -> Room {
 }
 
 /// A player standing on the pole room's ground in the grounded pole's column.
-fn player_at_pole(rng: &mut StdRng, room: &Room) -> (Player, PlayerGraphics) {
+fn player_at_pole(rng: &mut UnityRandom, room: &Room) -> (Player, PlayerGraphics) {
     let mut p = Player::new();
     p.body.chunks[HIPS].reset_at(Vec2::new(212.0, 49.0));
     p.body.chunks[HEAD].reset_at(Vec2::new(212.0, 66.0));
@@ -587,7 +585,7 @@ fn run_until(
     input: Input,
     animation: Animation,
     ticks: usize,
-    rng: &mut StdRng,
+    rng: &mut UnityRandom,
 ) -> bool {
     for _ in 0..ticks {
         run(player, graphics, room, input, 1, rng);
@@ -600,7 +598,7 @@ fn run_until(
 
 #[test]
 fn vertical_pole_poses() {
-    let mut rng = StdRng::seed_from_u64(7);
+    let mut rng = UnityRandom::new(7);
     let r = pole_room();
     let up = Input::new(0, 1, false);
     let (mut p, mut g) = player_at_pole(&mut rng, &r);
@@ -702,7 +700,7 @@ fn climb_offsets_and_hand_targets() {
     // ClimbOnBeam at animation frame k, facing f: body draw x += 2.5f + 0.5f sin(k/20 2pi),
     // hips draw x += 2.5f cos(k/20 2pi); the near hand (limb 1 when facing right) hunts
     // (mid.x - f, head.y - 3 + 6 sin), the other (mid.x + f, head.y + 3 + 6 cos).
-    let mut rng = StdRng::seed_from_u64(8);
+    let mut rng = UnityRandom::new(8);
     let r = pole_room();
     let up = Input::new(0, 1, false);
     let (mut p, mut g) = player_at_pole(&mut rng, &r);
@@ -743,7 +741,7 @@ fn climb_offsets_and_hand_targets() {
 #[test]
 fn roll_flings_the_tail_along_the_body() {
     // Push 6 at the root, divided by 1.7 per segment: 6, 3.5294, 2.0761, 1.2213.
-    let mut rng = StdRng::seed_from_u64(9);
+    let mut rng = UnityRandom::new(9);
     let (_, mut g) = grounded_player(&mut rng);
     for seg in &mut g.tail {
         seg.part.vel = Vec2::ZERO;
@@ -806,7 +804,7 @@ fn corridor_player(
     room: &Room,
     (head, hips): (Vec2, Vec2),
     input: Input,
-    rng: &mut StdRng,
+    rng: &mut UnityRandom,
 ) -> (Player, PlayerGraphics) {
     let mut p = Player::new();
     p.body.chunks[HEAD].reset_at(head);
@@ -834,7 +832,7 @@ fn place(p: &mut Player, (head, hips): (Vec2, Vec2)) {
 fn corridor_has_no_draw_offsets() {
     // PlayerGraphics.Update has no CorridorClimb branch in its body-mode block and the
     // look direction is 0, so drawPositions[i][0] are the chunk positions.
-    let mut rng = StdRng::seed_from_u64(20);
+    let mut rng = UnityRandom::new(20);
     let r = tunnel_room();
     let right = Input::new(1, 0, false);
     let start = (Vec2::new(110.0, 50.0), Vec2::new(93.0, 50.0));
@@ -880,7 +878,7 @@ fn corridor_head_leads_twice_as_far_downward() {
 
 #[test]
 fn corridor_legs_in_a_tunnel_and_a_shaft() {
-    let mut rng = StdRng::seed_from_u64(21);
+    let mut rng = UnityRandom::new(21);
     // Horizontal tunnel, head right of the hips: aim(hips -> head) = 90, base
     // round((270 - 90) / 45) = 4; m = 0 checks eightDirections[14 % 8 = 6] (N) and
     // [18 % 8 = 2] (S), both solid: turn 0. legsDirection += DegToVec(aim(head -> hips)
@@ -941,7 +939,7 @@ fn corridor_legs_turn_picks_the_braced_diagonal() {
 fn corridor_legs_frames_mirror_after_six() {
     // animationFrame 0..=6 -> LegsAClimbing{frame}, scaleX 1; 7..=12 ->
     // LegsAClimbing{frame % 6}, scaleX -1.
-    let mut rng = StdRng::seed_from_u64(22);
+    let mut rng = UnityRandom::new(22);
     let r = tunnel_room();
     let right = Input::new(1, 0, false);
     let start = (Vec2::new(110.0, 50.0), Vec2::new(93.0, 50.0));
@@ -980,7 +978,7 @@ fn corridor_hands_grip_the_walls_ahead() {
     // head + 20 (1, 0) + (0, 1) (6 - 12 limb): (230, 56) and (230, 44). In the 3x3
     // tiles around (10, 2) the nearest grips are the free edges of the solid tiles
     // (11, 3) (bottom edge y 60) and (11, 1) (top edge y 40), x clamp(230, 220..240).
-    let mut rng = StdRng::seed_from_u64(23);
+    let mut rng = UnityRandom::new(23);
     let r = tunnel_room();
     for input in [Input::NONE, Input::new(1, 0, false)] {
         let (mut p, mut g) = corridor_player(&r, IN_TUNNEL, input, &mut rng);
@@ -1012,7 +1010,7 @@ fn corridor_turn_pose_and_push() {
     // Facing right in the tunnel, jump with left held starts a CorridorTurn. While it
     // runs the body and hips draw positions jitter by at most 3 and 2 px and blink is
     // set to 5 before the tick's blink-- (4 after the update): FaceB.
-    let mut rng = StdRng::seed_from_u64(24);
+    let mut rng = UnityRandom::new(24);
     let r = tunnel_room();
     let (mut p, mut g) = corridor_player(&r, IN_TUNNEL, Input::NONE, &mut rng);
     run(&mut p, &mut g, &r, Input::NONE, 5, &mut rng);
@@ -1053,7 +1051,7 @@ fn corridor_turn_pose_and_push() {
 fn hard_landing_blinks() {
     // Player.TerrainImpact: speed > 12 calls Blink(IntClamp((int)speed, 12, 60) / 2),
     // 6..=30 ticks; the graphics take the larger blink before the tick's blink--.
-    let mut rng = StdRng::seed_from_u64(25);
+    let mut rng = UnityRandom::new(25);
     let r = flat_room();
     let mut p = Player::new();
     place(&mut p, (Vec2::new(300.0, 237.0), Vec2::new(300.0, 220.0)));

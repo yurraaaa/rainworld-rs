@@ -18,7 +18,8 @@ pub struct ListRoomsParams {
 pub struct LoadRoomParams {
     /// Room name as the game looks it up, e.g. "SU_A22", "summit", "GATE_SU_HI".
     pub name: String,
-    /// Spawn RNG seed (default 1). Same seed and inputs give the same run.
+    /// Seed of the game's random stream (`Random.InitState`, low 32 bits; default 1):
+    /// spawn and every later draw. Same seed and inputs give the same run.
     pub seed: Option<u64>,
     /// Spawn on this tile [x, y] (y up) instead of a seeded spawn tile.
     pub spawn_tile: Option<[i32; 2]>,

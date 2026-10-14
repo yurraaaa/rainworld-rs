@@ -1,12 +1,10 @@
 //! Spawning: choosing a safe tile (`Room.DetermineSafeSpawnTile`) and placing an
 //! object on it (`Creature.PlaceInRoom`).
 //!
-//! Randomness comes from a caller-supplied [`rand::Rng`], so a seeded generator gives
-//! deterministic spawns. Unity's random sequence is not reproduced
-//! (`docs/DIVERGENCES.md` D1).
+//! Both draw from the game's `UnityEngine.Random` ([`UnityRandom`]) with the game's calls.
 
-use rand::{Rng, RngExt};
 use rw_assets::{Room, Shortcut, tile_centre};
+use rw_random::UnityRandom;
 
 use crate::room_ext::RoomExt;
 use crate::{PhysicalObject, Vec2};
@@ -25,7 +23,7 @@ const SPAWN_TRIES: usize = 1000;
 /// 5. `(0, 0)`.
 ///
 /// The shelter branch is not ported: room files do not say whether a room is a shelter.
-pub fn determine_safe_spawn_tile<R: Rng + ?Sized>(room: &Room, rng: &mut R) -> (i32, i32) {
+pub fn determine_safe_spawn_tile(room: &Room, rng: &mut UnityRandom) -> (i32, i32) {
     let water_level = room.water_level();
 
     let map = room.shortcut_map();
@@ -41,15 +39,15 @@ pub fn determine_safe_spawn_tile<R: Rng + ?Sized>(room: &Room, rng: &mut R) -> (
         })
         .count();
     for _ in 0..SPAWN_TRIES {
-        let node = (rng.random::<f32>() * exit_and_den_count as f32) as usize;
+        let node = (rng.value() * exit_and_den_count as f32) as usize;
         // The game throws here when the room has no shortcuts (docs/DIVERGENCES.md D2).
         let Some(shortcut) = map.leading_to_node(node) else {
             break;
         };
         let start = shortcut.start;
         let (dx, dy) = room.shortcut_hole_direction(start.0, start.1);
-        let along = (rng.random::<f32>() * 10.0) as i32;
-        let across = (rng.random::<f32>() * 6.0 - 3.0) as i32;
+        let along = (rng.value() * 10.0) as i32;
+        let across = (rng.value() * 6.0 - 3.0) as i32;
         // Perpendicular of `dir * across`: (y, -x).
         let x = start.0 + dx * along + dy * across;
         let y = start.1 + dy * along - dx * across;
@@ -69,7 +67,8 @@ pub fn determine_safe_spawn_tile<R: Rng + ?Sized>(room: &Room, rng: &mut R) -> (
             .filter(|&(x, y)| fallback.accepts(room, first_dry_row, x, y))
             .collect();
         if !candidates.is_empty() {
-            return candidates[rng.random_range(0..candidates.len())];
+            let len = i32::try_from(candidates.len()).expect("tile count fits i32");
+            return candidates[rng.range_i32(0, len) as usize];
         }
     }
     (0, 0)
@@ -102,16 +101,9 @@ impl SpawnFallback {
 
 /// Puts every chunk at the middle of `tile` plus an independent random unit vector,
 /// with no velocity and no position history, as `Creature.PlaceInRoom`.
-pub fn place_in_room<R: Rng + ?Sized>(obj: &mut PhysicalObject, tile: (i32, i32), rng: &mut R) {
+pub fn place_in_room(obj: &mut PhysicalObject, tile: (i32, i32), rng: &mut UnityRandom) {
     let centre = Vec2::from(tile_centre(tile.0, tile.1));
     for chunk in &mut obj.chunks {
-        let deg = rng.random::<f32>() * 360.0;
-        chunk.reset_at(centre + deg_to_vec(deg));
+        chunk.reset_at(centre + Vec2::random_unit(rng));
     }
-}
-
-/// Unit vector for an angle in degrees, clockwise from +y (`Custom.DegToVec`).
-fn deg_to_vec(deg: f32) -> Vec2 {
-    let rad = deg * (std::f32::consts::PI / 180.0);
-    Vec2::new(rad.sin(), rad.cos())
 }

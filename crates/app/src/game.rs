@@ -1,15 +1,15 @@
 //! Simulation state owned by the app: the room, its water, the player and its
-//! graphics module, the shortcut divider and the RNGs.
+//! graphics module, the shortcut divider and the game's random generator.
 //!
 //! This is the only place the app touches the simulation.
 
-use rand::SeedableRng;
-use rand::rngs::StdRng;
 use rw_assets::{Room, RoomSettings, StreamingAssets};
 use rw_graphics::{Color, DrawList, PlayerGraphics, SlugcatName};
 use rw_random::UnityRandom;
 use rw_render::{BodyStatus, Follow, WaterSurface};
-use rw_sim::{Input, PhysicalObject, Player, ShortcutHandler, Vec2, Water};
+use rw_sim::{
+    Input, PhysicalObject, Player, ShortcutHandler, Vec2, Water, determine_safe_spawn_tile,
+};
 
 /// A room with (at most) one player in it.
 pub struct Game {
@@ -23,12 +23,9 @@ pub struct Game {
     /// The player's graphics module; replaced with the player.
     graphics: Option<PlayerGraphics>,
     shortcuts: ShortcutHandler,
-    /// Spawn positions.
-    rng: StdRng,
-    /// The game's `UnityEngine.Random`: the player's and the water's random draws.
-    sim_rng: UnityRandom,
-    /// Cosmetic randomness, separate so graphics never shift the spawn sequence.
-    graphics_rng: StdRng,
+    /// The game's single `UnityEngine.Random` stream: spawning, the player, the water
+    /// and the graphics draw from it in the game's order.
+    rng: UnityRandom,
     /// `--spawn`: place the player on this tile instead of a random spawn tile.
     spawn_tile: Option<(i32, i32)>,
     tick: u64,
@@ -36,7 +33,8 @@ pub struct Game {
 
 impl Game {
     /// Spawns the player into `room` (water waves from `settings`) at a spawn tile
-    /// chosen with `seed`, or on `spawn_tile` when given.
+    /// drawn from `UnityRandom::new(seed)` (`Random.InitState`, low 32 bits), or on
+    /// `spawn_tile` when given.
     #[must_use]
     pub fn new(
         room: Room,
@@ -44,11 +42,8 @@ impl Game {
         seed: u64,
         spawn_tile: Option<(i32, i32)>,
     ) -> Self {
-        let mut rng = StdRng::seed_from_u64(seed);
-        let mut sim_rng = UnityRandom::new(seed as i32);
-        let mut graphics_rng = StdRng::seed_from_u64(seed.wrapping_add(1));
-        let player = Self::spawn_player(&room, spawn_tile, &mut rng, &mut sim_rng);
-        let graphics = PlayerGraphics::new(&player, SlugcatName::White, &mut graphics_rng);
+        let mut rng = UnityRandom::new(seed as i32);
+        let (player, graphics) = Self::spawn_player(&room, spawn_tile, &mut rng);
         log::info!("spawned player");
         Self {
             water: Water::new(&room, settings),
@@ -58,8 +53,6 @@ impl Game {
             graphics: Some(graphics),
             shortcuts: ShortcutHandler::new(),
             rng,
-            sim_rng,
-            graphics_rng,
             spawn_tile,
             tick: 0,
         }
@@ -80,38 +73,28 @@ impl Game {
         &self.settings
     }
 
-    /// Replaces the player with a fresh one at a new spawn tile (continuing the seeded
+    /// Replaces the player with a fresh one at a new spawn tile (continuing the random
     /// sequence).
     pub fn respawn(&mut self) {
-        let player = Self::spawn_player(
-            &self.room,
-            self.spawn_tile,
-            &mut self.rng,
-            &mut self.sim_rng,
-        );
-        self.graphics = Some(PlayerGraphics::new(
-            &player,
-            SlugcatName::White,
-            &mut self.graphics_rng,
-        ));
+        let (player, graphics) = Self::spawn_player(&self.room, self.spawn_tile, &mut self.rng);
         self.player = Some(player);
+        self.graphics = Some(graphics);
         log::info!("respawned player");
     }
 
+    /// The game's order of draws: `DetermineSafeSpawnTile`, the `Player` constructor,
+    /// then `Creature.PlaceInRoom`, whose `AddObject` builds the graphics module (in a
+    /// viewed room) before the chunk offsets.
     fn spawn_player(
         room: &Room,
         tile: Option<(i32, i32)>,
-        rng: &mut StdRng,
-        sim_rng: &mut UnityRandom,
-    ) -> Player {
-        match tile {
-            Some(tile) => {
-                let mut player = Player::create(sim_rng);
-                player.place(tile, rng);
-                player
-            }
-            None => Player::spawn(room, rng, sim_rng),
-        }
+        rng: &mut UnityRandom,
+    ) -> (Player, PlayerGraphics) {
+        let tile = tile.unwrap_or_else(|| determine_safe_spawn_tile(room, rng));
+        let mut player = Player::create(rng);
+        let graphics = PlayerGraphics::new(&player, SlugcatName::White, rng);
+        player.place(tile, rng);
+        (player, graphics)
     }
 
     /// One 40 Hz simulation tick: shortcut vessels, the water surface (pushed by the
@@ -131,16 +114,11 @@ impl Game {
                 } else {
                     &mut player.body.chunks[..]
                 };
-                water.update(&self.room, chunks.iter_mut(), &mut self.sim_rng);
+                water.update(&self.room, chunks.iter_mut(), &mut self.rng);
             }
-            player.update(&self.room, self.water.as_ref(), input, &mut self.sim_rng);
+            player.update(&self.room, self.water.as_ref(), input, &mut self.rng);
             if let Some(graphics) = &mut self.graphics {
-                graphics.update(
-                    player,
-                    &self.room,
-                    self.water.as_ref(),
-                    &mut self.graphics_rng,
-                );
+                graphics.update(player, &self.room, self.water.as_ref(), &mut self.rng);
             }
             if player.is_destroyed() {
                 log::info!("player fell out of the room and was destroyed; R respawns");
@@ -244,7 +222,7 @@ impl Game {
     pub fn set_player(&mut self, pos: Vec2, vel: Vec2) {
         let player = self.player.get_or_insert_with(Player::new);
         // `place` resets the stuck-feet state; its random offsets are overwritten below.
-        player.place(pos.tile(), &mut StdRng::seed_from_u64(0));
+        player.place(pos.tile(), &mut self.rng);
         for (chunk, dy) in player.body.chunks.iter_mut().zip([1.0, -1.0]) {
             chunk.reset_at(pos + Vec2::new(0.0, dy));
             chunk.vel = vel;
@@ -252,7 +230,7 @@ impl Game {
         self.graphics = Some(PlayerGraphics::new(
             player,
             SlugcatName::White,
-            &mut self.graphics_rng,
+            &mut self.rng,
         ));
     }
 }

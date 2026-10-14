@@ -8,7 +8,6 @@ rw-sim.workspace = true
 rw-assets.workspace = true
 rw-render.workspace = true
 rw-graphics.workspace = true
-rand.workspace = true
 rw-random.workspace = true
 winit.workspace = true
 log.workspace = true

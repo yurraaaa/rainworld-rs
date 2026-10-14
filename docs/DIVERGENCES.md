@@ -3,24 +3,38 @@
 Each entry: what differs, why, and what it affects. Behaviour sources are the notes in
 `../rainworld-re/notes/`.
 
-## D1: Random number sequence (spawning)
+## D1: Random number sequence
 
-**What.** `rw_sim::determine_safe_spawn_tile` and `rw_sim::place_in_room` draw from a
-caller-supplied `rand::Rng` (`rand` 0.10; tests use `rand::rngs::StdRng::seed_from_u64`),
-not Unity's `UnityEngine.Random`. For the same game state the port therefore picks a
-different spawn tile and different chunk offsets than the game would.
-`Random.value` also includes 1.0, while `rand`'s `random::<f32>()` is in `[0, 1)`, so
-the port never produces the game's rare `value == 1` edge cases, such as a node index
-equal to the exit/den count or an offset of exactly 10 tiles.
+**What.** All randomness draws from `rw_random::UnityRandom`, a port of Unity's
+`UnityEngine.Random` (xorshift128, `InitState`, `value` in `[0, 1]` inclusive,
+`Range(float)`, `Range(int)`; `rainworld-re/notes/unity-random.md`), with each call
+mapped to the game's call at that spot (`Random.value`, `Random.Range(int, int)` with
+the same bounds, `Custom.RNV` / `DegToVec(Random.value * 360)` as
+`rw_sim::Vec2::random_unit`). The app keeps one stream, as the game's single global
+generator: spawning (`DetermineSafeSpawnTile`, the `Player` constructor, the graphics
+module built by `PlaceInRoom`'s `AddObject`, then the chunk offsets), the water, the
+player and its graphics module draw from it in the game's update order. What still
+differs is only the seed and the call order:
+- **Seed.** The game seeds at start-up from OS entropy and never re-seeds for anything
+  ported (its `InitState` sites are story-session cycle seeds, DLC and other objects'
+  save/restore sub-sequences). The app seeds with `UnityRandom::new(seed)` from
+  `--seed` / the MCP `seed` (low 32 bits).
+- **Call order.** The game interleaves draws from every other object, sound, particle,
+  rain, camera and AI in the room and world; the port has only the room's water and the
+  player, so its sequence is the game's only for those draws. Draws of unported code in
+  the same functions (the rain-warning look-up, ceiling drips, `WaterDrip`s, grasps,
+  exhaustion, DLC) are missing; the rain-warning look-up short-circuits before drawing
+  while rain is far off, as at the start of a cycle.
+- **Spawn path.** In the game only Remix key-item tracking and Watcher warps call
+  `DetermineSafeSpawnTile`; the port's single-room phase uses it to spawn the player,
+  so these draws are the port's choice of game function, made in the order the game
+  makes them.
 
-**Why.** Unity's generator state comes from the engine (seeded at start-up and shared by
-every system that draws from it: sounds, particles, AI), so a draw-for-draw match would
-need the whole game's call order, not just these functions. The behaviour that matters
-is kept: which tiles can be chosen, in what fallback order, and the offset
-distributions. An injectable, seedable generator makes tests deterministic.
+**Why.** Matching the game's draw sequence would need every system that draws. Seeding
+from the command line keeps runs reproducible.
 
-**Affects.** Exact spawn tiles and the initial 1 px chunk jitter only. Physics after
-placement is deterministic and does not use randomness.
+**Affects.** Exact random outcomes compared to a particular game run; distributions and
+edge cases (`value == 1`) match.
 
 ## D2: Spawning in rooms without shortcuts and in shelters
 
@@ -51,9 +65,8 @@ corridors are D10.
 **What differs from the game where the game's behaviour is kept out of scope:**
 - **Random numbers.** The player's draws (stacked-body nudge `Random.Range(-1, 1)`,
   initial facing in `Player::create`, the `Stun` threshold, the corridor-turn jiggle,
-  the water) come from `rw_random::UnityRandom`, the game's generator, but the call
-  order is not the game's (the game shares one generator with every other object and
-  cosmetic draw), so the sequence differs. `Player::new` (tests) faces right.
+  the water) use the game's generator and calls; only seed and call order differ (D1).
+  `Player::new` (tests) faces right.
 - **Input.** `Input` carries x, y and jump only; `downDiagonal` is derived digitally
   (down plus left/right gives that side, the Remix rule). No analogue stick, map
   button stand-still, throw / pick-up / special. The game's `checkInput` substitution
@@ -225,9 +238,10 @@ in `PlayerGraphics` (they use the generic poses of their body mode, as in the ga
 
 **What differs:**
 - **Random numbers.** Cosmetic randomness (blink timing, the 1 px reset jitter, beam
-  balance, long-fall hand flailing, the corridor-turn jitter) draws from a
-  caller-supplied `rand::Rng`, not `UnityEngine.Random`: same distributions, different
-  sequence (as D1). `Random.value` is `[0, 1)` instead of `[0, 1]`.
+  balance, long-fall hand flailing, the corridor-turn jitter, the empty-room object
+  looker's draws) uses the game's generator and calls, from the same stream as the
+  player right after `Player.Update`, as the game's `Room.Update`; only seed and call
+  order differ (D1).
 - **Swimming** is ported (draw offset from `swimCycle`, tail drag scaled by hip
   submersion, the `lungsExhausted` head bob and blink, the swimming hand targets, legs
   hidden in `DeepSwim`); bubbles, splashes and the depth tint are not (D11).
@@ -239,8 +253,8 @@ in `PlayerGraphics` (they use the generic poses of their body mode, as in the ga
   it after `Player::update`, so it sees the pulled positions. The reset on leaving a
   tube likewise uses the chunk positions after that tick's movement.
 - **No look targets.** With no other objects in the room the game's `PlayerObjectLooker`
-  never finds a target, so `lookDirection` stays 0 as in the game; the looker itself, the
-  rain-warning look-up, `LookAtNothing` and the afraid-of-creature poses (and their
+  never finds a target, so `lookDirection` stays 0 as in the game; only its look timer
+  and random draws are ported. The rain-warning look-up, `LookAtNothing` and the afraid-of-creature poses (and their
   blink and aerobic effects) are not ported.
 - **Not ported:** grasps (holding, throwing, eating, swallowing, spear on back, reaching
   for flies, heavy carry, and the `Blink` calls of eating, mauling and throwing),
@@ -341,7 +355,8 @@ rule; `Player` ports `LungUpdate` (lungs 128 as in a release build, drowning), t
 restrictions (`rainworld-re/notes/water.md`), base game with Remix off, Survivor values.
 
 **What differs:**
-- **Random numbers.** `UnityRandom`, but not the game's call order (D3).
+- **Random numbers.** The game's generator and calls; only seed and call order
+  differ (D1).
 - **Remix (MMF) omitted:** `swimBoostCost` 0.18 (base 0.2), the `cfgSwimBreathLeniency`
   curve, `cfgFreeSwimBoosts`, `EffectiveRoomGravity` in the corridor buoyancy term and
   the submersion cap above the room.

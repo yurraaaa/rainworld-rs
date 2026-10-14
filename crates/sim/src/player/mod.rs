@@ -24,7 +24,6 @@ mod swim;
 #[cfg(test)]
 mod tests;
 
-use rand::Rng;
 use rw_assets::{Room, Terrain};
 use rw_random::UnityRandom;
 
@@ -32,7 +31,7 @@ pub use input::{INPUT_HISTORY, Input};
 
 use crate::room_ext::RoomExt;
 use crate::shortcut::ShortcutVessel;
-use crate::{BodyChunk, PhysicalObject, Vec2, Water, determine_safe_spawn_tile, place_in_room};
+use crate::{BodyChunk, PhysicalObject, Vec2, Water, place_in_room};
 
 /// Index of the head chunk (`bodyChunks[0]`, `mainBodyChunk`).
 pub const HEAD: usize = 0;
@@ -352,19 +351,9 @@ impl Player {
         player
     }
 
-    /// A new player ([`Player::create`], facing drawn from `facing_rng`) on a spawn
-    /// tile chosen by [`determine_safe_spawn_tile`], placed by [`place_in_room`]; both
-    /// draw from `rng`.
-    pub fn spawn<R: Rng + ?Sized>(room: &Room, rng: &mut R, facing_rng: &mut UnityRandom) -> Self {
-        let tile = determine_safe_spawn_tile(room, rng);
-        let mut player = Self::create(facing_rng);
-        player.place(tile, rng);
-        player
-    }
-
     /// Puts the body on `tile` as [`place_in_room`] (tile middle plus a random unit
     /// offset per chunk, at rest). Movement state is kept.
-    pub fn place<R: Rng + ?Sized>(&mut self, tile: (i32, i32), rng: &mut R) {
+    pub fn place(&mut self, tile: (i32, i32), rng: &mut UnityRandom) {
         place_in_room(&mut self.body, tile, rng);
         self.feet_stuck_pos = None;
     }

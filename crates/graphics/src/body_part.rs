@@ -1,11 +1,9 @@
 //! `BodyPart`: a cosmetic point mass that is pushed out of terrain (base of the
 //! tail segments, head, legs and hands).
 
-use rand::Rng;
 use rw_assets::{Room, Slope, Terrain, tile_centre};
+use rw_random::UnityRandom;
 use rw_sim::Vec2;
-
-use crate::math::{CustomVec, UnityRandom};
 
 /// `Custom.eightDirectionsAndZero`: the order terrain push-out and grip search visit tiles.
 pub(crate) const EIGHT_DIRECTIONS_AND_ZERO: [(i32, i32); 9] = [
@@ -70,8 +68,8 @@ impl BodyPart {
     }
 
     /// `BodyPart.Reset`: at `point` plus a random 1 px offset, at rest.
-    pub fn reset<R: Rng + ?Sized>(&mut self, point: Vec2, rng: &mut R) {
-        self.pos = point + Vec2::from_deg(rng.value() * 360.0);
+    pub fn reset(&mut self, point: Vec2, rng: &mut UnityRandom) {
+        self.pos = point + Vec2::random_unit(rng);
         self.last_pos = self.pos;
         self.vel = Vec2::ZERO;
     }

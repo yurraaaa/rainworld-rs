@@ -6,9 +6,6 @@ edition.workspace = true
 [dependencies]
 rw-sim.workspace = true
 rw-assets.workspace = true
-rand.workspace = true
+rw-random.workspace = true
 serde = { workspace = true }
 serde_json = { workspace = true }
-
-[dev-dependencies]
-rw-random.workspace = true

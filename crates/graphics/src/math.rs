@@ -1,7 +1,7 @@
-//! The Unity `Mathf`/`Vector2`/`Random` and game `Custom` helpers the graphics use,
-//! as extension traits on `f32`, [`Vec2`] and [`rand::Rng`].
+//! The Unity `Mathf`/`Vector2` and game `Custom` helpers the graphics use, as
+//! extension traits on `f32` and [`Vec2`]. `Custom.DegToVec` and `Custom.RNV` are
+//! rw-sim's [`Vec2::from_degrees`] and [`Vec2::random_unit`].
 
-use rand::{Rng, RngExt};
 use rw_sim::Vec2;
 
 /// `Mathf` functions on `f32`.
@@ -40,8 +40,6 @@ impl Mathf for f32 {
 
 /// The game's `Custom` vector helpers. Angles in degrees, 0 = up, positive = clockwise.
 pub trait CustomVec: Sized {
-    /// `Custom.DegToVec`: `(sin, cos)` of the angle.
-    fn from_deg(deg: f32) -> Self;
     /// `Custom.AimFromOneVectorToAnother(self, to)`.
     fn aim_to(self, to: Self) -> f32;
     /// `Custom.RotateAroundOrigo`: rotate clockwise by `deg`.
@@ -57,11 +55,6 @@ pub trait CustomVec: Sized {
 }
 
 impl CustomVec for Vec2 {
-    fn from_deg(deg: f32) -> Self {
-        let rad = deg.to_radians();
-        Self::new(rad.sin(), rad.cos())
-    }
-
     fn aim_to(self, to: Self) -> f32 {
         let d = to - self;
         d.x.atan2(d.y).to_degrees()
@@ -90,28 +83,5 @@ impl CustomVec for Vec2 {
     fn dist_no_sqrt(self, other: Self) -> f32 {
         let d = other - self;
         d.x * d.x + d.y * d.y
-    }
-}
-
-/// `UnityEngine.Random` calls drawn from a [`rand::Rng`] (same distributions, not the
-/// same sequence: docs/DIVERGENCES.md D8).
-pub trait UnityRandom {
-    /// `Random.value` (the game's includes 1.0; this is `[0, 1)`).
-    fn value(&mut self) -> f32;
-    /// `Random.Range(int, int)`: `[min, max)`, or `min` when `max <= min`.
-    fn range_int(&mut self, min: i32, max: i32) -> i32;
-}
-
-impl<R: Rng + ?Sized> UnityRandom for R {
-    fn value(&mut self) -> f32 {
-        self.random::<f32>()
-    }
-
-    fn range_int(&mut self, min: i32, max: i32) -> i32 {
-        if max <= min {
-            min
-        } else {
-            self.random_range(min..max)
-        }
     }
 }
