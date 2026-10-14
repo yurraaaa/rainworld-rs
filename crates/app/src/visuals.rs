@@ -18,8 +18,8 @@ pub struct Visuals {
     /// Every camera's image, decoded once at load so switching never stalls.
     images: Vec<PngImage>,
     palette: PaletteTexture,
-    /// The image or palette changed since the last upload.
-    changed: bool,
+    /// Counts camera switches, so a renderer knows when its upload is stale.
+    generation: u32,
 }
 
 impl Visuals {
@@ -54,7 +54,7 @@ impl Visuals {
             palette: visuals.palette_for_camera(camera.current()),
             room: visuals,
             camera,
-            changed: true,
+            generation: 0,
         })
     }
 
@@ -65,15 +65,23 @@ impl Visuals {
             let current = self.camera.current();
             log::info!("camera {}", current + 1);
             self.palette = self.room.palette_for_camera(current);
-            self.changed = true;
+            self.generation += 1;
         }
     }
 
-    /// Uploads the shown camera's graphic if it changed.
-    pub fn upload(&mut self, renderer: &mut impl Renderer) {
-        if !self.changed {
-            return;
-        }
+    #[must_use]
+    pub fn generation(&self) -> u32 {
+        self.generation
+    }
+
+    /// The camera shown (0-based).
+    #[must_use]
+    pub fn current_camera(&self) -> usize {
+        self.camera.current()
+    }
+
+    /// Uploads the shown camera's graphic.
+    pub fn upload(&self, renderer: &mut impl Renderer) {
         let current = self.camera.current();
         renderer.set_level(&LevelGraphics {
             camera_pos: self.camera.position(current),
@@ -82,7 +90,6 @@ impl Visuals {
             noise: &self.noise,
             params: LevelParams::new(self.room.settings(), &self.palette),
         });
-        self.changed = false;
     }
 
     /// The palette's `blackColor` (the slugcat's eye colour), as stored.
