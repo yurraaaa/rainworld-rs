@@ -8,6 +8,8 @@
 //! `vorbis_codebooks_fsb.h`; provenance in `data/README.md`) and rebuilds the
 //! identification and comment headers, then decodes with `lewton`.
 
+use std::ops::Range;
+
 use lewton::audio::{PreviousWindowRight, read_audio_packet};
 use lewton::header::{IdentHeader, SetupHeader, read_header_ident, read_header_setup};
 
@@ -48,6 +50,8 @@ pub struct Fsb5<'a> {
     /// CRC32 of the Vorbis setup header (chunk type 11).
     pub vorbis_crc: Option<u32>,
     data: &'a [u8],
+    /// Where `data` lies in the bank.
+    data_range: Range<usize>,
 }
 
 /// The FMOD Vorbis setup headers the port ships, keyed by their CRC32.
@@ -135,8 +139,9 @@ impl<'a> Fsb5<'a> {
             }
         }
         let start = Self::BASE_HEADER + sample_headers + names + offset;
+        let data_range = start..Self::BASE_HEADER + sample_headers + names + data_size;
         let data = bytes
-            .get(start..Self::BASE_HEADER + sample_headers + names + data_size)
+            .get(data_range.clone())
             .ok_or("FSB5 data runs past the bank")?;
         Ok(Self {
             mode,
@@ -145,6 +150,7 @@ impl<'a> Fsb5<'a> {
             frames,
             vorbis_crc,
             data,
+            data_range,
         })
     }
 
@@ -196,33 +202,19 @@ impl<'a> Fsb5<'a> {
             .collect())
     }
 
-    /// Rebuilds the three Vorbis headers and decodes the length-prefixed packets; the
-    /// output is cut to `frames` (FMOD keeps no granule positions).
+    /// Decodes the length-prefixed packets; the output is cut to `frames` (FMOD keeps
+    /// no granule positions).
     fn decode_vorbis(&self) -> Result<Vec<i16>, String> {
-        let crc = self.vorbis_crc.ok_or("FSB5 Vorbis without a setup CRC")?;
-        let setup_packet =
-            VorbisSetups::get(crc).ok_or_else(|| format!("no Vorbis setup header {crc:08x}"))?;
-        let ident = read_header_ident(&self.ident_packet()).map_err(|e| format!("{e:?}"))?;
-        let setup: SetupHeader = read_header_setup(
-            setup_packet,
-            ident.audio_channels,
-            (ident.blocksize_0, ident.blocksize_1),
-        )
-        .map_err(|e| format!("setup {crc:08x}: {e:?}"))?;
+        let mut vorbis = VorbisState::new(self)?;
         let channels = usize::from(self.channels);
         let wanted = self.frames as usize * channels;
         let mut out = Vec::with_capacity(wanted);
-        let mut pwr = PreviousWindowRight::new();
         let mut r = Reader::new(self.data);
-        while out.len() < wanted && r.pos() + 2 <= self.data.len() {
-            let len = usize::from(r.u16()?);
-            if len == 0 || len == 0xFFFF {
+        while out.len() < wanted {
+            let Some(packet) = VorbisState::next_packet(&mut r)? else {
                 break;
-            }
-            let packet = r.take(len)?;
-            let decoded: Vec<Vec<i16>> = read_audio_packet(&ident, &setup, packet, &mut pwr)
-                .map_err(|e| format!("Vorbis packet at {}: {e:?}", r.pos()))?;
-            Self::interleave(&decoded, &mut out);
+            };
+            vorbis.decode(packet, &mut out)?;
         }
         if out.len() < wanted {
             return Err(format!(
@@ -264,6 +256,168 @@ impl<'a> Fsb5<'a> {
     }
 }
 
+/// FMOD Vorbis decoding state: the rebuilt identification header, the shipped setup
+/// header and the window overlap carried from packet to packet.
+struct VorbisState {
+    ident: IdentHeader,
+    setup: SetupHeader,
+    previous: PreviousWindowRight,
+}
+
+impl VorbisState {
+    fn new(fsb: &Fsb5<'_>) -> Result<Self, String> {
+        let crc = fsb.vorbis_crc.ok_or("FSB5 Vorbis without a setup CRC")?;
+        let setup_packet =
+            VorbisSetups::get(crc).ok_or_else(|| format!("no Vorbis setup header {crc:08x}"))?;
+        let ident = fsb.ident_header()?;
+        let setup = read_header_setup(
+            setup_packet,
+            ident.audio_channels,
+            (ident.blocksize_0, ident.blocksize_1),
+        )
+        .map_err(|e| format!("setup {crc:08x}: {e:?}"))?;
+        Ok(Self {
+            ident,
+            setup,
+            previous: PreviousWindowRight::new(),
+        })
+    }
+
+    /// The next packet behind its 16-bit length; `None` at the end marker or the end
+    /// of the data.
+    fn next_packet<'d>(r: &mut Reader<'d>) -> Result<Option<&'d [u8]>, String> {
+        if r.remaining() < 2 {
+            return Ok(None);
+        }
+        let len = usize::from(r.u16()?);
+        if len == 0 || len == 0xFFFF {
+            return Ok(None);
+        }
+        r.take(len).map(Some)
+    }
+
+    /// Appends a packet's interleaved samples (none for the first packet).
+    fn decode(&mut self, packet: &[u8], out: &mut Vec<i16>) -> Result<(), String> {
+        let decoded: Vec<Vec<i16>> =
+            read_audio_packet(&self.ident, &self.setup, packet, &mut self.previous)
+                .map_err(|e| format!("Vorbis packet: {e:?}"))?;
+        Fsb5::interleave(&decoded, out);
+        Ok(())
+    }
+
+    fn rewind(&mut self) {
+        self.previous = PreviousWindowRight::new();
+    }
+}
+
+enum StreamCodec {
+    Pcm16,
+    Vorbis(Box<VorbisState>),
+}
+
+/// An owned bank decoded a chunk at a time, to stream a long clip (music) instead of
+/// decoding it whole.
+pub struct Fsb5Stream {
+    bytes: Vec<u8>,
+    data: Range<usize>,
+    pub channels: u16,
+    pub sample_rate: u32,
+    /// Samples per channel.
+    pub frames: u32,
+    codec: StreamCodec,
+    /// Read position in the audio data.
+    pos: usize,
+    /// Frames returned since the start.
+    produced: usize,
+}
+
+impl Fsb5Stream {
+    /// PCM16 chunk length in frames.
+    const PCM_CHUNK: usize = 4096;
+
+    /// Parses the bank and prepares its decoder.
+    ///
+    /// # Errors
+    /// When the bank does not parse, has another encoding, or its Vorbis setup header
+    /// is not shipped.
+    pub fn new(bytes: Vec<u8>) -> Result<Self, String> {
+        let fsb = Fsb5::parse(&bytes)?;
+        let codec = match fsb.mode {
+            Fsb5Mode::Pcm16 => StreamCodec::Pcm16,
+            Fsb5Mode::Vorbis => StreamCodec::Vorbis(Box::new(VorbisState::new(&fsb)?)),
+            Fsb5Mode::Other(m) => return Err(format!("FSB5 mode {m} is not decoded")),
+        };
+        let (channels, sample_rate, frames, data) =
+            (fsb.channels, fsb.sample_rate, fsb.frames, fsb.data_range);
+        Ok(Self {
+            bytes,
+            data,
+            channels,
+            sample_rate,
+            frames,
+            codec,
+            pos: 0,
+            produced: 0,
+        })
+    }
+
+    /// The next interleaved samples; `None` once all `frames` were returned.
+    ///
+    /// # Errors
+    /// When the data is corrupt or ends before `frames`.
+    pub fn next_chunk(&mut self) -> Result<Option<Vec<i16>>, String> {
+        let channels = usize::from(self.channels.max(1));
+        let left = (self.frames as usize).saturating_sub(self.produced) * channels;
+        if left == 0 {
+            return Ok(None);
+        }
+        let data = &self.bytes[self.data.clone()];
+        let mut out = Vec::new();
+        match &mut self.codec {
+            StreamCodec::Pcm16 => {
+                let len = left.min(Self::PCM_CHUNK * channels) * 2;
+                let bytes = data
+                    .get(self.pos..self.pos + len)
+                    .ok_or("PCM16 data shorter than its sample count")?;
+                self.pos += len;
+                out.extend(
+                    bytes
+                        .as_chunks::<2>()
+                        .0
+                        .iter()
+                        .map(|b| i16::from_le_bytes(*b)),
+                );
+            }
+            StreamCodec::Vorbis(vorbis) => {
+                let mut r = Reader::new(data);
+                r.seek(self.pos);
+                while out.is_empty() {
+                    let packet = VorbisState::next_packet(&mut r)?.ok_or_else(|| {
+                        format!(
+                            "Vorbis ended after {} of {} frames",
+                            self.produced, self.frames
+                        )
+                    })?;
+                    vorbis.decode(packet, &mut out)?;
+                }
+                self.pos = r.pos();
+            }
+        }
+        out.truncate(left);
+        self.produced += out.len() / channels;
+        Ok(Some(out))
+    }
+
+    /// Back to the first frame.
+    pub fn rewind(&mut self) {
+        self.pos = 0;
+        self.produced = 0;
+        if let StreamCodec::Vorbis(vorbis) = &mut self.codec {
+            vorbis.rewind();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -300,6 +454,17 @@ mod tests {
         let pcm = fsb.decode().unwrap();
         assert_eq!(pcm.samples, [1, 2, 3, -1]);
         assert_eq!(pcm.frames(), 2);
+    }
+
+    #[test]
+    fn pcm16_streams_its_frames_and_rewinds() {
+        let header = (8 << 1) | (1 << 5) | (2u64 << 34);
+        let data = [1, 0, 2, 0, 3, 0, 0xFF, 0xFF, 9, 9, 9, 9];
+        let mut stream = Fsb5Stream::new(bank(2, header, None, &data)).unwrap();
+        assert_eq!(stream.next_chunk().unwrap(), Some(vec![1, 2, 3, -1]));
+        assert_eq!(stream.next_chunk().unwrap(), None);
+        stream.rewind();
+        assert_eq!(stream.next_chunk().unwrap(), Some(vec![1, 2, 3, -1]));
     }
 
     #[test]

@@ -7,6 +7,7 @@
 mod ambient;
 mod clips;
 mod mic;
+pub mod music;
 mod output;
 mod voice;
 
