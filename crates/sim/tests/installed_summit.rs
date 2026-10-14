@@ -271,3 +271,32 @@ fn summit_horizontal_beam_grab_shuffle_and_pull_up() {
     assert_eq!(p.hips().contact().y, -1);
     assert!((p.hips().pos.y - 148.0).abs() < 1.0, "{:?}", p.hips());
 }
+
+#[test]
+fn summit_open_bottom_kills_below_minus_500() {
+    let Some(room) = summit() else { return };
+    // Columns 0..=11 are Air down to row 0 and the room has no water (falls.md
+    // section 5): the limit is max(-1200 + 1, -500), checked before physics.
+    assert_eq!(room.water_level(), None);
+    assert!((0..room.height()).all(|y| !room.tile(5, y).is_solid()));
+    assert!((0..room.height()).all(|y| !room.tile(4, y).is_solid()));
+    let mut p = Player::new();
+    p.body.chunks[HIPS].reset_at(Vec2::new(100.0, 200.0));
+    p.body.chunks[HEAD].reset_at(Vec2::new(117.0, 200.0));
+    let mut died = None;
+    for tick in 1..200 {
+        let start_y = p.head().pos.y;
+        p.update(&room, Input::NONE);
+        assert!(!p.is_stunned(), "nothing to hit");
+        assert_eq!(
+            p.is_dead(),
+            start_y < -500.0,
+            "tick {tick}: head at {start_y}"
+        );
+        if p.is_dead() {
+            died = Some(tick);
+            break;
+        }
+    }
+    assert!(died.is_some(), "fell out: {:?}", p.head());
+}

@@ -19,6 +19,7 @@ impl Player {
             Animation::HangFromBeam => self.hang_from_beam(room),
             Animation::GetUpOnBeam => self.get_up_on_beam(room),
             Animation::StandOnBeam => self.stand_on_beam(room),
+            Animation::Dead => {}
         }
     }
 

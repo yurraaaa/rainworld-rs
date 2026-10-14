@@ -7,8 +7,8 @@ use rand::rngs::StdRng;
 use rw_assets::Room;
 
 use crate::{
-    BodyChunk, BodyChunkConnection, ConnectionKind, PhysicalObject, PhysicsParams, Vec2,
-    determine_safe_spawn_tile, place_in_room, slugcat,
+    BodyChunk, BodyChunkConnection, ConnectionKind, Contact, PhysicalObject, PhysicsParams,
+    TerrainImpact, Vec2, determine_safe_spawn_tile, place_in_room, slugcat,
 };
 
 const EPS: f32 = 1e-4;
@@ -17,6 +17,11 @@ const EPS: f32 = 1e-4;
 /// `.` Air, `#` Solid, `/` Slope, `-` Floor, `=` Air with a horizontal beam,
 /// `E` shortcut entrance, `X` Solid room exit.
 pub(crate) fn room(rows: &[&str]) -> Room {
+    room_with_water(rows, -1)
+}
+
+/// [`room`] with the file's water level (tile row; -1 for none).
+pub(crate) fn room_with_water(rows: &[&str], water_level: i32) -> Room {
     let h = rows.len();
     let w = rows[0].len();
     let mut grid = String::new();
@@ -36,8 +41,9 @@ pub(crate) fn room(rows: &[&str]) -> Room {
             grid.push('|');
         }
     }
-    let text =
-        format!("Test\n{w}*{h}|-1|0\n1*1|0|0\n0,0\nBorder: Solid\n\n\n\n\n17|0|0|\nblob\n{grid}\n");
+    let text = format!(
+        "Test\n{w}*{h}|{water_level}|0\n1*1|0|0\n0,0\nBorder: Solid\n\n\n\n\n17|0|0|\nblob\n{grid}\n"
+    );
     Room::parse(&text).expect("test room parses")
 }
 
@@ -54,6 +60,7 @@ fn frictionless(bounce: f32, surface_friction: f32) -> PhysicsParams {
         air_friction: 1.0,
         bounce,
         surface_friction,
+        impact_threshold: 1.0,
     }
 }
 
@@ -152,6 +159,7 @@ fn floor_bounce_below_gravity_is_cancelled() {
         air_friction: 1.0,
         bounce: 1.0,
         surface_friction: 0.5,
+        impact_threshold: 1.0,
     };
     let mut obj = single((50.0, 55.0), (0.0, 0.0), 10.0, params);
     obj.update(&r);
@@ -215,6 +223,140 @@ fn wall_hit_from_right_below_threshold_stops() {
     assert_vec(c.pos, 130.0, 100.0);
     assert_vec(c.vel, 0.0, 0.0);
     assert_eq!(c.contact().x, -1);
+}
+
+// ---- terrain impacts (falls.md section 1) -------------------------------------------
+
+const FLOOR: Contact = Contact { x: 0, y: -1 };
+const CEILING: Contact = Contact { x: 0, y: 1 };
+const WALL_RIGHT: Contact = Contact { x: 1, y: 0 };
+const WALL_LEFT: Contact = Contact { x: -1, y: 0 };
+
+fn impact(chunk: usize, direction: Contact, speed: f32, first_contact: bool) -> TerrainImpact {
+    TerrainImpact {
+        chunk,
+        direction,
+        speed,
+        first_contact,
+    }
+}
+
+#[test]
+fn floor_impact_reports_speed_before_bounce() {
+    let r = room(&FLOOR_ROOM);
+    // Gravity and drag act first: vel.y = (-19 - 0.9) * 0.999 = -19.8801; the bounce
+    // (x0.1) comes after the report.
+    let mut obj = single((50.0, 55.0), (0.0, -19.0), 10.0, slugcat::PARAMS);
+    obj.update(&r);
+    let [hit] = obj.impacts() else {
+        panic!("one impact: {:?}", obj.impacts());
+    };
+    assert_eq!(
+        (hit.chunk, hit.direction, hit.first_contact),
+        (0, FLOOR, true)
+    );
+    assert_close(hit.speed, 19.8801);
+}
+
+#[test]
+fn impact_fires_only_above_threshold() {
+    let r = room(&FLOOR_ROOM);
+    // Threshold 1: exactly 1 is not reported, 1.5 is.
+    let mut obj = single((50.0, 50.5), (0.0, -1.0), 10.0, frictionless(0.1, 0.5));
+    obj.update(&r);
+    assert_eq!(obj.chunks[0].contact().y, -1);
+    assert!(obj.impacts().is_empty());
+    let mut obj = single((50.0, 51.0), (0.0, -1.5), 10.0, frictionless(0.1, 0.5));
+    obj.update(&r);
+    assert_eq!(obj.impacts(), &[impact(0, FLOOR, 1.5, true)]);
+}
+
+#[test]
+fn impact_on_resting_chunk_is_not_first_contact() {
+    let r = room(&FLOOR_ROOM);
+    let mut obj = single((50.0, 55.0), (0.0, -20.0), 10.0, frictionless(0.1, 0.5));
+    obj.update(&r);
+    // Rebound 20 * 0.1 = 2 < 1 + 9 * 0.9 => at rest on the floor, contact -1.
+    assert_eq!(obj.impacts(), &[impact(0, FLOOR, 20.0, true)]);
+    obj.chunks[0].vel.y = -5.0;
+    obj.update(&r);
+    // lastContactPoint.y was already -1.
+    assert_eq!(obj.impacts(), &[impact(0, FLOOR, 5.0, false)]);
+    obj.update(&r);
+    // vel 0: nothing to report.
+    assert!(obj.impacts().is_empty());
+}
+
+#[test]
+fn ceiling_and_wall_impacts_carry_their_axis() {
+    let mut obj = single((50.0, 145.0), (2.0, 20.0), 10.0, frictionless(0.5, 0.3));
+    obj.update(&room(&CEILING_ROOM));
+    assert_eq!(obj.impacts(), &[impact(0, CEILING, 20.0, true)]);
+
+    let r = room(&WALL_ROOM);
+    let mut obj = single((85.0, 100.0), (20.0, 4.0), 10.0, frictionless(0.5, 0.3));
+    obj.update(&r);
+    assert_eq!(obj.impacts(), &[impact(0, WALL_RIGHT, 20.0, true)]);
+    let mut obj = single((135.0, 100.0), (-10.0, 0.0), 10.0, frictionless(0.5, 0.3));
+    obj.update(&r);
+    assert_eq!(obj.impacts(), &[impact(0, WALL_LEFT, 10.0, true)]);
+}
+
+#[test]
+fn corner_hit_reports_floor_then_wall() {
+    // Wall column x = 5 standing on the floor rows y = 0, 1.
+    let r = room(&[
+        ".....#.", ".....#.", ".....#.", ".....#.", ".....#.", "#######", "#######",
+    ]);
+    let mut obj = single((85.0, 55.0), (10.0, -10.0), 10.0, frictionless(0.5, 0.3));
+    obj.update(&r);
+    // Floor first (vertical sweep): (4, 1) under (4, 2) Air. The floor hit's friction
+    // leaves vel.x = 10 * clamp(2 * 0.3) = 6 for the wall sweep: (5, 2) from x 4.
+    assert_eq!(
+        obj.impacts(),
+        &[
+            impact(0, FLOOR, 10.0, true),
+            impact(0, WALL_RIGHT, 6.0, true)
+        ]
+    );
+}
+
+#[test]
+fn slope_landing_never_reports() {
+    // Slope (2, 1): UpLeft (right and below Solid).
+    let r = room(&[
+        ".......", ".......", ".......", ".......", "../#...", "#######",
+    ]);
+    let mut obj = single((45.0, 50.0), (0.0, -12.0), 9.0, frictionless(0.1, 0.3));
+    obj.update(&r);
+    // pos (45, 38): no flat floor under columns 1..2 (the slope is not Solid); the
+    // slope lifts it to 5 + 20 + 2 * 9 = 43 with contact -1.
+    let c = &obj.chunks[0];
+    assert_eq!(c.contact().y, -1);
+    assert_eq!(c.on_slope(), -1);
+    assert_close(c.pos.y, 43.0);
+    assert!(obj.impacts().is_empty());
+}
+
+#[test]
+fn impacts_follow_chunk_order_and_reset_each_update() {
+    let r = room(&FLOOR_ROOM);
+    let mut obj = PhysicalObject::new(
+        vec![
+            BodyChunk::new(Vec2::new(50.0, 55.0), 10.0, 1.0),
+            BodyChunk::new(Vec2::new(90.0, 55.0), 10.0, 1.0),
+        ],
+        frictionless(0.1, 0.5),
+    );
+    obj.chunks[0].vel.y = -10.0;
+    obj.chunks[1].vel.y = -12.0;
+    obj.update(&r);
+    assert_eq!(
+        obj.impacts(),
+        &[impact(0, FLOOR, 10.0, true), impact(1, FLOOR, 12.0, true)]
+    );
+    obj.update(&r);
+    assert!(obj.impacts().is_empty());
 }
 
 // ---- one-way floors ---------------------------------------------------------------

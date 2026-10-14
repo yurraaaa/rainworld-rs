@@ -46,7 +46,7 @@ several shortcuts lead to exit/den nodes in a different order than the game's.
 
 `rw_sim::Player` ports base slugcat movement (`rainworld-re/notes/slugcat-movement.md`,
 `horizontal-beams.md`, `slope-collision.md` section 5) for the Survivor with every
-`SlugcatStats` factor 1, no adrenaline, never exhausted, never stunned or dead.
+`SlugcatStats` factor 1, no adrenaline, never exhausted. Stun and death are D4.
 
 **What differs from the game where the game's behaviour is kept out of scope:**
 - **No corridor detection.** The game counts chunks wedged between opposite solid tiles
@@ -80,10 +80,51 @@ several shortcuts lead to exit/den nodes in a different order than the game's.
 **Affects.** Movement in corridors, on vertical poles, belly slides, skids, the rare
 stacked-head case, initial facing, and steering into some shortcut holes.
 
+## D4: Falls, stun and death
+
+Body chunks report flat-tile hits (`TerrainImpact`), and `Player` ports the Survivor's
+fall damage, stun and death (`rainworld-re/notes/falls.md`) with Remix off: death on a
+floor first contact above 60, stun `LerpMap(speed, 35, 60, 40, 140, 2.5)` above 35,
+neutral input and no `MovementUpdate` while stunned or dead, surface friction 0.3 while
+not conscious, and death below the room bottom (-500, -250 in `WallClimb`) unless the
+room's water catches the body.
+
+**What differs:**
+- **Death freezes the body** (CLAUDE.md decision). The game keeps simulating a dead
+  player as plain physics and shows the death screen (story) or ends the round (arena);
+  a body that fell out of the room is also destroyed. `rw_sim::Player` keeps simulating
+  it and keeps the body after falling out; the app (`Game::tick`) stops ticking a dead
+  player and draws it where it stopped until R respawns a new one.
+- **Landing roll never happens.** The first branch of `Player.TerrainImpact` (a
+  down-diagonal landing becomes a `Roll` and skips fall damage) is a stub that never
+  rolls (`Player::lands_in_roll`), so a held down-diagonal does not save the player.
+- **Impacts are applied after physics.** The game calls `TerrainImpact` in the middle of
+  each chunk's collision; the port collects the calls in the same order and handles them
+  right after `PhysicalObject::update`. No ported branch touches chunk state, so this is
+  exact for now; the landing roll changes velocities and will need the mid-sweep call.
+- **`Player.Stun` side effects.** The game un-stands the player (and drops grasps) when
+  the stun exceeds `Random.Range(5, 12)`; the port uses 8. Fall stuns are at least 40, so
+  falls are unaffected. Malnourished stun scaling, grasps, spear and slugpup drops, sounds
+  and the face blink are not ported.
+- **Remix (MMF) branches omitted:** falling into a room-exit or normal shortcut entrance
+  at speed > 5 (enters the shortcut instead of taking damage) and the wall pounce.
+- **More Slugcats omitted:** Gourmand's thresholds (death above 80, stun above 40
+  with the 40..140 ticks mapped over speeds 40..80), tongue attachment and being carried by another player blocking fall damage,
+  Sofanthiel's sound. Base-game branches with no ported counterpart: the Pomegranate
+  grasp and the deer-antlers ride cancelling fall damage.
+- **Water.** Only the out-of-room exemption reads the water level (no water physics);
+  inverted water (DLC) is not modelled.
+
+**Why.** The freeze is a design decision for the single-room player-controller phase;
+the roll belongs to the advanced-moves stage; the rest is out of the base-game scope or
+randomness (D1).
+
+**Affects.** What happens after death, hard landings with a held down-diagonal, and
+Remix / More Slugcats play.
+
 ## Not ported yet (not divergences, just absent)
 
-Player (stage one leaves out): `TerrainImpact` (fall damage death above speed 60, stun
-above 35, landing roll, MMF wall pounce), falling out of the room bottom (death),
+Player (stage one leaves out): landing roll and MMF wall pounce in `TerrainImpact`,
 `LedgeGrab`, `CorridorClimb` / `CorridorTurn` and corridor jumps, roll, belly slide,
 flip, rocket jump, water (`Swimming`, `DeepSwim`, `SurfaceSwim`, submersion lifts),
 zero gravity, grabbing / throwing / eating (`GrabUpdate`), shortcuts (entering,
@@ -95,6 +136,5 @@ only the wall-jump impulse has a test), `LedgeCrawl`, `CrawlTurn`, the crouch su
 charge and dive force (untested).
 
 Physics: Water (buoyancy, water friction), burrowing, terrain curves (`TerrainCurve`), `setPos`
-(cross-object position writes), the `TerrainImpact` callback (fall damage and stun),
-grabs (`grabbedBy` skips the room-range clamp, and grabs force `goThroughFloors`), and
+(cross-object position writes), the curved-terrain `TerrainImpact` call, grabs (`grabbedBy` skips the room-range clamp, and grabs force `goThroughFloors`), and
 `DefaultTile`.

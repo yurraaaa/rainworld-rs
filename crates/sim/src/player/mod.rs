@@ -2,11 +2,13 @@
 //!
 //! Behaviour: `rainworld-re/notes/slugcat-movement.md` (tick order, input, body modes,
 //! jumps), `horizontal-beams.md` and `slope-collision.md` section 5. Stats are the
-//! Survivor's (every `SlugcatStats` factor 1, no adrenaline, never exhausted).
+//! Survivor's (every `SlugcatStats` factor 1, no adrenaline, never exhausted). Fall
+//! damage, stun and death: `falls.md`.
 //! What is not ported is listed in `docs/DIVERGENCES.md`.
 
 mod animation;
 mod body_mode;
+mod falls;
 mod input;
 mod jump;
 mod movement;
@@ -28,6 +30,8 @@ pub const HIPS: usize = 1;
 
 /// Conscious player surface friction, re-applied every tick.
 const SURFACE_FRICTION: f32 = 0.5;
+/// Surface friction while stunned or dead.
+const UNCONSCIOUS_SURFACE_FRICTION: f32 = 0.3;
 /// `runspeedFac` of the Survivor.
 const RUN_SPEED_FAC: f32 = 1.0;
 /// `poleClimbSpeedFac` of the Survivor.
@@ -49,6 +53,9 @@ pub enum BodyMode {
     WallClimb,
     /// On a horizontal beam (hanging, pulling up or standing on it).
     ClimbingOnBeam,
+    /// Stun counter above 0.
+    Stunned,
+    Dead,
 }
 
 /// Fine movement state (`Player.AnimationIndex`); only the ported ones exist.
@@ -70,6 +77,7 @@ pub enum Animation {
     GetUpOnBeam,
     /// Standing on top of a horizontal beam.
     StandOnBeam,
+    Dead,
 }
 
 /// A slugcat: the two-chunk [`PhysicalObject`] plus the movement state machine.
@@ -88,6 +96,9 @@ pub struct Player {
     standing: bool,
     /// Facing: -1 or +1.
     flip_direction: i32,
+    /// Ticks of stun left (`Creature.stun`).
+    stun: i32,
+    dead: bool,
 
     /// Coyote time: ticks left in which a jump is still allowed.
     can_jump: i32,
@@ -146,6 +157,8 @@ impl Player {
             animation: Animation::None,
             standing: false,
             flip_direction: 1,
+            stun: 0,
+            dead: false,
             can_jump: 0,
             want_to_jump: 0,
             jump_boost: 0.0,
@@ -238,18 +251,29 @@ impl Player {
     }
 
     /// One 40 Hz tick (`Player.Update`, the movement-relevant parts in the game's order):
-    /// counters and the jump-press buffer, reading `input`, wall-slide braking,
-    /// physics (`PhysicalObject.Update`), resetting `GoThroughFloors`, then the
-    /// movement state machine. Impulses chosen this tick act in the next tick's physics.
+    /// counters and the jump-press buffer, reading `input` (ignored while stunned or
+    /// dead), wall-slide braking, the stun countdown and out-of-room death, physics
+    /// (`PhysicalObject.Update`) with its terrain impacts, resetting `GoThroughFloors`,
+    /// then the movement state machine unless stunned or dead. Impulses chosen this
+    /// tick act in the next tick's physics. A dead body keeps falling as plain physics.
     pub fn update(&mut self, room: &Room, input: Input) {
         self.body.params = crate::slugcat::PARAMS;
-        self.body.params.surface_friction = SURFACE_FRICTION;
+        self.body.params.surface_friction = if self.is_conscious() {
+            SURFACE_FRICTION
+        } else {
+            UNCONSCIOUS_SURFACE_FRICTION
+        };
         self.update_counters_before_input(room);
         self.read_input(input);
+        self.set_unconscious_modes();
         self.update_after_input(room);
+        self.creature_update(room);
         self.body.update(room);
+        self.deliver_terrain_impacts();
         self.body.set_go_through_floors(false);
-        self.movement_update(room);
+        if self.stun < 1 && !self.dead {
+            self.movement_update(room);
+        }
     }
 
     /// Counters and the jump-press buffer. They run before the new input is read, so
@@ -330,10 +354,15 @@ impl Player {
         }
     }
 
-    /// `checkInput`: shift the history ring and store the new input.
+    /// `checkInput`: shift the history ring and store the new input, or a neutral one
+    /// while stunned (any stun tick) or dead.
     fn read_input(&mut self, input: Input) {
         self.input.copy_within(0..INPUT_HISTORY - 1, 1);
-        self.input[0] = input.normalized();
+        self.input[0] = if self.stun == 0 && !self.dead {
+            input.normalized()
+        } else {
+            Input::NONE
+        };
         let [now, prev, prev2, ..] = self.input;
         // Holding a charged crouch super jump freezes horizontal input.
         if self.super_launch_jump > 10 && now.jump && prev.jump && prev2.jump && now.y < 1 {

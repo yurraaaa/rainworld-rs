@@ -4,7 +4,7 @@
 
 use rw_assets::Room;
 
-use crate::{BodyChunk, PhysicsParams, Vec2};
+use crate::{BodyChunk, PhysicsParams, TerrainImpact, Vec2};
 
 /// When a [`BodyChunkConnection`] acts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -96,6 +96,7 @@ pub struct PhysicalObject {
     pub chunks: Vec<BodyChunk>,
     pub connections: Vec<BodyChunkConnection>,
     pub params: PhysicsParams,
+    impacts: Vec<TerrainImpact>,
 }
 
 /// Slugcat (Survivor) values from the `Player` constructor.
@@ -116,6 +117,7 @@ pub mod slugcat {
         air_friction: 0.999,
         bounce: 0.1,
         surface_friction: 0.5,
+        impact_threshold: 1.0,
     };
 }
 
@@ -127,6 +129,7 @@ impl PhysicalObject {
             chunks,
             connections: Vec::new(),
             params,
+            impacts: Vec::new(),
         }
     }
 
@@ -150,6 +153,7 @@ impl PhysicalObject {
                 0.5,
             )],
             params: PARAMS,
+            impacts: Vec::new(),
         }
     }
 
@@ -175,14 +179,22 @@ impl PhysicalObject {
     /// Chunk `i` sees the already-updated `last_pos` of chunks before it and the
     /// previous tick's of chunks after it, as in the game.
     pub fn update(&mut self, room: &Room) {
+        self.impacts.clear();
         for i in 0..self.chunks.len() {
             self.chunks[i].integrate(&self.params);
             let lowest = self.lowest_last_y(room.pixel_height());
-            self.chunks[i].collide(room, &self.params, lowest);
+            self.chunks[i].collide(room, &self.params, lowest, i, &mut self.impacts);
         }
         for c in &self.connections {
             c.apply(&mut self.chunks);
         }
+    }
+
+    /// Terrain impacts found by the last [`PhysicalObject::update`], in the order the
+    /// game calls `TerrainImpact` (chunk index, then ceiling/floor before walls).
+    #[must_use]
+    pub fn impacts(&self) -> &[TerrainImpact] {
+        &self.impacts
     }
 
     /// Lowest `last_pos.y` of all chunks, but no higher than `ceiling`.

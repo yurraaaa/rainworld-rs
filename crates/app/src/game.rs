@@ -37,10 +37,25 @@ impl Game {
         log::info!("respawned player");
     }
 
-    /// One 40 Hz simulation tick.
+    /// One 40 Hz simulation tick. A dead player is frozen until [`Game::respawn`]
+    /// (docs/DIVERGENCES.md D4).
     pub fn tick(&mut self, input: Input) {
-        self.player.update(&self.room, input);
+        if !self.player.is_dead() {
+            let was_stunned = self.player.is_stunned();
+            self.player.update(&self.room, input);
+            if self.player.is_dead() {
+                log::info!("player died; R respawns");
+            } else if self.player.is_stunned() && !was_stunned {
+                log::info!("player stunned for {} ticks", self.player.stun_ticks());
+            }
+        }
         self.tick += 1;
+    }
+
+    /// Whether the player is dead and frozen.
+    #[must_use]
+    pub fn player_dead(&self) -> bool {
+        self.player.is_dead()
     }
 
     #[must_use]
@@ -87,6 +102,26 @@ mod tests {
             game.body().chunks[0].pos.y < before,
             "gravity pulls it down"
         );
+    }
+
+    #[test]
+    fn dead_player_freezes_until_respawn() {
+        // The all-Air room has an open bottom: the player falls out and dies.
+        let mut game = Game::new(open_room(), 1);
+        for _ in 0..400 {
+            if game.player_dead() {
+                break;
+            }
+            game.tick(Input::NONE);
+        }
+        assert!(game.player_dead());
+        let frozen = game.body().clone();
+        for _ in 0..10 {
+            game.tick(Input::NONE);
+        }
+        assert_eq!(game.body(), &frozen);
+        game.respawn();
+        assert!(!game.player_dead());
     }
 
     #[test]
