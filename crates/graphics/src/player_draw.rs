@@ -10,8 +10,8 @@ use rw_sim::{Animation, BodyMode, Player, Vec2};
 use crate::draw::{Color, DrawItem, DrawList, Layer, Mesh, Sprite};
 use crate::elements::{
     BODY_A, FACE_A, FACE_B, FACE_DEAD, FACE_STUNNED, HEAD_A, HIPS_A, LEGS_A, LEGS_A_AIR,
-    LEGS_A_CRAWLING, LEGS_A_ON_POLE, LEGS_A_POLE, LEGS_A_VERTICAL_POLE, LEGS_A_WALL,
-    ON_TOP_OF_TERRAIN_HAND, ON_TOP_OF_TERRAIN_HAND_2, PLAYER_ARM,
+    LEGS_A_CLIMBING, LEGS_A_CRAWLING, LEGS_A_ON_POLE, LEGS_A_POLE, LEGS_A_VERTICAL_POLE,
+    LEGS_A_WALL, ON_TOP_OF_TERRAIN_HAND, ON_TOP_OF_TERRAIN_HAND_2, PLAYER_ARM,
 };
 use crate::limb::LimbMode;
 use crate::math::{CustomVec, Mathf};
@@ -305,6 +305,12 @@ impl PlayerGraphics {
             BodyMode::Crawl => {
                 element = LEGS_A_CRAWLING[(frame / 2).min(LEGS_A_CRAWLING.len() - 1)];
                 self.sprites.legs_scale_x = by_flip;
+            }
+            // Frames 7..=12 replay 1..=6 mirrored.
+            BodyMode::CorridorClimb => {
+                let mirrored = frame > 6;
+                element = LEGS_A_CLIMBING[if mirrored { frame % 6 } else { frame }.min(6)];
+                self.sprites.legs_scale_x = if mirrored { -1.0 } else { 1.0 };
             }
             BodyMode::ClimbingOnBeam => match player.animation() {
                 Animation::StandOnBeam => {

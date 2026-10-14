@@ -46,6 +46,17 @@ pub const LEGS_A_ON_POLE: [&str; 7] = [
     "LegsAOnPole6",
 ];
 
+/// `LegsAClimbing{n}`: corridor climbing.
+pub const LEGS_A_CLIMBING: [&str; 7] = [
+    "LegsAClimbing0",
+    "LegsAClimbing1",
+    "LegsAClimbing2",
+    "LegsAClimbing3",
+    "LegsAClimbing4",
+    "LegsAClimbing5",
+    "LegsAClimbing6",
+];
+
 pub const LEGS_A_AIR: &str = "LegsAAir0";
 pub const LEGS_A_WALL: &str = "LegsAWall";
 /// Standing on a pole tip.

@@ -1,21 +1,21 @@
 //! `PlayerGraphics`: the slugcat's cosmetic simulation, ticked after the player.
 //!
 //! Behaviour: `rainworld-re/notes/slugcat-graphics.md` sections 1-3 (base game,
-//! Remix off, Survivor stats), including the vertical-pole, ledge-grab and roll/flip
-//! branches. Not ported (docs/DIVERGENCES.md D8): look and fear targets, grasps
-//! (throwing, eating, carrying), swimming, corridors, zero gravity, sleep curl, pups,
-//! the Mark, DLC. `aerobicLevel` is not in the port and is 0.
+//! Remix off, Survivor stats), including the vertical-pole, ledge-grab, roll/flip and
+//! corridor branches. Not ported (docs/DIVERGENCES.md D8): look and fear targets, grasps
+//! (throwing, eating, carrying), swimming, zero gravity, sleep curl, pups, the Mark,
+//! DLC. `aerobicLevel` is not in the port and is 0.
 
 use std::f32::consts::TAU;
 
 use rand::Rng;
-use rw_assets::{Room, tile_centre};
+use rw_assets::{Room, Terrain, tile_centre};
 use rw_sim::{Animation, BodyMode, Player, Vec2};
 
 use crate::body_part::{BodyPart, PointConnection};
 use crate::draw::{Color, SlugcatName};
 use crate::hand::{HandContext, SlugcatHand};
-use crate::math::{Mathf, UnityRandom};
+use crate::math::{CustomVec, Mathf, UnityRandom};
 use crate::tail::{TailAnchor, TailSegment};
 
 /// `Player.aerobicLevel`: not ported, so breathing stays at its resting pace.
@@ -27,6 +27,18 @@ const TAIL_SEGMENTS: [(f32, f32, f32); 4] = [
     (4.0, 7.0, 0.5),
     (2.5, 7.0, 0.5),
     (1.0, 7.0, 0.5),
+];
+
+/// `Custom.eightDirections`: W, SW, S, SE, E, NE, N, NW.
+const EIGHT_DIRECTIONS: [(i32, i32); 8] = [
+    (-1, 0),
+    (-1, -1),
+    (0, -1),
+    (1, -1),
+    (1, 0),
+    (1, 1),
+    (0, 1),
+    (-1, 1),
 ];
 
 /// Sprite values Futile keeps from frame to frame because the game only assigns them
@@ -91,6 +103,8 @@ pub struct PlayerGraphics {
     in_shortcut: bool,
     /// The entrance the player was being pulled into at the end of the last tick.
     entering_shortcut: Option<(i32, i32)>,
+    /// The player's corridor turn direction at the last update.
+    corridor_turn_dir: Option<(i32, i32)>,
 }
 
 impl PlayerGraphics {
@@ -138,6 +152,7 @@ impl PlayerGraphics {
             culled: true,
             in_shortcut: false,
             entering_shortcut: None,
+            corridor_turn_dir: player.corridor_turn_dir(),
         }
     }
 
@@ -165,6 +180,7 @@ impl PlayerGraphics {
         if player.is_destroyed() {
             return;
         }
+        self.player_pokes(player);
         if let Some(entrance) = self.entering_shortcut.take() {
             self.tick(player, room, rng);
             let hole = room.shortcut_hole_direction(entrance.0, entrance.1);
@@ -183,6 +199,31 @@ impl PlayerGraphics {
         }
         self.tick(player, room, rng);
         self.entering_shortcut = player.entering_shortcut();
+    }
+
+    /// What `Player.Update` does to its graphics module directly: `Player.Blink`, and
+    /// at the end of a corridor turn every body part's velocity is pushed 10 px/tick
+    /// against the new direction.
+    pub(crate) fn player_pokes(&mut self, player: &Player) {
+        self.blink = self.blink.max(player.blink_request());
+        if let Some((dx, dy)) = self.corridor_turn_dir
+            && player.corridor_turn_dir().is_none()
+        {
+            let push = Vec2::new(dx as f32, dy as f32) * 10.0;
+            for part in self.body_parts_mut() {
+                part.vel -= push;
+            }
+        }
+        self.corridor_turn_dir = player.corridor_turn_dir();
+    }
+
+    /// `bodyParts`: tail, hands, head, legs.
+    pub(crate) fn body_parts_mut(&mut self) -> impl Iterator<Item = &mut BodyPart> {
+        self.tail
+            .iter_mut()
+            .map(|seg| &mut seg.part)
+            .chain(self.hands.iter_mut().map(|hand| &mut hand.limb.part))
+            .chain([&mut self.head, &mut self.legs])
     }
 
     /// `PlayerGraphics.SuckedIntoShortCut`: tail, head and legs dragged toward `target`.
@@ -229,8 +270,10 @@ impl PlayerGraphics {
         self.draw_positions[0][0] = head.pos;
         self.draw_positions[1][0] = hips.pos;
         let (fast, tail_drag) = self.body_mode_offsets(player);
-        if matches!(player.animation(), Animation::Roll | Animation::Flip) {
-            self.fling_tail(head.pos.direction_to(hips.pos));
+        match player.animation() {
+            Animation::Roll | Animation::Flip => self.fling_tail(head.pos.direction_to(hips.pos)),
+            Animation::CorridorTurn => self.corridor_turn_jitter(rng),
+            _ => {}
         }
 
         let no_contact = [head, hips]
@@ -350,6 +393,16 @@ impl PlayerGraphics {
         }
     }
 
+    /// CorridorTurn: the body and hips draw positions jump up to 3 and 2 px in random
+    /// directions every tick, eyes shut.
+    fn corridor_turn_jitter<R: Rng + ?Sized>(&mut self, rng: &mut R) {
+        for (dp, reach) in self.draw_positions.iter_mut().zip([3.0, 2.0]) {
+            let dir = Vec2::from_deg(rng.value() * 360.0);
+            dp[0] += dir * (reach * rng.value());
+        }
+        self.blink = 5;
+    }
+
     /// Standing gait offsets of `[body, hips]` draw positions for facing `flip`,
     /// `animationFrame` `frame` (0..=6) and hips speed `hips_vel_x`.
     #[must_use]
@@ -443,10 +496,7 @@ impl PlayerGraphics {
     /// The head hangs between the draw positions, offset toward the body's front.
     fn update_head(&mut self, player: &Player, room: &Room) {
         let [d0, d1] = [self.draw_positions[0][0], self.draw_positions[1][0]];
-        let mut lead = d1.direction_to(d0) * 3.0;
-        if player.body_mode() == BodyMode::Crawl {
-            lead.x *= 2.5;
-        }
+        let lead = Self::head_lead(player.body_mode(), d0, d1);
         self.head.update_free(room);
         let hanging = player.animation() == Animation::HangFromBeam;
         self.head.connect_to_point(PointConnection {
@@ -458,6 +508,20 @@ impl PlayerGraphics {
             adapt_vel: 0.7,
             exaggerate_vel: 0.1,
         });
+    }
+
+    /// How far the head's goal leads the body draw position `d0` away from the hips
+    /// `d0`..`d1`: 3 px along the body, sideways 2.5x while crawling, downward 2x in a
+    /// corridor.
+    #[must_use]
+    pub fn head_lead(body_mode: BodyMode, d0: Vec2, d1: Vec2) -> Vec2 {
+        let mut lead = d1.direction_to(d0) * 3.0;
+        if body_mode == BodyMode::Crawl {
+            lead.x *= 2.5;
+        } else if body_mode == BodyMode::CorridorClimb && lead.y < 0.0 {
+            lead.y *= 2.0;
+        }
+        lead
     }
 
     /// The legs stand on the ground under the hips, hang below a pole tip, grip the
@@ -476,7 +540,16 @@ impl PlayerGraphics {
             adapt_vel: 0.5,
             exaggerate_vel: 0.1,
         };
-        if hips.contact().y == -1 || animation == Animation::StandOnBeam {
+        if player.body_mode() == BodyMode::CorridorClimb {
+            self.legs.connect_to_point(PointConnection {
+                point: hips.pos + head.pos.direction_to(hips.pos) * 4.0,
+                rad: 2.0,
+                host_vel: hips.vel,
+                ..connection
+            });
+            let turn = Self::corridor_legs_turn(room, player);
+            self.legs_direction += Vec2::from_deg(head.pos.aim_to(hips.pos) + turn);
+        } else if hips.contact().y == -1 || animation == Animation::StandOnBeam {
             self.legs.connect_to_point(PointConnection {
                 point: hips.pos + Vec2::new(self.legs_direction.x * 8.0, 1.0),
                 rad: 5.0,
@@ -518,6 +591,63 @@ impl PlayerGraphics {
             self.legs_direction.y -= 0.05;
         }
         self.legs_direction = self.legs_direction.normalized();
+    }
+
+    /// The feet's angle (degrees) from the body's head-to-hips axis in a corridor: the
+    /// first of four neighbour pairs around the hips tile, counted from the pair across
+    /// the body, that is solid on both sides, preferring straight along (0), then the
+    /// diagonal on the facing side (45 or -45), the other diagonal, then across (+-90).
+    #[must_use]
+    pub fn corridor_legs_turn(room: &Room, player: &Player) -> f32 {
+        let (head, hips) = (player.head().pos, player.hips().pos);
+        let flip = player.flip_direction();
+        let base = ((270.0 - hips.aim_to(head)) / 45.0).round_to_int();
+        let (tx, ty) = hips.tile();
+        let mut best = 10;
+        let mut turn = 0.0;
+        for m in 0..4 {
+            let solid = [10, 14].into_iter().all(|k| {
+                let (dx, dy) = EIGHT_DIRECTIONS[(m + base + k).rem_euclid(8) as usize];
+                room.tile(tx + dx, ty + dy).terrain == Terrain::Solid
+            });
+            if !solid {
+                continue;
+            }
+            let rank = match m {
+                1 => {
+                    if flip == -1 {
+                        1
+                    } else {
+                        2
+                    }
+                }
+                3 => {
+                    if flip == 1 {
+                        1
+                    } else {
+                        2
+                    }
+                }
+                2 => 3,
+                _ => 0,
+            };
+            if rank < best {
+                best = rank;
+                turn = match m {
+                    1 => 45.0,
+                    2 => {
+                        if flip == -1 {
+                            -90.0
+                        } else {
+                            90.0
+                        }
+                    }
+                    3 => -45.0,
+                    _ => 0.0,
+                };
+            }
+        }
+        turn
     }
 
     /// Both hands, hand 0 first (hand 1 reads where hand 0 went).

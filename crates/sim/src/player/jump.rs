@@ -111,6 +111,7 @@ impl Player {
         let flip = self.flip_direction as f32;
         if x == 0 && y > 0 {
             if self.slow_movement_stun < 1 && self.slide_up_pole < 1 {
+                self.blink(7);
                 for c in &mut self.body.chunks {
                     c.pos.y += 4.5;
                     c.vel.y += 2.0;
