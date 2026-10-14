@@ -112,6 +112,8 @@ recommendation. Nothing is ported before the user agrees.
   no asset cache. AssetRipper (`~/.local/share/assetripper/2.0.0/`,
   `../rainworld-re/tools/extract_atlases.sh`) remains a debugging aid and
   the oracle of the reader's installed tests; never commit game assets.
+- The port's save data lives in its own directory, never in the real
+  game's save storage, and the port never writes there.
 - Slugcat (and later creature) graphics live in `rw-graphics`: the
   cosmetic graphics simulation (tail, limbs, head, frame choice) depends
   on `rw-sim` and `rw-assets` and outputs a backend-agnostic sprite list
