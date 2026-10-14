@@ -1,0 +1,10 @@
+[package]
+name = "rw-random"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+rand_core = "0.10.1"
+
+[dev-dependencies]
+rand.workspace = true
