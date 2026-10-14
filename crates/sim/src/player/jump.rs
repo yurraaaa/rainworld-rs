@@ -1,13 +1,14 @@
 //! `Player.Jump` and `Player.WallJump` (Survivor values, no adrenaline or exhaustion).
 //!
-//! Behaviour: `slugcat-movement.md` section 5, `slope-collision.md` section 5.
+//! Behaviour: `slugcat-movement.md` section 5, `slope-collision.md` section 5,
+//! `vertical-poles.md` section 6, `ledge-grab.md` section 3.
 
 use rw_assets::Room;
 
 use super::{Animation, BodyMode, HEAD, HIPS, Player};
 
 impl Player {
-    /// A jump from the ground, a beam top or a wall-climb.
+    /// A jump from the ground, a beam or pole top, a wall-climb, a ledge or a pole.
     pub(super) fn jump(&mut self, room: &Room) {
         self.feet_stuck_pos = None;
         if self.body_mode == BodyMode::WallClimb {
@@ -20,6 +21,16 @@ impl Player {
                 -head_contact
             };
             self.wall_jump(room, dir);
+            return;
+        }
+        if self.animation == Animation::LedgeGrab {
+            if self.input_x() != 0 {
+                self.wall_jump(room, -self.input_x());
+            }
+            return;
+        }
+        if self.animation == Animation::ClimbOnBeam {
+            self.jump_off_pole();
             return;
         }
         // Belly slide (jump while lowering to all fours with down-diagonal held toward
@@ -68,6 +79,35 @@ impl Player {
                 head.vel.x += side * 1.8;
                 hips.vel.x += side * 1.2;
             }
+        }
+    }
+
+    /// From a vertical pole: sideways with x held, else the slide-up hop (up held) or a
+    /// drop.
+    fn jump_off_pole(&mut self) {
+        self.jump_boost = 0.0;
+        let (x, y) = (self.input_x(), self.input_y());
+        let flip = self.flip_direction as f32;
+        if x == 0 && y > 0 {
+            if self.slow_movement_stun < 1 && self.slide_up_pole < 1 {
+                for c in &mut self.body.chunks {
+                    c.pos.y += 4.5;
+                    c.vel.y += 2.0;
+                }
+                self.slide_up_pole = 17;
+            }
+            return;
+        }
+        self.animation = Animation::None;
+        let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
+        if x == 0 {
+            head.vel.y = 2.0;
+            if y > -1 {
+                head.vel.x = 2.0 * flip;
+            }
+        } else {
+            head.vel = crate::Vec2::new(6.0 * flip, 8.0);
+            hips.vel = crate::Vec2::new(5.0 * flip, 7.0);
         }
     }
 

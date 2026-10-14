@@ -1,12 +1,14 @@
 //! `Player.MovementUpdate`: ground classification, standing toggles, run force, beam
 //! grab and jump dispatch. Runs after physics every tick.
 //!
-//! Behaviour: `slugcat-movement.md` sections 3-4, `horizontal-beams.md` section 1.
+//! Behaviour: `slugcat-movement.md` sections 3-4, `horizontal-beams.md` section 1,
+//! `vertical-poles.md` sections 0-1, `ledge-grab.md` section 1.
 
 use rw_assets::{Room, ShortcutType, Terrain};
 
 use super::{Animation, BodyMode, HEAD, HIPS, Player, ROOM_GRAVITY};
 use crate::Vec2;
+use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
 
 /// The four neighbour directions as `Custom.fourDirections`.
@@ -20,6 +22,7 @@ impl Player {
         if self.jump_stun != 0 {
             run_dir = self.jump_stun.signum();
         }
+        self.last_flip_direction = self.flip_direction;
         if run_dir != 0 && run_dir != self.flip_direction {
             self.flip_direction = run_dir;
         }
@@ -33,7 +36,7 @@ impl Player {
 
         self.dynamic_run_speed = [3.6, 3.6];
         self.update_animation(room);
-        // LedgeGrab trigger: not ported.
+        self.trigger_ledge_grab(room);
         if self.body_mode == BodyMode::Crawl {
             self.crawl_turn_delay += 1;
         } else {
@@ -42,11 +45,11 @@ impl Player {
         if self.standing && self.is_tile_solid(room, HIPS, 0, 1) {
             self.standing = false;
         }
-        // BeamTip (standing on a vertical pole's top): not ported.
+        self.trigger_beam_tip(room);
         self.update_body_mode(room);
         // 10 while rolling (not ported), 12 for pups.
         self.body.connections[0].distance = crate::slugcat::ROD_LENGTH;
-        self.grab_horizontal_beam(room);
+        self.grab_beam(room);
         self.apply_run_force(run_dir);
         self.dispatch_jump(room);
         self.enter_shortcut_by_input(room);
@@ -224,8 +227,9 @@ impl Player {
         }
     }
 
-    /// Holding up grabs a horizontal beam whose tile the head passed through this tick.
-    fn grab_horizontal_beam(&mut self, room: &Room) {
+    /// Holding up grabs a horizontal beam whose tile the head passed through this tick,
+    /// then a vertical pole (which overrides it), then a pole end above the head.
+    fn grab_beam(&mut self, room: &Room) {
         let want_to_grab = self.input_y() > 0;
         let (head, hips) = (&self.body.chunks[HEAD], &self.body.chunks[HIPS]);
         let can_grab = want_to_grab
@@ -242,7 +246,11 @@ impl Player {
                 || head.pos.tile().0 != hips.pos.tile().0)
             && !matches!(
                 self.animation,
-                Animation::HangFromBeam | Animation::GetUpOnBeam
+                Animation::ClimbOnBeam
+                    | Animation::HangFromBeam
+                    | Animation::GetUpOnBeam
+                    | Animation::HangUnderVerticalBeam
+                    | Animation::GetUpToBeamTip
             );
         if !can_grab {
             return;
@@ -259,20 +267,31 @@ impl Player {
             hips.vel.y *= 0.25;
             head.pos.y = rw_assets::tile_centre(x, row)[1];
         }
-        // Vertical poles (`GrabVerticalPole`, HangUnderVerticalBeam): not ported.
+        self.grab_vertical_pole(room);
+        self.grab_under_vertical_pole(room);
     }
 
     /// The horizontal run force toward `dynamic_run_speed` and ground friction.
     fn apply_run_force(&mut self, run_dir: i32) {
         if matches!(
             self.animation,
-            Animation::HangFromBeam | Animation::GetUpOnBeam
+            Animation::ClimbOnBeam
+                | Animation::HangFromBeam
+                | Animation::GetUpOnBeam
+                | Animation::LedgeGrab
         ) || (self.dynamic_run_speed[0] <= 0.0 && self.dynamic_run_speed[1] <= 0.0)
         {
             return;
         }
         let friction = self.body.params.surface_friction;
         let mut accel = 2.4;
+        if self.slow_movement_stun > 0 {
+            let t = (self.slow_movement_stun as f32).inverse_lerp(10.0, 0.0);
+            for cap in &mut self.dynamic_run_speed {
+                *cap *= 0.5 + 0.5 * t;
+            }
+            accel *= 0.4 + 0.6 * t;
+        }
         let no_contact = self
             .body
             .chunks

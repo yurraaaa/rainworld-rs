@@ -331,7 +331,8 @@ impl Player {
         // Hips buoyancy when submerged: water is not ported.
     }
 
-    /// On a horizontal beam: keep the feet on beam tiles while getting up / standing.
+    /// On a beam or pole: keep the feet on horizontal beam tiles while getting up /
+    /// standing; back to `Default` once the animation is no beam or pole one.
     fn climbing_on_beam_mode(&mut self, room: &Room) {
         let flip = self.flip_direction as f32;
         let on_beam_feet = matches!(
@@ -363,7 +364,13 @@ impl Player {
         }
         if !matches!(
             self.animation,
-            Animation::GetUpOnBeam | Animation::HangFromBeam | Animation::StandOnBeam
+            Animation::BeamTip
+                | Animation::ClimbOnBeam
+                | Animation::GetUpOnBeam
+                | Animation::HangFromBeam
+                | Animation::StandOnBeam
+                | Animation::GetUpToBeamTip
+                | Animation::HangUnderVerticalBeam
         ) {
             self.body_mode = BodyMode::Default;
         }

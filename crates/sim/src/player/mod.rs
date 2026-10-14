@@ -1,7 +1,8 @@
 //! The player: base slugcat movement on the two-chunk body (`Player`).
 //!
 //! Behaviour: `rainworld-re/notes/slugcat-movement.md` (tick order, input, body modes,
-//! jumps), `horizontal-beams.md` and `slope-collision.md` section 5. Stats are the
+//! jumps), `horizontal-beams.md`, `vertical-poles.md`, `ledge-grab.md` and
+//! `slope-collision.md` section 5. Stats are the
 //! Survivor's (every `SlugcatStats` factor 1, no adrenaline, never exhausted). Fall
 //! damage, stun and death: `falls.md`. Shortcuts: `shortcuts.md`.
 //! What is not ported is listed in `docs/DIVERGENCES.md`.
@@ -11,7 +12,9 @@ mod body_mode;
 mod falls;
 mod input;
 mod jump;
+mod ledge;
 mod movement;
+mod poles;
 mod shortcut;
 #[cfg(test)]
 mod tests;
@@ -53,7 +56,7 @@ pub enum BodyMode {
     Crawl,
     /// Head pressed against a wall the player pushes into.
     WallClimb,
-    /// On a horizontal beam (hanging, pulling up or standing on it).
+    /// On a beam or pole (hanging, climbing, pulling up or standing on it).
     ClimbingOnBeam,
     /// Stun counter above 0.
     Stunned,
@@ -79,6 +82,16 @@ pub enum Animation {
     GetUpOnBeam,
     /// Standing on top of a horizontal beam.
     StandOnBeam,
+    /// Hanging from a wall top by the head, hauling up.
+    LedgeGrab,
+    /// Climbing a vertical pole.
+    ClimbOnBeam,
+    /// Climbing over the top end of a vertical pole.
+    GetUpToBeamTip,
+    /// Standing on the top end of a vertical pole.
+    BeamTip,
+    /// Hanging from the bottom end of a vertical pole.
+    HangUnderVerticalBeam,
     Dead,
 }
 
@@ -98,6 +111,8 @@ pub struct Player {
     standing: bool,
     /// Facing: -1 or +1.
     flip_direction: i32,
+    /// Facing before this tick's input was applied.
+    last_flip_direction: i32,
     /// Ticks of stun left (`Creature.stun`).
     stun: i32,
     dead: bool,
@@ -128,6 +143,11 @@ pub struct Player {
     pole_skip_penalty: i32,
     force_feet_to_horizontal_beam_tile: i32,
     time_since_in_corridor_mode: i32,
+    /// Ticks of slowed running and climbing, counting toward 0.
+    slow_movement_stun: i32,
+    /// Ticks left of the slide-up hop on a vertical pole.
+    slide_up_pole: i32,
+    ledge_grab_counter: i32,
 
     /// Anti-slide pin of the hips while standing still.
     feet_stuck_pos: Option<Vec2>,
@@ -170,6 +190,7 @@ impl Player {
             animation: Animation::None,
             standing: false,
             flip_direction: 1,
+            last_flip_direction: 1,
             stun: 0,
             dead: false,
             destroyed: false,
@@ -187,6 +208,9 @@ impl Player {
             pole_skip_penalty: 0,
             force_feet_to_horizontal_beam_tile: 0,
             time_since_in_corridor_mode: 0,
+            slow_movement_stun: 0,
+            slide_up_pole: 0,
+            ledge_grab_counter: 0,
             feet_stuck_pos: None,
             dynamic_run_speed: [0.0; 2],
             super_launch_jump: 0,
@@ -332,6 +356,9 @@ impl Player {
         }
         if self.can_jump > 0 {
             self.can_jump -= 1;
+        }
+        if self.slow_movement_stun > 0 {
+            self.slow_movement_stun -= 1;
         }
         self.jump_stun -= self.jump_stun.signum();
     }

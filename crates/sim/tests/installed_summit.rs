@@ -300,3 +300,32 @@ fn summit_open_bottom_kills_below_minus_500() {
     }
     assert!(died.is_some(), "fell out: {:?}", p.head());
 }
+
+#[test]
+fn summit_ledge_grab_on_the_left_block() {
+    let Some(room) = summit() else { return };
+    // The left block's outer face: column 10 is Solid on rows 14..=16 with open (10, 17)
+    // above, (8, 16) open and nothing under column 9 down to the bottom.
+    // ledge-grab.md section 1: head pressed right into the face above the middle of
+    // row 16 (y 330), (8, 16), (9, 14) and (10, 17) open: LedgeGrab.
+    assert!(room.tile(10, 16).is_solid() && !room.tile(10, 17).is_solid());
+    assert!(!room.tile(9, 14).is_solid() && !room.tile(8, 16).is_solid());
+    let mut p = upright_player(Vec2::new(189.0, 319.0));
+    for c in &mut p.body.chunks {
+        c.vel.x = 3.0;
+    }
+    p.update(&room, RIGHT);
+    assert_eq!(p.head().contact().x, 1);
+    assert_eq!(p.animation(), Animation::LedgeGrab);
+    // Holding toward the wall hauls the body over the edge onto row 17 (top 340), a
+    // two-tile step in front of the next wall (column 12).
+    let mut ticks = 0;
+    while p.body_mode() != BodyMode::Stand {
+        p.update(&room, RIGHT);
+        ticks += 1;
+        assert!(ticks < 40, "{:?}", p.chunks());
+    }
+    assert_eq!(p.hips().contact().y, -1);
+    assert!((p.hips().pos.y - 348.0).abs() < 1.0, "{:?}", p.hips());
+    assert!(p.hips().pos.x > 200.0);
+}

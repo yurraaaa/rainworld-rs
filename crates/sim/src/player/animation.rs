@@ -1,15 +1,20 @@
 //! `Player.UpdateAnimation` for the ported animations.
 //!
 //! Behaviour: `slugcat-movement.md` sections 6 and 9, `horizontal-beams.md` sections 2-4.
+//! Vertical poles are in `poles.rs`, `LedgeGrab` in `ledge.rs`.
 
 use rw_assets::{Room, Terrain};
 
 use super::{Animation, BodyMode, HEAD, HIPS, POLE_CLIMB_SPEED_FAC, Player, RUN_SPEED_FAC};
 use crate::Vec2;
+use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
 
 impl Player {
     pub(super) fn update_animation(&mut self, room: &Room) {
+        if self.animation != Animation::ClimbOnBeam {
+            self.slide_up_pole = 0;
+        }
         match self.animation {
             Animation::None => {}
             Animation::CrawlTurn => self.crawl_turn(room),
@@ -19,6 +24,11 @@ impl Player {
             Animation::HangFromBeam => self.hang_from_beam(room),
             Animation::GetUpOnBeam => self.get_up_on_beam(room),
             Animation::StandOnBeam => self.stand_on_beam(room),
+            Animation::LedgeGrab => self.ledge_grab(room),
+            Animation::ClimbOnBeam => self.climb_on_beam(room),
+            Animation::GetUpToBeamTip => self.get_up_to_beam_tip(room),
+            Animation::BeamTip => self.beam_tip(room),
+            Animation::HangUnderVerticalBeam => self.hang_under_vertical_beam(room),
             Animation::Dead => {}
         }
     }
@@ -104,7 +114,10 @@ impl Player {
         head.pos.y = head.pos.tile_middle().y;
         if x != 0 && i32::from(head.contact().x) != x {
             if i32::from(hips.contact().x) != x {
-                head.vel.x += x as f32 * 1.2 * POLE_CLIMB_SPEED_FAC;
+                head.vel.x += x as f32
+                    * 1.2
+                    * POLE_CLIMB_SPEED_FAC
+                    * (self.slow_movement_stun as f32).lerp_map(0.0, 10.0, 1.0, 0.5);
             }
             self.animation_frame += 1;
             if self.animation_frame > 20 {
@@ -121,9 +134,13 @@ impl Player {
         if now.y < 0 && prev.y == 0 {
             self.animation = Animation::None;
         } else if now.y > 0 && prev.y == 0 {
-            // A vertical pole in the same tile switches to climbing it (not ported:
-            // the player keeps hanging).
-            pull_up = !room.tile_at_pos(self.body.chunks[HEAD].pos).vertical_pole();
+            let head = self.body.chunks[HEAD].pos;
+            if room.tile_at_pos(head).vertical_pole() {
+                self.animation = Animation::ClimbOnBeam;
+                self.flip_direction = if head.x < head.tile_middle().x { -1 } else { 1 };
+            } else {
+                pull_up = true;
+            }
         } else if now.jump && !prev.jump {
             pull_up = true;
         }

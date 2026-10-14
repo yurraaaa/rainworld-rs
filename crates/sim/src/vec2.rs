@@ -1,6 +1,6 @@
 //! Minimal 2D float vector with the arithmetic the physics needs, in `f32` as the game.
 
-use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
 
 /// 2D vector in room pixels (y up).
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
@@ -38,6 +38,17 @@ impl Vec2 {
             Self::new(self.x / len, self.y / len)
         } else {
             Self::ZERO
+        }
+    }
+
+    /// Scaled down to length `max` if longer (`Vector2.ClampMagnitude`).
+    #[must_use]
+    pub fn clamp_length(self, max: f32) -> Self {
+        let sq = self.x * self.x + self.y * self.y;
+        if sq > max * max {
+            self.normalized() * max
+        } else {
+            self
         }
     }
 
@@ -110,6 +121,13 @@ impl Mul<f32> for Vec2 {
     type Output = Self;
     fn mul(self, k: f32) -> Self {
         Self::new(self.x * k, self.y * k)
+    }
+}
+
+impl Div<f32> for Vec2 {
+    type Output = Self;
+    fn div(self, k: f32) -> Self {
+        Self::new(self.x / k, self.y / k)
     }
 }
 

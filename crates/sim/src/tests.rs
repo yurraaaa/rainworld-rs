@@ -14,7 +14,8 @@ use crate::{
 const EPS: f32 = 1e-4;
 
 /// Builds a room from ASCII rows, top row first.
-/// `.` Air, `#` Solid, `/` Slope, `-` Floor, `=` Air with a horizontal beam,
+/// `.` Air, `#` Solid, `/` Slope, `-` Floor, `=` Air with a horizontal beam, `|` Air
+/// with a vertical pole, `+` Air with both,
 /// `E` shortcut entrance, `x` Solid shortcut path, `X` Solid room exit, `D` Solid den,
 /// `T` Solid region transport.
 pub(crate) fn room(rows: &[&str]) -> Room {
@@ -34,6 +35,8 @@ pub(crate) fn room_with_water(rows: &[&str], water_level: i32) -> Room {
                 b'/' => "2",
                 b'-' => "3",
                 b'=' => "0,2",
+                b'|' => "0,1",
+                b'+' => "0,1,2",
                 b'E' => "4,3",
                 b'x' => "1,3",
                 b'X' => "1,3,4",

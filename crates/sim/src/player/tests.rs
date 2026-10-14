@@ -7,6 +7,8 @@ use rw_assets::Room;
 
 use rw_assets::ShortcutType;
 
+mod poles;
+
 use super::{Animation, BodyMode, HEAD, HIPS, INPUT_HISTORY, Input, Player};
 use crate::shortcut::ShortcutVessel;
 use crate::tests::{room, room_with_water};
