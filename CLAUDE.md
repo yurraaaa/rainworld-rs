@@ -89,6 +89,10 @@ recommendation. Nothing is ported before the user agrees.
 
 ## Decisions
 
+- Reimplement what the game does, in every situation. Diverge only where
+  the user decided otherwise (below) or it is impossible, and record each
+  divergence in `docs/DIVERGENCES.md`. Don't ask whether to follow the
+  game; ask only when the game's behaviour is unknown.
 - Renderer: `wgpu`, pinned to the Vulkan backend, behind a small trait so it can be replaced. Custom engine on `winit` plus separate audio and asset crates; the simulation is an engine-agnostic crate.
 - Reverse-engineering notes live in `../rainworld-re`, never only in the conversation. Agents check it before investigating and extend it afterwards; ask in the report what was added.
 - Target: base game first, with Remix (MMF) off. Remix, More Slugcats,
@@ -97,7 +101,8 @@ recommendation. Nothing is ported before the user agrees.
   out; omitted DLC branches are listed in `docs/DIVERGENCES.md`.
 - Current phase is the player controller in a single room, not the game:
   - Death freezes the body until R respawns it (revisit once the real
-    game loop exists).
+    game loop exists). A body that falls out of the room is destroyed,
+    as in the game.
   - Room-exit shortcuts can't be entered (no other rooms yet); in-room
     shortcut pipes work.
   - Water uses the game's full wavy surface simulation.
