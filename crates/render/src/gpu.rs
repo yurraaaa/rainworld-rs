@@ -2,23 +2,28 @@
 //!
 //! One pipeline draws coloured triangle lists: the room mesh and grid are uploaded
 //! once per [`Renderer::set_room`], the per-frame shapes every [`Renderer::present`].
-//! A second one draws the level graphic (`level_gpu`): the shapes queued before
-//! [`Renderer::draw_level`] go to an offscreen "behind" target first, which the level
-//! shader reads to let them show through sky and far pixels. The WGSL shaders are
-//! compiled at runtime by wgpu.
+//! A second one draws the level graphic (`level_gpu`): the shapes and sprites queued
+//! before [`Renderer::draw_level`] go to an offscreen "behind" target first, which the
+//! level shader reads to let them show through sky and far pixels. A third draws the
+//! atlas sprites (`sprite_gpu`). Draw calls keep their call order across pipelines
+//! ([`DrawQueue`]). The WGSL shaders are compiled at runtime by wgpu.
 
 use std::borrow::Cow;
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 
-use rw_assets::Room;
+use rw_assets::{PngImage, Room};
+use rw_graphics::{DrawList, Layer};
+use rw_sim::Vec2;
 use wgpu::util::DeviceExt;
 
 use crate::level_gpu::{LevelPipeline, LevelTextures};
+use crate::sprite_gpu::SpritePipeline;
 use crate::{
-    Camera, Color, LevelGraphics, LevelView, Mesh, RenderError, Renderer, RoomDebugGeometry,
-    RoomLayers, Vertex,
+    Batch, Camera, Color, DrawQueue, LevelGraphics, LevelView, Mesh, RenderError, Renderer,
+    RoomDebugGeometry, RoomLayers, SpriteAtlas, Vertex,
 };
 
 const BACKGROUND: wgpu::Color = wgpu::Color {
@@ -53,11 +58,17 @@ pub struct WgpuRenderer {
     behind_view: Option<wgpu::TextureView>,
     level_pipeline: LevelPipeline,
     level: Option<LevelTextures>,
-    /// This frame's level placement and the number of dynamic vertices queued before it.
-    level_draw: Option<(LevelView, u32)>,
+    /// This frame's level placement.
+    level_view: Option<LevelView>,
+    sprite_pipeline: SpritePipeline,
+    atlas: Option<SpriteAtlas>,
+    /// This frame's camera position for sprites (stage origin in room pixels).
+    stage_origin: [f32; 2],
+    /// Atlas elements already reported missing.
+    missing: HashSet<&'static str>,
     room: Option<StaticMesh>,
     grid: Option<StaticMesh>,
-    dynamic: Mesh,
+    queue_draws: DrawQueue,
     dynamic_buffer: Option<wgpu::Buffer>,
     camera: Camera,
     layers: Option<RoomLayers>,
@@ -191,6 +202,7 @@ impl WgpuRenderer {
         });
         let pipeline = Self::create_pipeline(&device, &bind_group_layout, format, sample_count);
         let level_pipeline = LevelPipeline::new(&device, format, sample_count);
+        let sprite_pipeline = SpritePipeline::new(&device, format, sample_count);
 
         let mut renderer = Self {
             surface,
@@ -206,10 +218,14 @@ impl WgpuRenderer {
             behind_view: None,
             level_pipeline,
             level: None,
-            level_draw: None,
+            level_view: None,
+            sprite_pipeline,
+            atlas: None,
+            stage_origin: [0.0, 0.0],
+            missing: HashSet::new(),
             room: None,
             grid: None,
-            dynamic: Mesh::new(),
+            queue_draws: DrawQueue::default(),
             dynamic_buffer: None,
             camera: Camera::fit([1.0, 1.0], size, 0.0),
             layers: None,
@@ -228,7 +244,7 @@ impl WgpuRenderer {
     ) -> wgpu::RenderPipeline {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("debug.wgsl"),
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("debug.wgsl"))),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("../shaders/debug.wgsl"))),
         });
         let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("debug"),
@@ -376,13 +392,13 @@ impl WgpuRenderer {
             .create_view(&wgpu::TextureViewDescriptor::default())
     }
 
-    /// Draws the first `count` dynamic vertices into the "behind" target, cleared to
-    /// black (the game's screen before the level is drawn).
+    /// Draws `batches` (those queued before the level) into the "behind" target,
+    /// cleared to black (the game's screen before the level is drawn).
     fn draw_behind(
         &self,
         encoder: &mut wgpu::CommandEncoder,
         behind: &wgpu::TextureView,
-        count: u32,
+        batches: &[Batch],
     ) {
         let (target, resolve) = match &self.msaa_view {
             Some(msaa) => (msaa, Some(behind)),
@@ -404,11 +420,25 @@ impl WgpuRenderer {
             occlusion_query_set: None,
             multiview_mask: None,
         });
-        if let (Some(buffer), true) = (&self.dynamic_buffer, count > 0) {
-            pass.set_pipeline(&self.pipeline);
-            pass.set_bind_group(0, &self.camera_bind_group, &[]);
-            pass.set_vertex_buffer(0, buffer.slice(..));
-            pass.draw(0..count, 0..1);
+        self.draw_batches(&mut pass, batches);
+    }
+
+    /// Draws shape and sprite batches in order (the level marker is skipped).
+    fn draw_batches(&self, pass: &mut wgpu::RenderPass<'_>, batches: &[Batch]) {
+        for batch in batches {
+            match batch {
+                Batch::Shapes(range) => {
+                    let Some(buffer) = &self.dynamic_buffer else {
+                        continue;
+                    };
+                    pass.set_pipeline(&self.pipeline);
+                    pass.set_bind_group(0, &self.camera_bind_group, &[]);
+                    pass.set_vertex_buffer(0, buffer.slice(..));
+                    pass.draw(range.clone(), 0..1);
+                }
+                Batch::Sprites(range) => self.sprite_pipeline.draw(pass, range.clone()),
+                Batch::Level => {}
+            }
         }
     }
 
@@ -445,7 +475,7 @@ impl WgpuRenderer {
 
     /// Writes the per-frame shapes into the dynamic buffer, growing it as needed.
     fn upload_dynamic(&mut self) {
-        let bytes: &[u8] = bytemuck::cast_slice(self.dynamic.vertices());
+        let bytes: &[u8] = bytemuck::cast_slice(self.queue_draws.shapes.vertices());
         if bytes.is_empty() {
             return;
         }
@@ -514,9 +544,10 @@ impl Renderer for WgpuRenderer {
 
     fn begin_frame(&mut self, camera: Camera) {
         self.camera = camera;
-        self.dynamic.clear();
+        self.queue_draws.clear();
         self.layers = None;
-        self.level_draw = None;
+        self.level_view = None;
+        self.stage_origin = [0.0, 0.0];
     }
 
     fn draw_room(&mut self, layers: RoomLayers) {
@@ -528,27 +559,48 @@ impl Renderer for WgpuRenderer {
     }
 
     fn draw_level(&mut self, view: LevelView) {
-        self.level_draw = Some((view, self.dynamic.vertex_count()));
+        self.level_view = Some(view);
+        self.queue_draws.mark_level();
     }
 
     fn draw_circle(&mut self, centre: [f32; 2], radius: f32, color: Color) {
-        self.dynamic.circle(centre, radius, color);
+        self.queue_draws.shapes.circle(centre, radius, color);
     }
 
     fn draw_ring(&mut self, centre: [f32; 2], radius: f32, width: f32, color: Color) {
-        self.dynamic.ring(centre, radius, width, color);
+        self.queue_draws.shapes.ring(centre, radius, width, color);
     }
 
     fn draw_line(&mut self, a: [f32; 2], b: [f32; 2], width: f32, color: Color) {
-        self.dynamic.line(a, b, width, color);
+        self.queue_draws.shapes.line(a, b, width, color);
     }
 
     fn draw_rect(&mut self, min: [f32; 2], max: [f32; 2], color: Color) {
-        self.dynamic.rect(min, max, color);
+        self.queue_draws.shapes.rect(min, max, color);
     }
 
     fn draw_mesh(&mut self, mesh: &Mesh) {
-        self.dynamic.extend(mesh);
+        self.queue_draws.shapes.extend(mesh);
+    }
+
+    fn set_atlas(&mut self, atlas: &SpriteAtlas, image: &PngImage) {
+        self.sprite_pipeline
+            .set_atlas(&self.device, &self.queue, image);
+        self.atlas = Some(atlas.clone());
+        self.missing.clear();
+    }
+
+    fn draw_sprites(&mut self, list: &DrawList, layer: Layer, cam_pos: [f32; 2]) {
+        let Some(atlas) = &self.atlas else { return };
+        self.stage_origin = cam_pos;
+        let missing = self
+            .queue_draws
+            .push_sprites(atlas, list, layer, Vec2::from(cam_pos));
+        for name in missing {
+            if self.missing.insert(name) {
+                log::warn!("atlas has no element {name}; sprite not drawn");
+            }
+        }
     }
 
     fn present(&mut self) -> Result<(), RenderError> {
@@ -567,16 +619,25 @@ impl Renderer for WgpuRenderer {
             bytemuck::cast_slice(&self.camera.clip_transform()),
         );
         self.upload_dynamic();
+        self.sprite_pipeline.upload(
+            &self.device,
+            &self.queue,
+            &self.queue_draws.sprites,
+            &self.camera,
+            self.stage_origin,
+        );
+        let batches = self.queue_draws.batches();
+        let split = batches.iter().position(|b| *b == Batch::Level);
 
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("frame"),
             });
-        // The level, when drawn: its bind group, scissor and the shapes behind it.
-        let level = match (&self.level_draw, &self.level, &self.behind_view) {
-            (Some((view, split)), Some(textures), Some(behind)) => {
-                self.draw_behind(&mut encoder, behind, *split);
+        // The level, when drawn: its bind group, scissor and the batches behind it.
+        let level = match (&self.level_view, split, &self.level, &self.behind_view) {
+            (Some(view), Some(split), Some(textures), Some(behind)) => {
+                self.draw_behind(&mut encoder, behind, &batches[..split]);
                 let bind_group = self.level_pipeline.bind(
                     &self.device,
                     &self.queue,
@@ -585,7 +646,7 @@ impl Renderer for WgpuRenderer {
                     &self.camera,
                     view,
                 );
-                Some((bind_group, self.scissor(view), *split))
+                Some((bind_group, self.scissor(view), split + 1))
             }
             _ => None,
         };
@@ -619,14 +680,14 @@ impl Renderer for WgpuRenderer {
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
-            let mut first_dynamic = 0;
-            if let Some((bind_group, scissor, split)) = &level {
+            let mut first_batch = 0;
+            if let Some((bind_group, scissor, after_level)) = &level {
                 let (x, y, w, h) = scissor.unwrap_or_default();
                 pass.set_scissor_rect(x, y, w, h);
                 pass.set_pipeline(self.level_pipeline.pipeline());
                 pass.set_bind_group(0, bind_group, &[]);
                 pass.draw(0..6, 0..1);
-                first_dynamic = *split;
+                first_batch = *after_level;
             }
             pass.set_pipeline(&self.pipeline);
             pass.set_bind_group(0, &self.camera_bind_group, &[]);
@@ -646,11 +707,7 @@ impl Renderer for WgpuRenderer {
                 pass.set_vertex_buffer(0, mesh.buffer.slice(..));
                 pass.draw(0..mesh.count, 0..1);
             }
-            let count = self.dynamic.vertex_count();
-            if let (Some(buffer), true) = (&self.dynamic_buffer, count > first_dynamic) {
-                pass.set_vertex_buffer(0, buffer.slice(..));
-                pass.draw(first_dynamic..count, 0..1);
-            }
+            self.draw_batches(&mut pass, &batches[first_batch..]);
         }
         let readback = self
             .capture

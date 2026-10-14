@@ -17,7 +17,7 @@ mod player_draw;
 mod player_graphics;
 mod tail;
 
-pub use atlas::{AssetCache, Atlas, AtlasError, AtlasFrame, CACHE_ENV, Rect, Size};
+pub use atlas::{Atlas, AtlasError, AtlasFrame, Rect, Size};
 pub use body_part::{BodyPart, PointConnection};
 pub use draw::{Color, DrawItem, DrawList, Layer, Mesh, SlugcatName, Sprite};
 pub use hand::SlugcatHand;

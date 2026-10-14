@@ -92,10 +92,20 @@ impl SlugcatHand {
             BodyMode::ClimbingOnBeam => {
                 free = false;
                 match player.animation() {
+                    Animation::ClimbOnBeam => self.climb_pole_target(player),
                     Animation::HangFromBeam | Animation::GetUpOnBeam => {
                         self.hang_from_beam_target(cx.room, player);
                     }
-                    Animation::StandOnBeam => free = self.stand_on_beam_target(cx),
+                    Animation::StandOnBeam | Animation::BeamTip => {
+                        free = self.stand_on_beam_target(cx);
+                    }
+                    Animation::HangUnderVerticalBeam => {
+                        self.limb.mode = LimbMode::HuntAbsolutePosition;
+                        let (dx, dy) = if limb == 0 { (-0.5, 20.0) } else { (0.5, 25.0) };
+                        self.limb.absolute_hunt_pos = head.pos.tile_middle() + Vec2::new(dx, dy);
+                        self.limb.hunt_speed = 10.0;
+                        self.limb.quickness = 1.0;
+                    }
                     _ => {}
                 }
             }
@@ -157,8 +167,37 @@ impl SlugcatHand {
                     -6.0 + 12.0 * limb as f32 + dir.x * 20.0,
                     dir.y.abs() * -20.0,
                 );
+        } else if player.animation() == Animation::LedgeGrab {
+            // The hunt mode is left as it was.
+            free = false;
+            let mut target = head.pos.tile_middle();
+            if (limb == 0) == (flip == -1) {
+                target += Vec2::new(flip as f32 * 10.0, -10.0);
+            } else {
+                target += Vec2::new(flip as f32 * 15.0, 10.0);
+            }
+            self.limb.absolute_hunt_pos = target;
         }
         free
+    }
+
+    /// ClimbOnBeam: the hands grip the pole above and below the head in turn, by the
+    /// animation frame.
+    fn climb_pole_target(&mut self, player: &Player) {
+        let head = player.head().pos;
+        let flip = player.flip_direction();
+        let near_side = (self.limb.limb_number == 1) == (flip == 1);
+        let phase = player.animation_frame() as f32 / 20.0 * std::f32::consts::TAU;
+        let sway = if near_side { phase.sin() } else { phase.cos() };
+        self.limb.mode = LimbMode::HuntAbsolutePosition;
+        let (dy, dx) = if near_side {
+            (-3.0, -flip as f32)
+        } else {
+            (3.0, flip as f32)
+        };
+        self.limb.absolute_hunt_pos =
+            Vec2::new(head.tile_middle().x + dx, head.y + dy + 6.0 * sway);
+        self.retract_counter = 40;
     }
 
     /// HangFromBeam / GetUpOnBeam: the hands grip the beam either side of the head,

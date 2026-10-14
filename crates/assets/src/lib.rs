@@ -1,5 +1,6 @@
 //! Read-only loaders for the user's installed game data (rooms, worlds, palettes). Never writes to the game directory.
 
+mod cache;
 mod files;
 mod noise;
 mod palette;
@@ -9,6 +10,7 @@ mod room_visuals;
 mod settings;
 pub mod shortcut;
 
+pub use cache::{AssetCache, CACHE_ENV};
 pub use files::{AssetError, StreamingAssets};
 pub use noise::NoiseTexture;
 pub use palette::{EffectColors, PaletteImage, PaletteTexture};

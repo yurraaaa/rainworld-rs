@@ -2,7 +2,8 @@
 //! game's room camera that chooses it.
 
 use rw_assets::{
-    AssetError, NoiseTexture, PaletteTexture, PngImage, Room, RoomVisuals, StreamingAssets,
+    AssetCache, AssetError, NoiseTexture, PaletteTexture, PngImage, Room, RoomVisuals,
+    StreamingAssets,
 };
 use rw_render::{Follow, LevelGraphics, LevelParams, LevelView, Renderer, RoomCamera};
 
@@ -22,11 +23,16 @@ pub struct Visuals {
 }
 
 impl Visuals {
-    /// Loads the room's settings, palettes, noise texture and every camera's image.
+    /// Loads the room's settings, palettes and every camera's image, and the noise
+    /// texture from the asset cache.
     ///
     /// # Errors
     /// When any of those cannot be loaded.
-    pub fn load(assets: &StreamingAssets, room: &Room) -> Result<Self, AssetError> {
+    pub fn load(
+        assets: &StreamingAssets,
+        cache: &AssetCache,
+        room: &Room,
+    ) -> Result<Self, AssetError> {
         let visuals = RoomVisuals::load(assets, room.name(), room.cameras().len(), Some(TIMELINE))?;
         let s = visuals.settings();
         log::info!(
@@ -43,7 +49,7 @@ impl Visuals {
             .map(|i| visuals.camera_image(i))
             .collect::<Result<_, _>>()?;
         Ok(Self {
-            noise: NoiseTexture::load(assets)?,
+            noise: NoiseTexture::load(cache)?,
             images,
             palette: visuals.palette_for_camera(camera.current()),
             room: visuals,
@@ -77,6 +83,13 @@ impl Visuals {
             params: LevelParams::new(self.room.settings(), &self.palette),
         });
         self.changed = false;
+    }
+
+    /// The palette's `blackColor` (the slugcat's eye colour), as stored.
+    #[must_use]
+    pub fn black_color(&self) -> rw_graphics::Color {
+        let [r, g, b, a] = self.palette.black_color().map(|c| f32::from(c) / 255.0);
+        rw_graphics::Color { r, g, b, a }
     }
 
     /// The game's window at `alpha` between ticks, `seconds` of shader time in.

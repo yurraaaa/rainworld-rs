@@ -1519,6 +1519,7 @@ dependencies = [
  "log",
  "rand",
  "rw-assets",
+ "rw-graphics",
  "rw-render",
  "rw-sim",
  "winit",
@@ -1694,6 +1695,7 @@ dependencies = [
  "log",
  "pollster",
  "rw-assets",
+ "rw-graphics",
  "rw-sim",
  "wgpu",
 ]

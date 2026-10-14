@@ -174,10 +174,12 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
 (`rw_render::RoomCamera`).
 
 **What differs:**
-- **Noise texture decode.** `_NoiseTex` is read from `resources.assets` (a 64x64 DXT1
-  texture) and decoded on the CPU with rounded 2:1 mixes; GPUs decode DXT1 with their
-  own rounding, so texels may differ by 1/255 from what the game's GPU samples.
-  Only mip 0 is kept (the shader always magnifies it).
+- **Noise texture decode.** `_NoiseTex` (a 64x64 DXT1 texture in `resources.assets`)
+  is read from AssetRipper's PNG export of it in the local asset cache
+  (`rw_assets::AssetCache`, `palettes/noise.png`), i.e. decoded by AssetRipper on the
+  CPU; GPUs decode DXT1 with their own rounding, so texels may differ by 1/255 from what
+  the game's GPU samples (the export's red channel is within 1/255 of a rounded 2:1-mix
+  decode of the stored blocks). Only mip 0 is kept (the shader always magnifies it).
 - **Resolution.** The game renders a 1366x768 screen and the window shows it scaled;
   the port draws straight into the window at its resolution (level pixels sampled
   nearest, sprites at full resolution), letterboxed to the 1366x768 aspect.
@@ -208,8 +210,11 @@ listed effects; window scaling.
 ## D8: Slugcat graphics (`rw_graphics::PlayerGraphics`)
 
 `PlayerGraphics` ports the base-game Survivor's `PlayerGraphics`, `SlugcatHand`, `Limb`,
-`BodyPart`, `TailSegment` and `GenericBodyPart` for the ported body modes
-(`rainworld-re/notes/slugcat-graphics.md`), Remix off.
+`BodyPart`, `TailSegment` and `GenericBodyPart` for the ported body modes and animations, including the vertical-pole poses
+(`ClimbOnBeam`, `GetUpToBeamTip`, `BeamTip`, `HangUnderVerticalBeam`), `LedgeGrab` and
+the roll/flip tail fling (`rainworld-re/notes/slugcat-graphics.md`), Remix off. The
+belly slide and rocket jump have no branch of their own in `PlayerGraphics` (they use
+the generic Default/Stand poses, as in the game).
 
 **What differs:**
 - **Random numbers.** Cosmetic randomness (blink timing, the 1 px reset jitter, beam
@@ -229,13 +234,22 @@ listed effects; window scaling.
   blink and aerobic effects) are not ported.
 - **Not ported:** grasps (holding, throwing, eating, swallowing, spear on back, reaching
   for flies, heavy carry), swimming and submersion (taken as 0), corridor climbing and
-  corridor turns, rolls and flips, ledge grab, vertical poles (`ClimbOnBeam`,
-  `HangUnderVerticalBeam`, `BeamTip`, `GetUpToBeamTip`), zero gravity, the sleep curl,
+  corridor turns, zero gravity (`ZeroGPoleGrab`, `ZeroGSwim`), antler and vine climbing,
+  the sleep curl,
   adrenaline jitter, malnourishment and hypothermia tints, the Mark (sprites 10 and 11
   have alpha 0 and are left out of the draw list), the light source, and every More
   Slugcats, Watcher and Jolly Co-op branch (pups, Gourmand/Spear/Saint/Rivulet/Artificer
   parts and sizes, gowns, custom and Jolly colours). The Nightcat colour is not offered
   (`SlugcatName` has White, Yellow and Red).
+- **Drawing (`rw_render` sprites).** `Futile_White` meshes (the tail) sample the centre
+  of `RainWorld_White` in the `rainWorld` atlas instead of the runtime 16x16 white
+  texture (both opaque white, so the colour is the same). The sprites go through the
+  renderer's 4x MSAA like the debug shapes, so quad and tail edges are antialiased
+  where the game's 1366x768 screen has hard pixel edges; texels stay point sampled.
+  The debug view (V) draws the sprites over the debug tiles, with the stage at the room
+  origin.
+- **Legs on curved terrain.** The grounded legs ignore `terrainCurveNormal` (not
+  ported; it is only set by `TerrainCurve` objects, which the port has none of).
 
 **Why.** Randomness as D1; the rest depends on player state that is not ported yet or
 is outside the base-game scope.

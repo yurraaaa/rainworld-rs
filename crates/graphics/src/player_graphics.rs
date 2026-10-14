@@ -1,9 +1,10 @@
 //! `PlayerGraphics`: the slugcat's cosmetic simulation, ticked after the player.
 //!
 //! Behaviour: `rainworld-re/notes/slugcat-graphics.md` sections 1-3 (base game,
-//! Remix off, Survivor stats). Not ported (docs/DIVERGENCES.md D8): look and fear
-//! targets, grasps (throwing, eating, carrying), swimming, corridors, zero gravity,
-//! sleep curl, pups, the Mark, DLC. `aerobicLevel` is not in the port and is 0.
+//! Remix off, Survivor stats), including the vertical-pole, ledge-grab and roll/flip
+//! branches. Not ported (docs/DIVERGENCES.md D8): look and fear targets, grasps
+//! (throwing, eating, carrying), swimming, corridors, zero gravity, sleep curl, pups,
+//! the Mark, DLC. `aerobicLevel` is not in the port and is 0.
 
 use std::f32::consts::TAU;
 
@@ -228,6 +229,9 @@ impl PlayerGraphics {
         self.draw_positions[0][0] = head.pos;
         self.draw_positions[1][0] = hips.pos;
         let (fast, tail_drag) = self.body_mode_offsets(player);
+        if matches!(player.animation(), Animation::Roll | Animation::Flip) {
+            self.fling_tail(head.pos.direction_to(hips.pos));
+        }
 
         let no_contact = [head, hips]
             .iter()
@@ -241,7 +245,10 @@ impl PlayerGraphics {
             self.airborne_counter = 0.0;
         }
         if player.body_mode() == BodyMode::ClimbingOnBeam
-            && player.animation() == Animation::StandOnBeam
+            && matches!(
+                player.animation(),
+                Animation::StandOnBeam | Animation::BeamTip
+            )
         {
             self.beam_balance(player, rng);
         }
@@ -296,6 +303,7 @@ impl PlayerGraphics {
             }
             BodyMode::ClimbingOnBeam => match player.animation() {
                 Animation::GetUpOnBeam => self.disbalance_amount = 70.0,
+                Animation::GetUpToBeamTip => self.disbalance_amount = 120.0,
                 Animation::StandOnBeam => {
                     self.draw_positions[1][0].y += 3.0;
                     fast = head.vel.x.abs() > 2.0 && hips.vel.x.abs() > 2.0;
@@ -307,6 +315,11 @@ impl PlayerGraphics {
                         self.tail[1].part.vel.y += 0.5;
                     }
                 }
+                Animation::ClimbOnBeam => {
+                    let phase = frame as f32 / 20.0 * TAU;
+                    self.draw_positions[0][0].x += flip * 2.5 + flip * 0.5 * phase.sin();
+                    self.draw_positions[1][0].x += flip * 2.5 * phase.cos();
+                }
                 _ => {}
             },
             BodyMode::WallClimb => {
@@ -316,11 +329,25 @@ impl PlayerGraphics {
                 self.draw_positions[0][0].x -= flip * push;
                 self.head.vel.y -= flip * 5.0;
             }
-            // No ported Default animation has its own pose: the tail hangs loose.
+            BodyMode::Default if player.animation() == Animation::LedgeGrab => {
+                self.legs_direction.y -= 1.0;
+                self.draw_positions[0][0].x -= flip * 5.0;
+            }
+            // Other Default animations: the tail hangs loose.
             BodyMode::Default => tail_drag = 0.0,
             _ => {}
         }
         (fast, tail_drag)
+    }
+
+    /// Rolls and flips: each tail segment is pushed along `dir` (head to hips), 6 px/tick
+    /// at the root, divided by 1.7 per segment.
+    pub fn fling_tail(&mut self, dir: Vec2) {
+        let mut push = 6.0;
+        for seg in &mut self.tail {
+            seg.part.vel += dir * push;
+            push /= 1.7;
+        }
     }
 
     /// Standing gait offsets of `[body, hips]` draw positions for facing `flip`,
@@ -350,12 +377,17 @@ impl PlayerGraphics {
         ]
     }
 
-    /// Wobble while standing on a beam: disbalance grows when moving fast and decays
-    /// otherwise; the balance counter advances faster when disbalanced.
+    /// Wobble while standing on a beam or pole tip: disbalance grows when moving fast
+    /// (much faster on a tip) and decays otherwise; the balance counter advances faster
+    /// when disbalanced.
     fn beam_balance<R: Rng + ?Sized>(&mut self, player: &Player, rng: &mut R) {
         let (head, hips) = (player.head(), player.hips());
         if head.vel.x.abs() > 2.0 {
-            self.disbalance_amount += 3.0;
+            self.disbalance_amount += if player.animation() == Animation::BeamTip {
+                17.0
+            } else {
+                3.0
+            };
         } else {
             self.disbalance_amount -= 1.0;
         }
@@ -428,32 +460,60 @@ impl PlayerGraphics {
         });
     }
 
-    /// The legs stand on the ground under the hips, or dangle and swing with the hips'
+    /// The legs stand on the ground under the hips, hang below a pole tip, grip the
+    /// pole below the head while climbing it, or dangle and swing with the hips'
     /// velocity; `legs_direction` follows.
     fn update_legs(&mut self, player: &Player, room: &Room) {
-        let hips = player.hips();
+        let (head, hips) = (player.head(), player.hips());
         self.legs.update_free(room);
-        let grounded = hips.contact().y == -1 || player.animation() == Animation::StandOnBeam;
-        let (offset_y, rad) = if grounded {
-            (1.0, 5.0)
-        } else if player.animation() == Animation::HangFromBeam {
-            (-5.0, 4.0)
-        } else {
-            (-2.0, 4.0)
-        };
-        self.legs.connect_to_point(PointConnection {
-            point: hips.pos + Vec2::new(self.legs_direction.x * 8.0, offset_y),
-            rad,
+        let animation = player.animation();
+        let connection = PointConnection {
+            point: hips.pos,
+            rad: 4.0,
             push: false,
             elastic: 0.25,
             host_vel: Vec2::new(hips.vel.x, -10.0),
             adapt_vel: 0.5,
             exaggerate_vel: 0.1,
-        });
-        if grounded {
+        };
+        if hips.contact().y == -1 || animation == Animation::StandOnBeam {
+            self.legs.connect_to_point(PointConnection {
+                point: hips.pos + Vec2::new(self.legs_direction.x * 8.0, 1.0),
+                rad: 5.0,
+                ..connection
+            });
             self.legs_direction.x -= f32::from(hips.on_slope());
             self.legs_direction.y -= 1.0;
+        } else if animation == Animation::BeamTip {
+            self.legs.connect_to_point(PointConnection {
+                point: hips.pos + Vec2::new(0.0, -8.0),
+                rad: 0.0,
+                host_vel: Vec2::new(0.0, -10.0),
+                ..connection
+            });
+            let below = hips.pos.tile_middle() + Vec2::new(0.0, -10.0);
+            self.legs_direction += self.draw_positions[0][0].direction_to(below);
+        } else if animation == Animation::ClimbOnBeam {
+            let flip = player.flip_direction() as f32;
+            let phase = player.animation_frame() as f32 / 20.0 * TAU;
+            let grip = Vec2::new(-flip * (5.0 - phase.sin()), -16.0 - 5.0 * phase.cos());
+            self.legs.connect_to_point(PointConnection {
+                point: head.pos + grip,
+                rad: 0.0,
+                host_vel: Vec2::ZERO,
+                ..connection
+            });
+            self.legs_direction.y -= 1.0;
         } else {
+            let offset_y = if animation == Animation::HangFromBeam {
+                -5.0
+            } else {
+                -2.0
+            };
+            self.legs.connect_to_point(PointConnection {
+                point: hips.pos + Vec2::new(self.legs_direction.x * 8.0, offset_y),
+                ..connection
+            });
             self.legs_direction += hips.vel * 0.01;
             self.legs_direction.y -= 0.05;
         }

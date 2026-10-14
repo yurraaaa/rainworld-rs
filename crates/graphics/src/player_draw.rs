@@ -10,7 +10,8 @@ use rw_sim::{Animation, BodyMode, Player, Vec2};
 use crate::draw::{Color, DrawItem, DrawList, Layer, Mesh, Sprite};
 use crate::elements::{
     BODY_A, FACE_A, FACE_B, FACE_DEAD, FACE_STUNNED, HEAD_A, HIPS_A, LEGS_A, LEGS_A_AIR,
-    LEGS_A_CRAWLING, LEGS_A_ON_POLE, LEGS_A_WALL, ON_TOP_OF_TERRAIN_HAND_2, PLAYER_ARM,
+    LEGS_A_CRAWLING, LEGS_A_ON_POLE, LEGS_A_POLE, LEGS_A_VERTICAL_POLE, LEGS_A_WALL,
+    ON_TOP_OF_TERRAIN_HAND, ON_TOP_OF_TERRAIN_HAND_2, PLAYER_ARM,
 };
 use crate::limb::LimbMode;
 use crate::math::{CustomVec, Mathf};
@@ -99,7 +100,7 @@ impl PlayerGraphics {
         let [head, face] = self.head_sprites(player, &f, t, face_color);
         slots[3] = Some(DrawItem::Sprite(head));
         slots[9] = Some(DrawItem::Sprite(face));
-        slots[4] = Some(DrawItem::Sprite(self.legs_sprite(player, t)));
+        slots[4] = Some(DrawItem::Sprite(self.legs_sprite(player, &f, t)));
         for j in 0..2 {
             let (arm, cap) = self.hand_sprites(player, &f, t, j);
             slots[5 + j] = arm.map(DrawItem::Sprite);
@@ -285,8 +286,9 @@ impl PlayerGraphics {
         ]
     }
 
-    /// Legs (4): the gait frame for the body mode, rotated against `legs_direction`.
-    fn legs_sprite(&mut self, player: &Player, t: f32) -> Sprite {
+    /// Legs (4): the gait frame for the body mode, rotated against `legs_direction`;
+    /// on a vertical pole kept within 6 px below to 4 px above the hips.
+    fn legs_sprite(&mut self, player: &Player, f: &Frame, t: f32) -> Sprite {
         let frame = usize::try_from(player.animation_frame()).unwrap_or(0);
         let by_flip = if player.flip_direction() > 0 {
             1.0
@@ -294,6 +296,7 @@ impl PlayerGraphics {
             -1.0
         };
         let mut element = LEGS_A_AIR;
+        let mut pos = self.legs.last_pos.lerp_clamped(self.legs.pos, t);
         match player.body_mode() {
             BodyMode::Stand => {
                 element = LEGS_A[frame.min(LEGS_A.len() - 1)];
@@ -308,6 +311,13 @@ impl PlayerGraphics {
                     element = LEGS_A_ON_POLE[if frame < 7 { frame } else { 0 }];
                     self.sprites.legs_scale_x = by_flip;
                 }
+                Animation::BeamTip => element = LEGS_A_POLE,
+                Animation::ClimbOnBeam => {
+                    element = LEGS_A_VERTICAL_POLE;
+                    self.sprites.legs_scale_x = by_flip;
+                    pos.y = pos.y.clamp(f.hips.y - 6.0, f.hips.y + 4.0);
+                    self.sprites.hand_cap_element = [ON_TOP_OF_TERRAIN_HAND; 2];
+                }
                 Animation::HangFromBeam => {
                     self.sprites.hand_cap_element = [ON_TOP_OF_TERRAIN_HAND_2; 2];
                 }
@@ -317,12 +327,16 @@ impl PlayerGraphics {
                 element = LEGS_A_WALL;
                 self.sprites.legs_scale_x = by_flip;
             }
+            BodyMode::Default if player.animation() == Animation::LedgeGrab => {
+                element = LEGS_A_WALL;
+                self.sprites.legs_scale_x = by_flip;
+            }
             _ => {}
         }
         Sprite {
             index: 4,
             element,
-            pos: self.legs.last_pos.lerp_clamped(self.legs.pos, t),
+            pos,
             rotation: self.legs_direction.aim_to(Vec2::ZERO),
             scale: Vec2::new(self.sprites.legs_scale_x, 1.0),
             anchor: Vec2::new(0.5, 0.25),
@@ -331,8 +345,8 @@ impl PlayerGraphics {
         }
     }
 
-    /// Arm `5 + j` (hidden while retracted) and hand cap `7 + j` (only while gripping a
-    /// beam it hangs from).
+    /// Arm `5 + j` (hidden while retracted, and while gripping a vertical pole) and hand
+    /// cap `7 + j` (only while gripping a beam or pole).
     fn hand_sprites(
         &mut self,
         player: &Player,
@@ -344,10 +358,11 @@ impl PlayerGraphics {
         let pos = hand.limb.part.last_pos.lerp_clamped(hand.limb.part.pos, t);
         let animation = player.animation();
         let mut arm = None;
+        let climbing = animation == Animation::ClimbOnBeam;
         if hand.limb.mode != LimbMode::Retracted {
             let body_angle = f.hips.aim_to(f.body);
             let mut spread = 4.5 / (hand.retract_counter as f32 + 1.0);
-            if animation == Animation::StandOnBeam
+            if matches!(animation, Animation::StandOnBeam | Animation::BeamTip)
                 && self.disbalance_amount <= 40.0
                 && hand.limb.mode == LimbMode::HuntRelativePosition
             {
@@ -376,7 +391,10 @@ impl PlayerGraphics {
                 }
                 _ => pos.distance_to_line(f.body, f.hips).unity_sign(),
             };
-            arm = Some(Sprite {
+            if animation == Animation::HangUnderVerticalBeam {
+                self.sprites.arm_scale_y[j] = if j == 0 { 1.0 } else { -1.0 };
+            }
+            let sprite = Sprite {
                 index: 5 + j,
                 element: PLAYER_ARM[Self::arm_frame(pos.distance(shoulder))],
                 pos,
@@ -385,14 +403,18 @@ impl PlayerGraphics {
                 anchor: Vec2::new(0.9, 0.5),
                 color: self.body_color,
                 layer: SPRITE_LAYERS[5 + j],
-            });
+            };
+            // Futile keeps the hidden sprite's values; only visibility changes.
+            arm = (!climbing || !hand.limb.reached_snap_position).then_some(sprite);
         }
-        let gripping = matches!(animation, Animation::HangFromBeam | Animation::GetUpOnBeam)
-            && self.hands[j].limb.reached_snap_position;
+        let gripping = matches!(
+            animation,
+            Animation::ClimbOnBeam | Animation::HangFromBeam | Animation::GetUpOnBeam
+        ) && self.hands[j].limb.reached_snap_position;
         let cap = gripping.then(|| Sprite {
             index: 7 + j,
             element: self.sprites.hand_cap_element[j],
-            pos: pos + Vec2::new(0.0, 3.0),
+            pos: pos + Vec2::new(0.0, if climbing { 0.0 } else { 3.0 }),
             rotation: 0.0,
             scale: Vec2::new(if j == 0 { 1.0 } else { -1.0 }, 1.0),
             anchor: CENTRE,

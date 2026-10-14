@@ -111,6 +111,64 @@ impl InputState {
     }
 }
 
+/// A fixed input sequence for `--screenshot` runs: `(input, ticks)` steps played in
+/// order instead of the keyboard (for capturing poses without key presses).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Script {
+    steps: Vec<(Input, u32)>,
+    tick: u32,
+}
+
+impl Script {
+    /// Parses `X,Y,J:TICKS;...` (`X`, `Y` in -1..=1, `J` 0 or 1), e.g. `0,1,0:1;1,0,0:30`.
+    ///
+    /// # Errors
+    /// A message naming the bad step.
+    pub fn parse(text: &str) -> Result<Self, String> {
+        let mut steps = Vec::new();
+        for step in text.split(';').filter(|s| !s.is_empty()) {
+            steps.push(
+                Self::step(step)
+                    .ok_or_else(|| format!("bad script step {step:?} (want X,Y,J:TICKS)"))?,
+            );
+        }
+        Ok(Self { steps, tick: 0 })
+    }
+
+    /// One `X,Y,J:TICKS` step.
+    fn step(step: &str) -> Option<(Input, u32)> {
+        let (keys, ticks) = step.split_once(':')?;
+        let ticks = ticks.trim().parse().ok()?;
+        let v: Vec<i8> = keys
+            .split(',')
+            .map(|k| k.trim().parse::<i8>())
+            .collect::<Result<_, _>>()
+            .ok()?;
+        let [x, y, j] = v[..] else { return None };
+        let valid = (-1..=1).contains(&x) && (-1..=1).contains(&y) && (0..=1).contains(&j);
+        valid.then_some((Input { x, y, jump: j == 1 }, ticks))
+    }
+
+    /// Ticks the whole script lasts.
+    #[must_use]
+    pub fn len(&self) -> u32 {
+        self.steps.iter().map(|(_, t)| t).sum()
+    }
+
+    /// The next tick's input, `None` once the script has run out.
+    pub fn next_input(&mut self) -> Option<Input> {
+        let mut t = self.tick;
+        for (input, ticks) in &self.steps {
+            if t < *ticks {
+                self.tick += 1;
+                return Some(*input);
+            }
+            t -= ticks;
+        }
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

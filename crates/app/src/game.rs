@@ -1,11 +1,12 @@
-//! Simulation state owned by the app: the room, the player, the shortcut divider and the
-//! spawn RNG.
+//! Simulation state owned by the app: the room, the player and its graphics module,
+//! the shortcut divider and the RNGs.
 //!
 //! This is the only place the app touches the simulation.
 
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 use rw_assets::Room;
+use rw_graphics::{Color, DrawList, PlayerGraphics, SlugcatName};
 use rw_render::{BodyStatus, Follow};
 use rw_sim::{Input, PhysicalObject, Player, ShortcutHandler};
 
@@ -14,23 +15,36 @@ pub struct Game {
     room: Room,
     /// `None` once the body fell out of the room and was destroyed.
     player: Option<Player>,
+    /// The player's graphics module; replaced with the player.
+    graphics: Option<PlayerGraphics>,
     shortcuts: ShortcutHandler,
+    /// Spawn positions.
     rng: StdRng,
+    /// Cosmetic randomness, separate so graphics never shift the spawn sequence.
+    graphics_rng: StdRng,
+    /// `--spawn`: place the player on this tile instead of a random spawn tile.
+    spawn_tile: Option<(i32, i32)>,
     tick: u64,
 }
 
 impl Game {
-    /// Spawns the player into `room` at a spawn tile chosen with `seed`.
+    /// Spawns the player into `room` at a spawn tile chosen with `seed`, or on
+    /// `spawn_tile` when given.
     #[must_use]
-    pub fn new(room: Room, seed: u64) -> Self {
+    pub fn new(room: Room, seed: u64, spawn_tile: Option<(i32, i32)>) -> Self {
         let mut rng = StdRng::seed_from_u64(seed);
-        let player = Player::spawn(&room, &mut rng);
+        let mut graphics_rng = StdRng::seed_from_u64(seed.wrapping_add(1));
+        let player = Self::spawn_player(&room, spawn_tile, &mut rng);
+        let graphics = PlayerGraphics::new(&player, SlugcatName::White, &mut graphics_rng);
         log::info!("spawned player");
         Self {
             room,
             player: Some(player),
+            graphics: Some(graphics),
             shortcuts: ShortcutHandler::new(),
             rng,
+            graphics_rng,
+            spawn_tile,
             tick: 0,
         }
     }
@@ -38,12 +52,29 @@ impl Game {
     /// Replaces the player with a fresh one at a new spawn tile (continuing the seeded
     /// sequence).
     pub fn respawn(&mut self) {
-        self.player = Some(Player::spawn(&self.room, &mut self.rng));
+        let player = Self::spawn_player(&self.room, self.spawn_tile, &mut self.rng);
+        self.graphics = Some(PlayerGraphics::new(
+            &player,
+            SlugcatName::White,
+            &mut self.graphics_rng,
+        ));
+        self.player = Some(player);
         log::info!("respawned player");
     }
 
-    /// One 40 Hz simulation tick: shortcut vessels, then the player, as the game orders
-    /// them. A dead player is frozen until [`Game::respawn`]; a destroyed one is gone
+    fn spawn_player(room: &Room, tile: Option<(i32, i32)>, rng: &mut StdRng) -> Player {
+        match tile {
+            Some(tile) => {
+                let mut player = Player::new();
+                player.place(tile, rng);
+                player
+            }
+            None => Player::spawn(room, rng),
+        }
+    }
+
+    /// One 40 Hz simulation tick: shortcut vessels, then the player and right after it
+    /// its graphics module, as the game orders them. A dead player is frozen until [`Game::respawn`]; a destroyed one is gone
     /// (docs/DIVERGENCES.md D4).
     pub fn tick(&mut self, input: Input) {
         if let Some(player) = &mut self.player
@@ -53,9 +84,13 @@ impl Game {
             self.shortcuts.update(&self.room, player);
             let was_stunned = player.is_stunned();
             player.update(&self.room, input);
+            if let Some(graphics) = &mut self.graphics {
+                graphics.update(player, &self.room, &mut self.graphics_rng);
+            }
             if player.is_destroyed() {
                 log::info!("player fell out of the room and was destroyed; R respawns");
                 self.player = None;
+                self.graphics = None;
             } else if player.is_dead() {
                 log::info!("player died; R respawns");
             } else if player.is_stunned() && !was_stunned {
@@ -68,6 +103,13 @@ impl Game {
             }
         }
         self.tick += 1;
+    }
+
+    /// The slugcat's sprites at `alpha` between ticks, eyes in `face_color` (the room
+    /// palette's `blackColor`); `None` once the player is destroyed.
+    pub fn draw_list(&mut self, alpha: f32, face_color: Color) -> Option<DrawList> {
+        let (player, graphics) = (self.player.as_ref()?, self.graphics.as_mut()?);
+        Some(graphics.draw(player, alpha, face_color))
     }
 
     /// Whether the player is dead and frozen.
@@ -154,7 +196,7 @@ mod tests {
 
     #[test]
     fn player_starts_on_all_fours_and_falls() {
-        let mut game = Game::new(open_room(), 1);
+        let mut game = Game::new(open_room(), 1, None);
         assert!(!game.player().is_standing());
         let before = game.head_y();
         for _ in 0..5 {
@@ -167,7 +209,7 @@ mod tests {
     #[test]
     fn falling_out_removes_the_player_until_respawn() {
         // The all-Air room has an open bottom: the player falls out and is destroyed.
-        let mut game = Game::new(open_room(), 1);
+        let mut game = Game::new(open_room(), 1, None);
         for _ in 0..400 {
             if game.player.is_none() {
                 break;
@@ -184,7 +226,7 @@ mod tests {
 
     #[test]
     fn dead_player_freezes_until_respawn() {
-        let mut game = Game::new(open_room(), 1);
+        let mut game = Game::new(open_room(), 1, None);
         game.player.as_mut().expect("player").die();
         let frozen = game.body().expect("body").clone();
         for _ in 0..10 {
@@ -197,7 +239,7 @@ mod tests {
 
     #[test]
     fn respawn_gives_a_fresh_player() {
-        let mut game = Game::new(open_room(), 1);
+        let mut game = Game::new(open_room(), 1, None);
         for _ in 0..10 {
             game.tick(Input {
                 x: 1,
