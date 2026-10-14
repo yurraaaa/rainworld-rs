@@ -106,6 +106,15 @@ recommendation. Nothing is ported before the user agrees.
   - Room-exit shortcuts can't be entered (no other rooms yet); in-room
     shortcut pipes work.
   - Water uses the game's full wavy surface simulation.
+- Game assets inside Unity files (sprite atlases, the noise texture,
+  audio) are extracted for now with AssetRipper
+  (`~/.local/share/assetripper/2.0.0/`, `../rainworld-re/tools/extract_atlases.sh`)
+  into a local cache outside the repo; never commit game assets. A native
+  Rust reader for Unity asset files replaces this later.
+- Slugcat (and later creature) graphics live in `rw-graphics`: the
+  cosmetic graphics simulation (tail, limbs, head, frame choice) depends
+  on `rw-sim` and `rw-assets` and outputs a backend-agnostic sprite list
+  that `rw-render` draws. `rw-sim` stays gameplay-only.
 
 ## Code style
 
