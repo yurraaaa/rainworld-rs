@@ -83,6 +83,11 @@ recommendation. Nothing is ported before the user agrees.
   present (default `/tmp/ilspy`, or `$ILSPY_DIR`); otherwise ask first.
   Library crates from crates.io added as Cargo dependencies and fetched
   by cargo are fine; say in the report which crates were added.
+- Agents don't open windows (no windowed or fullscreen runs, no
+  `--screenshot` runs, no `--mcp --window`): the user is at the machine
+  and repeated windows get in the way. Check behaviour and visuals
+  headless with the MCP tools (offscreen `screenshot`). Briefs must say
+  this.
 - Never match your own command line: `pkill -f`/`pgrep -f` match the shell
   running them and can kill the session. Check for the game with `pidof`
   or `/proc/<pid>/exe`.
