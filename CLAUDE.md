@@ -126,7 +126,7 @@ recommendation. Nothing is ported before the user agrees.
 registered in `.mcp.json` as `rainworld-rs` (it runs `cargo run --release`,
 so it serves the checkout's current code). Tools: `list_rooms`,
 `load_room`, `step`, `step_sequence`, `respawn`, `set_player`,
-`get_state`, `get_tiles`, `screenshot`.
+`get_state`, `get_tiles`, `screenshot`, `load_process`, `step_process`.
 
 - Headless and deterministic: the sim advances only in `step` /
   `step_sequence` (40 ticks per second); the same room, seed and inputs
@@ -137,6 +137,10 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   text.
 - To check behaviour, prefer these tools over `--screenshot`/`--script`.
   Briefs for agents that check behaviour should say so.
+- `load_process` boots the process manager as the game does (black,
+  Initialization, fade) into a process (`font_test`, `game`, later the
+  menus); `step_process` runs 1/40 s frames holding Rewired key names;
+  `screenshot` then draws the process frame with its fade.
 - `--mcp --window` also shows the driven scene in a window.
 - Long-term goal: an Android port at the end of the project. Don't rule it
   out: keep platform-specific code (windowing, file paths to the game data,
