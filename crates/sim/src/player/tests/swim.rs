@@ -49,6 +49,18 @@ impl Player {
         Self::swimmer(head, head - Vec2::new(0.0, 17.0), input)
     }
 
+    /// Surface-swimming at x 300 with the head `depth` px under.
+    fn surface_swimmer_under(depth: f32, input: Input) -> Self {
+        Self::upright_under(depth, input).with_mode(BodyMode::Swimming, Animation::SurfaceSwim)
+    }
+
+    /// Surface-swimming in the pole column, head `depth` px under, holding up.
+    fn pole_swimmer_under(depth: f32) -> Self {
+        let head = Vec2::new(90.0, LEVEL - depth);
+        Self::swimmer(head, head - Vec2::new(0.0, 17.0), UP)
+            .with_mode(BodyMode::Swimming, Animation::SurfaceSwim)
+    }
+
     fn with_mode(mut self, mode: BodyMode, animation: Animation) -> Self {
         self.body_mode = mode;
         self.animation = animation;
@@ -98,16 +110,15 @@ fn deep_needs_the_hips_60_percent_under_unless_diving() {
 #[test]
 fn surface_swim_hysteresis_until_80_px_or_diving() {
     let (r, w) = pool();
-    let held = |depth: f32, input: Input| {
-        Player::upright_under(depth, input)
-            .with_mode(BodyMode::Swimming, Animation::SurfaceSwim)
-            .classified(&r, &w)
-            .1
-    };
-    assert_eq!(held(50.0, Input::NONE), Animation::SurfaceSwim);
-    assert_eq!(held(79.0, Input::NONE), Animation::SurfaceSwim);
-    assert_eq!(held(81.0, Input::NONE), Animation::DeepSwim);
-    assert_eq!(held(50.0, DOWN), Animation::DeepSwim);
+    for (depth, input, expected) in [
+        (50.0, Input::NONE, Animation::SurfaceSwim),
+        (79.0, Input::NONE, Animation::SurfaceSwim),
+        (81.0, Input::NONE, Animation::DeepSwim),
+        (50.0, DOWN, Animation::DeepSwim),
+    ] {
+        let p = Player::surface_swimmer_under(depth, input);
+        assert_eq!(p.classified(&r, &w).1, expected, "depth {depth}");
+    }
 }
 
 #[test]
@@ -262,13 +273,8 @@ fn swimming_mode_drops_through_floors() {
 fn no_pole_grab_mostly_under_water() {
     let (r, w) = pool();
     // Head in the pole column (tile 4) holding up.
-    let at = |depth: f32| {
-        let head = Vec2::new(90.0, LEVEL - depth);
-        Player::swimmer(head, head - Vec2::new(0.0, 17.0), UP)
-            .with_mode(BodyMode::Swimming, Animation::SurfaceSwim)
-    };
     // Submersion 1: no grab.
-    let mut p = at(60.0);
+    let mut p = Player::pole_swimmer_under(60.0);
     p.grab_beam(&r, Some(&w));
     assert_eq!(p.animation, Animation::SurfaceSwim);
     // Head out, hips half in: Submersion (0 + 0.5) / 2 <= 0.9, so it grabs.
