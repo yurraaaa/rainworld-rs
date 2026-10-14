@@ -49,6 +49,27 @@ impl Player {
         self.air_in_lungs
     }
 
+    /// `outOfBreathFac`: `[0]` how short of breath (0..1) and `[2]` the panting phase,
+    /// `[1]` and `[3]` their values a tick earlier.
+    #[must_use]
+    pub fn out_of_breath(&self) -> [f32; 4] {
+        self.out_of_breath
+    }
+
+    /// `outOfBreathFac` step of `Player.Update`, right after `LungUpdate`.
+    pub(super) fn update_out_of_breath(&mut self) {
+        let f = &mut self.out_of_breath;
+        f[1] = f[0];
+        f[3] = f[2];
+        f[0] = if self.dead {
+            f[0].lerp_and_tick(0.0, 0.2, 0.05)
+        } else {
+            self.air_in_lungs
+                .inverse_lerp(DROWN_THRESHOLD + 1.0 / 6.0, 0.2)
+        };
+        f[2] += 1.0 / 40.0_f32.lerp(4.0, f[0]);
+    }
+
     /// Came up short of breath and still recovering (`lungsExhausted`).
     #[must_use]
     pub fn lungs_exhausted(&self) -> bool {

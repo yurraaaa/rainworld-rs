@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use rw_graphics::{DrawList, Layer};
-use rw_render::{Camera, LevelView, Renderer, RoomLayers, WaterSurface};
+use rw_render::{Camera, LevelView, Renderer, RoomLayers, WaterFrame, WaterSprites, WaterSurface};
 use rw_sim::Input;
 
 use crate::game::Game;
@@ -25,6 +25,8 @@ pub struct Scene {
     game: Game,
     /// The level graphic, when the room's images and palettes loaded.
     visuals: Option<Visuals>,
+    /// The water's sprites (`Water.InitiateSprites`), made on the first level frame.
+    water_sprites: Option<WaterSprites>,
 }
 
 /// How a frame is drawn.
@@ -63,6 +65,7 @@ impl Scene {
             id: NEXT_SCENE_ID.fetch_add(1, Ordering::Relaxed),
             game,
             visuals,
+            water_sprites: None,
         }
     }
 
@@ -140,9 +143,18 @@ impl Scene {
             }
         };
         let water = self.game.water_surface(alpha);
+        let palette = self.visuals.as_ref().map(Visuals::room_palette);
+        let water_depth = match (&level, &water, palette) {
+            (Some(view), Some(surface), Some(palette)) => {
+                self.draw_water_sprites(surface, view, palette, alpha)
+            }
+            _ => None,
+        };
+        let water_sprites = self.water_sprites.as_ref().zip(water_depth);
         FrameDraw {
             game: &self.game,
             water: water.as_ref(),
+            water_sprites,
             level,
             sprites: sprites.as_ref(),
             layers: view.layers,
@@ -154,10 +166,47 @@ impl Scene {
     }
 }
 
+impl Scene {
+    /// `Water.DrawSprites` for the level view `view`; returns `_waterDepth`.
+    fn draw_water_sprites(
+        &mut self,
+        surface: &WaterSurface,
+        view: &LevelView,
+        palette: rw_assets::RoomPalette,
+        alpha: f32,
+    ) -> Option<f32> {
+        let game = &self.game;
+        let first_point = game.water_previous_point(view.origin[0] - 30.0)?;
+        let total = surface.len();
+        if !self
+            .water_sprites
+            .as_ref()
+            .is_some_and(|s| s.fits(total, view.size[0]))
+        {
+            self.water_sprites = Some(WaterSprites::new(total, view.size[0]));
+        }
+        let sprites = self.water_sprites.as_mut()?;
+        sprites.draw(&WaterFrame {
+            surface,
+            first_point,
+            cam_pos: view.origin,
+            screen_size: view.size,
+            palette: &palette,
+            glitter: game.water_glitter(alpha),
+            light: game.player_light(alpha),
+            time_stacker: alpha,
+        });
+        Some(game.water_depth())
+    }
+}
+
 /// One frame's draw calls, in the game's order.
 struct FrameDraw<'a> {
     game: &'a Game,
+    /// The surface for the debug view's flat water.
     water: Option<&'a WaterSurface>,
+    /// The game's water sprites and `_waterDepth`, in the level view.
+    water_sprites: Option<(&'a WaterSprites, f32)>,
     /// The game's window into the level graphic; `None` in the debug view.
     level: Option<LevelView>,
     /// The slugcat's sprites, drawn only with the level graphic. Without it (the debug
@@ -193,8 +242,11 @@ impl FrameDraw<'_> {
             r.draw_sprites(list, Layer::Foreground, level.origin);
         }
         r.draw_shortcut_vessel(self.game.vessel_tile());
-        if let Some(water) = self.water {
-            r.draw_water(water);
+        // The `Water` container, after the level, foreground sprites and shortcuts.
+        match (self.level, self.water_sprites, self.water) {
+            (Some(_), Some((sprites, depth)), _) => r.draw_water_sprites(sprites, depth),
+            (None, _, Some(water)) => r.draw_water(water),
+            _ => {}
         }
     }
 }
@@ -235,7 +287,7 @@ mod tests {
 
     use rw_assets::{PngImage, Room};
     use rw_graphics::Color as SpriteColor;
-    use rw_render::{Color, LevelGraphics, Mesh, RenderError, SpriteAtlas};
+    use rw_render::{Color, LevelGraphics, Mesh, RenderError, SpriteAtlas, WaterSprites};
 
     use super::*;
     use crate::game::tests::open_room;
@@ -248,6 +300,8 @@ mod tests {
         lines: usize,
         sprite_calls: usize,
         level: bool,
+        /// Level, sprite, mesh and water calls in order.
+        order: Vec<&'static str>,
     }
 
     impl Renderer for Recorder {
@@ -261,10 +315,15 @@ mod tests {
         fn set_level(&mut self, _: &LevelGraphics<'_>) {}
         fn draw_level(&mut self, _: LevelView) {
             self.level = true;
+            self.order.push("level");
         }
         fn set_atlas(&mut self, _: &SpriteAtlas, _: &PngImage) {}
-        fn draw_sprites(&mut self, _: &DrawList, _: Layer, _: [f32; 2]) {
+        fn draw_sprites(&mut self, _: &DrawList, layer: Layer, _: [f32; 2]) {
             self.sprite_calls += 1;
+            self.order.push(match layer {
+                Layer::Foreground => "foreground",
+                _ => "midground",
+            });
         }
         fn draw_circle(&mut self, _: [f32; 2], _: f32, _: Color) {
             self.circles += 1;
@@ -276,7 +335,12 @@ mod tests {
             self.lines += 1;
         }
         fn draw_rect(&mut self, _: [f32; 2], _: [f32; 2], _: Color) {}
-        fn draw_mesh(&mut self, _: &Mesh) {}
+        fn draw_mesh(&mut self, _: &Mesh) {
+            self.order.push("mesh");
+        }
+        fn draw_water_sprites(&mut self, _: &WaterSprites, _: f32) {
+            self.order.push("water sprites");
+        }
         fn present(&mut self) -> Result<(), RenderError> {
             Ok(())
         }
@@ -285,10 +349,21 @@ mod tests {
 
     impl Recorder {
         fn record(game: &Game, level: Option<LevelView>, sprites: &DrawList) -> Self {
+            Self::record_with_water(game, level, sprites, None, None)
+        }
+
+        fn record_with_water(
+            game: &Game,
+            level: Option<LevelView>,
+            sprites: &DrawList,
+            water: Option<&WaterSurface>,
+            water_sprites: Option<(&WaterSprites, f32)>,
+        ) -> Self {
             let mut r = Self::default();
             FrameDraw {
                 game,
-                water: None,
+                water,
+                water_sprites,
                 level,
                 sprites: Some(sprites),
                 layers: RoomLayers::default(),
@@ -327,5 +402,34 @@ mod tests {
         assert_eq!(r.sprite_calls, 2, "midground and foreground");
         assert_eq!(r.circles, 0);
         assert!(r.level);
+    }
+
+    #[test]
+    fn water_sprites_after_the_level_and_foreground_flat_water_in_debug() {
+        let mut game = Game::new(open_room(), &rw_assets::RoomSettings::ANCESTOR, 1, None);
+        let sprites = game.draw_list(1.0, SpriteColor::BLACK).expect("player");
+        let surface = WaterSurface::flat(400.0, 50.0);
+        let water = WaterSprites::new(surface.len(), 1366.0);
+        let level = LevelView {
+            origin: [0.0, 0.0],
+            size: [1366.0, 768.0],
+            rain: 0.0,
+        };
+        let r = Recorder::record_with_water(
+            &game,
+            Some(level),
+            &sprites,
+            Some(&surface),
+            Some((&water, 0.0)),
+        );
+        assert_eq!(
+            r.order,
+            ["midground", "level", "foreground", "water sprites"],
+            "the Water container comes after the level and the foreground sprites"
+        );
+        // The debug view keeps the flat translucent water, drawn last.
+        let r = Recorder::record_with_water(&game, None, &sprites, Some(&surface), None);
+        assert_eq!(r.order.last(), Some(&"mesh"));
+        assert!(!r.order.contains(&"water sprites"));
     }
 }

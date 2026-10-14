@@ -13,7 +13,7 @@ pub mod shortcut;
 pub use cache::{AssetCache, CACHE_ENV};
 pub use files::{AssetError, StreamingAssets};
 pub use noise::NoiseTexture;
-pub use palette::{EffectColors, PaletteImage, PaletteTexture};
+pub use palette::{EffectColors, PaletteImage, PaletteTexture, RoomPalette};
 pub use png_image::PngImage;
 pub use room::{
     Room, RoomError, Shortcut, Slope, TILE_SIZE, Terrain, Tile, TileFlags, tile_centre,

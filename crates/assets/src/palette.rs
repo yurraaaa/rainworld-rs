@@ -25,6 +25,24 @@ pub struct PaletteTexture {
     texels: Vec<[u8; 4]>,
 }
 
+/// `RoomPalette`: named colours read from the palette texture's top row (`GetPixel(x,
+/// 7)`), RGBA 0..1 (`rainworld-re/notes/water-rendering.md` section 3).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RoomPalette {
+    pub sky_color: [f32; 4],
+    pub fog_color: [f32; 4],
+    pub black_color: [f32; 4],
+    pub water_color1: [f32; 4],
+    pub water_color2: [f32; 4],
+    pub water_surface_color1: [f32; 4],
+    pub water_surface_color2: [f32; 4],
+    pub water_shine_color: [f32; 4],
+    /// `1 - R` of texel (9, 7) (no blue special case, unlike the shader's `_fogAmount`).
+    pub fog_amount: f32,
+    /// `1 - R` of texel (30, 7).
+    pub darkness: f32,
+}
+
 impl PaletteImage {
     pub const WIDTH: usize = 32;
     pub const HEIGHT: usize = 16;
@@ -211,9 +229,70 @@ impl PaletteTexture {
         }
     }
 
+    /// The `RoomPalette` the camera builds from this texture (`RoomCamera.ApplyFade`).
+    #[must_use]
+    pub fn room_palette(&self) -> RoomPalette {
+        RoomPalette {
+            sky_color: self.top_color(0),
+            fog_color: self.top_color(1),
+            black_color: self.top_color(2),
+            water_color1: self.top_color(4),
+            water_color2: self.top_color(5),
+            water_surface_color1: self.top_color(6),
+            water_surface_color2: self.top_color(7),
+            water_shine_color: self.top_color(8),
+            fog_amount: 1.0 - self.top_color(9)[0],
+            darkness: 1.0 - self.top_color(30)[0],
+        }
+    }
+
+    /// `GetPixel(x, 7)` as 0..1 RGBA.
+    fn top_color(&self, x: usize) -> [f32; 4] {
+        self.texel(x, 7).to_color()
+    }
+
     /// RGBA bytes, row 0 (bottom) first, for upload.
     #[must_use]
     pub fn bytes(&self) -> Vec<u8> {
         self.texels.iter().flatten().copied().collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn room_palette_reads_the_top_row() {
+        // PNG row 0 (runtime row 7): texel x is (10x, 20, 30); x9 has red 51, x30 red 102.
+        let pixels = (0..PaletteImage::HEIGHT)
+            .flat_map(|row| (0..PaletteImage::WIDTH).map(move |x| (x, row)))
+            .map(|(x, row)| match (x, row) {
+                (9, 0) => [51, 0, 0, 255],
+                (30, 0) => [102, 0, 0, 255],
+                (x, 0) => [(10 * x) as u8, 20, 30, 255],
+                _ => [1, 2, 3, 255],
+            })
+            .collect();
+        let image = PaletteImage::from_image(&PngImage::from_pixels(32, 16, pixels)).unwrap();
+        let p = PaletteTexture::blend(&image, None, 0.0).room_palette();
+        for (x, got) in [
+            (0.0, p.sky_color),
+            (1.0, p.fog_color),
+            (2.0, p.black_color),
+            (4.0, p.water_color1),
+            (5.0, p.water_color2),
+            (6.0, p.water_surface_color1),
+            (7.0, p.water_surface_color2),
+            (8.0, p.water_shine_color),
+        ] {
+            assert_eq!(
+                got,
+                [x * 10.0 / 255.0, 20.0 / 255.0, 30.0 / 255.0, 1.0],
+                "x {x}"
+            );
+        }
+        assert!((p.fog_amount - 0.8).abs() < 1e-6);
+        assert!((p.darkness - 0.6).abs() < 1e-6);
     }
 }

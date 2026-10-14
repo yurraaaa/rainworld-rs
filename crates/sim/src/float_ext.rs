@@ -14,6 +14,17 @@ pub(crate) trait FloatExt: Sized {
 
     /// `Custom.LerpMap` with an exponent applied to the clamped fraction.
     fn lerp_map_pow(self, from_a: f32, to_a: f32, from_b: f32, to_b: f32, exponent: f32) -> f32;
+
+    /// `Custom.LerpAndTick`: lerp toward `to`, then step a further `tick` toward it
+    /// without passing it.
+    fn lerp_and_tick(self, to: f32, lerp: f32, tick: f32) -> f32 {
+        let v = self.lerp(to, lerp);
+        if v < to {
+            (v + tick).min(to)
+        } else {
+            (v - tick).max(to)
+        }
+    }
 }
 
 impl FloatExt for f32 {

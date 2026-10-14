@@ -100,6 +100,12 @@ impl Visuals {
         rw_graphics::Color { r, g, b, a }
     }
 
+    /// The camera's `RoomPalette` (water colours among others).
+    #[must_use]
+    pub fn room_palette(&self) -> rw_assets::RoomPalette {
+        self.palette.room_palette()
+    }
+
     /// The room camera's window size (`sSize`, the screen resolution).
     #[must_use]
     pub fn screen_size(&self) -> [f32; 2] {

@@ -28,6 +28,8 @@ mod status;
 #[cfg(test)]
 mod test_room;
 mod water;
+mod water_gpu;
+mod water_sprites;
 
 pub use body::ChunkInterpolation;
 pub use camera::Camera;
@@ -39,9 +41,14 @@ pub use mesh::{Color, Mesh, Vertex};
 pub use present::{PresentFilter, PresentRect, Resolution};
 pub use room_camera::{Follow, RoomCamera};
 pub use room_geometry::{RoomDebugGeometry, RoomShape, SlopeGeometry};
-pub use sprites::{Batch, DrawQueue, NodeMatrix, SpriteAtlas, SpriteBatch, SpriteVertex};
+pub use sprites::{
+    Batch, DrawQueue, NodeMatrix, SpriteAtlas, SpriteBatch, SpriteVertex, WaterShader,
+};
 pub use status::{BodyStatus, BodyStyle};
 pub use water::WaterSurface;
+pub use water_sprites::{
+    ApplyDepth, PlayerLight, WaterFrame, WaterSprites, WaterTriangleMesh, WaterVertex,
+};
 
 use rw_assets::{PngImage, Room, TILE_SIZE};
 use rw_graphics::{DrawList, Layer};
@@ -168,8 +175,14 @@ pub trait Renderer {
         }
     }
 
-    /// Translucent water from `surface` down to [`WaterSurface::DEPTH_BELOW_ROOM`]
-    /// under the room. Draw it after the bodies: water covers them, as in the game.
+    /// The game's water (`Water`'s two sprites in the `Water` container), shaded by
+    /// the `WaterSurface` and `DeepWater` shaders with `_waterDepth` = `depth`. Drawn
+    /// only in a frame that draws the level, after it (they read the level image and
+    /// what was drawn behind the level).
+    fn draw_water_sprites(&mut self, sprites: &WaterSprites, depth: f32);
+
+    /// Debug view: translucent water from `surface` down to
+    /// [`WaterSurface::DEPTH_BELOW_ROOM`] under the room. Draw it after the bodies.
     fn draw_water(&mut self, surface: &WaterSurface) {
         self.draw_mesh(&surface.mesh(-WaterSurface::DEPTH_BELOW_ROOM));
     }

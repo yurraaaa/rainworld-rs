@@ -233,6 +233,8 @@ pub struct Player {
 
     /// Breath left: 1 full, 0 out of air (below 0 briefly while heading up).
     air_in_lungs: f32,
+    /// `outOfBreathFac`: [shortness of breath, last tick's, pant phase, last tick's].
+    out_of_breath: [f32; 4],
     /// Came up for air with less than a third left: slow recovery until full.
     lungs_exhausted: bool,
     /// The head was under water (submersion above 0.9) last tick.
@@ -330,6 +332,7 @@ impl Player {
             drop_grab_tile: None,
             blink_request: 0,
             air_in_lungs: 1.0,
+            out_of_breath: [0.0; 4],
             lungs_exhausted: false,
             submerged: false,
             drown: 0.0,
@@ -471,6 +474,7 @@ impl Player {
         if !self.dead {
             self.lung_update(room, water, rng);
         }
+        self.update_out_of_breath();
         self.read_input(input);
         self.set_unconscious_modes();
         self.update_after_input(room, rng);

@@ -9,8 +9,10 @@
 //! A second one draws the level graphic (`level_gpu`): the shapes and sprites queued
 //! before [`Renderer::draw_level`] go to an offscreen "behind" target first, which the
 //! level shader reads to let them show through sky and far pixels. A third draws the
-//! atlas sprites (`sprite_gpu`). Draw calls keep their call order across pipelines
-//! ([`DrawQueue`]). The WGSL shaders are compiled at runtime by wgpu.
+//! atlas sprites (`sprite_gpu`), and a fourth the game's water (`water_gpu`), which
+//! reads the level textures and the "behind" target too. Draw calls keep their call
+//! order across pipelines ([`DrawQueue`]). The WGSL shaders are compiled at runtime by
+//! wgpu.
 //!
 //! [`WgpuRenderer::headless`] has no window: it only draws the frame.
 
@@ -26,9 +28,11 @@ use wgpu::util::DeviceExt;
 use crate::level_gpu::{LevelPipeline, LevelTextures};
 use crate::present_gpu::PresentPipeline;
 use crate::sprite_gpu::SpritePipeline;
+use crate::water_gpu::{WaterBinding, WaterPipeline};
 use crate::{
     Batch, Camera, Color, DrawQueue, FrameImage, LevelGraphics, LevelView, Mesh, PresentRect,
     RenderError, Renderer, Resolution, RoomDebugGeometry, RoomLayers, SpriteAtlas, Vertex,
+    WaterSprites,
 };
 
 const BACKGROUND: wgpu::Color = wgpu::Color {
@@ -65,6 +69,9 @@ pub struct WgpuRenderer {
     /// This frame's level placement.
     level_view: Option<LevelView>,
     sprite_pipeline: SpritePipeline,
+    water_pipeline: WaterPipeline,
+    /// This frame's `_waterDepth`.
+    water_depth: f32,
     atlas: Option<SpriteAtlas>,
     /// This frame's camera position for sprites (stage origin in room pixels).
     stage_origin: [f32; 2],
@@ -262,6 +269,7 @@ impl WgpuRenderer {
         let pipeline = Self::create_pipeline(&device, &bind_group_layout, format);
         let level_pipeline = LevelPipeline::new(&device, format);
         let sprite_pipeline = SpritePipeline::new(&device, format);
+        let water_pipeline = WaterPipeline::new(&device, format);
         let frame = FrameTargets::new(&device, format, frame_size);
         let mut present_pipeline = PresentPipeline::new(&device, format);
         present_pipeline.bind(&device, &frame.view);
@@ -280,6 +288,8 @@ impl WgpuRenderer {
             level: None,
             level_view: None,
             sprite_pipeline,
+            water_pipeline,
+            water_depth: 0.0,
             atlas: None,
             stage_origin: [0.0, 0.0],
             missing: HashSet::new(),
@@ -433,11 +443,17 @@ impl WgpuRenderer {
             occlusion_query_set: None,
             multiview_mask: None,
         });
-        self.draw_batches(&mut pass, batches);
+        self.draw_batches(&mut pass, batches, None);
     }
 
-    /// Draws shape and sprite batches in order (the level marker is skipped).
-    fn draw_batches(&self, pass: &mut wgpu::RenderPass<'_>, batches: &[Batch]) {
+    /// Draws shape, sprite and water batches in order (the level marker is skipped;
+    /// water only with its bind group).
+    fn draw_batches(
+        &self,
+        pass: &mut wgpu::RenderPass<'_>,
+        batches: &[Batch],
+        water: Option<&wgpu::BindGroup>,
+    ) {
         for batch in batches {
             match batch {
                 Batch::Shapes(range) => {
@@ -451,6 +467,12 @@ impl WgpuRenderer {
                 }
                 Batch::Sprites(range) => self.sprite_pipeline.draw(pass, range.clone()),
                 Batch::Level => {}
+                Batch::Water(shader, range) => {
+                    if let Some(bind_group) = water {
+                        self.water_pipeline
+                            .draw(pass, bind_group, *shader, range.clone());
+                    }
+                }
             }
         }
     }
@@ -696,6 +718,11 @@ impl Renderer for WgpuRenderer {
         self.queue_draws.shapes.extend(mesh);
     }
 
+    fn draw_water_sprites(&mut self, sprites: &WaterSprites, depth: f32) {
+        self.water_depth = depth;
+        self.queue_draws.push_water(sprites);
+    }
+
     fn set_atlas(&mut self, atlas: &SpriteAtlas, image: &PngImage) {
         self.sprite_pipeline
             .set_atlas(&self.device, &self.queue, image);
@@ -733,6 +760,8 @@ impl Renderer for WgpuRenderer {
             &self.camera,
             self.stage_origin,
         );
+        self.water_pipeline
+            .upload(&self.device, &self.queue, &self.queue_draws.water);
         let batches = self.queue_draws.batches();
         let split = batches.iter().position(|b| *b == Batch::Level);
 
@@ -753,7 +782,19 @@ impl Renderer for WgpuRenderer {
                     &self.camera,
                     view,
                 );
-                Some((bind_group, self.scissor(view), split + 1))
+                let water = self.water_pipeline.bind(
+                    &self.device,
+                    &self.queue,
+                    textures,
+                    &WaterBinding {
+                        behind: &self.frame.behind,
+                        camera: &self.camera,
+                        view,
+                        depth: self.water_depth,
+                        frame_size: self.frame.size,
+                    },
+                );
+                Some((bind_group, self.scissor(view), split + 1, water))
             }
             _ => None,
         };
@@ -780,7 +821,7 @@ impl Renderer for WgpuRenderer {
                 multiview_mask: None,
             });
             let mut first_batch = 0;
-            if let Some((bind_group, scissor, after_level)) = &level {
+            if let Some((bind_group, scissor, after_level, _)) = &level {
                 let (x, y, w, h) = scissor.unwrap_or_default();
                 pass.set_scissor_rect(x, y, w, h);
                 pass.set_pipeline(self.level_pipeline.pipeline());
@@ -806,7 +847,8 @@ impl Renderer for WgpuRenderer {
                 pass.set_vertex_buffer(0, mesh.buffer.slice(..));
                 pass.draw(0..mesh.count, 0..1);
             }
-            self.draw_batches(&mut pass, &batches[first_batch..]);
+            let water = level.as_ref().map(|(_, _, _, water)| water);
+            self.draw_batches(&mut pass, &batches[first_batch..], water);
         }
         let readback = self
             .capture

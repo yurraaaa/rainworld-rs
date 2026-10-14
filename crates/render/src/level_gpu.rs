@@ -36,6 +36,18 @@ pub(crate) struct LevelTextures {
     params: LevelParams,
 }
 
+impl LevelTextures {
+    /// Room position and size of the image.
+    pub(crate) fn rect(&self) -> [f32; 4] {
+        self.rect
+    }
+
+    /// The image, palette and noise views.
+    pub(crate) fn views(&self) -> [&wgpu::TextureView; 3] {
+        [&self.image, &self.palette, &self.noise]
+    }
+}
+
 impl LevelPipeline {
     pub(crate) fn new(device: &wgpu::Device, format: wgpu::TextureFormat) -> Self {
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {

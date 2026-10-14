@@ -427,3 +427,27 @@ fn a_dropped_body_floats_up_and_surface_swims() {
     assert!((p.head().pos.y - LEVEL).abs() < 25.0, "{:?}", p.head());
     assert!(!p.is_dead());
 }
+
+#[test]
+fn out_of_breath_follows_the_air_left() {
+    let mut p = Player::new();
+    p.air_in_lungs = 0.35;
+    p.update_out_of_breath();
+    // [0] = InverseLerp(1/3 + 1/6, 0.2, 0.35) = 0.5; [2] += 1 / lerp(40, 4, 0.5).
+    let f = p.out_of_breath();
+    assert_close(f[0], 0.5, "shortness");
+    assert_close(f[1], 0.0, "last shortness");
+    assert_close(f[2], 1.0 / 22.0, "phase");
+    p.air_in_lungs = 1.0;
+    p.update_out_of_breath();
+    let f = p.out_of_breath();
+    assert_close(f[0], 0.0, "full lungs");
+    assert_close(f[1], 0.5, "last shortness");
+    assert_close(f[3], 1.0 / 22.0, "last phase");
+    assert_close(f[2], 1.0 / 22.0 + 1.0 / 40.0, "phase");
+    // Dead: LerpAndTick(0.5, 0, 0.2, 0.05) = 0.4 - 0.05.
+    p.out_of_breath[0] = 0.5;
+    p.dead = true;
+    p.update_out_of_breath();
+    assert_close(p.out_of_breath()[0], 0.35, "dead");
+}

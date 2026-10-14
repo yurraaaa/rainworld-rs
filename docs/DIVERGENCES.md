@@ -244,7 +244,8 @@ in `PlayerGraphics` (they use the generic poses of their body mode, as in the ga
   order differ (D1).
 - **Swimming** is ported (draw offset from `swimCycle`, tail drag scaled by hip
   submersion, the `lungsExhausted` head bob and blink, the swimming hand targets, legs
-  hidden in `DeepSwim`); bubbles, splashes and the depth tint are not (D11).
+  hidden in `DeepSwim`); bubbles and splashes are not (D11). Under water the sprites
+  are tinted by the water's `DeepWater` shader, as in the game (D11).
 - **`aerobicLevel` is 0.** The player has no aerobic level yet, so breathing runs at the
   resting pace (`breath += 1/60` per tick), never pants, and the exhausted face and
   head bob never show.
@@ -370,8 +371,20 @@ restrictions (`rainworld-re/notes/water.md`), base game with Remix off, Survivor
   direction (digital input only).
 - **Slerp for opposite vectors.** Unity's `Vector3.Slerp` between antiparallel vectors
   picks an axis the notes do not record; the port turns counter-clockwise.
-- **Drawing.** Only the front surface strip is drawn (no back strip, no
-  `ApplyDepthOnVector` perspective).
+- **Drawing.** The level view draws the water as `Water.DrawSprites` does
+  (`rw_render::WaterSprites`, `shaders/water.wgsl`; `rainworld-re/notes/water-rendering.md`):
+  both rows with `ApplyDepthOnVector`, the `WaterSurface` band and the `DeepWater` body,
+  palette water colours, shine, the player light with `outOfBreathFac`, `_waterDepth`
+  from `waterInFrontOfTerrain` (2/31 for `GATE_` rooms, taken from the name), in the
+  `Water` container after the level, foreground sprites and shortcuts. The debug view
+  keeps its own flat translucent water. Still differing: no light sources screen onto
+  the surface colour (`GetSurfaceColor`'s light loop; no lights are ported), splashes
+  and bubbles (separate `Splash` / `Bubble` objects, not part of `Water`'s sprites) are
+  not drawn, the water gates' `cosmeticLowerBorder` / `cosmeticSurfaceDisplace` and the
+  DLC branches (`WaterSlush`, air pockets, inverted water, `Gutter`, ripple, brain
+  mold, `WaterDepth` effect) are left out. The `_GrabTexture` the shaders read is the
+  pre-level target (what LevelColor's grab pass holds in the game, INFERRED), and
+  `room.waterGlitterCycle` starts at 0 when the room is loaded.
 
 **Why.** Remix and DLC are out of the base-game scope; the rest is cosmetic or needs
 objects and effects that are not ported.

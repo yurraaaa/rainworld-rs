@@ -182,6 +182,38 @@ fn midground_before_the_level_and_foreground_after() {
 }
 
 #[test]
+fn water_after_the_level_and_foreground_band_then_body() {
+    let a = atlas();
+    let list = DrawList {
+        items: vec![DrawItem::Sprite(sprite(
+            "A",
+            [1.0, 1.0],
+            0.0,
+            Layer::Foreground,
+        ))],
+    };
+    let mut queue = DrawQueue::default();
+    queue.mark_level();
+    queue.push_sprites(&a, &list, Layer::Foreground, CAM);
+    let water = crate::WaterSprites::new(10, 40.0);
+    queue.push_water(&water);
+    // 7 points to render: 14 triangles per sprite.
+    assert_eq!(
+        queue.batches(),
+        [
+            Batch::Level,
+            Batch::Sprites(0..6),
+            Batch::Water(WaterShader::Surface, 0..42),
+            Batch::Water(WaterShader::Deep, 42..84),
+        ]
+    );
+    assert_eq!(queue.water.len(), 84);
+    queue.clear();
+    assert!(queue.water.is_empty());
+    assert!(queue.batches().is_empty());
+}
+
+#[test]
 fn installed_atlas_uvs() {
     // The extracted rainWorld atlas (464x512), when the cache has it.
     let Some(cache) = rw_assets::AssetCache::from_env() else {

@@ -11,7 +11,7 @@ use bytemuck::{Pod, Zeroable};
 use rw_graphics::{Atlas, AtlasFrame, DrawItem, DrawList, Layer, Mesh as SpriteMesh, Sprite};
 use rw_sim::Vec2;
 
-use crate::Mesh;
+use crate::{Mesh, WaterSprites, WaterVertex};
 
 /// One textured vertex: stage position (room pixels minus the camera position),
 /// texture coordinate (`v` = 0 at the image's bottom row, as Unity) and colour.
@@ -58,6 +58,17 @@ pub enum Batch {
     Sprites(Range<u32>),
     /// The level graphic: batches before it are drawn behind it.
     Level,
+    /// Water triangles drawn with one of the game's water shaders.
+    Water(WaterShader, Range<u32>),
+}
+
+/// Which water shader a [`Batch::Water`] uses.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WaterShader {
+    /// `WaterSurface`: the surface band.
+    Surface,
+    /// `DeepWater`: the water body.
+    Deep,
 }
 
 /// Things that interleave with the debug shapes.
@@ -70,6 +81,11 @@ enum Event {
     Level {
         shapes_before: u32,
     },
+    Water {
+        shapes_before: u32,
+        shader: WaterShader,
+        vertices: Range<u32>,
+    },
 }
 
 /// One frame's debug shapes and sprites with their order.
@@ -77,6 +93,8 @@ enum Event {
 pub struct DrawQueue {
     pub shapes: Mesh,
     pub sprites: SpriteBatch,
+    /// Water triangles (`WaterSprites`), in stage pixels.
+    pub water: Vec<WaterVertex>,
     events: Vec<Event>,
 }
 
@@ -243,7 +261,26 @@ impl DrawQueue {
     pub fn clear(&mut self) {
         self.shapes.clear();
         self.sprites.clear();
+        self.water.clear();
         self.events.clear();
+    }
+
+    /// Queues the water's surface band, then its body, after everything so far.
+    pub fn push_water(&mut self, sprites: &WaterSprites) {
+        let start = self.water.len() as u32;
+        let split = sprites.push_triangles(&mut self.water) as u32;
+        let end = self.water.len() as u32;
+        let shapes_before = self.shapes.vertex_count();
+        for (shader, vertices) in [
+            (WaterShader::Surface, start..split),
+            (WaterShader::Deep, split..end),
+        ] {
+            self.events.push(Event::Water {
+                shapes_before,
+                shader,
+                vertices,
+            });
+        }
     }
 
     /// Queues `list`'s items of `layer` after everything queued so far. Returns the
@@ -282,9 +319,9 @@ impl DrawQueue {
         let mut shapes_done = 0;
         for event in &self.events {
             let shapes_before = match event {
-                Event::Sprites { shapes_before, .. } | Event::Level { shapes_before } => {
-                    *shapes_before
-                }
+                Event::Sprites { shapes_before, .. }
+                | Event::Level { shapes_before }
+                | Event::Water { shapes_before, .. } => *shapes_before,
             };
             if shapes_before > shapes_done {
                 out.push(Batch::Shapes(shapes_done..shapes_before));
@@ -293,6 +330,9 @@ impl DrawQueue {
             out.push(match event {
                 Event::Sprites { indices, .. } => Batch::Sprites(indices.clone()),
                 Event::Level { .. } => Batch::Level,
+                Event::Water {
+                    shader, vertices, ..
+                } => Batch::Water(*shader, vertices.clone()),
             });
         }
         let total = self.shapes.vertex_count();

@@ -183,8 +183,20 @@ impl Water {
         self.points.iter().map(move |p| p[0].draw_pos(time_stacker))
     }
 
+    /// Back surface points (`[i][1]`, half a step right of the front ones) as drawn.
+    pub fn back_draw_points(&self, time_stacker: f32) -> impl Iterator<Item = Vec2> + '_ {
+        self.points.iter().map(move |p| p[1].draw_pos(time_stacker))
+    }
+
+    /// `Room.waterInFrontOfTerrain`.
+    #[must_use]
+    pub fn in_front(&self) -> bool {
+        self.in_front
+    }
+
     /// `Surface.PreviousPoint`: the last front point at or left of `x`.
-    fn previous_point(&self, x: f32) -> usize {
+    #[must_use]
+    pub fn previous_point(&self, x: f32) -> usize {
         let last = self.points.len() as i32 - 1;
         let guess = ((x + 250.0) / Self::SPACING).floor() as i32 + 2;
         let mut i = guess.clamp(0, last) as usize;

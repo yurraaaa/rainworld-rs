@@ -6,7 +6,7 @@
 use rw_assets::{Room, RoomSettings, StreamingAssets};
 use rw_graphics::{Color, DrawList, PlayerGraphics, SlugcatName};
 use rw_random::UnityRandom;
-use rw_render::{BodyStatus, Follow, WaterSurface};
+use rw_render::{BodyStatus, ChunkInterpolation, Follow, PlayerLight, WaterSurface};
 use rw_sim::{
     Input, PhysicalObject, Player, ShortcutHandler, Vec2, Water, determine_safe_spawn_tile,
 };
@@ -149,8 +149,52 @@ impl Game {
     #[must_use]
     pub fn water_surface(&self, alpha: f32) -> Option<WaterSurface> {
         let water = self.water.as_ref()?;
-        let points = water.draw_points(alpha).map(Vec2::to_array).collect();
-        Some(WaterSurface::from_points(points))
+        let front = water.draw_points(alpha).map(Vec2::to_array).collect();
+        let back = water.back_draw_points(alpha).map(Vec2::to_array).collect();
+        Some(WaterSurface::from_rows(front, back, water.still_level()))
+    }
+
+    /// `PreviousPoint(x)` on the water's front points this tick.
+    #[must_use]
+    pub fn water_previous_point(&self, x: f32) -> Option<usize> {
+        self.water.as_ref().map(|w| w.previous_point(x))
+    }
+
+    /// `_waterDepth` (`RoomCamera.MoveCamera`): 0 with the water in front of the
+    /// terrain, 1/31 behind it, 2/31 in gates.
+    #[must_use]
+    pub fn water_depth(&self) -> f32 {
+        let gate = self.room.name().to_ascii_uppercase().starts_with("GATE_");
+        let depth = if gate {
+            2.0
+        } else if self.room.water_in_front() {
+            0.0
+        } else {
+            1.0
+        };
+        depth / 31.0
+    }
+
+    /// `Room.waterGlitterCycle` between ticks: it drops by 1/60 every room tick.
+    #[must_use]
+    pub fn water_glitter(&self, alpha: f32) -> f32 {
+        let now = -(self.tick as f32) / 60.0;
+        let last = -(self.tick.saturating_sub(1) as f32) / 60.0;
+        last + (now - last) * alpha
+    }
+
+    /// The followed player's light in the water: its main chunk at `alpha` and
+    /// `outOfBreathFac`; `None` when dead, destroyed or in a shortcut (out of the room).
+    #[must_use]
+    pub fn player_light(&self, alpha: f32) -> Option<PlayerLight> {
+        let player = self.player.as_ref()?;
+        if player.is_dead() || player.in_shortcut() {
+            return None;
+        }
+        Some(PlayerLight {
+            pos: player.body.chunks[0].interpolated_pos(alpha),
+            out_of_breath: player.out_of_breath(),
+        })
     }
 
     /// Whether the player is dead and frozen.

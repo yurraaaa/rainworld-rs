@@ -1,4 +1,6 @@
-//! Water body geometry (`rainworld-re/notes/water.md` sections 1 and 6).
+//! The water surface as drawn this frame, and the debug view's flat translucent water
+//! (`rainworld-re/notes/water.md` sections 1 and 6). The game's own water drawing is
+//! [`crate::WaterSprites`].
 
 use rw_assets::{Room, TILE_SIZE};
 
@@ -16,10 +18,14 @@ mod palette {
 ///
 /// The game's surface points are about 20 px apart from `x = -220` to
 /// `pixel_width + 220`; the simulation's wavy surface is passed in per frame with
-/// [`WaterSurface::from_points`].
+/// [`WaterSurface::from_rows`]: the front row (the physical surface) and the back row
+/// (half a step right, drawn only), at their draw positions.
 #[derive(Debug, Clone, PartialEq)]
 pub struct WaterSurface {
     points: Vec<[f32; 2]>,
+    back: Vec<[f32; 2]>,
+    /// Still water level (`fWaterLevel` between ticks), px.
+    level: f32,
 }
 
 impl WaterSurface {
@@ -30,21 +36,37 @@ impl WaterSurface {
     /// How far below the room's bottom edge the water body is filled, px.
     pub const DEPTH_BELOW_ROOM: f32 = 20.0;
 
-    /// Surface points `left, left + spacing, ...` with the given heights.
+    /// Surface points `left, left + spacing, ...` with the given heights; the back row
+    /// is the front one half a step to the right, the still level the first height.
     #[must_use]
     pub fn new(left: f32, spacing: f32, heights: Vec<f32>) -> Self {
-        let points = heights
+        let level = heights.first().copied().unwrap_or(0.0);
+        let points: Vec<[f32; 2]> = heights
             .into_iter()
             .enumerate()
             .map(|(i, h)| [left + i as f32 * spacing, h])
             .collect();
-        Self { points }
+        let back = points
+            .iter()
+            .map(|p| [p[0] + spacing / 2.0, p[1]])
+            .collect();
+        Self {
+            points,
+            back,
+            level,
+        }
     }
 
-    /// Surface through `points` (left to right).
+    /// Surface through the front `points` and `back` points (left to right, same
+    /// count) over still water at `level`.
     #[must_use]
-    pub fn from_points(points: Vec<[f32; 2]>) -> Self {
-        Self { points }
+    pub fn from_rows(points: Vec<[f32; 2]>, back: Vec<[f32; 2]>, level: f32) -> Self {
+        debug_assert_eq!(points.len(), back.len());
+        Self {
+            points,
+            back,
+            level,
+        }
     }
 
     /// A flat surface at `level` over the game's span for a room `pixel_width` wide.
@@ -82,6 +104,35 @@ impl WaterSurface {
     /// Surface points as room-pixel `[x, y]`.
     pub fn points(&self) -> impl Iterator<Item = [f32; 2]> + '_ {
         self.points.iter().copied()
+    }
+
+    /// Front point `i`.
+    #[must_use]
+    pub fn front(&self, i: usize) -> [f32; 2] {
+        self.points[i]
+    }
+
+    /// Back point `i`.
+    #[must_use]
+    pub fn back(&self, i: usize) -> [f32; 2] {
+        self.back[i]
+    }
+
+    /// Number of points per row.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.points.len()
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.points.is_empty()
+    }
+
+    /// Still water level, px.
+    #[must_use]
+    pub fn level(&self) -> f32 {
+        self.level
     }
 
     /// Translucent body from each surface segment down to `bottom`, with a bright
