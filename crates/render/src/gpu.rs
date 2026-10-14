@@ -2,7 +2,10 @@
 //!
 //! One pipeline draws coloured triangle lists: the room mesh and grid are uploaded
 //! once per [`Renderer::set_room`], the per-frame shapes every [`Renderer::present`].
-//! The WGSL shader is compiled at runtime by wgpu.
+//! A second one draws the level graphic (`level_gpu`): the shapes queued before
+//! [`Renderer::draw_level`] go to an offscreen "behind" target first, which the level
+//! shader reads to let them show through sky and far pixels. The WGSL shaders are
+//! compiled at runtime by wgpu.
 
 use std::borrow::Cow;
 use std::fs::File;
@@ -12,7 +15,11 @@ use std::path::{Path, PathBuf};
 use rw_assets::Room;
 use wgpu::util::DeviceExt;
 
-use crate::{Camera, Color, Mesh, RenderError, Renderer, RoomDebugGeometry, RoomLayers, Vertex};
+use crate::level_gpu::{LevelPipeline, LevelTextures};
+use crate::{
+    Camera, Color, LevelGraphics, LevelView, Mesh, RenderError, Renderer, RoomDebugGeometry,
+    RoomLayers, Vertex,
+};
 
 const BACKGROUND: wgpu::Color = wgpu::Color {
     r: 0.06,
@@ -42,6 +49,12 @@ pub struct WgpuRenderer {
     camera_bind_group: wgpu::BindGroup,
     sample_count: u32,
     msaa_view: Option<wgpu::TextureView>,
+    /// Single-sample target the shapes behind the level are drawn to.
+    behind_view: Option<wgpu::TextureView>,
+    level_pipeline: LevelPipeline,
+    level: Option<LevelTextures>,
+    /// This frame's level placement and the number of dynamic vertices queued before it.
+    level_draw: Option<(LevelView, u32)>,
     room: Option<StaticMesh>,
     grid: Option<StaticMesh>,
     dynamic: Mesh,
@@ -177,6 +190,7 @@ impl WgpuRenderer {
             }],
         });
         let pipeline = Self::create_pipeline(&device, &bind_group_layout, format, sample_count);
+        let level_pipeline = LevelPipeline::new(&device, format, sample_count);
 
         let mut renderer = Self {
             surface,
@@ -189,6 +203,10 @@ impl WgpuRenderer {
             camera_bind_group,
             sample_count,
             msaa_view: None,
+            behind_view: None,
+            level_pipeline,
+            level: None,
+            level_draw: None,
             room: None,
             grid: None,
             dynamic: Mesh::new(),
@@ -319,25 +337,93 @@ impl WgpuRenderer {
         self.config.width > 0 && self.config.height > 0
     }
 
+    /// Recreates the MSAA and "behind" targets at the surface size.
     fn recreate_msaa(&mut self) {
-        self.msaa_view = (self.sample_count > 1 && self.is_drawable()).then(|| {
-            self.device
-                .create_texture(&wgpu::TextureDescriptor {
-                    label: Some("msaa"),
-                    size: wgpu::Extent3d {
-                        width: self.config.width,
-                        height: self.config.height,
-                        depth_or_array_layers: 1,
-                    },
-                    mip_level_count: 1,
-                    sample_count: self.sample_count,
-                    dimension: wgpu::TextureDimension::D2,
-                    format: self.config.format,
-                    usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-                    view_formats: &[],
-                })
-                .create_view(&wgpu::TextureViewDescriptor::default())
+        let drawable = self.is_drawable();
+        self.msaa_view = (self.sample_count > 1 && drawable).then(|| {
+            self.target(
+                "msaa",
+                self.sample_count,
+                wgpu::TextureUsages::RENDER_ATTACHMENT,
+            )
         });
+        self.behind_view = drawable.then(|| {
+            self.target(
+                "behind level",
+                1,
+                wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            )
+        });
+    }
+
+    /// A render target of the surface's size and format.
+    fn target(&self, label: &str, samples: u32, usage: wgpu::TextureUsages) -> wgpu::TextureView {
+        self.device
+            .create_texture(&wgpu::TextureDescriptor {
+                label: Some(label),
+                size: wgpu::Extent3d {
+                    width: self.config.width,
+                    height: self.config.height,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: samples,
+                dimension: wgpu::TextureDimension::D2,
+                format: self.config.format,
+                usage,
+                view_formats: &[],
+            })
+            .create_view(&wgpu::TextureViewDescriptor::default())
+    }
+
+    /// Draws the first `count` dynamic vertices into the "behind" target, cleared to
+    /// black (the game's screen before the level is drawn).
+    fn draw_behind(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        behind: &wgpu::TextureView,
+        count: u32,
+    ) {
+        let (target, resolve) = match &self.msaa_view {
+            Some(msaa) => (msaa, Some(behind)),
+            None => (behind, None),
+        };
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("behind level pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: target,
+                depth_slice: None,
+                resolve_target: resolve,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+        if let (Some(buffer), true) = (&self.dynamic_buffer, count > 0) {
+            pass.set_pipeline(&self.pipeline);
+            pass.set_bind_group(0, &self.camera_bind_group, &[]);
+            pass.set_vertex_buffer(0, buffer.slice(..));
+            pass.draw(0..count, 0..1);
+        }
+    }
+
+    /// Screen rectangle `(x, y, width, height)` of the room rectangle `view`, clamped to
+    /// the surface.
+    fn scissor(&self, view: &LevelView) -> Option<(u32, u32, u32, u32)> {
+        let top_right = [view.origin[0] + view.size[0], view.origin[1] + view.size[1]];
+        let a = self.camera.world_to_screen(view.origin);
+        let b = self.camera.world_to_screen(top_right);
+        let (w, h) = (self.config.width as f32, self.config.height as f32);
+        let x0 = a[0].min(b[0]).round().clamp(0.0, w);
+        let x1 = a[0].max(b[0]).round().clamp(0.0, w);
+        let y0 = a[1].min(b[1]).round().clamp(0.0, h);
+        let y1 = a[1].max(b[1]).round().clamp(0.0, h);
+        (x1 > x0 && y1 > y0).then_some((x0 as u32, y0 as u32, (x1 - x0) as u32, (y1 - y0) as u32))
     }
 
     fn upload(&self, label: &str, mesh: &Mesh) -> Option<StaticMesh> {
@@ -430,10 +516,19 @@ impl Renderer for WgpuRenderer {
         self.camera = camera;
         self.dynamic.clear();
         self.layers = None;
+        self.level_draw = None;
     }
 
     fn draw_room(&mut self, layers: RoomLayers) {
         self.layers = Some(layers);
+    }
+
+    fn set_level(&mut self, level: &LevelGraphics<'_>) {
+        self.level = Some(LevelPipeline::upload(&self.device, &self.queue, level));
+    }
+
+    fn draw_level(&mut self, view: LevelView) {
+        self.level_draw = Some((view, self.dynamic.vertex_count()));
     }
 
     fn draw_circle(&mut self, centre: [f32; 2], radius: f32, color: Color) {
@@ -478,6 +573,27 @@ impl Renderer for WgpuRenderer {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("frame"),
             });
+        // The level, when drawn: its bind group, scissor and the shapes behind it.
+        let level = match (&self.level_draw, &self.level, &self.behind_view) {
+            (Some((view, split)), Some(textures), Some(behind)) => {
+                self.draw_behind(&mut encoder, behind, *split);
+                let bind_group = self.level_pipeline.bind(
+                    &self.device,
+                    &self.queue,
+                    textures,
+                    behind,
+                    &self.camera,
+                    view,
+                );
+                Some((bind_group, self.scissor(view), *split))
+            }
+            _ => None,
+        };
+        let clear = if level.is_some() {
+            wgpu::Color::BLACK
+        } else {
+            BACKGROUND
+        };
         {
             let (target, resolve) = match &self.msaa_view {
                 Some(msaa) => (msaa, Some(&view)),
@@ -490,7 +606,7 @@ impl Renderer for WgpuRenderer {
                     depth_slice: None,
                     resolve_target: resolve,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(BACKGROUND),
+                        load: wgpu::LoadOp::Clear(clear),
                         store: if resolve.is_some() {
                             wgpu::StoreOp::Discard
                         } else {
@@ -503,6 +619,15 @@ impl Renderer for WgpuRenderer {
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
+            let mut first_dynamic = 0;
+            if let Some((bind_group, scissor, split)) = &level {
+                let (x, y, w, h) = scissor.unwrap_or_default();
+                pass.set_scissor_rect(x, y, w, h);
+                pass.set_pipeline(self.level_pipeline.pipeline());
+                pass.set_bind_group(0, bind_group, &[]);
+                pass.draw(0..6, 0..1);
+                first_dynamic = *split;
+            }
             pass.set_pipeline(&self.pipeline);
             pass.set_bind_group(0, &self.camera_bind_group, &[]);
             let layers = self.layers.unwrap_or(RoomLayers {
@@ -521,9 +646,10 @@ impl Renderer for WgpuRenderer {
                 pass.set_vertex_buffer(0, mesh.buffer.slice(..));
                 pass.draw(0..mesh.count, 0..1);
             }
-            if let (Some(buffer), false) = (&self.dynamic_buffer, self.dynamic.is_empty()) {
+            let count = self.dynamic.vertex_count();
+            if let (Some(buffer), true) = (&self.dynamic_buffer, count > first_dynamic) {
                 pass.set_vertex_buffer(0, buffer.slice(..));
-                pass.draw(0..self.dynamic.vertex_count(), 0..1);
+                pass.draw(first_dynamic..count, 0..1);
             }
         }
         let readback = self

@@ -6,7 +6,7 @@
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 use rw_assets::Room;
-use rw_render::BodyStatus;
+use rw_render::{BodyStatus, Follow};
 use rw_sim::{Input, PhysicalObject, Player, ShortcutHandler};
 
 /// A room with (at most) one player in it.
@@ -102,6 +102,23 @@ impl Game {
     #[must_use]
     pub fn vessel_tile(&self) -> Option<(i32, i32)> {
         self.player.as_ref().and_then(Player::shortcut_vessel_tile)
+    }
+
+    /// What the room camera follows: the player's first chunk and input, or the centre
+    /// of its shortcut tile while it travels through one. `None` once destroyed.
+    #[must_use]
+    pub fn camera_follow(&self) -> Option<Follow> {
+        let player = self.player.as_ref()?;
+        let chunk = &player.body.chunks[0];
+        let input = player.input_history()[0];
+        Some(Follow {
+            pos: chunk.pos.to_array(),
+            vel: chunk.vel.to_array(),
+            input: [input.x, input.y],
+            in_shortcut_at: player
+                .shortcut_vessel_tile()
+                .map(|(x, y)| rw_assets::tile_centre(x, y)),
+        })
     }
 
     /// Ticks simulated since start.

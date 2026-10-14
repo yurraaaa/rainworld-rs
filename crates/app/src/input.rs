@@ -29,6 +29,7 @@ impl Action {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Command {
     Respawn,
+    ToggleView,
     ToggleGrid,
     Screenshot,
     Quit,
@@ -50,11 +51,13 @@ impl Action {
 }
 
 impl Command {
-    /// R respawns, G toggles the tile grid, F12 saves a screenshot, Esc quits.
+    /// R respawns, V switches level graphic / debug view, G toggles the tile grid,
+    /// F12 saves a screenshot, Esc quits.
     #[must_use]
     pub fn from_key(key: KeyCode) -> Option<Self> {
         Some(match key {
             KeyCode::KeyR => Command::Respawn,
+            KeyCode::KeyV => Command::ToggleView,
             KeyCode::KeyG => Command::ToggleGrid,
             KeyCode::F12 => Command::Screenshot,
             KeyCode::Escape => Command::Quit,

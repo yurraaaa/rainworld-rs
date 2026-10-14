@@ -1,5 +1,6 @@
-//! Debug renderer: room tile geometry, shortcut tubes, water and body chunks, drawn
-//! through the small [`Renderer`] trait so the backend can be replaced.
+//! Renderer: the room's level graphic (camera image through the palette) or its debug
+//! tile geometry, shortcut tubes, water and body chunks, drawn through the small
+//! [`Renderer`] trait so the backend can be replaced.
 //!
 //! The only backend is [`WgpuRenderer`] (wgpu pinned to Vulkan). Everything that does
 //! not need a GPU (camera, interpolation, tessellation, tile geometry) lives in plain
@@ -12,7 +13,10 @@ mod body;
 mod camera;
 mod error;
 mod gpu;
+mod level;
+mod level_gpu;
 mod mesh;
+mod room_camera;
 mod room_geometry;
 mod status;
 #[cfg(test)]
@@ -23,7 +27,9 @@ pub use body::ChunkInterpolation;
 pub use camera::Camera;
 pub use error::RenderError;
 pub use gpu::WgpuRenderer;
+pub use level::{LevelGraphics, LevelParams, LevelView};
 pub use mesh::{Color, Mesh, Vertex};
+pub use room_camera::{Follow, RoomCamera};
 pub use room_geometry::{RoomDebugGeometry, RoomShape, SlopeGeometry};
 pub use status::{BodyStatus, BodyStyle};
 pub use water::WaterSurface;
@@ -69,6 +75,15 @@ pub trait Renderer {
 
     /// Draws the room set by [`set_room`](Renderer::set_room), under all other shapes.
     fn draw_room(&mut self, layers: RoomLayers);
+
+    /// Uploads the level graphic of one camera, replacing the previous one.
+    fn set_level(&mut self, level: &LevelGraphics<'_>);
+
+    /// Draws the level set by [`set_level`](Renderer::set_level) over the shapes queued
+    /// so far this frame (sprites behind it show only through sky and depth >= 5, see
+    /// the `level` module), then the room layers and later shapes. The frame is clipped
+    /// to the game's window `view.origin .. view.origin + view.size`.
+    fn draw_level(&mut self, view: LevelView);
 
     /// Filled circle.
     fn draw_circle(&mut self, centre: [f32; 2], radius: f32, color: Color);

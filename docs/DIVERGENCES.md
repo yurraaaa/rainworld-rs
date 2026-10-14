@@ -171,6 +171,46 @@ zero gravity, grabbing and audio.
 
 **Affects.** Remix / DLC play on poles; entering a pole from a corridor.
 
+## D7: Room graphics (level image and palette)
+
+The level graphic follows `rainworld-re/notes/room-rendering.md`: settings with
+template inheritance (`rw_assets::RoomSettings`), palette with effect colours and the
+per-camera fade (`PaletteTexture`), the camera image, `level.wgsl` (the basic path of
+the game's level shader, checked against a CPU reference), sprites behind the level
+showing only through sky and depth >= 5, and the room camera's zone switching and lean
+(`rw_render::RoomCamera`).
+
+**What differs:**
+- **Noise texture decode.** `_NoiseTex` is read from `resources.assets` (a 64x64 DXT1
+  texture) and decoded on the CPU with rounded 2:1 mixes; GPUs decode DXT1 with their
+  own rounding, so texels may differ by 1/255 from what the game's GPU samples.
+  Only mip 0 is kept (the shader always magnifies it).
+- **Resolution.** The game renders a 1366x768 screen and the window shows it scaled;
+  the port draws straight into the window at its resolution (level pixels sampled
+  nearest, sprites at full resolution), letterboxed to the 1366x768 aspect.
+- **Camera switch timing.** The game loads the next camera's image asynchronously and
+  cuts when it has loaded (usually the next frame); the port loads it in the same tick.
+- **Camera in shortcuts.** While the player is in a shortcut the camera follows the
+  centre of the vessel's tile; the game uses the vessel's interpolated on-screen position.
+- **Fade quantisation.** The blended palette is stored as 8-bit texels like the game's
+  ARGB32 palette texture; the rounding mode of Unity's `SetPixel` is assumed to be
+  round-to-nearest.
+- **Not drawn:** object-cast shadows (needs the room's light angle and the edge-stretch
+  helper of the shader includes), wet-terrain ripples (`_WetTerrain` is on by default in
+  the game, shifting level pixels by up to one row in thin bands above the water line),
+  rain-cycle darkening (`DarkPalette`, `ShaderLight` before rain), lightning, room
+  effects that grade colours (Darkness, Brightness, Contrast, Desaturation, Hue, DayNight)
+  or modify effect colours (`ModifyEffectColorA/B`, unused in base-game rooms), ghost /
+  rot / mushroom palettes, screen shake, `_bkg` backgrounds, the heat / melt / ripple
+  shader variants, swarm rooms, and the properties-file line preprocessing (no base-game
+  `Room Setting Templates` line uses it).
+
+**Why.** The single-room phase draws one room with the player; these depend on systems
+not ported yet (rain cycle, room effects, objects) or are invisible at this stage.
+
+**Affects.** Exact pixel colours of cloud shadows (noise rounding) and rooms with the
+listed effects; window scaling.
+
 ## Not ported yet (not divergences, just absent)
 
 Player (stage one leaves out): landing roll and MMF wall pounce in `TerrainImpact`,

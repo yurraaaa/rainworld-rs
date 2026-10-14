@@ -31,6 +31,19 @@ impl Camera {
         }
     }
 
+    /// Shows the room rectangle `origin .. origin + size` as large as fits in
+    /// `viewport`, preserving aspect ratio, centred (the game's window scaled up).
+    #[must_use]
+    pub fn window(origin: [f32; 2], size: [f32; 2], viewport: (u32, u32)) -> Self {
+        let viewport = [viewport.0 as f32, viewport.1 as f32];
+        let scale = (viewport[0] / size[0].max(1.0)).min(viewport[1] / size[1].max(1.0));
+        Self {
+            centre: [origin[0] + size[0] / 2.0, origin[1] + size[1] / 2.0],
+            scale: scale.max(1e-3),
+            viewport,
+        }
+    }
+
     /// Scale that fits `room` room pixels into `viewport - 2 * margin` screen pixels.
     fn axis_scale(room: f32, viewport: f32, margin: f32) -> f32 {
         (viewport - 2.0 * margin).max(1.0) / room.max(1.0)
@@ -104,6 +117,18 @@ mod tests {
         assert!(high[1] < low[1]);
         assert!(low.approx([100.0, 200.0]));
         assert!(high.approx([100.0, 0.0]));
+    }
+
+    #[test]
+    fn window_fills_the_viewport_at_its_aspect() {
+        // Exact fit: the window's bottom-left at the screen's bottom-left, 1:1.
+        let cam = Camera::window([-143.02, -52.02], [1366.0, 768.0], (1366, 768));
+        assert!(cam.world_to_screen([-143.02, -52.02]).approx([0.0, 768.0]));
+        assert!(cam.world_to_screen([1222.98, 715.98]).approx([1366.0, 0.0]));
+        // Taller viewport: width-limited, letterboxed above and below.
+        let cam = Camera::window([0.0, 0.0], [1366.0, 768.0], (683, 768));
+        assert!((cam.scale - 0.5).abs() < 1e-6);
+        assert!(cam.world_to_screen([0.0, 0.0]).approx([0.0, 576.0]));
     }
 
     #[test]

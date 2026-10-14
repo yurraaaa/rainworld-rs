@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
-use rw_render::{Camera, Renderer, RoomLayers, WaterSurface, WgpuRenderer};
+use rw_render::{Camera, Renderer, RoomCamera, RoomLayers, WaterSurface, WgpuRenderer};
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
 use winit::event::{ElementState, KeyEvent, WindowEvent};
@@ -20,6 +20,7 @@ use winit::window::{Window, WindowId};
 use crate::game::Game;
 use crate::input::{Action, Command, InputState};
 use crate::timestep::{FixedTimestep, TICK_RATE};
+use crate::visuals::Visuals;
 
 /// Screen pixels kept free around the room.
 const MARGIN: f32 = 16.0;
@@ -29,15 +30,23 @@ const MARGIN: f32 = 16.0;
 /// # Errors
 /// When the event loop cannot be created or exits with an error, or when the window
 /// or renderer could not be created.
-pub fn run(game: Game, screenshot: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
+pub fn run(game: Game, visuals: Option<Visuals>, options: Options) -> Result<(), Box<dyn Error>> {
     let event_loop = EventLoop::new()?;
     event_loop.set_control_flow(ControlFlow::Poll);
-    let mut app = App::new(game, screenshot);
+    let mut app = App::new(game, visuals, options);
     event_loop.run_app(&mut app)?;
     match app.fatal.take() {
         Some(e) => Err(e),
         None => Ok(()),
     }
+}
+
+/// Command-line options of the window.
+pub struct Options {
+    /// Save a frame here once a second has been simulated, then quit.
+    pub screenshot: Option<PathBuf>,
+    /// Start in the debug view.
+    pub debug_view: bool,
 }
 
 /// Window and renderer, created on `resumed`.
@@ -52,6 +61,10 @@ struct App {
     clock: FixedTimestep,
     last_frame: Option<Instant>,
     layers: RoomLayers,
+    /// The level graphic, when the room's images and palettes loaded.
+    visuals: Option<Visuals>,
+    /// Show the level graphic (V toggles) rather than the debug tiles.
+    show_visuals: bool,
     /// Flat at the room's water row until the sim provides the wavy surface.
     water: Option<WaterSurface>,
     view: Option<View>,
@@ -64,8 +77,10 @@ struct App {
 }
 
 impl App {
-    fn new(game: Game, screenshot_and_quit: Option<PathBuf>) -> Self {
+    fn new(game: Game, visuals: Option<Visuals>, options: Options) -> Self {
         Self {
+            show_visuals: visuals.is_some() && !options.debug_view,
+            visuals,
             water: WaterSurface::for_room(game.room()),
             game,
             input: InputState::default(),
@@ -73,7 +88,7 @@ impl App {
             last_frame: None,
             layers: RoomLayers::default(),
             view: None,
-            screenshot_and_quit,
+            screenshot_and_quit: options.screenshot,
             quit_after_frame: false,
             fatal: None,
         }
@@ -81,10 +96,15 @@ impl App {
 
     fn create_view(&self, event_loop: &ActiveEventLoop) -> Result<View, Box<dyn Error>> {
         let room = self.game.room();
-        let size = LogicalSize::new(
-            (room.pixel_width() + 2.0 * MARGIN).clamp(640.0, 1600.0),
-            (room.pixel_height() + 2.0 * MARGIN).clamp(480.0, 1000.0),
-        );
+        let size = if self.visuals.is_some() {
+            let [w, h] = RoomCamera::SCREEN_SIZE;
+            LogicalSize::new(w, h)
+        } else {
+            LogicalSize::new(
+                (room.pixel_width() + 2.0 * MARGIN).clamp(640.0, 1600.0),
+                (room.pixel_height() + 2.0 * MARGIN).clamp(480.0, 1000.0),
+            )
+        };
         let attrs = Window::default_attributes()
             .with_title(format!("rainworld-rs - {}", room.name()))
             .with_inner_size(size);
@@ -121,6 +141,13 @@ impl App {
                 self.game.respawn();
                 self.clock.reset();
             }
+            Some(Command::ToggleView) => {
+                self.show_visuals = !self.show_visuals && self.visuals.is_some();
+                log::info!(
+                    "{} view",
+                    if self.show_visuals { "visual" } else { "debug" }
+                );
+            }
             Some(Command::ToggleGrid) => {
                 self.layers.grid = !self.layers.grid;
                 log::info!("grid {}", if self.layers.grid { "on" } else { "off" });
@@ -143,6 +170,13 @@ impl App {
         for _ in 0..self.clock.advance(elapsed) {
             let input = self.input.take_tick_input();
             self.game.tick(input);
+            if let Some(visuals) = &mut self.visuals
+                && let Err(e) = visuals.tick(self.game.camera_follow().as_ref())
+            {
+                log::error!("level graphic: {e}; showing the debug view");
+                self.visuals = None;
+                self.show_visuals = false;
+            }
         }
         // A frozen body is drawn where it stopped, not between its last two ticks.
         let alpha = if self.game.player_dead() {
@@ -154,15 +188,36 @@ impl App {
         let Some(view) = &mut self.view else { return };
         let r = &mut view.renderer;
         let room = self.game.room();
-        r.begin_frame(Camera::fit(
-            [room.pixel_width(), room.pixel_height()],
-            r.size(),
-            MARGIN,
-        ));
-        r.draw_room(self.layers);
         let time = (self.game.ticks() as f32 + alpha) / TICK_RATE as f32;
+        let level = match &mut self.visuals {
+            Some(visuals) if self.show_visuals => {
+                visuals.upload(r);
+                Some(visuals.view(alpha, time))
+            }
+            _ => None,
+        };
+        match &level {
+            Some(level) => {
+                r.begin_frame(Camera::window(level.origin, level.size, r.size()));
+                r.draw_room(RoomLayers {
+                    tiles: false,
+                    ..self.layers
+                });
+            }
+            None => {
+                r.begin_frame(Camera::fit(
+                    [room.pixel_width(), room.pixel_height()],
+                    r.size(),
+                    MARGIN,
+                ));
+                r.draw_room(self.layers);
+            }
+        }
         if let Some(body) = self.game.body() {
             r.draw_object(body, alpha, self.game.status(), time);
+        }
+        if let Some(level) = level {
+            r.draw_level(level);
         }
         r.draw_shortcut_vessel(self.game.vessel_tile());
         if let Some(water) = &self.water {
