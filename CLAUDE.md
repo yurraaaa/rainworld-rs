@@ -103,3 +103,7 @@ Briefs must repeat these rules.
   (e.g. `fn lerp(last: Vec2, cur: Vec2, t: f32)`); implement it on that
   type (`impl Vec2 { pub fn lerp(self, to: Vec2, t: f32) -> Vec2 }`), or
   on a trait for a foreign type.
+- Don't over-document. A simple function or field needs no doc comment,
+  or at most one short line. Document only what the name and signature
+  don't already say: non-obvious behaviour, units, the game behaviour it
+  mirrors, invariants. No comments that restate the code.
