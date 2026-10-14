@@ -403,9 +403,27 @@ on a body chunk; chunk loops with handles), `rw_assets::SoundTable` the `SoundLo
 `rw_assets::unity::Fsb5` the clip decoder, and `rw_audio` the `VirtualMicrophone` with
 its `AmbientSoundPlayer`s, playing on kira (`rainworld-re/notes/sound.md`). Every base-game
 `Player` sound, the shortcut tick and the water-surface splashes are ported.
+`rw_audio::music` is the `MusicPlayer` side process with `Song`, `MenuOrSlideShowSong`
+and `IntroRollMusic` (`music.md` section 4.1), streaming `music_songs` clips; the app
+does not run it yet.
 
 **What differs:**
-- **Not ported:** music (`music.md`), the rain and thunder loops and one-shots and the
+- **Music not ported:** `GameRequestsSong` (room-trigger `MusicEvent`s, play records),
+  the in-game `PlayerThreatTracker` (threat, ghost mode, room switches and their
+  `Random.Range(80, 400)`; outside the game its zeroing is ported), `ProceduralMusic`
+  (threat layers, `music_procedural`, its `Random.Range` stem choice), the arena
+  `MultiplayerDJ` (its shuffle draws), `GhostSong`, `SSSong`, `VoidSeaMusic`, the DLC
+  songs, `ResetSongStream`, MMF stream resync, and loose mod `.ogg` overrides. None of
+  the ported paths draws from `UnityEngine.Random`.
+- **Music timing.** A sub-track's clip loads on a background thread and becomes
+  ready on the first update after it arrived (the game's `AssetBundle` load and
+  `LoadAudioData` take a frame or more, so this is at least as fast); headless runs use
+  `TimedSources`, where clips load at once and play for their FSB5 length in ticks.
+  `IntroRollMusic.StartMusic` takes effect in the music player's next update (in the
+  game it starts the source at once; the player runs right after the main process in
+  the same tick, so nothing reads the difference). A missing `music_songs` bundle still
+  sets `assetBundlesLoaded` (the game would wait forever) and its songs stay silent.
+- **Not ported:** the rain and thunder loops and one-shots and the
   drown-out of volume group 0, creature, item and object sounds, UI and menu sounds,
   `PlayCustomSound` / loose mod clips next to `sounds.txt` (a name found only there counts
   as present for the draws but is not decoded), the Watcher ripple ambience and DLC
@@ -428,7 +446,7 @@ its `AmbientSoundPlayer`s, playing on kira (`rainworld-re/notes/sound.md`). Ever
 - **Listener.** `RoomCamera.pos` is the window origin the room camera draws this tick
   (whole pixels); without a level graphic it is the room origin.
 
-**Why.** Out of the base-game player scope (music, rain, creatures, UI), or tied to
+**Why.** Out of the base-game player scope (in-game music, rain, creatures, UI), or tied to
 real-time audio rather than the sim.
 
 **Affects.** What is heard, never the sim (its draws do not depend on the audio).
@@ -447,8 +465,9 @@ real-time audio rather than the sim.
 - **Flat scenes.** Menu scenes will be shown in the game's flat mode (`flatmode.txt`:
   one `<scene> - Flat.png`) until depth scenes (`MenuDepthIllustration`, its shaders and
   the camera drift) are ported.
-- **Missing side processes.** No music player, menu microphone, dialogs or Steam
-  manager; the switch queue is only filled while a dialog runs, so it stays empty.
+- **Missing side processes.** No music player in the app (`rw_audio::music` ports
+  one, not yet run), menu microphone, dialogs or Steam manager; the switch queue is
+  only filled while a dialog runs, so it stays empty.
   Mod finalization completes in the same frame (no mods); `progression.Revert`,
   `options` and save loading are not done. Of `HardCleanFutileAssets` only the
   illustration atlases a process loaded are freed.

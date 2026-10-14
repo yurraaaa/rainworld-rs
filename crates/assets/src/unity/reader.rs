@@ -36,6 +36,10 @@ impl<'a> Reader<'a> {
         self.pos = pos;
     }
 
+    pub fn remaining(&self) -> usize {
+        self.bytes.len().saturating_sub(self.pos)
+    }
+
     pub fn is_at_end(&self) -> bool {
         self.pos == self.bytes.len()
     }
