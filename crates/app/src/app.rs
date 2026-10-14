@@ -9,8 +9,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
-use rw_graphics::Layer;
-use rw_render::{Camera, Renderer, RoomCamera, RoomLayers, WaterSurface, WgpuRenderer};
+use rw_render::{Renderer, RoomCamera, RoomLayers, WgpuRenderer};
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
 use winit::event::{ElementState, KeyEvent, WindowEvent};
@@ -18,14 +17,10 @@ use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::PhysicalKey;
 use winit::window::{Window, WindowId};
 
-use crate::game::Game;
 use crate::input::{Action, Command, InputState, Script};
+use crate::scene::{Framing, MARGIN, Scene, SceneRenderer, SceneView};
 use crate::sprites::SpriteAssets;
 use crate::timestep::{FixedTimestep, TICK_RATE};
-use crate::visuals::Visuals;
-
-/// Screen pixels kept free around the room.
-const MARGIN: f32 = 16.0;
 
 /// Runs the window until it is closed or Esc is pressed.
 ///
@@ -33,14 +28,13 @@ const MARGIN: f32 = 16.0;
 /// When the event loop cannot be created or exits with an error, or when the window
 /// or renderer could not be created.
 pub fn run(
-    game: Game,
-    visuals: Option<Visuals>,
-    sprites: Option<SpriteAssets>,
+    scene: Scene,
+    sprites: Option<Arc<SpriteAssets>>,
     options: Options,
 ) -> Result<(), Box<dyn Error>> {
     let event_loop = EventLoop::new()?;
     event_loop.set_control_flow(ControlFlow::Poll);
-    let mut app = App::new(game, visuals, sprites, options);
+    let mut app = App::new(scene, sprites, options);
     event_loop.run_app(&mut app)?;
     match app.fatal.take() {
         Some(e) => Err(e),
@@ -61,23 +55,19 @@ pub struct Options {
 /// Window and renderer, created on `resumed`.
 struct View {
     window: Arc<Window>,
-    renderer: WgpuRenderer,
+    renderer: SceneRenderer<WgpuRenderer>,
 }
 
 struct App {
-    game: Game,
+    scene: Scene,
     input: InputState,
     clock: FixedTimestep,
     last_frame: Option<Instant>,
     layers: RoomLayers,
-    /// The level graphic, when the room's images and palettes loaded.
-    visuals: Option<Visuals>,
     /// The slugcat's atlas; without it the body is drawn as circles.
-    sprites: Option<SpriteAssets>,
+    sprites: Option<Arc<SpriteAssets>>,
     /// Show the level graphic (V toggles) rather than the debug tiles.
     show_visuals: bool,
-    /// Flat at the room's water row until the sim provides the wavy surface.
-    water: Option<WaterSurface>,
     view: Option<View>,
     /// `--screenshot`: save a frame here once a second has been simulated, then quit.
     screenshot_and_quit: Option<PathBuf>,
@@ -90,18 +80,11 @@ struct App {
 }
 
 impl App {
-    fn new(
-        game: Game,
-        visuals: Option<Visuals>,
-        sprites: Option<SpriteAssets>,
-        options: Options,
-    ) -> Self {
+    fn new(scene: Scene, sprites: Option<Arc<SpriteAssets>>, options: Options) -> Self {
         Self {
             sprites,
-            show_visuals: visuals.is_some() && !options.debug_view,
-            visuals,
-            water: WaterSurface::for_room(game.room()),
-            game,
+            show_visuals: scene.visuals().is_some() && !options.debug_view,
+            scene,
             input: InputState::default(),
             clock: FixedTimestep::default(),
             last_frame: None,
@@ -115,8 +98,8 @@ impl App {
     }
 
     fn create_view(&self, event_loop: &ActiveEventLoop) -> Result<View, Box<dyn Error>> {
-        let room = self.game.room();
-        let size = if self.visuals.is_some() {
+        let room = self.scene.game().room();
+        let size = if self.scene.visuals().is_some() {
             let [w, h] = RoomCamera::SCREEN_SIZE;
             LogicalSize::new(w, h)
         } else {
@@ -130,12 +113,8 @@ impl App {
             .with_inner_size(size);
         let window = Arc::new(event_loop.create_window(attrs)?);
         let physical = window.inner_size();
-        let mut renderer =
-            WgpuRenderer::new(Arc::clone(&window), (physical.width, physical.height))?;
-        renderer.set_room(room);
-        if let Some(sprites) = &self.sprites {
-            sprites.upload(&mut renderer);
-        }
+        let renderer = WgpuRenderer::new(Arc::clone(&window), (physical.width, physical.height))?;
+        let renderer = SceneRenderer::new(renderer, self.sprites.clone());
         Ok(View { window, renderer })
     }
 
@@ -161,11 +140,11 @@ impl App {
                 event_loop.exit();
             }
             Some(Command::Respawn) => {
-                self.game.respawn();
+                self.scene.game_mut().respawn();
                 self.clock.reset();
             }
             Some(Command::ToggleView) => {
-                self.show_visuals = !self.show_visuals && self.visuals.is_some();
+                self.show_visuals = !self.show_visuals && self.scene.visuals().is_some();
                 log::info!(
                     "{} view",
                     if self.show_visuals { "visual" } else { "debug" }
@@ -176,10 +155,10 @@ impl App {
                 log::info!("grid {}", if self.layers.grid { "on" } else { "off" });
             }
             Some(Command::Screenshot) => {
-                let path = PathBuf::from(format!("screenshot-{}.ppm", self.game.ticks()));
+                let path = PathBuf::from(format!("screenshot-{}.ppm", self.scene.game().ticks()));
                 log::info!("saving screenshot to {}", path.display());
                 if let Some(view) = &mut self.view {
-                    view.renderer.capture_next_frame(path);
+                    view.renderer.renderer.capture_next_frame(path);
                 }
             }
             None => {}
@@ -197,78 +176,19 @@ impl App {
                 .as_mut()
                 .and_then(Script::next_input)
                 .unwrap_or(keys);
-            self.game.tick(input);
-            if let Some(visuals) = &mut self.visuals {
-                visuals.tick(self.game.camera_follow().as_ref());
-            }
+            self.scene.tick(input);
         }
-        // A frozen body is drawn where it stopped, not between its last two ticks.
-        let alpha = if self.game.player_dead() {
-            1.0
-        } else {
-            self.clock.alpha()
-        };
-        // The slugcat's sprites (also in the debug view), eyes in the palette's black.
-        let face = self
-            .visuals
-            .as_ref()
-            .map_or(rw_graphics::Color::BLACK, Visuals::black_color);
-        let sprites = if self.sprites.is_some() {
-            self.game.draw_list(alpha, face)
-        } else {
-            None
-        };
-
         let Some(view) = &mut self.view else { return };
-        let r = &mut view.renderer;
-        let room = self.game.room();
-        let time = (self.game.ticks() as f32 + alpha) / TICK_RATE as f32;
-        let level = match &mut self.visuals {
-            Some(visuals) if self.show_visuals => {
-                visuals.upload(r);
-                Some(visuals.view(alpha, time))
-            }
-            _ => None,
+        let scene_view = SceneView {
+            level: self.show_visuals,
+            layers: self.layers,
+            framing: Framing::Auto,
         };
-        match &level {
-            Some(level) => {
-                r.begin_frame(Camera::window(level.origin, level.size, r.size()));
-                r.draw_room(RoomLayers {
-                    tiles: false,
-                    ..self.layers
-                });
-            }
-            None => {
-                r.begin_frame(Camera::fit(
-                    [room.pixel_width(), room.pixel_height()],
-                    r.size(),
-                    MARGIN,
-                ));
-                r.draw_room(self.layers);
-            }
-        }
-        // Sprites sit at `room - camPos`; the debug view's stage is the room itself.
-        let cam_pos = level.as_ref().map_or([0.0, 0.0], |l| l.origin);
-        match &sprites {
-            Some(list) => r.draw_sprites(list, Layer::Midground, cam_pos),
-            None => {
-                if let Some(body) = self.game.body() {
-                    r.draw_object(body, alpha, self.game.status(), time);
-                }
-            }
-        }
-        if let Some(level) = level {
-            r.draw_level(level);
-        }
-        if let Some(list) = &sprites {
-            r.draw_sprites(list, Layer::Foreground, cam_pos);
-        }
-        r.draw_shortcut_vessel(self.game.vessel_tile());
-        if let Some(water) = &self.water {
-            r.draw_water(water);
-        }
+        self.scene
+            .draw(&mut view.renderer, self.clock.alpha(), scene_view);
+        let r = &mut view.renderer.renderer;
         let script_ticks = self.script.as_ref().map_or(0, Script::len);
-        if self.game.ticks() >= u64::from(TICK_RATE.max(script_ticks))
+        if self.scene.game().ticks() >= u64::from(TICK_RATE.max(script_ticks))
             && let Some(path) = self.screenshot_and_quit.take()
         {
             log::info!("saving screenshot to {}", path.display());
@@ -305,7 +225,7 @@ impl ApplicationHandler for App {
             }
             WindowEvent::Resized(size) => {
                 if let Some(view) = &mut self.view {
-                    view.renderer.resize(size.width, size.height);
+                    view.renderer.renderer.resize(size.width, size.height);
                 }
             }
             WindowEvent::Focused(false) => self.input.clear(),
@@ -322,6 +242,6 @@ impl ApplicationHandler for App {
     }
 
     fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
-        log::info!("exiting after {} ticks", self.game.ticks());
+        log::info!("exiting after {} ticks", self.scene.game().ticks());
     }
 }

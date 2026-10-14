@@ -13,6 +13,7 @@
 mod body;
 mod camera;
 mod error;
+mod frame_image;
 mod gpu;
 mod level;
 mod level_gpu;
@@ -29,6 +30,7 @@ mod water;
 pub use body::ChunkInterpolation;
 pub use camera::Camera;
 pub use error::RenderError;
+pub use frame_image::FrameImage;
 pub use gpu::WgpuRenderer;
 pub use level::{LevelGraphics, LevelParams, LevelView};
 pub use mesh::{Color, Mesh, Vertex};

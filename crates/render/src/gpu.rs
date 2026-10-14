@@ -7,12 +7,12 @@
 //! level shader reads to let them show through sky and far pixels. A third draws the
 //! atlas sprites (`sprite_gpu`). Draw calls keep their call order across pipelines
 //! ([`DrawQueue`]). The WGSL shaders are compiled at runtime by wgpu.
+//!
+//! [`WgpuRenderer::headless`] draws to an offscreen texture instead of a window surface.
 
 use std::borrow::Cow;
 use std::collections::HashSet;
-use std::fs::File;
-use std::io::{BufWriter, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use rw_assets::{PngImage, Room};
 use rw_graphics::{DrawList, Layer};
@@ -22,8 +22,8 @@ use wgpu::util::DeviceExt;
 use crate::level_gpu::{LevelPipeline, LevelTextures};
 use crate::sprite_gpu::SpritePipeline;
 use crate::{
-    Batch, Camera, Color, DrawQueue, LevelGraphics, LevelView, Mesh, RenderError, Renderer,
-    RoomDebugGeometry, RoomLayers, SpriteAtlas, Vertex,
+    Batch, Camera, Color, DrawQueue, FrameImage, LevelGraphics, LevelView, Mesh, RenderError,
+    Renderer, RoomDebugGeometry, RoomLayers, SpriteAtlas, Vertex,
 };
 
 const BACKGROUND: wgpu::Color = wgpu::Color {
@@ -44,7 +44,10 @@ struct StaticMesh {
 
 /// wgpu (Vulkan) implementation of [`Renderer`].
 pub struct WgpuRenderer {
-    surface: wgpu::Surface<'static>,
+    /// `None` when headless.
+    surface: Option<wgpu::Surface<'static>>,
+    /// The colour target when headless.
+    offscreen: Option<wgpu::Texture>,
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
@@ -73,7 +76,20 @@ pub struct WgpuRenderer {
     camera: Camera,
     layers: Option<RoomLayers>,
     /// Where to save the next presented frame, if requested.
-    capture: Option<PathBuf>,
+    capture: Option<Capture>,
+    /// The frame read back by a [`Capture::Memory`].
+    captured: Option<FrameImage>,
+}
+
+enum Capture {
+    File(PathBuf),
+    Memory,
+}
+
+/// The texture a frame is drawn to.
+enum FrameTarget {
+    Surface(wgpu::SurfaceTexture),
+    Offscreen(wgpu::Texture),
 }
 
 /// A frame copied to a mappable buffer for saving.
@@ -98,35 +114,11 @@ impl WgpuRenderer {
         target: impl Into<wgpu::SurfaceTarget<'static>>,
         size: (u32, u32),
     ) -> Result<Self, RenderError> {
-        let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
-        desc.backends = wgpu::Backends::VULKAN;
-        desc.flags = wgpu::InstanceFlags::from_build_config().with_env();
-        let instance = wgpu::Instance::new(desc);
+        let instance = Self::instance();
         let surface = instance
             .create_surface(target)
             .map_err(|e| RenderError::init("create surface", e))?;
-        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
-            force_fallback_adapter: false,
-            compatible_surface: Some(&surface),
-            ..Default::default()
-        }))
-        .map_err(|e| RenderError::init("request Vulkan adapter", e))?;
-        let adapter_info = adapter.get_info();
-        log::info!(
-            "adapter: {} | backend: {} | type: {:?} | driver: {} {}",
-            adapter_info.name,
-            adapter_info.backend,
-            adapter_info.device_type,
-            adapter_info.driver,
-            adapter_info.driver_info,
-        );
-        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-            label: Some("rw-render device"),
-            ..Default::default()
-        }))
-        .map_err(|e| RenderError::init("request device", e))?;
-
+        let adapter = Self::adapter(&instance, Some(&surface))?;
         let caps = surface.get_capabilities(&adapter);
         // Colours are authored as display values: prefer a non-sRGB format so they are
         // written unchanged.
@@ -159,9 +151,78 @@ impl WgpuRenderer {
             config.height,
             config.present_mode
         );
-        if size.0 > 0 && size.1 > 0 {
+        Self::with_adapter(&adapter, Some(surface), config)
+    }
+
+    /// Creates a renderer without a window, drawing `size` frames to an offscreen RGBA
+    /// texture on a Vulkan adapter; read them with [`WgpuRenderer::render_image`].
+    ///
+    /// # Errors
+    /// [`RenderError::Init`] when no Vulkan adapter or device can be created.
+    pub fn headless(size: (u32, u32)) -> Result<Self, RenderError> {
+        let adapter = Self::adapter(&Self::instance(), None)?;
+        let config = wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            color_space: wgpu::SurfaceColorSpace::Auto,
+            width: size.0,
+            height: size.1,
+            present_mode: wgpu::PresentMode::AutoVsync,
+            desired_maximum_frame_latency: 2,
+            alpha_mode: wgpu::CompositeAlphaMode::Opaque,
+            view_formats: Vec::new(),
+        };
+        Self::with_adapter(&adapter, None, config)
+    }
+
+    fn instance() -> wgpu::Instance {
+        let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
+        desc.backends = wgpu::Backends::VULKAN;
+        desc.flags = wgpu::InstanceFlags::from_build_config().with_env();
+        wgpu::Instance::new(desc)
+    }
+
+    fn adapter(
+        instance: &wgpu::Instance,
+        surface: Option<&wgpu::Surface<'_>>,
+    ) -> Result<wgpu::Adapter, RenderError> {
+        pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::HighPerformance,
+            force_fallback_adapter: false,
+            compatible_surface: surface,
+            ..Default::default()
+        }))
+        .map_err(|e| RenderError::init("request Vulkan adapter", e))
+    }
+
+    /// The device, pipelines and targets for frames of `config`'s format and size,
+    /// presented to `surface` or drawn offscreen without one.
+    fn with_adapter(
+        adapter: &wgpu::Adapter,
+        surface: Option<wgpu::Surface<'static>>,
+        config: wgpu::SurfaceConfiguration,
+    ) -> Result<Self, RenderError> {
+        let adapter_info = adapter.get_info();
+        log::info!(
+            "adapter: {} | backend: {} | type: {:?} | driver: {} {}",
+            adapter_info.name,
+            adapter_info.backend,
+            adapter_info.device_type,
+            adapter_info.driver,
+            adapter_info.driver_info,
+        );
+        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+            label: Some("rw-render device"),
+            ..Default::default()
+        }))
+        .map_err(|e| RenderError::init("request device", e))?;
+        if let Some(surface) = &surface
+            && config.width > 0
+            && config.height > 0
+        {
             surface.configure(&device, &config);
         }
+        let format = config.format;
 
         let sample_count = if adapter
             .get_texture_format_features(format)
@@ -206,9 +267,9 @@ impl WgpuRenderer {
 
         let mut renderer = Self {
             surface,
+            offscreen: None,
             device,
             queue,
-            config,
             adapter_info,
             pipeline,
             camera_buffer,
@@ -227,9 +288,11 @@ impl WgpuRenderer {
             grid: None,
             queue_draws: DrawQueue::default(),
             dynamic_buffer: None,
-            camera: Camera::fit([1.0, 1.0], size, 0.0),
+            camera: Camera::fit([1.0, 1.0], (config.width, config.height), 0.0),
+            config,
             layers: None,
             capture: None,
+            captured: None,
         };
         renderer.recreate_msaa();
         Ok(renderer)
@@ -353,9 +416,16 @@ impl WgpuRenderer {
         self.config.width > 0 && self.config.height > 0
     }
 
-    /// Recreates the MSAA and "behind" targets at the surface size.
+    /// Recreates the MSAA, "behind" and offscreen targets at the surface size.
     fn recreate_msaa(&mut self) {
         let drawable = self.is_drawable();
+        self.offscreen = (self.surface.is_none() && drawable).then(|| {
+            self.texture(
+                "offscreen",
+                1,
+                wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+            )
+        });
         self.msaa_view = (self.sample_count > 1 && drawable).then(|| {
             self.target(
                 "msaa",
@@ -374,22 +444,25 @@ impl WgpuRenderer {
 
     /// A render target of the surface's size and format.
     fn target(&self, label: &str, samples: u32, usage: wgpu::TextureUsages) -> wgpu::TextureView {
-        self.device
-            .create_texture(&wgpu::TextureDescriptor {
-                label: Some(label),
-                size: wgpu::Extent3d {
-                    width: self.config.width,
-                    height: self.config.height,
-                    depth_or_array_layers: 1,
-                },
-                mip_level_count: 1,
-                sample_count: samples,
-                dimension: wgpu::TextureDimension::D2,
-                format: self.config.format,
-                usage,
-                view_formats: &[],
-            })
+        self.texture(label, samples, usage)
             .create_view(&wgpu::TextureViewDescriptor::default())
+    }
+
+    fn texture(&self, label: &str, samples: u32, usage: wgpu::TextureUsages) -> wgpu::Texture {
+        self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some(label),
+            size: wgpu::Extent3d {
+                width: self.config.width,
+                height: self.config.height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: samples,
+            dimension: wgpu::TextureDimension::D2,
+            format: self.config.format,
+            usage,
+            view_formats: &[],
+        })
     }
 
     /// Draws `batches` (those queued before the level) into the "behind" target,
@@ -497,25 +570,57 @@ impl WgpuRenderer {
         }
     }
 
-    /// Acquires the next surface texture, reconfiguring on outdated/lost surfaces.
-    /// `Ok(None)` means skip this frame.
-    fn acquire(&mut self) -> Result<Option<wgpu::SurfaceTexture>, RenderError> {
-        match self.surface.get_current_texture() {
-            wgpu::CurrentSurfaceTexture::Success(t) => Ok(Some(t)),
+    /// Acquires the next surface texture, reconfiguring on outdated/lost surfaces, or
+    /// the offscreen texture when headless. `Ok(None)` means skip this frame.
+    fn acquire(&mut self) -> Result<Option<FrameTarget>, RenderError> {
+        let Some(surface) = &self.surface else {
+            return Ok(self.offscreen.clone().map(FrameTarget::Offscreen));
+        };
+        match surface.get_current_texture() {
+            wgpu::CurrentSurfaceTexture::Success(t) => Ok(Some(FrameTarget::Surface(t))),
             wgpu::CurrentSurfaceTexture::Suboptimal(t) => {
                 // Use this frame; reconfigure for the next one.
-                self.surface.configure(&self.device, &self.config);
-                Ok(Some(t))
+                surface.configure(&self.device, &self.config);
+                Ok(Some(FrameTarget::Surface(t)))
             }
             wgpu::CurrentSurfaceTexture::Timeout | wgpu::CurrentSurfaceTexture::Occluded => {
                 Ok(None)
             }
             wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
                 log::debug!("surface outdated or lost; reconfiguring");
-                self.surface.configure(&self.device, &self.config);
+                surface.configure(&self.device, &self.config);
                 Ok(None)
             }
             wgpu::CurrentSurfaceTexture::Validation => Err(RenderError::SurfaceValidation),
+        }
+    }
+
+    /// Renders the queued frame (presenting it too when there is a window) and returns
+    /// its pixels.
+    ///
+    /// # Errors
+    /// As [`Renderer::present`]; [`RenderError::CaptureUnsupported`] when the frame
+    /// cannot be read back or the size is zero.
+    pub fn render_image(&mut self) -> Result<FrameImage, RenderError> {
+        self.capture = Some(Capture::Memory);
+        let presented = self.present();
+        self.capture = None;
+        presented?;
+        self.captured.take().ok_or(RenderError::CaptureUnsupported)
+    }
+}
+
+impl FrameTarget {
+    fn texture(&self) -> &wgpu::Texture {
+        match self {
+            Self::Surface(frame) => &frame.texture,
+            Self::Offscreen(texture) => texture,
+        }
+    }
+
+    fn present(self, queue: &wgpu::Queue) {
+        if let Self::Surface(frame) = self {
+            queue.present(frame);
         }
     }
 }
@@ -531,8 +636,10 @@ impl Renderer for WgpuRenderer {
         }
         self.config.width = width;
         self.config.height = height;
-        if self.is_drawable() {
-            self.surface.configure(&self.device, &self.config);
+        if let Some(surface) = &self.surface
+            && self.is_drawable()
+        {
+            surface.configure(&self.device, &self.config);
         }
         self.recreate_msaa();
     }
@@ -611,7 +718,7 @@ impl Renderer for WgpuRenderer {
             return Ok(());
         };
         let view = frame
-            .texture
+            .texture()
             .create_view(&wgpu::TextureViewDescriptor::default());
         self.queue.write_buffer(
             &self.camera_buffer,
@@ -712,27 +819,34 @@ impl Renderer for WgpuRenderer {
         let readback = self
             .capture
             .is_some()
-            .then(|| self.copy_frame(&mut encoder, &frame.texture))
+            .then(|| self.copy_frame(&mut encoder, frame.texture()))
             .flatten();
         self.queue.submit([encoder.finish()]);
-        self.queue.present(frame);
-        if let Some(path) = self.capture.take() {
+        frame.present(&self.queue);
+        if let Some(capture) = self.capture.take() {
             let readback = readback.ok_or(RenderError::CaptureUnsupported)?;
-            readback
-                .save_ppm(&self.device, &path)
-                .map_err(|source| RenderError::Capture { path, source })?;
+            match capture {
+                Capture::File(path) => readback
+                    .read(&self.device)
+                    .and_then(|image| image.save_ppm(&path))
+                    .map_err(|source| RenderError::Capture { path, source })?,
+                Capture::Memory => {
+                    let image = readback.read(&self.device).map_err(RenderError::Readback)?;
+                    self.captured = Some(image);
+                }
+            }
         }
         Ok(())
     }
 
     fn capture_next_frame(&mut self, path: PathBuf) {
-        self.capture = Some(path);
+        self.capture = Some(Capture::File(path));
     }
 }
 
 impl Readback {
-    /// Waits for the copy and writes the frame as a binary PPM (P6) to `path`.
-    fn save_ppm(&self, device: &wgpu::Device, path: &Path) -> std::io::Result<()> {
+    /// Waits for the copy and returns the frame as opaque RGBA.
+    fn read(&self, device: &wgpu::Device) -> std::io::Result<FrameImage> {
         let slice = self.buffer.slice(..);
         slice.map_async(wgpu::MapMode::Read, |result| {
             if let Err(e) = result {
@@ -743,18 +857,17 @@ impl Readback {
             .poll(wgpu::PollType::wait_indefinitely())
             .map_err(std::io::Error::other)?;
         let data = slice.get_mapped_range().map_err(std::io::Error::other)?;
-        let mut out = BufWriter::new(File::create(path)?);
-        write!(out, "P6\n{} {}\n255\n", self.width, self.height)?;
+        let mut rgba = Vec::with_capacity(self.width as usize * self.height as usize * 4);
         for row in data.chunks_exact(self.padded_row as usize) {
             for px in row[..self.width as usize * 4].as_chunks::<4>().0 {
-                let rgb = if self.bgra {
-                    [px[2], px[1], px[0]]
+                let rgba_px = if self.bgra {
+                    [px[2], px[1], px[0], 255]
                 } else {
-                    [px[0], px[1], px[2]]
+                    [px[0], px[1], px[2], 255]
                 };
-                out.write_all(&rgb)?;
+                rgba.extend_from_slice(&rgba_px);
             }
         }
-        out.flush()
+        Ok(FrameImage::new(self.width, self.height, rgba))
     }
 }

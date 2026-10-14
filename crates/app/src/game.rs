@@ -8,7 +8,7 @@ use rand::rngs::StdRng;
 use rw_assets::Room;
 use rw_graphics::{Color, DrawList, PlayerGraphics, SlugcatName};
 use rw_render::{BodyStatus, Follow};
-use rw_sim::{Input, PhysicalObject, Player, ShortcutHandler};
+use rw_sim::{Input, PhysicalObject, Player, ShortcutHandler, Vec2};
 
 /// A room with (at most) one player in it.
 pub struct Game {
@@ -167,6 +167,30 @@ impl Game {
     #[must_use]
     pub fn ticks(&self) -> u64 {
         self.tick
+    }
+
+    /// The player, unless destroyed.
+    #[must_use]
+    pub fn live_player(&self) -> Option<&Player> {
+        self.player.as_ref()
+    }
+
+    /// Moves the player (a new one if it was destroyed) so its chunks sit 1 px above
+    /// and below `pos`, moving at `vel`, as `PlaceInRoom` puts them around a tile
+    /// centre. Movement state is kept; the graphics module starts afresh.
+    pub fn set_player(&mut self, pos: Vec2, vel: Vec2) {
+        let player = self.player.get_or_insert_with(Player::new);
+        // `place` resets the stuck-feet state; its random offsets are overwritten below.
+        player.place(pos.tile(), &mut StdRng::seed_from_u64(0));
+        for (chunk, dy) in player.body.chunks.iter_mut().zip([1.0, -1.0]) {
+            chunk.reset_at(pos + Vec2::new(0.0, dy));
+            chunk.vel = vel;
+        }
+        self.graphics = Some(PlayerGraphics::new(
+            player,
+            SlugcatName::White,
+            &mut self.graphics_rng,
+        ));
     }
 }
 

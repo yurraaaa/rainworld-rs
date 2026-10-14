@@ -5,7 +5,10 @@
 //! [--spawn X,Y] [--script STEPS]` (default room `summit`, seed 1; `--screenshot` saves
 //! the frame after one second, or once the script has run, and quits; `--debug-view`
 //! starts in the debug view; `--spawn` puts the player on tile X,Y; `--script` plays
-//! `X,Y,J:TICKS;...` input steps instead of the keyboard). The game directory comes
+//! `X,Y,J:TICKS;...` input steps instead of the keyboard).
+//!
+//! `rainworld-rs --mcp [--window]` serves the MCP tools of [`mcp`] on stdin/stdout
+//! instead (headless; `--window` also shows the driven scene). The game directory comes
 //! from `RW_DIR`; it is only read. The asset cache (sprite atlas, noise texture) is
 //! `rw_assets::AssetCache::from_env`.
 //!
@@ -19,6 +22,8 @@
 mod app;
 mod game;
 mod input;
+mod mcp;
+mod scene;
 mod sprites;
 mod timestep;
 mod visuals;
@@ -26,6 +31,7 @@ mod visuals;
 use std::error::Error;
 use std::path::PathBuf;
 use std::process::ExitCode;
+use std::sync::Arc;
 
 use rw_assets::{AssetCache, Room, StreamingAssets};
 
@@ -48,6 +54,10 @@ struct Args {
     spawn: Option<(i32, i32)>,
     /// Input steps played instead of the keyboard.
     script: Option<Script>,
+    /// Serve MCP on stdio instead of playing.
+    mcp: bool,
+    /// With `mcp`: also show the scene in a window.
+    window: bool,
 }
 
 impl Args {
@@ -65,6 +75,8 @@ impl Args {
         let mut debug_view = false;
         let mut spawn = None;
         let mut script = None;
+        let mut mcp = false;
+        let mut window = false;
         while let Some(arg) = args.next() {
             match arg.as_str() {
                 "--seed" => {
@@ -78,6 +90,8 @@ impl Args {
                     screenshot = Some(PathBuf::from(value));
                 }
                 "--debug-view" => debug_view = true,
+                "--mcp" => mcp = true,
+                "--window" => window = true,
                 "--spawn" => {
                     let value = args.next().ok_or("--spawn needs X,Y")?;
                     let (x, y) = value
@@ -93,7 +107,8 @@ impl Args {
                 "-h" | "--help" => {
                     return Err(
                         "usage: rainworld-rs [ROOM] [--seed N] [--screenshot FILE.ppm] \
-                                [--debug-view] [--spawn X,Y] [--script X,Y,J:TICKS;...]"
+                                [--debug-view] [--spawn X,Y] [--script X,Y,J:TICKS;...]\n       \
+                                rainworld-rs --mcp [--window]"
                             .to_owned(),
                     );
                 }
@@ -110,6 +125,8 @@ impl Args {
             debug_view,
             spawn,
             script,
+            mcp,
+            window,
         })
     }
 }
@@ -134,6 +151,11 @@ fn run() -> Result<(), Box<dyn Error>> {
     let args = Args::parse(std::env::args().skip(1))?;
     let assets = GameDir::from_env().streaming_assets();
     let assets = StreamingAssets::new(assets);
+    let cache =
+        AssetCache::from_env().ok_or("no asset cache directory: set RW_ASSET_CACHE (or HOME)")?;
+    if args.mcp {
+        return mcp::run(assets, cache, args.window);
+    }
     let path = assets
         .find_room_file(&args.room.to_lowercase(), ".txt")
         .ok_or_else(|| {
@@ -151,21 +173,20 @@ fn run() -> Result<(), Box<dyn Error>> {
         room.height(),
         args.seed
     );
-    let cache =
-        AssetCache::from_env().ok_or("no asset cache directory: set RW_ASSET_CACHE (or HOME)")?;
     let visuals = visuals::Visuals::load(&assets, &cache, &room)
         .inspect_err(|e| log::warn!("no level graphic ({e}); showing the debug view"))
         .ok();
     let sprites = sprites::SpriteAssets::load(&cache)
         .inspect_err(|e| log::warn!("no slugcat sprites ({e}); drawing the circle body"))
-        .ok();
+        .ok()
+        .map(Arc::new);
     let options = app::Options {
         screenshot: args.screenshot,
         debug_view: args.debug_view,
         script: args.script,
     };
     let game = game::Game::new(room, args.seed, args.spawn);
-    app::run(game, visuals, sprites, options)
+    app::run(scene::Scene::new(game, visuals), sprites, options)
 }
 
 fn main() -> ExitCode {
@@ -202,6 +223,8 @@ mod tests {
                 debug_view: false,
                 spawn: None,
                 script: None,
+                mcp: false,
+                window: false,
             })
         );
     }
@@ -215,6 +238,8 @@ mod tests {
             debug_view: false,
             spawn: None,
             script: None,
+            mcp: false,
+            window: false,
         });
         assert_eq!(Args::parse(["SU_A22", "--seed", "7"]), want);
         assert_eq!(Args::parse(["--seed", "7", "SU_A22"]), want);

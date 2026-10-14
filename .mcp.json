@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "rainworld-rs": {
+      "type": "stdio",
+      "command": "cargo",
+      "args": ["run", "--release", "--quiet", "--package", "rainworld-rs", "--", "--mcp"],
+      "env": {}
+    }
+  }
+}

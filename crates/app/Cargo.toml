@@ -12,3 +12,12 @@ rand.workspace = true
 winit.workspace = true
 log.workspace = true
 env_logger.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rmcp = { version = "3.5.1", default-features = false, features = ["server", "macros", "transport-io"] }
+schemars = "1.0"
+tokio = { version = "1", features = ["rt"] }
+base64 = "0.23"
+
+[dev-dependencies]
+png.workspace = true

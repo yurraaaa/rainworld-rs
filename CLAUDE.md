@@ -116,6 +116,25 @@ recommendation. Nothing is ported before the user agrees.
   on `rw-sim` and `rw-assets` and outputs a backend-agnostic sprite list
   that `rw-render` draws. `rw-sim` stays gameplay-only.
 
+## Driving the app
+
+`rainworld-rs --mcp` is an MCP server on stdio (`crates/app/src/mcp/`),
+registered in `.mcp.json` as `rainworld-rs` (it runs `cargo run --release`,
+so it serves the checkout's current code). Tools: `list_rooms`,
+`load_room`, `step`, `step_sequence`, `respawn`, `set_player`,
+`get_state`, `get_tiles`, `screenshot`.
+
+- Headless and deterministic: the sim advances only in `step` /
+  `step_sequence` (40 ticks per second); the same room, seed and inputs
+  give the same run.
+- `screenshot` returns a PNG drawn by the window's draw path (level
+  graphic or debug view, sprites, overlays), rendered offscreen;
+  `crop_radius` zooms on the player. `get_tiles` gives the geometry as
+  text.
+- To check behaviour, prefer these tools over `--screenshot`/`--script`.
+  Briefs for agents that check behaviour should say so.
+- `--mcp --window` also shows the driven scene in a window.
+
 ## Code style
 
 Briefs must repeat these rules.
