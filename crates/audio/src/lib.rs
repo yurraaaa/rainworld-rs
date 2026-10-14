@@ -7,6 +7,7 @@
 mod ambient;
 mod clips;
 mod mic;
+mod output;
 mod voice;
 
 use std::sync::Arc;
@@ -17,11 +18,12 @@ use kira::sound::PlaybackState;
 use kira::sound::static_sound::StaticSoundHandle;
 use kira::track::{TrackBuilder, TrackHandle};
 use kira::{
-    AudioManager, AudioManagerSettings, Capacities, Decibels, DefaultBackend, Mix, Panning,
-    PlaybackRate, Tween,
+    AudioManager, AudioManagerSettings, Capacities, Decibels, Mix, Panning, PlaybackRate, Tween,
 };
 use rw_assets::{AmbientSound, SoundTable, StreamingAssets};
 use rw_sim::{BodyChunk, SoundEvent, SoundSource, Water};
+
+use output::CpalOutput;
 
 pub use ambient::AmbientPlayer;
 pub use clips::{ClipKey, ClipLoader, ClipSlot};
@@ -54,7 +56,7 @@ impl Source {
     }
 
     fn start(
-        manager: &mut AudioManager,
+        manager: &mut AudioManager<CpalOutput>,
         data: kira::sound::static_sound::StaticSoundData,
         looped: bool,
         start_at: Option<f32>,
@@ -139,7 +141,7 @@ struct AmbientSource {
 
 /// The audio output: the microphone, its sound objects and ambient loops.
 pub struct Audio {
-    manager: AudioManager,
+    manager: AudioManager<CpalOutput>,
     clips: ClipLoader,
     table: Arc<SoundTable>,
     mic: Microphone,
@@ -163,15 +165,14 @@ impl Audio {
     /// # Errors
     /// When there is no output device or it cannot be opened.
     pub fn new(assets: &StreamingAssets, table: Arc<SoundTable>) -> Result<Self, String> {
-        let settings = AudioManagerSettings::<DefaultBackend> {
+        let settings = AudioManagerSettings::<CpalOutput> {
             capacities: Capacities {
                 sub_track_capacity: 512,
                 ..Capacities::default()
             },
             ..AudioManagerSettings::default()
         };
-        let mut manager =
-            AudioManager::<DefaultBackend>::new(settings).map_err(|e| e.to_string())?;
+        let mut manager = AudioManager::<CpalOutput>::new(settings).map_err(|e| e.to_string())?;
         // `AudioListener.volume = soundLoader.volume`: a master gain of 6.
         manager
             .main_track()
