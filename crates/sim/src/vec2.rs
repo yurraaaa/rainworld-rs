@@ -58,6 +58,25 @@ impl Vec2 {
     pub const fn to_array(self) -> [f32; 2] {
         [self.x, self.y]
     }
+
+    /// Linear interpolation: `self` at `t = 0`, `to` at `t = 1` (not clamped).
+    #[must_use]
+    pub fn lerp(self, to: Self, t: f32) -> Self {
+        self + (to - self) * t
+    }
+
+    /// Tile containing this room-pixel position (`Room.GetTilePosition`).
+    #[must_use]
+    pub fn tile(self) -> (i32, i32) {
+        rw_assets::tile_position(self.to_array())
+    }
+
+    /// Middle of the tile containing this position (`Room.MiddleOfTile(Vector2)`).
+    #[must_use]
+    pub fn tile_middle(self) -> Self {
+        let (x, y) = self.tile();
+        Self::from(rw_assets::tile_centre(x, y))
+    }
 }
 
 impl From<[f32; 2]> for Vec2 {

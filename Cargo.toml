@@ -11,3 +11,9 @@ rw-sim = { path = "crates/sim" }
 rw-assets = { path = "crates/assets" }
 rw-render = { path = "crates/render" }
 rand = "0.10"
+wgpu = { version = "30.0.1", default-features = false, features = ["vulkan", "wgsl", "std"] }
+winit = "0.30.13"
+bytemuck = { version = "1.25", features = ["derive"] }
+pollster = "0.4"
+log = "0.4"
+env_logger = "0.11"

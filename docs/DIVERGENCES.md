@@ -42,9 +42,59 @@ The shortcut mapping is a stand-in until `ShortcutMapper` is read.
 **Affects.** Spawn tiles in rooms without shortcuts, in shelters, and in rooms where
 several shortcuts lead to exit/den nodes in a different order than the game's.
 
+## D3: Player movement (stage one)
+
+`rw_sim::Player` ports base slugcat movement (`rainworld-re/notes/slugcat-movement.md`,
+`horizontal-beams.md`, `slope-collision.md` section 5) for the Survivor with every
+`SlugcatStats` factor 1, no adrenaline, never exhausted, never stunned or dead.
+
+**What differs from the game where the game's behaviour is kept out of scope:**
+- **No corridor detection.** The game counts chunks wedged between opposite solid tiles
+  (`goIntoCorridorClimb`) and, inside one-tile corridors, skips ground classification and
+  switches to `CorridorClimb`. The port always classifies (Default / Stand / Crawl), so
+  in a one-tile tunnel the player behaves as on open ground.
+- **Vertical poles.** `GrabVerticalPole`, `ClimbOnBeam`, `HangUnderVerticalBeam`,
+  `BeamTip`, `GetUpToBeamTip` are not ported. Holding up in a tile with both beam kinds
+  hangs from the horizontal beam (the game climbs the pole), and an up press while
+  hanging in a tile with a vertical pole does nothing (the game switches to the pole).
+- **Belly slide.** A jump while lowering to all fours with down-diagonal toward the
+  facing starts `BellySlide` in the game; the port does an ordinary crouch jump.
+- **Skid and flip jump.** The Stand-mode turn-around skid (`slideCounter`,
+  `initSlideCounter`) is not ported, so the skid flip jump never happens.
+- **Stacked-body nudge.** When the head is exactly below the hips with no horizontal
+  speed, the game gives the head a random x speed in [-1, 1] (hips the opposite); the
+  port uses `0.5 * flipDirection` (deterministic, the mean magnitude).
+- **Initial facing.** The game picks `flipDirection` = +/-1 at random in the
+  constructor; `Player::new` faces right.
+- **`DirectIntoHoles` and shortcut entrances.** The game steers into a hole whose far
+  side is a shortcut entrance only for Normal or RoomExit shortcuts. The port classifies
+  the entrance with the inferred tile-flag tracing of D2: a tube ending in a room exit,
+  or in another entrance or a dead end (indistinguishable from flags), counts as
+  drawing the player in; dens and transports do not.
+- **Input.** `Input` carries x, y and jump only; `downDiagonal` is derived digitally
+  (down plus left/right gives that side, the Remix rule). No analogue stick, map
+  button stand-still, throw / pick-up / special.
+
+**Why.** Each is either outside the stage-one scope or depends on randomness (D1).
+
+**Affects.** Movement in corridors, on vertical poles, belly slides, skids, the rare
+stacked-head case, initial facing, and steering into some shortcut holes.
+
 ## Not ported yet (not divergences, just absent)
 
-Water (buoyancy, water friction), burrowing, terrain curves (`TerrainCurve`), `setPos`
+Player (stage one leaves out): `TerrainImpact` (fall damage death above speed 60, stun
+above 35, landing roll, MMF wall pounce), falling out of the room bottom (death),
+`LedgeGrab`, `CorridorClimb` / `CorridorTurn` and corridor jumps, roll, belly slide,
+flip, rocket jump, water (`Swimming`, `DeepSwim`, `SurfaceSwim`, submersion lifts),
+zero gravity, grabbing / throwing / eating (`GrabUpdate`), shortcuts (entering,
+`enteringShortCut`), `slowMovementStun` sources, adrenaline, the WALLSTUCK safety
+(needs `VisualContact`), `dropGrabTile`, carried-object speed factors, vines, tube worm,
+Jolly co-op, MSC / Watcher class mechanics. Ported because ground classification
+produces them anyway: wall slide and wall jump (`WallClimb`, `canWallJump`, `jumpStun`;
+only the wall-jump impulse has a test), `LedgeCrawl`, `CrawlTurn`, the crouch super-jump
+charge and dive force (untested).
+
+Physics: Water (buoyancy, water friction), burrowing, terrain curves (`TerrainCurve`), `setPos`
 (cross-object position writes), the `TerrainImpact` callback (fall damage and stun),
 grabs (`grabbedBy` skips the room-range clamp, and grabs force `goThroughFloors`), and
 `DefaultTile`.

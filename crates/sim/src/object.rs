@@ -153,6 +153,16 @@ impl PhysicalObject {
         }
     }
 
+    /// Mutable references to two different chunks.
+    ///
+    /// # Panics
+    /// If `a == b` or either index is out of range.
+    pub fn chunk_pair_mut(&mut self, a: usize, b: usize) -> [&mut BodyChunk; 2] {
+        self.chunks
+            .get_disjoint_mut([a, b])
+            .expect("two distinct chunk indices in range")
+    }
+
     /// Sets `go_through_floors` on every chunk (the game's `GoThroughFloors` setter).
     pub fn set_go_through_floors(&mut self, value: bool) {
         for c in &mut self.chunks {

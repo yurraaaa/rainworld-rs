@@ -62,6 +62,10 @@ recommendation. Nothing is ported before the user agrees.
 
 ### Running several at once
 
+- Parallel agents that edit the repo each work in their own git worktree
+  (the Agent tool's `isolation: "worktree"`), never in the main checkout.
+  The orchestrator reviews and merges each branch. Read-only agents need
+  no worktree.
 - Say what else is running. Agents sharing `target/` serialise on cargo's
   lock and break each other's builds: give parallel agents disjoint crates
   or worktrees. Benchmarks run alone; say so in the brief.
@@ -87,3 +91,15 @@ recommendation. Nothing is ported before the user agrees.
 
 - Renderer: `wgpu`, pinned to the Vulkan backend, behind a small trait so it can be replaced. Custom engine on `winit` plus separate audio and asset crates; the simulation is an engine-agnostic crate.
 - Reverse-engineering notes live in `../rainworld-re`, never only in the conversation. Agents check it before investigating and extend it afterwards; ask in the report what was added.
+
+## Code style
+
+Briefs must repeat these rules.
+
+- No local closures bound inside functions (e.g. `let at = |i| ...;`).
+  Write a method on the type the logic belongs to instead. Closures passed
+  straight to iterator adaptors or APIs (`.map(|c| c.pos)`) are fine.
+- No free private helper functions for behaviour that belongs to a type
+  (e.g. `fn lerp(last: Vec2, cur: Vec2, t: f32)`); implement it on that
+  type (`impl Vec2 { pub fn lerp(self, to: Vec2, t: f32) -> Vec2 }`), or
+  on a trait for a foreign type.

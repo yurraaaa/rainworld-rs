@@ -5,3 +5,8 @@ edition.workspace = true
 
 [dependencies]
 rw-sim.workspace = true
+rw-assets.workspace = true
+wgpu.workspace = true
+bytemuck.workspace = true
+pollster.workspace = true
+log.workspace = true

@@ -7,7 +7,10 @@ use std::path::PathBuf;
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 use rw_assets::{Room, Slope, Terrain, tile_position};
-use rw_sim::{PhysicalObject, determine_safe_spawn_tile, place_in_room};
+use rw_sim::{
+    Animation, BodyMode, HEAD, HIPS, Input, PhysicalObject, Player, Vec2,
+    determine_safe_spawn_tile, place_in_room,
+};
 
 const DEFAULT_RW_DIR: &str = "/home/yura/.local/share/Steam/steamapps/common/Rain World";
 
@@ -54,8 +57,9 @@ fn summit_spawned_slugcat_comes_to_rest_on_block_top() {
     let Some(room) = summit() else { return };
     // These seeds spawn on the open top of a block ((11,17) or (36,17), row 16 Solid).
     // Surface friction is the player's not-conscious 0.3: with the conscious 0.5 a
-    // flat landing multiplies vel.x by clamp(2 * 0.5, 0, 1) = 1, so without the
-    // Player ground friction (out of scope) the body slides off the block.
+    // flat landing multiplies vel.x by clamp(2 * 0.5, 0, 1) = 1, so a bare body
+    // without the Player's ground friction slides off the block. The conscious case is
+    // `summit_spawned_player_rests_on_block_top_then_stands`.
     for seed in [1, 3, 7] {
         let mut rng = StdRng::seed_from_u64(seed);
         let tile = determine_safe_spawn_tile(&room, &mut rng);
@@ -92,4 +96,178 @@ fn summit_spawned_slugcat_comes_to_rest_on_block_top() {
         let d = body.chunks[0].pos.distance(body.chunks[1].pos);
         assert!((d - 17.0).abs() < 1e-3, "seed {seed}: rod length {d}");
     }
+}
+
+// ---- Player ------------------------------------------------------------------------
+// Expectations from `rainworld-re/notes/slugcat-movement.md` and `horizontal-beams.md`.
+
+const UP: Input = Input::new(0, 1, false);
+const DOWN: Input = Input::new(0, -1, false);
+const RIGHT: Input = Input::new(1, 0, false);
+
+/// A player with the hips centre at `hips` and the head 17 px above, at rest.
+fn upright_player(hips: Vec2) -> Player {
+    let mut p = Player::new();
+    p.body.chunks[HIPS].reset_at(hips);
+    p.body.chunks[HEAD].reset_at(hips + Vec2::new(0.0, 17.0));
+    p
+}
+
+fn run(p: &mut Player, room: &Room, input: Input, ticks: usize) {
+    for _ in 0..ticks {
+        p.update(room, input);
+    }
+}
+
+#[test]
+fn summit_spawned_player_rests_on_block_top_then_stands() {
+    let Some(room) = summit() else { return };
+    for seed in [1, 3, 7] {
+        let mut rng = StdRng::seed_from_u64(seed);
+        let mut p = Player::spawn(&room, &mut rng);
+        // Conscious friction 0.5: the Player ground friction stops the body.
+        run(&mut p, &room, Input::NONE, 400);
+        // The constructor leaves `standing` false, so with no input the body lies
+        // down on all fours (Stand mode lowers it after 5 ticks).
+        assert_eq!(p.body_mode(), BodyMode::Crawl, "seed {seed}");
+        for (i, c) in p.chunks().iter().enumerate() {
+            let ctx = format!("seed {seed} chunk {i}: {c:?}");
+            assert_eq!(c.contact().y, -1, "{ctx}");
+            // Flat-floor snap on row 16: (16 + 1) * 20 + rad.
+            assert_eq!(c.pos.y, 340.0 + c.rad, "{ctx}");
+            assert!(c.vel.length() < 1e-3, "{ctx}");
+        }
+        let d = p.chunks()[0].pos.distance(p.chunks()[1].pos);
+        assert!((d - 17.0).abs() < 1e-3, "seed {seed}: rod length {d}");
+
+        // An up press sets `standing`; Stand mode holds the head up (+1.5 / -4.5).
+        p.update(&room, UP);
+        run(&mut p, &room, Input::NONE, 100);
+        assert_eq!(p.body_mode(), BodyMode::Stand, "seed {seed}");
+        let (head, hips) = (p.head(), p.hips());
+        assert_eq!(hips.contact().y, -1, "seed {seed}");
+        assert!((hips.pos.y - 348.0).abs() < 1.0, "seed {seed}: {hips:?}");
+        assert!(
+            (head.pos.x - hips.pos.x).abs() < 1.0,
+            "seed {seed}: upright"
+        );
+        assert!(head.pos.y - hips.pos.y > 16.0, "seed {seed}: upright");
+        let before = p.chunks().to_vec();
+        run(&mut p, &room, Input::NONE, 20);
+        for (a, b) in before.iter().zip(p.chunks()) {
+            assert!(
+                a.pos.distance(b.pos) < 0.05,
+                "seed {seed}: at rest {a:?} -> {b:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn summit_running_then_releasing_stops() {
+    let Some(room) = summit() else { return };
+    // Left pit: floor row 6 (top 140) for x = 15..20, middle block from x = 21 (420).
+    let mut p = upright_player(Vec2::new(370.0, 148.0));
+    p.update(&room, UP);
+    run(&mut p, &room, Input::NONE, 40);
+    assert_eq!(p.body_mode(), BodyMode::Stand);
+    let start = p.hips().pos.x;
+    run(&mut p, &room, RIGHT, 6);
+    // Accelerating at 1.2 per tick toward the 4.2 / 4.0 caps.
+    assert!(p.head().vel.x > 3.5, "{:?}", p.head());
+    run(&mut p, &room, Input::NONE, 60);
+    for c in p.chunks() {
+        assert!(c.vel.x.abs() < 1e-3, "{c:?}");
+    }
+    let x = p.hips().pos.x;
+    // Six ticks: 1.2 + 2.4 + 3.6 + 3 * 4 = 19.2 px at most before release, then
+    // ground friction (x 0.646 per tick) and the feet pin stop it within ~12 px.
+    assert!(
+        x > start + 10.0 && x < start + 19.2 + 12.0,
+        "start {start}, end {x}"
+    );
+    assert!(x < 420.0 - 8.0, "stopped before the block");
+}
+
+#[test]
+fn summit_horizontal_beam_grab_shuffle_and_pull_up() {
+    let Some(room) = summit() else { return };
+    // Beam tiles (15..=17, 15) stick out right of the left block (Solid x <= 14);
+    // the beam line is the tile middle, y = 310.
+    for x in 15..=17 {
+        assert!(room.tile(x, 15).horizontal_pole(), "beam at ({x}, 15)");
+    }
+    assert!(!room.tile(18, 15).horizontal_pole());
+
+    // Falling with up held: grabbed when the head's sweep passes row 15.
+    let mut p = upright_player(Vec2::new(312.0, 400.0));
+    let mut grabbed = false;
+    for _ in 0..40 {
+        p.update(&room, UP);
+        if p.animation() == Animation::HangFromBeam {
+            grabbed = true;
+            break;
+        }
+    }
+    assert!(grabbed, "{:?}", p.chunks());
+    assert_eq!(p.head().pos.y, 310.0);
+    assert_eq!(p.head().vel.y, 0.0);
+    run(&mut p, &room, Input::NONE, 30);
+    assert_eq!(p.animation(), Animation::HangFromBeam);
+    assert_eq!(p.body_mode(), BodyMode::ClimbingOnBeam);
+    assert_eq!(p.head().pos.y, 310.0, "head pinned to the beam line");
+    assert!(p.hips().pos.y < 300.0, "hips hang below");
+
+    // Shuffle right: the head speeds up toward the steady shuffle (about 1.19 px/tick,
+    // derived and checked on a long beam in the unit tests); this beam is too short to
+    // reach it, so only the range is checked here.
+    run(&mut p, &room, RIGHT, 10);
+    let x0 = p.head().pos.x;
+    run(&mut p, &room, RIGHT, 20);
+    assert_eq!(p.animation(), Animation::HangFromBeam);
+    let speed = (p.head().pos.x - x0) / 20.0;
+    assert!((1.0..1.25).contains(&speed), "shuffle speed {speed}");
+    assert_eq!(p.head().pos.y, 310.0);
+    // At the beam's end (tile 18) the hands let go.
+    let mut fell = false;
+    for _ in 0..40 {
+        p.update(&room, RIGHT);
+        if p.animation() == Animation::None {
+            fell = true;
+            break;
+        }
+    }
+    assert!(fell);
+    assert_eq!(p.head().pos.x.div_euclid(20.0), 18.0);
+
+    // Pull up: re-grab at x = 330, then an up press. Facing right with a beam tile to
+    // the right: the hips swing up on that side (+2 vy, +0.5 vx per tick) until above
+    // the head, then StandOnBeam with the hips 5 px above the beam line.
+    let mut p = upright_player(Vec2::new(330.0, 400.0));
+    run(&mut p, &room, UP, 40);
+    assert_eq!(p.animation(), Animation::HangFromBeam);
+    run(&mut p, &room, Input::NONE, 20);
+    p.update(&room, UP);
+    assert_eq!(p.animation(), Animation::GetUpOnBeam);
+    let mut stood = false;
+    for _ in 0..60 {
+        p.update(&room, Input::NONE);
+        if p.animation() == Animation::StandOnBeam {
+            stood = true;
+            break;
+        }
+    }
+    assert!(stood, "{:?} {:?}", p.animation(), p.chunks());
+    assert_eq!(p.hips().pos.y, 315.0);
+    run(&mut p, &room, Input::NONE, 10);
+    assert_eq!(p.animation(), Animation::StandOnBeam);
+    assert_eq!(p.hips().pos.y, 315.0, "feet held on the beam");
+    assert!(p.head().pos.y > p.hips().pos.y + 10.0);
+
+    // Down press steps off: falls to the pit floor (top 140).
+    p.update(&room, DOWN);
+    assert_eq!(p.animation(), Animation::None);
+    run(&mut p, &room, Input::NONE, 80);
+    assert_eq!(p.hips().contact().y, -1);
+    assert!((p.hips().pos.y - 148.0).abs() < 1.0, "{:?}", p.hips());
 }

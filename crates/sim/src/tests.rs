@@ -14,8 +14,9 @@ use crate::{
 const EPS: f32 = 1e-4;
 
 /// Builds a room from ASCII rows, top row first.
-/// `.` Air, `#` Solid, `/` Slope, `-` Floor, `E` shortcut entrance, `X` Solid room exit.
-fn room(rows: &[&str]) -> Room {
+/// `.` Air, `#` Solid, `/` Slope, `-` Floor, `=` Air with a horizontal beam,
+/// `E` shortcut entrance, `X` Solid room exit.
+pub(crate) fn room(rows: &[&str]) -> Room {
     let h = rows.len();
     let w = rows[0].len();
     let mut grid = String::new();
@@ -26,6 +27,7 @@ fn room(rows: &[&str]) -> Room {
                 b'#' => "1",
                 b'/' => "2",
                 b'-' => "3",
+                b'=' => "0,2",
                 b'E' => "4,3",
                 b'X' => "1,3,4",
                 other => panic!("unknown cell {}", other as char),
@@ -420,23 +422,19 @@ fn rod_corrects_position_and_velocity_symmetrically() {
 
 #[test]
 fn pull_and_push_connections_act_one_way() {
-    let make = || {
-        vec![
-            BodyChunk::new(Vec2::new(0.0, 0.0), 5.0, 1.0),
-            BodyChunk::new(Vec2::new(10.0, 0.0), 5.0, 1.0),
-        ]
-    };
-    let mut chunks = make();
+    let untouched = vec![
+        BodyChunk::new(Vec2::new(0.0, 0.0), 5.0, 1.0),
+        BodyChunk::new(Vec2::new(10.0, 0.0), 5.0, 1.0),
+    ];
+    let mut chunks = untouched.clone();
     BodyChunkConnection::new(0, 1, 17.0, ConnectionKind::Pull, 1.0, 0.5).apply(&mut chunks);
     assert_eq!(
-        chunks,
-        make(),
+        chunks, untouched,
         "pull does nothing when closer than its length"
     );
     BodyChunkConnection::new(0, 1, 5.0, ConnectionKind::Push, 1.0, 0.5).apply(&mut chunks);
     assert_eq!(
-        chunks,
-        make(),
+        chunks, untouched,
         "push does nothing when farther than its length"
     );
     BodyChunkConnection::new(0, 1, 17.0, ConnectionKind::Push, 1.0, 0.25).apply(&mut chunks);

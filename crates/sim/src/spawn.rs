@@ -8,6 +8,7 @@
 use rand::{Rng, RngExt};
 use rw_assets::{Room, Shortcut, Terrain, tile_centre};
 
+use crate::room_ext::RoomExt;
 use crate::{PhysicalObject, Vec2};
 
 /// The game's `Custom.fourDirections` order.
@@ -28,8 +29,6 @@ const SPAWN_TRIES: usize = 1000;
 ///
 /// The shelter branch is not ported: room files do not say whether a room is a shelter.
 pub fn determine_safe_spawn_tile<R: Rng + ?Sized>(room: &Room, rng: &mut R) -> (i32, i32) {
-    let solid = |x: i32, y: i32| room.tile(x, y).is_solid();
-    let ground_below = |x: i32, y: i32| (-1..=1).all(|dx| solid(x + dx, y - 1));
     let water_level = room.water_level();
 
     let shortcuts = ShortcutMap::new(room);
@@ -46,31 +45,51 @@ pub fn determine_safe_spawn_tile<R: Rng + ?Sized>(room: &Room, rng: &mut R) -> (
         // Perpendicular of `dir * across`: (y, -x).
         let x = start.0 + dx * along + dy * across;
         let y = start.1 + dy * along - dx * across;
-        if !room.contains(x, y) || y <= 0 || solid(x, y) {
+        if !room.contains(x, y) || y <= 0 || room.is_solid_tile(x, y) {
             continue;
         }
         let under_water = water_level.is_some_and(|w| y <= w);
-        if ground_below(x, y) && !under_water {
+        if room.has_ground_below(x, y) && !under_water {
             return (x, y);
         }
     }
 
     let first_dry_row = water_level.map_or(1, |w| w + 1);
-    let fallbacks: [&dyn Fn(i32, i32) -> bool; 3] = [
-        &|x, y| y >= first_dry_row && !solid(x, y) && ground_below(x, y),
-        &|x, y| !solid(x, y) && solid(x, y - 1),
-        &|x, y| !solid(x, y),
-    ];
-    for accept in fallbacks {
+    for fallback in SpawnFallback::ALL {
         let candidates: Vec<(i32, i32)> = (0..room.width())
             .flat_map(|x| (1..room.height()).map(move |y| (x, y)))
-            .filter(|&(x, y)| accept(x, y))
+            .filter(|&(x, y)| fallback.accepts(room, first_dry_row, x, y))
             .collect();
         if !candidates.is_empty() {
             return candidates[rng.random_range(0..candidates.len())];
         }
     }
     (0, 0)
+}
+
+/// The three progressively looser random-tile searches after the shortcut tries.
+#[derive(Clone, Copy)]
+enum SpawnFallback {
+    /// At or above the first dry row, not Solid, with three Solid tiles below.
+    DryWithGroundBelow,
+    /// Not Solid with Solid directly below.
+    OnSolid,
+    /// Not Solid.
+    Open,
+}
+
+impl SpawnFallback {
+    const ALL: [Self; 3] = [Self::DryWithGroundBelow, Self::OnSolid, Self::Open];
+
+    fn accepts(self, room: &Room, first_dry_row: i32, x: i32, y: i32) -> bool {
+        match self {
+            Self::DryWithGroundBelow => {
+                y >= first_dry_row && !room.is_solid_tile(x, y) && room.has_ground_below(x, y)
+            }
+            Self::OnSolid => !room.is_solid_tile(x, y) && room.is_solid_tile(x, y - 1),
+            Self::Open => !room.is_solid_tile(x, y),
+        }
+    }
 }
 
 /// Puts every chunk at the middle of `tile` plus an independent random unit vector,
@@ -113,20 +132,15 @@ struct ShortcutMap {
 
 impl ShortcutMap {
     fn new(room: &Room) -> Self {
-        let scan = || {
-            (0..room.height())
-                .rev()
-                .flat_map(move |y| (0..room.width()).map(move |x| (x, y)))
-        };
-        let tiles_with =
-            |kind: Shortcut| scan().filter(move |&(x, y)| room.tile(x, y).shortcut == kind);
-        let nodes: Vec<(i32, i32)> = tiles_with(Shortcut::RoomExit)
-            .chain(tiles_with(Shortcut::CreatureDen))
-            .chain(tiles_with(Shortcut::RegionTransportation))
+        let nodes: Vec<(i32, i32)> = room
+            .tiles_with_shortcut(Shortcut::RoomExit)
+            .chain(room.tiles_with_shortcut(Shortcut::CreatureDen))
+            .chain(room.tiles_with_shortcut(Shortcut::RegionTransportation))
             .collect();
-        let exit_and_den_count =
-            tiles_with(Shortcut::RoomExit).count() + tiles_with(Shortcut::CreatureDen).count();
-        let shortcuts = scan()
+        let exit_and_den_count = room.tiles_with_shortcut(Shortcut::RoomExit).count()
+            + room.tiles_with_shortcut(Shortcut::CreatureDen).count();
+        let shortcuts = room
+            .scan_top_down()
             .filter(|&(x, y)| room.tile(x, y).terrain == Terrain::ShortcutEntrance)
             .map(|entrance| {
                 let dest = trace_shortcut(room, entrance)
@@ -153,17 +167,13 @@ impl ShortcutMap {
 
 /// Follows shortcut-flagged tiles from an entrance to the tile that ends the tube:
 /// a node tile (exit, den, transport) or `None` for another entrance or a dead end.
-fn trace_shortcut(room: &Room, entrance: (i32, i32)) -> Option<(i32, i32)> {
-    let in_tube = |(x, y): (i32, i32)| {
-        room.get(x, y)
-            .is_some_and(|t| t.shortcut != Shortcut::None || t.terrain == Terrain::ShortcutEntrance)
-    };
+pub(crate) fn trace_shortcut(room: &Room, entrance: (i32, i32)) -> Option<(i32, i32)> {
     let (mut prev, mut cur) = (entrance, entrance);
     for _ in 0..room.tiles().len() {
         let next = FOUR_DIRECTIONS
             .into_iter()
             .map(|(dx, dy)| (cur.0 + dx, cur.1 + dy))
-            .find(|&p| p != prev && in_tube(p))?;
+            .find(|&p| p != prev && room.is_in_shortcut_tube(p.0, p.1))?;
         let tile = room.tile(next.0, next.1);
         match tile.shortcut {
             Shortcut::RoomExit

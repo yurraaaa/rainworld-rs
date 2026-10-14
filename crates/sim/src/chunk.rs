@@ -7,6 +7,7 @@
 use rw_assets::{Room, Slope, TILE_SIZE, Terrain, tile_centre, tile_position};
 
 use crate::Vec2;
+use crate::room_ext::RoomExt;
 
 /// Default `restrictInRoomRange`: how far outside the room (px) a chunk may go.
 pub const DEFAULT_RESTRICT_IN_ROOM_RANGE: f32 = 1200.0;
@@ -146,12 +147,20 @@ impl BodyChunk {
         self.restrict_to_room(room);
     }
 
+    /// The game's `SolidFloor`: Solid, or a one-way Floor that the whole body was above.
+    fn is_solid_floor(&self, room: &Room, x: i32, y: i32, lowest_last_y: f32) -> bool {
+        match room.tile(x, y).terrain {
+            Terrain::Solid => true,
+            Terrain::Floor => !self.go_through_floors && tile_y(lowest_last_y) > y,
+            _ => false,
+        }
+    }
+
     fn collide_vertical(&mut self, room: &Room, p: &PhysicsParams, lowest_last_y: f32) {
         self.contact.y = 0;
         let r = self.terrain_rad();
         let (_, last_ty) = tile_of(self.last_pos);
         let last_solid = room.tile_at(self.last_pos.to_array()).is_solid();
-        let solid = |x: i32, y: i32| room.tile(x, y).is_solid();
         let x0 = tile_x(self.pos.x - r + 1.0);
         let x1 = tile_x(self.pos.x + r - 1.0);
         let mut checks = 0;
@@ -161,7 +170,10 @@ impl BodyChunk {
             let last = tile_y(self.pos.y + r + 0.01);
             'rows: for row in first..=last {
                 for col in x0..=x1 {
-                    if solid(col, row) && !solid(col, row - 1) && (last_ty < row || last_solid) {
+                    if room.is_solid_tile(col, row)
+                        && !room.is_solid_tile(col, row - 1)
+                        && (last_ty < row || last_solid)
+                    {
                         self.pos.y = row as f32 * TILE_SIZE - r;
                         self.contact.y = 1;
                         self.vel.y = -self.vel.y.abs() * p.bounce;
@@ -178,13 +190,14 @@ impl BodyChunk {
                 }
             }
         } else if self.pos.y < self.last_pos.y {
-            let floor =
-                |x: i32, y: i32| solid_floor(room, x, y, self.go_through_floors, lowest_last_y);
             let first = tile_y(self.last_pos.y - r);
             let last = tile_y(self.pos.y - r - 0.01);
             'rows: for row in (last..=first).rev() {
                 for col in x0..=x1 {
-                    if floor(col, row) && !floor(col, row + 1) && (last_ty > row || last_solid) {
+                    if self.is_solid_floor(room, col, row, lowest_last_y)
+                        && !self.is_solid_floor(room, col, row + 1, lowest_last_y)
+                        && (last_ty > row || last_solid)
+                    {
                         self.pos.y = (row as f32 + 1.0) * TILE_SIZE + r;
                         self.contact.y = -1;
                         self.vel.y = self.vel.y.abs() * p.bounce;
@@ -208,7 +221,6 @@ impl BodyChunk {
         let r = self.terrain_rad();
         let (last_tx, _) = tile_of(self.last_pos);
         let last_solid = room.tile_at(self.last_pos.to_array()).is_solid();
-        let solid = |x: i32, y: i32| room.tile(x, y).is_solid();
         let y0 = tile_y(self.pos.y - r + 1.0);
         let y1 = tile_y(self.pos.y + r - 1.0);
         let mut checks = 0;
@@ -218,7 +230,10 @@ impl BodyChunk {
             let last = tile_x(self.pos.x + r + 0.01);
             'cols: for col in first..=last {
                 for row in y0..=y1 {
-                    if solid(col, row) && !solid(col - 1, row) && (last_tx < col || last_solid) {
+                    if room.is_solid_tile(col, row)
+                        && !room.is_solid_tile(col - 1, row)
+                        && (last_tx < col || last_solid)
+                    {
                         self.pos.x = col as f32 * TILE_SIZE - r;
                         self.contact.x = 1;
                         self.vel.x = -self.vel.x.abs() * p.bounce;
@@ -239,7 +254,10 @@ impl BodyChunk {
             let last = tile_x(self.pos.x - r - 0.01);
             'cols: for col in (last..=first).rev() {
                 for row in y0..=y1 {
-                    if solid(col, row) && !solid(col + 1, row) && (last_tx > col || last_solid) {
+                    if room.is_solid_tile(col, row)
+                        && !room.is_solid_tile(col + 1, row)
+                        && (last_tx > col || last_solid)
+                    {
                         self.pos.x = (col as f32 + 1.0) * TILE_SIZE + r;
                         self.contact.x = -1;
                         self.vel.x = self.vel.x.abs() * p.bounce;
@@ -266,18 +284,23 @@ impl BodyChunk {
         let [mid_x, mid_y] = tile_centre(tx, ty);
         let mut found = room.identify_slope(tx, ty).map(|s| (s, (0, 0)));
         if room.tile(tx, ty).terrain != Terrain::Slope {
-            let slope = |dx: i32, dy: i32| room.identify_slope(tx + dx, ty + dy);
             // Priority: left, right, below, above, each gated by the chunk's extent
             // reaching that edge of its tile. The "below" branch does not fall through
             // to "above" when its slope is broken.
-            found = if let Some(s) = slope(-1, 0).filter(|_| self.pos.x - r <= mid_x - 10.0) {
+            found = if let Some(s) = room
+                .slope_near(tx, ty, (-1, 0))
+                .filter(|_| self.pos.x - r <= mid_x - 10.0)
+            {
                 Some((s, (-1, 0)))
-            } else if let Some(s) = slope(1, 0).filter(|_| self.pos.x + r >= mid_x + 10.0) {
+            } else if let Some(s) = room
+                .slope_near(tx, ty, (1, 0))
+                .filter(|_| self.pos.x + r >= mid_x + 10.0)
+            {
                 Some((s, (1, 0)))
             } else if self.pos.y - r < mid_y - 10.0 {
-                slope(0, -1).map(|s| (s, (0, -1)))
+                room.slope_near(tx, ty, (0, -1)).map(|s| (s, (0, -1)))
             } else if self.pos.y + r > mid_y + 10.0 {
-                slope(0, 1).map(|s| (s, (0, 1)))
+                room.slope_near(tx, ty, (0, 1)).map(|s| (s, (0, 1)))
             } else {
                 None
             };
@@ -350,15 +373,6 @@ fn bounce_threshold(p: &PhysicsParams) -> f32 {
 /// Multiplier on the tangential velocity at a flat-tile hit: `clamp(2 * friction, 0, 1)`.
 fn friction_factor(p: &PhysicsParams) -> f32 {
     (p.surface_friction * 2.0).clamp(0.0, 1.0)
-}
-
-/// The game's `SolidFloor`: Solid, or a one-way Floor that the whole body was above.
-fn solid_floor(room: &Room, x: i32, y: i32, go_through: bool, lowest_last_y: f32) -> bool {
-    match room.tile(x, y).terrain {
-        Terrain::Solid => true,
-        Terrain::Floor => !go_through && tile_y(lowest_last_y) > y,
-        _ => false,
-    }
 }
 
 fn tile_of(pos: Vec2) -> (i32, i32) {
