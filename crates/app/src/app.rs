@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
-use rw_render::{Camera, Renderer, RoomLayers, WgpuRenderer};
+use rw_render::{BodyStatus, Camera, Renderer, RoomLayers, WaterSurface, WgpuRenderer};
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
 use winit::event::{ElementState, KeyEvent, WindowEvent};
@@ -52,6 +52,8 @@ struct App {
     clock: FixedTimestep,
     last_frame: Option<Instant>,
     layers: RoomLayers,
+    /// Flat at the room's water row until the sim provides the wavy surface.
+    water: Option<WaterSurface>,
     view: Option<View>,
     /// `--screenshot`: save a frame here once a second has been simulated, then quit.
     screenshot_and_quit: Option<PathBuf>,
@@ -64,6 +66,7 @@ struct App {
 impl App {
     fn new(game: Game, screenshot_and_quit: Option<PathBuf>) -> Self {
         Self {
+            water: WaterSurface::for_room(game.room()),
             game,
             input: InputState::default(),
             clock: FixedTimestep::default(),
@@ -152,7 +155,11 @@ impl App {
             MARGIN,
         ));
         r.draw_room(self.layers);
-        r.draw_object(self.game.body(), alpha);
+        let time = (self.game.ticks() as f32 + alpha) / TICK_RATE as f32;
+        r.draw_object(self.game.body(), alpha, BodyStatus::ALIVE, time);
+        if let Some(water) = &self.water {
+            r.draw_water(water);
+        }
         if self.game.ticks() >= u64::from(TICK_RATE)
             && let Some(path) = self.screenshot_and_quit.take()
         {

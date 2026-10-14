@@ -21,6 +21,22 @@ impl Color {
     pub const fn rgba(r: f32, g: f32, b: f32, a: f32) -> Self {
         Self([r, g, b, a])
     }
+
+    #[must_use]
+    pub const fn with_alpha(self, a: f32) -> Self {
+        let [r, g, b, _] = self.0;
+        Self([r, g, b, a])
+    }
+
+    /// Componentwise blend, `t = 0` is `self`.
+    #[must_use]
+    pub fn lerp(self, to: Self, t: f32) -> Self {
+        let mut out = self.0;
+        for (o, b) in out.iter_mut().zip(to.0) {
+            *o += (b - *o) * t;
+        }
+        Self(out)
+    }
 }
 
 /// One vertex of the triangle list: room-pixel position and colour.
@@ -74,6 +90,11 @@ impl Mesh {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.vertices.is_empty()
+    }
+
+    /// Appends all triangles of `other`.
+    pub fn extend(&mut self, other: &Self) {
+        self.vertices.extend_from_slice(&other.vertices);
     }
 
     /// Removes all triangles, keeping the allocation.

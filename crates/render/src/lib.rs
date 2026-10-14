@@ -1,5 +1,5 @@
-//! Debug renderer: room tile geometry and body chunks, drawn through the small
-//! [`Renderer`] trait so the backend can be replaced.
+//! Debug renderer: room tile geometry, shortcut tubes, water and body chunks, drawn
+//! through the small [`Renderer`] trait so the backend can be replaced.
 //!
 //! The only backend is [`WgpuRenderer`] (wgpu pinned to Vulkan). Everything that does
 //! not need a GPU (camera, interpolation, tessellation, tile geometry) lives in plain
@@ -14,6 +14,11 @@ mod error;
 mod gpu;
 mod mesh;
 mod room_geometry;
+mod shortcut;
+mod status;
+#[cfg(test)]
+mod test_room;
+mod water;
 
 pub use body::ChunkInterpolation;
 pub use camera::Camera;
@@ -21,8 +26,11 @@ pub use error::RenderError;
 pub use gpu::WgpuRenderer;
 pub use mesh::{Color, Mesh, Vertex};
 pub use room_geometry::{RoomDebugGeometry, RoomShape, SlopeGeometry};
+pub use shortcut::ShortcutPaths;
+pub use status::{BodyStatus, BodyStyle};
+pub use water::WaterSurface;
 
-use rw_assets::Room;
+use rw_assets::{Room, TILE_SIZE};
 use rw_sim::PhysicalObject;
 
 /// Which room layers [`Renderer::draw_room`] draws this frame.
@@ -76,6 +84,9 @@ pub trait Renderer {
     /// Axis-aligned filled rectangle.
     fn draw_rect(&mut self, min: [f32; 2], max: [f32; 2], color: Color);
 
+    /// Arbitrary triangles, drawn in call order with the other shapes.
+    fn draw_mesh(&mut self, mesh: &Mesh);
+
     /// Renders and presents the frame.
     ///
     /// # Errors
@@ -89,43 +100,47 @@ pub trait Renderer {
 
     /// Draws an object's chunks as circles at their interpolated positions (`alpha`
     /// of the way from `last_pos` to `pos`), a line for every active connection, and a
-    /// small mark where a chunk touches terrain.
-    fn draw_object(&mut self, obj: &PhysicalObject, alpha: f32) {
+    /// small mark where a chunk touches terrain, styled by `status` at `time` seconds.
+    fn draw_object(&mut self, obj: &PhysicalObject, alpha: f32, status: BodyStatus, time: f32) {
+        let style = status.style(time);
         for (i, chunk) in obj.chunks.iter().enumerate() {
             let c = chunk.interpolated_pos(alpha);
-            self.draw_circle(
-                c,
-                chunk.rad,
-                body_palette::FILL[i % body_palette::FILL.len()],
-            );
-            self.draw_ring(c, chunk.rad, 1.5, body_palette::EDGE);
+            self.draw_circle(c, chunk.rad, style.fill[i % style.fill.len()]);
+            self.draw_ring(c, chunk.rad, style.edge_width, style.edge);
+            if let Some(cross) = style.cross {
+                let d = chunk.rad * std::f32::consts::FRAC_1_SQRT_2;
+                self.draw_line([c[0] - d, c[1] - d], [c[0] + d, c[1] + d], 2.0, cross);
+                self.draw_line([c[0] - d, c[1] + d], [c[0] + d, c[1] - d], 2.0, cross);
+            }
             let contact = chunk.contact();
             if contact.x != 0 || contact.y != 0 {
                 let p = [
                     c[0] + f32::from(contact.x) * chunk.rad,
                     c[1] + f32::from(contact.y) * chunk.rad,
                 ];
-                self.draw_circle(p, 2.5, body_palette::CONTACT);
+                self.draw_circle(p, 2.5, style.contact);
             }
         }
         for conn in obj.connections.iter().filter(|c| c.active) {
             let a = obj.chunks[conn.chunk1].interpolated_pos(alpha);
             let b = obj.chunks[conn.chunk2].interpolated_pos(alpha);
-            self.draw_line(a, b, 2.0, body_palette::ROD);
+            self.draw_line(a, b, 2.0, style.rod);
         }
     }
-}
 
-/// Colours of [`Renderer::draw_object`].
-mod body_palette {
-    use crate::Color;
+    /// Translucent water from `surface` down to [`WaterSurface::DEPTH_BELOW_ROOM`]
+    /// under the room. Draw it after the bodies: water covers them, as in the game.
+    fn draw_water(&mut self, surface: &WaterSurface) {
+        self.draw_mesh(&surface.mesh(-WaterSurface::DEPTH_BELOW_ROOM));
+    }
 
-    /// Chunk fills, cycled by chunk index (head, hips, ...).
-    pub const FILL: [Color; 2] = [
-        Color::rgba(0.95, 0.95, 1.0, 0.35),
-        Color::rgba(0.75, 0.85, 1.0, 0.30),
-    ];
-    pub const EDGE: Color = Color::rgb(0.95, 0.95, 1.0);
-    pub const ROD: Color = Color::rgb(1.0, 0.55, 0.25);
-    pub const CONTACT: Color = Color::rgb(0.3, 1.0, 0.5);
+    /// Lit marker on the shortcut tile a creature is travelling through, if any.
+    fn draw_shortcut_vessel(&mut self, tile: Option<(i32, i32)>) {
+        let Some((x, y)) = tile else { return };
+        let min = [x as f32 * TILE_SIZE, y as f32 * TILE_SIZE];
+        let max = [min[0] + TILE_SIZE, min[1] + TILE_SIZE];
+        let mid = [min[0] + TILE_SIZE / 2.0, min[1] + TILE_SIZE / 2.0];
+        self.draw_rect(min, max, Color::rgba(1.0, 1.0, 1.0, 0.85));
+        self.draw_ring(mid, TILE_SIZE * 0.75, 2.0, Color::rgb(1.0, 0.95, 0.5));
+    }
 }

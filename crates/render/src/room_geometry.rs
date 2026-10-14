@@ -6,7 +6,7 @@
 
 use rw_assets::{Room, Shortcut, Slope, TILE_SIZE, Terrain};
 
-use crate::Mesh;
+use crate::{Mesh, ShortcutPaths};
 
 /// What to draw for one tile feature, in tile coordinates (y up).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -38,9 +38,16 @@ pub enum RoomShape {
         x: i32,
         y: i32,
     },
+    /// `hole` is the open side, see [`ShortcutPaths::hole_direction`].
     ShortcutEntrance {
         x: i32,
         y: i32,
+        hole: (i32, i32),
+    },
+    /// One step of a traced shortcut tube, between neighbouring tile centres.
+    ShortcutLink {
+        from: (i32, i32),
+        to: (i32, i32),
     },
     /// A shortcut flag on a tile that is not an entrance (tube, exit, den, transport).
     ShortcutMark {
@@ -61,6 +68,7 @@ mod palette {
     pub const ENTRANCE_FILL: Color = Color::rgb(0.20, 0.18, 0.10);
     pub const ENTRANCE_EDGE: Color = Color::rgb(1.0, 0.85, 0.2);
     pub const PATH: Color = Color::rgba(1.0, 0.85, 0.2, 0.45);
+    pub const LINK: Color = Color::rgba(1.0, 0.9, 0.4, 0.75);
     pub const ROOM_EXIT: Color = Color::rgb(0.3, 0.95, 0.4);
     pub const DEN: Color = Color::rgb(0.95, 0.3, 0.3);
     pub const TRANSPORT: Color = Color::rgb(0.65, 0.4, 1.0);
@@ -72,6 +80,8 @@ mod palette {
 const FLOOR_THICKNESS: f32 = 4.0;
 /// Pole line width, px.
 const POLE_WIDTH: f32 = 2.0;
+/// Shortcut tube line width, px.
+const LINK_WIDTH: f32 = 3.0;
 
 /// Drawing geometry of a slope orientation.
 pub trait SlopeGeometry {
@@ -99,7 +109,8 @@ impl SlopeGeometry for Slope {
 
 /// Debug drawing geometry of a room.
 pub trait RoomDebugGeometry {
-    /// Every drawable tile feature, column by column, bottom row first.
+    /// Every drawable tile feature, column by column, bottom row first, then the links
+    /// of every traced shortcut tube (each step once).
     fn debug_shapes(&self) -> Vec<RoomShape>;
     /// Triangles for the tile geometry in room pixels: terrain first, then floors,
     /// poles and shortcut markers on top.
@@ -122,7 +133,11 @@ impl RoomDebugGeometry for Room {
                         None => RoomShape::BrokenSlope { x, y },
                     }),
                     Terrain::Floor => out.push(RoomShape::Floor { x, y }),
-                    Terrain::ShortcutEntrance => out.push(RoomShape::ShortcutEntrance { x, y }),
+                    Terrain::ShortcutEntrance => out.push(RoomShape::ShortcutEntrance {
+                        x,
+                        y,
+                        hole: self.hole_direction(x, y),
+                    }),
                 }
                 if tile.vertical_pole() {
                     out.push(RoomShape::VerticalPole { x, y });
@@ -139,6 +154,18 @@ impl RoomDebugGeometry for Room {
                 }
             }
         }
+        let mut links: Vec<((i32, i32), (i32, i32))> = self
+            .shortcut_paths()
+            .iter()
+            .flat_map(|path| path.windows(2).map(|w| (w[0].min(w[1]), w[0].max(w[1]))))
+            .collect();
+        links.sort_unstable();
+        links.dedup();
+        out.extend(
+            links
+                .into_iter()
+                .map(|(from, to)| RoomShape::ShortcutLink { from, to }),
+        );
         out
     }
 
@@ -191,6 +218,17 @@ impl TileRect {
         ]
     }
 
+    /// The edge on side `dir` (a unit grid direction).
+    fn edge(self, dir: (i32, i32)) -> ([f32; 2], [f32; 2]) {
+        let (min, max) = (self.min, self.max);
+        match dir {
+            (-1, 0) => (min, [min[0], max[1]]),
+            (1, 0) => ([max[0], min[1]], max),
+            (0, -1) => (min, [max[0], min[1]]),
+            _ => ([min[0], max[1]], max),
+        }
+    }
+
     /// Shrunk by `d` on every side.
     fn inset(self, d: f32) -> Self {
         Self {
@@ -211,8 +249,9 @@ impl RoomShape {
             | Self::Floor { x, y }
             | Self::VerticalPole { x, y }
             | Self::HorizontalPole { x, y }
-            | Self::ShortcutEntrance { x, y }
+            | Self::ShortcutEntrance { x, y, .. }
             | Self::ShortcutMark { x, y, .. } => (x, y),
+            Self::ShortcutLink { from, .. } => from,
         }
     }
 
@@ -222,7 +261,8 @@ impl RoomShape {
             Self::Solid { .. } | Self::Slope { .. } | Self::BrokenSlope { .. } => 0,
             Self::Floor { .. } | Self::ShortcutEntrance { .. } => 1,
             Self::VerticalPole { .. } | Self::HorizontalPole { .. } => 2,
-            Self::ShortcutMark { .. } => 3,
+            Self::ShortcutLink { .. } => 3,
+            Self::ShortcutMark { .. } => 4,
         }
     }
 
@@ -262,11 +302,30 @@ impl RoomShape {
                 let cy = r.mid()[1];
                 mesh.line([r.min[0], cy], [r.max[0], cy], POLE_WIDTH, palette::POLE);
             }
-            Self::ShortcutEntrance { .. } => {
+            Self::ShortcutEntrance { hole, .. } => {
                 mesh.rect(r.min, r.max, palette::ENTRANCE_FILL);
                 let inner = r.inset(3.0);
-                mesh.rect_outline(inner.min, inner.max, 2.0, palette::ENTRANCE_EDGE);
-                mesh.circle(r.mid(), 3.0, palette::ENTRANCE_EDGE);
+                for side in [(-1, 0), (0, -1), (1, 0), (0, 1)] {
+                    if side != hole {
+                        let (a, b) = inner.edge(side);
+                        mesh.line(a, b, 2.0, palette::ENTRANCE_EDGE);
+                    }
+                }
+                let c = r.mid();
+                mesh.circle(c, 3.0, palette::ENTRANCE_EDGE);
+                if hole != (0, 0) {
+                    let (hx, hy) = (hole.0 as f32, hole.1 as f32);
+                    mesh.triangle(
+                        [c[0] + hx * 9.0, c[1] + hy * 9.0],
+                        [c[0] + hx * 4.0 - hy * 4.0, c[1] + hy * 4.0 + hx * 4.0],
+                        [c[0] + hx * 4.0 + hy * 4.0, c[1] + hy * 4.0 - hx * 4.0],
+                        palette::ENTRANCE_EDGE,
+                    );
+                }
+            }
+            Self::ShortcutLink { to, .. } => {
+                let b = TileRect::at(to.0, to.1).mid();
+                mesh.line(r.mid(), b, LINK_WIDTH, palette::LINK);
             }
             Self::ShortcutMark { kind, .. } => {
                 let (color, radius) = match kind {
@@ -287,37 +346,7 @@ impl RoomShape {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    trait FromAscii {
-        /// Builds a room from ASCII rows (top row first): `.` Air, `#` Solid, `/` Slope,
-        /// `-` Floor, `|` vertical pole, `=` horizontal pole, `E` entrance, `x` Solid
-        /// with a shortcut path flag.
-        fn from_ascii(rows: &[&str]) -> Self;
-    }
-
-    impl FromAscii for Room {
-        fn from_ascii(rows: &[&str]) -> Self {
-            let (w, h) = (rows[0].len(), rows.len());
-            let mut grid = String::new();
-            for x in 0..w {
-                for row in rows {
-                    grid.push_str(match row.as_bytes()[x] {
-                        b'#' => "1",
-                        b'/' => "2",
-                        b'-' => "3",
-                        b'|' => "0,1",
-                        b'=' => "0,2",
-                        b'E' => "4,3",
-                        b'x' => "1,3",
-                        _ => "0",
-                    });
-                    grid.push('|');
-                }
-            }
-            let text = format!("T\n{w}*{h}|-1|0\n0\n0,0\n\n\n\n\n\n\n\n{grid}\n");
-            Room::parse(&text).expect("test room parses")
-        }
-    }
+    use crate::test_room::FromAscii;
 
     struct Triangle([[f32; 2]; 3]);
 
@@ -376,7 +405,12 @@ mod tests {
         for want in [
             RoomShape::VerticalPole { x: 0, y: 2 },
             RoomShape::HorizontalPole { x: 1, y: 2 },
-            RoomShape::ShortcutEntrance { x: 2, y: 2 },
+            // Left is a horizontal pole on Air: open to the left.
+            RoomShape::ShortcutEntrance {
+                x: 2,
+                y: 2,
+                hole: (-1, 0),
+            },
             RoomShape::Solid { x: 0, y: 1 },
             // Left Solid and below Solid: UpRight, the lower-left half.
             RoomShape::Slope {
@@ -444,5 +478,35 @@ mod tests {
         let r = Room::from_ascii(&["...", "..."]);
         // (3 + 1) vertical + (2 + 1) horizontal lines + 4 border segments, 6 vertices each.
         assert_eq!(r.debug_grid_mesh().vertices().len(), (4 + 3 + 4) * 6);
+    }
+
+    #[test]
+    fn pipe_links_are_drawn_once() {
+        let r = Room::from_ascii(&[".....", "#E#E#", "#x#x#", "#xxx#", "#####"]);
+        let links: Vec<RoomShape> = r
+            .debug_shapes()
+            .into_iter()
+            .filter(|s| matches!(s, RoomShape::ShortcutLink { .. }))
+            .collect();
+        assert_eq!(links.len(), 6);
+        assert!(links.contains(&RoomShape::ShortcutLink {
+            from: (1, 2),
+            to: (1, 3)
+        }));
+    }
+
+    #[test]
+    fn entrance_outline_is_open_on_the_hole_side() {
+        // Entrance (1,1) opens upwards. Its inner outline runs at x = 23, 37 and
+        // y = 23, 37 (width 2); only a horizontal edge has a vertex at (23, y +- 1).
+        let mesh = Room::from_ascii(&["...", "#E#", "###"]).debug_mesh();
+        let edge: Vec<[f32; 2]> = mesh
+            .vertices()
+            .iter()
+            .filter(|v| v.color == palette::ENTRANCE_EDGE.0)
+            .map(|v| v.pos)
+            .collect();
+        assert!(edge.contains(&[23.0, 22.0]), "bottom edge drawn");
+        assert!(!edge.contains(&[23.0, 38.0]), "top edge open");
     }
 }

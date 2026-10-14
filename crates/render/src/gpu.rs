@@ -452,6 +452,10 @@ impl Renderer for WgpuRenderer {
         self.dynamic.rect(min, max, color);
     }
 
+    fn draw_mesh(&mut self, mesh: &Mesh) {
+        self.dynamic.extend(mesh);
+    }
+
     fn present(&mut self) -> Result<(), RenderError> {
         if !self.is_drawable() {
             return Ok(());
