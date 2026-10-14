@@ -6,10 +6,11 @@
 //! entrances can't be entered (docs/DIVERGENCES.md D5).
 
 use rw_assets::{Room, ShortcutType, Terrain, tile_centre};
+use rw_random::UnityRandom;
 
 use super::{HEAD, HIPS, Player};
-use crate::Vec2;
 use crate::shortcut::ShortcutVessel;
+use crate::{SoundId, Sounds, Vec2};
 
 /// `shortcutDelay` after leaving a shortcut.
 const SPIT_OUT_DELAY: i32 = 20;
@@ -112,6 +113,8 @@ impl Player {
         }
         // `shortcutData` gives the placeholder starting at the tile itself when the
         // entrance is not indexed, so the vessel always starts on `entrance`.
+        // `Player_Enter_Shortcut` has no sounds.txt line: it draws nothing.
+        self.play_sound(SoundId::PlayerEnterShortcut, HEAD, 1.0, 1.0);
         self.vessel = Some(ShortcutVessel::new(entrance));
         self.entering_shortcut = None;
     }
@@ -120,8 +123,15 @@ impl Player {
     /// player out there. Node tiles need nothing for the player: room exits can't be
     /// entered (port decision), dens and NPC transports can't be entered by players,
     /// and a region transport without an NPC destination (a player never has one)
-    /// does nothing, so the vessel stalls there one update and then walks back.
-    pub(crate) fn shortcut_vessel_update(&mut self, room: &Room) {
+    /// does nothing, so the vessel stalls there one update and then walks back. Each
+    /// step ticks (`Player_Tick_Along_In_Shortcut`); leaving plays `Player_Exit_Shortcut`
+    /// (no sounds.txt line) at the entrance.
+    pub(crate) fn shortcut_vessel_update(
+        &mut self,
+        room: &Room,
+        rng: &mut UnityRandom,
+        sounds: &mut Sounds,
+    ) {
         let Some(vessel) = &mut self.vessel else {
             return;
         };
@@ -129,7 +139,10 @@ impl Player {
             return;
         }
         let pos = vessel.pos;
+        sounds.play_disembodied(SoundId::PlayerTickAlongInShortcut, 0.0, 1.0, 1.0, rng);
         if room.tile(pos.0, pos.1).terrain == Terrain::ShortcutEntrance {
+            let middle = Vec2::from(tile_centre(pos.0, pos.1));
+            sounds.play_at(SoundId::PlayerExitShortcut, middle, 1.0, 1.0, rng);
             self.spit_out_of_shortcut(room, pos);
         }
     }

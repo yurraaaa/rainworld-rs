@@ -34,6 +34,12 @@ impl StreamingAssets {
         self.0.join(relative.to_lowercase())
     }
 
+    /// `AssetBundles/<name>` (that directory keeps its mixed-case name on disk).
+    #[must_use]
+    pub fn asset_bundle(&self, name: &str) -> PathBuf {
+        self.0.join("AssetBundles").join(name)
+    }
+
     /// The game's room file lookup (`WorldLoader.FindRoomFile`): `<room><suffix>` in
     /// `world/<prefix>-rooms` (prefix = text before the first `_`), then `world/gates`
     /// (only for `GATE_` rooms), then `world/gates/gate_shelters`, then `levels`.

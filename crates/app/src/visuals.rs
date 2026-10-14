@@ -113,6 +113,12 @@ impl Visuals {
         self.camera.screen_size()
     }
 
+    /// `RoomCamera.pos` this tick: bottom left of the window.
+    #[must_use]
+    pub fn camera_pos(&self) -> [f32; 2] {
+        self.camera.view_origin(1.0)
+    }
+
     /// The game's window at `alpha` between ticks, `seconds` of shader time in.
     #[must_use]
     pub fn view(&self, alpha: f32, seconds: f32) -> LevelView {

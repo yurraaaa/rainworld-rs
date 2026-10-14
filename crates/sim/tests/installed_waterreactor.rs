@@ -2,6 +2,7 @@
 //! (surface 110 px), water in front of the terrain, no wave keys in its settings (root
 //! defaults). Set `RW_DIR` to the game install directory; skipped if absent.
 
+use rw_sim::Sounds;
 use std::path::PathBuf;
 
 use rw_assets::{Room, RoomSettings};
@@ -37,8 +38,13 @@ fn waterreactor_fall_float_dive_and_drown() {
     let mut death = None;
     for t in 0..2000 {
         let input = if t < 200 { Input::NONE } else { down };
-        water.update(&room, p.body.chunks.iter_mut(), &mut rng);
-        p.update(&room, Some(&water), input, &mut rng);
+        water.update(
+            &room,
+            p.body.chunks.iter_mut(),
+            &mut rng,
+            &mut Sounds::default(),
+        );
+        p.update(&room, Some(&water), input, &mut rng, &mut Sounds::default());
         if (100..200).contains(&t) {
             // Floating: surface swimming, the head held up around 15 px over 110.
             assert_eq!(p.animation(), Animation::SurfaceSwim, "tick {t}");

@@ -2,6 +2,7 @@
 //! install directory (the one containing `RainWorld_Data`); skipped if absent.
 //! Expected slope classes come from `rainworld-re/notes/slope-collision.md` section 8.
 
+use rw_sim::Sounds;
 use std::path::PathBuf;
 
 use rw_assets::{Room, Slope, Terrain, tile_position};
@@ -115,7 +116,13 @@ fn upright_player(hips: Vec2) -> Player {
 
 fn run(p: &mut Player, room: &Room, input: Input, ticks: usize) {
     for _ in 0..ticks {
-        p.update(room, None, input, &mut UnityRandom::new(0));
+        p.update(
+            room,
+            None,
+            input,
+            &mut UnityRandom::new(0),
+            &mut Sounds::default(),
+        );
     }
 }
 
@@ -144,7 +151,13 @@ fn summit_spawned_player_rests_on_block_top_then_stands() {
         assert!((d - 17.0).abs() < 1e-3, "seed {seed}: rod length {d}");
 
         // An up press sets `standing`; Stand mode holds the head up (+1.5 / -4.5).
-        p.update(&room, None, UP, &mut UnityRandom::new(0));
+        p.update(
+            &room,
+            None,
+            UP,
+            &mut UnityRandom::new(0),
+            &mut Sounds::default(),
+        );
         run(&mut p, &room, Input::NONE, 100);
         assert_eq!(p.body_mode(), BodyMode::Stand, "seed {seed}");
         let (head, hips) = (p.head(), p.hips());
@@ -171,7 +184,13 @@ fn summit_running_then_releasing_stops() {
     let Some(room) = summit() else { return };
     // Left pit: floor row 6 (top 140) for x = 15..20, middle block from x = 21 (420).
     let mut p = upright_player(Vec2::new(370.0, 148.0));
-    p.update(&room, None, UP, &mut UnityRandom::new(0));
+    p.update(
+        &room,
+        None,
+        UP,
+        &mut UnityRandom::new(0),
+        &mut Sounds::default(),
+    );
     run(&mut p, &room, Input::NONE, 40);
     assert_eq!(p.body_mode(), BodyMode::Stand);
     let start = p.hips().pos.x;
@@ -206,7 +225,13 @@ fn summit_horizontal_beam_grab_shuffle_and_pull_up() {
     let mut p = upright_player(Vec2::new(312.0, 400.0));
     let mut grabbed = false;
     for _ in 0..40 {
-        p.update(&room, None, UP, &mut UnityRandom::new(0));
+        p.update(
+            &room,
+            None,
+            UP,
+            &mut UnityRandom::new(0),
+            &mut Sounds::default(),
+        );
         if p.animation() == Animation::HangFromBeam {
             grabbed = true;
             break;
@@ -234,7 +259,13 @@ fn summit_horizontal_beam_grab_shuffle_and_pull_up() {
     // At the beam's end (tile 18) the hands let go.
     let mut fell = false;
     for _ in 0..40 {
-        p.update(&room, None, RIGHT, &mut UnityRandom::new(0));
+        p.update(
+            &room,
+            None,
+            RIGHT,
+            &mut UnityRandom::new(0),
+            &mut Sounds::default(),
+        );
         if p.animation() == Animation::None {
             fell = true;
             break;
@@ -250,11 +281,23 @@ fn summit_horizontal_beam_grab_shuffle_and_pull_up() {
     run(&mut p, &room, UP, 40);
     assert_eq!(p.animation(), Animation::HangFromBeam);
     run(&mut p, &room, Input::NONE, 20);
-    p.update(&room, None, UP, &mut UnityRandom::new(0));
+    p.update(
+        &room,
+        None,
+        UP,
+        &mut UnityRandom::new(0),
+        &mut Sounds::default(),
+    );
     assert_eq!(p.animation(), Animation::GetUpOnBeam);
     let mut stood = false;
     for _ in 0..60 {
-        p.update(&room, None, Input::NONE, &mut UnityRandom::new(0));
+        p.update(
+            &room,
+            None,
+            Input::NONE,
+            &mut UnityRandom::new(0),
+            &mut Sounds::default(),
+        );
         if p.animation() == Animation::StandOnBeam {
             stood = true;
             break;
@@ -268,7 +311,13 @@ fn summit_horizontal_beam_grab_shuffle_and_pull_up() {
     assert!(p.head().pos.y > p.hips().pos.y + 10.0);
 
     // Down press steps off: falls to the pit floor (top 140).
-    p.update(&room, None, DOWN, &mut UnityRandom::new(0));
+    p.update(
+        &room,
+        None,
+        DOWN,
+        &mut UnityRandom::new(0),
+        &mut Sounds::default(),
+    );
     assert_eq!(p.animation(), Animation::None);
     run(&mut p, &room, Input::NONE, 80);
     assert_eq!(p.hips().contact().y, -1);
@@ -289,7 +338,13 @@ fn summit_open_bottom_kills_below_minus_500() {
     let mut died = None;
     for tick in 1..200 {
         let start_y = p.head().pos.y;
-        p.update(&room, None, Input::NONE, &mut UnityRandom::new(0));
+        p.update(
+            &room,
+            None,
+            Input::NONE,
+            &mut UnityRandom::new(0),
+            &mut Sounds::default(),
+        );
         assert!(!p.is_stunned(), "nothing to hit");
         assert_eq!(
             p.is_dead(),
@@ -317,14 +372,26 @@ fn summit_ledge_grab_on_the_left_block() {
     for c in &mut p.body.chunks {
         c.vel.x = 3.0;
     }
-    p.update(&room, None, RIGHT, &mut UnityRandom::new(0));
+    p.update(
+        &room,
+        None,
+        RIGHT,
+        &mut UnityRandom::new(0),
+        &mut Sounds::default(),
+    );
     assert_eq!(p.head().contact().x, 1);
     assert_eq!(p.animation(), Animation::LedgeGrab);
     // Holding toward the wall hauls the body over the edge onto row 17 (top 340), a
     // two-tile step in front of the next wall (column 12).
     let mut ticks = 0;
     while p.body_mode() != BodyMode::Stand {
-        p.update(&room, None, RIGHT, &mut UnityRandom::new(0));
+        p.update(
+            &room,
+            None,
+            RIGHT,
+            &mut UnityRandom::new(0),
+            &mut Sounds::default(),
+        );
         ticks += 1;
         assert!(ticks < 40, "{:?}", p.chunks());
     }

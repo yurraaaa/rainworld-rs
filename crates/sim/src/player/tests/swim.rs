@@ -3,6 +3,7 @@
 //! note corrections), derivation next to each assertion. The pool's surface is flat at
 //! 410 px (water row 20) until the water is updated.
 
+use crate::Sounds;
 use rw_assets::{Room, RoomSettings};
 
 use super::{assert_close, assert_vec, test_rng};
@@ -194,7 +195,13 @@ fn surface_jump_and_its_delay() {
     assert_close(p.hips().vel.x, 1.5, "hips x");
     // The delay counts down once per tick in `Player.Update`.
     let (r, w) = pool();
-    p.update(&r, Some(&w), Input::NONE, &mut test_rng());
+    p.update(
+        &r,
+        Some(&w),
+        Input::NONE,
+        &mut test_rng(),
+        &mut Sounds::default(),
+    );
     assert_eq!(p.water_jump_delay, 9);
 }
 
@@ -293,7 +300,7 @@ fn lungs_drain_under_water_and_refill_above() {
     let mut rng = test_rng();
     let mut p = Player::upright_under(100.0, Input::NONE);
     p.body.chunks[HEAD].vel.x = 4.0;
-    p.lung_update(&r, Some(&w), &mut rng);
+    p.lung_update(&r, Some(&w), &mut rng, &mut Sounds::default());
     assert_close(p.air_in_lungs, 1.0 - DRAIN, "drain");
     // First tick under: swim force from the head's x speed, InverseLerp(0, 8, 4).
     assert_close(p.swim_force, 0.5, "swim force");
@@ -301,33 +308,33 @@ fn lungs_drain_under_water_and_refill_above() {
     // Exhausted lungs drain twice as fast: 1 / (40 * 4.5 * 1.28).
     p.lungs_exhausted = true;
     let before = p.air_in_lungs;
-    p.lung_update(&r, Some(&w), &mut rng);
+    p.lung_update(&r, Some(&w), &mut rng, &mut Sounds::default());
     assert_close(before - p.air_in_lungs, 1.0 / 230.4, "exhausted drain");
     // Holding straight up short of breath drains 1.5 times slower.
     let mut p = Player::upright_under(100.0, UP);
     p.air_in_lungs = 0.3;
-    p.lung_update(&r, Some(&w), &mut rng);
+    p.lung_update(&r, Some(&w), &mut rng, &mut Sounds::default());
     assert_close(p.air_in_lungs, 0.3 - 1.0 / 691.2, "holding up");
 
     // Above water: +1/60, snapped to full above 0.9.
     let mut p = Player::upright_under(-40.0, Input::NONE);
     p.air_in_lungs = 0.5;
-    p.lung_update(&r, Some(&w), &mut rng);
+    p.lung_update(&r, Some(&w), &mut rng, &mut Sounds::default());
     assert_close(p.air_in_lungs, 0.5 + 1.0 / 60.0, "refill");
     p.air_in_lungs = 0.91;
-    p.lung_update(&r, Some(&w), &mut rng);
+    p.lung_update(&r, Some(&w), &mut rng, &mut Sounds::default());
     assert_eq!(p.air_in_lungs, 1.0);
     // Surfacing with less than a third: exhausted, +1/240, slowed until full.
     let mut p = Player::upright_under(-40.0, Input::NONE);
     p.submerged = true;
     p.air_in_lungs = 0.2;
-    p.lung_update(&r, Some(&w), &mut rng);
+    p.lung_update(&r, Some(&w), &mut rng, &mut Sounds::default());
     assert!(p.lungs_exhausted);
     assert_close(p.air_in_lungs, 0.2 + 1.0 / 240.0, "exhausted refill");
     assert_eq!(p.slow_movement_stun, 5);
     // Full again: recovered.
     p.air_in_lungs = 0.999;
-    p.lung_update(&r, Some(&w), &mut rng);
+    p.lung_update(&r, Some(&w), &mut rng, &mut Sounds::default());
     assert!(!p.lungs_exhausted && p.air_in_lungs == 1.0);
 }
 
@@ -338,10 +345,10 @@ fn full_lungs_last_461_ticks() {
     let mut rng = test_rng();
     // 1 / 460.8 per tick: still breathing after 460 ticks, out on the 461st.
     for _ in 0..460 {
-        p.lung_update(&r, Some(&w), &mut rng);
+        p.lung_update(&r, Some(&w), &mut rng, &mut Sounds::default());
     }
     assert!(p.air_in_lungs > 0.0 && p.stun == 0);
-    p.lung_update(&r, Some(&w), &mut rng);
+    p.lung_update(&r, Some(&w), &mut rng, &mut Sounds::default());
     assert_eq!(p.air_in_lungs, 0.0);
     assert_eq!(p.stun, 10);
 }
@@ -356,8 +363,13 @@ fn out_of_air_stuns_and_drowns_after_120_steps() {
     // Each tick: Stun(10), drown += 1/120. 120 f32 steps of 1/120 sum to just under 1,
     // so `drown >= 1` (death) comes on the 121st.
     for tick in 1..=121 {
-        w.update(&r, p.body.chunks.iter_mut(), &mut rng);
-        p.update(&r, Some(&w), Input::NONE, &mut rng);
+        w.update(
+            &r,
+            p.body.chunks.iter_mut(),
+            &mut rng,
+            &mut Sounds::default(),
+        );
+        p.update(&r, Some(&w), Input::NONE, &mut rng, &mut Sounds::default());
         assert_eq!(p.is_dead(), tick == 121, "tick {tick}");
         if tick < 121 {
             // Stun(10) before `Creature.Update` counts it to 9: no input or movement,
@@ -379,17 +391,17 @@ fn heading_up_to_open_surface_allows_0_3_more() {
     p.air_in_lungs = 0.0;
     p.submerged = true;
     for _ in 0..207 {
-        p.lung_update(&r, Some(&w), &mut rng);
+        p.lung_update(&r, Some(&w), &mut rng, &mut Sounds::default());
     }
     assert_eq!(p.stun, 0);
     assert_close(p.air_in_lungs, -207.0 / 691.2, "air");
-    p.lung_update(&r, Some(&w), &mut rng);
+    p.lung_update(&r, Some(&w), &mut rng, &mut Sounds::default());
     assert_eq!(p.stun, 10);
     assert_eq!(p.air_in_lungs, 0.0);
     // More than 200 px down: drowning starts at once.
     let mut p = Player::upright_under(201.0, UP);
     p.air_in_lungs = 0.0;
-    p.lung_update(&r, Some(&w), &mut rng);
+    p.lung_update(&r, Some(&w), &mut rng, &mut Sounds::default());
     assert_eq!(p.stun, 10);
 }
 
@@ -406,7 +418,7 @@ fn a_ceiling_over_the_head_blocks_the_surface_exception() {
     assert!(r.tile(15, 18).is_solid());
     let mut p = Player::upright_under(100.0, UP);
     p.air_in_lungs = 0.0;
-    p.lung_update(&r, Some(&w), &mut test_rng());
+    p.lung_update(&r, Some(&w), &mut test_rng(), &mut Sounds::default());
     assert_eq!(p.stun, 10);
 }
 
@@ -417,8 +429,13 @@ fn a_dropped_body_floats_up_and_surface_swims() {
     let mut p = Player::upright_under(-60.0, Input::NONE);
     let mut modes = Vec::new();
     for _ in 0..400 {
-        w.update(&r, p.body.chunks.iter_mut(), &mut rng);
-        p.update(&r, Some(&w), Input::NONE, &mut rng);
+        w.update(
+            &r,
+            p.body.chunks.iter_mut(),
+            &mut rng,
+            &mut Sounds::default(),
+        );
+        p.update(&r, Some(&w), Input::NONE, &mut rng, &mut Sounds::default());
         modes.push(p.animation);
     }
     assert!(modes.contains(&Animation::DeepSwim) || modes.contains(&Animation::SurfaceSwim));

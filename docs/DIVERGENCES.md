@@ -13,7 +13,11 @@ the same bounds, `Custom.RNV` / `DegToVec(Random.value * 360)` as
 `rw_sim::Vec2::random_unit`). The app keeps one stream, as the game's single global
 generator: spawning (`DetermineSafeSpawnTile`, the `Player` constructor, the graphics
 module built by `PlaceInRoom`'s `AddObject`, then the chunk offsets), the water, the
-player and its graphics module draw from it in the game's update order. What still
+player and its graphics module draw from it in the game's update order. Every sound the
+ported code plays makes `VirtualMicrophone.PlaySound`'s draws on it where the game calls
+`room.PlaySound` (`rw_sim::Sounds`; the order is in `rainworld-re/notes/sound.md` 2.8),
+loaded from `sounds.txt` in the window and in MCP alike, so a run's sequence does not
+depend on whether audio is playing. What still
 differs is only the seed and the call order:
 - **Seed.** The game seeds at start-up from OS entropy and never re-seeds for anything
   ported (its `InitState` sites are story-session cycle seeds, DLC and other objects'
@@ -23,7 +27,8 @@ differs is only the seed and the call order:
   rain, camera and AI in the room and world; the port has only the room's water and the
   player, so its sequence is the game's only for those draws. Draws of unported code in
   the same functions (the rain-warning look-up, ceiling drips, `WaterDrip`s, grasps,
-  exhaustion, DLC) are missing; the rain-warning look-up short-circuits before drawing
+  exhaustion, DLC, and the sounds of those) are missing, as is the draw-skipping of
+  `AllowSound`'s crowd cap (D12); the rain-warning look-up short-circuits before drawing
   while rain is far off, as at the start of a cycle.
 - **Spawn path.** In the game only Remix key-item tracking and Watcher warps call
   `DetermineSafeSpawnTile`; the port's single-room phase uses it to spawn the player,
@@ -99,10 +104,10 @@ is gone (`Player::is_destroyed`; the app drops it and draws nothing until R).
   player and draws it where it stopped until R respawns a new one. R also respawns
   after the body fell out of the room (the game has no respawn).
 - **`Player.Stun` side effects.** The game un-stands the player (and drops grasps) when
-  the stun exceeds `Random.Range(5, 12)`; the port draws it (`UnityRandom`, D3) except
-  on the fall-impact path, where the stun is at least 40 and the threshold at most 11, so
-  the port skips the draw (one fewer draw in the sequence). Malnourished stun scaling, grasps, spear and slugpup drops, sounds
-  and the face blink are not ported.
+  the stun exceeds `Random.Range(5, 12)` and draws `Random.Range(40, 80)` for the spear
+  on the back; the port makes both draws on every path (no spear to drop) and plays
+  `UI_Slugcat_Stunned_Init`. Malnourished stun scaling, grasps, slugpup drops and the
+  face blink are not ported.
 - **Remix (MMF) branches omitted:** falling into a room-exit or normal shortcut entrance
   at speed > 5 (enters the shortcut instead of taking damage) and the wall pounce (D9).
 - **More Slugcats omitted:** Gourmand's thresholds (death above 80, stun above 40
@@ -133,7 +138,7 @@ base game with Remix off.
   port has one player whose vessel lives on `Player`, `wait` is always 0, and the
   handler is only the three-tick divider.
 - **Not ported:** being pulled in by a carried object (no grasps), `cantBeGrabbedCounter`,
-  shortcut sounds and the entrance blink, MSC tongue release, the arena hooks of
+  the entrance blink, MSC tongue release, the arena hooks of
   `SpitOutOfShortCut`, and Remix falling into a shortcut (D4).
 
 **Why.** The room-exit block is a design decision for the single-room phase; the rest
@@ -161,7 +166,7 @@ corridors (D10).
   +1 vy, 0.3x lift, 0.5x slide forces) and the slugpup, Rivulet and Gourmand
   (`PainJumps`) sideways pole jump values, Saint's `monkAscension` blocking the grab,
   and the ripple-levitation freeze of the facing (`rippleActivating`).
-- **Not ported entries to the pole:** `ZeroGPoleGrab` (zero gravity) and the deer antlers. Sounds, the blink and
+- **Not ported entries to the pole:** `ZeroGPoleGrab` (zero gravity) and the deer antlers. The blink and
   `AerobicIncrease` on the pole are not ported (no effect on movement for the
   Survivor, who is never exhausted).
 
@@ -305,7 +310,7 @@ direction.
 - **More Slugcats / Watcher omitted:** Rivulet, slugpup and Gourmand values (skid and
   flip jump, roll jump, belly-slide push, kick and jumps, roll durations), the pyro
   jump's `Flip`, and the Watcher curved-terrain drop-through test.
-- **Not ported:** adrenaline factors, sounds, `WaterDrip` and `ExplosionSpikes`
+- **Not ported:** adrenaline factors, `WaterDrip` and `ExplosionSpikes`
   particles (their random draws are cosmetic), `AerobicIncrease` (the Survivor is never
   exhausted).
 
@@ -337,7 +342,7 @@ force (`rainworld-re/notes/corridors.md`), base game with Remix off, Survivor va
   damping factor, the Rivulet (14) and slugpup (4) `jumpBoost` of the corridor `Jump`
   branch, Saint's `monkAscension` blocking the beam exits.
 - **Not ported:** the zero-gravity branches (shaft `canCorridorJump` with the head down,
-  the zero-G slides), carried objects dragged through corridors, adrenaline factors, sounds and
+  the zero-G slides), carried objects dragged through corridors, adrenaline factors and
   the `WaterDrip` particles of the slides (their random draws are cosmetic).
 
 **Why.** Remix, DLC, zero gravity and grabbing are out of scope.
@@ -366,7 +371,7 @@ restrictions (`rainworld-re/notes/water.md`), base game with Remix off, Survivor
   More Slugcats flood.
 - **Not ported:** `WaterCutoff` and `AirPocket` placed objects (no base-game room
   uses them), `WaterViscosity` (unused in the base game), rain rumble, screen shake and
-  flooding, lethal water, splashes, bubbles and sounds, ripple waves from explosions,
+  flooding, lethal water, splashes and bubbles, ripple waves from explosions,
   `aerobicLevel` (stays 0; for the Survivor it only feeds graphics), the analogue swim
   direction (digital input only).
 - **Slerp for opposite vectors.** Unity's `Vector3.Slerp` between antiparallel vectors
@@ -390,6 +395,43 @@ restrictions (`rainworld-re/notes/water.md`), base game with Remix off, Survivor
 objects and effects that are not ported.
 
 **Affects.** Exact wave and swim paths; Remix / DLC water; how the water looks.
+
+## D12: Sound
+
+`rw_sim::Sounds` is the `Room.PlaySound` layer (one-shots disembodied, at a position or
+on a body chunk; chunk loops with handles), `rw_assets::SoundTable` the `SoundLoader`,
+`rw_assets::unity::Fsb5` the clip decoder, and `rw_audio` the `VirtualMicrophone` with
+its `AmbientSoundPlayer`s, playing on kira (`rainworld-re/notes/sound.md`). Every base-game
+`Player` sound, the shortcut tick and the water-surface splashes are ported.
+
+**What differs:**
+- **Not ported:** music (`music.md`), the rain and thunder loops and one-shots and the
+  drown-out of volume group 0, creature, item and object sounds, UI and menu sounds,
+  `PlayCustomSound` / loose mod clips next to `sounds.txt` (a name found only there counts
+  as present for the draws but is not decoded), the Watcher ripple ambience and DLC
+  sound IDs. Deafness, fade to black and `globalSoundMuffle` stay 0; time speed is 1.
+- **`AllowSound`'s crowd cap is applied by the audio, after the sim made the draws.** In
+  the game a refused sound makes no draws after `silentChance`'s; the cap depends on how
+  many sounds the audio thread still plays, which the tick-deterministic sim does not
+  know. With audio off nothing is capped. PLAYALL triggers are capped per sample, not
+  once per call.
+- **Voices.** Unity mixes 32 real voices chosen by priority (all 128) and audibility; the
+  port silences the quietest past 32 each frame. There is no `AudioSource` start
+  latency, and a sound plays from the frame its clip finishes decoding (the game's
+  `loadOp`; decoding is on two background threads, cached for the session).
+- **Mixing.** Pan uses kira's constant-power law, not Unity's `panStereo` curve; the
+  `AudioLowPassFilter` (22 kHz to 1.5 kHz by the root of the effect, Q 1) is kira's
+  state-variable filter at the same cutoff and Q; the master gain of 6 (`AudioListener.volume`)
+  clips in the output device as in Unity, with no limiter.
+- **Doppler** samples every 0.05 s of wall-clock time since the audio started, as the
+  game samples `Time.time`; neither is tick-deterministic.
+- **Listener.** `RoomCamera.pos` is the window origin the room camera draws this tick
+  (whole pixels); without a level graphic it is the room origin.
+
+**Why.** Out of the base-game player scope (music, rain, creatures, UI), or tied to
+real-time audio rather than the sim.
+
+**Affects.** What is heard, never the sim (its draws do not depend on the audio).
 
 ## Not ported yet (not divergences, just absent)
 

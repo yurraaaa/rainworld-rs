@@ -2,14 +2,17 @@
 //!
 //! Each redraw: advance the [`FixedTimestep`], run that many 40 Hz ticks (one
 //! [`Input`](rw_sim::Input) per tick), then render with the leftover fraction as
-//! the interpolation factor.
+//! the interpolation factor. Each tick's sound events go to the [`Audio`] output, and
+//! each frame mixes it.
 
 use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
+use rw_audio::{Audio, ListenerInput};
 use rw_render::{Renderer, Resolution, RoomLayers, WgpuRenderer};
+use rw_sim::{SoundEvent, Vec2};
 use winit::application::ApplicationHandler;
 use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, KeyEvent, WindowEvent};
@@ -54,6 +57,8 @@ pub struct Options {
     pub resolution: Resolution,
     /// A window of `resolution` instead of the game's default borderless full screen.
     pub windowed: bool,
+    /// The sound output; `None` plays silently.
+    pub audio: Option<Audio>,
 }
 
 /// Window and renderer, created on `resumed`.
@@ -79,6 +84,7 @@ struct App {
     script: Option<Script>,
     resolution: Resolution,
     windowed: bool,
+    audio: Option<Audio>,
     /// Quit after the current frame is presented.
     quit_after_frame: bool,
     /// Error that ended the loop, reported by [`run`].
@@ -100,6 +106,7 @@ impl App {
             script: options.script,
             resolution: options.resolution,
             windowed: options.windowed,
+            audio: options.audio,
             quit_after_frame: false,
             fatal: None,
         }
@@ -194,7 +201,11 @@ impl App {
                 .as_mut()
                 .and_then(Script::next_input)
                 .unwrap_or(keys);
-            self.scene.tick(input);
+            let events = self.scene.tick(input);
+            self.hear_tick(events);
+        }
+        if let Some(audio) = &mut self.audio {
+            audio.frame(self.clock.alpha(), self.scene.game().water());
         }
         let Some(view) = &mut self.view else { return };
         let scene_view = SceneView {
@@ -218,6 +229,23 @@ impl App {
         } else if self.quit_after_frame {
             event_loop.exit();
         }
+    }
+
+    /// Feeds a tick's sound events and the listener to the audio output.
+    fn hear_tick(&mut self, events: Vec<SoundEvent>) {
+        let Some(audio) = &mut self.audio else { return };
+        let game = self.scene.game();
+        let camera_pos = self
+            .scene
+            .visuals()
+            .map_or(Vec2::ZERO, |v| Vec2::from(v.camera_pos()));
+        let listener = ListenerInput {
+            camera_pos,
+            screen_width: self.resolution.size_f32()[0],
+            follow: Some(game.sound_follow()),
+        };
+        let chunks = game.body().map(|b| &b.chunks[..]);
+        audio.tick(events, &listener, chunks, game.water());
     }
 }
 

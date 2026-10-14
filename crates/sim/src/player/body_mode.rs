@@ -8,7 +8,7 @@ use rw_assets::{Room, Terrain};
 use super::{Animation, BodyMode, HEAD, HIPS, Player, ROOM_GRAVITY, RUN_SPEED_FAC};
 use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
-use crate::{Vec2, Water};
+use crate::{SoundId, Vec2, Water};
 
 impl Player {
     pub(super) fn update_body_mode(&mut self, room: &Room, water: Option<&Water>) {
@@ -170,6 +170,7 @@ impl Player {
             self.centre_over_hole(room);
         }
         if self.standing && self.ready_to_stand_up(room) {
+            self.play_sound(SoundId::SlugcatStandUp, HEAD, 1.0, 1.0);
             self.animation = Animation::StandUp;
             if x == 0 {
                 self.pin_feet_for_stand_up(room);
@@ -188,6 +189,7 @@ impl Player {
         }
         if self.animation_frame > 10 {
             self.animation_frame = 0;
+            self.play_sound(SoundId::SlugcatCrawlingStep, HEAD, 1.0, 1.0);
         }
     }
 
@@ -279,6 +281,13 @@ impl Player {
         }
         if self.animation_frame > 6 {
             self.animation_frame = 0;
+            let id = if self.left_foot {
+                SoundId::SlugcatStepA
+            } else {
+                SoundId::SlugcatStepB
+            };
+            self.play_sound(id, HEAD, 1.0, 1.0);
+            self.left_foot = !self.left_foot;
         }
         self.skid();
     }

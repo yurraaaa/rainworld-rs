@@ -6,9 +6,9 @@
 use rw_assets::Room;
 
 use super::{Animation, BodyMode, HEAD, HIPS, POLE_CLIMB_SPEED_FAC, Player, ROOM_GRAVITY};
-use crate::Vec2;
 use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
+use crate::{SoundId, Vec2};
 
 impl Player {
     /// `GrabVerticalPole`: the head's column, plus the neighbours when standing with no x
@@ -22,6 +22,7 @@ impl Player {
                 continue;
             }
             let mid_x = rw_assets::tile_centre(tx + dx, ty)[0];
+            self.play_sound(SoundId::SlugcatGrabBeam, HEAD, 1.0, 1.0);
             self.animation = Animation::ClimbOnBeam;
             let head = &mut self.body.chunks[HEAD];
             self.flip_direction = if dx == 0 && head.vel.x.abs() > 5.0 {
@@ -101,10 +102,12 @@ impl Player {
         head.pos.x = (head.pos.x + head.pos.tile_middle().x + side) / 2.0;
         hips.pos.x = (hips.pos.x * 7.0 + head.pos.tile_middle().x + side) / 8.0;
         head.vel.y *= 0.5;
+        let mut climb_step = false;
         if y > 0 {
             self.animation_frame += 1;
             if self.animation_frame > 20 {
                 self.animation_frame = 0;
+                climb_step = true;
             }
             head.vel.y += POLE_CLIMB_SPEED_FAC
                 * (self.slow_movement_stun as f32).lerp_map(0.0, 10.0, 1.0, 0.2);
@@ -129,10 +132,14 @@ impl Player {
             head.vel.y += n.lerp_map_pow(17.0, 0.0, 3.0, -1.2, 0.45);
             hips.vel.y += n.lerp_map_pow(17.0, 0.0, 1.5, -1.4, 0.45);
         }
+        if climb_step {
+            self.play_sound(SoundId::SlugcatClimbUpVerticalBeam, HEAD, 1.0, 1.0);
+        }
         self.body
             .set_go_through_floors(x == 0 && self.input[0].down_diagonal() == 0);
         self.leave_pole_sideways(room);
         if self.body.chunks[HIPS].contact().y < 0 && y < 0 {
+            self.play_sound(SoundId::SlugcatRegainFooting, HEAD, 1.0, 1.0);
             self.animation = Animation::StandUp;
         }
         let head = self.body.chunks[HEAD].pos;
@@ -140,6 +147,7 @@ impl Player {
             self.animation = Animation::None;
             let (hx, hy) = head.tile();
             if room.tile(hx, hy - 1).vertical_pole() {
+                self.play_sound(SoundId::SlugcatGetUpOnTopOfVerticalBeamTip, HEAD, 1.0, 1.0);
                 self.animation = Animation::GetUpToBeamTip;
             } else if room.tile(hx, hy + 1).vertical_pole() {
                 self.animation = Animation::HangUnderVerticalBeam;
@@ -205,6 +213,7 @@ impl Player {
         hips.pos.y = (hips.pos.y * 4.0 + p.y) / 5.0;
         if hips.pos.distance(p) < 6.0 {
             self.animation = Animation::BeamTip;
+            self.play_sound(SoundId::SlugcatRegainFooting, HEAD, 0.3, 1.0);
         }
     }
 

@@ -11,7 +11,7 @@ use rw_random::UnityRandom;
 use super::{Animation, BodyMode, HEAD, HIPS, POLE_CLIMB_SPEED_FAC, Player, RUN_SPEED_FAC};
 use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
-use crate::{Vec2, Water};
+use crate::{SoundId, Sounds, Vec2, Water};
 
 impl Player {
     pub(super) fn update_animation(
@@ -19,6 +19,7 @@ impl Player {
         room: &Room,
         water: Option<&Water>,
         rng: &mut UnityRandom,
+        sounds: &mut Sounds,
     ) {
         if self.animation != Animation::Roll {
             self.stop_rolling_counter = 0;
@@ -44,7 +45,7 @@ impl Player {
             Animation::RocketJump => self.rocket_jump(),
             Animation::Flip => self.flip(),
             Animation::BellySlide => self.belly_slide(room),
-            Animation::CorridorTurn => self.corridor_turn(rng),
+            Animation::CorridorTurn => self.corridor_turn(rng, sounds),
             Animation::DeepSwim => self.deep_swim(water),
             Animation::SurfaceSwim => self.surface_swim(water),
             Animation::Dead => {}
@@ -84,6 +85,7 @@ impl Player {
             self.body_mode = BodyMode::Stand;
             if head.pos.y > hips.pos.y + 3.0 {
                 self.animation = Animation::None;
+                self.play_sound(SoundId::SlugcatRegainFooting, HIPS, 1.0, 1.0);
             }
         } else {
             self.animation = Animation::None;
@@ -140,7 +142,9 @@ impl Player {
             self.animation_frame += 1;
             if self.animation_frame > 20 {
                 self.animation_frame = 1;
+                self.play_sound(SoundId::SlugcatClimbAlongHorizontalBeam, HEAD, 1.0, 1.0);
             }
+            let hips = &mut self.body.chunks[HIPS];
             let phase = self.animation_frame as f32 / 20.0 * std::f32::consts::TAU;
             hips.vel.x += flip * (0.5 + 0.5 * phase.sin()) * -0.5;
         } else {
@@ -175,6 +179,7 @@ impl Player {
 
     /// Choose the side to swing the hips up on (or straight up) and start `GetUpOnBeam`.
     fn start_pull_up(&mut self, room: &Room) {
+        self.play_sound(SoundId::SlugcatGetUpOnHorizontalBeam, HEAD, 1.0, 1.0);
         self.animation = Animation::GetUpOnBeam;
         self.pullup_softlock_safety = 0;
         self.straight_up_on_horizontal_beam = false;
@@ -202,6 +207,7 @@ impl Player {
     fn get_up_on_beam(&mut self, room: &Room) {
         self.pullup_softlock_safety += 1;
         if self.pullup_softlock_safety > 200 {
+            self.play_sound(SoundId::SlugcatTurnInCorridor, HEAD, 1.0, 1.0);
             self.pullup_softlock_safety = 0;
             self.animation = Animation::None;
             return;
@@ -312,6 +318,7 @@ impl Player {
         }
         if self.animation_frame > 6 {
             self.animation_frame = 0;
+            self.play_sound(SoundId::SlugcatWalkOnHorizontalBeam, HEAD, 1.0, 1.0);
         }
         let (hx, hy) = self.tile_pos(HEAD);
         if self.input[0].y == 1 && self.input[1].y == 0 && room.tile(hx, hy + 1).horizontal_pole() {

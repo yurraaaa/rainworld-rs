@@ -12,6 +12,7 @@ rw-assets = { path = "crates/assets" }
 rw-render = { path = "crates/render" }
 rw-graphics = { path = "crates/graphics" }
 rw-random = { path = "crates/random" }
+rw-audio = { path = "crates/audio" }
 rand = "0.10"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"

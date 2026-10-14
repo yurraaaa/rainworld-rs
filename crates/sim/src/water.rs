@@ -13,7 +13,7 @@ use rw_assets::{Room, RoomSettings, TILE_SIZE, Terrain};
 use rw_random::UnityRandom;
 
 use crate::float_ext::FloatExt;
-use crate::{BodyChunk, Vec2};
+use crate::{BodyChunk, SoundId, Sounds, Vec2};
 
 /// One point of the surface (`Water.SurfacePoint`).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -215,22 +215,31 @@ impl Water {
     }
 
     /// `Water.Update` (at the start of the room's tick, before any object moves): bodies
-    /// crossing or moving in the surface push it, then the surface steps.
+    /// crossing or moving in the surface push it (with the splash sound), then the
+    /// surface steps. `chunks` are the player's, in order.
     pub fn update<'a>(
         &mut self,
         room: &Room,
         chunks: impl IntoIterator<Item = &'a mut BodyChunk>,
         rng: &mut UnityRandom,
+        sounds: &mut Sounds,
     ) {
-        for chunk in chunks {
-            self.disturb(chunk);
+        for (index, chunk) in chunks.into_iter().enumerate() {
+            self.disturb(index, chunk, rng, sounds);
         }
         self.step_surface(room, rng);
     }
 
     /// A chunk passing the surface faster than 3 px/tick splashes it (once per
-    /// `splash_stop` window); one straddling it drags the two points around it.
-    fn disturb(&mut self, chunk: &mut BodyChunk) {
+    /// `splash_stop` window, with `ThroughSurfaceSound`); one straddling it drags the two
+    /// points around it.
+    fn disturb(
+        &mut self,
+        index: usize,
+        chunk: &mut BodyChunk,
+        rng: &mut UnityRandom,
+        sounds: &mut Sounds,
+    ) {
         let level = self.level_at(chunk.pos.x);
         let (vel, rad) = (chunk.vel, chunk.rad);
         let entering = vel.y < -3.0 && chunk.last_pos.y > level && chunk.pos.y <= level;
@@ -250,6 +259,7 @@ impl Water {
                 if i < self.points.len() - 1 {
                     self.points[i + 1][0].height += force / 6.0;
                 }
+                Self::through_surface_sound(index, chunk, rng, sounds);
             }
         } else if chunk.pos.y - rad < level && chunk.pos.y + rad > level {
             let a = self.previous_point(chunk.pos.x);
@@ -261,6 +271,40 @@ impl Water {
                 self.points[b][0].height += vel.y * rad * 0.01;
             }
         }
+    }
+
+    /// `Water.ThroughSurfaceSound`: only going down, a fast and a slow splash on the
+    /// chunk, sized by its mass.
+    fn through_surface_sound(
+        index: usize,
+        chunk: &BodyChunk,
+        rng: &mut UnityRandom,
+        sounds: &mut Sounds,
+    ) {
+        let vy = chunk.vel.y;
+        if vy >= -1.0 {
+            return;
+        }
+        let slow = vy.inverse_lerp(-1.0, -50.0).sin();
+        let fast = vy.inverse_lerp(-30.0, -60.0);
+        let (fast_id, slow_id) = if chunk.mass < 0.1 {
+            (
+                SoundId::SmallObjectIntoWaterFast,
+                SoundId::SmallObjectIntoWaterSlow,
+            )
+        } else if chunk.mass < 0.8 {
+            (
+                SoundId::MediumObjectIntoWaterFast,
+                SoundId::MediumObjectIntoWaterSlow,
+            )
+        } else {
+            (
+                SoundId::LargeObjectIntoWaterFast,
+                SoundId::LargeObjectIntoWaterSlow,
+            )
+        };
+        sounds.play_on_chunk(fast_id, index, false, fast, 1.0, rng);
+        sounds.play_on_chunk(slow_id, index, false, slow, 1.0, rng);
     }
 
     /// `Surface.Update`: one step of the damped wave equation on the front heights
@@ -366,7 +410,14 @@ mod tests {
     use rw_random::UnityRandom;
 
     use crate::tests::room_with_water;
-    use crate::{BodyChunk, PhysicalObject, Vec2, Water, slugcat};
+    use std::sync::Arc;
+
+    use rw_assets::{ClipNames, SoundTable};
+
+    use crate::{
+        BodyChunk, EmitterId, PhysicalObject, SoundEvent, SoundId, SoundSource, Sounds, Vec2,
+        Water, slugcat,
+    };
 
     const EPS: f32 = 1e-3;
 
@@ -475,7 +526,7 @@ mod tests {
         w.wave_amplitude = 0.0;
         w.set_wave_height(20, 10.0);
         let mut rng = UnityRandom::new(1);
-        w.update(&room, std::iter::empty(), &mut rng);
+        w.update(&room, std::iter::empty(), &mut rng, &mut Sounds::default());
         // R = 0.45, R^2 = 0.2025. next[20] = 2 (1 - R^2) 10 * 0.99 = 15.7905,
         // next[19, 21] = R^2 10 * 0.99 = 2.00475; mean term 10 / (43 * 1.5) = 0.155039;
         // interior heights blend 1% toward the mean of their neighbours' next values.
@@ -490,10 +541,66 @@ mod tests {
         close(w.point(20).y, 80.0, "peak level");
         close(w.point(21).y, 72.5, "shoulder level");
         close(w.level_at(w.point(20).x + 10.0), 76.25, "between");
-        w.update(&room, std::iter::empty(), &mut rng);
+        w.update(&room, std::iter::empty(), &mut rng, &mut Sounds::default());
         // Tick 2: next = 0.99 (R^2 (h19 + h21) + 2 (1 - R^2) h20 - 10), minus the new
         // mean term, blended 1% toward next[21].
         close(w.wave_height(20), 15.044_812, "centre tick 2");
+    }
+
+    /// `ThroughSurfaceSound`: a 0.35 kg chunk going down at 20 px/tick plays the medium
+    /// splashes, fast at volume inverseLerp(-30, -60, -20) = 0 and slow at
+    /// sin(inverseLerp(-1, -50, -20)) = sin(19 / 49); going up plays nothing.
+    #[test]
+    fn crossing_down_plays_the_splash_sounds_by_mass() {
+        let names = ClipNames::new(["splash".to_owned()], None);
+        let text = "Volume: 6\nVolume exponent: 1.8\n\
+                    Medium_Object_Into_Water_Fast : splash\n\
+                    Medium_Object_Into_Water_Slow : splash\n";
+        let mut sounds = Sounds::new(Arc::new(SoundTable::parse(text, &names).unwrap()));
+        let (room, mut w) = pool();
+        let mut c = BodyChunk::new(Vec2::new(100.0, 65.0), 9.0, 0.35);
+        c.last_pos = Vec2::new(100.0, 85.0);
+        c.vel = Vec2::new(0.0, -20.0);
+        let mut up = BodyChunk::new(Vec2::new(300.0, 75.0), 9.0, 0.35);
+        up.last_pos = Vec2::new(300.0, 55.0);
+        up.vel = Vec2::new(0.0, 20.0);
+        let mut chunks = [c, up];
+        w.update(
+            &room,
+            chunks.iter_mut(),
+            &mut UnityRandom::new(1),
+            &mut sounds,
+        );
+        assert_eq!(chunks[1].splash_stop, 10, "the upward crossing splashed");
+        let played: Vec<_> = sounds
+            .take_events()
+            .into_iter()
+            .map(|e| match e {
+                SoundEvent::Play(p) => (p.id, p.source, p.emitter_volume),
+                other => panic!("{other:?}"),
+            })
+            .collect();
+        assert_eq!(
+            played,
+            [
+                (
+                    SoundId::MediumObjectIntoWaterFast,
+                    SoundSource::Chunk {
+                        emitter: EmitterId(0),
+                        chunk: 0
+                    },
+                    0.0
+                ),
+                (
+                    SoundId::MediumObjectIntoWaterSlow,
+                    SoundSource::Chunk {
+                        emitter: EmitterId(1),
+                        chunk: 0
+                    },
+                    (19.0_f32 / 49.0).sin()
+                ),
+            ]
+        );
     }
 
     #[test]
@@ -506,7 +613,12 @@ mod tests {
         c.last_pos = Vec2::new(100.0, 85.0);
         c.vel = Vec2::new(0.0, -20.0);
         let mut chunks = [c];
-        w.update(&room, chunks.iter_mut(), &mut UnityRandom::new(1));
+        w.update(
+            &room,
+            chunks.iter_mut(),
+            &mut UnityRandom::new(1),
+            &mut Sounds::default(),
+        );
         assert_eq!(chunks[0].splash_stop, 10);
         // Point 16 had height -5.675 when the surface stepped; its neighbours'
         // -1.891667 differ from it less than the next ones' 0, so it is not smoothed.
@@ -519,7 +631,12 @@ mod tests {
         // splash_stop blocks a second splash (the chunk crossing again, fully under).
         chunks[0].pos.y = 50.0;
         let before = w.wave_height(16);
-        w.disturb(&mut chunks[0]);
+        w.disturb(
+            0,
+            &mut chunks[0],
+            &mut UnityRandom::new(1),
+            &mut Sounds::default(),
+        );
         assert_eq!(w.wave_height(16), before);
     }
 }

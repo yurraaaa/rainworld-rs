@@ -5,7 +5,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use rw_assets::{Room, StreamingAssets, UnityResources};
+use rw_assets::{Room, SoundTable, StreamingAssets, UnityResources};
 use rw_render::{RoomLayers, WgpuRenderer};
 use rw_sim::{Input, Vec2};
 
@@ -33,6 +33,8 @@ pub struct Session {
     assets: StreamingAssets,
     resources: UnityResources,
     sprites: Option<Arc<SpriteAssets>>,
+    /// `sounds.txt`: the sounds' random draws are made as in the window.
+    sound_table: Arc<SoundTable>,
     scene: Option<Scene>,
     /// Created on the first screenshot.
     renderer: Option<SceneRenderer<WgpuRenderer>>,
@@ -47,6 +49,7 @@ impl Session {
             .ok()
             .map(Arc::new);
         Self {
+            sound_table: Game::load_sound_table(&assets),
             assets,
             resources,
             sprites,
@@ -143,7 +146,8 @@ impl Session {
         .ok();
         let spawn = params.spawn_tile.map(|[x, y]| (x, y));
         let settings = Game::room_settings(&self.assets, &room);
-        let game = Game::new(room, &settings, params.seed.unwrap_or(1), spawn);
+        let mut game = Game::new(room, &settings, params.seed.unwrap_or(1), spawn);
+        game.set_sound_table(Arc::clone(&self.sound_table));
         log::info!("loaded room {name}");
         self.scene = Some(Scene::new(game, visuals));
         self.room_info()
@@ -219,12 +223,15 @@ impl Session {
     /// # Errors
     /// Without a room.
     pub fn respawn(&mut self, params: &RespawnParams) -> Result<State, String> {
+        let table = Arc::clone(&self.sound_table);
         let scene = self.scene_or_err()?;
         match params.seed {
             Some(seed) => {
                 let room = scene.game().room().clone();
                 let settings = scene.game().settings().clone();
-                *scene.game_mut() = Game::new(room, &settings, seed, None);
+                let mut game = Game::new(room, &settings, seed, None);
+                game.set_sound_table(table);
+                *scene.game_mut() = game;
             }
             None => scene.game_mut().respawn(),
         }

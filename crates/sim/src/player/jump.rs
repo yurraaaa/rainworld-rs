@@ -8,6 +8,7 @@
 use rw_assets::Room;
 
 use super::{Animation, BodyMode, HEAD, HIPS, Player};
+use crate::SoundId;
 
 impl Player {
     /// A jump from the ground, a beam or pole top, a wall-climb, a ledge, a pole, a
@@ -63,6 +64,12 @@ impl Player {
                 head.vel.y = 4.0;
                 hips.vel.y = 3.0;
                 self.jump_boost = 8.0;
+                let id = if self.body_mode == BodyMode::ClimbingOnBeam {
+                    SoundId::SlugcatFromHorizontalPoleJump
+                } else {
+                    SoundId::SlugcatNormalJump
+                };
+                self.play_sound(id, HEAD, 1.0, 1.0);
             }
         } else {
             let mut hop = 1.5;
@@ -82,12 +89,18 @@ impl Player {
                 }
             }
             hips.vel.y += 4.0;
+            self.jump_boost = 6.0;
             if x_dir != 0 && (head.pos.x > hips.pos.x) == (x_dir > 0) {
                 let push = x_dir as f32 * hop;
                 head.vel.x += push;
                 hips.vel.x += push;
+                let id = if hop >= 9.0 {
+                    SoundId::SlugcatSuperJump
+                } else {
+                    SoundId::SlugcatCrouchJump
+                };
+                self.play_sound(id, HEAD, 1.0, 1.0);
             }
-            self.jump_boost = 6.0;
         }
 
         let downhill = i32::from(self.body.chunks[HIPS].on_slope());
@@ -117,20 +130,24 @@ impl Player {
                     c.vel.y += 2.0;
                 }
                 self.slide_up_pole = 17;
+                self.play_sound(SoundId::SlugcatFromVerticalPoleJump, HEAD, 0.8, 1.0);
             }
             return;
         }
         self.animation = Animation::None;
         let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
-        if x == 0 {
+        let volume = if x == 0 {
             head.vel.y = 2.0;
             if y > -1 {
                 head.vel.x = 2.0 * flip;
             }
+            0.3
         } else {
             head.vel = crate::Vec2::new(6.0 * flip, 8.0);
             hips.vel = crate::Vec2::new(5.0 * flip, 7.0);
-        }
+            1.0
+        };
+        self.play_sound(SoundId::SlugcatFromVerticalPoleJump, HEAD, volume, 1.0);
     }
 
     /// Jump away from a wall toward `dir`, or a straight hop when there is footing.
@@ -155,6 +172,7 @@ impl Player {
             hips.vel.y = 7.0 * k;
             head.pos.y += 10.0 * k.min(1.0);
             hips.pos.y += 10.0 * k.min(1.0);
+            self.play_sound(SoundId::SlugcatNormalJump, HEAD, 1.0, 1.0);
             self.jump_boost = 0.0;
         } else {
             let d = dir as f32;
@@ -162,6 +180,7 @@ impl Player {
             hips.vel.y = 7.0;
             head.vel.x = 6.0 * d;
             hips.vel.x = 5.0 * d;
+            self.play_sound(SoundId::SlugcatWallJump, HEAD, 1.0, 1.0);
             self.standing = true;
             self.jump_boost = 0.0;
             self.jump_stun = 8 * dir;

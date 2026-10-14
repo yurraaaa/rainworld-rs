@@ -7,3 +7,4 @@ edition.workspace = true
 png.workspace = true
 lz4_flex = { version = "0.14", default-features = false, features = ["safe-decode", "std"] }
 
+lewton = { version = "0.10.2", default-features = false }

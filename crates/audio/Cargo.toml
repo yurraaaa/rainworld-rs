@@ -1,0 +1,10 @@
+[package]
+name = "rw-audio"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+rw-sim.workspace = true
+rw-assets.workspace = true
+log.workspace = true
+kira = { version = "0.12.5", default-features = false, features = ["cpal"] }

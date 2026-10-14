@@ -5,8 +5,9 @@
 //! [`rw_assets::ShortcutMap`].
 
 use rw_assets::Room;
+use rw_random::UnityRandom;
 
-use crate::Player;
+use crate::{Player, Sounds};
 
 /// `RainWorldGame.updateShortCut`: [`ShortcutHandler::update`] moves vessels only on
 /// every third game tick.
@@ -22,13 +23,19 @@ impl ShortcutHandler {
     }
 
     /// One game tick, called before the room's objects update (as the game does):
-    /// every third call moves `player`'s vessel one tile, spitting the player out when
-    /// it reaches an entrance.
-    pub fn update(&mut self, room: &Room, player: &mut Player) {
+    /// every third call moves `player`'s vessel one tile with its tick sound, spitting
+    /// the player out when it reaches an entrance.
+    pub fn update(
+        &mut self,
+        room: &Room,
+        player: &mut Player,
+        rng: &mut UnityRandom,
+        sounds: &mut Sounds,
+    ) {
         self.update_counter += 1;
         if self.update_counter > 2 {
             self.update_counter = 0;
-            player.shortcut_vessel_update(room);
+            player.shortcut_vessel_update(room, rng, sounds);
         }
     }
 }

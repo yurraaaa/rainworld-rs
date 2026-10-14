@@ -4,6 +4,7 @@
 
 use rw_assets::Room;
 use rw_random::UnityRandom;
+use rw_sim::Sounds;
 use rw_sim::{Animation, BodyMode, HEAD, HIPS, Input, Player, Vec2};
 
 use crate::{
@@ -77,7 +78,13 @@ fn run(
     rng: &mut UnityRandom,
 ) {
     for _ in 0..ticks {
-        player.update(room, None, input, &mut UnityRandom::new(0));
+        player.update(
+            room,
+            None,
+            input,
+            &mut UnityRandom::new(0),
+            &mut Sounds::default(),
+        );
         graphics.update(player, room, None, rng);
     }
 }
@@ -358,7 +365,13 @@ fn first_update_resets_to_the_chunks() {
     let (mut p, mut g) = grounded_player(&mut rng);
     // Culled until the first update: nothing is drawn.
     assert!(g.draw(&p, 0.0, Color::BLACK).items.is_empty());
-    p.update(&r, None, Input::NONE, &mut UnityRandom::new(0));
+    p.update(
+        &r,
+        None,
+        Input::NONE,
+        &mut UnityRandom::new(0),
+        &mut Sounds::default(),
+    );
     g.update(&p, &r, None, &mut rng);
     // The reset puts both draw positions at the chunks, then the tick shifts
     // [1] = [0]: last tick's draw positions are the chunk positions.
@@ -475,7 +488,7 @@ fn face_by_blink_and_consciousness() {
     let head = *g.draw(&p, 1.0, black).sprite(3).unwrap();
     assert_vec(face.pos, head.pos.x, head.pos.y - 2.0, "face pos");
     // Stunned: FaceStunned, head frame 0, face rotated with the head.
-    p.stun(40, &mut UnityRandom::new(0));
+    p.stun(40, &mut UnityRandom::new(0), &mut Sounds::default());
     run(&mut p, &mut g, &r, Input::NONE, 1, &mut rng);
     let list = g.draw(&p, 1.0, black);
     let (face, head) = (list.sprite(9).unwrap(), list.sprite(3).unwrap());
@@ -1034,7 +1047,13 @@ fn corridor_turn_pose_and_push() {
     // segments, 2 hands, head, legs) by -10 * corridorTurnDir = (10, 0).
     g.player_pokes(&p);
     while p.corridor_turn_dir().is_some() {
-        p.update(&r, None, Input::NONE, &mut UnityRandom::new(0));
+        p.update(
+            &r,
+            None,
+            Input::NONE,
+            &mut UnityRandom::new(0),
+            &mut Sounds::default(),
+        );
     }
     for part in g.body_parts_mut() {
         part.vel = Vec2::ZERO;

@@ -3,6 +3,7 @@
 //! `slope-collision.md` (derivations next to each assertion). Physics constants:
 //! gravity 0.9, air friction 0.999, surface friction 0.5.
 
+use crate::Sounds;
 use rw_assets::Room;
 use rw_random::UnityRandom;
 
@@ -11,12 +12,13 @@ use rw_assets::ShortcutType;
 mod advanced;
 mod corridor;
 mod poles;
+mod sounds;
 mod swim;
 
 use super::{Animation, BodyMode, HEAD, HIPS, INPUT_HISTORY, Input, Player};
 use crate::shortcut::ShortcutVessel;
 use crate::tests::{room, room_with_water};
-use crate::{Contact, ShortcutHandler, TerrainImpact, TerrainImpactHandler, Vec2, Water};
+use crate::{Contact, ShortcutHandler, TerrainImpact, Vec2, Water};
 use rw_assets::RoomSettings;
 
 const EPS: f32 = 1e-4;
@@ -53,13 +55,20 @@ impl Player {
     /// `TerrainImpact` as physics would deliver it, with the player's own chunks.
     fn receive_impact(&mut self, impact: TerrainImpact) {
         let mut chunks = std::mem::take(&mut self.body.chunks);
-        self.terrain_impact(&mut chunks, impact);
+        self.terrain_impact_with(&mut chunks, impact, &mut test_rng(), &mut Sounds::default());
+        self.body.chunks = chunks;
+    }
+
+    /// [`Player::receive_impact`] with sounds.
+    fn receive_impact_with(&mut self, impact: TerrainImpact, sounds: &mut Sounds) {
+        let mut chunks = std::mem::take(&mut self.body.chunks);
+        self.terrain_impact_with(&mut chunks, impact, &mut test_rng(), sounds);
         self.body.chunks = chunks;
     }
 
     /// [`Player::update`] in a room without water, with a fixed random sequence.
     fn step(&mut self, room: &Room, input: Input) {
-        self.update(room, None, input, &mut test_rng());
+        self.update(room, None, input, &mut test_rng(), &mut Sounds::default());
     }
 
     fn run(&mut self, room: &Room, input: Input, ticks: usize) {
@@ -566,7 +575,7 @@ fn input_is_neutral_on_every_stun_tick() {
     let mut p = Player::lying_at(Vec2::new(100.0, 48.0));
     p.run(&r, Input::NONE, 20);
     // Stun 2: checkInput reads nothing while stun != 0 (before the countdown).
-    p.stun(2, &mut test_rng());
+    p.stun(2, &mut test_rng(), &mut Sounds::default());
     p.step(&r, RIGHT);
     assert_eq!(p.input_history()[0], Input::NONE);
     assert_eq!(p.stun_ticks(), 1);
@@ -587,7 +596,7 @@ fn movement_is_skipped_until_stun_reaches_zero() {
     let mut p = Player::lying_at(Vec2::new(100.0, 48.0));
     p.run(&r, Input::NONE, 20);
     assert_eq!(p.body_mode(), BodyMode::Crawl);
-    p.stun(40, &mut test_rng());
+    p.stun(40, &mut test_rng(), &mut Sounds::default());
     // Ticks 1..39: Stunned mode stays (MovementUpdate would reclassify it).
     p.run(&r, Input::NONE, 39);
     assert_eq!(p.stun_ticks(), 1);
@@ -606,7 +615,7 @@ fn friction_is_0_3_while_not_conscious() {
     p.step(&r, Input::NONE);
     assert_eq!(p.body.params.surface_friction, 0.5);
     // Stunned is stun >= 10, read before the countdown.
-    p.stun(10, &mut test_rng());
+    p.stun(10, &mut test_rng(), &mut Sounds::default());
     p.step(&r, Input::NONE);
     assert_eq!(p.body.params.surface_friction, 0.3);
     // Stun 9: conscious again, though still without input or movement.
@@ -678,7 +687,13 @@ fn water_room_never_kills_below_the_bottom() {
     let water = Water::new(&r, &RoomSettings::ANCESTOR);
     let mut p = Player::lying_at(Vec2::new(100.0, -600.0));
     for _ in 0..40 {
-        p.update(&r, water.as_ref(), Input::NONE, &mut test_rng());
+        p.update(
+            &r,
+            water.as_ref(),
+            Input::NONE,
+            &mut test_rng(),
+            &mut Sounds::default(),
+        );
     }
     assert!(!p.is_dead() && !p.is_destroyed());
     // Without the water object the same body dies on the first tick.
@@ -760,7 +775,7 @@ impl Player {
         ticks: usize,
     ) {
         for _ in 0..ticks {
-            handler.update(room, self);
+            handler.update(room, self, &mut UnityRandom::new(0), &mut Sounds::default());
             self.step(room, input);
         }
     }
@@ -806,7 +821,7 @@ fn no_entry_during_shortcut_delay() {
 fn no_entry_while_stunned_and_stun_cancels_the_pull() {
     let r = pipe_room();
     let mut p = Player::at_pipe_mouth();
-    p.stun(20, &mut test_rng());
+    p.stun(20, &mut test_rng(), &mut Sounds::default());
     p.step(&r, RIGHT);
     assert_eq!(p.entering_shortcut(), None);
 
@@ -887,7 +902,7 @@ fn vessel_moves_one_tile_every_third_tick() {
     let mut handler = ShortcutHandler::new();
     let mut tiles = Vec::new();
     for _ in 0..12 {
-        handler.update(&r, &mut p);
+        handler.update(&r, &mut p, &mut UnityRandom::new(0), &mut Sounds::default());
         tiles.push(p.shortcut_vessel_tile());
     }
     let expected: Vec<_> = [3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6]
@@ -920,9 +935,9 @@ fn spit_out_keeps_animation_and_sets_delay_and_velocity() {
     p.vessel = Some(ShortcutVessel::new((4, 1)));
     p.vessel.as_mut().expect("vessel").last_pos = (3, 1);
     let mut handler = ShortcutHandler::new();
-    handler.update(&r, &mut p);
-    handler.update(&r, &mut p);
-    handler.update(&r, &mut p);
+    handler.update(&r, &mut p, &mut UnityRandom::new(0), &mut Sounds::default());
+    handler.update(&r, &mut p, &mut UnityRandom::new(0), &mut Sounds::default());
+    handler.update(&r, &mut p, &mut UnityRandom::new(0), &mut Sounds::default());
     // Out of (5,1), hole (1,0), middle (110, 30).
     assert!(!p.in_shortcut());
     assert_vec(p.head().pos, 112.5, 30.0);
@@ -951,7 +966,7 @@ fn region_transport_without_destination_walks_back_out() {
     let mut tiles = Vec::new();
     for _ in 0..5 {
         for _ in 0..3 {
-            handler.update(&r, &mut p);
+            handler.update(&r, &mut p, &mut UnityRandom::new(0), &mut Sounds::default());
         }
         tiles.push(p.shortcut_vessel_tile());
     }

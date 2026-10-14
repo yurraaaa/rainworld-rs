@@ -11,8 +11,8 @@ use rw_random::UnityRandom;
 use super::{Animation, BodyMode, HEAD, HIPS, Player};
 use crate::float_ext::FloatExt;
 use crate::{
-    BodyChunk, DEFAULT_RESTRICT_IN_ROOM_RANGE, PhysicalObject, TerrainImpact, TerrainImpactHandler,
-    Water,
+    BodyChunk, DEFAULT_RESTRICT_IN_ROOM_RANGE, PhysicalObject, SoundId, Sounds, TerrainImpact,
+    TerrainImpactHandler, Water,
 };
 
 /// Floor impacts faster than this kill (Survivor; Gourmand 80).
@@ -23,6 +23,17 @@ pub(super) const FALL_STUN_SPEED: f32 = 35.0;
 const STUNNED_FROM: i32 = 10;
 /// `Player.Stun` un-stands the player when the stun exceeds `Random.Range(5, 12)`.
 const UNSTAND_STUN_DRAW: (i32, i32) = (5, 12);
+/// `Player.Stun` then drops a spear on the back above `Random.Range(40, 80)`; the draw
+/// is made whether or not there is one.
+const SPEAR_DROP_STUN_DRAW: (i32, i32) = (40, 80);
+
+/// The player as the receiver of terrain impacts during its physics, with the
+/// generator and sounds `TerrainImpact` and `Stun` use.
+struct ImpactHandler<'a> {
+    player: &'a mut Player,
+    rng: &'a mut UnityRandom,
+    sounds: &'a mut Sounds,
+}
 
 impl Player {
     /// Whether the player is dead. A dead body is still plain physics in
@@ -51,22 +62,30 @@ impl Player {
     }
 
     /// `Player.Stun`: keeps the longer of the current and the new stun; a stun longer
-    /// than a random 5..=11 ticks also stops standing and releases the feet pin.
-    pub fn stun(&mut self, ticks: i32, rng: &mut UnityRandom) {
-        let threshold = rng.range_i32(UNSTAND_STUN_DRAW.0, UNSTAND_STUN_DRAW.1);
-        self.stun_unstanding_above(ticks, threshold);
-    }
-
-    fn stun_unstanding_above(&mut self, ticks: i32, threshold: i32) {
-        if ticks > threshold {
+    /// than a random 5..=11 ticks also stops standing and releases the feet pin. A new
+    /// longer stun above 10 plays `UI_Slugcat_Stunned_Init` (silent in the shipped game).
+    pub fn stun(&mut self, ticks: i32, rng: &mut UnityRandom, sounds: &mut Sounds) {
+        self.flush_sounds(rng, sounds);
+        if ticks > rng.range_i32(UNSTAND_STUN_DRAW.0, UNSTAND_STUN_DRAW.1) {
             self.standing = false;
             self.feet_stuck_pos = None;
         }
+        // No spear on the back to drop.
+        let _ = rng.range_i32(SPEAR_DROP_STUN_DRAW.0, SPEAR_DROP_STUN_DRAW.1);
+        if ticks > self.stun && ticks > 10 {
+            self.play_sound(SoundId::UiSlugcatStunnedInit, HEAD, 1.0, 1.0);
+            self.last_stun = ticks;
+        }
         self.stun = self.stun.max(ticks);
+        self.flush_sounds(rng, sounds);
     }
 
-    /// `Creature.Die`.
+    /// `Player.Die`: plays `UI_Slugcat_Die` (silent in the shipped game) on the first
+    /// call; its draws are made with the player's next ones.
     pub fn die(&mut self) {
+        if !self.dead {
+            self.play_sound(SoundId::UiSlugcatDie, HEAD, 1.0, 1.0);
+        }
         self.dead = true;
     }
 
@@ -131,10 +150,22 @@ impl Player {
     /// impacts mid-collision. The body is moved out for the call, so
     /// [`TerrainImpactHandler::terrain_impact`] reaches the chunks only through its
     /// argument.
-    pub(super) fn update_physics(&mut self, room: &Room, water: Option<&Water>) {
+    pub(super) fn update_physics(
+        &mut self,
+        room: &Room,
+        water: Option<&Water>,
+        rng: &mut UnityRandom,
+        sounds: &mut Sounds,
+    ) {
+        self.flush_sounds(rng, sounds);
         let placeholder = PhysicalObject::new(Vec::new(), self.body.params);
         let mut body = std::mem::replace(&mut self.body, placeholder);
-        body.update_with(room, water, self);
+        let mut handler = ImpactHandler {
+            player: self,
+            rng,
+            sounds,
+        };
+        body.update_with(room, water, &mut handler);
         self.body = body;
     }
 
@@ -163,6 +194,7 @@ impl Player {
             chunks[HEAD].vel.y -= 3.0;
             chunks[HEAD].pos.y -= 3.0;
         }
+        self.play_sound(SoundId::SlugcatRollInit, HEAD, 1.0, 1.0);
         self.animation = Animation::Roll;
         self.roll_direction = i32::from(self.input[0].down_diagonal());
         self.roll_counter = 0;
@@ -174,26 +206,57 @@ impl Player {
     }
 }
 
-impl TerrainImpactHandler for Player {
+impl Player {
     /// `Player.TerrainImpact` with Remix off: the landing roll pre-empts everything on
-    /// this impact; otherwise a first contact kills on a floor above 60 or stuns above 35.
-    fn terrain_impact(&mut self, chunks: &mut [BodyChunk], impact: TerrainImpact) {
-        if impact.speed > 12.0 {
-            self.blink((impact.speed as i32).clamp(12, 60) / 2);
+    /// this impact; otherwise a first contact kills on a floor above 60, stuns above 35,
+    /// or plays a landing or bump sound by speed.
+    pub(super) fn terrain_impact_with(
+        &mut self,
+        chunks: &mut [BodyChunk],
+        impact: TerrainImpact,
+        rng: &mut UnityRandom,
+        sounds: &mut Sounds,
+    ) {
+        let speed = impact.speed;
+        if speed > 12.0 {
+            self.blink((speed as i32).clamp(12, 60) / 2);
         }
         if self.lands_in_roll(&impact) {
             self.start_landing_roll(chunks);
+            self.flush_sounds(rng, sounds);
             return;
         }
         if !impact.first_contact {
             return;
         }
-        if impact.speed > FALL_DEATH_SPEED && impact.direction.y < 0 {
+        if speed > FALL_DEATH_SPEED && impact.direction.y < 0 {
+            self.play_sound(SoundId::SlugcatTerrainImpactDeath, HEAD, 1.0, 1.0);
             self.die();
-        } else if impact.speed > FALL_STUN_SPEED {
-            // Fall stuns are at least 40 ticks, longer than any draw of the un-standing
-            // threshold, so the draw cannot matter and is not made.
-            self.stun_unstanding_above(Self::fall_stun_ticks(impact.speed), UNSTAND_STUN_DRAW.1);
+        } else if speed > FALL_STUN_SPEED {
+            self.play_sound(SoundId::SlugcatTerrainImpactHard, HEAD, 1.0, 1.0);
+            self.stun(Self::fall_stun_ticks(speed), rng, sounds);
+        } else if impact.direction.y < 0 && self.is_conscious() {
+            let id = if self.standing && impact.chunk == HIPS {
+                SoundId::SlugcatFloorImpactStandard
+            } else {
+                SoundId::SlugcatFloorImpactStealthy
+            };
+            self.play_sound(id, HEAD, speed.inverse_lerp(8.0, 11.0), 1.0);
+        } else if speed < 3.0 {
+            let volume = speed.inverse_lerp(0.0, 2.0);
+            self.play_sound(SoundId::SlugcatTerrainImpactLight, HEAD, volume, 3.0);
+        } else if speed < 16.0 {
+            self.play_sound(SoundId::SlugcatTerrainImpactMedium, HEAD, 1.0, 1.0);
+        } else {
+            self.play_sound(SoundId::SlugcatTerrainImpactHard, HEAD, 1.0, 1.0);
         }
+        self.flush_sounds(rng, sounds);
+    }
+}
+
+impl TerrainImpactHandler for ImpactHandler<'_> {
+    fn terrain_impact(&mut self, chunks: &mut [BodyChunk], impact: TerrainImpact) {
+        self.player
+            .terrain_impact_with(chunks, impact, self.rng, self.sounds);
     }
 }

@@ -2,6 +2,7 @@
 //! `rainworld-re/notes/vertical-poles.md` and `ledge-grab.md` (derivation next to each
 //! assertion). A pole column `x` has its middle at `20 x + 10`.
 
+use crate::Sounds;
 use std::ops::RangeInclusive;
 
 use rw_assets::Room;
@@ -429,7 +430,7 @@ fn slide_up_hop_lifts_then_slows() {
     // Leaving the pole clears the slide.
     p.slide_up_pole = 5;
     p.animation = Animation::None;
-    p.update_animation(&r, None, &mut super::test_rng());
+    p.update_animation(&r, None, &mut super::test_rng(), &mut Sounds::default());
     assert_eq!(p.slide_up_pole, 0);
 }
 

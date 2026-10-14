@@ -3,12 +3,17 @@
 //!
 //! This is the only place the app touches the simulation.
 
-use rw_assets::{Room, RoomSettings, StreamingAssets};
+use std::sync::Arc;
+
+use rw_assets::unity::AssetBundle;
+use rw_assets::{Room, RoomSettings, SoundTable, StreamingAssets};
+use rw_audio::Follow as SoundFollow;
 use rw_graphics::{Color, DrawList, PlayerGraphics, SlugcatName};
 use rw_random::UnityRandom;
 use rw_render::{BodyStatus, ChunkInterpolation, Follow, PlayerLight, WaterSurface};
 use rw_sim::{
-    Input, PhysicalObject, Player, ShortcutHandler, Vec2, Water, determine_safe_spawn_tile,
+    Input, PhysicalObject, Player, ShortcutHandler, SoundEvent, Sounds, Vec2, Water,
+    determine_safe_spawn_tile,
 };
 
 /// A room with (at most) one player in it.
@@ -26,6 +31,8 @@ pub struct Game {
     /// The game's single `UnityEngine.Random` stream: spawning, the player, the water
     /// and the graphics draw from it in the game's order.
     rng: UnityRandom,
+    /// The room's `PlaySound` calls (and their draws on `rng`).
+    sounds: Sounds,
     /// `--spawn`: place the player on this tile instead of a random spawn tile.
     spawn_tile: Option<(i32, i32)>,
     tick: u64,
@@ -53,6 +60,7 @@ impl Game {
             graphics: Some(graphics),
             shortcuts: ShortcutHandler::new(),
             rng,
+            sounds: Sounds::default(),
             spawn_tile,
             tick: 0,
         }
@@ -68,6 +76,28 @@ impl Game {
             .unwrap_or(RoomSettings::ANCESTOR)
     }
 
+    /// `sounds.txt` resolved against the `loadedsoundeffects` bundle, or an empty table
+    /// (nothing plays, no sound draws) when they cannot be read.
+    #[must_use]
+    pub fn load_sound_table(assets: &StreamingAssets) -> Arc<SoundTable> {
+        AssetBundle::open(&assets.asset_bundle("loadedsoundeffects"))
+            .and_then(|bundle| SoundTable::load(assets, &bundle))
+            .inspect_err(|e| log::warn!("no sound table ({e}); sounds are off"))
+            .map(Arc::new)
+            .unwrap_or_default()
+    }
+
+    /// Resolves sounds against `table` (`sounds.txt`); without one nothing plays and
+    /// no sound draws are made.
+    pub fn set_sound_table(&mut self, table: Arc<SoundTable>) {
+        self.sounds = Sounds::new(table);
+    }
+
+    /// The sound events since the last call.
+    pub fn take_sound_events(&mut self) -> Vec<SoundEvent> {
+        self.sounds.take_events()
+    }
+
     #[must_use]
     pub fn settings(&self) -> &RoomSettings {
         &self.settings
@@ -77,6 +107,7 @@ impl Game {
     /// sequence).
     pub fn respawn(&mut self) {
         let (player, graphics) = Self::spawn_player(&self.room, self.spawn_tile, &mut self.rng);
+        self.sounds.owner_removed();
         self.player = Some(player);
         self.graphics = Some(graphics);
         log::info!("respawned player");
@@ -106,7 +137,8 @@ impl Game {
             && !player.is_dead()
         {
             let was_in_shortcut = player.in_shortcut();
-            self.shortcuts.update(&self.room, player);
+            self.shortcuts
+                .update(&self.room, player, &mut self.rng, &mut self.sounds);
             let was_stunned = player.is_stunned();
             if let Some(water) = &mut self.water {
                 let chunks = if player.in_shortcut() {
@@ -114,13 +146,25 @@ impl Game {
                 } else {
                     &mut player.body.chunks[..]
                 };
-                water.update(&self.room, chunks.iter_mut(), &mut self.rng);
+                water.update(
+                    &self.room,
+                    chunks.iter_mut(),
+                    &mut self.rng,
+                    &mut self.sounds,
+                );
             }
-            player.update(&self.room, self.water.as_ref(), input, &mut self.rng);
+            player.update(
+                &self.room,
+                self.water.as_ref(),
+                input,
+                &mut self.rng,
+                &mut self.sounds,
+            );
             if let Some(graphics) = &mut self.graphics {
                 graphics.update(player, &self.room, self.water.as_ref(), &mut self.rng);
             }
             if player.is_destroyed() {
+                self.sounds.owner_removed();
                 log::info!("player fell out of the room and was destroyed; R respawns");
                 self.player = None;
                 self.graphics = None;
@@ -246,6 +290,26 @@ impl Game {
                 .shortcut_vessel_tile()
                 .map(|(x, y)| rw_assets::tile_centre(x, y)),
         })
+    }
+
+    /// The room's water, if any.
+    #[must_use]
+    pub fn water(&self) -> Option<&Water> {
+        self.water.as_ref()
+    }
+
+    /// What the microphone listens from: the player's main chunk, or its shortcut
+    /// tile while it travels.
+    #[must_use]
+    pub fn sound_follow(&self) -> SoundFollow {
+        match &self.player {
+            None => SoundFollow::Abstract,
+            Some(p) if p.in_shortcut() => SoundFollow::Shortcut(
+                p.shortcut_vessel_tile()
+                    .map(|(x, y)| Vec2::from(rw_assets::tile_centre(x, y))),
+            ),
+            Some(p) => SoundFollow::Body(p.body.chunks[0].pos),
+        }
     }
 
     /// Ticks simulated since start.

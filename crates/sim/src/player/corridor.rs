@@ -10,7 +10,7 @@ use rw_random::UnityRandom;
 use super::{Animation, BodyMode, CORRIDOR_CLIMB_SPEED_FAC, HEAD, HIPS, Player};
 use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
-use crate::{Vec2, Water};
+use crate::{SoundId, Sounds, Vec2, Water};
 
 /// `Custom.eightDirections`: W, SW, S, SE, E, NE, N, NW; entry `i + 4` is opposite `i`.
 const EIGHT_DIRECTIONS: [(i32, i32); 8] = [
@@ -143,6 +143,7 @@ impl Player {
         }
         if self.animation_frame > 12 {
             self.animation_frame = 1;
+            self.play_sound(SoundId::SlugcatInCorridorStep, HEAD, 1.0, 1.0);
         }
         self.leave_corridor_onto_beam(room);
     }
@@ -239,9 +240,11 @@ impl Player {
             hips.vel.y += 10.0;
             if self.can_corridor_jump > 0 {
                 self.shoot_up_counter = 30;
+                self.play_sound(SoundId::SlugcatVerticalChuteJumpSuccess, HEAD, 1.0, 1.0);
                 self.vertical_corridor_slide_counter = 22;
                 self.slow_movement_stun = 2;
             } else {
+                self.play_sound(SoundId::SlugcatVerticalChuteJumpFail, HEAD, 1.0, 1.0);
                 self.vertical_corridor_slide_counter = 34;
                 self.slow_movement_stun = 18;
             }
@@ -257,8 +260,14 @@ impl Player {
             return;
         }
         let dir = flip as f32;
-        let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
         if self.can_corridor_jump > 0 && x != 0 {
+            self.play_sound(
+                SoundId::SlugcatCorridorHorizontalSlideSuccess,
+                HEAD,
+                1.0,
+                1.0,
+            );
+            let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
             head.pos.x += 12.0 * dir;
             hips.pos.x += 12.0 * dir;
             head.pos.y = head.pos.tile_middle().y;
@@ -268,6 +277,8 @@ impl Player {
             self.horizontal_corridor_slide_counter = 25;
             self.slow_movement_stun = 5;
         } else {
+            self.play_sound(SoundId::SlugcatCorridorHorizontalSlideFail, HEAD, 1.0, 1.0);
+            let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
             head.vel.x += 6.0 * dir;
             hips.vel.x += 4.0 * dir;
             self.horizontal_corridor_slide_counter = 15;
@@ -365,6 +376,7 @@ impl Player {
             && (!self.is_tile_solid(room, HEAD, -1, 0) || !self.is_tile_solid(room, HEAD, 1, 0))
             && head_tile.vertical_pole()
         {
+            self.play_sound(SoundId::SlugcatGrabBeam, HEAD, 0.2, 1.0);
             self.body_mode = BodyMode::ClimbingOnBeam;
             self.animation = Animation::ClimbOnBeam;
         } else if x != 0
@@ -381,7 +393,8 @@ impl Player {
     /// `CorridorTurn`: 40 ticks of slowed wriggling (a random unit vector added to the
     /// head on the first 30), the last 10 pushing head and hips apart along the new
     /// direction, then a push out that way.
-    pub(super) fn corridor_turn(&mut self, rng: &mut UnityRandom) {
+    pub(super) fn corridor_turn(&mut self, rng: &mut UnityRandom, sounds: &mut Sounds) {
+        self.flush_sounds(rng, sounds);
         let Some((dx, dy)) = self.corridor_turn_dir else {
             self.animation = Animation::None;
             return;
@@ -407,6 +420,7 @@ impl Player {
         hips.vel += dir * 5.0;
         self.corridor_turn_dir = None;
         self.animation = Animation::None;
+        self.play_sound(SoundId::SlugcatTurnInCorridor, HEAD, 1.0, 1.0);
     }
 
     /// End of the `Default` branch: on reaching the remembered beam tile (jump not held),

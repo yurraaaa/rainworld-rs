@@ -11,7 +11,7 @@ use rw_assets::{Room, Terrain};
 use super::{Animation, BodyMode, HEAD, HIPS, Player};
 use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
-use crate::{ConnectionKind, Vec2};
+use crate::{ConnectionKind, SoundId, Vec2};
 
 /// Rod length while `roll_direction != 0` (roll, belly slide, whiplash flip).
 pub(super) const ROLL_ROD_LENGTH: f32 = 10.0;
@@ -78,6 +78,7 @@ impl Player {
             let head_vx = self.body.chunks[HEAD].vel.x;
             if self.init_slide_counter > 10 && (head_vx > 0.0) == (sd > 0) && head_vx.abs() > 1.0 {
                 self.slide_counter = 1;
+                self.play_sound(SoundId::SlugcatSkidOnGroundInit, HEAD, 1.0, 1.0);
             } else {
                 self.slide_direction = x;
             }
@@ -169,6 +170,7 @@ impl Player {
         let done_upright = (n > 15 && y > -1 && diag == 0) || n > 30 || x == -dir;
         if (done_upright && upright) || n > 60 || self.stop_rolling_counter > 6 {
             self.roll_direction = 0;
+            self.play_sound(SoundId::SlugcatRollFinish, HEAD, 1.0, 1.0);
             self.animation = Animation::None;
             self.standing = y > -1;
         }
@@ -279,6 +281,12 @@ impl Player {
             }
         }
         self.slow_movement_stun = if self.standing { 20 } else { 40 };
+        let id = if self.standing {
+            SoundId::SlugcatBellySlideFinishSuccess
+        } else {
+            SoundId::SlugcatBellySlideFinishFail
+        };
+        self.play_sound(id, HEAD, 1.0, 1.0);
     }
 
     /// `Jump` while rolling: a rocket jump whose angle (60 to 35 degrees from up) and
@@ -294,6 +302,7 @@ impl Player {
         head.vel = vel;
         hips.vel = vel;
         self.animation = Animation::RocketJump;
+        self.play_sound(SoundId::SlugcatRocketJump, HEAD, 1.0, 1.0);
         self.roll_direction = 0;
     }
 
@@ -324,6 +333,7 @@ impl Player {
             self.flip_from_slide = true;
             self.whiplash_jump = false;
             self.jump_boost = 0.0;
+            self.play_sound(SoundId::SlugcatSectretSuperWallJump, HEAD, 1.0, 1.0);
         } else {
             let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
             hips.pos += Vec2::new(5.0 * d, 5.0);
@@ -332,6 +342,7 @@ impl Player {
             head.vel = hips.vel;
             self.animation = Animation::RocketJump;
             self.rocket_jump_from_belly_slide = true;
+            self.play_sound(SoundId::SlugcatRocketJump, HEAD, 1.0, 1.0);
             self.roll_direction = 0;
         }
     }
@@ -350,6 +361,7 @@ impl Player {
         self.roll_direction = self.flip_direction;
         self.roll_counter = 0;
         self.standing = false;
+        self.play_sound(SoundId::SlugcatBellySlideInit, HEAD, 1.0, 1.0);
         true
     }
 
@@ -367,6 +379,7 @@ impl Player {
         head.vel.x -= sd * 4.0;
         self.jump_boost = 5.0;
         self.animation = Animation::Flip;
+        self.play_sound(SoundId::SlugcatFlipJump, HEAD, 1.0, 1.0);
         self.slide_counter = 0;
         true
     }

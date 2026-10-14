@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use rw_graphics::{DrawList, Layer};
 use rw_render::{Camera, LevelView, Renderer, RoomLayers, WaterFrame, WaterSprites, WaterSurface};
-use rw_sim::Input;
+use rw_sim::{Input, SoundEvent};
 
 use crate::game::Game;
 use crate::sprites::SpriteAssets;
@@ -83,12 +83,14 @@ impl Scene {
         self.visuals.as_ref()
     }
 
-    /// One 40 Hz tick of the game, then of the room camera.
-    pub fn tick(&mut self, input: Input) {
+    /// One 40 Hz tick of the game, then of the room camera; returns the sound events
+    /// since the last tick.
+    pub fn tick(&mut self, input: Input) -> Vec<SoundEvent> {
         self.game.tick(input);
         if let Some(visuals) = &mut self.visuals {
             visuals.tick(self.game.camera_follow().as_ref());
         }
+        self.game.take_sound_events()
     }
 
     /// Size in room pixels that [`Framing::Auto`] shows: the game's screen, or the room

@@ -6,6 +6,7 @@
 //! SW/NE, SE/NW per chunk) and 4 once the head is in (13, 16): `CorridorClimb` from
 //! the third tick, clinging with the gravity compensation (`corridors.md` section 1).
 
+use rw_sim::Sounds;
 use std::path::PathBuf;
 
 use rw_assets::Room;
@@ -42,13 +43,37 @@ fn su_a22_seed_1_spawn_clings_in_the_shortcut_mouth_tunnel() {
     assert_eq!(p.head().pos.tile(), (12, 16));
     assert_eq!(p.hips().pos.tile(), (12, 16));
     let still = Input::new(0, 0, false);
-    p.update(&room, None, still, &mut UnityRandom::new(0));
-    p.update(&room, None, still, &mut UnityRandom::new(0));
+    p.update(
+        &room,
+        None,
+        still,
+        &mut UnityRandom::new(0),
+        &mut Sounds::default(),
+    );
+    p.update(
+        &room,
+        None,
+        still,
+        &mut UnityRandom::new(0),
+        &mut Sounds::default(),
+    );
     assert_ne!(p.body_mode(), BodyMode::CorridorClimb);
-    p.update(&room, None, still, &mut UnityRandom::new(0));
+    p.update(
+        &room,
+        None,
+        still,
+        &mut UnityRandom::new(0),
+        &mut Sounds::default(),
+    );
     assert_eq!(p.body_mode(), BodyMode::CorridorClimb);
     for _ in 0..57 {
-        p.update(&room, None, still, &mut UnityRandom::new(0));
+        p.update(
+            &room,
+            None,
+            still,
+            &mut UnityRandom::new(0),
+            &mut Sounds::default(),
+        );
     }
     assert_eq!(p.body_mode(), BodyMode::CorridorClimb);
     assert_eq!(p.head().pos.tile(), (13, 16));

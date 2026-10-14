@@ -1,7 +1,8 @@
 //! Room settings files (`<room>_settings.txt`) and their template inheritance, for the
-//! values the room graphics and water need: `Palette`, `FadePalette`, `EffectColorA/B`,
-//! `Clouds`, `Grime` and the water surface's `WaveSpeed`, `WaveLength`, `WaveAmplitude`,
-//! `SecondWaveLength` and `SecondWaveAmplitude`. Mirrors `RoomSettings` (constructor, `FindParent`, `Load`) and
+//! values the port uses: `Palette`, `FadePalette`, `EffectColorA/B`, `Clouds`, `Grime`,
+//! the water surface's `WaveSpeed`, `WaveLength`, `WaveAmplitude`, `SecondWaveLength`
+//! and `SecondWaveAmplitude`, and `AmbientSounds`. Mirrors `RoomSettings` (constructor,
+//! `FindParent`, `Load`, `InheritAmbientSounds`) and
 //! `Region.GetRoomSettingsTemplate`; see `rainworld-re/notes/room-format.md` section 6.
 //!
 //! A value missing from a room's file comes from its parent: the template named by its
@@ -12,7 +13,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::{AssetError, StreamingAssets};
+use crate::{AmbientSound, AssetError, StreamingAssets};
 
 /// `FadePalette: <palette>, <fade>, <fade>, ...`: a second palette and one blend amount
 /// per camera.
@@ -46,6 +47,8 @@ pub struct SettingsFile {
     pub wave_amplitude: Option<f32>,
     pub second_wave_length: Option<f32>,
     pub second_wave_amplitude: Option<f32>,
+    /// The file's own `AmbientSounds:` entries (every such line adds).
+    pub ambient_sounds: Vec<AmbientSound>,
 }
 
 /// A room's settings after inheritance.
@@ -65,6 +68,9 @@ pub struct RoomSettings {
     pub wave_amplitude: f32,
     pub second_wave_length: f32,
     pub second_wave_amplitude: f32,
+    /// Own ambient sounds, then the parent's that are not overridden (templates and
+    /// the root do not inherit).
+    pub ambient_sounds: Vec<AmbientSound>,
 }
 
 /// A region's settings templates (`Room Setting Templates:` in `properties.txt`).
@@ -102,6 +108,7 @@ impl SettingsFile {
                 "WaveAmplitude" => file.wave_amplitude = Some(Self::float(value)?),
                 "SecondWaveLength" => file.second_wave_length = Some(Self::float(value)?),
                 "SecondWaveAmplitude" => file.second_wave_amplitude = Some(Self::float(value)?),
+                "AmbientSounds" => file.ambient_sounds.extend(AmbientSound::parse_list(value)?),
                 _ => {}
             }
         }
@@ -158,6 +165,7 @@ impl SettingsFile {
             second_wave_amplitude: self
                 .second_wave_amplitude
                 .unwrap_or(parent.second_wave_amplitude),
+            ambient_sounds: AmbientSound::inherit(&self.ambient_sounds, &parent.ambient_sounds),
         }
     }
 
@@ -185,6 +193,7 @@ impl RoomSettings {
         wave_amplitude: 0.0,
         second_wave_length: 1.0 / 6.0,
         second_wave_amplitude: 0.0,
+        ambient_sounds: Vec::new(),
     };
 
     /// Loads the settings of `room` as the game does: `<room>_settings-<timeline>.txt`

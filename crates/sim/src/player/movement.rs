@@ -10,7 +10,7 @@ use rw_random::UnityRandom;
 use super::{Animation, BodyMode, HEAD, HIPS, Player, ROOM_GRAVITY};
 use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
-use crate::{Vec2, Water};
+use crate::{SoundId, Sounds, Vec2, Water};
 
 /// The four neighbour directions as `Custom.fourDirections`.
 const FOUR_DIRECTIONS: [(f32, f32); 4] = [(-1.0, 0.0), (0.0, -1.0), (1.0, 0.0), (0.0, 1.0)];
@@ -21,6 +21,7 @@ impl Player {
         room: &Room,
         water: Option<&Water>,
         rng: &mut UnityRandom,
+        sounds: &mut Sounds,
     ) {
         self.direct_into_holes(room);
         if self.animation != Animation::RocketJump {
@@ -57,7 +58,7 @@ impl Player {
         self.classify_swimming(room, water);
 
         self.dynamic_run_speed = [3.6, 3.6];
-        self.update_animation(room, water, rng);
+        self.update_animation(room, water, rng, sounds);
         self.trigger_ledge_grab(room);
         if self.body_mode == BodyMode::Crawl {
             self.crawl_turn_delay += 1;
@@ -185,11 +186,15 @@ impl Player {
             self.jump_boost = 0.0;
         }
 
-        let (head, hips) = (&self.body.chunks[HEAD], &self.body.chunks[HIPS]);
+        let head = &self.body.chunks[HEAD];
         let head_contact_x = i32::from(head.contact().x);
         if head_contact_x != 0 && head_contact_x == x {
+            if i32::from(head.last_contact().x) != x {
+                self.play_sound(SoundId::SlugcatEnterWallSlide, HEAD, 1.0, 1.0);
+            }
             self.body_mode = BodyMode::WallClimb;
         }
+        let (head, hips) = (&self.body.chunks[HEAD], &self.body.chunks[HIPS]);
         if x != 0
             && head.pos.y > hips.pos.y
             && self.animation != Animation::CrawlTurn
@@ -248,6 +253,9 @@ impl Player {
                 self.standing = true;
             }
         } else if now == -1 && prev != -1 {
+            if self.standing && self.body_mode == BodyMode::Stand {
+                self.play_sound(SoundId::SlugcatDownOnFours, HEAD, 1.0, 1.0);
+            }
             self.standing = false;
         }
     }
@@ -290,6 +298,7 @@ impl Player {
             .find(|&r| room.tile(x, r).horizontal_pole());
         if let Some(row) = beam_row {
             self.animation = Animation::HangFromBeam;
+            self.play_sound(SoundId::SlugcatGrabBeam, HEAD, 1.0, 1.0);
             let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
             head.vel.y = 0.0;
             hips.vel.y *= 0.25;

@@ -2,13 +2,15 @@
 //! graphic (or as debug tiles), with a slugcat body.
 //!
 //! Usage: `rainworld-rs [ROOM] [--seed N] [--screenshot FILE.ppm] [--debug-view]
-//! [--spawn X,Y] [--script STEPS] [--resolution WxH] [--windowed]` (default room
+//! [--spawn X,Y] [--script STEPS] [--resolution WxH] [--windowed] [--mute]` (default room
 //! `summit`, seed 1; `--screenshot` saves the frame after one second, or once the
 //! script has run, and quits; `--debug-view` starts in the debug view; `--spawn` puts
 //! the player on tile X,Y; `--script` plays `X,Y,J:TICKS;...` input steps instead of
 //! the keyboard; `--resolution` is one of the game's screen sizes, default 1366x768).
 //! As in the game the frame is shown full screen, scaled; `--windowed` (implied by
-//! `--screenshot`) shows it 1:1 in a window of the resolution.
+//! `--screenshot`) shows it 1:1 in a window of the resolution. Sound plays on the default
+//! output device unless `--mute` (or `--screenshot`); either way the sim makes the
+//! sounds' random draws.
 //!
 //! `rainworld-rs --mcp [--window]` serves the MCP tools of [`mcp`] on stdin/stdout
 //! instead (headless; `--window` also shows the driven scene). The game directory comes
@@ -66,11 +68,13 @@ struct Args {
     resolution: Resolution,
     /// A window instead of full screen.
     windowed: bool,
+    /// No sound output.
+    mute: bool,
 }
 
 impl Args {
     /// Parses `[ROOM] [--seed N] [--screenshot FILE] [--debug-view] [--spawn X,Y]
-    /// [--script STEPS] [--resolution WxH] [--windowed]` or `--mcp [--window]` (program
+    /// [--script STEPS] [--resolution WxH] [--windowed] [--mute]` or `--mcp [--window]` (program
     /// name already removed).
     fn parse<I>(args: I) -> Result<Self, String>
     where
@@ -88,6 +92,7 @@ impl Args {
         let mut window = false;
         let mut resolution = Resolution::DEFAULT;
         let mut windowed = false;
+        let mut mute = false;
         while let Some(arg) = args.next() {
             match arg.as_str() {
                 "--seed" => {
@@ -104,6 +109,7 @@ impl Args {
                 "--mcp" => mcp = true,
                 "--window" => window = true,
                 "--windowed" => windowed = true,
+                "--mute" => mute = true,
                 "--resolution" => {
                     let value = args.next().ok_or("--resolution needs WxH")?;
                     resolution = value.parse()?;
@@ -124,7 +130,7 @@ impl Args {
                     return Err(
                         "usage: rainworld-rs [ROOM] [--seed N] [--screenshot FILE.ppm] \
                                 [--debug-view] [--spawn X,Y] [--script X,Y,J:TICKS;...] \
-                                [--resolution WxH] [--windowed]\n       \
+                                [--resolution WxH] [--windowed] [--mute]\n       \
                                 rainworld-rs --mcp [--window]"
                             .to_owned(),
                     );
@@ -146,6 +152,7 @@ impl Args {
             window,
             resolution,
             windowed,
+            mute,
         })
     }
 }
@@ -199,6 +206,19 @@ fn run() -> Result<(), Box<dyn Error>> {
         .inspect_err(|e| log::warn!("no slugcat sprites ({e}); drawing the circle body"))
         .ok()
         .map(Arc::new);
+    let table = game::Game::load_sound_table(&assets);
+    let settings = game::Game::room_settings(&assets, &room);
+    // A screenshot run stays silent, like `--mute`.
+    let mut audio = if args.mute || args.screenshot.is_some() {
+        None
+    } else {
+        rw_audio::Audio::new(&assets, Arc::clone(&table))
+            .inspect_err(|e| log::warn!("no audio output ({e}); playing silently"))
+            .ok()
+    };
+    if let Some(audio) = &mut audio {
+        audio.set_ambients(&settings.ambient_sounds);
+    }
     let options = app::Options {
         // A screenshot run never covers the screen.
         windowed: args.windowed || args.screenshot.is_some(),
@@ -206,9 +226,10 @@ fn run() -> Result<(), Box<dyn Error>> {
         debug_view: args.debug_view,
         script: args.script,
         resolution: args.resolution,
+        audio,
     };
-    let settings = game::Game::room_settings(&assets, &room);
-    let game = game::Game::new(room, &settings, args.seed, args.spawn);
+    let mut game = game::Game::new(room, &settings, args.seed, args.spawn);
+    game.set_sound_table(table);
     app::run(scene::Scene::new(game, visuals), sprites, options)
 }
 
@@ -250,6 +271,7 @@ mod tests {
                 window: false,
                 resolution: Resolution::DEFAULT,
                 windowed: false,
+                mute: false,
             })
         );
     }
@@ -267,6 +289,7 @@ mod tests {
             window: false,
             resolution: Resolution::DEFAULT,
             windowed: false,
+            mute: false,
         });
         assert_eq!(Args::parse(["SU_A22", "--seed", "7"]), want);
         assert_eq!(Args::parse(["--seed", "7", "SU_A22"]), want);
@@ -279,6 +302,12 @@ mod tests {
         assert!(args.windowed);
         assert!(Args::parse(["--resolution", "1920x1080"]).is_err());
         assert!(Args::parse(["--resolution"]).is_err());
+    }
+
+    #[test]
+    fn mute() {
+        assert!(Args::parse(["--mute"]).expect("parses").mute);
+        assert!(!Args::parse(["--windowed"]).expect("parses").mute);
     }
 
     #[test]

@@ -20,6 +20,7 @@ mod ledge;
 mod movement;
 mod poles;
 mod shortcut;
+mod sounds;
 mod swim;
 #[cfg(test)]
 mod tests;
@@ -31,7 +32,8 @@ pub use input::{INPUT_HISTORY, Input};
 
 use crate::room_ext::RoomExt;
 use crate::shortcut::ShortcutVessel;
-use crate::{BodyChunk, PhysicalObject, Vec2, Water, place_in_room};
+use crate::{BodyChunk, EmitterId, PhysicalObject, SoundId, Sounds, Vec2, Water, place_in_room};
+use sounds::QueuedSound;
 
 /// Index of the head chunk (`bodyChunks[0]`, `mainBodyChunk`).
 pub const HEAD: usize = 0;
@@ -140,6 +142,8 @@ pub struct Player {
     last_flip_direction: i32,
     /// Ticks of stun left (`Creature.stun`).
     stun: i32,
+    /// The stun that last played `UI_Slugcat_Stunned_Init` (`lastStun`).
+    last_stun: i32,
     dead: bool,
     /// Fell out of the room: removed from the game (`Destroy`).
     destroyed: bool,
@@ -251,6 +255,15 @@ pub struct Player {
     water_friction: f32,
     /// `waterRetardationImmunity` from the dive force, used by next tick's physics.
     water_retardation_immunity: f32,
+
+    /// Which footstep sound is next (`leftFoot`).
+    left_foot: bool,
+    /// The sliding / stunned loop and its sound (`slideLoop`, `slideLoopSound`).
+    slide_loop: Option<EmitterId>,
+    slide_loop_sound: Option<SoundId>,
+    /// `room.PlaySound` calls on a chunk made where no generator is at hand; their
+    /// draws are made before the next draw of the tick (same order as the game).
+    sound_queue: Vec<QueuedSound>,
 }
 
 impl Default for Player {
@@ -274,6 +287,7 @@ impl Player {
             flip_direction: 1,
             last_flip_direction: 1,
             stun: 0,
+            last_stun: 0,
             dead: false,
             destroyed: false,
             shortcut_delay: 0,
@@ -341,6 +355,10 @@ impl Player {
             water_jump_delay: 0,
             water_friction: crate::slugcat::PARAMS.water_friction,
             water_retardation_immunity: 0.0,
+            left_foot: false,
+            slide_loop: None,
+            slide_loop_sound: None,
+            sound_queue: Vec::new(),
         }
     }
 
@@ -450,13 +468,15 @@ impl Player {
     ///
     /// `water` is the room's [`Water`] (`None` for a room without water); update it first
     /// each tick, as the room does. The game's random draws (stun threshold, stacked-body
-    /// nudge, corridor-turn jiggle, drowning flail) come from `rng`.
+    /// nudge, corridor-turn jiggle, drowning flail and every sound's draws) come from
+    /// `rng`; the `room.PlaySound` calls go to `sounds`.
     pub fn update(
         &mut self,
         room: &Room,
         water: Option<&Water>,
         input: Input,
         rng: &mut UnityRandom,
+        sounds: &mut Sounds,
     ) {
         self.blink_request = 0;
         if self.destroyed || self.vessel.is_some() {
@@ -470,44 +490,55 @@ impl Player {
         };
         self.body.params.water_friction = self.water_friction;
         self.body.params.water_retardation_immunity = self.water_retardation_immunity;
-        self.update_counters_before_input(room);
+        self.update_counters_before_input(room, rng, sounds);
         if !self.dead {
-            self.lung_update(room, water, rng);
+            self.lung_update(room, water, rng, sounds);
         }
         self.update_out_of_breath();
         self.read_input(input);
         self.set_unconscious_modes();
-        self.update_after_input(room, rng);
+        self.update_after_input(room, rng, sounds);
         self.creature_update(water);
         if self.destroyed {
+            self.flush_sounds(rng, sounds);
             return;
         }
         if let Some(entrance) = self.entering_shortcut {
             self.pull_into_shortcut(room, entrance);
         } else {
             self.short_cut_rad_add = shortcut::RAD_ADD_RESET;
-            self.update_physics(room, water);
+            self.update_physics(room, water, rng, sounds);
         }
         self.body.set_go_through_floors(false);
         if self.stun < 1 && !self.dead && self.entering_shortcut.is_none() && self.vessel.is_none()
         {
-            self.movement_update(room, water, rng);
+            self.movement_update(room, water, rng, sounds);
         }
+        self.flush_sounds(rng, sounds);
     }
 
-    /// Counters and the jump-press buffer. They run before the new input is read, so
-    /// they see last tick's input as `input[0]`.
-    fn update_counters_before_input(&mut self, room: &Room) {
+    /// Counters, the slide loop and the jump-press buffer. They run before the new input
+    /// is read, so they see last tick's input as `input[0]`.
+    fn update_counters_before_input(
+        &mut self,
+        room: &Room,
+        rng: &mut UnityRandom,
+        sounds: &mut Sounds,
+    ) {
         if self.pole_skip_penalty > 0 {
             self.pole_skip_penalty -= 1;
         }
         self.count_shoot_up();
+        self.update_slide_loop(rng, sounds);
         if self.body_mode == BodyMode::CorridorClimb {
             self.time_since_in_corridor_mode = 0;
         } else {
             self.time_since_in_corridor_mode = self.time_since_in_corridor_mode.saturating_add(1);
         }
         self.update_allow_roll(room);
+        if self.stun == 12 {
+            self.play_sound(SoundId::UiSlugcatExitStun, HEAD, 1.0, 1.0);
+        }
         self.update_jump_buffer(room);
         if self.body_mode == BodyMode::WallClimb {
             self.wall_slide_counter += 1;
@@ -585,6 +616,7 @@ impl Player {
             head.pos.y += lift;
             self.jump_boost = 6.0;
             self.pole_skip_penalty = 6;
+            self.play_sound(SoundId::SlugcatFromHorizontalPoleJump, HIPS, 1.0, 1.0);
             self.want_to_jump = 0;
             self.can_jump = 0;
         } else {
@@ -618,7 +650,8 @@ impl Player {
     /// Wall-slide braking (not swimming, not in corridors), ceiling un-standing, the
     /// stacked-body nudge and the camera clamp: the parts of `Player.Update` between
     /// reading input and physics.
-    fn update_after_input(&mut self, room: &Room, rng: &mut UnityRandom) {
+    fn update_after_input(&mut self, room: &Room, rng: &mut UnityRandom, sounds: &mut Sounds) {
+        self.flush_sounds(rng, sounds);
         let x = i32::from(self.input[0].x);
         let friction = self.body.params.surface_friction;
         let head_above = self.body.chunks[HEAD].pos.y > self.body.chunks[HIPS].pos.y;

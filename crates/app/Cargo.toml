@@ -9,6 +9,7 @@ rw-assets.workspace = true
 rw-render.workspace = true
 rw-graphics.workspace = true
 rw-random.workspace = true
+rw-audio.workspace = true
 winit.workspace = true
 log.workspace = true
 env_logger.workspace = true

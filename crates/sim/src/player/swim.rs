@@ -9,7 +9,7 @@ use rw_random::UnityRandom;
 
 use super::{Animation, BodyMode, HEAD, HIPS, Player, ROOM_GRAVITY};
 use crate::float_ext::FloatExt;
-use crate::{Vec2, Water};
+use crate::{Sounds, Vec2, Water};
 
 /// `SlugcatStats.drownThreshold`: below this much air the slugcat struggles.
 pub(super) const DROWN_THRESHOLD: f32 = 1.0 / 3.0;
@@ -343,10 +343,12 @@ impl Player {
         room: &Room,
         water: Option<&Water>,
         rng: &mut UnityRandom,
+        sounds: &mut Sounds,
     ) {
+        self.flush_sounds(rng, sounds);
         // `airInLungs = min(airInLungs, 1 - rainDeath)`: no rain.
         if self.sub(HEAD, water) > 0.9 {
-            self.breathe_under_water(room, water, rng);
+            self.breathe_under_water(room, water, rng, sounds);
         } else {
             if self.submerged && self.air_in_lungs < DROWN_THRESHOLD {
                 self.lungs_exhausted = true;
@@ -376,7 +378,13 @@ impl Player {
         }
     }
 
-    fn breathe_under_water(&mut self, room: &Room, water: Option<&Water>, rng: &mut UnityRandom) {
+    fn breathe_under_water(
+        &mut self,
+        room: &Room,
+        water: Option<&Water>,
+        rng: &mut UnityRandom,
+        sounds: &mut Sounds,
+    ) {
         if !self.submerged {
             self.swim_force = self.body.chunks[HEAD].vel.x.abs().inverse_lerp(0.0, 8.0);
             self.swim_cycle = 0.0;
@@ -396,7 +404,7 @@ impl Player {
         if self.air_in_lungs <= floor && self.sub(HEAD, water) == 1.0 && self.sub(HIPS, water) > 0.5
         {
             self.air_in_lungs = 0.0;
-            self.stun(10, rng);
+            self.stun(10, rng, sounds);
             self.drown += 1.0 / DROWN_TICKS;
             if self.drown >= 1.0 {
                 self.die();

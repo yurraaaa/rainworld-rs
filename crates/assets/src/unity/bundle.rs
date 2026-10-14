@@ -7,6 +7,7 @@ use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
+use super::fsb5::{Fsb5, PcmAudio};
 use super::objects::{AudioClip, StreamedResource};
 use super::reader::Reader;
 use super::serialized::{ObjectInfo, SerializedFile, UnityObject};
@@ -263,6 +264,17 @@ impl AssetBundle {
     /// When its resource is not a node of this bundle or cannot be read.
     pub fn audio_data(&self, clip: &AudioClip) -> Result<Vec<u8>, AssetError> {
         self.streamed(&clip.resource)
+    }
+
+    /// A clip of this bundle decoded to 16-bit PCM.
+    ///
+    /// # Errors
+    /// When its bank cannot be read or decoded.
+    pub fn decode_audio(&self, clip: &AudioClip) -> Result<PcmAudio, AssetError> {
+        let data = self.audio_data(clip)?;
+        Fsb5::parse(&data)
+            .and_then(|fsb| fsb.decode())
+            .map_err(|m| AssetError::format(self.path(), format!("clip {}: {m}", clip.name)))
     }
 
     /// Bytes of an `archive:/<cab>/<node>` resource.
