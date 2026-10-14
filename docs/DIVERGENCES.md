@@ -174,10 +174,12 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
 (`rw_render::RoomCamera`).
 
 **What differs:**
-- **Noise texture decode.** `_NoiseTex` is read from `resources.assets` (a 64x64 DXT1
-  texture) and decoded on the CPU with rounded 2:1 mixes; GPUs decode DXT1 with their
-  own rounding, so texels may differ by 1/255 from what the game's GPU samples.
-  Only mip 0 is kept (the shader always magnifies it).
+- **Noise texture decode.** `_NoiseTex` (a 64x64 DXT1 texture in `resources.assets`)
+  is read from AssetRipper's PNG export of it in the local asset cache
+  (`rw_assets::AssetCache`, `palettes/noise.png`), i.e. decoded by AssetRipper on the
+  CPU; GPUs decode DXT1 with their own rounding, so texels may differ by 1/255 from what
+  the game's GPU samples (the export's red channel is within 1/255 of a rounded 2:1-mix
+  decode of the stored blocks). Only mip 0 is kept (the shader always magnifies it).
 - **Resolution.** The game renders a 1366x768 screen and the window shows it scaled;
   the port draws straight into the window at its resolution (level pixels sampled
   nearest, sprites at full resolution), letterboxed to the 1366x768 aspect.

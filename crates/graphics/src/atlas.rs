@@ -1,68 +1,16 @@
 //! Futile atlas frame data: the TexturePacker JSON next to each atlas PNG.
 //!
 //! The atlases live inside the game's Unity files and are extracted with AssetRipper
-//! into a local cache (`rainworld-re/tools/extract_atlases.sh`, see
-//! `rainworld-re/notes/sprite-atlases.md`); [`AssetCache`] finds them there.
+//! into the local [`AssetCache`] (`rainworld-re/tools/extract_atlases.sh`, see
+//! `rainworld-re/notes/sprite-atlases.md`).
 
 use std::collections::HashMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
+use rw_assets::AssetCache;
+
 use serde::Deserialize;
-
-/// Environment variable naming the asset cache directory.
-pub const CACHE_ENV: &str = "RW_ASSET_CACHE";
-
-/// The local directory holding extracted game assets.
-///
-/// Layout: `<root>/atlases/<name>.json` and `<root>/atlases/<name>.png`, which is
-/// AssetRipper's `ExportedProject/Assets/Resources` directory as exported (so the
-/// root can point straight at an export).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AssetCache {
-    pub root: PathBuf,
-}
-
-impl AssetCache {
-    #[must_use]
-    pub fn new(root: impl Into<PathBuf>) -> Self {
-        Self { root: root.into() }
-    }
-
-    /// `$RW_ASSET_CACHE`, else `$XDG_CACHE_HOME/rainworld-rs`, else
-    /// `$HOME/.cache/rainworld-rs`; `None` if none of them is set.
-    #[must_use]
-    pub fn from_env() -> Option<Self> {
-        if let Some(dir) = std::env::var_os(CACHE_ENV) {
-            return Some(Self::new(dir));
-        }
-        if let Some(dir) = std::env::var_os("XDG_CACHE_HOME") {
-            return Some(Self::new(PathBuf::from(dir).join("rainworld-rs")));
-        }
-        std::env::var_os("HOME")
-            .map(|home| Self::new(PathBuf::from(home).join(".cache/rainworld-rs")))
-    }
-
-    /// Path of atlas `name`'s frame data (e.g. `rainWorld`).
-    #[must_use]
-    pub fn atlas_json(&self, name: &str) -> PathBuf {
-        self.root.join("atlases").join(format!("{name}.json"))
-    }
-
-    /// Path of atlas `name`'s image.
-    #[must_use]
-    pub fn atlas_png(&self, name: &str) -> PathBuf {
-        self.root.join("atlases").join(format!("{name}.png"))
-    }
-
-    /// Loads atlas `name`'s frame data.
-    ///
-    /// # Errors
-    /// As [`Atlas::load`].
-    pub fn load_atlas(&self, name: &str) -> Result<Atlas, AtlasError> {
-        Atlas::load(self.atlas_json(name))
-    }
-}
 
 /// A rectangle in atlas pixels, `y` from the top.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -192,6 +140,14 @@ impl Atlas {
             source,
         })?;
         Self::parse(&text)
+    }
+
+    /// Loads atlas `name`'s frame data from the asset cache.
+    ///
+    /// # Errors
+    /// As [`Atlas::load`].
+    pub fn from_cache(cache: &AssetCache, name: &str) -> Result<Self, AtlasError> {
+        Self::load(cache.atlas_json(name))
     }
 
     #[must_use]

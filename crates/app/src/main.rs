@@ -23,7 +23,7 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use rw_assets::{Room, StreamingAssets};
+use rw_assets::{AssetCache, Room, StreamingAssets};
 
 const DEFAULT_RW_DIR: &str = "/home/yura/.local/share/Steam/steamapps/common/Rain World";
 const DEFAULT_ROOM: &str = "summit";
@@ -125,7 +125,9 @@ fn run() -> Result<(), Box<dyn Error>> {
         room.height(),
         args.seed
     );
-    let visuals = visuals::Visuals::load(&assets, &room)
+    let cache =
+        AssetCache::from_env().ok_or("no asset cache directory: set RW_ASSET_CACHE (or HOME)")?;
+    let visuals = visuals::Visuals::load(&assets, &cache, &room)
         .inspect_err(|e| log::warn!("no level graphic ({e}); showing the debug view"))
         .ok();
     let options = app::Options {

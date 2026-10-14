@@ -579,7 +579,7 @@ fn atlas_json_parses_frames() {
 fn installed_atlas_has_the_slugcat_frames() {
     // Reads the extracted rainWorld atlas from the asset cache when present
     // (`RW_ASSET_CACHE`); skipped otherwise, as the cache holds game data.
-    let Some(cache) = crate::AssetCache::from_env() else {
+    let Some(cache) = rw_assets::AssetCache::from_env() else {
         return;
     };
     let path = cache.atlas_json("rainWorld");
@@ -587,7 +587,7 @@ fn installed_atlas_has_the_slugcat_frames() {
         eprintln!("skipped: no atlas at {}", path.display());
         return;
     }
-    let atlas = cache.load_atlas("rainWorld").unwrap();
+    let atlas = Atlas::from_cache(&cache, "rainWorld").unwrap();
     // sprite-atlases.md: 620 frames, 464 x 512.
     assert_eq!(atlas.frames.len(), 620);
     assert_eq!((atlas.size.w, atlas.size.h), (464, 512));

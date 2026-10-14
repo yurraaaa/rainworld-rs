@@ -309,7 +309,8 @@ mod tests {
 
     impl ZeroNoise for NoiseTexture {
         fn zero() -> Self {
-            Self::from_dxt1(&[0; 2048]).unwrap()
+            let black = PngImage::from_pixels(64, 64, vec![[0, 0, 0, 255]; 64 * 64]);
+            Self::from_image(&black).unwrap()
         }
     }
 
