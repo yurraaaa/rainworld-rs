@@ -182,19 +182,57 @@ fn smallroom_hang_under_the_short_pole() {
     let Some(room) = smallroom() else { return };
     // Column 20's pole starts at row 24 with open (20, 23) below: holding up with the
     // head in (20, 23) hangs under it, head at (410, 470) + (0, 5).
+    //
+    // Then holding up: (head y, head vel.y, hips y, hips vel.y) per tick, hand-traced
+    // from the game's formulas (gravity 0.9, air friction 0.999, rod 17 with half the
+    // error to each chunk in pos and vel, then MovementUpdate). Ticks 1-9: the hang
+    // re-raises the head to max(y, 475 + vel.y) while the rod pulls it toward the
+    // hips, a damped 1-2 px bob. Tick 10 the head enters (20, 24), whose row-25
+    // neighbours (19, 25) and (21, 25) are Solid: `DirectIntoHoles` adds
+    // (510 - y) / 10 to its vel.y and the squeeze-up adds 1 to both chunks' y and
+    // vel.y, then the hang raises it to 495 + vel.y (row 25) and switches to
+    // ClimbOnBeam, 35 px above the hips; tick 11 the rod yanks the hips up at 13 px/tick.
+    // From tick 12 the head is in the one-tile shaft and from tick 14 the game climbs
+    // it in CorridorClimb (not ported), so the table stops at tick 12.
+    const HANG: Animation = Animation::HangUnderVerticalBeam;
+    const CLIMB: Animation = Animation::ClimbOnBeam;
+    let expected = [
+        (475.000, 0.000, 457.101, -4.899, HANG),
+        (471.204, 0.602, 454.204, -2.897, HANG),
+        (472.955, 1.477, 452.159, -2.045, HANG),
+        (471.919, 0.960, 452.874, 0.715, HANG),
+        (473.915, 1.957, 453.834, 0.960, HANG),
+        (474.018, 2.009, 455.933, 2.099, HANG),
+        (475.610, 2.805, 457.628, 1.695, HANG),
+        (476.468, 2.929, 459.468, 1.840, HANG),
+        (477.951, 3.241, 460.951, 1.483, HANG),
+        (479.411, 3.230, 462.411, 1.461, HANG),
+        (500.359, 5.179, 464.855, 2.444, CLIMB),
+        (495.016, 1.028, 478.016, 13.060, CLIMB),
+        (501.154, 5.969, 484.154, 6.038, CLIMB),
+    ];
     let mut p = Player::upright(Vec2::new(410.0, 458.0));
-    p.update(&room, UP);
-    assert_eq!(p.animation(), Animation::HangUnderVerticalBeam);
-    assert_eq!(p.head().pos, Vec2::new(410.0, 475.0));
-    // Holding up (+2.5 per tick) lifts the head into (20, 24); the same tick the hang
-    // block raises it to at least that tile's middle + 5 + vel.y (row 25) and, the head
-    // tile having a pole, switches to ClimbOnBeam.
-    let mut ticks = 0;
-    while p.animation() != Animation::ClimbOnBeam {
+    for (tick, &(head_y, head_vy, hips_y, hips_vy, animation)) in expected.iter().enumerate() {
         p.update(&room, UP);
-        ticks += 1;
-        assert!(ticks < 20, "{:?} {:?}", p.animation(), p.head().pos);
+        let got = (
+            p.head().pos.y,
+            p.head().vel.y,
+            p.hips().pos.y,
+            p.hips().vel.y,
+        );
+        let want = (head_y, head_vy, hips_y, hips_vy);
+        assert_eq!(p.animation(), animation, "tick {tick}");
+        assert!(
+            [
+                got.0 - want.0,
+                got.1 - want.1,
+                got.2 - want.2,
+                got.3 - want.3
+            ]
+            .iter()
+            .all(|d: &f32| d.abs() < 0.01),
+            "tick {tick}: {got:?} != {want:?}"
+        );
+        assert_eq!(p.head().pos.x, 410.0, "tick {tick}");
     }
-    assert_eq!(p.head().pos.y as i32 / 20, 25);
-    assert!(p.head().pos.y >= 495.0);
 }
