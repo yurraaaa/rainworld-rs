@@ -32,7 +32,6 @@ fn main() {
                 continue;
             }
         };
-        let n = |k| room.tiles().iter().filter(|t| t.terrain == k).count();
         let pv = room.tiles().iter().filter(|t| t.vertical_pole()).count();
         let ph = room.tiles().iter().filter(|t| t.horizontal_pole()).count();
         println!(
@@ -41,10 +40,10 @@ fn main() {
             room.height(),
             room.cameras().len(),
             room.water_level().unwrap_or(-1),
-            n(Terrain::Slope),
-            n(Terrain::Floor),
-            n(Terrain::ShortcutEntrance),
-            n(Terrain::Solid),
+            room.count_terrain(Terrain::Slope),
+            room.count_terrain(Terrain::Floor),
+            room.count_terrain(Terrain::ShortcutEntrance),
+            room.count_terrain(Terrain::Solid),
         );
     }
 }

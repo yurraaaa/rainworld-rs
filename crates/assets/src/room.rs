@@ -242,6 +242,18 @@ impl Error for RoomError {
     }
 }
 
+/// The lines of a geometry file, with checked access.
+struct Lines<'a>(Vec<&'a str>);
+
+impl<'a> Lines<'a> {
+    fn line(&self, i: usize) -> Result<&'a str, RoomError> {
+        self.0
+            .get(i)
+            .copied()
+            .ok_or(RoomError::MissingLine { line: i })
+    }
+}
+
 /// A room's geometry, read-only.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Room {
@@ -263,18 +275,12 @@ impl Room {
     /// or a grid whose cell count is not `W*H`.
     pub fn parse(text: &str) -> Result<Self, RoomError> {
         let text = text.strip_prefix('\u{feff}').unwrap_or(text);
-        let lines: Vec<&str> = text.lines().collect();
-        let line = |i: usize| {
-            lines
-                .get(i)
-                .copied()
-                .ok_or(RoomError::MissingLine { line: i })
-        };
+        let lines = Lines(text.lines().collect());
 
-        let name = line(0)?.to_owned();
+        let name = lines.line(0)?.to_owned();
 
         // Line 1: `W*H|waterLevel|waterInFront`; the last two are optional.
-        let mut header = line(1)?.split('|');
+        let mut header = lines.line(1)?.split('|');
         let size = header.next().unwrap_or_default();
         let (w, h) = size.split_once('*').ok_or_else(|| bad(1, "size", size))?;
         let width: i32 = w.parse().map_err(|_| bad(1, "width", w))?;
@@ -298,7 +304,8 @@ impl Room {
         let water_in_front = water_level.is_some() && water_in_front;
 
         // Line 3: cameras `x,y|x,y`, converted to room pixels (y up, image bottom-left).
-        let cameras = line(3)?
+        let cameras = lines
+            .line(3)?
             .split('|')
             .map(|cam| {
                 let (x, y) = cam.split_once(',').ok_or_else(|| bad(3, "camera", cam))?;
@@ -309,7 +316,8 @@ impl Room {
             .collect::<Result<Vec<_>, RoomError>>()?;
 
         // Line 11: `cell|cell|...|` with a trailing separator.
-        let grid = line(GRID_LINE)?
+        let grid = lines
+            .line(GRID_LINE)?
             .strip_suffix('|')
             .ok_or(RoomError::MissingTrailingSeparator)?;
         let cells: Vec<&str> = grid.split('|').collect();
@@ -400,6 +408,12 @@ impl Room {
         &self.tiles
     }
 
+    /// Number of tiles whose terrain is `terrain`.
+    #[must_use]
+    pub fn count_terrain(&self, terrain: Terrain) -> usize {
+        self.tiles.iter().filter(|t| t.terrain == terrain).count()
+    }
+
     /// True if `(x, y)` is inside the room.
     #[must_use]
     pub fn contains(&self, x: i32, y: i32) -> bool {
@@ -449,24 +463,28 @@ impl Room {
     /// Neighbours are read with [`Room::tile`], so out-of-bounds lookups clamp.
     #[must_use]
     pub fn identify_slope(&self, x: i32, y: i32) -> Option<Slope> {
-        let solid = |dx: i32, dy: i32| self.tile(x + dx, y + dy).is_solid();
         if self.tile(x, y).terrain != Terrain::Slope {
             return None;
         }
-        let (floor, ceiling) = if solid(-1, 0) {
+        let (floor, ceiling) = if self.is_solid_at(x, y, -1, 0) {
             (Slope::UpRight, Slope::DownRight)
-        } else if solid(1, 0) {
+        } else if self.is_solid_at(x, y, 1, 0) {
             (Slope::UpLeft, Slope::DownLeft)
         } else {
             return None;
         };
-        if solid(0, -1) {
+        if self.is_solid_at(x, y, 0, -1) {
             Some(floor)
-        } else if solid(0, 1) {
+        } else if self.is_solid_at(x, y, 0, 1) {
             Some(ceiling)
         } else {
             None
         }
+    }
+
+    /// Whether the tile offset by `(dx, dy)` from `(x, y)` is Solid, clamped as [`Room::tile`].
+    fn is_solid_at(&self, x: i32, y: i32, dx: i32, dy: i32) -> bool {
+        self.tile(x + dx, y + dy).is_solid()
     }
 
     /// Room width in pixels (the game's `PixelWidth`).
@@ -505,8 +523,8 @@ pub fn tile_centre(x: i32, y: i32) -> [f32; 2] {
 /// e.g. `p = -30` gives `-1`, not `-2`.
 #[must_use]
 pub fn tile_position(pos: [f32; 2]) -> (i32, i32) {
-    let f = |p: f32| ((p + TILE_SIZE) / TILE_SIZE) as i32 - 1;
-    (f(pos[0]), f(pos[1]))
+    let [x, y] = pos.map(|p| ((p + TILE_SIZE) / TILE_SIZE) as i32 - 1);
+    (x, y)
 }
 
 fn bad(line: usize, field: &'static str, value: &str) -> RoomError {
@@ -524,6 +542,24 @@ mod tests {
     /// Builds a 12-line room file around `header` (line 1) and `grid` (line 11).
     fn file(header: &str, cams: &str, grid: &str) -> String {
         format!("Test\n{header}\n1*1|0|0\n{cams}\nBorder: Solid\n\n\n\n\n17|0|0|\nblob\n{grid}\n")
+    }
+
+    /// Namespace for test helpers that wrap the parser under test.
+    struct Case;
+
+    impl Case {
+        fn shortcut(cell: &str) -> Shortcut {
+            Tile::parse(0, cell).expect("cell parses").shortcut
+        }
+
+        fn parse(header: &str, cams: &str, grid: &str) -> Result<Room, RoomError> {
+            Room::parse(&file(header, cams, grid))
+        }
+
+        /// Slope orientation of the centre tile of a 3x3 `grid`.
+        fn slope(rows: &[&str]) -> Option<Slope> {
+            grid(rows).identify_slope(1, 1)
+        }
     }
 
     // 2 wide, 3 high. File order: column x=0 rows y=2,1,0 then column x=1.
@@ -572,14 +608,13 @@ mod tests {
 
     #[test]
     fn shortcut_precedence_matches_game() {
-        let t = |cell| Tile::parse(0, cell).expect("cell parses").shortcut;
-        assert_eq!(t("1,4,3"), Shortcut::RoomExit);
-        assert_eq!(t("1,3,4"), Shortcut::RoomExit);
-        assert_eq!(t("1,3,5"), Shortcut::CreatureDen);
-        assert_eq!(t("0,4,5"), Shortcut::CreatureDen);
-        assert_eq!(t("0,3,12"), Shortcut::RegionTransportation);
-        assert_eq!(t("0,9"), Shortcut::NpcTransportation);
-        assert_eq!(t("0,99,x"), Shortcut::None);
+        assert_eq!(Case::shortcut("1,4,3"), Shortcut::RoomExit);
+        assert_eq!(Case::shortcut("1,3,4"), Shortcut::RoomExit);
+        assert_eq!(Case::shortcut("1,3,5"), Shortcut::CreatureDen);
+        assert_eq!(Case::shortcut("0,4,5"), Shortcut::CreatureDen);
+        assert_eq!(Case::shortcut("0,3,12"), Shortcut::RegionTransportation);
+        assert_eq!(Case::shortcut("0,9"), Shortcut::NpcTransportation);
+        assert_eq!(Case::shortcut("0,99,x"), Shortcut::None);
     }
 
     #[test]
@@ -603,47 +638,46 @@ mod tests {
 
     #[test]
     fn rejects_malformed_input() {
-        let err = |header: &str, cams: &str, grid: &str| Room::parse(&file(header, cams, grid));
         assert!(matches!(
-            err("2*3|-1|0", "0,0", "0|0|0|0|0|"),
+            Case::parse("2*3|-1|0", "0,0", "0|0|0|0|0|"),
             Err(RoomError::CellCount {
                 expected: 6,
                 found: 5
             })
         ));
         assert!(matches!(
-            err("2*3|-1|0", "0,0", "0|0|0|0|0|0|0|"),
+            Case::parse("2*3|-1|0", "0,0", "0|0|0|0|0|0|0|"),
             Err(RoomError::CellCount {
                 expected: 6,
                 found: 7
             })
         ));
         assert!(matches!(
-            err("2*3|-1|0", "0,0", "0|0|0|0|0|0"),
+            Case::parse("2*3|-1|0", "0,0", "0|0|0|0|0|0"),
             Err(RoomError::MissingTrailingSeparator)
         ));
         assert!(matches!(
-            err("2*3|-1|0", "0,0", "0|0|0|0|0|7|"),
+            Case::parse("2*3|-1|0", "0,0", "0|0|0|0|0|7|"),
             Err(RoomError::UnknownTerrain { index: 5, value: 7 })
         ));
         assert!(matches!(
-            err("2*3|-1|0", "0,0", "0|0||0|0|0|"),
+            Case::parse("2*3|-1|0", "0,0", "0|0||0|0|0|"),
             Err(RoomError::BadCell { index: 2, .. })
         ));
         assert!(matches!(
-            err("0*3|-1|0", "0,0", "|"),
+            Case::parse("0*3|-1|0", "0,0", "|"),
             Err(RoomError::BadSize { .. })
         ));
         assert!(matches!(
-            err("2x3|-1|0", "0,0", GRID),
+            Case::parse("2x3|-1|0", "0,0", GRID),
             Err(RoomError::BadField { line: 1, .. })
         ));
         assert!(matches!(
-            err("2*3|-1|0", "", GRID),
+            Case::parse("2*3|-1|0", "", GRID),
             Err(RoomError::BadField { line: 3, .. })
         ));
         assert!(matches!(
-            err("70000*70000|-1|0", "0,0", GRID),
+            Case::parse("70000*70000|-1|0", "0,0", GRID),
             Err(RoomError::CellCount { .. } | RoomError::BadSize { .. })
         ));
         assert!(matches!(
@@ -683,32 +717,30 @@ mod tests {
     #[test]
     fn identify_slope_from_solid_neighbours() {
         // Centre tile (1,1) in a 3x3 grid; neighbours as drawn.
-        let at = |rows: &[&str]| grid(rows).identify_slope(1, 1);
-        assert_eq!(at(&["...", "#/.", ".#."]), Some(Slope::UpRight));
-        assert_eq!(at(&[".#.", "#/.", "..."]), Some(Slope::DownRight));
-        assert_eq!(at(&["...", "./#", ".#."]), Some(Slope::UpLeft));
-        assert_eq!(at(&[".#.", "./#", "..."]), Some(Slope::DownLeft));
+        assert_eq!(Case::slope(&["...", "#/.", ".#."]), Some(Slope::UpRight));
+        assert_eq!(Case::slope(&[".#.", "#/.", "..."]), Some(Slope::DownRight));
+        assert_eq!(Case::slope(&["...", "./#", ".#."]), Some(Slope::UpLeft));
+        assert_eq!(Case::slope(&[".#.", "./#", "..."]), Some(Slope::DownLeft));
         // Below wins over above.
-        assert_eq!(at(&[".#.", "#/.", ".#."]), Some(Slope::UpRight));
+        assert_eq!(Case::slope(&[".#.", "#/.", ".#."]), Some(Slope::UpRight));
         // Left is tested before right.
-        assert_eq!(at(&["...", "#/#", ".#."]), Some(Slope::UpRight));
-        assert_eq!(at(&[".#.", "#/#", "..."]), Some(Slope::DownRight));
+        assert_eq!(Case::slope(&["...", "#/#", ".#."]), Some(Slope::UpRight));
+        assert_eq!(Case::slope(&[".#.", "#/#", "..."]), Some(Slope::DownRight));
     }
 
     #[test]
     fn identify_slope_broken_cases() {
-        let at = |rows: &[&str]| grid(rows).identify_slope(1, 1);
         // Not a slope tile.
-        assert_eq!(at(&["...", "#.#", ".#."]), None);
-        assert_eq!(at(&["...", "###", ".#."]), None);
+        assert_eq!(Case::slope(&["...", "#.#", ".#."]), None);
+        assert_eq!(Case::slope(&["...", "###", ".#."]), None);
         // Side wall but nothing above or below.
-        assert_eq!(at(&["...", "#/#", "..."]), None);
+        assert_eq!(Case::slope(&["...", "#/#", "..."]), None);
         // Only diagonal Solids.
-        assert_eq!(at(&["#.#", "./.", "#.#"]), None);
+        assert_eq!(Case::slope(&["#.#", "./.", "#.#"]), None);
         // A Slope neighbour does not count as Solid.
-        assert_eq!(at(&["...", "//.", ".#."]), None);
+        assert_eq!(Case::slope(&["...", "//.", ".#."]), None);
         // Floor/below without a side wall.
-        assert_eq!(at(&[".#.", "./.", ".#."]), None);
+        assert_eq!(Case::slope(&[".#.", "./.", ".#."]), None);
     }
 
     #[test]
