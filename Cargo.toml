@@ -10,3 +10,4 @@ edition = "2024"
 rw-sim = { path = "crates/sim" }
 rw-assets = { path = "crates/assets" }
 rw-render = { path = "crates/render" }
+rand = "0.10"

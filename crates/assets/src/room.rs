@@ -170,6 +170,22 @@ impl Tile {
     }
 }
 
+/// Orientation of a usable slope tile (the game's `Room.SlopeDirection` minus `Broken`).
+///
+/// The names are the game's and are not geometric; see `slope-collision.md` section 2.
+/// `lx`/`h` are measured from the tile's bottom-left corner.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Slope {
+    /// Right and below Solid: floor, solid lower-right triangle, `h = lx`.
+    UpLeft,
+    /// Left and below Solid: floor, solid lower-left triangle, `h = 20 - lx`.
+    UpRight,
+    /// Right and above Solid: ceiling, solid upper-right triangle, `h = 20 - lx`.
+    DownLeft,
+    /// Left and above Solid: ceiling, solid upper-left triangle, `h = lx`.
+    DownRight,
+}
+
 /// Error from parsing or loading a room file.
 #[derive(Debug)]
 #[non_exhaustive]
@@ -423,9 +439,47 @@ impl Room {
         self.tile(x, y)
     }
 
-    // PLACEHOLDER(slope): derived slope direction accessor goes here.
-    // The game derives it from neighbours (Room.IdentifySlope); research is in progress
-    // elsewhere. Do not add it until that is written up in rainworld-re/notes.
+    /// Orientation of the slope tile at `(x, y)`, derived from its neighbours as the
+    /// game's `Room.IdentifySlope`; `None` is the game's `Broken`.
+    ///
+    /// Rules (`rainworld-re/notes/slope-collision.md` section 1): the tile must be
+    /// [`Terrain::Slope`]. If the left neighbour is Solid the result is `UpRight` (below
+    /// Solid) or `DownRight` (above Solid) or `None`; the right neighbour is consulted
+    /// only when the left one is not Solid, giving `UpLeft` / `DownLeft` / `None`.
+    /// Neighbours are read with [`Room::tile`], so out-of-bounds lookups clamp.
+    #[must_use]
+    pub fn identify_slope(&self, x: i32, y: i32) -> Option<Slope> {
+        let solid = |dx: i32, dy: i32| self.tile(x + dx, y + dy).is_solid();
+        if self.tile(x, y).terrain != Terrain::Slope {
+            return None;
+        }
+        let (floor, ceiling) = if solid(-1, 0) {
+            (Slope::UpRight, Slope::DownRight)
+        } else if solid(1, 0) {
+            (Slope::UpLeft, Slope::DownLeft)
+        } else {
+            return None;
+        };
+        if solid(0, -1) {
+            Some(floor)
+        } else if solid(0, 1) {
+            Some(ceiling)
+        } else {
+            None
+        }
+    }
+
+    /// Room width in pixels (the game's `PixelWidth`).
+    #[must_use]
+    pub fn pixel_width(&self) -> f32 {
+        self.width as f32 * TILE_SIZE
+    }
+
+    /// Room height in pixels (the game's `PixelHeight`).
+    #[must_use]
+    pub fn pixel_height(&self) -> f32 {
+        self.height as f32 * TILE_SIZE
+    }
 
     /// Index into [`Room::tiles`]; `(x, y)` must be in bounds.
     fn index(&self, x: i32, y: i32) -> usize {
@@ -607,6 +661,82 @@ mod tests {
         let err = Room::load("/nonexistent/room.txt").expect_err("missing file");
         assert!(matches!(err, RoomError::Io { .. }));
         assert!(err.source().is_some());
+    }
+
+    /// Builds a room from ASCII rows (top first): `.` Air, `#` Solid, `/` Slope.
+    fn grid(rows: &[&str]) -> Room {
+        let (w, h) = (rows[0].len(), rows.len());
+        let mut cells = String::new();
+        for x in 0..w {
+            for row in rows {
+                cells.push(match row.as_bytes()[x] {
+                    b'#' => '1',
+                    b'/' => '2',
+                    _ => '0',
+                });
+                cells.push('|');
+            }
+        }
+        Room::parse(&file(&format!("{w}*{h}|-1|0"), "0,0", &cells)).expect("grid parses")
+    }
+
+    #[test]
+    fn identify_slope_from_solid_neighbours() {
+        // Centre tile (1,1) in a 3x3 grid; neighbours as drawn.
+        let at = |rows: &[&str]| grid(rows).identify_slope(1, 1);
+        assert_eq!(at(&["...", "#/.", ".#."]), Some(Slope::UpRight));
+        assert_eq!(at(&[".#.", "#/.", "..."]), Some(Slope::DownRight));
+        assert_eq!(at(&["...", "./#", ".#."]), Some(Slope::UpLeft));
+        assert_eq!(at(&[".#.", "./#", "..."]), Some(Slope::DownLeft));
+        // Below wins over above.
+        assert_eq!(at(&[".#.", "#/.", ".#."]), Some(Slope::UpRight));
+        // Left is tested before right.
+        assert_eq!(at(&["...", "#/#", ".#."]), Some(Slope::UpRight));
+        assert_eq!(at(&[".#.", "#/#", "..."]), Some(Slope::DownRight));
+    }
+
+    #[test]
+    fn identify_slope_broken_cases() {
+        let at = |rows: &[&str]| grid(rows).identify_slope(1, 1);
+        // Not a slope tile.
+        assert_eq!(at(&["...", "#.#", ".#."]), None);
+        assert_eq!(at(&["...", "###", ".#."]), None);
+        // Side wall but nothing above or below.
+        assert_eq!(at(&["...", "#/#", "..."]), None);
+        // Only diagonal Solids.
+        assert_eq!(at(&["#.#", "./.", "#.#"]), None);
+        // A Slope neighbour does not count as Solid.
+        assert_eq!(at(&["...", "//.", ".#."]), None);
+        // Floor/below without a side wall.
+        assert_eq!(at(&[".#.", "./.", ".#."]), None);
+    }
+
+    #[test]
+    fn identify_slope_clamps_at_room_edges() {
+        // Out-of-bounds neighbours read the clamped edge tile, i.e. the slope itself.
+        // Left edge: the left neighbour is the slope (not Solid), so the right one counts.
+        assert_eq!(
+            grid(&["...", "/#.", "#.."]).identify_slope(0, 1),
+            Some(Slope::UpLeft)
+        );
+        // Right edge with left wall: UpRight.
+        assert_eq!(
+            grid(&["...", ".#/", "..#"]).identify_slope(2, 1),
+            Some(Slope::UpRight)
+        );
+        // Right edge, no left wall: the right neighbour is the slope itself => Broken.
+        assert_eq!(grid(&["...", "../", "..#"]).identify_slope(2, 1), None);
+        // Bottom row: below is the slope itself, so a wall plus Solid above => DownRight.
+        assert_eq!(
+            grid(&[".#.", "#/."]).identify_slope(1, 0),
+            Some(Slope::DownRight)
+        );
+        // Top row: above is the slope itself; nothing below => Broken.
+        assert_eq!(grid(&["#/.", "..."]).identify_slope(1, 1), None);
+        // Fully outside: the tile and both side neighbours clamp to the edge slope,
+        // so no side is Solid => Broken, unlike the in-room (0,1).
+        let r = grid(&["...", "/#.", "#.."]);
+        assert_eq!(r.identify_slope(-3, 1), None);
     }
 
     #[test]

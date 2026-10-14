@@ -3,5 +3,6 @@
 pub mod room;
 
 pub use room::{
-    Room, RoomError, Shortcut, TILE_SIZE, Terrain, Tile, TileFlags, tile_centre, tile_position,
+    Room, RoomError, Shortcut, Slope, TILE_SIZE, Terrain, Tile, TileFlags, tile_centre,
+    tile_position,
 };

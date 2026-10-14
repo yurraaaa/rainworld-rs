@@ -69,13 +69,16 @@ recommendation. Nothing is ported before the user agrees.
   (replies to unknown names are lost).
 - Tell agents the machine is shared with someone who may be playing. No
   agent starts, stops or kills the game or Steam.
-- No agent downloads or installs software (`dotnet tool install`, `pip`,
-  `cargo install`, curl/wget of binaries, etc.) without asking first. Put
-  the request in the report or ask via `main`, naming the tool, version
-  and where it would be installed. Briefs must say this. This is absolute:
+- No agent downloads or installs programs (`dotnet tool install`,
+  `pip install`, `cargo install`, `npm -g`, binaries or scripts fetched
+  with curl/wget from websites, etc.) without asking first. Put the
+  request in the report or ask via `main`, naming the tool, version and
+  where it would be installed. Briefs must say this. This is absolute:
   `../rainworld-re/tools/decompile_types.sh` can install `ilspycmd` itself
   if it is missing, so agents must not run it unless `ilspycmd` is already
   present (default `/tmp/ilspy`, or `$ILSPY_DIR`); otherwise ask first.
+  Library crates from crates.io added as Cargo dependencies and fetched
+  by cargo are fine; say in the report which crates were added.
 - Never match your own command line: `pkill -f`/`pgrep -f` match the shell
   running them and can kill the session. Check for the game with `pidof`
   or `/proc/<pid>/exe`.
