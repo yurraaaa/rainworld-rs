@@ -2150,7 +2150,9 @@ dependencies = [
  "log",
  "rw-assets",
  "rw-graphics",
+ "rw-random",
  "rw-render",
+ "rw-sim",
  "serde_json",
 ]
 

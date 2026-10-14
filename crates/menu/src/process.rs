@@ -2,9 +2,9 @@
 //! menu, a slideshow ...), switched behind a fade to black. Behaviour:
 //! `rainworld-re/notes/menu.md` ("Processes and the fade").
 //!
-//! Side processes (the music player, the menu microphone, dialogs) are not ported
-//! yet; the switch queue only holds requests while a dialog runs, so with none it is
-//! always empty. Mod finalization between the two halves of a switch finishes at once,
+//! Of the side processes only the menu microphone runs (through
+//! [`ProcessFactory::update_side_processes`]); the switch queue only holds requests
+//! while a dialog runs, so with none it is always empty. Mod finalization between the two halves of a switch finishes at once,
 //! as with no mods to enable or disable.
 
 use std::collections::VecDeque;
@@ -81,24 +81,57 @@ impl TimeStacker {
     }
 }
 
-/// What a process asks of the manager during its update (`manager.RequestMainProcessSwitch`).
+/// What a process asks of the manager during its update (`manager.RequestMainProcessSwitch`),
+/// and the manager's state it reads (`upcomingProcess`, `fadeToBlack`).
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ProcessRequests {
     switches: Vec<(ProcessId, f32)>,
+    /// `upcomingProcess`, including a switch requested during this update.
+    upcoming: Option<ProcessId>,
+    /// A switch is between its two halves (`processAfterModFinalization`).
+    switching: bool,
+    fade_to_black: f32,
 }
 
 impl ProcessRequests {
     /// The default fade-out time of a switch, seconds.
     pub const FADE_OUT_SECONDS: f32 = 0.45;
 
+    /// The manager's state at the start of a process update.
+    #[must_use]
+    pub fn new(upcoming: Option<ProcessId>, switching: bool, fade_to_black: f32) -> Self {
+        Self {
+            switches: Vec::new(),
+            upcoming,
+            switching,
+            fade_to_black,
+        }
+    }
+
     /// `RequestMainProcessSwitch(id)`.
     pub fn switch_to(&mut self, id: ProcessId) {
         self.switch_to_with_fade(id, Self::FADE_OUT_SECONDS);
     }
 
-    /// `RequestMainProcessSwitch(id, fadeOutSeconds)`.
+    /// `RequestMainProcessSwitch(id, fadeOutSeconds)`: taken at once unless a switch
+    /// is already under way.
     pub fn switch_to_with_fade(&mut self, id: ProcessId, fade_out_seconds: f32) {
+        if self.upcoming.is_none() && !self.switching {
+            self.upcoming = Some(id);
+        }
         self.switches.push((id, fade_out_seconds));
+    }
+
+    /// `manager.upcomingProcess`.
+    #[must_use]
+    pub fn upcoming(&self) -> Option<ProcessId> {
+        self.upcoming
+    }
+
+    /// `manager.fadeToBlack`.
+    #[must_use]
+    pub fn fade_to_black(&self) -> f32 {
+        self.fade_to_black
     }
 }
 
@@ -145,17 +178,25 @@ pub trait MainLoopProcess<C> {
     fn shut_down(&mut self, _ctx: &mut C) {}
 
     /// `CommunicateWithUpcomingProcess`.
-    fn communicate_with_upcoming(&mut self, _next: &mut Self)
+    fn communicate_with_upcoming(&mut self, _next: &mut Self, _ctx: &mut C)
     where
         Self: Sized,
     {
     }
 }
 
-/// Builds processes by ID, as `PostSwitchMainProcess` does.
+/// Builds processes by ID, as `PostSwitchMainProcess` does, and runs the side
+/// processes.
 pub trait ProcessFactory<P> {
     /// The process `id`; `old` is the one that just ended, if any.
     fn create_process(&mut self, id: ProcessId, old: Option<&P>) -> P;
+
+    /// The side processes' frame (`sideProcesses[i].RawUpdate`) after the main
+    /// process's; `current` is `None` between the halves of a switch.
+    fn update_side_processes(&mut self, _current: Option<&P>, _dt: f32) {}
+
+    /// The start of `PreSwitchMainProcess(next)`, before the current process ends.
+    fn pre_switch(&mut self, _next: ProcessId) {}
 }
 
 /// `ProcessManager.fadeSprite`: a black `Futile_White` quad over the screen drawn
@@ -218,7 +259,7 @@ impl<P> ProcessManager<P> {
         };
         manager.init_fade_sprite();
         manager.fade_to_black = 1.0;
-        manager.pre_switch(ctx);
+        manager.pre_switch(ProcessId::Initialization, ctx);
         manager.post_switch(ProcessId::Initialization, ctx);
         manager
     }
@@ -278,7 +319,11 @@ impl<P> ProcessManager<P> {
         if let Some((id, fade)) = self.queue.pop_front() {
             self.actual_process_switch(id, fade);
         }
-        let mut requests = ProcessRequests::default();
+        let mut requests = ProcessRequests::new(
+            self.upcoming,
+            self.after_mod_finalization.is_some(),
+            self.fade_to_black,
+        );
         if let Some(current) = &mut self.current {
             self.shaders_time += dt * current.frames_per_second() as f32 / 40.0;
             current.raw_update(dt, &mut self.stacker, ctx, &mut requests);
@@ -286,6 +331,7 @@ impl<P> ProcessManager<P> {
         for (id, fade) in requests.switches {
             self.actual_process_switch(id, fade);
         }
+        ctx.update_side_processes(self.current.as_ref(), dt);
         if self.after_mod_finalization.is_some() && !self.mod_finalization_done {
             self.mod_finalization_done = true;
         }
@@ -302,7 +348,7 @@ impl<P> ProcessManager<P> {
             self.update_fade();
             if self.fade_to_black > 1.0 {
                 self.fade_to_black = 1.0;
-                self.pre_switch(ctx);
+                self.pre_switch(upcoming, ctx);
                 self.mod_finalization_done = false;
                 self.after_mod_finalization = Some(upcoming);
                 self.upcoming = None;
@@ -369,11 +415,13 @@ impl<P> ProcessManager<P> {
     }
 
     /// `PreSwitchMainProcess`: ends the current process.
-    fn pre_switch<C>(&mut self, ctx: &mut C)
+    fn pre_switch<C>(&mut self, next: ProcessId, ctx: &mut C)
     where
         P: MainLoopProcess<C>,
+        C: ProcessFactory<P>,
     {
         self.shaders_time = 0.0;
+        ctx.pre_switch(next);
         if let Some(mut current) = self.current.take() {
             current.shut_down(ctx);
             self.old = Some(current);
@@ -388,7 +436,7 @@ impl<P> ProcessManager<P> {
     {
         let mut next = ctx.create_process(id, self.old.as_ref());
         if let Some(old) = &mut self.old {
-            old.communicate_with_upcoming(&mut next);
+            old.communicate_with_upcoming(&mut next, ctx);
         }
         self.black_fade_time = next.fade_in_time();
         self.black_delay = next.initial_black_seconds();

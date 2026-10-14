@@ -328,6 +328,7 @@ mod tests {
         ) {
         }
         fn remove_stage_texture(&mut self, _: rw_render::StageTextureId) {}
+        fn set_stage_globals(&mut self, _: rw_render::StageGlobals) {}
         fn draw_stage(&mut self, _: &rw_render::StageBatch, _: [f32; 2]) {}
         fn set_background(&mut self, _: Color) {}
         fn draw_sprites(&mut self, _: &DrawList, layer: Layer, _: [f32; 2]) {

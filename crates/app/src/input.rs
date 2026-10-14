@@ -61,15 +61,18 @@ pub enum Command {
 }
 
 impl Action {
-    /// What a physical key does: arrows/WASD move, Space/Z jump.
+    /// What a physical key does in Rewired's default gameplay keyboard map
+    /// (`rainworld-re/notes/menu.md` "Input"): arrows move, Z jumps. The map's other
+    /// actions (X throw, left Shift pick up, Space map, C special, Esc pause) have no
+    /// use in the port yet.
     #[must_use]
     pub fn from_key(key: KeyCode) -> Option<Self> {
         Some(match key {
-            KeyCode::ArrowLeft | KeyCode::KeyA => Action::Left,
-            KeyCode::ArrowRight | KeyCode::KeyD => Action::Right,
-            KeyCode::ArrowUp | KeyCode::KeyW => Action::Up,
-            KeyCode::ArrowDown | KeyCode::KeyS => Action::Down,
-            KeyCode::Space | KeyCode::KeyZ => Action::Jump,
+            KeyCode::ArrowLeft => Action::Left,
+            KeyCode::ArrowRight => Action::Right,
+            KeyCode::ArrowUp => Action::Up,
+            KeyCode::ArrowDown => Action::Down,
+            KeyCode::KeyZ => Action::Jump,
             _ => return None,
         })
     }
@@ -77,7 +80,7 @@ impl Action {
 
 impl Command {
     /// R respawns, V switches level graphic / debug view, G toggles the tile grid,
-    /// F12 saves a screenshot, Esc quits.
+    /// F12 saves a screenshot, Esc quits (in the game only; there is no pause menu yet).
     #[must_use]
     pub fn from_key(key: KeyCode) -> Option<Self> {
         Some(match key {
@@ -199,18 +202,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn arrows_and_wasd_map_to_the_same_actions() {
+    fn rewired_default_gameplay_keys() {
         assert_eq!(Action::from_key(KeyCode::ArrowLeft), Some(Action::Left));
-        assert_eq!(Action::from_key(KeyCode::KeyA), Some(Action::Left));
         assert_eq!(Action::from_key(KeyCode::ArrowRight), Some(Action::Right));
-        assert_eq!(Action::from_key(KeyCode::KeyD), Some(Action::Right));
         assert_eq!(Action::from_key(KeyCode::ArrowUp), Some(Action::Up));
-        assert_eq!(Action::from_key(KeyCode::KeyW), Some(Action::Up));
         assert_eq!(Action::from_key(KeyCode::ArrowDown), Some(Action::Down));
-        assert_eq!(Action::from_key(KeyCode::KeyS), Some(Action::Down));
-        assert_eq!(Action::from_key(KeyCode::Space), Some(Action::Jump));
         assert_eq!(Action::from_key(KeyCode::KeyZ), Some(Action::Jump));
-        assert_eq!(Action::from_key(KeyCode::KeyQ), None);
+        // Not in the default map: WASD; Space is the map key, not jump.
+        for key in [
+            KeyCode::KeyW,
+            KeyCode::KeyA,
+            KeyCode::KeyS,
+            KeyCode::KeyD,
+            KeyCode::Space,
+        ] {
+            assert_eq!(Action::from_key(key), None);
+        }
     }
 
     #[test]

@@ -6,6 +6,7 @@
 
 mod ambient;
 mod clips;
+mod menu_mic;
 mod mic;
 mod output;
 mod voice;
@@ -27,6 +28,7 @@ use output::CpalOutput;
 
 pub use ambient::AmbientPlayer;
 pub use clips::{ClipKey, ClipLoader, ClipSlot};
+pub use menu_mic::{MenuPlayback, MenuSoundStart};
 pub use mic::{Doppler, Follow, ListenerInput, Microphone, SourceMix};
 pub use voice::{Emitter, Emitters, Voice};
 

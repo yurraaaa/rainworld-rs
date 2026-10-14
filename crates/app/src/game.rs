@@ -35,6 +35,8 @@ pub struct Game {
     sounds: Sounds,
     /// `--spawn`: place the player on this tile instead of a random spawn tile.
     spawn_tile: Option<(i32, i32)>,
+    /// The story character, for the graphics' colours (the body is the Survivor's).
+    slugcat: SlugcatName,
     tick: u64,
 }
 
@@ -49,8 +51,26 @@ impl Game {
         seed: u64,
         spawn_tile: Option<(i32, i32)>,
     ) -> Self {
-        let mut rng = UnityRandom::new(seed as i32);
-        let (player, graphics) = Self::spawn_player(&room, spawn_tile, &mut rng);
+        Self::with_rng(
+            room,
+            settings,
+            UnityRandom::new(seed as i32),
+            spawn_tile,
+            SlugcatName::White,
+        )
+    }
+
+    /// As [`Game::new`], drawing from `rng` (the stream the menus drew from before, D1)
+    /// with `slugcat`'s colours.
+    #[must_use]
+    pub fn with_rng(
+        room: Room,
+        settings: &RoomSettings,
+        mut rng: UnityRandom,
+        spawn_tile: Option<(i32, i32)>,
+        slugcat: SlugcatName,
+    ) -> Self {
+        let (player, graphics) = Self::spawn_player(&room, spawn_tile, slugcat, &mut rng);
         log::info!("spawned player");
         Self {
             water: Water::new(&room, settings),
@@ -62,8 +82,14 @@ impl Game {
             rng,
             sounds: Sounds::default(),
             spawn_tile,
+            slugcat,
             tick: 0,
         }
+    }
+
+    /// Hands the random stream back (to the menus, when the game ends).
+    pub fn take_rng(&mut self) -> UnityRandom {
+        std::mem::replace(&mut self.rng, UnityRandom::new(0))
     }
 
     /// The settings of `room` (Survivor timeline), or the defaults when they cannot be
@@ -106,7 +132,8 @@ impl Game {
     /// Replaces the player with a fresh one at a new spawn tile (continuing the random
     /// sequence).
     pub fn respawn(&mut self) {
-        let (player, graphics) = Self::spawn_player(&self.room, self.spawn_tile, &mut self.rng);
+        let (player, graphics) =
+            Self::spawn_player(&self.room, self.spawn_tile, self.slugcat, &mut self.rng);
         self.sounds.owner_removed();
         self.player = Some(player);
         self.graphics = Some(graphics);
@@ -119,11 +146,12 @@ impl Game {
     fn spawn_player(
         room: &Room,
         tile: Option<(i32, i32)>,
+        slugcat: SlugcatName,
         rng: &mut UnityRandom,
     ) -> (Player, PlayerGraphics) {
         let tile = tile.unwrap_or_else(|| determine_safe_spawn_tile(room, rng));
         let mut player = Player::create(rng);
-        let graphics = PlayerGraphics::new(&player, SlugcatName::White, rng);
+        let graphics = PlayerGraphics::new(&player, slugcat, rng);
         player.place(tile, rng);
         (player, graphics)
     }

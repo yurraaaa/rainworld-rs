@@ -268,6 +268,29 @@ impl AtlasManager {
         self.add_atlas(path, texture, elements)
     }
 
+    /// A Texture2D resource kept as a texture with no atlas (`Resources.Load(path) as
+    /// Texture2D`, e.g. a shader's global texture), with its own filter and wrap.
+    ///
+    /// # Errors
+    /// When the resource cannot be read.
+    pub fn load_resource_texture(
+        &mut self,
+        resources: &UnityResources,
+        path: &str,
+    ) -> Result<StageTextureId, AtlasLoadError> {
+        let texture: rw_assets::unity::Texture2D = resources.load(path)?;
+        let sampling = TextureSampling {
+            filter: if texture.filter_mode == 0 {
+                TextureFilter::Point
+            } else {
+                TextureFilter::Bilinear
+            },
+            clamp: texture.wrap[0] == 1,
+        };
+        let image = resources.texture_image(path)?;
+        Ok(self.new_texture(image, sampling))
+    }
+
     /// `MenuIllustration.LoadFile(folder)`: reuses the atlas named `file` if loaded,
     /// else reads `<folder>/<file>.png` (resolved as the game does) into a one-element
     /// atlas named `file`, clamped, point filtered when `crisp_pixels` else bilinear.
