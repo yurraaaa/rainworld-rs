@@ -24,7 +24,7 @@ pub struct Visuals {
 
 impl Visuals {
     /// Loads the room's settings, palettes and every camera's image, and the noise
-    /// texture from the asset cache.
+    /// texture from the asset cache; the room camera shows `screen` pixels (`sSize`).
     ///
     /// # Errors
     /// When any of those cannot be loaded.
@@ -32,6 +32,7 @@ impl Visuals {
         assets: &StreamingAssets,
         cache: &AssetCache,
         room: &Room,
+        screen: [f32; 2],
     ) -> Result<Self, AssetError> {
         let visuals = RoomVisuals::load(assets, room.name(), room.cameras().len(), Some(TIMELINE))?;
         let s = visuals.settings();
@@ -44,7 +45,7 @@ impl Visuals {
             s.clouds,
             s.grime
         );
-        let camera = RoomCamera::new(room.cameras(), RoomCamera::SCREEN_SIZE);
+        let camera = RoomCamera::new(room.cameras(), screen);
         let images = (0..room.cameras().len())
             .map(|i| visuals.camera_image(i))
             .collect::<Result<_, _>>()?;
@@ -97,6 +98,12 @@ impl Visuals {
     pub fn black_color(&self) -> rw_graphics::Color {
         let [r, g, b, a] = self.palette.black_color().map(|c| f32::from(c) / 255.0);
         rw_graphics::Color { r, g, b, a }
+    }
+
+    /// The room camera's window size (`sSize`, the screen resolution).
+    #[must_use]
+    pub fn screen_size(&self) -> [f32; 2] {
+        self.camera.screen_size()
     }
 
     /// The game's window at `alpha` between ticks, `seconds` of shader time in.

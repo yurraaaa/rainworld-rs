@@ -18,6 +18,8 @@ mod gpu;
 mod level;
 mod level_gpu;
 mod mesh;
+mod present;
+mod present_gpu;
 mod room_camera;
 mod room_geometry;
 mod sprite_gpu;
@@ -34,6 +36,7 @@ pub use frame_image::FrameImage;
 pub use gpu::WgpuRenderer;
 pub use level::{LevelGraphics, LevelParams, LevelView};
 pub use mesh::{Color, Mesh, Vertex};
+pub use present::{PresentFilter, PresentRect, Resolution};
 pub use room_camera::{Follow, RoomCamera};
 pub use room_geometry::{RoomDebugGeometry, RoomShape, SlopeGeometry};
 pub use sprites::{Batch, DrawQueue, NodeMatrix, SpriteAtlas, SpriteBatch, SpriteVertex};
@@ -67,11 +70,15 @@ impl Default for RoomLayers {
 /// Per frame: [`begin_frame`](Renderer::begin_frame), any number of draw calls, then
 /// [`present`](Renderer::present). Draw calls between frames are discarded by the next
 /// `begin_frame`. All positions and sizes are in room pixels.
+///
+/// The frame is drawn at the game's screen [`Resolution`] and shown in the window
+/// scaled as the game is ([`PresentRect`]).
 pub trait Renderer {
-    /// Drawable size in physical pixels.
+    /// Frame size in pixels: the game's screen resolution, whatever the window size.
     fn size(&self) -> (u32, u32);
 
-    /// Resizes the drawable; zero sizes are allowed (minimised) and skip presenting.
+    /// Resizes the window's drawable (physical pixels); zero sizes are allowed
+    /// (minimised) and skip presenting.
     fn resize(&mut self, width: u32, height: u32);
 
     /// Builds the static geometry of `room` for later [`draw_room`](Renderer::draw_room) calls.
@@ -127,7 +134,7 @@ pub trait Renderer {
     /// (outdated, timeout, occluded) are handled internally and skip the frame.
     fn present(&mut self) -> Result<(), RenderError>;
 
-    /// Saves the next presented frame to `path` (binary PPM). Errors are reported by
+    /// Saves the next frame, at [`size`](Renderer::size), to `path` (binary PPM). Errors are reported by
     /// that frame's [`present`](Renderer::present).
     fn capture_next_frame(&mut self, path: std::path::PathBuf);
 

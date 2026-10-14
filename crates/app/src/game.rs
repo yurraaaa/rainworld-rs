@@ -195,11 +195,11 @@ impl Game {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     /// An all-Air 20 x 12 room.
-    fn open_room() -> Room {
+    pub(crate) fn open_room() -> Room {
         let (w, h) = (20, 12);
         let cells = "0|".repeat(w * h);
         let text = format!(

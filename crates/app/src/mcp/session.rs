@@ -133,9 +133,14 @@ impl Session {
             .ok_or_else(|| format!("room {:?} not found (see list_rooms)", params.name))?;
         let room =
             Room::load(&path).map_err(|e| format!("loading room {}: {e}", path.display()))?;
-        let visuals = Visuals::load(&self.assets, &self.cache, &room)
-            .inspect_err(|e| log::warn!("no level graphic for {name} ({e})"))
-            .ok();
+        let visuals = Visuals::load(
+            &self.assets,
+            &self.cache,
+            &room,
+            rw_render::Resolution::DEFAULT.size_f32(),
+        )
+        .inspect_err(|e| log::warn!("no level graphic for {name} ({e})"))
+        .ok();
         let spawn = params.spawn_tile.map(|[x, y]| (x, y));
         let game = Game::new(room, params.seed.unwrap_or(1), spawn);
         log::info!("loaded room {name}");
@@ -292,7 +297,7 @@ impl Session {
         let (Some(scene), Some(target)) = (self.scene.as_mut(), self.renderer.as_mut()) else {
             return Err("no room loaded; call load_room first".to_owned());
         };
-        rw_render::Renderer::resize(&mut target.renderer, pixels[0], pixels[1]);
+        target.renderer.set_frame_size((pixels[0], pixels[1]));
         scene.draw(target, 1.0, view);
         let image = target
             .renderer

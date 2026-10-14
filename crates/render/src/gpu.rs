@@ -1,5 +1,9 @@
 //! [`Renderer`] on wgpu, pinned to the Vulkan backend.
 //!
+//! Everything is drawn into an offscreen frame of the game's screen size, without
+//! antialiasing (the game's quality level has `antiAliasing: 0` and Futile's cameras
+//! `allowMSAA = false`). With a window, [`Renderer::present`] then shows that frame in
+//! the window's [`PresentRect`] (`present_gpu`). Screenshots read the frame itself.
 //! One pipeline draws coloured triangle lists: the room mesh and grid are uploaded
 //! once per [`Renderer::set_room`], the per-frame shapes every [`Renderer::present`].
 //! A second one draws the level graphic (`level_gpu`): the shapes and sprites queued
@@ -8,7 +12,7 @@
 //! atlas sprites (`sprite_gpu`). Draw calls keep their call order across pipelines
 //! ([`DrawQueue`]). The WGSL shaders are compiled at runtime by wgpu.
 //!
-//! [`WgpuRenderer::headless`] draws to an offscreen texture instead of a window surface.
+//! [`WgpuRenderer::headless`] has no window: it only draws the frame.
 
 use std::borrow::Cow;
 use std::collections::HashSet;
@@ -20,10 +24,11 @@ use rw_sim::Vec2;
 use wgpu::util::DeviceExt;
 
 use crate::level_gpu::{LevelPipeline, LevelTextures};
+use crate::present_gpu::PresentPipeline;
 use crate::sprite_gpu::SpritePipeline;
 use crate::{
-    Batch, Camera, Color, DrawQueue, FrameImage, LevelGraphics, LevelView, Mesh, RenderError,
-    Renderer, RoomDebugGeometry, RoomLayers, SpriteAtlas, Vertex,
+    Batch, Camera, Color, DrawQueue, FrameImage, LevelGraphics, LevelView, Mesh, PresentRect,
+    RenderError, Renderer, Resolution, RoomDebugGeometry, RoomLayers, SpriteAtlas, Vertex,
 };
 
 const BACKGROUND: wgpu::Color = wgpu::Color {
@@ -32,9 +37,6 @@ const BACKGROUND: wgpu::Color = wgpu::Color {
     b: 0.09,
     a: 1.0,
 };
-
-/// Preferred MSAA sample count; falls back to 1 when the format does not support it.
-const MSAA_SAMPLES: u32 = 4;
 
 /// A static vertex buffer and its vertex count.
 struct StaticMesh {
@@ -46,19 +48,18 @@ struct StaticMesh {
 pub struct WgpuRenderer {
     /// `None` when headless.
     surface: Option<wgpu::Surface<'static>>,
-    /// The colour target when headless.
-    offscreen: Option<wgpu::Texture>,
     device: wgpu::Device,
     queue: wgpu::Queue,
+    /// The window surface's configuration (format and window size); when headless only
+    /// its format is used.
     config: wgpu::SurfaceConfiguration,
+    /// The frame everything is drawn to, at [`Renderer::size`].
+    frame: FrameTargets,
+    present_pipeline: PresentPipeline,
     adapter_info: wgpu::AdapterInfo,
     pipeline: wgpu::RenderPipeline,
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
-    sample_count: u32,
-    msaa_view: Option<wgpu::TextureView>,
-    /// Single-sample target the shapes behind the level are drawn to.
-    behind_view: Option<wgpu::TextureView>,
     level_pipeline: LevelPipeline,
     level: Option<LevelTextures>,
     /// This frame's level placement.
@@ -86,10 +87,13 @@ enum Capture {
     Memory,
 }
 
-/// The texture a frame is drawn to.
-enum FrameTarget {
-    Surface(wgpu::SurfaceTexture),
-    Offscreen(wgpu::Texture),
+/// The offscreen frame and the target the shapes behind the level are drawn to, both of
+/// the frame's size.
+struct FrameTargets {
+    size: (u32, u32),
+    texture: wgpu::Texture,
+    view: wgpu::TextureView,
+    behind: wgpu::TextureView,
 }
 
 /// A frame copied to a mappable buffer for saving.
@@ -104,8 +108,9 @@ struct Readback {
 }
 
 impl WgpuRenderer {
-    /// Creates a renderer drawing to `target` (e.g. an `Arc<winit::window::Window>`)
-    /// of physical size `size`, on a Vulkan adapter. Blocks while the device is created.
+    /// Creates a renderer drawing frames of `resolution` and showing them scaled in
+    /// `target` (e.g. an `Arc<winit::window::Window>`) of physical size `size`, on a
+    /// Vulkan adapter. Blocks while the device is created.
     ///
     /// # Errors
     /// [`RenderError::Init`] when the surface, a Vulkan adapter or the device cannot be
@@ -113,6 +118,7 @@ impl WgpuRenderer {
     pub fn new(
         target: impl Into<wgpu::SurfaceTarget<'static>>,
         size: (u32, u32),
+        resolution: Resolution,
     ) -> Result<Self, RenderError> {
         let instance = Self::instance();
         let surface = instance
@@ -151,11 +157,12 @@ impl WgpuRenderer {
             config.height,
             config.present_mode
         );
-        Self::with_adapter(&adapter, Some(surface), config)
+        Self::with_adapter(&adapter, Some(surface), config, resolution.size())
     }
 
     /// Creates a renderer without a window, drawing `size` frames to an offscreen RGBA
-    /// texture on a Vulkan adapter; read them with [`WgpuRenderer::render_image`].
+    /// texture on a Vulkan adapter; read them with [`WgpuRenderer::render_image`] and
+    /// change the size with [`WgpuRenderer::set_frame_size`].
     ///
     /// # Errors
     /// [`RenderError::Init`] when no Vulkan adapter or device can be created.
@@ -165,14 +172,14 @@ impl WgpuRenderer {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
             format: wgpu::TextureFormat::Rgba8Unorm,
             color_space: wgpu::SurfaceColorSpace::Auto,
-            width: size.0,
-            height: size.1,
+            width: 0,
+            height: 0,
             present_mode: wgpu::PresentMode::AutoVsync,
             desired_maximum_frame_latency: 2,
             alpha_mode: wgpu::CompositeAlphaMode::Opaque,
             view_formats: Vec::new(),
         };
-        Self::with_adapter(&adapter, None, config)
+        Self::with_adapter(&adapter, None, config, size)
     }
 
     fn instance() -> wgpu::Instance {
@@ -195,12 +202,13 @@ impl WgpuRenderer {
         .map_err(|e| RenderError::init("request Vulkan adapter", e))
     }
 
-    /// The device, pipelines and targets for frames of `config`'s format and size,
-    /// presented to `surface` or drawn offscreen without one.
+    /// The device, pipelines and targets for frames of `config`'s format and
+    /// `frame_size`, presented to `surface` or only drawn without one.
     fn with_adapter(
         adapter: &wgpu::Adapter,
         surface: Option<wgpu::Surface<'static>>,
         config: wgpu::SurfaceConfiguration,
+        frame_size: (u32, u32),
     ) -> Result<Self, RenderError> {
         let adapter_info = adapter.get_info();
         log::info!(
@@ -223,16 +231,6 @@ impl WgpuRenderer {
             surface.configure(&device, &config);
         }
         let format = config.format;
-
-        let sample_count = if adapter
-            .get_texture_format_features(format)
-            .flags
-            .sample_count_supported(MSAA_SAMPLES)
-        {
-            MSAA_SAMPLES
-        } else {
-            1
-        };
 
         let camera_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("camera"),
@@ -261,22 +259,23 @@ impl WgpuRenderer {
                 resource: camera_buffer.as_entire_binding(),
             }],
         });
-        let pipeline = Self::create_pipeline(&device, &bind_group_layout, format, sample_count);
-        let level_pipeline = LevelPipeline::new(&device, format, sample_count);
-        let sprite_pipeline = SpritePipeline::new(&device, format, sample_count);
+        let pipeline = Self::create_pipeline(&device, &bind_group_layout, format);
+        let level_pipeline = LevelPipeline::new(&device, format);
+        let sprite_pipeline = SpritePipeline::new(&device, format);
+        let frame = FrameTargets::new(&device, format, frame_size);
+        let mut present_pipeline = PresentPipeline::new(&device, format);
+        present_pipeline.bind(&device, &frame.view);
 
-        let mut renderer = Self {
+        Ok(Self {
             surface,
-            offscreen: None,
+            frame,
+            present_pipeline,
             device,
             queue,
             adapter_info,
             pipeline,
             camera_buffer,
             camera_bind_group,
-            sample_count,
-            msaa_view: None,
-            behind_view: None,
             level_pipeline,
             level: None,
             level_view: None,
@@ -288,14 +287,12 @@ impl WgpuRenderer {
             grid: None,
             queue_draws: DrawQueue::default(),
             dynamic_buffer: None,
-            camera: Camera::fit([1.0, 1.0], (config.width, config.height), 0.0),
+            camera: Camera::fit([1.0, 1.0], frame_size, 0.0),
             config,
             layers: None,
             capture: None,
             captured: None,
-        };
-        renderer.recreate_msaa();
-        Ok(renderer)
+        })
     }
 
     /// The debug pipeline: coloured triangle lists, alpha blended, no culling.
@@ -303,7 +300,6 @@ impl WgpuRenderer {
         device: &wgpu::Device,
         bind_group_layout: &wgpu::BindGroupLayout,
         format: wgpu::TextureFormat,
-        sample_count: u32,
     ) -> wgpu::RenderPipeline {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("debug.wgsl"),
@@ -334,10 +330,7 @@ impl WgpuRenderer {
                 ..Default::default()
             },
             depth_stencil: None,
-            multisample: wgpu::MultisampleState {
-                count: sample_count,
-                ..Default::default()
-            },
+            multisample: wgpu::MultisampleState::default(),
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
                 entry_point: Some("fs_main"),
@@ -353,22 +346,16 @@ impl WgpuRenderer {
         })
     }
 
-    /// Records a copy of `texture` (the frame) into a readback buffer, or `None` when
-    /// the surface cannot be copied from or its format is not 8-bit RGBA/BGRA.
-    fn copy_frame(
-        &self,
-        encoder: &mut wgpu::CommandEncoder,
-        texture: &wgpu::Texture,
-    ) -> Option<Readback> {
+    /// Records a copy of the frame into a readback buffer, or `None` when its format is
+    /// not 8-bit RGBA/BGRA.
+    fn copy_frame(&self, encoder: &mut wgpu::CommandEncoder) -> Option<Readback> {
         let bgra = match self.config.format {
             wgpu::TextureFormat::Rgba8Unorm | wgpu::TextureFormat::Rgba8UnormSrgb => false,
             wgpu::TextureFormat::Bgra8Unorm | wgpu::TextureFormat::Bgra8UnormSrgb => true,
             _ => return None,
         };
-        if !self.config.usage.contains(wgpu::TextureUsages::COPY_SRC) {
-            return None;
-        }
-        let (width, height) = (self.config.width, self.config.height);
+        let texture = &self.frame.texture;
+        let (width, height) = self.frame.size;
         let padded_row = (width * 4).next_multiple_of(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT);
         let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("frame readback"),
@@ -412,77 +399,30 @@ impl WgpuRenderer {
         &self.adapter_info
     }
 
-    fn is_drawable(&self) -> bool {
+    /// Whether the window has an area to present to.
+    fn window_drawable(&self) -> bool {
         self.config.width > 0 && self.config.height > 0
     }
 
-    /// Recreates the MSAA, "behind" and offscreen targets at the surface size.
-    fn recreate_msaa(&mut self) {
-        let drawable = self.is_drawable();
-        self.offscreen = (self.surface.is_none() && drawable).then(|| {
-            self.texture(
-                "offscreen",
-                1,
-                wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
-            )
-        });
-        self.msaa_view = (self.sample_count > 1 && drawable).then(|| {
-            self.target(
-                "msaa",
-                self.sample_count,
-                wgpu::TextureUsages::RENDER_ATTACHMENT,
-            )
-        });
-        self.behind_view = drawable.then(|| {
-            self.target(
-                "behind level",
-                1,
-                wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
-            )
-        });
-    }
-
-    /// A render target of the surface's size and format.
-    fn target(&self, label: &str, samples: u32, usage: wgpu::TextureUsages) -> wgpu::TextureView {
-        self.texture(label, samples, usage)
-            .create_view(&wgpu::TextureViewDescriptor::default())
-    }
-
-    fn texture(&self, label: &str, samples: u32, usage: wgpu::TextureUsages) -> wgpu::Texture {
-        self.device.create_texture(&wgpu::TextureDescriptor {
-            label: Some(label),
-            size: wgpu::Extent3d {
-                width: self.config.width,
-                height: self.config.height,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: samples,
-            dimension: wgpu::TextureDimension::D2,
-            format: self.config.format,
-            usage,
-            view_formats: &[],
-        })
+    /// Changes the frame size (the window's frame keeps the game's resolution; MCP
+    /// screenshots pick theirs).
+    pub fn set_frame_size(&mut self, size: (u32, u32)) {
+        if size == self.frame.size {
+            return;
+        }
+        self.frame = FrameTargets::new(&self.device, self.config.format, size);
+        self.present_pipeline.bind(&self.device, &self.frame.view);
     }
 
     /// Draws `batches` (those queued before the level) into the "behind" target,
     /// cleared to black (the game's screen before the level is drawn).
-    fn draw_behind(
-        &self,
-        encoder: &mut wgpu::CommandEncoder,
-        behind: &wgpu::TextureView,
-        batches: &[Batch],
-    ) {
-        let (target, resolve) = match &self.msaa_view {
-            Some(msaa) => (msaa, Some(behind)),
-            None => (behind, None),
-        };
+    fn draw_behind(&self, encoder: &mut wgpu::CommandEncoder, batches: &[Batch]) {
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("behind level pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: target,
+                view: &self.frame.behind,
                 depth_slice: None,
-                resolve_target: resolve,
+                resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                     store: wgpu::StoreOp::Store,
@@ -515,13 +455,13 @@ impl WgpuRenderer {
         }
     }
 
-    /// Screen rectangle `(x, y, width, height)` of the room rectangle `view`, clamped to
-    /// the surface.
+    /// Frame rectangle `(x, y, width, height)` of the room rectangle `view`, clamped to
+    /// the frame.
     fn scissor(&self, view: &LevelView) -> Option<(u32, u32, u32, u32)> {
         let top_right = [view.origin[0] + view.size[0], view.origin[1] + view.size[1]];
         let a = self.camera.world_to_screen(view.origin);
         let b = self.camera.world_to_screen(top_right);
-        let (w, h) = (self.config.width as f32, self.config.height as f32);
+        let (w, h) = (self.frame.size.0 as f32, self.frame.size.1 as f32);
         let x0 = a[0].min(b[0]).round().clamp(0.0, w);
         let x1 = a[0].max(b[0]).round().clamp(0.0, w);
         let y0 = a[1].min(b[1]).round().clamp(0.0, h);
@@ -570,18 +510,18 @@ impl WgpuRenderer {
         }
     }
 
-    /// Acquires the next surface texture, reconfiguring on outdated/lost surfaces, or
-    /// the offscreen texture when headless. `Ok(None)` means skip this frame.
-    fn acquire(&mut self) -> Result<Option<FrameTarget>, RenderError> {
-        let Some(surface) = &self.surface else {
-            return Ok(self.offscreen.clone().map(FrameTarget::Offscreen));
-        };
+    /// Acquires the next surface texture, reconfiguring on outdated/lost surfaces.
+    /// `Ok(None)` means skip presenting this frame.
+    fn acquire(
+        &self,
+        surface: &wgpu::Surface<'_>,
+    ) -> Result<Option<wgpu::SurfaceTexture>, RenderError> {
         match surface.get_current_texture() {
-            wgpu::CurrentSurfaceTexture::Success(t) => Ok(Some(FrameTarget::Surface(t))),
+            wgpu::CurrentSurfaceTexture::Success(t) => Ok(Some(t)),
             wgpu::CurrentSurfaceTexture::Suboptimal(t) => {
                 // Use this frame; reconfigure for the next one.
                 surface.configure(&self.device, &self.config);
-                Ok(Some(FrameTarget::Surface(t)))
+                Ok(Some(t))
             }
             wgpu::CurrentSurfaceTexture::Timeout | wgpu::CurrentSurfaceTexture::Occluded => {
                 Ok(None)
@@ -595,8 +535,35 @@ impl WgpuRenderer {
         }
     }
 
+    /// Shows the frame in the window's letterbox rectangle, if there is a window to
+    /// show it in.
+    fn present_to_window(&self) -> Result<(), RenderError> {
+        let Some(surface) = &self.surface else {
+            return Ok(());
+        };
+        let window = (self.config.width, self.config.height);
+        let Some(rect) = PresentRect::fit(self.frame.size, window) else {
+            return Ok(());
+        };
+        let Some(texture) = self.acquire(surface)? else {
+            return Ok(());
+        };
+        let view = texture
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("present"),
+            });
+        self.present_pipeline.draw(&mut encoder, &view, rect);
+        self.queue.submit([encoder.finish()]);
+        self.queue.present(texture);
+        Ok(())
+    }
+
     /// Renders the queued frame (presenting it too when there is a window) and returns
-    /// its pixels.
+    /// its pixels at the frame size.
     ///
     /// # Errors
     /// As [`Renderer::present`]; [`RenderError::CaptureUnsupported`] when the frame
@@ -610,38 +577,77 @@ impl WgpuRenderer {
     }
 }
 
-impl FrameTarget {
-    fn texture(&self) -> &wgpu::Texture {
-        match self {
-            Self::Surface(frame) => &frame.texture,
-            Self::Offscreen(texture) => texture,
+impl FrameTargets {
+    fn new(device: &wgpu::Device, format: wgpu::TextureFormat, size: (u32, u32)) -> Self {
+        let texture = Self::texture(
+            device,
+            "frame",
+            format,
+            size,
+            wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::COPY_SRC,
+        );
+        let behind = Self::texture(
+            device,
+            "behind level",
+            format,
+            size,
+            wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+        );
+        Self {
+            size,
+            view: texture.create_view(&wgpu::TextureViewDescriptor::default()),
+            texture,
+            behind: behind.create_view(&wgpu::TextureViewDescriptor::default()),
         }
     }
 
-    fn present(self, queue: &wgpu::Queue) {
-        if let Self::Surface(frame) = self {
-            queue.present(frame);
-        }
+    /// A single-sample texture; zero sizes become 1x1 (nothing is drawn then).
+    fn texture(
+        device: &wgpu::Device,
+        label: &str,
+        format: wgpu::TextureFormat,
+        size: (u32, u32),
+        usage: wgpu::TextureUsages,
+    ) -> wgpu::Texture {
+        device.create_texture(&wgpu::TextureDescriptor {
+            label: Some(label),
+            size: wgpu::Extent3d {
+                width: size.0.max(1),
+                height: size.1.max(1),
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format,
+            usage,
+            view_formats: &[],
+        })
+    }
+
+    fn is_empty(&self) -> bool {
+        self.size.0 == 0 || self.size.1 == 0
     }
 }
 
 impl Renderer for WgpuRenderer {
     fn size(&self) -> (u32, u32) {
-        (self.config.width, self.config.height)
+        self.frame.size
     }
 
     fn resize(&mut self, width: u32, height: u32) {
-        if (width, height) == self.size() {
+        if (width, height) == (self.config.width, self.config.height) {
             return;
         }
         self.config.width = width;
         self.config.height = height;
         if let Some(surface) = &self.surface
-            && self.is_drawable()
+            && self.window_drawable()
         {
             surface.configure(&self.device, &self.config);
         }
-        self.recreate_msaa();
     }
 
     fn set_room(&mut self, room: &Room) {
@@ -711,15 +717,9 @@ impl Renderer for WgpuRenderer {
     }
 
     fn present(&mut self) -> Result<(), RenderError> {
-        if !self.is_drawable() {
+        if self.frame.is_empty() {
             return Ok(());
         }
-        let Some(frame) = self.acquire()? else {
-            return Ok(());
-        };
-        let view = frame
-            .texture()
-            .create_view(&wgpu::TextureViewDescriptor::default());
         self.queue.write_buffer(
             &self.camera_buffer,
             0,
@@ -742,14 +742,14 @@ impl Renderer for WgpuRenderer {
                 label: Some("frame"),
             });
         // The level, when drawn: its bind group, scissor and the batches behind it.
-        let level = match (&self.level_view, split, &self.level, &self.behind_view) {
-            (Some(view), Some(split), Some(textures), Some(behind)) => {
-                self.draw_behind(&mut encoder, behind, &batches[..split]);
+        let level = match (&self.level_view, split, &self.level) {
+            (Some(view), Some(split), Some(textures)) => {
+                self.draw_behind(&mut encoder, &batches[..split]);
                 let bind_group = self.level_pipeline.bind(
                     &self.device,
                     &self.queue,
                     textures,
-                    behind,
+                    &self.frame.behind,
                     &self.camera,
                     view,
                 );
@@ -763,23 +763,15 @@ impl Renderer for WgpuRenderer {
             BACKGROUND
         };
         {
-            let (target, resolve) = match &self.msaa_view {
-                Some(msaa) => (msaa, Some(&view)),
-                None => (&view, None),
-            };
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("debug pass"),
+                label: Some("frame pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: target,
+                    view: &self.frame.view,
                     depth_slice: None,
-                    resolve_target: resolve,
+                    resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(clear),
-                        store: if resolve.is_some() {
-                            wgpu::StoreOp::Discard
-                        } else {
-                            wgpu::StoreOp::Store
-                        },
+                        store: wgpu::StoreOp::Store,
                     },
                 })],
                 depth_stencil_attachment: None,
@@ -819,10 +811,10 @@ impl Renderer for WgpuRenderer {
         let readback = self
             .capture
             .is_some()
-            .then(|| self.copy_frame(&mut encoder, frame.texture()))
+            .then(|| self.copy_frame(&mut encoder))
             .flatten();
         self.queue.submit([encoder.finish()]);
-        frame.present(&self.queue);
+        self.present_to_window()?;
         if let Some(capture) = self.capture.take() {
             let readback = readback.ok_or(RenderError::CaptureUnsupported)?;
             match capture {

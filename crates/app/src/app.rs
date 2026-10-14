@@ -9,16 +9,16 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
-use rw_render::{Renderer, RoomCamera, RoomLayers, WgpuRenderer};
+use rw_render::{Renderer, Resolution, RoomLayers, WgpuRenderer};
 use winit::application::ApplicationHandler;
-use winit::dpi::LogicalSize;
+use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, KeyEvent, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::PhysicalKey;
-use winit::window::{Window, WindowId};
+use winit::window::{Fullscreen, Window, WindowId};
 
 use crate::input::{Action, Command, InputState, Script};
-use crate::scene::{Framing, MARGIN, Scene, SceneRenderer, SceneView};
+use crate::scene::{Framing, Scene, SceneRenderer, SceneView};
 use crate::sprites::SpriteAssets;
 use crate::timestep::{FixedTimestep, TICK_RATE};
 
@@ -50,6 +50,10 @@ pub struct Options {
     pub debug_view: bool,
     /// Input steps played instead of the keyboard; the screenshot waits for them.
     pub script: Option<Script>,
+    /// The game's screen size the frame is drawn at.
+    pub resolution: Resolution,
+    /// A window of `resolution` instead of the game's default borderless full screen.
+    pub windowed: bool,
 }
 
 /// Window and renderer, created on `resumed`.
@@ -73,6 +77,8 @@ struct App {
     screenshot_and_quit: Option<PathBuf>,
     /// `--script`: replaces the keyboard until it runs out.
     script: Option<Script>,
+    resolution: Resolution,
+    windowed: bool,
     /// Quit after the current frame is presented.
     quit_after_frame: bool,
     /// Error that ended the loop, reported by [`run`].
@@ -92,28 +98,38 @@ impl App {
             view: None,
             screenshot_and_quit: options.screenshot,
             script: options.script,
+            resolution: options.resolution,
+            windowed: options.windowed,
             quit_after_frame: false,
             fatal: None,
         }
     }
 
+    /// A borderless full-screen window (the game's default, `fullscreenMode`
+    /// FullScreenWindow), or with `windowed` a window of the game's resolution in
+    /// physical pixels, not resizable (`resizableWindow: 0`). Either way the frame is
+    /// drawn at the resolution and scaled to the window.
     fn create_view(&self, event_loop: &ActiveEventLoop) -> Result<View, Box<dyn Error>> {
         let room = self.scene.game().room();
-        let size = if self.scene.visuals().is_some() {
-            let [w, h] = RoomCamera::SCREEN_SIZE;
-            LogicalSize::new(w, h)
-        } else {
-            LogicalSize::new(
-                (room.pixel_width() + 2.0 * MARGIN).clamp(640.0, 1600.0),
-                (room.pixel_height() + 2.0 * MARGIN).clamp(480.0, 1000.0),
-            )
-        };
+        let (width, height) = self.resolution.size();
         let attrs = Window::default_attributes()
             .with_title(format!("rainworld-rs - {}", room.name()))
-            .with_inner_size(size);
+            .with_inner_size(PhysicalSize::new(width, height))
+            .with_resizable(false)
+            .with_fullscreen((!self.windowed).then_some(Fullscreen::Borderless(None)));
         let window = Arc::new(event_loop.create_window(attrs)?);
         let physical = window.inner_size();
-        let renderer = WgpuRenderer::new(Arc::clone(&window), (physical.width, physical.height))?;
+        log::info!(
+            "resolution {}, window {}x{}",
+            self.resolution,
+            physical.width,
+            physical.height
+        );
+        let renderer = WgpuRenderer::new(
+            Arc::clone(&window),
+            (physical.width, physical.height),
+            self.resolution,
+        )?;
         let renderer = SceneRenderer::new(renderer, self.sprites.clone());
         Ok(View { window, renderer })
     }
