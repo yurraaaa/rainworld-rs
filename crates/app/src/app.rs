@@ -118,6 +118,8 @@ impl App {
             .with_resizable(false)
             .with_fullscreen((!self.windowed).then_some(Fullscreen::Borderless(None)));
         let window = Arc::new(event_loop.create_window(attrs)?);
+        // Hidden over the game window during play; the pause and main menus show it again.
+        window.set_cursor_visible(false);
         let physical = window.inner_size();
         log::info!(
             "resolution {}, window {}x{}",
