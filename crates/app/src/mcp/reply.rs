@@ -294,6 +294,8 @@ pub struct ProcessState {
     pub story: Option<StoryInfo>,
     /// The game's pause menu, while the game has one (`GamePaused`).
     pub pause_menu: Option<PauseMenuState>,
+    /// The sleep, death or starve screen, when it is the current process.
+    pub karma_screen: Option<KarmaScreenState>,
     /// The options (always) and the options menu, when it is the current process.
     pub options: OptionsState,
 }
@@ -329,6 +331,23 @@ pub struct PauseMenuState {
     /// `ShutDownProcess` ran (after Exit): no longer drawn, the game still paused.
     pub shut_down: bool,
     /// The buttons' signals, positions and greying; the selected one.
+    pub buttons: Vec<String>,
+    pub selected: Option<String>,
+}
+
+/// A `SleepAndDeathScreen` and its `KarmaLadder`.
+#[derive(Debug, Clone, Serialize)]
+pub struct KarmaScreenState {
+    pub phase: String,
+    /// Karma and cap shown, and the karma the ladder moves to.
+    pub display_karma: [i32; 2],
+    pub move_to_karma: i32,
+    pub reinforced: bool,
+    pub animation_done: bool,
+    pub force_watch_animation: bool,
+    /// The map is held up and shown (`RevealMap`).
+    pub reveal_map: bool,
+    pub info: String,
     pub buttons: Vec<String>,
     pub selected: Option<String>,
 }

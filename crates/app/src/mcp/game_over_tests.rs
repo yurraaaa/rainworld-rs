@@ -117,4 +117,47 @@ fn death_waits_for_a_map_press_then_saves_and_switches() {
     let d = &state.death_persistent;
     assert_eq!((d.karma, d.deaths, d.quits), (1, 2, 0));
     s.settle_on(ProcessId::DeathScreen);
+
+    // The death screen: the ladder starts at the package's karma 2 and, the first death
+    // screen watched, the buttons wait for it to drop a notch.
+    let screen = s.frames(1, &[]).karma_screen.expect("the death screen");
+    assert_eq!(screen.display_karma, [2, 5]);
+    assert!(screen.force_watch_animation);
+    assert!(screen.buttons.iter().all(|b| b.ends_with("greyed")));
+    let mut rested = None;
+    for _ in 0..1000 {
+        let state = s.frames(1, &[]).karma_screen.expect("the death screen");
+        if !state.buttons[0].ends_with("greyed") {
+            rested = Some(state);
+            break;
+        }
+    }
+    let rested = rested.expect("the buttons came on");
+    assert_eq!((rested.display_karma, rested.move_to_karma), ([1, 5], 1));
+    assert!(rested.animation_done);
+    assert_eq!(rested.selected.as_deref(), Some("CONTINUE"));
+
+    // CONTINUE: a game loaded from the saved state, 340 ticks into its cycle.
+    s.tap("Return");
+    let mut started = None;
+    for _ in 0..200 {
+        let state = s.frames(1, &[]);
+        if state.process.as_deref() == Some("Game") {
+            started = Some(state);
+            break;
+        }
+    }
+    let story = started.expect("the game").story.expect("a story");
+    assert_eq!((story.karma, story.cycle), (1, 5));
+    let f = s.frontend_mut().unwrap();
+    let timer = f
+        .game()
+        .unwrap()
+        .scene
+        .game()
+        .sim()
+        .world()
+        .rain_cycle
+        .timer;
+    assert!((340..345).contains(&timer), "{timer}");
 }

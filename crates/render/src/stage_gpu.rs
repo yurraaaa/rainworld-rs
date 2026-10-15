@@ -35,11 +35,15 @@ pub(crate) struct StagePipeline {
     globals_bind_group: wgpu::BindGroup,
     vertices: Option<wgpu::Buffer>,
     indices: Option<wgpu::Buffer>,
+    /// Group 3 of `LocalBloom`: the frame grab and its bilinear, clamped sampler.
+    grab_layout: wgpu::BindGroupLayout,
+    grab_sampler: wgpu::Sampler,
+    grab_bind_group: Option<wgpu::BindGroup>,
 }
 
 impl StagePipeline {
     /// Each shader and its fragment entry point.
-    const SHADERS: [(StageShader, &'static str); 11] = [
+    const SHADERS: [(StageShader, &'static str); 12] = [
         (StageShader::Basic, "fs_basic"),
         (StageShader::EdgeFade, "fs_edge_fade"),
         (StageShader::FlatLight, "fs_flat_light"),
@@ -51,6 +55,7 @@ impl StagePipeline {
         (StageShader::Map, "fs_map"),
         (StageShader::MapAerial, "fs_map_aerial"),
         (StageShader::MapShortcut, "fs_map_shortcut"),
+        (StageShader::LocalBloom, "fs_local_bloom"),
     ];
 
     /// `MapView`: size, pan, colour and water colour.
@@ -129,6 +134,17 @@ impl StagePipeline {
             ],
             immediate_size: 0,
         });
+        let grab_layout = Self::grab_layout(device);
+        let grab_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("stage with grab"),
+            bind_group_layouts: &[
+                Some(&uniform_layout),
+                Some(&texture_layout),
+                Some(&globals_layout),
+                Some(&grab_layout),
+            ],
+            immediate_size: 0,
+        });
         let uniform = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("stage uniform"),
             size: std::mem::size_of::<[f32; Self::UNIFORM_FLOATS]>() as u64,
@@ -157,8 +173,21 @@ impl StagePipeline {
         });
         let pipelines = Self::SHADERS
             .iter()
-            .map(|&(id, entry)| (id, Self::pipeline(device, &layout, &shader, format, entry)))
+            .map(|&(id, entry)| {
+                let layout = if id == StageShader::LocalBloom {
+                    &grab_pipeline_layout
+                } else {
+                    &layout
+                };
+                (id, Self::pipeline(device, layout, &shader, format, entry))
+            })
             .collect();
+        let grab_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("stage grab"),
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            ..Default::default()
+        });
         let blank = Self::create_texture(
             device,
             queue,
@@ -184,7 +213,53 @@ impl StagePipeline {
             globals_bind_group,
             vertices: None,
             indices: None,
+            grab_layout,
+            grab_sampler,
+            grab_bind_group: None,
         }
+    }
+
+    /// Group 3: a texture and a sampler.
+    fn grab_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("stage grab"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
+        })
+    }
+
+    /// Binds the frame grab `LocalBloom` reads this frame.
+    pub(crate) fn bind_grab(&mut self, device: &wgpu::Device, grab: &wgpu::TextureView) {
+        self.grab_bind_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("stage grab"),
+            layout: &self.grab_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(grab),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&self.grab_sampler),
+                },
+            ],
+        }));
     }
 
     fn pipeline(
@@ -508,6 +583,12 @@ impl StagePipeline {
         pass.set_bind_group(0, &self.uniform_bind_group, &[]);
         pass.set_bind_group(1, &texture.bind_group, &[]);
         pass.set_bind_group(2, &self.globals_bind_group, &[]);
+        if draw.shader == StageShader::LocalBloom {
+            let Some(grab) = &self.grab_bind_group else {
+                return;
+            };
+            pass.set_bind_group(3, grab, &[]);
+        }
         pass.set_vertex_buffer(0, vertices.slice(..));
         pass.set_index_buffer(indices.slice(..), wgpu::IndexFormat::Uint32);
         pass.draw_indexed(draw.indices.clone(), 0, 0..1);

@@ -462,6 +462,23 @@ impl Menu {
         self.info_label_fade = 1.0;
     }
 
+    /// `infoLabel.y = y`.
+    pub fn set_info_label_y(&mut self, y: f32) {
+        if let Some(node) = self.info_label {
+            self.stage.label_mut(node).transform.y = y;
+        }
+    }
+
+    /// `infoLabel.text = text; infolabelDirty = false; infoLabelSin = 0` (a screen's
+    /// `RefreshInfoLabel`).
+    pub fn refresh_info_label(&mut self, text: &str) {
+        if let Some(node) = self.info_label {
+            self.stage.label_mut(node).set_text(text);
+            self.info_label_dirty = false;
+            self.info_label_sin = 0.0;
+        }
+    }
+
     /// The info label's text.
     #[must_use]
     pub fn info_text(&self) -> &str {

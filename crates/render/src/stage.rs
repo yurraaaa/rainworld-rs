@@ -40,6 +40,9 @@ pub enum StageShader {
     MapAerial,
     /// `Futile/MapShortcut`: the dashed line of a room connection on the map.
     MapShortcut,
+    /// `Futile/LocalBloom`: a disc that brightens the frame drawn before it with a blur
+    /// of itself (its `GrabPass`), by the vertex alpha (the karma ladder's bloom).
+    LocalBloom,
 }
 
 /// The region map's shader globals (`_mapSize`, `_mapPan`, `_MapCol`, `_MapWaterCol`,

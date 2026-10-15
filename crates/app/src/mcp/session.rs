@@ -22,11 +22,11 @@ use super::params::{
 };
 use super::reply::{
     ChunkState, ControlsPageState, CreatureInfo, ExitInfo, ExitList, FlyInfo, FoodMeterState,
-    HudState, ImpactState, ImportReply, KarmaMeterState, LobbyState, MapMarkerState, MapState,
-    OptionsState, OverseerInfo, PauseMenuState, PlayerState, ProcessState, RainMeterState,
-    RainState, RealizedState, RoomInfo, RoomList, SaveInfo, SaveStateInfo, Screenshot,
-    ShelterDoorState, SleepState, SlideShowState, StartUpState, State, StepTrace, StoryInfo,
-    TextPromptState,
+    HudState, ImpactState, ImportReply, KarmaMeterState, KarmaScreenState, LobbyState,
+    MapMarkerState, MapState, OptionsState, OverseerInfo, PauseMenuState, PlayerState,
+    ProcessState, RainMeterState, RainState, RealizedState, RoomInfo, RoomList, SaveInfo,
+    SaveStateInfo, Screenshot, ShelterDoorState, SleepState, SlideShowState, StartUpState, State,
+    StepTrace, StoryInfo, TextPromptState,
 };
 use super::tiles::TileDump;
 use crate::frontend::{AppContext, Frontend, FrontendRenderer, GameSetup};
@@ -808,6 +808,7 @@ impl Session {
                 .game()
                 .and_then(|g| g.pause_menu.as_ref())
                 .map(Self::pause_menu_state),
+            karma_screen: frontend.sleep_screen().map(Self::karma_screen_state),
             options: Self::options_state(frontend),
         })
     }
@@ -871,6 +872,30 @@ impl Session {
             black_fade: p.black_fade,
             want_to_continue: p.want_to_continue(),
             shut_down: p.shut_down,
+            buttons: p
+                .buttons()
+                .into_iter()
+                .map(|b| Self::describe_button(menu, b))
+                .collect(),
+            selected: menu
+                .selected
+                .and_then(|s| menu.button(s))
+                .map(|b| b.signal_text.clone()),
+        }
+    }
+
+    fn karma_screen_state(p: &rw_hud::SleepAndDeathScreen) -> KarmaScreenState {
+        let menu = p.menu();
+        let l = p.ladder();
+        KarmaScreenState {
+            phase: l.phase.value().to_owned(),
+            display_karma: [l.display_karma.0, l.display_karma.1],
+            move_to_karma: l.move_to_karma,
+            reinforced: l.reinforced,
+            animation_done: l.all_animation_done(),
+            force_watch_animation: p.force_watch_animation(),
+            reveal_map: p.reveal_map(),
+            info: menu.info_text().to_owned(),
             buttons: p
                 .buttons()
                 .into_iter()
