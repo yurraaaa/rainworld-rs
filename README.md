@@ -47,8 +47,9 @@ Working now:
 Not yet ported:
 
 - the rain cycle's rain, flood and death;
-- dreams (a black stand-in follows hibernation when one is due) and the passage
-  meters on the sleep and death screens;
+- dreams (a black stand-in follows hibernation when one is due), and the screens
+  behind the sleep screen's PASSAGE button (it shows, greyed out; passages are still
+  earned and shown on the meters);
 - region gates;
 - creatures other than overseers and bat flies;
 - depth scenes.

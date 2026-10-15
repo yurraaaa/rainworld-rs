@@ -10,6 +10,8 @@
 mod game_over_tests;
 mod params;
 #[cfg(test)]
+mod passage_tests;
+#[cfg(test)]
 mod pause_tests;
 mod reply;
 #[cfg(test)]

@@ -23,10 +23,10 @@ use super::params::{
 use super::reply::{
     ChunkState, ControlsPageState, CreatureInfo, ExitInfo, ExitList, FlyInfo, FoodMeterState,
     HudState, ImpactState, ImportReply, KarmaMeterState, KarmaScreenState, LobbyState,
-    MapMarkerState, MapState, OptionsState, OverseerInfo, PauseMenuState, PlayerState,
+    MapMarkerState, MapState, MeterState, OptionsState, OverseerInfo, PauseMenuState, PlayerState,
     ProcessState, RainMeterState, RainState, RealizedState, RoomInfo, RoomList, SaveInfo,
     SaveStateInfo, Screenshot, ShelterDoorState, SleepState, SlideShowState, StartUpState, State,
-    StepTrace, StoryInfo, TextPromptState,
+    StepTrace, StoryInfo, TextPromptState, TokenState,
 };
 use super::tiles::TileDump;
 use crate::frontend::{AppContext, Frontend, FrontendRenderer, GameSetup};
@@ -905,6 +905,33 @@ impl Session {
                 .selected
                 .and_then(|s| menu.button(s))
                 .map(|b| b.signal_text.clone()),
+            meters: l.meters.iter().map(Self::meter_state).collect(),
+            tokens: p.tokens().map_or_else(Vec::new, |t| {
+                t.tokens
+                    .iter()
+                    .map(|token| TokenState {
+                        passage: l.meters[token.meter].tracker.id.value().to_owned(),
+                        fade: token.fade,
+                        pos: (t.pos + token.pos).to_array(),
+                    })
+                    .collect()
+            }),
+        }
+    }
+
+    fn meter_state(m: &rw_hud::EndgameMeter) -> MeterState {
+        MeterState {
+            passage: m.tracker.id.value().to_owned(),
+            kind: match m.meter.kind {
+                rw_hud::MeterKind::Float(_) => "float",
+                rw_hud::MeterKind::Notch(_) => "notch",
+            }
+            .to_owned(),
+            powered_on: m.powered_on,
+            energy: m.energy,
+            meter_animation: m.meter_animation,
+            show_as_fulfilled: m.show_as_fulfilled,
+            fulfilled_now: m.fulfilled_now,
         }
     }
 

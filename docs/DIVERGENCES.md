@@ -89,6 +89,9 @@ it (D13). What still differs is only the seed and the call order:
   flickering row two) in that order. `ShortcutGraphics.Draw`'s draws (a blinking pipe's
   flicker, a flashing glow's size) come from the app's cosmetic stream, for the same
   per-frame reason as the holograms'.
+- **Passage tokens.** `EndgameTokens.Token.GrafUpdate`'s glow-size draw (one per token
+  and rendered frame on the sleep and death screens) comes from the screen's own
+  cosmetic stream, for the same reason.
 
 **Why.** Matching the game's draw sequence would need every system that draws. Seeding
 from the command line keeps runs reproducible.
@@ -622,14 +625,30 @@ real-time audio rather than the sim.
   port's grab texture), the screen HUD's food meter and region map (D15), CONTINUE
   (`StoryGameInitCondition.Load`; after a death screen the cycle starts 340 ticks in)
   and EXIT (main menu), the info texts, the starving warning, the watched-screen
-  counters and their forced watch, the map toggle and the illustration's fade. Not
-  ported yet: the end-game meters, tokens and PASSAGE (the ladder keeps their place in
-  its containers and runs its meter counters over an empty list, so none shows and a
-  fulfilled meter never forces the watch), the kills display, the Hunter's
-  `GoToRedsGameOver` (D17), and the Expedition, Watcher and More Slugcats branches.
-  The game's `PostSwitchMainProcess` reverts the progression before every game, so
-  CONTINUE loads the stored state; the port drops its in-memory state only after a
-  death or starve screen and keeps a won cycle's (D17).
+  counters and their forced watch, the map toggle and the illustration's fade. The
+  end-game meters (`EndgameMeter`: float and notch meters for every base tracker kind,
+  the power-on flicker, the fill animation, the fulfilment, their sounds and draws), the
+  tokens (`EndgameTokens`), the `endGameMetersEverShown` save (`METERSSHOWN`) and the
+  watch a passage fulfilled on the sleep screen forces are ported.
+  - **PASSAGE is disabled (user decision).** The button appears where and when the game
+    adds it (a token of a passage fulfilled before the screen, or once a passage
+    fulfilled on it shows), fading in from black the same way, but stays greyed out:
+    `CustomEndGameScreen`, `FastTravelScreen` and `ApplyCustomEndGame` are not ported,
+    so `EndgameTokens.Passage` (the token's activation and the black fade) never runs
+    and passages are never consumed. Passages are still achieved: the trackers progress
+    and fulfil wherever their triggers are ported ("Not ported yet").
+  - `CueAchievement` on a fulfilment is not made (the port has no achievements).
+  - The tokens' glow size draws `Random.value` once per token and rendered frame; the
+    port takes it from the screen's own cosmetic stream (D1).
+  - Not ported: the kills display (`SleepScreenKills`: the port records no kills; the
+    only creature it can kill, the bat fly, is quantified and earns no trophy, so the
+    game's display would show nothing for it), the statistics screen's `ScoreFlash`,
+    the Hunter's `GoToRedsGameOver` (D17), and the Expedition, Watcher and More
+    Slugcats branches (Remix's Traveller region colours and list-change animation, the
+    collectibles tracker).
+  - The game's `PostSwitchMainProcess` runs `progression.Revert()` before every process
+    but these screens, dreams and the ghost and karma-to-max screens; the port does the
+    same (`PlayerProgression::revert`), so CONTINUE loads the stored state (D17).
 - **Options menu.** `OptionsMenu` with Remix off and no console (`rw_menu::OptionsMenu`,
   `rainworld-re/notes/menu.md` "OptionsMenu"), with its `SelectOneButton`s,
   `HorizontalSlider`s, `CustomMessageButton`, `ControlsButton`, check boxes, the reset
@@ -735,7 +754,7 @@ real-time audio rather than the sim.
   to the game but leaves the old microphone running as a side process (its loops fade
   out) and makes a new one on the way back; the port keeps one microphone and tracks
   whether the manager holds it, which sounds the same. Mod finalization completes in the
-  same frame (no mods); `progression.Revert` is not done. Of `HardCleanFutileAssets`
+  same frame (no mods). Of `HardCleanFutileAssets`
   only the illustration atlases a process loaded are freed.
 - **File resolution.** `AssetManager.ResolveFilePath` looks in `mergedmods/` and the
   active mods first; the port runs the base game with no mods and reads
@@ -1040,12 +1059,13 @@ Differences:
   Dragon Slayer, Scholar) are written back as read, so the game's re-encoding of a
   More Slugcats Dragon Slayer list as base-game bools and its Traveller slot count are
   not applied.
-- **Screens' data.** The sleep and death screens' save-side reads are ported; the
-  screens (D13) use `WinState.PlayerDied` and the watched-screen counters, and the rest
-  waits for the end-game meters: `GetNextEndGame`,
-  `ResetLastShownValues`, each tracker's `GoalFullfilled`/`AnyProgressToShow`, the
-  `MiscProgressionData` watched-screen counters (`INTEGERS` 1-4) and the
-  death-persistent `METERSSHOWN` list, `DEATHPOSS` and `FLOWERPOS`.
+- **Screens' data.** The sleep and death screens' save-side reads are ported and used
+  (D13): `WinState.PlayerDied`, each tracker's `GoalFullfilled`/`AnyProgressToShow`,
+  the `MiscProgressionData` watched-screen counters (`INTEGERS` 1-4), the
+  death-persistent `METERSSHOWN` list, `DEATHPOSS` and `FLOWERPOS`;
+  `ResetLastShownValues` runs where the game runs it (a starved state taken up by
+  `GetOrInitiateSaveState`). `GetNextEndGame` waits for the PASSAGE button, which is
+  disabled.
 - **Container.** A new key goes last (the game's `Hashtable` orders keys by string
   hash); the files have no NUL padding (the game writes `MemoryStream.GetBuffer()`);
   they are written to a temporary file and renamed.
@@ -1088,17 +1108,16 @@ the game would write in line and entry order and in the data it would drop.
 **What.** `ShelterDoor` (`rw_sim::shelter`, `rainworld-re/notes/shelter.md`) opens with
 the cycle and closes when the player, fed and still, is ready for `Win`; the player's
 `SleepUpdate`, `readyForWin`, `forceSleepCounter` and the sleep curl are ported. `Win`
-saves (D16) and goes to the sleep screen or a dream; the next cycle reuses the save
-state in memory (a new `nextIssuedId` draw, no seed draw) and the region state the last
-cycle left, starts in the shelter with its door shut and the slugcat curled up.
+saves (D16) and goes to the sleep screen or a dream; the next cycle, after
+`progression.Revert()`, loads the stored state as the game does (a starved cycle's state
+and region state stay in memory and are reused, its trackers' shown values reset),
+starts in the shelter with its door shut and the slugcat curled up.
 Differences:
 - **Sleep screen and dreams.** The sleep screen is ported (D13); its CONTINUE starts
   the next cycle. The dream screen (`DreamScreen`) is not: a stand-in shows 40 black
   frames, then starts the next cycle as the sleep screen's continue does
   (`StoryGameInitCondition.Load`). The Moon and Pebbles event dreams are not ported (no
-  iterators). The game reverts the progression before the next game and loads the
-  stored state; the port keeps the state in memory (equal to the stored one after a
-  `Win`), and drops it after a death or starve screen.
+  iterators).
 - **Starving.** A door closing on too little food saves the cycle as a death
   (`SessionEnded(survived: false)`, D16) and shows the starve screen (D13).
 - **Karma flowers.** The player's `karmaFlowerGrowPos` is tracked as `Player.Update`
@@ -1119,8 +1138,7 @@ Differences:
   killing hostiles at close (the check alone is ported), aerobic and malnourished
   breathing, and every Jolly Co-op and More Slugcats branch.
 
-**Why.** Iterators, items, creature states, dreams and the end-game meters are later
-milestones.
+**Why.** Iterators, items, creature states and dreams are later milestones.
 
 **Affects.** What follows a hibernation, a death or a starve on screen, the karma
 flower in the next cycle, the Hunter's last cycle, and creatures caught in a closing
@@ -1143,9 +1161,19 @@ Room: `Room.Update`'s ambient ceiling drips (`WaterDrip`s from the ceiling of a 
 `CeilingDrips`), and the `WaterDrip`s of skids, slides and corridor shoots.
 
 Front end: the regions, arena and Remix menus, input settings, credits, backups,
-the dream screens, the sleep and death screens' end-game meters, tokens, PASSAGE and
-kills, the outro and DLC slideshows, the slugcat select menu's continue pages,
+the dream screens, PASSAGE's custom end-game and fast travel screens, the sleep
+screen's kills, the outro and DLC slideshows, the slugcat select menu's continue pages,
 colour and Jolly Co-op controls, depth scenes, menu objects those use (vertical and
 subtle sliders, check box groups, symbol buttons, scroll boxes, `UIelementWrapper`),
 Remix's options (FPS, VSync, quality, analogue sensitivity, backgrounds), and in-game
 music (D12).
+
+Passage triggers (`WinState.CycleCompleted` and `PlayerDied` are ported whole; these
+inputs to them are not): kills (`PlayerSessionRecord.AddKill`, `BreakPeaceful` from
+kills and weapon hits), so the Outlaw only resets, the Saint never breaks its streak
+and the Dragon Slayer never fills (eating a bat fly kills it in the game, but a fly
+counts 0 and is no lizard, so no tracker sees it); plant food, so the Monk only resets;
+pearls found (Scholar); a friend in the den (the Friend only resets); changes to the
+scavengers' like (Chieftain: the saved like is read); region gates, so the Wanderer
+(Traveller) can only mark SU. More Slugcats' Nomad, Pilgrim, Martyr, Mother and
+Gourmand trackers are kept unrecognized, as the game does with More Slugcats off.

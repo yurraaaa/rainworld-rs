@@ -156,8 +156,9 @@ before the user agrees.
     and region state, the sleep screen (karma ladder, food meter, map;
     D13) continues to the next cycle in the shelter with the saved
     population; a door closing on too little food shows the starve screen.
-    Dreams are a black stand-in. Gates, region changes, the rain and the
-    sleep and death screens' passage meters are not there yet.
+    The screens show the passage meters and tokens; PASSAGE stays greyed
+    out (D13). Dreams are a black stand-in. Gates, region changes and the
+    rain are not there yet.
   - Death in a story session is the game's: the dead body keeps
     simulating, `GameOver` puts the HUD prompt in game-over mode (and
     stores the karma flower's spot), and the map button 40 ticks later
@@ -260,7 +261,7 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   (`step_process` reports `save`: saved campaigns and the current save
   state, `story`: the running game's den, cycle, karma, room and food,
   and `karma_screen`: the sleep, death or starve screen's ladder phase,
-  karma, buttons and map);
+  karma, buttons, map, end-game meters and passage tokens);
   the pause menu's Exit saves (a death after 30 s, a quit after 5).
 - `--mcp --window` also shows the driven scene in a window.
 - End of the project: a review of code cleanliness and quality across the

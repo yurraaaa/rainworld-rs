@@ -456,14 +456,19 @@ impl MenuContext for AppContext {
 impl ProcessFactory<AppProcess> for AppContext {
     fn create_process(&mut self, id: ProcessId, old: Option<&AppProcess>) -> AppProcess {
         log::info!("process {id:?}");
-        // `PostSwitchMainProcess`: `progression.Revert()` before the game, which then
-        // loads the stored state. The port keeps the state a won cycle left in memory
-        // (D17), but after a death or a starve the stored one differs from it.
-        if id == ProcessId::Game
-            && old
-                .is_some_and(|o| matches!(o.id(), ProcessId::DeathScreen | ProcessId::StarveScreen))
-        {
-            self.menu.saves.current_save_state = None;
+        // `PostSwitchMainProcess`: `progression.Revert()` before every process but these
+        // screens and dreams, so a game loads the stored state (or a starved one).
+        if !matches!(
+            id,
+            ProcessId::Initialization
+                | ProcessId::SleepScreen
+                | ProcessId::GhostScreen
+                | ProcessId::DeathScreen
+                | ProcessId::KarmaToMaxScreen
+                | ProcessId::Dream
+                | ProcessId::StarveScreen
+        ) {
+            self.menu.saves.revert();
         }
         match id {
             ProcessId::Initialization => {

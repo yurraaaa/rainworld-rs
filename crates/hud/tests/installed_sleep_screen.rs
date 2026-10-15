@@ -102,9 +102,8 @@ impl Harness {
     }
 
     fn greyed(&self) -> [bool; 2] {
-        self.screen
-            .buttons()
-            .map(|b| self.screen.menu().behavior(b).expect("button").greyed_out)
+        let b = self.screen.buttons();
+        [b[0], b[1]].map(|b| self.screen.menu().behavior(b).expect("button").greyed_out)
     }
 }
 
@@ -116,7 +115,9 @@ fn buttons_bottom_right_and_the_info_label_at_the_top() {
     let menu = h.screen.menu();
     // `ContinueAndExitButtonsXPos` is 1366 at 1366 wide: CONTINUE 180 left of it, EXIT
     // 320, both at `Max(SafeScreenOffset.y, 15)`.
-    let [cont, exit] = h.screen.buttons();
+    let [cont, exit] = h.screen.buttons()[..] else {
+        panic!("no PASSAGE without a save state");
+    };
     assert_eq!(menu.object(cont).pos, Vec2::new(1186.0, 15.0));
     assert_eq!(menu.object(exit).pos, Vec2::new(1046.0, 15.0));
     assert_eq!(menu.button(cont).unwrap().signal_text, "CONTINUE");

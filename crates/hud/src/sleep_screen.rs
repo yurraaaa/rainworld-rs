@@ -1,20 +1,23 @@
 //! `Menu.SleepAndDeathScreen` (550413) on `KarmaLadderScreen` (537968): the sleep,
 //! death and starve screens of the base game with Remix off. The scene, the karma
-//! ladder, the food meter and region map of its HUD ([`SleepHud`]), CONTINUE and EXIT,
-//! the starving warning, the watched-screen counters and the map toggle. Not ported:
-//! the end-game meters, tokens and PASSAGE (the ladder has no meters), the kills
-//! display (no kills are recorded), the Expedition, Watcher and More Slugcats branches.
+//! ladder with its end-game meters, the passage tokens, the food meter and region map
+//! of its HUD ([`SleepHud`]), CONTINUE and EXIT, the starving warning, the
+//! watched-screen counters, the meters ever shown and the map toggle. PASSAGE shows as
+//! the game shows it but stays greyed out: the custom end-game and fast travel screens
+//! are not ported (D13). Not ported: the kills display (no kills are recorded), the
+//! Expedition, Watcher and More Slugcats branches.
 //! Behaviour: `rainworld-re/notes/menu.md` ("Sleep and death screens").
 
 use rw_assets::SlugcatName;
 use rw_menu::menu::{Kind, Menu, MenuCx, MenuScreen, ObjectId, SceneId};
-use rw_menu::{MenuColor, MenuShared, MenuSoundId, ProcessId, StoryGameInitCondition};
+use rw_menu::{Font, MenuColor, MenuShared, MenuSoundId, ProcessId, StoryGameInitCondition};
+use rw_random::UnityRandom;
 use rw_save::WatchedScreen;
 use rw_sim::{FloatExt, Input, MapDiscovery, Vec2};
 
 use crate::{
-    HudOwnerType, KarmaLadder, LadderIo, MapOwner, PauseMenu, ScreenTick,
-    SleepDeathScreenDataPackage, SleepHud, SleepHudSetup,
+    EndgameTokens, HudOwnerType, KarmaLadder, LadderIo, MapOwner, MeterSource, PauseMenu,
+    ScreenTick, SleepDeathScreenDataPackage, SleepHud, SleepHudSetup,
 };
 
 /// The screen's buttons.
@@ -22,16 +25,18 @@ use crate::{
 pub enum ScreenButton {
     Continue,
     Exit,
+    Passage,
 }
 
 impl ScreenButton {
-    pub const ALL: [Self; 2] = [Self::Continue, Self::Exit];
+    pub const ALL: [Self; 3] = [Self::Continue, Self::Exit, Self::Passage];
 
     #[must_use]
     pub const fn signal(self) -> &'static str {
         match self {
             Self::Continue => "CONTINUE",
             Self::Exit => "EXIT",
+            Self::Passage => "PASSAGE",
         }
     }
 
@@ -51,7 +56,14 @@ struct ScreenState {
     karma_reinforced: bool,
     continue_button: ObjectId,
     exit_button: ObjectId,
+    /// `passageButton`, once a token asks for it.
+    passage_button: Option<ObjectId>,
+    slugcat: SlugcatName,
     ladder: KarmaLadder,
+    /// `endgameTokens` (not for the Hunter).
+    tokens: Option<EndgameTokens>,
+    /// The tokens' per-frame draws (D1).
+    cosmetic: UnityRandom,
     hud: SleepHud,
     food: i32,
     player_room: i32,
@@ -175,9 +187,18 @@ impl SleepAndDeathScreen {
         self.screen.starved_label
     }
 
+    /// CONTINUE, EXIT and PASSAGE once added.
     #[must_use]
-    pub fn buttons(&self) -> [ObjectId; 2] {
-        [self.screen.continue_button, self.screen.exit_button]
+    pub fn buttons(&self) -> Vec<ObjectId> {
+        let s = &self.screen;
+        let mut buttons = vec![s.continue_button, s.exit_button];
+        buttons.extend(s.passage_button);
+        buttons
+    }
+
+    #[must_use]
+    pub fn tokens(&self) -> Option<&EndgameTokens> {
+        self.screen.tokens.as_ref()
     }
 
     #[must_use]
@@ -199,7 +220,16 @@ impl SleepAndDeathScreen {
         if let Some(b) = self.menu.behavior_mut(s.exit_button) {
             b.greyed_out = greyed;
         }
-        let done = s.ladder.all_animation_done() && s.end_game_scene_counter < 0;
+        // Always greyed out: the custom end-game screen is not ported (D13).
+        if let Some(b) = s.passage_button.and_then(|p| self.menu.button_mut(p)) {
+            b.behav.greyed_out = true;
+            b.black = (b.black - 0.0125).max(0.0);
+        }
+        let done = s.ladder.all_animation_done()
+            && s.end_game_scene_counter < 0
+            && s.tokens
+                .as_ref()
+                .is_none_or(EndgameTokens::all_animations_done);
         if !s.last_animations_done && done && !s.map_toggle {
             s.map_toggle = true;
         }
@@ -298,6 +328,15 @@ impl SleepAndDeathScreen {
         let map_fade = s.hud.map.as_ref().map(|m| m.last_fade.lerp(m.fade, t));
         s.ladder
             .draw(&mut self.menu.stage, owner, t, map_fade, screen_height);
+        if let Some(tokens) = &s.tokens {
+            tokens.draw(
+                &mut self.menu.stage,
+                owner,
+                t,
+                &s.ladder.meters,
+                &mut s.cosmetic,
+            );
+        }
         s.hud.draw(&mut self.menu.stage, t);
         if let Some(label) = s.starved_label
             && let Kind::Label(l) = &self.menu.object(label).kind
@@ -388,15 +427,19 @@ impl ScreenState {
         );
         menu.add_sub(page, exit_button);
         let slugcat = package.slugcat;
-        if any_death
-            && let Some(state) = shared
-                .saves
-                .current_save_state
-                .as_mut()
-                .filter(|s| s.save_state_number == slugcat)
-        {
-            state.death_persistent.win_state.player_died();
-        }
+        // `winState`: the package's save state's (none without one).
+        let trackers = shared.saves.state_in_memory_mut(slugcat).map(|state| {
+            let win_state = &mut state.death_persistent.win_state;
+            if any_death {
+                win_state.player_died();
+            }
+            win_state.trackers.clone()
+        });
+        let source = trackers.as_ref().map(|trackers| MeterSource {
+            trackers,
+            font: shared.atlases.font(Font::FONT).cloned(),
+            translator: &shared.translator,
+        });
         let ladder = KarmaLadder::new(
             &mut menu.stage,
             [behind, main, front],
@@ -404,6 +447,7 @@ impl ScreenState {
             karma,
             package.karma_reinforced,
             shared.screen_size[0],
+            source.as_ref(),
         );
         // `InitSleepHud`: the HUD's containers as `fContainers` = (second, first).
         let hud_nodes = hud_containers.map(|c| {
@@ -445,7 +489,11 @@ impl ScreenState {
             karma_reinforced: package.karma_reinforced,
             continue_button,
             exit_button,
+            passage_button: None,
+            slugcat,
             ladder,
+            tokens: None,
+            cosmetic: UnityRandom::new(0),
             hud,
             food: package.food,
             player_room: package.player_room,
@@ -467,11 +515,87 @@ impl ScreenState {
             frames_per_second: 40,
         };
         state.watch_and_warn(menu, shared, slugcat);
-        // No dev tools and no Remix: only validation skips the forced watch.
+        let fulfilled_now = state.passages(menu, shared, trackers.is_some());
+        // No dev tools and no Remix: only validation skips the forced watch; a passage
+        // fulfilled on the sleep screen forces it again.
         if shared.options.validation {
             state.force_watch_animation = false;
         }
+        if fulfilled_now {
+            state.force_watch_animation = true;
+        }
         state
+    }
+
+    /// `LeftHandButtonsPosXAdd`.
+    fn left_hand_buttons_x(screen: [f32; 2]) -> f32 {
+        screen[0].lerp_map(1024.0, 1280.0, 222.0, 70.0)
+    }
+
+    /// The end of `GetDataFromGame`: the tokens (not for the Hunter), the first meter
+    /// never shown before (on the sleep screen: forces the watch, recorded and saved),
+    /// and whether a meter's passage was fulfilled on this sleep screen.
+    fn passages(&mut self, menu: &mut Menu, shared: &mut MenuShared, has_save: bool) -> bool {
+        if self.slugcat != SlugcatName::Red {
+            let x = Self::left_hand_buttons_x(shared.screen_size) + 140.0;
+            let (tokens, add_now) = EndgameTokens::new(
+                &mut menu.stage,
+                menu.container,
+                Vec2::new(x, 15.0),
+                &self.ladder.meters,
+            );
+            self.tokens = Some(tokens);
+            if add_now {
+                self.add_passage_button(menu, shared, false);
+            }
+        }
+        if self.id != ProcessId::SleepScreen {
+            return false;
+        }
+        if has_save {
+            let ids: Vec<_> = self.ladder.meters.iter().map(|m| m.tracker.id).collect();
+            let state = shared.saves.state_in_memory_mut(self.slugcat);
+            if let Some(dp) = state.map(|s| &mut s.death_persistent) {
+                let shown = dp.meters_ever_shown();
+                if let Some(&id) = ids.iter().find(|id| !shown.iter().any(|s| s == id.value())) {
+                    self.force_watch_animation = true;
+                    dp.add_meter_shown(id);
+                    if let Err(e) = shared
+                        .saves
+                        .save_death_persistent_data_of_current_state(false, false)
+                    {
+                        log::error!("saving the meters shown: {e}");
+                    }
+                }
+            }
+        }
+        self.ladder.meters.iter().any(|m| m.fulfilled_now)
+    }
+
+    /// `AddPassageButton(buttonBlack)`: PASSAGE at the bottom left, never for the
+    /// Hunter; greyed out for good (D13).
+    fn add_passage_button(&mut self, menu: &mut Menu, shared: &MenuShared, black: bool) {
+        if self.slugcat == SlugcatName::Red || self.passage_button.is_some() {
+            return;
+        }
+        log::info!("Add passage button");
+        let text = shared.translator.translate("PASSAGE").to_owned();
+        let button = menu.add_simple_button(
+            shared,
+            self.page,
+            &text,
+            ScreenButton::Passage.signal(),
+            Vec2::new(Self::left_hand_buttons_x(shared.screen_size), 15.0),
+            Vec2::new(110.0, 30.0),
+        );
+        menu.add_sub(self.page, button);
+        if let Some(b) = menu.button_mut(button) {
+            b.behav.greyed_out = true;
+            if black {
+                b.black = 1.0;
+            }
+        }
+        self.passage_button = Some(button);
     }
 
     /// The rest of `GetDataFromGame`: the watched-screen counters (the first viewings
@@ -551,6 +675,10 @@ impl ScreenState {
         self.freeze_menu_functions(cx)
             || (self.force_watch_animation && !self.ladder.all_animation_done())
             || self.end_game_scene_counter >= 0
+            || self
+                .tokens
+                .as_ref()
+                .is_some_and(|t| t.force_show_token_add && !t.all_animations_done())
     }
 
     /// `StarveLabelAlpha`.
@@ -573,7 +701,8 @@ impl MenuScreen for ScreenState {
                 cx.requests.switch_to(ProcessId::MainMenu);
                 cx.play_sound(MenuSoundId::SwitchPageOut);
             }
-            None => {}
+            // Greyed out for good, so never sent (D13).
+            Some(ScreenButton::Passage) | None => {}
         }
     }
 
@@ -594,6 +723,13 @@ impl MenuScreen for ScreenState {
         };
         self.ladder
             .update(&mut io, owner, self.fade_out_illustration);
+        let add = self
+            .tokens
+            .as_mut()
+            .is_some_and(|t| t.update(&self.ladder.meters));
+        if add {
+            self.add_passage_button(menu, cx.shared, true);
+        }
     }
 
     /// `UpdateInfoText`: the buttons' explanations; nothing while the map shows.
@@ -608,6 +744,9 @@ impl MenuScreen for ScreenState {
             .and_then(|b| ScreenButton::from_signal(&b.signal_text))
             .map(|b| match b {
                 ScreenButton::Exit => "Exit to title screen",
+                ScreenButton::Passage => {
+                    "(One time use) Fast travel to any discovered shelter, recovering all karma"
+                }
                 ScreenButton::Continue => "Continue to the next cycle",
             });
         text.map_or_else(String::new, |t| {
