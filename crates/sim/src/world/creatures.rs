@@ -11,14 +11,15 @@ use std::collections::HashMap;
 use rw_assets::{CreatureType, NodeType, RoomAttraction, Timeline};
 use rw_random::UnityRandom;
 
+use super::RealizedRoom;
 use super::World;
 use crate::creature::ai::AiContext;
-use crate::creature::overseer::GuideContext;
+use crate::creature::overseer::{AbstractStep, GuideContext, OverseerView, Parent};
 use crate::creature::{
     AbstractCreature, AbstractCreatureAi, AiKind, CreatureId, CreatureTemplate, EntityId, IdIssuer,
-    OverseerBody, Personality, PlayerGuideState, RealizedCreature, WorldCoordinate,
+    OverseerAbstractAi, OverseerAi, OverseerBody, Personality, PlayerGuideState, RealizedCreature,
+    WorldCoordinate,
 };
-use crate::room_ext::RoomExt;
 use crate::room_script::StorySession;
 use crate::{FloatExt, PlayerObserver};
 
@@ -56,20 +57,9 @@ pub struct AbstractTick<'a> {
     pub guide: &'a PlayerGuideState,
     pub player: Option<CreatureId>,
     pub player_karma: i32,
+    /// `saveState.cycleNumber`.
+    pub cycle: i32,
 }
-
-/// `Custom.eightDirectionsAndZero`, the first eight as `Overseer.PlaceInRoom` reads them.
-const EIGHT_DIRECTIONS_AND_ZERO: [(i32, i32); 9] = [
-    (0, 0),
-    (-1, 0),
-    (-1, -1),
-    (0, -1),
-    (1, -1),
-    (1, 0),
-    (1, 1),
-    (0, 1),
-    (-1, 1),
-];
 
 impl World {
     /// Builds the per-room attraction tables from the region's `Room_Attr` lines
@@ -528,9 +518,8 @@ impl World {
         }
     }
 
-    /// `AbstractCreature.Move(newCoord)`: `ChangeRooms` moves it between the room lists.
-    /// Entering a realized room does not realize it (`CreatureEnterFromAbstractRoom` is
-    /// not ported, docs/DIVERGENCES.md D14): it stays abstract there.
+    /// `AbstractCreature.Move(newCoord)`: `ChangeRooms` moves it between the room lists
+    /// (realizing it first is [`Self::change_rooms_realize`]).
     pub(crate) fn move_creature(&mut self, id: CreatureId, mut to: WorldCoordinate) {
         let from = self.creature(id).pos;
         if let Some(ai) = &mut self.creature_mut(id).ai
@@ -541,13 +530,6 @@ impl World {
         if !to.same_room_and_node(from) {
             self.creature_mut(id).time_spent_here = 0;
             if to.room != from.room {
-                if self.realized(to.room).is_some() {
-                    log::debug!(
-                        "{} enters realized room {} abstractly",
-                        self.creature(id).kind(),
-                        to.room
-                    );
-                }
                 if let Some(l) = self.local(from.room) {
                     let lists = &mut self.lists[l];
                     lists.creatures.retain(|&c| c != id);
@@ -617,26 +599,171 @@ impl World {
         if c.in_den || c.realized.is_some() || !c.state.alive {
             return;
         }
+        let (pos, ignore_cycle) = (c.pos, c.ignore_cycle);
         let Some(mut ai) = c.ai.take() else { return };
         ai.time_buffer += time;
-        let mut moved = None;
-        if self.realized(self.creature(id).pos.room).is_none()
+        let mut step = AbstractStep::Stay;
+        if self.realized(pos.room).is_none()
             && let AiKind::Overseer(mut overseer) = std::mem::replace(&mut ai.kind, AiKind::Plain)
         {
+            let parent = Parent {
+                id,
+                pos,
+                realized: false,
+                ignore_cycle,
+                tutorial: overseer.has_tutorial(),
+            };
             let mut guide = GuideContext {
                 world: self,
+                rain: &self.rain_cycle,
                 rng: &mut *cx.rng,
                 guide: cx.guide,
                 player: cx.player,
                 player_karma: cx.player_karma,
             };
-            moved = overseer.abstract_behavior(&mut ai, id, time, &mut guide);
+            step = overseer.abstract_behavior(&mut ai, parent, time, &mut guide);
             ai.kind = AiKind::Overseer(overseer);
         }
         self.creature_mut(id).ai = Some(ai);
-        if let Some(to) = moved {
+        if let AbstractStep::Move(to) = step {
+            self.change_rooms_realize(id, to, cx.cycle, cx.rng);
             self.move_creature(id, to);
         }
+    }
+
+    /// `AbstractCreature.ChangeRooms`' first part: an unrealized creature moving into a
+    /// realized room with its shortcuts ready is realized there and waits in the
+    /// shortcut handler's lobby (`CreatureEnterFromAbstractRoom`, a teleportation vessel
+    /// for an overseer). Only overseers move between rooms in the port.
+    fn change_rooms_realize(
+        &mut self,
+        id: CreatureId,
+        to: WorldCoordinate,
+        cycle: i32,
+        rng: &mut UnityRandom,
+    ) {
+        let c = self.creature(id);
+        if c.is_realized()
+            || to.room == c.pos.room
+            || !self
+                .realized(to.room)
+                .is_some_and(RealizedRoom::shortcuts_ready)
+        {
+            return;
+        }
+        let kind = c.kind();
+        if !self.realize_overseer_parts(id, cycle, rng) {
+            log::warn!("{kind} entering realized room {} stays abstract", to.room);
+            return;
+        }
+        if let Some(RealizedCreature::Overseer(body)) = &mut self.creature_mut(id).realized {
+            body.in_shortcut = true;
+        }
+        self.entering.push((id, to));
+    }
+
+    /// `Realize` of an overseer: the `Overseer` (no draws) and its `OverseerAI` (one
+    /// draw). Other types are not realized.
+    fn realize_overseer_parts(
+        &mut self,
+        id: CreatureId,
+        cycle: i32,
+        rng: &mut UnityRandom,
+    ) -> bool {
+        let c = self.creature(id);
+        if c.kind() != CreatureType::OVERSEER || c.is_realized() {
+            return false;
+        }
+        let guide = c.overseer_ai().is_some_and(|a| a.is_player_guide);
+        let body = OverseerBody::new(c, guide, rng);
+        let ai = OverseerAi::new(guide, cycle, rng);
+        let c = self.creature_mut(id);
+        c.realized = Some(RealizedCreature::Overseer(Box::new(body)));
+        if let Some(base) = &mut c.ai {
+            base.real_ai = true;
+            if let AiKind::Overseer(o) = &mut base.kind {
+                o.real_ai = Some(Box::new(ai));
+            }
+        }
+        true
+    }
+
+    /// Takes a realized overseer's parts out of the world to run it.
+    pub(crate) fn take_overseer(&mut self, id: CreatureId) -> Option<OverseerParts> {
+        let c = self.creature_mut(id);
+        let Some(RealizedCreature::Overseer(_)) = &c.realized else {
+            return None;
+        };
+        let mut base = c.ai.take()?;
+        let AiKind::Overseer(mut abs) = std::mem::replace(&mut base.kind, AiKind::Plain) else {
+            c.ai = Some(base);
+            return None;
+        };
+        let Some(ai) = abs.real_ai.take() else {
+            base.kind = AiKind::Overseer(abs);
+            c.ai = Some(base);
+            return None;
+        };
+        let Some(RealizedCreature::Overseer(body)) = c.realized.take() else {
+            return None;
+        };
+        Some(OverseerParts {
+            body,
+            ai,
+            abs,
+            base,
+        })
+    }
+
+    /// Puts an overseer's parts back, with its abstract position.
+    pub(crate) fn put_overseer(
+        &mut self,
+        id: CreatureId,
+        parts: OverseerParts,
+        pos: WorldCoordinate,
+    ) {
+        let OverseerParts {
+            body,
+            ai,
+            mut abs,
+            mut base,
+        } = parts;
+        abs.real_ai = Some(ai);
+        base.kind = AiKind::Overseer(abs);
+        let c = self.creature_mut(id);
+        c.realized = Some(RealizedCreature::Overseer(body));
+        c.ai = Some(base);
+        if pos.room == c.pos.room {
+            c.pos = pos;
+        } else {
+            log::warn!("realized overseer changed rooms during its update");
+        }
+    }
+
+    /// What the graphics module reads of realized overseer `id`.
+    #[must_use]
+    pub fn overseer_view(&self, id: CreatureId) -> Option<OverseerView<'_>> {
+        let c = self.creature(id);
+        let body = c.overseer_body()?;
+        let abs = c.overseer_ai()?;
+        let ai = abs.real_ai.as_deref()?;
+        let partner = body.conversation_partner.map(|p| self.creature(p).id);
+        Some(OverseerView::new(c.id, body, ai, abs.color(), partner))
+    }
+
+    /// The realized overseers of room `room`, in `updateList` order (newest first).
+    #[must_use]
+    pub(crate) fn room_overseers(&self, room: i32) -> Vec<(u64, CreatureId)> {
+        let mut list: Vec<(u64, CreatureId)> = self
+            .room_creatures(room)
+            .iter()
+            .filter_map(|&id| {
+                let b = self.creature(id).overseer_body()?;
+                b.in_room.then_some((b.update_order, id))
+            })
+            .collect();
+        list.sort_by_key(|&(seq, _)| std::cmp::Reverse(seq));
+        list
     }
 
     /// `AbstractCreature.InDenUpdate`. Only creatures whose abstract AI is ported (the
@@ -664,24 +791,24 @@ impl World {
     }
 
     /// `Room.ReadyForAI` for one creature: `AbstractCreature.RealizeInRoom` of an
-    /// overseer in loaded room `room` (`viewed`: the camera's room, where `AddObject`
-    /// builds its graphics module). Other types are not realized.
+    /// overseer in loaded room `room` up to `PlaceInRoom`: `PlaceInRealizedRoom`'s draws,
+    /// then `Realize`. Returns whether it was realized (the caller places it). Other
+    /// types are not realized.
     pub(crate) fn realize_overseer(
         &mut self,
         id: CreatureId,
-        viewed: bool,
-        observer: &mut dyn PlayerObserver,
+        cycle: i32,
         rng: &mut UnityRandom,
-    ) {
+    ) -> bool {
         let c = self.creature(id);
         if c.kind() != CreatureType::OVERSEER || c.is_realized() || c.in_den {
-            return;
+            return false;
         }
         let room_index = c.pos.room;
         let Some(realized) = self.realized(room_index) else {
-            return;
+            return false;
         };
-        let room = realized.room.clone();
+        let (width, height) = (realized.room.width(), realized.room.height());
         let mut pos = c.pos;
         if !pos.node_defined() {
             // An overseer maps no node types: `Range(0, 0)` makes no draw.
@@ -692,8 +819,8 @@ impl World {
         if !place.tile_defined() && place.node_defined() {
             place.tile = self.local_coordinate_of_node(room_index, place.node, rng);
         }
-        place.tile.0 = place.tile.0.clamp(0, room.width() - 1);
-        place.tile.1 = place.tile.1.clamp(0, room.height() - 1);
+        place.tile.0 = place.tile.0.clamp(0, width - 1);
+        place.tile.1 = place.tile.1.clamp(0, height - 1);
         let dest = c.ai.as_ref().map_or(place, |a| a.destination);
         let manhattan = (place.tile.0 - dest.tile.0).abs() + (place.tile.1 - dest.tile.1).abs();
         if place.room == dest.room
@@ -701,33 +828,18 @@ impl World {
             && (manhattan < 20 || !dest.tile_defined())
         {
             // `RandomizeSpawnPositionInRoom` with `timeBuffer * offScreenSpeed` (0) steps.
-            rng.range_i32(0, room.width());
-            rng.range_i32(0, room.height());
+            rng.range_i32(0, width);
+            rng.range_i32(0, height);
             pos.tile = place.tile;
         }
-        // `RealizeInRoom`: `Realize` (the `Overseer` and its `OverseerAI`), then
-        // `PlaceInRoom`.
-        let mut body = OverseerBody::new(self.creature(id), rng);
+        if !self.realize_overseer_parts(id, cycle, rng) {
+            return false;
+        }
         if !pos.tile_defined() {
             pos.tile = self.local_coordinate_of_node(room_index, pos.node, rng);
         }
-        if viewed {
-            observer.overseer_viewed(self.creature(id).id, body.size, rng);
-        }
-        // `Creature.PlaceInRoom`'s chunk offset.
-        rng.value();
-        let resets = body.place_in_room(&room, pos.tile, rng);
-        if viewed {
-            for _ in 0..resets {
-                observer.overseer_reset(self.creature(id).id, rng);
-            }
-        }
-        let c = self.creature_mut(id);
-        c.pos = pos;
-        c.realized = Some(RealizedCreature::Overseer(body));
-        if let Some(ai) = &mut c.ai {
-            ai.real_ai = true;
-        }
+        self.creature_mut(id).pos = pos;
+        true
     }
 
     /// `Room.LocalCoordinateOfNode` as far as the port's room data reaches: exits, dens
@@ -771,6 +883,21 @@ impl World {
         }
     }
 
+    /// `AbstractCreature.Abstractize(coord)` of a realized overseer in the lobby whose
+    /// destination is not realized: it moves there abstractly and drops its body.
+    pub(crate) fn abstractize_to(&mut self, id: CreatureId, coord: WorldCoordinate) {
+        let room = self.creature(id).pos.room;
+        if !self.realized(room).is_some_and(RealizedRoom::ready_for_ai) {
+            self.creature_mut(id).realized = None;
+            return;
+        }
+        let c = self.creature_mut(id);
+        c.time_spent_here = 0;
+        c.distance_to_my_node = 0;
+        self.move_creature(id, coord);
+        self.creature_mut(id).realized = None;
+    }
+
     /// The camera moved from room `from` to room `to` (`NoLongerViewed`, `NowViewed`):
     /// realized overseers lose or get their graphics modules.
     pub(crate) fn camera_changed_room(
@@ -782,15 +909,37 @@ impl World {
     ) {
         for &id in self.room_creatures(from) {
             if let Some(RealizedCreature::Overseer(_)) = self.creature(id).realized {
-                observer.overseer_unviewed(self.creature(id).id);
+                observer.overseer_removed(self.creature(id).id);
             }
         }
         for &id in self.room_creatures(to) {
-            if let Some(RealizedCreature::Overseer(body)) = &self.creature(id).realized {
-                observer.overseer_viewed(self.creature(id).id, body.size, rng);
+            if let Some(view) = self.overseer_view(id).filter(|v| v.body.in_room) {
+                observer.overseer_added(&view, rng);
             }
         }
     }
+}
+
+impl World {
+    /// The guide's tutorial kills the living green lizards of room `room`
+    /// (`LizardState.Die`).
+    pub(crate) fn kill_green_lizards(&mut self, room: i32) {
+        for id in self.room_creatures(room).to_vec() {
+            let c = self.creature_mut(id);
+            if c.kind() == CreatureType::GREEN_LIZARD && c.state.alive {
+                log::info!("the tutorial kills a green lizard in room {room}");
+                c.state.alive = false;
+            }
+        }
+    }
+}
+
+/// A realized overseer's parts, taken out of the world while it runs.
+pub(crate) struct OverseerParts {
+    pub body: Box<OverseerBody>,
+    pub ai: Box<OverseerAi>,
+    pub abs: OverseerAbstractAi,
+    pub base: AbstractCreatureAi,
 }
 
 impl AbstractCreature {
@@ -817,54 +966,5 @@ impl AbstractCreature {
                 || (self.state.has_health() && self.state.health < 0.75);
         }
         false
-    }
-}
-
-impl OverseerBody {
-    /// `Overseer.PlaceInRoom` after the base: a random open tile next to a solid one,
-    /// else the abstract tile, else any random tile (`HardSetTile`). Returns how often
-    /// the graphics module is reset (twice on the last fallback).
-    pub(crate) fn place_in_room(
-        &mut self,
-        room: &rw_assets::Room,
-        tile: (i32, i32),
-        rng: &mut UnityRandom,
-    ) -> u32 {
-        for _ in 0..100 {
-            let t = (
-                rng.range_i32(0, room.width()),
-                rng.range_i32(0, room.height()),
-            );
-            if room.is_solid_tile(t.0, t.1) {
-                continue;
-            }
-            if let Some(d) = EIGHT_DIRECTIONS_AND_ZERO[..8]
-                .iter()
-                .find(|d| room.is_solid_tile(t.0 + d.0, t.1 + d.1))
-            {
-                self.hard_set_tile(t, (t.0 + d.0, t.1 + d.1));
-                return 1;
-            }
-        }
-        // `abstractCreature.pos.TileDefined`.
-        if (tile.0 != -1 || tile.1 != -1)
-            && let Some(d) = EIGHT_DIRECTIONS_AND_ZERO[..8]
-                .iter()
-                .find(|d| room.is_solid_tile(tile.0 + d.0, tile.1 + d.1))
-        {
-            self.hard_set_tile(tile, (tile.0 + d.0, tile.1 + d.1));
-            return 1;
-        }
-        let t = (
-            rng.range_i32(0, room.width()),
-            rng.range_i32(0, room.height()),
-        );
-        self.hard_set_tile(t, t);
-        2
-    }
-
-    fn hard_set_tile(&mut self, hover: (i32, i32), root: (i32, i32)) {
-        self.hover_tile = hover;
-        self.root_tile = root;
     }
 }

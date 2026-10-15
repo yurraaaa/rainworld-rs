@@ -1,27 +1,28 @@
-//! Overseers: `OverseerAbstractAI` (base game: roaming between rooms by attraction,
-//! the player guide's comings and goings, leaving for the off-screen den before the
-//! rain), `PlayerGuideState`, and the realized body as far as it is ported.
-//!
-//! The realized `Overseer` stops at its placement (`PlaceInRoom`, `HardSetTile`): it
-//! does not update, so its `OverseerAI` (which also calls `AbstractBehavior` while
-//! realized) and the tutorial behaviour never run, and `tutorialBehavior` stays null
-//! (docs/DIVERGENCES.md D14). Behaviour: `rainworld-re/notes/creature-model.md`.
+//! `OverseerAbstractAI` (base game: roaming between rooms by attraction, the player
+//! guide's comings and goings, leaving for the off-screen den before the rain) and
+//! `PlayerGuideState`. Behaviour: `rainworld-re/notes/creature-model.md`.
 
 use rw_assets::{CreatureType, RoomAttraction, SlugcatName};
 use rw_random::UnityRandom;
 
-use super::ai::{AbstractCreatureAi, AiContext, SeededRandom};
-use super::{AbstractCreature, CreatureId, WorldCoordinate};
+use super::OverseerAi;
 use crate::FloatExt;
+use crate::creature::ai::{AbstractCreatureAi, AiContext, SeededRandom};
+use crate::creature::{AbstractCreature, CreatureId, WorldCoordinate};
 use crate::world::World;
 
-/// `PlayerGuideState` (in `miscWorldSaveData`), the fields the abstract AI reads; a new
+/// `PlayerGuideState` (in `miscWorldSaveData`), the fields the overseers read; a new
 /// game's values.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PlayerGuideState {
     pub likes_player: f32,
     pub hand_holding: f32,
     pub angry_with_player: bool,
+    pub displayed_anger: bool,
+    pub has_been_to_a_swarm_room_this_cycle: bool,
+    pub want_food_hand_holding_this_cycle: f32,
+    pub want_shelter_hand_holding_this_cycle: f32,
+    pub want_direction_hand_holding_this_cycle: f32,
 }
 
 impl Default for PlayerGuideState {
@@ -30,6 +31,11 @@ impl Default for PlayerGuideState {
             likes_player: 0.3,
             hand_holding: 0.8,
             angry_with_player: false,
+            displayed_anger: false,
+            has_been_to_a_swarm_room_this_cycle: false,
+            want_food_hand_holding_this_cycle: 0.65,
+            want_shelter_hand_holding_this_cycle: 1.0,
+            want_direction_hand_holding_this_cycle: 0.6,
         }
     }
 }
@@ -50,28 +56,47 @@ pub struct OverseerAbstractAi {
     pub freeze_standard_roaming: i32,
     pub owner_iterator: i32,
     pub is_player_guide: bool,
+    /// `RealAI`: built with each realization and kept when the overseer is abstracted
+    /// again (it has no path finder to drop).
+    pub real_ai: Option<Box<OverseerAi>>,
+}
+
+/// The tutorial rooms of the base game (`DefineTutorialRooms` without Remix's gates).
+pub const TUTORIAL_ROOMS: [&str; 6] = ["SU_C04", "SU_A41", "SU_A42", "SU_A43", "SU_A44", "SU_A22"];
+
+/// What `AbstractBehavior` reads of its `parent` (passed in: the creature's realized
+/// parts are out of the world while it updates).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Parent {
+    pub id: CreatureId,
+    pub pos: WorldCoordinate,
+    pub realized: bool,
+    pub ignore_cycle: bool,
+    /// `RealAI.tutorialBehavior != null`.
+    pub tutorial: bool,
+}
+
+/// Where `AbstractBehavior` sends the overseer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AbstractStep {
+    Stay,
+    /// `parent.Move(destination)` (abstract).
+    Move(WorldCoordinate),
+    /// Realized: `ZipOutOfRoom(destination)` when watching or projecting.
+    ZipOut(WorldCoordinate),
 }
 
 /// What `AbstractBehavior` reads besides the world.
 pub(crate) struct GuideContext<'a> {
     pub world: &'a World,
+    /// `world.rainCycle` (a realized overseer's tutorial may have moved its timer).
+    pub rain: &'a crate::world::RainCycle,
     pub rng: &'a mut UnityRandom,
     pub guide: &'a PlayerGuideState,
     /// `world.game.FirstAnyPlayer`.
     pub player: Option<CreatureId>,
     /// The player's `Karma` (the save state's).
     pub player_karma: i32,
-}
-
-/// The realized `Overseer`, as far as it is ported: its tiles after `PlaceInRoom`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct OverseerBody {
-    pub hover_tile: (i32, i32),
-    pub root_tile: (i32, i32),
-    /// `size` (0.6 for the guide, else 0.5..1 from the ID's seed).
-    pub size: f32,
-    /// `OverseerAI.randomBringUpLensBonus`.
-    pub random_bring_up_lens_bonus: f32,
 }
 
 impl OverseerAbstractAi {
@@ -90,6 +115,7 @@ impl OverseerAbstractAi {
             freeze_standard_roaming: 0,
             owner_iterator: 0,
             is_player_guide: false,
+            real_ai: None,
         };
         let world = cx.world;
         if !world.single_room() {
@@ -116,26 +142,44 @@ impl OverseerAbstractAi {
         self.owner_iterator = owner;
     }
 
-    /// `AbstractBehavior(time)` of overseer `me` (base game). Returns where it moves
-    /// (`parent.Move(destination)`); the realized branch (`ZipOutOfRoom`) is not
-    /// reachable, as only abstract overseers behave.
+    /// `OverseerGraphics.MainColor`'s choice.
+    #[must_use]
+    pub fn color(&self) -> super::OverseerColor {
+        use super::OverseerColor;
+        match self.owner_iterator {
+            1 => OverseerColor::Yellow,
+            2 => OverseerColor::Green,
+            _ if self.is_player_guide || self.owner_iterator == 3 => OverseerColor::Yellow,
+            _ => OverseerColor::Wild,
+        }
+    }
+
+    /// Whether the realized AI has a `tutorialBehavior`.
+    #[must_use]
+    pub fn has_tutorial(&self) -> bool {
+        self.real_ai
+            .as_ref()
+            .is_some_and(|ai| ai.tutorial.is_some())
+    }
+
+    /// `AbstractBehavior(time)` of overseer `parent` (base game): where it goes.
     pub(crate) fn abstract_behavior(
         &mut self,
         base: &mut AbstractCreatureAi,
-        me: CreatureId,
+        parent: Parent,
         time: i32,
         cx: &mut GuideContext<'_>,
-    ) -> Option<WorldCoordinate> {
+    ) -> AbstractStep {
         let world = cx.world;
-        let parent = world.creature(me);
+        let me = parent.id;
         if world.single_room() && parent.pos.room == 0 {
-            return None;
+            return AbstractStep::Stay;
         }
         if self.target_creature.is_some() {
             self.target_creature_time += 1;
         }
         if self.is_player_guide {
-            self.player_guide_update(time, cx);
+            self.player_guide_update(time, parent.tutorial, cx);
         }
         let player = cx.player;
         if player.is_some() && self.go_to_player {
@@ -146,7 +190,7 @@ impl OverseerAbstractAi {
                 && world.creature(t).kind() == CreatureType::SLUGCAT
             {
                 if base.destination.room == world.creature(t).pos.room {
-                    self.roam(base, me, time, 1.0, cx);
+                    self.roam(base, parent, time, 1.0, cx);
                 }
                 self.last_target_creature = Some(t);
                 self.target_creature = None;
@@ -159,11 +203,11 @@ impl OverseerAbstractAi {
                 if kind != CreatureType::OVERSEER
                     && (kind != CreatureType::SLUGCAT || !self.is_player_guide)
                     && Some(pick) != self.last_target_creature
-                    && self.interest(me, Some(pick), cx)
-                        > self.interest(me, self.target_creature, cx)
+                    && self.interest(cx.world, cx.rng, cx.player_karma, me, Some(pick))
+                        > self.interest(cx.world, cx.rng, cx.player_karma, me, self.target_creature)
                 {
                     self.target_creature = Some(pick);
-                    let interest = self.interest(me, Some(pick), cx);
+                    let interest = self.interest(cx.world, cx.rng, cx.player_karma, me, Some(pick));
                     self.target_creature_counter =
                         (100.0.lerp(2000.0, cx.rng.value()) * interest) as i32;
                 }
@@ -176,15 +220,16 @@ impl OverseerAbstractAi {
                 self.target_creature = None;
             }
         }
-        let parent = world.creature(me);
         if parent.pos.room != self.last_room.room {
             self.last_rooms.insert(0, parent.pos.room);
             self.last_rooms.truncate(10);
             self.last_room = parent.pos;
         }
         if self.freeze_standard_roaming <= 0 {
-            // `RealAI.tutorialBehavior` is never built (see the module comment).
-            if world.rain_cycle.time_until_rain() < 4800 && !parent.ignore_cycle {
+            if cx.rain.time_until_rain() < 4800
+                && !parent.ignore_cycle
+                && (!self.is_player_guide || !parent.tutorial)
+            {
                 if AbstractCreatureAi::time_influenced_roll(1.0 / 120.0, time, cx.rng) {
                     let den = WorldCoordinate::new(world.offscreen_den_index(), -1, -1, 0);
                     base.set_destination_no_pathing(den, true);
@@ -196,10 +241,10 @@ impl OverseerAbstractAi {
                 base.set_destination_no_pathing(world.creature(t).pos, true);
             } else {
                 let attraction = world.attraction_value(parent.pos.room, CreatureType::OVERSEER);
-                self.roam(base, me, time, 1.0 / 20.0.lerp(2000.0, attraction), cx);
+                self.roam(base, parent, time, 1.0 / 20.0.lerp(2000.0, attraction), cx);
             }
         }
-        let mut moved = None;
+        let mut step = AbstractStep::Stay;
         if base.destination.room != parent.pos.room {
             let attraction = world
                 .attraction_value(base.destination.room, CreatureType::OVERSEER)
@@ -208,26 +253,30 @@ impl OverseerAbstractAi {
                 1.0 / 200.0.lerp(10.0, attraction),
                 time,
                 cx.rng,
-            ) && !parent.is_realized()
-            {
-                moved = Some(base.destination);
+            ) {
+                step = if parent.realized {
+                    AbstractStep::ZipOut(base.destination)
+                } else {
+                    AbstractStep::Move(base.destination)
+                };
             }
         }
         self.freeze_standard_roaming -= 1;
-        moved
+        step
     }
 
     /// `Roam`.
     fn roam(
         &self,
         base: &mut AbstractCreatureAi,
-        me: CreatureId,
+        parent: Parent,
         time: i32,
         chance: f32,
         cx: &mut GuideContext<'_>,
     ) {
         let world = cx.world;
-        let pos = world.creature(me).pos;
+        let me = parent.id;
+        let pos = parent.pos;
         if base.destination.room != pos.room
             || !AbstractCreatureAi::time_influenced_roll(chance, time, cx.rng)
         {
@@ -282,7 +331,7 @@ impl OverseerAbstractAi {
             let interest = world
                 .room_creatures(pos.room)
                 .iter()
-                .map(|&c| self.interest(me, Some(c), cx))
+                .map(|&c| self.interest(cx.world, cx.rng, cx.player_karma, me, Some(c)))
                 .fold(0.0, f32::max);
             score += interest * cx.rng.value();
             score *= attraction;
@@ -322,12 +371,18 @@ impl OverseerAbstractAi {
             .any(|t| t == "SCAVOUTPOST" || t == "SCAVTRADER")
     }
 
-    /// `HowInterestingIsCreature`.
-    fn interest(&self, me: CreatureId, test: Option<CreatureId>, cx: &GuideContext<'_>) -> f32 {
+    /// `HowInterestingIsCreature` (`rng` only for its seeded draw, state kept).
+    pub(crate) fn interest(
+        &self,
+        world: &World,
+        rng: &UnityRandom,
+        player_karma: i32,
+        me: CreatureId,
+        test: Option<CreatureId>,
+    ) -> f32 {
         let Some(test) = test else {
             return 0.0;
         };
-        let world = cx.world;
         let crit = world.creature(test);
         if crit.template.small_creature {
             return 0.0;
@@ -335,7 +390,7 @@ impl OverseerAbstractAi {
         let mut num = match crit.kind().value() {
             "Slugcat" => {
                 let mut n = if crit.is_realized() {
-                    (cx.player_karma as f32).lerp_map_pow(0.0, 4.0, 0.15, 2.0, 1.2)
+                    (player_karma as f32).lerp_map_pow(0.0, 4.0, 0.15, 2.0, 1.2)
                 } else {
                     0.15
                 };
@@ -363,17 +418,18 @@ impl OverseerAbstractAi {
         let me_seed = world.creature(me).id.random_seed();
         let seed = me_seed.wrapping_add(crit.id.random_seed());
         // `SeededRandom` restores the global state; a scratch copy is equivalent.
-        let mut scratch = cx.rng.clone();
+        let mut scratch = rng.clone();
         num * 0.5.lerp(1.5, scratch.seeded_value(seed))
     }
 
     /// `PlayerGuideUpdate`.
-    fn player_guide_update(&mut self, time: i32, cx: &mut GuideContext<'_>) {
+    fn player_guide_update(&mut self, time: i32, tutorial: bool, cx: &mut GuideContext<'_>) {
         let Some(player) = cx.player else {
             return;
         };
         self.player_guide_counter -= time;
         if self.player_guide_counter >= 1 {
+            self.tutorial_call(tutorial, cx);
             return;
         }
         let world = cx.world;
@@ -409,22 +465,29 @@ impl OverseerAbstractAi {
             },
             self.player_guide_counter
         );
+        self.tutorial_call(tutorial, cx);
     }
-}
 
-impl OverseerBody {
-    /// `Overseer`'s constructor (size from the ID's seed, saved state) and `OverseerAI`'s
-    /// (`randomBringUpLensBonus`).
-    pub(crate) fn new(parent: &AbstractCreature, rng: &mut UnityRandom) -> Self {
-        let mut size = 0.5.lerp(1.0, rng.seeded_value(parent.id.random_seed()));
-        if parent.overseer_ai().is_some_and(|o| o.is_player_guide) {
-            size = 0.6;
+    /// The end of `PlayerGuideUpdate`: a guide with a tutorial comes to a player in a
+    /// tutorial room.
+    fn tutorial_call(&mut self, tutorial: bool, cx: &GuideContext<'_>) {
+        if self.go_to_player || !tutorial {
+            return;
         }
-        Self {
-            hover_tile: parent.pos.tile,
-            root_tile: parent.pos.tile,
-            size,
-            random_bring_up_lens_bonus: rng.value(),
+        let Some(player) = cx.player else {
+            return;
+        };
+        let room = cx.world.creature(player).pos.room;
+        let name = cx.world.abstract_room(room).map_or("", |r| r.name.as_str());
+        if TUTORIAL_ROOMS.contains(&name) {
+            self.go_to_player = true;
+            self.player_guide_counter = 1000;
         }
+    }
+
+    /// `PlayerGuideGoAway`.
+    pub fn player_guide_go_away(&mut self, time: i32) {
+        self.go_to_player = false;
+        self.player_guide_counter = self.player_guide_counter.max(time);
     }
 }

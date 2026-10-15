@@ -109,6 +109,8 @@ sound_ids! {
     HudKarmaReinforceContract = "HUD_Karma_Reinforce_Contract",
     HudKarmaReinforceBump = "HUD_Karma_Reinforce_Bump",
     HudGameOverPrompt = "HUD_Game_Over_Prompt",
+    OverseerWithdraw = "Overseer_Withdraw",
+    OverseerEmerge = "Overseer_Emerge",
 }
 
 /// A `ChunkSoundEmitter` handle: follows a body chunk; loops are updated and stopped

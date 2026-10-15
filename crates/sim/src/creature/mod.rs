@@ -20,7 +20,7 @@ use rw_random::UnityRandom;
 use crate::FloatExt;
 
 pub use ai::{AbstractCreatureAi, AiKind, CarriedItem, ItemKind};
-pub use overseer::{OverseerAbstractAi, OverseerBody, PlayerGuideState};
+pub use overseer::{OverseerAbstractAi, OverseerAi, OverseerBody, PlayerGuideState};
 pub use template::CreatureTemplate;
 
 /// `EntityID`.
@@ -187,7 +187,7 @@ impl CreatureState {
 pub enum RealizedCreature {
     /// The player's body (`RainWorldGame` keeps it).
     Player,
-    Overseer(OverseerBody),
+    Overseer(Box<OverseerBody>),
 }
 
 /// `AbstractCreature`.
@@ -257,7 +257,7 @@ impl AbstractCreature {
     #[must_use]
     pub fn overseer_body(&self) -> Option<&OverseerBody> {
         match &self.realized {
-            Some(RealizedCreature::Overseer(b)) => Some(b),
+            Some(RealizedCreature::Overseer(b)) => Some(b.as_ref()),
             _ => None,
         }
     }

@@ -17,6 +17,7 @@ use rw_random::UnityRandom;
 use rw_render::{BodyStatus, ChunkInterpolation, Follow, PlayerLight, WaterSurface};
 use rw_sim::campaign::{self, SlugcatCampaign};
 use rw_sim::creature::EntityId;
+use rw_sim::creature::overseer::OverseerView;
 use rw_sim::room_script::{RoomScript, SuC04StartUp};
 use rw_sim::world::World;
 use rw_sim::{
@@ -80,18 +81,20 @@ impl PlayerObserver for Graphics {
         }
     }
 
-    fn overseer_viewed(&mut self, id: EntityId, size: f32, rng: &mut UnityRandom) {
-        self.overseers.retain(|g| g.id != id);
-        self.overseers.push(OverseerGraphics::new(id, size, rng));
+    fn overseer_added(&mut self, view: &OverseerView<'_>, rng: &mut UnityRandom) {
+        if !self.overseers.iter().any(|g| g.id == view.id) {
+            self.overseers
+                .push(OverseerGraphics::new(view.id, view.body.size, rng));
+        }
     }
 
-    fn overseer_reset(&mut self, id: EntityId, rng: &mut UnityRandom) {
-        if let Some(g) = self.overseers.iter_mut().find(|g| g.id == id) {
+    fn overseer_reset(&mut self, view: &OverseerView<'_>, rng: &mut UnityRandom) {
+        if let Some(g) = self.overseers.iter_mut().find(|g| g.id == view.id) {
             g.reset(rng);
         }
     }
 
-    fn overseer_unviewed(&mut self, id: EntityId) {
+    fn overseer_removed(&mut self, id: EntityId) {
         self.overseers.retain(|g| g.id != id);
     }
 

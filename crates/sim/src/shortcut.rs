@@ -7,15 +7,16 @@
 use rw_assets::Room;
 use rw_random::UnityRandom;
 
+use crate::creature::CreatureId;
 use crate::{Player, Sounds, VesselStep};
 
 /// `RainWorldGame.updateShortCut`, which runs `ShortcutHandler.Update` only on every
-/// third game tick, and the handler's `betweenRoomsWaitingLobby` (one player).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// third game tick, and the handler's `betweenRoomsWaitingLobby`.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ShortcutHandler {
     update_counter: u8,
-    /// The player's vessel waiting to enter another room.
-    pub lobby: Option<LobbyVessel>,
+    /// `betweenRoomsWaitingLobby`, oldest first.
+    pub lobby: Vec<LobbyVessel>,
 }
 
 /// A vessel in `betweenRoomsWaitingLobby`.
@@ -27,6 +28,9 @@ pub struct LobbyVessel {
     pub entrance_node: i32,
     /// Shortcut updates spent waiting.
     pub updates: u32,
+    /// A realized creature's teleportation vessel (an overseer's); `None` for the
+    /// player's shortcut vessel.
+    pub teleport: Option<CreatureId>,
 }
 
 impl ShortcutHandler {

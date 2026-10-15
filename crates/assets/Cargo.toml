@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 png.workspace = true
+base64 = "0.23"
 lz4_flex = { version = "0.14", default-features = false, features = ["safe-decode", "std"] }
 
 lewton = { version = "0.10.2", default-features = false }

@@ -7,6 +7,7 @@
 //! game spreads it over frames on a thread (docs/DIVERGENCES.md D14). Behaviour:
 //! `rainworld-re/notes/world-loading.md`, `room-realizer.md`.
 
+mod ai_map;
 mod creatures;
 mod rain_cycle;
 mod realized;
@@ -18,8 +19,11 @@ use std::sync::Arc;
 use rw_assets::world::{AbstractRoomData, RoomSource, WorldData};
 use rw_assets::{ActiveMods, AssetError, CreatureType, RoomAttraction, Timeline};
 
-use crate::creature::{AbstractCreature, WorldCoordinate};
+use crate::Vec2;
+use crate::creature::{AbstractCreature, CreatureId, WorldCoordinate};
 
+pub use ai_map::AiMap;
+pub(crate) use ai_map::EIGHT_DIRECTIONS;
 pub(crate) use creatures::RoomLists;
 pub use creatures::{AbstractTick, QuantifiedCount, WorldProcesses};
 pub use rain_cycle::{CYCLE_TIME_MAX, CYCLE_TIME_MIN, RainCycle, WaterLevelCycle, WaterStage};
@@ -53,6 +57,11 @@ pub struct World {
     pub(crate) processes: WorldProcesses,
     /// `rainCycle` (built with the game, see [`crate::RainWorldGame::new`]).
     pub rain_cycle: RainCycle,
+    /// The last `updateList` position handed out (`Room.AddObject` appends).
+    update_seq: u64,
+    /// Creatures realized by `ChangeRooms` into a realized room, waiting to join the
+    /// shortcut handler's lobby (`CreatureEnterFromAbstractRoom`).
+    pub(crate) entering: Vec<(CreatureId, WorldCoordinate)>,
 }
 
 impl World {
@@ -81,9 +90,28 @@ impl World {
             sky_access_nodes: Vec::new(),
             processes: WorldProcesses::default(),
             rain_cycle: RainCycle::default(),
+            update_seq: 0,
+            entering: Vec::new(),
         };
         world.index_rooms();
         world
+    }
+
+    /// A position at the end of a room's `updateList` (`Room.AddObject`).
+    pub(crate) fn next_update_seq(&mut self) -> u64 {
+        self.update_seq += 1;
+        self.update_seq
+    }
+
+    /// `World.RoomToWorldPos`: a room position on the region map.
+    #[must_use]
+    pub fn room_to_world_pos(&self, in_room: Vec2, room: i32) -> Vec2 {
+        let Some(data) = self.abstract_room(room) else {
+            return Vec2::ZERO;
+        };
+        let map = Vec2::new(data.map_pos[0], data.map_pos[1]);
+        let size = Vec2::new(data.size.0 as f32 * 20.0, data.size.1 as f32 * 20.0);
+        (map / 3.0 + Vec2::new(10.0, 10.0)) * 20.0 + in_room - size / 2.0
     }
 
     #[must_use]

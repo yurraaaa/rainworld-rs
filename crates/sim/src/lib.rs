@@ -18,6 +18,7 @@
 //! which moves the player between rooms through room-exit shortcuts
 //! (`world-loading.md`, `room-realizer.md`, `creature-model.md`).
 
+mod camera;
 pub mod campaign;
 mod chunk;
 pub mod creature;
@@ -34,10 +35,11 @@ mod vec2;
 mod water;
 pub mod world;
 
+pub use camera::CameraView;
 pub use chunk::{BodyChunk, Contact, DEFAULT_RESTRICT_IN_ROOM_RANGE, PhysicsParams, TerrainImpact};
 pub use creature::WorldCoordinate;
 pub use float_ext::FloatExt;
-pub use game::{CameraMove, NewGameWorld, PlayerObserver, RainWorldGame, Start};
+pub use game::{CameraMove, HudEvent, NewGameWorld, PlayerObserver, RainWorldGame, Start};
 pub use object::{
     BodyChunkConnection, ConnectionKind, PhysicalObject, TerrainImpactHandler, slugcat,
 };

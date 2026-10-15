@@ -358,6 +358,9 @@ pub struct AbstractRoomData {
     pub single_realized_room: bool,
     pub ancient_shelter: bool,
     pub offscreen_den: bool,
+    /// `mapPos`: the room's centre on the region map (`map_<region>.txt`), shifted so
+    /// the map's lowest corner is at the origin (`LoadMapConfig`); zero when unlisted.
+    pub map_pos: [f32; 2],
 }
 
 impl AbstractRoomData {
@@ -377,6 +380,7 @@ impl AbstractRoomData {
             single_realized_room: false,
             ancient_shelter: false,
             offscreen_den: false,
+            map_pos: [0.0; 2],
         }
     }
 
@@ -748,6 +752,9 @@ impl WorldData {
         Self::cap_broken_exits(assets, &mapping, &mut rooms, first, &mut report)?;
         let den_index = first + i32::try_from(rooms.len()).unwrap_or(i32::MAX);
         rooms.push(AbstractRoomData::offscreen_den(&request.name, den_index));
+        if !request.single_room {
+            Self::load_map_positions(assets, &request.name, request.filter.timeline, &mut rooms);
+        }
         Ok(Self {
             name: request.name.clone(),
             region,
@@ -759,6 +766,62 @@ impl WorldData {
             swarm_rooms: mapping.swarm_rooms,
             report,
         })
+    }
+
+    /// `LoadMapConfig`'s room positions: `map_<region>-<timeline>.txt` if it exists,
+    /// else `map_<region>.txt`; each `NAME: x><y><...` line sets that room's `mapPos`
+    /// (names compared ignoring case); then every room, the off-screen den included, is
+    /// shifted so the lowest `mapPos - size * 1.5` is zero.
+    fn load_map_positions(
+        assets: &StreamingAssets,
+        region: &str,
+        timeline: Option<Timeline>,
+        rooms: &mut [AbstractRoomData],
+    ) {
+        let plain = assets.file(&format!("world/{region}/map_{region}.txt"));
+        let path = timeline
+            .map(|t| assets.file(&format!("world/{region}/map_{region}-{}.txt", t.value())))
+            .filter(|p| p.is_file())
+            .unwrap_or(plain);
+        let Ok(text) = fs::read_to_string(&path) else {
+            return;
+        };
+        for line in text.lines() {
+            let line = if line.ends_with(':') {
+                format!("{line} ")
+            } else {
+                line.to_owned()
+            };
+            let parts: Vec<&str> = line.split(": ").collect();
+            if parts.len() != 2
+                || parts[0] == "Connection"
+                || parts[0].starts_with("SpawnMigration")
+            {
+                continue;
+            }
+            let Some(room) = rooms
+                .iter_mut()
+                .find(|r| r.name.eq_ignore_ascii_case(parts[0]))
+            else {
+                continue;
+            };
+            let mut values = parts[1].split("><");
+            let x = values.next().and_then(|v| v.trim().parse::<f32>().ok());
+            let y = values.next().and_then(|v| v.trim().parse::<f32>().ok());
+            if let (Some(x), Some(y)) = (x, y) {
+                room.map_pos = [x, y];
+            }
+        }
+        let mut low = [f32::MAX; 2];
+        for r in rooms.iter() {
+            let size = [r.size.0 as f32, r.size.1 as f32];
+            for k in 0..2 {
+                low[k] = low[k].min(r.map_pos[k] - size[k] * 3.0 * 0.5);
+            }
+        }
+        for r in rooms.iter_mut() {
+            r.map_pos = [r.map_pos[0] - low[0], r.map_pos[1] - low[1]];
+        }
     }
 
     /// `CreatingAbstractRooms` for room line `i`: conditional links, connections by

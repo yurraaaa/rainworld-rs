@@ -7,6 +7,7 @@ use std::sync::{Arc, OnceLock};
 use rw_assets::world::{AbstractRoomData, LoadedRoom};
 use rw_assets::{ActiveMods, Room, RoomSettings, Timeline};
 
+use super::AiMap;
 use crate::room_ext::RoomExt;
 use crate::room_script::RoomScript;
 
@@ -41,6 +42,8 @@ pub struct RealizedRoom {
     first_time_realized: bool,
     /// The room-specific scripts `Room.Loaded` added.
     pub scripts: Vec<RoomScript>,
+    /// `aimap`, made when the room finishes loading.
+    pub ai_map: Option<AiMap>,
 }
 
 impl RealizedRoom {
@@ -65,6 +68,7 @@ impl RealizedRoom {
             exit_distances: OnceLock::new(),
             first_time_realized,
             scripts: Vec::new(),
+            ai_map: None,
         }
     }
 
@@ -107,6 +111,7 @@ impl RealizedRoom {
     /// and open to the player once the delay runs out.
     pub(crate) fn finish_loading(&mut self) {
         self.water = Water::new(&self.room, &self.settings);
+        self.ai_map = Some(AiMap::new(&self.room));
         self.loading_progress = 3;
         self.ready_for_non_ai_creatures = true;
     }
@@ -114,6 +119,12 @@ impl RealizedRoom {
     #[must_use]
     pub fn fully_loaded(&self) -> bool {
         self.loading_progress >= 3
+    }
+
+    /// `shortCutsReady`.
+    #[must_use]
+    pub fn shortcuts_ready(&self) -> bool {
+        self.loading_progress >= 1
     }
 
     /// `readyForAI`.

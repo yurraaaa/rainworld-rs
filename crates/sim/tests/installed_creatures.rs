@@ -225,6 +225,7 @@ impl AbstractRun {
                 guide: &guide,
                 player: None,
                 player_karma: 0,
+                cycle: 0,
             };
             let target = world.first_room_index() + i32::try_from(index).expect("index");
             world.update_abstract_room(target, time, &mut cx);

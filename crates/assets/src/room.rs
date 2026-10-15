@@ -271,6 +271,9 @@ pub struct Room {
     pub(crate) shortcut_map: ShortcutMap,
     /// Line 9, or why it does not parse.
     conn_map: Result<ConnMap, String>,
+    /// The AI map's `visibility` of each non-Solid tile, x-major (line 10's first part,
+    /// `SetVisibilityMapFromCompressedArray`); empty when the line is missing or bad.
+    visibility: Vec<i32>,
 }
 
 impl Room {
@@ -340,8 +343,13 @@ impl Room {
             .collect::<Result<Box<[Tile]>, RoomError>>()?;
 
         let conn_map = ConnMap::parse(lines.line(9)?);
+        let visibility = lines
+            .line(10)
+            .map(Self::parse_visibility)
+            .unwrap_or_default();
         let mut room = Self {
             conn_map,
+            visibility,
             name,
             width,
             height,
@@ -383,6 +391,30 @@ impl Room {
     /// Why the line does not parse.
     pub fn conn_map(&self) -> Result<&ConnMap, String> {
         self.conn_map.as_ref().map_err(Clone::clone)
+    }
+
+    /// `RoomPreprocessor.StringToIntArray` of line 10 up to the first `<<DIV - A>>`:
+    /// base64 of little-endian `int32`s.
+    fn parse_visibility(line: &str) -> Vec<i32> {
+        use base64::Engine;
+        let first = line.split("<<DIV - A>>").next().unwrap_or_default();
+        let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(first.trim()) else {
+            return Vec::new();
+        };
+        bytes
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|&b| i32::from_le_bytes(b))
+            .collect()
+    }
+
+    /// The baked `AItile.visibility` of each non-Solid tile in x-major order (x outer, y
+    /// up), as `AImap.SetVisibilityMapFromCompressedArray` reads it; empty when the room
+    /// file has none.
+    #[must_use]
+    pub fn visibility(&self) -> &[i32] {
+        &self.visibility
     }
 
     /// Display name from line 0.

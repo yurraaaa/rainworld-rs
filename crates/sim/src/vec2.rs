@@ -143,6 +143,27 @@ impl Vec2 {
         rw_assets::tile_position(self.to_array())
     }
 
+    /// `Room.MiddleOfTile(IntVector2)`.
+    #[must_use]
+    pub fn middle_of_tile((x, y): (i32, i32)) -> Self {
+        Self::from(rw_assets::tile_centre(x, y))
+    }
+
+    /// `Custom.DistLess`.
+    #[must_use]
+    pub fn dist_less(self, other: Self, dist: f32) -> bool {
+        (self - other).length() < dist
+    }
+
+    /// `Custom.MoveTowards`: at most `max` closer to `to`.
+    #[must_use]
+    pub fn move_towards(self, to: Self, max: f32) -> Self {
+        if self.dist_less(to, max) {
+            return to;
+        }
+        self + self.direction_to(to) * max
+    }
+
     /// Middle of the tile containing this position (`Room.MiddleOfTile(Vector2)`).
     #[must_use]
     pub fn tile_middle(self) -> Self {
