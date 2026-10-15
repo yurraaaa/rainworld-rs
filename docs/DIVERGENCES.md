@@ -17,12 +17,16 @@ player and its graphics module draw from it in the game's update order. Every so
 ported code plays makes `VirtualMicrophone.PlaySound`'s draws on it where the game calls
 `room.PlaySound` (`rw_sim::Sounds`; the order is in `rainworld-re/notes/sound.md` 2.8),
 loaded from `sounds.txt` in the window and in MCP alike, so a run's sequence does not
-depend on whether audio is playing. What still
-differs is only the seed and the call order:
+depend on whether audio is playing. The menus draw from the same stream before the game
+does: the flat scenes' camera drift (`InteractiveMenuScene`, every tick of a shown
+scene) and the menu sounds (`MenuMicrophone.PlaySound`/`PlayLoop` make the same
+`SoundLoader` draws), and the game process takes the stream over where the menus left
+it (D13). What still differs is only the seed and the call order:
 - **Seed.** The game seeds at start-up from OS entropy and never re-seeds for anything
   ported (its `InitState` sites are story-session cycle seeds, DLC and other objects'
   save/restore sub-sequences). The app seeds with `UnityRandom::new(seed)` from
-  `--seed` / the MCP `seed` (low 32 bits).
+  `--seed` / the MCP `seed` (low 32 bits) once, when the process manager starts; a
+  run that boots into the menus reaches the game with the stream already advanced.
 - **Call order.** The game interleaves draws from every other object, sound, particle,
   rain, camera and AI in the room and world; the port has only the room's water and the
   player, so its sequence is the game's only for those draws. Draws of unported code in
@@ -402,12 +406,15 @@ objects and effects that are not ported.
 on a body chunk; chunk loops with handles), `rw_assets::SoundTable` the `SoundLoader`,
 `rw_assets::unity::Fsb5` the clip decoder, and `rw_audio` the `VirtualMicrophone` with
 its `AmbientSoundPlayer`s, playing on kira (`rainworld-re/notes/sound.md`). Every base-game
-`Player` sound, the shortcut tick and the water-surface splashes are ported.
+`Player` sound, the shortcut tick and the water-surface splashes are ported. The menus'
+`MenuMicrophone` is `rw_menu::MenuMic` (what plays, the draws, the loops' fades) and
+`rw_audio::MenuPlayback` (the sources), with the default options' sound-effects volume
+0.8.
 
 **What differs:**
 - **Not ported:** music (`music.md`), the rain and thunder loops and one-shots and the
-  drown-out of volume group 0, creature, item and object sounds, UI and menu sounds,
-  `PlayCustomSound` / loose mod clips next to `sounds.txt` (a name found only there counts
+  drown-out of volume group 0, creature, item and object sounds, the sounds of
+  unported menu screens and objects, `PlayCustomSound` / loose mod clips next to `sounds.txt` (a name found only there counts
   as present for the draws but is not decoded), the Watcher ripple ambience and DLC
   sound IDs. Deafness, fade to black and `globalSoundMuffle` stay 0; time speed is 1.
 - **`AllowSound`'s crowd cap is applied by the audio, after the sim made the draws.** In
@@ -433,25 +440,54 @@ real-time audio rather than the sim.
 
 **Affects.** What is heard, never the sim (its draws do not depend on the audio).
 
-## D13: Front end (process manager, fonts, menu input; milestone M0)
+## D13: Front end (process manager, menus, menu input)
 
 **What.**
 - **Start process.** `Initialization` is reduced to one tick: fonts, strings and
   settings are loaded before the manager starts, and it requests the start process at
-  once. The game's distribution build starts `IntroRoll` (`setup.startScreen`); the
-  port starts `Game` (or `--process font-test`) until IntroRoll and the main menu are
-  ported. The boot fade, the switch and the 0.45 s fade-in follow the game, so the
-  game now appears after about three black frames and a fade, as in the game.
+  once. The game's distribution build starts `IntroRoll` (`setup.startScreen`), which
+  leads to the main menu; the port skips IntroRoll and starts `MainMenu`. `--spawn`,
+  `--script` and `--screenshot` start `Game` directly, and `--process` picks
+  (`main-menu`, `slugcat-select`, `game`, `font-test`). The boot fade, the switches and
+  the fades follow the game.
 - **Port-only process.** `ProcessId::FontTest` (labels in both fonts over the flat
-  main-menu scene) is not a game screen; it exists to compare drawing by eye.
-- **Flat scenes.** Menu scenes will be shown in the game's flat mode (`flatmode.txt`:
-  one `<scene> - Flat.png`) until depth scenes (`MenuDepthIllustration`, its shaders and
-  the camera drift) are ported.
-- **Missing side processes.** No music player, menu microphone, dialogs or Steam
-  manager; the switch queue is only filled while a dialog runs, so it stays empty.
-  Mod finalization completes in the same frame (no mods); `progression.Revert`,
-  `options` and save loading are not done. Of `HardCleanFutileAssets` only the
-  illustration atlases a process loaded are freed.
+  main-menu scene) is not a game screen; it exists to compare drawing by eye. Its
+  labels sit on whole pixels, where `font`'s glyphs lose a pixel row to point sampling;
+  the game's menus place labels a third of a pixel off (the page sits at (1/3, 1/3)),
+  and the port's menus draw them whole.
+- **Unported screens.** Every process but the game, the main menu and slugcat select
+  (the main menu's Regions, Arena, Remix and Options, and the pause, sleep and death
+  screens) is a black screen naming the process; the pause button (Escape) returns to
+  the main menu. In the game Escape still quits the app until the pause menu exists.
+- **Flat scenes.** Menu scenes are shown in the game's flat mode (`flatmode.txt`: one
+  `<scene> - Flat.png`; `rainWorld.flatIllustrations`) until depth scenes
+  (`MenuDepthIllustration`, its shaders) are ported. The flat-mode branches follow the
+  game: no slugcat select rain effect; the scenes' idle camera still runs and draws
+  random numbers every tick, as in the game.
+- **Saves, options and progression.** Nothing is read from or written to the game's
+  saves or options: the progression is a new one (no saved games, no discovered
+  shelters so Regions is greyed, Hunter locked unless `StreamingAssets/unlockred.txt`
+  exists or the main menu's unlock code is entered, which unlocks for the session only)
+  and the options are the defaults, except that the Downpour/Remix first-launch notices
+  (`dlcTutorialShown`, `remixTutorialShown`) count as already shown, so the main menu
+  opens without its popup. `options.Save()` and `SaveProgression` are not called.
+- **DLC detection.** `dlcsInstalled` is found from files as
+  `DLCOwnershipCheckSwitchPC` does (no Steam ownership check): with Downpour's files on
+  disk the main menu shows the Downpour scene, as the game does.
+- **Starting a game.** The slugcat select menu's held START starts a new game
+  (`StoryGameInitCondition.New`) in the port's single room: the Survivor's and the
+  Monk's intro slideshows are skipped (the game would play them first unless S is
+  held), the save is not wiped (there is none) and the room is the one given on the
+  command line, not the character's start room. The chosen slugcat colours the body's
+  graphics; its body is the Survivor's (`SlugcatStats` of the Monk and the Hunter are
+  not ported). Continue, Restart and Statistics need saves and are not reachable.
+- **Side processes.** Only the menu microphone runs; no music player, dialogs or Steam
+  manager, so the switch queue stays empty. The game drops `manager.menuMic` on a switch
+  to the game but leaves the old microphone running as a side process (its loops fade
+  out) and makes a new one on the way back; the port keeps one microphone and tracks
+  whether the manager holds it, which sounds the same. Mod finalization completes in the
+  same frame (no mods); `progression.Revert` is not done. Of `HardCleanFutileAssets`
+  only the illustration atlases a process loaded are freed.
 - **File resolution.** `AssetManager.ResolveFilePath` looks in `mergedmods/` and the
   active mods first; the port runs the base game with no mods and reads
   `StreamingAssets/<lower-cased path>` only.
@@ -460,28 +496,31 @@ real-time audio rather than the sim.
   files are not merged.
 - **Text layout.** `FFont`'s Thai placement rules and other languages' fonts are not
   ported.
-- **Menu input.** Keyboard only, from Rewired's shipped default UI map (decoded from
-  `level0`, `rainworld-re/notes/menu.md`): arrows move, Return/Space/Z submit, Escape
-  cancel, X "alternate". Saved custom bindings (`RewiredSaveData` in PlayerPrefs),
-  gamepads and the options' `mouseButtonMappings` are not read. When two opposite keys
-  of an axis are held the port sums them to 0 (Rewired's rule not checked). Whether the
-  default mouse map (left button = UI submit, map category 1) is active for player 0 is
-  not settled; the port records mouse position and buttons for the menus to read
-  directly, as `Menu` does with `Input.GetMouseButton`. In the game, Esc still quits.
+- **Menu input.** Keyboard and mouse. Keys come from Rewired's shipped default UI map
+  (decoded from `level0`, `rainworld-re/notes/menu.md`): arrows move, Return/Space/Z
+  submit, Escape cancel, X "alternate"; the pause button is Escape. Saved custom
+  bindings (`RewiredSaveData` in PlayerPrefs), gamepads and the options'
+  `mouseButtonMappings` are not read. When two opposite keys of an axis are held the
+  port sums them to 0 (Rewired's rule not checked). Whether the default mouse map (left
+  button = UI submit, map category 1) is active for player 0 is not settled; the menus
+  read the mouse position and buttons directly, as `Menu` does with
+  `Input.GetMouseButton`. The cursor is shown full screen and windowed alike
+  (`options.fullScreen` stays at its default).
+- **Gameplay keys.** Rewired's default gameplay keyboard map: arrows move, Z jumps. Its
+  other keys (X throw, left Shift pick up, Space map, C special) have nothing to drive
+  yet.
 - **Frame time.** `Time.deltaTime` is capped at 1/3 s, Unity's default
   `maximumDeltaTime`; the game's own setting is not checked. (The game previously ran on
   a fixed timestep with a 250 ms cap; it now runs under `MainLoopProcess.RawUpdate`:
   ticks only while more than one is accumulated, at most three per frame.)
-- **Random stream (D1).** The menus draw no random numbers yet; the game process
-  still seeds the stream from `--seed` when it is created.
-- **Gameplay keys (noted, not changed).** Rewired's default gameplay keyboard map is
-  Z jump, X throw, LeftShift pick up, Space map, C special, Escape pause, arrows move;
-  the port's gameplay keys (arrows/WASD, Space/Z jump) predate this and are unchanged.
+- **Random stream (D1).** One stream, seeded once from `--seed`, from the first menu to
+  the game.
 
-**Why.** The menus are ported screen by screen; until IntroRoll and MainMenu exist the
-player goes straight to the game, as before.
+**Why.** The menus are ported screen by screen, with no saves or options yet; the
+single-room game stands in for a story session.
 
-**Affects.** What is shown at start-up and between processes; no gameplay.
+**Affects.** What is shown at start-up and between processes, and where the random
+stream stands when the game starts; no gameplay.
 
 ## Not ported yet (not divergences, just absent)
 
@@ -497,6 +536,7 @@ Physics: burrowing, terrain curves (`TerrainCurve`), `setPos`
 (cross-object position writes), the curved-terrain `TerrainImpact` call, grabs (`grabbedBy` skips the room-range clamp, and grabs force `goThroughFloors`), and
 `DefaultTile`.
 
-Front end: every menu screen (IntroRoll, MainMenu, SlugcatSelect, options, sleep and
-death screens, pause menu, slideshows), menu objects and selection, the `MenuText`,
-scene and hold-button shaders, menu sounds and music.
+Front end: IntroRoll, the options, regions, arena and Remix menus, sleep and death
+screens, the pause menu, slideshows, dialogs, the slugcat select menu's continue pages,
+colour and Jolly Co-op controls, depth scenes, menu objects those use (sliders, check
+box groups, symbol buttons, scroll boxes, `UIelementWrapper`), and music.

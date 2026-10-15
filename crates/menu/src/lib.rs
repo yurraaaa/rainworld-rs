@@ -1,6 +1,7 @@
 //! The front end: Futile's stage, fonts and labels, menu illustrations, the English
-//! translator, menu input and the process manager that switches between the game and
-//! the menus behind a fade. Windowing stays in the app; drawing goes through
+//! translator, menu input, the menu framework ([`menu`]) with the main menu and the
+//! slugcat select menu, the menu microphone, and the process manager that switches
+//! between the game and the menus behind a fade. Windowing stays in the app; drawing goes through
 //! `rw-render`'s stage. Behaviour: `rainworld-re/notes/menu.md`; differences from the
 //! game are in `docs/DIVERGENCES.md`.
 

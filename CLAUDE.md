@@ -138,9 +138,13 @@ so it serves the checkout's current code). Tools: `list_rooms`,
 - To check behaviour, prefer these tools over `--screenshot`/`--script`.
   Briefs for agents that check behaviour should say so.
 - `load_process` boots the process manager as the game does (black,
-  Initialization, fade) into a process (`font_test`, `game`, later the
-  menus); `step_process` runs 1/40 s frames holding Rewired key names;
-  `screenshot` then draws the process frame with its fade.
+  Initialization, fade) into a process (`main_menu` by default,
+  `slugcat_select`, `font_test`, `game`); `step_process` runs 1/40 s
+  frames holding Rewired key names (menu keys only: Z/Return/Space submit,
+  Escape cancel and pause, arrows), released after the last frame; buttons
+  see a press a tick after it and click on release, so a tap is one frame
+  held and two released. `screenshot` then draws the process frame with
+  its fade.
 - `--mcp --window` also shows the driven scene in a window.
 - Long-term goal: an Android port at the end of the project. Don't rule it
   out: keep platform-specific code (windowing, file paths to the game data,
