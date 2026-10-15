@@ -392,48 +392,7 @@ impl Session {
     /// # Errors
     /// Without a game.
     pub fn exits(&self) -> Result<ExitList, String> {
-        let scene = self.scene()?;
-        let game = scene.game();
-        let world = game.sim().world();
-        let here = game.sim().camera_room();
-        let abstract_room = world.abstract_room(here).ok_or("no camera room")?;
-        let room = game.room();
-        let exits = abstract_room
-            .nodes
-            .iter()
-            .enumerate()
-            .map(|(i, node)| {
-                let entrance = room.shortcut_map().leading_to_node(i).map(|d| d.start);
-                let dest = abstract_room
-                    .connections
-                    .get(i)
-                    .copied()
-                    .filter(|&c| c > -1);
-                let dest_room = dest.and_then(|d| world.abstract_room(d));
-                let dest_node = dest_room.map(|d| d.exit_index(here));
-                let dest_camera = dest_room
-                    .zip(dest_node)
-                    .and_then(|(d, n)| d.nodes.get(usize::try_from(n).ok()?))
-                    .map(|n| n.viewed_by_camera);
-                ExitInfo {
-                    node: i,
-                    kind: format!("{:?}", node.kind),
-                    entrance_tile: entrance.map(Into::into),
-                    enter_input: entrance.map(|(x, y)| {
-                        let (hx, hy) = room.shortcut_hole_direction(x, y);
-                        [-hx, -hy]
-                    }),
-                    destination: dest_room.map(|d| d.name.clone()),
-                    destination_node: dest_node,
-                    destination_camera: dest_camera,
-                    viewed_by_camera: node.viewed_by_camera,
-                }
-            })
-            .collect();
-        Ok(ExitList {
-            room: room.name().to_owned(),
-            exits,
-        })
+        ExitList::of(self.scene()?)
     }
 
     /// Renders the scene offscreen as the window would and encodes it as PNG.
@@ -510,47 +469,7 @@ impl Session {
             .scene()?
             .hud()
             .ok_or("no HUD yet; step once after load_room / new_game")?;
-        let food = &hud.food_meter;
-        let karma = &hud.karma_meter;
-        Ok(HudState {
-            food_meter: FoodMeterState {
-                pos: food.pos.to_array(),
-                fade: food.fade,
-                visible_counter: food.visible_counter,
-                show_count: food.show_count,
-                max_food: food.max_food,
-                survival_limit: food.survival_limit,
-                down_in_corner: food.down_in_corner,
-                pip_x: food.circles.iter().map(|c| c.slow_x_add).collect(),
-            },
-            karma_meter: KarmaMeterState {
-                pos: karma.pos.to_array(),
-                fade: karma.fade,
-                rad: karma.rad,
-                force_visible_counter: karma.force_visible_counter,
-                symbol: karma.symbol.clone(),
-                reinforced: karma.show_as_reinforced,
-            },
-            rain_meter: RainMeterState {
-                fade: hud.rain_meter.fade,
-                circles: hud.rain_meter.circles.len(),
-                remain_visible_counter: hud.rain_meter.remain_visible_counter,
-            },
-            map_fade: hud.map.fade,
-            show_karma_food_rain: hud.show_karma_food_rain,
-            text_prompt: TextPromptState {
-                show: hud.text_prompt.show,
-                showing: format!("{:?}", hud.text_prompt.currently_showing),
-                text: hud.prompt_text().to_owned(),
-                queued: hud.text_prompt.messages.len(),
-            },
-            controls_page: hud.controls_page.as_ref().map(|p| ControlsPageState {
-                counter: p.counter,
-                black_fade: p.black_fade,
-                want_to_continue: p.want_to_continue,
-                labels: hud.controls_page_texts().unwrap_or_default(),
-            }),
-        })
+        Ok(HudState::of(hud))
     }
 
     fn ensure_renderer(&mut self, pixels: [u32; 2]) -> Result<(), String> {
@@ -866,6 +785,98 @@ impl StepTrace {
             head: player.map(|p| p.head().pos.to_array()),
             body_mode: player.map(|p| format!("{:?}", p.body_mode())),
             animation: player.map(|p| format!("{:?}", p.animation())),
+        }
+    }
+}
+
+impl ExitList {
+    pub(super) fn of(scene: &Scene) -> Result<Self, String> {
+        let game = scene.game();
+        let world = game.sim().world();
+        let here = game.sim().camera_room();
+        let abstract_room = world.abstract_room(here).ok_or("no camera room")?;
+        let room = game.room();
+        let exits = abstract_room
+            .nodes
+            .iter()
+            .enumerate()
+            .map(|(i, node)| {
+                let entrance = room.shortcut_map().leading_to_node(i).map(|d| d.start);
+                let dest = abstract_room
+                    .connections
+                    .get(i)
+                    .copied()
+                    .filter(|&c| c > -1);
+                let dest_room = dest.and_then(|d| world.abstract_room(d));
+                let dest_node = dest_room.map(|d| d.exit_index(here));
+                let dest_camera = dest_room
+                    .zip(dest_node)
+                    .and_then(|(d, n)| d.nodes.get(usize::try_from(n).ok()?))
+                    .map(|n| n.viewed_by_camera);
+                ExitInfo {
+                    node: i,
+                    kind: format!("{:?}", node.kind),
+                    entrance_tile: entrance.map(Into::into),
+                    enter_input: entrance.map(|(x, y)| {
+                        let (hx, hy) = room.shortcut_hole_direction(x, y);
+                        [-hx, -hy]
+                    }),
+                    destination: dest_room.map(|d| d.name.clone()),
+                    destination_node: dest_node,
+                    destination_camera: dest_camera,
+                    viewed_by_camera: node.viewed_by_camera,
+                }
+            })
+            .collect();
+        Ok(Self {
+            room: room.name().to_owned(),
+            exits,
+        })
+    }
+}
+
+impl HudState {
+    pub(super) fn of(hud: &rw_hud::Hud) -> Self {
+        let food = &hud.food_meter;
+        let karma = &hud.karma_meter;
+        Self {
+            food_meter: FoodMeterState {
+                pos: food.pos.to_array(),
+                fade: food.fade,
+                visible_counter: food.visible_counter,
+                show_count: food.show_count,
+                max_food: food.max_food,
+                survival_limit: food.survival_limit,
+                down_in_corner: food.down_in_corner,
+                pip_x: food.circles.iter().map(|c| c.slow_x_add).collect(),
+            },
+            karma_meter: KarmaMeterState {
+                pos: karma.pos.to_array(),
+                fade: karma.fade,
+                rad: karma.rad,
+                force_visible_counter: karma.force_visible_counter,
+                symbol: karma.symbol.clone(),
+                reinforced: karma.show_as_reinforced,
+            },
+            rain_meter: RainMeterState {
+                fade: hud.rain_meter.fade,
+                circles: hud.rain_meter.circles.len(),
+                remain_visible_counter: hud.rain_meter.remain_visible_counter,
+            },
+            map_fade: hud.map.fade,
+            show_karma_food_rain: hud.show_karma_food_rain,
+            text_prompt: TextPromptState {
+                show: hud.text_prompt.show,
+                showing: format!("{:?}", hud.text_prompt.currently_showing),
+                text: hud.prompt_text().to_owned(),
+                queued: hud.text_prompt.messages.len(),
+            },
+            controls_page: hud.controls_page.as_ref().map(|p| ControlsPageState {
+                counter: p.counter,
+                black_fade: p.black_fade,
+                want_to_continue: p.want_to_continue,
+                labels: hud.controls_page_texts().unwrap_or_default(),
+            }),
         }
     }
 }

@@ -748,3 +748,139 @@ fn new_game_hud_and_controls_page() {
     assert_eq!(hud.karma_meter.fade, 0.0, "hideHud");
     s.save_shot("text_prompt");
 }
+
+impl Session {
+    fn process_scene(&mut self) -> &mut crate::scene::Scene {
+        &mut self
+            .frontend_mut()
+            .expect("process mode")
+            .game_mut()
+            .expect("game")
+            .scene
+    }
+
+    /// Boots through the intro roll, main menu and slugcat select to a new Survivor
+    /// game, skipping the slideshow with S held.
+    fn boot_new_survivor(&mut self) {
+        self.load_process(&LoadProcessParams::default())
+            .expect("process loads");
+        self.settle_on(ProcessId::IntroRoll);
+        self.frames(30, &[]);
+        self.frames(1, &["Z"]);
+        self.settle_on(ProcessId::MainMenu);
+        self.frames(1, &["Return"]);
+        self.frames(2, &[]);
+        self.settle_on(ProcessId::SlugcatSelect);
+        for _ in 0..80 {
+            if self.frames(1, &["Z", "S"]).upcoming.is_some() {
+                break;
+            }
+        }
+        self.settle_on(ProcessId::Game);
+    }
+
+    /// Puts the player on the camera room's entrance to `dest` and holds the way in
+    /// until it stands in `dest`.
+    fn take_exit_to(&mut self, dest: &str) {
+        let exits = super::reply::ExitList::of(self.process_scene()).expect("exits");
+        let exit = exits
+            .exits
+            .iter()
+            .find(|e| e.destination.as_deref() == Some(dest))
+            .unwrap_or_else(|| panic!("no exit to {dest} from {}", exits.room));
+        let [x, y] = exit.entrance_tile.expect("entrance");
+        let key = match exit.enter_input.expect("way in") {
+            [1, _] => "RightArrow",
+            [-1, _] => "LeftArrow",
+            [_, 1] => "UpArrow",
+            _ => "DownArrow",
+        };
+        let pos = rw_sim::Vec2::from(rw_assets::tile_centre(x, y));
+        self.process_scene()
+            .game_mut()
+            .set_player(pos, rw_sim::Vec2::default());
+        for _ in 0..400 {
+            self.frames(1, &[key]);
+            let game = self.process_scene().game();
+            let here = game
+                .sim()
+                .world()
+                .abstract_room(game.sim().player_pos().room);
+            if here.is_some_and(|r| r.name == dest)
+                && game.live_player().is_some_and(|p| !p.in_shortcut())
+            {
+                return;
+            }
+        }
+        panic!("never reached {dest}");
+    }
+}
+
+impl crate::scene::Scene {
+    /// The HUD's subregion tracker.
+    fn tracker(&self) -> &rw_hud::SubregionTracker {
+        let hud = self.hud().expect("hud");
+        hud.text_prompt.subregion_tracker.as_ref().expect("tracker")
+    }
+}
+
+/// `SubregionTracker.Update` (482702) in a new Survivor game started through the menus
+/// (`StoryGameInitCondition.New`): the start rooms have no subregion; the first
+/// Outskirts room (SU_A38, via SU_A41, A43, A22, A23, A25) is counted from the tick
+/// after the HUD first sees it (`lastRegion == num`), and on the tick the counter passes
+/// 80 the prompt gets "Outskirts" (no cycle number: that is for `Load` starts only),
+/// shown at once since nothing else was. `lastShownRegion` starts at 0, so the first
+/// one is shown; SU_A23FirstCycleMessage (which would mark it shown) is only added at
+/// cycle 1.
+#[test]
+fn subregion_name_in_a_new_game() {
+    let Some(mut s) = Session::installed() else {
+        return;
+    };
+    s.boot_new_survivor();
+    s.frames(400, &[]);
+    for dest in ["SU_A41", "SU_A43", "SU_A22", "SU_A23", "SU_A25"] {
+        s.take_exit_to(dest);
+        let t = s.process_scene().tracker();
+        assert_eq!((t.last_region, t.counter), (0, 0), "{dest}: no subregion");
+    }
+    s.take_exit_to("SU_A38");
+    // The HUD updates before the game: this frame's saw the player still in the pipe.
+    assert_eq!(s.process_scene().tracker().last_region, 0);
+    for tick in 0..=81 {
+        s.frames(1, &[]);
+        let scene = s.process_scene();
+        let t = scene.tracker().clone();
+        let prompt = super::reply::HudState::of(scene.hud().expect("hud")).text_prompt;
+        assert_eq!(t.last_region, 1, "tick {tick}");
+        if tick < 81 {
+            assert_eq!(t.counter, tick, "tick {tick}");
+            assert_eq!(t.last_shown_region, 0);
+            assert_eq!(prompt.queued, 0, "tick {tick}");
+        } else {
+            assert_eq!(t.last_shown_region, 1);
+            assert!(!t.show_cycle_number);
+            assert_eq!(prompt.queued, 1);
+            assert_eq!(prompt.showing, "Message");
+            assert_eq!(prompt.text, "Outskirts");
+        }
+    }
+    // Shown once: the counter stays at 0 in the same subregion.
+    s.frames(300, &[]);
+    let t = s.process_scene().tracker();
+    assert_eq!((t.counter, t.last_shown_region), (0, 1));
+}
+
+/// A Dev start (`load_room`) adopts the first room's subregion silently (482717): SU
+/// has one subregion, so no name is ever shown.
+#[test]
+fn subregion_name_not_shown_on_a_dev_start() {
+    let Some(mut s) = Session::installed() else {
+        return;
+    };
+    s.load("SU_A38", 1);
+    s.run(200, InputParam::default());
+    let t = s.scene_mut().expect("scene").tracker();
+    assert_eq!((t.last_region, t.last_shown_region, t.counter), (1, 1, 0));
+    assert_eq!(s.hud_state().expect("hud").text_prompt.queued, 0);
+}
