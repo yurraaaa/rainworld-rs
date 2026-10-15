@@ -52,6 +52,23 @@ pub struct State {
     pub realized_rooms: Vec<RealizedState>,
     /// `None` once the body fell out of the room and was destroyed.
     pub player: Option<PlayerState>,
+    /// `manager.FadeDelayInProgress` as the room scripts read it next tick (after
+    /// `new_game`, the 3 s, or the Hunter's 5.5 s, of black before the fade-in).
+    pub fade_delay_in_progress: bool,
+    /// The camera room's `SU_C04StartUp`, when it has one.
+    pub start_up: Option<StartUpState>,
+}
+
+/// `SU_C04StartUp`'s state.
+#[derive(Debug, Clone, Serialize)]
+pub struct StartUpState {
+    pub counter: i32,
+    /// `pushRight[0]`: the body is still held and pushed right.
+    pub push_right: bool,
+    pub stood_up: bool,
+    pub show_controls_counter: i32,
+    /// The game would show its controls page now (needs the HUD; not ported).
+    pub controls_page_due: bool,
 }
 
 /// `betweenRoomsWaitingLobby`'s vessel.
@@ -116,6 +133,8 @@ pub struct PlayerState {
     pub impacts: Vec<ImpactState>,
     /// Input of the last tick.
     pub input: InputParam,
+    /// `controller` replacing the keys ("Null"), if set.
+    pub controller: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -171,4 +190,22 @@ pub struct ProcessState {
     pub game_tick: Option<u64>,
     /// The main menu's Exit was pressed (`Application.Quit`); the session keeps running.
     pub quit_requested: bool,
+    /// The slideshow, when it is the current process.
+    pub slideshow: Option<SlideShowState>,
+}
+
+/// A `SlideShow`'s clock and scene.
+#[derive(Debug, Clone, Serialize)]
+pub struct SlideShowState {
+    /// Playlist index and scene.
+    pub current: Option<usize>,
+    pub scene: Option<String>,
+    /// Seconds of slideshow time, and the fraction of the scene's time gone.
+    pub time: f32,
+    pub in_scene_time: f32,
+    /// Waiting for its song to be the current one.
+    pub stall: bool,
+    pub playback_speed_mult: f32,
+    /// The scene's flat illustrations' alphas.
+    pub alphas: Vec<f32>,
 }

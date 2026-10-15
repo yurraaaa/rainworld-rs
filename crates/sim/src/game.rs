@@ -8,6 +8,7 @@ use rw_assets::{NodeType, Room, Shortcut, ShortcutType};
 use rw_random::UnityRandom;
 
 use crate::campaign::SlugcatCampaign;
+use crate::room_script::{RoomScript, ScriptTick, StorySession};
 use crate::world::{FollowCreature, RoomRealizer, World};
 use crate::{Input, Player, ShortcutHandler, Sounds, VesselStep, Water, determine_safe_spawn_tile};
 
@@ -27,6 +28,8 @@ pub trait PlayerObserver {
     );
     /// The player left a shortcut (`SpitOutOfShortCut` resets the graphics).
     fn spat_out(&mut self, player: &Player, rng: &mut UnityRandom);
+    /// A room script adds `dvx` to every tail segment's x velocity.
+    fn nudge_tail_x(&mut self, _dvx: f32) {}
 }
 
 /// No graphics.
@@ -84,6 +87,8 @@ pub struct RainWorldGame {
     /// The start tile, reused by respawns in the start room.
     start: Start,
     tick: u64,
+    /// What the room scripts read of the process manager.
+    script_tick: ScriptTick,
 }
 
 impl RainWorldGame {
@@ -122,11 +127,12 @@ impl RainWorldGame {
             next_issued_id,
             start,
             tick: 0,
+            script_tick: ScriptTick::default(),
         };
         if let Err(e) = game.world.activate_room(start.room) {
             log::error!("cannot realize the first room: {e}");
         }
-        game.world.finish_loading();
+        game.finish_loading();
         game.realize_player(observer);
         game
     }
@@ -221,8 +227,46 @@ impl RainWorldGame {
         for room in self.world.active_rooms().into_iter().rev() {
             self.update_room(room, input, observer);
         }
-        self.world.finish_loading();
+        self.finish_loading();
         self.tick += 1;
+    }
+
+    /// The loading step, and `Room.Loaded`'s `AddRoomSpecificScript` for each room that
+    /// finished loading.
+    fn finish_loading(&mut self) {
+        let session = self.story_session();
+        for index in self.world.finish_loading() {
+            let name = self
+                .world
+                .abstract_room(index)
+                .map(|r| r.name.clone())
+                .unwrap_or_default();
+            let mods = self.world.mods();
+            let Some(room) = self.world.realized_mut(index) else {
+                continue;
+            };
+            if room.settings.room_specific_script {
+                room.scripts =
+                    RoomScript::for_room(&name, Some(&session), mods, room.first_time_realized());
+            }
+        }
+    }
+
+    /// The story session as the room scripts read it: a new game's first cycle in the
+    /// campaign's start den (the port has no saves).
+    #[must_use]
+    pub fn story_session(&self) -> StorySession {
+        StorySession {
+            character: self.campaign.name,
+            cycle_number: 0,
+            den_position: self.campaign.start_den,
+        }
+    }
+
+    /// What the room scripts see of the process manager from the next tick on
+    /// (`FadeDelayInProgress`).
+    pub fn set_fade_delay_in_progress(&mut self, in_progress: bool) {
+        self.script_tick.fade_delay_in_progress = in_progress;
     }
 
     /// `cameras[0].followAbstractCreature` as the realizer reads it.
@@ -389,6 +433,42 @@ impl RainWorldGame {
             };
             water.update(&room, chunks.iter_mut(), &mut self.rng, sounds);
         }
+        self.update_room_player(index, &room, input, observer);
+        self.update_room_scripts(index, observer);
+    }
+
+    /// The room's scripts, after the player (`updateList` runs newest first, and the
+    /// scripts are added when the room loads).
+    fn update_room_scripts(&mut self, index: i32, observer: &mut dyn PlayerObserver) {
+        let Some(realized) = self.world.realized_mut(index) else {
+            return;
+        };
+        let here = self.pos.room == index;
+        for script in &mut realized.scripts {
+            let player = self
+                .player
+                .as_mut()
+                .filter(|p| here && !p.in_shortcut() && !p.is_destroyed());
+            script.update(player, self.script_tick, observer);
+        }
+    }
+
+    /// The player's update in room `index`, when its body is there and alive.
+    fn update_room_player(
+        &mut self,
+        index: i32,
+        room: &Room,
+        input: Input,
+        observer: &mut dyn PlayerObserver,
+    ) {
+        let Some(realized) = self.world.realized(index) else {
+            return;
+        };
+        let sounds = if index == self.camera_room {
+            &mut self.sounds
+        } else {
+            &mut self.silent
+        };
         let Some(player) = self
             .player
             .as_mut()
@@ -397,11 +477,11 @@ impl RainWorldGame {
             return;
         };
         let was_stunned = player.is_stunned();
-        player.update(&room, realized.water.as_ref(), input, &mut self.rng, sounds);
-        observer.updated(player, &room, realized.water.as_ref(), &mut self.rng);
+        player.update(room, realized.water.as_ref(), input, &mut self.rng, sounds);
+        observer.updated(player, room, realized.water.as_ref(), &mut self.rng);
         self.pos.tile = player.head().pos.tile();
         if let Some(entrance) = player.shortcut_vessel_tile() {
-            self.sucked_in(&room, entrance);
+            self.sucked_in(room, entrance);
             return;
         }
         let Some(player) = self.player.as_mut() else {

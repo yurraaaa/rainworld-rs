@@ -14,6 +14,14 @@ pub struct ClipLength {
     pub frames: u32,
 }
 
+impl ClipLength {
+    /// `AudioClip.length` in seconds.
+    #[must_use]
+    pub fn seconds(self) -> f32 {
+        self.frames as f32 / self.sample_rate as f32
+    }
+}
+
 /// The opened `music_songs` bundle.
 #[derive(Debug)]
 pub struct SongBank {

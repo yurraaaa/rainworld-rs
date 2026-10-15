@@ -16,7 +16,7 @@ use rw_menu::menu::{Kind, ObjectId, SceneId};
 use rw_menu::{
     Initialization, KeyboardKey, MainLoopProcess, MainMenu, MenuContext, MenuMic, MenuShared,
     MenuSoundEvent, MenuSoundId, ProcessFactory, ProcessId, ProcessManager, ProcessRequests,
-    Slugcat, SlugcatSelectMenu,
+    SlideShowId, Slugcat, SlugcatSelectMenu, StoryGameInitCondition,
 };
 use rw_random::UnityRandom;
 use rw_sim::{FloatExt, Vec2};
@@ -449,8 +449,8 @@ fn slugcat_select_layout() {
 /// `HoldButton.Update` (540567): held, `filled = LerpAndTick(filled, 1, 0.007, 1 /
 /// fillTime)` (`Custom.LerpAndTick`, 467748) each tick, and the signal once `filled >= 1`;
 /// the first held tick plays `MENU_Security_Button_Init` (UIMetal2/vol=0.3/pitch=0.5).
-/// START then requests the game with `MENU_Start_New_Game` (UIImpact2/vol=0.4) for a new
-/// Survivor game (`StartGame`, 555445).
+/// START then plays `MENU_Start_New_Game` (UIImpact2/vol=0.4) for a new Survivor game
+/// and asks for the Survivor's intro slideshow (`StartGame`, 555445).
 #[test]
 fn hold_start_fills_then_starts_a_new_game() {
     let Some(mut h) = Harness::to_slugcat_select() else {
@@ -481,7 +481,12 @@ fn hold_start_fills_then_starts_a_new_game() {
         f = f.lerp_and_tick(1.0, 0.007, 1.0 / 40.0);
         assert_eq!(*got, f, "tick {}", i + 1);
     }
-    assert_eq!(h.manager.upcoming(), Some(ProcessId::Game));
+    assert_eq!(h.manager.upcoming(), Some(ProcessId::SlideShow));
+    assert_eq!(h.ctx.shared.next_slideshow, Some(SlideShowId::WhiteIntro));
+    assert_eq!(
+        h.ctx.shared.start_game_condition,
+        Some(StoryGameInitCondition::New)
+    );
     let plays = h.plays_since(from);
     assert_eq!(plays[0], (MenuSoundId::ButtonPressInit, 0.1, 0.5));
     assert_eq!(plays[1], (MenuSoundId::SecurityButtonInit, 0.3, 0.5));
@@ -594,4 +599,74 @@ fn exit_quits() {
     assert!(!h.ctx.shared.quit);
     h.tap(KeyboardKey::Z);
     assert!(h.ctx.shared.quit);
+}
+
+impl Harness {
+    /// Holds START (with `extra` keys) until a switch is requested.
+    fn hold_start(&mut self, extra: &[KeyboardKey]) -> ProcessId {
+        let mut keys = vec![KeyboardKey::Z];
+        keys.extend_from_slice(extra);
+        for _ in 0..100 {
+            self.frame(&keys);
+            if let Some(next) = self.manager.upcoming() {
+                return next;
+            }
+        }
+        panic!("START never signalled");
+    }
+}
+
+/// `StartGame` (555445): the Monk gets its own intro.
+#[test]
+fn the_monk_starts_with_its_intro() {
+    let Some(mut h) = Harness::to_slugcat_select() else {
+        return;
+    };
+    h.tap(KeyboardKey::LeftArrow);
+    assert_eq!(h.selected(), Some(h.select().screen().prev_button));
+    h.tap(KeyboardKey::Z);
+    for _ in 0..30 {
+        h.frame(&[]);
+    }
+    assert_eq!(h.select().screen().slugcat_page_index, 0);
+    // Back to START (right of PREV), then hold it.
+    h.tap(KeyboardKey::RightArrow);
+    assert_eq!(h.selected(), Some(h.select().screen().start_button));
+    assert_eq!(h.hold_start(&[]), ProcessId::SlideShow);
+    assert_eq!(h.ctx.shared.in_game_slugcat, Some(Slugcat::YELLOW));
+    assert_eq!(h.ctx.shared.next_slideshow, Some(SlideShowId::YellowIntro));
+}
+
+/// `StartGame`: `Input.GetKey("s")`, or `CheckSpecificButton(0, 11)` (the map button,
+/// Space on the default keyboard map), down as START completes goes straight to the game.
+#[test]
+fn start_with_s_or_map_held_skips_the_intro() {
+    for key in [KeyboardKey::S, KeyboardKey::Space] {
+        let Some(mut h) = Harness::to_slugcat_select() else {
+            return;
+        };
+        assert_eq!(h.hold_start(&[key]), ProcessId::Game, "{key:?}");
+        assert_eq!(h.ctx.shared.next_slideshow, None);
+        assert_eq!(h.ctx.shared.in_game_slugcat, Some(Slugcat::WHITE));
+    }
+}
+
+/// `StartGame`: the Hunter, once unlocked, has no intro.
+#[test]
+fn the_hunter_starts_without_an_intro() {
+    let Some(mut h) = Harness::to_slugcat_select() else {
+        return;
+    };
+    h.ctx.shared.progression.red_unlocked = true;
+    h.tap(KeyboardKey::RightArrow);
+    h.tap(KeyboardKey::Z);
+    for _ in 0..30 {
+        h.frame(&[]);
+    }
+    assert_eq!(h.select().screen().slugcat_page_index, 2);
+    h.tap(KeyboardKey::LeftArrow);
+    assert_eq!(h.selected(), Some(h.select().screen().start_button));
+    assert_eq!(h.hold_start(&[]), ProcessId::Game);
+    assert_eq!(h.ctx.shared.in_game_slugcat, Some(Slugcat::RED));
+    assert_eq!(h.ctx.shared.next_slideshow, None);
 }

@@ -439,7 +439,8 @@ fn boot_to_play_with_music_contexts() {
     let mut started = None;
     for frame in 0..80 {
         let state = s.frames(1, &["Z"]);
-        if state.upcoming.as_deref() == Some("Game") {
+        if state.upcoming.is_some() {
+            assert_eq!(state.upcoming.as_deref(), Some("SlideShow"));
             started = Some(frame);
             break;
         }
@@ -449,20 +450,34 @@ fn boot_to_play_with_music_contexts() {
         s.music().song.as_ref().expect("intro song").fade_out_time,
         20.0
     );
+    // The switch's fade, then the slideshow sets the fade itself (its first `Empty`
+    // scene starts at 0, so the fade is briefly 0 over nothing drawn).
+    let state = s.frames(60, &[]);
+    assert_eq!(state.process.as_deref(), Some("SlideShow"));
+    assert_eq!(state.slideshow.as_ref().and_then(|x| x.current), Some(1));
+    let song = s.music().song.as_ref().expect("the slideshow's song");
+    assert_eq!(song.name, "RW_Intro_Theme");
+    let state = s.frames(1, &["Escape"]);
+    assert_eq!(state.upcoming.as_deref(), Some("Game"), "Escape skips");
+    assert_eq!(
+        s.music().song.as_ref().expect("intro theme").fade_out_time,
+        40.0
+    );
     s.settle_on(ProcessId::Game);
     assert_eq!(s.music().music_context, MusicContext::StoryMode);
-    if let Some(song) = &s.music().song {
-        assert_eq!(song.fade_out_time, 2.0);
-    }
-    s.frames(10, &[]);
-    assert!(s.music().song.is_none(), "the menu song faded out");
-    s.frames(40, &[]);
+    // SU_C04StartUp holds the player until it drops out of the tunnel.
     let before = s.process_player();
-    let state = s.frames(40, &["RightArrow"]);
-    assert!(state.game_tick.is_some());
+    assert_eq!(before.controller.as_deref(), Some("Null"));
+    let mut control = None;
+    for frame in 0..400 {
+        s.frames(1, &["RightArrow"]);
+        if s.process_player().input.x == 1 {
+            control = Some(frame);
+            break;
+        }
+    }
+    assert!(control.is_some(), "control never returned");
     let after = s.process_player();
-    assert_eq!(after.input.x, 1, "the held key reached the player");
-    // The Survivor starts in SU_C04's horizontal tunnel: right crawls along it.
     assert!(
         after.chunks[0].pos[0] > before.chunks[0].pos[0] + 5.0,
         "the player moved right ({:?} -> {:?}, {})",
@@ -470,4 +485,132 @@ fn boot_to_play_with_music_contexts() {
         after.chunks[0].pos,
         after.body_mode
     );
+}
+
+/// START with S (or the map button) held goes straight to the game.
+#[test]
+fn start_with_s_held_skips_the_slideshow() {
+    let Some(mut s) = Session::installed() else {
+        return;
+    };
+    s.load_process(&LoadProcessParams {
+        process: Some(super::params::ProcessParam::SlugcatSelect),
+        ..LoadProcessParams::default()
+    })
+    .expect("process loads");
+    s.settle_on(ProcessId::SlugcatSelect);
+    for _ in 0..80 {
+        let state = s.frames(1, &["Z", "S"]);
+        if state.upcoming.is_some() {
+            assert_eq!(state.upcoming.as_deref(), Some("Game"));
+            return;
+        }
+    }
+    panic!("START never signalled");
+}
+
+/// `SU_C04StartUp` (67669) from a new game, tick by tick, holding right throughout:
+/// the controller is `Null` from the script's first update (it runs after the player,
+/// so the first tick still reads the keys); nothing moves it during the 3 s black delay
+/// (`FadeDelayInProgress`); then `HardSetPosition` puts the chunks at the ratcheted
+/// middle +9 / -5 px each tick, which moves the middle 2 px right per tick; once the
+/// head is below y 550 the push ends, the next update clears the controller and the
+/// keys reach the player on the tick after; it stands up when the head drops below 350.
+fn su_c04_start_up_ticks(slugcat: &str) {
+    let Some(mut s) = Session::installed() else {
+        return;
+    };
+    s.new_game(&super::params::NewGameParams {
+        slugcat: slugcat.to_owned(),
+        seed: Some(1),
+    })
+    .expect("new game");
+    let first = s.run(1, RIGHT);
+    assert_eq!(first.player.as_ref().expect("player").input.x, 1);
+    let mut last_x = first.head()[0];
+    let mut push_ended = None;
+    let mut stood = None;
+    for tick in 2..=260u32 {
+        let st = s.run(1, RIGHT);
+        let p = st.player.as_ref().expect("player");
+        let su = st.start_up.as_ref().expect("SU_C04StartUp");
+        assert_eq!(su.counter, tick as i32);
+        // The field is what the next tick reads.
+        assert_eq!(st.fade_delay_in_progress, tick < 120, "tick {tick}");
+        let middle = (p.chunks[0].pos[0] + p.chunks[1].pos[0]) / 2.0;
+        if (121..200).contains(&tick) {
+            assert!(su.push_right, "tick {tick}");
+            assert_eq!(p.chunks[0].pos[0] - p.chunks[1].pos[0], 14.0, "tick {tick}");
+            if tick > 121 {
+                assert!(
+                    (p.chunks[0].pos[0] - last_x - 2.0).abs() < 1e-3,
+                    "tick {tick}"
+                );
+            }
+        }
+        if tick <= 120 {
+            assert!(middle < 160.0, "no push during the delay (tick {tick})");
+        }
+        last_x = p.chunks[0].pos[0];
+        match push_ended {
+            None if !su.push_right => {
+                assert!(p.chunks[0].pos[1] < 550.0);
+                assert_eq!(p.controller.as_deref(), Some("Null"));
+                push_ended = Some(tick);
+            }
+            None => assert_eq!(p.controller.as_deref(), Some("Null"), "tick {tick}"),
+            Some(end) if tick == end + 1 => {
+                assert_eq!(p.controller, None);
+                assert_eq!(
+                    p.input.x, 0,
+                    "the controller was cleared after this tick's input"
+                );
+            }
+            Some(end) if tick == end + 2 => assert_eq!(p.input.x, 1),
+            Some(_) => {}
+        }
+        if su.stood_up && stood.is_none() {
+            assert!(p.chunks[0].pos[1] < 350.0);
+            assert!(p.standing);
+            assert_eq!(su.show_controls_counter, 1);
+            stood = Some(tick);
+        }
+        if let Some(t) = stood {
+            assert_eq!(su.show_controls_counter, 1 + (tick - t) as i32);
+        }
+    }
+    let end = push_ended.expect("the push ended");
+    assert!((200..=210).contains(&end), "push ended at tick {end}");
+    assert!(
+        stood.is_some_and(|t| t > end),
+        "stood up after the push ({stood:?})"
+    );
+}
+
+#[test]
+fn su_c04_start_up_survivor() {
+    su_c04_start_up_ticks("White");
+}
+
+#[test]
+fn su_c04_start_up_monk() {
+    su_c04_start_up_ticks("Yellow");
+}
+
+/// The Hunter starts elsewhere, behind 5.5 s of black, with no SU_C04 script.
+#[test]
+fn hunter_start_has_no_start_up_script() {
+    let Some(mut s) = Session::installed() else {
+        return;
+    };
+    s.new_game(&super::params::NewGameParams {
+        slugcat: "Red".to_owned(),
+        seed: Some(1),
+    })
+    .expect("new game");
+    let st = s.run(219, RIGHT);
+    assert!(st.start_up.is_none());
+    assert!(st.fade_delay_in_progress);
+    let st = s.run(1, RIGHT);
+    assert!(!st.fade_delay_in_progress, "5.5 s = 220 ticks");
 }

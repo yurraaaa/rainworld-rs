@@ -55,6 +55,8 @@ pub struct SettingsFile {
     pub effects: Vec<RoomEffect>,
     /// `PlacedObjects:` entries (every such line adds), all active.
     pub placed_objects: Vec<PlacedObject>,
+    /// A `RoomSpecificScriptActive:` line (any value).
+    pub room_specific_script: bool,
 }
 
 /// A room's settings after inheritance.
@@ -81,6 +83,8 @@ pub struct RoomSettings {
     pub effects: Vec<RoomEffect>,
     /// The room's own placed objects (never inherited); filters not yet applied.
     pub placed_objects: Vec<PlacedObject>,
+    /// `roomSpecificScript`: the room's own file asks for its script (never inherited).
+    pub room_specific_script: bool,
 }
 
 /// A region's settings templates (`Room Setting Templates:` in `properties.txt`).
@@ -121,6 +125,7 @@ impl SettingsFile {
                 "AmbientSounds" => file.ambient_sounds.extend(AmbientSound::parse_list(value)?),
                 "Effects" => file.effects.extend(RoomEffect::parse_list(value)),
                 "PlacedObjects" => file.placed_objects.extend(PlacedObject::parse_list(value)),
+                "RoomSpecificScriptActive" => file.room_specific_script = true,
                 _ => {}
             }
         }
@@ -180,6 +185,7 @@ impl SettingsFile {
             ambient_sounds: AmbientSound::inherit(&self.ambient_sounds, &parent.ambient_sounds),
             effects: RoomEffect::inherit(&self.effects, &parent.effects),
             placed_objects: self.placed_objects.clone(),
+            room_specific_script: self.room_specific_script,
         }
     }
 
@@ -210,6 +216,7 @@ impl RoomSettings {
         ambient_sounds: Vec::new(),
         effects: Vec::new(),
         placed_objects: Vec::new(),
+        room_specific_script: false,
     };
 
     /// Placed objects with `timeline`'s filters applied (`LoadPlacedObjects`).

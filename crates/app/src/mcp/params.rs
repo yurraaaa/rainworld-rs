@@ -158,7 +158,8 @@ pub struct StepProcessParams {
     pub frames: Option<u32>,
     /// Keys held for these frames, by Rewired name: "UpArrow", "DownArrow",
     /// "LeftArrow", "RightArrow", "Return", "Space", "Z", "X", "C", "Escape",
-    /// "LeftShift". They feed the menus (UI map) and, in the game, the player
-    /// (gameplay map: arrows move, Z jumps).
+    /// "LeftShift", "S". They feed the menus (UI map) and, in the game, the player
+    /// (gameplay map: arrows move, Z jumps); Escape skips a slideshow, S or Space held
+    /// when START completes skips the intro.
     pub keys: Option<Vec<String>>,
 }

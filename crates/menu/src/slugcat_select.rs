@@ -6,9 +6,11 @@
 use rw_sim::{FloatExt, Vec2};
 
 use crate::color::MenuColor;
+use crate::input::KeyboardKey;
 use crate::menu::{Kind, Menu, MenuCx, MenuScreen, ObjectId, SceneId};
 use crate::process::{MainLoopProcess, ProcessId, ProcessRequests};
 use crate::shared::{MenuContext, MenuShared, Slugcat, StoryGameInitCondition};
+use crate::slideshow::SlideShowId;
 use crate::sound::MenuSoundId;
 
 /// A `SlugcatPageNewGame`.
@@ -148,7 +150,7 @@ impl SlugcatSelectScreen {
     }
 
     /// `StartGame` for a new game: the Hunter needs unlocking; the Survivor and the Monk
-    /// would get their intro slideshow first (not ported: D13).
+    /// get their intro slideshow first unless S or the map button is held.
     fn start_game(&mut self, slugcat: Slugcat, cx: &mut MenuCx<'_>) {
         if slugcat == Slugcat::RED && !cx.shared.progression.red_unlocked {
             return;
@@ -156,7 +158,15 @@ impl SlugcatSelectScreen {
         cx.shared.in_game_slugcat = Some(slugcat);
         cx.shared.progression.selected_slugcat = slugcat;
         cx.shared.start_game_condition = Some(StoryGameInitCondition::New);
-        cx.requests.switch_to(ProcessId::Game);
+        let input = &cx.shared.input;
+        let skip_intro = input.key(KeyboardKey::S) || input.map_action();
+        match SlideShowId::intro_for(slugcat).filter(|_| !skip_intro) {
+            Some(intro) => {
+                cx.shared.next_slideshow = Some(intro);
+                cx.requests.switch_to(ProcessId::SlideShow);
+            }
+            None => cx.requests.switch_to(ProcessId::Game),
+        }
         cx.play_sound(MenuSoundId::StartNewGame);
         if let Some(song) = cx.shared.intro_roll_song() {
             song.fade_out(20.0);

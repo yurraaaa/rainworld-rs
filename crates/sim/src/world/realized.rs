@@ -8,6 +8,7 @@ use rw_assets::world::{AbstractRoomData, LoadedRoom};
 use rw_assets::{ActiveMods, Room, RoomSettings, Timeline};
 
 use crate::room_ext::RoomExt;
+use crate::room_script::RoomScript;
 
 use crate::Water;
 
@@ -36,6 +37,10 @@ pub struct RealizedRoom {
     wait_to_enter: i32,
     /// Per exit node, the stand-in for the fly's baked distance map, made when asked.
     exit_distances: OnceLock<Vec<Vec<i32>>>,
+    /// `abstractRoom.firstTimeRealized` while it loads.
+    first_time_realized: bool,
+    /// The room-specific scripts `Room.Loaded` added.
+    pub scripts: Vec<RoomScript>,
 }
 
 impl RealizedRoom {
@@ -47,6 +52,7 @@ impl RealizedRoom {
         story: bool,
         timeline: Timeline,
         mods: ActiveMods,
+        first_time_realized: bool,
     ) -> Self {
         let wait = Self::entry_delay(&loaded.settings, &data.name, story, timeline, mods);
         Self {
@@ -57,7 +63,15 @@ impl RealizedRoom {
             ready_for_non_ai_creatures: false,
             wait_to_enter: wait,
             exit_distances: OnceLock::new(),
+            first_time_realized,
+            scripts: Vec::new(),
         }
+    }
+
+    /// `abstractRoom.firstTimeRealized` as `Room.Loaded` sees it.
+    #[must_use]
+    pub fn first_time_realized(&self) -> bool {
+        self.first_time_realized
     }
 
     /// `waitToEnterAfterFullyLoaded` after loading, base game: 40 for the `SSSwarmers`

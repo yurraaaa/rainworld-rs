@@ -14,6 +14,7 @@ use rw_graphics::{Color, DrawList, PlayerGraphics};
 use rw_random::UnityRandom;
 use rw_render::{BodyStatus, ChunkInterpolation, Follow, PlayerLight, WaterSurface};
 use rw_sim::campaign::{self, SlugcatCampaign};
+use rw_sim::room_script::{RoomScript, SuC04StartUp};
 use rw_sim::world::World;
 use rw_sim::{
     CameraMove, Input, PhysicalObject, Player, PlayerObserver, RainWorldGame, SoundEvent, Sounds,
@@ -67,6 +68,14 @@ impl PlayerObserver for Graphics {
     fn spat_out(&mut self, player: &Player, rng: &mut UnityRandom) {
         if let Some(g) = &mut self.module {
             g.spat_out_of_shortcut(player, rng);
+        }
+    }
+
+    fn nudge_tail_x(&mut self, dvx: f32) {
+        if let Some(g) = &mut self.module {
+            for segment in &mut g.tail {
+                segment.part.vel.x += dvx;
+            }
         }
     }
 }
@@ -201,6 +210,23 @@ impl Game {
     /// Hands the random stream back (to the menus, when the game ends).
     pub fn take_rng(&mut self) -> UnityRandom {
         self.sim.take_rng()
+    }
+
+    /// `manager.FadeDelayInProgress` as the room scripts will read it.
+    pub fn set_fade_delay_in_progress(&mut self, in_progress: bool) {
+        self.sim.set_fade_delay_in_progress(in_progress);
+    }
+
+    /// The camera room's start-up script, if it has one.
+    #[must_use]
+    pub fn start_up_script(&self) -> Option<&SuC04StartUp> {
+        self.camera_room()
+            .scripts
+            .iter()
+            .map(|s| match s {
+                RoomScript::SuC04StartUp(s) => s,
+            })
+            .next()
     }
 
     /// `sounds.txt` resolved against the `loadedsoundeffects` bundle, or an empty table

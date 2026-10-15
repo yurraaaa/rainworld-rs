@@ -109,6 +109,10 @@ pub struct ProcessRequests {
     /// A switch is between its two halves (`processAfterModFinalization`).
     switching: bool,
     fade_to_black: f32,
+    /// `FadeDelayInProgress`: `blackDelay > 0`.
+    fade_delay_in_progress: bool,
+    /// `manager.fadeToBlack = x` written by the process.
+    set_fade: Option<f32>,
 }
 
 impl ProcessRequests {
@@ -123,6 +127,8 @@ impl ProcessRequests {
             upcoming,
             switching,
             fade_to_black,
+            fade_delay_in_progress: false,
+            set_fade: None,
         }
     }
 
@@ -151,6 +157,18 @@ impl ProcessRequests {
     pub fn fade_to_black(&self) -> f32 {
         self.fade_to_black
     }
+
+    /// `manager.fadeToBlack = value` (the slideshow drives the fade itself).
+    pub fn set_fade_to_black(&mut self, value: f32) {
+        self.fade_to_black = value;
+        self.set_fade = Some(value);
+    }
+
+    /// `manager.FadeDelayInProgress`.
+    #[must_use]
+    pub fn fade_delay_in_progress(&self) -> bool {
+        self.fade_delay_in_progress
+    }
 }
 
 /// A main process, updated with the app's context `C`.
@@ -170,6 +188,11 @@ pub trait MainLoopProcess<C> {
     /// `InitialBlackSeconds`: seconds of black before that fade.
     fn initial_black_seconds(&self) -> f32 {
         0.0
+    }
+
+    /// The constructor called `manager.RemoveLoadingLabel()`.
+    fn removes_loading_label(&self) -> bool {
+        false
     }
 
     /// One tick (`Update`).
@@ -329,6 +352,12 @@ impl<P> ProcessManager<P> {
         self.shaders_time
     }
 
+    /// `FadeDelayInProgress`: `blackDelay > 0`.
+    #[must_use]
+    pub fn fade_delay_in_progress(&self) -> bool {
+        self.black_delay > 0.0
+    }
+
     /// `RequestMainProcessSwitch` from outside a process update.
     pub fn request_switch(&mut self, id: ProcessId, fade_out_seconds: f32) {
         self.actual_process_switch(id, fade_out_seconds);
@@ -350,9 +379,13 @@ impl<P> ProcessManager<P> {
             self.after_mod_finalization.is_some(),
             self.fade_to_black,
         );
+        requests.fade_delay_in_progress = self.black_delay > 0.0;
         if let Some(current) = &mut self.current {
             self.shaders_time += dt * current.frames_per_second() as f32 / 40.0;
             current.raw_update(dt, &mut self.stacker, ctx, &mut requests);
+        }
+        if let Some(fade) = requests.set_fade {
+            self.fade_to_black = fade;
         }
         for (id, fade) in requests.switches {
             self.actual_process_switch(id, fade);
@@ -466,6 +499,9 @@ impl<P> ProcessManager<P> {
         }
         self.black_fade_time = next.fade_in_time();
         self.black_delay = next.initial_black_seconds();
+        if next.removes_loading_label() {
+            self.loading_label = None;
+        }
         ctx.post_switch(&next);
         self.current = Some(next);
         self.stacker = TimeStacker::default();
@@ -514,12 +550,16 @@ mod tests {
     enum Proc {
         Init(Initialization),
         Plain(ProcessId, u32),
+        /// A new story game: 3 s of black, then a 2 s fade-in; counts the ticks that
+        /// saw `FadeDelayInProgress`.
+        NewGame(u32),
     }
 
     #[derive(Default)]
     struct Ctx {
         created: Vec<(ProcessId, Option<ProcessId>)>,
         shut_down: Vec<ProcessId>,
+        new_game: bool,
     }
 
     impl ProcessFactory<Proc> for Ctx {
@@ -528,6 +568,7 @@ mod tests {
             self.created.push((id, old));
             match id {
                 ProcessId::Initialization => Proc::Init(Initialization::new(ProcessId::Game)),
+                ProcessId::Game if self.new_game => Proc::NewGame(0),
                 _ => Proc::Plain(id, 0),
             }
         }
@@ -538,6 +579,7 @@ mod tests {
             match self {
                 Self::Init(_) => ProcessId::Initialization,
                 Self::Plain(id, _) => *id,
+                Self::NewGame(_) => ProcessId::Game,
             }
         }
 
@@ -545,6 +587,21 @@ mod tests {
             match self {
                 Self::Init(p) => p.update(ctx, requests),
                 Self::Plain(_, ticks) => *ticks += 1,
+                Self::NewGame(delayed) => *delayed += u32::from(requests.fade_delay_in_progress()),
+            }
+        }
+
+        fn fade_in_time(&self) -> f32 {
+            match self {
+                Self::NewGame(_) => 2.0,
+                _ => ProcessRequests::FADE_OUT_SECONDS,
+            }
+        }
+
+        fn initial_black_seconds(&self) -> f32 {
+            match self {
+                Self::NewGame(_) => 3.0,
+                _ => 0.0,
             }
         }
 
@@ -665,5 +722,44 @@ mod tests {
         assert_eq!(id(&m), None);
         m.update(DT, &mut ctx);
         assert_eq!(id(&m), Some(ProcessId::MainMenu));
+    }
+
+    /// `ProcessManager.Update`'s fade-in after a switch (108396): while `blackDelay > 0`
+    /// it counts down by dt with `fadeToBlack` held at 1 (`FadeDelayInProgress`), then
+    /// `fadeToBlack` falls by dt / `FadeInTime`.
+    #[test]
+    fn initial_black_then_fade_in() {
+        let mut ctx = Ctx {
+            new_game: true,
+            ..Ctx::default()
+        };
+        let mut m = ProcessManager::<Proc>::new([1366.0, 768.0], &mut ctx);
+        for _ in 0..4 {
+            m.update(DT, &mut ctx); // boot, switch, then `pauseFadeUpdate`
+        }
+        assert_eq!(id(&m), Some(ProcessId::Game));
+        let mut delay = 3.0_f32;
+        let mut delay_frames = 0;
+        while delay > 0.0 {
+            assert!(m.fade_delay_in_progress());
+            m.update(DT, &mut ctx);
+            delay -= DT;
+            delay_frames += 1;
+            assert_eq!(m.fade_to_black(), 1.0);
+        }
+        assert!(!m.fade_delay_in_progress());
+        assert_eq!(delay_frames, 120);
+        let mut fade = 1.0_f32;
+        let mut fade_frames = 0;
+        while m.fade_to_black() > 0.0 {
+            m.update(DT, &mut ctx);
+            fade -= DT / 2.0;
+            fade_frames += 1;
+            assert_eq!(m.fade_to_black(), fade.max(0.0));
+        }
+        assert!((80..=81).contains(&fade_frames), "{fade_frames}");
+        // The game ticked under the delay from its first tick (frame 5) to the last
+        // frame of the delay.
+        assert!(matches!(m.current(), Some(Proc::NewGame(119 | 120))));
     }
 }

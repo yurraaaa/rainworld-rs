@@ -180,7 +180,8 @@ impl Server {
         the vessel waiting to enter a room, realized rooms and their entry waits, and \
         player state: chunk positions, velocities, tiles and \
         contacts, body mode, animation, facing, standing, stun, death, shortcut travel, \
-        this tick's terrain impacts and input."
+        this tick's terrain impacts, input and controller; the new game's fade delay and \
+        SU_C04 start script."
     )]
     fn get_state(&self) -> Result<CallToolResult, String> {
         Self::json(&self.session()?.state()?)
@@ -238,7 +239,9 @@ impl Server {
         description = "Run process manager frames of 1/40 s (one process tick each once \
         running), holding keys (held through all the frames, released after); the keys \
         drive the menus (Rewired UI map) and the player in the game (gameplay map: arrows \
-        move, Z jumps); returns the current process, the fade state and whether Exit asked to quit."
+        move, Z jumps; S held with START skips the intro slideshow, Escape skips it while it \
+        plays); returns the current process, the fade state, the slideshow's clock and \
+        scene, and whether Exit asked to quit."
     )]
     fn step_process(
         &self,

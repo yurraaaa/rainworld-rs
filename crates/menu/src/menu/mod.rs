@@ -18,6 +18,7 @@ use crate::shared::MenuShared;
 use crate::sound::{LoopId, MenuSoundId};
 use crate::tree::{NodeId, StageTree};
 
+pub use build::FlatLayers;
 pub use object::{
     ButtonBehavior, ButtonData, ButtonVariant, CursorData, DarkGradientData, HoldButtonData,
     IllustrationData, Kind, LabelData, MenuObject, ObjectId, PageData, RoundedRectData, SceneData,
@@ -66,6 +67,9 @@ pub trait MenuScreen {
 
     /// A page's own `Update`, after its sub-objects'.
     fn page_update(&mut self, _menu: &mut Menu, _page: ObjectId, _cx: &mut MenuCx<'_>) {}
+
+    /// A `SlideShowMenuScene`'s own `Update`, after its sub-objects'.
+    fn scene_update(&mut self, _menu: &mut Menu, _scene: ObjectId) {}
 
     /// A page's own `GrafUpdate`, after its sub-objects'.
     fn page_graf_update(&self, _menu: &mut Menu, _page: ObjectId, _time_stacker: f32) {}

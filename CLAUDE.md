@@ -170,10 +170,14 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   move, Z jumps). Buttons see a press a tick after it and click on release,
   so a tap is one frame held and two released. Boot to play: any key after
   the intro roll's first second goes to the main menu; tap Return on
-  STORY; hold Z on START (about 40 frames) until the game starts (a new
-  Survivor game at `SU_C04`). Music
-  runs silently (`TimedSources`), so runs stay deterministic.
-  `screenshot` then draws the process frame with its fade.
+  STORY; hold Z on START (about 40 frames): the Survivor's intro
+  slideshow plays (about 95 s; Escape skips it, or hold S with Z on START
+  to go straight to the game), then a new Survivor game at `SU_C04`, black
+  for 3 s while the start script holds the slugcat. Music runs silently
+  (`TimedSources`), so runs stay deterministic; the slideshow follows its
+  ticks. `step_process` reports the slideshow's clock and scene; in
+  game mode `get_state` reports the fade delay, the SU_C04 start script
+  and the player's controller. `screenshot` then draws the process frame with its fade.
 - `--mcp --window` also shows the driven scene in a window.
 - Long-term goal: an Android port at the end of the project. Don't rule it
   out: keep platform-specific code (windowing, file paths to the game data,

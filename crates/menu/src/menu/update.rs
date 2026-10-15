@@ -402,8 +402,13 @@ impl Menu {
             if s.hidden {
                 return;
             }
+            let interactive = s.interactive;
             self.update_subs(id, screen, cx);
-            self.update_scene(id, cx);
+            if interactive {
+                self.update_scene(id, cx);
+            } else {
+                screen.scene_update(self, id);
+            }
             return;
         }
         self.update_subs(id, screen, cx);

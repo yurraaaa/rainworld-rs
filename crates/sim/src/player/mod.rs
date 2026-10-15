@@ -28,7 +28,7 @@ mod tests;
 use rw_assets::{Room, Terrain};
 use rw_random::UnityRandom;
 
-pub use input::{INPUT_HISTORY, Input};
+pub use input::{INPUT_HISTORY, Input, PlayerController};
 pub use shortcut::VesselStep;
 
 use crate::room_ext::RoomExt;
@@ -133,6 +133,8 @@ pub struct Player {
     pub body: PhysicalObject,
     /// Input history, `input[0]` newest.
     input: [Input; INPUT_HISTORY],
+    /// `controller`: replaces the given input while set.
+    controller: Option<PlayerController>,
     body_mode: BodyMode,
     animation: Animation,
     /// Wants to be upright (toggled by up/down presses).
@@ -282,6 +284,7 @@ impl Player {
         Self {
             body: PhysicalObject::slugcat(),
             input: [Input::NONE; INPUT_HISTORY],
+            controller: None,
             body_mode: BodyMode::Default,
             animation: Animation::None,
             standing: false,
@@ -418,6 +421,21 @@ impl Player {
     #[must_use]
     pub fn flip_direction(&self) -> i32 {
         self.flip_direction
+    }
+
+    /// Wants to be upright (`standing = value`, as room scripts set it).
+    pub fn set_standing(&mut self, standing: bool) {
+        self.standing = standing;
+    }
+
+    #[must_use]
+    pub fn controller(&self) -> Option<PlayerController> {
+        self.controller
+    }
+
+    /// `controller = value`.
+    pub fn set_controller(&mut self, controller: Option<PlayerController>) {
+        self.controller = controller;
     }
 
     /// The last [`INPUT_HISTORY`] inputs, newest first.
@@ -626,14 +644,14 @@ impl Player {
         }
     }
 
-    /// `checkInput`: shift the history ring and store the new input, or a neutral one
-    /// while stunned (any stun tick) or dead.
+    /// `checkInput`: shift the history ring and store the new input (the controller's
+    /// when one is set), or a neutral one while stunned (any stun tick) or dead.
     fn read_input(&mut self, input: Input) {
         self.input.copy_within(0..INPUT_HISTORY - 1, 1);
-        self.input[0] = if self.stun == 0 && !self.dead {
-            input.normalized()
-        } else {
-            Input::NONE
+        self.input[0] = match self.controller {
+            _ if self.stun != 0 || self.dead => Input::NONE,
+            Some(controller) => controller.input(),
+            None => input.normalized(),
         };
         let [now, prev, prev2, ..] = self.input;
         // Holding a charged crouch super jump freezes horizontal input.

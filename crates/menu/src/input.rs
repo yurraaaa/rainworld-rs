@@ -13,6 +13,8 @@ pub enum KeyboardKey {
     Escape = 27,
     Space = 32,
     C = 99,
+    /// Read only through `Input.GetKey("s")` (no default map binds it).
+    S = 115,
     X = 120,
     Z = 122,
     UpArrow = 273,
@@ -138,12 +140,14 @@ impl UiInputState {
         self.held.contains(&key) || self.pressed_since_tick.contains(&key)
     }
 
-    /// `ControlSetup.GetAnyButton` for player 0, or any mouse button: every key the port
-    /// knows is bound in a default map (gameplay or UI), so any of them held counts.
+    /// `ControlSetup.GetAnyButton` for player 0, or any mouse button: the keys bound in a
+    /// default map (gameplay or UI; all the port knows but S) count.
     #[must_use]
     pub fn any_button(&self) -> bool {
-        !self.held.is_empty()
-            || !self.pressed_since_tick.is_empty()
+        self.held
+            .iter()
+            .chain(&self.pressed_since_tick)
+            .any(|k| *k != KeyboardKey::S)
             || self.mouse.buttons.iter().any(|b| *b)
     }
 
@@ -151,6 +155,19 @@ impl UiInputState {
     #[must_use]
     pub fn pause_action(&self) -> bool {
         self.is_on(KeyboardKey::Escape)
+    }
+
+    /// `Input.GetKey(key)`: held, or pressed since the last tick.
+    #[must_use]
+    pub fn key(&self, key: KeyboardKey) -> bool {
+        self.is_on(key)
+    }
+
+    /// `CheckSpecificButton(0, 11)`: the gameplay map's Map, Space by default
+    /// (inferred: the gameplay map is assumed active in the menus too).
+    #[must_use]
+    pub fn map_action(&self) -> bool {
+        self.is_on(KeyboardKey::Space)
     }
 
     /// `RWInput.CheckPauseButton(0)` in a menu: never while the left mouse button is

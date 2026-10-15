@@ -49,3 +49,21 @@ impl Input {
         Self::new(self.x, self.y, self.jump)
     }
 }
+
+/// `Player.PlayerController`: when set, the player's input comes from it instead of the
+/// player's own controls (Hunter's scripted start would be another).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PlayerController {
+    /// `Player.NullController`: nothing pressed.
+    Null,
+}
+
+impl PlayerController {
+    /// `GetInput`.
+    #[must_use]
+    pub fn input(self) -> Input {
+        match self {
+            Self::Null => Input::NONE,
+        }
+    }
+}

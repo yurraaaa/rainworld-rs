@@ -32,6 +32,8 @@ pub struct World {
     mods: ActiveMods,
     /// A story session (`game.IsStorySession`), for the room rules that ask.
     story: bool,
+    /// Per abstract room, whether it finished loading before (`!firstTimeRealized`).
+    loaded_before: Vec<bool>,
 }
 
 impl World {
@@ -53,7 +55,13 @@ impl World {
             timeline,
             mods,
             story,
+            loaded_before: vec![false; count],
         }
+    }
+
+    #[must_use]
+    pub fn mods(&self) -> ActiveMods {
+        self.mods
     }
 
     #[must_use]
@@ -144,6 +152,7 @@ impl World {
             self.story,
             self.timeline,
             self.mods,
+            !self.loaded_before[i],
         ));
         self.active.push(i);
         self.loading.push(i);
@@ -167,6 +176,7 @@ impl World {
         for i in std::mem::take(&mut self.loading) {
             if let Some(room) = &mut self.realized[i] {
                 room.finish_loading();
+                self.loaded_before[i] = true;
                 done.push(self.data.rooms[i].index);
             }
         }

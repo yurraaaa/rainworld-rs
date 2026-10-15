@@ -17,5 +17,5 @@ pub use player::{
     ThreatTracker,
 };
 pub use song::{IntroRoll, Song, SongKind, SubTrack};
-pub use sources::{MusicSources, TimedSources, TimedTrack, TrackId};
+pub use sources::{MusicClock, MusicSources, SourcePlayback, TimedSources, TimedTrack, TrackId};
 pub use stream::{KiraMusic, MusicOutput};

@@ -231,13 +231,35 @@ pub enum SceneId {
     SlugcatWhite,
     SlugcatYellow,
     SlugcatRed,
+    Empty,
+    Intro1Tree,
+    Intro2Branch,
+    Intro3InTree,
+    Intro4Walking,
+    Intro5Hunting,
+    Intro67RainDrop,
+    Intro8Climbing,
+    Intro9RainyClimb,
+    Intro10Fall,
+    Intro105Separation,
+    Intro11Drowning,
+    Intro12Waking,
+    Intro13Alone,
+    Intro14Title,
+    YellowIntroA,
+    YellowIntroB,
 }
 
-/// `InteractiveMenuScene` in flat mode: its illustrations and the idle camera, whose
-/// random draws are made although nothing is drawn with it.
+/// A flat `MenuScene`: an `InteractiveMenuScene` (its idle camera, whose random draws
+/// are made although nothing is drawn with it) or a `SlideShowMenuScene` (no camera in
+/// flat mode, alphas set by the slideshow's time).
 #[derive(Debug, Clone)]
 pub struct SceneData {
     pub id: SceneId,
+    /// An `InteractiveMenuScene`; else a `SlideShowMenuScene`.
+    pub interactive: bool,
+    /// `SlideShowMenuScene.displayTime`.
+    pub display_time: f32,
     pub flat_illustrations: Vec<ObjectId>,
     pub hidden: bool,
     pub focus: f32,

@@ -44,6 +44,13 @@ it (D13). What still differs is only the seed and the call order:
   Watcher warps call `DetermineSafeSpawnTile`; the port's dev starts (`--room` without
   `--spawn`, MCP `load_room`, R) use it to place the player, so these draws are the
   port's choice of game function, made in the order the game makes them.
+- **Intro and start script.** The intro slideshows draw nothing (`SlideShowMenuScene` has
+  no idle camera; its `Custom.RNV` is only in the dev move editor), nor do the process
+  fades and `SU_C04StartUp`. The new game's guide overseer is not ported, so its draws
+  are missing: `WorldLoader`'s overseer spawn condition, `OverseerAbstractAI`'s
+  `Random.Range(200, 500)`, its `PlaceInRoom` draws and every per-tick draw of the
+  realized overseer and its graphics (`rainworld-re/notes/intro-overseer-survey.md`
+  section 6.5). Until it is, a story game's stream leaves the game's at world load.
 
 **Why.** Matching the game's draw sequence would need every system that draws. Seeding
 from the command line keeps runs reproducible.
@@ -482,7 +489,11 @@ real-time audio rather than the sim.
   once. As in the game's distribution build (`setup.startScreen`) it starts `IntroRoll`,
   which leads to the main menu. `--spawn`, `--script` and `--screenshot` start `Game`
   directly, and `--process` picks (`intro-roll`, `main-menu`, `slugcat-select`, `game`,
-  `font-test`). The boot fade, the switches and the fades follow the game.
+  `font-test`). The boot fade, the switches and the fades follow the game. In MCP's
+  game mode (`new_game`, `load_room`) there is no process manager: the session counts
+  `InitialBlackSeconds` down per tick so room scripts read `FadeDelayInProgress` as in
+  the game (3 s for a new game, the Hunter 5.5 s, none for `load_room`), but no fade is
+  drawn.
 - **Intro roll.** Ported in full (`rw_menu::IntroRoll`, `RainEffect`). The game's
   waits on the sound loader, platform, options and progression are always satisfied
   (all loaded before the manager starts), so `delayedTime` waits only for the music
@@ -497,15 +508,24 @@ real-time audio rather than the sim.
   labels sit on whole pixels, where `font`'s glyphs lose a pixel row to point sampling;
   the game's menus place labels a third of a pixel off (the page sits at (1/3, 1/3)),
   and the port's menus draw them whole.
-- **Unported screens.** Every process but the game, the main menu and slugcat select
-  (the main menu's Regions, Arena, Remix and Options, and the pause, sleep and death
+- **Unported screens.** Every process but the game, the main menu, slugcat select and
+  the intro slideshows (the main menu's Regions, Arena, Remix and Options, and the pause, sleep and death
   screens) is a black screen naming the process; the pause button (Escape) returns to
   the main menu. In the game Escape still quits the app until the pause menu exists.
 - **Flat scenes.** Menu scenes are shown in the game's flat mode (`flatmode.txt`: one
   `<scene> - Flat.png`; `rainWorld.flatIllustrations`) until depth scenes
   (`MenuDepthIllustration`, its shaders) are ported. The flat-mode branches follow the
   game: no slugcat select rain effect; the scenes' idle camera still runs and draws
-  random numbers every tick, as in the game.
+  random numbers every tick, as in the game; the slideshows' scenes have none.
+- **Intro slideshows.** `SlideShow` (`WhiteIntro`, `YellowIntro`; `rw_menu::SlideShow`,
+  `rainworld-re/notes/slideshow.md`) is ported in flat mode: the playlists, the wait for
+  `RW_Intro_Theme`, the manager fade, the scene alphas (Rain Drop's and Yellow A's
+  `Flat2`, the title's fade-out) and the skip (the pause button, level-triggered because
+  `lastPauseButton` is never written). Depth scenes (layers, camera paths along
+  `camera.txt`, blur) are not. The clock follows the song's first source as the game
+  follows `AudioSource.time`: kira's position of the streamed sound in the window, the
+  ticks played on `TimedSources` headless (deterministic). The outros, crossfades, the
+  More Slugcats and Watcher slideshows and the dev move editor are not ported.
 - **Saves, options and progression.** Nothing is read from or written to the game's
   saves or options: the progression is a new one (no saved games, no discovered
   shelters so Regions is greyed, Hunter locked unless `StreamingAssets/unlockred.txt`
@@ -524,8 +544,13 @@ real-time audio rather than the sim.
 - **Starting a game.** The slugcat select menu's held START starts a new game
   (`StoryGameInitCondition.New`) at the character's start: its region's world, the
   start den (`GetStoryDenPosition`: `SU_C04`, the Hunter `LF_H01`) and
-  `TryGetPlayerStartPos` (D14). The Survivor's and the Monk's intro slideshows are
-  skipped (the game would play them first unless S is held) and the save is not wiped
+  `TryGetPlayerStartPos` (D14). The Survivor and the Monk see their intro slideshow
+  first and the Hunter none (`StartGame`); S, or the map button (action 11), held as
+  START completes skips it. The map button is read as Space, Rewired's default gameplay
+  keyboard binding; that the gameplay map is active in menus is inferred, not checked.
+  Space also submits in menus, so filling START with Space skips the intro. The game
+  then waits `InitialBlackSeconds` in black (3 s, the Hunter 5.5 s) and fades in over
+  `FadeInTime` (2 s); saved games' `SlowFadeIn` is not reached. The save is not wiped
   (there is none). The chosen slugcat colours the body's graphics; its body moves as
   the Survivor's (the Monk's and the Hunter's `SlugcatStats` are in
   `rw_sim::campaign::SlugcatCampaign` but the player does not read them yet). Continue,
@@ -561,7 +586,7 @@ real-time audio rather than the sim.
   (`options.fullScreen` stays at its default).
 - **Gameplay keys.** Rewired's default gameplay keyboard map: arrows move, Z jumps. Its
   other keys (X throw, left Shift pick up, Space map, C special) have nothing to drive
-  yet. The intro roll's "any button" (`ControlSetup.GetAnyButton`) is any key of the
+  yet, but for Space skipping the intro when START completes. The intro roll's "any button" (`ControlSetup.GetAnyButton`) is any key of the
   default maps or any mouse button; Rewired's handling of keys bound in no map is not
   checked (the port knows no such keys).
 - **Frame time.** `Time.deltaTime` is capped at 1/3 s, Unity's default
@@ -620,6 +645,17 @@ second part, else a single-room world for arena levels). The campaign descriptio
 - **Not ported:** the rain cycle, karma and karma gates, shelters closing and
   hibernation, saves, the map, `DisabledMapRooms` beyond the tag drop, and Remix's
   `RemoveNotVisitedRooms` branch.
+- **Room scripts.** `AddRoomSpecificScript` is `rw_sim::RoomScript::for_room`, called
+  when a room with `RoomSpecificScriptActive` loads; only `SU_C04StartUp` is ported (the
+  new Survivor or Monk held in the tunnel, pushed out, standing up). It updates after
+  the player, as the game's reversed update list puts it. What it leaves out: the
+  `TutorialControlsPageOwner` it makes 100 ticks after the slugcat stands (needs the
+  HUD; `SuC04StartUp::controls_page_due` marks the tick), and Jolly Co-op's players 1-3
+  (pushed from tick `5 * n`). The Hunter's `HardmodeStart` in `LF_H01` (the scripted
+  first cycle with its creatures and spear) is not ported, so the Hunter starts in its
+  den with nothing happening; the registry keeps its place. The other base-game scripts
+  (`SS_E08`, `SU_A22`, `SL_C12`, `SB_A14`, `SB_D03`, `SU_A43`, `deathPit`, `LF_A03`,
+  `SS_D02`) are not ported.
 
 **Why.** Creatures, AI maps and the rain cycle are later milestones; loading at once
 is simpler and loses nothing gameplay-visible beyond the shorter waits.
@@ -643,6 +679,6 @@ Physics: burrowing, terrain curves (`TerrainCurve`), `setPos`
 `DefaultTile`.
 
 Front end: the options, regions, arena and Remix menus, sleep and death
-screens, the pause menu, slideshows, dialogs, the slugcat select menu's continue pages,
+screens, the pause menu, the outro and DLC slideshows, dialogs, the slugcat select menu's continue pages,
 colour and Jolly Co-op controls, depth scenes, menu objects those use (sliders, check
 box groups, symbol buttons, scroll boxes, `UIelementWrapper`), and in-game music (D12).

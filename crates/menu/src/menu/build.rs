@@ -584,6 +584,79 @@ impl Menu {
         id
     }
 
+    /// `new SlideShowMenuScene(menu, owner, sceneID)` in flat mode: its flat
+    /// illustrations (the camera path of `camera.txt` only moves depth illustrations);
+    /// no random draws.
+    pub fn add_slide_show_scene(
+        &mut self,
+        shared: &mut MenuShared,
+        owner: ObjectId,
+        scene: SceneId,
+    ) -> ObjectId {
+        let mut data = SceneData::new(scene);
+        data.interactive = false;
+        let id = self.push(MenuObject::new(
+            Some(owner),
+            Vec2::ZERO,
+            Kind::Scene(Box::new(data)),
+        ));
+        let flats: Vec<ObjectId> = match scene.slide_show_layers() {
+            FlatLayers::None => Vec::new(),
+            FlatLayers::Title => vec![self.add_illustration(
+                shared,
+                id,
+                "",
+                "MainTitle",
+                Vec2::new(433.0, 340.0),
+                true,
+                false,
+            )],
+            FlatLayers::Scene { folder, files } => files
+                .iter()
+                .map(|file| {
+                    self.add_illustration(
+                        shared,
+                        id,
+                        folder,
+                        file,
+                        Vec2::new(683.0, 384.0),
+                        false,
+                        true,
+                    )
+                })
+                .collect(),
+        };
+        for flat in flats {
+            if let Some(s) = self.scene_mut(id) {
+                s.flat_illustrations.push(flat);
+            }
+            self.add_sub(id, flat);
+        }
+        id
+    }
+
+    /// Takes a scene off its owner and the stage and frees its images
+    /// (`RemoveSprites`, `subObjects.Remove`, `UnloadImages`).
+    pub fn remove_scene(&mut self, scene: ObjectId, shared: &mut MenuShared) {
+        let flats = match &self.objects[scene.0].kind {
+            Kind::Scene(s) => s.flat_illustrations.clone(),
+            _ => return,
+        };
+        for flat in flats {
+            if let Kind::Illustration(i) = &self.objects[flat.0].kind {
+                let (sprite, file) = (i.sprite, i.file_name.clone());
+                self.stage.remove_from_container(sprite);
+                shared.atlases.unload_atlas(&file);
+            }
+        }
+        if let Some(owner) = self.objects[scene.0].owner {
+            self.objects[owner.0].sub_objects.retain(|&o| o != scene);
+        }
+        if self.scene == Some(scene) {
+            self.scene = None;
+        }
+    }
+
     /// The game's `label.textRect.width` of a menu label.
     #[must_use]
     pub fn label_text_width(&self, label: ObjectId) -> f32 {
@@ -621,8 +694,73 @@ impl SceneId {
                 "Scenes/Slugcat - Red".to_owned(),
                 "Slugcat - Red Dark - Flat",
             ),
+            _ => match self.slide_show_layers() {
+                FlatLayers::Scene { folder, files } => {
+                    (folder.to_owned(), files.first().copied().unwrap_or(""))
+                }
+                FlatLayers::Title => (String::new(), "MainTitle"),
+                FlatLayers::None => (String::new(), ""),
+            },
         }
     }
+
+    /// `MenuScene.BuildScene` in flat mode for the slideshow scenes.
+    #[must_use]
+    pub fn slide_show_layers(self) -> FlatLayers {
+        let (folder, files): (&'static str, &'static [&'static str]) = match self {
+            Self::Intro1Tree => ("Scenes/Intro 1 - Tree", &["Intro 1 - Tree - Flat"]),
+            Self::Intro2Branch => ("Scenes/Intro 2 - Branch", &["Intro 2 - Branch - Flat"]),
+            Self::Intro3InTree => ("Scenes/Intro 3 - In Tree", &["Intro 3 - In Tree - Flat"]),
+            Self::Intro4Walking => ("Scenes/Intro 4 - Walking", &["Intro 4 - Walking - Flat"]),
+            Self::Intro5Hunting => ("Scenes/Intro 5 - Hunting", &["Intro 5 - Hunting - Flat"]),
+            Self::Intro67RainDrop => (
+                "Scenes/Intro 6 - 7 - Rain Drop",
+                &[
+                    "Intro 6 - 7 - Rain Drop - Flat",
+                    "Intro 6 - 7 - Rain Drop - Flat2",
+                ],
+            ),
+            Self::Intro8Climbing => ("Scenes/Intro 8 - Climbing", &["Intro 8 - Climbing - Flat"]),
+            Self::Intro9RainyClimb => (
+                "Scenes/Intro 9 - Rainy Climb",
+                &["Intro 9 - Rainy Climb - Flat"],
+            ),
+            Self::Intro10Fall => ("Scenes/Intro 10 - Fall", &["Intro 10 - Fall - Flat"]),
+            Self::Intro105Separation => (
+                "Scenes/Intro 10p5 - Separation",
+                &["Intro 10p5 - Separation - Flat"],
+            ),
+            Self::Intro11Drowning => (
+                "Scenes/Intro 11 - Drowning",
+                &["Intro 11 - Drowning - Flat"],
+            ),
+            Self::Intro12Waking => ("Scenes/Intro 12 - Waking", &["Intro 12 - Waking - Flat"]),
+            Self::Intro13Alone => ("Scenes/Intro 13 - Alone", &["Intro 13 - Alone - Flat"]),
+            Self::YellowIntroA => (
+                "Scenes/Yellow Intro A",
+                &["Yellow Intro A - Flat", "Yellow Intro A - Flat2"],
+            ),
+            Self::YellowIntroB => ("Scenes/Yellow Intro B", &["Yellow Intro B - Flat"]),
+            Self::Intro14Title => return FlatLayers::Title,
+            _ => return FlatLayers::None,
+        };
+        FlatLayers::Scene { folder, files }
+    }
+}
+
+/// The flat illustrations a slideshow scene builds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FlatLayers {
+    /// `Empty`: nothing.
+    None,
+    /// `<folder>/<file>.png` per layer at the screen centre (not crisp).
+    Scene {
+        folder: &'static str,
+        files: &'static [&'static str],
+    },
+    /// `Intro_14_Title`: `Illustrations/MainTitle.png`, crisp, at (433, 340) by its
+    /// bottom-left corner.
+    Title,
 }
 
 impl SceneData {
@@ -630,6 +768,8 @@ impl SceneData {
     pub fn new(id: SceneId) -> Self {
         Self {
             id,
+            interactive: true,
+            display_time: 0.0,
             flat_illustrations: Vec::new(),
             hidden: false,
             focus: 0.0,

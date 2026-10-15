@@ -20,6 +20,7 @@ impl WinitKey for KeyboardKey {
             KeyCode::Escape => Self::Escape,
             KeyCode::Space => Self::Space,
             KeyCode::KeyC => Self::C,
+            KeyCode::KeyS => Self::S,
             KeyCode::KeyX => Self::X,
             KeyCode::KeyZ => Self::Z,
             KeyCode::ArrowUp => Self::UpArrow,

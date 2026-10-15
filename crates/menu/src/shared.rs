@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use rw_assets::{SoundTable, StreamingAssets, UnityResources};
-use rw_audio::music::{MusicPlayer, MusicSettings};
+use rw_audio::music::{MusicPlayer, MusicSettings, SourcePlayback, TrackId};
 use rw_random::UnityRandom;
 use rw_render::StageTextureId;
 
@@ -26,6 +26,39 @@ pub enum StoryGameInitCondition {
     RegionSelect,
     FastTravel,
     StartWithFastTravel,
+}
+
+impl StoryGameInitCondition {
+    /// `FastTravelInitCondition`.
+    #[must_use]
+    pub fn fast_travel(self) -> bool {
+        matches!(self, Self::FastTravel | Self::StartWithFastTravel)
+    }
+
+    /// `RainWorldGame.FadeInTime` with no current save state (the port reads no saves:
+    /// `SaveState.SlowFadeIn` is not reached).
+    #[must_use]
+    pub fn game_fade_in_time(self) -> f32 {
+        match self {
+            c if c.fast_travel() => 0.0,
+            Self::New => 2.0,
+            Self::Dev => 0.45,
+            _ => 0.8,
+        }
+    }
+
+    /// `RainWorldGame.InitialBlackSeconds`; `selected` is the progression's
+    /// `currentlySelectedSinglePlayerSlugcat`.
+    #[must_use]
+    pub fn game_initial_black_seconds(self, selected: Slugcat) -> f32 {
+        match self {
+            c if c.fast_travel() => 10.0,
+            Self::New if selected == Slugcat::RED => 5.5,
+            Self::New => 3.0,
+            Self::Dev => 0.0,
+            _ => 0.75,
+        }
+    }
 }
 
 /// The part of `PlayerProgression.MiscProgressionData` the menus read, in the state of
@@ -109,8 +142,11 @@ pub struct MenuShared {
     pub dlcs: Dlcs,
     /// `rainWorld.inGameSlugCat`.
     pub in_game_slugcat: Option<Slugcat>,
-    /// `manager.menuSetup.startGameCondition`.
+    /// `manager.menuSetup.startGameCondition`; `None` until a menu sets it (a game
+    /// started directly, as `Dev`).
     pub start_game_condition: Option<StoryGameInitCondition>,
+    /// `manager.nextSlideshow`.
+    pub next_slideshow: Option<crate::SlideShowId>,
     /// `_TextGradientTex` (`Palettes/textGradient`), when it could be read.
     pub text_gradient: Option<StageTextureId>,
     /// `_NoiseTex2` (`Palettes/noise2`), when it could be read.
@@ -170,6 +206,7 @@ impl MenuShared {
             dlcs,
             in_game_slugcat: None,
             start_game_condition: None,
+            next_slideshow: None,
             text_gradient,
             noise2,
             music: None,
@@ -218,6 +255,13 @@ impl MenuShared {
             .filter(|s| s.is_intro_roll())
     }
 
+    /// `manager.menuSetup.startGameCondition`, `Dev` when no menu set it.
+    #[must_use]
+    pub fn game_start_condition(&self) -> StoryGameInitCondition {
+        self.start_game_condition
+            .unwrap_or(StoryGameInitCondition::Dev)
+    }
+
     /// `PreSwitchMainProcess`'s microphone handling: let go of it before the game,
     /// take one back before anything else.
     pub fn pre_switch(&mut self, next: ProcessId) {
@@ -235,4 +279,38 @@ impl MenuShared {
 /// An app context the menu processes can run in.
 pub trait MenuContext {
     fn menu(&mut self) -> &mut MenuShared;
+
+    /// The music player's source of `track`, where the context's sources can be read.
+    fn music_playback(&self, _track: TrackId) -> Option<SourcePlayback> {
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `RainWorldGame.FadeInTime` / `InitialBlackSeconds` (56028, 56052) with no save
+    /// state; `Dev` falls to `MainLoopProcess`'s 0.45 / 0.
+    #[test]
+    fn game_fade_per_condition() {
+        use StoryGameInitCondition as C;
+        for (c, fade, black, red) in [
+            (C::Dev, 0.45, 0.0, 0.0),
+            (C::New, 2.0, 3.0, 5.5),
+            (C::Load, 0.8, 0.75, 0.75),
+            (C::RegionSelect, 0.8, 0.75, 0.75),
+            (C::FastTravel, 0.0, 10.0, 10.0),
+            (C::StartWithFastTravel, 0.0, 10.0, 10.0),
+        ] {
+            assert_eq!(c.game_fade_in_time(), fade, "{c:?}");
+            assert_eq!(c.game_initial_black_seconds(Slugcat::WHITE), black, "{c:?}");
+            assert_eq!(
+                c.game_initial_black_seconds(Slugcat::YELLOW),
+                black,
+                "{c:?}"
+            );
+            assert_eq!(c.game_initial_black_seconds(Slugcat::RED), red, "{c:?}");
+        }
+    }
 }

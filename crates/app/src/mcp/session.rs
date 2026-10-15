@@ -5,8 +5,9 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use rw_assets::SlugcatName;
 use rw_assets::{SoundTable, StreamingAssets, UnityResources};
-use rw_menu::{KeyboardKey, MainLoopProcess, ProcessId};
+use rw_menu::{KeyboardKey, MainLoopProcess, ProcessId, StoryGameInitCondition};
 use rw_random::UnityRandom;
 use rw_render::{RoomLayers, WgpuRenderer};
 use rw_sim::campaign::SlugcatCampaign;
@@ -19,7 +20,7 @@ use super::params::{
 };
 use super::reply::{
     ChunkState, ExitInfo, ExitList, ImpactState, LobbyState, PlayerState, ProcessState,
-    RealizedState, RoomInfo, RoomList, Screenshot, State, StepTrace,
+    RealizedState, RoomInfo, RoomList, Screenshot, SlideShowState, StartUpState, State, StepTrace,
 };
 use super::tiles::TileDump;
 use crate::frontend::{AppContext, Frontend, FrontendRenderer, GameSetup};
@@ -46,6 +47,9 @@ pub struct Session {
     /// Game mode (`load_room`, `new_game`) and how it was started.
     scene: Option<Scene>,
     start: Option<GameStart>,
+    /// The process manager's `blackDelay` after the switch to the game (game mode has no
+    /// manager): `InitialBlackSeconds`, less a frame after each tick.
+    black_delay: f32,
     /// Process mode (`load_process`) and its frame count.
     frontend: Option<(Frontend, u64)>,
     /// Created on the first screenshot.
@@ -67,6 +71,7 @@ impl Session {
             sprites,
             scene: None,
             start: None,
+            black_delay: 0.0,
             frontend: None,
             renderer: None,
         }
@@ -192,6 +197,16 @@ impl Session {
             screen: rw_render::Resolution::DEFAULT.size_f32(),
         };
         log::info!("started {start:?}, seed {seed}");
+        // `RainWorldGame.InitialBlackSeconds`: a new story waits in black, else (`Dev`)
+        // none.
+        self.black_delay = match &start {
+            GameStart::NewStory(name) => {
+                StoryGameInitCondition::New.game_initial_black_seconds(*name)
+            }
+            GameStart::Room { .. } => {
+                StoryGameInitCondition::Dev.game_initial_black_seconds(SlugcatName::WHITE)
+            }
+        };
         self.scene = Some(Scene::new(game, Some(source)));
         self.start = Some(start);
         self.frontend = None;
@@ -225,11 +240,25 @@ impl Session {
         if ticks > MAX_TICKS {
             return Err(format!("at most {MAX_TICKS} ticks per call"));
         }
-        let scene = self.scene_or_err()?;
+        self.scene_or_err()?;
         for _ in 0..ticks {
-            scene.tick(input);
+            self.tick(input);
         }
         self.state()
+    }
+
+    /// One game tick as the process manager runs it: the room scripts see the fade
+    /// delay as it stood before the frame; the delay then counts down by the frame.
+    fn tick(&mut self, input: Input) {
+        let delay = self.black_delay;
+        let Some(scene) = self.scene.as_mut() else {
+            return;
+        };
+        scene.game_mut().set_fade_delay_in_progress(delay > 0.0);
+        scene.tick(input);
+        if self.black_delay > 0.0 {
+            self.black_delay -= FRAME_SECONDS;
+        }
     }
 
     /// Runs the steps in order; with `trace`, also reports where each step ended.
@@ -251,12 +280,12 @@ impl Session {
         }
         let mut trace = Vec::new();
         for (input, ticks) in steps {
-            let scene = self.scene_or_err()?;
+            self.scene_or_err()?;
             for _ in 0..ticks {
-                scene.tick(input);
+                self.tick(input);
             }
             if params.trace.unwrap_or(false) {
-                trace.push(StepTrace::of(scene));
+                trace.push(StepTrace::of(self.scene()?));
             }
         }
         Ok((self.state()?, trace))
@@ -325,6 +354,14 @@ impl Session {
                 })
                 .collect(),
             player: game.live_player().map(PlayerState::of),
+            fade_delay_in_progress: self.black_delay > 0.0,
+            start_up: game.start_up_script().map(|s| StartUpState {
+                counter: s.counter(),
+                push_right: s.push_right(),
+                stood_up: s.stood_up(),
+                show_controls_counter: s.show_controls_counter(),
+                controls_page_due: s.controls_page_due(),
+            }),
         })
     }
 
@@ -591,6 +628,15 @@ impl Session {
             fade_alpha: m.fade_sprite().map(|s| s.alpha),
             game_tick: frontend.game().map(|g| g.scene.game().ticks()),
             quit_requested: frontend.quit_requested(),
+            slideshow: frontend.slideshow().map(|s| SlideShowState {
+                current: s.current(),
+                scene: s.current_scene().map(|id| format!("{id:?}")),
+                time: s.time(),
+                in_scene_time: s.in_scene_time(),
+                stall: s.stall(),
+                playback_speed_mult: s.playback_speed_mult(),
+                alphas: s.illustration_alphas(),
+            }),
         })
     }
 
@@ -642,6 +688,7 @@ impl KeyParse {
             "Z" => KeyboardKey::Z,
             "X" => KeyboardKey::X,
             "C" => KeyboardKey::C,
+            "S" => KeyboardKey::S,
             "Escape" => KeyboardKey::Escape,
             "LeftShift" => KeyboardKey::LeftShift,
             _ => return Err(format!("unknown key {name:?}")),
@@ -717,6 +764,7 @@ impl PlayerState {
                 y: input.y,
                 jump: input.jump,
             },
+            controller: player.controller().map(|c| format!("{c:?}")),
         }
     }
 }

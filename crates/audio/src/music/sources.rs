@@ -27,6 +27,24 @@ pub trait MusicSources {
     fn destroy(&mut self, track: TrackId);
 }
 
+/// What a sub-track's `AudioSource` reports of its playback, read between updates
+/// (`SlideShow.RawUpdate` follows it).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SourcePlayback {
+    /// `isPlaying`.
+    pub is_playing: bool,
+    /// `time`: seconds into the clip.
+    pub time: f32,
+    /// `clip.length` in seconds; `None` while no clip is loaded (`clip == null`).
+    pub clip_length: Option<f32>,
+}
+
+/// Sources whose playback position can be read.
+pub trait MusicClock {
+    /// The source of `track`, if it exists.
+    fn playback(&self, track: TrackId) -> Option<SourcePlayback>;
+}
+
 /// A silent source that plays for its clip's length in ticks.
 #[derive(Debug, Clone, Default)]
 pub struct TimedTrack {
@@ -85,6 +103,18 @@ impl TimedSources {
                 t.playing = false;
             }
         }
+    }
+}
+
+impl MusicClock for TimedSources {
+    /// The position is the ticks played, at 40 per second.
+    fn playback(&self, track: TrackId) -> Option<SourcePlayback> {
+        let t = self.tracks.get(&track)?;
+        Some(SourcePlayback {
+            is_playing: t.playing,
+            time: t.ticks as f32 / 40.0,
+            clip_length: t.length.map(ClipLength::seconds),
+        })
     }
 }
 

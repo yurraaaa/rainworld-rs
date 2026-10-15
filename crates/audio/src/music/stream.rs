@@ -12,7 +12,7 @@ use kira::sound::PlaybackState;
 use kira::sound::streaming::{Decoder, StreamingSoundData, StreamingSoundHandle};
 use kira::{AudioManager, Frame, Tween};
 use rw_assets::StreamingAssets;
-use rw_assets::unity::Fsb5Stream;
+use rw_assets::unity::{Fsb5, Fsb5Stream};
 
 use super::bank::SongBank;
 use super::sources::{MusicSources, TrackId};
@@ -138,6 +138,8 @@ struct KiraTrack {
     state: ClipState,
     volume: f32,
     handle: Option<StreamingSoundHandle<String>>,
+    /// Seconds, from the bank's header once it arrived.
+    clip_length: Option<f32>,
 }
 
 /// The music's sources: the clip loader and a streamed kira sound per playing
@@ -187,11 +189,30 @@ impl MusicOutput {
                 LoaderEvent::Bundle => self.bundles_loaded = true,
                 LoaderEvent::Clip(id, bytes) => {
                     if let Some(track) = self.tracks.get_mut(&id) {
+                        track.clip_length = bytes
+                            .as_ref()
+                            .and_then(|b| Fsb5::parse(b).ok())
+                            .map(|f| f.frames as f32 / f.sample_rate as f32);
                         track.state = bytes.map_or(ClipState::Missing, ClipState::Ready);
                     }
                 }
             }
         }
+    }
+}
+
+impl super::sources::MusicClock for MusicOutput {
+    /// kira's position of the streamed sound.
+    fn playback(&self, track: TrackId) -> Option<super::sources::SourcePlayback> {
+        let t = self.tracks.get(&track)?;
+        Some(super::sources::SourcePlayback {
+            is_playing: t
+                .handle
+                .as_ref()
+                .is_some_and(|h| h.state() != PlaybackState::Stopped),
+            time: t.handle.as_ref().map_or(0.0, |h| h.position() as f32),
+            clip_length: t.clip_length,
+        })
     }
 }
 
@@ -247,6 +268,7 @@ impl MusicSources for KiraMusic<'_> {
                 state,
                 volume: 0.0,
                 handle: None,
+                clip_length: None,
             },
         );
     }

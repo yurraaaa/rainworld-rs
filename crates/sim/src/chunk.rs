@@ -136,6 +136,13 @@ impl BodyChunk {
         (self.rad * self.terrain_squeeze).max(1.0)
     }
 
+    /// `HardSetPosition`: moves the chunk to `pos` with no history; the velocity stays.
+    pub fn hard_set_position(&mut self, pos: Vec2) {
+        self.pos = pos;
+        self.last_pos = pos;
+        self.last_last_pos = pos;
+    }
+
     /// Moves the chunk to `pos` with no history and no velocity (`HardSetPosition` + zero vel).
     pub fn reset_at(&mut self, pos: Vec2) {
         self.pos = pos;

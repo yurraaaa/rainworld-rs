@@ -6,14 +6,14 @@
 use std::sync::Arc;
 
 use rw_assets::{SoundTable, StreamingAssets, UnityResources};
-use rw_audio::music::{MusicOutput, SongBank, TimedSources};
+use rw_audio::music::{MusicClock, MusicOutput, SongBank, SourcePlayback, TimedSources, TrackId};
 use rw_audio::{Audio, ListenerInput, MenuPlayback, MenuSoundStart};
 use rw_menu::menu::Menu;
 use rw_menu::{
     Alignment, AtlasLoadError, Container, Font, FontTest, Initialization, IntroRoll, KeyboardKey,
     Label, MainLoopProcess, MainMenu, MenuContext, MenuShared, MenuSound, MenuSoundEvent, Node,
-    NodeTransform, ProcessFactory, ProcessId, ProcessManager, ProcessRequests, SlugcatSelectMenu,
-    TextureSync, TimeStacker,
+    NodeTransform, ProcessFactory, ProcessId, ProcessManager, ProcessRequests, SlideShow,
+    SlideShowId, SlugcatSelectMenu, TextureSync, TimeStacker,
 };
 use rw_random::UnityRandom;
 use rw_render::{Camera, Color, Renderer, Resolution, StageBatch, StageGlobals};
@@ -62,6 +62,9 @@ pub enum MusicSink {
 /// The game process: the [`Scene`].
 pub struct GameProcess {
     pub scene: Scene,
+    /// `FadeInTime` and `InitialBlackSeconds`, from the menu setup it was made with.
+    fade_in_time: f32,
+    initial_black_seconds: f32,
 }
 
 /// A process the port does not have yet: its name on black; the pause button (Esc)
@@ -76,6 +79,7 @@ pub struct Unported {
 pub enum AppProcess {
     Initialization(Initialization),
     IntroRoll(Box<IntroRoll>),
+    SlideShow(Box<SlideShow>),
     Game(Box<GameProcess>),
     FontTest(FontTest),
     MainMenu(Box<MainMenu>),
@@ -184,7 +188,13 @@ impl AppContext {
         if let Some(audio) = &mut self.audio {
             audio.set_ambients(&scene.game().settings().ambient_sounds);
         }
-        GameProcess { scene }
+        let condition = self.menu.game_start_condition();
+        GameProcess {
+            scene,
+            fade_in_time: condition.game_fade_in_time(),
+            initial_black_seconds: condition
+                .game_initial_black_seconds(self.menu.progression.selected_slugcat),
+        }
     }
 
     /// The menu microphone's frame: its loops fade with whether a menu is the main
@@ -242,6 +252,13 @@ impl MenuContext for AppContext {
     fn menu(&mut self) -> &mut MenuShared {
         &mut self.menu
     }
+
+    fn music_playback(&self, track: TrackId) -> Option<SourcePlayback> {
+        match &self.music_sink {
+            MusicSink::Timed(sources) => sources.playback(track),
+            MusicSink::Output(output) => output.playback(track),
+        }
+    }
 }
 
 impl ProcessFactory<AppProcess> for AppContext {
@@ -252,6 +269,13 @@ impl ProcessFactory<AppProcess> for AppContext {
                 AppProcess::Initialization(Initialization::new(self.start))
             }
             ProcessId::IntroRoll => AppProcess::IntroRoll(Box::new(IntroRoll::new(&mut self.menu))),
+            ProcessId::SlideShow => {
+                let id = self.menu.next_slideshow.unwrap_or_else(|| {
+                    log::warn!("no slideshow chosen; showing the Survivor's intro");
+                    SlideShowId::WhiteIntro
+                });
+                AppProcess::SlideShow(Box::new(SlideShow::new(&mut self.menu, id)))
+            }
             ProcessId::Game => AppProcess::Game(Box::new(self.new_game())),
             ProcessId::FontTest => AppProcess::FontTest(FontTest::new(&mut self.menu)),
             ProcessId::MainMenu => AppProcess::MainMenu(Box::new(MainMenu::new(&mut self.menu))),
@@ -289,7 +313,18 @@ impl MainLoopProcess<AppContext> for GameProcess {
         ProcessId::Game
     }
 
-    fn update(&mut self, ctx: &mut AppContext, _requests: &mut ProcessRequests) {
+    fn fade_in_time(&self) -> f32 {
+        self.fade_in_time
+    }
+
+    fn initial_black_seconds(&self) -> f32 {
+        self.initial_black_seconds
+    }
+
+    fn update(&mut self, ctx: &mut AppContext, requests: &mut ProcessRequests) {
+        self.scene
+            .game_mut()
+            .set_fade_delay_in_progress(requests.fade_delay_in_progress());
         let keys = ctx.input.take_tick_input();
         let input = ctx
             .script
@@ -371,7 +406,11 @@ impl AppProcess {
             Self::Initialization(p) => Some(p.stage()),
             Self::FontTest(p) => Some(p.stage()),
             Self::Unported(p) => Some(&p.stage),
-            Self::Game(_) | Self::IntroRoll(_) | Self::MainMenu(_) | Self::SlugcatSelect(_) => None,
+            Self::Game(_)
+            | Self::IntroRoll(_)
+            | Self::SlideShow(_)
+            | Self::MainMenu(_)
+            | Self::SlugcatSelect(_) => None,
         }
     }
 
@@ -380,6 +419,7 @@ impl AppProcess {
     pub fn menu(&self) -> Option<&Menu> {
         match self {
             Self::IntroRoll(p) => Some(p.menu()),
+            Self::SlideShow(p) => Some(p.menu()),
             Self::MainMenu(p) => Some(p.menu()),
             Self::SlugcatSelect(p) => Some(p.menu()),
             _ => None,
@@ -389,6 +429,7 @@ impl AppProcess {
     fn menu_mut(&mut self) -> Option<&mut Menu> {
         match self {
             Self::IntroRoll(p) => Some(p.menu_mut()),
+            Self::SlideShow(p) => Some(p.menu_mut()),
             Self::MainMenu(p) => Some(p.menu_mut()),
             Self::SlugcatSelect(p) => Some(p.menu_mut()),
             _ => None,
@@ -422,6 +463,7 @@ impl MainLoopProcess<AppContext> for AppProcess {
         match self {
             Self::Initialization(_) => ProcessId::Initialization,
             Self::IntroRoll(_) => ProcessId::IntroRoll,
+            Self::SlideShow(_) => ProcessId::SlideShow,
             Self::Game(_) => ProcessId::Game,
             Self::FontTest(_) => ProcessId::FontTest,
             Self::MainMenu(_) => ProcessId::MainMenu,
@@ -434,6 +476,7 @@ impl MainLoopProcess<AppContext> for AppProcess {
         match self {
             Self::Initialization(p) => p.update(ctx, requests),
             Self::IntroRoll(p) => p.update(ctx, requests),
+            Self::SlideShow(p) => p.update(ctx, requests),
             Self::Game(p) => p.update(ctx, requests),
             Self::FontTest(p) => p.update(ctx, requests),
             Self::MainMenu(p) => p.update(ctx, requests),
@@ -446,6 +489,7 @@ impl MainLoopProcess<AppContext> for AppProcess {
         match self {
             Self::Initialization(p) => p.graf_update(time_stacker, ctx),
             Self::IntroRoll(p) => p.graf_update(time_stacker, ctx),
+            Self::SlideShow(p) => p.graf_update(time_stacker, ctx),
             Self::Game(p) => p.graf_update(time_stacker, ctx),
             Self::FontTest(p) => p.graf_update(time_stacker, ctx),
             Self::MainMenu(p) => p.graf_update(time_stacker, ctx),
@@ -458,6 +502,7 @@ impl MainLoopProcess<AppContext> for AppProcess {
         match self {
             Self::Initialization(p) => p.shut_down(ctx),
             Self::IntroRoll(p) => p.shut_down(ctx),
+            Self::SlideShow(p) => p.shut_down(ctx),
             Self::Game(p) => p.shut_down(ctx),
             Self::FontTest(p) => p.shut_down(ctx),
             Self::MainMenu(p) => p.shut_down(ctx),
@@ -466,7 +511,26 @@ impl MainLoopProcess<AppContext> for AppProcess {
         }
     }
 
-    /// The intro roll keeps its own clocks after the frame (`IntroRoll.RawUpdate`).
+    fn fade_in_time(&self) -> f32 {
+        match self {
+            Self::Game(p) => p.fade_in_time(),
+            _ => 0.45,
+        }
+    }
+
+    fn initial_black_seconds(&self) -> f32 {
+        match self {
+            Self::Game(p) => p.initial_black_seconds(),
+            _ => 0.0,
+        }
+    }
+
+    fn removes_loading_label(&self) -> bool {
+        matches!(self, Self::SlideShow(_))
+    }
+
+    /// The intro roll and the slideshow keep their own clocks after the frame
+    /// (`RawUpdate`).
     fn raw_update(
         &mut self,
         dt: f32,
@@ -474,9 +538,10 @@ impl MainLoopProcess<AppContext> for AppProcess {
         ctx: &mut AppContext,
         requests: &mut ProcessRequests,
     ) {
-        if let Self::IntroRoll(p) = self {
-            p.raw_update(dt, stacker, ctx, requests);
-            return;
+        match self {
+            Self::IntroRoll(p) => return p.raw_update(dt, stacker, ctx, requests),
+            Self::SlideShow(p) => return p.raw_update(dt, stacker, ctx, requests),
+            _ => {}
         }
         for _ in 0..stacker.advance(dt, self.frames_per_second()) {
             self.update(ctx, requests);
@@ -521,6 +586,15 @@ impl Frontend {
 
     pub fn game_mut(&mut self) -> Option<&mut GameProcess> {
         self.manager.current_mut().and_then(AppProcess::game_mut)
+    }
+
+    /// The slideshow, when it is the current process.
+    #[must_use]
+    pub fn slideshow(&self) -> Option<&SlideShow> {
+        match self.manager.current() {
+            Some(AppProcess::SlideShow(s)) => Some(s),
+            _ => None,
+        }
     }
 
     /// Queues the frame: the game's scene or the menu stage, then the fade.

@@ -23,6 +23,7 @@ mod game;
 mod object;
 mod player;
 mod room_ext;
+pub mod room_script;
 mod shortcut;
 mod sound;
 mod spawn;
@@ -36,7 +37,9 @@ pub use game::{CameraMove, PlayerObserver, RainWorldGame, Start, WorldCoordinate
 pub use object::{
     BodyChunkConnection, ConnectionKind, PhysicalObject, TerrainImpactHandler, slugcat,
 };
-pub use player::{Animation, BodyMode, HEAD, HIPS, INPUT_HISTORY, Input, Player, VesselStep};
+pub use player::{
+    Animation, BodyMode, HEAD, HIPS, INPUT_HISTORY, Input, Player, PlayerController, VesselStep,
+};
 pub use shortcut::{LobbyVessel, ShortcutHandler};
 pub use sound::{EmitterId, PlayedSound, SoundEvent, SoundId, SoundSource, Sounds};
 pub use spawn::{determine_safe_spawn_tile, place_in_room};
