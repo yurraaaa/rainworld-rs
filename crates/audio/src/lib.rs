@@ -246,17 +246,16 @@ impl Audio {
         self.mic.tick(listener, water);
         match chunks {
             Some(chunks) => self.emitters.follow(chunks),
-            None => self.emitters.clear(),
+            None => self.emitters.clear_chunks(),
         }
         let now = self.now();
         for event in events {
             match event {
                 SoundEvent::Play(sound) => {
-                    if let Some(chunks) = chunks {
-                        self.emitters.insert_for(&sound, chunks);
-                    } else if matches!(sound.source, SoundSource::Chunk { .. }) {
+                    if chunks.is_none() && matches!(sound.source, SoundSource::Chunk { .. }) {
                         continue;
                     }
+                    self.emitters.insert_for(&sound, chunks);
                     if !self.allow_sound(sound.id) {
                         log::debug!("<CAP> {}", sound.id.name());
                         continue;
@@ -283,7 +282,8 @@ impl Audio {
                 }
                 SoundEvent::Emitter { id, volume, pitch } => self.emitters.set(id, volume, pitch),
                 SoundEvent::Stop(id) => self.emitters.remove(id),
-                SoundEvent::OwnerRemoved => self.emitters.clear(),
+                SoundEvent::Moved { id, pos } => self.emitters.moved(id, pos),
+                SoundEvent::OwnerRemoved => self.emitters.clear_chunks(),
             }
         }
         self.emitters.end_tick();

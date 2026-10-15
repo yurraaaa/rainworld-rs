@@ -12,13 +12,14 @@ use rw_assets::world::{GameRooms, LineFilter, Regions, StoryConditions, WorldDat
 use rw_assets::{ActiveMods, Room, RoomSettings, SlugcatName, SoundTable, StreamingAssets};
 use rw_audio::Follow as SoundFollow;
 use rw_graphics::{
-    Color, DrawList, HologramFrame, HologramGraphics, OverseerGraphics, PlayerGraphics,
-    ShortcutPalette,
+    Color, DrawList, FlyGraphics, HologramFrame, HologramGraphics, OverseerGraphics,
+    PlayerGraphics, ShortcutPalette,
 };
 use rw_hud::{HudSetup, OwnerTick, RainCycleView, StartCondition, Subregions};
 use rw_random::UnityRandom;
 use rw_render::{BodyStatus, ChunkInterpolation, Follow, PlayerLight, WaterSurface};
 use rw_sim::campaign::{self, SlugcatCampaign};
+use rw_sim::creature::fly::FlyView;
 use rw_sim::creature::overseer::OverseerView;
 use rw_sim::creature::overseer::hologram::OverseerHologram;
 use rw_sim::creature::{CreatureId, EntityId};
@@ -68,6 +69,11 @@ struct Graphics {
     hologram_bases: Vec<(EntityId, Color)>,
     /// Every live hologram's sprites and colours, viewed or not.
     holograms: Vec<HologramGraphics>,
+    /// The flies' graphics modules, in sprite order (`MoveToFront` moves one last).
+    flies: Vec<FlyGraphics>,
+    /// The flies' graphics at each recorded flies' call (traces).
+    #[cfg(test)]
+    fly_log: Option<Vec<Vec<FlyGraphics>>>,
     /// The camera room palette's earth colour (`OverseerGraphics.ApplyPalette`).
     earth: Color,
     /// Holograms the sim cannot make yet, drawn in the camera's room after the real ones
@@ -191,6 +197,51 @@ impl PlayerObserver for Graphics {
             }
         };
         self.holograms[i].update(hologram, base);
+    }
+
+    /// The sim builds a module only for a fly without one, so one kept here belongs to an
+    /// earlier body of the creature (abstracted since) and is replaced.
+    fn fly_added(&mut self, view: &FlyView<'_>, rng: &mut UnityRandom) {
+        self.flies.retain(|g| g.id != view.id);
+        self.flies.push(FlyGraphics::new(view, rng));
+    }
+
+    fn fly_reset(&mut self, view: &FlyView<'_>) {
+        if let Some(g) = self.flies.iter_mut().find(|g| g.id == view.id) {
+            g.reset(view);
+        }
+    }
+
+    fn fly_updated(
+        &mut self,
+        view: &FlyView<'_>,
+        room: &Room,
+        cameras: usize,
+        camera_room: &Room,
+        camera: &CameraView,
+        rng: &mut UnityRandom,
+    ) {
+        if let Some(g) = self.flies.iter_mut().find(|g| g.id == view.id) {
+            g.update(view, room, cameras, camera_room, camera, rng);
+        }
+    }
+
+    fn fly_to_front(&mut self, id: EntityId) {
+        if let Some(i) = self.flies.iter().position(|g| g.id == id) {
+            let g = self.flies.remove(i);
+            self.flies.push(g);
+        }
+    }
+
+    fn fly_removed(&mut self, id: EntityId) {
+        self.flies.retain(|g| g.id != id);
+    }
+
+    fn flies_recorded(&mut self) {
+        #[cfg(test)]
+        if let Some(log) = &mut self.fly_log {
+            log.push(self.flies.clone());
+        }
     }
 
     fn nudge_tail_x(&mut self, dvx: f32) {
@@ -330,6 +381,9 @@ impl Game {
             overseers: Vec::new(),
             hologram_bases: Vec::new(),
             holograms: Vec::new(),
+            flies: Vec::new(),
+            #[cfg(test)]
+            fly_log: None,
             earth: Color::BLACK,
             #[cfg(test)]
             extra_holograms: Vec::new(),
@@ -567,6 +621,63 @@ impl Game {
             }
         }
         lists
+    }
+
+    /// The flies' sprites in the camera's room at `alpha` between ticks, in sprite
+    /// order, in the room palette's `black`. Drops the graphics of flies no longer
+    /// realized.
+    pub fn fly_draw_lists(&mut self, alpha: f32, black: Color) -> Vec<DrawList> {
+        let world = self.sim.world();
+        let camera_room = self.sim.camera_room();
+        let shown: Vec<CreatureId> = world
+            .creatures()
+            .filter(|(_, c)| {
+                c.fly()
+                    .is_some_and(|f| f.room == Some(camera_room) && f.graphics)
+            })
+            .map(|(id, _)| id)
+            .collect();
+        let realized: Vec<EntityId> = world
+            .creatures()
+            .filter(|(_, c)| c.fly().is_some())
+            .map(|(_, c)| c.id)
+            .collect();
+        self.graphics.flies.retain(|g| realized.contains(&g.id));
+        let views: Vec<FlyView<'_>> = shown
+            .iter()
+            .filter_map(|&c| world.realized_fly_view(c))
+            .collect();
+        self.graphics
+            .flies
+            .iter()
+            .filter_map(|g| {
+                let view = views.iter().find(|v| v.id == g.id)?;
+                Some(g.draw(view, black, alpha))
+            })
+            .collect()
+    }
+
+    /// Fly `id`'s graphics module.
+    #[cfg(test)]
+    #[must_use]
+    pub fn fly_graphics(&self, id: EntityId) -> Option<&FlyGraphics> {
+        self.graphics.flies.iter().find(|g| g.id == id)
+    }
+
+    /// Starts recording the flies' graphics at each recorded flies' call.
+    #[cfg(test)]
+    pub fn record_fly_graphics(&mut self) {
+        self.graphics.fly_log = Some(Vec::new());
+    }
+
+    /// The flies' graphics recorded since the last call, one entry per flies' call.
+    #[cfg(test)]
+    pub fn take_fly_graphics(&mut self) -> Vec<Vec<FlyGraphics>> {
+        self.graphics
+            .fly_log
+            .as_mut()
+            .map(std::mem::take)
+            .unwrap_or_default()
     }
 
     /// Camera 0's shortcut sprites at this frame (`ShortcutGraphics.Draw`), its image at

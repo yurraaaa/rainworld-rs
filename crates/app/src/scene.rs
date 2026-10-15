@@ -338,8 +338,11 @@ impl Scene {
             .visuals
             .as_ref()
             .map_or(rw_graphics::Color::BLACK, Visuals::earth_color);
+        // The flies' sprites join the overseers' (midground only), in sprite order.
         let overseers = if target.sprites.is_some() {
-            self.game.overseer_draw_lists(alpha, earth)
+            let mut lists = self.game.overseer_draw_lists(alpha, earth);
+            lists.extend(self.game.fly_draw_lists(alpha, face));
+            lists
         } else {
             Vec::new()
         };
@@ -449,7 +452,8 @@ struct FrameDraw<'a> {
     /// The slugcat's sprites, drawn only with the level graphic. Without it (the debug
     /// view, or no atlas) the physical body is drawn: chunks, rods and contacts.
     sprites: Option<&'a DrawList>,
-    /// The overseers' sprites (level view only), after the slugcat's in each container.
+    /// The overseers' and flies' sprites (level view only), after the slugcat's in each
+    /// container.
     overseers: &'a [DrawList],
     /// The holograms' sprites (level view only), in the `Bloom` container.
     holograms: &'a [DrawList],

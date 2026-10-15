@@ -10,6 +10,8 @@
 //! `rainworld-re/notes/creature-model.md`.
 
 pub(crate) mod ai;
+pub mod fly;
+pub mod grasp;
 pub mod overseer;
 pub(crate) mod population;
 pub mod template;
@@ -20,6 +22,11 @@ use rw_random::UnityRandom;
 use crate::FloatExt;
 
 pub use ai::{AbstractCreatureAi, AiKind, CarriedItem, ItemKind};
+pub use fly::{
+    DropStatus, FlockBehavior, FlockId, Fly, FlyAi, FlyBehavior, FlyView, HoverEmitter,
+    MovementMode, TrackedThreat,
+};
+pub use grasp::{GrabRequest, Grasp, GripStick, Shareability};
 pub use overseer::{OverseerAbstractAi, OverseerAi, OverseerBody, PlayerGuideState};
 pub use template::{CreatureTemplate, WaterRelationship};
 
@@ -188,6 +195,7 @@ pub enum RealizedCreature {
     /// The player's body (`RainWorldGame` keeps it).
     Player,
     Overseer(Box<OverseerBody>),
+    Fly(Box<Fly>),
 }
 
 /// `AbstractCreature`.
@@ -215,6 +223,12 @@ pub struct AbstractCreature {
     pub realized: Option<RealizedCreature>,
     /// Objects held by `CreatureGripStick`s (scavenger gear, a drop bug's item).
     pub carried: Vec<CarriedItem>,
+    /// The realized creature's `grasps` (empty while abstract).
+    pub grasps: Vec<Option<Grasp>>,
+    /// The realized creature's `grabbedBy`.
+    pub grabbed_by: Vec<Grasp>,
+    /// `stuckObjects` between creatures, in the order they were made.
+    pub sticks: Vec<GripStick>,
 }
 
 impl AbstractCreature {
@@ -250,11 +264,34 @@ impl AbstractCreature {
     }
 
     /// `Quantify`: a living quantified creature with stuck objects (the game's test reads
-    /// `stuckObjects.Count == 0` as false, so a free fly does not quantify; the port's
-    /// sticks are the carried items).
+    /// `stuckObjects.Count == 0` as false, so a free fly does not quantify).
     #[must_use]
     pub fn quantify(&self) -> bool {
-        self.template.quantified && self.state.alive && !self.carried.is_empty()
+        self.template.quantified
+            && self.state.alive
+            && (!self.carried.is_empty() || !self.sticks.is_empty())
+    }
+
+    /// The realized object's `slatedForDeletetion`.
+    #[must_use]
+    pub fn realized_slated(&self) -> bool {
+        matches!(&self.realized, Some(RealizedCreature::Fly(f)) if f.slated)
+    }
+
+    /// The realized fly.
+    #[must_use]
+    pub fn fly(&self) -> Option<&Fly> {
+        match &self.realized {
+            Some(RealizedCreature::Fly(f)) => Some(f.as_ref()),
+            _ => None,
+        }
+    }
+
+    pub fn fly_mut(&mut self) -> Option<&mut Fly> {
+        match &mut self.realized {
+            Some(RealizedCreature::Fly(f)) => Some(f.as_mut()),
+            _ => None,
+        }
     }
 
     /// `realizedCreature != null`.

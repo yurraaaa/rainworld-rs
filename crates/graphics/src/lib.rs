@@ -4,13 +4,14 @@
 //! Ported: the slugcat ([`PlayerGraphics`]: tail, head, legs, hands, draw offsets,
 //! breathing, blinking, sprite frame choice), base game with Remix off; Futile atlas
 //! frame data ([`Atlas`]); the overseer's ([`OverseerGraphics`]: mycelia, lens, sprites)
-//! and its holograms' ([`HologramGraphics`]). Behaviour: `rainworld-re/notes/slugcat-graphics.md` and
+//! and its holograms' ([`HologramGraphics`]); the bat fly's ([`FlyGraphics`]). Behaviour: `rainworld-re/notes/slugcat-graphics.md` and
 //! `sprite-atlases.md`; differences from the game are in `docs/DIVERGENCES.md`.
 
 mod atlas;
 mod body_part;
 mod draw;
 pub mod elements;
+mod fly_graphics;
 mod hand;
 mod hologram_draw;
 mod hologram_matrix;
@@ -28,6 +29,7 @@ mod tail;
 pub use atlas::{Atlas, AtlasError, AtlasFrame, Rect, Size};
 pub use body_part::{BodyPart, PointConnection};
 pub use draw::{Color, DrawItem, DrawList, Layer, Mesh, Shader, SlugcatName, Sprite};
+pub use fly_graphics::FlyGraphics;
 pub use hand::SlugcatHand;
 pub use hologram_draw::{HologramFrame, HologramGraphics};
 pub use hologram_matrix::{HoloLine, HologramMatrix, LensFrame};

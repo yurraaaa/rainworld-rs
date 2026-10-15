@@ -6,20 +6,95 @@
 //! [`rw_assets::ShortcutMap`].
 
 use rw_assets::shortcut::FOUR_DIRECTIONS;
-use rw_assets::{CreatureType, Room, ShortcutType, Terrain};
+use rw_assets::{CreatureType, Room, Shortcut, ShortcutType, Terrain};
 use rw_random::UnityRandom;
 
 use crate::creature::{CreatureId, WorldCoordinate};
 use crate::world::World;
-use crate::{FloatExt, Player, Sounds, TileExt, VesselStep};
+use crate::{FloatExt, Player, SoundId, Sounds, TileExt, Vec2, VesselStep};
 
 /// `RainWorldGame.updateShortCut`, which runs `ShortcutHandler.Update` only on every
-/// third game tick, and the handler's `betweenRoomsWaitingLobby`.
+/// third game tick, and the handler's `transportVessels` and `betweenRoomsWaitingLobby`.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ShortcutHandler {
     update_counter: u8,
+    /// `transportVessels`, oldest first (the player's vessel is the player's own).
+    pub(crate) transport: Vec<Transport>,
     /// `betweenRoomsWaitingLobby`, oldest first.
     pub lobby: Vec<LobbyVessel>,
+}
+
+/// One of `transportVessels`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Transport {
+    /// The player's vessel ([`Player`] keeps it).
+    Player,
+    Creature(CreatureVessel),
+}
+
+/// A creature's `ShortCutVessel`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CreatureVessel {
+    pub creature: CreatureId,
+    /// The room whose tubes it is in (`vessel.room`).
+    pub room: i32,
+    pub(crate) vessel: ShortcutVessel,
+    pub entrance_node: i32,
+}
+
+impl CreatureVessel {
+    /// The tube tile and `lastPositions[0]`.
+    #[must_use]
+    pub fn tiles(&self) -> ((i32, i32), (i32, i32)) {
+        (self.vessel.pos, self.vessel.last_pos)
+    }
+}
+
+impl CreatureVessel {
+    /// One `ShortcutHandler.Update` step of an NPC's vessel: waits, or moves a tile with
+    /// `Small_NPC_Tick_Along_In_Shortcut` at the new tile; at an entrance it is spat out
+    /// (the caller's `SpitOutCreature`), at another node it reports the node.
+    pub(crate) fn step(
+        &mut self,
+        room: &Room,
+        rng: &mut UnityRandom,
+        sounds: &mut Sounds,
+    ) -> VesselStep {
+        let from = self.vessel.pos;
+        if !self.vessel.step(room) {
+            return VesselStep::Waited;
+        }
+        let pos = self.vessel.pos;
+        let middle = Vec2::middle_of_tile(pos);
+        sounds.play_at(SoundId::SmallNpcTickAlongInShortcut, middle, 1.0, 1.0, rng);
+        let tile = room.tile(pos.0, pos.1);
+        if tile.terrain == Terrain::ShortcutEntrance {
+            return VesselStep::SpatOut;
+        }
+        if pos != self.vessel.last_pos && !matches!(tile.shortcut, Shortcut::None | Shortcut::Path)
+        {
+            let node = room.shortcut_map().nodes().iter().position(|&n| n == pos);
+            return VesselStep::Node {
+                node,
+                kind: tile.shortcut,
+                from,
+            };
+        }
+        VesselStep::Moved
+    }
+}
+
+/// Who rides a vessel in the lobby.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VesselOwner {
+    /// The player's shortcut vessel.
+    Player,
+    /// A realized creature's teleportation vessel (an overseer's).
+    Teleport(CreatureId),
+    /// A creature's shortcut vessel.
+    Shortcut(CreatureVessel),
+    /// A creature entering at a bat hive (`BatHiveVessel`).
+    BatHive(CreatureId),
 }
 
 /// A vessel in `betweenRoomsWaitingLobby`.
@@ -31,15 +106,53 @@ pub struct LobbyVessel {
     pub entrance_node: i32,
     /// Shortcut updates spent waiting.
     pub updates: u32,
-    /// A realized creature's teleportation vessel (an overseer's); `None` for the
-    /// player's shortcut vessel.
-    pub teleport: Option<CreatureId>,
+    pub owner: VesselOwner,
+}
+
+impl LobbyVessel {
+    /// The creature riding it, unless it is the player's.
+    #[must_use]
+    pub fn creature(&self) -> Option<CreatureId> {
+        match self.owner {
+            VesselOwner::Player => None,
+            VesselOwner::Teleport(id) | VesselOwner::BatHive(id) => Some(id),
+            VesselOwner::Shortcut(v) => Some(v.creature),
+        }
+    }
 }
 
 impl ShortcutHandler {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Creature `id`'s vessel, in the tubes or (with `true`) in the lobby.
+    #[must_use]
+    pub fn creature_vessel(&self, id: CreatureId) -> Option<(CreatureVessel, bool)> {
+        let moving = self.transport.iter().find_map(|t| match t {
+            Transport::Creature(v) if v.creature == id => Some((*v, false)),
+            _ => None,
+        });
+        moving.or_else(|| {
+            self.lobby.iter().find_map(|l| match l.owner {
+                VesselOwner::Shortcut(v) if v.creature == id => Some((
+                    CreatureVessel {
+                        room: l.room,
+                        entrance_node: l.entrance_node,
+                        ..v
+                    },
+                    true,
+                )),
+                _ => None,
+            })
+        })
+    }
+
+    /// The player's vessel leaves the tubes and the lobby (a respawn or a placement).
+    pub(crate) fn drop_player(&mut self) {
+        self.lobby.retain(|v| v.owner != VesselOwner::Player);
+        self.transport.retain(|t| *t != Transport::Player);
     }
 
     /// Counts one game tick; true on every third, when the handler updates.

@@ -1,7 +1,8 @@
 //! Room settings files (`<room>_settings.txt`) and their template inheritance, for the
 //! values the port uses: `Palette`, `FadePalette`, `EffectColorA/B`, `Clouds`, `Grime`,
 //! the water surface's `WaveSpeed`, `WaveLength`, `WaveAmplitude`, `SecondWaveLength`
-//! and `SecondWaveAmplitude`, `AmbientSounds`, `Effects` and `PlacedObjects`. Mirrors `RoomSettings` (constructor,
+//! and `SecondWaveAmplitude`, `DangerType`, `RainIntensity`, `AmbientSounds`, `Effects`
+//! and `PlacedObjects`. Mirrors `RoomSettings` (constructor,
 //! `FindParent`, `Load`, `InheritAmbientSounds`) and
 //! `Region.GetRoomSettingsTemplate`; see `rainworld-re/notes/room-format.md` section 6.
 //!
@@ -13,10 +14,38 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::identity::ext_enum;
 use crate::{
     ActiveMods, AmbientSound, AssetError, PlacedObject, RoomEffect, RoomEffectType,
     StreamingAssets, Timeline,
 };
+
+ext_enum! {
+    /// `RoomRain.DangerType`.
+    pub enum DangerType {
+        Base {
+            Rain = "Rain",
+            Flood = "Flood",
+            FloodAndRain = "FloodAndRain",
+            None = "None",
+            Thunder = "Thunder",
+            AerieBlizzard = "AerieBlizzard",
+        }
+        DlcShared {
+            Blizzard = "Blizzard",
+        }
+    }
+}
+
+impl DangerType {
+    /// The registered value spelled `value` with `mods` active.
+    #[must_use]
+    pub fn from_value(value: &str, mods: ActiveMods) -> Option<Self> {
+        Self::registered(mods)
+            .into_iter()
+            .find(|d| d.value() == value)
+    }
+}
 
 /// `FadePalette: <palette>, <fade>, <fade>, ...`: a second palette and one blend amount
 /// per camera.
@@ -50,6 +79,9 @@ pub struct SettingsFile {
     pub wave_amplitude: Option<f32>,
     pub second_wave_length: Option<f32>,
     pub second_wave_amplitude: Option<f32>,
+    /// `DangerType:`; the inner `None` is a value the game does not register.
+    pub danger_type: Option<Option<DangerType>>,
+    pub rain_intensity: Option<f32>,
     /// The file's own `AmbientSounds:` entries (every such line adds).
     pub ambient_sounds: Vec<AmbientSound>,
     /// The file's own `Effects:` entries (every such line adds).
@@ -77,6 +109,9 @@ pub struct RoomSettings {
     pub wave_amplitude: f32,
     pub second_wave_length: f32,
     pub second_wave_amplitude: f32,
+    /// `None` for a value the game does not register (equal to none of its own).
+    pub danger_type: Option<DangerType>,
+    pub rain_intensity: f32,
     /// Own ambient sounds, then the parent's that are not overridden (templates and
     /// the root do not inherit).
     pub ambient_sounds: Vec<AmbientSound>,
@@ -123,6 +158,10 @@ impl SettingsFile {
                 "WaveAmplitude" => file.wave_amplitude = Some(Self::float(value)?),
                 "SecondWaveLength" => file.second_wave_length = Some(Self::float(value)?),
                 "SecondWaveAmplitude" => file.second_wave_amplitude = Some(Self::float(value)?),
+                "DangerType" => {
+                    file.danger_type = Some(DangerType::from_value(value, ActiveMods::NONE));
+                }
+                "RainIntensity" => file.rain_intensity = Some(Self::float(value)?),
                 "AmbientSounds" => file.ambient_sounds.extend(AmbientSound::parse_list(value)?),
                 "Effects" => file.effects.extend(RoomEffect::parse_list(value)),
                 "PlacedObjects" => file.placed_objects.extend(PlacedObject::parse_list(value)),
@@ -183,6 +222,8 @@ impl SettingsFile {
             second_wave_amplitude: self
                 .second_wave_amplitude
                 .unwrap_or(parent.second_wave_amplitude),
+            danger_type: self.danger_type.unwrap_or(parent.danger_type),
+            rain_intensity: self.rain_intensity.unwrap_or(parent.rain_intensity),
             ambient_sounds: AmbientSound::inherit(&self.ambient_sounds, &parent.ambient_sounds),
             effects: RoomEffect::inherit(&self.effects, &parent.effects),
             placed_objects: self.placed_objects.clone(),
@@ -214,11 +255,24 @@ impl RoomSettings {
         wave_amplitude: 0.0,
         second_wave_length: 1.0 / 6.0,
         second_wave_amplitude: 0.0,
+        danger_type: Some(DangerType::Rain),
+        rain_intensity: 1.0,
         ambient_sounds: Vec::new(),
         effects: Vec::new(),
         placed_objects: Vec::new(),
         room_specific_script: false,
     };
+
+    /// `FlyAI.RoomNotACycleHazard`: no rain danger (or a blizzard, with the DLCs), or
+    /// rain too weak to matter.
+    #[must_use]
+    pub fn not_a_cycle_hazard(&self, mods: ActiveMods) -> bool {
+        let blizzard = (mods.msc || mods.watcher) && self.danger_type == Some(DangerType::Blizzard);
+        if self.danger_type != Some(DangerType::None) && !blizzard {
+            return self.rain_intensity < 0.2;
+        }
+        true
+    }
 
     /// Placed objects with `timeline`'s filters applied (`LoadPlacedObjects`).
     #[must_use]

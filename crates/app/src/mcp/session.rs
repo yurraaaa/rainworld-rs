@@ -11,6 +11,7 @@ use rw_menu::{KeyboardKey, MainLoopProcess, MenuShared, ProcessId, StoryGameInit
 use rw_random::UnityRandom;
 use rw_render::{RoomLayers, WgpuRenderer};
 use rw_sim::campaign::SlugcatCampaign;
+use rw_sim::creature::{AbstractCreature, CreatureId};
 use rw_sim::{Input, Vec2};
 
 use super::params::{
@@ -19,8 +20,8 @@ use super::params::{
     StepProcessParams, StepSequenceParams, TilesParams, ViewParam,
 };
 use super::reply::{
-    ChunkState, ControlsPageState, CreatureInfo, ExitInfo, ExitList, FoodMeterState, HudState,
-    ImpactState, KarmaMeterState, LobbyState, OverseerInfo, PlayerState, ProcessState,
+    ChunkState, ControlsPageState, CreatureInfo, ExitInfo, ExitList, FlyInfo, FoodMeterState,
+    HudState, ImpactState, KarmaMeterState, LobbyState, OverseerInfo, PlayerState, ProcessState,
     RainMeterState, RainState, RealizedState, RoomInfo, RoomList, Screenshot, SlideShowState,
     StartUpState, State, StepTrace, TextPromptState,
 };
@@ -420,8 +421,39 @@ impl Session {
                     pos: c.overseer_body().map(|b| b.chunk().pos.to_array()),
                     extended: c.overseer_body().map(|b| b.extended),
                 }),
+                fly: Self::fly_info(scene, c),
             })
             .collect()
+    }
+
+    fn fly_info(scene: &Scene, c: &AbstractCreature) -> Option<FlyInfo> {
+        let f = c.fly()?;
+        let chunk = f.chunk();
+        Some(FlyInfo {
+            room: f.room.map(|r| Self::room_name(scene, r)),
+            pos: chunk.pos.to_array(),
+            vel: chunk.vel.to_array(),
+            dead: f.dead,
+            in_shortcut: f.in_shortcut,
+            behavior: f.ai.behavior.map(|b| b.value().to_owned()),
+            mov_mode: f.mov_mode.map(|m| m.value().to_owned()),
+            grasps: c
+                .grasps
+                .iter()
+                .map(|g| g.map(|g| Self::entity_id(scene, g.grabbed)))
+                .collect(),
+            grabbed_by: c
+                .grabbed_by
+                .iter()
+                .map(|g| Self::entity_id(scene, g.grabber))
+                .collect(),
+        })
+    }
+
+    /// Creature `id`'s EntityID as `[spawner, number]`.
+    fn entity_id(scene: &Scene, id: CreatureId) -> [i32; 2] {
+        let e = scene.game().sim().world().creature(id).id;
+        [e.spawner, e.number]
     }
 
     fn room_name(scene: &Scene, index: i32) -> String {
@@ -458,7 +490,7 @@ impl Session {
         let scene = self.scene()?;
         let (framing, size) = match params.crop_radius {
             Some(r) if r > 0.0 => {
-                let centre = scene.focus();
+                let centre = params.crop_center.unwrap_or_else(|| scene.focus());
                 let origin = [centre[0] - r, centre[1] - r];
                 let size = [2.0 * r, 2.0 * r];
                 (Framing::Rect { origin, size }, size)

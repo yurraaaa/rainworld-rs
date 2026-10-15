@@ -26,7 +26,7 @@ use rw_assets::world::{AbstractRoomData, RoomSource, WorldData};
 use rw_assets::{ActiveMods, AssetError, CreatureType, RoomAttraction, Timeline};
 
 use crate::Vec2;
-use crate::creature::{AbstractCreature, CreatureId, WorldCoordinate};
+use crate::creature::{AbstractCreature, CreatureId, FlockBehavior, WorldCoordinate};
 
 pub(crate) use ai_map::EIGHT_DIRECTIONS;
 pub use ai_map::{AiMap, MovementConnection, MovementType};
@@ -76,6 +76,10 @@ pub struct World {
     /// Creatures realized by `ChangeRooms` into a realized room, waiting to join the
     /// shortcut handler's lobby (`CreatureEnterFromAbstractRoom`).
     pub(crate) entering: Vec<(CreatureId, WorldCoordinate)>,
+    /// The last grasp or stick serial handed out.
+    pub(crate) grasp_serial: u64,
+    /// The flies' `FlockBehavior`s, shared by reference in the game, by creation order.
+    pub flocks: Vec<FlockBehavior>,
 }
 
 impl World {
@@ -108,6 +112,8 @@ impl World {
             rain_cycle: RainCycle::default(),
             update_seq: 0,
             entering: Vec::new(),
+            grasp_serial: 0,
+            flocks: Vec::new(),
         };
         world.index_rooms();
         world

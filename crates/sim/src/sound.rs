@@ -114,6 +114,18 @@ sound_ids! {
     OverseerImageLoop = "Overseer_Image_LOOP",
     OverseerImageSmallFlicker = "Overseer_Image_Small_Flicker",
     OverseerImageBigFlicker = "Overseer_Image_Big_Flicker",
+    BatAfraidFlyingSounds = "Bat_Afraid_Flying_Sounds",
+    BatIdleFlyingSounds = "Bat_Idle_Flying_Sounds",
+    FlyWingFlap = "Fly_Wing_Flap",
+    BatHoverFlyLoop = "Bat_Hover_Fly_LOOP",
+    BatDiveIntoGrass = "Bat_Dive_Into_Grass",
+    BatEmergeFromGrass = "Bat_Emerge_From_Grass",
+    BatDetatchFromChain = "Bat_Detatch_From_Chain",
+    BatAttatchToChain = "Bat_Attatch_To_Chain",
+    BatStartled = "Bat_Startled",
+    SmallNpcEnterShortcut = "Small_NPC_Enter_Shortcut",
+    SmallNpcTickAlongInShortcut = "Small_NPC_Tick_Along_In_Shortcut",
+    SmallNpcExitShortcut = "Small_NPC_Exit_Shortcut",
 }
 
 /// A `ChunkSoundEmitter` handle: follows a body chunk; loops are updated and stopped
@@ -128,9 +140,11 @@ pub enum SoundSource {
     Disembodied { pan: f32 },
     /// `StaticPositionSound`: a fixed room position.
     Position(Vec2),
-    /// `ObjectSound` on a `ChunkSoundEmitter`: chunk `chunk` of the player (the only
-    /// body the port has).
+    /// `ObjectSound` on a `ChunkSoundEmitter`: chunk `chunk` of the player.
     Chunk { emitter: EmitterId, chunk: usize },
+    /// `ObjectSound` on a `ChunkSoundEmitter` of another body, at `pos` when made;
+    /// [`SoundEvent::Moved`] follows it.
+    Object { emitter: EmitterId, pos: Vec2 },
 }
 
 /// One sound object the game would create, with the outcome of its random draws
@@ -171,6 +185,11 @@ pub enum SoundEvent {
     },
     /// `emitter.alive = false`.
     Stop(EmitterId),
+    /// An object emitter's `ChunkSoundEmitter.Update` copied its chunk's position.
+    Moved {
+        id: EmitterId,
+        pos: Vec2,
+    },
     /// The body chunk sounds follow left the room for good (destroyed or replaced):
     /// every chunk emitter dies.
     OwnerRemoved,
@@ -258,6 +277,29 @@ impl Sounds {
         let source = SoundSource::Chunk { emitter, chunk };
         self.play(id, source, looped, [volume, pitch], false, rng);
         emitter
+    }
+
+    /// `Room.PlaySound(id, chunk, loop, vol, pitch)` on a body other than the player's,
+    /// whose chunk is at `pos`.
+    pub fn play_on_object(
+        &mut self,
+        id: SoundId,
+        pos: Vec2,
+        looped: bool,
+        volume: f32,
+        pitch: f32,
+        rng: &mut UnityRandom,
+    ) -> EmitterId {
+        let emitter = EmitterId(self.next_emitter);
+        self.next_emitter = self.next_emitter.wrapping_add(1);
+        let source = SoundSource::Object { emitter, pos };
+        self.play(id, source, looped, [volume, pitch], false, rng);
+        emitter
+    }
+
+    /// An object emitter follows its chunk to `pos`.
+    pub fn move_emitter(&mut self, id: EmitterId, pos: Vec2) {
+        self.events.push(SoundEvent::Moved { id, pos });
     }
 
     /// Sets a loop emitter's volume and pitch and keeps it alive this tick.

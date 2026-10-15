@@ -40,6 +40,7 @@ pub struct AiMap {
     /// Whether the tile's accessibility is Solid (the only class the Fly tells apart).
     solid: Vec<bool>,
     floor_altitude: Vec<i32>,
+    smoothed_floor_altitude: Vec<i32>,
     /// `creatureSpecificAImaps` of the Fly.
     fly: Option<CreatureSpecificAiMap>,
 }
@@ -77,12 +78,14 @@ impl AiMap {
             water: vec![0; cells],
             solid: vec![false; cells],
             floor_altitude: vec![100_000; cells],
+            smoothed_floor_altitude: vec![100_000; cells],
             fly: None,
         };
         map.map_accessibility(room);
         map.map_terrain_proximity(room);
         map.map_narrow_spaces(room);
         map.map_floor_altitudes(room);
+        map.smooth_floor_altitudes(room);
         map.set_visibility(room);
         let fly = CreatureTemplate::of(CreatureType::Fly, rw_assets::ActiveMods::NONE);
         map.fly = Some(CreatureSpecificAiMap::new(&map, room, &fly));
@@ -117,6 +120,37 @@ impl AiMap {
                     self.floor_altitude[i] = above - y;
                     above += 1;
                 }
+            }
+        }
+    }
+
+    /// `smoothedFloorAltitude` (`FindFallRiskOfCurrentTile`, after every floor altitude
+    /// of the row is final): the lowest of the tile's floor altitude and, up to
+    /// `min(altitude, 5) - 1` open tiles to each side, theirs plus half the distance.
+    /// Solid tiles keep 100000.
+    fn smooth_floor_altitudes(&mut self, room: &Room) {
+        for y in 0..self.height {
+            for x in 0..self.width {
+                if room.tile(x, y).is_solid() {
+                    continue;
+                }
+                let mut num = self.floor_altitude(x, y);
+                let reach = num.clamp(0, 5);
+                for j in [-1, 1] {
+                    let mut k = 1;
+                    while k < reach
+                        && (0..self.width).contains(&(x + j * k))
+                        && !room.tile(x + j * k, y).is_solid()
+                    {
+                        let side = self.floor_altitude(x + j * k, y) + k / 2;
+                        if side < num {
+                            num = side;
+                        }
+                        k += 1;
+                    }
+                }
+                let i = x as usize * self.height as usize + y as usize;
+                self.smoothed_floor_altitude[i] = num;
             }
         }
     }
@@ -216,6 +250,19 @@ impl AiMap {
         self.index(x, y).map_or(100_000, |i| self.floor_altitude[i])
     }
 
+    /// `getAItile(x, y).smoothedFloorAltitude` (100000 outside the room).
+    #[must_use]
+    pub fn smoothed_floor_altitude(&self, x: i32, y: i32) -> i32 {
+        self.index(x, y)
+            .map_or(100_000, |i| self.smoothed_floor_altitude[i])
+    }
+
+    /// `getAItile(x, y).AnyWater`.
+    #[must_use]
+    pub fn any_water(&self, x: i32, y: i32) -> bool {
+        self.index(x, y).is_some_and(|i| self.water[i] != 0)
+    }
+
     /// `getAItile(x, y).DeepWater`.
     #[must_use]
     pub fn deep_water(&self, x: i32, y: i32) -> bool {
@@ -290,6 +337,9 @@ impl AiMap {
     /// link of a Normal shortcut or the links to every other NPC transportation entrance.
     #[must_use]
     pub fn fly_outgoing_paths(&self, room: &Room, x: i32, y: i32) -> Vec<MovementConnection> {
+        if self.index(x, y).is_none() {
+            return Vec::new();
+        }
         let mut paths: Vec<MovementConnection> = FOUR_DIRECTIONS
             .iter()
             .filter(|&&(dx, dy)| self.index(x + dx, y + dy).is_some())

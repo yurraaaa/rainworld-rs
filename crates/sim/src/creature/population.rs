@@ -268,10 +268,14 @@ impl World {
         if cx.session.cycle_number > 0 {
             return;
         }
+        let mut no_graphics = ();
         let mut tick = FliesTick {
             rng: &mut *cx.rng,
             ids: &mut *cx.ids,
             session: cx.session,
+            observer: &mut no_graphics,
+            camera_room: -1,
+            new_flies: Vec::new(),
         };
         for (k, &count) in to_spawn.iter().enumerate() {
             for _ in 0..count {

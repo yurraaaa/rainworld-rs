@@ -12,6 +12,7 @@ use rw_assets::{CreatureType, NodeType, RoomAttraction, Timeline};
 use rw_random::UnityRandom;
 
 use super::{FliesWorldAi, OverseersWorldAi, RealizedRoom, SwarmRoomMap, World};
+use crate::FloatExt;
 use crate::creature::ai::AiContext;
 use crate::creature::overseer::{AbstractStep, GuideContext, OverseerView, Parent};
 use crate::creature::{
@@ -20,7 +21,6 @@ use crate::creature::{
     WorldCoordinate,
 };
 use crate::room_script::StorySession;
-use crate::{FloatExt, PlayerObserver};
 
 /// One abstract room's lists.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -358,6 +358,9 @@ impl World {
             slated_for_deletion: false,
             realized: None,
             carried: Vec::new(),
+            grasps: Vec::new(),
+            grabbed_by: Vec::new(),
+            sticks: Vec::new(),
         };
         let room = self.abstract_room(pos.room);
         if template.top_ancestor() == CreatureType::GarbageWorm {
@@ -453,6 +456,38 @@ impl World {
                 lists.in_dens.push(id);
             }
         }
+    }
+
+    /// `AbstractRoom.RemoveEntity`: out of its room's lists.
+    pub(crate) fn remove_entity(&mut self, id: CreatureId) {
+        let room = self.creature(id).pos.room;
+        if let Some(l) = self.local(room) {
+            let lists = &mut self.lists[l];
+            lists.creatures.retain(|&c| c != id);
+        }
+    }
+
+    /// `OpportunityToEnterDen` of a fly's vessel at a den node: it goes in when it wants
+    /// to stay there for the rest of the cycle or still has to stay in. `MoveEntityToDen`
+    /// then runs the Fly's `IsEnteringDen` (`RespawnOneFly`, `RemoveEntity`, no `InDen`)
+    /// and keeps it in the room's den list. Returns whether it went in.
+    pub(crate) fn fly_opportunity_to_enter_den(&mut self, id: CreatureId) -> bool {
+        let time_until_rain = self.rain_cycle.time_until_rain();
+        let c = self.creature_mut(id);
+        if c.wants_to_stay_in_den(time_until_rain) {
+            c.remain_in_den_counter = -1;
+        } else if c.remain_in_den_counter <= 0 {
+            return false;
+        }
+        self.respawn_one_fly();
+        self.remove_entity(id);
+        let room = self.creature(id).pos.room;
+        if let Some(l) = self.local(room)
+            && !self.lists[l].in_dens.contains(&id)
+        {
+            self.lists[l].in_dens.push(id);
+        }
+        true
     }
 
     /// `AbstractRoom.MoveEntityOutOfDen` (`IsExitingDen`: the room is not realized, or
@@ -668,8 +703,8 @@ impl World {
     /// `AbstractCreature.ChangeRooms`' first part: an unrealized creature moving into a
     /// realized room with its shortcuts ready is realized there and waits in the
     /// shortcut handler's lobby (`CreatureEnterFromAbstractRoom`, a teleportation vessel
-    /// for an overseer). Only overseers move between rooms in the port.
-    fn change_rooms_realize(
+    /// for an overseer). Overseers and flies are realized; other types stay abstract.
+    pub(crate) fn change_rooms_realize(
         &mut self,
         id: CreatureId,
         to: WorldCoordinate,
@@ -686,12 +721,16 @@ impl World {
             return;
         }
         let kind = c.kind();
-        if !self.realize_overseer_parts(id, cycle, rng) {
+        if kind == CreatureType::Fly {
+            self.realize_fly(id, rng);
+        } else if !self.realize_overseer_parts(id, cycle, rng) {
             log::warn!("{kind} entering realized room {} stays abstract", to.room);
             return;
         }
-        if let Some(RealizedCreature::Overseer(body)) = &mut self.creature_mut(id).realized {
-            body.in_shortcut = true;
+        match &mut self.creature_mut(id).realized {
+            Some(RealizedCreature::Overseer(body)) => body.in_shortcut = true,
+            Some(RealizedCreature::Fly(fly)) => fly.in_shortcut = true,
+            _ => {}
         }
         self.entering.push((id, to));
     }
@@ -943,20 +982,79 @@ impl World {
     }
 
     /// `AbstractRoom.Abstractize` for the creatures of global room `room`, newest first:
-    /// a realized overseer drops its body and keeps its node; its realized AI stays. Rooms
-    /// out of the camera's view have no graphics modules to drop.
+    /// a realized overseer drops its body and keeps its node; its realized AI stays. A
+    /// realized fly (in the room, a hive or a shortcut) drops its body and its grasps'
+    /// flies with it. Rooms out of the camera's view have no graphics modules to drop.
     pub(crate) fn abstractize_creatures(&mut self, room: i32) {
         let ids: Vec<CreatureId> = self.room_creatures(room).iter().rev().copied().collect();
         for id in ids {
             let c = self.creature_mut(id);
-            if !matches!(c.realized, Some(RealizedCreature::Overseer(_))) {
-                continue;
+            match c.realized {
+                Some(RealizedCreature::Overseer(_)) => {
+                    c.realized = None;
+                    c.time_spent_here = 0;
+                    c.distance_to_my_node = -1;
+                    let pos = c.pos;
+                    self.move_creature(id, pos);
+                }
+                Some(RealizedCreature::Fly(_)) => {
+                    let pos = c.pos;
+                    self.abstractize_fly(id, pos);
+                }
+                _ => {}
             }
-            c.realized = None;
-            c.time_spent_here = 0;
-            c.distance_to_my_node = -1;
-            let pos = c.pos;
-            self.move_creature(id, pos);
+        }
+    }
+
+    /// `AbstractCreature.Abstractize(coord)` of a realized fly: at its own position the
+    /// node stays (it is always defined for a fly) and `distanceToMyNode` is its exit
+    /// distance; then `Move(coord)`, the flies it holds abstracted to `coord` too.
+    pub(crate) fn abstractize_fly(&mut self, id: CreatureId, coord: WorldCoordinate) {
+        let c = self.creature(id);
+        if c.fly().is_none() {
+            return;
+        }
+        let room = c.pos.room;
+        if !self.realized(room).is_some_and(RealizedRoom::ready_for_ai) {
+            self.creature_mut(id).realized = None;
+            return;
+        }
+        let pos = self.creature(id).pos;
+        let mut distance = 0;
+        if coord == pos {
+            if !pos.node_defined() {
+                log::warn!("QuickConnectivity.DefineNodeOfLocalCoordinate is not ported");
+            }
+            let specific = self
+                .fly_nodes(room)
+                .iter()
+                .position(|&(n, _)| n == pos.node)
+                .map_or(-1, |i| i32::try_from(i).unwrap_or(-1));
+            distance = self
+                .realized(room)
+                .and_then(|r| r.ai_map.as_ref())
+                .map_or(-1, |m| {
+                    m.fly_exit_distance_and_check_neighbours(pos.tile, specific)
+                });
+            if distance == -1 {
+                log::debug!("abstracted fly without an exit distance to its node");
+            }
+        }
+        let c = self.creature_mut(id);
+        c.time_spent_here = 0;
+        c.distance_to_my_node = distance;
+        self.move_creature(id, coord);
+        let held: Vec<CreatureId> = self
+            .creature(id)
+            .grasps
+            .iter()
+            .flatten()
+            .map(|g| g.grabbed)
+            .collect();
+        // Cleared first: a circular chain stops here (the game releases such a grasp).
+        self.creature_mut(id).realized = None;
+        for other in held {
+            self.abstractize_fly(other, coord);
         }
     }
 
@@ -973,27 +1071,6 @@ impl World {
         c.distance_to_my_node = 0;
         self.move_creature(id, coord);
         self.creature_mut(id).realized = None;
-    }
-
-    /// The camera moved from room `from` to room `to` (`NoLongerViewed`, `NowViewed`):
-    /// realized overseers lose or get their graphics modules.
-    pub(crate) fn camera_changed_room(
-        &mut self,
-        from: i32,
-        to: i32,
-        observer: &mut dyn PlayerObserver,
-        rng: &mut UnityRandom,
-    ) {
-        for &id in self.room_creatures(from) {
-            if let Some(RealizedCreature::Overseer(_)) = self.creature(id).realized {
-                observer.overseer_removed(self.creature(id).id);
-            }
-        }
-        for &id in self.room_creatures(to) {
-            if let Some(view) = self.overseer_view(id).filter(|v| v.body.in_room) {
-                observer.overseer_added(&view, rng);
-            }
-        }
     }
 }
 

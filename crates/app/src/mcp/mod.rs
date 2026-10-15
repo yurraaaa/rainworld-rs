@@ -9,6 +9,10 @@
 #[cfg(test)]
 mod flies_tests;
 #[cfg(test)]
+mod fly_shots;
+#[cfg(test)]
+mod fly_trace;
+#[cfg(test)]
 mod hologram_shots;
 #[cfg(test)]
 mod overseer_tests;

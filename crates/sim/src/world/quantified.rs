@@ -7,6 +7,7 @@ use rw_assets::CreatureType;
 
 use super::{FliesTick, World};
 use crate::FloatExt;
+use crate::creature::fly::FlyRoomTick;
 use crate::creature::{CreatureId, CreatureTemplate, WorldCoordinate};
 
 /// One placed quantified creature (for traces and tests).
@@ -53,8 +54,8 @@ impl World {
     /// `PlaceQuantifiedCreaturesInRoom(Fly)`: per node (its common index read as the
     /// Fly's own, as the game does), the accessible tiles with an exit distance to it;
     /// a random one per fly there, improved by 20 tries on `PlaceQCScore`; then each a new
-    /// `AbstractCreature` in the room, whose `RealizeInRoom` draws its node. The realized
-    /// `Fly` is not made (docs/DIVERGENCES.md D14).
+    /// `AbstractCreature` in the room, whose `RealizeInRoom` draws its node, realizes the
+    /// `Fly` and places it on its tile.
     fn place_flies(&mut self, room: i32, cx: &mut FliesTick<'_>) -> Vec<PlacedQuantified> {
         let mut placed = Vec::new();
         let Some(nodes) = self.abstract_room(room).map(|r| r.nodes.len()) else {
@@ -102,6 +103,13 @@ impl World {
                 let cid = self.insert_creature(c);
                 self.add_entity(cid);
                 let node = self.realize_in_room_node(cid, cx);
+                self.realize_fly(cid, cx.rng);
+                let mut place = FlyRoomTick {
+                    rng: &mut *cx.rng,
+                    observer: &mut *cx.observer,
+                    camera_room: cx.camera_room,
+                };
+                self.place_fly(cid, room, &mut place);
                 placed.push(PlacedQuantified {
                     creature: cid,
                     tile,

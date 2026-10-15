@@ -111,6 +111,19 @@ impl CameraShortcuts {
         }))
     }
 
+    /// The player's vessel when it is in the camera's room.
+    fn player_vessel(sim: &RainWorldGame, slugcat: SlugcatName) -> Option<ShortcutVessel> {
+        let p = sim
+            .player()
+            .filter(|_| sim.player_in_camera_room() && sim.lobby().is_none())?;
+        Some(ShortcutVessel {
+            pos: p.shortcut_vessel_tile()?,
+            last_positions: p.shortcut_vessel_last_tile().into_iter().collect(),
+            color: ShortcutGraphics::creature_color(CreatureType::Slugcat, slugcat),
+            segments: Self::SLUGCAT_SEGMENTS,
+        })
+    }
+
     /// `ShortcutGraphics.Draw` for camera 0, whose image sits at `camera` in the room.
     pub fn draw(
         &mut self,
@@ -123,18 +136,24 @@ impl CameraShortcuts {
         let world = sim.world();
         let realized = world.realized(sim.camera_room())?;
         let blinking = realized.shortcuts_blinking.as_ref()?.rows();
+        let room = sim.camera_room();
         let vessels: Vec<ShortcutVessel> = sim
-            .player()
-            .filter(|_| sim.player_in_camera_room() && sim.lobby().is_none())
-            .and_then(|p| {
-                Some(ShortcutVessel {
-                    pos: p.shortcut_vessel_tile()?,
-                    last_positions: p.shortcut_vessel_last_tile().into_iter().collect(),
-                    color: ShortcutGraphics::creature_color(CreatureType::Slugcat, slugcat),
-                    segments: Self::SLUGCAT_SEGMENTS,
-                })
+            .transport_vessels()
+            .filter_map(|v| match v {
+                None => Self::player_vessel(sim, slugcat),
+                Some(v) if v.room == room => {
+                    let kind = world.creature(v.creature).kind();
+                    let (pos, last) = v.tiles();
+                    Some(ShortcutVessel {
+                        pos,
+                        last_positions: vec![last],
+                        color: ShortcutGraphics::creature_color(kind, slugcat),
+                        // Only flies ride vessels yet: the template default.
+                        segments: 1,
+                    })
+                }
+                Some(_) => None,
             })
-            .into_iter()
             .collect();
         let g = self.graphics(sim)?;
         Some(g.draw(

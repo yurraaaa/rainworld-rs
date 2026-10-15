@@ -111,17 +111,18 @@ recommendation. Nothing is ported before the user agrees.
   even where the game decides from files on disk (Downpour's
   `dlcsInstalled` check): the base-game menu scene and intro images.
 - Current phase is the player controller in a region whose only
-  behaving creatures are the overseers, not the full game (campaign
-  step 1, overseer step 1):
+  behaving creatures are the overseers and the bat flies, not the full
+  game (campaign step 1, overseer step 1, batflies step 2):
   - A story starts at the campaign's start den in its region's world;
     room-exit shortcuts carry the player between the region's rooms, which
     load synchronously (D14). The population is generated with the
     game's draws but only overseers leave their dens; overseers have their
     body, AI, graphics, the guide's tutorial text and their holograms
     (those whose triggers are ported: D14). The bat flies' world
-    process moves their per-node counts between rooms, and a swarm room
-    that loads gets its flies as abstract creatures; the realized fly
-    (body, AI, graphics, eating) is batflies steps 2 to 4.
+    process moves their per-node counts between rooms, and a room that
+    loads realizes its flies: body, AI, flocks, hives, chains, pipe
+    travel, sounds and graphics. The player cannot catch or eat them
+    yet (the later batflies steps).
     Gates, region changes,
     the rain and saves are not there yet.
   - Death freezes the body until R respawns it (revisit once the real
@@ -161,14 +162,15 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   lobby, the realized rooms' entry waits and `creatures` (every
   abstract creature: kind, ID, room, node, tile, in den, realized,
   alive; overseers also their AI's destination, guide state, last rooms
-  and realized tiles); `get_exits` lists the
+  and realized tiles; realized flies their room, position, velocity,
+  behaviour, movement mode, grasps and holders); `get_exits` lists the
   camera room's exits (entrance tile, the input that enters, destination
   room, arrival node and camera). `set_player`, `get_tiles` and
   `screenshot` act on the camera's room. To test a transition, put the
   player on an exit's entrance and hold its input.
 - `screenshot` returns a PNG drawn by the window's draw path (level
   graphic or debug view, sprites, overlays), rendered offscreen;
-  `crop_radius` zooms on the player. `get_tiles` gives the geometry as
+  `crop_radius` zooms on the player (or on `crop_center`). `get_tiles` gives the geometry as
   text. In a region world the uncropped visuals view includes the HUD;
   `get_hud` reports its meters, text prompt and the SU_C04 controls page,
   `hud_message` queues a text-prompt message, and the `map` input field

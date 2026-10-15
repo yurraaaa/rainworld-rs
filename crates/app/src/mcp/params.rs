@@ -130,6 +130,8 @@ pub struct ScreenshotParams {
     pub grid: Option<bool>,
     /// Show only a square of this half-size in room pixels around the player's head.
     pub crop_radius: Option<f32>,
+    /// With `crop_radius`: the square's centre in room pixels instead of the player's head.
+    pub crop_center: Option<[f32; 2]>,
     /// Output pixels per room pixel (default 1, at most 4).
     pub scale: Option<f32>,
     /// Also write the PNG to this path.

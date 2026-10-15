@@ -10,7 +10,8 @@ use crate::mic::{Doppler, Microphone, SourceMix};
 /// A `ChunkSoundEmitter`: copies its chunk's position every tick.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Emitter {
-    pub chunk: usize,
+    /// The player's chunk it follows; `None` for another body's, moved by the sim.
+    pub chunk: Option<usize>,
     pub pos: Vec2,
     pub last_pos: Vec2,
     pub volume: f32,
@@ -25,18 +26,23 @@ pub struct Emitter {
 pub struct Emitters(HashMap<EmitterId, Emitter>);
 
 impl Emitters {
-    /// Makes the emitter of a chunk sound on its first play.
-    pub fn insert_for(&mut self, sound: &PlayedSound, chunks: &[BodyChunk]) {
-        let SoundSource::Chunk { emitter, chunk } = sound.source else {
-            return;
-        };
-        let Some(c) = chunks.get(chunk) else {
-            return;
+    /// Makes the emitter of a chunk sound on its first play (`chunks`: the player's
+    /// body, if in the room).
+    pub fn insert_for(&mut self, sound: &PlayedSound, chunks: Option<&[BodyChunk]>) {
+        let (emitter, chunk, pos) = match sound.source {
+            SoundSource::Chunk { emitter, chunk } => {
+                let Some(c) = chunks.and_then(|c| c.get(chunk)) else {
+                    return;
+                };
+                (emitter, Some(chunk), c.pos)
+            }
+            SoundSource::Object { emitter, pos } => (emitter, None, pos),
+            _ => return,
         };
         self.0.entry(emitter).or_insert(Emitter {
             chunk,
-            pos: c.pos,
-            last_pos: c.pos,
+            pos,
+            last_pos: pos,
             volume: sound.emitter_volume,
             pitch: sound.emitter_pitch,
             looped: sound.looped,
@@ -65,13 +71,27 @@ impl Emitters {
         self.0.clear();
     }
 
+    /// The player's body left: the emitters on its chunks die.
+    pub fn clear_chunks(&mut self) {
+        self.0.retain(|_, e| e.chunk.is_none());
+    }
+
     /// `ChunkSoundEmitter.Update`: follow the chunks.
     pub fn follow(&mut self, chunks: &[BodyChunk]) {
         for e in self.0.values_mut() {
+            let Some(chunk) = e.chunk else { continue };
             e.last_pos = e.pos;
-            if let Some(c) = chunks.get(e.chunk) {
+            if let Some(c) = chunks.get(chunk) {
                 e.pos = c.pos;
             }
+        }
+    }
+
+    /// An object emitter's update moved it to `pos`.
+    pub fn moved(&mut self, id: EmitterId, pos: Vec2) {
+        if let Some(e) = self.0.get_mut(&id) {
+            e.last_pos = e.pos;
+            e.pos = pos;
         }
     }
 
@@ -114,7 +134,9 @@ impl Voice {
     #[must_use]
     pub fn emitter(&self) -> Option<EmitterId> {
         match self.sound.source {
-            SoundSource::Chunk { emitter, .. } => Some(emitter),
+            SoundSource::Chunk { emitter, .. } | SoundSource::Object { emitter, .. } => {
+                Some(emitter)
+            }
             _ => None,
         }
     }
@@ -140,7 +162,7 @@ impl Voice {
                 });
             }
             SoundSource::Position(pos) => (pos, pos, s.emitter_volume, s.emitter_pitch),
-            SoundSource::Chunk { emitter, .. } => {
+            SoundSource::Chunk { emitter, .. } | SoundSource::Object { emitter, .. } => {
                 let e = emitters.get(emitter)?;
                 (e.pos, e.last_pos, e.volume, e.pitch)
             }
@@ -190,7 +212,7 @@ mod tests {
                 emitter_volume: 0.5,
                 emitter_pitch: 1.0,
             };
-            self.insert_for(&sound, chunks);
+            self.insert_for(&sound, Some(chunks));
         }
     }
 

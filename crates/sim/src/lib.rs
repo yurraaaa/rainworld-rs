@@ -41,8 +41,8 @@ pub use chunk::{BodyChunk, Contact, DEFAULT_RESTRICT_IN_ROOM_RANGE, PhysicsParam
 pub use creature::WorldCoordinate;
 pub use float_ext::FloatExt;
 pub use game::{
-    CameraMove, FliesCall, FliesCallRecord, HudEvent, NewGameWorld, OverseerCall,
-    OverseerCallRecord, PlayerObserver, RainWorldGame, Start,
+    CameraMove, FliesCall, FliesCallRecord, FliesState, FliesWorldView, HudEvent, NewGameWorld,
+    OverseerCall, OverseerCallRecord, PlayerObserver, RainWorldGame, Start,
 };
 pub use object::{
     BodyChunkConnection, ConnectionKind, PhysicalObject, TerrainImpactHandler, slugcat,
@@ -50,7 +50,9 @@ pub use object::{
 pub use player::{
     Animation, BodyMode, HEAD, HIPS, INPUT_HISTORY, Input, Player, PlayerController, VesselStep,
 };
-pub use shortcut::{EntranceColor, LobbyVessel, ShortcutHandler, ShortcutsBlinking};
+pub use shortcut::{
+    CreatureVessel, EntranceColor, LobbyVessel, ShortcutHandler, ShortcutsBlinking, VesselOwner,
+};
 pub use sound::{EmitterId, PlayedSound, SoundEvent, SoundId, SoundSource, Sounds};
 pub use spawn::{determine_safe_spawn_tile, place_in_room};
 pub use vec2::{TileExt, Vec2};

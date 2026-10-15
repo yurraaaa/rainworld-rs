@@ -85,6 +85,26 @@ pub struct CreatureInfo {
     pub alive: bool,
     /// An overseer's abstract AI and body.
     pub overseer: Option<OverseerInfo>,
+    /// A realized bat fly's body and AI.
+    pub fly: Option<FlyInfo>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct FlyInfo {
+    /// The room it is in; `None` inside a shortcut.
+    pub room: Option<String>,
+    pub pos: [f32; 2],
+    pub vel: [f32; 2],
+    pub dead: bool,
+    pub in_shortcut: bool,
+    /// `FlyAI.Behavior` and `Fly.MovementMode`.
+    pub behavior: Option<String>,
+    pub mov_mode: Option<String>,
+    /// The EntityID of what each grasp holds (a fly's one grasp holds another fly in a
+    /// chain).
+    pub grasps: Vec<Option<[i32; 2]>>,
+    /// The EntityIDs of the creatures holding it.
+    pub grabbed_by: Vec<[i32; 2]>,
 }
 
 #[derive(Debug, Clone, Serialize)]

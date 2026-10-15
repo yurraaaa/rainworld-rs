@@ -339,6 +339,7 @@ fn screenshot_renders_offscreen() {
         view: Some(ViewParam::Debug),
         grid: Some(true),
         crop_radius: Some(100.0),
+        crop_center: None,
         scale: Some(2.0),
         save_path: None,
     };

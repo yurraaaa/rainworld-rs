@@ -56,11 +56,19 @@ it (D13). What still differs is only the seed and the call order:
   the graphics module's mycelia in the viewed room) before the player
   (`rainworld-re/notes/creature-model.md`). Every tick `FliesWorldAI.Update` makes its
   draws among the world processes, and a room that finishes loading with quantified
-  flies places them with `PlaceQuantifiedCreaturesInRoom`'s draws; the bat flies' draws
-  match an independent model over the whole tutorial route. Per tick it parts from the
-  game's again: the abstract AI of every creature but overseers (D14), and everything a
-  realized fly would draw (the `Fly` and `FlyAI` constructors, `PlaceInRoom`, their
-  updates, `FliesRoomAI` and `MoveFly`'s pick of a fly to send out of a realized room).
+  flies places and realizes them with `PlaceQuantifiedCreaturesInRoom`'s draws. A
+  realized fly makes the game's draws in its slot of the room's update list (the `Fly`,
+  `FlyAI` and `FlockBehavior` constructors, `PlaceInRoom`, `Fly.Update` with `FlyAI`,
+  then `FlyGraphics.Update` while its room is viewed), and so do `FliesRoomAI`, the
+  hover-loop emitters, the flies' shortcut vessels and lobby turns, `MoveFly`'s pick of
+  a realized fly, and the sounds the flies play. The bat flies' draws match an
+  independent model call for call over the whole tutorial route, 2500 ticks among
+  SU_A42's flies and 4000 in the swarm room SU_A24 with flies leaving and entering
+  through the pipes. Missing: the `WaterDrip`s a creature's hard terrain impact throws
+  in a room with `CeilingDrips` (two draws each, and their own; the model counts 3 such
+  impacts in the SU_A42 run and 27 in the SU_A24 run). Per tick the stream parts from
+  the game's again with the abstract AI of every creature but overseers and flies
+  (D14).
   `LocalCoordinateOfNode` draws for bat hives, garbage holes and border exits; a border
   exit's tile is not known (its border tiles are not mapped), only its draw is made.
 - **Overseers.** A realized overseer's update makes the game's draws in order
@@ -190,21 +198,28 @@ from `Creature.NewTile` (the player and realized overseers, on the tick their ti
 room changes, including the room-exit blink behind in the room left) and from the
 lobby's arrival (2.5 for the slugcat, 1.5 otherwise), with `ColorEntrance` on camera 0.
 
+Creatures travel the tubes too (bat flies so far): `transportVessels` holds the
+player's vessel and the creatures' in the game's order, `SuckInCreature` with
+`Small_NPC_Enter_Shortcut`, each step's `Small_NPC_Tick_Along_In_Shortcut`, the
+spit-out with every stuck object, the room-exit node into the lobby and the lobby's
+`CreatureEnterFromAbstractRoom` (abstracted toward an unrealized room, restarted at the
+entrance node once the room is ready for the player and for AI), and the bat hive
+vessels. `ShortcutGraphics` draws every vessel in the room in its creature's colour.
+
 **What differs:**
-- **One vessel, owned by the player.** The game's `ShortcutHandler` keeps a list of
-  vessels for every creature, with Jolly co-op waits and border travel; the port has
-  one player whose vessel lives on `Player` or in the lobby, `wait` is always 0, and
-  the handler is the three-tick divider plus that lobby.
-- **Not ported:** being pulled in by a carried object (no grasps), `cantBeGrabbedCounter`,
-  MSC tongue release, the arena
-  hooks of `SpitOutOfShortCut` and den entry (`PlayerTryingToEnterDen`), dens and NPC
-  transports for creatures, region transportation, and Remix falling into a shortcut
-  (D4).
+- **The player's vessel lives on `Player`.** The game's vessel list holds a plain
+  `ShortCutVessel` for the player too; the port keeps the player's on `Player` (with
+  its slot in the list) or in the lobby, and its `wait` is always 0 (Jolly co-op).
+- **Not ported:** being pulled in by a carried object (the player grasps nothing),
+  `cantBeGrabbedCounter`, MSC tongue release, the arena hooks of `SpitOutOfShortCut` and
+  den entry (`PlayerTryingToEnterDen`), dens for creatures other than flies (a fly's
+  `OpportunityToEnterDen` never takes it in), NPC transports
+  (`NPCTransportationDestination`), border travel, region transportation, and Remix
+  falling into a shortcut (D4).
 
-**Why.** Outside the single-player, base-game scope: no realized creature but the player
-uses shortcuts yet (D14).
+**Why.** Outside the single-player, base-game scope.
 
-**Affects.** Multiple creatures in tubes, co-op, arena.
+**Affects.** Co-op, arena, creatures that use dens and NPC transports.
 
 ## D6: Vertical poles and ledge grabs
 
@@ -288,13 +303,15 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
 - **Shortcut graphics** (`rw_graphics::ShortcutGraphics`, `rainworld-re/notes/shortcuts.md`
   section 10). The level view draws the game's pipe pixels (`ShortCut0`, masked to the
   level image's shortcut texels), entrance symbols and glows, the blink pulses and the
-  travelling vessel in its creature's colour; the debug view keeps its vessel marker.
+  travelling vessels in their creatures' colours; the debug view keeps the player's
+  vessel marker.
   Differences: the entrance pixels' `RippleBasicClipDistortion` is drawn as `Basic`
   (its Watcher ripple clip is off in the base game); the glow's `Futile_White` is the
   atlas's `RainWorld_White` (as for the room sprite shaders above); within the `Items`
   container the shortcut sprites are drawn after the overseers' (the game's order there
   follows when each was added, INFERRED irrelevant since `ShortCut0` only shows on pipe
-  texels); `ShortCutColor` is known only for the slugcat and the overseer (white). Not
+  texels); `ShortCutColor` is known only for the slugcat, the overseer and the fly (both
+  white), and `shortcutSegments` only for the slugcat (2) and the fly (1). Not
   ported: the arena's `DarkenExitSymbol` and `ChangeAllExitsToSheltersOrDots`, the More
   Slugcats symbols (dens, NPC and region transports, and showing them while
   controlling a creature) and the Remix gate symbol, underwater shortcuts and grayscale.
@@ -500,7 +517,9 @@ objects and effects that are not ported.
 on a body chunk; chunk loops with handles), `rw_assets::SoundTable` the `SoundLoader`,
 `rw_assets::unity::Fsb5` the clip decoder, and `rw_audio` the `VirtualMicrophone` with
 its `AmbientSoundPlayer`s, playing on kira (`rainworld-re/notes/sound.md`). Every base-game
-`Player` sound, the shortcut tick and the water-surface splashes are ported. The menus'
+`Player` sound, the shortcut tick, the water-surface splashes and the bat flies' sounds
+(their wings, idle and afraid calls, the hover loop, burrowing, emerging, chaining and
+the NPC shortcut sounds) are ported. The menus'
 `MenuMicrophone` is `rw_menu::MenuMic` (what plays, the draws, the loops' fades) and
 `rw_audio::MenuPlayback` (the sources), with the default options' sound-effects volume
 0.8. `rw_audio::music` is the `MusicPlayer` side process with `Song`, `MenuOrSlideShowSong`
@@ -524,8 +543,12 @@ runs it as the game's side process (D13), silent on `TimedSources` without audio
   game it starts the source at once; the player runs right after the main process in
   the same tick, so nothing reads the difference). A missing `music_songs` bundle still
   sets `assetBundlesLoaded` (the game would wait forever) and its songs stay silent.
+- **Fly one-shots stay where they started.** The game attaches a fly's one-shots to its
+  body chunk (`PlaySound(id, chunk)`), so they move with it; the port plays them at the
+  chunk's position on the tick they start (the hover loop does follow its fly). The
+  draws are the game's; only what is heard differs.
 - **Not ported:** the rain and thunder loops and one-shots and the
-  drown-out of volume group 0, creature, item and object sounds, the sounds of
+  drown-out of volume group 0, other creatures', item and object sounds, the sounds of
   unported menu screens and objects, `PlayCustomSound` / loose mod clips next to
   `sounds.txt` (a name found only there counts
   as present for the draws but is not decoded), the Watcher ripple ambience and DLC
@@ -696,12 +719,12 @@ second part, else a single-room world for arena levels). The campaign descriptio
 (`rw_sim::campaign`, `campaign-model.md`) gives the timeline, start den and stats.
 
 **What differs:**
-- **Only overseers behave.** The `CREATURES` section is read in full (simple spawners
+- **Only overseers and bat flies behave.** The `CREATURES` section is read in full (simple spawners
   and lineages with their dens, amounts, spawn data and night flags; quantified
   counts; `rw_assets::creatures`), and a new game's `GeneratePopulation` builds every
   `AbstractCreature` with all of its constructor draws (D1): the creatures go into
   their dens and stay there (`InDenUpdate` lets only overseers out), quantified
-  creatures are counted per node (the bat flies move and are placed, below), and items
+  creatures are counted per node (the bat flies move, are placed and realized, below), and items
   (scavenger gear, drop bugs' items) are kept as IDs and kinds on their carrier. The
   overseers' abstract AI is ported (`OverseerAbstractAI.AbstractBehavior`, `Roam`,
   `PlayerGuideUpdate`, `RoomAllowed`, `HowInterestingIsCreature`), run by
@@ -740,26 +763,32 @@ second part, else a single-room world for arena levels). The campaign descriptio
   on the room files' baked node connectivity), as are the flies' swarm room map (with
   the world file's bat migration blockages), `GetSwarmRoomDistance`, `ActiveSwarmRoom`
   and a new game's `RegionState` swarm counters.
-- **Bat flies (step 1 of 4).** `FliesWorldAI` is ported whole (the constructor, `Update`
+- **Bat flies (step 2 of 4).** `FliesWorldAI` is ported whole (the constructor, `Update`
   with the migration, start-up and respawn, the behaviour re-roll, `MigrationDirection`,
   `ClosestSwarmRoom`), with `World.MoveQuantifiedCreatureFromAbstractRoom` and the
   quantified counts (`NumberOfQuantifiedCreatureInRoom/InNode`, `Quantify`,
   `CountQuantifiedCreatures` when a room is abstracted). A room ready for AI places its
   flies (`PlaceQuantifiedCreaturesInRoom` and `PlaceQCScore` on the Fly's baked map)
-  as `AbstractCreature`s with their node drawn by `RealizeInRoom`; they stay abstract:
-  the `Fly` body, `FlyAI`, `FliesRoomAI` and `FlyGraphics` are not ported (steps 2 to 4),
-  so nothing is eaten and the flies never move inside a room or leave it. Stand-ins
-  until then: `MoveFly` from a realized room sends no fly out (the game picks a realized
-  fly and makes it leave); a fly moved into a realized room
-  (`MoveQuantifiedCreatureFromAbstractRoom`) and one made in a realized swarm room's hive
-  (`CreateFlyInHive`, reached only by the start-up and respawn, which a new game does not
-  use) stay abstract in its creature list instead of entering through a shortcut or
-  emerging from the hive. A held fly (the only kind that quantifies, as the game's
-  `Quantify` reads) cannot exist yet. The other quantified types (leeches, sea leeches,
-  spiders) are counted but not placed; no vanilla SU spawner has them. The `FlyLure`
-  and `Lure` placed objects are not read (none in the tutorial rooms; SU_A17 and SU_B08
-  place one).
-- **The Fly's AI map.** The AI map has the parts the Fly reads (`floorAltitude`, the
+  and realizes them; so does `MoveFly` into a realized room (through the lobby and the
+  pipe) and `CreateFlyInHive` (a bat hive vessel). The realized fly is the game's
+  (`rainworld-re/notes/creature-model.md`): `Fly` with its flight modes, burrowing,
+  hanging and chains (the grasp framework: `Grasp`, `grabbedBy`, `LoseAllGrasps`),
+  water and death, `FlyAI` with its threats, `FlockBehavior` and the swarm, chain and
+  leave-room behaviours, `FliesRoomAI` with the hives, the hover loop, the shortcut
+  travel (D5), `Abstractize` when its room is abstracted, and `FlyGraphics` in a viewed
+  room (`rw_graphics`). Not ported: the player catching and eating flies
+  (`Player.Update`'s grab of a fly in reach, `PlayerObjectLooker`, `IPlayerEdible`), so
+  a fly is never held by the player, never eaten and never quantified (only a held fly
+  is); a creature's terrain impact (`Creature.TerrainImpact`: its `InGameNoise`, the
+  rain's `CreatureSmashedInGround`, which needs the rain, and the `WaterDrip`s of a room
+  with `CeilingDrips`, D1). The fly's `RoomNotACycleHazard` reads the room settings'
+  `DangerType` as registered with no DLC (a DLC value such as `Blizzard` counts as
+  unregistered). Not exercised by the model comparison: a fly's death, water and dens.
+  The other quantified types (leeches, sea leeches, spiders) are counted but not
+  placed; no vanilla SU spawner has them. The `FlyLure` and `Lure` placed objects are
+  not read (none in the tutorial rooms; SU_A17 and SU_B08 place one).
+- **The Fly's AI map.** The AI map has the parts the Fly reads (`floorAltitude` and
+  `smoothedFloorAltitude`, the
   tiles' water, the Fly's accessibility, its Standard, ShortCut and NPCTransportation
   outgoing paths, and its `CreatureSpecificAImap` from the room file's layer 6); the
   other accessibility classes, passages, fall risk and creature maps wait for the first
@@ -767,8 +796,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   makes worm grass tiles inaccessible when it builds the map, after baking, so in the 28
   vanilla rooms with worm grass, SU_A32 and SU_B05 among them, its decoded distances
   shift; the port decodes them as baked) and `ModifyTileWaterLevels` (WaterCutoff and
-  AirPocket objects, which no vanilla region room places). `smoothedFloorAltitude` is
-  not ported yet. Nothing records `roomsVisited` (the
+  AirPocket objects, which no vanilla region room places). Nothing records `roomsVisited` (the
   caller fills the region state's set; a new game's is empty), and only a new game's
   region state exists. Remix's `BringToRoomAndGuidePlayer` branch of the world
   process's update and More Slugcats' goal rooms and guide symbols are left out.
@@ -789,6 +817,9 @@ second part, else a single-room world for arena levels). The campaign descriptio
   guide, realized first, sits under the player). `NowViewed` builds graphics modules in
   the abstract room's creature order, not in `physicalObjects`' (the order the bodies
   were added); they differ only with several overseers in the room.
+- **Fly graphics.** The flies' sprites go into the Midground container after the
+  slugcat's; the game orders a container by when each graphics module joined it (flies
+  realized before the player's body sit under it).
 - **Synchronous loading.** The game's `RoomPreparer` loads a room over several frames
   (and `RoomCamera.MoveCamera` its images asynchronously); the port loads a room's
   files and builds its water in one call, finishing at the end of the tick the room is
@@ -828,8 +859,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
 **Why.** Other creatures' AI, AI maps and the rain are later milestones; loading at once
 is simpler and loses nothing gameplay-visible beyond the shorter waits.
 
-**Affects.** How long a vessel waits to enter a room, and anything creatures would do
-(realized flies included).
+**Affects.** How long a vessel waits to enter a room, and anything creatures other than
+overseers and bat flies would do.
 
 ## D15: The in-game HUD
 

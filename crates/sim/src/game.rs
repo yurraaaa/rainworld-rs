@@ -10,13 +10,14 @@ use std::collections::HashMap;
 
 #[path = "game_flies.rs"]
 mod flies;
-pub use flies::{FliesCall, FliesCallRecord};
+pub use flies::{FliesCall, FliesCallRecord, FliesState, FliesWorldView};
 
 use rw_assets::{CreatureType, NodeType, Room, Shortcut, ShortcutType};
 use rw_random::UnityRandom;
 
 use crate::camera::CameraView;
 use crate::campaign::SlugcatCampaign;
+use crate::creature::fly::FlyView;
 use crate::creature::overseer::hologram::{ControlPreset, OverseerHologram};
 use crate::creature::overseer::{
     OverseerEffect, OverseerMode, OverseerTick, OverseerUpdate, OverseerView, PlayerView,
@@ -28,10 +29,11 @@ use crate::creature::{
     RealizedCreature, WorldCoordinate,
 };
 use crate::room_script::{RoomScript, ScriptTick, StorySession};
+use crate::shortcut::{CreatureVessel, Transport};
 use crate::world::{AbstractTick, FollowCreature, RainCycle, RoomRealizer, World};
 use crate::{
-    EntranceColor, Input, LobbyVessel, Player, ShortcutHandler, Sounds, Vec2, VesselStep, Water,
-    determine_safe_spawn_tile,
+    EntranceColor, Input, LobbyVessel, Player, ShortcutHandler, Sounds, Vec2, VesselOwner,
+    VesselStep, Water, determine_safe_spawn_tile,
 };
 
 /// What the app attaches to the player (its graphics module), called where the game
@@ -72,6 +74,30 @@ pub trait PlayerObserver {
     }
     /// The overseer's graphics module is dropped (`NoLongerViewed`, or abstracted).
     fn overseer_removed(&mut self, _id: EntityId) {}
+    /// A realized fly is in the camera's room (`AddObject` or `NowViewed`): its
+    /// `FlyGraphics` is built unless it has one.
+    fn fly_added(&mut self, _view: &FlyView<'_>, _rng: &mut UnityRandom) {}
+    /// `FlyGraphics.Reset`.
+    fn fly_reset(&mut self, _view: &FlyView<'_>) {}
+    /// Right after `Fly.Update`: `FlyGraphics.Update`. `cameras` is the room's camera
+    /// count (the culling test needs more than two).
+    #[allow(clippy::too_many_arguments)]
+    fn fly_updated(
+        &mut self,
+        _view: &FlyView<'_>,
+        _room: &Room,
+        _cameras: usize,
+        _camera_room: &Room,
+        _camera: &CameraView,
+        _rng: &mut UnityRandom,
+    ) {
+    }
+    /// `MoveToFront` of the fly's sprites (it joined a chain).
+    fn fly_to_front(&mut self, _id: EntityId) {}
+    /// The fly's graphics module is dropped.
+    fn fly_removed(&mut self, _id: EntityId) {}
+    /// A flies' call was recorded (traces snapshot the graphics here).
+    fn flies_recorded(&mut self) {}
 }
 
 /// What the game tells camera 0's HUD.
@@ -100,7 +126,13 @@ pub enum OverseerCall {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum RoomObject {
     Overseer(CreatureId),
-    Hologram { owner: CreatureId, id: u64 },
+    Hologram {
+        owner: CreatureId,
+        id: u64,
+    },
+    Fly(CreatureId),
+    /// A fly's hover loop emitter.
+    Hover(CreatureId),
 }
 
 /// No graphics.
@@ -412,6 +444,7 @@ impl RainWorldGame {
         observer.created(&player, &mut self.rng);
         player.place(tile, &mut self.rng);
         self.player = Some(player);
+        self.sync_player_realized();
         self.last_coords.remove(&self.player_id);
         self.player_seq = self.world.next_update_seq();
     }
@@ -430,7 +463,7 @@ impl RainWorldGame {
             Some(tile) if self.camera_room == self.start.room => tile,
             _ => determine_safe_spawn_tile(&room, &mut self.rng),
         };
-        self.shortcuts.lobby.retain(|v| v.teleport.is_some());
+        self.shortcuts.drop_player();
         self.sounds.owner_removed();
         let node = self.pos().node;
         self.set_pos(WorldCoordinate::new(self.camera_room, tile.0, tile.1, node));
@@ -449,10 +482,10 @@ impl RainWorldGame {
         if let (Some(realizer), Some(follow)) = (&mut self.realizer, follow) {
             realizer.update(&mut self.world, follow, self.camera_room, &mut self.rng);
         }
-        self.record_abstractized(&active_before);
+        self.record_abstractized(&active_before, observer);
         self.update_abstract_room();
-        self.update_world_processes();
         self.enter_from_abstract_rooms();
+        self.update_world_processes(observer);
         self.world.rain_cycle.update(&mut self.rng);
         if self.shortcuts.divide() {
             self.update_shortcuts(observer);
@@ -487,16 +520,31 @@ impl RainWorldGame {
     }
 
     /// `CreatureEnterFromAbstractRoom` for the creatures `ChangeRooms` realized: each
-    /// waits in the lobby in a teleportation vessel.
-    fn enter_from_abstract_rooms(&mut self) {
+    /// waits in the lobby, an overseer in a teleportation vessel, a fly in a shortcut
+    /// vessel at its node's entrance (or a bat hive vessel).
+    pub(super) fn enter_from_abstract_rooms(&mut self) {
         for (id, to) in std::mem::take(&mut self.world.entering) {
+            let owner = if self.world.creature(id).kind() == CreatureType::Overseer {
+                VesselOwner::Teleport(id)
+            } else {
+                match self.creature_enter_vessel(id, to) {
+                    Some(owner) => owner,
+                    None => continue,
+                }
+            };
             self.shortcuts.lobby.push(LobbyVessel {
                 room: to.room,
                 entrance_node: to.node,
                 updates: 0,
-                teleport: Some(id),
+                owner,
             });
         }
+    }
+
+    /// The player's `AbstractCreature.realizedCreature` is its body while it has one.
+    fn sync_player_realized(&mut self) {
+        let realized = self.player.is_some().then_some(RealizedCreature::Player);
+        self.world.creature_mut(self.player_id).realized = realized;
     }
 
     /// The player's `AbstractCreature.state.alive` follows its body.
@@ -518,6 +566,8 @@ impl RainWorldGame {
                     if self.tick == 0 && self.player.is_none() {
                         self.realize_player(observer);
                     }
+                } else if self.world.creature(id).kind() == CreatureType::Fly {
+                    self.realize_fly_in_room(index, id, observer);
                 } else {
                     let before = self.rng.state();
                     let creature = self.world.creature(id).clone();
@@ -527,7 +577,7 @@ impl RainWorldGame {
                     }
                 }
             }
-            self.place_quantified(index);
+            self.place_quantified(index, observer);
             let name = self
                 .world
                 .abstract_room(index)
@@ -584,16 +634,43 @@ impl RainWorldGame {
         })
     }
 
-    /// `ShortcutHandler.Update` for the player's vessel and the lobby.
+    /// `ShortcutHandler.Update`: the vessels in the tubes, newest first, then the lobby.
+    /// A room exit leading nowhere returns from the whole update.
     fn update_shortcuts(&mut self, observer: &mut dyn PlayerObserver) {
-        if self.update_player_vessel(observer) {
-            self.update_lobby(observer);
+        let mut i = self.shortcuts.transport.len();
+        while i > 0 {
+            i -= 1;
+            let Some(&t) = self.shortcuts.transport.get(i) else {
+                continue;
+            };
+            let go_on = match t {
+                Transport::Player => {
+                    let go_on = self.update_player_vessel(observer);
+                    if !self.player_in_tube() {
+                        self.shortcuts.transport.remove(i);
+                    }
+                    go_on
+                }
+                Transport::Creature(v) => self.creature_vessel_step(i, v, observer),
+            };
+            if !go_on {
+                return;
+            }
         }
+        self.update_lobby(observer);
+    }
+
+    /// Whether the player's vessel is in `transportVessels`.
+    fn player_in_tube(&self) -> bool {
+        self.player.as_ref().is_some_and(Player::in_shortcut) && !self.player_in_lobby()
     }
 
     /// Whether the player's vessel waits in the lobby.
     fn player_in_lobby(&self) -> bool {
-        self.shortcuts.lobby.iter().any(|v| v.teleport.is_none())
+        self.shortcuts
+            .lobby
+            .iter()
+            .any(|v| v.owner == VesselOwner::Player)
     }
 
     /// The player's vessel in `transportVessels`. Returns `false` where the game returns
@@ -651,6 +728,7 @@ impl RainWorldGame {
         if connections.is_empty() {
             log::warn!("room exit of a room without connections; the player is lost");
             self.player = None;
+            self.sync_player_realized();
             return true;
         }
         let Some(&dest) = connections.get(node) else {
@@ -669,7 +747,7 @@ impl RainWorldGame {
             room: dest,
             entrance_node,
             updates: 0,
-            teleport: None,
+            owner: VesselOwner::Player,
         });
         true
     }
@@ -682,9 +760,11 @@ impl RainWorldGame {
             let Some(vessel) = self.shortcuts.lobby.get(i).copied() else {
                 continue;
             };
-            let done = match vessel.teleport {
-                Some(id) => self.teleport_vessel_step(id, vessel, observer),
-                None => self.player_vessel_step(i, vessel, observer),
+            let done = match vessel.owner {
+                VesselOwner::Teleport(id) => self.teleport_vessel_step(id, vessel, observer),
+                VesselOwner::Player => self.player_vessel_step(i, vessel, observer),
+                VesselOwner::Shortcut(v) => self.creature_lobby_step(v, vessel, observer),
+                VesselOwner::BatHive(id) => self.bat_hive_lobby_step(id, vessel),
             };
             if done {
                 self.shortcuts.lobby.remove(i);
@@ -766,8 +846,9 @@ impl RainWorldGame {
         ) && let (Some(player), Some(tile)) = (self.player.as_mut(), node_tile)
         {
             player.set_vessel_at(tile);
+            self.shortcuts.transport.push(Transport::Player);
             if node.kind == NodeType::Exit {
-                self.blink_arrival(lobby);
+                self.blink_arrival(lobby, 2.5, CreatureType::Slugcat);
             }
         }
         log::info!(
@@ -777,8 +858,7 @@ impl RainWorldGame {
                 .map_or("?", |r| r.name.as_str()),
             lobby.updates
         );
-        self.world
-            .camera_changed_room(self.camera_room, lobby.room, observer, &mut self.rng);
+        self.camera_changed_room(self.camera_room, lobby.room, observer);
         self.camera_room = lobby.room;
         let camera = usize::try_from(node.viewed_by_camera).unwrap_or(0);
         self.camera_move = Some(CameraMove {
@@ -794,10 +874,10 @@ impl RainWorldGame {
         true
     }
 
-    /// A slugcat's vessel came out of the lobby into exit node `lobby.entrance_node`:
-    /// the room blinks the entrance leading there by 2.5, which camera 0, if it already
-    /// shows the room, colours as the slugcat.
-    fn blink_arrival(&mut self, lobby: LobbyVessel) {
+    /// A vessel came out of the lobby into exit node `lobby.entrance_node`: the room
+    /// blinks the entrance leading there by `fac` (2.5 for a slugcat, else 1.5), which
+    /// camera 0, if it already shows the room, colours as `creature`.
+    fn blink_arrival(&mut self, lobby: LobbyVessel, fac: f32, creature: CreatureType) {
         let Some(node) = usize::try_from(lobby.entrance_node).ok() else {
             return;
         };
@@ -812,13 +892,13 @@ impl RainWorldGame {
             return;
         };
         if let Some(b) = &mut room.shortcuts_blinking {
-            b.blink(Some(entrance), None, 2.5);
+            b.blink(Some(entrance), None, fac);
         }
         if self.camera_room == lobby.room {
             self.entrance_colors.push(EntranceColor {
                 room: lobby.room,
                 entrance,
-                creature: CreatureType::Slugcat,
+                creature,
             });
         }
     }
@@ -851,6 +931,7 @@ impl RainWorldGame {
         if let Some(blinking) = &mut realized.shortcuts_blinking {
             blinking.update(&room, &mut self.rng);
         }
+        self.run_flies_room_ai(index, observer);
         let mut objects: Vec<(u64, RoomObject)> = self
             .world
             .room_overseers(index)
@@ -863,6 +944,7 @@ impl RainWorldGame {
                 .into_iter()
                 .map(|(seq, owner, id)| (seq, RoomObject::Hologram { owner, id })),
         );
+        objects.extend(self.room_fly_objects(index));
         objects.sort_by_key(|&(seq, _)| std::cmp::Reverse(seq));
         let mut player_done = false;
         for (seq, object) in objects {
@@ -893,6 +975,8 @@ impl RainWorldGame {
                         self.run_overseer(owner, OverseerCall::Hologram(id), observer);
                     }
                 }
+                RoomObject::Fly(id) => self.run_fly(index, id, &room, observer),
+                RoomObject::Hover(id) => self.run_hover(index, id, observer),
             }
         }
         if !player_done {
@@ -1150,7 +1234,7 @@ impl RainWorldGame {
                         room: dest.room,
                         entrance_node: dest.node,
                         updates: 0,
-                        teleport: Some(id),
+                        owner: VesselOwner::Teleport(id),
                     });
                 }
                 OverseerEffect::StartConversation { other, with, delay } => {
@@ -1234,6 +1318,7 @@ impl RainWorldGame {
             return;
         };
         if let Some(entrance) = player.shortcut_vessel_tile() {
+            self.shortcuts.transport.push(Transport::Player);
             self.sucked_in(room, entrance);
             return;
         }
@@ -1244,6 +1329,7 @@ impl RainWorldGame {
             sounds.owner_removed();
             log::info!("player fell out of the room and was destroyed; R respawns");
             self.player = None;
+            self.sync_player_realized();
         } else if player.is_dead() {
             log::info!("player died; R respawns");
         } else if player.is_stunned() && !was_stunned {
@@ -1366,8 +1452,16 @@ impl RainWorldGame {
         self.shortcuts
             .lobby
             .iter()
-            .find(|v| v.teleport.is_none())
+            .find(|v| v.owner == VesselOwner::Player)
             .copied()
+    }
+
+    /// `transportVessels` in order: `None` for the player's, else the creature's vessel.
+    pub fn transport_vessels(&self) -> impl Iterator<Item = Option<CreatureVessel>> + '_ {
+        self.shortcuts.transport.iter().map(|t| match t {
+            Transport::Player => None,
+            Transport::Creature(v) => Some(*v),
+        })
     }
 
     /// The player, unless destroyed.
@@ -1417,7 +1511,7 @@ impl RainWorldGame {
     ) {
         let player = self.player.get_or_insert_with(Player::new);
         player.clear_vessel();
-        self.shortcuts.lobby.retain(|v| v.teleport.is_some());
+        self.shortcuts.drop_player();
         // `place` resets the stuck-feet state; its random offsets are overwritten below.
         player.place(pos.tile(), &mut self.rng);
         for (chunk, dy) in player.body.chunks.iter_mut().zip([1.0, -1.0]) {
@@ -1431,6 +1525,7 @@ impl RainWorldGame {
         );
         observer.created(player, &mut self.rng);
         self.player_seq = self.world.next_update_seq();
+        self.sync_player_realized();
     }
 
     /// Sets the food in the player's stomach (for tests and tools: nothing is eaten yet).

@@ -7,6 +7,7 @@ use rw_assets::world::{AbstractRoomData, LoadedRoom};
 use rw_assets::{ActiveMods, Room, RoomSettings, Timeline};
 
 use super::AiMap;
+use crate::creature::fly::FliesRoomAi;
 use crate::room_script::RoomScript;
 
 use crate::{ShortcutsBlinking, Water};
@@ -39,7 +40,9 @@ pub struct RealizedRoom {
     /// The room-specific scripts `Room.Loaded` added.
     pub scripts: Vec<RoomScript>,
     /// `aimap`, made when the room finishes loading.
-    pub ai_map: Option<AiMap>,
+    pub ai_map: Option<Arc<AiMap>>,
+    /// `fliesRoomAi`, made by the first fly that enters.
+    pub flies_room_ai: Option<FliesRoomAi>,
     /// `shortcutsBlinking`, made when the shortcuts are ready.
     pub shortcuts_blinking: Option<ShortcutsBlinking>,
 }
@@ -66,6 +69,7 @@ impl RealizedRoom {
             first_time_realized,
             scripts: Vec::new(),
             ai_map: None,
+            flies_room_ai: None,
             shortcuts_blinking: None,
         }
     }
@@ -112,7 +116,7 @@ impl RealizedRoom {
             self.room.shortcut_map().shortcuts().len(),
         ));
         self.water = Water::new(&self.room, &self.settings);
-        self.ai_map = Some(AiMap::new(&self.room));
+        self.ai_map = Some(Arc::new(AiMap::new(&self.room)));
         self.loading_progress = 3;
         self.ready_for_non_ai_creatures = true;
     }

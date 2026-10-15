@@ -1,248 +1,220 @@
-//! The bat flies' world process and quantified placement over the tutorial route (a new
-//! Survivor game, seed 1) against the independent reference model
-//! (`rainworld-re/tools/overseer_model/flies_model.py`; its output trimmed into
-//! `tests/data/flies_route_model.json` with `--expected`).
+//! The bat flies (the world process, quantified placement and the realized flies) against
+//! the independent reference model (`rainworld-re/tools/overseer_model/fly_model.py`; its
+//! output trimmed into `tests/data/flies_*_model.json` with `--expected`), over three
+//! runs: the tutorial route, SU_A42 among its flies, and the swarm room SU_A24 whose flies
+//! leave and enter it through the shortcuts.
 
-use rw_sim::{FliesCall, FliesCallRecord};
+use rw_sim::FliesCall;
 use serde_json::{Value, json};
 
-use super::Session;
-use super::params::{NewGameParams, StepParams};
-use super::tutorial_route::{RouteView, TutorialRoute};
+use super::fly_trace::FlyTrace;
 
-const ROUTE_MAX_TICKS: u64 = 20_000;
-
-/// The route's run with every flies' call recorded.
-struct FliesTrace {
-    calls: Vec<FliesCallRecord>,
-    ctor_rng: [[u32; 4]; 2],
-    session: Session,
-}
-
-impl FliesTrace {
-    fn run(food: i32, pit_first: bool) -> Option<Self> {
-        let mut session = Session::installed()?;
-        session
-            .new_game(&NewGameParams {
-                slugcat: "White".to_owned(),
-                seed: Some(1),
-            })
-            .expect("new game");
-        let sim = session.scene_mut()?.game_mut().sim_mut();
-        sim.record_flies_calls(true);
-        let ctor_rng = sim.flies_ctor_rng();
-        session
-            .set_player(&super::params::SetPlayerParams {
-                food: Some(food),
-                ..Default::default()
-            })
-            .expect("food");
-        let mut route = if pit_first {
-            TutorialRoute::pit_first()
-        } else {
-            TutorialRoute::new()
-        };
-        let mut state = session.state().expect("state");
-        let mut calls = Vec::new();
-        while !route.done() && state.tick < ROUTE_MAX_TICKS {
-            let input = route.input(&RouteView::of(&state));
-            state = session
-                .step(&StepParams {
-                    ticks: Some(1),
-                    input: Some(input),
-                })
-                .expect("steps");
-            calls.extend(session.scene_mut()?.game_mut().sim_mut().take_flies_calls());
-        }
-        assert!(route.done(), "the route reached the shelter");
-        Some(Self {
-            calls,
-            ctor_rng,
-            session,
-        })
-    }
-
-    fn name(&mut self, room: i32) -> String {
-        self.session
-            .scene_mut()
-            .and_then(|s| {
-                s.game()
-                    .sim()
-                    .world()
-                    .abstract_room(room)
-                    .map(|r| r.name.clone())
-            })
-            .unwrap_or_default()
-    }
-
-    /// Counts as the model writes them: `[room, node, count]` sorted by name.
-    fn counts(&mut self, c: &FliesCallRecord) -> Value {
-        let mut rows: Vec<(String, i32, i32)> = c
-            .counts
-            .iter()
-            .map(|&(r, n, k)| (self.name(r), n, k))
-            .collect();
-        rows.sort();
-        json!(
-            rows.iter()
-                .map(|(r, n, k)| json!([r, n, k]))
-                .collect::<Vec<_>>()
-        )
-    }
-
-    fn creatures(&mut self, c: &FliesCallRecord) -> Value {
-        let mut rows: Vec<(String, usize)> = c
-            .creatures
-            .iter()
-            .map(|&(r, n)| (self.name(r), n))
-            .collect();
-        rows.sort();
-        json!(rows.iter().map(|(r, n)| json!([r, n])).collect::<Vec<_>>())
-    }
-
-    fn placed(c: &FliesCallRecord) -> Value {
-        json!(
-            c.placed
-                .iter()
-                .map(|p| json!({"tile": [p.tile.0, p.tile.1], "node": p.node}))
-                .collect::<Vec<_>>()
-        )
-    }
-
-    fn call_name(&mut self, c: &FliesCallRecord) -> (&'static str, Option<String>) {
-        match c.call {
-            FliesCall::Update => ("update", None),
-            FliesCall::Ready(r) => ("ready", Some(self.name(r))),
-            FliesCall::Abstractize(r) => ("abstractize", Some(self.name(r))),
+impl FlyTrace {
+    /// The fixture's call code for call `i`.
+    fn code(&self, i: usize) -> &'static str {
+        match self.calls[i].call {
+            FliesCall::Update => "u",
+            FliesCall::Ready(_) => "r",
+            FliesCall::Realize { .. } => "z",
+            FliesCall::Abstractize(_) => "a",
+            FliesCall::RoomsAi(_) => "m",
+            FliesCall::Fly(_) => "f",
+            FliesCall::Hover(_) => "h",
+            FliesCall::Vessel(_) => "v",
+            FliesCall::Lobby(_) => "l",
+            FliesCall::NowViewed { .. } => "n",
+            FliesCall::NoLongerViewed(_) => "x",
         }
     }
 
-    /// The model's input: the constructor's random state and every call with what it
-    /// read and the port's results as `expected`.
-    fn model_input(&mut self) -> Value {
-        let calls = std::mem::take(&mut self.calls);
-        let mut ticks = Vec::new();
-        for c in &calls {
-            let (call, room) = self.call_name(c);
-            let realized: Vec<Value> = c
-                .realized
-                .iter()
-                .map(|&(r, loaded)| json!([self.name(r), loaded]))
-                .collect();
-            let mut e = json!({
-                "tick": c.tick, "call": call, "rng": c.rng_before,
-                "rain": {"timer": c.rain_timer, "cycle_length": c.cycle_length},
-                "realized": realized,
-                "expected": {
-                    "rng_after": c.rng_after, "counts": self.counts(c),
-                    "creatures": self.creatures(c),
-                },
-            });
-            if let Some(room) = room {
-                e["room"] = json!(room);
+    /// The fixture's rows (format 2): per tick with calls, `[tick, the calls' codes, FNV-1a
+    /// of each call's newest random word]`.
+    fn tick_rows(&self) -> Vec<Value> {
+        let mut rows: Vec<(u64, String, Fnv1a)> = Vec::new();
+        for (i, c) in self.calls.iter().enumerate() {
+            if rows.last().is_none_or(|r| r.0 != c.tick) {
+                rows.push((c.tick, String::new(), Fnv1a::new()));
             }
-            if call == "ready" {
-                e["expected"]["placed"] = Self::placed(c);
-            }
-            ticks.push(e);
+            let row = rows.last_mut().expect("a row");
+            row.1.push_str(self.code(i));
+            row.2.push(c.rng_after[3]);
         }
-        self.calls = calls;
-        json!({
-            "region": "SU", "food_to_hibernate": 4,
-            "ctor": {"rng": self.ctor_rng[0], "expected": {"rng_after": self.ctor_rng[1]}},
-            "ticks": ticks,
-        })
+        rows.into_iter()
+            .map(|(tick, codes, hash)| json!([tick, codes, hash.0]))
+            .collect()
     }
-}
 
-impl FliesTrace {
-    /// The port's run against the model's fixture: every call's code, tick and newest
-    /// random word, and at the fixture's states the full random state, the stored counts,
-    /// the fly creatures and the placed flies. The first difference, if any.
+    /// The port's run against the model's fixture: every tick's calls (their codes and
+    /// newest random words), and at the fixture's states the full random state and every field the
+    /// port writes of the flies, their flocks and the rooms' fly AIs. The first
+    /// difference, if any.
     fn first_mismatch(&mut self, expected: &Value) -> Option<String> {
-        let calls = std::mem::take(&mut self.calls);
-        let rows = expected["calls"].as_array().expect("calls");
-        let mut found = None;
-        if rows.len() != calls.len() {
-            found = Some(format!("calls: port {}, model {}", calls.len(), rows.len()));
+        if json!(self.ctor_rng[1]) != expected["ctor"]["rng_after"] {
+            return Some("constructor".to_owned());
         }
-        for (i, (c, row)) in calls.iter().zip(rows).enumerate() {
-            let code = match c.call {
-                FliesCall::Update => "u",
-                FliesCall::Ready(_) => "r",
-                FliesCall::Abstractize(_) => "a",
-            };
-            let got = json!([c.tick, code, c.rng_after[3]]);
-            if found.is_none() && &got != row {
-                found = Some(format!("call {i}: port {got}, model {row}"));
-            }
+        let rows = expected["calls"].as_array().expect("calls");
+        let ticks = self.tick_rows();
+        if let Some((got, want)) = ticks.iter().zip(rows).find(|(got, want)| got != want) {
+            return Some(format!("tick row: port {got}, model {want}"));
+        }
+        if rows.len() != ticks.len() {
+            return Some(format!("ticks: port {}, model {}", ticks.len(), rows.len()));
         }
         for s in expected["states"].as_array().expect("states") {
             let i = usize::try_from(s["index"].as_u64().expect("index")).expect("index");
-            let Some(c) = calls.get(i) else { break };
-            let mut got = json!({
-                "index": i, "tick": c.tick, "rng_after": c.rng_after,
-                "counts": self.counts(c), "creatures": self.creatures(c),
-            });
-            if !c.placed.is_empty() {
-                got["placed"] = Self::placed(c);
+            if json!(self.calls[i].rng_after) != s["rng_after"] {
+                return Some(format!("state {i}: random state"));
             }
-            if found.is_none() && &got != s {
-                found = Some(format!("state {i}: port {got}\n model {s}"));
+            let got = self.state_json(i);
+            if let Some(d) = StateDiff::first(&got, &s["state"], &format!("state {i}")) {
+                return Some(d);
             }
         }
-        self.calls = calls;
-        found
+        None
+    }
+
+    /// Asserts the run matches `expected` and that perturbed copies of it do not.
+    fn assert_matches(&mut self, expected: &Value, what: &str) {
+        let mismatch = self.first_mismatch(expected);
+        assert!(mismatch.is_none(), "{}", mismatch.unwrap_or_default());
+        let states = expected["states"].as_array().map_or(0, Vec::len);
+        println!(
+            "{what}: {} calls compared ({states} states), 0 mismatches",
+            self.calls.len()
+        );
+        let mut wrong = expected.clone();
+        wrong["calls"][100][2] = json!(0);
+        assert!(
+            self.first_mismatch(&wrong).is_some(),
+            "a perturbed draw is caught"
+        );
+        let mut wrong = expected.clone();
+        wrong["calls"]
+            .as_array_mut()
+            .expect("calls")
+            .pop()
+            .expect("a call");
+        assert!(
+            self.first_mismatch(&wrong).is_some(),
+            "a missing call is caught"
+        );
+        let mut wrong = expected.clone();
+        let fly = wrong["states"]
+            .as_array_mut()
+            .expect("states")
+            .iter_mut()
+            .rev()
+            .find_map(|s| {
+                s["state"]["flies"]
+                    .as_object_mut()
+                    .and_then(|f| f.values_mut().find(|f| f["pos"].is_array()))
+            })
+            .expect("a realized fly in a state");
+        fly["pos"][0] = json!(fly["pos"][0].as_f64().expect("x") + 0.001);
+        assert!(
+            self.first_mismatch(&wrong).is_some(),
+            "a perturbed fly position is caught"
+        );
+    }
+
+    /// How many calls of each code the run made.
+    fn count(&self, code: &str) -> usize {
+        (0..self.calls.len())
+            .filter(|&i| self.code(i) == code)
+            .count()
     }
 }
 
-/// The tutorial route's flies against the reference model (the fixture's source:
-/// `flies_model.py --expected` on `dump_flies_trace`'s input).
+/// 32-bit FNV-1a over little-endian `u32` words.
+struct Fnv1a(u32);
+
+impl Fnv1a {
+    fn new() -> Self {
+        Self(0x811C_9DC5)
+    }
+
+    fn push(&mut self, word: u32) {
+        for b in word.to_le_bytes() {
+            self.0 = (self.0 ^ u32::from(b)).wrapping_mul(0x0100_0193);
+        }
+    }
+}
+
+/// Field-by-field comparison of the port's state with the model's.
+struct StateDiff;
+
+impl StateDiff {
+    /// The first field the port writes that the model's state lacks or holds otherwise:
+    /// floats as f32 (0 equal to -0), the rest exactly.
+    fn first(port: &Value, model: &Value, at: &str) -> Option<String> {
+        match (port, model) {
+            (Value::Object(p), Value::Object(m)) => p.iter().find_map(|(k, v)| match m.get(k) {
+                Some(w) => Self::first(v, w, &format!("{at}/{k}")),
+                None => Some(format!("{at}/{k}: missing in the model")),
+            }),
+            (Value::Array(p), Value::Array(m)) if p.len() == m.len() => p
+                .iter()
+                .zip(m)
+                .enumerate()
+                .find_map(|(i, (v, w))| Self::first(v, w, &format!("{at}[{i}]"))),
+            (Value::Number(p), Value::Number(m)) if p.is_f64() || m.is_f64() => {
+                let (p, m) = (p.as_f64().map(|f| f as f32), m.as_f64().map(|f| f as f32));
+                let same = p == m || p.zip(m).is_some_and(|(p, m)| p.is_nan() && m.is_nan());
+                (!same).then(|| format!("{at}: port {p:?}, model {m:?}"))
+            }
+            _ => (port != model).then(|| format!("{at}: port {port}, model {model}")),
+        }
+    }
+}
+
+/// The tutorial route (a new Survivor game, seed 1, food 0, SU_C04 to the shelter SU_S01):
+/// the world process every tick, the abstract flies' moves, and SU_A42's five flies
+/// realized (never viewed) while the player is in SU_A41.
 #[test]
 fn flies_route_matches_reference_model() {
     let expected: Value =
         serde_json::from_str(include_str!("../../tests/data/flies_route_model.json"))
             .expect("model output");
-    let Some(mut t) = FliesTrace::run(0, false) else {
+    let Some(mut t) = FlyTrace::tutorial() else {
         return;
     };
-    assert_eq!(
-        json!(t.ctor_rng[1]),
-        expected["ctor"]["rng_after"],
-        "constructor"
-    );
-    let mismatch = t.first_mismatch(&expected);
-    assert!(mismatch.is_none(), "{}", mismatch.unwrap_or_default());
-    let placed: usize = t.calls.iter().map(|c| c.placed.len()).sum();
-    println!(
-        "flies route: {} calls compared ({} states, {placed} flies placed), 0 mismatches",
-        t.calls.len(),
-        expected["states"].as_array().map_or(0, Vec::len)
-    );
-    let mut wrong = expected.clone();
-    wrong["states"][1]["counts"][0][2] =
-        json!(wrong["states"][1]["counts"][0][2].as_i64().expect("count") + 1);
+    t.assert_matches(&expected, "flies route");
+    assert!(t.count("r") > 0, "rooms ready for their flies");
+    assert!(t.count("f") > 1000, "the realized flies update");
+}
+
+/// The tutorial route into SU_A41, 400 ticks walking about SU_A42 among its five flies
+/// (threats, fleeing, burrowing), out to SU_C04 (SU_A42 abstracted) and back in.
+#[test]
+fn flies_in_su_a42_match_reference_model() {
+    let expected: Value =
+        serde_json::from_str(include_str!("../../tests/data/flies_a42_model.json"))
+            .expect("model output");
+    let Some(mut t) = FlyTrace::run(400) else {
+        return;
+    };
+    t.assert_matches(&expected, "SU_A42");
+    assert!(t.count("n") > 0 && t.count("x") > 0, "viewed and left");
     assert!(
-        t.first_mismatch(&wrong).is_some(),
-        "a perturbed count is caught"
-    );
-    let mut wrong = expected;
-    wrong["calls"][100][2] = json!(0);
-    assert!(
-        t.first_mismatch(&wrong).is_some(),
-        "a perturbed draw is caught"
+        t.count("a") > 0 && t.count("h") > 0,
+        "abstracted; hover sounds"
     );
 }
 
+/// A game in SU_A23, 1350 ticks about the swarm room SU_A24, whose flies leave it and
+/// arrive through its exits (vessels, the lobby), out to SU_A41 and back.
 #[test]
-#[ignore = "writes the flies model's input for the tutorial route; run with FLIES_TRACE=<path>"]
-fn dump_flies_trace() {
-    let Some(path) = std::env::var_os("FLIES_TRACE") else {
+fn flies_through_shortcuts_match_reference_model() {
+    let expected: Value =
+        serde_json::from_str(include_str!("../../tests/data/flies_a24_model.json"))
+            .expect("model output");
+    let Some(mut t) = FlyTrace::run_a24(1350) else {
         return;
     };
-    let Some(mut t) = FliesTrace::run(0, false) else {
-        return;
-    };
-    let input = t.model_input();
-    std::fs::write(path, serde_json::to_string(&input).expect("json")).expect("write");
+    t.assert_matches(&expected, "SU_A24");
+    assert!(
+        t.count("v") > 0 && t.count("l") > 0,
+        "flies in the shortcuts"
+    );
+    assert!(t.count("z") > 0, "abstract flies realized");
 }

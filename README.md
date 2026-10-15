@@ -29,8 +29,8 @@ Working now:
   no map yet.
 - **Creatures:** the creature framework is in place. Overseers spawn and move between
   rooms, and the guide overseer follows the player with its tutorial text and holograms.
-  Bat flies spread between rooms as counts and are placed when their room loads, but
-  are not yet bodies you can see or catch.
+  Bat flies spread between rooms, fly, swarm, flee from the slugcat, burrow, hang in
+  chains and travel the pipes, but cannot be caught or eaten yet.
 
 Not yet ported:
 
@@ -38,7 +38,7 @@ Not yet ported:
 - shelters, hibernation, food and karma progression;
 - saves, continuing a game, and importing saves from the real game;
 - region gates;
-- creatures other than overseers;
+- creatures other than overseers and bat flies;
 - the pause menu, the region map, and depth scenes.
 
 ## Building and running

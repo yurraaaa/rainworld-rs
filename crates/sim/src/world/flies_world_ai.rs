@@ -11,9 +11,9 @@ use rw_assets::{CreatureType, NodeType};
 use rw_random::UnityRandom;
 
 use super::World;
-use crate::FloatExt;
-use crate::creature::{CreatureTemplate, IdIssuer, WorldCoordinate};
+use crate::creature::{CreatureId, CreatureTemplate, IdIssuer, WorldCoordinate};
 use crate::room_script::StorySession;
+use crate::{FloatExt, PlayerObserver};
 
 /// `FliesWorldAI.Behavior`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -59,6 +59,12 @@ pub struct FliesTick<'a> {
     pub rng: &'a mut UnityRandom,
     pub ids: &'a mut IdIssuer,
     pub session: &'a StorySession,
+    /// Builds the graphics of flies placed in the viewed room.
+    pub observer: &'a mut dyn PlayerObserver,
+    /// `cameras[0].room`.
+    pub camera_room: i32,
+    /// The flies created during the call, in order (for traces).
+    pub new_flies: Vec<CreatureId>,
 }
 
 impl World {
@@ -216,7 +222,7 @@ impl World {
     }
 
     /// `MigrationDirection`: the neighbour room a fly at `coord` should move to, or -1.
-    fn migration_direction(&self, coord: WorldCoordinate, rng: &mut UnityRandom) -> i32 {
+    pub(crate) fn migration_direction(&self, coord: WorldCoordinate, rng: &mut UnityRandom) -> i32 {
         let Some(room) = self.abstract_room(coord.room) else {
             return -1;
         };
@@ -276,13 +282,14 @@ impl World {
     }
 
     /// `MoveFly`: a quantified fly of an unrealized room moves; from a realized room a
-    /// realized fly would be sent out (`FliesRoomAI.GetRandomFly().AI.LeaveRoom`), and
-    /// the port realizes none yet.
+    /// random realized fly in it is sent out (`FlyAI.LeaveRoom`).
     fn move_fly(&mut self, from: i32, to: i32, cx: &mut FliesTick<'_>) {
         if self.realized(from).is_none() {
             self.move_quantified_creature(CreatureType::Fly, from, to, cx);
-        } else {
-            log::trace!("no realized fly leaves room {from}: realized flies are not ported");
+        } else if let Some(fly) = self.random_room_fly(from, cx.rng)
+            && self.creature(fly).fly().is_some_and(|f| f.room.is_some())
+        {
+            self.fly_leave_room(fly, to, -1);
         }
     }
 
@@ -351,8 +358,7 @@ impl World {
 
     /// `AddFlyToSwarmRoom`: on a random fly-relevant node of an unrealized swarm room;
     /// in a realized one whose quantified creatures are placed, a fly is made in a hive
-    /// (`FliesRoomAI.CreateFlyInHive`: the hive node's draw and the abstract creature;
-    /// the realized fly is not ported); nothing while it loads.
+    /// (`FliesRoomAI.CreateFlyInHive`); nothing while it loads.
     pub(crate) fn add_fly_to_swarm_room(&mut self, swarm: usize, cx: &mut FliesTick<'_>) {
         let Some(&room) = self.data.swarm_rooms.get(swarm) else {
             return;
@@ -383,8 +389,8 @@ impl World {
         self.add_quantified(room, node, CreatureType::Fly, 1, cx.rng);
     }
 
-    /// `FliesRoomAI.CreateFlyInHive` up to the realization: a new fly in a random hive
-    /// node of the room (the nodes after the exits, dens and border exits).
+    /// `FliesRoomAI.CreateFlyInHive`: a new fly in a random hive node of the room (the
+    /// nodes after the exits, dens and border exits), realized and resting in the hive.
     fn create_fly_in_hive(&mut self, room: i32, cx: &mut FliesTick<'_>) {
         let Some(realized) = self.realized(room) else {
             return;
@@ -414,14 +420,21 @@ impl World {
         );
         let cid = self.insert_creature(c);
         self.add_entity(cid);
-        log::debug!("fly made in a hive of room {room}; realized flies are not ported");
+        self.realize_fly(cid, cx.rng);
+        if let Some(r) = self.realized_mut(room) {
+            r.flies_room_ai
+                .get_or_insert_with(Default::default)
+                .in_hive
+                .push(cid);
+        }
+        cx.new_flies.push(cid);
     }
 
     /// `World.MoveQuantifiedCreatureFromAbstractRoom` from unrealized room `from` to `to`:
     /// one fly leaves by the exit to `to` (or, if none waits there, from the fullest node
     /// connected to it) and arrives at `to`'s exit back. Into a realized room it also
-    /// becomes an `AbstractCreature` moved in (whose realization, `ChangeRooms`, is not
-    /// ported: it stays abstract).
+    /// becomes an `AbstractCreature` moved in, realized by `ChangeRooms` into the
+    /// shortcut handler's lobby once the room's shortcuts are ready.
     fn move_quantified_creature(
         &mut self,
         kind: CreatureType,
@@ -472,8 +485,10 @@ impl World {
                 cx.rng,
             );
             let cid = self.insert_creature(c);
-            log::debug!("{kind} moved into realized room {to} stays abstract");
-            self.move_creature(cid, WorldCoordinate::new(to, -1, -1, back));
+            cx.new_flies.push(cid);
+            let dest = WorldCoordinate::new(to, -1, -1, back);
+            self.change_rooms_realize(cid, dest, 0, cx.rng);
+            self.move_creature(cid, dest);
         }
     }
 }

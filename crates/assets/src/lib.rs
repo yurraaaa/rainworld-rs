@@ -44,7 +44,7 @@ pub use room::{
     tile_position,
 };
 pub use room_visuals::RoomVisuals;
-pub use settings::{FadePalette, RegionTemplates, RoomSettings, SettingsFile};
+pub use settings::{DangerType, FadePalette, RegionTemplates, RoomSettings, SettingsFile};
 pub use short_strings::ShortStrings;
 pub use shortcut::{ShortcutData, ShortcutMap, ShortcutType};
 pub use sound_table::{

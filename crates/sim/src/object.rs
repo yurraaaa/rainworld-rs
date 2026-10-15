@@ -108,6 +108,8 @@ pub struct PhysicalObject {
     pub chunks: Vec<BodyChunk>,
     pub connections: Vec<BodyChunkConnection>,
     pub params: PhysicsParams,
+    /// `grabbedBy.Count > 0`: a held object's chunks may leave the room's range.
+    pub held: bool,
     impacts: Vec<TerrainImpact>,
 }
 
@@ -144,6 +146,7 @@ impl PhysicalObject {
             chunks,
             connections: Vec::new(),
             params,
+            held: false,
             impacts: Vec::new(),
         }
     }
@@ -168,6 +171,7 @@ impl PhysicalObject {
                 0.5,
             )],
             params: PARAMS,
+            held: false,
             impacts: Vec::new(),
         }
     }
@@ -232,7 +236,9 @@ impl PhysicalObject {
             } else {
                 self.chunks[i].clear_contact();
             }
-            self.chunks[i].restrict_to_room(room);
+            if !self.held {
+                self.chunks[i].restrict_to_room(room);
+            }
             self.chunks[i].count_splash_stop(water);
         }
         for c in &self.connections {
