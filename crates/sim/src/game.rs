@@ -18,7 +18,7 @@ use rw_assets::{CreatureType, NodeType, Room, Shortcut, ShortcutType};
 use rw_random::UnityRandom;
 
 use crate::camera::CameraView;
-use crate::campaign::SlugcatCampaign;
+use crate::campaign::{SlugcatCampaign, StoryStart};
 use crate::creature::fly::FlyView;
 use crate::creature::overseer::hologram::{ControlPreset, OverseerHologram};
 use crate::creature::overseer::{
@@ -211,6 +211,8 @@ pub struct NewGameWorld {
 /// A running game.
 pub struct RainWorldGame {
     campaign: &'static SlugcatCampaign,
+    /// The save state's start values.
+    story: StoryStart,
     world: World,
     shortcuts: ShortcutHandler,
     /// `None` in a single-room world.
@@ -265,6 +267,20 @@ impl RainWorldGame {
         world: World,
         campaign: &'static SlugcatCampaign,
         start: Start,
+        rng: UnityRandom,
+        sounds: Sounds,
+        observer: &mut dyn PlayerObserver,
+    ) -> Self {
+        let story = StoryStart::new_game(campaign);
+        Self::new_story(world, campaign, story, start, rng, sounds, observer)
+    }
+
+    /// [`Self::new`] from `story`: a new game's or a saved one's.
+    pub fn new_story(
+        world: World,
+        campaign: &'static SlugcatCampaign,
+        story: StoryStart,
+        start: Start,
         mut rng: UnityRandom,
         sounds: Sounds,
         observer: &mut dyn PlayerObserver,
@@ -273,11 +289,11 @@ impl RainWorldGame {
         let NewGameWorld {
             mut ids,
             save_state_seed,
-        } = Self::new_game_world(&mut world, campaign, &mut rng);
+        } = Self::story_world(&mut world, campaign, &story, &mut rng);
         let session = StorySession {
             character: campaign.name,
-            cycle_number: 0,
-            den_position: campaign.start_den,
+            cycle_number: story.cycle_number,
+            den_position: story.den.clone(),
         };
         let guide = PlayerGuideState::default();
         let player_pos = WorldCoordinate::new(start.room, 15, 25, -1);
@@ -291,11 +307,14 @@ impl RainWorldGame {
             &mut rng,
         );
         player.pos.tile = start.tile.unwrap_or(crate::campaign::DEFAULT_PLAYER_TILE);
+        // `LoadInitCondition`: the saved food, a pip at a time into the one stomach.
+        player.state.food_in_stomach = story.food;
         let player_id = world.insert_creature(player);
         world.add_entity(player_id);
         let realizer = (!world.single_room()).then(RoomRealizer::new);
         let mut game = Self {
             campaign,
+            story,
             world,
             shortcuts: ShortcutHandler::new(),
             realizer,
@@ -344,14 +363,31 @@ impl RainWorldGame {
         campaign: &'static SlugcatCampaign,
         rng: &mut UnityRandom,
     ) -> NewGameWorld {
+        Self::story_world(world, campaign, &StoryStart::new_game(campaign), rng)
+    }
+
+    /// [`Self::new_game_world`] from `story`, whose saved `NEXTID` and `SEED` replace
+    /// the drawn values (`LoadGame`, before the world loads).
+    pub fn story_world(
+        world: &mut World,
+        campaign: &'static SlugcatCampaign,
+        story: &StoryStart,
+        rng: &mut UnityRandom,
+    ) -> NewGameWorld {
         let mut ids = IdIssuer {
             next_issued_id: rng.range_i32(1000, 10000),
         };
-        let save_state_seed = rng.range_i32(0, 10000);
+        let mut save_state_seed = rng.range_i32(0, 10000);
+        if let Some(id) = story.next_issued_id {
+            ids.next_issued_id = id;
+        }
+        if let Some(seed) = story.seed {
+            save_state_seed = seed;
+        }
         let session = StorySession {
             character: campaign.name,
-            cycle_number: 0,
-            den_position: campaign.start_den,
+            cycle_number: story.cycle_number,
+            den_position: story.den.clone(),
         };
         let guide = PlayerGuideState::default();
         world.rain_cycle = RainCycle::new_story(campaign.name, rng);
@@ -359,7 +395,7 @@ impl RainWorldGame {
             session: &session,
             ids: &mut ids,
             rng,
-            guide_overseer_dead: false,
+            guide_overseer_dead: story.guide_overseer_dead,
             guide: &guide,
             food_to_hibernate: campaign.stats.food_to_hibernate,
         };
@@ -500,8 +536,8 @@ impl RainWorldGame {
             rng: &mut self.rng,
             guide: &self.guide,
             player: Some(self.player_id),
-            player_karma: self.campaign.start_karma,
-            cycle: 0,
+            player_karma: self.story.karma,
+            cycle: self.story.cycle_number,
         };
         self.world.update_abstract_room(room, time, &mut cx);
     }
@@ -589,15 +625,20 @@ impl RainWorldGame {
         }
     }
 
-    /// The story session as the room scripts read it: a new game's first cycle in the
-    /// campaign's start den (the port has no saves).
+    /// The story session as the room scripts read it.
     #[must_use]
     pub fn story_session(&self) -> StorySession {
         StorySession {
             character: self.campaign.name,
-            cycle_number: 0,
-            den_position: self.campaign.start_den,
+            cycle_number: self.story.cycle_number,
+            den_position: self.story.den.clone(),
         }
+    }
+
+    /// What the game started from.
+    #[must_use]
+    pub fn story(&self) -> &StoryStart {
+        &self.story
     }
 
     /// What the room scripts see of the process manager from the next tick on
@@ -1017,10 +1058,10 @@ impl RainWorldGame {
     fn story_stats(&self) -> StoryStats {
         let stats = &self.campaign.stats;
         StoryStats {
-            cycle: 0,
+            cycle: self.story.cycle_number,
             food_to_hibernate: stats.food_to_hibernate,
             max_food: stats.max_food,
-            karma_cap: self.campaign.start_karma_cap,
+            karma_cap: self.story.karma_cap,
             yellow: self.campaign.name == rw_assets::SlugcatName::Yellow,
             how_well_is_player_doing: -1.0,
         }
@@ -1079,7 +1120,7 @@ impl RainWorldGame {
                 player_id: self.player_id,
                 player,
                 edibles,
-                player_karma: self.campaign.start_karma,
+                player_karma: self.story.karma,
                 camera: self.camera_view,
                 story,
                 rain,

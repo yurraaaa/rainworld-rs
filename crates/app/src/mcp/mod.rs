@@ -8,6 +8,8 @@
 
 mod params;
 mod reply;
+#[cfg(test)]
+mod save_tests;
 mod session;
 #[cfg(test)]
 mod shortcut_shots;
@@ -27,9 +29,10 @@ use rmcp::{ServerHandler, ServiceExt, tool, tool_handler, tool_router};
 use rw_assets::{StreamingAssets, UnityResources};
 use serde::Serialize;
 
+use crate::saves::SaveConfig;
 use params::{
-    HudMessageParams, ListRoomsParams, LoadProcessParams, LoadRoomParams, NewGameParams,
-    RespawnParams, ScreenshotParams, SetPlayerParams, StepParams, StepProcessParams,
+    HudMessageParams, ImportSaveParams, ListRoomsParams, LoadProcessParams, LoadRoomParams,
+    NewGameParams, RespawnParams, ScreenshotParams, SetPlayerParams, StepParams, StepProcessParams,
     StepSequenceParams, TilesParams,
 };
 pub use session::Session;
@@ -56,9 +59,10 @@ Z on START until the game runs, then step_process with arrows and Z.";
 pub fn run(
     assets: StreamingAssets,
     resources: Arc<UnityResources>,
+    saves: SaveConfig,
     window: bool,
 ) -> Result<(), Box<dyn Error>> {
-    let session = Arc::new(Mutex::new(Session::new(assets, resources)));
+    let session = Arc::new(Mutex::new(Session::new(assets, resources, saves)));
     if window {
         window::run(session)
     } else {
@@ -251,6 +255,19 @@ impl Server {
         Parameters(p): Parameters<StepProcessParams>,
     ) -> Result<CallToolResult, String> {
         Self::json(&self.session()?.step_process(&p)?)
+    }
+
+    #[tool(
+        description = "Import one of the game's save slots (sav, sav2, sav3) into the \
+        port's save directory, read-only from the game's (the Proton prefix on Linux, \
+        AppData/LocalLow on Windows, or game_saves), after moving the port's previous file \
+        of that slot to its backup directory. A loaded process's menus then read it."
+    )]
+    fn import_save(
+        &self,
+        Parameters(p): Parameters<ImportSaveParams>,
+    ) -> Result<CallToolResult, String> {
+        Self::json(&self.session()?.import_save(&p)?)
     }
 
     #[tool(

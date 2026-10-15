@@ -160,6 +160,44 @@ impl SlugcatCampaign {
     }
 }
 
+/// What a story game starts from: its `SaveState` after `LoadGame`, empty for a new
+/// game or read from a save.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoryStart {
+    /// `GetSaveStateDenToUse`.
+    pub den: String,
+    pub cycle_number: i32,
+    /// `saveState.food`, given to the player's stomach.
+    pub food: i32,
+    pub karma: i32,
+    pub karma_cap: i32,
+    pub karma_reinforced: bool,
+    pub the_mark: bool,
+    pub guide_overseer_dead: bool,
+    /// A save's `NEXTID` and `SEED`, which replace the drawn `nextIssuedId` and seed.
+    pub next_issued_id: Option<i32>,
+    pub seed: Option<i32>,
+}
+
+impl StoryStart {
+    /// A new game of `campaign`.
+    #[must_use]
+    pub fn new_game(campaign: &SlugcatCampaign) -> Self {
+        Self {
+            den: campaign.start_den.to_owned(),
+            cycle_number: 0,
+            food: 0,
+            karma: campaign.start_karma,
+            karma_cap: campaign.start_karma_cap,
+            karma_reinforced: false,
+            the_mark: campaign.start_with_mark,
+            guide_overseer_dead: false,
+            next_issued_id: None,
+            seed: None,
+        }
+    }
+}
+
 /// `RainWorldGame.TryGetPlayerStartPos`: the tile a story player starts on in these
 /// rooms (story starts, intros and the dev rooms), instead of the default (15, 25).
 /// Remix's `cfgVanillaExploits` removes the `LF_H01` entry.

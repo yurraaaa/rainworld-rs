@@ -1,8 +1,11 @@
-//! `SlugcatSelectMenu` for a new game in the base game (no saves, Remix, Jolly Co-op
-//! and More Slugcats off, flat illustrations): a page per slugcat that scrolls
-//! sideways, the hold-to-start button, back, the arrows and the restart check box,
-//! which stays hidden without a save.
+//! `SlugcatSelectMenu` in the base game (Remix, Jolly Co-op and More Slugcats off,
+//! flat illustrations): a page per slugcat that scrolls sideways, the hold-to-start
+//! button (new game, or continue a saved one), back, the arrows and the restart check
+//! box, which rises on a page with a save and makes the start a new game. Saved games
+//! still show the new-game pages (`SlugcatPageContinue` comes later).
 
+use rw_save::{CampaignStart, SaveState};
+use rw_sim::campaign::SlugcatCampaign;
 use rw_sim::{FloatExt, Vec2};
 
 use crate::color::MenuColor;
@@ -27,6 +30,31 @@ pub struct SlugcatPage {
     pub last_in_position: f32,
 }
 
+/// `SaveGameData`: what `MineForSaveData` reads of a stored game for its page.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SaveGameData {
+    pub shelter_name: String,
+    pub cycle: i32,
+    pub food: i32,
+    pub karma: i32,
+    pub karma_cap: i32,
+    pub karma_reinforced: bool,
+    pub has_glow: bool,
+    pub has_mark: bool,
+    pub reds_extra_cycles: bool,
+    pub reds_death: bool,
+    pub ascended: bool,
+}
+
+/// The start button's labels, translated once.
+#[derive(Debug, Clone)]
+struct StartTexts {
+    new_game: String,
+    delete_save: String,
+    statistics: String,
+    continue_game: String,
+}
+
 /// The `SlugcatSelectMenu` subclass's state.
 #[derive(Debug, Clone)]
 pub struct SlugcatSelectScreen {
@@ -45,6 +73,11 @@ pub struct SlugcatSelectScreen {
     restart_up: f32,
     last_pause_button: bool,
     screen_width: f32,
+    /// `saveGameData`, per page.
+    pub save_game_data: Vec<Option<SaveGameData>>,
+    /// `redIsDead`: the Hunter's save ended (its last cycle's death, or ascended).
+    pub red_is_dead: bool,
+    texts: StartTexts,
 }
 
 /// The slugcat select process.
@@ -120,43 +153,114 @@ impl SlugcatSelectScreen {
         Menu::s_curve((1.0 - self.page_scroll(i, t).abs()).clamp(0.0, 1.0), 0.5)
     }
 
-    /// `SlugcatSelectMenu.SlugcatUnlocked` with no save: `SlugcatStats.SlugcatUnlocked`.
+    /// `SlugcatSelectMenu.SlugcatUnlocked`: a slugcat with a save, else
+    /// `SlugcatStats.SlugcatUnlocked`.
     #[must_use]
-    pub fn slugcat_unlocked(slugcat: Slugcat, shared: &MenuShared) -> bool {
-        slugcat != Slugcat::Red || shared.progression.red_unlocked
+    pub fn slugcat_unlocked(slugcat: Slugcat, shared: &MenuShared, saved: bool) -> bool {
+        saved || slugcat != Slugcat::Red || shared.progression.red_unlocked
+    }
+
+    /// `MineForSaveData` of `slugcat`'s stored game, or `None` without one.
+    #[must_use]
+    pub fn mine_for_save_data(slugcat: Slugcat, shared: &mut MenuShared) -> Option<SaveGameData> {
+        let campaign = SlugcatCampaign::of(slugcat, rw_assets::ActiveMods::NONE)?;
+        let start = CampaignStart {
+            slugcat,
+            den: campaign.start_den,
+            vanilla: campaign.start_den_is_vanilla,
+        };
+        let state = match shared.saves.peek_save_state(start) {
+            Ok(state) => state?,
+            Err(e) => {
+                log::warn!("reading the {slugcat} save: {e}");
+                return None;
+            }
+        };
+        let assets = &shared.assets;
+        let d = &state.death_persistent;
+        Some(SaveGameData {
+            shelter_name: state.den_to_use(|room| {
+                assets
+                    .find_room_file(&room.to_lowercase(), ".txt")
+                    .is_some()
+            }),
+            cycle: state.cycle_number,
+            food: state.food,
+            karma: d.karma,
+            karma_cap: d.karma_cap,
+            karma_reinforced: d.reinforced_karma,
+            has_glow: state.the_glow,
+            has_mark: d.the_mark,
+            reds_extra_cycles: state.red_extra_cycles(),
+            reds_death: d.reds_death,
+            ascended: d.ascended,
+        })
+    }
+
+    fn saved(&self, i: usize) -> Option<&SaveGameData> {
+        self.save_game_data.get(i).and_then(Option::as_ref)
     }
 
     fn page_index(&self, page: ObjectId) -> Option<usize> {
         self.pages.iter().position(|p| p.page == page)
     }
 
-    /// `UpdateStartButtonText` with no save: "NEW GAME", held for 40 ticks (120 with
-    /// restart checked).
-    fn update_start_button_text(&self, menu: &mut Menu, shared: &MenuShared) {
+    /// `UpdateStartButtonText`: held for 40 ticks (120 with restart checked).
+    fn update_start_button_text(&self, menu: &mut Menu) {
         if let Some(h) = menu.hold_button_mut(self.start_button) {
             h.fill_time = if self.restart_checked { 120.0 } else { 40.0 };
         }
+        let slugcat = self.pages[self.slugcat_page_index].slugcat;
+        let text = if self.saved(self.slugcat_page_index).is_none() {
+            self.texts.new_game.clone()
+        } else if self.restart_checked {
+            self.texts.delete_save.replace(' ', "\r\n")
+        } else if slugcat == Slugcat::Red && self.red_is_dead {
+            self.texts.statistics.clone()
+        } else {
+            self.texts.continue_game.clone()
+        };
         let label = menu.hold_button(self.start_button).map(|h| h.menu_label);
         if let Some(label) = label {
-            menu.set_label_text(label, shared.translator.translate("NEW GAME"));
+            menu.set_label_text(label, &text);
         }
     }
 
     /// `UpdateSelectedSlugcatInMiscProg`.
     fn update_selected_slugcat(&self, shared: &mut MenuShared) {
         if let Some(page) = self.pages.get(self.slugcat_page_index) {
-            shared.progression.selected_slugcat = page.slugcat;
+            shared.select_slugcat(page.slugcat);
         }
     }
 
-    /// `StartGame` for a new game: the Hunter needs unlocking; the Survivor and the Monk
-    /// get their intro slideshow first unless S or the map button is held.
+    /// `StartGame`: the Hunter needs unlocking. A saved game continues unless restart is
+    /// checked (the Hunter's ended one goes to its statistics); otherwise the save is
+    /// wiped and a new game starts, the Survivor and the Monk with their intro slideshow
+    /// unless S or the map button is held.
     fn start_game(&mut self, slugcat: Slugcat, cx: &mut MenuCx<'_>) {
         if slugcat == Slugcat::Red && !cx.shared.progression.red_unlocked {
             return;
         }
         cx.shared.in_game_slugcat = Some(slugcat);
-        cx.shared.progression.selected_slugcat = slugcat;
+        cx.shared.saves.current_save_state = None;
+        cx.shared.select_slugcat(slugcat);
+        if !self.restart_checked && cx.shared.saves.is_there_a_saved_game(slugcat) {
+            if slugcat == Slugcat::Red && self.red_is_dead {
+                cx.requests.switch_to(ProcessId::Statistics);
+                cx.play_sound(MenuSoundId::SwitchPageOut);
+            } else {
+                cx.shared.start_game_condition = Some(StoryGameInitCondition::Load);
+                cx.requests.switch_to(ProcessId::Game);
+                cx.play_sound(MenuSoundId::ContinueGame);
+            }
+            if let Some(song) = cx.shared.intro_roll_song() {
+                song.fade_out(20.0);
+            }
+            return;
+        }
+        if let Err(e) = cx.shared.saves.wipe_save_state(slugcat) {
+            log::error!("wiping the {slugcat} save: {e}");
+        }
         cx.shared.start_game_condition = Some(StoryGameInitCondition::New);
         let input = &cx.shared.input;
         let skip_intro = input.key(KeyboardKey::S) || input.map_action();
@@ -186,11 +290,11 @@ impl SlugcatSelectScreen {
             }
             menu.set_check_box_selectable(self.restart_checkbox, false);
             // `restartCheckbox.Checked = false` reports to `SetChecked`.
-            self.set_restart_checked(menu, cx.shared, false);
+            self.set_restart_checked(menu, false);
             self.restart_checked = false;
-            // No save: the check box stays down.
-            self.restart_up = 0.0;
-            self.restart_available = false;
+            let saved = self.saved(self.slugcat_page_index).is_some();
+            self.restart_up = if saved { 1.0 } else { 0.0 };
+            self.restart_available = saved;
         }
         if let Some(h) = menu.hold_button_mut(self.start_button) {
             h.warning_mode = self.restart_checked;
@@ -205,12 +309,13 @@ impl SlugcatSelectScreen {
         self.last_scroll = self.scroll;
         self.scroll = self.next_scroll();
         let slugcat = Self::ORDER[self.slugcat_page_index];
-        let greyed = self.scroll.abs() > 0.1 || !Self::slugcat_unlocked(slugcat, cx.shared);
+        let saved = self.saved(self.slugcat_page_index).is_some();
+        let greyed = self.scroll.abs() > 0.1 || !Self::slugcat_unlocked(slugcat, cx.shared, saved);
         if let Some(b) = menu.behavior_mut(self.start_button) {
             b.greyed_out = greyed;
         }
         if self.last_scroll.abs() > 0.5 && self.scroll.abs() <= 0.5 {
-            self.update_start_button_text(menu, cx.shared);
+            self.update_start_button_text(menu);
         }
         if self.scroll != 0.0 || self.last_scroll != 0.0 {
             return;
@@ -233,9 +338,9 @@ impl SlugcatSelectScreen {
         }
     }
 
-    fn set_restart_checked(&mut self, menu: &mut Menu, shared: &MenuShared, checked: bool) {
+    fn set_restart_checked(&mut self, menu: &mut Menu, checked: bool) {
         self.restart_checked = checked;
-        self.update_start_button_text(menu, shared);
+        self.update_start_button_text(menu);
     }
 }
 
@@ -325,23 +430,33 @@ impl MenuScreen for SlugcatSelectScreen {
     }
 
     fn set_checked(&mut self, menu: &mut Menu, _check_box: ObjectId, checked: bool) {
-        self.restart_checked = checked;
-        if let Some(h) = menu.hold_button_mut(self.start_button) {
-            h.fill_time = if checked { 120.0 } else { 40.0 };
-        }
+        self.set_restart_checked(menu, checked);
     }
 }
 
 impl SlugcatSelectMenu {
-    /// `new SlugcatSelectMenu(manager)` with no saves.
+    /// `new SlugcatSelectMenu(manager)`.
     #[must_use]
     pub fn new(shared: &mut MenuShared) -> Self {
         let mut menu = Menu::new(ProcessId::SlugcatSelect, shared);
         let page0 = menu.add_page(shared, "main", 0);
         if shared.unlock_red_file() {
-            shared.progression.red_unlocked = true;
+            shared.unlock_red();
         }
         let order = SlugcatSelectScreen::ORDER;
+        let save_game_data: Vec<Option<SaveGameData>> = order
+            .iter()
+            .map(|&s| SlugcatSelectScreen::mine_for_save_data(s, shared))
+            .collect();
+        let red_is_dead = order
+            .iter()
+            .zip(&save_game_data)
+            .find(|(s, _)| **s == Slugcat::Red)
+            .and_then(|(_, d)| d.as_ref())
+            .is_some_and(|d| {
+                (d.reds_death && d.cycle >= SaveState::reds_cycles(d.reds_extra_cycles))
+                    || d.ascended
+            });
         // `SetSlugcatColorOrder`: the selected slugcat's page, else the Survivor's.
         let mut slugcat_page_index = 0;
         for (i, slugcat) in order.iter().enumerate() {
@@ -357,7 +472,10 @@ impl SlugcatSelectMenu {
         let pages = order
             .iter()
             .enumerate()
-            .map(|(j, &slugcat)| Self::add_new_game_page(&mut menu, shared, 1 + j, slugcat))
+            .map(|(j, &slugcat)| {
+                let saved = save_game_data[j].is_some();
+                Self::add_new_game_page(&mut menu, shared, 1 + j, slugcat, saved)
+            })
             .collect();
         let start_button =
             menu.add_hold_button(shared, page0, "", "START", Vec2::new(683.0, 85.0), 40.0);
@@ -412,8 +530,16 @@ impl SlugcatSelectMenu {
             restart_up: 0.0,
             last_pause_button: false,
             screen_width,
+            save_game_data,
+            red_is_dead,
+            texts: StartTexts {
+                new_game: shared.translator.translate("NEW GAME").to_owned(),
+                delete_save: shared.translator.translate("DELETE SAVE").to_owned(),
+                statistics: shared.translator.translate("STATISTICS").to_owned(),
+                continue_game: shared.translator.translate("CONTINUE").to_owned(),
+            },
         };
-        screen.update_start_button_text(&mut menu, shared);
+        screen.update_start_button_text(&mut menu);
         screen.update_selected_slugcat(shared);
         menu.my_sound_loop = Some(MenuSoundId::MainMenuLoop);
         Self { menu, screen }
@@ -425,6 +551,7 @@ impl SlugcatSelectMenu {
         shared: &mut MenuShared,
         index: usize,
         slugcat: Slugcat,
+        saved: bool,
     ) -> SlugcatPage {
         let name = format!("Slugcat_Page_{}", slugcat.value());
         let page = menu.add_page(shared, &name, index);
@@ -464,11 +591,12 @@ impl SlugcatSelectMenu {
             image_pos.y += 30.0;
             scene_offset.y += 30.0;
         }
-        let (name_color, info_color) = if SlugcatSelectScreen::slugcat_unlocked(slugcat, shared) {
-            (MenuColor::MediumGrey, MenuColor::DarkGrey)
-        } else {
-            (MenuColor::VeryDarkGrey, MenuColor::VeryDarkGrey)
-        };
+        let (name_color, info_color) =
+            if SlugcatSelectScreen::slugcat_unlocked(slugcat, shared, saved) {
+                (MenuColor::MediumGrey, MenuColor::DarkGrey)
+            } else {
+                (MenuColor::VeryDarkGrey, MenuColor::VeryDarkGrey)
+            };
         for (label, color) in [(difficulty_label, name_color), (info_label, info_color)] {
             if let Kind::Label(l) = &menu.object(label).kind {
                 let node = l.label;

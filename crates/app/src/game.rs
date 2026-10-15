@@ -18,12 +18,13 @@ use rw_graphics::{
 use rw_hud::{HudSetup, OwnerTick, RainCycleView, StartCondition, Subregions};
 use rw_random::UnityRandom;
 use rw_render::{BodyStatus, ChunkInterpolation, Follow, PlayerLight, WaterSurface};
-use rw_sim::campaign::{self, SlugcatCampaign};
+use rw_sim::campaign::{self, SlugcatCampaign, StoryStart};
 use rw_sim::creature::fly::FlyView;
 use rw_sim::creature::overseer::OverseerView;
 use rw_sim::creature::overseer::hologram::OverseerHologram;
 use rw_sim::creature::{CreatureId, EntityId};
 use rw_sim::room_script::{RoomScript, SuC04StartUp};
+use rw_sim::shelter::ShelterDoor;
 use rw_sim::world::World;
 use rw_sim::{
     CameraMove, CameraView, HudEvent, Input, PhysicalObject, Player, PlayerObserver,
@@ -38,6 +39,12 @@ pub enum GameStart {
     /// `StoryGameInitCondition.New` for a campaign: its start den, at the den's start
     /// position (`TryGetPlayerStartPos`, else (15, 25)).
     NewStory(SlugcatName),
+    /// `StoryGameInitCondition.Load`: a saved game of `slugcat`, in `story.den`, on the
+    /// shelter's spawn tile (`ShelterDoor.playerSpawnPos`) or the den's start position.
+    SavedStory {
+        slugcat: SlugcatName,
+        story: StoryStart,
+    },
     /// A given room, in its region's world (a single-room world for arena levels), as
     /// `slugcat`: on `tile`, or on a safe spawn tile (the dev start, `--spawn`).
     Room {
@@ -291,6 +298,7 @@ impl Game {
         Self::build(
             world,
             campaign,
+            StoryStart::new_game(campaign),
             start,
             UnityRandom::new(seed as i32),
             Sounds::default(),
@@ -317,6 +325,11 @@ impl Game {
                 let tile =
                     campaign::player_start_pos(den, mods).unwrap_or(campaign::DEFAULT_PLAYER_TILE);
                 (campaign, den.to_owned(), Some(tile))
+            }
+            GameStart::SavedStory { slugcat, story } => {
+                let campaign = SlugcatCampaign::of(*slugcat, mods)
+                    .ok_or_else(|| format!("no campaign for {slugcat}"))?;
+                (campaign, story.den.clone(), None)
             }
             GameStart::Room {
                 name,
@@ -377,20 +390,60 @@ impl Game {
             .region
             .as_ref()
             .map(|r| Subregions::load(assets, &r.name, campaign.timeline.value()));
+        let (tile, story) = match start {
+            GameStart::SavedStory { story, .. } => (
+                Some(Self::den_tile(&data, &room, rooms.as_ref(), mods)),
+                story.clone(),
+            ),
+            _ => (tile, StoryStart::new_game(campaign)),
+        };
         let world = World::new(data, rooms, campaign.timeline, mods, true);
         let start_at = Start { room: first, tile };
-        let mut game = Self::build(world, campaign, start_at, rng, Sounds::new(table));
+        let mut game = Self::build(world, campaign, story, start_at, rng, Sounds::new(table));
         game.subregions = subregions;
         game.start_condition = match start {
             GameStart::NewStory(_) => StartCondition::New,
+            GameStart::SavedStory { .. } => StartCondition::Load,
             GameStart::Room { .. } => StartCondition::Dev,
         };
         Ok(game)
     }
 
+    /// Where a saved game's player starts in den `room`: a shelter's spawn tile
+    /// (`RealizeInRoom` in a shelter), else `TryGetPlayerStartPos` or (15, 25).
+    fn den_tile(
+        data: &WorldData,
+        room: &str,
+        rooms: &dyn rw_assets::world::RoomSource,
+        mods: ActiveMods,
+    ) -> (i32, i32) {
+        let fallback =
+            campaign::player_start_pos(room, mods).unwrap_or(campaign::DEFAULT_PLAYER_TILE);
+        let Some(abstract_room) = data.room_named(room).filter(|r| r.shelter()) else {
+            return fallback;
+        };
+        let file = abstract_room
+            .alt_file_name
+            .clone()
+            .unwrap_or_else(|| abstract_room.name.clone());
+        match rooms.load_room(&file) {
+            Ok(loaded) => ShelterDoor::player_spawn_pos(
+                &loaded.room,
+                &loaded.settings,
+                abstract_room.ancient_shelter,
+                mods,
+            ),
+            Err(e) => {
+                log::warn!("shelter {room}: {e}");
+                fallback
+            }
+        }
+    }
+
     fn build(
         world: World,
         campaign: &'static SlugcatCampaign,
+        story: StoryStart,
         start: Start,
         rng: UnityRandom,
         sounds: Sounds,
@@ -405,7 +458,8 @@ impl Game {
             earth: Color::BLACK,
             cosmetic: UnityRandom::new(0),
         };
-        let sim = RainWorldGame::new(world, campaign, start, rng, sounds, &mut graphics);
+        let sim =
+            RainWorldGame::new_story(world, campaign, story, start, rng, sounds, &mut graphics);
         log::info!("spawned player");
         Self {
             sim,
@@ -434,7 +488,7 @@ impl Game {
     }
 
     /// What `InitSinglePlayerHud` and `FireUpSinglePlayerHUD` read: the slugcat's food
-    /// meter, the new game's karma (no saves yet), cycle 0, and the world's rain cycle.
+    /// meter, the save state's karma and cycle, and the world's rain cycle.
     #[must_use]
     pub fn hud_setup(&self, screen_size: [f32; 2]) -> HudSetup {
         let campaign = self.sim.campaign();
@@ -444,10 +498,10 @@ impl Game {
             max_food: campaign.stats.max_food,
             food_to_hibernate: campaign.stats.food_to_hibernate,
             current_food: self.sim.food_in_stomach(),
-            karma: campaign.start_karma,
-            karma_cap: campaign.start_karma_cap,
-            karma_reinforced: false,
-            cycle_number: self.sim.story_session().cycle_number,
+            karma: self.sim.story().karma,
+            karma_cap: self.sim.story().karma_cap,
+            karma_reinforced: self.sim.story().karma_reinforced,
+            cycle_number: self.sim.story().cycle_number,
             camera_room_shelter: world
                 .abstract_room(self.sim.camera_room())
                 .is_some_and(AbstractRoomData::shelter),

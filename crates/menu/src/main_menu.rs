@@ -91,7 +91,7 @@ impl UnlockCheatSequence {
         }
         if self.sequence_state >= Self::SEQUENCE.len() {
             log::info!("Cheat code success!");
-            shared.progression.red_unlocked = true;
+            shared.unlock_red();
             shared.progression.all_tokens_collected = true;
             self.sequence_state = 0;
             self.check_unlock = false;

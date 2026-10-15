@@ -1,0 +1,109 @@
+//! The app's save slot: where the port's saves and the game's live, loading the slot
+//! for the menus, what a story game takes from its save state, and the importer.
+
+use std::path::PathBuf;
+
+use rw_assets::StreamingAssets;
+use rw_save::{ChecksumSalt, ImportReport, Platform, PlayerProgression, SaveSlot, SaveState};
+use rw_sim::campaign::StoryStart;
+
+/// Where saves are read and written.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SaveConfig {
+    /// The port's save directory; `None` keeps saves in memory.
+    pub dir: Option<PathBuf>,
+    /// The game's save directory the importer reads; `None` finds it from the game's.
+    pub game_saves: Option<PathBuf>,
+}
+
+impl SaveConfig {
+    /// The platform's directory (`--save-dir` overrides it).
+    #[must_use]
+    pub fn platform(dir: Option<PathBuf>, game_saves: Option<PathBuf>) -> Self {
+        Self {
+            dir: dir.or_else(Platform::port_save_dir),
+            game_saves,
+        }
+    }
+
+    /// `Custom.CheckSumSalt`, from the installed game's assembly.
+    #[must_use]
+    pub fn salt(assets: &StreamingAssets) -> Option<ChecksumSalt> {
+        let path = assets
+            .data_dir()
+            .join("Managed")
+            .join("Assembly-CSharp.dll");
+        ChecksumSalt::from_assembly(&path)
+            .inspect_err(|e| log::warn!("no save checksum salt ({e}); saves are not written"))
+            .ok()
+    }
+
+    /// `slot` of the port's directory, as `LoadProgression` reads it; in memory without
+    /// a directory or when it cannot be read.
+    #[must_use]
+    pub fn load(&self, assets: &StreamingAssets, slot: SaveSlot) -> PlayerProgression {
+        let salt = Self::salt(assets);
+        let Some(dir) = &self.dir else {
+            return PlayerProgression::in_memory(salt);
+        };
+        let path = dir.join(slot.file_name());
+        PlayerProgression::load(&path, salt).unwrap_or_else(|e| {
+            log::error!("cannot read the save {}: {e}; not saving", path.display());
+            PlayerProgression::in_memory(None)
+        })
+    }
+
+    /// The game's save directory: the override, else the platform's next to the game.
+    #[must_use]
+    pub fn game_save_dir(&self, assets: &StreamingAssets) -> Option<PathBuf> {
+        self.game_saves.clone().or_else(|| {
+            let game_dir = assets.data_dir().parent()?;
+            Platform::current().game_save_dir_here(game_dir)
+        })
+    }
+
+    /// Imports the game's `slot` into the port's directory (backing up the port's).
+    ///
+    /// # Errors
+    /// Without a port directory or the game's, or when the import fails.
+    pub fn import(&self, assets: &StreamingAssets, slot: SaveSlot) -> Result<ImportReport, String> {
+        let dir = self
+            .dir
+            .as_deref()
+            .ok_or("the port has no save directory")?;
+        let game = self
+            .game_save_dir(assets)
+            .ok_or("no game save directory on this platform; give one")?;
+        rw_save::import_slot(&game, dir, slot).map_err(|e| {
+            format!(
+                "importing {} from {}: {e}",
+                slot.file_name(),
+                game.display()
+            )
+        })
+    }
+}
+
+/// What a story game takes from its loaded save state.
+pub trait SaveStateStart {
+    /// The start in `den` (`GetSaveStateDenToUse`).
+    fn story_start(&self, den: String) -> StoryStart;
+}
+
+impl SaveStateStart for SaveState {
+    fn story_start(&self, den: String) -> StoryStart {
+        let d = &self.death_persistent;
+        StoryStart {
+            den,
+            cycle_number: self.cycle_number,
+            food: self.food,
+            karma: d.karma,
+            karma_cap: d.karma_cap,
+            karma_reinforced: d.reinforced_karma,
+            the_mark: d.the_mark,
+            guide_overseer_dead: self.guide_overseer_dead,
+            next_issued_id: self.loaded_next_issued_id,
+            seed: Some(self.seed),
+        }
+    }
+}

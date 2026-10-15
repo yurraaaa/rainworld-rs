@@ -10,24 +10,27 @@ use rw_assets::{SoundTable, StreamingAssets, UnityResources};
 use rw_menu::{KeyboardKey, MainLoopProcess, MenuShared, ProcessId, StoryGameInitCondition};
 use rw_random::UnityRandom;
 use rw_render::{RoomLayers, WgpuRenderer};
+use rw_save::SaveSlot;
 use rw_sim::campaign::SlugcatCampaign;
 use rw_sim::creature::{AbstractCreature, CreatureId};
 use rw_sim::{Input, Vec2};
 
 use super::params::{
-    HudMessageParams, InputParam, ListRoomsParams, LoadProcessParams, LoadRoomParams,
-    NewGameParams, ProcessParam, RespawnParams, ScreenshotParams, SetPlayerParams, StepParams,
-    StepProcessParams, StepSequenceParams, TilesParams, ViewParam,
+    HudMessageParams, ImportSaveParams, InputParam, ListRoomsParams, LoadProcessParams,
+    LoadRoomParams, NewGameParams, ProcessParam, RespawnParams, ScreenshotParams, SetPlayerParams,
+    StepParams, StepProcessParams, StepSequenceParams, TilesParams, ViewParam,
 };
 use super::reply::{
     ChunkState, ControlsPageState, CreatureInfo, ExitInfo, ExitList, FlyInfo, FoodMeterState,
-    HudState, ImpactState, KarmaMeterState, LobbyState, OverseerInfo, PlayerState, ProcessState,
-    RainMeterState, RainState, RealizedState, RoomInfo, RoomList, Screenshot, SlideShowState,
-    StartUpState, State, StepTrace, TextPromptState,
+    HudState, ImpactState, ImportReply, KarmaMeterState, LobbyState, OverseerInfo, PlayerState,
+    ProcessState, RainMeterState, RainState, RealizedState, RoomInfo, RoomList, SaveInfo,
+    SaveStateInfo, Screenshot, SlideShowState, StartUpState, State, StepTrace, StoryInfo,
+    TextPromptState,
 };
 use super::tiles::TileDump;
 use crate::frontend::{AppContext, Frontend, FrontendRenderer, GameSetup};
 use crate::game::{Game, GameStart};
+use crate::saves::SaveConfig;
 use crate::scene::{Framing, Scene, SceneRenderer, SceneView, VisualsSource};
 use crate::sprites::SpriteAssets;
 
@@ -59,12 +62,14 @@ pub struct Session {
     /// The fonts, atlases and strings the game mode's HUD draws with, loaded with the
     /// first game.
     hud_shared: Option<MenuShared>,
+    /// Where `load_process`'s menus keep their saves and `import_save` reads and writes.
+    saves: SaveConfig,
 }
 
 impl Session {
     /// A session with no room loaded; loads the slugcat atlas from `resources`.
     #[must_use]
-    pub fn new(assets: StreamingAssets, resources: Arc<UnityResources>) -> Self {
+    pub fn new(assets: StreamingAssets, resources: Arc<UnityResources>, saves: SaveConfig) -> Self {
         let sprites = SpriteAssets::load(&resources, &assets)
             .inspect_err(|e| log::warn!("no slugcat sprites ({e}); drawing the circle body"))
             .ok()
@@ -80,6 +85,7 @@ impl Session {
             frontend: None,
             renderer: None,
             hud_shared: None,
+            saves,
         }
     }
 
@@ -219,6 +225,9 @@ impl Session {
         self.black_delay = match &start {
             GameStart::NewStory(name) => {
                 StoryGameInitCondition::New.game_initial_black_seconds(*name)
+            }
+            GameStart::SavedStory { slugcat, .. } => {
+                StoryGameInitCondition::Load.game_initial_black_seconds(*slugcat)
             }
             GameStart::Room { slugcat, .. } => {
                 StoryGameInitCondition::Dev.game_initial_black_seconds(*slugcat)
@@ -655,6 +664,7 @@ impl Session {
             },
             seed: params.seed.unwrap_or(1),
             sound_table: Arc::clone(&self.sound_table),
+            saves: self.saves.clone(),
         };
         let start = match params.process.unwrap_or_default() {
             ProcessParam::IntroRoll => ProcessId::IntroRoll,
@@ -720,7 +730,42 @@ impl Session {
             .as_ref()
             .ok_or("no process loaded; call load_process first")?;
         let m = &frontend.manager;
+        let saves = &frontend.ctx.menu.saves;
+        let game = frontend.game().map(|g| g.scene.game());
         Ok(ProcessState {
+            save: SaveInfo {
+                path: saves.path().map(|p| p.display().to_string()),
+                saved: saves
+                    .stored_save_numbers()
+                    .into_iter()
+                    .map(|n| n.value().to_owned())
+                    .collect(),
+                current: saves.current_save_state.as_ref().map(|s| SaveStateInfo {
+                    slugcat: s.save_state_number.value().to_owned(),
+                    den: s.den_position.clone(),
+                    cycle: s.cycle_number,
+                    food: s.food,
+                    karma: s.death_persistent.karma,
+                    karma_cap: s.death_persistent.karma_cap,
+                    deaths: s.death_persistent.deaths,
+                    quits: s.death_persistent.quits,
+                    loaded: s.loaded,
+                }),
+            },
+            story: game.map(|g| {
+                let sim = g.sim();
+                let story = sim.story();
+                let pos = sim.player_pos();
+                StoryInfo {
+                    den: story.den.clone(),
+                    cycle: story.cycle_number,
+                    karma: story.karma,
+                    karma_cap: story.karma_cap,
+                    player_room: sim.world().abstract_room(pos.room).map(|r| r.name.clone()),
+                    player_tile: Some([pos.tile.0, pos.tile.1]),
+                    food_in_stomach: sim.food_in_stomach(),
+                }
+            }),
             frame: *frame,
             process: m.current().map(|p| format!("{:?}", p.id())),
             upcoming: m.upcoming().map(|id| format!("{id:?}")),
@@ -737,6 +782,36 @@ impl Session {
                 playback_speed_mult: s.playback_speed_mult(),
                 alphas: s.illustration_alphas(),
             }),
+        })
+    }
+
+    /// Imports one of the game's save slots into the port's save directory; a loaded
+    /// process's menus then use it (slot 0).
+    ///
+    /// # Errors
+    /// On a bad slot, without save directories, or when the import fails.
+    pub fn import_save(&mut self, params: &ImportSaveParams) -> Result<ImportReply, String> {
+        let slot = params.slot.unwrap_or(0);
+        let slot = SaveSlot::ALL
+            .get(usize::from(slot))
+            .copied()
+            .ok_or_else(|| format!("slot {slot}: 0, 1 or 2"))?;
+        let mut config = self.saves.clone();
+        if let Some(dir) = &params.game_saves {
+            config.game_saves = Some(PathBuf::from(dir));
+        }
+        let report = config.import(&self.assets, slot)?;
+        if slot == SaveSlot::default()
+            && let Some((frontend, _)) = &mut self.frontend
+        {
+            let saves = config.load(&self.assets, slot);
+            frontend.ctx.menu.set_saves(saves);
+        }
+        Ok(ImportReply {
+            source: report.source.display().to_string(),
+            destination: report.destination.display().to_string(),
+            backup: report.backup.map(|b| b.display().to_string()),
+            save_states: report.save_states,
         })
     }
 

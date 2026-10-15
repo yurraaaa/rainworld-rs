@@ -617,13 +617,13 @@ real-time audio rather than the sim.
   follows `AudioSource.time`: kira's position of the streamed sound in the window, the
   ticks played on `TimedSources` headless (deterministic). The outros, crossfades, the
   More Slugcats and Watcher slideshows and the dev move editor are not ported.
-- **Saves, options and progression.** Nothing is read from or written to the game's
-  saves or options: the progression is a new one (no saved games, no discovered
-  shelters so Regions is greyed, Hunter locked unless `StreamingAssets/unlockred.txt`
-  exists or the main menu's unlock code is entered, which unlocks for the session only)
-  and the options are the defaults, except that the Downpour/Remix first-launch notices
-  (`dlcTutorialShown`, `remixTutorialShown`) count as already shown, so the main menu
-  opens without its popup. `options.Save()` and `SaveProgression` are not called.
+- **Saves, options and progression.** The progression is the port's own slot 0
+  (`sav` in its save directory, D16): the selected slugcat, the Hunter unlock
+  (`unlockred.txt` or the main menu's unlock code, saved with the next progression
+  save) and the discovered shelters (Regions) come from it. The options are the
+  defaults, except that the Downpour/Remix first-launch notices (`dlcTutorialShown`,
+  `remixTutorialShown`) count as already shown, so the main menu opens without its
+  popup; `options.Save()` is not called and there is no slot choice.
 - **DLC detection.** Until DLC support exists the port treats every DLC as not
   installed (user decision): `dlcsInstalled` is empty, so the main menu shows the plain
   `Main Menu` scene and the intro roll the plain `Intro_Roll_C` (no random slugcat
@@ -641,11 +641,16 @@ real-time audio rather than the sim.
   keyboard binding; that the gameplay map is active in menus is inferred, not checked.
   Space also submits in menus, so filling START with Space skips the intro. The game
   then waits `InitialBlackSeconds` in black (3 s, the Hunter 5.5 s) and fades in over
-  `FadeInTime` (2 s); saved games' `SlowFadeIn` is not reached. The save is not wiped
-  (there is none). The chosen slugcat colours the body's graphics; its body moves as
+  `FadeInTime` (2 s). On a page with a save, START continues it
+  (`StoryGameInitCondition.Load`: 0.75 s black, then the save state's `SlowFadeIn`) and
+  the restart check box rises; checked, START (held 120 ticks, "DELETE SAVE") wipes the
+  save (`WipeSaveState`) and starts a new game, which is the game's only confirmation.
+  The pages stay the new-game pages (`SlugcatPageContinue`'s shelter, karma, food and
+  cycle display is not ported), and the Hunter's ended save goes to the unported
+  Statistics screen. The chosen slugcat colours the body's graphics; its body moves as
   the Survivor's (the Monk's and the Hunter's `SlugcatStats` are in
-  `rw_sim::campaign::SlugcatCampaign` but the player does not read them yet). Continue,
-  Restart and Statistics need saves and are not reachable. Started directly
+  `rw_sim::campaign::SlugcatCampaign` but the player does not read them yet). Started
+  directly
   (`--process game`, `--spawn`, MCP), the game is the Survivor in the given room's
   world.
 - **Side processes.** The music player (made in the first `ProcessManager.Update`,
@@ -795,7 +800,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
   process's update and More Slugcats' goal rooms and guide symbols are left out.
   Not ported: scavenger and vulture world AI,
   `CreatureCommunities`, `AbstractCreature.Update` for other types, and
-  `GeneratePopulation`'s non-fresh branch (saved populations).
+  `GeneratePopulation`'s non-fresh branch (saved populations; a continued game's
+  population is generated fresh, D16).
 - **Hologram graphics.** A hologram's colour base (`Color.Lerp(MainColor,
   ColorOfSegment(0, 0), 0.5)`) is taken at its overseer's last update (holograms update
   before their overseer, so it is the one the game reads); a hologram slated for removal
@@ -877,11 +883,10 @@ story session.
   ticking timer, which the guide's `pauseRain` pins at 2000 in the tutorial rooms; D14).
   The rain itself is not ported; only the bat flies read a room's rain `DangerType`
   (`RoomNotACycleHazard`, D14).
-- **New-game state only.** Food starts at 0 and rises only by eating bat flies (a full
-  pip each, a quarter pip for the Hunter; no saves), karma and cap are the campaign's
-  new-game values (karma 0, cap 4; the Hunter karma 2), never reinforced, and
-  the cycle number is the session's (0 in a new game, so the meters start hidden). No
-  saves feed it.
+- **Start state.** Food, karma, cap, reinforcement and the cycle number are the save
+  state's (a new game's: food 0, karma 0, cap 4, the Hunter karma 2, cycle 0, so the
+  meters start hidden); food then rises only by eating bat flies (a full pip each, a
+  quarter pip for the Hunter).
 - **Shelters.** Every shelter counts as intact (broken shelters are not read), and the
   owner is never `stillInStartShelter` or `readyForWin`, so in any shelter the meters
   show and the hibernation line warns. `forceSleepCounter` is always 0.
@@ -899,6 +904,51 @@ shelters are later milestones.
 **Affects.** What the meters show (food, rain) and when they show in shelters; no
 gameplay beyond the map button standing the slugcat still.
 
+## D16: Saves
+
+**What.** `rw-save` reads and writes the game's save format (`rainworld-re/notes/saves.md`):
+the `UserData` container (a serialised `Hashtable`), the salted MD5 checksum (the salt is
+read from the installed `Assembly-CSharp.dll`, not shipped) and the progression lines.
+The port keeps its saves in its own directory (`~/.local/share/rainworld-rs/`,
+`%APPDATA%\rainworld-rs\`, `--save-dir`), never the game's; `import_save` copies one of
+the game's slots in, after moving the port's previous file to `backup/<seconds>_import/`.
+What is ported of the save cycle: a story game's start (`GetOrInitiateSaveState`, saved
+at once as a death and a quit), Continue from the stored state's den, food, karma, cycle,
+`NEXTID` and `SEED`, New Game's `WipeSaveState`, and the exit save
+(`SaveProgressionAndDeathPersistentDataOfCurrentState`, for the pause menu). Differences:
+- **Writing what the port does not own.** The game rebuilds `MISCPROG`, the save state
+  and its death-persistent data from its fields, in its order, with unknown (DLC, Remix,
+  mod) entries moved to the end, and drops every line of the progression it does not
+  own on `SaveToDisk` (stored `MAPUPDATE` times of maps not loaded, other slugcats'
+  `MAPUPDATE_<slugcat>` lines) and, with Remix off, Remix's `OBJECTS`/`FRIENDS` save-state
+  entries. The port keeps every line and entry it does not own as read, in place (user
+  decision: imported DLC data is kept and round-trips unchanged). It rewrites only
+  `CURRENTSLUGCAT`, `INTEGERS` and `CONDITIONALSHELTERDATA` in `MISCPROG` (adding the
+  first two if missing), the death-persistent data (typed fields in the game's order,
+  every other entry kept, unknown ones at the end as the game writes them) and map
+  lines it holds a texture or time for. A whole save state is never written (no
+  hibernation yet).
+- **Win state.** Integer and float passage trackers are read and written as the game
+  does, including the death penalty; the bool-array and list trackers (Traveller,
+  Dragon Slayer, Scholar) are written back as read, so the game's re-encoding of a
+  More Slugcats Dragon Slayer list as base-game bools and its Traveller slot count are
+  not applied.
+- **Container.** A new key goes last (the game's `Hashtable` orders keys by string
+  hash); the files have no NUL padding (the game writes `MemoryStream.GetBuffer()`);
+  they are written to a temporary file and renamed.
+- **Continue.** The world is generated as for a new game: the saved region states,
+  respawn lists, communities, swallowed and held objects, kills and dreams are kept in
+  the save but not applied. The player starts on the shelter's `playerSpawnPos`; the
+  shelter door itself is not ported, so it is open. `BackwardsCompability` world-version
+  updates, the starved save state and the automatic `backup/` copies
+  (`CreateCopyOfSaves`) are not ported. Save slot 0 only.
+
+**Why.** Saves come before shelters and hibernation, which will write whole save
+states; the user decided imported DLC and mod data must survive the port's writes.
+
+**Affects.** Saves the port writes; the game reads them, but they can differ from what
+the game would write in line and entry order and in the data it would drop.
+
 ## Not ported yet (not divergences, just absent)
 
 Player (stage one leaves out): zero gravity, grabbing, throwing and eating anything but
@@ -915,7 +965,8 @@ call, the room-range clamp's skip for grabbed objects, and `DefaultTile`.
 Room: `Room.Update`'s ambient ceiling drips (`WaterDrip`s from the ceiling of a room with
 `CeilingDrips`), and the `WaterDrip`s of skids, slides and corridor shoots.
 
-Front end: the options, regions, arena and Remix menus, sleep and death
+Front end: the options, regions, arena and Remix menus, the settings menu's save import,
+sleep and death
 screens, the pause menu, the outro and DLC slideshows, dialogs, the slugcat select menu's continue pages,
 colour and Jolly Co-op controls, depth scenes, menu objects those use (sliders, check
 box groups, symbol buttons, scroll boxes, `UIelementWrapper`), and in-game music (D12).

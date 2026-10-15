@@ -28,6 +28,7 @@ mod object;
 mod player;
 mod room_ext;
 pub mod room_script;
+pub mod shelter;
 mod shortcut;
 mod sound;
 mod spawn;

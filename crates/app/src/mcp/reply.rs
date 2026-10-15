@@ -265,6 +265,57 @@ pub struct ProcessState {
     pub quit_requested: bool,
     /// The slideshow, when it is the current process.
     pub slideshow: Option<SlideShowState>,
+    /// The save slot: its saved campaigns and the current save state.
+    pub save: SaveInfo,
+    /// What the running game started from, when the game is the current process.
+    pub story: Option<StoryInfo>,
+}
+
+/// The menus' save slot.
+#[derive(Debug, Clone, Serialize)]
+pub struct SaveInfo {
+    /// The slot file, if saves are on disk.
+    pub path: Option<String>,
+    /// The base campaigns with a stored game.
+    pub saved: Vec<String>,
+    /// The current save state, if a story game made one.
+    pub current: Option<SaveStateInfo>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SaveStateInfo {
+    pub slugcat: String,
+    pub den: String,
+    pub cycle: i32,
+    pub food: i32,
+    pub karma: i32,
+    pub karma_cap: i32,
+    pub deaths: i32,
+    pub quits: i32,
+    pub loaded: bool,
+}
+
+/// A story game's start values and the player's room and food now.
+#[derive(Debug, Clone, Serialize)]
+pub struct StoryInfo {
+    pub den: String,
+    pub cycle: i32,
+    pub karma: i32,
+    pub karma_cap: i32,
+    pub player_room: Option<String>,
+    pub player_tile: Option<[i32; 2]>,
+    pub food_in_stomach: i32,
+}
+
+/// What `import_save` did.
+#[derive(Debug, Clone, Serialize)]
+pub struct ImportReply {
+    pub source: String,
+    pub destination: String,
+    /// Where the port's previous file of the slot went.
+    pub backup: Option<String>,
+    /// The campaigns stored in the imported slot, as stored (DLC ones included).
+    pub save_states: Vec<String>,
 }
 
 /// A `SlideShow`'s clock and scene.

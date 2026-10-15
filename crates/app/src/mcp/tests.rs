@@ -37,7 +37,11 @@ impl Session {
             return None;
         }
         let resources = UnityResources::open(assets.data_dir()).expect("Unity resources");
-        Some(Self::new(assets, std::sync::Arc::new(resources)))
+        Some(Self::new(
+            assets,
+            std::sync::Arc::new(resources),
+            crate::saves::SaveConfig::default(),
+        ))
     }
 
     pub(super) fn load(&mut self, name: &str, seed: u64) {
@@ -385,7 +389,7 @@ fn screenshot_renders_offscreen() {
 
 impl Session {
     /// Runs `frames` frames holding `keys`.
-    fn frames(&mut self, frames: u32, keys: &[&str]) -> super::reply::ProcessState {
+    pub(super) fn frames(&mut self, frames: u32, keys: &[&str]) -> super::reply::ProcessState {
         self.step_process(&StepProcessParams {
             frames: Some(frames),
             keys: Some(keys.iter().map(|k| (*k).to_owned()).collect()),
@@ -394,7 +398,7 @@ impl Session {
     }
 
     /// Steps until `id` runs with the fade from black over.
-    fn settle_on(&mut self, id: ProcessId) {
+    pub(super) fn settle_on(&mut self, id: ProcessId) {
         for _ in 0..400 {
             let s = self.frames(1, &[]);
             if s.process.as_deref() == Some(&format!("{id:?}")) && s.fade_to_black == 0.0 {

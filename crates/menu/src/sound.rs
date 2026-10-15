@@ -41,6 +41,7 @@ menu_sound_ids! {
     SwitchPageIn = "MENU_Switch_Page_In",
     SwitchPageOut = "MENU_Switch_Page_Out",
     StartNewGame = "MENU_Start_New_Game",
+    ContinueGame = "MENU_Continue_Game",
     MainMenuLoop = "MENU_Main_Menu_LOOP",
     NextSlugcat = "MENU_Next_Slugcat",
     SecurityButtonInit = "MENU_Security_Button_Init",

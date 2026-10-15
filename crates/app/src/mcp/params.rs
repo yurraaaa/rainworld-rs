@@ -182,6 +182,14 @@ pub struct LoadProcessParams {
 }
 
 #[derive(Debug, Clone, Default, Deserialize, JsonSchema)]
+pub struct ImportSaveParams {
+    /// The save slot: 0 (`sav`, default), 1 (`sav2`) or 2 (`sav3`).
+    pub slot: Option<u8>,
+    /// The game's save directory to read instead of the platform's.
+    pub game_saves: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, JsonSchema)]
 pub struct StepProcessParams {
     /// Frames of 1/40 s to run (default 1). Each frame is one process manager update;
     /// at 40 frames per second a process ticks once per frame.

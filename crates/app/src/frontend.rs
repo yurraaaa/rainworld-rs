@@ -5,9 +5,11 @@
 
 use std::sync::Arc;
 
+use rw_assets::ActiveMods;
 use rw_assets::{SoundTable, StreamingAssets, UnityResources};
 use rw_audio::music::{MusicClock, MusicOutput, SongBank, SourcePlayback, TimedSources, TrackId};
 use rw_audio::{Audio, ListenerInput, MenuPlayback, MenuSoundStart};
+use rw_menu::StoryGameInitCondition;
 use rw_menu::menu::Menu;
 use rw_menu::{
     Alignment, AtlasLoadError, Container, Font, FontTest, Initialization, IntroRoll, KeyboardKey,
@@ -17,10 +19,13 @@ use rw_menu::{
 };
 use rw_random::UnityRandom;
 use rw_render::{Camera, Color, Renderer, Resolution, StageBatch, StageGlobals};
+use rw_save::{CampaignStart, SaveSlot};
 use rw_sim::Vec2;
+use rw_sim::campaign::SlugcatCampaign;
 
 use crate::game::{Game, GameStart};
 use crate::input::{Action, InputState, Script};
+use crate::saves::{SaveConfig, SaveStateStart};
 use crate::scene::{Scene, SceneRenderer, SceneView, VisualsSource};
 
 /// What the game process is built from.
@@ -29,6 +34,7 @@ pub struct GameSetup {
     pub start: GameStart,
     pub seed: u64,
     pub sound_table: Arc<SoundTable>,
+    pub saves: SaveConfig,
 }
 
 /// The context every process updates in.
@@ -113,6 +119,8 @@ impl AppContext {
         start: ProcessId,
     ) -> Result<Self, AtlasLoadError> {
         let mut menu = MenuShared::load(assets, &resources, resolution.size_f32())?;
+        let saves = game.saves.load(&menu.assets, SaveSlot::default());
+        menu.set_saves(saves);
         menu.random = UnityRandom::new(game.seed as i32);
         menu.set_sound_table(Arc::clone(&game.sound_table));
         let bank = SongBank::open(&menu.assets)
@@ -168,11 +176,41 @@ impl AppContext {
         }
     }
 
-    /// A fresh game drawing from the shared random stream: a new story as the slugcat
-    /// the menus chose, or the configured start when started directly.
+    /// A fresh game drawing from the shared random stream: a story as the slugcat the
+    /// menus chose (continued from its save on `Load`), or the configured start when
+    /// started directly.
     fn new_game(&mut self) -> GameProcess {
-        let start = match self.menu.in_game_slugcat {
-            Some(slugcat) => GameStart::NewStory(slugcat),
+        let condition = self.menu.game_start_condition();
+        let story = self.menu.in_game_slugcat.and_then(|slugcat| {
+            let campaign = SlugcatCampaign::of(slugcat, ActiveMods::NONE)?;
+            Some((slugcat, campaign))
+        });
+        let start = match story {
+            Some((slugcat, campaign)) if condition == StoryGameInitCondition::Load => {
+                match self
+                    .menu
+                    .saves
+                    .peek_save_state(Self::campaign_start(campaign))
+                {
+                    Ok(Some(state)) => {
+                        let assets = &self.menu.assets;
+                        let den = state.den_to_use(|room| {
+                            assets
+                                .find_room_file(&room.to_lowercase(), ".txt")
+                                .is_some()
+                        });
+                        GameStart::SavedStory {
+                            slugcat,
+                            story: state.story_start(den),
+                        }
+                    }
+                    other => {
+                        log::error!("no {slugcat} save to continue ({other:?}); a new game");
+                        GameStart::NewStory(slugcat)
+                    }
+                }
+            }
+            Some((slugcat, _)) => GameStart::NewStory(slugcat),
             None => self.game.start.clone(),
         };
         let rng = std::mem::replace(&mut self.menu.random, UnityRandom::new(0));
@@ -184,16 +222,62 @@ impl AppContext {
             resources: Arc::clone(&self.resources),
             screen: self.resolution.size_f32(),
         };
+        // `StoryGameSession`: the save state, saved at once as a death and a quit.
+        let mut fade_in_time = condition.game_fade_in_time();
+        if let Some((_, campaign)) = story {
+            let load = condition == StoryGameInitCondition::Load;
+            let seed = game.sim().save_state_seed();
+            match self.menu.saves.get_or_initiate_save_state(
+                Self::campaign_start(campaign),
+                seed,
+                load,
+                true,
+            ) {
+                Ok(state) if load => fade_in_time = state.slow_fade_in(),
+                Ok(_) => {}
+                Err(e) => log::error!("the {} save state: {e}", campaign.name),
+            }
+        }
         let scene = Scene::new(game, Some(source));
         if let Some(audio) = &mut self.audio {
             audio.set_ambients(&scene.game().settings().ambient_sounds);
         }
-        let condition = self.menu.game_start_condition();
         GameProcess {
             scene,
-            fade_in_time: condition.game_fade_in_time(),
+            fade_in_time,
             initial_black_seconds: condition
                 .game_initial_black_seconds(self.menu.progression.selected_slugcat),
+        }
+    }
+
+    fn campaign_start(campaign: &SlugcatCampaign) -> CampaignStart<'static> {
+        CampaignStart {
+            slugcat: campaign.name,
+            den: campaign.start_den,
+            vanilla: campaign.start_den_is_vanilla,
+        }
+    }
+
+    /// `RainWorldGame.ExitGame(asDeath, asQuit)` of a story game after `clock` ticks:
+    /// the progression and the death-persistent data, as a death after 30 seconds and a
+    /// quit after 5. The pause menu's exit calls it with `true, true`.
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "the pause menu's Exit calls it once merged")
+    )]
+    pub fn exit_game(&mut self, as_death: bool, as_quit: bool, clock: u64) {
+        if self.menu.saves.current_save_state.is_none() {
+            return;
+        }
+        let result = self
+            .menu
+            .saves
+            .save_progression_and_death_persistent_data_of_current_state(
+                as_death && clock > 1200,
+                as_quit && clock > 200,
+            );
+        if let Err(e) = result {
+            log::error!("saving on exit: {e}");
         }
     }
 

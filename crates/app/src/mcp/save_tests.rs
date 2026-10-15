@@ -1,0 +1,130 @@
+//! Saves through the MCP tools, on a constructed save in temporary directories (never
+//! the game's): `import_save`, then Continue from the slugcat select, then the exit
+//! save. Skipped without the installed game.
+
+use std::path::Path;
+
+use rw_assets::{SlugcatName, StreamingAssets, UnityResources};
+use rw_menu::ProcessId;
+use rw_save::user_data::UserDataFile;
+use rw_save::{CampaignStart, PlayerProgression};
+
+use super::Session;
+use super::params::{ImportSaveParams, LoadProcessParams, ProcessParam};
+use crate::GameDir;
+use crate::saves::SaveConfig;
+
+const SAVE: &str = "SAVE STATE<progDivB>SAV STATE NUMBER<svB>White<svA>SEED<svB>4321<svA>\
+    DENPOS<svB>SU_S01<svA>LASTVDENPOS<svB>SU_S01<svA>CYCLENUM<svB>5<svA>FOOD<svB>3<svA>\
+    NEXTID<svB>2500<svA>DEATHPERSISTENTSAVEDATA<svB>REINFORCEDKARMA<dpB>0<dpA>KARMA<dpB>2<dpA>\
+    KARMACAP<dpB>5<dpA>GHOSTS<dpB><dpA>TUTMESSAGES<dpB><dpA>METERSSHOWN<dpB><dpA>DEATHS<dpB>1\
+    <dpA>SURVIVES<dpB>4<dpA>QUITS<dpB>0<dpA>CHATLOGS<dpB><dpA><svA>FORCEPUPS<svB>0<svA>\
+    <progDivA>MAP_Rivulet<progDivB>SU<progDivB>AAAA<progDivA>MISCPROG<progDivB>CURRENTSLUGCAT\
+    <mpdB>White<mpdA>INTEGERS<mpdB>0,0,0,0,0,0,0,0,0,0,0<mpdA><progDivA>";
+
+const WHITE: CampaignStart<'static> = CampaignStart {
+    slugcat: SlugcatName::White,
+    den: "SU_C04",
+    vanilla: true,
+};
+
+fn stored(path: &Path, assets: &StreamingAssets) -> (i32, i32, Vec<String>) {
+    let mut p = PlayerProgression::load(path, SaveConfig::salt(assets)).expect("loads");
+    assert!(!p.game_tinkered_with, "checksum");
+    let lines = p.prog_lines();
+    let state = p
+        .peek_save_state(WHITE)
+        .expect("reads")
+        .expect("a White save");
+    (
+        state.death_persistent.karma,
+        state.death_persistent.quits,
+        lines,
+    )
+}
+
+#[test]
+fn import_continue_and_exit() {
+    let assets = StreamingAssets::new(GameDir::from_env().streaming_assets());
+    if !assets.file("levels").is_dir() {
+        eprintln!("skipping: no game under {}", assets.path().display());
+        return;
+    }
+    let Some(salt) = SaveConfig::salt(&assets) else {
+        eprintln!("skipping: no checksum salt");
+        return;
+    };
+    let game = tempfile::tempdir().unwrap();
+    let port = tempfile::tempdir().unwrap();
+    let mut file = UserDataFile::new();
+    file.set("save", salt.md5_sum(SAVE) + SAVE);
+    std::fs::write(game.path().join("sav"), file.to_bytes()).unwrap();
+    let resources = UnityResources::open(assets.data_dir()).expect("Unity resources");
+    let config = SaveConfig {
+        dir: Some(port.path().to_owned()),
+        game_saves: Some(game.path().to_owned()),
+    };
+    let mut s = Session::new(assets.clone(), std::sync::Arc::new(resources), config);
+
+    let report = s
+        .import_save(&ImportSaveParams::default())
+        .expect("imports");
+    assert_eq!(report.save_states, ["White"]);
+    assert_eq!(report.backup, None);
+    let sav = port.path().join("sav");
+
+    s.load_process(&LoadProcessParams {
+        process: Some(ProcessParam::SlugcatSelect),
+        ..LoadProcessParams::default()
+    })
+    .expect("process loads");
+    s.settle_on(ProcessId::SlugcatSelect);
+    assert_eq!(s.process_state().unwrap().save.saved, ["White"]);
+    // The Survivor's page is selected (CURRENTSLUGCAT): START continues.
+    let mut signalled = false;
+    for _ in 0..80 {
+        if s.frames(1, &["Z"]).upcoming.is_some() {
+            signalled = true;
+            break;
+        }
+    }
+    assert!(signalled, "START never signalled");
+    s.settle_on(ProcessId::Game);
+    let state = s.process_state().unwrap();
+    let story = state.story.expect("a game");
+    assert_eq!(
+        (
+            story.den.as_str(),
+            story.cycle,
+            story.karma,
+            story.karma_cap
+        ),
+        ("SU_S01", 5, 2, 5)
+    );
+    assert_eq!(story.player_room.as_deref(), Some("SU_S01"));
+    assert_eq!(story.food_in_stomach, 3);
+    assert_ne!(story.player_tile, Some([0, 0]));
+    let current = state.save.current.expect("a save state");
+    assert!(current.loaded);
+    assert_eq!((current.karma, current.quits), (2, 0));
+
+    // Starting saved it as a death and a quit; lines the port does not own stay.
+    let (karma, quits, lines) = stored(&sav, &assets);
+    assert_eq!((karma, quits), (1, 1));
+    assert!(lines[0].contains("DEATHPERSISTENTSAVEDATA<svB>REDSDEATH<dpA>"));
+    assert!(lines[0].contains("CHATLOGS<dpB><dpA><svA>FORCEPUPS<svB>0<svA><svA>"));
+    assert!(
+        lines
+            .iter()
+            .any(|l| l == "MAP_Rivulet<progDivB>SU<progDivB>AAAA")
+    );
+
+    // An exit within 5 s is neither; after 30 s it is both.
+    let ctx = &mut s.frontend_mut().expect("process").ctx;
+    ctx.exit_game(true, true, 100);
+    assert_eq!(stored(&sav, &assets).0, 2);
+    assert_eq!(stored(&sav, &assets).1, 0);
+    ctx.exit_game(true, true, 1300);
+    let (karma, quits, _) = stored(&sav, &assets);
+    assert_eq!((karma, quits), (1, 1));
+}

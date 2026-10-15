@@ -19,7 +19,9 @@ Working now:
   sounds and music. Scenes are drawn as the game's flat images for now; the layered depth
   scenes are not ported yet.
 - **Starting a game:** a new game plays the Survivor or Monk intro slideshow, then the SU_C04
-  opening script.
+  opening script. A saved game continues in its shelter with its food, karma and cycle.
+- **Saves:** the game's own save format, kept in the port's own directory. Saves from the
+  real game can be imported (see below).
 - **Movement:** the slugcat's movement and physics, corridors and shortcuts, poles, water
   and swimming. The slugcat is drawn as the game draws it.
 - **Regions:** a whole region loads, and room-exit pipes take you between rooms, with the
@@ -37,7 +39,6 @@ Not yet ported:
 
 - the rain cycle's rain, flood and death;
 - shelters, hibernation, and food and karma carried between cycles;
-- saves, continuing a game, and importing saves from the real game;
 - region gates;
 - creatures other than overseers and bat flies;
 - the pause menu, the region map, and depth scenes.
@@ -65,6 +66,18 @@ Useful flags:
 | `--debug-view` | Start in the debug tile view |
 | `--screenshot FILE.ppm` | Save a frame after one second and quit |
 | `--mcp` | Run headless as an MCP server (see below) |
+| `--save-dir DIR` | Keep saves in DIR instead of the platform data directory |
+| `--game-saves DIR` | Where the importer reads the game's saves |
+
+## Saves
+
+The port keeps its saves in `~/.local/share/rainworld-rs/` on Linux and
+`%APPDATA%\rainworld-rs\` on Windows, in the game's format, and never writes the game's
+saves. To continue a game from the real game, import a slot (`sav`, `sav2` or `sav3`)
+with the MCP tool `import_save` (a settings menu option comes later). It reads the
+game's saves (on Linux, Steam's Proton prefix next to the game folder; on Windows,
+`AppData\LocalLow\Videocult\Rain World`) and copies the slot, after moving the port's
+previous copy to `backup/`. Data from the DLCs, Remix and mods is kept as it is.
 
 ## Controls
 
@@ -95,6 +108,7 @@ tile grid, and F12 saves a screenshot.
 | `crates/audio` (`rw-audio`) | Sound and music playback on kira |
 | `crates/menu` (`rw-menu`) | Process manager, menus, intro roll and slideshows |
 | `crates/hud` (`rw-hud`) | The in-game HUD |
+| `crates/save` (`rw-save`) | The game's save format, the save directories and the importer |
 | `crates/app` (`rainworld-rs`) | The binary: window, input, the MCP server |
 
 ## Driving it headless
