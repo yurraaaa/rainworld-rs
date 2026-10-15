@@ -1,11 +1,13 @@
 //! `SlugcatSelectMenu` (553691) in the base game (Remix, Jolly Co-op and More Slugcats
-//! off, flat illustrations): a page per slugcat that scrolls sideways, the
-//! hold-to-start button (new game, or continue a saved one), back, the arrows and the
-//! restart check box, which rises on a page with a save and makes the start a new game.
-//! A slugcat without a save gets a `SlugcatPageNewGame` (name and blurb), one with a
-//! save a `SlugcatPageContinue`: the region and cycle, and a HUD ([`SelectHud`]) with
-//! the saved karma and food. In flat mode the pages have no mark or glow (`HasMark`
-//! and `HasGlow` are false with `flatIllustrations`), so their updates draw nothing.
+//! off): a page per slugcat that scrolls sideways, the hold-to-start button (new game,
+//! or continue a saved one), back, the arrows and the restart check box, which rises
+//! on a page with a save and makes the start a new game. A slugcat without a save gets
+//! a `SlugcatPageNewGame` (name and blurb), one with a save a `SlugcatPageContinue`:
+//! the region and cycle, and a HUD ([`SelectHud`]) with the saved karma and food. In
+//! depth mode the menu has the rain effect behind the pages, and a continue page the
+//! mark and glow its save has ([`PageLights`]); flat mode has neither.
+
+mod lights;
 
 use rw_assets::StreamingAssets;
 use rw_menu::menu::{Kind, Menu, MenuCx, MenuScreen, ObjectId, SceneId};
@@ -13,11 +15,14 @@ use rw_menu::{
     KeyboardKey, MainLoopProcess, MenuColor, MenuContext, MenuShared, MenuSoundId, ProcessId,
     ProcessRequests, SlideShowId, Slugcat, StoryGameInitCondition,
 };
+use rw_random::UnityRandom;
 use rw_save::{MinerTarget, SaveState, SaveStateMiner};
 use rw_sim::campaign::SlugcatCampaign;
 use rw_sim::{FloatExt, Vec2};
 
 use crate::{SelectHud, SelectHudSetup};
+
+pub use lights::{LightsFrame, PageLights};
 
 /// A `SlugcatPage`.
 pub struct SlugcatPage {
@@ -28,6 +33,7 @@ pub struct SlugcatPage {
     pub scene_offset: Vec2,
     pub in_position: f32,
     pub last_in_position: f32,
+    pub lights: PageLights,
     pub kind: PageKind,
 }
 
@@ -115,6 +121,8 @@ pub struct SlugcatSelectScreen {
     pub save_game_data: Vec<Option<SaveGameData>>,
     /// `redIsDead`: the Hunter's save ended (its last cycle's death, or ascended).
     pub red_is_dead: bool,
+    /// `rainEffect`: depth mode only.
+    pub rain_effect: Option<ObjectId>,
     texts: StartTexts,
 }
 
@@ -122,6 +130,8 @@ pub struct SlugcatSelectScreen {
 pub struct SlugcatSelectMenu {
     menu: Menu,
     screen: SlugcatSelectScreen,
+    /// The pages' per-frame draws (D1).
+    cosmetic: UnityRandom,
 }
 
 impl MinedKey {
@@ -365,7 +375,7 @@ impl SlugcatPage {
     }
 
     /// `AddImage(ascended)`: the scene and its offset (the depth, mark and glow offsets
-    /// are for depth scenes and the mark and glow, none of which flat mode has).
+    /// are [`PageLights::new`]'s).
     #[must_use]
     pub fn image(slugcat: Slugcat, ascended: bool, red_is_dead: bool) -> (SceneId, Vec2) {
         match slugcat {
@@ -547,6 +557,9 @@ impl SlugcatSelectScreen {
 
     /// `SlugcatSelectMenu.Update` after the base.
     fn update(&mut self, menu: &mut Menu, cx: &mut MenuCx<'_>) {
+        if let Some(rain) = self.rain_effect.and_then(|id| menu.rain_effect_mut(id)) {
+            rain.rain_fade = (rain.rain_fade + 0.006).min(0.3);
+        }
         if self.restart_available {
             if let Some(b) = menu.behavior_mut(self.restart_checkbox) {
                 b.greyed_out = false;
@@ -631,6 +644,33 @@ impl SlugcatSelectScreen {
         }
     }
 
+    /// `SlugcatPage.GrafUpdate`'s mark and glow, page by page.
+    fn draw_lights(&self, menu: &mut Menu, t: f32, cosmetic: &mut UnityRandom) {
+        for (i, p) in self.pages.iter().enumerate() {
+            let cam_pos = match &menu.object(p.scene).kind {
+                Kind::Scene(s) => s.cam_pos_at(t),
+                _ => Vec2::ZERO,
+            };
+            let mark_fade = match self.saved(i) {
+                Some(d) if p.slugcat == Slugcat::Red => {
+                    (d.cycle as f32).inverse_lerp(4.0, 14.0).mathf_pow(3.5)
+                }
+                _ if p.slugcat == Slugcat::Red => 0.0,
+                _ => 1.0,
+            };
+            let frame = LightsFrame {
+                t,
+                x: self.screen_width / 2.0 + self.page_scroll(i, t) * SlugcatPage::SCROLL_MAGNITUDE,
+                image_y: p.image_pos.y,
+                alpha: self.use_alpha(i, t),
+                cam_pos,
+                in_position: p.last_in_position.lerp(p.in_position, t),
+                mark_fade,
+            };
+            p.lights.draw(&mut menu.stage, &frame, cosmetic);
+        }
+    }
+
     /// `SlugcatPageContinue.GrafUpdate`'s `hud.Draw` for every continue page.
     fn draw_huds(&mut self, menu: &mut Menu, t: f32) {
         for page in &mut self.pages {
@@ -668,7 +708,7 @@ impl MenuScreen for SlugcatSelectScreen {
         menu.selected = Some(self.start_button);
     }
 
-    /// `SlugcatPage.Update` (no mark or glow in flat mode), then a continue page's own.
+    /// `SlugcatPage.Update` (the mark and glow draws), then a continue page's own.
     fn page_update(&mut self, menu: &mut Menu, page: ObjectId, cx: &mut MenuCx<'_>) {
         let Some(i) = self.page_index(page) else {
             return;
@@ -686,12 +726,15 @@ impl MenuScreen for SlugcatSelectScreen {
         } else {
             p.in_position = p.in_position.lerp_and_tick(target, 0.01, 1.0 / 300.0);
         }
+        let in_position = p.in_position;
+        p.lights.update(alpha, in_position, &mut cx.shared.random);
         self.continue_page_update(menu, i, cx);
     }
 
-    /// `SlugcatPage.GrafUpdate` and the subclass's: the flat image and the labels slide
-    /// with the scroll and fade away from the centre (the region label is medium grey).
-    /// The continue pages' HUDs are drawn after the menu (see
+    /// `SlugcatPage.GrafUpdate` and the subclass's: the scene's layers (less the
+    /// camera over their depth) or flat image and the labels slide with the scroll and
+    /// fade away from the centre (the region label is medium grey). The mark, the glow
+    /// and the continue pages' HUDs are drawn after the menu (see
     /// [`SlugcatSelectMenu::graf_update`]).
     fn page_graf_update(&self, menu: &mut Menu, page: ObjectId, t: f32) {
         let Some(i) = self.page_index(page) else {
@@ -700,10 +743,27 @@ impl MenuScreen for SlugcatSelectScreen {
         let p = &self.pages[i];
         let scroll = self.page_scroll(i, t);
         let alpha = self.use_alpha(i, t);
-        let flats = match &menu.object(p.scene).kind {
-            Kind::Scene(s) => s.flat_illustrations.clone(),
-            _ => Vec::new(),
+        let (layers, flats, cam_pos) = match &menu.object(p.scene).kind {
+            Kind::Scene(s) => (
+                s.depth_illustrations.clone(),
+                s.flat_illustrations.clone(),
+                s.cam_pos_at(t),
+            ),
+            _ => (Vec::new(), Vec::new(), Vec2::ZERO),
         };
+        for layer in layers {
+            let pos = menu.object(layer).pos;
+            let Kind::Illustration(il) = &menu.object(layer).kind else {
+                continue;
+            };
+            let depth = il.depth.map_or(1.0, |d| d.depth);
+            let (node, il_alpha) = (il.sprite, il.alpha);
+            let pos = pos - cam_pos * 80.0 / depth + p.scene_offset;
+            let tr = menu.stage.transform_mut(node);
+            tr.x = pos.x + scroll * SlugcatPage::SCROLL_MAGNITUDE;
+            tr.y = pos.y;
+            tr.alpha = il_alpha * alpha;
+        }
         for flat in flats {
             let pos = menu.object(flat).pos + p.scene_offset;
             let Kind::Illustration(il) = &menu.object(flat).kind else {
@@ -751,6 +811,11 @@ impl SlugcatSelectMenu {
     pub fn new(shared: &mut MenuShared) -> Self {
         let mut menu = Menu::new(ProcessId::SlugcatSelect, shared);
         let page0 = menu.add_page(shared, "main", 0);
+        let rain_effect = (!shared.flat_illustrations).then(|| {
+            let rain = menu.add_rain_effect(page0, &mut shared.random);
+            menu.add_sub(page0, rain);
+            rain
+        });
         if shared.unlock_red_file() {
             shared.unlock_red();
         }
@@ -852,6 +917,7 @@ impl SlugcatSelectMenu {
             screen_width,
             save_game_data,
             red_is_dead,
+            rain_effect,
             texts: StartTexts {
                 new_game: shared.translator.translate("NEW GAME").to_owned(),
                 delete_save: shared.translator.translate("DELETE SAVE").to_owned(),
@@ -862,10 +928,15 @@ impl SlugcatSelectMenu {
         screen.update_start_button_text(&mut menu);
         screen.update_selected_slugcat(shared);
         menu.my_sound_loop = Some(MenuSoundId::MainMenuLoop);
-        Self { menu, screen }
+        Self {
+            menu,
+            screen,
+            cosmetic: UnityRandom::new(0),
+        }
     }
 
-    /// `new SlugcatPage(...)` and `AddImage`: the page and its scene.
+    /// `new SlugcatPage(...)` and `AddImage`: the page, its scene (with `AddGlow`'s
+    /// sprites among the layers) and the mark's sprites.
     fn add_page_and_image(
         menu: &mut Menu,
         shared: &mut MenuShared,
@@ -873,14 +944,18 @@ impl SlugcatSelectMenu {
         slugcat: Slugcat,
         ascended: bool,
         red_is_dead: bool,
-    ) -> (ObjectId, ObjectId, Vec2) {
+        mut lights: PageLights,
+    ) -> (ObjectId, ObjectId, Vec2, PageLights) {
         let name = format!("Slugcat_Page_{}", slugcat.value());
         let page = menu.add_page(shared, &name, index);
         let (scene_id, mut scene_offset) = SlugcatPage::image(slugcat, ascended, red_is_dead);
         scene_offset.x -= (1366.0 - shared.screen_size[0]) / 2.0;
-        let scene = menu.add_scene(shared, page, scene_id);
+        let (scene, glow) = menu.add_page_scene(shared, page, scene_id, lights.has_glow);
+        lights.glow = glow;
         menu.add_sub(page, scene);
-        (page, scene, scene_offset)
+        let container = menu.container_of(page);
+        lights.add_mark(&mut menu.stage, container);
+        (page, scene, scene_offset, lights)
     }
 
     /// `new SlugcatPageNewGame(menu, null, pageIndex, slugcat)`.
@@ -891,9 +966,11 @@ impl SlugcatSelectMenu {
         slugcat: Slugcat,
         saved: bool,
     ) -> SlugcatPage {
-        // `AddImage(ascended: false)`; no save, so the Hunter is not dead.
-        let (page, scene, mut scene_offset) =
-            Self::add_page_and_image(menu, shared, index, slugcat, false, false);
+        // `AddImage(ascended: false)`; no save, so the Hunter is not dead, and no mark
+        // or glow.
+        let lights = PageLights::new(slugcat, false, false);
+        let (page, scene, mut scene_offset, lights) =
+            Self::add_page_and_image(menu, shared, index, slugcat, false, false, lights);
         let mut image_pos = Vec2::new(683.0, 484.0);
         let (text, info) = SlugcatPage::texts(slugcat, shared);
         let lines = info.matches('\n').count();
@@ -940,6 +1017,7 @@ impl SlugcatSelectMenu {
             scene_offset,
             in_position: 0.0,
             last_in_position: 0.0,
+            lights,
             kind: PageKind::NewGame {
                 difficulty_label,
                 info_label,
@@ -960,8 +1038,21 @@ impl SlugcatSelectMenu {
         data: &mut SaveGameData,
         red_is_dead: bool,
     ) -> SlugcatPage {
-        let (page, scene, scene_offset) =
-            Self::add_page_and_image(menu, shared, index, slugcat, data.ascended, red_is_dead);
+        // `HasMark` and `HasGlow`: not after ascending, in flat mode or for the dead
+        // Hunter.
+        let lit = !data.ascended
+            && !shared.flat_illustrations
+            && !(slugcat == Slugcat::Red && red_is_dead);
+        let lights = PageLights::new(slugcat, lit && data.has_mark, lit && data.has_glow);
+        let (page, scene, scene_offset, lights) = Self::add_page_and_image(
+            menu,
+            shared,
+            index,
+            slugcat,
+            data.ascended,
+            red_is_dead,
+            lights,
+        );
         let image_pos = Vec2::new(683.0, 484.0);
         let page_container = menu.container_of(page);
         let containers = [0, 1].map(|_| menu.stage.add_container(page_container));
@@ -1002,6 +1093,7 @@ impl SlugcatSelectMenu {
             scene_offset,
             in_position: 0.0,
             last_in_position: 0.0,
+            lights,
             kind: PageKind::Continue(Box::new(ContinuePage { hud, region_label })),
         }
     }
@@ -1035,12 +1127,14 @@ impl<C: MenuContext> MainLoopProcess<C> for SlugcatSelectMenu {
         self.screen.update(&mut self.menu, &mut cx);
     }
 
-    /// `GrafUpdate`; the continue pages' `hud.Draw` comes after the menu's objects,
-    /// which is the game's result as the HUD writes only its own sprites and draws no
-    /// random numbers.
+    /// `GrafUpdate`; the pages' mark and glow and the continue pages' `hud.Draw` come
+    /// after the menu's objects, which is the game's result as they write only their
+    /// own sprites (the mark and glow draw from the cosmetic stream, D1).
     fn graf_update(&mut self, time_stacker: f32, ctx: &mut C) {
         let mouse = Vec2::from(ctx.menu().input.mouse.pos);
         self.menu.graf_update(&self.screen, time_stacker, mouse);
+        self.screen
+            .draw_lights(&mut self.menu, time_stacker, &mut self.cosmetic);
         self.screen.draw_huds(&mut self.menu, time_stacker);
     }
 
