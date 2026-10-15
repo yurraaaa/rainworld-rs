@@ -5,126 +5,123 @@
 //!
 //! Behaviour: `rainworld-re/notes/creature-model.md`, `world-loading.md`.
 
-use std::fmt;
-
 use crate::ActiveMods;
+use crate::identity::ext_enum;
 
-/// `CreatureTemplate.Type`: a creature type by its `ExtEnum` value.
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct CreatureType(&'static str);
+ext_enum! {
+    /// `CreatureTemplate.Type`: a creature type by its `ExtEnum` value.
+    pub enum CreatureType {
+        Base {
+            StandardGroundCreature = "StandardGroundCreature",
+            Slugcat = "Slugcat",
+            LizardTemplate = "LizardTemplate",
+            PinkLizard = "PinkLizard",
+            GreenLizard = "GreenLizard",
+            BlueLizard = "BlueLizard",
+            YellowLizard = "YellowLizard",
+            WhiteLizard = "WhiteLizard",
+            RedLizard = "RedLizard",
+            BlackLizard = "BlackLizard",
+            Salamander = "Salamander",
+            CyanLizard = "CyanLizard",
+            Fly = "Fly",
+            Leech = "Leech",
+            SeaLeech = "SeaLeech",
+            Snail = "Snail",
+            Vulture = "Vulture",
+            GarbageWorm = "GarbageWorm",
+            LanternMouse = "LanternMouse",
+            CicadaA = "CicadaA",
+            CicadaB = "CicadaB",
+            Spider = "Spider",
+            JetFish = "JetFish",
+            BigEel = "BigEel",
+            Deer = "Deer",
+            TubeWorm = "TubeWorm",
+            DaddyLongLegs = "DaddyLongLegs",
+            BrotherLongLegs = "BrotherLongLegs",
+            TentaclePlant = "TentaclePlant",
+            PoleMimic = "PoleMimic",
+            MirosBird = "MirosBird",
+            TempleGuard = "TempleGuard",
+            Centipede = "Centipede",
+            RedCentipede = "RedCentipede",
+            Centiwing = "Centiwing",
+            SmallCentipede = "SmallCentipede",
+            Scavenger = "Scavenger",
+            Overseer = "Overseer",
+            VultureGrub = "VultureGrub",
+            EggBug = "EggBug",
+            BigSpider = "BigSpider",
+            SpitterSpider = "SpitterSpider",
+            SmallNeedleWorm = "SmallNeedleWorm",
+            BigNeedleWorm = "BigNeedleWorm",
+            DropBug = "DropBug",
+            KingVulture = "KingVulture",
+            Hazer = "Hazer",
+        }
+        DlcShared {
+            MirosVulture = "MirosVulture",
+            SpitLizard = "SpitLizard",
+            EelLizard = "EelLizard",
+            MotherSpider = "MotherSpider",
+            TerrorLongLegs = "TerrorLongLegs",
+            AquaCenti = "AquaCenti",
+            StowawayBug = "StowawayBug",
+            ScavengerElite = "ScavengerElite",
+            Inspector = "Inspector",
+            Yeek = "Yeek",
+            BigJelly = "BigJelly",
+            JungleLeech = "JungleLeech",
+            ZoopLizard = "ZoopLizard",
+        }
+        Msc {
+            HunterDaddy = "HunterDaddy",
+            FireBug = "FireBug",
+            SlugNpc = "SlugNPC",
+            ScavengerKing = "ScavengerKing",
+            TrainLizard = "TrainLizard",
+        }
+        Watcher {
+            DrillCrab = "DrillCrab",
+            TowerCrab = "TowerCrab",
+            Barnacle = "Barnacle",
+            SandGrub = "SandGrub",
+            BigSandGrub = "BigSandGrub",
+            BigMoth = "BigMoth",
+            SmallMoth = "SmallMoth",
+            BoxWorm = "BoxWorm",
+            FireSprite = "FireSprite",
+            Rattler = "Rattler",
+            SkyWhale = "SkyWhale",
+            ScavengerTemplar = "ScavengerTemplar",
+            ScavengerDisciple = "ScavengerDisciple",
+            Loach = "Loach",
+            RotLoach = "RotLoach",
+            BlizzardLizard = "BlizzardLizard",
+            BasiliskLizard = "BasiliskLizard",
+            IndigoLizard = "IndigoLizard",
+            PeachLizard = "PeachLizard",
+            Rat = "Rat",
+            Frog = "Frog",
+            Tardigrade = "Tardigrade",
+            GrappleSnake = "GrappleSnake",
+            Millipede = "Millipede",
+            Angler = "Angler",
+            RippleSpider = "RippleSpider",
+            MothGrub = "MothGrub",
+        }
+    }
+}
 
 impl CreatureType {
-    pub const STANDARD_GROUND_CREATURE: Self = Self("StandardGroundCreature");
-    pub const SLUGCAT: Self = Self("Slugcat");
-    pub const LIZARD_TEMPLATE: Self = Self("LizardTemplate");
-    pub const PINK_LIZARD: Self = Self("PinkLizard");
-    pub const GREEN_LIZARD: Self = Self("GreenLizard");
-    pub const BLUE_LIZARD: Self = Self("BlueLizard");
-    pub const YELLOW_LIZARD: Self = Self("YellowLizard");
-    pub const WHITE_LIZARD: Self = Self("WhiteLizard");
-    pub const RED_LIZARD: Self = Self("RedLizard");
-    pub const BLACK_LIZARD: Self = Self("BlackLizard");
-    pub const SALAMANDER: Self = Self("Salamander");
-    pub const CYAN_LIZARD: Self = Self("CyanLizard");
-    pub const FLY: Self = Self("Fly");
-    pub const LEECH: Self = Self("Leech");
-    pub const SEA_LEECH: Self = Self("SeaLeech");
-    pub const SNAIL: Self = Self("Snail");
-    pub const VULTURE: Self = Self("Vulture");
-    pub const GARBAGE_WORM: Self = Self("GarbageWorm");
-    pub const LANTERN_MOUSE: Self = Self("LanternMouse");
-    pub const CICADA_A: Self = Self("CicadaA");
-    pub const CICADA_B: Self = Self("CicadaB");
-    pub const SPIDER: Self = Self("Spider");
-    pub const JET_FISH: Self = Self("JetFish");
-    pub const BIG_EEL: Self = Self("BigEel");
-    pub const DEER: Self = Self("Deer");
-    pub const TUBE_WORM: Self = Self("TubeWorm");
-    pub const DADDY_LONG_LEGS: Self = Self("DaddyLongLegs");
-    pub const BROTHER_LONG_LEGS: Self = Self("BrotherLongLegs");
-    pub const TENTACLE_PLANT: Self = Self("TentaclePlant");
-    pub const POLE_MIMIC: Self = Self("PoleMimic");
-    pub const MIROS_BIRD: Self = Self("MirosBird");
-    pub const TEMPLE_GUARD: Self = Self("TempleGuard");
-    pub const CENTIPEDE: Self = Self("Centipede");
-    pub const RED_CENTIPEDE: Self = Self("RedCentipede");
-    pub const CENTIWING: Self = Self("Centiwing");
-    pub const SMALL_CENTIPEDE: Self = Self("SmallCentipede");
-    pub const SCAVENGER: Self = Self("Scavenger");
-    pub const OVERSEER: Self = Self("Overseer");
-    pub const VULTURE_GRUB: Self = Self("VultureGrub");
-    pub const EGG_BUG: Self = Self("EggBug");
-    pub const BIG_SPIDER: Self = Self("BigSpider");
-    pub const SPITTER_SPIDER: Self = Self("SpitterSpider");
-    pub const SMALL_NEEDLE_WORM: Self = Self("SmallNeedleWorm");
-    pub const BIG_NEEDLE_WORM: Self = Self("BigNeedleWorm");
-    pub const DROP_BUG: Self = Self("DropBug");
-    pub const KING_VULTURE: Self = Self("KingVulture");
-    pub const HAZER: Self = Self("Hazer");
-
-    /// The base game's values in registration order (their `Index`).
-    const BASE: [Self; 47] = [
-        Self::STANDARD_GROUND_CREATURE,
-        Self::SLUGCAT,
-        Self::LIZARD_TEMPLATE,
-        Self::PINK_LIZARD,
-        Self::GREEN_LIZARD,
-        Self::BLUE_LIZARD,
-        Self::YELLOW_LIZARD,
-        Self::WHITE_LIZARD,
-        Self::RED_LIZARD,
-        Self::BLACK_LIZARD,
-        Self::SALAMANDER,
-        Self::CYAN_LIZARD,
-        Self::FLY,
-        Self::LEECH,
-        Self::SEA_LEECH,
-        Self::SNAIL,
-        Self::VULTURE,
-        Self::GARBAGE_WORM,
-        Self::LANTERN_MOUSE,
-        Self::CICADA_A,
-        Self::CICADA_B,
-        Self::SPIDER,
-        Self::JET_FISH,
-        Self::BIG_EEL,
-        Self::DEER,
-        Self::TUBE_WORM,
-        Self::DADDY_LONG_LEGS,
-        Self::BROTHER_LONG_LEGS,
-        Self::TENTACLE_PLANT,
-        Self::POLE_MIMIC,
-        Self::MIROS_BIRD,
-        Self::TEMPLE_GUARD,
-        Self::CENTIPEDE,
-        Self::RED_CENTIPEDE,
-        Self::CENTIWING,
-        Self::SMALL_CENTIPEDE,
-        Self::SCAVENGER,
-        Self::OVERSEER,
-        Self::VULTURE_GRUB,
-        Self::EGG_BUG,
-        Self::BIG_SPIDER,
-        Self::SPITTER_SPIDER,
-        Self::SMALL_NEEDLE_WORM,
-        Self::BIG_NEEDLE_WORM,
-        Self::DROP_BUG,
-        Self::KING_VULTURE,
-        Self::HAZER,
-    ];
-
-    /// `ExtEnum<CreatureTemplate.Type>.values` with `mods` active. More Slugcats and the
-    /// Watcher append theirs when they are supported.
-    #[must_use]
-    pub fn registered(_mods: ActiveMods) -> Vec<Self> {
-        Self::BASE.to_vec()
-    }
-
     /// The registered value spelled `value` (`new CreatureTemplate.Type(value)` with an
     /// index).
     #[must_use]
     pub fn from_value(value: &str, mods: ActiveMods) -> Option<Self> {
-        Self::registered(mods).into_iter().find(|t| t.0 == value)
+        Self::registered(mods)
+            .into_iter()
+            .find(|t| t.value() == value)
     }
 
     /// `Index`.
@@ -133,63 +130,58 @@ impl CreatureType {
         Self::registered(mods).iter().position(|&t| t == self)
     }
 
-    #[must_use]
-    pub fn value(self) -> &'static str {
-        self.0
-    }
-
     /// `CreatureTemplate.name` as the constructor sets it ("???" for types it does not
-    /// name).
+    /// name, the DLC ones among them).
     #[must_use]
     pub fn template_name(self) -> &'static str {
-        match self.0 {
-            "LizardTemplate" => "Lizard",
-            "PinkLizard" => "Pink Lizard",
-            "GreenLizard" => "Green Lizard",
-            "BlueLizard" => "Blue Lizard",
-            "YellowLizard" => "Yellow Lizard",
-            "WhiteLizard" => "White Lizard",
-            "RedLizard" => "Red Lizard",
-            "BlackLizard" => "Black Lizard",
-            "CyanLizard" => "Cyan Lizard",
-            "SeaLeech" => "Sea Leech",
-            "GarbageWorm" => "Garbage Worm",
-            "LanternMouse" => "Lantern Mouse",
-            "CicadaA" => "Cicada A",
-            "CicadaB" => "Cicada B",
-            "JetFish" => "Jet Fish",
-            "BigEel" => "Big Eel",
-            "TubeWorm" => "Tube Worm",
-            "DaddyLongLegs" => "Daddy Long Legs",
-            "BrotherLongLegs" => "Brother Long Legs",
-            "TentaclePlant" => "Tentacle Plant",
-            "PoleMimic" => "Pole Mimic",
-            "MirosBird" => "Miros Bird",
-            "TempleGuard" => "Temple Guard",
-            "RedCentipede" => "Red Centipede",
-            "SmallCentipede" => "Small Centipede",
-            "VultureGrub" => "Vulture Grub",
-            "BigSpider" => "Big Spider",
-            "SpitterSpider" => "Spitter Spider",
-            "EggBug" => "Egg Bug",
-            "SmallNeedleWorm" => "Small Needle",
-            "BigNeedleWorm" => "Big Needle",
-            "DropBug" => "Drop Bug",
-            "KingVulture" => "King Vulture",
-            "StandardGroundCreature"
-            | "Slugcat"
-            | "Salamander"
-            | "Fly"
-            | "Leech"
-            | "Snail"
-            | "Vulture"
-            | "Spider"
-            | "Deer"
-            | "Centipede"
-            | "Scavenger"
-            | "Centiwing"
-            | "Overseer"
-            | "Hazer" => self.0,
+        match self {
+            Self::LizardTemplate => "Lizard",
+            Self::PinkLizard => "Pink Lizard",
+            Self::GreenLizard => "Green Lizard",
+            Self::BlueLizard => "Blue Lizard",
+            Self::YellowLizard => "Yellow Lizard",
+            Self::WhiteLizard => "White Lizard",
+            Self::RedLizard => "Red Lizard",
+            Self::BlackLizard => "Black Lizard",
+            Self::CyanLizard => "Cyan Lizard",
+            Self::SeaLeech => "Sea Leech",
+            Self::GarbageWorm => "Garbage Worm",
+            Self::LanternMouse => "Lantern Mouse",
+            Self::CicadaA => "Cicada A",
+            Self::CicadaB => "Cicada B",
+            Self::JetFish => "Jet Fish",
+            Self::BigEel => "Big Eel",
+            Self::TubeWorm => "Tube Worm",
+            Self::DaddyLongLegs => "Daddy Long Legs",
+            Self::BrotherLongLegs => "Brother Long Legs",
+            Self::TentaclePlant => "Tentacle Plant",
+            Self::PoleMimic => "Pole Mimic",
+            Self::MirosBird => "Miros Bird",
+            Self::TempleGuard => "Temple Guard",
+            Self::RedCentipede => "Red Centipede",
+            Self::SmallCentipede => "Small Centipede",
+            Self::VultureGrub => "Vulture Grub",
+            Self::BigSpider => "Big Spider",
+            Self::SpitterSpider => "Spitter Spider",
+            Self::EggBug => "Egg Bug",
+            Self::SmallNeedleWorm => "Small Needle",
+            Self::BigNeedleWorm => "Big Needle",
+            Self::DropBug => "Drop Bug",
+            Self::KingVulture => "King Vulture",
+            Self::StandardGroundCreature
+            | Self::Slugcat
+            | Self::Salamander
+            | Self::Fly
+            | Self::Leech
+            | Self::Snail
+            | Self::Vulture
+            | Self::Spider
+            | Self::Deer
+            | Self::Centipede
+            | Self::Scavenger
+            | Self::Centiwing
+            | Self::Overseer
+            | Self::Hazer => self.value(),
             _ => "???",
         }
     }
@@ -201,61 +193,47 @@ impl CreatureType {
     #[must_use]
     pub fn from_world_string(s: &str, mods: ActiveMods) -> Option<Self> {
         let alias = match s.to_lowercase().as_str() {
-            "pink" => Some(Self::PINK_LIZARD),
-            "green" => Some(Self::GREEN_LIZARD),
-            "blue" => Some(Self::BLUE_LIZARD),
-            "yellow" => Some(Self::YELLOW_LIZARD),
-            "white" => Some(Self::WHITE_LIZARD),
-            "red" => Some(Self::RED_LIZARD),
-            "black" => Some(Self::BLACK_LIZARD),
-            "cyan" => Some(Self::CYAN_LIZARD),
-            "leech" => Some(Self::LEECH),
-            "sea leech" | "sealeech" => Some(Self::SEA_LEECH),
-            "snail" => Some(Self::SNAIL),
-            "vulture" => Some(Self::VULTURE),
-            "cicada a" | "cicadaa" | "cicada" => Some(Self::CICADA_A),
-            "cicada b" | "cicadab" => Some(Self::CICADA_B),
-            "lantern mouse" | "lanternmouse" | "mouse" => Some(Self::LANTERN_MOUSE),
-            "spider" => Some(Self::SPIDER),
-            "worm" | "garbage worm" | "garbageworm" => Some(Self::GARBAGE_WORM),
-            "leviathan" | "lev" | "bigeel" | "big eel" => Some(Self::BIG_EEL),
-            "tube" | "tube worm" | "tubeworm" => Some(Self::TUBE_WORM),
-            "daddy" | "daddy long legs" | "daddylonglegs" => Some(Self::DADDY_LONG_LEGS),
-            "bro" | "bro long legs" | "brolonglegs" => Some(Self::BROTHER_LONG_LEGS),
-            "tentacleplant" | "tentacle plant" | "tentacle" => Some(Self::TENTACLE_PLANT),
-            "polemimic" | "pole mimic" | "mimic" => Some(Self::POLE_MIMIC),
-            "mirosbird" | "miros bird" | "miros" => Some(Self::MIROS_BIRD),
-            "centipede" | "cent" => Some(Self::CENTIPEDE),
-            "jetfish" | "jet fish" => Some(Self::JET_FISH),
-            "eggbug" | "egg bug" => Some(Self::EGG_BUG),
-            "bigspider" | "big spider" => Some(Self::BIG_SPIDER),
-            "spitterspider" | "spitter spider" => Some(Self::SPITTER_SPIDER),
-            "bigneedle" | "big needle" | "needle" | "needle worm" => Some(Self::BIG_NEEDLE_WORM),
-            "smallneedle" | "small needle" => Some(Self::SMALL_NEEDLE_WORM),
-            "dropbug" | "drop bug" | "dropwig" | "drop wig" => Some(Self::DROP_BUG),
-            "kingvulture" | "king vulture" => Some(Self::KING_VULTURE),
-            "red centipede" | "redcentipede" | "red centi" | "redcenti" => {
-                Some(Self::RED_CENTIPEDE)
-            }
+            "pink" => Some(Self::PinkLizard),
+            "green" => Some(Self::GreenLizard),
+            "blue" => Some(Self::BlueLizard),
+            "yellow" => Some(Self::YellowLizard),
+            "white" => Some(Self::WhiteLizard),
+            "red" => Some(Self::RedLizard),
+            "black" => Some(Self::BlackLizard),
+            "cyan" => Some(Self::CyanLizard),
+            "leech" => Some(Self::Leech),
+            "sea leech" | "sealeech" => Some(Self::SeaLeech),
+            "snail" => Some(Self::Snail),
+            "vulture" => Some(Self::Vulture),
+            "cicada a" | "cicadaa" | "cicada" => Some(Self::CicadaA),
+            "cicada b" | "cicadab" => Some(Self::CicadaB),
+            "lantern mouse" | "lanternmouse" | "mouse" => Some(Self::LanternMouse),
+            "spider" => Some(Self::Spider),
+            "worm" | "garbage worm" | "garbageworm" => Some(Self::GarbageWorm),
+            "leviathan" | "lev" | "bigeel" | "big eel" => Some(Self::BigEel),
+            "tube" | "tube worm" | "tubeworm" => Some(Self::TubeWorm),
+            "daddy" | "daddy long legs" | "daddylonglegs" => Some(Self::DaddyLongLegs),
+            "bro" | "bro long legs" | "brolonglegs" => Some(Self::BrotherLongLegs),
+            "tentacleplant" | "tentacle plant" | "tentacle" => Some(Self::TentaclePlant),
+            "polemimic" | "pole mimic" | "mimic" => Some(Self::PoleMimic),
+            "mirosbird" | "miros bird" | "miros" => Some(Self::MirosBird),
+            "centipede" | "cent" => Some(Self::Centipede),
+            "jetfish" | "jet fish" => Some(Self::JetFish),
+            "eggbug" | "egg bug" => Some(Self::EggBug),
+            "bigspider" | "big spider" => Some(Self::BigSpider),
+            "spitterspider" | "spitter spider" => Some(Self::SpitterSpider),
+            "bigneedle" | "big needle" | "needle" | "needle worm" => Some(Self::BigNeedleWorm),
+            "smallneedle" | "small needle" => Some(Self::SmallNeedleWorm),
+            "dropbug" | "drop bug" | "dropwig" | "drop wig" => Some(Self::DropBug),
+            "kingvulture" | "king vulture" => Some(Self::KingVulture),
+            "red centipede" | "redcentipede" | "red centi" | "redcenti" => Some(Self::RedCentipede),
             _ => None,
         };
         alias.or_else(|| {
             Self::registered(mods)
                 .into_iter()
-                .find(|t| s == t.template_name() || s == t.0)
+                .find(|t| s == t.template_name() || s == t.value())
         })
-    }
-}
-
-impl fmt::Debug for CreatureType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.0)
-    }
-}
-
-impl fmt::Display for CreatureType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.0)
     }
 }
 

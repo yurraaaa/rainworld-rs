@@ -63,13 +63,13 @@ impl SlugcatPage {
     pub fn texts(slugcat: Slugcat, shared: &MenuShared) -> (String, String) {
         let t = &shared.translator;
         let (name, blurb) = match slugcat {
-            Slugcat::WHITE => (
+            Slugcat::White => (
                 t.translate("THE SURVIVOR"),
                 t.translate(
                     "A nimble omnivore, both predator and prey. Lost in a harsh and indifferent<LINE>land you must make your own way, with wit and caution as your greatest assets.",
                 ),
             ),
-            Slugcat::YELLOW => (
+            Slugcat::Yellow => (
                 t.translate("THE MONK"),
                 t.translate(
                     "Weak of body but strong of spirit. In tune with the mysteries of the world and<LINE>empathetic to its creatures, your journey will be a significantly more peaceful one.",
@@ -90,7 +90,7 @@ impl SlugcatPage {
 
 impl SlugcatSelectScreen {
     /// `slugcatColorOrder` of the base game.
-    pub const ORDER: [Slugcat; 3] = [Slugcat::YELLOW, Slugcat::WHITE, Slugcat::RED];
+    pub const ORDER: [Slugcat; 3] = [Slugcat::Yellow, Slugcat::White, Slugcat::Red];
 
     /// `NextScroll`.
     #[must_use]
@@ -123,7 +123,7 @@ impl SlugcatSelectScreen {
     /// `SlugcatSelectMenu.SlugcatUnlocked` with no save: `SlugcatStats.SlugcatUnlocked`.
     #[must_use]
     pub fn slugcat_unlocked(slugcat: Slugcat, shared: &MenuShared) -> bool {
-        slugcat != Slugcat::RED || shared.progression.red_unlocked
+        slugcat != Slugcat::Red || shared.progression.red_unlocked
     }
 
     fn page_index(&self, page: ObjectId) -> Option<usize> {
@@ -152,7 +152,7 @@ impl SlugcatSelectScreen {
     /// `StartGame` for a new game: the Hunter needs unlocking; the Survivor and the Monk
     /// get their intro slideshow first unless S or the map button is held.
     fn start_game(&mut self, slugcat: Slugcat, cx: &mut MenuCx<'_>) {
-        if slugcat == Slugcat::RED && !cx.shared.progression.red_unlocked {
+        if slugcat == Slugcat::Red && !cx.shared.progression.red_unlocked {
             return;
         }
         cx.shared.in_game_slugcat = Some(slugcat);
@@ -349,7 +349,7 @@ impl SlugcatSelectMenu {
                 slugcat_page_index = i;
                 break;
             }
-            if *slugcat == Slugcat::WHITE {
+            if *slugcat == Slugcat::White {
                 slugcat_page_index = i;
             }
         }
@@ -431,8 +431,8 @@ impl SlugcatSelectMenu {
         // `AddImage(ascended: false)`.
         let mut image_pos = Vec2::new(683.0, 484.0);
         let (scene_id, mut scene_offset) = match slugcat {
-            Slugcat::WHITE => (SceneId::SlugcatWhite, Vec2::new(-10.0, 100.0)),
-            Slugcat::YELLOW => (SceneId::SlugcatYellow, Vec2::new(10.0, 75.0)),
+            Slugcat::White => (SceneId::SlugcatWhite, Vec2::new(-10.0, 100.0)),
+            Slugcat::Yellow => (SceneId::SlugcatYellow, Vec2::new(10.0, 75.0)),
             // The Hunter.
             _ => (SceneId::SlugcatRed, Vec2::new(10.0, 45.0)),
         };

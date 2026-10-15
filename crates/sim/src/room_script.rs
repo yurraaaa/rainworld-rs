@@ -50,7 +50,7 @@ impl RoomScript {
     ) -> Vec<Self> {
         let early_cycle = !(mods.msc || mods.watcher)
             || session.is_some_and(|s| {
-                s.cycle_number < 2 && !(mods.msc && s.character.value() == "Spear")
+                s.cycle_number < 2 && !(mods.msc && s.character == SlugcatName::Spear)
             });
         match name {
             "SU_C04" if early_cycle => vec![Self::SuC04StartUp(SuC04StartUp::new())],

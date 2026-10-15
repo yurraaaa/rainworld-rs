@@ -96,7 +96,7 @@ impl RainCycle {
     /// constructor (six draws in all).
     pub fn new_story(character: SlugcatName, rng: &mut UnityRandom) -> Self {
         let v = rng.value();
-        let t = if character == SlugcatName::YELLOW {
+        let t = if character == SlugcatName::Yellow {
             0.35 + 0.65 * v.mathf_pow(1.2)
         } else {
             v

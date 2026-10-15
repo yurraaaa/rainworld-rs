@@ -123,7 +123,7 @@ impl OverseerAbstractAi {
             if matches!(region, "SS" | "RM" | "DM") {
                 parent.ignore_cycle = true;
             }
-            if cx.session.character == SlugcatName::RED && region != "UW" {
+            if cx.session.character == SlugcatName::Red && region != "UW" {
                 let chance = if region == "SL" { 0.2 } else { 0.0125 };
                 if cx.rng.value() < chance {
                     ai.owner_iterator = 3;
@@ -187,7 +187,7 @@ impl OverseerAbstractAi {
         } else {
             if self.is_player_guide
                 && let Some(t) = self.target_creature
-                && world.creature(t).kind() == CreatureType::SLUGCAT
+                && world.creature(t).kind() == CreatureType::Slugcat
             {
                 if base.destination.room == world.creature(t).pos.room {
                     self.roam(base, parent, time, 1.0, cx);
@@ -200,8 +200,8 @@ impl OverseerAbstractAi {
                 let len = i32::try_from(here.len()).unwrap_or(i32::MAX);
                 let pick = here[usize::try_from(cx.rng.range_i32(0, len)).unwrap_or(0)];
                 let kind = world.creature(pick).kind();
-                if kind != CreatureType::OVERSEER
-                    && (kind != CreatureType::SLUGCAT || !self.is_player_guide)
+                if kind != CreatureType::Overseer
+                    && (kind != CreatureType::Slugcat || !self.is_player_guide)
                     && Some(pick) != self.last_target_creature
                     && self.interest(cx.world, cx.rng, cx.player_karma, me, Some(pick))
                         > self.interest(cx.world, cx.rng, cx.player_karma, me, self.target_creature)
@@ -240,14 +240,14 @@ impl OverseerAbstractAi {
             {
                 base.set_destination_no_pathing(world.creature(t).pos, true);
             } else {
-                let attraction = world.attraction_value(parent.pos.room, CreatureType::OVERSEER);
+                let attraction = world.attraction_value(parent.pos.room, CreatureType::Overseer);
                 self.roam(base, parent, time, 1.0 / 20.0.lerp(2000.0, attraction), cx);
             }
         }
         let mut step = AbstractStep::Stay;
         if base.destination.room != parent.pos.room {
             let attraction = world
-                .attraction_value(base.destination.room, CreatureType::OVERSEER)
+                .attraction_value(base.destination.room, CreatureType::Overseer)
                 .mathf_pow(0.4);
             if AbstractCreatureAi::time_influenced_roll(
                 1.0 / 200.0.lerp(10.0, attraction),
@@ -282,7 +282,7 @@ impl OverseerAbstractAi {
         {
             return;
         }
-        let kind = CreatureType::OVERSEER;
+        let kind = CreatureType::Overseer;
         if pos.room == world.offscreen_den_index() {
             let first = world.first_room_index();
             let count = i32::try_from(world.number_of_rooms()).unwrap_or(i32::MAX);
@@ -299,7 +299,7 @@ impl OverseerAbstractAi {
                     score *= 0.1;
                 }
                 for &c in world.room_creatures(room) {
-                    if world.creature(c).kind() == CreatureType::OVERSEER {
+                    if world.creature(c).kind() == CreatureType::Overseer {
                         score *= 0.5;
                     }
                 }
@@ -360,7 +360,7 @@ impl OverseerAbstractAi {
         let Some(data) = world.abstract_room(room) else {
             return false;
         };
-        if world.attraction(room, CreatureType::OVERSEER) == Some(RoomAttraction::Forbidden)
+        if world.attraction(room, CreatureType::Overseer) == Some(RoomAttraction::Forbidden)
             && (!self.is_player_guide || !data.gate())
         {
             return false;
@@ -387,8 +387,8 @@ impl OverseerAbstractAi {
         if crit.template.small_creature {
             return 0.0;
         }
-        let mut num = match crit.kind().value() {
-            "Slugcat" => {
+        let mut num = match crit.kind() {
+            CreatureType::Slugcat => {
                 let mut n = if crit.is_realized() {
                     (player_karma as f32).lerp_map_pow(0.0, 4.0, 0.15, 2.0, 1.2)
                 } else {
@@ -399,22 +399,26 @@ impl OverseerAbstractAi {
                 }
                 n
             }
-            "PinkLizard" | "YellowLizard" | "BlackLizard" | "BlueLizard" | "Salamander" => 0.5,
-            "GreenLizard" => 0.2,
-            "WhiteLizard" => 0.6,
-            "RedLizard" => 0.65,
-            "Overseer" | "Scavenger" => 1.0,
-            "Vulture" | "KingVulture" | "LanternMouse" => 0.25,
-            "GarbageWorm" => 0.65,
-            "CicadaA" | "CicadaB" => 0.15,
-            "DaddyLongLegs" | "BrotherLongLegs" => 0.2,
-            "BigEel" => 0.55,
+            CreatureType::PinkLizard
+            | CreatureType::YellowLizard
+            | CreatureType::BlackLizard
+            | CreatureType::BlueLizard
+            | CreatureType::Salamander => 0.5,
+            CreatureType::GreenLizard => 0.2,
+            CreatureType::WhiteLizard => 0.6,
+            CreatureType::RedLizard => 0.65,
+            CreatureType::Overseer | CreatureType::Scavenger => 1.0,
+            CreatureType::Vulture | CreatureType::KingVulture | CreatureType::LanternMouse => 0.25,
+            CreatureType::GarbageWorm => 0.65,
+            CreatureType::CicadaA | CreatureType::CicadaB => 0.15,
+            CreatureType::DaddyLongLegs | CreatureType::BrotherLongLegs => 0.2,
+            CreatureType::BigEel => 0.55,
             _ => 0.1,
         };
         if !crit.state.alive {
             num /= 10.0;
         }
-        num *= world.attraction_value(crit.pos.room, CreatureType::OVERSEER);
+        num *= world.attraction_value(crit.pos.room, CreatureType::Overseer);
         let me_seed = world.creature(me).id.random_seed();
         let seed = me_seed.wrapping_add(crit.id.random_seed());
         // `SeededRandom` restores the global state; a scratch copy is equivalent.
@@ -442,7 +446,7 @@ impl OverseerAbstractAi {
             let room = world.creature(player).pos.room;
             let scavengers = world.room_creatures(room).iter().any(|&c| {
                 let c = world.creature(c);
-                c.kind() == CreatureType::SCAVENGER && c.state.alive
+                c.kind() == CreatureType::Scavenger && c.state.alive
             });
             if scavengers {
                 self.go_to_player = false;

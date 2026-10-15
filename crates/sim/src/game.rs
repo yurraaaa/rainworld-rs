@@ -179,7 +179,7 @@ impl RainWorldGame {
         };
         let guide = PlayerGuideState::default();
         let player_pos = WorldCoordinate::new(start.room, 15, 25, -1);
-        let template = CreatureTemplate::of(rw_assets::CreatureType::SLUGCAT, world.mods());
+        let template = CreatureTemplate::of(rw_assets::CreatureType::Slugcat, world.mods());
         let mut player = world.new_creature(
             template,
             player_pos,
@@ -768,7 +768,7 @@ impl RainWorldGame {
             cycle: 0,
             food_to_hibernate: stats.food_to_hibernate,
             max_food: stats.max_food,
-            yellow: self.campaign.name == rw_assets::SlugcatName::YELLOW,
+            yellow: self.campaign.name == rw_assets::SlugcatName::Yellow,
             how_well_is_player_doing: -1.0,
         }
     }

@@ -77,7 +77,7 @@ impl CreatureTemplate {
             .iter()
             .find(|t| t.kind == kind)
             .copied()
-            .unwrap_or_else(|| Self::base(CreatureType::STANDARD_GROUND_CREATURE))
+            .unwrap_or_else(|| Self::base(CreatureType::StandardGroundCreature))
     }
 
     /// `TopAncestor().type`.
@@ -92,7 +92,7 @@ impl CreatureTemplate {
 
     #[must_use]
     pub fn is_cicada(&self) -> bool {
-        self.kind == CreatureType::CICADA_A || self.kind == CreatureType::CICADA_B
+        self.kind == CreatureType::CicadaA || self.kind == CreatureType::CicadaB
     }
 
     /// `mappedNodeTypes[type]`: Exit and Den by the shortcut connection (not Den for
@@ -101,17 +101,17 @@ impl CreatureTemplate {
     #[must_use]
     pub fn maps_node(&self, node: NodeType) -> bool {
         let k = self.kind;
-        if k == CreatureType::GARBAGE_WORM {
+        if k == CreatureType::GarbageWorm {
             return node == NodeType::GarbageHoles;
         }
         match node {
             NodeType::Exit => self.uses_shortcuts,
-            NodeType::Den => self.uses_shortcuts && k != CreatureType::SCAVENGER,
-            NodeType::RegionTransportation => k == CreatureType::SCAVENGER,
+            NodeType::Den => self.uses_shortcuts && k != CreatureType::Scavenger,
+            NodeType::RegionTransportation => k == CreatureType::Scavenger,
             NodeType::SkyExit => self.sky_highway,
             NodeType::SeaExit => self.sea_highway,
             NodeType::SideExit => self.side_highway,
-            NodeType::BatHive => k == CreatureType::FLY,
+            NodeType::BatHive => k == CreatureType::Fly,
             NodeType::GarbageHoles => false,
         }
     }
@@ -120,18 +120,20 @@ impl CreatureTemplate {
     #[must_use]
     pub fn performance_estimation(&self) -> f32 {
         let k = self.kind;
-        match k.value() {
-            "KingVulture" => 140.0,
-            "Vulture" => 100.0,
-            "Snail" | "DropBug" => 20.0,
-            "Leech" | "Fly" => 10.0,
-            "GarbageWorm" | "BigSpider" => 30.0,
-            "BigEel" | "Scavenger" => 300.0,
-            "Deer" | "DaddyLongLegs" | "BrotherLongLegs" => 200.0,
-            "JetFish" => 25.0,
-            "SpitterSpider" => 50.0,
+        match k {
+            CreatureType::KingVulture => 140.0,
+            CreatureType::Vulture => 100.0,
+            CreatureType::Snail | CreatureType::DropBug => 20.0,
+            CreatureType::Leech | CreatureType::Fly => 10.0,
+            CreatureType::GarbageWorm | CreatureType::BigSpider => 30.0,
+            CreatureType::BigEel | CreatureType::Scavenger => 300.0,
+            CreatureType::Deer | CreatureType::DaddyLongLegs | CreatureType::BrotherLongLegs => {
+                200.0
+            }
+            CreatureType::JetFish => 25.0,
+            CreatureType::SpitterSpider => 50.0,
             _ if self.is_cicada() => 25.0,
-            _ if self.top_ancestor() == CreatureType::LIZARD_TEMPLATE => 50.0,
+            _ if self.top_ancestor() == CreatureType::LizardTemplate => 50.0,
             _ => 10.0,
         }
     }
@@ -140,11 +142,11 @@ impl CreatureTemplate {
 /// Field values from `InitStaticWorld` (line numbers of the 1.11.8 decompile in
 /// `rainworld-re/notes/creature-model.md`).
 impl CreatureTemplate {
-    const STANDARD: Self = Self::base(CreatureType::STANDARD_GROUND_CREATURE);
+    const STANDARD: Self = Self::base(CreatureType::StandardGroundCreature);
     const SLUGCAT: Self = Self {
         grasps: 2,
         off_screen_speed: 0.1,
-        ..Self::base(CreatureType::SLUGCAT)
+        ..Self::base(CreatureType::Slugcat)
     };
     const LIZARD: Self = Self {
         off_screen_speed: 0.3,
@@ -153,7 +155,7 @@ impl CreatureTemplate {
         ai: true,
         require_ai_map: true,
         body_size: 2.0,
-        ..Self::base(CreatureType::LIZARD_TEMPLATE)
+        ..Self::base(CreatureType::LizardTemplate)
     };
     const FLY: Self = Self {
         abstracted_laziness: 100,
@@ -164,7 +166,7 @@ impl CreatureTemplate {
         quantified: true,
         grasps: 1,
         small_creature: true,
-        ..Self::base(CreatureType::FLY)
+        ..Self::base(CreatureType::Fly)
     };
     const LEECH: Self = Self {
         abstracted_laziness: 100,
@@ -174,14 +176,14 @@ impl CreatureTemplate {
         quantified: true,
         grasps: 1,
         small_creature: true,
-        ..Self::base(CreatureType::LEECH)
+        ..Self::base(CreatureType::Leech)
     };
     const SNAIL: Self = Self {
         off_screen_speed: 0.05,
         body_size: 0.7,
         ai: true,
         require_ai_map: true,
-        ..Self::base(CreatureType::SNAIL)
+        ..Self::base(CreatureType::Snail)
     };
     const VULTURE: Self = Self {
         abstracted_laziness: 10,
@@ -194,7 +196,7 @@ impl CreatureTemplate {
         hibernate_off_screen: true,
         uses_shortcuts: false,
         sky_highway: true,
-        ..Self::base(CreatureType::VULTURE)
+        ..Self::base(CreatureType::Vulture)
     };
     const GARBAGE_WORM: Self = Self {
         ai: true,
@@ -203,7 +205,7 @@ impl CreatureTemplate {
         grasps: 1,
         save_creature: false,
         uses_shortcuts: false,
-        ..Self::base(CreatureType::GARBAGE_WORM)
+        ..Self::base(CreatureType::GarbageWorm)
     };
     const LANTERN_MOUSE: Self = Self {
         off_screen_speed: 0.3,
@@ -212,7 +214,7 @@ impl CreatureTemplate {
         require_ai_map: true,
         body_size: 0.7,
         grasps: 1,
-        ..Self::base(CreatureType::LANTERN_MOUSE)
+        ..Self::base(CreatureType::LanternMouse)
     };
     const CICADA: Self = Self {
         abstracted_laziness: 100,
@@ -222,7 +224,7 @@ impl CreatureTemplate {
         off_screen_speed: 0.5,
         body_size: 0.6,
         grasps: 1,
-        ..Self::base(CreatureType::CICADA_A)
+        ..Self::base(CreatureType::CicadaA)
     };
     const SPIDER: Self = Self {
         abstracted_laziness: 100,
@@ -232,7 +234,7 @@ impl CreatureTemplate {
         quantified: true,
         grasps: 1,
         small_creature: true,
-        ..Self::base(CreatureType::SPIDER)
+        ..Self::base(CreatureType::Spider)
     };
     const JET_FISH: Self = Self {
         abstracted_laziness: 100,
@@ -241,7 +243,7 @@ impl CreatureTemplate {
         off_screen_speed: 2.0,
         body_size: 0.8,
         grasps: 1,
-        ..Self::base(CreatureType::JET_FISH)
+        ..Self::base(CreatureType::JetFish)
     };
     const BIG_EEL: Self = Self {
         abstracted_laziness: 100,
@@ -252,7 +254,7 @@ impl CreatureTemplate {
         hibernate_off_screen: true,
         uses_shortcuts: false,
         sea_highway: true,
-        ..Self::base(CreatureType::BIG_EEL)
+        ..Self::base(CreatureType::BigEel)
     };
     const DEER: Self = Self {
         abstracted_laziness: 100,
@@ -262,14 +264,14 @@ impl CreatureTemplate {
         hibernate_off_screen: true,
         uses_shortcuts: false,
         side_highway: true,
-        ..Self::base(CreatureType::DEER)
+        ..Self::base(CreatureType::Deer)
     };
     const TUBE_WORM: Self = Self {
         ai: true,
         require_ai_map: true,
         off_screen_speed: 0.0,
         body_size: 0.25,
-        ..Self::base(CreatureType::TUBE_WORM)
+        ..Self::base(CreatureType::TubeWorm)
     };
     const DADDY_LONG_LEGS: Self = Self {
         abstracted_laziness: 400,
@@ -279,7 +281,7 @@ impl CreatureTemplate {
         off_screen_speed: 0.02,
         body_size: 5.5,
         grasps: 1,
-        ..Self::base(CreatureType::DADDY_LONG_LEGS)
+        ..Self::base(CreatureType::DaddyLongLegs)
     };
     const TENTACLE_PLANT: Self = Self {
         ai: true,
@@ -287,7 +289,7 @@ impl CreatureTemplate {
         body_size: 2.0,
         grasps: 1,
         uses_shortcuts: false,
-        ..Self::base(CreatureType::TENTACLE_PLANT)
+        ..Self::base(CreatureType::TentaclePlant)
     };
     const MIROS_BIRD: Self = Self {
         abstracted_laziness: 10,
@@ -300,7 +302,7 @@ impl CreatureTemplate {
         hibernate_off_screen: true,
         uses_shortcuts: false,
         side_highway: true,
-        ..Self::base(CreatureType::MIROS_BIRD)
+        ..Self::base(CreatureType::MirosBird)
     };
     const TEMPLE_GUARD: Self = Self {
         abstracted_laziness: 20000,
@@ -313,7 +315,7 @@ impl CreatureTemplate {
         body_size: 7.0,
         grasps: 1,
         uses_shortcuts: false,
-        ..Self::base(CreatureType::TEMPLE_GUARD)
+        ..Self::base(CreatureType::TempleGuard)
     };
     const CENTIPEDE: Self = Self {
         off_screen_speed: 0.3,
@@ -321,7 +323,7 @@ impl CreatureTemplate {
         abstracted_laziness: 150,
         ai: true,
         require_ai_map: true,
-        ..Self::base(CreatureType::CENTIPEDE)
+        ..Self::base(CreatureType::Centipede)
     };
     const SCAVENGER: Self = Self {
         off_screen_speed: 0.75,
@@ -333,7 +335,7 @@ impl CreatureTemplate {
         hibernate_off_screen: true,
         roam_between_rooms_chance: -1.0,
         roam_in_room_chance: -1.0,
-        ..Self::base(CreatureType::SCAVENGER)
+        ..Self::base(CreatureType::Scavenger)
     };
     /// No connection resistances: no node type is mapped.
     const OVERSEER: Self = Self {
@@ -343,14 +345,14 @@ impl CreatureTemplate {
         body_size: 0.3,
         save_creature: false,
         uses_shortcuts: false,
-        ..Self::base(CreatureType::OVERSEER)
+        ..Self::base(CreatureType::Overseer)
     };
     /// No connection resistances: no node type is mapped.
     const VULTURE_GRUB: Self = Self {
         off_screen_speed: 0.0,
         body_size: 0.2,
         uses_shortcuts: false,
-        ..Self::base(CreatureType::VULTURE_GRUB)
+        ..Self::base(CreatureType::VultureGrub)
     };
     const EGG_BUG: Self = Self {
         off_screen_speed: 0.3,
@@ -358,7 +360,7 @@ impl CreatureTemplate {
         ai: true,
         require_ai_map: true,
         body_size: 0.4,
-        ..Self::base(CreatureType::EGG_BUG)
+        ..Self::base(CreatureType::EggBug)
     };
     const BIG_SPIDER: Self = Self {
         off_screen_speed: 0.3,
@@ -367,7 +369,7 @@ impl CreatureTemplate {
         require_ai_map: true,
         body_size: 1.1,
         grasps: 1,
-        ..Self::base(CreatureType::BIG_SPIDER)
+        ..Self::base(CreatureType::BigSpider)
     };
     const BIG_NEEDLE_WORM: Self = Self {
         abstracted_laziness: 10,
@@ -378,7 +380,7 @@ impl CreatureTemplate {
         off_screen_speed: 1.5,
         body_size: 0.7,
         grasps: 1,
-        ..Self::base(CreatureType::BIG_NEEDLE_WORM)
+        ..Self::base(CreatureType::BigNeedleWorm)
     };
     const DROP_BUG: Self = Self {
         abstracted_laziness: 200,
@@ -388,7 +390,7 @@ impl CreatureTemplate {
         require_ai_map: true,
         body_size: 1.2,
         grasps: 1,
-        ..Self::base(CreatureType::DROP_BUG)
+        ..Self::base(CreatureType::DropBug)
     };
 
     /// Every base-game template, in `InitStaticWorld` order.
@@ -396,31 +398,31 @@ impl CreatureTemplate {
         Self::STANDARD,
         Self::SLUGCAT,
         Self::LIZARD,
-        Self::child(CreatureType::PINK_LIZARD, &Self::LIZARD),
-        Self::child(CreatureType::GREEN_LIZARD, &Self::LIZARD),
-        Self::child(CreatureType::BLUE_LIZARD, &Self::LIZARD),
-        Self::child(CreatureType::YELLOW_LIZARD, &Self::LIZARD),
-        Self::child(CreatureType::WHITE_LIZARD, &Self::LIZARD),
-        Self::child(CreatureType::RED_LIZARD, &Self::LIZARD),
-        Self::child(CreatureType::BLACK_LIZARD, &Self::LIZARD),
-        Self::child(CreatureType::SALAMANDER, &Self::LIZARD),
-        Self::child(CreatureType::CYAN_LIZARD, &Self::LIZARD),
+        Self::child(CreatureType::PinkLizard, &Self::LIZARD),
+        Self::child(CreatureType::GreenLizard, &Self::LIZARD),
+        Self::child(CreatureType::BlueLizard, &Self::LIZARD),
+        Self::child(CreatureType::YellowLizard, &Self::LIZARD),
+        Self::child(CreatureType::WhiteLizard, &Self::LIZARD),
+        Self::child(CreatureType::RedLizard, &Self::LIZARD),
+        Self::child(CreatureType::BlackLizard, &Self::LIZARD),
+        Self::child(CreatureType::Salamander, &Self::LIZARD),
+        Self::child(CreatureType::CyanLizard, &Self::LIZARD),
         Self::FLY,
         Self::LEECH,
         Self {
             body_size: 0.15,
-            ..Self::child(CreatureType::SEA_LEECH, &Self::LEECH)
+            ..Self::child(CreatureType::SeaLeech, &Self::LEECH)
         },
         Self::SNAIL,
         Self::VULTURE,
         Self {
             body_size: 8.5,
-            ..Self::child(CreatureType::KING_VULTURE, &Self::VULTURE)
+            ..Self::child(CreatureType::KingVulture, &Self::VULTURE)
         },
         Self::GARBAGE_WORM,
         Self::LANTERN_MOUSE,
         Self::CICADA,
-        Self::child(CreatureType::CICADA_B, &Self::CICADA),
+        Self::child(CreatureType::CicadaB, &Self::CICADA),
         Self::SPIDER,
         Self::JET_FISH,
         Self::BIG_EEL,
@@ -430,42 +432,42 @@ impl CreatureTemplate {
         Self {
             body_size: 2.5,
             off_screen_speed: 0.1,
-            ..Self::child(CreatureType::BROTHER_LONG_LEGS, &Self::DADDY_LONG_LEGS)
+            ..Self::child(CreatureType::BrotherLongLegs, &Self::DADDY_LONG_LEGS)
         },
         Self::TENTACLE_PLANT,
         Self {
             ai: false,
             require_ai_map: true,
             body_size: 1.4,
-            ..Self::child(CreatureType::POLE_MIMIC, &Self::TENTACLE_PLANT)
+            ..Self::child(CreatureType::PoleMimic, &Self::TENTACLE_PLANT)
         },
         Self::MIROS_BIRD,
         Self::TEMPLE_GUARD,
         Self::CENTIPEDE,
         Self {
             body_size: 8.5,
-            ..Self::child(CreatureType::RED_CENTIPEDE, &Self::CENTIPEDE)
+            ..Self::child(CreatureType::RedCentipede, &Self::CENTIPEDE)
         },
         Self {
             roam_between_rooms_chance: -1.0,
             abstracted_laziness: 1000,
             body_size: 0.2,
-            ..Self::child(CreatureType::SMALL_CENTIPEDE, &Self::CENTIPEDE)
+            ..Self::child(CreatureType::SmallCentipede, &Self::CENTIPEDE)
         },
         Self {
             can_fly: true,
             body_size: 1.2,
-            ..Self::child(CreatureType::CENTIWING, &Self::CENTIPEDE)
+            ..Self::child(CreatureType::Centiwing, &Self::CENTIPEDE)
         },
         Self::SCAVENGER,
         Self::OVERSEER,
         Self::VULTURE_GRUB,
-        Self::child(CreatureType::HAZER, &Self::VULTURE_GRUB),
+        Self::child(CreatureType::Hazer, &Self::VULTURE_GRUB),
         Self::EGG_BUG,
         Self::BIG_SPIDER,
         Self {
             body_size: 1.2,
-            ..Self::child(CreatureType::SPITTER_SPIDER, &Self::BIG_SPIDER)
+            ..Self::child(CreatureType::SpitterSpider, &Self::BIG_SPIDER)
         },
         Self::BIG_NEEDLE_WORM,
         Self {
@@ -473,7 +475,7 @@ impl CreatureTemplate {
             body_size: 0.15,
             roam_between_rooms_chance: 0.05,
             off_screen_speed: 3.2,
-            ..Self::child(CreatureType::SMALL_NEEDLE_WORM, &Self::BIG_NEEDLE_WORM)
+            ..Self::child(CreatureType::SmallNeedleWorm, &Self::BIG_NEEDLE_WORM)
         },
         Self::DROP_BUG,
     ];

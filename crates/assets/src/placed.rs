@@ -200,14 +200,14 @@ mod tests {
              CoralStem><300><100><0, Filter><300><100><10~0~0~0~Yellow",
         );
         assert_eq!(objects.len(), 4);
-        PlacedObject::apply_filters(&mut objects, Timeline::WHITE, ActiveMods::NONE);
+        PlacedObject::apply_filters(&mut objects, Timeline::White, ActiveMods::NONE);
         let active: Vec<bool> = objects.iter().map(|o| o.active).collect();
         assert_eq!(active, [true, false, true, true]);
         let mut objects = PlacedObject::parse_list(
             "Filter><100><100><50~0~0~0~White|Red, CoralStem><110><100><0, \
              CoralStem><300><100><0, Filter><300><100><10~0~0~0~Yellow",
         );
-        PlacedObject::apply_filters(&mut objects, Timeline::YELLOW, ActiveMods::NONE);
+        PlacedObject::apply_filters(&mut objects, Timeline::Yellow, ActiveMods::NONE);
         let active: Vec<bool> = objects.iter().map(|o| o.active).collect();
         assert_eq!(active, [true, true, false, true]);
     }
@@ -215,7 +215,7 @@ mod tests {
     #[test]
     fn legacy_digit_availability() {
         let f = FilterData::parse("3~4~0~0~010", ActiveMods::NONE).unwrap();
-        assert_eq!(f.available, [SlugcatName::YELLOW]);
+        assert_eq!(f.available, [SlugcatName::Yellow]);
         assert_eq!(f.rad(), 5.0);
     }
 }

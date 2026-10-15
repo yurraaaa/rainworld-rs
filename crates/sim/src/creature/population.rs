@@ -101,7 +101,7 @@ impl World {
         c.spawn_data = spawn_data;
         c.night_creature = night;
         let cid = self.insert_creature(c);
-        if template.kind == CreatureType::BIG_NEEDLE_WORM {
+        if template.kind == CreatureType::BigNeedleWorm {
             self.small_worms_find_mother(cid, cx.rng);
         }
         self.move_entity_to_den(cid);
@@ -115,7 +115,7 @@ impl World {
             .room_creatures(room)
             .iter()
             .copied()
-            .filter(|&c| self.creature(c).kind() == CreatureType::SMALL_NEEDLE_WORM)
+            .filter(|&c| self.creature(c).kind() == CreatureType::SmallNeedleWorm)
             .collect();
         for small in smalls {
             let c = self.creature(small);
@@ -143,7 +143,7 @@ impl World {
             .params
             .player_guide_overseer_spawn_chance;
         let roll = cx.rng.value() < chance;
-        if cx.session.character == SlugcatName::RED {
+        if cx.session.character == SlugcatName::Red {
             return;
         }
         if cx.guide_overseer_dead || cx.guide.angry_with_player || !roll {
@@ -157,7 +157,7 @@ impl World {
             },
             _ => WorldCoordinate::new(den, -1, -1, 0),
         };
-        let template = CreatureTemplate::of(CreatureType::OVERSEER, self.mods);
+        let template = CreatureTemplate::of(CreatureType::Overseer, self.mods);
         let c = self.new_creature(
             template,
             pos,
@@ -189,7 +189,7 @@ impl World {
             params.overseers_min,
             params.overseers_max,
         );
-        let red = cx.session.character == SlugcatName::RED;
+        let red = cx.session.character == SlugcatName::Red;
         let cycle = cx.session.cycle_number + if red { 17 } else { 0 };
         let spawn = self.region_name() == Some("UW")
             || cx.rng.value() < chance * (cycle as f32).inverse_lerp(2.0, 21.0);
@@ -198,7 +198,7 @@ impl World {
         }
         let count = cx.rng.range_i32(min, max);
         let den = self.offscreen_den_index();
-        let template = CreatureTemplate::of(CreatureType::OVERSEER, self.mods);
+        let template = CreatureTemplate::of(CreatureType::Overseer, self.mods);
         for _ in 0..count {
             let id = cx.ids.new_id(-1);
             let c = self.new_creature(
@@ -232,7 +232,7 @@ impl World {
         {
             *third = cx.food_to_hibernate + 1;
         }
-        let fly = CreatureTemplate::of(CreatureType::FLY, self.mods);
+        let fly = CreatureTemplate::of(CreatureType::Fly, self.mods);
         for (k, &room) in swarm_rooms.iter().enumerate() {
             for _ in 0..to_spawn[k] {
                 let Some(data) = self.abstract_room(room) else {
@@ -255,7 +255,7 @@ impl World {
                     .ok()
                     .and_then(|s| relevant.get(s))
                     .map_or(-1, |&i| i32::try_from(i).unwrap_or(-1));
-                self.add_quantified(room, node, CreatureType::FLY, 1, cx.rng);
+                self.add_quantified(room, node, CreatureType::Fly, 1, cx.rng);
             }
         }
     }

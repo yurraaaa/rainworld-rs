@@ -251,7 +251,7 @@ impl LineFilter {
             match entry.parse::<i32>() {
                 Ok(n) => {
                     SlugcatName::from_player_number(n, self.mods)
-                        .map_or(Timeline::WHITE, SlugcatName::timeline)
+                        .map_or(Timeline::White, SlugcatName::timeline)
                         == timeline
                 }
                 Err(_) => entry == timeline.value(),

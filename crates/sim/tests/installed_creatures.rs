@@ -132,7 +132,7 @@ impl Expected {
             (Some(counter), Some((id, c))) => {
                 let room = world.room_index("SU_C04").expect("SU_C04");
                 assert_eq!(c.pos, WorldCoordinate::new(room, 137, 17, 0));
-                assert_eq!(c.kind(), CreatureType::OVERSEER);
+                assert_eq!(c.kind(), CreatureType::Overseer);
                 assert!(!c.in_den && world.room_creatures(room).contains(&id));
                 let ai = c.overseer_ai().expect("overseer AI");
                 assert!(ai.is_player_guide);
@@ -145,7 +145,7 @@ impl Expected {
         let region_overseers = world
             .room_dens(den)
             .iter()
-            .filter(|&&c| world.creature(c).kind() == CreatureType::OVERSEER)
+            .filter(|&&c| world.creature(c).kind() == CreatureType::Overseer)
             .count();
         assert_eq!(region_overseers, self.region_overseers, "{name:?}");
     }
@@ -196,7 +196,7 @@ impl AbstractRun {
     fn overseers(world: &World) -> Vec<CreatureId> {
         world
             .creatures()
-            .filter(|(_, c)| c.kind() == CreatureType::OVERSEER)
+            .filter(|(_, c)| c.kind() == CreatureType::Overseer)
             .map(|(id, _)| id)
             .collect()
     }

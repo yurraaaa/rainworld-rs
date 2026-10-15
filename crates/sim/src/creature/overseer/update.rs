@@ -753,7 +753,7 @@ impl OverseerUpdate<'_, '_> {
                     .iter()
                     .filter_map(|&c| self.realized(c))
                     .any(|c| {
-                        c.kind != CreatureType::OVERSEER
+                        c.kind != CreatureType::Overseer
                             && !c.small
                             && !c.dead
                             && self.body.root_pos.dist_less(c.pos, 200.0)
@@ -1088,7 +1088,7 @@ impl OverseerUpdate<'_, '_> {
             let Some(info) = self.realized(c).filter(|i| i.in_room) else {
                 continue;
             };
-            if info.kind != CreatureType::OVERSEER {
+            if info.kind != CreatureType::Overseer {
                 if !info.small && !info.dead && mid.dist_less(info.pos, SCARED_DISTANCE + 10.0) {
                     return f32::MAX;
                 }
@@ -1163,7 +1163,7 @@ impl OverseerUpdate<'_, '_> {
         let Some(info) = self.realized(pick) else {
             return;
         };
-        if info.kind != CreatureType::OVERSEER {
+        if info.kind != CreatureType::Overseer {
             if !info.small && !info.dead && self.body.root_pos.dist_less(info.pos, SCARED_DISTANCE)
             {
                 self.ai.casual_interest_creature = Some(pick);

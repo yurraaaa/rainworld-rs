@@ -53,7 +53,7 @@ impl StoryGameInitCondition {
     pub fn game_initial_black_seconds(self, selected: Slugcat) -> f32 {
         match self {
             c if c.fast_travel() => 10.0,
-            Self::New if selected == Slugcat::RED => 5.5,
+            Self::New if selected == Slugcat::Red => 5.5,
             Self::New => 3.0,
             Self::Dev => 0.0,
             _ => 0.75,
@@ -78,7 +78,7 @@ pub struct Progression {
 impl Default for Progression {
     fn default() -> Self {
         Self {
-            selected_slugcat: Slugcat::WHITE,
+            selected_slugcat: Slugcat::White,
             red_unlocked: false,
             all_tokens_collected: false,
             any_discovered_shelters: false,
@@ -304,13 +304,13 @@ mod tests {
             (C::StartWithFastTravel, 0.0, 10.0, 10.0),
         ] {
             assert_eq!(c.game_fade_in_time(), fade, "{c:?}");
-            assert_eq!(c.game_initial_black_seconds(Slugcat::WHITE), black, "{c:?}");
+            assert_eq!(c.game_initial_black_seconds(Slugcat::White), black, "{c:?}");
             assert_eq!(
-                c.game_initial_black_seconds(Slugcat::YELLOW),
+                c.game_initial_black_seconds(Slugcat::Yellow),
                 black,
                 "{c:?}"
             );
-            assert_eq!(c.game_initial_black_seconds(Slugcat::RED), red, "{c:?}");
+            assert_eq!(c.game_initial_black_seconds(Slugcat::Red), red, "{c:?}");
         }
     }
 }
