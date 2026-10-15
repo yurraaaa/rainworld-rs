@@ -17,6 +17,12 @@ const PRIMES: [usize; 23] = [
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UserDataError(pub String);
 
+impl UserDataError {
+    fn missing(element: &str) -> Self {
+        Self(format!("no {element} element"))
+    }
+}
+
 impl fmt::Display for UserDataError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.0)
@@ -149,13 +155,18 @@ impl UserDataFile {
 
     /// The content of the first `<name ...>...</name>` element.
     fn element_text<'a>(text: &'a str, name: &str) -> Result<&'a str, UserDataError> {
-        let missing = || UserDataError(format!("no {name} element"));
-        let start = text.find(&format!("<{name} ")).ok_or_else(missing)?;
-        let open_end = start + text[start..].find('>').ok_or_else(missing)? + 1;
+        let start = text
+            .find(&format!("<{name} "))
+            .ok_or_else(|| UserDataError::missing(name))?;
+        let open_end = start
+            + text[start..]
+                .find('>')
+                .ok_or_else(|| UserDataError::missing(name))?
+            + 1;
         let close = open_end
             + text[open_end..]
                 .find(&format!("</{name}>"))
-                .ok_or_else(missing)?;
+                .ok_or_else(|| UserDataError::missing(name))?;
         Ok(&text[open_end..close])
     }
 
