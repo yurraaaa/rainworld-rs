@@ -150,9 +150,11 @@ impl Menu {
         }
     }
 
-    /// The flat-mode `setAlpha`s of `InteractiveMenuScene.Update` (after the
-    /// sub-objects' update, so they apply next tick): the death scene's flower fades in
-    /// over 160 ticks of `timer`, 0 while the timer has not started.
+    /// The `setAlpha`s of `InteractiveMenuScene.Update` (after the sub-objects' update,
+    /// so they apply next tick): the death scene's flower over 160 ticks of `timer` (0
+    /// while it has not started). Flat, the flower image fades in; in depth, the three
+    /// flowers (each a colour layer and a `Lighten` layer at half or 0.75 alpha) show
+    /// one after the other.
     fn update_scene_alphas(&mut self, id: ObjectId) {
         let Kind::Scene(s) = &self.objects[id.0].kind else {
             return;
@@ -160,11 +162,25 @@ impl Menu {
         if s.id != SceneId::NewDeath {
             return;
         }
-        let alpha = (s.timer as f32).inverse_lerp(0.0, 160.0);
-        if let Some(&flower) = s.flat_illustrations.get(1)
-            && let Some(i) = self.illustration_mut(flower)
-        {
-            i.set_alpha = Some(alpha);
+        let value = (s.timer as f32).inverse_lerp(0.0, 160.0);
+        let alphas: Vec<(ObjectId, f32)> = if s.flat_mode {
+            s.flat_illustrations
+                .get(1)
+                .map(|&f| (f, value))
+                .into_iter()
+                .collect()
+        } else {
+            s.depth_illustrations
+                .iter()
+                .skip(7)
+                .copied()
+                .zip(SceneId::new_death_flower_alphas(value))
+                .collect()
+        };
+        for (layer, alpha) in alphas {
+            if let Some(i) = self.illustration_mut(layer) {
+                i.set_alpha = Some(alpha);
+            }
         }
     }
 
@@ -185,5 +201,18 @@ impl Menu {
         } else {
             a + a.direction_to(b) * speed
         }
+    }
+}
+
+impl SceneId {
+    /// The depth death scene's `setAlpha`s of layers 7 to 12 (`FlowerA`, `FlowerA2`,
+    /// `FlowerB`, `FlowerB2`, `FlowerC`, `FlowerC2`) at `value` = `InverseLerp(0, 160,
+    /// timer)`.
+    #[must_use]
+    pub fn new_death_flower_alphas(value: f32) -> [f32; 6] {
+        let a = value.inverse_lerp(0.1, 0.4) * value.inverse_lerp(0.7, 0.4);
+        let b = value.inverse_lerp(0.4, 0.7) * value.inverse_lerp(1.0, 0.7);
+        let c = value.inverse_lerp(0.7, 1.0);
+        [a, a * 0.5, b, b * 0.5, c, c * 0.75]
     }
 }

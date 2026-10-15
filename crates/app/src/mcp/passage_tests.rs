@@ -37,6 +37,11 @@ const WHITE: CampaignStart<'static> = CampaignStart {
 
 /// A session continuing [`SAVE`], with the port's save directory.
 fn continued() -> Option<(Session, StreamingAssets, tempfile::TempDir)> {
+    continued_with(SAVE)
+}
+
+/// A session continuing `save`.
+fn continued_with(save: &str) -> Option<(Session, StreamingAssets, tempfile::TempDir)> {
     let assets = StreamingAssets::new(GameDir::from_env().streaming_assets());
     if !assets.file("levels").is_dir() {
         eprintln!("skipping: no game under {}", assets.path().display());
@@ -49,7 +54,7 @@ fn continued() -> Option<(Session, StreamingAssets, tempfile::TempDir)> {
     let game = tempfile::tempdir().unwrap();
     let port = tempfile::tempdir().unwrap();
     let mut file = UserDataFile::new();
-    file.set("save", salt.md5_sum(SAVE) + SAVE);
+    file.set("save", salt.md5_sum(save) + save);
     std::fs::write(game.path().join("sav"), file.to_bytes()).unwrap();
     let resources = UnityResources::open(assets.data_dir()).expect("Unity resources");
     let config = SaveConfig {
@@ -271,4 +276,84 @@ fn passage_screenshots() {
             }
         }
     }
+}
+
+impl Session {
+    /// Killed, then the map button once the game over allows it: the death screen.
+    fn die(&mut self) {
+        let game = self.frontend_mut().unwrap().game_mut().expect("the game");
+        game.scene.game_mut().sim_mut().kill_player();
+        self.frames(45, &[]);
+        self.frames(1, &["Space"]);
+        self.settle_on(ProcessId::DeathScreen);
+    }
+
+    /// Unfed in the shelter when the cycle's rain is over: the door closes on too little
+    /// food.
+    fn starve(&mut self) {
+        let game = self.frontend_mut().unwrap().game_mut().expect("the game");
+        let sim = game.scene.game_mut().sim_mut();
+        sim.set_food_in_stomach(0);
+        let rain = &mut sim.world_mut().rain_cycle;
+        rain.timer = rain.cycle_length + 1;
+        let shelter = sim.player_pos().room;
+        let spawn = sim.shelter_door(shelter).unwrap().player_spawn_pos;
+        let at = rw_sim::Vec2::from(rw_assets::tile_centre(spawn.0, spawn.1));
+        game.scene.game_mut().set_player(at, rw_sim::Vec2::ZERO);
+        for _ in 0..3000 {
+            if self.frames(1, &[]).process.as_deref() == Some("StarveScreen") {
+                self.settle_on(ProcessId::StarveScreen);
+                return;
+            }
+        }
+        panic!("never starved");
+    }
+
+    /// Shots `<name>_<frame>` at each listed frame, then the map held for 60 frames.
+    fn screen_shots(&mut self, dir: &Path, name: &str, at: &[u32]) {
+        let mut frame = 0;
+        for &f in at {
+            self.frames(f - frame, &[]);
+            frame = f;
+            self.process_shot(dir, &format!("{name}_{f:04}"));
+        }
+        self.frames(60, &["Space"]);
+        self.process_shot(dir, &format!("{name}_map"));
+    }
+}
+
+#[test]
+#[ignore = "writes screenshots; run with DEPTH_SHOTS=<dir>"]
+fn depth_screen_screenshots() {
+    let Some(dir) = std::env::var_os("DEPTH_SHOTS") else {
+        return;
+    };
+    let dir = Path::new(&dir);
+    let Some((mut s, _assets, _port)) = continued() else {
+        return;
+    };
+    s.sleep();
+    s.screen_shots(dir, "sleep", &[1, 200, 600]);
+
+    let Some((mut s, _assets, _port)) = continued() else {
+        return;
+    };
+    s.frames(10, &[]);
+    s.die();
+    s.screen_shots(dir, "death", &[1, 300]);
+
+    let reinforced = SAVE.replace("REINFORCEDKARMA<dpB>0", "REINFORCEDKARMA<dpB>1");
+    let Some((mut s, _assets, _port)) = continued_with(&reinforced) else {
+        return;
+    };
+    s.frames(10, &[]);
+    s.die();
+    s.screen_shots(dir, "flower", &[1, 150, 200, 250, 300, 350, 400, 500]);
+
+    let Some((mut s, _assets, _port)) = continued() else {
+        return;
+    };
+    s.frames(10, &[]);
+    s.starve();
+    s.screen_shots(dir, "starve", &[1, 300]);
 }
