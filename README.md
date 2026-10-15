@@ -63,8 +63,8 @@ Useful flags:
 | --- | --- |
 | `ROOM` | Start a game directly in a room, e.g. `SU_B04`, with its region loaded |
 | `--process NAME` | Start in `intro-roll` (default), `main-menu`, `slugcat-select` or `game` |
-| `--windowed` | Use a window instead of borderless full screen (the game's full-screen option off: the system cursor shows, the menus' cursor sprite does not) |
-| `--resolution WxH` | One of the game's screen sizes (default `1366x768`) |
+| `--windowed` | Use a window instead of borderless full screen for this run (the game's full-screen option off: the system cursor shows, the menus' cursor sprite does not) |
+| `--resolution WxH` | One of the game's screen sizes for this run (otherwise the options', default `1366x768`) |
 | `--mute` | No sound (the simulation still makes the sounds' random draws) |
 | `--seed N` | Seed of the shared random stream |
 | `--spawn X,Y` | Place the player on tile X,Y |
@@ -79,10 +79,13 @@ Useful flags:
 The port keeps its saves in `~/.local/share/rainworld-rs/` on Linux and
 `%APPDATA%\rainworld-rs\` on Windows, in the game's format, and never writes the game's
 saves. To continue a game from the real game, import a slot (`sav`, `sav2` or `sav3`)
-with the MCP tool `import_save` (a settings menu option comes later). It reads the
+from OPTIONS > IMPORT SAVE FROM RAIN WORLD (the selected save slot) or with the MCP
+tool `import_save`. It reads the
 game's saves (on Linux, Steam's Proton prefix next to the game folder; on Windows,
 `AppData\LocalLow\Videocult\Rain World`) and copies the slot, after moving the port's
 previous copy to `backup/`. Data from the DLCs, Remix and mods is kept as it is.
+The options (volumes, screen, save slot, ...) are kept there too, in the game's
+`options` format; the OPTIONS menu changes them.
 
 ## Controls
 

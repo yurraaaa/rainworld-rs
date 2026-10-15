@@ -1,5 +1,5 @@
 //! `MainMenu` of the base game with Remix off: the title, the flat main-menu scene
-//! and six buttons. Story goes to the slugcat select menu and Exit quits; the others
+//! and six buttons. Story goes to the slugcat select menu, Options to the options menu and Exit quits; the others
 //! switch to processes the port does not have yet (docs/DIVERGENCES.md D13).
 
 use rw_render::StageShader;

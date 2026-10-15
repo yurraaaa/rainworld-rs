@@ -48,6 +48,8 @@ pub enum Kind {
     MouseCursor(CursorData),
     Scene(Box<SceneData>),
     RainEffect(Box<super::rain::RainEffectData>),
+    /// `HorizontalSlider` (not subtle).
+    Slider(Box<SliderData>),
 }
 
 impl Kind {
@@ -64,6 +66,7 @@ impl Kind {
             self,
             Self::Label(_)
                 | Self::Button(_)
+                | Self::Slider(_)
                 | Self::RoundedRect(_)
                 | Self::Illustration(_)
                 | Self::DarkGradient(_)
@@ -73,7 +76,10 @@ impl Kind {
     /// `SelectableMenuObject`.
     #[must_use]
     pub fn selectable(&self) -> bool {
-        matches!(self, Self::Button(_) | Self::HoldButton(_))
+        matches!(
+            self,
+            Self::Button(_) | Self::HoldButton(_) | Self::Slider(_)
+        )
     }
 }
 
@@ -130,6 +136,7 @@ pub enum ButtonVariant {
         menu_label: ObjectId,
         label_color: HslColor,
         fade_alpha: f32,
+        sub: SimpleKind,
     },
     /// `BigArrowButton`.
     BigArrow {
@@ -147,6 +154,80 @@ pub enum ButtonVariant {
         selectable: bool,
         bright_color: bool,
     },
+}
+
+/// The `SimpleButton` subclasses.
+#[derive(Debug, Clone, PartialEq)]
+pub enum SimpleKind {
+    Plain,
+    /// `CustomMessageButton`: signals its message instead of the signal text.
+    CustomMessage(String),
+    /// `SelectOneButton`: one of a series (its signal text) the screen answers for.
+    SelectOne {
+        index: i32,
+        outer_rect: ObjectId,
+        selected_col: f32,
+        last_selected_col: f32,
+    },
+    /// `ControlsButton`: its device image (its first rectangles stay, never updated).
+    Controls {
+        device_image: ObjectId,
+    },
+}
+
+/// `Slider.SliderID` (the base game's).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SliderId {
+    SfxVol,
+    MusicVol,
+    ArenaMusicVolume,
+    LevelsListScroll,
+    ModDescriptionScroll,
+}
+
+impl SliderId {
+    pub const ALL: [Self; 5] = [
+        Self::SfxVol,
+        Self::MusicVol,
+        Self::ArenaMusicVolume,
+        Self::LevelsListScroll,
+        Self::ModDescriptionScroll,
+    ];
+
+    #[must_use]
+    pub const fn value(self) -> &'static str {
+        match self {
+            Self::SfxVol => "SfxVol",
+            Self::MusicVol => "MusicVol",
+            Self::ArenaMusicVolume => "ArenaMusicVolume",
+            Self::LevelsListScroll => "LevelsListScroll",
+            Self::ModDescriptionScroll => "ModDescriptionScroll",
+        }
+    }
+
+    #[must_use]
+    pub fn from_value(value: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|s| s.value() == value)
+    }
+}
+
+/// `HorizontalSlider`: the knob is the object's position; the line runs from
+/// `anchor_point` for `length`.
+#[derive(Debug, Clone)]
+pub struct SliderData {
+    pub behav: ButtonBehavior,
+    pub id: SliderId,
+    pub rounded_rect: ObjectId,
+    pub select_rect: ObjectId,
+    pub menu_label: ObjectId,
+    pub line_sprites: [NodeId; 4],
+    pub anchor_point: Vec2,
+    pub length: f32,
+    pub mov_speed: f32,
+    pub graphic_in_dragged_mode: f32,
+    pub mouse_dragged: bool,
+    pub mouse_drag_offset: f32,
+    pub black: f32,
 }
 
 /// `HoldButton`.
@@ -231,6 +312,7 @@ pub enum SceneId {
     SlugcatWhite,
     SlugcatYellow,
     SlugcatRed,
+    LandscapeSu,
     Empty,
     Intro1Tree,
     Intro2Branch,

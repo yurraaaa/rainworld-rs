@@ -515,8 +515,7 @@ its `AmbientSoundPlayer`s, playing on kira (`rainworld-re/notes/sound.md`). Ever
 (their wings, idle and afraid calls, the hover loop, burrowing, emerging, chaining and
 the NPC shortcut sounds) are ported. The menus'
 `MenuMicrophone` is `rw_menu::MenuMic` (what plays, the draws, the loops' fades) and
-`rw_audio::MenuPlayback` (the sources), with the default options' sound-effects volume
-0.8. `rw_audio::music` is the `MusicPlayer` side process with `Song`, `MenuOrSlideShowSong`
+`rw_audio::MenuPlayback` (the sources), with the options' sound-effects volume (D13). `rw_audio::music` is the `MusicPlayer` side process with `Song`, `MenuOrSlideShowSong`
 and `IntroRollMusic` (`music.md` section 4.1), streaming `music_songs` clips; the app
 runs it as the game's side process (D13), silent on `TimedSources` without audio
 (`--mute`, `--screenshot`, MCP).
@@ -552,8 +551,8 @@ runs it as the game's side process (D13), silent on `TimedSources` without audio
   many sounds the audio thread still plays, which the tick-deterministic sim does not
   know. With audio off nothing is capped. PLAYALL triggers are capped per sample, not
   once per call.
-- **Music volume and options.** The default options (music volume 0.8, `playMusic` on);
-  the options menu and `setup.txt` are not read.
+- **Music volume and options.** The options' music volume (D13), read every frame;
+  `playMusic` is on (`setup.txt` is not read).
 - **Voices.** Unity mixes 32 real voices chosen by priority (all 128) and audibility; the
   port silences the quietest past 32 each frame. There is no `AudioSource` start
   latency, and a sound plays from the frame its clip finishes decoding (the game's
@@ -602,10 +601,39 @@ real-time audio rather than the sim.
   labels sit on whole pixels, where `font`'s glyphs lose a pixel row to point sampling;
   the game's menus place labels a third of a pixel off (the page sits at (1/3, 1/3)),
   and the port's menus draw them whole.
-- **Unported screens.** Every process but the game, the main menu, slugcat select and
-  the intro slideshows (the main menu's Regions, Arena, Remix and Options, and the sleep and death
+- **Unported screens.** Every process but the game, the main menu, the options menu,
+  slugcat select and the intro slideshows (the main menu's Regions, Arena and Remix,
+  the options menu's Input Settings, Credits and Backups, and the sleep and death
   screens) is a black screen naming the process; the pause button (Escape) returns to
   the main menu.
+- **Options menu.** `OptionsMenu` with Remix off and no console (`rw_menu::OptionsMenu`,
+  `rainworld-re/notes/menu.md` "OptionsMenu"), with its `SelectOneButton`s,
+  `HorizontalSlider`s, `CustomMessageButton`, `ControlsButton`, check boxes, the reset
+  `HoldButton` and the flat `Landscape - SU` scene. What it does in the port:
+  - The volumes drive the audio (sound effects for game and menu sounds, music for the
+    music player), the screen mode and resolution the window (borderless full screen or
+    a window of the size; `Screen.SetResolution` and the ten-tick mode fix-up are
+    followed, `Cursor.visible` with them), the save slot loads that slot of the port's
+    saves, and RESET PROGRESS is `WipeAll` on the port's slot (D16).
+  - Stored only: the language (the port has the English strings and fonts only, so a
+    change re-opens the menu in English), vibration (no rumble), speedrun validation
+    (no loading screens) and the arena music volume (no arena).
+  - Progression loads synchronously, so `ProgressionBusy` is never true (nothing greys
+    out) and `HandleSaveSlotChangeFailed`'s dialog never shows: a slot that cannot be
+    read is kept in memory and logged.
+  - `ControlSetup` is not ported: the `InputSetup` entries are kept as read; a new
+    file gets what `new ControlSetup(i, i == 0)` writes (inferred: no mouse mappings).
+    An unregistered language value reads as English.
+  - Turning the music to 0 and leaving drops the music player (`StopSideProcess`)
+    without its songs' shut-down.
+  - The dialogs (`DialogConfirm`, `DialogNotify`) are measured with the font's line
+    height for `LabelTest.LineHeight` (inferred equal).
+- **The save importer (port only).** The game has no such option. The options menu has
+  an IMPORT SAVE FROM RAIN WORLD button (a simple button, 220 x 30, centred between BACK
+  and CREDITS at y 50; BACK's right and CREDITS' left now lead to it). It asks with a
+  `DialogConfirm`, then copies the game's save of the selected slot over the port's
+  (`rw_save::import_slot`, the port's file moved to `backup/` first) and reports the
+  result in a `DialogNotify`. Its texts are English, untranslated.
 - **Pause menu.** `PauseMenu` of a story game is ported (`rw_hud::PauseMenu`,
   `rainworld-re/notes/menu.md` "PauseMenu"): CONTINUE, EXIT and the confirmation, the
   keyboard control map with the pick-up instructions, the dimming, its sounds through
@@ -632,13 +660,15 @@ real-time audio rather than the sim.
   follows `AudioSource.time`: kira's position of the streamed sound in the window, the
   ticks played on `TimedSources` headless (deterministic). The outros, crossfades, the
   More Slugcats and Watcher slideshows and the dev move editor are not ported.
-- **Saves, options and progression.** The progression is the port's own slot 0
-  (`sav` in its save directory, D16): the selected slugcat, the Hunter unlock
+- **Saves, options and progression.** The progression is the port's own slot of
+  `options.saveSlot` (`sav`, `sav2`, `sav3` in its save directory, D16): the selected slugcat, the Hunter unlock
   (`unlockred.txt` or the main menu's unlock code, saved with the next progression
-  save) and the discovered shelters (Regions) come from it. The options are the
-  defaults, except that the Downpour/Remix first-launch notices (`dlcTutorialShown`,
-  `remixTutorialShown`) count as already shown, so the main menu opens without its
-  popup; `options.Save()` is not called and there is no slot choice.
+  save) and the discovered shelters (Regions) come from it. The options are the port's
+  own (`options` and `localoptions.txt` in its save directory, in the game's format,
+  unknown entries kept as the game keeps them), saved where the options menu saves
+  them; the game's are never read or written. The Downpour/Remix first-launch notices
+  (`dlcTutorialShown`, `remixTutorialShown`) count as already shown, so the main menu
+  opens without its popup.
 - **DLC detection.** Until DLC support exists the port treats every DLC as not
   installed (user decision): `dlcsInstalled` is empty, so the main menu shows the plain
   `Main Menu` scene and the intro roll the plain `Intro_Roll_C` (no random slugcat
@@ -693,14 +723,13 @@ real-time audio rather than the sim.
   port sums them to 0 (Rewired's rule not checked). Whether the default mouse map (left
   button = UI submit, map category 1) is active for player 0 is not settled; the menus
   read the mouse position and buttons directly, as `Menu` does with
-  `Input.GetMouseButton`. `options.fullScreen` is the window mode: off with
-  `--windowed` (and so in `--screenshot` runs), on otherwise; as in the game
+  `Input.GetMouseButton`. `options.fullScreen` is the window mode (the options menu
+  sets it; `--windowed`, and so `--screenshot`, sets it for the run); as in the game
   (`Options.OnLoadFinished`), the OS cursor is shown only when it is off, and the menus'
   `MouseCursor` sprite only fades in when it is on (`ShowCursor`). The sprite sits at
   the mouse position of each rendered frame, not the last tick's, as in
-  `MouseCursor.GrafUpdate`. The window mode is fixed at start: the options menu's
-  full-screen toggle and the dev-tools cases (`Cursor.visible = true`) are not ported.
-  Headless MCP runs keep the default, full screen.
+  `MouseCursor.GrafUpdate`. The dev-tools cases (`Cursor.visible = true`) are not
+  ported.
 - **Gameplay keys.** Rewired's default gameplay keyboard map: arrows move, Z jumps. Its
   other keys (X throw, left Shift pick up, Space map, C special) have nothing to drive
   yet, but for Space skipping the intro when START completes. The intro roll's "any button" (`ControlSetup.GetAnyButton`) is any key of the
@@ -713,8 +742,9 @@ real-time audio rather than the sim.
 - **Random stream (D1).** One stream, seeded once from `--seed`, from the first menu to
   the game.
 
-**Why.** The menus are ported screen by screen, with no saves or options yet; the
-world with only overseers behaving (D14) stands in for a story session.
+**Why.** The menus are ported screen by screen; the world with only overseers
+behaving (D14) stands in for a story session. The importer is the user's request: the
+port never writes the game's saves, so continuing a game needs a copy.
 
 **Affects.** What is shown at start-up and between processes, and where the random
 stream stands when the game starts; no gameplay.
@@ -967,7 +997,11 @@ Differences:
   (`AdaptWorldToRegionState`, `GeneratePopulation(fresh: false)`); communities,
   swallowed and held objects, kills and dreams are kept in the save but not applied.
   `BackwardsCompability` world-version updates and the automatic `backup/` copies
-  (`CreateCopyOfSaves`) are not ported. Save slot 0 only.
+  (`CreateCopyOfSaves`) are not ported. The slot is `options.saveSlot` (D13).
+- **Reset progress.** `WipeAll` keeps only `MISCPROG`, as the game, with its shelters,
+  conditional shelters, menu region, the Hunter's flower, campaign timers and the
+  base `INTEGERS` it resets cleared; the DLCs' integer lists (`INTEGERSMMF`, ...) are
+  kept as read. There is no `SJ_<slot>` folder to delete.
 - **Starving and dying.** The starve and death screens are not ported (a "not ported"
   page). `GoToStarveScreen` and `GoToDeathScreen` run `SessionEnded(survived: false)`
   and its death save (D17). Death itself freezes the body (current phase), so only a
@@ -1033,8 +1067,10 @@ call, the room-range clamp's skip for grabbed objects, and `DefaultTile`.
 Room: `Room.Update`'s ambient ceiling drips (`WaterDrip`s from the ceiling of a room with
 `CeilingDrips`), and the `WaterDrip`s of skids, slides and corridor shoots.
 
-Front end: the options, regions, arena and Remix menus, the settings menu's save import,
+Front end: the regions, arena and Remix menus, input settings, credits, backups,
 sleep and death
-screens, the outro and DLC slideshows, dialogs, the slugcat select menu's continue pages,
-colour and Jolly Co-op controls, depth scenes, menu objects those use (sliders, check
-box groups, symbol buttons, scroll boxes, `UIelementWrapper`), and in-game music (D12).
+screens, the outro and DLC slideshows, the slugcat select menu's continue pages,
+colour and Jolly Co-op controls, depth scenes, menu objects those use (vertical and
+subtle sliders, check box groups, symbol buttons, scroll boxes, `UIelementWrapper`),
+Remix's options (FPS, VSync, quality, analogue sensitivity, backgrounds), and in-game
+music (D12).

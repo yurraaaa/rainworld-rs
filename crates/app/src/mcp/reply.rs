@@ -294,6 +294,30 @@ pub struct ProcessState {
     pub story: Option<StoryInfo>,
     /// The game's pause menu, while the game has one (`GamePaused`).
     pub pause_menu: Option<PauseMenuState>,
+    /// The options (always) and the options menu, when it is the current process.
+    pub options: OptionsState,
+}
+
+/// `rainWorld.options` and the options menu.
+#[derive(Debug, Clone, Serialize)]
+pub struct OptionsState {
+    pub save_slot: i32,
+    pub resolution: i32,
+    pub windowed: bool,
+    pub music_volume: f32,
+    pub sound_effects_volume: f32,
+    pub arena_music_volume: f32,
+    pub vibration: bool,
+    pub validation: bool,
+    pub language: String,
+    /// The screen's size and mode as the window should be.
+    pub screen: [f32; 2],
+    pub screen_full: bool,
+    pub cursor_visible: bool,
+    /// The menu's info label.
+    pub info: Option<String>,
+    /// The open dialog's text.
+    pub dialog: Option<String>,
 }
 
 /// A `PauseMenu`.

@@ -167,6 +167,9 @@ pub enum ProcessParam {
     /// The slugcat select menu (hold START to begin a new game at the campaign's
     /// start).
     SlugcatSelect,
+    /// The options menu (its import button copies the game's save of the selected
+    /// slot).
+    OptionsMenu,
     /// The M0 test screen: labels in both fonts over the flat main-menu scene.
     FontTest,
     /// The game, in the room's region world.

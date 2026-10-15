@@ -82,8 +82,8 @@ struct Args {
     mcp: bool,
     /// With `mcp`: also show the scene in a window.
     window: bool,
-    /// The game's screen size.
-    resolution: Resolution,
+    /// `--resolution`: the game's screen size for this run, else the options'.
+    resolution: Option<Resolution>,
     /// A window instead of full screen.
     windowed: bool,
     /// No sound output.
@@ -114,7 +114,7 @@ impl Args {
         let mut script = None;
         let mut mcp = false;
         let mut window = false;
-        let mut resolution = Resolution::DEFAULT;
+        let mut resolution = None;
         let mut windowed = false;
         let mut mute = false;
         let mut start = None;
@@ -162,7 +162,7 @@ impl Args {
                 }
                 "--resolution" => {
                     let value = args.next().ok_or("--resolution needs WxH")?;
-                    resolution = value.parse()?;
+                    resolution = Some(value.parse()?);
                 }
                 "--spawn" => {
                     let value = args.next().ok_or("--spawn needs X,Y")?;
@@ -288,18 +288,17 @@ fn run() -> Result<(), Box<dyn Error>> {
         sound_table: table,
         saves,
     };
-    let mut ctx = AppContext::new(assets, resources, args.resolution, setup, args.start)
+    let mut ctx = AppContext::new(assets, resources, Resolution::DEFAULT, setup, args.start)
         .map_err(|e| format!("loading the fonts: {e}"))?;
+    // A screenshot run never covers the screen.
+    ctx.apply_screen_options(args.resolution, args.windowed || args.screenshot.is_some());
     if let Some(audio) = audio {
         ctx.set_audio(audio);
     }
     ctx.script = args.script;
     let options = app::Options {
-        // A screenshot run never covers the screen.
-        windowed: args.windowed || args.screenshot.is_some(),
         screenshot: args.screenshot,
         debug_view: args.debug_view,
-        resolution: args.resolution,
         title,
     };
     app::run(Frontend::new(ctx), sprites, options)
@@ -341,7 +340,7 @@ mod tests {
                 script: None,
                 mcp: false,
                 window: false,
-                resolution: Resolution::DEFAULT,
+                resolution: None,
                 windowed: false,
                 mute: false,
                 start: ProcessId::IntroRoll,
@@ -362,7 +361,7 @@ mod tests {
             script: None,
             mcp: false,
             window: false,
-            resolution: Resolution::DEFAULT,
+            resolution: None,
             windowed: false,
             mute: false,
             start: ProcessId::IntroRoll,
@@ -376,7 +375,7 @@ mod tests {
     #[test]
     fn resolution_and_windowed() {
         let args = Args::parse(["--resolution", "1024x768", "--windowed"]).expect("parses");
-        assert_eq!(args.resolution, Resolution::new(1024, 768));
+        assert_eq!(args.resolution, Some(Resolution::new(1024, 768)));
         assert!(args.windowed);
         assert!(Args::parse(["--resolution", "1920x1080"]).is_err());
         assert!(Args::parse(["--resolution"]).is_err());

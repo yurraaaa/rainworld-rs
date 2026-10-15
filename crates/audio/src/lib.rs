@@ -358,6 +358,11 @@ impl Audio {
         total <= Self::CROWDED || same <= Self::CAP_BASE.saturating_sub(total)
     }
 
+    /// `options.soundEffectsVolume`, for game and menu sounds alike.
+    pub fn set_sound_effects_volume(&mut self, volume: f32) {
+        self.mic.sfx_volume = volume;
+    }
+
     /// The pause menu's hold on the microphone: the volume of every group but 1 and the
     /// `timeSpeed` of positioned and ambient sounds' pitch (both 1 without it).
     pub fn set_pause_mix(&mut self, volume: f32, time_speed: f32) {

@@ -23,9 +23,10 @@ use super::params::{
 use super::reply::{
     ChunkState, ControlsPageState, CreatureInfo, ExitInfo, ExitList, FlyInfo, FoodMeterState,
     HudState, ImpactState, ImportReply, KarmaMeterState, LobbyState, MapMarkerState, MapState,
-    OverseerInfo, PauseMenuState, PlayerState, ProcessState, RainMeterState, RainState,
-    RealizedState, RoomInfo, RoomList, SaveInfo, SaveStateInfo, Screenshot, ShelterDoorState,
-    SleepState, SlideShowState, StartUpState, State, StepTrace, StoryInfo, TextPromptState,
+    OptionsState, OverseerInfo, PauseMenuState, PlayerState, ProcessState, RainMeterState,
+    RainState, RealizedState, RoomInfo, RoomList, SaveInfo, SaveStateInfo, Screenshot,
+    ShelterDoorState, SleepState, SlideShowState, StartUpState, State, StepTrace, StoryInfo,
+    TextPromptState,
 };
 use super::tiles::TileDump;
 use crate::frontend::{AppContext, Frontend, FrontendRenderer, GameSetup};
@@ -604,7 +605,12 @@ impl Session {
         if params.crop_radius.is_some() {
             return Err("crop_radius needs a room (load_room)".to_owned());
         }
-        let size = rw_render::Resolution::DEFAULT.size_f32();
+        let size = self
+            .frontend
+            .as_ref()
+            .map_or(rw_render::Resolution::DEFAULT.size_f32(), |(f, _)| {
+                f.ctx.menu.screen_size
+            });
         let pixels = size.map(|s| (s * scale).round().clamp(1.0, MAX_IMAGE_SIDE) as u32);
         self.ensure_renderer(pixels)?;
         let (Some((frontend, _)), Some(target)) = (self.frontend.as_mut(), self.renderer.as_mut())
@@ -680,10 +686,11 @@ impl Session {
             ProcessParam::IntroRoll => ProcessId::IntroRoll,
             ProcessParam::MainMenu => ProcessId::MainMenu,
             ProcessParam::SlugcatSelect => ProcessId::SlugcatSelect,
+            ProcessParam::OptionsMenu => ProcessId::OptionsMenu,
             ProcessParam::FontTest => ProcessId::FontTest,
             ProcessParam::Game => ProcessId::Game,
         };
-        let ctx = AppContext::new(
+        let mut ctx = AppContext::new(
             self.assets.clone(),
             Arc::clone(&self.resources),
             rw_render::Resolution::DEFAULT,
@@ -691,6 +698,7 @@ impl Session {
             start,
         )
         .map_err(|e| format!("loading the fonts: {e}"))?;
+        ctx.apply_screen_options(None, false);
         self.frontend = Some((Frontend::new(ctx), 0));
         self.scene = None;
         self.start = None;
@@ -796,6 +804,7 @@ impl Session {
                 .game()
                 .and_then(|g| g.pause_menu.as_ref())
                 .map(Self::pause_menu_state),
+            options: Self::options_state(frontend),
         })
     }
 
@@ -827,6 +836,28 @@ impl Session {
             backup: report.backup.map(|b| b.display().to_string()),
             save_states: report.save_states,
         })
+    }
+
+    fn options_state(frontend: &Frontend) -> OptionsState {
+        let shared = &frontend.ctx.menu;
+        let o = &shared.options;
+        let menu = frontend.options_menu();
+        OptionsState {
+            save_slot: o.save_slot,
+            resolution: o.resolution,
+            windowed: o.windowed,
+            music_volume: o.music_volume,
+            sound_effects_volume: o.sound_effects_volume,
+            arena_music_volume: o.arena_music_volume,
+            vibration: o.vibration,
+            validation: o.validation,
+            language: o.language.value().to_owned(),
+            screen: shared.screen.size,
+            screen_full: shared.screen.full_screen,
+            cursor_visible: shared.screen.cursor_visible,
+            info: menu.map(|m| m.menu().info_text().to_owned()),
+            dialog: menu.and_then(|m| m.dialog()).map(|d| d.text().to_owned()),
+        }
     }
 
     fn pause_menu_state(p: &rw_hud::PauseMenu) -> PauseMenuState {

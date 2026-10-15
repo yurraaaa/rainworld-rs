@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
-use rw_menu::{KeyboardKey, ProcessId};
+use rw_menu::{KeyboardKey, ProcessId, ScreenState};
 use rw_render::{PresentRect, Renderer, Resolution, RoomLayers, WgpuRenderer};
 use winit::application::ApplicationHandler;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
@@ -52,11 +52,6 @@ pub struct Options {
     pub screenshot: Option<PathBuf>,
     /// Start in the debug view.
     pub debug_view: bool,
-    /// The game's screen size the frame is drawn at.
-    pub resolution: Resolution,
-    /// A window of `resolution` instead of the game's default borderless full screen
-    /// (`options.fullScreen` off).
-    pub windowed: bool,
     pub title: String,
 }
 
@@ -77,8 +72,10 @@ struct App {
     view: Option<View>,
     /// `--screenshot`: save a frame here once a second has been simulated, then quit.
     screenshot_and_quit: Option<PathBuf>,
+    /// The game's screen size the frame is drawn at (Futile's).
     resolution: Resolution,
-    windowed: bool,
+    /// The `Screen` and `Cursor` state the window has.
+    screen: ScreenState,
     title: String,
     /// The current process and the frames it has run, for `--screenshot` of a menu.
     process_frames: (Option<ProcessId>, u64),
@@ -89,18 +86,17 @@ struct App {
 }
 
 impl App {
-    fn new(mut frontend: Frontend, sprites: Option<Arc<SpriteAssets>>, options: Options) -> Self {
-        frontend.ctx.menu.full_screen = !options.windowed;
+    fn new(frontend: Frontend, sprites: Option<Arc<SpriteAssets>>, options: Options) -> Self {
         Self {
             sprites,
             show_visuals: !options.debug_view,
-            frontend,
             clock: FrameClock::default(),
             layers: RoomLayers::default(),
             view: None,
             screenshot_and_quit: options.screenshot,
-            resolution: options.resolution,
-            windowed: options.windowed,
+            resolution: frontend.ctx.resolution,
+            screen: frontend.ctx.menu.screen,
+            frontend,
             title: options.title,
             process_frames: (None, 0),
             quit_after_frame: false,
@@ -109,20 +105,24 @@ impl App {
     }
 
     /// A borderless full-screen window (the game's default, `fullscreenMode`
-    /// FullScreenWindow), or with `windowed` a window of the game's resolution in
-    /// physical pixels, not resizable (`resizableWindow: 0`). Either way the frame is
-    /// drawn at the resolution and scaled to the window.
+    /// FullScreenWindow), or in a window the screen's size in physical pixels, not
+    /// resizable (`resizableWindow: 0`). Either way the frame is drawn at the game's
+    /// resolution and scaled to the window.
     fn create_view(&self, event_loop: &ActiveEventLoop) -> Result<View, Box<dyn Error>> {
-        let (width, height) = self.resolution.size();
+        let [width, height] = self.screen.size.map(|v| v as u32);
         let attrs = Window::default_attributes()
             .with_title(format!("rainworld-rs - {}", self.title))
             .with_inner_size(PhysicalSize::new(width, height))
             .with_resizable(false)
-            .with_fullscreen((!self.windowed).then_some(Fullscreen::Borderless(None)));
+            .with_fullscreen(
+                self.screen
+                    .full_screen
+                    .then_some(Fullscreen::Borderless(None)),
+            );
         let window = Arc::new(event_loop.create_window(attrs)?);
         // `Options.OnLoadFinished`: `Cursor.visible = !fullScreen`, in menus and play
         // alike; full screen, the menus draw their own cursor sprite.
-        window.set_cursor_visible(!self.frontend.ctx.menu.full_screen);
+        window.set_cursor_visible(self.screen.cursor_visible);
         let physical = window.inner_size();
         log::info!(
             "resolution {}, window {}x{}",
@@ -215,9 +215,41 @@ impl App {
         }
     }
 
+    /// The window follows `Screen` and `Cursor` as the options menu set them, and the
+    /// frame Futile's screen size.
+    fn sync_window(&mut self) {
+        let screen = self.frontend.ctx.menu.screen;
+        let resolution = self.frontend.ctx.resolution;
+        let Some(view) = &mut self.view else { return };
+        if screen != self.screen {
+            log::info!(
+                "screen {}x{}, full screen {}",
+                screen.size[0],
+                screen.size[1],
+                screen.full_screen
+            );
+            view.window
+                .set_fullscreen(screen.full_screen.then_some(Fullscreen::Borderless(None)));
+            if !screen.full_screen {
+                let [w, h] = screen.size.map(|v| v as u32);
+                let _ = view.window.request_inner_size(PhysicalSize::new(w, h));
+            }
+            view.window.set_cursor_visible(screen.cursor_visible);
+            self.screen = screen;
+        }
+        if resolution != self.resolution {
+            view.renderer
+                .scene
+                .renderer
+                .set_frame_size(resolution.size());
+            self.resolution = resolution;
+        }
+    }
+
     fn frame(&mut self, event_loop: &ActiveEventLoop) {
         let dt = self.clock.delta(Instant::now());
         self.frontend.update(dt);
+        self.sync_window();
         if self.frontend.quit_requested() {
             log::info!("quit (main menu Exit)");
             event_loop.exit();

@@ -15,8 +15,8 @@ use rw_menu::menu::{Menu, MenuCx};
 use rw_menu::{
     Alignment, AtlasLoadError, Container, Font, FontTest, Initialization, IntroRoll, KeyboardKey,
     Label, MainLoopProcess, MainMenu, MenuContext, MenuShared, MenuSound, MenuSoundEvent, Node,
-    NodeTransform, ProcessFactory, ProcessId, ProcessManager, ProcessRequests, SlideShow,
-    SlideShowId, SlugcatSelectMenu, TextureSync, TimeStacker,
+    NodeTransform, OptionsMenu, ProcessFactory, ProcessId, ProcessManager, ProcessRequests,
+    SlideShow, SlideShowId, SlugcatSelectMenu, TextureSync, TimeStacker,
 };
 use rw_random::UnityRandom;
 use rw_render::{Camera, Color, MapGlobals, Renderer, Resolution, StageBatch, StageGlobals};
@@ -124,6 +124,7 @@ pub enum AppProcess {
     Game(Box<GameProcess>),
     FontTest(FontTest),
     MainMenu(Box<MainMenu>),
+    OptionsMenu(Box<OptionsMenu>),
     SlugcatSelect(Box<SlugcatSelectMenu>),
     SleepStandIn(SleepStandIn),
     Unported(Unported),
@@ -155,7 +156,8 @@ impl AppContext {
         start: ProcessId,
     ) -> Result<Self, AtlasLoadError> {
         let mut menu = MenuShared::load(assets, &resources, resolution.size_f32())?;
-        let saves = game.saves.load(&menu.assets, SaveSlot::default());
+        menu.options = game.saves.load_options();
+        let saves = game.saves.load(&menu.assets, Self::slot_of(&menu.options));
         menu.set_saves(saves);
         menu.random = UnityRandom::new(game.seed as i32);
         menu.set_sound_table(Arc::clone(&game.sound_table));
@@ -177,6 +179,39 @@ impl AppContext {
             save_backed_up: false,
             carried_region_state: None,
         })
+    }
+
+    /// `options.saveSlot` as a slot (Expedition's negative slots are not ported).
+    fn slot_of(options: &rw_save::Options) -> SaveSlot {
+        SaveSlot(u8::try_from(options.save_slot.clamp(0, 2)).unwrap_or(0))
+    }
+
+    /// `Options.OnLoadFinished` for the window: the options' screen size and mode,
+    /// after `--resolution` and `--windowed` (which set the options for this run).
+    pub fn apply_screen_options(&mut self, resolution: Option<Resolution>, windowed: bool) {
+        if let Some(i) = resolution.and_then(|r| Resolution::CHOICES.iter().position(|&c| c == r)) {
+            self.menu.options.resolution = i as i32;
+        }
+        if windowed {
+            self.menu.options.windowed = true;
+        }
+        self.menu.apply_screen_options();
+        self.sync_resolution();
+    }
+
+    /// The game's frame size follows Futile's screen size.
+    pub fn sync_resolution(&mut self) {
+        let [w, h] = self.menu.screen_size;
+        self.resolution = Resolution::new(w as u32, h as u32);
+    }
+
+    /// The options' volumes, every frame (`options.soundEffectsVolume` and
+    /// `musicVolume` are read live in the game).
+    fn apply_volumes(&mut self) {
+        if let Some(audio) = &mut self.audio {
+            audio.set_sound_effects_volume(self.menu.options.sound_effects_volume);
+        }
+        self.menu.apply_music_volume();
     }
 
     /// A Rewired keyboard key goes down or up: menu input, and the player's when the
@@ -391,6 +426,30 @@ impl MenuContext for AppContext {
             MusicSink::Output(output) => output.playback(track),
         }
     }
+
+    fn load_save_slot(&mut self) {
+        let slot = Self::slot_of(&self.menu.options);
+        let saves = self.game.saves.load(&self.menu.assets, slot);
+        self.menu.set_saves(saves);
+    }
+
+    fn save_options(&mut self) {
+        self.game.saves.save_options(&self.menu.options);
+    }
+
+    fn import_save_slot(&mut self, slot: SaveSlot) -> Result<(), String> {
+        let report = self.game.saves.import(&self.menu.assets, slot)?;
+        log::info!(
+            "imported {} into {} (backup {:?})",
+            report.source.display(),
+            report.destination.display(),
+            report.backup
+        );
+        if slot == Self::slot_of(&self.menu.options) {
+            self.load_save_slot();
+        }
+        Ok(())
+    }
 }
 
 impl ProcessFactory<AppProcess> for AppContext {
@@ -416,6 +475,9 @@ impl ProcessFactory<AppProcess> for AppContext {
             }),
             ProcessId::FontTest => AppProcess::FontTest(FontTest::new(&mut self.menu)),
             ProcessId::MainMenu => AppProcess::MainMenu(Box::new(MainMenu::new(&mut self.menu))),
+            ProcessId::OptionsMenu => {
+                AppProcess::OptionsMenu(Box::new(OptionsMenu::new(&mut self.menu)))
+            }
             ProcessId::SlugcatSelect => {
                 AppProcess::SlugcatSelect(Box::new(SlugcatSelectMenu::new(&mut self.menu)))
             }
@@ -427,6 +489,7 @@ impl ProcessFactory<AppProcess> for AppContext {
     }
 
     fn update_side_processes(&mut self, current: Option<&AppProcess>, dt: f32) {
+        self.apply_volumes();
         self.update_music(dt);
         self.update_menu_mic(current.is_some_and(AppProcess::is_menu));
     }
@@ -773,6 +836,7 @@ impl AppProcess {
             | Self::IntroRoll(_)
             | Self::SlideShow(_)
             | Self::MainMenu(_)
+            | Self::OptionsMenu(_)
             | Self::SlugcatSelect(_) => None,
         }
     }
@@ -784,6 +848,7 @@ impl AppProcess {
             Self::IntroRoll(p) => Some(p.menu()),
             Self::SlideShow(p) => Some(p.menu()),
             Self::MainMenu(p) => Some(p.menu()),
+            Self::OptionsMenu(p) => Some(p.menu()),
             Self::SlugcatSelect(p) => Some(p.menu()),
             _ => None,
         }
@@ -794,6 +859,7 @@ impl AppProcess {
             Self::IntroRoll(p) => Some(p.menu_mut()),
             Self::SlideShow(p) => Some(p.menu_mut()),
             Self::MainMenu(p) => Some(p.menu_mut()),
+            Self::OptionsMenu(p) => Some(p.menu_mut()),
             Self::SlugcatSelect(p) => Some(p.menu_mut()),
             _ => None,
         }
@@ -830,6 +896,7 @@ impl MainLoopProcess<AppContext> for AppProcess {
             Self::Game(_) => ProcessId::Game,
             Self::FontTest(_) => ProcessId::FontTest,
             Self::MainMenu(_) => ProcessId::MainMenu,
+            Self::OptionsMenu(_) => ProcessId::OptionsMenu,
             Self::SlugcatSelect(_) => ProcessId::SlugcatSelect,
             Self::Unported(p) => p.id,
             Self::SleepStandIn(p) => p.id,
@@ -844,6 +911,7 @@ impl MainLoopProcess<AppContext> for AppProcess {
             Self::Game(p) => p.update(ctx, requests),
             Self::FontTest(p) => p.update(ctx, requests),
             Self::MainMenu(p) => p.update(ctx, requests),
+            Self::OptionsMenu(p) => p.update(ctx, requests),
             Self::SlugcatSelect(p) => p.update(ctx, requests),
             Self::Unported(p) => p.update(ctx, requests),
             Self::SleepStandIn(p) => p.update(ctx, requests),
@@ -858,6 +926,7 @@ impl MainLoopProcess<AppContext> for AppProcess {
             Self::Game(p) => p.graf_update(time_stacker, ctx),
             Self::FontTest(p) => p.graf_update(time_stacker, ctx),
             Self::MainMenu(p) => p.graf_update(time_stacker, ctx),
+            Self::OptionsMenu(p) => p.graf_update(time_stacker, ctx),
             Self::SlugcatSelect(p) => p.graf_update(time_stacker, ctx),
             Self::Unported(_) | Self::SleepStandIn(_) => {}
         }
@@ -871,6 +940,7 @@ impl MainLoopProcess<AppContext> for AppProcess {
             Self::Game(p) => p.shut_down(ctx),
             Self::FontTest(p) => p.shut_down(ctx),
             Self::MainMenu(p) => p.shut_down(ctx),
+            Self::OptionsMenu(p) => p.shut_down(ctx),
             Self::SlugcatSelect(p) => p.shut_down(ctx),
             Self::Unported(_) | Self::SleepStandIn(_) => {}
         }
@@ -938,6 +1008,16 @@ impl Frontend {
     /// One frame of `dt` seconds (`ProcessManager.Update`).
     pub fn update(&mut self, dt: f32) {
         self.manager.update(dt, &mut self.ctx);
+        self.ctx.sync_resolution();
+    }
+
+    /// The options menu, when it is the current process.
+    #[must_use]
+    pub fn options_menu(&self) -> Option<&OptionsMenu> {
+        match self.manager.current() {
+            Some(AppProcess::OptionsMenu(o)) => Some(o),
+            _ => None,
+        }
     }
 
     /// `Application.Quit()` was called (the main menu's Exit).
@@ -1004,6 +1084,11 @@ impl Frontend {
                 r.set_background(Color::BLACK);
                 if let Some(menu) = current.as_ref().and_then(|p| p.menu()) {
                     menu.stage.push_quads(atlases, &mut batch);
+                    if let Some(AppProcess::OptionsMenu(options)) = current.as_ref()
+                        && let Some(dialog) = options.dialog()
+                    {
+                        dialog.menu().stage.push_quads(atlases, &mut batch);
+                    }
                 } else if let Some(stage) = current.as_ref().and_then(|p| p.stage()) {
                     stage.push_quads(atlases, &mut batch);
                 }

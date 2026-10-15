@@ -201,6 +201,15 @@ impl UiInputState {
     /// `PlayerInputLogic(1, 0)` for this tick; clears the presses latched since the
     /// last call. Remix's analogue sensitivity and the inversion options are off.
     pub fn take_tick_input(&mut self) -> UiInput {
+        let input = self.tick_input();
+        self.pressed_since_tick.clear();
+        input
+    }
+
+    /// [`Self::take_tick_input`] without spending the latched presses (a second menu
+    /// reading the same tick).
+    #[must_use]
+    pub fn tick_input(&self) -> UiInput {
         let mut dir = [
             self.axis(UiAction::Horizontal),
             self.axis(UiAction::Vertical),
@@ -209,7 +218,7 @@ impl UiInputState {
         if length > 1.0 {
             dir = dir.map(|d| d / length);
         }
-        let input = UiInput {
+        UiInput {
             x: UiInput::digital(dir[0], 0.5),
             y: UiInput::digital(dir[1], 0.5),
             jmp: self.button(UiAction::Submit),
@@ -221,9 +230,7 @@ impl UiInputState {
             } else {
                 0
             },
-        };
-        self.pressed_since_tick.clear();
-        input
+        }
     }
 }
 

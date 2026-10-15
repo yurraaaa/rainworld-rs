@@ -4,7 +4,7 @@ use std::f32::consts::PI;
 
 use rw_sim::{FloatExt, Vec2};
 
-use super::object::{ButtonVariant, Kind, ObjectId, RoundedRectData};
+use super::object::{ButtonVariant, Kind, ObjectId, RoundedRectData, SimpleKind};
 use super::{Menu, MenuScreen};
 use crate::color::{HslColor, MenuColor};
 use crate::stage::StageColor;
@@ -55,6 +55,7 @@ impl Menu {
             }
             Kind::Button(_) => self.graf_button(id, screen, t),
             Kind::HoldButton(_) => self.graf_hold_button(id, t),
+            Kind::Slider(_) => self.graf_slider(id, t),
             Kind::RoundedRect(_) => self.graf_rounded_rect(id, t),
             Kind::Illustration(i) => {
                 let node = i.sprite;
@@ -156,7 +157,111 @@ impl Menu {
             };
             return lit.lerp(MenuColor::Black.rgb(), b.black);
         }
+        if let ButtonVariant::Simple {
+            sub:
+                SimpleKind::SelectOne {
+                    selected_col,
+                    last_selected_col,
+                    ..
+                },
+            ..
+        } = b.variant
+        {
+            return MenuColor::DarkGrey.rgb().lerp(
+                self.template_color(id, t),
+                last_selected_col.lerp(selected_col, t),
+            );
+        }
         self.template_color(id, t)
+    }
+
+    /// `Slider.MyColor`.
+    fn slider_color(&self, id: ObjectId, t: f32) -> StageColor {
+        let Some(s) = self.slider(id) else {
+            return StageColor::WHITE;
+        };
+        let b = &s.behav;
+        if b.greyed_out {
+            return MenuColor::DarkGrey.hsl().blacken(s.black).rgb();
+        }
+        let a = b
+            .last_col
+            .lerp(b.col, t)
+            .max(b.last_flash.lerp(b.flash, t))
+            .max(s.graphic_in_dragged_mode);
+        MenuColor::MediumGrey
+            .hsl()
+            .lerp(MenuColor::White.hsl(), a)
+            .blacken(s.black)
+            .rgb()
+    }
+
+    /// `Slider.GrafUpdate` and `HorizontalSlider.GrafUpdate`: the knob's colours, the
+    /// label right of the line, and the line on both sides of the knob.
+    fn graf_slider(&mut self, id: ObjectId, t: f32) {
+        let color = self.slider_color(id, t);
+        let Some(s) = self.slider(id) else { return };
+        let s = s.clone();
+        let b = &s.behav;
+        let owner_pos = self.objects[id.0]
+            .owner
+            .filter(|o| self.objects[o.0].kind.positioned())
+            .map_or(Vec2::ZERO, |o| self.screen_pos(o));
+        let anchor = s.anchor_point + owner_pos;
+        if let Kind::Label(l) = &self.objects[s.menu_label.0].kind {
+            let node = l.label;
+            let y = self.draw_pos(id, t).y + 16.0;
+            let label = self.stage.label_mut(node);
+            label.color = color;
+            label.transform.x = anchor.x + s.length + 40.01;
+            label.transform.y = y;
+        }
+        let fill = MenuColor::Black.rgb().lerp(
+            MenuColor::White.rgb(),
+            b.last_flash.lerp(b.flash, t).max(Self::inverse_lerp(
+                0.0,
+                0.2,
+                s.graphic_in_dragged_mode,
+            )),
+        );
+        if let Kind::RoundedRect(r) = &self.objects[s.rounded_rect.0].kind {
+            let sprites = r.sprites.clone();
+            for (i, node) in sprites.into_iter().enumerate() {
+                self.stage.sprite_mut(node).color = if i < 9 { fill } else { color };
+            }
+        }
+        let alpha = 0.5 + 0.5 * (b.last_sin.lerp(b.sin, t) / 30.0 * PI * 2.0).sin();
+        self.set_border(s.select_rect, color, alpha);
+        let (rect_add, rect_pos, rect_size) = match &self.objects[s.rounded_rect.0].kind {
+            Kind::RoundedRect(r) => (
+                r.last_add_size.lerp(r.add_size, t),
+                self.draw_pos(s.rounded_rect, t),
+                self.draw_size(s.rounded_rect, t),
+            ),
+            _ => return,
+        };
+        let v = rect_pos - rect_add / 2.0;
+        let size = rect_size + rect_add;
+        let (vx, sx) = (v.x.floor() + 0.01, size.x.round() + 0.01);
+        let end = anchor.x + s.length + 20.0;
+        for node in s.line_sprites {
+            self.stage.sprite_mut(node).color = color;
+        }
+        let y = anchor.y + 15.0;
+        let [l0, l1, l2, l3] = s.line_sprites;
+        for (node, x, visible) in [
+            (l0, anchor.x, vx > anchor.x),
+            (l1, anchor.x, vx > anchor.x),
+            (l2, end, vx + sx < end),
+            (l3, end, vx + sx < end),
+        ] {
+            let sprite = self.stage.sprite_mut(node);
+            sprite.transform.x = x;
+            sprite.transform.y = y;
+            sprite.transform.visible = visible;
+        }
+        self.stage.transform_mut(l1).scale_x = vx - anchor.x;
+        self.stage.transform_mut(l2).scale_x = s.length + 20.0 - (vx + sx - anchor.x);
     }
 
     /// The base `ButtonTemplate.MyColor`.
@@ -214,6 +319,7 @@ impl Menu {
                 menu_label,
                 label_color,
                 fade_alpha,
+                sub,
             } => {
                 let label_rgb = self.interp_color(id, t, label_color);
                 if let Kind::Label(l) = &self.objects[menu_label.0].kind {
@@ -224,6 +330,16 @@ impl Menu {
                 let pulse = self.select_pulse(id, t, 1.0);
                 let color = self.button_color(id, t);
                 self.set_border(select_rect, color, pulse * fade_alpha);
+                if let SimpleKind::Controls { device_image } = sub
+                    && let Kind::Illustration(i) = &self.objects[device_image.0].kind
+                {
+                    let node = i.sprite;
+                    self.stage.sprite_mut(node).color = color;
+                    if let Kind::Label(l) = &self.objects[menu_label.0].kind {
+                        let node = l.label;
+                        self.stage.label_mut(node).color = color;
+                    }
+                }
             }
             ButtonVariant::BigArrow {
                 rounded_rect,

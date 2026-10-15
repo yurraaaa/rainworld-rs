@@ -9,7 +9,7 @@ use super::Menu;
 use super::object::{
     ButtonBehavior, ButtonData, ButtonVariant, CursorData, DarkGradientData, HoldButtonData,
     IllustrationData, Kind, LabelData, MenuObject, ObjectId, PageData, RoundedRectData, SceneData,
-    SceneId,
+    SceneId, SimpleKind, SliderData, SliderId,
 };
 use crate::color::{HslColor, MenuColor};
 use crate::font::Font;
@@ -208,6 +208,7 @@ impl Menu {
                 menu_label: id,
                 label_color: MenuColor::MediumGrey.hsl(),
                 fade_alpha: 1.0,
+                sub: SimpleKind::Plain,
             },
         });
         id
@@ -244,8 +245,168 @@ impl Menu {
                 menu_label,
                 label_color: MenuColor::MediumGrey.hsl(),
                 fade_alpha: 1.0,
+                sub: SimpleKind::Plain,
             },
         );
+        id
+    }
+
+    fn set_simple_kind(&mut self, id: ObjectId, kind: SimpleKind) {
+        if let Some(ButtonData {
+            variant: ButtonVariant::Simple { sub, .. },
+            ..
+        }) = self.button_mut(id)
+        {
+            *sub = kind;
+        }
+    }
+
+    /// `new CustomMessageButton(menu, owner, displayText, signalText, pos, size, message)`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn add_custom_message_button(
+        &mut self,
+        shared: &MenuShared,
+        owner: ObjectId,
+        display_text: &str,
+        signal_text: &str,
+        pos: Vec2,
+        size: Vec2,
+        message: &str,
+    ) -> ObjectId {
+        let id = self.add_simple_button(shared, owner, display_text, signal_text, pos, size);
+        self.set_simple_kind(id, SimpleKind::CustomMessage(message.to_owned()));
+        id
+    }
+
+    /// `new SelectOneButton(menu, owner, displayText, signalText, pos, size, buttonArray,
+    /// buttonArrayIndex)`: the series is the signal text.
+    #[allow(clippy::too_many_arguments)]
+    pub fn add_select_one_button(
+        &mut self,
+        shared: &MenuShared,
+        owner: ObjectId,
+        display_text: &str,
+        series: &str,
+        pos: Vec2,
+        size: Vec2,
+        index: i32,
+    ) -> ObjectId {
+        let id = self.add_simple_button(shared, owner, display_text, series, pos, size);
+        let outer_rect = self.add_rounded_rect(id, Vec2::ZERO, size, false);
+        self.add_sub(id, outer_rect);
+        self.set_simple_kind(
+            id,
+            SimpleKind::SelectOne {
+                index,
+                outer_rect,
+                selected_col: 0.0,
+                last_selected_col: 0.0,
+            },
+        );
+        id
+    }
+
+    /// `new ControlsButton(menu, owner, pos, displayName)`: a 110 x 80 simple button
+    /// signalling `INPUT` that makes a second pair of rectangles (the first stay as
+    /// made), the gamepad icon in the middle and its label 50 below.
+    pub fn add_controls_button(
+        &mut self,
+        shared: &mut MenuShared,
+        owner: ObjectId,
+        pos: Vec2,
+        display_name: &str,
+    ) -> ObjectId {
+        let size = Vec2::new(110.0, 80.0);
+        let id = self.add_simple_button(shared, owner, display_name, "INPUT", pos, size);
+        let rounded = self.add_rounded_rect(id, Vec2::ZERO, size, true);
+        self.add_sub(id, rounded);
+        let select = self.add_rounded_rect(id, Vec2::ZERO, size, false);
+        self.add_sub(id, select);
+        let image = self.add_illustration(shared, id, "", "GamepadIcon", size / 2.0, true, true);
+        self.add_sub(id, image);
+        if let Some(ButtonData {
+            variant:
+                ButtonVariant::Simple {
+                    rounded_rect,
+                    select_rect,
+                    menu_label,
+                    sub,
+                    ..
+                },
+            ..
+        }) = self.button_mut(id)
+        {
+            *rounded_rect = rounded;
+            *select_rect = select;
+            *sub = SimpleKind::Controls {
+                device_image: image,
+            };
+            let label = *menu_label;
+            self.objects[label.0].pos.y -= 50.0;
+            self.objects[label.0].last_pos.y -= 50.0;
+        }
+        id
+    }
+
+    /// `new HorizontalSlider(menu, owner, text, pos, size, ID, subtleSlider: false)`.
+    pub fn add_horizontal_slider(
+        &mut self,
+        shared: &MenuShared,
+        owner: ObjectId,
+        text: &str,
+        pos: Vec2,
+        size: Vec2,
+        slider: SliderId,
+    ) -> ObjectId {
+        let id = self.push(MenuObject::new(
+            Some(owner),
+            pos,
+            Kind::Container {
+                gradients_alpha: None,
+            },
+        ));
+        self.objects[id.0].size = size;
+        let container = self.container_of(id);
+        let mut lines: [Sprite; 4] = std::array::from_fn(|_| Sprite::new("pixel"));
+        lines[0].transform.scale_x = 2.0;
+        lines[0].transform.scale_y = 6.0;
+        lines[1].transform.scale_y = 2.0;
+        lines[1].anchor[0] = 0.0;
+        lines[2].transform.scale_y = 2.0;
+        lines[2].anchor[0] = 1.0;
+        lines[3].transform.scale_x = 2.0;
+        lines[3].transform.scale_y = 6.0;
+        let line_sprites = lines.map(|l| self.stage.add_sprite(container, l));
+        let knob = Vec2::new(20.0, 30.0);
+        let corner = Vec2::new(0.01, 0.01);
+        let rounded_rect = self.add_rounded_rect(id, corner, knob, true);
+        self.add_sub(id, rounded_rect);
+        let select_rect = self.add_rounded_rect(id, corner, knob, false);
+        self.add_sub(id, select_rect);
+        let menu_label =
+            self.add_label(shared, id, text, Vec2::new(size.x + 10.0, 0.0), size, false);
+        if let Kind::Label(l) = &self.objects[menu_label.0].kind {
+            let node = l.label;
+            self.stage.label_mut(node).set_alignment(Alignment::Left);
+        }
+        self.add_sub(id, menu_label);
+        let page = self.page_of(id);
+        self.page_data_mut(page).selectables.push(id);
+        self.objects[id.0].kind = Kind::Slider(Box::new(SliderData {
+            behav: ButtonBehavior::default(),
+            id: slider,
+            rounded_rect,
+            select_rect,
+            menu_label,
+            line_sprites,
+            anchor_point: pos + corner,
+            length: size.x,
+            mov_speed: 0.0,
+            graphic_in_dragged_mode: 0.0,
+            mouse_dragged: false,
+            mouse_drag_offset: 0.0,
+            black: 0.0,
+        }));
         id
     }
 
@@ -695,6 +856,7 @@ impl Menu {
                 Kind::Illustration(i) => nodes.push(i.sprite),
                 Kind::DarkGradient(g) => nodes.push(g.sprite),
                 Kind::HoldButton(h) => nodes.extend(h.circles),
+                Kind::Slider(sl) => nodes.extend(sl.line_sprites),
                 Kind::Button(b) => match &b.variant {
                     ButtonVariant::BigArrow { symbol, .. }
                     | ButtonVariant::CheckBox { symbol, .. } => nodes.push(*symbol),
@@ -746,6 +908,7 @@ impl SceneId {
                 "Scenes/Slugcat - Red".to_owned(),
                 "Slugcat - Red Dark - Flat",
             ),
+            Self::LandscapeSu => ("Scenes/Landscape - SU".to_owned(), "Landscape - SU - Flat"),
             _ => match self.slide_show_layers() {
                 FlatLayers::Scene { folder, files } => {
                     (folder.to_owned(), files.first().copied().unwrap_or(""))

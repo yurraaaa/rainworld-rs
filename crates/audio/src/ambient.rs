@@ -44,7 +44,7 @@ impl AmbientPlayer {
     pub fn mix(&mut self, mic: &Microphone, listener: Vec2, now: f32) -> SourceMix {
         let groups = mic.volume_groups();
         let factor = self.factor(listener);
-        let volume = (factor * groups[0] * groups[2] * self.sound.volume * Microphone::SFX_VOLUME)
+        let volume = (factor * groups[0] * groups[2] * self.sound.volume * mic.sfx_volume)
             .powf(mic.exponent())
             .clamp(0.0, 1.0);
         SourceMix {
