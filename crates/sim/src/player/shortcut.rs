@@ -48,6 +48,12 @@ impl Player {
         self.vessel.map(|v| v.pos)
     }
 
+    /// The vessel's `lastPositions[0]`, if inside a shortcut.
+    #[must_use]
+    pub fn shortcut_vessel_last_tile(&self) -> Option<(i32, i32)> {
+        self.vessel.map(|v| v.last_pos)
+    }
+
     /// The shortcut block at the end of `MovementUpdate`: a chunk in an entrance tile
     /// with input exactly into the hole starts entering, head first. Dead ends, dens and
     /// NPC transports can't be entered.

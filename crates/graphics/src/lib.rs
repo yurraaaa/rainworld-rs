@@ -22,6 +22,7 @@ mod overseer_draw;
 mod overseer_graphics;
 mod player_draw;
 mod player_graphics;
+mod shortcut_graphics;
 mod tail;
 
 pub use atlas::{Atlas, AtlasError, AtlasFrame, Rect, Size};
@@ -37,9 +38,14 @@ pub use mycelium::{Mycelium, MyceliumLink};
 pub use overseer_graphics::{DrawPositions, OverseerGraphics};
 pub use player_draw::{SPRITE_COUNT, SPRITE_LAYERS, TAIL_TRIANGLES};
 pub use player_graphics::PlayerGraphics;
+pub use shortcut_graphics::{
+    ExitBehind, ShortcutFrame, ShortcutGraphics, ShortcutPalette, ShortcutRoom, ShortcutVessel,
+};
 pub use tail::{TailAnchor, TailSegment};
 
 #[cfg(test)]
 mod hologram_tests;
+#[cfg(test)]
+mod shortcut_tests;
 #[cfg(test)]
 mod tests;

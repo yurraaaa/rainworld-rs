@@ -11,6 +11,7 @@ mod nodes;
 mod noise;
 mod palette;
 mod placed;
+mod placed_types;
 mod png_image;
 pub mod region_properties;
 pub mod room;
@@ -35,6 +36,7 @@ pub use nodes::{
 pub use noise::NoiseTexture;
 pub use palette::{EffectColors, PaletteImage, PaletteTexture, RoomPalette};
 pub use placed::{PlacedObject, RoomEffect};
+pub use placed_types::{PlacedObjectType, RoomEffectType};
 pub use png_image::PngImage;
 pub use region_properties::{RegionParams, RegionProperties, RoomAttractions};
 pub use room::{

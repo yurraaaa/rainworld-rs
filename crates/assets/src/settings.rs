@@ -14,7 +14,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::{
-    ActiveMods, AmbientSound, AssetError, PlacedObject, RoomEffect, StreamingAssets, Timeline,
+    ActiveMods, AmbientSound, AssetError, PlacedObject, RoomEffect, RoomEffectType,
+    StreamingAssets, Timeline,
 };
 
 /// `FadePalette: <palette>, <fade>, <fade>, ...`: a second palette and one blend amount
@@ -225,6 +226,15 @@ impl RoomSettings {
         let mut objects = self.placed_objects.clone();
         PlacedObject::apply_filters(&mut objects, timeline, mods);
         objects
+    }
+
+    /// `GetEffectAmount`: the amount of the first effect of `kind`, 0 without one.
+    #[must_use]
+    pub fn effect_amount(&self, kind: RoomEffectType) -> f32 {
+        self.effects
+            .iter()
+            .find(|e| e.kind == kind.value())
+            .map_or(0.0, |e| e.amount)
     }
 
     /// `GetEffectAmount`-style lookup: whether an effect of `kind` is present.

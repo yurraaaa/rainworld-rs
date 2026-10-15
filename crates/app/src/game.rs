@@ -13,6 +13,7 @@ use rw_assets::{ActiveMods, Room, RoomSettings, SlugcatName, SoundTable, Streami
 use rw_audio::Follow as SoundFollow;
 use rw_graphics::{
     Color, DrawList, HologramFrame, HologramGraphics, OverseerGraphics, PlayerGraphics,
+    ShortcutPalette,
 };
 use rw_hud::{HudSetup, OwnerTick, RainCycleView, StartCondition, Subregions};
 use rw_random::UnityRandom;
@@ -27,6 +28,8 @@ use rw_sim::{
     CameraMove, CameraView, HudEvent, Input, PhysicalObject, Player, PlayerObserver, RainWorldGame,
     SoundEvent, Sounds, Start, Vec2, Water,
 };
+
+use crate::shortcuts::CameraShortcuts;
 
 /// How a game starts.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -50,6 +53,7 @@ pub struct Game {
     start_condition: StartCondition,
     /// The region's subregions, for the HUD; `None` in a world without a region.
     subregions: Option<Subregions>,
+    shortcuts: CameraShortcuts,
 }
 
 /// The player's graphics module, attached where the game attaches it, and the
@@ -338,6 +342,7 @@ impl Game {
             graphics,
             start_condition: StartCondition::Dev,
             subregions: None,
+            shortcuts: CameraShortcuts::default(),
         }
     }
 
@@ -496,7 +501,9 @@ impl Game {
     /// One 40 Hz simulation tick ([`RainWorldGame::tick`]).
     pub fn tick(&mut self, input: Input) {
         let was_in_shortcut = self.sim.player().is_some_and(Player::in_shortcut);
+        self.shortcuts.update();
         self.sim.tick(input, &mut self.graphics);
+        self.shortcuts.sync(&mut self.sim, self.graphics.slugcat);
         let in_shortcut = self.sim.player().is_some_and(Player::in_shortcut);
         if in_shortcut != was_in_shortcut {
             log::info!(
@@ -560,6 +567,28 @@ impl Game {
             }
         }
         lists
+    }
+
+    /// Camera 0's shortcut sprites at this frame (`ShortcutGraphics.Draw`), its image at
+    /// `camera` in the room.
+    pub fn shortcut_draw_list(
+        &mut self,
+        palette: ShortcutPalette,
+        camera: Vec2,
+    ) -> Option<DrawList> {
+        self.shortcuts.draw(
+            &self.sim,
+            self.graphics.slugcat,
+            palette,
+            camera,
+            &mut self.graphics.cosmetic,
+        )
+    }
+
+    /// Camera 0's shortcut graphics.
+    #[cfg(test)]
+    pub fn shortcut_graphics(&mut self) -> Option<&rw_graphics::ShortcutGraphics> {
+        self.shortcuts.current(&self.sim)
     }
 
     /// The camera room palette's earth colour, which the overseers' hologram colour

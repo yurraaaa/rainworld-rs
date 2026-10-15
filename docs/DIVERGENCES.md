@@ -72,6 +72,11 @@ it (D13). What still differs is only the seed and the call order:
   the gamepad silhouette, the light effect), which the app takes from a cosmetic stream
   of its own: the game makes them on the global stream once per rendered frame, so their
   number follows the frame rate, not the tick.
+- **Shortcut blinks.** Each realized room's `shortcutsBlinking` update makes the game's
+  draws (`Room.Update`, after the water: an idle row one, or two below 0.01; a
+  flickering row two) in that order. `ShortcutGraphics.Draw`'s draws (a blinking pipe's
+  flicker, a flashing glow's size) come from the app's cosmetic stream, for the same
+  per-frame reason as the holograms'.
 
 **Why.** Matching the game's draw sequence would need every system that draws. Seeding
 from the command line keeps runs reproducible.
@@ -175,13 +180,18 @@ camera moved to the node's `viewedByCamera`. An exit with no connection (`-1`) s
 the whole shortcut update that tick, a node past the connections bounces the vessel
 back ("faulty room exit"), as in the game.
 
+The entrance blink is ported: `Room.shortcutsBlinking` and its update, `BlinkShortCut`
+from `Creature.NewTile` (the player and realized overseers, on the tick their tile or
+room changes, including the room-exit blink behind in the room left) and from the
+lobby's arrival (2.5 for the slugcat, 1.5 otherwise), with `ColorEntrance` on camera 0.
+
 **What differs:**
 - **One vessel, owned by the player.** The game's `ShortcutHandler` keeps a list of
   vessels for every creature, with Jolly co-op waits and border travel; the port has
   one player whose vessel lives on `Player` or in the lobby, `wait` is always 0, and
   the handler is the three-tick divider plus that lobby.
 - **Not ported:** being pulled in by a carried object (no grasps), `cantBeGrabbedCounter`,
-  the entrance blink (`BlinkShortCut`, also on arrival), MSC tongue release, the arena
+  MSC tongue release, the arena
   hooks of `SpitOutOfShortCut` and den entry (`PlayerTryingToEnterDen`), dens and NPC
   transports for creatures, region transportation, and Remix falling into a shortcut
   (D4).
@@ -270,6 +280,19 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   cuts when it has loaded (usually the next frame); the port decodes every camera's
   image when the camera enters the room (`MoveCamera`, synchronous: D14) and cuts in
   the same tick.
+- **Shortcut graphics** (`rw_graphics::ShortcutGraphics`, `rainworld-re/notes/shortcuts.md`
+  section 10). The level view draws the game's pipe pixels (`ShortCut0`, masked to the
+  level image's shortcut texels), entrance symbols and glows, the blink pulses and the
+  travelling vessel in its creature's colour; the debug view keeps its vessel marker.
+  Differences: the entrance pixels' `RippleBasicClipDistortion` is drawn as `Basic`
+  (its Watcher ripple clip is off in the base game); the glow's `Futile_White` is the
+  atlas's `RainWorld_White` (as for the room sprite shaders above); within the `Items`
+  container the shortcut sprites are drawn after the overseers' (the game's order there
+  follows when each was added, INFERRED irrelevant since `ShortCut0` only shows on pipe
+  texels); `ShortCutColor` is known only for the slugcat and the overseer (white). Not
+  ported: the arena's `DarkenExitSymbol` and `ChangeAllExitsToSheltersOrDots`, the More
+  Slugcats symbols (dens, NPC and region transports, and showing them while
+  controlling a creature) and the Remix gate symbol, underwater shortcuts and grayscale.
 - **Camera in shortcuts.** While the player is in a shortcut the camera follows the
   centre of the vessel's tile; the game uses the vessel's interpolated on-screen position.
 - **Fade quantisation.** The blended palette is stored as 8-bit texels like the game's

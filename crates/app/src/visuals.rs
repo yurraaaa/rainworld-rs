@@ -97,6 +97,16 @@ impl Visuals {
         self.palette.room_palette()
     }
 
+    /// The palette colours of the shortcut graphics.
+    #[must_use]
+    pub fn shortcut_palette(&self) -> rw_graphics::ShortcutPalette {
+        let p = self.room_palette();
+        rw_graphics::ShortcutPalette {
+            colors: p.shortcut_colors.map(rw_graphics::Color::from),
+            symbol: p.shortcut_symbol.into(),
+        }
+    }
+
     /// The palette's earth colour (`GetPixel(0, 2)`, the overseers' graphics).
     #[must_use]
     pub fn earth_color(&self) -> rw_graphics::Color {

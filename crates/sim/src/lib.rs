@@ -50,7 +50,7 @@ pub use object::{
 pub use player::{
     Animation, BodyMode, HEAD, HIPS, INPUT_HISTORY, Input, Player, PlayerController, VesselStep,
 };
-pub use shortcut::{LobbyVessel, ShortcutHandler};
+pub use shortcut::{EntranceColor, LobbyVessel, ShortcutHandler, ShortcutsBlinking};
 pub use sound::{EmitterId, PlayedSound, SoundEvent, SoundId, SoundSource, Sounds};
 pub use spawn::{determine_safe_spawn_tile, place_in_room};
 pub use vec2::{TileExt, Vec2};

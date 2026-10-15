@@ -11,7 +11,7 @@ use super::AiMap;
 use crate::room_ext::RoomExt;
 use crate::room_script::RoomScript;
 
-use crate::Water;
+use crate::{ShortcutsBlinking, Water};
 
 /// Placed objects whose `Room.Loaded` branch delays entry by 80 ticks (base game).
 const WAIT_80_OBJECTS: [&str; 8] = [
@@ -44,6 +44,8 @@ pub struct RealizedRoom {
     pub scripts: Vec<RoomScript>,
     /// `aimap`, made when the room finishes loading.
     pub ai_map: Option<AiMap>,
+    /// `shortcutsBlinking`, made when the shortcuts are ready.
+    pub shortcuts_blinking: Option<ShortcutsBlinking>,
 }
 
 impl RealizedRoom {
@@ -69,6 +71,7 @@ impl RealizedRoom {
             first_time_realized,
             scripts: Vec::new(),
             ai_map: None,
+            shortcuts_blinking: None,
         }
     }
 
@@ -110,6 +113,9 @@ impl RealizedRoom {
     /// `ShortCutsReady` then `ReadyForAI` (no creature needs the AI map): fully loaded
     /// and open to the player once the delay runs out.
     pub(crate) fn finish_loading(&mut self) {
+        self.shortcuts_blinking = Some(ShortcutsBlinking::new(
+            self.room.shortcut_map().shortcuts().len(),
+        ));
         self.water = Water::new(&self.room, &self.settings);
         self.ai_map = Some(AiMap::new(&self.room));
         self.loading_progress = 3;

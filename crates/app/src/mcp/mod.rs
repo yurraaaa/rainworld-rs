@@ -14,6 +14,8 @@ mod params;
 mod reply;
 mod session;
 #[cfg(test)]
+mod shortcut_shots;
+#[cfg(test)]
 mod tests;
 mod tiles;
 #[cfg(test)]

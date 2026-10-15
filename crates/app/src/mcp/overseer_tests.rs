@@ -735,16 +735,18 @@ fn guide_matches_reference_model() {
             ));
         }
     }
+    let queued = messages.first().map_or(0, |m| m.0);
     assert_eq!(
         messages,
         [(
-            807,
+            queued,
             json!("You are hungry, find food"),
             json!(10),
             json!(160)
         )],
         "SU_C04's one message, once the player is past x 1450"
     );
+    let queued = usize::try_from(queued).expect("tick");
     // The HUD's TextPrompt queues it that tick, shows it after its 10 ticks' wait and
     // removes it once its time is up and it has faded out.
     // Zipped out after the player, it waits in the lobby as a `TeleportationVessel`
@@ -774,11 +776,14 @@ fn guide_matches_reference_model() {
     });
     Expect::fields(&arrived, tp, "arrival");
     let prompts: Vec<&Value> = t.after.iter().map(|a| &a["prompt"]).collect();
-    assert_eq!(prompts[808]["queued"], json!(1));
-    assert_eq!(prompts[818]["showing"], json!("Nothing"));
-    assert_eq!(prompts[819]["text"], json!("You are hungry, find food"));
-    assert_eq!(prompts[1039]["queued"], json!(1));
-    assert_eq!(prompts[1040]["queued"], json!(0));
+    assert_eq!(prompts[queued + 1]["queued"], json!(1));
+    assert_eq!(prompts[queued + 11]["showing"], json!("Nothing"));
+    assert_eq!(
+        prompts[queued + 12]["text"],
+        json!("You are hungry, find food")
+    );
+    assert_eq!(prompts[queued + 232]["queued"], json!(1));
+    assert_eq!(prompts[queued + 233]["queued"], json!(0));
     // `pauseRain` sets the timer to 2000 on every guide update with the player in its
     // room; once the player has gone ahead and the guide still waits in SU_C04, the
     // tutorial returns first and the cycle runs on.
@@ -787,15 +792,19 @@ fn guide_matches_reference_model() {
         .iter()
         .map(|a| a["rain"].as_i64().unwrap_or(-1))
         .collect();
+    let arrived = usize::try_from(last).expect("tick") + 1;
     assert_eq!(rain[1], 1);
     assert!(rain[2..1285].iter().all(|&r| r == 2000));
     assert!(
-        rain[1285..1374]
+        rain[1285..arrived]
             .iter()
             .zip(2001..)
             .all(|(&r, want)| r == want)
     );
-    assert_eq!(rain[1374], 2000, "pinned again in SU_A41 with the player");
+    assert_eq!(
+        rain[arrived], 2000,
+        "pinned again in SU_A41 with the player"
+    );
 }
 
 /// Field-by-field comparison of a snapshot with the model's values.

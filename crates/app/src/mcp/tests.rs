@@ -38,7 +38,7 @@ impl Session {
         Some(Self::new(assets, std::sync::Arc::new(resources)))
     }
 
-    fn load(&mut self, name: &str, seed: u64) {
+    pub(super) fn load(&mut self, name: &str, seed: u64) {
         self.load_room(&LoadRoomParams {
             name: name.to_owned(),
             seed: Some(seed),

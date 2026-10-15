@@ -241,11 +241,17 @@ impl MulAssign<f32> for Vec2 {
 pub trait TileExt {
     /// `IntVector2.FloatDist`.
     fn float_dist(self, other: Self) -> f32;
+    /// `Custom.ManhattanDistance`.
+    fn manhattan(self, other: Self) -> i32;
 }
 
 impl TileExt for (i32, i32) {
     fn float_dist(self, other: Self) -> f32 {
         Vec2::new(self.0 as f32, self.1 as f32).distance(Vec2::new(other.0 as f32, other.1 as f32))
+    }
+
+    fn manhattan(self, other: Self) -> i32 {
+        (self.0 - other.0).abs() + (self.1 - other.1).abs()
     }
 }
 

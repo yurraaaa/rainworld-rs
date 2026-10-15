@@ -8,7 +8,7 @@
 use crate::{Room, Shortcut, Terrain};
 
 /// The game's `Custom.fourDirections`: left, down, right, up.
-const FOUR_DIRECTIONS: [(i32, i32); 4] = [(-1, 0), (0, -1), (1, 0), (0, 1)];
+pub const FOUR_DIRECTIONS: [(i32, i32); 4] = [(-1, 0), (0, -1), (1, 0), (0, 1)];
 
 /// `MapShortcut` gives up after this many steps (it checks `steps <= 1000` after each).
 const MAX_STEPS: u32 = 1000;
@@ -28,6 +28,35 @@ pub enum ShortcutType {
     RegionTransportation,
     /// The walk stalls, or runs past the step limit.
     DeadEnd,
+}
+
+impl ShortcutType {
+    /// The game's spelling.
+    #[must_use]
+    pub fn value(self) -> &'static str {
+        match self {
+            Self::Normal => "Normal",
+            Self::RoomExit => "RoomExit",
+            Self::CreatureHole => "CreatureHole",
+            Self::NpcTransportation => "NPCTransportation",
+            Self::RegionTransportation => "RegionTransportation",
+            Self::DeadEnd => "DeadEnd",
+        }
+    }
+
+    #[must_use]
+    pub fn from_value(value: &str) -> Option<Self> {
+        [
+            Self::Normal,
+            Self::RoomExit,
+            Self::CreatureHole,
+            Self::NpcTransportation,
+            Self::RegionTransportation,
+            Self::DeadEnd,
+        ]
+        .into_iter()
+        .find(|t| t.value() == value)
+    }
 }
 
 /// One shortcut (`ShortcutData`): the tube walked from one entrance.
@@ -99,6 +128,12 @@ impl ShortcutMap {
             return None;
         }
         self.shortcuts.iter().find(|s| s.start == tile)
+    }
+
+    /// `Array.IndexOf(shortcutsIndex, tile)`: the shortcut whose entrance is `tile`.
+    #[must_use]
+    pub fn index_of(&self, tile: (i32, i32)) -> Option<usize> {
+        self.shortcuts.iter().position(|s| s.start == tile)
     }
 
     /// Type of the shortcut at `tile` (`Room.shortcutData(tile).shortCutType`).

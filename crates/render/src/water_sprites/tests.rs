@@ -27,6 +27,8 @@ fn palette() -> RoomPalette {
         water_shine_color: [1.0, 1.0, 1.0, 1.0],
         fog_amount: 0.4,
         darkness: 0.0,
+        shortcut_colors: [[0.0; 4]; 3],
+        shortcut_symbol: [1.0; 4],
     }
 }
 

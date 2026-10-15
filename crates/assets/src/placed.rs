@@ -3,7 +3,7 @@
 //! places. `RoomSettings.LoadEffects`, `LoadPlacedObjects`, `PlacedObject.FromString`,
 //! `PlacedObject.FilterData`.
 
-use crate::{ActiveMods, SlugcatName, Timeline};
+use crate::{ActiveMods, PlacedObjectType, SlugcatName, Timeline};
 
 /// `RoomSettings.RoomEffect`: type name and amount.
 #[derive(Debug, Clone, PartialEq)]
@@ -56,6 +56,12 @@ impl RoomEffect {
 }
 
 impl PlacedObject {
+    /// The object's type, if `mods` register it.
+    #[must_use]
+    pub fn object_type(&self, mods: ActiveMods) -> Option<PlacedObjectType> {
+        PlacedObjectType::from_value(&self.kind, mods)
+    }
+
     /// The entries of a `PlacedObjects:` value (`Type><x><y><data`, separated by `", "`).
     /// An entry whose position is not a number is skipped (the game would throw).
     #[must_use]

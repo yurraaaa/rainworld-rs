@@ -41,6 +41,7 @@ mod game;
 mod input;
 mod mcp;
 mod scene;
+mod shortcuts;
 mod sprites;
 mod timestep;
 mod visuals;

@@ -6,7 +6,9 @@
 //! `rainworld-re/notes/world-loading.md`, `room-realizer.md`, `shortcuts.md` section 5,
 //! `creature-model.md`.
 
-use rw_assets::{NodeType, Room, Shortcut, ShortcutType};
+use std::collections::HashMap;
+
+use rw_assets::{CreatureType, NodeType, Room, Shortcut, ShortcutType};
 use rw_random::UnityRandom;
 
 use crate::camera::CameraView;
@@ -24,7 +26,7 @@ use crate::creature::{
 use crate::room_script::{RoomScript, ScriptTick, StorySession};
 use crate::world::{AbstractTick, FollowCreature, RainCycle, RoomRealizer, World};
 use crate::{
-    Input, LobbyVessel, Player, ShortcutHandler, Sounds, Vec2, VesselStep, Water,
+    EntranceColor, Input, LobbyVessel, Player, ShortcutHandler, Sounds, Vec2, VesselStep, Water,
     determine_safe_spawn_tile,
 };
 
@@ -171,6 +173,11 @@ pub struct RainWorldGame {
     hologram_ids: u64,
     /// The player's `playerState.foodInStomach` (nothing is eaten yet).
     food_in_stomach: i32,
+    /// Each realized creature's `Creature.lastCoord`; a new body starts at the default
+    /// coordinate (room 0, tile (0, 0)).
+    last_coords: HashMap<CreatureId, WorldCoordinate>,
+    /// `ColorEntrance` calls on camera 0 since the last `take_entrance_colors`.
+    entrance_colors: Vec<EntranceColor>,
 }
 
 /// One realized overseer call with what it read and the random stream around it (for
@@ -283,6 +290,8 @@ impl RainWorldGame {
             last_overseer_place: None,
             hologram_ids: 0,
             food_in_stomach: 0,
+            last_coords: HashMap::new(),
+            entrance_colors: Vec::new(),
         };
         if let Err(e) = game.world.activate_room(start.room) {
             log::error!("cannot realize the first room: {e}");
@@ -388,6 +397,7 @@ impl RainWorldGame {
         observer.created(&player, &mut self.rng);
         player.place(tile, &mut self.rng);
         self.player = Some(player);
+        self.last_coords.remove(&self.player_id);
         self.player_seq = self.world.next_update_seq();
     }
 
@@ -751,6 +761,9 @@ impl RainWorldGame {
         ) && let (Some(player), Some(tile)) = (self.player.as_mut(), node_tile)
         {
             player.set_vessel_at(tile);
+            if node.kind == NodeType::Exit {
+                self.blink_arrival(lobby);
+            }
         }
         log::info!(
             "entered room {} after {} shortcut updates in the lobby",
@@ -774,6 +787,35 @@ impl RainWorldGame {
         };
         self.sounds.owner_removed();
         true
+    }
+
+    /// A slugcat's vessel came out of the lobby into exit node `lobby.entrance_node`:
+    /// the room blinks the entrance leading there by 2.5, which camera 0, if it already
+    /// shows the room, colours as the slugcat.
+    fn blink_arrival(&mut self, lobby: LobbyVessel) {
+        let Some(node) = usize::try_from(lobby.entrance_node).ok() else {
+            return;
+        };
+        let Some(room) = self.world.realized_mut(lobby.room) else {
+            return;
+        };
+        let map = room.room.shortcut_map();
+        let Some(entrance) = map
+            .leading_to_node(node)
+            .and_then(|s| map.index_of(s.start))
+        else {
+            return;
+        };
+        if let Some(b) = &mut room.shortcuts_blinking {
+            b.blink(Some(entrance), None, 2.5);
+        }
+        if self.camera_room == lobby.room {
+            self.entrance_colors.push(EntranceColor {
+                room: lobby.room,
+                entrance,
+                creature: CreatureType::Slugcat,
+            });
+        }
     }
 
     /// `Room.Update` of active room `index`: the entry delay, the water (pushed by the
@@ -800,6 +842,9 @@ impl RainWorldGame {
                 None => &mut [][..],
             };
             water.update(&room, chunks.iter_mut(), &mut self.rng, sounds);
+        }
+        if let Some(blinking) = &mut realized.shortcuts_blinking {
+            blinking.update(&room, &mut self.rng);
         }
         let mut objects: Vec<(u64, RoomObject)> = self
             .world
@@ -829,6 +874,7 @@ impl RainWorldGame {
                         .is_some_and(|b| b.in_room)
                         && self.world.creature(id).pos.room == index;
                     if in_room {
+                        self.creature_new_tile(id);
                         self.run_overseer(id, OverseerCall::Update, observer);
                     }
                 }
@@ -985,7 +1031,10 @@ impl RainWorldGame {
                 cx: &mut cx,
             };
             match call {
-                OverseerCall::Place => run.place_in_room(),
+                OverseerCall::Place => {
+                    self.last_coords.remove(&id);
+                    run.place_in_room();
+                }
                 OverseerCall::TeleportIn => run.teleport_into_room(),
                 OverseerCall::Update => run.update_with_graphics(),
                 OverseerCall::Hologram(hid) => run.update_hologram(hid),
@@ -1150,6 +1199,14 @@ impl RainWorldGame {
         observer: &mut dyn PlayerObserver,
     ) {
         let player_room = self.pos().room;
+        let updates = self
+            .player
+            .as_ref()
+            .is_some_and(|p| player_room == index && !p.in_shortcut() && !p.is_dead());
+        if !updates || self.world.realized(index).is_none() {
+            return;
+        }
+        self.creature_new_tile(self.player_id);
         let Some(realized) = self.world.realized(index) else {
             return;
         };
@@ -1158,11 +1215,7 @@ impl RainWorldGame {
         } else {
             &mut self.silent
         };
-        let Some(player) = self
-            .player
-            .as_mut()
-            .filter(|p| player_room == index && !p.in_shortcut() && !p.is_dead())
-        else {
+        let Some(player) = self.player.as_mut() else {
             return;
         };
         let was_stunned = player.is_stunned();
@@ -1211,6 +1264,26 @@ impl RainWorldGame {
         {
             log::warn!("cannot realize room {dest}: {e}");
         }
+    }
+
+    /// The start of `Creature.Update`: `NewTile` when the creature's coordinate moved
+    /// to another tile or room since its last update, then `lastCoord = pos`.
+    fn creature_new_tile(&mut self, id: CreatureId) {
+        let coord = self.world.creature(id).pos;
+        let last = self
+            .last_coords
+            .insert(id, coord)
+            .unwrap_or(WorldCoordinate::new(0, 0, 0, 0));
+        if (coord.tile != last.tile || coord.room != last.room)
+            && let Some(c) = self.world.new_tile(id, last, self.camera_room)
+        {
+            self.entrance_colors.push(c);
+        }
+    }
+
+    /// `ShortcutGraphics.ColorEntrance` calls on camera 0 since the last call.
+    pub fn take_entrance_colors(&mut self) -> Vec<EntranceColor> {
+        std::mem::take(&mut self.entrance_colors)
     }
 
     /// What the overseers told camera 0's HUD since the last call.

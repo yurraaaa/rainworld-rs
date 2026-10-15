@@ -130,6 +130,9 @@ pub trait CustomVec: Sized {
     fn lerp_clamped(self, to: Self, t: f32) -> Self;
     /// `Custom.DistNoSqrt`: squared distance.
     fn dist_no_sqrt(self, other: Self) -> f32;
+    /// `Custom.ApplyDepthOnVector(self, depth_point, d)`: pushed out from `depth_point`
+    /// by `1 / (1 + d / 400)` (`d < 0` nearer the viewer).
+    fn apply_depth(self, depth_point: Self, d: f32) -> Self;
 }
 
 impl CustomVec for Vec2 {
@@ -161,6 +164,11 @@ impl CustomVec for Vec2 {
     fn dist_no_sqrt(self, other: Self) -> f32 {
         let d = other - self;
         d.x * d.x + d.y * d.y
+    }
+
+    fn apply_depth(self, depth_point: Self, d: f32) -> Self {
+        let d = (10.0 - d * -0.025) * 0.1;
+        (self - depth_point) / d + depth_point
     }
 }
 

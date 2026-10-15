@@ -366,6 +366,15 @@ impl Scene {
             ),
             _ => Vec::new(),
         };
+        // `ShortcutGraphics.Draw`, every frame there is a palette.
+        let shortcuts = match &self.visuals {
+            Some(visuals) if target.sprites.is_some() => {
+                let camera = self.camera.position(self.camera.current());
+                self.game
+                    .shortcut_draw_list(visuals.shortcut_palette(), rw_sim::Vec2::from(camera))
+            }
+            _ => None,
+        };
         let r = &mut target.renderer;
         let water = self.game.water_surface(alpha);
         let palette = self.visuals.as_ref().map(Visuals::room_palette);
@@ -384,6 +393,7 @@ impl Scene {
             sprites: sprites.as_ref(),
             overseers: &overseers,
             holograms: &holograms,
+            shortcuts: shortcuts.as_ref(),
             layers: view.layers,
             camera,
             alpha,
@@ -443,6 +453,8 @@ struct FrameDraw<'a> {
     overseers: &'a [DrawList],
     /// The holograms' sprites (level view only), in the `Bloom` container.
     holograms: &'a [DrawList],
+    /// The shortcut graphics (level view only), in their containers.
+    shortcuts: Option<&'a DrawList>,
     layers: RoomLayers,
     camera: Camera,
     alpha: f32,
@@ -457,6 +469,11 @@ impl FrameDraw<'_> {
             ..self.layers
         });
         // Sprites sit at `room - camPos`, the level view's origin.
+        let shortcuts = self.level.as_ref().zip(self.shortcuts);
+        if let Some((level, list)) = shortcuts {
+            r.draw_sprites(list, Layer::BackgroundShortcuts, level.origin);
+            r.draw_sprites(list, Layer::Background, level.origin);
+        }
         let sprites = self.level.as_ref().zip(self.sprites);
         match sprites {
             Some((level, list)) => r.draw_sprites(list, Layer::Midground, level.origin),
@@ -472,6 +489,9 @@ impl FrameDraw<'_> {
                     r.draw_sprites(o, layer, level.origin);
                 }
             }
+            if let Some(list) = self.shortcuts {
+                r.draw_sprites(list, Layer::Items, level.origin);
+            }
             r.draw_level(level);
         }
         if let Some((level, list)) = sprites {
@@ -482,12 +502,20 @@ impl FrameDraw<'_> {
                 r.draw_sprites(o, Layer::Foreground, level.origin);
             }
         }
-        r.draw_shortcut_vessel(self.game.vessel_tile());
+        match (shortcuts, self.level) {
+            (Some((level, list)), _) => r.draw_sprites(list, Layer::Shortcuts, level.origin),
+            // The debug view's vessel marker.
+            (None, None) => r.draw_shortcut_vessel(self.game.vessel_tile()),
+            (None, Some(_)) => {}
+        }
         // The `Water` container, after the level, foreground sprites and shortcuts.
         match (self.level, self.water_sprites, self.water) {
             (Some(_), Some((sprites, depth)), _) => r.draw_water_sprites(sprites, depth),
             (None, _, Some(water)) => r.draw_water(water),
             _ => {}
+        }
+        if let Some((level, list)) = shortcuts {
+            r.draw_sprites(list, Layer::Water, level.origin);
         }
         // `Bloom`, after `Water` (and the empty `GrabShaders`).
         if let Some(level) = self.level {
@@ -579,8 +607,14 @@ mod tests {
         fn draw_sprites(&mut self, _: &DrawList, layer: Layer, _: [f32; 2]) {
             self.sprite_calls += 1;
             self.order.push(match layer {
+                Layer::BackgroundShortcuts => "background shortcuts",
+                Layer::Background => "background",
+                Layer::Midground => "midground",
+                Layer::Items => "items",
                 Layer::Foreground => "foreground",
-                _ => "midground",
+                Layer::Shortcuts => "shortcuts",
+                Layer::Water => "water",
+                Layer::Bloom => "bloom",
             });
         }
         fn draw_circle(&mut self, _: [f32; 2], _: f32, _: Color) {
@@ -617,6 +651,17 @@ mod tests {
             water: Option<&WaterSurface>,
             water_sprites: Option<(&WaterSprites, f32)>,
         ) -> Self {
+            Self::record_all(game, level, sprites, water, water_sprites, None)
+        }
+
+        fn record_all(
+            game: &Game,
+            level: Option<LevelView>,
+            sprites: &DrawList,
+            water: Option<&WaterSurface>,
+            water_sprites: Option<(&WaterSprites, f32)>,
+            shortcuts: Option<&DrawList>,
+        ) -> Self {
             let mut r = Self::default();
             FrameDraw {
                 game,
@@ -626,6 +671,7 @@ mod tests {
                 sprites: Some(sprites),
                 overseers: &[],
                 holograms: &[],
+                shortcuts,
                 layers: RoomLayers::default(),
                 camera: Camera::fit([1.0, 1.0], (1366, 768), 0.0),
                 alpha: 1.0,
@@ -691,5 +737,44 @@ mod tests {
         let r = Recorder::record_with_water(&game, None, &sprites, Some(&surface), None);
         assert_eq!(r.order.last(), Some(&"mesh"));
         assert!(!r.order.contains(&"water sprites"));
+    }
+
+    /// `RoomCamera`'s containers: BackgroundShortcuts and Background before Midground,
+    /// Items before the level, Shortcuts after Foreground, Water after the water.
+    #[test]
+    fn shortcut_sprites_in_their_containers() {
+        let mut game = Game::new(open_room(), &rw_assets::RoomSettings::ANCESTOR, 1, None);
+        let sprites = game.draw_list(1.0, SpriteColor::BLACK).expect("player");
+        let surface = WaterSurface::flat(400.0, 50.0);
+        let water = WaterSprites::new(surface.len(), 1366.0);
+        let level = LevelView {
+            origin: [0.0, 0.0],
+            size: [1366.0, 768.0],
+            rain: 0.0,
+        };
+        let shortcuts = DrawList::default();
+        let r = Recorder::record_all(
+            &game,
+            Some(level),
+            &sprites,
+            Some(&surface),
+            Some((&water, 0.0)),
+            Some(&shortcuts),
+        );
+        assert_eq!(
+            r.order,
+            [
+                "background shortcuts",
+                "background",
+                "midground",
+                "items",
+                "level",
+                "foreground",
+                "shortcuts",
+                "water sprites",
+                "water"
+            ]
+        );
+        assert_eq!(r.rings, 0, "no debug vessel marker over the level");
     }
 }

@@ -41,6 +41,10 @@ pub struct RoomPalette {
     pub fog_amount: f32,
     /// `1 - R` of texel (30, 7).
     pub darkness: f32,
+    /// `shortcutColors`: texels 10 to 12.
+    pub shortcut_colors: [[f32; 4]; 3],
+    /// `shortCutSymbol`: texel 13.
+    pub shortcut_symbol: [f32; 4],
 }
 
 impl PaletteImage {
@@ -243,6 +247,8 @@ impl PaletteTexture {
             water_shine_color: self.top_color(8),
             fog_amount: 1.0 - self.top_color(9)[0],
             darkness: 1.0 - self.top_color(30)[0],
+            shortcut_colors: [self.top_color(10), self.top_color(11), self.top_color(12)],
+            shortcut_symbol: self.top_color(13),
         }
     }
 
@@ -292,6 +298,16 @@ mod tests {
                 "x {x}"
             );
         }
+        for (i, x) in [10.0, 11.0, 12.0].into_iter().enumerate() {
+            assert_eq!(
+                p.shortcut_colors[i],
+                [x * 10.0 / 255.0, 20.0 / 255.0, 30.0 / 255.0, 1.0]
+            );
+        }
+        assert_eq!(
+            p.shortcut_symbol,
+            [130.0 / 255.0, 20.0 / 255.0, 30.0 / 255.0, 1.0]
+        );
         assert!((p.fog_amount - 0.8).abs() < 1e-6);
         assert!((p.darkness - 0.6).abs() < 1e-6);
     }

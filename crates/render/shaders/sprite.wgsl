@@ -2,7 +2,8 @@
 // alpha blended (SrcAlpha, OneMinusSrcAlpha) by the pipeline, as every shader here.
 // One fragment entry per game shader (StreamingAssets/shaders/<Name>.shader): fs_basic
 // `Futile/Basic`, fs_flat_light `FlatLight`, fs_overseer_zip `OverseerZip`,
-// fs_hologram `Hologram`, fs_light_source `LightSource`, fs_hologram_image `HologramImage`.
+// fs_hologram `Hologram`, fs_light_source `LightSource`, fs_hologram_image `HologramImage`,
+// fs_shortcut `ShortCut0`.
 //
 // `uv` is where the port's atlas is sampled; `tex` is the shader's `i.uv` (they differ
 // only for `Futile_White`, a texture of its own in the game).
@@ -279,4 +280,16 @@ fn fs_hologram_image(in: VertexOut) -> @location(0) vec4<f32> {
         return vec4(0.0);
     }
     return tex;
+}
+
+// `ShortCut0`: the vertex colour where the level texel under this screen pixel is a
+// shortcut pipe (`round(g * 255)` 8 to 10, blue 0), nothing elsewhere.
+@fragment
+fn fs_shortcut(in: VertexOut) -> @location(0) vec4<f32> {
+    let texcol = level_at(level_coord(in.scr));
+    let g = byte(texcol.g);
+    if g > 7 && g < 11 && texcol.b == 0.0 {
+        return in.color;
+    }
+    return vec4(0.0);
 }

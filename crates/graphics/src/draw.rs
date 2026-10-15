@@ -89,14 +89,18 @@ pub use rw_assets::SlugcatName;
 
 /// The room camera's sprite containers an object draws into (`RoomCamera.ReturnFContainer`).
 ///
-/// Midground, then Items, are drawn before the level image, so level pixels nearer
-/// than depth 5 cover them; Foreground sprites added after the level image draw over
-/// it. Bloom comes after the water.
+/// BackgroundShortcuts, Background, Midground, then Items, are drawn before the level
+/// image, so level pixels nearer than depth 5 cover them; Foreground sprites added
+/// after the level image draw over it, then Shortcuts, Water and Bloom.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Layer {
+    BackgroundShortcuts,
+    Background,
     Midground,
     Items,
     Foreground,
+    Shortcuts,
+    Water,
     Bloom,
 }
 
@@ -121,6 +125,9 @@ pub enum Shader {
     /// picks it, red and green pan it), tinted, screened over the frame and cut by
     /// noisy scan lines.
     HologramImage,
+    /// `Futile/ShortCut0` (the `Shortcuts` shader): the colour where the level image's
+    /// pixel is a shortcut pipe (green 8 to 10, blue 0), nothing elsewhere.
+    ShortCut0,
 }
 
 /// One `FSprite`, placed as Futile does: the element's untrimmed source box is
@@ -218,6 +225,13 @@ impl DrawList {
             DrawItem::Mesh(m) if m.index == index => Some(m),
             _ => None,
         })
+    }
+}
+
+/// From `[r, g, b, a]`.
+impl From<[f32; 4]> for Color {
+    fn from([r, g, b, a]: [f32; 4]) -> Self {
+        Self { r, g, b, a }
     }
 }
 
