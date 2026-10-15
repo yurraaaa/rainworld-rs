@@ -2297,6 +2297,7 @@ dependencies = [
  "log",
  "md-5",
  "rw-assets",
+ "rw-random",
  "tempfile",
 ]
 
