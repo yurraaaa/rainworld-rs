@@ -180,7 +180,8 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   and the player's controller. `screenshot` then draws the process frame with its fade.
 - `--mcp --window` also shows the driven scene in a window.
 - End of the project: a review of code cleanliness and quality across the
-  workspace, then an optimisation pass (both after the features).
+  workspace, then an optimisation pass, once the whole game is ported
+  (not after individual milestones).
 - Long-term goal: an Android port at the end of the project. Don't rule it
   out: keep platform-specific code (windowing, file paths to the game data,
   input) behind small seams, prefer crates that support Android (wgpu's
