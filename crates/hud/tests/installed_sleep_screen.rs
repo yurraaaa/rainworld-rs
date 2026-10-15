@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use rw_assets::{SlugcatName, StreamingAssets, UnityResources};
 use rw_hud::{LadderPhase, SleepAndDeathScreen, SleepDeathScreenDataPackage};
-use rw_menu::menu::MenuCx;
+use rw_menu::menu::{Kind, MenuCx};
 use rw_menu::{KeyboardKey, MenuShared, MenuSoundId, ProcessId, ProcessRequests};
 use rw_save::{PlayerSessionRecord, SaveState, WatchedScreen};
 use rw_sim::{Input, MapDiscovery, Vec2};
@@ -277,4 +277,21 @@ fn the_map_button_freezes_and_shows_the_map_once_moved() {
     assert_eq!(h.screen.frames_per_second(), 40);
     // `fadeOutIllustration`: `LerpAndTick(0, 1, 0.02, 0.025)`.
     assert!((h.screen.fade_out_illustration() - 0.045).abs() < 1e-6);
+    // In depth (no `flatmode.txt`) the death scene's layers 0, 2 and 3 dim with it
+    // (550839): `Lerp(1, 0.1 | 0.25 | 0.5, fadeOutIllustration)`, applied next tick.
+    let menu = h.screen.menu();
+    let Kind::Scene(scene) = &menu.object(h.screen.scene()).kind else {
+        panic!("not a scene");
+    };
+    let set: Vec<Option<f32>> = scene
+        .depth_illustrations
+        .iter()
+        .take(4)
+        .map(|&l| menu.illustration(l).expect("a layer").set_alpha)
+        .collect();
+    let f = 0.045;
+    assert_eq!(set[0], Some(1.0 + (0.1 - 1.0) * f));
+    assert_eq!(set[1], None);
+    assert_eq!(set[2], Some(1.0 + (0.25 - 1.0) * f));
+    assert_eq!(set[3], Some(1.0 + (0.5 - 1.0) * f));
 }

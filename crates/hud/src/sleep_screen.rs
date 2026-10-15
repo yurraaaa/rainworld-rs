@@ -249,6 +249,43 @@ impl SleepAndDeathScreen {
         }
         let target = if s.reveal_map() { 1.0 } else { 0.0 };
         s.fade_out_illustration = s.fade_out_illustration.lerp_and_tick(target, 0.02, 0.025);
+        if !cx.shared.flat_illustrations {
+            self.fade_depth_layers();
+        }
+    }
+
+    /// The end of `Update` in depth mode: the scene's back layers dim as the map shows
+    /// (`setAlpha = Lerp(from, to, fadeOutIllustration)` by layer index).
+    fn fade_depth_layers(&mut self) {
+        let s = &self.screen;
+        let Kind::Scene(scene) = &self.menu.object(s.scene).kind else {
+            return;
+        };
+        let alphas: Vec<(ObjectId, f32)> = Self::depth_fades(s.id)
+            .iter()
+            .filter_map(|&(layer, from, to)| {
+                scene
+                    .depth_illustrations
+                    .get(layer)
+                    .map(|&id| (id, from.lerp(to, s.fade_out_illustration)))
+            })
+            .collect();
+        for (id, alpha) in alphas {
+            if let Some(i) = self.menu.illustration_mut(id) {
+                i.set_alpha = Some(alpha);
+            }
+        }
+    }
+
+    /// Per screen: (layer index, alpha with the map hidden, alpha with it shown).
+    #[must_use]
+    pub fn depth_fades(id: ProcessId) -> &'static [(usize, f32, f32)] {
+        match id {
+            ProcessId::SleepScreen => &[(1, 0.24, 0.1), (0, 1.0, 0.2), (2, 1.0, 0.35)],
+            ProcessId::StarveScreen => &[(0, 0.85, 0.4)],
+            ProcessId::DeathScreen => &[(0, 1.0, 0.1), (2, 1.0, 0.25), (3, 1.0, 0.5)],
+            _ => &[],
+        }
     }
 
     /// `KarmaLadderScreen.Update` after `Menu.Update`: the frame rate, CONTINUE's greying

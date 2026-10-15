@@ -628,7 +628,7 @@ real-time audio rather than the sim.
   black stand-in (D17).
 - **Sleep, death and starve screens.** `SleepAndDeathScreen` on `KarmaLadderScreen`
   (`rw_hud::SleepAndDeathScreen`, `rainworld-re/notes/menu.md` "Sleep and death
-  screens") for the `SleepScreen`, `DeathScreen` and `StarveScreen` processes: the flat
+  screens") for the `SleepScreen`, `DeathScreen` and `StarveScreen` processes: the depth
   scene, the full `KarmaLadder` (its phases, symbols, fade circles, reinforcement, sounds
   and every random draw; the selection glow's `LocalBloom` GrabPass blur reads the
   port's grab texture), the screen HUD's food meter and region map (D15), CONTINUE
@@ -708,12 +708,17 @@ real-time audio rather than the sim.
   or layers: `Range`, then `value`; the depth under a still mouse), the globals
   `_BlurDepth`, `_BlurRange`, `_MenuCamPos` and the shaders `SceneBlur`,
   `SceneBlurLightEdges`, `SceneLighten`, `SceneOverlay`, `SceneSoftLight` in WGSL. In
-  depth so far: `MainMenu`, `Landscape_SU` (the options menu) and the slugcat select
+  depth so far: `MainMenu`, `Landscape_SU` (the options menu), the slugcat select
   pages (`Slugcat_White`, `_Yellow`, `_Red` with the locked Hunter's dark layer,
   `Slugcat_Dead_Red`, the three ghosts; `SlugcatPage.GrafUpdate` places each layer at
-  `pos - CamPos * 80 / depth + sceneOffset` slid by the scroll). Still flat until their
-  steps although the game shows them in depth: the sleep, starve and new-death scenes and the intro
-  slideshows. Their flat branches follow the game: the idle camera draws every tick
+  `pos - CamPos * 80 / depth + sceneOffset` slid by the scroll) and the sleep, starve and
+  new-death scenes of the base game's slugcats (their idle depths; the death scene's
+  three flowers, each a layer and a `Lighten` layer, shown one after the other over
+  the scene timer's 160 ticks; the screens' map dimming of the back layers by
+  `fadeOutIllustration`). The More Slugcats and Watcher branches of these (Spearmaster's
+  random sleep layer, Inv's images, the Watcher's sleep scene and ripple ladder) are not
+  ported. Still flat until their step although the game shows them in depth: the intro
+  slideshows. The flat branches follow the game: the idle camera draws every tick
   (its idle focus pick draws nothing more without layers); the sleep scene of the
   slugcat being played (`PlayingAsSlugcat`: built after the manager switches, so never
   the story character); the death scene's `Flower` flat faded in over the scene

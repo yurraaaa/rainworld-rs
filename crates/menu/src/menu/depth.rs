@@ -3,7 +3,7 @@
 //! `BuildScene` tables of the scenes the port shows in depth, `positions.txt`, and the
 //! scene's shader globals. Behaviour: `rainworld-re/notes/menu.md` ("Depth scenes").
 
-use rw_assets::StreamingAssets;
+use rw_assets::{SlugcatName, StreamingAssets};
 use rw_render::{MenuSceneGlobals, StageShader};
 use rw_sim::{FloatExt, Vec2};
 
@@ -224,6 +224,9 @@ impl SceneId {
             | Self::GhostWhite
             | Self::GhostYellow
             | Self::GhostRed => self.slugcat_scene(shared.progression.red_unlocked),
+            Self::SleepScreen => Some(Self::sleep_scene(shared.playing_as_slugcat())),
+            Self::StarveScreen => Some(Self::starve_scene()),
+            Self::NewDeath => Some(Self::new_death_scene()),
             _ => None,
         }
     }
@@ -303,6 +306,61 @@ impl SceneId {
                 1.25,
                 MenuShader::Normal,
             )
+    }
+}
+
+/// The sleep, starve and death scenes (542857, 542963, 544337); the More Slugcats and
+/// Watcher branches are not ported.
+impl SceneId {
+    /// The sleep scene of `slugcat` (`PlayingAsSlugcat`, as the flat branch).
+    #[must_use]
+    pub fn sleep_scene(slugcat: SlugcatName) -> DepthScene {
+        let name = slugcat.value();
+        let at = Vec2::new(23.0, 17.0);
+        DepthScene::new(&format!("Scenes/Sleep Screen - {name}"))
+            .layer("Sleep - 5", at, 3.5, MenuShader::Normal)
+            .layer("Sleep - 4", at, 2.8, MenuShader::Normal)
+            .alpha(0.24)
+            .layer("Sleep - 3", at, 2.2, MenuShader::Normal)
+            .layer(&format!("Sleep - 2 - {name}"), at, 1.7, MenuShader::Normal)
+            .layer("Sleep - 1", at, 1.2, MenuShader::Normal)
+            .idle(&[3.3, 2.7, 1.8, 1.7, 1.6, 1.2])
+    }
+
+    #[must_use]
+    pub fn starve_scene() -> DepthScene {
+        DepthScene::new("Scenes/Starve Screen")
+            .layer("Starve - 5", Vec2::ZERO, 3.0, MenuShader::Normal)
+            .layer("Starve - 4", Vec2::ZERO, 2.8, MenuShader::Normal)
+            .layer("Starve - 3", Vec2::ZERO, 2.3, MenuShader::Normal)
+            .alpha(0.59)
+            .layer("Starve - 2", Vec2::ZERO, 2.6, MenuShader::Normal)
+            .layer("Starve - 1", Vec2::ZERO, 1.6, MenuShader::Normal)
+            .idle(&[3.1, 2.7, 2.5, 2.3, 1.6])
+    }
+
+    /// Seven layers, then the flower's six (hidden until the scene's timer fades them).
+    #[must_use]
+    pub fn new_death_scene() -> DepthScene {
+        let mut scene = DepthScene::new("Scenes/New Death")
+            .layer("New Death - 6", Vec2::ZERO, 3.6, MenuShader::Normal)
+            .layer("New Death - 55", Vec2::ZERO, 3.4, MenuShader::Normal)
+            .layer("New Death - 5", Vec2::ZERO, 3.2, MenuShader::Normal)
+            .layer("New Death - 4", Vec2::ZERO, 2.7, MenuShader::Lighten)
+            .layer("New Death - 3", Vec2::ZERO, 3.0, MenuShader::Normal)
+            .layer("New Death - 2", Vec2::ZERO, 2.4, MenuShader::Normal)
+            .layer("New Death - 1", Vec2::ZERO, 1.6, MenuShader::Normal);
+        for (file, shader) in [
+            ("FlowerA", MenuShader::Normal),
+            ("FlowerA2", MenuShader::Lighten),
+            ("FlowerB", MenuShader::Normal),
+            ("FlowerB2", MenuShader::Lighten),
+            ("FlowerC", MenuShader::Normal),
+            ("FlowerC2", MenuShader::Lighten),
+        ] {
+            scene = scene.layer(file, Vec2::ZERO, 2.6, shader).alpha(0.0);
+        }
+        scene.idle(&[2.6, 2.5, 3.6, 1.5])
     }
 }
 
@@ -544,6 +602,43 @@ mod tests {
         assert_eq!(s.layers[14].depth, 1.5);
         assert!(s.idle_depths.is_empty());
         assert_eq!(SceneId::landscape_su_scene().layers[2].depth, 1.25);
+    }
+
+    #[test]
+    fn screen_tables_follow_build_scene() {
+        let s = SceneId::sleep_scene(SlugcatName::Red);
+        assert_eq!(s.folder, "Scenes/Sleep Screen - Red");
+        assert_eq!(s.layers[3].file, "Sleep - 2 - Red");
+        assert_eq!(s.layers[1].set_alpha, Some(0.24));
+        assert_eq!(s.idle_depths.len(), 6);
+        let s = SceneId::starve_scene();
+        assert_eq!(s.layers[2].set_alpha, Some(0.59));
+        assert_eq!(s.idle_depths, [3.1, 2.7, 2.5, 2.3, 1.6]);
+        let s = SceneId::new_death_scene();
+        assert_eq!(s.layers.len(), 13);
+        assert_eq!(s.layers[3].shader, MenuShader::Lighten);
+        assert_eq!(s.layers[8].file, "FlowerA2");
+        assert_eq!(s.layers[8].shader, MenuShader::Lighten);
+        assert!(s.layers[7..].iter().all(|l| l.set_alpha == Some(0.0)));
+        assert!(s.layers[..7].iter().all(|l| l.set_alpha.is_none()));
+        assert_eq!(s.idle_depths, [2.6, 2.5, 3.6, 1.5]);
+    }
+
+    #[test]
+    fn death_flowers_show_one_after_another() {
+        assert_eq!(SceneId::new_death_flower_alphas(0.0), [0.0; 6]);
+        // `IL(0.1, 0.4, .25) * IL(0.7, 0.4, .25)` = 0.5.
+        let a = SceneId::new_death_flower_alphas(0.25);
+        assert!((a[0] - 0.5).abs() < 1e-6 && (a[1] - 0.25).abs() < 1e-6);
+        assert_eq!(a[2..], [0.0; 4]);
+        // The first flower fades out as the second fades in.
+        let a = SceneId::new_death_flower_alphas(0.55);
+        assert!((a[0] - 0.5).abs() < 1e-6 && (a[2] - 0.5).abs() < 1e-6);
+        assert!((a[3] - 0.25).abs() < 1e-6 && a[4] == 0.0);
+        assert_eq!(
+            SceneId::new_death_flower_alphas(1.0),
+            [0.0, 0.0, 0.0, 0.0, 1.0, 0.75]
+        );
     }
 
     #[test]
