@@ -566,6 +566,9 @@ runs it as the game's side process (D13), silent on `TimedSources` without audio
   game samples `Time.time`; neither is tick-deterministic.
 - **Listener.** `RoomCamera.pos` is the window origin the room camera draws this tick
   (whole pixels); without a level graphic it is the room origin.
+- **Static loops on return.** A `StaticSoundLoop` whose room the camera re-enters
+  restarts on the first tick back; the game's dead emitter takes up to about 3 ticks
+  (`SoundEmitter.Update`) before the loop remakes it.
 
 **Why.** Out of the base-game player scope (in-game music, rain, creatures, UI), or tied to
 real-time audio rather than the sim.
