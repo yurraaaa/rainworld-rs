@@ -11,8 +11,6 @@ use super::World;
 
 /// `performanceBudget`.
 const PERFORMANCE_BUDGET: f32 = 1500.0;
-/// `GetCreaturePerformanceEstimation` of a slugcat.
-const SLUGCAT_PERFORMANCE: f32 = 10.0;
 
 /// What the realizer reads of `followCreature`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -95,8 +93,11 @@ impl Ctx<'_> {
         if data.single_realized_room {
             estimate += PERFORMANCE_BUDGET * 0.55;
         }
-        if self.follow.alive && self.follow.room == room {
-            estimate += SLUGCAT_PERFORMANCE;
+        for &id in self.world.room_creatures(room) {
+            let c = self.world.creature(id);
+            if c.state.alive {
+                estimate += c.template.performance_estimation();
+            }
         }
         estimate
     }

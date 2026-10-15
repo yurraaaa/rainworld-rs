@@ -12,6 +12,8 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fs;
 
+use crate::creatures::CreatureSpawner;
+use crate::region_properties::RegionProperties;
 use crate::{
     AbstractRoomNode, ActiveMods, AssetError, NodeType, Room, RoomSettings, SlugcatName,
     StreamingAssets, Timeline,
@@ -547,6 +549,9 @@ pub struct WorldReport {
     pub rejected: Vec<RejectedLine>,
     /// `(room, exit node)` pairs given a `-1` connection by `CappingBrokenExits`.
     pub capped_exits: Vec<(String, usize)>,
+    /// The `CREATURES` line the game's loader thread throws on (the lines after it are
+    /// not read), if any.
+    pub creatures_stopped_at: Option<String>,
 }
 
 /// A loaded world: its abstract rooms (the off-screen den last) and region.
@@ -559,6 +564,12 @@ pub struct WorldData {
     pub rooms: Vec<AbstractRoomData>,
     /// `DisabledMapRooms` (hidden from the map; swarm/scavenger tags dropped).
     pub disabled_map_rooms: Vec<String>,
+    /// The region's `properties.txt` (defaults for a single-room world).
+    pub properties: RegionProperties,
+    /// The `CREATURES` section (`WorldLoader.spawners`); empty for a single-room world.
+    pub spawners: Vec<CreatureSpawner>,
+    /// `swarmRooms`: global indices of the `SWARMROOM` rooms, in file order.
+    pub swarm_rooms: Vec<i32>,
     pub report: WorldReport,
 }
 
@@ -679,8 +690,12 @@ impl WorldData {
         let mut report = WorldReport::default();
         let mut links = ConditionalLinks::default();
         let mut mapping = RoomMapping::default();
+        let mut spawners = Vec::new();
+        let mut properties = RegionProperties::default();
         if request.single_room {
             mapping.adder.push(vec![request.name.clone()]);
+            // `worldCreaturesSpawn` (on in a game) makes the room swarm room 0.
+            mapping.swarm_rooms.push(0);
             mapping.tags.push(Vec::new());
         } else {
             let name = request.name.to_lowercase();
@@ -705,6 +720,19 @@ impl WorldData {
                     mapping.map(line, first, &links.disabled_map_rooms);
                 }
             }
+            if let Some((start, end)) = lines.section("CREATURES") {
+                let names: Vec<String> = mapping.adder.iter().map(|r| r[0].clone()).collect();
+                let section = lines.lines.get(start..end).unwrap_or_default();
+                let (read, stopped) = CreatureSpawner::read_section(
+                    section.iter().map(String::as_str),
+                    &names,
+                    first,
+                    request.filter.mods,
+                );
+                spawners = read;
+                report.creatures_stopped_at = stopped;
+            }
+            properties = RegionProperties::load(assets, &request.name, &request.filter);
         }
         let mut rooms = Vec::with_capacity(mapping.adder.len() + 1);
         for i in 0..mapping.adder.len() {
@@ -726,6 +754,9 @@ impl WorldData {
             single_room: request.single_room,
             rooms,
             disabled_map_rooms: links.disabled_map_rooms,
+            properties,
+            spawners,
+            swarm_rooms: mapping.swarm_rooms,
             report,
         })
     }
@@ -842,12 +873,13 @@ impl WorldData {
             .iter()
             .take_while(|n| n.kind == NodeType::Exit)
             .count();
-        let mut data = AbstractRoomData::new(&name, vec![-1; exits], 0, [-1; 3]);
+        let mut data = AbstractRoomData::new(&name, vec![-1; exits], 0, [0, -1, -1]);
         data.nodes = nodes;
         data.size = (room.width(), room.height());
         let report = WorldReport {
             rejected: Vec::new(),
             capped_exits: (0..exits).map(|k| (name.clone(), k)).collect(),
+            creatures_stopped_at: None,
         };
         Self {
             rooms: vec![data, AbstractRoomData::offscreen_den(&name, 1)],
@@ -855,6 +887,9 @@ impl WorldData {
             region: None,
             single_room: true,
             disabled_map_rooms: Vec::new(),
+            properties: RegionProperties::default(),
+            spawners: Vec::new(),
+            swarm_rooms: vec![0],
             report,
         }
     }

@@ -57,6 +57,40 @@ pub struct State {
     pub fade_delay_in_progress: bool,
     /// The camera room's `SU_C04StartUp`, when it has one.
     pub start_up: Option<StartUpState>,
+    /// The world's creatures but the player (in dens or out, abstract or realized).
+    pub creatures: Vec<CreatureInfo>,
+}
+
+/// One `AbstractCreature`.
+#[derive(Debug, Clone, Serialize)]
+pub struct CreatureInfo {
+    /// `CreatureTemplate.Type`.
+    pub kind: String,
+    /// `EntityID` (spawner, number).
+    pub id: [i32; 2],
+    pub room: String,
+    pub node: i32,
+    /// `pos.Tile`; `[-1, -1]` when undefined.
+    pub tile: [i32; 2],
+    pub in_den: bool,
+    pub realized: bool,
+    pub alive: bool,
+    /// An overseer's abstract AI and body.
+    pub overseer: Option<OverseerInfo>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct OverseerInfo {
+    pub player_guide: bool,
+    /// `destination` room.
+    pub destination: String,
+    pub go_to_player: bool,
+    pub player_guide_counter: i32,
+    /// The rooms visited, newest first.
+    pub last_rooms: Vec<String>,
+    /// The realized body's hover and root tiles.
+    pub hover_tile: Option<[i32; 2]>,
+    pub root_tile: Option<[i32; 2]>,
 }
 
 /// `SU_C04StartUp`'s state.

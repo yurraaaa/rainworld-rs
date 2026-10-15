@@ -3,7 +3,8 @@
 //!
 //! Ported: the slugcat ([`PlayerGraphics`]: tail, head, legs, hands, draw offsets,
 //! breathing, blinking, sprite frame choice), base game with Remix off; Futile atlas
-//! frame data ([`Atlas`]). Behaviour: `rainworld-re/notes/slugcat-graphics.md` and
+//! frame data ([`Atlas`]); the overseer's graphics module only as far as its random
+//! draws ([`OverseerGraphics`]). Behaviour: `rainworld-re/notes/slugcat-graphics.md` and
 //! `sprite-atlases.md`; differences from the game are in `docs/DIVERGENCES.md`.
 
 mod atlas;
@@ -13,6 +14,7 @@ pub mod elements;
 mod hand;
 mod limb;
 mod math;
+mod overseer_graphics;
 mod player_draw;
 mod player_graphics;
 mod tail;
@@ -23,6 +25,7 @@ pub use draw::{Color, DrawItem, DrawList, Layer, Mesh, SlugcatName, Sprite};
 pub use hand::SlugcatHand;
 pub use limb::{GripSearch, Limb, LimbMode};
 pub use math::{CustomVec, Mathf};
+pub use overseer_graphics::OverseerGraphics;
 pub use player_draw::{SPRITE_COUNT, SPRITE_LAYERS, TAIL_TRIANGLES};
 pub use player_graphics::PlayerGraphics;
 pub use tail::{TailAnchor, TailSegment};

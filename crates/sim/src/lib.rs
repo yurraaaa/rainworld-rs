@@ -12,12 +12,15 @@
 //! `vertical-poles.md`, `ledge-grab.md`, `advanced-moves.md`, `corridors.md`, `falls.md`
 //! `shortcuts.md`, `water.md` and `sound.md`; known differences from the game are in `docs/DIVERGENCES.md`.
 //!
-//! Above the room: the campaigns ([`campaign`]), the world with its realized rooms and
-//! the room realizer ([`world`]), and [`RainWorldGame`], which moves the player between
-//! rooms through room-exit shortcuts (`world-loading.md`, `room-realizer.md`).
+//! Above the room: the campaigns ([`campaign`]), the world with its realized rooms, the
+//! room realizer and the rain cycle ([`world`]), the creatures with the world's
+//! population and the overseers' abstract AI ([`creature`]), and [`RainWorldGame`],
+//! which moves the player between rooms through room-exit shortcuts
+//! (`world-loading.md`, `room-realizer.md`, `creature-model.md`).
 
 pub mod campaign;
 mod chunk;
+pub mod creature;
 mod float_ext;
 mod game;
 mod object;
@@ -32,8 +35,9 @@ mod water;
 pub mod world;
 
 pub use chunk::{BodyChunk, Contact, DEFAULT_RESTRICT_IN_ROOM_RANGE, PhysicsParams, TerrainImpact};
+pub use creature::WorldCoordinate;
 pub use float_ext::FloatExt;
-pub use game::{CameraMove, PlayerObserver, RainWorldGame, Start, WorldCoordinate};
+pub use game::{CameraMove, NewGameWorld, PlayerObserver, RainWorldGame, Start};
 pub use object::{
     BodyChunkConnection, ConnectionKind, PhysicalObject, TerrainImpactHandler, slugcat,
 };

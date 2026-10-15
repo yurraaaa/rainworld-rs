@@ -46,11 +46,19 @@ it (D13). What still differs is only the seed and the call order:
   port's choice of game function, made in the order the game makes them.
 - **Intro and start script.** The intro slideshows draw nothing (`SlideShowMenuScene` has
   no idle camera; its `Custom.RNV` is only in the dev move editor), nor do the process
-  fades and `SU_C04StartUp`. The new game's guide overseer is not ported, so its draws
-  are missing: `WorldLoader`'s overseer spawn condition, `OverseerAbstractAI`'s
-  `Random.Range(200, 500)`, its `PlaceInRoom` draws and every per-tick draw of the
-  realized overseer and its graphics (`rainworld-re/notes/intro-overseer-survey.md`
-  section 6.5). Until it is, a story game's stream leaves the game's at world load.
+  fades and `SU_C04StartUp`.
+- **World load.** A new story game makes the game's draws in its order from
+  `nextIssuedId` through the `SaveState` seed, the `World` constructor (cycle length,
+  sundown, rainbow seed, `WaterLevelCycle`'s three), `GeneratePopulation` (every
+  creature's constructor and AI draws, scavenger gear, vulture check rooms, the guide's
+  spawn condition, the region overseers) and `FliesWorldAI`'s constructor, then the
+  start room's overseers realized (`PlaceInRealizedRoom`, `Overseer`, `PlaceInRoom`,
+  the graphics module's mycelia in the viewed room) before the player
+  (`rainworld-re/notes/creature-model.md`). Per tick it parts from the game's again:
+  `FliesWorldAI.Update`, the abstract AI of every creature but overseers (D14), the
+  realized overseer's `OverseerAI` and graphics, and `LocalCoordinateOfNode`'s draws for
+  border exits, bat hives and garbage holes when an overseer is realized there are not
+  made.
 
 **Why.** Matching the game's draw sequence would need every system that draws. Seeding
 from the command line keeps runs reproducible.
@@ -165,7 +173,8 @@ back ("faulty room exit"), as in the game.
   transports for creatures, region transportation, and Remix falling into a shortcut
   (D4).
 
-**Why.** Outside the single-player, creature-free, base-game scope.
+**Why.** Outside the single-player, base-game scope: no realized creature but the player
+uses shortcuts yet (D14).
 
 **Affects.** Multiple creatures in tubes, co-op, arena.
 
@@ -330,7 +339,7 @@ direction.
   picking up an item during the whiplash jump, and the thrown-spear roll are not ported
   (no grabbing or throwing).
 - **Other creatures:** a belly slide or roll hitting a creature (stun, `rollCounter`
-  cap, "slugsmash") is not ported (no creatures).
+  cap, "slugsmash") is not ported (no realized creatures to hit; D14).
 - **More Slugcats / Watcher omitted:** Rivulet, slugpup and Gourmand values (skid and
   flip jump, roll jump, belly-slide push, kick and jumps, roll durations), the pyro
   jump's `Flip`, and the Watcher curved-terrain drop-through test.
@@ -597,7 +606,7 @@ real-time audio rather than the sim.
   the game.
 
 **Why.** The menus are ported screen by screen, with no saves or options yet; the
-creature-free world (D14) stands in for a story session.
+world with only overseers behaving (D14) stands in for a story session.
 
 **Affects.** What is shown at start-up and between processes, and where the random
 stream stands when the game starts; no gameplay.
@@ -616,10 +625,28 @@ second part, else a single-room world for arena levels). The campaign descriptio
 (`rw_sim::campaign`, `campaign-model.md`) gives the timeline, start den and stats.
 
 **What differs:**
-- **Creature-free.** No creatures, `CREATURES` lines, dens, spawners, bat blockages,
-  swarm maps or abstract-space AI; the player is the only object. Rooms are realized
-  and abstractized with nothing in them; the realizer's per-creature bookkeeping only
-  sees the player.
+- **Only overseers behave.** The `CREATURES` section is read in full (simple spawners
+  and lineages with their dens, amounts, spawn data and night flags; quantified
+  counts; `rw_assets::creatures`), and a new game's `GeneratePopulation` builds every
+  `AbstractCreature` with all of its constructor draws (D1): the creatures go into
+  their dens and stay there (`InDenUpdate` lets only overseers out), quantified
+  creatures (flies, the swarm rooms' bat flies) are only counted per node, and items
+  (scavenger gear, drop bugs' items) are kept as IDs and kinds on their carrier. The
+  overseers' abstract AI is ported (`OverseerAbstractAI.AbstractBehavior`, `Roam`,
+  `PlayerGuideUpdate`, `RoomAllowed`, `HowInterestingIsCreature`), run by
+  `AbstractRoom.Update` and `InDenUpdate`; it never picks a target, as nothing it
+  finds interesting is ever out of a den. A realized overseer is a body placeholder:
+  `Overseer`'s and `OverseerAI`'s constructor draws and `PlaceInRoom`, then frozen
+  (no `OverseerAI` update, movement, zipping, projections or sprites; its
+  `tutorialBehavior` is never built, so the rain-time and guide-tutorial branches of
+  `AbstractBehavior` read it as null). An abstract overseer moving into a realized room
+  stays abstract (`ChangeRooms`'s `CreatureEnterFromAbstractRoom` and the shortcut
+  arrival are not ported) and stops behaving there, as an abstract creature in a
+  realized room does. Which camera's room counts as viewed when `AddObject` builds the
+  graphics module is inferred from `RoomCamera` and `Room.AddObject`, not checked.
+  Not ported: bat blockages, swarm maps, `FliesWorldAI.Update`, scavenger and vulture
+  world AI, `CreatureCommunities`, `AbstractCreature.Update` for other types, and
+  `GeneratePopulation`'s non-fresh branch (saved populations).
 - **Synchronous loading.** The game's `RoomPreparer` loads a room over several frames
   (and `RoomCamera.MoveCamera` its images asynchronously); the port loads a room's
   files and builds its water in one call, finishing at the end of the tick the room is
@@ -642,7 +669,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
 - **Off-screen den and gates.** The off-screen den is never realized; gates are
   ordinary rooms (no gate mechanism, no region change), and a `RegionTransportation`
   node goes nowhere.
-- **Not ported:** the rain cycle, karma and karma gates, shelters closing and
+- **Not ported:** the rain (the cycle's timer, day-night counter and water level stages
+  run, nothing reads them but the overseers' AI), karma and karma gates, shelters closing and
   hibernation, saves, the map, `DisabledMapRooms` beyond the tag drop, and Remix's
   `RemoveNotVisitedRooms` branch.
 - **Room scripts.** `AddRoomSpecificScript` is `rw_sim::RoomScript::for_room`, called
@@ -657,7 +685,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   (`SS_E08`, `SU_A22`, `SL_C12`, `SB_A14`, `SB_D03`, `SU_A43`, `deathPit`, `LF_A03`,
   `SS_D02`) are not ported.
 
-**Why.** Creatures, AI maps and the rain cycle are later milestones; loading at once
+**Why.** Other creatures' AI, AI maps and the rain are later milestones; loading at once
 is simpler and loses nothing gameplay-visible beyond the shorter waits.
 
 **Affects.** How long a vessel waits to enter a room, which neighbour rooms are

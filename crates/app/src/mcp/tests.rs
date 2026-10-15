@@ -477,6 +477,7 @@ fn boot_to_play_with_music_contexts() {
         }
     }
     assert!(control.is_some(), "control never returned");
+    s.frames(10, &["RightArrow"]);
     let after = s.process_player();
     assert!(
         after.chunks[0].pos[0] > before.chunks[0].pos[0] + 5.0,
