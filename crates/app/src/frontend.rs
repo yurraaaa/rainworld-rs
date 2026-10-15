@@ -86,6 +86,27 @@ pub struct Unported {
     last_pause_button: bool,
 }
 
+/// The sleep screen's stand-in (`SleepAndDeathScreen` is not ported, D16): black for a
+/// second after the fade, then the next cycle, as the screen's Continue starts it
+/// (`startGameCondition = Load`).
+pub struct SleepStandIn {
+    stage: Container,
+    frames: u32,
+}
+
+impl SleepStandIn {
+    const FRAMES: u32 = 40;
+
+    fn update(&mut self, ctx: &mut AppContext, requests: &mut ProcessRequests) {
+        ctx.menu.input.take_tick_input();
+        self.frames += 1;
+        if self.frames == Self::FRAMES {
+            ctx.menu.start_game_condition = Some(StoryGameInitCondition::Load);
+            requests.switch_to(ProcessId::Game);
+        }
+    }
+}
+
 /// The processes the app runs.
 pub enum AppProcess {
     Initialization(Initialization),
@@ -95,6 +116,7 @@ pub enum AppProcess {
     FontTest(FontTest),
     MainMenu(Box<MainMenu>),
     SlugcatSelect(Box<SlugcatSelectMenu>),
+    SleepStandIn(SleepStandIn),
     Unported(Unported),
 }
 
@@ -364,6 +386,10 @@ impl ProcessFactory<AppProcess> for AppContext {
                 AppProcess::SlideShow(Box::new(SlideShow::new(&mut self.menu, id)))
             }
             ProcessId::Game => AppProcess::Game(Box::new(self.new_game())),
+            ProcessId::SleepScreen => AppProcess::SleepStandIn(SleepStandIn {
+                stage: Container::default(),
+                frames: 0,
+            }),
             ProcessId::FontTest => AppProcess::FontTest(FontTest::new(&mut self.menu)),
             ProcessId::MainMenu => AppProcess::MainMenu(Box::new(MainMenu::new(&mut self.menu))),
             ProcessId::SlugcatSelect => {
@@ -625,6 +651,7 @@ impl AppProcess {
             Self::Initialization(p) => Some(p.stage()),
             Self::FontTest(p) => Some(p.stage()),
             Self::Unported(p) => Some(&p.stage),
+            Self::SleepStandIn(p) => Some(&p.stage),
             Self::Game(_)
             | Self::IntroRoll(_)
             | Self::SlideShow(_)
@@ -688,6 +715,7 @@ impl MainLoopProcess<AppContext> for AppProcess {
             Self::MainMenu(_) => ProcessId::MainMenu,
             Self::SlugcatSelect(_) => ProcessId::SlugcatSelect,
             Self::Unported(p) => p.id,
+            Self::SleepStandIn(_) => ProcessId::SleepScreen,
         }
     }
 
@@ -701,6 +729,7 @@ impl MainLoopProcess<AppContext> for AppProcess {
             Self::MainMenu(p) => p.update(ctx, requests),
             Self::SlugcatSelect(p) => p.update(ctx, requests),
             Self::Unported(p) => p.update(ctx, requests),
+            Self::SleepStandIn(p) => p.update(ctx, requests),
         }
     }
 
@@ -713,7 +742,7 @@ impl MainLoopProcess<AppContext> for AppProcess {
             Self::FontTest(p) => p.graf_update(time_stacker, ctx),
             Self::MainMenu(p) => p.graf_update(time_stacker, ctx),
             Self::SlugcatSelect(p) => p.graf_update(time_stacker, ctx),
-            Self::Unported(_) => {}
+            Self::Unported(_) | Self::SleepStandIn(_) => {}
         }
     }
 
@@ -726,7 +755,7 @@ impl MainLoopProcess<AppContext> for AppProcess {
             Self::FontTest(p) => p.shut_down(ctx),
             Self::MainMenu(p) => p.shut_down(ctx),
             Self::SlugcatSelect(p) => p.shut_down(ctx),
-            Self::Unported(_) => {}
+            Self::Unported(_) | Self::SleepStandIn(_) => {}
         }
     }
 
