@@ -41,12 +41,13 @@ pub struct RoomVertex {
     pub color: [f32; 4],
 }
 
-/// An atlas's frames with the image size, for texture coordinates.
+/// The loaded atlases' frames (Futile's atlas manager): one page per texture, an
+/// element found in the first page holding it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SpriteAtlas {
-    atlas: Atlas,
-    /// The white element's `[min, max]` texture coordinates inset by half a texel:
-    /// where `Futile_White`'s 0..1 is sampled.
+    pages: Vec<Atlas>,
+    /// The white element's `[min, max]` texture coordinates (on page 0) inset by half a
+    /// texel: where `Futile_White`'s 0..1 is sampled.
     white: [[f32; 2]; 2],
 }
 
@@ -72,10 +73,12 @@ pub struct NodeMatrix {
     ty: f32,
 }
 
-/// One draw call of room sprites: `indices` of the batch with one shader.
+/// One draw call of room sprites: `indices` of the batch with one shader and one
+/// atlas page's texture.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SpriteDraw {
     pub shader: Shader,
+    pub page: usize,
     pub indices: Range<u32>,
 }
 
@@ -183,7 +186,7 @@ impl SpriteAtlas {
     /// `uvRect` corners of a whole texture in vertex order TL, TR, BR, BL.
     const TEXTURE_CORNERS: [[f32; 2]; 4] = [[0.0, 1.0], [1.0, 1.0], [1.0, 0.0], [0.0, 0.0]];
 
-    /// Wraps `atlas`; `None` without the white element.
+    /// Wraps `atlas` as page 0; `None` without the white element.
     #[must_use]
     pub fn new(atlas: Atlas) -> Option<Self> {
         let white = atlas.get(Self::WHITE_ELEMENT)?;
@@ -193,12 +196,38 @@ impl SpriteAtlas {
             [min[0] + half[0], min[1] + half[1]],
             [max[0] - half[0], max[1] - half[1]],
         ];
-        Some(Self { atlas, white })
+        Some(Self {
+            pages: vec![atlas],
+            white,
+        })
+    }
+
+    /// Adds `atlas` as the next page (its texture is the next image uploaded).
+    #[must_use]
+    pub fn with_page(mut self, atlas: Atlas) -> Self {
+        self.pages.push(atlas);
+        self
+    }
+
+    /// Page 0.
+    #[must_use]
+    pub fn atlas(&self) -> &Atlas {
+        &self.pages[0]
     }
 
     #[must_use]
-    pub fn atlas(&self) -> &Atlas {
-        &self.atlas
+    pub fn pages(&self) -> &[Atlas] {
+        &self.pages
+    }
+
+    /// The page holding element `name` (the first: Futile's element table holds each
+    /// name once) and its frame.
+    #[must_use]
+    pub fn find(&self, name: &str) -> Option<(usize, &AtlasFrame)> {
+        self.pages
+            .iter()
+            .enumerate()
+            .find_map(|(i, a)| a.get(name).map(|f| (i, f)))
     }
 
     /// Where `Futile_White`'s texture coordinate `t` (0..1) is sampled in the atlas.
@@ -241,36 +270,41 @@ impl SpriteAtlas {
     }
 
     /// The four vertices of `sprite` (TL, TR, BR, BL) at stage position
-    /// `sprite.pos - cam_pos`; `None` if its element is not in the atlas.
+    /// `sprite.pos - cam_pos`, with the page they sample; `None` if its element is in no
+    /// page.
     #[must_use]
-    pub fn quad(&self, sprite: &Sprite, cam_pos: Vec2) -> Option<[RoomVertex; 4]> {
-        let (frame, uvs, tex_coords) = if sprite.element == Self::FUTILE_WHITE {
+    pub fn quad(&self, sprite: &Sprite, cam_pos: Vec2) -> Option<(usize, [RoomVertex; 4])> {
+        let (page, frame, uvs, tex_coords) = if sprite.element == Self::FUTILE_WHITE {
             let corners = Self::TEXTURE_CORNERS;
             (
+                0,
                 &Self::FUTILE_WHITE_FRAME,
                 corners.map(|t| self.white_uv(t)),
                 corners,
             )
         } else {
-            let frame = self.atlas.get(sprite.element)?;
-            let [min, max] = Self::uv_rect(&self.atlas, frame);
+            let (page, frame) = self.find(sprite.element)?;
+            let [min, max] = Self::uv_rect(&self.pages[page], frame);
             let uvs = [
                 [min[0], max[1]],
                 [max[0], max[1]],
                 [max[0], min[1]],
                 [min[0], min[1]],
             ];
-            (frame, uvs, uvs)
+            (page, frame, uvs, uvs)
         };
         let matrix =
             NodeMatrix::scale_then_rotate(sprite.pos - cam_pos, sprite.scale, sprite.rotation);
         let corners = Self::local_corners(frame, sprite.anchor);
-        Some(std::array::from_fn(|i| RoomVertex {
-            pos: matrix.apply(corners[i]).to_array(),
-            uv: uvs[i],
-            tex_coord: tex_coords[i],
-            color: sprite.color.to_array(),
-        }))
+        Some((
+            page,
+            std::array::from_fn(|i| RoomVertex {
+                pos: matrix.apply(corners[i]).to_array(),
+                uv: uvs[i],
+                tex_coord: tex_coords[i],
+                color: sprite.color.to_array(),
+            }),
+        ))
     }
 }
 
@@ -324,9 +358,9 @@ impl SpriteBatch {
     /// (nothing added) if its element is missing.
     pub fn push_sprite(&mut self, atlas: &SpriteAtlas, sprite: &Sprite, cam_pos: Vec2) -> bool {
         let start = self.indices.len() as u32;
-        let added = self.append_sprite(atlas, sprite, cam_pos);
-        self.record(sprite.shader, start, true);
-        added
+        let page = self.append_sprite(atlas, sprite, cam_pos);
+        self.record(sprite.shader, page.unwrap_or(0), start, true);
+        page.is_some()
     }
 
     /// Appends a `TriangleMesh` over `Futile_White`, its vertices at stage positions
@@ -334,17 +368,22 @@ impl SpriteBatch {
     pub fn push_mesh(&mut self, atlas: &SpriteAtlas, mesh: &SpriteMesh, cam_pos: Vec2) {
         let start = self.indices.len() as u32;
         self.append_mesh(atlas, mesh, cam_pos);
-        self.record(mesh.shader, start, true);
+        self.record(mesh.shader, 0, start, true);
     }
 
-    fn append_sprite(&mut self, atlas: &SpriteAtlas, sprite: &Sprite, cam_pos: Vec2) -> bool {
-        let Some(quad) = atlas.quad(sprite, cam_pos) else {
-            return false;
-        };
+    /// Appends `sprite`'s quad; returns its page, `None` (nothing added) if its element
+    /// is missing.
+    fn append_sprite(
+        &mut self,
+        atlas: &SpriteAtlas,
+        sprite: &Sprite,
+        cam_pos: Vec2,
+    ) -> Option<usize> {
+        let (page, quad) = atlas.quad(sprite, cam_pos)?;
         let base = self.vertices.len() as u32;
         self.vertices.extend(quad);
         self.indices.extend(Self::QUAD_INDICES.map(|i| base + i));
-        true
+        Some(page)
     }
 
     /// Each vertex samples `Futile_White` at its UV (the centre without UVs), coloured
@@ -369,19 +408,25 @@ impl SpriteBatch {
         );
     }
 
-    /// Records indices `start..` as drawn with `shader`, merged into the last draw when
-    /// `merge` and it has the same shader.
-    fn record(&mut self, shader: Shader, start: u32, merge: bool) {
+    /// Records indices `start..` as drawn with `shader` from `page`, merged into the
+    /// last draw when `merge` and it has the same shader and page.
+    fn record(&mut self, shader: Shader, page: usize, start: u32, merge: bool) {
         let end = self.indices.len() as u32;
         if end == start {
             return;
         }
         match self.draws.last_mut() {
-            Some(last) if merge && last.shader == shader && last.indices.end == start => {
+            Some(last)
+                if merge
+                    && last.shader == shader
+                    && last.page == page
+                    && last.indices.end == start =>
+            {
                 last.indices.end = end;
             }
             _ => self.draws.push(SpriteDraw {
                 shader,
+                page,
                 indices: start..end,
             }),
         }
@@ -401,19 +446,20 @@ impl SpriteBatch {
         let first_draw = self.draws.len();
         for item in list.layer(layer) {
             let start = self.indices.len() as u32;
-            let shader = match item {
+            let (shader, page) = match item {
                 DrawItem::Sprite(s) => {
-                    if !self.append_sprite(atlas, s, cam_pos) {
+                    let page = self.append_sprite(atlas, s, cam_pos);
+                    if page.is_none() {
                         missing.push(s.element);
                     }
-                    s.shader
+                    (s.shader, page.unwrap_or(0))
                 }
                 DrawItem::Mesh(m) => {
                     self.append_mesh(atlas, m, cam_pos);
-                    m.shader
+                    (m.shader, 0)
                 }
             };
-            self.record(shader, start, self.draws.len() > first_draw);
+            self.record(shader, page, start, self.draws.len() > first_draw);
         }
         missing
     }

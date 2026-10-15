@@ -126,6 +126,11 @@ impl Scene {
                 })
                 .ok()
         });
+        let earth = self
+            .visuals
+            .as_ref()
+            .map_or(rw_graphics::Color::BLACK, Visuals::earth_color);
+        self.game.set_palette_earth(earth);
     }
 
     /// `RoomCamera.MoveCamera`: on another room, its level graphic is loaded (at once:
@@ -353,6 +358,15 @@ impl Scene {
                 Camera::fit([room.pixel_width(), room.pixel_height()], r.size(), MARGIN)
             }
         };
+        let holograms = match &level {
+            Some(view) if target.sprites.is_some() => self.game.hologram_draw_lists(
+                alpha,
+                rw_sim::Vec2::from(view.origin),
+                rw_sim::Vec2::from(self.camera.screen_size()),
+            ),
+            _ => Vec::new(),
+        };
+        let r = &mut target.renderer;
         let water = self.game.water_surface(alpha);
         let palette = self.visuals.as_ref().map(Visuals::room_palette);
         let water_depth = match (&level, &water, palette) {
@@ -369,6 +383,7 @@ impl Scene {
             level,
             sprites: sprites.as_ref(),
             overseers: &overseers,
+            holograms: &holograms,
             layers: view.layers,
             camera,
             alpha,
@@ -426,6 +441,8 @@ struct FrameDraw<'a> {
     sprites: Option<&'a DrawList>,
     /// The overseers' sprites (level view only), after the slugcat's in each container.
     overseers: &'a [DrawList],
+    /// The holograms' sprites (level view only), in the `Bloom` container.
+    holograms: &'a [DrawList],
     layers: RoomLayers,
     camera: Camera,
     alpha: f32,
@@ -471,6 +488,12 @@ impl FrameDraw<'_> {
             (Some(_), Some((sprites, depth)), _) => r.draw_water_sprites(sprites, depth),
             (None, _, Some(water)) => r.draw_water(water),
             _ => {}
+        }
+        // `Bloom`, after `Water` (and the empty `GrabShaders`).
+        if let Some(level) = self.level {
+            for h in self.holograms {
+                r.draw_sprites(h, Layer::Bloom, level.origin);
+            }
         }
     }
 }
@@ -541,7 +564,7 @@ mod tests {
             self.level = true;
             self.order.push("level");
         }
-        fn set_atlas(&mut self, _: &SpriteAtlas, _: &PngImage) {}
+        fn set_atlas(&mut self, _: &SpriteAtlas, _: &[&PngImage]) {}
         fn set_stage_texture(
             &mut self,
             _: rw_render::StageTextureId,
@@ -602,6 +625,7 @@ mod tests {
                 level,
                 sprites: Some(sprites),
                 overseers: &[],
+                holograms: &[],
                 layers: RoomLayers::default(),
                 camera: Camera::fit([1.0, 1.0], (1366, 768), 0.0),
                 alpha: 1.0,

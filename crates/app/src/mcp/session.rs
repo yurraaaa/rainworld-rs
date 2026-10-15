@@ -64,7 +64,7 @@ impl Session {
     /// A session with no room loaded; loads the slugcat atlas from `resources`.
     #[must_use]
     pub fn new(assets: StreamingAssets, resources: Arc<UnityResources>) -> Self {
-        let sprites = SpriteAssets::load(&resources)
+        let sprites = SpriteAssets::load(&resources, &assets)
             .inspect_err(|e| log::warn!("no slugcat sprites ({e}); drawing the circle body"))
             .ok()
             .map(Arc::new);

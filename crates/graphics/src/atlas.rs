@@ -166,6 +166,25 @@ impl Atlas {
         Self::parse_bytes(&json)
     }
 
+    /// `LoadAtlasFromTexture(name, texture)`: one element `name` covering a `w` x `h`
+    /// texture.
+    #[must_use]
+    pub fn single(name: &str, w: u32, h: u32) -> Self {
+        let rect = Rect { x: 0, y: 0, w, h };
+        let frame = AtlasFrame {
+            frame: rect,
+            rotated: false,
+            trimmed: false,
+            sprite_source_size: rect,
+            source_size: Size { w, h },
+        };
+        Self {
+            image: name.to_owned(),
+            size: Size { w, h },
+            frames: HashMap::from([(name.to_owned(), frame)]),
+        }
+    }
+
     #[must_use]
     pub fn get(&self, name: &str) -> Option<&AtlasFrame> {
         self.frames.get(name)

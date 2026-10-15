@@ -69,7 +69,7 @@ fn quad_places_scales_mirrors_and_rotates_clockwise() {
     let a = atlas();
     let mid = Layer::Midground;
     // Stage centre (100, 50) - (20, 10) = (80, 40).
-    let q = a.quad(&sprite("A", [1.0, 1.0], 0.0, mid), CAM).unwrap();
+    let q = a.quad(&sprite("A", [1.0, 1.0], 0.0, mid), CAM).unwrap().1;
     assert_corners(&q, [[77.0, 43.0], [81.0, 43.0], [81.0, 37.0], [77.0, 37.0]]);
     // UVs: u 10/64..14/64, v (32 - 20 - 6)/32..(32 - 20)/32, TL at (u0, v1).
     let (u0, u1, v0, v1) = (0.156_25, 0.218_75, 0.1875, 0.375);
@@ -77,14 +77,14 @@ fn quad_places_scales_mirrors_and_rotates_clockwise() {
     assert_eq!(uvs, [[u0, v1], [u1, v1], [u1, v0], [u0, v0]]);
     assert_eq!(q[0].color, [1.0, 0.5, 0.25, 1.0]);
     // Mirrored x: local x negated about the anchor, UVs kept per vertex.
-    let q = a.quad(&sprite("A", [-1.0, 1.0], 0.0, mid), CAM).unwrap();
+    let q = a.quad(&sprite("A", [-1.0, 1.0], 0.0, mid), CAM).unwrap().1;
     assert_corners(&q, [[83.0, 43.0], [79.0, 43.0], [79.0, 37.0], [83.0, 37.0]]);
     assert_eq!(q.map(|v| v.uv), uvs);
     // 90 degrees clockwise: (x, y) -> (y, -x).
-    let q = a.quad(&sprite("A", [1.0, 1.0], 90.0, mid), CAM).unwrap();
+    let q = a.quad(&sprite("A", [1.0, 1.0], 90.0, mid), CAM).unwrap().1;
     assert_corners(&q, [[83.0, 43.0], [83.0, 39.0], [77.0, 39.0], [77.0, 43.0]]);
     // Scale (2, -1) first, then 90 clockwise: TL (-3, 3) -> (-6, -3) -> (-3, 6).
-    let q = a.quad(&sprite("A", [2.0, -1.0], 90.0, mid), CAM).unwrap();
+    let q = a.quad(&sprite("A", [2.0, -1.0], 90.0, mid), CAM).unwrap().1;
     assert_corners(&q, [[77.0, 46.0], [77.0, 38.0], [83.0, 38.0], [83.0, 46.0]]);
     // Unknown element: no quad.
     assert!(a.quad(&sprite("Nope", [1.0, 1.0], 0.0, mid), CAM).is_none());
@@ -97,7 +97,7 @@ fn quad_rotation_45_degrees() {
     let a = atlas();
     let mut s = sprite("A", [1.0, 1.0], 45.0, Layer::Midground);
     s.anchor = Vec2::new(0.0, 0.0);
-    let q = a.quad(&s, Vec2::ZERO).unwrap();
+    let q = a.quad(&s, Vec2::ZERO).unwrap().1;
     let r = std::f32::consts::FRAC_1_SQRT_2;
     assert_corners(
         &q,
@@ -254,12 +254,17 @@ fn installed_atlas_uvs() {
 fn basic(indices: Range<u32>) -> Batch {
     Batch::Sprites(SpriteDraw {
         shader: Shader::Basic,
+        page: 0,
         indices,
     })
 }
 
 fn draw(shader: Shader, indices: Range<u32>) -> Batch {
-    Batch::Sprites(SpriteDraw { shader, indices })
+    Batch::Sprites(SpriteDraw {
+        shader,
+        page: 0,
+        indices,
+    })
 }
 
 fn shaded(element: &'static str, shader: Shader, layer: Layer) -> DrawItem {
@@ -357,7 +362,7 @@ fn consecutive_lists_of_one_shader_keep_their_own_draws() {
 fn futile_white_sprite_maps_onto_the_white_texels() {
     let a = atlas();
     let s = sprite("Futile_White", [1.0, 1.0], 0.0, Layer::Items);
-    let q = a.quad(&s, CAM).unwrap();
+    let q = a.quad(&s, CAM).unwrap().1;
     // Futile_White is 16x16, centred on (80, 40).
     assert_corners(&q, [[72.0, 48.0], [88.0, 48.0], [88.0, 32.0], [72.0, 32.0]]);
     // The white frame (40, 0, 16x16) of the 64x32 atlas, inset by half a texel:
@@ -376,7 +381,8 @@ fn atlas_sprite_shader_coordinate_is_its_atlas_uv() {
     let a = atlas();
     let q = a
         .quad(&sprite("A", [1.0, 1.0], 0.0, Layer::Items), CAM)
-        .unwrap();
+        .unwrap()
+        .1;
     assert_eq!(q.map(|v| v.tex_coord), q.map(|v| v.uv));
     assert_eq!(q[0].uv, [0.156_25, 0.375]);
 }
@@ -404,6 +410,7 @@ fn mesh_uvs_and_vertex_colours() {
         batch.draws,
         [SpriteDraw {
             shader: Shader::OverseerZip,
+            page: 0,
             indices: 0..3
         }]
     );

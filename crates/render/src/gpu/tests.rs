@@ -21,7 +21,10 @@ fn renderer() -> Option<WgpuRenderer> {
         }
     };
     let atlas = SpriteAtlas::new(Atlas::parse(JSON).unwrap()).unwrap();
-    r.set_atlas(&atlas, &PngImage::from_pixels(16, 16, vec![[255; 4]; 256]));
+    r.set_atlas(
+        &atlas,
+        &[&PngImage::from_pixels(16, 16, vec![[255; 4]; 256])],
+    );
     r.begin_frame(Camera::window([0.0, 0.0], [64.0, 64.0], SIZE));
     r.set_background(Color::rgb(0.0, 0.0, 0.0));
     Some(r)

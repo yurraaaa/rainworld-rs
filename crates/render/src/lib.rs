@@ -114,9 +114,9 @@ pub trait Renderer {
     /// to the game's window `view.origin .. view.origin + view.size`.
     fn draw_level(&mut self, view: LevelView);
 
-    /// Uploads the sprite atlas (frame data and its RGBA image) for
-    /// [`draw_sprites`](Renderer::draw_sprites), replacing the previous one.
-    fn set_atlas(&mut self, atlas: &SpriteAtlas, image: &PngImage);
+    /// Uploads the sprite atlas (frame data and one RGBA image per page, in page order)
+    /// for [`draw_sprites`](Renderer::draw_sprites), replacing the previous one.
+    fn set_atlas(&mut self, atlas: &SpriteAtlas, images: &[&PngImage]);
 
     /// Queues the items of `list` in `layer`, in order, as Futile draws them, each
     /// with its game shader (`rw_graphics::Shader`), at stage positions
@@ -124,7 +124,7 @@ pub trait Renderer {
     /// origin), and the same for every call in a frame. Call it with
     /// [`Layer::Midground`] then [`Layer::Items`] before
     /// [`draw_level`](Renderer::draw_level) and [`Layer::Foreground`] after, as the
-    /// game's containers order them. The shaders' `_spriteRect`, `_screenSize` and
+    /// game's containers order them, and [`Layer::Bloom`] after the water. The shaders' `_spriteRect`, `_screenSize` and
     /// `_RAIN` come from the frame's level, `_NoiseTex2` from the stage globals.
     /// Nothing is drawn before an atlas is set.
     fn draw_sprites(&mut self, list: &DrawList, layer: Layer, cam_pos: [f32; 2]);

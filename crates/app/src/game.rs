@@ -11,12 +11,15 @@ use rw_assets::world::AbstractRoomData;
 use rw_assets::world::{GameRooms, LineFilter, Regions, StoryConditions, WorldData, WorldRequest};
 use rw_assets::{ActiveMods, Room, RoomSettings, SlugcatName, SoundTable, StreamingAssets};
 use rw_audio::Follow as SoundFollow;
-use rw_graphics::{Color, DrawList, OverseerGraphics, PlayerGraphics};
+use rw_graphics::{
+    Color, DrawList, HologramFrame, HologramGraphics, OverseerGraphics, PlayerGraphics,
+};
 use rw_hud::{HudSetup, OwnerTick, RainCycleView, StartCondition, Subregions};
 use rw_random::UnityRandom;
 use rw_render::{BodyStatus, ChunkInterpolation, Follow, PlayerLight, WaterSurface};
 use rw_sim::campaign::{self, SlugcatCampaign};
 use rw_sim::creature::overseer::OverseerView;
+use rw_sim::creature::overseer::hologram::OverseerHologram;
 use rw_sim::creature::{CreatureId, EntityId};
 use rw_sim::room_script::{RoomScript, SuC04StartUp};
 use rw_sim::world::World;
@@ -56,7 +59,19 @@ struct Graphics {
     /// The story character, for the colours.
     slugcat: SlugcatName,
     overseers: Vec<OverseerGraphics>,
-    /// The lens's per-frame draws (the game's come from the global stream: D1).
+    /// `hologram.color` of each overseer with a graphics module, as of its last update
+    /// (its holograms update before it in a tick, so this is what they read).
+    hologram_bases: Vec<(EntityId, Color)>,
+    /// Every live hologram's sprites and colours, viewed or not.
+    holograms: Vec<HologramGraphics>,
+    /// The camera room palette's earth colour (`OverseerGraphics.ApplyPalette`).
+    earth: Color,
+    /// Holograms the sim cannot make yet, drawn in the camera's room after the real ones
+    /// (screenshot tests).
+    #[cfg(test)]
+    extra_holograms: Vec<(OverseerHologram, HologramGraphics)>,
+    /// The lens's and holograms' per-frame draws (the game's come from the global
+    /// stream: D1).
     cosmetic: UnityRandom,
 }
 
@@ -80,6 +95,19 @@ impl Graphics {
                 Some((a, Some(b)))
             }
             _ => Some((&mut self.overseers[i], None)),
+        }
+    }
+
+    /// Records overseer `view`'s `hologram.color`.
+    fn set_hologram_base(&mut self, view: &OverseerView<'_>) {
+        let color = OverseerGraphics::hologram_color(view, self.earth);
+        match self
+            .hologram_bases
+            .iter_mut()
+            .find(|(id, _)| *id == view.id)
+        {
+            Some(entry) => entry.1 = color,
+            None => self.hologram_bases.push((view.id, color)),
         }
     }
 }
@@ -111,6 +139,7 @@ impl PlayerObserver for Graphics {
         if !self.overseers.iter().any(|g| g.id == view.id) {
             self.overseers.push(OverseerGraphics::new(view, rng));
         }
+        self.set_hologram_base(view);
     }
 
     fn overseer_reset(&mut self, view: &OverseerView<'_>, rng: &mut UnityRandom) {
@@ -134,11 +163,30 @@ impl PlayerObserver for Graphics {
     ) {
         if let Some((g, partner)) = self.overseer_pair(view.id, view.partner) {
             g.update(view, room, camera, partner, rng);
+            self.set_hologram_base(view);
         }
     }
 
     fn overseer_removed(&mut self, id: EntityId) {
         self.overseers.retain(|g| g.id != id);
+        self.hologram_bases.retain(|(o, _)| *o != id);
+    }
+
+    /// The parts' colour lerps; `hologram.color` is white without a graphics module.
+    fn hologram_updated(&mut self, owner: EntityId, hologram: &OverseerHologram) {
+        let base = self
+            .hologram_bases
+            .iter()
+            .find(|(id, _)| *id == owner)
+            .map_or(Color::WHITE, |&(_, c)| c);
+        let i = match self.holograms.iter().position(|g| g.id == hologram.id) {
+            Some(i) => i,
+            None => {
+                self.holograms.push(HologramGraphics::new(hologram));
+                self.holograms.len() - 1
+            }
+        };
+        self.holograms[i].update(hologram, base);
     }
 
     fn nudge_tail_x(&mut self, dvx: f32) {
@@ -276,6 +324,11 @@ impl Game {
             module: None,
             slugcat: campaign.name,
             overseers: Vec::new(),
+            hologram_bases: Vec::new(),
+            holograms: Vec::new(),
+            earth: Color::BLACK,
+            #[cfg(test)]
+            extra_holograms: Vec::new(),
             cosmetic: UnityRandom::new(0),
         };
         let sim = RainWorldGame::new(world, campaign, start, rng, sounds, &mut graphics);
@@ -507,6 +560,86 @@ impl Game {
             }
         }
         lists
+    }
+
+    /// The camera room palette's earth colour, which the overseers' hologram colour
+    /// mixes in.
+    pub fn set_palette_earth(&mut self, earth: Color) {
+        self.graphics.earth = earth;
+    }
+
+    /// The holograms in the camera's room at `alpha` between ticks, in the order they
+    /// joined the `Bloom` container (creation); `cam_pos` is the game's `camPos` and
+    /// `screen_size` its screen. Drops the graphics of holograms that are gone.
+    pub fn hologram_draw_lists(
+        &mut self,
+        alpha: f32,
+        cam_pos: Vec2,
+        screen_size: Vec2,
+    ) -> Vec<DrawList> {
+        let world = self.sim.world();
+        let camera_room = self.sim.camera_room();
+        let live: Vec<u64> = world
+            .creatures()
+            .filter_map(|(_, c)| c.overseer_body())
+            .flat_map(|b| b.holograms.iter().map(|h| h.id))
+            .collect();
+        self.graphics.holograms.retain(|g| live.contains(&g.id));
+        let mut shown: Vec<(&OverseerHologram, Vec2)> = Vec::new();
+        for &c in world.room_creatures(camera_room) {
+            let creature = world.creature(c);
+            let Some(body) = creature.overseer_body() else {
+                continue;
+            };
+            let graphics = self.graphics.overseers.iter().find(|g| g.id == creature.id);
+            let head = match graphics {
+                Some(g) if body.in_room => g.eye(body, alpha),
+                _ => body.chunk().last_pos.lerp(body.chunk().pos, alpha),
+            };
+            shown.extend(
+                body.holograms
+                    .iter()
+                    .filter(|h| h.room == camera_room)
+                    .map(|h| (h, head)),
+            );
+        }
+        shown.sort_by_key(|(h, _)| h.id);
+        let graphics = &mut self.graphics;
+        let mut lists = Vec::new();
+        for (h, head) in shown {
+            let Some(g) = graphics.holograms.iter_mut().find(|g| g.id == h.id) else {
+                continue;
+            };
+            let frame = HologramFrame {
+                t: alpha,
+                cam_pos,
+                screen_size,
+                head,
+            };
+            lists.push(g.draw(h, &frame, &mut graphics.cosmetic));
+        }
+        #[cfg(test)]
+        for (h, g) in &mut graphics.extra_holograms {
+            let frame = HologramFrame {
+                t: alpha,
+                cam_pos,
+                screen_size,
+                head: h.pos,
+            };
+            lists.push(g.draw(h, &frame, &mut graphics.cosmetic));
+        }
+        lists
+    }
+
+    /// Draws `hologram` in the camera's room from now on, its parts' colours lerped
+    /// toward `base` for `updates` updates.
+    #[cfg(test)]
+    pub fn show_extra_hologram(&mut self, hologram: OverseerHologram, base: Color, updates: usize) {
+        let mut g = HologramGraphics::new(&hologram);
+        for _ in 0..updates {
+            g.update(&hologram, base);
+        }
+        self.graphics.extra_holograms.push((hologram, g));
     }
 
     /// The rain cycle as the HUD's rain meter reads it.

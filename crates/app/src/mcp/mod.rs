@@ -7,6 +7,8 @@
 //! ([`crate::scene::Scene::draw`]). Logging goes to stderr; stdout carries only MCP.
 
 #[cfg(test)]
+mod hologram_shots;
+#[cfg(test)]
 mod overseer_tests;
 mod params;
 mod reply;

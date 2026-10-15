@@ -1,5 +1,7 @@
-//! GPU side of the room sprites: a `sprite.wgsl` pipeline per game shader, the atlas
-//! texture, the room globals, `_NoiseTex2` and the per-frame sprite buffers.
+//! GPU side of the room sprites: a `sprite.wgsl` pipeline per game shader, a texture
+//! per atlas page, the room globals, `_NoiseTex2`, the screen-sized textures some
+//! shaders read (level image, what was drawn behind the level, the frame grab) and the
+//! per-frame sprite buffers.
 
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -19,37 +21,52 @@ struct RoomUniform {
     screen: [f32; 2],
     rain: f32,
     hologram_threshold: f32,
+    frame: [f32; 2],
+    pad: [f32; 2],
 }
 
-/// The sprite pipelines, the atlas bind group and the frame's buffers.
+/// The sprite pipelines, the atlas pages' bind groups and the frame's buffers.
 pub(crate) struct SpritePipeline {
     pipelines: HashMap<Shader, wgpu::RenderPipeline>,
     layout: wgpu::BindGroupLayout,
     noise_layout: wgpu::BindGroupLayout,
+    screen_layout: wgpu::BindGroupLayout,
     sampler: wgpu::Sampler,
     uniform: wgpu::Buffer,
-    /// Bound to the atlas set by [`SpritePipeline::set_atlas`].
-    bind_group: Option<wgpu::BindGroup>,
-    /// `_NoiseTex2`, bound each frame by [`SpritePipeline::upload`].
+    /// One per atlas page, set by [`SpritePipeline::set_atlas`].
+    pages: Vec<wgpu::BindGroup>,
+    /// `_NoiseTex2`, bound each frame by [`SpritePipeline::set_frame`].
     noise_group: Option<wgpu::BindGroup>,
+    /// 1x1 black screen textures, for frames without a level and for drawing into the
+    /// "behind" target (which cannot be read while it is drawn to).
+    blank_screen: wgpu::BindGroup,
     vertices: Option<wgpu::Buffer>,
     indices: Option<wgpu::Buffer>,
 }
 
+/// The screen-sized textures of one frame.
+pub(crate) struct ScreenTextures<'a> {
+    pub level: &'a wgpu::TextureView,
+    pub behind: &'a wgpu::TextureView,
+    pub grab: &'a wgpu::TextureView,
+}
+
 impl SpritePipeline {
     /// Each shader and its fragment entry point.
-    const SHADERS: [(Shader, &'static str); 4] = [
+    const SHADERS: [(Shader, &'static str); 6] = [
         (Shader::Basic, "fs_basic"),
         (Shader::FlatLight, "fs_flat_light"),
         (Shader::OverseerZip, "fs_overseer_zip"),
         (Shader::Hologram, "fs_hologram"),
+        (Shader::LightSource, "fs_light_source"),
+        (Shader::HologramImage, "fs_hologram_image"),
     ];
 
     /// `_hologramThreshold` at render scale 1 (`RainWorld`, decompile 110635: 0.5 when
     /// `Futile.screen.renderScale > 1`).
     const HOLOGRAM_THRESHOLD: f32 = 0.65;
 
-    /// `Blend SrcAlpha OneMinusSrcAlpha` on colour and alpha, as all four shaders.
+    /// `Blend SrcAlpha OneMinusSrcAlpha` on colour and alpha, as all these shaders.
     const BLEND: wgpu::BlendState = wgpu::BlendState {
         color: wgpu::BlendComponent {
             src_factor: wgpu::BlendFactor::SrcAlpha,
@@ -63,7 +80,11 @@ impl SpritePipeline {
         },
     };
 
-    pub(crate) fn new(device: &wgpu::Device, format: wgpu::TextureFormat) -> Self {
+    pub(crate) fn new(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        format: wgpu::TextureFormat,
+    ) -> Self {
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("sprites"),
             entries: &[
@@ -77,16 +98,7 @@ impl SpritePipeline {
                     },
                     count: None,
                 },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
+                Self::texture_entry(1, false),
                 wgpu::BindGroupLayoutEntry {
                     binding: 2,
                     visibility: wgpu::ShaderStages::FRAGMENT,
@@ -98,16 +110,7 @@ impl SpritePipeline {
         let noise_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("sprite noise2"),
             entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
+                Self::texture_entry(0, true),
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStages::FRAGMENT,
@@ -116,13 +119,21 @@ impl SpritePipeline {
                 },
             ],
         });
+        let screen_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("sprite screen textures"),
+            entries: &[
+                Self::texture_entry(0, false),
+                Self::texture_entry(1, false),
+                Self::texture_entry(2, false),
+            ],
+        });
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("sprite.wgsl"),
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("../shaders/sprite.wgsl"))),
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("sprites"),
-            bind_group_layouts: &[Some(&layout), Some(&noise_layout)],
+            bind_group_layouts: &[Some(&layout), Some(&noise_layout), Some(&screen_layout)],
             immediate_size: 0,
         });
         let pipelines = Self::SHADERS
@@ -132,7 +143,8 @@ impl SpritePipeline {
                 (id, pipeline)
             })
             .collect();
-        // Atlas import settings: point filter, clamp, no mips.
+        // Atlas import settings: point filter, clamp, no mips (the projections are
+        // loaded crisp and clamped too).
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("atlas"),
             address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -147,16 +159,61 @@ impl SpritePipeline {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
+        let blank = device
+            .create_texture_with_data(
+                queue,
+                &wgpu::TextureDescriptor {
+                    label: Some("blank screen texture"),
+                    size: wgpu::Extent3d {
+                        width: 1,
+                        height: 1,
+                        depth_or_array_layers: 1,
+                    },
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: wgpu::TextureFormat::Rgba8Unorm,
+                    usage: wgpu::TextureUsages::TEXTURE_BINDING,
+                    view_formats: &[],
+                },
+                wgpu::util::TextureDataOrder::LayerMajor,
+                &[0, 0, 0, 255],
+            )
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        let blank_screen = Self::screen_group(
+            device,
+            &screen_layout,
+            &ScreenTextures {
+                level: &blank,
+                behind: &blank,
+                grab: &blank,
+            },
+        );
         Self {
             pipelines,
             layout,
             noise_layout,
+            screen_layout,
             sampler,
             uniform,
-            bind_group: None,
+            pages: Vec::new(),
             noise_group: None,
+            blank_screen,
             vertices: None,
             indices: None,
+        }
+    }
+
+    fn texture_entry(binding: u32, filterable: bool) -> wgpu::BindGroupLayoutEntry {
+        wgpu::BindGroupLayoutEntry {
+            binding,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Texture {
+                sample_type: wgpu::TextureSampleType::Float { filterable },
+                view_dimension: wgpu::TextureViewDimension::D2,
+                multisampled: false,
+            },
+            count: None,
         }
     }
 
@@ -205,14 +262,26 @@ impl SpritePipeline {
         })
     }
 
-    /// Uploads the atlas image as RGBA8 unorm (gamma-space values used as stored),
-    /// bottom row first so Futile's texture coordinates address it directly.
+    /// Uploads each atlas page's image as RGBA8 unorm (gamma-space values used as
+    /// stored), bottom row first so Futile's texture coordinates address it directly.
     pub(crate) fn set_atlas(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        image: &PngImage,
+        images: &[&PngImage],
     ) {
+        self.pages = images
+            .iter()
+            .map(|image| self.page_group(device, queue, image))
+            .collect();
+    }
+
+    fn page_group(
+        &self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        image: &PngImage,
+    ) -> wgpu::BindGroup {
         let desc = wgpu::TextureDescriptor {
             label: Some("atlas"),
             size: wgpu::Extent3d {
@@ -235,7 +304,7 @@ impl SpritePipeline {
                 &image.rgba_bottom_up(),
             )
             .create_view(&wgpu::TextureViewDescriptor::default());
-        self.bind_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("sprites"),
             layout: &self.layout,
             entries: &[
@@ -252,12 +321,48 @@ impl SpritePipeline {
                     resource: wgpu::BindingResource::Sampler(&self.sampler),
                 },
             ],
-        }));
+        })
+    }
+
+    fn screen_group(
+        device: &wgpu::Device,
+        layout: &wgpu::BindGroupLayout,
+        textures: &ScreenTextures<'_>,
+    ) -> wgpu::BindGroup {
+        let views = [textures.level, textures.behind, textures.grab];
+        let entries: Vec<wgpu::BindGroupEntry<'_>> = views
+            .iter()
+            .enumerate()
+            .map(|(i, view)| wgpu::BindGroupEntry {
+                binding: i as u32,
+                resource: wgpu::BindingResource::TextureView(view),
+            })
+            .collect();
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("sprite screen textures"),
+            layout,
+            entries: &entries,
+        })
+    }
+
+    /// The screen textures of a frame with a level.
+    pub(crate) fn bind_screen(
+        &self,
+        device: &wgpu::Device,
+        textures: &ScreenTextures<'_>,
+    ) -> wgpu::BindGroup {
+        Self::screen_group(device, &self.screen_layout, textures)
+    }
+
+    /// Black stand-ins for the screen textures.
+    pub(crate) fn blank_screen(&self) -> &wgpu::BindGroup {
+        &self.blank_screen
     }
 
     /// Writes the room globals and the stage camera (`camera` shifted so stage
     /// positions, room minus `cam_pos`, land where their room positions would), and
     /// binds `noise2` (view and sampler) as `_NoiseTex2`.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn set_frame(
         &mut self,
         device: &wgpu::Device,
@@ -265,6 +370,7 @@ impl SpritePipeline {
         camera: &Camera,
         cam_pos: [f32; 2],
         globals: &RoomGlobals,
+        frame_size: (u32, u32),
         noise2: (&wgpu::TextureView, &wgpu::Sampler),
     ) {
         let stage = Camera {
@@ -277,6 +383,8 @@ impl SpritePipeline {
             screen: globals.screen_size,
             rain: globals.rain,
             hologram_threshold: Self::HOLOGRAM_THRESHOLD,
+            frame: [frame_size.0 as f32, frame_size.1 as f32],
+            pad: [0.0; 2],
         };
         queue.write_buffer(&self.uniform, 0, bytemuck::bytes_of(&uniform));
         self.noise_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -343,11 +451,16 @@ impl SpritePipeline {
         }
     }
 
-    /// Draws one draw of the uploaded batch with its shader.
-    pub(crate) fn draw(&self, pass: &mut wgpu::RenderPass<'_>, draw: &SpriteDraw) {
-        let (Some(pipeline), Some(bind_group), Some(noise), Some(vertices), Some(indices)) = (
+    /// Draws one draw of the uploaded batch with its shader and page, reading `screen`.
+    pub(crate) fn draw(
+        &self,
+        pass: &mut wgpu::RenderPass<'_>,
+        draw: &SpriteDraw,
+        screen: &wgpu::BindGroup,
+    ) {
+        let (Some(pipeline), Some(page), Some(noise), Some(vertices), Some(indices)) = (
             self.pipelines.get(&draw.shader),
-            &self.bind_group,
+            self.pages.get(draw.page),
             &self.noise_group,
             &self.vertices,
             &self.indices,
@@ -355,8 +468,9 @@ impl SpritePipeline {
             return;
         };
         pass.set_pipeline(pipeline);
-        pass.set_bind_group(0, bind_group, &[]);
+        pass.set_bind_group(0, page, &[]);
         pass.set_bind_group(1, noise, &[]);
+        pass.set_bind_group(2, screen, &[]);
         pass.set_vertex_buffer(0, vertices.slice(..));
         pass.set_index_buffer(indices.slice(..), wgpu::IndexFormat::Uint32);
         pass.draw_indexed(draw.indices.clone(), 0, 0..1);

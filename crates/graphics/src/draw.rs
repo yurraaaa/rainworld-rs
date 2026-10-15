@@ -91,12 +91,13 @@ pub use rw_assets::SlugcatName;
 ///
 /// Midground, then Items, are drawn before the level image, so level pixels nearer
 /// than depth 5 cover them; Foreground sprites added after the level image draw over
-/// it.
+/// it. Bloom comes after the water.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Layer {
     Midground,
     Items,
     Foreground,
+    Bloom,
 }
 
 /// The game shader (`FShader`) an item is drawn with (`StreamingAssets/shaders`).
@@ -113,6 +114,13 @@ pub enum Shader {
     /// `Futile/Hologram`: noisy scan lines of the colour, the texel alpha read with a
     /// sideways jitter.
     Hologram,
+    /// `Futile/LightSource`: a disc of the colour lighting the level image by its depth,
+    /// shadowed by nearer level pixels and hidden on creatures drawn behind the level.
+    LightSource,
+    /// `Futile/HologramImage`: a cell of a 5x5 projection texture (the colour's blue
+    /// picks it, red and green pan it), tinted, screened over the frame and cut by
+    /// noisy scan lines.
+    HologramImage,
 }
 
 /// One `FSprite`, placed as Futile does: the element's untrimmed source box is

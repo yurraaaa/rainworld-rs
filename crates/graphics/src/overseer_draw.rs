@@ -4,7 +4,7 @@
 use std::borrow::Cow;
 
 use rw_random::UnityRandom;
-use rw_sim::creature::overseer::{OverseerBody, OverseerView};
+use rw_sim::creature::overseer::{OverseerBody, OverseerColor, OverseerView};
 use rw_sim::{FloatExt, Vec2};
 
 use crate::draw::{Color, DrawItem, DrawList, Layer, Mesh, Shader, Sprite};
@@ -36,14 +36,22 @@ struct Frame<'a> {
 impl Frame<'_> {
     /// `ColorOfSegment` (not dying).
     fn color_of_segment(&self, f: f32) -> Color {
-        let neutral = (Color::WHITE + self.earth).scale(0.5);
-        let deep = (self.main + Color::rgb(0.0, 0.0, 1.0) + self.earth.scale(8.0))
+        Self::segment_color(
+            self.main,
+            self.earth,
+            f,
+            DrawPositions::extension(self.body, f, self.t),
+        )
+    }
+
+    /// `ColorOfSegment` (not dying) at extension `ext` of segment `f`.
+    fn segment_color(main: Color, earth: Color, f: f32, ext: f32) -> Color {
+        let neutral = (Color::WHITE + earth).scale(0.5);
+        let deep = (main + Color::rgb(0.0, 0.0, 1.0) + earth.scale(8.0))
             .scale(0.1)
             .with_alpha(0.5);
-        let lit = self
-            .main
-            .lerp(neutral.lerp(self.earth, f.mathf_pow(2.0)), 0.5);
-        deep.lerp(lit, DrawPositions::extension(self.body, f, self.t))
+        let lit = main.lerp(neutral.lerp(earth, f.mathf_pow(2.0)), 0.5);
+        deep.lerp(lit, ext)
     }
 
     /// `RadOfSegment` with the body mesh's last length.
@@ -61,6 +69,28 @@ impl Frame<'_> {
 }
 
 impl OverseerGraphics {
+    /// `OverseerHologram.color` while the overseer has a graphics module:
+    /// `Color.Lerp(MainColor, ColorOfSegment(0, 0), 0.5)` (at `timeStacker` 0, so from
+    /// `lastExtended`), in the palette's `earth` colour.
+    #[must_use]
+    pub fn hologram_color(view: &OverseerView<'_>, earth: Color) -> Color {
+        Self::hologram_color_of(view.color, view.body.last_extended, earth)
+    }
+
+    /// [`OverseerGraphics::hologram_color`] of an overseer of `color` at `last_extended`.
+    #[must_use]
+    pub fn hologram_color_of(color: OverseerColor, last_extended: f32, earth: Color) -> Color {
+        let main = Self::main_color(color);
+        let ext = last_extended.max(0.0).mathf_pow(0.1);
+        main.lerp(Frame::segment_color(main, earth, 0.0, ext), 0.5)
+    }
+
+    /// The eye the overseer's holograms pop out of: `DrawPosOfSegment(0, t)`.
+    #[must_use]
+    pub fn eye(&self, body: &OverseerBody, t: f32) -> Vec2 {
+        DrawPositions::new(self, body, t).segment(body, 0.0, t)
+    }
+
     /// `DrawSprites` at `t` of the way from the last update to this one, in the room
     /// palette's earth colour (`GetPixel(0, 2)`). `rng` is a cosmetic stream for the
     /// lens's per-frame draws (the game draws them from the global stream).

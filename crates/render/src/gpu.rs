@@ -10,7 +10,8 @@
 //! before [`Renderer::draw_level`] go to an offscreen "behind" target first, which the
 //! level shader reads to let them show through sky and far pixels. A third draws the
 //! atlas sprites and meshes (`sprite_gpu`: the room's sprite shaders, one draw per run
-//! of one shader), a fourth the game's water (`water_gpu`), which
+//! of one shader and atlas page; a `HologramImage` draw first copies the frame drawn so
+//! far to a "grab" texture, its GrabPass), a fourth the game's water (`water_gpu`), which
 //! reads the level textures and the "behind" target too, and a fifth the stage quads
 //! (`stage_gpu`: the menu shaders, one texture per draw). Draw calls keep their call
 //! order across pipelines ([`DrawQueue`]). The WGSL shaders are compiled at runtime by
@@ -29,7 +30,7 @@ use wgpu::util::DeviceExt;
 
 use crate::level_gpu::{LevelPipeline, LevelTextures};
 use crate::present_gpu::PresentPipeline;
-use crate::sprite_gpu::SpritePipeline;
+use crate::sprite_gpu::{ScreenTextures, SpritePipeline};
 use crate::stage_gpu::StagePipeline;
 use crate::water_gpu::{WaterBinding, WaterPipeline};
 use crate::{
@@ -102,13 +103,15 @@ enum Capture {
     Memory,
 }
 
-/// The offscreen frame and the target the shapes behind the level are drawn to, both of
-/// the frame's size.
+/// The offscreen frame, the target the shapes behind the level are drawn to and the
+/// copy of the frame a `HologramImage` sprite reads, all of the frame's size.
 struct FrameTargets {
     size: (u32, u32),
     texture: wgpu::Texture,
     view: wgpu::TextureView,
     behind: wgpu::TextureView,
+    grab: wgpu::Texture,
+    grab_view: wgpu::TextureView,
 }
 
 /// A frame copied to a mappable buffer for saving.
@@ -276,7 +279,7 @@ impl WgpuRenderer {
         });
         let pipeline = Self::create_pipeline(&device, &bind_group_layout, format);
         let level_pipeline = LevelPipeline::new(&device, format);
-        let sprite_pipeline = SpritePipeline::new(&device, format);
+        let sprite_pipeline = SpritePipeline::new(&device, &queue, format);
         let water_pipeline = WaterPipeline::new(&device, format);
         let stage_pipeline = StagePipeline::new(&device, &queue, format);
         let frame = FrameTargets::new(&device, format, frame_size);
@@ -436,9 +439,53 @@ impl WgpuRenderer {
         self.present_pipeline.bind(&self.device, &self.frame.view);
     }
 
+    /// The index of the first `HologramImage` sprite draw at or after `from`, else the
+    /// end.
+    fn next_grab(batches: &[Batch], from: usize) -> usize {
+        batches
+            .iter()
+            .enumerate()
+            .skip(from)
+            .find(|(_, b)| {
+                matches!(b, Batch::Sprites(d) if d.shader == rw_graphics::Shader::HologramImage)
+            })
+            .map_or(batches.len(), |(i, _)| i)
+    }
+
+    /// A pass drawing into the frame, clipped to `scissor` (the level's window) when
+    /// given.
+    fn frame_pass<'e>(
+        &self,
+        encoder: &'e mut wgpu::CommandEncoder,
+        load: wgpu::LoadOp<wgpu::Color>,
+        scissor: Option<(u32, u32, u32, u32)>,
+    ) -> wgpu::RenderPass<'e> {
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("frame pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &self.frame.view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load,
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+        if let Some((x, y, w, h)) = scissor {
+            pass.set_scissor_rect(x, y, w, h);
+        }
+        pass
+    }
+
     /// Draws `batches` (those queued before the level) into the "behind" target,
     /// cleared to black (the game's screen before the level is drawn).
     fn draw_behind(&self, encoder: &mut wgpu::CommandEncoder, batches: &[Batch]) {
+        let screen = self.sprite_pipeline.blank_screen();
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("behind level pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -455,16 +502,17 @@ impl WgpuRenderer {
             occlusion_query_set: None,
             multiview_mask: None,
         });
-        self.draw_batches(&mut pass, batches, None);
+        self.draw_batches(&mut pass, batches, None, screen);
     }
 
     /// Draws shape, sprite and water batches in order (the level marker is skipped;
-    /// water only with its bind group).
+    /// water only with its bind group); sprites read `screen`.
     fn draw_batches(
         &self,
         pass: &mut wgpu::RenderPass<'_>,
         batches: &[Batch],
         water: Option<&wgpu::BindGroup>,
+        screen: &wgpu::BindGroup,
     ) {
         for batch in batches {
             match batch {
@@ -477,7 +525,7 @@ impl WgpuRenderer {
                     pass.set_vertex_buffer(0, buffer.slice(..));
                     pass.draw(range.clone(), 0..1);
                 }
-                Batch::Sprites(draw) => self.sprite_pipeline.draw(pass, draw),
+                Batch::Sprites(draw) => self.sprite_pipeline.draw(pass, draw, screen),
                 Batch::Level => {}
                 Batch::Stage(draw) => self.stage_pipeline.draw(pass, draw),
                 Batch::Water(shader, range) => {
@@ -644,12 +692,34 @@ impl FrameTargets {
             size,
             wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
         );
+        let grab = Self::texture(
+            device,
+            "frame grab",
+            format,
+            size,
+            wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::TEXTURE_BINDING,
+        );
         Self {
             size,
             view: texture.create_view(&wgpu::TextureViewDescriptor::default()),
             texture,
             behind: behind.create_view(&wgpu::TextureViewDescriptor::default()),
+            grab_view: grab.create_view(&wgpu::TextureViewDescriptor::default()),
+            grab,
         }
+    }
+
+    /// `GrabPass {}`: copies the frame drawn so far to the grab texture.
+    fn copy_to_grab(&self, encoder: &mut wgpu::CommandEncoder) {
+        encoder.copy_texture_to_texture(
+            self.texture.as_image_copy(),
+            self.grab.as_image_copy(),
+            wgpu::Extent3d {
+                width: self.size.0.max(1),
+                height: self.size.1.max(1),
+                depth_or_array_layers: 1,
+            },
+        );
     }
 
     /// A single-sample texture; zero sizes become 1x1 (nothing is drawn then).
@@ -779,9 +849,9 @@ impl Renderer for WgpuRenderer {
         self.background = wgpu::Color { r, g, b, a };
     }
 
-    fn set_atlas(&mut self, atlas: &SpriteAtlas, image: &PngImage) {
+    fn set_atlas(&mut self, atlas: &SpriteAtlas, images: &[&PngImage]) {
         self.sprite_pipeline
-            .set_atlas(&self.device, &self.queue, image);
+            .set_atlas(&self.device, &self.queue, images);
         self.atlas = Some(atlas.clone());
         self.missing.clear();
     }
@@ -817,6 +887,7 @@ impl Renderer for WgpuRenderer {
                 &self.camera,
                 self.stage_origin,
                 &globals,
+                self.frame.size,
                 self.stage_pipeline.noise2(),
             );
             self.sprite_pipeline
@@ -865,7 +936,15 @@ impl Renderer for WgpuRenderer {
                         frame_size: self.frame.size,
                     },
                 );
-                Some((bind_group, self.scissor(view), split + 1, water))
+                let screen = self.sprite_pipeline.bind_screen(
+                    &self.device,
+                    &ScreenTextures {
+                        level: textures.views()[0],
+                        behind: &self.frame.behind,
+                        grab: &self.frame.grab_view,
+                    },
+                );
+                Some((bind_group, self.scissor(view), split + 1, water, screen))
             }
             _ => None,
         };
@@ -874,27 +953,15 @@ impl Renderer for WgpuRenderer {
         } else {
             self.background
         };
+        let screen = level
+            .as_ref()
+            .map_or(self.sprite_pipeline.blank_screen(), |l| &l.4);
+        let scissor = level.as_ref().map(|l| l.1.unwrap_or_default());
+        let water = level.as_ref().map(|l| &l.3);
+        let mut first_batch = 0;
         {
-            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("frame pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &self.frame.view,
-                    depth_slice: None,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(clear),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-                multiview_mask: None,
-            });
-            let mut first_batch = 0;
-            if let Some((bind_group, scissor, after_level, _)) = &level {
-                let (x, y, w, h) = scissor.unwrap_or_default();
-                pass.set_scissor_rect(x, y, w, h);
+            let mut pass = self.frame_pass(&mut encoder, wgpu::LoadOp::Clear(clear), scissor);
+            if let Some((bind_group, _, after_level, _, _)) = &level {
                 pass.set_pipeline(self.level_pipeline.pipeline());
                 pass.set_bind_group(0, bind_group, &[]);
                 pass.draw(0..6, 0..1);
@@ -918,8 +985,17 @@ impl Renderer for WgpuRenderer {
                 pass.set_vertex_buffer(0, mesh.buffer.slice(..));
                 pass.draw(0..mesh.count, 0..1);
             }
-            let water = level.as_ref().map(|(_, _, _, water)| water);
-            self.draw_batches(&mut pass, &batches[first_batch..], water);
+            let end = Self::next_grab(&batches, first_batch);
+            self.draw_batches(&mut pass, &batches[first_batch..end], water, screen);
+            first_batch = end;
+        }
+        // Each `HologramImage` draw grabs the frame drawn before it.
+        while first_batch < batches.len() {
+            self.frame.copy_to_grab(&mut encoder);
+            let end = Self::next_grab(&batches, first_batch + 1);
+            let mut pass = self.frame_pass(&mut encoder, wgpu::LoadOp::Load, scissor);
+            self.draw_batches(&mut pass, &batches[first_batch..end], water, screen);
+            first_batch = end;
         }
         let readback = self
             .capture

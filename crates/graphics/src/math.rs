@@ -19,6 +19,8 @@ pub trait Mathf {
     fn mathf_sin(self) -> f32;
     /// `Mathf.Cos`.
     fn mathf_cos(self) -> f32;
+    /// `Mathf.LerpAngle(self, to, t)` in degrees: the short way round, `t` clamped.
+    fn lerp_angle(self, to: f32, t: f32) -> f32;
 }
 
 impl Mathf for f32 {
@@ -48,6 +50,69 @@ impl Mathf for f32 {
 
     fn mathf_cos(self) -> f32 {
         f64::from(self).cos() as f32
+    }
+
+    fn lerp_angle(self, to: f32, t: f32) -> f32 {
+        // `Mathf.Repeat(to - self, 360)`.
+        let d = to - self;
+        let mut num = (d - (d / 360.0).floor() * 360.0).clamp(0.0, 360.0);
+        if num > 180.0 {
+            num -= 360.0;
+        }
+        self + num * t.clamp(0.0, 1.0)
+    }
+}
+
+/// Unity `Vector3` operations rw-sim's [`Vec3`] lacks.
+pub trait UnityVector3: Sized {
+    /// `Vector3.Lerp`: `t` clamped to `[0, 1]`.
+    fn lerp_to(self, to: Self, t: f32) -> Self;
+    fn minus(self, o: Self) -> Self;
+    /// `Vector3.normalized`: zero when the length is at most `1e-5`.
+    fn unit(self) -> Self;
+    /// `OverseerHologram.Rotate3DPos`: turned about y by `ry`, z by `rz`, then x by `rx`
+    /// (in turns).
+    fn rotate_3d(self, rx: f32, ry: f32, rz: f32) -> Self;
+}
+
+impl UnityVector3 for Vec3 {
+    fn lerp_to(self, to: Self, t: f32) -> Self {
+        let t = t.clamp(0.0, 1.0);
+        Self::new(
+            self.x + (to.x - self.x) * t,
+            self.y + (to.y - self.y) * t,
+            self.z + (to.z - self.z) * t,
+        )
+    }
+
+    fn minus(self, o: Self) -> Self {
+        Self::new(self.x - o.x, self.y - o.y, self.z - o.z)
+    }
+
+    fn unit(self) -> Self {
+        let len = (f64::from(self.x * self.x + self.y * self.y + self.z * self.z)).sqrt() as f32;
+        if len > 1e-5 {
+            Self::new(self.x / len, self.y / len, self.z / len)
+        } else {
+            Self::new(0.0, 0.0, 0.0)
+        }
+    }
+
+    fn rotate_3d(mut self, rx: f32, ry: f32, rz: f32) -> Self {
+        let pi = std::f32::consts::PI;
+        let (sy, cy) = ((ry * pi * 2.0).mathf_sin(), (ry * pi * 2.0).mathf_cos());
+        let z = self.z * cy - self.x * sy;
+        self.x = self.z * sy + self.x * cy;
+        self.z = z;
+        let (sz, cz) = ((rz * pi * 2.0).mathf_sin(), (rz * pi * 2.0).mathf_cos());
+        let x = self.x * cz - self.y * sz;
+        self.y = self.x * sz + self.y * cz;
+        self.x = x;
+        let (sx, cx) = ((rx * pi * 2.0).mathf_sin(), (rx * pi * 2.0).mathf_cos());
+        let y = self.y * cx - self.z * sx;
+        self.z = self.y * sx + self.z * cx;
+        self.y = y;
+        self
     }
 }
 

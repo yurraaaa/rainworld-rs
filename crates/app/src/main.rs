@@ -243,7 +243,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         room.height(),
         args.seed
     );
-    let sprites = sprites::SpriteAssets::load(&resources)
+    let sprites = sprites::SpriteAssets::load(&resources, &assets)
         .inspect_err(|e| log::warn!("no slugcat sprites ({e}); drawing the circle body"))
         .ok()
         .map(Arc::new);
