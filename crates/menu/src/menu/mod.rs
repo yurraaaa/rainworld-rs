@@ -9,6 +9,7 @@ mod draw;
 mod object;
 mod rain;
 mod scene;
+mod slide_show_scene;
 mod update;
 
 use rw_sim::Vec2;
@@ -27,6 +28,7 @@ pub use object::{
     RoundedRectData, SceneData, SceneId, SimpleKind, SliderData, SliderId,
 };
 pub use rain::{RainDrop, RainEffectData};
+pub use slide_show_scene::CameraPath;
 
 /// What a menu's update reaches outside itself: the shared state (input, sound,
 /// randomness, atlases) and the process manager.

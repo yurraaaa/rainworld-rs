@@ -704,10 +704,10 @@ real-time audio rather than the sim.
   or layers: `Range`, then `value`; the depth under a still mouse), the globals
   `_BlurDepth`, `_BlurRange`, `_MenuCamPos` and the shaders `SceneBlur`,
   `SceneBlurLightEdges`, `SceneLighten`, `SceneOverlay`, `SceneSoftLight` in WGSL. In
-  depth so far: `MainMenu` and `Landscape_SU` (the options menu). Still flat until their
-  steps although the game shows them in depth: the slugcat select pages (so no select
-  rain effect, mark or glow), the sleep, starve and new-death scenes and the intro
-  slideshows. Their flat branches follow the game: the idle camera draws every tick
+  depth so far: `MainMenu`, `Landscape_SU` (the options menu) and the intro slideshows'
+  scenes (below). Still flat until their steps although the game shows them in depth:
+  the slugcat select pages (so no select rain effect, mark or glow) and the sleep,
+  starve and new-death scenes. Their flat branches follow the game: the idle camera draws every tick
   (its idle focus pick draws nothing more without layers); the sleep scene of the
   slugcat being played (`PlayingAsSlugcat`: built after the manager switches, so never
   the story character); the death scene's `Flower` flat faded in over the scene
@@ -722,11 +722,18 @@ real-time audio rather than the sim.
   shaders' `UNITY_UV_STARTS_AT_TOP` flip and `1 - scrPos.y` read on Direct3D (the
   Windows build); on OpenGL the game's would read the grab mirrored.
 - **Intro slideshows.** `SlideShow` (`WhiteIntro`, `YellowIntro`; `rw_menu::SlideShow`,
-  `rainworld-re/notes/slideshow.md`) is ported in flat mode: the playlists, the wait for
-  `RW_Intro_Theme`, the manager fade, the scene alphas (Rain Drop's and Yellow A's
-  `Flat2`, the title's fade-out) and the skip (the pause button, level-triggered because
-  `lastPauseButton` is never written). Depth scenes (layers, camera paths along
-  `camera.txt`, blur) are not. The clock follows the song's first source as the game
+  `rainworld-re/notes/slideshow.md`) is ported: the playlists, the wait for
+  `RW_Intro_Theme`, the manager fade and the skip (the pause button, level-triggered
+  because `lastPauseButton` is never written). Its `SlideShowMenuScene`s
+  (`menu::slide_show_scene`) are in depth as the game shows them: the 15 intro scene
+  tables (the slideshow's depths where Intro 1, 3, 4 and 5 differ from an interactive
+  scene's; only Remix's background options and Expedition's jukebox build those
+  interactively, so those arrays are not ported), the camera path along `camera.txt`
+  (the Bezier through the points, `/ 300`, keyed to the scene's time; the focus from
+  the third column, -1 interpolated), the constructor's first camera position left
+  undivided as the game leaves it (the first update divides it), and the depth and
+  flat rules of `ApplySceneSpecificAlphas`. The scenes draw no random numbers. The intro
+  playlists add no crossfades. The clock follows the song's first source as the game
   follows `AudioSource.time`: kira's position of the streamed sound in the window, the
   ticks played on `TimedSources` headless (deterministic). The outros, crossfades, the
   More Slugcats and Watcher slideshows and the dev move editor are not ported.

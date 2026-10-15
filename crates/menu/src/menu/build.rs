@@ -764,9 +764,9 @@ impl Menu {
         }
     }
 
-    /// `new SlideShowMenuScene(menu, owner, sceneID)` in flat mode: its flat
-    /// illustrations (the camera path of `camera.txt` only moves depth illustrations);
-    /// no random draws.
+    /// `new SlideShowMenuScene(menu, owner, sceneID)`: its depth layers, or its flat
+    /// illustrations in flat mode (the title is flat in both), then its camera path and
+    /// alphas; no random draws.
     pub fn add_slide_show_scene(
         &mut self,
         shared: &mut MenuShared,
@@ -775,14 +775,24 @@ impl Menu {
     ) -> ObjectId {
         let mut data = SceneData::new(scene);
         data.interactive = false;
+        data.flat_mode = shared.flat_illustrations;
         let id = self.push(MenuObject::new(
             Some(owner),
             Vec2::ZERO,
             Kind::Scene(Box::new(data)),
         ));
-        let flats: Vec<ObjectId> = match scene.slide_show_layers() {
-            FlatLayers::None => Vec::new(),
-            FlatLayers::Title => vec![self.add_illustration(
+        let depth = if shared.flat_illustrations {
+            None
+        } else {
+            scene.slide_show_depth_scene()
+        };
+        let flats: Vec<ObjectId> = match (depth, scene.slide_show_layers()) {
+            (Some(table), _) => {
+                self.build_depth_scene(shared, id, &table, false);
+                Vec::new()
+            }
+            (None, FlatLayers::None) => Vec::new(),
+            (None, FlatLayers::Title) => vec![self.add_illustration(
                 shared,
                 id,
                 "",
@@ -791,7 +801,7 @@ impl Menu {
                 true,
                 false,
             )],
-            FlatLayers::Scene { folder, files } => files
+            (None, FlatLayers::Scene { folder, files }) => files
                 .iter()
                 .map(|file| {
                     self.add_illustration(
@@ -812,6 +822,7 @@ impl Menu {
             }
             self.add_sub(id, flat);
         }
+        self.init_slide_show_scene(&shared.assets, id);
         id
     }
 
@@ -1032,6 +1043,7 @@ impl SceneData {
             interactive: true,
             flat_mode: true,
             display_time: 0.0,
+            camera_path: super::CameraPath::default(),
             depth_illustrations: Vec::new(),
             flat_illustrations: Vec::new(),
             idle_depths: Vec::new(),

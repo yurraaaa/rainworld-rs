@@ -16,9 +16,10 @@ are planned for later.
 Working now:
 
 - **Boot and menus:** the intro roll, main menu and slugcat select (a saved campaign's page
-  shows its region, cycle, karma and food), with the game's fonts, sounds and music. The main menu and options backgrounds are the game's
-  layered depth scenes (parallax, drifting camera, focus blur); the slugcat select, sleep
-  and death screens and the intro slideshows still show the game's flat images.
+  shows its region, cycle, karma and food), with the game's fonts, sounds and music. The main menu and options backgrounds and the
+  intro slideshows are the game's layered depth scenes (parallax, drifting camera or the
+  slides' camera paths, focus blur); the slugcat select, sleep and death screens still
+  show the game's flat images.
 - **Starting a game:** a new game plays the Survivor or Monk intro slideshow, then the SU_C04
   opening script. A saved game continues in its shelter with its food, karma and cycle.
 - **Saves:** the game's own save format, kept in the port's own directory; exiting from the
