@@ -4,6 +4,7 @@
 //! `rainworld-re/notes/menu.md` ("Menu framework").
 
 mod build;
+mod depth;
 mod draw;
 mod object;
 mod rain;
@@ -19,10 +20,11 @@ use crate::sound::{LoopId, MenuSoundId};
 use crate::tree::{NodeId, StageTree};
 
 pub use build::FlatLayers;
+pub use depth::{DepthLayer, DepthScene, MenuShader};
 pub use object::{
-    ButtonBehavior, ButtonData, ButtonVariant, CursorData, DarkGradientData, HoldButtonData,
-    IllustrationData, Kind, LabelData, MenuObject, ObjectId, PageData, RoundedRectData, SceneData,
-    SceneId, SimpleKind, SliderData, SliderId,
+    ButtonBehavior, ButtonData, ButtonVariant, CursorData, DarkGradientData, DepthData,
+    HoldButtonData, IllustrationData, Kind, LabelData, MenuObject, ObjectId, PageData,
+    RoundedRectData, SceneData, SceneId, SimpleKind, SliderData, SliderId,
 };
 pub use rain::{RainDrop, RainEffectData};
 
@@ -137,6 +139,8 @@ pub struct Menu {
     pub cursor_container: NodeId,
     info_label: Option<NodeId>,
     pub scene: Option<ObjectId>,
+    /// The menu scene shader globals as a scene's `GrafUpdate` last set them.
+    pub scene_globals: Option<rw_render::MenuSceneGlobals>,
     pub gradients_container: Option<ObjectId>,
     pub selected: Option<ObjectId>,
     pub back_object: Option<ObjectId>,
@@ -201,6 +205,7 @@ impl Menu {
             cursor_container,
             info_label,
             scene: None,
+            scene_globals: None,
             gradients_container: None,
             selected: None,
             back_object: None,
@@ -509,6 +514,14 @@ impl Menu {
     pub fn scene_mut(&mut self, id: ObjectId) -> Option<&mut SceneData> {
         match &mut self.objects[id.0].kind {
             Kind::Scene(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    pub fn illustration(&self, id: ObjectId) -> Option<&IllustrationData> {
+        match &self.objects[id.0].kind {
+            Kind::Illustration(i) => Some(i),
             _ => None,
         }
     }

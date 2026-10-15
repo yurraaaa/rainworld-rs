@@ -49,8 +49,8 @@ pub use sprites::{
     SpriteVertex, WaterShader,
 };
 pub use stage::{
-    MapGlobals, StageBatch, StageDraw, StageGlobals, StageShader, StageTextureId, TextureFilter,
-    TextureSampling,
+    MapGlobals, MenuSceneGlobals, StageBatch, StageDraw, StageGlobals, StageShader, StageTextureId,
+    TextureFilter, TextureSampling,
 };
 pub use status::{BodyStatus, BodyStyle};
 pub use water::WaterSurface;

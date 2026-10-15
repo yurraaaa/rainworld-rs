@@ -130,13 +130,18 @@ impl Menu {
             .add_child(crate::StageTree::ROOT, self.cursor_container);
     }
 
-    /// `MenuScene.HorizontalDisplace` (flat illustrations only).
+    /// `MenuScene.HorizontalDisplace`: the depth and flat illustrations.
     fn horizontal_displace(&mut self, scene: ObjectId, dp: f32) {
-        let flats = match &self.objects[scene.0].kind {
-            Kind::Scene(s) => s.flat_illustrations.clone(),
+        let illustrations: Vec<ObjectId> = match &self.objects[scene.0].kind {
+            Kind::Scene(s) => s
+                .depth_illustrations
+                .iter()
+                .chain(&s.flat_illustrations)
+                .copied()
+                .collect(),
             _ => return,
         };
-        for f in flats {
+        for f in illustrations {
             self.objects[f.0].pos.x += dp;
         }
     }

@@ -60,11 +60,15 @@ impl Menu {
             Kind::Illustration(i) => {
                 let node = i.sprite;
                 let alpha = i.last_alpha.lerp(i.alpha, t);
+                let depth = i.depth.is_some();
                 let pos = self.draw_pos(id, t);
                 let tr = self.stage.transform_mut(node);
                 tr.x = pos.x;
                 tr.y = pos.y;
                 tr.alpha = alpha;
+                if depth {
+                    self.graf_depth_illustration(id, t);
+                }
             }
             Kind::DarkGradient(g) => {
                 let (node, alpha) = (g.sprite, g.alpha);
@@ -83,7 +87,9 @@ impl Menu {
                 }
             }
             Kind::RainEffect(r) => r.graf_update(&mut self.stage, t),
-            Kind::MouseCursor(_) | Kind::Scene(_) => {}
+            // `MenuScene.GrafUpdate`: the globals every scene shader reads.
+            Kind::Scene(s) => self.scene_globals = Some(s.shader_globals(t)),
+            Kind::MouseCursor(_) => {}
         }
     }
 

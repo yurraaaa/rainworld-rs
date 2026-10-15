@@ -19,7 +19,9 @@ use rw_menu::{
     SlideShow, SlideShowId, TextureSync, TimeStacker,
 };
 use rw_random::UnityRandom;
-use rw_render::{Camera, Color, MapGlobals, Renderer, Resolution, StageBatch, StageGlobals};
+use rw_render::{
+    Camera, Color, MapGlobals, MenuSceneGlobals, Renderer, Resolution, StageBatch, StageGlobals,
+};
 use rw_save::WinOutcome;
 use rw_save::{CampaignStart, SaveSlot};
 use rw_sim::campaign::SlugcatCampaign;
@@ -1166,12 +1168,19 @@ impl Frontend {
         target
             .textures
             .sync(&self.ctx.menu.atlases, &mut target.scene.renderer);
+        let menu_scene = self
+            .manager
+            .current()
+            .and_then(|p| p.menu())
+            .and_then(|m| m.scene_globals)
+            .unwrap_or_default();
         target.scene.renderer.set_stage_globals(StageGlobals {
             rain: self.manager.shaders_time() / 5.0,
             text_gradient: self.ctx.menu.text_gradient,
             noise2: self.ctx.menu.noise2,
             sprite_rect: [0.0; 4],
             map,
+            menu_scene,
         });
         let screen = self.ctx.menu.screen_size;
         let mut batch = StageBatch::default();
@@ -1220,6 +1229,7 @@ impl<R: Renderer> FrontendRenderer<R> {
             noise2: shared.noise2,
             sprite_rect: [0.0; 4],
             map: scene.hud_map_globals(alpha),
+            menu_scene: MenuSceneGlobals::default(),
         });
         let mut batch = StageBatch::default();
         scene.draw_hud(&shared.atlases, &mut batch, alpha);

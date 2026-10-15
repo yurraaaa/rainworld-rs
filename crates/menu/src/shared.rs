@@ -125,6 +125,9 @@ pub struct MenuShared {
     pub atlases: AtlasManager,
     pub translator: Translator,
     pub input: UiInputState,
+    /// `rainWorld.flatIllustrations`: `StreamingAssets/flatmode.txt` exists (the
+    /// installed game has none, so its scenes are in depth).
+    pub flat_illustrations: bool,
     /// `rainWorld.screenSize`.
     pub screen_size: [f32; 2],
     /// `UnityEngine.Random`: the one stream every process draws from (D1).
@@ -208,10 +211,12 @@ impl MenuShared {
             Translator::default()
         });
         let dlcs = Dlcs::default();
+        let flat_illustrations = assets.file("flatmode.txt").exists();
         Ok(Self {
             assets,
             atlases,
             translator,
+            flat_illustrations,
             input: UiInputState::default(),
             screen_size,
             random: UnityRandom::new(0),

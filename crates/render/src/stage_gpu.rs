@@ -35,7 +35,7 @@ pub(crate) struct StagePipeline {
     globals_bind_group: wgpu::BindGroup,
     vertices: Option<wgpu::Buffer>,
     indices: Option<wgpu::Buffer>,
-    /// Group 3 of `LocalBloom`: the frame grab and its bilinear, clamped sampler.
+    /// Group 3 of the grabbing shaders: the frame grab and its bilinear, clamped sampler.
     grab_layout: wgpu::BindGroupLayout,
     grab_sampler: wgpu::Sampler,
     grab_bind_group: Option<wgpu::BindGroup>,
@@ -43,7 +43,7 @@ pub(crate) struct StagePipeline {
 
 impl StagePipeline {
     /// Each shader and its fragment entry point.
-    const SHADERS: [(StageShader, &'static str); 12] = [
+    const SHADERS: [(StageShader, &'static str); 17] = [
         (StageShader::Basic, "fs_basic"),
         (StageShader::EdgeFade, "fs_edge_fade"),
         (StageShader::FlatLight, "fs_flat_light"),
@@ -56,13 +56,22 @@ impl StagePipeline {
         (StageShader::MapAerial, "fs_map_aerial"),
         (StageShader::MapShortcut, "fs_map_shortcut"),
         (StageShader::LocalBloom, "fs_local_bloom"),
+        (StageShader::SceneBlur, "fs_scene_blur"),
+        (
+            StageShader::SceneBlurLightEdges,
+            "fs_scene_blur_light_edges",
+        ),
+        (StageShader::SceneLighten, "fs_scene_lighten"),
+        (StageShader::SceneOverlay, "fs_scene_overlay"),
+        (StageShader::SceneSoftLight, "fs_scene_soft_light"),
     ];
 
     /// `MapView`: size, pan, colour and water colour.
     const MAP_UNIFORM_FLOATS: usize = 12;
 
-    /// The stage uniform: transform, screen size, `_RAIN`, padding and `_spriteRect`.
-    const UNIFORM_FLOATS: usize = 12;
+    /// The stage uniform: transform, screen size, `_RAIN`, padding, `_spriteRect` and
+    /// the menu scene's `_BlurDepth`, `_BlurRange` and `_MenuCamPos`.
+    const UNIFORM_FLOATS: usize = 16;
 
     /// `Blend SrcAlpha OneMinusSrcAlpha`, as every stage shader.
     const BLEND: wgpu::BlendState = wgpu::BlendState {
@@ -174,7 +183,7 @@ impl StagePipeline {
         let pipelines = Self::SHADERS
             .iter()
             .map(|&(id, entry)| {
-                let layout = if id == StageShader::LocalBloom {
+                let layout = if id.grabs() {
                     &grab_pipeline_layout
                 } else {
                     &layout
@@ -244,7 +253,7 @@ impl StagePipeline {
         })
     }
 
-    /// Binds the frame grab `LocalBloom` reads this frame.
+    /// Binds the frame grab the grabbing shaders read this frame.
     pub(crate) fn bind_grab(&mut self, device: &wgpu::Device, grab: &wgpu::TextureView) {
         self.grab_bind_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("stage grab"),
@@ -501,6 +510,7 @@ impl StagePipeline {
     ) {
         let [a, b, c, d] = camera.clip_transform();
         let [r0, r1, r2, r3] = self.globals.sprite_rect;
+        let scene = &self.globals.menu_scene;
         let uniform: [f32; Self::UNIFORM_FLOATS] = [
             a,
             b,
@@ -514,6 +524,10 @@ impl StagePipeline {
             r1,
             r2,
             r3,
+            scene.blur_depth,
+            scene.blur_range,
+            scene.cam_pos[0],
+            scene.cam_pos[1],
         ];
         queue.write_buffer(&self.uniform, 0, bytemuck::cast_slice(&uniform));
         queue.write_buffer(
@@ -583,7 +597,7 @@ impl StagePipeline {
         pass.set_bind_group(0, &self.uniform_bind_group, &[]);
         pass.set_bind_group(1, &texture.bind_group, &[]);
         pass.set_bind_group(2, &self.globals_bind_group, &[]);
-        if draw.shader == StageShader::LocalBloom {
+        if draw.shader.grabs() {
             let Some(grab) = &self.grab_bind_group else {
                 return;
             };

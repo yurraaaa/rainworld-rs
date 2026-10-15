@@ -278,7 +278,7 @@ impl RoundedRectData {
     }
 }
 
-/// `MenuIllustration` (flat).
+/// `MenuIllustration`, or a `MenuDepthIllustration` when `depth` is set.
 #[derive(Debug, Clone)]
 pub struct IllustrationData {
     pub sprite: NodeId,
@@ -286,6 +286,16 @@ pub struct IllustrationData {
     pub alpha: f32,
     pub last_alpha: f32,
     pub set_alpha: Option<f32>,
+    pub depth: Option<DepthData>,
+}
+
+/// `MenuDepthIllustration`'s own fields.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DepthData {
+    pub depth: f32,
+    pub shader: super::MenuShader,
+    /// Added to the `positions.txt` position (only DLC scenes set it).
+    pub offset: Vec2,
 }
 
 /// `DarkGradient`.
@@ -305,7 +315,7 @@ pub struct CursorData {
 }
 
 /// `MenuScene.SceneID`s the port builds.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SceneId {
     MainMenu,
     MainMenuDownpour,
@@ -339,17 +349,24 @@ pub enum SceneId {
     StarveScreen,
 }
 
-/// A flat `MenuScene`: an `InteractiveMenuScene` (its idle camera, whose random draws
-/// are made although nothing is drawn with it) or a `SlideShowMenuScene` (no camera in
-/// flat mode, alphas set by the slideshow's time).
+/// A `MenuScene`: an `InteractiveMenuScene` (its idle camera and focus) or a
+/// `SlideShowMenuScene` (alphas set by the slideshow's time). Flat scenes run the
+/// camera too: its random draws are made although nothing is drawn with it.
 #[derive(Debug, Clone)]
 pub struct SceneData {
     pub id: SceneId,
     /// An `InteractiveMenuScene`; else a `SlideShowMenuScene`.
     pub interactive: bool,
+    /// `flatMode`.
+    pub flat_mode: bool,
     /// `SlideShowMenuScene.displayTime`.
     pub display_time: f32,
+    pub depth_illustrations: Vec<ObjectId>,
     pub flat_illustrations: Vec<ObjectId>,
+    /// `InteractiveMenuScene.idleDepths`.
+    pub idle_depths: Vec<f32>,
+    pub blur_min: f32,
+    pub blur_max: f32,
     pub hidden: bool,
     pub focus: f32,
     pub last_focus: f32,

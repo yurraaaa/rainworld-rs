@@ -43,6 +43,43 @@ pub enum StageShader {
     /// `Futile/LocalBloom`: a disc that brightens the frame drawn before it with a blur
     /// of itself (its `GrabPass`), by the vertex alpha (the karma ladder's bloom).
     LocalBloom,
+    /// `Futile/SceneBlur`: a menu depth illustration (colour over a depth map), shifted
+    /// per pixel by its depth and blurred by its distance from the focus; the vertex
+    /// colour carries the sprite's size and depth ([`MenuSceneGlobals`]).
+    SceneBlur,
+    /// `Futile/SceneBlurLightEdges`: `SceneBlur` with the blur taps not weighted by
+    /// their alpha.
+    SceneBlurLightEdges,
+    /// `Futile/SceneLighten`: a screen blend of the unblurred illustration over its
+    /// `GrabPass`.
+    SceneLighten,
+    /// `Futile/SceneOverlay`: the `SceneBlurLightEdges` blur, overlay-blended over its
+    /// `GrabPass`.
+    SceneOverlay,
+    /// `Futile/SceneSoftLight`: as `SceneOverlay` with a soft-light blend.
+    SceneSoftLight,
+}
+
+impl StageShader {
+    /// Whether the shader has a `GrabPass` (reads the frame drawn before it).
+    #[must_use]
+    pub fn grabs(self) -> bool {
+        matches!(
+            self,
+            Self::LocalBloom | Self::SceneLighten | Self::SceneOverlay | Self::SceneSoftLight
+        )
+    }
+}
+
+/// The menu scenes' shader globals, as `MenuScene.GrafUpdate` sets them.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct MenuSceneGlobals {
+    /// `_BlurDepth`: the depth in focus, 1 to 10.
+    pub blur_depth: f32,
+    /// `_BlurRange`: blur per unit of depth away from the focus.
+    pub blur_range: f32,
+    /// `_MenuCamPos`: the depth camera, 0..1 on each axis.
+    pub cam_pos: [f32; 2],
 }
 
 /// The region map's shader globals (`_mapSize`, `_mapPan`, `_MapCol`, `_MapWaterCol`,
@@ -70,6 +107,7 @@ pub struct StageGlobals {
     /// global, in the menus.
     pub sprite_rect: [f32; 4],
     pub map: MapGlobals,
+    pub menu_scene: MenuSceneGlobals,
 }
 
 /// Unity's `filterMode` for a stage texture.

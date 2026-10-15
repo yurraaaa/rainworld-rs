@@ -1,8 +1,9 @@
-//! `InteractiveMenuScene.Update` in flat mode: the death scene's flower alpha, the
-//! depth-of-field focus and the idle camera drift. Nothing in flat mode is drawn with them, but they make the game's
-//! random draws every tick (D1), so they run as the game runs them. With no depth
-//! illustrations or idle depths the focus picks and the depth under the mouse draw
-//! nothing; the gamepad camera input is zero with the keyboard preset.
+//! `InteractiveMenuScene.Update`: the death scene's flower alpha, the depth-of-field
+//! focus and the idle camera drift. A depth scene picks its idle focus from its idle
+//! depths or layers and focuses on the depth under a still mouse; a flat scene has
+//! neither, so those draw nothing more, but the camera and focus still make the game's
+//! random draws every tick (D1). The gamepad camera input is zero with the keyboard
+//! preset.
 
 use rw_sim::{FloatExt, Vec2};
 
@@ -14,26 +15,49 @@ impl Menu {
         self.update_scene_alphas(id);
         let (mouse, last_mouse) = (self.mouse_pos, self.last_mouse_pos);
         let mouse_mode_selection = cx.shared.mouse_mode && self.selected.is_some();
-        let rng = &mut cx.shared.random;
-        let Kind::Scene(s) = &mut self.objects[id.0].kind else {
+        let Kind::Scene(s) = &self.objects[id.0].kind else {
             return;
         };
-        s.last_focus = s.focus;
         let num = (((s.mouse_inactive_counter as f32).inverse_lerp(10.0, 200.0)
             * std::f32::consts::PI)
             .sin())
         .inverse_lerp(0.4, 1.0)
             * (s.time_since_mouse_on_button_counter as f32).inverse_lerp(40.0, 100.0);
+        // `DepthAtPosition` reads the camera before this tick moves it.
+        let mouse_depth = (num > 0.3 && s.mouse_inactive_counter > 20)
+            .then(|| self.min_depth_at(&cx.shared.atlases, id, mouse));
+        let layer_depths: Vec<f32> = s
+            .depth_illustrations
+            .iter()
+            .filter_map(|&l| self.illustration(l).and_then(|i| i.depth))
+            .map(|d| d.depth)
+            .collect();
+        let rng = &mut cx.shared.random;
+        let Kind::Scene(s) = &mut self.objects[id.0].kind else {
+            return;
+        };
+        s.last_focus = s.focus;
         s.focus = s.focus.lerp_and_tick(
             s.get_to_focus,
             0.011_f32.lerp(0.05, num),
             1.0 / 3000.0_f32.lerp(900.0, num),
         );
         // `Random.value < 0.02 && |focus - getToFocus| < 0.002`: the draw is made first;
-        // with no idle depths and no depth illustrations nothing more is drawn.
-        let _ = rng.value() < 0.02 && (s.focus - s.get_to_focus).abs() < 0.002;
-        if num > 0.3 && s.mouse_inactive_counter > 20 {
-            s.get_to_focus = f32::MAX.inverse_lerp(1.0, 10.0);
+        // then an idle depth (or a layer's depth) by `Range`, and `value` for the jitter.
+        if rng.value() < 0.02 && (s.focus - s.get_to_focus).abs() < 0.002 {
+            let depths = if s.idle_depths.is_empty() {
+                &layer_depths
+            } else {
+                &s.idle_depths
+            };
+            if !depths.is_empty() {
+                let depth = depths[rng.range_i32(0, depths.len() as i32) as usize];
+                let jitter = rng.value().mathf_pow(1.5) * 0.5;
+                s.get_to_focus = (depth + jitter).inverse_lerp(1.0, 10.0);
+            }
+        }
+        if let Some(depth) = mouse_depth {
+            s.get_to_focus = depth.inverse_lerp(1.0, 10.0);
         }
         s.last_cam_pos = s.cam_pos;
         s.cam_pos += s.cam_vel;
