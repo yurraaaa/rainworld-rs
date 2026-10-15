@@ -3,7 +3,7 @@
 //! `BuildScene` tables of the scenes the port shows in depth, `positions.txt`, and the
 //! scene's shader globals. Behaviour: `rainworld-re/notes/menu.md` ("Depth scenes").
 
-use rw_assets::StreamingAssets;
+use rw_assets::{SlugcatName, StreamingAssets};
 use rw_render::{MenuSceneGlobals, StageShader};
 use rw_sim::{FloatExt, Vec2};
 
@@ -11,6 +11,10 @@ use super::Menu;
 use super::object::{Kind, ObjectId, SceneData, SceneId};
 use crate::atlas::AtlasManager;
 use crate::shared::MenuShared;
+use crate::stage::Sprite;
+use crate::tree::NodeId;
+
+mod slugcat_scenes;
 
 /// `MenuDepthIllustration.MenuShader`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -101,6 +105,8 @@ pub struct DepthScene {
     pub folder: String,
     pub layers: Vec<DepthLayer>,
     pub idle_depths: Vec<f32>,
+    /// The layer index before which `BuildScene` calls its slugcat page's `AddGlow`.
+    pub glow_at: Option<usize>,
 }
 
 impl DepthScene {
@@ -159,6 +165,13 @@ impl DepthScene {
         self
     }
 
+    /// `(owner as SlugcatPage).AddGlow()` between the layers so far and the next.
+    #[must_use]
+    pub fn glow(mut self) -> Self {
+        self.glow_at = Some(self.layers.len());
+        self
+    }
+
     /// `idleDepths.Add` for each.
     #[must_use]
     pub fn idle(mut self, depths: &[f32]) -> Self {
@@ -210,12 +223,22 @@ impl SceneId {
     /// The depth branch of `MenuScene.BuildScene`, for the scenes the port shows in
     /// depth; `None` for the others, which stay flat (D13).
     #[must_use]
-    pub fn depth_scene(self, _shared: &MenuShared) -> Option<DepthScene> {
+    pub fn depth_scene(self, shared: &MenuShared) -> Option<DepthScene> {
         match self {
             // `MainMenu_Downpour` without Downpour installed (every DLC is treated as
             // not installed) builds the main-menu scene.
             Self::MainMenu | Self::MainMenuDownpour => Some(Self::main_menu_scene()),
             Self::LandscapeSu => Some(Self::landscape_su_scene()),
+            Self::SlugcatWhite
+            | Self::SlugcatYellow
+            | Self::SlugcatRed
+            | Self::SlugcatDeadRed
+            | Self::GhostWhite
+            | Self::GhostYellow
+            | Self::GhostRed => self.slugcat_scene(shared.progression.red_unlocked),
+            Self::SleepScreen => Some(Self::sleep_scene(shared.playing_as_slugcat())),
+            Self::StarveScreen => Some(Self::starve_scene()),
+            Self::NewDeath => Some(Self::new_death_scene()),
             _ => None,
         }
     }
@@ -298,6 +321,61 @@ impl SceneId {
     }
 }
 
+/// The sleep, starve and death scenes (542857, 542963, 544337); the More Slugcats and
+/// Watcher branches are not ported.
+impl SceneId {
+    /// The sleep scene of `slugcat` (`PlayingAsSlugcat`, as the flat branch).
+    #[must_use]
+    pub fn sleep_scene(slugcat: SlugcatName) -> DepthScene {
+        let name = slugcat.value();
+        let at = Vec2::new(23.0, 17.0);
+        DepthScene::new(&format!("Scenes/Sleep Screen - {name}"))
+            .layer("Sleep - 5", at, 3.5, MenuShader::Normal)
+            .layer("Sleep - 4", at, 2.8, MenuShader::Normal)
+            .alpha(0.24)
+            .layer("Sleep - 3", at, 2.2, MenuShader::Normal)
+            .layer(&format!("Sleep - 2 - {name}"), at, 1.7, MenuShader::Normal)
+            .layer("Sleep - 1", at, 1.2, MenuShader::Normal)
+            .idle(&[3.3, 2.7, 1.8, 1.7, 1.6, 1.2])
+    }
+
+    #[must_use]
+    pub fn starve_scene() -> DepthScene {
+        DepthScene::new("Scenes/Starve Screen")
+            .layer("Starve - 5", Vec2::ZERO, 3.0, MenuShader::Normal)
+            .layer("Starve - 4", Vec2::ZERO, 2.8, MenuShader::Normal)
+            .layer("Starve - 3", Vec2::ZERO, 2.3, MenuShader::Normal)
+            .alpha(0.59)
+            .layer("Starve - 2", Vec2::ZERO, 2.6, MenuShader::Normal)
+            .layer("Starve - 1", Vec2::ZERO, 1.6, MenuShader::Normal)
+            .idle(&[3.1, 2.7, 2.5, 2.3, 1.6])
+    }
+
+    /// Seven layers, then the flower's six (hidden until the scene's timer fades them).
+    #[must_use]
+    pub fn new_death_scene() -> DepthScene {
+        let mut scene = DepthScene::new("Scenes/New Death")
+            .layer("New Death - 6", Vec2::ZERO, 3.6, MenuShader::Normal)
+            .layer("New Death - 55", Vec2::ZERO, 3.4, MenuShader::Normal)
+            .layer("New Death - 5", Vec2::ZERO, 3.2, MenuShader::Normal)
+            .layer("New Death - 4", Vec2::ZERO, 2.7, MenuShader::Lighten)
+            .layer("New Death - 3", Vec2::ZERO, 3.0, MenuShader::Normal)
+            .layer("New Death - 2", Vec2::ZERO, 2.4, MenuShader::Normal)
+            .layer("New Death - 1", Vec2::ZERO, 1.6, MenuShader::Normal);
+        for (file, shader) in [
+            ("FlowerA", MenuShader::Normal),
+            ("FlowerA2", MenuShader::Lighten),
+            ("FlowerB", MenuShader::Normal),
+            ("FlowerB2", MenuShader::Lighten),
+            ("FlowerC", MenuShader::Normal),
+            ("FlowerC2", MenuShader::Lighten),
+        ] {
+            scene = scene.layer(file, Vec2::ZERO, 2.6, shader).alpha(0.0);
+        }
+        scene.idle(&[2.6, 2.5, 3.6, 1.5])
+    }
+}
+
 impl SceneData {
     /// `CamPos(timeStacker)`: the camera, interpolated, times `cameraRange`.
     #[must_use]
@@ -359,15 +437,22 @@ impl Menu {
 
     /// The depth branch of `BuildScene` and `RefreshPositions`: the layers, their
     /// `positions.txt` places (plus `offset`), then the layers become sub-objects.
+    /// With `glow` (the owning slugcat page's `HasGlow`), `AddGlow`'s two sprites go in
+    /// among the layers where the table calls it; they are returned (B, then A).
     pub(super) fn build_depth_scene(
         &mut self,
         shared: &mut MenuShared,
         scene: ObjectId,
         table: &DepthScene,
         interactive: bool,
-    ) {
+        glow: bool,
+    ) -> Option<[NodeId; 2]> {
         let mut layers = Vec::with_capacity(table.layers.len());
-        for l in &table.layers {
+        let mut glow_sprites = None;
+        for (index, l) in table.layers.iter().enumerate() {
+            if glow && table.glow_at == Some(index) {
+                glow_sprites = Some(self.add_glow_sprites(scene));
+            }
             let id = self.add_depth_illustration(
                 shared, scene, &l.folder, &l.file, l.pos, l.depth, l.shader,
             );
@@ -400,6 +485,18 @@ impl Menu {
         for id in layers {
             self.add_sub(scene, id);
         }
+        glow_sprites
+    }
+
+    /// `SlugcatPage.AddGlow` with `HasGlow`: `glowSpriteB`, then `glowSpriteA`, both
+    /// `Futile_White` with `FlatLightNoisy`, in the page's container.
+    fn add_glow_sprites(&mut self, scene: ObjectId) -> [NodeId; 2] {
+        let container = self.container_of(scene);
+        [0, 1].map(|_| {
+            let mut sprite = Sprite::new(AtlasManager::WHITE);
+            sprite.shader = StageShader::FlatLightNoisy;
+            self.stage.add_sprite(container, sprite)
+        })
     }
 
     /// `MenuDepthIllustration.DepthAtPosition(ps, devtool: false)`: the depth of the
@@ -523,6 +620,43 @@ mod tests {
         assert_eq!(s.layers[14].depth, 1.5);
         assert!(s.idle_depths.is_empty());
         assert_eq!(SceneId::landscape_su_scene().layers[2].depth, 1.25);
+    }
+
+    #[test]
+    fn screen_tables_follow_build_scene() {
+        let s = SceneId::sleep_scene(SlugcatName::Red);
+        assert_eq!(s.folder, "Scenes/Sleep Screen - Red");
+        assert_eq!(s.layers[3].file, "Sleep - 2 - Red");
+        assert_eq!(s.layers[1].set_alpha, Some(0.24));
+        assert_eq!(s.idle_depths.len(), 6);
+        let s = SceneId::starve_scene();
+        assert_eq!(s.layers[2].set_alpha, Some(0.59));
+        assert_eq!(s.idle_depths, [3.1, 2.7, 2.5, 2.3, 1.6]);
+        let s = SceneId::new_death_scene();
+        assert_eq!(s.layers.len(), 13);
+        assert_eq!(s.layers[3].shader, MenuShader::Lighten);
+        assert_eq!(s.layers[8].file, "FlowerA2");
+        assert_eq!(s.layers[8].shader, MenuShader::Lighten);
+        assert!(s.layers[7..].iter().all(|l| l.set_alpha == Some(0.0)));
+        assert!(s.layers[..7].iter().all(|l| l.set_alpha.is_none()));
+        assert_eq!(s.idle_depths, [2.6, 2.5, 3.6, 1.5]);
+    }
+
+    #[test]
+    fn death_flowers_show_one_after_another() {
+        assert_eq!(SceneId::new_death_flower_alphas(0.0), [0.0; 6]);
+        // `IL(0.1, 0.4, .25) * IL(0.7, 0.4, .25)` = 0.5.
+        let a = SceneId::new_death_flower_alphas(0.25);
+        assert!((a[0] - 0.5).abs() < 1e-6 && (a[1] - 0.25).abs() < 1e-6);
+        assert_eq!(a[2..], [0.0; 4]);
+        // The first flower fades out as the second fades in.
+        let a = SceneId::new_death_flower_alphas(0.55);
+        assert!((a[0] - 0.5).abs() < 1e-6 && (a[2] - 0.5).abs() < 1e-6);
+        assert!((a[3] - 0.25).abs() < 1e-6 && a[4] == 0.0);
+        assert_eq!(
+            SceneId::new_death_flower_alphas(1.0),
+            [0.0, 0.0, 0.0, 0.0, 1.0, 0.75]
+        );
     }
 
     #[test]

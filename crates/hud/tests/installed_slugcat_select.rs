@@ -9,6 +9,7 @@ use rw_assets::{SlugcatName, StreamingAssets, UnityResources};
 use rw_hud::{SlugcatSelectMenu, SlugcatSelectScreen};
 use rw_menu::menu::{Kind, SceneId};
 use rw_menu::{MainLoopProcess, MenuColor, MenuContext, MenuShared, ProcessId, ProcessRequests};
+use rw_random::UnityRandom;
 use rw_save::SaveState;
 use rw_sim::Vec2;
 
@@ -32,6 +33,11 @@ struct Harness {
 impl Harness {
     /// The menu with `save` as the current save state.
     fn open(save: SaveState) -> Option<Self> {
+        Self::open_seeded(save, 0)
+    }
+
+    /// `open` with the random stream seeded `seed` before the constructor.
+    fn open_seeded(save: SaveState, seed: i32) -> Option<Self> {
         let root =
             std::env::var_os("RW_DIR").map_or_else(|| PathBuf::from(DEFAULT_RW_DIR), PathBuf::from);
         let data = root.join("RainWorld_Data");
@@ -45,6 +51,7 @@ impl Harness {
         shared.pre_switch(ProcessId::SlugcatSelect);
         shared.progression.red_unlocked = true;
         shared.saves.current_save_state = Some(save);
+        shared.random = UnityRandom::new(seed);
         let select = SlugcatSelectMenu::new(&mut shared);
         Some(Self {
             ctx: Ctx { shared },
@@ -175,4 +182,62 @@ fn the_ascended_survivor() {
         return;
     };
     assert_eq!(h.scene(1), SceneId::GhostWhite);
+}
+
+/// Depth mode: `new RainEffect` first (2508 draws), then each page's
+/// `InteractiveMenuScene` (`getToFocus`, `RNV`, `value`); `BuildScene`, the mark, the
+/// glow and the HUD draw nothing.
+#[test]
+fn the_constructor_draws_the_rain_then_the_scenes() {
+    let mut s = save(SlugcatName::White, "SU_S01", 3, 2, (1, 4));
+    s.the_glow = true;
+    s.death_persistent.the_mark = true;
+    let Some(h) = Harness::open_seeded(s, 11) else {
+        return;
+    };
+    let mut probe = UnityRandom::new(11);
+    for _ in 0..2508 + 3 * 3 {
+        probe.value();
+    }
+    assert_eq!(h.ctx.shared.random, probe);
+    let screen = h.screen();
+    assert!(screen.rain_effect.is_some());
+    // The Survivor's continue page has both; the others are new-game pages.
+    let lights = &screen.pages[1].lights;
+    assert!(lights.has_mark && lights.has_glow);
+    assert!(lights.mark.is_some() && lights.glow.is_some());
+    assert!(screen.pages[0].lights.glow.is_none());
+}
+
+/// `SlugcatPage.GrafUpdate` places each layer at `pos - CamPos * 80 / depth +
+/// sceneOffset`, slid by the scroll, at its alpha times `UseAlpha`; `positions.txt`
+/// gives `pos` (the Monk's first layer at (432, 173)).
+#[test]
+fn depth_layers_follow_the_page() {
+    let Some(mut h) = Harness::open(save(SlugcatName::Yellow, "SU_S01", 5, 2, (1, 4))) else {
+        return;
+    };
+    h.tick();
+    let menu = h.select.menu();
+    let page = &h.screen().pages[0];
+    let Kind::Scene(scene) = &menu.object(page.scene).kind else {
+        panic!("not a scene");
+    };
+    assert_eq!(scene.depth_illustrations.len(), 6);
+    assert_eq!(scene.idle_depths, [3.6, 2.8, 2.6, 2.5, 1.5]);
+    // The centred page: `cameraRange` 0.5.
+    assert_eq!(scene.camera_range, 0.5);
+    let first = scene.depth_illustrations[0];
+    assert_eq!(menu.object(first).pos, Vec2::new(432.0, 173.0));
+    let Kind::Illustration(il) = &menu.object(first).kind else {
+        panic!("not an illustration");
+    };
+    let expected =
+        Vec2::new(432.0, 173.0) - scene.cam_pos_at(1.0) * 80.0 / 3.6 + Vec2::new(10.0, 75.0);
+    let tr = menu.stage.sprite(il.sprite).transform;
+    assert!((tr.x - expected.x).abs() < 1e-3 && (tr.y - expected.y).abs() < 1e-3);
+    assert_eq!(tr.alpha, il.alpha);
+    // The rain fades in by 0.006 a tick.
+    let rain = menu.rain_effect(h.screen().rain_effect.unwrap()).unwrap();
+    assert!((rain.rain_fade - 0.006).abs() < 1e-7);
 }
