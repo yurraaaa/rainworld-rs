@@ -84,6 +84,27 @@ fn death_waits_for_a_map_press_then_saves_and_switches() {
     );
     assert_eq!(s.frames(1, &["Space"]).upcoming, None);
     assert_eq!(s.frames(1, &[]).upcoming, None);
+
+    // `CommunicateWithUpcomingProcess`: the death screen's food, room and position are
+    // the prompt's; its map shows one karma less (2 → 1, not reinforced).
+    let f = s.frontend_mut().unwrap();
+    let package = f
+        .manager
+        .current()
+        .and_then(|p| p.screen_package(ProcessId::DeathScreen, &f.ctx.menu.saves, &assets))
+        .expect("a package");
+    let prompt = &f.game().unwrap().scene.hud().unwrap().text_prompt;
+    assert_eq!(prompt.food_in_stomach, 3);
+    assert_eq!(
+        (package.food, package.player_room, package.player_pos),
+        (
+            prompt.food_in_stomach,
+            prompt.death_room,
+            rw_sim::Vec2::from(prompt.death_pos)
+        )
+    );
+    assert_eq!(package.karma, (2, 5));
+    assert_eq!(package.map_data.expect("map").current_karma, 1);
     // The rising edge: `GoToDeathScreen`.
     let pressed = s.frames(1, &["Space"]);
     assert_eq!(pressed.upcoming.as_deref(), Some("DeathScreen"));

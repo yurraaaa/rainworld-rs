@@ -5,6 +5,7 @@
 
 pub mod checksum;
 pub mod communities;
+pub mod coordinate;
 pub mod cs_float;
 pub mod death_persistent;
 pub mod dirs;
@@ -22,10 +23,12 @@ pub mod win_state;
 
 pub use checksum::ChecksumSalt;
 pub use communities::{CommunityId, CreatureCommunities};
+pub use coordinate::SavedCoordinate;
 pub use dirs::{Platform, SaveSlot};
 pub use dreams::{DreamId, DreamsState};
 pub use hibernation::WinOutcome;
 pub use import::{ImportReport, import_slot};
+pub use misc::{MiscProgression, WatchedScreen};
 pub use misc_world::{MiscWorldSaveData, PlayerGuideState};
 pub use options::{Language, Options};
 pub use progression::{CampaignStart, PlayerProgression, SaveError};

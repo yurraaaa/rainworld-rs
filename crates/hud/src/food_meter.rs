@@ -1,8 +1,9 @@
 //! `HUD.FoodMeter`: a row of pips (one per food point, `maxFood` of them), a gap and
 //! the hibernation line before pip `foodToHibernate`, quarter pips on the next pip, the
-//! fill and eat animations and when the meter shows. Only the player's meter (owner
-//! `Player`) is ported; the sleep, death and character-select screens' updates, the
-//! More Slugcats pup meters and the Watcher's camouflage back circle are not
+//! fill and eat animations and when the meter shows. The player's meter (`GameUpdate`)
+//! and the sleep and death screens' (`SleepUpdate`, `DeathUpdate`) are ported; the
+//! character-select screen's, the More Slugcats pup meters and the Watcher's
+//! camouflage back circle and ripple ladder branches are not
 //! (`rainworld-re/notes/hud.md`).
 
 use std::f32::consts::PI;
@@ -12,7 +13,7 @@ use rw_render::StageShader;
 use rw_sim::{FloatExt, SoundId, Vec2};
 
 use crate::circle::{FADABLE_COLORS, FadeCircle, HudCircle, SnapGraphic};
-use crate::{CustomFloat, HudFx, OwnerTick};
+use crate::{CustomFloat, HudFx, HudOwnerType, OwnerTick};
 
 /// Pixels between pip centres (`CircleDistance` of the player's meter).
 pub const CIRCLE_DISTANCE: f32 = 30.0;
@@ -27,7 +28,9 @@ struct MeterView {
     show_count: i32,
     time_counter: i32,
     refuse_counter: i32,
-    /// The owner is in an intact shelter, not its start shelter, not ready to win.
+    /// The empty pips below the line pulse red: the player is in an intact shelter,
+    /// not its start shelter, not ready to win; or the sleep screen counts down a
+    /// malnourished goal.
     shelter_warning: bool,
 }
 
@@ -256,13 +259,38 @@ pub struct FoodMeter {
     pub down_in_corner: f32,
     pub max_food: i32,
     pub survival_limit: i32,
-    pub quarter_pip_shower: QuarterPipShower,
+    /// The player's meter only.
+    pub quarter_pip_shower: Option<QuarterPipShower>,
+    /// The sleep screen's pips left to eat for the hibernation (`eatCircles`).
+    pub eat_circles: i32,
+    pub sleep_screen_phase: i32,
+    show_karma_change: bool,
     last_show_surv_lim: f32,
     show_surv_lim: f32,
     surv_lim_from: f32,
     surv_lim_to: f32,
     surv_lim_prog: f32,
     pub force_sleep: f32,
+}
+
+/// What a sleep or death screen's meter reads of its owner each tick
+/// (`SleepAndDeathScreen`).
+#[derive(Debug, Clone, Copy)]
+pub struct ScreenTick {
+    /// `SleepScreen` or `DeathScreen` (a starve too).
+    pub owner: HudOwnerType,
+    /// `CurrentFood`: the package's food.
+    pub current_food: i32,
+    /// `AllowFoodMeterTick`: no kills display, or it counted them all.
+    pub allow_food_meter_tick: bool,
+    /// The map button (`RWInput.PlayerInput(0).mp`) speeds the count up.
+    pub map_button: bool,
+    pub start_malnourished: bool,
+    pub goal_malnourished: bool,
+    /// `StarveLabelAlpha(1)`.
+    pub starve_label_alpha: f32,
+    /// `FoodMeterXPos`.
+    pub food_meter_x: f32,
 }
 
 /// What the food meter reads of the karma and rain meters during its update.
@@ -290,6 +318,45 @@ impl FoodMeter {
         max_food: i32,
         survival_limit: i32,
         current_food: i32,
+    ) -> Self {
+        let mut meter = Self::with_sprites(stage, container, max_food, survival_limit, true);
+        meter.new_show_count(current_food);
+        meter
+    }
+
+    /// The constructor for a sleep or death screen's meter (`InitSleepHud`): the sleep
+    /// screen's starts at the food before hibernation and eats `foodToHibernate` pips
+    /// after 65 ticks; the death screen's waits 80. No quarter pips.
+    pub fn new_for_screen(
+        stage: &mut StageTree,
+        container: NodeId,
+        max_food: i32,
+        survival_limit: i32,
+        owner: HudOwnerType,
+        current_food: i32,
+    ) -> Self {
+        let mut meter = Self::with_sprites(stage, container, max_food, survival_limit, false);
+        let count = if owner == HudOwnerType::SleepScreen {
+            meter.eat_circle_delay = 65;
+            meter.eat_circles = survival_limit;
+            (current_food + survival_limit).min(max_food)
+        } else {
+            meter.eat_circle_delay = 80;
+            meter.eat_circles = 0;
+            current_food
+        };
+        meter.new_show_count(count);
+        meter
+    }
+
+    /// The sprites in the constructor's order: the pips' gradients, the dark fade, the
+    /// line, the pips' circles, then the quarter pips.
+    fn with_sprites(
+        stage: &mut StageTree,
+        container: NodeId,
+        max_food: i32,
+        survival_limit: i32,
+        quarter_pips: bool,
     ) -> Self {
         let show_surv_lim = survival_limit as f32;
         let gradients: Vec<NodeId> = (0..max_food)
@@ -346,8 +413,8 @@ impl FoodMeter {
                 }
             })
             .collect();
-        let quarter_pip_shower = QuarterPipShower::new(stage, container);
-        let mut meter = Self {
+        let quarter_pip_shower = quarter_pips.then(|| QuarterPipShower::new(stage, container));
+        Self {
             line_sprite,
             dark_fade,
             circles,
@@ -355,7 +422,7 @@ impl FoodMeter {
             last_pos: Self::CORNER,
             fade: 0.0,
             last_fade: 0.0,
-            last_count: current_food,
+            last_count: 0,
             visible_counter: 0,
             show_count: 0,
             show_count_delay: 0,
@@ -368,15 +435,16 @@ impl FoodMeter {
             max_food,
             survival_limit,
             quarter_pip_shower,
+            eat_circles: 0,
+            sleep_screen_phase: 0,
+            show_karma_change: false,
             last_show_surv_lim: show_surv_lim,
             show_surv_lim,
             surv_lim_from: show_surv_lim,
             surv_lim_to: show_surv_lim,
             surv_lim_prog: 1.0,
             force_sleep: 0.0,
-        };
-        meter.new_show_count(current_food);
-        meter
+        }
     }
 
     /// `ShowSurvivalLimit`: the pip the hibernation line stands before.
@@ -432,7 +500,7 @@ impl FoodMeter {
         self.refuse_counter = 10;
     }
 
-    fn view(&self, owner: &OwnerTick) -> MeterView {
+    fn view(&self, shelter_warning: bool) -> MeterView {
         MeterView {
             pos: self.pos,
             fade: self.fade,
@@ -441,22 +509,54 @@ impl FoodMeter {
             show_count: self.show_count,
             time_counter: self.time_counter,
             refuse_counter: self.refuse_counter,
-            shelter_warning: owner.in_intact_shelter
-                && !owner.still_in_start_shelter
-                && !owner.ready_for_win,
+            shelter_warning,
         }
     }
 
+    /// The player's meter's `Update`.
     pub fn update(&mut self, owner: &OwnerTick, n: &MeterNeighbours, fx: &mut HudFx<'_>) {
-        let view = self.view(owner);
+        let warning =
+            owner.in_intact_shelter && !owner.still_in_start_shelter && !owner.ready_for_win;
+        self.begin_update(warning, owner.current_food, Some(n.karma_fade), fx);
+        self.game_update(owner, n, fx);
+        self.end_update(n.hide_general_hud);
+    }
+
+    /// A sleep or death screen's meter's `Update` (its HUD has no karma meter and no
+    /// text prompt). Returns whether it called the owner's `FoodCountDownDone`.
+    pub fn update_screen(&mut self, screen: &ScreenTick, fx: &mut HudFx<'_>) -> bool {
+        let warning = screen.owner == HudOwnerType::SleepScreen
+            && screen.goal_malnourished
+            && self.sleep_screen_phase < 3;
+        self.begin_update(warning, screen.current_food, None, fx);
+        let done = match screen.owner {
+            HudOwnerType::SleepScreen => self.sleep_update(screen, fx),
+            HudOwnerType::DeathScreen => self.death_update(screen),
+            _ => false,
+        };
+        self.end_update(false);
+        done
+    }
+
+    /// `Update` up to the owner's branch: the pips (last first), a food change, the
+    /// last-tick values and the survival line's slide. `karma_fade` is `None` without
+    /// a karma meter.
+    fn begin_update(
+        &mut self,
+        warning: bool,
+        current_food: i32,
+        karma_fade: Option<f32>,
+        fx: &mut HudFx<'_>,
+    ) {
+        let view = self.view(warning);
         for c in self.circles.iter_mut().rev() {
             c.update(&view, fx);
         }
-        if self.last_count != owner.current_food {
-            if self.fade == 0.0 && n.karma_fade == 0.0 {
+        if self.last_count != current_food {
+            if self.fade == 0.0 && karma_fade == Some(0.0) {
                 self.down_in_corner = 1.0;
             }
-            self.last_count = owner.current_food;
+            self.last_count = current_food;
             self.visible_counter = 200;
         }
         self.last_fade = self.fade;
@@ -469,7 +569,11 @@ impl FoodMeter {
                 .surv_lim_from
                 .lerp(self.surv_lim_to, self.surv_lim_prog.s_curve(0.65));
         }
-        self.game_update(owner, n, fx);
+    }
+
+    /// `Update` after the owner's branch: the pips plop in one by one as the meter
+    /// fades in.
+    fn end_update(&mut self, hide_general_hud: bool) {
         if self.fade > 0.0 {
             if self.last_fade == 0.0 {
                 self.init_plop_circle = -1;
@@ -490,9 +594,98 @@ impl FoodMeter {
         if self.refuse_counter > 0 {
             self.refuse_counter -= 1;
         }
-        if n.hide_general_hud {
+        if hide_general_hud {
             self.fade = 0.0;
         }
+    }
+
+    /// `SleepUpdate`: after the wait, the hibernation eats a pip every 40 ticks (20 for
+    /// more than 7 pips); a malnourished cycle then slides the line; then the count
+    /// down to `FoodCountDownDone` while the meter drops from 450 to the bottom.
+    fn sleep_update(&mut self, screen: &ScreenTick, fx: &mut HudFx<'_>) -> bool {
+        let before = self.eat_circle_delay;
+        if screen.allow_food_meter_tick && self.show_surv_lim == self.surv_lim_to {
+            if screen.map_button {
+                self.eat_circle_delay -= 2;
+            }
+            self.eat_circle_delay -= 1;
+        }
+        let rest = 0.5;
+        let mut done = false;
+        match self.sleep_screen_phase {
+            0 => {
+                if self.eat_circles > 0 && self.show_count >= 1 {
+                    if self.eat_circle_delay < 1 {
+                        let i = (self.show_count - 1) as usize;
+                        self.circles[i].eat_fade(fx);
+                        self.eat_circles -= 1;
+                        self.show_count -= 1;
+                        self.eat_circle_delay = if self.max_food > 7 { 20 } else { 40 };
+                    }
+                } else {
+                    self.sleep_screen_phase =
+                        if screen.start_malnourished || screen.goal_malnourished {
+                            1
+                        } else {
+                            3
+                        };
+                    self.eat_circle_delay = 80;
+                }
+                self.fade = self.fade.lerp_and_tick(rest, 0.04, 1.0 / 30.0);
+            }
+            1 => {
+                if self.eat_circle_delay <= 0 && before > 0 {
+                    let to = if screen.goal_malnourished {
+                        self.max_food
+                    } else {
+                        self.survival_limit
+                    };
+                    self.move_survival_limit(to as f32, true);
+                    self.sleep_screen_phase = 2;
+                }
+                self.fade = self.fade.lerp_and_tick(rest, 0.04, 1.0 / 30.0);
+            }
+            2 => {
+                if self.show_surv_lim == self.surv_lim_to {
+                    self.sleep_screen_phase = 3;
+                    self.eat_circle_delay = 80;
+                }
+                self.fade = self.fade.lerp_and_tick(rest, 0.04, 1.0 / 30.0);
+            }
+            3 => {
+                done = self.eat_circle_delay <= 0 && before > 0;
+                let to_b = 0.1 * (1.0 - screen.starve_label_alpha);
+                let to = (self.eat_circle_delay as f32).lerp_map(80.0, 20.0, rest, to_b);
+                self.fade = self.fade.lerp_and_tick(to, 0.04, 1.0 / 30.0);
+            }
+            _ => {}
+        }
+        let down = (self.eat_circle_delay as f32)
+            .inverse_lerp(-30.0, -60.0)
+            .s_curve(0.5);
+        self.pos.y = 450.0_f32.lerp(33.0, down).max(17.25);
+        self.pos.x = screen.food_meter_x;
+        done
+    }
+
+    /// `DeathUpdate`: at the bottom at once, fading to half, and `FoodCountDownDone`
+    /// once after 80 ticks (sooner with the map button held).
+    fn death_update(&mut self, screen: &ScreenTick) -> bool {
+        if !screen.allow_food_meter_tick {
+            return false;
+        }
+        self.pos.y = 33.0;
+        self.pos.x = screen.food_meter_x;
+        self.fade = self.fade.lerp_and_tick(0.5, 0.04, 1.0 / 30.0);
+        if screen.map_button {
+            self.eat_circle_delay -= 2;
+        }
+        self.eat_circle_delay -= 1;
+        if self.eat_circle_delay < 0 && !self.show_karma_change {
+            self.show_karma_change = true;
+            return true;
+        }
+        false
     }
 
     /// `GameUpdate`.
@@ -563,7 +756,9 @@ impl FoodMeter {
                     c.food_plop(fx);
                 }
                 self.show_count += 1;
-                self.quarter_pip_shower.display_quarter_food = owner.quarter_food_points;
+                if let Some(q) = &mut self.quarter_pip_shower {
+                    q.display_quarter_food = owner.quarter_food_points;
+                }
             } else {
                 self.show_count_delay -= 1;
             }
@@ -587,7 +782,9 @@ impl FoodMeter {
 
     /// `QuarterPipShower.Update`.
     fn update_quarter_pips(&mut self, owner: &OwnerTick, fx: &mut HudFx<'_>) {
-        let q = &mut self.quarter_pip_shower;
+        let Some(q) = &mut self.quarter_pip_shower else {
+            return;
+        };
         q.last_quarter_pip_sin = q.quarter_pip_sin;
         q.last_light_up = q.light_up;
         if q.display_quarter_food > 0 {
@@ -618,7 +815,7 @@ impl FoodMeter {
         }
     }
 
-    /// `Draw`; `force_sleep_counter` is the owner's.
+    /// `Draw`; `force_sleep_counter` is the player owner's (0 for a screen).
     pub fn draw(&self, stage: &mut StageTree, force_sleep_counter: i32, t: f32) {
         let fade = self.last_fade.lerp(self.fade, t);
         let pos = self.draw_pos(t);
@@ -657,7 +854,9 @@ impl FoodMeter {
 
     /// `QuarterPipShower.Draw`.
     fn draw_quarter_pips(&self, stage: &mut StageTree, meter_pos: Vec2, t: f32) {
-        let q = &self.quarter_pip_shower;
+        let Some(q) = &self.quarter_pip_shower else {
+            return;
+        };
         let next = usize::try_from(self.show_count)
             .ok()
             .and_then(|i| self.circles.get(i));

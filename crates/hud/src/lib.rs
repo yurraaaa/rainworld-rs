@@ -13,6 +13,8 @@ mod karma_meter;
 mod map;
 mod pause_menu;
 mod rain_meter;
+mod screen_package;
+mod sleep_hud;
 mod text_prompt;
 
 #[cfg(test)]
@@ -20,14 +22,14 @@ mod tests;
 
 use std::sync::Arc;
 
-use rw_menu::{AtlasManager, Font, NodeId, StageTree, Translator};
+use rw_menu::{AtlasManager, Font, MenuMic, MenuSoundId, NodeId, StageTree, Translator};
 use rw_random::UnityRandom;
 use rw_render::StageBatch;
 use rw_sim::{MapDiscovery, SoundId, Sounds, Vec2};
 
 pub use circle::{FADABLE_COLORS, FadeCircle, HudCircle, SnapGraphic};
 pub use controls_page::{ControlMap, ControlsPage, IllustrationSource, PageText};
-pub use food_meter::{CIRCLE_DISTANCE, FoodMeter, MeterCircle};
+pub use food_meter::{CIRCLE_DISTANCE, FoodMeter, MeterCircle, ScreenTick};
 pub use karma_meter::{KarmaMeter, karma_symbol_sprite};
 pub use map::{
     ConnectionView, CycleLabel, FadeInMarker, GateData, GateRequirement, Map, MapConnection,
@@ -35,6 +37,10 @@ pub use map::{
 };
 pub use pause_menu::{PauseButton, PauseGame, PauseMenu, PauseRequest};
 pub use rain_meter::{RainCycleView, RainMeter};
+pub use screen_package::{
+    GameOverPrompt, PlayerAt, RealizedAt, ScreenPackageSource, SleepDeathScreenDataPackage,
+};
+pub use sleep_hud::{SleepHud, SleepHudSetup};
 pub use text_prompt::{InfoId, Message, SubregionTracker, Subregions, TextPrompt};
 
 use food_meter::MeterNeighbours;
@@ -119,20 +125,86 @@ pub struct OwnerTick {
     pub map: MapOwner,
 }
 
+/// `HUD.OwnerType`: what owns a HUD.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HudOwnerType {
+    Player,
+    SleepScreen,
+    /// The death and starve screens.
+    DeathScreen,
+    FastTravelScreen,
+    WarpFastTravelScreen,
+    WarpSafariMenu,
+    RegionOverview,
+    ArenaSession,
+    CharacterSelect,
+    /// More Slugcats.
+    SafariOverseer,
+}
+
+impl HudOwnerType {
+    pub const ALL: [Self; 10] = [
+        Self::Player,
+        Self::SleepScreen,
+        Self::DeathScreen,
+        Self::FastTravelScreen,
+        Self::WarpFastTravelScreen,
+        Self::WarpSafariMenu,
+        Self::RegionOverview,
+        Self::ArenaSession,
+        Self::CharacterSelect,
+        Self::SafariOverseer,
+    ];
+
+    #[must_use]
+    pub const fn value(self) -> &'static str {
+        match self {
+            Self::Player => "Player",
+            Self::SleepScreen => "SleepScreen",
+            Self::DeathScreen => "DeathScreen",
+            Self::FastTravelScreen => "FastTravelScreen",
+            Self::WarpFastTravelScreen => "WarpFastTravelScreen",
+            Self::WarpSafariMenu => "WarpSafariMenu",
+            Self::RegionOverview => "RegionOverview",
+            Self::ArenaSession => "ArenaSession",
+            Self::CharacterSelect => "CharacterSelect",
+            Self::SafariOverseer => "SafariOverseer",
+        }
+    }
+
+    #[must_use]
+    pub fn from_value(value: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|o| o.value() == value)
+    }
+}
+
+/// Where `PlayHUDSound` goes: the player's room microphone, or a menu screen's
+/// `PlaySound`.
+pub enum HudSounds<'a> {
+    Game(&'a mut Sounds),
+    Menu(&'a mut MenuMic),
+}
+
 /// Where the HUD's parts make sounds, fade circles and random draws while updating.
 pub struct HudFx<'a> {
     pub stage: &'a mut StageTree,
     pub container: NodeId,
     pub fade_circles: &'a mut Vec<FadeCircle>,
-    pub sounds: &'a mut Sounds,
+    pub sounds: HudSounds<'a>,
     pub rng: &'a mut UnityRandom,
 }
 
 impl HudFx<'_> {
-    /// `HUD.PlaySound`: the owner's `PlayHUDSound`, a disembodied sound at volume and
-    /// pitch 1.
+    /// `HUD.PlaySound`: the owner's `PlayHUDSound`, a sound at pan 0, volume and pitch
+    /// 1 (disembodied in a room).
     pub fn play_sound(&mut self, id: SoundId) {
-        self.sounds.play_disembodied(id, 0.0, 1.0, 1.0, self.rng);
+        match &mut self.sounds {
+            HudSounds::Game(sounds) => sounds.play_disembodied(id, 0.0, 1.0, 1.0, self.rng),
+            HudSounds::Menu(mic) => match MenuSoundId::from_name(id.name()) {
+                Some(id) => mic.play_sound(id, [0.0, 1.0, 1.0], self.rng),
+                None => log::warn!("{} is not a menu sound", id.name()),
+            },
+        }
     }
 }
 
@@ -228,6 +300,7 @@ impl Hud {
             .map(|((text, red), font)| (font, text, red));
         let map = Map::new(
             setup.map.take().unwrap_or_else(MapData::empty),
+            HudOwnerType::Player,
             &mut stage,
             containers[0],
             in_front,
@@ -340,7 +413,7 @@ impl Hud {
             stage: &mut self.stage,
             container: self.containers[1],
             fade_circles: &mut self.fade_circles,
-            sounds,
+            sounds: HudSounds::Game(sounds),
             rng,
         };
         self.karma_meter.update(&karma_n, &mut fx);

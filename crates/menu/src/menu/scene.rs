@@ -1,16 +1,17 @@
-//! `InteractiveMenuScene.Update` in flat mode: the depth-of-field focus and the idle
-//! camera drift. Nothing in flat mode is drawn with them, but they make the game's
+//! `InteractiveMenuScene.Update` in flat mode: the death scene's flower alpha, the
+//! depth-of-field focus and the idle camera drift. Nothing in flat mode is drawn with them, but they make the game's
 //! random draws every tick (D1), so they run as the game runs them. With no depth
 //! illustrations or idle depths the focus picks and the depth under the mouse draw
 //! nothing; the gamepad camera input is zero with the keyboard preset.
 
 use rw_sim::{FloatExt, Vec2};
 
-use super::object::{Kind, ObjectId};
+use super::object::{Kind, ObjectId, SceneId};
 use super::{Menu, MenuCx};
 
 impl Menu {
     pub(super) fn update_scene(&mut self, id: ObjectId, cx: &mut MenuCx<'_>) {
+        self.update_scene_alphas(id);
         let (mouse, last_mouse) = (self.mouse_pos, self.last_mouse_pos);
         let mouse_mode_selection = cx.shared.mouse_mode && self.selected.is_some();
         let rng = &mut cx.shared.random;
@@ -122,6 +123,34 @@ impl Menu {
         s.time_since_mouse_on_button_counter += 1;
         if mouse_mode_selection {
             s.time_since_mouse_on_button_counter = 0;
+        }
+    }
+
+    /// The flat-mode `setAlpha`s of `InteractiveMenuScene.Update` (after the
+    /// sub-objects' update, so they apply next tick): the death scene's flower fades in
+    /// over 160 ticks of `timer`, 0 while the timer has not started.
+    fn update_scene_alphas(&mut self, id: ObjectId) {
+        let Kind::Scene(s) = &self.objects[id.0].kind else {
+            return;
+        };
+        if s.id != SceneId::NewDeath {
+            return;
+        }
+        let alpha = (s.timer as f32).inverse_lerp(0.0, 160.0);
+        if let Some(&flower) = s.flat_illustrations.get(1)
+            && let Some(i) = self.illustration_mut(flower)
+        {
+            i.set_alpha = Some(alpha);
+        }
+    }
+
+    /// `FoodCountDownDone`'s `scene.timer = 0` when it has not started (the death
+    /// scene's flower).
+    pub fn start_scene_timer(&mut self, scene: ObjectId) {
+        if let Some(s) = self.scene_mut(scene)
+            && s.timer < 0
+        {
+            s.timer = 0;
         }
     }
 

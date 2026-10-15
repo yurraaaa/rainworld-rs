@@ -8,6 +8,31 @@
 
 use rw_assets::{ActiveMods, SlugcatName};
 
+/// The sleep and death screens' watch counters (`integers[1..=4]`), which make a
+/// screen's first viewings wait for its animation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WatchedScreen {
+    /// `watchedSleepScreens`.
+    Sleep,
+    /// `watchedDeathScreens` (deaths and starves).
+    Death,
+    /// `watchedDeathScreensWithFlower`.
+    DeathWithFlower,
+    /// `watchedMalnourishScreens`.
+    Malnourish,
+}
+
+impl WatchedScreen {
+    fn index(self) -> usize {
+        match self {
+            Self::Sleep => 1,
+            Self::Death => 2,
+            Self::DeathWithFlower => 3,
+            Self::Malnourish => 4,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct MiscProgression {
     /// The entries as read, `CURRENTSLUGCAT` and `INTEGERS` rewritten from the fields.
@@ -136,6 +161,15 @@ impl MiscProgression {
 
     pub fn set_warned_about_karma_loss_on_exit(&mut self, times: i32) {
         self.integers[Self::WARNED_ABOUT_KARMA_LOSS_ON_EXIT] = times;
+    }
+
+    #[must_use]
+    pub fn watched(&self, screen: WatchedScreen) -> i32 {
+        self.integers[screen.index()]
+    }
+
+    pub fn set_watched(&mut self, screen: WatchedScreen, n: i32) {
+        self.integers[screen.index()] = n;
     }
 
     /// `starvationTutorialCounter`.
@@ -385,6 +419,19 @@ mod tests {
             m.to_save_string(),
             "CURRENTSLUGCAT<mpdB>White<mpdA>VISITED<mpdB>CC<mpdC>Red,White<mpdB>SU<mpdC>White<mpdA>\
              INTEGERS<mpdB>0,0,0,0,0,0,0,0,0,0,0<mpdA>MENUREGION<mpdB>SU<mpdA>"
+        );
+    }
+
+    #[test]
+    fn watched_screens_are_integers_one_to_four() {
+        let mut m = MiscProgression::from_string("INTEGERS<mpdB>0,1,2,3,4,5,6,7,8,9,10<mpdA>");
+        assert_eq!(m.watched(WatchedScreen::Sleep), 1);
+        assert_eq!(m.watched(WatchedScreen::Malnourish), 4);
+        m.set_watched(WatchedScreen::Death, 7);
+        m.set_watched(WatchedScreen::DeathWithFlower, 8);
+        assert!(
+            m.to_save_string()
+                .contains("INTEGERS<mpdB>0,1,7,8,4,5,6,7,8,9,10<mpdA>")
         );
     }
 

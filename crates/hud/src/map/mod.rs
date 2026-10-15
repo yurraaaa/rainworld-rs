@@ -1,9 +1,11 @@
 //! `HUD.Map` of a story game in its base-game branches: the region map image drawn in
 //! three depth layers through the `Map` shaders, revealed where the discovery texture
 //! says the player has been, panned with the directions and layered with jump and
-//! throw while the map button is held; the player marker, the gate and shelter
-//! markers, the room connection lines, the swarm-room circles and the Hunter's cycle
-//! label. Behaviour: `rainworld-re/notes/hud.md` section 5.
+//! throw while the map button is held; the player marker, the gate, shelter, death and
+//! karma flower markers, the room connection lines, the swarm-room circles and the
+//! Hunter's cycle label. Owned by the player, or by the sleep and death screens (which
+//! show it at once, without discovery). Behaviour: `rainworld-re/notes/hud.md`
+//! section 5.
 
 mod connection;
 mod data;
@@ -25,7 +27,7 @@ use rw_render::{MapGlobals, StageShader, StageTextureId, TextureFilter, TextureS
 use rw_sim::map_discovery::{DIAGONALS, DISCOVER_RESOLUTION};
 use rw_sim::{DiscoveryTexture, FloatExt, Input, MapDiscovery, MapRoom, UnityTexture, Vec2};
 
-use crate::{CustomFloat, CustomInt, HudCircle, SnapGraphic};
+use crate::{CustomFloat, CustomInt, HudCircle, HudOwnerType, SnapGraphic};
 pub use connection::{ConnectionView, MapConnection};
 pub use data::{GateData, GateRequirement, MapData, MapDataRoom, ShelterData, SwarmRoomData};
 
@@ -150,8 +152,9 @@ struct MapView {
     texture_size: Vec2,
     background_black: NodeId,
     sprites: [NodeId; 3],
-    player_marker_fade: NodeId,
-    player_marker: HudCircle,
+    /// Not on a death screen's map.
+    player_marker_fade: Option<NodeId>,
+    player_marker: Option<HudCircle>,
     in_front: NodeId,
     container: NodeId,
     cycle_label: Option<CycleLabel>,
@@ -166,6 +169,7 @@ struct MapView {
 #[derive(Debug)]
 pub struct Map {
     pub data: MapData,
+    pub owner: HudOwnerType,
     view: Option<MapView>,
     /// `mapSize`: the texture's width and a third of its height.
     pub map_size: Vec2,
@@ -204,13 +208,14 @@ pub struct Map {
 
 impl Map {
     /// The constructor and the first update's loading (synchronous in the game): the
-    /// connection lines, gate and shelter markers in `in_front` (the map's
-    /// `inFrontContainer`), then on `container` the black background, the three map
-    /// sprites, the cycle label, the connection sprites and the player marker. Without
-    /// a map image the map never loads, as in the game.
+    /// connection lines; the gate, shelter, death and flower markers in `in_front` (the
+    /// map's `inFrontContainer`), then on `container` the black background, the three
+    /// map sprites, the cycle label, the connection sprites and the player marker (none
+    /// for a death screen). Without a map image the map never loads, as in the game.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         data: MapData,
+        owner: HudOwnerType,
         stage: &mut StageTree,
         container: NodeId,
         in_front: NodeId,
@@ -222,6 +227,7 @@ impl Map {
         let mut map = Self {
             connections: Self::connections_of(&data),
             data,
+            owner,
             view: None,
             map_size: Vec2::ZERO,
             fade: 0.0,
@@ -263,6 +269,25 @@ impl Map {
         }
         for shelter in &map.data.shelters {
             let marker = FadeInMarker::shelter(stage, in_front, shelter.room, shelter.marker_pos);
+            map.markers.push(marker);
+        }
+        if matches!(
+            owner,
+            HudOwnerType::Player | HudOwnerType::SleepScreen | HudOwnerType::DeathScreen
+        ) {
+            for d in &map.data.death_positions {
+                // Valid and in this region.
+                let Some(room) = map.data.index_of(&d.room) else {
+                    continue;
+                };
+                let pos = Vec2::new(d.x as f32, d.y as f32) * 20.0;
+                let marker = FadeInMarker::death(stage, in_front, room, pos, d.node);
+                map.markers.push(marker);
+            }
+        }
+        if let Some(flower) = map.data.karma_flower_pos {
+            let pos = Vec2::new(flower.tile.0 as f32, flower.tile.1 as f32) * 20.0;
+            let marker = FadeInMarker::flower(stage, in_front, flower.room, pos);
             map.markers.push(marker);
         }
         map.reset_not_revealed_markers();
@@ -339,12 +364,17 @@ impl Map {
             self.connections[i].initiate_sprites(stage, container, a.distance(b), across);
         }
         self.pan_pos = self.map_size / 2.0;
-        let mut fade = Sprite::new(AtlasManager::WHITE);
-        fade.color = StageColor::BLACK;
-        fade.shader = StageShader::FlatLight;
-        fade.transform.visible = false;
-        let player_marker_fade = stage.add_sprite(container, fade);
-        let player_marker = HudCircle::new(stage, container, SnapGraphic::FoodCircleA, 1);
+        let (player_marker_fade, player_marker) = if self.owner == HudOwnerType::DeathScreen {
+            (None, None)
+        } else {
+            let mut fade = Sprite::new(AtlasManager::WHITE);
+            fade.color = StageColor::BLACK;
+            fade.shader = StageShader::FlatLight;
+            fade.transform.visible = false;
+            let fade = stage.add_sprite(container, fade);
+            let marker = HudCircle::new(stage, container, SnapGraphic::FoodCircleA, 1);
+            (Some(fade), Some(marker))
+        };
         self.view = Some(MapView {
             element,
             texture_size,
@@ -375,7 +405,7 @@ impl Map {
         self.view.is_some()
     }
 
-    /// `Map.Update` for a player-owned map.
+    /// `Map.Update`.
     pub fn update(
         &mut self,
         owner: &MapOwner,
@@ -534,7 +564,7 @@ impl Map {
             }
             self.layer_button_a = input.jump;
             self.layer_button_b = input.throw;
-            if self.fade_counter > 30 {
+            if self.fade_counter > 30 || self.owner != HudOwnerType::Player {
                 self.fade = (self.fade + 1.0 / 30.0).min(1.0);
                 self.fade = self.fade.lerp(1.0, 0.1);
                 if self.last_fade == 0.0 {
@@ -550,6 +580,29 @@ impl Map {
             self.fade = 0.0;
         }
         self.visible = self.fade > 0.0 && self.last_fade > 0.0;
+        if self.owner == HudOwnerType::Player {
+            self.count_reset_reveal(owner);
+        }
+        let marker_pos = self.room_to_map_pos(owner.in_room_pos, owner.room, 1.0);
+        let fade = self.fade;
+        if let Some(m) = self.view.as_mut().and_then(|v| v.player_marker.as_mut()) {
+            m.update();
+            m.pos = marker_pos;
+            m.fade = fade;
+            if m.rad > m.snap_rad {
+                m.rad = (m.rad - 4.0).max(m.snap_rad);
+                m.rad = m.rad.lerp(m.snap_rad, 0.005);
+            }
+            if m.thickness < m.snap_thickness {
+                m.thickness = (m.thickness + 0.125).min(m.snap_thickness);
+            }
+        }
+        self.swarm_draw(stage, rng);
+    }
+
+    /// A player's map resets its reveal once the player has walked far enough with the
+    /// map closed.
+    fn count_reset_reveal(&mut self, owner: &MapOwner) {
         if self.fade == 0.0 {
             if self.reset_reveal_counter > 0 {
                 let here = self.on_texture_pos(owner.in_room_pos, owner.room, true);
@@ -563,22 +616,6 @@ impl Map {
         } else if self.fade > 0.5 {
             self.reset_reveal_counter = 100;
         }
-        let marker_pos = self.room_to_map_pos(owner.in_room_pos, owner.room, 1.0);
-        let fade = self.fade;
-        if let Some(view) = self.view.as_mut() {
-            let m = &mut view.player_marker;
-            m.update();
-            m.pos = marker_pos;
-            m.fade = fade;
-            if m.rad > m.snap_rad {
-                m.rad = (m.rad - 4.0).max(m.snap_rad);
-                m.rad = m.rad.lerp(m.snap_rad, 0.005);
-            }
-            if m.thickness < m.snap_thickness {
-                m.thickness = (m.thickness + 0.125).min(m.snap_thickness);
-            }
-        }
-        self.swarm_draw(stage, rng);
     }
 
     /// The pan from the map input: speeding up while held in one direction.
@@ -679,9 +716,9 @@ impl Map {
             self.layer = self.data.layer_of_room(owner.room);
             self.depth = self.layer as f32;
             self.last_depth = self.depth;
-            if let Some(view) = self.view.as_mut() {
-                view.player_marker.rad = 80.0;
-                view.player_marker.thickness = 0.0;
+            if let Some(m) = self.view.as_mut().and_then(|v| v.player_marker.as_mut()) {
+                m.rad = 80.0;
+                m.thickness = 0.0;
             }
         }
         let p = self.discovery_pixel(owner.in_room_pos, owner.room);
@@ -948,8 +985,8 @@ impl Map {
             return;
         }
         let visible = self.visible;
-        if let Some(view) = self.view.as_mut() {
-            view.player_marker.visible = visible;
+        if let Some(m) = self.view.as_mut().and_then(|v| v.player_marker.as_mut()) {
+            m.visible = visible;
         }
         let Some(view) = self.view.as_ref() else {
             return;
@@ -960,14 +997,17 @@ impl Map {
         for c in &self.connections {
             c.set_visible(stage, self.visible);
         }
-        view.player_marker.draw(stage, t);
-        stage.transform_mut(view.player_marker_fade).visible = self.visible;
+        if let (Some(m), Some(fade)) = (&view.player_marker, view.player_marker_fade) {
+            m.draw(stage, t);
+            stage.transform_mut(fade).visible = self.visible;
+        }
         stage.transform_mut(view.background_black).visible = self.visible;
         let marker_view = MarkerView {
             visible: self.visible,
             map_fade: self.last_fade.lerp(self.fade, t),
             time: self.counter as f32 + t,
             screen_pos: Vec2::ZERO,
+            death_screen: self.owner == HudOwnerType::DeathScreen,
         };
         for m in &self.markers {
             let v = MarkerView {
@@ -1012,12 +1052,14 @@ impl Map {
             s.transform.x = self.screen_size.x / 2.0;
             s.transform.y = self.screen_size.y / 2.0;
         }
-        let at = self.room_to_map_pos(self.owner_pos, self.owner_room, t);
-        let fade_sprite = stage.sprite_mut(view.player_marker_fade);
-        fade_sprite.transform.x = at.x;
-        fade_sprite.transform.y = at.y;
-        fade_sprite.transform.alpha = 0.5 * fade.mathf_pow(2.0);
-        fade_sprite.transform.set_scale(20.0);
+        if let Some(fade_sprite) = view.player_marker_fade {
+            let at = self.room_to_map_pos(self.owner_pos, self.owner_room, t);
+            let fade_sprite = stage.sprite_mut(fade_sprite);
+            fade_sprite.transform.x = at.x;
+            fade_sprite.transform.y = at.y;
+            fade_sprite.transform.alpha = 0.5 * fade.mathf_pow(2.0);
+            fade_sprite.transform.set_scale(20.0);
+        }
         let map_color = Self::map_color();
         for c in &self.connections {
             let cv = ConnectionView {
@@ -1081,7 +1123,7 @@ impl Map {
     /// The player marker, for tests and tools.
     #[must_use]
     pub fn player_marker(&self) -> Option<&HudCircle> {
-        self.view.as_ref().map(|v| &v.player_marker)
+        self.view.as_ref().and_then(|v| v.player_marker.as_ref())
     }
 
     /// The reveal texture, for tests and tools.

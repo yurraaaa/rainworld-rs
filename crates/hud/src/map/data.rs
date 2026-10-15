@@ -4,8 +4,9 @@
 use rw_assets::room::Room;
 use rw_assets::world::AbstractRoomData;
 use rw_assets::{MapConnectionLine, PngImage, RegionMapFiles, StreamingAssets};
+use rw_save::SavedCoordinate;
 use rw_sim::world::World;
-use rw_sim::{MapRoom, Vec2};
+use rw_sim::{MapRoom, Vec2, WorldCoordinate};
 
 /// `RegionGate.GateRequirement` (base game, More Slugcats' locks).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -135,6 +136,11 @@ pub struct MapData {
     pub swarm_rooms: Vec<SwarmRoomData>,
     /// `currentKarma`.
     pub current_karma: i32,
+    /// `karmaFlowerPos`: a flower in this region.
+    pub karma_flower_pos: Option<WorldCoordinate>,
+    /// The save state's `deathPositions`, which the map's constructor reads
+    /// (`GetSaveState`) for its death markers.
+    pub death_positions: Vec<SavedCoordinate>,
     /// `STANDARDELEMENTLIST`: which of the three map sprites draw as sky.
     pub sky_layers: [bool; 3],
     /// `map_<region>.png`.
@@ -146,13 +152,15 @@ impl MapData {
     /// `new MapData(world, rainWorld)` with `UpdateData` of a story world: rooms from the
     /// world (disabled map rooms leave out their connections, shelter, gate and swarm
     /// data); shelter markers six tiles out of the shelter's door, gate requirements from
-    /// `locks.txt`. `slugcat` picks `map_<region>-<slugcat>` files when they exist.
+    /// `locks.txt`; the session's `karmaFlowerMapPos`. `slugcat` picks
+    /// `map_<region>-<slugcat>` files when they exist.
     #[must_use]
     pub fn build(
         world: &World,
         assets: &StreamingAssets,
         slugcat: &str,
         karma: i32,
+        karma_flower: Option<&SavedCoordinate>,
     ) -> Option<Self> {
         let data = world.data();
         let region = data.region.as_ref()?.name.clone();
@@ -171,6 +179,8 @@ impl MapData {
             gates: Vec::new(),
             swarm_rooms: Vec::new(),
             current_karma: karma,
+            karma_flower_pos: None,
+            death_positions: Vec::new(),
             sky_layers: Self::sky_layers(&region, &data.properties.params.other),
             image: RegionMapFiles::find(assets, &region, slugcat, "png")
                 .and_then(|p| PngImage::load(&p).ok()),
@@ -215,7 +225,61 @@ impl MapData {
                 });
             }
         }
+        map.karma_flower_pos = map.flower_in_region(karma_flower);
         Some(map)
+    }
+
+    /// `UpdateData(world, foodTicks, currKarm, kfPos, putItemsInShelters)` (the
+    /// shelters' items are not ported): the karma the gate markers compare with, the
+    /// flower if in this region, and a swarm room active once its counter is within
+    /// `food_ticks` of 0. The game pairs the map's swarm rooms with the world's by
+    /// index.
+    pub fn update_data(
+        &mut self,
+        world: &World,
+        food_ticks: i32,
+        karma: i32,
+        karma_flower: Option<&SavedCoordinate>,
+    ) {
+        self.current_karma = karma;
+        self.karma_flower_pos = self.flower_in_region(karma_flower);
+        if world.single_room() {
+            return;
+        }
+        let data = world.data();
+        let Some(state) = world.region_state.as_ref() else {
+            return;
+        };
+        let n = self.swarm_rooms.len().min(data.swarm_rooms.len());
+        for i in 0..n {
+            let name = data
+                .room(data.swarm_rooms[i])
+                .map_or("", |r| r.name.as_str());
+            let counter = state
+                .swarm_room_counters
+                .iter()
+                .find(|(r, _)| r == name)
+                .map_or(0, |(_, c)| *c);
+            self.swarm_rooms[i].active =
+                state.swarm_room_active(data, i) || counter - food_ticks <= 0;
+        }
+    }
+
+    /// A saved flower position resolved in this region: its tile, at node -1 when the
+    /// save has none.
+    fn flower_in_region(&self, flower: Option<&SavedCoordinate>) -> Option<WorldCoordinate> {
+        let f = flower?;
+        let room = self.index_of(&f.room)?;
+        Some(WorldCoordinate::new(room, f.x, f.y, f.node))
+    }
+
+    /// Loads the map image again (`map_<region>[-<slugcat>].png`) if a map took it:
+    /// another map of the same data (a sleep or death screen's) loads its own.
+    pub fn reload_image(&mut self, assets: &StreamingAssets, slugcat: &str) {
+        if self.image.is_none() && !self.region.is_empty() {
+            self.image = RegionMapFiles::find(assets, &self.region, slugcat, "png")
+                .and_then(|p| PngImage::load(&p).ok());
+        }
     }
 
     /// A map with no region and no image: it never loads.
@@ -230,6 +294,8 @@ impl MapData {
             gates: Vec::new(),
             swarm_rooms: Vec::new(),
             current_karma: 0,
+            karma_flower_pos: None,
+            death_positions: Vec::new(),
             sky_layers: [false; 3],
             image: None,
             connection_lines: Vec::new(),

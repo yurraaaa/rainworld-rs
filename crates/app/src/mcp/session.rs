@@ -1119,6 +1119,8 @@ impl MapState {
                     kind: match m.kind {
                         rw_hud::MarkerKind::Gate { .. } => "gate",
                         rw_hud::MarkerKind::Shelter => "shelter",
+                        rw_hud::MarkerKind::Death { .. } => "death",
+                        rw_hud::MarkerKind::Flower => "flower",
                     }
                     .to_owned(),
                     room: m.room,
@@ -1139,7 +1141,10 @@ impl HudState {
                 fade: food.fade,
                 visible_counter: food.visible_counter,
                 show_count: food.show_count,
-                quarter_pips: food.quarter_pip_shower.display_quarter_food,
+                quarter_pips: food
+                    .quarter_pip_shower
+                    .as_ref()
+                    .map_or(0, |q| q.display_quarter_food),
                 max_food: food.max_food,
                 survival_limit: food.survival_limit,
                 down_in_corner: food.down_in_corner,
