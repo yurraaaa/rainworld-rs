@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 ## You are an orchestrator. Delegate by default
 
