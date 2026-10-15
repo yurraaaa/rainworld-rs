@@ -303,7 +303,7 @@ in `PlayerGraphics` (they use the generic poses of their body mode, as in the ga
   have alpha 0 and are left out of the draw list), the light source, and every More
   Slugcats, Watcher and Jolly Co-op branch (pups, Gourmand/Spear/Saint/Rivulet/Artificer
   parts and sizes, gowns, custom and Jolly colours). The Nightcat colour is not offered
-  (`SlugcatName` has White, Yellow and Red).
+  (`default_slugcat_color` covers White, Yellow and Red).
 - **Drawing (`rw_render` sprites).** `Futile_White` meshes (the tail) sample the centre
   of `RainWorld_White` in the `rainWorld` atlas instead of the runtime 16x16 white
   texture (both opaque white, so the colour is the same). Sprites are drawn without

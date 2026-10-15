@@ -210,7 +210,7 @@ impl Session {
                 StoryGameInitCondition::New.game_initial_black_seconds(*name)
             }
             GameStart::Room { .. } => {
-                StoryGameInitCondition::Dev.game_initial_black_seconds(SlugcatName::WHITE)
+                StoryGameInitCondition::Dev.game_initial_black_seconds(SlugcatName::White)
             }
         };
         if self.hud_shared.is_none() {

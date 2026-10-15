@@ -227,17 +227,19 @@ impl AbstractCreature {
     #[must_use]
     pub fn state_for(template: &CreatureTemplate) -> CreatureState {
         let top = template.top_ancestor();
-        let kind = match top.value() {
-            "Slugcat" => StateKind::Player,
-            "LizardTemplate" => StateKind::Lizard,
-            "Fly" | "Leech" | "Spider" => StateKind::NoHealth,
-            "GarbageWorm" => StateKind::GarbageWorm,
-            "LanternMouse" => StateKind::Mouse,
-            "Vulture" => StateKind::Vulture,
-            "DaddyLongLegs" => StateKind::Daddy,
-            "VultureGrub" => StateKind::VultureGrub,
-            "BigNeedleWorm" | "SmallNeedleWorm" => StateKind::NeedleWorm,
-            "Centipede" if template.kind != CreatureType::SMALL_CENTIPEDE => StateKind::Centipede,
+        let kind = match top {
+            CreatureType::Slugcat => StateKind::Player,
+            CreatureType::LizardTemplate => StateKind::Lizard,
+            CreatureType::Fly | CreatureType::Leech | CreatureType::Spider => StateKind::NoHealth,
+            CreatureType::GarbageWorm => StateKind::GarbageWorm,
+            CreatureType::LanternMouse => StateKind::Mouse,
+            CreatureType::Vulture => StateKind::Vulture,
+            CreatureType::DaddyLongLegs => StateKind::Daddy,
+            CreatureType::VultureGrub => StateKind::VultureGrub,
+            CreatureType::BigNeedleWorm | CreatureType::SmallNeedleWorm => StateKind::NeedleWorm,
+            CreatureType::Centipede if template.kind != CreatureType::SmallCentipede => {
+                StateKind::Centipede
+            }
             _ => StateKind::Health,
         };
         CreatureState {

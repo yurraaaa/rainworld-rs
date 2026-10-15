@@ -1,7 +1,7 @@
 //! `AbstractCreatureAI` and the per-type abstract AI constructors, with their random
 //! draws (the behaviour of every type but the overseer is not ported).
 
-use rw_assets::{CreatureType, NodeType, Timeline};
+use rw_assets::{CreatureType, NodeType, SlugcatName, Timeline};
 use rw_random::UnityRandom;
 
 use super::overseer::OverseerAbstractAi;
@@ -98,8 +98,8 @@ impl AbstractCreatureAi {
     pub(crate) fn new(parent: &mut AbstractCreature, cx: &mut AiContext<'_>) -> Self {
         let mut ai = Self::base(parent);
         let kind = parent.kind();
-        ai.kind = match kind.value() {
-            "Vulture" | "KingVulture" => {
+        ai.kind = match kind {
+            CreatureType::Vulture | CreatureType::KingVulture => {
                 let mut vulture = VultureInit {
                     parent,
                     check_rooms: Vec::new(),
@@ -111,15 +111,15 @@ impl AbstractCreatureAi {
                     dont_go_to_this_room: vulture.dont_go_to_this_room,
                 }
             }
-            "CicadaA" | "CicadaB" => AiKind::Cicada,
-            "BigEel" => AiKind::BigEel,
-            "Deer" => AiKind::Deer,
-            "MirosBird" => AiKind::MirosBird,
-            "Scavenger" => Self::scavenger(parent, cx),
-            "Overseer" => AiKind::Overseer(OverseerAbstractAi::new(parent, cx)),
-            "BigNeedleWorm" | "SmallNeedleWorm" => {
+            CreatureType::CicadaA | CreatureType::CicadaB => AiKind::Cicada,
+            CreatureType::BigEel => AiKind::BigEel,
+            CreatureType::Deer => AiKind::Deer,
+            CreatureType::MirosBird => AiKind::MirosBird,
+            CreatureType::Scavenger => Self::scavenger(parent, cx),
+            CreatureType::Overseer => AiKind::Overseer(OverseerAbstractAi::new(parent, cx)),
+            CreatureType::BigNeedleWorm | CreatureType::SmallNeedleWorm => {
                 let migrate_active = cx.rng.value() < 0.5;
-                let mother = if kind == CreatureType::SMALL_NEEDLE_WORM {
+                let mother = if kind == CreatureType::SmallNeedleWorm {
                     cx.world.find_needle_mother(parent.pos, None, cx.rng)
                 } else {
                     None
@@ -129,7 +129,7 @@ impl AbstractCreatureAi {
                     mother,
                 }
             }
-            "DropBug" => {
+            CreatureType::DropBug => {
                 Self::drop_bug_item(parent, cx);
                 AiKind::DropBug
             }
@@ -192,7 +192,7 @@ impl AbstractCreatureAi {
             Some(ItemKind::ScavengerBomb)
         } else if rng.value() < 0.5 {
             Some(ItemKind::DataPearl)
-        } else if rng.value() < 0.5 && cx.session.character != rw_assets::SlugcatName::RED {
+        } else if rng.value() < 0.5 && cx.session.character != rw_assets::SlugcatName::Red {
             Some(ItemKind::KarmaFlower)
         } else {
             None
@@ -253,9 +253,9 @@ struct ScavengerGear<'p> {
 impl ScavengerGear<'_> {
     fn init_gear_up(&mut self, cx: &mut AiContext<'_>) {
         let mut slots = 3;
-        let (cycle, num3) = match cx.session.character.value() {
-            "Yellow" => ((cx.session.cycle_number as f32 * 0.75).floor() as i32, 0.5),
-            "Red" => (cx.session.cycle_number + 60, 1.5),
+        let (cycle, num3) = match cx.session.character {
+            SlugcatName::Yellow => ((cx.session.cycle_number as f32 * 0.75).floor() as i32, 0.5),
+            SlugcatName::Red => (cx.session.cycle_number + 60, 1.5),
             _ => (cx.session.cycle_number, 1.0),
         };
         let dominance = self.parent.personality.dominance;
@@ -351,7 +351,7 @@ impl ScavengerGear<'_> {
                     num *= 0.5;
                 }
                 num *= (cycle as f32).inverse_lerp(10.0, 30.0);
-                if world.timeline().at_or_before(Timeline::RED) {
+                if world.timeline().at_or_before(Timeline::Red) {
                     num = num.lerp(1.0, 0.25 * cx.rng.value());
                 }
             }

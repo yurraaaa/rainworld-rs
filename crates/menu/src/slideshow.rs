@@ -61,8 +61,8 @@ impl SlideShowId {
     #[must_use]
     pub fn intro_for(slugcat: Slugcat) -> Option<Self> {
         match slugcat {
-            Slugcat::WHITE => Some(Self::WhiteIntro),
-            Slugcat::YELLOW => Some(Self::YellowIntro),
+            Slugcat::White => Some(Self::WhiteIntro),
+            Slugcat::Yellow => Some(Self::YellowIntro),
             _ => None,
         }
     }

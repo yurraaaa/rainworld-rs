@@ -40,7 +40,7 @@ fn overseer_rules_of_each_vanilla_region() {
     }
     let assets = StreamingAssets::new(sa);
     let filter = LineFilter {
-        timeline: Some(Timeline::WHITE),
+        timeline: Some(Timeline::White),
         mods: ActiveMods::NONE,
         conditions: StoryConditions::new_story(),
     };

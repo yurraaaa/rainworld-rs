@@ -3,10 +3,9 @@
 //! mods (`ModManager`) that decide which are registered.
 //!
 //! An `ExtEnum` value is a string with a registration index; DLCs register more values
-//! when enabled. Here each value is a name constant, and what is registered depends on
-//! [`ActiveMods`]. Design: `rainworld-re/notes/campaign-model.md`.
-
-use std::fmt;
+//! when enabled. Here each is a closed Rust enum with a variant for every base and DLC
+//! value; what is registered (and so the index) depends on [`ActiveMods`]. Design:
+//! `rainworld-re/notes/campaign-model.md`.
 
 /// `ModManager`'s flags. The port runs the base game with all of them off.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -32,34 +31,135 @@ impl ActiveMods {
     };
 }
 
-/// `SlugcatStats.Name`: a slugcat, by its `ExtEnum` value.
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct SlugcatName(&'static str);
+/// Which `RegisterAllEnumExtensions` registers an `ExtEnum` value. `RainWorld.OnModsInit`
+/// runs them in this order, after the base game's static values.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Registrar {
+    Base,
+    /// `DLCSharedEnums` (`ModManager.DLCShared`: More Slugcats or the Watcher).
+    DlcShared,
+    Msc,
+    Jolly,
+    Watcher,
+}
+
+impl Registrar {
+    pub(crate) fn active(self, mods: ActiveMods) -> bool {
+        match self {
+            Self::Base => true,
+            Self::DlcShared => mods.msc || mods.watcher,
+            Self::Msc => mods.msc,
+            Self::Jolly => mods.jolly_coop,
+            Self::Watcher => mods.watcher,
+        }
+    }
+}
+
+/// An `ExtEnum` as a closed enum: every value the game and its DLCs declare, grouped by
+/// the [`Registrar`] that registers it, in registration order. Generates `ALL`, `value`
+/// (the game's spelling), `registered`, and `Debug`/`Display` as the spelling.
+macro_rules! ext_enum {
+    (
+        $(#[$meta:meta])*
+        pub enum $name:ident {
+            $($registrar:ident {
+                $($(#[$vmeta:meta])* $variant:ident = $value:literal,)*
+            })*
+        }
+    ) => {
+        $(#[$meta])*
+        #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+        pub enum $name {
+            $($($(#[$vmeta])* $variant,)*)*
+        }
+
+        impl $name {
+            /// Every declared value, in registration order.
+            pub const ALL: &'static [Self] = &[$($(Self::$variant,)*)*];
+
+            #[must_use]
+            pub fn value(self) -> &'static str {
+                match self {
+                    $($(Self::$variant => $value,)*)*
+                }
+            }
+
+            fn registrar(self) -> $crate::identity::Registrar {
+                match self {
+                    $($(Self::$variant => $crate::identity::Registrar::$registrar,)*)*
+                }
+            }
+
+            /// `ExtEnum<T>.values` with `mods` active, in registration order (their
+            /// `Index`).
+            #[must_use]
+            pub fn registered(mods: $crate::ActiveMods) -> Vec<Self> {
+                Self::ALL
+                    .iter()
+                    .copied()
+                    .filter(|v| v.registrar().active(mods))
+                    .collect()
+            }
+        }
+
+        impl std::fmt::Debug for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str(self.value())
+            }
+        }
+
+        impl std::fmt::Display for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str(self.value())
+            }
+        }
+    };
+}
+pub(crate) use ext_enum;
+
+ext_enum! {
+    /// `SlugcatStats.Name`: a slugcat, by its `ExtEnum` value.
+    pub enum SlugcatName {
+        Base {
+            /// The Survivor.
+            White = "White",
+            /// The Monk.
+            Yellow = "Yellow",
+            /// The Hunter.
+            Red = "Red",
+            /// Arena player 4's colour; hidden, never a campaign.
+            Night = "Night",
+        }
+        Msc {
+            Rivulet = "Rivulet",
+            Artificer = "Artificer",
+            Saint = "Saint",
+            /// The Spearmaster.
+            Spear = "Spear",
+            Gourmand = "Gourmand",
+            Slugpup = "Slugpup",
+            /// Inv.
+            Sofanthiel = "Inv",
+        }
+        Jolly {
+            JollyPlayer1 = "JollyPlayer1",
+            JollyPlayer2 = "JollyPlayer2",
+            JollyPlayer3 = "JollyPlayer3",
+            JollyPlayer4 = "JollyPlayer4",
+        }
+        Watcher {
+            Watcher = "Watcher",
+        }
+    }
+}
 
 impl SlugcatName {
-    /// The Survivor.
-    pub const WHITE: Self = Self("White");
-    /// The Monk.
-    pub const YELLOW: Self = Self("Yellow");
-    /// The Hunter.
-    pub const RED: Self = Self("Red");
-    /// Arena player 4's colour; hidden, never a campaign.
-    pub const NIGHT: Self = Self("Night");
-
-    /// Values registered by the base game, in registration order (their `Index`).
-    const BASE: [Self; 4] = [Self::WHITE, Self::YELLOW, Self::RED, Self::NIGHT];
-
-    /// `ExtEnum<Name>.values` with `mods` active. More Slugcats and the Watcher append
-    /// their names when they are supported.
-    #[must_use]
-    pub fn registered(_mods: ActiveMods) -> Vec<Self> {
-        Self::BASE.to_vec()
-    }
-
     /// The registered value whose string is `value`.
     #[must_use]
     pub fn from_value(value: &str, mods: ActiveMods) -> Option<Self> {
-        Self::registered(mods).into_iter().find(|n| n.0 == value)
+        Self::registered(mods)
+            .into_iter()
+            .find(|n| n.value() == value)
     }
 
     /// `BackwardsCompatibilityRemix.ParsePlayerNumber`: 0 to 3 are the base names, higher
@@ -70,88 +170,76 @@ impl SlugcatName {
         Self::registered(mods).get(index).copied()
     }
 
-    #[must_use]
-    pub fn value(self) -> &'static str {
-        self.0
-    }
-
-    /// `SlugcatStats.HiddenOrUnplayableSlugcat` (DLC names join with their mods).
+    /// `SlugcatStats.HiddenOrUnplayableSlugcat`. A DLC name is only registered while its
+    /// mod is on, which stands in for the game's `ModManager` checks.
     #[must_use]
     pub fn hidden_or_unplayable(self) -> bool {
-        self == Self::NIGHT
+        matches!(
+            self,
+            Self::Night
+                | Self::Sofanthiel
+                | Self::Slugpup
+                | Self::JollyPlayer1
+                | Self::JollyPlayer2
+                | Self::JollyPlayer3
+                | Self::JollyPlayer4
+        )
     }
 
-    /// `SlugcatStats.SlugcatToTimeline`: each base campaign is its own timeline; every
-    /// other name (Night) falls back to the Survivor's.
+    /// `SlugcatStats.SlugcatToTimeline`: each campaign is its own timeline; every other
+    /// name (Night, Slugpup, the Jolly players) falls back to the Survivor's.
     #[must_use]
     pub fn timeline(self) -> Timeline {
         match self {
-            Self::RED => Timeline::RED,
-            Self::YELLOW => Timeline::YELLOW,
-            _ => Timeline::WHITE,
+            Self::Red => Timeline::Red,
+            Self::White => Timeline::White,
+            Self::Yellow => Timeline::Yellow,
+            Self::Spear => Timeline::Spear,
+            Self::Artificer => Timeline::Artificer,
+            Self::Sofanthiel => Timeline::Sofanthiel,
+            Self::Gourmand => Timeline::Gourmand,
+            Self::Rivulet => Timeline::Rivulet,
+            Self::Saint => Timeline::Saint,
+            Self::Watcher => Timeline::Watcher,
+            _ => Timeline::White,
         }
     }
 }
 
-impl fmt::Debug for SlugcatName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.0)
+ext_enum! {
+    /// `SlugcatStats.Timeline`: the point in the world's history a campaign plays at.
+    /// World files filter lines by it (`(White)`, `(X-Red)`). Unlike the names, every
+    /// value is registered by the base game, DLC timelines included.
+    pub enum Timeline {
+        Base {
+            Spear = "Spear",
+            Artificer = "Artificer",
+            /// Inv's timeline.
+            Sofanthiel = "Inv",
+            Red = "Red",
+            Gourmand = "Gourmand",
+            White = "White",
+            Yellow = "Yellow",
+            Rivulet = "Rivulet",
+            Saint = "Saint",
+            Watcher = "Watcher",
+        }
     }
 }
-
-impl fmt::Display for SlugcatName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.0)
-    }
-}
-
-/// `SlugcatStats.Timeline`: the point in the world's history a campaign plays at. World
-/// files filter lines by it (`(White)`, `(X-Red)`). Unlike the names, every value is
-/// registered by the base game, DLC timelines included.
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Timeline(&'static str);
 
 impl Timeline {
-    pub const SPEAR: Self = Self("Spear");
-    pub const ARTIFICER: Self = Self("Artificer");
-    /// Inv's (`Sofanthiel`) timeline.
-    pub const SOFANTHIEL: Self = Self("Inv");
-    pub const RED: Self = Self("Red");
-    pub const GOURMAND: Self = Self("Gourmand");
-    pub const WHITE: Self = Self("White");
-    pub const YELLOW: Self = Self("Yellow");
-    pub const RIVULET: Self = Self("Rivulet");
-    pub const SAINT: Self = Self("Saint");
-    pub const WATCHER: Self = Self("Watcher");
-
-    /// Registration order (`Index`).
-    pub const ALL: [Self; 10] = [
-        Self::SPEAR,
-        Self::ARTIFICER,
-        Self::SOFANTHIEL,
-        Self::RED,
-        Self::GOURMAND,
-        Self::WHITE,
-        Self::YELLOW,
-        Self::RIVULET,
-        Self::SAINT,
-        Self::WATCHER,
-    ];
-
-    #[must_use]
-    pub fn value(self) -> &'static str {
-        self.0
-    }
-
     /// The registered timeline whose string is `value`.
     #[must_use]
     pub fn from_value(value: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|t| t.0 == value)
+        Self::ALL.iter().copied().find(|t| t.value() == value)
     }
 
     /// Position in `SlugcatStats.SlugcatTimelineOrder` (the Watcher is not in it).
     fn order(self) -> Option<usize> {
-        Self::ALL[..9].iter().position(|&t| t == self)
+        match self {
+            Self::Watcher => None,
+            _ => Self::ALL.iter().position(|&t| t == self),
+        }
     }
 
     /// `SlugcatStats.AtOrBeforeTimeline(self, other)`.
@@ -164,18 +252,6 @@ impl Timeline {
     }
 }
 
-impl fmt::Debug for Timeline {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.0)
-    }
-}
-
-impl fmt::Display for Timeline {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.0)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -185,19 +261,37 @@ mod tests {
         assert_eq!(
             SlugcatName::registered(ActiveMods::NONE),
             [
-                SlugcatName::WHITE,
-                SlugcatName::YELLOW,
-                SlugcatName::RED,
-                SlugcatName::NIGHT
+                SlugcatName::White,
+                SlugcatName::Yellow,
+                SlugcatName::Red,
+                SlugcatName::Night
             ]
         );
-        assert_eq!(SlugcatName::NIGHT.timeline(), Timeline::WHITE);
-        assert_eq!(SlugcatName::RED.timeline(), Timeline::RED);
-        assert_eq!(Timeline::from_value("Inv"), Some(Timeline::SOFANTHIEL));
+        assert_eq!(SlugcatName::Night.timeline(), Timeline::White);
+        assert_eq!(SlugcatName::Red.timeline(), Timeline::Red);
+        assert_eq!(Timeline::from_value("Inv"), Some(Timeline::Sofanthiel));
         assert_eq!(
             SlugcatName::from_player_number(2, ActiveMods::NONE),
-            Some(SlugcatName::RED)
+            Some(SlugcatName::Red)
         );
         assert_eq!(SlugcatName::from_player_number(4, ActiveMods::NONE), None);
+    }
+
+    #[test]
+    fn dlc_names_register_with_their_mods() {
+        assert_eq!(SlugcatName::from_value("Spear", ActiveMods::NONE), None);
+        let all = ActiveMods {
+            msc: true,
+            watcher: true,
+            jolly_coop: true,
+            ..ActiveMods::NONE
+        };
+        let names = SlugcatName::registered(all);
+        assert_eq!(names.len(), SlugcatName::ALL.len());
+        assert_eq!(names[4], SlugcatName::Rivulet);
+        assert_eq!(
+            SlugcatName::from_value("Inv", all),
+            Some(SlugcatName::Sofanthiel)
+        );
     }
 }

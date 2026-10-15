@@ -304,7 +304,7 @@ impl World {
             .chain(self.room_dens(pos.room))
         {
             let c = self.creature(id);
-            if c.kind() != CreatureType::BIG_NEEDLE_WORM || !c.state.alive {
+            if c.kind() != CreatureType::BigNeedleWorm || !c.state.alive {
                 continue;
             }
             let mut score = rng.value();
@@ -358,7 +358,7 @@ impl World {
             carried: Vec::new(),
         };
         let room = self.abstract_room(pos.room);
-        if template.top_ancestor() == CreatureType::GARBAGE_WORM {
+        if template.top_ancestor() == CreatureType::GarbageWorm {
             c.remain_in_den_counter = 0;
             if let Some(r) = room
                 && let Some(i) = r
@@ -398,8 +398,7 @@ impl World {
         } else {
             log::warn!("{} had invalid room", template.kind);
         }
-        if template.kind == CreatureType::TENTACLE_PLANT
-            || template.kind == CreatureType::POLE_MIMIC
+        if template.kind == CreatureType::TentaclePlant || template.kind == CreatureType::PoleMimic
         {
             c.remain_in_den_counter = 0;
         }
@@ -671,7 +670,7 @@ impl World {
         rng: &mut UnityRandom,
     ) -> bool {
         let c = self.creature(id);
-        if c.kind() != CreatureType::OVERSEER || c.is_realized() {
+        if c.kind() != CreatureType::Overseer || c.is_realized() {
             return false;
         }
         let guide = c.overseer_ai().is_some_and(|a| a.is_player_guide);
@@ -772,7 +771,7 @@ impl World {
         let time_until_rain = self.rain_cycle.time_until_rain();
         let day_night = self.rain_cycle.day_night_counter;
         let c = self.creature_mut(id);
-        if c.kind() != CreatureType::OVERSEER {
+        if c.kind() != CreatureType::Overseer {
             return;
         }
         let night_ok = !c.night_creature || day_night as f32 > 600.0 || c.ignore_cycle;
@@ -801,7 +800,7 @@ impl World {
         rng: &mut UnityRandom,
     ) -> bool {
         let c = self.creature(id);
-        if c.kind() != CreatureType::OVERSEER || c.is_realized() || c.in_den {
+        if c.kind() != CreatureType::Overseer || c.is_realized() || c.in_den {
             return false;
         }
         let room_index = c.pos.room;
@@ -926,7 +925,7 @@ impl World {
     pub(crate) fn kill_green_lizards(&mut self, room: i32) {
         for id in self.room_creatures(room).to_vec() {
             let c = self.creature_mut(id);
-            if c.kind() == CreatureType::GREEN_LIZARD && c.state.alive {
+            if c.kind() == CreatureType::GreenLizard && c.state.alive {
                 log::info!("the tutorial kills a green lizard in room {room}");
                 c.state.alive = false;
             }

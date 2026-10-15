@@ -77,8 +77,8 @@ pub struct SlugcatCampaign {
 
 impl SlugcatCampaign {
     pub const SURVIVOR: Self = Self {
-        name: SlugcatName::WHITE,
-        timeline: Timeline::WHITE,
+        name: SlugcatName::White,
+        timeline: Timeline::White,
         stats: SlugcatStats {
             throwing_skill: 1,
             ..SlugcatStats::BASE
@@ -93,8 +93,8 @@ impl SlugcatCampaign {
     };
 
     pub const MONK: Self = Self {
-        name: SlugcatName::YELLOW,
-        timeline: Timeline::YELLOW,
+        name: SlugcatName::Yellow,
+        timeline: Timeline::Yellow,
         stats: SlugcatStats {
             max_food: 5,
             food_to_hibernate: 3,
@@ -117,8 +117,8 @@ impl SlugcatCampaign {
     };
 
     pub const HUNTER: Self = Self {
-        name: SlugcatName::RED,
-        timeline: Timeline::RED,
+        name: SlugcatName::Red,
+        timeline: Timeline::Red,
         stats: SlugcatStats {
             max_food: 9,
             food_to_hibernate: 6,
@@ -194,15 +194,15 @@ mod tests {
         let names: Vec<_> = SlugcatCampaign::all(mods).iter().map(|c| c.name).collect();
         assert_eq!(
             names,
-            [SlugcatName::WHITE, SlugcatName::YELLOW, SlugcatName::RED]
+            [SlugcatName::White, SlugcatName::Yellow, SlugcatName::Red]
         );
-        let monk = SlugcatCampaign::of(SlugcatName::YELLOW, mods).unwrap();
+        let monk = SlugcatCampaign::of(SlugcatName::Yellow, mods).unwrap();
         assert_eq!((monk.stats.max_food, monk.stats.food_to_hibernate), (5, 3));
         assert_eq!(monk.start_den, "SU_C04");
-        let hunter = SlugcatCampaign::of(SlugcatName::RED, mods).unwrap();
+        let hunter = SlugcatCampaign::of(SlugcatName::Red, mods).unwrap();
         assert_eq!(hunter.start_region(), "LF");
         assert_eq!(hunter.stats.malnourished().food_to_hibernate, 9);
-        assert!(SlugcatCampaign::of(SlugcatName::NIGHT, mods).is_none());
+        assert!(SlugcatCampaign::of(SlugcatName::Night, mods).is_none());
         for c in SlugcatCampaign::all(mods) {
             assert_eq!(c.name.timeline(), c.timeline);
         }

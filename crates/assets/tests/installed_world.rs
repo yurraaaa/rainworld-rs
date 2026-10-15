@@ -92,7 +92,7 @@ fn every_vanilla_region_loads() {
         ]
     );
     let mut total_rooms = 0;
-    for timeline in [Timeline::WHITE, Timeline::YELLOW, Timeline::RED] {
+    for timeline in [Timeline::White, Timeline::Yellow, Timeline::Red] {
         println!("as {}:", timeline.value());
         for region in &regions.0 {
             let world = game.world(&regions, &region.name, timeline);
@@ -154,7 +154,7 @@ fn outskirts_rooms_and_connections_match_the_file() {
         return;
     };
     let regions = Regions::load(&game.0).expect("regions.txt");
-    let world = game.world(&regions, "SU", Timeline::WHITE);
+    let world = game.world(&regions, "SU", Timeline::White);
     let written = game.rooms_as_written("SU");
     assert_eq!(world.rooms.len(), written.len() + 1);
     let mut checked = 0;
@@ -215,7 +215,7 @@ fn room_file_generations() {
     let mut old = BTreeMap::<String, usize>::new();
     let mut total = 0;
     for region in &regions.0 {
-        let world = game.world(&regions, &region.name, Timeline::WHITE);
+        let world = game.world(&regions, &region.name, Timeline::White);
         for room in world.rooms.iter().filter(|r| !r.offscreen_den) {
             let file = room.file_name().to_lowercase();
             let path = game.0.find_room_file(&file, ".txt").expect("room file");
