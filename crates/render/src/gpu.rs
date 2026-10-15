@@ -483,9 +483,14 @@ impl WgpuRenderer {
     }
 
     /// Draws `batches` (those queued before the level) into the "behind" target,
-    /// cleared to black (the game's screen before the level is drawn).
-    fn draw_behind(&self, encoder: &mut wgpu::CommandEncoder, batches: &[Batch]) {
-        let screen = self.sprite_pipeline.blank_screen();
+    /// cleared to black (the game's screen before the level is drawn); sprites read
+    /// `screen`.
+    fn draw_behind(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        batches: &[Batch],
+        screen: &wgpu::BindGroup,
+    ) {
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("behind level pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -915,7 +920,10 @@ impl Renderer for WgpuRenderer {
         // The level, when drawn: its bind group, scissor and the batches behind it.
         let level = match (&self.level_view, split, &self.level) {
             (Some(view), Some(split), Some(textures)) => {
-                self.draw_behind(&mut encoder, &batches[..split]);
+                let behind_screen = self
+                    .sprite_pipeline
+                    .bind_behind_screen(&self.device, textures.views()[0]);
+                self.draw_behind(&mut encoder, &batches[..split], &behind_screen);
                 let bind_group = self.level_pipeline.bind(
                     &self.device,
                     &self.queue,

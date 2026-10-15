@@ -40,6 +40,7 @@ pub(crate) struct SpritePipeline {
     /// 1x1 black screen textures, for frames without a level and for drawing into the
     /// "behind" target (which cannot be read while it is drawn to).
     blank_screen: wgpu::BindGroup,
+    blank: wgpu::TextureView,
     vertices: Option<wgpu::Buffer>,
     indices: Option<wgpu::Buffer>,
 }
@@ -200,6 +201,7 @@ impl SpritePipeline {
             pages: Vec::new(),
             noise_group: None,
             blank_screen,
+            blank,
             vertices: None,
             indices: None,
         }
@@ -353,6 +355,25 @@ impl SpritePipeline {
         textures: &ScreenTextures<'_>,
     ) -> wgpu::BindGroup {
         Self::screen_group(device, &self.screen_layout, textures)
+    }
+
+    /// The screen textures for drawing into the "behind" target: the level image (the
+    /// game's `_LevelTex` is global, so `ShortCut0` sprites behind the level read it),
+    /// black for the targets that cannot be read yet.
+    pub(crate) fn bind_behind_screen(
+        &self,
+        device: &wgpu::Device,
+        level: &wgpu::TextureView,
+    ) -> wgpu::BindGroup {
+        Self::screen_group(
+            device,
+            &self.screen_layout,
+            &ScreenTextures {
+                level,
+                behind: &self.blank,
+                grab: &self.blank,
+            },
+        )
     }
 
     /// Black stand-ins for the screen textures.

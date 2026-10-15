@@ -1,6 +1,9 @@
 //! Headless GPU checks of the room sprite shaders; skipped without a Vulkan adapter.
 
+use rw_assets::{NoiseTexture, PaletteImage, PaletteTexture};
 use rw_graphics::{Atlas, Color as SpriteColor, DrawItem, Mesh as SpriteMesh, Shader, Sprite};
+
+use crate::LevelParams;
 
 use super::*;
 
@@ -100,4 +103,76 @@ fn shaders_split_and_overseer_zip_is_opaque_at_full_alpha() {
     assert_eq!(pixel(&image, 8, 60), [0, 255, 0]);
     assert_eq!(pixel(&image, 32, 32), [0, 0, 255]);
     assert_eq!(pixel(&image, 60, 4), [0, 0, 0]);
+}
+
+/// `ShortcutGraphics` puts a pipe tile over air in `BackgroundShortcuts` with
+/// `ShortCut0`, drawn before the level graphic. `ShortCut0` reads the global
+/// `_LevelTex` and shows its colour only on shortcut texels (green 8..10, blue 0); the
+/// level (`LevelColor`) then shows what was drawn behind it at depth >= 5. A background
+/// pipe dot in the level image (`(51, 8, 0)`: depth 20, as along SU_A15's x = 26 below
+/// y = 8) shows the lit sprite; a texel without the shortcut code (`(51, 0, 0)`) hides
+/// it.
+#[test]
+fn background_shortcut_reads_the_level_behind_it() {
+    let Some(mut r) = renderer() else { return };
+    let image = PngImage::from_pixels(
+        64,
+        64,
+        (0..64 * 64)
+            .map(|i| {
+                if i % 64 < 32 {
+                    [51, 8, 0, 255]
+                } else {
+                    [51, 0, 0, 255]
+                }
+            })
+            .collect(),
+    );
+    let palette = PaletteTexture::blend(
+        &PaletteImage::from_image(&PngImage::from_pixels(32, 16, vec![[90, 90, 90, 255]; 512]))
+            .unwrap(),
+        None,
+        0.0,
+    );
+    let noise =
+        NoiseTexture::from_image(&PngImage::from_pixels(64, 64, vec![[128, 0, 0, 255]; 4096]))
+            .unwrap();
+    r.set_level(&LevelGraphics {
+        camera_pos: [0.0, 0.0],
+        image: &image,
+        palette: &palette,
+        noise: &noise,
+        params: LevelParams {
+            light: 1.0,
+            grime: 0.0,
+            fog_amount: 0.0,
+            clouds_speed: 1.0,
+            darkness: 1.0,
+            contrast: 1.0,
+            saturation: 1.0,
+            hue: 0.0,
+            brightness: 0.0,
+            swarm_room: 0.0,
+        },
+    });
+    let DrawItem::Sprite(mut pipe) =
+        white_sprite(Shader::ShortCut0, SpriteColor::rgb(1.0, 0.0, 0.0))
+    else {
+        unreachable!()
+    };
+    pipe.layer = Layer::BackgroundShortcuts;
+    let list = DrawList {
+        items: vec![DrawItem::Sprite(pipe)],
+    };
+    r.draw_sprites(&list, Layer::BackgroundShortcuts, [0.0, 0.0]);
+    r.draw_level(LevelView {
+        origin: [0.0, 0.0],
+        size: [64.0, 64.0],
+        rain: 0.0,
+    });
+    let frame = r.render_image().unwrap();
+    // The quad spans 16..48: lit over the dot texels, hidden over the others.
+    assert_eq!(pixel(&frame, 20, 32), [255, 0, 0]);
+    assert_ne!(pixel(&frame, 44, 32), [255, 0, 0]);
+    assert_eq!(pixel(&frame, 44, 32), pixel(&frame, 60, 32));
 }
