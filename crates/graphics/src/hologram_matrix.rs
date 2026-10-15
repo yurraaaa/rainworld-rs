@@ -56,8 +56,12 @@ impl HoloLine {
     }
 }
 
-impl Vec3 {
+trait Ring {
     /// `Custom.DegToVec(deg) * r` with `z` set.
+    fn ring(deg: f32, r: f32, z: f32) -> Self;
+}
+
+impl Ring for Vec3 {
     fn ring(deg: f32, r: f32, z: f32) -> Self {
         let v = Vec2::from_degrees(deg) * r;
         Self::new(v.x, v.y, z)

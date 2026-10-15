@@ -417,8 +417,12 @@ restrictions (`rainworld-re/notes/water.md`), base game with Remix off, Survivor
   flooding, lethal water, splashes and bubbles, ripple waves from explosions,
   `aerobicLevel` (stays 0; for the Survivor it only feeds graphics), the analogue swim
   direction (digital input only).
-- **Slerp for opposite vectors.** Unity's `Vector3.Slerp` between antiparallel vectors
-  picks an axis the notes do not record; the port turns counter-clockwise.
+- **Slerp is reconstructed.** `Vector3.Slerp` is native code. `rw_sim::Vec3::slerp`
+  follows Unity's known implementation: lerp below magnitude 1e-5 or when nearly
+  parallel, `OrthoNormalVectorFast` axis when opposite, else an axis-angle turn about
+  the cross product (INFERRED: `rainworld-re/notes/overseer.md` §Slerp). Swimming
+  straight down while drowning therefore turns about the x axis: the push shrinks,
+  then points up, and the body rises to the surface.
 - **Drawing.** The level view draws the water as `Water.DrawSprites` does
   (`rw_render::WaterSprites`, `shaders/water.wgsl`; `rainworld-re/notes/water-rendering.md`):
   both rows with `ApplyDepthOnVector`, the `WaterSurface` band and the `DeepWater` body,

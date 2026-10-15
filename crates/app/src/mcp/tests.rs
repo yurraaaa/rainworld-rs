@@ -28,7 +28,7 @@ const RIGHT: InputParam = InputParam {
 
 impl Session {
     /// A session on the installed game, or `None` (test skipped) without it.
-    fn installed() -> Option<Self> {
+    pub(super) fn installed() -> Option<Self> {
         let assets = StreamingAssets::new(GameDir::from_env().streaming_assets());
         if !assets.file("levels").is_dir() {
             eprintln!("skipping: no game under {}", assets.path().display());

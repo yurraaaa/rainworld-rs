@@ -80,7 +80,7 @@ impl<'a> OverseerView<'a> {
 
 /// The player as a realized overseer reads it.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) struct PlayerView {
+pub struct PlayerView {
     /// `realizedCreature.room` is the overseer's room (not in a shortcut there).
     pub in_room: bool,
     /// `mainBodyChunk` (`DangerPos`) now and last tick.

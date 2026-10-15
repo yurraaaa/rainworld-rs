@@ -32,6 +32,7 @@ mod shortcut;
 mod sound;
 mod spawn;
 mod vec2;
+mod vec3;
 mod water;
 pub mod world;
 
@@ -39,7 +40,10 @@ pub use camera::CameraView;
 pub use chunk::{BodyChunk, Contact, DEFAULT_RESTRICT_IN_ROOM_RANGE, PhysicsParams, TerrainImpact};
 pub use creature::WorldCoordinate;
 pub use float_ext::FloatExt;
-pub use game::{CameraMove, HudEvent, NewGameWorld, PlayerObserver, RainWorldGame, Start};
+pub use game::{
+    CameraMove, HudEvent, NewGameWorld, OverseerCall, OverseerCallRecord, PlayerObserver,
+    RainWorldGame, Start,
+};
 pub use object::{
     BodyChunkConnection, ConnectionKind, PhysicalObject, TerrainImpactHandler, slugcat,
 };
@@ -50,6 +54,7 @@ pub use shortcut::{LobbyVessel, ShortcutHandler};
 pub use sound::{EmitterId, PlayedSound, SoundEvent, SoundId, SoundSource, Sounds};
 pub use spawn::{determine_safe_spawn_tile, place_in_room};
 pub use vec2::Vec2;
+pub use vec3::Vec3;
 pub use water::Water;
 
 #[cfg(test)]

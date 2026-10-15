@@ -35,6 +35,8 @@ fn waterreactor_fall_float_dive_and_drown() {
     p.place((16, 10), &mut rng);
     let down = Input::new(0, -1, false);
     let mut first_out_of_air = None;
+    let mut deepest_low_air = f32::MAX;
+    let mut resurfaced = false;
     let mut death = None;
     for t in 0..2000 {
         let input = if t < 200 { Input::NONE } else { down };
@@ -58,6 +60,10 @@ fn waterreactor_fall_float_dive_and_drown() {
             assert_eq!(p.animation(), Animation::DeepSwim);
             assert!(p.air_in_lungs() < 1.0);
         }
+        if t > 220 && p.air_in_lungs() < 0.5 {
+            deepest_low_air = deepest_low_air.min(p.head().pos.y);
+            resurfaced |= p.animation() == Animation::SurfaceSwim;
+        }
         if p.air_in_lungs() == 0.0 && first_out_of_air.is_none() {
             first_out_of_air = Some(t);
         }
@@ -66,12 +72,15 @@ fn waterreactor_fall_float_dive_and_drown() {
             break;
         }
     }
-    // Held down, the body swims into the drain tunnel below the pool and runs out of
-    // air there; from then on `Stun(10)` and `drown += 1/120` every tick: death on the
-    // 121st such tick (120 f32 steps of 1/120 stay just under 1).
+    // Held down, the body dives to the pool's floor. Short of air, the swim direction
+    // bends toward up (`Vector3.Slerp` of straight down toward straight up turns about
+    // the x axis, so the push shrinks and then points up): the drowning body rises to
+    // the surface, gasps, and drowns there.
     let (zero, dead) = (
         first_out_of_air.expect("ran out of air"),
         death.expect("drowned"),
     );
-    assert_eq!(dead - zero, 120);
+    assert!(deepest_low_air < 75.0, "dived: {deepest_low_air}");
+    assert!(resurfaced, "the bend brought it back up");
+    assert!(zero < dead, "{zero} {dead}");
 }

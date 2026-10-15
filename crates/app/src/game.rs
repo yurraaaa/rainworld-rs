@@ -475,6 +475,13 @@ impl Game {
         )
     }
 
+    /// Overseer `id`'s graphics module, while its room is viewed.
+    #[cfg(test)]
+    #[must_use]
+    pub fn overseer_graphics(&self, id: EntityId) -> Option<&OverseerGraphics> {
+        self.graphics.overseers.iter().find(|g| g.id == id)
+    }
+
     /// The overseers' sprites in the camera's room at `alpha` between ticks, oldest
     /// first (the order their sprites joined the containers), in the room palette's
     /// earth colour.

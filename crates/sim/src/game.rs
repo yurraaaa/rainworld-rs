@@ -17,13 +17,13 @@ use crate::creature::overseer::{
 };
 use crate::creature::population::PopulationContext;
 use crate::creature::{
-    CreatureId, CreatureTemplate, EntityId, IdIssuer, PlayerGuideState, RealizedCreature,
-    WorldCoordinate,
+    AbstractCreature, CreatureId, CreatureTemplate, EntityId, IdIssuer, PlayerGuideState,
+    RealizedCreature, WorldCoordinate,
 };
 use crate::room_script::{RoomScript, ScriptTick, StorySession};
 use crate::world::{AbstractTick, FollowCreature, RainCycle, RoomRealizer, World};
 use crate::{
-    Input, LobbyVessel, Player, ShortcutHandler, Sounds, VesselStep, Water,
+    Input, LobbyVessel, Player, ShortcutHandler, Sounds, Vec2, VesselStep, Water,
     determine_safe_spawn_tile,
 };
 
@@ -76,7 +76,7 @@ pub enum HudEvent {
 
 /// Which overseer call [`RainWorldGame::run_overseer`] makes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum OverseerCall {
+pub enum OverseerCall {
     /// `PlaceInRoom` after `ReadyForAI` realized it.
     Place,
     /// `TeleportingIntoRoom` from the lobby.
@@ -151,6 +151,42 @@ pub struct RainWorldGame {
     tick: u64,
     /// What the room scripts read of the process manager.
     script_tick: ScriptTick,
+    /// The realized overseer calls recorded since `record_overseer_calls(true)`.
+    overseer_calls: Option<Vec<OverseerCallRecord>>,
+    /// The last overseer realized into a room, always recorded.
+    last_overseer_place: Option<OverseerCallRecord>,
+}
+
+/// One realized overseer call with what it read and the random stream around it (for
+/// comparing against a reference model).
+#[derive(Debug, Clone)]
+pub struct OverseerCallRecord {
+    pub tick: u64,
+    pub creature: CreatureId,
+    /// `Place` covers `RealizeInRoom` from `PlaceInRealizedRoom` on.
+    pub call: OverseerCall,
+    pub rng_before: [u32; 4],
+    pub rng_after: [u32; 4],
+    pub player: Option<PlayerView>,
+    /// The player's `abstractCreature.pos`.
+    pub player_pos: WorldCoordinate,
+    pub player_id: CreatureId,
+    /// The player's `bodyChunks[1].lastPos`.
+    pub player_hips_last: Vec2,
+    pub camera: CameraView,
+    pub rain_timer_before: i32,
+    pub rain_timer_after: i32,
+    pub cycle_length: i32,
+    pub hud: bool,
+    pub viewed: bool,
+    /// The room's `abstractRoom.creatures`.
+    pub creatures: Vec<CreatureId>,
+    /// For `place`, the abstract creature before it was realized.
+    pub abstract_before: Option<AbstractCreature>,
+    /// Its abstract position as the call began.
+    pub pos_before: WorldCoordinate,
+    /// The abstract creature (with its body) after a `Place` or `TeleportIn`.
+    pub after: Option<AbstractCreature>,
 }
 
 impl RainWorldGame {
@@ -221,6 +257,8 @@ impl RainWorldGame {
             start,
             tick: 0,
             script_tick: ScriptTick::default(),
+            overseer_calls: None,
+            last_overseer_place: None,
         };
         if let Err(e) = game.world.activate_room(start.room) {
             log::error!("cannot realize the first room: {e}");
@@ -429,8 +467,13 @@ impl RainWorldGame {
                     if self.tick == 0 && self.player.is_none() {
                         self.realize_player(observer);
                     }
-                } else if self.world.realize_overseer(id, 0, &mut self.rng) {
-                    self.run_overseer(id, OverseerCall::Place, observer);
+                } else {
+                    let before = self.rng.state();
+                    let creature = self.world.creature(id).clone();
+                    if self.world.realize_overseer(id, 0, &mut self.rng) {
+                        self.run_overseer(id, OverseerCall::Place, observer);
+                        self.mark_overseer_place(before, creature);
+                    }
                 }
             }
             let name = self
@@ -784,6 +827,31 @@ impl RainWorldGame {
         let room_index = self.world.creature(id).pos.room;
         let player = self.player_view(room_index);
         let story = self.story_stats();
+        let wanted = self.overseer_calls.is_some() || call == OverseerCall::Place;
+        let record = wanted.then(|| OverseerCallRecord {
+            tick: self.tick,
+            creature: id,
+            call,
+            rng_before: self.rng.state(),
+            rng_after: [0; 4],
+            player,
+            player_pos: self.pos(),
+            player_id: self.player_id,
+            player_hips_last: self
+                .player
+                .as_ref()
+                .map_or(Vec2::ZERO, |p| p.body.chunks[1].last_pos),
+            camera: self.camera_view,
+            rain_timer_before: self.world.rain_cycle.timer,
+            rain_timer_after: 0,
+            cycle_length: self.world.rain_cycle.cycle_length,
+            hud: self.script_tick.hud_with_control_preset,
+            viewed: room_index == self.camera_room,
+            creatures: self.world.room_creatures(room_index).to_vec(),
+            abstract_before: None,
+            pos_before: self.world.creature(id).pos,
+            after: None,
+        });
         let Some(mut parts) = self.world.take_overseer(id) else {
             return;
         };
@@ -844,7 +912,53 @@ impl RainWorldGame {
         }
         self.world.put_overseer(id, parts, pos);
         self.world.rain_cycle = rain;
+        if let Some(mut record) = record {
+            record.rng_after = self.rng.state();
+            record.rain_timer_after = rain.timer;
+            if call != OverseerCall::Update {
+                record.after = Some(self.world.creature(id).clone());
+            }
+            if call == OverseerCall::Place {
+                self.last_overseer_place = Some(record.clone());
+            }
+            if let Some(calls) = &mut self.overseer_calls {
+                calls.push(record);
+            }
+        }
         self.apply_overseer_effects(id, effects, observer);
+    }
+
+    /// The last call recorded was `Place`: it began at `rng_before` (before
+    /// `PlaceInRealizedRoom`).
+    fn mark_overseer_place(&mut self, rng_before: [u32; 4], creature: AbstractCreature) {
+        let recorded = self.overseer_calls.as_mut().and_then(|c| c.last_mut());
+        for last in [self.last_overseer_place.as_mut(), recorded]
+            .into_iter()
+            .flatten()
+        {
+            last.rng_before = rng_before;
+            last.abstract_before = Some(creature.clone());
+        }
+    }
+
+    /// The last realization of an overseer into a room (`RealizeInRoom` through
+    /// `PlaceInRoom`), recorded whether or not calls are.
+    #[must_use]
+    pub fn last_overseer_place(&self) -> Option<&OverseerCallRecord> {
+        self.last_overseer_place.as_ref()
+    }
+
+    /// Starts (or stops and clears) recording the realized overseer calls.
+    pub fn record_overseer_calls(&mut self, on: bool) {
+        self.overseer_calls = on.then(Vec::new);
+    }
+
+    /// The overseer calls recorded since the last call.
+    pub fn take_overseer_calls(&mut self) -> Vec<OverseerCallRecord> {
+        self.overseer_calls
+            .as_mut()
+            .map(std::mem::take)
+            .unwrap_or_default()
     }
 
     fn apply_overseer_effects(

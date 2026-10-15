@@ -57,8 +57,9 @@ impl Vec2 {
     /// `Custom.DegToVec`: unit vector `deg` degrees clockwise from straight up.
     #[must_use]
     pub fn from_degrees(deg: f32) -> Self {
-        let rad = deg.to_radians();
-        Self::new(rad.sin(), rad.cos())
+        // `Mathf.Sin`/`Cos` are `(float)Math.Sin`/`Cos` of the double.
+        let rad = f64::from(deg.to_radians());
+        Self::new(rad.sin() as f32, rad.cos() as f32)
     }
 
     /// Scaled down to length `max` if longer (`Vector2.ClampMagnitude`).
@@ -104,25 +105,12 @@ impl Vec2 {
             .to_degrees()
     }
 
-    /// `Vector3.Slerp` in the plane: turns toward `to` along the shorter arc by the
-    /// fraction `t` (clamped to 0..=1) and lerps the length. Opposite directions turn
-    /// counter-clockwise (INFERRED; Unity's choice of axis there is not known).
+    /// `Vector3.Slerp` of the two as `Vector3`s (`z` = 0), back to 2D.
     #[must_use]
     pub fn slerp(self, to: Self, t: f32) -> Self {
-        let t = t.clamp(0.0, 1.0);
-        let (la, lb) = (self.length(), to.length());
-        if la < 1e-5 || lb < 1e-5 {
-            return self.lerp(to, t);
-        }
-        let (a, b) = (self / la, to / lb);
-        let mut angle = a.angle_to(b).to_radians();
-        let cross = a.x * b.y - a.y * b.x;
-        if cross < 0.0 {
-            angle = -angle;
-        }
-        let turn = angle * t;
-        let (s, c) = turn.sin_cos();
-        Self::new(a.x * c - a.y * s, a.x * s + a.y * c) * (la + (lb - la) * t)
+        crate::Vec3::from_xy(self)
+            .slerp(crate::Vec3::from_xy(to), t)
+            .xy()
     }
 
     /// As an array, for the `rw_assets` tile helpers.
