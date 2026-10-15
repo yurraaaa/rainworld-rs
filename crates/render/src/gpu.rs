@@ -439,15 +439,17 @@ impl WgpuRenderer {
         self.present_pipeline.bind(&self.device, &self.frame.view);
     }
 
-    /// The index of the first `HologramImage` sprite draw at or after `from`, else the
-    /// end.
+    /// The index of the first draw at or after `from` that grabs the frame first (a
+    /// `HologramImage` sprite draw, a `LocalBloom` stage draw), else the end.
     fn next_grab(batches: &[Batch], from: usize) -> usize {
         batches
             .iter()
             .enumerate()
             .skip(from)
-            .find(|(_, b)| {
-                matches!(b, Batch::Sprites(d) if d.shader == rw_graphics::Shader::HologramImage)
+            .find(|(_, b)| match b {
+                Batch::Sprites(d) => d.shader == rw_graphics::Shader::HologramImage,
+                Batch::Stage(d) => d.shader == crate::StageShader::LocalBloom,
+                _ => false,
             })
             .map_or(batches.len(), |(i, _)| i)
     }
@@ -906,6 +908,8 @@ impl Renderer for WgpuRenderer {
         }
         self.water_pipeline
             .upload(&self.device, &self.queue, &self.queue_draws.water);
+        self.stage_pipeline
+            .bind_grab(&self.device, &self.frame.grab_view);
         let stage_camera = Camera::window([0.0, 0.0], self.stage_screen, self.frame.size);
         self.stage_pipeline.upload(
             &self.device,
@@ -1006,7 +1010,7 @@ impl Renderer for WgpuRenderer {
             self.draw_batches(&mut pass, &batches[first_batch..end], water, screen);
             first_batch = end;
         }
-        // Each `HologramImage` draw grabs the frame drawn before it.
+        // Each `HologramImage` and `LocalBloom` draw grabs the frame drawn before it.
         while first_batch < batches.len() {
             self.frame.copy_to_grab(&mut encoder);
             let end = Self::next_grab(&batches, first_batch + 1);

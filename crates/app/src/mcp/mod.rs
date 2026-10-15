@@ -257,7 +257,8 @@ impl Server {
         drive the menus (Rewired UI map) and the player in the game (gameplay map: arrows \
         move, Z jumps, Escape pauses; S held with START skips the intro slideshow, Escape skips it while it \
         plays); returns the current process, the fade state, the slideshow's clock and \
-        scene, the game's pause menu, and whether Exit asked to quit."
+        scene, the game's pause menu, the sleep, death or starve screen's karma ladder \
+        and buttons, and whether Exit asked to quit."
     )]
     fn step_process(
         &self,

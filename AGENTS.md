@@ -153,14 +153,16 @@ before the user agrees.
     lesson. Saves (`rw-save`, D16): Continue from the slugcat select, New
     Game's wipe and the start's death-and-quit save. Shelters (D17): the
     door closes on a fed, still slugcat, `Win` writes the whole save state
-    and region state, a sleep-screen stand-in starts the next cycle in the
-    shelter with the saved population. Gates, region changes, the rain and
-    the sleep, starve and death screens are not there yet.
+    and region state, the sleep screen (karma ladder, food meter, map;
+    D13) continues to the next cycle in the shelter with the saved
+    population; a door closing on too little food shows the starve screen.
+    Dreams are a black stand-in. Gates, region changes, the rain and the
+    sleep and death screens' passage meters are not there yet.
   - Death in a story session is the game's: the dead body keeps
     simulating, `GameOver` puts the HUD prompt in game-over mode (and
     stores the karma flower's spot), and the map button 40 ticks later
-    saves the death and switches to the death screen, still a "not
-    ported" page. R respawns only in dev starts (`load_room`, `--room`,
+    saves the death and switches to the death screen, whose CONTINUE
+    starts the next cycle. R respawns only in dev starts (`load_room`, `--room`,
     arena levels), which have no game over. A body that falls out of the
     room is destroyed, as in the game.
   - Water uses the game's full wavy surface simulation.
@@ -256,7 +258,9 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   `step_process` reports `options`: values, screen, info label, dialog),
   so START on a saved page continues
   (`step_process` reports `save`: saved campaigns and the current save
-  state, and `story`: the running game's den, cycle, karma, room and food);
+  state, `story`: the running game's den, cycle, karma, room and food,
+  and `karma_screen`: the sleep, death or starve screen's ladder phase,
+  karma, buttons and map);
   the pause menu's Exit saves (a death after 30 s, a quit after 5).
 - `--mcp --window` also shows the driven scene in a window.
 - End of the project: a review of code cleanliness and quality across the

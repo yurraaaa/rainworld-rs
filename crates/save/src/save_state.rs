@@ -307,6 +307,23 @@ impl SaveState {
             .map(String::as_str)
     }
 
+    /// `regionStates[region].roomsVisited`, as saved (`ROOMSVISITED`).
+    #[must_use]
+    pub fn rooms_visited(&self, region: &str) -> Vec<String> {
+        self.region_state(region)
+            .and_then(|s| {
+                s.split("<rgA>")
+                    .find_map(|e| e.strip_prefix("ROOMSVISITED<rgB>"))
+            })
+            .map(|v| {
+                v.split(',')
+                    .filter(|r| !r.is_empty())
+                    .map(str::to_owned)
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
     /// `REGIONNAME` of a region state's text.
     fn region_state_name(s: &str) -> Option<&str> {
         s.split("<rgA>")
@@ -472,6 +489,19 @@ mod tests {
         assert_eq!(s.den_to_use(|r| r == "SU_S01"), "SU_S01");
         assert_eq!(s.den_to_use(|_| false), "SU_S01");
         assert_eq!(s.slow_fade_in(), 0.8);
+    }
+
+    #[test]
+    fn rooms_visited_reads_the_region_states_list() {
+        let mut s = SaveState::new(SlugcatName::White, 5);
+        s.region_states = vec![
+            "REGIONNAME<rgB>SU<rgA>LASTCYCLEUPDATED<rgB>3<rgA>ROOMSVISITED<rgB>SU_C04,SU_A41<rgA>"
+                .to_owned(),
+            "REGIONNAME<rgB>HI<rgA>ROOMSVISITED<rgB><rgA>".to_owned(),
+        ];
+        assert_eq!(s.rooms_visited("su"), ["SU_C04", "SU_A41"]);
+        assert!(s.rooms_visited("HI").is_empty());
+        assert!(s.rooms_visited("DS").is_empty());
     }
 
     #[test]

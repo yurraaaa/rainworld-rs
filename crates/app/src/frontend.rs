@@ -9,7 +9,7 @@ use rw_assets::ActiveMods;
 use rw_assets::{SoundTable, StreamingAssets, UnityResources};
 use rw_audio::music::{MusicClock, MusicOutput, SongBank, SourcePlayback, TimedSources, TrackId};
 use rw_audio::{Audio, ListenerInput, MenuPlayback, MenuSoundStart};
-use rw_hud::{PauseGame, PauseMenu, PauseRequest};
+use rw_hud::{PauseGame, PauseMenu, PauseRequest, SleepAndDeathScreen};
 use rw_menu::StoryGameInitCondition;
 use rw_menu::menu::{Menu, MenuCx};
 use rw_menu::{
@@ -93,9 +93,8 @@ pub struct Unported {
     last_pause_button: bool,
 }
 
-/// The sleep screen's and the dream's stand-in (`SleepAndDeathScreen` and `DreamScreen`
-/// are not ported, D16): black for a
-/// second after the fade, then the next cycle, as the screen's Continue starts it
+/// The dream's stand-in (`DreamScreen` is not ported, D13): black for a second after
+/// the fade, then the next cycle, as the sleep screen's Continue starts it
 /// (`startGameCondition = Load`).
 pub struct SleepStandIn {
     id: ProcessId,
@@ -127,6 +126,8 @@ pub enum AppProcess {
     OptionsMenu(Box<OptionsMenu>),
     SlugcatSelect(Box<SlugcatSelectMenu>),
     SleepStandIn(SleepStandIn),
+    /// The sleep, death and starve screens.
+    SleepAndDeath(Box<SleepAndDeathScreen>),
     Unported(Unported),
 }
 
@@ -455,17 +456,14 @@ impl MenuContext for AppContext {
 impl ProcessFactory<AppProcess> for AppContext {
     fn create_process(&mut self, id: ProcessId, old: Option<&AppProcess>) -> AppProcess {
         log::info!("process {id:?}");
-        // The screens' data package; the screens themselves are not ported yet.
-        if let Some(p) = old.and_then(|o| o.screen_package(id, &self.menu.saves, &self.menu.assets))
+        // `PostSwitchMainProcess`: `progression.Revert()` before the game, which then
+        // loads the stored state. The port keeps the state a won cycle left in memory
+        // (D17), but after a death or a starve the stored one differs from it.
+        if id == ProcessId::Game
+            && old
+                .is_some_and(|o| matches!(o.id(), ProcessId::DeathScreen | ProcessId::StarveScreen))
         {
-            log::info!(
-                "{id:?} package: food {}, karma {:?}, reinforced {}, room {}, pos {:?}",
-                p.food,
-                p.karma,
-                p.karma_reinforced,
-                p.player_room,
-                p.player_pos
-            );
+            self.menu.saves.current_save_state = None;
         }
         match id {
             ProcessId::Initialization => {
@@ -480,11 +478,26 @@ impl ProcessFactory<AppProcess> for AppContext {
                 AppProcess::SlideShow(Box::new(SlideShow::new(&mut self.menu, id)))
             }
             ProcessId::Game => AppProcess::Game(Box::new(self.new_game())),
-            ProcessId::SleepScreen | ProcessId::Dream => AppProcess::SleepStandIn(SleepStandIn {
+            ProcessId::Dream => AppProcess::SleepStandIn(SleepStandIn {
                 id,
                 stage: Container::default(),
                 frames: 0,
             }),
+            ProcessId::SleepScreen | ProcessId::DeathScreen | ProcessId::StarveScreen => {
+                // `CommunicateWithUpcomingProcess` hands the screen the game's package
+                // before its first update.
+                match old.and_then(|o| o.screen_package(id, &self.menu.saves, &self.menu.assets)) {
+                    Some(package) => AppProcess::SleepAndDeath(Box::new(SleepAndDeathScreen::new(
+                        &mut self.menu,
+                        id,
+                        package,
+                    ))),
+                    None => {
+                        log::warn!("{id:?} without a game to hand it its data");
+                        AppProcess::Unported(Unported::new(id, &self.menu))
+                    }
+                }
+            }
             ProcessId::FontTest => AppProcess::FontTest(FontTest::new(&mut self.menu)),
             ProcessId::MainMenu => AppProcess::MainMenu(Box::new(MainMenu::new(&mut self.menu))),
             ProcessId::OptionsMenu => {
@@ -871,7 +884,8 @@ impl AppProcess {
             Self::FontTest(p) => Some(p.stage()),
             Self::Unported(p) => Some(&p.stage),
             Self::SleepStandIn(p) => Some(&p.stage),
-            Self::Game(_)
+            Self::SleepAndDeath(_)
+            | Self::Game(_)
             | Self::IntroRoll(_)
             | Self::SlideShow(_)
             | Self::MainMenu(_)
@@ -889,6 +903,7 @@ impl AppProcess {
             Self::MainMenu(p) => Some(p.menu()),
             Self::OptionsMenu(p) => Some(p.menu()),
             Self::SlugcatSelect(p) => Some(p.menu()),
+            Self::SleepAndDeath(p) => Some(p.menu()),
             _ => None,
         }
     }
@@ -900,6 +915,7 @@ impl AppProcess {
             Self::MainMenu(p) => Some(p.menu_mut()),
             Self::OptionsMenu(p) => Some(p.menu_mut()),
             Self::SlugcatSelect(p) => Some(p.menu_mut()),
+            Self::SleepAndDeath(p) => Some(p.menu_mut()),
             _ => None,
         }
     }
@@ -939,6 +955,14 @@ impl MainLoopProcess<AppContext> for AppProcess {
             Self::SlugcatSelect(_) => ProcessId::SlugcatSelect,
             Self::Unported(p) => p.id,
             Self::SleepStandIn(p) => p.id,
+            Self::SleepAndDeath(p) => p.id(),
+        }
+    }
+
+    fn frames_per_second(&self) -> i32 {
+        match self {
+            Self::SleepAndDeath(p) => p.frames_per_second(),
+            _ => 40,
         }
     }
 
@@ -954,6 +978,14 @@ impl MainLoopProcess<AppContext> for AppProcess {
             Self::SlugcatSelect(p) => p.update(ctx, requests),
             Self::Unported(p) => p.update(ctx, requests),
             Self::SleepStandIn(p) => p.update(ctx, requests),
+            Self::SleepAndDeath(p) => {
+                let input = ctx.input.take_tick_input();
+                let mut cx = MenuCx {
+                    shared: &mut ctx.menu,
+                    requests,
+                };
+                p.update(&mut cx, input);
+            }
         }
     }
 
@@ -967,6 +999,10 @@ impl MainLoopProcess<AppContext> for AppProcess {
             Self::MainMenu(p) => p.graf_update(time_stacker, ctx),
             Self::OptionsMenu(p) => p.graf_update(time_stacker, ctx),
             Self::SlugcatSelect(p) => p.graf_update(time_stacker, ctx),
+            Self::SleepAndDeath(p) => {
+                let mouse = Vec2::from(ctx.menu.input.mouse.pos);
+                p.graf_update(time_stacker, mouse, ctx.menu.screen_size[1]);
+            }
             Self::Unported(_) | Self::SleepStandIn(_) => {}
         }
     }
@@ -981,6 +1017,7 @@ impl MainLoopProcess<AppContext> for AppProcess {
             Self::MainMenu(p) => p.shut_down(ctx),
             Self::OptionsMenu(p) => p.shut_down(ctx),
             Self::SlugcatSelect(p) => p.shut_down(ctx),
+            Self::SleepAndDeath(p) => p.shut_down(&mut ctx.menu),
             Self::Unported(_) | Self::SleepStandIn(_) => {}
         }
     }
@@ -1006,6 +1043,7 @@ impl MainLoopProcess<AppContext> for AppProcess {
     fn time_speed_fac(&self) -> f32 {
         match self {
             Self::Game(p) => p.time_speed_fac(),
+            Self::SleepAndDeath(p) => p.frames_per_second() as f32 / 40.0,
             _ => 1.0,
         }
     }
@@ -1033,6 +1071,13 @@ impl MainLoopProcess<AppContext> for AppProcess {
     fn communicate_with_upcoming(&mut self, next: &mut Self, ctx: &mut AppContext) {
         if let Some(menu) = self.menu_mut() {
             menu.communicate_with_upcoming(next.menu_mut(), &mut ctx.menu);
+        }
+        // `SleepAndDeathScreen.CommunicateWithUpcomingProcess`: after the death screen
+        // the cycle starts 340 ticks in (no `PrecycleModule` without the DLCs).
+        if self.id() == ProcessId::DeathScreen
+            && let Self::Game(game) = next
+        {
+            game.scene.game_mut().sim_mut().world_mut().rain_cycle.timer = 340;
         }
     }
 }
@@ -1079,6 +1124,15 @@ impl Frontend {
         self.manager.current_mut().and_then(AppProcess::game_mut)
     }
 
+    /// The sleep, death or starve screen, when it is the current process.
+    #[must_use]
+    pub fn sleep_screen(&self) -> Option<&SleepAndDeathScreen> {
+        match self.manager.current() {
+            Some(AppProcess::SleepAndDeath(s)) => Some(s),
+            _ => None,
+        }
+    }
+
     /// The slideshow, when it is the current process.
     #[must_use]
     pub fn slideshow(&self) -> Option<&SlideShow> {
@@ -1092,9 +1146,17 @@ impl Frontend {
     pub fn draw<R: Renderer>(&mut self, target: &mut FrontendRenderer<R>, view: SceneView) {
         let alpha = self.manager.time_stacker();
         let mut map = MapGlobals::default();
-        if let Some(AppProcess::Game(game)) = self.manager.current_mut() {
-            game.scene.sync_hud_textures(&mut self.ctx.menu.atlases);
-            map = game.scene.hud_map_globals(alpha);
+        match self.manager.current_mut() {
+            Some(AppProcess::Game(game)) => {
+                game.scene.sync_hud_textures(&mut self.ctx.menu.atlases);
+                map = game.scene.hud_map_globals(alpha);
+            }
+            Some(AppProcess::SleepAndDeath(screen)) => {
+                let hud = screen.hud_mut();
+                hud.sync_textures(&mut self.ctx.menu.atlases);
+                map = hud.map_globals(alpha).unwrap_or_default();
+            }
+            _ => {}
         }
         target
             .textures

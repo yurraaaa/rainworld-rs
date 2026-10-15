@@ -14,9 +14,9 @@ use crate::game::Game;
 use crate::hibernation::SessionRecordSource;
 
 impl Game {
-    /// The package for screen `next`, from the save state in memory, the world, the
-    /// player and camera 0's HUD (its map data and prompt); `None` without a save
-    /// state.
+    /// The package for screen `next`, from the session's save state (in memory, or
+    /// the starved state a malnourished `Win` moved it to), the world, the player and
+    /// camera 0's HUD (its map data and prompt); `None` without a save state.
     #[must_use]
     pub fn screen_package(
         &self,
@@ -25,9 +25,9 @@ impl Game {
         assets: &StreamingAssets,
         hud: Option<&Hud>,
     ) -> Option<SleepDeathScreenDataPackage> {
-        let save = saves.current_save_state.as_ref()?;
         let sim = self.sim();
         let campaign = sim.campaign();
+        let save = saves.state_in_memory(campaign.name)?;
         let source = ScreenPackageSource {
             next,
             save,

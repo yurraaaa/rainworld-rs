@@ -71,16 +71,8 @@ impl Game {
             complete_darkness: sim.complete_darkness(room),
             input: player.map_input(),
             rooms_visited,
-            now_ticks: Self::now_ticks(),
+            now_ticks: MapOwner::now_ticks(),
         }
-    }
-
-    /// `DateTime.Now.Ticks` (UTC): 100 ns since 0001-01-01.
-    fn now_ticks() -> i64 {
-        let unix = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |d| d.as_nanos() / 100);
-        i64::try_from(unix).unwrap_or(0) + 621_355_968_000_000_000
     }
 
     /// `PlayerProgression.LoadMapTexture(region)`, as the map's first update calls it

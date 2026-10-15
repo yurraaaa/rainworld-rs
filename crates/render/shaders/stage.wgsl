@@ -3,7 +3,7 @@
 // fs_basic `Futile/Basic`, fs_edge_fade `EdgeFade`, fs_flat_light `FlatLight`,
 // fs_vector_circle `VectorCircle`, fs_vector_circle_fadable `VectorCircleFadable`,
 // fs_hold_button_circle `HoldButtonCircle`, fs_menu_text `MenuText`,
-// fs_flat_light_noisy `FlatLightNoisy`.
+// fs_flat_light_noisy `FlatLightNoisy`, fs_local_bloom `LocalBloom` (reads group 3).
 
 struct Stage {
     // xy: scale, zw: offset; clip = pos * scale + offset.
@@ -160,4 +160,50 @@ fn fs_flat_light_noisy(in: VertexOut) -> @location(0) vec4<f32> {
     let d = 0.25 * pow(1.0 - in.color.a, 0.5);
     let c = pow(pow(1.0 - pow(center_dist(in.uv), 2.0), 3.5), 1.0 - d + 2.0 * d * h);
     return vec4<f32>(in.color.rgb, c * in.color.a);
+}
+
+// `LocalBloom`'s `_GrabTexture`: the frame drawn before the sprite (its GrabPass),
+// sampled bilinearly, clamped.
+@group(3) @binding(0) var grab_tex: texture_2d<f32>;
+@group(3) @binding(1) var grab_sampler: sampler;
+
+// The grab at a screen position (`ComputeScreenPos`: 0..1, y up).
+fn grab_at(scr: vec2<f32>) -> vec4<f32> {
+    let clip = (scr * stage.screen - SCREEN_PIXEL_OFFSET) * stage.transform.xy + stage.transform.zw;
+    let uv = vec2<f32>((clip.x + 1.0) * 0.5, (1.0 - clip.y) * 0.5);
+    return textureSampleLevel(grab_tex, grab_sampler, uv, 0.0);
+}
+
+// Inside the disc: three rings of eight grab reads (the diagonals at 2/3 weight), each
+// ring 0.88 times the last, averaged and scaled by the vertex alpha and a linear falloff
+// to the edge; the frame under it is raised to that blur and the blur added on top.
+@fragment
+fn fs_local_bloom(in: VertexOut) -> @location(0) vec4<f32> {
+    let d = distance(in.uv, vec2<f32>(0.5, 0.5));
+    if (d > 0.5) {
+        return vec4<f32>(0.0);
+    }
+    let blur = 0.0012;
+    let hor = stage.screen.y / stage.screen.x;
+    var sum = vec4<f32>(0.0, 0.0, 0.0, 1.0);
+    var coef = 1.0;
+    var div = 0.0;
+    for (var j = 1; j <= 3; j++) {
+        coef *= 0.88;
+        let dx = f32(j) * blur * hor;
+        let dy = f32(j) * blur;
+        sum += grab_at(in.scr + vec2<f32>(0.0, dy)) * coef;
+        sum += grab_at(in.scr + vec2<f32>(-dx, 0.0)) * coef;
+        sum += grab_at(in.scr + vec2<f32>(dx, 0.0)) * coef;
+        sum += grab_at(in.scr + vec2<f32>(0.0, -dy)) * coef;
+        sum += grab_at(in.scr + vec2<f32>(-dx, dy)) * coef / 1.5;
+        sum += grab_at(in.scr + vec2<f32>(-dx, -dy)) * coef / 1.5;
+        sum += grab_at(in.scr + vec2<f32>(dx, dy)) * coef / 1.5;
+        sum += grab_at(in.scr + vec2<f32>(dx, -dy)) * coef / 1.5;
+        div += 6.0 * coef;
+    }
+    sum /= div;
+    sum *= in.color.a * mix(1.0, 0.0, d * 2.0);
+    let under = grab_at(in.scr);
+    return vec4<f32>(max(under.rgb, sum.rgb), under.a) + sum;
 }

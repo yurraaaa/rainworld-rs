@@ -611,9 +611,25 @@ real-time audio rather than the sim.
   and the port's menus draw them whole.
 - **Unported screens.** Every process but the game, the main menu, the options menu,
   slugcat select and the intro slideshows (the main menu's Regions, Arena and Remix,
-  the options menu's Input Settings, Credits and Backups, and the sleep and death
-  screens) is a black screen naming the process; the pause button (Escape) returns to
-  the main menu.
+  the options menu's Input Settings, Credits and Backups) is a black screen naming the
+  process; the pause button (Escape) returns to the main menu. The dream screen is a
+  black stand-in (D17).
+- **Sleep, death and starve screens.** `SleepAndDeathScreen` on `KarmaLadderScreen`
+  (`rw_hud::SleepAndDeathScreen`, `rainworld-re/notes/menu.md` "Sleep and death
+  screens") for the `SleepScreen`, `DeathScreen` and `StarveScreen` processes: the flat
+  scene, the full `KarmaLadder` (its phases, symbols, fade circles, reinforcement, sounds
+  and every random draw; the selection glow's `LocalBloom` GrabPass blur reads the
+  port's grab texture), the screen HUD's food meter and region map (D15), CONTINUE
+  (`StoryGameInitCondition.Load`; after a death screen the cycle starts 340 ticks in)
+  and EXIT (main menu), the info texts, the starving warning, the watched-screen
+  counters and their forced watch, the map toggle and the illustration's fade. Not
+  ported yet: the end-game meters, tokens and PASSAGE (the ladder keeps their place in
+  its containers and runs its meter counters over an empty list, so none shows and a
+  fulfilled meter never forces the watch), the kills display, the Hunter's
+  `GoToRedsGameOver` (D17), and the Expedition, Watcher and More Slugcats branches.
+  The game's `PostSwitchMainProcess` reverts the progression before every game, so
+  CONTINUE loads the stored state; the port drops its in-memory state only after a
+  death or starve screen and keeps a won cycle's (D17).
 - **Options menu.** `OptionsMenu` with Remix off and no console (`rw_menu::OptionsMenu`,
   `rainworld-re/notes/menu.md` "OptionsMenu"), with its `SelectOneButton`s,
   `HorizontalSlider`s, `CustomMessageButton`, `ControlsButton`, check boxes, the reset
@@ -934,7 +950,7 @@ story session.
   connection lines, the player marker, gate and shelter markers, the swarm-room circles
   and the Hunter's cycle label, with every random draw, plus the death markers (the save
   state's `DEATHPOSS`) and the karma flower marker. The same map, owned by a sleep or
-  death screen (`SleepHud`, for the screens of the next step), fades in without the
+  death screen (`SleepHud`, D13), fades in without the
   hold and, on a death screen, has no player marker. The player's exit discovery and
   `ReportRoomVisited` run in `Player.Update` as in the game. Differences: shelters show
   no stored items (the port has none); the flower marker reads the save's `FLOWERPOS`
@@ -961,8 +977,8 @@ story session.
 - **Screen meters.** The food meter's sleep and death screen branches (`SleepUpdate`,
   `DeathUpdate`, the eat circles and `FoodCountDownDone`) and `InitSleepHud` are ported
   (`rw_hud::SleepHud`), with the sleep-death data package `CommunicateWithUpcomingProcess`
-  builds (`SleepDeathScreenDataPackage`). The screens themselves are not
-  ported yet (D16, D17).
+  builds (`SleepDeathScreenDataPackage`), for the screens of D13. The package's save
+  state is the session's: after a malnourished `Win` the progression's starved state.
 - **Game over.** `Player.Die` → `RainWorldGame.GameOver` → `InitGameOverMode` with the
   food in the stomach, `Players[0].pos.room` and the main chunk at the death restricted
   to the room grown by 50 px; then the music's `DeathEvent` (its song fade; the
@@ -1024,8 +1040,9 @@ Differences:
   Dragon Slayer, Scholar) are written back as read, so the game's re-encoding of a
   More Slugcats Dragon Slayer list as base-game bools and its Traveller slot count are
   not applied.
-- **Screens' data.** The sleep and death screens' save-side reads are ported for the
-  screens of the next step: `WinState.PlayerDied`, `GetNextEndGame`,
+- **Screens' data.** The sleep and death screens' save-side reads are ported; the
+  screens (D13) use `WinState.PlayerDied` and the watched-screen counters, and the rest
+  waits for the end-game meters: `GetNextEndGame`,
   `ResetLastShownValues`, each tracker's `GoalFullfilled`/`AnyProgressToShow`, the
   `MiscProgressionData` watched-screen counters (`INTEGERS` 1-4) and the
   death-persistent `METERSSHOWN` list, `DEATHPOSS` and `FLOWERPOS`.
@@ -1041,8 +1058,8 @@ Differences:
   conditional shelters, menu region, the Hunter's flower, campaign timers and the
   base `INTEGERS` it resets cleared; the DLCs' integer lists (`INTEGERSMMF`, ...) are
   kept as read. There is no `SJ_<slot>` folder to delete.
-- **Starving and dying.** The starve and death screens are not ported (a "not ported"
-  page). `GoToStarveScreen` and `GoToDeathScreen` run `SessionEnded(survived: false)`
+- **Starving and dying.** The starve and death screens follow (D13).
+  `GoToStarveScreen` and `GoToDeathScreen` run `SessionEnded(survived: false)`
   and its death save (D17), with the game-over prompt's death room and position (room
   0 and (0, 0) on a starve, as in the game). `GoToDeathScreen` comes from the game-over
   prompt's map press (D15) or a shelter door closing on a dead slugcat. The save's
@@ -1075,13 +1092,15 @@ saves (D16) and goes to the sleep screen or a dream; the next cycle reuses the s
 state in memory (a new `nextIssuedId` draw, no seed draw) and the region state the last
 cycle left, starts in the shelter with its door shut and the slugcat curled up.
 Differences:
-- **Sleep screen and dreams.** Not ported: a stand-in shows 40 black frames, then starts
-  the next cycle as the sleep screen's continue does (`StoryGameInitCondition.Load`).
-  Its scene, meters, map and data package are ported (D13, D15); the frontend builds
-  the package when the game switches to a sleep, death or starve screen and only logs it.
-  The Moon and Pebbles event dreams are not ported (no iterators).
+- **Sleep screen and dreams.** The sleep screen is ported (D13); its CONTINUE starts
+  the next cycle. The dream screen (`DreamScreen`) is not: a stand-in shows 40 black
+  frames, then starts the next cycle as the sleep screen's continue does
+  (`StoryGameInitCondition.Load`). The Moon and Pebbles event dreams are not ported (no
+  iterators). The game reverts the progression before the next game and loads the
+  stored state; the port keeps the state in memory (equal to the stored one after a
+  `Win`), and drops it after a death or starve screen.
 - **Starving.** A door closing on too little food saves the cycle as a death
-  (`SessionEnded(survived: false)`, D16) and shows the "not ported" page.
+  (`SessionEnded(survived: false)`, D16) and shows the starve screen (D13).
 - **Karma flowers.** The player's `karmaFlowerGrowPos` is tracked as `Player.Update`
   does (`PlaceKarmaFlower`: reinforced karma, the Monk, the Hunter out of cycles), and
   `PlaceKarmaFlowerOnDeathSpot` stores it in the save state's `karmaFlowerPosition`
@@ -1100,7 +1119,7 @@ Differences:
   killing hostiles at close (the check alone is ported), aerobic and malnourished
   breathing, and every Jolly Co-op and More Slugcats branch.
 
-**Why.** Iterators, items, creature states and the menus' sleep screen are later
+**Why.** Iterators, items, creature states, dreams and the end-game meters are later
 milestones.
 
 **Affects.** What follows a hibernation, a death or a starve on screen, the karma
@@ -1124,8 +1143,8 @@ Room: `Room.Update`'s ambient ceiling drips (`WaterDrip`s from the ceiling of a 
 `CeilingDrips`), and the `WaterDrip`s of skids, slides and corridor shoots.
 
 Front end: the regions, arena and Remix menus, input settings, credits, backups,
-sleep and death
-screens, the outro and DLC slideshows, the slugcat select menu's continue pages,
+the dream screens, the sleep and death screens' end-game meters, tokens, PASSAGE and
+kills, the outro and DLC slideshows, the slugcat select menu's continue pages,
 colour and Jolly Co-op controls, depth scenes, menu objects those use (vertical and
 subtle sliders, check box groups, symbol buttons, scroll boxes, `UIelementWrapper`),
 Remix's options (FPS, VSync, quality, analogue sensitivity, backgrounds), and in-game

@@ -68,6 +68,17 @@ pub struct MapOwner {
     pub now_ticks: i64,
 }
 
+impl MapOwner {
+    /// `DateTime.Now.Ticks` (UTC): 100 ns since 0001-01-01.
+    #[must_use]
+    pub fn now_ticks() -> i64 {
+        let unix = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_nanos() / 100);
+        i64::try_from(unix).unwrap_or(0) + 621_355_968_000_000_000
+    }
+}
+
 /// `Map.SwarmCircle`: a blue ring that expands and fades over a hive.
 #[derive(Debug, Clone)]
 pub struct SwarmCircle {

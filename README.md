@@ -23,12 +23,13 @@ Working now:
 - **Saves:** the game's own save format, kept in the port's own directory; exiting from the
   pause menu saves as the game does.
 - **Shelters:** with enough food, staying still in a shelter closes its door and hibernates;
-  the cycle is saved and the next one starts there with food, karma and the region's
-  creatures carried over; a door closing on too little food saves the cycle as a death.
+  the cycle is saved, the sleep screen shows the karma ladder, food and map, and the next
+  cycle starts there with food, karma and the region's creatures carried over; a door
+  closing on too little food saves the cycle as a death and shows the starve screen.
   Saves from the real game can be imported (see below).
 - **Death:** dying shows the game-over prompt; Space then saves the death (karma lost, a
   karma flower's spot kept for reinforced karma and the Monk) and goes on to the death
-  screen, which is not ported yet.
+  screen, where the karma ladder drops a notch.
 - **Movement:** the slugcat's movement and physics, corridors and shortcuts, poles, water
   and swimming. The slugcat is drawn as the game draws it.
 - **Regions:** a whole region loads, and room-exit pipes take you between rooms, with the
@@ -46,7 +47,8 @@ Working now:
 Not yet ported:
 
 - the rain cycle's rain, flood and death;
-- the sleep, starve and death screens (a black stand-in follows hibernation);
+- dreams (a black stand-in follows hibernation when one is due) and the passage
+  meters on the sleep and death screens;
 - region gates;
 - creatures other than overseers and bat flies;
 - depth scenes.
