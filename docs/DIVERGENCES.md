@@ -61,8 +61,11 @@ it (D13). What still differs is only the seed and the call order:
 - **Overseers.** A realized overseer's update makes the game's draws in order
   (`Overseer.Update`, `OverseerAI` with its communication module and the guide's
   tutorial, then `OverseerGraphics.Update` while its room is viewed;
-  `rainworld-re/notes/overseer.md`); the guide's run in SU_C04 and its arrival in SU_A41
-  match an independent model draw for draw. Missing: the `NeuronSpark` a pair of linked
+  `rainworld-re/notes/overseer.md`), and so does each of its holograms' `Update` in its
+  own slot of the room's update list; the guide's run in SU_C04 and its arrival in
+  SU_A41, and a whole tutorial run from SU_C04 into the shelter SU_S01 (with and without
+  food, every guide and hologram call), match an independent model draw for draw.
+  Missing: the `NeuronSpark` a pair of linked
   mycelia makes (its constructor's draw is made; its `SS_Mycelia_Spark` sound on its
   first update is not), and `HologramMatrix.DrawSprites`'s per-frame draws (the lens's
   colour and line flicker), which the app takes from a cosmetic stream of its own: the
@@ -666,10 +669,27 @@ second part, else a single-room world for arena levels). The campaign descriptio
   module and the guide's `OverseerTutorialBehavior` (messages through the HUD's text
   prompt, `pauseRain`, `bringInRain`), its graphics module in a viewed room, and
   `ChangeRooms`'s `CreatureEnterFromAbstractRoom` with the lobby's teleportation
-  vessels and `TeleportingIntoRoom`. Still missing: holograms (projections, the lens
-  showing a picture, every `TryAddHologram` asks for none: overseer step 3), so a
-  communication-module concern only calls the guide over; `RegionGate` (no gate scene:
-  in Moon's gates the concern is `None`, as the game's is with a closed gate); and every
+  vessels and `TeleportingIntoRoom`, and its holograms (`TryAddHologram` with every
+  base-game hologram, `Projecting`, the tutorial's input instructions and pointers, the
+  communication module's pointers, images and anger). Holograms that cannot appear yet,
+  for want of what triggers them: the creature and food pointers (no dangerous creature
+  or food item is realized), the angry hologram (`angryWithPlayer` is never set: no
+  weapons), the gate scene (`RegionGate` is not ported: in Moon's gates the concern is
+  `None`, as the game's is with a closed gate), the placed scenes
+  (`ShowProjectedImageEvent` triggers are not ported, and an image's
+  `ProjectedImagePosition` placed object is not read), the forced direction
+  (`ReliableIggyDirection` is not ported; the port makes no pointer for it), the
+  in-world super jump, pick-up and scavenger-trade instructions (their placed triggers are
+  not ported), and the tutorial's Eat instruction (it needs edible objects in SU_A42 or
+  SU_A44). A door pointer without the tutorial would follow the player with a
+  `CreatureDoorDistanceTracker`, which needs the fly's exit-distance AI maps: it is made
+  but never updates, so the pointer keeps pointing. The bat pointer's `CycleStartUp` is
+  1 (the cycle's start-up ticks are not ported), and a new game has discovered no
+  shelters and visited no rooms. The controls picture is always the keyboard's (the
+  gamepad and Switch pictures are ported but no other control preset exists). A pointer
+  whose overseer has left the room goes on updating where the game's would throw (shelter
+  and direction pointers without `FORCEPOINT`): the port logs and stops there. Food can
+  only be set by a tool (`set_player`'s `food`): nothing is eaten. Missing as well: every
   creature but the player and overseers in what the AI looks at. Which camera's room
   counts as viewed when `AddObject` builds the graphics module is inferred from
   `RoomCamera` and `Room.AddObject`, not checked.
