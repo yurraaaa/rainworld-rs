@@ -2,8 +2,7 @@
 //! probably go to next, and abstracts rooms to stay within a performance budget.
 //!
 //! Base game (the More Slugcats overseer branch is not ported). The next-room guess
-//! reads the fly's baked exit distances in the game; here
-//! [`super::RealizedRoom::exit_distance`] stands in (docs/DIVERGENCES.md D14).
+//! reads the Fly's baked exit distances ([`super::RealizedRoom::exit_distance`]).
 
 use rw_random::UnityRandom;
 

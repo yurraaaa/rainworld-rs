@@ -21,7 +21,7 @@ use crate::FloatExt;
 
 pub use ai::{AbstractCreatureAi, AiKind, CarriedItem, ItemKind};
 pub use overseer::{OverseerAbstractAi, OverseerAi, OverseerBody, PlayerGuideState};
-pub use template::CreatureTemplate;
+pub use template::{CreatureTemplate, WaterRelationship};
 
 /// `EntityID`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -247,6 +247,14 @@ impl AbstractCreature {
             alive: true,
             health: 1.0,
         }
+    }
+
+    /// `Quantify`: a living quantified creature with stuck objects (the game's test reads
+    /// `stuckObjects.Count == 0` as false, so a free fly does not quantify; the port's
+    /// sticks are the carried items).
+    #[must_use]
+    pub fn quantify(&self) -> bool {
+        self.template.quantified && self.state.alive && !self.carried.is_empty()
     }
 
     /// `realizedCreature != null`.

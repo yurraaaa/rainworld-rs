@@ -8,8 +8,11 @@
 //! `rainworld-re/notes/world-loading.md`, `room-realizer.md`.
 
 mod ai_map;
+mod creature_ai_map;
 mod creatures;
+mod flies_world_ai;
 mod overseers_world_ai;
+mod quantified;
 mod rain_cycle;
 mod realized;
 mod realizer;
@@ -25,11 +28,14 @@ use rw_assets::{ActiveMods, AssetError, CreatureType, RoomAttraction, Timeline};
 use crate::Vec2;
 use crate::creature::{AbstractCreature, CreatureId, WorldCoordinate};
 
-pub use ai_map::AiMap;
 pub(crate) use ai_map::EIGHT_DIRECTIONS;
+pub use ai_map::{AiMap, MovementConnection, MovementType};
+pub use creature_ai_map::CreatureSpecificAiMap;
 pub(crate) use creatures::RoomLists;
 pub use creatures::{AbstractTick, QuantifiedCount, WorldProcesses};
+pub use flies_world_ai::{FliesTick, FliesWorldAi, SwarmBehavior};
 pub use overseers_world_ai::{DirectionFinder, OverseersWorldAi, ShelterFinder, StoryProgress};
+pub use quantified::PlacedQuantified;
 pub use rain_cycle::{CYCLE_TIME_MAX, CYCLE_TIME_MIN, RainCycle, WaterLevelCycle, WaterStage};
 pub use realized::RealizedRoom;
 pub use realizer::{FollowCreature, RoomRealizer};
@@ -49,7 +55,7 @@ pub struct World {
     timeline: Timeline,
     pub(crate) mods: ActiveMods,
     /// A story session (`game.IsStorySession`), for the room rules that ask.
-    story: bool,
+    pub(crate) story: bool,
     /// Per abstract room, whether it finished loading before (`!firstTimeRealized`).
     loaded_before: Vec<bool>,
     /// Every creature, the player's included (`AbstractCreature`s by `CreatureId`).
@@ -230,6 +236,7 @@ impl World {
         let Some(i) = self.local(index) else { return };
         if self.realized[i].is_some() {
             self.abstractize_creatures(index);
+            self.count_quantified_creatures(index);
         }
         if self.realized[i].take().is_some() {
             log::info!("abstracted room {}", self.data.rooms[i].name);

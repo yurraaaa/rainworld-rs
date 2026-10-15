@@ -1,7 +1,8 @@
 //! Room geometry files (`<room>.txt`): size, water, cameras and the tile grid.
 //!
-//! Format: `rainworld-re/notes/room-format.md`. Only lines 0, 1, 3 and 11 are read;
-//! the light angle, placed items, baked AI data and the `_settings.txt` file are skipped.
+//! Format: `rainworld-re/notes/room-format.md`. Lines 0, 1, 3, 9 (the node map), 10 (the
+//! baked AI data's visibility and creature int grids) and 11 are read; the light angle,
+//! placed items, the baked float grids and the `_settings.txt` file are skipped.
 //! The shortcut map ([`crate::ShortcutMap`]) is derived from the grid on parse.
 
 use std::error::Error;
@@ -14,6 +15,18 @@ use crate::{ConnMap, ShortcutMap};
 
 /// Side of a square tile in room pixels.
 pub const TILE_SIZE: f32 = 20.0;
+
+/// `Custom.eightDirections`.
+const EIGHT_DIRECTIONS: [(i32, i32); 8] = [
+    (-1, 0),
+    (-1, -1),
+    (0, -1),
+    (1, -1),
+    (1, 0),
+    (1, 1),
+    (0, 1),
+    (-1, 1),
+];
 
 /// Index of the tile-grid line in a geometry file.
 const GRID_LINE: usize = 11;
@@ -274,6 +287,11 @@ pub struct Room {
     /// The AI map's `visibility` of each non-Solid tile, x-major (line 10's first part,
     /// `SetVisibilityMapFromCompressedArray`); empty when the line is missing or bad.
     visibility: Vec<i32>,
+    /// Line 10's pre-baked creature layers: each `<<DIV - A>>` part's int grid (before its
+    /// `<<DIV - B>>`), in `preBakedPathingCreatures` order.
+    baked_layers: Vec<Vec<i32>>,
+    /// `Room.hives`: the hive tiles grouped as `AddHiveTile` groups them.
+    hives: Vec<Vec<(i32, i32)>>,
 }
 
 impl Room {
@@ -343,13 +361,15 @@ impl Room {
             .collect::<Result<Box<[Tile]>, RoomError>>()?;
 
         let conn_map = ConnMap::parse(lines.line(9)?);
-        let visibility = lines
-            .line(10)
-            .map(Self::parse_visibility)
-            .unwrap_or_default();
+        let ai_line = lines.line(10).unwrap_or_default();
+        let visibility = Self::parse_visibility(ai_line);
+        let baked_layers = Self::parse_baked_layers(ai_line);
+        let hives = Self::group_hives(width, height, &tiles);
         let mut room = Self {
             conn_map,
             visibility,
+            baked_layers,
+            hives,
             name,
             width,
             height,
@@ -393,12 +413,24 @@ impl Room {
         self.conn_map.as_ref().map_err(Clone::clone)
     }
 
-    /// `RoomPreprocessor.StringToIntArray` of line 10 up to the first `<<DIV - A>>`:
-    /// base64 of little-endian `int32`s.
+    /// `RoomPreprocessor.StringToIntArray` of line 10 up to the first `<<DIV - A>>`.
     fn parse_visibility(line: &str) -> Vec<i32> {
+        Self::string_to_int_array(line.split("<<DIV - A>>").next().unwrap_or_default())
+    }
+
+    /// `DecompressStringToAImaps`' int grids: each part after a `<<DIV - A>>`, up to its
+    /// `<<DIV - B>>`.
+    fn parse_baked_layers(line: &str) -> Vec<Vec<i32>> {
+        line.split("<<DIV - A>>")
+            .skip(1)
+            .map(|part| Self::string_to_int_array(part.split("<<DIV - B>>").next().unwrap_or("")))
+            .collect()
+    }
+
+    /// `StringToIntArray`: base64 of little-endian `int32`s; empty when it does not decode.
+    fn string_to_int_array(text: &str) -> Vec<i32> {
         use base64::Engine;
-        let first = line.split("<<DIV - A>>").next().unwrap_or_default();
-        let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(first.trim()) else {
+        let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(text.trim()) else {
             return Vec::new();
         };
         bytes
@@ -407,6 +439,84 @@ impl Room {
             .iter()
             .map(|&b| i32::from_le_bytes(b))
             .collect()
+    }
+
+    /// `LoadFromDataString`'s hive grouping in file order (x outer, top row first): a hive
+    /// tile joins the group of the first earlier hive tile among its eight neighbours,
+    /// else starts a new group. Groups never merge.
+    fn group_hives(width: i32, height: i32, tiles: &[Tile]) -> Vec<Vec<(i32, i32)>> {
+        let mut seen: Vec<((i32, i32), usize)> = Vec::new();
+        let mut groups: Vec<Vec<(i32, i32)>> = Vec::new();
+        for (i, tile) in tiles.iter().enumerate() {
+            if !tile.flags.contains(TileFlags::HIVE) {
+                continue;
+            }
+            let i = i32::try_from(i).unwrap_or(0);
+            let at = (i / height, height - 1 - i % height);
+            debug_assert!(at.0 < width);
+            let group = seen
+                .iter()
+                .find(|&&(t, _)| {
+                    EIGHT_DIRECTIONS
+                        .iter()
+                        .any(|&(dx, dy)| (at.0 + dx, at.1 + dy) == t)
+                })
+                .map(|&(_, g)| g);
+            let group = group.unwrap_or_else(|| {
+                groups.push(Vec::new());
+                groups.len() - 1
+            });
+            groups[group].push(at);
+            seen.push((at, group));
+        }
+        groups
+    }
+
+    /// The int grid of pre-baked creature layer `index` (`PreBakedPathingIndex`), as
+    /// stored: one value per accessible tile and node.
+    #[must_use]
+    pub fn baked_layer(&self, index: usize) -> Option<&[i32]> {
+        self.baked_layers.get(index).map(Vec::as_slice)
+    }
+
+    /// How many pre-baked creature layers line 10 holds.
+    #[must_use]
+    pub fn baked_layer_count(&self) -> usize {
+        self.baked_layers.len()
+    }
+
+    /// `Room.hives`.
+    #[must_use]
+    pub fn hives(&self) -> &[Vec<(i32, i32)>] {
+        &self.hives
+    }
+
+    /// `Room.garbageHoles`: the garbage hole tiles in file order.
+    #[must_use]
+    pub fn garbage_holes(&self) -> Vec<(i32, i32)> {
+        let h = self.height;
+        self.tiles
+            .iter()
+            .zip(0..)
+            .filter(|(t, _)| t.flags.contains(TileFlags::GARBAGE_HOLE))
+            .map(|(_, i): (&Tile, i32)| (i / h, h - 1 - i % h))
+            .collect()
+    }
+
+    /// `Tile.waterInt` as `LoadFromDataString` sets it: 1 below the water level (deep
+    /// water), 2 on it (the surface), else 0. `ModifyTileWaterLevels` (the WaterCutoff
+    /// and AirPocket objects, which no vanilla region room places) is not applied. 0
+    /// outside the room.
+    #[must_use]
+    pub fn water_int(&self, x: i32, y: i32) -> u8 {
+        if !self.contains(x, y) {
+            return 0;
+        }
+        match self.water_level {
+            Some(level) if y < level => 1,
+            Some(level) if y == level => 2,
+            _ => 0,
+        }
     }
 
     /// The baked `AItile.visibility` of each non-Solid tile in x-major order (x outer, y

@@ -54,10 +54,15 @@ it (D13). What still differs is only the seed and the call order:
   spawn condition, the region overseers) and `FliesWorldAI`'s constructor, then the
   start room's overseers realized (`PlaceInRealizedRoom`, `Overseer`, `PlaceInRoom`,
   the graphics module's mycelia in the viewed room) before the player
-  (`rainworld-re/notes/creature-model.md`). Per tick it parts from the game's again:
-  `FliesWorldAI.Update`, the abstract AI of every creature but overseers (D14), and
-  `LocalCoordinateOfNode`'s draws for border exits, bat hives and garbage holes when an
-  overseer is realized there are not made.
+  (`rainworld-re/notes/creature-model.md`). Every tick `FliesWorldAI.Update` makes its
+  draws among the world processes, and a room that finishes loading with quantified
+  flies places them with `PlaceQuantifiedCreaturesInRoom`'s draws; the bat flies' draws
+  match an independent model over the whole tutorial route. Per tick it parts from the
+  game's again: the abstract AI of every creature but overseers (D14), and everything a
+  realized fly would draw (the `Fly` and `FlyAI` constructors, `PlaceInRoom`, their
+  updates, `FliesRoomAI` and `MoveFly`'s pick of a fly to send out of a realized room).
+  `LocalCoordinateOfNode` draws for bat hives, garbage holes and border exits; a border
+  exit's tile is not known (its border tiles are not mapped), only its draw is made.
 - **Overseers.** A realized overseer's update makes the game's draws in order
   (`Overseer.Update`, `OverseerAI` with its communication module and the guide's
   tutorial, then `OverseerGraphics.Update` while its room is viewed;
@@ -696,7 +701,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   counts; `rw_assets::creatures`), and a new game's `GeneratePopulation` builds every
   `AbstractCreature` with all of its constructor draws (D1): the creatures go into
   their dens and stay there (`InDenUpdate` lets only overseers out), quantified
-  creatures (flies, the swarm rooms' bat flies) are only counted per node, and items
+  creatures are counted per node (the bat flies move and are placed, below), and items
   (scavenger gear, drop bugs' items) are kept as IDs and kinds on their carrier. The
   overseers' abstract AI is ported (`OverseerAbstractAI.AbstractBehavior`, `Roam`,
   `PlayerGuideUpdate`, `RoomAllowed`, `HowInterestingIsCreature`), run by
@@ -720,8 +725,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
   in-world super jump, pick-up and scavenger-trade instructions (their placed triggers are
   not ported), and the tutorial's Eat instruction (it needs edible objects in SU_A42 or
   SU_A44). A door pointer without the tutorial would follow the player with a
-  `CreatureDoorDistanceTracker`, which needs the fly's exit-distance AI maps: it is made
-  but never updates, so the pointer keeps pointing. The bat pointer's `CycleStartUp` is
+  `CreatureDoorDistanceTracker` (on the Fly's exit distances, which now exist): it is
+  made but its update is not ported, so the pointer keeps pointing. The bat pointer's `CycleStartUp` is
   1 (the cycle's start-up ticks are not ported), and a new game has discovered no
   shelters and visited no rooms. The controls picture is always the keyboard's (the
   gamepad and Switch pictures are ported but no other control preset exists). A pointer
@@ -734,11 +739,40 @@ second part, else a single-room world for arena levels). The campaign descriptio
   `OverseersWorldAI` is ported (its shelter finder and the guide's direction finder,
   on the room files' baked node connectivity), as are the flies' swarm room map (with
   the world file's bat migration blockages), `GetSwarmRoomDistance`, `ActiveSwarmRoom`
-  and a new game's `RegionState` swarm counters. Nothing records `roomsVisited` (the
+  and a new game's `RegionState` swarm counters.
+- **Bat flies (step 1 of 4).** `FliesWorldAI` is ported whole (the constructor, `Update`
+  with the migration, start-up and respawn, the behaviour re-roll, `MigrationDirection`,
+  `ClosestSwarmRoom`), with `World.MoveQuantifiedCreatureFromAbstractRoom` and the
+  quantified counts (`NumberOfQuantifiedCreatureInRoom/InNode`, `Quantify`,
+  `CountQuantifiedCreatures` when a room is abstracted). A room ready for AI places its
+  flies (`PlaceQuantifiedCreaturesInRoom` and `PlaceQCScore` on the Fly's baked map)
+  as `AbstractCreature`s with their node drawn by `RealizeInRoom`; they stay abstract:
+  the `Fly` body, `FlyAI`, `FliesRoomAI` and `FlyGraphics` are not ported (steps 2 to 4),
+  so nothing is eaten and the flies never move inside a room or leave it. Stand-ins
+  until then: `MoveFly` from a realized room sends no fly out (the game picks a realized
+  fly and makes it leave); a fly moved into a realized room
+  (`MoveQuantifiedCreatureFromAbstractRoom`) and one made in a realized swarm room's hive
+  (`CreateFlyInHive`, reached only by the start-up and respawn, which a new game does not
+  use) stay abstract in its creature list instead of entering through a shortcut or
+  emerging from the hive. A held fly (the only kind that quantifies, as the game's
+  `Quantify` reads) cannot exist yet. The other quantified types (leeches, sea leeches,
+  spiders) are counted but not placed; no vanilla SU spawner has them. The `FlyLure`
+  and `Lure` placed objects are not read (none in the tutorial rooms; SU_A17 and SU_B08
+  place one).
+- **The Fly's AI map.** The AI map has the parts the Fly reads (`floorAltitude`, the
+  tiles' water, the Fly's accessibility, its Standard, ShortCut and NPCTransportation
+  outgoing paths, and its `CreatureSpecificAImap` from the room file's layer 6); the
+  other accessibility classes, passages, fall risk and creature maps wait for the first
+  ground creature (`ai-map.md`). Not ported: the worm grass access modifier (the game
+  makes worm grass tiles inaccessible when it builds the map, after baking, so in the 28
+  vanilla rooms with worm grass, SU_A32 and SU_B05 among them, its decoded distances
+  shift; the port decodes them as baked) and `ModifyTileWaterLevels` (WaterCutoff and
+  AirPocket objects, which no vanilla region room places). `smoothedFloorAltitude` is
+  not ported yet. Nothing records `roomsVisited` (the
   caller fills the region state's set; a new game's is empty), and only a new game's
   region state exists. Remix's `BringToRoomAndGuidePlayer` branch of the world
   process's update and More Slugcats' goal rooms and guide symbols are left out.
-  Not ported: `FliesWorldAI.Update`, scavenger and vulture world AI,
+  Not ported: scavenger and vulture world AI,
   `CreatureCommunities`, `AbstractCreature.Update` for other types, and
   `GeneratePopulation`'s non-fresh branch (saved populations).
 - **Hologram graphics.** A hologram's colour base (`Color.Lerp(MainColor,
@@ -763,12 +797,6 @@ second part, else a single-room world for arena levels). The campaign descriptio
   vessel reaches the exit node, so the lobby only waits out the room's entry delay
   (`waitToEnterAfterFullyLoaded`, counting from the tick it loaded), and the
   realizer's "currently loading" pause never spans ticks.
-- **Next-room prediction.** The realizer's guess (`RoomRealizer` with the followed
-  creature's AI map, `ExitDistanceForCreatureAndCheckNeighbours`) needs the baked AI
-  maps of the room files, not loaded. The port measures the distance to each exit by a
-  breadth-first search through non-solid tiles, plus the straight-line term the game
-  adds; the rest of the realizer (budget 1500, estimates, neighbours, distant deletion,
-  recently-abstracted list) is the game's.
 - **Re-preprocessing old room files.** The game re-preprocesses room files baked before
   generation 20 (and writes them back). Every room the vanilla worlds list is generation
   20 or later; for older files the port derives only the shortcut nodes (exits, dens,
@@ -800,9 +828,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
 **Why.** Other creatures' AI, AI maps and the rain are later milestones; loading at once
 is simpler and loses nothing gameplay-visible beyond the shorter waits.
 
-**Affects.** How long a vessel waits to enter a room, which neighbour rooms are
-realized ahead (and so the random draws the realizer makes), and anything creatures
-would do.
+**Affects.** How long a vessel waits to enter a room, and anything creatures would do
+(realized flies included).
 
 ## D15: The in-game HUD
 

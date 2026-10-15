@@ -10,7 +10,7 @@ use rw_random::UnityRandom;
 use super::{CreatureTemplate, EntityId, IdIssuer, PlayerGuideState, WorldCoordinate};
 use crate::FloatExt;
 use crate::room_script::StorySession;
-use crate::world::World;
+use crate::world::{FliesTick, FliesWorldAi, SwarmBehavior, World};
 
 /// What population generation reads of the session.
 pub(crate) struct PopulationContext<'a> {
@@ -215,50 +215,70 @@ impl World {
         }
     }
 
-    /// `new FliesWorldAI(world)`: a migration target per swarm room, then (a story game,
-    /// not a single-room world, a new game's first cycle) the swarm rooms' bat flies,
-    /// each on a random fly-relevant node of its unrealized room.
+    /// `new FliesWorldAI(world)`: a migration target per swarm room, every behaviour
+    /// Spread; then (creatures spawning, not a single-room world) the bats to spawn per
+    /// active swarm room (inactive ones go to the respawn count), SU's third swarm room
+    /// `foodToHibernate + 1` in a story, and in a new game's first cycle every one added at
+    /// once (`AddFlyToSwarmRoom`).
     pub(crate) fn create_flies_world_ai(&mut self, cx: &mut PopulationContext<'_>) {
         let swarm_rooms = self.data.swarm_rooms.clone();
         let n = i32::try_from(swarm_rooms.len()).unwrap_or(i32::MAX);
         let targets: Vec<i32> = swarm_rooms.iter().map(|_| cx.rng.range_i32(0, n)).collect();
-        self.processes.flies_migration_targets = Some(targets);
+        self.processes.flies = Some(FliesWorldAi {
+            migration_targets: targets,
+            swarm_room_behaviors: vec![SwarmBehavior::Spread; swarm_rooms.len()],
+            flies_to_spawn: vec![0; swarm_rooms.len()],
+            flies_to_respawn: 0,
+            all_initial_flies_spawned: false,
+        });
         // The loader's swarm map comes with the process; it draws nothing.
         self.map_swarm_rooms();
-        if self.single_room() || cx.session.cycle_number > 0 {
+        if self.single_room() {
             return;
         }
-        let bats = self.data.properties.params.bats_per_active_swarm_room;
-        let mut to_spawn = vec![bats; swarm_rooms.len()];
+        let params = &self.data.properties.params;
+        let (active_bats, inactive_bats) = (
+            params.bats_per_active_swarm_room,
+            params.bats_per_inactive_swarm_room,
+        );
+        let mut to_spawn = vec![0; swarm_rooms.len()];
+        let mut to_respawn = 0;
+        for (k, spawn) in to_spawn.iter_mut().enumerate() {
+            if self
+                .region_state
+                .as_ref()
+                .is_none_or(|s| s.swarm_room_active(&self.data, k))
+            {
+                *spawn = active_bats;
+            } else {
+                to_respawn += inactive_bats;
+            }
+        }
         if self.region_name() == Some("SU")
+            && self.story
             && let Some(third) = to_spawn.get_mut(2)
         {
             *third = cx.food_to_hibernate + 1;
         }
-        let fly = CreatureTemplate::of(CreatureType::Fly, self.mods);
-        for (k, &room) in swarm_rooms.iter().enumerate() {
-            for _ in 0..to_spawn[k] {
-                let Some(data) = self.abstract_room(room) else {
-                    continue;
-                };
-                if self.realized(room).is_some() {
-                    log::warn!("bat fly for a realized swarm room is not ported");
-                    continue;
+        if let Some(f) = &mut self.processes.flies {
+            f.flies_to_spawn.clone_from(&to_spawn);
+            f.flies_to_respawn = to_respawn;
+        }
+        // `cycleStartUp` is on: only a story's first cycle spawns them all now.
+        if cx.session.cycle_number > 0 {
+            return;
+        }
+        let mut tick = FliesTick {
+            rng: &mut *cx.rng,
+            ids: &mut *cx.ids,
+            session: cx.session,
+        };
+        for (k, &count) in to_spawn.iter().enumerate() {
+            for _ in 0..count {
+                self.add_fly_to_swarm_room(k, &mut tick);
+                if let Some(f) = &mut self.processes.flies {
+                    f.flies_to_spawn[k] -= 1;
                 }
-                let relevant: Vec<usize> = data
-                    .nodes
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, n)| fly.maps_node(n.kind))
-                    .map(|(i, _)| i)
-                    .collect();
-                let count = i32::try_from(relevant.len()).unwrap_or(i32::MAX);
-                let specific = cx.rng.range_i32(0, count);
-                let node = usize::try_from(specific)
-                    .ok()
-                    .and_then(|s| relevant.get(s))
-                    .map_or(-1, |&i| i32::try_from(i).unwrap_or(-1));
-                self.add_quantified(room, node, CreatureType::Fly, 1, cx.rng);
             }
         }
     }

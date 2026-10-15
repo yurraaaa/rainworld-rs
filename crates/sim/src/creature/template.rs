@@ -2,7 +2,9 @@
 //! abstract world reads. A template inherits its ancestor's fields, then sets its own.
 //!
 //! Not ported: tile and connection resistances beyond the node types they map, the
-//! relationships, lizard breed parameters and the cosmetic fields.
+//! relationships, lizard breed parameters and the cosmetic fields. `waterRelationship`
+//! is set for the Fly only; the others keep the constructor's Amphibious until their
+//! creature is ported.
 
 use rw_assets::{ActiveMods, CreatureType, NodeType};
 
@@ -32,6 +34,52 @@ pub struct CreatureTemplate {
     pub sky_highway: bool,
     pub sea_highway: bool,
     pub side_highway: bool,
+    pub water_relationship: WaterRelationship,
+}
+
+/// `CreatureTemplate.WaterRelationship`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WaterRelationship {
+    AirOnly,
+    AirAndSurface,
+    Amphibious,
+    WaterOnly,
+}
+
+impl WaterRelationship {
+    /// The game's spelling.
+    #[must_use]
+    pub fn value(self) -> &'static str {
+        match self {
+            Self::AirOnly => "AirOnly",
+            Self::AirAndSurface => "AirAndSurface",
+            Self::Amphibious => "Amphibious",
+            Self::WaterOnly => "WaterOnly",
+        }
+    }
+
+    #[must_use]
+    pub fn from_value(value: &str) -> Option<Self> {
+        [
+            Self::AirOnly,
+            Self::AirAndSurface,
+            Self::Amphibious,
+            Self::WaterOnly,
+        ]
+        .into_iter()
+        .find(|w| w.value() == value)
+    }
+
+    /// `MovementLegalInRelationToWater`.
+    #[must_use]
+    pub fn movement_legal(self, deep_water: bool, water_surface: bool) -> bool {
+        match self {
+            Self::AirAndSurface => !deep_water,
+            Self::AirOnly => !deep_water && !water_surface,
+            Self::Amphibious => true,
+            Self::WaterOnly => deep_water,
+        }
+    }
 }
 
 impl CreatureTemplate {
@@ -57,6 +105,7 @@ impl CreatureTemplate {
             sky_highway: false,
             sea_highway: false,
             side_highway: false,
+            water_relationship: WaterRelationship::Amphibious,
         }
     }
 
@@ -206,6 +255,7 @@ impl CreatureTemplate {
         quantified: true,
         grasps: 1,
         small_creature: true,
+        water_relationship: WaterRelationship::AirOnly,
         ..Self::base(CreatureType::Fly)
     };
     const LEECH: Self = Self {

@@ -8,6 +8,10 @@
 
 use std::collections::HashMap;
 
+#[path = "game_flies.rs"]
+mod flies;
+pub use flies::{FliesCall, FliesCallRecord};
+
 use rw_assets::{CreatureType, NodeType, Room, Shortcut, ShortcutType};
 use rw_random::UnityRandom;
 
@@ -127,6 +131,8 @@ pub struct Start {
 pub struct NewGameWorld {
     pub ids: IdIssuer,
     pub save_state_seed: i32,
+    /// The random state right before and after `FliesWorldAI`'s constructor.
+    pub flies_rng: [[u32; 4]; 2],
 }
 
 /// A running game.
@@ -178,6 +184,9 @@ pub struct RainWorldGame {
     last_coords: HashMap<CreatureId, WorldCoordinate>,
     /// `ColorEntrance` calls on camera 0 since the last `take_entrance_colors`.
     entrance_colors: Vec<EntranceColor>,
+    /// The flies' calls recorded since `record_flies_calls(true)`.
+    flies_calls: Option<Vec<FliesCallRecord>>,
+    flies_ctor_rng: [[u32; 4]; 2],
 }
 
 /// One realized overseer call with what it read and the random stream around it (for
@@ -236,6 +245,7 @@ impl RainWorldGame {
         let NewGameWorld {
             mut ids,
             save_state_seed,
+            flies_rng,
         } = Self::new_game_world(&mut world, campaign, &mut rng);
         let session = StorySession {
             character: campaign.name,
@@ -292,6 +302,8 @@ impl RainWorldGame {
             food_in_stomach: 0,
             last_coords: HashMap::new(),
             entrance_colors: Vec::new(),
+            flies_calls: None,
+            flies_ctor_rng: flies_rng,
         };
         if let Err(e) = game.world.activate_room(start.room) {
             log::error!("cannot realize the first room: {e}");
@@ -331,10 +343,13 @@ impl RainWorldGame {
         if !world.single_room() {
             world.generate_population(&mut population);
         }
+        let flies_rng_before = population.rng.state();
         world.create_flies_world_ai(&mut population);
+        let flies_rng = [flies_rng_before, rng.state()];
         NewGameWorld {
             ids,
             save_state_seed,
+            flies_rng,
         }
     }
 
@@ -430,9 +445,11 @@ impl RainWorldGame {
     /// step. A dead player is frozen (docs/DIVERGENCES.md D4).
     pub fn tick(&mut self, input: Input, observer: &mut dyn PlayerObserver) {
         let follow = self.follow_creature();
+        let active_before = self.world.active_rooms();
         if let (Some(realizer), Some(follow)) = (&mut self.realizer, follow) {
             realizer.update(&mut self.world, follow, self.camera_room, &mut self.rng);
         }
+        self.record_abstractized(&active_before);
         self.update_abstract_room();
         self.update_world_processes();
         self.enter_from_abstract_rooms();
@@ -448,21 +465,8 @@ impl RainWorldGame {
         self.tick += 1;
     }
 
-    /// The world processes' updates (`OverseersWorldAI`'s finders), with what they read
-    /// of the story session: the player woke up in this region, a new game.
-    fn update_world_processes(&mut self) {
-        let region = self.world.region_name().unwrap_or_default().to_owned();
-        let story = crate::world::StoryProgress {
-            woke_up_in_region: &region,
-            ever_met_moon: false,
-            karma: self.campaign.start_karma,
-        };
-        self.world.update_world_processes(Some(story));
-    }
-
     /// The story branch of `RainWorldGame.Update`: `updateAbstractRoom` steps to the next
-    /// room, which updates with `NumberOfRooms` ticks. (`FliesWorldAI.Update`, which
-    /// follows, is not ported: docs/DIVERGENCES.md D1.)
+    /// room, which updates with `NumberOfRooms` ticks.
     fn update_abstract_room(&mut self) {
         let count = self.world.number_of_rooms();
         self.update_abstract_room += 1;
@@ -523,6 +527,7 @@ impl RainWorldGame {
                     }
                 }
             }
+            self.place_quantified(index);
             let name = self
                 .world
                 .abstract_room(index)
