@@ -2,7 +2,7 @@
 
 use rw_sim::{FloatExt, Vec2};
 
-use super::object::{ButtonVariant, Kind, ObjectId};
+use super::object::{ButtonVariant, Kind, ObjectId, SimpleKind};
 use super::{Menu, MenuCx, MenuScreen};
 use crate::sound::MenuSoundId;
 
@@ -10,6 +10,7 @@ use crate::sound::MenuSoundId;
 enum Click {
     Signal(String),
     CheckBox,
+    SelectOne(String, i32),
 }
 
 impl Menu {
@@ -25,7 +26,10 @@ impl Menu {
         self.last_mouse_pos = self.mouse_pos;
         self.mouse_pos = Vec2::from(cx.shared.input.mouse.pos);
         self.last_input = self.input;
-        self.input = cx.shared.input.take_tick_input();
+        self.input = match self.given_input.take() {
+            Some(input) => input,
+            None => cx.shared.input.take_tick_input(),
+        };
         self.last_info_label_fade = self.info_label_fade;
         if self.selected.is_some() {
             self.info_label_fade = 1.0;
@@ -58,6 +62,10 @@ impl Menu {
         if let Some(selected) = self.selected {
             let page = self.pages[self.current_page];
             if self.page_data(page).last_selected != Some(selected) || self.info_label_dirty {
+                let text = screen.info_text(self, cx);
+                if let Some(node) = self.info_label {
+                    self.stage.label_mut(node).set_text(&text);
+                }
                 self.info_label_dirty = false;
                 self.info_label_sin = 0.0;
             }
@@ -247,6 +255,9 @@ impl Menu {
         let Some(selected) = self.selected else {
             return self.page_data(page).last_selected;
         };
+        if direction[0] != 0 && self.slider(selected).is_some() {
+            return None;
+        }
         let links = self.objects[selected.0].next_selectable;
         let [dx, dy] = direction;
         if dx < 0 && links[0].is_some() {
@@ -321,6 +332,7 @@ impl Menu {
                 !b.behav.greyed_out && selectable
             }
             Kind::HoldButton(h) => !h.behav.greyed_out && !h.has_signalled,
+            Kind::Slider(s) => !s.behav.greyed_out,
             _ => false,
         }
     }
@@ -333,7 +345,7 @@ impl Menu {
                 ButtonVariant::CheckBox { selectable, .. } => selectable,
                 _ => true,
             },
-            Kind::HoldButton(_) => true,
+            Kind::HoldButton(_) | Kind::Slider(_) => true,
             _ => false,
         }
     }
@@ -344,8 +356,16 @@ impl Menu {
         let o = &self.objects[id.0];
         let p = self.screen_pos(id);
         let m = self.mouse_pos;
-        match o.kind {
+        match &o.kind {
             Kind::HoldButton(_) => (p - m).length() < o.rad,
+            Kind::Slider(s) => {
+                if s.mouse_dragged {
+                    return false;
+                }
+                let r = self.screen_pos(s.rounded_rect);
+                let size = self.objects[s.rounded_rect.0].size;
+                m.x > r.x && m.y > r.y && m.x < r.x + size.x && m.y < r.y + size.y
+            }
             _ => m.x > p.x && m.y > p.y && m.x < p.x + o.size.x && m.y < p.y + o.size.y,
         }
     }
@@ -442,6 +462,7 @@ impl Menu {
             Kind::Page(_) => screen.page_update(self, id, cx),
             Kind::Button(_) => self.update_button(id, screen, cx),
             Kind::HoldButton(_) => self.update_hold_button(id, screen, cx),
+            Kind::Slider(_) => self.update_slider(id, screen, cx),
             Kind::MouseCursor(_) => self.update_cursor(id, screen, cx),
             Kind::RainEffect(_) => {
                 let random = &mut cx.shared.random;
@@ -459,7 +480,7 @@ impl Menu {
         let page = self.page_of(id);
         let on_page = self.page_data(page).index == self.current_page;
         let show = screen.shows_cursor()
-            && cx.shared.full_screen
+            && cx.shared.options.full_screen()
             && !self.frozen
             && cx.shared.mouse_mode
             && on_page;
@@ -491,7 +512,8 @@ impl Menu {
 
     /// `ButtonBehavior.Update`; returns what to do if it clicked.
     fn update_behavior(&mut self, id: ObjectId, cx: &mut MenuCx<'_>) -> Option<()> {
-        let selected = self.is_selected(id);
+        // `Slider.Selected` is false while it is dragged.
+        let selected = self.is_selected(id) && !self.slider(id).is_some_and(|s| s.mouse_dragged);
         let (press, hold, mouse_mode) = (self.press_button, self.hold_button, cx.shared.mouse_mode);
         let toggled = self.objects[id.0].toggled;
         let b = self.behavior_mut(id)?;
@@ -561,14 +583,30 @@ impl Menu {
 
     fn clicked(&mut self, id: ObjectId, screen: &mut dyn MenuScreen, cx: &mut MenuCx<'_>) {
         let click = match &self.objects[id.0].kind {
-            Kind::Button(b) => match b.variant {
+            Kind::Button(b) => match &b.variant {
                 ButtonVariant::CheckBox { .. } => Click::CheckBox,
+                ButtonVariant::Simple {
+                    sub: SimpleKind::CustomMessage(message),
+                    ..
+                } => Click::Signal(message.clone()),
+                ButtonVariant::Simple {
+                    sub: SimpleKind::SelectOne { index, .. },
+                    ..
+                } => Click::SelectOne(b.signal_text.clone(), *index),
                 _ => Click::Signal(b.signal_text.clone()),
             },
             _ => return,
         };
         match click {
             Click::Signal(text) => screen.signal(self, cx, id, &text),
+            Click::SelectOne(series, index) => {
+                cx.play_sound(if screen.selected_of_series(cx, &series) == index {
+                    MenuSoundId::AlreadySelectedMultipleChoiceClicked
+                } else {
+                    MenuSoundId::StandardButtonPressed
+                });
+                screen.set_selected_of_series(self, cx, &series, index);
+            }
             Click::CheckBox => {
                 if self.behavior(id).is_some_and(|b| b.greyed_out) {
                     return;
@@ -618,6 +656,7 @@ impl Menu {
                     Vec2::new(10.0, 6.0) * bump * not_clicked,
                 );
                 self.set_rect_add_size(select_rect, Vec2::new(2.0, -2.0) * bump * not_clicked);
+                self.update_select_one(id, screen, cx);
             }
             ButtonVariant::BigArrow {
                 rounded_rect,
@@ -648,6 +687,160 @@ impl Menu {
                 }
                 self.set_rect(rounded_rect, fill, Vec2::new(4.0, 4.0) * bump * not_clicked);
             }
+        }
+    }
+
+    /// `SelectOneButton.Update` after the simple button's.
+    fn update_select_one(&mut self, id: ObjectId, screen: &dyn MenuScreen, cx: &MenuCx<'_>) {
+        let Some(SimpleKind::SelectOne { index, .. }) = self.simple_kind(id).cloned() else {
+            return;
+        };
+        let Some(b) = self.button(id) else { return };
+        let series = b.signal_text.clone();
+        let mine = screen.selected_of_series(cx, &series) == index;
+        let series_selected = self.selected.is_some_and(|s| {
+            matches!(self.simple_kind(s), Some(SimpleKind::SelectOne { .. }))
+                && self.button(s).is_some_and(|b| b.signal_text == series)
+        });
+        let selected = self.is_selected(id);
+        let Some(b) = self.button_mut(id) else { return };
+        if mine && series_selected {
+            b.behav.col = 1.0;
+        }
+        let behav = b.behav.clone();
+        let ButtonVariant::Simple {
+            sub:
+                SimpleKind::SelectOne {
+                    outer_rect,
+                    selected_col,
+                    last_selected_col,
+                    ..
+                },
+            ..
+        } = &mut b.variant
+        else {
+            return;
+        };
+        *last_selected_col = *selected_col;
+        let target = if mine || selected { 1.0 } else { 0.0 };
+        *selected_col = selected_col.lerp_and_tick(target, 0.06, 0.05);
+        let outer = *outer_rect;
+        let shown = if mine { 1.0 } else { 0.0 };
+        let not_clicked = if behav.clicked { 0.0 } else { 1.0 };
+        let add = Vec2::new(8.0, 8.0)
+            * (1.0 + 0.5 * (behav.extra_size_bump * std::f32::consts::PI).sin())
+            * shown
+            + Vec2::new(10.0, 6.0) * behav.size_bump * not_clicked;
+        self.set_rect_add_size(outer, add);
+    }
+
+    /// `Slider.Update` and `HorizontalSlider.Update`: the knob follows the dragging
+    /// mouse, or the held direction with the keyboard, and sits at the value.
+    fn update_slider(&mut self, id: ObjectId, screen: &mut dyn MenuScreen, cx: &mut MenuCx<'_>) {
+        self.behavior_tick(id, screen, cx);
+        let Some(s) = self.slider(id) else { return };
+        let (rounded, select, slider_id) = (s.rounded_rect, s.select_rect, s.id);
+        let (anchor, length) = (s.anchor_point.x, s.length);
+        let g = s.graphic_in_dragged_mode;
+        let b = &s.behav;
+        let bump = (b.size_bump + 0.5 * (b.extra_size_bump * std::f32::consts::PI).sin())
+            * if b.clicked { 0.0 } else { 1.0 };
+        let fill = 0.3_f32
+            .lerp(0.6, b.col)
+            .max(Self::inverse_lerp(0.0, 0.2, g));
+        let k = g.powf(0.4);
+        self.set_rect(
+            rounded,
+            fill,
+            Vec2::new(10.0, 6.0).lerp(Vec2::new(4.0, -6.0), k) * bump,
+        );
+        self.set_rect_add_size(
+            select,
+            Vec2::new(2.0, -2.0).lerp(Vec2::new(4.0, -6.0), k) * bump,
+        );
+        let owner_x = self.objects[id.0]
+            .owner
+            .filter(|o| self.objects[o.0].kind.positioned())
+            .map_or(0.0, |o| self.screen_pos(o).x);
+        let anchor_x = anchor + owner_x;
+        let selected = self.is_selected(id) && !self.slider(id).is_some_and(|s| s.mouse_dragged);
+        if cx.shared.mouse_mode {
+            self.drag_slider(id, screen, cx, selected, [owner_x, anchor_x, length]);
+        } else {
+            let input_x = self.input.x;
+            let mut moved = None;
+            if let Some(s) = self.slider_mut(id) {
+                s.mouse_dragged = false;
+                if selected && input_x != 0 {
+                    s.mov_speed = s.mov_speed.lerp_and_tick(1.0, 0.08, 0.0125);
+                    moved = Some(f32::from(input_x) * s.mov_speed * 0.02);
+                } else {
+                    s.mov_speed = s.mov_speed.lerp_and_tick(0.0, 0.11, 0.02);
+                }
+                s.graphic_in_dragged_mode = s.mov_speed;
+            }
+            if let Some(step) = moved {
+                let v = (screen.slider_value(cx, slider_id) + step).clamp(0.0, 1.0);
+                screen.set_slider_value(self, cx, id, v);
+            }
+        }
+        let mut knob = anchor_x + length * screen.slider_value(cx, slider_id);
+        if knob.fract() == 0.0 {
+            knob += 0.01;
+        }
+        self.objects[id.0].pos.x = knob - owner_x;
+    }
+
+    /// The mouse-mode part of `HorizontalSlider.Update`; `line` is the owner's screen
+    /// x, the line's start and its length.
+    fn drag_slider(
+        &mut self,
+        id: ObjectId,
+        screen: &mut dyn MenuScreen,
+        cx: &mut MenuCx<'_>,
+        selected: bool,
+        line: [f32; 3],
+    ) {
+        let [owner_x, anchor_x, length] = line;
+        let (mouse_down, last_mouse_down, mouse_x) =
+            (self.mouse_down, self.last_mouse_down, self.mouse_pos.x);
+        let pos_x = self.objects[id.0].pos.x;
+        let mut grab = false;
+        if let Some(s) = self.slider_mut(id) {
+            if !mouse_down {
+                s.mouse_dragged = false;
+            } else if !s.mouse_dragged && selected && !last_mouse_down {
+                s.mouse_dragged = true;
+                s.mouse_drag_offset = mouse_x - pos_x - owner_x;
+                grab = true;
+            }
+        }
+        if grab {
+            cx.play_sound(MenuSoundId::MouseGrabSlider);
+        }
+        if let Some(offset) = self
+            .slider(id)
+            .filter(|s| s.mouse_dragged)
+            .map(|s| s.mouse_drag_offset)
+        {
+            let v = Self::inverse_lerp(anchor_x, anchor_x + length, mouse_x - offset);
+            screen.set_slider_value(self, cx, id, v);
+        }
+        if let Some(s) = self.slider_mut(id) {
+            s.behav.size_bump = s.behav.size_bump.max(s.graphic_in_dragged_mode);
+            let to = if s.mouse_dragged { 1.0 } else { 0.0 };
+            s.graphic_in_dragged_mode =
+                s.graphic_in_dragged_mode.lerp_and_tick(to, 0.1, 1.0 / 30.0);
+        }
+    }
+
+    /// `Mathf.InverseLerp`.
+    #[must_use]
+    pub fn inverse_lerp(a: f32, b: f32, v: f32) -> f32 {
+        if a == b {
+            0.0
+        } else {
+            ((v - a) / (b - a)).clamp(0.0, 1.0)
         }
     }
 

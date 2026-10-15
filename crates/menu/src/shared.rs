@@ -7,7 +7,7 @@ use rw_assets::{SoundTable, StreamingAssets, UnityResources};
 use rw_audio::music::{MusicPlayer, MusicSettings, SourcePlayback, TrackId};
 use rw_random::UnityRandom;
 use rw_render::StageTextureId;
-use rw_save::PlayerProgression;
+use rw_save::{Options, PlayerProgression, SaveSlot};
 
 use crate::atlas::{AtlasLoadError, AtlasManager};
 use crate::input::UiInputState;
@@ -136,8 +136,10 @@ pub struct MenuShared {
     pub mic_attached: bool,
     /// `manager.menuesMouseMode`.
     pub mouse_mode: bool,
-    /// `options.fullScreen`: on by default, off in a `--windowed` window.
-    pub full_screen: bool,
+    /// `rainWorld.options`.
+    pub options: Options,
+    /// Unity's `Screen` and `Cursor` as the code sets them; the window follows.
+    pub screen: ScreenState,
     pub progression: Progression,
     /// `rainWorld.progression`: the save slot (in memory until [`Self::set_saves`]).
     pub saves: PlayerProgression,
@@ -206,7 +208,12 @@ impl MenuShared {
             mic: MenuMic::default(),
             mic_attached: false,
             mouse_mode: false,
-            full_screen: true,
+            options: Options::default(),
+            screen: ScreenState {
+                size: screen_size,
+                full_screen: true,
+                cursor_visible: false,
+            },
             progression: Progression::default(),
             saves: PlayerProgression::in_memory(None),
             dlcs,
@@ -225,10 +232,40 @@ impl MenuShared {
 
     /// Uses `saves` as the progression, as `LoadProgression` leaves it.
     pub fn set_saves(&mut self, saves: PlayerProgression) {
-        self.progression.selected_slugcat = saves.misc.current_slugcat;
-        self.progression.red_unlocked = saves.misc.red_unlocked();
-        self.progression.any_discovered_shelters = saves.misc.any_discovered_shelters();
         self.saves = saves;
+        self.refresh_progression();
+    }
+
+    /// The menus' view of the progression, after it changed.
+    pub fn refresh_progression(&mut self) {
+        let misc = &self.saves.misc;
+        self.progression.selected_slugcat = misc.current_slugcat;
+        self.progression.red_unlocked = misc.red_unlocked();
+        self.progression.any_discovered_shelters = misc.any_discovered_shelters();
+    }
+
+    /// `Options.OnLoadFinished`: the screen takes the options' size and mode, and the
+    /// system cursor shows only in a window (a release build).
+    pub fn apply_screen_options(&mut self) {
+        let size = self.options.screen_size();
+        let full = self.options.full_screen();
+        self.screen.size = if full && Options::is_steam_deck_resolution(size) {
+            [1280.0, 800.0]
+        } else {
+            size
+        };
+        self.screen.full_screen = full;
+        self.screen_size = size;
+        self.screen.cursor_visible = !full;
+    }
+
+    /// The options' music volume, for the music player and its settings.
+    pub fn apply_music_volume(&mut self) {
+        let volume = self.options.music_volume;
+        self.music_settings.music_volume = volume;
+        if let Some(music) = &mut self.music {
+            music.settings.music_volume = volume;
+        }
     }
 
     /// `currentlySelectedSinglePlayerSlugcat` set, in the menus' view and the save's.
@@ -313,6 +350,14 @@ impl MenuShared {
     }
 }
 
+/// Unity's `Screen.width`/`height`, `Screen.fullScreen` and `Cursor.visible`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ScreenState {
+    pub size: [f32; 2],
+    pub full_screen: bool,
+    pub cursor_visible: bool,
+}
+
 /// An app context the menu processes can run in.
 pub trait MenuContext {
     fn menu(&mut self) -> &mut MenuShared;
@@ -320,6 +365,20 @@ pub trait MenuContext {
     /// The music player's source of `track`, where the context's sources can be read.
     fn music_playback(&self, _track: TrackId) -> Option<SourcePlayback> {
         None
+    }
+
+    /// `new PlayerProgression(tryLoad: true)` for `options.saveSlot`.
+    fn load_save_slot(&mut self) {}
+
+    /// `options.Save()`.
+    fn save_options(&mut self) {}
+
+    /// Copies the game's save of `slot` over the port's (backing it up), then reads it.
+    ///
+    /// # Errors
+    /// What went wrong, for the menu to show.
+    fn import_save_slot(&mut self, _slot: SaveSlot) -> Result<(), String> {
+        Err("saves cannot be imported here".to_owned())
     }
 }
 

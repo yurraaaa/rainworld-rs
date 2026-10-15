@@ -289,6 +289,27 @@ impl MiscProgression {
         })
     }
 
+    /// `WipeAll`'s part with every DLC off: the discovered and conditional shelters,
+    /// the menu region, the Hunter's flower and the campaign timers go, and the base
+    /// `INTEGERS` it resets (the watched screens, tutorial counters, karma warning,
+    /// `redHasVisitedPebbles`, `redMeatEatTutorial`) are 0. The DLCs' integer lists are
+    /// kept as read.
+    pub fn wipe_all(&mut self) {
+        self.entries.retain(|e| {
+            !matches!(
+                Self::key(e),
+                "SHELTERLIST"
+                    | "MENUREGION"
+                    | "CONDITIONALSHELTERDATA"
+                    | "REDSFLOWER"
+                    | "CAMPAIGNTIME"
+            )
+        });
+        for i in [1, 2, 3, 4, 5, 6, 7, 10] {
+            self.integers[i] = 0;
+        }
+    }
+
     /// `WipeSaveState`'s part with every DLC off: `slugcat` leaves the conditional
     /// shelters (and empty ones go), and the Survivor's and Monk's tutorial counters
     /// reset.

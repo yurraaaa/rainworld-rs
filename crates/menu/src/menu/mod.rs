@@ -22,7 +22,7 @@ pub use build::FlatLayers;
 pub use object::{
     ButtonBehavior, ButtonData, ButtonVariant, CursorData, DarkGradientData, HoldButtonData,
     IllustrationData, Kind, LabelData, MenuObject, ObjectId, PageData, RoundedRectData, SceneData,
-    SceneId,
+    SceneId, SimpleKind, SliderData, SliderId,
 };
 pub use rain::{RainDrop, RainEffectData};
 
@@ -88,6 +88,41 @@ pub trait MenuScreen {
 
     /// `CheckBox.IOwnCheckBox.SetChecked`.
     fn set_checked(&mut self, _menu: &mut Menu, _check_box: ObjectId, _checked: bool) {}
+
+    /// `UpdateInfoText` for the selected object.
+    fn info_text(&self, _menu: &Menu, _cx: &MenuCx<'_>) -> String {
+        String::new()
+    }
+
+    /// `SelectOneButtonOwner.GetCurrentlySelectedOfSeries`.
+    fn selected_of_series(&self, _cx: &MenuCx<'_>, _series: &str) -> i32 {
+        -1
+    }
+
+    /// `SelectOneButtonOwner.SetCurrentlySelectedOfSeries`.
+    fn set_selected_of_series(
+        &mut self,
+        _menu: &mut Menu,
+        _cx: &mut MenuCx<'_>,
+        _series: &str,
+        _to: i32,
+    ) {
+    }
+
+    /// `ValueOfSlider`.
+    fn slider_value(&self, _cx: &MenuCx<'_>, _slider: SliderId) -> f32 {
+        0.0
+    }
+
+    /// `SliderSetValue`.
+    fn set_slider_value(
+        &mut self,
+        _menu: &mut Menu,
+        _cx: &mut MenuCx<'_>,
+        _slider: ObjectId,
+        _value: f32,
+    ) {
+    }
 }
 
 /// The base menu.
@@ -134,6 +169,9 @@ pub struct Menu {
     allow_select_move: bool,
     /// `FreezeMenuFunctions` as of this tick's start (`ShowCursor` reads it).
     frozen: bool,
+    /// This tick's input when another menu took it first (a dialog over a menu reads
+    /// the same `RWInput`).
+    pub given_input: Option<UiInput>,
     screen_size: [f32; 2],
 }
 
@@ -192,6 +230,7 @@ impl Menu {
             init: false,
             allow_select_move: true,
             frozen: false,
+            given_input: None,
             screen_size: shared.screen_size,
         }
     }
@@ -335,6 +374,7 @@ impl Menu {
         match &mut self.objects[id.0].kind {
             Kind::Button(b) => Some(&mut b.behav),
             Kind::HoldButton(h) => Some(&mut h.behav),
+            Kind::Slider(s) => Some(&mut s.behav),
             _ => None,
         }
     }
@@ -344,6 +384,7 @@ impl Menu {
         match &self.objects[id.0].kind {
             Kind::Button(b) => Some(&b.behav),
             Kind::HoldButton(h) => Some(&h.behav),
+            Kind::Slider(s) => Some(&s.behav),
             _ => None,
         }
     }
@@ -377,6 +418,55 @@ impl Menu {
             Kind::Button(b) => Some(b),
             _ => None,
         }
+    }
+
+    #[must_use]
+    pub fn slider(&self, id: ObjectId) -> Option<&SliderData> {
+        match &self.objects[id.0].kind {
+            Kind::Slider(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    pub fn slider_mut(&mut self, id: ObjectId) -> Option<&mut SliderData> {
+        match &mut self.objects[id.0].kind {
+            Kind::Slider(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    /// A `SimpleButton`'s subclass.
+    #[must_use]
+    pub fn simple_kind(&self, id: ObjectId) -> Option<&SimpleKind> {
+        match &self.button(id)?.variant {
+            ButtonVariant::Simple { sub, .. } => Some(sub),
+            _ => None,
+        }
+    }
+
+    /// The text of a label object.
+    #[must_use]
+    pub fn label_text(&self, label: ObjectId) -> Option<&str> {
+        match &self.objects[label.0].kind {
+            Kind::Label(l) => Some(self.stage.label(l.label).text()),
+            _ => None,
+        }
+    }
+
+    /// `infoLabel.text = text; infoLabelSin = 0; infoLabelFade = 1` (a slider moved).
+    pub fn flash_info_text(&mut self, text: &str) {
+        if let Some(node) = self.info_label {
+            self.stage.label_mut(node).set_text(text);
+        }
+        self.info_label_sin = 0.0;
+        self.info_label_fade = 1.0;
+    }
+
+    /// The info label's text.
+    #[must_use]
+    pub fn info_text(&self) -> &str {
+        self.info_label
+            .map_or("", |node| self.stage.label(node).text())
     }
 
     /// `CheckBox.selectable`.

@@ -49,6 +49,8 @@ pub struct Microphone {
     pub doppler_block: f32,
     /// Fades in from 0 when the microphone is made.
     in_world_volume: f32,
+    /// `options.soundEffectsVolume`.
+    pub sfx_volume: f32,
     /// `soundLoader.volumeExponent`.
     exponent: f32,
     /// What the pause menu scales every volume group but 1 by (`1 - blackFade / 2`).
@@ -62,7 +64,7 @@ impl Microphone {
     pub const LISTENER_RAD: f32 = 1000.0;
     /// The viewed screen's height in `DistanceFromViewedScreen`.
     pub const SCREEN_HEIGHT: f32 = 768.0;
-    /// `options.soundEffectsVolume` default.
+    /// `options.soundEffectsVolume`'s default.
     pub const SFX_VOLUME: f32 = 0.8;
     /// Volume groups `VirtualMicrophone.volumeGroups` has.
     pub const GROUPS: usize = 5;
@@ -77,6 +79,7 @@ impl Microphone {
             under_water: 0.0,
             doppler_block: 0.0,
             in_world_volume: 0.0,
+            sfx_volume: Self::SFX_VOLUME,
             exponent,
             pause_volume: 1.0,
             time_speed: 1.0,
@@ -170,7 +173,7 @@ impl Microphone {
     /// emitter volume), the sound's own volume and its volume group.
     #[must_use]
     pub fn source_volume(&self, value: f32, sound_volume: f32, group: f32) -> f32 {
-        (value * sound_volume * group * Self::SFX_VOLUME)
+        (value * sound_volume * group * self.sfx_volume)
             .powf(self.exponent)
             .clamp(0.0, 1.0)
     }

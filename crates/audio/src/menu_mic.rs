@@ -39,10 +39,10 @@ pub struct MenuPlayback {
 }
 
 impl MenuVoice {
-    fn mix(&self, exponent: f32) -> SourceMix {
+    fn mix(&self, exponent: f32, sfx_volume: f32) -> SourceMix {
         let s = &self.start;
         SourceMix {
-            volume: (s.volume * s.sound_volume * MenuPlayback::SOUND_EFFECTS_VOLUME)
+            volume: (s.volume * s.sound_volume * sfx_volume)
                 .powf(exponent)
                 .clamp(0.0, 1.0),
             pan: s.pan,
@@ -53,9 +53,6 @@ impl MenuVoice {
 }
 
 impl MenuPlayback {
-    /// `options.soundEffectsVolume` of the default options.
-    pub const SOUND_EFFECTS_VOLUME: f32 = 0.8;
-
     /// Starts a sound object; a loop is then driven by `handle`.
     pub fn play(&mut self, audio: &Audio, start: MenuSoundStart, handle: Option<u32>) {
         let Some(variation) = audio
@@ -95,10 +92,11 @@ impl MenuPlayback {
     pub fn frame(&mut self, audio: &mut Audio) {
         audio.clips.poll();
         let exponent = audio.table.volume_exponent;
+        let sfx_volume = audio.mic.sfx_volume;
         let mut i = 0;
         while i < self.voices.len() {
             let v = &mut self.voices[i];
-            let mix = v.mix(exponent);
+            let mix = v.mix(exponent, sfx_volume);
             let ended = v.source.as_ref().is_some_and(Source::finished)
                 || matches!(audio.clips.get(&v.clip), ClipSlot::Missing);
             if ended {

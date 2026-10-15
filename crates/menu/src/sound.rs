@@ -53,6 +53,8 @@ menu_sound_ids! {
     Thunder = "Thunder",
     ThunderClose = "Thunder_Close",
     StandardButtonPressed = "MENU_Button_Standard_Button_Pressed",
+    AlreadySelectedMultipleChoiceClicked = "MENY_Already_Selected_MultipleChoice_Clicked",
+    MouseGrabSlider = "MENU_Mouse_Grab_Slider",
     HudPauseGame = "HUD_Pause_Game",
     HudUnpauseGame = "HUD_Unpause_Game",
     HudExitGame = "HUD_Exit_Game",

@@ -174,8 +174,8 @@ before the user agrees.
     Linux and Windows are targets. The importer reads one slot file (`sav`,
     `sav2`, `sav3`) from the game's `persistentDataPath` (on Linux the
     Proton prefix found from `RW_DIR`'s `steamapps/compatdata/312520`),
-    with a flag to override. Its trigger is an option in the settings menu
-    (a recorded divergence) once the options menu exists; MCP until then.
+    with a flag to override. Its trigger is the options menu's IMPORT SAVE
+    FROM RAIN WORLD button (a recorded divergence, D13) and MCP's `import_save`.
 - Slugcat (and later creature) graphics live in `rw-graphics`: the
   cosmetic graphics simulation (tail, limbs, head, frame choice) depends
   on `rw-sim` and `rw-assets` and outputs a backend-agnostic sprite list
@@ -243,7 +243,10 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   `game_saves` to override where) into the port's save directory
   (`--save-dir`, default the platform data dir; tests use temporary
   directories, never the real ones), backing up the port's copy;
-  `load_process`'s menus read slot 0, so START on a saved page continues
+  `load_process`'s menus read the options' slot (`options_menu` opens the
+  options menu, whose import button does the same for the selected slot;
+  `step_process` reports `options`: values, screen, info label, dialog),
+  so START on a saved page continues
   (`step_process` reports `save`: saved campaigns and the current save
   state, and `story`: the running game's den, cycle, karma, room and food);
   the pause menu's Exit saves (a death after 30 s, a quit after 5).

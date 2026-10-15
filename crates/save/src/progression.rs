@@ -519,6 +519,29 @@ impl PlayerProgression {
         Ok(())
     }
 
+    /// `WipeAll`: backs the save up as `_WipeBackup`, keeps only `MISCPROG` (wiped of
+    /// its campaign data) and reads the slot again.
+    ///
+    /// # Errors
+    /// When the save file cannot be written or read back.
+    pub fn wipe_all(&mut self) -> Result<(), SaveError> {
+        self.back_up_save("_WipeBackup")?;
+        self.misc.wipe_all();
+        self.temp_shelters_discovered.clear();
+        let text = format!("MISCPROG<progDivB>{}<progDivA>", self.misc.to_save_string());
+        self.store(text)?;
+        let misc = self.misc.clone();
+        *self = match &self.path {
+            Some(path) => Self::load(path, self.salt.clone())?,
+            None => Self {
+                misc,
+                file: self.file.clone(),
+                ..Self::in_memory(self.salt.clone())
+            },
+        };
+        Ok(())
+    }
+
     /// `BackUpSave(appendName)`: `save_{appendName}` gets the current `"save"` value.
     ///
     /// # Errors
@@ -687,5 +710,26 @@ mod tests {
         assert!(String::from_utf8_lossy(&bytes).contains("z:Ref="));
         let read = UserDataFile::parse(&bytes).unwrap();
         assert_eq!(read.get("save__Backup"), read.get("save"));
+    }
+
+    /// `WipeAll` (106810): only `MISCPROG` stays, its shelters and the Hunter-era
+    /// integers reset, the Hunter unlock kept; the old save is `save__WipeBackup`.
+    #[test]
+    fn wipe_all_keeps_only_the_wiped_misc_progression() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut p = progression(dir.path());
+        p.misc.set_red_unlocked(true);
+        p.misc.save_discovered_shelter("SU_S01", SlugcatName::White);
+        p.wipe_all().unwrap();
+        assert!(p.stored_save_numbers().is_empty());
+        let lines = lines(&mut p);
+        assert_eq!(lines.len(), 2, "{lines:?}");
+        assert_eq!(
+            lines[0],
+            "MISCPROG<progDivB>CURRENTSLUGCAT<mpdB>White<mpdA>INTEGERS<mpdB>0,0,0,0,0,0,0,0,1,0,0<mpdA>"
+        );
+        assert!(p.misc.red_unlocked() && !p.misc.any_discovered_shelters());
+        let read = UserDataFile::parse(&std::fs::read(dir.path().join("sav")).unwrap()).unwrap();
+        assert!(read.get("save__WipeBackup").unwrap().contains("SAVE STATE"));
     }
 }

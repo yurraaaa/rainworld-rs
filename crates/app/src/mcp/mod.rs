@@ -12,6 +12,9 @@ mod pause_tests;
 mod reply;
 #[cfg(test)]
 mod save_tests;
+
+#[cfg(test)]
+mod options_tests;
 mod session;
 #[cfg(test)]
 mod shortcut_shots;
@@ -233,7 +236,8 @@ impl Server {
         description = "Start the process manager as the game boots (black, Initialization, \
         fade) into a process: intro_roll (default, as the game boots; any key goes on to \
         the main menu), main_menu (STORY leads to slugcat select, whose held START begins \
-        a new game at the campaign's start), slugcat_select, font_test (labels in the \
+        a new game at the campaign's start), slugcat_select, options_menu (its IMPORT SAVE \
+        FROM RAIN WORLD button copies the game's save of the selected slot), font_test (labels in the \
         game's fonts over the flat main-menu scene; menu submit goes on to the game) or \
         game (in the room's region world). Replaces any loaded game."
     )]

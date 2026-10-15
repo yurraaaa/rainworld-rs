@@ -4,7 +4,9 @@
 use std::path::PathBuf;
 
 use rw_assets::StreamingAssets;
-use rw_save::{ChecksumSalt, ImportReport, Platform, PlayerProgression, SaveSlot, SaveState};
+use rw_save::{
+    ChecksumSalt, ImportReport, Options, Platform, PlayerProgression, SaveSlot, SaveState,
+};
 use rw_sim::campaign::StoryStart;
 
 /// Where saves are read and written.
@@ -51,6 +53,27 @@ impl SaveConfig {
             log::error!("cannot read the save {}: {e}; not saving", path.display());
             PlayerProgression::in_memory(None)
         })
+    }
+
+    /// The port's options, the defaults without a directory or when they cannot be read.
+    #[must_use]
+    pub fn load_options(&self) -> Options {
+        let Some(dir) = &self.dir else {
+            return Options::default();
+        };
+        Options::load(dir).unwrap_or_else(|e| {
+            log::error!("cannot read the options in {}: {e}", dir.display());
+            Options::default()
+        })
+    }
+
+    /// `Options.Save` into the port's directory (nothing without one).
+    pub fn save_options(&self, options: &Options) {
+        if let Some(dir) = &self.dir
+            && let Err(e) = options.save(dir)
+        {
+            log::error!("saving the options in {}: {e}", dir.display());
+        }
     }
 
     /// The game's save directory: the override, else the platform's next to the game.
