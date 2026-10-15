@@ -243,3 +243,63 @@ pub struct SlideShowState {
     /// The scene's flat illustrations' alphas.
     pub alphas: Vec<f32>,
 }
+
+/// The HUD's state (`get_hud`).
+#[derive(Debug, Clone, Serialize)]
+pub struct HudState {
+    pub food_meter: FoodMeterState,
+    pub karma_meter: KarmaMeterState,
+    pub rain_meter: RainMeterState,
+    /// `HUD.Map`'s fade (the map itself is not drawn).
+    pub map_fade: f32,
+    pub show_karma_food_rain: bool,
+    pub text_prompt: TextPromptState,
+    /// The tutorial controls page, while it shows.
+    pub controls_page: Option<ControlsPageState>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct FoodMeterState {
+    pub pos: [f32; 2],
+    pub fade: f32,
+    pub visible_counter: i32,
+    pub show_count: i32,
+    pub max_food: i32,
+    pub survival_limit: i32,
+    pub down_in_corner: f32,
+    /// Each pip's x offset from the meter's position.
+    pub pip_x: Vec<f32>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct KarmaMeterState {
+    pub pos: [f32; 2],
+    pub fade: f32,
+    pub rad: f32,
+    pub force_visible_counter: i32,
+    pub symbol: String,
+    pub reinforced: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct RainMeterState {
+    pub fade: f32,
+    pub circles: usize,
+    pub remain_visible_counter: i32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TextPromptState {
+    pub show: f32,
+    pub showing: String,
+    pub text: String,
+    pub queued: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ControlsPageState {
+    pub counter: i32,
+    pub black_fade: f32,
+    pub want_to_continue: bool,
+    pub labels: Vec<String>,
+}

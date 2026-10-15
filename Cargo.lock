@@ -1897,6 +1897,7 @@ dependencies = [
  "rw-assets",
  "rw-audio",
  "rw-graphics",
+ "rw-hud",
  "rw-menu",
  "rw-random",
  "rw-render",
@@ -2141,6 +2142,18 @@ dependencies = [
  "rw-sim",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "rw-hud"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "rw-assets",
+ "rw-menu",
+ "rw-random",
+ "rw-render",
+ "rw-sim",
 ]
 
 [[package]]

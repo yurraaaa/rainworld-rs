@@ -23,6 +23,7 @@ const RIGHT: InputParam = InputParam {
     x: 1,
     y: 0,
     jump: false,
+    map: false,
 };
 
 impl Session {
@@ -123,6 +124,7 @@ fn stepping_settles_then_walks_left() {
         x: -1,
         y: 0,
         jump: false,
+        map: false,
     };
     let walked = session.run(20, left);
     assert_eq!(walked.tick, 100);
@@ -159,6 +161,7 @@ fn runs_are_deterministic() {
                     x: 1,
                     y: 0,
                     jump: true,
+                    map: false,
                 }),
             },
         ],
@@ -313,6 +316,7 @@ fn tool_errors_are_results_not_panics() {
             x: 2,
             y: 0,
             jump: false,
+            map: false,
         }),
     }));
     assert!(bad_input.is_err());
@@ -614,4 +618,134 @@ fn hunter_start_has_no_start_up_script() {
     assert!(st.fade_delay_in_progress);
     let st = s.run(1, RIGHT);
     assert!(!st.fade_delay_in_progress, "5.5 s = 220 ticks");
+}
+
+impl Session {
+    /// Saves the default screenshot as `<HUD_SHOTS>/<name>.png` when `HUD_SHOTS` is set.
+    fn save_shot(&mut self, name: &str) {
+        let Some(dir) = std::env::var_os("HUD_SHOTS") else {
+            return;
+        };
+        let path = std::path::Path::new(&dir).join(format!("{name}.png"));
+        let params = ScreenshotParams {
+            save_path: Some(path.to_string_lossy().into_owned()),
+            ..ScreenshotParams::default()
+        };
+        if let Err(e) = self.screenshot(&params) {
+            eprintln!("no screenshot {name}: {e}");
+        }
+    }
+}
+
+/// The HUD from a new Survivor game: hidden at cycle 0 until the map button; the
+/// tutorial controls page `SU_C04StartUp` opens once `showControlsCounter > 100` after
+/// standing up (67766) and closes once the slugcat is past x 800 (67772), fading in at
+/// 1/16 and out at 1/8 a tick (`TutorialControlsPage.Update`).
+#[test]
+fn new_game_hud_and_controls_page() {
+    let Some(mut s) = Session::installed() else {
+        return;
+    };
+    s.new_game(&super::params::NewGameParams {
+        slugcat: "White".to_owned(),
+        seed: Some(1),
+    })
+    .expect("new game");
+    let still = InputParam::default();
+    s.run(1, still);
+    let hud = s.hud_state().expect("the HUD fired up on the first tick");
+    assert_eq!(hud.karma_meter.symbol, "smallKarma0");
+    assert_eq!(hud.food_meter.max_food, 7);
+    assert_eq!(hud.food_meter.survival_limit, 4);
+    assert_eq!(hud.rain_meter.circles, 26);
+    let mut stood = None;
+    let mut opened = None;
+    for tick in 2..=400u32 {
+        let st = s.run(1, still);
+        let su = st.start_up.as_ref().expect("SU_C04StartUp");
+        let hud = s.hud_state().expect("hud");
+        assert_eq!(hud.karma_meter.fade, 0.0, "cycle 0: hidden (tick {tick})");
+        assert_eq!(hud.food_meter.fade, 0.0);
+        if su.stood_up && stood.is_none() {
+            stood = Some(tick);
+        }
+        if stood.is_some_and(|t| tick == t + 20) {
+            s.save_shot("new_game_start");
+        }
+        if let Some(page) = &hud.controls_page {
+            if opened.is_none() {
+                opened = Some(tick);
+                assert_eq!(su.show_controls_counter, 101, "tick {tick}");
+                // `Room.Update` runs `updateList` from the end: the owner added during
+                // it is first updated on the next tick.
+                assert_eq!(page.counter, 0);
+                assert_eq!(page.black_fade, 0.0);
+            }
+            if opened.is_some_and(|o| tick == o + 8) {
+                s.save_shot("controls_page_opening");
+            }
+            let n = (tick - opened.unwrap()) as f32;
+            assert_eq!(page.black_fade, (n * 0.0625).min(1.0), "tick {tick}");
+        } else {
+            assert!(
+                opened.is_none(),
+                "the page stays until the slugcat walks on"
+            );
+        }
+    }
+    let stood = stood.expect("stood up");
+    let opened = opened.expect("the controls page opened");
+    assert_eq!(opened - stood, 100, "stood {stood}, opened {opened}");
+    s.save_shot("controls_page");
+    let hud = s.hud_state().unwrap();
+    assert_eq!(hud.controls_page.as_ref().unwrap().labels.len(), 7);
+
+    // Walk right past x 800: the page fades at 1/8 a tick and is gone 8 ticks later.
+    let mut walked = 0;
+    loop {
+        let st = s.run(1, RIGHT);
+        walked += 1;
+        assert!(walked < 600, "never reached x 800");
+        if st.player.as_ref().unwrap().chunks[0].pos[0] > 800.0 {
+            break;
+        }
+    }
+    for i in 1..=8 {
+        s.run(1, RIGHT);
+        let hud = s.hud_state().unwrap();
+        match &hud.controls_page {
+            Some(page) => assert!(page.want_to_continue && i < 8, "{i} {page:?}"),
+            None => assert_eq!(i, 8, "closed after {i} ticks"),
+        }
+    }
+    assert!(s.hud_state().unwrap().controls_page.is_none());
+
+    // The map button: the slugcat stands still and the meters fade in.
+    let map = InputParam {
+        map: true,
+        ..InputParam::default()
+    };
+    let st = s.run(40, map);
+    assert_eq!(st.player.as_ref().unwrap().input.x, 0);
+    let hud = s.hud_state().unwrap();
+    assert_eq!(hud.karma_meter.fade, 1.0);
+    assert_eq!(hud.food_meter.fade, 1.0);
+    assert!(hud.rain_meter.fade > 0.9);
+    assert!(hud.map_fade > 0.0);
+    s.save_shot("map_button_meters");
+
+    // A tutorial-style message.
+    s.hud_message(&super::params::HudMessageParams {
+        text: "Hold the map button to see the cycle and food meters".to_owned(),
+        wait: None,
+        time: None,
+        darken: None,
+        hide_hud: None,
+    })
+    .unwrap();
+    s.run(40, still);
+    let hud = s.hud_state().unwrap();
+    assert_eq!(hud.text_prompt.showing, "Message");
+    assert_eq!(hud.karma_meter.fade, 0.0, "hideHud");
+    s.save_shot("text_prompt");
 }

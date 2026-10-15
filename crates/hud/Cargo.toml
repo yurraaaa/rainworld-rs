@@ -1,0 +1,12 @@
+[package]
+name = "rw-hud"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+rw-assets.workspace = true
+rw-render.workspace = true
+rw-sim.workspace = true
+rw-random.workspace = true
+rw-menu.workspace = true
+log.workspace = true

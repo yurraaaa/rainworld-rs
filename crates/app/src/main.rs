@@ -7,7 +7,7 @@
 //! [--process NAME]` (default room
 //! `summit`, seed 1; `--screenshot` saves the frame after one second, or once the
 //! script has run, and quits; `--debug-view` starts in the debug view; `--spawn` puts
-//! the player on tile X,Y; `--script` plays `X,Y,J:TICKS;...` input steps instead of
+//! the player on tile X,Y; `--script` plays `X,Y,J[,M]:TICKS;...` input steps instead of
 //! the keyboard; `--resolution` is one of the game's screen sizes, default 1366x768;
 //! `--process` picks the process `Initialization` starts: `intro-roll` (the default, as
 //! the game boots), `main-menu`, `slugcat-select`, `game` (the default with `--spawn`,
@@ -29,7 +29,8 @@
 //! room's region world (arena levels and rooms outside their world: a single-room
 //! world). From the slugcat select menu a new game begins at the campaign's start.
 //!
-//! Controls: Rewired's default keyboard map: arrows move, Z jumps; R respawn, V level
+//! Controls: Rewired's default keyboard map: arrows move, Z jumps, Space holds the map
+//! button (the HUD's meters; no map is drawn); R respawn, V level
 //! graphic / debug view, G tile grid, F12 screenshot (`screenshot-<frame>.ppm` in the
 //! working directory), Esc quit (in the game, until there is a pause menu). Menus take
 //! Rewired's default UI keys: arrows, Enter/Space/Z submit, Esc cancel, and the mouse.
@@ -161,7 +162,7 @@ impl Args {
                 "-h" | "--help" => {
                     return Err(
                         "usage: rainworld-rs [ROOM] [--seed N] [--screenshot FILE.ppm] \
-                                [--debug-view] [--spawn X,Y] [--script X,Y,J:TICKS;...] \
+                                [--debug-view] [--spawn X,Y] [--script X,Y,J[,M]:TICKS;...] \
                                 [--resolution WxH] [--windowed] [--mute] \
                                 [--process intro-roll|main-menu|slugcat-select|game|font-test]\n       \
                                 rainworld-rs --mcp [--window]"

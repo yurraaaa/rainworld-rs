@@ -400,6 +400,17 @@ impl RainWorldGame {
         self.script_tick.fade_delay_in_progress = in_progress;
     }
 
+    /// Whether camera 0 has a HUD, as the room scripts read it from the next tick on.
+    pub fn set_hud_present(&mut self, present: bool) {
+        self.script_tick.hud_with_control_preset = present;
+    }
+
+    /// The camera's sounds and the shared random stream, for what camera 0 updates
+    /// before the rooms (the HUD).
+    pub fn camera_io(&mut self) -> (&mut Sounds, &mut UnityRandom) {
+        (&mut self.sounds, &mut self.rng)
+    }
+
     /// `cameras[0].followAbstractCreature` as the realizer reads it.
     fn follow_creature(&self) -> Option<FollowCreature> {
         let player = self.player.as_ref()?;

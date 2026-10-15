@@ -125,7 +125,7 @@ fn input_history_keeps_ten_newest_first() {
         Input {
             x: 5,
             y: -3,
-            jump: false,
+            ..Input::NONE
         },
     );
     assert_eq!(p.input_history()[0], Input::new(1, -1, false));

@@ -676,10 +676,13 @@ second part, else a single-room world for arena levels). The campaign descriptio
 - **Room scripts.** `AddRoomSpecificScript` is `rw_sim::RoomScript::for_room`, called
   when a room with `RoomSpecificScriptActive` loads; only `SU_C04StartUp` is ported (the
   new Survivor or Monk held in the tunnel, pushed out, standing up). It updates after
-  the player, as the game's reversed update list puts it. What it leaves out: the
-  `TutorialControlsPageOwner` it makes 100 ticks after the slugcat stands (needs the
-  HUD; `SuC04StartUp::controls_page_due` marks the tick), and Jolly Co-op's players 1-3
-  (pushed from tick `5 * n`). The Hunter's `HardmodeStart` in `LF_H01` (the scripted
+  the player, as the game's reversed update list puts it. The
+  `TutorialControlsPageOwner` it makes 100 ticks after the slugcat stands is the app's
+  (`rw_hud::ControlsPage`, D15): the script raises `showed_controls` when the HUD is
+  there and `controls_page_continue` once the slugcat is past x 800, and the app opens
+  and updates the page from those, first updating it on the tick after (the owner joins
+  the end of the update list, which runs backwards). It leaves out Jolly Co-op's players
+  1-3 (pushed from tick `5 * n`). The Hunter's `HardmodeStart` in `LF_H01` (the scripted
   first cycle with its creatures and spear) is not ported, so the Hunter starts in its
   den with nothing happening; the registry keeps its place. The other base-game scripts
   (`SS_E08`, `SU_A22`, `SL_C12`, `SB_A14`, `SB_D03`, `SU_A43`, `deathPit`, `LF_A03`,
@@ -691,6 +694,50 @@ is simpler and loses nothing gameplay-visible beyond the shorter waits.
 **Affects.** How long a vessel waits to enter a room, which neighbour rooms are
 realized ahead (and so the random draws the realizer makes), and anything creatures
 would do.
+
+## D15: The in-game HUD
+
+`rw_hud` ports `HUD.HUD` as `InitSinglePlayerHud` builds it for a story game
+(`rainworld-re/notes/hud.md`): the text prompt with its subregion tracker, the food
+meter, the karma meter, the rain meter and the tutorial controls page of SU_C04. It
+fires up in the camera update once the player is realized in a region world (not for
+single-room worlds), updates its parts in the game's reverse order and draws into its
+own Futile stage above the room. The map button is `Space` (the default keyboard
+binding); holding it stands the slugcat still, as `standStillOnMapButton` does in a
+story session.
+
+**What differs:**
+- **No region map (user decision).** `HUD.Map` is not drawn and cannot be panned. What
+  is kept is its fade (the karma meter's target and the controls page read it) and the
+  `Random.value` draw its update makes every tick, so the shared stream stays in step.
+  The swarm-circle draws it would make on top (only with the map shown over a region
+  with swarm rooms) are counted, not made. Whether building the map's `MapData` draws
+  from the stream is not checked.
+- **Stand-in rain cycle.** The world's `RainCycle` (drawn length, ticking timer; D14)
+  is not wired to the HUD yet. The rain meter reads
+  `RainCycleView::STAND_IN`: a cycle of `cycleTimeMax` (800 s, 26 circles) that stays at
+  its start, so the meter always shows full, never blinks at half time and nothing reads
+  a room's rain `DangerType`.
+- **New-game state only.** Food is 0 and stays 0 (no eating), karma and cap are the
+  campaign's new-game values (karma 0, cap 4; the Hunter karma 2), never reinforced, and
+  the cycle number is the session's (0 in a new game, so the meters start hidden). No
+  saves feed it.
+- **Shelters.** Every shelter counts as intact (broken shelters are not read), and the
+  owner is never `stillInStartShelter` or `readyForWin`, so in any shelter the meters
+  show and the hibernation line warns. `forceSleepCounter` is always 0.
+- **Game over.** The prompt's game-over mode is ported but not entered: death freezes
+  the body until R (current phase), so nothing calls `EnterGameOverMode`.
+- **Not ported:** the pause menu and its text, symbol and music messages, the Hunter's
+  cycle count-up, the karma meter's gate and scavenger blinking, the gamepad pictures of
+  the controls page, the sleep, death and character-select screens' meters, and every
+  DLC part (More Slugcats pup meters, ammo meter, Watcher ripple symbols, Jolly Co-op
+  meters, Remix's options).
+
+**Why.** The user decided against the map for now; the rain cycle, eating, saves and
+shelters are later milestones.
+
+**Affects.** What the meters show (food, rain) and when they show in shelters; no
+gameplay beyond the map button standing the slugcat still.
 
 ## Not ported yet (not divergences, just absent)
 
