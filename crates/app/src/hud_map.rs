@@ -11,15 +11,14 @@ use rw_sim::{HEAD, HudMapLink, Vec2};
 use crate::game::Game;
 
 impl Game {
-    /// `new MapData(world)` with the new game's karma.
+    /// `new MapData(world)` with the save state's `deathPersistentSaveData.karma`.
     #[must_use]
     pub fn map_data(&self, assets: &StreamingAssets) -> Option<MapData> {
-        let campaign = self.sim().campaign();
         MapData::build(
             self.sim().world(),
             assets,
-            campaign.name.value(),
-            campaign.start_karma,
+            self.sim().campaign().name.value(),
+            self.sim().story().karma,
         )
     }
 
