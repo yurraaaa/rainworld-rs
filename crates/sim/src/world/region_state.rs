@@ -2,7 +2,7 @@
 //! that is not a single room has one (`World.regionState`); a new game's has every swarm
 //! room's counter at 0 and no room visited.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use rw_assets::world::WorldData;
 
@@ -11,9 +11,9 @@ pub struct RegionState {
     /// `swarmRoomCounters` by room name: cycles until the swarm room's flies return
     /// (0: active).
     pub swarm_room_counters: HashMap<String, i32>,
-    /// `roomsVisited`: room names (`ReportRoomVisited` from the player's first update
-    /// and each room it is spat out in).
-    pub rooms_visited: HashSet<String>,
+    /// `roomsVisited`: room names in visit order (`ReportRoomVisited` from the player's
+    /// first update and each room it is spat out in).
+    pub rooms_visited: Vec<String>,
     /// `candidatesForDepleteSwarmRooms`: swarm rooms a caught fly came from (read when
     /// the cycle is saved, which the port does not do yet).
     pub candidates_for_deplete_swarm_rooms: Vec<String>,
@@ -30,7 +30,7 @@ impl RegionState {
                 .filter_map(|&r| data.room(r))
                 .map(|r| (r.name.clone(), 0))
                 .collect(),
-            rooms_visited: HashSet::new(),
+            rooms_visited: Vec::new(),
             candidates_for_deplete_swarm_rooms: Vec::new(),
         }
     }

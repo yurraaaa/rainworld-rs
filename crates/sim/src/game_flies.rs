@@ -23,7 +23,7 @@ impl RainWorldGame {
         let story = crate::world::StoryProgress {
             woke_up_in_region: &region,
             ever_met_moon: false,
-            karma: self.campaign.start_karma,
+            karma: self.story.karma,
         };
         self.world.update_world_processes(Some(story));
         let session = self.story_session();

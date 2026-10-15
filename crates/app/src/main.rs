@@ -32,7 +32,7 @@
 //! Controls: Rewired's default keyboard map: arrows move, Z jumps, Space holds the map
 //! button (the HUD's meters and region map); R respawn, V level
 //! graphic / debug view, G tile grid, F12 screenshot (`screenshot-<frame>.ppm` in the
-//! working directory), Esc quit (in the game, until there is a pause menu). Menus take
+//! working directory), Esc the pause menu (in the game). Menus take
 //! Rewired's default UI keys: arrows, Enter/Space/Z submit, Esc cancel, and the mouse.
 
 mod app;
@@ -41,6 +41,7 @@ mod game;
 mod hud_map;
 mod input;
 mod mcp;
+mod saves;
 mod scene;
 mod shortcuts;
 mod sprites;
@@ -88,6 +89,10 @@ struct Args {
     mute: bool,
     /// The process `Initialization` starts.
     start: ProcessId,
+    /// `--save-dir`: the port's save directory instead of the platform's.
+    save_dir: Option<PathBuf>,
+    /// `--game-saves`: the game's save directory the importer reads.
+    game_saves: Option<PathBuf>,
 }
 
 impl Args {
@@ -112,8 +117,17 @@ impl Args {
         let mut windowed = false;
         let mut mute = false;
         let mut start = None;
+        let mut save_dir = None;
+        let mut game_saves = None;
         while let Some(arg) = args.next() {
             match arg.as_str() {
+                "--save-dir" => {
+                    save_dir = Some(PathBuf::from(args.next().ok_or("--save-dir needs a path")?));
+                }
+                "--game-saves" => {
+                    let value = args.next().ok_or("--game-saves needs a path")?;
+                    game_saves = Some(PathBuf::from(value));
+                }
                 "--seed" => {
                     let value = args.next().ok_or("--seed needs a value")?;
                     seed = value
@@ -166,8 +180,9 @@ impl Args {
                         "usage: rainworld-rs [ROOM] [--seed N] [--screenshot FILE.ppm] \
                                 [--debug-view] [--spawn X,Y] [--script X,Y,J[,M]:TICKS;...] \
                                 [--resolution WxH] [--windowed] [--mute] \
-                                [--process intro-roll|main-menu|slugcat-select|game|font-test]\n       \
-                                rainworld-rs --mcp [--window]"
+                                [--process intro-roll|main-menu|slugcat-select|game|font-test] \
+                                [--save-dir DIR] [--game-saves DIR]\n       \
+                                rainworld-rs --mcp [--window] [--save-dir DIR] [--game-saves DIR]"
                             .to_owned(),
                     );
                 }
@@ -198,6 +213,8 @@ impl Args {
             windowed,
             mute,
             start,
+            save_dir,
+            game_saves,
         })
     }
 }
@@ -225,8 +242,9 @@ fn run() -> Result<(), Box<dyn Error>> {
     let resources = UnityResources::open(assets.data_dir())
         .map_err(|e| format!("reading the game's Unity resources: {e}"))?;
     let resources = Arc::new(resources);
+    let saves = saves::SaveConfig::platform(args.save_dir.clone(), args.game_saves.clone());
     if args.mcp {
-        return mcp::run(assets, resources, args.window);
+        return mcp::run(assets, resources, saves, args.window);
     }
     let path = assets
         .find_room_file(&args.room.to_lowercase(), ".txt")
@@ -267,6 +285,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         },
         seed: args.seed,
         sound_table: table,
+        saves,
     };
     let mut ctx = AppContext::new(assets, resources, args.resolution, setup, args.start)
         .map_err(|e| format!("loading the fonts: {e}"))?;
@@ -325,6 +344,8 @@ mod tests {
                 windowed: false,
                 mute: false,
                 start: ProcessId::IntroRoll,
+                save_dir: None,
+                game_saves: None,
             })
         );
     }
@@ -344,6 +365,8 @@ mod tests {
             windowed: false,
             mute: false,
             start: ProcessId::IntroRoll,
+            save_dir: None,
+            game_saves: None,
         });
         assert_eq!(Args::parse(["SU_A22", "--seed", "7"]), want);
         assert_eq!(Args::parse(["--seed", "7", "SU_A22"]), want);

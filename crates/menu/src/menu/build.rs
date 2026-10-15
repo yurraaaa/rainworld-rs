@@ -16,6 +16,7 @@ use crate::font::Font;
 use crate::label::{Alignment, Label};
 use crate::shared::MenuShared;
 use crate::stage::{Sprite, StageColor};
+use crate::tree::NodeId;
 
 impl Menu {
     pub(super) fn push(&mut self, object: MenuObject) -> ObjectId {
@@ -655,6 +656,57 @@ impl Menu {
         if self.scene == Some(scene) {
             self.scene = None;
         }
+    }
+
+    /// `obj.RemoveSprites()` then `owner.RemoveSubObject(obj)`: its sprites leave the
+    /// stage, it and its sub-objects stop being selectable, and its owner drops it.
+    pub fn remove_sub_object(&mut self, id: ObjectId) {
+        for node in self.object_nodes(id) {
+            self.stage.remove_from_container(node);
+        }
+        let page = self.page_of(id);
+        let tree = self.object_tree(id);
+        self.page_data_mut(page)
+            .selectables
+            .retain(|s| !tree.contains(s));
+        if let Some(owner) = self.objects[id.0].owner {
+            self.objects[owner.0].sub_objects.retain(|&o| o != id);
+        }
+    }
+
+    /// The object and its sub-objects, recursively.
+    fn object_tree(&self, id: ObjectId) -> Vec<ObjectId> {
+        let mut tree = vec![id];
+        let mut i = 0;
+        while let Some(&o) = tree.get(i) {
+            tree.extend(self.objects[o.0].sub_objects.iter().copied());
+            i += 1;
+        }
+        tree
+    }
+
+    /// The stage nodes of an object and its sub-objects.
+    fn object_nodes(&self, id: ObjectId) -> Vec<NodeId> {
+        let mut nodes = Vec::new();
+        for o in self.object_tree(id) {
+            match &self.objects[o.0].kind {
+                Kind::Label(l) => nodes.push(l.label),
+                Kind::RoundedRect(r) => nodes.extend(r.sprites.iter().copied()),
+                Kind::Illustration(i) => nodes.push(i.sprite),
+                Kind::DarkGradient(g) => nodes.push(g.sprite),
+                Kind::HoldButton(h) => nodes.extend(h.circles),
+                Kind::Button(b) => match &b.variant {
+                    ButtonVariant::BigArrow { symbol, .. }
+                    | ButtonVariant::CheckBox { symbol, .. } => nodes.push(*symbol),
+                    ButtonVariant::Simple { .. } => {}
+                },
+                _ => {}
+            }
+            if let Some(c) = self.objects[o.0].my_container {
+                nodes.push(c);
+            }
+        }
+        nodes
     }
 
     /// The game's `label.textRect.width` of a menu label.

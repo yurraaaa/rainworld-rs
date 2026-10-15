@@ -1,7 +1,7 @@
 //! `HUD.TextPrompt`: the black bars at the top and bottom of the screen with a line of
 //! text, for messages (tutorials, subregion names), the game-over prompt and the
 //! pause text, and the `SubregionTracker` that announces subregions. Symbol and music
-//! messages, the Hunter's cycle count-up and the pause menu are not ported.
+//! messages and the Hunter's cycle count-up are not ported.
 
 use std::f32::consts::PI;
 use std::sync::Arc;
@@ -211,6 +211,12 @@ pub struct TextPrompt {
     pub game_over_mode: bool,
     pub play_game_over_sound: bool,
     pub paused_mode: bool,
+    /// `pausedWarningText`: the pause text warns that quitting counts as a loss.
+    pub paused_warning_text: bool,
+    /// The game's `RedIsOutOfCycles` when the pause menu set the warning.
+    pub red_is_out_of_cycles: bool,
+    /// The game's `pauseMenu != null`, as the prompt reads it each update.
+    pub pause_menu: bool,
     pub messages: Vec<Message>,
     pub show: f32,
     pub last_show: f32,
@@ -278,6 +284,9 @@ impl TextPrompt {
             game_over_mode: false,
             play_game_over_sound: false,
             paused_mode: false,
+            paused_warning_text: false,
+            red_is_out_of_cycles: false,
+            pause_menu: false,
             messages: Vec::new(),
             show: 0.0,
             last_show: 0.0,
@@ -381,7 +390,11 @@ impl TextPrompt {
                 self.last_any_key = map_button;
             }
         } else if self.paused_mode {
-            info = InfoId::Paused;
+            if self.pause_menu {
+                info = InfoId::Paused;
+            } else {
+                self.paused_mode = false;
+            }
         } else {
             if let Some(tracker) = &mut self.subregion_tracker
                 && let Some(text) = tracker.update(room, self.show, start, cycle_number, translator)
@@ -409,7 +422,7 @@ impl TextPrompt {
                 self.currently_showing = info;
                 let text = match info {
                     InfoId::Message => self.message_string.clone(),
-                    InfoId::Paused => translator.translate("Paused").to_owned(),
+                    InfoId::Paused => translator.translate(self.paused_text()).to_owned(),
                     InfoId::GameOver => translator.translate(&self.game_over_string).to_owned(),
                     InfoId::Nothing => String::new(),
                 };
@@ -420,6 +433,17 @@ impl TextPrompt {
         }
         let target = if food_visible { 1.0 } else { 0.0 };
         self.food_visible_mode = self.food_visible_mode.lerp_and_tick(target, 0.05, 0.05);
+    }
+
+    /// The pause text (Expedition's karma-0 warning aside).
+    fn paused_text(&self) -> &'static str {
+        if !self.paused_warning_text {
+            "Paused"
+        } else if self.red_is_out_of_cycles {
+            "Paused - Warning! Quitting without saving in a shelter will permanently end your game"
+        } else {
+            "Paused - Warning! Quitting after 30 seconds into a cycle counts as a loss"
+        }
     }
 
     /// The message queue's countdowns.

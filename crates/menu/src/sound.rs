@@ -41,6 +41,7 @@ menu_sound_ids! {
     SwitchPageIn = "MENU_Switch_Page_In",
     SwitchPageOut = "MENU_Switch_Page_Out",
     StartNewGame = "MENU_Start_New_Game",
+    ContinueGame = "MENU_Continue_Game",
     MainMenuLoop = "MENU_Main_Menu_LOOP",
     NextSlugcat = "MENU_Next_Slugcat",
     SecurityButtonInit = "MENU_Security_Button_Init",
@@ -51,6 +52,10 @@ menu_sound_ids! {
     SwitchArenaGametype = "MENU_Switch_Arena_Gametype",
     Thunder = "Thunder",
     ThunderClose = "Thunder_Close",
+    StandardButtonPressed = "MENU_Button_Standard_Button_Pressed",
+    HudPauseGame = "HUD_Pause_Game",
+    HudUnpauseGame = "HUD_Unpause_Game",
+    HudExitGame = "HUD_Exit_Game",
 }
 
 /// One `MenuSoundObject` as created: the drawn `SoundData` and the call's arguments.

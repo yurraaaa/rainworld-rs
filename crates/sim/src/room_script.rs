@@ -9,14 +9,14 @@ use crate::game::PlayerObserver;
 use crate::{Player, PlayerController, Vec2};
 
 /// What `AddRoomSpecificScript` reads of the story session.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StorySession {
     /// `StoryCharacter`.
     pub character: SlugcatName,
     /// `saveState.cycleNumber`.
     pub cycle_number: i32,
     /// `saveState.denPosition`.
-    pub den_position: &'static str,
+    pub den_position: String,
 }
 
 /// What the scripts read of the game each tick.

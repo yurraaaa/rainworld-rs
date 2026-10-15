@@ -9,7 +9,7 @@ use winit::application::ApplicationHandler;
 use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
-use winit::keyboard::PhysicalKey;
+use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{Window, WindowId};
 
 use super::{Server, Session};
@@ -137,7 +137,7 @@ impl ApplicationHandler<McpEnded> for Mirror {
                     return;
                 };
                 match Command::from_key(code) {
-                    Some(Command::Quit) => event_loop.exit(),
+                    _ if code == KeyCode::Escape => event_loop.exit(),
                     Some(Command::ToggleView) => self.level = !self.level,
                     Some(Command::ToggleGrid) => self.layers.grid = !self.layers.grid,
                     _ => {}

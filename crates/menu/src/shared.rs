@@ -7,11 +7,12 @@ use rw_assets::{SoundTable, StreamingAssets, UnityResources};
 use rw_audio::music::{MusicPlayer, MusicSettings, SourcePlayback, TrackId};
 use rw_random::UnityRandom;
 use rw_render::StageTextureId;
+use rw_save::PlayerProgression;
 
 use crate::atlas::{AtlasLoadError, AtlasManager};
 use crate::input::UiInputState;
 use crate::process::ProcessId;
-use crate::sound::MenuMic;
+use crate::sound::{MenuMic, MenuSoundId};
 use crate::translator::Translator;
 
 /// `SlugcatStats.Name`.
@@ -35,8 +36,8 @@ impl StoryGameInitCondition {
         matches!(self, Self::FastTravel | Self::StartWithFastTravel)
     }
 
-    /// `RainWorldGame.FadeInTime` with no current save state (the port reads no saves:
-    /// `SaveState.SlowFadeIn` is not reached).
+    /// `RainWorldGame.FadeInTime` with no current save state (with one, `Load` uses
+    /// `SaveState::slow_fade_in`).
     #[must_use]
     pub fn game_fade_in_time(self) -> f32 {
         match self {
@@ -61,8 +62,7 @@ impl StoryGameInitCondition {
     }
 }
 
-/// The part of `PlayerProgression.MiscProgressionData` the menus read, in the state of
-/// a progression with no save (the port reads no saves yet).
+/// The part of `PlayerProgression.MiscProgressionData` the menus read.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Progression {
     /// `currentlySelectedSinglePlayerSlugcat` (White in a new progression).
@@ -139,6 +139,8 @@ pub struct MenuShared {
     /// `options.fullScreen`: on by default, off in a `--windowed` window.
     pub full_screen: bool,
     pub progression: Progression,
+    /// `rainWorld.progression`: the save slot (in memory until [`Self::set_saves`]).
+    pub saves: PlayerProgression,
     pub dlcs: Dlcs,
     /// `rainWorld.inGameSlugCat`.
     pub in_game_slugcat: Option<Slugcat>,
@@ -158,6 +160,9 @@ pub struct MenuShared {
     pub music_settings: MusicSettings,
     /// `Application.Quit()` was called.
     pub quit: bool,
+    /// Sounds a menu played without a menu microphone, for the game's microphone
+    /// (`cameras[0].virtualMicrophone`, volume group 1) to play and draw for.
+    pub game_mic_sounds: Vec<(MenuSoundId, [f32; 3])>,
 }
 
 impl MenuShared {
@@ -203,6 +208,7 @@ impl MenuShared {
             mouse_mode: false,
             full_screen: true,
             progression: Progression::default(),
+            saves: PlayerProgression::in_memory(None),
             dlcs,
             in_game_slugcat: None,
             start_game_condition: None,
@@ -213,7 +219,28 @@ impl MenuShared {
             request_play_music: true,
             music_settings: MusicSettings::new(SoundTable::default().volume_exponent),
             quit: false,
+            game_mic_sounds: Vec::new(),
         })
+    }
+
+    /// Uses `saves` as the progression, as `LoadProgression` leaves it.
+    pub fn set_saves(&mut self, saves: PlayerProgression) {
+        self.progression.selected_slugcat = saves.misc.current_slugcat;
+        self.progression.red_unlocked = saves.misc.red_unlocked();
+        self.progression.any_discovered_shelters = saves.misc.any_discovered_shelters();
+        self.saves = saves;
+    }
+
+    /// `currentlySelectedSinglePlayerSlugcat` set, in the menus' view and the save's.
+    pub fn select_slugcat(&mut self, slugcat: Slugcat) {
+        self.progression.selected_slugcat = slugcat;
+        self.saves.misc.current_slugcat = slugcat;
+    }
+
+    /// `redUnlocked = true`.
+    pub fn unlock_red(&mut self) {
+        self.progression.red_unlocked = true;
+        self.saves.misc.set_red_unlocked(true);
     }
 
     /// The menu microphone's clips and the music volume exponent come from `sounds.txt`.
@@ -264,6 +291,16 @@ impl MenuShared {
 
     /// `PreSwitchMainProcess`'s microphone handling: let go of it before the game,
     /// take one back before anything else.
+    /// `Menu.PlaySound(id, pan, vol, pitch)`: through the menu microphone, else (the
+    /// game running) queued for the game's.
+    pub fn play_menu_sound(&mut self, id: MenuSoundId, args: [f32; 3]) {
+        if self.mic_attached {
+            self.mic.play_sound(id, args, &mut self.random);
+        } else {
+            self.game_mic_sounds.push((id, args));
+        }
+    }
+
     pub fn pre_switch(&mut self, next: ProcessId) {
         self.mic_attached = next != ProcessId::Game;
     }

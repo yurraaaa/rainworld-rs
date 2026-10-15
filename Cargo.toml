@@ -16,6 +16,7 @@ rw-random = { path = "crates/random" }
 rw-audio = { path = "crates/audio" }
 rw-menu = { path = "crates/menu" }
 rw-hud = { path = "crates/hud" }
+rw-save = { path = "crates/save" }
 rand = "0.10"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"

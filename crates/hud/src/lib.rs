@@ -1,7 +1,7 @@
 //! The in-game HUD of a single-player story game (`HUD.HUD.InitSinglePlayerHud`): the
-//! text prompt, food meter, karma meter, rain meter, the region map ([`Map`]), and the
-//! tutorial controls page
-//! SU_C04's start-up script shows. It reads the game through [`OwnerTick`] and
+//! text prompt, food meter, karma meter, rain meter, the region map ([`Map`]), the
+//! tutorial controls page SU_C04's start-up script shows, and the pause menu over it.
+//! It reads the game through [`OwnerTick`] and
 //! [`RainCycleView`], makes the game's HUD sounds and random draws through the sim, and
 //! draws into its own Futile stage (`rw_menu::StageTree`), which the app draws above
 //! the room. Behaviour: `rainworld-re/notes/hud.md`.
@@ -11,6 +11,7 @@ mod controls_page;
 mod food_meter;
 mod karma_meter;
 mod map;
+mod pause_menu;
 mod rain_meter;
 mod text_prompt;
 
@@ -32,6 +33,7 @@ pub use map::{
     ConnectionView, CycleLabel, FadeInMarker, GateData, GateRequirement, Map, MapConnection,
     MapData, MapDataRoom, MapOwner, MarkerKind, ShelterData, SwarmRoomData,
 };
+pub use pause_menu::{PauseButton, PauseGame, PauseMenu, PauseRequest};
 pub use rain_meter::{RainCycleView, RainMeter};
 pub use text_prompt::{InfoId, Message, SubregionTracker, Subregions, TextPrompt};
 
@@ -449,15 +451,15 @@ impl Hud {
     }
 
     /// The owner's `Update` (a room object, run in the room's update): the page's, with
-    /// `want_to_continue` as the start-up script last set it. Drops the page once it
-    /// shut down.
-    pub fn update_controls_page(&mut self, want_to_continue: bool) {
+    /// `want_to_continue` as the start-up script last set it and `pause_menu` whether
+    /// the game's pause menu is open. Drops the page once it shut down.
+    pub fn update_controls_page(&mut self, want_to_continue: bool, pause_menu: bool) {
         let map_fade = self.map.fade;
         let Some(page) = &mut self.controls_page else {
             return;
         };
         page.want_to_continue |= want_to_continue;
-        page.update(&mut self.stage, map_fade);
+        page.update(&mut self.stage, map_fade, pause_menu);
         if page.done {
             self.controls_page = None;
         }

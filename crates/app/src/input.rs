@@ -63,7 +63,6 @@ pub enum Command {
     ToggleView,
     ToggleGrid,
     Screenshot,
-    Quit,
 }
 
 impl Action {
@@ -107,7 +106,7 @@ impl Action {
 
 impl Command {
     /// R respawns, V switches level graphic / debug view, G toggles the tile grid,
-    /// F12 saves a screenshot, Esc quits (in the game only; there is no pause menu yet).
+    /// F12 saves a screenshot. Esc is the game's pause button.
     #[must_use]
     pub fn from_key(key: KeyCode) -> Option<Self> {
         Some(match key {
@@ -115,7 +114,6 @@ impl Command {
             KeyCode::KeyV => Command::ToggleView,
             KeyCode::KeyG => Command::ToggleGrid,
             KeyCode::F12 => Command::Screenshot,
-            KeyCode::Escape => Command::Quit,
             _ => return None,
         })
     }
@@ -275,7 +273,7 @@ mod tests {
         assert_eq!(Command::from_key(KeyCode::KeyR), Some(Command::Respawn));
         assert_eq!(Command::from_key(KeyCode::KeyG), Some(Command::ToggleGrid));
         assert_eq!(Command::from_key(KeyCode::F12), Some(Command::Screenshot));
-        assert_eq!(Command::from_key(KeyCode::Escape), Some(Command::Quit));
+        assert_eq!(Command::from_key(KeyCode::Escape), None);
         assert_eq!(Command::from_key(KeyCode::Space), None);
     }
 

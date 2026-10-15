@@ -385,22 +385,22 @@ fn controls_page_fades_in_and_out() {
     );
     // `blackFade = Min(1, blackFade + 0.0625)` a tick: 16 ticks.
     for i in 1..=16 {
-        rig.hud.update_controls_page(false);
+        rig.hud.update_controls_page(false, false);
         let page = rig.hud.controls_page.as_ref().unwrap();
         assert_eq!(page.counter, i);
         assert_eq!(page.black_fade, 0.0625 * i as f32);
         // `ControlMap`: fade = blackFade * (1 - map.fade).
         assert_eq!(page.control_map.fade, page.black_fade);
     }
-    rig.hud.update_controls_page(false);
+    rig.hud.update_controls_page(false, false);
     assert_eq!(rig.hud.controls_page.as_ref().unwrap().black_fade, 1.0);
     // `wantToContinue`: Max(0, blackFade - 0.125) a tick, then `ShutDownProcess`.
     for i in 1..8 {
-        rig.hud.update_controls_page(true);
+        rig.hud.update_controls_page(true, false);
         let page = rig.hud.controls_page.as_ref().unwrap();
         assert_eq!(page.black_fade, 1.0 - 0.125 * i as f32);
     }
-    rig.hud.update_controls_page(false);
+    rig.hud.update_controls_page(false, false);
     assert!(rig.hud.controls_page.is_none());
 }
 

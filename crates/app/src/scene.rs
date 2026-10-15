@@ -8,6 +8,7 @@ use rw_assets::{StreamingAssets, UnityResources};
 use rw_graphics::{DrawList, Layer};
 use rw_hud::{Hud, IllustrationSource, PageText};
 use rw_menu::{AtlasManager, Font, MenuShared};
+use rw_random::UnityRandom;
 use rw_render::{
     Camera, LevelView, Renderer, RoomCamera, RoomLayers, StageBatch, WaterFrame, WaterSprites,
     WaterSurface,
@@ -45,6 +46,12 @@ pub struct Scene {
     entered_room: bool,
     /// Camera 0's HUD, once fired up.
     hud: Option<Hud>,
+    /// The time stacker and cosmetic stream of the last frame drawn unpaused: while the
+    /// game is paused nothing in the room redraws (`PausedDrawUpdate`), so frames repeat
+    /// that one.
+    last_unpaused_frame: Option<(f32, UnityRandom)>,
+    /// `GamePaused`: the room's frame repeats the last unpaused one.
+    pub paused: bool,
 }
 
 /// What a room's level graphic is loaded from.
@@ -99,6 +106,8 @@ impl Scene {
             water_sprites: None,
             entered_room: false,
             hud: None,
+            last_unpaused_frame: None,
+            paused: false,
         };
         scene.load_visuals();
         scene.apply_camera_move();
@@ -197,14 +206,46 @@ impl Scene {
     /// room camera's move; returns the sound events since the last tick. Without
     /// `shared` (fonts, atlases, strings) there is no HUD.
     pub fn tick(&mut self, input: Input, shared: Option<&mut MenuShared>) -> Vec<SoundEvent> {
+        match shared {
+            Some(shared) => {
+                self.update_cameras(shared);
+                self.update_rooms(input, shared, false)
+            }
+            None => {
+                self.set_camera_view();
+                self.game.tick(input);
+                self.after_game_tick()
+            }
+        }
+    }
+
+    fn set_camera_view(&mut self) {
         self.game
             .sim_mut()
             .set_camera_view(self.camera.current(), self.camera.most_likely_next());
-        let Some(shared) = shared else {
-            self.game.tick(input);
-            return self.after_game_tick();
-        };
-        self.update_hud(shared);
+    }
+
+    /// The unpaused tick's `cameras[i].Update()`: the HUD.
+    pub fn update_cameras(&mut self, shared: &mut MenuShared) {
+        self.set_camera_view();
+        self.update_hud(shared, false);
+    }
+
+    /// A paused tick (`RainWorldGame.Update` with `GamePaused`): only the HUD updates;
+    /// the rooms' `PausedUpdate` does nothing for anything ported.
+    pub fn paused_tick(&mut self, shared: &mut MenuShared) {
+        self.update_hud(shared, true);
+    }
+
+    /// The rest of an unpaused tick after the cameras: the game, the controls page (a
+    /// room object; `pause_menu` whether the pause menu opened this tick), then the room
+    /// camera's move; returns the sound events since the last tick.
+    pub fn update_rooms(
+        &mut self,
+        input: Input,
+        shared: &mut MenuShared,
+        pause_menu: bool,
+    ) -> Vec<SoundEvent> {
         let script = self.game.start_up_script();
         let showed_controls = script.is_some_and(|s| s.showed_controls());
         let continue_page = script.is_some_and(|s| s.controls_page_continue());
@@ -218,7 +259,7 @@ impl Scene {
         self.game.tick(input);
         self.apply_hud_events(shared);
         if let Some(hud) = &mut self.hud {
-            hud.update_controls_page(continue_page);
+            hud.update_controls_page(continue_page, pause_menu);
             if !showed_controls
                 && self
                     .game
@@ -232,10 +273,11 @@ impl Scene {
     }
 
     /// `RoomCamera.Update`'s HUD step: update it, or fire it up once the player is
-    /// realized.
-    fn update_hud(&mut self, shared: &mut MenuShared) {
+    /// realized. `paused`: the pause menu is open.
+    fn update_hud(&mut self, shared: &mut MenuShared, paused: bool) {
         match &mut self.hud {
             Some(hud) => {
+                hud.text_prompt.pause_menu = paused;
                 let owner = self.game.hud_owner();
                 let map_button = self.game.map_button();
                 let rain = self.game.rain_view();
@@ -253,6 +295,9 @@ impl Scene {
             None if self.game.hud_due() => {
                 let mut setup = self.game.hud_setup(shared.screen_size);
                 setup.map = self.game.map_data(&shared.assets);
+                if let Some(map) = &setup.map {
+                    self.game.load_map_texture(&mut shared.saves, &map.region);
+                }
                 setup.cycle_label = self.game.map_cycle_label(&shared.translator);
                 self.hud = Some(Hud::new(setup, &mut shared.atlases));
                 log::info!("HUD fired up");
@@ -353,6 +398,7 @@ impl Scene {
         view: SceneView,
     ) {
         target.sync(self);
+        let alpha = self.frame_alpha(alpha);
         // A frozen body is drawn where it stopped, not between its last two ticks.
         let alpha = if self.game.player_dead() { 1.0 } else { alpha };
         // The slugcat's sprites, eyes in the palette's black. Built every frame, as the
@@ -445,6 +491,22 @@ impl Scene {
 }
 
 impl Scene {
+    /// The time stacker to draw at: `alpha`, or while paused the last unpaused frame's,
+    /// with the cosmetic stream as it was then so the frame repeats.
+    fn frame_alpha(&mut self, alpha: f32) -> f32 {
+        match (&self.last_unpaused_frame, self.paused) {
+            (Some((last, rng)), true) => {
+                let last = *last;
+                self.game.set_cosmetic_rng(rng.clone());
+                last
+            }
+            _ => {
+                self.last_unpaused_frame = Some((alpha, self.game.cosmetic_rng().clone()));
+                alpha
+            }
+        }
+    }
+
     /// `Water.DrawSprites` for the level view `view`; returns `_waterDepth`.
     fn draw_water_sprites(
         &mut self,

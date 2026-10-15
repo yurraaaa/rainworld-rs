@@ -147,8 +147,10 @@ before the user agrees.
     looker), holds, throws, carries them through pipes and eats them
     (bites, drips, food and the food meter), under the tutorial's Eat
     instruction in SU_A42; fed, the guide moves on to SU_A43's super-jump
-    lesson. Gates, region changes,
-    the rain and saves are not there yet.
+    lesson. Saves (`rw-save`, D16): Continue from the slugcat select, New
+    Game's wipe and the start's death-and-quit save; shelters, hibernation
+    and whole save states are not written yet. Gates, region changes and
+    the rain are not there yet.
   - Death freezes the body until R respawns it (revisit once the real
     game loop exists). A body that falls out of the room is destroyed,
     as in the game.
@@ -184,7 +186,7 @@ registered in `.mcp.json` as `rainworld-rs` (it runs `cargo run --release`,
 so it serves the checkout's current code). Tools: `list_rooms`,
 `load_room`, `new_game`, `step`, `step_sequence`, `respawn`, `set_player`,
 `get_state`, `get_exits`, `get_tiles`, `get_hud`, `hud_message`,
-`screenshot`, `load_process`, `step_process`.
+`screenshot`, `load_process`, `step_process`, `import_save`.
 
 - Headless and deterministic: the sim advances only in `step` /
   `step_sequence` (40 ticks per second); the same start, seed and inputs
@@ -230,9 +232,19 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   to go straight to the game), then a new Survivor game at `SU_C04`, black
   for 3 s while the start script holds the slugcat. Music runs silently
   (`TimedSources`), so runs stay deterministic; the slideshow follows its
-  ticks. `step_process` reports the slideshow's clock and scene; in
+  ticks. `step_process` reports the slideshow's clock and scene and, in
+  the game, the pause menu (Escape opens it; its buttons, selection and
+  fade); `get_hud` reads the game process's HUD; in
   game mode `get_state` reports the fade delay, the SU_C04 start script
   and the player's controller. `screenshot` then draws the process frame with its fade.
+- Saves: `import_save` copies one of the game's slots (`slot` 0-2,
+  `game_saves` to override where) into the port's save directory
+  (`--save-dir`, default the platform data dir; tests use temporary
+  directories, never the real ones), backing up the port's copy;
+  `load_process`'s menus read slot 0, so START on a saved page continues
+  (`step_process` reports `save`: saved campaigns and the current save
+  state, and `story`: the running game's den, cycle, karma, room and food);
+  the pause menu's Exit saves (a death after 30 s, a quit after 5).
 - `--mcp --window` also shows the driven scene in a window.
 - End of the project: a review of code cleanliness and quality across the
   workspace, then an optimisation pass, once the whole game is ported

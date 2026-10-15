@@ -51,6 +51,10 @@ pub struct Microphone {
     in_world_volume: f32,
     /// `soundLoader.volumeExponent`.
     exponent: f32,
+    /// What the pause menu scales every volume group but 1 by (`1 - blackFade / 2`).
+    pub pause_volume: f32,
+    /// The `timeSpeed` of `DrawUpdate`: 1, or `1 - 0.3 blackFade` under the pause menu.
+    pub time_speed: f32,
 }
 
 impl Microphone {
@@ -74,6 +78,8 @@ impl Microphone {
             doppler_block: 0.0,
             in_world_volume: 0.0,
             exponent,
+            pause_volume: 1.0,
+            time_speed: 1.0,
         }
     }
 
@@ -123,11 +129,12 @@ impl Microphone {
         self.last_listener.lerp(self.listener, time_stacker)
     }
 
-    /// `volumeGroups`: [0] everything, [2] ambience (also [0]), [3] the rain loops.
+    /// `volumeGroups`: [0] everything, [1] menu sounds, [2] ambience (also [0]), [3]
+    /// the rain loops.
     #[must_use]
     pub fn volume_groups(&self) -> [f32; Self::GROUPS] {
-        let v = self.in_world_volume;
-        [v, 1.0, v, v, 1.0]
+        let v = self.in_world_volume * self.pause_volume;
+        [v, 1.0, v, v, self.pause_volume]
     }
 
     /// `PanFromPoint`: -1 at 1000 px left of the listener, 1 at 1000 px right.
