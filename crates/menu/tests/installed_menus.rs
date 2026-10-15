@@ -392,12 +392,15 @@ fn story_goes_to_slugcat_select_keeping_the_loop() {
     assert_eq!(h.selected(), Some(h.select().screen().start_button));
 }
 
-fn to_slugcat_select() -> Option<Harness> {
-    let mut h = Harness::boot()?;
-    h.tap(KeyboardKey::Z);
-    h.settle();
-    assert_eq!(h.id(), Some(ProcessId::SlugcatSelect));
-    Some(h)
+impl Harness {
+    /// Boots and presses STORY.
+    fn to_slugcat_select() -> Option<Self> {
+        let mut h = Self::boot()?;
+        h.tap(KeyboardKey::Z);
+        h.settle();
+        assert_eq!(h.id(), Some(ProcessId::SlugcatSelect));
+        Some(h)
+    }
 }
 
 /// `SlugcatSelectMenu` constructor (554724) and `SlugcatPageNewGame` (554172): pages
@@ -407,7 +410,9 @@ fn to_slugcat_select() -> Option<Harness> {
 /// 175 (400 x 60), the Hunter's very dark grey while locked.
 #[test]
 fn slugcat_select_layout() {
-    let Some(h) = to_slugcat_select() else { return };
+    let Some(h) = Harness::to_slugcat_select() else {
+        return;
+    };
     let s = h.select().screen();
     let menu = h.select().menu();
     let order: Vec<Slugcat> = s.pages.iter().map(|p| p.slugcat).collect();
@@ -445,7 +450,7 @@ fn slugcat_select_layout() {
 /// Survivor game (`StartGame`, 555445).
 #[test]
 fn hold_start_fills_then_starts_a_new_game() {
-    let Some(mut h) = to_slugcat_select() else {
+    let Some(mut h) = Harness::to_slugcat_select() else {
         return;
     };
     let start = h.select().screen().start_button;
@@ -493,7 +498,7 @@ fn hold_start_fills_then_starts_a_new_game() {
 /// and on the locked Hunter.
 #[test]
 fn next_scrolls_to_the_hunter() {
-    let Some(mut h) = to_slugcat_select() else {
+    let Some(mut h) = Harness::to_slugcat_select() else {
         return;
     };
     let s = h.select().screen().clone();
@@ -562,7 +567,7 @@ fn next_scrolls_to_the_hunter() {
 /// `MENU_Switch_Page_Out` (UIMetalHit/vol=0.3).
 #[test]
 fn escape_goes_back_to_the_main_menu() {
-    let Some(mut h) = to_slugcat_select() else {
+    let Some(mut h) = Harness::to_slugcat_select() else {
         return;
     };
     let from = h.ctx.frame + 1;
