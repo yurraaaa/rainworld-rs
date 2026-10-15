@@ -65,10 +65,11 @@ fn noise(uv: vec2<f32>) -> f32 {
     return textureSampleLevel(noise_tex, noise_sampler, uv, 0.0).r;
 }
 
-// Level texture coordinate of the screen pixel at `stage` (`_spriteRect` mapping:
-// the image sits at `image - camera`, shifted by (-0.5, +0.5) px).
+// Level texture coordinate of the screen pixel at `stage`: the level texel shown there
+// (`_spriteRect` at `image - camera`, its (-0.5, +0.5) shift made (-0.5, -0.5) for the
+// port's camera without `screenPixelOffset`, as in `RoomGlobals::new`).
 fn level_coord(stage: vec2<f32>) -> vec2<f32> {
-    let image_stage = water.image.xy - water.stage.xy + vec2(-0.5, 0.5);
+    let image_stage = water.image.xy - water.stage.xy + vec2(-0.5, -0.5);
     return (floor(stage) - image_stage) / water.image.zw;
 }
 

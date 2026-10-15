@@ -312,13 +312,19 @@ impl SpriteAtlas {
 
 impl RoomGlobals {
     /// The globals while the level image sits at room rect `image` (position, size) and
-    /// the game's window is `view` (`_spriteRect`: decompile 130393, the image's offset
-    /// from the window shifted by (-0.5, +0.5) px, over the screen size).
+    /// the game's window is `view`. `_spriteRect` (decompile 130393) is the image's
+    /// offset from the window shifted by (-0.5, +0.5) px: the image's rect on screen in
+    /// the D3D build, whose camera sits at Futile's `screenPixelOffset` (screen = stage +
+    /// (-0.5, +0.5)), so `floor(screen pixel)` reads the level texel shown at that
+    /// pixel. The port draws without that offset (screen = stage), so the same read
+    /// needs the rect shifted by (-0.5, -0.5): with the game's (+0.5) y a sprite would
+    /// test its depth against the row below the one shown (a missing bottom row where
+    /// nearer terrain lies just below, as on the shelter door's piston tips).
     #[must_use]
     pub fn new(view: &LevelView, image: [f32; 4]) -> Self {
         let [sw, sh] = view.size;
         let x = image[0] - view.origin[0] - 0.5;
-        let y = image[1] - view.origin[1] + 0.5;
+        let y = image[1] - view.origin[1] - 0.5;
         Self {
             sprite_rect: [x / sw, y / sh, (x + image[2]) / sw, (y + image[3]) / sh],
             screen_size: view.size,
