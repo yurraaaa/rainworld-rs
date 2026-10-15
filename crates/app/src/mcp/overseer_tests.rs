@@ -95,6 +95,38 @@ fn dump_overseer_trace() {
     std::fs::write(path, serde_json::to_string_pretty(&input).expect("json")).expect("write");
 }
 
+/// Screenshots of the traced run at a few ticks with the guide on screen, written to
+/// `OVERSEER_SHOTS=<dir>` (`guide_<tick>.png`, and `_lens`/`_crop` variants zoomed in).
+#[test]
+#[ignore = "writes screenshots; run with OVERSEER_SHOTS=<dir>"]
+fn overseer_screenshots() {
+    let Some(dir) = std::env::var_os("OVERSEER_SHOTS") else {
+        return;
+    };
+    let Some(mut s) = Session::new_survivor(1) else {
+        return;
+    };
+    let shots = [2, 300, 840, 900, 1000, 1100, 1200, 1260, 1380, 1400, 1420];
+    for tick in 0..=1420 {
+        s.tick_with(Session::trace_input(tick));
+        if shots.contains(&tick) {
+            for (suffix, crop) in [("", None), ("_crop", Some(200.0))] {
+                let path = std::path::Path::new(&dir).join(format!("guide_{tick}{suffix}.png"));
+                let params = super::params::ScreenshotParams {
+                    crop_radius: crop,
+                    scale: crop.map(|_| 2.0),
+                    save_path: Some(path.to_string_lossy().into_owned()),
+                    ..super::params::ScreenshotParams::default()
+                };
+                if let Err(e) = s.screenshot(&params) {
+                    eprintln!("no screenshot on tick {tick}: {e}");
+                    return;
+                }
+            }
+        }
+    }
+}
+
 /// The guide in SU_C04 from its placement to its zip out after the player, against the
 /// reference model's output for the same inputs (`tests/data/overseer_su_c04_model.json`,
 /// see `rainworld-re/notes/overseer.md`): the random stream after placement and after
