@@ -32,7 +32,7 @@ impl RainWorldGame {
 
     /// `playerState.foodInStomach`.
     #[must_use]
-    pub fn food_in_stomach(&self) -> i32 {
+    pub fn food_in_stomach(&self) -> u32 {
         self.world.creature(self.player_id).state.food_in_stomach
     }
 
@@ -45,30 +45,30 @@ impl RainWorldGame {
             .quarter_food_points
     }
 
-    /// `MaxFoodInStomach` (no Red's illness in a new game's first cycle).
+    /// `MaxFoodInStomach` (no Red's illness in the base game's story sessions).
     #[must_use]
-    pub fn max_food(&self) -> i32 {
-        self.campaign.stats.max_food
+    pub fn max_food(&self) -> u32 {
+        self.campaign.stats.max_food.unsigned_abs()
     }
 
     /// Sets the food in the player's stomach and clears the quarter points (a dev tool).
-    pub fn set_food_in_stomach(&mut self, food: i32) {
+    pub fn set_food_in_stomach(&mut self, food: u32) {
         let max = self.max_food();
         let state = &mut self.world.creature_mut(self.player_id).state;
-        state.food_in_stomach = food.clamp(0, max);
+        state.food_in_stomach = food.min(max);
         state.quarter_food_points = 0;
     }
 
-    /// `Player.AddFood` (no Red's illness, never malnourished in a new game).
-    fn add_food(&mut self, add: i32) {
+    /// `Player.AddFood` (no Red's illness; the base game only adds).
+    fn add_food(&mut self, add: u32) {
         let max = self.max_food();
         let state = &mut self.world.creature_mut(self.player_id).state;
-        let add = add.min(max - state.food_in_stomach);
+        let add = add.min(max.saturating_sub(state.food_in_stomach));
         state.food_in_stomach += add;
         if state.food_in_stomach >= max {
             state.quarter_food_points = 0;
         }
-        self.session_food += add;
+        self.session_food += add.cast_signed();
     }
 
     /// `Player.AddQuarterFood`.
@@ -938,3 +938,7 @@ impl RainWorldGame {
         objects.into_iter().map(|(_, id)| id).collect()
     }
 }
+
+#[cfg(test)]
+#[path = "game_player_tests.rs"]
+mod tests;

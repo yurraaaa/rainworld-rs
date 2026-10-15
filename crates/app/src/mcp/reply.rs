@@ -212,9 +212,9 @@ pub struct PlayerState {
     /// `controller` replacing the keys ("Null"), if set.
     pub controller: Option<String>,
     /// `playerState.foodInStomach` and `quarterFoodPoints`.
-    pub food: i32,
+    pub food: u32,
     pub quarter_food: i32,
-    pub max_food: i32,
+    pub max_food: u32,
     /// The creature IDs held in each hand.
     pub grasps: [Option<usize>; 2],
     pub eat_counter: i32,
@@ -410,7 +410,7 @@ pub struct StoryInfo {
     pub karma_cap: i32,
     pub player_room: Option<String>,
     pub player_tile: Option<[i32; 2]>,
-    pub food_in_stomach: i32,
+    pub food_in_stomach: u32,
 }
 
 /// What `import_save` did.

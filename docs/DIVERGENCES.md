@@ -1090,8 +1090,9 @@ Differences:
   base `INTEGERS` it resets cleared; the DLCs' integer lists (`INTEGERSMMF`, ...) are
   kept as read. There is no `SJ_<slot>` folder to delete.
 - **Starving and dying.** The starve and death screens follow (D13).
-  `GoToStarveScreen` and `GoToDeathScreen` run `SessionEnded(survived: false)`
-  and its death save (D17), with the game-over prompt's death room and position (room
+  `GoToStarveScreen` (a door closing on less than one pip, or on less than a full meter
+  in a malnourished cycle; D17) and `GoToDeathScreen` run `SessionEnded(survived: false)`
+  and its death save, with the game-over prompt's death room and position (room
   0 and (0, 0) on a starve, as in the game). `GoToDeathScreen` comes from the game-over
   prompt's map press (D15) or a shelter door closing on a dead slugcat. The save's
   `FLOWERPOS` is written from `PlaceKarmaFlowerOnDeathSpot` (D17).
@@ -1129,8 +1130,13 @@ Differences:
   frames, then starts the next cycle as the sleep screen's continue does
   (`StoryGameInitCondition.Load`). The Moon and Pebbles event dreams are not ported (no
   iterators).
-- **Starving.** A door closing on too little food saves the cycle as a death
-  (`SessionEnded(survived: false)`, D16) and shows the starve screen (D13).
+- **Starving.** As in the game, when the closing door passes `closedFac` 0.4 with
+  `FoodInRoom < (saveState.malnourished ? maxFood : 1)`, the slugcat starves: a death
+  (`GoToStarveScreen`, `SessionEnded(survived: false)`, D16) and the starve screen
+  (D13). Otherwise the closed door calls `Win(FoodInRoom < foodToHibernate)`: with
+  some food but less than `foodToHibernate` that is a malnourished survival, saved as
+  the game does (only the progression and death-persistent data reach the disk; the
+  new state stays in memory as the starved state) and the next cycle is malnourished.
 - **Karma flowers.** The player's `karmaFlowerGrowPos` is tracked as `Player.Update`
   does (`PlaceKarmaFlower`: reinforced karma, the Monk, the Hunter out of cycles), and
   `PlaceKarmaFlowerOnDeathSpot` stores it in the save state's `karmaFlowerPosition`

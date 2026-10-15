@@ -344,8 +344,9 @@ impl RainWorldGame {
             &mut rng,
         );
         player.pos.tile = start.tile.unwrap_or(crate::campaign::DEFAULT_PLAYER_TILE);
-        // `LoadInitCondition`: the saved food, a pip at a time into the one stomach.
-        player.state.food_in_stomach = story.food;
+        // `LoadInitCondition`: the saved food, a pip at a time into the one stomach while
+        // it is above 0, so a malnourished `Win`'s negative food starts at 0.
+        player.state.food_in_stomach = u32::try_from(story.food).unwrap_or(0);
         let player_id = world.insert_creature(player);
         world.add_entity(player_id);
         let realizer = (!world.single_room()).then(RoomRealizer::new);
@@ -1142,7 +1143,7 @@ impl RainWorldGame {
             hips: chunks[1].pos,
             dead: p.is_dead(),
             conscious: !p.is_dead() && !p.is_stunned(),
-            food: self.food_in_stomach(),
+            food: self.food_in_stomach().cast_signed(),
             jump: [inputs[0].jump, inputs[1].jump],
             entering_shortcut: p.entering_shortcut(),
             in_shortcut: p.in_shortcut(),

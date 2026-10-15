@@ -488,16 +488,17 @@ impl Game {
     }
 
     /// What `InitSinglePlayerHud` and `FireUpSinglePlayerHUD` read: the slugcat's food
-    /// meter, the save state's karma and cycle, and the world's rain cycle.
+    /// meter (its `slugcatStats`, malnourished in a malnourished cycle), the save state's
+    /// karma and cycle, and the world's rain cycle.
     #[must_use]
     pub fn hud_setup(&self, screen_size: [f32; 2]) -> HudSetup {
-        let campaign = self.sim.campaign();
+        let stats = self.sim.character_stats();
         let world = self.sim.world();
         HudSetup {
             screen_size,
-            max_food: campaign.stats.max_food,
-            food_to_hibernate: campaign.stats.food_to_hibernate,
-            current_food: self.sim.food_in_stomach(),
+            max_food: stats.max_food,
+            food_to_hibernate: stats.food_to_hibernate,
+            current_food: self.sim.food_in_stomach().cast_signed(),
             karma: self.sim.story().karma,
             karma_cap: self.sim.story().karma_cap,
             karma_reinforced: self.sim.story().karma_reinforced,
@@ -527,7 +528,7 @@ impl Game {
         let shelter = room.is_some_and(AbstractRoomData::shelter);
         OwnerTick {
             reveal_map: input.map,
-            current_food: self.sim.food_in_stomach(),
+            current_food: self.sim.food_in_stomach().cast_signed(),
             quarter_food_points: self.sim.quarter_food_points(),
             room: room.map(|r| r.name.clone()),
             // Broken shelters are not read: every shelter is intact.
@@ -1002,7 +1003,7 @@ impl Game {
         self.sim.set_player(pos, vel, &mut self.graphics);
     }
 
-    pub fn set_food_in_stomach(&mut self, food: i32) {
+    pub fn set_food_in_stomach(&mut self, food: u32) {
         self.sim.set_food_in_stomach(food);
     }
 }

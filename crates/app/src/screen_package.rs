@@ -41,8 +41,8 @@ impl Game {
                 food_in_stomach: h.text_prompt.food_in_stomach,
             }),
             slugcat: campaign.name,
-            max_food: campaign.stats.max_food,
-            food_to_hibernate: campaign.stats.food_to_hibernate,
+            max_food: sim.character_stats().max_food,
+            food_to_hibernate: sim.character_stats().food_to_hibernate,
             session_record: sim.session_record(),
             discovery: sim.map_discovery().clone(),
         };

@@ -179,8 +179,9 @@ pub struct CreatureState {
     pub kind: StateKind,
     pub alive: bool,
     pub health: f32,
-    /// `PlayerState.foodInStomach` (0 for other states).
-    pub food_in_stomach: i32,
+    /// `PlayerState.foodInStomach` (0 for other states); the base game never takes it
+    /// below 0.
+    pub food_in_stomach: u32,
     /// `PlayerState.quarterFoodPoints`.
     pub quarter_food_points: i32,
 }

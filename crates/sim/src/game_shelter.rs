@@ -105,7 +105,7 @@ impl RainWorldGame {
     }
 
     fn shelter_check(&self, index: i32) -> ShelterCheck {
-        let stats = self.player_stats();
+        let stats = self.character_stats();
         let rain = &self.world.rain_cycle;
         let pos = self.pos();
         let entrance = self
@@ -128,8 +128,10 @@ impl RainWorldGame {
         }
     }
 
-    /// The slugcat's `slugcatStats` (its malnourished variant when malnourished).
-    fn player_stats(&self) -> crate::campaign::SlugcatStats {
+    /// `session.characterStats`, the slugcat's `slugcatStats` (its malnourished variant
+    /// in a malnourished cycle).
+    #[must_use]
+    pub fn character_stats(&self) -> crate::campaign::SlugcatStats {
         if self.story.malnourished {
             self.campaign.stats.malnourished()
         } else {
@@ -170,7 +172,7 @@ impl RainWorldGame {
         if step.closed {
             self.door_closed(index);
         }
-        let stats = self.player_stats();
+        let stats = self.character_stats();
         let player_realized = self.player.is_some();
         if step.sleep_when_still
             && player_realized
@@ -254,7 +256,7 @@ impl RainWorldGame {
         let end = if alive {
             let food = self.food_in_room_count(index);
             SessionEnd::Win {
-                malnourished: food < self.player_stats().food_to_hibernate,
+                malnourished: food < self.character_stats().food_to_hibernate,
             }
         } else {
             SessionEnd::Death
@@ -300,8 +302,9 @@ impl RainWorldGame {
         eat: bool,
         eaten: &mut Vec<(CreatureId, Option<usize>)>,
     ) -> i32 {
-        let stomach = self.food_in_stomach();
-        if self.campaign.name == SlugcatName::Red || stomach >= self.max_food() {
+        let stomach = self.food_in_stomach().cast_signed();
+        let max_food = self.max_food().cast_signed();
+        if self.campaign.name == SlugcatName::Red || stomach >= max_food {
             return stomach;
         }
         let mut food = stomach;
@@ -317,11 +320,11 @@ impl RainWorldGame {
                 quarters -= 4;
             }
             eaten.push((fly, Some(i)));
-            if food >= self.max_food() {
+            if food >= max_food {
                 return food;
             }
         }
-        let stats = self.player_stats();
+        let stats = self.character_stats();
         if food >= stats.food_to_hibernate {
             return food;
         }
