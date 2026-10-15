@@ -42,8 +42,20 @@ struct Rig {
 
 impl Rig {
     fn new(karma: (i32, i32), reinforced: bool) -> Self {
+        Self::with_win_state(karma, reinforced, None)
+    }
+
+    /// A ladder with the meters of `win_state` (a `WINSTATE` value).
+    fn with_win_state(karma: (i32, i32), reinforced: bool, win_state: Option<&str>) -> Self {
         let mut stage = StageTree::new();
         let containers = [0, 1, 2].map(|_| stage.add_container(StageTree::ROOT));
+        let trackers = win_state.map(|w| rw_save::win_state::WinState::from_string(w).trackers);
+        let translator = rw_menu::Translator::default();
+        let source = trackers.as_ref().map(|trackers| MeterSource {
+            trackers,
+            font: None,
+            translator: &translator,
+        });
         let ladder = KarmaLadder::new(
             &mut stage,
             containers,
@@ -51,6 +63,7 @@ impl Rig {
             karma,
             reinforced,
             1366.0,
+            source.as_ref(),
         );
         Self {
             ladder,
@@ -348,19 +361,27 @@ fn meters_sit_on_two_arcs() {
     assert_eq!(KarmaLadder::endgame_meter_positions(0), []);
 }
 
+/// Survivor 3 shows (showFrom 0), Hunter 2 does not (showFrom 2), Chieftain 0.05 does.
+const WIN_STATE: &str =
+    "Survivor<egA>0<egA>3<wsA>Hunter<egA>0<egA>2<wsA>Chieftain<egA>0<egA>0.05<wsA>";
+
+#[test]
+fn meters_for_the_trackers_with_progress_to_show() {
+    let rig = Rig::with_win_state((2, 5), false, Some(WIN_STATE));
+    let ids: Vec<&str> = rig
+        .ladder
+        .meters
+        .iter()
+        .map(|m| m.tracker.id.value())
+        .collect();
+    assert_eq!(ids, ["Survivor", "Chieftain"]);
+    let at: Vec<Vec2> = rig.ladder.meters.iter().map(|m| m.pos).collect();
+    assert_eq!(at, KarmaLadder::endgame_meter_positions(2));
+}
+
 #[test]
 fn the_power_on_draws_two_for_each_meter() {
-    let mut rig = Rig::new((2, 5), false);
-    let meter = LadderMeter {
-        powered_on: false,
-        flicker_counter: 0,
-        meter_animation: 0.0,
-        energy: 0.0,
-        show_as_fulfilled: 0.0,
-        any_change: false,
-        change_sound: None,
-    };
-    rig.ladder.meters = vec![meter.clone(), meter];
+    let mut rig = Rig::with_win_state((2, 5), false, Some(WIN_STATE));
     rig.ladder.show_end_game_meters_counter = 81;
     rig.ladder.update_meter_counters(&mut rig.env.io());
     assert_eq!(rig.env.draws(), 4);
@@ -371,6 +392,41 @@ fn the_power_on_draws_two_for_each_meter() {
             .iter()
             .all(|m| (12..60).contains(&m.flicker_counter))
     );
+}
+
+#[test]
+fn powered_meters_draw_before_the_symbols() {
+    // Resting at 2 of 5: a draw per symbol; each powered meter, unflickering, adds one.
+    let mut rig = Rig::with_win_state((2, 5), false, Some(WIN_STATE));
+    rig.tick();
+    assert_eq!(rig.env.draws(), 6);
+    for m in &mut rig.ladder.meters {
+        m.powered_on = true;
+    }
+    rig.tick();
+    assert_eq!(rig.env.draws(), 6 + 2 + 6);
+}
+
+#[test]
+fn going_nowhere_animates_each_meter_in_turn() {
+    let mut rig = Rig::with_win_state((2, 5), false, Some(WIN_STATE));
+    rig.ladder.go_to_karma(2, true);
+    // Counter 125: power-on at 80; at 1 (tick 124) the first animation starts the same
+    // tick; without a change to show the next follows a tick later (else 10 + 20 / 2).
+    for _ in 0..123 {
+        rig.tick();
+    }
+    assert_eq!(rig.ladder.next_meter_to_animate, 0);
+    rig.tick();
+    assert_eq!(rig.ladder.next_meter_to_animate, 1);
+    assert_eq!(rig.ladder.meters[0].meter_animation, 0.01);
+    rig.tick();
+    assert_eq!(rig.ladder.next_meter_to_animate, 2);
+    assert!(!rig.ladder.all_animation_done());
+    for _ in 0..400 {
+        rig.tick();
+    }
+    assert!(rig.ladder.all_animation_done());
 }
 
 #[test]

@@ -2,8 +2,7 @@
 //! starve screens build them: the base game's ladder of karma symbols up to the cap,
 //! its phases, sounds, sprites and random draws. The ripple ladder (Watcher), the
 //! ghost screen's cap increase and More Slugcats' vengeance and karma-to-minimum modes
-//! are not ported. The end-game meters are not ported yet: the ladder has none, but
-//! keeps their place in its containers and runs what it does with them.
+//! are not ported. Its end-game meters are [`EndgameMeter`]s.
 
 use std::f32::consts::PI;
 
@@ -15,7 +14,9 @@ use rw_random::UnityRandom;
 use rw_render::StageShader;
 use rw_sim::{FloatExt, Vec2};
 
-use crate::{CustomFloat, CustomVec2, FadeCircle, karma_symbol_sprite};
+use crate::{
+    CustomFloat, CustomVec2, EndgameMeter, FadeCircle, MeterFrame, MeterSource, karma_symbol_sprite,
+};
 
 /// `KarmaLadder.Phase`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -65,22 +66,6 @@ impl LadderPhase {
     }
 }
 
-/// What the ladder reads and sets of an `EndgameMeter` (the meters are not ported yet,
-/// so a ladder has none).
-#[derive(Debug, Clone, PartialEq)]
-pub struct LadderMeter {
-    pub powered_on: bool,
-    pub flicker_counter: i32,
-    pub meter_animation: f32,
-    pub energy: f32,
-    pub show_as_fulfilled: f32,
-    /// `AnyChangeToShow`.
-    pub any_change: bool,
-    /// The sound its animation starts with: a float meter's up or down (none when it
-    /// does not move), else the notch meter's.
-    pub change_sound: Option<MenuSoundId>,
-}
-
 /// Where the ladder makes its sounds, random draws and fade circles.
 pub struct LadderIo<'a> {
     pub stage: &'a mut StageTree,
@@ -94,7 +79,7 @@ pub struct LadderIo<'a> {
 
 impl LadderIo<'_> {
     /// `Menu.PlaySound`.
-    fn play(&mut self, id: MenuSoundId) {
+    pub(crate) fn play(&mut self, id: MenuSoundId) {
         self.mic.play_sound(id, [0.0, 1.0, 1.0], self.rng);
     }
 }
@@ -351,7 +336,8 @@ pub struct KarmaLadder {
     pub meter_container: NodeId,
     sprites: LadderSprites,
     pub symbols: Vec<KarmaSymbol>,
-    pub meters: Vec<LadderMeter>,
+    /// `endGameMeters`.
+    pub meters: Vec<EndgameMeter>,
     pub scroll: f32,
     pub last_scroll: f32,
     pub scroll_vel: f32,
@@ -397,8 +383,9 @@ pub struct KarmaLadder {
 
 impl KarmaLadder {
     /// `new KarmaLadder(menu, owner, pos, hud, displayKarma, reinforced)`: its sprites
-    /// in `containers` (made by the screen's `InitContainers`), a symbol for each karma
-    /// up to the cap, at rest.
+    /// in `containers` (made by the screen's `InitContainers`), the meters of the
+    /// trackers with progress to show (`AddEndgameMeters`, after a death's
+    /// `PlayerDied`), a symbol for each karma up to the cap, at rest.
     #[must_use]
     pub fn new(
         stage: &mut StageTree,
@@ -407,10 +394,25 @@ impl KarmaLadder {
         display_karma: (i32, i32),
         reinforced: bool,
         screen_width: f32,
+        meters: Option<&MeterSource<'_>>,
     ) -> Self {
         let main = containers[1];
         let background_circle = Self::white_sprite(stage, main, StageShader::VectorCircle);
         let meter_container = stage.add_container(main);
+        let meters = meters.map_or_else(Vec::new, |source| {
+            let shown: Vec<_> = source
+                .trackers
+                .iter()
+                .filter(|t| t.any_progress_to_show())
+                .collect();
+            Self::endgame_meter_positions(shown.len())
+                .into_iter()
+                .zip(shown)
+                .map(|(p, t)| {
+                    EndgameMeter::new(stage, [containers[0], meter_container], p, t, source)
+                })
+                .collect()
+        });
         let black_ribbon = stage.add_sprite(main, Sprite::new("pixel"));
         let symbols = (0..=display_karma.1)
             .map(|i| KarmaSymbol::new(stage, main, containers[2], (i, display_karma.1)))
@@ -455,7 +457,7 @@ impl KarmaLadder {
                 local_bloom,
             },
             symbols,
-            meters: Vec::new(),
+            meters,
             scroll: x,
             last_scroll: x,
             scroll_vel: 0.0,
@@ -573,6 +575,9 @@ impl KarmaLadder {
     /// position (`DrawPos(1)` is it plus `pos`); `fade_out_illustration` the screen's,
     /// as of its last tick.
     pub fn update(&mut self, io: &mut LadderIo<'_>, owner_pos: Vec2, fade_out_illustration: f32) {
+        for m in &mut self.meters {
+            m.update(io);
+        }
         let moving_a = self.phase == LadderPhase::MovingA;
         let top = self.symbols.len() as i32 - 2;
         for i in 0..self.symbols.len() {
@@ -674,9 +679,8 @@ impl KarmaLadder {
                 let count = self.meters.len() as i32;
                 let m = &mut self.meters[self.next_meter_to_animate];
                 m.meter_animation = 0.01;
-                if m.any_change {
-                    let sound = m.change_sound;
-                    if let Some(sound) = sound {
+                if m.any_change_to_show() {
+                    if let Some(sound) = m.change_sound() {
                         io.play(sound);
                     }
                     self.end_game_meter_anim_counter = 10 + 20 / count;
@@ -853,7 +857,7 @@ impl KarmaLadder {
     }
 
     /// Tick 6 makes two draws for each other symbol and a third for its neighbours;
-    /// tick 13 one for each meter.
+    /// tick 13 one for each meter, which flickers its energy.
     fn bump(&mut self, io: &mut LadderIo<'_>, draw_pos: Vec2) {
         self.scroll_vel *= 0.4;
         self.scroll = self.scroll.lerp(self.display_karma.0 as f32, 0.2);
@@ -1057,6 +1061,14 @@ impl KarmaLadder {
                 .lerp(self.reinforcement_death, t),
             map_fade,
         };
+        let meter_frame = MeterFrame {
+            ladder: draw_pos,
+            t,
+            map_fade,
+        };
+        for m in &mut self.meters {
+            m.draw(stage, &meter_frame);
+        }
         for s in &mut self.symbols {
             s.draw(stage, &frame, t);
         }

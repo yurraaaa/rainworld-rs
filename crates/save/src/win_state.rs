@@ -67,7 +67,8 @@ impl EndgameId {
     }
 
     /// `CreateAndAddTracker`'s `IntegerTracker` max, for the integer trackers (min 0).
-    fn integer_max(self) -> Option<i32> {
+    #[must_use]
+    pub fn integer_max(self) -> Option<i32> {
         match self {
             Self::Survivor => Some(5),
             Self::Hunter | Self::Saint | Self::Monk => Some(12),
@@ -77,7 +78,8 @@ impl EndgameId {
     }
 
     /// `IntegerTracker.showFrom` (the float trackers' is 0).
-    fn show_from(self) -> i32 {
+    #[must_use]
+    pub fn show_from(self) -> i32 {
         match self {
             Self::Hunter | Self::Saint | Self::Monk | Self::Outlaw => 2,
             _ => 0,
@@ -98,7 +100,24 @@ impl EndgameId {
     }
 
     /// The Scholar's `totItemsToWin`.
-    const LIST_MAX: usize = 3;
+    pub const LIST_MAX: usize = 3;
+
+    /// `PassageDisplayName`.
+    #[must_use]
+    pub fn display_name(self) -> &'static str {
+        match self {
+            Self::Survivor => "The Survivor",
+            Self::Hunter => "The Hunter",
+            Self::Saint => "The Saint",
+            Self::Traveller => "The Wanderer",
+            Self::Chieftain => "The Chieftain",
+            Self::Monk => "The Monk",
+            Self::Outlaw => "The Outlaw",
+            Self::DragonSlayer => "The Dragon Slayer",
+            Self::Scholar => "The Scholar",
+            Self::Friend => "The Friend",
+        }
+    }
 
     /// `DeathModifyTracker`'s base branch: these lose a point on death.
     fn loses_on_death(self) -> bool {

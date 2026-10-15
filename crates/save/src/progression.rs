@@ -203,6 +203,24 @@ impl PlayerProgression {
             .filter(|s| s.save_state_number == slugcat)
     }
 
+    /// [`Self::state_in_memory`], to change.
+    pub fn state_in_memory_mut(&mut self, slugcat: SlugcatName) -> Option<&mut SaveState> {
+        match &mut self.current_save_state {
+            Some(s) => Some(s),
+            None => self.starved_save_state.as_mut(),
+        }
+        .filter(|s| s.save_state_number == slugcat)
+    }
+
+    /// `Revert`: the current state and the map discoveries in memory are dropped (the
+    /// starved state stays), so the next game loads the stored state.
+    pub fn revert(&mut self) {
+        self.current_save_state = None;
+        self.map_discovery.clear();
+        self.map_last_updated.clear();
+        self.temp_shelters_discovered.clear();
+    }
+
     /// `MineForSaveData`'s source: the stored state of `slugcat` read as `LoadGame`
     /// reads it, without making it current.
     ///
@@ -238,9 +256,10 @@ impl PlayerProgression {
         save_as_death_or_quit: bool,
     ) -> Result<&mut SaveState, SaveError> {
         if self.current_save_state.is_none()
-            && let Some(starved) = self.starved_save_state.take()
+            && let Some(mut starved) = self.starved_save_state.take()
         {
             log::info!("loading the starved state");
+            starved.death_persistent.win_state.reset_last_shown_values();
             self.current_save_state = Some(starved);
         }
         let current = self
@@ -513,9 +532,7 @@ impl PlayerProgression {
             text.push_str("<progDivA>");
         }
         self.store(text)?;
-        self.current_save_state = None;
-        self.map_discovery.clear();
-        self.map_last_updated.clear();
+        self.revert();
         Ok(())
     }
 
@@ -699,6 +716,40 @@ mod tests {
         assert_eq!(p.stored_map("SU"), (Some("PNG1".to_owned()), Some(12)));
         let l = lines(&mut p);
         assert!(!l.iter().any(|x| x == "MAPUPDATE<progDivB>SU<progDivB>9"));
+    }
+
+    /// `Revert` (106953) drops the current state and the maps but not the starved
+    /// state, which `GetOrInitiateSaveState` (107047) takes up with its trackers' shown
+    /// values reset.
+    #[test]
+    fn revert_keeps_only_the_starved_state() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut p = progression(dir.path());
+        p.get_or_initiate_save_state(START, 99, true, false)
+            .unwrap();
+        p.map_discovery.push(("SU".to_owned(), "PNG1".to_owned()));
+        let mut starved = p.current_save_state.take().unwrap();
+        starved.death_persistent.win_state =
+            crate::win_state::WinState::from_string("Hunter<egA>0<egA>4<wsA>");
+        if let crate::win_state::Progress::Integer { progress, .. } =
+            &mut starved.death_persistent.win_state.trackers[0].progress
+        {
+            *progress = 6;
+        }
+        p.starved_save_state = Some(starved);
+        p.current_save_state = Some(SaveState::new(SlugcatName::White, 1));
+        p.revert();
+        assert!(p.current_save_state.is_none() && p.map_discovery.is_empty());
+        assert!(p.state_in_memory(SlugcatName::White).is_some());
+        let state = p.get_or_initiate_save_state(START, 1, true, false).unwrap();
+        assert_eq!(
+            state.death_persistent.win_state.trackers[0].progress,
+            crate::win_state::Progress::Integer {
+                progress: 6,
+                last_shown: 6
+            }
+        );
+        assert!(p.starved_save_state.is_none());
     }
 
     #[test]

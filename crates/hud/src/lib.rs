@@ -8,6 +8,8 @@
 
 mod circle;
 mod controls_page;
+mod endgame_meter;
+mod endgame_tokens;
 mod food_meter;
 mod karma_ladder;
 mod karma_meter;
@@ -33,8 +35,10 @@ use rw_sim::{FloatExt, MapDiscovery, SoundId, Sounds, Vec2};
 
 pub use circle::{FADABLE_COLORS, FadeCircle, HudCircle, SnapGraphic};
 pub use controls_page::{ControlMap, ControlsPage, IllustrationSource, PageText};
+pub use endgame_meter::{EndgameMeter, MeterFrame, MeterKind, MeterSource, PearlColor};
+pub use endgame_tokens::{EndgameTokens, Token};
 pub use food_meter::{CIRCLE_DISTANCE, FoodMeter, MeterCircle, ScreenTick};
-pub use karma_ladder::{KarmaLadder, KarmaSymbol, LadderIo, LadderMeter, LadderPhase};
+pub use karma_ladder::{KarmaLadder, KarmaSymbol, LadderIo, LadderPhase};
 pub use karma_meter::{KarmaMeter, karma_symbol_sprite};
 pub use map::{
     ConnectionView, CycleLabel, FadeInMarker, GateData, GateRequirement, Map, MapConnection,
@@ -94,6 +98,8 @@ pub trait CustomVec2 {
     /// first circle's position: the fraction of `vel` the first circle moves before it
     /// touches the second at `other` (NaN when it never does).
     fn circles_collision_time(self, other: Vec2, vel: Vec2, r1: f32, r2: f32) -> f32;
+    /// `Custom.VerticalCrossPoint(self, b, x)`: the line through both at `x`.
+    fn vertical_cross_point(self, b: Vec2, x: f32) -> Vec2;
 }
 
 impl CustomVec2 for Vec2 {
@@ -111,6 +117,14 @@ impl CustomVec2 for Vec2 {
             - 2.0 * r1 * r2
             - r2.mathf_pow(2.0);
         (2.0 * b - ((-2.0 * b).mathf_pow(2.0) - 4.0 * a * c).sqrt()) / (2.0 * a)
+    }
+
+    fn vertical_cross_point(self, b: Vec2, x: f32) -> Vec2 {
+        if self.y == b.y {
+            return Vec2::new(x, self.y);
+        }
+        let slope = (self.y - b.y) / (self.x - b.x);
+        Vec2::new(x, self.y - self.x * slope + slope * x)
     }
 }
 

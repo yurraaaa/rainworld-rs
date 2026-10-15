@@ -350,6 +350,31 @@ pub struct KarmaScreenState {
     pub info: String,
     pub buttons: Vec<String>,
     pub selected: Option<String>,
+    /// The end-game meters, in ladder order.
+    pub meters: Vec<MeterState>,
+    /// The passage tokens: their passage, fade and position on the page.
+    pub tokens: Vec<TokenState>,
+}
+
+/// An `EndgameMeter`.
+#[derive(Debug, Clone, Serialize)]
+pub struct MeterState {
+    pub passage: String,
+    /// `float` or `notch`.
+    pub kind: String,
+    pub powered_on: bool,
+    pub energy: f32,
+    pub meter_animation: f32,
+    pub show_as_fulfilled: f32,
+    pub fulfilled_now: bool,
+}
+
+/// An `EndgameTokens.Token`.
+#[derive(Debug, Clone, Serialize)]
+pub struct TokenState {
+    pub passage: String,
+    pub fade: f32,
+    pub pos: [f32; 2],
 }
 
 /// The menus' save slot.
