@@ -2261,6 +2261,7 @@ dependencies = [
  "rw-assets",
  "rw-audio",
  "rw-graphics",
+ "rw-hud",
  "rw-random",
  "rw-render",
  "rw-save",

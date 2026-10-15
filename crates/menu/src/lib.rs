@@ -1,6 +1,6 @@
 //! The front end: Futile's stage, fonts and labels, menu illustrations, the English
 //! translator, menu input, the menu framework ([`menu`]) with the intro roll, the main
-//! menu, the options menu with its dialogs, the slugcat select menu and the intro slideshows, the menu microphone, the music player's place, and the process manager that switches
+//! menu, the options menu with its dialogs and the intro slideshows, the menu microphone, the music player's place, and the process manager that switches
 //! between the game and the menus behind a fade. Windowing stays in the app; drawing goes through
 //! `rw-render`'s stage. Behaviour: `rainworld-re/notes/menu.md`; differences from the
 //! game are in `docs/DIVERGENCES.md`.
@@ -21,7 +21,6 @@ mod options_menu;
 mod process;
 mod shared;
 mod slideshow;
-mod slugcat_select;
 mod sound;
 mod stage;
 mod translator;
@@ -47,7 +46,6 @@ pub use shared::{
     Dlcs, MenuContext, MenuShared, Progression, ScreenState, Slugcat, StoryGameInitCondition,
 };
 pub use slideshow::{SlideScene, SlideShow, SlideShowId};
-pub use slugcat_select::{SlugcatPage, SlugcatSelectMenu, SlugcatSelectScreen};
 pub use sound::{LoopId, MenuMic, MenuSound, MenuSoundEvent, MenuSoundId, MenuSoundLoop};
 pub use stage::{Container, Node, NodeTransform, Sprite, StageColor, TriangleStrip};
 pub use translator::Translator;

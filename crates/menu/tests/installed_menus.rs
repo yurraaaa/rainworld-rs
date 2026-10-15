@@ -12,11 +12,12 @@ use std::sync::Arc;
 
 use rw_assets::unity::AssetBundle;
 use rw_assets::{SoundTable, StreamingAssets, UnityResources};
+use rw_hud::SlugcatSelectMenu;
 use rw_menu::menu::{Kind, ObjectId, SceneId};
 use rw_menu::{
     Initialization, KeyboardKey, MainLoopProcess, MainMenu, MenuContext, MenuMic, MenuShared,
     MenuSoundEvent, MenuSoundId, ProcessFactory, ProcessId, ProcessManager, ProcessRequests,
-    SlideShowId, Slugcat, SlugcatSelectMenu, StoryGameInitCondition,
+    SlideShowId, Slugcat, StoryGameInitCondition,
 };
 use rw_random::UnityRandom;
 use rw_sim::{FloatExt, Vec2};
@@ -465,13 +466,11 @@ fn slugcat_select_layout() {
     // No save: the restart check box went down to y = -50 on the first update.
     assert_eq!(menu.object(s.restart_checkbox).pos.y, -50.0);
     for p in &s.pages {
-        assert_eq!(
-            menu.object(p.difficulty_label).pos,
-            Vec2::new(-1000.0, 235.0)
-        );
-        assert_eq!(menu.object(p.difficulty_label).size, Vec2::new(200.0, 30.0));
-        assert_eq!(menu.object(p.info_label).pos, Vec2::new(-1000.0, 175.0));
-        assert_eq!(menu.object(p.info_label).size, Vec2::new(400.0, 60.0));
+        let (difficulty_label, info_label) = p.new_game_labels().expect("a new-game page");
+        assert_eq!(menu.object(difficulty_label).pos, Vec2::new(-1000.0, 235.0));
+        assert_eq!(menu.object(difficulty_label).size, Vec2::new(200.0, 30.0));
+        assert_eq!(menu.object(info_label).pos, Vec2::new(-1000.0, 175.0));
+        assert_eq!(menu.object(info_label).size, Vec2::new(400.0, 60.0));
     }
 }
 
@@ -538,9 +537,9 @@ fn next_scrolls_to_the_hunter() {
     let Some(mut h) = Harness::to_slugcat_select() else {
         return;
     };
-    let s = h.select().screen().clone();
+    let next_button = h.select().screen().next_button;
     h.tap(KeyboardKey::RightArrow);
-    assert_eq!(h.selected(), Some(s.next_button));
+    assert_eq!(h.selected(), Some(next_button));
     let from = h.ctx.frame + 1;
     h.tap(KeyboardKey::Z);
     let next: Vec<_> = h
@@ -591,8 +590,8 @@ fn next_scrolls_to_the_hunter() {
         p.graf_update(1.0, &mut h.ctx);
     }
     let menu = h.select().menu();
-    let red = &h.select().screen().pages[2];
-    if let Kind::Label(l) = &menu.object(red.difficulty_label).kind {
+    let (red_name, _) = h.select().screen().pages[2].new_game_labels().unwrap();
+    if let Kind::Label(l) = &menu.object(red_name).kind {
         let label = menu.stage.label(l.label);
         assert_eq!(label.transform.x, 683.01);
         assert_eq!(label.transform.y, 235.0 + 15.0 + 1.0 / 3.0);

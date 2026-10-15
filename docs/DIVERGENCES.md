@@ -720,9 +720,20 @@ real-time audio rather than the sim.
   (`StoryGameInitCondition.Load`: 0.75 s black, then the save state's `SlowFadeIn`) and
   the restart check box rises; checked, START (held 120 ticks, "DELETE SAVE") wipes the
   save (`WipeSaveState`) and starts a new game, which is the game's only confirmation.
-  The pages stay the new-game pages (`SlugcatPageContinue`'s shelter, karma, food and
-  cycle display is not ported), and the Hunter's ended save goes to the unported
-  Statistics screen. The chosen slugcat colours the body's graphics; its body moves as
+  A page with a save is `SlugcatPageContinue` (`rw_hud::SlugcatSelectMenu`,
+  `rainworld-re/notes/menu.md` "Continue pages"): its flat scene (the ghost after
+  ascending, the dead Hunter's once its cycles ran out), the region and cycle label (the
+  Hunter's cycles left) and its HUD's karma meter and food meter, placed and faded as
+  the game does; with a single save its page opens first. `MineForSaveData` reads the
+  current save state, else mines the stored one (`SaveStateMiner`); a room exists when
+  its file does (the game's `roomNameToIndex`, compared case-insensitively). Not
+  ported: the mark and glow (none in flat mode), the Remix speedrun time in the label and
+  the campaign time tracker's `LoadOldTimings`, and the More Slugcats, Watcher and Jolly
+  branches (alternate endings, `rippleLevel` symbols, custom colours). A shelter name
+  without `_` makes the game throw; the port takes the whole name as the region. The
+  continue pages' HUDs are drawn after the menu's other objects (the game draws each
+  after its page's sub-objects); nothing else draws to their sprites, so the frame is
+  the same. The Hunter's ended save goes to the unported Statistics screen. The chosen slugcat colours the body's graphics; its body moves as
   the Survivor's (the Monk's and the Hunter's `SlugcatStats` are in
   `rw_sim::campaign::SlugcatCampaign` but the player does not read them yet). Started
   directly
@@ -1144,7 +1155,7 @@ Room: `Room.Update`'s ambient ceiling drips (`WaterDrip`s from the ceiling of a 
 
 Front end: the regions, arena and Remix menus, input settings, credits, backups,
 the dream screens, the sleep and death screens' end-game meters, tokens, PASSAGE and
-kills, the outro and DLC slideshows, the slugcat select menu's continue pages,
+kills, the outro and DLC slideshows, the slugcat select menu's mark and glow,
 colour and Jolly Co-op controls, depth scenes, menu objects those use (vertical and
 subtle sliders, check box groups, symbol buttons, scroll boxes, `UIelementWrapper`),
 Remix's options (FPS, VSync, quality, analogue sensitivity, backgrounds), and in-game
