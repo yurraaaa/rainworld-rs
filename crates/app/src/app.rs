@@ -54,7 +54,8 @@ pub struct Options {
     pub debug_view: bool,
     /// The game's screen size the frame is drawn at.
     pub resolution: Resolution,
-    /// A window of `resolution` instead of the game's default borderless full screen.
+    /// A window of `resolution` instead of the game's default borderless full screen
+    /// (`options.fullScreen` off).
     pub windowed: bool,
     pub title: String,
 }
@@ -88,7 +89,8 @@ struct App {
 }
 
 impl App {
-    fn new(frontend: Frontend, sprites: Option<Arc<SpriteAssets>>, options: Options) -> Self {
+    fn new(mut frontend: Frontend, sprites: Option<Arc<SpriteAssets>>, options: Options) -> Self {
+        frontend.ctx.menu.full_screen = !options.windowed;
         Self {
             sprites,
             show_visuals: !options.debug_view,
@@ -118,8 +120,9 @@ impl App {
             .with_resizable(false)
             .with_fullscreen((!self.windowed).then_some(Fullscreen::Borderless(None)));
         let window = Arc::new(event_loop.create_window(attrs)?);
-        // Hidden over the game window during play; the pause and main menus show it again.
-        window.set_cursor_visible(false);
+        // `Options.OnLoadFinished`: `Cursor.visible = !fullScreen`, in menus and play
+        // alike; full screen, the menus draw their own cursor sprite.
+        window.set_cursor_visible(!self.frontend.ctx.menu.full_screen);
         let physical = window.inner_size();
         log::info!(
             "resolution {}, window {}x{}",

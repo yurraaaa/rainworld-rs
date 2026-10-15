@@ -2,7 +2,7 @@
 //! in time with its song (the intro before a new Survivor or Monk game). Scenes are
 //! shown flat (D13). Behaviour: `rainworld-re/notes/slideshow.md`.
 
-use rw_sim::FloatExt;
+use rw_sim::{FloatExt, Vec2};
 
 use crate::menu::{Kind, Menu, MenuCx, MenuScreen, ObjectId, SceneId};
 use crate::process::{MainLoopProcess, ProcessId, ProcessRequests, TimeStacker};
@@ -445,8 +445,9 @@ impl<C: MenuContext> MainLoopProcess<C> for SlideShow {
         self.menu.update(&mut self.screen, &mut cx);
     }
 
-    fn graf_update(&mut self, time_stacker: f32, _ctx: &mut C) {
-        self.menu.graf_update(&self.screen, time_stacker);
+    fn graf_update(&mut self, time_stacker: f32, ctx: &mut C) {
+        let mouse = Vec2::from(ctx.menu().input.mouse.pos);
+        self.menu.graf_update(&self.screen, time_stacker, mouse);
     }
 
     fn raw_update(

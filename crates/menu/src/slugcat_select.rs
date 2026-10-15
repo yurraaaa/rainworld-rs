@@ -517,8 +517,9 @@ impl<C: MenuContext> MainLoopProcess<C> for SlugcatSelectMenu {
         self.screen.update(&mut self.menu, &mut cx);
     }
 
-    fn graf_update(&mut self, time_stacker: f32, _ctx: &mut C) {
-        self.menu.graf_update(&self.screen, time_stacker);
+    fn graf_update(&mut self, time_stacker: f32, ctx: &mut C) {
+        let mouse = Vec2::from(ctx.menu().input.mouse.pos);
+        self.menu.graf_update(&self.screen, time_stacker, mouse);
     }
 
     fn shut_down(&mut self, ctx: &mut C) {

@@ -54,7 +54,7 @@ Useful flags:
 | --- | --- |
 | `ROOM` | Start a game directly in a room, e.g. `SU_B04`, with its region loaded |
 | `--process NAME` | Start in `intro-roll` (default), `main-menu`, `slugcat-select` or `game` |
-| `--windowed` | Use a window instead of borderless full screen |
+| `--windowed` | Use a window instead of borderless full screen (the game's full-screen option off: the system cursor shows, the menus' cursor sprite does not) |
 | `--resolution WxH` | One of the game's screen sizes (default `1366x768`) |
 | `--mute` | No sound (the simulation still makes the sounds' random draws) |
 | `--seed N` | Seed of the shared random stream |

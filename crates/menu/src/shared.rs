@@ -136,7 +136,7 @@ pub struct MenuShared {
     pub mic_attached: bool,
     /// `manager.menuesMouseMode`.
     pub mouse_mode: bool,
-    /// `options.fullScreen` (the default options: windowed off).
+    /// `options.fullScreen`: on by default, off in a `--windowed` window.
     pub full_screen: bool,
     pub progression: Progression,
     pub dlcs: Dlcs,

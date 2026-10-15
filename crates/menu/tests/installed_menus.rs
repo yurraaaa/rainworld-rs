@@ -290,6 +290,35 @@ fn main_menu_buttons_order_layout_and_links() {
     assert_eq!(titles, ["MainTitleShadow", "MainTitleBevel"]);
 }
 
+/// `MainLoopProcess.RawUpdate` (99247) calls `GrafUpdate` every rendered frame, ticks or
+/// not; `MouseCursor.GrafUpdate` (548126) puts the cursor at `Futile.mousePosition` +
+/// 0.01 and its shadow at + (3.01, -8.01), the frame's mouse, while `Update` (548104)
+/// and `Menu.Update` (539356) keep the tick's.
+#[test]
+fn the_cursor_follows_the_mouse_between_ticks() {
+    let Some(mut h) = Harness::boot() else { return };
+    // 240 Hz frames: the stacker sits at 1.0 after the 1/40 s frames, so the first
+    // sub-frame ticks (reading the mouse there) and the next does not.
+    let (tick_mouse, frame_mouse) = ([400.0, 300.0], [410.0, 290.0]);
+    h.ctx.shared.input.mouse.pos = tick_mouse;
+    h.manager.update(1.0 / 240.0, &mut h.ctx);
+    h.ctx.shared.input.mouse.pos = frame_mouse;
+    h.manager.update(1.0 / 240.0, &mut h.ctx);
+    let (tick_mouse, m) = (Vec2::from(tick_mouse), Vec2::from(frame_mouse));
+    let menu = h.main().menu();
+    assert_eq!(menu.mouse_pos, tick_mouse, "no tick in the second frame");
+    let page = menu.pages[0];
+    let cursor = menu.page_data(page).mouse_cursor.expect("cursor");
+    assert_eq!(menu.object(cursor).pos, tick_mouse);
+    let Kind::MouseCursor(c) = &menu.object(cursor).kind else {
+        panic!("not a cursor")
+    };
+    let sprite = &menu.stage.sprite(c.cursor).transform;
+    assert_eq!((sprite.x, sprite.y), (m.x + 0.01, m.y + 0.01));
+    let shadow = &menu.stage.sprite(c.shadow).transform;
+    assert_eq!((shadow.x, shadow.y), (m.x + 3.01, m.y - 8.01));
+}
+
 /// `Menu.Update` (539312): a new direction selects at once (`SelectNewObject`); held, it
 /// repeats once `scrollInitDelay > 20` every time `scrollDelay > 6`. `SelectNewObject`
 /// (539661) plays `MENU_Button_Select_Gamepad_Or_Keyboard` (UIMetal3/vol=0.3) or, onto

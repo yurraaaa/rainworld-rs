@@ -568,7 +568,7 @@ real-time audio rather than the sim.
   (all loaded before the manager starts), so `delayedTime` waits only for the music
   bundles; `requestIntroMusic` (options not ready) never arises. `ProcessManager.
   initializationAndIntroRollStarted` and `activityID` (console activities) are not
-  ported, nor `Cursor.visible`. `RainEffect`'s light source uses `FlatLightNoisy`
+  ported. `RainEffect`'s light source uses `FlatLightNoisy`
   with `_spriteRect` unset (0, 0, 0, 0), as in the menus at boot: the noise lookup
   divides by zero in both, and what the GPU then samples is whatever the driver does
   with non-finite coordinates (the effect on the light's falloff is small).
@@ -651,8 +651,14 @@ real-time audio rather than the sim.
   port sums them to 0 (Rewired's rule not checked). Whether the default mouse map (left
   button = UI submit, map category 1) is active for player 0 is not settled; the menus
   read the mouse position and buttons directly, as `Menu` does with
-  `Input.GetMouseButton`. The cursor is shown full screen and windowed alike
-  (`options.fullScreen` stays at its default).
+  `Input.GetMouseButton`. `options.fullScreen` is the window mode: off with
+  `--windowed` (and so in `--screenshot` runs), on otherwise; as in the game
+  (`Options.OnLoadFinished`), the OS cursor is shown only when it is off, and the menus'
+  `MouseCursor` sprite only fades in when it is on (`ShowCursor`). The sprite sits at
+  the mouse position of each rendered frame, not the last tick's, as in
+  `MouseCursor.GrafUpdate`. The window mode is fixed at start: the options menu's
+  full-screen toggle and the dev-tools cases (`Cursor.visible = true`) are not ported.
+  Headless MCP runs keep the default, full screen.
 - **Gameplay keys.** Rewired's default gameplay keyboard map: arrows move, Z jumps. Its
   other keys (X throw, left Shift pick up, Space map, C special) have nothing to drive
   yet, but for Space skipping the intro when START completes. The intro roll's "any button" (`ControlSetup.GetAnyButton`) is any key of the

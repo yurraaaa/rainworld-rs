@@ -10,8 +10,9 @@ use crate::color::{HslColor, MenuColor};
 use crate::stage::StageColor;
 
 impl Menu {
-    /// `Menu.GrafUpdate`: the info label, then every page.
-    pub fn graf_update(&mut self, screen: &dyn MenuScreen, t: f32) {
+    /// `Menu.GrafUpdate`: the info label, then every page. `mouse` is the frame's
+    /// `Futile.mousePosition`, read live rather than kept from the last tick.
+    pub fn graf_update(&mut self, screen: &dyn MenuScreen, t: f32, mouse: Vec2) {
         if let Some(node) = self.info_label {
             let alpha = self.last_info_label_fade.lerp(self.info_label_fade, t);
             let color = MenuColor::White.rgb().lerp(
@@ -24,23 +25,23 @@ impl Menu {
         }
         for i in 0..self.pages.len() {
             let page = self.pages[i];
-            self.graf_object(page, screen, t);
+            self.graf_object(page, screen, t, mouse);
         }
     }
 
     /// `MenuObject.GrafUpdate`: the sub-objects first, then the object's own.
-    pub fn graf_object(&mut self, id: ObjectId, screen: &dyn MenuScreen, t: f32) {
+    pub fn graf_object(&mut self, id: ObjectId, screen: &dyn MenuScreen, t: f32, mouse: Vec2) {
         if let Kind::Scene(s) = &self.objects[id.0].kind
             && s.hidden
         {
             return;
         }
         if let Kind::MouseCursor(_) = self.objects[id.0].kind {
-            self.graf_cursor(id, t);
+            self.graf_cursor(id, t, mouse);
         }
         let mut i = 0;
         while let Some(&sub) = self.objects[id.0].sub_objects.get(i) {
-            self.graf_object(sub, screen, t);
+            self.graf_object(sub, screen, t, mouse);
             i += 1;
         }
         match &self.objects[id.0].kind {
@@ -85,14 +86,14 @@ impl Menu {
         }
     }
 
-    /// `MouseCursor.GrafUpdate`: at the mouse, faded by an S-curve.
-    fn graf_cursor(&mut self, id: ObjectId, t: f32) {
+    /// `MouseCursor.GrafUpdate`: at the frame's mouse position `m` (not interpolated
+    /// between ticks), faded by an S-curve.
+    fn graf_cursor(&mut self, id: ObjectId, t: f32, m: Vec2) {
         let Kind::MouseCursor(c) = &self.objects[id.0].kind else {
             return;
         };
         let (cursor, shadow) = (c.cursor, c.shadow);
         let fade = Self::s_curve(c.last_fade.lerp(c.fade, t), 0.6);
-        let m = self.mouse_pos;
         let tr = self.stage.transform_mut(cursor);
         tr.x = m.x + 0.01;
         tr.y = m.y + 0.01;
