@@ -369,6 +369,16 @@ impl StagePipeline {
             .unwrap_or(&self.blank)
     }
 
+    /// `_NoiseTex2`'s view and sampler (white until it is uploaded).
+    pub(crate) fn noise2(&self) -> (&wgpu::TextureView, &wgpu::Sampler) {
+        let texture = self.global_texture(self.globals.noise2);
+        (&texture.view, &texture.sampler)
+    }
+
+    pub(crate) fn globals(&self) -> &StageGlobals {
+        &self.globals
+    }
+
     pub(crate) fn remove_texture(&mut self, device: &wgpu::Device, id: StageTextureId) {
         self.textures.remove(&id);
         if self.is_global(id) {

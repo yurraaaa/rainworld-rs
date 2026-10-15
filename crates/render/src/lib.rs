@@ -45,7 +45,8 @@ pub use present::{PresentFilter, PresentRect, Resolution};
 pub use room_camera::{Follow, RoomCamera};
 pub use room_geometry::{RoomDebugGeometry, RoomShape, SlopeGeometry};
 pub use sprites::{
-    Batch, DrawQueue, NodeMatrix, SpriteAtlas, SpriteBatch, SpriteVertex, WaterShader,
+    Batch, DrawQueue, NodeMatrix, RoomGlobals, RoomVertex, SpriteAtlas, SpriteBatch, SpriteDraw,
+    SpriteVertex, WaterShader,
 };
 pub use stage::{
     StageBatch, StageDraw, StageGlobals, StageShader, StageTextureId, TextureFilter,
@@ -117,13 +118,15 @@ pub trait Renderer {
     /// [`draw_sprites`](Renderer::draw_sprites), replacing the previous one.
     fn set_atlas(&mut self, atlas: &SpriteAtlas, image: &PngImage);
 
-    /// Queues the items of `list` in `layer`, in order, as Futile draws them
-    /// (`Futile/Basic`: texel times colour, alpha blended) at stage positions
+    /// Queues the items of `list` in `layer`, in order, as Futile draws them, each
+    /// with its game shader (`rw_graphics::Shader`), at stage positions
     /// `pos - cam_pos`; `cam_pos` is the game's `floor(camera) - 0.02` (the level view
     /// origin), and the same for every call in a frame. Call it with
-    /// [`Layer::Midground`] before [`draw_level`](Renderer::draw_level) and
-    /// [`Layer::Foreground`] after, as the game's containers order them. Nothing is
-    /// drawn before an atlas is set.
+    /// [`Layer::Midground`] then [`Layer::Items`] before
+    /// [`draw_level`](Renderer::draw_level) and [`Layer::Foreground`] after, as the
+    /// game's containers order them. The shaders' `_spriteRect`, `_screenSize` and
+    /// `_RAIN` come from the frame's level, `_NoiseTex2` from the stage globals.
+    /// Nothing is drawn before an atlas is set.
     fn draw_sprites(&mut self, list: &DrawList, layer: Layer, cam_pos: [f32; 2]);
 
     /// Uploads a stage texture under `id`, replacing any texture of that id.

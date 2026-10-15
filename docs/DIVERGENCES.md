@@ -223,6 +223,16 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   its own rounding, so texels may differ by 1/255 from what the game shows (the CPU
   decode truncates, matching AssetRipper's export of every texture exactly). Only mip 0
   is kept (the noise shader always magnifies it; the atlases have one mip).
+- **Room sprite shaders** (`FlatLight`, `OverseerZip`, `Hologram`). `_NoiseTex2`
+  (256x256 DXT1, 9 mips, bilinear, repeat) is sampled at mip 0 only; in the room the
+  game minifies it vertically (`tc.y * 8` over the 800 px level image, about 2.6 texels
+  per pixel) and so reads a lower mip, giving coarser noise than the port. `Futile_White`
+  (its own 16x16 white texture in the game) is drawn from the atlas's `RainWorld_White`
+  element; a `Hologram` sprite of `Futile_White` would read its sideways-shifted alpha
+  from the atlas around that element instead of a white texture (the overseer's
+  hologram lines use `pixel`, which is in the atlas as in the game).
+  The Watcher ripple clip (`rippleClip`, `smoothRippleClip`, off without the `RIPPLE`
+  keyword) is not ported.
 - **Window and scaling.** As in the game, the whole frame (level, sprites, debug
   overlays) is drawn without antialiasing into an offscreen frame of the `ScreenSize`
   option (`--resolution`, the game's five choices, 1366x768 by default), shown full

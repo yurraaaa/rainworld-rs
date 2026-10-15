@@ -9,7 +9,8 @@
 //! A second one draws the level graphic (`level_gpu`): the shapes and sprites queued
 //! before [`Renderer::draw_level`] go to an offscreen "behind" target first, which the
 //! level shader reads to let them show through sky and far pixels. A third draws the
-//! atlas sprites (`sprite_gpu`), a fourth the game's water (`water_gpu`), which
+//! atlas sprites and meshes (`sprite_gpu`: the room's sprite shaders, one draw per run
+//! of one shader), a fourth the game's water (`water_gpu`), which
 //! reads the level textures and the "behind" target too, and a fifth the stage quads
 //! (`stage_gpu`: the menu shaders, one texture per draw). Draw calls keep their call
 //! order across pipelines ([`DrawQueue`]). The WGSL shaders are compiled at runtime by
@@ -33,8 +34,8 @@ use crate::stage_gpu::StagePipeline;
 use crate::water_gpu::{WaterBinding, WaterPipeline};
 use crate::{
     Batch, Camera, Color, DrawQueue, FrameImage, LevelGraphics, LevelView, Mesh, PresentRect,
-    RenderError, Renderer, Resolution, RoomDebugGeometry, RoomLayers, SpriteAtlas, StageBatch,
-    StageGlobals, StageTextureId, TextureSampling, Vertex, WaterSprites,
+    RenderError, Renderer, Resolution, RoomDebugGeometry, RoomGlobals, RoomLayers, SpriteAtlas,
+    StageBatch, StageGlobals, StageTextureId, TextureSampling, Vertex, WaterSprites,
 };
 
 const BACKGROUND: wgpu::Color = wgpu::Color {
@@ -476,7 +477,7 @@ impl WgpuRenderer {
                     pass.set_vertex_buffer(0, buffer.slice(..));
                     pass.draw(range.clone(), 0..1);
                 }
-                Batch::Sprites(range) => self.sprite_pipeline.draw(pass, range.clone()),
+                Batch::Sprites(draw) => self.sprite_pipeline.draw(pass, draw),
                 Batch::Level => {}
                 Batch::Stage(draw) => self.stage_pipeline.draw(pass, draw),
                 Batch::Water(shader, range) => {
@@ -501,6 +502,20 @@ impl WgpuRenderer {
         let y0 = a[1].min(b[1]).round().clamp(0.0, h);
         let y1 = a[1].max(b[1]).round().clamp(0.0, h);
         (x1 > x0 && y1 > y0).then_some((x0 as u32, y0 as u32, (x1 - x0) as u32, (y1 - y0) as u32))
+    }
+
+    /// The room sprite shaders' globals: from this frame's level, else the stage's
+    /// `_RAIN` with `_spriteRect` unset (zero, as Unity's unset global) and the frame
+    /// as the screen.
+    fn room_globals(&self) -> RoomGlobals {
+        match (&self.level_view, &self.level) {
+            (Some(view), Some(textures)) => RoomGlobals::new(view, textures.rect()),
+            _ => RoomGlobals {
+                sprite_rect: [0.0; 4],
+                screen_size: [self.frame.size.0 as f32, self.frame.size.1 as f32],
+                rain: self.stage_pipeline.globals().rain,
+            },
+        }
     }
 
     fn upload(&self, label: &str, mesh: &Mesh) -> Option<StaticMesh> {
@@ -794,13 +809,19 @@ impl Renderer for WgpuRenderer {
             bytemuck::cast_slice(&self.camera.clip_transform()),
         );
         self.upload_dynamic();
-        self.sprite_pipeline.upload(
-            &self.device,
-            &self.queue,
-            &self.queue_draws.sprites,
-            &self.camera,
-            self.stage_origin,
-        );
+        if !self.queue_draws.sprites.draws.is_empty() {
+            let globals = self.room_globals();
+            self.sprite_pipeline.set_frame(
+                &self.device,
+                &self.queue,
+                &self.camera,
+                self.stage_origin,
+                &globals,
+                self.stage_pipeline.noise2(),
+            );
+            self.sprite_pipeline
+                .upload(&self.device, &self.queue, &self.queue_draws.sprites);
+        }
         self.water_pipeline
             .upload(&self.device, &self.queue, &self.queue_draws.water);
         let stage_camera = Camera::window([0.0, 0.0], self.stage_screen, self.frame.size);
@@ -955,3 +976,6 @@ impl Readback {
         Ok(FrameImage::new(self.width, self.height, rgba))
     }
 }
+
+#[cfg(test)]
+mod tests;
