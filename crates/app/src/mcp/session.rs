@@ -21,15 +21,14 @@ use super::params::{
 use super::reply::{
     ChunkState, ControlsPageState, CreatureInfo, ExitInfo, ExitList, FoodMeterState, HudState,
     ImpactState, KarmaMeterState, LobbyState, OverseerInfo, PlayerState, ProcessState,
-    RainMeterState, RealizedState, RoomInfo, RoomList, Screenshot, SlideShowState, StartUpState,
-    State, StepTrace, TextPromptState,
+    RainMeterState, RainState, RealizedState, RoomInfo, RoomList, Screenshot, SlideShowState,
+    StartUpState, State, StepTrace, TextPromptState,
 };
 use super::tiles::TileDump;
 use crate::frontend::{AppContext, Frontend, FrontendRenderer, GameSetup};
 use crate::game::{Game, GameStart};
 use crate::scene::{Framing, Scene, SceneRenderer, SceneView, VisualsSource};
 use crate::sprites::SpriteAssets;
-use crate::visuals::Visuals;
 
 /// Most ticks one `step` or `step_sequence` call may run (10 minutes of game time).
 const MAX_TICKS: u64 = 40 * 60 * 10;
@@ -345,7 +344,7 @@ impl Session {
             tick: game.ticks(),
             world: world.name().to_owned(),
             room: game.room().name().to_owned(),
-            camera: scene.visuals().map(Visuals::current_camera),
+            camera: scene.visuals().map(|_| scene.camera().current()),
             player_room: Self::room_name(scene, pos.room),
             player_node: pos.node,
             lobby: sim.lobby().map(|l| LobbyState {
@@ -375,6 +374,10 @@ impl Session {
                 controls_page_due: s.controls_page_due(),
             }),
             creatures: Self::creatures(scene),
+            rain: RainState {
+                timer: world.rain_cycle.timer,
+                cycle_length: world.rain_cycle.cycle_length,
+            },
         })
     }
 
@@ -409,6 +412,9 @@ impl Session {
                         .collect(),
                     hover_tile: c.overseer_body().map(|b| [b.hover_tile.0, b.hover_tile.1]),
                     root_tile: c.overseer_body().map(|b| [b.root_tile.0, b.root_tile.1]),
+                    mode: c.overseer_body().map(|b| format!("{:?}", b.mode)),
+                    pos: c.overseer_body().map(|b| b.chunk().pos.to_array()),
+                    extended: c.overseer_body().map(|b| b.extended),
                 }),
             })
             .collect()

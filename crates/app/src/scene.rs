@@ -6,12 +6,13 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use rw_assets::{StreamingAssets, UnityResources};
 use rw_graphics::{DrawList, Layer};
-use rw_hud::{Hud, IllustrationSource, PageText, RainCycleView};
+use rw_hud::{Hud, IllustrationSource, PageText};
 use rw_menu::{AtlasManager, Font, MenuShared};
 use rw_render::{
-    Camera, LevelView, Renderer, RoomLayers, StageBatch, WaterFrame, WaterSprites, WaterSurface,
+    Camera, LevelView, Renderer, RoomCamera, RoomLayers, StageBatch, WaterFrame, WaterSprites,
+    WaterSurface,
 };
-use rw_sim::{Input, SoundEvent};
+use rw_sim::{HudEvent, Input, SoundEvent};
 
 use crate::game::Game;
 use crate::sprites::SpriteAssets;
@@ -33,6 +34,9 @@ pub struct Scene {
     source: Option<VisualsSource>,
     /// The room the camera shows (global index).
     camera_room: i32,
+    /// Camera 0's position in its room (`RoomCamera`), run headless too: the
+    /// overseers read it.
+    camera: RoomCamera,
     /// The camera's room's level graphic, when its images and palettes loaded.
     visuals: Option<Visuals>,
     /// The water's sprites (`Water.InitiateSprites`), made on the first level frame.
@@ -88,6 +92,7 @@ impl Scene {
         let mut scene = Self {
             id: NEXT_SCENE_ID.fetch_add(1, Ordering::Relaxed),
             camera_room: game.sim().camera_room(),
+            camera: RoomCamera::new(game.room().cameras(), Self::screen(source.as_ref())),
             game,
             source,
             visuals: None,
@@ -101,26 +106,25 @@ impl Scene {
         scene
     }
 
+    /// The room camera's window (`sSize`).
+    fn screen(source: Option<&VisualsSource>) -> [f32; 2] {
+        source.map_or(RoomCamera::SCREEN_SIZE, |s| s.screen)
+    }
+
     /// Loads the camera room's level graphic.
     fn load_visuals(&mut self) {
         self.water_sprites = None;
         self.visuals = self.source.as_ref().and_then(|source| {
             let room = self.game.room();
             let timeline = self.game.sim().campaign().timeline.value();
-            Visuals::load(
-                &source.assets,
-                &source.resources,
-                room,
-                timeline,
-                source.screen,
-            )
-            .inspect_err(|e| {
-                log::warn!(
-                    "no level graphic for {} ({e}); showing the debug view",
-                    room.name()
-                );
-            })
-            .ok()
+            Visuals::load(&source.assets, &source.resources, room, timeline)
+                .inspect_err(|e| {
+                    log::warn!(
+                        "no level graphic for {} ({e}); showing the debug view",
+                        room.name()
+                    );
+                })
+                .ok()
         });
     }
 
@@ -134,10 +138,18 @@ impl Scene {
             self.camera_room = mv.room;
             self.entered_room = true;
             log::info!("camera in {}", self.game.room().name());
+            self.camera = RoomCamera::new(
+                self.game.room().cameras(),
+                Self::screen(self.source.as_ref()),
+            );
             self.load_visuals();
         }
+        let i = mv
+            .camera
+            .min(self.game.room().cameras().len().saturating_sub(1));
+        self.camera.cut_to(i);
         if let Some(visuals) = &mut self.visuals {
-            visuals.cut_to(mv.camera);
+            visuals.show(i);
         }
     }
 
@@ -153,6 +165,12 @@ impl Scene {
 
     pub fn game_mut(&mut self) -> &mut Game {
         &mut self.game
+    }
+
+    /// Camera 0.
+    #[must_use]
+    pub fn camera(&self) -> &RoomCamera {
+        &self.camera
     }
 
     #[must_use]
@@ -174,6 +192,9 @@ impl Scene {
     /// room camera's move; returns the sound events since the last tick. Without
     /// `shared` (fonts, atlases, strings) there is no HUD.
     pub fn tick(&mut self, input: Input, shared: Option<&mut MenuShared>) -> Vec<SoundEvent> {
+        self.game
+            .sim_mut()
+            .set_camera_view(self.camera.current(), self.camera.most_likely_next());
         let Some(shared) = shared else {
             self.game.tick(input);
             return self.after_game_tick();
@@ -184,6 +205,7 @@ impl Scene {
         let continue_page = script.is_some_and(|s| s.controls_page_continue());
         self.game.sim_mut().set_hud_present(self.hud.is_some());
         self.game.tick(input);
+        self.apply_hud_events(shared);
         if let Some(hud) = &mut self.hud {
             hud.update_controls_page(continue_page);
             if !showed_controls
@@ -205,15 +227,9 @@ impl Scene {
             Some(hud) => {
                 let owner = self.game.hud_owner();
                 let map_button = self.game.map_button();
+                let rain = self.game.rain_view();
                 let (sounds, rng) = self.game.sim_mut().camera_io();
-                hud.update(
-                    &owner,
-                    map_button,
-                    &RainCycleView::STAND_IN,
-                    &shared.translator,
-                    sounds,
-                    rng,
-                );
+                hud.update(&owner, map_button, &rain, &shared.translator, sounds, rng);
             }
             None if self.game.hud_due() => {
                 let setup = self.game.hud_setup(shared.screen_size);
@@ -221,6 +237,24 @@ impl Scene {
                 log::info!("HUD fired up");
             }
             None => {}
+        }
+    }
+
+    /// The guide's `TutorialText`s (translated, darkening the screen) and its rain
+    /// meter resets.
+    fn apply_hud_events(&mut self, shared: &MenuShared) {
+        let events = self.game.take_hud_events();
+        let Some(hud) = &mut self.hud else {
+            return;
+        };
+        for event in events {
+            match event {
+                HudEvent::Message(m) => {
+                    let text = shared.translator.translate(m.text);
+                    hud.add_message(text, m.wait, m.time, true, m.hide_hud);
+                }
+                HudEvent::HalfTimeBlinkReset => hud.rain_meter.half_time_blink = 0,
+            }
         }
     }
 
@@ -250,8 +284,11 @@ impl Scene {
     /// The room camera after the game's tick; returns the sound events.
     fn after_game_tick(&mut self) -> Vec<SoundEvent> {
         self.apply_camera_move();
-        if let Some(visuals) = &mut self.visuals {
-            visuals.tick(self.game.camera_follow().as_ref());
+        if self.camera.update(self.game.camera_follow().as_ref()) {
+            log::info!("camera {}", self.camera.current() + 1);
+            if let Some(visuals) = &mut self.visuals {
+                visuals.show(self.camera.current());
+            }
         }
         self.game.take_sound_events()
     }
@@ -260,8 +297,8 @@ impl Scene {
     /// plus [`MARGIN`] in the debug view.
     #[must_use]
     pub fn auto_size(&self, level: bool) -> [f32; 2] {
-        if let Some(visuals) = self.visuals.as_ref().filter(|_| level) {
-            visuals.screen_size()
+        if self.visuals.is_some() && level {
+            self.camera.screen_size()
         } else {
             let room = self.game.room();
             [
@@ -292,12 +329,21 @@ impl Scene {
         } else {
             None
         };
+        let earth = self
+            .visuals
+            .as_ref()
+            .map_or(rw_graphics::Color::BLACK, Visuals::earth_color);
+        let overseers = if target.sprites.is_some() {
+            self.game.overseer_draw_lists(alpha, earth)
+        } else {
+            Vec::new()
+        };
 
         let r = &mut target.renderer;
         let room = self.game.room();
         let time = (self.game.ticks() as f32 + alpha) / TICK_RATE as f32;
         let level = match &self.visuals {
-            Some(visuals) if view.level => Some(visuals.view(alpha, time)),
+            Some(_) if view.level => Some(Visuals::view(&self.camera, alpha, time)),
             _ => None,
         };
         let camera = match (view.framing, &level) {
@@ -322,6 +368,7 @@ impl Scene {
             water_sprites,
             level,
             sprites: sprites.as_ref(),
+            overseers: &overseers,
             layers: view.layers,
             camera,
             alpha,
@@ -377,6 +424,8 @@ struct FrameDraw<'a> {
     /// The slugcat's sprites, drawn only with the level graphic. Without it (the debug
     /// view, or no atlas) the physical body is drawn: chunks, rods and contacts.
     sprites: Option<&'a DrawList>,
+    /// The overseers' sprites (level view only), after the slugcat's in each container.
+    overseers: &'a [DrawList],
     layers: RoomLayers,
     camera: Camera,
     alpha: f32,
@@ -401,10 +450,20 @@ impl FrameDraw<'_> {
             }
         }
         if let Some(level) = self.level {
+            for layer in [Layer::Midground, Layer::Items] {
+                for o in self.overseers {
+                    r.draw_sprites(o, layer, level.origin);
+                }
+            }
             r.draw_level(level);
         }
         if let Some((level, list)) = sprites {
             r.draw_sprites(list, Layer::Foreground, level.origin);
+        }
+        if let Some(level) = self.level {
+            for o in self.overseers {
+                r.draw_sprites(o, Layer::Foreground, level.origin);
+            }
         }
         r.draw_shortcut_vessel(self.game.vessel_tile());
         // The `Water` container, after the level, foreground sprites and shortcuts.
@@ -439,7 +498,7 @@ impl<R: Renderer> SceneRenderer<R> {
         if let Some(visuals) = &scene.visuals {
             let key = (scene.id, scene.camera_room, visuals.generation());
             if self.level_of != Some(key) {
-                visuals.upload(&mut self.renderer);
+                visuals.upload(&mut self.renderer, &scene.camera);
                 self.level_of = Some(key);
             }
         }
@@ -542,6 +601,7 @@ mod tests {
                 water_sprites,
                 level,
                 sprites: Some(sprites),
+                overseers: &[],
                 layers: RoomLayers::default(),
                 camera: Camera::fit([1.0, 1.0], (1366, 768), 0.0),
                 alpha: 1.0,

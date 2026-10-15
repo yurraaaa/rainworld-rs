@@ -29,6 +29,8 @@ pub struct RoomCamera {
     last_pos: Vec2,
     lean: Vec2,
     input_forward: Vec2,
+    /// `mostLikelyNextCamPos`.
+    next: usize,
 }
 
 impl RoomCamera {
@@ -49,6 +51,7 @@ impl RoomCamera {
             last_pos: Vec2::ZERO,
             lean: Vec2::ZERO,
             input_forward: Vec2::ZERO,
+            next: 0,
         };
         camera.cut_to(0);
         camera
@@ -58,6 +61,13 @@ impl RoomCamera {
     #[must_use]
     pub fn current(&self) -> usize {
         self.current
+    }
+
+    /// `mostLikelyNextCamPos`: the other camera whose centre is nearest the followed
+    /// creature's heading.
+    #[must_use]
+    pub fn most_likely_next(&self) -> usize {
+        self.next
     }
 
     /// Room position of camera `i` (image bottom-left); the origin for a room without
@@ -143,7 +153,16 @@ impl RoomCamera {
                 (pos + Vec2::from(follow.vel) + self.input_forward * 2.0, pos)
             }
         };
-        let Some(best) = self.best_camera(test.to_array()) else {
+        let best = self.best_camera(test.to_array());
+        let mut nearest = 100_000.0;
+        for k in (0..self.positions.len()).filter(|&k| k != self.current) {
+            let d = test.distance(self.cam(k) + Vec2::new(700.0, 402.0));
+            if d < nearest {
+                nearest = d;
+                self.next = k;
+            }
+        }
+        let Some(best) = best else {
             return false;
         };
         if best == self.current {
@@ -168,6 +187,7 @@ impl RoomCamera {
     /// `ApplyPositionChange`: show camera `i` with the window at rest and no lean.
     pub fn cut_to(&mut self, i: usize) {
         self.current = i;
+        self.next = i;
         self.pos = Vec2::from(self.rest_pos(i));
         self.last_pos = self.pos;
         self.lean = Vec2::ZERO;

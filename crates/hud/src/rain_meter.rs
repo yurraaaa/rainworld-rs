@@ -20,9 +20,7 @@ pub struct RainCycleView {
 }
 
 impl RainCycleView {
-    /// Until the rain cycle is ported: a cycle of `setup.cycleTimeMax` (800 s, the fixed
-    /// length Remix's `cfgNoRandomCycles` uses) that stays at its start
-    /// (docs/DIVERGENCES.md).
+    /// A cycle of `setup.cycleTimeMax` (800 s) at its start, for tests and tools.
     pub const STAND_IN: Self = Self {
         cycle_length: 32_000,
         timer: 0,

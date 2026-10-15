@@ -59,6 +59,14 @@ pub struct State {
     pub start_up: Option<StartUpState>,
     /// The world's creatures but the player (in dens or out, abstract or realized).
     pub creatures: Vec<CreatureInfo>,
+    /// `world.rainCycle`.
+    pub rain: RainState,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct RainState {
+    pub timer: i32,
+    pub cycle_length: i32,
 }
 
 /// One `AbstractCreature`.
@@ -91,6 +99,10 @@ pub struct OverseerInfo {
     /// The realized body's hover and root tiles.
     pub hover_tile: Option<[i32; 2]>,
     pub root_tile: Option<[i32; 2]>,
+    /// The realized body's `mode`, main chunk position and `extended`.
+    pub mode: Option<String>,
+    pub pos: Option<[f32; 2]>,
+    pub extended: Option<f32>,
 }
 
 /// `SU_C04StartUp`'s state.

@@ -657,7 +657,12 @@ fn new_game_hud_and_controls_page() {
     assert_eq!(hud.karma_meter.symbol, "smallKarma0");
     assert_eq!(hud.food_meter.max_food, 7);
     assert_eq!(hud.food_meter.survival_limit, 4);
-    assert_eq!(hud.rain_meter.circles, 26);
+    let rain = s.state().expect("state").rain;
+    assert_eq!(
+        hud.rain_meter.circles,
+        usize::try_from((rain.cycle_length / 1200).min(30)).expect("circles"),
+        "{rain:?}"
+    );
     let mut stood = None;
     let mut opened = None;
     for tick in 2..=400u32 {

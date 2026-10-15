@@ -356,10 +356,11 @@ impl GameProcess {
     fn hear_tick(&self, ctx: &mut AppContext, events: Vec<rw_sim::SoundEvent>) {
         let Some(audio) = &mut ctx.audio else { return };
         let game = self.scene.game();
-        let camera_pos = self
-            .scene
-            .visuals()
-            .map_or(Vec2::ZERO, |v| Vec2::from(v.camera_pos()));
+        let camera_pos = if self.scene.visuals().is_some() {
+            Vec2::from(self.scene.camera().view_origin(1.0))
+        } else {
+            Vec2::ZERO
+        };
         let listener = ListenerInput {
             camera_pos,
             screen_width: ctx.resolution.size_f32()[0],

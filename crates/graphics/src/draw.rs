@@ -24,6 +24,65 @@ impl Color {
     pub const fn rgb(r: f32, g: f32, b: f32) -> Self {
         Self { r, g, b, a: 1.0 }
     }
+
+    /// `Custom.RGB2RGBA`.
+    #[must_use]
+    pub const fn with_alpha(self, a: f32) -> Self {
+        Self { a, ..self }
+    }
+
+    /// `Color.Lerp` (all four channels, `t` clamped).
+    #[must_use]
+    pub fn lerp(self, to: Self, t: f32) -> Self {
+        let t = t.clamp(0.0, 1.0);
+        Self {
+            r: self.r + (to.r - self.r) * t,
+            g: self.g + (to.g - self.g) * t,
+            b: self.b + (to.b - self.b) * t,
+            a: self.a + (to.a - self.a) * t,
+        }
+    }
+
+    /// `Color * float` (all four channels).
+    #[must_use]
+    pub fn scale(self, s: f32) -> Self {
+        Self {
+            r: self.r * s,
+            g: self.g * s,
+            b: self.b * s,
+            a: self.a * s,
+        }
+    }
+
+    /// `Custom.HSL2RGB` (opaque).
+    #[must_use]
+    pub fn hsl(h: f32, sl: f32, l: f32) -> Self {
+        let v = if l <= 0.5 {
+            l * (1.0 + sl)
+        } else {
+            l + sl - l * sl
+        };
+        if v <= 0.0 {
+            return Self::rgb(l, l, l);
+        }
+        let m = l + l - v;
+        let sv = (v - m) / v;
+        let h = h * 6.0;
+        let sextant = h as i32;
+        let fract = h - sextant as f32;
+        let vsf = v * sv * fract;
+        let mid1 = m + vsf;
+        let mid2 = v - vsf;
+        match sextant {
+            0 => Self::rgb(v, mid1, m),
+            1 => Self::rgb(mid2, v, m),
+            2 => Self::rgb(m, v, mid1),
+            3 => Self::rgb(m, mid2, v),
+            4 => Self::rgb(mid1, m, v),
+            5 => Self::rgb(v, m, mid2),
+            _ => Self::rgb(l, l, l),
+        }
+    }
 }
 
 pub use rw_assets::SlugcatName;
@@ -151,5 +210,19 @@ impl DrawList {
             DrawItem::Mesh(m) if m.index == index => Some(m),
             _ => None,
         })
+    }
+}
+
+/// `Color + Color` (all four channels).
+impl std::ops::Add for Color {
+    type Output = Self;
+
+    fn add(self, o: Self) -> Self {
+        Self {
+            r: self.r + o.r,
+            g: self.g + o.g,
+            b: self.b + o.b,
+            a: self.a + o.a,
+        }
     }
 }

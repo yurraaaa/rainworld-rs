@@ -16,13 +16,13 @@ use rw_hud::{HudSetup, OwnerTick, RainCycleView, StartCondition, Subregions};
 use rw_random::UnityRandom;
 use rw_render::{BodyStatus, ChunkInterpolation, Follow, PlayerLight, WaterSurface};
 use rw_sim::campaign::{self, SlugcatCampaign};
-use rw_sim::creature::EntityId;
 use rw_sim::creature::overseer::OverseerView;
+use rw_sim::creature::{CreatureId, EntityId};
 use rw_sim::room_script::{RoomScript, SuC04StartUp};
 use rw_sim::world::World;
 use rw_sim::{
-    CameraMove, Input, PhysicalObject, Player, PlayerObserver, RainWorldGame, SoundEvent, Sounds,
-    Start, Vec2, Water,
+    CameraMove, CameraView, HudEvent, Input, PhysicalObject, Player, PlayerObserver, RainWorldGame,
+    SoundEvent, Sounds, Start, Vec2, Water,
 };
 
 /// How a game starts.
@@ -56,6 +56,32 @@ struct Graphics {
     /// The story character, for the colours.
     slugcat: SlugcatName,
     overseers: Vec<OverseerGraphics>,
+    /// The lens's per-frame draws (the game's come from the global stream: D1).
+    cosmetic: UnityRandom,
+}
+
+impl Graphics {
+    /// Overseer `id`'s graphics module and its conversation partner's.
+    fn overseer_pair(
+        &mut self,
+        id: EntityId,
+        partner: Option<EntityId>,
+    ) -> Option<(&mut OverseerGraphics, Option<&mut OverseerGraphics>)> {
+        let i = self.overseers.iter().position(|g| g.id == id)?;
+        let j = partner.and_then(|p| self.overseers.iter().position(|g| g.id == p));
+        match j {
+            Some(j) if j != i => {
+                let (lo, hi) = self.overseers.split_at_mut(i.max(j));
+                let (a, b) = if i < j {
+                    (&mut lo[i], &mut hi[0])
+                } else {
+                    (&mut hi[0], &mut lo[j])
+                };
+                Some((a, Some(b)))
+            }
+            _ => Some((&mut self.overseers[i], None)),
+        }
+    }
 }
 
 impl PlayerObserver for Graphics {
@@ -83,14 +109,31 @@ impl PlayerObserver for Graphics {
 
     fn overseer_added(&mut self, view: &OverseerView<'_>, rng: &mut UnityRandom) {
         if !self.overseers.iter().any(|g| g.id == view.id) {
-            self.overseers
-                .push(OverseerGraphics::new(view.id, view.body.size, rng));
+            self.overseers.push(OverseerGraphics::new(view, rng));
         }
     }
 
     fn overseer_reset(&mut self, view: &OverseerView<'_>, rng: &mut UnityRandom) {
         if let Some(g) = self.overseers.iter_mut().find(|g| g.id == view.id) {
-            g.reset(rng);
+            g.reset(view.body, rng);
+        }
+    }
+
+    fn overseer_emerge(&mut self, view: &OverseerView<'_>, rng: &mut UnityRandom) {
+        if let Some(g) = self.overseers.iter_mut().find(|g| g.id == view.id) {
+            g.emerge(view.body, rng);
+        }
+    }
+
+    fn overseer_updated(
+        &mut self,
+        view: &OverseerView<'_>,
+        room: &Room,
+        camera: &CameraView,
+        rng: &mut UnityRandom,
+    ) {
+        if let Some((g, partner)) = self.overseer_pair(view.id, view.partner) {
+            g.update(view, room, camera, partner, rng);
         }
     }
 
@@ -233,6 +276,7 @@ impl Game {
             module: None,
             slugcat: campaign.name,
             overseers: Vec::new(),
+            cosmetic: UnityRandom::new(0),
         };
         let sim = RainWorldGame::new(world, campaign, start, rng, sounds, &mut graphics);
         log::info!("spawned player");
@@ -262,7 +306,7 @@ impl Game {
     }
 
     /// What `InitSinglePlayerHud` and `FireUpSinglePlayerHUD` read: the slugcat's food
-    /// meter, the new game's karma (no saves yet), cycle 0, and the stand-in rain cycle.
+    /// meter, the new game's karma (no saves yet), cycle 0, and the world's rain cycle.
     #[must_use]
     pub fn hud_setup(&self, screen_size: [f32; 2]) -> HudSetup {
         let campaign = self.sim.campaign();
@@ -279,7 +323,7 @@ impl Game {
             camera_room_shelter: world
                 .abstract_room(self.sim.camera_room())
                 .is_some_and(AbstractRoomData::shelter),
-            rain: RainCycleView::STAND_IN,
+            rain: self.rain_view(),
             subregions: self.subregions.clone(),
             start: self.start_condition,
             swarm_rooms: world
@@ -429,6 +473,49 @@ impl Game {
                 .as_mut()?
                 .draw(player, alpha, face_color),
         )
+    }
+
+    /// The overseers' sprites in the camera's room at `alpha` between ticks, oldest
+    /// first (the order their sprites joined the containers), in the room palette's
+    /// earth colour.
+    pub fn overseer_draw_lists(&mut self, alpha: f32, earth: Color) -> Vec<DrawList> {
+        let world = self.sim.world();
+        let mut shown: Vec<(u64, CreatureId)> = world
+            .room_creatures(self.sim.camera_room())
+            .iter()
+            .filter_map(|&c| {
+                let body = world.creature(c).overseer_body()?;
+                body.in_room.then_some((body.update_order, c))
+            })
+            .collect();
+        shown.sort_by_key(|&(seq, _)| seq);
+        let mut lists = Vec::new();
+        for (_, c) in shown {
+            let Some(view) = world.overseer_view(c) else {
+                continue;
+            };
+            let graphics = &mut self.graphics;
+            if let Some(g) = graphics.overseers.iter_mut().find(|g| g.id == view.id) {
+                lists.push(g.draw(&view, earth, alpha, &mut graphics.cosmetic));
+            }
+        }
+        lists
+    }
+
+    /// The rain cycle as the HUD's rain meter reads it.
+    #[must_use]
+    pub fn rain_view(&self) -> RainCycleView {
+        let rain = &self.sim.world().rain_cycle;
+        RainCycleView {
+            cycle_length: rain.cycle_length,
+            timer: rain.timer,
+            disable_rain: false,
+        }
+    }
+
+    /// What the overseers told the HUD since the last call.
+    pub fn take_hud_events(&mut self) -> Vec<HudEvent> {
+        self.sim.take_hud_events()
     }
 
     /// The water surface as drawn at `alpha` between ticks; `None` without water.

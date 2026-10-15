@@ -1,17 +1,18 @@
-//! The room's level graphic: settings, palettes, the shown camera's image, and the
-//! game's room camera that chooses it.
+//! The room's level graphic: settings, palettes and the shown camera's image (the
+//! scene's room camera chooses which).
 
 use rw_assets::{
     AssetError, NoiseTexture, PaletteTexture, PngImage, Room, RoomVisuals, StreamingAssets,
     UnityResources,
 };
-use rw_render::{Follow, LevelGraphics, LevelParams, LevelView, Renderer, RoomCamera};
+use rw_render::{LevelGraphics, LevelParams, LevelView, Renderer, RoomCamera};
 
 /// Level graphic state of one room.
 pub struct Visuals {
     room: RoomVisuals,
     noise: NoiseTexture,
-    camera: RoomCamera,
+    /// The camera whose image is shown.
+    shown: usize,
     /// Every camera's image, decoded once at load so switching never stalls.
     images: Vec<PngImage>,
     palette: PaletteTexture,
@@ -22,7 +23,7 @@ pub struct Visuals {
 impl Visuals {
     /// Loads the room's settings (the `timeline`'s `_settings-<timeline>.txt` variant
     /// where there is one), palettes and every camera's image, and the noise texture
-    /// from the game's Unity resources; the room camera shows `screen` pixels (`sSize`).
+    /// from the game's Unity resources, showing camera 0.
     ///
     /// # Errors
     /// When any of those cannot be loaded.
@@ -31,7 +32,6 @@ impl Visuals {
         resources: &UnityResources,
         room: &Room,
         timeline: &str,
-        screen: [f32; 2],
     ) -> Result<Self, AssetError> {
         let timeline = timeline.to_lowercase();
         let visuals =
@@ -46,35 +46,23 @@ impl Visuals {
             s.clouds,
             s.grime
         );
-        let camera = RoomCamera::new(room.cameras(), screen);
         let images = (0..room.cameras().len())
             .map(|i| visuals.camera_image(i))
             .collect::<Result<_, _>>()?;
         Ok(Self {
             noise: NoiseTexture::load(resources)?,
             images,
-            palette: visuals.palette_for_camera(camera.current()),
+            palette: visuals.palette_for_camera(0),
             room: visuals,
-            camera,
+            shown: 0,
             generation: 0,
         })
     }
 
-    /// One 40 Hz tick of the room camera; on a camera switch selects that camera's
-    /// image and palette fade.
-    pub fn tick(&mut self, follow: Option<&Follow>) {
-        if self.camera.update(follow) {
-            let current = self.camera.current();
-            log::info!("camera {}", current + 1);
-            self.palette = self.room.palette_for_camera(current);
-            self.generation += 1;
-        }
-    }
-
-    /// `MoveCamera` into this room: cut to camera `i` (`ApplyPositionChange`).
-    pub fn cut_to(&mut self, i: usize) {
+    /// Shows camera `i`'s image and palette fade (a cut, or `MoveCamera`).
+    pub fn show(&mut self, i: usize) {
         let i = i.min(self.images.len().saturating_sub(1));
-        self.camera.cut_to(i);
+        self.shown = i;
         self.palette = self.room.palette_for_camera(i);
         self.generation += 1;
     }
@@ -84,17 +72,11 @@ impl Visuals {
         self.generation
     }
 
-    /// The camera shown (0-based).
-    #[must_use]
-    pub fn current_camera(&self) -> usize {
-        self.camera.current()
-    }
-
     /// Uploads the shown camera's graphic.
-    pub fn upload(&self, renderer: &mut impl Renderer) {
-        let current = self.camera.current();
+    pub fn upload(&self, renderer: &mut impl Renderer, camera: &RoomCamera) {
+        let current = self.shown;
         renderer.set_level(&LevelGraphics {
-            camera_pos: self.camera.position(current),
+            camera_pos: camera.position(current),
             image: &self.images[current],
             palette: &self.palette,
             noise: &self.noise,
@@ -115,24 +97,19 @@ impl Visuals {
         self.palette.room_palette()
     }
 
-    /// The room camera's window size (`sSize`, the screen resolution).
+    /// The palette's earth colour (`GetPixel(0, 2)`, the overseers' graphics).
     #[must_use]
-    pub fn screen_size(&self) -> [f32; 2] {
-        self.camera.screen_size()
-    }
-
-    /// `RoomCamera.pos` this tick: bottom left of the window.
-    #[must_use]
-    pub fn camera_pos(&self) -> [f32; 2] {
-        self.camera.view_origin(1.0)
+    pub fn earth_color(&self) -> rw_graphics::Color {
+        let [r, g, b, a] = self.palette.texel(0, 2).map(|c| f32::from(c) / 255.0);
+        rw_graphics::Color { r, g, b, a }
     }
 
     /// The game's window at `alpha` between ticks, `seconds` of shader time in.
     #[must_use]
-    pub fn view(&self, alpha: f32, seconds: f32) -> LevelView {
+    pub fn view(camera: &RoomCamera, alpha: f32, seconds: f32) -> LevelView {
         LevelView {
-            origin: self.camera.view_origin(alpha),
-            size: self.camera.screen_size(),
+            origin: camera.view_origin(alpha),
+            size: camera.screen_size(),
             rain: seconds / 5.0,
         }
     }
