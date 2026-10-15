@@ -1,17 +1,21 @@
 //! Futile sprites on the CPU: atlas texture coordinates, `FSprite` quads and
-//! `TriangleMesh`es built from an `rw_graphics::DrawList`, and the frame's draw queue
-//! that keeps shapes, sprites and the level in call order. GPU-free.
+//! `TriangleMesh`es built from an `rw_graphics::DrawList`, split into draws per game
+//! shader, and the frame's draw queue that keeps shapes, sprites and the level in call
+//! order. GPU-free.
 //!
 //! Behaviour: `rainworld-re/notes/sprite-atlases.md` section 3 (`FSprite.UpdateLocalVertices`,
-//! `FMatrix.SetScaleThenRotate`, `Futile/Basic`).
+//! `FMatrix.SetScaleThenRotate`, the room sprite shaders).
 
 use std::ops::Range;
 
 use bytemuck::{Pod, Zeroable};
-use rw_graphics::{Atlas, AtlasFrame, DrawItem, DrawList, Layer, Mesh as SpriteMesh, Sprite};
+use rw_graphics::{
+    Atlas, AtlasFrame, Color as SpriteColor, DrawItem, DrawList, Layer, Mesh as SpriteMesh, Rect,
+    Shader, Size, Sprite,
+};
 use rw_sim::Vec2;
 
-use crate::{Mesh, StageBatch, StageDraw, WaterSprites, WaterVertex};
+use crate::{LevelView, Mesh, StageBatch, StageDraw, WaterSprites, WaterVertex};
 
 /// One textured vertex: stage position (room pixels minus the camera position),
 /// texture coordinate (`v` = 0 at the image's bottom row, as Unity) and colour.
@@ -23,12 +27,38 @@ pub struct SpriteVertex {
     pub color: [f32; 4],
 }
 
+/// One room sprite vertex: stage position, where the port's atlas is sampled (`uv`),
+/// the texture coordinate the game's shader reads as `i.uv` (`tex_coord`) and colour.
+///
+/// The two coordinates differ only for `Futile_White`, which in the game is its own
+/// texture (`uvRect` (0, 0, 1, 1)) and here the atlas's white element.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Default, Pod, Zeroable)]
+pub struct RoomVertex {
+    pub pos: [f32; 2],
+    pub uv: [f32; 2],
+    pub tex_coord: [f32; 2],
+    pub color: [f32; 4],
+}
+
 /// An atlas's frames with the image size, for texture coordinates.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SpriteAtlas {
     atlas: Atlas,
-    /// Where `Futile_White`-textured meshes sample: an opaque white texel.
-    white_uv: [f32; 2],
+    /// The white element's `[min, max]` texture coordinates inset by half a texel:
+    /// where `Futile_White`'s 0..1 is sampled.
+    white: [[f32; 2]; 2],
+}
+
+/// The globals the room sprite shaders read, as `RoomCamera.DrawUpdate` sets them.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct RoomGlobals {
+    /// `_spriteRect`: the level image in screen coordinates (0..1 over the screen, y up).
+    pub sprite_rect: [f32; 4],
+    /// `_screenSize`.
+    pub screen_size: [f32; 2],
+    /// `_RAIN`.
+    pub rain: f32,
 }
 
 /// `FMatrix` as `FNode` sets it: scale, then rotate clockwise, then translate.
@@ -42,11 +72,19 @@ pub struct NodeMatrix {
     ty: f32,
 }
 
-/// Sprites and shapes queued this frame, in call order.
+/// One draw call of room sprites: `indices` of the batch with one shader.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpriteDraw {
+    pub shader: Shader,
+    pub indices: Range<u32>,
+}
+
+/// Sprites queued this frame, in call order, and their draws.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SpriteBatch {
-    pub vertices: Vec<SpriteVertex>,
+    pub vertices: Vec<RoomVertex>,
     pub indices: Vec<u32>,
+    pub draws: Vec<SpriteDraw>,
 }
 
 /// One draw call of the frame.
@@ -54,8 +92,8 @@ pub struct SpriteBatch {
 pub enum Batch {
     /// Debug-shape vertices.
     Shapes(Range<u32>),
-    /// Sprite indices.
-    Sprites(Range<u32>),
+    /// Sprite indices drawn with one shader.
+    Sprites(SpriteDraw),
     /// The level graphic: batches before it are drawn behind it.
     Level,
     /// Water triangles drawn with one of the game's water shaders.
@@ -78,7 +116,7 @@ pub enum WaterShader {
 enum Event {
     Sprites {
         shapes_before: u32,
-        indices: Range<u32>,
+        draw: SpriteDraw,
     },
     Level {
         shapes_before: u32,
@@ -106,22 +144,71 @@ pub struct DrawQueue {
     events: Vec<Event>,
 }
 
+/// A draw-list colour as vertex data.
+trait VertexColor {
+    fn to_array(self) -> [f32; 4];
+}
+
+impl VertexColor for SpriteColor {
+    fn to_array(self) -> [f32; 4] {
+        [self.r, self.g, self.b, self.a]
+    }
+}
+
 impl SpriteAtlas {
-    /// The frame `Futile_White` meshes sample: 16x16 opaque white in `rainWorld`.
+    /// The frame `Futile_White` is drawn from: 16x16 opaque white in `rainWorld`.
     pub const WHITE_ELEMENT: &'static str = "RainWorld_White";
+
+    /// Futile's runtime 16x16 white texture, an element of its own one-image atlas.
+    pub const FUTILE_WHITE: &'static str = "Futile_White";
+
+    const FUTILE_WHITE_FRAME: AtlasFrame = AtlasFrame {
+        frame: Rect {
+            x: 0,
+            y: 0,
+            w: 16,
+            h: 16,
+        },
+        rotated: false,
+        trimmed: false,
+        sprite_source_size: Rect {
+            x: 0,
+            y: 0,
+            w: 16,
+            h: 16,
+        },
+        source_size: Size { w: 16, h: 16 },
+    };
+
+    /// `uvRect` corners of a whole texture in vertex order TL, TR, BR, BL.
+    const TEXTURE_CORNERS: [[f32; 2]; 4] = [[0.0, 1.0], [1.0, 1.0], [1.0, 0.0], [0.0, 0.0]];
 
     /// Wraps `atlas`; `None` without the white element.
     #[must_use]
     pub fn new(atlas: Atlas) -> Option<Self> {
         let white = atlas.get(Self::WHITE_ELEMENT)?;
         let [min, max] = Self::uv_rect(&atlas, white);
-        let white_uv = [(min[0] + max[0]) / 2.0, (min[1] + max[1]) / 2.0];
-        Some(Self { atlas, white_uv })
+        let half = [0.5 / atlas.size.w as f32, 0.5 / atlas.size.h as f32];
+        let white = [
+            [min[0] + half[0], min[1] + half[1]],
+            [max[0] - half[0], max[1] - half[1]],
+        ];
+        Some(Self { atlas, white })
     }
 
     #[must_use]
     pub fn atlas(&self) -> &Atlas {
         &self.atlas
+    }
+
+    /// Where `Futile_White`'s texture coordinate `t` (0..1) is sampled in the atlas.
+    #[must_use]
+    pub fn white_uv(&self, t: [f32; 2]) -> [f32; 2] {
+        let [min, max] = self.white;
+        [
+            min[0] + (max[0] - min[0]) * t[0],
+            min[1] + (max[1] - min[1]) * t[1],
+        ]
     }
 
     /// Futile's `uvRect` of a frame: `[min, max]` with `v` from the bottom
@@ -156,24 +243,51 @@ impl SpriteAtlas {
     /// The four vertices of `sprite` (TL, TR, BR, BL) at stage position
     /// `sprite.pos - cam_pos`; `None` if its element is not in the atlas.
     #[must_use]
-    pub fn quad(&self, sprite: &Sprite, cam_pos: Vec2) -> Option<[SpriteVertex; 4]> {
-        let frame = self.atlas.get(sprite.element)?;
-        let [min, max] = Self::uv_rect(&self.atlas, frame);
-        let uvs = [
-            [min[0], max[1]],
-            [max[0], max[1]],
-            [max[0], min[1]],
-            [min[0], min[1]],
-        ];
+    pub fn quad(&self, sprite: &Sprite, cam_pos: Vec2) -> Option<[RoomVertex; 4]> {
+        let (frame, uvs, tex_coords) = if sprite.element == Self::FUTILE_WHITE {
+            let corners = Self::TEXTURE_CORNERS;
+            (
+                &Self::FUTILE_WHITE_FRAME,
+                corners.map(|t| self.white_uv(t)),
+                corners,
+            )
+        } else {
+            let frame = self.atlas.get(sprite.element)?;
+            let [min, max] = Self::uv_rect(&self.atlas, frame);
+            let uvs = [
+                [min[0], max[1]],
+                [max[0], max[1]],
+                [max[0], min[1]],
+                [min[0], min[1]],
+            ];
+            (frame, uvs, uvs)
+        };
         let matrix =
             NodeMatrix::scale_then_rotate(sprite.pos - cam_pos, sprite.scale, sprite.rotation);
         let corners = Self::local_corners(frame, sprite.anchor);
-        let c = sprite.color;
-        Some(std::array::from_fn(|i| SpriteVertex {
+        Some(std::array::from_fn(|i| RoomVertex {
             pos: matrix.apply(corners[i]).to_array(),
             uv: uvs[i],
-            color: [c.r, c.g, c.b, c.a],
+            tex_coord: tex_coords[i],
+            color: sprite.color.to_array(),
         }))
+    }
+}
+
+impl RoomGlobals {
+    /// The globals while the level image sits at room rect `image` (position, size) and
+    /// the game's window is `view` (`_spriteRect`: decompile 130393, the image's offset
+    /// from the window shifted by (-0.5, +0.5) px, over the screen size).
+    #[must_use]
+    pub fn new(view: &LevelView, image: [f32; 4]) -> Self {
+        let [sw, sh] = view.size;
+        let x = image[0] - view.origin[0] - 0.5;
+        let y = image[1] - view.origin[1] + 0.5;
+        Self {
+            sprite_rect: [x / sw, y / sh, (x + image[2]) / sw, (y + image[3]) / sh],
+            screen_size: view.size,
+            rain: view.rain,
+        }
     }
 }
 
@@ -206,8 +320,24 @@ impl SpriteBatch {
     /// Futile's quad triangles over vertices TL, TR, BR, BL.
     pub const QUAD_INDICES: [u32; 6] = [0, 1, 2, 0, 2, 3];
 
-    /// Appends `sprite`; false (nothing added) if its element is missing.
+    /// Appends `sprite`, extending the last draw when it has the same shader; false
+    /// (nothing added) if its element is missing.
     pub fn push_sprite(&mut self, atlas: &SpriteAtlas, sprite: &Sprite, cam_pos: Vec2) -> bool {
+        let start = self.indices.len() as u32;
+        let added = self.append_sprite(atlas, sprite, cam_pos);
+        self.record(sprite.shader, start, true);
+        added
+    }
+
+    /// Appends a `TriangleMesh` over `Futile_White`, its vertices at stage positions
+    /// `v - cam_pos`, extending the last draw when it has the same shader.
+    pub fn push_mesh(&mut self, atlas: &SpriteAtlas, mesh: &SpriteMesh, cam_pos: Vec2) {
+        let start = self.indices.len() as u32;
+        self.append_mesh(atlas, mesh, cam_pos);
+        self.record(mesh.shader, start, true);
+    }
+
+    fn append_sprite(&mut self, atlas: &SpriteAtlas, sprite: &Sprite, cam_pos: Vec2) -> bool {
         let Some(quad) = atlas.quad(sprite, cam_pos) else {
             return false;
         };
@@ -217,16 +347,19 @@ impl SpriteBatch {
         true
     }
 
-    /// Appends a flat-coloured `TriangleMesh` (every UV on the white texel), its
-    /// vertices at stage positions `v - cam_pos`.
-    pub fn push_mesh(&mut self, atlas: &SpriteAtlas, mesh: &SpriteMesh, cam_pos: Vec2) {
+    /// Each vertex samples `Futile_White` at its UV (the centre without UVs), coloured
+    /// by its vertex colour (`mesh.color` without them).
+    fn append_mesh(&mut self, atlas: &SpriteAtlas, mesh: &SpriteMesh, cam_pos: Vec2) {
         let base = self.vertices.len() as u32;
-        let c = mesh.color;
         self.vertices
-            .extend(mesh.vertices.iter().map(|&v| SpriteVertex {
-                pos: (v - cam_pos).to_array(),
-                uv: atlas.white_uv,
-                color: [c.r, c.g, c.b, c.a],
+            .extend(mesh.vertices.iter().enumerate().map(|(i, &v)| {
+                let tex_coord = mesh.uvs.get(i).map_or([0.5, 0.5], |t| t.to_array());
+                RoomVertex {
+                    pos: (v - cam_pos).to_array(),
+                    uv: atlas.white_uv(tex_coord),
+                    tex_coord,
+                    color: mesh.vertex_colors.get(i).unwrap_or(&mesh.color).to_array(),
+                }
             }));
         self.indices.extend(
             mesh.triangles
@@ -236,8 +369,27 @@ impl SpriteBatch {
         );
     }
 
-    /// Appends the items of `list` in `layer`, in order. Returns the names of
-    /// elements missing from the atlas (those sprites are skipped).
+    /// Records indices `start..` as drawn with `shader`, merged into the last draw when
+    /// `merge` and it has the same shader.
+    fn record(&mut self, shader: Shader, start: u32, merge: bool) {
+        let end = self.indices.len() as u32;
+        if end == start {
+            return;
+        }
+        match self.draws.last_mut() {
+            Some(last) if merge && last.shader == shader && last.indices.end == start => {
+                last.indices.end = end;
+            }
+            _ => self.draws.push(SpriteDraw {
+                shader,
+                indices: start..end,
+            }),
+        }
+    }
+
+    /// Appends the items of `list` in `layer`, in order, in new draws split where the
+    /// shader changes. Returns the names of elements missing from the atlas (those
+    /// sprites are skipped).
     pub fn push_list(
         &mut self,
         atlas: &SpriteAtlas,
@@ -246,15 +398,22 @@ impl SpriteBatch {
         cam_pos: Vec2,
     ) -> Vec<&'static str> {
         let mut missing = Vec::new();
+        let first_draw = self.draws.len();
         for item in list.layer(layer) {
-            match item {
+            let start = self.indices.len() as u32;
+            let shader = match item {
                 DrawItem::Sprite(s) => {
-                    if !self.push_sprite(atlas, s, cam_pos) {
+                    if !self.append_sprite(atlas, s, cam_pos) {
                         missing.push(s.element);
                     }
+                    s.shader
                 }
-                DrawItem::Mesh(m) => self.push_mesh(atlas, m, cam_pos),
-            }
+                DrawItem::Mesh(m) => {
+                    self.append_mesh(atlas, m, cam_pos);
+                    m.shader
+                }
+            };
+            self.record(shader, start, self.draws.len() > first_draw);
         }
         missing
     }
@@ -262,6 +421,7 @@ impl SpriteBatch {
     pub fn clear(&mut self) {
         self.vertices.clear();
         self.indices.clear();
+        self.draws.clear();
     }
 }
 
@@ -305,8 +465,9 @@ impl DrawQueue {
         }
     }
 
-    /// Queues `list`'s items of `layer` after everything queued so far. Returns the
-    /// names of elements missing from the atlas.
+    /// Queues `list`'s items of `layer` after everything queued so far, one draw per
+    /// run of items with the same shader. Returns the names of elements missing from
+    /// the atlas.
     pub fn push_sprites(
         &mut self,
         atlas: &SpriteAtlas,
@@ -314,13 +475,13 @@ impl DrawQueue {
         layer: Layer,
         cam_pos: Vec2,
     ) -> Vec<&'static str> {
-        let start = self.sprites.indices.len() as u32;
+        let first = self.sprites.draws.len();
         let missing = self.sprites.push_list(atlas, list, layer, cam_pos);
-        let end = self.sprites.indices.len() as u32;
-        if end > start {
+        let shapes_before = self.shapes.vertex_count();
+        for draw in &self.sprites.draws[first..] {
             self.events.push(Event::Sprites {
-                shapes_before: self.shapes.vertex_count(),
-                indices: start..end,
+                shapes_before,
+                draw: draw.clone(),
             });
         }
         missing
@@ -351,7 +512,7 @@ impl DrawQueue {
                 shapes_done = shapes_before;
             }
             out.push(match event {
-                Event::Sprites { indices, .. } => Batch::Sprites(indices.clone()),
+                Event::Sprites { draw, .. } => Batch::Sprites(draw.clone()),
                 Event::Level { .. } => Batch::Level,
                 Event::Water {
                     shader, vertices, ..

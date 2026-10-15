@@ -1,27 +1,55 @@
-//! GPU side of the sprites: the `sprite.wgsl` pipeline (`Futile/Basic`), the atlas
-//! texture and the per-frame sprite buffers.
+//! GPU side of the room sprites: a `sprite.wgsl` pipeline per game shader, the atlas
+//! texture, the room globals, `_NoiseTex2` and the per-frame sprite buffers.
 
 use std::borrow::Cow;
+use std::collections::HashMap;
 
 use rw_assets::PngImage;
+use rw_graphics::Shader;
 use wgpu::util::DeviceExt;
 
-use crate::{Camera, SpriteBatch, SpriteVertex};
+use crate::{Camera, RoomGlobals, RoomVertex, SpriteBatch, SpriteDraw};
 
-/// The sprite pipeline, the atlas bind group and the frame's buffers.
+/// `sprite.wgsl`'s `Room` uniform.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+struct RoomUniform {
+    transform: [f32; 4],
+    sprite_rect: [f32; 4],
+    screen: [f32; 2],
+    rain: f32,
+    hologram_threshold: f32,
+}
+
+/// The sprite pipelines, the atlas bind group and the frame's buffers.
 pub(crate) struct SpritePipeline {
-    pipeline: wgpu::RenderPipeline,
+    pipelines: HashMap<Shader, wgpu::RenderPipeline>,
     layout: wgpu::BindGroupLayout,
+    noise_layout: wgpu::BindGroupLayout,
     sampler: wgpu::Sampler,
-    camera: wgpu::Buffer,
+    uniform: wgpu::Buffer,
     /// Bound to the atlas set by [`SpritePipeline::set_atlas`].
     bind_group: Option<wgpu::BindGroup>,
+    /// `_NoiseTex2`, bound each frame by [`SpritePipeline::upload`].
+    noise_group: Option<wgpu::BindGroup>,
     vertices: Option<wgpu::Buffer>,
     indices: Option<wgpu::Buffer>,
 }
 
 impl SpritePipeline {
-    /// `Blend SrcAlpha OneMinusSrcAlpha` on colour and alpha, as `Futile/Basic`.
+    /// Each shader and its fragment entry point.
+    const SHADERS: [(Shader, &'static str); 4] = [
+        (Shader::Basic, "fs_basic"),
+        (Shader::FlatLight, "fs_flat_light"),
+        (Shader::OverseerZip, "fs_overseer_zip"),
+        (Shader::Hologram, "fs_hologram"),
+    ];
+
+    /// `_hologramThreshold` at render scale 1 (`RainWorld`, decompile 110635: 0.5 when
+    /// `Futile.screen.renderScale > 1`).
+    const HOLOGRAM_THRESHOLD: f32 = 0.65;
+
+    /// `Blend SrcAlpha OneMinusSrcAlpha` on colour and alpha, as all four shaders.
     const BLEND: wgpu::BlendState = wgpu::BlendState {
         color: wgpu::BlendComponent {
             src_factor: wgpu::BlendFactor::SrcAlpha,
@@ -41,7 +69,7 @@ impl SpritePipeline {
             entries: &[
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
+                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -67,25 +95,90 @@ impl SpritePipeline {
                 },
             ],
         });
+        let noise_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("sprite noise2"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
+        });
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("sprite.wgsl"),
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("../shaders/sprite.wgsl"))),
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("sprites"),
-            bind_group_layouts: &[Some(&layout)],
+            bind_group_layouts: &[Some(&layout), Some(&noise_layout)],
             immediate_size: 0,
         });
-        let attributes = wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2, 2 => Float32x4];
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("sprites"),
-            layout: Some(&pipeline_layout),
+        let pipelines = Self::SHADERS
+            .iter()
+            .map(|&(id, entry)| {
+                let pipeline = Self::pipeline(device, &pipeline_layout, &shader, format, entry);
+                (id, pipeline)
+            })
+            .collect();
+        // Atlas import settings: point filter, clamp, no mips.
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("atlas"),
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
+        let uniform = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("sprite room uniform"),
+            size: std::mem::size_of::<RoomUniform>() as u64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        Self {
+            pipelines,
+            layout,
+            noise_layout,
+            sampler,
+            uniform,
+            bind_group: None,
+            noise_group: None,
+            vertices: None,
+            indices: None,
+        }
+    }
+
+    fn pipeline(
+        device: &wgpu::Device,
+        layout: &wgpu::PipelineLayout,
+        shader: &wgpu::ShaderModule,
+        format: wgpu::TextureFormat,
+        fragment: &str,
+    ) -> wgpu::RenderPipeline {
+        let attributes = wgpu::vertex_attr_array![
+            0 => Float32x2, 1 => Float32x2, 2 => Float32x2, 3 => Float32x4
+        ];
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some(fragment),
+            layout: Some(layout),
             vertex: wgpu::VertexState {
-                module: &shader,
+                module: shader,
                 entry_point: Some("vs_main"),
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
                 buffers: &[Some(wgpu::VertexBufferLayout {
-                    array_stride: std::mem::size_of::<SpriteVertex>() as u64,
+                    array_stride: std::mem::size_of::<RoomVertex>() as u64,
                     step_mode: wgpu::VertexStepMode::Vertex,
                     attributes: &attributes,
                 })],
@@ -98,8 +191,8 @@ impl SpritePipeline {
             depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
             fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
+                module: shader,
+                entry_point: Some(fragment),
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
                 targets: &[Some(wgpu::ColorTargetState {
                     format,
@@ -109,31 +202,7 @@ impl SpritePipeline {
             }),
             multiview_mask: None,
             cache: None,
-        });
-        // Atlas import settings: point filter, clamp, no mips.
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: Some("atlas"),
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
-        });
-        let camera = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("sprite camera"),
-            size: std::mem::size_of::<[f32; 4]>() as u64,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        Self {
-            pipeline,
-            layout,
-            sampler,
-            camera,
-            bind_group: None,
-            vertices: None,
-            indices: None,
-        }
+        })
     }
 
     /// Uploads the atlas image as RGBA8 unorm (gamma-space values used as stored),
@@ -172,7 +241,7 @@ impl SpritePipeline {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: self.camera.as_entire_binding(),
+                    resource: self.uniform.as_entire_binding(),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
@@ -186,25 +255,53 @@ impl SpritePipeline {
         }));
     }
 
-    /// Writes the frame's sprites and the stage camera: `camera` shifted so stage
-    /// positions (room minus `cam_pos`) land where their room positions would.
-    pub(crate) fn upload(
+    /// Writes the room globals and the stage camera (`camera` shifted so stage
+    /// positions, room minus `cam_pos`, land where their room positions would), and
+    /// binds `noise2` (view and sampler) as `_NoiseTex2`.
+    pub(crate) fn set_frame(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        batch: &SpriteBatch,
         camera: &Camera,
         cam_pos: [f32; 2],
+        globals: &RoomGlobals,
+        noise2: (&wgpu::TextureView, &wgpu::Sampler),
     ) {
         let stage = Camera {
             centre: [camera.centre[0] - cam_pos[0], camera.centre[1] - cam_pos[1]],
             ..*camera
         };
-        queue.write_buffer(
-            &self.camera,
-            0,
-            bytemuck::cast_slice(&stage.clip_transform()),
-        );
+        let uniform = RoomUniform {
+            transform: stage.clip_transform(),
+            sprite_rect: globals.sprite_rect,
+            screen: globals.screen_size,
+            rain: globals.rain,
+            hologram_threshold: Self::HOLOGRAM_THRESHOLD,
+        };
+        queue.write_buffer(&self.uniform, 0, bytemuck::bytes_of(&uniform));
+        self.noise_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("sprite noise2"),
+            layout: &self.noise_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(noise2.0),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(noise2.1),
+                },
+            ],
+        }));
+    }
+
+    /// Writes the frame's sprites.
+    pub(crate) fn upload(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        batch: &SpriteBatch,
+    ) {
         Self::write(
             device,
             queue,
@@ -246,17 +343,22 @@ impl SpritePipeline {
         }
     }
 
-    /// Draws sprite indices `range` of the uploaded batch.
-    pub(crate) fn draw(&self, pass: &mut wgpu::RenderPass<'_>, range: std::ops::Range<u32>) {
-        let (Some(bind_group), Some(vertices), Some(indices)) =
-            (&self.bind_group, &self.vertices, &self.indices)
-        else {
+    /// Draws one draw of the uploaded batch with its shader.
+    pub(crate) fn draw(&self, pass: &mut wgpu::RenderPass<'_>, draw: &SpriteDraw) {
+        let (Some(pipeline), Some(bind_group), Some(noise), Some(vertices), Some(indices)) = (
+            self.pipelines.get(&draw.shader),
+            &self.bind_group,
+            &self.noise_group,
+            &self.vertices,
+            &self.indices,
+        ) else {
             return;
         };
-        pass.set_pipeline(&self.pipeline);
+        pass.set_pipeline(pipeline);
         pass.set_bind_group(0, bind_group, &[]);
+        pass.set_bind_group(1, noise, &[]);
         pass.set_vertex_buffer(0, vertices.slice(..));
         pass.set_index_buffer(indices.slice(..), wgpu::IndexFormat::Uint32);
-        pass.draw_indexed(range, 0, 0..1);
+        pass.draw_indexed(draw.indices.clone(), 0, 0..1);
     }
 }

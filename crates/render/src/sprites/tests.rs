@@ -36,7 +36,7 @@ fn sprite(element: &'static str, scale: [f32; 2], rotation: f32, layer: Layer) -
 const CAM: Vec2 = Vec2::new(20.0, 10.0);
 
 /// Asserts each vertex position equals `expected` (stage pixels) within 1e-4.
-fn assert_corners(quad: &[SpriteVertex; 4], expected: [[f32; 2]; 4]) {
+fn assert_corners(quad: &[RoomVertex; 4], expected: [[f32; 2]; 4]) {
     for (v, e) in quad.iter().zip(expected) {
         assert!(
             (v.pos[0] - e[0]).abs() < 1e-4 && (v.pos[1] - e[1]).abs() < 1e-4,
@@ -173,16 +173,16 @@ fn midground_before_the_level_and_foreground_after() {
         queue.batches(),
         [
             Batch::Shapes(0..6),
-            Batch::Sprites(0..45),
+            basic(0..45),
             Batch::Level,
-            Batch::Sprites(45..51),
+            basic(45..51),
             Batch::Shapes(6..12),
         ]
     );
     // Without a level every batch is drawn in call order.
     queue.clear();
     queue.push_sprites(&a, &list, Layer::Foreground, CAM);
-    assert_eq!(queue.batches(), [Batch::Sprites(0..6)]);
+    assert_eq!(queue.batches(), [basic(0..6)]);
 }
 
 #[test]
@@ -206,7 +206,7 @@ fn water_after_the_level_and_foreground_band_then_body() {
         queue.batches(),
         [
             Batch::Level,
-            Batch::Sprites(0..6),
+            basic(0..6),
             Batch::Water(WaterShader::Surface, 0..42),
             Batch::Water(WaterShader::Deep, 42..84),
         ]
@@ -244,6 +244,199 @@ fn installed_atlas_uvs() {
         assert_eq!(SpriteAtlas::uv_rect(a.atlas(), frame), want, "{name}");
     }
     // RainWorld_White (315, 376, 16x16): centre (323 / 464, (512 - 376 - 8) / 512).
-    assert!((a.white_uv[0] - 323.0 / 464.0).abs() < 1e-6);
-    assert!((a.white_uv[1] - 128.0 / 512.0).abs() < 1e-6);
+    assert!((a.white_uv([0.5, 0.5])[0] - 323.0 / 464.0).abs() < 1e-6);
+    assert!((a.white_uv([0.5, 0.5])[1] - 128.0 / 512.0).abs() < 1e-6);
+    // Hologram's sideways alpha reads land around `pixel` (184, 455, 1x1).
+    let pixel = a.atlas().get("pixel").unwrap().frame;
+    assert_eq!([pixel.x, pixel.y, pixel.w, pixel.h], [184, 455, 1, 1]);
+}
+
+fn basic(indices: Range<u32>) -> Batch {
+    Batch::Sprites(SpriteDraw {
+        shader: Shader::Basic,
+        indices,
+    })
+}
+
+fn draw(shader: Shader, indices: Range<u32>) -> Batch {
+    Batch::Sprites(SpriteDraw { shader, indices })
+}
+
+fn shaded(element: &'static str, shader: Shader, layer: Layer) -> DrawItem {
+    let mut s = sprite(element, [1.0, 1.0], 0.0, layer);
+    s.shader = shader;
+    DrawItem::Sprite(s)
+}
+
+fn overseer_mesh(layer: Layer) -> SpriteMesh {
+    SpriteMesh {
+        index: 5,
+        vertices: vec![
+            Vec2::new(20.0, 10.0),
+            Vec2::new(30.0, 10.0),
+            Vec2::new(25.0, 20.0),
+        ],
+        uvs: vec![
+            Vec2::new(0.0, 0.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(0.5, 1.0),
+        ],
+        triangles: std::borrow::Cow::Owned(vec![[0, 1, 2]]),
+        color: SpriteColor::WHITE,
+        vertex_colors: vec![
+            SpriteColor::rgb(1.0, 0.0, 0.0),
+            SpriteColor::rgb(0.0, 1.0, 0.0),
+            SpriteColor {
+                r: 0.0,
+                g: 0.0,
+                b: 1.0,
+                a: 0.5,
+            },
+        ],
+        shader: Shader::OverseerZip,
+        layer,
+    }
+}
+
+#[test]
+fn draws_split_where_the_shader_changes_in_order() {
+    let a = atlas();
+    let (mid, items, fg) = (Layer::Midground, Layer::Items, Layer::Foreground);
+    let list = DrawList {
+        items: vec![
+            shaded("A", Shader::Basic, mid),
+            shaded("Nope", Shader::Basic, mid),
+            shaded("A", Shader::Basic, mid),
+            shaded("Futile_White", Shader::FlatLight, items),
+            DrawItem::Mesh(overseer_mesh(items)),
+            DrawItem::Mesh(overseer_mesh(items)),
+            shaded("A", Shader::Hologram, items),
+            shaded("A", Shader::Basic, items),
+            shaded("A", Shader::Basic, fg),
+            shaded("Futile_White", Shader::FlatLight, fg),
+        ],
+    };
+    let mut queue = DrawQueue::default();
+    assert_eq!(queue.push_sprites(&a, &list, mid, CAM), ["Nope"]);
+    assert!(queue.push_sprites(&a, &list, items, CAM).is_empty());
+    queue.mark_level();
+    queue.push_sprites(&a, &list, fg, CAM);
+    // A missing sprite does not split a draw; Items' Basic tail and Foreground's Basic
+    // head stay apart across the level.
+    assert_eq!(
+        queue.batches(),
+        [
+            basic(0..12),
+            draw(Shader::FlatLight, 12..18),
+            draw(Shader::OverseerZip, 18..24),
+            draw(Shader::Hologram, 24..30),
+            basic(30..36),
+            Batch::Level,
+            basic(36..42),
+            draw(Shader::FlatLight, 42..48),
+        ]
+    );
+}
+
+#[test]
+fn consecutive_lists_of_one_shader_keep_their_own_draws() {
+    let a = atlas();
+    let list = DrawList {
+        items: vec![
+            shaded("A", Shader::Basic, Layer::Midground),
+            shaded("A", Shader::Basic, Layer::Items),
+        ],
+    };
+    let mut queue = DrawQueue::default();
+    queue.push_sprites(&a, &list, Layer::Midground, CAM);
+    queue.push_sprites(&a, &list, Layer::Items, CAM);
+    assert_eq!(queue.batches(), [basic(0..6), basic(6..12)]);
+}
+
+#[test]
+fn futile_white_sprite_maps_onto_the_white_texels() {
+    let a = atlas();
+    let s = sprite("Futile_White", [1.0, 1.0], 0.0, Layer::Items);
+    let q = a.quad(&s, CAM).unwrap();
+    // Futile_White is 16x16, centred on (80, 40).
+    assert_corners(&q, [[72.0, 48.0], [88.0, 48.0], [88.0, 32.0], [72.0, 32.0]]);
+    // The white frame (40, 0, 16x16) of the 64x32 atlas, inset by half a texel:
+    // u 40.5/64..55.5/64, v (32 - 16 + 0.5)/32..(32 - 0.5)/32.
+    let (u0, u1, v0, v1) = (40.5 / 64.0, 55.5 / 64.0, 16.5 / 32.0, 31.5 / 32.0);
+    assert_eq!(q.map(|v| v.uv), [[u0, v1], [u1, v1], [u1, v0], [u0, v0]]);
+    // The game's shader sees Futile_White's own uvRect (0, 0, 1, 1).
+    assert_eq!(
+        q.map(|v| v.tex_coord),
+        [[0.0, 1.0], [1.0, 1.0], [1.0, 0.0], [0.0, 0.0]]
+    );
+}
+
+#[test]
+fn atlas_sprite_shader_coordinate_is_its_atlas_uv() {
+    let a = atlas();
+    let q = a
+        .quad(&sprite("A", [1.0, 1.0], 0.0, Layer::Items), CAM)
+        .unwrap();
+    assert_eq!(q.map(|v| v.tex_coord), q.map(|v| v.uv));
+    assert_eq!(q[0].uv, [0.156_25, 0.375]);
+}
+
+#[test]
+fn mesh_uvs_and_vertex_colours() {
+    let a = atlas();
+    let mut batch = SpriteBatch::default();
+    batch.push_mesh(&a, &overseer_mesh(Layer::Items), CAM);
+    let v = &batch.vertices;
+    assert_eq!(v[0].pos, [0.0, 0.0]);
+    assert_eq!(v[2].pos, [5.0, 10.0]);
+    assert_eq!(
+        v.iter().map(|v| v.tex_coord).collect::<Vec<_>>(),
+        [[0.0, 0.0], [1.0, 0.0], [0.5, 1.0]]
+    );
+    let (u0, u1, v0, v1) = (40.5 / 64.0, 55.5 / 64.0, 16.5 / 32.0, 31.5 / 32.0);
+    assert_eq!(v[0].uv, [u0, v0]);
+    assert_eq!(v[1].uv, [u1, v0]);
+    assert_eq!(v[2].uv, [(u0 + u1) / 2.0, v1]);
+    assert_eq!(v[0].color, [1.0, 0.0, 0.0, 1.0]);
+    assert_eq!(v[1].color, [0.0, 1.0, 0.0, 1.0]);
+    assert_eq!(v[2].color, [0.0, 0.0, 1.0, 0.5]);
+    assert_eq!(
+        batch.draws,
+        [SpriteDraw {
+            shader: Shader::OverseerZip,
+            indices: 0..3
+        }]
+    );
+    // Without UVs or vertex colours: the texture's centre and the mesh colour.
+    batch.clear();
+    batch.push_mesh(&a, &tail_mesh(), CAM);
+    assert!(batch.vertices.iter().all(|v| v.tex_coord == [0.5, 0.5]));
+    assert!(
+        batch
+            .vertices
+            .iter()
+            .all(|v| v.color == [0.0, 1.0, 0.0, 1.0])
+    );
+}
+
+#[test]
+fn room_globals_sprite_rect() {
+    // RoomCamera: ((image - window) + (-0.5, 0.5)) / screen, and the far corner + size.
+    let view = LevelView {
+        origin: [100.5, 200.25],
+        size: [1366.0, 768.0],
+        rain: 3.0,
+    };
+    let g = RoomGlobals::new(&view, [80.0, 190.0, 1400.0, 800.0]);
+    assert_eq!(
+        g.sprite_rect,
+        [
+            -21.0 / 1366.0,
+            -9.75 / 768.0,
+            1379.0 / 1366.0,
+            790.25 / 768.0
+        ]
+    );
+    assert_eq!(g.screen_size, [1366.0, 768.0]);
+    assert_eq!(g.rain, 3.0);
 }
