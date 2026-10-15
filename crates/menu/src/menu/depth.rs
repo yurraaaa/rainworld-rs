@@ -11,6 +11,10 @@ use super::Menu;
 use super::object::{Kind, ObjectId, SceneData, SceneId};
 use crate::atlas::AtlasManager;
 use crate::shared::MenuShared;
+use crate::stage::Sprite;
+use crate::tree::NodeId;
+
+mod slugcat_scenes;
 
 /// `MenuDepthIllustration.MenuShader`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -99,6 +103,8 @@ pub struct DepthScene {
     pub folder: String,
     pub layers: Vec<DepthLayer>,
     pub idle_depths: Vec<f32>,
+    /// The layer index before which `BuildScene` calls its slugcat page's `AddGlow`.
+    pub glow_at: Option<usize>,
 }
 
 impl DepthScene {
@@ -144,6 +150,13 @@ impl DepthScene {
         if let Some(last) = self.layers.last_mut() {
             last.set_alpha = Some(alpha);
         }
+        self
+    }
+
+    /// `(owner as SlugcatPage).AddGlow()` between the layers so far and the next.
+    #[must_use]
+    pub fn glow(mut self) -> Self {
+        self.glow_at = Some(self.layers.len());
         self
     }
 
@@ -198,12 +211,19 @@ impl SceneId {
     /// The depth branch of `MenuScene.BuildScene`, for the scenes the port shows in
     /// depth; `None` for the others, which stay flat (D13).
     #[must_use]
-    pub fn depth_scene(self, _shared: &MenuShared) -> Option<DepthScene> {
+    pub fn depth_scene(self, shared: &MenuShared) -> Option<DepthScene> {
         match self {
             // `MainMenu_Downpour` without Downpour installed (every DLC is treated as
             // not installed) builds the main-menu scene.
             Self::MainMenu | Self::MainMenuDownpour => Some(Self::main_menu_scene()),
             Self::LandscapeSu => Some(Self::landscape_su_scene()),
+            Self::SlugcatWhite
+            | Self::SlugcatYellow
+            | Self::SlugcatRed
+            | Self::SlugcatDeadRed
+            | Self::GhostWhite
+            | Self::GhostYellow
+            | Self::GhostRed => self.slugcat_scene(shared.progression.red_unlocked),
             _ => None,
         }
     }
@@ -347,15 +367,22 @@ impl Menu {
 
     /// The depth branch of `BuildScene` and `RefreshPositions`: the layers, their
     /// `positions.txt` places (plus `offset`), then the layers become sub-objects.
+    /// With `glow` (the owning slugcat page's `HasGlow`), `AddGlow`'s two sprites go in
+    /// among the layers where the table calls it; they are returned (B, then A).
     pub(super) fn build_depth_scene(
         &mut self,
         shared: &mut MenuShared,
         scene: ObjectId,
         table: &DepthScene,
         interactive: bool,
-    ) {
+        glow: bool,
+    ) -> Option<[NodeId; 2]> {
         let mut layers = Vec::with_capacity(table.layers.len());
-        for l in &table.layers {
+        let mut glow_sprites = None;
+        for (index, l) in table.layers.iter().enumerate() {
+            if glow && table.glow_at == Some(index) {
+                glow_sprites = Some(self.add_glow_sprites(scene));
+            }
             let id = self.add_depth_illustration(
                 shared, scene, &l.folder, &l.file, l.pos, l.depth, l.shader,
             );
@@ -382,6 +409,18 @@ impl Menu {
         for id in layers {
             self.add_sub(scene, id);
         }
+        glow_sprites
+    }
+
+    /// `SlugcatPage.AddGlow` with `HasGlow`: `glowSpriteB`, then `glowSpriteA`, both
+    /// `Futile_White` with `FlatLightNoisy`, in the page's container.
+    fn add_glow_sprites(&mut self, scene: ObjectId) -> [NodeId; 2] {
+        let container = self.container_of(scene);
+        [0, 1].map(|_| {
+            let mut sprite = Sprite::new(AtlasManager::WHITE);
+            sprite.shader = StageShader::FlatLightNoisy;
+            self.stage.add_sprite(container, sprite)
+        })
     }
 
     /// `MenuDepthIllustration.DepthAtPosition(ps, devtool: false)`: the depth of the

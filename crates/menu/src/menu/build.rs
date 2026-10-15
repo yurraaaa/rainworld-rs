@@ -715,6 +715,18 @@ impl Menu {
         owner: ObjectId,
         scene: SceneId,
     ) -> ObjectId {
+        self.add_page_scene(shared, owner, scene, false).0
+    }
+
+    /// `add_scene` for a slugcat page, whose `HasGlow` decides whether the scene's
+    /// `AddGlow` call adds the glow sprites (returned: B, then A).
+    pub fn add_page_scene(
+        &mut self,
+        shared: &mut MenuShared,
+        owner: ObjectId,
+        scene: SceneId,
+        glow: bool,
+    ) -> (ObjectId, Option<[NodeId; 2]>) {
         let id = self.push(MenuObject::new(
             Some(owner),
             Vec2::ZERO,
@@ -725,8 +737,9 @@ impl Menu {
         } else {
             scene.depth_scene(shared)
         };
+        let mut glow_sprites = None;
         if let Some(table) = depth {
-            self.build_depth_scene(shared, id, &table, true);
+            glow_sprites = self.build_depth_scene(shared, id, &table, true, glow);
         } else {
             self.build_flat_scene(shared, id, scene);
         }
@@ -741,7 +754,7 @@ impl Menu {
             s.last_cam_pos = cam_get_to;
             s.cam_get_to2 = cam_get_to;
         }
-        id
+        (id, glow_sprites)
     }
 
     /// The flat branch of `BuildScene`: one image (two for the death scene) at the

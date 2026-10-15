@@ -18,10 +18,12 @@ ported code plays makes `VirtualMicrophone.PlaySound`'s draws on it where the ga
 `room.PlaySound` (`rw_sim::Sounds`; the order is in `rainworld-re/notes/sound.md` 2.8),
 loaded from `sounds.txt` in the window and in MCP alike, so a run's sequence does not
 depend on whether audio is playing. The menus draw from the same stream before the game
-does: the intro roll's `RainEffect` (2508 draws when built: five per drop, eight for
-the wind; every tick two per drop, five more per drop that resets, eight for the wind,
-one when the highlight wraps, one or two for the lightning) and its random lightning
-past 14 s (one draw per tick, three more on a spike), the scenes' camera drift and
+does: the intro roll's and the slugcat select menu's `RainEffect` (2508 draws when
+built: five per drop, eight for the wind; every tick two per drop, five more per drop
+that resets, eight for the wind, one when the highlight wraps, one or two for the
+lightning), the intro roll's random lightning past 14 s (one draw per tick, three more
+on a spike), the select pages' mark (three or five draws a tick) and glow (two or
+three; `SlugcatPage.Update`), the scenes' camera drift and
 focus (`InteractiveMenuScene`, every tick of a shown scene; a depth scene's idle focus
 pick two more) and the menu sounds (`MenuMicrophone.PlaySound`/`PlayLoop` make the same
 `SoundLoader` draws), and the game process takes the stream over where the menus left
@@ -92,7 +94,9 @@ it (D13). What still differs is only the seed and the call order:
   per-frame reason as the holograms'.
 - **Passage tokens.** `EndgameTokens.Token.GrafUpdate`'s glow-size draw (one per token
   and rendered frame on the sleep and death screens) comes from the screen's own
-  cosmetic stream, for the same reason.
+  cosmetic stream, for the same reason, and so do `SlugcatPage.GrafUpdate`'s draws on
+  the slugcat select menu (the mark glow's size and glow B's alpha, one each per page
+  that has them and rendered frame).
 
 **Why.** Matching the game's draw sequence would need every system that draws. Seeding
 from the command line keeps runs reproducible.
@@ -704,9 +708,11 @@ real-time audio rather than the sim.
   or layers: `Range`, then `value`; the depth under a still mouse), the globals
   `_BlurDepth`, `_BlurRange`, `_MenuCamPos` and the shaders `SceneBlur`,
   `SceneBlurLightEdges`, `SceneLighten`, `SceneOverlay`, `SceneSoftLight` in WGSL. In
-  depth so far: `MainMenu` and `Landscape_SU` (the options menu). Still flat until their
-  steps although the game shows them in depth: the slugcat select pages (so no select
-  rain effect, mark or glow), the sleep, starve and new-death scenes and the intro
+  depth so far: `MainMenu`, `Landscape_SU` (the options menu) and the slugcat select
+  pages (`Slugcat_White`, `_Yellow`, `_Red` with the locked Hunter's dark layer,
+  `Slugcat_Dead_Red`, the three ghosts; `SlugcatPage.GrafUpdate` places each layer at
+  `pos - CamPos * 80 / depth + sceneOffset` slid by the scroll). Still flat until their
+  steps although the game shows them in depth: the sleep, starve and new-death scenes and the intro
   slideshows. Their flat branches follow the game: the idle camera draws every tick
   (its idle focus pick draws nothing more without layers); the sleep scene of the
   slugcat being played (`PlayingAsSlugcat`: built after the manager switches, so never
@@ -718,7 +724,9 @@ real-time audio rather than the sim.
   scene uses them) are not ported; such a layer would draw with `Basic`. The scene
   globals are kept per menu (the last scene `GrafUpdate` of that menu), where Unity's
   are process-wide; only scene layers read them, and a scene sets them before its
-  layers draw. The grab is sampled at the pixel's own screen position, the net of the
+  layers draw. As in the game (`Shader.SetGlobal*` in each shown scene's `GrafUpdate`,
+  every draw after all of them), the slugcat select menu's three scenes share the last
+  page's values: the Hunter's scene's focus and camera blur every page. The grab is sampled at the pixel's own screen position, the net of the
   shaders' `UNITY_UV_STARTS_AT_TOP` flip and `1 - scrPos.y` read on Direct3D (the
   Windows build); on OpenGL the game's would read the grab mirrored.
 - **Intro slideshows.** `SlideShow` (`WhiteIntro`, `YellowIntro`; `rw_menu::SlideShow`,
@@ -761,13 +769,18 @@ real-time audio rather than the sim.
   the restart check box rises; checked, START (held 120 ticks, "DELETE SAVE") wipes the
   save (`WipeSaveState`) and starts a new game, which is the game's only confirmation.
   A page with a save is `SlugcatPageContinue` (`rw_hud::SlugcatSelectMenu`,
-  `rainworld-re/notes/menu.md` "Continue pages"): its flat scene (the ghost after
+  `rainworld-re/notes/menu.md` "Continue pages"): its scene (the ghost after
   ascending, the dead Hunter's once its cycles ran out), the region and cycle label (the
   Hunter's cycles left) and its HUD's karma meter and food meter, placed and faded as
   the game does; with a single save its page opens first. `MineForSaveData` reads the
   current save state, else mines the stored one (`SaveStateMiner`); a room exists when
-  its file does (the game's `roomNameToIndex`, compared case-insensitively). Not
-  ported: the mark and glow (none in flat mode), the Remix speedrun time in the label and
+  its file does (the game's `roomNameToIndex`, compared case-insensitively). In depth
+  mode the page has the mark of communication and the glow its save has (`HasMark`,
+  `HasGlow`: not after ascending or for the dead Hunter), the glow among the scene's
+  layers where `BuildScene` calls `AddGlow`, and the menu has its `RainEffect` behind
+  the pages (fading in to 0.3, no lightning). The mark and glow are drawn after the
+  menu's other objects, as the HUDs are. Not ported: the Remix speedrun time in the
+  label and
   the campaign time tracker's `LoadOldTimings`, and the More Slugcats, Watcher and Jolly
   branches (alternate endings, `rippleLevel` symbols, custom colours). A shelter name
   without `_` makes the game throw; the port takes the whole name as the region. The
@@ -1208,7 +1221,7 @@ corpses and a malnourished slugcat (the bat flies do not).
 
 Front end: the regions, arena and Remix menus, input settings, credits, backups,
 the dream screens, PASSAGE's custom end-game and fast travel screens, the sleep
-screen's kills, the outro and DLC slideshows, the slugcat select menu's mark and glow,
+screen's kills, the outro and DLC slideshows, the slugcat select menu's
 colour and Jolly Co-op controls, depth scenes, menu objects those use (vertical and
 subtle sliders, check box groups, symbol buttons, scroll boxes, `UIelementWrapper`),
 Remix's options (FPS, VSync, quality, analogue sensitivity, backgrounds), and in-game
