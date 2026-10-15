@@ -205,9 +205,10 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   give the same run.
 - `load_room` loads the room's region world with the player in that room
   (arena levels: a single-room world), as `slugcat` (default `White`); `new_game` starts a campaign
-  (`White`, `Yellow`, `Red`) at its start den. `get_state` reports the
-  camera's room, the player (with its food, quarter pips, grasps and
-  eat counter), the player's room and node, the vessel waiting in the
+  (`White`, `Yellow`, `Red`) at its start den (`malnourished` starts it
+  malnourished). `get_state` reports the
+  camera's room, the player (with its food, quarter pips, grasps,
+  eat counter, malnourishment, aerobic level and exhaustion), the player's room and node, the vessel waiting in the
   lobby, the realized rooms' entry waits and `creatures` (every
   abstract creature: kind, ID, room, node, tile, in den, realized,
   alive; overseers also their AI's destination, guide state, last rooms
