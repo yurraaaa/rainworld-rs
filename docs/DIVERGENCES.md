@@ -911,7 +911,7 @@ story session.
   show and the hibernation line warns. `forceSleepCounter` is always 0.
 - **Game over.** The prompt's game-over mode is ported but not entered: death freezes
   the body until R (current phase), so nothing calls `EnterGameOverMode`.
-- **Not ported:** the pause menu and its text, symbol and music messages, the Hunter's
+- **Not ported:** the prompt's symbol and music messages, the Hunter's
   cycle count-up, the karma meter's gate and scavenger blinking, the gamepad pictures of
   the controls page, the sleep, death and character-select screens' meters, and every
   DLC part (More Slugcats pup meters, ammo meter, Watcher ripple symbols, Jolly Co-op
