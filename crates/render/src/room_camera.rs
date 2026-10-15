@@ -166,7 +166,7 @@ impl RoomCamera {
     }
 
     /// `ApplyPositionChange`: show camera `i` with the window at rest and no lean.
-    fn cut_to(&mut self, i: usize) {
+    pub fn cut_to(&mut self, i: usize) {
         self.current = i;
         self.pos = Vec2::from(self.rest_pos(i));
         self.last_pos = self.pos;

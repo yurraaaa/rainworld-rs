@@ -2183,6 +2183,7 @@ dependencies = [
 name = "rw-sim"
 version = "0.1.0"
 dependencies = [
+ "log",
  "rw-assets",
  "rw-random",
 ]

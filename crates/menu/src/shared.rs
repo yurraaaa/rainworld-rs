@@ -14,16 +14,8 @@ use crate::process::ProcessId;
 use crate::sound::MenuMic;
 use crate::translator::Translator;
 
-/// `SlugcatStats.Name` of the base game.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Slugcat {
-    /// The Survivor.
-    White,
-    /// The Monk.
-    Yellow,
-    /// The Hunter.
-    Red,
-}
+/// `SlugcatStats.Name`.
+pub type Slugcat = rw_assets::SlugcatName;
 
 /// `ProcessManager.MenuSetup.StoryGameInitCondition`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -53,7 +45,7 @@ pub struct Progression {
 impl Default for Progression {
     fn default() -> Self {
         Self {
-            selected_slugcat: Slugcat::White,
+            selected_slugcat: Slugcat::WHITE,
             red_unlocked: false,
             all_tokens_collected: false,
             any_discovered_shelters: false,

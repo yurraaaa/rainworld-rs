@@ -24,29 +24,7 @@ impl Color {
     }
 }
 
-/// Base-game slugcat names with a body colour (`SlugcatStats.Name`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
-pub enum SlugcatName {
-    /// The Survivor.
-    #[default]
-    White,
-    /// The Monk.
-    Yellow,
-    /// The Hunter.
-    Red,
-}
-
-impl SlugcatName {
-    /// `PlayerGraphics.DefaultSlugcatColor` (Remix custom and Jolly colours off).
-    #[must_use]
-    pub const fn color(self) -> Color {
-        match self {
-            Self::White => Color::WHITE,
-            Self::Yellow => Color::rgb(1.0, 1.0, 115.0 / 255.0),
-            Self::Red => Color::rgb(1.0, 115.0 / 255.0, 115.0 / 255.0),
-        }
-    }
-}
+pub use rw_assets::SlugcatName;
 
 /// The room camera's sprite containers an object draws into (`RoomCamera.ReturnFContainer`).
 ///

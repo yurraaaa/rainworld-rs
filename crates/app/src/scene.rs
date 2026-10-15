@@ -4,6 +4,7 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use rw_assets::{StreamingAssets, UnityResources};
 use rw_graphics::{DrawList, Layer};
 use rw_render::{Camera, LevelView, Renderer, RoomLayers, WaterFrame, WaterSprites, WaterSurface};
 use rw_sim::{Input, SoundEvent};
@@ -19,14 +20,30 @@ pub const MARGIN: f32 = 16.0;
 /// Gives every [`Scene`] its own id, so renderers notice a new room.
 static NEXT_SCENE_ID: AtomicU64 = AtomicU64::new(0);
 
-/// A room being played: the game, the level graphic and the water.
+/// The game being played as the room camera shows it: the camera's room, its level
+/// graphic and water.
 pub struct Scene {
     id: u64,
     game: Game,
-    /// The level graphic, when the room's images and palettes loaded.
+    /// Where level graphics are loaded from; `None` draws the debug view only.
+    source: Option<VisualsSource>,
+    /// The room the camera shows (global index).
+    camera_room: i32,
+    /// The camera's room's level graphic, when its images and palettes loaded.
     visuals: Option<Visuals>,
     /// The water's sprites (`Water.InitiateSprites`), made on the first level frame.
     water_sprites: Option<WaterSprites>,
+    /// The camera moved to another room since the last [`Scene::take_entered_room`].
+    entered_room: bool,
+}
+
+/// What a room's level graphic is loaded from.
+#[derive(Clone)]
+pub struct VisualsSource {
+    pub assets: StreamingAssets,
+    pub resources: Arc<UnityResources>,
+    /// The room camera's window (`sSize`).
+    pub screen: [f32; 2],
 }
 
 /// How a frame is drawn.
@@ -52,21 +69,74 @@ pub struct SceneRenderer<R> {
     pub renderer: R,
     /// The slugcat's atlas; without it the body is drawn as circles.
     sprites: Option<Arc<SpriteAssets>>,
-    /// Scene whose room geometry is uploaded.
-    room_of: Option<u64>,
-    /// Scene and visuals generation whose level graphic is uploaded.
-    level_of: Option<(u64, u32)>,
+    /// Scene and camera room whose room geometry is uploaded.
+    room_of: Option<(u64, i32)>,
+    /// Scene, camera room and visuals generation whose level graphic is uploaded.
+    level_of: Option<(u64, i32, u32)>,
 }
 
 impl Scene {
+    /// Shows `game`'s camera room, with level graphics from `source` when given.
     #[must_use]
-    pub fn new(game: Game, visuals: Option<Visuals>) -> Self {
-        Self {
+    pub fn new(game: Game, source: Option<VisualsSource>) -> Self {
+        let mut scene = Self {
             id: NEXT_SCENE_ID.fetch_add(1, Ordering::Relaxed),
+            camera_room: game.sim().camera_room(),
             game,
-            visuals,
+            source,
+            visuals: None,
             water_sprites: None,
+            entered_room: false,
+        };
+        scene.load_visuals();
+        scene.apply_camera_move();
+        scene.entered_room = false;
+        scene
+    }
+
+    /// Loads the camera room's level graphic.
+    fn load_visuals(&mut self) {
+        self.water_sprites = None;
+        self.visuals = self.source.as_ref().and_then(|source| {
+            let room = self.game.room();
+            let timeline = self.game.sim().campaign().timeline.value();
+            Visuals::load(
+                &source.assets,
+                &source.resources,
+                room,
+                timeline,
+                source.screen,
+            )
+            .inspect_err(|e| {
+                log::warn!(
+                    "no level graphic for {} ({e}); showing the debug view",
+                    room.name()
+                );
+            })
+            .ok()
+        });
+    }
+
+    /// `RoomCamera.MoveCamera`: on another room, its level graphic is loaded (at once:
+    /// D14); the camera cuts to the camera asked for.
+    fn apply_camera_move(&mut self) {
+        let Some(mv) = self.game.take_camera_move() else {
+            return;
+        };
+        if mv.room != self.camera_room {
+            self.camera_room = mv.room;
+            self.entered_room = true;
+            log::info!("camera in {}", self.game.room().name());
+            self.load_visuals();
         }
+        if let Some(visuals) = &mut self.visuals {
+            visuals.cut_to(mv.camera);
+        }
+    }
+
+    /// Whether the camera moved to another room since the last call.
+    pub fn take_entered_room(&mut self) -> bool {
+        std::mem::take(&mut self.entered_room)
     }
 
     #[must_use]
@@ -87,6 +157,7 @@ impl Scene {
     /// since the last tick.
     pub fn tick(&mut self, input: Input) -> Vec<SoundEvent> {
         self.game.tick(input);
+        self.apply_camera_move();
         if let Some(visuals) = &mut self.visuals {
             visuals.tick(self.game.camera_follow().as_ref());
         }
@@ -269,12 +340,12 @@ impl<R: Renderer> SceneRenderer<R> {
 
     /// Uploads `scene`'s room and shown camera graphic where they changed.
     fn sync(&mut self, scene: &Scene) {
-        if self.room_of != Some(scene.id) {
+        if self.room_of != Some((scene.id, scene.camera_room)) {
             self.renderer.set_room(scene.game.room());
-            self.room_of = Some(scene.id);
+            self.room_of = Some((scene.id, scene.camera_room));
         }
         if let Some(visuals) = &scene.visuals {
-            let key = (scene.id, visuals.generation());
+            let key = (scene.id, scene.camera_room, visuals.generation());
             if self.level_of != Some(key) {
                 visuals.upload(&mut self.renderer);
                 self.level_of = Some(key);

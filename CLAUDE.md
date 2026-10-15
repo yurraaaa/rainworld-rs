@@ -110,12 +110,15 @@ recommendation. Nothing is ported before the user agrees.
   API. Until DLC support exists the port treats every DLC as not installed,
   even where the game decides from files on disk (Downpour's
   `dlcsInstalled` check): the base-game menu scene and intro images.
-- Current phase is the player controller in a single room, not the game:
+- Current phase is the player controller in a creature-free region, not
+  the full game (campaign step 1):
+  - A story starts at the campaign's start den in its region's world;
+    room-exit shortcuts carry the player between the region's rooms, which
+    load synchronously (D14). Gates, region changes, the rain cycle and
+    saves are not there yet.
   - Death freezes the body until R respawns it (revisit once the real
     game loop exists). A body that falls out of the room is destroyed,
     as in the game.
-  - Room-exit shortcuts can't be entered (no other rooms yet); in-room
-    shortcut pipes work.
   - Water uses the game's full wavy surface simulation.
 - Game assets inside Unity files (sprite atlases, the noise texture,
   audio) are read natively at startup from the installed game's Unity files
@@ -136,12 +139,22 @@ recommendation. Nothing is ported before the user agrees.
 `rainworld-rs --mcp` is an MCP server on stdio (`crates/app/src/mcp/`),
 registered in `.mcp.json` as `rainworld-rs` (it runs `cargo run --release`,
 so it serves the checkout's current code). Tools: `list_rooms`,
-`load_room`, `step`, `step_sequence`, `respawn`, `set_player`,
-`get_state`, `get_tiles`, `screenshot`, `load_process`, `step_process`.
+`load_room`, `new_game`, `step`, `step_sequence`, `respawn`, `set_player`,
+`get_state`, `get_exits`, `get_tiles`, `screenshot`, `load_process`,
+`step_process`.
 
 - Headless and deterministic: the sim advances only in `step` /
-  `step_sequence` (40 ticks per second); the same room, seed and inputs
+  `step_sequence` (40 ticks per second); the same start, seed and inputs
   give the same run.
+- `load_room` loads the room's region world with the player in that room
+  (arena levels: a single-room world); `new_game` starts a campaign
+  (`White`, `Yellow`, `Red`) at its start den. `get_state` reports the
+  camera's room, the player's room and node, the vessel waiting in the
+  lobby and the realized rooms' entry waits; `get_exits` lists the
+  camera room's exits (entrance tile, the input that enters, destination
+  room, arrival node and camera). `set_player`, `get_tiles` and
+  `screenshot` act on the camera's room. To test a transition, put the
+  player on an exit's entrance and hold its input.
 - `screenshot` returns a PNG drawn by the window's draw path (level
   graphic or debug view, sprites, overlays), rendered offscreen;
   `crop_radius` zooms on the player. `get_tiles` gives the geometry as
@@ -157,7 +170,8 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   move, Z jumps). Buttons see a press a tick after it and click on release,
   so a tap is one frame held and two released. Boot to play: any key after
   the intro roll's first second goes to the main menu; tap Return on
-  STORY; hold Z on START (about 40 frames) until the game starts. Music
+  STORY; hold Z on START (about 40 frames) until the game starts (a new
+  Survivor game at `SU_C04`). Music
   runs silently (`TimedSources`), so runs stay deterministic.
   `screenshot` then draws the process frame with its fade.
 - `--mcp --window` also shows the driven scene in a window.

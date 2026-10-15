@@ -5,8 +5,11 @@
 pub mod ambient;
 mod files;
 mod font_config;
+mod identity;
+mod nodes;
 mod noise;
 mod palette;
+mod placed;
 mod png_image;
 pub mod room;
 mod room_visuals;
@@ -15,12 +18,16 @@ mod short_strings;
 pub mod shortcut;
 pub mod sound_table;
 pub mod unity;
+pub mod world;
 
 pub use ambient::{AmbientKind, AmbientSound};
 pub use files::{AssetError, StreamingAssets};
 pub use font_config::{FontChar, FontConfig, FontConfigError, FontKerning};
+pub use identity::{ActiveMods, SlugcatName, Timeline};
+pub use nodes::{AbstractRoomNode, ConnMap, NodeType};
 pub use noise::NoiseTexture;
 pub use palette::{EffectColors, PaletteImage, PaletteTexture, RoomPalette};
+pub use placed::{PlacedObject, RoomEffect};
 pub use png_image::PngImage;
 pub use room::{
     Room, RoomError, Shortcut, Slope, TILE_SIZE, Terrain, Tile, TileFlags, tile_centre,

@@ -404,8 +404,8 @@ impl Session {
 
 /// Boot to play through MCP: the intro roll (default), a key after its first second
 /// goes to the main menu; Return on STORY (selected on `Init`) opens slugcat select;
-/// START held fills in 36 ticks and starts the game in the room, where held arrows
-/// now drive the player. The music player follows the processes
+/// START held fills in 36 ticks and starts a new Survivor game at SU_C04 (7, 28), where
+/// held arrows now drive the player. The music player follows the processes
 /// (`MusicPlayer.UpdateMusicContext`, 414132): `Menu` in the intro roll and main menu,
 /// `StoryMode` in slugcat select (the intro song's context is `Menu`, so it plays on),
 /// `StartGame`'s `FadeOut(20)` on the intro song, then the game's `FadeOut(2)` on
@@ -458,14 +458,14 @@ fn boot_to_play_with_music_contexts() {
     assert!(s.music().song.is_none(), "the menu song faded out");
     s.frames(40, &[]);
     let before = s.process_player();
-    let state = s.frames(40, &["DownArrow"]);
+    let state = s.frames(40, &["RightArrow"]);
     assert!(state.game_tick.is_some());
     let after = s.process_player();
-    assert_eq!(after.input.y, -1, "the held key reached the player");
-    // Summit's seed-1 spawn is in a vertical corridor: down climbs down it.
+    assert_eq!(after.input.x, 1, "the held key reached the player");
+    // The Survivor starts in SU_C04's horizontal tunnel: right crawls along it.
     assert!(
-        after.chunks[0].pos[1] < before.chunks[0].pos[1] - 5.0,
-        "the player moved down ({:?} -> {:?}, {})",
+        after.chunks[0].pos[0] > before.chunks[0].pos[0] + 5.0,
+        "the player moved right ({:?} -> {:?}, {})",
         before.chunks[0].pos,
         after.chunks[0].pos,
         after.body_mode

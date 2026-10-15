@@ -835,15 +835,24 @@ fn no_entry_while_stunned_and_stun_cancels_the_pull() {
 }
 
 #[test]
-fn room_exits_dens_and_dead_ends_cannot_be_entered() {
+fn room_exits_can_be_entered_but_not_dens_and_dead_ends() {
     // Each entrance at (1,1) opens right (Air at (2,1)); left is the tube end.
-    for (rows, kind) in [
-        (["#####", "#...#", "XE..#", "#####"], ShortcutType::RoomExit),
+    for (rows, kind, enters) in [
+        (
+            ["#####", "#...#", "XE..#", "#####"],
+            ShortcutType::RoomExit,
+            true,
+        ),
         (
             ["#####", "#...#", "DE..#", "#####"],
             ShortcutType::CreatureHole,
+            false,
         ),
-        (["#####", "#...#", "#E..#", "#####"], ShortcutType::DeadEnd),
+        (
+            ["#####", "#...#", "#E..#", "#####"],
+            ShortcutType::DeadEnd,
+            false,
+        ),
     ] {
         let r = room(&rows);
         assert_eq!(r.shortcut_map().type_at((1, 1)), kind);
@@ -852,7 +861,7 @@ fn room_exits_dens_and_dead_ends_cannot_be_entered() {
         p.body.chunks[HEAD].reset_at(Vec2::new(30.0, 29.0));
         p.step(&r, Input::new(-1, 0, false));
         assert_eq!(p.head().pos.tile(), (1, 1));
-        assert_eq!(p.entering_shortcut(), None, "{kind:?}");
+        assert_eq!(p.entering_shortcut().is_some(), enters, "{kind:?}");
     }
 }
 

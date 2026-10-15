@@ -99,8 +99,6 @@ pub struct PlayerGraphics {
     pub(crate) sprites: SpriteMemory,
     /// `GraphicsModule.culled`: true until the first update, which then resets.
     pub(crate) culled: bool,
-    /// The player was inside a shortcut at the last update.
-    in_shortcut: bool,
     /// The entrance the player was being pulled into at the end of the last tick.
     entering_shortcut: Option<(i32, i32)>,
     /// The player's corridor turn direction at the last update.
@@ -149,13 +147,24 @@ impl PlayerGraphics {
             breath: 0.0,
             last_breath: 0.0,
             flail: 0.0,
-            body_color: slugcat.color(),
+            body_color: Self::default_slugcat_color(slugcat),
             sprites: SpriteMemory::default(),
             culled: true,
-            in_shortcut: false,
             entering_shortcut: None,
             corridor_turn_dir: player.corridor_turn_dir(),
             look_time: 0,
+        }
+    }
+
+    /// `PlayerGraphics.DefaultSlugcatColor` (Remix custom and Jolly colours off).
+    #[must_use]
+    pub fn default_slugcat_color(name: SlugcatName) -> Color {
+        if name == SlugcatName::YELLOW {
+            Color::rgb(1.0, 1.0, 115.0 / 255.0)
+        } else if name == SlugcatName::RED {
+            Color::rgb(1.0, 115.0 / 255.0, 115.0 / 255.0)
+        } else {
+            Color::WHITE
         }
     }
 
@@ -199,16 +208,20 @@ impl PlayerGraphics {
             self.sucked_into_shortcut(target);
         }
         if player.in_shortcut() {
-            self.in_shortcut = true;
             return;
-        }
-        if self.in_shortcut {
-            self.in_shortcut = false;
-            self.reset(player, rng);
-            self.sprites = SpriteMemory::default();
         }
         self.tick(player, room, water, rng);
         self.entering_shortcut = player.entering_shortcut();
+    }
+
+    /// Leaving a shortcut: `Player.SpitOutOfShortCut` resets the module, `NewRoom`
+    /// (always called, the creature having no room) resets it again, then the outer
+    /// `SpitOutOfShortCut` a third time; the sprites start afresh (a new sprite leaser).
+    pub fn spat_out_of_shortcut(&mut self, player: &Player, rng: &mut UnityRandom) {
+        for _ in 0..3 {
+            self.reset(player, rng);
+        }
+        self.sprites = SpriteMemory::default();
     }
 
     /// What `Player.Update` does to its graphics module directly: `Player.Blink`, and

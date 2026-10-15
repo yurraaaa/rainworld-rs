@@ -11,9 +11,15 @@
 //! `slope-collision.md`, `slugcat-movement.md`, `horizontal-beams.md`,
 //! `vertical-poles.md`, `ledge-grab.md`, `advanced-moves.md`, `corridors.md`, `falls.md`
 //! `shortcuts.md`, `water.md` and `sound.md`; known differences from the game are in `docs/DIVERGENCES.md`.
+//!
+//! Above the room: the campaigns ([`campaign`]), the world with its realized rooms and
+//! the room realizer ([`world`]), and [`RainWorldGame`], which moves the player between
+//! rooms through room-exit shortcuts (`world-loading.md`, `room-realizer.md`).
 
+pub mod campaign;
 mod chunk;
 mod float_ext;
+mod game;
 mod object;
 mod player;
 mod room_ext;
@@ -22,14 +28,16 @@ mod sound;
 mod spawn;
 mod vec2;
 mod water;
+pub mod world;
 
 pub use chunk::{BodyChunk, Contact, DEFAULT_RESTRICT_IN_ROOM_RANGE, PhysicsParams, TerrainImpact};
 pub use float_ext::FloatExt;
+pub use game::{CameraMove, PlayerObserver, RainWorldGame, Start, WorldCoordinate};
 pub use object::{
     BodyChunkConnection, ConnectionKind, PhysicalObject, TerrainImpactHandler, slugcat,
 };
-pub use player::{Animation, BodyMode, HEAD, HIPS, INPUT_HISTORY, Input, Player};
-pub use shortcut::ShortcutHandler;
+pub use player::{Animation, BodyMode, HEAD, HIPS, INPUT_HISTORY, Input, Player, VesselStep};
+pub use shortcut::{LobbyVessel, ShortcutHandler};
 pub use sound::{EmitterId, PlayedSound, SoundEvent, SoundId, SoundSource, Sounds};
 pub use spawn::{determine_safe_spawn_tile, place_in_room};
 pub use vec2::Vec2;

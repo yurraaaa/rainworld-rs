@@ -31,16 +31,19 @@ it (D13). What still differs is only the seed and the call order:
   `--seed` / the MCP `seed` (low 32 bits) once, when the process manager starts; a
   run that boots into the menus reaches the game with the stream already advanced.
 - **Call order.** The game interleaves draws from every other object, sound, particle,
-  rain, camera and AI in the room and world; the port has only the room's water and the
-  player, so its sequence is the game's only for those draws. Draws of unported code in
+  rain, camera and AI in the room and world; the port has only the realized rooms'
+  water and the player, so its sequence is the game's only for those draws. Sounds of
+  rooms the camera is not in make no draws, as in the game (`Room.PlaySound` only
+  reaches the microphone of a camera in that room). Draws of unported code in
   the same functions (the rain-warning look-up, ceiling drips, `WaterDrip`s, grasps,
   exhaustion, DLC, and the sounds of those) are missing, as is the draw-skipping of
   `AllowSound`'s crowd cap (D12); the rain-warning look-up short-circuits before drawing
   while rain is far off, as at the start of a cycle.
-- **Spawn path.** In the game only Remix key-item tracking and Watcher warps call
-  `DetermineSafeSpawnTile`; the port's single-room phase uses it to spawn the player,
-  so these draws are the port's choice of game function, made in the order the game
-  makes them.
+- **Spawn path.** A new story starts as the game does (start den, `TryGetPlayerStartPos`,
+  the node drawn in `RealizeInRoom`). In the game only Remix key-item tracking and
+  Watcher warps call `DetermineSafeSpawnTile`; the port's dev starts (`--room` without
+  `--spawn`, MCP `load_room`, R) use it to place the player, so these draws are the
+  port's choice of game function, made in the order the game makes them.
 
 **Why.** Matching the game's draw sequence would need every system that draws. Seeding
 from the command line keeps runs reproducible.
@@ -53,16 +56,13 @@ edge cases (`value == 1`) match.
 **What.**
 - The game's first spawn phase throws (`shortcuts[0]` on an empty array) in a room with
   no shortcuts. The port skips that phase and goes on to the fallbacks.
-- The shelter branches of `DetermineSafeSpawnTile` are not ported, because room files do
-  not say whether a room is a shelter.
-- The game draws the node from the abstract room's leading Exit and Den nodes; the port
-  counts the room-exit and den tiles of the shortcut map instead (INFERRED to be the
-  same count; the abstract node list comes from world data the port does not load).
+- The shelter branches of `DetermineSafeSpawnTile` are not ported: it only places the
+  player in the port's dev starts (D1), never in a story start.
 
 The shortcut map itself (`rw_assets::ShortcutMap`) is the game's `ShortcutMapper`
 (node order, shortcut order, tube walk, types), no longer inferred.
 
-**Why.** The game's behaviour is a crash or depends on world data the room file lacks.
+**Why.** The game's behaviour is a crash; the shelter branches serve no story path.
 
 **Affects.** Spawn tiles in rooms without shortcuts and in shelters.
 
@@ -107,9 +107,10 @@ is gone (`Player::is_destroyed`; the app drops it and draws nothing until R).
 **What differs:**
 - **Death freezes the body** (CLAUDE.md decision). The game keeps simulating a dead
   player as plain physics and shows the death screen (story) or ends the round (arena).
-  `rw_sim::Player` keeps simulating it; the app (`Game::tick`) stops ticking a dead
-  player and draws it where it stopped until R respawns a new one. R also respawns
-  after the body fell out of the room (the game has no respawn).
+  `rw_sim::Player` keeps simulating it; `RainWorldGame::tick` stops ticking a dead
+  player (the world, its rooms and the realizer go on) and the app draws it where it
+  stopped until R respawns a new one in the camera's room. R also respawns after the
+  body fell out of the room (the game has no respawn).
 - **`Player.Stun` side effects.** The game un-stands the player (and drops grasps) when
   the stun exceeds `Random.Range(5, 12)` and draws `Random.Range(40, 80)` for the spear
   on the back; the port makes both draws on every path (no spear to drop) and plays
@@ -123,8 +124,8 @@ is gone (`Player::is_destroyed`; the app drops it and draws nothing until R).
   grasp and the deer-antlers ride cancelling fall damage.
 - **Water.** Drowning is D11; inverted water (DLC) is not modelled.
 
-**Why.** The freeze and the respawn are design decisions for the single-room
-player-controller phase; the rest is out of the base-game scope or randomness (D1).
+**Why.** The freeze and the respawn are design decisions for the player-controller
+phase (until the game loop with death screens exists); the rest is out of the base-game scope or randomness (D1).
 
 **Affects.** What happens after death and Remix / More Slugcats play.
 
@@ -135,23 +136,31 @@ pressing into a hole, the pull-in, the vessel (`rw_sim::ShortcutHandler`, one ti
 three ticks) and the spit-out at the far entrance (`rainworld-re/notes/shortcuts.md`),
 base game with Remix off.
 
+Room exits are entered and lead to the connected room as in `ShortcutHandler`: going
+in activates the connected room (`SuckInCreature`), and the vessel reaching the exit node moves to `betweenRoomsWaitingLobby` with the
+destination's exit leading back (`ExitIndex`) as its entrance node; the lobby realizes
+an unrealized destination (the followed creature) and moves the vessel in once the
+room is `ReadyForPlayer` (`waitToEnterAfterFullyLoaded` below 1: 40 ticks with
+`SSSwarmers`, 80 with active coral, wall mycelia, corruption or vines, 80 in the story
+`SS_AI`/`SL_AI`), restarting it on that node with the entrance blink skipped and the
+camera moved to the node's `viewedByCamera`. An exit with no connection (`-1`) stops
+the whole shortcut update that tick, a node past the connections bounces the vessel
+back ("faulty room exit"), as in the game.
+
 **What differs:**
-- **Room-exit entrances can't be entered** (CLAUDE.md decision; there are no other
-  rooms). The game lets the player enter a RoomExit shortcut and takes it to the
-  connected room (or, in an arena, ends the player's round). `DirectIntoHoles` still
-  steers toward room-exit holes, as in the game.
 - **One vessel, owned by the player.** The game's `ShortcutHandler` keeps a list of
-  vessels for every creature, with Jolly co-op waits and the between-rooms lobby; the
-  port has one player whose vessel lives on `Player`, `wait` is always 0, and the
-  handler is only the three-tick divider.
+  vessels for every creature, with Jolly co-op waits and border travel; the port has
+  one player whose vessel lives on `Player` or in the lobby, `wait` is always 0, and
+  the handler is the three-tick divider plus that lobby.
 - **Not ported:** being pulled in by a carried object (no grasps), `cantBeGrabbedCounter`,
-  the entrance blink, MSC tongue release, the arena hooks of
-  `SpitOutOfShortCut`, and Remix falling into a shortcut (D4).
+  the entrance blink (`BlinkShortCut`, also on arrival), MSC tongue release, the arena
+  hooks of `SpitOutOfShortCut` and den entry (`PlayerTryingToEnterDen`), dens and NPC
+  transports for creatures, region transportation, and Remix falling into a shortcut
+  (D4).
 
-**Why.** The room-exit block is a design decision for the single-room phase; the rest
-is outside the single-player, base-game scope.
+**Why.** Outside the single-player, creature-free, base-game scope.
 
-**Affects.** Room-exit shortcuts, multiple creatures in tubes, co-op.
+**Affects.** Multiple creatures in tubes, co-op, arena.
 
 ## D6: Vertical poles and ledge grabs
 
@@ -212,7 +221,8 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   window) is not ported.
 - **Camera switch timing.** The game loads the next camera's image asynchronously and
   cuts when it has loaded (usually the next frame); the port decodes every camera's
-  image when the room loads and cuts in the same tick.
+  image when the camera enters the room (`MoveCamera`, synchronous: D14) and cuts in
+  the same tick.
 - **Camera in shortcuts.** While the player is in a shortcut the camera follows the
   centre of the vessel's tile; the game uses the vessel's interpolated on-screen position.
 - **Fade quantisation.** The blended palette is stored as 8-bit texels like the game's
@@ -228,7 +238,7 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   shader variants, swarm rooms, and the properties-file line preprocessing (no base-game
   `Room Setting Templates` line uses it).
 
-**Why.** The single-room phase draws one room with the player; these depend on systems
+**Why.** The port draws the camera's room with the player; these depend on systems
 not ported yet (rain cycle, room effects, objects) or are invisible at this stage.
 
 **Affects.** Exact pixel colours of cloud shadows (noise rounding) and rooms with the
@@ -512,12 +522,16 @@ real-time audio rather than the sim.
   The check is kept as `rw_menu::Dlcs::check` and the Downpour branches are ported, for
   DLC support to turn back on.
 - **Starting a game.** The slugcat select menu's held START starts a new game
-  (`StoryGameInitCondition.New`) in the port's single room: the Survivor's and the
-  Monk's intro slideshows are skipped (the game would play them first unless S is
-  held), the save is not wiped (there is none) and the room is the one given on the
-  command line, not the character's start room. The chosen slugcat colours the body's
-  graphics; its body is the Survivor's (`SlugcatStats` of the Monk and the Hunter are
-  not ported). Continue, Restart and Statistics need saves and are not reachable.
+  (`StoryGameInitCondition.New`) at the character's start: its region's world, the
+  start den (`GetStoryDenPosition`: `SU_C04`, the Hunter `LF_H01`) and
+  `TryGetPlayerStartPos` (D14). The Survivor's and the Monk's intro slideshows are
+  skipped (the game would play them first unless S is held) and the save is not wiped
+  (there is none). The chosen slugcat colours the body's graphics; its body moves as
+  the Survivor's (the Monk's and the Hunter's `SlugcatStats` are in
+  `rw_sim::campaign::SlugcatCampaign` but the player does not read them yet). Continue,
+  Restart and Statistics need saves and are not reachable. Started directly
+  (`--process game`, `--spawn`, MCP), the game is the Survivor in the given room's
+  world.
 - **Side processes.** The music player (made in the first `ProcessManager.Update`,
   ticking on its own time stacker after the main process, `UpdateMusicContext` after
   every switch) and the menu microphone run, in the game's order; no dialogs or Steam
@@ -558,10 +572,61 @@ real-time audio rather than the sim.
   the game.
 
 **Why.** The menus are ported screen by screen, with no saves or options yet; the
-single-room game stands in for a story session.
+creature-free world (D14) stands in for a story session.
 
 **Affects.** What is shown at start-up and between processes, and where the random
 stream stands when the game starts; no gameplay.
+
+## D14: Worlds, rooms and the room realizer
+
+`rw_assets::world` loads `world/regions.txt` and a region's `world_xx.txt` as
+`WorldLoader` does (`rainworld-re/notes/world-loading.md`): line preprocessing with
+timeline filters and `{...}` conditions kept as data, the `EXCLUSIVEROOM` merge, the
+conditional links, `ROOMS` with tags, global room indices, `CappingBrokenExits` and the
+off-screen den. `rw_sim::world::World` keeps the abstract rooms and the realized ones,
+`RoomRealizer` (`room-realizer.md`) realizes and abstractizes them around the player,
+and `RainWorldGame` runs them in the game's update order. A world comes from the first
+room as `OverWorld.LoadFirstWorld` picks it (the region before the first `_`, a gate's
+second part, else a single-room world for arena levels). The campaign description
+(`rw_sim::campaign`, `campaign-model.md`) gives the timeline, start den and stats.
+
+**What differs:**
+- **Creature-free.** No creatures, `CREATURES` lines, dens, spawners, bat blockages,
+  swarm maps or abstract-space AI; the player is the only object. Rooms are realized
+  and abstractized with nothing in them; the realizer's per-creature bookkeeping only
+  sees the player.
+- **Synchronous loading.** The game's `RoomPreparer` loads a room over several frames
+  (and `RoomCamera.MoveCamera` its images asynchronously); the port loads a room's
+  files and builds its water in one call, finishing at the end of the tick the room is
+  activated. A room is therefore `fullyLoaded` sooner than in the game: a room exit's
+  destination (activated when the player goes in) is always loaded by the time the
+  vessel reaches the exit node, so the lobby only waits out the room's entry delay
+  (`waitToEnterAfterFullyLoaded`, counting from the tick it loaded), and the
+  realizer's "currently loading" pause never spans ticks.
+- **Next-room prediction.** The realizer's guess (`RoomRealizer` with the followed
+  creature's AI map, `ExitDistanceForCreatureAndCheckNeighbours`) needs the baked AI
+  maps of the room files, not loaded. The port measures the distance to each exit by a
+  breadth-first search through non-solid tiles, plus the straight-line term the game
+  adds; the rest of the realizer (budget 1500, estimates, neighbours, distant deletion,
+  recently-abstracted list) is the game's.
+- **Re-preprocessing old room files.** The game re-preprocesses room files baked before
+  generation 20 (and writes them back). Every room the vanilla worlds list is generation
+  20 or later; for older files the port derives only the shortcut nodes (exits, dens,
+  region transports with length, submersion and nearest camera), not border exits,
+  bat hives or garbage holes.
+- **Off-screen den and gates.** The off-screen den is never realized; gates are
+  ordinary rooms (no gate mechanism, no region change), and a `RegionTransportation`
+  node goes nowhere.
+- **Not ported:** the rain cycle, karma and karma gates, shelters closing and
+  hibernation, saves, the map, `DisabledMapRooms` beyond the tag drop, and Remix's
+  `RemoveNotVisitedRooms` branch.
+
+**Why.** Creatures, AI maps and the rain cycle are later milestones; loading at once
+is simpler and loses nothing gameplay-visible beyond the shorter waits.
+
+**Affects.** How long a vessel waits to enter a room, which neighbour rooms are
+realized ahead (and so the random draws the realizer makes), and anything creatures
+would do.
 
 ## Not ported yet (not divergences, just absent)
 

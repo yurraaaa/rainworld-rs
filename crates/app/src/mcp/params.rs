@@ -16,7 +16,9 @@ pub struct ListRoomsParams {
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub struct LoadRoomParams {
-    /// Room name as the game looks it up, e.g. "SU_A22", "summit", "GATE_SU_HI".
+    /// Room name as the game looks it up, e.g. "SU_A22", "summit", "GATE_SU_HI". Its
+    /// region's world is loaded around it (arena levels and rooms outside their
+    /// world's room list get a single-room world), as the Survivor.
     pub name: String,
     /// Seed of the game's random stream (`Random.InitState`, low 32 bits; default 1):
     /// spawn and every later draw. Same seed and inputs give the same run.
@@ -63,10 +65,20 @@ pub struct StepSequenceParams {
     pub trace: Option<bool>,
 }
 
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct NewGameParams {
+    /// The campaign: "White" (Survivor), "Yellow" (Monk) or "Red" (Hunter);
+    /// case-insensitive, the campaign names work too.
+    pub slugcat: String,
+    /// Seed of the game's random stream (default 1).
+    pub seed: Option<u64>,
+}
+
 #[derive(Debug, Clone, Default, Deserialize, JsonSchema)]
 pub struct RespawnParams {
-    /// Restart the room's spawn sequence with this seed (tick count restarts at 0);
-    /// without it, respawn at the next seeded spawn tile as the R key does.
+    /// Restart the last load_room / new_game with this seed (tick count restarts at
+    /// 0); without it, respawn in the camera's room at the next seeded spawn tile as
+    /// the R key does.
     pub seed: Option<u64>,
 }
 
@@ -120,11 +132,12 @@ pub enum ProcessParam {
     IntroRoll,
     /// The main menu (STORY leads to the slugcat select menu).
     MainMenu,
-    /// The slugcat select menu (hold START to begin a new game in the room).
+    /// The slugcat select menu (hold START to begin a new game at the campaign's
+    /// start).
     SlugcatSelect,
     /// The M0 test screen: labels in both fonts over the flat main-menu scene.
     FontTest,
-    /// The single-room game.
+    /// The game, in the room's region world.
     Game,
 }
 

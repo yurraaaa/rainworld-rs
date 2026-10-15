@@ -1,28 +1,30 @@
-//! The state the MCP tools drive: one loaded room, stepped only on request, and a
-//! headless renderer for screenshots. Every tool is a method returning a typed reply or
+//! The state the MCP tools drive: one loaded game (a world, seen from the camera's
+//! room), stepped only on request, and a headless renderer for screenshots. Every tool is a method returning a typed reply or
 //! an error message.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use rw_assets::{Room, SoundTable, StreamingAssets, UnityResources};
+use rw_assets::{SoundTable, StreamingAssets, UnityResources};
 use rw_menu::{KeyboardKey, MainLoopProcess, ProcessId};
+use rw_random::UnityRandom;
 use rw_render::{RoomLayers, WgpuRenderer};
+use rw_sim::campaign::SlugcatCampaign;
 use rw_sim::{Input, Vec2};
 
 use super::params::{
-    InputParam, ListRoomsParams, LoadProcessParams, LoadRoomParams, ProcessParam, RespawnParams,
-    ScreenshotParams, SetPlayerParams, StepParams, StepProcessParams, StepSequenceParams,
-    TilesParams, ViewParam,
+    InputParam, ListRoomsParams, LoadProcessParams, LoadRoomParams, NewGameParams, ProcessParam,
+    RespawnParams, ScreenshotParams, SetPlayerParams, StepParams, StepProcessParams,
+    StepSequenceParams, TilesParams, ViewParam,
 };
 use super::reply::{
-    ChunkState, ImpactState, PlayerState, ProcessState, RoomInfo, RoomList, Screenshot, State,
-    StepTrace,
+    ChunkState, ExitInfo, ExitList, ImpactState, LobbyState, PlayerState, ProcessState,
+    RealizedState, RoomInfo, RoomList, Screenshot, State, StepTrace,
 };
 use super::tiles::TileDump;
 use crate::frontend::{AppContext, Frontend, FrontendRenderer, GameSetup};
-use crate::game::Game;
-use crate::scene::{Framing, Scene, SceneRenderer, SceneView};
+use crate::game::{Game, GameStart};
+use crate::scene::{Framing, Scene, SceneRenderer, SceneView, VisualsSource};
 use crate::sprites::SpriteAssets;
 use crate::visuals::Visuals;
 
@@ -41,8 +43,9 @@ pub struct Session {
     sprites: Option<Arc<SpriteAssets>>,
     /// `sounds.txt`: the sounds' random draws are made as in the window.
     sound_table: Arc<SoundTable>,
-    /// Room mode (`load_room`).
+    /// Game mode (`load_room`, `new_game`) and how it was started.
     scene: Option<Scene>,
+    start: Option<GameStart>,
     /// Process mode (`load_process`) and its frame count.
     frontend: Option<(Frontend, u64)>,
     /// Created on the first screenshot.
@@ -63,6 +66,7 @@ impl Session {
             resources,
             sprites,
             scene: None,
+            start: None,
             frontend: None,
             renderer: None,
         }
@@ -85,13 +89,13 @@ impl Session {
     fn scene(&self) -> Result<&Scene, String> {
         self.scene
             .as_ref()
-            .ok_or_else(|| "no room loaded; call load_room first".to_owned())
+            .ok_or_else(|| "no game loaded; call load_room or new_game first".to_owned())
     }
 
     fn scene_or_err(&mut self) -> Result<&mut Scene, String> {
         self.scene
             .as_mut()
-            .ok_or_else(|| "no room loaded; call load_room first".to_owned())
+            .ok_or_else(|| "no game loaded; call load_room or new_game first".to_owned())
     }
 
     /// Room names (lower case, as on disk) under `world/<region>-rooms`, `world/gates`
@@ -139,34 +143,59 @@ impl Session {
         })
     }
 
-    /// Loads a room (as the game looks it up) and spawns the player with `seed`.
+    /// Loads a room's region world (as the game looks the room up) and spawns the
+    /// player in that room with `seed`.
     ///
     /// # Errors
-    /// When the room is not found or does not parse.
+    /// When the room is not found or its world does not load.
     pub fn load_room(&mut self, params: &LoadRoomParams) -> Result<RoomInfo, String> {
         let name = params.name.to_lowercase();
         let path = self
             .assets
             .find_room_file(&name, ".txt")
             .ok_or_else(|| format!("room {:?} not found (see list_rooms)", params.name))?;
-        let room =
-            Room::load(&path).map_err(|e| format!("loading room {}: {e}", path.display()))?;
-        let visuals = Visuals::load(
-            &self.assets,
-            &self.resources,
-            &room,
-            rw_render::Resolution::DEFAULT.size_f32(),
-        )
-        .inspect_err(|e| log::warn!("no level graphic for {name} ({e})"))
-        .ok();
-        let spawn = params.spawn_tile.map(|[x, y]| (x, y));
-        let settings = Game::room_settings(&self.assets, &room);
-        let mut game = Game::new(room, &settings, params.seed.unwrap_or(1), spawn);
-        game.set_sound_table(Arc::clone(&self.sound_table));
-        log::info!("loaded room {name}");
-        self.scene = Some(Scene::new(game, visuals));
-        self.frontend = None;
+        log::debug!("room file {}", path.display());
+        let start = GameStart::Room {
+            name: params.name.clone(),
+            tile: params.spawn_tile.map(|[x, y]| (x, y)),
+        };
+        self.start_game(start, params.seed.unwrap_or(1))?;
         self.room_info()
+    }
+
+    /// A new story game (`StoryGameInitCondition.New`) as `slugcat`: its start den and
+    /// position, in its region's world.
+    ///
+    /// # Errors
+    /// On an unknown slugcat, or when the world does not load.
+    pub fn new_game(&mut self, params: &NewGameParams) -> Result<RoomInfo, String> {
+        let want = match params.slugcat.to_lowercase().as_str() {
+            "survivor" => "white".to_owned(),
+            "monk" => "yellow".to_owned(),
+            "hunter" => "red".to_owned(),
+            other => other.to_owned(),
+        };
+        let campaign = SlugcatCampaign::all(rw_assets::ActiveMods::NONE)
+            .into_iter()
+            .find(|c| c.name.value().eq_ignore_ascii_case(&want))
+            .ok_or_else(|| format!("unknown slugcat {:?} (White, Yellow, Red)", params.slugcat))?;
+        self.start_game(GameStart::NewStory(campaign.name), params.seed.unwrap_or(1))?;
+        self.room_info()
+    }
+
+    fn start_game(&mut self, start: GameStart, seed: u64) -> Result<(), String> {
+        let rng = UnityRandom::new(seed as i32);
+        let game = Game::start(&self.assets, &start, rng, Arc::clone(&self.sound_table))?;
+        let source = VisualsSource {
+            assets: self.assets.clone(),
+            resources: Arc::clone(&self.resources),
+            screen: rw_render::Resolution::DEFAULT.size_f32(),
+        };
+        log::info!("started {start:?}, seed {seed}");
+        self.scene = Some(Scene::new(game, Some(source)));
+        self.start = Some(start);
+        self.frontend = None;
+        Ok(())
     }
 
     fn room_info(&self) -> Result<RoomInfo, String> {
@@ -239,17 +268,9 @@ impl Session {
     /// # Errors
     /// Without a room.
     pub fn respawn(&mut self, params: &RespawnParams) -> Result<State, String> {
-        let table = Arc::clone(&self.sound_table);
-        let scene = self.scene_or_err()?;
-        match params.seed {
-            Some(seed) => {
-                let room = scene.game().room().clone();
-                let settings = scene.game().settings().clone();
-                let mut game = Game::new(room, &settings, seed, None);
-                game.set_sound_table(table);
-                *scene.game_mut() = game;
-            }
-            None => scene.game_mut().respawn(),
+        match (params.seed, self.start.clone()) {
+            (Some(seed), Some(start)) => self.start_game(start, seed)?,
+            _ => self.scene_or_err()?.game_mut().respawn(),
         }
         self.state()
     }
@@ -276,11 +297,93 @@ impl Session {
     pub fn state(&self) -> Result<State, String> {
         let scene = self.scene()?;
         let game = scene.game();
+        let sim = game.sim();
+        let world = sim.world();
+        let pos = sim.player_pos();
         Ok(State {
             tick: game.ticks(),
+            world: world.name().to_owned(),
             room: game.room().name().to_owned(),
             camera: scene.visuals().map(Visuals::current_camera),
+            player_room: Self::room_name(scene, pos.room),
+            player_node: pos.node,
+            lobby: sim.lobby().map(|l| LobbyState {
+                room: Self::room_name(scene, l.room),
+                entrance_node: l.entrance_node,
+                updates: l.updates,
+            }),
+            realized_rooms: world
+                .active_rooms()
+                .into_iter()
+                .filter_map(|i| {
+                    let r = world.realized(i)?;
+                    Some(RealizedState {
+                        room: Self::room_name(scene, i),
+                        wait_to_enter: r.wait_to_enter(),
+                        ready_for_player: r.ready_for_player(),
+                    })
+                })
+                .collect(),
             player: game.live_player().map(PlayerState::of),
+        })
+    }
+
+    fn room_name(scene: &Scene, index: i32) -> String {
+        scene
+            .game()
+            .sim()
+            .world()
+            .abstract_room(index)
+            .map_or_else(|| format!("#{index}"), |r| r.name.clone())
+    }
+
+    /// The camera room's shortcut nodes: entrance, kind, where each exit leads and the
+    /// camera it arrives in.
+    ///
+    /// # Errors
+    /// Without a game.
+    pub fn exits(&self) -> Result<ExitList, String> {
+        let scene = self.scene()?;
+        let game = scene.game();
+        let world = game.sim().world();
+        let here = game.sim().camera_room();
+        let abstract_room = world.abstract_room(here).ok_or("no camera room")?;
+        let room = game.room();
+        let exits = abstract_room
+            .nodes
+            .iter()
+            .enumerate()
+            .map(|(i, node)| {
+                let entrance = room.shortcut_map().leading_to_node(i).map(|d| d.start);
+                let dest = abstract_room
+                    .connections
+                    .get(i)
+                    .copied()
+                    .filter(|&c| c > -1);
+                let dest_room = dest.and_then(|d| world.abstract_room(d));
+                let dest_node = dest_room.map(|d| d.exit_index(here));
+                let dest_camera = dest_room
+                    .zip(dest_node)
+                    .and_then(|(d, n)| d.nodes.get(usize::try_from(n).ok()?))
+                    .map(|n| n.viewed_by_camera);
+                ExitInfo {
+                    node: i,
+                    kind: format!("{:?}", node.kind),
+                    entrance_tile: entrance.map(Into::into),
+                    enter_input: entrance.map(|(x, y)| {
+                        let (hx, hy) = room.shortcut_hole_direction(x, y);
+                        [-hx, -hy]
+                    }),
+                    destination: dest_room.map(|d| d.name.clone()),
+                    destination_node: dest_node,
+                    destination_camera: dest_camera,
+                    viewed_by_camera: node.viewed_by_camera,
+                }
+            })
+            .collect();
+        Ok(ExitList {
+            room: room.name().to_owned(),
+            exits,
         })
     }
 
@@ -319,7 +422,7 @@ impl Session {
         };
         self.ensure_renderer(pixels)?;
         let (Some(scene), Some(target)) = (self.scene.as_mut(), self.renderer.as_mut()) else {
-            return Err("no room loaded; call load_room first".to_owned());
+            return Err("no game loaded; call load_room or new_game first".to_owned());
         };
         target.scene.renderer.set_frame_size((pixels[0], pixels[1]));
         scene.draw(&mut target.scene, 1.0, view);
@@ -410,13 +513,10 @@ impl Session {
             .assets
             .find_room_file(&name, ".txt")
             .ok_or_else(|| format!("room {name:?} not found (see list_rooms)"))?;
-        let room =
-            Room::load(&path).map_err(|e| format!("loading room {}: {e}", path.display()))?;
+        log::debug!("room file {}", path.display());
         let setup = GameSetup {
-            settings: Game::room_settings(&self.assets, &room),
-            room,
+            start: GameStart::Room { name, tile: None },
             seed: params.seed.unwrap_or(1),
-            spawn: None,
             sound_table: Arc::clone(&self.sound_table),
         };
         let start = match params.process.unwrap_or_default() {
@@ -436,6 +536,7 @@ impl Session {
         .map_err(|e| format!("loading the fonts: {e}"))?;
         self.frontend = Some((Frontend::new(ctx), 0));
         self.scene = None;
+        self.start = None;
         self.process_state()
     }
 

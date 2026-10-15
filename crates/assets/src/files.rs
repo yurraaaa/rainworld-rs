@@ -34,6 +34,12 @@ impl StreamingAssets {
         self.0.join(relative.to_lowercase())
     }
 
+    /// Whether `world/<name>` is a directory (`AssetManager.ResolveDirectory` finds it).
+    #[must_use]
+    pub fn has_world_dir(&self, name: &str) -> bool {
+        self.file(&format!("world/{name}")).is_dir()
+    }
+
     /// `AssetManager.ResolveFilePath` with no mods active: `<StreamingAssets>/<path>`
     /// with `/` as separator and the path lower-cased. (The game looks in `mergedmods/`
     /// and the active mods first; the port runs the base game with none.)

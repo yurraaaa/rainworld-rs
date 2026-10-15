@@ -29,6 +29,7 @@ use rw_assets::{Room, Terrain};
 use rw_random::UnityRandom;
 
 pub use input::{INPUT_HISTORY, Input};
+pub use shortcut::VesselStep;
 
 use crate::room_ext::RoomExt;
 use crate::shortcut::ShortcutVessel;

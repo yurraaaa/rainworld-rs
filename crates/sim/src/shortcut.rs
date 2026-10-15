@@ -7,13 +7,26 @@
 use rw_assets::Room;
 use rw_random::UnityRandom;
 
-use crate::{Player, Sounds};
+use crate::{Player, Sounds, VesselStep};
 
-/// `RainWorldGame.updateShortCut`: [`ShortcutHandler::update`] moves vessels only on
-/// every third game tick.
+/// `RainWorldGame.updateShortCut`, which runs `ShortcutHandler.Update` only on every
+/// third game tick, and the handler's `betweenRoomsWaitingLobby` (one player).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct ShortcutHandler {
     update_counter: u8,
+    /// The player's vessel waiting to enter another room.
+    pub lobby: Option<LobbyVessel>,
+}
+
+/// A vessel in `betweenRoomsWaitingLobby`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LobbyVessel {
+    /// Global index of the room it waits to enter.
+    pub room: i32,
+    /// `entranceNode`: that room's exit leading back (`ExitIndex`), -1 if none.
+    pub entrance_node: i32,
+    /// Shortcut updates spent waiting.
+    pub updates: u32,
 }
 
 impl ShortcutHandler {
@@ -22,20 +35,32 @@ impl ShortcutHandler {
         Self::default()
     }
 
-    /// One game tick, called before the room's objects update (as the game does):
-    /// every third call moves `player`'s vessel one tile with its tick sound, spitting
-    /// the player out when it reaches an entrance.
+    /// Counts one game tick; true on every third, when the handler updates.
+    pub fn divide(&mut self) -> bool {
+        self.update_counter += 1;
+        if self.update_counter > 2 {
+            self.update_counter = 0;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// One game tick in a single-room world, called before the room's objects update
+    /// (as the game does): every third call moves `player`'s vessel one tile with its
+    /// tick sound, spitting the player out when it reaches an entrance. A single-room
+    /// world's exits all lead to -1, so at a room exit the vessel stalls and turns back.
     pub fn update(
         &mut self,
         room: &Room,
         player: &mut Player,
         rng: &mut UnityRandom,
         sounds: &mut Sounds,
-    ) {
-        self.update_counter += 1;
-        if self.update_counter > 2 {
-            self.update_counter = 0;
-            player.shortcut_vessel_update(room, rng, sounds);
+    ) -> VesselStep {
+        if self.divide() {
+            player.shortcut_vessel_update(room, rng, sounds)
+        } else {
+            VesselStep::Waited
         }
     }
 }

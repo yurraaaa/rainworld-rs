@@ -65,7 +65,7 @@ fn grounded_player(rng: &mut UnityRandom) -> (Player, PlayerGraphics) {
     let mut player = Player::new();
     player.body.chunks[HIPS].reset_at(Vec2::new(100.0, 48.0));
     player.body.chunks[HEAD].reset_at(Vec2::new(117.0, 49.0));
-    let graphics = PlayerGraphics::new(&player, SlugcatName::White, rng);
+    let graphics = PlayerGraphics::new(&player, SlugcatName::WHITE, rng);
     (player, graphics)
 }
 
@@ -453,7 +453,7 @@ fn legs_frame_by_state() {
     let mut p = Player::new();
     p.body.chunks[HIPS].reset_at(Vec2::new(300.0, 300.0));
     p.body.chunks[HEAD].reset_at(Vec2::new(300.0, 317.0));
-    let mut g = PlayerGraphics::new(&p, SlugcatName::White, &mut rng);
+    let mut g = PlayerGraphics::new(&p, SlugcatName::WHITE, &mut rng);
     run(&mut p, &mut g, &r, Input::NONE, 2, &mut rng);
     assert_eq!(p.body_mode(), BodyMode::Default);
     let legs = *g.draw(&p, 0.0, Color::BLACK).sprite(4).unwrap();
@@ -586,7 +586,7 @@ fn player_at_pole(rng: &mut UnityRandom, room: &Room) -> (Player, PlayerGraphics
     let mut p = Player::new();
     p.body.chunks[HIPS].reset_at(Vec2::new(212.0, 49.0));
     p.body.chunks[HEAD].reset_at(Vec2::new(212.0, 66.0));
-    let mut g = PlayerGraphics::new(&p, SlugcatName::White, rng);
+    let mut g = PlayerGraphics::new(&p, SlugcatName::WHITE, rng);
     run(&mut p, &mut g, room, Input::NONE, 20, rng);
     (p, g)
 }
@@ -679,7 +679,7 @@ fn vertical_pole_poses() {
     let mut p = Player::new();
     p.body.chunks[HEAD].reset_at(Vec2::new(410.0, 150.0));
     p.body.chunks[HIPS].reset_at(Vec2::new(410.0, 133.0));
-    let mut g = PlayerGraphics::new(&p, SlugcatName::White, &mut rng);
+    let mut g = PlayerGraphics::new(&p, SlugcatName::WHITE, &mut rng);
     let hang = Animation::HangUnderVerticalBeam;
     assert!(run_until((&mut p, &mut g), &r, up, hang, 5, &mut rng));
     let mut arms = 0;
@@ -822,7 +822,7 @@ fn corridor_player(
     let mut p = Player::new();
     p.body.chunks[HEAD].reset_at(head);
     p.body.chunks[HIPS].reset_at(hips);
-    let mut g = PlayerGraphics::new(&p, SlugcatName::White, rng);
+    let mut g = PlayerGraphics::new(&p, SlugcatName::WHITE, rng);
     for _ in 0..10 {
         run(&mut p, &mut g, room, input, 1, rng);
         if p.body_mode() == BodyMode::CorridorClimb {
@@ -1074,7 +1074,7 @@ fn hard_landing_blinks() {
     let r = flat_room();
     let mut p = Player::new();
     place(&mut p, (Vec2::new(300.0, 237.0), Vec2::new(300.0, 220.0)));
-    let mut g = PlayerGraphics::new(&p, SlugcatName::White, &mut rng);
+    let mut g = PlayerGraphics::new(&p, SlugcatName::WHITE, &mut rng);
     let mut blinked = false;
     for _ in 0..60 {
         let before = g.blink;

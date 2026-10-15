@@ -10,7 +10,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::ShortcutMap;
+use crate::{ConnMap, ShortcutMap};
 
 /// Side of a square tile in room pixels.
 pub const TILE_SIZE: f32 = 20.0;
@@ -269,6 +269,8 @@ pub struct Room {
     /// Column-major as in the file: x outer, y from the top row down.
     tiles: Box<[Tile]>,
     pub(crate) shortcut_map: ShortcutMap,
+    /// Line 9, or why it does not parse.
+    conn_map: Result<ConnMap, String>,
 }
 
 impl Room {
@@ -337,7 +339,9 @@ impl Room {
             .map(|(i, cell)| Tile::parse(i, cell))
             .collect::<Result<Box<[Tile]>, RoomError>>()?;
 
+        let conn_map = ConnMap::parse(lines.line(9)?);
         let mut room = Self {
+            conn_map,
             name,
             width,
             height,
@@ -371,6 +375,14 @@ impl Room {
     pub fn load_level(streaming_assets: impl AsRef<Path>, name: &str) -> Result<Self, RoomError> {
         let file = format!("{}.txt", name.to_lowercase());
         Self::load(streaming_assets.as_ref().join("levels").join(file))
+    }
+
+    /// The baked node map (line 10, `roomText[9]`).
+    ///
+    /// # Errors
+    /// Why the line does not parse.
+    pub fn conn_map(&self) -> Result<&ConnMap, String> {
+        self.conn_map.as_ref().map_err(Clone::clone)
     }
 
     /// Display name from line 0.

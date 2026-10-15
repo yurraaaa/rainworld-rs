@@ -2,10 +2,10 @@
 //! entering branch of `Creature.Update`, `SuckedIntoShortCut`, the vessel step of
 //! `ShortcutHandler.Update` and `Player.SpitOutOfShortCut`.
 //!
-//! Behaviour: `rainworld-re/notes/shortcuts.md` sections 2-5, Remix off. Room-exit
-//! entrances can't be entered (docs/DIVERGENCES.md D5).
+//! Behaviour: `rainworld-re/notes/shortcuts.md` sections 2-5, Remix off. What happens at
+//! a room exit is the world's business ([`crate::RainWorldGame`]).
 
-use rw_assets::{Room, ShortcutType, Terrain, tile_centre};
+use rw_assets::{Room, Shortcut, ShortcutType, Terrain, tile_centre};
 use rw_random::UnityRandom;
 
 use super::{HEAD, HIPS, Player};
@@ -49,8 +49,8 @@ impl Player {
     }
 
     /// The shortcut block at the end of `MovementUpdate`: a chunk in an entrance tile
-    /// with input exactly into the hole starts entering, head first. Dead ends, dens,
-    /// NPC transports and (port decision) room exits can't be entered.
+    /// with input exactly into the hole starts entering, head first. Dead ends, dens and
+    /// NPC transports can't be entered.
     pub(super) fn enter_shortcut_by_input(&mut self, room: &Room) {
         if self.shortcut_delay >= 1 {
             return;
@@ -66,7 +66,7 @@ impl Player {
             let tile = pos.tile();
             let enterable = matches!(
                 room.shortcut_map().type_at(tile),
-                ShortcutType::Normal | ShortcutType::RegionTransportation
+                ShortcutType::Normal | ShortcutType::RoomExit | ShortcutType::RegionTransportation
             );
             let hole = room.shortcut_hole_direction(tile.0, tile.1);
             if enterable && input == (-hole.0, -hole.1) {
@@ -119,38 +119,75 @@ impl Player {
         self.entering_shortcut = None;
     }
 
-    /// One vessel step of `ShortcutHandler.Update`. Reaching an entrance spits the
-    /// player out there. Node tiles need nothing for the player: room exits can't be
-    /// entered (port decision), dens and NPC transports can't be entered by players,
-    /// and a region transport without an NPC destination (a player never has one)
-    /// does nothing, so the vessel stalls there one update and then walks back. Each
-    /// step ticks (`Player_Tick_Along_In_Shortcut`); leaving plays `Player_Exit_Shortcut`
-    /// (no sounds.txt line) at the entrance.
+    /// One vessel step of `ShortcutHandler.Update` in `room`, the room the vessel is in.
+    /// Each step ticks (`Player_Tick_Along_In_Shortcut`); reaching an entrance spits the
+    /// player out there with `Player_Exit_Shortcut` (no sounds.txt line). Reaching a
+    /// node tile is reported for the world to handle.
     pub(crate) fn shortcut_vessel_update(
         &mut self,
         room: &Room,
         rng: &mut UnityRandom,
         sounds: &mut Sounds,
-    ) {
+    ) -> VesselStep {
         let Some(vessel) = &mut self.vessel else {
-            return;
+            return VesselStep::Waited;
         };
+        let from = vessel.pos;
         if !vessel.step(room) {
-            return;
+            return VesselStep::Waited;
         }
         let pos = vessel.pos;
         sounds.play_disembodied(SoundId::PlayerTickAlongInShortcut, 0.0, 1.0, 1.0, rng);
-        if room.tile(pos.0, pos.1).terrain == Terrain::ShortcutEntrance {
+        let tile = room.tile(pos.0, pos.1);
+        if tile.terrain == Terrain::ShortcutEntrance {
             let middle = Vec2::from(tile_centre(pos.0, pos.1));
             sounds.play_at(SoundId::PlayerExitShortcut, middle, 1.0, 1.0, rng);
-            self.spit_out_of_shortcut(room, pos);
+            self.spit_out_of_shortcut(room, pos, rng);
+            return VesselStep::SpatOut;
+        }
+        if pos != from && !matches!(tile.shortcut, Shortcut::None | Shortcut::Path) {
+            let node = room.shortcut_map().nodes().iter().position(|&n| n == pos);
+            return VesselStep::Node {
+                node,
+                kind: tile.shortcut,
+                from,
+            };
+        }
+        VesselStep::Moved
+    }
+
+    /// The faulty room exit: the vessel steps back to `from` (`PushNewLastPos(pos)`,
+    /// `pos = from`).
+    pub(crate) fn bounce_vessel(&mut self, from: (i32, i32)) {
+        if let Some(v) = &mut self.vessel {
+            v.last_pos = v.pos;
+            v.pos = from;
         }
     }
 
-    /// `Player.SpitOutOfShortCut` into the same room: head 2.5 px out of the entrance
-    /// middle toward the room, hips 2.5 px into the tube, both moving `2 * hole`;
-    /// `shortcutDelay = 20`. Animation, body mode and standing are kept.
-    fn spit_out_of_shortcut(&mut self, room: &Room, tile: (i32, i32)) {
+    /// `SetAllPositions`: the vessel restarts on `tile` (another room's node).
+    pub(crate) fn set_vessel_at(&mut self, tile: (i32, i32)) {
+        if let Some(v) = &mut self.vessel {
+            *v = ShortcutVessel::new(tile);
+        }
+    }
+
+    /// The vessel is dropped (`transportVessels.RemoveAt` with nowhere to go, or the
+    /// player put back into a room).
+    pub(crate) fn clear_vessel(&mut self) {
+        self.vessel = None;
+        self.entering_shortcut = None;
+    }
+
+    /// `Player.SpitOutOfShortCut` into `room`: head 2.5 px out of the entrance middle
+    /// toward the room, hips 2.5 px into the tube, both moving `2 * hole`;
+    /// `shortcutDelay = 20`. Animation, body mode and standing are kept. The base
+    /// `Creature.SpitOutOfShortCut` first puts each chunk at the middle plus `Custom.RNV()`
+    /// (one draw each), which the player's positions overwrite.
+    fn spit_out_of_shortcut(&mut self, room: &Room, tile: (i32, i32), rng: &mut UnityRandom) {
+        for _ in &self.body.chunks {
+            Vec2::random_unit(rng);
+        }
         self.entering_shortcut = None;
         self.shortcut_delay = SPIT_OUT_DELAY;
         self.vessel = None;
@@ -162,4 +199,21 @@ impl Player {
             c.vel = hole * 2.0;
         }
     }
+}
+
+/// What one vessel step did.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VesselStep {
+    /// No vessel, or it sat out a wait.
+    Waited,
+    Moved,
+    /// Left the tube into the room.
+    SpatOut,
+    /// Reached a node tile (`shortCut > 1`): `node` is its index in the room's node list
+    /// (`None` for an NPC transport tile), `from` the tile before.
+    Node {
+        node: Option<usize>,
+        kind: Shortcut,
+        from: (i32, i32),
+    },
 }

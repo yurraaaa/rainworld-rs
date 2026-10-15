@@ -419,7 +419,7 @@ fn slugcat_select_layout() {
     let s = h.select().screen();
     let menu = h.select().menu();
     let order: Vec<Slugcat> = s.pages.iter().map(|p| p.slugcat).collect();
-    assert_eq!(order, [Slugcat::Yellow, Slugcat::White, Slugcat::Red]);
+    assert_eq!(order, [Slugcat::YELLOW, Slugcat::WHITE, Slugcat::RED]);
     assert_eq!(s.slugcat_page_index, 1);
     let start = menu.object(s.start_button);
     assert_eq!((start.pos, start.rad), (Vec2::new(683.0, 85.0), 55.0));
@@ -489,7 +489,7 @@ fn hold_start_fills_then_starts_a_new_game() {
         plays.last().copied(),
         Some((MenuSoundId::StartNewGame, 0.4, 1.0))
     );
-    assert_eq!(h.ctx.shared.in_game_slugcat, Some(Slugcat::White));
+    assert_eq!(h.ctx.shared.in_game_slugcat, Some(Slugcat::WHITE));
 }
 
 /// NEXT (`Singal`, 555162) queues a side input and plays `MENU_Next_Slugcat`
@@ -526,7 +526,7 @@ fn next_scrolls_to_the_hunter() {
         (sc.slugcat_page_index, sc.scroll, sc.last_scroll),
         (2, -1.0, -1.0)
     );
-    assert_eq!(h.ctx.shared.progression.selected_slugcat, Slugcat::Red);
+    assert_eq!(h.ctx.shared.progression.selected_slugcat, Slugcat::RED);
     let mut scroll = -1.0_f32;
     let mut ticks = 0;
     while scroll != 0.0 {

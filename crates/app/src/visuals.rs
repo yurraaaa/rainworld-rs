@@ -7,9 +7,6 @@ use rw_assets::{
 };
 use rw_render::{Follow, LevelGraphics, LevelParams, LevelView, Renderer, RoomCamera};
 
-/// Campaign timeline whose `_settings-<timeline>.txt` variants apply (Survivor).
-const TIMELINE: &str = "white";
-
 /// Level graphic state of one room.
 pub struct Visuals {
     room: RoomVisuals,
@@ -23,9 +20,9 @@ pub struct Visuals {
 }
 
 impl Visuals {
-    /// Loads the room's settings, palettes and every camera's image, and the noise
-    /// texture from the game's Unity resources; the room camera shows `screen` pixels
-    /// (`sSize`).
+    /// Loads the room's settings (the `timeline`'s `_settings-<timeline>.txt` variant
+    /// where there is one), palettes and every camera's image, and the noise texture
+    /// from the game's Unity resources; the room camera shows `screen` pixels (`sSize`).
     ///
     /// # Errors
     /// When any of those cannot be loaded.
@@ -33,9 +30,12 @@ impl Visuals {
         assets: &StreamingAssets,
         resources: &UnityResources,
         room: &Room,
+        timeline: &str,
         screen: [f32; 2],
     ) -> Result<Self, AssetError> {
-        let visuals = RoomVisuals::load(assets, room.name(), room.cameras().len(), Some(TIMELINE))?;
+        let timeline = timeline.to_lowercase();
+        let visuals =
+            RoomVisuals::load(assets, room.name(), room.cameras().len(), Some(&timeline))?;
         let s = visuals.settings();
         log::info!(
             "room settings: palette {} fade {:?}, effect colours {}/{}, clouds {}, grime {}",
@@ -69,6 +69,14 @@ impl Visuals {
             self.palette = self.room.palette_for_camera(current);
             self.generation += 1;
         }
+    }
+
+    /// `MoveCamera` into this room: cut to camera `i` (`ApplyPositionChange`).
+    pub fn cut_to(&mut self, i: usize) {
+        let i = i.min(self.images.len().saturating_sub(1));
+        self.camera.cut_to(i);
+        self.palette = self.room.palette_for_camera(i);
+        self.generation += 1;
     }
 
     #[must_use]

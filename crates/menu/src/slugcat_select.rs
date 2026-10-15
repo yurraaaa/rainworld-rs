@@ -61,20 +61,20 @@ impl SlugcatPage {
     pub fn texts(slugcat: Slugcat, shared: &MenuShared) -> (String, String) {
         let t = &shared.translator;
         let (name, blurb) = match slugcat {
-            Slugcat::White => (
+            Slugcat::WHITE => (
                 t.translate("THE SURVIVOR"),
                 t.translate(
                     "A nimble omnivore, both predator and prey. Lost in a harsh and indifferent<LINE>land you must make your own way, with wit and caution as your greatest assets.",
                 ),
             ),
-            Slugcat::Yellow => (
+            Slugcat::YELLOW => (
                 t.translate("THE MONK"),
                 t.translate(
                     "Weak of body but strong of spirit. In tune with the mysteries of the world and<LINE>empathetic to its creatures, your journey will be a significantly more peaceful one.",
                 ),
             ),
-            // In English the game replaces the translation with a fixed text.
-            Slugcat::Red => (
+            // The Hunter. In English the game replaces the translation with a fixed text.
+            _ => (
                 t.translate("THE HUNTER"),
                 "Strong and quick, with a fierce metabolism requiring a steady diet of meat. But the<LINE>stomach won't be your only concern, as the path of the hunter is one of extreme peril.",
             ),
@@ -88,7 +88,7 @@ impl SlugcatPage {
 
 impl SlugcatSelectScreen {
     /// `slugcatColorOrder` of the base game.
-    pub const ORDER: [Slugcat; 3] = [Slugcat::Yellow, Slugcat::White, Slugcat::Red];
+    pub const ORDER: [Slugcat; 3] = [Slugcat::YELLOW, Slugcat::WHITE, Slugcat::RED];
 
     /// `NextScroll`.
     #[must_use]
@@ -121,7 +121,7 @@ impl SlugcatSelectScreen {
     /// `SlugcatSelectMenu.SlugcatUnlocked` with no save: `SlugcatStats.SlugcatUnlocked`.
     #[must_use]
     pub fn slugcat_unlocked(slugcat: Slugcat, shared: &MenuShared) -> bool {
-        slugcat != Slugcat::Red || shared.progression.red_unlocked
+        slugcat != Slugcat::RED || shared.progression.red_unlocked
     }
 
     fn page_index(&self, page: ObjectId) -> Option<usize> {
@@ -150,7 +150,7 @@ impl SlugcatSelectScreen {
     /// `StartGame` for a new game: the Hunter needs unlocking; the Survivor and the Monk
     /// would get their intro slideshow first (not ported: D13).
     fn start_game(&mut self, slugcat: Slugcat, cx: &mut MenuCx<'_>) {
-        if slugcat == Slugcat::Red && !cx.shared.progression.red_unlocked {
+        if slugcat == Slugcat::RED && !cx.shared.progression.red_unlocked {
             return;
         }
         cx.shared.in_game_slugcat = Some(slugcat);
@@ -339,7 +339,7 @@ impl SlugcatSelectMenu {
                 slugcat_page_index = i;
                 break;
             }
-            if *slugcat == Slugcat::White {
+            if *slugcat == Slugcat::WHITE {
                 slugcat_page_index = i;
             }
         }
@@ -416,18 +416,15 @@ impl SlugcatSelectMenu {
         index: usize,
         slugcat: Slugcat,
     ) -> SlugcatPage {
-        let name = match slugcat {
-            Slugcat::White => "Slugcat_Page_White",
-            Slugcat::Yellow => "Slugcat_Page_Yellow",
-            Slugcat::Red => "Slugcat_Page_Red",
-        };
-        let page = menu.add_page(shared, name, index);
+        let name = format!("Slugcat_Page_{}", slugcat.value());
+        let page = menu.add_page(shared, &name, index);
         // `AddImage(ascended: false)`.
         let mut image_pos = Vec2::new(683.0, 484.0);
         let (scene_id, mut scene_offset) = match slugcat {
-            Slugcat::White => (SceneId::SlugcatWhite, Vec2::new(-10.0, 100.0)),
-            Slugcat::Yellow => (SceneId::SlugcatYellow, Vec2::new(10.0, 75.0)),
-            Slugcat::Red => (SceneId::SlugcatRed, Vec2::new(10.0, 45.0)),
+            Slugcat::WHITE => (SceneId::SlugcatWhite, Vec2::new(-10.0, 100.0)),
+            Slugcat::YELLOW => (SceneId::SlugcatYellow, Vec2::new(10.0, 75.0)),
+            // The Hunter.
+            _ => (SceneId::SlugcatRed, Vec2::new(10.0, 45.0)),
         };
         scene_offset.x -= (1366.0 - shared.screen_size[0]) / 2.0;
         let scene = menu.add_scene(shared, page, scene_id);

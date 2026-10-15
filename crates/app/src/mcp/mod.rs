@@ -1,4 +1,4 @@
-//! MCP server for `rainworld-rs --mcp`: tools that load a room, step the simulation
+//! MCP server for `rainworld-rs --mcp`: tools that load a world, step the simulation
 //! with given inputs, read the player's state and the tiles, and take screenshots, so
 //! an agent can drive the app over stdio.
 //!
@@ -26,16 +26,20 @@ use rw_assets::{StreamingAssets, UnityResources};
 use serde::Serialize;
 
 use params::{
-    ListRoomsParams, LoadProcessParams, LoadRoomParams, RespawnParams, ScreenshotParams,
-    SetPlayerParams, StepParams, StepProcessParams, StepSequenceParams, TilesParams,
+    ListRoomsParams, LoadProcessParams, LoadRoomParams, NewGameParams, RespawnParams,
+    ScreenshotParams, SetPlayerParams, StepParams, StepProcessParams, StepSequenceParams,
+    TilesParams,
 };
 pub use session::Session;
 
-const INSTRUCTIONS: &str = "Drives rainworld-rs, a reimplementation of Rain World's \
-slugcat controller in single rooms. Call load_room first. The simulation runs at 40 ticks \
-per second and only advances in step / step_sequence, so runs are deterministic: the \
-same room, seed and inputs give the same result. Positions are room pixels, y up, 20 px \
-per tile. Use get_tiles to read the geometry and screenshot to look at the scene. \
+const INSTRUCTIONS: &str = "Drives rainworld-rs, a reimplementation of Rain World \
+(creature-free, one region at a time). Call load_room (a room in its region's world) or \
+new_game (a campaign's start) first. The simulation runs at 40 ticks per second and only \
+advances in step / step_sequence, so runs are deterministic: the same start, seed and \
+inputs give the same result. Positions are room pixels, y up, 20 px per tile, in the \
+room the camera shows (state.room); room-exit shortcuts carry the player to the next \
+room and the camera follows. get_exits lists the room's exits and where they lead. Use \
+get_tiles to read the geometry and screenshot to look at the scene. \
 load_process instead starts the process manager (boot fade, then a menu screen or the \
 game); step_process advances it frame by frame (1/40 s each), holding keys for the \
 menus and the player, and screenshot draws it. Boot to play: load_process, step_process \
@@ -115,14 +119,31 @@ impl Server {
     }
 
     #[tool(
-        description = "Load a room and spawn the player (tick 0). Returns size in tiles, \
-        cameras, water, shortcut count and the initial state."
+        description = "Load a room's region world and spawn the player in that room (tick \
+        0). Returns the room's size in tiles, cameras, water, shortcut count and the \
+        initial state."
     )]
     fn load_room(
         &self,
         Parameters(p): Parameters<LoadRoomParams>,
     ) -> Result<CallToolResult, String> {
         Self::json(&self.session()?.load_room(&p)?)
+    }
+
+    #[tool(
+        description = "Start a new story game as a slugcat (White, Yellow, Red): its start \
+        room and position in its region's world. Returns the room info and state."
+    )]
+    fn new_game(&self, Parameters(p): Parameters<NewGameParams>) -> Result<CallToolResult, String> {
+        Self::json(&self.session()?.new_game(&p)?)
+    }
+
+    #[tool(
+        description = "The camera room's shortcut nodes: kind, entrance tile, the input \
+        that enters it, and for exits the destination room, arrival node and camera."
+    )]
+    fn get_exits(&self) -> Result<CallToolResult, String> {
+        Self::json(&self.session()?.exits()?)
     }
 
     #[tool(description = "Run ticks (40 per second) holding one input; returns the state after.")]
@@ -146,13 +167,18 @@ impl Server {
         }
     }
 
-    #[tool(description = "Respawn the player: next seeded spawn tile, or restart with a seed.")]
+    #[tool(
+        description = "Respawn the player in the camera's room at the next seeded spawn \
+        tile, or restart the last load_room / new_game with a seed."
+    )]
     fn respawn(&self, Parameters(p): Parameters<RespawnParams>) -> Result<CallToolResult, String> {
         Self::json(&self.session()?.respawn(&p)?)
     }
 
     #[tool(
-        description = "Tick, camera and player state: chunk positions, velocities, tiles and \
+        description = "Tick, world, camera room and camera, the player's room and node, \
+        the vessel waiting to enter a room, realized rooms and their entry waits, and \
+        player state: chunk positions, velocities, tiles and \
         contacts, body mode, animation, facing, standing, stun, death, shortcut travel, \
         this tick's terrain impacts and input."
     )]
@@ -197,9 +223,9 @@ impl Server {
         description = "Start the process manager as the game boots (black, Initialization, \
         fade) into a process: intro_roll (default, as the game boots; any key goes on to \
         the main menu), main_menu (STORY leads to slugcat select, whose held START begins \
-        the game in the room), slugcat_select, font_test (labels in the \
+        a new game at the campaign's start), slugcat_select, font_test (labels in the \
         game's fonts over the flat main-menu scene; menu submit goes on to the game) or \
-        game. Replaces any loaded room."
+        game (in the room's region world). Replaces any loaded game."
     )]
     fn load_process(
         &self,

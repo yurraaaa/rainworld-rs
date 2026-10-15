@@ -1,7 +1,7 @@
 //! Room settings files (`<room>_settings.txt`) and their template inheritance, for the
 //! values the port uses: `Palette`, `FadePalette`, `EffectColorA/B`, `Clouds`, `Grime`,
 //! the water surface's `WaveSpeed`, `WaveLength`, `WaveAmplitude`, `SecondWaveLength`
-//! and `SecondWaveAmplitude`, and `AmbientSounds`. Mirrors `RoomSettings` (constructor,
+//! and `SecondWaveAmplitude`, `AmbientSounds`, `Effects` and `PlacedObjects`. Mirrors `RoomSettings` (constructor,
 //! `FindParent`, `Load`, `InheritAmbientSounds`) and
 //! `Region.GetRoomSettingsTemplate`; see `rainworld-re/notes/room-format.md` section 6.
 //!
@@ -13,7 +13,9 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::{AmbientSound, AssetError, StreamingAssets};
+use crate::{
+    ActiveMods, AmbientSound, AssetError, PlacedObject, RoomEffect, StreamingAssets, Timeline,
+};
 
 /// `FadePalette: <palette>, <fade>, <fade>, ...`: a second palette and one blend amount
 /// per camera.
@@ -49,6 +51,10 @@ pub struct SettingsFile {
     pub second_wave_amplitude: Option<f32>,
     /// The file's own `AmbientSounds:` entries (every such line adds).
     pub ambient_sounds: Vec<AmbientSound>,
+    /// The file's own `Effects:` entries (every such line adds).
+    pub effects: Vec<RoomEffect>,
+    /// `PlacedObjects:` entries (every such line adds), all active.
+    pub placed_objects: Vec<PlacedObject>,
 }
 
 /// A room's settings after inheritance.
@@ -71,6 +77,10 @@ pub struct RoomSettings {
     /// Own ambient sounds, then the parent's that are not overridden (templates and
     /// the root do not inherit).
     pub ambient_sounds: Vec<AmbientSound>,
+    /// Own effects, then the parent's of other types (`InheritEffects`).
+    pub effects: Vec<RoomEffect>,
+    /// The room's own placed objects (never inherited); filters not yet applied.
+    pub placed_objects: Vec<PlacedObject>,
 }
 
 /// A region's settings templates (`Room Setting Templates:` in `properties.txt`).
@@ -109,6 +119,8 @@ impl SettingsFile {
                 "SecondWaveLength" => file.second_wave_length = Some(Self::float(value)?),
                 "SecondWaveAmplitude" => file.second_wave_amplitude = Some(Self::float(value)?),
                 "AmbientSounds" => file.ambient_sounds.extend(AmbientSound::parse_list(value)?),
+                "Effects" => file.effects.extend(RoomEffect::parse_list(value)),
+                "PlacedObjects" => file.placed_objects.extend(PlacedObject::parse_list(value)),
                 _ => {}
             }
         }
@@ -166,6 +178,8 @@ impl SettingsFile {
                 .second_wave_amplitude
                 .unwrap_or(parent.second_wave_amplitude),
             ambient_sounds: AmbientSound::inherit(&self.ambient_sounds, &parent.ambient_sounds),
+            effects: RoomEffect::inherit(&self.effects, &parent.effects),
+            placed_objects: self.placed_objects.clone(),
         }
     }
 
@@ -194,7 +208,23 @@ impl RoomSettings {
         second_wave_length: 1.0 / 6.0,
         second_wave_amplitude: 0.0,
         ambient_sounds: Vec::new(),
+        effects: Vec::new(),
+        placed_objects: Vec::new(),
     };
+
+    /// Placed objects with `timeline`'s filters applied (`LoadPlacedObjects`).
+    #[must_use]
+    pub fn placed_objects_for(&self, timeline: Timeline, mods: ActiveMods) -> Vec<PlacedObject> {
+        let mut objects = self.placed_objects.clone();
+        PlacedObject::apply_filters(&mut objects, timeline, mods);
+        objects
+    }
+
+    /// `GetEffectAmount`-style lookup: whether an effect of `kind` is present.
+    #[must_use]
+    pub fn has_effect(&self, kind: &str) -> bool {
+        self.effects.iter().any(|e| e.kind == kind)
+    }
 
     /// Loads the settings of `room` as the game does: `<room>_settings-<timeline>.txt`
     /// if it exists, else `<room>_settings.txt` (both via the room file lookup), parent

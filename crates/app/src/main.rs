@@ -1,5 +1,5 @@
-//! rainworld-rs: a room from the installed game, drawn as the game draws its level
-//! graphic (or as debug tiles), with a slugcat body.
+//! rainworld-rs: a region of the installed game, creature-free, drawn as the game draws
+//! its level graphics (or as debug tiles), with a slugcat body.
 //!
 //! Usage: `rainworld-rs [ROOM] [--seed N] [--screenshot FILE.ppm] [--debug-view]
 //! [--spawn X,Y] [--script STEPS] [--resolution WxH] [--windowed] [--mute]
@@ -24,7 +24,9 @@
 //! texture), with `rw_assets::UnityResources`.
 //!
 //! `ROOM` is a room name looked up as the game does (`world/<prefix>-rooms`, gates,
-//! `levels`), e.g. `summit` or `SU_B04`.
+//! `levels`), e.g. `summit` or `SU_B04`: a game started directly begins there, in the
+//! room's region world (arena levels and rooms outside their world: a single-room
+//! world). From the slugcat select menu a new game begins at the campaign's start.
 //!
 //! Controls: Rewired's default keyboard map: arrows move, Z jumps; R respawn, V level
 //! graphic / debug view, G tile grid, F12 screenshot (`screenshot-<frame>.ppm` in the
@@ -244,7 +246,6 @@ fn run() -> Result<(), Box<dyn Error>> {
         .ok()
         .map(Arc::new);
     let table = game::Game::load_sound_table(&assets);
-    let settings = game::Game::room_settings(&assets, &room);
     // A screenshot run stays silent, like `--mute`.
     let audio = if args.mute || args.screenshot.is_some() {
         None
@@ -255,10 +256,11 @@ fn run() -> Result<(), Box<dyn Error>> {
     };
     let title = room.name().to_owned();
     let setup = GameSetup {
-        room,
-        settings,
+        start: game::GameStart::Room {
+            name: room.name().to_owned(),
+            tile: args.spawn,
+        },
         seed: args.seed,
-        spawn: args.spawn,
         sound_table: table,
     };
     let mut ctx = AppContext::new(assets, resources, args.resolution, setup, args.start)

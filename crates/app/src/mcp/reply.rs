@@ -35,11 +35,68 @@ pub struct RoomInfo {
 #[derive(Debug, Clone, Serialize)]
 pub struct State {
     pub tick: u64,
+    /// The world: region acronym, or the room of a single-room world.
+    pub world: String,
+    /// The room the camera shows (where the tile, screenshot and set_player tools act).
     pub room: String,
     /// Shown camera (0-based), when the room has a level graphic.
     pub camera: Option<usize>,
+    /// The player's room (differs from `room` while its vessel waits to enter).
+    pub player_room: String,
+    /// The player's `abstractNode`: the exit node last passed, -1 if none.
+    pub player_node: i32,
+    /// The player's vessel waiting to enter another room, if it is.
+    pub lobby: Option<LobbyState>,
+    /// Realized rooms, with the ticks each still makes creatures wait to enter (-1 or
+    /// 0: none).
+    pub realized_rooms: Vec<RealizedState>,
     /// `None` once the body fell out of the room and was destroyed.
     pub player: Option<PlayerState>,
+}
+
+/// `betweenRoomsWaitingLobby`'s vessel.
+#[derive(Debug, Clone, Serialize)]
+pub struct LobbyState {
+    pub room: String,
+    /// The destination's node it arrives at.
+    pub entrance_node: i32,
+    /// Shortcut updates (every 3rd tick) it has waited.
+    pub updates: u32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct RealizedState {
+    pub room: String,
+    pub wait_to_enter: i32,
+    pub ready_for_player: bool,
+}
+
+/// The camera room's exits (`get_exits`).
+#[derive(Debug, Clone, Serialize)]
+pub struct ExitList {
+    pub room: String,
+    pub exits: Vec<ExitInfo>,
+}
+
+/// One shortcut node of the room.
+#[derive(Debug, Clone, Serialize)]
+pub struct ExitInfo {
+    /// Node index (exits first).
+    pub node: usize,
+    /// Exit, Den, RegionTransportation, ...
+    pub kind: String,
+    /// The entrance tile in the room (where the player goes in).
+    pub entrance_tile: Option<[i32; 2]>,
+    /// The way into the hole from the entrance: the input that enters it.
+    pub enter_input: Option<[i32; 2]>,
+    /// The room behind an exit node; `None` for an unconnected exit or a non-exit.
+    pub destination: Option<String>,
+    /// The destination's node the player arrives at.
+    pub destination_node: Option<i32>,
+    /// The destination's camera shown on arrival (that node's `viewedByCamera`).
+    pub destination_camera: Option<i32>,
+    /// This node's `viewedByCamera` here.
+    pub viewed_by_camera: i32,
 }
 
 #[derive(Debug, Clone, Serialize)]

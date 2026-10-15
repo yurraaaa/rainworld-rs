@@ -1,36 +1,33 @@
-//! The app's processes under `rw_menu`'s [`ProcessManager`]: the single-room game,
+//! The app's processes under `rw_menu`'s [`ProcessManager`]: the game,
 //! the reduced `Initialization` and the menu screens, drawn the same way in the window
 //! and in MCP screenshots (each process's frame, then the switch fade over it). The
 //! music player and the menu microphone run as side processes after them.
 
 use std::sync::Arc;
 
-use rw_assets::{Room, RoomSettings, SoundTable, StreamingAssets, UnityResources};
+use rw_assets::{SoundTable, StreamingAssets, UnityResources};
 use rw_audio::music::{MusicOutput, SongBank, TimedSources};
 use rw_audio::{Audio, ListenerInput, MenuPlayback, MenuSoundStart};
-use rw_graphics::SlugcatName;
 use rw_menu::menu::Menu;
 use rw_menu::{
     Alignment, AtlasLoadError, Container, Font, FontTest, Initialization, IntroRoll, KeyboardKey,
     Label, MainLoopProcess, MainMenu, MenuContext, MenuShared, MenuSound, MenuSoundEvent, Node,
-    NodeTransform, ProcessFactory, ProcessId, ProcessManager, ProcessRequests, Slugcat,
-    SlugcatSelectMenu, TextureSync, TimeStacker,
+    NodeTransform, ProcessFactory, ProcessId, ProcessManager, ProcessRequests, SlugcatSelectMenu,
+    TextureSync, TimeStacker,
 };
 use rw_random::UnityRandom;
 use rw_render::{Camera, Color, Renderer, Resolution, StageBatch, StageGlobals};
 use rw_sim::Vec2;
 
-use crate::game::Game;
+use crate::game::{Game, GameStart};
 use crate::input::{Action, InputState, Script};
-use crate::scene::{Scene, SceneRenderer, SceneView};
-use crate::visuals::Visuals;
+use crate::scene::{Scene, SceneRenderer, SceneView, VisualsSource};
 
 /// What the game process is built from.
 pub struct GameSetup {
-    pub room: Room,
-    pub settings: RoomSettings,
+    /// The start when the menus chose no campaign (the game started directly).
+    pub start: GameStart,
     pub seed: u64,
-    pub spawn: Option<(i32, i32)>,
     pub sound_table: Arc<SoundTable>,
 }
 
@@ -62,7 +59,7 @@ pub enum MusicSink {
     Output(MusicOutput),
 }
 
-/// The game process: the single-room [`Scene`].
+/// The game process: the [`Scene`].
 pub struct GameProcess {
     pub scene: Scene,
 }
@@ -167,38 +164,27 @@ impl AppContext {
         }
     }
 
-    /// A fresh game in the configured room, drawing from the shared random stream, as
-    /// the slugcat the menus chose (the Survivor when started directly).
+    /// A fresh game drawing from the shared random stream: a new story as the slugcat
+    /// the menus chose, or the configured start when started directly.
     fn new_game(&mut self) -> GameProcess {
-        let setup = &self.game;
-        let visuals = Visuals::load(
-            &self.menu.assets,
-            &self.resources,
-            &setup.room,
-            self.resolution.size_f32(),
-        )
-        .inspect_err(|e| log::warn!("no level graphic ({e}); showing the debug view"))
-        .ok();
-        let slugcat = match self.menu.in_game_slugcat {
-            Some(Slugcat::Yellow) => SlugcatName::Yellow,
-            Some(Slugcat::Red) => SlugcatName::Red,
-            Some(Slugcat::White) | None => SlugcatName::White,
+        let start = match self.menu.in_game_slugcat {
+            Some(slugcat) => GameStart::NewStory(slugcat),
+            None => self.game.start.clone(),
         };
         let rng = std::mem::replace(&mut self.menu.random, UnityRandom::new(0));
-        let mut game = Game::with_rng(
-            setup.room.clone(),
-            &setup.settings,
-            rng,
-            setup.spawn,
-            slugcat,
-        );
-        game.set_sound_table(Arc::clone(&setup.sound_table));
+        let table = Arc::clone(&self.game.sound_table);
+        let game = Game::start(&self.menu.assets, &start, rng, table)
+            .unwrap_or_else(|e| panic!("starting the game ({start:?}): {e}"));
+        let source = VisualsSource {
+            assets: self.menu.assets.clone(),
+            resources: Arc::clone(&self.resources),
+            screen: self.resolution.size_f32(),
+        };
+        let scene = Scene::new(game, Some(source));
         if let Some(audio) = &mut self.audio {
-            audio.set_ambients(&setup.settings.ambient_sounds);
+            audio.set_ambients(&scene.game().settings().ambient_sounds);
         }
-        GameProcess {
-            scene: Scene::new(game, visuals),
-        }
+        GameProcess { scene }
     }
 
     /// The menu microphone's frame: its loops fade with whether a menu is the main
@@ -311,6 +297,11 @@ impl MainLoopProcess<AppContext> for GameProcess {
             .and_then(Script::next_input)
             .unwrap_or(keys);
         let events = self.scene.tick(input);
+        if self.scene.take_entered_room()
+            && let Some(audio) = &mut ctx.audio
+        {
+            audio.set_ambients(&self.scene.game().settings().ambient_sounds);
+        }
         self.hear_tick(ctx, events);
     }
 

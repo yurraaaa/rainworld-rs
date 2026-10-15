@@ -1,49 +1,81 @@
-//! Simulation state owned by the app: the room, its water, the player and its
-//! graphics module, the shortcut divider and the game's random generator.
+//! Simulation state owned by the app: the game ([`RainWorldGame`]: world, rooms, player,
+//! shortcuts, random stream and sounds) and the player's graphics module, seen from the
+//! camera's room.
 //!
 //! This is the only place the app touches the simulation.
 
 use std::sync::Arc;
 
 use rw_assets::unity::AssetBundle;
-use rw_assets::{Room, RoomSettings, SoundTable, StreamingAssets};
+use rw_assets::world::{GameRooms, LineFilter, Regions, StoryConditions, WorldData, WorldRequest};
+use rw_assets::{ActiveMods, Room, RoomSettings, SlugcatName, SoundTable, StreamingAssets};
 use rw_audio::Follow as SoundFollow;
-use rw_graphics::{Color, DrawList, PlayerGraphics, SlugcatName};
+use rw_graphics::{Color, DrawList, PlayerGraphics};
 use rw_random::UnityRandom;
 use rw_render::{BodyStatus, ChunkInterpolation, Follow, PlayerLight, WaterSurface};
+use rw_sim::campaign::{self, SlugcatCampaign};
+use rw_sim::world::World;
 use rw_sim::{
-    Input, PhysicalObject, Player, ShortcutHandler, SoundEvent, Sounds, Vec2, Water,
-    determine_safe_spawn_tile,
+    CameraMove, Input, PhysicalObject, Player, PlayerObserver, RainWorldGame, SoundEvent, Sounds,
+    Start, Vec2, Water,
 };
 
-/// A room with (at most) one player in it.
+/// How a game starts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GameStart {
+    /// `StoryGameInitCondition.New` for a campaign: its start den, at the den's start
+    /// position (`TryGetPlayerStartPos`, else (15, 25)).
+    NewStory(SlugcatName),
+    /// A given room, in its region's world (a single-room world for arena levels), as
+    /// the Survivor: on `tile`, or on a safe spawn tile (the dev start, `--spawn`).
+    Room {
+        name: String,
+        tile: Option<(i32, i32)>,
+    },
+}
+
+/// The game and the player's graphics.
 pub struct Game {
-    room: Room,
-    /// The room's settings (the water's wave values).
-    settings: RoomSettings,
-    /// The room's water surface, `None` without water.
-    water: Option<Water>,
-    /// `None` once the body fell out of the room and was destroyed.
-    player: Option<Player>,
-    /// The player's graphics module; replaced with the player.
-    graphics: Option<PlayerGraphics>,
-    shortcuts: ShortcutHandler,
-    /// The game's single `UnityEngine.Random` stream: spawning, the player, the water
-    /// and the graphics draw from it in the game's order.
-    rng: UnityRandom,
-    /// The room's `PlaySound` calls (and their draws on `rng`).
-    sounds: Sounds,
-    /// `--spawn`: place the player on this tile instead of a random spawn tile.
-    spawn_tile: Option<(i32, i32)>,
-    /// The story character, for the graphics' colours (the body is the Survivor's).
+    sim: RainWorldGame,
+    graphics: Graphics,
+}
+
+/// The player's graphics module, attached where the game attaches it.
+struct Graphics {
+    module: Option<PlayerGraphics>,
+    /// The story character, for the colours.
     slugcat: SlugcatName,
-    tick: u64,
+}
+
+impl PlayerObserver for Graphics {
+    fn created(&mut self, player: &Player, rng: &mut UnityRandom) {
+        self.module = Some(PlayerGraphics::new(player, self.slugcat, rng));
+    }
+
+    fn updated(
+        &mut self,
+        player: &Player,
+        room: &Room,
+        water: Option<&Water>,
+        rng: &mut UnityRandom,
+    ) {
+        if let Some(g) = &mut self.module {
+            g.update(player, room, water, rng);
+        }
+    }
+
+    fn spat_out(&mut self, player: &Player, rng: &mut UnityRandom) {
+        if let Some(g) = &mut self.module {
+            g.spat_out_of_shortcut(player, rng);
+        }
+    }
 }
 
 impl Game {
-    /// Spawns the player into `room` (water waves from `settings`) at a spawn tile
-    /// drawn from `UnityRandom::new(seed)` (`Random.InitState`, low 32 bits), or on
-    /// `spawn_tile` when given.
+    /// A single-room world of `room` (in memory), the player on `spawn_tile` or a safe
+    /// spawn tile, drawing from `UnityRandom::new(seed)` (`Random.InitState`, low 32
+    /// bits).
+    #[cfg(test)]
     #[must_use]
     pub fn new(
         room: Room,
@@ -51,55 +83,124 @@ impl Game {
         seed: u64,
         spawn_tile: Option<(i32, i32)>,
     ) -> Self {
-        Self::with_rng(
+        let data = WorldData::from_room(&room);
+        let rooms = Arc::new(rw_assets::world::FixedRoom(rw_assets::world::LoadedRoom {
             room,
-            settings,
+            settings: settings.clone(),
+        }));
+        let campaign = &SlugcatCampaign::SURVIVOR;
+        let world = World::new(data, rooms, campaign.timeline, ActiveMods::NONE, true);
+        let start = Start {
+            room: 0,
+            tile: spawn_tile,
+        };
+        Self::build(
+            world,
+            campaign,
+            start,
             UnityRandom::new(seed as i32),
-            spawn_tile,
-            SlugcatName::White,
+            Sounds::default(),
         )
     }
 
-    /// As [`Game::new`], drawing from `rng` (the stream the menus drew from before, D1)
-    /// with `slugcat`'s colours.
-    #[must_use]
-    pub fn with_rng(
-        room: Room,
-        settings: &RoomSettings,
-        mut rng: UnityRandom,
-        spawn_tile: Option<(i32, i32)>,
-        slugcat: SlugcatName,
+    /// The game `start` asks for, read from the installed game, drawing from `rng` (the
+    /// stream the menus drew from before, D1) and playing sounds from `table`.
+    ///
+    /// # Errors
+    /// When the world or the first room cannot be loaded.
+    pub fn start(
+        assets: &StreamingAssets,
+        start: &GameStart,
+        rng: UnityRandom,
+        table: Arc<SoundTable>,
+    ) -> Result<Self, String> {
+        let mods = ActiveMods::NONE;
+        let (campaign, room, tile) = match start {
+            GameStart::NewStory(name) => {
+                let campaign = SlugcatCampaign::of(*name, mods)
+                    .ok_or_else(|| format!("no campaign for {name}"))?;
+                let den = campaign.start_den;
+                let tile =
+                    campaign::player_start_pos(den, mods).unwrap_or(campaign::DEFAULT_PLAYER_TILE);
+                (campaign, den.to_owned(), Some(tile))
+            }
+            GameStart::Room { name, tile } => (&SlugcatCampaign::SURVIVOR, name.clone(), *tile),
+        };
+        let filter = LineFilter {
+            timeline: Some(campaign.timeline),
+            mods,
+            conditions: StoryConditions::new_story(),
+        };
+        let regions = Regions::load(assets).map_err(|e| format!("regions: {e}"))?;
+        let request = WorldRequest::for_first_room(assets, &room, filter.clone());
+        let region_world = WorldData::load(assets, &regions, &request)
+            .map_err(|e| format!("world {}: {e}", request.name))
+            .and_then(|data| match data.room_named(&room) {
+                Some(r) => Ok((r.index, data)),
+                None => Err(format!("{room} is not in world {}", data.name)),
+            });
+        // A room outside its region's world (unused rooms, `--room`): a single-room
+        // world of it, as arena levels get.
+        let (first, data) = match region_world {
+            Ok(found) => found,
+            Err(e) if !request.single_room => {
+                log::warn!("{e}; loading {room} as a single-room world");
+                let single = WorldRequest {
+                    name: room.clone(),
+                    single_room: true,
+                    filter,
+                };
+                let data = WorldData::load(assets, &regions, &single)
+                    .map_err(|e| format!("room {room}: {e}"))?;
+                (data.first_room_index(), data)
+            }
+            Err(e) => return Err(e),
+        };
+        log::info!(
+            "world {} ({} rooms), first room {room}, as {}",
+            data.name,
+            data.rooms.len(),
+            campaign.name
+        );
+        let region = match &data.region {
+            Some(r) => Some(r.name.to_lowercase()),
+            None => assets.region_of_room(&room.to_lowercase()),
+        };
+        let rooms = Arc::new(GameRooms {
+            assets: assets.clone(),
+            region,
+            timeline: campaign.timeline,
+        });
+        let world = World::new(data, rooms, campaign.timeline, mods, true);
+        let start = Start { room: first, tile };
+        Ok(Self::build(world, campaign, start, rng, Sounds::new(table)))
+    }
+
+    fn build(
+        world: World,
+        campaign: &'static SlugcatCampaign,
+        start: Start,
+        rng: UnityRandom,
+        sounds: Sounds,
     ) -> Self {
-        let (player, graphics) = Self::spawn_player(&room, spawn_tile, slugcat, &mut rng);
+        let mut graphics = Graphics {
+            module: None,
+            slugcat: campaign.name,
+        };
+        let sim = RainWorldGame::new(world, campaign, start, rng, sounds, &mut graphics);
         log::info!("spawned player");
-        Self {
-            water: Water::new(&room, settings),
-            settings: settings.clone(),
-            room,
-            player: Some(player),
-            graphics: Some(graphics),
-            shortcuts: ShortcutHandler::new(),
-            rng,
-            sounds: Sounds::default(),
-            spawn_tile,
-            slugcat,
-            tick: 0,
-        }
+        Self { sim, graphics }
+    }
+
+    /// The simulation.
+    #[must_use]
+    pub fn sim(&self) -> &RainWorldGame {
+        &self.sim
     }
 
     /// Hands the random stream back (to the menus, when the game ends).
     pub fn take_rng(&mut self) -> UnityRandom {
-        std::mem::replace(&mut self.rng, UnityRandom::new(0))
-    }
-
-    /// The settings of `room` (Survivor timeline), or the defaults when they cannot be
-    /// read.
-    #[must_use]
-    pub fn room_settings(assets: &StreamingAssets, room: &Room) -> RoomSettings {
-        let region = assets.region_of_room(&room.name().to_lowercase());
-        RoomSettings::load(assets, room.name(), region.as_deref(), Some("white"))
-            .inspect_err(|e| log::warn!("room settings ({e}); using the defaults"))
-            .unwrap_or(RoomSettings::ANCESTOR)
+        self.sim.take_rng()
     }
 
     /// `sounds.txt` resolved against the `loadedsoundeffects` bundle, or an empty table
@@ -113,114 +214,74 @@ impl Game {
             .unwrap_or_default()
     }
 
-    /// Resolves sounds against `table` (`sounds.txt`); without one nothing plays and
-    /// no sound draws are made.
-    pub fn set_sound_table(&mut self, table: Arc<SoundTable>) {
-        self.sounds = Sounds::new(table);
-    }
-
     /// The sound events since the last call.
     pub fn take_sound_events(&mut self) -> Vec<SoundEvent> {
-        self.sounds.take_events()
+        self.sim.sounds_mut().take_events()
     }
 
+    /// The camera's room's settings.
     #[must_use]
     pub fn settings(&self) -> &RoomSettings {
-        &self.settings
+        &self.camera_room().settings
     }
 
-    /// Replaces the player with a fresh one at a new spawn tile (continuing the random
+    fn camera_room(&self) -> &rw_sim::world::RealizedRoom {
+        self.sim
+            .world()
+            .realized(self.sim.camera_room())
+            .expect("the camera's room stays realized")
+    }
+
+    /// The camera move since the last call.
+    pub fn take_camera_move(&mut self) -> Option<CameraMove> {
+        self.sim.take_camera_move()
+    }
+
+    /// Replaces the player with a fresh one in the camera's room (continuing the random
     /// sequence).
     pub fn respawn(&mut self) {
-        let (player, graphics) =
-            Self::spawn_player(&self.room, self.spawn_tile, self.slugcat, &mut self.rng);
-        self.sounds.owner_removed();
-        self.player = Some(player);
-        self.graphics = Some(graphics);
-        log::info!("respawned player");
+        self.sim.respawn(&mut self.graphics);
     }
 
-    /// The game's order of draws: `DetermineSafeSpawnTile`, the `Player` constructor,
-    /// then `Creature.PlaceInRoom`, whose `AddObject` builds the graphics module (in a
-    /// viewed room) before the chunk offsets.
-    fn spawn_player(
-        room: &Room,
-        tile: Option<(i32, i32)>,
-        slugcat: SlugcatName,
-        rng: &mut UnityRandom,
-    ) -> (Player, PlayerGraphics) {
-        let tile = tile.unwrap_or_else(|| determine_safe_spawn_tile(room, rng));
-        let mut player = Player::create(rng);
-        let graphics = PlayerGraphics::new(&player, slugcat, rng);
-        player.place(tile, rng);
-        (player, graphics)
-    }
-
-    /// One 40 Hz simulation tick: shortcut vessels, the water surface (pushed by the
-    /// body), then the player and right after it its graphics module, as the game
-    /// orders them. A dead player is frozen until [`Game::respawn`]; a destroyed one is gone
-    /// (docs/DIVERGENCES.md D4).
+    /// One 40 Hz simulation tick ([`RainWorldGame::tick`]).
     pub fn tick(&mut self, input: Input) {
-        if let Some(player) = &mut self.player
-            && !player.is_dead()
-        {
-            let was_in_shortcut = player.in_shortcut();
-            self.shortcuts
-                .update(&self.room, player, &mut self.rng, &mut self.sounds);
-            let was_stunned = player.is_stunned();
-            if let Some(water) = &mut self.water {
-                let chunks = if player.in_shortcut() {
-                    &mut [][..]
-                } else {
-                    &mut player.body.chunks[..]
-                };
-                water.update(
-                    &self.room,
-                    chunks.iter_mut(),
-                    &mut self.rng,
-                    &mut self.sounds,
-                );
-            }
-            player.update(
-                &self.room,
-                self.water.as_ref(),
-                input,
-                &mut self.rng,
-                &mut self.sounds,
+        let was_in_shortcut = self.sim.player().is_some_and(Player::in_shortcut);
+        self.sim.tick(input, &mut self.graphics);
+        let in_shortcut = self.sim.player().is_some_and(Player::in_shortcut);
+        if in_shortcut != was_in_shortcut {
+            log::info!(
+                "player {} a shortcut",
+                if was_in_shortcut { "left" } else { "entered" }
             );
-            if let Some(graphics) = &mut self.graphics {
-                graphics.update(player, &self.room, self.water.as_ref(), &mut self.rng);
-            }
-            if player.is_destroyed() {
-                self.sounds.owner_removed();
-                log::info!("player fell out of the room and was destroyed; R respawns");
-                self.player = None;
-                self.graphics = None;
-            } else if player.is_dead() {
-                log::info!("player died; R respawns");
-            } else if player.is_stunned() && !was_stunned {
-                log::info!("player stunned for {} ticks", player.stun_ticks());
-            } else if player.in_shortcut() != was_in_shortcut {
-                log::info!(
-                    "player {} a shortcut",
-                    if was_in_shortcut { "left" } else { "entered" }
-                );
-            }
         }
-        self.tick += 1;
+    }
+
+    /// The player while it is in the camera's room (body or vessel).
+    fn shown_player(&self) -> Option<&Player> {
+        self.sim
+            .player()
+            .filter(|_| self.sim.player_in_camera_room())
     }
 
     /// The slugcat's sprites at `alpha` between ticks, eyes in `face_color` (the room
-    /// palette's `blackColor`); `None` once the player is destroyed.
+    /// palette's `blackColor`); `None` once the player is destroyed or elsewhere.
     pub fn draw_list(&mut self, alpha: f32, face_color: Color) -> Option<DrawList> {
-        let (player, graphics) = (self.player.as_ref()?, self.graphics.as_mut()?);
-        Some(graphics.draw(player, alpha, face_color))
+        let player = self
+            .sim
+            .player()
+            .filter(|_| self.sim.player_in_camera_room())?;
+        Some(
+            self.graphics
+                .module
+                .as_mut()?
+                .draw(player, alpha, face_color),
+        )
     }
 
     /// The water surface as drawn at `alpha` between ticks; `None` without water.
     #[must_use]
     pub fn water_surface(&self, alpha: f32) -> Option<WaterSurface> {
-        let water = self.water.as_ref()?;
+        let water = self.water()?;
         let front = water.draw_points(alpha).map(Vec2::to_array).collect();
         let back = water.back_draw_points(alpha).map(Vec2::to_array).collect();
         Some(WaterSurface::from_rows(front, back, water.still_level()))
@@ -229,17 +290,18 @@ impl Game {
     /// `PreviousPoint(x)` on the water's front points this tick.
     #[must_use]
     pub fn water_previous_point(&self, x: f32) -> Option<usize> {
-        self.water.as_ref().map(|w| w.previous_point(x))
+        self.water().map(|w| w.previous_point(x))
     }
 
     /// `_waterDepth` (`RoomCamera.MoveCamera`): 0 with the water in front of the
     /// terrain, 1/31 behind it, 2/31 in gates.
     #[must_use]
     pub fn water_depth(&self) -> f32 {
-        let gate = self.room.name().to_ascii_uppercase().starts_with("GATE_");
+        let room = self.room();
+        let gate = room.name().to_ascii_uppercase().starts_with("GATE_");
         let depth = if gate {
             2.0
-        } else if self.room.water_in_front() {
+        } else if room.water_in_front() {
             0.0
         } else {
             1.0
@@ -250,16 +312,17 @@ impl Game {
     /// `Room.waterGlitterCycle` between ticks: it drops by 1/60 every room tick.
     #[must_use]
     pub fn water_glitter(&self, alpha: f32) -> f32 {
-        let now = -(self.tick as f32) / 60.0;
-        let last = -(self.tick.saturating_sub(1) as f32) / 60.0;
+        let tick = self.sim.ticks();
+        let now = -(tick as f32) / 60.0;
+        let last = -(tick.saturating_sub(1) as f32) / 60.0;
         last + (now - last) * alpha
     }
 
     /// The followed player's light in the water: its main chunk at `alpha` and
-    /// `outOfBreathFac`; `None` when dead, destroyed or in a shortcut (out of the room).
+    /// `outOfBreathFac`; `None` when dead, destroyed, elsewhere or in a shortcut.
     #[must_use]
     pub fn player_light(&self, alpha: f32) -> Option<PlayerLight> {
-        let player = self.player.as_ref()?;
+        let player = self.shown_player()?;
         if player.is_dead() || player.in_shortcut() {
             return None;
         }
@@ -272,42 +335,43 @@ impl Game {
     /// Whether the player is dead and frozen.
     #[must_use]
     pub fn player_dead(&self) -> bool {
-        self.player.as_ref().is_some_and(Player::is_dead)
+        self.sim.player().is_some_and(Player::is_dead)
     }
 
     #[must_use]
     pub fn status(&self) -> BodyStatus {
         BodyStatus {
-            stunned: self.player.as_ref().is_some_and(Player::is_stunned),
+            stunned: self.sim.player().is_some_and(Player::is_stunned),
             dead: self.player_dead(),
         }
     }
 
+    /// The camera's room.
     #[must_use]
     pub fn room(&self) -> &Room {
-        &self.room
+        &self.camera_room().room
     }
 
-    /// The player's body while it is in the room (not destroyed, not in a shortcut).
+    /// The player's body while it is in the camera's room (not destroyed, not in a
+    /// shortcut).
     #[must_use]
     pub fn body(&self) -> Option<&PhysicalObject> {
-        self.player
-            .as_ref()
+        self.shown_player()
             .filter(|p| !p.in_shortcut())
             .map(|p| &p.body)
     }
 
-    /// The shortcut tile the player is travelling through, if any.
+    /// The shortcut tile the player is travelling through in the camera's room, if any.
     #[must_use]
     pub fn vessel_tile(&self) -> Option<(i32, i32)> {
-        self.player.as_ref().and_then(Player::shortcut_vessel_tile)
+        self.shown_player().and_then(Player::shortcut_vessel_tile)
     }
 
     /// What the room camera follows: the player's first chunk and input, or the centre
     /// of its shortcut tile while it travels through one. `None` once destroyed.
     #[must_use]
     pub fn camera_follow(&self) -> Option<Follow> {
-        let player = self.player.as_ref()?;
+        let player = self.shown_player()?;
         let chunk = &player.body.chunks[0];
         let input = player.input_history()[0];
         Some(Follow {
@@ -320,17 +384,17 @@ impl Game {
         })
     }
 
-    /// The room's water, if any.
+    /// The camera's room's water, if any.
     #[must_use]
     pub fn water(&self) -> Option<&Water> {
-        self.water.as_ref()
+        self.camera_room().water.as_ref()
     }
 
     /// What the microphone listens from: the player's main chunk, or its shortcut
     /// tile while it travels.
     #[must_use]
     pub fn sound_follow(&self) -> SoundFollow {
-        match &self.player {
+        match self.shown_player() {
             None => SoundFollow::Abstract,
             Some(p) if p.in_shortcut() => SoundFollow::Shortcut(
                 p.shortcut_vessel_tile()
@@ -343,31 +407,20 @@ impl Game {
     /// Ticks simulated since start.
     #[must_use]
     pub fn ticks(&self) -> u64 {
-        self.tick
+        self.sim.ticks()
     }
 
     /// The player, unless destroyed.
     #[must_use]
     pub fn live_player(&self) -> Option<&Player> {
-        self.player.as_ref()
+        self.sim.player()
     }
 
-    /// Moves the player (a new one if it was destroyed) so its chunks sit 1 px above
-    /// and below `pos`, moving at `vel`, as `PlaceInRoom` puts them around a tile
-    /// centre. Movement state is kept; the graphics module starts afresh.
+    /// Moves the player (a new one if it was destroyed) into the camera's room so its
+    /// chunks sit 1 px above and below `pos`, moving at `vel`, out of any shortcut.
+    /// Movement state is kept; the graphics module starts afresh.
     pub fn set_player(&mut self, pos: Vec2, vel: Vec2) {
-        let player = self.player.get_or_insert_with(Player::new);
-        // `place` resets the stuck-feet state; its random offsets are overwritten below.
-        player.place(pos.tile(), &mut self.rng);
-        for (chunk, dy) in player.body.chunks.iter_mut().zip([1.0, -1.0]) {
-            chunk.reset_at(pos + Vec2::new(0.0, dy));
-            chunk.vel = vel;
-        }
-        self.graphics = Some(PlayerGraphics::new(
-            player,
-            SlugcatName::White,
-            &mut self.rng,
-        ));
+        self.sim.set_player(pos, vel, &mut self.graphics);
     }
 }
 
@@ -387,7 +440,7 @@ pub(crate) mod tests {
 
     impl Game {
         fn player(&self) -> &Player {
-            self.player.as_ref().expect("player present")
+            self.sim.player().expect("player present")
         }
 
         fn head_y(&self) -> f32 {
@@ -412,12 +465,12 @@ pub(crate) mod tests {
         // The all-Air room has an open bottom: the player falls out and is destroyed.
         let mut game = Game::new(open_room(), &RoomSettings::ANCESTOR, 1, None);
         for _ in 0..400 {
-            if game.player.is_none() {
+            if game.sim.player().is_none() {
                 break;
             }
             game.tick(Input::NONE);
         }
-        assert!(game.player.is_none());
+        assert!(game.sim.player().is_none());
         assert!(game.body().is_none());
         assert!(!game.player_dead());
         game.tick(Input::NONE);
@@ -428,7 +481,7 @@ pub(crate) mod tests {
     #[test]
     fn dead_player_freezes_until_respawn() {
         let mut game = Game::new(open_room(), &RoomSettings::ANCESTOR, 1, None);
-        game.player.as_mut().expect("player").die();
+        game.sim.kill_player();
         let frozen = game.body().expect("body").clone();
         for _ in 0..10 {
             game.tick(Input::NONE);
