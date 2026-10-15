@@ -248,6 +248,13 @@ impl Audio {
             Some(chunks) => self.emitters.follow(chunks),
             None => self.emitters.clear_chunks(),
         }
+        self.play_events(events, chunks);
+        self.emitters.end_tick();
+    }
+
+    /// A tick's sound calls without the microphone's update or the emitters' moves: a
+    /// paused game's (the HUD's and the pause menu's).
+    pub fn play_events(&mut self, events: Vec<SoundEvent>, chunks: Option<&[BodyChunk]>) {
         let now = self.now();
         for event in events {
             match event {
@@ -286,7 +293,6 @@ impl Audio {
                 SoundEvent::OwnerRemoved => self.emitters.clear_chunks(),
             }
         }
-        self.emitters.end_tick();
     }
 
     /// `AllowSound`'s cap on sounds of one ID in a crowded room.
@@ -304,6 +310,13 @@ impl Audio {
     #[must_use]
     pub fn allowed(same: usize, total: usize) -> bool {
         total <= Self::CROWDED || same <= Self::CAP_BASE.saturating_sub(total)
+    }
+
+    /// The pause menu's hold on the microphone: the volume of every group but 1 and the
+    /// `timeSpeed` of positioned and ambient sounds' pitch (both 1 without it).
+    pub fn set_pause_mix(&mut self, volume: f32, time_speed: f32) {
+        self.mic.pause_volume = volume;
+        self.mic.time_speed = time_speed;
     }
 
     /// One drawn frame, `time_stacker` between the last two ticks: every source's

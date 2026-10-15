@@ -265,6 +265,21 @@ pub struct ProcessState {
     pub quit_requested: bool,
     /// The slideshow, when it is the current process.
     pub slideshow: Option<SlideShowState>,
+    /// The game's pause menu, while the game has one (`GamePaused`).
+    pub pause_menu: Option<PauseMenuState>,
+}
+
+/// A `PauseMenu`.
+#[derive(Debug, Clone, Serialize)]
+pub struct PauseMenuState {
+    pub counter: i32,
+    pub black_fade: f32,
+    pub want_to_continue: bool,
+    /// `ShutDownProcess` ran (after Exit): no longer drawn, the game still paused.
+    pub shut_down: bool,
+    /// The buttons' signals, positions and greying; the selected one.
+    pub buttons: Vec<String>,
+    pub selected: Option<String>,
 }
 
 /// A `SlideShow`'s clock and scene.

@@ -21,9 +21,9 @@ use super::params::{
 };
 use super::reply::{
     ChunkState, ControlsPageState, CreatureInfo, ExitInfo, ExitList, FlyInfo, FoodMeterState,
-    HudState, ImpactState, KarmaMeterState, LobbyState, OverseerInfo, PlayerState, ProcessState,
-    RainMeterState, RainState, RealizedState, RoomInfo, RoomList, Screenshot, SlideShowState,
-    StartUpState, State, StepTrace, TextPromptState,
+    HudState, ImpactState, KarmaMeterState, LobbyState, OverseerInfo, PauseMenuState, PlayerState,
+    ProcessState, RainMeterState, RainState, RealizedState, RoomInfo, RoomList, Screenshot,
+    SlideShowState, StartUpState, State, StepTrace, TextPromptState,
 };
 use super::tiles::TileDump;
 use crate::frontend::{AppContext, Frontend, FrontendRenderer, GameSetup};
@@ -555,8 +555,12 @@ impl Session {
     /// # Errors
     /// Without a game or before its HUD fired up.
     pub fn hud_state(&self) -> Result<HudState, String> {
-        let hud = self
-            .scene()?
+        let process_game = self.frontend.as_ref().and_then(|(f, _)| f.game());
+        let scene = match process_game {
+            Some(game) => &game.scene,
+            None => self.scene()?,
+        };
+        let hud = scene
             .hud()
             .ok_or("no HUD yet; step once after load_room / new_game")?;
         Ok(HudState::of(hud))
@@ -737,7 +741,43 @@ impl Session {
                 playback_speed_mult: s.playback_speed_mult(),
                 alphas: s.illustration_alphas(),
             }),
+            pause_menu: frontend
+                .game()
+                .and_then(|g| g.pause_menu.as_ref())
+                .map(Self::pause_menu_state),
         })
+    }
+
+    fn pause_menu_state(p: &rw_hud::PauseMenu) -> PauseMenuState {
+        let menu = p.menu();
+        PauseMenuState {
+            counter: p.counter,
+            black_fade: p.black_fade,
+            want_to_continue: p.want_to_continue(),
+            shut_down: p.shut_down,
+            buttons: p
+                .buttons()
+                .into_iter()
+                .map(|b| Self::describe_button(menu, b))
+                .collect(),
+            selected: menu
+                .selected
+                .and_then(|s| menu.button(s))
+                .map(|b| b.signal_text.clone()),
+        }
+    }
+
+    /// A button's signal, screen position and greying.
+    fn describe_button(menu: &rw_menu::menu::Menu, b: rw_menu::menu::ObjectId) -> String {
+        let Some(data) = menu.button(b) else {
+            return String::new();
+        };
+        let pos = menu.screen_pos(b);
+        let greyed = if data.behav.greyed_out { " greyed" } else { "" };
+        format!(
+            "{} at ({:.2}, {:.2}){greyed}",
+            data.signal_text, pos.x, pos.y
+        )
     }
 
     /// Text map of the tiles in a rectangle (default: the whole room).

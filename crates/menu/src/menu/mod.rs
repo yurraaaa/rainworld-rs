@@ -41,13 +41,15 @@ impl MenuCx<'_> {
 
     /// `Menu.PlaySound(id, pan, vol, pitch)`.
     pub fn play_sound_with(&mut self, id: MenuSoundId, args: [f32; 3]) {
-        let shared = &mut *self.shared;
-        shared.mic.play_sound(id, args, &mut shared.random);
+        self.shared.play_menu_sound(id, args);
     }
 
-    /// `Menu.PlayLoop`.
+    /// `Menu.PlayLoop`: nothing without a menu microphone.
     pub fn play_loop(&mut self, id: MenuSoundId, args: [f32; 3], is_bkg: bool) -> Option<LoopId> {
         let shared = &mut *self.shared;
+        if !shared.mic_attached {
+            return None;
+        }
         shared.mic.play_loop(id, args, is_bkg, &mut shared.random)
     }
 }

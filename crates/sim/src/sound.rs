@@ -34,6 +34,12 @@ macro_rules! sound_ids {
                     $(SoundId::$variant => $name,)*
                 }
             }
+
+            /// The ported ID the game spells `name`.
+            #[must_use]
+            pub fn from_name(name: &str) -> Option<Self> {
+                Self::ALL.iter().copied().find(|id| id.name() == name)
+            }
         }
     };
 }
@@ -136,6 +142,16 @@ sound_ids! {
     SlugcatLayDownCreature = "Slugcat_Lay_Down_Creature",
     SlugcatSwitchHandsInit = "Slugcat_Switch_Hands_Init",
     SlugcatSwitchHandsComplete = "Slugcat_Switch_Hands_Complete",
+    HudPauseGame = "HUD_Pause_Game",
+    HudUnpauseGame = "HUD_Unpause_Game",
+    HudExitGame = "HUD_Exit_Game",
+    MenuButtonStandardButtonPressed = "MENU_Button_Standard_Button_Pressed",
+    MenuButtonSelectGamepadOrKeyboard = "MENU_Button_Select_Gamepad_Or_Keyboard",
+    MenuButtonSelectMouse = "MENU_Button_Select_Mouse",
+    MenuGreyedOutButtonSelectGamepadOrKeyboard = "MENU_Greyed_Out_Button_Select_Gamepad_Or_Keyboard",
+    MenuGreyedOutButtonSelectMouse = "MENU_Greyed_Out_Button_Select_Mouse",
+    MenuGreyedOutButtonClicked = "MENU_Greyed_Out_Button_Clicked",
+    MenuButtonPressInit = "MENU_Button_Press_Init",
 }
 
 /// A `ChunkSoundEmitter` handle: follows a body chunk; loops are updated and stopped
@@ -146,8 +162,10 @@ pub struct EmitterId(pub u32);
 /// Where a sound is.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SoundSource {
-    /// `DisembodiedSound`: no position; `pan` in -1..=1.
-    Disembodied { pan: f32 },
+    /// `DisembodiedSound`: no position; `pan` in -1..=1; `group` is the microphone's
+    /// volume group (1 for a menu's sounds in the game, which the pause menu leaves
+    /// loud).
+    Disembodied { pan: f32, group: usize },
     /// `StaticPositionSound`: a fixed room position.
     Position(Vec2),
     /// `ObjectSound` on a `ChunkSoundEmitter`: chunk `chunk` of the player.
@@ -248,7 +266,20 @@ impl Sounds {
         pitch: f32,
         rng: &mut UnityRandom,
     ) {
-        let source = SoundSource::Disembodied { pan };
+        self.play_disembodied_in_group(id, pan, volume, pitch, 0, rng);
+    }
+
+    /// `VirtualMicrophone.PlaySound(id, pan, vol, pitch, volumeGroup)`.
+    pub fn play_disembodied_in_group(
+        &mut self,
+        id: SoundId,
+        pan: f32,
+        volume: f32,
+        pitch: f32,
+        group: usize,
+        rng: &mut UnityRandom,
+    ) {
+        let source = SoundSource::Disembodied { pan, group };
         self.play(id, source, false, [volume, pitch], false, rng);
     }
 
@@ -532,7 +563,13 @@ mod tests {
             .iter()
             .map(|e| match e {
                 SoundEvent::Play(p) => {
-                    assert_eq!(p.source, SoundSource::Disembodied { pan: -0.5 });
+                    assert_eq!(
+                        p.source,
+                        SoundSource::Disembodied {
+                            pan: -0.5,
+                            group: 0
+                        }
+                    );
                     p.clip
                 }
                 other => panic!("{other:?}"),

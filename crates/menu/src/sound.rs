@@ -51,6 +51,10 @@ menu_sound_ids! {
     SwitchArenaGametype = "MENU_Switch_Arena_Gametype",
     Thunder = "Thunder",
     ThunderClose = "Thunder_Close",
+    StandardButtonPressed = "MENU_Button_Standard_Button_Pressed",
+    HudPauseGame = "HUD_Pause_Game",
+    HudUnpauseGame = "HUD_Unpause_Game",
+    HudExitGame = "HUD_Exit_Game",
 }
 
 /// One `MenuSoundObject` as created: the drawn `SoundData` and the call's arguments.

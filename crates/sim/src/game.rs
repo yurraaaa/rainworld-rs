@@ -9,6 +9,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+#[path = "game_exit.rs"]
+mod exit;
 #[path = "game_flies.rs"]
 mod flies;
 #[path = "game_player.rs"]

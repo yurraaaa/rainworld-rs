@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use rw_sim::{BodyChunk, EmitterId, PlayedSound, SoundSource, Vec2, Water};
+use rw_sim::{BodyChunk, EmitterId, FloatExt, PlayedSound, SoundSource, Vec2, Water};
 
 use crate::mic::{Doppler, Microphone, SourceMix};
 
@@ -121,8 +121,15 @@ pub struct Voice {
 impl Voice {
     #[must_use]
     pub fn new(sound: PlayedSound, mic: &Microphone, now: f32) -> Self {
-        let fixed_volume =
-            mic.source_volume(sound.emitter_volume, sound.volume, mic.volume_groups()[0]);
+        let group = match sound.source {
+            SoundSource::Disembodied { group, .. } => group,
+            _ => 0,
+        };
+        let fixed_volume = mic.source_volume(
+            sound.emitter_volume,
+            sound.volume,
+            mic.volume_groups()[group],
+        );
         Self {
             sound,
             fixed_volume,
@@ -153,7 +160,7 @@ impl Voice {
     ) -> Option<SourceMix> {
         let s = &self.sound;
         let (pos, last_pos, volume, pitch) = match s.source {
-            SoundSource::Disembodied { pan } => {
+            SoundSource::Disembodied { pan, .. } => {
                 return Some(SourceMix {
                     volume: self.fixed_volume,
                     pan,
@@ -179,7 +186,7 @@ impl Voice {
         Some(SourceMix {
             volume: mic.source_volume(factor, s.volume, mic.volume_groups()[0]),
             pan: mic.pan_from_point(ps, time_stacker),
-            pitch: pitch * doppler * s.pitch,
+            pitch: pitch * doppler * mic.time_speed.lerp(1.0, s.ignore_effects) * s.pitch,
             cutoff: Microphone::low_pass_cutoff(mic.positioned_muffle(ps, water), s.ignore_effects),
         })
     }

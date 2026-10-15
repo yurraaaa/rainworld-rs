@@ -228,7 +228,9 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   to go straight to the game), then a new Survivor game at `SU_C04`, black
   for 3 s while the start script holds the slugcat. Music runs silently
   (`TimedSources`), so runs stay deterministic; the slideshow follows its
-  ticks. `step_process` reports the slideshow's clock and scene; in
+  ticks. `step_process` reports the slideshow's clock and scene and, in
+  the game, the pause menu (Escape opens it; its buttons, selection and
+  fade); `get_hud` reads the game process's HUD; in
   game mode `get_state` reports the fade delay, the SU_C04 start script
   and the player's controller. `screenshot` then draws the process frame with its fade.
 - `--mcp --window` also shows the driven scene in a window.

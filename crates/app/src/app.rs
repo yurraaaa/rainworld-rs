@@ -144,11 +144,7 @@ impl App {
         event_loop.exit();
     }
 
-    fn in_game(&self) -> bool {
-        self.frontend.game().is_some()
-    }
-
-    fn on_key(&mut self, event_loop: &ActiveEventLoop, event: &KeyEvent) {
+    fn on_key(&mut self, event: &KeyEvent) {
         let PhysicalKey::Code(code) = event.physical_key else {
             return;
         };
@@ -163,11 +159,6 @@ impl App {
             return;
         }
         match Command::from_key(code) {
-            // In the menus Esc is UI cancel.
-            Some(Command::Quit) if self.in_game() => {
-                log::info!("quit (Esc)");
-                event_loop.exit();
-            }
             Some(Command::Respawn) => {
                 if let Some(game) = self.frontend.game_mut() {
                     game.scene.game_mut().respawn();
@@ -292,7 +283,7 @@ impl ApplicationHandler for App {
                 self.frontend.ctx.input.clear();
                 self.frontend.ctx.menu.input.clear();
             }
-            WindowEvent::KeyboardInput { event, .. } => self.on_key(event_loop, &event),
+            WindowEvent::KeyboardInput { event, .. } => self.on_key(&event),
             WindowEvent::CursorMoved { position, .. } => self.on_cursor(position),
             WindowEvent::MouseInput { state, button, .. } => {
                 let index = match button {

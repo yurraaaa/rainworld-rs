@@ -11,7 +11,7 @@ use rw_render::StageTextureId;
 use crate::atlas::{AtlasLoadError, AtlasManager};
 use crate::input::UiInputState;
 use crate::process::ProcessId;
-use crate::sound::MenuMic;
+use crate::sound::{MenuMic, MenuSoundId};
 use crate::translator::Translator;
 
 /// `SlugcatStats.Name`.
@@ -73,6 +73,8 @@ pub struct Progression {
     pub all_tokens_collected: bool,
     /// `AreThereAnyDiscoveredShelters`.
     pub any_discovered_shelters: bool,
+    /// `miscProgressionData.warnedAboutKarmaLossOnExit`.
+    pub warned_about_karma_loss_on_exit: i32,
 }
 
 impl Default for Progression {
@@ -82,6 +84,7 @@ impl Default for Progression {
             red_unlocked: false,
             all_tokens_collected: false,
             any_discovered_shelters: false,
+            warned_about_karma_loss_on_exit: 0,
         }
     }
 }
@@ -158,6 +161,9 @@ pub struct MenuShared {
     pub music_settings: MusicSettings,
     /// `Application.Quit()` was called.
     pub quit: bool,
+    /// Sounds a menu played without a menu microphone, for the game's microphone
+    /// (`cameras[0].virtualMicrophone`, volume group 1) to play and draw for.
+    pub game_mic_sounds: Vec<(MenuSoundId, [f32; 3])>,
 }
 
 impl MenuShared {
@@ -213,6 +219,7 @@ impl MenuShared {
             request_play_music: true,
             music_settings: MusicSettings::new(SoundTable::default().volume_exponent),
             quit: false,
+            game_mic_sounds: Vec::new(),
         })
     }
 
@@ -264,6 +271,16 @@ impl MenuShared {
 
     /// `PreSwitchMainProcess`'s microphone handling: let go of it before the game,
     /// take one back before anything else.
+    /// `Menu.PlaySound(id, pan, vol, pitch)`: through the menu microphone, else (the
+    /// game running) queued for the game's.
+    pub fn play_menu_sound(&mut self, id: MenuSoundId, args: [f32; 3]) {
+        if self.mic_attached {
+            self.mic.play_sound(id, args, &mut self.random);
+        } else {
+            self.game_mic_sounds.push((id, args));
+        }
+    }
+
     pub fn pre_switch(&mut self, next: ProcessId) {
         self.mic_attached = next != ProcessId::Game;
     }
