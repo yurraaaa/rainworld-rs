@@ -12,7 +12,7 @@
 struct Room {
     // xy: scale, zw: offset; clip = stage * scale + offset.
     transform: vec4<f32>,
-    // `_spriteRect`: the level image in screen coordinates.
+    // `_spriteRect`: the level image in screen coordinates (`RoomGlobals::new`).
     sprite_rect: vec4<f32>,
     // `_screenSize`.
     screen: vec2<f32>,

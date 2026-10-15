@@ -256,3 +256,89 @@ fn colored_sprite3_colours_by_depth_from_the_palette() {
     assert_eq!(pixel(&frame, 44, 32), pixel(&frame, 60, 32));
     assert_ne!(pixel(&frame, 44, 32), [144, 72, 106]);
 }
+
+/// The terrain a `ColoredSprite3` pixel is hidden behind is the level texel shown at that
+/// pixel. In the game's D3D build the camera's `screenPixelOffset` (screen = stage +
+/// (-0.5, +0.5)) and `_spriteRect`'s matching shift make `floor(scrPos)` read the texel
+/// at the pixel's sample point; with the window at `floor - 0.02` no pixel straddles a
+/// texel edge. Here the level is sky above a wall in its bottom 16 rows and left 16
+/// columns, and the sprite (as in the colour test above) spans 16.02..48.02 like a
+/// sprite drawn at whole pixels: its bottom row (stage y 16.5) and left column
+/// (x 16.5) lie over sky and are drawn; the row below shows the wall.
+#[test]
+fn colored_sprite3_tests_the_level_texel_under_the_pixel() {
+    let Some(mut r) = renderer() else { return };
+    let atlas = SpriteAtlas::new(Atlas::parse(JSON).unwrap()).unwrap();
+    r.set_atlas(
+        &atlas,
+        &[&PngImage::from_pixels(
+            16,
+            16,
+            vec![[102, 0, 255, 255]; 256],
+        )],
+    );
+    // PNG rows top first: the bottom 16 rows are rows 48..64.
+    let image = PngImage::from_pixels(
+        64,
+        64,
+        (0..64 * 64)
+            .map(|i| {
+                if i % 64 < 16 || i / 64 >= 48 {
+                    [11, 0, 0, 255]
+                } else {
+                    [255, 255, 255, 255]
+                }
+            })
+            .collect(),
+    );
+    let mut pixels = vec![[90, 90, 90, 255]; 512];
+    pixels[5 * 32 + 20] = [200, 100, 50, 255];
+    pixels[1] = [0, 0, 250, 255];
+    pixels[9] = [153, 0, 0, 255];
+    let palette = PaletteTexture::blend(
+        &PaletteImage::from_image(&PngImage::from_pixels(32, 16, pixels)).unwrap(),
+        None,
+        0.0,
+    );
+    let noise =
+        NoiseTexture::from_image(&PngImage::from_pixels(64, 64, vec![[128, 0, 0, 255]; 4096]))
+            .unwrap();
+    r.set_level(&LevelGraphics {
+        camera_pos: [0.0, 0.0],
+        image: &image,
+        palette: &palette,
+        noise: &noise,
+        params: LevelParams {
+            light: 1.0,
+            grime: 0.0,
+            fog_amount: palette.fog_amount(),
+            clouds_speed: 1.0,
+            darkness: 1.0,
+            contrast: 1.0,
+            saturation: 1.0,
+            hue: 0.0,
+            brightness: 0.0,
+            swarm_room: 0.0,
+        },
+    });
+    let window = [-0.02, -0.02];
+    r.draw_level(LevelView {
+        origin: window,
+        size: [64.0, 64.0],
+        rain: 0.0,
+    });
+    let list = DrawList {
+        items: vec![white_sprite(
+            Shader::ColoredSprite3,
+            SpriteColor::WHITE.with_alpha(0.5),
+        )],
+    };
+    r.draw_sprites(&list, Layer::Items, window);
+    let frame = r.render_image().unwrap();
+    let sprite = [144, 72, 106];
+    assert_eq!(pixel(&frame, 32, 32), sprite);
+    assert_eq!(pixel(&frame, 32, 47), sprite, "bottom row");
+    assert_eq!(pixel(&frame, 16, 32), sprite, "left column");
+    assert_ne!(pixel(&frame, 32, 48), sprite);
+    assert_ne!(pixel(&frame, 15, 32), sprite);
+}
