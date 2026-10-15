@@ -8,9 +8,10 @@
 //! script has run, and quits; `--debug-view` starts in the debug view; `--spawn` puts
 //! the player on tile X,Y; `--script` plays `X,Y,J:TICKS;...` input steps instead of
 //! the keyboard; `--resolution` is one of the game's screen sizes, default 1366x768;
-//! `--process` starts another process than the game after `Initialization`:
-//! `font-test`, the M0 screen of labels and a flat illustration, whose UI submit goes on
-//! to the game).
+//! `--process` picks the process `Initialization` starts: `main-menu` (the default),
+//! `slugcat-select`, `game` (the default with `--spawn`, `--script` or `--screenshot`)
+//! or `font-test`, the M0 screen of labels and a flat illustration, whose UI submit goes
+//! on to the game).
 //! As in the game the frame is shown full screen, scaled; `--windowed` (implied by
 //! `--screenshot`) shows it 1:1 in a window of the resolution. Sound plays on the default
 //! output device unless `--mute` (or `--screenshot`); either way the sim makes the
@@ -24,10 +25,10 @@
 //! `ROOM` is a room name looked up as the game does (`world/<prefix>-rooms`, gates,
 //! `levels`), e.g. `summit` or `SU_B04`.
 //!
-//! Controls: arrows/WASD move, Space/Z jump, R respawn, V level graphic / debug view,
-//! G tile grid, F12 screenshot
-//! (`screenshot-<frame>.ppm` in the working directory), Esc quit (in the game). Menus
-//! take Rewired's default UI keys: arrows, Enter/Space/Z submit, Esc cancel.
+//! Controls: Rewired's default keyboard map: arrows move, Z jumps; R respawn, V level
+//! graphic / debug view, G tile grid, F12 screenshot (`screenshot-<frame>.ppm` in the
+//! working directory), Esc quit (in the game, until there is a pause menu). Menus take
+//! Rewired's default UI keys: arrows, Enter/Space/Z submit, Esc cancel, and the mouse.
 
 mod app;
 mod frontend;
@@ -103,7 +104,7 @@ impl Args {
         let mut resolution = Resolution::DEFAULT;
         let mut windowed = false;
         let mut mute = false;
-        let mut start = ProcessId::Game;
+        let mut start = None;
         while let Some(arg) = args.next() {
             match arg.as_str() {
                 "--seed" => {
@@ -123,11 +124,18 @@ impl Args {
                 "--mute" => mute = true,
                 "--process" => {
                     let value = args.next().ok_or("--process needs a name")?;
-                    start = match value.as_str() {
+                    start = Some(match value.as_str() {
+                        "main-menu" => ProcessId::MainMenu,
+                        "slugcat-select" => ProcessId::SlugcatSelect,
                         "game" => ProcessId::Game,
                         "font-test" => ProcessId::FontTest,
-                        _ => return Err(format!("unknown process {value:?} (game, font-test)")),
-                    };
+                        _ => {
+                            return Err(format!(
+                                "unknown process {value:?} (main-menu, slugcat-select, game, \
+                                 font-test)"
+                            ));
+                        }
+                    });
                 }
                 "--resolution" => {
                     let value = args.next().ok_or("--resolution needs WxH")?;
@@ -150,7 +158,7 @@ impl Args {
                         "usage: rainworld-rs [ROOM] [--seed N] [--screenshot FILE.ppm] \
                                 [--debug-view] [--spawn X,Y] [--script X,Y,J:TICKS;...] \
                                 [--resolution WxH] [--windowed] [--mute] \
-                                [--process game|font-test]\n       \
+                                [--process main-menu|slugcat-select|game|font-test]\n       \
                                 rainworld-rs --mcp [--window]"
                             .to_owned(),
                     );
@@ -161,6 +169,14 @@ impl Args {
                 other => return Err(format!("unexpected argument {other:?}")),
             }
         }
+        // A run that places, drives or photographs the player goes straight to the game.
+        let start = start.unwrap_or(
+            if spawn.is_some() || script.is_some() || screenshot.is_some() {
+                ProcessId::Game
+            } else {
+                ProcessId::MainMenu
+            },
+        );
         Ok(Self {
             room: room.unwrap_or_else(|| DEFAULT_ROOM.to_owned()),
             seed,
@@ -297,7 +313,7 @@ mod tests {
                 resolution: Resolution::DEFAULT,
                 windowed: false,
                 mute: false,
-                start: ProcessId::Game,
+                start: ProcessId::MainMenu,
             })
         );
     }
@@ -316,7 +332,7 @@ mod tests {
             resolution: Resolution::DEFAULT,
             windowed: false,
             mute: false,
-            start: ProcessId::Game,
+            start: ProcessId::MainMenu,
         });
         assert_eq!(Args::parse(["SU_A22", "--seed", "7"]), want);
         assert_eq!(Args::parse(["--seed", "7", "SU_A22"]), want);
@@ -341,7 +357,22 @@ mod tests {
     fn process() {
         let args = Args::parse(["--process", "font-test"]).expect("parses");
         assert_eq!(args.start, ProcessId::FontTest);
+        let args = Args::parse(["--process", "slugcat-select"]).expect("parses");
+        assert_eq!(args.start, ProcessId::SlugcatSelect);
         assert!(Args::parse(["--process", "nope"]).is_err());
+        // Placing, scripting or photographing the player starts the game.
+        for args in [
+            &["--spawn", "1,2"][..],
+            &["--script", "0,0,0:1"],
+            &["--screenshot", "x"],
+        ] {
+            assert_eq!(
+                Args::parse(args.iter().copied()).unwrap().start,
+                ProcessId::Game
+            );
+        }
+        let args = Args::parse(["--spawn", "1,2", "--process", "main-menu"]).unwrap();
+        assert_eq!(args.start, ProcessId::MainMenu);
     }
 
     #[test]

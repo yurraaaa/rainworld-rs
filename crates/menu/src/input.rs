@@ -138,8 +138,22 @@ impl UiInputState {
         self.held.contains(&key) || self.pressed_since_tick.contains(&key)
     }
 
-    /// `GetButton(action)`.
-    fn button(&self, action: UiAction) -> bool {
+    /// `CheckSpecificButton(0, 5)`: the gameplay map's Pause, Escape by default.
+    #[must_use]
+    pub fn pause_action(&self) -> bool {
+        self.is_on(KeyboardKey::Escape)
+    }
+
+    /// `RWInput.CheckPauseButton(0)` in a menu: never while the left mouse button is
+    /// down; else Pause or (keyboard player) Escape.
+    #[must_use]
+    pub fn pause_button(&self) -> bool {
+        !self.mouse.buttons[0] && self.pause_action()
+    }
+
+    /// `GetButton(action)` (`CheckSpecificButton`).
+    #[must_use]
+    pub fn button(&self, action: UiAction) -> bool {
         KeyBinding::DEFAULT_UI_KEYBOARD
             .iter()
             .any(|b| b.action == action && self.is_on(b.key))
@@ -147,8 +161,9 @@ impl UiInputState {
 
     /// `GetAxisRaw(action)` from the axis's button elements: the sum of the pressed
     /// keys' signs, clamped to -1..1 (inferred: how Rewired combines opposite keys is
-    /// not checked).
-    fn axis(&self, action: UiAction) -> f32 {
+    /// not checked). `CheckSpecificAxis`.
+    #[must_use]
+    pub fn axis(&self, action: UiAction) -> f32 {
         let sum: i32 = KeyBinding::DEFAULT_UI_KEYBOARD
             .iter()
             .filter(|b| b.action == action && self.is_on(b.key))

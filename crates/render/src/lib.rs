@@ -48,7 +48,8 @@ pub use sprites::{
     Batch, DrawQueue, NodeMatrix, SpriteAtlas, SpriteBatch, SpriteVertex, WaterShader,
 };
 pub use stage::{
-    StageBatch, StageDraw, StageShader, StageTextureId, TextureFilter, TextureSampling,
+    StageBatch, StageDraw, StageGlobals, StageShader, StageTextureId, TextureFilter,
+    TextureSampling,
 };
 pub use status::{BodyStatus, BodyStyle};
 pub use water::WaterSurface;
@@ -135,6 +136,9 @@ pub trait Renderer {
 
     /// Frees a stage texture.
     fn remove_stage_texture(&mut self, id: StageTextureId);
+
+    /// Sets the stage shaders' globals for the next frames.
+    fn set_stage_globals(&mut self, globals: StageGlobals);
 
     /// Queues stage quads after everything queued so far, in screen pixels of a screen
     /// of `screen_size` (y up, origin bottom-left) fitted to the frame. Draws whose

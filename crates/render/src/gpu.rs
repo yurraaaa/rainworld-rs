@@ -11,7 +11,7 @@
 //! level shader reads to let them show through sky and far pixels. A third draws the
 //! atlas sprites (`sprite_gpu`), a fourth the game's water (`water_gpu`), which
 //! reads the level textures and the "behind" target too, and a fifth the stage quads
-//! (`stage_gpu`: `Futile/Basic` and `EdgeFade`, one texture per draw). Draw calls keep their call
+//! (`stage_gpu`: the menu shaders, one texture per draw). Draw calls keep their call
 //! order across pipelines ([`DrawQueue`]). The WGSL shaders are compiled at runtime by
 //! wgpu.
 //!
@@ -34,7 +34,7 @@ use crate::water_gpu::{WaterBinding, WaterPipeline};
 use crate::{
     Batch, Camera, Color, DrawQueue, FrameImage, LevelGraphics, LevelView, Mesh, PresentRect,
     RenderError, Renderer, Resolution, RoomDebugGeometry, RoomLayers, SpriteAtlas, StageBatch,
-    StageTextureId, TextureSampling, Vertex, WaterSprites,
+    StageGlobals, StageTextureId, TextureSampling, Vertex, WaterSprites,
 };
 
 const BACKGROUND: wgpu::Color = wgpu::Color {
@@ -277,7 +277,7 @@ impl WgpuRenderer {
         let level_pipeline = LevelPipeline::new(&device, format);
         let sprite_pipeline = SpritePipeline::new(&device, format);
         let water_pipeline = WaterPipeline::new(&device, format);
-        let stage_pipeline = StagePipeline::new(&device, format);
+        let stage_pipeline = StagePipeline::new(&device, &queue, format);
         let frame = FrameTargets::new(&device, format, frame_size);
         let mut present_pipeline = PresentPipeline::new(&device, format);
         present_pipeline.bind(&device, &frame.view);
@@ -747,7 +747,11 @@ impl Renderer for WgpuRenderer {
     }
 
     fn remove_stage_texture(&mut self, id: StageTextureId) {
-        self.stage_pipeline.remove_texture(id);
+        self.stage_pipeline.remove_texture(&self.device, id);
+    }
+
+    fn set_stage_globals(&mut self, globals: StageGlobals) {
+        self.stage_pipeline.set_globals(&self.device, globals);
     }
 
     fn draw_stage(&mut self, batch: &StageBatch, screen_size: [f32; 2]) {
@@ -806,6 +810,7 @@ impl Renderer for WgpuRenderer {
             &self.queue_draws.stage.vertices,
             &self.queue_draws.stage.indices,
             &stage_camera,
+            self.stage_screen,
         );
         let batches = self.queue_draws.batches();
         let split = batches.iter().position(|b| *b == Batch::Level);

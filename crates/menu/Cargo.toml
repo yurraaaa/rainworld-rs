@@ -7,6 +7,8 @@ edition.workspace = true
 rw-assets.workspace = true
 rw-render.workspace = true
 rw-graphics.workspace = true
+rw-sim.workspace = true
+rw-random.workspace = true
 log.workspace = true
 
 [dev-dependencies]

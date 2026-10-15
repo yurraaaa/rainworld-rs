@@ -112,4 +112,6 @@ pub struct ProcessState {
     pub fade_alpha: Option<f32>,
     /// The game's tick, when the game is the current process.
     pub game_tick: Option<u64>,
+    /// The main menu's Exit was pressed (`Application.Quit`); the session keeps running.
+    pub quit_requested: bool,
 }

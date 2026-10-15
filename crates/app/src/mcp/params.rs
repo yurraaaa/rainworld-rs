@@ -114,8 +114,12 @@ pub struct TilesParams {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ProcessParam {
-    /// The M0 test screen: labels in both fonts over the flat main-menu scene.
+    /// The main menu (STORY leads to the slugcat select menu).
     #[default]
+    MainMenu,
+    /// The slugcat select menu (hold START to begin a new game in the room).
+    SlugcatSelect,
+    /// The M0 test screen: labels in both fonts over the flat main-menu scene.
     FontTest,
     /// The single-room game.
     Game,
@@ -123,7 +127,7 @@ pub enum ProcessParam {
 
 #[derive(Debug, Clone, Default, Deserialize, JsonSchema)]
 pub struct LoadProcessParams {
-    /// Started by `Initialization` after the boot fade (default "font_test").
+    /// Started by `Initialization` after the boot fade (default "main_menu").
     pub process: Option<ProcessParam>,
     /// Room of the game process (default "summit").
     pub room: Option<String>,

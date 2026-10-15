@@ -19,6 +19,26 @@ pub enum StageShader {
     /// `Futile/EdgeFade`: the vertex colour with an alpha that rises from the quad's
     /// centre to its edges, the process-switch fade (`ProcessManager.fadeSprite`).
     EdgeFade,
+    /// `Futile/FlatLight`: a soft disc of the vertex colour (`DarkGradient`).
+    FlatLight,
+    /// `Futile/VectorCircle`: an opaque ring whose width is the vertex alpha.
+    VectorCircle,
+    /// `Futile/VectorCircleFadable`: a ring in a palette colour picked by red, faded by
+    /// blue.
+    VectorCircleFadable,
+    /// `Futile/HoldButtonCircle`: the hold button's fill arc, swept to the vertex alpha.
+    HoldButtonCircle,
+    /// `Futile/MenuText`: title lettering coloured from the text gradient.
+    MenuText,
+}
+
+/// Shader globals of the stage (`Shader.SetGlobal*`).
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct StageGlobals {
+    /// `_RAIN`: `ProcessManager.shadersTime / 5`.
+    pub rain: f32,
+    /// `_TextGradientTex`, a stage texture.
+    pub text_gradient: Option<StageTextureId>,
 }
 
 /// Unity's `filterMode` for a stage texture.

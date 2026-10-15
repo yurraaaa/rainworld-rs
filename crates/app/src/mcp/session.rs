@@ -420,6 +420,8 @@ impl Session {
             sound_table: Arc::clone(&self.sound_table),
         };
         let start = match params.process.unwrap_or_default() {
+            ProcessParam::MainMenu => ProcessId::MainMenu,
+            ProcessParam::SlugcatSelect => ProcessId::SlugcatSelect,
             ProcessParam::FontTest => ProcessId::FontTest,
             ProcessParam::Game => ProcessId::Game,
         };
@@ -485,6 +487,7 @@ impl Session {
             fade_to_black: m.fade_to_black(),
             fade_alpha: m.fade_sprite().map(|s| s.alpha),
             game_tick: frontend.game().map(|g| g.scene.game().ticks()),
+            quit_requested: frontend.quit_requested(),
         })
     }
 

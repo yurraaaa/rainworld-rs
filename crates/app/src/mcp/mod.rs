@@ -192,8 +192,10 @@ impl Server {
 
     #[tool(
         description = "Start the process manager as the game boots (black, Initialization, \
-        fade) into a process: font_test (labels in the game's fonts over the flat main-menu \
-        scene; menu submit goes on to the game) or game. Replaces any loaded room."
+        fade) into a process: main_menu (default; STORY leads to slugcat select, whose \
+        held START begins the game in the room), slugcat_select, font_test (labels in the \
+        game's fonts over the flat main-menu scene; menu submit goes on to the game) or \
+        game. Replaces any loaded room."
     )]
     fn load_process(
         &self,
@@ -204,7 +206,8 @@ impl Server {
 
     #[tool(
         description = "Run process manager frames of 1/40 s (one process tick each once \
-        running), holding menu keys; returns the current process and the fade state."
+        running), holding menu keys (held through all the frames, released after); \
+        returns the current process, the fade state and whether Exit asked to quit."
     )]
     fn step_process(
         &self,

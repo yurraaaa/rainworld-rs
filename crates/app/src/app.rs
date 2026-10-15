@@ -224,6 +224,11 @@ impl App {
     fn frame(&mut self, event_loop: &ActiveEventLoop) {
         let dt = self.clock.delta(Instant::now());
         self.frontend.update(dt);
+        if self.frontend.quit_requested() {
+            log::info!("quit (main menu Exit)");
+            event_loop.exit();
+            return;
+        }
         let id = self.frontend.current_id();
         if self.process_frames.0 == id {
             self.process_frames.1 += 1;
