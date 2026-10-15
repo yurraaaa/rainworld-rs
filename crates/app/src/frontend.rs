@@ -629,7 +629,8 @@ impl GameProcess {
     }
 
     /// The end of a story cycle: `Win` saves and goes to the sleep screen (or a dream);
-    /// starving and dying go to their screens, which are not ported (D16).
+    /// starving and dying save the cycle as a death and go to their screens, which are
+    /// not ported (D16).
     fn end_session(
         &mut self,
         end: SessionEnd,
@@ -665,12 +666,34 @@ impl GameProcess {
                 requests.switch_to(next);
             }
             SessionEnd::Starve => {
+                log::info!("GO TO STARVE");
+                self.session_ended_died(ctx);
                 if let Some(music) = &mut ctx.menu.music {
                     music.death_event();
                 }
                 requests.switch_to(ProcessId::StarveScreen);
             }
-            SessionEnd::Death => requests.switch_to(ProcessId::DeathScreen),
+            SessionEnd::Death => {
+                self.session_ended_died(ctx);
+                requests.switch_to(ProcessId::DeathScreen);
+            }
+        }
+    }
+
+    /// `SessionEnded(survived: false)` and its save, with the HUD prompt's death room
+    /// and position (`cameras[0].hud`).
+    fn session_ended_died(&mut self, ctx: &mut AppContext) {
+        let death = self
+            .scene
+            .hud()
+            .map(|h| (h.text_prompt.death_room, h.text_prompt.death_pos));
+        let assets = ctx.menu.assets.clone();
+        let mut game = HibernatingGame {
+            sim: self.scene.game_mut().sim_mut(),
+            assets: &assets,
+        };
+        if let Err(e) = game.session_ended_died(&mut ctx.menu.saves, death) {
+            log::error!("saving the cycle as a death: {e}");
         }
     }
 

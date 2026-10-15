@@ -966,16 +966,17 @@ Differences:
   `BackwardsCompability` world-version updates and the automatic `backup/` copies
   (`CreateCopyOfSaves`) are not ported. Save slot 0 only.
 - **Starving and dying.** The starve and death screens are not ported (a "not ported"
-  page), and `GoToStarveScreen`'s `SessionEnded(survived: false)` is not either, so a
-  starved cycle is not saved as a death. Death itself freezes the body (current phase).
+  page). `GoToStarveScreen` and `GoToDeathScreen` run `SessionEnded(survived: false)`
+  and its death save (D17). Death itself freezes the body (current phase), so only a
+  shelter door closing on a dead slugcat reaches `GoToDeathScreen`.
 - **Map discovery.** `progression.mapDiscoveryTextures` and `mapLastUpdatedTime` are
   split: the game's copy is the sim's `MapDiscovery`, and the progression holds their
   save form (`map_discovery`, `map_last_updated`). The map's first update loads a
   region from the progression, else its `MAP`/`MAPUPDATE` lines (`LoadMapTexture`); the
   pause menu's Exit copies the sim's textures and times into the progression before
   saving. A game left any other way loses its discovery, which the game keeps in memory.
-- **Play time.** `AppendTimeOnCycleEnd` is not ported: `ExitGame` adds nothing to
-  `DEATHTIME` or `TOTTIME`; `Win` adds the cycle's ticks / 40 to `TOTTIME`.
+- **Play time.** `AppendTimeOnCycleEnd` is not ported: `ExitGame`, starving and dying add
+  nothing to `DEATHTIME` or `TOTTIME`; `Win` adds the cycle's ticks / 40 to `TOTTIME`.
 
 **Why.** The creature states, items and kills the save keeps come with their
 creatures and objects; the user decided imported DLC and mod data must survive the
@@ -996,9 +997,11 @@ Differences:
 - **Sleep screen and dreams.** Not ported: a stand-in shows 40 black frames, then starts
   the next cycle as the sleep screen's continue does (`StoryGameInitCondition.Load`).
   The Moon and Pebbles event dreams are not ported (no iterators).
-- **Door drawing.** The door's sprites are drawn with the basic shader; the game's
-  `ColoredSprite2` (palette colours by depth) is not in `rw-render` yet, so the door's
-  colours are wrong.
+- **Starving.** A door closing on too little food saves the cycle as a death
+  (`SessionEnded(survived: false)`, D16) and shows the "not ported" page. Not
+  ported: `PlaceKarmaFlowerOnDeathSpot` (the player's `karmaFlowerGrowPos` is not
+  tracked, so a reinforced or Monk starve places no karma flower) and the Hunter's
+  `RedIsOutOfCycles` game over.
 - **Not ported:** More Slugcats' ancient and broken shelters, `PrecycleModule`, the
   shelter tutorials, the dream ghost, `GetStuffInWalls`, the AI map rebuild when the
   door opens, the door's screen shake, the social-memory stun of creatures in the room,
@@ -1008,8 +1011,8 @@ Differences:
 **Why.** Iterators, items, creature states and the menus' sleep screen are later
 milestones.
 
-**Affects.** What follows a hibernation on screen, the door's look, and creatures
-caught in a closing shelter.
+**Affects.** What follows a hibernation or a starve on screen, karma flowers after a
+starve, and creatures caught in a closing shelter.
 
 ## Not ported yet (not divergences, just absent)
 

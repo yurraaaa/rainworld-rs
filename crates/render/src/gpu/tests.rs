@@ -176,3 +176,83 @@ fn background_shortcut_reads_the_level_behind_it() {
     assert_ne!(pixel(&frame, 44, 32), [255, 0, 0]);
     assert_eq!(pixel(&frame, 44, 32), pixel(&frame, 60, 32));
 }
+
+/// `ColoredSprite3` (`Futile/ColoredSprite2`, `no_grab_tex`) as the shelter door uses
+/// it. Texel (102, 0, 255) at alpha 0.5: depth `lerp(0.5, 1, 0.4)` = 0.7, palette
+/// column `floor(0.5 + 29 * 0.7)` = 20, row `floor(0.5 + 2 * 1)` = 2: (200, 100, 50).
+/// White is not tinted; fog texel (1, 7) (0, 0, 250) at `0.7 * _fogAmount` (texel
+/// (9, 7) red 153: 0.4) gives (144, 72, 106). Shown over sky and over red 116 (`- 90`,
+/// depth 25 / 30), hidden behind red 11 (depth 10 / 30).
+#[test]
+fn colored_sprite3_colours_by_depth_from_the_palette() {
+    let Some(mut r) = renderer() else { return };
+    let atlas = SpriteAtlas::new(Atlas::parse(JSON).unwrap()).unwrap();
+    r.set_atlas(
+        &atlas,
+        &[&PngImage::from_pixels(
+            16,
+            16,
+            vec![[102, 0, 255, 255]; 256],
+        )],
+    );
+    let image = PngImage::from_pixels(
+        64,
+        64,
+        (0..64 * 64)
+            .map(|i| match i % 64 {
+                0..24 => [255, 255, 255, 255],
+                24..40 => [116, 0, 0, 255],
+                _ => [11, 0, 0, 255],
+            })
+            .collect(),
+    );
+    // PNG row `7 - row` holds the runtime palette's row `row`.
+    let mut pixels = vec![[90, 90, 90, 255]; 512];
+    pixels[5 * 32 + 20] = [200, 100, 50, 255];
+    pixels[1] = [0, 0, 250, 255];
+    pixels[9] = [153, 0, 0, 255];
+    let palette = PaletteTexture::blend(
+        &PaletteImage::from_image(&PngImage::from_pixels(32, 16, pixels)).unwrap(),
+        None,
+        0.0,
+    );
+    assert!((palette.fog_amount() - 0.4).abs() < 1e-6);
+    let noise =
+        NoiseTexture::from_image(&PngImage::from_pixels(64, 64, vec![[128, 0, 0, 255]; 4096]))
+            .unwrap();
+    r.set_level(&LevelGraphics {
+        camera_pos: [0.0, 0.0],
+        image: &image,
+        palette: &palette,
+        noise: &noise,
+        params: LevelParams {
+            light: 1.0,
+            grime: 0.0,
+            fog_amount: palette.fog_amount(),
+            clouds_speed: 1.0,
+            darkness: 1.0,
+            contrast: 1.0,
+            saturation: 1.0,
+            hue: 0.0,
+            brightness: 0.0,
+            swarm_room: 0.0,
+        },
+    });
+    r.draw_level(LevelView {
+        origin: [0.0, 0.0],
+        size: [64.0, 64.0],
+        rain: 0.0,
+    });
+    let list = DrawList {
+        items: vec![white_sprite(
+            Shader::ColoredSprite3,
+            SpriteColor::WHITE.with_alpha(0.5),
+        )],
+    };
+    r.draw_sprites(&list, Layer::Items, [0.0, 0.0]);
+    let frame = r.render_image().unwrap();
+    assert_eq!(pixel(&frame, 20, 32), [144, 72, 106]);
+    assert_eq!(pixel(&frame, 32, 32), [144, 72, 106]);
+    assert_eq!(pixel(&frame, 44, 32), pixel(&frame, 60, 32));
+    assert_ne!(pixel(&frame, 44, 32), [144, 72, 106]);
+}

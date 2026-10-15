@@ -1,6 +1,7 @@
 //! A survived cycle: `RainWorldGame.Win`'s save side, `SaveState.SessionEnded(survived:
 //! true)` with `RainCycleTick` and `BringUpToDate`, and the save that follows
-//! (`SaveWorldStateAndProgression`). Every DLC off.
+//! (`SaveWorldStateAndProgression`); a starved one: `SessionEnded(survived: false)` saved
+//! as a death. Every DLC off.
 
 use rw_assets::SlugcatName;
 use rw_random::UnityRandom;
@@ -124,7 +125,54 @@ impl SaveState {
     }
 }
 
+impl SaveState {
+    /// `SessionEnded(game, survived: false, newMalnourished: false)` up to its save
+    /// (done by the progression), every DLC off. `death` is the HUD prompt's death room
+    /// (as saved) and position. Not ported: `AppendTimeOnCycleEnd`.
+    pub fn session_ended_died(
+        &mut self,
+        travelled: bool,
+        death: Option<(&str, [f32; 2])>,
+        rng: &mut UnityRandom,
+    ) {
+        self.last_malnourished = self.malnourished;
+        self.malnourished = false;
+        self.death_persistent.add_session_record(false, travelled);
+        self.death_persistent.age_death_positions();
+        if let Some((room, pos)) = death {
+            self.death_persistent.add_death_position(room, pos);
+        }
+        self.death_persistent.deaths += 1;
+        if self.death_persistent.karma == 0
+            || (self.save_state_number == SlugcatName::White && rng.value() < 0.5)
+            || self.save_state_number == SlugcatName::Yellow
+        {
+            self.death_persistent.food_replenish_bonus += 1;
+        }
+        self.death_persistent.tick_flower_depletion(1);
+    }
+}
+
 impl PlayerProgression {
+    /// `SessionEnded(survived: false)` on the current state and its save,
+    /// `SaveProgressionAndDeathPersistentDataOfCurrentState(saveAsDeath: true)`.
+    ///
+    /// # Errors
+    /// When the save file cannot be written.
+    pub fn session_ended_died(
+        &mut self,
+        travelled: bool,
+        death: Option<(&str, [f32; 2])>,
+        rng: &mut UnityRandom,
+    ) -> Result<(), SaveError> {
+        let Some(state) = self.current_save_state.as_mut() else {
+            log::warn!("a death without a save state");
+            return Ok(());
+        };
+        state.session_ended_died(travelled, death, rng);
+        self.save_progression_and_death_persistent_data_of_current_state(true, false)
+    }
+
     /// `RainWorldGame.Win(malnourished, fromWarpPoint: false)`'s save side with every
     /// DLC off: the once-per-run backup (`backed_up` is `rainWorld.saveBackedUp`), the
     /// starvation tutorial counter, the dreams' end of cycle, `SessionEnded` and
@@ -402,5 +450,77 @@ mod tests {
             state.region_state("SU"),
             Some("REGIONNAME<rgB>SU<rgA>LASTCYCLEUPDATED<rgB>0<rgA>")
         );
+    }
+
+    /// `GoToStarveScreen`: `SessionEnded(survived: false)` then the death save. The
+    /// Survivor at karma 2 draws once for the food bonus; the HUD prompt's unset death
+    /// room 0 (`GATE_CC_UW` in the room index map) and position are recorded; the saved
+    /// karma is one less; the stored cycle and den stay.
+    #[test]
+    fn a_starved_cycle_is_saved_as_a_death() {
+        let dir = tempfile::tempdir().unwrap();
+        let salt = ChecksumSalt::new("salt");
+        let path = dir.path().join("sav");
+        let mut p = PlayerProgression::load(&path, Some(salt.clone())).unwrap();
+        let start = CampaignStart {
+            slugcat: SlugcatName::White,
+            den: "SU_C04",
+            vanilla: true,
+        };
+        p.get_or_initiate_save_state(start, 42, false, true)
+            .unwrap();
+        p.current_save_state
+            .as_mut()
+            .unwrap()
+            .death_persistent
+            .karma = 2;
+        // A stored state (as after a hibernation): the death save replaces its
+        // death-persistent data only.
+        p.save_world_state_and_progression(false).unwrap();
+        let mut rng = UnityRandom::new(5);
+        p.session_ended_died(false, Some(("GATE_CC_UW", [0.0, 0.0])), &mut rng)
+            .unwrap();
+        let mut expect = UnityRandom::new(5);
+        let bonus = expect.value() < 0.5;
+        assert_eq!(rng.value(), expect.value());
+
+        let mut again = PlayerProgression::load(&path, Some(salt)).unwrap();
+        assert!(!again.game_tinkered_with);
+        let lines = again.prog_lines();
+        let line = lines.iter().find(|l| l.starts_with("SAVE STATE")).unwrap();
+        for part in [
+            "<dpA>KARMA<dpB>1<dpA>",
+            "<dpA>SESSIONRECORDS<dpB>00<dpA>",
+            "<dpA>DEATHS<dpB>1<dpA>SURVIVES<dpB>0<dpA>QUITS<dpB>0<dpA>",
+            "<dpA>DEATHPOSS<dpB>GATE_CC_UW.0.0.0<dpA>",
+        ] {
+            assert!(line.contains(part), "{part} not in {line}");
+        }
+        assert_eq!(line.contains("FOODREPBONUS<dpB>1<dpA>"), bonus);
+        let state = again.peek_save_state(start).unwrap().unwrap();
+        assert_eq!(
+            (state.cycle_number, state.den_position.as_str()),
+            (0, "SU_C04")
+        );
+    }
+
+    #[test]
+    fn a_death_at_karma_0_or_as_the_monk_draws_nothing() {
+        for (slugcat, karma) in [(SlugcatName::White, 0), (SlugcatName::Yellow, 3)] {
+            let mut s = SaveState::new(slugcat, 0);
+            s.death_persistent.karma = karma;
+            s.death_persistent.death_positions = Some("SU_A22.3.4.6".to_owned());
+            let mut rng = UnityRandom::new(9);
+            s.session_ended_died(true, Some(("SU_S01", [30.0, -70.0])), &mut rng);
+            assert_eq!(rng.value(), UnityRandom::new(9).value());
+            assert_eq!(s.death_persistent.food_replenish_bonus, 1);
+            // The old position ages out at node 7; the new one: x round(1.5) = 2, y
+            // -50 / 20 = -2.5 -> -2 (to even).
+            assert_eq!(
+                s.death_persistent.death_positions.as_deref(),
+                Some("SU_S01.2.-2.0")
+            );
+            assert_eq!(s.death_persistent.session_records.as_deref(), Some("01"));
+        }
     }
 }

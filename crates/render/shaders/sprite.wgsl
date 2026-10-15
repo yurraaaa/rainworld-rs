@@ -3,7 +3,8 @@
 // One fragment entry per game shader (StreamingAssets/shaders/<Name>.shader): fs_basic
 // `Futile/Basic`, fs_flat_light `FlatLight`, fs_overseer_zip `OverseerZip`,
 // fs_hologram `Hologram`, fs_light_source `LightSource`, fs_hologram_image `HologramImage`,
-// fs_shortcut `ShortCut0`.
+// fs_shortcut `ShortCut0`, fs_colored_sprite3 `ColoredSprite2` with `no_grab_tex` (the
+// `ColoredSprite3` shader).
 //
 // `uv` is where the port's atlas is sampled; `tex` is the shader's `i.uv` (they differ
 // only for `Futile_White`, a texture of its own in the game).
@@ -21,7 +22,9 @@ struct Room {
     hologram_threshold: f32,
     // The frame's size in pixels (the screen-sized textures of group 2).
     frame: vec2<f32>,
-    pad: vec2<f32>,
+    // `_fogAmount`.
+    fog_amount: f32,
+    pad: f32,
 };
 
 @group(0) @binding(0) var<uniform> room: Room;
@@ -31,11 +34,12 @@ struct Room {
 @group(1) @binding(0) var noise2: texture_2d<f32>;
 @group(1) @binding(1) var noise2_sampler: sampler;
 // `_LevelTex` (v = 0 at the bottom), the `_GrabTexture` of the last unnamed GrabPass
-// before the level (what was drawn behind it), and the frame as it was just before a
-// `HologramImage` sprite (its own GrabPass).
+// before the level (what was drawn behind it), the frame as it was just before a
+// `HologramImage` sprite (its own GrabPass) and `_PalTex` (32x8, point, clamp).
 @group(2) @binding(0) var level_tex: texture_2d<f32>;
 @group(2) @binding(1) var behind_tex: texture_2d<f32>;
 @group(2) @binding(2) var grab_tex: texture_2d<f32>;
+@group(2) @binding(3) var pal_tex: texture_2d<f32>;
 
 struct VertexOut {
     @builtin(position) position: vec4<f32>,
@@ -292,4 +296,44 @@ fn fs_shortcut(in: VertexOut) -> @location(0) vec4<f32> {
         return in.color;
     }
     return vec4(0.0);
+}
+
+// `tex2D(_PalTex, uv)`: point filter, clamp.
+fn palette_at(uv: vec2<f32>) -> vec4<f32> {
+    let size = vec2<i32>(textureDimensions(pal_tex));
+    let texel = clamp(vec2<i32>(floor(uv * vec2<f32>(size))), vec2(0), size - 1);
+    return textureLoad(pal_tex, texel, 0);
+}
+
+// `TerrainAndLevelDepth / 30` with the base game's black sloped-terrain mask (depth 60,
+// never the nearer): red over 90 less 90, `fmod(red - 1, 30)`, 30 for sky.
+fn terrain_and_level_depth(c: vec4<f32>) -> f32 {
+    if all(c.rgb == vec3(1.0)) {
+        return 1.0;
+    }
+    var red = byte(c.r);
+    if red > 90 {
+        red -= 90;
+    }
+    return fmod_trunc(f32(red - 1), 30.0) / 30.0;
+}
+
+// `ColoredSprite3` (`Futile/ColoredSprite2`, `no_grab_tex`): depth `lerp(1 - clr.a, 1,
+// tex.r)`; nothing behind the level's pixel, else the palette texel at column
+// `lerp(0.5, 29.5, depth)`, row `lerp(0.5, 2.5, tex.b)`, a quarter toward a non-white
+// vertex colour, fogged by `depth * _fogAmount`, with the texel's alpha.
+@fragment
+fn fs_colored_sprite3(in: VertexOut) -> @location(0) vec4<f32> {
+    let texcol = textureSample(atlas, atlas_sampler, in.uv);
+    let dpth = mix(1.0 - in.color.a, 1.0, texcol.x);
+    let terrain = terrain_and_level_depth(level_at(level_coord(in.scr)));
+    if dpth > terrain {
+        return vec4(0.0);
+    }
+    var col = palette_at(vec2(mix(0.5, 29.5, dpth) / 32.0, mix(0.5, 2.5, texcol.z) / 8.0));
+    if any(in.color.rgb < vec3(1.0)) {
+        col = mix(col, in.color, 0.25);
+    }
+    col = mix(col, palette_at(vec2(1.5 / 32.0, 7.5 / 8.0)), dpth * room.fog_amount);
+    return vec4(clamp(col.rgb, vec3(1.0 / 255.0), vec3(1.0)), texcol.w);
 }

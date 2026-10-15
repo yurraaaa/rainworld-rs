@@ -1,7 +1,7 @@
 //! GPU side of the room sprites: a `sprite.wgsl` pipeline per game shader, a texture
 //! per atlas page, the room globals, `_NoiseTex2`, the screen-sized textures some
-//! shaders read (level image, what was drawn behind the level, the frame grab) and the
-//! per-frame sprite buffers.
+//! shaders read (level image, what was drawn behind the level, the frame grab, the
+//! palette) and the per-frame sprite buffers.
 
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -22,7 +22,8 @@ struct RoomUniform {
     rain: f32,
     hologram_threshold: f32,
     frame: [f32; 2],
-    pad: [f32; 2],
+    fog_amount: f32,
+    pad: f32,
 }
 
 /// The sprite pipelines, the atlas pages' bind groups and the frame's buffers.
@@ -50,11 +51,12 @@ pub(crate) struct ScreenTextures<'a> {
     pub level: &'a wgpu::TextureView,
     pub behind: &'a wgpu::TextureView,
     pub grab: &'a wgpu::TextureView,
+    pub palette: &'a wgpu::TextureView,
 }
 
 impl SpritePipeline {
     /// Each shader and its fragment entry point.
-    const SHADERS: [(Shader, &'static str); 7] = [
+    const SHADERS: [(Shader, &'static str); 8] = [
         (Shader::Basic, "fs_basic"),
         (Shader::FlatLight, "fs_flat_light"),
         (Shader::OverseerZip, "fs_overseer_zip"),
@@ -62,6 +64,7 @@ impl SpritePipeline {
         (Shader::LightSource, "fs_light_source"),
         (Shader::HologramImage, "fs_hologram_image"),
         (Shader::ShortCut0, "fs_shortcut"),
+        (Shader::ColoredSprite3, "fs_colored_sprite3"),
     ];
 
     /// `_hologramThreshold` at render scale 1 (`RainWorld`, decompile 110635: 0.5 when
@@ -127,6 +130,7 @@ impl SpritePipeline {
                 Self::texture_entry(0, false),
                 Self::texture_entry(1, false),
                 Self::texture_entry(2, false),
+                Self::texture_entry(3, false),
             ],
         });
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -189,6 +193,7 @@ impl SpritePipeline {
                 level: &blank,
                 behind: &blank,
                 grab: &blank,
+                palette: &blank,
             },
         );
         Self {
@@ -332,7 +337,12 @@ impl SpritePipeline {
         layout: &wgpu::BindGroupLayout,
         textures: &ScreenTextures<'_>,
     ) -> wgpu::BindGroup {
-        let views = [textures.level, textures.behind, textures.grab];
+        let views = [
+            textures.level,
+            textures.behind,
+            textures.grab,
+            textures.palette,
+        ];
         let entries: Vec<wgpu::BindGroupEntry<'_>> = views
             .iter()
             .enumerate()
@@ -357,13 +367,14 @@ impl SpritePipeline {
         Self::screen_group(device, &self.screen_layout, textures)
     }
 
-    /// The screen textures for drawing into the "behind" target: the level image (the
-    /// game's `_LevelTex` is global, so `ShortCut0` sprites behind the level read it),
-    /// black for the targets that cannot be read yet.
+    /// The screen textures for drawing into the "behind" target: the level image and
+    /// palette (the game's `_LevelTex` and `_PalTex` are global, so `ShortCut0` sprites
+    /// behind the level read it), black for the targets that cannot be read yet.
     pub(crate) fn bind_behind_screen(
         &self,
         device: &wgpu::Device,
         level: &wgpu::TextureView,
+        palette: &wgpu::TextureView,
     ) -> wgpu::BindGroup {
         Self::screen_group(
             device,
@@ -372,6 +383,7 @@ impl SpritePipeline {
                 level,
                 behind: &self.blank,
                 grab: &self.blank,
+                palette,
             },
         )
     }
@@ -406,7 +418,8 @@ impl SpritePipeline {
             rain: globals.rain,
             hologram_threshold: Self::HOLOGRAM_THRESHOLD,
             frame: [frame_size.0 as f32, frame_size.1 as f32],
-            pad: [0.0; 2],
+            fog_amount: globals.fog_amount,
+            pad: 0.0,
         };
         queue.write_buffer(&self.uniform, 0, bytemuck::bytes_of(&uniform));
         self.noise_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {

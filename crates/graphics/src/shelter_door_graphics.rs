@@ -1,8 +1,6 @@
 //! `ShelterDoor.InitiateSprites` / `DrawSprites` (263972) of a regular shelter: 42
-//! `shelterGate` sprites in the `Items` container, all turned to face the entrance.
-//! The game draws them with `ColoredSprite3` (`Futile/ColoredSprite2`, which colours
-//! the texels from the room palette by depth); the renderer has no such shader yet, so
-//! they are drawn with `Basic` (docs/DIVERGENCES.md).
+//! `shelterGate` sprites in the `Items` container, all turned to face the entrance,
+//! drawn with `ColoredSprite3` (palette colours by the texels' depth).
 
 use rw_sim::Vec2;
 use rw_sim::shelter::ShelterDoor;
@@ -84,7 +82,7 @@ impl DoorSprite {
             scale: Vec2::new(scale_x, 1.0),
             anchor,
             color: Color::WHITE.with_alpha(self.alpha),
-            shader: Shader::Basic,
+            shader: Shader::ColoredSprite3,
             layer: Layer::Items,
         })
     }
