@@ -17,6 +17,7 @@ mod hologram_draw;
 mod hologram_matrix;
 mod hologram_shape;
 mod limb;
+mod looker;
 mod math;
 mod mycelium;
 mod overseer_draw;
@@ -25,6 +26,7 @@ mod player_draw;
 mod player_graphics;
 mod shortcut_graphics;
 mod tail;
+mod water_drip;
 
 pub use atlas::{Atlas, AtlasError, AtlasFrame, Rect, Size};
 pub use body_part::{BodyPart, PointConnection};
@@ -35,6 +37,7 @@ pub use hologram_draw::{HologramFrame, HologramGraphics};
 pub use hologram_matrix::{HoloLine, HologramMatrix, LensFrame};
 pub use hologram_shape::{HologramLine, PartShape};
 pub use limb::{GripSearch, Limb, LimbMode};
+pub use looker::ObjectLooker;
 pub use math::{Custom, CustomVec, Mathf, UnityVector3, Vec2Bezier, Vec3};
 pub use mycelium::{Mycelium, MyceliumLink};
 pub use overseer_graphics::{DrawPositions, OverseerGraphics};
@@ -44,6 +47,7 @@ pub use shortcut_graphics::{
     ExitBehind, ShortcutFrame, ShortcutGraphics, ShortcutPalette, ShortcutRoom, ShortcutVessel,
 };
 pub use tail::{TailAnchor, TailSegment};
+pub use water_drip::WaterDripSprites;
 
 #[cfg(test)]
 mod hologram_tests;

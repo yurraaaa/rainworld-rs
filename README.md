@@ -30,12 +30,12 @@ Working now:
 - **Creatures:** the creature framework is in place. Overseers spawn and move between
   rooms, and the guide overseer follows the player with its tutorial text and holograms.
   Bat flies spread between rooms, fly, swarm, flee from the slugcat, burrow, hang in
-  chains and travel the pipes, but cannot be caught or eaten yet.
+  chains and travel the pipes. The slugcat catches, carries, throws and eats them.
 
 Not yet ported:
 
 - the rain cycle's rain, flood and death;
-- shelters, hibernation, food and karma progression;
+- shelters, hibernation, and food and karma carried between cycles;
 - saves, continuing a game, and importing saves from the real game;
 - region gates;
 - creatures other than overseers and bat flies;
@@ -73,6 +73,8 @@ These are the game's default keyboard bindings.
 | --- | --- | --- |
 | Arrows | Move | Select |
 | Z | Jump | Confirm |
+| Left Shift | Pick up, drop, eat (hold) | |
+| X | Throw | |
 | Space | Map button (shows the HUD meters) | Confirm |
 | Enter | | Confirm |
 | Esc | Quit (until the pause menu exists) | Back |

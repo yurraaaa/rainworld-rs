@@ -5,9 +5,9 @@ pub const INPUT_HISTORY: usize = 10;
 
 /// One tick of controller input.
 ///
-/// Only the fields the port reads. The game's package also carries throw, pick-up and
-/// special buttons (grabbing, throwing; not ported) and the analogue stick (the digital
-/// `x`/`y` are derived from it with a 0.5 threshold).
+/// Only the fields the port reads. The game's package also carries the special button
+/// (DLC) and the analogue stick (the digital `x`/`y` are derived from it with a 0.5
+/// threshold).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct Input {
     /// Horizontal direction: -1 left, 0, +1 right. Other values are reduced to their sign.
@@ -18,6 +18,10 @@ pub struct Input {
     pub jump: bool,
     /// Map button held (`mp`): the HUD's `RevealMap`; the player stands still.
     pub map: bool,
+    /// Pick-up button held (`pckp`, Take).
+    pub pickup: bool,
+    /// Throw button held (`thrw`).
+    pub throw: bool,
 }
 
 impl Input {
@@ -27,6 +31,8 @@ impl Input {
         y: 0,
         jump: false,
         map: false,
+        pickup: false,
+        throw: false,
     };
 
     /// An input with each axis reduced to -1, 0 or +1.
@@ -37,6 +43,8 @@ impl Input {
             y: y.signum(),
             jump,
             map: false,
+            pickup: false,
+            throw: false,
         }
     }
 
@@ -44,6 +52,16 @@ impl Input {
     #[must_use]
     pub const fn with_map(self, map: bool) -> Self {
         Self { map, ..self }
+    }
+
+    /// The same input with the pick-up and throw buttons.
+    #[must_use]
+    pub const fn with_hands(self, pickup: bool, throw: bool) -> Self {
+        Self {
+            pickup,
+            throw,
+            ..self
+        }
     }
 
     /// The horizontal direction while down is held, else 0 (`downDiagonal`).
@@ -56,7 +74,9 @@ impl Input {
 
     /// The same input with both axes reduced to their sign.
     pub(crate) const fn normalized(self) -> Self {
-        Self::new(self.x, self.y, self.jump).with_map(self.map)
+        Self::new(self.x, self.y, self.jump)
+            .with_map(self.map)
+            .with_hands(self.pickup, self.throw)
     }
 }
 

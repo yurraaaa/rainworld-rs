@@ -233,6 +233,44 @@ impl World {
             .is_none_or(|s| s.swarm_room_active(&self.data, index))
     }
 
+    /// `Player.DepleteSwarmRoom` for a fly first caught in room `room` (story sessions):
+    /// the room's own active swarm room, else the active one nearest a fly node of the
+    /// room, becomes a candidate for depletion. Returns its name.
+    pub fn deplete_swarm_room(&mut self, room: i32) -> Option<String> {
+        let state = self.region_state.as_ref()?;
+        let own = self
+            .abstract_room(room)
+            .and_then(|r| usize::try_from(r.swarm_room_index).ok())
+            .filter(|&i| state.swarm_room_active(&self.data, i));
+        let mut pick = own;
+        if pick.is_none() {
+            let mut best = f32::MAX;
+            for i in 0..self.data.swarm_rooms.len() {
+                if !state.swarm_room_active(&self.data, i) {
+                    continue;
+                }
+                for (node, _) in self.fly_nodes(room) {
+                    let d = self.swarm_room_distance(WorldCoordinate::new(room, -1, -1, node), i);
+                    if d >= 0.0 && d < best {
+                        pick = Some(i);
+                        best = d;
+                    }
+                }
+            }
+        }
+        let name = self
+            .data
+            .swarm_rooms
+            .get(pick?)
+            .and_then(|&r| self.data.room(r))?
+            .name
+            .clone();
+        if let Some(state) = &mut self.region_state {
+            state.candidates_for_deplete_swarm_rooms.push(name.clone());
+        }
+        Some(name)
+    }
+
     /// `AbstractRoom.NumberOfQuantifiedCreatureInRoom`: the counts of the room's nodes,
     /// plus its creatures of that type without a node that `Quantify`.
     #[must_use]

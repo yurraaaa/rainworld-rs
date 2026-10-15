@@ -10,7 +10,10 @@ use std::collections::HashMap;
 use rw_graphics::FlyGraphics;
 use rw_sim::creature::fly::{FlyView, PlayerBody};
 use rw_sim::creature::{AbstractCreature, EntityId};
-use rw_sim::{CreatureVessel, FliesCall, FliesCallRecord, SoundId, Vec2};
+use rw_sim::{
+    CallExtra, CreatureVessel, FliesCall, FliesCallRecord, GraphicsCallRecord, PlayerSnapshot,
+    ReleaseReason, SoundId, Vec2, WaterDrip,
+};
 use serde_json::{Value, json};
 
 use super::Session;
@@ -19,8 +22,18 @@ use super::tutorial_route::{RouteView, TutorialRoute};
 
 const ROUTE_MAX_TICKS: u64 = 20_000;
 
-/// The sounds a fly or its vessel plays.
-const FLY_SOUNDS: [SoundId; 10] = [
+/// The sounds a fly, its vessel or the slugcat's hands play.
+const FLY_SOUNDS: [SoundId; 20] = [
+    SoundId::FlyCaught,
+    SoundId::FlyCaughtDead,
+    SoundId::SlugcatBiteFly,
+    SoundId::SlugcatFinalBiteFly,
+    SoundId::SlugcatLoseGrasp,
+    SoundId::SlugcatPickUpCreature,
+    SoundId::SlugcatThrowCreature,
+    SoundId::SlugcatLayDownCreature,
+    SoundId::SlugcatSwitchHandsInit,
+    SoundId::SlugcatSwitchHandsComplete,
     SoundId::SmallNpcEnterShortcut,
     SoundId::SmallNpcTickAlongInShortcut,
     SoundId::SmallNpcExitShortcut,
@@ -40,6 +53,8 @@ pub(super) struct FlyTrace {
     pub ctor_rng: [[u32; 4]; 2],
     session: Session,
     names: HashMap<i32, String>,
+    /// `CeilingDrips` of every room realized during the run, by name.
+    ceiling_drips: serde_json::Map<String, Value>,
 }
 
 impl FlyTrace {
@@ -58,6 +73,7 @@ impl FlyTrace {
             ctor_rng,
             session,
             names: HashMap::new(),
+            ceiling_drips: serde_json::Map::new(),
         })
     }
 
@@ -93,6 +109,7 @@ impl FlyTrace {
                 name: room.to_owned(),
                 seed: Some(1),
                 spawn_tile: None,
+                slugcat: None,
             })
             .expect("load room");
         })
@@ -138,6 +155,157 @@ impl FlyTrace {
         Some(t)
     }
 
+    /// A game loaded in SU_A41 as `slugcat` (seed 1), then into SU_A42, the player put
+    /// in the pocket under the flies (tile 37, 7) until it holds one, tapping pick-up
+    /// while one is in reach.
+    pub(super) fn caught(slugcat: &str) -> Option<Self> {
+        let mut t = Self::start(|s| {
+            s.load_room(&super::params::LoadRoomParams {
+                name: "SU_A41".to_owned(),
+                slugcat: Some(slugcat.to_owned()),
+                seed: Some(1),
+                spawn_tile: None,
+            })
+            .expect("load room");
+        })?;
+        t.wait(200);
+        assert!(t.go_through("SU_A42"), "into SU_A42");
+        t.wait(100);
+        for k in 0..3000u64 {
+            let state = t.session.state().expect("state");
+            let player = state.player.as_ref().expect("player");
+            if player.grasps.iter().any(Option::is_some) {
+                t.wait(10);
+                return Some(t);
+            }
+            if k % 40 == 0 {
+                t.under_a_fly();
+            }
+            t.step(InputParam {
+                pickup: k % 40 < 8 && k % 2 == 1,
+                ..InputParam::default()
+            });
+        }
+        None
+    }
+
+    /// Puts the player just under the camera room's first fly in open air (a dev move:
+    /// the flies keep away from a slugcat).
+    fn under_a_fly(&mut self) {
+        let Some(pos) = self
+            .fly_views()
+            .into_iter()
+            .map(|(_, pos)| pos)
+            .find(|&pos| {
+                let tile = pos.tile();
+                let open = self.session.tiles(&super::params::TilesParams {
+                    rect: Some([tile.0, tile.1 - 2, tile.0, tile.1]),
+                });
+                open.is_ok_and(|t| !t.lines().skip(2).any(|l| l.contains('#')))
+            })
+        else {
+            return;
+        };
+        self.session
+            .set_player(&SetPlayerParams {
+                pos: Some([pos.x, pos.y - 25.0]),
+                ..Default::default()
+            })
+            .expect("set player");
+    }
+
+    /// Holds pick-up, standing still, until a fly is eaten (food or a quarter point
+    /// more), then lets go and waits 150 ticks for the food meter.
+    pub(super) fn eat(&mut self) -> bool {
+        let start = self
+            .session
+            .state()
+            .expect("state")
+            .player
+            .map_or(0, |p| p.food * 4 + p.quarter_food);
+        let eaten = self.step_until(
+            InputParam {
+                pickup: true,
+                ..InputParam::default()
+            },
+            400,
+            |s| {
+                s.player
+                    .as_ref()
+                    .is_some_and(|p| p.food * 4 + p.quarter_food > start)
+            },
+        );
+        self.wait(150);
+        eaten
+    }
+
+    /// Walks along SU_A42's floor to its exit (the shaft at tile 10) and down it, until
+    /// the player is out of the tubes in `room`.
+    pub(super) fn walk_out(&mut self, room: &str) -> bool {
+        for k in 0..3000u64 {
+            let state = self.session.state().expect("state");
+            let out = state.player.as_ref().is_some_and(|p| !p.in_shortcut);
+            if state.player_room == room && state.room == room && out && state.lobby.is_none() {
+                self.wait(40);
+                return true;
+            }
+            let Some(input) = Self::walk_out_input(&state, k) else {
+                return false;
+            };
+            self.step(input);
+        }
+        false
+    }
+
+    /// Tick `k` of [`Self::walk_out`].
+    pub(super) fn walk_out_input(state: &super::reply::State, k: u64) -> Option<InputParam> {
+        let p = state.player.as_ref()?;
+        let tx = p.chunks[0].tile[0];
+        Some(if p.in_shortcut || state.player_room != "SU_A42" {
+            InputParam::default()
+        } else if tx > 11 {
+            InputParam {
+                x: -1,
+                jump: k % 40 < 10,
+                ..InputParam::default()
+            }
+        } else if tx < 10 {
+            InputParam {
+                x: 1,
+                ..InputParam::default()
+            }
+        } else {
+            InputParam {
+                y: -1,
+                ..InputParam::default()
+            }
+        })
+    }
+
+    /// [`Self::eat`], which must succeed.
+    pub(super) fn eaten(mut self) -> Self {
+        assert!(self.eat(), "the fly is eaten");
+        self
+    }
+
+    /// A fly caught in SU_A42 as the Survivor, carried down the exit to SU_A41 and
+    /// thrown there.
+    pub(super) fn carried() -> Option<Self> {
+        let mut t = Self::caught("White")?;
+        assert!(t.walk_out("SU_A41"), "carried out to SU_A41");
+        t.throw();
+        Some(t)
+    }
+
+    /// Taps throw.
+    pub(super) fn throw(&mut self) {
+        self.step(InputParam {
+            throw: true,
+            ..InputParam::default()
+        });
+        self.wait(80);
+    }
+
     pub(super) fn wait(&mut self, ticks: u64) {
         for _ in 0..ticks {
             self.step(InputParam::default());
@@ -159,11 +327,13 @@ impl FlyTrace {
             y: 0,
             jump: k % 97 < 6,
             map: false,
+            pickup: false,
+            throw: false,
         });
     }
 
     /// One tick with `input`, collecting the calls and graphics.
-    fn step(&mut self, input: InputParam) {
+    pub(super) fn step(&mut self, input: InputParam) {
         self.session
             .step(&StepParams {
                 ticks: Some(1),
@@ -180,6 +350,43 @@ impl FlyTrace {
             self.graphics.len(),
             "a graphics snapshot per call"
         );
+        self.note_ceiling_drips();
+    }
+
+    /// Records the realized rooms' `CeilingDrips` (the flies' impacts read them).
+    fn note_ceiling_drips(&mut self) {
+        let Some(scene) = self.session.scene_mut() else {
+            return;
+        };
+        let world = scene.game().sim().world();
+        let first = world.first_room_index();
+        let rooms: Vec<(i32, f32)> = (0..world.number_of_rooms())
+            .filter_map(|i| {
+                let i = first + i32::try_from(i).ok()?;
+                Some((i, world.realized(i)?.settings.ceiling_drips))
+            })
+            .collect();
+        for (i, drips) in rooms {
+            let name = self.name(i);
+            self.ceiling_drips.insert(name, json!(drips));
+        }
+    }
+
+    /// Steps with `input` until `done` holds of the state (at most `limit` ticks);
+    /// whether it did.
+    pub(super) fn step_until(
+        &mut self,
+        input: InputParam,
+        limit: u64,
+        done: impl Fn(&super::reply::State) -> bool,
+    ) -> bool {
+        for _ in 0..limit {
+            self.step(input);
+            if done(&self.session.state().expect("state")) {
+                return true;
+            }
+        }
+        false
     }
 
     /// Puts the player on the camera room's exit to `room` and holds its input until it
@@ -207,6 +414,8 @@ impl FlyTrace {
             y: i8::try_from(dy).unwrap_or(0),
             jump: false,
             map: false,
+            pickup: false,
+            throw: false,
         };
         for _ in 0..1200 {
             self.step(input);
@@ -284,7 +493,205 @@ impl FlyTrace {
             FliesCall::Lobby(id) => ("lobby", None, Some(id.0)),
             FliesCall::NowViewed { room, id } => ("now_viewed", Some(self.name(room)), Some(id.0)),
             FliesCall::NoLongerViewed(r) => ("no_longer_viewed", Some(self.name(r)), None),
+            FliesCall::Catch => ("catch", None, None),
+            FliesCall::GrabUpdate => ("grab_update", None, None),
+            FliesCall::Looker => ("looker", None, None),
+            FliesCall::Hand(_) => ("hand", None, None),
+            FliesCall::ModuleUpdated => ("module_updated", None, None),
+            FliesCall::PlayerRelease => ("player_release", None, None),
+            FliesCall::Drip(id) => ("drip", None, usize::try_from(id).ok()),
+            FliesCall::ImpactDrips => ("impact_drips", None, None),
+            FliesCall::CarriedPull(id) => ("carried_pull", None, Some(id.0)),
+            FliesCall::CarriedSuckedIn(id) => ("carried_sucked_in", None, Some(id.0)),
+            FliesCall::CarriedMove(id) => ("carried_move", None, Some(id.0)),
+            FliesCall::CarriedSpitOut(id) => ("carried_spit_out", None, Some(id.0)),
         }
+    }
+
+    /// Whether the call reads the player `p` (and reports it after).
+    fn reads_player(call: FliesCall) -> bool {
+        matches!(
+            call,
+            FliesCall::Catch
+                | FliesCall::GrabUpdate
+                | FliesCall::Looker
+                | FliesCall::Hand(_)
+                | FliesCall::ModuleUpdated
+                | FliesCall::PlayerRelease
+        )
+    }
+
+    /// The player `p` of a record (the state before the call).
+    fn player_json(&mut self, p: &PlayerSnapshot, eu: bool) -> Value {
+        let room = p.room.map(|r| self.name(r));
+        let chunks: Vec<Value> = p
+            .chunks
+            .iter()
+            .map(|c| {
+                json!({"pos": Self::vec(c.pos), "last_pos": Self::vec(c.last_pos),
+                       "vel": Self::vec(c.vel), "rad": c.rad, "mass": c.mass})
+            })
+            .collect();
+        let input: Vec<Value> = p
+            .input
+            .iter()
+            .map(|i| json!([i.x, i.y, i.jump, i.throw, i.pickup]))
+            .collect();
+        json!({
+            "id": p.id.0, "room": room, "chunks": chunks, "submersion": p.submersion,
+            "input": input, "conscious": p.conscious, "dead": p.dead, "stun": p.stun,
+            "animation": p.animation.value(), "body_mode": format!("{:?}", p.body_mode),
+            "standing": p.standing, "flip_direction": p.flip_direction,
+            "roll_direction": p.roll_direction, "roll_counter": p.roll_counter,
+            "food": p.food, "quarter_food": p.quarter_food, "max_food": p.max_food,
+            "food_to_hibernate": p.food_to_hibernate,
+            "grab": Self::grab_json(p),
+            "grasps": p.grasps.map(|g| g.map(|id| id.0)),
+            "graphics": p.graphics, "hud": p.hud, "eu": eu,
+        })
+    }
+
+    fn grab_json(p: &PlayerSnapshot) -> Value {
+        let g = &p.grab;
+        json!({
+            "eat_counter": g.eat_counter, "want_to_pick_up": g.want_to_pick_up,
+            "no_pick_up_on_release": g.no_pick_up_on_release,
+            "dont_grab_stuff": g.dont_grab_stuff,
+            "switch_hands_counter": g.switch_hands_counter,
+            "switch_hands_process": g.switch_hands_process,
+            "want_to_throw": g.want_to_throw,
+            "swallow_and_regurgitate_counter": g.swallow_and_regurgitate_counter,
+            "pick_up_candidate": g.pick_up_candidate.map(|c| c.0),
+        })
+    }
+
+    /// `expected.state.player`: the player after the call.
+    fn player_after_json(p: &PlayerSnapshot) -> Value {
+        let mut v = Self::grab_json(p);
+        v["food"] = json!(p.food);
+        v["quarter_food"] = json!(p.quarter_food);
+        v["grasps"] = json!(p.grasps.map(|g| g.map(|id| id.0)));
+        v["roll_counter"] = json!(p.roll_counter);
+        v["vel0"] = Self::vec(p.chunks[0].vel);
+        v
+    }
+
+    fn drip_json(&mut self, d: &WaterDrip) -> Value {
+        json!({
+            "room": self.name(d.room), "pos": Self::vec(d.pos), "last_pos": Self::vec(d.last_pos),
+            "last_last_pos": Self::vec(d.last_last_pos),
+            "last_last_last_pos": Self::vec(d.last_last_last_pos), "vel": Self::vec(d.vel),
+            "life": d.life, "last_life": d.last_life, "life_time": d.life_time,
+            "random_lightness": d.random_lightness,
+            "last_random_lightness": d.last_random_lightness, "must_exit": d.must_exit,
+            "slated": d.slated,
+        })
+    }
+
+    /// The fields a call read besides the common ones.
+    fn extra_json(&mut self, c: &FliesCallRecord, e: &mut Value) {
+        match &c.extra {
+            CallExtra::None => {}
+            CallExtra::Catch { single_room_world } => {
+                e["num9_story"] = json!(true);
+                e["single_room_world"] = json!(single_room_world);
+            }
+            CallExtra::GrabUpdate { head_pos } => e["head_pos"] = Self::opt_vec(*head_pos),
+            CallExtra::ModuleUpdated {
+                actually_viewed,
+                hands,
+            } => {
+                e["actually_viewed"] = json!(actually_viewed);
+                e["hands"] = hands.map_or(Value::Null, |h| {
+                    json!(h.map(|(pos, vel)| json!({"pos": Self::vec(pos), "vel": Self::vec(vel)})))
+                });
+            }
+            CallExtra::PlayerRelease { grasp, reason } => {
+                e["grasp"] = json!(grasp);
+                e["reason"] = json!(match reason {
+                    ReleaseReason::Stun => "stun",
+                    ReleaseReason::Die => "die",
+                    ReleaseReason::Teleport => "teleport",
+                });
+            }
+            CallExtra::Drip {
+                room,
+                glitter,
+                float_water_level,
+                before,
+            } => {
+                e["room"] = json!(self.name(*room));
+                e["water_glitter"] = json!([glitter.last, glitter.cycle]);
+                e["float_water_level"] = json!(float_water_level);
+                e["before"] = self.drip_json(before);
+            }
+            CallExtra::ImpactDrips {
+                room,
+                impact,
+                pos,
+                rad,
+                mass,
+                ceiling_drips,
+                ..
+            } => {
+                e["room"] = json!(self.name(*room));
+                e["pos"] = Self::vec(*pos);
+                e["rad"] = json!(rad);
+                e["mass"] = json!(mass);
+                e["direction"] = json!([impact.direction.x, impact.direction.y]);
+                e["speed"] = json!(impact.speed);
+                e["first_contact"] = json!(impact.first_contact);
+                e["ceiling_drips"] = json!(ceiling_drips);
+            }
+            CallExtra::CarriedPull { target, radius } => {
+                e["target"] = Self::vec(*target);
+                e["radius"] = json!(radius);
+            }
+            CallExtra::CarriedMove { to } => {
+                e["to"] = json!([self.name(to.room), to.tile.0, to.tile.1, to.node]);
+            }
+            CallExtra::CarriedSpitOut { pos, room } => {
+                e["pos"] = json!([pos.0, pos.1]);
+                e["room"] = json!(self.name(*room));
+            }
+        }
+    }
+
+    /// Merges a graphics call's recorded input into the entry (the looker's objects
+    /// name their rooms) and returns its output for `expected.state.player`.
+    fn graphics_json(&mut self, g: &GraphicsCallRecord, e: &mut Value) -> Value {
+        let input: Value = serde_json::from_str(&g.input).expect("graphics input");
+        if let Value::Object(map) = input {
+            for (k, v) in map {
+                e[k] = v;
+            }
+        }
+        // The body the graphics read (before this tick's shortcut pull, if any).
+        if let Some(Value::Array(chunks)) = e.as_object_mut().and_then(|m| m.remove("p_chunks")) {
+            e["expected"]["state"]["player"]["vel0"] = chunks[0]["vel"].clone();
+            for (k, c) in chunks.into_iter().enumerate() {
+                for key in ["pos", "last_pos", "vel"] {
+                    e["p"]["chunks"][k][key] = c[key].clone();
+                }
+            }
+        }
+        if let Some(room) = e.as_object_mut().and_then(|m| m.remove("p_room")) {
+            let name = room
+                .as_i64()
+                .and_then(|r| i32::try_from(r).ok())
+                .map(|r| self.name(r));
+            e["p"]["room"] = json!(name);
+        }
+        if let Some(objects) = e.get_mut("objects").and_then(Value::as_array_mut) {
+            let rooms: Vec<Option<i32>> = objects
+                .iter()
+                .map(|o| o["room"].as_i64().and_then(|r| i32::try_from(r).ok()))
+                .collect();
+            for (o, room) in objects.iter_mut().zip(rooms) {
+                o["room"] = json!(room.map(|r| self.names.get(&r).cloned().unwrap_or_default()));
+            }
+        }
+        serde_json::from_str(&g.output).expect("graphics output")
     }
 
     fn vec(v: Vec2) -> Value {
@@ -295,7 +702,7 @@ impl FlyTrace {
         v.map_or(Value::Null, Self::vec)
     }
 
-    fn graphics_json(g: &FlyGraphics) -> Value {
+    fn fly_graphics_json(g: &FlyGraphics) -> Value {
         let lb = &g.lower_body;
         json!({
             "culled": g.culled, "last_culled": g.last_culled,
@@ -375,11 +782,14 @@ impl FlyTrace {
                 "no_swarm_counter": ai.no_swarm_counter, "flock": ai.flock,
                 "threats": threats,
             },
-            "graphics": graphics.map_or(Value::Null, Self::graphics_json),
+            "graphics": graphics.map_or(Value::Null, Self::fly_graphics_json),
             "hover": f.hover.map_or(Value::Null, |h| {
                 json!({"alive": h.alive, "slated": h.slated, "still_playing": h.still_playing})
             }),
             "vessel": vessel,
+            "bites": f.bites, "eaten": f.eaten, "ever_caught": f.ever_been_caught_by_player,
+            "even_update": f.even_update, "set_pos": Self::opt_vec(chunk.set_pos),
+            "slated": f.slated,
         })
     }
 
@@ -424,7 +834,18 @@ impl FlyTrace {
                        "in_hive": ai.in_hive.iter().map(|f| f.0).collect::<Vec<_>>()}),
             );
         }
-        json!({"flies": flies, "flocks": flocks, "rooms_ai": rooms})
+        let mut drips = serde_json::Map::new();
+        for d in &state.drips {
+            let v = self.drip_json(d);
+            drips.insert(d.id.to_string(), v);
+        }
+        let mut out = json!({"flies": flies, "flocks": flocks, "rooms_ai": rooms, "drips": drips});
+        if let Some(p) = &state.player
+            && Self::reads_player(self.calls[i].call)
+        {
+            out["player"] = Self::player_after_json(p);
+        }
+        out
     }
 
     fn body_json(&mut self, p: &PlayerBody) -> Value {
@@ -477,10 +898,30 @@ impl FlyTrace {
             if let Some(id) = id {
                 e["id"] = json!(id);
             }
+            e["eu"] = json!(c.eu);
+            if let Some(p) = c.player.as_ref().filter(|_| Self::reads_player(c.call)) {
+                e["p"] = self.player_json(p, c.eu);
+            }
+            if !c.new_drip_ids.is_empty() {
+                e["new_drip_ids"] = json!(c.new_drip_ids);
+            }
+            self.extra_json(&c, &mut e);
+            if let Some(g) = &c.graphics {
+                let out = self.graphics_json(g, &mut e);
+                if let Value::Object(out) = out {
+                    for (k, v) in out {
+                        e["expected"]["state"]["player"][k] = v;
+                    }
+                }
+            }
             ticks.push(e);
         }
+        let campaign = self.session.scene_mut().map(|s| s.game().sim().campaign());
+        let slugcat = campaign.map(|c| c.name.value().to_owned());
+        let food_to_hibernate = campaign.map_or(4, |c| c.stats.food_to_hibernate);
         json!({
-            "format": "flies-realized-1", "region": "SU", "food_to_hibernate": 4,
+            "format": "flies-realized-2", "region": "SU", "food_to_hibernate": food_to_hibernate,
+            "slugcat": slugcat, "ceiling_drips": self.ceiling_drips,
             "ctor": {"rng": self.ctor_rng[0], "expected": {"rng_after": self.ctor_rng[1]}},
             "sounds": sounds,
             "ticks": ticks,
@@ -520,6 +961,9 @@ fn dump_fly_trace() {
     let run = match std::env::var("FLY_ROUTE").as_deref() {
         Ok("a24") => FlyTrace::run_a24(ticks),
         Ok("tutorial") => FlyTrace::tutorial(),
+        Ok("eat") => FlyTrace::caught("White").map(FlyTrace::eaten),
+        Ok("eat_red") => FlyTrace::caught("Red").map(FlyTrace::eaten),
+        Ok("carry") => FlyTrace::carried(),
         _ => FlyTrace::run(ticks),
     };
     let Some(mut t) = run else {

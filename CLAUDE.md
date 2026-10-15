@@ -112,7 +112,7 @@ recommendation. Nothing is ported before the user agrees.
   `dlcsInstalled` check): the base-game menu scene and intro images.
 - Current phase is the player controller in a region whose only
   behaving creatures are the overseers and the bat flies, not the full
-  game (campaign step 1, overseer step 1, batflies step 2):
+  game (campaign step 1, overseer step 1, batflies step 3):
   - A story starts at the campaign's start den in its region's world;
     room-exit shortcuts carry the player between the region's rooms, which
     load synchronously (D14). The population is generated with the
@@ -121,8 +121,10 @@ recommendation. Nothing is ported before the user agrees.
     (those whose triggers are ported: D14). The bat flies' world
     process moves their per-node counts between rooms, and a room that
     loads realizes its flies: body, AI, flocks, hives, chains, pipe
-    travel, sounds and graphics. The player cannot catch or eat them
-    yet (the later batflies steps).
+    travel, sounds and graphics. The player catches them (reaching, the
+    looker), holds, throws, carries them through pipes and eats them
+    (bites, drips, food and the food meter); the tutorial's eat
+    instruction and food pointer are not there yet (batflies step 4).
     Gates, region changes,
     the rain and saves are not there yet.
   - Death freezes the body until R respawns it (revisit once the real
@@ -156,9 +158,10 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   `step_sequence` (40 ticks per second); the same start, seed and inputs
   give the same run.
 - `load_room` loads the room's region world with the player in that room
-  (arena levels: a single-room world); `new_game` starts a campaign
+  (arena levels: a single-room world), as `slugcat` (default `White`); `new_game` starts a campaign
   (`White`, `Yellow`, `Red`) at its start den. `get_state` reports the
-  camera's room, the player's room and node, the vessel waiting in the
+  camera's room, the player (with its food, quarter pips, grasps and
+  eat counter), the player's room and node, the vessel waiting in the
   lobby, the realized rooms' entry waits and `creatures` (every
   abstract creature: kind, ID, room, node, tile, in den, realized,
   alive; overseers also their AI's destination, guide state, last rooms
@@ -172,9 +175,11 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   graphic or debug view, sprites, overlays), rendered offscreen;
   `crop_radius` zooms on the player (or on `crop_center`). `get_tiles` gives the geometry as
   text. In a region world the uncropped visuals view includes the HUD;
-  `get_hud` reports its meters, text prompt and the SU_C04 controls page,
-  `hud_message` queues a text-prompt message, and the `map` input field
-  (Space in the window) holds the map button.
+  `get_hud` reports its meters (the food meter's `quarter_pips` too),
+  text prompt and the SU_C04 controls page, `hud_message` queues a
+  text-prompt message, and the `map` input field (Space in the window)
+  holds the map button; `pickup` (left Shift) picks up, drops and eats,
+  `throw` (X) throws.
 - To check behaviour, prefer these tools over `--screenshot`/`--script`.
   Briefs for agents that check behaviour should say so.
 - `load_process` boots the process manager as the game does (black,

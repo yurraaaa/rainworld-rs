@@ -28,7 +28,7 @@ pub use fly::{
 };
 pub use grasp::{GrabRequest, Grasp, GripStick, Shareability};
 pub use overseer::{OverseerAbstractAi, OverseerAi, OverseerBody, PlayerGuideState};
-pub use template::{CreatureTemplate, WaterRelationship};
+pub use template::{CreatureTemplate, Relationship, RelationshipType, WaterRelationship};
 
 /// `EntityID`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -179,6 +179,10 @@ pub struct CreatureState {
     pub kind: StateKind,
     pub alive: bool,
     pub health: f32,
+    /// `PlayerState.foodInStomach` (0 for other states).
+    pub food_in_stomach: i32,
+    /// `PlayerState.quarterFoodPoints`.
+    pub quarter_food_points: i32,
 }
 
 impl CreatureState {
@@ -260,6 +264,8 @@ impl AbstractCreature {
             kind,
             alive: true,
             health: 1.0,
+            food_in_stomach: 0,
+            quarter_food_points: 0,
         }
     }
 

@@ -80,6 +80,13 @@ pub struct World {
     pub(crate) grasp_serial: u64,
     /// The flies' `FlockBehavior`s, shared by reference in the game, by creation order.
     pub flocks: Vec<FlockBehavior>,
+    /// The last `WaterDrip` id handed out.
+    drip_ids: u64,
+    /// Ids of the drips added since the last [`World::take_new_drips`].
+    new_drips: Vec<u64>,
+    /// The slugcat's body as the flies' graphics read their grabber, kept current by the
+    /// game.
+    pub(crate) player_body: Option<crate::creature::fly::PlayerBody>,
 }
 
 impl World {
@@ -114,6 +121,9 @@ impl World {
             entering: Vec::new(),
             grasp_serial: 0,
             flocks: Vec::new(),
+            drip_ids: 0,
+            new_drips: Vec::new(),
+            player_body: None,
         };
         world.index_rooms();
         world
@@ -123,6 +133,25 @@ impl World {
     pub(crate) fn next_update_seq(&mut self) -> u64 {
         self.update_seq += 1;
         self.update_seq
+    }
+
+    /// `Room.AddObject` of a `WaterDrip` in realized room `room` (dropped when the room is
+    /// not realized). Returns its id.
+    pub(crate) fn add_drip(&mut self, room: i32, mut drip: crate::WaterDrip) -> u64 {
+        self.drip_ids += 1;
+        drip.id = self.drip_ids;
+        drip.room = room;
+        drip.update_order = self.next_update_seq();
+        if let Some(r) = self.realized_mut(room) {
+            r.drips.push(drip);
+            self.new_drips.push(self.drip_ids);
+        }
+        self.drip_ids
+    }
+
+    /// The ids of the drips added since the last call.
+    pub(crate) fn take_new_drips(&mut self) -> Vec<u64> {
+        std::mem::take(&mut self.new_drips)
     }
 
     /// `World.RoomToWorldPos`: a room position on the region map.

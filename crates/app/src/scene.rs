@@ -245,8 +245,8 @@ impl Scene {
         }
     }
 
-    /// The guide's `TutorialText`s (translated, darkening the screen) and its rain
-    /// meter resets.
+    /// The guide's `TutorialText`s (translated, darkening the screen), its rain meter
+    /// resets and the food meter's refusals.
     fn apply_hud_events(&mut self, shared: &MenuShared) {
         let events = self.game.take_hud_events();
         let Some(hud) = &mut self.hud else {
@@ -259,6 +259,7 @@ impl Scene {
                     hud.add_message(text, m.wait, m.time, true, m.hide_hud);
                 }
                 HudEvent::HalfTimeBlinkReset => hud.rain_meter.half_time_blink = 0,
+                HudEvent::RefuseFood => hud.food_meter.refuse_food(),
             }
         }
     }
@@ -338,10 +339,16 @@ impl Scene {
             .visuals
             .as_ref()
             .map_or(rw_graphics::Color::BLACK, Visuals::earth_color);
-        // The flies' sprites join the overseers' (midground only), in sprite order.
+        let darkness = self
+            .visuals
+            .as_ref()
+            .map_or(0.0, |v| v.room_palette().darkness);
+        // The flies' and drips' sprites join the overseers' (midground only), in sprite
+        // order.
         let overseers = if target.sprites.is_some() {
             let mut lists = self.game.overseer_draw_lists(alpha, earth);
             lists.extend(self.game.fly_draw_lists(alpha, face));
+            lists.extend(self.game.drip_draw_lists(alpha, face, darkness));
             lists
         } else {
             Vec::new()

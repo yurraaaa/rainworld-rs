@@ -201,6 +201,13 @@ pub struct PlayerState {
     pub input: InputParam,
     /// `controller` replacing the keys ("Null"), if set.
     pub controller: Option<String>,
+    /// `playerState.foodInStomach` and `quarterFoodPoints`.
+    pub food: i32,
+    pub quarter_food: i32,
+    pub max_food: i32,
+    /// The creature IDs held in each hand.
+    pub grasps: [Option<usize>; 2],
+    pub eat_counter: i32,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -296,6 +303,8 @@ pub struct FoodMeterState {
     pub fade: f32,
     pub visible_counter: i32,
     pub show_count: i32,
+    /// Quarter pips shown on the next pip (`QuarterPipShower.displayQuarterFood`).
+    pub quarter_pips: i32,
     pub max_food: i32,
     pub survival_limit: i32,
     pub down_in_corner: f32,

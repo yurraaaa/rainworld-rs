@@ -13,6 +13,9 @@ pub struct RegionState {
     pub swarm_room_counters: HashMap<String, i32>,
     /// `roomsVisited`: room names. The port does not record visits; the caller fills it.
     pub rooms_visited: HashSet<String>,
+    /// `candidatesForDepleteSwarmRooms`: swarm rooms a caught fly came from (read when
+    /// the cycle is saved, which the port does not do yet).
+    pub candidates_for_deplete_swarm_rooms: Vec<String>,
 }
 
 impl RegionState {
@@ -27,6 +30,7 @@ impl RegionState {
                 .map(|r| (r.name.clone(), 0))
                 .collect(),
             rooms_visited: HashSet::new(),
+            candidates_for_deplete_swarm_rooms: Vec::new(),
         }
     }
 

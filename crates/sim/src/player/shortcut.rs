@@ -91,6 +91,7 @@ impl Player {
         let target = Vec2::from(tile_centre(entrance.0, entrance.1))
             + Vec2::new(hole.0 as f32, hole.1 as f32) * -5.0;
         let radius = PULL_IN_RADIUS.max(self.short_cut_rad_add);
+        self.set_shortcut_pull(target, radius);
         let mut moving = 0;
         for c in &mut self.body.chunks {
             c.vel *= PULL_IN_DAMPING;

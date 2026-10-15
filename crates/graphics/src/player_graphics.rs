@@ -3,18 +3,23 @@
 //! Behaviour: `rainworld-re/notes/slugcat-graphics.md` sections 1-3 (base game,
 //! Remix off, Survivor stats), including the vertical-pole, ledge-grab, roll/flip,
 //! corridor and swimming (`water.md`) branches. Not ported (docs/DIVERGENCES.md D8):
-//! look and fear targets (the empty-room looker's random draws are kept), grasps (throwing, eating, carrying), zero gravity, sleep
-//! curl, pups, the Mark, DLC. `aerobicLevel` is not in the port and is 0.
+//! fear (no creature the slugcat fears is ported), the rain look point, the throw
+//! reach (only weapons and frogs), zero gravity, sleep curl, pups, the Mark, DLC. `aerobicLevel` is not in the port and is 0.
 
 use std::f32::consts::TAU;
 
 use rw_assets::{Room, Terrain, tile_centre};
 use rw_random::UnityRandom;
-use rw_sim::{Animation, BodyMode, Player, Vec2, Water};
+use rw_sim::creature::CreatureId;
+use rw_sim::{
+    Animation, BodyMode, FliesCall, GraphicsCallRecord, Player, PlayerSurroundings, RoomExt, Vec2,
+    Water,
+};
 
 use crate::body_part::{BodyPart, PointConnection};
 use crate::draw::{Color, SlugcatName};
-use crate::hand::{HandContext, SlugcatHand};
+use crate::hand::{HandContext, HandGrasp, SlugcatHand};
+use crate::looker::ObjectLooker;
 use crate::math::{CustomVec, Mathf};
 use crate::tail::{TailAnchor, TailSegment};
 
@@ -103,8 +108,11 @@ pub struct PlayerGraphics {
     entering_shortcut: Option<(i32, i32)>,
     /// The player's corridor turn direction at the last update.
     corridor_turn_dir: Option<(i32, i32)>,
-    /// `objectLooker.timeLookingAtThis`; only its random draws matter without targets.
-    look_time: i32,
+    pub looker: ObjectLooker,
+    /// `spearDir`: leans the held objects forward while walking (-1..=1).
+    pub spear_dir: f32,
+    /// The looker and hand calls recorded for a trace.
+    calls: Vec<GraphicsCallRecord>,
 }
 
 impl PlayerGraphics {
@@ -152,7 +160,9 @@ impl PlayerGraphics {
             culled: true,
             entering_shortcut: None,
             corridor_turn_dir: player.corridor_turn_dir(),
-            look_time: 0,
+            looker: ObjectLooker::default(),
+            spear_dir: 0.0,
+            calls: Vec::new(),
         }
     }
 
@@ -194,6 +204,7 @@ impl PlayerGraphics {
         player: &Player,
         room: &Room,
         water: Option<&Water>,
+        around: &PlayerSurroundings<'_>,
         rng: &mut UnityRandom,
     ) {
         if player.is_destroyed() {
@@ -201,7 +212,8 @@ impl PlayerGraphics {
         }
         self.player_pokes(player);
         if let Some(entrance) = self.entering_shortcut.take() {
-            self.tick(player, room, water, rng);
+            let seen = player.before_pull().unwrap_or(player);
+            self.tick(seen, room, water, around, rng);
             let hole = room.shortcut_hole_direction(entrance.0, entrance.1);
             let target = Vec2::from(tile_centre(entrance.0, entrance.1))
                 + Vec2::new(hole.0 as f32, hole.1 as f32) * -5.0;
@@ -210,18 +222,65 @@ impl PlayerGraphics {
         if player.in_shortcut() {
             return;
         }
-        self.tick(player, room, water, rng);
+        self.tick(player, room, water, around, rng);
         self.entering_shortcut = player.entering_shortcut();
     }
 
-    /// Leaving a shortcut: `Player.SpitOutOfShortCut` resets the module, `NewRoom`
-    /// (always called, the creature having no room) resets it again, then the outer
-    /// `SpitOutOfShortCut` a third time; the sprites start afresh (a new sprite leaser).
+    /// Leaving a shortcut: the inner `Player.SpitOutOfShortCut` resets the module and
+    /// `NewRoom` (always called, the creature having no room) resets it again; the
+    /// sprites start afresh (a new sprite leaser). The outer `SpitOutOfShortCut`'s reset,
+    /// after the carried objects come out, is [`Self::reset`].
     pub fn spat_out_of_shortcut(&mut self, player: &Player, rng: &mut UnityRandom) {
-        for _ in 0..3 {
+        for _ in 0..2 {
             self.reset(player, rng);
         }
         self.sprites = SpriteMemory::default();
+    }
+
+    /// `PlayerGraphics.LookAtObject`, or `LookAtNothing` for `None`.
+    pub fn look_at(&mut self, target: Option<CreatureId>) {
+        match target {
+            Some(id) => self.looker.look_at_object(id),
+            None => self.looker.look_at_nothing(),
+        }
+    }
+
+    /// `PlayerGraphics.BiteFly(hand)` but its drips, which the sim makes: the head jerks
+    /// toward the hand, the hand goes to the mouth, the eyes close. Returns `head.pos`,
+    /// where the drips start.
+    pub fn bite_fly(&mut self, hand: usize, fly: CreatureId) -> Vec2 {
+        self.head.vel += self.head.pos.direction_to(self.hands[hand].limb.part.pos) * 2.0;
+        self.draw_positions[0][0] += Vec2::new(0.0, 1.0);
+        self.hands[hand].limb.part.pos = self.draw_positions[0][0];
+        self.looker.look_at_object(fly);
+        self.blink = self.blink.max(5);
+        self.head.pos
+    }
+
+    /// The hands' (pos, vel) for `Player.GraphicsModuleUpdated`.
+    #[must_use]
+    pub fn hand_motion(&self) -> [(Vec2, Vec2); 2] {
+        self.hands
+            .each_ref()
+            .map(|h| (h.limb.part.pos, h.limb.part.vel))
+    }
+
+    /// The chunks the graphics read, for a trace record.
+    pub(crate) fn chunks_json(player: &Player) -> serde_json::Value {
+        let chunks: Vec<serde_json::Value> = player
+            .chunks()
+            .iter()
+            .map(|c| {
+                serde_json::json!({"pos": [c.pos.x, c.pos.y],
+                    "last_pos": [c.last_pos.x, c.last_pos.y], "vel": [c.vel.x, c.vel.y]})
+            })
+            .collect();
+        serde_json::Value::Array(chunks)
+    }
+
+    /// The looker and hand calls recorded since the last take.
+    pub fn take_calls(&mut self) -> Vec<GraphicsCallRecord> {
+        std::mem::take(&mut self.calls)
     }
 
     /// What `Player.Update` does to its graphics module directly: `Player.Blink`, and
@@ -265,7 +324,14 @@ impl PlayerGraphics {
     }
 
     /// `PlayerGraphics.Update` for the ported states.
-    fn tick(&mut self, player: &Player, room: &Room, water: Option<&Water>, rng: &mut UnityRandom) {
+    fn tick(
+        &mut self,
+        player: &Player,
+        room: &Room,
+        water: Option<&Water>,
+        around: &PlayerSurroundings<'_>,
+        rng: &mut UnityRandom,
+    ) {
         // `GraphicsModule.Update`: `ShouldBeCulled` is false for the player, so the
         // first update un-culls and resets.
         if self.culled {
@@ -282,7 +348,9 @@ impl PlayerGraphics {
         if !player.is_dead() {
             self.breath += 1.0 / 60.0_f32.lerp_to(15.0, AEROBIC_LEVEL.powf(1.5));
         }
+        self.update_spear_dir(player);
         if !player.is_conscious() {
+            self.looker.look_at_nothing();
             self.blink = 10;
         }
 
@@ -327,21 +395,25 @@ impl PlayerGraphics {
         }
         // Short of breath after a dive: the head bobs with the swim cycle, eyes shut.
         if !player.is_dead() && player.lungs_exhausted() {
-            self.look_time = 0;
+            self.looker.look_at_nothing();
             let bob = (player.swim_cycle() * TAU).sin();
             self.head.vel.y += bob;
             self.draw_positions[0][0].y += bob * 2.5;
             self.blink = 1;
         }
         if rng.value() < 0.1 {
-            self.update_looker(rng);
+            self.update_looker(player, around, rng);
         }
         if rng.value() < 0.0025 {
-            self.look_time = 0;
+            self.looker.look_at_nothing();
         }
-        // No object looker target exists in a room without other objects.
         self.last_look_dir = self.look_direction;
-        self.look_direction = Vec2::ZERO;
+        self.look_direction = if player.is_conscious() && self.looker.current.is_some() {
+            let point = self.look_point(around);
+            self.head.pos.direction_to(point)
+        } else {
+            self.look_direction * 0.0
+        };
         if player.is_standing() {
             if player.input_history()[0].x == 0 {
                 self.head.vel -= self.look_direction * 0.5;
@@ -353,7 +425,67 @@ impl PlayerGraphics {
 
         self.update_head(player, room);
         self.update_legs(player, room);
-        self.update_hands(player, room, water, rng);
+        if player.is_conscious() {
+            self.reach_for_fly(player, around);
+        }
+        self.update_hands(player, room, water, around, rng);
+    }
+
+    /// `spearDir` leans toward the held direction while standing, else back to 0.
+    fn update_spear_dir(&mut self, player: &Player) {
+        let x = player.input_history()[0].x;
+        if player.body_mode() == BodyMode::Stand && x != 0 {
+            self.spear_dir = (self.spear_dir + f32::from(x) * 0.1).clamp(-1.0, 1.0);
+        } else if self.spear_dir < 0.0 {
+            self.spear_dir = (self.spear_dir + 0.05).min(0.0);
+        } else if self.spear_dir > 0.0 {
+            self.spear_dir = (self.spear_dir - 0.05).max(0.0);
+        }
+    }
+
+    /// `objectLooker.mostInterestingLookPoint`.
+    fn look_point(&self, around: &PlayerSurroundings<'_>) -> Vec2 {
+        self.looker
+            .look_point(around, self.head.pos, self.look_direction)
+    }
+
+    /// The hands' block for food (239320-239348): hungry, close to a fly it could
+    /// auto-grab and in sight, a hand whose other hand has reached its place reaches for
+    /// it (not while moving away from it), the head and body leaning in.
+    fn reach_for_fly(&mut self, player: &Player, around: &PlayerSurroundings<'_>) {
+        let Some(fly) = self.looker.current else {
+            return;
+        };
+        let climbing = player.body_mode() == BodyMode::ClimbingOnBeam
+            && player.animation() != Animation::StandOnBeam;
+        if !around.hungry || climbing || !around.world.fly_auto_grabable(fly) {
+            return;
+        }
+        let point = self.look_point(around);
+        let main = player.head().pos;
+        let in_sight = around
+            .world
+            .realized(around.room)
+            .is_some_and(|r| r.room.visual_contact(main, point));
+        if !main.dist_less(point, 80.0) || !in_sight {
+            return;
+        }
+        let mut hand = None;
+        for i in 0..2 {
+            if around.grasps[i].is_none() && self.hands[1 - i].limb.reached_snap_position {
+                hand = Some(i);
+            }
+        }
+        let x = player.input_history()[0].x;
+        if x != 0 && (point.x < main.x) == (x > 0) {
+            hand = None;
+        }
+        let Some(i) = hand else { return };
+        self.hands[i].reaching_for_object = true;
+        self.hands[i].limb.absolute_hunt_pos = point;
+        // `num3` (fear) is 0: the head and body lean in.
+        self.draw_positions[0][0] += self.draw_positions[0][0].direction_to(point) * 5.0;
+        self.head.vel += self.draw_positions[0][0].direction_to(point) * 2.0;
     }
 
     /// The body-mode block of `PlayerGraphics.Update`: draw offsets and pokes at the
@@ -437,13 +569,33 @@ impl PlayerGraphics {
         }
     }
 
-    /// `PlayerObjectLooker.Update` with nothing else in the room to look at: after a
-    /// tick of looking, interest drops below 0.2 at 8 ticks and then each update looks
-    /// away (`LookAtNothing`) with even odds.
-    fn update_looker(&mut self, rng: &mut UnityRandom) {
-        self.look_time += 1;
-        if self.look_time >= 8 && rng.value() < 0.5 {
-            self.look_time = 0;
+    /// `objectLooker.Update()`, recorded for a trace when asked.
+    fn update_looker(
+        &mut self,
+        player: &Player,
+        around: &PlayerSurroundings<'_>,
+        rng: &mut UnityRandom,
+    ) {
+        let before = (self.looker, rng.state());
+        self.looker.update(around, player.head().pos, rng);
+        if around.record {
+            let objects: Vec<serde_json::Value> = around
+                .objects
+                .iter()
+                .map(|&id| ObjectLooker::seen_json(around, id))
+                .collect();
+            self.calls.push(GraphicsCallRecord {
+                call: FliesCall::Looker,
+                rng: [before.1, rng.state()],
+                input: serde_json::json!({
+                    "looker": before.0.to_json(around),
+                    "p_room": around.room,
+                    "p_chunks": Self::chunks_json(player),
+                    "objects": objects,
+                })
+                .to_string(),
+                output: serde_json::json!({ "looker": self.looker.to_json(around) }).to_string(),
+            });
         }
     }
 
@@ -719,8 +871,10 @@ impl PlayerGraphics {
         player: &Player,
         room: &Room,
         water: Option<&Water>,
+        around: &PlayerSurroundings<'_>,
         rng: &mut UnityRandom,
     ) {
+        let grasps = HandGrasp::of(around);
         for i in 0..self.hands.len() {
             let hand0 = &self.hands[0].limb;
             let mut cx = HandContext {
@@ -733,6 +887,10 @@ impl PlayerGraphics {
                 airborne_counter: self.airborne_counter,
                 hand0: (hand0.part.pos, hand0.reached_snap_position),
                 rng: &mut *rng,
+                grasps,
+                spear_dir: self.spear_dir,
+                draw_pos0: &mut self.draw_positions[0][0],
+                calls: around.record.then_some(&mut self.calls),
             };
             let hand = &mut self.hands[i];
             hand.update(&mut cx);

@@ -35,7 +35,8 @@ it (D13). What still differs is only the seed and the call order:
   water and the player, so its sequence is the game's only for those draws. Sounds of
   rooms the camera is not in make no draws, as in the game (`Room.PlaySound` only
   reaches the microphone of a camera in that room). Draws of unported code in
-  the same functions (the rain-warning look-up, ceiling drips, `WaterDrip`s, grasps,
+  the same functions (the rain-warning look-up, `Room.Update`'s ambient ceiling drips,
+  the `WaterDrip`s of slides and corridor shoots, grasps of objects other than bat flies,
   exhaustion, DLC, and the sounds of those) are missing, as is the draw-skipping of
   `AllowSound`'s crowd cap (D12); the rain-warning look-up short-circuits before drawing
   while rain is far off, as at the start of a cycle.
@@ -43,7 +44,8 @@ it (D13). What still differs is only the seed and the call order:
   the node drawn in `RealizeInRoom`). In the game only Remix key-item tracking and
   Watcher warps call `DetermineSafeSpawnTile`; the port's dev starts (`--room` without
   `--spawn`, MCP `load_room`, R) use it to place the player, so these draws are the
-  port's choice of game function, made in the order the game makes them.
+  port's choice of game function, made in the order the game makes them. The dev
+  teleport (MCP `set_player`) first releases what the player holds.
 - **Intro and start script.** The intro slideshows draw nothing (`SlideShowMenuScene` has
   no idle camera; its `Custom.RNV` is only in the dev move editor), nor do the process
   fades and `SU_C04StartUp`.
@@ -61,12 +63,15 @@ it (D13). What still differs is only the seed and the call order:
   `FlyAI` and `FlockBehavior` constructors, `PlaceInRoom`, `Fly.Update` with `FlyAI`,
   then `FlyGraphics.Update` while its room is viewed), and so do `FliesRoomAI`, the
   hover-loop emitters, the flies' shortcut vessels and lobby turns, `MoveFly`'s pick of
-  a realized fly, and the sounds the flies play. The bat flies' draws match an
-  independent model call for call over the whole tutorial route, 2500 ticks among
-  SU_A42's flies and 4000 in the swarm room SU_A24 with flies leaving and entering
-  through the pipes. Missing: the `WaterDrip`s a creature's hard terrain impact throws
-  in a room with `CeilingDrips` (two draws each, and their own; the model counts 3 such
-  impacts in the SU_A42 run and 27 in the SU_A24 run). Per tick the stream parts from
+  a realized fly, the sounds the flies play, and the `WaterDrip`s a hard terrain impact
+  of a fly or the player throws in a room with `CeilingDrips`. The player catching,
+  holding, biting, eating, throwing and carrying flies through pipes makes the game's
+  draws (`Player.Update`'s catch, `GrabUpdate`, `BiteEdibleObject`'s drips, the
+  `PlayerObjectLooker` and `SlugcatHand` draws of `PlayerGraphics.Update`). The bat
+  flies' draws match an independent model call for call over the whole tutorial route,
+  2500 ticks among SU_A42's flies, 4000 in the swarm room SU_A24 with flies leaving and
+  entering through the pipes, the Survivor and the Hunter eating SU_A42's flies and the
+  Survivor carrying one down to SU_A41 and throwing it. Per tick the stream parts from
   the game's again with the abstract AI of every creature but overseers and flies
   (D14).
   `LocalCoordinateOfNode` draws for bat hives, garbage holes and border exits; a border
@@ -125,9 +130,9 @@ corridors are D10.
   initial facing in `Player::create`, the `Stun` threshold, the corridor-turn jiggle,
   the water) use the game's generator and calls; only seed and call order differ (D1).
   `Player::new` (tests) faces right.
-- **Input.** `Input` carries x, y and jump only; `downDiagonal` is derived digitally
-  (down plus left/right gives that side, the Remix rule). No analogue stick, map
-  button stand-still, throw / pick-up / special. The game's `checkInput` substitution
+- **Input.** `Input` carries x, y, jump, pick-up and throw (and the map button, D15);
+  `downDiagonal` is derived digitally (down plus left/right gives that side, the Remix
+  rule). No analogue stick or special. The game's `checkInput` substitution
   of `x := downDiagonal` while rolling with x = 0 therefore never applies (a digital
   down-diagonal always has x set).
 
@@ -363,16 +368,12 @@ in `PlayerGraphics` (they use the generic poses of their body mode, as in the ga
 - **`aerobicLevel` is 0.** The player has no aerobic level yet, so breathing runs at the
   resting pace (`breath += 1/60` per tick), never pants, and the exhausted face and
   head bob never show.
-- **Shortcut entry timing.** The game's extra graphics update while being pulled into a
-  shortcut runs inside `Creature.Update`, before the pull moves the chunks; the port runs
-  it after `Player::update`, so it sees the pulled positions. The reset on leaving a
-  tube likewise uses the chunk positions after that tick's movement.
-- **No look targets.** With no other objects in the room the game's `PlayerObjectLooker`
-  never finds a target, so `lookDirection` stays 0 as in the game; only its look timer
-  and random draws are ported. The rain-warning look-up, `LookAtNothing` and the afraid-of-creature poses (and their
-  blink and aerobic effects) are not ported.
-- **Not ported:** grasps (holding, throwing, eating, swallowing, spear on back, reaching
-  for flies, heavy carry, and the `Blink` calls of eating, mauling and throwing),
+- **Looking and holding.** `PlayerObjectLooker` is ported whole and looks at the
+  room's bat flies and overseers; the hands hold, reach for and bite bat flies
+  (`SlugcatHand` grasp branch, `BiteFly`, `LookAtObject`). The rain-warning look-up and
+  the afraid-of-creature poses (and their blink and aerobic effects) are not ported.
+- **Not ported:** grasps of anything but bat flies (swallowing, spear on back, heavy
+  carry, two-handed objects, mauling and its `Blink`s),
   the map-button stand-still blink,
   zero gravity (`ZeroGPoleGrab`, `ZeroGSwim`), antler and vine climbing, the sleep curl,
   adrenaline jitter, malnourishment and hypothermia tints, the Mark (sprites 10 and 11
@@ -410,10 +411,9 @@ direction.
 **What differs:**
 - **Remix (MMF) wall pounce omitted** (`cfgWallpounce`: a fast head-first wall hit with
   a buffered jump launches a `RocketJump` away from the wall).
-- **Held items:** the long belly slide (`longBellySlide`, started by throwing during a
+- **Held items** (only bat flies can be held so far): the long belly slide (`longBellySlide`, started by throwing during a
   slide, with its 39-tick push, 34-tick jump window and own exit and jump values),
-  picking up an item during the whiplash jump, and the thrown-spear roll are not ported
-  (no grabbing or throwing).
+  picking up an item during the whiplash jump, and the thrown-spear roll are not ported.
 - **Other creatures:** a belly slide or roll hitting a creature (stun, `rollCounter`
   cap, "slugsmash") is not ported (no realized creatures to hit; D14).
 - **More Slugcats / Watcher omitted:** Rivulet, slugpup and Gourmand values (skid and
@@ -776,12 +776,10 @@ second part, else a single-room world for arena levels). The campaign descriptio
   water and death, `FlyAI` with its threats, `FlockBehavior` and the swarm, chain and
   leave-room behaviours, `FliesRoomAI` with the hives, the hover loop, the shortcut
   travel (D5), `Abstractize` when its room is abstracted, and `FlyGraphics` in a viewed
-  room (`rw_graphics`). Not ported: the player catching and eating flies
-  (`Player.Update`'s grab of a fly in reach, `PlayerObjectLooker`, `IPlayerEdible`), so
-  a fly is never held by the player, never eaten and never quantified (only a held fly
-  is); a creature's terrain impact (`Creature.TerrainImpact`: its `InGameNoise`, the
-  rain's `CreatureSmashedInGround`, which needs the rain, and the `WaterDrip`s of a room
-  with `CeilingDrips`, D1). The fly's `RoomNotACycleHazard` reads the room settings'
+  room (`rw_graphics`). The player catches, holds, throws, carries and eats flies (D1,
+  D8); the quantifying of a fly held while its room is abstracted is not exercised. Not
+  ported: a creature's terrain impact's `InGameNoise` and the rain's
+  `CreatureSmashedInGround`, which needs the rain. The fly's `RoomNotACycleHazard` reads the room settings'
   `DangerType` as registered with no DLC (a DLC value such as `Blizzard` counts as
   unregistered). Not exercised by the model comparison: a fly's death, water and dens.
   The other quantified types (leeches, sea leeches, spiders) are counted but not
@@ -883,8 +881,9 @@ story session.
 - **Rain.** The rain meter reads the world's `RainCycle` (its drawn length and
   ticking timer, which the guide's `pauseRain` pins at 2000 in the tutorial rooms; D14).
   The rain itself is not ported, so nothing reads a room's rain `DangerType`.
-- **New-game state only.** Food is 0 and stays 0 (no eating), karma and cap are the
-  campaign's new-game values (karma 0, cap 4; the Hunter karma 2), never reinforced, and
+- **New-game state only.** Food starts at 0 and rises only by eating bat flies (a full
+  pip each, a quarter pip for the Hunter; no saves), karma and cap are the campaign's
+  new-game values (karma 0, cap 4; the Hunter karma 2), never reinforced, and
   the cycle number is the session's (0 in a new game, so the meters start hidden). No
   saves feed it.
 - **Shelters.** Every shelter counts as intact (broken shelters are not read), and the
@@ -906,17 +905,19 @@ gameplay beyond the map button standing the slugcat still.
 
 ## Not ported yet (not divergences, just absent)
 
-Player (stage one leaves out): zero gravity, grabbing / throwing / eating (`GrabUpdate`),
-`slowMovementStun` from exhaustion, throwing, adrenaline, the WALLSTUCK safety
+Player (stage one leaves out): zero gravity, grabbing, throwing and eating anything but
+bat flies, swallowing, `slowMovementStun` from exhaustion, adrenaline, the WALLSTUCK safety
 (needs `VisualContact`), carried-object speed factors, vines, tube worm,
 Jolly co-op, MSC / Watcher class mechanics. Ported because ground classification
 produces them anyway: wall slide and wall jump (`WallClimb`, `canWallJump`, `jumpStun`;
 only the wall-jump impulse has a test), `LedgeCrawl`, `CrawlTurn`, the crouch super-jump
 charge and dive force (untested).
 
-Physics: burrowing, terrain curves (`TerrainCurve`), `setPos`
-(cross-object position writes), the curved-terrain `TerrainImpact` call, grabs (`grabbedBy` skips the room-range clamp, and grabs force `goThroughFloors`), and
-`DefaultTile`.
+Physics: burrowing, terrain curves (`TerrainCurve`), the curved-terrain `TerrainImpact`
+call, the room-range clamp's skip for grabbed objects, and `DefaultTile`.
+
+Room: `Room.Update`'s ambient ceiling drips (`WaterDrip`s from the ceiling of a room with
+`CeilingDrips`), and the `WaterDrip`s of skids, slides and corridor shoots.
 
 Front end: the options, regions, arena and Remix menus, sleep and death
 screens, the pause menu, the outro and DLC slideshows, dialogs, the slugcat select menu's continue pages,

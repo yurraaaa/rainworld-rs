@@ -166,9 +166,14 @@ impl Session {
             .find_room_file(&name, ".txt")
             .ok_or_else(|| format!("room {:?} not found (see list_rooms)", params.name))?;
         log::debug!("room file {}", path.display());
+        let slugcat = match &params.slugcat {
+            Some(name) => Self::slugcat_named(name)?,
+            None => SlugcatName::White,
+        };
         let start = GameStart::Room {
             name: params.name.clone(),
             tile: params.spawn_tile.map(|[x, y]| (x, y)),
+            slugcat,
         };
         self.start_game(start, params.seed.unwrap_or(1))?;
         self.room_info()
@@ -180,18 +185,24 @@ impl Session {
     /// # Errors
     /// On an unknown slugcat, or when the world does not load.
     pub fn new_game(&mut self, params: &NewGameParams) -> Result<RoomInfo, String> {
-        let want = match params.slugcat.to_lowercase().as_str() {
+        let name = Self::slugcat_named(&params.slugcat)?;
+        self.start_game(GameStart::NewStory(name), params.seed.unwrap_or(1))?;
+        self.room_info()
+    }
+
+    /// The base-game campaign called `name` (its value or its English name).
+    fn slugcat_named(name: &str) -> Result<SlugcatName, String> {
+        let want = match name.to_lowercase().as_str() {
             "survivor" => "white".to_owned(),
             "monk" => "yellow".to_owned(),
             "hunter" => "red".to_owned(),
             other => other.to_owned(),
         };
-        let campaign = SlugcatCampaign::all(rw_assets::ActiveMods::NONE)
+        SlugcatCampaign::all(rw_assets::ActiveMods::NONE)
             .into_iter()
             .find(|c| c.name.value().eq_ignore_ascii_case(&want))
-            .ok_or_else(|| format!("unknown slugcat {:?} (White, Yellow, Red)", params.slugcat))?;
-        self.start_game(GameStart::NewStory(campaign.name), params.seed.unwrap_or(1))?;
-        self.room_info()
+            .map(|c| c.name)
+            .ok_or_else(|| format!("unknown slugcat {name:?} (White, Yellow, Red)"))
     }
 
     fn start_game(&mut self, start: GameStart, seed: u64) -> Result<(), String> {
@@ -209,8 +220,8 @@ impl Session {
             GameStart::NewStory(name) => {
                 StoryGameInitCondition::New.game_initial_black_seconds(*name)
             }
-            GameStart::Room { .. } => {
-                StoryGameInitCondition::Dev.game_initial_black_seconds(SlugcatName::White)
+            GameStart::Room { slugcat, .. } => {
+                StoryGameInitCondition::Dev.game_initial_black_seconds(*slugcat)
             }
         };
         if self.hud_shared.is_none() {
@@ -369,7 +380,7 @@ impl Session {
                     })
                 })
                 .collect(),
-            player: game.live_player().map(PlayerState::of),
+            player: game.live_player().map(|p| PlayerState::of(p, game.sim())),
             fade_delay_in_progress: self.black_delay > 0.0,
             start_up: game.start_up_script().map(|s| StartUpState {
                 counter: s.counter(),
@@ -637,7 +648,11 @@ impl Session {
             .ok_or_else(|| format!("room {name:?} not found (see list_rooms)"))?;
         log::debug!("room file {}", path.display());
         let setup = GameSetup {
-            start: GameStart::Room { name, tile: None },
+            start: GameStart::Room {
+                name,
+                tile: None,
+                slugcat: SlugcatName::White,
+            },
             seed: params.seed.unwrap_or(1),
             sound_table: Arc::clone(&self.sound_table),
         };
@@ -786,7 +801,9 @@ impl InputParam {
         if !(-1..=1).contains(&self.x) || !(-1..=1).contains(&self.y) {
             return Err(format!("input x and y must be -1, 0 or 1 (got {self:?})"));
         }
-        Ok(Input::new(self.x, self.y, self.jump).with_map(self.map))
+        Ok(Input::new(self.x, self.y, self.jump)
+            .with_map(self.map)
+            .with_hands(self.pickup, self.throw))
     }
 }
 
@@ -807,7 +824,7 @@ impl Scene {
 }
 
 impl PlayerState {
-    pub(super) fn of(player: &rw_sim::Player) -> Self {
+    pub(super) fn of(player: &rw_sim::Player, sim: &rw_sim::RainWorldGame) -> Self {
         let input = player.input_history()[0];
         Self {
             chunks: player
@@ -849,8 +866,15 @@ impl PlayerState {
                 y: input.y,
                 jump: input.jump,
                 map: input.map,
+                pickup: input.pickup,
+                throw: input.throw,
             },
             controller: player.controller().map(|c| format!("{c:?}")),
+            food: sim.food_in_stomach(),
+            quarter_food: sim.quarter_food_points(),
+            max_food: sim.max_food(),
+            grasps: sim.player_grasps().map(|g| g.map(|id| id.0)),
+            eat_counter: player.grab_state().eat_counter,
         }
     }
 }
@@ -924,6 +948,7 @@ impl HudState {
                 fade: food.fade,
                 visible_counter: food.visible_counter,
                 show_count: food.show_count,
+                quarter_pips: food.quarter_pip_shower.display_quarter_food,
                 max_food: food.max_food,
                 survival_limit: food.survival_limit,
                 down_in_corner: food.down_in_corner,

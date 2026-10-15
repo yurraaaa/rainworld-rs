@@ -14,12 +14,14 @@ pub struct ListRoomsParams {
     pub limit: Option<u32>,
 }
 
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Default, Deserialize, JsonSchema)]
 pub struct LoadRoomParams {
     /// Room name as the game looks it up, e.g. "SU_A22", "summit", "GATE_SU_HI". Its
     /// region's world is loaded around it (arena levels and rooms outside their
-    /// world's room list get a single-room world), as the Survivor.
+    /// world's room list get a single-room world).
     pub name: String,
+    /// The slugcat to play: "White" (the Survivor, default), "Yellow" or "Red".
+    pub slugcat: Option<String>,
     /// Seed of the game's random stream (`Random.InitState`, low 32 bits; default 1):
     /// spawn and every later draw. Same seed and inputs give the same run.
     pub seed: Option<u64>,
@@ -42,6 +44,12 @@ pub struct InputParam {
     /// Map button held (shows the HUD's meters; the slugcat stands still).
     #[serde(default)]
     pub map: bool,
+    /// Pick-up button held (Take, left Shift): picks up, drops, eats.
+    #[serde(default)]
+    pub pickup: bool,
+    /// Throw button held (X).
+    #[serde(default)]
+    pub throw: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -107,8 +115,8 @@ pub struct SetPlayerParams {
     pub pos: Option<[f32; 2]>,
     /// Velocity [x, y] in px per tick for both chunks (default 0).
     pub vel: Option<[f32; 2]>,
-    /// Food pips in the stomach (`FoodInStomach`; nothing can be eaten yet). Alone, it
-    /// leaves the body where it is.
+    /// Food pips in the stomach (`playerState.foodInStomach`, quarter pips cleared; a
+    /// dev tool). Alone, it leaves the body where it is.
     pub food: Option<i32>,
 }
 

@@ -24,6 +24,8 @@ const RIGHT: InputParam = InputParam {
     y: 0,
     jump: false,
     map: false,
+    pickup: false,
+    throw: false,
 };
 
 impl Session {
@@ -43,6 +45,7 @@ impl Session {
             name: name.to_owned(),
             seed: Some(seed),
             spawn_tile: None,
+            slugcat: None,
         })
         .expect("room loads");
     }
@@ -85,6 +88,7 @@ fn load_summit_reports_the_room() {
             name: "SUMMIT".to_owned(),
             seed: None,
             spawn_tile: None,
+            slugcat: None,
         })
         .expect("loads");
     assert!(info.name.eq_ignore_ascii_case("summit"), "{}", info.name);
@@ -111,6 +115,7 @@ fn stepping_settles_then_walks_left() {
             name: "summit".to_owned(),
             seed: Some(1),
             spawn_tile: Some([11, 17]),
+            slugcat: None,
         })
         .expect("room loads");
     let settled = session.run(80, InputParam::default());
@@ -125,6 +130,8 @@ fn stepping_settles_then_walks_left() {
         y: 0,
         jump: false,
         map: false,
+        pickup: false,
+        throw: false,
     };
     let walked = session.run(20, left);
     assert_eq!(walked.tick, 100);
@@ -162,6 +169,8 @@ fn runs_are_deterministic() {
                     y: 0,
                     jump: true,
                     map: false,
+                    pickup: false,
+                    throw: false,
                 }),
             },
         ],
@@ -302,6 +311,7 @@ fn tool_errors_are_results_not_panics() {
         name: "no_such_room".to_owned(),
         seed: None,
         spawn_tile: None,
+        slugcat: None,
     }));
     assert!(missing.is_err());
     server
@@ -309,6 +319,7 @@ fn tool_errors_are_results_not_panics() {
             name: "summit".to_owned(),
             seed: Some(1),
             spawn_tile: None,
+            slugcat: None,
         }))
         .expect("loads");
     let bad_input = server.step(Parameters(StepParams {
@@ -318,6 +329,8 @@ fn tool_errors_are_results_not_panics() {
             y: 0,
             jump: false,
             map: false,
+            pickup: false,
+            throw: false,
         }),
     }));
     assert!(bad_input.is_err());
@@ -394,7 +407,7 @@ impl Session {
     fn process_player(&mut self) -> super::reply::PlayerState {
         let frontend = self.frontend_mut().expect("process mode");
         let game = frontend.game().expect("game").scene.game();
-        super::reply::PlayerState::of(game.live_player().expect("player"))
+        super::reply::PlayerState::of(game.live_player().expect("player"), game.sim())
     }
 
     fn music(&mut self) -> &rw_audio::music::MusicPlayer {

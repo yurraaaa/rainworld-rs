@@ -24,6 +24,18 @@ impl FlyTrace {
             FliesCall::Lobby(_) => "l",
             FliesCall::NowViewed { .. } => "n",
             FliesCall::NoLongerViewed(_) => "x",
+            FliesCall::Catch => "c",
+            FliesCall::GrabUpdate => "g",
+            FliesCall::Looker => "k",
+            FliesCall::Hand(_) => "j",
+            FliesCall::ModuleUpdated => "M",
+            FliesCall::PlayerRelease => "p",
+            FliesCall::Drip(_) => "w",
+            FliesCall::ImpactDrips => "i",
+            FliesCall::CarriedPull(_) => "P",
+            FliesCall::CarriedSuckedIn(_) => "S",
+            FliesCall::CarriedMove(_) => "V",
+            FliesCall::CarriedSpitOut(_) => "O",
         }
     }
 
@@ -201,14 +213,14 @@ fn flies_in_su_a42_match_reference_model() {
     );
 }
 
-/// A game in SU_A23, 1350 ticks about the swarm room SU_A24, whose flies leave it and
+/// A game in SU_A23, 3000 ticks about the swarm room SU_A24, whose flies leave it and
 /// arrive through its exits (vessels, the lobby), out to SU_A41 and back.
 #[test]
 fn flies_through_shortcuts_match_reference_model() {
     let expected: Value =
         serde_json::from_str(include_str!("../../tests/data/flies_a24_model.json"))
             .expect("model output");
-    let Some(mut t) = FlyTrace::run_a24(1350) else {
+    let Some(mut t) = FlyTrace::run_a24(3000) else {
         return;
     };
     t.assert_matches(&expected, "SU_A24");
@@ -217,4 +229,129 @@ fn flies_through_shortcuts_match_reference_model() {
         "flies in the shortcuts"
     );
     assert!(t.count("z") > 0, "abstract flies realized");
+}
+
+impl FlyTrace {
+    /// Whether a fly's first bite kills it: the first state with 2 bites left has it
+    /// dead, the one before it alive.
+    fn first_bite_kills(&self) -> bool {
+        let mut alive_before = None;
+        for c in &self.calls {
+            let Some(state) = &c.state else { continue };
+            for (_, creature, _) in &state.flies {
+                let Some(f) = creature.fly() else { continue };
+                match f.bites {
+                    3 => alive_before = Some(!f.dead),
+                    2 => return f.dead && alive_before == Some(true),
+                    _ => {}
+                }
+            }
+        }
+        false
+    }
+
+    /// The (food, quarter points) the player went through, in order.
+    fn foods(&self) -> Vec<(i32, i32)> {
+        let mut out: Vec<(i32, i32)> = Vec::new();
+        for p in self.calls.iter().filter_map(|c| c.player.as_ref()) {
+            let food = (p.food, p.quarter_food);
+            if out.last() != Some(&food) {
+                out.push(food);
+            }
+        }
+        out
+    }
+
+    /// The model's fixture with the food of its last state with a player changed.
+    fn with_wrong_food(expected: &Value) -> Value {
+        let mut wrong = expected.clone();
+        let player = wrong["states"]
+            .as_array_mut()
+            .expect("states")
+            .iter_mut()
+            .rev()
+            .find_map(|s| s["state"].get_mut("player").filter(|p| p.is_object()))
+            .expect("a state with the player");
+        player["food"] = json!(player["food"].as_i64().expect("food") + 1);
+        wrong
+    }
+}
+
+/// A Survivor in SU_A42 (entered from SU_A41) put under the flies until it holds one
+/// (it takes a second one with its other hand in the same tick), then eating: three
+/// bites each (the first kills the fly), `WaterDrip`s, the flies destroyed, a full food
+/// pip each (four quarter points) and the food meter's new pips. With the eat counter
+/// still low the second fly is eaten without holding pick-up, as in `GrabUpdate`.
+#[test]
+fn flies_eaten_match_reference_model() {
+    let expected: Value =
+        serde_json::from_str(include_str!("../../tests/data/flies_eat_model.json"))
+            .expect("model output");
+    let Some(mut t) = FlyTrace::caught("White").map(FlyTrace::eaten) else {
+        return;
+    };
+    t.assert_matches(&expected, "eating");
+    assert!(
+        t.first_mismatch(&FlyTrace::with_wrong_food(&expected))
+            .is_some(),
+        "a wrong food count is caught"
+    );
+    assert!(t.count("g") > 0 && t.count("j") > 0 && t.count("w") > 0);
+    assert!(t.first_bite_kills(), "the first bite kills the fly");
+    let state = t.session_mut().state().expect("state");
+    let player = state.player.expect("player");
+    assert_eq!(
+        (player.food, player.quarter_food),
+        (2, 0),
+        "a full pip each"
+    );
+    assert_eq!(t.foods(), [(0, 0), (1, 0), (2, 0)], "food 0, 1, 2");
+    let hud = t.session_mut().hud_state().expect("hud");
+    assert_eq!(hud.food_meter.show_count, 2, "the meter shows the pips");
+}
+
+/// The same as the Hunter: a bat fly is a single quarter point.
+#[test]
+fn hunter_eats_a_quarter_pip() {
+    let expected: Value =
+        serde_json::from_str(include_str!("../../tests/data/flies_eat_red_model.json"))
+            .expect("model output");
+    let Some(mut t) = FlyTrace::caught("Red").map(FlyTrace::eaten) else {
+        return;
+    };
+    t.assert_matches(&expected, "the Hunter eating");
+    let state = t.session_mut().state().expect("state");
+    let player = state.player.expect("player");
+    assert_eq!(t.foods(), [(0, 0), (0, 1), (0, 2)], "a quarter pip per fly");
+    assert_eq!((player.food, player.quarter_food), (0, 2));
+    let hud = t.session_mut().hud_state().expect("hud");
+    assert_eq!(
+        (hud.food_meter.show_count, hud.food_meter.quarter_pips),
+        (0, 2),
+        "the meter shows the quarter pips"
+    );
+}
+
+/// A fly caught in SU_A42, carried down its exit to SU_A41 (pulled in, out of the room,
+/// moved with the player, spat out with it) and thrown there.
+#[test]
+fn carried_fly_matches_reference_model() {
+    let expected: Value =
+        serde_json::from_str(include_str!("../../tests/data/flies_carry_model.json"))
+            .expect("model output");
+    let Some(mut t) = FlyTrace::carried() else {
+        return;
+    };
+    t.assert_matches(&expected, "carrying");
+    for code in ["P", "S", "V", "O", "M"] {
+        assert!(t.count(code) > 0, "{code} calls");
+    }
+    let state = t.session_mut().state().expect("state");
+    assert_eq!(state.player_room, "SU_A41");
+    let player = state.player.expect("player");
+    assert_eq!(
+        player.grasps,
+        [None, Some(39)],
+        "the first hand's fly thrown"
+    );
 }

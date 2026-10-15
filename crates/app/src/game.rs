@@ -13,7 +13,7 @@ use rw_assets::{ActiveMods, Room, RoomSettings, SlugcatName, SoundTable, Streami
 use rw_audio::Follow as SoundFollow;
 use rw_graphics::{
     Color, DrawList, FlyGraphics, HologramFrame, HologramGraphics, OverseerGraphics,
-    PlayerGraphics, ShortcutPalette,
+    PlayerGraphics, ShortcutPalette, WaterDripSprites,
 };
 use rw_hud::{HudSetup, OwnerTick, RainCycleView, StartCondition, Subregions};
 use rw_random::UnityRandom;
@@ -26,8 +26,8 @@ use rw_sim::creature::{CreatureId, EntityId};
 use rw_sim::room_script::{RoomScript, SuC04StartUp};
 use rw_sim::world::World;
 use rw_sim::{
-    CameraMove, CameraView, HudEvent, Input, PhysicalObject, Player, PlayerObserver, RainWorldGame,
-    SoundEvent, Sounds, Start, Vec2, Water,
+    CameraMove, CameraView, GraphicsCallRecord, HudEvent, Input, PhysicalObject, Player,
+    PlayerObserver, PlayerSurroundings, RainWorldGame, SoundEvent, Sounds, Start, Vec2, Water,
 };
 
 use crate::shortcuts::CameraShortcuts;
@@ -39,10 +39,11 @@ pub enum GameStart {
     /// position (`TryGetPlayerStartPos`, else (15, 25)).
     NewStory(SlugcatName),
     /// A given room, in its region's world (a single-room world for arena levels), as
-    /// the Survivor: on `tile`, or on a safe spawn tile (the dev start, `--spawn`).
+    /// `slugcat`: on `tile`, or on a safe spawn tile (the dev start, `--spawn`).
     Room {
         name: String,
         tile: Option<(i32, i32)>,
+        slugcat: SlugcatName,
     },
 }
 
@@ -132,10 +133,11 @@ impl PlayerObserver for Graphics {
         player: &Player,
         room: &Room,
         water: Option<&Water>,
+        around: &PlayerSurroundings<'_>,
         rng: &mut UnityRandom,
     ) {
         if let Some(g) = &mut self.module {
-            g.update(player, room, water, rng);
+            g.update(player, room, water, around, rng);
         }
     }
 
@@ -143,6 +145,37 @@ impl PlayerObserver for Graphics {
         if let Some(g) = &mut self.module {
             g.spat_out_of_shortcut(player, rng);
         }
+    }
+
+    fn spat_out_finished(&mut self, player: &Player, rng: &mut UnityRandom) {
+        if let Some(g) = &mut self.module {
+            g.reset(player, rng);
+        }
+    }
+
+    fn has_player_graphics(&self) -> bool {
+        self.module.is_some()
+    }
+
+    fn player_look_at(&mut self, target: Option<CreatureId>) {
+        if let Some(g) = &mut self.module {
+            g.look_at(target);
+        }
+    }
+
+    fn player_bite_fly(&mut self, hand: usize, fly: CreatureId) -> Option<Vec2> {
+        self.module.as_mut().map(|g| g.bite_fly(hand, fly))
+    }
+
+    fn player_hands(&self) -> Option<[(Vec2, Vec2); 2]> {
+        self.module.as_ref().map(PlayerGraphics::hand_motion)
+    }
+
+    fn take_graphics_calls(&mut self) -> Vec<GraphicsCallRecord> {
+        self.module
+            .as_mut()
+            .map(PlayerGraphics::take_calls)
+            .unwrap_or_default()
     }
 
     fn overseer_added(&mut self, view: &OverseerView<'_>, rng: &mut UnityRandom) {
@@ -306,7 +339,15 @@ impl Game {
                     campaign::player_start_pos(den, mods).unwrap_or(campaign::DEFAULT_PLAYER_TILE);
                 (campaign, den.to_owned(), Some(tile))
             }
-            GameStart::Room { name, tile } => (&SlugcatCampaign::SURVIVOR, name.clone(), *tile),
+            GameStart::Room {
+                name,
+                tile,
+                slugcat,
+            } => {
+                let campaign = SlugcatCampaign::of(*slugcat, mods)
+                    .ok_or_else(|| format!("no campaign for {slugcat}"))?;
+                (campaign, name.clone(), *tile)
+            }
         };
         let filter = LineFilter {
             timeline: Some(campaign.timeline),
@@ -427,7 +468,7 @@ impl Game {
             screen_size,
             max_food: campaign.stats.max_food,
             food_to_hibernate: campaign.stats.food_to_hibernate,
-            current_food: 0,
+            current_food: self.sim.food_in_stomach(),
             karma: campaign.start_karma,
             karma_cap: campaign.start_karma_cap,
             karma_reinforced: false,
@@ -447,9 +488,9 @@ impl Game {
         }
     }
 
-    /// What the HUD reads of the player this tick. Eating, shelters (doors,
-    /// hibernation) and the rain cycle are not ported: no food, never in a shelter's
-    /// sleep pose or ready to win, no rain danger.
+    /// What the HUD reads of the player this tick. Shelters (doors, hibernation) and the
+    /// rain cycle are not ported: never in a shelter's sleep pose or ready to win, no
+    /// rain danger.
     #[must_use]
     pub fn hud_owner(&self) -> OwnerTick {
         let Some(player) = self.sim.player() else {
@@ -462,6 +503,8 @@ impl Game {
         let shelter = room.is_some_and(AbstractRoomData::shelter);
         OwnerTick {
             reveal_map: input.map,
+            current_food: self.sim.food_in_stomach(),
+            quarter_food_points: self.sim.quarter_food_points(),
             room: room.map(|r| r.name.clone()),
             // Broken shelters are not read: every shelter is intact.
             in_intact_shelter: shelter,
@@ -621,6 +664,20 @@ impl Game {
             }
         }
         lists
+    }
+
+    /// The water drips in the camera's room at `alpha` between ticks, oldest first
+    /// (`WaterDrip.DrawSprites` on the cosmetic stream), in the palette's black.
+    pub fn drip_draw_lists(&mut self, alpha: f32, black: Color, darkness: f32) -> Vec<DrawList> {
+        let Some(room) = self.sim.world().realized(self.sim.camera_room()) else {
+            return Vec::new();
+        };
+        let glitter = room.water_glitter;
+        room.drips
+            .iter()
+            .filter(|d| !d.slated)
+            .map(|d| d.draw(glitter, black, darkness, alpha, &mut self.graphics.cosmetic))
+            .collect()
     }
 
     /// The flies' sprites in the camera's room at `alpha` between ticks, in sprite

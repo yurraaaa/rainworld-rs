@@ -136,6 +136,9 @@ pub struct Fly {
     pub wall_avoidance: f32,
     pub chain_behavior_variation: i32,
     pub bites: i32,
+    pub ever_been_caught_by_player: bool,
+    /// `evenUpdate`: the `eu` of its last update (false before the first).
+    pub even_update: bool,
     pub hover: Option<HoverEmitter>,
     pub ai: FlyAi,
     /// Whether it has a graphics module (built by `AddObject` or `NowViewed` in a viewed
@@ -197,6 +200,8 @@ impl Fly {
             wall_avoidance: 0.0,
             chain_behavior_variation: 0,
             bites: 3,
+            ever_been_caught_by_player: false,
+            even_update: false,
             hover: None,
             ai: FlyAi::new(flock, rain_approaching),
             graphics: false,
@@ -246,7 +251,8 @@ pub struct FlyView<'a> {
     pub fly: &'a Fly,
     /// `grasps[0].grabbed.firstChunk.pos`.
     pub grasp_pos: Option<Vec2>,
-    /// `grabbedBy[0].grabber.mainBodyChunk.pos`, and whether that grabber is a fly.
+    /// `grabbedBy[0].grabber.mainBodyChunk.pos`, and whether that grabber is a fly (else
+    /// the slugcat).
     pub grabber: Option<(Vec2, bool)>,
     /// `firstChunk.submersion`.
     pub submersion: f32,

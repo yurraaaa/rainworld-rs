@@ -1,7 +1,7 @@
 //! Room settings files (`<room>_settings.txt`) and their template inheritance, for the
 //! values the port uses: `Palette`, `FadePalette`, `EffectColorA/B`, `Clouds`, `Grime`,
 //! the water surface's `WaveSpeed`, `WaveLength`, `WaveAmplitude`, `SecondWaveLength`
-//! and `SecondWaveAmplitude`, `DangerType`, `RainIntensity`, `AmbientSounds`, `Effects`
+//! and `SecondWaveAmplitude`, `DangerType`, `CeilingDrips`, `RainIntensity`, `AmbientSounds`, `Effects`
 //! and `PlacedObjects`. Mirrors `RoomSettings` (constructor,
 //! `FindParent`, `Load`, `InheritAmbientSounds`) and
 //! `Region.GetRoomSettingsTemplate`; see `rainworld-re/notes/room-format.md` section 6.
@@ -81,6 +81,7 @@ pub struct SettingsFile {
     pub second_wave_amplitude: Option<f32>,
     /// `DangerType:`; the inner `None` is a value the game does not register.
     pub danger_type: Option<Option<DangerType>>,
+    pub ceiling_drips: Option<f32>,
     pub rain_intensity: Option<f32>,
     /// The file's own `AmbientSounds:` entries (every such line adds).
     pub ambient_sounds: Vec<AmbientSound>,
@@ -111,6 +112,7 @@ pub struct RoomSettings {
     pub second_wave_amplitude: f32,
     /// `None` for a value the game does not register (equal to none of its own).
     pub danger_type: Option<DangerType>,
+    pub ceiling_drips: f32,
     pub rain_intensity: f32,
     /// Own ambient sounds, then the parent's that are not overridden (templates and
     /// the root do not inherit).
@@ -161,6 +163,7 @@ impl SettingsFile {
                 "DangerType" => {
                     file.danger_type = Some(DangerType::from_value(value, ActiveMods::NONE));
                 }
+                "CeilingDrips" => file.ceiling_drips = Some(Self::float(value)?),
                 "RainIntensity" => file.rain_intensity = Some(Self::float(value)?),
                 "AmbientSounds" => file.ambient_sounds.extend(AmbientSound::parse_list(value)?),
                 "Effects" => file.effects.extend(RoomEffect::parse_list(value)),
@@ -223,6 +226,7 @@ impl SettingsFile {
                 .second_wave_amplitude
                 .unwrap_or(parent.second_wave_amplitude),
             danger_type: self.danger_type.unwrap_or(parent.danger_type),
+            ceiling_drips: self.ceiling_drips.unwrap_or(parent.ceiling_drips),
             rain_intensity: self.rain_intensity.unwrap_or(parent.rain_intensity),
             ambient_sounds: AmbientSound::inherit(&self.ambient_sounds, &parent.ambient_sounds),
             effects: RoomEffect::inherit(&self.effects, &parent.effects),
@@ -256,6 +260,7 @@ impl RoomSettings {
         second_wave_length: 1.0 / 6.0,
         second_wave_amplitude: 0.0,
         danger_type: Some(DangerType::Rain),
+        ceiling_drips: 0.5,
         rain_intensity: 1.0,
         ambient_sounds: Vec::new(),
         effects: Vec::new(),

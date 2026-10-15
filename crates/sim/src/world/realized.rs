@@ -10,7 +10,7 @@ use super::AiMap;
 use crate::creature::fly::FliesRoomAi;
 use crate::room_script::RoomScript;
 
-use crate::{ShortcutsBlinking, Water};
+use crate::{ShortcutsBlinking, Water, WaterDrip, WaterGlitter};
 
 /// Placed objects whose `Room.Loaded` branch delays entry by 80 ticks (base game).
 const WAIT_80_OBJECTS: [&str; 8] = [
@@ -45,6 +45,9 @@ pub struct RealizedRoom {
     pub flies_room_ai: Option<FliesRoomAi>,
     /// `shortcutsBlinking`, made when the shortcuts are ready.
     pub shortcuts_blinking: Option<ShortcutsBlinking>,
+    /// The `WaterDrip`s in the room's update list.
+    pub drips: Vec<WaterDrip>,
+    pub water_glitter: WaterGlitter,
 }
 
 impl RealizedRoom {
@@ -71,6 +74,8 @@ impl RealizedRoom {
             ai_map: None,
             flies_room_ai: None,
             shortcuts_blinking: None,
+            drips: Vec::new(),
+            water_glitter: WaterGlitter::default(),
         }
     }
 

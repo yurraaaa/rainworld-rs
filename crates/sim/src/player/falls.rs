@@ -62,11 +62,13 @@ impl Player {
     }
 
     /// `Player.Stun`: keeps the longer of the current and the new stun; a stun longer
-    /// than a random 5..=11 ticks also stops standing and releases the feet pin. A new
+    /// than a random 5..=11 ticks also drops what the hands hold (`LoseAllGrasps`), stops
+    /// standing and releases the feet pin. A new
     /// longer stun above 10 plays `UI_Slugcat_Stunned_Init` (silent in the shipped game).
     pub fn stun(&mut self, ticks: i32, rng: &mut UnityRandom, sounds: &mut Sounds) {
         self.flush_sounds(rng, sounds);
         if ticks > rng.range_i32(UNSTAND_STUN_DRAW.0, UNSTAND_STUN_DRAW.1) {
+            self.request_release_grasps();
             self.standing = false;
             self.feet_stuck_pos = None;
         }
@@ -81,12 +83,13 @@ impl Player {
     }
 
     /// `Player.Die`: plays `UI_Slugcat_Die` (silent in the shipped game) on the first
-    /// call; its draws are made with the player's next ones.
+    /// call; its draws are made with the player's next ones. The hands let go.
     pub fn die(&mut self) {
         if !self.dead {
             self.play_sound(SoundId::UiSlugcatDie, HEAD, 1.0, 1.0);
         }
         self.dead = true;
+        self.request_release_grasps();
     }
 
     /// Stun ticks for an impact at `speed`: `LerpMap(speed, 35, 60, 40, 140, 2.5)`,
@@ -209,7 +212,8 @@ impl Player {
 impl Player {
     /// `Player.TerrainImpact` with Remix off: the landing roll pre-empts everything on
     /// this impact; otherwise a first contact kills on a floor above 60, stuns above 35,
-    /// or plays a landing or bump sound by speed.
+    /// or plays a landing or bump sound by speed. Either way it ends in the base
+    /// `Creature.TerrainImpact`'s ceiling drips.
     pub(super) fn terrain_impact_with(
         &mut self,
         chunks: &mut [BodyChunk],
@@ -223,12 +227,23 @@ impl Player {
         }
         if self.lands_in_roll(&impact) {
             self.start_landing_roll(chunks);
-            self.flush_sounds(rng, sounds);
-            return;
+        } else if impact.first_contact {
+            self.first_contact_impact(impact, rng, sounds);
         }
-        if !impact.first_contact {
-            return;
-        }
+        self.flush_sounds(rng, sounds);
+        let c = &chunks[impact.chunk];
+        self.impact_drips(c.pos, c.rad, c.mass, impact, rng);
+    }
+
+    /// A first contact that is not a landing roll: death on a floor above 60, a stun
+    /// above 35, else a landing or bump sound by speed.
+    fn first_contact_impact(
+        &mut self,
+        impact: TerrainImpact,
+        rng: &mut UnityRandom,
+        sounds: &mut Sounds,
+    ) {
+        let speed = impact.speed;
         if speed > FALL_DEATH_SPEED && impact.direction.y < 0 {
             self.play_sound(SoundId::SlugcatTerrainImpactDeath, HEAD, 1.0, 1.0);
             self.die();
@@ -250,7 +265,6 @@ impl Player {
         } else {
             self.play_sound(SoundId::SlugcatTerrainImpactHard, HEAD, 1.0, 1.0);
         }
-        self.flush_sounds(rng, sounds);
     }
 }
 

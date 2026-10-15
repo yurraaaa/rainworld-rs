@@ -1,9 +1,14 @@
 //! `SlugcatHand`: a hand on the head chunk that reaches for terrain and beams while
-//! the body mode needs it and retracts (hidden) otherwise.
+//! the body mode needs it, holds what the slugcat carries, and retracts (hidden)
+//! otherwise.
 
 use rw_assets::{Room, Terrain};
 use rw_random::UnityRandom;
-use rw_sim::{Animation, BodyMode, HEAD, HIPS, Player, Vec2, Water};
+use rw_sim::creature::CreatureId;
+use rw_sim::{
+    Animation, BodyMode, FliesCall, GraphicsCallRecord, HEAD, HIPS, Player, PlayerSurroundings,
+    Vec2, Water,
+};
 
 use crate::body_part::{BodyPart, PointConnection};
 use crate::limb::{GripSearch, Limb, LimbMode};
@@ -16,6 +21,35 @@ pub struct SlugcatHand {
     pub limb: Limb,
     /// Ticks of wanting to retract; lowers the shoulder spread while drawn.
     pub retract_counter: i32,
+    /// `reachingForObject`: set for one update by the graphics' fly reach.
+    pub reaching_for_object: bool,
+}
+
+/// What the slugcat's grasps hold, as the hands read it.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub(crate) struct HandGrasp {
+    pub held: [Option<CreatureId>; 2],
+    /// The held object is a fly that is not dead.
+    pub live_fly: [bool; 2],
+}
+
+impl HandGrasp {
+    pub(crate) fn of(around: &PlayerSurroundings<'_>) -> Self {
+        let mut out = Self::default();
+        for i in 0..2 {
+            let held = around.grasps[i];
+            out.held[i] = held;
+            out.live_fly[i] = held
+                .and_then(|id| around.world.creature(id).fly())
+                .is_some_and(|f| !f.dead);
+        }
+        out
+    }
+
+    /// The first hand holding something edible (every holdable object, a fly, is).
+    fn edible_hand(&self) -> Option<usize> {
+        (0..2).find(|&i| self.held[i].is_some())
+    }
 }
 
 /// Graphics state a hand reads or pokes while it updates.
@@ -30,6 +64,12 @@ pub(crate) struct HandContext<'a> {
     /// Hand 0's position and `reached_snap_position`, read by hand 1 while crawling.
     pub hand0: (Vec2, bool),
     pub rng: &'a mut UnityRandom,
+    pub grasps: HandGrasp,
+    pub spear_dir: f32,
+    /// `drawPositions[0, 0]`, nudged by a held fly's twitch.
+    pub draw_pos0: &'a mut Vec2,
+    /// Where the grasp branch is recorded for a trace.
+    pub calls: Option<&'a mut Vec<GraphicsCallRecord>>,
 }
 
 impl SlugcatHand {
@@ -39,6 +79,7 @@ impl SlugcatHand {
         Self {
             limb: Limb::new(limb_number, BodyPart::new(3.0, 0.8, 1.0), 7.0, 0.5),
             retract_counter: 0,
+            reaching_for_object: false,
         }
     }
 
@@ -47,8 +88,9 @@ impl SlugcatHand {
         self.limb.part.reset(point, rng);
     }
 
-    /// `SlugcatHand.Update` with empty grasps, base game: hunt, stay within 20 px of
-    /// the head chunk, then follow the body mode or retract after 5 idle ticks.
+    /// `SlugcatHand.Update`, base game: hunt, stay within 20 px of the head chunk, then
+    /// reach for an object, follow the body mode, hold the grasped object, or retract
+    /// after 5 idle ticks.
     pub(crate) fn update(&mut self, cx: &mut HandContext<'_>) {
         let head = cx.player.head();
         self.limb.update(cx.room, head, cx.player.hips().pos);
@@ -61,7 +103,18 @@ impl SlugcatHand {
             adapt_vel: 0.0,
             exaggerate_vel: 0.0,
         });
-        let idle = self.engage_in_movement(cx);
+        let mut idle = if self.reaching_for_object {
+            self.limb.mode = LimbMode::HuntAbsolutePosition;
+            self.reaching_for_object = false;
+            false
+        } else {
+            self.engage_in_movement(cx)
+        };
+        // A fly is never a heavy carry.
+        if idle && cx.grasps.held[self.limb.limb_number].is_some() {
+            self.hold(cx);
+            idle = false;
+        }
         if idle && self.limb.mode != LimbMode::Retracted {
             self.retract_counter += 1;
             if self.retract_counter > 5 {
@@ -79,6 +132,104 @@ impl SlugcatHand {
         } else {
             self.retract_counter = (self.retract_counter - 10).max(0);
         }
+    }
+
+    /// The grasp branch (241784-241872): the held object rides below the shoulder,
+    /// drawn in toward the mouth while eating, in the middle while switching hands,
+    /// forward while walking; a live fly twitches the hand, the body and the head.
+    fn hold(&mut self, cx: &mut HandContext<'_>) {
+        let before = cx.calls.is_some().then(|| {
+            let mut input = self.json(cx);
+            input["p_chunks"] = crate::PlayerGraphics::chunks_json(cx.player);
+            (input, cx.rng.state())
+        });
+        let player = cx.player;
+        let limb = self.limb.limb_number;
+        let grab = player.grab_state();
+        self.limb.mode = LimbMode::HuntRelativePosition;
+        let rel = &mut self.limb.relative_hunt_pos;
+        rel.x = -20.0 + 40.0 * limb as f32;
+        rel.y = -12.0;
+        if grab.eat_counter < 40 && cx.grasps.edible_hand() == Some(limb) {
+            let eat = grab.eat_counter as f32;
+            *rel *= rw_sim::FloatExt::lerp_map(eat, 40.0, 20.0, 0.9, 0.7);
+            rel.y += rw_sim::FloatExt::lerp_map(eat, 40.0, 20.0, 2.0, 4.0);
+            rel.x *= rw_sim::FloatExt::lerp_map(eat, 40.0, 20.0, 1.0, 1.2);
+        }
+        rel.x *= 1.0 - (grab.switch_hands_process * std::f32::consts::PI).sin();
+        if cx.spear_dir != 0.0 && player.body_mode() == BodyMode::Stand {
+            let x = f32::from(player.input_history()[0].x);
+            let side = if limb == 0 { -1.0 } else { 1.0 };
+            let frame = player.animation_frame();
+            let mut b = Vec2::from_degrees(180.0 + side * 8.0 + x * 4.0) * 12.0;
+            b.y += (frame as f32 / 6.0 * std::f32::consts::TAU).sin() * 2.0;
+            let foot = if player.left_foot() { 0 } else { 6 };
+            b.x -= ((frame + foot) as f32 / 12.0 * std::f32::consts::TAU).cos() * 4.0 * x;
+            b.x += x * 2.0;
+            *rel = rel.lerp(b, cx.spear_dir.abs());
+        }
+        if cx.grasps.live_fly[limb] {
+            self.twitch(cx);
+        }
+        if let Some((input, rng)) = before {
+            let after = self.json(cx);
+            let output = serde_json::json!({
+                "hand": after["hand"],
+                "head_vel": after["head_vel"],
+                "draw_pos0": after["draw_pos0"],
+            });
+            let record = GraphicsCallRecord {
+                call: FliesCall::Hand(limb),
+                rng: [rng, cx.rng.state()],
+                input: input.to_string(),
+                output: output.to_string(),
+            };
+            if let Some(calls) = cx.calls.as_deref_mut() {
+                calls.push(record);
+            }
+        }
+    }
+
+    /// A live fly in the hand (241859-241866): nine draws in source order.
+    fn twitch(&mut self, cx: &mut HandContext<'_>) {
+        let rng = &mut *cx.rng;
+        self.limb.hunt_speed = rng.value() * 5.0;
+        self.limb.quickness = rng.value() * 0.3;
+        let part = &mut self.limb.part;
+        let dir = Vec2::from_degrees(rng.value() * 360.0);
+        let near = if self.limb.absolute_hunt_pos.dist_less(part.pos, 7.0) {
+            4.0
+        } else {
+            1.5
+        };
+        part.vel += dir * (rng.value() * rng.value() * near);
+        let dir = Vec2::from_degrees(rng.value() * 360.0);
+        part.pos += dir * (rng.value() * 4.0);
+        let main = cx.player.head().pos;
+        *cx.draw_pos0 += main.direction_to(part.pos) * (3.0 * rng.value());
+        *cx.head_vel += main.direction_to(part.pos) * (2.0 * rng.value());
+    }
+
+    /// The hand's trace record: the hand and the graphics values the branch reads.
+    fn json(&self, cx: &HandContext<'_>) -> serde_json::Value {
+        let l = &self.limb;
+        serde_json::json!({
+            "i": l.limb_number,
+            "hand": {
+                "pos": [l.part.pos.x, l.part.pos.y],
+                "vel": [l.part.vel.x, l.part.vel.y],
+                "mode": format!("{:?}", l.mode),
+                "absolute_hunt_pos": [l.absolute_hunt_pos.x, l.absolute_hunt_pos.y],
+                "relative_hunt_pos": [l.relative_hunt_pos.x, l.relative_hunt_pos.y],
+                "hunt_speed": l.hunt_speed,
+                "quickness": l.quickness,
+            },
+            "head_vel": [cx.head_vel.x, cx.head_vel.y],
+            "draw_pos0": [cx.draw_pos0.x, cx.draw_pos0.y],
+            "spear_dir": cx.spear_dir,
+            "left_foot": cx.player.left_foot(),
+            "animation_frame": cx.player.animation_frame(),
+        })
     }
 
     /// `SlugcatHand.EngageInMovement` for the ported body modes and animations: sets

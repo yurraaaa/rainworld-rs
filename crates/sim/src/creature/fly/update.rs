@@ -46,6 +46,21 @@ pub(crate) struct FlyTick<'a> {
     pub entrance_colors: &'a mut Vec<EntranceColor>,
     /// The game tick, as the hover emitter's frame count.
     pub tick: u64,
+    /// `game.evenUpdate`.
+    pub eu: bool,
+}
+
+/// A fly's terrain impacts with where its chunk was at each (the drips start there).
+#[derive(Default)]
+struct ImpactLog {
+    impacts: Vec<(crate::TerrainImpact, Vec2, f32, f32)>,
+}
+
+impl crate::TerrainImpactHandler for ImpactLog {
+    fn terrain_impact(&mut self, chunks: &mut [crate::BodyChunk], impact: crate::TerrainImpact) {
+        let c = &chunks[impact.chunk];
+        self.impacts.push((impact, c.pos, c.rad, c.mass));
+    }
 }
 
 /// One realized fly's update in its room.
@@ -198,12 +213,9 @@ impl FlyRun<'_, '_, '_> {
         }
     }
 
-    /// `Fly.Die`: `surfaceFriction` 0.3, then `Creature.Die`.
+    /// `Fly.Die`.
     pub(crate) fn die(&mut self) {
-        self.f().body.params.surface_friction = 0.3;
-        self.f().dead = true;
-        self.world.lose_all_grasps(self.me);
-        self.world.creature_mut(self.me).state.alive = false;
+        self.world.fly_die(self.me);
     }
 
     /// `Creature.Update` (the parts a fly reaches) with `PhysicalObject.Update`.
@@ -262,10 +274,15 @@ impl FlyRun<'_, '_, '_> {
         let held = !self.world.creature(self.me).grabbed_by.is_empty();
         let room = Arc::clone(&self.cx.room);
         let water = self.cx.water;
+        let mut log = ImpactLog::default();
+        let eu = self.cx.eu;
         let f = self.f();
+        // `UpdatableAndDeletable.Update`, reached through `PhysicalObject.Update` only.
+        f.even_update = eu;
         f.body.held = held;
-        f.body.update_with(&room, water, &mut ());
+        f.body.update_with(&room, water, &mut log);
         let tile = f.pos().tile();
+        self.impact_drips(&log);
         let index = self.cx.room_index;
         let c = self.world.creature_mut(self.me);
         c.pos.tile = tile;
@@ -274,6 +291,31 @@ impl FlyRun<'_, '_, '_> {
         if !self.fr().sticks_respawned {
             self.recreate_sticks();
             self.f().sticks_respawned = true;
+        }
+    }
+
+    /// The base `Creature.TerrainImpact` of each first contact: drips off a wet ceiling.
+    fn impact_drips(&mut self, log: &ImpactLog) {
+        let index = self.cx.room_index;
+        let ceiling_drips = self
+            .world
+            .realized(index)
+            .map_or(0.0, |r| r.settings.ceiling_drips);
+        for (impact, pos, rad, mass) in &log.impacts {
+            if !impact.first_contact {
+                continue;
+            }
+            let drips = crate::WaterDrip::from_impact(
+                impact,
+                *pos,
+                *rad,
+                *mass,
+                ceiling_drips,
+                self.cx.rng,
+            );
+            for d in drips {
+                self.world.add_drip(index, d);
+            }
         }
     }
 
@@ -676,6 +718,28 @@ impl FlyRun<'_, '_, '_> {
 }
 
 impl World {
+    /// `Fly.PlayerAutoGrabable`: conscious, out of a shortcut's delay, and held by nothing
+    /// but flies.
+    #[must_use]
+    pub fn fly_auto_grabable(&self, id: CreatureId) -> bool {
+        let c = self.creature(id);
+        let Some(f) = c.fly() else { return false };
+        let free = c
+            .grabbed_by
+            .first()
+            .is_none_or(|g| self.creature(g.grabber).fly().is_some());
+        f.conscious() && free && f.shortcut_delay < 1
+    }
+
+    /// `Fly.Die`: `surfaceFriction` 0.3, then `Creature.Die` (its grasps let go).
+    pub(crate) fn fly_die(&mut self, id: CreatureId) {
+        let f = self.fly_at(id);
+        f.body.params.surface_friction = 0.3;
+        f.dead = true;
+        self.lose_all_grasps(id);
+        self.creature_mut(id).state.alive = false;
+    }
+
     /// The realized fly `id` (an invariant of the callers).
     pub(crate) fn fly_at(&mut self, id: CreatureId) -> &mut Fly {
         self.creature_mut(id).fly_mut().expect("a realized fly")
@@ -790,12 +854,14 @@ impl World {
             .copied()
             .flatten()
             .and_then(|g| self.chunk_pos(g.grabbed, 0));
-        // Only flies grab flies so far (the player's grasp comes with eating).
         let grabber = c
             .grabbed_by
             .first()
-            .and_then(|g| self.creature(g.grabber).fly())
-            .map(|f| (f.pos(), true));
+            .and_then(|g| match &self.creature(g.grabber).realized {
+                Some(RealizedCreature::Fly(f)) => Some((f.pos(), true)),
+                Some(RealizedCreature::Player) => self.player_body.map(|p| (p.chunks[0], false)),
+                _ => None,
+            });
         FlyView {
             id: c.id,
             fly,

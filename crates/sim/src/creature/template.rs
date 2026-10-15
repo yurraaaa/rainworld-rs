@@ -37,6 +37,85 @@ pub struct CreatureTemplate {
     pub water_relationship: WaterRelationship,
 }
 
+/// `CreatureTemplate.Relationship.Type`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RelationshipType {
+    DoesntTrack,
+    Ignores,
+    Eats,
+    Afraid,
+    StayOutOfWay,
+    AgressiveRival,
+    Attacks,
+    Uncomfortable,
+    Antagonizes,
+    PlaysWith,
+    SocialDependent,
+    Pack,
+}
+
+impl RelationshipType {
+    const ALL: [Self; 12] = [
+        Self::DoesntTrack,
+        Self::Ignores,
+        Self::Eats,
+        Self::Afraid,
+        Self::StayOutOfWay,
+        Self::AgressiveRival,
+        Self::Attacks,
+        Self::Uncomfortable,
+        Self::Antagonizes,
+        Self::PlaysWith,
+        Self::SocialDependent,
+        Self::Pack,
+    ];
+
+    /// The game's spelling.
+    #[must_use]
+    pub fn value(self) -> &'static str {
+        match self {
+            Self::DoesntTrack => "DoesntTrack",
+            Self::Ignores => "Ignores",
+            Self::Eats => "Eats",
+            Self::Afraid => "Afraid",
+            Self::StayOutOfWay => "StayOutOfWay",
+            Self::AgressiveRival => "AgressiveRival",
+            Self::Attacks => "Attacks",
+            Self::Uncomfortable => "Uncomfortable",
+            Self::Antagonizes => "Antagonizes",
+            Self::PlaysWith => "PlaysWith",
+            Self::SocialDependent => "SocialDependent",
+            Self::Pack => "Pack",
+        }
+    }
+
+    #[must_use]
+    pub fn from_value(value: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|t| t.value() == value)
+    }
+}
+
+/// `CreatureTemplate.Relationship`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Relationship {
+    pub kind: RelationshipType,
+    pub intensity: f32,
+}
+
+impl Relationship {
+    /// The slugcat's relationship to `kind`, for the types a room holds so far: Fly
+    /// (Eats 0.5, 126784) and Overseer (Ignores 0, 126936).
+    #[must_use]
+    pub fn of_slugcat_to(kind: CreatureType) -> Option<Self> {
+        let (kind, intensity) = match kind {
+            CreatureType::Fly => (RelationshipType::Eats, 0.5),
+            CreatureType::Overseer => (RelationshipType::Ignores, 0.0),
+            _ => return None,
+        };
+        Some(Self { kind, intensity })
+    }
+}
+
 /// `CreatureTemplate.WaterRelationship`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WaterRelationship {

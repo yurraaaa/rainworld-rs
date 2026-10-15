@@ -84,6 +84,8 @@ pub struct BodyChunk {
     pub restrict_in_room_range: f32,
     /// Ticks before this chunk can splash the water surface again (`splashStop`).
     pub splash_stop: i32,
+    /// `setPos`: taken instead of `pos += vel` at the next update.
+    pub set_pos: Option<Vec2>,
     contact: Contact,
     last_contact: Contact,
     on_slope: i8,
@@ -106,6 +108,7 @@ impl BodyChunk {
             go_through_floors: false,
             restrict_in_room_range: DEFAULT_RESTRICT_IN_ROOM_RANGE,
             splash_stop: 0,
+            set_pos: None,
             contact: Contact::default(),
             last_contact: Contact::default(),
             on_slope: 0,
@@ -143,6 +146,16 @@ impl BodyChunk {
         self.last_last_pos = pos;
     }
 
+    /// `MoveFromOutsideMyUpdate`: an owner that already updated with this `eu` is moved
+    /// now, else at its next update (`setPos`).
+    pub fn move_from_outside_my_update(&mut self, owner_even_update: bool, eu: bool, to: Vec2) {
+        if owner_even_update == eu {
+            self.pos = to;
+        } else {
+            self.set_pos = Some(to);
+        }
+    }
+
     /// Moves the chunk to `pos` with no history and no velocity (`HardSetPosition` + zero vel).
     pub fn reset_at(&mut self, pos: Vec2) {
         self.pos = pos;
@@ -152,7 +165,7 @@ impl BodyChunk {
     }
 
     /// First half of `BodyChunk.Update`: gravity, water or air drag, history shift,
-    /// `pos += vel` and the per-tick resets. [`crate::PhysicalObject`] then runs the
+    /// `pos += vel` (or `setPos`) and the per-tick resets. [`crate::PhysicalObject`] then runs the
     /// collision stages.
     pub(crate) fn integrate(&mut self, p: &PhysicsParams, water: Option<&Water>) {
         if self.vel.y.is_nan() {
@@ -171,7 +184,10 @@ impl BodyChunk {
         }
         self.last_last_pos = self.last_pos;
         self.last_pos = self.pos;
-        self.pos += self.vel;
+        match self.set_pos.take() {
+            Some(p) => self.pos = p,
+            None => self.pos += self.vel,
+        }
         self.on_slope = 0;
         self.last_contact = self.contact;
     }

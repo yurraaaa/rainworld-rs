@@ -262,6 +262,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         start: game::GameStart::Room {
             name: room.name().to_owned(),
             tile: args.spawn,
+            slugcat: rw_assets::SlugcatName::White,
         },
         seed: args.seed,
         sound_table: table,

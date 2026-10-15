@@ -43,10 +43,13 @@ pub enum Action {
     Jump,
     /// The map button: shows the HUD's meters and stands the slugcat still.
     Map,
+    /// Take: picks up, drops and eats.
+    PickUp,
+    Throw,
 }
 
 impl Action {
-    const COUNT: usize = 6;
+    const COUNT: usize = 8;
 
     const fn index(self) -> usize {
         self as usize
@@ -65,9 +68,9 @@ pub enum Command {
 
 impl Action {
     /// What a physical key does in Rewired's default gameplay keyboard map
-    /// (`rainworld-re/notes/menu.md` "Input"): arrows move, Z jumps, Space is the map
-    /// button. The map's other actions (X throw, left Shift pick up, C special, Esc
-    /// pause) have no use in the port yet.
+    /// (`rainworld-re/notes/menu.md` "Input"): arrows move, Z jumps, X throws, left Shift
+    /// picks up, Space is the map button. C (special) and Esc (pause) have no use in the
+    /// port yet.
     #[must_use]
     pub fn from_key(key: KeyCode) -> Option<Self> {
         Some(match key {
@@ -76,6 +79,8 @@ impl Action {
             KeyCode::ArrowUp => Action::Up,
             KeyCode::ArrowDown => Action::Down,
             KeyCode::KeyZ => Action::Jump,
+            KeyCode::KeyX => Action::Throw,
+            KeyCode::ShiftLeft => Action::PickUp,
             KeyCode::Space => Action::Map,
             _ => return None,
         })
@@ -92,6 +97,8 @@ impl Action {
             KeyboardKey::UpArrow => Action::Up,
             KeyboardKey::DownArrow => Action::Down,
             KeyboardKey::Z => Action::Jump,
+            KeyboardKey::X => Action::Throw,
+            KeyboardKey::LeftShift => Action::PickUp,
             KeyboardKey::Space => Action::Map,
             _ => return None,
         })
@@ -144,6 +151,8 @@ impl InputState {
             y: self.axis(Action::Down, Action::Up),
             jump: self.is_on(Action::Jump),
             map: self.is_on(Action::Map),
+            pickup: self.is_on(Action::PickUp),
+            throw: self.is_on(Action::Throw),
         };
         self.pressed_since_tick = [false; Action::COUNT];
         input
@@ -239,6 +248,8 @@ mod tests {
         assert_eq!(Action::from_key(KeyCode::ArrowDown), Some(Action::Down));
         assert_eq!(Action::from_key(KeyCode::KeyZ), Some(Action::Jump));
         assert_eq!(Action::from_key(KeyCode::Space), Some(Action::Map));
+        assert_eq!(Action::from_key(KeyCode::KeyX), Some(Action::Throw));
+        assert_eq!(Action::from_key(KeyCode::ShiftLeft), Some(Action::PickUp));
         // Not in the default map: WASD.
         for key in [KeyCode::KeyW, KeyCode::KeyA, KeyCode::KeyS, KeyCode::KeyD] {
             assert_eq!(Action::from_key(key), None);

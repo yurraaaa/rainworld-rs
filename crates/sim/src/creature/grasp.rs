@@ -205,6 +205,47 @@ impl World {
         }
     }
 
+    /// `Creature.SwitchGrasps(from, to)` with `UpdateGraspIndexes`: the two hands swap
+    /// what they hold.
+    pub fn switch_grasps(&mut self, id: CreatureId, from: usize, to: usize) {
+        let c = self.creature_mut(id);
+        c.grasps.swap(from, to);
+        let grasps: Vec<Grasp> = c
+            .grasps
+            .iter_mut()
+            .enumerate()
+            .filter_map(|(i, g)| {
+                let g = g.as_mut()?;
+                g.grasp_used = i;
+                Some(*g)
+            })
+            .collect();
+        for g in &grasps {
+            for held in &mut self.creature_mut(g.grabbed).grabbed_by {
+                if held.serial == g.serial {
+                    held.grasp_used = g.grasp_used;
+                }
+            }
+        }
+        let sticks = self.creature(id).sticks.clone();
+        for s in sticks.iter().filter(|s| s.a == id) {
+            let Some(k) = grasps
+                .iter()
+                .find(|g| g.grabbed == s.b)
+                .map(|g| g.grasp_used)
+            else {
+                continue;
+            };
+            for o in [s.a, s.b] {
+                for t in &mut self.creature_mut(o).sticks {
+                    if t.serial == s.serial {
+                        t.grasp = k;
+                    }
+                }
+            }
+        }
+    }
+
     /// `AbstractCreature.DropCarriedObject`: the sticks of that grasp deactivate, then the
     /// realized grasp (if still there) is released.
     pub fn drop_carried_object(&mut self, id: CreatureId, grasp: usize) {

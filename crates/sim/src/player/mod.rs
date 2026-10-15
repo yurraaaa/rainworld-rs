@@ -14,6 +14,7 @@ mod animation;
 mod body_mode;
 mod corridor;
 mod falls;
+mod grab;
 mod input;
 mod jump;
 mod ledge;
@@ -28,12 +29,15 @@ mod tests;
 use rw_assets::{Room, Terrain};
 use rw_random::UnityRandom;
 
+pub use grab::GrabState;
 pub use input::{INPUT_HISTORY, Input, PlayerController};
 pub use shortcut::VesselStep;
 
 use crate::room_ext::RoomExt;
 use crate::shortcut::ShortcutVessel;
-use crate::{BodyChunk, EmitterId, PhysicalObject, SoundId, Sounds, Vec2, Water, place_in_room};
+use crate::{
+    BodyChunk, EmitterId, PhysicalObject, SoundId, Sounds, Vec2, Water, WaterDrip, place_in_room,
+};
 use sounds::QueuedSound;
 
 /// Index of the head chunk (`bodyChunks[0]`, `mainBodyChunk`).
@@ -323,6 +327,36 @@ pub struct Player {
     /// `room.PlaySound` calls on a chunk made where no generator is at hand; their
     /// draws are made before the next draw of the tick (same order as the game).
     sound_queue: Vec<QueuedSound>,
+
+    /// The counters `GrabUpdate` keeps.
+    pub(crate) grab: GrabState,
+    /// `Stun` or `Die` let go of everything (`LoseAllGrasps`); the game applies it.
+    release_grasps: bool,
+    /// `MovementUpdate` ran this tick (so `GrabUpdate`, its last step, is due).
+    movement_ran: bool,
+    /// The pull toward a shortcut this tick: target and snap radius, for the objects
+    /// carried along.
+    shortcut_pull: Option<(Vec2, f32)>,
+    /// `roomSettings.CeilingDrips` of the room it updates in.
+    ceiling_drips: f32,
+    /// `WaterDrip`s made this tick, for the room to add, with the impacts that made them.
+    drips: Vec<ImpactDrips>,
+    /// The body as it was when this tick's shortcut pull began, where `Creature.Update`
+    /// runs the graphics module's extra update.
+    before_pull: Option<Box<Player>>,
+}
+
+/// The drips of one terrain impact (`Creature.TerrainImpact`) with the random state
+/// around them.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ImpactDrips {
+    pub impact: crate::TerrainImpact,
+    pub pos: Vec2,
+    pub rad: f32,
+    pub mass: f32,
+    pub ceiling_drips: f32,
+    pub rng: [[u32; 4]; 2],
+    pub drips: Vec<WaterDrip>,
 }
 
 impl Default for Player {
@@ -419,6 +453,13 @@ impl Player {
             slide_loop: None,
             slide_loop_sound: None,
             sound_queue: Vec::new(),
+            grab: GrabState::default(),
+            release_grasps: false,
+            movement_ran: false,
+            shortcut_pull: None,
+            ceiling_drips: 0.0,
+            drips: Vec::new(),
+            before_pull: None,
         }
     }
 
@@ -471,6 +512,11 @@ impl Player {
     #[must_use]
     pub fn is_standing(&self) -> bool {
         self.standing
+    }
+
+    #[must_use]
+    pub fn left_foot(&self) -> bool {
+        self.left_foot
     }
 
     /// Facing: -1 left, +1 right.
@@ -558,9 +604,28 @@ impl Player {
         rng: &mut UnityRandom,
         sounds: &mut Sounds,
     ) {
+        if self.update_before_catch(room, water, input, rng, sounds) {
+            self.update_after_catch(room, water, rng, sounds);
+        }
+    }
+
+    /// [`Player::update`] up to the stacked-body nudge, where `Player.Update` catches a
+    /// bat fly within reach. Returns whether the rest of the update runs (not in a
+    /// shortcut, not destroyed).
+    pub fn update_before_catch(
+        &mut self,
+        room: &Room,
+        water: Option<&Water>,
+        input: Input,
+        rng: &mut UnityRandom,
+        sounds: &mut Sounds,
+    ) -> bool {
         self.blink_request = 0;
+        self.movement_ran = false;
+        self.shortcut_pull = None;
+        self.before_pull = None;
         if self.destroyed || self.vessel.is_some() {
-            return;
+            return false;
         }
         self.body.params = crate::slugcat::PARAMS;
         self.body.params.surface_friction = if self.is_conscious() {
@@ -578,12 +643,26 @@ impl Player {
         self.read_input(input);
         self.set_unconscious_modes();
         self.update_after_input(room, rng, sounds);
+        true
+    }
+
+    /// The rest of [`Player::update`] after the catch: the camera clamp, the creature
+    /// update, physics or the pull into a shortcut, then the movement state machine.
+    pub fn update_after_catch(
+        &mut self,
+        room: &Room,
+        water: Option<&Water>,
+        rng: &mut UnityRandom,
+        sounds: &mut Sounds,
+    ) {
+        self.clamp_to_cameras(room);
         self.creature_update(water);
         if self.destroyed {
             self.flush_sounds(rng, sounds);
             return;
         }
         if let Some(entrance) = self.entering_shortcut {
+            self.before_pull = Some(Box::new(self.clone()));
             self.pull_into_shortcut(room, entrance);
         } else {
             self.short_cut_rad_add = shortcut::RAD_ADD_RESET;
@@ -592,6 +671,7 @@ impl Player {
         self.body.set_go_through_floors(false);
         if self.stun < 1 && !self.dead && self.entering_shortcut.is_none() && self.vessel.is_none()
         {
+            self.movement_ran = true;
             self.movement_update(room, water, rng, sounds);
         }
         self.flush_sounds(rng, sounds);
@@ -651,6 +731,9 @@ impl Player {
             self.horizontal_corridor_slide_counter -= 1;
         }
         self.jump_stun -= self.jump_stun.signum();
+        if self.grab.dont_grab_stuff > 0 {
+            self.grab.dont_grab_stuff -= 1;
+        }
     }
 
     /// The jump-press edge sets the 5-tick buffer, or does the horizontal-pole hop.
@@ -733,9 +816,9 @@ impl Player {
         }
     }
 
-    /// Wall-slide braking (not swimming, not in corridors), ceiling un-standing, the
-    /// stacked-body nudge and the camera clamp: the parts of `Player.Update` between
-    /// reading input and physics.
+    /// Wall-slide braking (not swimming, not in corridors), ceiling un-standing and the
+    /// stacked-body nudge: the parts of `Player.Update` between reading input and the
+    /// bat-fly catch.
     fn update_after_input(&mut self, room: &Room, rng: &mut UnityRandom, sounds: &mut Sounds) {
         self.flush_sounds(rng, sounds);
         let x = i32::from(self.input[0].x);
@@ -767,8 +850,6 @@ impl Player {
             head.vel.x = rng.range_f32(-1.0, 1.0);
             hips.vel.x = -head.vel.x;
         }
-
-        self.clamp_to_cameras(room);
     }
 
     /// Keeps the head within the horizontal span of the room's cameras.

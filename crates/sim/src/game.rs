@@ -7,10 +7,16 @@
 //! `creature-model.md`.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[path = "game_flies.rs"]
 mod flies;
-pub use flies::{FliesCall, FliesCallRecord, FliesState, FliesWorldView};
+#[path = "game_player.rs"]
+mod hands;
+pub use flies::{
+    CallExtra, FliesCall, FliesCallRecord, FliesState, FliesWorldView, GraphicsCallRecord,
+    PlayerSnapshot, ReleaseReason,
+};
 
 use rw_assets::{CreatureType, NodeType, Room, Shortcut, ShortcutType};
 use rw_random::UnityRandom;
@@ -42,16 +48,39 @@ pub trait PlayerObserver {
     /// The player was constructed, before it is placed (`AddObject` builds the graphics
     /// module in a viewed room).
     fn created(&mut self, player: &Player, rng: &mut UnityRandom);
-    /// Right after `Player.Update`.
+    /// Right after `Player.Update`: `PlayerGraphics.Update`.
     fn updated(
         &mut self,
         player: &Player,
         room: &Room,
         water: Option<&Water>,
+        around: &PlayerSurroundings<'_>,
         rng: &mut UnityRandom,
     );
-    /// The player left a shortcut (`SpitOutOfShortCut` resets the graphics).
+    /// The player left a shortcut: the inner `Player.SpitOutOfShortCut`'s graphics reset
+    /// and `NewRoom`'s.
     fn spat_out(&mut self, player: &Player, rng: &mut UnityRandom);
+    /// The outer `Player.SpitOutOfShortCut`'s reset, after the objects carried out with it.
+    fn spat_out_finished(&mut self, _player: &Player, _rng: &mut UnityRandom) {}
+    /// Whether the player has a graphics module.
+    fn has_player_graphics(&self) -> bool {
+        false
+    }
+    /// `PlayerGraphics.LookAtObject(target)`, or `LookAtNothing` for `None`.
+    fn player_look_at(&mut self, _target: Option<CreatureId>) {}
+    /// `PlayerGraphics.BiteFly(hand)` up to its drips: returns `head.pos`, where they
+    /// start (`None` without a graphics module).
+    fn player_bite_fly(&mut self, _hand: usize, _fly: CreatureId) -> Option<Vec2> {
+        None
+    }
+    /// Where the graphics' hands are after their update: (pos, vel) each.
+    fn player_hands(&self) -> Option<[(Vec2, Vec2); 2]> {
+        None
+    }
+    /// The graphics calls recorded since the last take (looker and hands).
+    fn take_graphics_calls(&mut self) -> Vec<GraphicsCallRecord> {
+        Vec::new()
+    }
     /// A room script adds `dvx` to every tail segment's x velocity.
     fn nudge_tail_x(&mut self, _dvx: f32) {}
     /// A realized overseer is in the camera's room (`AddObject` or `NowViewed`): its
@@ -107,6 +136,22 @@ pub enum HudEvent {
     Message(TutorialMessage),
     /// `rainMeter.halfTimeBlink = 0`.
     HalfTimeBlinkReset,
+    /// `foodMeter.RefuseFood()`.
+    RefuseFood,
+}
+
+/// What the player's graphics read of its room and hands.
+pub struct PlayerSurroundings<'a> {
+    pub world: &'a World,
+    /// What the player holds in each hand.
+    pub grasps: [Option<CreatureId>; 2],
+    pub room: i32,
+    /// The room's physical objects in its update list, oldest first, the player left out.
+    pub objects: Vec<CreatureId>,
+    /// `FoodInStomach < MaxFoodInStomach`.
+    pub hungry: bool,
+    /// The graphics record their looker and hand calls.
+    pub record: bool,
 }
 
 /// Which overseer call [`RainWorldGame::run_overseer`] makes.
@@ -133,12 +178,22 @@ enum RoomObject {
     Fly(CreatureId),
     /// A fly's hover loop emitter.
     Hover(CreatureId),
+    /// A `WaterDrip` by id.
+    Drip(u64),
 }
 
 /// No graphics.
 impl PlayerObserver for () {
     fn created(&mut self, _: &Player, _: &mut UnityRandom) {}
-    fn updated(&mut self, _: &Player, _: &Room, _: Option<&Water>, _: &mut UnityRandom) {}
+    fn updated(
+        &mut self,
+        _: &Player,
+        _: &Room,
+        _: Option<&Water>,
+        _: &PlayerSurroundings<'_>,
+        _: &mut UnityRandom,
+    ) {
+    }
     fn spat_out(&mut self, _: &Player, _: &mut UnityRandom) {}
 }
 
@@ -209,8 +264,6 @@ pub struct RainWorldGame {
     last_overseer_place: Option<OverseerCallRecord>,
     /// The last hologram id issued.
     hologram_ids: u64,
-    /// The player's `playerState.foodInStomach` (nothing is eaten yet).
-    food_in_stomach: i32,
     /// Each realized creature's `Creature.lastCoord`; a new body starts at the default
     /// coordinate (room 0, tile (0, 0)).
     last_coords: HashMap<CreatureId, WorldCoordinate>,
@@ -219,6 +272,8 @@ pub struct RainWorldGame {
     /// The flies' calls recorded since `record_flies_calls(true)`.
     flies_calls: Option<Vec<FliesCallRecord>>,
     flies_ctor_rng: [[u32; 4]; 2],
+    /// Whether the player had a graphics module at its last update.
+    player_graphics: bool,
 }
 
 /// One realized overseer call with what it read and the random stream around it (for
@@ -331,11 +386,11 @@ impl RainWorldGame {
             overseer_calls: None,
             last_overseer_place: None,
             hologram_ids: 0,
-            food_in_stomach: 0,
             last_coords: HashMap::new(),
             entrance_colors: Vec::new(),
             flies_calls: None,
             flies_ctor_rng: flies_rng,
+            player_graphics: false,
         };
         if let Err(e) = game.world.activate_room(start.room) {
             log::error!("cannot realize the first room: {e}");
@@ -390,8 +445,9 @@ impl RainWorldGame {
         self.world.creature(self.player_id).pos
     }
 
-    fn set_pos(&mut self, pos: WorldCoordinate) {
+    fn set_pos(&mut self, pos: WorldCoordinate, observer: &mut dyn PlayerObserver) {
         self.world.place_creature(self.player_id, pos);
+        self.move_carried(pos, observer);
     }
 
     /// `AbstractCreature.RealizeInRoom` for the player at the start: an undefined node
@@ -419,7 +475,7 @@ impl RainWorldGame {
             pos.node = self.common_node(specific);
         }
         pos.tile = tile;
-        self.set_pos(pos);
+        self.set_pos(pos, observer);
         self.spawn_player(tile, observer);
     }
 
@@ -466,7 +522,10 @@ impl RainWorldGame {
         self.shortcuts.drop_player();
         self.sounds.owner_removed();
         let node = self.pos().node;
-        self.set_pos(WorldCoordinate::new(self.camera_room, tile.0, tile.1, node));
+        self.set_pos(
+            WorldCoordinate::new(self.camera_room, tile.0, tile.1, node),
+            observer,
+        );
         self.spawn_player(tile, observer);
         log::info!("respawned player");
     }
@@ -477,6 +536,7 @@ impl RainWorldGame {
     /// delay, its water, and the player in it with its graphics), then the loading
     /// step. A dead player is frozen (docs/DIVERGENCES.md D4).
     pub fn tick(&mut self, input: Input, observer: &mut dyn PlayerObserver) {
+        self.world.take_new_drips();
         let follow = self.follow_creature();
         let active_before = self.world.active_rooms();
         if let (Some(realizer), Some(follow)) = (&mut self.realizer, follow) {
@@ -542,9 +602,18 @@ impl RainWorldGame {
     }
 
     /// The player's `AbstractCreature.realizedCreature` is its body while it has one.
+    /// A new or removed body lets go of what the old one held; a realized player has two
+    /// hands (`grasps`).
     fn sync_player_realized(&mut self) {
+        self.world.lose_all_grasps(self.player_id);
         let realized = self.player.is_some().then_some(RealizedCreature::Player);
-        self.world.creature_mut(self.player_id).realized = realized;
+        let c = self.world.creature_mut(self.player_id);
+        c.grasps = if realized.is_some() {
+            vec![None, None]
+        } else {
+            Vec::new()
+        };
+        c.realized = realized;
     }
 
     /// The player's `AbstractCreature.state.alive` follows its body.
@@ -696,8 +765,12 @@ impl RainWorldGame {
         };
         match player.shortcut_vessel_update(&room, &mut self.rng, sounds) {
             VesselStep::SpatOut => {
-                observer.spat_out(player, &mut self.rng);
                 self.player_seq = self.world.next_update_seq();
+                observer.spat_out(player, &mut self.rng);
+                self.spit_out_carried(observer);
+                if let Some(player) = self.player.as_ref() {
+                    observer.spat_out_finished(player, &mut self.rng);
+                }
             }
             VesselStep::Node { node, kind, from } => {
                 let mut pos = self.world.creature(self.player_id).pos;
@@ -834,12 +907,10 @@ impl RainWorldGame {
             );
             return false;
         };
-        self.set_pos(WorldCoordinate::new(
-            lobby.room,
-            -1,
-            -1,
-            lobby.entrance_node,
-        ));
+        self.set_pos(
+            WorldCoordinate::new(lobby.room, -1, -1, lobby.entrance_node),
+            observer,
+        );
         if matches!(
             node.kind,
             NodeType::Exit | NodeType::Den | NodeType::RegionTransportation
@@ -928,6 +999,7 @@ impl RainWorldGame {
             };
             water.update(&room, chunks.iter_mut(), &mut self.rng, sounds);
         }
+        realized.water_glitter.update();
         if let Some(blinking) = &mut realized.shortcuts_blinking {
             blinking.update(&room, &mut self.rng);
         }
@@ -945,6 +1017,7 @@ impl RainWorldGame {
                 .map(|(seq, owner, id)| (seq, RoomObject::Hologram { owner, id })),
         );
         objects.extend(self.room_fly_objects(index));
+        objects.extend(self.room_drip_objects(index));
         objects.sort_by_key(|&(seq, _)| std::cmp::Reverse(seq));
         let mut player_done = false;
         for (seq, object) in objects {
@@ -977,6 +1050,7 @@ impl RainWorldGame {
                 }
                 RoomObject::Fly(id) => self.run_fly(index, id, &room, observer),
                 RoomObject::Hover(id) => self.run_hover(index, id, observer),
+                RoomObject::Drip(id) => self.run_drip(index, id, &room, observer),
             }
         }
         if !player_done {
@@ -997,7 +1071,7 @@ impl RainWorldGame {
             hips: chunks[1].pos,
             dead: p.is_dead(),
             conscious: !p.is_dead() && !p.is_stunned(),
-            food: self.food_in_stomach,
+            food: self.food_in_stomach(),
             jump: [inputs[0].jump, inputs[1].jump],
             entering_shortcut: p.entering_shortcut(),
             in_shortcut: p.in_shortcut(),
@@ -1279,11 +1353,14 @@ impl RainWorldGame {
         }
     }
 
-    /// The player's update in room `index`, when its body is there and alive.
+    /// The player's slot in room `index`'s update list, when its body is there and
+    /// alive: `Player.Update` with the bat-fly catch and `GrabUpdate`, the drips its
+    /// impacts threw, the grasps a stun or death let go, the carried flies pulled and
+    /// sucked into a shortcut, then its graphics and `GraphicsModuleUpdated`.
     fn update_room_player(
         &mut self,
         index: i32,
-        room: &Room,
+        room: &Arc<Room>,
         input: Input,
         observer: &mut dyn PlayerObserver,
     ) {
@@ -1296,9 +1373,12 @@ impl RainWorldGame {
             return;
         }
         self.creature_new_tile(self.player_id);
-        let Some(realized) = self.world.realized(index) else {
-            return;
-        };
+        self.player_graphics = observer.has_player_graphics();
+        let water = self.world.realized_mut(index).and_then(|r| r.water.take());
+        let ceiling_drips = self
+            .world
+            .realized(index)
+            .map_or(0.0, |r| r.settings.ceiling_drips);
         let sounds = if index == self.camera_room {
             &mut self.sounds
         } else {
@@ -1308,8 +1388,55 @@ impl RainWorldGame {
             return;
         };
         let was_stunned = player.is_stunned();
-        player.update(room, realized.water.as_ref(), input, &mut self.rng, sounds);
-        observer.updated(player, room, realized.water.as_ref(), &mut self.rng);
+        player.set_ceiling_drips(ceiling_drips);
+        if player.update_before_catch(room, water.as_ref(), input, &mut self.rng, sounds) {
+            self.player_catch(index, observer);
+            let sounds = if index == self.camera_room {
+                &mut self.sounds
+            } else {
+                &mut self.silent
+            };
+            if let Some(player) = self.player.as_mut() {
+                player.update_after_catch(room, water.as_ref(), &mut self.rng, sounds);
+            }
+        }
+        self.apply_player_releases(observer);
+        self.add_player_drips(index, observer);
+        self.pull_carried(observer);
+        if self.player.as_ref().is_some_and(Player::movement_ran) {
+            self.grab_update(index, room, water.as_ref(), observer);
+        }
+        if let Some(r) = self.world.realized_mut(index) {
+            r.water = water;
+        }
+        let in_tube = self.player.as_ref().is_some_and(Player::in_shortcut);
+        if in_tube {
+            self.carried_sucked_in(observer);
+        }
+        self.world.player_body = self.player_body();
+        let around = PlayerSurroundings {
+            world: &self.world,
+            grasps: self.player_grasps(),
+            room: index,
+            objects: self.room_physical_objects(index),
+            hungry: self.food_in_stomach() < self.max_food(),
+            record: self.flies_calls.is_some(),
+        };
+        let water = self.world.realized(index).and_then(|r| r.water.as_ref());
+        if let Some(player) = self.player.as_ref() {
+            observer.updated(player, room, water, &around, &mut self.rng);
+        }
+        self.record_graphics_calls(observer);
+        let present = self
+            .player
+            .as_ref()
+            .is_some_and(|p| !p.in_shortcut() && !p.is_destroyed());
+        if present {
+            self.graphics_module_updated(observer);
+        }
+        let Some(player) = self.player.as_ref() else {
+            return;
+        };
         let tile = player.head().pos.tile();
         let mut pos = self.world.creature(self.player_id).pos;
         pos.tile = tile;
@@ -1326,6 +1453,11 @@ impl RainWorldGame {
             return;
         };
         if player.is_destroyed() {
+            let sounds = if index == self.camera_room {
+                &mut self.sounds
+            } else {
+                &mut self.silent
+            };
             sounds.owner_removed();
             log::info!("player fell out of the room and was destroyed; R respawns");
             self.player = None;
@@ -1334,6 +1466,26 @@ impl RainWorldGame {
             log::info!("player died; R respawns");
         } else if player.is_stunned() && !was_stunned {
             log::info!("player stunned for {} ticks", player.stun_ticks());
+        }
+    }
+
+    /// The looker and hand calls the player's graphics recorded, as flies' records.
+    fn record_graphics_calls(&mut self, observer: &mut dyn PlayerObserver) {
+        for g in observer.take_graphics_calls() {
+            let mut before = self.flies_record_start();
+            if let Some(b) = &mut before {
+                b.rng_before = g.rng[0];
+            }
+            let call = g.call;
+            let rng_after = g.rng[1];
+            let record = before.map(|mut b| {
+                b.graphics = Some(g);
+                b
+            });
+            self.flies_record_end(record, call, Vec::new(), observer);
+            if let Some(last) = self.flies_calls.as_mut().and_then(|c| c.last_mut()) {
+                last.rng_after = rng_after;
+            }
         }
     }
 
@@ -1509,6 +1661,10 @@ impl RainWorldGame {
         vel: crate::Vec2,
         observer: &mut dyn PlayerObserver,
     ) {
+        // The port's teleport lets go of what the hands held.
+        if self.player.is_some() {
+            self.release_all_grasps(ReleaseReason::Teleport, observer);
+        }
         let player = self.player.get_or_insert_with(Player::new);
         player.clear_vessel();
         self.shortcuts.drop_player();
@@ -1526,16 +1682,6 @@ impl RainWorldGame {
         observer.created(player, &mut self.rng);
         self.player_seq = self.world.next_update_seq();
         self.sync_player_realized();
-    }
-
-    /// Sets the food in the player's stomach (for tests and tools: nothing is eaten yet).
-    pub fn set_food_in_stomach(&mut self, food: i32) {
-        self.food_in_stomach = food.clamp(0, self.campaign.stats.max_food);
-    }
-
-    #[must_use]
-    pub fn food_in_stomach(&self) -> i32 {
-        self.food_in_stomach
     }
 
     /// Kills the player (for tests and tools).

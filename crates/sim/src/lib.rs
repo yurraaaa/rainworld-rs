@@ -34,6 +34,7 @@ mod spawn;
 mod vec2;
 mod vec3;
 mod water;
+mod water_drip;
 pub mod world;
 
 pub use camera::CameraView;
@@ -41,15 +42,18 @@ pub use chunk::{BodyChunk, Contact, DEFAULT_RESTRICT_IN_ROOM_RANGE, PhysicsParam
 pub use creature::WorldCoordinate;
 pub use float_ext::FloatExt;
 pub use game::{
-    CameraMove, FliesCall, FliesCallRecord, FliesState, FliesWorldView, HudEvent, NewGameWorld,
-    OverseerCall, OverseerCallRecord, PlayerObserver, RainWorldGame, Start,
+    CallExtra, CameraMove, FliesCall, FliesCallRecord, FliesState, FliesWorldView,
+    GraphicsCallRecord, HudEvent, NewGameWorld, OverseerCall, OverseerCallRecord, PlayerObserver,
+    PlayerSnapshot, PlayerSurroundings, RainWorldGame, ReleaseReason, Start,
 };
 pub use object::{
     BodyChunkConnection, ConnectionKind, PhysicalObject, TerrainImpactHandler, slugcat,
 };
 pub use player::{
-    Animation, BodyMode, HEAD, HIPS, INPUT_HISTORY, Input, Player, PlayerController, VesselStep,
+    Animation, BodyMode, GrabState, HEAD, HIPS, INPUT_HISTORY, Input, Player, PlayerController,
+    VesselStep,
 };
+pub use room_ext::RoomExt;
 pub use shortcut::{
     CreatureVessel, EntranceColor, LobbyVessel, ShortcutHandler, ShortcutsBlinking, VesselOwner,
 };
@@ -58,6 +62,7 @@ pub use spawn::{determine_safe_spawn_tile, place_in_room};
 pub use vec2::{TileExt, Vec2};
 pub use vec3::Vec3;
 pub use water::Water;
+pub use water_drip::{WaterDrip, WaterGlitter};
 
 #[cfg(test)]
 mod tests;

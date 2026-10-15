@@ -2,10 +2,13 @@
 //! `rainworld-re/notes/slugcat-graphics.md` and `sprite-atlases.md` (derivations next
 //! to each assertion), not from another run of this code.
 
-use rw_assets::Room;
+use std::sync::Arc;
+
+use rw_assets::world::{FixedRoom, LoadedRoom, WorldData};
+use rw_assets::{ActiveMods, Room, RoomSettings, Timeline};
 use rw_random::UnityRandom;
-use rw_sim::Sounds;
-use rw_sim::{Animation, BodyMode, HEAD, HIPS, Input, Player, Vec2};
+use rw_sim::world::World;
+use rw_sim::{Animation, BodyMode, HEAD, HIPS, Input, Player, PlayerSurroundings, Sounds, Vec2};
 
 use crate::{
     Atlas, BodyPart, Color, DrawItem, Layer, PlayerGraphics, SPRITE_LAYERS, SlugcatName,
@@ -85,8 +88,32 @@ fn run(
             &mut UnityRandom::new(0),
             &mut Sounds::default(),
         );
-        graphics.update(player, room, None, rng);
+        update_alone(graphics, player, room, rng);
     }
+}
+
+/// `PlayerGraphics::update` with nothing else in the room and nothing held.
+fn update_alone(g: &mut PlayerGraphics, p: &Player, r: &Room, rng: &mut UnityRandom) {
+    let source = FixedRoom(LoadedRoom {
+        room: r.clone(),
+        settings: RoomSettings::ANCESTOR,
+    });
+    let world = World::new(
+        WorldData::from_room(r),
+        Arc::new(source),
+        Timeline::White,
+        ActiveMods::NONE,
+        false,
+    );
+    let around = PlayerSurroundings {
+        world: &world,
+        grasps: [None; 2],
+        room: 0,
+        objects: Vec::new(),
+        hungry: true,
+        record: false,
+    };
+    g.update(p, r, None, &around, rng);
 }
 
 // ---- tail -----------------------------------------------------------------------
@@ -372,7 +399,7 @@ fn first_update_resets_to_the_chunks() {
         &mut UnityRandom::new(0),
         &mut Sounds::default(),
     );
-    g.update(&p, &r, None, &mut rng);
+    update_alone(&mut g, &p, &r, &mut rng);
     // The reset puts both draw positions at the chunks, then the tick shifts
     // [1] = [0]: last tick's draw positions are the chunk positions.
     assert_eq!(g.draw_positions[0][1], p.head().pos);
@@ -902,7 +929,7 @@ fn corridor_legs_in_a_tunnel_and_a_shaft() {
     place(&mut p, IN_TUNNEL);
     assert_eq!(PlayerGraphics::corridor_legs_turn(&r, &p), 0.0);
     g.legs_direction = Vec2::new(0.0, -1.0);
-    g.update(&p, &r, None, &mut rng);
+    update_alone(&mut g, &p, &r, &mut rng);
     let h = std::f32::consts::FRAC_1_SQRT_2;
     assert_vec(g.legs_direction, -h, -h, "tunnel legs direction");
     let legs = *g.draw(&p, 1.0, Color::BLACK).sprite(4).unwrap();
@@ -919,7 +946,7 @@ fn corridor_legs_in_a_tunnel_and_a_shaft() {
     place(&mut p, in_shaft);
     assert_eq!(PlayerGraphics::corridor_legs_turn(&r, &p), 0.0);
     g.legs_direction = Vec2::new(1.0, 0.0);
-    g.update(&p, &r, None, &mut rng);
+    update_alone(&mut g, &p, &r, &mut rng);
     // (1, 0) + (0, -1) normalised; rotation VecToDeg(-0.7071, 0.7071) = -45.
     assert_vec(g.legs_direction, h, -h, "shaft legs direction");
     let legs = *g.draw(&p, 1.0, Color::BLACK).sprite(4).unwrap();
@@ -998,7 +1025,7 @@ fn corridor_hands_grip_the_walls_ahead() {
         place(&mut p, IN_TUNNEL);
         hand_behind(&mut g, 0);
         hand_behind(&mut g, 1);
-        g.update(&p, &r, None, &mut rng);
+        update_alone(&mut g, &p, &r, &mut rng);
         assert_vec(g.hands[0].limb.absolute_hunt_pos, 230.0, 60.0, "hand 0");
         assert_vec(g.hands[1].limb.absolute_hunt_pos, 230.0, 40.0, "hand 1");
     }
@@ -1009,7 +1036,7 @@ fn corridor_hands_grip_the_walls_ahead() {
     let (mut p, mut g) = corridor_player(&r, IN_TUNNEL, up, &mut rng);
     place(&mut p, IN_TUNNEL);
     hand_behind(&mut g, 0);
-    g.update(&p, &r, None, &mut rng);
+    update_alone(&mut g, &p, &r, &mut rng);
     assert_vec(
         g.hands[0].limb.absolute_hunt_pos,
         221.094_01,

@@ -126,6 +126,16 @@ sound_ids! {
     SmallNpcEnterShortcut = "Small_NPC_Enter_Shortcut",
     SmallNpcTickAlongInShortcut = "Small_NPC_Tick_Along_In_Shortcut",
     SmallNpcExitShortcut = "Small_NPC_Exit_Shortcut",
+    FlyCaught = "Fly_Caught",
+    FlyCaughtDead = "Fly_Caught_Dead",
+    SlugcatBiteFly = "Slugcat_Bite_Fly",
+    SlugcatFinalBiteFly = "Slugcat_Final_Bite_Fly",
+    SlugcatLoseGrasp = "Slugcat_Lose_Grasp",
+    SlugcatPickUpCreature = "Slugcat_Pick_Up_Creature",
+    SlugcatThrowCreature = "Slugcat_Throw_Creature",
+    SlugcatLayDownCreature = "Slugcat_Lay_Down_Creature",
+    SlugcatSwitchHandsInit = "Slugcat_Switch_Hands_Init",
+    SlugcatSwitchHandsComplete = "Slugcat_Switch_Hands_Complete",
 }
 
 /// A `ChunkSoundEmitter` handle: follows a body chunk; loops are updated and stopped

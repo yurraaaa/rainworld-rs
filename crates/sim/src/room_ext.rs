@@ -5,7 +5,7 @@ use rw_assets::{Room, Slope, Tile};
 use crate::Vec2;
 
 /// `Room.GetTile(Vector2)` and friends for [`Vec2`] positions.
-pub(crate) trait RoomExt {
+pub trait RoomExt {
     /// Tile containing `pos`, clamped at the room edges.
     fn tile_at_pos(&self, pos: Vec2) -> Tile;
 
