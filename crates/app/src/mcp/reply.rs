@@ -472,6 +472,8 @@ pub struct TextPromptState {
     pub showing: String,
     pub text: String,
     pub queued: usize,
+    /// `gameOverMode`: the player died; the map button goes to the death screen.
+    pub game_over: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

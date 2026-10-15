@@ -210,6 +210,9 @@ pub struct Player {
     /// The stun that last played `UI_Slugcat_Stunned_Init` (`lastStun`).
     last_stun: i32,
     dead: bool,
+    /// The main chunk's position at the first `Die`, until the game takes it for
+    /// `GameOver`.
+    died_at: Option<Vec2>,
     /// Fell out of the room: removed from the game (`Destroy`).
     destroyed: bool,
 
@@ -390,6 +393,7 @@ impl Player {
             stun: 0,
             last_stun: 0,
             dead: false,
+            died_at: None,
             destroyed: false,
             shortcut_delay: 0,
             entering_shortcut: None,

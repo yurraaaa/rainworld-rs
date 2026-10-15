@@ -16,7 +16,7 @@ use crate::hibernation::SessionRecordSource;
 impl Game {
     /// The package for screen `next`, from the save state in memory, the world, the
     /// player and camera 0's HUD (its map data and prompt); `None` without a save
-    /// state. The prompt's `foodInStomach` is not stored yet, so it is 0.
+    /// state.
     #[must_use]
     pub fn screen_package(
         &self,
@@ -38,7 +38,7 @@ impl Game {
             prompt: hud.map(|h| GameOverPrompt {
                 death_room: h.text_prompt.death_room,
                 death_pos: Vec2::from(h.text_prompt.death_pos),
-                food_in_stomach: 0,
+                food_in_stomach: h.text_prompt.food_in_stomach,
             }),
             slugcat: campaign.name,
             max_food: campaign.stats.max_food,

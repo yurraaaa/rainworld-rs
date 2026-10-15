@@ -27,6 +27,8 @@ struct Water {
 @group(0) @binding(5) var behind_tex: texture_2d<f32>;
 
 const GAME_TAU: f32 = 6.28; // the shaders' 3.14 * 2
+// Futile's `screenPixelOffset` (`Camera::SCREEN_PIXEL_OFFSET`): screen = stage + this.
+const SCREEN_PIXEL_OFFSET: vec2<f32> = vec2(-0.5, 0.5);
 
 struct VertexIn {
     @location(0) pos: vec2<f32>,
@@ -65,12 +67,17 @@ fn noise(uv: vec2<f32>) -> f32 {
     return textureSampleLevel(noise_tex, noise_sampler, uv, 0.0).r;
 }
 
-// Level texture coordinate of the screen pixel at `stage`: the level texel shown there
-// (`_spriteRect` at `image - camera`, its (-0.5, +0.5) shift made (-0.5, -0.5) for the
-// port's camera without `screenPixelOffset`, as in `RoomGlobals::new`).
-fn level_coord(stage: vec2<f32>) -> vec2<f32> {
-    let image_stage = water.image.xy - water.stage.xy + vec2(-0.5, -0.5);
-    return (floor(stage) - image_stage) / water.image.zw;
+// The game's screen uv (`ComputeScreenPos`, y up) of the point at `stage`.
+fn screen_uv(stage: vec2<f32>) -> vec2<f32> {
+    return (stage + SCREEN_PIXEL_OFFSET) / water.stage.zw;
+}
+
+// Level texture coordinate of the screen pixel at screen uv `scr`: `floor(scrPos *
+// _screenSize)` within `_spriteRect` (the image at `image - camera`, shifted by (-0.5,
+// +0.5) px, as in `RoomGlobals::new`).
+fn level_coord(scr: vec2<f32>) -> vec2<f32> {
+    let image_screen = water.image.xy - water.stage.xy + vec2(-0.5, 0.5);
+    return (floor(scr * water.stage.zw) - image_screen) / water.image.zw;
 }
 
 // `tex2D(_LevelTex, uv)`: point filter, clamp.
@@ -82,7 +89,7 @@ fn level_at(uv: vec2<f32>) -> vec4<f32> {
 
 // `_GrabTexture` at screen uv `scr` (0..1, y up).
 fn grab_at(scr: vec2<f32>) -> vec4<f32> {
-    let room = scr * water.stage.zw + water.stage.xy;
+    let room = scr * water.stage.zw - SCREEN_PIXEL_OFFSET + water.stage.xy;
     let clip = room * water.transform.xy + water.transform.zw;
     let px = vec2((clip.x + 1.0) * 0.5, (1.0 - clip.y) * 0.5) * water.frame.xy;
     let size = vec2<i32>(textureDimensions(behind_tex));
@@ -131,11 +138,12 @@ fn depth_clamped(uv: vec2<f32>) -> f32 {
 @fragment
 fn fs_surface(in: VertexOut) -> @location(0) vec4<f32> {
     let offset = mix(0.02, -0.075, 1.0 - water.frame.w * 31.0);
-    let uv = level_coord(in.stage);
+    let scr = screen_uv(in.stage);
+    let uv = level_coord(scr);
     if depth_unclamped(uv) / 30.0 < in.uv.y + offset {
         discard;
     }
-    if in.uv.y + offset > 6.0 / 30.0 && drawn(grab_at(in.stage / water.stage.zw)) {
+    if in.uv.y + offset > 6.0 / 30.0 && drawn(grab_at(scr)) {
         discard;
     }
     return vec4(in.color.rgb, 1.0);
@@ -148,8 +156,8 @@ fn fs_surface(in: VertexOut) -> @location(0) vec4<f32> {
 fn fs_deep(in: VertexOut) -> @location(0) vec4<f32> {
     let screen = water.stage.zw;
     let rain = water.frame.z;
-    let scr = in.stage / screen;
-    let t = level_coord(in.stage);
+    let scr = screen_uv(in.stage);
+    let t = level_coord(scr);
     let clr = in.color;
 
     let rb = sin((rain + noise(t * 1.2) * 3.0) * GAME_TAU) * 0.5 + 0.5;

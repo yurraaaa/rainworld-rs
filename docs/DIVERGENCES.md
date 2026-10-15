@@ -147,15 +147,18 @@ floor first contact above 60, stun `LerpMap(speed, 35, 60, 40, 140, 2.5)` above 
 neutral input and no `MovementUpdate` while stunned or dead, surface friction 0.3 while
 not conscious, and death plus destruction below the room bottom (-500, -250 in
 `WallClimb`) unless the room's water catches the body. As in the game, a destroyed body
-is gone (`Player::is_destroyed`; the app drops it and draws nothing until R).
+is gone (`Player::is_destroyed`; the app drops it and draws nothing). The first `Die`
+calls `GameOver` (story sessions; D15, D17); the dead body keeps simulating as plain
+physics with neutral input, its water, graphics and room camera as in the game.
 
 **What differs:**
-- **Death freezes the body** (CLAUDE.md decision). The game keeps simulating a dead
-  player as plain physics and shows the death screen (story) or ends the round (arena).
-  `rw_sim::Player` keeps simulating it; `RainWorldGame::tick` stops ticking a dead
-  player (the world, its rooms and the realizer go on) and the app draws it where it
-  stopped until R respawns a new one in the camera's room. R also respawns after the
-  body fell out of the room (the game has no respawn).
+- **R respawn and no game over in dev starts** (user decision). The port's starts in a
+  room (`load_room`, `--room`, arena levels: `StartCondition::Dev`) are not story
+  sessions: a death there has no game over, and R (MCP `respawn`) replaces the player
+  with a fresh one in the camera's room, also after the body fell out of the room (the
+  game has no respawn). In a story session (a new or continued campaign) R does
+  nothing. Not ported: `setupValues.invincibility` (a dev setting) and `Die` without a
+  realized room (unreachable in the port).
 - **`Player.Stun` side effects.** The game un-stands the player (and drops grasps) when
   the stun exceeds `Random.Range(5, 12)` and draws `Random.Range(40, 80)` for the spear
   on the back; the port makes both draws on every path (no spear to drop) and plays
@@ -169,8 +172,8 @@ is gone (`Player::is_destroyed`; the app drops it and draws nothing until R).
   grasp and the deer-antlers ride cancelling fall damage.
 - **Water.** Drowning is D11; inverted water (DLC) is not modelled.
 
-**Why.** The freeze and the respawn are design decisions for the player-controller
-phase (until the game loop with death screens exists); the rest is out of the base-game scope or randomness (D1).
+**Why.** The respawn is a development aid the user kept outside story sessions; the
+rest is out of the base-game scope or randomness (D1).
 
 **Affects.** What happens after death and Remix / More Slugcats play.
 
@@ -295,14 +298,11 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   change), and a window the window manager sizes differently from the resolution is
   letterboxed the same way. The Steam Deck case (1229x768 full screen as a 1280x800
   window) is not ported.
-- **Half-pixel camera offset.** The game's D3D build (Windows, also under Proton)
-  places Futile's camera at `screenPixelOffset` (screen = stage + (-0.5, +0.5)), so its
-  pixels sample the stage at whole-pixel points; the port has no offset and samples at
-  pixel centres, as the game's OpenGL path does. Sprites at fractional positions can
-  therefore round to a neighbouring pixel. The level lookups of the room sprite and
-  water shaders (`_spriteRect`, `RoomGlobals::new`) take the D3D result, the level
-  texel shown at the pixel; the game's rect unchanged would test depth against the row
-  below (rainworld-re/notes/sprite-atlases.md section 3).
+- **Half-pixel camera offset.** The port always draws as the game's D3D build at
+  render scale 1 (Windows, also under Proton): Futile's `screenPixelOffset`, screen =
+  stage + (-0.5, +0.5) (`Camera::SCREEN_PIXEL_OFFSET`). The game's OpenGL path (no
+  offset) and its render-scale > 1 offset (0, 1) are not modelled
+  (rainworld-re/notes/sprite-atlases.md section 3).
 - **Camera switch timing.** The game loads the next camera's image asynchronously and
   cuts when it has loaded (usually the next frame); the port decodes every camera's
   image when the camera enters the room (`MoveCamera`, synchronous: D14) and cuts in
@@ -651,9 +651,10 @@ real-time audio rather than the sim.
   stacker with the cosmetic stream restored. Not ported: the arena and sandbox buttons
   (RESTART, EDIT, PLAY), the gamepad presets' maps, controller rumble, Expedition's
   unlocks and karma warning, and Platform `systemMenuShowingExplicit`. `RedIsOutOfCycles`
-  uses `RedsCycles(false)` (19): `RedExtraCycles` is save data. `ExitGame` saves
+  is the sim's (`RedsCycles` 19, 24 with the save's `RedExtraCycles`). `ExitGame` saves
   as D16 describes (`AppContext::exit_game`); `warnedAboutKarmaLossOnExit` is the
-  progression's and saved with it. The port's R respawn still works while paused.
+  progression's and saved with it. The port's R respawn (dev starts only, D4) still
+  works while paused. During game over the pause menu does not open, as in the game.
 - **Flat scenes.** Menu scenes are shown in the game's flat mode (`flatmode.txt`: one
   `<scene> - Flat.png`; `rainWorld.flatIllustrations`) until depth scenes
   (`MenuDepthIllustration`, its shaders) are ported. The flat-mode branches follow the
@@ -960,11 +961,18 @@ story session.
 - **Screen meters.** The food meter's sleep and death screen branches (`SleepUpdate`,
   `DeathUpdate`, the eat circles and `FoodCountDownDone`) and `InitSleepHud` are ported
   (`rw_hud::SleepHud`), with the sleep-death data package `CommunicateWithUpcomingProcess`
-  builds (`SleepDeathScreenDataPackage`). The prompt's `foodInStomach` is 0 until game
-  over is entered, so a death or starve package's food is 0. The screens themselves are
-  not ported yet (D16, D17).
-- **Game over.** The prompt's game-over mode is ported but not entered: death freezes
-  the body until R (current phase), so nothing calls `EnterGameOverMode`.
+  builds (`SleepDeathScreenDataPackage`). The screens themselves are not
+  ported yet (D16, D17).
+- **Game over.** `Player.Die` → `RainWorldGame.GameOver` → `InitGameOverMode` with the
+  food in the stomach, `Players[0].pos.room` and the main chunk at the death restricted
+  to the room grown by 50 px; then the music's `DeathEvent` (its song fade; the
+  threat tracker's `threatDeclineCounter` is not, D12). The prompt's game-over press
+  reads this tick's map button (the default keyboard binding, `GetButton(11)`), not the
+  dead player's input. Differences: there is no `dependentOnGrasp` (no creature grasps
+  the player, so `Player.Update`'s danger-grasp game over and the escape that cancels
+  game-over mode are not ported); the gamepad and rebound-map branches (the pause
+  button press and their strings) are not ported; dev starts have no game over (D4);
+  the Hunter out of cycles (`GoToRedsGameOver`) is not ported (D17).
 - **Not ported:** the prompt's symbol and music messages, the Hunter's
   cycle count-up, the karma meter's gate and scavenger blinking, the gamepad pictures of
   the controls page, the character-select screen's meters, and every
@@ -1035,8 +1043,13 @@ Differences:
   kept as read. There is no `SJ_<slot>` folder to delete.
 - **Starving and dying.** The starve and death screens are not ported (a "not ported"
   page). `GoToStarveScreen` and `GoToDeathScreen` run `SessionEnded(survived: false)`
-  and its death save (D17). Death itself freezes the body (current phase), so only a
-  shelter door closing on a dead slugcat reaches `GoToDeathScreen`.
+  and its death save (D17), with the game-over prompt's death room and position (room
+  0 and (0, 0) on a starve, as in the game). `GoToDeathScreen` comes from the game-over
+  prompt's map press (D15) or a shelter door closing on a dead slugcat. The save's
+  `FLOWERPOS` is written from `PlaceKarmaFlowerOnDeathSpot` (D17).
+- **Session time.** The game stops counting `SessionRecord.time` while the prompt is in
+  game-over mode (`Player.Update`, `TimeTick`) and counts `playerGrabbedTime` while a
+  living player is in it; the port's session time is the sim's ticks, which go on.
 - **Map discovery.** `progression.mapDiscoveryTextures` and `mapLastUpdatedTime` are
   split: the game's copy is the sim's `MapDiscovery`, and the progression holds their
   save form (`map_discovery`, `map_last_updated`). The map's first update loads a
@@ -1068,10 +1081,19 @@ Differences:
   the package when the game switches to a sleep, death or starve screen and only logs it.
   The Moon and Pebbles event dreams are not ported (no iterators).
 - **Starving.** A door closing on too little food saves the cycle as a death
-  (`SessionEnded(survived: false)`, D16) and shows the "not ported" page. Not
-  ported: `PlaceKarmaFlowerOnDeathSpot` (the player's `karmaFlowerGrowPos` is not
-  tracked, so a reinforced or Monk starve places no karma flower) and the Hunter's
-  `RedIsOutOfCycles` game over.
+  (`SessionEnded(survived: false)`, D16) and shows the "not ported" page.
+- **Karma flowers.** The player's `karmaFlowerGrowPos` is tracked as `Player.Update`
+  does (`PlaceKarmaFlower`: reinforced karma, the Monk, the Hunter out of cycles), and
+  `PlaceKarmaFlowerOnDeathSpot` stores it in the save state's `karmaFlowerPosition`
+  (`FLOWERPOS`, cleared when the player never stood on a spot) on `GameOver` and on a
+  starve. Not ported: worm grass tiles (none in the port, so that condition never
+  excludes a tile), a grasp by a creature (never grabbed), the karma flower that grows
+  there in the next cycle (`AbstractConsumable` placed at world load) and eating it,
+  and the Hunter's `miscProgressionData.redsFlower`.
+- **The Hunter out of cycles.** `GoToRedsGameOver` (statistics screen, `redsDeath`) is
+  not ported: `GameOver` logs and returns, so the dead Hunter gets no prompt and the
+  pause menu's exit is the way out; a starve or a door closing on a dead Hunter out of
+  cycles saves an ordinary death.
 - **Not ported:** More Slugcats' ancient and broken shelters, `PrecycleModule`, the
   shelter tutorials, the dream ghost, `GetStuffInWalls`, the AI map rebuild when the
   door opens, the door's screen shake, the social-memory stun of creatures in the room,
@@ -1081,8 +1103,9 @@ Differences:
 **Why.** Iterators, items, creature states and the menus' sleep screen are later
 milestones.
 
-**Affects.** What follows a hibernation or a starve on screen, karma flowers after a
-starve, and creatures caught in a closing shelter.
+**Affects.** What follows a hibernation, a death or a starve on screen, the karma
+flower in the next cycle, the Hunter's last cycle, and creatures caught in a closing
+shelter.
 
 ## Not ported yet (not divergences, just absent)
 

@@ -26,6 +26,9 @@ Working now:
   the cycle is saved and the next one starts there with food, karma and the region's
   creatures carried over; a door closing on too little food saves the cycle as a death.
   Saves from the real game can be imported (see below).
+- **Death:** dying shows the game-over prompt; Space then saves the death (karma lost, a
+  karma flower's spot kept for reinforced karma and the Monk) and goes on to the death
+  screen, which is not ported yet.
 - **Movement:** the slugcat's movement and physics, corridors and shortcuts, poles, water
   and swimming. The slugcat is drawn as the game draws it.
 - **Regions:** a whole region loads, and room-exit pipes take you between rooms, with the
@@ -101,8 +104,9 @@ These are the game's default keyboard bindings.
 | Enter | | Confirm |
 | Esc | Pause menu (again to continue) | Back |
 
-Development keys: R respawns, V toggles the level graphic and the debug view, G shows the
-tile grid, and F12 saves a screenshot.
+Development keys: R respawns (only in a room started directly, not in a campaign), V
+toggles the level graphic and the debug view, G shows the tile grid, and F12 saves a
+screenshot.
 
 ## Workspace
 

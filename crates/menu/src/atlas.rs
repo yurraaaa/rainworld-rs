@@ -8,6 +8,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use rw_assets::{AssetError, PngImage, StreamingAssets, UnityResources};
 use rw_graphics::Atlas;
@@ -58,7 +59,6 @@ pub struct AtlasManager {
     elements: HashMap<String, Element>,
     textures: BTreeMap<StageTextureId, TextureEntry>,
     fonts: HashMap<String, Arc<Font>>,
-    next_texture: u32,
 }
 
 /// Why an atlas or font could not be loaded.
@@ -136,8 +136,10 @@ impl AtlasManager {
     }
 
     fn new_texture(&mut self, image: PngImage, sampling: TextureSampling) -> StageTextureId {
-        let id = StageTextureId(self.next_texture);
-        self.next_texture += 1;
+        // Unique across managers: a renderer's `TextureSync` keys uploads by id, and a
+        // new manager (a reloaded front end) must not reuse an id it already holds.
+        static NEXT: AtomicU32 = AtomicU32::new(0);
+        let id = StageTextureId(NEXT.fetch_add(1, Ordering::Relaxed));
         self.textures.insert(
             id,
             TextureEntry {
@@ -512,5 +514,19 @@ impl TextureSync {
                 renderer.set_stage_texture(*id, &texture.image, texture.sampling);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn managers_never_share_texture_ids() {
+        let a = AtlasManager::new();
+        let b = AtlasManager::new();
+        let white_a = a.element(AtlasManager::WHITE).unwrap().texture;
+        let white_b = b.element(AtlasManager::WHITE).unwrap().texture;
+        assert_ne!(white_a, white_b);
     }
 }

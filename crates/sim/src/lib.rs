@@ -44,7 +44,7 @@ pub use chunk::{BodyChunk, Contact, DEFAULT_RESTRICT_IN_ROOM_RANGE, PhysicsParam
 pub use creature::WorldCoordinate;
 pub use float_ext::FloatExt;
 pub use game::{
-    CameraMove, HudEvent, NewGameWorld, OverseerCall, PlayerObserver, PlayerSurroundings,
+    CameraMove, GameOver, HudEvent, NewGameWorld, OverseerCall, PlayerObserver, PlayerSurroundings,
     RainWorldGame, Start,
 };
 pub use map_discovery::{DiscoveryTexture, HudMapLink, MapDiscovery, MapRoom, UnityTexture};

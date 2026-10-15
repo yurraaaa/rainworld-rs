@@ -161,7 +161,7 @@ impl App {
         match Command::from_key(code) {
             Some(Command::Respawn) => {
                 if let Some(game) = self.frontend.game_mut() {
-                    game.scene.game_mut().respawn();
+                    let _ = game.scene.game_mut().respawn();
                 }
             }
             Some(Command::ToggleView) => {

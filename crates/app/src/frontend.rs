@@ -554,7 +554,8 @@ impl MainLoopProcess<AppContext> for GameProcess {
             self.update_pause_menu(ctx, requests);
         }
         if self.pause_menu.is_some() {
-            self.scene.paused_tick(&mut ctx.menu);
+            self.scene.paused_tick(input, &mut ctx.menu);
+            self.prompt_death_screen(ctx, requests);
             let events = self.scene.game_mut().take_sound_events();
             if let Some(audio) = &mut ctx.audio {
                 audio.play_events(events, self.scene.game().body().map(|b| &b.chunks[..]));
@@ -562,7 +563,8 @@ impl MainLoopProcess<AppContext> for GameProcess {
             return;
         }
         self.scene.paused = false;
-        self.scene.update_cameras(&mut ctx.menu);
+        self.scene.update_cameras(input, &mut ctx.menu);
+        self.prompt_death_screen(ctx, requests);
         // `RWInput.CheckPauseButton(0, inMenu: false)`; the menus' latched keys are
         // spent with the tick.
         let pause = ctx.menu.input.pause_action();
@@ -634,9 +636,7 @@ impl GameProcess {
             story: sim.is_story_session(),
             cycle_number: session.cycle_number,
             clock: sim.clock(),
-            // `RedsCycles(RedExtraCycles)` with no save: 19.
-            red_is_out_of_cycles: session.character == rw_assets::SlugcatName::Red
-                && session.cycle_number >= 19,
+            red_is_out_of_cycles: sim.red_is_out_of_cycles(),
         };
         let menu = PauseMenu::new(&mut ctx.menu, &game, self.scene.hud_mut());
         self.pause_menu = Some(menu);
@@ -707,6 +707,18 @@ impl GameProcess {
         }
     }
 
+    /// `GoToDeathScreen` from the game-over prompt (a map press 40 ticks after the death),
+    /// during camera 0's HUD update, before the rooms update.
+    fn prompt_death_screen(&mut self, ctx: &mut AppContext, requests: &mut ProcessRequests) {
+        let asked = self
+            .scene
+            .hud_mut()
+            .is_some_and(|h| std::mem::take(&mut h.text_prompt.go_to_death_screen));
+        if asked {
+            self.end_session(SessionEnd::Death, ctx, requests);
+        }
+    }
+
     /// The end of a story cycle: `Win` saves and goes to the sleep screen (or a dream);
     /// starving and dying save the cycle as a death and go to their screens, which are
     /// not ported (D16).
@@ -746,6 +758,7 @@ impl GameProcess {
             }
             SessionEnd::Starve => {
                 log::info!("GO TO STARVE");
+                self.place_karma_flower_on_death_spot(ctx);
                 self.session_ended_died(ctx);
                 if let Some(music) = &mut ctx.menu.music {
                     music.death_event();
@@ -757,6 +770,20 @@ impl GameProcess {
                 requests.switch_to(ProcessId::DeathScreen);
             }
         }
+    }
+
+    /// `PlaceKarmaFlowerOnDeathSpot` outside `GameOver` (the starve path).
+    fn place_karma_flower_on_death_spot(&mut self, ctx: &mut AppContext) {
+        let sim = self.scene.game_mut().sim_mut();
+        if !sim.place_karma_flower() {
+            return;
+        }
+        let grow_pos = sim.karma_flower_grow_pos();
+        let game = HibernatingGame {
+            sim,
+            assets: &ctx.menu.assets,
+        };
+        game.place_karma_flower_on_death_spot(&mut ctx.menu.saves, grow_pos);
     }
 
     /// `SessionEnded(survived: false)` and its save, with the HUD prompt's death room

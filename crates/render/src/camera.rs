@@ -12,6 +12,11 @@ pub struct Camera {
 }
 
 impl Camera {
+    /// Futile's `screenPixelOffset` on the game's D3D build (`FScreen.UpdateScreenOffset`
+    /// at render scale 1, `Futile.UpdateCameraPosition`): screen = stage + this, in stage
+    /// pixels. The game's shaders' screen positions include it.
+    pub const SCREEN_PIXEL_OFFSET: [f32; 2] = [-0.5, 0.5];
+
     /// Fits the room rectangle `[0, size]` inside `viewport` with `margin` screen pixels
     /// on every side, preserving aspect ratio, centred.
     ///
@@ -32,13 +37,18 @@ impl Camera {
     }
 
     /// Shows the room rectangle `origin .. origin + size` as large as fits in
-    /// `viewport`, preserving aspect ratio, centred (the game's window scaled up).
+    /// `viewport`, preserving aspect ratio, centred (the game's window scaled up), shifted
+    /// by `SCREEN_PIXEL_OFFSET` as Futile's camera is.
     #[must_use]
     pub fn window(origin: [f32; 2], size: [f32; 2], viewport: (u32, u32)) -> Self {
         let viewport = [viewport.0 as f32, viewport.1 as f32];
         let scale = (viewport[0] / size[0].max(1.0)).min(viewport[1] / size[1].max(1.0));
+        let [ox, oy] = Self::SCREEN_PIXEL_OFFSET;
         Self {
-            centre: [origin[0] + size[0] / 2.0, origin[1] + size[1] / 2.0],
+            centre: [
+                origin[0] + size[0] / 2.0 - ox,
+                origin[1] + size[1] / 2.0 - oy,
+            ],
             scale: scale.max(1e-3),
             viewport,
         }
@@ -121,14 +131,15 @@ mod tests {
 
     #[test]
     fn window_fills_the_viewport_at_its_aspect() {
-        // Exact fit: the window's bottom-left at the screen's bottom-left, 1:1.
+        // Exact fit, 1:1: the screen's bottom-left shows the window's bottom-left plus
+        // (0.5, -0.5) (screen = stage + `screenPixelOffset`).
         let cam = Camera::window([-143.02, -52.02], [1366.0, 768.0], (1366, 768));
-        assert!(cam.world_to_screen([-143.02, -52.02]).approx([0.0, 768.0]));
-        assert!(cam.world_to_screen([1222.98, 715.98]).approx([1366.0, 0.0]));
+        assert!(cam.world_to_screen([-142.52, -52.52]).approx([0.0, 768.0]));
+        assert!(cam.world_to_screen([1223.48, 715.48]).approx([1366.0, 0.0]));
         // Taller viewport: width-limited, letterboxed above and below.
         let cam = Camera::window([0.0, 0.0], [1366.0, 768.0], (683, 768));
         assert!((cam.scale - 0.5).abs() < 1e-6);
-        assert!(cam.world_to_screen([0.0, 0.0]).approx([0.0, 576.0]));
+        assert!(cam.world_to_screen([0.5, -0.5]).approx([0.0, 576.0]));
     }
 
     #[test]
