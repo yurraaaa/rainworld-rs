@@ -27,6 +27,9 @@ struct Room {
     pad: f32,
 };
 
+// Futile's `screenPixelOffset` (`Camera::SCREEN_PIXEL_OFFSET`): screen = stage + this.
+const SCREEN_PIXEL_OFFSET: vec2<f32> = vec2(-0.5, 0.5);
+
 @group(0) @binding(0) var<uniform> room: Room;
 @group(0) @binding(1) var atlas: texture_2d<f32>;
 @group(0) @binding(2) var atlas_sampler: sampler;
@@ -62,7 +65,7 @@ fn vs_main(
     out.uv = uv;
     out.tex = tex;
     out.color = color;
-    out.scr = pos / room.screen;
+    out.scr = (pos + SCREEN_PIXEL_OFFSET) / room.screen;
     return out;
 }
 
@@ -149,7 +152,7 @@ fn level_at(uv: vec2<f32>) -> vec4<f32> {
 
 // The frame pixel at screen uv `scr` (0..1, y up).
 fn frame_px(scr: vec2<f32>) -> vec2<i32> {
-    let clip = scr * room.screen * room.transform.xy + room.transform.zw;
+    let clip = (scr * room.screen - SCREEN_PIXEL_OFFSET) * room.transform.xy + room.transform.zw;
     let px = vec2((clip.x + 1.0) * 0.5, (1.0 - clip.y) * 0.5) * room.frame;
     return clamp(vec2<i32>(floor(px)), vec2(0), vec2<i32>(room.frame) - 1);
 }

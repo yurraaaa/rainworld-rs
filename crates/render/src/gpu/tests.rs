@@ -64,11 +64,11 @@ fn flat_light_is_a_disc_over_futile_white() {
     };
     r.draw_sprites(&list, Layer::Items, [0.0, 0.0]);
     let image = r.render_image().unwrap();
-    // The 32x32 quad spans 16..48. Pixel (32, 32) is at (32.5, 31.5), half a pixel
-    // from the centre on each axis: d = 2 * sqrt(2) * 0.5 / 32 = 0.0442,
-    // (1 - d^2)^3.5 = 0.9932 -> 253. Nothing in its corner (centre distance clamped
-    // to 1) or outside it.
-    assert_eq!(pixel(&image, 32, 32), [253, 0, 0]);
+    // The 32x32 quad spans 16..48. Pixel (32, 32) is screen (32.5, 31.5), stage (33,
+    // 31) behind `screenPixelOffset`, a pixel from the centre on each axis: d = 2 *
+    // sqrt(2) / 32 = 0.0884, (1 - d^2)^3.5 = 0.9729 -> 248. Nothing in its corner
+    // (centre distance clamped to 1) or outside it.
+    assert_eq!(pixel(&image, 32, 32), [248, 0, 0]);
     assert_eq!(pixel(&image, 17, 17), [0, 0, 0]);
     assert_eq!(pixel(&image, 5, 5), [0, 0, 0]);
 }
@@ -258,13 +258,15 @@ fn colored_sprite3_colours_by_depth_from_the_palette() {
 }
 
 /// The terrain a `ColoredSprite3` pixel is hidden behind is the level texel shown at that
-/// pixel. In the game's D3D build the camera's `screenPixelOffset` (screen = stage +
-/// (-0.5, +0.5)) and `_spriteRect`'s matching shift make `floor(scrPos)` read the texel
-/// at the pixel's sample point; with the window at `floor - 0.02` no pixel straddles a
-/// texel edge. Here the level is sky above a wall in its bottom 16 rows and left 16
-/// columns, and the sprite (as in the colour test above) spans 16.02..48.02 like a
-/// sprite drawn at whole pixels: its bottom row (stage y 16.5) and left column
-/// (x 16.5) lie over sky and are drawn; the row below shows the wall.
+/// pixel: the camera's `screenPixelOffset` (screen = stage + (-0.5, +0.5)) and
+/// `_spriteRect`'s matching shift make `floor(scrPos)` read the texel the pixel shows;
+/// with the window at `floor - 0.02` no pixel straddles a texel edge. Here the level is
+/// sky above a wall in its bottom 16 rows and left 16 columns; at the window -0.02 the
+/// image sits at screen (-0.48, 0.52), so screen pixel (x, y) (y up) shows texel (x,
+/// y - 1) and the wall up to y = 16. The sprite (as in the colour test above) spans
+/// stage 16.02..48.02, screen x 15.52..47.52 and y 16.52..48.52: its bottom row (y 17,
+/// texel 16) and left column (x 16) lie over sky and are drawn; the pixels below and
+/// left of it show the wall.
 #[test]
 fn colored_sprite3_tests_the_level_texel_under_the_pixel() {
     let Some(mut r) = renderer() else { return };
@@ -322,6 +324,7 @@ fn colored_sprite3_tests_the_level_texel_under_the_pixel() {
         },
     });
     let window = [-0.02, -0.02];
+    r.begin_frame(Camera::window(window, [64.0, 64.0], SIZE));
     r.draw_level(LevelView {
         origin: window,
         size: [64.0, 64.0],
@@ -337,8 +340,8 @@ fn colored_sprite3_tests_the_level_texel_under_the_pixel() {
     let frame = r.render_image().unwrap();
     let sprite = [144, 72, 106];
     assert_eq!(pixel(&frame, 32, 32), sprite);
-    assert_eq!(pixel(&frame, 32, 47), sprite, "bottom row");
+    assert_eq!(pixel(&frame, 32, 46), sprite, "bottom row");
     assert_eq!(pixel(&frame, 16, 32), sprite, "left column");
-    assert_ne!(pixel(&frame, 32, 48), sprite);
+    assert_ne!(pixel(&frame, 32, 47), sprite);
     assert_ne!(pixel(&frame, 15, 32), sprite);
 }

@@ -17,6 +17,9 @@ struct Stage {
     sprite_rect: vec4<f32>,
 };
 
+// Futile's `screenPixelOffset` (`Camera::SCREEN_PIXEL_OFFSET`): screen = stage + this.
+const SCREEN_PIXEL_OFFSET: vec2<f32> = vec2(-0.5, 0.5);
+
 @group(0) @binding(0) var<uniform> stage: Stage;
 @group(1) @binding(0) var main_tex: texture_2d<f32>;
 @group(1) @binding(1) var main_sampler: sampler;
@@ -45,7 +48,7 @@ fn vs_main(
     out.position = vec4<f32>(pos * stage.transform.xy + stage.transform.zw, 0.0, 1.0);
     out.uv = uv;
     out.color = color;
-    out.scr = pos / stage.screen;
+    out.scr = (pos + SCREEN_PIXEL_OFFSET) / stage.screen;
     return out;
 }
 

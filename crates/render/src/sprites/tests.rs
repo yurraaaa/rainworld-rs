@@ -428,8 +428,7 @@ fn mesh_uvs_and_vertex_colours() {
 
 #[test]
 fn room_globals_sprite_rect() {
-    // RoomCamera's ((image - window) + (-0.5, 0.5)) / screen less the D3D camera's
-    // `screenPixelOffset` y: (-0.5, -0.5); the far corner + size.
+    // RoomCamera: ((image - window) + (-0.5, 0.5)) / screen, and the far corner + size.
     let view = LevelView {
         origin: [100.5, 200.25],
         size: [1366.0, 768.0],
@@ -440,9 +439,9 @@ fn room_globals_sprite_rect() {
         g.sprite_rect,
         [
             -21.0 / 1366.0,
-            -10.75 / 768.0,
+            -9.75 / 768.0,
             1379.0 / 1366.0,
-            789.25 / 768.0
+            790.25 / 768.0
         ]
     );
     assert_eq!(g.screen_size, [1366.0, 768.0]);

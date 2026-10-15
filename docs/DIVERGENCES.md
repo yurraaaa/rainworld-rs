@@ -298,14 +298,11 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   change), and a window the window manager sizes differently from the resolution is
   letterboxed the same way. The Steam Deck case (1229x768 full screen as a 1280x800
   window) is not ported.
-- **Half-pixel camera offset.** The game's D3D build (Windows, also under Proton)
-  places Futile's camera at `screenPixelOffset` (screen = stage + (-0.5, +0.5)), so its
-  pixels sample the stage at whole-pixel points; the port has no offset and samples at
-  pixel centres, as the game's OpenGL path does. Sprites at fractional positions can
-  therefore round to a neighbouring pixel. The level lookups of the room sprite and
-  water shaders (`_spriteRect`, `RoomGlobals::new`) take the D3D result, the level
-  texel shown at the pixel; the game's rect unchanged would test depth against the row
-  below (rainworld-re/notes/sprite-atlases.md section 3).
+- **Half-pixel camera offset.** The port always draws as the game's D3D build at
+  render scale 1 (Windows, also under Proton): Futile's `screenPixelOffset`, screen =
+  stage + (-0.5, +0.5) (`Camera::SCREEN_PIXEL_OFFSET`). The game's OpenGL path (no
+  offset) and its render-scale > 1 offset (0, 1) are not modelled
+  (rainworld-re/notes/sprite-atlases.md section 3).
 - **Camera switch timing.** The game loads the next camera's image asynchronously and
   cuts when it has loaded (usually the next frame); the port decodes every camera's
   image when the camera enters the room (`MoveCamera`, synchronous: D14) and cuts in
