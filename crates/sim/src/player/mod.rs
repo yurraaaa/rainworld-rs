@@ -123,6 +123,62 @@ pub enum Animation {
     Dead,
 }
 
+impl Animation {
+    /// The game's `AnimationIndex` spelling.
+    pub fn value(self) -> &'static str {
+        match self {
+            Self::None => "None",
+            Self::CrawlTurn => "CrawlTurn",
+            Self::StandUp => "StandUp",
+            Self::DownOnFours => "DownOnFours",
+            Self::LedgeCrawl => "LedgeCrawl",
+            Self::HangFromBeam => "HangFromBeam",
+            Self::GetUpOnBeam => "GetUpOnBeam",
+            Self::StandOnBeam => "StandOnBeam",
+            Self::LedgeGrab => "LedgeGrab",
+            Self::ClimbOnBeam => "ClimbOnBeam",
+            Self::GetUpToBeamTip => "GetUpToBeamTip",
+            Self::BeamTip => "BeamTip",
+            Self::HangUnderVerticalBeam => "HangUnderVerticalBeam",
+            Self::Flip => "Flip",
+            Self::Roll => "Roll",
+            Self::RocketJump => "RocketJump",
+            Self::BellySlide => "BellySlide",
+            Self::CorridorTurn => "CorridorTurn",
+            Self::DeepSwim => "DeepSwim",
+            Self::SurfaceSwim => "SurfaceSwim",
+            Self::Dead => "Dead",
+        }
+    }
+
+    pub fn from_value(value: &str) -> Option<Self> {
+        Some(match value {
+            "None" => Self::None,
+            "CrawlTurn" => Self::CrawlTurn,
+            "StandUp" => Self::StandUp,
+            "DownOnFours" => Self::DownOnFours,
+            "LedgeCrawl" => Self::LedgeCrawl,
+            "HangFromBeam" => Self::HangFromBeam,
+            "GetUpOnBeam" => Self::GetUpOnBeam,
+            "StandOnBeam" => Self::StandOnBeam,
+            "LedgeGrab" => Self::LedgeGrab,
+            "ClimbOnBeam" => Self::ClimbOnBeam,
+            "GetUpToBeamTip" => Self::GetUpToBeamTip,
+            "BeamTip" => Self::BeamTip,
+            "HangUnderVerticalBeam" => Self::HangUnderVerticalBeam,
+            "Flip" => Self::Flip,
+            "Roll" => Self::Roll,
+            "RocketJump" => Self::RocketJump,
+            "BellySlide" => Self::BellySlide,
+            "CorridorTurn" => Self::CorridorTurn,
+            "DeepSwim" => Self::DeepSwim,
+            "SurfaceSwim" => Self::SurfaceSwim,
+            "Dead" => Self::Dead,
+            _ => return None,
+        })
+    }
+}
+
 /// A slugcat: the two-chunk [`PhysicalObject`] plus the movement state machine.
 ///
 /// Drive it with [`Player::update`] at 40 Hz. Chunk positions (and `last_pos` for

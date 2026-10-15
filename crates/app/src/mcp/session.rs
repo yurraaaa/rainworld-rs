@@ -793,7 +793,7 @@ impl PlayerState {
                 })
                 .collect(),
             body_mode: format!("{:?}", player.body_mode()),
-            animation: format!("{:?}", player.animation()),
+            animation: player.animation().value().to_owned(),
             flip_direction: player.flip_direction(),
             standing: player.is_standing(),
             stunned: player.is_stunned(),
@@ -831,7 +831,7 @@ impl StepTrace {
             tick: game.ticks(),
             head: player.map(|p| p.head().pos.to_array()),
             body_mode: player.map(|p| format!("{:?}", p.body_mode())),
-            animation: player.map(|p| format!("{:?}", p.animation())),
+            animation: player.map(|p| p.animation().value().to_owned()),
         }
     }
 }

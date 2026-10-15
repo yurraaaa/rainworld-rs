@@ -4,6 +4,8 @@
 //! chosen from the game state, not from a tick table, so the route survives changes in
 //! when the guide follows the player.
 
+use rw_sim::Animation;
+
 use super::Session;
 use super::params::{InputParam, NewGameParams, StepParams};
 use super::reply::State;
@@ -17,7 +19,7 @@ pub(super) struct RouteView {
     main: [f32; 2],
     hips: [f32; 2],
     hips_contact_y: i8,
-    animation: String,
+    animation: Animation,
     in_shortcut: bool,
     /// The shortcut tile the body travels, while in one.
     shortcut_tile: Option<[i32; 2]>,
@@ -37,7 +39,9 @@ impl RouteView {
             main: p.map_or([0.0; 2], |p| p.chunks[0].pos),
             hips: p.map_or([0.0; 2], |p| p.chunks[1].pos),
             hips_contact_y: p.map_or(0, |p| p.chunks[1].contact[1]),
-            animation: p.map_or_else(String::new, |p| p.animation.clone()),
+            animation: p
+                .and_then(|p| Animation::from_value(&p.animation))
+                .unwrap_or_default(),
             in_shortcut: p.is_none_or(|p| p.in_shortcut) || s.lobby.is_some(),
             shortcut_tile: p.and_then(|p| p.vessel_tile),
             lobby_room: s.lobby.as_ref().map(|l| l.room.clone()),
@@ -69,7 +73,7 @@ impl RouteView {
 
     /// The tutorial's pole climbed in SU_A41.
     fn climbed_pole(&self) -> bool {
-        self.animation == "ClimbOnBeam" && self.hips[1] > 280.0 && self.main[1] > 300.0
+        self.animation == Animation::ClimbOnBeam && self.hips[1] > 280.0 && self.main[1] > 300.0
     }
 }
 
@@ -307,7 +311,7 @@ impl TutorialRoute {
                 InputParam::default()
             }
             Leg::DropOffPole => {
-                if v.animation != "ClimbOnBeam" && v.hips_contact_y < 0 {
+                if v.animation != Animation::ClimbOnBeam && v.hips_contact_y < 0 {
                     self.go(v, Leg::ToRightPole);
                 }
                 InputParam {
@@ -606,7 +610,7 @@ fn print_tutorial_route() {
             v.main,
             v.hips,
             v.hips_contact_y,
-            v.animation,
+            v.animation.value(),
             v.in_shortcut,
             v.shortcut_tile,
             v.lobby_room,
