@@ -361,6 +361,8 @@ pub struct SceneData {
     pub flat_mode: bool,
     /// `SlideShowMenuScene.displayTime`.
     pub display_time: f32,
+    /// `SlideShowMenuScene.cameraMovementPoints`.
+    pub camera_path: super::CameraPath,
     pub depth_illustrations: Vec<ObjectId>,
     pub flat_illustrations: Vec<ObjectId>,
     /// `InteractiveMenuScene.idleDepths`.

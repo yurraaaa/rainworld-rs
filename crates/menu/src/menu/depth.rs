@@ -94,6 +94,8 @@ pub struct DepthLayer {
     pub shader: MenuShader,
     /// The `setAlpha` `BuildScene` gives the layer.
     pub set_alpha: Option<f32>,
+    /// The sprite's `scaleX`, `scaleY` when `BuildScene` sets them.
+    pub scale: Option<Vec2>,
 }
 
 /// A scene's depth branch of `BuildScene`: its folder (`sceneFolder`, where
@@ -140,6 +142,7 @@ impl DepthScene {
             depth,
             shader,
             set_alpha: None,
+            scale: None,
         });
         self
     }
@@ -149,6 +152,15 @@ impl DepthScene {
     pub fn alpha(mut self, alpha: f32) -> Self {
         if let Some(last) = self.layers.last_mut() {
             last.set_alpha = Some(alpha);
+        }
+        self
+    }
+
+    /// `depthIllustrations[^1].sprite.scaleX, scaleY = scale`.
+    #[must_use]
+    pub fn scale(mut self, scale: Vec2) -> Self {
+        if let Some(last) = self.layers.last_mut() {
+            last.scale = Some(scale);
         }
         self
     }
@@ -446,6 +458,12 @@ impl Menu {
             );
             if let (Some(a), Some(i)) = (l.set_alpha, self.illustration_mut(id)) {
                 i.set_alpha = Some(a);
+            }
+            if let (Some(scale), Some(i)) = (l.scale, self.illustration_mut(id)) {
+                let node = i.sprite;
+                let sprite = self.stage.sprite_mut(node);
+                sprite.transform.scale_x = scale.x;
+                sprite.transform.scale_y = scale.y;
             }
             layers.push(id);
         }

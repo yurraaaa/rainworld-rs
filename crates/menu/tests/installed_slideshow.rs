@@ -5,7 +5,7 @@
 //!
 //! Expected numbers come from the decompiled game (`Assembly-CSharp`, 1.11.8): the
 //! `SlideShow` constructor (551452), `ConvertTime` (552339), `RawUpdate` (552344),
-//! `SlideShowMenuScene.ApplySceneSpecificAlphas` (552967) and
+//! `SlideShowMenuScene.ApplySceneSpecificAlphas` (552967, the depth branch) and
 //! `RWInput.CheckPauseButton` (54624).
 
 use std::path::PathBuf;
@@ -412,18 +412,34 @@ fn yellow_intro_without_music_runs_on_real_time() {
             alphas.push((s.in_scene_time(), s.illustration_alphas()));
         }
     }
-    // `flatIllustrations[1]` of Yellow A fades in over `InverseLerp(0.51, 0.55,
-    // displayTime)`. A tick sets `alpha` from the `setAlpha` of the tick before, whose
-    // display time was the scene time after the frame before that.
+    // In depth (no `flatmode.txt`), Yellow A's last two layers have `alpha` set by
+    // the scene's update after their own: `Pow(num, 1.5) * 0.65` and `Pow(num, 0.5)`,
+    // `num = InverseLerp(0.51, 0.55, displayTime)`, the display time being the scene
+    // time after the frame before.
     assert_eq!(alphas.len(), 454, "11.35 s of Yellow A");
-    for k in 2..alphas.len() {
+    for k in 1..alphas.len() {
         let a = &alphas[k].1;
-        assert_eq!(a.len(), 2);
+        assert_eq!(a.len(), 10);
         assert_eq!(a[0], 1.0);
-        let want = Decompiled::inverse_lerp(0.51, 0.55, alphas[k - 2].0);
-        assert!((a[1] - want).abs() < 1e-6, "frame {k}: {} vs {want}", a[1]);
+        let num = Decompiled::inverse_lerp(0.51, 0.55, alphas[k - 1].0);
+        let want = (
+            f64::from(num).powf(1.5) as f32 * 0.65,
+            f64::from(num).powf(0.5) as f32,
+        );
+        assert!(
+            (a[8] - want.0).abs() < 1e-6,
+            "frame {k}: {} vs {}",
+            a[8],
+            want.0
+        );
+        assert!(
+            (a[9] - want.1).abs() < 1e-6,
+            "frame {k}: {} vs {}",
+            a[9],
+            want.1
+        );
     }
-    assert_eq!(alphas.last().map(|a| a.1[1]), Some(1.0));
+    assert_eq!(alphas.last().map(|a| a.1[9]), Some(1.0));
     assert_eq!(h.manager.upcoming(), Some(ProcessId::Game));
 }
 

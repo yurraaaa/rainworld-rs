@@ -1,6 +1,7 @@
 //! `SlideShow`: a timed playlist of menu scenes faded through the manager's fade, kept
-//! in time with its song (the intro before a new Survivor or Monk game). Scenes are
-//! shown flat (D13). Behaviour: `rainworld-re/notes/slideshow.md`.
+//! in time with its song (the intro before a new Survivor or Monk game). Its scenes are
+//! `SlideShowMenuScene`s (`menu::slide_show_scene`). Behaviour:
+//! `rainworld-re/notes/slideshow.md`.
 
 use rw_sim::{FloatExt, Vec2};
 
@@ -251,7 +252,17 @@ impl SlideShow {
         self.screen.exited_slideshow
     }
 
-    /// The current scene's flat illustrations' alphas.
+    /// The current scene's camera (`camPos`, screen pixels over 300) and focus.
+    #[must_use]
+    pub fn scene_camera(&self) -> Option<(Vec2, f32)> {
+        let scene = self.screen.scene?;
+        match &self.menu.object(scene).kind {
+            Kind::Scene(s) => Some((s.cam_pos, s.focus)),
+            _ => None,
+        }
+    }
+
+    /// The current scene's illustrations' alphas: its depth layers, then its flats.
     #[must_use]
     pub fn illustration_alphas(&self) -> Vec<f32> {
         let Some(scene) = self.screen.scene else {
@@ -260,8 +271,9 @@ impl SlideShow {
         let Kind::Scene(s) = &self.menu.object(scene).kind else {
             return Vec::new();
         };
-        s.flat_illustrations
+        s.depth_illustrations
             .iter()
+            .chain(&s.flat_illustrations)
             .filter_map(|&id| match &self.menu.object(id).kind {
                 Kind::Illustration(i) => Some(i.alpha),
                 _ => None,
@@ -293,33 +305,9 @@ impl SlideShowScreen {
             return;
         };
         let scene = menu.add_slide_show_scene(shared, self.page, entry.scene);
-        // The constructor applies the scene's alphas at display time 0.
-        Self::apply_scene_alphas(menu, scene);
         menu.add_sub(self.page, scene);
         menu.scene = Some(scene);
         self.scene = Some(scene);
-    }
-
-    /// `SlideShowMenuScene.ApplySceneSpecificAlphas` in flat mode: the second layer of
-    /// the rain drop and the Monk's first scene fades in, the title fades out.
-    fn apply_scene_alphas(menu: &mut Menu, scene: ObjectId) {
-        let Kind::Scene(s) = &menu.object(scene).kind else {
-            return;
-        };
-        let t = s.display_time;
-        let last = s.flat_illustrations.len().saturating_sub(1);
-        let (layer, alpha) = match s.id {
-            SceneId::Intro67RainDrop => (1, t.inverse_lerp(0.52, 0.58)),
-            SceneId::YellowIntroA => (1, t.inverse_lerp(0.51, 0.55)),
-            SceneId::Intro14Title => (last, t.inverse_lerp(1.0, 0.7)),
-            _ => return,
-        };
-        let Some(&id) = s.flat_illustrations.get(layer) else {
-            return;
-        };
-        if let Some(i) = menu.illustration_mut(id) {
-            i.set_alpha = Some(alpha);
-        }
     }
 
     /// `SlideShow.RawUpdate` after the base's ticks and drawing: the pause button skips;
@@ -418,13 +406,10 @@ impl MenuScreen for SlideShowScreen {
         false
     }
 
-    /// `SlideShowMenuScene.Update` after its sub-objects: the display time is the
-    /// slideshow's time in the scene, then the scene's alphas.
+    /// `SlideShowMenuScene.Update` after its sub-objects, at the slideshow's time in
+    /// the scene.
     fn scene_update(&mut self, menu: &mut Menu, scene: ObjectId) {
-        if let Some(s) = menu.scene_mut(scene) {
-            s.display_time = self.in_scene_time;
-        }
-        Self::apply_scene_alphas(menu, scene);
+        menu.update_slide_show_scene(scene, self.in_scene_time);
     }
 }
 

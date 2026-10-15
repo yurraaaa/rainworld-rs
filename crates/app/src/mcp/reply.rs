@@ -440,7 +440,10 @@ pub struct SlideShowState {
     /// Waiting for its song to be the current one.
     pub stall: bool,
     pub playback_speed_mult: f32,
-    /// The scene's flat illustrations' alphas.
+    /// The scene's camera (`camPos`) and focus.
+    pub cam_pos: Option<[f32; 2]>,
+    pub focus: Option<f32>,
+    /// The scene's illustrations' alphas: its depth layers, then its flats.
     pub alphas: Vec<f32>,
 }
 

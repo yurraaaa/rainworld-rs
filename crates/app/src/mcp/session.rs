@@ -816,6 +816,8 @@ impl Session {
                 in_scene_time: s.in_scene_time(),
                 stall: s.stall(),
                 playback_speed_mult: s.playback_speed_mult(),
+                cam_pos: s.scene_camera().map(|c| c.0.to_array()),
+                focus: s.scene_camera().map(|c| c.1),
                 alphas: s.illustration_alphas(),
             }),
             pause_menu: frontend
