@@ -4,7 +4,8 @@
 //! Ported: the slugcat ([`PlayerGraphics`]: tail, head, legs, hands, draw offsets,
 //! breathing, blinking, sprite frame choice), base game with Remix off; Futile atlas
 //! frame data ([`Atlas`]); the overseer's ([`OverseerGraphics`]: mycelia, lens, sprites)
-//! and its holograms' ([`HologramGraphics`]); the bat fly's ([`FlyGraphics`]). Behaviour: `rainworld-re/notes/slugcat-graphics.md` and
+//! and its holograms' ([`HologramGraphics`]); the bat fly's ([`FlyGraphics`]); the shelter door's
+//! ([`ShelterDoorSprites`]). Behaviour: `rainworld-re/notes/slugcat-graphics.md` and
 //! `sprite-atlases.md`; differences from the game are in `docs/DIVERGENCES.md`.
 
 mod atlas;
@@ -24,6 +25,7 @@ mod overseer_draw;
 mod overseer_graphics;
 mod player_draw;
 mod player_graphics;
+mod shelter_door_graphics;
 mod shortcut_graphics;
 mod tail;
 mod water_drip;
@@ -43,6 +45,7 @@ pub use mycelium::{Mycelium, MyceliumLink};
 pub use overseer_graphics::{DrawPositions, OverseerGraphics};
 pub use player_draw::{SPRITE_COUNT, SPRITE_LAYERS, TAIL_TRIANGLES};
 pub use player_graphics::PlayerGraphics;
+pub use shelter_door_graphics::ShelterDoorSprites;
 pub use shortcut_graphics::{
     ExitBehind, ShortcutFrame, ShortcutGraphics, ShortcutPalette, ShortcutRoom, ShortcutVessel,
 };

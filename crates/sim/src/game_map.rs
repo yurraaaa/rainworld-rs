@@ -49,12 +49,8 @@ impl RainWorldGame {
         index == self.camera_room && self.camera_darkness >= 0.95
     }
 
-    /// The start of `Player.Update` up to the exit discovery, for the player in room
-    /// `index`: `moved` is `coord != lastCoord`. The first time the map discovery sees
-    /// the player move it lists the room's exits; after that, while the HUD map exists
-    /// and the room is not dark, each move picks an exit (a draw) and, if the camera
-    /// sees it, discovers up to 20 steps of 50 px towards it.
-    pub(super) fn player_map_discovery(&mut self, index: i32, room: &Room, moved: bool) {
+    /// `Player.Update`'s first report of the room it is in (`addedSpawnRoomToDiscovery`).
+    pub(super) fn report_spawn_room(&mut self, index: i32) {
         let Some(player) = self.player.as_mut() else {
             return;
         };
@@ -62,6 +58,15 @@ impl RainWorldGame {
             player.added_spawn_room_to_discovery = true;
             self.report_room_visited(index);
         }
+    }
+
+    /// The exit discovery of `Player.Update` (after [`Self::report_spawn_room`] and the
+    /// sleep update), for the player in room
+    /// `index`: `moved` is `coord != lastCoord`. The first time the map discovery sees
+    /// the player move it lists the room's exits; after that, while the HUD map exists
+    /// and the room is not dark, each move picks an exit (a draw) and, if the camera
+    /// sees it, discovers up to 20 steps of 50 px towards it.
+    pub(super) fn player_map_discovery(&mut self, index: i32, room: &Room, moved: bool) {
         if !moved || !self.map_discovery_active() {
             return;
         }

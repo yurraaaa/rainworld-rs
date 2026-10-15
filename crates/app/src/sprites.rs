@@ -10,7 +10,7 @@ const ATLAS: &str = "rainWorld";
 
 /// Further atlases, in `RainWorld.LoadResources`' order (the holograms' symbols and
 /// keys are in `uiSprites`).
-const MORE_ATLASES: [&str; 1] = ["uiSprites"];
+const MORE_ATLASES: [&str; 2] = ["uiSprites", "shelterGate"];
 
 /// `HoloImage.LoadFile`'s textures: `Projections/<name>.png`, an atlas of one element.
 const PROJECTIONS: [&str; 2] = ["RND_PROJ", "STR_PROJ"];

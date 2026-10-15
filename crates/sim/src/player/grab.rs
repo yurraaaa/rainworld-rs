@@ -59,16 +59,19 @@ impl Player {
     /// The belly-slide part of `Player.Collide` with a creature: the slide caps the roll
     /// counter at 11 and pushes the head on. Returns whether the player slides (the
     /// creature is then stunned for 2 ticks; `longBellySlide` is only set by throwing a
-    /// weapon).
+    /// weapon). A sleeping slugcat wakes.
     pub(crate) fn collide_with_creature(&mut self) -> bool {
-        if self.animation != Animation::BellySlide {
-            return false;
+        let slides = self.animation == Animation::BellySlide;
+        if slides {
+            if self.roll_counter > 11 {
+                self.roll_counter = 11;
+            }
+            self.body.chunks[HEAD].vel.x += self.roll_direction as f32 * 3.0;
         }
-        if self.roll_counter > 11 {
-            self.roll_counter = 11;
+        if self.sleeping() {
+            self.sleep_counter = 0;
         }
-        self.body.chunks[HEAD].vel.x += self.roll_direction as f32 * 3.0;
-        true
+        slides
     }
 
     #[must_use]

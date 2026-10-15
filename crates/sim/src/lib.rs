@@ -53,14 +53,16 @@ pub use object::{
 };
 pub use player::{
     Animation, BodyMode, GrabState, HEAD, HIPS, INPUT_HISTORY, Input, Player, PlayerController,
-    VesselStep,
+    ShelterCheck, VesselStep,
 };
 pub use room_ext::RoomExt;
 pub use shelter::SessionEnd;
 pub use shortcut::{
     CreatureVessel, EntranceColor, LobbyVessel, ShortcutHandler, ShortcutsBlinking, VesselOwner,
 };
-pub use sound::{EmitterId, PlayedSound, SoundEvent, SoundId, SoundSource, Sounds};
+pub use sound::{
+    EmitterId, PlayedSound, SoundEvent, SoundId, SoundSource, Sounds, StaticSoundLoop,
+};
 pub use spawn::{determine_safe_spawn_tile, place_in_room};
 pub use vec2::{TileExt, Vec2};
 pub use vec3::Vec3;

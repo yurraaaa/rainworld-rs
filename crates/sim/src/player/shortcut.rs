@@ -196,6 +196,8 @@ impl Player {
             Vec2::random_unit(rng);
         }
         self.entering_shortcut = None;
+        self.force_sleep_counter = 0;
+        self.still_in_start_shelter = false;
         self.shortcut_delay = SPIT_OUT_DELAY;
         self.vessel = None;
         let (hx, hy) = room.shortcut_hole_direction(tile.0, tile.1);
