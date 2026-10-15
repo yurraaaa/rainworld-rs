@@ -2,6 +2,7 @@
 name = "rw-hud"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
 
 [dependencies]
 rw-assets.workspace = true

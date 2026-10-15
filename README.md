@@ -114,3 +114,10 @@ repository, `rainworld-reversing`.
 
 Rain World is made by Videocult. This project is not affiliated with Videocult or its publishers, and
 you need your own copy of the game to run it.
+
+## License
+
+rainworld-rs is free software under the GNU General Public License, version 3 or (at your
+option) any later version; see [`LICENSE`](LICENSE). The FMOD Vorbis setup table in
+`crates/assets/data/` comes from vgmstream and keeps its own licence
+(`crates/assets/data/LICENSE-vgmstream`).
