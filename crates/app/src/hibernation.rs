@@ -6,8 +6,8 @@ use rw_assets::world::Regions;
 use rw_random::UnityRandom;
 use rw_save::session::{HibernationStats, HibernationWorld, PlayerSessionRecord};
 use rw_save::{PlayerProgression, SaveError, WinOutcome};
-use rw_sim::RainWorldGame;
 use rw_sim::world::RegionState;
+use rw_sim::{RainWorldGame, WorldCoordinate};
 
 /// The running game as `SessionEnded` and `BringUpToDate` see it.
 pub struct HibernatingGame<'a> {
@@ -139,6 +139,28 @@ impl HibernatingGame<'_> {
         let result = saves.session_ended_died(travelled, death, &mut rng);
         self.sim.set_rng(rng);
         result
+    }
+
+    /// `PlaceKarmaFlowerOnDeathSpot`'s store: the save's `karmaFlowerPosition` becomes
+    /// the player's `karmaFlowerGrowPos`, as `FLOWERPOS` writes it (`None` clears it).
+    /// The Hunter's `redsFlower` (out of cycles) is not ported.
+    pub fn place_karma_flower_on_death_spot(
+        &self,
+        saves: &mut PlayerProgression,
+        grow_pos: Option<WorldCoordinate>,
+    ) {
+        let Some(state) = saves.current_save_state.as_mut() else {
+            return;
+        };
+        state.death_persistent.karma_flower_position = grow_pos.map(|c| {
+            format!(
+                "{}.{}.{}.{}",
+                self.room_index_name(c.room),
+                c.tile.0,
+                c.tile.1,
+                c.node
+            )
+        });
     }
 
     /// `WorldCoordinate.SaveToString`'s room: its name in `RainWorld.roomIndexToName`
@@ -403,5 +425,69 @@ mod tests {
             "{line}"
         );
         assert!(line.contains("<dpA>DEATHS<dpB>1<dpA>"), "{line}");
+    }
+
+    /// Reinforced karma places a flower: the death's `PlaceKarmaFlowerOnDeathSpot`
+    /// stores the last `karmaFlowerGrowPos` as `FLOWERPOS` (room by the index map, the
+    /// tile, node -1), and the death save writes it.
+    #[test]
+    fn a_reinforced_death_saves_the_flower_position() {
+        let Some(assets) = assets() else { return };
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("sav");
+        let mut saves = PlayerProgression::load(&path, Some(ChecksumSalt::new("s"))).unwrap();
+        let story = StoryStart {
+            karma_reinforced: true,
+            ..StoryStart::new_game(&SlugcatCampaign::SURVIVOR)
+        };
+        let mut sim = game(&assets, "SU_C04", story);
+        saves
+            .get_or_initiate_save_state(START, sim.save_state_seed(), false, true)
+            .unwrap();
+        saves.save_world_state_and_progression(false).unwrap();
+        // Onto the first open floor tile (two free tiles above, not a narrow space).
+        let room = sim.player_pos().room;
+        let realized = sim.world().realized(room).unwrap();
+        let (r, map) = (&realized.room, realized.ai_map.as_ref().unwrap());
+        let floor = (0..r.width())
+            .flat_map(|x| (1..r.height() - 2).map(move |y| (x, y)))
+            .find(|&(x, y)| {
+                r.tile(x, y - 1).is_solid()
+                    && !r.tile(x, y).is_solid()
+                    && !r.tile(x, y + 1).is_solid()
+                    && !r.tile(x, y + 2).is_solid()
+                    && !map.narrow_space(x, y)
+            })
+            .unwrap();
+        sim.set_player(
+            Vec2::from(tile_centre(floor.0, floor.1)),
+            Vec2::ZERO,
+            &mut (),
+        );
+        for _ in 0..40 {
+            sim.tick(Input::default(), &mut ());
+        }
+        let grow = sim.karma_flower_grow_pos().expect("stands on the floor");
+        sim.kill_player();
+        let over = sim.take_game_over().expect("game over");
+        assert_eq!(over.karma_flower, Some(Some(grow)));
+        let mut game = HibernatingGame {
+            sim: &mut sim,
+            assets: &assets,
+        };
+        game.place_karma_flower_on_death_spot(&mut saves, Some(grow));
+        game.session_ended_died(
+            &mut saves,
+            Some((over.death_room, over.death_pos.to_array())),
+        )
+        .unwrap();
+        let mut again = PlayerProgression::load(&path, Some(ChecksumSalt::new("s"))).unwrap();
+        let lines = again.prog_lines();
+        let line = lines.iter().find(|l| l.starts_with("SAVE STATE")).unwrap();
+        let flower = format!(
+            "<dpA>FLOWERPOS<dpB>SU_C04.{}.{}.-1<dpA>",
+            grow.tile.0, grow.tile.1
+        );
+        assert!(line.contains(&flower), "{line}");
     }
 }

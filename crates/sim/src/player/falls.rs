@@ -12,7 +12,7 @@ use super::{Animation, BodyMode, HEAD, HIPS, Player};
 use crate::float_ext::FloatExt;
 use crate::{
     BodyChunk, DEFAULT_RESTRICT_IN_ROOM_RANGE, PhysicalObject, SoundId, Sounds, TerrainImpact,
-    TerrainImpactHandler, Water,
+    TerrainImpactHandler, Vec2, Water,
 };
 
 /// Floor impacts faster than this kill (Survivor; Gourmand 80).
@@ -82,14 +82,28 @@ impl Player {
         self.flush_sounds(rng, sounds);
     }
 
-    /// `Player.Die`: plays `UI_Slugcat_Die` (silent in the shipped game) on the first
-    /// call; its draws are made with the player's next ones. The hands let go.
+    /// `Player.Die`: the first call asks the game for `GameOver` (see
+    /// [`Player::take_died_at`]) and plays `UI_Slugcat_Die` (silent in the shipped game);
+    /// its draws are made with the player's next ones. The hands let go.
     pub fn die(&mut self) {
+        let main = self.body.chunks[HEAD].pos;
+        self.die_with_main_at(main);
+    }
+
+    /// [`Player::die`] while the body is out for a physics step, `main` its main chunk's
+    /// position.
+    fn die_with_main_at(&mut self, main: Vec2) {
         if !self.dead {
+            self.died_at = Some(main);
             self.play_sound(SoundId::UiSlugcatDie, HEAD, 1.0, 1.0);
         }
         self.dead = true;
         self.request_release_grasps();
+    }
+
+    /// The main chunk's position at the first `Die`, once: the game's `GameOver` call.
+    pub fn take_died_at(&mut self) -> Option<Vec2> {
+        self.died_at.take()
     }
 
     /// Stun ticks for an impact at `speed`: `LerpMap(speed, 35, 60, 40, 140, 2.5)`,
@@ -228,7 +242,7 @@ impl Player {
         if self.lands_in_roll(&impact) {
             self.start_landing_roll(chunks);
         } else if impact.first_contact {
-            self.first_contact_impact(impact, rng, sounds);
+            self.first_contact_impact(impact, chunks[HEAD].pos, rng, sounds);
         }
         self.flush_sounds(rng, sounds);
         let c = &chunks[impact.chunk];
@@ -240,13 +254,14 @@ impl Player {
     fn first_contact_impact(
         &mut self,
         impact: TerrainImpact,
+        main: Vec2,
         rng: &mut UnityRandom,
         sounds: &mut Sounds,
     ) {
         let speed = impact.speed;
         if speed > FALL_DEATH_SPEED && impact.direction.y < 0 {
             self.play_sound(SoundId::SlugcatTerrainImpactDeath, HEAD, 1.0, 1.0);
-            self.die();
+            self.die_with_main_at(main);
         } else if speed > FALL_STUN_SPEED {
             self.play_sound(SoundId::SlugcatTerrainImpactHard, HEAD, 1.0, 1.0);
             self.stun(Self::fall_stun_ticks(speed), rng, sounds);

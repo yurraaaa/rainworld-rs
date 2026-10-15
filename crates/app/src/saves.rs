@@ -124,6 +124,7 @@ impl SaveStateStart for SaveState {
             karma_cap: d.karma_cap,
             karma_reinforced: d.reinforced_karma,
             the_mark: d.the_mark,
+            red_extra_cycles: self.red_extra_cycles(),
             guide_overseer_dead: self.guide_overseer_dead,
             next_issued_id: self.loaded_next_issued_id.filter(|_| !in_memory),
             seed: Some(self.seed),

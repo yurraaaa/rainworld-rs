@@ -351,6 +351,86 @@ fn text_prompt_timing() {
 }
 
 #[test]
+fn game_over_prompt_locks_40_ticks_then_waits_for_a_press() {
+    // `EnterGameOverMode`: `restartNotAllowed = 40`, counted down a tick by `Update`;
+    // after it, a rising edge of the map button (`lastAnyKey` starts true) calls
+    // `GoToDeathScreen`.
+    let mut rig = Rig::new(7, 4);
+    rig.hud.text_prompt.enter_game_over_mode(2, 7, [10.0, 20.0]);
+    let p = &rig.hud.text_prompt;
+    assert_eq!(
+        (p.food_in_stomach, p.death_room, p.death_pos),
+        (2, 7, [10.0, 20.0])
+    );
+    for i in 0..40 {
+        rig.tick(i % 2 == 0);
+        assert!(!rig.hud.text_prompt.go_to_death_screen, "tick {}", i + 1);
+    }
+    assert_eq!(rig.hud.text_prompt.currently_showing, InfoId::GameOver);
+    // Tick 41 sees the button held but no edge from the initial `lastAnyKey`.
+    rig.tick(true);
+    assert!(!rig.hud.text_prompt.go_to_death_screen);
+    rig.tick(false);
+    assert!(!rig.hud.text_prompt.go_to_death_screen);
+    rig.tick(true);
+    assert!(rig.hud.text_prompt.go_to_death_screen);
+}
+
+#[test]
+fn game_over_prompt_sound_plays_once_on_tick_22() {
+    // `currentlyShowing` turns GameOver on the first tick (show and lastShow 0); the
+    // sound waits for `restartNotAllowed < 20`, checked before the countdown: tick 22.
+    // Its draws are the prompt's only ones: one `HUD_Game_Over_Prompt` one-shot after
+    // what the other parts (updated before the prompt) draw, as a HUD without game over
+    // draws them.
+    let text = "Volume: 6\nVolume exponent: 1.8\nHUD_Game_Over_Prompt : clip\n";
+    let names = rw_assets::ClipNames::new(["clip".to_owned()], None);
+    let table = std::sync::Arc::new(rw_assets::SoundTable::parse(text, &names).unwrap());
+    let mut over = Rig::new(7, 4);
+    over.sounds = Sounds::new(std::sync::Arc::clone(&table));
+    over.hud.text_prompt.enter_game_over_mode(0, 0, [0.0; 2]);
+    let mut alive = Rig::new(7, 4);
+    let mut played = Vec::new();
+    for tick in 1..=60 {
+        over.tick(false);
+        alive.tick(false);
+        if over.sounds.take_events().is_empty() {
+            assert_eq!(over.rng, alive.rng, "tick {tick}");
+        } else {
+            played.push(tick);
+            let mut expected = alive.rng.clone();
+            Sounds::new(std::sync::Arc::clone(&table)).play_disembodied(
+                rw_sim::SoundId::HudGameOverPrompt,
+                0.0,
+                1.0,
+                1.0,
+                &mut expected,
+            );
+            assert_ne!(expected, alive.rng);
+            assert_eq!(over.rng, expected);
+            alive.rng = expected;
+        }
+    }
+    assert_eq!(played, [22]);
+}
+
+#[test]
+fn game_over_press_needs_a_release_after_the_lock() {
+    // Released through the lock, then pressed on tick 41: `lastAnyKey` is still the
+    // initial true, so only a press after a released tick counts.
+    let mut rig = Rig::new(7, 4);
+    rig.hud.text_prompt.enter_game_over_mode(0, 0, [0.0; 2]);
+    for _ in 0..40 {
+        rig.tick(false);
+    }
+    rig.tick(true);
+    assert!(!rig.hud.text_prompt.go_to_death_screen);
+    rig.tick(false);
+    rig.tick(true);
+    assert!(rig.hud.text_prompt.go_to_death_screen);
+}
+
+#[test]
 fn text_prompt_map_button_shortens_the_message() {
     // `if (RevealMap) time = IntClamp(time - 4, 0, 20)` while showing.
     let mut rig = Rig::new(7, 4);

@@ -173,6 +173,8 @@ pub struct StoryStart {
     pub karma_cap: i32,
     pub karma_reinforced: bool,
     pub the_mark: bool,
+    /// `saveState.RedExtraCycles`: the Hunter's cycles last 5 more.
+    pub red_extra_cycles: bool,
     pub guide_overseer_dead: bool,
     /// A save's `NEXTID` and `SEED`, which replace the drawn `nextIssuedId` and seed.
     pub next_issued_id: Option<i32>,
@@ -203,6 +205,7 @@ impl StoryStart {
             karma_cap: campaign.start_karma_cap,
             karma_reinforced: false,
             the_mark: campaign.start_with_mark,
+            red_extra_cycles: false,
             guide_overseer_dead: false,
             next_issued_id: None,
             seed: None,

@@ -17,6 +17,10 @@ mod flies;
 mod hands;
 #[path = "game_map.rs"]
 mod map;
+#[path = "game_over.rs"]
+mod over;
+
+pub use over::GameOver;
 #[path = "game_shelter.rs"]
 mod shelter_door;
 
@@ -281,6 +285,10 @@ pub struct RainWorldGame {
     closed_shelter_regions: Vec<String>,
     /// Shelters the player was spat out into (`TempDiscoverShelter`), until taken.
     entered_shelters: Vec<String>,
+    /// The player's `karmaFlowerGrowPos`.
+    karma_flower_grow_pos: Option<WorldCoordinate>,
+    /// The player's death called `GameOver`; taken by the app.
+    game_over: Option<GameOver>,
 }
 
 impl RainWorldGame {
@@ -384,6 +392,8 @@ impl RainWorldGame {
             shelter_doors: Vec::new(),
             closed_shelter_regions: Vec::new(),
             entered_shelters: Vec::new(),
+            karma_flower_grow_pos: None,
+            game_over: None,
         };
         if let Err(e) = game.world.activate_room(start.room) {
             log::error!("cannot realize the first room: {e}");
@@ -524,6 +534,7 @@ impl RainWorldGame {
     /// The `Player` constructor, its graphics module, then `PlaceInRoom` on `tile`.
     fn spawn_player(&mut self, tile: (i32, i32), observer: &mut dyn PlayerObserver) {
         let mut player = Player::create(&mut self.rng);
+        self.karma_flower_grow_pos = None;
         self.player_wakes_in_shelter(&mut player);
         observer.created(&player, &mut self.rng);
         player.place(tile, &mut self.rng);
@@ -534,7 +545,7 @@ impl RainWorldGame {
     }
 
     /// A fresh player in the camera's room, at the start tile in the start room, else
-    /// on a safe spawn tile (the R key; not a game function).
+    /// on a safe spawn tile (the R key outside story sessions; not a game function).
     pub fn respawn(&mut self, observer: &mut dyn PlayerObserver) {
         let Some(room) = self
             .world
@@ -559,7 +570,7 @@ impl RainWorldGame {
     /// abstract room (in turn, with the time of a whole round), the rain cycle, the
     /// shortcut handler on every third tick, every active room (newest first: the entry
     /// delay, its water, and the player in it with its graphics), then the loading
-    /// step. A dead player is frozen (docs/DIVERGENCES.md D4).
+    /// step.
     pub fn tick(&mut self, input: Input, observer: &mut dyn PlayerObserver) {
         let follow = self.follow_creature();
         if let (Some(realizer), Some(follow)) = (&mut self.realizer, follow) {
@@ -1048,7 +1059,7 @@ impl RainWorldGame {
         let here = self
             .player
             .as_mut()
-            .filter(|p| player_room == index && !p.in_shortcut() && !p.is_dead());
+            .filter(|p| player_room == index && !p.in_shortcut());
         let room = realized.room.clone();
         if let Some(water) = &mut realized.water {
             let chunks = match here {
@@ -1331,8 +1342,8 @@ impl RainWorldGame {
         }
     }
 
-    /// The player's slot in room `index`'s update list, when its body is there and
-    /// alive: `Player.Update` with the bat-fly catch and `GrabUpdate`, the drips its
+    /// The player's slot in room `index`'s update list, when its body is there (alive
+    /// or dead): `Player.Update` with the bat-fly catch and `GrabUpdate`, the drips its
     /// impacts threw, the grasps a stun or death let go, the carried flies pulled and
     /// sucked into a shortcut, then its graphics and `GraphicsModuleUpdated`.
     fn update_room_player(
@@ -1346,7 +1357,7 @@ impl RainWorldGame {
         let updates = self
             .player
             .as_ref()
-            .is_some_and(|p| player_room == index && !p.in_shortcut() && !p.is_dead());
+            .is_some_and(|p| player_room == index && !p.in_shortcut());
         if !updates || self.world.realized(index).is_none() {
             return;
         }
@@ -1358,6 +1369,7 @@ impl RainWorldGame {
         self.report_spawn_room(index);
         self.player_sleep_update(room, input);
         self.player_map_discovery(index, room, moved);
+        self.update_karma_flower_grow_pos(index, room);
         let water = self.world.realized_mut(index).and_then(|r| r.water.take());
         let ceiling_drips = self
             .world
@@ -1385,6 +1397,7 @@ impl RainWorldGame {
                 player.update_after_clamp(room, water.as_ref(), &mut self.rng, sounds);
             }
         }
+        self.game_over_on_death(room);
         self.apply_player_releases();
         self.add_player_drips(index);
         self.pull_carried();
@@ -1442,11 +1455,9 @@ impl RainWorldGame {
                 &mut self.silent
             };
             sounds.owner_removed();
-            log::info!("player fell out of the room and was destroyed; R respawns");
+            log::info!("player fell out of the room and was destroyed");
             self.player = None;
             self.sync_player_realized();
-        } else if player.is_dead() {
-            log::info!("player died; R respawns");
         } else if player.is_stunned() && !was_stunned {
             log::info!("player stunned for {} ticks", player.stun_ticks());
         }
@@ -1668,10 +1679,17 @@ impl RainWorldGame {
         self.sync_player_realized();
     }
 
-    /// Kills the player (for tests and tools).
+    /// Kills the player (for tests and tools), as `Player.Die` from its room.
     pub fn kill_player(&mut self) {
         if let Some(p) = &mut self.player {
             p.die();
+        }
+        let room = self
+            .world
+            .realized(self.pos().room)
+            .map(|r| Arc::clone(&r.room));
+        if let Some(room) = room {
+            self.game_over_on_death(&room);
         }
     }
 }
