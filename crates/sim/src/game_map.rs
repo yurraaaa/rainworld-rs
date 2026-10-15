@@ -14,10 +14,8 @@ impl RainWorldGame {
         let Some(name) = self.world.abstract_room(index).map(|r| r.name.clone()) else {
             return;
         };
-        if let Some(state) = self.world.region_state.as_mut()
-            && !state.rooms_visited.contains(&name)
-        {
-            state.rooms_visited.push(name);
+        if let Some(state) = self.world.region_state.as_mut() {
+            state.report_room_visited(&name);
         }
     }
 

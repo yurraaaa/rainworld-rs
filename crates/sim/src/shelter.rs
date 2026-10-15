@@ -23,6 +23,13 @@ pub enum SessionEnd {
 pub struct ShelterDoor;
 
 impl ShelterDoor {
+    /// `CoordInsideShelterRange`: an ancient shelter's floor between its doors, else
+    /// anywhere.
+    #[must_use]
+    pub fn coord_inside_shelter_range(tile: (i32, i32), ancient: bool) -> bool {
+        !ancient || (tile.0 > 13 && tile.0 < 33 && tile.1 > 9 && tile.0 < 30)
+    }
+
     /// The constructor's `playerSpawnPos`: from the last column's room exit, out along
     /// its first open side to the wall, (when that side is up) left to the wall, then
     /// down to the floor; (20, 13) in an ancient shelter; a `ShelterSpawnPoint` object

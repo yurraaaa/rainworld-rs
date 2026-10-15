@@ -233,6 +233,9 @@ pub struct AbstractCreature {
     pub grabbed_by: Vec<Grasp>,
     /// `stuckObjects` between creatures, in the order they were made.
     pub sticks: Vec<GripStick>,
+    /// The state entries of a creature loaded from the save (`CreatureState.ToString`),
+    /// written back as read.
+    pub saved_state: Option<String>,
 }
 
 impl AbstractCreature {

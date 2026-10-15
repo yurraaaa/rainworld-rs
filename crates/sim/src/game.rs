@@ -37,7 +37,7 @@ use crate::creature::{
 use crate::room_script::{RoomScript, ScriptTick, StorySession};
 use crate::shelter::SessionEnd;
 use crate::shortcut::{CreatureVessel, Transport};
-use crate::world::{AbstractTick, FollowCreature, RainCycle, RoomRealizer, World};
+use crate::world::{AbstractTick, FollowCreature, RainCycle, RegionState, RoomRealizer, World};
 use crate::{
     EntranceColor, HudMapLink, Input, LobbyVessel, MapDiscovery, Player, ShortcutHandler, Sounds,
     Vec2, VesselOwner, VesselStep, Water, determine_safe_spawn_tile,
@@ -207,10 +207,12 @@ pub struct Start {
 }
 
 /// What [`RainWorldGame::new_game_world`] leaves for the rest of the constructor.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewGameWorld {
     pub ids: IdIssuer,
     pub save_state_seed: i32,
+    /// `saveState.respawnCreatures` after `GeneratePopulation`.
+    pub respawn_creatures: Vec<i32>,
 }
 
 /// A running game.
@@ -302,7 +304,10 @@ impl RainWorldGame {
         let NewGameWorld {
             mut ids,
             save_state_seed,
+            respawn_creatures,
         } = Self::story_world(&mut world, campaign, &story, &mut rng);
+        let mut story = story;
+        story.respawn_creatures = respawn_creatures;
         let session = StorySession {
             character: campaign.name,
             cycle_number: story.cycle_number,
@@ -408,6 +413,13 @@ impl RainWorldGame {
         };
         let guide = PlayerGuideState::default();
         world.rain_cycle = RainCycle::new_story(campaign.name, rng);
+        let mut respawn = story.respawn_creatures.clone();
+        let fresh = story.region_state.is_none();
+        // `World.LoadWorld`: the region state read from its load string, adapted to.
+        if let (Some(saved), false) = (&story.region_state, world.single_room()) {
+            let state = RegionState::from_string(world.data(), saved, world.mods(), rng);
+            world.region_state = Some(state);
+        }
         let mut population = PopulationContext {
             session: &session,
             ids: &mut ids,
@@ -415,14 +427,17 @@ impl RainWorldGame {
             guide_overseer_dead: story.guide_overseer_dead,
             guide: &guide,
             food_to_hibernate: campaign.stats.food_to_hibernate,
+            respawn: &mut respawn,
         };
         if !world.single_room() {
-            world.generate_population(&mut population);
+            world.adapt_world_to_region_state(&mut population, story.food_replenish_bonus);
+            world.generate_population(fresh, &mut population);
         }
         world.create_flies_world_ai(&mut population);
         NewGameWorld {
             ids,
             save_state_seed,
+            respawn_creatures: respawn,
         }
     }
 
