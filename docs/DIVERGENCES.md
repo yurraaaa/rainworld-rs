@@ -1234,7 +1234,7 @@ corpses and a malnourished slugcat (the bat flies do not).
 Front end: the regions, arena and Remix menus, input settings, credits, backups,
 the dream screens, PASSAGE's custom end-game and fast travel screens, the sleep
 screen's kills, the outro and DLC slideshows, the slugcat select menu's
-colour and Jolly Co-op controls, depth scenes, menu objects those use (vertical and
+colour and Jolly Co-op controls, the `SceneRain` and `SceneMultiply` layers, menu objects those use (vertical and
 subtle sliders, check box groups, symbol buttons, scroll boxes, `UIelementWrapper`),
 Remix's options (FPS, VSync, quality, analogue sensitivity, backgrounds), and in-game
 music (D12).

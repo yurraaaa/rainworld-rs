@@ -56,8 +56,7 @@ Not yet ported:
   behind the sleep screen's PASSAGE button (it shows, greyed out; passages are still
   earned and shown on the meters);
 - region gates;
-- creatures other than overseers and bat flies;
-- depth scenes.
+- creatures other than overseers and bat flies.
 
 ## Building and running
 
