@@ -80,7 +80,7 @@ pub enum PlayerConcern {
 }
 
 /// The player guide's `OverseerCommunicationModule`: what the guide thinks the player
-/// needs. The holograms it would show are overseer step 3.
+/// needs, and the holograms that answer it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CommunicationModule {
     pub current_concern: PlayerConcern,
