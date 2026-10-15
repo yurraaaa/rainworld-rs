@@ -543,11 +543,13 @@ impl WgpuRenderer {
         }
     }
 
-    /// Frame rectangle `(x, y, width, height)` of the room rectangle `view`, clamped to
-    /// the frame.
+    /// Frame rectangle `(x, y, width, height)` of the game's screen showing the window
+    /// `view`, clamped to the frame.
     fn scissor(&self, view: &LevelView) -> Option<(u32, u32, u32, u32)> {
-        let top_right = [view.origin[0] + view.size[0], view.origin[1] + view.size[1]];
-        let a = self.camera.world_to_screen(view.origin);
+        let [ox, oy] = Camera::SCREEN_PIXEL_OFFSET;
+        let origin = [view.origin[0] - ox, view.origin[1] - oy];
+        let top_right = [origin[0] + view.size[0], origin[1] + view.size[1]];
+        let a = self.camera.world_to_screen(origin);
         let b = self.camera.world_to_screen(top_right);
         let (w, h) = (self.frame.size.0 as f32, self.frame.size.1 as f32);
         let x0 = a[0].min(b[0]).round().clamp(0.0, w);
