@@ -104,20 +104,16 @@ fn continue_restores_the_saved_population_and_keeps_the_rest() {
     assert_eq!(state.last_cycle_updated, 3);
     assert_eq!(state.unrecognized_population.len(), 1);
 
-    let in_den = |id: EntityId| {
-        world
+    for (id, kind) in [
+        (EntityId::new(5028, 9955), CreatureType::GreenLizard),
+        (EntityId::new(5014, 9942), CreatureType::PinkLizard),
+    ] {
+        let found = world
             .creatures()
             .find(|(_, c)| c.id == id)
-            .map(|(_, c)| (c.kind(), c.in_den, c.state.alive))
-    };
-    assert_eq!(
-        in_den(EntityId::new(5028, 9955)),
-        Some((CreatureType::GreenLizard, true, true))
-    );
-    assert_eq!(
-        in_den(EntityId::new(5014, 9942)),
-        Some((CreatureType::PinkLizard, true, true))
-    );
+            .map(|(_, c)| (c.kind(), c.in_den, c.state.alive));
+        assert_eq!(found, Some((kind, true, true)));
+    }
     let respawned: Vec<_> = world
         .creatures()
         .filter(|(_, c)| c.id.spawner == respawner)
