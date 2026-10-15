@@ -156,9 +156,13 @@ before the user agrees.
     and region state, a sleep-screen stand-in starts the next cycle in the
     shelter with the saved population. Gates, region changes, the rain and
     the sleep, starve and death screens are not there yet.
-  - Death freezes the body until R respawns it (revisit once the real
-    game loop exists). A body that falls out of the room is destroyed,
-    as in the game.
+  - Death in a story session is the game's: the dead body keeps
+    simulating, `GameOver` puts the HUD prompt in game-over mode (and
+    stores the karma flower's spot), and the map button 40 ticks later
+    saves the death and switches to the death screen, still a "not
+    ported" page. R respawns only in dev starts (`load_room`, `--room`,
+    arena levels), which have no game over. A body that falls out of the
+    room is destroyed, as in the game.
   - Water uses the game's full wavy surface simulation.
 - Game assets inside Unity files (sprite atlases, the noise texture,
   audio) are read natively at startup from the installed game's Unity files
@@ -214,7 +218,8 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   graphic or debug view, sprites, overlays), rendered offscreen;
   `crop_radius` zooms on the player (or on `crop_center`). `get_tiles` gives the geometry as
   text. In a region world the uncropped visuals view includes the HUD;
-  `get_hud` reports its meters (the food meter's `quarter_pips` too),
+  `get_hud` reports its meters (the food meter's `quarter_pips` too, the
+  text prompt's `game_over`),
   the region map (pan, layer, pending reveal, player marker, gate and
   shelter markers), the text prompt and the SU_C04 controls page,
   `hud_message` queues a text-prompt message, and the `map` input field

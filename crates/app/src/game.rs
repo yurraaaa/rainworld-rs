@@ -555,10 +555,12 @@ impl Game {
                     && player.is_tile_solid(room, 1, i32::from(input.x), 0)))
     }
 
-    /// The map button as the game-over prompt reads it (the default keyboard binding).
+    /// A story session (a new or continued campaign), as opposed to the port's dev
+    /// starts in a room (`load_room`, `--room`, arena levels), which have no game over
+    /// and keep R.
     #[must_use]
-    pub fn map_button(&self) -> bool {
-        self.sim.player().is_some_and(|p| p.input_history()[0].map)
+    pub fn story_session(&self) -> bool {
+        self.start_condition != StartCondition::Dev
     }
 
     /// Hands the random stream back (to the menus, when the game ends).
@@ -628,9 +630,14 @@ impl Game {
     }
 
     /// Replaces the player with a fresh one in the camera's room (continuing the random
-    /// sequence).
-    pub fn respawn(&mut self) {
+    /// sequence); a development key, so not in story sessions. Returns whether it did.
+    pub fn respawn(&mut self) -> bool {
+        if self.story_session() {
+            log::info!("no respawn in a story session");
+            return false;
+        }
         self.sim.respawn(&mut self.graphics);
+        true
     }
 
     /// One 40 Hz simulation tick ([`RainWorldGame::tick`]).
@@ -904,7 +911,7 @@ impl Game {
         })
     }
 
-    /// Whether the player is dead and frozen.
+    /// Whether the player is dead.
     #[must_use]
     pub fn player_dead(&self) -> bool {
         self.sim.player().is_some_and(Player::is_dead)
@@ -1055,16 +1062,20 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn dead_player_freezes_until_respawn() {
+    fn dead_player_keeps_falling_and_r_respawns_outside_a_story() {
+        // The dead body keeps its physics (`Player.Update` runs dead); R is a dev key.
         let mut game = Game::new(open_room(), &RoomSettings::ANCESTOR, 1, None);
         game.sim.kill_player();
-        let frozen = game.body().expect("body").clone();
+        let y = game.head_y();
         for _ in 0..10 {
             game.tick(Input::NONE);
         }
-        assert_eq!(game.body(), Some(&frozen));
-        game.respawn();
+        assert!(game.head_y() < y, "falls");
+        assert!(game.player_dead());
+        assert!(game.respawn());
         assert!(!game.player_dead());
+        game.start_condition = StartCondition::New;
+        assert!(!game.respawn(), "no R in a story session");
     }
 
     #[test]

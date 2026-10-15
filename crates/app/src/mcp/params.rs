@@ -105,7 +105,7 @@ pub struct NewGameParams {
 pub struct RespawnParams {
     /// Restart the last load_room / new_game with this seed (tick count restarts at
     /// 0); without it, respawn in the camera's room at the next seeded spawn tile as
-    /// the R key does.
+    /// the R key does (not in a story started by new_game).
     pub seed: Option<u64>,
 }
 

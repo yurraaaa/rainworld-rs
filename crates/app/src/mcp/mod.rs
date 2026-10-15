@@ -6,6 +6,8 @@
 //! no real-time clock, and screenshots render offscreen through the window's draw path
 //! ([`crate::scene::Scene::draw`]). Logging goes to stderr; stdout carries only MCP.
 
+#[cfg(test)]
+mod game_over_tests;
 mod params;
 #[cfg(test)]
 mod pause_tests;
@@ -180,7 +182,8 @@ impl Server {
 
     #[tool(
         description = "Respawn the player in the camera's room at the next seeded spawn \
-        tile, or restart the last load_room / new_game with a seed."
+        tile (load_room only: a new_game is a story, where death is a game over), or \
+        restart the last load_room / new_game with a seed."
     )]
     fn respawn(&self, Parameters(p): Parameters<RespawnParams>) -> Result<CallToolResult, String> {
         Self::json(&self.session()?.respawn(&p)?)

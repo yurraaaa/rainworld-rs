@@ -16,6 +16,7 @@ use rw_render::{
 use rw_sim::{HudEvent, Input, SoundEvent};
 
 use crate::game::Game;
+use crate::hibernation::HibernatingGame;
 use crate::sprites::SpriteAssets;
 use crate::timestep::TICK_RATE;
 use crate::visuals::Visuals;
@@ -208,12 +209,13 @@ impl Scene {
     pub fn tick(&mut self, input: Input, shared: Option<&mut MenuShared>) -> Vec<SoundEvent> {
         match shared {
             Some(shared) => {
-                self.update_cameras(shared);
+                self.update_cameras(input, shared);
                 self.update_rooms(input, shared, false)
             }
             None => {
                 self.set_camera_view();
                 self.game.tick(input);
+                self.game.sim_mut().take_game_over();
                 self.after_game_tick()
             }
         }
@@ -225,16 +227,17 @@ impl Scene {
             .set_camera_view(self.camera.current(), self.camera.most_likely_next());
     }
 
-    /// The unpaused tick's `cameras[i].Update()`: the HUD.
-    pub fn update_cameras(&mut self, shared: &mut MenuShared) {
+    /// The unpaused tick's `cameras[i].Update()`: the HUD. `input` is this tick's
+    /// controls, whose map button the game-over prompt reads.
+    pub fn update_cameras(&mut self, input: Input, shared: &mut MenuShared) {
         self.set_camera_view();
-        self.update_hud(shared, false);
+        self.update_hud(input.map, shared, false);
     }
 
     /// A paused tick (`RainWorldGame.Update` with `GamePaused`): only the HUD updates;
     /// the rooms' `PausedUpdate` does nothing for anything ported.
-    pub fn paused_tick(&mut self, shared: &mut MenuShared) {
-        self.update_hud(shared, true);
+    pub fn paused_tick(&mut self, input: Input, shared: &mut MenuShared) {
+        self.update_hud(input.map, shared, true);
     }
 
     /// The rest of an unpaused tick after the cameras: the game, the controls page (a
@@ -257,6 +260,7 @@ impl Scene {
             .map_or(0.0, |v| v.room_palette().darkness);
         self.game.sim_mut().set_camera_darkness(darkness);
         self.game.tick(input);
+        self.apply_game_over(shared);
         self.apply_hud_events(shared);
         if let Some(hud) = &mut self.hud {
             hud.update_controls_page(continue_page, pause_menu);
@@ -273,13 +277,14 @@ impl Scene {
     }
 
     /// `RoomCamera.Update`'s HUD step: update it, or fire it up once the player is
-    /// realized. `paused`: the pause menu is open.
-    fn update_hud(&mut self, shared: &mut MenuShared, paused: bool) {
+    /// realized. `map_button`: the map button held (`GetButton(11)`, which the game-over
+    /// prompt reads from the controls, not from the player); `paused`: the pause menu is
+    /// open.
+    fn update_hud(&mut self, map_button: bool, shared: &mut MenuShared, paused: bool) {
         match &mut self.hud {
             Some(hud) => {
                 hud.text_prompt.pause_menu = paused;
                 let owner = self.game.hud_owner();
-                let map_button = self.game.map_button();
                 let rain = self.game.rain_view();
                 let (sounds, rng, discovery) = self.game.sim_mut().camera_io();
                 hud.update(
@@ -303,6 +308,36 @@ impl Scene {
                 log::info!("HUD fired up");
             }
             None => {}
+        }
+    }
+
+    /// `RainWorldGame.GameOver` as the player's first death called it, in story sessions:
+    /// `PlaceKarmaFlowerOnDeathSpot`, camera 0's HUD into game-over mode, then the
+    /// music's `DeathEvent`.
+    fn apply_game_over(&mut self, shared: &mut MenuShared) {
+        let Some(over) = self.game.sim_mut().take_game_over() else {
+            return;
+        };
+        if !self.game.story_session() {
+            return;
+        }
+        log::info!("game over");
+        if let Some(grow_pos) = over.karma_flower {
+            let game = HibernatingGame {
+                sim: self.game.sim_mut(),
+                assets: &shared.assets,
+            };
+            game.place_karma_flower_on_death_spot(&mut shared.saves, grow_pos);
+        }
+        if let Some(hud) = &mut self.hud {
+            hud.text_prompt.enter_game_over_mode(
+                over.food_in_stomach,
+                over.death_room,
+                over.death_pos.to_array(),
+            );
+        }
+        if let Some(music) = &mut shared.music {
+            music.death_event();
         }
     }
 
@@ -399,8 +434,6 @@ impl Scene {
     ) {
         target.sync(self);
         let alpha = self.frame_alpha(alpha);
-        // A frozen body is drawn where it stopped, not between its last two ticks.
-        let alpha = if self.game.player_dead() { 1.0 } else { alpha };
         // The slugcat's sprites, eyes in the palette's black. Built every frame, as the
         // game runs `DrawSprites` whatever is shown; only the level view draws them.
         let face = self

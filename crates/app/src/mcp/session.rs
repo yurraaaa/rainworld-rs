@@ -332,7 +332,11 @@ impl Session {
     pub fn respawn(&mut self, params: &RespawnParams) -> Result<State, String> {
         match (params.seed, self.start.clone()) {
             (Some(seed), Some(start)) => self.start_game(start, seed)?,
-            _ => self.scene_or_err()?.game_mut().respawn(),
+            _ => {
+                if !self.scene_or_err()?.game_mut().respawn() {
+                    return Err("no respawn in a story session".to_owned());
+                }
+            }
         }
         self.state()
     }
@@ -1162,6 +1166,7 @@ impl HudState {
                 showing: format!("{:?}", hud.text_prompt.currently_showing),
                 text: hud.prompt_text().to_owned(),
                 queued: hud.text_prompt.messages.len(),
+                game_over: hud.text_prompt.game_over_mode,
             },
             controls_page: hud.controls_page.as_ref().map(|p| ControlsPageState {
                 counter: p.counter,
