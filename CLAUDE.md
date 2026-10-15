@@ -104,7 +104,10 @@ recommendation. Nothing is ported before the user agrees.
   Watcher and Jolly Co-op are to be supported later, so keep their
   branches documented in `../rainworld-re` notes and don't design them
   out; omitted DLC branches are listed in `docs/DIVERGENCES.md`.
-  Until DLC support exists the port treats every DLC as not installed,
+  End goal: Remix fully implemented (its menu and options, enabling the
+  DLCs the user owns), with each DLC taking effect exactly as in the
+  game. Code mods are out of scope until the port has its own modding
+  API. Until DLC support exists the port treats every DLC as not installed,
   even where the game decides from files on disk (Downpour's
   `dlcsInstalled` check): the base-game menu scene and intro images.
 - Current phase is the player controller in a single room, not the game:
