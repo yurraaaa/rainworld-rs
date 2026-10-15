@@ -39,6 +39,23 @@ pub struct InputParam {
     /// Jump button held.
     #[serde(default)]
     pub jump: bool,
+    /// Map button held (shows the HUD's meters; the slugcat stands still).
+    #[serde(default)]
+    pub map: bool,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct HudMessageParams {
+    /// The text (shown as given).
+    pub text: String,
+    /// Ticks to wait before showing (default 0).
+    pub wait: Option<i32>,
+    /// Ticks to show once faded in (default 160).
+    pub time: Option<i32>,
+    /// Darken the screen behind it (default true, as the tutorials do).
+    pub darken: Option<bool>,
+    /// Hide the meters while it shows (default true).
+    pub hide_hud: Option<bool>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, JsonSchema)]

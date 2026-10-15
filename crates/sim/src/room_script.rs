@@ -24,6 +24,8 @@ pub struct StorySession {
 pub struct ScriptTick {
     /// `room.game.manager.FadeDelayInProgress`.
     pub fade_delay_in_progress: bool,
+    /// `cameras[0].hud != null` with an active control preset (the keyboard's, always).
+    pub hud_with_control_preset: bool,
 }
 
 /// A room's script.
@@ -83,6 +85,8 @@ pub struct SuC04StartUp {
     counter: i32,
     showed_controls: bool,
     show_controls_counter: i32,
+    /// `tutCntrlPgOwner.controlsPage.wantToContinue`, set by this script.
+    controls_page_continue: bool,
 }
 
 impl Default for SuC04StartUp {
@@ -101,6 +105,7 @@ impl SuC04StartUp {
             counter: 0,
             showed_controls: false,
             show_controls_counter: 0,
+            controls_page_continue: false,
         }
     }
 
@@ -125,11 +130,25 @@ impl SuC04StartUp {
         self.show_controls_counter
     }
 
-    /// The tick the game makes the `TutorialControlsPageOwner` (it also needs the HUD
-    /// and a control preset; the port has no HUD, so the page is not shown).
+    /// Whether the `TutorialControlsPageOwner` is due but not made yet (it also needs
+    /// the HUD and a control preset).
     #[must_use]
     pub fn controls_page_due(&self) -> bool {
         !self.showed_controls && self.show_controls_counter > 100
+    }
+
+    /// `showedControls`: the script made its `TutorialControlsPageOwner` (it keeps
+    /// `tutCntrlPgOwner` from then on).
+    #[must_use]
+    pub fn showed_controls(&self) -> bool {
+        self.showed_controls
+    }
+
+    /// `wantToContinue` of the controls page this script made: the player went past
+    /// x 800.
+    #[must_use]
+    pub fn controls_page_continue(&self) -> bool {
+        self.controls_page_continue
     }
 
     /// `Update` for player 0 (Jolly Co-op's other players, pushed from tick `5 * n`,
@@ -174,6 +193,12 @@ impl SuC04StartUp {
             self.stood_up = true;
             p.set_standing(true);
             self.show_controls_counter = 1;
+        }
+        if self.controls_page_due() && tick.hud_with_control_preset {
+            self.showed_controls = true;
+        }
+        if self.showed_controls && p.head().pos.x > 800.0 {
+            self.controls_page_continue = true;
         }
     }
 }

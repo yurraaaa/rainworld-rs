@@ -7,20 +7,22 @@ use std::sync::Arc;
 
 use rw_assets::SlugcatName;
 use rw_assets::{SoundTable, StreamingAssets, UnityResources};
-use rw_menu::{KeyboardKey, MainLoopProcess, ProcessId, StoryGameInitCondition};
+use rw_menu::{KeyboardKey, MainLoopProcess, MenuShared, ProcessId, StoryGameInitCondition};
 use rw_random::UnityRandom;
 use rw_render::{RoomLayers, WgpuRenderer};
 use rw_sim::campaign::SlugcatCampaign;
 use rw_sim::{Input, Vec2};
 
 use super::params::{
-    InputParam, ListRoomsParams, LoadProcessParams, LoadRoomParams, NewGameParams, ProcessParam,
-    RespawnParams, ScreenshotParams, SetPlayerParams, StepParams, StepProcessParams,
-    StepSequenceParams, TilesParams, ViewParam,
+    HudMessageParams, InputParam, ListRoomsParams, LoadProcessParams, LoadRoomParams,
+    NewGameParams, ProcessParam, RespawnParams, ScreenshotParams, SetPlayerParams, StepParams,
+    StepProcessParams, StepSequenceParams, TilesParams, ViewParam,
 };
 use super::reply::{
-    ChunkState, ExitInfo, ExitList, ImpactState, LobbyState, PlayerState, ProcessState,
-    RealizedState, RoomInfo, RoomList, Screenshot, SlideShowState, StartUpState, State, StepTrace,
+    ChunkState, ControlsPageState, ExitInfo, ExitList, FoodMeterState, HudState, ImpactState,
+    KarmaMeterState, LobbyState, PlayerState, ProcessState, RainMeterState, RealizedState,
+    RoomInfo, RoomList, Screenshot, SlideShowState, StartUpState, State, StepTrace,
+    TextPromptState,
 };
 use super::tiles::TileDump;
 use crate::frontend::{AppContext, Frontend, FrontendRenderer, GameSetup};
@@ -54,6 +56,9 @@ pub struct Session {
     frontend: Option<(Frontend, u64)>,
     /// Created on the first screenshot.
     renderer: Option<FrontendRenderer<WgpuRenderer>>,
+    /// The fonts, atlases and strings the game mode's HUD draws with, loaded with the
+    /// first game.
+    hud_shared: Option<MenuShared>,
 }
 
 impl Session {
@@ -74,6 +79,7 @@ impl Session {
             black_delay: 0.0,
             frontend: None,
             renderer: None,
+            hud_shared: None,
         }
     }
 
@@ -207,6 +213,12 @@ impl Session {
                 StoryGameInitCondition::Dev.game_initial_black_seconds(SlugcatName::WHITE)
             }
         };
+        if self.hud_shared.is_none() {
+            let screen = rw_render::Resolution::DEFAULT.size_f32();
+            self.hud_shared = MenuShared::load(self.assets.clone(), &self.resources, screen)
+                .inspect_err(|e| log::warn!("no fonts ({e}); the game has no HUD"))
+                .ok();
+        }
         self.scene = Some(Scene::new(game, Some(source)));
         self.start = Some(start);
         self.frontend = None;
@@ -255,7 +267,7 @@ impl Session {
             return;
         };
         scene.game_mut().set_fade_delay_in_progress(delay > 0.0);
-        scene.tick(input);
+        scene.tick(input, self.hud_shared.as_mut());
         if self.black_delay > 0.0 {
             self.black_delay -= FRAME_SECONDS;
         }
@@ -463,7 +475,82 @@ impl Session {
         };
         target.scene.renderer.set_frame_size((pixels[0], pixels[1]));
         scene.draw(&mut target.scene, 1.0, view);
+        // The HUD is in screen pixels: drawn over the game's own camera window only.
+        if let (Some(shared), true) = (&self.hud_shared, level && framing == Framing::Auto) {
+            target.draw_scene_hud(shared, scene, 1.0);
+        }
         Self::encode(target, params)
+    }
+
+    /// Queues a message on the HUD's text prompt (`TextPrompt.AddMessage`).
+    ///
+    /// # Errors
+    /// Without a game or before its HUD fired up (the first tick).
+    pub fn hud_message(&mut self, params: &HudMessageParams) -> Result<HudState, String> {
+        let hud = self
+            .scene_or_err()?
+            .hud_mut()
+            .ok_or("no HUD yet; step once after load_room / new_game")?;
+        hud.add_message(
+            &params.text,
+            params.wait.unwrap_or(0),
+            params.time.unwrap_or(160),
+            params.darken.unwrap_or(true),
+            params.hide_hud.unwrap_or(true),
+        );
+        self.hud_state()
+    }
+
+    /// The HUD's meters, prompt and controls page.
+    ///
+    /// # Errors
+    /// Without a game or before its HUD fired up.
+    pub fn hud_state(&self) -> Result<HudState, String> {
+        let hud = self
+            .scene()?
+            .hud()
+            .ok_or("no HUD yet; step once after load_room / new_game")?;
+        let food = &hud.food_meter;
+        let karma = &hud.karma_meter;
+        Ok(HudState {
+            food_meter: FoodMeterState {
+                pos: food.pos.to_array(),
+                fade: food.fade,
+                visible_counter: food.visible_counter,
+                show_count: food.show_count,
+                max_food: food.max_food,
+                survival_limit: food.survival_limit,
+                down_in_corner: food.down_in_corner,
+                pip_x: food.circles.iter().map(|c| c.slow_x_add).collect(),
+            },
+            karma_meter: KarmaMeterState {
+                pos: karma.pos.to_array(),
+                fade: karma.fade,
+                rad: karma.rad,
+                force_visible_counter: karma.force_visible_counter,
+                symbol: karma.symbol.clone(),
+                reinforced: karma.show_as_reinforced,
+            },
+            rain_meter: RainMeterState {
+                fade: hud.rain_meter.fade,
+                circles: hud.rain_meter.circles.len(),
+                remain_visible_counter: hud.rain_meter.remain_visible_counter,
+            },
+            map_fade: hud.map.fade,
+            show_karma_food_rain: hud.show_karma_food_rain,
+            text_prompt: TextPromptState {
+                show: hud.text_prompt.show,
+                showing: format!("{:?}", hud.text_prompt.currently_showing),
+                text: hud.prompt_text().to_owned(),
+                queued: hud.text_prompt.messages.len(),
+            },
+            controls_page: hud.controls_page.as_ref().map(|p| ControlsPageState {
+                counter: p.counter,
+                black_fade: p.black_fade,
+                want_to_continue: p.want_to_continue,
+                labels: hud.controls_page_texts().unwrap_or_default(),
+            }),
+        })
     }
 
     fn ensure_renderer(&mut self, pixels: [u32; 2]) -> Result<(), String> {
@@ -701,7 +788,7 @@ impl InputParam {
         if !(-1..=1).contains(&self.x) || !(-1..=1).contains(&self.y) {
             return Err(format!("input x and y must be -1, 0 or 1 (got {self:?})"));
         }
-        Ok(Input::new(self.x, self.y, self.jump))
+        Ok(Input::new(self.x, self.y, self.jump).with_map(self.map))
     }
 }
 
@@ -763,6 +850,7 @@ impl PlayerState {
                 x: input.x,
                 y: input.y,
                 jump: input.jump,
+                map: input.map,
             },
             controller: player.controller().map(|c| format!("{c:?}")),
         }

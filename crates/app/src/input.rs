@@ -41,10 +41,12 @@ pub enum Action {
     Up,
     Down,
     Jump,
+    /// The map button: shows the HUD's meters and stands the slugcat still.
+    Map,
 }
 
 impl Action {
-    const COUNT: usize = 5;
+    const COUNT: usize = 6;
 
     const fn index(self) -> usize {
         self as usize
@@ -63,9 +65,9 @@ pub enum Command {
 
 impl Action {
     /// What a physical key does in Rewired's default gameplay keyboard map
-    /// (`rainworld-re/notes/menu.md` "Input"): arrows move, Z jumps. The map's other
-    /// actions (X throw, left Shift pick up, Space map, C special, Esc pause) have no
-    /// use in the port yet.
+    /// (`rainworld-re/notes/menu.md` "Input"): arrows move, Z jumps, Space is the map
+    /// button. The map's other actions (X throw, left Shift pick up, C special, Esc
+    /// pause) have no use in the port yet.
     #[must_use]
     pub fn from_key(key: KeyCode) -> Option<Self> {
         Some(match key {
@@ -74,6 +76,7 @@ impl Action {
             KeyCode::ArrowUp => Action::Up,
             KeyCode::ArrowDown => Action::Down,
             KeyCode::KeyZ => Action::Jump,
+            KeyCode::Space => Action::Map,
             _ => return None,
         })
     }
@@ -89,6 +92,7 @@ impl Action {
             KeyboardKey::UpArrow => Action::Up,
             KeyboardKey::DownArrow => Action::Down,
             KeyboardKey::Z => Action::Jump,
+            KeyboardKey::Space => Action::Map,
             _ => return None,
         })
     }
@@ -139,6 +143,7 @@ impl InputState {
             x: self.axis(Action::Left, Action::Right),
             y: self.axis(Action::Down, Action::Up),
             jump: self.is_on(Action::Jump),
+            map: self.is_on(Action::Map),
         };
         self.pressed_since_tick = [false; Action::COUNT];
         input
@@ -164,7 +169,8 @@ pub struct Script {
 }
 
 impl Script {
-    /// Parses `X,Y,J:TICKS;...` (`X`, `Y` in -1..=1, `J` 0 or 1), e.g. `0,1,0:1;1,0,0:30`.
+    /// Parses `X,Y,J[,M]:TICKS;...` (`X`, `Y` in -1..=1, `J` and the map button `M` 0
+    /// or 1), e.g. `0,1,0:1;1,0,0:30;0,0,0,1:40`.
     ///
     /// # Errors
     /// A message naming the bad step.
@@ -173,13 +179,13 @@ impl Script {
         for step in text.split(';').filter(|s| !s.is_empty()) {
             steps.push(
                 Self::step(step)
-                    .ok_or_else(|| format!("bad script step {step:?} (want X,Y,J:TICKS)"))?,
+                    .ok_or_else(|| format!("bad script step {step:?} (want X,Y,J[,M]:TICKS)"))?,
             );
         }
         Ok(Self { steps, tick: 0 })
     }
 
-    /// One `X,Y,J:TICKS` step.
+    /// One `X,Y,J[,M]:TICKS` step.
     fn step(step: &str) -> Option<(Input, u32)> {
         let (keys, ticks) = step.split_once(':')?;
         let ticks = ticks.trim().parse().ok()?;
@@ -188,9 +194,17 @@ impl Script {
             .map(|k| k.trim().parse::<i8>())
             .collect::<Result<_, _>>()
             .ok()?;
-        let [x, y, j] = v[..] else { return None };
-        let valid = (-1..=1).contains(&x) && (-1..=1).contains(&y) && (0..=1).contains(&j);
-        valid.then_some((Input { x, y, jump: j == 1 }, ticks))
+        let (x, y, j, m) = match v[..] {
+            [x, y, j] => (x, y, j, 0),
+            [x, y, j, m] => (x, y, j, m),
+            _ => return None,
+        };
+        let valid = (-1..=1).contains(&x)
+            && (-1..=1).contains(&y)
+            && (0..=1).contains(&j)
+            && (0..=1).contains(&m);
+        let input = Input::new(x, y, j == 1).with_map(m == 1);
+        valid.then_some((input, ticks))
     }
 
     /// Ticks the whole script lasts.
@@ -224,14 +238,9 @@ mod tests {
         assert_eq!(Action::from_key(KeyCode::ArrowUp), Some(Action::Up));
         assert_eq!(Action::from_key(KeyCode::ArrowDown), Some(Action::Down));
         assert_eq!(Action::from_key(KeyCode::KeyZ), Some(Action::Jump));
-        // Not in the default map: WASD; Space is the map key, not jump.
-        for key in [
-            KeyCode::KeyW,
-            KeyCode::KeyA,
-            KeyCode::KeyS,
-            KeyCode::KeyD,
-            KeyCode::Space,
-        ] {
+        assert_eq!(Action::from_key(KeyCode::Space), Some(Action::Map));
+        // Not in the default map: WASD.
+        for key in [KeyCode::KeyW, KeyCode::KeyA, KeyCode::KeyS, KeyCode::KeyD] {
             assert_eq!(Action::from_key(key), None);
         }
     }
@@ -265,14 +274,7 @@ mod tests {
         s.set(Action::Right, true);
         s.set(Action::Down, true);
         let i = s.take_tick_input();
-        assert_eq!(
-            i,
-            Input {
-                x: 1,
-                y: -1,
-                jump: false
-            }
-        );
+        assert_eq!(i, Input::new(1, -1, false));
         // Still held on the next tick.
         assert_eq!(s.take_tick_input(), i);
     }

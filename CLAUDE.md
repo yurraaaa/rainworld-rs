@@ -140,8 +140,8 @@ recommendation. Nothing is ported before the user agrees.
 registered in `.mcp.json` as `rainworld-rs` (it runs `cargo run --release`,
 so it serves the checkout's current code). Tools: `list_rooms`,
 `load_room`, `new_game`, `step`, `step_sequence`, `respawn`, `set_player`,
-`get_state`, `get_exits`, `get_tiles`, `screenshot`, `load_process`,
-`step_process`.
+`get_state`, `get_exits`, `get_tiles`, `get_hud`, `hud_message`,
+`screenshot`, `load_process`, `step_process`.
 
 - Headless and deterministic: the sim advances only in `step` /
   `step_sequence` (40 ticks per second); the same start, seed and inputs
@@ -158,7 +158,10 @@ so it serves the checkout's current code). Tools: `list_rooms`,
 - `screenshot` returns a PNG drawn by the window's draw path (level
   graphic or debug view, sprites, overlays), rendered offscreen;
   `crop_radius` zooms on the player. `get_tiles` gives the geometry as
-  text.
+  text. In a region world the uncropped visuals view includes the HUD;
+  `get_hud` reports its meters, text prompt and the SU_C04 controls page,
+  `hud_message` queues a text-prompt message, and the `map` input field
+  (Space in the window) holds the map button.
 - To check behaviour, prefer these tools over `--screenshot`/`--script`.
   Briefs for agents that check behaviour should say so.
 - `load_process` boots the process manager as the game does (black,
@@ -167,7 +170,7 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   1/40 s frames holding Rewired key names, released after the last frame.
   The keys feed the menus (UI map: Z/Return/Space submit, Escape cancel and
   pause, arrows) and, once the game runs, the player (gameplay map: arrows
-  move, Z jumps). Buttons see a press a tick after it and click on release,
+  move, Z jumps, Space holds the map button). Buttons see a press a tick after it and click on release,
   so a tap is one frame held and two released. Boot to play: any key after
   the intro roll's first second goes to the main menu; tap Return on
   STORY; hold Z on START (about 40 frames): the Survivor's intro

@@ -98,6 +98,17 @@ sound_ids! {
     MediumObjectIntoWaterSlow = "Medium_Object_Into_Water_Slow",
     LargeObjectIntoWaterFast = "Large_Object_Into_Water_Fast",
     LargeObjectIntoWaterSlow = "Large_Object_Into_Water_Slow",
+    HudFoodMeterFillPlopA = "HUD_Food_Meter_Fill_Plop_A",
+    HudFoodMeterFillPlopB = "HUD_Food_Meter_Fill_Plop_B",
+    HudFoodMeterFillQuarterPlop = "HUD_Food_Meter_Fill_Quarter_Plop",
+    HudFoodMeterFillFadeCircle = "HUD_Food_Meter_Fill_Fade_Circle",
+    HudFoodMeterDepletePlopA = "HUD_Food_Meter_Deplete_Plop_A",
+    HudFoodMeterDepletePlopB = "HUD_Food_Meter_Deplete_Plop_B",
+    HudKarmaReinforceFlicker = "HUD_Karma_Reinforce_Flicker",
+    HudKarmaReinforceSmallCircle = "HUD_Karma_Reinforce_Small_Circle",
+    HudKarmaReinforceContract = "HUD_Karma_Reinforce_Contract",
+    HudKarmaReinforceBump = "HUD_Karma_Reinforce_Bump",
+    HudGameOverPrompt = "HUD_Game_Over_Prompt",
 }
 
 /// A `ChunkSoundEmitter` handle: follows a body chunk; loops are updated and stopped
