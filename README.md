@@ -15,8 +15,8 @@ are planned for later.
 
 Working now:
 
-- **Boot and menus:** the intro roll, main menu and slugcat select, with the game's fonts,
-  sounds and music. Scenes are drawn as the game's flat images for now; the layered depth
+- **Boot and menus:** the intro roll, main menu and slugcat select (a saved campaign's page
+  shows its region, cycle, karma and food), with the game's fonts, sounds and music. Scenes are drawn as the game's flat images for now; the layered depth
   scenes are not ported yet.
 - **Starting a game:** a new game plays the Survivor or Monk intro slideshow, then the SU_C04
   opening script. A saved game continues in its shelter with its food, karma and cycle.
@@ -121,7 +121,7 @@ screenshot.
 | `crates/render` (`rw-render`) | Drawing on wgpu (Vulkan); WGSL shaders live in `crates/render/shaders/` |
 | `crates/audio` (`rw-audio`) | Sound and music playback on kira |
 | `crates/menu` (`rw-menu`) | Process manager, menus, intro roll and slideshows |
-| `crates/hud` (`rw-hud`) | The in-game HUD |
+| `crates/hud` (`rw-hud`) | The in-game HUD, and the menus that own one (slugcat select, sleep and death screens) |
 | `crates/save` (`rw-save`) | The game's save format, the save directories and the importer |
 | `crates/app` (`rainworld-rs`) | The binary: window, input, the MCP server |
 

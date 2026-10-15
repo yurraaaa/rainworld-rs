@@ -9,14 +9,14 @@ use rw_assets::ActiveMods;
 use rw_assets::{SoundTable, StreamingAssets, UnityResources};
 use rw_audio::music::{MusicClock, MusicOutput, SongBank, SourcePlayback, TimedSources, TrackId};
 use rw_audio::{Audio, ListenerInput, MenuPlayback, MenuSoundStart};
-use rw_hud::{PauseGame, PauseMenu, PauseRequest, SleepAndDeathScreen};
+use rw_hud::{PauseGame, PauseMenu, PauseRequest, SleepAndDeathScreen, SlugcatSelectMenu};
 use rw_menu::StoryGameInitCondition;
 use rw_menu::menu::{Menu, MenuCx};
 use rw_menu::{
     Alignment, AtlasLoadError, Container, Font, FontTest, Initialization, IntroRoll, KeyboardKey,
     Label, MainLoopProcess, MainMenu, MenuContext, MenuShared, MenuSound, MenuSoundEvent, Node,
     NodeTransform, OptionsMenu, ProcessFactory, ProcessId, ProcessManager, ProcessRequests,
-    SlideShow, SlideShowId, SlugcatSelectMenu, TextureSync, TimeStacker,
+    SlideShow, SlideShowId, TextureSync, TimeStacker,
 };
 use rw_random::UnityRandom;
 use rw_render::{Camera, Color, MapGlobals, Renderer, Resolution, StageBatch, StageGlobals};

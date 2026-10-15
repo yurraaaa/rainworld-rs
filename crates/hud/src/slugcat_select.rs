@@ -1,36 +1,55 @@
-//! `SlugcatSelectMenu` in the base game (Remix, Jolly Co-op and More Slugcats off,
-//! flat illustrations): a page per slugcat that scrolls sideways, the hold-to-start
-//! button (new game, or continue a saved one), back, the arrows and the restart check
-//! box, which rises on a page with a save and makes the start a new game. Saved games
-//! still show the new-game pages (`SlugcatPageContinue` comes later).
+//! `SlugcatSelectMenu` (553691) in the base game (Remix, Jolly Co-op and More Slugcats
+//! off, flat illustrations): a page per slugcat that scrolls sideways, the
+//! hold-to-start button (new game, or continue a saved one), back, the arrows and the
+//! restart check box, which rises on a page with a save and makes the start a new game.
+//! A slugcat without a save gets a `SlugcatPageNewGame` (name and blurb), one with a
+//! save a `SlugcatPageContinue`: the region and cycle, and a HUD ([`SelectHud`]) with
+//! the saved karma and food. In flat mode the pages have no mark or glow (`HasMark`
+//! and `HasGlow` are false with `flatIllustrations`), so their updates draw nothing.
 
-use rw_save::{CampaignStart, SaveState};
+use rw_assets::StreamingAssets;
+use rw_menu::menu::{Kind, Menu, MenuCx, MenuScreen, ObjectId, SceneId};
+use rw_menu::{
+    KeyboardKey, MainLoopProcess, MenuColor, MenuContext, MenuShared, MenuSoundId, ProcessId,
+    ProcessRequests, SlideShowId, Slugcat, StoryGameInitCondition,
+};
+use rw_save::{MinerTarget, SaveState, SaveStateMiner};
 use rw_sim::campaign::SlugcatCampaign;
 use rw_sim::{FloatExt, Vec2};
 
-use crate::color::MenuColor;
-use crate::input::KeyboardKey;
-use crate::menu::{Kind, Menu, MenuCx, MenuScreen, ObjectId, SceneId};
-use crate::process::{MainLoopProcess, ProcessId, ProcessRequests};
-use crate::shared::{MenuContext, MenuShared, Slugcat, StoryGameInitCondition};
-use crate::slideshow::SlideShowId;
-use crate::sound::MenuSoundId;
+use crate::{SelectHud, SelectHudSetup};
 
-/// A `SlugcatPageNewGame`.
-#[derive(Debug, Clone)]
+/// A `SlugcatPage`.
 pub struct SlugcatPage {
     pub page: ObjectId,
     pub slugcat: Slugcat,
     pub scene: ObjectId,
     pub image_pos: Vec2,
     pub scene_offset: Vec2,
-    pub difficulty_label: ObjectId,
-    pub info_label: ObjectId,
     pub in_position: f32,
     pub last_in_position: f32,
+    pub kind: PageKind,
 }
 
-/// `SaveGameData`: what `MineForSaveData` reads of a stored game for its page.
+/// The page's subclass.
+pub enum PageKind {
+    /// `SlugcatPageNewGame`.
+    NewGame {
+        difficulty_label: ObjectId,
+        info_label: ObjectId,
+    },
+    /// `SlugcatPageContinue`.
+    Continue(Box<ContinuePage>),
+}
+
+/// `SlugcatPageContinue`'s own parts.
+pub struct ContinuePage {
+    pub hud: SelectHud,
+    pub region_label: ObjectId,
+}
+
+/// `SaveGameData`: what `MineForSaveData` reads of a stored game for its page. The
+/// More Slugcats and Remix fields are not read.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SaveGameData {
     pub shelter_name: String,
@@ -39,11 +58,31 @@ pub struct SaveGameData {
     pub karma: i32,
     pub karma_cap: i32,
     pub karma_reinforced: bool,
+    /// The Watcher's; 0 in a base-game save.
+    pub ripple_level: f32,
     pub has_glow: bool,
     pub has_mark: bool,
     pub reds_extra_cycles: bool,
     pub reds_death: bool,
     pub ascended: bool,
+}
+
+/// The values `MineForSaveData` mines from a stored save state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MinedKey {
+    DenPos,
+    LastVDenPos,
+    CycleNum,
+    Food,
+    HasTheGlow,
+    ReinforcedKarma,
+    Karma,
+    KarmaCap,
+    RippleLevel,
+    HasTheMark,
+    RedExtraCycles,
+    RedsDeath,
+    Ascended,
 }
 
 /// The start button's labels, translated once.
@@ -56,7 +95,6 @@ struct StartTexts {
 }
 
 /// The `SlugcatSelectMenu` subclass's state.
-#[derive(Debug, Clone)]
 pub struct SlugcatSelectScreen {
     pub pages: Vec<SlugcatPage>,
     pub slugcat_page_index: usize,
@@ -86,12 +124,197 @@ pub struct SlugcatSelectMenu {
     screen: SlugcatSelectScreen,
 }
 
+impl MinedKey {
+    /// `MineForSaveData`'s targets in its order; `>REDEXTRACYCLES` is looked for in
+    /// the save state's and in the death-persistent section, `>REDSDEATH` for the
+    /// Hunter only.
+    fn targets(slugcat: Slugcat) -> Vec<(Self, MinerTarget)> {
+        let sv = Some("<svB>");
+        let dp = Some("<dpB>");
+        let mut targets = vec![
+            (Self::DenPos, MinerTarget::new(">DENPOS", sv, "<svA>", 35)),
+            (
+                Self::LastVDenPos,
+                MinerTarget::new(">LASTVDENPOS", sv, "<svA>", 20),
+            ),
+            (
+                Self::CycleNum,
+                MinerTarget::new(">CYCLENUM", sv, "<svA>", 50),
+            ),
+            (Self::Food, MinerTarget::new(">FOOD", sv, "<svA>", 20)),
+            (
+                Self::HasTheGlow,
+                MinerTarget::new(">HASTHEGLOW", None, "<svA>", 20),
+            ),
+            (
+                Self::ReinforcedKarma,
+                MinerTarget::new(">REINFORCEDKARMA", dp, "<dpA>", 20),
+            ),
+            (Self::Karma, MinerTarget::new(">KARMA", dp, "<dpA>", 20)),
+            (
+                Self::KarmaCap,
+                MinerTarget::new(">KARMACAP", dp, "<dpA>", 20),
+            ),
+            (
+                Self::RippleLevel,
+                MinerTarget::new(">RIPPLELEVEL", dp, "<dpA>", 20),
+            ),
+            (
+                Self::HasTheMark,
+                MinerTarget::new(">HASTHEMARK", None, "<dpA>", 20),
+            ),
+            (
+                Self::RedExtraCycles,
+                MinerTarget::new(">REDEXTRACYCLES", None, "<svA>", 20),
+            ),
+            (
+                Self::RedExtraCycles,
+                MinerTarget::new(">REDEXTRACYCLES", None, "<dpA>", 20),
+            ),
+        ];
+        if slugcat == Slugcat::Red {
+            targets.push((
+                Self::RedsDeath,
+                MinerTarget::new(">REDSDEATH", None, "<dpA>", 20),
+            ));
+        }
+        targets.push((
+            Self::Ascended,
+            MinerTarget::new(">ASCENDED", None, "<dpA>", 20),
+        ));
+        targets
+    }
+}
+
+impl SaveGameData {
+    /// `MineForSaveData`'s first branch: the current save state of the slugcat.
+    #[must_use]
+    pub fn from_state(state: &SaveState, room_exists: impl Fn(&str) -> bool) -> Self {
+        let d = &state.death_persistent;
+        Self {
+            shelter_name: state.den_to_use(room_exists),
+            cycle: state.cycle_number,
+            food: state.food,
+            karma: d.karma,
+            karma_cap: d.karma_cap,
+            karma_reinforced: d.reinforced_karma,
+            ripple_level: 0.0,
+            has_glow: state.the_glow,
+            has_mark: d.the_mark,
+            reds_extra_cycles: state.red_extra_cycles(),
+            reds_death: d.reds_death,
+            ascended: d.ascended,
+        }
+    }
+
+    /// `MineForSaveData`'s second branch: `SaveStateMiner` over the stored state. A
+    /// number that does not parse is left 0, as the game logs and skips it. The den is
+    /// `DENPOS`, else `LASTVDENPOS`, else the final fallback shelter, whichever names
+    /// a room.
+    #[must_use]
+    pub fn from_stored(
+        slugcat: Slugcat,
+        save_state: &str,
+        room_exists: impl Fn(&str) -> bool,
+    ) -> Self {
+        let targets = MinedKey::targets(slugcat);
+        let list: Vec<MinerTarget> = targets.iter().map(|(_, t)| *t).collect();
+        let mut data = Self {
+            shelter_name: String::new(),
+            cycle: 0,
+            food: 0,
+            karma: 0,
+            karma_cap: 0,
+            karma_reinforced: false,
+            ripple_level: 0.0,
+            has_glow: false,
+            has_mark: false,
+            reds_extra_cycles: false,
+            reds_death: false,
+            ascended: false,
+        };
+        let mut shelter: Option<String> = None;
+        for result in SaveStateMiner::mine(save_state, &list) {
+            let Some((key, _)) = targets.iter().find(|(_, t)| t.data_id == result.name) else {
+                continue;
+            };
+            let value = result.data.unwrap_or_default();
+            match key {
+                MinedKey::DenPos => shelter = Some(value),
+                MinedKey::LastVDenPos => {
+                    if shelter.as_deref().is_none_or(|s| !room_exists(s)) {
+                        shelter = Some(value);
+                    }
+                }
+                MinedKey::CycleNum => data.cycle = Self::parse_int(&value, "cycle num"),
+                MinedKey::Food => data.food = Self::parse_int(&value, "food"),
+                MinedKey::HasTheGlow => data.has_glow = true,
+                MinedKey::ReinforcedKarma => data.karma_reinforced = value == "1",
+                MinedKey::Karma => data.karma = Self::parse_int(&value, "karma"),
+                MinedKey::KarmaCap => data.karma_cap = Self::parse_int(&value, "karma cap"),
+                MinedKey::RippleLevel => match value.trim().parse() {
+                    Ok(r) => data.ripple_level = r,
+                    Err(_) => log::warn!("failed to assign ripple level. Data: {value}"),
+                },
+                MinedKey::HasTheMark => data.has_mark = true,
+                MinedKey::RedExtraCycles => data.reds_extra_cycles = true,
+                MinedKey::RedsDeath => data.reds_death = true,
+                MinedKey::Ascended => data.ascended = true,
+            }
+        }
+        data.shelter_name = shelter
+            .filter(|s| room_exists(s))
+            .unwrap_or_else(|| SaveState::final_fallback_shelter(slugcat).to_owned());
+        data
+    }
+
+    fn parse_int(value: &str, what: &str) -> i32 {
+        value.trim().parse().unwrap_or_else(|_| {
+            log::warn!("failed to assign {what}. Data: {value}");
+            0
+        })
+    }
+
+    /// `RainWorld.roomNameToIndex.ContainsKey`: a room of the installed world.
+    #[must_use]
+    pub fn room_exists(assets: &StreamingAssets, room: &str) -> bool {
+        assets
+            .find_room_file(&room.to_lowercase(), ".txt")
+            .is_some()
+    }
+
+    /// The region label's text: the shelter's region's display name and the cycle (the
+    /// Hunter's cycles left), or nothing for a shelter name of two characters or
+    /// fewer. The speedrun timer's text is Remix's.
+    #[must_use]
+    pub fn region_text(&self, slugcat: Slugcat, shared: &MenuShared) -> String {
+        if self.shelter_name.chars().count() <= 2 {
+            return String::new();
+        }
+        // The game takes the name up to its first `_` (a name without one throws).
+        let acronym = self.shelter_name.split('_').next().unwrap_or_default();
+        let name = shared
+            .assets
+            .region_full_name(acronym, Some(slugcat.value()));
+        if name.is_empty() {
+            return String::new();
+        }
+        let cycle = if slugcat == Slugcat::Red {
+            SaveState::reds_cycles(self.reds_extra_cycles) - self.cycle
+        } else {
+            self.cycle
+        };
+        let t = &shared.translator;
+        format!("{} - {} {cycle}", t.translate(&name), t.translate("Cycle"))
+    }
+}
+
 impl SlugcatPage {
     /// `ScrollMagnitude`.
     pub const SCROLL_MAGNITUDE: f32 = 500.0;
 
-    /// The game's English text for a page: the name and the blurb with its line
-    /// delimiter replaced (`Custom.ReplaceLineDelimeters`).
+    /// The game's English text for a new-game page: the name and the blurb with its
+    /// line delimiter replaced (`Custom.ReplaceLineDelimeters`).
     #[must_use]
     pub fn texts(slugcat: Slugcat, shared: &MenuShared) -> (String, String) {
         let t = &shared.translator;
@@ -119,6 +342,43 @@ impl SlugcatPage {
             blurb.replace("<LINE>", "\r\n").replace("<WWLINE>", ""),
         )
     }
+
+    /// A new-game page's name and blurb labels.
+    #[must_use]
+    pub fn new_game_labels(&self) -> Option<(ObjectId, ObjectId)> {
+        match &self.kind {
+            PageKind::NewGame {
+                difficulty_label,
+                info_label,
+            } => Some((*difficulty_label, *info_label)),
+            PageKind::Continue(_) => None,
+        }
+    }
+
+    /// A continue page's own parts.
+    #[must_use]
+    pub fn continue_page(&self) -> Option<&ContinuePage> {
+        match &self.kind {
+            PageKind::Continue(c) => Some(c),
+            PageKind::NewGame { .. } => None,
+        }
+    }
+
+    /// `AddImage(ascended)`: the scene and its offset (the depth, mark and glow offsets
+    /// are for depth scenes and the mark and glow, none of which flat mode has).
+    #[must_use]
+    pub fn image(slugcat: Slugcat, ascended: bool, red_is_dead: bool) -> (SceneId, Vec2) {
+        match slugcat {
+            Slugcat::White if ascended => (SceneId::GhostWhite, Vec2::new(-10.0, 100.0)),
+            Slugcat::White => (SceneId::SlugcatWhite, Vec2::new(-10.0, 100.0)),
+            Slugcat::Yellow if ascended => (SceneId::GhostYellow, Vec2::new(10.0, 75.0)),
+            Slugcat::Yellow => (SceneId::SlugcatYellow, Vec2::new(10.0, 75.0)),
+            // The Hunter.
+            _ if ascended => (SceneId::GhostRed, Vec2::new(10.0, 45.0)),
+            _ if red_is_dead => (SceneId::SlugcatDeadRed, Vec2::new(10.0, 45.0)),
+            _ => (SceneId::SlugcatRed, Vec2::new(10.0, 45.0)),
+        }
+    }
 }
 
 impl SlugcatSelectScreen {
@@ -132,13 +392,11 @@ impl SlugcatSelectScreen {
             .lerp_and_tick(0.0, 0.07, (self.qued_side_input.abs() + 1) as f32 / 30.0)
     }
 
-    /// `SlugcatPage.Scroll(timeStacker)` of page `i`: its offset from the centre in
-    /// pages, wrapped into -1..1.
-    #[must_use]
-    pub fn page_scroll(&self, i: usize, t: f32) -> f32 {
+    /// Page `i`'s offset from the centre in pages, from the menu's scroll `scroll`,
+    /// wrapped into -1..1.
+    fn wrap_page_offset(&self, i: usize, scroll: f32) -> f32 {
         let count = self.pages.len() as f32;
-        let mut num =
-            (i as f32 - self.slugcat_page_index as f32) - self.last_scroll.lerp(self.scroll, t);
+        let mut num = (i as f32 - self.slugcat_page_index as f32) - scroll;
         if num < -1.0 {
             num += count;
         } else if num > 1.0 {
@@ -147,10 +405,32 @@ impl SlugcatSelectScreen {
         num
     }
 
+    /// `SlugcatPage.Scroll(timeStacker)` of page `i`.
+    #[must_use]
+    pub fn page_scroll(&self, i: usize, t: f32) -> f32 {
+        self.wrap_page_offset(i, self.last_scroll.lerp(self.scroll, t))
+    }
+
+    /// `SlugcatPage.NextScroll(1)` of page `i`.
+    #[must_use]
+    pub fn page_next_scroll(&self, i: usize) -> f32 {
+        self.wrap_page_offset(i, self.next_scroll())
+    }
+
     /// `UseAlpha`.
     #[must_use]
     pub fn use_alpha(&self, i: usize, t: f32) -> f32 {
         Menu::s_curve((1.0 - self.page_scroll(i, t).abs()).clamp(0.0, 1.0), 0.5)
+    }
+
+    /// `SlugcatPageContinue.KarmaSymbolPos` of page `i`, with its HUD.
+    #[must_use]
+    pub fn karma_symbol_pos(&self, i: usize, hud: &SelectHud) -> Vec2 {
+        let x = self.screen_width / 2.0
+            - hud.food_meter.total_width(1.0) * 0.5
+            - hud.karma_radius() * 0.5
+            + self.page_next_scroll(i) * SlugcatPage::SCROLL_MAGNITUDE;
+        Vec2::new(x, self.pages[i].image_pos.y - 290.0)
     }
 
     /// `SlugcatSelectMenu.SlugcatUnlocked`: a slugcat with a save, else
@@ -160,41 +440,29 @@ impl SlugcatSelectScreen {
         saved || slugcat != Slugcat::Red || shared.progression.red_unlocked
     }
 
-    /// `MineForSaveData` of `slugcat`'s stored game, or `None` without one.
+    /// `MineForSaveData` of `slugcat`'s game, or `None` without one: the current save
+    /// state if it is the slugcat's, else the stored one mined.
     #[must_use]
     pub fn mine_for_save_data(slugcat: Slugcat, shared: &mut MenuShared) -> Option<SaveGameData> {
-        let campaign = SlugcatCampaign::of(slugcat, rw_assets::ActiveMods::NONE)?;
-        let start = CampaignStart {
-            slugcat,
-            den: campaign.start_den,
-            vanilla: campaign.start_den_is_vanilla,
-        };
-        let state = match shared.saves.peek_save_state(start) {
-            Ok(state) => state?,
-            Err(e) => {
-                log::warn!("reading the {slugcat} save: {e}");
-                return None;
-            }
-        };
+        if !shared.saves.is_there_a_saved_game(slugcat) {
+            return None;
+        }
         let assets = &shared.assets;
-        let d = &state.death_persistent;
-        Some(SaveGameData {
-            shelter_name: state.den_to_use(|room| {
-                assets
-                    .find_room_file(&room.to_lowercase(), ".txt")
-                    .is_some()
-            }),
-            cycle: state.cycle_number,
-            food: state.food,
-            karma: d.karma,
-            karma_cap: d.karma_cap,
-            karma_reinforced: d.reinforced_karma,
-            has_glow: state.the_glow,
-            has_mark: d.the_mark,
-            reds_extra_cycles: state.red_extra_cycles(),
-            reds_death: d.reds_death,
-            ascended: d.ascended,
-        })
+        if let Some(state) = shared
+            .saves
+            .current_save_state
+            .as_ref()
+            .filter(|s| s.save_state_number == slugcat)
+        {
+            return Some(SaveGameData::from_state(state, |room| {
+                SaveGameData::room_exists(assets, room)
+            }));
+        }
+        let line = shared.saves.stored_state(slugcat)?;
+        let assets = &shared.assets;
+        Some(SaveGameData::from_stored(slugcat, &line, |room| {
+            SaveGameData::room_exists(assets, room)
+        }))
     }
 
     fn saved(&self, i: usize) -> Option<&SaveGameData> {
@@ -342,6 +610,35 @@ impl SlugcatSelectScreen {
         self.restart_checked = checked;
         self.update_start_button_text(menu);
     }
+
+    /// `SlugcatPageContinue.Update` after `SlugcatPage.Update`: the HUD's update, then
+    /// both meters faded in within half a page of the centre and placed under the
+    /// region label.
+    fn continue_page_update(&mut self, menu: &mut Menu, i: usize, cx: &mut MenuCx<'_>) {
+        let PageKind::Continue(c) = &mut self.pages[i].kind else {
+            return;
+        };
+        let shared = &mut *cx.shared;
+        c.hud
+            .update(&mut menu.stage, &mut shared.mic, &mut shared.random);
+        let fade = self.page_next_scroll(i).abs().inverse_lerp(0.5, 0.0);
+        let PageKind::Continue(c) = &self.pages[i].kind else {
+            return;
+        };
+        let pos = self.karma_symbol_pos(i, &c.hud);
+        if let PageKind::Continue(c) = &mut self.pages[i].kind {
+            c.hud.place(fade, pos);
+        }
+    }
+
+    /// `SlugcatPageContinue.GrafUpdate`'s `hud.Draw` for every continue page.
+    fn draw_huds(&mut self, menu: &mut Menu, t: f32) {
+        for page in &mut self.pages {
+            if let PageKind::Continue(c) = &mut page.kind {
+                c.hud.draw(&mut menu.stage, t);
+            }
+        }
+    }
 }
 
 impl MenuScreen for SlugcatSelectScreen {
@@ -371,8 +668,8 @@ impl MenuScreen for SlugcatSelectScreen {
         menu.selected = Some(self.start_button);
     }
 
-    /// `SlugcatPage.Update` (no mark or glow on a new-game page).
-    fn page_update(&mut self, menu: &mut Menu, page: ObjectId, _cx: &mut MenuCx<'_>) {
+    /// `SlugcatPage.Update` (no mark or glow in flat mode), then a continue page's own.
+    fn page_update(&mut self, menu: &mut Menu, page: ObjectId, cx: &mut MenuCx<'_>) {
         let Some(i) = self.page_index(page) else {
             return;
         };
@@ -389,10 +686,13 @@ impl MenuScreen for SlugcatSelectScreen {
         } else {
             p.in_position = p.in_position.lerp_and_tick(target, 0.01, 1.0 / 300.0);
         }
+        self.continue_page_update(menu, i, cx);
     }
 
-    /// `SlugcatPage.GrafUpdate` and `SlugcatPageNewGame.GrafUpdate`: the flat image and
-    /// the labels slide with the scroll and fade away from the centre.
+    /// `SlugcatPage.GrafUpdate` and the subclass's: the flat image and the labels slide
+    /// with the scroll and fade away from the centre (the region label is medium grey).
+    /// The continue pages' HUDs are drawn after the menu (see
+    /// [`SlugcatSelectMenu::graf_update`]).
     fn page_graf_update(&self, menu: &mut Menu, page: ObjectId, t: f32) {
         let Some(i) = self.page_index(page) else {
             return;
@@ -416,11 +716,22 @@ impl MenuScreen for SlugcatSelectScreen {
             tr.alpha = il_alpha * alpha;
         }
         let x = self.screen_width / 2.0 + scroll * SlugcatPage::SCROLL_MAGNITUDE + 0.01;
-        for label in [p.difficulty_label, p.info_label] {
+        let (labels, color) = match &p.kind {
+            PageKind::NewGame {
+                difficulty_label,
+                info_label,
+            } => (vec![*difficulty_label, *info_label], None),
+            PageKind::Continue(c) => (vec![c.region_label], Some(MenuColor::MediumGrey)),
+        };
+        for label in labels {
             if let Kind::Label(l) = &menu.object(label).kind {
-                let tr = menu.stage.transform_mut(l.label);
-                tr.alpha = alpha;
-                tr.x = x;
+                let node = l.label;
+                let stage_label = menu.stage.label_mut(node);
+                stage_label.transform.alpha = alpha;
+                stage_label.transform.x = x;
+                if let Some(color) = color {
+                    stage_label.color = color.rgb();
+                }
             }
         }
     }
@@ -444,7 +755,7 @@ impl SlugcatSelectMenu {
             shared.unlock_red();
         }
         let order = SlugcatSelectScreen::ORDER;
-        let save_game_data: Vec<Option<SaveGameData>> = order
+        let mut save_game_data: Vec<Option<SaveGameData>> = order
             .iter()
             .map(|&s| SlugcatSelectScreen::mine_for_save_data(s, shared))
             .collect();
@@ -468,13 +779,22 @@ impl SlugcatSelectMenu {
                 slugcat_page_index = i;
             }
         }
+        // With a single save, its page.
+        let saved: Vec<usize> = (0..order.len())
+            .filter(|&i| save_game_data[i].is_some())
+            .collect();
+        if let [only] = saved[..] {
+            slugcat_page_index = only;
+        }
         let screen_width = shared.screen_size[0];
         let pages = order
             .iter()
             .enumerate()
-            .map(|(j, &slugcat)| {
-                let saved = save_game_data[j].is_some();
-                Self::add_new_game_page(&mut menu, shared, 1 + j, slugcat, saved)
+            .map(|(j, &slugcat)| match &mut save_game_data[j] {
+                Some(data) => {
+                    Self::add_continue_page(&mut menu, shared, 1 + j, slugcat, data, red_is_dead)
+                }
+                None => Self::add_new_game_page(&mut menu, shared, 1 + j, slugcat, false),
             })
             .collect();
         let start_button =
@@ -545,6 +865,24 @@ impl SlugcatSelectMenu {
         Self { menu, screen }
     }
 
+    /// `new SlugcatPage(...)` and `AddImage`: the page and its scene.
+    fn add_page_and_image(
+        menu: &mut Menu,
+        shared: &mut MenuShared,
+        index: usize,
+        slugcat: Slugcat,
+        ascended: bool,
+        red_is_dead: bool,
+    ) -> (ObjectId, ObjectId, Vec2) {
+        let name = format!("Slugcat_Page_{}", slugcat.value());
+        let page = menu.add_page(shared, &name, index);
+        let (scene_id, mut scene_offset) = SlugcatPage::image(slugcat, ascended, red_is_dead);
+        scene_offset.x -= (1366.0 - shared.screen_size[0]) / 2.0;
+        let scene = menu.add_scene(shared, page, scene_id);
+        menu.add_sub(page, scene);
+        (page, scene, scene_offset)
+    }
+
     /// `new SlugcatPageNewGame(menu, null, pageIndex, slugcat)`.
     fn add_new_game_page(
         menu: &mut Menu,
@@ -553,19 +891,10 @@ impl SlugcatSelectMenu {
         slugcat: Slugcat,
         saved: bool,
     ) -> SlugcatPage {
-        let name = format!("Slugcat_Page_{}", slugcat.value());
-        let page = menu.add_page(shared, &name, index);
-        // `AddImage(ascended: false)`.
+        // `AddImage(ascended: false)`; no save, so the Hunter is not dead.
+        let (page, scene, mut scene_offset) =
+            Self::add_page_and_image(menu, shared, index, slugcat, false, false);
         let mut image_pos = Vec2::new(683.0, 484.0);
-        let (scene_id, mut scene_offset) = match slugcat {
-            Slugcat::White => (SceneId::SlugcatWhite, Vec2::new(-10.0, 100.0)),
-            Slugcat::Yellow => (SceneId::SlugcatYellow, Vec2::new(10.0, 75.0)),
-            // The Hunter.
-            _ => (SceneId::SlugcatRed, Vec2::new(10.0, 45.0)),
-        };
-        scene_offset.x -= (1366.0 - shared.screen_size[0]) / 2.0;
-        let scene = menu.add_scene(shared, page, scene_id);
-        menu.add_sub(page, scene);
         let (text, info) = SlugcatPage::texts(slugcat, shared);
         let lines = info.matches('\n').count();
         let extra = if lines > 1 { 30.0 } else { 0.0 };
@@ -609,10 +938,71 @@ impl SlugcatSelectMenu {
             scene,
             image_pos,
             scene_offset,
-            difficulty_label,
-            info_label,
             in_position: 0.0,
             last_in_position: 0.0,
+            kind: PageKind::NewGame {
+                difficulty_label,
+                info_label,
+            },
+        }
+    }
+
+    /// `new SlugcatPageContinue(menu, null, pageIndex, slugcat)`: the image (a ghost
+    /// after ascending, the dead Hunter's when its save ended), two HUD containers, the
+    /// HUD with the karma (clamped to the cap) and the food (clamped to the meter),
+    /// then the region label. The clamps write back to the save data, as the game's
+    /// `saveGameData` is the menu's.
+    fn add_continue_page(
+        menu: &mut Menu,
+        shared: &mut MenuShared,
+        index: usize,
+        slugcat: Slugcat,
+        data: &mut SaveGameData,
+        red_is_dead: bool,
+    ) -> SlugcatPage {
+        let (page, scene, scene_offset) =
+            Self::add_page_and_image(menu, shared, index, slugcat, data.ascended, red_is_dead);
+        let image_pos = Vec2::new(683.0, 484.0);
+        let page_container = menu.container_of(page);
+        let containers = [0, 1].map(|_| menu.stage.add_container(page_container));
+        data.karma = data.karma.clamp(0, data.karma_cap.max(0));
+        let stats = SlugcatCampaign::of(slugcat, rw_assets::ActiveMods::NONE)
+            .map_or((7, 4), |c| (c.stats.max_food, c.stats.food_to_hibernate));
+        data.food = data.food.clamp(0, stats.0);
+        let karma = if data.ripple_level >= 1.0 {
+            (((data.ripple_level - 1.0) * 2.0) as i32, 100)
+        } else {
+            (data.karma, data.karma_cap)
+        };
+        let hud = SelectHud::new(
+            SelectHudSetup {
+                container: containers[1],
+                karma,
+                karma_reinforced: data.karma_reinforced,
+                food_meter: stats,
+                current_food: data.food,
+            },
+            &mut menu.stage,
+        );
+        let text = data.region_text(slugcat, shared);
+        let region_label = menu.add_label(
+            shared,
+            page,
+            &text,
+            Vec2::new(-1000.0, image_pos.y - 249.0),
+            Vec2::new(200.0, 30.0),
+            true,
+        );
+        menu.add_sub(page, region_label);
+        SlugcatPage {
+            page,
+            slugcat,
+            scene,
+            image_pos,
+            scene_offset,
+            in_position: 0.0,
+            last_in_position: 0.0,
+            kind: PageKind::Continue(Box::new(ContinuePage { hud, region_label })),
         }
     }
 
@@ -645,12 +1035,19 @@ impl<C: MenuContext> MainLoopProcess<C> for SlugcatSelectMenu {
         self.screen.update(&mut self.menu, &mut cx);
     }
 
+    /// `GrafUpdate`; the continue pages' `hud.Draw` comes after the menu's objects,
+    /// which is the game's result as the HUD writes only its own sprites and draws no
+    /// random numbers.
     fn graf_update(&mut self, time_stacker: f32, ctx: &mut C) {
         let mouse = Vec2::from(ctx.menu().input.mouse.pos);
         self.menu.graf_update(&self.screen, time_stacker, mouse);
+        self.screen.draw_huds(&mut self.menu, time_stacker);
     }
 
     fn shut_down(&mut self, ctx: &mut C) {
         self.menu.shut_down(ctx.menu());
     }
 }
+
+#[cfg(test)]
+mod tests;

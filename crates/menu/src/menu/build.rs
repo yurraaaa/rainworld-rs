@@ -903,6 +903,14 @@ impl SceneId {
                 Self::single("Scenes/Slugcat - Red", "Slugcat - Red - Flat")
             }
             Self::SlugcatRed => Self::single("Scenes/Slugcat - Red", "Slugcat - Red Dark - Flat"),
+            Self::SlugcatDeadRed => Self::single("Scenes/Dead Red", "Dead Red - Flat"),
+            Self::GhostWhite => {
+                Self::single("Scenes/White Ghost Slugcat", "White Ghost Slugcat - Flat")
+            }
+            Self::GhostYellow => {
+                Self::single("Scenes/Yellow Ghost Slugcat", "Yellow Ghost Slugcat - Flat")
+            }
+            Self::GhostRed => Self::single("Scenes/Red Ghost Slugcat", "Red Ghost Slugcat - Flat"),
             Self::LandscapeSu => Self::single("Scenes/Landscape - SU", "Landscape - SU - Flat"),
             Self::SleepScreen => {
                 let slugcat = shared.playing_as_slugcat().value();

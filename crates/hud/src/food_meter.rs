@@ -324,9 +324,10 @@ impl FoodMeter {
         meter
     }
 
-    /// The constructor for a sleep or death screen's meter (`InitSleepHud`): the sleep
-    /// screen's starts at the food before hibernation and eats `foodToHibernate` pips
-    /// after 65 ticks; the death screen's waits 80. No quarter pips.
+    /// The constructor for a sleep or death screen's meter (`InitSleepHud`) or a
+    /// slugcat select page's: the sleep screen's starts at the food before hibernation
+    /// and eats `foodToHibernate` pips after 65 ticks; the death screen's waits 80; the
+    /// page's shows the food. No quarter pips.
     pub fn new_for_screen(
         stage: &mut StageTree,
         container: NodeId,
@@ -336,14 +337,18 @@ impl FoodMeter {
         current_food: i32,
     ) -> Self {
         let mut meter = Self::with_sprites(stage, container, max_food, survival_limit, false);
-        let count = if owner == HudOwnerType::SleepScreen {
-            meter.eat_circle_delay = 65;
-            meter.eat_circles = survival_limit;
-            (current_food + survival_limit).min(max_food)
-        } else {
-            meter.eat_circle_delay = 80;
-            meter.eat_circles = 0;
-            current_food
+        let count = match owner {
+            HudOwnerType::SleepScreen => {
+                meter.eat_circle_delay = 65;
+                meter.eat_circles = survival_limit;
+                (current_food + survival_limit).min(max_food)
+            }
+            HudOwnerType::DeathScreen => {
+                meter.eat_circle_delay = 80;
+                meter.eat_circles = 0;
+                current_food
+            }
+            _ => current_food,
         };
         meter.new_show_count(count);
         meter
@@ -536,6 +541,18 @@ impl FoodMeter {
         };
         self.end_update(false);
         done
+    }
+
+    /// A slugcat select page's meter's `Update` (`CharSelectUpdate` does nothing; the
+    /// page sets the fade and position after the HUD's update).
+    pub fn update_character_select(
+        &mut self,
+        current_food: i32,
+        karma_fade: f32,
+        fx: &mut HudFx<'_>,
+    ) {
+        self.begin_update(false, current_food, Some(karma_fade), fx);
+        self.end_update(false);
     }
 
     /// `Update` up to the owner's branch: the pips (last first), a food change, the

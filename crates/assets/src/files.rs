@@ -86,6 +86,22 @@ impl StreamingAssets {
             .starts_with(self.file(&format!("world/{prefix}-rooms")));
         (in_region && self.file(&format!("world/{prefix}")).is_dir()).then_some(prefix)
     }
+
+    /// `Region.GetRegionFullName`: the first line of `World/<acronym>/DisplayName-<slugcat>.txt`,
+    /// else of `DisplayName.txt`, else "Unknown Region".
+    #[must_use]
+    pub fn region_full_name(&self, acronym: &str, slugcat: Option<&str>) -> String {
+        let suffix = slugcat.map_or_else(String::new, |s| format!("-{s}"));
+        let mut path = self.resolve_file_path(&format!("World/{acronym}/DisplayName{suffix}.txt"));
+        if !suffix.is_empty() && !path.is_file() {
+            path = self.resolve_file_path(&format!("World/{acronym}/DisplayName.txt"));
+        }
+        let Ok(text) = std::fs::read_to_string(&path) else {
+            return "Unknown Region".to_owned();
+        };
+        let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
+        text.split(['\r', '\n']).next().unwrap_or("").to_owned()
+    }
 }
 
 /// Error from loading a visual asset (image, palette, settings, noise texture).
