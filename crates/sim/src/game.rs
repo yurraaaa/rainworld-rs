@@ -270,6 +270,10 @@ pub struct RainWorldGame {
     camera_darkness: f32,
     /// Set when the cycle ends (the shelter closes, the player starves).
     session_end: Option<SessionEnd>,
+    /// Food added this cycle (`saveState.totFood`'s share).
+    session_food: i32,
+    /// What the player ate this cycle (`SessionRecord.AddEat`), by entity ID.
+    eaten: Vec<EntityId>,
 }
 
 impl RainWorldGame {
@@ -368,6 +372,8 @@ impl RainWorldGame {
             hud_map: HudMapLink::default(),
             camera_darkness: 0.0,
             session_end: None,
+            session_food: 0,
+            eaten: Vec::new(),
         };
         if let Err(e) = game.world.activate_room(start.room) {
             log::error!("cannot realize the first room: {e}");
@@ -399,7 +405,12 @@ impl RainWorldGame {
         let mut ids = IdIssuer {
             next_issued_id: rng.range_i32(1000, 10000),
         };
-        let mut save_state_seed = rng.range_i32(0, 10000);
+        // `new SaveState` draws its seed; a state still in memory is reused.
+        let mut save_state_seed = if story.in_memory {
+            0
+        } else {
+            rng.range_i32(0, 10000)
+        };
         if let Some(id) = story.next_issued_id {
             ids.next_issued_id = id;
         }
@@ -414,11 +425,16 @@ impl RainWorldGame {
         let guide = PlayerGuideState::default();
         world.rain_cycle = RainCycle::new_story(campaign.name, rng);
         let mut respawn = story.respawn_creatures.clone();
-        let fresh = story.region_state.is_none();
-        // `World.LoadWorld`: the region state read from its load string, adapted to.
-        if let (Some(saved), false) = (&story.region_state, world.single_room()) {
-            let state = RegionState::from_string(world.data(), saved, world.mods(), rng);
-            world.region_state = Some(state);
+        let fresh = story.region_state.is_none() && story.live_region_state.is_none();
+        // `World.LoadWorld`: the region state still in memory, else read from its load
+        // string, then adapted to.
+        if !world.single_room() {
+            if let Some(state) = &story.live_region_state {
+                world.region_state = Some(state.clone());
+            } else if let Some(saved) = &story.region_state {
+                let state = RegionState::from_string(world.data(), saved, world.mods(), rng);
+                world.region_state = Some(state);
+            }
         }
         let mut population = PopulationContext {
             session: &session,
@@ -1577,6 +1593,27 @@ impl RainWorldGame {
     /// Hands the random stream back (to the menus, when the game ends).
     pub fn take_rng(&mut self) -> UnityRandom {
         std::mem::replace(&mut self.rng, UnityRandom::new(0))
+    }
+
+    /// Gives the stream back after [`Self::take_rng`].
+    pub fn set_rng(&mut self, rng: UnityRandom) {
+        self.rng = rng;
+    }
+
+    pub fn world_mut(&mut self) -> &mut World {
+        &mut self.world
+    }
+
+    /// Food added this cycle.
+    #[must_use]
+    pub fn session_food(&self) -> i32 {
+        self.session_food
+    }
+
+    /// What the player ate this cycle.
+    #[must_use]
+    pub fn eaten(&self) -> &[EntityId] {
+        &self.eaten
     }
 
     /// Puts the player (a new one if it was destroyed) into the camera's room out of any

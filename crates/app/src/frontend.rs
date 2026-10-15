@@ -22,9 +22,12 @@ use rw_random::UnityRandom;
 use rw_render::{Camera, Color, MapGlobals, Renderer, Resolution, StageBatch, StageGlobals};
 use rw_save::{CampaignStart, SaveSlot};
 use rw_sim::campaign::SlugcatCampaign;
-use rw_sim::{SoundId, Vec2};
+use rw_save::WinOutcome;
+use rw_sim::world::RegionState;
+use rw_sim::{SessionEnd, SoundId, Vec2};
 
 use crate::game::{Game, GameStart};
+use crate::hibernation::HibernatingGame;
 use crate::input::{Action, InputState, Script};
 use crate::saves::{SaveConfig, SaveStateStart};
 use crate::scene::{Scene, SceneRenderer, SceneView, VisualsSource};
@@ -57,6 +60,10 @@ pub struct AppContext {
     music_stacker: TimeStacker,
     /// The process `Initialization` starts.
     pub start: ProcessId,
+    /// `rainWorld.saveBackedUp`: `Win` backs the save up once per run.
+    pub save_backed_up: bool,
+    /// The region state the last cycle's world kept in memory, for the next cycle.
+    pub carried_region_state: Option<RegionState>,
 }
 
 /// Where the music player's songs play: through the audio output, or silently in
@@ -86,10 +93,12 @@ pub struct Unported {
     last_pause_button: bool,
 }
 
-/// The sleep screen's stand-in (`SleepAndDeathScreen` is not ported, D16): black for a
+/// The sleep screen's and the dream's stand-in (`SleepAndDeathScreen` and `DreamScreen`
+/// are not ported, D16): black for a
 /// second after the fade, then the next cycle, as the screen's Continue starts it
 /// (`startGameCondition = Load`).
 pub struct SleepStandIn {
+    id: ProcessId,
     stage: Container,
     frames: u32,
 }
@@ -165,6 +174,8 @@ impl AppContext {
             music_sink: MusicSink::Timed(Box::new(TimedSources::new(bank))),
             music_stacker: TimeStacker::default(),
             start,
+            save_backed_up: false,
+            carried_region_state: None,
         })
     }
 
@@ -214,6 +225,8 @@ impl AppContext {
         });
         let start = match story {
             Some((slugcat, campaign)) if condition == StoryGameInitCondition::Load => {
+                let in_memory = self.menu.saves.state_in_memory(slugcat).is_some();
+                let carried = self.carried_region_state.take().filter(|_| in_memory);
                 match self
                     .menu
                     .saves
@@ -226,10 +239,10 @@ impl AppContext {
                                 .find_room_file(&room.to_lowercase(), ".txt")
                                 .is_some()
                         });
-                        GameStart::SavedStory {
-                            slugcat,
-                            story: state.story_start(den),
-                        }
+                        let mut story = state.story_start(den, in_memory);
+                        story.live_region_state = carried
+                            .filter(|r| story.den.split('_').next() == Some(&r.region_name));
+                        GameStart::SavedStory { slugcat, story }
                     }
                     other => {
                         log::error!("no {slugcat} save to continue ({other:?}); a new game");
@@ -386,7 +399,8 @@ impl ProcessFactory<AppProcess> for AppContext {
                 AppProcess::SlideShow(Box::new(SlideShow::new(&mut self.menu, id)))
             }
             ProcessId::Game => AppProcess::Game(Box::new(self.new_game())),
-            ProcessId::SleepScreen => AppProcess::SleepStandIn(SleepStandIn {
+            ProcessId::SleepScreen | ProcessId::Dream => AppProcess::SleepStandIn(SleepStandIn {
+                id,
                 stage: Container::default(),
                 frames: 0,
             }),
@@ -474,6 +488,9 @@ impl MainLoopProcess<AppContext> for GameProcess {
         }
         self.last_pause_button = pause;
         let events = self.scene.update_rooms(input, &mut ctx.menu, opened);
+        if let Some(end) = self.scene.game_mut().sim_mut().take_session_end() {
+            self.end_session(end, ctx, requests);
+        }
         if self.scene.take_entered_room()
             && let Some(audio) = &mut ctx.audio
         {
@@ -582,6 +599,52 @@ impl GameProcess {
             ctx.exit_game(true, true, sim.clock());
         }
         requests.switch_to(ProcessId::MainMenu);
+    }
+
+    /// The end of a story cycle: `Win` saves and goes to the sleep screen (or a dream);
+    /// starving and dying go to their screens, which are not ported (D16).
+    fn end_session(
+        &mut self,
+        end: SessionEnd,
+        ctx: &mut AppContext,
+        requests: &mut ProcessRequests,
+    ) {
+        if requests.upcoming().is_some() {
+            return;
+        }
+        match end {
+            SessionEnd::Win { malnourished } => {
+                log::info!("Win (malnourished: {malnourished})");
+                self.scene.game().store_map_discovery(&mut ctx.menu.saves);
+                let assets = ctx.menu.assets.clone();
+                let mut game = HibernatingGame {
+                    sim: self.scene.game_mut().sim_mut(),
+                    assets: &assets,
+                };
+                let next = match game.win(&mut ctx.menu.saves, malnourished, &mut ctx.save_backed_up)
+                {
+                    Ok((outcome, region)) => {
+                        ctx.carried_region_state = region;
+                        match outcome {
+                            WinOutcome::Dream(_) => ProcessId::Dream,
+                            WinOutcome::SleepScreen => ProcessId::SleepScreen,
+                        }
+                    }
+                    Err(e) => {
+                        log::error!("saving the cycle: {e}");
+                        ProcessId::SleepScreen
+                    }
+                };
+                requests.switch_to(next);
+            }
+            SessionEnd::Starve => {
+                if let Some(music) = &mut ctx.menu.music {
+                    music.death_event();
+                }
+                requests.switch_to(ProcessId::StarveScreen);
+            }
+            SessionEnd::Death => requests.switch_to(ProcessId::DeathScreen),
+        }
     }
 
     /// The pause menu's `PlaySound`s, which go to the game's microphone in volume
@@ -715,7 +778,7 @@ impl MainLoopProcess<AppContext> for AppProcess {
             Self::MainMenu(_) => ProcessId::MainMenu,
             Self::SlugcatSelect(_) => ProcessId::SlugcatSelect,
             Self::Unported(p) => p.id,
-            Self::SleepStandIn(_) => ProcessId::SleepScreen,
+            Self::SleepStandIn(p) => p.id,
         }
     }
 

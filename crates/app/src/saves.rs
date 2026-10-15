@@ -86,15 +86,15 @@ impl SaveConfig {
 
 /// What a story game takes from its loaded save state.
 pub trait SaveStateStart {
-    /// The start in `den` (`GetSaveStateDenToUse`).
-    fn story_start(&self, den: String) -> StoryStart;
+    /// The start in `den` (`GetSaveStateDenToUse`); `in_memory` for a state the last
+    /// cycle left (not read again: the game draws a new `nextIssuedId`).
+    fn story_start(&self, den: String, in_memory: bool) -> StoryStart;
 }
 
 impl SaveStateStart for SaveState {
-    fn story_start(&self, den: String) -> StoryStart {
+    fn story_start(&self, den: String, in_memory: bool) -> StoryStart {
         let d = &self.death_persistent;
         StoryStart {
-            den,
             cycle_number: self.cycle_number,
             food: self.food,
             karma: d.karma,
@@ -102,12 +102,18 @@ impl SaveStateStart for SaveState {
             karma_reinforced: d.reinforced_karma,
             the_mark: d.the_mark,
             guide_overseer_dead: self.guide_overseer_dead,
-            next_issued_id: self.loaded_next_issued_id,
+            next_issued_id: self.loaded_next_issued_id.filter(|_| !in_memory),
             seed: Some(self.seed),
             malnourished: self.malnourished,
             food_replenish_bonus: d.food_replenish_bonus,
-            respawn_creatures: Vec::new(),
-            region_state: None,
+            respawn_creatures: self.respawn_creatures.clone(),
+            // `OverWorld.LoadFirstWorld`: the den's region.
+            region_state: self
+                .region_state(den.split('_').next().unwrap_or(&den))
+                .map(str::to_owned),
+            in_memory,
+            live_region_state: None,
+            den,
         }
     }
 }

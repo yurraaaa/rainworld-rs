@@ -38,6 +38,7 @@
 mod app;
 mod frontend;
 mod game;
+mod hibernation;
 mod hud_map;
 mod input;
 mod mcp;

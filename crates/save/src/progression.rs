@@ -193,6 +193,16 @@ impl PlayerProgression {
         self.stored_state(slugcat).is_some()
     }
 
+    /// The state the last cycle left in memory for `slugcat` (the current one, else a
+    /// starved one `GetOrInitiateSaveState` takes up), which a new cycle reuses.
+    #[must_use]
+    pub fn state_in_memory(&self, slugcat: SlugcatName) -> Option<&SaveState> {
+        self.current_save_state
+            .as_ref()
+            .or(self.starved_save_state.as_ref())
+            .filter(|s| s.save_state_number == slugcat)
+    }
+
     /// `MineForSaveData`'s source: the stored state of `slugcat` read as `LoadGame`
     /// reads it, without making it current.
     ///
@@ -202,9 +212,7 @@ impl PlayerProgression {
         &mut self,
         start: CampaignStart<'_>,
     ) -> Result<Option<SaveState>, SaveError> {
-        if let Some(s) = &self.current_save_state
-            && s.save_state_number == start.slugcat
-        {
+        if let Some(s) = self.state_in_memory(start.slugcat) {
             return Ok(Some(s.clone()));
         }
         let Some(line) = self.stored_state(start.slugcat) else {
@@ -229,6 +237,12 @@ impl PlayerProgression {
         load: bool,
         save_as_death_or_quit: bool,
     ) -> Result<&mut SaveState, SaveError> {
+        if self.current_save_state.is_none()
+            && let Some(starved) = self.starved_save_state.take()
+        {
+            log::info!("loading the starved state");
+            self.current_save_state = Some(starved);
+        }
         let current = self
             .current_save_state
             .as_ref()

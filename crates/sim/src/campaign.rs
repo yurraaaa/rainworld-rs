@@ -185,6 +185,10 @@ pub struct StoryStart {
     pub respawn_creatures: Vec<i32>,
     /// The start region's saved `REGIONSTATE` value (`regionLoadStrings`), if any.
     pub region_state: Option<String>,
+    /// The save state was still in memory (the next cycle): its seed is not drawn again
+    /// (no `new SaveState`), and its region state object is reused if given.
+    pub in_memory: bool,
+    pub live_region_state: Option<crate::world::RegionState>,
 }
 
 impl StoryStart {
@@ -206,6 +210,8 @@ impl StoryStart {
             food_replenish_bonus: 0,
             respawn_creatures: Vec::new(),
             region_state: None,
+            in_memory: false,
+            live_region_state: None,
         }
     }
 }

@@ -68,6 +68,7 @@ impl RainWorldGame {
         if state.food_in_stomach >= max {
             state.quarter_food_points = 0;
         }
+        self.session_food += add;
     }
 
     /// `Player.AddQuarterFood`.
@@ -523,6 +524,10 @@ impl RainWorldGame {
     /// quarter pips, then every grasp on it lets go.
     fn object_eaten(&mut self, fly: CreatureId, observer: &mut dyn PlayerObserver) {
         observer.player_look_at(None);
+        let id = self.world.creature(fly).id;
+        if !self.eaten.contains(&id) {
+            self.eaten.push(id);
+        }
         let mut num = self.fly_nourishment();
         while num >= 4 {
             self.add_food(1);

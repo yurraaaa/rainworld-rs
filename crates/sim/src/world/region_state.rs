@@ -53,7 +53,7 @@ impl ConsumedItem {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct RegionState {
     /// `regionName` (`World.name`).
     pub region_name: String,
