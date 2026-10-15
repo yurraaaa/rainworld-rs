@@ -5,7 +5,7 @@
 
 use rw_assets::{Room, Terrain};
 
-use super::{Animation, BodyMode, HEAD, HIPS, Player, ROOM_GRAVITY, RUN_SPEED_FAC};
+use super::{Animation, BodyMode, HEAD, HIPS, Player, ROOM_GRAVITY};
 use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
 use crate::{SoundId, Vec2, Water};
@@ -68,7 +68,7 @@ impl Player {
             let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
             head.vel.y += 4.0 * ROOM_GRAVITY;
             hips.vel.y -= 4.0 * ROOM_GRAVITY;
-            self.dynamic_run_speed = [4.2 * RUN_SPEED_FAC, 4.0 * RUN_SPEED_FAC];
+            self.dynamic_run_speed = [4.2 * self.stats.runspeed_fac, 4.0 * self.stats.runspeed_fac];
             if y != 0 {
                 self.dynamic_run_speed[1] = 2.0;
             }
@@ -250,7 +250,7 @@ impl Player {
         {
             self.animation = Animation::DownOnFours;
         }
-        self.dynamic_run_speed = [4.2 * RUN_SPEED_FAC, 4.0 * RUN_SPEED_FAC];
+        self.dynamic_run_speed = [4.2 * self.stats.runspeed_fac, 4.0 * self.stats.runspeed_fac];
         if y != 0 {
             self.dynamic_run_speed[1] = 2.0;
         }
@@ -288,6 +288,9 @@ impl Player {
             };
             self.play_sound(id, HEAD, 1.0, 1.0);
             self.left_foot = !self.left_foot;
+            if self.aerobic_level < 0.7 {
+                self.aerobic_increase(0.05);
+            }
         }
         self.skid();
     }

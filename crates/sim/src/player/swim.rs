@@ -21,9 +21,8 @@ const SWIM_BOOST_COST: f32 = 0.2;
 const SWIM_BOOST_FORCE: f32 = 3.0;
 /// `swimBoostCooldown`, ticks.
 const SWIM_BOOST_COOLDOWN: i32 = 20;
-/// `swimForceFac` and `lungsFac` of the Survivor.
+/// `swimForceFac` of the Survivor.
 const SWIM_FORCE_FAC: f32 = 1.0;
-const LUNGS_FAC: f32 = 1.0;
 /// `RainWorldGame.setupValues.lungs`: 128 in a release build (`setup.txt` is read
 /// only with dev tools).
 const SETUP_LUNGS: f32 = 128.0;
@@ -395,7 +394,7 @@ impl Player {
             * if self.lungs_exhausted { 4.5 } else { 9.0 }
             * if holding_up { 1.5 } else { 1.0 }
             * (SETUP_LUNGS / 100.0);
-        self.air_in_lungs -= 1.0 / ticks * LUNGS_FAC;
+        self.air_in_lungs -= 1.0 / ticks * self.stats.lungs_fac;
         let floor = if self.heading_for_air(room, water) {
             -0.3
         } else {

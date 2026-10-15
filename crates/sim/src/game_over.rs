@@ -108,7 +108,7 @@ impl RainWorldGame {
             main.y.clamp(-50.0, room.pixel_height() + 50.0),
         );
         self.game_over = Some(GameOver {
-            food_in_stomach: self.food_in_stomach(),
+            food_in_stomach: self.food_in_stomach().cast_signed(),
             death_room: self.pos().room,
             death_pos,
             karma_flower: self

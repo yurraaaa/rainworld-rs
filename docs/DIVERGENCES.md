@@ -37,7 +37,7 @@ it (D13). What still differs is only the seed and the call order:
   reaches the microphone of a camera in that room). Draws of unported code in
   the same functions (the rain-warning look-up, `Room.Update`'s ambient ceiling drips,
   the `WaterDrip`s of slides and corridor shoots, grasps of objects other than bat flies,
-  exhaustion, DLC, and the sounds of those) are missing, as is the draw-skipping of
+  DLC, and the sounds of those) are missing, as is the draw-skipping of
   `AllowSound`'s crowd cap (D12); the rain-warning look-up short-circuits before drawing
   while rain is far off, as at the start of a cycle.
 - **Spawn path.** A new story starts as the game does (start den, `TryGetPlayerStartPos`,
@@ -117,8 +117,13 @@ The shortcut map itself (`rw_assets::ShortcutMap`) is the game's `ShortcutMapper
 ## D3: Player movement (stage one)
 
 `rw_sim::Player` ports base slugcat movement (`rainworld-re/notes/slugcat-movement.md`,
-`horizontal-beams.md`, `slope-collision.md` section 5) for the Survivor with every
-`SlugcatStats` factor 1, no adrenaline, never exhausted. Stun and death are D4; vertical
+`horizontal-beams.md`, `slope-collision.md` section 5) with the session's
+`SlugcatStats` (`characterStats`: run, pole and corridor speeds, body weight and lungs of
+the slugcat, the malnourished values in a malnourished cycle until a full stomach cures
+it), no adrenaline. `aerobicLevel` and the malnourished exhaustion are ported
+(`AerobicIncrease` from jumps, walking steps, beam and pole climbing, rolls and throws;
+the exhausted slowness, random `Stun(7)` and falls, the weaker wall jump, the
+recovery). Stun and death are D4; vertical
 poles and ledge grabs are D6; skid, flip, roll, belly slide and rocket jump are D9;
 corridors are D10.
 
@@ -165,8 +170,8 @@ physics with neutral input, its water, graphics and room camera as in the game.
 - **`Player.Stun` side effects.** The game un-stands the player (and drops grasps) when
   the stun exceeds `Random.Range(5, 12)` and draws `Random.Range(40, 80)` for the spear
   on the back; the port makes both draws on every path (no spear to drop) and plays
-  `UI_Slugcat_Stunned_Init`. Malnourished stun scaling, grasps, slugpup drops and the
-  face blink are not ported.
+  `UI_Slugcat_Stunned_Init`. The malnourished scaling (1.5 times, twice exhausted,
+  `Mathf.RoundToInt`) is ported; grasps, slugpup drops and the face blink are not.
 - **Remix (MMF) branches omitted:** falling into a room-exit or normal shortcut entrance
   at speed > 5 (enters the shortcut instead of taking damage) and the wall pounce (D9).
 - **More Slugcats omitted:** Gourmand's thresholds (death above 80, stun above 40
@@ -246,9 +251,8 @@ corridors (D10).
   +1 vy, 0.3x lift, 0.5x slide forces) and the slugpup, Rivulet and Gourmand
   (`PainJumps`) sideways pole jump values, Saint's `monkAscension` blocking the grab,
   and the ripple-levitation freeze of the facing (`rippleActivating`).
-- **Not ported entries to the pole:** `ZeroGPoleGrab` (zero gravity) and the deer antlers. The blink and
-  `AerobicIncrease` on the pole are not ported (no effect on movement for the
-  Survivor, who is never exhausted).
+- **Not ported entries to the pole:** `ZeroGPoleGrab` (zero gravity) and the deer antlers. The blink
+  on the pole is not ported.
 
 **Why.** Remix and DLC are out of the base-game scope; the rest waits for zero gravity,
 grabbing and audio.
@@ -370,9 +374,11 @@ in `PlayerGraphics` (they use the generic poses of their body mode, as in the ga
   submersion, the `lungsExhausted` head bob and blink, the swimming hand targets, legs
   hidden in `DeepSwim`); bubbles and splashes are not (D11). Under water the sprites
   are tinted by the water's `DeepWater` shader, as in the game (D11).
-- **`aerobicLevel` is 0.** The player has no aerobic level yet, so breathing runs at the
-  resting pace (`breath += 1/60` per tick), never pants, and the exhausted face and
-  head bob never show.
+- **Breathing, exhaustion and malnourishment** are ported: breathing quickens and the
+  body pants with `aerobicLevel`; the exhausted eyes and head bob; the malnourished
+  slugcat's thinner body, hips and tail, grey body and lighter eyes (toward the
+  palette's fog colour), fading by 0.005 a tick once cured. Red's illness (also
+  `malnourished` 1) is not ported.
 - **Looking and holding.** `PlayerObjectLooker` is ported whole and looks at the
   room's bat flies and overseers; the hands hold, reach for and bite bat flies
   (`SlugcatHand` grasp branch, `BiteFly`, `LookAtObject`). The rain-warning look-up and
@@ -381,7 +387,7 @@ in `PlayerGraphics` (they use the generic poses of their body mode, as in the ga
   carry, two-handed objects, mauling and its `Blink`s),
   the map-button stand-still blink,
   zero gravity (`ZeroGPoleGrab`, `ZeroGSwim`), antler and vine climbing,
-  adrenaline jitter, malnourishment and hypothermia tints, the Mark (sprites 10 and 11
+  adrenaline jitter, hypothermia and poison tints, the Mark (sprites 10 and 11
   have alpha 0 and are left out of the draw list), the light source, and every More
   Slugcats, Watcher and Jolly Co-op branch (pups, Gourmand/Spear/Saint/Rivulet/Artificer
   parts and sizes, gowns, custom and Jolly colours). The Nightcat colour is not offered
@@ -425,8 +431,7 @@ direction.
   flip jump, roll jump, belly-slide push, kick and jumps, roll durations), the pyro
   jump's `Flip`, and the Watcher curved-terrain drop-through test.
 - **Not ported:** adrenaline factors, `WaterDrip` and `ExplosionSpikes`
-  particles (their random draws are cosmetic), `AerobicIncrease` (the Survivor is never
-  exhausted).
+  particles (their random draws are cosmetic).
 
 **Why.** Remix and DLC are out of the base-game scope; the rest waits for grabbing,
 throwing, creatures, adrenaline and audio.
@@ -485,9 +490,8 @@ restrictions (`rainworld-re/notes/water.md`), base game with Remix off, Survivor
   More Slugcats flood.
 - **Not ported:** `WaterCutoff` and `AirPocket` placed objects (no base-game room
   uses them), `WaterViscosity` (unused in the base game), rain rumble, screen shake and
-  flooding, lethal water, splashes and bubbles, ripple waves from explosions,
-  `aerobicLevel` (stays 0; for the Survivor it only feeds graphics), the analogue swim
-  direction (digital input only).
+  flooding, lethal water, splashes and bubbles, ripple waves from explosions, the
+  analogue swim direction (digital input only).
 - **Slerp is reconstructed.** `Vector3.Slerp` is native code. `rw_sim::Vec3::slerp`
   follows Unity's known implementation: lerp below magnitude 1e-5 or when nearly
   parallel, `OrthoNormalVectorFast` axis when opposite, else an axis-angle turn about
@@ -1090,8 +1094,9 @@ Differences:
   base `INTEGERS` it resets cleared; the DLCs' integer lists (`INTEGERSMMF`, ...) are
   kept as read. There is no `SJ_<slot>` folder to delete.
 - **Starving and dying.** The starve and death screens follow (D13).
-  `GoToStarveScreen` and `GoToDeathScreen` run `SessionEnded(survived: false)`
-  and its death save (D17), with the game-over prompt's death room and position (room
+  `GoToStarveScreen` (a door closing on less than one pip, or on less than a full meter
+  in a malnourished cycle; D17) and `GoToDeathScreen` run `SessionEnded(survived: false)`
+  and its death save, with the game-over prompt's death room and position (room
   0 and (0, 0) on a starve, as in the game). `GoToDeathScreen` comes from the game-over
   prompt's map press (D15) or a shelter door closing on a dead slugcat. The save's
   `FLOWERPOS` is written from `PlaceKarmaFlowerOnDeathSpot` (D17).
@@ -1129,8 +1134,13 @@ Differences:
   frames, then starts the next cycle as the sleep screen's continue does
   (`StoryGameInitCondition.Load`). The Moon and Pebbles event dreams are not ported (no
   iterators).
-- **Starving.** A door closing on too little food saves the cycle as a death
-  (`SessionEnded(survived: false)`, D16) and shows the starve screen (D13).
+- **Starving.** As in the game, when the closing door passes `closedFac` 0.4 with
+  `FoodInRoom < (saveState.malnourished ? maxFood : 1)`, the slugcat starves: a death
+  (`GoToStarveScreen`, `SessionEnded(survived: false)`, D16) and the starve screen
+  (D13). Otherwise the closed door calls `Win(FoodInRoom < foodToHibernate)`: with
+  some food but less than `foodToHibernate` that is a malnourished survival, saved as
+  the game does (only the progression and death-persistent data reach the disk; the
+  new state stays in memory as the starved state) and the next cycle is malnourished.
 - **Karma flowers.** The player's `karmaFlowerGrowPos` is tracked as `Player.Update`
   does (`PlaceKarmaFlower`: reinforced karma, the Monk, the Hunter out of cycles), and
   `PlaceKarmaFlowerOnDeathSpot` stores it in the save state's `karmaFlowerPosition`
@@ -1146,8 +1156,14 @@ Differences:
 - **Not ported:** More Slugcats' ancient and broken shelters, `PrecycleModule`, the
   shelter tutorials, the dream ghost, `GetStuffInWalls`, the AI map rebuild when the
   door opens, the door's screen shake, the social-memory stun of creatures in the room,
-  killing hostiles at close (the check alone is ported), aerobic and malnourished
-  breathing, and every Jolly Co-op and More Slugcats branch.
+  killing hostiles at close (the check alone is ported), and every Jolly Co-op and More
+  Slugcats branch.
+- **Malnourishment, DLC and Remix branches omitted:** More Slugcats' slugcats' own
+  malnourished stats, pup malnourishment and `malnourishedByCreature`, the Saint's and
+  wounded exhaustion, Gourmand's exhaustion, the oracle and Artificer hooks, Expedition's
+  agility stats, the Watcher's frogs (malnourishing bites, a latch that skips a
+  malnourished slugcat) and camouflage exhaustion, Jolly Co-op's per-player stats, and
+  Remix's `cfgVanillaExploits` death save of a malnourished `Win`.
 
 **Why.** Iterators, items, creature states and dreams are later milestones.
 
@@ -1158,7 +1174,7 @@ shelter.
 ## Not ported yet (not divergences, just absent)
 
 Player (stage one leaves out): zero gravity, grabbing, throwing and eating anything but
-bat flies, swallowing, `slowMovementStun` from exhaustion, adrenaline, the WALLSTUCK safety
+bat flies, swallowing, adrenaline, Red's illness, the WALLSTUCK safety
 (needs `VisualContact`), carried-object speed factors, vines, tube worm,
 Jolly co-op, MSC / Watcher class mechanics. Ported because ground classification
 produces them anyway: wall slide and wall jump (`WallClimb`, `canWallJump`, `jumpStun`;
@@ -1169,7 +1185,9 @@ Physics: burrowing, terrain curves (`TerrainCurve`), the curved-terrain `Terrain
 call, the room-range clamp's skip for grabbed objects, and `DefaultTile`.
 
 Room: `Room.Update`'s ambient ceiling drips (`WaterDrip`s from the ceiling of a room with
-`CeilingDrips`), and the `WaterDrip`s of skids, slides and corridor shoots.
+`CeilingDrips`), the `WaterDrip`s of skids, slides and corridor shoots, and the
+cosmetic insects (`InsectCoordinator`), among them the `MiniFly`s that buzz around
+corpses and a malnourished slugcat (the bat flies do not).
 
 Front end: the regions, arena and Remix menus, input settings, credits, backups,
 the dream screens, PASSAGE's custom end-game and fast travel screens, the sleep

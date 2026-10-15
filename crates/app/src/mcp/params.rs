@@ -99,6 +99,9 @@ pub struct NewGameParams {
     pub slugcat: String,
     /// Seed of the game's random stream (default 1).
     pub seed: Option<u64>,
+    /// Start as a saved story in a malnourished cycle (`saveState.malnourished`), at
+    /// the start den (a dev aid; default false).
+    pub malnourished: Option<bool>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, JsonSchema)]
@@ -119,7 +122,7 @@ pub struct SetPlayerParams {
     pub vel: Option<[f32; 2]>,
     /// Food pips in the stomach (`playerState.foodInStomach`, quarter pips cleared; a
     /// dev tool). Alone, it leaves the body where it is.
-    pub food: Option<i32>,
+    pub food: Option<u32>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, JsonSchema)]

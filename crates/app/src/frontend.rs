@@ -738,8 +738,8 @@ impl GameProcess {
     }
 
     /// The end of a story cycle: `Win` saves and goes to the sleep screen (or a dream);
-    /// starving and dying save the cycle as a death and go to their screens, which are
-    /// not ported (D16).
+    /// starving and dying save the cycle as a death and go to the starve and death
+    /// screens (D13, D16).
     fn end_session(
         &mut self,
         end: SessionEnd,

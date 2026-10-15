@@ -32,7 +32,7 @@ impl RainWorldGame {
 
     /// `playerState.foodInStomach`.
     #[must_use]
-    pub fn food_in_stomach(&self) -> i32 {
+    pub fn food_in_stomach(&self) -> u32 {
         self.world.creature(self.player_id).state.food_in_stomach
     }
 
@@ -45,30 +45,58 @@ impl RainWorldGame {
             .quarter_food_points
     }
 
-    /// `MaxFoodInStomach` (no Red's illness in a new game's first cycle).
+    /// `MaxFoodInStomach` (no Red's illness in the base game's story sessions).
     #[must_use]
-    pub fn max_food(&self) -> i32 {
-        self.campaign.stats.max_food
+    pub fn max_food(&self) -> u32 {
+        self.campaign.stats.max_food.unsigned_abs()
     }
 
     /// Sets the food in the player's stomach and clears the quarter points (a dev tool).
-    pub fn set_food_in_stomach(&mut self, food: i32) {
+    pub fn set_food_in_stomach(&mut self, food: u32) {
         let max = self.max_food();
         let state = &mut self.world.creature_mut(self.player_id).state;
-        state.food_in_stomach = food.clamp(0, max);
+        state.food_in_stomach = food.min(max);
         state.quarter_food_points = 0;
     }
 
-    /// `Player.AddFood` (no Red's illness, never malnourished in a new game).
-    fn add_food(&mut self, add: i32) {
+    /// `Player.AddFood` (no Red's illness; the base game only adds). A full stomach cures
+    /// a malnourished slugcat (`SetMalnourished(false)`); the save state stays
+    /// malnourished until the cycle ends.
+    pub(crate) fn add_food(&mut self, add: u32) {
         let max = self.max_food();
         let state = &mut self.world.creature_mut(self.player_id).state;
-        let add = add.min(max - state.food_in_stomach);
+        let add = add.min(max.saturating_sub(state.food_in_stomach));
         state.food_in_stomach += add;
         if state.food_in_stomach >= max {
             state.quarter_food_points = 0;
         }
-        self.session_food += add;
+        self.session_food += add.cast_signed();
+        let malnourished = self.player.as_ref().is_some_and(Player::malnourished);
+        if malnourished && self.food_in_stomach() >= max {
+            self.set_malnourished(false);
+        }
+    }
+
+    /// `Player.SetMalnourished(m)`: the session's `characterStats` made anew and the
+    /// player's chunk masses from them.
+    fn set_malnourished(&mut self, m: bool) {
+        log::info!(
+            "{}",
+            if m {
+                "NOW MALNOURISHED"
+            } else {
+                "NO LONGER MALNOURISHED"
+            }
+        );
+        self.character_stats = if m {
+            self.campaign.stats.malnourished()
+        } else {
+            self.campaign.stats
+        };
+        if let Some(p) = self.player.as_mut() {
+            p.set_stats(self.character_stats);
+            self.world.player_mass = p.total_mass();
+        }
     }
 
     /// `Player.AddQuarterFood`.
@@ -618,12 +646,13 @@ impl RainWorldGame {
         best
     }
 
-    /// `ThrowObject` of a held fly: `TossObject`, `dontGrabStuff` 15, a look at it, let
-    /// go.
+    /// `ThrowObject` of a held fly: `AerobicIncrease(0.75)`, `TossObject`,
+    /// `dontGrabStuff` 15, a look at it, let go.
     fn throw_object(&mut self, index: i32, grasp: usize, observer: &mut dyn PlayerObserver) {
         let Some(fly) = self.player_grasps()[grasp] else {
             return;
         };
+        self.player_mut().aerobic_increase(0.75);
         self.toss_object(index, fly);
         self.player_mut().grab_mut().dont_grab_stuff = 15;
         observer.player_look_at(Some(fly));
@@ -938,3 +967,7 @@ impl RainWorldGame {
         objects.into_iter().map(|(_, id)| id).collect()
     }
 }
+
+#[cfg(test)]
+#[path = "game_player_tests.rs"]
+mod tests;

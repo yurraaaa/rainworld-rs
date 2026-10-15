@@ -107,6 +107,7 @@ fn shortcut_screenshots() {
     s.new_game(&NewGameParams {
         slugcat: "White".to_owned(),
         seed: Some(1),
+        malnourished: None,
     })
     .expect("new game");
     s.hold(200, 0, 0);

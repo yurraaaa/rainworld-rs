@@ -2,8 +2,9 @@
 //!
 //! Behaviour: `rainworld-re/notes/slugcat-movement.md` (tick order, input, body modes,
 //! jumps), `horizontal-beams.md`, `vertical-poles.md`, `ledge-grab.md` and
-//! `slope-collision.md` section 5. Stats are the
-//! Survivor's (every `SlugcatStats` factor 1, no adrenaline, never exhausted). Fall
+//! `slope-collision.md` section 5. Stats are the session's `SlugcatStats` (the
+//! Survivor's until [`Player::set_stats`]; no adrenaline); exhaustion and
+//! `aerobicLevel` are in `exhaustion.rs`. Fall
 //! damage, stun and death: `falls.md`. Skid, flip, roll, belly slide and rocket jump:
 //! `advanced-moves.md`. Corridors: `corridors.md`. Shortcuts: `shortcuts.md`.
 //! Swimming, breath and drowning: `water.md`.
@@ -13,6 +14,7 @@ mod advanced;
 mod animation;
 mod body_mode;
 mod corridor;
+mod exhaustion;
 mod falls;
 mod grab;
 mod input;
@@ -35,6 +37,7 @@ pub use input::{INPUT_HISTORY, Input, PlayerController};
 pub use shortcut::VesselStep;
 pub use sleep::ShelterCheck;
 
+use crate::campaign::{SlugcatCampaign, SlugcatStats};
 use crate::room_ext::RoomExt;
 use crate::shortcut::ShortcutVessel;
 use crate::{
@@ -51,12 +54,6 @@ pub const HIPS: usize = 1;
 const SURFACE_FRICTION: f32 = 0.5;
 /// Surface friction while stunned or dead.
 const UNCONSCIOUS_SURFACE_FRICTION: f32 = 0.3;
-/// `runspeedFac` of the Survivor.
-const RUN_SPEED_FAC: f32 = 1.0;
-/// `poleClimbSpeedFac` of the Survivor.
-const POLE_CLIMB_SPEED_FAC: f32 = 1.0;
-/// `corridorClimbSpeedFac` of the Survivor.
-const CORRIDOR_CLIMB_SPEED_FAC: f32 = 1.0;
 /// `EffectiveRoomGravity`: room gravity 1 (no gravity effects are ported).
 const ROOM_GRAVITY: f32 = 1.0;
 
@@ -348,8 +345,12 @@ pub struct Player {
     ready_for_win: bool,
     /// True until the first shortcut spits the player out.
     still_in_start_shelter: bool,
-    /// `Malnourished`.
-    malnourished: bool,
+    /// `slugcatStats` (the session's `characterStats`).
+    stats: SlugcatStats,
+    /// `aerobicLevel`: 0 rested, 1 out of breath.
+    aerobic_level: f32,
+    /// `exhausted` (only ever set while malnourished in the base game).
+    exhausted: bool,
 
     /// The counters `GrabUpdate` keeps.
     pub(crate) grab: GrabState,
@@ -474,7 +475,9 @@ impl Player {
             force_sleep_counter: 0,
             ready_for_win: false,
             still_in_start_shelter: true,
-            malnourished: false,
+            stats: SlugcatCampaign::SURVIVOR.stats,
+            aerobic_level: 0.0,
+            exhausted: false,
             grab: GrabState::default(),
             release_grasps: false,
             movement_ran: false,

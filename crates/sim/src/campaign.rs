@@ -43,11 +43,18 @@ impl SlugcatStats {
         malnourished: false,
     };
 
-    /// These stats when malnourished: hibernating needs a full meter.
+    /// `new SlugcatStats(name, malnourished: true)` for a base-game slugcat: hibernating
+    /// needs a full meter, no throwing skill, a lighter body (at most 0.9), slower
+    /// running and climbing. More Slugcats' and Expedition's branches are not ported.
     #[must_use]
     pub fn malnourished(self) -> Self {
         Self {
             food_to_hibernate: self.max_food,
+            throwing_skill: 0,
+            body_weight_fac: self.body_weight_fac.min(0.9),
+            runspeed_fac: 0.875,
+            pole_climb_speed_fac: 0.8,
+            corridor_climb_speed_fac: 0.86,
             malnourished: true,
             ..self
         }
@@ -262,6 +269,24 @@ mod tests {
         assert_eq!(hunter.start_region(), "LF");
         assert_eq!(hunter.stats.malnourished().food_to_hibernate, 9);
         assert!(SlugcatCampaign::of(SlugcatName::Night, mods).is_none());
+        // The malnourished branch of the `SlugcatStats` constructor (242443-242479).
+        for c in SlugcatCampaign::all(mods) {
+            let s = c.stats.malnourished();
+            assert_eq!(s.food_to_hibernate, s.max_food);
+            assert_eq!(s.throwing_skill, 0);
+            // `min(bodyWeightFac, 0.9)` of 1, 0.95 and 1.12.
+            assert_eq!(s.body_weight_fac, 0.9);
+            assert_eq!(s.lungs_fac, c.stats.lungs_fac);
+            assert_eq!(
+                (
+                    s.runspeed_fac,
+                    s.pole_climb_speed_fac,
+                    s.corridor_climb_speed_fac
+                ),
+                (0.875, 0.8, 0.86)
+            );
+            assert!(s.malnourished);
+        }
         for c in SlugcatCampaign::all(mods) {
             assert_eq!(c.name.timeline(), c.timeline);
         }

@@ -7,7 +7,7 @@
 use rw_assets::Room;
 use rw_random::UnityRandom;
 
-use super::{Animation, BodyMode, CORRIDOR_CLIMB_SPEED_FAC, HEAD, HIPS, Player};
+use super::{Animation, BodyMode, HEAD, HIPS, Player};
 use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
 use crate::{SoundId, Sounds, Vec2, Water};
@@ -322,7 +322,7 @@ impl Player {
         let friction = self.body.params.surface_friction;
         let mut force = 2.4
             * (friction + 0.2).clamp(0.2, 0.5)
-            * CORRIDOR_CLIMB_SPEED_FAC
+            * self.stats.corridor_climb_speed_fac
             * 0.1_f32.lerp(
                 1.0,
                 (self.slow_movement_stun as f32).inverse_lerp(10.0, 0.0),

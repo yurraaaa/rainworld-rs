@@ -4,7 +4,7 @@
 //! Remix off, Survivor stats), including the vertical-pole, ledge-grab, roll/flip,
 //! corridor and swimming (`water.md`) branches. Not ported (docs/DIVERGENCES.md D8):
 //! fear (no creature the slugcat fears is ported), the rain look point, the throw
-//! reach (only weapons and frogs), zero gravity, pups, the Mark, DLC. `aerobicLevel` is not in the port and is 0.
+//! reach (only weapons and frogs), zero gravity, pups, the Mark, DLC.
 
 use std::f32::consts::TAU;
 
@@ -19,9 +19,6 @@ use crate::hand::{HandContext, HandGrasp, SlugcatHand};
 use crate::looker::ObjectLooker;
 use crate::math::{CustomVec, Mathf};
 use crate::tail::{TailAnchor, TailSegment};
-
-/// `Player.aerobicLevel`: not ported, so breathing stays at its resting pace.
-pub(crate) const AEROBIC_LEVEL: f32 = 0.0;
 
 /// `(rad, connectionRad, affectPrevious)` of the four base-game tail segments.
 const TAIL_SEGMENTS: [(f32, f32, f32); 4] = [
@@ -97,6 +94,10 @@ pub struct PlayerGraphics {
     pub last_breath: f32,
     /// Raised by input changes (0..=1).
     pub flail: f32,
+    /// 1 for a slugcat malnourished when made, fading by 0.005 a tick once cured.
+    pub malnourished: f32,
+    /// `SlugcatColor` before `ApplyPalette`'s tints.
+    base_color: Color,
     pub(crate) body_color: Color,
     pub(crate) sprites: SpriteMemory,
     /// `GraphicsModule.culled`: true until the first update, which then resets.
@@ -131,7 +132,8 @@ impl PlayerGraphics {
         let mut legs = BodyPart::new(1.0, 0.8, 0.99);
         legs.reset(hips_pos, rng);
         let chunks = player.chunks();
-        Self {
+        let base_color = Self::default_slugcat_color(slugcat);
+        let mut graphics = Self {
             tail,
             hands,
             head,
@@ -150,13 +152,39 @@ impl PlayerGraphics {
             breath: 0.0,
             last_breath: 0.0,
             flail: 0.0,
-            body_color: Self::default_slugcat_color(slugcat),
+            // No Red's illness in the port.
+            malnourished: if player.malnourished() { 1.0 } else { 0.0 },
+            base_color,
+            body_color: base_color,
             sprites: SpriteMemory::default(),
             culled: true,
             entering_shortcut: None,
             corridor_turn_dir: player.corridor_turn_dir(),
             looker: ObjectLooker::default(),
             spear_dir: 0.0,
+        };
+        graphics.apply_palette(player);
+        graphics
+    }
+
+    /// The malnourishment the colours use: `malnourished`, or a tick further faded once
+    /// cured.
+    #[must_use]
+    pub fn malnourished_tint(&self, player: &Player) -> f32 {
+        if player.malnourished() {
+            self.malnourished
+        } else {
+            (self.malnourished - 0.005).max(0.0)
+        }
+    }
+
+    /// `ApplyPalette`'s body colour: the slugcat colour lerped `0.4 * malnourished`
+    /// toward grey (hypothermia and poison are not ported).
+    pub fn apply_palette(&mut self, player: &Player) {
+        self.body_color = self.base_color;
+        if self.malnourished > 0.0 {
+            let m = self.malnourished_tint(player);
+            self.body_color = self.body_color.lerp(Color::GRAY, 0.4 * m);
         }
     }
 
@@ -325,8 +353,11 @@ impl PlayerGraphics {
             self.breath += if player.sleeping() {
                 0.0125
             } else {
-                1.0 / 60.0_f32.lerp_to(15.0, AEROBIC_LEVEL.powf(1.5))
+                1.0 / 60.0_f32.lerp_to(15.0, player.aerobic_level().powf(1.5))
             };
+        }
+        if self.malnourished > 0.0 && !player.malnourished() {
+            self.malnourished = (self.malnourished - 0.005).max(0.0);
         }
         self.update_spear_dir(player);
         if !player.is_conscious() {
@@ -373,13 +404,8 @@ impl PlayerGraphics {
             let max = rng.range_i32(3, 10);
             self.blink = rng.range_i32(3, max);
         }
-        // Short of breath after a dive: the head bobs with the swim cycle, eyes shut.
-        if !player.is_dead() && player.lungs_exhausted() {
-            self.looker.look_at_nothing();
-            let bob = (player.swim_cycle() * TAU).sin();
-            self.head.vel.y += bob;
-            self.draw_positions[0][0].y += bob * 2.5;
-            self.blink = 1;
+        if !player.is_dead() {
+            self.out_of_breath(player, rng);
         }
         if rng.value() < 0.1 {
             self.update_looker(player, around, rng);
@@ -411,6 +437,31 @@ impl PlayerGraphics {
         self.update_hands(player, room, water, around, rng);
         if player.sleep_curl_up() > 0.0 {
             self.curl_up(player, rng);
+        }
+    }
+
+    /// Exhausted (239096): eyes shut at an `aerobicLevel` above 0.8, else now and then
+    /// for 10..19 ticks; short of breath (exhausted, or after a dive) the head bobs with
+    /// the swim cycle and the eyes close.
+    pub(crate) fn out_of_breath(&mut self, player: &Player, rng: &mut UnityRandom) {
+        if player.exhausted() {
+            if player.aerobic_level() > 0.8 {
+                self.blink = self.blink.max(1);
+            } else if rng.value() < 0.02 {
+                self.blink = self.blink.max(rng.range_i32(10, 20));
+            }
+        }
+        if player.lungs_exhausted() || player.exhausted() {
+            self.looker.look_at_nothing();
+            let bob = (player.swim_cycle() * TAU).sin();
+            let (head, body) = if player.lungs_exhausted() {
+                (1.0, 2.5)
+            } else {
+                (0.25, 0.75)
+            };
+            self.head.vel.y += bob * head;
+            self.draw_positions[0][0].y += bob * body;
+            self.blink = 1;
         }
     }
 

@@ -16,7 +16,7 @@ use crate::elements::{
 };
 use crate::limb::LimbMode;
 use crate::math::{CustomVec, Mathf};
-use crate::player_graphics::{AEROBIC_LEVEL, PlayerGraphics};
+use crate::player_graphics::PlayerGraphics;
 
 /// Number of base-game slugcat sprites.
 pub const SPRITE_COUNT: usize = 12;
@@ -69,35 +69,51 @@ struct Frame {
     breath: f32,
     /// `player.sleepCurlUp`.
     curl: f32,
+    /// `malnourished`.
+    malnourished: f32,
 }
 
 impl PlayerGraphics {
     /// `DrawSprites` at `time_stacker` (fraction of the tick since the last update):
-    /// the visible sprites in container order, in room pixels. `face_color` is the
-    /// room palette's `blackColor`. Empty before the first update, inside a shortcut
-    /// and once the body is destroyed.
-    pub fn draw(&mut self, player: &Player, time_stacker: f32, face_color: Color) -> DrawList {
+    /// the visible sprites in container order, in room pixels. `black_color` and
+    /// `fog_color` are the room palette's (the eyes' colour, and the malnourished eyes'
+    /// tint). Empty before the first update, inside a shortcut and once the body is
+    /// destroyed.
+    pub fn draw(
+        &mut self,
+        player: &Player,
+        time_stacker: f32,
+        black_color: Color,
+        fog_color: Color,
+    ) -> DrawList {
         if self.culled || player.in_shortcut() || player.is_destroyed() {
             return DrawList::default();
         }
+        // `ApplyPalette` again while the malnourishment fades.
+        if self.malnourished > 0.0 && !player.malnourished() {
+            self.apply_palette(player);
+        }
+        let face_color = self.face_color(player, black_color, fog_color);
         let t = time_stacker;
+        let aerobic = player.aerobic_level();
         let mut f = Frame {
             body: self.draw_positions[0][1].lerp_clamped(self.draw_positions[0][0], t),
             hips: self.draw_positions[1][1].lerp_clamped(self.draw_positions[1][0], t),
             head: self.head.last_pos.lerp_clamped(self.head.pos, t),
             breath: 0.5 + 0.5 * (self.last_breath.lerp_to(self.breath, t) * TAU).sin(),
             curl: player.sleep_curl_up(),
+            malnourished: self.malnourished,
         };
-        if AEROBIC_LEVEL > 0.5 {
+        if aerobic > 0.5 {
             let dir = f.hips.direction_to(f.body);
             let pant = (-1.0_f32).lerp_to(1.0, f.breath);
-            let level = AEROBIC_LEVEL.inverse_lerp(0.5, 1.0);
+            let level = aerobic.inverse_lerp(0.5, 1.0);
             f.body += dir * (pant * level * 0.5);
             f.head -= f.hips.direction_to(f.body) * (pant * level.powf(1.5) * 0.75);
         }
 
         let mut slots: [Option<DrawItem>; SPRITE_COUNT] = Default::default();
-        let [body, hips] = self.body_sprites(&f, t);
+        let [body, hips] = self.body_sprites(&f, t, aerobic);
         slots[0] = Some(DrawItem::Sprite(body));
         slots[1] = Some(DrawItem::Sprite(hips));
         slots[2] = Some(DrawItem::Mesh(self.tail_mesh(&f, t)));
@@ -146,19 +162,36 @@ impl PlayerGraphics {
         (dist / 2.0).clamp(0.0, 12.0).round_to_int() as usize
     }
 
-    /// Body scale x for breathing phase `breath` (0..1), uprightness `vert` and
-    /// `sleepCurlUp` (healthy): `1 + lerp(lerp(-0.05, 0.05, breath) * vert, 0.15, curl)`.
+    /// Body scale x for breathing phase `breath` (0..1), uprightness `vert`,
+    /// `sleepCurlUp` and `malnourished`:
+    /// `1 + lerp(lerp(lerp(-0.05, -0.15, malnourished), 0.05, breath) * vert, 0.15, curl)`.
     #[must_use]
-    pub fn body_scale_x(breath: f32, vert: f32, sleep_curl_up: f32) -> f32 {
-        let malnourished = 0.0;
+    pub fn body_scale_x(breath: f32, vert: f32, sleep_curl_up: f32, malnourished: f32) -> f32 {
         let thin = (-0.05_f32).lerp_to(-0.15, malnourished);
         1.0 + (thin.lerp_to(0.05, breath) * vert).lerp_to(0.15, sleep_curl_up)
     }
 
+    /// Hips scale x: `1 + 0.2 sleepCurlUp + 0.05 breath - 0.05 malnourished`.
+    #[must_use]
+    pub fn hips_scale_x(breath: f32, sleep_curl_up: f32, malnourished: f32) -> f32 {
+        1.0 + sleep_curl_up * 0.2 + 0.05 * breath - 0.05 * malnourished
+    }
+
+    /// The face's colour (sprite 9, base game): `blackColor`, lerped
+    /// `0.2 * malnourished^2` toward `lerp(white, fogColor, 0.5)`.
+    #[must_use]
+    pub fn face_color(&self, player: &Player, black_color: Color, fog_color: Color) -> Color {
+        if self.malnourished <= 0.0 {
+            return black_color;
+        }
+        let m = self.malnourished_tint(player);
+        black_color.lerp(Color::WHITE.lerp(fog_color, 0.5), 0.2 * m * m)
+    }
+
     /// Body (0) and hips (1).
-    fn body_sprites(&self, f: &Frame, t: f32) -> [Sprite; 2] {
+    fn body_sprites(&self, f: &Frame, t: f32, aerobic: f32) -> [Sprite; 2] {
         let vert = f.hips.direction_to(f.body).y.abs().inverse_lerp(0.3, 0.5);
-        let rise = 0.5_f32.lerp_to(1.0, AEROBIC_LEVEL) * f.breath * (1.0 - vert);
+        let rise = 0.5_f32.lerp_to(1.0, aerobic) * f.breath * (1.0 - vert);
         let tail0 = self.tail[0]
             .part
             .last_pos
@@ -169,7 +202,10 @@ impl PlayerGraphics {
                 element: BODY_A,
                 pos: Vec2::new(f.body.x, f.body.y - f.curl * 4.0 + rise),
                 rotation: f.hips.aim_to(f.body),
-                scale: Vec2::new(Self::body_scale_x(f.breath, vert, f.curl), 1.0),
+                scale: Vec2::new(
+                    Self::body_scale_x(f.breath, vert, f.curl, f.malnourished),
+                    1.0,
+                ),
                 anchor: Vec2::new(0.5, 0.789_473_7),
                 color: self.body_color,
                 shader: Shader::Basic,
@@ -180,7 +216,10 @@ impl PlayerGraphics {
                 element: HIPS_A,
                 pos: (f.hips * 2.0 + f.body) * (1.0 / 3.0) - Vec2::new(0.0, f.curl * 3.0),
                 rotation: f.body.aim_to(tail0),
-                scale: Vec2::new(1.0 + f.curl * 0.2 + 0.05 * f.breath, 1.0 + f.curl * 0.2),
+                scale: Vec2::new(
+                    Self::hips_scale_x(f.breath, f.curl, f.malnourished),
+                    1.0 + f.curl * 0.2,
+                ),
                 anchor: CENTRE,
                 color: self.body_color,
                 shader: Shader::Basic,
@@ -190,20 +229,22 @@ impl PlayerGraphics {
     }
 
     /// The tail (2): four quads from the hips through the segments, 6 px half-width
-    /// at the root, each segment's stretched radius after it, the tip a point.
+    /// at the root, each segment's stretched radius after it, the tip a point; the
+    /// widths scaled by `1 - 0.2 malnourished`.
     fn tail_mesh(&self, f: &Frame, t: f32) -> Mesh {
         let mut vertices = vec![Vec2::ZERO; 15];
         let mut from = (f.hips * 3.0 + f.body) * 0.25;
         let mut half_width = 6.0;
+        let thin = 1.0 - 0.2 * f.malnourished;
         for (i, seg) in self.tail.iter().enumerate() {
             let to = seg.part.last_pos.lerp_clamped(seg.part.pos, t);
             let dir = (to - from).normalized();
             let perp = dir.perpendicular();
             let overlap = if i == 0 { 0.0 } else { to.distance(from) / 5.0 };
-            vertices[i * 4] = from - perp * half_width + dir * overlap;
-            vertices[i * 4 + 1] = from + perp * half_width + dir * overlap;
+            vertices[i * 4] = from - perp * (half_width * thin) + dir * overlap;
+            vertices[i * 4 + 1] = from + perp * (half_width * thin) + dir * overlap;
             if i < 3 {
-                let r = perp * seg.stretched_rad();
+                let r = perp * (seg.stretched_rad() * thin);
                 vertices[i * 4 + 2] = to - r - dir * overlap;
                 vertices[i * 4 + 3] = to + r - dir * overlap;
             } else {

@@ -357,19 +357,35 @@ fn crawl_offsets_follow_the_gait() {
 #[test]
 fn breathing_scales_the_body() {
     // 1 + lerp(-0.05, 0.05, breath) * vert (healthy, awake).
-    assert_close(PlayerGraphics::body_scale_x(0.0, 1.0, 0.0), 0.95, "exhale");
-    assert_close(PlayerGraphics::body_scale_x(1.0, 1.0, 0.0), 1.05, "inhale");
-    assert_close(PlayerGraphics::body_scale_x(0.5, 1.0, 0.0), 1.0, "mid");
     assert_close(
-        PlayerGraphics::body_scale_x(1.0, 0.5, 0.0),
+        PlayerGraphics::body_scale_x(0.0, 1.0, 0.0, 0.0),
+        0.95,
+        "exhale",
+    );
+    assert_close(
+        PlayerGraphics::body_scale_x(1.0, 1.0, 0.0, 0.0),
+        1.05,
+        "inhale",
+    );
+    assert_close(PlayerGraphics::body_scale_x(0.5, 1.0, 0.0, 0.0), 1.0, "mid");
+    assert_close(
+        PlayerGraphics::body_scale_x(1.0, 0.5, 0.0, 0.0),
         1.025,
         "half upright",
     );
-    assert_close(PlayerGraphics::body_scale_x(1.0, 0.0, 0.0), 1.0, "lying");
-    // Curled up asleep, lerp(..., 0.15, sleepCurlUp).
-    assert_close(PlayerGraphics::body_scale_x(1.0, 1.0, 1.0), 1.15, "curled");
     assert_close(
-        PlayerGraphics::body_scale_x(1.0, 1.0, 0.5),
+        PlayerGraphics::body_scale_x(1.0, 0.0, 0.0, 0.0),
+        1.0,
+        "lying",
+    );
+    // Curled up asleep, lerp(..., 0.15, sleepCurlUp).
+    assert_close(
+        PlayerGraphics::body_scale_x(1.0, 1.0, 1.0, 0.0),
+        1.15,
+        "curled",
+    );
+    assert_close(
+        PlayerGraphics::body_scale_x(1.0, 1.0, 0.5, 0.0),
         1.1,
         "half curled",
     );
@@ -397,7 +413,7 @@ fn first_update_resets_to_the_chunks() {
     let r = flat_room();
     let (mut p, mut g) = grounded_player(&mut rng);
     // Culled until the first update: nothing is drawn.
-    assert!(g.draw(&p, 0.0, Color::BLACK).items.is_empty());
+    assert!(g.draw(&p, 0.0, Color::BLACK, Color::BLACK).items.is_empty());
     p.update(
         &r,
         None,
@@ -410,7 +426,7 @@ fn first_update_resets_to_the_chunks() {
     // [1] = [0]: last tick's draw positions are the chunk positions.
     assert_eq!(g.draw_positions[0][1], p.head().pos);
     assert_eq!(g.draw_positions[1][1], p.hips().pos);
-    assert!(!g.draw(&p, 0.5, Color::BLACK).items.is_empty());
+    assert!(!g.draw(&p, 0.5, Color::BLACK, Color::BLACK).items.is_empty());
 }
 
 #[test]
@@ -427,7 +443,7 @@ fn draw_list_follows_the_game_sprite_order() {
     // Crawling: the hands are engaged (EngageInMovement returns false), arms drawn.
     run(&mut p, &mut g, &r, Input::new(1, 0, false), 40, &mut rng);
     assert_eq!(p.body_mode(), BodyMode::Crawl);
-    let list = g.draw(&p, 0.5, Color::BLACK);
+    let list = g.draw(&p, 0.5, Color::BLACK, Color::BLACK);
     let order: Vec<(usize, Layer)> = list.items.iter().map(|i| (i.index(), i.layer())).collect();
     let mid = Layer::Midground;
     assert_eq!(
@@ -450,7 +466,7 @@ fn draw_list_follows_the_game_sprite_order() {
     run(&mut p, &mut g, &r, Input::new(0, 1, false), 1, &mut rng);
     run(&mut p, &mut g, &r, Input::NONE, 60, &mut rng);
     assert_eq!(p.body_mode(), BodyMode::Stand);
-    let list = g.draw(&p, 0.5, Color::BLACK);
+    let list = g.draw(&p, 0.5, Color::BLACK, Color::BLACK);
     let order: Vec<usize> = list.items.iter().map(DrawItem::index).collect();
     assert_eq!(order, [0, 1, 2, 3, 4, 9]);
 }
@@ -463,7 +479,10 @@ fn legs_frame_by_state() {
     // Crawl: LegsACrawling{frame / 2}, mirrored by the facing.
     run(&mut p, &mut g, &r, Input::new(-1, 0, false), 30, &mut rng);
     assert_eq!(p.body_mode(), BodyMode::Crawl);
-    let legs = *g.draw(&p, 0.0, Color::BLACK).sprite(4).unwrap();
+    let legs = *g
+        .draw(&p, 0.0, Color::BLACK, Color::BLACK)
+        .sprite(4)
+        .unwrap();
     let frame = usize::try_from(p.animation_frame()).unwrap();
     assert_eq!(legs.element, elements::LEGS_A_CRAWLING[frame / 2]);
     assert_eq!(legs.scale.x, -1.0);
@@ -474,7 +493,10 @@ fn legs_frame_by_state() {
         if p.body_mode() != BodyMode::Stand {
             continue;
         }
-        let legs = *g.draw(&p, 0.0, Color::BLACK).sprite(4).unwrap();
+        let legs = *g
+            .draw(&p, 0.0, Color::BLACK, Color::BLACK)
+            .sprite(4)
+            .unwrap();
         let frame = usize::try_from(p.animation_frame()).unwrap();
         assert_eq!(legs.element, elements::LEGS_A[frame]);
         assert_eq!(legs.scale.x, 1.0);
@@ -489,7 +511,10 @@ fn legs_frame_by_state() {
     let mut g = PlayerGraphics::new(&p, SlugcatName::White, &mut rng);
     run(&mut p, &mut g, &r, Input::NONE, 2, &mut rng);
     assert_eq!(p.body_mode(), BodyMode::Default);
-    let legs = *g.draw(&p, 0.0, Color::BLACK).sprite(4).unwrap();
+    let legs = *g
+        .draw(&p, 0.0, Color::BLACK, Color::BLACK)
+        .sprite(4)
+        .unwrap();
     assert_eq!(legs.element, elements::LEGS_A_AIR);
     assert_eq!(legs.scale.x, 1.0);
 }
@@ -505,25 +530,28 @@ fn face_by_blink_and_consciousness() {
     let black = Color::rgb(0.1, 0.0, 0.05);
     // Standing without x input: FaceA/B by blink, frame from the head direction.
     g.blink = 0;
-    let face = *g.draw(&p, 1.0, black).sprite(9).unwrap();
+    let face = *g.draw(&p, 1.0, black, Color::BLACK).sprite(9).unwrap();
     assert!(elements::FACE_A.contains(&face.element), "{}", face.element);
     assert_eq!(face.color, black);
     assert_eq!(face.rotation, 0.0);
     // Body colour: the Survivor's white everywhere else.
     assert_eq!(
-        g.draw(&p, 1.0, black).sprite(0).unwrap().color,
+        g.draw(&p, 1.0, black, Color::BLACK)
+            .sprite(0)
+            .unwrap()
+            .color,
         Color::WHITE
     );
     g.blink = 3;
-    let face = *g.draw(&p, 1.0, black).sprite(9).unwrap();
+    let face = *g.draw(&p, 1.0, black, Color::BLACK).sprite(9).unwrap();
     assert!(elements::FACE_B.contains(&face.element), "{}", face.element);
     // Face 2 px below the head (no look direction).
-    let head = *g.draw(&p, 1.0, black).sprite(3).unwrap();
+    let head = *g.draw(&p, 1.0, black, Color::BLACK).sprite(3).unwrap();
     assert_vec(face.pos, head.pos.x, head.pos.y - 2.0, "face pos");
     // Stunned: FaceStunned, head frame 0, face rotated with the head.
     p.stun(40, &mut UnityRandom::new(0), &mut Sounds::default());
     run(&mut p, &mut g, &r, Input::NONE, 1, &mut rng);
-    let list = g.draw(&p, 1.0, black);
+    let list = g.draw(&p, 1.0, black, Color::BLACK);
     let (face, head) = (list.sprite(9).unwrap(), list.sprite(3).unwrap());
     assert_eq!(face.element, elements::FACE_STUNNED);
     assert_eq!(head.element, "HeadA0");
@@ -533,7 +561,10 @@ fn face_by_blink_and_consciousness() {
     p.die();
     run(&mut p, &mut g, &r, Input::NONE, 1, &mut rng);
     assert_eq!(
-        g.draw(&p, 1.0, black).sprite(9).unwrap().element,
+        g.draw(&p, 1.0, black, Color::BLACK)
+            .sprite(9)
+            .unwrap()
+            .element,
         elements::FACE_DEAD
     );
 }
@@ -572,7 +603,7 @@ fn sprites_stay_on_the_body_through_mixed_movement() {
         for _ in 0..ticks {
             run(&mut p, &mut g, &r, input, 1, &mut rng);
             let body = p.head().pos;
-            let list = g.draw(&p, 0.5, Color::BLACK);
+            let list = g.draw(&p, 0.5, Color::BLACK, Color::BLACK);
             caps_drawn += list.layer(Layer::Foreground).count();
             for item in list.items {
                 let points = match item {
@@ -659,7 +690,7 @@ fn vertical_pole_poses() {
         if p.animation() != climbing {
             break;
         }
-        let list = g.draw(&p, 1.0, Color::BLACK);
+        let list = g.draw(&p, 1.0, Color::BLACK, Color::BLACK);
         let legs = list.sprite(4).unwrap();
         assert_eq!(legs.element, elements::LEGS_A_VERTICAL_POLE);
         let facing = if p.flip_direction() > 0 { 1.0 } else { -1.0 };
@@ -705,7 +736,10 @@ fn vertical_pole_poses() {
     ));
     run(&mut p, &mut g, &r, Input::NONE, 1, &mut rng);
     assert_eq!(p.animation(), tip);
-    let legs = *g.draw(&p, 1.0, Color::BLACK).sprite(4).unwrap();
+    let legs = *g
+        .draw(&p, 1.0, Color::BLACK, Color::BLACK)
+        .sprite(4)
+        .unwrap();
     assert_eq!(legs.element, elements::LEGS_A_POLE);
 
     // Below the hanging pole (bottom tile row 8, y 160..180), up held: hang under it.
@@ -722,7 +756,7 @@ fn vertical_pole_poses() {
             break;
         }
         // The arms' scale y is +1 for hand 0 and -1 for hand 1.
-        let list = g.draw(&p, 1.0, Color::BLACK);
+        let list = g.draw(&p, 1.0, Color::BLACK, Color::BLACK);
         for j in 0..2 {
             if let Some(arm) = list.sprite(5 + j) {
                 arms += 1;
@@ -938,7 +972,10 @@ fn corridor_legs_in_a_tunnel_and_a_shaft() {
     update_alone(&mut g, &p, &r, &mut rng);
     let h = std::f32::consts::FRAC_1_SQRT_2;
     assert_vec(g.legs_direction, -h, -h, "tunnel legs direction");
-    let legs = *g.draw(&p, 1.0, Color::BLACK).sprite(4).unwrap();
+    let legs = *g
+        .draw(&p, 1.0, Color::BLACK, Color::BLACK)
+        .sprite(4)
+        .unwrap();
     assert_close(legs.rotation, 45.0, "tunnel legs rotation");
     assert_eq!(p.animation_frame(), 0);
     assert_eq!(legs.element, "LegsAClimbing0");
@@ -955,7 +992,10 @@ fn corridor_legs_in_a_tunnel_and_a_shaft() {
     update_alone(&mut g, &p, &r, &mut rng);
     // (1, 0) + (0, -1) normalised; rotation VecToDeg(-0.7071, 0.7071) = -45.
     assert_vec(g.legs_direction, h, -h, "shaft legs direction");
-    let legs = *g.draw(&p, 1.0, Color::BLACK).sprite(4).unwrap();
+    let legs = *g
+        .draw(&p, 1.0, Color::BLACK, Color::BLACK)
+        .sprite(4)
+        .unwrap();
     assert_close(legs.rotation, -45.0, "shaft legs rotation");
     assert!(legs.element.starts_with("LegsAClimbing"));
 }
@@ -995,7 +1035,10 @@ fn corridor_legs_frames_mirror_after_six() {
         run(&mut p, &mut g, &r, right, 1, &mut rng);
         let frame = p.animation_frame() as usize;
         seen[frame] = true;
-        let legs = *g.draw(&p, 1.0, Color::BLACK).sprite(4).unwrap();
+        let legs = *g
+            .draw(&p, 1.0, Color::BLACK, Color::BLACK)
+            .sprite(4)
+            .unwrap();
         let (n, scale) = if frame > 6 {
             (frame % 6, -1.0)
         } else {
@@ -1072,7 +1115,10 @@ fn corridor_turn_pose_and_push() {
         assert!(g.draw_positions[0][0].distance(p.head().pos) <= 3.0 + EPS);
         assert!(g.draw_positions[1][0].distance(p.hips().pos) <= 2.0 + EPS);
         assert_eq!(g.blink, 4);
-        let face = *g.draw(&p, 1.0, Color::BLACK).sprite(9).unwrap();
+        let face = *g
+            .draw(&p, 1.0, Color::BLACK, Color::BLACK)
+            .sprite(9)
+            .unwrap();
         assert!(face.element.starts_with("FaceB"), "{}", face.element);
     }
     assert!(turning > 10, "turned for {turning} ticks");
@@ -1208,4 +1254,148 @@ fn installed_atlas_has_the_slugcat_frames() {
     for name in names {
         assert!(atlas.get(name).is_some(), "{name} missing");
     }
+}
+
+// ---- malnourishment and exhaustion ------------------------------------------------
+
+/// A malnourished Survivor on the flat floor and its graphics (`malnourished` 1).
+fn malnourished_player(rng: &mut UnityRandom) -> (Player, PlayerGraphics) {
+    let mut player = Player::new();
+    player.set_stats(
+        rw_sim::campaign::SlugcatCampaign::SURVIVOR
+            .stats
+            .malnourished(),
+    );
+    player.body.chunks[HIPS].reset_at(Vec2::new(100.0, 48.0));
+    player.body.chunks[HEAD].reset_at(Vec2::new(117.0, 49.0));
+    let graphics = PlayerGraphics::new(&player, SlugcatName::White, rng);
+    (player, graphics)
+}
+
+#[test]
+fn malnourished_body_is_thinner() {
+    // Body: 1 + lerp(lerp(lerp(-0.05, -0.15, 1), 0.05, breath) * vert, 0.15, curl).
+    assert_close(
+        PlayerGraphics::body_scale_x(0.0, 1.0, 0.0, 1.0),
+        0.85,
+        "exhale",
+    );
+    assert_close(
+        PlayerGraphics::body_scale_x(1.0, 1.0, 0.0, 1.0),
+        1.05,
+        "inhale",
+    );
+    assert_close(
+        PlayerGraphics::body_scale_x(0.5, 1.0, 0.0, 1.0),
+        0.95,
+        "mid",
+    );
+    // Hips: 1 + 0.2 curl + 0.05 breath - 0.05 malnourished.
+    assert_close(PlayerGraphics::hips_scale_x(0.0, 0.0, 1.0), 0.95, "hips");
+    assert_close(
+        PlayerGraphics::hips_scale_x(1.0, 1.0, 0.5),
+        1.225,
+        "hips curled",
+    );
+}
+
+#[test]
+fn malnourished_colours_are_grey() {
+    let mut rng = UnityRandom::new(5);
+    let r = flat_room();
+    let (mut p, mut g) = malnourished_player(&mut rng);
+    assert_eq!(g.malnourished, 1.0);
+    run(&mut p, &mut g, &r, Input::NONE, 2, &mut rng);
+    let fog = Color::rgb(0.5, 0.3, 0.1);
+    let list = g.draw(&p, 1.0, Color::BLACK, fog);
+    // ApplyPalette: white lerped 0.4 toward Color.gray (0.5): 0.8.
+    let body = list.sprite(0).unwrap().color;
+    assert_close(body.r, 0.8, "body r");
+    assert_close(body.b, 0.8, "body b");
+    // The face: black lerped 0.2 * 1^2 toward lerp(white, fog, 0.5) = (0.75, 0.65, 0.55).
+    let face = list.sprite(9).unwrap().color;
+    assert_close(face.r, 0.15, "face r");
+    assert_close(face.g, 0.13, "face g");
+    assert_close(face.b, 0.11, "face b");
+    // The tail's root half-width: 6 * (1 - 0.2) = 4.8.
+    let tail = list
+        .items
+        .iter()
+        .find_map(|i| match i {
+            DrawItem::Mesh(m) if m.index == 2 => Some(m.clone()),
+            _ => None,
+        })
+        .unwrap();
+    assert_close(
+        tail.vertices[0].distance(tail.vertices[1]),
+        9.6,
+        "tail root width",
+    );
+    assert_eq!(tail.color, body);
+}
+
+#[test]
+fn cured_malnourishment_fades_by_0_005_a_tick() {
+    let mut rng = UnityRandom::new(5);
+    let r = flat_room();
+    let (mut p, mut g) = malnourished_player(&mut rng);
+    run(&mut p, &mut g, &r, Input::NONE, 1, &mut rng);
+    assert_eq!(g.malnourished, 1.0);
+    p.set_stats(rw_sim::campaign::SlugcatCampaign::SURVIVOR.stats);
+    run(&mut p, &mut g, &r, Input::NONE, 10, &mut rng);
+    assert_close(g.malnourished, 0.95, "faded");
+    // Drawn with the colour a further 0.005 faded: lerp(1, 0.5, 0.4 * 0.945).
+    let body = g
+        .draw(&p, 1.0, Color::BLACK, Color::BLACK)
+        .sprite(0)
+        .unwrap()
+        .color;
+    assert_close(body.r, 1.0 - 0.5 * 0.4 * 0.945, "fading body");
+}
+
+#[test]
+fn exhausted_eyes_draw_only_at_0_8_or_below() {
+    let mut rng = UnityRandom::new(5);
+    let (mut p, mut g) = malnourished_player(&mut rng);
+    // `aerobicLevel` 1 makes the slugcat exhausted (and draws for the stun and fall).
+    p.set_aerobic_level(1.0);
+    p.exhaustion_update(&mut UnityRandom::new(1), &mut Sounds::default());
+    assert!(p.exhausted());
+    // Above 0.8: eyes shut, no draw.
+    let mut draws = UnityRandom::new(9);
+    g.out_of_breath(&p, &mut draws);
+    assert_eq!(draws, UnityRandom::new(9));
+    assert_eq!(g.blink, 1);
+    // At 0.8 or below: `Random.value < 0.02`, then `Random.Range(10, 20)` if it passes.
+    p.set_aerobic_level(0.5);
+    let seed = (0..).find(|&s| UnityRandom::new(s).value() < 0.02).unwrap();
+    let mut draws = UnityRandom::new(seed);
+    g.out_of_breath(&p, &mut draws);
+    let mut expected = UnityRandom::new(seed);
+    expected.value();
+    expected.range_i32(10, 20);
+    assert_eq!(draws, expected);
+    // Exhausted: the eyes close regardless (blink = 1 after the head bob).
+    assert_eq!(g.blink, 1);
+    let seed = (0..)
+        .find(|&s| UnityRandom::new(s).value() >= 0.02)
+        .unwrap();
+    let mut draws = UnityRandom::new(seed);
+    g.out_of_breath(&p, &mut draws);
+    let mut expected = UnityRandom::new(seed);
+    expected.value();
+    assert_eq!(draws, expected);
+}
+
+#[test]
+fn breath_quickens_with_the_aerobic_level() {
+    // breath += 1 / lerp(60, 15, aerobicLevel^1.5): 1/15 a tick at aerobicLevel 1.
+    let mut rng = UnityRandom::new(1);
+    let r = flat_room();
+    let (mut p, mut g) = grounded_player(&mut rng);
+    run(&mut p, &mut g, &r, Input::NONE, 1, &mut rng);
+    let before = g.breath;
+    p.set_aerobic_level(1.0);
+    update_alone(&mut g, &p, &r, &mut rng);
+    assert_close(g.breath - before, 1.0 / 15.0, "panting");
 }

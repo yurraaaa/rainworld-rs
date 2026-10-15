@@ -147,7 +147,8 @@ impl Server {
 
     #[tool(
         description = "Start a new story game as a slugcat (White, Yellow, Red): its start \
-        room and position in its region's world. Returns the room info and state."
+        room and position in its region's world (malnourished: a saved story in a \
+        malnourished cycle instead). Returns the room info and state."
     )]
     fn new_game(&self, Parameters(p): Parameters<NewGameParams>) -> Result<CallToolResult, String> {
         Self::json(&self.session()?.new_game(&p)?)

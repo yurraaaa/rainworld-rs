@@ -15,6 +15,7 @@ impl Player {
     /// roll or a belly slide; or the start of a belly slide.
     pub(super) fn jump(&mut self, room: &Room) {
         self.feet_stuck_pos = None;
+        self.aerobic_increase(1.0);
         if self.body_mode == BodyMode::WallClimb {
             let head_contact = i32::from(self.body.chunks[HEAD].contact().x);
             let dir = if self.can_wall_jump != 0 {
@@ -150,8 +151,13 @@ impl Player {
         self.play_sound(SoundId::SlugcatFromVerticalPoleJump, HEAD, volume, 1.0);
     }
 
-    /// Jump away from a wall toward `dir`, or a straight hop when there is footing.
+    /// Jump away from a wall toward `dir`, or a straight hop when there is footing;
+    /// weaker while exhausted (`1 - 0.5 * aerobicLevel`).
     pub(super) fn wall_jump(&mut self, room: &Room, dir: i32) {
+        let mut num = 1.0;
+        if self.exhausted {
+            num *= 1.0 - 0.5 * self.aerobic_level;
+        }
         let x = self.input_x();
         let head_contact = i32::from(self.body.chunks[HEAD].contact().x);
         let at_ledge = x != 0
@@ -163,23 +169,21 @@ impl Player {
             || at_ledge;
         let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
         if has_footing {
-            let k: f32 = if hips.contact().y > -1 && head.contact().y > -1 {
-                0.7
-            } else {
-                1.0
-            };
-            head.vel.y = 8.0 * k;
-            hips.vel.y = 7.0 * k;
-            head.pos.y += 10.0 * k.min(1.0);
-            hips.pos.y += 10.0 * k.min(1.0);
+            if hips.contact().y > -1 && head.contact().y > -1 {
+                num *= 0.7;
+            }
+            head.vel.y = 8.0 * num;
+            hips.vel.y = 7.0 * num;
+            head.pos.y += 10.0 * num.min(1.0);
+            hips.pos.y += 10.0 * num.min(1.0);
             self.play_sound(SoundId::SlugcatNormalJump, HEAD, 1.0, 1.0);
             self.jump_boost = 0.0;
         } else {
             let d = dir as f32;
-            head.vel.y = 8.0;
-            hips.vel.y = 7.0;
-            head.vel.x = 6.0 * d;
-            hips.vel.x = 5.0 * d;
+            head.vel.y = 8.0 * num;
+            hips.vel.y = 7.0 * num;
+            head.vel.x = 6.0 * num * d;
+            hips.vel.x = 5.0 * num * d;
             self.play_sound(SoundId::SlugcatWallJump, HEAD, 1.0, 1.0);
             self.standing = true;
             self.jump_boost = 0.0;

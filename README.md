@@ -24,8 +24,11 @@ Working now:
   pause menu saves as the game does.
 - **Shelters:** with enough food, staying still in a shelter closes its door and hibernates;
   the cycle is saved, the sleep screen shows the karma ladder, food and map, and the next
-  cycle starts there with food, karma and the region's creatures carried over; a door
-  closing on too little food saves the cycle as a death and shows the starve screen.
+  cycle starts there with food, karma and the region's creatures carried over. A door
+  closing on some food, but less than the meter's line, hibernates starving: the next
+  cycle the slugcat is malnourished (thin and grey, slower, easily exhausted) until a
+  full meter cures it; a door closing on no food (malnourished: on less than a full
+  meter) saves the cycle as a death and shows the starve screen.
   Saves from the real game can be imported (see below).
 - **Death:** dying shows the game-over prompt; Space then saves the death (karma lost, a
   karma flower's spot kept for reinforced karma and the Monk) and goes on to the death

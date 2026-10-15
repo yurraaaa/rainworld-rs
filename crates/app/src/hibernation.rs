@@ -94,12 +94,8 @@ impl HibernatingGame<'_> {
         backed_up: &mut bool,
     ) -> Result<(WinOutcome, Option<RegionState>), SaveError> {
         let story = self.sim.story().clone();
-        let stats = self.sim.campaign().stats;
-        let stats = if story.malnourished {
-            stats.malnourished()
-        } else {
-            stats
-        };
+        // `GetStorySession.characterStats`.
+        let stats = self.sim.character_stats();
         let stats = HibernationStats {
             max_food: stats.max_food,
             food_to_hibernate: stats.food_to_hibernate,

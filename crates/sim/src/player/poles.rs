@@ -5,7 +5,7 @@
 
 use rw_assets::Room;
 
-use super::{Animation, BodyMode, HEAD, HIPS, POLE_CLIMB_SPEED_FAC, Player, ROOM_GRAVITY};
+use super::{Animation, BodyMode, HEAD, HIPS, Player, ROOM_GRAVITY};
 use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
 use crate::{SoundId, Vec2};
@@ -109,7 +109,7 @@ impl Player {
                 self.animation_frame = 0;
                 climb_step = true;
             }
-            head.vel.y += POLE_CLIMB_SPEED_FAC
+            head.vel.y += self.stats.pole_climb_speed_fac
                 * (self.slow_movement_stun as f32).lerp_map(0.0, 10.0, 1.0, 0.2);
         } else if y < 0 {
             head.vel.y -= 2.2 * (0.2 + 0.8 * ROOM_GRAVITY);
@@ -134,6 +134,7 @@ impl Player {
         }
         if climb_step {
             self.play_sound(SoundId::SlugcatClimbUpVerticalBeam, HEAD, 1.0, 1.0);
+            self.aerobic_increase(0.1);
         }
         self.body
             .set_go_through_floors(x == 0 && self.input[0].down_diagonal() == 0);
