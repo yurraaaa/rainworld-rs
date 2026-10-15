@@ -4,7 +4,7 @@
 
 use rw_render::{SpriteVertex, StageBatch, StageShader};
 
-use crate::atlas::AtlasManager;
+use crate::atlas::{AtlasManager, Element};
 use crate::geometry::Matrix;
 use crate::label::Label;
 
@@ -145,6 +145,71 @@ impl Sprite {
             color,
         });
         batch.push_quad(e.texture, self.shader, vertices);
+    }
+}
+
+/// A `TriangleMesh` made by `MakeLongMesh` with custom colours: a triangle strip
+/// `(k, k + 1, k + 2)` over its vertices, in local pixels, with texture coordinates
+/// within the element.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TriangleStrip {
+    pub element: String,
+    pub transform: NodeTransform,
+    pub shader: StageShader,
+    pub vertices: Vec<[f32; 2]>,
+    pub uvs: Vec<[f32; 2]>,
+    pub colors: Vec<StageColor>,
+}
+
+impl TriangleStrip {
+    /// `TriangleMesh.MakeLongMesh(segments, false, true)`: `4 * segments` vertices
+    /// in left/right pairs, `u` 0 or 1, `v` rising by `1 / (2 * segments - 1)` a pair.
+    #[must_use]
+    pub fn long_mesh(segments: usize, element: &str) -> Self {
+        let n = segments * 4;
+        let step = 1.0 / ((segments as f32 - 1.0) * 2.0 + 1.0);
+        Self {
+            element: element.to_owned(),
+            transform: NodeTransform::default(),
+            shader: StageShader::Basic,
+            vertices: vec![[0.0; 2]; n],
+            uvs: (0..n)
+                .map(|k| [if k % 2 == 0 { 0.0 } else { 1.0 }, (k / 2) as f32 * step])
+                .collect(),
+            colors: vec![StageColor::WHITE; n],
+        }
+    }
+
+    /// Each pair of strip triangles as one quad.
+    pub fn push_quads(
+        &self,
+        atlases: &AtlasManager,
+        batch: &mut StageBatch,
+        matrix: &Matrix,
+        alpha: f32,
+    ) {
+        let Some(e) = atlases.element(&self.element) else {
+            return;
+        };
+        let mut k = 0;
+        while k + 3 < self.vertices.len() {
+            // Triangles (k, k+1, k+2) and (k+1, k+2, k+3) as the quad (k+1, k, k+2, k+3).
+            let quad = [k + 1, k, k + 2, k + 3].map(|i| self.vertex(e, i, matrix, alpha));
+            batch.push_quad(e.texture, self.shader, quad);
+            k += 2;
+        }
+    }
+
+    fn vertex(&self, e: &Element, k: usize, matrix: &Matrix, alpha: f32) -> SpriteVertex {
+        let uv = &e.uv_rect;
+        SpriteVertex {
+            pos: matrix.apply(self.vertices[k]),
+            uv: [
+                uv.x_min() + self.uvs[k][0] * (uv.x_max() - uv.x_min()),
+                uv.y_min() + self.uvs[k][1] * (uv.y_max() - uv.y_min()),
+            ],
+            color: self.colors[k].with_alpha_multiplied(alpha).to_array(),
+        }
     }
 }
 

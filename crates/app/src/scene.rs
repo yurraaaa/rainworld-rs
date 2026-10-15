@@ -209,6 +209,12 @@ impl Scene {
         let showed_controls = script.is_some_and(|s| s.showed_controls());
         let continue_page = script.is_some_and(|s| s.controls_page_continue());
         self.game.sim_mut().set_hud_present(self.hud.is_some());
+        self.game.link_hud_map(self.hud.as_ref());
+        let darkness = self
+            .visuals
+            .as_ref()
+            .map_or(0.0, |v| v.room_palette().darkness);
+        self.game.sim_mut().set_camera_darkness(darkness);
         self.game.tick(input);
         self.apply_hud_events(shared);
         if let Some(hud) = &mut self.hud {
@@ -227,18 +233,28 @@ impl Scene {
 
     /// `RoomCamera.Update`'s HUD step: update it, or fire it up once the player is
     /// realized.
-    fn update_hud(&mut self, shared: &MenuShared) {
+    fn update_hud(&mut self, shared: &mut MenuShared) {
         match &mut self.hud {
             Some(hud) => {
                 let owner = self.game.hud_owner();
                 let map_button = self.game.map_button();
                 let rain = self.game.rain_view();
-                let (sounds, rng) = self.game.sim_mut().camera_io();
-                hud.update(&owner, map_button, &rain, &shared.translator, sounds, rng);
+                let (sounds, rng, discovery) = self.game.sim_mut().camera_io();
+                hud.update(
+                    &owner,
+                    map_button,
+                    &rain,
+                    &shared.translator,
+                    sounds,
+                    rng,
+                    discovery,
+                );
             }
             None if self.game.hud_due() => {
-                let setup = self.game.hud_setup(shared.screen_size);
-                self.hud = Some(Hud::new(&setup, &shared.atlases));
+                let mut setup = self.game.hud_setup(shared.screen_size);
+                setup.map = self.game.map_data(&shared.assets);
+                setup.cycle_label = self.game.map_cycle_label(&shared.translator);
+                self.hud = Some(Hud::new(setup, &mut shared.atlases));
                 log::info!("HUD fired up");
             }
             None => {}
@@ -277,6 +293,21 @@ impl Scene {
         };
         hud.open_controls_page(&mut source, &text);
         log::info!("controls page shown");
+    }
+
+    /// Hands the HUD's changed textures to `atlases` (before they sync to a renderer).
+    pub fn sync_hud_textures(&mut self, atlases: &mut AtlasManager) {
+        if let Some(hud) = &mut self.hud {
+            hud.sync_textures(atlases);
+        }
+    }
+
+    /// The HUD map's shader globals at `alpha` between ticks.
+    #[must_use]
+    pub fn hud_map_globals(&self, alpha: f32) -> rw_render::MapGlobals {
+        self.hud
+            .as_ref()
+            .map_or_else(rw_render::MapGlobals::default, |h| h.map_globals(alpha))
     }
 
     /// Sets the HUD's sprites for `alpha` between ticks and appends its quads.

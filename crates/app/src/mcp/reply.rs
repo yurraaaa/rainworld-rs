@@ -289,12 +289,36 @@ pub struct HudState {
     pub food_meter: FoodMeterState,
     pub karma_meter: KarmaMeterState,
     pub rain_meter: RainMeterState,
-    /// `HUD.Map`'s fade (the map itself is not drawn).
+    /// `HUD.Map`'s fade.
     pub map_fade: f32,
+    pub map: MapState,
     pub show_karma_food_rain: bool,
     pub text_prompt: TextPromptState,
     /// The tutorial controls page, while it shows.
     pub controls_page: Option<ControlsPageState>,
+}
+
+/// `HUD.Map`: pan and layer, the reveal and the markers.
+#[derive(Debug, Clone, Serialize)]
+pub struct MapState {
+    pub region: String,
+    pub visible: bool,
+    /// Map texture pixels within the shown layer.
+    pub pan: [f32; 2],
+    pub layer: i32,
+    /// Discovery texture pixels waiting to be revealed.
+    pub reveal_pending: usize,
+    /// The player marker on screen.
+    pub player_marker: Option<[f32; 2]>,
+    /// Each gate and shelter marker: kind, room and fade.
+    pub markers: Vec<MapMarkerState>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MapMarkerState {
+    pub kind: String,
+    pub room: i32,
+    pub fade: f32,
 }
 
 #[derive(Debug, Clone, Serialize)]

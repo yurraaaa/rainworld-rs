@@ -41,7 +41,9 @@ pub struct InputParam {
     /// Jump button held.
     #[serde(default)]
     pub jump: bool,
-    /// Map button held (shows the HUD's meters; the slugcat stands still).
+    /// Map button held (shows the HUD's meters and, after 30 ticks, the region map;
+    /// the slugcat stands still). While it is held x/y pan the map, jump and throw
+    /// change its layer.
     #[serde(default)]
     pub map: bool,
     /// Pick-up button held (Take, left Shift): picks up, drops, eats.

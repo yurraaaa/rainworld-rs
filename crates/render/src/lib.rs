@@ -49,7 +49,7 @@ pub use sprites::{
     SpriteVertex, WaterShader,
 };
 pub use stage::{
-    StageBatch, StageDraw, StageGlobals, StageShader, StageTextureId, TextureFilter,
+    MapGlobals, StageBatch, StageDraw, StageGlobals, StageShader, StageTextureId, TextureFilter,
     TextureSampling,
 };
 pub use status::{BodyStatus, BodyStyle};

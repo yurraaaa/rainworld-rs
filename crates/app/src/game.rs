@@ -454,12 +454,8 @@ impl Game {
             rain: self.rain_view(),
             subregions: self.subregions.clone(),
             start: self.start_condition,
-            swarm_rooms: world
-                .data()
-                .rooms
-                .iter()
-                .filter(|r| r.swarm_room_index > -1)
-                .count(),
+            map: None,
+            cycle_label: None,
         }
     }
 
@@ -484,6 +480,7 @@ impl Game {
             // Broken shelters are not read: every shelter is intact.
             in_intact_shelter: shelter,
             force_sleep_pose: shelter && self.in_force_sleep_pose(player),
+            map: self.map_owner(),
             ..OwnerTick::default()
         }
     }

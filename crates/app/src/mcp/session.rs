@@ -21,9 +21,9 @@ use super::params::{
 };
 use super::reply::{
     ChunkState, ControlsPageState, CreatureInfo, ExitInfo, ExitList, FlyInfo, FoodMeterState,
-    HudState, ImpactState, KarmaMeterState, LobbyState, OverseerInfo, PlayerState, ProcessState,
-    RainMeterState, RainState, RealizedState, RoomInfo, RoomList, Screenshot, SlideShowState,
-    StartUpState, State, StepTrace, TextPromptState,
+    HudState, ImpactState, KarmaMeterState, LobbyState, MapMarkerState, MapState, OverseerInfo,
+    PlayerState, ProcessState, RainMeterState, RainState, RealizedState, RoomInfo, RoomList,
+    Screenshot, SlideShowState, StartUpState, State, StepTrace, TextPromptState,
 };
 use super::tiles::TileDump;
 use crate::frontend::{AppContext, Frontend, FrontendRenderer, GameSetup};
@@ -525,7 +525,7 @@ impl Session {
         target.scene.renderer.set_frame_size((pixels[0], pixels[1]));
         scene.draw(&mut target.scene, 1.0, view);
         // The HUD is in screen pixels: drawn over the game's own camera window only.
-        if let (Some(shared), true) = (&self.hud_shared, level && framing == Framing::Auto) {
+        if let (Some(shared), true) = (&mut self.hud_shared, level && framing == Framing::Auto) {
             target.draw_scene_hud(shared, scene, 1.0);
         }
         Self::encode(target, params)
@@ -938,6 +938,32 @@ impl ExitList {
     }
 }
 
+impl MapState {
+    fn of(map: &rw_hud::Map) -> Self {
+        Self {
+            region: map.data.region.clone(),
+            visible: map.visible,
+            pan: map.pan_pos.to_array(),
+            layer: map.layer,
+            reveal_pending: map.reveal_pixels.len(),
+            player_marker: map.player_marker().map(|m| m.pos.to_array()),
+            markers: map
+                .markers
+                .iter()
+                .map(|m| MapMarkerState {
+                    kind: match m.kind {
+                        rw_hud::MarkerKind::Gate { .. } => "gate",
+                        rw_hud::MarkerKind::Shelter => "shelter",
+                    }
+                    .to_owned(),
+                    room: m.room,
+                    fade: m.fade,
+                })
+                .collect(),
+        }
+    }
+}
+
 impl HudState {
     pub(super) fn of(hud: &rw_hud::Hud) -> Self {
         let food = &hud.food_meter;
@@ -968,6 +994,7 @@ impl HudState {
                 remain_visible_counter: hud.rain_meter.remain_visible_counter,
             },
             map_fade: hud.map.fade,
+            map: MapState::of(&hud.map),
             show_karma_food_rain: hud.show_karma_food_rain,
             text_prompt: TextPromptState {
                 show: hud.text_prompt.show,

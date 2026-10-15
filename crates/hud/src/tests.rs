@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use rw_assets::{StreamingAssets, UnityResources};
 use rw_menu::{AtlasManager, StageTree, Translator};
 use rw_random::UnityRandom;
-use rw_sim::{Sounds, Vec2};
+use rw_sim::{MapDiscovery, Sounds, Vec2};
 
 use crate::{
     CIRCLE_DISTANCE, FoodMeter, Hud, HudSetup, IllustrationSource, InfoId, KarmaMeter, PageText,
@@ -21,6 +21,7 @@ struct Rig {
     sounds: Sounds,
     rng: UnityRandom,
     translator: Translator,
+    discovery: MapDiscovery,
 }
 
 impl Rig {
@@ -39,13 +40,15 @@ impl Rig {
             rain: RainCycleView::STAND_IN,
             subregions: None,
             start: StartCondition::New,
-            swarm_rooms: 0,
+            map: Some(crate::map::tests::test_map_data()),
+            cycle_label: None,
         };
         Self {
-            hud: Hud::new(&setup, &AtlasManager::new()),
+            hud: Hud::new(setup, &mut AtlasManager::new()),
             sounds: Sounds::default(),
             rng: UnityRandom::new(1),
             translator: Translator::default(),
+            discovery: MapDiscovery::default(),
         }
     }
 
@@ -62,6 +65,7 @@ impl Rig {
             &self.translator,
             &mut self.sounds,
             &mut self.rng,
+            &mut self.discovery,
         );
     }
 
@@ -271,10 +275,11 @@ fn meters_show_for_200_ticks_after_cycle_0() {
         rain: RainCycleView::STAND_IN,
         subregions: None,
         start: StartCondition::Load,
-        swarm_rooms: 0,
+        map: None,
+        cycle_label: None,
     };
     let mut rig = Rig::new(7, 4);
-    rig.hud = Hud::new(&setup, &AtlasManager::new());
+    rig.hud = Hud::new(setup, &mut AtlasManager::new());
     assert_eq!(rig.hud.food_meter.visible_counter, 200);
     assert_eq!(rig.hud.karma_meter.force_visible_counter, 200);
     assert_eq!(rig.hud.rain_meter.remain_visible_counter, 200);
@@ -487,6 +492,11 @@ fn hud_atlas_elements_installed() {
         "smallKarmaRingReinforced",
         "pixel",
         AtlasManager::WHITE,
+        // The map's markers.
+        "ShelterMarker",
+        "smallKarmaNoRing-1",
+        "smallKarmaNoRing0",
+        "smallKarmaNoRing4",
     ]
     .map(str::to_owned)
     .to_vec();

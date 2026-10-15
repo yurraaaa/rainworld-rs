@@ -10,4 +10,5 @@ rw-render.workspace = true
 rw-sim.workspace = true
 rw-random.workspace = true
 rw-menu.workspace = true
+rw-graphics.workspace = true
 log.workspace = true

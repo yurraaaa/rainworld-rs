@@ -297,6 +297,12 @@ pub struct Player {
     drop_grab_tile: Option<(i32, i32)>,
     /// Largest `Player.Blink(n)` this tick, for the graphics; 0 when none.
     blink_request: i32,
+    /// `mapInput`: this tick's input before the map button stripped it.
+    map_input: Input,
+    /// `exitsToBeDiscovered`: the room-exit entrances of the first room the map
+    /// discovery saw, never refilled (as in the game).
+    pub exits_to_be_discovered: Option<Vec<Vec2>>,
+    pub added_spawn_room_to_discovery: bool,
 
     /// Breath left: 1 full, 0 out of air (below 0 briefly while heading up).
     air_in_lungs: f32,
@@ -426,6 +432,9 @@ impl Player {
             shoot_up_counter: 0,
             drop_grab_tile: None,
             blink_request: 0,
+            map_input: Input::NONE,
+            exits_to_be_discovered: None,
+            added_spawn_room_to_discovery: false,
             air_in_lungs: 1.0,
             out_of_breath: [0.0; 4],
             lungs_exhausted: false,
@@ -561,6 +570,12 @@ impl Player {
     #[must_use]
     pub fn blink_request(&self) -> i32 {
         self.blink_request
+    }
+
+    /// `MapInput`: the input the HUD map pans and changes layers with.
+    #[must_use]
+    pub fn map_input(&self) -> Input {
+        self.map_input
     }
 
     /// `Player.Blink`.
@@ -784,6 +799,7 @@ impl Player {
             Some(controller) => controller.input(),
             None => input.normalized(),
         };
+        self.map_input = self.input[0];
         // `standStillOnMapButton` is set in a story session (the port's only kind): holding
         // the map button drops the other buttons and blinks (`Sleeping` is not ported).
         if self.input[0].map {

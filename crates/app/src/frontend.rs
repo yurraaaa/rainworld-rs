@@ -16,7 +16,7 @@ use rw_menu::{
     SlideShowId, SlugcatSelectMenu, TextureSync, TimeStacker,
 };
 use rw_random::UnityRandom;
-use rw_render::{Camera, Color, Renderer, Resolution, StageBatch, StageGlobals};
+use rw_render::{Camera, Color, MapGlobals, Renderer, Resolution, StageBatch, StageGlobals};
 use rw_sim::Vec2;
 
 use crate::game::{Game, GameStart};
@@ -600,6 +600,12 @@ impl Frontend {
 
     /// Queues the frame: the game's scene or the menu stage, then the fade.
     pub fn draw<R: Renderer>(&mut self, target: &mut FrontendRenderer<R>, view: SceneView) {
+        let alpha = self.manager.time_stacker();
+        let mut map = MapGlobals::default();
+        if let Some(AppProcess::Game(game)) = self.manager.current_mut() {
+            game.scene.sync_hud_textures(&mut self.ctx.menu.atlases);
+            map = game.scene.hud_map_globals(alpha);
+        }
         target
             .textures
             .sync(&self.ctx.menu.atlases, &mut target.scene.renderer);
@@ -608,10 +614,10 @@ impl Frontend {
             text_gradient: self.ctx.menu.text_gradient,
             noise2: self.ctx.menu.noise2,
             sprite_rect: [0.0; 4],
+            map,
         });
         let screen = self.ctx.menu.screen_size;
         let mut batch = StageBatch::default();
-        let alpha = self.manager.time_stacker();
         let atlases = &self.ctx.menu.atlases;
         match self.manager.current_mut() {
             Some(AppProcess::Game(game)) => {
@@ -639,7 +645,8 @@ impl Frontend {
 impl<R: Renderer> FrontendRenderer<R> {
     /// The HUD of `scene` over the frame its `draw` queued (a game run without the
     /// process manager).
-    pub fn draw_scene_hud(&mut self, shared: &MenuShared, scene: &mut Scene, alpha: f32) {
+    pub fn draw_scene_hud(&mut self, shared: &mut MenuShared, scene: &mut Scene, alpha: f32) {
+        scene.sync_hud_textures(&mut shared.atlases);
         self.textures
             .sync(&shared.atlases, &mut self.scene.renderer);
         self.scene.renderer.set_stage_globals(StageGlobals {
@@ -647,6 +654,7 @@ impl<R: Renderer> FrontendRenderer<R> {
             text_gradient: shared.text_gradient,
             noise2: shared.noise2,
             sprite_rect: [0.0; 4],
+            map: scene.hud_map_globals(alpha),
         });
         let mut batch = StageBatch::default();
         scene.draw_hud(&shared.atlases, &mut batch, alpha);

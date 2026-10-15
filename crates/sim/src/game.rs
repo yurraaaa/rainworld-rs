@@ -13,6 +13,8 @@ use std::sync::Arc;
 mod flies;
 #[path = "game_player.rs"]
 mod hands;
+#[path = "game_map.rs"]
+mod map;
 
 use rw_assets::{CreatureType, NodeType, Room, Shortcut, ShortcutType};
 use rw_random::UnityRandom;
@@ -34,8 +36,8 @@ use crate::room_script::{RoomScript, ScriptTick, StorySession};
 use crate::shortcut::{CreatureVessel, Transport};
 use crate::world::{AbstractTick, FollowCreature, RainCycle, RoomRealizer, World};
 use crate::{
-    EntranceColor, Input, LobbyVessel, Player, ShortcutHandler, Sounds, Vec2, VesselOwner,
-    VesselStep, Water, determine_safe_spawn_tile,
+    EntranceColor, HudMapLink, Input, LobbyVessel, MapDiscovery, Player, ShortcutHandler, Sounds,
+    Vec2, VesselOwner, VesselStep, Water, determine_safe_spawn_tile,
 };
 
 /// What the app attaches to the player (its graphics module), called where the game
@@ -253,6 +255,12 @@ pub struct RainWorldGame {
     entrance_colors: Vec<EntranceColor>,
     /// Whether the player had a graphics module at its last update.
     player_graphics: bool,
+    /// `progression.mapDiscoveryTextures`.
+    map_discovery: MapDiscovery,
+    /// Camera 0's HUD map, as the app last reported it.
+    hud_map: HudMapLink,
+    /// Camera 0's `PaletteDarkness()`, as the app last reported it.
+    camera_darkness: f32,
 }
 
 impl RainWorldGame {
@@ -327,6 +335,9 @@ impl RainWorldGame {
             last_coords: HashMap::new(),
             entrance_colors: Vec::new(),
             player_graphics: false,
+            map_discovery: MapDiscovery::default(),
+            hud_map: HudMapLink::default(),
+            camera_darkness: 0.0,
         };
         if let Err(e) = game.world.activate_room(start.room) {
             log::error!("cannot realize the first room: {e}");
@@ -611,10 +622,29 @@ impl RainWorldGame {
         self.script_tick.hud_with_control_preset = present;
     }
 
-    /// The camera's sounds and the shared random stream, for what camera 0 updates
-    /// before the rooms (the HUD).
-    pub fn camera_io(&mut self) -> (&mut Sounds, &mut UnityRandom) {
-        (&mut self.sounds, &mut self.rng)
+    /// The camera's sounds, the shared random stream and the map discovery, for what
+    /// camera 0 updates before the rooms (the HUD).
+    pub fn camera_io(&mut self) -> (&mut Sounds, &mut UnityRandom, &mut MapDiscovery) {
+        (&mut self.sounds, &mut self.rng, &mut self.map_discovery)
+    }
+
+    /// Camera 0's HUD map as the player's exit discovery reads it from the next tick on.
+    pub fn set_hud_map(&mut self, link: HudMapLink) {
+        self.hud_map = link;
+    }
+
+    /// Camera 0's palette darkness (`Room.Darkness` in the camera's room).
+    pub fn set_camera_darkness(&mut self, darkness: f32) {
+        self.camera_darkness = darkness;
+    }
+
+    #[must_use]
+    pub fn map_discovery(&self) -> &MapDiscovery {
+        &self.map_discovery
+    }
+
+    pub fn map_discovery_mut(&mut self) -> &mut MapDiscovery {
+        &mut self.map_discovery
     }
 
     /// `cameras[0].followAbstractCreature` as the realizer reads it.
@@ -693,6 +723,8 @@ impl RainWorldGame {
             VesselStep::SpatOut => {
                 self.player_seq = self.world.next_update_seq();
                 observer.spat_out(player, &mut self.rng);
+                // `NewRoom`'s `ReportRoomVisited` (a no-op for a room already visited).
+                self.report_room_visited(here);
                 self.spit_out_carried(observer);
                 if let Some(player) = self.player.as_ref() {
                     observer.spat_out_finished(player, &mut self.rng);
@@ -1218,8 +1250,12 @@ impl RainWorldGame {
         if !updates || self.world.realized(index).is_none() {
             return;
         }
+        let last = self.last_coords.get(&self.player_id).copied();
+        let moved = last.unwrap_or(WorldCoordinate::new(0, 0, 0, 0))
+            != self.world.creature(self.player_id).pos;
         self.creature_new_tile(self.player_id);
         self.player_graphics = observer.has_player_graphics();
+        self.player_map_discovery(index, room, moved);
         let water = self.world.realized_mut(index).and_then(|r| r.water.take());
         let ceiling_drips = self
             .world

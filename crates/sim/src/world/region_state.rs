@@ -11,7 +11,8 @@ pub struct RegionState {
     /// `swarmRoomCounters` by room name: cycles until the swarm room's flies return
     /// (0: active).
     pub swarm_room_counters: HashMap<String, i32>,
-    /// `roomsVisited`: room names. The port does not record visits; the caller fills it.
+    /// `roomsVisited`: room names (`ReportRoomVisited` from the player's first update
+    /// and each room it is spat out in).
     pub rooms_visited: HashSet<String>,
     /// `candidatesForDepleteSwarmRooms`: swarm rooms a caught fly came from (read when
     /// the cycle is saved, which the port does not do yet).

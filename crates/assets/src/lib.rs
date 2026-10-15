@@ -13,6 +13,7 @@ mod palette;
 mod placed;
 mod placed_types;
 mod png_image;
+pub mod region_map;
 pub mod region_properties;
 pub mod room;
 mod room_visuals;
@@ -38,6 +39,7 @@ pub use palette::{EffectColors, PaletteImage, PaletteTexture, RoomPalette};
 pub use placed::{PlacedObject, RoomEffect};
 pub use placed_types::{PlacedObjectType, RoomEffectType};
 pub use png_image::PngImage;
+pub use region_map::{MapConnectionLine, RegionMapFiles};
 pub use region_properties::{RegionParams, RegionProperties, RoomAttractions};
 pub use room::{
     Room, RoomError, Shortcut, Slope, TILE_SIZE, Terrain, Tile, TileFlags, tile_centre,

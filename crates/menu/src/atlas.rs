@@ -6,7 +6,7 @@
 //! Textures are kept here with their sampling; a [`TextureSync`] uploads them to a
 //! renderer and frees the ones unloaded since.
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 use rw_assets::{AssetError, PngImage, StreamingAssets, UnityResources};
@@ -47,6 +47,8 @@ struct AtlasEntry {
 struct TextureEntry {
     image: Arc<PngImage>,
     sampling: TextureSampling,
+    /// Bumped by [`AtlasManager::replace_texture`] so a renderer uploads it again.
+    version: u64,
 }
 
 /// Futile's atlas manager.
@@ -141,9 +143,41 @@ impl AtlasManager {
             TextureEntry {
                 image: Arc::new(image),
                 sampling,
+                version: 0,
             },
         );
         id
+    }
+
+    /// A texture with no atlas (a shader's global texture made at run time).
+    pub fn add_texture(&mut self, image: PngImage, sampling: TextureSampling) -> StageTextureId {
+        self.new_texture(image, sampling)
+    }
+
+    /// `Texture2D.Apply` of a run-time texture: its new pixels, uploaded on the next
+    /// sync.
+    pub fn replace_texture(&mut self, id: StageTextureId, image: PngImage) {
+        if let Some(t) = self.textures.get_mut(&id) {
+            t.image = Arc::new(image);
+            t.version += 1;
+        }
+    }
+
+    /// `HeavyTexturesCache.LoadAndCacheAtlasFromTexture`: a one-element atlas named
+    /// `name` from `image`, unless one of that name is loaded.
+    ///
+    /// # Errors
+    /// When an element of that name exists in another atlas.
+    pub fn add_image_atlas(
+        &mut self,
+        name: &str,
+        image: PngImage,
+        sampling: TextureSampling,
+    ) -> Result<(), AtlasLoadError> {
+        if self.contains_atlas(name) {
+            return Ok(());
+        }
+        self.add_single_image(name, image, sampling)
     }
 
     /// `FAtlas.CreateAtlasFromSingleImage`: one element, named as the atlas, covering
@@ -455,7 +489,8 @@ impl AtlasManager {
 /// What of an [`AtlasManager`]'s textures one renderer holds.
 #[derive(Debug, Default)]
 pub struct TextureSync {
-    uploaded: HashSet<StageTextureId>,
+    /// Each uploaded texture's version.
+    uploaded: HashMap<StageTextureId, u64>,
 }
 
 impl TextureSync {
@@ -464,7 +499,7 @@ impl TextureSync {
     pub fn sync(&mut self, atlases: &AtlasManager, renderer: &mut impl Renderer) {
         let stale: Vec<StageTextureId> = self
             .uploaded
-            .iter()
+            .keys()
             .filter(|id| !atlases.textures.contains_key(id))
             .copied()
             .collect();
@@ -473,7 +508,7 @@ impl TextureSync {
             self.uploaded.remove(&id);
         }
         for (id, texture) in &atlases.textures {
-            if self.uploaded.insert(*id) {
+            if self.uploaded.insert(*id, texture.version) != Some(texture.version) {
                 renderer.set_stage_texture(*id, &texture.image, texture.sampling);
             }
         }

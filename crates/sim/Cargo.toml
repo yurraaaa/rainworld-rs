@@ -8,6 +8,7 @@ license.workspace = true
 rw-assets.workspace = true
 rw-random.workspace = true
 log.workspace = true
+base64 = "0.23"
 
 [dev-dependencies]
 serde_json.workspace = true

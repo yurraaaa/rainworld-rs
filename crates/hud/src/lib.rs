@@ -1,6 +1,6 @@
 //! The in-game HUD of a single-player story game (`HUD.HUD.InitSinglePlayerHud`): the
-//! text prompt, food meter, karma meter and rain meter, the fade of the region map
-//! (the map itself is not ported, docs/DIVERGENCES.md), and the tutorial controls page
+//! text prompt, food meter, karma meter, rain meter, the region map ([`Map`]), and the
+//! tutorial controls page
 //! SU_C04's start-up script shows. It reads the game through [`OwnerTick`] and
 //! [`RainCycleView`], makes the game's HUD sounds and random draws through the sim, and
 //! draws into its own Futile stage (`rw_menu::StageTree`), which the app draws above
@@ -22,13 +22,16 @@ use std::sync::Arc;
 use rw_menu::{AtlasManager, Font, NodeId, StageTree, Translator};
 use rw_random::UnityRandom;
 use rw_render::StageBatch;
-use rw_sim::{SoundId, Sounds, Vec2};
+use rw_sim::{MapDiscovery, SoundId, Sounds, Vec2};
 
 pub use circle::{FADABLE_COLORS, FadeCircle, HudCircle, SnapGraphic};
 pub use controls_page::{ControlMap, ControlsPage, IllustrationSource, PageText};
 pub use food_meter::{CIRCLE_DISTANCE, FoodMeter, MeterCircle};
 pub use karma_meter::{KarmaMeter, karma_symbol_sprite};
-pub use map::MapFade;
+pub use map::{
+    ConnectionView, CycleLabel, FadeInMarker, GateData, GateRequirement, Map, MapConnection,
+    MapData, MapDataRoom, MapOwner, MarkerKind, ShelterData, SwarmRoomData,
+};
 pub use rain_meter::{RainCycleView, RainMeter};
 pub use text_prompt::{InfoId, Message, SubregionTracker, Subregions, TextPrompt};
 
@@ -111,6 +114,7 @@ pub struct OwnerTick {
     pub force_sleep_pose: bool,
     /// `room.roomSettings.DangerType != None`.
     pub room_rain_danger: bool,
+    pub map: MapOwner,
 }
 
 /// Where the HUD's parts make sounds, fade circles and random draws while updating.
@@ -151,8 +155,10 @@ pub struct HudSetup {
     /// The world's region, for the subregion tracker (`None` without a region).
     pub subregions: Option<Subregions>,
     pub start: StartCondition,
-    /// The world's swarm rooms (`MapData.activeSwarmRooms`).
-    pub swarm_rooms: usize,
+    /// `new MapData(world)` with the map's files; `None` without a region.
+    pub map: Option<MapData>,
+    /// The Hunter's map cycle label: its text and whether the cycles ran out.
+    pub cycle_label: Option<(String, bool)>,
 }
 
 /// The HUD of the player camera.
@@ -168,7 +174,7 @@ pub struct Hud {
     pub text_prompt: TextPrompt,
     pub food_meter: FoodMeter,
     pub karma_meter: KarmaMeter,
-    pub map: MapFade,
+    pub map: Map,
     pub rain_meter: RainMeter,
     pub fade_circles: Vec<FadeCircle>,
     pub show_karma_food_rain: bool,
@@ -182,7 +188,7 @@ impl Hud {
     /// prompt, food meter, karma meter, map, rain meter), shown at once in a shelter and
     /// for 200 ticks after cycle 0.
     #[must_use]
-    pub fn new(setup: &HudSetup, atlases: &AtlasManager) -> Self {
+    pub fn new(mut setup: HudSetup, atlases: &mut AtlasManager) -> Self {
         let mut stage = StageTree::new();
         let containers = [
             stage.add_container(StageTree::ROOT),
@@ -190,8 +196,14 @@ impl Hud {
         ];
         let c = containers[1];
         let tracker = setup.subregions.clone().map(SubregionTracker::new);
-        let display_font: Option<&Arc<Font>> = atlases.font(Font::DISPLAY_FONT);
-        let text_prompt = TextPrompt::new(&mut stage, c, display_font, setup.screen_size, tracker);
+        let display_font: Option<Arc<Font>> = atlases.font(Font::DISPLAY_FONT).cloned();
+        let text_prompt = TextPrompt::new(
+            &mut stage,
+            c,
+            display_font.as_ref(),
+            setup.screen_size,
+            tracker,
+        );
         let food_meter = FoodMeter::new(
             &mut stage,
             c,
@@ -206,7 +218,21 @@ impl Hud {
             setup.karma_cap,
             setup.karma_reinforced,
         );
-        let map = MapFade::new(setup.swarm_rooms);
+        let in_front = stage.add_container(StageTree::ROOT);
+        let label = setup
+            .cycle_label
+            .take()
+            .zip(display_font)
+            .map(|((text, red), font)| (font, text, red));
+        let map = Map::new(
+            setup.map.take().unwrap_or_else(MapData::empty),
+            &mut stage,
+            containers[0],
+            in_front,
+            atlases,
+            setup.screen_size,
+            label,
+        );
         let rain_meter = RainMeter::new(&mut stage, c, &setup.rain);
         let mut hud = Self {
             stage,
@@ -266,6 +292,7 @@ impl Hud {
         translator: &Translator,
         sounds: &mut Sounds,
         rng: &mut UnityRandom,
+        discovery: &mut MapDiscovery,
     ) {
         self.force_sleep_counter = owner.force_sleep_counter;
         let hide = self.hide_general_hud();
@@ -286,7 +313,14 @@ impl Hud {
         };
         self.rain_meter
             .update(rain, &rain_n, &mut self.karma_meter.force_visible_counter);
-        self.map.update(owner.reveal_map, hide, rng);
+        self.map.update(
+            &owner.map,
+            owner.reveal_map,
+            hide,
+            &mut self.stage,
+            discovery,
+            rng,
+        );
         let prompt = self.prompt_neighbours();
         let karma_n = KarmaNeighbours {
             food_down_in_corner: self.food_meter.down_in_corner,
@@ -351,6 +385,7 @@ impl Hud {
     /// `HUD.Draw` (and the controls page's `GrafUpdate`, which its owner runs from
     /// `DrawSprites`): sets every sprite for time stacker `t`.
     pub fn draw(&mut self, t: f32) {
+        self.map.draw(&mut self.stage, t);
         let prompt = self.prompt_neighbours();
         let food_label_x = self.food_meter.pos.x + self.food_meter.total_width(t);
         self.text_prompt
@@ -370,6 +405,18 @@ impl Hud {
         if let Some(page) = &self.controls_page {
             page.draw(&mut self.stage, t);
         }
+    }
+
+    /// Hands textures the HUD changed (the map's reveal) to `atlases`; call before
+    /// syncing them to the renderer.
+    pub fn sync_textures(&mut self, atlases: &mut AtlasManager) {
+        self.map.sync_textures(atlases);
+    }
+
+    /// The map shaders' globals at `t` between ticks.
+    #[must_use]
+    pub fn map_globals(&self, t: f32) -> rw_render::MapGlobals {
+        self.map.globals(t)
     }
 
     /// Appends the HUD's quads, in draw order, to `batch` (stage pixels).

@@ -33,6 +33,25 @@ pub enum StageShader {
     /// `Futile/FlatLightNoisy`: `FlatLight` with a falloff bent by `_NoiseTex2` read at
     /// the screen position within `_spriteRect` (`RainEffect`'s light source).
     FlatLightNoisy,
+    /// `Futile/Map`: a layer of the region map, read from the map texture at the pan
+    /// position and revealed by `_mapFogTexture`.
+    Map,
+    /// `Futile/MapAerial`: a sky layer of the region map.
+    MapAerial,
+    /// `Futile/MapShortcut`: the dashed line of a room connection on the map.
+    MapShortcut,
+}
+
+/// The region map's shader globals (`_mapSize`, `_mapPan`, `_MapCol`, `_MapWaterCol`,
+/// `_mapFogTexture`).
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct MapGlobals {
+    pub size: [f32; 2],
+    /// The pan position as a fraction of `size`.
+    pub pan: [f32; 2],
+    pub color: [f32; 4],
+    pub water_color: [f32; 4],
+    pub fog: Option<StageTextureId>,
 }
 
 /// Shader globals of the stage (`Shader.SetGlobal*`).
@@ -47,6 +66,7 @@ pub struct StageGlobals {
     /// `_spriteRect`: set only by a room camera; (0, 0, 0, 0), Unity's value for an unset
     /// global, in the menus.
     pub sprite_rect: [f32; 4],
+    pub map: MapGlobals,
 }
 
 /// Unity's `filterMode` for a stage texture.

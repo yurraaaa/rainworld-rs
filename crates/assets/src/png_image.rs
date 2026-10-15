@@ -101,6 +101,22 @@ impl PngImage {
         self.pixel(x, self.height - 1 - y)
     }
 
+    /// An 8-bit RGBA PNG of the image (`Texture2D.EncodeToPNG` of an RGBA32 texture;
+    /// the compressed bytes need not match Unity's).
+    ///
+    /// # Errors
+    /// When the encoder fails.
+    pub fn encode(&self) -> Result<Vec<u8>, png::EncodingError> {
+        let mut out = Vec::new();
+        let mut encoder = png::Encoder::new(&mut out, self.width as u32, self.height as u32);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        let mut writer = encoder.write_header()?;
+        writer.write_image_data(self.pixels.as_flattened())?;
+        writer.finish()?;
+        Ok(out)
+    }
+
     /// RGBA bytes with the bottom row first: Unity's texture row order, so a texture
     /// coordinate `v` (0 = bottom) addresses the same texel in wgpu as in Unity.
     #[must_use]

@@ -24,6 +24,7 @@ mod chunk;
 pub mod creature;
 mod float_ext;
 mod game;
+pub mod map_discovery;
 mod object;
 mod player;
 mod room_ext;
@@ -45,6 +46,7 @@ pub use game::{
     CameraMove, HudEvent, NewGameWorld, OverseerCall, PlayerObserver, PlayerSurroundings,
     RainWorldGame, Start,
 };
+pub use map_discovery::{DiscoveryTexture, HudMapLink, MapDiscovery, MapRoom, UnityTexture};
 pub use object::{
     BodyChunkConnection, ConnectionKind, PhysicalObject, TerrainImpactHandler, slugcat,
 };

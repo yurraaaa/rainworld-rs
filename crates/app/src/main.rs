@@ -30,7 +30,7 @@
 //! world). From the slugcat select menu a new game begins at the campaign's start.
 //!
 //! Controls: Rewired's default keyboard map: arrows move, Z jumps, Space holds the map
-//! button (the HUD's meters; no map is drawn); R respawn, V level
+//! button (the HUD's meters and region map); R respawn, V level
 //! graphic / debug view, G tile grid, F12 screenshot (`screenshot-<frame>.ppm` in the
 //! working directory), Esc quit (in the game, until there is a pause menu). Menus take
 //! Rewired's default UI keys: arrows, Enter/Space/Z submit, Esc cancel, and the mouse.
@@ -38,6 +38,7 @@
 mod app;
 mod frontend;
 mod game;
+mod hud_map;
 mod input;
 mod mcp;
 mod scene;

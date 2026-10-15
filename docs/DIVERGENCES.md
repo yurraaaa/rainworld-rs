@@ -867,12 +867,19 @@ binding); holding it stands the slugcat still, as `standStillOnMapButton` does i
 story session.
 
 **What differs:**
-- **No region map (user decision).** `HUD.Map` is not drawn and cannot be panned. What
-  is kept is its fade (the karma meter's target and the controls page read it) and the
-  `Random.value` draw its update makes every tick, so the shared stream stays in step.
-  The swarm-circle draws it would make on top (only with the map shown over a region
-  with swarm rooms) are counted, not made. Whether building the map's `MapData` draws
-  from the stream is not checked.
+- **Region map.** `HUD.Map` is ported for a player-owned story map in its base-game
+  branches (`rw_hud::Map`): the map image in three layers through the `Map` and
+  `MapAerial` shaders, the reveal from the discovery texture, pan and layers, the
+  connection lines, the player marker, gate and shelter markers, the swarm-room circles
+  and the Hunter's cycle label, with every random draw. The player's exit discovery and
+  `ReportRoomVisited` run in `Player.Update` as in the game. Differences: shelters show
+  no stored items (the port has none), and there are no death markers (no saves) or
+  karma flower marker; `CompleteDarkness` is the camera palette's darkness alone (no
+  light sources are ported); in a shortcut the owner's position is its vessel's tile
+  even while the vessel waits for another room; the cycle label counts 19 cycles (no
+  Remix settings, no extra cycles). Not ported: the More Slugcats gate locks, Remix's
+  item and creature markers and fast reveal, Watcher warp and spinning-top markers, and
+  the fast-travel and region-overview owners.
 - **Rain.** The rain meter reads the world's `RainCycle` (its drawn length and
   ticking timer, which the guide's `pauseRain` pins at 2000 in the tutorial rooms; D14).
   The rain itself is not ported; only the bat flies read a room's rain `DangerType`
@@ -893,11 +900,21 @@ story session.
   DLC part (More Slugcats pup meters, ammo meter, Watcher ripple symbols, Jolly Co-op
   meters, Remix's options).
 
-**Why.** The user decided against the map for now; the rain cycle, eating, saves and
-shelters are later milestones.
+**Why.** The rain cycle, eating, saves and shelters are later milestones.
 
-**Affects.** What the meters show (food, rain) and when they show in shelters; no
-gameplay beyond the map button standing the slugcat still.
+**Affects.** What the meters show (food, rain) and when they show in shelters, and the
+map's markers; no gameplay beyond the map button standing the slugcat still.
+
+## D16: Map discovery is not saved
+
+The sim keeps `progression.mapDiscoveryTextures` (`rw_sim::MapDiscovery`) and the region
+state's visited rooms in memory only: a new game starts with no discovery and nothing
+is written to or read from a save. `DiscoveryTexture::{from,to}_base64_png` give the
+save form (`MAP<progDivB>REGION<progDivB><base64 PNG>`), for the save module to use.
+
+**Why.** Saves are being ported separately.
+
+**Affects.** The map forgets what was discovered when the game restarts.
 
 ## Not ported yet (not divergences, just absent)
 

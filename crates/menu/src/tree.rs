@@ -7,7 +7,7 @@ use rw_render::StageBatch;
 use crate::atlas::AtlasManager;
 use crate::geometry::Matrix;
 use crate::label::Label;
-use crate::stage::{NodeTransform, Sprite};
+use crate::stage::{NodeTransform, Sprite, TriangleStrip};
 
 /// A node of a [`StageTree`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -18,6 +18,7 @@ enum TreeItem {
     Container(NodeTransform),
     Sprite(Sprite),
     Label(Label),
+    Strip(TriangleStrip),
 }
 
 #[derive(Debug, Clone)]
@@ -89,6 +90,19 @@ impl StageTree {
         self.add(parent, TreeItem::Label(label))
     }
 
+    pub fn add_strip(&mut self, parent: NodeId, strip: TriangleStrip) -> NodeId {
+        self.add(parent, TreeItem::Strip(strip))
+    }
+
+    /// # Panics
+    /// When the node is not a triangle strip.
+    pub fn strip_mut(&mut self, id: NodeId) -> &mut TriangleStrip {
+        match &mut self.nodes[id.0].item {
+            TreeItem::Strip(s) => s,
+            _ => panic!("stage node {id:?} is not a triangle strip"),
+        }
+    }
+
     /// `AddChild` of a node that is not in a container, or moves it to the top of
     /// `parent`.
     pub fn add_child(&mut self, parent: NodeId, child: NodeId) {
@@ -150,6 +164,7 @@ impl StageTree {
             TreeItem::Container(t) => t,
             TreeItem::Sprite(s) => &mut s.transform,
             TreeItem::Label(l) => &mut l.transform,
+            TreeItem::Strip(s) => &mut s.transform,
         }
     }
 
@@ -178,6 +193,7 @@ impl StageTree {
             TreeItem::Container(t) => t,
             TreeItem::Sprite(s) => &s.transform,
             TreeItem::Label(l) => &l.transform,
+            TreeItem::Strip(s) => &s.transform,
         };
         if !transform.visible {
             return;
@@ -186,6 +202,7 @@ impl StageTree {
         match &node.item {
             TreeItem::Sprite(s) => s.push_quad(atlases, batch, &matrix, alpha),
             TreeItem::Label(l) => l.push_quads(batch, &matrix, alpha),
+            TreeItem::Strip(s) => s.push_quads(atlases, batch, &matrix, alpha),
             TreeItem::Container(_) => {
                 for &child in &node.children {
                     self.push_node(child, atlases, batch, &matrix, alpha);

@@ -208,9 +208,11 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   `crop_radius` zooms on the player (or on `crop_center`). `get_tiles` gives the geometry as
   text. In a region world the uncropped visuals view includes the HUD;
   `get_hud` reports its meters (the food meter's `quarter_pips` too),
-  text prompt and the SU_C04 controls page, `hud_message` queues a
-  text-prompt message, and the `map` input field (Space in the window)
-  holds the map button; `pickup` (left Shift) picks up, drops and eats,
+  the region map (pan, layer, pending reveal, player marker, gate and
+  shelter markers), the text prompt and the SU_C04 controls page,
+  `hud_message` queues a text-prompt message, and the `map` input field
+  (Space in the window) holds the map button (the map shows after 30
+  ticks; x/y pan it, jump and throw change layers); `pickup` (left Shift) picks up, drops and eats,
   `throw` (X) throws.
 - To check behaviour, prefer these tools over `--screenshot`/`--script`.
   Briefs for agents that check behaviour should say so.

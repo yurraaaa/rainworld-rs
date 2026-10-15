@@ -2151,6 +2151,7 @@ version = "0.1.0"
 dependencies = [
  "log",
  "rw-assets",
+ "rw-graphics",
  "rw-menu",
  "rw-random",
  "rw-render",
@@ -2197,6 +2198,7 @@ dependencies = [
 name = "rw-sim"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "log",
  "rw-assets",
  "rw-random",

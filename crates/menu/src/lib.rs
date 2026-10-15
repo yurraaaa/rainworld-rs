@@ -43,6 +43,6 @@ pub use shared::{Dlcs, MenuContext, MenuShared, Progression, Slugcat, StoryGameI
 pub use slideshow::{SlideScene, SlideShow, SlideShowId};
 pub use slugcat_select::{SlugcatPage, SlugcatSelectMenu, SlugcatSelectScreen};
 pub use sound::{LoopId, MenuMic, MenuSound, MenuSoundEvent, MenuSoundId, MenuSoundLoop};
-pub use stage::{Container, Node, NodeTransform, Sprite, StageColor};
+pub use stage::{Container, Node, NodeTransform, Sprite, StageColor, TriangleStrip};
 pub use translator::Translator;
 pub use tree::{NodeId, StageTree};

@@ -25,8 +25,9 @@ Working now:
 - **Regions:** a whole region loads, and room-exit pipes take you between rooms, with the
   camera switching between screens.
 - **Sound:** sound effects and room ambience; menu and title music.
-- **HUD:** the food, karma and rain meters, text prompts and the controls page. There is
-  no map yet.
+- **HUD:** the food, karma and rain meters, text prompts, the controls page and the
+  region map (hold Space; arrows pan, jump and throw change layers), revealed where you
+  have been.
 - **Creatures:** the creature framework is in place. Overseers spawn and move between
   rooms, and the guide overseer follows the player with its tutorial text and holograms.
   Bat flies spread between rooms, fly, swarm, flee from the slugcat, burrow, hang in
@@ -40,7 +41,7 @@ Not yet ported:
 - saves, continuing a game, and importing saves from the real game;
 - region gates;
 - creatures other than overseers and bat flies;
-- the pause menu, the region map, and depth scenes.
+- the pause menu and depth scenes.
 
 ## Building and running
 
@@ -76,7 +77,7 @@ These are the game's default keyboard bindings.
 | Z | Jump | Confirm |
 | Left Shift | Pick up, drop, eat (hold) | |
 | X | Throw | |
-| Space | Map button (shows the HUD meters) | Confirm |
+| Space | Map button (the HUD meters and region map) | Confirm |
 | Enter | | Confirm |
 | Esc | Quit (until the pause menu exists) | Back |
 

@@ -361,6 +361,9 @@ pub struct AbstractRoomData {
     /// `mapPos`: the room's centre on the region map (`map_<region>.txt`), shifted so
     /// the map's lowest corner is at the origin (`LoadMapConfig`); zero when unlisted.
     pub map_pos: [f32; 2],
+    /// `layer`: the map's depth layer, 0 to 2 (the fifth `map_<region>.txt` field; 1
+    /// when unlisted).
+    pub layer: i32,
 }
 
 impl AbstractRoomData {
@@ -381,6 +384,7 @@ impl AbstractRoomData {
             ancient_shelter: false,
             offscreen_den: false,
             map_pos: [0.0; 2],
+            layer: 1,
         }
     }
 
@@ -899,8 +903,9 @@ impl WorldData {
 
     /// `LoadMapConfig`'s room positions: `map_<region>-<timeline>.txt` if it exists,
     /// else `map_<region>.txt`; each `NAME: x><y><...` line sets that room's `mapPos`
-    /// (names compared ignoring case); then every room, the off-screen den included, is
-    /// shifted so the lowest `mapPos - size * 1.5` is zero.
+    /// (names compared ignoring case) and, with a fifth field, its `layer`; then every
+    /// room, the off-screen den included, is shifted so the lowest `mapPos - size * 1.5`
+    /// is zero.
     fn load_map_positions(
         assets: &StreamingAssets,
         region: &str,
@@ -939,6 +944,9 @@ impl WorldData {
             let y = values.next().and_then(|v| v.trim().parse::<f32>().ok());
             if let (Some(x), Some(y)) = (x, y) {
                 room.map_pos = [x, y];
+            }
+            if let Some(layer) = values.nth(2).and_then(|v| v.trim().parse::<i32>().ok()) {
+                room.layer = layer;
             }
         }
         let mut low = [f32::MAX; 2];
