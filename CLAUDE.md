@@ -179,6 +179,8 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   game mode `get_state` reports the fade delay, the SU_C04 start script
   and the player's controller. `screenshot` then draws the process frame with its fade.
 - `--mcp --window` also shows the driven scene in a window.
+- End of the project: a review of code cleanliness and quality across the
+  workspace, then an optimisation pass (both after the features).
 - Long-term goal: an Android port at the end of the project. Don't rule it
   out: keep platform-specific code (windowing, file paths to the game data,
   input) behind small seams, prefer crates that support Android (wgpu's
