@@ -331,7 +331,7 @@ impl MainLoopProcess<AppContext> for GameProcess {
             .as_mut()
             .and_then(Script::next_input)
             .unwrap_or(keys);
-        let events = self.scene.tick(input);
+        let events = self.scene.tick(input, Some(&mut ctx.menu));
         if self.scene.take_entered_room()
             && let Some(audio) = &mut ctx.audio
         {
@@ -613,7 +613,10 @@ impl Frontend {
         let alpha = self.manager.time_stacker();
         let atlases = &self.ctx.menu.atlases;
         match self.manager.current_mut() {
-            Some(AppProcess::Game(game)) => game.scene.draw(&mut target.scene, alpha, view),
+            Some(AppProcess::Game(game)) => {
+                game.scene.draw(&mut target.scene, alpha, view);
+                game.scene.draw_hud(atlases, &mut batch, alpha);
+            }
             current => {
                 let r = &mut target.scene.renderer;
                 r.begin_frame(Camera::window([0.0, 0.0], screen, r.size()));
@@ -633,6 +636,22 @@ impl Frontend {
 }
 
 impl<R: Renderer> FrontendRenderer<R> {
+    /// The HUD of `scene` over the frame its `draw` queued (a game run without the
+    /// process manager).
+    pub fn draw_scene_hud(&mut self, shared: &MenuShared, scene: &mut Scene, alpha: f32) {
+        self.textures
+            .sync(&shared.atlases, &mut self.scene.renderer);
+        self.scene.renderer.set_stage_globals(StageGlobals {
+            rain: 0.0,
+            text_gradient: shared.text_gradient,
+            noise2: shared.noise2,
+            sprite_rect: [0.0; 4],
+        });
+        let mut batch = StageBatch::default();
+        scene.draw_hud(&shared.atlases, &mut batch, alpha);
+        self.scene.renderer.draw_stage(&batch, shared.screen_size);
+    }
+
     pub fn new(scene: SceneRenderer<R>) -> Self {
         Self {
             scene,

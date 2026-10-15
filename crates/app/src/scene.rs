@@ -1,12 +1,16 @@
-//! What a frame shows: the game with its level graphic and water, drawn the same way in
-//! the window and in headless (MCP) screenshots.
+//! What a frame shows: the game with its level graphic and water and the HUD, drawn the
+//! same way in the window and in headless (MCP) screenshots.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use rw_assets::{StreamingAssets, UnityResources};
 use rw_graphics::{DrawList, Layer};
-use rw_render::{Camera, LevelView, Renderer, RoomLayers, WaterFrame, WaterSprites, WaterSurface};
+use rw_hud::{Hud, IllustrationSource, PageText, RainCycleView};
+use rw_menu::{AtlasManager, Font, MenuShared};
+use rw_render::{
+    Camera, LevelView, Renderer, RoomLayers, StageBatch, WaterFrame, WaterSprites, WaterSurface,
+};
 use rw_sim::{Input, SoundEvent};
 
 use crate::game::Game;
@@ -35,6 +39,8 @@ pub struct Scene {
     water_sprites: Option<WaterSprites>,
     /// The camera moved to another room since the last [`Scene::take_entered_room`].
     entered_room: bool,
+    /// Camera 0's HUD, once fired up.
+    hud: Option<Hud>,
 }
 
 /// What a room's level graphic is loaded from.
@@ -87,6 +93,7 @@ impl Scene {
             visuals: None,
             water_sprites: None,
             entered_room: false,
+            hud: None,
         };
         scene.load_visuals();
         scene.apply_camera_move();
@@ -153,10 +160,95 @@ impl Scene {
         self.visuals.as_ref()
     }
 
-    /// One 40 Hz tick of the game, then of the room camera; returns the sound events
-    /// since the last tick.
-    pub fn tick(&mut self, input: Input) -> Vec<SoundEvent> {
+    #[must_use]
+    pub fn hud(&self) -> Option<&Hud> {
+        self.hud.as_ref()
+    }
+
+    pub fn hud_mut(&mut self) -> Option<&mut Hud> {
+        self.hud.as_mut()
+    }
+
+    /// One 40 Hz tick: the HUD (`RoomCamera.Update` comes before the rooms in
+    /// `RainWorldGame.Update`), the game, the controls page (a room object), then the
+    /// room camera's move; returns the sound events since the last tick. Without
+    /// `shared` (fonts, atlases, strings) there is no HUD.
+    pub fn tick(&mut self, input: Input, shared: Option<&mut MenuShared>) -> Vec<SoundEvent> {
+        let Some(shared) = shared else {
+            self.game.tick(input);
+            return self.after_game_tick();
+        };
+        self.update_hud(shared);
+        let script = self.game.start_up_script();
+        let showed_controls = script.is_some_and(|s| s.showed_controls());
+        let continue_page = script.is_some_and(|s| s.controls_page_continue());
+        self.game.sim_mut().set_hud_present(self.hud.is_some());
         self.game.tick(input);
+        if let Some(hud) = &mut self.hud {
+            hud.update_controls_page(continue_page);
+            if !showed_controls
+                && self
+                    .game
+                    .start_up_script()
+                    .is_some_and(|s| s.showed_controls())
+            {
+                Self::open_controls_page(hud, shared);
+            }
+        }
+        self.after_game_tick()
+    }
+
+    /// `RoomCamera.Update`'s HUD step: update it, or fire it up once the player is
+    /// realized.
+    fn update_hud(&mut self, shared: &MenuShared) {
+        match &mut self.hud {
+            Some(hud) => {
+                let owner = self.game.hud_owner();
+                let map_button = self.game.map_button();
+                let (sounds, rng) = self.game.sim_mut().camera_io();
+                hud.update(
+                    &owner,
+                    map_button,
+                    &RainCycleView::STAND_IN,
+                    &shared.translator,
+                    sounds,
+                    rng,
+                );
+            }
+            None if self.game.hud_due() => {
+                let setup = self.game.hud_setup(shared.screen_size);
+                self.hud = Some(Hud::new(&setup, &shared.atlases));
+                log::info!("HUD fired up");
+            }
+            None => {}
+        }
+    }
+
+    /// `new TutorialControlsPageOwner(game)`.
+    fn open_controls_page(hud: &mut Hud, shared: &mut MenuShared) {
+        let font = shared.atlases.font(Font::FONT).cloned();
+        let text = PageText {
+            font: font.as_ref(),
+            translator: &shared.translator,
+        };
+        let mut source = IllustrationSource {
+            assets: &shared.assets,
+            atlases: &mut shared.atlases,
+        };
+        hud.open_controls_page(&mut source, &text);
+        log::info!("controls page shown");
+    }
+
+    /// Sets the HUD's sprites for `alpha` between ticks and appends its quads.
+    pub fn draw_hud(&mut self, atlases: &AtlasManager, batch: &mut StageBatch, alpha: f32) {
+        if let Some(hud) = &mut self.hud {
+            hud.draw(alpha);
+            hud.push_quads(atlases, batch);
+        }
+    }
+
+    /// The room camera after the game's tick; returns the sound events.
+    fn after_game_tick(&mut self) -> Vec<SoundEvent> {
         self.apply_camera_move();
         if let Some(visuals) = &mut self.visuals {
             visuals.tick(self.game.camera_follow().as_ref());

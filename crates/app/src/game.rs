@@ -7,10 +7,12 @@
 use std::sync::Arc;
 
 use rw_assets::unity::AssetBundle;
+use rw_assets::world::AbstractRoomData;
 use rw_assets::world::{GameRooms, LineFilter, Regions, StoryConditions, WorldData, WorldRequest};
 use rw_assets::{ActiveMods, Room, RoomSettings, SlugcatName, SoundTable, StreamingAssets};
 use rw_audio::Follow as SoundFollow;
 use rw_graphics::{Color, DrawList, PlayerGraphics};
+use rw_hud::{HudSetup, OwnerTick, RainCycleView, StartCondition, Subregions};
 use rw_random::UnityRandom;
 use rw_render::{BodyStatus, ChunkInterpolation, Follow, PlayerLight, WaterSurface};
 use rw_sim::campaign::{self, SlugcatCampaign};
@@ -39,6 +41,10 @@ pub enum GameStart {
 pub struct Game {
     sim: RainWorldGame,
     graphics: Graphics,
+    /// `menuSetup.startGameCondition`: `New` for a new story, `Dev` for a room start.
+    start_condition: StartCondition,
+    /// The region's subregions, for the HUD; `None` in a world without a region.
+    subregions: Option<Subregions>,
 }
 
 /// The player's graphics module, attached where the game attaches it.
@@ -180,9 +186,19 @@ impl Game {
             region,
             timeline: campaign.timeline,
         });
+        let subregions = data
+            .region
+            .as_ref()
+            .map(|r| Subregions::load(assets, &r.name, campaign.timeline.value()));
         let world = World::new(data, rooms, campaign.timeline, mods, true);
-        let start = Start { room: first, tile };
-        Ok(Self::build(world, campaign, start, rng, Sounds::new(table)))
+        let start_at = Start { room: first, tile };
+        let mut game = Self::build(world, campaign, start_at, rng, Sounds::new(table));
+        game.subregions = subregions;
+        game.start_condition = match start {
+            GameStart::NewStory(_) => StartCondition::New,
+            GameStart::Room { .. } => StartCondition::Dev,
+        };
+        Ok(game)
     }
 
     fn build(
@@ -198,13 +214,102 @@ impl Game {
         };
         let sim = RainWorldGame::new(world, campaign, start, rng, sounds, &mut graphics);
         log::info!("spawned player");
-        Self { sim, graphics }
+        Self {
+            sim,
+            graphics,
+            start_condition: StartCondition::Dev,
+            subregions: None,
+        }
     }
 
     /// The simulation.
     #[must_use]
     pub fn sim(&self) -> &RainWorldGame {
         &self.sim
+    }
+
+    pub fn sim_mut(&mut self) -> &mut RainWorldGame {
+        &mut self.sim
+    }
+
+    /// `RoomCamera.Update`'s condition for firing up the HUD: the followed player is
+    /// realized in a world that is not a single room.
+    #[must_use]
+    pub fn hud_due(&self) -> bool {
+        self.sim.player().is_some() && !self.sim.world().single_room()
+    }
+
+    /// What `InitSinglePlayerHud` and `FireUpSinglePlayerHUD` read: the slugcat's food
+    /// meter, the new game's karma (no saves yet), cycle 0, and the stand-in rain cycle.
+    #[must_use]
+    pub fn hud_setup(&self, screen_size: [f32; 2]) -> HudSetup {
+        let campaign = self.sim.campaign();
+        let world = self.sim.world();
+        HudSetup {
+            screen_size,
+            max_food: campaign.stats.max_food,
+            food_to_hibernate: campaign.stats.food_to_hibernate,
+            current_food: 0,
+            karma: campaign.start_karma,
+            karma_cap: campaign.start_karma_cap,
+            karma_reinforced: false,
+            cycle_number: self.sim.story_session().cycle_number,
+            camera_room_shelter: world
+                .abstract_room(self.sim.camera_room())
+                .is_some_and(AbstractRoomData::shelter),
+            rain: RainCycleView::STAND_IN,
+            subregions: self.subregions.clone(),
+            start: self.start_condition,
+            swarm_rooms: world
+                .data()
+                .rooms
+                .iter()
+                .filter(|r| r.swarm_room_index > -1)
+                .count(),
+        }
+    }
+
+    /// What the HUD reads of the player this tick. Eating, shelters (doors,
+    /// hibernation) and the rain cycle are not ported: no food, never in a shelter's
+    /// sleep pose or ready to win, no rain danger.
+    #[must_use]
+    pub fn hud_owner(&self) -> OwnerTick {
+        let Some(player) = self.sim.player() else {
+            return OwnerTick::default();
+        };
+        let input = player.input_history()[0];
+        let room = (!player.in_shortcut())
+            .then(|| self.sim.world().abstract_room(self.sim.player_pos().room))
+            .flatten();
+        let shelter = room.is_some_and(AbstractRoomData::shelter);
+        OwnerTick {
+            reveal_map: input.map,
+            room: room.map(|r| r.name.clone()),
+            // Broken shelters are not read: every shelter is intact.
+            in_intact_shelter: shelter,
+            force_sleep_pose: shelter && self.in_force_sleep_pose(player),
+            ..OwnerTick::default()
+        }
+    }
+
+    /// The input and tiles `FoodMeter.GameUpdate` checks for lowering `forceSleep` by
+    /// 1/60 per tick (holding down on solid ground with nothing else pressed).
+    fn in_force_sleep_pose(&self, player: &Player) -> bool {
+        let input = player.input_history()[0];
+        let room = self.room();
+        input.y < 0
+            && !input.jump
+            && player.is_tile_solid(room, 1, 0, -1)
+            && (input.x == 0
+                || ((!player.is_tile_solid(room, 1, -1, -1)
+                    || !player.is_tile_solid(room, 1, 1, -1))
+                    && player.is_tile_solid(room, 1, i32::from(input.x), 0)))
+    }
+
+    /// The map button as the game-over prompt reads it (the default keyboard binding).
+    #[must_use]
+    pub fn map_button(&self) -> bool {
+        self.sim.player().is_some_and(|p| p.input_history()[0].map)
     }
 
     /// Hands the random stream back (to the menus, when the game ends).
@@ -521,11 +626,7 @@ pub(crate) mod tests {
     fn respawn_gives_a_fresh_player() {
         let mut game = Game::new(open_room(), &RoomSettings::ANCESTOR, 1, None);
         for _ in 0..10 {
-            game.tick(Input {
-                x: 1,
-                y: 1,
-                jump: false,
-            });
+            game.tick(Input::new(1, 1, false));
         }
         game.respawn();
         assert!(!game.player().is_standing());

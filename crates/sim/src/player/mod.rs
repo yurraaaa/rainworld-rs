@@ -653,6 +653,12 @@ impl Player {
             Some(controller) => controller.input(),
             None => input.normalized(),
         };
+        // `standStillOnMapButton` is set in a story session (the port's only kind): holding
+        // the map button drops the other buttons and blinks (`Sleeping` is not ported).
+        if self.input[0].map {
+            self.input[0] = Input::NONE.with_map(true);
+            self.blink(5);
+        }
         let [now, prev, prev2, ..] = self.input;
         // Holding a charged crouch super jump freezes horizontal input.
         if self.super_launch_jump > 10 && now.jump && prev.jump && prev2.jump && now.y < 1 {
@@ -732,7 +738,8 @@ impl Player {
 
     /// `PhysicalObject.IsTileSolid`: Solid, or a one-way Floor below a chunk that is not
     /// going through floors.
-    fn is_tile_solid(&self, room: &Room, i: usize, dx: i32, dy: i32) -> bool {
+    #[must_use]
+    pub fn is_tile_solid(&self, room: &Room, i: usize, dx: i32, dy: i32) -> bool {
         let (x, y) = self.tile_pos(i);
         match room.tile(x + dx, y + dy).terrain {
             Terrain::Solid => true,

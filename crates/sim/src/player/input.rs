@@ -5,9 +5,9 @@ pub const INPUT_HISTORY: usize = 10;
 
 /// One tick of controller input.
 ///
-/// Only the fields the ported movement reads. The game's package also carries throw,
-/// pick-up, map and special buttons (grabbing, throwing, map; not ported) and the
-/// analogue stick (the digital `x`/`y` are derived from it with a 0.5 threshold).
+/// Only the fields the port reads. The game's package also carries throw, pick-up and
+/// special buttons (grabbing, throwing; not ported) and the analogue stick (the digital
+/// `x`/`y` are derived from it with a 0.5 threshold).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct Input {
     /// Horizontal direction: -1 left, 0, +1 right. Other values are reduced to their sign.
@@ -16,6 +16,8 @@ pub struct Input {
     pub y: i8,
     /// Jump button held.
     pub jump: bool,
+    /// Map button held (`mp`): the HUD's `RevealMap`; the player stands still.
+    pub map: bool,
 }
 
 impl Input {
@@ -24,6 +26,7 @@ impl Input {
         x: 0,
         y: 0,
         jump: false,
+        map: false,
     };
 
     /// An input with each axis reduced to -1, 0 or +1.
@@ -33,7 +36,14 @@ impl Input {
             x: x.signum(),
             y: y.signum(),
             jump,
+            map: false,
         }
+    }
+
+    /// The same input with the map button `map`.
+    #[must_use]
+    pub const fn with_map(self, map: bool) -> Self {
+        Self { map, ..self }
     }
 
     /// The horizontal direction while down is held, else 0 (`downDiagonal`).
@@ -46,7 +56,7 @@ impl Input {
 
     /// The same input with both axes reduced to their sign.
     pub(crate) const fn normalized(self) -> Self {
-        Self::new(self.x, self.y, self.jump)
+        Self::new(self.x, self.y, self.jump).with_map(self.map)
     }
 }
 

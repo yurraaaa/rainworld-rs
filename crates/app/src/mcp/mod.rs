@@ -26,9 +26,9 @@ use rw_assets::{StreamingAssets, UnityResources};
 use serde::Serialize;
 
 use params::{
-    ListRoomsParams, LoadProcessParams, LoadRoomParams, NewGameParams, RespawnParams,
-    ScreenshotParams, SetPlayerParams, StepParams, StepProcessParams, StepSequenceParams,
-    TilesParams,
+    HudMessageParams, ListRoomsParams, LoadProcessParams, LoadRoomParams, NewGameParams,
+    RespawnParams, ScreenshotParams, SetPlayerParams, StepParams, StepProcessParams,
+    StepSequenceParams, TilesParams,
 };
 pub use session::Session;
 
@@ -248,6 +248,27 @@ impl Server {
         Parameters(p): Parameters<StepProcessParams>,
     ) -> Result<CallToolResult, String> {
         Self::json(&self.session()?.step_process(&p)?)
+    }
+
+    #[tool(
+        description = "The HUD (after the first tick of a load_room / new_game in a region \
+        world): food meter position, fade and pips, karma meter position, fade, radius and \
+        symbol, rain meter fade and circle count, the map's fade, the text prompt's \
+        message and fade, and the tutorial controls page while it shows."
+    )]
+    fn get_hud(&self) -> Result<CallToolResult, String> {
+        Self::json(&self.session()?.hud_state()?)
+    }
+
+    #[tool(
+        description = "Queue a message on the HUD's text prompt (TextPrompt.AddMessage, as \
+        tutorials do: wait, time in ticks, darken, hide_hud); returns the HUD state."
+    )]
+    fn hud_message(
+        &self,
+        Parameters(p): Parameters<HudMessageParams>,
+    ) -> Result<CallToolResult, String> {
+        Self::json(&self.session()?.hud_message(&p)?)
     }
 
     #[tool(

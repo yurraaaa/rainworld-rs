@@ -67,8 +67,9 @@ pub struct SlugcatCampaign {
     pub start_den_is_vanilla: bool,
     /// `GetFinalFallbackShelter`.
     pub fallback_shelter: &'static str,
-    /// New-game `deathPersistentSaveData.karma` and `theMark`.
+    /// New-game `deathPersistentSaveData.karma`, `karmaCap` and `theMark`.
     pub start_karma: i32,
+    pub start_karma_cap: i32,
     pub start_with_mark: bool,
     /// Whether the campaign has a `DreamsState`.
     pub dreams: bool,
@@ -86,6 +87,7 @@ impl SlugcatCampaign {
         start_den_is_vanilla: true,
         fallback_shelter: "SU_S01",
         start_karma: 0,
+        start_karma_cap: 4,
         start_with_mark: false,
         dreams: true,
     };
@@ -109,6 +111,7 @@ impl SlugcatCampaign {
         start_den_is_vanilla: true,
         fallback_shelter: "SU_S01",
         start_karma: 0,
+        start_karma_cap: 4,
         start_with_mark: false,
         dreams: true,
     };
@@ -133,6 +136,7 @@ impl SlugcatCampaign {
         start_den_is_vanilla: true,
         fallback_shelter: "LF_S02",
         start_karma: 2,
+        start_karma_cap: 4,
         start_with_mark: true,
         dreams: false,
     };
