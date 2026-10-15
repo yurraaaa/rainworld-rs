@@ -148,9 +148,11 @@ before the user agrees.
     (bites, drips, food and the food meter), under the tutorial's Eat
     instruction in SU_A42; fed, the guide moves on to SU_A43's super-jump
     lesson. Saves (`rw-save`, D16): Continue from the slugcat select, New
-    Game's wipe and the start's death-and-quit save; shelters, hibernation
-    and whole save states are not written yet. Gates, region changes and
-    the rain are not there yet.
+    Game's wipe and the start's death-and-quit save. Shelters (D17): the
+    door closes on a fed, still slugcat, `Win` writes the whole save state
+    and region state, a sleep-screen stand-in starts the next cycle in the
+    shelter with the saved population. Gates, region changes, the rain and
+    the sleep, starve and death screens are not there yet.
   - Death freezes the body until R respawns it (revisit once the real
     game loop exists). A body that falls out of the room is destroyed,
     as in the game.
