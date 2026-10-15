@@ -21,8 +21,9 @@ depend on whether audio is playing. The menus draw from the same stream before t
 does: the intro roll's `RainEffect` (2508 draws when built: five per drop, eight for
 the wind; every tick two per drop, five more per drop that resets, eight for the wind,
 one when the highlight wraps, one or two for the lightning) and its random lightning
-past 14 s (one draw per tick, three more on a spike), the flat scenes' camera drift
-(`InteractiveMenuScene`, every tick of a shown scene) and the menu sounds (`MenuMicrophone.PlaySound`/`PlayLoop` make the same
+past 14 s (one draw per tick, three more on a spike), the scenes' camera drift and
+focus (`InteractiveMenuScene`, every tick of a shown scene; a depth scene's idle focus
+pick two more) and the menu sounds (`MenuMicrophone.PlaySound`/`PlayLoop` make the same
 `SoundLoader` draws), and the game process takes the stream over where the menus left
 it (D13). What still differs is only the seed and the call order:
 - **Seed.** The game seeds at start-up from OS entropy and never re-seeds for anything
@@ -612,7 +613,7 @@ real-time audio rather than the sim.
   divides by zero in both, and what the GPU then samples is whatever the driver does
   with non-finite coordinates (the effect on the light's falloff is small).
 - **Port-only process.** `ProcessId::FontTest` (labels in both fonts over the flat
-  main-menu scene) is not a game screen; it exists to compare drawing by eye. Its
+  main-menu image) is not a game screen; it exists to compare drawing by eye. Its
   labels sit on whole pixels, where `font`'s glyphs lose a pixel row to point sampling;
   the game's menus place labels a third of a pixel off (the page sits at (1/3, 1/3)),
   and the port's menus draw them whole.
@@ -656,7 +657,7 @@ real-time audio rather than the sim.
 - **Options menu.** `OptionsMenu` with Remix off and no console (`rw_menu::OptionsMenu`,
   `rainworld-re/notes/menu.md` "OptionsMenu"), with its `SelectOneButton`s,
   `HorizontalSlider`s, `CustomMessageButton`, `ControlsButton`, check boxes, the reset
-  `HoldButton` and the flat `Landscape - SU` scene. What it does in the port:
+  `HoldButton` and the `Landscape_SU` depth scene. What it does in the port:
   - The volumes drive the audio (sound effects for game and menu sounds, music for the
     music player), the screen mode and resolution the window (borderless full screen or
     a window of the size; `Screen.SetResolution` and the ten-tick mode fix-up are
@@ -694,16 +695,32 @@ real-time audio rather than the sim.
   as D16 describes (`AppContext::exit_game`); `warnedAboutKarmaLossOnExit` is the
   progression's and saved with it. The port's R respawn (dev starts only, D4) still
   works while paused. During game over the pause menu does not open, as in the game.
-- **Flat scenes.** Menu scenes are shown in the game's flat mode (`flatmode.txt`: one
-  `<scene> - Flat.png`; `rainWorld.flatIllustrations`) until depth scenes
-  (`MenuDepthIllustration`, its shaders) are ported. The flat-mode branches follow the
-  game: no slugcat select rain effect; the scenes' idle camera still runs and draws
-  random numbers every tick, as in the game; the slideshows' scenes have none.
-  The sleep, starve and new-death scenes (`SceneId::{SleepScreen, StarveScreen,
-  NewDeath}`) are built flat too: the sleep scene of the slugcat being played
-  (`PlayingAsSlugcat`: the scene is built after the manager switches to the screen, so
-  never the story character), and the death scene's `Flower` flat faded in over the
-  scene timer's first 160 ticks (`InteractiveMenuScene`), which only the screen starts.
+- **Depth and flat scenes.** As the game decides, scenes are in depth unless
+  `StreamingAssets/flatmode.txt` exists (`rainWorld.flatIllustrations`; the installed
+  game has none). Ported in depth (`rw_menu::menu::DepthScene`, `MenuShader`,
+  `rainworld-re/notes/menu.md` "Depth scenes"): `MenuDepthIllustration` (the
+  double-height layer, parallax `pos - CamPos * 80 / depth`, `DepthAtPosition`,
+  `positions.txt`), `InteractiveMenuScene`'s focus (the idle pick from the idle depths
+  or layers: `Range`, then `value`; the depth under a still mouse), the globals
+  `_BlurDepth`, `_BlurRange`, `_MenuCamPos` and the shaders `SceneBlur`,
+  `SceneBlurLightEdges`, `SceneLighten`, `SceneOverlay`, `SceneSoftLight` in WGSL. In
+  depth so far: `MainMenu` and `Landscape_SU` (the options menu). Still flat until their
+  steps although the game shows them in depth: the slugcat select pages (so no select
+  rain effect, mark or glow), the sleep, starve and new-death scenes and the intro
+  slideshows. Their flat branches follow the game: the idle camera draws every tick
+  (its idle focus pick draws nothing more without layers); the sleep scene of the
+  slugcat being played (`PlayingAsSlugcat`: built after the manager switches, so never
+  the story character); the death scene's `Flower` flat faded in over the scene
+  timer's first 160 ticks, which only the screen starts. Layer images load
+  synchronously when the scene is built, as in the game, and stay decoded on the CPU
+  (for `DepthAtPosition`) and on the GPU: about 80 MiB each for the main menu's 15
+  layers, 36 MiB for `Landscape_SU`'s 3. `SceneRain` and `SceneMultiply` (no base-game
+  scene uses them) are not ported; such a layer would draw with `Basic`. The scene
+  globals are kept per menu (the last scene `GrafUpdate` of that menu), where Unity's
+  are process-wide; only scene layers read them, and a scene sets them before its
+  layers draw. The grab is sampled at the pixel's own screen position, the net of the
+  shaders' `UNITY_UV_STARTS_AT_TOP` flip and `1 - scrPos.y` read on Direct3D (the
+  Windows build); on OpenGL the game's would read the grab mirrored.
 - **Intro slideshows.** `SlideShow` (`WhiteIntro`, `YellowIntro`; `rw_menu::SlideShow`,
   `rainworld-re/notes/slideshow.md`) is ported in flat mode: the playlists, the wait for
   `RW_Intro_Theme`, the manager fade, the scene alphas (Rain Drop's and Yellow A's

@@ -701,12 +701,14 @@ impl Menu {
             alpha: 1.0,
             last_alpha: 1.0,
             set_alpha: None,
+            depth: None,
         });
         id
     }
 
-    /// `new InteractiveMenuScene(menu, owner, sceneID)` in flat mode: the scene's flat
-    /// illustrations, then the idle camera's first random draws.
+    /// `new InteractiveMenuScene(menu, owner, sceneID)`: the scene's illustrations
+    /// (depth layers unless in flat mode or the port has no depth table for it yet,
+    /// D13), then the idle camera's first random draws.
     pub fn add_scene(
         &mut self,
         shared: &mut MenuShared,
@@ -718,6 +720,33 @@ impl Menu {
             Vec2::ZERO,
             Kind::Scene(Box::new(SceneData::new(scene))),
         ));
+        let depth = if shared.flat_illustrations {
+            None
+        } else {
+            scene.depth_scene(shared)
+        };
+        if let Some(table) = depth {
+            self.build_depth_scene(shared, id, &table, true);
+        } else {
+            self.build_flat_scene(shared, id, scene);
+        }
+        let rng = &mut shared.random;
+        let get_to_focus = rng.value();
+        let dir = Vec2::random_unit(rng);
+        let cam_get_to = dir * rng.value();
+        if let Some(s) = self.scene_mut(id) {
+            s.get_to_focus = get_to_focus;
+            s.cam_get_to = cam_get_to;
+            s.cam_pos = cam_get_to;
+            s.last_cam_pos = cam_get_to;
+            s.cam_get_to2 = cam_get_to;
+        }
+        id
+    }
+
+    /// The flat branch of `BuildScene`: one image (two for the death scene) at the
+    /// screen centre.
+    fn build_flat_scene(&mut self, shared: &mut MenuShared, id: ObjectId, scene: SceneId) {
         for (folder, file) in scene.flat_files(shared) {
             let flat = self.add_illustration(
                 shared,
@@ -733,18 +762,6 @@ impl Menu {
             }
             self.add_sub(id, flat);
         }
-        let rng = &mut shared.random;
-        let get_to_focus = rng.value();
-        let dir = Vec2::random_unit(rng);
-        let cam_get_to = dir * rng.value();
-        if let Some(s) = self.scene_mut(id) {
-            s.get_to_focus = get_to_focus;
-            s.cam_get_to = cam_get_to;
-            s.cam_pos = cam_get_to;
-            s.last_cam_pos = cam_get_to;
-            s.cam_get_to2 = cam_get_to;
-        }
-        id
     }
 
     /// `new SlideShowMenuScene(menu, owner, sceneID)` in flat mode: its flat
@@ -801,12 +818,17 @@ impl Menu {
     /// Takes a scene off its owner and the stage and frees its images
     /// (`RemoveSprites`, `subObjects.Remove`, `UnloadImages`).
     pub fn remove_scene(&mut self, scene: ObjectId, shared: &mut MenuShared) {
-        let flats = match &self.objects[scene.0].kind {
-            Kind::Scene(s) => s.flat_illustrations.clone(),
+        let illustrations: Vec<ObjectId> = match &self.objects[scene.0].kind {
+            Kind::Scene(s) => s
+                .depth_illustrations
+                .iter()
+                .chain(&s.flat_illustrations)
+                .copied()
+                .collect(),
             _ => return,
         };
-        for flat in flats {
-            if let Kind::Illustration(i) = &self.objects[flat.0].kind {
+        for illustration in illustrations {
+            if let Kind::Illustration(i) = &self.objects[illustration.0].kind {
                 let (sprite, file) = (i.sprite, i.file_name.clone());
                 self.stage.remove_from_container(sprite);
                 shared.atlases.unload_atlas(&file);
@@ -1008,8 +1030,13 @@ impl SceneData {
         Self {
             id,
             interactive: true,
+            flat_mode: true,
             display_time: 0.0,
+            depth_illustrations: Vec::new(),
             flat_illustrations: Vec::new(),
+            idle_depths: Vec::new(),
+            blur_min: 0.25,
+            blur_max: 0.8,
             hidden: false,
             focus: 0.0,
             last_focus: 0.0,

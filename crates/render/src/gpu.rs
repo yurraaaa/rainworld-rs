@@ -440,7 +440,8 @@ impl WgpuRenderer {
     }
 
     /// The index of the first draw at or after `from` that grabs the frame first (a
-    /// `HologramImage` sprite draw, a `LocalBloom` stage draw), else the end.
+    /// `HologramImage` sprite draw, a stage draw whose shader has a `GrabPass`), else
+    /// the end.
     fn next_grab(batches: &[Batch], from: usize) -> usize {
         batches
             .iter()
@@ -448,7 +449,7 @@ impl WgpuRenderer {
             .skip(from)
             .find(|(_, b)| match b {
                 Batch::Sprites(d) => d.shader == rw_graphics::Shader::HologramImage,
-                Batch::Stage(d) => d.shader == crate::StageShader::LocalBloom,
+                Batch::Stage(d) => d.shader.grabs(),
                 _ => false,
             })
             .map_or(batches.len(), |(i, _)| i)
@@ -1010,7 +1011,7 @@ impl Renderer for WgpuRenderer {
             self.draw_batches(&mut pass, &batches[first_batch..end], water, screen);
             first_batch = end;
         }
-        // Each `HologramImage` and `LocalBloom` draw grabs the frame drawn before it.
+        // Each `HologramImage` draw and grabbing stage draw grabs the frame drawn before it.
         while first_batch < batches.len() {
             self.frame.copy_to_grab(&mut encoder);
             let end = Self::next_grab(&batches, first_batch + 1);

@@ -3,7 +3,10 @@
 // fs_basic `Futile/Basic`, fs_edge_fade `EdgeFade`, fs_flat_light `FlatLight`,
 // fs_vector_circle `VectorCircle`, fs_vector_circle_fadable `VectorCircleFadable`,
 // fs_hold_button_circle `HoldButtonCircle`, fs_menu_text `MenuText`,
-// fs_flat_light_noisy `FlatLightNoisy`, fs_local_bloom `LocalBloom` (reads group 3).
+// fs_flat_light_noisy `FlatLightNoisy`, fs_local_bloom `LocalBloom` (reads group 3),
+// fs_scene_blur `SceneBlur`, fs_scene_blur_light_edges `SceneBlurLightEdges`,
+// fs_scene_lighten `SceneLighten`, fs_scene_overlay `SceneOverlay`,
+// fs_scene_soft_light `SceneSoftLight` (the last three read group 3).
 
 struct Stage {
     // xy: scale, zw: offset; clip = pos * scale + offset.
@@ -15,6 +18,8 @@ struct Stage {
     pad: f32,
     // `_spriteRect`: (0, 0, 0, 0) unless a room camera set it.
     sprite_rect: vec4<f32>,
+    // `_BlurDepth`, `_BlurRange`, `_MenuCamPos` (set by `MenuScene.GrafUpdate`).
+    menu_scene: vec4<f32>,
 };
 
 // Futile's `screenPixelOffset` (`Camera::SCREEN_PIXEL_OFFSET`): screen = stage + this.
@@ -206,4 +211,138 @@ fn fs_local_bloom(in: VertexOut) -> @location(0) vec4<f32> {
     sum *= in.color.a * mix(1.0, 0.0, d * 2.0);
     let under = grab_at(in.scr);
     return vec4<f32>(max(under.rgb, sum.rgb), under.a) + sum;
+}
+
+// Menu depth illustrations. The texture is double height: colour in its upper half
+// (v 0.5..1), a depth map (red: 1 = near) in its lower half; the quad shows it at half
+// height, so `uv` spans the whole texture. The vertex colour carries the sprite's size
+// (r: 1..1400, g: 1..800 px) and depth (b: 0..10); alpha is the sprite's alpha.
+struct SceneTexel {
+    // Where the colour is read: the colour half, shifted towards the camera by the depth map.
+    pos: vec2<f32>,
+    // `1 - depth map`: 0 nearest, 1 farthest within the layer.
+    dp: f32,
+    size: vec2<f32>,
+    depth: f32,
+};
+
+fn scene_texel(in: VertexOut) -> SceneTexel {
+    var t: SceneTexel;
+    t.size = vec2<f32>(mix(1.0, 1400.0, in.color.r), mix(1.0, 800.0, in.color.g));
+    t.depth = mix(0.0, 10.0, in.color.b);
+    t.dp = 1.0 - textureSampleLevel(main_tex, main_sampler, vec2<f32>(in.uv.x, in.uv.y / 2.0), 0.0).x;
+    var pos = vec2<f32>(in.uv.x, 0.5 + in.uv.y / 2.0);
+    pos -= (stage.menu_scene.zw - in.uv) * t.dp * 0.025;
+    pos.y = max(0.5 + 1.0 / t.size.y, pos.y);
+    t.pos = pos;
+    return t;
+}
+
+fn scene_tap(at: vec2<f32>, weighted: bool) -> vec4<f32> {
+    let c = textureSampleLevel(main_tex, main_sampler, at, 0.0);
+    if (weighted) {
+        return c * c.a;
+    }
+    return c;
+}
+
+// The colour blurred by `|layer depth + 2 dp - _BlurDepth| * _BlurRange`: the texel
+// (weight 1) and five rings of eight taps (diagonals at 0.72 of the distance, steps 2..6
+// thousandths of the texture at full blur, x scaled to square pixels), each ring 0.92
+// of the last; taps below the colour half are skipped. `weighted`: each tap's colour
+// counts by its alpha (the divisor does not). Alpha times the vertex alpha.
+fn scene_blur(in: VertexOut, weighted: bool) -> vec4<f32> {
+    let t = scene_texel(in);
+    let floor_y = 0.5 + 1.0 / t.size.y;
+    let hor = t.size.y / t.size.x;
+    let amount = clamp(abs(t.depth + t.dp * 2.0 - stage.menu_scene.x) * stage.menu_scene.y, 0.0, 1.0) * 0.001;
+    var col = textureSampleLevel(main_tex, main_sampler, t.pos, 0.0);
+    var div = 1.0;
+    var coef = 1.0;
+    var fi = 1.0;
+    for (var j = 0; j < 5; j++) {
+        fi += 1.0;
+        coef *= 0.92;
+        let s = fi * amount;
+        let d = s * 0.72;
+        if (t.pos.y - s > floor_y) {
+            col += scene_tap(t.pos + vec2<f32>(0.0, -s), weighted) * coef;
+            div += coef;
+        }
+        col += scene_tap(t.pos + vec2<f32>(-s * hor, 0.0), weighted) * coef;
+        col += scene_tap(t.pos + vec2<f32>(s * hor, 0.0), weighted) * coef;
+        col += scene_tap(t.pos + vec2<f32>(0.0, s), weighted) * coef;
+        div += 3.0 * coef;
+        if (t.pos.y - d > floor_y) {
+            col += scene_tap(t.pos + vec2<f32>(-d * hor, -d), weighted) * coef;
+            col += scene_tap(t.pos + vec2<f32>(d * hor, -d), weighted) * coef;
+            div += 2.0 * coef;
+        }
+        col += scene_tap(t.pos + vec2<f32>(-d * hor, d), weighted) * coef;
+        col += scene_tap(t.pos + vec2<f32>(d * hor, d), weighted) * coef;
+        div += 2.0 * coef;
+    }
+    col /= div;
+    col.a *= in.color.a;
+    return col;
+}
+
+@fragment
+fn fs_scene_blur(in: VertexOut) -> @location(0) vec4<f32> {
+    return scene_blur(in, true);
+}
+
+@fragment
+fn fs_scene_blur_light_edges(in: VertexOut) -> @location(0) vec4<f32> {
+    return scene_blur(in, false);
+}
+
+// Screen blend of the unblurred colour (times its alpha) over the grab; the vertex
+// alpha blends the result over the frame.
+@fragment
+fn fs_scene_lighten(in: VertexOut) -> @location(0) vec4<f32> {
+    let t = scene_texel(in);
+    let tex = textureSampleLevel(main_tex, main_sampler, t.pos, 0.0);
+    let grab = grab_at(in.scr);
+    return vec4<f32>(1.0 - (1.0 - grab.rgb) * (1.0 - tex.rgb * tex.a), in.color.a);
+}
+
+fn overlay_channel(grab: f32, col: f32) -> f32 {
+    if (grab < 0.5) {
+        return col * grab * 2.0;
+    }
+    return 1.0 - (1.0 - col) * 2.0 * (1.0 - grab);
+}
+
+fn soft_light_channel(grab: f32, col: f32) -> f32 {
+    if (col < 0.5) {
+        return 2.0 * grab * col + grab * grab * (1.0 - 2.0 * col);
+    }
+    return 2.0 * grab * (1.0 - col) + sqrt(grab) * (2.0 * col - 1.0);
+}
+
+// The unweighted blur overlaid on the grab; its alpha (already times the vertex alpha)
+// is multiplied by the vertex alpha again, as in the game.
+@fragment
+fn fs_scene_overlay(in: VertexOut) -> @location(0) vec4<f32> {
+    let col = scene_blur(in, false);
+    let grab = grab_at(in.scr);
+    return vec4<f32>(
+        overlay_channel(grab.r, col.r),
+        overlay_channel(grab.g, col.g),
+        overlay_channel(grab.b, col.b),
+        col.a * in.color.a,
+    );
+}
+
+@fragment
+fn fs_scene_soft_light(in: VertexOut) -> @location(0) vec4<f32> {
+    let col = scene_blur(in, false);
+    let grab = grab_at(in.scr);
+    return vec4<f32>(
+        soft_light_channel(grab.r, col.r),
+        soft_light_channel(grab.g, col.g),
+        soft_light_channel(grab.b, col.b),
+        col.a * in.color.a,
+    );
 }
