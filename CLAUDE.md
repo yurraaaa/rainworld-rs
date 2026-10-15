@@ -40,9 +40,8 @@ judgement about the original: `opus`. Never `fable`.
 ### Check what comes back
 
 A subagent's success is a claim, not a result. Ask for pasted output (the
-decompiled excerpt, the `cargo test` output with corpus counts, the diff of
-mismatches), re-run the deciding command, check the test compares against
-the original and not a second copy of the agent's reading, and grep and
+decompiled excerpt, the `cargo test` output), re-run the deciding command,
+check the test's expectations come from the game's code or data, and grep and
 read every doc hit for the names it touched.
 
 In reports to the user, say exactly what was observed: "builds" is not
@@ -52,13 +51,36 @@ data those tests use, on the installed build, nothing more.
 Brief agents so that contradicting you is welcome: when the game's data or
 code disagrees with you, the original wins.
 
-### Surveys before milestones
+### Testing: small and local, the user's play is acceptance
 
-A milestone starts with a survey: a read-only agent (no repo edits, no
-cargo) writes findings, marked observed or inferred, to a scratch file.
-Re-check three or four key facts against the original, then bring the
-scope, "done when" and each open decision to the user with a
-recommendation. Nothing is ported before the user agrees.
+Speed matters; tests must not become a maintenance cost.
+
+- No long scripted input routes and no whole-run expected data (regenerated
+  traces, model fixtures). Their maintenance slowed development; they were
+  removed on 2026-10-15.
+- Each ported piece gets small local tests: one function with given
+  inputs, or one creature in one room for a few dozen ticks, with expected
+  values from reading the game's code or data and written in the test. A
+  test starts from its own seeded state, so unrelated stream shifts don't
+  break it.
+- Random draws are still ported exactly (order, conditions, tick), every
+  `UnityEngine.Random` call including sound and cosmetic ones, so the port
+  stays close to the original. Pin them with local draw-count/order tests
+  per function (e.g. "`BiteFly` with n drips makes 4n+1 draws"), and check
+  them in review against the decompile.
+- Python reference models are optional, throwaway checks for hard
+  draw-heavy code, never committed test data.
+- The user's hand review in the game is the acceptance test.
+- Keep briefs short, docs minimal, screenshots only for visual work; run
+  independent features in parallel worktrees.
+
+### Surveys when behaviour is unclear
+
+Survey only when the game's behaviour or the scope is genuinely unclear: a
+read-only agent writes findings, marked observed or inferred, to a scratch
+file. Re-check key facts against the original, then bring the scope and
+open decisions to the user with a recommendation. Nothing new is started
+before the user agrees.
 
 ### Running several at once
 
@@ -140,6 +162,16 @@ recommendation. Nothing is ported before the user agrees.
 - The port's save data lives in its own directory, never in the real
   game's save storage, and the port never writes there. It can import
   (read-only, copying into its own directory) the real game's save data.
+  - The save files use the game's own text format. Imported DLC, Remix
+    and mod data is kept untouched and ignored, as the game does; never
+    stripped.
+  - Its directory is the platform data dir behind a small platform seam
+    (`directories`: `~/.local/share/rainworld-rs/`, `%APPDATA%\rainworld-rs\`);
+    Linux and Windows are targets. The importer reads one slot file (`sav`,
+    `sav2`, `sav3`) from the game's `persistentDataPath` (on Linux the
+    Proton prefix found from `RW_DIR`'s `steamapps/compatdata/312520`),
+    with a flag to override. Its trigger is an option in the settings menu
+    (a recorded divergence) once the options menu exists; MCP until then.
 - Slugcat (and later creature) graphics live in `rw-graphics`: the
   cosmetic graphics simulation (tail, limbs, head, frame choice) depends
   on `rw-sim` and `rw-assets` and outputs a backend-agnostic sprite list
