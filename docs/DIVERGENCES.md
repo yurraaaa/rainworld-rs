@@ -369,7 +369,7 @@ in `PlayerGraphics` (they use the generic poses of their body mode, as in the ga
 - **Not ported:** grasps of anything but bat flies (swallowing, spear on back, heavy
   carry, two-handed objects, mauling and its `Blink`s),
   the map-button stand-still blink,
-  zero gravity (`ZeroGPoleGrab`, `ZeroGSwim`), antler and vine climbing, the sleep curl,
+  zero gravity (`ZeroGPoleGrab`, `ZeroGSwim`), antler and vine climbing,
   adrenaline jitter, malnourishment and hypothermia tints, the Mark (sprites 10 and 11
   have alpha 0 and are left out of the draw list), the light source, and every More
   Slugcats, Watcher and Jolly Co-op branch (pups, Gourmand/Spear/Saint/Rivulet/Artificer
@@ -806,14 +806,11 @@ second part, else a single-room world for arena levels). The campaign descriptio
   makes worm grass tiles inaccessible when it builds the map, after baking, so in the 28
   vanilla rooms with worm grass, SU_A32 and SU_B05 among them, its decoded distances
   shift; the port decodes them as baked) and `ModifyTileWaterLevels` (WaterCutoff and
-  AirPocket objects, which no vanilla region room places). Nothing records `roomsVisited` (the
-  caller fills the region state's set; a new game's is empty), and only a new game's
-  region state exists. Remix's `BringToRoomAndGuidePlayer` branch of the world
+  AirPocket objects, which no vanilla region room places). Remix's
+  `BringToRoomAndGuidePlayer` branch of the world
   process's update and More Slugcats' goal rooms and guide symbols are left out.
-  Not ported: scavenger and vulture world AI,
-  `CreatureCommunities`, `AbstractCreature.Update` for other types, and
-  `GeneratePopulation`'s non-fresh branch (saved populations; a continued game's
-  population is generated fresh, D16).
+  Not ported: scavenger and vulture world AI, `CreatureCommunities` in the sim (the save
+  keeps their likes, D16) and `AbstractCreature.Update` for other types.
 - **Hologram graphics.** A hologram's colour base (`Color.Lerp(MainColor,
   ColorOfSegment(0, 0), 0.5)`) is taken at its overseer's last update (holograms update
   before their overseer, so it is the one the game reads); a hologram slated for removal
@@ -849,8 +846,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   node goes nowhere.
 - **Not ported:** the rain (the cycle's timer, day-night counter and water level stages
   run; the overseers' AI and the HUD's rain meter read them, and the guide's tutorial
-  pins the timer), karma and karma gates, shelters closing and
-  hibernation, saves, the map, `DisabledMapRooms` beyond the tag drop, and Remix's
+  pins the timer), karma gates, `DisabledMapRooms` beyond the tag drop, and Remix's
   `RemoveNotVisitedRooms` branch.
 - **Room scripts.** `AddRoomSpecificScript` is `rw_sim::RoomScript::for_room`, called
   when a room with `RoomSpecificScriptActive` loads; only `SU_C04StartUp` is ported (the
@@ -906,9 +902,9 @@ story session.
   state's (a new game's: food 0, karma 0, cap 4, the Hunter karma 2, cycle 0, so the
   meters start hidden); food then rises only by eating bat flies (a full pip each, a
   quarter pip for the Hunter).
-- **Shelters.** Every shelter counts as intact (broken shelters are not read), and the
-  owner is never `stillInStartShelter` or `readyForWin`, so in any shelter the meters
-  show and the hibernation line warns. `forceSleepCounter` is always 0.
+- **Shelters.** The owner's `stillInStartShelter`, `readyForWin` and
+  `forceSleepCounter` are the player's (D17); every shelter counts as intact (broken
+  shelters are not read).
 - **Game over.** The prompt's game-over mode is ported but not entered: death freezes
   the body until R (current phase), so nothing calls `EnterGameOverMode`.
 - **Not ported:** the prompt's symbol and music messages, the Hunter's
@@ -932,8 +928,11 @@ The port keeps its saves in its own directory (`~/.local/share/rainworld-rs/`,
 the game's slots in, after moving the port's previous file to `backup/<seconds>_import/`.
 What is ported of the save cycle: a story game's start (`GetOrInitiateSaveState`, saved
 at once as a death and a quit), Continue from the stored state's den, food, karma, cycle,
-`NEXTID` and `SEED`, New Game's `WipeSaveState`, and `ExitGame`'s save
-(`SaveProgressionAndDeathPersistentDataOfCurrentState`, from the pause menu's Exit).
+`NEXTID`, `SEED`, respawn list and the den region's `REGIONSTATE` (population, consumed
+items, swarm rooms, `ROOMSVISITED`), New Game's `WipeSaveState`, `ExitGame`'s save
+(`SaveProgressionAndDeathPersistentDataOfCurrentState`, from the pause menu's Exit) and
+`Win`'s whole save state (`SessionEnded(survived: true)`, `BringUpToDate`,
+`SaveWorldStateAndProgression`, the once-per-run `_Backup` copy; D17).
 Differences:
 - **Writing what the port does not own.** The game rebuilds `MISCPROG`, the save state
   and its death-persistent data from its fields, in its order, with unknown (DLC, Remix,
@@ -945,8 +944,14 @@ Differences:
   `CURRENTSLUGCAT`, `INTEGERS` and `CONDITIONALSHELTERDATA` in `MISCPROG` (adding the
   first two if missing), the death-persistent data (typed fields in the game's order,
   every other entry kept, unknown ones at the end as the game writes them) and map
-  lines it holds a texture or time for. A whole save state is never written (no
-  hibernation yet).
+  lines it holds a texture or time for. `Win` writes the whole save state in the game's
+  order, its unknown entries kept at the end.
+- **What a hibernation saves.** Creatures keep their state string as read (the port
+  has no `CreatureState` beyond alive, so `CycleTick` does not age it); objects in
+  shelters, sticks and swallowed or held objects are kept as read (the port has no
+  items to save), and so are the kills (`AppendKills`), communities' likes beyond
+  their cycle tick, and friends in the den. A saved creature the world cannot place
+  stays in the saved list. Session time is the sim's ticks.
 - **Win state.** Integer and float passage trackers are read and written as the game
   does, including the death penalty; the bool-array and list trackers (Traveller,
   Dragon Slayer, Scholar) are written back as read, so the game's re-encoding of a
@@ -955,26 +960,56 @@ Differences:
 - **Container.** A new key goes last (the game's `Hashtable` orders keys by string
   hash); the files have no NUL padding (the game writes `MemoryStream.GetBuffer()`);
   they are written to a temporary file and renamed.
-- **Continue.** The world is generated as for a new game: the saved region states,
-  respawn lists, communities, swallowed and held objects, kills and dreams are kept in
-  the save but not applied. The player starts on the shelter's `playerSpawnPos`; the
-  shelter door itself is not ported, so it is open. `BackwardsCompability` world-version
-  updates, the starved save state and the automatic `backup/` copies
+- **Continue.** The den region's saved region state and the respawn list are applied
+  (`AdaptWorldToRegionState`, `GeneratePopulation(fresh: false)`); communities,
+  swallowed and held objects, kills and dreams are kept in the save but not applied.
+  `BackwardsCompability` world-version updates and the automatic `backup/` copies
   (`CreateCopyOfSaves`) are not ported. Save slot 0 only.
+- **Starving and dying.** The starve and death screens are not ported (a "not ported"
+  page), and `GoToStarveScreen`'s `SessionEnded(survived: false)` is not either, so a
+  starved cycle is not saved as a death. Death itself freezes the body (current phase).
 - **Map discovery.** `progression.mapDiscoveryTextures` and `mapLastUpdatedTime` are
   split: the game's copy is the sim's `MapDiscovery`, and the progression holds their
   save form (`map_discovery`, `map_last_updated`). The map's first update loads a
   region from the progression, else its `MAP`/`MAPUPDATE` lines (`LoadMapTexture`); the
   pause menu's Exit copies the sim's textures and times into the progression before
   saving. A game left any other way loses its discovery, which the game keeps in memory.
-- **Play time.** `PlayerSessionRecord` time and `AppendTimeOnCycleEnd` are not ported:
-  `ExitGame` adds nothing to `DEATHTIME` or `TOTTIME`, which are kept as read.
+- **Play time.** `AppendTimeOnCycleEnd` is not ported: `ExitGame` adds nothing to
+  `DEATHTIME` or `TOTTIME`; `Win` adds the cycle's ticks / 40 to `TOTTIME`.
 
-**Why.** Saves come before shelters and hibernation, which will write whole save
-states; the user decided imported DLC and mod data must survive the port's writes.
+**Why.** The creature states, items and kills the save keeps come with their
+creatures and objects; the user decided imported DLC and mod data must survive the
+port's writes.
 
 **Affects.** Saves the port writes; the game reads them, but they can differ from what
 the game would write in line and entry order and in the data it would drop.
+
+## D17: Shelters and hibernation
+
+**What.** `ShelterDoor` (`rw_sim::shelter`, `rainworld-re/notes/shelter.md`) opens with
+the cycle and closes when the player, fed and still, is ready for `Win`; the player's
+`SleepUpdate`, `readyForWin`, `forceSleepCounter` and the sleep curl are ported. `Win`
+saves (D16) and goes to the sleep screen or a dream; the next cycle reuses the save
+state in memory (a new `nextIssuedId` draw, no seed draw) and the region state the last
+cycle left, starts in the shelter with its door shut and the slugcat curled up.
+Differences:
+- **Sleep screen and dreams.** Not ported: a stand-in shows 40 black frames, then starts
+  the next cycle as the sleep screen's continue does (`StoryGameInitCondition.Load`).
+  The Moon and Pebbles event dreams are not ported (no iterators).
+- **Door drawing.** The door's sprites are drawn with the basic shader; the game's
+  `ColoredSprite2` (palette colours by depth) is not in `rw-render` yet, so the door's
+  colours are wrong.
+- **Not ported:** More Slugcats' ancient and broken shelters, `PrecycleModule`, the
+  shelter tutorials, the dream ghost, `GetStuffInWalls`, the AI map rebuild when the
+  door opens, the door's screen shake, the social-memory stun of creatures in the room,
+  killing hostiles at close (the check alone is ported), aerobic and malnourished
+  breathing, and every Jolly Co-op and More Slugcats branch.
+
+**Why.** Iterators, items, creature states and the menus' sleep screen are later
+milestones.
+
+**Affects.** What follows a hibernation on screen, the door's look, and creatures
+caught in a closing shelter.
 
 ## Not ported yet (not divergences, just absent)
 

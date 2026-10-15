@@ -4,7 +4,7 @@
 //! Remix off, Survivor stats), including the vertical-pole, ledge-grab, roll/flip,
 //! corridor and swimming (`water.md`) branches. Not ported (docs/DIVERGENCES.md D8):
 //! fear (no creature the slugcat fears is ported), the rain look point, the throw
-//! reach (only weapons and frogs), zero gravity, sleep curl, pups, the Mark, DLC. `aerobicLevel` is not in the port and is 0.
+//! reach (only weapons and frogs), zero gravity, pups, the Mark, DLC. `aerobicLevel` is not in the port and is 0.
 
 use std::f32::consts::TAU;
 
@@ -322,7 +322,11 @@ impl PlayerGraphics {
         }
         self.last_breath = self.breath;
         if !player.is_dead() {
-            self.breath += 1.0 / 60.0_f32.lerp_to(15.0, AEROBIC_LEVEL.powf(1.5));
+            self.breath += if player.sleeping() {
+                0.0125
+            } else {
+                1.0 / 60.0_f32.lerp_to(15.0, AEROBIC_LEVEL.powf(1.5))
+            };
         }
         self.update_spear_dir(player);
         if !player.is_conscious() {
@@ -405,6 +409,47 @@ impl PlayerGraphics {
             self.reach_for_fly(player, around);
         }
         self.update_hands(player, room, water, around, rng);
+        if player.sleep_curl_up() > 0.0 {
+            self.curl_up(player, rng);
+        }
+    }
+
+    /// Curled up asleep (239358): body and hips drawn together and up, the tail wrapped
+    /// round, the head tucked in, the eyes now and then shut (`PlayerBlink`), the hands
+    /// in front.
+    fn curl_up(&mut self, player: &Player, rng: &mut UnityRandom) {
+        let curl = player.sleep_curl_up();
+        let (head, hips) = (player.head().pos, player.hips().pos);
+        let side = (head.x - hips.x).unity_sign();
+        let middle = (head + hips) / 2.0;
+        for dp in &mut self.draw_positions {
+            dp[0] = dp[0].lerp_clamped(middle, curl * 0.2);
+            dp[0].y += 2.0 * curl;
+        }
+        self.draw_positions[1][0].x -= 3.0 * side * curl;
+        let hips_draw = self.draw_positions[1][0];
+        let last = (self.tail.len() - 1) as f32;
+        for (i, seg) in self.tail.iter_mut().enumerate() {
+            let f = i as f32 / last;
+            let part = &mut seg.part;
+            part.vel *= 1.0 - 0.2 * curl;
+            let wrap = Vec2::new(
+                ((f * std::f32::consts::PI).mathf_sin() * 25.0 - f * 10.0) * -side,
+                5.0_f32.lerp_to(-15.0, f),
+            );
+            part.pos = part.pos.lerp_clamped(hips_draw + wrap, 0.1 * curl);
+        }
+        self.head.vel *= 1.0 - 0.4 * curl;
+        self.head.pos = self
+            .head
+            .pos
+            .lerp_clamped(middle + Vec2::new(side * 5.0, -3.0), 0.5 * curl);
+        if rng.value() < 1.0 / 30.0 {
+            self.blink = self.blink.max(2);
+        }
+        for hand in &mut self.hands {
+            hand.limb.absolute_hunt_pos = middle + Vec2::new(side * 10.0, -20.0);
+        }
     }
 
     /// `spearDir` leans toward the held direction while standing, else back to 0.

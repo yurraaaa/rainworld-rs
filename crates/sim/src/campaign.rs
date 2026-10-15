@@ -177,6 +177,18 @@ pub struct StoryStart {
     /// A save's `NEXTID` and `SEED`, which replace the drawn `nextIssuedId` and seed.
     pub next_issued_id: Option<i32>,
     pub seed: Option<i32>,
+    /// `saveState.malnourished`: hibernating needs a full meter.
+    pub malnourished: bool,
+    /// `deathPersistentSaveData.foodReplenishBonus`.
+    pub food_replenish_bonus: i32,
+    /// `RESPAWNS`: spawner ids whose creatures come back (`respawnCreatures`).
+    pub respawn_creatures: Vec<i32>,
+    /// The start region's saved `REGIONSTATE` value (`regionLoadStrings`), if any.
+    pub region_state: Option<String>,
+    /// The save state was still in memory (the next cycle): its seed is not drawn again
+    /// (no `new SaveState`), and its region state object is reused if given.
+    pub in_memory: bool,
+    pub live_region_state: Option<crate::world::RegionState>,
 }
 
 impl StoryStart {
@@ -194,6 +206,12 @@ impl StoryStart {
             guide_overseer_dead: false,
             next_issued_id: None,
             seed: None,
+            malnourished: false,
+            food_replenish_bonus: 0,
+            respawn_creatures: Vec::new(),
+            region_state: None,
+            in_memory: false,
+            live_region_state: None,
         }
     }
 }

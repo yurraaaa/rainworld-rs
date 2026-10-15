@@ -13,7 +13,7 @@ use rw_assets::{ActiveMods, Room, RoomSettings, SlugcatName, SoundTable, Streami
 use rw_audio::Follow as SoundFollow;
 use rw_graphics::{
     Color, DrawList, FlyGraphics, HologramFrame, HologramGraphics, OverseerGraphics,
-    PlayerGraphics, ShortcutPalette, WaterDripSprites,
+    PlayerGraphics, ShelterDoorSprites, ShortcutPalette, WaterDripSprites,
 };
 use rw_hud::{HudSetup, OwnerTick, RainCycleView, StartCondition, Subregions};
 use rw_random::UnityRandom;
@@ -43,7 +43,7 @@ pub enum GameStart {
     /// shelter's spawn tile (`ShelterDoor.playerSpawnPos`) or the den's start position.
     SavedStory {
         slugcat: SlugcatName,
-        story: StoryStart,
+        story: Box<StoryStart>,
     },
     /// A given room, in its region's world (a single-room world for arena levels), as
     /// `slugcat`: on `tile`, or on a safe spawn tile (the dev start, `--spawn`).
@@ -393,7 +393,7 @@ impl Game {
         let (tile, story) = match start {
             GameStart::SavedStory { story, .. } => (
                 Some(Self::den_tile(&data, &room, rooms.as_ref(), mods)),
-                story.clone(),
+                (**story).clone(),
             ),
             _ => (tile, StoryStart::new_game(campaign)),
         };
@@ -513,9 +513,8 @@ impl Game {
         }
     }
 
-    /// What the HUD reads of the player this tick. Shelters (doors, hibernation) and the
-    /// rain cycle are not ported: never in a shelter's sleep pose or ready to win, no
-    /// rain danger.
+    /// What the HUD reads of the player this tick. The rain cycle's danger is not
+    /// ported.
     #[must_use]
     pub fn hud_owner(&self) -> OwnerTick {
         let Some(player) = self.sim.player() else {
@@ -534,6 +533,9 @@ impl Game {
             // Broken shelters are not read: every shelter is intact.
             in_intact_shelter: shelter,
             force_sleep_pose: shelter && self.in_force_sleep_pose(player),
+            still_in_start_shelter: player.still_in_start_shelter(),
+            ready_for_win: player.ready_for_win(),
+            force_sleep_counter: player.force_sleep_counter(),
             map: self.map_owner(),
             ..OwnerTick::default()
         }
@@ -693,6 +695,14 @@ impl Game {
             }
         }
         lists
+    }
+
+    /// The shelter door's sprites in the camera's room at `alpha` between ticks.
+    #[must_use]
+    pub fn shelter_draw_list(&self, alpha: f32) -> Option<DrawList> {
+        self.sim
+            .shelter_door(self.sim.camera_room())
+            .map(|d| d.draw(alpha))
     }
 
     /// The water drips in the camera's room at `alpha` between ticks, oldest first

@@ -17,6 +17,8 @@ mod flies;
 mod hands;
 #[path = "game_map.rs"]
 mod map;
+#[path = "game_shelter.rs"]
+mod shelter_door;
 
 use rw_assets::{CreatureType, NodeType, Room, Shortcut, ShortcutType};
 use rw_random::UnityRandom;
@@ -35,8 +37,9 @@ use crate::creature::{
     WorldCoordinate,
 };
 use crate::room_script::{RoomScript, ScriptTick, StorySession};
+use crate::shelter::{SessionEnd, ShelterDoor};
 use crate::shortcut::{CreatureVessel, Transport};
-use crate::world::{AbstractTick, FollowCreature, RainCycle, RoomRealizer, World};
+use crate::world::{AbstractTick, FollowCreature, RainCycle, RegionState, RoomRealizer, World};
 use crate::{
     EntranceColor, HudMapLink, Input, LobbyVessel, MapDiscovery, Player, ShortcutHandler, Sounds,
     Vec2, VesselOwner, VesselStep, Water, determine_safe_spawn_tile,
@@ -206,10 +209,12 @@ pub struct Start {
 }
 
 /// What [`RainWorldGame::new_game_world`] leaves for the rest of the constructor.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewGameWorld {
     pub ids: IdIssuer,
     pub save_state_seed: i32,
+    /// `saveState.respawnCreatures` after `GeneratePopulation`.
+    pub respawn_creatures: Vec<i32>,
 }
 
 /// A running game.
@@ -265,6 +270,17 @@ pub struct RainWorldGame {
     hud_map: HudMapLink,
     /// Camera 0's `PaletteDarkness()`, as the app last reported it.
     camera_darkness: f32,
+    /// Set when the cycle ends (the shelter closes, the player starves).
+    session_end: Option<SessionEnd>,
+    /// Food added this cycle (`saveState.totFood`'s share).
+    session_food: i32,
+    /// What the player ate this cycle (`SessionRecord.AddEat`), by entity ID.
+    eaten: Vec<EntityId>,
+    /// The realized shelters' doors.
+    shelter_doors: Vec<ShelterDoor>,
+    closed_shelter_regions: Vec<String>,
+    /// Shelters the player was spat out into (`TempDiscoverShelter`), until taken.
+    entered_shelters: Vec<String>,
 }
 
 impl RainWorldGame {
@@ -299,7 +315,10 @@ impl RainWorldGame {
         let NewGameWorld {
             mut ids,
             save_state_seed,
+            respawn_creatures,
         } = Self::story_world(&mut world, campaign, &story, &mut rng);
+        let mut story = story;
+        story.respawn_creatures = respawn_creatures;
         let session = StorySession {
             character: campaign.name,
             cycle_number: story.cycle_number,
@@ -359,6 +378,12 @@ impl RainWorldGame {
             map_discovery: MapDiscovery::default(),
             hud_map: HudMapLink::default(),
             camera_darkness: 0.0,
+            session_end: None,
+            session_food: 0,
+            eaten: Vec::new(),
+            shelter_doors: Vec::new(),
+            closed_shelter_regions: Vec::new(),
+            entered_shelters: Vec::new(),
         };
         if let Err(e) = game.world.activate_room(start.room) {
             log::error!("cannot realize the first room: {e}");
@@ -390,7 +415,12 @@ impl RainWorldGame {
         let mut ids = IdIssuer {
             next_issued_id: rng.range_i32(1000, 10000),
         };
-        let mut save_state_seed = rng.range_i32(0, 10000);
+        // `new SaveState` draws its seed; a state still in memory is reused.
+        let mut save_state_seed = if story.in_memory {
+            0
+        } else {
+            rng.range_i32(0, 10000)
+        };
         if let Some(id) = story.next_issued_id {
             ids.next_issued_id = id;
         }
@@ -404,6 +434,18 @@ impl RainWorldGame {
         };
         let guide = PlayerGuideState::default();
         world.rain_cycle = RainCycle::new_story(campaign.name, rng);
+        let mut respawn = story.respawn_creatures.clone();
+        let fresh = story.region_state.is_none() && story.live_region_state.is_none();
+        // `World.LoadWorld`: the region state still in memory, else read from its load
+        // string, then adapted to.
+        if !world.single_room() {
+            if let Some(state) = &story.live_region_state {
+                world.region_state = Some(state.clone());
+            } else if let Some(saved) = &story.region_state {
+                let state = RegionState::from_string(world.data(), saved, world.mods(), rng);
+                world.region_state = Some(state);
+            }
+        }
         let mut population = PopulationContext {
             session: &session,
             ids: &mut ids,
@@ -411,14 +453,17 @@ impl RainWorldGame {
             guide_overseer_dead: story.guide_overseer_dead,
             guide: &guide,
             food_to_hibernate: campaign.stats.food_to_hibernate,
+            respawn: &mut respawn,
         };
         if !world.single_room() {
-            world.generate_population(&mut population);
+            world.adapt_world_to_region_state(&mut population, story.food_replenish_bonus);
+            world.generate_population(fresh, &mut population);
         }
         world.create_flies_world_ai(&mut population);
         NewGameWorld {
             ids,
             save_state_seed,
+            respawn_creatures: respawn,
         }
     }
 
@@ -479,6 +524,7 @@ impl RainWorldGame {
     /// The `Player` constructor, its graphics module, then `PlaceInRoom` on `tile`.
     fn spawn_player(&mut self, tile: (i32, i32), observer: &mut dyn PlayerObserver) {
         let mut player = Player::create(&mut self.rng);
+        self.player_wakes_in_shelter(&mut player);
         observer.created(&player, &mut self.rng);
         player.place(tile, &mut self.rng);
         self.player = Some(player);
@@ -606,6 +652,7 @@ impl RainWorldGame {
     fn finish_loading(&mut self, observer: &mut dyn PlayerObserver) {
         let session = self.story_session();
         for index in self.world.finish_loading() {
+            self.add_shelter_door(index);
             for id in self.world.room_creatures(index).to_vec() {
                 if id == self.player_id {
                     if self.tick == 0 && self.player.is_none() {
@@ -646,6 +693,11 @@ impl RainWorldGame {
             cycle_number: self.story.cycle_number,
             den_position: self.story.den.clone(),
         }
+    }
+
+    /// How the cycle ended, once it has; taken by the process that ends the game.
+    pub fn take_session_end(&mut self) -> Option<SessionEnd> {
+        self.session_end.take()
     }
 
     /// What the game started from.
@@ -768,6 +820,9 @@ impl RainWorldGame {
                 observer.spat_out(player, &mut self.rng);
                 // `NewRoom`'s `ReportRoomVisited` (a no-op for a room already visited).
                 self.report_room_visited(here);
+                if let Some(r) = self.world.abstract_room(here).filter(|r| r.shelter()) {
+                    self.entered_shelters.push(r.name.clone());
+                }
                 self.spit_out_carried(observer);
                 if let Some(player) = self.player.as_ref() {
                     observer.spat_out_finished(player, &mut self.rng);
@@ -1060,6 +1115,8 @@ impl RainWorldGame {
             self.update_room_player(index, &room, input, observer);
         }
         self.update_room_scripts(index, observer);
+        // The door joined the update list in `Room.Loaded`, before everything else.
+        self.update_shelter_door(index);
     }
 
     /// The player as a realized overseer in room `room` reads it.
@@ -1298,6 +1355,8 @@ impl RainWorldGame {
             != self.world.creature(self.player_id).pos;
         self.creature_new_tile(self.player_id);
         self.player_graphics = observer.has_player_graphics();
+        self.report_spawn_room(index);
+        self.player_sleep_update(room, input);
         self.player_map_discovery(index, room, moved);
         let water = self.world.realized_mut(index).and_then(|r| r.water.take());
         let ceiling_drips = self
@@ -1316,13 +1375,14 @@ impl RainWorldGame {
         player.set_ceiling_drips(ceiling_drips);
         if player.update_before_catch(room, water.as_ref(), input, &mut self.rng, sounds) {
             self.player_catch(index, observer);
+            self.player_shelter_step(index, room);
             let sounds = if index == self.camera_room {
                 &mut self.sounds
             } else {
                 &mut self.silent
             };
             if let Some(player) = self.player.as_mut() {
-                player.update_after_catch(room, water.as_ref(), &mut self.rng, sounds);
+                player.update_after_clamp(room, water.as_ref(), &mut self.rng, sounds);
             }
         }
         self.apply_player_releases();
@@ -1553,6 +1613,27 @@ impl RainWorldGame {
     /// Hands the random stream back (to the menus, when the game ends).
     pub fn take_rng(&mut self) -> UnityRandom {
         std::mem::replace(&mut self.rng, UnityRandom::new(0))
+    }
+
+    /// Gives the stream back after [`Self::take_rng`].
+    pub fn set_rng(&mut self, rng: UnityRandom) {
+        self.rng = rng;
+    }
+
+    pub fn world_mut(&mut self) -> &mut World {
+        &mut self.world
+    }
+
+    /// Food added this cycle.
+    #[must_use]
+    pub fn session_food(&self) -> i32 {
+        self.session_food
+    }
+
+    /// What the player ate this cycle.
+    #[must_use]
+    pub fn eaten(&self) -> &[EntityId] {
+        &self.eaten
     }
 
     /// Puts the player (a new one if it was destroyed) into the camera's room out of any

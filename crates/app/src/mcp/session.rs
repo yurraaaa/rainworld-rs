@@ -24,8 +24,8 @@ use super::reply::{
     ChunkState, ControlsPageState, CreatureInfo, ExitInfo, ExitList, FlyInfo, FoodMeterState,
     HudState, ImpactState, ImportReply, KarmaMeterState, LobbyState, MapMarkerState, MapState,
     OverseerInfo, PauseMenuState, PlayerState, ProcessState, RainMeterState, RainState,
-    RealizedState, RoomInfo, RoomList, SaveInfo, SaveStateInfo, Screenshot, SlideShowState,
-    StartUpState, State, StepTrace, StoryInfo, TextPromptState,
+    RealizedState, RoomInfo, RoomList, SaveInfo, SaveStateInfo, Screenshot, ShelterDoorState,
+    SleepState, SlideShowState, StartUpState, State, StepTrace, StoryInfo, TextPromptState,
 };
 use super::tiles::TileDump;
 use crate::frontend::{AppContext, Frontend, FrontendRenderer, GameSetup};
@@ -403,6 +403,12 @@ impl Session {
                 timer: world.rain_cycle.timer,
                 cycle_length: world.rain_cycle.cycle_length,
             },
+            shelter_door: sim
+                .shelter_door(sim.camera_room())
+                .map(|d| ShelterDoorState {
+                    closed_fac: d.closed_fac,
+                    close_speed: d.close_speed,
+                }),
         })
     }
 
@@ -990,6 +996,15 @@ impl PlayerState {
             max_food: sim.max_food(),
             grasps: sim.player_grasps().map(|g| g.map(|id| id.0)),
             eat_counter: player.grab_state().eat_counter,
+            sleep: SleepState {
+                sleep_counter: player.sleep_counter(),
+                sleep_curl_up: player.sleep_curl_up(),
+                sleep_when_still: player.sleep_when_still(),
+                touched_no_input_counter: player.touched_no_input_counter(),
+                force_sleep_counter: player.force_sleep_counter(),
+                ready_for_win: player.ready_for_win(),
+                still_in_start_shelter: player.still_in_start_shelter(),
+            },
         }
     }
 }

@@ -16,6 +16,7 @@ mod quantified;
 mod rain_cycle;
 mod realized;
 mod realizer;
+mod region_save;
 mod region_state;
 mod swarm_rooms;
 
@@ -38,7 +39,7 @@ pub use overseers_world_ai::{DirectionFinder, OverseersWorldAi, ShelterFinder, S
 pub use rain_cycle::{CYCLE_TIME_MAX, CYCLE_TIME_MIN, RainCycle, WaterLevelCycle, WaterStage};
 pub use realized::RealizedRoom;
 pub use realizer::{FollowCreature, RoomRealizer};
-pub use region_state::RegionState;
+pub use region_state::{ConsumedItem, RegionState};
 pub use swarm_rooms::{SwarmRoomMap, SwarmRoomMapper};
 
 /// A world and its realized rooms.
@@ -60,7 +61,7 @@ pub struct World {
     /// Every creature, the player's included (`AbstractCreature`s by `CreatureId`).
     creatures: Vec<AbstractCreature>,
     /// Per abstract room, its creature lists.
-    lists: Vec<RoomLists>,
+    pub(crate) lists: Vec<RoomLists>,
     /// Per abstract room, `roomAttractions` from `Room_Attr` lines.
     attractions: Vec<HashMap<CreatureType, RoomAttraction>>,
     /// `skyAccessNodes`.
@@ -84,6 +85,8 @@ pub struct World {
     /// The slugcat's body as the flies' graphics read their grabber, kept current by the
     /// game.
     pub(crate) player_body: Option<crate::creature::fly::PlayerBody>,
+    /// `RegionState.loadedCreatures`: creatures read from the save, until saved again.
+    loaded_creatures: Vec<CreatureId>,
 }
 
 impl World {
@@ -120,6 +123,7 @@ impl World {
             flocks: Vec::new(),
             drip_ids: 0,
             player_body: None,
+            loaded_creatures: Vec::new(),
         };
         world.index_rooms();
         world

@@ -81,6 +81,10 @@ pub struct PlayerProgression {
     pub map_last_updated: Vec<(String, i64)>,
     /// `gameTinkeredWith`: a stored checksum did not match.
     pub game_tinkered_with: bool,
+    /// `starvedSaveState`: the state a starved cycle set aside.
+    pub starved_save_state: Option<SaveState>,
+    /// `tempSheltersDiscovered`.
+    temp_shelters_discovered: Vec<String>,
 }
 
 impl PlayerProgression {
@@ -96,6 +100,8 @@ impl PlayerProgression {
             map_discovery: Vec::new(),
             map_last_updated: Vec::new(),
             game_tinkered_with: false,
+            starved_save_state: None,
+            temp_shelters_discovered: Vec::new(),
         }
     }
 
@@ -187,6 +193,16 @@ impl PlayerProgression {
         self.stored_state(slugcat).is_some()
     }
 
+    /// The state the last cycle left in memory for `slugcat` (the current one, else a
+    /// starved one `GetOrInitiateSaveState` takes up), which a new cycle reuses.
+    #[must_use]
+    pub fn state_in_memory(&self, slugcat: SlugcatName) -> Option<&SaveState> {
+        self.current_save_state
+            .as_ref()
+            .or(self.starved_save_state.as_ref())
+            .filter(|s| s.save_state_number == slugcat)
+    }
+
     /// `MineForSaveData`'s source: the stored state of `slugcat` read as `LoadGame`
     /// reads it, without making it current.
     ///
@@ -196,9 +212,7 @@ impl PlayerProgression {
         &mut self,
         start: CampaignStart<'_>,
     ) -> Result<Option<SaveState>, SaveError> {
-        if let Some(s) = &self.current_save_state
-            && s.save_state_number == start.slugcat
-        {
+        if let Some(s) = self.state_in_memory(start.slugcat) {
             return Ok(Some(s.clone()));
         }
         let Some(line) = self.stored_state(start.slugcat) else {
@@ -223,6 +237,12 @@ impl PlayerProgression {
         load: bool,
         save_as_death_or_quit: bool,
     ) -> Result<&mut SaveState, SaveError> {
+        if self.current_save_state.is_none()
+            && let Some(starved) = self.starved_save_state.take()
+        {
+            log::info!("loading the starved state");
+            self.current_save_state = Some(starved);
+        }
         let current = self
             .current_save_state
             .as_ref()
@@ -289,9 +309,61 @@ impl PlayerProgression {
     /// # Errors
     /// When the save file cannot be written.
     pub fn save_progression(&mut self, save_maps: bool, save_misc: bool) -> Result<(), SaveError> {
-        if !save_maps && !save_misc {
+        self.save_to_disk(false, save_maps, save_misc)
+    }
+
+    /// `SaveWorldStateAndProgression(malnourished)`: a starved cycle saves only the
+    /// progression and the death-persistent data (as a death) and sets the state aside
+    /// (`starvedSaveState`); otherwise `SaveToDisk(true, true, true)`.
+    ///
+    /// # Errors
+    /// When the save file cannot be written.
+    pub fn save_world_state_and_progression(
+        &mut self,
+        malnourished: bool,
+    ) -> Result<(), SaveError> {
+        if malnourished {
+            self.save_progression_and_death_persistent_data_of_current_state(true, false)?;
+            self.starved_save_state = self.current_save_state.take();
             return Ok(());
         }
+        self.save_to_disk(true, true, true)
+    }
+
+    /// `TempDiscoverShelter`: a shelter the player was spat out into, saved with the
+    /// next map save.
+    pub fn temp_discover_shelter(&mut self, shelter: &str) {
+        if !self.temp_shelters_discovered.iter().any(|s| s == shelter) {
+            self.temp_shelters_discovered.push(shelter.to_owned());
+        }
+    }
+
+    /// `SaveToDisk(saveCurrentState, saveMaps, saveMiscProg)` (the mod-state check
+    /// always passes: the port loads and saves with every DLC off).
+    fn save_to_disk(
+        &mut self,
+        save_state: bool,
+        save_maps: bool,
+        save_misc: bool,
+    ) -> Result<(), SaveError> {
+        if !save_state && !save_maps && !save_misc {
+            return Ok(());
+        }
+        if save_maps {
+            let slugcat = self.misc.current_slugcat;
+            for shelter in &self.temp_shelters_discovered {
+                self.misc.save_discovered_shelter(shelter, slugcat);
+            }
+        }
+        self.temp_shelters_discovered.clear();
+        let current = if save_state {
+            self.current_save_state
+                .as_mut()
+                .map(|s| (s.save_state_number, s.save_to_string()))
+        } else {
+            None
+        };
+        let mut state_written = false;
         let lines = self.prog_lines();
         let map_regions: Vec<String> = lines
             .iter()
@@ -324,10 +396,24 @@ impl PlayerProgression {
                     text.push_str(&self.misc.to_save_string());
                     misc_written = true;
                 }
+                "SAVE STATE"
+                    if current
+                        .as_ref()
+                        .is_some_and(|(n, _)| SaveState::parse_save_number(region) == Some(*n)) =>
+                {
+                    text.push_str("SAVE STATE<progDivB>");
+                    text.push_str(current.as_ref().map_or("", |(_, s)| s.as_str()));
+                    state_written = true;
+                }
                 "" => continue,
-                // `SAVE STATE`, another slugcat's maps, and what the port does not own.
+                // Other states, another slugcat's maps, and what the port does not own.
                 _ => text.push_str(&line),
             }
+            text.push_str("<progDivA>");
+        }
+        if let Some((_, state)) = current.filter(|_| !state_written) {
+            text.push_str("SAVE STATE<progDivB>");
+            text.push_str(&state);
             text.push_str("<progDivA>");
         }
         if save_maps {

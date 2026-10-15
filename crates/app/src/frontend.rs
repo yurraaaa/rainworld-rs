@@ -20,11 +20,14 @@ use rw_menu::{
 };
 use rw_random::UnityRandom;
 use rw_render::{Camera, Color, MapGlobals, Renderer, Resolution, StageBatch, StageGlobals};
+use rw_save::WinOutcome;
 use rw_save::{CampaignStart, SaveSlot};
 use rw_sim::campaign::SlugcatCampaign;
-use rw_sim::{SoundId, Vec2};
+use rw_sim::world::RegionState;
+use rw_sim::{SessionEnd, SoundId, Vec2};
 
 use crate::game::{Game, GameStart};
+use crate::hibernation::HibernatingGame;
 use crate::input::{Action, InputState, Script};
 use crate::saves::{SaveConfig, SaveStateStart};
 use crate::scene::{Scene, SceneRenderer, SceneView, VisualsSource};
@@ -57,6 +60,10 @@ pub struct AppContext {
     music_stacker: TimeStacker,
     /// The process `Initialization` starts.
     pub start: ProcessId,
+    /// `rainWorld.saveBackedUp`: `Win` backs the save up once per run.
+    pub save_backed_up: bool,
+    /// The region state the last cycle's world kept in memory, for the next cycle.
+    pub carried_region_state: Option<RegionState>,
 }
 
 /// Where the music player's songs play: through the audio output, or silently in
@@ -86,6 +93,29 @@ pub struct Unported {
     last_pause_button: bool,
 }
 
+/// The sleep screen's and the dream's stand-in (`SleepAndDeathScreen` and `DreamScreen`
+/// are not ported, D16): black for a
+/// second after the fade, then the next cycle, as the screen's Continue starts it
+/// (`startGameCondition = Load`).
+pub struct SleepStandIn {
+    id: ProcessId,
+    stage: Container,
+    frames: u32,
+}
+
+impl SleepStandIn {
+    const FRAMES: u32 = 40;
+
+    fn update(&mut self, ctx: &mut AppContext, requests: &mut ProcessRequests) {
+        ctx.menu.input.take_tick_input();
+        self.frames += 1;
+        if self.frames == Self::FRAMES {
+            ctx.menu.start_game_condition = Some(StoryGameInitCondition::Load);
+            requests.switch_to(ProcessId::Game);
+        }
+    }
+}
+
 /// The processes the app runs.
 pub enum AppProcess {
     Initialization(Initialization),
@@ -95,6 +125,7 @@ pub enum AppProcess {
     FontTest(FontTest),
     MainMenu(Box<MainMenu>),
     SlugcatSelect(Box<SlugcatSelectMenu>),
+    SleepStandIn(SleepStandIn),
     Unported(Unported),
 }
 
@@ -143,6 +174,8 @@ impl AppContext {
             music_sink: MusicSink::Timed(Box::new(TimedSources::new(bank))),
             music_stacker: TimeStacker::default(),
             start,
+            save_backed_up: false,
+            carried_region_state: None,
         })
     }
 
@@ -192,6 +225,8 @@ impl AppContext {
         });
         let start = match story {
             Some((slugcat, campaign)) if condition == StoryGameInitCondition::Load => {
+                let in_memory = self.menu.saves.state_in_memory(slugcat).is_some();
+                let carried = self.carried_region_state.take().filter(|_| in_memory);
                 match self
                     .menu
                     .saves
@@ -204,9 +239,12 @@ impl AppContext {
                                 .find_room_file(&room.to_lowercase(), ".txt")
                                 .is_some()
                         });
+                        let mut story = state.story_start(den, in_memory);
+                        story.live_region_state =
+                            carried.filter(|r| story.den.split('_').next() == Some(&r.region_name));
                         GameStart::SavedStory {
                             slugcat,
-                            story: state.story_start(den),
+                            story: Box::new(story),
                         }
                     }
                     other => {
@@ -232,6 +270,12 @@ impl AppContext {
         if let Some((_, campaign)) = story {
             let load = condition == StoryGameInitCondition::Load;
             let seed = game.sim().save_state_seed();
+            let world_version = std::fs::read_to_string(
+                self.menu.assets.resolve_file_path("World/worldVersion.txt"),
+            )
+            .ok()
+            .and_then(|v| v.trim().parse().ok())
+            .unwrap_or(0);
             match self.menu.saves.get_or_initiate_save_state(
                 Self::campaign_start(campaign),
                 seed,
@@ -239,7 +283,8 @@ impl AppContext {
                 true,
             ) {
                 Ok(state) if load => fade_in_time = state.slow_fade_in(),
-                Ok(_) => {}
+                // `new SaveState`: `RainWorld.worldVersion` (`World/worldVersion.txt`).
+                Ok(state) => state.world_version = world_version,
                 Err(e) => log::error!("the {} save state: {e}", campaign.name),
             }
         }
@@ -364,6 +409,11 @@ impl ProcessFactory<AppProcess> for AppContext {
                 AppProcess::SlideShow(Box::new(SlideShow::new(&mut self.menu, id)))
             }
             ProcessId::Game => AppProcess::Game(Box::new(self.new_game())),
+            ProcessId::SleepScreen | ProcessId::Dream => AppProcess::SleepStandIn(SleepStandIn {
+                id,
+                stage: Container::default(),
+                frames: 0,
+            }),
             ProcessId::FontTest => AppProcess::FontTest(FontTest::new(&mut self.menu)),
             ProcessId::MainMenu => AppProcess::MainMenu(Box::new(MainMenu::new(&mut self.menu))),
             ProcessId::SlugcatSelect => {
@@ -448,6 +498,10 @@ impl MainLoopProcess<AppContext> for GameProcess {
         }
         self.last_pause_button = pause;
         let events = self.scene.update_rooms(input, &mut ctx.menu, opened);
+        self.report_progression(ctx);
+        if let Some(end) = self.scene.game_mut().sim_mut().take_session_end() {
+            self.end_session(end, ctx, requests);
+        }
         if self.scene.take_entered_room()
             && let Some(audio) = &mut ctx.audio
         {
@@ -558,6 +612,68 @@ impl GameProcess {
         requests.switch_to(ProcessId::MainMenu);
     }
 
+    /// What the tick tells the progression: shelters entered (`TempDiscoverShelter`)
+    /// and the regions whose shelter door closed (`regionsVisited`).
+    fn report_progression(&mut self, ctx: &mut AppContext) {
+        let sim = self.scene.game_mut().sim_mut();
+        if !sim.is_story_session() {
+            return;
+        }
+        let slugcat = sim.campaign().name;
+        for shelter in sim.take_entered_shelters() {
+            ctx.menu.saves.temp_discover_shelter(&shelter);
+        }
+        for region in sim.take_closed_shelter_regions() {
+            ctx.menu.saves.misc.add_region_visited(&region, slugcat);
+        }
+    }
+
+    /// The end of a story cycle: `Win` saves and goes to the sleep screen (or a dream);
+    /// starving and dying go to their screens, which are not ported (D16).
+    fn end_session(
+        &mut self,
+        end: SessionEnd,
+        ctx: &mut AppContext,
+        requests: &mut ProcessRequests,
+    ) {
+        if requests.upcoming().is_some() {
+            return;
+        }
+        match end {
+            SessionEnd::Win { malnourished } => {
+                log::info!("Win (malnourished: {malnourished})");
+                self.scene.game().store_map_discovery(&mut ctx.menu.saves);
+                let assets = ctx.menu.assets.clone();
+                let mut game = HibernatingGame {
+                    sim: self.scene.game_mut().sim_mut(),
+                    assets: &assets,
+                };
+                let next =
+                    match game.win(&mut ctx.menu.saves, malnourished, &mut ctx.save_backed_up) {
+                        Ok((outcome, region)) => {
+                            ctx.carried_region_state = region;
+                            match outcome {
+                                WinOutcome::Dream(_) => ProcessId::Dream,
+                                WinOutcome::SleepScreen => ProcessId::SleepScreen,
+                            }
+                        }
+                        Err(e) => {
+                            log::error!("saving the cycle: {e}");
+                            ProcessId::SleepScreen
+                        }
+                    };
+                requests.switch_to(next);
+            }
+            SessionEnd::Starve => {
+                if let Some(music) = &mut ctx.menu.music {
+                    music.death_event();
+                }
+                requests.switch_to(ProcessId::StarveScreen);
+            }
+            SessionEnd::Death => requests.switch_to(ProcessId::DeathScreen),
+        }
+    }
+
     /// The pause menu's `PlaySound`s, which go to the game's microphone in volume
     /// group 1 (`menuMic` is null in the game) and draw from the game's stream.
     fn play_menu_sounds(&mut self, ctx: &mut AppContext) {
@@ -625,6 +741,7 @@ impl AppProcess {
             Self::Initialization(p) => Some(p.stage()),
             Self::FontTest(p) => Some(p.stage()),
             Self::Unported(p) => Some(&p.stage),
+            Self::SleepStandIn(p) => Some(&p.stage),
             Self::Game(_)
             | Self::IntroRoll(_)
             | Self::SlideShow(_)
@@ -688,6 +805,7 @@ impl MainLoopProcess<AppContext> for AppProcess {
             Self::MainMenu(_) => ProcessId::MainMenu,
             Self::SlugcatSelect(_) => ProcessId::SlugcatSelect,
             Self::Unported(p) => p.id,
+            Self::SleepStandIn(p) => p.id,
         }
     }
 
@@ -701,6 +819,7 @@ impl MainLoopProcess<AppContext> for AppProcess {
             Self::MainMenu(p) => p.update(ctx, requests),
             Self::SlugcatSelect(p) => p.update(ctx, requests),
             Self::Unported(p) => p.update(ctx, requests),
+            Self::SleepStandIn(p) => p.update(ctx, requests),
         }
     }
 
@@ -713,7 +832,7 @@ impl MainLoopProcess<AppContext> for AppProcess {
             Self::FontTest(p) => p.graf_update(time_stacker, ctx),
             Self::MainMenu(p) => p.graf_update(time_stacker, ctx),
             Self::SlugcatSelect(p) => p.graf_update(time_stacker, ctx),
-            Self::Unported(_) => {}
+            Self::Unported(_) | Self::SleepStandIn(_) => {}
         }
     }
 
@@ -726,7 +845,7 @@ impl MainLoopProcess<AppContext> for AppProcess {
             Self::FontTest(p) => p.shut_down(ctx),
             Self::MainMenu(p) => p.shut_down(ctx),
             Self::SlugcatSelect(p) => p.shut_down(ctx),
-            Self::Unported(_) => {}
+            Self::Unported(_) | Self::SleepStandIn(_) => {}
         }
     }
 

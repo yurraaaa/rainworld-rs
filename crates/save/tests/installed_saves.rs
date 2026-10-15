@@ -6,7 +6,9 @@ use std::path::{Path, PathBuf};
 
 use rw_assets::SlugcatName;
 use rw_save::user_data::UserDataFile;
-use rw_save::{CampaignStart, ChecksumSalt, Platform, PlayerProgression, SaveSlot, import_slot};
+use rw_save::{
+    CampaignStart, ChecksumSalt, Platform, PlayerProgression, SaveSlot, SaveState, import_slot,
+};
 
 const DEFAULT_RW_DIR: &str = "/home/yura/.local/share/Steam/steamapps/common/Rain World";
 
@@ -73,6 +75,29 @@ fn imported_slots_read_and_round_trip() {
             assert!((0..=9).contains(&state.food));
             assert!((4..=9).contains(&d.karma_cap) && (0..=d.karma_cap).contains(&d.karma));
             assert!(d.deaths >= 0 && d.quits >= 0);
+            // A whole rewrite keeps every entry but the guide's like and hand holding,
+            // which `ToString` raises.
+            let mut state = state;
+            let written = state.save_to_string();
+            for r in &state.region_states {
+                assert!(written.contains(r.as_str()));
+            }
+            let mut again = SaveState::new(slugcat, 0);
+            again.load_game(&written, "SU_C04", true).unwrap();
+            assert_eq!(
+                (
+                    again.cycle_number,
+                    again.food,
+                    again.respawn_creatures.len()
+                ),
+                (
+                    state.cycle_number,
+                    state.food,
+                    state.respawn_creatures.len()
+                )
+            );
+            assert_eq!(again.region_states, state.region_states);
+            assert_eq!(again.death_persistent, state.death_persistent);
         }
         // A death save on the copy changes only that state's line.
         if p.is_there_a_saved_game(SlugcatName::White) {

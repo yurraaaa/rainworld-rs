@@ -1,4 +1,4 @@
-//! `WorldLoader.GeneratePopulation(fresh: true)` for a new game: the `CREATURES`
+//! `WorldLoader.GeneratePopulation(fresh)`: the saved respawns or, fresh, every one of the `CREATURES`
 //! spawners in file order, the player guide (`OverseerSpawnConditions`), the region's
 //! overseers; then the `FliesWorldAI` constructor's bat flies. Every random draw is the
 //! game's, in its order (`rainworld-re/notes/creature-model.md`).
@@ -22,22 +22,146 @@ pub(crate) struct PopulationContext<'a> {
     pub guide: &'a PlayerGuideState,
     /// `foodToHibernate` of the slugcat (SU's third swarm room gets one more bat).
     pub food_to_hibernate: i32,
+    /// `saveState.respawnCreatures`.
+    pub respawn: &'a mut Vec<i32>,
 }
 
 impl World {
-    /// `GeneratePopulation(fresh: true)` (story, not a single-room world).
-    pub(crate) fn generate_population(&mut self, cx: &mut PopulationContext<'_>) {
+    /// `GeneratePopulation(fresh)` (story, not a single-room world): lineage counters
+    /// for every lineage; a region left with too few creatures and nothing to respawn
+    /// (or with creatures on invalid nodes) is cleared and spawned fresh; then the
+    /// `CREATURES` spawners in file order (unfresh: only the saved respawns), the player
+    /// guide (`OverseerSpawnConditions`) and the region's overseers.
+    pub(crate) fn generate_population(&mut self, fresh: bool, cx: &mut PopulationContext<'_>) {
         let region = self.data.region.as_ref().map_or(0, |r| r.region_number);
         let spawners = self.data.spawners.clone();
+        for spawner in &spawners {
+            if let CreatureSpawner::Lineage(l) = spawner {
+                let den = self.lineage_den_string(l);
+                if let Some(state) = &mut self.region_state
+                    && state.lineage_counter(&den).is_none()
+                {
+                    state.set_lineage_counter(&den, 0);
+                }
+            }
+        }
+        let mut fresh = fresh;
+        if !fresh && self.population_needs_reset(&spawners, region, cx.respawn) {
+            log::warn!(
+                "no spawners active in {}: resetting its spawns",
+                self.data.name
+            );
+            self.clear_population(&cx.session.den_position);
+            fresh = true;
+        }
         for (i, spawner) in spawners.iter().enumerate() {
             let spawner_id = region * 1000 + i32::try_from(i).unwrap_or(0);
             match spawner {
-                CreatureSpawner::Simple(s) => self.spawn_simple(s, spawner_id, cx),
-                CreatureSpawner::Lineage(l) => self.spawn_lineage(l, spawner_id, cx),
+                CreatureSpawner::Simple(s) => self.spawn_simple(s, spawner_id, fresh, cx),
+                CreatureSpawner::Lineage(l) => self.spawn_lineage(l, spawner_id, fresh, cx),
             }
         }
         self.spawn_player_guide(cx);
         self.spawn_region_overseers(cx);
+    }
+
+    /// `Lineage.denString`: the den's `SaveToString`, `;n` for a later lineage there.
+    fn lineage_den_string(&self, l: &Lineage) -> String {
+        let den = self.coordinate_save_string(WorldCoordinate::new(l.den.room, -1, -1, l.den.node));
+        if l.den_lineage > 0 {
+            format!("{den};{}", l.den_lineage)
+        } else {
+            den
+        }
+    }
+
+    /// The unfresh check: creatures on nodes past their room's, or no spawner with
+    /// anything to respawn while the rooms (shelters aside) hold at most 30% of the
+    /// spawner count. The respawn list is left as it was.
+    fn population_needs_reset(
+        &self,
+        spawners: &[CreatureSpawner],
+        region: i32,
+        respawn: &[i32],
+    ) -> bool {
+        let mut count = 0;
+        let mut invalid = false;
+        for (l, room) in self.data.rooms.iter().enumerate() {
+            let lists = &self.lists[l];
+            if !room.shelter() {
+                count += lists.creatures.len() + lists.in_dens.len();
+            }
+            let nodes = i32::try_from(room.nodes.len()).unwrap_or(i32::MAX);
+            invalid |= lists.creatures.iter().chain(&lists.in_dens).any(|&c| {
+                let n = self.creature(c).pos.node;
+                n > 0 && n >= nodes
+            });
+        }
+        let low = count as f32 <= (spawners.len() as f32 * 0.3).floor();
+        let any = spawners.is_empty()
+            || spawners.iter().enumerate().any(|(i, s)| {
+                let id = region * 1000 + i32::try_from(i).unwrap_or(0);
+                match s {
+                    CreatureSpawner::Simple(s) => {
+                        let t = CreatureTemplate::of(s.creature, self.mods);
+                        !t.quantified && t.save_creature && respawn.contains(&id)
+                    }
+                    CreatureSpawner::Lineage(_) => respawn.contains(&id),
+                }
+            });
+        (!any && low) || invalid
+    }
+
+    /// The reset: rooms but shelters lose their creatures; shelters other than the den
+    /// keep only the slugcat (the important objects the port has) and lose their dens'.
+    fn clear_population(&mut self, den: &str) {
+        for l in 0..self.data.rooms.len() {
+            let room = &self.data.rooms[l];
+            if room.shelter() && room.name == den {
+                continue;
+            }
+            if room.shelter() {
+                let keep: Vec<_> = self.lists[l]
+                    .creatures
+                    .iter()
+                    .copied()
+                    .filter(|&c| self.creature(c).kind() == CreatureType::Slugcat)
+                    .collect();
+                self.lists[l].creatures = keep;
+            } else {
+                self.lists[l].creatures.clear();
+            }
+            self.lists[l].in_dens.clear();
+        }
+    }
+
+    /// `HowManyOfThisCritterShouldRespawn`: up to `max` of the spawner's ids taken from
+    /// the end of the respawn list.
+    fn take_respawns(respawn: &mut Vec<i32>, spawner: i32, max: i32) -> i32 {
+        let mut n = 0;
+        let mut i = respawn.len();
+        while i > 0 {
+            i -= 1;
+            if respawn[i] == spawner {
+                respawn.remove(i);
+                n += 1;
+                if n >= max {
+                    break;
+                }
+            }
+        }
+        n
+    }
+
+    /// `ShouldThisCritterRespawn`: the spawner's first id taken from the respawn list.
+    fn take_respawn(respawn: &mut Vec<i32>, spawner: i32) -> bool {
+        match respawn.iter().position(|&s| s == spawner) {
+            Some(i) => {
+                respawn.remove(i);
+                true
+            }
+            None => false,
+        }
     }
 
     /// Whether a spawner's den is a Den or GarbageHoles node of an existing room.
@@ -50,30 +174,55 @@ impl World {
         })
     }
 
-    fn spawn_simple(&mut self, s: &SimpleSpawner, spawner_id: i32, cx: &mut PopulationContext<'_>) {
-        if s.amount <= 0 || !self.valid_den(s.den.room, s.den.node) {
+    fn spawn_simple(
+        &mut self,
+        s: &SimpleSpawner,
+        spawner_id: i32,
+        fresh: bool,
+        cx: &mut PopulationContext<'_>,
+    ) {
+        let template = CreatureTemplate::of(s.creature, self.mods);
+        let count = if !fresh && !template.quantified && template.save_creature {
+            Self::take_respawns(cx.respawn, spawner_id, s.amount)
+        } else {
+            s.amount
+        };
+        if count <= 0 || !self.valid_den(s.den.room, s.den.node) {
             return;
         }
-        let template = CreatureTemplate::of(s.creature, self.mods);
         if template.quantified {
             self.add_quantified(s.den.room, s.den.node, s.creature, s.amount, cx.rng);
             return;
         }
-        for _ in 0..s.amount {
+        for _ in 0..count {
             let id = cx.ids.new_id(spawner_id);
             let den = WorldCoordinate::new(s.den.room, -1, -1, s.den.node);
             self.spawn_into_den(template, den, id, s.spawn_data.clone(), false, cx);
         }
     }
 
-    /// A lineage at its first stage (a new game's counter 0): NONE rolls
-    /// `ChanceToProgress` instead of spawning.
-    fn spawn_lineage(&mut self, l: &Lineage, spawner_id: i32, cx: &mut PopulationContext<'_>) {
-        match l.creatures.first().copied().flatten() {
+    /// A lineage (fresh, or put up for respawn) spawns its current stage
+    /// (`CurrentType`); at NONE it rolls `ChanceToProgress` and goes on the respawn list.
+    fn spawn_lineage(
+        &mut self,
+        l: &Lineage,
+        spawner_id: i32,
+        fresh: bool,
+        cx: &mut PopulationContext<'_>,
+    ) {
+        if !fresh && !Self::take_respawn(cx.respawn, spawner_id) {
+            return;
+        }
+        let den = self.lineage_den_string(l);
+        let stage = self
+            .region_state
+            .as_ref()
+            .and_then(|s| s.lineage_counter(&den))
+            .and_then(|n| usize::try_from(n).ok());
+        match stage.and_then(|n| l.creatures.get(n).copied().flatten()) {
             None => {
-                if l.progression_chances.len() > 1 && cx.rng.value() < l.progression_chances[0] {
-                    log::debug!("lineage {spawner_id} progressed");
-                }
+                self.lineage_chance_to_progress(l, &den, cx.rng);
+                cx.respawn.push(spawner_id);
             }
             Some(kind) => {
                 if !self.valid_den(l.den.room, l.den.node) {
@@ -81,10 +230,27 @@ impl World {
                 }
                 let template = CreatureTemplate::of(kind, self.mods);
                 let id = cx.ids.new_id(spawner_id);
-                let data = l.spawn_data.first().cloned().flatten();
+                let data = stage.and_then(|n| l.spawn_data.get(n).cloned().flatten());
                 let den = WorldCoordinate::new(l.den.room, -1, -1, l.den.node);
                 self.spawn_into_den(template, den, id, data, l.night_creature, cx);
             }
+        }
+    }
+
+    /// `Lineage.ChanceToProgress`: below the last stage, a roll against the stage's
+    /// chance advances the counter.
+    fn lineage_chance_to_progress(&mut self, l: &Lineage, den: &str, rng: &mut UnityRandom) {
+        let Some(state) = &mut self.region_state else {
+            return;
+        };
+        let n = state.lineage_counter(den).unwrap_or(0);
+        let len = i32::try_from(l.progression_chances.len()).unwrap_or(i32::MAX);
+        if n >= 0
+            && n < len - 1
+            && rng.value() < l.progression_chances[usize::try_from(n).unwrap_or(0)]
+        {
+            state.set_lineage_counter(den, n + 1);
+            log::debug!("lineage {den} progressed");
         }
     }
 

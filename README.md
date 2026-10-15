@@ -21,7 +21,10 @@ Working now:
 - **Starting a game:** a new game plays the Survivor or Monk intro slideshow, then the SU_C04
   opening script. A saved game continues in its shelter with its food, karma and cycle.
 - **Saves:** the game's own save format, kept in the port's own directory; exiting from the
-  pause menu saves as the game does. Saves from the real game can be imported (see below).
+  pause menu saves as the game does.
+- **Shelters:** with enough food, staying still in a shelter closes its door and hibernates;
+  the cycle is saved and the next one starts there with food, karma and the region's
+  creatures carried over. Saves from the real game can be imported (see below).
 - **Movement:** the slugcat's movement and physics, corridors and shortcuts, poles, water
   and swimming. The slugcat is drawn as the game draws it.
 - **Regions:** a whole region loads, and room-exit pipes take you between rooms, with the
@@ -39,7 +42,7 @@ Working now:
 Not yet ported:
 
 - the rain cycle's rain, flood and death;
-- shelters, hibernation, and food and karma carried between cycles;
+- the sleep, starve and death screens (a black stand-in follows hibernation);
 - region gates;
 - creatures other than overseers and bat flies;
 - depth scenes.

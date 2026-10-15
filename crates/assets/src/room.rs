@@ -607,6 +607,15 @@ impl Room {
         }
     }
 
+    /// `GetTile(x, y).Terrain = terrain` for an in-bounds tile (a shelter door's close
+    /// tiles); out of bounds does nothing.
+    pub fn set_terrain(&mut self, x: i32, y: i32, terrain: Terrain) {
+        if self.contains(x, y) {
+            let i = self.index(x, y);
+            self.tiles[i].terrain = terrain;
+        }
+    }
+
     /// Tile containing the room-pixel position `pos`, clamped as [`Room::tile`].
     #[must_use]
     pub fn tile_at(&self, pos: [f32; 2]) -> Tile {

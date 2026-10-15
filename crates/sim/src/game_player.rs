@@ -68,6 +68,7 @@ impl RainWorldGame {
         if state.food_in_stomach >= max {
             state.quarter_food_points = 0;
         }
+        self.session_food += add;
     }
 
     /// `Player.AddQuarterFood`.
@@ -85,7 +86,7 @@ impl RainWorldGame {
 
     /// `SlugcatStats.NourishmentOfObjectEaten` of a bat fly (`FoodPoints` 1) in quarter
     /// points: the Hunter gets the bare food points, the others four times as many.
-    fn fly_nourishment(&self) -> i32 {
+    pub(super) fn fly_nourishment(&self) -> i32 {
         if self.campaign.name == SlugcatName::Red {
             1
         } else {
@@ -268,7 +269,7 @@ impl RainWorldGame {
     }
 
     /// `Player.ReleaseGrasp` (its `Slugcat_Lose_Grasp` draws nothing) then the base's.
-    fn player_release_grasp(&mut self, grasp: usize) {
+    pub(super) fn player_release_grasp(&mut self, grasp: usize) {
         self.world.release_grasp(self.player_id, grasp);
     }
 
@@ -523,6 +524,10 @@ impl RainWorldGame {
     /// quarter pips, then every grasp on it lets go.
     fn object_eaten(&mut self, fly: CreatureId, observer: &mut dyn PlayerObserver) {
         observer.player_look_at(None);
+        let id = self.world.creature(fly).id;
+        if !self.eaten.contains(&id) {
+            self.eaten.push(id);
+        }
         let mut num = self.fly_nourishment();
         while num >= 4 {
             self.add_food(1);

@@ -361,6 +361,7 @@ impl World {
             grasps: Vec::new(),
             grabbed_by: Vec::new(),
             sticks: Vec::new(),
+            saved_state: None,
         };
         let room = self.abstract_room(pos.room);
         if template.top_ancestor() == CreatureType::GarbageWorm {
