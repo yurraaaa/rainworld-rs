@@ -2149,6 +2149,7 @@ version = "0.1.0"
 dependencies = [
  "log",
  "rw-assets",
+ "rw-audio",
  "rw-graphics",
  "rw-random",
  "rw-render",

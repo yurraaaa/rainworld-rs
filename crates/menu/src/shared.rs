@@ -1,7 +1,10 @@
 //! What the menu processes share across processes (`RainWorld`, `ProcessManager` and
 //! Futile's globals, and `UnityEngine.Random`).
 
-use rw_assets::{StreamingAssets, UnityResources};
+use std::sync::Arc;
+
+use rw_assets::{SoundTable, StreamingAssets, UnityResources};
+use rw_audio::music::{MusicPlayer, MusicSettings};
 use rw_random::UnityRandom;
 use rw_render::StageTextureId;
 
@@ -58,7 +61,8 @@ impl Default for Progression {
     }
 }
 
-/// `RainWorld.dlcsInstalled`, found from files as `DLCOwnershipCheckSwitchPC`.
+/// `RainWorld.dlcsInstalled`. The game finds it from files ([`Dlcs::check`]); until DLC
+/// support exists the port runs with none installed (docs/DIVERGENCES.md D13).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Dlcs {
     pub downpour: bool,
@@ -117,6 +121,13 @@ pub struct MenuShared {
     pub start_game_condition: Option<StoryGameInitCondition>,
     /// `_TextGradientTex` (`Palettes/textGradient`), when it could be read.
     pub text_gradient: Option<StageTextureId>,
+    /// `_NoiseTex2` (`Palettes/noise2`), when it could be read.
+    pub noise2: Option<StageTextureId>,
+    /// `manager.musicPlayer`: a side process once created.
+    pub music: Option<MusicPlayer>,
+    /// `requestPlayMusic`: `setup.playMusic`, on in the distribution build.
+    pub request_play_music: bool,
+    pub music_settings: MusicSettings,
     /// `Application.Quit()` was called.
     pub quit: bool,
 }
@@ -143,11 +154,15 @@ impl MenuShared {
             .load_resource_texture(resources, "Palettes/textGradient")
             .inspect_err(|e| log::warn!("no text gradient ({e}); titles are drawn white"))
             .ok();
+        let noise2 = atlases
+            .load_resource_texture(resources, "Palettes/noise2")
+            .inspect_err(|e| log::warn!("no noise2 texture ({e})"))
+            .ok();
         let translator = Translator::load(&assets).unwrap_or_else(|e| {
             log::warn!("no strings ({e}); text is shown untranslated");
             Translator::default()
         });
-        let dlcs = Dlcs::check(&assets);
+        let dlcs = Dlcs::default();
         Ok(Self {
             assets,
             atlases,
@@ -164,8 +179,51 @@ impl MenuShared {
             in_game_slugcat: None,
             start_game_condition: None,
             text_gradient,
+            noise2,
+            music: None,
+            request_play_music: true,
+            music_settings: MusicSettings::new(SoundTable::default().volume_exponent),
             quit: false,
         })
+    }
+
+    /// The menu microphone's clips and the music volume exponent come from `sounds.txt`.
+    pub fn set_sound_table(&mut self, table: Arc<SoundTable>) {
+        self.music_settings = MusicSettings::new(table.volume_exponent);
+        self.mic = MenuMic::new(table);
+    }
+
+    /// `ProcessManager.Update`'s first step: the music player is made once the options
+    /// are ready (at once in the port) if music is on and its volume above 0.
+    pub fn create_music_player(&mut self, current: Option<ProcessId>) {
+        if self.request_play_music {
+            self.request_play_music = false;
+            self.music =
+                MusicPlayer::new(self.music_settings, current.map(ProcessId::music_process));
+        }
+    }
+
+    /// `musicPlayer.UpdateMusicContext(currentMainLoop)` after a switch.
+    pub fn update_music_context(&mut self, current: ProcessId) {
+        if let Some(music) = &mut self.music {
+            music.update_music_context(Some(current.music_process()));
+        }
+    }
+
+    /// `musicPlayer == null || musicPlayer.assetBundlesLoaded`.
+    #[must_use]
+    pub fn music_ready(&self) -> bool {
+        self.music
+            .as_ref()
+            .is_none_or(MusicPlayer::asset_bundles_loaded)
+    }
+
+    /// `musicPlayer.song` when it is an `IntroRollMusic`.
+    pub fn intro_roll_song(&mut self) -> Option<&mut rw_audio::music::Song> {
+        self.music
+            .as_mut()
+            .and_then(|m| m.song.as_mut())
+            .filter(|s| s.is_intro_roll())
     }
 
     /// `PreSwitchMainProcess`'s microphone handling: let go of it before the game,

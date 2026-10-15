@@ -114,8 +114,11 @@ pub struct TilesParams {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ProcessParam {
-    /// The main menu (STORY leads to the slugcat select menu).
+    /// The intro roll, as the game boots (any key after a second, or 40 s, goes on to
+    /// the main menu).
     #[default]
+    IntroRoll,
+    /// The main menu (STORY leads to the slugcat select menu).
     MainMenu,
     /// The slugcat select menu (hold START to begin a new game in the room).
     SlugcatSelect,
@@ -127,7 +130,7 @@ pub enum ProcessParam {
 
 #[derive(Debug, Clone, Default, Deserialize, JsonSchema)]
 pub struct LoadProcessParams {
-    /// Started by `Initialization` after the boot fade (default "main_menu").
+    /// Started by `Initialization` after the boot fade (default "intro_roll").
     pub process: Option<ProcessParam>,
     /// Room of the game process (default "summit").
     pub room: Option<String>,
@@ -140,7 +143,9 @@ pub struct StepProcessParams {
     /// Frames of 1/40 s to run (default 1). Each frame is one process manager update;
     /// at 40 frames per second a process ticks once per frame.
     pub frames: Option<u32>,
-    /// Menu keys held for these frames: Rewired names "UpArrow", "DownArrow",
-    /// "LeftArrow", "RightArrow", "Return", "Space", "Z", "X", "Escape".
+    /// Keys held for these frames, by Rewired name: "UpArrow", "DownArrow",
+    /// "LeftArrow", "RightArrow", "Return", "Space", "Z", "X", "C", "Escape",
+    /// "LeftShift". They feed the menus (UI map) and, in the game, the player
+    /// (gameplay map: arrows move, Z jumps).
     pub keys: Option<Vec<String>>,
 }

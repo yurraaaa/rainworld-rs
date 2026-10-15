@@ -18,7 +18,7 @@ use crate::shared::MenuShared;
 use crate::stage::{Sprite, StageColor};
 
 impl Menu {
-    fn push(&mut self, object: MenuObject) -> ObjectId {
+    pub(super) fn push(&mut self, object: MenuObject) -> ObjectId {
         self.objects.push(object);
         ObjectId(self.objects.len() - 1)
     }

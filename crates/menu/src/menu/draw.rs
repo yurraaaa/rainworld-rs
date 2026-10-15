@@ -80,6 +80,7 @@ impl Menu {
                     tr.y = pos.y;
                 }
             }
+            Kind::RainEffect(r) => r.graf_update(&mut self.stage, t),
             Kind::MouseCursor(_) | Kind::Scene(_) => {}
         }
     }

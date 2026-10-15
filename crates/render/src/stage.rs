@@ -30,6 +30,9 @@ pub enum StageShader {
     HoldButtonCircle,
     /// `Futile/MenuText`: title lettering coloured from the text gradient.
     MenuText,
+    /// `Futile/FlatLightNoisy`: `FlatLight` with a falloff bent by `_NoiseTex2` read at
+    /// the screen position within `_spriteRect` (`RainEffect`'s light source).
+    FlatLightNoisy,
 }
 
 /// Shader globals of the stage (`Shader.SetGlobal*`).
@@ -39,6 +42,11 @@ pub struct StageGlobals {
     pub rain: f32,
     /// `_TextGradientTex`, a stage texture.
     pub text_gradient: Option<StageTextureId>,
+    /// `_NoiseTex2` (`Palettes/noise2`).
+    pub noise2: Option<StageTextureId>,
+    /// `_spriteRect`: set only by a room camera; (0, 0, 0, 0), Unity's value for an unset
+    /// global, in the menus.
+    pub sprite_rect: [f32; 4],
 }
 
 /// Unity's `filterMode` for a stage texture.

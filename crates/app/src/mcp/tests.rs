@@ -7,9 +7,13 @@ use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{CallToolResult, ContentBlock};
 use rw_assets::{StreamingAssets, UnityResources};
 
+use rw_audio::music::{MusicContext, SongKind};
+use rw_menu::ProcessId;
+
 use super::params::{
-    InputParam, ListRoomsParams, LoadRoomParams, RespawnParams, ScreenshotParams, SetPlayerParams,
-    Step, StepParams, StepSequenceParams, TilesParams, ViewParam,
+    InputParam, ListRoomsParams, LoadProcessParams, LoadRoomParams, RespawnParams,
+    ScreenshotParams, SetPlayerParams, Step, StepParams, StepProcessParams, StepSequenceParams,
+    TilesParams, ViewParam,
 };
 use super::reply::State;
 use super::{Server, Session};
@@ -357,5 +361,113 @@ fn screenshot_renders_offscreen() {
     assert!(
         rgb.iter().any(|px| *px != rgb[0]),
         "the frame is not one flat colour"
+    );
+}
+
+impl Session {
+    /// Runs `frames` frames holding `keys`.
+    fn frames(&mut self, frames: u32, keys: &[&str]) -> super::reply::ProcessState {
+        self.step_process(&StepProcessParams {
+            frames: Some(frames),
+            keys: Some(keys.iter().map(|k| (*k).to_owned()).collect()),
+        })
+        .expect("steps")
+    }
+
+    /// Steps until `id` runs with the fade from black over.
+    fn settle_on(&mut self, id: ProcessId) {
+        for _ in 0..400 {
+            let s = self.frames(1, &[]);
+            if s.process.as_deref() == Some(&format!("{id:?}")) && s.fade_to_black == 0.0 {
+                return;
+            }
+        }
+        panic!("{id:?} never settled");
+    }
+
+    fn process_player(&mut self) -> super::reply::PlayerState {
+        let frontend = self.frontend_mut().expect("process mode");
+        let game = frontend.game().expect("game").scene.game();
+        super::reply::PlayerState::of(game.live_player().expect("player"))
+    }
+
+    fn music(&mut self) -> &rw_audio::music::MusicPlayer {
+        let frontend = self.frontend_mut().expect("process mode");
+        frontend
+            .ctx
+            .menu
+            .music
+            .as_ref()
+            .expect("music on by default")
+    }
+}
+
+/// Boot to play through MCP: the intro roll (default), a key after its first second
+/// goes to the main menu; Return on STORY (selected on `Init`) opens slugcat select;
+/// START held fills in 36 ticks and starts the game in the room, where held arrows
+/// now drive the player. The music player follows the processes
+/// (`MusicPlayer.UpdateMusicContext`, 414132): `Menu` in the intro roll and main menu,
+/// `StoryMode` in slugcat select (the intro song's context is `Menu`, so it plays on),
+/// `StartGame`'s `FadeOut(20)` on the intro song, then the game's `FadeOut(2)` on
+/// `Menu`-context songs (`FadeOut` keeps the shorter), and the song ends.
+#[test]
+fn boot_to_play_with_music_contexts() {
+    let Some(mut s) = Session::installed() else {
+        return;
+    };
+    let state = s
+        .load_process(&LoadProcessParams::default())
+        .expect("process loads");
+    assert_eq!(state.process.as_deref(), Some("Initialization"));
+    s.settle_on(ProcessId::IntroRoll);
+    assert_eq!(s.music().music_context, MusicContext::Menu);
+    assert!(s.music().song.as_ref().is_some_and(|x| x.is_intro_roll()));
+    s.frames(30, &[]);
+    let state = s.frames(1, &["Z"]);
+    assert_eq!(state.upcoming.as_deref(), Some("MainMenu"));
+    s.settle_on(ProcessId::MainMenu);
+    let song = s.music().song.as_ref().expect("intro song");
+    assert!(
+        matches!(song.kind, SongKind::IntroRoll(i) if i.music_track_started && i.fade_out_rain)
+    );
+    assert_eq!(song.context, MusicContext::Menu);
+    s.frames(1, &["Return"]);
+    s.frames(2, &[]);
+    s.settle_on(ProcessId::SlugcatSelect);
+    assert_eq!(s.music().music_context, MusicContext::StoryMode);
+    assert!(!s.music().song.as_ref().expect("intro song").fading_out());
+    let mut started = None;
+    for frame in 0..80 {
+        let state = s.frames(1, &["Z"]);
+        if state.upcoming.as_deref() == Some("Game") {
+            started = Some(frame);
+            break;
+        }
+    }
+    assert!(started.is_some(), "START never signalled");
+    assert_eq!(
+        s.music().song.as_ref().expect("intro song").fade_out_time,
+        20.0
+    );
+    s.settle_on(ProcessId::Game);
+    assert_eq!(s.music().music_context, MusicContext::StoryMode);
+    if let Some(song) = &s.music().song {
+        assert_eq!(song.fade_out_time, 2.0);
+    }
+    s.frames(10, &[]);
+    assert!(s.music().song.is_none(), "the menu song faded out");
+    s.frames(40, &[]);
+    let before = s.process_player();
+    let state = s.frames(40, &["DownArrow"]);
+    assert!(state.game_tick.is_some());
+    let after = s.process_player();
+    assert_eq!(after.input.y, -1, "the held key reached the player");
+    // Summit's seed-1 spawn is in a vertical corridor: down climbs down it.
+    assert!(
+        after.chunks[0].pos[1] < before.chunks[0].pos[1] - 5.0,
+        "the player moved down ({:?} -> {:?}, {})",
+        before.chunks[0].pos,
+        after.chunks[0].pos,
+        after.body_mode
     );
 }

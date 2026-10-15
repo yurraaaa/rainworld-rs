@@ -138,6 +138,15 @@ impl UiInputState {
         self.held.contains(&key) || self.pressed_since_tick.contains(&key)
     }
 
+    /// `ControlSetup.GetAnyButton` for player 0, or any mouse button: every key the port
+    /// knows is bound in a default map (gameplay or UI), so any of them held counts.
+    #[must_use]
+    pub fn any_button(&self) -> bool {
+        !self.held.is_empty()
+            || !self.pressed_since_tick.is_empty()
+            || self.mouse.buttons.iter().any(|b| *b)
+    }
+
     /// `CheckSpecificButton(0, 5)`: the gameplay map's Pause, Escape by default.
     #[must_use]
     pub fn pause_action(&self) -> bool {

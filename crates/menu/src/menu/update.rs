@@ -437,17 +437,27 @@ impl Menu {
             Kind::Page(_) => screen.page_update(self, id, cx),
             Kind::Button(_) => self.update_button(id, screen, cx),
             Kind::HoldButton(_) => self.update_hold_button(id, screen, cx),
-            Kind::MouseCursor(_) => self.update_cursor(id, cx),
+            Kind::MouseCursor(_) => self.update_cursor(id, screen, cx),
+            Kind::RainEffect(_) => {
+                let random = &mut cx.shared.random;
+                if let Kind::RainEffect(r) = &mut self.objects[id.0].kind {
+                    r.update(random);
+                }
+            }
             _ => {}
         }
     }
 
     /// `MouseCursor.Update`: fades in on the current page in mouse mode when the
     /// cursor is shown (`ShowCursor`: full screen).
-    fn update_cursor(&mut self, id: ObjectId, cx: &MenuCx<'_>) {
+    fn update_cursor(&mut self, id: ObjectId, screen: &dyn MenuScreen, cx: &MenuCx<'_>) {
         let page = self.page_of(id);
         let on_page = self.page_data(page).index == self.current_page;
-        let show = cx.shared.full_screen && !self.frozen && cx.shared.mouse_mode && on_page;
+        let show = screen.shows_cursor()
+            && cx.shared.full_screen
+            && !self.frozen
+            && cx.shared.mouse_mode
+            && on_page;
         if let Kind::MouseCursor(c) = &mut self.objects[id.0].kind {
             c.fade = c
                 .fade

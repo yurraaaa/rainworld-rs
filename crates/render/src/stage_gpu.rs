@@ -28,7 +28,8 @@ pub(crate) struct StagePipeline {
     /// White 1x1, bound as the text gradient until one is set.
     blank: StageTexture,
     globals: StageGlobals,
-    /// Group 2: the text gradient.
+    globals_layout: wgpu::BindGroupLayout,
+    /// Group 2: the text gradient and `_NoiseTex2`.
     globals_bind_group: wgpu::BindGroup,
     vertices: Option<wgpu::Buffer>,
     indices: Option<wgpu::Buffer>,
@@ -36,7 +37,7 @@ pub(crate) struct StagePipeline {
 
 impl StagePipeline {
     /// Each shader and its fragment entry point.
-    const SHADERS: [(StageShader, &'static str); 7] = [
+    const SHADERS: [(StageShader, &'static str); 8] = [
         (StageShader::Basic, "fs_basic"),
         (StageShader::EdgeFade, "fs_edge_fade"),
         (StageShader::FlatLight, "fs_flat_light"),
@@ -44,10 +45,11 @@ impl StagePipeline {
         (StageShader::VectorCircleFadable, "fs_vector_circle_fadable"),
         (StageShader::HoldButtonCircle, "fs_hold_button_circle"),
         (StageShader::MenuText, "fs_menu_text"),
+        (StageShader::FlatLightNoisy, "fs_flat_light_noisy"),
     ];
 
-    /// The stage uniform: transform, screen size, `_RAIN` and padding.
-    const UNIFORM_FLOATS: usize = 8;
+    /// The stage uniform: transform, screen size, `_RAIN`, padding and `_spriteRect`.
+    const UNIFORM_FLOATS: usize = 12;
 
     /// `Blend SrcAlpha OneMinusSrcAlpha`, as every stage shader.
     const BLEND: wgpu::BlendState = wgpu::BlendState {
@@ -102,6 +104,7 @@ impl StagePipeline {
                 },
             ],
         });
+        let globals_layout = Self::globals_layout(device);
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("stage.wgsl"),
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("../shaders/stage.wgsl"))),
@@ -111,7 +114,7 @@ impl StagePipeline {
             bind_group_layouts: &[
                 Some(&uniform_layout),
                 Some(&texture_layout),
-                Some(&texture_layout),
+                Some(&globals_layout),
             ],
             immediate_size: 0,
         });
@@ -143,10 +146,11 @@ impl StagePipeline {
                 clamp: true,
             },
         );
-        let globals_bind_group = Self::globals_group(device, &texture_layout, &blank);
+        let globals_bind_group = Self::globals_group(device, &globals_layout, &blank, &blank);
         Self {
             pipelines,
             texture_layout,
+            globals_layout,
             uniform,
             uniform_bind_group,
             textures: HashMap::new(),
@@ -213,9 +217,37 @@ impl StagePipeline {
     ) {
         let texture = Self::create_texture(device, queue, &self.texture_layout, image, sampling);
         self.textures.insert(id, texture);
-        if self.globals.text_gradient == Some(id) {
+        if self.is_global(id) {
             self.rebind_globals(device);
         }
+    }
+
+    fn is_global(&self, id: StageTextureId) -> bool {
+        self.globals.text_gradient == Some(id) || self.globals.noise2 == Some(id)
+    }
+
+    /// Group 2: two textures with their samplers.
+    fn globals_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+        let texture = wgpu::BindingType::Texture {
+            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+            view_dimension: wgpu::TextureViewDimension::D2,
+            multisampled: false,
+        };
+        let sampler = wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering);
+        let entries: Vec<wgpu::BindGroupLayoutEntry> = [texture, sampler, texture, sampler]
+            .into_iter()
+            .enumerate()
+            .map(|(i, ty)| wgpu::BindGroupLayoutEntry {
+                binding: i as u32,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty,
+                count: None,
+            })
+            .collect();
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("stage globals"),
+            entries: &entries,
+        })
     }
 
     fn create_texture(
@@ -289,6 +321,7 @@ impl StagePipeline {
         device: &wgpu::Device,
         layout: &wgpu::BindGroupLayout,
         gradient: &StageTexture,
+        noise2: &StageTexture,
     ) -> wgpu::BindGroup {
         device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("stage globals"),
@@ -302,13 +335,22 @@ impl StagePipeline {
                     binding: 1,
                     resource: wgpu::BindingResource::Sampler(&gradient.sampler),
                 },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(&noise2.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::Sampler(&noise2.sampler),
+                },
             ],
         })
     }
 
-    /// Sets the globals; the text gradient is bound once its texture is uploaded.
+    /// Sets the globals; the global textures are bound once uploaded.
     pub(crate) fn set_globals(&mut self, device: &wgpu::Device, globals: StageGlobals) {
-        let rebind = globals.text_gradient != self.globals.text_gradient;
+        let rebind = globals.text_gradient != self.globals.text_gradient
+            || globals.noise2 != self.globals.noise2;
         self.globals = globals;
         if rebind {
             self.rebind_globals(device);
@@ -316,17 +358,20 @@ impl StagePipeline {
     }
 
     fn rebind_globals(&mut self, device: &wgpu::Device) {
-        let gradient = self
-            .globals
-            .text_gradient
-            .and_then(|id| self.textures.get(&id))
-            .unwrap_or(&self.blank);
-        self.globals_bind_group = Self::globals_group(device, &self.texture_layout, gradient);
+        let gradient = self.global_texture(self.globals.text_gradient);
+        let noise2 = self.global_texture(self.globals.noise2);
+        self.globals_bind_group =
+            Self::globals_group(device, &self.globals_layout, gradient, noise2);
+    }
+
+    fn global_texture(&self, id: Option<StageTextureId>) -> &StageTexture {
+        id.and_then(|id| self.textures.get(&id))
+            .unwrap_or(&self.blank)
     }
 
     pub(crate) fn remove_texture(&mut self, device: &wgpu::Device, id: StageTextureId) {
         self.textures.remove(&id);
-        if self.globals.text_gradient == Some(id) {
+        if self.is_global(id) {
             self.rebind_globals(device);
         }
     }
@@ -342,8 +387,21 @@ impl StagePipeline {
         screen: [f32; 2],
     ) {
         let [a, b, c, d] = camera.clip_transform();
-        let uniform: [f32; Self::UNIFORM_FLOATS] =
-            [a, b, c, d, screen[0], screen[1], self.globals.rain, 0.0];
+        let [r0, r1, r2, r3] = self.globals.sprite_rect;
+        let uniform: [f32; Self::UNIFORM_FLOATS] = [
+            a,
+            b,
+            c,
+            d,
+            screen[0],
+            screen[1],
+            self.globals.rain,
+            0.0,
+            r0,
+            r1,
+            r2,
+            r3,
+        ];
         queue.write_buffer(&self.uniform, 0, bytemuck::cast_slice(&uniform));
         Self::write(
             device,

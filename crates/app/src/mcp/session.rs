@@ -420,6 +420,7 @@ impl Session {
             sound_table: Arc::clone(&self.sound_table),
         };
         let start = match params.process.unwrap_or_default() {
+            ProcessParam::IntroRoll => ProcessId::IntroRoll,
             ProcessParam::MainMenu => ProcessId::MainMenu,
             ProcessParam::SlugcatSelect => ProcessId::SlugcatSelect,
             ProcessParam::FontTest => ProcessId::FontTest,
@@ -438,7 +439,8 @@ impl Session {
         self.process_state()
     }
 
-    /// Runs process manager frames of 1/40 s holding menu `keys`.
+    /// Runs process manager frames of 1/40 s holding `keys`, for the menus and the
+    /// player.
     ///
     /// # Errors
     /// Without a process, or on an unknown key or too many frames.
@@ -458,14 +460,14 @@ impl Session {
             .as_mut()
             .ok_or("no process loaded; call load_process first")?;
         for &key in &keys {
-            frontend.ctx.menu.input.set_key(key, true);
+            frontend.ctx.set_key(key, true);
         }
         for _ in 0..frames {
             frontend.update(FRAME_SECONDS);
             *count += 1;
         }
         for &key in &keys {
-            frontend.ctx.menu.input.set_key(key, false);
+            frontend.ctx.set_key(key, false);
         }
         self.process_state()
     }
@@ -572,7 +574,7 @@ impl Scene {
 }
 
 impl PlayerState {
-    fn of(player: &rw_sim::Player) -> Self {
+    pub(super) fn of(player: &rw_sim::Player) -> Self {
         let input = player.input_history()[0];
         Self {
             chunks: player

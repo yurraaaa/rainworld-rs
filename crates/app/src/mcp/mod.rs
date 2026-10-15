@@ -37,7 +37,10 @@ per second and only advances in step / step_sequence, so runs are deterministic:
 same room, seed and inputs give the same result. Positions are room pixels, y up, 20 px \
 per tile. Use get_tiles to read the geometry and screenshot to look at the scene. \
 load_process instead starts the process manager (boot fade, then a menu screen or the \
-game); step_process advances it frame by frame (1/40 s each) and screenshot draws it.";
+game); step_process advances it frame by frame (1/40 s each), holding keys for the \
+menus and the player, and screenshot draws it. Boot to play: load_process, step_process \
+past the intro roll with a key (e.g. Z after its first second), STORY with Return, hold \
+Z on START until the game runs, then step_process with arrows and Z.";
 
 /// Serves MCP on stdin/stdout until the client disconnects; with `window`, also shows
 /// the driven scene in a window.
@@ -192,8 +195,9 @@ impl Server {
 
     #[tool(
         description = "Start the process manager as the game boots (black, Initialization, \
-        fade) into a process: main_menu (default; STORY leads to slugcat select, whose \
-        held START begins the game in the room), slugcat_select, font_test (labels in the \
+        fade) into a process: intro_roll (default, as the game boots; any key goes on to \
+        the main menu), main_menu (STORY leads to slugcat select, whose held START begins \
+        the game in the room), slugcat_select, font_test (labels in the \
         game's fonts over the flat main-menu scene; menu submit goes on to the game) or \
         game. Replaces any loaded room."
     )]
@@ -206,8 +210,9 @@ impl Server {
 
     #[tool(
         description = "Run process manager frames of 1/40 s (one process tick each once \
-        running), holding menu keys (held through all the frames, released after); \
-        returns the current process, the fade state and whether Exit asked to quit."
+        running), holding keys (held through all the frames, released after); the keys \
+        drive the menus (Rewired UI map) and the player in the game (gameplay map: arrows \
+        move, Z jumps); returns the current process, the fade state and whether Exit asked to quit."
     )]
     fn step_process(
         &self,

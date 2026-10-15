@@ -2,12 +2,14 @@
 //! menu, a slideshow ...), switched behind a fade to black. Behaviour:
 //! `rainworld-re/notes/menu.md` ("Processes and the fade").
 //!
-//! Of the side processes only the menu microphone runs (through
-//! [`ProcessFactory::update_side_processes`]); the switch queue only holds requests
+//! The side processes (the music player and the menu microphone) run through
+//! [`ProcessFactory::update_side_processes`]; the switch queue only holds requests
 //! while a dialog runs, so with none it is always empty. Mod finalization between the two halves of a switch finishes at once,
 //! as with no mods to enable or disable.
 
 use std::collections::VecDeque;
+
+use rw_audio::music::MusicProcess;
 
 use crate::atlas::AtlasManager;
 use crate::font::Font;
@@ -58,6 +60,22 @@ pub enum ProcessId {
     /// Port only: a screen of labels in both fonts and a flat illustration, for
     /// comparing text and image drawing with the game by eye.
     FontTest,
+}
+
+impl ProcessId {
+    /// The process as `MusicPlayer.UpdateMusicContext` tells them apart (the port's game
+    /// is a story session).
+    #[must_use]
+    pub fn music_process(self) -> MusicProcess {
+        match self {
+            Self::Game => MusicProcess::StoryGame,
+            Self::SlugcatSelect => MusicProcess::SlugcatSelect,
+            Self::RegionsOverviewScreen => MusicProcess::RegionsOverviewScreen,
+            Self::MultiplayerMenu => MusicProcess::MultiplayerMenu,
+            Self::MainMenu => MusicProcess::MainMenu,
+            _ => MusicProcess::Other,
+        }
+    }
 }
 
 /// `MainLoopProcess.myTimeStacker`: real time in ticks, run by `RawUpdate`.
@@ -197,6 +215,13 @@ pub trait ProcessFactory<P> {
 
     /// The start of `PreSwitchMainProcess(next)`, before the current process ends.
     fn pre_switch(&mut self, _next: ProcessId) {}
+
+    /// The end of `PostSwitchMainProcess`, with the new process.
+    fn post_switch(&mut self, _current: &P) {}
+
+    /// `ProcessManager.Update` before the main process's frame (the music player's
+    /// creation).
+    fn frame_start(&mut self, _current: Option<&P>) {}
 }
 
 /// `ProcessManager.fadeSprite`: a black `Futile_White` quad over the screen drawn
@@ -319,6 +344,7 @@ impl<P> ProcessManager<P> {
         if let Some((id, fade)) = self.queue.pop_front() {
             self.actual_process_switch(id, fade);
         }
+        ctx.frame_start(self.current.as_ref());
         let mut requests = ProcessRequests::new(
             self.upcoming,
             self.after_mod_finalization.is_some(),
@@ -440,6 +466,7 @@ impl<P> ProcessManager<P> {
         }
         self.black_fade_time = next.fade_in_time();
         self.black_delay = next.initial_black_seconds();
+        ctx.post_switch(&next);
         self.current = Some(next);
         self.stacker = TimeStacker::default();
         self.pause_fade_update = true;

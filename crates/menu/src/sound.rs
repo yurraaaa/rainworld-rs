@@ -49,6 +49,8 @@ menu_sound_ids! {
     CheckboxCheck = "MENU_Checkbox_Check",
     CheckboxUncheck = "MENU_Checkbox_Uncheck",
     SwitchArenaGametype = "MENU_Switch_Arena_Gametype",
+    Thunder = "Thunder",
+    ThunderClose = "Thunder_Close",
 }
 
 /// One `MenuSoundObject` as created: the drawn `SoundData` and the call's arguments.

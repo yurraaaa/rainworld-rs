@@ -158,6 +158,9 @@ impl SlugcatSelectScreen {
         cx.shared.start_game_condition = Some(StoryGameInitCondition::New);
         cx.requests.switch_to(ProcessId::Game);
         cx.play_sound(MenuSoundId::StartNewGame);
+        if let Some(song) = cx.shared.intro_roll_song() {
+            song.fade_out(20.0);
+        }
     }
 
     /// `SlugcatSelectMenu.Update` after the base.

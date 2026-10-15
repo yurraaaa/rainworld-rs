@@ -8,14 +8,15 @@
 //! script has run, and quits; `--debug-view` starts in the debug view; `--spawn` puts
 //! the player on tile X,Y; `--script` plays `X,Y,J:TICKS;...` input steps instead of
 //! the keyboard; `--resolution` is one of the game's screen sizes, default 1366x768;
-//! `--process` picks the process `Initialization` starts: `main-menu` (the default),
-//! `slugcat-select`, `game` (the default with `--spawn`, `--script` or `--screenshot`)
+//! `--process` picks the process `Initialization` starts: `intro-roll` (the default, as
+//! the game boots), `main-menu`, `slugcat-select`, `game` (the default with `--spawn`,
+//! `--script` or `--screenshot`)
 //! or `font-test`, the M0 screen of labels and a flat illustration, whose UI submit goes
 //! on to the game).
 //! As in the game the frame is shown full screen, scaled; `--windowed` (implied by
 //! `--screenshot`) shows it 1:1 in a window of the resolution. Sound plays on the default
-//! output device unless `--mute` (or `--screenshot`); either way the sim makes the
-//! sounds' random draws.
+//! output device unless `--mute` (or `--screenshot`), music included; either way the sim
+//! makes the sounds' random draws.
 //!
 //! `rainworld-rs --mcp [--window]` serves the MCP tools of [`mcp`] on stdin/stdout
 //! instead (headless; `--window` also shows the driven scene). The game directory comes
@@ -125,14 +126,15 @@ impl Args {
                 "--process" => {
                     let value = args.next().ok_or("--process needs a name")?;
                     start = Some(match value.as_str() {
+                        "intro-roll" => ProcessId::IntroRoll,
                         "main-menu" => ProcessId::MainMenu,
                         "slugcat-select" => ProcessId::SlugcatSelect,
                         "game" => ProcessId::Game,
                         "font-test" => ProcessId::FontTest,
                         _ => {
                             return Err(format!(
-                                "unknown process {value:?} (main-menu, slugcat-select, game, \
-                                 font-test)"
+                                "unknown process {value:?} (intro-roll, main-menu, slugcat-select, \
+                                 game, font-test)"
                             ));
                         }
                     });
@@ -158,7 +160,7 @@ impl Args {
                         "usage: rainworld-rs [ROOM] [--seed N] [--screenshot FILE.ppm] \
                                 [--debug-view] [--spawn X,Y] [--script X,Y,J:TICKS;...] \
                                 [--resolution WxH] [--windowed] [--mute] \
-                                [--process main-menu|slugcat-select|game|font-test]\n       \
+                                [--process intro-roll|main-menu|slugcat-select|game|font-test]\n       \
                                 rainworld-rs --mcp [--window]"
                             .to_owned(),
                     );
@@ -174,7 +176,7 @@ impl Args {
             if spawn.is_some() || script.is_some() || screenshot.is_some() {
                 ProcessId::Game
             } else {
-                ProcessId::MainMenu
+                ProcessId::IntroRoll
             },
         );
         Ok(Self {
@@ -261,7 +263,9 @@ fn run() -> Result<(), Box<dyn Error>> {
     };
     let mut ctx = AppContext::new(assets, resources, args.resolution, setup, args.start)
         .map_err(|e| format!("loading the fonts: {e}"))?;
-    ctx.audio = audio;
+    if let Some(audio) = audio {
+        ctx.set_audio(audio);
+    }
     ctx.script = args.script;
     let options = app::Options {
         // A screenshot run never covers the screen.
@@ -313,7 +317,7 @@ mod tests {
                 resolution: Resolution::DEFAULT,
                 windowed: false,
                 mute: false,
-                start: ProcessId::MainMenu,
+                start: ProcessId::IntroRoll,
             })
         );
     }
@@ -332,7 +336,7 @@ mod tests {
             resolution: Resolution::DEFAULT,
             windowed: false,
             mute: false,
-            start: ProcessId::MainMenu,
+            start: ProcessId::IntroRoll,
         });
         assert_eq!(Args::parse(["SU_A22", "--seed", "7"]), want);
         assert_eq!(Args::parse(["--seed", "7", "SU_A22"]), want);
@@ -357,6 +361,8 @@ mod tests {
     fn process() {
         let args = Args::parse(["--process", "font-test"]).expect("parses");
         assert_eq!(args.start, ProcessId::FontTest);
+        let args = Args::parse(["--process", "intro-roll"]).expect("parses");
+        assert_eq!(args.start, ProcessId::IntroRoll);
         let args = Args::parse(["--process", "slugcat-select"]).expect("parses");
         assert_eq!(args.start, ProcessId::SlugcatSelect);
         assert!(Args::parse(["--process", "nope"]).is_err());

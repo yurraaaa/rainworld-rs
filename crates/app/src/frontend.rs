@@ -1,26 +1,27 @@
 //! The app's processes under `rw_menu`'s [`ProcessManager`]: the single-room game,
 //! the reduced `Initialization` and the menu screens, drawn the same way in the window
 //! and in MCP screenshots (each process's frame, then the switch fade over it). The
-//! menu microphone runs as the side process after them.
+//! music player and the menu microphone run as side processes after them.
 
 use std::sync::Arc;
 
 use rw_assets::{Room, RoomSettings, SoundTable, StreamingAssets, UnityResources};
+use rw_audio::music::{MusicOutput, SongBank, TimedSources};
 use rw_audio::{Audio, ListenerInput, MenuPlayback, MenuSoundStart};
 use rw_graphics::SlugcatName;
 use rw_menu::menu::Menu;
 use rw_menu::{
-    Alignment, AtlasLoadError, Container, Font, FontTest, Initialization, Label, MainLoopProcess,
-    MainMenu, MenuContext, MenuMic, MenuShared, MenuSound, MenuSoundEvent, Node, NodeTransform,
-    ProcessFactory, ProcessId, ProcessManager, ProcessRequests, Slugcat, SlugcatSelectMenu,
-    TextureSync,
+    Alignment, AtlasLoadError, Container, Font, FontTest, Initialization, IntroRoll, KeyboardKey,
+    Label, MainLoopProcess, MainMenu, MenuContext, MenuShared, MenuSound, MenuSoundEvent, Node,
+    NodeTransform, ProcessFactory, ProcessId, ProcessManager, ProcessRequests, Slugcat,
+    SlugcatSelectMenu, TextureSync, TimeStacker,
 };
 use rw_random::UnityRandom;
 use rw_render::{Camera, Color, Renderer, Resolution, StageBatch, StageGlobals};
 use rw_sim::Vec2;
 
 use crate::game::Game;
-use crate::input::{InputState, Script};
+use crate::input::{Action, InputState, Script};
 use crate::scene::{Scene, SceneRenderer, SceneView};
 use crate::visuals::Visuals;
 
@@ -46,8 +47,19 @@ pub struct AppContext {
     pub audio: Option<Audio>,
     /// What the menu microphone plays.
     pub menu_audio: MenuPlayback,
+    /// The music player's sources.
+    pub music_sink: MusicSink,
+    /// The music player's own `myTimeStacker`.
+    music_stacker: TimeStacker,
     /// The process `Initialization` starts.
     pub start: ProcessId,
+}
+
+/// Where the music player's songs play: through the audio output, or silently in
+/// ticks (no audio: `--mute`, headless and MCP runs), which keeps runs deterministic.
+pub enum MusicSink {
+    Timed(Box<TimedSources>),
+    Output(MusicOutput),
 }
 
 /// The game process: the single-room [`Scene`].
@@ -66,6 +78,7 @@ pub struct Unported {
 /// The processes the app runs.
 pub enum AppProcess {
     Initialization(Initialization),
+    IntroRoll(Box<IntroRoll>),
     Game(Box<GameProcess>),
     FontTest(FontTest),
     MainMenu(Box<MainMenu>),
@@ -100,7 +113,10 @@ impl AppContext {
     ) -> Result<Self, AtlasLoadError> {
         let mut menu = MenuShared::load(assets, &resources, resolution.size_f32())?;
         menu.random = UnityRandom::new(game.seed as i32);
-        menu.mic = MenuMic::new(Arc::clone(&game.sound_table));
+        menu.set_sound_table(Arc::clone(&game.sound_table));
+        let bank = SongBank::open(&menu.assets)
+            .inspect_err(|e| log::warn!("no music bank ({e}); songs are missing"))
+            .ok();
         Ok(Self {
             menu,
             resources,
@@ -110,8 +126,45 @@ impl AppContext {
             script: None,
             audio: None,
             menu_audio: MenuPlayback::default(),
+            music_sink: MusicSink::Timed(Box::new(TimedSources::new(bank))),
+            music_stacker: TimeStacker::default(),
             start,
         })
+    }
+
+    /// A Rewired keyboard key goes down or up: menu input, and the player's when the
+    /// gameplay map binds it.
+    pub fn set_key(&mut self, key: KeyboardKey, pressed: bool) {
+        self.menu.input.set_key(key, pressed);
+        if let Some(action) = Action::from_rewired(key) {
+            self.input.set(action, pressed);
+        }
+    }
+
+    /// Plays sound and music on `audio`.
+    pub fn set_audio(&mut self, audio: Audio) {
+        self.audio = Some(audio);
+        self.music_sink = MusicSink::Output(MusicOutput::new(&self.menu.assets));
+    }
+
+    /// The music player's frame (`MusicPlayer.RawUpdate`): its ticks on its own stacker.
+    fn update_music(&mut self, dt: f32) {
+        let Some(player) = &mut self.menu.music else {
+            return;
+        };
+        for _ in 0..self.music_stacker.advance(dt, 40) {
+            match &mut self.music_sink {
+                MusicSink::Timed(sources) => {
+                    player.update(sources.as_mut());
+                    sources.advance();
+                }
+                MusicSink::Output(output) => {
+                    if let Some(audio) = &mut self.audio {
+                        player.update(&mut output.sources(audio));
+                    }
+                }
+            }
+        }
     }
 
     /// A fresh game in the configured room, drawing from the shared random stream, as
@@ -212,6 +265,7 @@ impl ProcessFactory<AppProcess> for AppContext {
             ProcessId::Initialization => {
                 AppProcess::Initialization(Initialization::new(self.start))
             }
+            ProcessId::IntroRoll => AppProcess::IntroRoll(Box::new(IntroRoll::new(&mut self.menu))),
             ProcessId::Game => AppProcess::Game(Box::new(self.new_game())),
             ProcessId::FontTest => AppProcess::FontTest(FontTest::new(&mut self.menu)),
             ProcessId::MainMenu => AppProcess::MainMenu(Box::new(MainMenu::new(&mut self.menu))),
@@ -225,12 +279,22 @@ impl ProcessFactory<AppProcess> for AppContext {
         }
     }
 
-    fn update_side_processes(&mut self, current: Option<&AppProcess>, _dt: f32) {
+    fn update_side_processes(&mut self, current: Option<&AppProcess>, dt: f32) {
+        self.update_music(dt);
         self.update_menu_mic(current.is_some_and(AppProcess::is_menu));
     }
 
     fn pre_switch(&mut self, next: ProcessId) {
         self.menu.pre_switch(next);
+    }
+
+    fn post_switch(&mut self, current: &AppProcess) {
+        self.menu.update_music_context(current.id());
+    }
+
+    fn frame_start(&mut self, current: Option<&AppProcess>) {
+        self.menu
+            .create_music_player(current.map(MainLoopProcess::id));
     }
 }
 
@@ -316,7 +380,7 @@ impl AppProcess {
             Self::Initialization(p) => Some(p.stage()),
             Self::FontTest(p) => Some(p.stage()),
             Self::Unported(p) => Some(&p.stage),
-            Self::Game(_) | Self::MainMenu(_) | Self::SlugcatSelect(_) => None,
+            Self::Game(_) | Self::IntroRoll(_) | Self::MainMenu(_) | Self::SlugcatSelect(_) => None,
         }
     }
 
@@ -324,6 +388,7 @@ impl AppProcess {
     #[must_use]
     pub fn menu(&self) -> Option<&Menu> {
         match self {
+            Self::IntroRoll(p) => Some(p.menu()),
             Self::MainMenu(p) => Some(p.menu()),
             Self::SlugcatSelect(p) => Some(p.menu()),
             _ => None,
@@ -332,6 +397,7 @@ impl AppProcess {
 
     fn menu_mut(&mut self) -> Option<&mut Menu> {
         match self {
+            Self::IntroRoll(p) => Some(p.menu_mut()),
             Self::MainMenu(p) => Some(p.menu_mut()),
             Self::SlugcatSelect(p) => Some(p.menu_mut()),
             _ => None,
@@ -364,6 +430,7 @@ impl MainLoopProcess<AppContext> for AppProcess {
     fn id(&self) -> ProcessId {
         match self {
             Self::Initialization(_) => ProcessId::Initialization,
+            Self::IntroRoll(_) => ProcessId::IntroRoll,
             Self::Game(_) => ProcessId::Game,
             Self::FontTest(_) => ProcessId::FontTest,
             Self::MainMenu(_) => ProcessId::MainMenu,
@@ -375,6 +442,7 @@ impl MainLoopProcess<AppContext> for AppProcess {
     fn update(&mut self, ctx: &mut AppContext, requests: &mut ProcessRequests) {
         match self {
             Self::Initialization(p) => p.update(ctx, requests),
+            Self::IntroRoll(p) => p.update(ctx, requests),
             Self::Game(p) => p.update(ctx, requests),
             Self::FontTest(p) => p.update(ctx, requests),
             Self::MainMenu(p) => p.update(ctx, requests),
@@ -386,6 +454,7 @@ impl MainLoopProcess<AppContext> for AppProcess {
     fn graf_update(&mut self, time_stacker: f32, ctx: &mut AppContext) {
         match self {
             Self::Initialization(p) => p.graf_update(time_stacker, ctx),
+            Self::IntroRoll(p) => p.graf_update(time_stacker, ctx),
             Self::Game(p) => p.graf_update(time_stacker, ctx),
             Self::FontTest(p) => p.graf_update(time_stacker, ctx),
             Self::MainMenu(p) => p.graf_update(time_stacker, ctx),
@@ -397,12 +466,31 @@ impl MainLoopProcess<AppContext> for AppProcess {
     fn shut_down(&mut self, ctx: &mut AppContext) {
         match self {
             Self::Initialization(p) => p.shut_down(ctx),
+            Self::IntroRoll(p) => p.shut_down(ctx),
             Self::Game(p) => p.shut_down(ctx),
             Self::FontTest(p) => p.shut_down(ctx),
             Self::MainMenu(p) => p.shut_down(ctx),
             Self::SlugcatSelect(p) => p.shut_down(ctx),
             Self::Unported(_) => {}
         }
+    }
+
+    /// The intro roll keeps its own clocks after the frame (`IntroRoll.RawUpdate`).
+    fn raw_update(
+        &mut self,
+        dt: f32,
+        stacker: &mut TimeStacker,
+        ctx: &mut AppContext,
+        requests: &mut ProcessRequests,
+    ) {
+        if let Self::IntroRoll(p) = self {
+            p.raw_update(dt, stacker, ctx, requests);
+            return;
+        }
+        for _ in 0..stacker.advance(dt, self.frames_per_second()) {
+            self.update(ctx, requests);
+        }
+        self.graf_update(stacker.0, ctx);
     }
 
     fn communicate_with_upcoming(&mut self, next: &mut Self, ctx: &mut AppContext) {
@@ -452,6 +540,8 @@ impl Frontend {
         target.scene.renderer.set_stage_globals(StageGlobals {
             rain: self.manager.shaders_time() / 5.0,
             text_gradient: self.ctx.menu.text_gradient,
+            noise2: self.ctx.menu.noise2,
+            sprite_rect: [0.0; 4],
         });
         let screen = self.ctx.menu.screen_size;
         let mut batch = StageBatch::default();

@@ -78,6 +78,21 @@ impl Action {
     }
 }
 
+impl Action {
+    /// The gameplay action a Rewired keyboard key drives in the default map.
+    #[must_use]
+    pub fn from_rewired(key: KeyboardKey) -> Option<Self> {
+        Some(match key {
+            KeyboardKey::LeftArrow => Action::Left,
+            KeyboardKey::RightArrow => Action::Right,
+            KeyboardKey::UpArrow => Action::Up,
+            KeyboardKey::DownArrow => Action::Down,
+            KeyboardKey::Z => Action::Jump,
+            _ => return None,
+        })
+    }
+}
+
 impl Command {
     /// R respawns, V switches level graphic / debug view, G toggles the tile grid,
     /// F12 saves a screenshot, Esc quits (in the game only; there is no pause menu yet).

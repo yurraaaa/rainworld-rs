@@ -15,6 +15,9 @@ pub trait FloatExt: Sized {
     /// `Custom.LerpMap` with an exponent applied to the clamped fraction.
     fn lerp_map_pow(self, from_a: f32, to_a: f32, from_b: f32, to_b: f32, exponent: f32) -> f32;
 
+    /// `Mathf.Pow`: `(float)Math.Pow(self, p)`, in double precision.
+    fn mathf_pow(self, p: f32) -> f32;
+
     /// `Custom.LerpAndTick`: lerp toward `to`, then step a further `tick` toward it
     /// without passing it.
     fn lerp_and_tick(self, to: f32, lerp: f32, tick: f32) -> f32 {
@@ -38,6 +41,10 @@ impl FloatExt for f32 {
         } else {
             ((self - a) / (b - a)).clamp(0.0, 1.0)
         }
+    }
+
+    fn mathf_pow(self, p: f32) -> f32 {
+        f64::from(self).powf(f64::from(p)) as f32
     }
 
     fn lerp_map_pow(self, from_a: f32, to_a: f32, from_b: f32, to_b: f32, exponent: f32) -> f32 {

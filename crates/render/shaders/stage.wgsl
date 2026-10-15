@@ -2,7 +2,8 @@
 // the pipeline. One fragment entry per game shader (StreamingAssets/shaders/<Name>.shader):
 // fs_basic `Futile/Basic`, fs_edge_fade `EdgeFade`, fs_flat_light `FlatLight`,
 // fs_vector_circle `VectorCircle`, fs_vector_circle_fadable `VectorCircleFadable`,
-// fs_hold_button_circle `HoldButtonCircle`, fs_menu_text `MenuText`.
+// fs_hold_button_circle `HoldButtonCircle`, fs_menu_text `MenuText`,
+// fs_flat_light_noisy `FlatLightNoisy`.
 
 struct Stage {
     // xy: scale, zw: offset; clip = pos * scale + offset.
@@ -12,6 +13,8 @@ struct Stage {
     // `_RAIN`: `ProcessManager.shadersTime / 5`.
     rain: f32,
     pad: f32,
+    // `_spriteRect`: (0, 0, 0, 0) unless a room camera set it.
+    sprite_rect: vec4<f32>,
 };
 
 @group(0) @binding(0) var<uniform> stage: Stage;
@@ -20,6 +23,9 @@ struct Stage {
 // `_TextGradientTex` (`Palettes/textGradient`).
 @group(2) @binding(0) var text_gradient: texture_2d<f32>;
 @group(2) @binding(1) var text_gradient_sampler: sampler;
+// `_NoiseTex2` (`Palettes/noise2`).
+@group(2) @binding(2) var noise2: texture_2d<f32>;
+@group(2) @binding(3) var noise2_sampler: sampler;
 
 struct VertexOut {
     @builtin(position) position: vec4<f32>,
@@ -130,4 +136,25 @@ fn fs_menu_text(in: VertexOut) -> @location(0) vec4<f32> {
         + pow(texel.r, 3.0) * -0.0125;
     let gradient = textureSample(text_gradient, text_gradient_sampler, vec2<f32>(floor(h * 50.0) / 50.0, 0.5));
     return vec4<f32>(gradient.rgb, texel.a);
+}
+
+// `FlatLight`'s disc with its falloff exponent bent by the noise: `h` is four `_NoiseTex2`
+// reads at the pixel's place within `_spriteRect`, nudged towards the quad's centre;
+// `d = 0.25 * sqrt(1 - a)`, exponent `1 - d + 2 d h`. With `_spriteRect` unset (menus)
+// the place divides by zero, as in the game.
+@fragment
+fn fs_flat_light_noisy(in: VertexOut) -> @location(0) vec4<f32> {
+    let rect = stage.sprite_rect;
+    var tc = floor(in.scr * stage.screen) / stage.screen;
+    tc = (tc - rect.xy) / (rect.zw - rect.xy);
+    let towards = normalize(vec2<f32>(0.5, 0.5) - in.uv);
+    var h = 0.0;
+    for (var j = 0; j < 4; j++) {
+        let at = vec2<f32>(tc.x * 6.0, tc.y * 3.0) + towards * 0.02 * f32(j);
+        h += textureSampleLevel(noise2, noise2_sampler, at, 0.0).x;
+    }
+    h /= 5.0;
+    let d = 0.25 * pow(1.0 - in.color.a, 0.5);
+    let c = pow(pow(1.0 - pow(center_dist(in.uv), 2.0), 3.5), 1.0 - d + 2.0 * d * h);
+    return vec4<f32>(in.color.rgb, c * in.color.a);
 }

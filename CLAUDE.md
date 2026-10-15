@@ -149,13 +149,17 @@ so it serves the checkout's current code). Tools: `list_rooms`,
 - To check behaviour, prefer these tools over `--screenshot`/`--script`.
   Briefs for agents that check behaviour should say so.
 - `load_process` boots the process manager as the game does (black,
-  Initialization, fade) into a process (`main_menu` by default,
-  `slugcat_select`, `font_test`, `game`); `step_process` runs 1/40 s
-  frames holding Rewired key names (menu keys only: Z/Return/Space submit,
-  Escape cancel and pause, arrows), released after the last frame; buttons
-  see a press a tick after it and click on release, so a tap is one frame
-  held and two released. `screenshot` then draws the process frame with
-  its fade.
+  Initialization, fade) into a process (`intro_roll` by default, then
+  `main_menu`, `slugcat_select`, `font_test`, `game`); `step_process` runs
+  1/40 s frames holding Rewired key names, released after the last frame.
+  The keys feed the menus (UI map: Z/Return/Space submit, Escape cancel and
+  pause, arrows) and, once the game runs, the player (gameplay map: arrows
+  move, Z jumps). Buttons see a press a tick after it and click on release,
+  so a tap is one frame held and two released. Boot to play: any key after
+  the intro roll's first second goes to the main menu; tap Return on
+  STORY; hold Z on START (about 40 frames) until the game starts. Music
+  runs silently (`TimedSources`), so runs stay deterministic.
+  `screenshot` then draws the process frame with its fade.
 - `--mcp --window` also shows the driven scene in a window.
 - Long-term goal: an Android port at the end of the project. Don't rule it
   out: keep platform-specific code (windowing, file paths to the game data,

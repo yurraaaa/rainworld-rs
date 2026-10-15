@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use rw_assets::unity::AssetBundle;
 use rw_assets::{SoundTable, StreamingAssets, UnityResources};
-use rw_menu::menu::{Kind, ObjectId};
+use rw_menu::menu::{Kind, ObjectId, SceneId};
 use rw_menu::{
     Initialization, KeyboardKey, MainLoopProcess, MainMenu, MenuContext, MenuMic, MenuShared,
     MenuSoundEvent, MenuSoundId, ProcessFactory, ProcessId, ProcessManager, ProcessRequests,
@@ -242,6 +242,9 @@ impl Harness {
 fn main_menu_buttons_order_layout_and_links() {
     let Some(h) = Harness::boot() else { return };
     let menu = h.main().menu();
+    // No DLC in the port (docs/DIVERGENCES.md D13): the plain main-menu scene.
+    let scene = menu.scene.expect("scene");
+    assert!(matches!(&menu.object(scene).kind, Kind::Scene(s) if s.id == SceneId::MainMenu));
     let buttons = h.main().buttons();
     let texts: Vec<String> = buttons
         .iter()

@@ -6,6 +6,7 @@
 mod build;
 mod draw;
 mod object;
+mod rain;
 mod scene;
 mod update;
 
@@ -22,6 +23,7 @@ pub use object::{
     IllustrationData, Kind, LabelData, MenuObject, ObjectId, PageData, RoundedRectData, SceneData,
     SceneId,
 };
+pub use rain::{RainDrop, RainEffectData};
 
 /// What a menu's update reaches outside itself: the shared state (input, sound,
 /// randomness, atlases) and the process manager.
@@ -67,6 +69,11 @@ pub trait MenuScreen {
 
     /// A page's own `GrafUpdate`, after its sub-objects'.
     fn page_graf_update(&self, _menu: &mut Menu, _page: ObjectId, _time_stacker: f32) {}
+
+    /// `ShowCursor`, where a screen overrides it to always hide the cursor.
+    fn shows_cursor(&self) -> bool {
+        true
+    }
 
     /// `CheckBox.IOwnCheckBox.GetChecked`.
     fn checked(&self, _menu: &Menu, _check_box: ObjectId) -> bool {

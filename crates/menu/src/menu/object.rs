@@ -47,13 +47,14 @@ pub enum Kind {
     },
     MouseCursor(CursorData),
     Scene(Box<SceneData>),
+    RainEffect(Box<super::rain::RainEffectData>),
 }
 
 impl Kind {
     /// A `PositionedMenuObject` (everything but the scene).
     #[must_use]
     pub fn positioned(&self) -> bool {
-        !matches!(self, Self::Scene(_))
+        !matches!(self, Self::Scene(_) | Self::RainEffect(_))
     }
 
     /// A `RectangularMenuObject`.

@@ -9,6 +9,7 @@ rw-render.workspace = true
 rw-graphics.workspace = true
 rw-sim.workspace = true
 rw-random.workspace = true
+rw-audio.workspace = true
 log.workspace = true
 
 [dev-dependencies]

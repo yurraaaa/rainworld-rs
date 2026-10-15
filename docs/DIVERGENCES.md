@@ -18,8 +18,11 @@ ported code plays makes `VirtualMicrophone.PlaySound`'s draws on it where the ga
 `room.PlaySound` (`rw_sim::Sounds`; the order is in `rainworld-re/notes/sound.md` 2.8),
 loaded from `sounds.txt` in the window and in MCP alike, so a run's sequence does not
 depend on whether audio is playing. The menus draw from the same stream before the game
-does: the flat scenes' camera drift (`InteractiveMenuScene`, every tick of a shown
-scene) and the menu sounds (`MenuMicrophone.PlaySound`/`PlayLoop` make the same
+does: the intro roll's `RainEffect` (2508 draws when built: five per drop, eight for
+the wind; every tick two per drop, five more per drop that resets, eight for the wind,
+one when the highlight wraps, one or two for the lightning) and its random lightning
+past 14 s (one draw per tick, three more on a spike), the flat scenes' camera drift
+(`InteractiveMenuScene`, every tick of a shown scene) and the menu sounds (`MenuMicrophone.PlaySound`/`PlayLoop` make the same
 `SoundLoader` draws), and the game process takes the stream over where the menus left
 it (D13). What still differs is only the seed and the call order:
 - **Seed.** The game seeds at start-up from OS entropy and never re-seeds for anything
@@ -411,7 +414,8 @@ its `AmbientSoundPlayer`s, playing on kira (`rainworld-re/notes/sound.md`). Ever
 `rw_audio::MenuPlayback` (the sources), with the default options' sound-effects volume
 0.8. `rw_audio::music` is the `MusicPlayer` side process with `Song`, `MenuOrSlideShowSong`
 and `IntroRollMusic` (`music.md` section 4.1), streaming `music_songs` clips; the app
-does not run it yet.
+runs it as the game's side process (D13), silent on `TimedSources` without audio
+(`--mute`, `--screenshot`, MCP).
 
 **What differs:**
 - **Music not ported:** `GameRequestsSong` (room-trigger `MusicEvent`s, play records),
@@ -440,6 +444,8 @@ does not run it yet.
   many sounds the audio thread still plays, which the tick-deterministic sim does not
   know. With audio off nothing is capped. PLAYALL triggers are capped per sample, not
   once per call.
+- **Music volume and options.** The default options (music volume 0.8, `playMusic` on);
+  the options menu and `setup.txt` are not read.
 - **Voices.** Unity mixes 32 real voices chosen by priority (all 128) and audibility; the
   port silences the quietest past 32 each frame. There is no `AudioSource` start
   latency, and a sound plays from the frame its clip finishes decoding (the game's
@@ -463,11 +469,19 @@ real-time audio rather than the sim.
 **What.**
 - **Start process.** `Initialization` is reduced to one tick: fonts, strings and
   settings are loaded before the manager starts, and it requests the start process at
-  once. The game's distribution build starts `IntroRoll` (`setup.startScreen`), which
-  leads to the main menu; the port skips IntroRoll and starts `MainMenu`. `--spawn`,
-  `--script` and `--screenshot` start `Game` directly, and `--process` picks
-  (`main-menu`, `slugcat-select`, `game`, `font-test`). The boot fade, the switches and
-  the fades follow the game.
+  once. As in the game's distribution build (`setup.startScreen`) it starts `IntroRoll`,
+  which leads to the main menu. `--spawn`, `--script` and `--screenshot` start `Game`
+  directly, and `--process` picks (`intro-roll`, `main-menu`, `slugcat-select`, `game`,
+  `font-test`). The boot fade, the switches and the fades follow the game.
+- **Intro roll.** Ported in full (`rw_menu::IntroRoll`, `RainEffect`). The game's
+  waits on the sound loader, platform, options and progression are always satisfied
+  (all loaded before the manager starts), so `delayedTime` waits only for the music
+  bundles; `requestIntroMusic` (options not ready) never arises. `ProcessManager.
+  initializationAndIntroRollStarted` and `activityID` (console activities) are not
+  ported, nor `Cursor.visible`. `RainEffect`'s light source uses `FlatLightNoisy`
+  with `_spriteRect` unset (0, 0, 0, 0), as in the menus at boot: the noise lookup
+  divides by zero in both, and what the GPU then samples is whatever the driver does
+  with non-finite coordinates (the effect on the light's falloff is small).
 - **Port-only process.** `ProcessId::FontTest` (labels in both fonts over the flat
   main-menu scene) is not a game screen; it exists to compare drawing by eye. Its
   labels sit on whole pixels, where `font`'s glyphs lose a pixel row to point sampling;
@@ -489,9 +503,14 @@ real-time audio rather than the sim.
   and the options are the defaults, except that the Downpour/Remix first-launch notices
   (`dlcTutorialShown`, `remixTutorialShown`) count as already shown, so the main menu
   opens without its popup. `options.Save()` and `SaveProgression` are not called.
-- **DLC detection.** `dlcsInstalled` is found from files as
-  `DLCOwnershipCheckSwitchPC` does (no Steam ownership check): with Downpour's files on
-  disk the main menu shows the Downpour scene, as the game does.
+- **DLC detection.** Until DLC support exists the port treats every DLC as not
+  installed (user decision): `dlcsInstalled` is empty, so the main menu shows the plain
+  `Main Menu` scene and the intro roll the plain `Intro_Roll_C` (no random slugcat
+  draw). The game finds `dlcsInstalled` from files (`DLCOwnershipCheckSwitchPC`); with
+  this install's Downpour files it would show `Main Menu - Downpour` and a random
+  `Intro_Roll_C_<slugcat>` (one `Random.Range(0, 5)` after the rain effect's draws).
+  The check is kept as `rw_menu::Dlcs::check` and the Downpour branches are ported, for
+  DLC support to turn back on.
 - **Starting a game.** The slugcat select menu's held START starts a new game
   (`StoryGameInitCondition.New`) in the port's single room: the Survivor's and the
   Monk's intro slideshows are skipped (the game would play them first unless S is
@@ -499,8 +518,10 @@ real-time audio rather than the sim.
   command line, not the character's start room. The chosen slugcat colours the body's
   graphics; its body is the Survivor's (`SlugcatStats` of the Monk and the Hunter are
   not ported). Continue, Restart and Statistics need saves and are not reachable.
-- **Side processes.** Only the menu microphone runs; no music player (`rw_audio::music`
-  ports one; the app does not run it yet), dialogs or Steam manager, so the switch queue stays empty. The game drops `manager.menuMic` on a switch
+- **Side processes.** The music player (made in the first `ProcessManager.Update`,
+  ticking on its own time stacker after the main process, `UpdateMusicContext` after
+  every switch) and the menu microphone run, in the game's order; no dialogs or Steam
+  manager, so the switch queue stays empty. The game drops `manager.menuMic` on a switch
   to the game but leaves the old microphone running as a side process (its loops fade
   out) and makes a new one on the way back; the port keeps one microphone and tracks
   whether the manager holds it, which sounds the same. Mod finalization completes in the
@@ -526,7 +547,9 @@ real-time audio rather than the sim.
   (`options.fullScreen` stays at its default).
 - **Gameplay keys.** Rewired's default gameplay keyboard map: arrows move, Z jumps. Its
   other keys (X throw, left Shift pick up, Space map, C special) have nothing to drive
-  yet.
+  yet. The intro roll's "any button" (`ControlSetup.GetAnyButton`) is any key of the
+  default maps or any mouse button; Rewired's handling of keys bound in no map is not
+  checked (the port knows no such keys).
 - **Frame time.** `Time.deltaTime` is capped at 1/3 s, Unity's default
   `maximumDeltaTime`; the game's own setting is not checked. (The game previously ran on
   a fixed timestep with a 250 ms cap; it now runs under `MainLoopProcess.RawUpdate`:
@@ -554,7 +577,7 @@ Physics: burrowing, terrain curves (`TerrainCurve`), `setPos`
 (cross-object position writes), the curved-terrain `TerrainImpact` call, grabs (`grabbedBy` skips the room-range clamp, and grabs force `goThroughFloors`), and
 `DefaultTile`.
 
-Front end: IntroRoll, the options, regions, arena and Remix menus, sleep and death
+Front end: the options, regions, arena and Remix menus, sleep and death
 screens, the pause menu, slideshows, dialogs, the slugcat select menu's continue pages,
 colour and Jolly Co-op controls, depth scenes, menu objects those use (sliders, check
-box groups, symbol buttons, scroll boxes, `UIelementWrapper`), and music.
+box groups, symbol buttons, scroll boxes, `UIelementWrapper`), and in-game music (D12).
