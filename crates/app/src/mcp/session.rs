@@ -19,10 +19,10 @@ use super::params::{
     StepProcessParams, StepSequenceParams, TilesParams, ViewParam,
 };
 use super::reply::{
-    ChunkState, ControlsPageState, ExitInfo, ExitList, FoodMeterState, HudState, ImpactState,
-    KarmaMeterState, LobbyState, PlayerState, ProcessState, RainMeterState, RealizedState,
-    RoomInfo, RoomList, Screenshot, SlideShowState, StartUpState, State, StepTrace,
-    TextPromptState,
+    ChunkState, ControlsPageState, CreatureInfo, ExitInfo, ExitList, FoodMeterState, HudState,
+    ImpactState, KarmaMeterState, LobbyState, OverseerInfo, PlayerState, ProcessState,
+    RainMeterState, RealizedState, RoomInfo, RoomList, Screenshot, SlideShowState, StartUpState,
+    State, StepTrace, TextPromptState,
 };
 use super::tiles::TileDump;
 use crate::frontend::{AppContext, Frontend, FrontendRenderer, GameSetup};
@@ -374,7 +374,44 @@ impl Session {
                 show_controls_counter: s.show_controls_counter(),
                 controls_page_due: s.controls_page_due(),
             }),
+            creatures: Self::creatures(scene),
         })
+    }
+
+    /// The world's creatures but the player, in creation order.
+    fn creatures(scene: &Scene) -> Vec<CreatureInfo> {
+        let sim = scene.game().sim();
+        let world = sim.world();
+        world
+            .creatures()
+            .filter(|(id, c)| *id != sim.player_creature() && !c.slated_for_deletion)
+            .map(|(_, c)| CreatureInfo {
+                kind: c.kind().value().to_owned(),
+                id: [c.id.spawner, c.id.number],
+                room: Self::room_name(scene, c.pos.room),
+                node: c.pos.node,
+                tile: [c.pos.tile.0, c.pos.tile.1],
+                in_den: c.in_den,
+                realized: c.is_realized(),
+                alive: c.state.alive,
+                overseer: c.overseer_ai().map(|o| OverseerInfo {
+                    player_guide: o.is_player_guide,
+                    destination: c
+                        .ai
+                        .as_ref()
+                        .map_or_else(String::new, |a| Self::room_name(scene, a.destination.room)),
+                    go_to_player: o.go_to_player,
+                    player_guide_counter: o.player_guide_counter,
+                    last_rooms: o
+                        .last_rooms
+                        .iter()
+                        .map(|&r| Self::room_name(scene, r))
+                        .collect(),
+                    hover_tile: c.overseer_body().map(|b| [b.hover_tile.0, b.hover_tile.1]),
+                    root_tile: c.overseer_body().map(|b| [b.root_tile.0, b.root_tile.1]),
+                }),
+            })
+            .collect()
     }
 
     fn room_name(scene: &Scene, index: i32) -> String {

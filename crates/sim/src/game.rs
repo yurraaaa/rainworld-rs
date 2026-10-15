@@ -1,15 +1,21 @@
 //! `RainWorldGame` for one player: the world, the player's place in it, the shortcut
 //! handler with its between-rooms lobby, the room realizer, and the order of a tick.
 //!
-//! Creature-free: only the player exists (docs/DIVERGENCES.md D14). Behaviour:
-//! `rainworld-re/notes/world-loading.md`, `room-realizer.md`, `shortcuts.md` section 5.
+//! Creatures: the world's population and its overseers' abstract AI
+//! ([`crate::creature`]); the player is an `AbstractCreature` too. Behaviour:
+//! `rainworld-re/notes/world-loading.md`, `room-realizer.md`, `shortcuts.md` section 5,
+//! `creature-model.md`.
 
 use rw_assets::{NodeType, Room, Shortcut, ShortcutType};
 use rw_random::UnityRandom;
 
 use crate::campaign::SlugcatCampaign;
+use crate::creature::population::PopulationContext;
+use crate::creature::{
+    CreatureId, CreatureTemplate, EntityId, IdIssuer, PlayerGuideState, WorldCoordinate,
+};
 use crate::room_script::{RoomScript, ScriptTick, StorySession};
-use crate::world::{FollowCreature, RoomRealizer, World};
+use crate::world::{AbstractTick, FollowCreature, RainCycle, RoomRealizer, World};
 use crate::{Input, Player, ShortcutHandler, Sounds, VesselStep, Water, determine_safe_spawn_tile};
 
 /// What the app attaches to the player (its graphics module), called where the game
@@ -30,6 +36,13 @@ pub trait PlayerObserver {
     fn spat_out(&mut self, player: &Player, rng: &mut UnityRandom);
     /// A room script adds `dvx` to every tail segment's x velocity.
     fn nudge_tail_x(&mut self, _dvx: f32) {}
+    /// A realized overseer is in the camera's room (`AddObject` or `NowViewed` builds its
+    /// `OverseerGraphics`).
+    fn overseer_viewed(&mut self, _id: EntityId, _size: f32, _rng: &mut UnityRandom) {}
+    /// `OverseerGraphics.Reset` (`HardSetTile`).
+    fn overseer_reset(&mut self, _id: EntityId, _rng: &mut UnityRandom) {}
+    /// The camera left the overseer's room (`NoLongerViewed`).
+    fn overseer_unviewed(&mut self, _id: EntityId) {}
 }
 
 /// No graphics.
@@ -37,16 +50,6 @@ impl PlayerObserver for () {
     fn created(&mut self, _: &Player, _: &mut UnityRandom) {}
     fn updated(&mut self, _: &Player, _: &Room, _: Option<&Water>, _: &mut UnityRandom) {}
     fn spat_out(&mut self, _: &Player, _: &mut UnityRandom) {}
-}
-
-/// The player's `AbstractCreature.pos`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct WorldCoordinate {
-    /// Global room index.
-    pub room: i32,
-    pub tile: (i32, i32),
-    /// `abstractNode`, -1 when undefined.
-    pub node: i32,
 }
 
 /// `RoomCamera.MoveCamera(room, camPos)`.
@@ -65,6 +68,13 @@ pub struct Start {
     pub tile: Option<(i32, i32)>,
 }
 
+/// What [`RainWorldGame::new_game_world`] leaves for the rest of the constructor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NewGameWorld {
+    pub ids: IdIssuer,
+    pub save_state_seed: i32,
+}
+
 /// A running game.
 pub struct RainWorldGame {
     campaign: &'static SlugcatCampaign,
@@ -73,7 +83,8 @@ pub struct RainWorldGame {
     /// `None` in a single-room world.
     realizer: Option<RoomRealizer>,
     player: Option<Player>,
-    pos: WorldCoordinate,
+    /// The player's `AbstractCreature` (`Players[0]`).
+    player_id: CreatureId,
     /// `cameras[0].room`.
     camera_room: i32,
     camera_move: Option<CameraMove>,
@@ -83,7 +94,13 @@ pub struct RainWorldGame {
     /// they make no draws.
     silent: Sounds,
     /// `nextIssuedId`.
-    next_issued_id: i32,
+    ids: IdIssuer,
+    /// `saveState.seed` of the new game's `SaveState`.
+    save_state_seed: i32,
+    /// `saveState.miscWorldSaveData.playerGuideState`.
+    guide: PlayerGuideState,
+    /// `updateAbstractRoom`: the abstract room updated last.
+    update_abstract_room: usize,
     /// The start tile, reused by respawns in the start room.
     start: Start,
     tick: u64,
@@ -92,9 +109,11 @@ pub struct RainWorldGame {
 }
 
 impl RainWorldGame {
-    /// The constructor's order for the parts ported: `nextIssuedId`, the first room
-    /// activated and shown by camera 0, the realizer, then (the room loading at once)
-    /// the player realized in it.
+    /// The constructor's order for the parts ported: `nextIssuedId`, the new game's
+    /// `SaveState` seed, the world (`World`'s rain cycle; in a region, the population and
+    /// the overseers; `FliesWorldAI`), the player's `AbstractCreature`, the first room
+    /// activated and shown by camera 0, the realizer, then (the room loading at once) the
+    /// room's creatures realized in list order, the player among them.
     pub fn new(
         world: World,
         campaign: &'static SlugcatCampaign,
@@ -103,7 +122,30 @@ impl RainWorldGame {
         sounds: Sounds,
         observer: &mut dyn PlayerObserver,
     ) -> Self {
-        let next_issued_id = rng.range_i32(1000, 10000);
+        let mut world = world;
+        let NewGameWorld {
+            mut ids,
+            save_state_seed,
+        } = Self::new_game_world(&mut world, campaign, &mut rng);
+        let session = StorySession {
+            character: campaign.name,
+            cycle_number: 0,
+            den_position: campaign.start_den,
+        };
+        let guide = PlayerGuideState::default();
+        let player_pos = WorldCoordinate::new(start.room, 15, 25, -1);
+        let template = CreatureTemplate::of(rw_assets::CreatureType::SLUGCAT, world.mods());
+        let mut player = world.new_creature(
+            template,
+            player_pos,
+            EntityId::new(-1, 0),
+            &session,
+            &mut ids,
+            &mut rng,
+        );
+        player.pos.tile = start.tile.unwrap_or(crate::campaign::DEFAULT_PLAYER_TILE);
+        let player_id = world.insert_creature(player);
+        world.add_entity(player_id);
         let realizer = (!world.single_room()).then(RoomRealizer::new);
         let mut game = Self {
             campaign,
@@ -111,11 +153,7 @@ impl RainWorldGame {
             shortcuts: ShortcutHandler::new(),
             realizer,
             player: None,
-            pos: WorldCoordinate {
-                room: start.room,
-                tile: start.tile.unwrap_or(crate::campaign::DEFAULT_PLAYER_TILE),
-                node: -1,
-            },
+            player_id,
             camera_room: start.room,
             camera_move: Some(CameraMove {
                 room: start.room,
@@ -124,7 +162,10 @@ impl RainWorldGame {
             rng,
             sounds,
             silent: Sounds::default(),
-            next_issued_id,
+            ids,
+            save_state_seed,
+            guide,
+            update_abstract_room: 0,
             start,
             tick: 0,
             script_tick: ScriptTick::default(),
@@ -132,24 +173,71 @@ impl RainWorldGame {
         if let Err(e) = game.world.activate_room(start.room) {
             log::error!("cannot realize the first room: {e}");
         }
-        game.finish_loading();
-        game.realize_player(observer);
+        game.finish_loading(observer);
         game
+    }
+
+    /// The constructor's draws up to the world's: `nextIssuedId`, the new game's
+    /// `SaveState` seed (`StoryGameSession`), then `OverWorld`'s world load: the `World`
+    /// constructor's rain cycle and, in a region, `GeneratePopulation` and
+    /// `FliesWorldAI`'s constructor.
+    pub fn new_game_world(
+        world: &mut World,
+        campaign: &'static SlugcatCampaign,
+        rng: &mut UnityRandom,
+    ) -> NewGameWorld {
+        let mut ids = IdIssuer {
+            next_issued_id: rng.range_i32(1000, 10000),
+        };
+        let save_state_seed = rng.range_i32(0, 10000);
+        let session = StorySession {
+            character: campaign.name,
+            cycle_number: 0,
+            den_position: campaign.start_den,
+        };
+        let guide = PlayerGuideState::default();
+        world.rain_cycle = RainCycle::new_story(campaign.name, rng);
+        let mut population = PopulationContext {
+            session: &session,
+            ids: &mut ids,
+            rng,
+            guide_overseer_dead: false,
+            guide: &guide,
+            food_to_hibernate: campaign.stats.food_to_hibernate,
+        };
+        if !world.single_room() {
+            world.generate_population(&mut population);
+        }
+        world.create_flies_world_ai(&mut population);
+        NewGameWorld {
+            ids,
+            save_state_seed,
+        }
+    }
+
+    /// The player's `AbstractCreature.pos`.
+    fn pos(&self) -> WorldCoordinate {
+        self.world.creature(self.player_id).pos
+    }
+
+    fn set_pos(&mut self, pos: WorldCoordinate) {
+        self.world.place_creature(self.player_id, pos);
     }
 
     /// `AbstractCreature.RealizeInRoom` for the player at the start: an undefined node
     /// is drawn among the room's exits and dens (`NodesRelevantToCreature`), then the
     /// `Player` is built and placed.
     fn realize_player(&mut self, observer: &mut dyn PlayerObserver) {
-        let Some(room) = self.world.realized(self.pos.room).map(|r| r.room.clone()) else {
+        let mut pos = self.pos();
+        let Some(room) = self.world.realized(pos.room).map(|r| r.room.clone()) else {
             return;
         };
         let tile = match self.start.tile {
             Some(tile) => tile,
             None => determine_safe_spawn_tile(&room, &mut self.rng),
         };
-        if self.pos.node < 0 {
-            let relevant = self.world.abstract_room(self.pos.room).map_or(0, |r| {
+        if pos.node < 0 {
+            let relevant = self.world.abstract_room(pos.room).map_or(0, |r| {
                 r.nodes
                     .iter()
                     .filter(|n| matches!(n.kind, NodeType::Exit | NodeType::Den))
@@ -158,16 +246,17 @@ impl RainWorldGame {
             let specific = self
                 .rng
                 .range_i32(0, i32::try_from(relevant).unwrap_or(i32::MAX));
-            self.pos.node = self.common_node(specific);
+            pos.node = self.common_node(specific);
         }
-        self.pos.tile = tile;
+        pos.tile = tile;
+        self.set_pos(pos);
         self.spawn_player(tile, observer);
     }
 
     /// `CreatureSpecificToCommonNodeIndex` for the slugcat (exit and den nodes).
     fn common_node(&self, specific: i32) -> i32 {
         self.world
-            .abstract_room(self.pos.room)
+            .abstract_room(self.pos().room)
             .and_then(|r| {
                 r.nodes
                     .iter()
@@ -203,16 +292,14 @@ impl RainWorldGame {
         };
         self.shortcuts.lobby = None;
         self.sounds.owner_removed();
-        self.pos = WorldCoordinate {
-            room: self.camera_room,
-            tile,
-            node: self.pos.node,
-        };
+        let node = self.pos().node;
+        self.set_pos(WorldCoordinate::new(self.camera_room, tile.0, tile.1, node));
         self.spawn_player(tile, observer);
         log::info!("respawned player");
     }
 
-    /// One 40 Hz tick in `RainWorldGame.Update`'s order: the room realizer, the
+    /// One 40 Hz tick in `RainWorldGame.Update`'s order: the room realizer, one
+    /// abstract room (in turn, with the time of a whole round), the rain cycle, the
     /// shortcut handler on every third tick, every active room (newest first: the entry
     /// delay, its water, and the player in it with its graphics), then the loading
     /// step. A dead player is frozen (docs/DIVERGENCES.md D4).
@@ -221,21 +308,65 @@ impl RainWorldGame {
         if let (Some(realizer), Some(follow)) = (&mut self.realizer, follow) {
             realizer.update(&mut self.world, follow, self.camera_room, &mut self.rng);
         }
+        self.update_abstract_room();
+        self.world.rain_cycle.update(&mut self.rng);
         if self.shortcuts.divide() {
             self.update_shortcuts(observer);
         }
         for room in self.world.active_rooms().into_iter().rev() {
             self.update_room(room, input, observer);
         }
-        self.finish_loading();
+        self.finish_loading(observer);
+        self.sync_player_state();
         self.tick += 1;
     }
 
-    /// The loading step, and `Room.Loaded`'s `AddRoomSpecificScript` for each room that
-    /// finished loading.
-    fn finish_loading(&mut self) {
+    /// The story branch of `RainWorldGame.Update`: `updateAbstractRoom` steps to the next
+    /// room, which updates with `NumberOfRooms` ticks. (`FliesWorldAI.Update`, which
+    /// follows, is not ported: docs/DIVERGENCES.md D1.)
+    fn update_abstract_room(&mut self) {
+        let count = self.world.number_of_rooms();
+        self.update_abstract_room += 1;
+        if self.update_abstract_room >= count {
+            self.update_abstract_room = 0;
+        }
+        let room =
+            self.world.first_room_index() + i32::try_from(self.update_abstract_room).unwrap_or(0);
+        let time = i32::try_from(count).unwrap_or(i32::MAX);
+        let mut cx = AbstractTick {
+            rng: &mut self.rng,
+            guide: &self.guide,
+            player: Some(self.player_id),
+            player_karma: self.campaign.start_karma,
+        };
+        self.world.update_abstract_room(room, time, &mut cx);
+    }
+
+    /// The player's `AbstractCreature.state.alive` follows its body.
+    fn sync_player_state(&mut self) {
+        if let Some(p) = &self.player {
+            let dead = p.is_dead();
+            self.world.creature_mut(self.player_id).state.alive = !dead;
+        }
+    }
+
+    /// The loading step: for each room that finished loading, `ReadyForAI` realizes its
+    /// creatures in list order (the player only at the start), and `Room.Loaded`'s
+    /// `AddRoomSpecificScript` adds its scripts.
+    fn finish_loading(&mut self, observer: &mut dyn PlayerObserver) {
         let session = self.story_session();
         for index in self.world.finish_loading() {
+            let viewed = index == self.camera_room;
+            for id in self.world.room_creatures(index).to_vec() {
+                if id == self.player_id {
+                    if self.tick == 0 && self.player.is_none() {
+                        self.realize_player(observer);
+                    }
+                } else {
+                    self.world
+                        .realize_overseer(id, viewed, observer, &mut self.rng);
+                }
+            }
             let name = self
                 .world
                 .abstract_room(index)
@@ -283,9 +414,10 @@ impl RainWorldGame {
     /// `cameras[0].followAbstractCreature` as the realizer reads it.
     fn follow_creature(&self) -> Option<FollowCreature> {
         let player = self.player.as_ref()?;
+        let pos = self.pos();
         Some(FollowCreature {
-            room: self.pos.room,
-            tile: self.pos.tile,
+            room: pos.room,
+            tile: pos.tile,
             in_room: !player.in_shortcut(),
             alive: !player.is_dead(),
         })
@@ -293,16 +425,17 @@ impl RainWorldGame {
 
     /// `ShortcutHandler.Update` for the player's vessel and the lobby.
     fn update_shortcuts(&mut self, observer: &mut dyn PlayerObserver) {
+        let here = self.pos().room;
         let Some(player) = self.player.as_mut().filter(|p| !p.is_dead()) else {
             return;
         };
         if player.in_shortcut() && self.shortcuts.lobby.is_none() {
-            let Some(room) = self.world.realized(self.pos.room).map(|r| r.room.clone()) else {
+            let Some(room) = self.world.realized(here).map(|r| r.room.clone()) else {
                 log::warn!("vessel in an unrealized room; dropped");
                 player.clear_vessel();
                 return;
             };
-            let sounds = if self.pos.room == self.camera_room {
+            let sounds = if here == self.camera_room {
                 &mut self.sounds
             } else {
                 &mut self.silent
@@ -310,7 +443,9 @@ impl RainWorldGame {
             match player.shortcut_vessel_update(&room, &mut self.rng, sounds) {
                 VesselStep::SpatOut => observer.spat_out(player, &mut self.rng),
                 VesselStep::Node { node, kind, from } => {
-                    self.pos.node = node.map_or(-1, |n| i32::try_from(n).unwrap_or(-1));
+                    let mut pos = self.world.creature(self.player_id).pos;
+                    pos.node = node.map_or(-1, |n| i32::try_from(n).unwrap_or(-1));
+                    self.world.place_creature(self.player_id, pos);
                     if kind == Shortcut::RoomExit && !self.room_exit(node.unwrap_or(0), from) {
                         return;
                     }
@@ -318,16 +453,17 @@ impl RainWorldGame {
                 VesselStep::Waited | VesselStep::Moved => {}
             }
         }
-        self.update_lobby();
+        self.update_lobby(observer);
     }
 
     /// The room-exit case of `ShortcutHandler.Update`: the vessel joins the lobby for the
     /// connected room. Returns `false` where the game returns from the whole update (an
     /// exit leading nowhere: the vessel stalls and turns back).
     fn room_exit(&mut self, node: usize, from: (i32, i32)) -> bool {
+        let here = self.pos().room;
         let connections = self
             .world
-            .abstract_room(self.pos.room)
+            .abstract_room(here)
             .map(|r| r.connections.clone())
             .unwrap_or_default();
         let Some(player) = self.player.as_mut() else {
@@ -349,7 +485,7 @@ impl RainWorldGame {
         let entrance_node = self
             .world
             .abstract_room(dest)
-            .map_or(-1, |r| r.exit_index(self.pos.room));
+            .map_or(-1, |r| r.exit_index(here));
         self.shortcuts.lobby = Some(crate::LobbyVessel {
             room: dest,
             entrance_node,
@@ -360,8 +496,9 @@ impl RainWorldGame {
 
     /// The `betweenRoomsWaitingLobby` loop: the destination is realized, then once it is
     /// `ReadyForPlayer` the player moves there, its vessel restarts at the entrance node
-    /// and the camera moves to the node's camera.
-    fn update_lobby(&mut self) {
+    /// and the camera moves to the node's camera (the rooms' `NoLongerViewed` and
+    /// `NowViewed` for the overseers' graphics).
+    fn update_lobby(&mut self, observer: &mut dyn PlayerObserver) {
         let Some(mut lobby) = self.shortcuts.lobby else {
             return;
         };
@@ -392,11 +529,12 @@ impl RainWorldGame {
             );
             return;
         };
-        self.pos = WorldCoordinate {
-            room: lobby.room,
-            tile: (-1, -1),
-            node: lobby.entrance_node,
-        };
+        self.set_pos(WorldCoordinate::new(
+            lobby.room,
+            -1,
+            -1,
+            lobby.entrance_node,
+        ));
         if matches!(
             node.kind,
             NodeType::Exit | NodeType::Den | NodeType::RegionTransportation
@@ -411,6 +549,8 @@ impl RainWorldGame {
                 .map_or("?", |r| r.name.as_str()),
             lobby.updates
         );
+        self.world
+            .camera_changed_room(self.camera_room, lobby.room, observer, &mut self.rng);
         self.camera_room = lobby.room;
         self.camera_move = Some(CameraMove {
             room: lobby.room,
@@ -423,6 +563,7 @@ impl RainWorldGame {
     /// `Room.Update` of active room `index`: the entry delay, the water (pushed by the
     /// player's body when it is here), then the player and its graphics.
     fn update_room(&mut self, index: i32, input: Input, observer: &mut dyn PlayerObserver) {
+        let player_room = self.pos().room;
         let Some(realized) = self.world.realized_mut(index) else {
             return;
         };
@@ -435,7 +576,7 @@ impl RainWorldGame {
         let here = self
             .player
             .as_mut()
-            .filter(|p| self.pos.room == index && !p.in_shortcut() && !p.is_dead());
+            .filter(|p| player_room == index && !p.in_shortcut() && !p.is_dead());
         let room = realized.room.clone();
         if let Some(water) = &mut realized.water {
             let chunks = match here {
@@ -451,10 +592,10 @@ impl RainWorldGame {
     /// The room's scripts, after the player (`updateList` runs newest first, and the
     /// scripts are added when the room loads).
     fn update_room_scripts(&mut self, index: i32, observer: &mut dyn PlayerObserver) {
+        let here = self.pos().room == index;
         let Some(realized) = self.world.realized_mut(index) else {
             return;
         };
-        let here = self.pos.room == index;
         for script in &mut realized.scripts {
             let player = self
                 .player
@@ -472,6 +613,7 @@ impl RainWorldGame {
         input: Input,
         observer: &mut dyn PlayerObserver,
     ) {
+        let player_room = self.pos().room;
         let Some(realized) = self.world.realized(index) else {
             return;
         };
@@ -483,14 +625,20 @@ impl RainWorldGame {
         let Some(player) = self
             .player
             .as_mut()
-            .filter(|p| self.pos.room == index && !p.in_shortcut() && !p.is_dead())
+            .filter(|p| player_room == index && !p.in_shortcut() && !p.is_dead())
         else {
             return;
         };
         let was_stunned = player.is_stunned();
         player.update(room, realized.water.as_ref(), input, &mut self.rng, sounds);
         observer.updated(player, room, realized.water.as_ref(), &mut self.rng);
-        self.pos.tile = player.head().pos.tile();
+        let tile = player.head().pos.tile();
+        let mut pos = self.world.creature(self.player_id).pos;
+        pos.tile = tile;
+        self.world.place_creature(self.player_id, pos);
+        let Some(player) = self.player.as_mut() else {
+            return;
+        };
         if let Some(entrance) = player.shortcut_vessel_tile() {
             self.sucked_in(room, entrance);
             return;
@@ -520,7 +668,7 @@ impl RainWorldGame {
         }
         let dest = self
             .world
-            .abstract_room(self.pos.room)
+            .abstract_room(self.pos().room)
             .and_then(|r| r.connections.get(data.dest_node?).copied());
         if let Some(dest) = dest.filter(|&d| d > -1)
             && let Err(e) = self.world.activate_room(dest)
@@ -558,7 +706,19 @@ impl RainWorldGame {
     /// The player's abstract position.
     #[must_use]
     pub fn player_pos(&self) -> WorldCoordinate {
-        self.pos
+        self.pos()
+    }
+
+    /// The player's `AbstractCreature`.
+    #[must_use]
+    pub fn player_creature(&self) -> CreatureId {
+        self.player_id
+    }
+
+    /// `saveState.seed`.
+    #[must_use]
+    pub fn save_state_seed(&self) -> i32 {
+        self.save_state_seed
     }
 
     #[must_use]
@@ -575,12 +735,12 @@ impl RainWorldGame {
     /// Whether the player is in the camera's room (its body or its vessel).
     #[must_use]
     pub fn player_in_camera_room(&self) -> bool {
-        self.player.is_some() && self.pos.room == self.camera_room
+        self.player.is_some() && self.pos().room == self.camera_room
     }
 
     #[must_use]
     pub fn next_issued_id(&self) -> i32 {
-        self.next_issued_id
+        self.ids.next_issued_id
     }
 
     #[must_use]
@@ -620,11 +780,11 @@ impl RainWorldGame {
             chunk.reset_at(pos + crate::Vec2::new(0.0, dy));
             chunk.vel = vel;
         }
-        self.pos = WorldCoordinate {
-            room: self.camera_room,
-            tile: pos.tile(),
-            node: -1,
-        };
+        let tile = pos.tile();
+        self.world.place_creature(
+            self.player_id,
+            WorldCoordinate::new(self.camera_room, tile.0, tile.1, -1),
+        );
         observer.created(player, &mut self.rng);
     }
 

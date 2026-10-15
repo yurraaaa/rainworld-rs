@@ -11,11 +11,12 @@ use rw_assets::world::AbstractRoomData;
 use rw_assets::world::{GameRooms, LineFilter, Regions, StoryConditions, WorldData, WorldRequest};
 use rw_assets::{ActiveMods, Room, RoomSettings, SlugcatName, SoundTable, StreamingAssets};
 use rw_audio::Follow as SoundFollow;
-use rw_graphics::{Color, DrawList, PlayerGraphics};
+use rw_graphics::{Color, DrawList, OverseerGraphics, PlayerGraphics};
 use rw_hud::{HudSetup, OwnerTick, RainCycleView, StartCondition, Subregions};
 use rw_random::UnityRandom;
 use rw_render::{BodyStatus, ChunkInterpolation, Follow, PlayerLight, WaterSurface};
 use rw_sim::campaign::{self, SlugcatCampaign};
+use rw_sim::creature::EntityId;
 use rw_sim::room_script::{RoomScript, SuC04StartUp};
 use rw_sim::world::World;
 use rw_sim::{
@@ -47,11 +48,13 @@ pub struct Game {
     subregions: Option<Subregions>,
 }
 
-/// The player's graphics module, attached where the game attaches it.
+/// The player's graphics module, attached where the game attaches it, and the
+/// overseers' in the camera's room.
 struct Graphics {
     module: Option<PlayerGraphics>,
     /// The story character, for the colours.
     slugcat: SlugcatName,
+    overseers: Vec<OverseerGraphics>,
 }
 
 impl PlayerObserver for Graphics {
@@ -75,6 +78,21 @@ impl PlayerObserver for Graphics {
         if let Some(g) = &mut self.module {
             g.spat_out_of_shortcut(player, rng);
         }
+    }
+
+    fn overseer_viewed(&mut self, id: EntityId, size: f32, rng: &mut UnityRandom) {
+        self.overseers.retain(|g| g.id != id);
+        self.overseers.push(OverseerGraphics::new(id, size, rng));
+    }
+
+    fn overseer_reset(&mut self, id: EntityId, rng: &mut UnityRandom) {
+        if let Some(g) = self.overseers.iter_mut().find(|g| g.id == id) {
+            g.reset(rng);
+        }
+    }
+
+    fn overseer_unviewed(&mut self, id: EntityId) {
+        self.overseers.retain(|g| g.id != id);
     }
 
     fn nudge_tail_x(&mut self, dvx: f32) {
@@ -211,6 +229,7 @@ impl Game {
         let mut graphics = Graphics {
             module: None,
             slugcat: campaign.name,
+            overseers: Vec::new(),
         };
         let sim = RainWorldGame::new(world, campaign, start, rng, sounds, &mut graphics);
         log::info!("spawned player");

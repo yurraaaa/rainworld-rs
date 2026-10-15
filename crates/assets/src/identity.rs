@@ -148,6 +148,20 @@ impl Timeline {
     pub fn from_value(value: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|t| t.0 == value)
     }
+
+    /// Position in `SlugcatStats.SlugcatTimelineOrder` (the Watcher is not in it).
+    fn order(self) -> Option<usize> {
+        Self::ALL[..9].iter().position(|&t| t == self)
+    }
+
+    /// `SlugcatStats.AtOrBeforeTimeline(self, other)`.
+    #[must_use]
+    pub fn at_or_before(self, other: Self) -> bool {
+        match (self.order(), other.order()) {
+            (Some(a), Some(b)) => a <= b,
+            _ => false,
+        }
+    }
 }
 
 impl fmt::Debug for Timeline {

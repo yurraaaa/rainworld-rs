@@ -1,5 +1,6 @@
-//! rainworld-rs: a region of the installed game, creature-free, drawn as the game draws
-//! its level graphics (or as debug tiles), with a slugcat body.
+//! rainworld-rs: a region of the installed game (its creatures generated, only the
+//! overseers behaving), drawn as the game draws its level graphics (or as debug tiles),
+//! with a slugcat body.
 //!
 //! Usage: `rainworld-rs [ROOM] [--seed N] [--screenshot FILE.ppm] [--debug-view]
 //! [--spawn X,Y] [--script STEPS] [--resolution WxH] [--windowed] [--mute]

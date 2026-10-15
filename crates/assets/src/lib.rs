@@ -3,6 +3,7 @@
 //! directory.
 
 pub mod ambient;
+pub mod creatures;
 mod files;
 mod font_config;
 mod identity;
@@ -11,6 +12,7 @@ mod noise;
 mod palette;
 mod placed;
 mod png_image;
+pub mod region_properties;
 pub mod room;
 mod room_visuals;
 mod settings;
@@ -21,6 +23,9 @@ pub mod unity;
 pub mod world;
 
 pub use ambient::{AmbientKind, AmbientSound};
+pub use creatures::{
+    CreatureSpawner, CreatureType, Lineage, RoomAttraction, SimpleSpawner, SpawnerDen,
+};
 pub use files::{AssetError, StreamingAssets};
 pub use font_config::{FontChar, FontConfig, FontConfigError, FontKerning};
 pub use identity::{ActiveMods, SlugcatName, Timeline};
@@ -29,6 +34,7 @@ pub use noise::NoiseTexture;
 pub use palette::{EffectColors, PaletteImage, PaletteTexture, RoomPalette};
 pub use placed::{PlacedObject, RoomEffect};
 pub use png_image::PngImage;
+pub use region_properties::{RegionParams, RegionProperties, RoomAttractions};
 pub use room::{
     Room, RoomError, Shortcut, Slope, TILE_SIZE, Terrain, Tile, TileFlags, tile_centre,
     tile_position,

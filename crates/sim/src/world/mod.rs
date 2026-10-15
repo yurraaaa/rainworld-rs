@@ -7,20 +7,28 @@
 //! game spreads it over frames on a thread (docs/DIVERGENCES.md D14). Behaviour:
 //! `rainworld-re/notes/world-loading.md`, `room-realizer.md`.
 
+mod creatures;
+mod rain_cycle;
 mod realized;
 mod realizer;
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use rw_assets::world::{AbstractRoomData, RoomSource, WorldData};
-use rw_assets::{ActiveMods, AssetError, Timeline};
+use rw_assets::{ActiveMods, AssetError, CreatureType, RoomAttraction, Timeline};
 
+use crate::creature::{AbstractCreature, WorldCoordinate};
+
+pub(crate) use creatures::RoomLists;
+pub use creatures::{AbstractTick, QuantifiedCount, WorldProcesses};
+pub use rain_cycle::{CYCLE_TIME_MAX, CYCLE_TIME_MIN, RainCycle, WaterLevelCycle, WaterStage};
 pub use realized::RealizedRoom;
 pub use realizer::{FollowCreature, RoomRealizer};
 
 /// A world and its realized rooms.
 pub struct World {
-    data: WorldData,
+    pub(crate) data: WorldData,
     /// Per abstract room (local index), its realized room.
     realized: Vec<Option<RealizedRoom>>,
     /// `activeRooms`: local indices in realization order.
@@ -29,11 +37,22 @@ pub struct World {
     loading: Vec<usize>,
     rooms: Arc<dyn RoomSource>,
     timeline: Timeline,
-    mods: ActiveMods,
+    pub(crate) mods: ActiveMods,
     /// A story session (`game.IsStorySession`), for the room rules that ask.
     story: bool,
     /// Per abstract room, whether it finished loading before (`!firstTimeRealized`).
     loaded_before: Vec<bool>,
+    /// Every creature, the player's included (`AbstractCreature`s by `CreatureId`).
+    creatures: Vec<AbstractCreature>,
+    /// Per abstract room, its creature lists.
+    lists: Vec<RoomLists>,
+    /// Per abstract room, `roomAttractions` from `Room_Attr` lines.
+    attractions: Vec<HashMap<CreatureType, RoomAttraction>>,
+    /// `skyAccessNodes`.
+    sky_access_nodes: Vec<WorldCoordinate>,
+    pub(crate) processes: WorldProcesses,
+    /// `rainCycle` (built with the game, see [`crate::RainWorldGame::new`]).
+    pub rain_cycle: RainCycle,
 }
 
 impl World {
@@ -46,7 +65,7 @@ impl World {
         story: bool,
     ) -> Self {
         let count = data.rooms.len();
-        Self {
+        let mut world = Self {
             data,
             realized: (0..count).map(|_| None).collect(),
             active: Vec::new(),
@@ -56,7 +75,15 @@ impl World {
             mods,
             story,
             loaded_before: vec![false; count],
-        }
+            creatures: Vec::new(),
+            lists: vec![RoomLists::default(); count],
+            attractions: Vec::new(),
+            sky_access_nodes: Vec::new(),
+            processes: WorldProcesses::default(),
+            rain_cycle: RainCycle::default(),
+        };
+        world.index_rooms();
+        world
     }
 
     #[must_use]
@@ -159,9 +186,13 @@ impl World {
         Ok(())
     }
 
-    /// `AbstractRoom.Abstractize`: drops the realized room.
+    /// `AbstractRoom.Abstractize`: its realized creatures become abstract, then the
+    /// realized room is dropped.
     pub fn abstractize(&mut self, index: i32) {
         let Some(i) = self.local(index) else { return };
+        if self.realized[i].is_some() {
+            self.abstractize_creatures(index);
+        }
         if self.realized[i].take().is_some() {
             log::info!("abstracted room {}", self.data.rooms[i].name);
         }

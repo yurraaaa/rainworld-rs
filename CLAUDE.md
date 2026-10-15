@@ -110,12 +110,15 @@ recommendation. Nothing is ported before the user agrees.
   API. Until DLC support exists the port treats every DLC as not installed,
   even where the game decides from files on disk (Downpour's
   `dlcsInstalled` check): the base-game menu scene and intro images.
-- Current phase is the player controller in a creature-free region, not
-  the full game (campaign step 1):
+- Current phase is the player controller in a region whose only
+  behaving creatures are the overseers, not the full game (campaign
+  step 1, overseer step 1):
   - A story starts at the campaign's start den in its region's world;
     room-exit shortcuts carry the player between the region's rooms, which
-    load synchronously (D14). Gates, region changes, the rain cycle and
-    saves are not there yet.
+    load synchronously (D14). The population is generated with the
+    game's draws but only overseers leave their dens (abstract AI only;
+    a realized overseer is a frozen placeholder). Gates, region changes,
+    the rain and saves are not there yet.
   - Death freezes the body until R respawns it (revisit once the real
     game loop exists). A body that falls out of the room is destroyed,
     as in the game.
@@ -150,7 +153,10 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   (arena levels: a single-room world); `new_game` starts a campaign
   (`White`, `Yellow`, `Red`) at its start den. `get_state` reports the
   camera's room, the player's room and node, the vessel waiting in the
-  lobby and the realized rooms' entry waits; `get_exits` lists the
+  lobby, the realized rooms' entry waits and `creatures` (every
+  abstract creature: kind, ID, room, node, tile, in den, realized,
+  alive; overseers also their AI's destination, guide state, last rooms
+  and realized tiles); `get_exits` lists the
   camera room's exits (entrance tile, the input that enters, destination
   room, arrival node and camera). `set_player`, `get_tiles` and
   `screenshot` act on the camera's room. To test a transition, put the

@@ -33,7 +33,7 @@ use params::{
 pub use session::Session;
 
 const INSTRUCTIONS: &str = "Drives rainworld-rs, a reimplementation of Rain World \
-(creature-free, one region at a time). Call load_room (a room in its region's world) or \
+(one region at a time; of its creatures only the overseers behave, abstractly). Call load_room (a room in its region's world) or \
 new_game (a campaign's start) first. The simulation runs at 40 ticks per second and only \
 advances in step / step_sequence, so runs are deterministic: the same start, seed and \
 inputs give the same result. Positions are room pixels, y up, 20 px per tile, in the \
@@ -181,7 +181,8 @@ impl Server {
         player state: chunk positions, velocities, tiles and \
         contacts, body mode, animation, facing, standing, stun, death, shortcut travel, \
         this tick's terrain impacts, input and controller; the new game's fade delay and \
-        SU_C04 start script."
+        SU_C04 start script; the world's creatures (kind, ID, room, node, tile, den, \
+        realized; overseers' destination, guide state, last rooms and tiles)."
     )]
     fn get_state(&self) -> Result<CallToolResult, String> {
         Self::json(&self.session()?.state()?)
