@@ -168,7 +168,9 @@ impl GameSounds {
         for source in sources.chain(self.ambients.drain(..).filter_map(|a| a.source)) {
             source.stop();
         }
+        let sfx_volume = self.mic.sfx_volume;
         *self = Self::new(self.mic.exponent());
+        self.mic.sfx_volume = sfx_volume;
     }
 
     /// The camera left the room: `ObjectSound`s no longer refresh their emitters'
@@ -360,7 +362,7 @@ impl Audio {
 
     /// `options.soundEffectsVolume`, for game and menu sounds alike.
     pub fn set_sound_effects_volume(&mut self, volume: f32) {
-        self.mic.sfx_volume = volume;
+        self.game.mic.sfx_volume = volume;
     }
 
     /// The pause menu's hold on the microphone: the volume of every group but 1 and the

@@ -92,7 +92,7 @@ impl MenuPlayback {
     pub fn frame(&mut self, audio: &mut Audio) {
         audio.clips.poll();
         let exponent = audio.table.volume_exponent;
-        let sfx_volume = audio.mic.sfx_volume;
+        let sfx_volume = audio.game.mic.sfx_volume;
         let mut i = 0;
         while i < self.voices.len() {
             let v = &mut self.voices[i];
