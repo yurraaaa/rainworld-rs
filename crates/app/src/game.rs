@@ -613,6 +613,16 @@ impl Game {
             .expect("the camera's room stays realized")
     }
 
+    /// The stream cosmetic draws (holograms, drips) use.
+    #[must_use]
+    pub fn cosmetic_rng(&self) -> &UnityRandom {
+        &self.graphics.cosmetic
+    }
+
+    pub fn set_cosmetic_rng(&mut self, rng: UnityRandom) {
+        self.graphics.cosmetic = rng;
+    }
+
     /// The camera move since the last call.
     pub fn take_camera_move(&mut self) -> Option<CameraMove> {
         self.sim.take_camera_move()

@@ -2,8 +2,9 @@
 //! the keyboard with the default bindings' labels, shown over the dimmed game when a
 //! new game's slugcat first stands up in SU_C04, until it walks past x 800. The page is
 //! a `Menu` whose page container sits in the HUD's second container; the port keeps its
-//! sprites in the HUD stage. The gamepad presets' pictures, the pick-up instructions
-//! and the special-button rows (More Slugcats, Watcher) are not ported.
+//! sprites in the HUD stage. The pause menu shows the same map with the pick-up
+//! instructions. The gamepad presets' pictures and the special-button rows (More
+//! Slugcats, Watcher) are not ported.
 
 use std::sync::Arc;
 
@@ -96,18 +97,29 @@ pub struct ControlMap {
     label_positions: [Vec2; 7],
     /// `controlsMap`, `controlsMap2`, `controlsMap3`.
     maps: [Illustration; 3],
+    /// `pickupButtonInstructionsFade` and `pickupButtonInstructions` (the label `None`
+    /// without the font).
+    pickup: Option<(NodeId, Option<NodeId>)>,
+    pub pickup_fade: f32,
+    pub last_pickup_fade: f32,
     pub fade: f32,
     pub last_fade: f32,
     pub counter: i32,
 }
 
 impl ControlMap {
-    fn new(
+    /// `PickupLabelPos`: the pick-up label's position relative to the map (keyboard).
+    pub const PICKUP_LABEL_POS: Vec2 = Vec2::new(-200.0, -150.0);
+
+    /// `new ControlMap(menu, owner, pos, KeyboardSinglePlayer, showPickupInstructions)`
+    /// with `pos` its `ScreenPos`.
+    pub fn new(
         stage: &mut StageTree,
         container: NodeId,
         pos: Vec2,
         source: &mut IllustrationSource<'_>,
         text: &PageText<'_>,
+        show_pickup_instructions: bool,
     ) -> Self {
         let mut fade = Sprite::new(AtlasManager::WHITE);
         fade.shader = StageShader::FlatLight;
@@ -141,6 +153,14 @@ impl ControlMap {
             (0.0, 0.0),
         ]
         .map(|(x, y)| Vec2::new(x, y + 1.0));
+        let pickup_fade = show_pickup_instructions.then(|| {
+            let mut fade = Sprite::new(AtlasManager::WHITE);
+            fade.shader = StageShader::FlatLight;
+            fade.color = MenuColor::Black.rgb();
+            fade.transform.scale_x = 30.0;
+            fade.transform.scale_y = 20.0;
+            stage.add_sprite(container, fade)
+        });
         let keyboard = Vec2::new(-220.0, 0.0);
         let mut maps = [
             Illustration::new(stage, container, source, "keyboard", keyboard),
@@ -168,34 +188,81 @@ impl ControlMap {
             m.alpha = 0.0;
             m.last_alpha = 0.0;
         }
+        let pickup = pickup_fade.map(|fade| (fade, Self::pickup_label(stage, container, text)));
         Self {
             pos,
             black_fade,
             labels,
             label_positions,
             maps,
+            pickup,
+            pickup_fade: 0.0,
+            last_pickup_fade: 0.0,
             fade: 0.0,
             last_fade: 0.0,
             counter: 0,
         }
     }
 
-    /// `ControlMap.Update` inside the tutorial page, with the page's `blackFade` and the
-    /// HUD map's fade.
-    fn update(&mut self, black_fade: f32, map_fade: f32) {
+    /// The pick-up button's instructions, left-aligned.
+    fn pickup_label(
+        stage: &mut StageTree,
+        container: NodeId,
+        text: &PageText<'_>,
+    ) -> Option<NodeId> {
+        let t = text.translator;
+        let lines = [
+            "Tap to pick up objects",
+            "Hold to eat / swallow objects",
+            "Press while holding down direction (crouching) to drop object",
+            "Double tap to switch hands",
+        ];
+        let mut s = format!(
+            "{}\r\n\r\n",
+            t.translate("Pick up / Eat button interactions:")
+        );
+        for line in lines {
+            s.push_str(&format!("  - {}\r\n", t.translate(line)));
+        }
+        text.font.map(|font| {
+            let mut label = Label::new(Arc::clone(font), &s);
+            label.set_alignment(Alignment::Left);
+            label.transform.y = -10000.0;
+            stage.add_label(container, label)
+        })
+    }
+
+    /// `ControlMap.Update` with `fade` its menu's: the pause menu's `blackFade`, or the
+    /// tutorial page's times one less the HUD map's fade. `hidden`: the tutorial page's
+    /// map while the pause menu is open, whose fade and pictures drop to 0 at once (the
+    /// game's `GrafUpdate(1)` then is what the next draw shows).
+    pub fn update(&mut self, fade: f32, hidden: bool) {
         for m in &mut self.maps {
             m.update();
         }
         self.counter += 1;
         self.last_fade = self.fade;
-        self.fade = black_fade * (1.0 - map_fade);
+        self.fade = fade;
+        if hidden {
+            self.fade = 0.0;
+            self.last_fade = 0.0;
+            for m in &mut self.maps {
+                m.alpha = 0.0;
+                m.last_alpha = 0.0;
+            }
+        }
         let later = (self.counter as f32).inverse_lerp(5.0, 80.0).s_curve(0.8);
         self.maps[0].set_alpha = Some(self.fade);
         self.maps[1].set_alpha = Some(self.fade.min(later));
         self.maps[2].set_alpha = Some(self.fade.min(later) * 0.5);
+        if self.pickup.is_some_and(|(_, label)| label.is_some()) {
+            self.last_pickup_fade = self.pickup_fade;
+            self.pickup_fade = (self.counter as f32).inverse_lerp(40.0, 120.0).s_curve(0.5);
+        }
     }
 
-    fn draw(&self, stage: &mut StageTree, t: f32) {
+    /// `GrafUpdate`.
+    pub fn draw(&self, stage: &mut StageTree, t: f32) {
         let fade = self.last_fade.lerp(self.fade, t).s_curve(0.6);
         for m in &self.maps {
             let tr = &mut stage.sprite_mut(m.sprite).transform;
@@ -224,6 +291,19 @@ impl ControlMap {
             l.transform.x = x;
             l.transform.y = y;
             l.transform.alpha = alpha;
+        }
+        if let Some((sprite, Some(label))) = self.pickup {
+            let pos = self.pos + Self::PICKUP_LABEL_POS;
+            let pickup = fade * self.last_pickup_fade.lerp(self.pickup_fade, t);
+            let tr = &mut stage.sprite_mut(sprite).transform;
+            tr.x = pos.x + 150.0;
+            tr.y = pos.y;
+            tr.alpha = 0.5 * pickup;
+            // `MenuLabel.GrafUpdate`: the middle of its 100 x 20 rectangle.
+            let l = stage.label_mut(label);
+            l.transform.x = pos.x + 50.0;
+            l.transform.y = pos.y + 10.0;
+            l.transform.alpha = pickup;
         }
     }
 
@@ -282,7 +362,7 @@ impl ControlsPage {
         // The keyboard's picture sits 450 px up (350 for the PlayStation pads).
         let map_x = (screen[0] / 3.0).trunc() + 170.2 + ((1366.0 - screen[0]) / 2.0).trunc();
         let pos = Self::page_pos(screen) + Vec2::new(map_x, 450.0);
-        let control_map = ControlMap::new(stage, container, pos, source, text);
+        let control_map = ControlMap::new(stage, container, pos, source, text, false);
         Self {
             container,
             black_sprite,
@@ -296,8 +376,9 @@ impl ControlsPage {
     }
 
     /// `Update`: fades in at 1/16 per tick, out at 1/8 once asked to continue, then
-    /// shuts down (its sprites are removed from `stage`).
-    pub fn update(&mut self, stage: &mut StageTree, map_fade: f32) {
+    /// shuts down (its sprites are removed from `stage`). Its map hides while the pause
+    /// menu is open.
+    pub fn update(&mut self, stage: &mut StageTree, map_fade: f32, pause_menu: bool) {
         self.counter += 1;
         self.last_black_fade = self.black_fade;
         if self.want_to_continue {
@@ -309,7 +390,8 @@ impl ControlsPage {
         } else {
             self.black_fade = (self.black_fade + 0.0625).min(1.0);
         }
-        self.control_map.update(self.black_fade, map_fade);
+        self.control_map
+            .update(self.black_fade * (1.0 - map_fade), pause_menu);
     }
 
     /// `GrafUpdate`.

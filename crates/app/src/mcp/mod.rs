@@ -7,6 +7,8 @@
 //! ([`crate::scene::Scene::draw`]). Logging goes to stderr; stdout carries only MCP.
 
 mod params;
+#[cfg(test)]
+mod pause_tests;
 mod reply;
 #[cfg(test)]
 mod save_tests;
@@ -246,9 +248,9 @@ impl Server {
         description = "Run process manager frames of 1/40 s (one process tick each once \
         running), holding keys (held through all the frames, released after); the keys \
         drive the menus (Rewired UI map) and the player in the game (gameplay map: arrows \
-        move, Z jumps; S held with START skips the intro slideshow, Escape skips it while it \
+        move, Z jumps, Escape pauses; S held with START skips the intro slideshow, Escape skips it while it \
         plays); returns the current process, the fade state, the slideshow's clock and \
-        scene, and whether Exit asked to quit."
+        scene, the game's pause menu, and whether Exit asked to quit."
     )]
     fn step_process(
         &self,

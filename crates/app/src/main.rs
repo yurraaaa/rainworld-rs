@@ -32,7 +32,7 @@
 //! Controls: Rewired's default keyboard map: arrows move, Z jumps, Space holds the map
 //! button (the HUD's meters; no map is drawn); R respawn, V level
 //! graphic / debug view, G tile grid, F12 screenshot (`screenshot-<frame>.ppm` in the
-//! working directory), Esc quit (in the game, until there is a pause menu). Menus take
+//! working directory), Esc the pause menu (in the game). Menus take
 //! Rewired's default UI keys: arrows, Enter/Space/Z submit, Esc cancel, and the mouse.
 
 mod app;

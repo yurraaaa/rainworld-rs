@@ -9,8 +9,9 @@ use rw_assets::ActiveMods;
 use rw_assets::{SoundTable, StreamingAssets, UnityResources};
 use rw_audio::music::{MusicClock, MusicOutput, SongBank, SourcePlayback, TimedSources, TrackId};
 use rw_audio::{Audio, ListenerInput, MenuPlayback, MenuSoundStart};
+use rw_hud::{PauseGame, PauseMenu, PauseRequest};
 use rw_menu::StoryGameInitCondition;
-use rw_menu::menu::Menu;
+use rw_menu::menu::{Menu, MenuCx};
 use rw_menu::{
     Alignment, AtlasLoadError, Container, Font, FontTest, Initialization, IntroRoll, KeyboardKey,
     Label, MainLoopProcess, MainMenu, MenuContext, MenuShared, MenuSound, MenuSoundEvent, Node,
@@ -20,8 +21,8 @@ use rw_menu::{
 use rw_random::UnityRandom;
 use rw_render::{Camera, Color, Renderer, Resolution, StageBatch, StageGlobals};
 use rw_save::{CampaignStart, SaveSlot};
-use rw_sim::Vec2;
 use rw_sim::campaign::SlugcatCampaign;
+use rw_sim::{SoundId, Vec2};
 
 use crate::game::{Game, GameStart};
 use crate::input::{Action, InputState, Script};
@@ -65,12 +66,16 @@ pub enum MusicSink {
     Output(MusicOutput),
 }
 
-/// The game process: the [`Scene`].
+/// The game process: the [`Scene`] and the pause menu over it.
 pub struct GameProcess {
     pub scene: Scene,
     /// `FadeInTime` and `InitialBlackSeconds`, from the menu setup it was made with.
     fade_in_time: f32,
     initial_black_seconds: f32,
+    /// `pauseMenu`: while there is one the game is paused (`GamePaused`).
+    pub pause_menu: Option<PauseMenu>,
+    /// `lastPauseButton`, written only on unpaused ticks.
+    last_pause_button: bool,
 }
 
 /// A process the port does not have yet: its name on black; the pause button (Esc)
@@ -247,6 +252,8 @@ impl AppContext {
             fade_in_time,
             initial_black_seconds: condition
                 .game_initial_black_seconds(self.menu.progression.selected_slugcat),
+            pause_menu: None,
+            last_pause_button: false,
         }
     }
 
@@ -405,6 +412,13 @@ impl MainLoopProcess<AppContext> for GameProcess {
         self.initial_black_seconds
     }
 
+    /// `TimeSpeedFac`: 0 while paused.
+    fn time_speed_fac(&self) -> f32 {
+        if self.pause_menu.is_some() { 0.0 } else { 1.0 }
+    }
+
+    /// `RainWorldGame.Update`: the pause menu, then a paused tick (the HUD) or an
+    /// unpaused one, which may open the pause menu between the cameras and the rooms.
     fn update(&mut self, ctx: &mut AppContext, requests: &mut ProcessRequests) {
         self.scene
             .game_mut()
@@ -415,27 +429,146 @@ impl MainLoopProcess<AppContext> for GameProcess {
             .as_mut()
             .and_then(Script::next_input)
             .unwrap_or(keys);
-        let events = self.scene.tick(input, Some(&mut ctx.menu));
+        if self.pause_menu.is_some() {
+            self.update_pause_menu(ctx, requests);
+        }
+        if self.pause_menu.is_some() {
+            self.scene.paused_tick(&ctx.menu);
+            let events = self.scene.game_mut().take_sound_events();
+            if let Some(audio) = &mut ctx.audio {
+                audio.play_events(events, self.scene.game().body().map(|b| &b.chunks[..]));
+            }
+            return;
+        }
+        self.scene.paused = false;
+        self.scene.update_cameras(&ctx.menu);
+        // `RWInput.CheckPauseButton(0, inMenu: false)`; the menus' latched keys are
+        // spent with the tick.
+        let pause = ctx.menu.input.pause_action();
+        ctx.menu.input.take_tick_input();
+        let opened = pause && !self.last_pause_button && self.pause_allowed(requests);
+        if opened {
+            self.open_pause_menu(ctx);
+        }
+        self.last_pause_button = pause;
+        let events = self.scene.update_rooms(input, &mut ctx.menu, opened);
         if self.scene.take_entered_room()
             && let Some(audio) = &mut ctx.audio
         {
             audio.set_ambients(&self.scene.game().settings().ambient_sounds);
         }
         self.hear_tick(ctx, events);
+        self.scene.paused = self.pause_menu.is_some();
     }
 
     fn graf_update(&mut self, time_stacker: f32, ctx: &mut AppContext) {
+        let mouse = Vec2::from(ctx.menu.input.mouse.pos);
+        let (volume, time_speed) = match &mut self.pause_menu {
+            Some(menu) => {
+                menu.graf_update(time_stacker, mouse);
+                (menu.mic_volume(), menu.mic_time_speed(time_stacker))
+            }
+            None => (1.0, 1.0),
+        };
         if let Some(audio) = &mut ctx.audio {
+            audio.set_pause_mix(volume, time_speed);
             audio.frame(time_stacker, self.scene.game().water());
         }
     }
 
     fn shut_down(&mut self, ctx: &mut AppContext) {
+        if let Some(menu) = &mut self.pause_menu {
+            menu.shut_down();
+        }
         ctx.menu.random = self.scene.game_mut().take_rng();
     }
 }
 
 impl GameProcess {
+    /// The conditions on opening the pause menu: the HUD's map closed (fade below 0.1),
+    /// no game-over prompt, no fade, the camera's room fully loaded.
+    fn pause_allowed(&self, requests: &ProcessRequests) -> bool {
+        let hud_allows = self
+            .scene
+            .hud()
+            .is_none_or(|h| h.map.fade < 0.1 && !h.text_prompt.game_over_mode);
+        hud_allows
+            && requests.fade_to_black() == 0.0
+            && self.scene.game().sim().room_safe_for_pause()
+    }
+
+    /// `pauseMenu = new PauseMenu(manager, this)`.
+    fn open_pause_menu(&mut self, ctx: &mut AppContext) {
+        let sim = self.scene.game().sim();
+        let session = sim.story_session();
+        let game = PauseGame {
+            story: sim.is_story_session(),
+            cycle_number: session.cycle_number,
+            clock: sim.clock(),
+            // `RedsCycles(RedExtraCycles)` with no save: 19.
+            red_is_out_of_cycles: session.character == rw_assets::SlugcatName::Red
+                && session.cycle_number >= 19,
+        };
+        let menu = PauseMenu::new(&mut ctx.menu, &game, self.scene.hud_mut());
+        self.pause_menu = Some(menu);
+        log::info!("paused");
+        self.play_menu_sounds(ctx);
+    }
+
+    /// `pauseMenu.Update()` and what it asks of the game.
+    fn update_pause_menu(&mut self, ctx: &mut AppContext, requests: &mut ProcessRequests) {
+        let Some(menu) = &mut self.pause_menu else {
+            return;
+        };
+        let mut cx = MenuCx {
+            shared: &mut ctx.menu,
+            requests,
+        };
+        let asked = menu.update(&mut cx);
+        self.play_menu_sounds(ctx);
+        for request in asked {
+            match request {
+                PauseRequest::ContinuePaused => {
+                    if let Some(mut menu) = self.pause_menu.take() {
+                        menu.shut_down();
+                    }
+                    log::info!("unpaused");
+                }
+                PauseRequest::ExitToMenu => {
+                    self.exit_to_menu(ctx, requests);
+                    if let Some(menu) = &mut self.pause_menu {
+                        menu.shut_down();
+                    }
+                }
+            }
+        }
+    }
+
+    /// `RainWorldGame.ExitToMenu`: the music's death event, `ExitGame(true, true)` and a
+    /// switch to the main menu.
+    fn exit_to_menu(&mut self, ctx: &mut AppContext, requests: &mut ProcessRequests) {
+        if requests.upcoming().is_some() {
+            return;
+        }
+        if let Some(music) = &mut ctx.menu.music {
+            music.death_event();
+        }
+        self.scene.game_mut().sim_mut().exit_game(true, true);
+        requests.switch_to(ProcessId::MainMenu);
+    }
+
+    /// The pause menu's `PlaySound`s, which go to the game's microphone in volume
+    /// group 1 (`menuMic` is null in the game) and draw from the game's stream.
+    fn play_menu_sounds(&mut self, ctx: &mut AppContext) {
+        let (sounds, rng) = self.scene.game_mut().sim_mut().camera_io();
+        for (id, [pan, volume, pitch]) in std::mem::take(&mut ctx.menu.game_mic_sounds) {
+            match SoundId::from_name(id.name()) {
+                Some(id) => sounds.play_disembodied_in_group(id, pan, volume, pitch, 1, rng),
+                None => log::warn!("{} is not a game sound", id.name()),
+            }
+        }
+    }
+
     /// Feeds a tick's sound events and the listener to the audio output.
     fn hear_tick(&self, ctx: &mut AppContext, events: Vec<rw_sim::SoundEvent>) {
         let Some(audio) = &mut ctx.audio else { return };
@@ -614,6 +747,13 @@ impl MainLoopProcess<AppContext> for AppProcess {
         matches!(self, Self::SlideShow(_))
     }
 
+    fn time_speed_fac(&self) -> f32 {
+        match self {
+            Self::Game(p) => p.time_speed_fac(),
+            _ => 1.0,
+        }
+    }
+
     /// The intro roll and the slideshow keep their own clocks after the frame
     /// (`RawUpdate`).
     fn raw_update(
@@ -701,6 +841,9 @@ impl Frontend {
             Some(AppProcess::Game(game)) => {
                 game.scene.draw(&mut target.scene, alpha, view);
                 game.scene.draw_hud(atlases, &mut batch, alpha);
+                if let Some(menu) = game.pause_menu.as_ref().filter(|m| !m.shut_down) {
+                    menu.menu().stage.push_quads(atlases, &mut batch);
+                }
             }
             current => {
                 let r = &mut target.scene.renderer;

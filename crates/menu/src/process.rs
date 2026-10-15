@@ -180,6 +180,11 @@ pub trait MainLoopProcess<C> {
         40
     }
 
+    /// `TimeSpeedFac`: how fast the shaders' time runs.
+    fn time_speed_fac(&self) -> f32 {
+        self.frames_per_second() as f32 / 40.0
+    }
+
     /// `FadeInTime`: seconds of the fade from black once this process starts.
     fn fade_in_time(&self) -> f32 {
         0.45
@@ -381,7 +386,7 @@ impl<P> ProcessManager<P> {
         );
         requests.fade_delay_in_progress = self.black_delay > 0.0;
         if let Some(current) = &mut self.current {
-            self.shaders_time += dt * current.frames_per_second() as f32 / 40.0;
+            self.shaders_time += dt * current.time_speed_fac();
             current.raw_update(dt, &mut self.stacker, ctx, &mut requests);
         }
         if let Some(fade) = requests.set_fade {

@@ -600,9 +600,23 @@ real-time audio rather than the sim.
   the game's menus place labels a third of a pixel off (the page sits at (1/3, 1/3)),
   and the port's menus draw them whole.
 - **Unported screens.** Every process but the game, the main menu, slugcat select and
-  the intro slideshows (the main menu's Regions, Arena, Remix and Options, and the pause, sleep and death
+  the intro slideshows (the main menu's Regions, Arena, Remix and Options, and the sleep and death
   screens) is a black screen naming the process; the pause button (Escape) returns to
-  the main menu. In the game Escape still quits the app until the pause menu exists.
+  the main menu.
+- **Pause menu.** `PauseMenu` of a story game is ported (`rw_hud::PauseMenu`,
+  `rainworld-re/notes/menu.md` "PauseMenu"): CONTINUE, EXIT and the confirmation, the
+  keyboard control map with the pick-up instructions, the dimming, its sounds through
+  the game's microphone (volume group 1) and the microphone's dimming and slowing, the
+  HUD's pause text, and `ExitToMenu`. While paused the room's frame repeats the last
+  unpaused one (the game does not redraw it): the port redraws it at that frame's time
+  stacker with the cosmetic stream restored. Not ported: the arena and sandbox buttons
+  (RESTART, EDIT, PLAY), the gamepad presets' maps, controller rumble, Expedition's
+  unlocks and karma warning, and Platform `systemMenuShowingExplicit`. `RedIsOutOfCycles`
+  uses `RedsCycles(false)` (19): `RedExtraCycles` is save data. `ExitGame`'s save
+  writes (`AppendTimeOnCycleEnd`, `SaveProgressionAndDeathPersistentDataOfCurrentState`)
+  are no-op stubs in `rw_sim::RainWorldGame` until saves exist, and
+  `warnedAboutKarmaLossOnExit` lives for the session only. The port's R respawn still
+  works while paused.
 - **Flat scenes.** Menu scenes are shown in the game's flat mode (`flatmode.txt`: one
   `<scene> - Flat.png`; `rainWorld.flatIllustrations`) until depth scenes
   (`MenuDepthIllustration`, its shaders) are ported. The flat-mode branches follow the

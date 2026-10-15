@@ -49,7 +49,7 @@ impl AmbientPlayer {
             .clamp(0.0, 1.0);
         SourceMix {
             volume,
-            pitch: self.doppler_pitch(mic, listener, now) * self.sound.pitch,
+            pitch: self.doppler_pitch(mic, listener, now) * mic.time_speed * self.sound.pitch,
             pan: self.pan(listener),
             cutoff: Microphone::low_pass_cutoff(mic.under_water, 0.0),
         }

@@ -41,7 +41,7 @@ Not yet ported:
 - shelters, hibernation, and food and karma carried between cycles;
 - region gates;
 - creatures other than overseers and bat flies;
-- the pause menu, the region map, and depth scenes.
+- the region map, and depth scenes.
 
 ## Building and running
 
@@ -91,7 +91,7 @@ These are the game's default keyboard bindings.
 | X | Throw | |
 | Space | Map button (shows the HUD meters) | Confirm |
 | Enter | | Confirm |
-| Esc | Quit (until the pause menu exists) | Back |
+| Esc | Pause menu (again to continue) | Back |
 
 Development keys: R respawns, V toggles the level graphic and the debug view, G shows the
 tile grid, and F12 saves a screenshot.
