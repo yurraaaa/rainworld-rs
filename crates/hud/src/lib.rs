@@ -17,8 +17,10 @@ mod map;
 mod pause_menu;
 mod rain_meter;
 mod screen_package;
+mod select_hud;
 mod sleep_hud;
 mod sleep_screen;
+mod slugcat_select;
 mod text_prompt;
 
 #[cfg(test)]
@@ -47,8 +49,12 @@ pub use rain_meter::{RainCycleView, RainMeter};
 pub use screen_package::{
     GameOverPrompt, PlayerAt, RealizedAt, ScreenPackageSource, SleepDeathScreenDataPackage,
 };
+pub use select_hud::{SelectHud, SelectHudSetup};
 pub use sleep_hud::{SleepHud, SleepHudSetup};
 pub use sleep_screen::{ScreenButton, SleepAndDeathScreen};
+pub use slugcat_select::{
+    ContinuePage, PageKind, SaveGameData, SlugcatPage, SlugcatSelectMenu, SlugcatSelectScreen,
+};
 pub use text_prompt::{InfoId, Message, SubregionTracker, Subregions, TextPrompt};
 
 use food_meter::MeterNeighbours;
@@ -456,6 +462,7 @@ impl Hud {
             reveal_map: owner.reveal_map,
             show_karma_food_rain: skfr,
             hide_general_hud: hide,
+            character_select: false,
             save_karma: self.save_karma,
             save_reinforced: self.save_reinforced,
         };

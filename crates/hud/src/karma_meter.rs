@@ -73,6 +73,8 @@ pub struct KarmaNeighbours {
     pub reveal_map: bool,
     pub show_karma_food_rain: bool,
     pub hide_general_hud: bool,
+    /// The owner is a slugcat select page (`OwnerType.CharacterSelect`): always shown.
+    pub character_select: bool,
     /// The save state's karma, cap and `reinforcedKarma`, which the reinforcement
     /// animation shows at its end.
     pub save_karma: (i32, i32),
@@ -192,7 +194,7 @@ impl KarmaMeter {
         self.reinforcement_cycle += 1.0 / 90.0;
         if n.food_down_in_corner > 0.0 {
             self.fade = (self.fade - 0.05).max(0.0);
-        } else if self.show(n.reveal_map, n.show_karma_food_rain) {
+        } else if n.character_select || self.show(n.reveal_map, n.show_karma_food_rain) {
             let forced: f32 = if self.force_visible_counter > 0 {
                 1.0
             } else {

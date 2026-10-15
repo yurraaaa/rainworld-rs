@@ -15,4 +15,6 @@ rw-save.workspace = true
 log.workspace = true
 
 [dev-dependencies]
+# The slugcat select menu (in `rw-hud`, as it owns a HUD) in the installed menu tests.
+rw-hud.workspace = true
 serde_json.workspace = true

@@ -171,7 +171,7 @@ impl PlayerProgression {
     }
 
     /// The stored `SAVE STATE` line value of `slugcat`, if any.
-    fn stored_state(&mut self, slugcat: SlugcatName) -> Option<String> {
+    pub fn stored_state(&mut self, slugcat: SlugcatName) -> Option<String> {
         self.prog_lines().into_iter().find_map(|line| {
             let parts: Vec<&str> = line.split("<progDivB>").collect();
             (parts.len() == 2
