@@ -177,6 +177,7 @@ impl World {
         {
             o.set_as_player_guide(1);
         }
+        self.set_player_guide(id);
     }
 
     /// The region's overseers: always in UW, else by chance from the cycle number
@@ -222,6 +223,8 @@ impl World {
         let n = i32::try_from(swarm_rooms.len()).unwrap_or(i32::MAX);
         let targets: Vec<i32> = swarm_rooms.iter().map(|_| cx.rng.range_i32(0, n)).collect();
         self.processes.flies_migration_targets = Some(targets);
+        // The loader's swarm map comes with the process; it draws nothing.
+        self.map_swarm_rooms();
         if self.single_room() || cx.session.cycle_number > 0 {
             return;
         }

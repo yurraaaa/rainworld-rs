@@ -8,6 +8,7 @@ use rw_assets::{CreatureType, Room};
 use rw_random::UnityRandom;
 
 use super::abstract_ai::{AbstractStep, GuideContext, Parent, TUTORIAL_ROOMS};
+use super::hologram::{ControlPreset, HologramKind, HologramMessage, PointerKind};
 use super::{
     CommunicationModule, OverseerAbstractAi, OverseerAi, OverseerBody, OverseerMode, PlayerConcern,
     PlayerGuideState, TutorialBehavior, TutorialMessage,
@@ -95,6 +96,15 @@ pub struct PlayerView {
     /// `input[0].jmp`, `input[1].jmp`.
     pub jump: [bool; 2],
     pub entering_shortcut: Option<(i32, i32)>,
+    /// `room == null`: travelling a shortcut.
+    pub in_shortcut: bool,
+    pub standing: bool,
+    pub animation: crate::Animation,
+    /// `bodyChunks[1].ContactPoint.y`.
+    pub hips_contact_y: i8,
+    /// `input[0].x`, `input[0].y`.
+    pub input_x: i8,
+    pub input_y: i8,
 }
 
 /// The story numbers the tutorial reads.
@@ -103,6 +113,8 @@ pub(crate) struct StoryStats {
     pub cycle: i32,
     pub food_to_hibernate: i32,
     pub max_food: i32,
+    /// `deathPersistentSaveData.karmaCap`.
+    pub karma_cap: i32,
     /// Monk (`SlugcatStats.Name.Yellow`).
     pub yellow: bool,
     /// `deathPersistentSaveData.howWellIsPlayerDoing`.
@@ -129,6 +141,8 @@ pub(crate) enum OverseerEffect {
     EndConversation { other: CreatureId, delay: i32 },
     /// The tutorial kills the living green lizards of a room (`LizardState.Die`).
     KillGreenLizards(i32),
+    /// The super-jump lesson holds the crouch charge down: `player.superLaunchJump = 0`.
+    ResetSuperLaunchJump,
 }
 
 /// What a realized overseer reads and writes of the game for one call.
@@ -140,7 +154,11 @@ pub(crate) struct OverseerTick<'a> {
     pub rng: &'a mut UnityRandom,
     pub sounds: &'a mut Sounds,
     pub observer: &'a mut dyn PlayerObserver,
-    pub guide: &'a PlayerGuideState,
+    pub guide: &'a mut PlayerGuideState,
+    /// `options.controls[0].GetActivePreset()`, which instruction picture is built.
+    pub control_preset: ControlPreset,
+    /// The next hologram id.
+    pub hologram_ids: &'a mut u64,
     /// `Players[0]`.
     pub player_id: CreatureId,
     /// The realized player, if any.
@@ -270,6 +288,7 @@ impl OverseerUpdate<'_, '_> {
 
     /// `Overseer.Update` (and the `Creature`/`PhysicalObject` parts before it).
     pub fn update(&mut self) {
+        self.body.drop_slated_holograms();
         let water = self
             .cx
             .world
@@ -337,6 +356,11 @@ impl OverseerUpdate<'_, '_> {
         };
         self.pull_toward_attention();
         self.ai_update();
+        if self.body.hologram.is_some() && self.body.mode == OverseerMode::Watching {
+            self.switch_modes(OverseerMode::Projecting);
+        } else if self.body.hologram.is_none() && self.body.mode == OverseerMode::Projecting {
+            self.switch_modes(OverseerMode::Watching);
+        }
         self.mode_update();
         if matches!(
             self.body.mode,
@@ -402,6 +426,7 @@ impl OverseerUpdate<'_, '_> {
                 }
                 if self.body.zip_progs[0] >= 1.0 {
                     if self.body.leave_room_on_zip_completion {
+                        self.body.destroy_hologram();
                         self.body.leave_room_on_zip_completion = false;
                         self.cx
                             .effects
@@ -734,7 +759,16 @@ impl OverseerUpdate<'_, '_> {
             let sign = if self.cx.rng.value() < 0.5 { -1.0 } else { 1.0 };
             self.ai.casual_interest_bonus = v * sign;
         }
-        self.choose_look_at();
+        let player_pos = self.cx.player.map(|p| p.pos);
+        let me = self.body.chunk().pos;
+        match self
+            .body
+            .current_hologram()
+            .map(|h| h.look_at(player_pos, me))
+        {
+            Some(look) => self.ai.look_at = look,
+            None => self.choose_look_at(),
+        }
         if self.cx.rng.value() < 0.025 {
             let dir = Vec2::random_unit(self.cx.rng);
             self.ai.look_at_add = dir * self.cx.rng.value();
@@ -1011,13 +1045,22 @@ impl OverseerUpdate<'_, '_> {
         }
         let margin = if self.body.mode == OverseerMode::SittingInWall {
             10.0
+        } else if let Some(h) = self.body.current_hologram() {
+            if h.overseer_sit_still {
+                300.0
+            } else if self.ai.add_to_pathing_list.is_empty() {
+                30.0
+            } else {
+                200.0
+            }
         } else {
             200.0
         };
         let temp = self.ai.temp_hover_tile;
-        let b = &*self.body;
-        if Self::float_dist(temp, b.root_tile) <= 6.0 * b.size
-            && self.hover_score(temp) < self.hover_score(b.hover_tile)
+        let (root_tile, hover, size_f) =
+            (self.body.root_tile, self.body.hover_tile, self.body.size);
+        if Self::float_dist(temp, root_tile) <= 6.0 * size_f
+            && self.hover_score(temp) < self.hover_score(hover)
         {
             self.body.hover_tile = temp;
             return;
@@ -1025,8 +1068,8 @@ impl OverseerUpdate<'_, '_> {
         let b = &*self.body;
         let allowed = (b.extended > 0.5 || b.mode == OverseerMode::SittingInWall)
             && b.mode != OverseerMode::Withdrawing
-            && Self::float_dist(temp, b.hover_tile) > 3.0 * b.size
-            && self.hover_score(temp) + margin < self.hover_score(b.hover_tile);
+            && Self::float_dist(temp, hover) > 3.0 * size_f
+            && self.hover_score(temp) + margin < self.hover_score(hover);
         if !allowed {
             return;
         }
@@ -1059,7 +1102,7 @@ impl OverseerUpdate<'_, '_> {
     }
 
     /// `HoverScoreOfTile` (lower is better).
-    fn hover_score(&self, t: (i32, i32)) -> f32 {
+    fn hover_score(&mut self, t: (i32, i32)) -> f32 {
         let (w, h) = self.room_size();
         if t.0 < 0 || t.1 < 0 || t.0 >= w || t.1 >= h {
             return f32::MAX;
@@ -1073,15 +1116,29 @@ impl OverseerUpdate<'_, '_> {
             return f32::MAX;
         }
         let mid = Self::mid(t);
-        let look = self.ai.look_at;
-        let mut num = (300.0 - mid.distance(look)).abs();
-        if mid.dist_less(look, 1000.0) && room.visual_contact_tiles(t, look.tile()) {
-            num -= 100.0;
-        }
-        for &a in &self.ai.avoid_positions {
-            let d = Self::float_dist(a, t);
-            if d < 15.0 {
-                num += d.lerp_map(10.0, 15.0, 50.0, 0.0);
+        let mut num = 0.0;
+        if let Some(h) = self.body.current_hologram() {
+            let display = Self::mid(h.display_tile);
+            num += (100.0 - mid.distance(display)).abs() * 2.0;
+            if mid.dist_less(display, 500.0) {
+                if room.visual_contact_tiles(t, h.display_tile) {
+                    num -= 500.0;
+                }
+            } else {
+                num += 1000.0;
+            }
+            num = h.influence_hover_score(mid, num, self.cx.player.map(|p| p.pos), self.cx.rng);
+        } else {
+            let look = self.ai.look_at;
+            num += (300.0 - mid.distance(look)).abs();
+            if mid.dist_less(look, 1000.0) && room.visual_contact_tiles(t, look.tile()) {
+                num -= 100.0;
+            }
+            for &a in &self.ai.avoid_positions {
+                let d = Self::float_dist(a, t);
+                if d < 15.0 {
+                    num += d.lerp_map(10.0, 15.0, 50.0, 0.0);
+                }
             }
         }
         for &c in self.cx.world.room_creatures(self.cx.room_index) {
@@ -1310,29 +1367,33 @@ impl OverseerUpdate<'_, '_> {
         let Some(mut comm) = self.ai.communication.take() else {
             return;
         };
-        let guide = self.cx.guide;
+        let guide = &*self.cx.guide;
+        let anger = guide.angry_with_player && !guide.displayed_anger;
+        let mut hologram = None;
         if self.cx.player.is_some_and(|p| p.in_room)
             && self.ai.tutorial.is_none()
-            && ((guide.angry_with_player && !guide.displayed_anger) || self.like_of_player() >= 0.5)
+            && (anger || self.like_of_player() >= 0.5)
         {
-            self.reevaluate_concern(&mut comm);
+            hologram = self.reevaluate_concern(&mut comm);
         }
         self.ai.communication = Some(comm);
+        if let Some((message, weight)) = hologram {
+            self.try_add_hologram(message, weight);
+        }
     }
 
-    /// `ReevaluateConcern`. Only the player and overseers are realized, so no creature
-    /// is dangerous and no food item is realized; the direction finder is not ported,
-    /// so progression is never shown. A concern calls the guide over; its hologram is
-    /// overseer step 3.
-    fn reevaluate_concern(&mut self, comm: &mut CommunicationModule) {
-        let Some(player) = self.cx.player else {
-            return;
-        };
-        let guide = *self.cx.guide;
+    /// `ReevaluateConcern`: returns the hologram to try. Only the player and overseers
+    /// are realized, so no creature is dangerous and no food item is realized.
+    fn reevaluate_concern(
+        &mut self,
+        comm: &mut CommunicationModule,
+    ) -> Option<(HologramMessage, f32)> {
+        let player = self.cx.player?;
         let room = self.cx.room_index;
         if room != comm.player_room {
             comm.last_player_room = comm.player_room;
             comm.player_room = room;
+            let guide = &*self.cx.guide;
             comm.general_hand_holding = 0.5 * guide.hand_holding.mathf_pow(0.2)
                 + 0.5
                     * self
@@ -1340,7 +1401,7 @@ impl OverseerUpdate<'_, '_> {
                         .story
                         .how_well_is_player_doing
                         .inverse_lerp(0.5, -0.5);
-            comm.progression_show_tendency = 0.0;
+            comm.progression_show_tendency = self.progression_show_tendency();
             comm.showed_image_time = 0;
         }
         comm.current_concern = PlayerConcern::None;
@@ -1359,10 +1420,19 @@ impl OverseerUpdate<'_, '_> {
                 comm.current_concern_weight = bats;
                 comm.current_concern = PlayerConcern::Bats;
             }
+            if comm.progression_show_tendency > 0.0 {
+                let progression = self.player_progression_need(comm, player.food);
+                if progression > comm.current_concern_weight {
+                    comm.current_concern_weight = progression;
+                    comm.current_concern = PlayerConcern::Progression;
+                }
+            }
         }
+        // `inputInstruction` is set by the in-world instruction triggers (not ported).
         let list = self.cx.world.room_creatures(room);
         let len = i32::try_from(list.len()).unwrap_or(i32::MAX);
         let pick = list[usize::try_from(self.cx.rng.range_i32(0, len)).unwrap_or(0)];
+        comm.most_dangerous_creature_danger = 0.0;
         if self.realized(pick).is_some() {
             // `PlayerHasNowBeenWarnedOfCreature` needs a dangerous creature.
             self.cx.rng.value();
@@ -1371,6 +1441,8 @@ impl OverseerUpdate<'_, '_> {
             // `entities[Range(0, Count)]`: the room holds at least this overseer.
             self.cx.rng.range_i32(0, len);
         }
+        comm.most_delicous_food_delicious = 0.0;
+        let guide = &*self.cx.guide;
         if guide.angry_with_player && !guide.displayed_anger {
             comm.current_concern_weight = 1.0;
             comm.current_concern = PlayerConcern::Anger;
@@ -1379,16 +1451,98 @@ impl OverseerUpdate<'_, '_> {
             // `regionGate` is not ported (null): no gate scene.
             comm.current_concern = PlayerConcern::None;
         }
+        // `imageToShow` (`ShowProjectedImageEvent`) and `forcedDirectionToGive`
+        // (`ReliableIggyDirection`) are never set: their triggers are not ported.
         if comm.current_concern == PlayerConcern::None || !open {
-            return;
+            if let Some(h) = self.body.current_hologram_mut() {
+                h.still_relevant = false;
+            }
+            return None;
         }
         self.abs.player_guide_counter = 100;
         self.abs.go_to_player = true;
-        log::debug!(
-            "guide concern {:?} needs a hologram (not ported)",
-            comm.current_concern
-        );
-        self.try_add_hologram("concern");
+        let weight = comm.current_concern_weight;
+        let message = match comm.current_concern {
+            PlayerConcern::Bats => {
+                if self.cx.world.guide_active_swarm_room(room) {
+                    self.cx.guide.has_been_to_a_swarm_room_this_cycle = true;
+                    return None;
+                }
+                HologramMessage::Bats
+            }
+            PlayerConcern::Shelter => HologramMessage::Shelter,
+            PlayerConcern::DangerousCreature => HologramMessage::DangerousCreature,
+            PlayerConcern::Progression => HologramMessage::ProgressionDirection,
+            PlayerConcern::ShowGateScene | PlayerConcern::ShowPlacedScene => {
+                HologramMessage::GateScene
+            }
+            PlayerConcern::FoodItemInRoom => HologramMessage::FoodObject,
+            PlayerConcern::Anger => HologramMessage::Angry,
+            PlayerConcern::ForcedDirection => HologramMessage::ForcedDirection,
+            PlayerConcern::InputInstruction | PlayerConcern::None => return None,
+        };
+        Some((message, weight))
+    }
+
+    /// `progressionShowTendency` on entering a room: how near the direction finder's
+    /// destination the room's exits are.
+    fn progression_show_tendency(&self) -> f32 {
+        let world = self.cx.world;
+        let Some(finder) = world.guide_direction_finder().filter(|f| f.done) else {
+            return 0.0;
+        };
+        let _ = finder;
+        if matches!(world.region_name(), Some("SL" | "SH")) {
+            return 1.0;
+        }
+        let room = self.cx.room_index;
+        let connections = world
+            .abstract_room(room)
+            .map_or(0, |r| i32::try_from(r.connections.len()).unwrap_or(0));
+        let mut nearest = f32::MAX;
+        for i in 0..connections {
+            let d = world.guide_direction_distance(WorldCoordinate::new(room, -1, -1, i));
+            if d < nearest {
+                nearest = d;
+            }
+        }
+        let mut tendency = nearest.inverse_lerp(400.0, 200.0);
+        if self.cx.player_karma == self.cx.story.karma_cap {
+            tendency = tendency.lerp(1.0, 0.5);
+        }
+        tendency
+    }
+
+    /// `AnyProgressionDirection`.
+    fn any_progression_direction(&self, comm: &CommunicationModule) -> bool {
+        if comm.first_few_cycles {
+            return false;
+        }
+        let Some(finder) = self.cx.world.guide_direction_finder() else {
+            return false;
+        };
+        let room = self.cx.room_index;
+        if room == comm.no_progression_direction_from_room || room == finder.show_to_room {
+            return false;
+        }
+        if self.cx.player_karma < finder.min_karma {
+            return !finder.destination_room_visited;
+        }
+        true
+    }
+
+    /// `PlayerProgressionNeed`.
+    fn player_progression_need(&self, comm: &CommunicationModule, food: i32) -> f32 {
+        if !self.any_progression_direction(comm) || comm.first_few_cycles {
+            return 0.0;
+        }
+        let rain = &self.cx.rain;
+        let progression = (rain.timer as f32).inverse_lerp(0.0, rain.cycle_length as f32);
+        let sin = f64::from(progression * std::f32::consts::PI).sin() as f32;
+        (food as f32).lerp_map(0.0, 4.0, 0.6, 1.0)
+            * sin.mathf_pow(0.5)
+            * (0.2 + 0.8 * self.cx.guide.want_direction_hand_holding_this_cycle)
+            * comm.progression_show_tendency
     }
 
     /// The gates where the guide shows Moon's scene to a player who never met her.
@@ -1404,9 +1558,12 @@ impl OverseerUpdate<'_, '_> {
             && data.name.split('_').nth(1) == self.cx.world.region_name()
     }
 
-    /// `PlayerShelterNeed` (the guide has never shown a shelter in the port).
+    /// `PlayerShelterNeed` (`forceShelterNeed` is a Remix dev flag, always off).
     fn player_shelter_need(&self, comm: &CommunicationModule, food: i32) -> f32 {
         let stats = self.cx.story;
+        if self.cx.room_index == comm.no_shelter_direction_from_room {
+            return 0.0;
+        }
         if comm.first_few_cycles {
             return if food < stats.food_to_hibernate {
                 0.0
@@ -1415,24 +1572,27 @@ impl OverseerUpdate<'_, '_> {
             };
         }
         let until_rain = self.cx.rain.time_until_rain() as f32;
-        let need = if food < stats.food_to_hibernate {
+        let need = if food < stats.food_to_hibernate || comm.has_already_showed_player_to_a_shelter
+        {
             until_rain.inverse_lerp(4800.0, 2400.0) * 0.35
         } else {
             until_rain.inverse_lerp((30 * (6 + food) * 40) as f32, 2400.0)
         };
-        let guide = self.cx.guide;
+        let guide = &*self.cx.guide;
         need * (guide.hand_holding.mathf_pow(0.4) * guide.want_shelter_hand_holding_this_cycle)
     }
 
     /// `PlayerBatsNeed`.
     fn player_bats_need(&self, comm: &CommunicationModule, food: i32) -> f32 {
-        if food >= self.cx.story.food_to_hibernate {
+        if self.cx.room_index == comm.no_bat_direction_from_room
+            || food >= self.cx.story.food_to_hibernate
+        {
             return 0.0;
         }
         if comm.first_few_cycles {
             return 0.69;
         }
-        let guide = self.cx.guide;
+        let guide = &*self.cx.guide;
         let mut need = self.general_player_food_need(food);
         if guide.has_been_to_a_swarm_room_this_cycle {
             need *= 0.2;
@@ -1442,7 +1602,7 @@ impl OverseerUpdate<'_, '_> {
 
     /// `GeneralPlayerFoodNeed` after the first few cycles.
     fn general_player_food_need(&self, food: i32) -> f32 {
-        let guide = self.cx.guide;
+        let guide = &*self.cx.guide;
         let rain = &self.cx.rain;
         let timer = rain.timer as f32;
         let progression = timer.inverse_lerp(0.0, rain.cycle_length as f32);
@@ -1461,8 +1621,7 @@ impl OverseerUpdate<'_, '_> {
 
     // ---- OverseerTutorialBehavior ----
 
-    /// `OverseerTutorialBehavior.Update` (holograms are not ported: `TryAddHologram`
-    /// asks for none).
+    /// `OverseerTutorialBehavior.Update`.
     fn tutorial_update(&mut self) {
         let Some(mut tutorial) = self.ai.tutorial.take() else {
             return;
@@ -1524,7 +1683,7 @@ impl OverseerUpdate<'_, '_> {
                     && t.box_trouble > 800
                     && TutorialBehavior::in_box_zone(player.hips.x)
                 {
-                    self.try_add_hologram("GetUpOnFirstBox");
+                    self.tutorial_hologram(HologramMessage::GetUpOnFirstBox, f32::MAX);
                 }
                 let pos = self.body.chunk().pos;
                 if t.encounter_counter > 0
@@ -1546,15 +1705,17 @@ impl OverseerUpdate<'_, '_> {
                 }
                 let in_pole_zone = player.hips.x > 360.0 && player.hips.x < 660.0;
                 if t.pole_trouble > 200 && !t.player_has_climbed_pole && in_pole_zone {
-                    self.try_add_hologram("ClimbPole");
+                    self.tutorial_hologram(HologramMessage::ClimbPole, f32::MAX);
                 } else if food < stats.max_food - 1 {
-                    self.try_add_hologram("TutorialFood");
+                    self.tutorial_hologram(HologramMessage::TutorialFood, 0.5);
                 } else {
-                    self.try_add_hologram("Shelter");
+                    self.tutorial_hologram(HologramMessage::Shelter, 0.5);
                 }
+                self.force_shelter_door(1);
             }
             "SU_A42" => {
                 t.bat_trouble += 1;
+                // `EatInstructionRelevant` counts edible objects: none is realized.
                 if !t.messages_displayed[1] && t.bat_trouble > 30 {
                     self.tutorial_text("Catch and eat them", 10, 120, true);
                     t.messages_displayed[1] = true;
@@ -1562,7 +1723,7 @@ impl OverseerUpdate<'_, '_> {
             }
             "SU_A43" => {
                 if food < stats.food_to_hibernate {
-                    self.try_add_hologram("TutorialFood");
+                    self.tutorial_hologram(HologramMessage::TutorialFood, 0.5);
                 } else {
                     if !t.messages_displayed[2] {
                         self.tutorial_text("Leap the gap", 40, 120, true);
@@ -1580,9 +1741,9 @@ impl OverseerUpdate<'_, '_> {
                         && t.super_jump_trouble > 40
                         && player.hips.x < 505.0
                     {
-                        self.try_add_hologram("SuperJump");
+                        self.tutorial_hologram(HologramMessage::SuperJump, f32::MAX);
                     } else {
-                        self.try_add_hologram("Shelter");
+                        self.tutorial_hologram(HologramMessage::Shelter, 0.5);
                     }
                     if player.pos.x < 530.0 && player.pos.y < 400.0 {
                         t.player_has_made_super_jump = false;
@@ -1592,7 +1753,7 @@ impl OverseerUpdate<'_, '_> {
             "SU_A22" => {
                 t.pause_rain = false;
                 if food >= stats.food_to_hibernate {
-                    self.try_add_hologram("Shelter");
+                    self.tutorial_hologram(HologramMessage::Shelter, 0.5);
                     if !t.messages_displayed[3] && t.display_run_message {
                         self.tutorial_text("Run!", 40, 60, true);
                         t.messages_displayed[3] = true;
@@ -1602,6 +1763,7 @@ impl OverseerUpdate<'_, '_> {
                     self.tutorial_text("This place is safe. Stay here to hibernate", 50, 160, true);
                     t.messages_displayed[6] = true;
                 }
+                self.force_shelter_door(2);
             }
             "SU_A44" => {
                 t.fruit_trouble += 1;
@@ -1612,6 +1774,7 @@ impl OverseerUpdate<'_, '_> {
                     self.tutorial_text("Jump and grab them. They're delicious!", 10, 120, true);
                     t.messages_displayed[4] = true;
                 }
+                // `EatInstructionRelevant` counts edible objects: none is realized.
             }
             _ => {}
         }
@@ -1693,10 +1856,15 @@ impl OverseerUpdate<'_, '_> {
             }));
     }
 
-    /// `TryAddHologram`: holograms are overseer step 3; none is made, so the overseer
-    /// never projects.
-    fn try_add_hologram(&mut self, message: &'static str) {
-        log::trace!("hologram {message} not ported");
+    /// The tutorial's `FORCEPOINT`: a current shelter pointer shows this door.
+    fn force_shelter_door(&mut self, door: i32) {
+        if let Some(HologramKind::Door {
+            pointer: PointerKind::Shelter { forcepoint, .. },
+            ..
+        }) = self.body.current_hologram_mut().map(|h| &mut h.kind)
+        {
+            *forcepoint = door;
+        }
     }
 }
 

@@ -11,8 +11,7 @@ use std::collections::HashMap;
 use rw_assets::{CreatureType, NodeType, RoomAttraction, Timeline};
 use rw_random::UnityRandom;
 
-use super::RealizedRoom;
-use super::World;
+use super::{OverseersWorldAi, RealizedRoom, SwarmRoomMap, World};
 use crate::creature::ai::AiContext;
 use crate::creature::overseer::{AbstractStep, GuideContext, OverseerView, Parent};
 use crate::creature::{
@@ -41,14 +40,18 @@ pub struct QuantifiedCount {
     pub count: i32,
 }
 
-/// The world processes that exist as markers (their updates draw nothing in the base
-/// game, or are not ported: `FliesWorldAI.Update`, docs/DIVERGENCES.md D1).
+/// The world processes: the overseers' is ported, the others are markers and parts
+/// (their updates draw nothing in the base game, or are not ported:
+/// `FliesWorldAI.Update`, docs/DIVERGENCES.md D1).
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct WorldProcesses {
-    pub overseers: bool,
+    /// `overseersWorldAI`, made by the first overseer's abstract AI.
+    pub overseers: Option<OverseersWorldAi>,
     pub scavengers: bool,
     /// `FliesWorldAI.migrationTargets`.
     pub flies_migration_targets: Option<Vec<i32>>,
+    /// `FliesWorldAI.swarmRoomMap` ([`World::map_swarm_rooms`]).
+    pub swarm_room_map: Option<SwarmRoomMap>,
 }
 
 /// What an abstract update reads of the game.
@@ -409,7 +412,11 @@ impl World {
     /// its AI constructor would make.
     pub(crate) fn insert_creature(&mut self, c: AbstractCreature) -> CreatureId {
         match c.ai.as_ref().map(|a| &a.kind) {
-            Some(AiKind::Overseer(_)) => self.processes.overseers = true,
+            Some(AiKind::Overseer(_)) => {
+                if self.processes.overseers.is_none() {
+                    self.processes.overseers = Some(OverseersWorldAi::new(&self.data));
+                }
+            }
             Some(AiKind::Scavenger { .. }) => self.processes.scavengers = true,
             _ => {}
         }
@@ -763,6 +770,20 @@ impl World {
             .collect();
         list.sort_by_key(|&(seq, _)| std::cmp::Reverse(seq));
         list
+    }
+
+    /// The overseer holograms in room `room`'s update list: (update order, owner, id).
+    /// A hologram stays in its room when its overseer leaves.
+    pub(crate) fn room_holograms(&self, room: i32) -> Vec<(u64, CreatureId, u64)> {
+        self.creatures()
+            .filter_map(|(id, c)| Some((id, c.overseer_body()?)))
+            .flat_map(|(id, b)| {
+                b.holograms
+                    .iter()
+                    .filter(|h| h.room == room && !h.slated)
+                    .map(move |h| (h.update_order, id, h.id))
+            })
+            .collect()
     }
 
     /// `AbstractCreature.InDenUpdate`. Only creatures whose abstract AI is ported (the

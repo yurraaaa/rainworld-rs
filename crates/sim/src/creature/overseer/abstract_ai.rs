@@ -13,7 +13,7 @@ use crate::world::World;
 
 /// `PlayerGuideState` (in `miscWorldSaveData`), the fields the overseers read; a new
 /// game's values.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PlayerGuideState {
     pub likes_player: f32,
     pub hand_holding: f32,
@@ -23,6 +23,13 @@ pub struct PlayerGuideState {
     pub want_food_hand_holding_this_cycle: f32,
     pub want_shelter_hand_holding_this_cycle: f32,
     pub want_direction_hand_holding_this_cycle: f32,
+    pub super_jumps_shown: i32,
+    pub pickup_objects_shown: i32,
+    pub scav_trade_instruction_completed: bool,
+    /// Which guidance symbol the direction pointer shows (1 Moon, 2 neuron).
+    pub guide_symbol: i32,
+    /// Rooms whose picture the guide has shown.
+    pub images_shown: Vec<String>,
 }
 
 impl Default for PlayerGuideState {
@@ -36,7 +43,36 @@ impl Default for PlayerGuideState {
             want_food_hand_holding_this_cycle: 0.65,
             want_shelter_hand_holding_this_cycle: 1.0,
             want_direction_hand_holding_this_cycle: 0.6,
+            super_jumps_shown: 0,
+            pickup_objects_shown: 0,
+            scav_trade_instruction_completed: false,
+            guide_symbol: 0,
+            images_shown: Vec::new(),
         }
+    }
+}
+
+impl PlayerGuideState {
+    /// `InfluenceLike`.
+    pub fn influence_like(&mut self, influence: f32) {
+        self.likes_player = (self.likes_player + influence).clamp(-1.0, 1.0);
+    }
+
+    /// `InfluenceHandHolding`.
+    pub fn influence_hand_holding(&mut self, influence: f32) {
+        self.hand_holding = (self.hand_holding + influence).clamp(0.0, 1.0);
+    }
+
+    /// `ImageShownInRoom`.
+    pub fn image_shown_in_room(&mut self, room: &str) {
+        if !self.has_image_been_shown_in_room(room) {
+            self.images_shown.push(room.to_owned());
+        }
+    }
+
+    #[must_use]
+    pub fn has_image_been_shown_in_room(&self, room: &str) -> bool {
+        self.images_shown.iter().any(|r| r == room)
     }
 }
 

@@ -669,6 +669,10 @@ impl Game {
     pub fn set_player(&mut self, pos: Vec2, vel: Vec2) {
         self.sim.set_player(pos, vel, &mut self.graphics);
     }
+
+    pub fn set_food_in_stomach(&mut self, food: i32) {
+        self.sim.set_food_in_stomach(food);
+    }
 }
 
 #[cfg(test)]

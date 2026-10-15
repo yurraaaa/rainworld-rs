@@ -3,7 +3,8 @@
 
 use rw_random::UnityRandom;
 
-use super::TutorialBehavior;
+use super::hologram::HologramMessage;
+use super::{PlayerGuideState, TutorialBehavior};
 use crate::Vec2;
 use crate::creature::CreatureId;
 
@@ -80,7 +81,7 @@ pub enum PlayerConcern {
 
 /// The player guide's `OverseerCommunicationModule`: what the guide thinks the player
 /// needs. The holograms it would show are overseer step 3.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CommunicationModule {
     pub current_concern: PlayerConcern,
     pub current_concern_weight: f32,
@@ -91,6 +92,16 @@ pub struct CommunicationModule {
     /// Cycles 1 to 3.
     pub first_few_cycles: bool,
     pub showed_image_time: i32,
+    pub has_already_showed_player_to_a_shelter: bool,
+    pub most_dangerous_creature_danger: f32,
+    pub most_delicous_food_delicious: f32,
+    pub no_bat_direction_from_room: i32,
+    pub no_shelter_direction_from_room: i32,
+    pub no_progression_direction_from_room: i32,
+    pub follow_given_direction_streak: i32,
+    pub free_movement_streak: i32,
+    pub un_wanted_swarm_room: i32,
+    pub un_wanted_shelter: i32,
 }
 
 impl CommunicationModule {
@@ -105,7 +116,63 @@ impl CommunicationModule {
             progression_show_tendency: 0.0,
             first_few_cycles: cycle > 0 && cycle < 4,
             showed_image_time: 0,
+            has_already_showed_player_to_a_shelter: false,
+            most_dangerous_creature_danger: 0.0,
+            most_delicous_food_delicious: 0.0,
+            no_bat_direction_from_room: -1,
+            no_shelter_direction_from_room: -1,
+            no_progression_direction_from_room: -1,
+            follow_given_direction_streak: 0,
+            free_movement_streak: 0,
+            un_wanted_swarm_room: -1,
+            un_wanted_shelter: -1,
         }
+    }
+
+    /// `PlayerIsFollowingADirection`.
+    pub fn player_is_following_a_direction(
+        &mut self,
+        message: HologramMessage,
+        guide: &mut PlayerGuideState,
+    ) {
+        self.follow_given_direction_streak += 1;
+        self.free_movement_streak = 0;
+        log::info!("player IS following a direction");
+        if self.follow_given_direction_streak > 2 {
+            guide.influence_hand_holding(0.1);
+        }
+        let want = match message {
+            HologramMessage::Bats => &mut guide.want_food_hand_holding_this_cycle,
+            HologramMessage::Shelter => &mut guide.want_shelter_hand_holding_this_cycle,
+            HologramMessage::ProgressionDirection => {
+                &mut guide.want_direction_hand_holding_this_cycle
+            }
+            _ => return,
+        };
+        *want = (*want + 0.1).clamp(0.0, 1.0);
+    }
+
+    /// `PlayerNOTfollowingADirection`.
+    pub fn player_not_following_a_direction(
+        &mut self,
+        message: HologramMessage,
+        explicitly_visible: bool,
+        guide: &mut PlayerGuideState,
+    ) {
+        self.free_movement_streak += 1;
+        self.follow_given_direction_streak = 0;
+        log::info!("player is NOT following a direction");
+        guide.influence_hand_holding(if explicitly_visible { -0.05 } else { -0.025 });
+        let want = match message {
+            HologramMessage::Bats => &mut guide.want_food_hand_holding_this_cycle,
+            HologramMessage::Shelter => &mut guide.want_shelter_hand_holding_this_cycle,
+            HologramMessage::ProgressionDirection => {
+                &mut guide.want_direction_hand_holding_this_cycle
+            }
+            _ => return,
+        };
+        let less = if explicitly_visible { 0.1 } else { 0.05 };
+        *want = (*want - less).clamp(0.0, 1.0);
     }
 }
 

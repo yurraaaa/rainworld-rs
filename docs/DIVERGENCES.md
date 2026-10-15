@@ -668,15 +668,20 @@ second part, else a single-room world for arena levels). The campaign descriptio
   `ChangeRooms`'s `CreatureEnterFromAbstractRoom` with the lobby's teleportation
   vessels and `TeleportingIntoRoom`. Still missing: holograms (projections, the lens
   showing a picture, every `TryAddHologram` asks for none: overseer step 3), so a
-  communication-module concern only calls the guide over; the direction finder
-  (`OverseersWorldAI`, so progression is never shown); `RegionGate` (no gate scene: in
-  Moon's gates the concern is `None`, as the game's is with a closed gate);
-  `ActiveSwarmRoom` (the guide never notes a swarm room visited); and every creature
-  but the player and overseers in what the AI looks at. Which camera's room counts as
-  viewed when `AddObject` builds the graphics module is inferred from `RoomCamera` and
-  `Room.AddObject`, not checked.
-  Not ported: bat blockages, swarm maps, `FliesWorldAI.Update`, scavenger and vulture
-  world AI, `CreatureCommunities`, `AbstractCreature.Update` for other types, and
+  communication-module concern only calls the guide over; `RegionGate` (no gate scene:
+  in Moon's gates the concern is `None`, as the game's is with a closed gate); and every
+  creature but the player and overseers in what the AI looks at. Which camera's room
+  counts as viewed when `AddObject` builds the graphics module is inferred from
+  `RoomCamera` and `Room.AddObject`, not checked.
+  `OverseersWorldAI` is ported (its shelter finder and the guide's direction finder,
+  on the room files' baked node connectivity), as are the flies' swarm room map (with
+  the world file's bat migration blockages), `GetSwarmRoomDistance`, `ActiveSwarmRoom`
+  and a new game's `RegionState` swarm counters. Nothing records `roomsVisited` (the
+  caller fills the region state's set; a new game's is empty), and only a new game's
+  region state exists. Remix's `BringToRoomAndGuidePlayer` branch of the world
+  process's update and More Slugcats' goal rooms and guide symbols are left out.
+  Not ported: `FliesWorldAI.Update`, scavenger and vulture world AI,
+  `CreatureCommunities`, `AbstractCreature.Update` for other types, and
   `GeneratePopulation`'s non-fresh branch (saved populations).
 - **Overseer graphics.** `OverseerGraphics.Emerge` restarts the mycelia from the eye's
   position of the last rendered frame in the game (`DrawSprites` caches it); the port
@@ -704,7 +709,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   generation 20 (and writes them back). Every room the vanilla worlds list is generation
   20 or later; for older files the port derives only the shortcut nodes (exits, dens,
   region transports with length, submersion and nearest camera), not border exits,
-  bat hives or garbage holes.
+  bat hives or garbage holes, and no connectivity between them (every path -1).
 - **Off-screen den and gates.** The off-screen den is never realized; gates are
   ordinary rooms (no gate mechanism, no region change), and a `RegionTransportation`
   node goes nowhere.

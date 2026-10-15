@@ -6,6 +6,7 @@
 mod abstract_ai;
 mod ai;
 mod body;
+pub mod hologram;
 mod tutorial;
 mod update;
 

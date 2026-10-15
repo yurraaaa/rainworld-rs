@@ -116,6 +116,46 @@ impl CreatureTemplate {
         }
     }
 
+    /// `PreBakedPathingIndex`: the room files' connectivity layer of the template, its
+    /// `preBakedPathingAncestor`'s for the templates without their own, -1 for none. The
+    /// 15 own layers follow the type order of the `doPreBakedPathing` templates; DLC
+    /// types register after the base ones, so the base indices hold with mods on (their
+    /// own templates are not ported).
+    #[must_use]
+    pub fn pre_baked_pathing_index(&self) -> i32 {
+        use CreatureType as T;
+        match self.kind {
+            T::StandardGroundCreature | T::Slugcat | T::LanternMouse => 0,
+            T::PinkLizard | T::YellowLizard | T::RedLizard | T::BlackLizard => 1,
+            T::GreenLizard | T::TubeWorm | T::VultureGrub | T::Hazer => 2,
+            T::BlueLizard
+            | T::CyanLizard
+            | T::Centipede
+            | T::RedCentipede
+            | T::SmallCentipede
+            | T::BigSpider
+            | T::SpitterSpider
+            | T::DropBug => 3,
+            T::WhiteLizard | T::EggBug => 4,
+            T::Salamander => 5,
+            T::Fly
+            | T::CicadaA
+            | T::CicadaB
+            | T::Centiwing
+            | T::BigNeedleWorm
+            | T::SmallNeedleWorm => 6,
+            T::Leech | T::SeaLeech | T::JetFish => 7,
+            T::Snail | T::Spider => 8,
+            T::Vulture | T::KingVulture | T::TempleGuard => 9,
+            T::BigEel => 10,
+            T::Deer => 11,
+            T::DaddyLongLegs | T::BrotherLongLegs => 12,
+            T::MirosBird => 13,
+            T::Scavenger => 14,
+            _ => -1,
+        }
+    }
+
     /// `RoomRealizer.GetCreaturePerformanceEstimation` (base game).
     #[must_use]
     pub fn performance_estimation(&self) -> f32 {

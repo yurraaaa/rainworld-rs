@@ -9,9 +9,12 @@
 
 mod ai_map;
 mod creatures;
+mod overseers_world_ai;
 mod rain_cycle;
 mod realized;
 mod realizer;
+mod region_state;
+mod swarm_rooms;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -26,9 +29,12 @@ pub use ai_map::AiMap;
 pub(crate) use ai_map::EIGHT_DIRECTIONS;
 pub(crate) use creatures::RoomLists;
 pub use creatures::{AbstractTick, QuantifiedCount, WorldProcesses};
+pub use overseers_world_ai::{DirectionFinder, OverseersWorldAi, ShelterFinder, StoryProgress};
 pub use rain_cycle::{CYCLE_TIME_MAX, CYCLE_TIME_MIN, RainCycle, WaterLevelCycle, WaterStage};
 pub use realized::RealizedRoom;
 pub use realizer::{FollowCreature, RoomRealizer};
+pub use region_state::RegionState;
+pub use swarm_rooms::{SwarmRoomMap, SwarmRoomMapper};
 
 /// A world and its realized rooms.
 pub struct World {
@@ -55,6 +61,8 @@ pub struct World {
     /// `skyAccessNodes`.
     sky_access_nodes: Vec<WorldCoordinate>,
     pub(crate) processes: WorldProcesses,
+    /// `regionState`: a story world's that is not a single room (a new game's).
+    pub region_state: Option<RegionState>,
     /// `rainCycle` (built with the game, see [`crate::RainWorldGame::new`]).
     pub rain_cycle: RainCycle,
     /// The last `updateList` position handed out (`Room.AddObject` appends).
@@ -74,6 +82,7 @@ impl World {
         story: bool,
     ) -> Self {
         let count = data.rooms.len();
+        let region_state = (story && !data.single_room).then(|| RegionState::new_game(&data));
         let mut world = Self {
             data,
             realized: (0..count).map(|_| None).collect(),
@@ -89,6 +98,7 @@ impl World {
             attractions: Vec::new(),
             sky_access_nodes: Vec::new(),
             processes: WorldProcesses::default(),
+            region_state,
             rain_cycle: RainCycle::default(),
             update_seq: 0,
             entering: Vec::new(),

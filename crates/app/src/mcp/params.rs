@@ -107,6 +107,9 @@ pub struct SetPlayerParams {
     pub pos: Option<[f32; 2]>,
     /// Velocity [x, y] in px per tick for both chunks (default 0).
     pub vel: Option<[f32; 2]>,
+    /// Food pips in the stomach (`FoodInStomach`; nothing can be eaten yet). Alone, it
+    /// leaves the body where it is.
+    pub food: Option<i32>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, JsonSchema)]

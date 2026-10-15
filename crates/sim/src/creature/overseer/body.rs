@@ -3,6 +3,7 @@
 
 use rw_random::UnityRandom;
 
+use super::hologram::OverseerHologram;
 use crate::creature::ai::SeededRandom;
 use crate::creature::{AbstractCreature, CreatureId};
 use crate::{BodyChunk, FloatExt, PhysicalObject, PhysicsParams, Vec2};
@@ -74,6 +75,11 @@ pub struct OverseerBody {
     pub appendage: [Vec2; APPENDAGE_SEGMENTS],
     /// Position in its room's update list (higher updates first).
     pub update_order: u64,
+    /// The holograms it made that still exist in its room (an old one fades out after
+    /// a new one replaces it).
+    pub holograms: Vec<OverseerHologram>,
+    /// `hologram`: the id of the current one.
+    pub hologram: Option<u64>,
 }
 
 impl OverseerBody {
@@ -114,6 +120,8 @@ impl OverseerBody {
             in_room: false,
             appendage: [Vec2::ZERO; APPENDAGE_SEGMENTS],
             update_order: 0,
+            holograms: Vec::new(),
+            hologram: None,
         }
     }
 
@@ -150,5 +158,36 @@ impl OverseerBody {
                 self.root_pos.lerp(pos, t.clamp(0.0, 1.0))
             };
         }
+    }
+}
+
+impl OverseerBody {
+    /// The current hologram.
+    #[must_use]
+    pub fn current_hologram(&self) -> Option<&OverseerHologram> {
+        let id = self.hologram?;
+        self.holograms.iter().find(|h| h.id == id)
+    }
+
+    pub fn current_hologram_mut(&mut self) -> Option<&mut OverseerHologram> {
+        let id = self.hologram?;
+        self.holograms.iter_mut().find(|h| h.id == id)
+    }
+
+    /// Drops the holograms slated for deletion (the room's update list cleans them out;
+    /// `Overseer.Update` forgets a deleted current one).
+    pub(crate) fn drop_slated_holograms(&mut self) {
+        self.holograms.retain(|h| !h.slated);
+        if self.current_hologram().is_none() {
+            self.hologram = None;
+        }
+    }
+
+    /// `hologram.Destroy()` of the current one.
+    pub(crate) fn destroy_hologram(&mut self) {
+        if let Some(h) = self.current_hologram_mut() {
+            h.slated = true;
+        }
+        self.hologram = None;
     }
 }

@@ -192,6 +192,7 @@ fn set_player_and_respawn() {
             tile: None,
             pos: Some([spawn[0] + 10.0, spawn[1] + 40.0]),
             vel: Some([3.0, 0.0]),
+            food: None,
         })
         .expect("moves");
     let player = state.player.expect("player");

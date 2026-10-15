@@ -49,8 +49,12 @@ impl NodeType {
     }
 }
 
-/// One `AbstractRoomNode` without its per-creature connectivity table.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// `StaticWorld.preBakedPathingCreatures.Length` in the base game: the templates with
+/// `doPreBakedPathing` (generation-20 room files bake this many layers).
+pub const BASE_PRE_BAKED_PATHING_CREATURES: usize = 15;
+
+/// One `AbstractRoomNode`.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AbstractRoomNode {
     pub kind: NodeType,
     /// Tube length for exits and dens, -1 otherwise.
@@ -59,6 +63,49 @@ pub struct AbstractRoomNode {
     /// `Room.CameraViewingNode`: the camera a creature arriving here is shown by.
     pub viewed_by_camera: i32,
     pub entrance_width: i32,
+    pub connectivity: Connectivity,
+}
+
+/// `AbstractRoomNode.connectivity[creature, otherNode, 0|1]`: per pre-baked pathing
+/// creature (`CreatureTemplate.PreBakedPathingIndex`) and other node of the room, the
+/// path's cost and length from this node, -1 where there is none.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Connectivity {
+    nodes: usize,
+    /// Layer-major `[cost, length]` cells, as many layers as the file baked.
+    cells: Vec<[i32; 2]>,
+}
+
+impl Connectivity {
+    /// Every layer and node set to `cell`.
+    #[must_use]
+    pub fn filled(layers: usize, nodes: usize, cell: [i32; 2]) -> Self {
+        Self {
+            nodes,
+            cells: vec![cell; layers * nodes],
+        }
+    }
+
+    #[must_use]
+    pub fn layers(&self) -> usize {
+        self.cells.len().checked_div(self.nodes).unwrap_or(0)
+    }
+
+    /// The `[cost, length]` cell. A layer past the file's reads 0 (the game's array is
+    /// sized by its own creature count and zero-filled); `None` for a node out of range,
+    /// where the game throws.
+    #[must_use]
+    pub fn cell(&self, layer: usize, node: usize) -> Option<[i32; 2]> {
+        if node >= self.nodes {
+            return None;
+        }
+        Some(
+            self.cells
+                .get(layer * self.nodes + node)
+                .copied()
+                .unwrap_or([0, 0]),
+        )
+    }
 }
 
 /// Separated fields of a line, read as the game's `Convert.ToInt32`.
@@ -97,7 +144,7 @@ impl ConnMap {
                     .0
                     .get(3 + i)
                     .ok_or_else(|| format!("node {i} missing"))?;
-                AbstractRoomNode::parse(text, layers * count)
+                AbstractRoomNode::parse(text, layers, count)
             })
             .collect::<Result<_, _>>()?;
         Ok(Self { generation, nodes })
@@ -105,27 +152,52 @@ impl ConnMap {
 }
 
 impl AbstractRoomNode {
-    /// One node: `type,length,submerged,camera,width,` then `cost generation` pairs.
-    fn parse(text: &str, connectivity: usize) -> Result<Self, String> {
+    /// One node: `type,length,submerged,camera,width,` then a `cost length` pair per
+    /// layer and node, layer-major.
+    fn parse(text: &str, layers: usize, nodes: usize) -> Result<Self, String> {
         let fields = Fields(text.split(',').collect());
-        if fields.0.len() < 5 + connectivity {
+        if fields.0.len() < 5 + layers * nodes {
             return Err(format!("node {text:?} has too few fields"));
         }
         let kind = NodeType::from_index(fields.int(0)?)
             .ok_or_else(|| format!("node type {}", fields.0[0]))?;
-        // The connectivity is not kept, but each `cost gen` pair must parse.
-        for pair in &fields.0[5..5 + connectivity] {
-            let pair = Fields(pair.split(' ').collect());
-            pair.int(0)?;
-            pair.int(1)?;
-        }
+        let cells = fields.0[5..5 + layers * nodes]
+            .iter()
+            .map(|pair| {
+                let pair = Fields(pair.split(' ').collect());
+                Ok([pair.int(0)?, pair.int(1)?])
+            })
+            .collect::<Result<_, String>>()?;
         Ok(Self {
             kind,
             shortcut_length: fields.int(1)?,
             submerged: fields.int(2)? == 1,
             viewed_by_camera: fields.int(3)?,
             entrance_width: fields.int(4)?,
+            connectivity: Connectivity { nodes, cells },
         })
+    }
+
+    /// `ConnectionCost(otherNode, template)` for the template's `PreBakedPathingIndex`
+    /// (-1 without pre-baked pathing). The Watcher's ripple spider falling back to the
+    /// salamander's layer is not ported.
+    #[must_use]
+    pub fn connection_cost(&self, other_node: i32, pathing_index: i32) -> i32 {
+        self.connection(other_node, pathing_index)
+            .map_or(-1, |c| c[0])
+    }
+
+    /// `ConnectionLength(otherNode, template)`, as [`Self::connection_cost`].
+    #[must_use]
+    pub fn connection_length(&self, other_node: i32, pathing_index: i32) -> i32 {
+        self.connection(other_node, pathing_index)
+            .map_or(-1, |c| c[1])
+    }
+
+    fn connection(&self, other_node: i32, pathing_index: i32) -> Option<[i32; 2]> {
+        let layer = usize::try_from(pathing_index).ok()?;
+        let node = usize::try_from(other_node).ok()?;
+        self.connectivity.cell(layer, node)
     }
 }
 
@@ -149,7 +221,7 @@ impl Room {
     /// [`ShortcutMap::nodes`] entry, typed by pass (exit, den, region transport), with
     /// the leading tube's length, `CameraViewingNode` and whether its entrance is under
     /// water. Border exits, bat hives and garbage holes (which need `MapRoomBorders` and
-    /// the AI map) are not derived.
+    /// the AI map) are not derived, nor is the connectivity (left -1: no path).
     #[must_use]
     pub fn shortcut_nodes(&self) -> Vec<AbstractRoomNode> {
         let map: &ShortcutMap = self.shortcut_map();
@@ -178,6 +250,11 @@ impl Room {
                         -1
                     },
                     entrance_width: 1,
+                    connectivity: Connectivity::filled(
+                        BASE_PRE_BAKED_PATHING_CREATURES,
+                        map.nodes().len(),
+                        [-1, -1],
+                    ),
                 }
             })
             .collect()
@@ -213,9 +290,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parses_nodes_and_skips_connectivity() {
-        // Two nodes, one layer: two `cost gen` pairs per node.
+    fn parses_nodes_and_connectivity() {
+        // Two nodes, one layer: two `cost length` pairs per node.
         let map = ConnMap::parse("20|2|1|0,3,0,1,1,0 0,5 1,|1,4,1,0,1,5 1,0 0,|").unwrap();
+        assert_eq!(map.nodes[0].connection_cost(1, 0), 5);
+        assert_eq!(map.nodes[0].connection_length(1, 0), 1);
+        assert_eq!(map.nodes[1].connection_cost(0, 0), 5);
+        assert_eq!(map.nodes[1].connection_length(1, 3), 0);
+        assert_eq!(map.nodes[1].connection_length(2, 0), -1);
+        assert_eq!(map.nodes[1].connection_length(0, -1), -1);
         assert_eq!(map.generation, 20);
         assert_eq!(map.nodes.len(), 2);
         assert_eq!(map.nodes[0].kind, NodeType::Exit);

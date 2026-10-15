@@ -19,6 +19,9 @@ pub struct TutorialBehavior {
     pub bring_in_rain: bool,
     pub pause_rain: bool,
     pub display_run_message: bool,
+    pub bats_in_bat_room: i32,
+    pub available_fruit_in_fruit_room: i32,
+    pub super_jump_attempt_time: i32,
 }
 
 impl Default for TutorialBehavior {
@@ -39,6 +42,9 @@ impl Default for TutorialBehavior {
             bring_in_rain: false,
             pause_rain: true,
             display_run_message: false,
+            bats_in_bat_room: 5,
+            available_fruit_in_fruit_room: 3,
+            super_jump_attempt_time: 0,
         }
     }
 }

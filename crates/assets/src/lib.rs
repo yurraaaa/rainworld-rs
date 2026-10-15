@@ -29,7 +29,9 @@ pub use creatures::{
 pub use files::{AssetError, StreamingAssets};
 pub use font_config::{FontChar, FontConfig, FontConfigError, FontKerning};
 pub use identity::{ActiveMods, SlugcatName, Timeline};
-pub use nodes::{AbstractRoomNode, ConnMap, NodeType};
+pub use nodes::{
+    AbstractRoomNode, BASE_PRE_BAKED_PATHING_CREATURES, ConnMap, Connectivity, NodeType,
+};
 pub use noise::NoiseTexture;
 pub use palette::{EffectColors, PaletteImage, PaletteTexture, RoomPalette};
 pub use placed::{PlacedObject, RoomEffect};

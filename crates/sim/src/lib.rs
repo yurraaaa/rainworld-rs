@@ -53,7 +53,7 @@ pub use player::{
 pub use shortcut::{LobbyVessel, ShortcutHandler};
 pub use sound::{EmitterId, PlayedSound, SoundEvent, SoundId, SoundSource, Sounds};
 pub use spawn::{determine_safe_spawn_tile, place_in_room};
-pub use vec2::Vec2;
+pub use vec2::{TileExt, Vec2};
 pub use vec3::Vec3;
 pub use water::Water;
 

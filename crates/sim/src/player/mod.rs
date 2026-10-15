@@ -456,6 +456,11 @@ impl Player {
         self.super_launch_jump
     }
 
+    /// `superLaunchJump = 0` (the guide's super-jump lesson).
+    pub fn reset_super_launch_jump(&mut self) {
+        self.super_launch_jump = 0;
+    }
+
     /// Direction of a running corridor U-turn (`corridorTurnDir`), read by the graphics.
     #[must_use]
     pub fn corridor_turn_dir(&self) -> Option<(i32, i32)> {

@@ -2,6 +2,8 @@
 
 use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
 
+use crate::FloatExt;
+
 /// 2D vector in room pixels (y up).
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Vec2 {
@@ -152,6 +154,22 @@ impl Vec2 {
         self + self.direction_to(to) * max
     }
 
+    /// `Custom.VecToDeg`: degrees clockwise from straight up.
+    #[must_use]
+    pub fn to_degrees(self) -> f32 {
+        let a = f64::from(self.x).atan2(f64::from(self.y)) as f32;
+        a / (std::f32::consts::PI * 2.0) * 360.0
+    }
+
+    /// `Custom.DistanceToLine(self, l2, l1)`: signed distance to the line through both.
+    #[must_use]
+    pub fn distance_to_line(self, l2: Self, l1: Self) -> f32 {
+        let dy = l2.y - l1.y;
+        let dx = l2.x - l1.x;
+        (dy * self.x - dx * self.y + l2.x * l1.y - l2.y * l1.x)
+            / (dy.mathf_pow(2.0) + dx.mathf_pow(2.0)).sqrt()
+    }
+
     /// Middle of the tile containing this position (`Room.MiddleOfTile(Vector2)`).
     #[must_use]
     pub fn tile_middle(self) -> Self {
@@ -216,6 +234,18 @@ impl SubAssign for Vec2 {
 impl MulAssign<f32> for Vec2 {
     fn mul_assign(&mut self, k: f32) {
         *self = *self * k;
+    }
+}
+
+/// `IntVector2` methods on tile coordinates.
+pub trait TileExt {
+    /// `IntVector2.FloatDist`.
+    fn float_dist(self, other: Self) -> f32;
+}
+
+impl TileExt for (i32, i32) {
+    fn float_dist(self, other: Self) -> f32 {
+        Vec2::new(self.0 as f32, self.1 as f32).distance(Vec2::new(other.0 as f32, other.1 as f32))
     }
 }
 

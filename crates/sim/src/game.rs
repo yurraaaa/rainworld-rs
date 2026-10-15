@@ -11,6 +11,7 @@ use rw_random::UnityRandom;
 
 use crate::camera::CameraView;
 use crate::campaign::SlugcatCampaign;
+use crate::creature::overseer::hologram::{ControlPreset, OverseerHologram};
 use crate::creature::overseer::{
     OverseerEffect, OverseerMode, OverseerTick, OverseerUpdate, OverseerView, PlayerView,
     StoryStats, TutorialMessage,
@@ -50,6 +51,8 @@ pub trait PlayerObserver {
     fn overseer_added(&mut self, _view: &OverseerView<'_>, _rng: &mut UnityRandom) {}
     /// `OverseerGraphics.Reset`.
     fn overseer_reset(&mut self, _view: &OverseerView<'_>, _rng: &mut UnityRandom) {}
+    /// Right after an overseer hologram's `Update` (the parts lerp their colours).
+    fn hologram_updated(&mut self, _owner: EntityId, _hologram: &OverseerHologram) {}
     /// `OverseerGraphics.Emerge`.
     fn overseer_emerge(&mut self, _view: &OverseerView<'_>, _rng: &mut UnityRandom) {}
     /// Right after `Overseer.Update`: the graphics module's update.
@@ -83,6 +86,15 @@ pub enum OverseerCall {
     TeleportIn,
     /// `Update` and its graphics update.
     Update,
+    /// The `Update` of the overseer's hologram with this id.
+    Hologram(u64),
+}
+
+/// An object in a room's update list the port runs besides the player.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RoomObject {
+    Overseer(CreatureId),
+    Hologram { owner: CreatureId, id: u64 },
 }
 
 /// No graphics.
@@ -155,6 +167,10 @@ pub struct RainWorldGame {
     overseer_calls: Option<Vec<OverseerCallRecord>>,
     /// The last overseer realized into a room, always recorded.
     last_overseer_place: Option<OverseerCallRecord>,
+    /// The last hologram id issued.
+    hologram_ids: u64,
+    /// The player's `playerState.foodInStomach` (nothing is eaten yet).
+    food_in_stomach: i32,
 }
 
 /// One realized overseer call with what it read and the random stream around it (for
@@ -187,6 +203,12 @@ pub struct OverseerCallRecord {
     pub pos_before: WorldCoordinate,
     /// The abstract creature (with its body) after a `Place` or `TeleportIn`.
     pub after: Option<AbstractCreature>,
+    /// The overseer's holograms after the call (the deleted ones gone), and its current
+    /// one's id.
+    pub holograms: Vec<OverseerHologram>,
+    pub current_hologram: Option<u64>,
+    /// The tutorial texts the call queued.
+    pub messages: Vec<TutorialMessage>,
 }
 
 impl RainWorldGame {
@@ -259,6 +281,8 @@ impl RainWorldGame {
             script_tick: ScriptTick::default(),
             overseer_calls: None,
             last_overseer_place: None,
+            hologram_ids: 0,
+            food_in_stomach: 0,
         };
         if let Err(e) = game.world.activate_room(start.room) {
             log::error!("cannot realize the first room: {e}");
@@ -400,6 +424,7 @@ impl RainWorldGame {
             realizer.update(&mut self.world, follow, self.camera_room, &mut self.rng);
         }
         self.update_abstract_room();
+        self.update_world_processes();
         self.enter_from_abstract_rooms();
         self.world.rain_cycle.update(&mut self.rng);
         if self.shortcuts.divide() {
@@ -411,6 +436,18 @@ impl RainWorldGame {
         self.finish_loading(observer);
         self.sync_player_state();
         self.tick += 1;
+    }
+
+    /// The world processes' updates (`OverseersWorldAI`'s finders), with what they read
+    /// of the story session: the player woke up in this region, a new game.
+    fn update_world_processes(&mut self) {
+        let region = self.world.region_name().unwrap_or_default().to_owned();
+        let story = crate::world::StoryProgress {
+            woke_up_in_region: &region,
+            ever_met_moon: false,
+            karma: self.campaign.start_karma,
+        };
+        self.world.update_world_processes(Some(story));
     }
 
     /// The story branch of `RainWorldGame.Update`: `updateAbstractRoom` steps to the next
@@ -692,7 +729,7 @@ impl RainWorldGame {
         let node = self.world.abstract_room(lobby.room).and_then(|r| {
             r.nodes
                 .get(usize::try_from(lobby.entrance_node).ok()?)
-                .copied()
+                .cloned()
         });
         let Some(node) = node else {
             // The game indexes `nodes[-1]` here and throws every update.
@@ -764,21 +801,47 @@ impl RainWorldGame {
             };
             water.update(&room, chunks.iter_mut(), &mut self.rng, sounds);
         }
-        let overseers = self.world.room_overseers(index);
+        let mut objects: Vec<(u64, RoomObject)> = self
+            .world
+            .room_overseers(index)
+            .into_iter()
+            .map(|(seq, id)| (seq, RoomObject::Overseer(id)))
+            .collect();
+        objects.extend(
+            self.world
+                .room_holograms(index)
+                .into_iter()
+                .map(|(seq, owner, id)| (seq, RoomObject::Hologram { owner, id })),
+        );
+        objects.sort_by_key(|&(seq, _)| std::cmp::Reverse(seq));
         let mut player_done = false;
-        for (seq, id) in overseers {
+        for (seq, object) in objects {
             if !player_done && self.player_seq > seq {
                 self.update_room_player(index, &room, input, observer);
                 player_done = true;
             }
-            let in_room = self
-                .world
-                .creature(id)
-                .overseer_body()
-                .is_some_and(|b| b.in_room)
-                && self.world.creature(id).pos.room == index;
-            if in_room {
-                self.run_overseer(id, OverseerCall::Update, observer);
+            match object {
+                RoomObject::Overseer(id) => {
+                    let in_room = self
+                        .world
+                        .creature(id)
+                        .overseer_body()
+                        .is_some_and(|b| b.in_room)
+                        && self.world.creature(id).pos.room == index;
+                    if in_room {
+                        self.run_overseer(id, OverseerCall::Update, observer);
+                    }
+                }
+                RoomObject::Hologram { owner, id } => {
+                    let live = self
+                        .world
+                        .creature(owner)
+                        .overseer_body()
+                        .is_some_and(|b| b.holograms.iter().any(|h| h.id == id && !h.slated));
+                    if live {
+                        self.run_overseer(owner, OverseerCall::Hologram(id), observer);
+                    }
+                }
             }
         }
         if !player_done {
@@ -799,9 +862,15 @@ impl RainWorldGame {
             hips: chunks[1].pos,
             dead: p.is_dead(),
             conscious: !p.is_dead() && !p.is_stunned(),
-            food: 0,
+            food: self.food_in_stomach,
             jump: [inputs[0].jump, inputs[1].jump],
             entering_shortcut: p.entering_shortcut(),
+            in_shortcut: p.in_shortcut(),
+            standing: p.is_standing(),
+            animation: p.animation(),
+            hips_contact_y: chunks[1].contact().y,
+            input_x: inputs[0].x,
+            input_y: inputs[0].y,
         })
     }
 
@@ -811,6 +880,7 @@ impl RainWorldGame {
             cycle: 0,
             food_to_hibernate: stats.food_to_hibernate,
             max_food: stats.max_food,
+            karma_cap: self.campaign.start_karma_cap,
             yellow: self.campaign.name == rw_assets::SlugcatName::Yellow,
             how_well_is_player_doing: -1.0,
         }
@@ -824,7 +894,15 @@ impl RainWorldGame {
         call: OverseerCall,
         observer: &mut dyn PlayerObserver,
     ) {
-        let room_index = self.world.creature(id).pos.room;
+        let room_index = match call {
+            OverseerCall::Hologram(hid) => self
+                .world
+                .creature(id)
+                .overseer_body()
+                .and_then(|b| b.holograms.iter().find(|h| h.id == hid))
+                .map_or(-1, |h| h.room),
+            _ => self.world.creature(id).pos.room,
+        };
         let player = self.player_view(room_index);
         let story = self.story_stats();
         let wanted = self.overseer_calls.is_some() || call == OverseerCall::Place;
@@ -851,6 +929,9 @@ impl RainWorldGame {
             abstract_before: None,
             pos_before: self.world.creature(id).pos,
             after: None,
+            holograms: Vec::new(),
+            current_hologram: None,
+            messages: Vec::new(),
         });
         let Some(mut parts) = self.world.take_overseer(id) else {
             return;
@@ -860,7 +941,7 @@ impl RainWorldGame {
         let ignore_cycle = self.world.creature(id).ignore_cycle;
         let mut rain = self.world.rain_cycle;
         let mut effects = Vec::new();
-        if call != OverseerCall::Update {
+        if matches!(call, OverseerCall::Place | OverseerCall::TeleportIn) {
             parts.body.update_order = self.world.next_update_seq();
         }
         if let Some(realized) = self.world.realized(room_index)
@@ -879,7 +960,9 @@ impl RainWorldGame {
                 rng: &mut self.rng,
                 sounds,
                 observer,
-                guide: &self.guide,
+                guide: &mut self.guide,
+                control_preset: ControlPreset::Keyboard,
+                hologram_ids: &mut self.hologram_ids,
                 player_id: self.player_id,
                 player,
                 player_karma: self.campaign.start_karma,
@@ -905,19 +988,48 @@ impl RainWorldGame {
                 OverseerCall::Place => run.place_in_room(),
                 OverseerCall::TeleportIn => run.teleport_into_room(),
                 OverseerCall::Update => run.update_with_graphics(),
+                OverseerCall::Hologram(hid) => run.update_hologram(hid),
             }
             pos = run.pos;
             rain = cx.rain;
             effects = cx.effects;
         }
+        for h in &mut parts.body.holograms {
+            if h.update_order == 0 {
+                h.update_order = self.world.next_update_seq();
+            }
+        }
+        if let OverseerCall::Hologram(hid) = call
+            && let Some(h) = parts.body.holograms.iter().find(|h| h.id == hid)
+        {
+            observer.hologram_updated(self.world.creature(id).id, h);
+        }
+        let current = parts.body.hologram;
+        parts
+            .body
+            .holograms
+            .retain(|h| !h.slated || Some(h.id) == current);
+        let holograms = record
+            .as_ref()
+            .map(|_| parts.body.holograms.clone())
+            .unwrap_or_default();
         self.world.put_overseer(id, parts, pos);
         self.world.rain_cycle = rain;
         if let Some(mut record) = record {
             record.rng_after = self.rng.state();
             record.rain_timer_after = rain.timer;
-            if call != OverseerCall::Update {
+            if matches!(call, OverseerCall::Place | OverseerCall::TeleportIn) {
                 record.after = Some(self.world.creature(id).clone());
             }
+            record.holograms = holograms;
+            record.messages = effects
+                .iter()
+                .filter_map(|e| match e {
+                    OverseerEffect::Message(m) => Some(*m),
+                    _ => None,
+                })
+                .collect();
+            record.current_hologram = current;
             if call == OverseerCall::Place {
                 self.last_overseer_place = Some(record.clone());
             }
@@ -1004,6 +1116,11 @@ impl RainWorldGame {
                     }
                 }
                 OverseerEffect::KillGreenLizards(room) => self.world.kill_green_lizards(room),
+                OverseerEffect::ResetSuperLaunchJump => {
+                    if let Some(p) = self.player.as_mut() {
+                        p.reset_super_launch_jump();
+                    }
+                }
             }
         }
     }
@@ -1127,6 +1244,11 @@ impl RainWorldGame {
     }
 
     #[must_use]
+    pub fn guide_state(&self) -> &PlayerGuideState {
+        &self.guide
+    }
+
+    #[must_use]
     pub fn world(&self) -> &World {
         &self.world
     }
@@ -1231,6 +1353,16 @@ impl RainWorldGame {
         );
         observer.created(player, &mut self.rng);
         self.player_seq = self.world.next_update_seq();
+    }
+
+    /// Sets the food in the player's stomach (for tests and tools: nothing is eaten yet).
+    pub fn set_food_in_stomach(&mut self, food: i32) {
+        self.food_in_stomach = food.clamp(0, self.campaign.stats.max_food);
+    }
+
+    #[must_use]
+    pub fn food_in_stomach(&self) -> i32 {
+        self.food_in_stomach
     }
 
     /// Kills the player (for tests and tools).

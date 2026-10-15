@@ -48,6 +48,17 @@ impl Installed {
             .unwrap_or_else(|e| panic!("world {region} as {}: {e}", timeline.value()))
     }
 
+    /// The names of the region's broken shelters for `timeline`.
+    fn broken(&self, regions: &Regions, region: &str, timeline: Timeline) -> Vec<String> {
+        let w = self.world(regions, region, timeline);
+        w.shelters
+            .iter()
+            .zip(&w.broken_shelters)
+            .filter(|(_, b)| **b)
+            .map(|(&s, _)| w.room(s).expect("shelter").name.clone())
+            .collect()
+    }
+
     /// The `ROOMS` lines of a world file as written: name and connection names.
     fn rooms_as_written(&self, region: &str) -> Vec<(String, Vec<String>)> {
         let lower = region.to_lowercase();
@@ -228,4 +239,30 @@ fn room_file_generations() {
     }
     println!("{total} room files; generation < {PREPROCESSING_GENERATION}: {old:?}");
     assert!(old.is_empty());
+}
+
+/// What the world processes read: the properties files' `Broken Shelters` lines (only
+/// for the named timeline), SU's lone bat migration blockage and `locks.txt`.
+#[test]
+fn broken_shelters_blockages_and_locks() {
+    let Some(game) = Installed::open() else {
+        return;
+    };
+    let regions = Regions::load(&game.0).expect("regions");
+    let none = Vec::<String>::new();
+    assert_eq!(game.broken(&regions, "SL", Timeline::White), ["SL_S11"]);
+    assert_eq!(game.broken(&regions, "SL", Timeline::Red), ["SL_S11"]);
+    assert_eq!(game.broken(&regions, "SL", Timeline::Yellow), none);
+    assert_eq!(game.broken(&regions, "HI", Timeline::Red), ["HI_S03"]);
+    assert_eq!(game.broken(&regions, "HI", Timeline::White), none);
+    assert_eq!(game.broken(&regions, "LF", Timeline::Red), ["LF_S07"]);
+    let su = game.world(&regions, "SU", Timeline::White);
+    let a22 = su.room_named("SU_A22").expect("SU_A22").index;
+    assert_eq!(su.bat_migration_blockages, [[-1, a22]]);
+    let su_hi = su
+        .gate_locks
+        .iter()
+        .find(|l| l[0] == "GATE_SU_HI")
+        .expect("lock");
+    assert_eq!(su_hi, &["GATE_SU_HI", "3", "2"]);
 }

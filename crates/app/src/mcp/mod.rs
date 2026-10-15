@@ -14,6 +14,8 @@ mod session;
 #[cfg(test)]
 mod tests;
 mod tiles;
+#[cfg(test)]
+mod tutorial_route;
 mod window;
 
 use std::error::Error;

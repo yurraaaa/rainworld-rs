@@ -320,9 +320,13 @@ impl Session {
     /// # Errors
     /// Without a room, or unless exactly one of `tile` and `pos` is given.
     pub fn set_player(&mut self, params: &SetPlayerParams) -> Result<State, String> {
+        if let Some(food) = params.food {
+            self.scene_or_err()?.game_mut().set_food_in_stomach(food);
+        }
         let pos = match (params.tile, params.pos) {
             (Some([x, y]), None) => Vec2::from(rw_assets::tile_centre(x, y)),
             (None, Some(pos)) => Vec2::from(pos),
+            (None, None) if params.food.is_some() => return self.state(),
             _ => return Err("give exactly one of tile or pos".to_owned()),
         };
         let vel = Vec2::from(params.vel.unwrap_or([0.0, 0.0]));

@@ -2200,6 +2200,7 @@ dependencies = [
  "log",
  "rw-assets",
  "rw-random",
+ "serde_json",
 ]
 
 [[package]]

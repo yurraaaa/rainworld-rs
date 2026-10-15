@@ -15,8 +15,8 @@ use std::fs;
 use crate::creatures::CreatureSpawner;
 use crate::region_properties::RegionProperties;
 use crate::{
-    AbstractRoomNode, ActiveMods, AssetError, NodeType, Room, RoomSettings, SlugcatName,
-    StreamingAssets, Timeline,
+    AbstractRoomNode, ActiveMods, AssetError, BASE_PRE_BAKED_PATHING_CREATURES, Connectivity,
+    NodeType, Room, RoomSettings, SlugcatName, StreamingAssets, Timeline,
 };
 
 /// `World.preProcessingGeneration`: room files baked earlier are re-preprocessed.
@@ -409,6 +409,12 @@ impl AbstractRoomData {
             .map_or(-1, |i| i32::try_from(i).unwrap_or(-1))
     }
 
+    /// The tube length of the exit leading to global room `target`.
+    fn exit_shortcut_length(&self, target: i32) -> Option<i32> {
+        let exit = usize::try_from(self.exit_index(target)).ok()?;
+        self.nodes.get(exit).map(|n| n.shortcut_length)
+    }
+
     /// `AddTag` (base game; `ARENA` and `NOTRACKERS` are More Slugcats and Remix tags).
     fn add_tag(&mut self, tag: &str, mods: ActiveMods) {
         match tag {
@@ -451,6 +457,7 @@ impl AbstractRoomData {
             submerged: kind == NodeType::SeaExit,
             viewed_by_camera: 0,
             entrance_width: 100,
+            connectivity: Connectivity::filled(BASE_PRE_BAKED_PATHING_CREATURES, 5, [1, 1]),
         })
         .collect();
         den.offscreen_den = true;
@@ -574,6 +581,18 @@ pub struct WorldData {
     pub spawners: Vec<CreatureSpawner>,
     /// `swarmRooms`: global indices of the `SWARMROOM` rooms, in file order.
     pub swarm_rooms: Vec<i32>,
+    /// `shelters`: global indices of the `SHELTER`/`ANCIENTSHELTER` rooms, in file order.
+    pub shelters: Vec<i32>,
+    /// `brokenShelters`, per shelter: `Broken Shelters: <timeline>: ROOM, ...` lines of
+    /// the properties file (`LoadMapConfig`).
+    pub broken_shelters: Vec<bool>,
+    /// `fliesMigrationBlockages`: `[from, to]` global rooms of the `BAT MIGRATION
+    /// BLOCKAGES` lines, -1 for an unknown or missing room (a lone name blocks entry
+    /// from anywhere).
+    pub bat_migration_blockages: Vec<[i32; 2]>,
+    /// `world/gates/locks.txt`, each line split on ` : ` (read by the overseers'
+    /// `DirectionFinder`); empty when missing.
+    pub gate_locks: Vec<Vec<String>>,
     pub report: WorldReport,
 }
 
@@ -677,8 +696,9 @@ impl WorldRequest {
 }
 
 impl WorldData {
-    /// `WorldLoader` from `NextActivity` to `Finished` for the rooms (creatures, bat
-    /// blockages and swarm maps are not loaded), then `World.LoadWorld`'s off-screen den.
+    /// `WorldLoader` from `NextActivity` to `Finished` for the rooms, spawners and bat
+    /// migration blockages (the swarm map is `rw_sim`'s), then `World.LoadWorld`'s
+    /// off-screen den and broken shelters.
     ///
     /// # Errors
     /// When the world file or a listed room file cannot be read.
@@ -696,6 +716,7 @@ impl WorldData {
         let mut mapping = RoomMapping::default();
         let mut spawners = Vec::new();
         let mut properties = RegionProperties::default();
+        let mut bat_blocks = Vec::new();
         if request.single_room {
             mapping.adder.push(vec![request.name.clone()]);
             // `worldCreaturesSpawn` (on in a game) makes the room swarm room 0.
@@ -736,6 +757,9 @@ impl WorldData {
                 spawners = read;
                 report.creatures_stopped_at = stopped;
             }
+            if let Some((start, end)) = lines.section("BAT MIGRATION BLOCKAGES") {
+                bat_blocks = lines.lines.get(start..end).unwrap_or_default().to_vec();
+            }
             properties = RegionProperties::load(assets, &request.name, &request.filter);
         }
         let mut rooms = Vec::with_capacity(mapping.adder.len() + 1);
@@ -755,7 +779,8 @@ impl WorldData {
         if !request.single_room {
             Self::load_map_positions(assets, &request.name, request.filter.timeline, &mut rooms);
         }
-        Ok(Self {
+        let broken_shelters = vec![false; mapping.shelters.len()];
+        let mut data = Self {
             name: request.name.clone(),
             region,
             single_room: request.single_room,
@@ -764,8 +789,112 @@ impl WorldData {
             properties,
             spawners,
             swarm_rooms: mapping.swarm_rooms,
+            shelters: mapping.shelters,
+            broken_shelters,
+            bat_migration_blockages: Vec::new(),
+            gate_locks: Self::read_gate_locks(assets),
             report,
-        })
+        };
+        if !request.single_room {
+            data.read_broken_shelters(assets, request.filter.timeline);
+        }
+        data.bat_migration_blockages = bat_blocks
+            .iter()
+            .map(|line| data.bat_migration_blockage(line))
+            .collect();
+        Ok(data)
+    }
+
+    /// `FindingBatBlockages` then `CreatingWorld`: `FROM : TO`, or a lone `TO` (from
+    /// `""`, which names no room); names resolve with `GetAbstractRoom(string)`.
+    fn bat_migration_blockage(&self, line: &str) -> [i32; 2] {
+        let parts: Vec<&str> = line.split(" : ").collect();
+        let (from, to) = if parts.len() == 2 {
+            (parts[0], parts[1])
+        } else {
+            ("", parts[0])
+        };
+        [from, to].map(|name| self.room_by_name(name).map_or(-1, |r| r.index))
+    }
+
+    /// `World.GetAbstractRoom(string)`: [`Self::room_named`], or the off-screen den for
+    /// `OFFSCREEN`.
+    #[must_use]
+    pub fn room_by_name(&self, name: &str) -> Option<&AbstractRoomData> {
+        self.room_named(name)
+            .or_else(|| self.rooms.last().filter(|_| name == "OFFSCREEN"))
+    }
+
+    /// `LoadMapConfig`'s `Broken Shelters` lines for the timeline, from the same
+    /// properties file as [`RegionProperties::load`].
+    fn read_broken_shelters(&mut self, assets: &StreamingAssets, timeline: Option<Timeline>) {
+        let Some(timeline) = timeline else { return };
+        let dir = format!("world/{}", self.name.to_lowercase());
+        let variant = assets.file(&format!("{dir}/properties-{}.txt", timeline.value()));
+        let path = if variant.is_file() {
+            variant
+        } else {
+            assets.file(&format!("{dir}/properties.txt"))
+        };
+        let Ok(text) = fs::read_to_string(&path) else {
+            return;
+        };
+        for line in text.lines() {
+            let line = if line.ends_with(':') {
+                format!("{line} ")
+            } else {
+                line.to_owned()
+            };
+            let parts: Vec<&str> = line.split(": ").collect();
+            if parts.len() != 3
+                || parts[0] != "Broken Shelters"
+                || parts[1].trim() != timeline.value()
+            {
+                continue;
+            }
+            let list = if parts[2].ends_with(',') {
+                format!("{} ", parts[2])
+            } else {
+                parts[2].to_owned()
+            };
+            for name in list.split(", ") {
+                let shelter = self
+                    .room_by_name(name)
+                    .filter(|r| r.shelter())
+                    .map(|r| r.shelter_index);
+                if let Some(i) = shelter.and_then(|i| usize::try_from(i).ok())
+                    && let Some(b) = self.broken_shelters.get_mut(i)
+                {
+                    *b = true;
+                }
+            }
+        }
+    }
+
+    fn read_gate_locks(assets: &StreamingAssets) -> Vec<Vec<String>> {
+        fs::read_to_string(assets.file("world/gates/locks.txt"))
+            .map(|text| {
+                text.lines()
+                    .map(|l| l.split(" : ").map(str::to_owned).collect())
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    /// `World.TotalShortCutLengthBetweenTwoConnectedRooms`: both rooms' tube lengths of
+    /// the exits leading to each other, -1 unless each leads to the other.
+    #[must_use]
+    pub fn total_shortcut_length_between(&self, room1: i32, room2: i32) -> i32 {
+        let (Some(a), Some(b)) = (self.room(room1), self.room(room2)) else {
+            return -1;
+        };
+        match (
+            a.exit_shortcut_length(b.index),
+            b.exit_shortcut_length(a.index),
+        ) {
+            (Some(x), Some(y)) => x + y,
+            _ => -1,
+        }
     }
 
     /// `LoadMapConfig`'s room positions: `map_<region>-<timeline>.txt` if it exists,
@@ -953,6 +1082,10 @@ impl WorldData {
             properties: RegionProperties::default(),
             spawners: Vec::new(),
             swarm_rooms: vec![0],
+            shelters: Vec::new(),
+            broken_shelters: Vec::new(),
+            bat_migration_blockages: Vec::new(),
+            gate_locks: Vec::new(),
             report,
         }
     }
