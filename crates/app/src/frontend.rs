@@ -267,11 +267,7 @@ impl AppContext {
 
     /// `RainWorldGame.ExitGame(asDeath, asQuit)` of a story game after `clock` ticks:
     /// the progression and the death-persistent data, as a death after 30 seconds and a
-    /// quit after 5. The pause menu's exit calls it with `true, true`.
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "the pause menu's Exit calls it once merged")
-    )]
+    /// quit after 5. `AppendTimeOnCycleEnd` is not ported (D16).
     pub fn exit_game(&mut self, as_death: bool, as_quit: bool, clock: u64) {
         if self.menu.saves.current_save_state.is_none() {
             return;
@@ -553,7 +549,11 @@ impl GameProcess {
         if let Some(music) = &mut ctx.menu.music {
             music.death_event();
         }
-        self.scene.game_mut().sim_mut().exit_game(true, true);
+        let sim = self.scene.game().sim();
+        log::info!("Exit game");
+        if sim.is_story_session() {
+            ctx.exit_game(true, true, sim.clock());
+        }
         requests.switch_to(ProcessId::MainMenu);
     }
 

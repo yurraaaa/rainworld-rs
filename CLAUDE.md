@@ -241,7 +241,8 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   directories, never the real ones), backing up the port's copy;
   `load_process`'s menus read slot 0, so START on a saved page continues
   (`step_process` reports `save`: saved campaigns and the current save
-  state, and `story`: the running game's den, cycle, karma, room and food).
+  state, and `story`: the running game's den, cycle, karma, room and food);
+  the pause menu's Exit saves (a death after 30 s, a quit after 5).
 - `--mcp --window` also shows the driven scene in a window.
 - End of the project: a review of code cleanliness and quality across the
   workspace, then an optimisation pass, once the whole game is ported

@@ -22,10 +22,10 @@ use super::params::{
 };
 use super::reply::{
     ChunkState, ControlsPageState, CreatureInfo, ExitInfo, ExitList, FlyInfo, FoodMeterState,
-    HudState, ImpactState, ImportReply, KarmaMeterState, LobbyState, OverseerInfo,
-    PauseMenuState, PlayerState, ProcessState, RainMeterState, RainState, RealizedState,
-    RoomInfo, RoomList, SaveInfo, SaveStateInfo, Screenshot, SlideShowState, StartUpState,
-    State, StepTrace, StoryInfo, TextPromptState,
+    HudState, ImpactState, ImportReply, KarmaMeterState, LobbyState, OverseerInfo, PauseMenuState,
+    PlayerState, ProcessState, RainMeterState, RainState, RealizedState, RoomInfo, RoomList,
+    SaveInfo, SaveStateInfo, Screenshot, SlideShowState, StartUpState, State, StepTrace, StoryInfo,
+    TextPromptState,
 };
 use super::tiles::TileDump;
 use crate::frontend::{AppContext, Frontend, FrontendRenderer, GameSetup};

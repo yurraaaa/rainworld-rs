@@ -1,5 +1,5 @@
-//! What the pause menu reads of `RainWorldGame` and `ExitGame`, whose save writes are
-//! stubs until saves exist (docs/DIVERGENCES.md).
+//! What the pause menu and `ExitGame` read of `RainWorldGame`; the exit's save is the
+//! app's (`AppContext::exit_game`).
 
 use super::RainWorldGame;
 
@@ -22,35 +22,5 @@ impl RainWorldGame {
         self.world
             .realized(self.camera_room)
             .is_none_or(crate::world::RealizedRoom::fully_loaded)
-    }
-
-    /// `ExitGame(asDeath, asQuit)`. Safari and Artificer dreams are More Slugcats.
-    pub fn exit_game(&mut self, as_death: bool, as_quit: bool) {
-        log::info!("Exit game");
-        if self.is_story_session() {
-            if as_quit {
-                self.append_time_on_cycle_end(true);
-            }
-            let clock = self.clock();
-            self.save_progression_and_death_persistent_data_of_current_state(
-                as_death && clock > 1200,
-                as_quit && clock > 200,
-            );
-        }
-    }
-
-    /// `StoryGameSession.AppendTimeOnCycleEnd`: not ported (the save's play time).
-    fn append_time_on_cycle_end(&mut self, _death_or_ghost: bool) {}
-
-    /// `PlayerProgression.SaveProgressionAndDeathPersistentDataOfCurrentState`: a no-op
-    /// until saves are ported.
-    pub fn save_progression_and_death_persistent_data_of_current_state(
-        &mut self,
-        save_as_if_player_died: bool,
-        save_as_if_player_quit: bool,
-    ) {
-        log::info!(
-            "save stub: died {save_as_if_player_died}, quit {save_as_if_player_quit} (not written)"
-        );
     }
 }

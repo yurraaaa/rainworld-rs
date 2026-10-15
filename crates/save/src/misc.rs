@@ -121,6 +121,16 @@ impl MiscProgression {
         self.integers[Self::RED_UNLOCKED] = i32::from(unlocked);
     }
 
+    /// `warnedAboutKarmaLossOnExit`: how often the pause menu warned of the exit's karma loss.
+    #[must_use]
+    pub fn warned_about_karma_loss_on_exit(&self) -> i32 {
+        self.integers[Self::WARNED_ABOUT_KARMA_LOSS_ON_EXIT]
+    }
+
+    pub fn set_warned_about_karma_loss_on_exit(&mut self, times: i32) {
+        self.integers[Self::WARNED_ABOUT_KARMA_LOSS_ON_EXIT] = times;
+    }
+
     /// `AreThereAnyDiscoveredShelters`: a non-empty `SHELTERLIST`.
     #[must_use]
     pub fn any_discovered_shelters(&self) -> bool {

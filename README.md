@@ -20,8 +20,8 @@ Working now:
   scenes are not ported yet.
 - **Starting a game:** a new game plays the Survivor or Monk intro slideshow, then the SU_C04
   opening script. A saved game continues in its shelter with its food, karma and cycle.
-- **Saves:** the game's own save format, kept in the port's own directory. Saves from the
-  real game can be imported (see below).
+- **Saves:** the game's own save format, kept in the port's own directory; exiting from the
+  pause menu saves as the game does. Saves from the real game can be imported (see below).
 - **Movement:** the slugcat's movement and physics, corridors and shortcuts, poles, water
   and swimming. The slugcat is drawn as the game draws it.
 - **Regions:** a whole region loads, and room-exit pipes take you between rooms, with the

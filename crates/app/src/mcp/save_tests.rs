@@ -119,12 +119,33 @@ fn import_continue_and_exit() {
             .any(|l| l == "MAP_Rivulet<progDivB>SU<progDivB>AAAA")
     );
 
-    // An exit within 5 s is neither; after 30 s it is both.
+    // An exit within 5 s is neither a death nor a quit.
     let ctx = &mut s.frontend_mut().expect("process").ctx;
     ctx.exit_game(true, true, 100);
     assert_eq!(stored(&sav, &assets).0, 2);
     assert_eq!(stored(&sav, &assets).1, 0);
-    ctx.exit_game(true, true, 1300);
-    let (karma, quits, _) = stored(&sav, &assets);
+
+    // The pause menu's Exit after 30 s warns, asks, and saves both.
+    let ran = s.frames(1210, &[]);
+    assert!(ran.game_tick.expect("game") > 1200);
+    s.tap("Escape");
+    s.frames(45, &[]);
+    s.tap("LeftArrow");
+    let asked = s.tap("Return");
+    assert_eq!(asked.upcoming, None);
+    let menu = asked.pause_menu.expect("paused");
+    assert_eq!(menu.selected.as_deref(), Some("NO_EXIT"));
+    s.frames(45, &[]);
+    s.tap("LeftArrow");
+    let exit = s.tap("Return");
+    assert_eq!(exit.upcoming.as_deref(), Some("MainMenu"));
+    let (karma, quits, lines) = stored(&sav, &assets);
     assert_eq!((karma, quits), (1, 1));
+    // `warnedAboutKarmaLossOnExit` is saved with the progression.
+    assert!(
+        lines
+            .iter()
+            .any(|l| l.contains("INTEGERS<mpdB>0,0,0,0,0,0,1,0,0,0,0<mpdA>"))
+    );
+    s.settle_on(ProcessId::MainMenu);
 }

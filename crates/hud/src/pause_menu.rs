@@ -403,11 +403,12 @@ impl PauseScreen {
                 prompt.red_is_out_of_cycles = true;
             } else if game.clock > 1200 {
                 self.pause_warning_active = true;
-                let warned = &mut shared.progression.warned_about_karma_loss_on_exit;
-                if *warned < 4 {
+                let misc = &mut shared.saves.misc;
+                let warned = misc.warned_about_karma_loss_on_exit();
+                if warned < 4 {
                     prompt.paused_warning_text = true;
                     prompt.red_is_out_of_cycles = game.red_is_out_of_cycles;
-                    *warned += 1;
+                    misc.set_warned_about_karma_loss_on_exit(warned + 1);
                 }
             }
         } else {

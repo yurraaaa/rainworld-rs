@@ -20,8 +20,8 @@ impl Session {
         Some(s)
     }
 
-    /// Taps Escape (one frame down, two up).
-    fn tap(&mut self, key: &str) -> super::reply::ProcessState {
+    /// Taps a key (one frame down, two up).
+    pub(super) fn tap(&mut self, key: &str) -> super::reply::ProcessState {
         self.frames(1, &[key]);
         self.frames(2, &[])
     }

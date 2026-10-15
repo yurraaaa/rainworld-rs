@@ -73,8 +73,6 @@ pub struct Progression {
     pub all_tokens_collected: bool,
     /// `AreThereAnyDiscoveredShelters`.
     pub any_discovered_shelters: bool,
-    /// `miscProgressionData.warnedAboutKarmaLossOnExit`.
-    pub warned_about_karma_loss_on_exit: i32,
 }
 
 impl Default for Progression {
@@ -84,7 +82,6 @@ impl Default for Progression {
             red_unlocked: false,
             all_tokens_collected: false,
             any_discovered_shelters: false,
-            warned_about_karma_loss_on_exit: 0,
         }
     }
 }

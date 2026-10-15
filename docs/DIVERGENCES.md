@@ -612,11 +612,9 @@ real-time audio rather than the sim.
   stacker with the cosmetic stream restored. Not ported: the arena and sandbox buttons
   (RESTART, EDIT, PLAY), the gamepad presets' maps, controller rumble, Expedition's
   unlocks and karma warning, and Platform `systemMenuShowingExplicit`. `RedIsOutOfCycles`
-  uses `RedsCycles(false)` (19): `RedExtraCycles` is save data. `ExitGame`'s save
-  writes (`AppendTimeOnCycleEnd`, `SaveProgressionAndDeathPersistentDataOfCurrentState`)
-  are no-op stubs in `rw_sim::RainWorldGame` until saves exist, and
-  `warnedAboutKarmaLossOnExit` lives for the session only. The port's R respawn still
-  works while paused.
+  uses `RedsCycles(false)` (19): `RedExtraCycles` is save data. `ExitGame` saves
+  as D16 describes (`AppContext::exit_game`); `warnedAboutKarmaLossOnExit` is the
+  progression's and saved with it. The port's R respawn still works while paused.
 - **Flat scenes.** Menu scenes are shown in the game's flat mode (`flatmode.txt`: one
   `<scene> - Flat.png`; `rainWorld.flatIllustrations`) until depth scenes
   (`MenuDepthIllustration`, its shaders) are ported. The flat-mode branches follow the
@@ -928,8 +926,9 @@ The port keeps its saves in its own directory (`~/.local/share/rainworld-rs/`,
 the game's slots in, after moving the port's previous file to `backup/<seconds>_import/`.
 What is ported of the save cycle: a story game's start (`GetOrInitiateSaveState`, saved
 at once as a death and a quit), Continue from the stored state's den, food, karma, cycle,
-`NEXTID` and `SEED`, New Game's `WipeSaveState`, and the exit save
-(`SaveProgressionAndDeathPersistentDataOfCurrentState`, for the pause menu). Differences:
+`NEXTID` and `SEED`, New Game's `WipeSaveState`, and `ExitGame`'s save
+(`SaveProgressionAndDeathPersistentDataOfCurrentState`, from the pause menu's Exit).
+Differences:
 - **Writing what the port does not own.** The game rebuilds `MISCPROG`, the save state
   and its death-persistent data from its fields, in its order, with unknown (DLC, Remix,
   mod) entries moved to the end, and drops every line of the progression it does not
@@ -956,6 +955,8 @@ at once as a death and a quit), Continue from the stored state's den, food, karm
   shelter door itself is not ported, so it is open. `BackwardsCompability` world-version
   updates, the starved save state and the automatic `backup/` copies
   (`CreateCopyOfSaves`) are not ported. Save slot 0 only.
+- **Play time.** `PlayerSessionRecord` time and `AppendTimeOnCycleEnd` are not ported:
+  `ExitGame` adds nothing to `DEATHTIME` or `TOTTIME`, which are kept as read.
 
 **Why.** Saves come before shelters and hibernation, which will write whole save
 states; the user decided imported DLC and mod data must survive the port's writes.
@@ -981,6 +982,6 @@ Room: `Room.Update`'s ambient ceiling drips (`WaterDrip`s from the ceiling of a 
 
 Front end: the options, regions, arena and Remix menus, the settings menu's save import,
 sleep and death
-screens, the pause menu, the outro and DLC slideshows, dialogs, the slugcat select menu's continue pages,
+screens, the outro and DLC slideshows, dialogs, the slugcat select menu's continue pages,
 colour and Jolly Co-op controls, depth scenes, menu objects those use (sliders, check
 box groups, symbol buttons, scroll boxes, `UIelementWrapper`), and in-game music (D12).

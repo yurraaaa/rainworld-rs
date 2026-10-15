@@ -199,7 +199,7 @@ fn exit_late_in_a_later_cycle_asks_first() {
     assert!(h.menu.pause_warning_active());
     let prompt = &h.hud.text_prompt;
     assert!(prompt.paused_mode && prompt.paused_warning_text);
-    assert_eq!(h.shared.progression.warned_about_karma_loss_on_exit, 1);
+    assert_eq!(h.shared.saves.misc.warned_about_karma_loss_on_exit(), 1);
     for _ in 0..40 {
         h.tick(&[]);
     }
