@@ -180,7 +180,7 @@ pub struct CreatureState {
     pub alive: bool,
     pub health: f32,
     /// `PlayerState.foodInStomach` (0 for other states); the base game never takes it
-    /// below 0.
+    /// below 0 (only Jolly Co-op's `SubtractFood` and More Slugcats' pups can).
     pub food_in_stomach: u32,
     /// `PlayerState.quarterFoodPoints`.
     pub quarter_food_points: i32,

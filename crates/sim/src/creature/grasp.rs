@@ -99,7 +99,7 @@ impl World {
     fn total_mass(&self, id: CreatureId) -> f32 {
         match &self.creature(id).realized {
             Some(RealizedCreature::Fly(f)) => f.body.chunks.iter().map(|c| c.mass).sum(),
-            Some(RealizedCreature::Player) => crate::slugcat::CHUNK_MASS * 2.0,
+            Some(RealizedCreature::Player) => self.player_mass,
             _ => 0.0,
         }
     }

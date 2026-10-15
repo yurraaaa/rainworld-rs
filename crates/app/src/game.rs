@@ -663,9 +663,15 @@ impl Game {
             .filter(|_| self.sim.player_in_camera_room())
     }
 
-    /// The slugcat's sprites at `alpha` between ticks, eyes in `face_color` (the room
-    /// palette's `blackColor`); `None` once the player is destroyed or elsewhere.
-    pub fn draw_list(&mut self, alpha: f32, face_color: Color) -> Option<DrawList> {
+    /// The slugcat's sprites at `alpha` between ticks, eyes in the room palette's
+    /// `blackColor` (tinted toward its `fogColor` while malnourished); `None` once the
+    /// player is destroyed or elsewhere.
+    pub fn draw_list(
+        &mut self,
+        alpha: f32,
+        black_color: Color,
+        fog_color: Color,
+    ) -> Option<DrawList> {
         let player = self
             .sim
             .player()
@@ -674,7 +680,7 @@ impl Game {
             self.graphics
                 .module
                 .as_mut()?
-                .draw(player, alpha, face_color),
+                .draw(player, alpha, black_color, fog_color),
         )
     }
 

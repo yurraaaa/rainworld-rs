@@ -440,8 +440,12 @@ impl Scene {
             .visuals
             .as_ref()
             .map_or(rw_graphics::Color::BLACK, Visuals::black_color);
+        let fog = self
+            .visuals
+            .as_ref()
+            .map_or(rw_graphics::Color::BLACK, Visuals::fog_color);
         let sprites = if target.sprites.is_some() {
-            self.game.draw_list(alpha, face)
+            self.game.draw_list(alpha, face, fog)
         } else {
             None
         };
@@ -823,7 +827,9 @@ mod tests {
     #[test]
     fn debug_view_draws_colliders_and_no_sprites() {
         let mut game = Game::new(open_room(), &rw_assets::RoomSettings::ANCESTOR, 1, None);
-        let sprites = game.draw_list(1.0, SpriteColor::BLACK).expect("player");
+        let sprites = game
+            .draw_list(1.0, SpriteColor::BLACK, SpriteColor::BLACK)
+            .expect("player");
         let chunks = game.body().expect("body").chunks.len();
         let r = Recorder::record(&game, None, &sprites);
         assert_eq!(r.sprite_calls, 0);
@@ -836,7 +842,9 @@ mod tests {
     #[test]
     fn visual_view_draws_sprites_around_the_level() {
         let mut game = Game::new(open_room(), &rw_assets::RoomSettings::ANCESTOR, 1, None);
-        let sprites = game.draw_list(1.0, SpriteColor::BLACK).expect("player");
+        let sprites = game
+            .draw_list(1.0, SpriteColor::BLACK, SpriteColor::BLACK)
+            .expect("player");
         let level = LevelView {
             origin: [-100.0, -50.0],
             size: [1366.0, 768.0],
@@ -851,7 +859,9 @@ mod tests {
     #[test]
     fn water_sprites_after_the_level_and_foreground_flat_water_in_debug() {
         let mut game = Game::new(open_room(), &rw_assets::RoomSettings::ANCESTOR, 1, None);
-        let sprites = game.draw_list(1.0, SpriteColor::BLACK).expect("player");
+        let sprites = game
+            .draw_list(1.0, SpriteColor::BLACK, SpriteColor::BLACK)
+            .expect("player");
         let surface = WaterSurface::flat(400.0, 50.0);
         let water = WaterSprites::new(surface.len(), 1366.0);
         let level = LevelView {
@@ -882,7 +892,9 @@ mod tests {
     #[test]
     fn shortcut_sprites_in_their_containers() {
         let mut game = Game::new(open_room(), &rw_assets::RoomSettings::ANCESTOR, 1, None);
-        let sprites = game.draw_list(1.0, SpriteColor::BLACK).expect("player");
+        let sprites = game
+            .draw_list(1.0, SpriteColor::BLACK, SpriteColor::BLACK)
+            .expect("player");
         let surface = WaterSurface::flat(400.0, 50.0);
         let water = WaterSprites::new(surface.len(), 1366.0);
         let level = LevelView {

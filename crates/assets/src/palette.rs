@@ -221,6 +221,12 @@ impl PaletteTexture {
         self.texel(2, 7)
     }
 
+    /// `RoomPalette.fogColor`: texel (1, 7).
+    #[must_use]
+    pub fn fog_color(&self) -> [u8; 4] {
+        self.texel(1, 7)
+    }
+
     /// `_fogAmount` (`ApplyPalette`): `1 - R` of texel (9, 7), or `1 + B` when R and G
     /// are 0 and B is not.
     #[must_use]

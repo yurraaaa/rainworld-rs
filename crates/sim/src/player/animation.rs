@@ -8,7 +8,7 @@
 use rw_assets::{Room, Terrain};
 use rw_random::UnityRandom;
 
-use super::{Animation, BodyMode, HEAD, HIPS, POLE_CLIMB_SPEED_FAC, Player, RUN_SPEED_FAC};
+use super::{Animation, BodyMode, HEAD, HIPS, Player};
 use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
 use crate::{SoundId, Sounds, Vec2, Water};
@@ -136,13 +136,14 @@ impl Player {
             if i32::from(hips.contact().x) != x {
                 head.vel.x += x as f32
                     * 1.2
-                    * POLE_CLIMB_SPEED_FAC
+                    * self.stats.pole_climb_speed_fac
                     * (self.slow_movement_stun as f32).lerp_map(0.0, 10.0, 1.0, 0.5);
             }
             self.animation_frame += 1;
             if self.animation_frame > 20 {
                 self.animation_frame = 1;
                 self.play_sound(SoundId::SlugcatClimbAlongHorizontalBeam, HEAD, 1.0, 1.0);
+                self.aerobic_increase(0.05);
             }
             let hips = &mut self.body.chunks[HIPS];
             let phase = self.animation_frame as f32 / 20.0 * std::f32::consts::TAU;
@@ -304,7 +305,7 @@ impl Player {
             hips.vel.y = 0.0;
             hips.pos.y = hips.pos.tile_middle().y + 5.0;
             head.vel.y += 2.0;
-            self.dynamic_run_speed = [2.1 * RUN_SPEED_FAC; 2];
+            self.dynamic_run_speed = [2.1 * self.stats.runspeed_fac; 2];
             if self.input[0].y < 0 && self.input[1].y == 0 {
                 self.animation = Animation::None;
             }

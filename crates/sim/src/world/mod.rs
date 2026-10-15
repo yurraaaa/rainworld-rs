@@ -85,6 +85,8 @@ pub struct World {
     /// The slugcat's body as the flies' graphics read their grabber, kept current by the
     /// game.
     pub(crate) player_body: Option<crate::creature::fly::PlayerBody>,
+    /// The realized slugcat's `TotalMass` (`0.7 * bodyWeightFac`), kept current by the game.
+    pub(crate) player_mass: f32,
     /// `RegionState.loadedCreatures`: creatures read from the save, until saved again.
     loaded_creatures: Vec<CreatureId>,
 }
@@ -123,6 +125,7 @@ impl World {
             flocks: Vec::new(),
             drip_ids: 0,
             player_body: None,
+            player_mass: crate::slugcat::CHUNK_MASS * 2.0,
             loaded_creatures: Vec::new(),
         };
         world.index_rooms();

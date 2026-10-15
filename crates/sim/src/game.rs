@@ -28,7 +28,7 @@ use rw_assets::{CreatureType, NodeType, Room, Shortcut, ShortcutType};
 use rw_random::UnityRandom;
 
 use crate::camera::CameraView;
-use crate::campaign::{SlugcatCampaign, StoryStart};
+use crate::campaign::{SlugcatCampaign, SlugcatStats, StoryStart};
 use crate::creature::fly::FlyView;
 use crate::creature::overseer::hologram::{ControlPreset, OverseerHologram};
 use crate::creature::overseer::{
@@ -226,6 +226,9 @@ pub struct RainWorldGame {
     campaign: &'static SlugcatCampaign,
     /// The save state's start values.
     story: StoryStart,
+    /// `session.characterStats`: `new SlugcatStats(name, saveState.malnourished)`,
+    /// replaced by `SetMalnourished`.
+    character_stats: SlugcatStats,
     world: World,
     shortcuts: ShortcutHandler,
     /// `None` in a single-room world.
@@ -350,9 +353,15 @@ impl RainWorldGame {
         let player_id = world.insert_creature(player);
         world.add_entity(player_id);
         let realizer = (!world.single_room()).then(RoomRealizer::new);
+        let character_stats = if story.malnourished {
+            campaign.stats.malnourished()
+        } else {
+            campaign.stats
+        };
         let mut game = Self {
             campaign,
             story,
+            character_stats,
             world,
             shortcuts: ShortcutHandler::new(),
             realizer,
@@ -535,6 +544,8 @@ impl RainWorldGame {
     /// The `Player` constructor, its graphics module, then `PlaceInRoom` on `tile`.
     fn spawn_player(&mut self, tile: (i32, i32), observer: &mut dyn PlayerObserver) {
         let mut player = Player::create(&mut self.rng);
+        player.set_stats(self.character_stats);
+        self.world.player_mass = player.total_mass();
         self.karma_flower_grow_pos = None;
         self.player_wakes_in_shelter(&mut player);
         observer.created(&player, &mut self.rng);
@@ -1370,6 +1381,14 @@ impl RainWorldGame {
         self.report_spawn_room(index);
         self.player_sleep_update(room, input);
         self.player_map_discovery(index, room, moved);
+        let sounds = if index == self.camera_room {
+            &mut self.sounds
+        } else {
+            &mut self.silent
+        };
+        if let Some(p) = self.player.as_mut() {
+            p.exhaustion_update(&mut self.rng, sounds);
+        }
         self.update_karma_flower_grow_pos(index, room);
         let water = self.world.realized_mut(index).and_then(|r| r.water.take());
         let ceiling_drips = self

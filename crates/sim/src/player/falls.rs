@@ -61,12 +61,14 @@ impl Player {
         self.stun
     }
 
-    /// `Player.Stun`: keeps the longer of the current and the new stun; a stun longer
+    /// `Player.Stun`: keeps the longer of the current and the new stun (1.5 times as
+    /// long malnourished, twice exhausted); a stun longer
     /// than a random 5..=11 ticks also drops what the hands hold (`LoseAllGrasps`), stops
     /// standing and releases the feet pin. A new
     /// longer stun above 10 plays `UI_Slugcat_Stunned_Init` (silent in the shipped game).
     pub fn stun(&mut self, ticks: i32, rng: &mut UnityRandom, sounds: &mut Sounds) {
         self.flush_sounds(rng, sounds);
+        let ticks = self.stun_multiplied(ticks);
         if ticks > rng.range_i32(UNSTAND_STUN_DRAW.0, UNSTAND_STUN_DRAW.1) {
             self.request_release_grasps();
             self.standing = false;
@@ -80,6 +82,16 @@ impl Player {
         }
         self.stun = self.stun.max(ticks);
         self.flush_sounds(rng, sounds);
+    }
+
+    /// `Mathf.RoundToInt(st * (exhausted ? 2 : 1.5))` when malnourished.
+    #[must_use]
+    pub fn stun_multiplied(&self, ticks: i32) -> i32 {
+        if !self.malnourished() {
+            return ticks;
+        }
+        let fac = if self.exhausted { 2.0 } else { 1.5 };
+        (ticks as f32 * fac).round_ties_even() as i32
     }
 
     /// `Player.Die`: the first call asks the game for `GameOver` (see

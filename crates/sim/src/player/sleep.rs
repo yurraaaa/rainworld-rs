@@ -76,11 +76,6 @@ impl Player {
         self.touched_no_input_counter
     }
 
-    /// `Player.Malnourished` (`slugcatStats.malnourished`).
-    pub fn set_malnourished(&mut self, malnourished: bool) {
-        self.malnourished = malnourished;
-    }
-
     /// The constructor in a shelter with no creature but slugcats: wakes up lying down.
     pub fn start_asleep(&mut self) {
         self.sleep_counter = WAKE_UP_START;
@@ -114,7 +109,9 @@ impl Player {
             }
         } else if self.sleep_counter > 0 {
             self.wake_up(room, raw, tile, rng);
-            if self.sleep_counter == 0 && !self.standing && !self.malnourished {
+            if self.malnourished() {
+                self.aerobic_level = 0.75 * (1.0 - self.sleep_curl_up);
+            } else if self.sleep_counter == 0 && !self.standing {
                 self.animation = Animation::StandUp;
                 self.standing = true;
             }
@@ -131,7 +128,7 @@ impl Player {
     /// The `sleepCounter > 0` branch: lie down at 100, wait at 99 for input (or lose the
     /// ground), then uncurl over 17 ticks (40 malnourished).
     fn wake_up(&mut self, room: &Room, raw: Input, tile: (i32, i32), rng: &mut UnityRandom) {
-        let uncurl = if self.malnourished { 40 } else { 17 };
+        let uncurl = if self.malnourished() { 40 } else { 17 };
         if self.sleep_counter == WAKE_UP_START {
             self.standing = false;
             let middle = Vec2::middle_of_tile(tile);

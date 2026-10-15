@@ -99,6 +99,9 @@ pub struct NewGameParams {
     pub slugcat: String,
     /// Seed of the game's random stream (default 1).
     pub seed: Option<u64>,
+    /// Start as a saved story in a malnourished cycle (`saveState.malnourished`), at
+    /// the start den (a dev aid; default false).
+    pub malnourished: Option<bool>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, JsonSchema)]

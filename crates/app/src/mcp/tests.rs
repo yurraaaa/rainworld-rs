@@ -547,6 +547,7 @@ fn su_c04_start_up_ticks(slugcat: &str) {
     s.new_game(&super::params::NewGameParams {
         slugcat: slugcat.to_owned(),
         seed: Some(1),
+        malnourished: None,
     })
     .expect("new game");
     let first = s.run(1, RIGHT);
@@ -630,6 +631,7 @@ fn hunter_start_has_no_start_up_script() {
     s.new_game(&super::params::NewGameParams {
         slugcat: "Red".to_owned(),
         seed: Some(1),
+        malnourished: None,
     })
     .expect("new game");
     let st = s.run(219, RIGHT);
@@ -668,6 +670,7 @@ fn new_game_hud_and_controls_page() {
     s.new_game(&super::params::NewGameParams {
         slugcat: "White".to_owned(),
         seed: Some(1),
+        malnourished: None,
     })
     .expect("new game");
     let still = InputParam::default();

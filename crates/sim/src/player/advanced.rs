@@ -115,6 +115,8 @@ impl Player {
         let dir = self.roll_direction;
         let d = dir as f32;
         let gravity = self.body.params.gravity;
+        // `AerobicIncrease(0.01)`, which the game makes after the push.
+        self.aerobic_increase(0.01);
         let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
         let perp = (hips.pos - head.pos).perpendicular();
         head.vel *= 0.9;

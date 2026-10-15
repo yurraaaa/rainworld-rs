@@ -71,3 +71,44 @@ fn character_stats_follow_the_saved_malnourishment() {
     assert_eq!((stats.max_food, stats.food_to_hibernate), (9, 9));
     assert!(stats.malnourished);
 }
+
+#[test]
+fn a_full_stomach_cures_malnourishment() {
+    // `AddFood`: at `maxFood` a malnourished slugcat calls `SetMalnourished(false)`;
+    // `saveState.malnourished` stays until the cycle ends.
+    let survivor = &SlugcatCampaign::SURVIVOR;
+    let story = StoryStart {
+        malnourished: true,
+        ..StoryStart::new_game(survivor)
+    };
+    let mut g = story_game(survivor, story);
+    for _ in 0..2 {
+        g.tick(crate::Input::NONE, &mut ());
+    }
+    let p = g.player().expect("player");
+    assert!(p.malnourished());
+    assert!((p.total_mass() - 0.63).abs() < 1e-6);
+    g.set_food_in_stomach(6);
+    g.add_food(1);
+    assert_eq!(g.food_in_stomach(), 7);
+    let p = g.player().expect("player");
+    assert!(!p.malnourished());
+    assert!((p.total_mass() - 0.7).abs() < 1e-6);
+    assert_eq!(p.stats().runspeed_fac, 1.0);
+    assert_eq!(g.character_stats().food_to_hibernate, 4);
+    assert!(g.story().malnourished);
+}
+
+#[test]
+fn short_of_a_full_stomach_stays_malnourished() {
+    let survivor = &SlugcatCampaign::SURVIVOR;
+    let story = StoryStart {
+        malnourished: true,
+        ..StoryStart::new_game(survivor)
+    };
+    let mut g = story_game(survivor, story);
+    g.tick(crate::Input::NONE, &mut ());
+    g.add_food(6);
+    assert!(g.player().expect("player").malnourished());
+    assert_eq!(g.character_stats().food_to_hibernate, 7);
+}

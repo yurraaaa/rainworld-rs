@@ -193,7 +193,21 @@ impl Session {
     /// On an unknown slugcat, or when the world does not load.
     pub fn new_game(&mut self, params: &NewGameParams) -> Result<RoomInfo, String> {
         let name = Self::slugcat_named(&params.slugcat)?;
-        self.start_game(GameStart::NewStory(name), params.seed.unwrap_or(1))?;
+        let start = if params.malnourished == Some(true) {
+            let campaign = SlugcatCampaign::of(name, rw_assets::ActiveMods::NONE)
+                .ok_or_else(|| format!("no campaign for {name}"))?;
+            let story = rw_sim::campaign::StoryStart {
+                malnourished: true,
+                ..rw_sim::campaign::StoryStart::new_game(campaign)
+            };
+            GameStart::SavedStory {
+                slugcat: name,
+                story: Box::new(story),
+            }
+        } else {
+            GameStart::NewStory(name)
+        };
+        self.start_game(start, params.seed.unwrap_or(1))?;
         self.room_info()
     }
 
@@ -1081,6 +1095,9 @@ impl PlayerState {
             food: sim.food_in_stomach(),
             quarter_food: sim.quarter_food_points(),
             max_food: sim.max_food(),
+            malnourished: player.malnourished(),
+            aerobic_level: player.aerobic_level(),
+            exhausted: player.exhausted(),
             grasps: sim.player_grasps().map(|g| g.map(|id| id.0)),
             eat_counter: player.grab_state().eat_counter,
             sleep: SleepState {

@@ -215,6 +215,10 @@ pub struct PlayerState {
     pub food: u32,
     pub quarter_food: i32,
     pub max_food: u32,
+    /// `Malnourished`, `aerobicLevel` and `exhausted`.
+    pub malnourished: bool,
+    pub aerobic_level: f32,
+    pub exhausted: bool,
     /// The creature IDs held in each hand.
     pub grasps: [Option<usize>; 2],
     pub eat_counter: i32,

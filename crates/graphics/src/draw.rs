@@ -18,6 +18,8 @@ pub struct Color {
 impl Color {
     pub const WHITE: Self = Self::rgb(1.0, 1.0, 1.0);
     pub const BLACK: Self = Self::rgb(0.0, 0.0, 0.0);
+    /// `Color.gray`.
+    pub const GRAY: Self = Self::rgb(0.5, 0.5, 0.5);
 
     /// Opaque colour.
     #[must_use]

@@ -64,9 +64,8 @@ impl RainWorldGame {
     }
 
     /// The player constructor's `sleepCounter = 100` in a shelter whose room holds no
-    /// creature but slugcats, and its stats' malnourishment.
+    /// creature but slugcats.
     pub(super) fn player_wakes_in_shelter(&mut self, player: &mut Player) {
-        player.set_malnourished(self.story.malnourished);
         let room = self.pos().room;
         if !self.world.abstract_room(room).is_some_and(|r| r.shelter()) {
             return;
@@ -129,14 +128,10 @@ impl RainWorldGame {
     }
 
     /// `session.characterStats`, the slugcat's `slugcatStats` (its malnourished variant
-    /// in a malnourished cycle).
+    /// in a malnourished cycle until a full stomach cures it).
     #[must_use]
     pub fn character_stats(&self) -> crate::campaign::SlugcatStats {
-        if self.story.malnourished {
-            self.campaign.stats.malnourished()
-        } else {
-            self.campaign.stats
-        }
+        self.character_stats
     }
 
     /// `ShelterDoor.Close` of shelter `index`.

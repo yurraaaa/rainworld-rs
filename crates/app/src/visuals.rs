@@ -91,6 +91,13 @@ impl Visuals {
         rw_graphics::Color { r, g, b, a }
     }
 
+    /// The palette's `fogColor` (the malnourished slugcat's eyes are tinted toward it).
+    #[must_use]
+    pub fn fog_color(&self) -> rw_graphics::Color {
+        let [r, g, b, a] = self.palette.fog_color().map(|c| f32::from(c) / 255.0);
+        rw_graphics::Color { r, g, b, a }
+    }
+
     /// The camera's `RoomPalette` (water colours among others).
     #[must_use]
     pub fn room_palette(&self) -> rw_assets::RoomPalette {
