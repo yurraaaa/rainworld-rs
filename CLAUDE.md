@@ -116,8 +116,9 @@ recommendation. Nothing is ported before the user agrees.
   - A story starts at the campaign's start den in its region's world;
     room-exit shortcuts carry the player between the region's rooms, which
     load synchronously (D14). The population is generated with the
-    game's draws but only overseers leave their dens (abstract AI only;
-    a realized overseer is a frozen placeholder). Gates, region changes,
+    game's draws but only overseers leave their dens; overseers have their
+    body, AI, graphics and the guide's tutorial text, not yet holograms.
+    Gates, region changes,
     the rain and saves are not there yet.
   - Death freezes the body until R respawns it (revisit once the real
     game loop exists). A body that falls out of the room is destroyed,
