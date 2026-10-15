@@ -801,7 +801,7 @@ impl Menu {
         };
         let flats: Vec<ObjectId> = match (depth, scene.slide_show_layers()) {
             (Some(table), _) => {
-                self.build_depth_scene(shared, id, &table, false);
+                self.build_depth_scene(shared, id, &table, false, false);
                 Vec::new()
             }
             (None, FlatLayers::None) => Vec::new(),
