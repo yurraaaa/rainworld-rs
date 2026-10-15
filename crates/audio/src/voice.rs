@@ -76,6 +76,16 @@ impl Emitters {
         self.0.retain(|_, e| e.chunk.is_none());
     }
 
+    /// The emitters of bodies other than the player's die.
+    pub fn clear_objects(&mut self) {
+        self.0.retain(|_, e| e.chunk.is_some());
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     /// `ChunkSoundEmitter.Update`: follow the chunks.
     pub fn follow(&mut self, chunks: &[BodyChunk]) {
         for e in self.0.values_mut() {

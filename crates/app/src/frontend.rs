@@ -505,7 +505,7 @@ impl MainLoopProcess<AppContext> for GameProcess {
         if self.scene.take_entered_room()
             && let Some(audio) = &mut ctx.audio
         {
-            audio.set_ambients(&self.scene.game().settings().ambient_sounds);
+            audio.new_room(&self.scene.game().settings().ambient_sounds);
         }
         self.hear_tick(ctx, events);
         self.scene.paused = self.pause_menu.is_some();
@@ -526,7 +526,11 @@ impl MainLoopProcess<AppContext> for GameProcess {
         }
     }
 
+    /// `RainWorldGame.ShutDownProcess`: the camera's microphone goes `AllQuiet`.
     fn shut_down(&mut self, ctx: &mut AppContext) {
+        if let Some(audio) = &mut ctx.audio {
+            audio.all_quiet();
+        }
         if let Some(menu) = &mut self.pause_menu {
             menu.shut_down();
         }

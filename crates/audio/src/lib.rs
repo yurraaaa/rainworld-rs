@@ -142,15 +142,48 @@ struct AmbientSource {
     source: Option<Source>,
 }
 
-/// The audio output: the microphone, its sound objects and ambient loops.
-pub struct Audio {
-    manager: AudioManager<CpalOutput>,
-    clips: ClipLoader,
-    table: Arc<SoundTable>,
+/// The game camera's `VirtualMicrophone`: its sound objects, the emitters they follow
+/// and the ambient loops.
+struct GameSounds {
     mic: Microphone,
     emitters: Emitters,
     voices: Vec<Playing>,
     ambients: Vec<AmbientSource>,
+}
+
+impl GameSounds {
+    fn new(exponent: f32) -> Self {
+        Self {
+            mic: Microphone::new(exponent),
+            emitters: Emitters::default(),
+            voices: Vec::new(),
+            ambients: Vec::new(),
+        }
+    }
+
+    /// `VirtualMicrophone.AllQuiet` at `RainWorldGame.ShutDownProcess`: every sound
+    /// object and ambient loop is destroyed; the next game's camera has a new microphone.
+    fn all_quiet(&mut self) {
+        let sources = self.voices.drain(..).filter_map(|p| p.source);
+        for source in sources.chain(self.ambients.drain(..).filter_map(|a| a.source)) {
+            source.stop();
+        }
+        *self = Self::new(self.mic.exponent());
+    }
+
+    /// The camera left the room: `ObjectSound`s no longer refresh their emitters'
+    /// `soundStillPlaying`, so the old room's object emitters and their sounds die.
+    fn leave_room(&mut self) {
+        self.emitters.clear_objects();
+    }
+}
+
+/// The audio output: the game's microphone, its sound objects and ambient loops.
+pub struct Audio {
+    manager: AudioManager<CpalOutput>,
+    clips: ClipLoader,
+    table: Arc<SoundTable>,
+    game: GameSounds,
     /// `Time.time` zero.
     start: Instant,
 }
@@ -186,11 +219,8 @@ impl Audio {
                 assets.asset_bundle("loadedsoundeffects"),
                 assets.asset_bundle("loadedsoundeffects_ambient"),
             ),
-            mic: Microphone::new(table.volume_exponent),
+            game: GameSounds::new(table.volume_exponent),
             table,
-            emitters: Emitters::default(),
-            voices: Vec::new(),
-            ambients: Vec::new(),
             start: Instant::now(),
         })
     }
@@ -203,7 +233,7 @@ impl Audio {
     /// as `OMNI` (taking its volume and pitch), replaces everything else.
     pub fn set_ambients(&mut self, sounds: &[AmbientSound]) {
         let mut kept = Vec::new();
-        for a in self.ambients.drain(..) {
+        for a in self.game.ambients.drain(..) {
             if sounds
                 .iter()
                 .any(|s| AmbientPlayer::carries_over(&a.player.sound, s))
@@ -225,13 +255,26 @@ impl Audio {
             }
             let player = AmbientPlayer::new(s.clone(), now);
             log::info!("ambient {} ({:?}, volume {})", s.sample, s.kind, s.volume);
-            self.ambients.push(AmbientSource {
+            self.game.ambients.push(AmbientSource {
                 clip: ClipKey::Ambient(player.clip_name().to_owned()),
                 player,
                 source: None,
             });
         }
-        self.ambients.extend(kept);
+        self.game.ambients.extend(kept);
+    }
+
+    /// The camera moved to another room: the old room's object sounds end and the
+    /// ambient loops change.
+    pub fn new_room(&mut self, sounds: &[AmbientSound]) {
+        self.game.leave_room();
+        self.set_ambients(sounds);
+    }
+
+    /// The game process shuts down: every game sound stops (menu sounds and music
+    /// play on).
+    pub fn all_quiet(&mut self) {
+        self.game.all_quiet();
     }
 
     /// One game tick: the microphone, the chunk emitters following `chunks` (`None`
@@ -243,13 +286,13 @@ impl Audio {
         chunks: Option<&[BodyChunk]>,
         water: Option<&Water>,
     ) {
-        self.mic.tick(listener, water);
+        self.game.mic.tick(listener, water);
         match chunks {
-            Some(chunks) => self.emitters.follow(chunks),
-            None => self.emitters.clear_chunks(),
+            Some(chunks) => self.game.emitters.follow(chunks),
+            None => self.game.emitters.clear_chunks(),
         }
         self.play_events(events, chunks);
-        self.emitters.end_tick();
+        self.game.emitters.end_tick();
     }
 
     /// A tick's sound calls without the microphone's update or the emitters' moves: a
@@ -262,7 +305,7 @@ impl Audio {
                     if chunks.is_none() && matches!(sound.source, SoundSource::Chunk { .. }) {
                         continue;
                     }
-                    self.emitters.insert_for(&sound, chunks);
+                    self.game.emitters.insert_for(&sound, chunks);
                     if !self.allow_sound(sound.id) {
                         log::debug!("<CAP> {}", sound.id.name());
                         continue;
@@ -281,24 +324,27 @@ impl Audio {
                         sound.pitch * sound.emitter_pitch
                     );
                     let key = ClipKey::Effect(variation.asset.clone());
-                    self.voices.push(Playing {
-                        voice: Voice::new(sound, &self.mic, now),
+                    self.game.voices.push(Playing {
+                        voice: Voice::new(sound, &self.game.mic, now),
                         clip: key,
                         source: None,
                     });
                 }
-                SoundEvent::Emitter { id, volume, pitch } => self.emitters.set(id, volume, pitch),
-                SoundEvent::Stop(id) => self.emitters.remove(id),
-                SoundEvent::Moved { id, pos } => self.emitters.moved(id, pos),
-                SoundEvent::OwnerRemoved => self.emitters.clear_chunks(),
+                SoundEvent::Emitter { id, volume, pitch } => {
+                    self.game.emitters.set(id, volume, pitch)
+                }
+                SoundEvent::Stop(id) => self.game.emitters.remove(id),
+                SoundEvent::Moved { id, pos } => self.game.emitters.moved(id, pos),
+                SoundEvent::OwnerRemoved => self.game.emitters.clear_chunks(),
             }
         }
     }
 
     /// `AllowSound`'s cap on sounds of one ID in a crowded room.
     fn allow_sound(&self, id: rw_sim::SoundId) -> bool {
-        let total = self.voices.len();
+        let total = self.game.voices.len();
         let same = self
+            .game
             .voices
             .iter()
             .filter(|p| p.voice.sound.id == id)
@@ -315,8 +361,8 @@ impl Audio {
     /// The pause menu's hold on the microphone: the volume of every group but 1 and the
     /// `timeSpeed` of positioned and ambient sounds' pitch (both 1 without it).
     pub fn set_pause_mix(&mut self, volume: f32, time_speed: f32) {
-        self.mic.pause_volume = volume;
-        self.mic.time_speed = time_speed;
+        self.game.mic.pause_volume = volume;
+        self.game.mic.time_speed = time_speed;
     }
 
     /// One drawn frame, `time_stacker` between the last two ticks: every source's
@@ -324,13 +370,17 @@ impl Audio {
     pub fn frame(&mut self, time_stacker: f32, water: Option<&Water>) {
         self.clips.poll();
         let now = self.now();
-        let mut mixes = Vec::with_capacity(self.voices.len());
+        let mut mixes = Vec::with_capacity(self.game.voices.len());
         let mut i = 0;
-        while i < self.voices.len() {
-            let p = &mut self.voices[i];
-            let mix = p
-                .voice
-                .mix(&self.mic, &self.emitters, time_stacker, now, water);
+        while i < self.game.voices.len() {
+            let p = &mut self.game.voices[i];
+            let mix = p.voice.mix(
+                &self.game.mic,
+                &self.game.emitters,
+                time_stacker,
+                now,
+                water,
+            );
             let ended = p.source.as_ref().is_some_and(Source::finished)
                 || matches!(self.clips.get(&p.clip), ClipSlot::Missing);
             match mix {
@@ -339,7 +389,7 @@ impl Audio {
                     i += 1;
                 }
                 _ => {
-                    if let Some(source) = self.voices.swap_remove(i).source {
+                    if let Some(source) = self.game.voices.swap_remove(i).source {
                         source.stop();
                     }
                 }
@@ -350,7 +400,7 @@ impl Audio {
         for &virtual_voice in order.iter().skip(REAL_VOICES) {
             mixes[virtual_voice].volume = 0.0;
         }
-        for (p, mix) in self.voices.iter_mut().zip(mixes) {
+        for (p, mix) in self.game.voices.iter_mut().zip(mixes) {
             match &mut p.source {
                 Some(source) => source.apply(mix),
                 None => {
@@ -367,9 +417,9 @@ impl Audio {
                 }
             }
         }
-        let listener = self.mic.listener_at(time_stacker);
-        for a in &mut self.ambients {
-            let mix = a.player.mix(&self.mic, listener, now);
+        let listener = self.game.mic.listener_at(time_stacker);
+        for a in &mut self.game.ambients {
+            let mix = a.player.mix(&self.game.mic, listener, now);
             match &mut a.source {
                 Some(source) => source.apply(mix),
                 None => {
@@ -388,17 +438,83 @@ impl Audio {
             }
         }
         let used: Vec<_> = self
+            .game
             .voices
             .iter()
             .filter_map(|p| p.voice.emitter())
             .collect();
-        self.emitters.prune(&used);
+        self.game.emitters.prune(&used);
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::Audio;
+    use rw_assets::AmbientSound;
+    use rw_sim::{EmitterId, PlayedSound, SoundId, SoundSource, Vec2};
+
+    use super::*;
+
+    impl GameSounds {
+        /// Starts a looped sound on a new object emitter, as the shelter door's working
+        /// loop does, with an ambient loop beside it.
+        fn with_door_loop() -> Self {
+            let mut game = Self::new(1.8);
+            let sound = PlayedSound {
+                id: SoundId::ShelterWorkingBackgroundLoop,
+                clip: 0,
+                variation: 0,
+                volume: 1.0,
+                pitch: 1.0,
+                range: 1.0,
+                doppler_fac: 0.0,
+                ignore_effects: 0.0,
+                start_at: None,
+                source: SoundSource::Object {
+                    emitter: EmitterId(0),
+                    pos: Vec2::new(100.0, 100.0),
+                },
+                looped: true,
+                emitter_volume: 1.0,
+                emitter_pitch: 1.0,
+            };
+            game.emitters.insert_for(&sound, None);
+            game.voices.push(Playing {
+                voice: Voice::new(sound, &game.mic, 0.0),
+                clip: ClipKey::Effect("SH_Working".to_owned()),
+                source: None,
+            });
+            let ambient = AmbientSound::parse_list("OMNI><AM_ENV-Forest.ogg><0><0><0.5><1.2")
+                .expect("parses")
+                .remove(0);
+            game.ambients.push(AmbientSource {
+                clip: ClipKey::Ambient("AM_ENV-Forest".to_owned()),
+                player: AmbientPlayer::new(ambient, 0.0),
+                source: None,
+            });
+            game
+        }
+    }
+
+    #[test]
+    fn shutting_down_the_game_silences_its_loops() {
+        let mut game = GameSounds::with_door_loop();
+        game.mic.pause_volume = 0.2;
+        game.all_quiet();
+        assert!(game.voices.is_empty());
+        assert!(game.ambients.is_empty());
+        assert!(game.emitters.is_empty());
+        assert_eq!(game.mic.pause_volume, 1.0);
+    }
+
+    #[test]
+    fn leaving_the_room_ends_its_object_sounds() {
+        let mut game = GameSounds::with_door_loop();
+        game.leave_room();
+        let emitters = &game.emitters;
+        let mic = &game.mic;
+        let voice = &mut game.voices[0].voice;
+        assert!(voice.mix(mic, emitters, 1.0, 0.0, None).is_none());
+    }
 
     #[test]
     fn crowded_rooms_cap_sounds_of_one_id() {

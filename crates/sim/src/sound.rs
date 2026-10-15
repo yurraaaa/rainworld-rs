@@ -264,8 +264,13 @@ impl StaticSoundLoop {
 
     /// `Update`: keeps the emitter alive with the current volume and pitch, drops it at
     /// volume 0, or starts the loop (`Room.PlaySound(id, emitter, loop: true, ...)`).
+    ///
+    /// Unheard (the camera is in another room), the game's emitter dies two ticks on
+    /// (`soundStillPlaying`) and is remade without a sound, so it starts again on return.
     pub fn update(&mut self, sounds: &mut Sounds, rng: &mut UnityRandom) {
-        if let Some(emitter) = self.emitter {
+        if !sounds.heard {
+            self.emitter = None;
+        } else if let Some(emitter) = self.emitter {
             if self.volume == 0.0 {
                 sounds.stop_emitter(emitter);
                 self.emitter = None;
@@ -286,6 +291,8 @@ pub struct Sounds {
     table: Arc<SoundTable>,
     events: Vec<SoundEvent>,
     next_emitter: u32,
+    /// The camera's microphone hears these calls (false for the other rooms' sink).
+    heard: bool,
 }
 
 impl Sounds {
@@ -295,6 +302,7 @@ impl Sounds {
             table,
             events: Vec::new(),
             next_emitter: 0,
+            heard: true,
         }
     }
 
@@ -515,7 +523,9 @@ mod tests {
     use rw_assets::{ClipNames, SoundTable};
     use rw_random::UnityRandom;
 
-    use super::{EmitterId, PlayedSound, SoundEvent, SoundId, SoundSource, Sounds};
+    use super::{
+        EmitterId, PlayedSound, SoundEvent, SoundId, SoundSource, Sounds, StaticSoundLoop,
+    };
     use crate::FloatExt;
 
     const TEXT: &str = "Volume: 6\nVolume exponent: 1.8\n\
@@ -583,6 +593,22 @@ mod tests {
             emitter_pitch: 1.2,
         };
         assert_eq!(s.take_events(), [SoundEvent::Play(want)]);
+    }
+
+    #[test]
+    fn a_static_loop_restarts_when_heard_again() {
+        let mut heard = sounds();
+        let mut other_room = Sounds::default();
+        let mut rng = UnityRandom::new(1);
+        let mut l = StaticSoundLoop::new(SoundId::SlugcatWallJump, crate::Vec2::ZERO, 1.0, 1.0);
+        l.update(&mut heard, &mut rng);
+        assert_eq!(l.emitter, Some(EmitterId(0)));
+        l.update(&mut other_room, &mut rng);
+        assert_eq!(l.emitter, None);
+        heard.take_events();
+        l.update(&mut heard, &mut rng);
+        assert_eq!(l.emitter, Some(EmitterId(1)));
+        assert!(matches!(heard.take_events()[..], [SoundEvent::Play(_)]));
     }
 
     #[test]
