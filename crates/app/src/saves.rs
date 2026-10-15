@@ -104,6 +104,10 @@ impl SaveStateStart for SaveState {
             guide_overseer_dead: self.guide_overseer_dead,
             next_issued_id: self.loaded_next_issued_id,
             seed: Some(self.seed),
+            malnourished: self.malnourished,
+            food_replenish_bonus: d.food_replenish_bonus,
+            respawn_creatures: Vec::new(),
+            region_state: None,
         }
     }
 }

@@ -35,6 +35,7 @@ use crate::creature::{
     WorldCoordinate,
 };
 use crate::room_script::{RoomScript, ScriptTick, StorySession};
+use crate::shelter::SessionEnd;
 use crate::shortcut::{CreatureVessel, Transport};
 use crate::world::{AbstractTick, FollowCreature, RainCycle, RoomRealizer, World};
 use crate::{
@@ -265,6 +266,8 @@ pub struct RainWorldGame {
     hud_map: HudMapLink,
     /// Camera 0's `PaletteDarkness()`, as the app last reported it.
     camera_darkness: f32,
+    /// Set when the cycle ends (the shelter closes, the player starves).
+    session_end: Option<SessionEnd>,
 }
 
 impl RainWorldGame {
@@ -359,6 +362,7 @@ impl RainWorldGame {
             map_discovery: MapDiscovery::default(),
             hud_map: HudMapLink::default(),
             camera_darkness: 0.0,
+            session_end: None,
         };
         if let Err(e) = game.world.activate_room(start.room) {
             log::error!("cannot realize the first room: {e}");
@@ -646,6 +650,11 @@ impl RainWorldGame {
             cycle_number: self.story.cycle_number,
             den_position: self.story.den.clone(),
         }
+    }
+
+    /// How the cycle ended, once it has; taken by the process that ends the game.
+    pub fn take_session_end(&mut self) -> Option<SessionEnd> {
+        self.session_end.take()
     }
 
     /// What the game started from.

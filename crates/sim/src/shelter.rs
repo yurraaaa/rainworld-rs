@@ -7,6 +7,17 @@ use rw_assets::{ActiveMods, PlacedObjectType, Room, RoomSettings, Terrain};
 
 use crate::room_ext::RoomExt;
 
+/// How a story cycle ended, for the process the game switches to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SessionEnd {
+    /// `RainWorldGame.Win(malnourished)`: the shelter closed on a living player.
+    Win { malnourished: bool },
+    /// `GoToStarveScreen`.
+    Starve,
+    /// `GoToDeathScreen`.
+    Death,
+}
+
 /// `ShelterDoor`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ShelterDoor;

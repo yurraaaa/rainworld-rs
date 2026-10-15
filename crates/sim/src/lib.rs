@@ -56,6 +56,7 @@ pub use player::{
     VesselStep,
 };
 pub use room_ext::RoomExt;
+pub use shelter::SessionEnd;
 pub use shortcut::{
     CreatureVessel, EntranceColor, LobbyVessel, ShortcutHandler, ShortcutsBlinking, VesselOwner,
 };
