@@ -431,7 +431,9 @@ restrictions (`rainworld-re/notes/water.md`), base game with Remix off, Survivor
   parallel, `OrthoNormalVectorFast` axis when opposite, else an axis-angle turn about
   the cross product (INFERRED: `rainworld-re/notes/overseer.md` §Slerp). Swimming
   straight down while drowning therefore turns about the x axis: the push shrinks,
-  then points up, and the body rises to the surface.
+  then points up, and the body rises to the surface. The game bends the swim
+  direction up as air runs out (`Player` swim, decompile line 90046); the user
+  checked the result by feel against the game (2026-10-15).
 - **Drawing.** The level view draws the water as `Water.DrawSprites` does
   (`rw_render::WaterSprites`, `shaders/water.wgsl`; `rainworld-re/notes/water-rendering.md`):
   both rows with `ApplyDepthOnVector`, the `WaterSurface` band and the `DeepWater` body,
