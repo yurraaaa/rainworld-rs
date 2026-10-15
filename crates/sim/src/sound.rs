@@ -152,6 +152,22 @@ sound_ids! {
     MenuGreyedOutButtonSelectMouse = "MENU_Greyed_Out_Button_Select_Mouse",
     MenuGreyedOutButtonClicked = "MENU_Greyed_Out_Button_Clicked",
     MenuButtonPressInit = "MENU_Button_Press_Init",
+    ShelterBoltOpen = "Shelter_Bolt_Open",
+    ShelterBoltClose = "Shelter_Bolt_Close",
+    ShelterLittleHatchOpen = "Shelter_Little_Hatch_Open",
+    ShelterSegmentPairCollide = "Shelter_Segment_Pair_Collide",
+    ShelterSegmentPairMoveIn = "Shelter_Segment_Pair_Move_In",
+    ShelterSegmentPairMoveOut = "Shelter_Segment_Pair_Move_Out",
+    ShelterPistonInHard = "Shelter_Piston_In_Hard",
+    ShelterPistonInSoft = "Shelter_Piston_In_Soft",
+    ShelterPistonOut = "Shelter_Piston_Out",
+    ShelterProtectiveCoverMoveOut = "Shelter_Protective_Cover_Move_Out",
+    ShelterProtectiveCoverMoveIn = "Shelter_Protective_Cover_Move_In",
+    ShelterProtectiveCoverClickIntoPlace = "Shelter_Protective_Cover_Click_Into_Place",
+    ShelterGasketsSeal = "Shelter_Gaskets_Seal",
+    ShelterGasketsUnseal = "Shelter_Gaskets_Unseal",
+    ShelterWorkingBackgroundLoop = "Shelter_Working_Background_Loop",
+    ShelterGasketMoverLoop = "Shelter_Gasket_Mover_LOOP",
 }
 
 /// A `ChunkSoundEmitter` handle: follows a body chunk; loops are updated and stopped
@@ -221,6 +237,46 @@ pub enum SoundEvent {
     /// The body chunk sounds follow left the room for good (destroyed or replaced):
     /// every chunk emitter dies.
     OwnerRemoved,
+}
+
+/// `StaticSoundLoop`: a looping sound at a fixed position whose emitter is made while
+/// its volume is above 0 and dropped when it falls to 0.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StaticSoundLoop {
+    pub id: SoundId,
+    pub pos: Vec2,
+    pub volume: f32,
+    pub pitch: f32,
+    emitter: Option<EmitterId>,
+}
+
+impl StaticSoundLoop {
+    #[must_use]
+    pub fn new(id: SoundId, pos: Vec2, volume: f32, pitch: f32) -> Self {
+        Self {
+            id,
+            pos,
+            volume,
+            pitch,
+            emitter: None,
+        }
+    }
+
+    /// `Update`: keeps the emitter alive with the current volume and pitch, drops it at
+    /// volume 0, or starts the loop (`Room.PlaySound(id, emitter, loop: true, ...)`).
+    pub fn update(&mut self, sounds: &mut Sounds, rng: &mut UnityRandom) {
+        if let Some(emitter) = self.emitter {
+            if self.volume == 0.0 {
+                sounds.stop_emitter(emitter);
+                self.emitter = None;
+            } else {
+                sounds.update_emitter(emitter, self.volume, self.pitch);
+            }
+        } else if self.volume > 0.0 {
+            self.emitter =
+                Some(sounds.play_on_object(self.id, self.pos, true, self.volume, self.pitch, rng));
+        }
+    }
 }
 
 /// The room's sound calls: the `sounds.txt` table they resolve against, the events

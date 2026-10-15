@@ -21,6 +21,7 @@ mod ledge;
 mod movement;
 mod poles;
 mod shortcut;
+mod sleep;
 mod sounds;
 mod swim;
 #[cfg(test)]
@@ -32,6 +33,7 @@ use rw_random::UnityRandom;
 pub use grab::GrabState;
 pub use input::{INPUT_HISTORY, Input, PlayerController};
 pub use shortcut::VesselStep;
+pub use sleep::ShelterCheck;
 
 use crate::room_ext::RoomExt;
 use crate::shortcut::ShortcutVessel;
@@ -334,6 +336,18 @@ pub struct Player {
     /// draws are made before the next draw of the tick (same order as the game).
     sound_queue: Vec<QueuedSound>,
 
+    /// `sleepCounter`: above 0 waking up in a shelter, below 0 lying down; 0 awake.
+    sleep_counter: i32,
+    sleep_curl_up: f32,
+    sleep_when_still: bool,
+    touched_no_input_counter: i32,
+    force_sleep_counter: i32,
+    ready_for_win: bool,
+    /// True until the first shortcut spits the player out.
+    still_in_start_shelter: bool,
+    /// `Malnourished`.
+    malnourished: bool,
+
     /// The counters `GrabUpdate` keeps.
     pub(crate) grab: GrabState,
     /// `Stun` or `Die` let go of everything (`LoseAllGrasps`); the game applies it.
@@ -449,6 +463,14 @@ impl Player {
             slide_loop: None,
             slide_loop_sound: None,
             sound_queue: Vec::new(),
+            sleep_counter: 0,
+            sleep_curl_up: 0.0,
+            sleep_when_still: false,
+            touched_no_input_counter: 0,
+            force_sleep_counter: 0,
+            ready_for_win: false,
+            still_in_start_shelter: true,
+            malnourished: false,
             grab: GrabState::default(),
             release_grasps: false,
             movement_ran: false,
@@ -658,6 +680,18 @@ impl Player {
         sounds: &mut Sounds,
     ) {
         self.clamp_to_cameras(room);
+        self.update_after_clamp(room, water, rng, sounds);
+    }
+
+    /// [`Player::update_after_catch`] after the camera clamp, where `Player.Update` has its
+    /// shelter block: the creature update, physics or the pull, the state machine.
+    pub(crate) fn update_after_clamp(
+        &mut self,
+        room: &Room,
+        water: Option<&Water>,
+        rng: &mut UnityRandom,
+        sounds: &mut Sounds,
+    ) {
         self.creature_update(water);
         if self.destroyed {
             self.flush_sounds(rng, sounds);
@@ -801,9 +835,9 @@ impl Player {
         };
         self.map_input = self.input[0];
         // `standStillOnMapButton` is set in a story session (the port's only kind): holding
-        // the map button drops the other buttons and blinks (`Sleeping` is not ported).
-        if self.input[0].map {
-            self.input[0] = Input::NONE.with_map(true);
+        // the map button, or sleeping, drops the other buttons and blinks.
+        if self.input[0].map || self.sleeping() {
+            self.input[0] = Input::NONE.with_map(self.input[0].map);
             self.blink(5);
         }
         let [now, prev, prev2, ..] = self.input;
@@ -856,7 +890,7 @@ impl Player {
     }
 
     /// Keeps the head within the horizontal span of the room's cameras.
-    fn clamp_to_cameras(&mut self, room: &Room) {
+    pub(crate) fn clamp_to_cameras(&mut self, room: &Room) {
         let xs = room.cameras().iter().map(|c| c[0]);
         let (Some(min), Some(max)) = (xs.clone().reduce(f32::min), xs.reduce(f32::max)) else {
             return;

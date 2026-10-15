@@ -357,15 +357,22 @@ fn crawl_offsets_follow_the_gait() {
 #[test]
 fn breathing_scales_the_body() {
     // 1 + lerp(-0.05, 0.05, breath) * vert (healthy, awake).
-    assert_close(PlayerGraphics::body_scale_x(0.0, 1.0), 0.95, "exhale");
-    assert_close(PlayerGraphics::body_scale_x(1.0, 1.0), 1.05, "inhale");
-    assert_close(PlayerGraphics::body_scale_x(0.5, 1.0), 1.0, "mid");
+    assert_close(PlayerGraphics::body_scale_x(0.0, 1.0, 0.0), 0.95, "exhale");
+    assert_close(PlayerGraphics::body_scale_x(1.0, 1.0, 0.0), 1.05, "inhale");
+    assert_close(PlayerGraphics::body_scale_x(0.5, 1.0, 0.0), 1.0, "mid");
     assert_close(
-        PlayerGraphics::body_scale_x(1.0, 0.5),
+        PlayerGraphics::body_scale_x(1.0, 0.5, 0.0),
         1.025,
         "half upright",
     );
-    assert_close(PlayerGraphics::body_scale_x(1.0, 0.0), 1.0, "lying");
+    assert_close(PlayerGraphics::body_scale_x(1.0, 0.0, 0.0), 1.0, "lying");
+    // Curled up asleep, lerp(..., 0.15, sleepCurlUp).
+    assert_close(PlayerGraphics::body_scale_x(1.0, 1.0, 1.0), 1.15, "curled");
+    assert_close(
+        PlayerGraphics::body_scale_x(1.0, 1.0, 0.5),
+        1.1,
+        "half curled",
+    );
 }
 
 #[test]

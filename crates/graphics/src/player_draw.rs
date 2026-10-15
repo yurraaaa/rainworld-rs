@@ -67,6 +67,8 @@ struct Frame {
     head: Vec2,
     /// `0.5 + 0.5 sin(breath)`.
     breath: f32,
+    /// `player.sleepCurlUp`.
+    curl: f32,
 }
 
 impl PlayerGraphics {
@@ -84,6 +86,7 @@ impl PlayerGraphics {
             hips: self.draw_positions[1][1].lerp_clamped(self.draw_positions[1][0], t),
             head: self.head.last_pos.lerp_clamped(self.head.pos, t),
             breath: 0.5 + 0.5 * (self.last_breath.lerp_to(self.breath, t) * TAU).sin(),
+            curl: player.sleep_curl_up(),
         };
         if AEROBIC_LEVEL > 0.5 {
             let dir = f.hips.direction_to(f.body);
@@ -143,12 +146,11 @@ impl PlayerGraphics {
         (dist / 2.0).clamp(0.0, 12.0).round_to_int() as usize
     }
 
-    /// Body scale x for breathing phase `breath` (0..1) and uprightness `vert`
-    /// (healthy, awake): `1 + lerp(-0.05, 0.05, breath) * vert`.
+    /// Body scale x for breathing phase `breath` (0..1), uprightness `vert` and
+    /// `sleepCurlUp` (healthy): `1 + lerp(lerp(-0.05, 0.05, breath) * vert, 0.15, curl)`.
     #[must_use]
-    pub fn body_scale_x(breath: f32, vert: f32) -> f32 {
+    pub fn body_scale_x(breath: f32, vert: f32, sleep_curl_up: f32) -> f32 {
         let malnourished = 0.0;
-        let sleep_curl_up = 0.0;
         let thin = (-0.05_f32).lerp_to(-0.15, malnourished);
         1.0 + (thin.lerp_to(0.05, breath) * vert).lerp_to(0.15, sleep_curl_up)
     }
@@ -165,9 +167,9 @@ impl PlayerGraphics {
             Sprite {
                 index: 0,
                 element: BODY_A,
-                pos: Vec2::new(f.body.x, f.body.y + rise),
+                pos: Vec2::new(f.body.x, f.body.y - f.curl * 4.0 + rise),
                 rotation: f.hips.aim_to(f.body),
-                scale: Vec2::new(Self::body_scale_x(f.breath, vert), 1.0),
+                scale: Vec2::new(Self::body_scale_x(f.breath, vert, f.curl), 1.0),
                 anchor: Vec2::new(0.5, 0.789_473_7),
                 color: self.body_color,
                 shader: Shader::Basic,
@@ -176,9 +178,9 @@ impl PlayerGraphics {
             Sprite {
                 index: 1,
                 element: HIPS_A,
-                pos: (f.hips * 2.0 + f.body) * (1.0 / 3.0),
+                pos: (f.hips * 2.0 + f.body) * (1.0 / 3.0) - Vec2::new(0.0, f.curl * 3.0),
                 rotation: f.body.aim_to(tail0),
-                scale: Vec2::new(1.0 + 0.05 * f.breath, 1.0),
+                scale: Vec2::new(1.0 + f.curl * 0.2 + 0.05 * f.breath, 1.0 + f.curl * 0.2),
                 anchor: CENTRE,
                 color: self.body_color,
                 shader: Shader::Basic,
@@ -223,7 +225,8 @@ impl PlayerGraphics {
     }
 
     /// Head (3) and face (9): the head frame follows the angle from the body's middle
-    /// to the head; the face frame looks along the head, closed while blinking.
+    /// to the head; the face frame looks along the head, closed while blinking. Curled
+    /// up asleep, the head turns sideways and tucks in, eyes down.
     fn head_sprites(
         &mut self,
         player: &Player,
@@ -231,13 +234,25 @@ impl PlayerGraphics {
         t: f32,
         face_color: Color,
     ) -> [Sprite; 2] {
-        let angle = f.body.lerp(f.hips, 0.5).aim_to(f.head);
+        let mut angle = f.body.lerp(f.hips, 0.5).aim_to(f.head);
         let facing = if angle < 0.0 { -1.0 } else { 1.0 };
         let mut head_frame = Self::head_frame(angle);
-        let mut look = self.last_look_dir.lerp_clamped(self.look_direction, t) * 3.0;
+        let mut head = f.head;
+        let mut look =
+            self.last_look_dir.lerp_clamped(self.look_direction, t) * (3.0 * (1.0 - f.curl));
         let faces = if self.blink > 0 { &FACE_B } else { &FACE_A };
         let (face_element, face_rotation);
-        if player.is_conscious() {
+        if f.curl > 0.0 {
+            head_frame = (7.0_f32.lerp_to(4.0, f.curl) as usize).min(8);
+            let side = (f.body.x - f.hips.x).unity_sign();
+            self.sprites.face_scale_x = side;
+            let frame = (head_frame as f32).lerp_to(1.0, f.curl) as usize;
+            face_element = faces[frame.min(faces.len() - 1)];
+            face_rotation = angle * (1.0 - f.curl);
+            angle = angle.lerp_to(45.0 * side, f.curl);
+            head += Vec2::new(side * 2.0 * f.curl, f.curl);
+            look -= Vec2::new(4.0 * side * f.curl, 2.0 * f.curl);
+        } else if player.is_conscious() {
             let sideways =
                 player.body_mode() == BodyMode::Stand && player.input_history()[0].x != 0;
             if sideways || player.body_mode() == BodyMode::Crawl {
@@ -275,9 +290,9 @@ impl PlayerGraphics {
             Sprite {
                 index: 3,
                 element: HEAD_A[head_frame],
-                pos: f.head,
+                pos: head,
                 rotation: angle,
-                scale: Vec2::new(facing, 1.0),
+                scale: Vec2::new(if angle < 0.0 { -1.0 } else { 1.0 }, 1.0),
                 anchor: CENTRE,
                 color: self.body_color,
                 shader: Shader::Basic,
@@ -286,7 +301,7 @@ impl PlayerGraphics {
             Sprite {
                 index: 9,
                 element: face_element,
-                pos: f.head + look + Vec2::new(0.0, -2.0),
+                pos: head + look + Vec2::new(0.0, -2.0),
                 rotation: face_rotation,
                 scale: Vec2::new(self.sprites.face_scale_x, 1.0),
                 anchor: CENTRE,

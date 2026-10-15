@@ -20,9 +20,9 @@ use rw_menu::{
 };
 use rw_random::UnityRandom;
 use rw_render::{Camera, Color, MapGlobals, Renderer, Resolution, StageBatch, StageGlobals};
+use rw_save::WinOutcome;
 use rw_save::{CampaignStart, SaveSlot};
 use rw_sim::campaign::SlugcatCampaign;
-use rw_save::WinOutcome;
 use rw_sim::world::RegionState;
 use rw_sim::{SessionEnd, SoundId, Vec2};
 
@@ -240,9 +240,12 @@ impl AppContext {
                                 .is_some()
                         });
                         let mut story = state.story_start(den, in_memory);
-                        story.live_region_state = carried
-                            .filter(|r| story.den.split('_').next() == Some(&r.region_name));
-                        GameStart::SavedStory { slugcat, story }
+                        story.live_region_state =
+                            carried.filter(|r| story.den.split('_').next() == Some(&r.region_name));
+                        GameStart::SavedStory {
+                            slugcat,
+                            story: Box::new(story),
+                        }
                     }
                     other => {
                         log::error!("no {slugcat} save to continue ({other:?}); a new game");
@@ -267,6 +270,12 @@ impl AppContext {
         if let Some((_, campaign)) = story {
             let load = condition == StoryGameInitCondition::Load;
             let seed = game.sim().save_state_seed();
+            let world_version = std::fs::read_to_string(
+                self.menu.assets.resolve_file_path("World/worldVersion.txt"),
+            )
+            .ok()
+            .and_then(|v| v.trim().parse().ok())
+            .unwrap_or(0);
             match self.menu.saves.get_or_initiate_save_state(
                 Self::campaign_start(campaign),
                 seed,
@@ -274,7 +283,8 @@ impl AppContext {
                 true,
             ) {
                 Ok(state) if load => fade_in_time = state.slow_fade_in(),
-                Ok(_) => {}
+                // `new SaveState`: `RainWorld.worldVersion` (`World/worldVersion.txt`).
+                Ok(state) => state.world_version = world_version,
                 Err(e) => log::error!("the {} save state: {e}", campaign.name),
             }
         }
@@ -488,6 +498,7 @@ impl MainLoopProcess<AppContext> for GameProcess {
         }
         self.last_pause_button = pause;
         let events = self.scene.update_rooms(input, &mut ctx.menu, opened);
+        self.report_progression(ctx);
         if let Some(end) = self.scene.game_mut().sim_mut().take_session_end() {
             self.end_session(end, ctx, requests);
         }
@@ -601,6 +612,22 @@ impl GameProcess {
         requests.switch_to(ProcessId::MainMenu);
     }
 
+    /// What the tick tells the progression: shelters entered (`TempDiscoverShelter`)
+    /// and the regions whose shelter door closed (`regionsVisited`).
+    fn report_progression(&mut self, ctx: &mut AppContext) {
+        let sim = self.scene.game_mut().sim_mut();
+        if !sim.is_story_session() {
+            return;
+        }
+        let slugcat = sim.campaign().name;
+        for shelter in sim.take_entered_shelters() {
+            ctx.menu.saves.temp_discover_shelter(&shelter);
+        }
+        for region in sim.take_closed_shelter_regions() {
+            ctx.menu.saves.misc.add_region_visited(&region, slugcat);
+        }
+    }
+
     /// The end of a story cycle: `Win` saves and goes to the sleep screen (or a dream);
     /// starving and dying go to their screens, which are not ported (D16).
     fn end_session(
@@ -621,20 +648,20 @@ impl GameProcess {
                     sim: self.scene.game_mut().sim_mut(),
                     assets: &assets,
                 };
-                let next = match game.win(&mut ctx.menu.saves, malnourished, &mut ctx.save_backed_up)
-                {
-                    Ok((outcome, region)) => {
-                        ctx.carried_region_state = region;
-                        match outcome {
-                            WinOutcome::Dream(_) => ProcessId::Dream,
-                            WinOutcome::SleepScreen => ProcessId::SleepScreen,
+                let next =
+                    match game.win(&mut ctx.menu.saves, malnourished, &mut ctx.save_backed_up) {
+                        Ok((outcome, region)) => {
+                            ctx.carried_region_state = region;
+                            match outcome {
+                                WinOutcome::Dream(_) => ProcessId::Dream,
+                                WinOutcome::SleepScreen => ProcessId::SleepScreen,
+                            }
                         }
-                    }
-                    Err(e) => {
-                        log::error!("saving the cycle: {e}");
-                        ProcessId::SleepScreen
-                    }
-                };
+                        Err(e) => {
+                            log::error!("saving the cycle: {e}");
+                            ProcessId::SleepScreen
+                        }
+                    };
                 requests.switch_to(next);
             }
             SessionEnd::Starve => {

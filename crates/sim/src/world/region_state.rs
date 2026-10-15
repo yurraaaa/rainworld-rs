@@ -131,7 +131,11 @@ impl RegionState {
                 "SWARMROOMS" => {
                     state.swarm_room_counters = Self::string_int_dict(value);
                     for room in data.swarm_rooms.iter().filter_map(|&r| data.room(r)) {
-                        if !state.swarm_room_counters.iter().any(|(n, _)| *n == room.name) {
+                        if !state
+                            .swarm_room_counters
+                            .iter()
+                            .any(|(n, _)| *n == room.name)
+                        {
                             state.swarm_room_counters.push((room.name.clone(), 0));
                         }
                     }

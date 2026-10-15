@@ -47,7 +47,10 @@ impl World {
         }
         let mut fresh = fresh;
         if !fresh && self.population_needs_reset(&spawners, region, cx.respawn) {
-            log::warn!("no spawners active in {}: resetting its spawns", self.data.name);
+            log::warn!(
+                "no spawners active in {}: resetting its spawns",
+                self.data.name
+            );
             self.clear_population(&cx.session.den_position);
             fresh = true;
         }
@@ -75,7 +78,12 @@ impl World {
     /// The unfresh check: creatures on nodes past their room's, or no spawner with
     /// anything to respawn while the rooms (shelters aside) hold at most 30% of the
     /// spawner count. The respawn list is left as it was.
-    fn population_needs_reset(&self, spawners: &[CreatureSpawner], region: i32, respawn: &[i32]) -> bool {
+    fn population_needs_reset(
+        &self,
+        spawners: &[CreatureSpawner],
+        region: i32,
+        respawn: &[i32],
+    ) -> bool {
         let mut count = 0;
         let mut invalid = false;
         for (l, room) in self.data.rooms.iter().enumerate() {
@@ -84,14 +92,10 @@ impl World {
                 count += lists.creatures.len() + lists.in_dens.len();
             }
             let nodes = i32::try_from(room.nodes.len()).unwrap_or(i32::MAX);
-            invalid |= lists
-                .creatures
-                .iter()
-                .chain(&lists.in_dens)
-                .any(|&c| {
-                    let n = self.creature(c).pos.node;
-                    n > 0 && n >= nodes
-                });
+            invalid |= lists.creatures.iter().chain(&lists.in_dens).any(|&c| {
+                let n = self.creature(c).pos.node;
+                n > 0 && n >= nodes
+            });
         }
         let low = count as f32 <= (spawners.len() as f32 * 0.3).floor();
         let any = spawners.is_empty()

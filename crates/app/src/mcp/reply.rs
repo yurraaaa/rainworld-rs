@@ -61,6 +61,16 @@ pub struct State {
     pub creatures: Vec<CreatureInfo>,
     /// `world.rainCycle`.
     pub rain: RainState,
+    /// The camera room's shelter door, when it has one.
+    pub shelter_door: Option<ShelterDoorState>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ShelterDoorState {
+    /// `closedFac`: 0 open, 1 shut.
+    pub closed_fac: f32,
+    /// `closeSpeed`: negative while opening, positive while closing.
+    pub close_speed: f32,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -208,6 +218,19 @@ pub struct PlayerState {
     /// The creature IDs held in each hand.
     pub grasps: [Option<usize>; 2],
     pub eat_counter: i32,
+    pub sleep: SleepState,
+}
+
+/// The player's shelter sleep and hibernation counters.
+#[derive(Debug, Clone, Serialize)]
+pub struct SleepState {
+    pub sleep_counter: i32,
+    pub sleep_curl_up: f32,
+    pub sleep_when_still: bool,
+    pub touched_no_input_counter: i32,
+    pub force_sleep_counter: i32,
+    pub ready_for_win: bool,
+    pub still_in_start_shelter: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

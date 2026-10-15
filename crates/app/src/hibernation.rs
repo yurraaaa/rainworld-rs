@@ -56,8 +56,11 @@ impl HibernationWorld for HibernatingGame<'_> {
     }
 
     fn default_alignments(&self) -> String {
-        std::fs::read_to_string(self.assets.resolve_file_path("World/default alignments.txt"))
-            .unwrap_or_default()
+        std::fs::read_to_string(
+            self.assets
+                .resolve_file_path("World/default alignments.txt"),
+        )
+        .unwrap_or_default()
     }
 
     /// `TrySetVanillaDen`: `World/<prefix>-Rooms/<room>.txt` or
@@ -134,5 +137,198 @@ impl SessionRecordSource for RainWorldGame {
             record.add_eat((id.spawner, id.number), rw_save::session::EatenKind::Meat);
         }
         record
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
+    use rw_assets::world::{
+        GameRooms, LineFilter, RoomSource, StoryConditions, WorldData, WorldRequest,
+    };
+    use rw_assets::{ActiveMods, tile_centre};
+    use rw_save::{CampaignStart, ChecksumSalt};
+    use rw_sim::campaign::{SlugcatCampaign, StoryStart};
+    use rw_sim::shelter::{SessionEnd, ShelterDoor};
+    use rw_sim::world::World;
+    use rw_sim::{Input, Sounds, Start, Vec2};
+
+    use super::*;
+    use crate::saves::SaveStateStart;
+
+    const DEFAULT_RW_DIR: &str = "/home/yura/.local/share/Steam/steamapps/common/Rain World";
+    const START: CampaignStart<'static> = CampaignStart {
+        slugcat: rw_assets::SlugcatName::White,
+        den: "SU_C04",
+        vanilla: true,
+    };
+
+    fn assets() -> Option<StreamingAssets> {
+        let root =
+            std::env::var_os("RW_DIR").map_or_else(|| PathBuf::from(DEFAULT_RW_DIR), PathBuf::from);
+        let sa = root.join("RainWorld_Data").join("StreamingAssets");
+        sa.join("world/regions.txt")
+            .is_file()
+            .then(|| StreamingAssets::new(sa))
+    }
+
+    /// A Survivor story from `story` with the player in `room` (on the shelter's spawn
+    /// position in a shelter).
+    fn game(assets: &StreamingAssets, room: &str, story: StoryStart) -> RainWorldGame {
+        let campaign = &SlugcatCampaign::SURVIVOR;
+        let filter = LineFilter {
+            timeline: Some(campaign.timeline),
+            mods: ActiveMods::NONE,
+            conditions: StoryConditions::new_story(),
+        };
+        let regions = Regions::load(assets).unwrap();
+        let request = WorldRequest::for_first_room(assets, room, filter);
+        let data = WorldData::load(assets, &regions, &request).unwrap();
+        let first = data.room_named(room).unwrap().index;
+        let rooms = Arc::new(GameRooms {
+            assets: assets.clone(),
+            region: Some(request.name.to_lowercase()),
+            timeline: campaign.timeline,
+        });
+        let tile = data.room_named(room).filter(|r| r.shelter()).map(|r| {
+            let loaded = rooms.load_room(&r.name).unwrap();
+            ShelterDoor::player_spawn_pos(&loaded.room, &loaded.settings, false, ActiveMods::NONE)
+        });
+        let world = World::new(data, rooms, campaign.timeline, ActiveMods::NONE, true);
+        let start = Start { room: first, tile };
+        RainWorldGame::new_story(
+            world,
+            campaign,
+            story,
+            start,
+            UnityRandom::new(1),
+            Sounds::default(),
+            &mut (),
+        )
+    }
+
+    /// Into SU_S01 from SU_A22, then still on the spawn position with 4 food until the
+    /// door shuts (as `installed_shelter.rs`).
+    fn hibernate(game: &mut RainWorldGame) -> SessionEnd {
+        for _ in 0..450 {
+            game.tick(Input::default(), &mut ());
+        }
+        let world = game.world();
+        let src = world.room_index("SU_A22").unwrap();
+        let shelter = world.room_index("SU_S01").unwrap();
+        let node = world.abstract_room(src).unwrap().exit_index(shelter);
+        let room = &world.realized(src).unwrap().room;
+        let entrance = room
+            .shortcut_map()
+            .leading_to_node(usize::try_from(node).unwrap())
+            .unwrap()
+            .start;
+        let hole = room.shortcut_hole_direction(entrance.0, entrance.1);
+        let input = Input::new(-hole.0 as i8, -hole.1 as i8, false);
+        game.set_player(
+            Vec2::from(tile_centre(entrance.0, entrance.1)),
+            Vec2::ZERO,
+            &mut (),
+        );
+        while game.player_pos().room != shelter || game.player().unwrap().in_shortcut() {
+            game.tick(input, &mut ());
+        }
+        let spawn = game.shelter_door(shelter).unwrap().player_spawn_pos;
+        game.set_food_in_stomach(4);
+        game.set_player(
+            Vec2::from(tile_centre(spawn.0, spawn.1)),
+            Vec2::ZERO,
+            &mut (),
+        );
+        loop {
+            game.tick(Input::default(), &mut ());
+            if let Some(end) = game.take_session_end() {
+                return end;
+            }
+        }
+    }
+
+    #[test]
+    fn a_first_hibernation_saves_the_cycle_and_the_next_starts_from_it() {
+        let Some(assets) = assets() else { return };
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("sav");
+        let mut saves = PlayerProgression::load(&path, Some(ChecksumSalt::new("s"))).unwrap();
+        let mut sim = game(
+            &assets,
+            "SU_A22",
+            StoryStart::new_game(&SlugcatCampaign::SURVIVOR),
+        );
+        let seed = sim.save_state_seed();
+        saves
+            .get_or_initiate_save_state(START, seed, false, true)
+            .unwrap();
+        let end = hibernate(&mut sim);
+        assert_eq!(
+            end,
+            SessionEnd::Win {
+                malnourished: false
+            }
+        );
+        let mut backed_up = false;
+        let (outcome, region) = HibernatingGame {
+            sim: &mut sim,
+            assets: &assets,
+        }
+        .win(&mut saves, false, &mut backed_up)
+        .unwrap();
+        assert_eq!(outcome, WinOutcome::SleepScreen);
+        assert!(backed_up);
+        // Read back from the file: den, cycle 0 -> 1, food 4 - foodToHibernate 4, karma
+        // 0 -> 1, a survive, the SU region state with its population.
+        let mut again = PlayerProgression::load(&path, Some(ChecksumSalt::new("s"))).unwrap();
+        let line = again
+            .prog_lines()
+            .into_iter()
+            .find(|l| l.starts_with("SAVE STATE"))
+            .unwrap();
+        for part in [
+            "<svA>DENPOS<svB>SU_S01<svA>",
+            "<svA>LASTVDENPOS<svB>SU_S01<svA>",
+            "<svA>CYCLENUM<svB>1<svA>FOOD<svB>0<svA>",
+            "<dpA>KARMA<dpB>1<dpA>",
+            "<dpA>SURVIVES<dpB>1<dpA>",
+            "<svA>REGIONSTATE<svB>REGIONNAME<rgB>SU<rgA>LASTCYCLEUPDATED<rgB>0<rgA>",
+            "<rgA>POPULATION<rgB>",
+            "SU_S01<rgA>",
+        ] {
+            assert!(line.contains(part), "{part} not in {line}");
+        }
+
+        // The next cycle: the state in memory, its region state kept, the door shut.
+        let state = saves
+            .state_in_memory(rw_assets::SlugcatName::White)
+            .unwrap();
+        let mut story = state.story_start("SU_S01".to_owned(), true);
+        assert_eq!((story.cycle_number, story.food, story.karma), (1, 0, 1));
+        assert_eq!(story.next_issued_id, None);
+        story.live_region_state = region;
+        let saved = story.live_region_state.clone().unwrap();
+        let next = game(&assets, "SU_S01", story);
+        let shelter = next.world().room_index("SU_S01").unwrap();
+        assert_eq!(next.shelter_door(shelter).unwrap().closed_fac, 1.0);
+        // Every saved creature is back in its den.
+        assert!(!saved.saved_population.is_empty());
+        for entry in &saved.saved_population {
+            let id = entry
+                .split("<cA>")
+                .nth(1)
+                .unwrap()
+                .split("<cB>")
+                .next()
+                .unwrap();
+            let found = next
+                .world()
+                .creatures()
+                .any(|(_, c)| format!("ID.{}.{}", c.id.spawner, c.id.number) == id && c.in_den);
+            assert!(found, "{entry} restored");
+        }
     }
 }

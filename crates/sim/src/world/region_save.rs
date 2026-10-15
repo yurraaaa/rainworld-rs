@@ -261,11 +261,10 @@ impl World {
                 || c.template.off_screen_speed == 0.0)
         {
             pos = Some(WorldCoordinate::new(c.pos.room, -1, -1, 0));
-        } else if let Some(den) = c
-            .ai
-            .as_ref()
-            .and_then(|a| a.den_position(c, self.offscreen_den_index()))
-            .filter(|d| self.abstract_room(d.room).is_some())
+        } else if let Some(den) =
+            c.ai.as_ref()
+                .and_then(|a| a.den_position(c, self.offscreen_den_index()))
+                .filter(|d| self.abstract_room(d.room).is_some())
         {
             pos = Some(den);
         }
@@ -291,7 +290,11 @@ impl World {
         if state.candidates_for_deplete_swarm_rooms.is_empty() {
             return;
         }
-        let active = state.swarm_room_counters.iter().filter(|(_, c)| *c == 0).count();
+        let active = state
+            .swarm_room_counters
+            .iter()
+            .filter(|(_, c)| *c == 0)
+            .count();
         let n = i32::try_from(state.candidates_for_deplete_swarm_rooms.len()).unwrap_or(1);
         let pick = usize::try_from(rng.range_i32(0, n)).unwrap_or(0);
         let room = state.candidates_for_deplete_swarm_rooms[pick].clone();

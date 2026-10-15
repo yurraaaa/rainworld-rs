@@ -52,7 +52,13 @@ fn world() -> Option<World> {
         region: Some("su".to_owned()),
         timeline: campaign.timeline,
     });
-    Some(World::new(data, rooms, campaign.timeline, ActiveMods::NONE, true))
+    Some(World::new(
+        data,
+        rooms,
+        campaign.timeline,
+        ActiveMods::NONE,
+        true,
+    ))
 }
 
 #[test]

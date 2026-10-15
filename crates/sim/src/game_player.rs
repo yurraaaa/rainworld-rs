@@ -86,7 +86,7 @@ impl RainWorldGame {
 
     /// `SlugcatStats.NourishmentOfObjectEaten` of a bat fly (`FoodPoints` 1) in quarter
     /// points: the Hunter gets the bare food points, the others four times as many.
-    fn fly_nourishment(&self) -> i32 {
+    pub(super) fn fly_nourishment(&self) -> i32 {
         if self.campaign.name == SlugcatName::Red {
             1
         } else {
@@ -269,7 +269,7 @@ impl RainWorldGame {
     }
 
     /// `Player.ReleaseGrasp` (its `Slugcat_Lose_Grasp` draws nothing) then the base's.
-    fn player_release_grasp(&mut self, grasp: usize) {
+    pub(super) fn player_release_grasp(&mut self, grasp: usize) {
         self.world.release_grasp(self.player_id, grasp);
     }
 

@@ -117,3 +117,38 @@ impl SaveStateStart for SaveState {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use rw_assets::SlugcatName;
+
+    use super::*;
+
+    /// Continue takes the den region's `REGIONSTATE` (its `ROOMSVISITED` in order, which
+    /// the HUD map's `CreateDiscoveryTextureFromVisitedRooms` reads) and the respawns.
+    #[test]
+    fn continue_takes_the_den_regions_state_and_respawns() {
+        let line = "SAV STATE NUMBER<svB>White<svA>DENPOS<svB>CC_S04<svA>CYCLENUM<svB>5<svA>\
+            NEXTID<svB>777<svA>RESPAWNS<svB>3011.3047<svA>\
+            REGIONSTATE<svB>REGIONNAME<rgB>SU<rgA>ROOMSVISITED<rgB>SU_C04<rgA><svA>\
+            REGIONSTATE<svB>REGIONNAME<rgB>CC<rgA>LASTCYCLEUPDATED<rgB>4<rgA>ROOMSVISITED\
+            <rgB>CC_H01,CC_A06,CC_C09,GATE_SI_CC,CC_S04,CC_C07,CC_C12<rgA><svA>";
+        let mut state = SaveState::new(SlugcatName::White, 0);
+        state.load_game(line, "SU_C04", true).unwrap();
+        let start = state.story_start("CC_S04".to_owned(), false);
+        assert_eq!(start.respawn_creatures, [3011, 3047]);
+        assert_eq!(start.next_issued_id, Some(777));
+        assert_eq!(
+            start.region_state.as_deref(),
+            Some(
+                "REGIONNAME<rgB>CC<rgA>LASTCYCLEUPDATED<rgB>4<rgA>ROOMSVISITED<rgB>\
+                 CC_H01,CC_A06,CC_C09,GATE_SI_CC,CC_S04,CC_C07,CC_C12<rgA>"
+            )
+        );
+        // The next cycle's state in memory: `nextIssuedId` is drawn again.
+        assert_eq!(
+            state.story_start("CC_S04".to_owned(), true).next_issued_id,
+            None
+        );
+    }
+}
