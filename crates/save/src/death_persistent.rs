@@ -243,6 +243,90 @@ impl DeathPersistentSaveData {
         t
     }
 
+    /// `sessionTrackRecord` entries (`survived`/`travelled` digits and any extra text).
+    fn session_record_list(&self) -> Vec<String> {
+        self.session_records
+            .as_deref()
+            .unwrap_or("")
+            .split("<dpC>")
+            .filter(|r| !r.is_empty())
+            .map(str::to_owned)
+            .collect()
+    }
+
+    /// `sessionTrackRecord.Add(new SessionRecord(survived, travelled))`, dropping the
+    /// oldest past 20.
+    pub fn add_session_record(&mut self, survived: bool, travelled: bool) {
+        let mut list = self.session_record_list();
+        list.push(format!("{}{}", u8::from(survived), u8::from(travelled)));
+        if list.len() > 20 {
+            list.remove(0);
+        }
+        self.session_records = Some(list.join("<dpC>"));
+    }
+
+    /// `UpdateDynamicDifficulty` with Remix off: the survived minus the died sessions,
+    /// mapped from -7..7 to -1..1.
+    #[must_use]
+    pub fn how_well_is_player_doing(&self) -> f32 {
+        let list = self.session_record_list();
+        if list.is_empty() {
+            return 0.0;
+        }
+        let score: i32 = list
+            .iter()
+            .map(|r| if r.starts_with('1') { 1 } else { -1 })
+            .sum();
+        let t = ((score as f32 + 7.0) / 14.0).clamp(0.0, 1.0);
+        -1.0 + 2.0 * t
+    }
+
+    /// `SessionEnded`'s death positions: each a cycle older (`abstractNode + 1`), gone
+    /// at 7.
+    pub fn age_death_positions(&mut self) {
+        let Some(text) = &self.death_positions else {
+            return;
+        };
+        let mut kept = Vec::new();
+        for pos in text.split("<dpC>").filter(|p| !p.is_empty()) {
+            let Some((head, node)) = pos.rsplit_once('.') else {
+                kept.push(pos.to_owned());
+                continue;
+            };
+            let Ok(node) = node.trim().parse::<i32>() else {
+                kept.push(pos.to_owned());
+                continue;
+            };
+            if node + 1 < 7 {
+                kept.push(format!("{head}.{}", node + 1));
+            }
+        }
+        self.death_positions = (!kept.is_empty()).then(|| kept.join("<dpC>"));
+    }
+
+    /// `TickFlowerDepletion(ticks)`: consumed flowers' waits (the last field) count
+    /// down; those below 1 go.
+    pub fn tick_flower_depletion(&mut self, ticks: i32) {
+        let Some(text) = &self.consumed_flowers else {
+            return;
+        };
+        let mut kept = Vec::new();
+        for item in text.split("<dpC>").filter(|p| !p.is_empty()) {
+            match item
+                .rsplit_once('.')
+                .and_then(|(h, w)| Some((h, w.trim().parse::<i32>().ok()?)))
+            {
+                Some((head, wait)) if wait > -1 => {
+                    if wait - ticks >= 1 {
+                        kept.push(format!("{head}.{}", wait - ticks));
+                    }
+                }
+                _ => kept.push(item.to_owned()),
+            }
+        }
+        self.consumed_flowers = (!kept.is_empty()).then(|| kept.join("<dpC>"));
+    }
+
     fn push_entry(t: &mut String, key: &str, value: Option<&str>) {
         if let Some(v) = value {
             t.push_str(key);

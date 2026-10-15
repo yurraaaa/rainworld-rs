@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 rw-assets.workspace = true
+rw-random.workspace = true
 log.workspace = true
 md-5 = "0.10.6"
 directories = "6.0.0"

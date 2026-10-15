@@ -97,7 +97,14 @@ impl MiscProgression {
         }
         match entries.iter().position(|e| Self::key(e) == "INTEGERS") {
             Some(i) => entries[i] = integers,
-            None => entries.push(integers),
+            // Before what the game writes after it.
+            None => {
+                let at = entries
+                    .iter()
+                    .position(|e| matches!(Self::key(e), "REDSFLOWER" | "MENUREGION"))
+                    .unwrap_or(entries.len());
+                entries.insert(at, integers);
+            }
         }
         let mut s = String::new();
         for e in entries {
@@ -129,6 +136,148 @@ impl MiscProgression {
 
     pub fn set_warned_about_karma_loss_on_exit(&mut self, times: i32) {
         self.integers[Self::WARNED_ABOUT_KARMA_LOSS_ON_EXIT] = times;
+    }
+
+    /// `starvationTutorialCounter`.
+    #[must_use]
+    pub fn starvation_tutorial_counter(&self) -> i32 {
+        self.integers[Self::STARVATION_TUTORIAL_COUNTER]
+    }
+
+    pub fn set_starvation_tutorial_counter(&mut self, n: i32) {
+        self.integers[Self::STARVATION_TUTORIAL_COUNTER] = n;
+    }
+
+    /// The index of the entry with `key`.
+    fn entry_index(&self, key: &str) -> Option<usize> {
+        self.entries.iter().position(|e| Self::key(e) == key)
+    }
+
+    /// Where a new entry goes: after the last of `after` present, else at `fallback`.
+    fn insert_index(&self, after: &[&str], fallback: usize) -> usize {
+        self.entries
+            .iter()
+            .rposition(|e| after.contains(&Self::key(e)))
+            .map_or(fallback.min(self.entries.len()), |i| i + 1)
+    }
+
+    /// `menuRegion` (`MENUREGION`, written after `INTEGERS` and `REDSFLOWER`).
+    pub fn set_menu_region(&mut self, region: &str) {
+        let entry = format!("MENUREGION<mpdB>{region}");
+        match self.entry_index("MENUREGION") {
+            Some(i) => self.entries[i] = entry,
+            None => {
+                let at = self.insert_index(
+                    &[
+                        "INTEGERS",
+                        "INTEGERSMMF",
+                        "INTEGERSMSC",
+                        "INTEGERSWATCHER",
+                        "REDSFLOWER",
+                    ],
+                    self.entries.len(),
+                );
+                self.entries.insert(at, entry);
+            }
+        }
+    }
+
+    /// `ShelterDoor.Close`'s `regionsVisited[region].Add(slugcat)` (`VISITED`, written
+    /// before `INTEGERS`).
+    pub fn add_region_visited(&mut self, region: &str, slugcat: SlugcatName) {
+        let i = match self.entry_index("VISITED") {
+            Some(i) => i,
+            None => {
+                let at = self.entry_index("INTEGERS").unwrap_or(self.entries.len());
+                self.entries.insert(at, "VISITED<mpdB>".to_owned());
+                at
+            }
+        };
+        let body = self.entries[i]
+            .strip_prefix("VISITED<mpdB>")
+            .unwrap_or("")
+            .to_owned();
+        let mut regions: Vec<(String, Vec<String>)> = body
+            .split("<mpdB>")
+            .filter(|r| !r.is_empty())
+            .map(|r| {
+                let (name, list) = r.split_once("<mpdC>").unwrap_or((r, ""));
+                let list = list
+                    .split(',')
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_owned)
+                    .collect();
+                (name.to_owned(), list)
+            })
+            .collect();
+        match regions.iter_mut().find(|(r, _)| r == region) {
+            Some((_, list)) if list.iter().any(|s| s == slugcat.value()) => return,
+            Some((_, list)) => list.push(slugcat.value().to_owned()),
+            None => regions.push((region.to_owned(), vec![slugcat.value().to_owned()])),
+        }
+        let parts: Vec<String> = regions
+            .iter()
+            .map(|(r, l)| format!("{r}<mpdC>{}", l.join(",")))
+            .collect();
+        self.entries[i] = format!("VISITED<mpdB>{}", parts.join("<mpdB>"));
+    }
+
+    /// `SaveDiscoveredShelter(room)`: the shelter joins its region's `SHELTERLIST` and
+    /// `slugcat` its `CONDITIONALSHELTERDATA` entry.
+    pub fn save_discovered_shelter(&mut self, room: &str, slugcat: SlugcatName) {
+        let Some((region, _)) = room.split_once('_') else {
+            return;
+        };
+        // `updateConditionalShelters`.
+        let shelters = match self.entry_index("CONDITIONALSHELTERDATA") {
+            Some(i) => i,
+            None => {
+                let at = self.insert_index(&["SHELTERLIST", "CURRENTSLUGCAT"], 0);
+                self.entries
+                    .insert(at, "CONDITIONALSHELTERDATA<mpdB>".to_owned());
+                at
+            }
+        };
+        let data = self.entries[shelters]
+            .strip_prefix("CONDITIONALSHELTERDATA<mpdB>")
+            .unwrap_or("")
+            .to_owned();
+        let mut list: Vec<Vec<String>> = data
+            .split("<mpdC>")
+            .filter(|s| s.len() > 1)
+            .map(|s| {
+                s.split(" : ")
+                    .enumerate()
+                    .filter(|(i, f)| *i == 0 || !f.trim().is_empty())
+                    .map(|(_, f)| f.to_owned())
+                    .collect()
+            })
+            .collect();
+        match list.iter_mut().find(|s| s[0] == room) {
+            Some(s) if s[1..].iter().any(|n| n == slugcat.value()) => {}
+            Some(s) => s.push(slugcat.value().to_owned()),
+            None => list.push(vec![room.to_owned(), slugcat.value().to_owned()]),
+        }
+        let mut text = "CONDITIONALSHELTERDATA<mpdB>".to_owned();
+        for s in list {
+            text.push_str(&s.join(" : "));
+            text.push_str(" : <mpdC>");
+        }
+        self.entries[shelters] = text;
+        let prefix = format!("SHELTERLIST<mpdB>{region}<mpdB>");
+        match self.entries.iter().position(|e| e.starts_with(&prefix)) {
+            Some(i) => {
+                let names = self.entries[i][prefix.len()..].to_owned();
+                if !names.split("<mpdC>").any(|n| n == room) {
+                    let sep = if names.is_empty() { "" } else { "<mpdC>" };
+                    self.entries[i] = format!("{prefix}{names}{sep}{room}");
+                }
+            }
+            None => {
+                let at = self.insert_index(&["SHELTERLIST", "CURRENTSLUGCAT"], 0);
+                self.entries.insert(at, format!("{prefix}{room}"));
+            }
+        }
     }
 
     /// `AreThereAnyDiscoveredShelters`: a non-empty `SHELTERLIST`.
@@ -199,6 +348,22 @@ mod tests {
             "CURRENTSLUGCAT<mpdB>Yellow<mpdA>SHELTERLIST<mpdB>SU<mpdB>SU_S01<mpdA>\
              CONDITIONALSHELTERDATA<mpdB>SU_S04 : Red : <mpdC><mpdA>\
              INTEGERS<mpdB>0,1,2,3,4,0,0,7,1,9,10,77<mpdA>INTEGERSMSC<mpdB>3,4<mpdA>"
+        );
+    }
+
+    #[test]
+    fn regions_visited_and_menu_region() {
+        let mut m = MiscProgression::from_string(
+            "CURRENTSLUGCAT<mpdB>White<mpdA>VISITED<mpdB>CC<mpdC>Red<mpdA>INTEGERS<mpdB>0,0,0,0,0,0,0,0,0,0,0<mpdA>",
+        );
+        m.add_region_visited("SU", SlugcatName::White);
+        m.add_region_visited("CC", SlugcatName::White);
+        m.add_region_visited("CC", SlugcatName::White);
+        m.set_menu_region("SU");
+        assert_eq!(
+            m.to_save_string(),
+            "CURRENTSLUGCAT<mpdB>White<mpdA>VISITED<mpdB>CC<mpdC>Red,White<mpdB>SU<mpdC>White<mpdA>\
+             INTEGERS<mpdB>0,0,0,0,0,0,0,0,0,0,0<mpdA>MENUREGION<mpdB>SU<mpdA>"
         );
     }
 
