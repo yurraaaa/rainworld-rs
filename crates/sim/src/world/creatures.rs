@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use rw_assets::{CreatureType, NodeType, RoomAttraction, Timeline};
 use rw_random::UnityRandom;
 
-use super::{OverseersWorldAi, RealizedRoom, SwarmRoomMap, World};
+use super::{FliesWorldAi, OverseersWorldAi, RealizedRoom, SwarmRoomMap, World};
 use crate::creature::ai::AiContext;
 use crate::creature::overseer::{AbstractStep, GuideContext, OverseerView, Parent};
 use crate::creature::{
@@ -40,16 +40,15 @@ pub struct QuantifiedCount {
     pub count: i32,
 }
 
-/// The world processes: the overseers' is ported, the others are markers and parts
-/// (their updates draw nothing in the base game, or are not ported:
-/// `FliesWorldAI.Update`, docs/DIVERGENCES.md D1).
+/// The world processes: the overseers' and the flies' are ported; the scavengers' is a
+/// marker (its update is not ported, docs/DIVERGENCES.md D14).
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct WorldProcesses {
     /// `overseersWorldAI`, made by the first overseer's abstract AI.
     pub overseers: Option<OverseersWorldAi>,
     pub scavengers: bool,
-    /// `FliesWorldAI.migrationTargets`.
-    pub flies_migration_targets: Option<Vec<i32>>,
+    /// `FliesWorldAI` (made with the world, after the population).
+    pub flies: Option<FliesWorldAi>,
     /// `FliesWorldAI.swarmRoomMap` ([`World::map_swarm_rooms`]).
     pub swarm_room_map: Option<SwarmRoomMap>,
 }
@@ -499,6 +498,15 @@ impl World {
             let n = i32::try_from(data.connections.len()).unwrap_or(i32::MAX);
             node = rng.range_i32(0, n);
         }
+        self.add_quantified_amount(room, node, kind, amount);
+    }
+
+    /// `AddQuantifiedCreature(node, type)` with a defined node (no draw).
+    pub(crate) fn add_quantified_at(&mut self, room: i32, node: i32, kind: CreatureType) {
+        self.add_quantified_amount(room, node, kind, 1);
+    }
+
+    fn add_quantified_amount(&mut self, room: i32, node: i32, kind: CreatureType, amount: i32) {
         let Some(l) = self.local(room) else { return };
         let list = &mut self.lists[l].quantified;
         match list.iter_mut().find(|q| q.node == node && q.kind == kind) {
@@ -507,6 +515,26 @@ impl World {
                 node,
                 kind,
                 count: amount,
+            }),
+        }
+    }
+
+    /// `AbstractRoom.RemoveQuantifiedCreature`: one fewer at the node when
+    /// `NumberOfQuantifiedCreatureInNode` sees any (it takes from the node's count even
+    /// where that number counts creatures).
+    pub(crate) fn remove_quantified(&mut self, room: i32, node: i32, kind: CreatureType) {
+        if self.number_of_quantified_creature_in_node(room, kind, node) <= 0 {
+            log::warn!("Couldn't remove quantified creature! Nowhere to draw from!");
+            return;
+        }
+        let Some(l) = self.local(room) else { return };
+        let list = &mut self.lists[l].quantified;
+        match list.iter_mut().find(|q| q.node == node && q.kind == kind) {
+            Some(q) => q.count -= 1,
+            None => list.push(QuantifiedCount {
+                node,
+                kind,
+                count: -1,
             }),
         }
     }
@@ -862,14 +890,21 @@ impl World {
         true
     }
 
-    /// `Room.LocalCoordinateOfNode` as far as the port's room data reaches: exits, dens
-    /// and region transports through their shortcut; border exits, hives and garbage
-    /// holes (which draw a tile) are not mapped, so these answer `(-1, -1)`.
-    fn local_coordinate_of_node(&self, room: i32, node: i32, _rng: &mut UnityRandom) -> (i32, i32) {
+    /// `Room.LocalCoordinateOfNode`: exits, dens and region transports by their
+    /// shortcut's entrance, a random tile of a bat hive or of the garbage holes. Border
+    /// exits draw one of their border tiles, which are not mapped (`MapRoomBorders` is
+    /// not ported): the draw is made and the tile is `(-1, -1)`.
+    pub(crate) fn local_coordinate_of_node(
+        &self,
+        room: i32,
+        node: i32,
+        rng: &mut UnityRandom,
+    ) -> (i32, i32) {
         let (Some(realized), Some(data)) = (self.realized(room), self.abstract_room(room)) else {
             return (-1, -1);
         };
         let Some(n) = usize::try_from(node).ok().and_then(|n| data.nodes.get(n)) else {
+            log::warn!("Unidentified entrance node! {node} / {}", data.nodes.len());
             return (-1, -1);
         };
         match n.kind {
@@ -878,9 +913,31 @@ impl World {
                 .shortcut_map()
                 .leading_to_node(usize::try_from(node).unwrap_or(0))
                 .map_or((-1, -1), |s| s.start),
-            _ => {
-                log::warn!("local coordinate of a {:?} node is not ported", n.kind);
+            NodeType::SideExit | NodeType::SkyExit | NodeType::SeaExit => {
+                rng.next_u32();
+                log::warn!("a border exit's tiles are not mapped");
                 (-1, -1)
+            }
+            NodeType::BatHive => {
+                let first = data
+                    .nodes
+                    .iter()
+                    .position(|n| n.kind == NodeType::BatHive)
+                    .unwrap_or(0);
+                let index = usize::try_from(node).unwrap_or(0).saturating_sub(first);
+                let Some(hive) = realized.room.hives().get(index) else {
+                    return (-1, -1);
+                };
+                let len = i32::try_from(hive.len()).unwrap_or(i32::MAX);
+                hive[usize::try_from(rng.range_i32(0, len)).unwrap_or(0)]
+            }
+            NodeType::GarbageHoles => {
+                let holes = realized.room.garbage_holes();
+                let len = i32::try_from(holes.len()).unwrap_or(i32::MAX);
+                holes
+                    .get(usize::try_from(rng.range_i32(0, len)).unwrap_or(0))
+                    .copied()
+                    .unwrap_or((-1, -1))
             }
         }
     }

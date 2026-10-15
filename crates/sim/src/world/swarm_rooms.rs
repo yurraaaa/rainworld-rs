@@ -233,16 +233,60 @@ impl World {
             .is_none_or(|s| s.swarm_room_active(&self.data, index))
     }
 
-    /// `AbstractRoom.NumberOfQuantifiedCreatureInRoom`: the counts on the room's nodes.
-    /// Quantified creatures exist only as counts in the port (no realized flies, no
-    /// quantified `AbstractCreature` with an undefined node), so that is all of them.
+    /// `AbstractRoom.NumberOfQuantifiedCreatureInRoom`: the counts of the room's nodes,
+    /// plus its creatures of that type without a node that `Quantify`.
     #[must_use]
     pub fn number_of_quantified_creature_in_room(&self, room: i32, kind: CreatureType) -> i32 {
         let nodes = self.abstract_room(room).map_or(0, |r| r.nodes.len());
+        let counted: i32 = (0..nodes)
+            .map(|n| {
+                self.number_of_quantified_creature_in_node(
+                    room,
+                    kind,
+                    i32::try_from(n).unwrap_or(-1),
+                )
+            })
+            .sum();
+        let loose = self
+            .room_creatures(room)
+            .iter()
+            .map(|&id| self.creature(id))
+            .filter(|c| !c.pos.node_defined() && c.kind() == kind && c.quantify())
+            .count();
+        counted + i32::try_from(loose).unwrap_or(0)
+    }
+
+    /// `AbstractRoom.NumberOfQuantifiedCreatureInNode`: in a realized room whose
+    /// quantified creatures are placed (fully loaded), its creatures at that node that
+    /// `Quantify`; else the node's count.
+    #[must_use]
+    pub fn number_of_quantified_creature_in_node(
+        &self,
+        room: i32,
+        kind: CreatureType,
+        node: i32,
+    ) -> i32 {
+        if self
+            .realized(room)
+            .is_some_and(super::RealizedRoom::fully_loaded)
+        {
+            let n = self
+                .room_creatures(room)
+                .iter()
+                .map(|&id| self.creature(id))
+                .filter(|c| c.pos.node == node && c.kind() == kind && c.quantify())
+                .count();
+            return i32::try_from(n).unwrap_or(0);
+        }
+        self.quantified_count(room, kind, node)
+    }
+
+    /// `quantifiedCreatures[node, type]`.
+    #[must_use]
+    pub fn quantified_count(&self, room: i32, kind: CreatureType, node: i32) -> i32 {
         self.room_quantified(room)
             .iter()
-            .filter(|q| q.kind == kind && usize::try_from(q.node).is_ok_and(|n| n < nodes))
-            .map(|q| q.count)
-            .sum()
+            .find(|q| q.kind == kind && q.node == node)
+            .map_or(0, |q| q.count)
     }
 }

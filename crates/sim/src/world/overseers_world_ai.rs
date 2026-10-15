@@ -14,9 +14,9 @@ use crate::creature::{CreatureId, CreatureTemplate, WorldCoordinate};
 
 impl World {
     /// The world processes' updates, in `RainWorldGame.Update`'s place for them: after
-    /// the abstract room update, before `rainCycle.Update`. Only `OverseersWorldAI`'s
-    /// runs; `FliesWorldAI.Update` (random draws every tick, flies moving between rooms)
-    /// is not ported, and `ScavengersWorldAI` is a marker.
+    /// the abstract room update, before `rainCycle.Update`. This is `OverseersWorldAI`'s;
+    /// `FliesWorldAI.Update` follows it (`update_flies_world_ai`, called by the game),
+    /// and `ScavengersWorldAI` is a marker.
     pub fn update_world_processes(&mut self, story: Option<StoryProgress<'_>>) {
         if let Some(overseers) = &mut self.processes.overseers {
             overseers.update(&self.data, self.region_state.as_ref(), story);

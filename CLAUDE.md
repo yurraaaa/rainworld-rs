@@ -118,7 +118,10 @@ recommendation. Nothing is ported before the user agrees.
     load synchronously (D14). The population is generated with the
     game's draws but only overseers leave their dens; overseers have their
     body, AI, graphics, the guide's tutorial text and their holograms
-    (those whose triggers are ported: D14).
+    (those whose triggers are ported: D14). The bat flies' world
+    process moves their per-node counts between rooms, and a swarm room
+    that loads gets its flies as abstract creatures; the realized fly
+    (body, AI, graphics, eating) is batflies steps 2 to 4.
     Gates, region changes,
     the rain and saves are not there yet.
   - Death freezes the body until R respawns it (revisit once the real

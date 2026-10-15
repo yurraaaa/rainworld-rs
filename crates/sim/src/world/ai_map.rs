@@ -1,11 +1,16 @@
-//! The parts of a room's `AImap` the overseer reads: terrain proximity
-//! (`AImapper.TerrainProximityMapper`), `narrowSpace` (`FindPassagesOfCurrentTile`) and
-//! the baked `visibility` (room file line 10). Accessibility, passages, fall risk and the
-//! creature-specific maps are not ported (`rainworld-re/notes/ai-map.md`).
+//! The parts of a room's `AImap` the overseer and the Fly read: terrain proximity
+//! (`AImapper.TerrainProximityMapper`), `narrowSpace` and `floorAltitude`
+//! (`FindPassagesOfCurrentTile`), the tiles' water, the baked `visibility` (room file line
+//! 10), the Fly's accessibility, outgoing paths and baked exit distances. The other
+//! accessibility classes, passages, fall risk and the other creatures' maps are not
+//! ported (`rainworld-re/notes/ai-map.md`).
 
 use std::collections::VecDeque;
 
-use rw_assets::{Room, Terrain};
+use rw_assets::{CreatureType, Room, ShortcutType, Terrain};
+
+use super::CreatureSpecificAiMap;
+use crate::creature::CreatureTemplate;
 
 /// `Custom.fourDirections`.
 const FOUR_DIRECTIONS: [(i32, i32); 4] = [(-1, 0), (0, -1), (1, 0), (0, 1)];
@@ -30,6 +35,30 @@ pub struct AiMap {
     terrain_proximity: Vec<i32>,
     narrow_space: Vec<bool>,
     visibility: Vec<i32>,
+    /// `AItile.waterInt`: 1 deep water, 2 the surface.
+    water: Vec<u8>,
+    /// Whether the tile's accessibility is Solid (the only class the Fly tells apart).
+    solid: Vec<bool>,
+    floor_altitude: Vec<i32>,
+    /// `creatureSpecificAImaps` of the Fly.
+    fly: Option<CreatureSpecificAiMap>,
+}
+
+/// `MovementConnection.MovementType`, the types the Fly may use.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MovementType {
+    Standard,
+    ShortCut,
+    NpcTransportation,
+}
+
+/// `MovementConnection` inside one room (tiles; the room is the map's).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MovementConnection {
+    pub kind: MovementType,
+    pub start: (i32, i32),
+    pub dest: (i32, i32),
+    pub distance: i32,
 }
 
 impl AiMap {
@@ -45,11 +74,51 @@ impl AiMap {
             terrain_proximity: vec![-1; cells],
             narrow_space: vec![false; cells],
             visibility: vec![0; cells],
+            water: vec![0; cells],
+            solid: vec![false; cells],
+            floor_altitude: vec![100_000; cells],
+            fly: None,
         };
+        map.map_accessibility(room);
         map.map_terrain_proximity(room);
         map.map_narrow_spaces(room);
+        map.map_floor_altitudes(room);
         map.set_visibility(room);
+        let fly = CreatureTemplate::of(CreatureType::Fly, rw_assets::ActiveMods::NONE);
+        map.fly = Some(CreatureSpecificAiMap::new(&map, room, &fly));
         map
+    }
+
+    /// `FindAccessibilityOfCurrentTile`'s Solid class and water (no terrain manager).
+    fn map_accessibility(&mut self, room: &Room) {
+        for x in 0..self.width {
+            for y in 0..self.height {
+                let i = x as usize * self.height as usize + y as usize;
+                self.solid[i] = room.tile(x, y).is_solid();
+                self.water[i] = room.water_int(x, y);
+            }
+        }
+    }
+
+    /// `floorAltitude`: from a Floor tile, or a Solid tile under a non-Solid one, up the
+    /// column to the next Solid tile; rows bottom-up, so the nearest floor below wins.
+    fn map_floor_altitudes(&mut self, room: &Room) {
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let tile = room.tile(x, y);
+                let floor = tile.terrain == Terrain::Floor
+                    || (tile.is_solid() && !room.tile(x, y + 1).is_solid());
+                if !floor {
+                    continue;
+                }
+                let mut above = y + 1;
+                while above < self.height && !room.tile(x, above).is_solid() {
+                    let i = x as usize * self.height as usize + above as usize;
+                    self.floor_altitude[i] = above - y;
+                    above += 1;
+                }
+            }
+        }
     }
 
     fn index(&self, x: i32, y: i32) -> Option<usize> {
@@ -137,5 +206,140 @@ impl AiMap {
     #[must_use]
     pub fn visibility(&self, x: i32, y: i32) -> i32 {
         self.index(x, y).map_or(0, |i| self.visibility[i])
+    }
+}
+
+impl AiMap {
+    /// `getAItile(x, y).floorAltitude` (the standard tile's 100000 outside the room).
+    #[must_use]
+    pub fn floor_altitude(&self, x: i32, y: i32) -> i32 {
+        self.index(x, y).map_or(100_000, |i| self.floor_altitude[i])
+    }
+
+    /// `getAItile(x, y).DeepWater`.
+    #[must_use]
+    pub fn deep_water(&self, x: i32, y: i32) -> bool {
+        self.index(x, y).is_some_and(|i| self.water[i] == 1)
+    }
+
+    /// `getAItile(x, y).WaterSurface`.
+    #[must_use]
+    pub fn water_surface(&self, x: i32, y: i32) -> bool {
+        self.index(x, y).is_some_and(|i| self.water[i] == 2)
+    }
+
+    /// `TileAccessibleToCreature` for a template whose highest allowed accessibility is
+    /// Air (the Fly: the constructor allows every class up to it, so all but Solid): its
+    /// water rule, a pre-baked layer, and not Solid (the standard tile outside the room
+    /// is). The base game's water access modifier allows every tile; worm grass is not
+    /// ported (docs/DIVERGENCES.md D14).
+    #[must_use]
+    pub fn tile_accessible_to_creature(&self, x: i32, y: i32, template: &CreatureTemplate) -> bool {
+        debug_assert_eq!(
+            template.kind,
+            CreatureType::Fly,
+            "only the Fly's rule is ported"
+        );
+        if !template
+            .water_relationship
+            .movement_legal(self.deep_water(x, y), self.water_surface(x, y))
+        {
+            return false;
+        }
+        if template.pre_baked_pathing_index() == -1 {
+            return false;
+        }
+        self.index(x, y).is_some_and(|i| !self.solid[i])
+    }
+
+    /// The Fly's `CreatureSpecificAImap`.
+    #[must_use]
+    pub fn fly(&self) -> Option<&CreatureSpecificAiMap> {
+        self.fly.as_ref()
+    }
+
+    /// `ExitDistanceForCreatureAndCheckNeighbours(tile, node, Fly)`: the first of the
+    /// tile and its left, down, right and up neighbours with a distance, else -1.
+    #[must_use]
+    pub fn fly_exit_distance_and_check_neighbours(&self, tile: (i32, i32), node: i32) -> i32 {
+        let Some(map) = &self.fly else { return -1 };
+        if node < 0 {
+            return -1;
+        }
+        [(0, 0), (-1, 0), (0, -1), (1, 0), (0, 1)]
+            .into_iter()
+            .map(|(dx, dy)| map.distance_to_exit(tile.0 + dx, tile.1 + dy, node))
+            .find(|&d| d > -1)
+            .unwrap_or(-1)
+    }
+
+    /// `ExitDistanceForCreature(tile, node, Fly)`: -1 on a tile the Fly cannot reach.
+    #[must_use]
+    pub fn fly_exit_distance(&self, tile: (i32, i32), node: i32) -> i32 {
+        let fly = CreatureTemplate::of(CreatureType::Fly, rw_assets::ActiveMods::NONE);
+        match &self.fly {
+            Some(map) if self.tile_accessible_to_creature(tile.0, tile.1, &fly) => {
+                map.distance_to_exit(tile.0, tile.1, node)
+            }
+            _ => -1,
+        }
+    }
+
+    /// `getAItile(x, y).outgoingPaths` of the types the Fly may use, in the list's order:
+    /// the four Standard links inside the room, then on a shortcut entrance the ShortCut
+    /// link of a Normal shortcut or the links to every other NPC transportation entrance.
+    #[must_use]
+    pub fn fly_outgoing_paths(&self, room: &Room, x: i32, y: i32) -> Vec<MovementConnection> {
+        let mut paths: Vec<MovementConnection> = FOUR_DIRECTIONS
+            .iter()
+            .filter(|&&(dx, dy)| self.index(x + dx, y + dy).is_some())
+            .map(|&(dx, dy)| MovementConnection {
+                kind: MovementType::Standard,
+                start: (x, y),
+                dest: (x + dx, y + dy),
+                distance: 1,
+            })
+            .collect();
+        if room.get(x, y).map(|t| t.terrain) != Some(Terrain::ShortcutEntrance) {
+            return paths;
+        }
+        let map = room.shortcut_map();
+        let Some(here) = map.data_at((x, y)) else {
+            return paths;
+        };
+        match here.kind {
+            ShortcutType::Normal => paths.push(MovementConnection {
+                kind: MovementType::ShortCut,
+                start: (x, y),
+                dest: here.dest,
+                distance: i32::try_from(here.length).unwrap_or(i32::MAX),
+            }),
+            ShortcutType::NpcTransportation => {
+                for other in map.shortcuts() {
+                    if other.kind != ShortcutType::NpcTransportation || other.start == (x, y) {
+                        continue;
+                    }
+                    let (dx, dy) = ((other.start.0 - x) as f32, (other.start.1 - y) as f32);
+                    let length = i32::try_from(here.length + other.length).unwrap_or(i32::MAX);
+                    paths.push(MovementConnection {
+                        kind: MovementType::NpcTransportation,
+                        start: (x, y),
+                        dest: other.start,
+                        distance: (dx * dx + dy * dy).sqrt() as i32 + length,
+                    });
+                }
+            }
+            _ => {}
+        }
+        paths
+    }
+
+    /// `IsConnectionAllowedForCreature(connection, Fly)`: both ends accessible (the
+    /// types listed are all allowed).
+    #[must_use]
+    pub fn fly_connection_allowed(&self, c: &MovementConnection) -> bool {
+        let fly = CreatureTemplate::of(CreatureType::Fly, rw_assets::ActiveMods::NONE);
+        self.tile_accessible_to_creature(c.start.0, c.start.1, &fly)
+            && self.tile_accessible_to_creature(c.dest.0, c.dest.1, &fly)
     }
 }

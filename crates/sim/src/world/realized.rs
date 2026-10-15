@@ -1,14 +1,12 @@
 //! A realized room (`Room`) as far as the world needs it: geometry, settings, water and
 //! the loading state that decides when a player may enter (`ReadyForPlayer`).
 
-use std::collections::VecDeque;
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 
 use rw_assets::world::{AbstractRoomData, LoadedRoom};
 use rw_assets::{ActiveMods, Room, RoomSettings, Timeline};
 
 use super::AiMap;
-use crate::room_ext::RoomExt;
 use crate::room_script::RoomScript;
 
 use crate::{ShortcutsBlinking, Water};
@@ -36,8 +34,6 @@ pub struct RealizedRoom {
     ready_for_non_ai_creatures: bool,
     /// `waitToEnterAfterFullyLoaded`.
     wait_to_enter: i32,
-    /// Per exit node, the stand-in for the fly's baked distance map, made when asked.
-    exit_distances: OnceLock<Vec<Vec<i32>>>,
     /// `abstractRoom.firstTimeRealized` while it loads.
     first_time_realized: bool,
     /// The room-specific scripts `Room.Loaded` added.
@@ -67,7 +63,6 @@ impl RealizedRoom {
             loading_progress: 0,
             ready_for_non_ai_creatures: false,
             wait_to_enter: wait,
-            exit_distances: OnceLock::new(),
             first_time_realized,
             scripts: Vec::new(),
             ai_map: None,
@@ -159,68 +154,13 @@ impl RealizedRoom {
 }
 
 impl RealizedRoom {
-    /// Stands in for `aimap.ExitDistanceForCreatureAndCheckNeighbours(tile, exit, Fly)`:
-    /// the first of the tile, then its left, down, right and up neighbours with a
-    /// distance, else -1. The distance is the 4-connected step count through non-Solid
-    /// tiles from the entrance of the shortcut leading to that exit, not the game's
-    /// baked fly pathing (docs/DIVERGENCES.md D14).
+    /// `aimap.ExitDistanceForCreatureAndCheckNeighbours(tile, exit, Fly)` from the room
+    /// file's baked Fly layer; -1 before the AI map exists.
     #[must_use]
     pub fn exit_distance(&self, tile: (i32, i32), exit: usize) -> i32 {
-        let maps = self.exit_distances.get_or_init(|| self.distance_maps());
-        let Some(map) = maps.get(exit) else {
-            return -1;
-        };
-        [(0, 0), (-1, 0), (0, -1), (1, 0), (0, 1)]
-            .into_iter()
-            .map(|(dx, dy)| self.distance_at(map, (tile.0 + dx, tile.1 + dy)))
-            .find(|&d| d > -1)
-            .unwrap_or(-1)
-    }
-
-    fn distance_at(&self, map: &[i32], (x, y): (i32, i32)) -> i32 {
-        if !self.room.contains(x, y) {
-            return -1;
-        }
-        map[(x * self.room.height() + y) as usize]
-    }
-
-    /// One breadth-first distance grid (x-major) per exit node.
-    fn distance_maps(&self) -> Vec<Vec<i32>> {
-        let room = &self.room;
-        let map = room.shortcut_map();
-        let exits = map
-            .nodes()
-            .iter()
-            .filter(|&&(x, y)| room.tile(x, y).shortcut == rw_assets::Shortcut::RoomExit)
-            .count();
-        (0..exits)
-            .map(|exit| {
-                let mut grid = vec![-1; (room.width() * room.height()) as usize];
-                if let Some(start) = map.leading_to_node(exit).map(|s| s.start) {
-                    self.flood(&mut grid, start);
-                }
-                grid
-            })
-            .collect()
-    }
-
-    fn flood(&self, grid: &mut [i32], start: (i32, i32)) {
-        let room = &self.room;
-        let h = room.height();
-        let mut queue = VecDeque::from([start]);
-        grid[(start.0 * h + start.1) as usize] = 0;
-        while let Some((x, y)) = queue.pop_front() {
-            let d = grid[(x * h + y) as usize];
-            for (dx, dy) in [(-1, 0), (0, -1), (1, 0), (0, 1)] {
-                let (nx, ny) = (x + dx, y + dy);
-                if room.contains(nx, ny)
-                    && grid[(nx * h + ny) as usize] == -1
-                    && !room.is_solid_tile(nx, ny)
-                {
-                    grid[(nx * h + ny) as usize] = d + 1;
-                    queue.push_back((nx, ny));
-                }
-            }
-        }
+        let exit = i32::try_from(exit).unwrap_or(-1);
+        self.ai_map
+            .as_ref()
+            .map_or(-1, |m| m.fly_exit_distance_and_check_neighbours(tile, exit))
     }
 }

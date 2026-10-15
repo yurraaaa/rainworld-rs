@@ -29,6 +29,8 @@ Working now:
   no map yet.
 - **Creatures:** the creature framework is in place. Overseers spawn and move between
   rooms, and the guide overseer follows the player with its tutorial text and holograms.
+  Bat flies spread between rooms as counts and are placed when their room loads, but
+  are not yet bodies you can see or catch.
 
 Not yet ported:
 
