@@ -76,6 +76,14 @@ impl EndgameId {
         }
     }
 
+    /// `IntegerTracker.showFrom` (the float trackers' is 0).
+    fn show_from(self) -> i32 {
+        match self {
+            Self::Hunter | Self::Saint | Self::Monk | Self::Outlaw => 2,
+            _ => 0,
+        }
+    }
+
     fn float_tracker(self) -> bool {
         matches!(self, Self::Chieftain | Self::Friend)
     }
@@ -120,6 +128,45 @@ impl EndgameId {
                 progress: Vec::new(),
                 last: Vec::new(),
             }
+        }
+    }
+}
+
+impl EndgameId {
+    /// A bool-array or list tracker's saved progress as `FromString` reads it (a
+    /// Dragon Slayer list of lizard indices, More Slugcats' format, included).
+    fn parse_raw(self, raw: &str) -> Progress {
+        let values: Vec<&str> = raw.split('.').collect();
+        let ints: Vec<i32> = values
+            .iter()
+            .filter(|v| !v.is_empty())
+            .map(|v| v.trim().parse().unwrap_or(0))
+            .collect();
+        match self.slots() {
+            Some(n) => {
+                let mut bools = vec![false; n];
+                let ones = ints.iter().filter(|&&v| v == 1).count();
+                let zeros = ints.iter().filter(|&&v| v == 0).count();
+                if self == Self::DragonSlayer && ones <= 1 && zeros <= 1 {
+                    for i in ints {
+                        if let Some(b) = usize::try_from(i).ok().and_then(|i| bools.get_mut(i)) {
+                            *b = true;
+                        }
+                    }
+                } else {
+                    for (b, v) in bools.iter_mut().zip(&values) {
+                        *b = *v == "1";
+                    }
+                }
+                Progress::Bools {
+                    progress: bools.clone(),
+                    last_shown: bools,
+                }
+            }
+            None => Progress::List {
+                progress: ints.clone(),
+                last: ints,
+            },
         }
     }
 }
@@ -206,13 +253,14 @@ impl EndgameTracker {
         }
     }
 
-    /// `GoalAlreadyFullfilled`.
-    fn goal_already_fulfilled(&self) -> bool {
-        match &self.progress {
+    /// `GoalAlreadyFullfilled`: fulfilled as last shown.
+    #[must_use]
+    pub fn goal_already_fulfilled(&self) -> bool {
+        match self.parsed() {
             Progress::Integer { last_shown, .. } => {
-                self.id.integer_max().is_some_and(|max| *last_shown >= max)
+                self.id.integer_max().is_some_and(|max| last_shown >= max)
             }
-            Progress::Float { last_shown, .. } => *last_shown >= 1.0,
+            Progress::Float { last_shown, .. } => last_shown >= 1.0,
             Progress::Bools { last_shown, .. } => last_shown.iter().all(|&b| b),
             Progress::List { last, .. } => last.len() >= EndgameId::LIST_MAX,
             Progress::Raw(_) => false,
@@ -245,42 +293,50 @@ impl EndgameTracker {
 
     /// A raw bool-array or list tracker read as the game's `FromString` reads it.
     fn parse_raw(&mut self) {
-        let Progress::Raw(raw) = &self.progress else {
-            return;
-        };
-        let values: Vec<&str> = raw.split('.').collect();
-        let ints: Vec<i32> = values
-            .iter()
-            .filter(|v| !v.is_empty())
-            .map(|v| v.trim().parse().unwrap_or(0))
-            .collect();
-        self.progress = match self.id.slots() {
-            Some(n) => {
-                let mut bools = vec![false; n];
-                let ones = ints.iter().filter(|&&v| v == 1).count();
-                let zeros = ints.iter().filter(|&&v| v == 0).count();
-                if self.id == EndgameId::DragonSlayer && ones <= 1 && zeros <= 1 {
-                    // A list of lizard indices (More Slugcats' format).
-                    for i in ints {
-                        if let Some(b) = usize::try_from(i).ok().and_then(|i| bools.get_mut(i)) {
-                            *b = true;
-                        }
-                    }
-                } else {
-                    for (b, v) in bools.iter_mut().zip(&values) {
-                        *b = *v == "1";
-                    }
-                }
-                Progress::Bools {
-                    progress: bools.clone(),
-                    last_shown: bools,
-                }
+        if let Progress::Raw(raw) = &self.progress {
+            self.progress = self.id.parse_raw(raw);
+        }
+    }
+
+    /// The progress, a raw tracker read as the game reads it.
+    #[must_use]
+    pub fn parsed(&self) -> Progress {
+        match &self.progress {
+            Progress::Raw(raw) => self.id.parse_raw(raw),
+            p => p.clone(),
+        }
+    }
+
+    /// `GoalFullfilled`.
+    #[must_use]
+    pub fn goal_fulfilled(&self) -> bool {
+        match self.parsed() {
+            Progress::Integer { progress, .. } => {
+                self.id.integer_max().is_some_and(|max| progress >= max)
             }
-            None => Progress::List {
-                progress: ints.clone(),
-                last: ints,
-            },
-        };
+            Progress::Float { progress, .. } => progress >= 1.0,
+            Progress::Bools { progress, .. } => progress.iter().all(|&b| b),
+            Progress::List { progress, .. } => progress.len() >= EndgameId::LIST_MAX,
+            Progress::Raw(_) => false,
+        }
+    }
+
+    /// `AnyProgressToShow`: whether the sleep and death screens show a meter for it.
+    #[must_use]
+    pub fn any_progress_to_show(&self) -> bool {
+        let show_from = self.id.show_from();
+        match self.parsed() {
+            Progress::Integer {
+                progress,
+                last_shown,
+            } => progress > show_from || last_shown > show_from,
+            Progress::Float {
+                progress,
+                last_shown,
+                ..
+            } => progress > show_from as f32 || last_shown > show_from as f32,
+            p => self.any_progress_to_save(&p),
+        }
     }
 
     fn write(&self, progress: &Progress, out: &mut String) {
@@ -517,8 +573,56 @@ impl WinState {
         }
     }
 
+    /// `PlayerDied`: the death screen's penalty, kept in memory (`DeathModifyTracker`
+    /// on each tracker not already fulfilled as last shown; unclamped).
+    pub fn player_died(&mut self) {
+        for t in &mut self.trackers {
+            if !t.id.loses_on_death() || t.goal_already_fulfilled() {
+                continue;
+            }
+            if let Progress::Integer { progress, .. } = &mut t.progress {
+                *progress -= 1;
+            }
+        }
+    }
+
+    /// `GetNextEndGame`: the first fulfilled passage not yet used.
+    #[must_use]
+    pub fn next_end_game(&self) -> Option<EndgameId> {
+        self.trackers
+            .iter()
+            .find(|t| t.goal_fulfilled() && !t.consumed)
+            .map(|t| t.id)
+    }
+
+    /// `ResetLastShownValues` (the list trackers are left as they are).
+    pub fn reset_last_shown_values(&mut self) {
+        for t in &mut self.trackers {
+            match &mut t.progress {
+                Progress::Integer {
+                    progress,
+                    last_shown,
+                } => *last_shown = *progress,
+                Progress::Float {
+                    progress,
+                    last_shown,
+                    ..
+                } => *last_shown = *progress,
+                Progress::Bools {
+                    progress,
+                    last_shown,
+                } => {
+                    for (l, p) in last_shown.iter_mut().zip(progress.iter()) {
+                        *l = *p;
+                    }
+                }
+                Progress::List { .. } | Progress::Raw(_) => {}
+            }
+        }
+    }
+
     /// `SaveToString(saveAsIfPlayerDied)`: on a death, the trackers that lose a point
-    /// are written a point lower unless already fulfilled.
+    /// are written a point lower unless already fulfilled as last shown.
     #[must_use]
     pub fn save_to_string(&self, died: bool) -> String {
         let mut text = String::new();
@@ -527,10 +631,7 @@ impl WinState {
                 Progress::Integer {
                     progress,
                     last_shown,
-                } if died
-                    && t.id.loses_on_death()
-                    && !t.id.integer_max().is_some_and(|max| progress >= max) =>
-                {
+                } if died && t.id.loses_on_death() && !t.goal_already_fulfilled() => {
                     Progress::Integer {
                         progress: progress - 1,
                         last_shown,
@@ -629,5 +730,66 @@ mod tests {
              Traveller<egA>0<egA>1.0.0.1.0.0.0.0.0.0.0.0.<wsA>Hunter<egA>0<egA>2<wsA>\
              Saint<egA>0<egA>2<wsA>"
         );
+    }
+
+    #[test]
+    fn death_screen_penalty_and_display() {
+        let mut w = WinState::from_string(
+            "Survivor<egA>0<egA>5<wsA>Hunter<egA>0<egA>3<wsA>Monk<egA>0<egA>12<wsA>\
+             Outlaw<egA>0<egA>2<wsA>Chieftain<egA>0<egA>0.05<wsA>Traveller<egA>0<egA>0.0.1.<wsA>",
+        );
+        // `showFrom` 2 for Hunter and Outlaw, 0 for Survivor and Chieftain.
+        let shown: Vec<bool> = w
+            .trackers
+            .iter()
+            .map(EndgameTracker::any_progress_to_show)
+            .collect();
+        assert_eq!(shown, [true, true, true, false, true, true]);
+        assert_eq!(w.next_end_game(), Some(EndgameId::Survivor));
+        w.player_died();
+        // Hunter and Outlaw lose a point (unclamped); the fulfilled Monk and the
+        // Survivor do not.
+        let p: Vec<Progress> = w
+            .trackers
+            .iter()
+            .take(4)
+            .map(EndgameTracker::parsed)
+            .collect();
+        assert_eq!(
+            p,
+            [
+                Progress::Integer {
+                    progress: 5,
+                    last_shown: 5
+                },
+                Progress::Integer {
+                    progress: 2,
+                    last_shown: 3
+                },
+                Progress::Integer {
+                    progress: 12,
+                    last_shown: 12
+                },
+                Progress::Integer {
+                    progress: 1,
+                    last_shown: 2
+                },
+            ]
+        );
+        // Hunter still shows: last shown 3 is above 2.
+        assert!(w.trackers[1].any_progress_to_show());
+        w.reset_last_shown_values();
+        assert!(!w.trackers[1].any_progress_to_show());
+        assert!(!w.trackers[5].goal_fulfilled());
+        w.trackers[0].consumed = true;
+        assert_eq!(w.next_end_game(), Some(EndgameId::Monk));
+    }
+
+    #[test]
+    fn death_save_spares_trackers_fulfilled_as_last_shown() {
+        let mut w = WinState::from_string("Hunter<egA>0<egA>11<wsA>");
+        // Brought to 12 this session but last shown at 11: still loses a point.
+        w.trackers[0].set_integer(12);
+        assert_eq!(w.save_to_string(true), "Hunter<egA>0<egA>11<wsA>");
     }
 }

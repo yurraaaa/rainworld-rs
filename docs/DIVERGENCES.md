@@ -659,6 +659,11 @@ real-time audio rather than the sim.
   (`MenuDepthIllustration`, its shaders) are ported. The flat-mode branches follow the
   game: no slugcat select rain effect; the scenes' idle camera still runs and draws
   random numbers every tick, as in the game; the slideshows' scenes have none.
+  The sleep, starve and new-death scenes (`SceneId::{SleepScreen, StarveScreen,
+  NewDeath}`) are built flat too: the sleep scene of the slugcat being played
+  (`PlayingAsSlugcat`: the scene is built after the manager switches to the screen, so
+  never the story character), and the death scene's `Flower` flat faded in over the
+  scene timer's first 160 ticks (`InteractiveMenuScene`), which only the screen starts.
 - **Intro slideshows.** `SlideShow` (`WhiteIntro`, `YellowIntro`; `rw_menu::SlideShow`,
   `rainworld-re/notes/slideshow.md`) is ported in flat mode: the playlists, the wait for
   `RW_Intro_Theme`, the manager fade, the scene alphas (Rain Drop's and Yellow A's
@@ -926,10 +931,16 @@ story session.
   branches (`rw_hud::Map`): the map image in three layers through the `Map` and
   `MapAerial` shaders, the reveal from the discovery texture, pan and layers, the
   connection lines, the player marker, gate and shelter markers, the swarm-room circles
-  and the Hunter's cycle label, with every random draw. The player's exit discovery and
+  and the Hunter's cycle label, with every random draw, plus the death markers (the save
+  state's `DEATHPOSS`) and the karma flower marker. The same map, owned by a sleep or
+  death screen (`SleepHud`, for the screens of the next step), fades in without the
+  hold and, on a death screen, has no player marker. The player's exit discovery and
   `ReportRoomVisited` run in `Player.Update` as in the game. Differences: shelters show
-  no stored items (the port has none), and there are no death markers (death positions are not saved) or
-  karma flower marker; `CompleteDarkness` is the camera palette's darkness alone (no
+  no stored items (the port has none); the flower marker reads the save's `FLOWERPOS`
+  (the karma flower is not spawned, so the world load's clearing of the position when
+  the flower is gone is not ported); a saved coordinate in the old numeric-room form
+  places no death marker or flower (the port does not resolve room indices from old
+  saves); `CompleteDarkness` is the camera palette's darkness alone (no
   light sources are ported); in a shortcut the owner's position is its vessel's tile
   even while the vessel waits for another room; the cycle label counts 19 cycles (no
   Remix settings, no extra cycles). Not ported: the More Slugcats gate locks, Remix's
@@ -946,11 +957,17 @@ story session.
 - **Shelters.** The owner's `stillInStartShelter`, `readyForWin` and
   `forceSleepCounter` are the player's (D17); every shelter counts as intact (broken
   shelters are not read).
+- **Screen meters.** The food meter's sleep and death screen branches (`SleepUpdate`,
+  `DeathUpdate`, the eat circles and `FoodCountDownDone`) and `InitSleepHud` are ported
+  (`rw_hud::SleepHud`), with the sleep-death data package `CommunicateWithUpcomingProcess`
+  builds (`SleepDeathScreenDataPackage`). The prompt's `foodInStomach` is 0 until game
+  over is entered, so a death or starve package's food is 0. The screens themselves are
+  not ported yet (D16, D17).
 - **Game over.** The prompt's game-over mode is ported but not entered: death freezes
   the body until R (current phase), so nothing calls `EnterGameOverMode`.
 - **Not ported:** the prompt's symbol and music messages, the Hunter's
   cycle count-up, the karma meter's gate and scavenger blinking, the gamepad pictures of
-  the controls page, the sleep, death and character-select screens' meters, and every
+  the controls page, the character-select screen's meters, and every
   DLC part (More Slugcats pup meters, ammo meter, Watcher ripple symbols, Jolly Co-op
   meters, Remix's options).
 
@@ -994,10 +1011,16 @@ Differences:
   their cycle tick, and friends in the den. A saved creature the world cannot place
   stays in the saved list. Session time is the sim's ticks.
 - **Win state.** Integer and float passage trackers are read and written as the game
-  does, including the death penalty; the bool-array and list trackers (Traveller,
+  does, including the death penalty (applied, as in the game, only to a tracker whose
+  last shown progress is below its maximum); the bool-array and list trackers (Traveller,
   Dragon Slayer, Scholar) are written back as read, so the game's re-encoding of a
   More Slugcats Dragon Slayer list as base-game bools and its Traveller slot count are
   not applied.
+- **Screens' data.** The sleep and death screens' save-side reads are ported for the
+  screens of the next step: `WinState.PlayerDied`, `GetNextEndGame`,
+  `ResetLastShownValues`, each tracker's `GoalFullfilled`/`AnyProgressToShow`, the
+  `MiscProgressionData` watched-screen counters (`INTEGERS` 1-4) and the
+  death-persistent `METERSSHOWN` list, `DEATHPOSS` and `FLOWERPOS`.
 - **Container.** A new key goes last (the game's `Hashtable` orders keys by string
   hash); the files have no NUL padding (the game writes `MemoryStream.GetBuffer()`);
   they are written to a temporary file and renamed.
@@ -1041,6 +1064,8 @@ cycle left, starts in the shelter with its door shut and the slugcat curled up.
 Differences:
 - **Sleep screen and dreams.** Not ported: a stand-in shows 40 black frames, then starts
   the next cycle as the sleep screen's continue does (`StoryGameInitCondition.Load`).
+  Its scene, meters, map and data package are ported (D13, D15); the frontend builds
+  the package when the game switches to a sleep, death or starve screen and only logs it.
   The Moon and Pebbles event dreams are not ported (no iterators).
 - **Starving.** A door closing on too little food saves the cycle as a death
   (`SessionEnded(survived: false)`, D16) and shows the "not ported" page. Not

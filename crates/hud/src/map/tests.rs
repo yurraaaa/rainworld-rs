@@ -9,6 +9,11 @@ use rw_random::UnityRandom;
 use rw_sim::{Input, MapDiscovery, MapRoom, Vec2};
 
 use super::{GateData, GateRequirement, Map, MapData, MapDataRoom, MapOwner, ShelterData};
+use rw_save::SavedCoordinate;
+use rw_sim::WorldCoordinate;
+
+use super::MarkerKind;
+use crate::HudOwnerType;
 
 /// One room (global index 1, map position (300, 300), 50 x 40 tiles, layer 1) on a
 /// 210 x 630 map image (three 210 px layers), a shelter and a gate.
@@ -68,12 +73,17 @@ struct MapRig {
 
 impl MapRig {
     fn new(visited: &[&str]) -> Self {
+        Self::owned(HudOwnerType::Player, test_map_data(), visited)
+    }
+
+    fn owned(owner: HudOwnerType, data: MapData, visited: &[&str]) -> Self {
         let mut stage = StageTree::new();
         let container = stage.add_container(StageTree::ROOT);
         let in_front = stage.add_container(StageTree::ROOT);
         let mut atlases = AtlasManager::new();
         let map = Map::new(
-            test_map_data(),
+            data,
+            owner,
             &mut stage,
             container,
             in_front,
@@ -254,4 +264,86 @@ fn room_to_map_pos_zooms_away_from_the_centre() {
     let p = rig.map.room_to_map_pos(Vec2::new(520.0, 400.0), 1, 1.0);
     assert!((p.x - 687.0).abs() < 1e-3, "{p:?}");
     assert_eq!(p.y, 384.0);
+}
+
+/// The test map with two deaths in SU (this cycle's and one 3 cycles old), one in
+/// another region, and a karma flower.
+fn map_data_with_deaths() -> MapData {
+    let mut data = test_map_data();
+    data.death_positions = [
+        ("SU_C04", 10, 5, 0),
+        ("HI_A01", 1, 1, 0),
+        ("SU_S01", 3, 4, 3),
+    ]
+    .into_iter()
+    .map(|(room, x, y, node)| SavedCoordinate {
+        room: room.to_owned(),
+        x,
+        y,
+        node,
+    })
+    .collect();
+    data.karma_flower_pos = Some(WorldCoordinate::new(1, 12, 6, -1));
+    data
+}
+
+#[test]
+fn death_and_flower_markers_follow_the_shelters() {
+    // `Map` constructor 479151-479171: deaths in the region (`DeathMarker`, fade-in
+    // radius 3, bones over a black shade), then the flower (`FlowerMarker`, radius 5).
+    for owner in [
+        HudOwnerType::Player,
+        HudOwnerType::SleepScreen,
+        HudOwnerType::DeathScreen,
+    ] {
+        let rig = MapRig::owned(owner, map_data_with_deaths(), &[]);
+        let symbols: Vec<&str> = rig
+            .map
+            .markers
+            .iter()
+            .map(|m| m.symbol(&rig.stage))
+            .collect();
+        assert_eq!(
+            symbols,
+            [
+                "smallKarmaNoRing3",
+                "smallKarmaNoRing-1",
+                "ShelterMarker",
+                "Multiplayer_Bones",
+                "Multiplayer_Bones",
+                "FlowerMarker"
+            ]
+        );
+        let m = &rig.map.markers;
+        assert_eq!((m[3].room, m[3].in_room_pos), (1, Vec2::new(200.0, 100.0)));
+        // `ageFade = InverseLerp(6, 2, age)`.
+        assert_eq!(
+            m[3].kind,
+            MarkerKind::Death {
+                age: 0,
+                age_fade: 1.0
+            }
+        );
+        assert_eq!(
+            m[4].kind,
+            MarkerKind::Death {
+                age: 3,
+                age_fade: 0.75
+            }
+        );
+        assert_eq!((m[5].room, m[5].in_room_pos), (1, Vec2::new(240.0, 120.0)));
+        assert_eq!(m[5].fade_in_rad, 5.0);
+        // The death screen's map has no player marker.
+        let marker = rig.map.player_marker().is_some();
+        assert_eq!(marker, owner != HudOwnerType::DeathScreen);
+    }
+}
+
+#[test]
+fn a_screen_map_opens_without_the_hold() {
+    // `fadeCounter > 30 || owner != Player`: a sleep screen's map fades in at once.
+    let mut rig = MapRig::owned(HudOwnerType::SleepScreen, test_map_data(), &[]);
+    rig.tick(true);
+    assert!(rig.map.fade > 0.0);
+    assert_eq!(rig.map.reveal_pixels.len(), 9);
 }

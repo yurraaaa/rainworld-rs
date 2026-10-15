@@ -11,15 +11,27 @@ use rw_sim::{HEAD, HudMapLink, Vec2};
 use crate::game::Game;
 
 impl Game {
-    /// `new MapData(world)` with the save state's `deathPersistentSaveData.karma`.
+    /// `new MapData(world)` with the save state's `deathPersistentSaveData.karma`, its
+    /// karma flower (`karmaFlowerMapPos`, set as the world loads the saved flower) and
+    /// the death positions the map's constructor reads.
     #[must_use]
-    pub fn map_data(&self, assets: &StreamingAssets) -> Option<MapData> {
-        MapData::build(
+    pub fn map_data(&self, assets: &StreamingAssets, saves: &PlayerProgression) -> Option<MapData> {
+        let death_persistent = saves
+            .current_save_state
+            .as_ref()
+            .map(|s| &s.death_persistent);
+        let flower = death_persistent.and_then(|d| d.karma_flower_coordinate());
+        let mut data = MapData::build(
             self.sim().world(),
             assets,
             self.sim().campaign().name.value(),
             self.sim().story().karma,
-        )
+            flower.as_ref(),
+        )?;
+        data.death_positions = death_persistent
+            .map(|d| d.death_position_list())
+            .unwrap_or_default();
+        Some(data)
     }
 
     /// `Map.CycleLabel`'s text for the Hunter: `RedsCycles(false) - cycleNumber` (19

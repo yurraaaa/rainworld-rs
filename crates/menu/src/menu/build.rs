@@ -706,7 +706,7 @@ impl Menu {
     }
 
     /// `new InteractiveMenuScene(menu, owner, sceneID)` in flat mode: the scene's flat
-    /// illustration, then the idle camera's first random draws.
+    /// illustrations, then the idle camera's first random draws.
     pub fn add_scene(
         &mut self,
         shared: &mut MenuShared,
@@ -718,20 +718,21 @@ impl Menu {
             Vec2::ZERO,
             Kind::Scene(Box::new(SceneData::new(scene))),
         ));
-        let (folder, file) = scene.flat_file(shared);
-        let flat = self.add_illustration(
-            shared,
-            id,
-            &folder,
-            file,
-            Vec2::new(683.0, 384.0),
-            false,
-            true,
-        );
-        if let Some(s) = self.scene_mut(id) {
-            s.flat_illustrations.push(flat);
+        for (folder, file) in scene.flat_files(shared) {
+            let flat = self.add_illustration(
+                shared,
+                id,
+                &folder,
+                &file,
+                Vec2::new(683.0, 384.0),
+                false,
+                true,
+            );
+            if let Some(s) = self.scene_mut(id) {
+                s.flat_illustrations.push(flat);
+            }
+            self.add_sub(id, flat);
         }
-        self.add_sub(id, flat);
         let rng = &mut shared.random;
         let get_to_focus = rng.value();
         let dir = Vec2::random_unit(rng);
@@ -882,41 +883,56 @@ impl Menu {
 }
 
 impl SceneId {
-    /// `MenuScene.BuildScene` in flat mode: the folder and the flat image.
+    /// `MenuScene.BuildScene` in flat mode: the folder and file of each flat image.
+    /// The sleep screen's slugcat is `progression.PlayingAsSlugcat`: the scene is built
+    /// after the switch, when the main loop is no longer the game.
     #[must_use]
-    pub fn flat_file(self, shared: &MenuShared) -> (String, &'static str) {
+    pub fn flat_files(self, shared: &MenuShared) -> Vec<(String, String)> {
         match self {
-            Self::MainMenuDownpour if shared.dlcs.downpour => (
-                "Scenes/Main Menu - Downpour".to_owned(),
-                "Main Menu - Downpour - Flat",
-            ),
+            Self::MainMenuDownpour if shared.dlcs.downpour => {
+                Self::single("Scenes/Main Menu - Downpour", "Main Menu - Downpour - Flat")
+            }
             Self::MainMenu | Self::MainMenuDownpour => {
-                ("Scenes/Main Menu".to_owned(), "Main Menu - Flat")
+                Self::single("Scenes/Main Menu", "Main Menu - Flat")
             }
-            Self::SlugcatWhite => (
-                "Scenes/Slugcat - White".to_owned(),
-                "Slugcat - White - Flat",
-            ),
-            Self::SlugcatYellow => (
-                "Scenes/Slugcat - Yellow".to_owned(),
-                "Slugcat - Yellow - Flat",
-            ),
+            Self::SlugcatWhite => Self::single("Scenes/Slugcat - White", "Slugcat - White - Flat"),
+            Self::SlugcatYellow => {
+                Self::single("Scenes/Slugcat - Yellow", "Slugcat - Yellow - Flat")
+            }
             Self::SlugcatRed if shared.progression.red_unlocked => {
-                ("Scenes/Slugcat - Red".to_owned(), "Slugcat - Red - Flat")
+                Self::single("Scenes/Slugcat - Red", "Slugcat - Red - Flat")
             }
-            Self::SlugcatRed => (
-                "Scenes/Slugcat - Red".to_owned(),
-                "Slugcat - Red Dark - Flat",
-            ),
-            Self::LandscapeSu => ("Scenes/Landscape - SU".to_owned(), "Landscape - SU - Flat"),
+            Self::SlugcatRed => Self::single("Scenes/Slugcat - Red", "Slugcat - Red Dark - Flat"),
+            Self::LandscapeSu => Self::single("Scenes/Landscape - SU", "Landscape - SU - Flat"),
+            Self::SleepScreen => {
+                let slugcat = shared.playing_as_slugcat().value();
+                Self::single(
+                    &format!("Scenes/Sleep Screen - {slugcat}"),
+                    &format!("Sleep Screen - {slugcat} - Flat"),
+                )
+            }
+            Self::NewDeath => vec![
+                ("Scenes/New Death".to_owned(), "New Death - Flat".to_owned()),
+                (
+                    "Scenes/New Death".to_owned(),
+                    "New Death Flower - Flat".to_owned(),
+                ),
+            ],
+            Self::StarveScreen => Self::single("Scenes/Starve Screen", "Starve Screen - Flat"),
             _ => match self.slide_show_layers() {
-                FlatLayers::Scene { folder, files } => {
-                    (folder.to_owned(), files.first().copied().unwrap_or(""))
-                }
-                FlatLayers::Title => (String::new(), "MainTitle"),
-                FlatLayers::None => (String::new(), ""),
+                FlatLayers::Scene { folder, files } => files
+                    .first()
+                    .map(|f| Self::single(folder, f))
+                    .unwrap_or_default(),
+                FlatLayers::Title => Self::single("", "MainTitle"),
+                FlatLayers::None => Vec::new(),
             },
         }
+    }
+
+    /// One flat image.
+    fn single(folder: &str, file: &str) -> Vec<(String, String)> {
+        vec![(folder.to_owned(), file.to_owned())]
     }
 
     /// `MenuScene.BuildScene` in flat mode for the slideshow scenes.

@@ -8,7 +8,8 @@
 
 use rw_assets::SlugcatName;
 
-use crate::win_state::WinState;
+use crate::coordinate::SavedCoordinate;
+use crate::win_state::{EndgameId, WinState};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DeathPersistentSaveData {
@@ -304,6 +305,52 @@ impl DeathPersistentSaveData {
         self.death_positions = (!kept.is_empty()).then(|| kept.join("<dpC>"));
     }
 
+    /// `deathPositions` as `FromString` reads them (unreadable ones left out).
+    #[must_use]
+    pub fn death_position_list(&self) -> Vec<SavedCoordinate> {
+        self.death_positions
+            .as_deref()
+            .unwrap_or("")
+            .split("<dpC>")
+            .filter(|p| !p.is_empty())
+            .filter_map(SavedCoordinate::from_string)
+            .collect()
+    }
+
+    /// `karmaFlowerPosition`.
+    #[must_use]
+    pub fn karma_flower_coordinate(&self) -> Option<SavedCoordinate> {
+        self.karma_flower_position
+            .as_deref()
+            .and_then(SavedCoordinate::from_string)
+    }
+
+    /// `endGameMetersEverShown`: the passage IDs as written (a DLC or mod passage
+    /// stays a name), the old digit-string format read as the game reads it.
+    #[must_use]
+    pub fn meters_ever_shown(&self) -> Vec<String> {
+        let s = &self.meters_shown;
+        if !s.is_empty() && s.chars().all(|c| c.is_ascii_digit()) {
+            return s
+                .chars()
+                .zip(EndgameId::ALL)
+                .filter(|(c, _)| *c != '0')
+                .map(|(_, id)| id.value().to_owned())
+                .collect();
+        }
+        s.split(',')
+            .filter(|t| !t.is_empty())
+            .map(str::to_owned)
+            .collect()
+    }
+
+    /// `endGameMetersEverShown.Add`: written back as the game writes it.
+    pub fn add_meter_shown(&mut self, id: EndgameId) {
+        let mut shown = self.meters_ever_shown();
+        shown.push(id.value().to_owned());
+        self.meters_shown = shown.join(",");
+    }
+
     /// `AddDeathPosition(room, pos)`: the tile `RoundToInt(pos / 20)` (y at least -50 px)
     /// at node 0, saved as `<room>.<x>.<y>.0`; `room` is the name `SaveToString` gives.
     pub fn add_death_position(&mut self, room: &str, pos: [f32; 2]) {
@@ -387,6 +434,32 @@ mod tests {
         again.from_string(&s).unwrap();
         assert!(again.reds_death);
         assert_eq!(again.karma, 2);
+    }
+
+    #[test]
+    fn meters_shown_old_digits_and_names() {
+        let mut d = loaded();
+        assert!(d.meters_ever_shown().is_empty());
+        d.meters_shown = "1001".to_owned();
+        assert_eq!(d.meters_ever_shown(), ["Survivor", "Traveller"]);
+        d.add_meter_shown(EndgameId::Monk);
+        assert_eq!(d.meters_shown, "Survivor,Traveller,Monk");
+        d.meters_shown = "Hunter,Nomad".to_owned();
+        assert_eq!(d.meters_ever_shown(), ["Hunter", "Nomad"]);
+    }
+
+    #[test]
+    fn death_positions_and_flower_read_as_coordinates() {
+        let mut d = loaded();
+        d.death_positions = Some("SU_A22.3.4.6<dpC>bad<dpC>SU_C04.10.2.0".to_owned());
+        let list = d.death_position_list();
+        assert_eq!(list.len(), 2);
+        assert_eq!(
+            (list[1].room.as_str(), list[1].x, list[1].node),
+            ("SU_C04", 10, 0)
+        );
+        d.karma_flower_position = Some("SU_A41.12.5.-1".to_owned());
+        assert_eq!(d.karma_flower_coordinate().map(|c| c.y), Some(5));
     }
 
     #[test]

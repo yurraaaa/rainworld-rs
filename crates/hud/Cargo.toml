@@ -11,4 +11,5 @@ rw-sim.workspace = true
 rw-random.workspace = true
 rw-menu.workspace = true
 rw-graphics.workspace = true
+rw-save.workspace = true
 log.workspace = true

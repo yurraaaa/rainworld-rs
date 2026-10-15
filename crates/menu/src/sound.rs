@@ -27,6 +27,12 @@ macro_rules! menu_sound_ids {
                     $(MenuSoundId::$variant => $name,)*
                 }
             }
+
+            /// The ID of the game's `name`, if the port plays it in menus.
+            #[must_use]
+            pub fn from_name(name: &str) -> Option<Self> {
+                Self::ALL.iter().copied().find(|id| id.name() == name)
+            }
         }
     };
 }
@@ -58,6 +64,40 @@ menu_sound_ids! {
     HudPauseGame = "HUD_Pause_Game",
     HudUnpauseGame = "HUD_Unpause_Game",
     HudExitGame = "HUD_Exit_Game",
+    SleepScreenLoop = "MENU_Sleep_Screen_LOOP",
+    DeathScreenLoop = "MENU_Death_Screen_LOOP",
+    EnterSleepScreen = "MENU_Enter_Sleep_Screen",
+    EnterDeathScreen = "MENU_Enter_Death_Screen",
+    ContinueFromSleepDeathScreen = "MENU_Continue_From_Sleep_Death_Screen",
+    PassageButton = "MENU_Passage_Button",
+    KarmaLadderMovementLoop = "MENU_Karma_Ladder_Movement_LOOP",
+    KarmaLadderDeselect = "MENU_Karma_Ladder_Deselect",
+    KarmaLadderStartMoving = "MENU_Karma_Ladder_Start_Moving",
+    KarmaLadderIncreaseBumpCharge = "MENU_Karma_Ladder_Increase_Bump_Charge",
+    KarmaLadderReselect = "MENU_Karma_Ladder_Reselect",
+    KarmaLadderHitUpperCap = "MENU_Karma_Ladder_Hit_Upper_Cap",
+    KarmaLadderHitLowerCap = "MENU_Karma_Ladder_Hit_Lower_Cap",
+    KarmaLadderReinforceSaveGrab = "MENU_Karma_Ladder_Reinforce_Save_Grab",
+    KarmaLadderReinforceSavePull = "MENU_Karma_Ladder_Reinforce_Save_Pull",
+    KarmaLadderReinforceSaveSecure = "MENU_Karma_Ladder_Reinforce_Save_Secure",
+    KarmaLadderReinforcementDissipateA = "MENU_Karma_Ladder_Reinforcement_Dissipate_A",
+    KarmaLadderReinforcementDissipateB = "MENU_Karma_Ladder_Reinforcement_Dissipate_B",
+    KarmaLadderIncreaseBump = "MENU_Karma_Ladder_Increase_Bump",
+    KarmaLadderUpperCapBump = "MENU_Karma_Ladder_Upper_Cap_Bump",
+    EndgameMetersPowerOn = "MENU_Endgame_Meters_Power_On",
+    EndgameFloatMeterStartAnimationUp = "MENU_Endgame_Float_Meter_Start_Animation_Up",
+    EndgameFloatMeterStartAnimationDown = "MENU_Endgame_Float_Meter_Start_Animation_Down",
+    EndgameNotchMeterStartAnimation = "MENU_Endgame_Notch_Meter_Start_Animation",
+    EndgameNotchMeterSlotFill = "MENU_Endgame_Notch_Meter_Slot_Fill",
+    EndgameMeterFullfilled = "MENU_Endgame_Meter_Fullfilled",
+    EndgameMeterMultiplyBump = "MENU_Endgame_Meter_Multiply_Bump",
+    PlayerResultBoxKillTick = "UI_Multiplayer_Player_Result_Box_Kill_Tick",
+    HudFoodMeterFillPlopA = "HUD_Food_Meter_Fill_Plop_A",
+    HudFoodMeterFillPlopB = "HUD_Food_Meter_Fill_Plop_B",
+    HudFoodMeterFillFadeCircle = "HUD_Food_Meter_Fill_Fade_Circle",
+    HudFoodMeterFillQuarterPlop = "HUD_Food_Meter_Fill_Quarter_Plop",
+    HudFoodMeterDepletePlopA = "HUD_Food_Meter_Deplete_Plop_A",
+    HudFoodMeterDepletePlopB = "HUD_Food_Meter_Deplete_Plop_B",
 }
 
 /// One `MenuSoundObject` as created: the drawn `SoundData` and the call's arguments.

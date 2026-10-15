@@ -330,6 +330,9 @@ pub enum SceneId {
     Intro14Title,
     YellowIntroA,
     YellowIntroB,
+    SleepScreen,
+    NewDeath,
+    StarveScreen,
 }
 
 /// A flat `MenuScene`: an `InteractiveMenuScene` (its idle camera, whose random draws

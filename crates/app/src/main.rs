@@ -44,6 +44,7 @@ mod input;
 mod mcp;
 mod saves;
 mod scene;
+mod screen_package;
 mod shortcuts;
 mod sprites;
 mod timestep;

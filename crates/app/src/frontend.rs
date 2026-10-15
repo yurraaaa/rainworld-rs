@@ -453,8 +453,20 @@ impl MenuContext for AppContext {
 }
 
 impl ProcessFactory<AppProcess> for AppContext {
-    fn create_process(&mut self, id: ProcessId, _old: Option<&AppProcess>) -> AppProcess {
+    fn create_process(&mut self, id: ProcessId, old: Option<&AppProcess>) -> AppProcess {
         log::info!("process {id:?}");
+        // The screens' data package; the screens themselves are not ported yet.
+        if let Some(p) = old.and_then(|o| o.screen_package(id, &self.menu.saves, &self.menu.assets))
+        {
+            log::info!(
+                "{id:?} package: food {}, karma {:?}, reinforced {}, room {}, pos {:?}",
+                p.food,
+                p.karma,
+                p.karma_reinforced,
+                p.player_room,
+                p.player_pos
+            );
+        }
         match id {
             ProcessId::Initialization => {
                 AppProcess::Initialization(Initialization::new(self.start))

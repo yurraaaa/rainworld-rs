@@ -294,7 +294,7 @@ impl Scene {
             }
             None if self.game.hud_due() => {
                 let mut setup = self.game.hud_setup(shared.screen_size);
-                setup.map = self.game.map_data(&shared.assets);
+                setup.map = self.game.map_data(&shared.assets, &shared.saves);
                 if let Some(map) = &setup.map {
                     self.game.load_map_texture(&mut shared.saves, &map.region);
                 }

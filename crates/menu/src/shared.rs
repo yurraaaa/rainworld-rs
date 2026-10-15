@@ -168,6 +168,16 @@ pub struct MenuShared {
 }
 
 impl MenuShared {
+    /// `progression.PlayingAsSlugcat`: the current save state's slugcat, else the
+    /// selected one.
+    #[must_use]
+    pub fn playing_as_slugcat(&self) -> Slugcat {
+        self.saves
+            .current_save_state
+            .as_ref()
+            .map_or(self.saves.misc.current_slugcat, |s| s.save_state_number)
+    }
+
     /// Loads the English fonts and strings (`RainWorld.Update` once options are ready)
     /// and the atlases and textures the menus draw with (`RainWorld.LoadResources`).
     ///
