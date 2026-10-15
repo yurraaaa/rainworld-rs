@@ -210,6 +210,9 @@ pub struct TextPrompt {
     restart_not_allowed: i32,
     pub game_over_mode: bool,
     pub play_game_over_sound: bool,
+    /// `deathRoom` and `deathPos`, set on entering game-over mode (0 and zero before).
+    pub death_room: i32,
+    pub death_pos: [f32; 2],
     pub paused_mode: bool,
     /// `pausedWarningText`: the pause text warns that quitting counts as a loss.
     pub paused_warning_text: bool,
@@ -283,6 +286,8 @@ impl TextPrompt {
             restart_not_allowed: 40,
             game_over_mode: false,
             play_game_over_sound: false,
+            death_room: 0,
+            death_pos: [0.0; 2],
             paused_mode: false,
             paused_warning_text: false,
             red_is_out_of_cycles: false,
@@ -327,9 +332,11 @@ impl TextPrompt {
         }
     }
 
-    /// `EnterGameOverMode` (the grasp, food and death position are kept by the game for
-    /// the death screen and Jolly Co-op).
-    pub fn enter_game_over_mode(&mut self) {
+    /// `EnterGameOverMode` (the grasp and food are kept by the game for the death screen
+    /// and Jolly Co-op).
+    pub fn enter_game_over_mode(&mut self, death_room: i32, death_pos: [f32; 2]) {
+        self.death_room = death_room;
+        self.death_pos = death_pos;
         self.restart_not_allowed = 40;
         self.game_over_mode = true;
         self.play_game_over_sound = true;

@@ -60,6 +60,8 @@ pub struct RoomGlobals {
     pub screen_size: [f32; 2],
     /// `_RAIN`.
     pub rain: f32,
+    /// `_fogAmount` (`RoomCamera.ApplyPalette`).
+    pub fog_amount: f32,
 }
 
 /// `FMatrix` as `FNode` sets it: scale, then rotate clockwise, then translate.
@@ -321,6 +323,7 @@ impl RoomGlobals {
             sprite_rect: [x / sw, y / sh, (x + image[2]) / sw, (y + image[3]) / sh],
             screen_size: view.size,
             rain: view.rain,
+            fog_amount: 0.0,
         }
     }
 }

@@ -128,6 +128,10 @@ pub enum Shader {
     /// `Futile/ShortCut0` (the `Shortcuts` shader): the colour where the level image's
     /// pixel is a shortcut pipe (green 8 to 10, blue 0), nothing elsewhere.
     ShortCut0,
+    /// `ColoredSprite3` (`Futile/ColoredSprite2` with `no_grab_tex`): the room palette's
+    /// colour at the texel's depth (red, deepened by `1 - alpha`) and row (blue), fogged,
+    /// hidden behind nearer level pixels.
+    ColoredSprite3,
 }
 
 /// One `FSprite`, placed as Futile does: the element's untrimmed source box is

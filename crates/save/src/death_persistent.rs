@@ -304,6 +304,18 @@ impl DeathPersistentSaveData {
         self.death_positions = (!kept.is_empty()).then(|| kept.join("<dpC>"));
     }
 
+    /// `AddDeathPosition(room, pos)`: the tile `RoundToInt(pos / 20)` (y at least -50 px)
+    /// at node 0, saved as `<room>.<x>.<y>.0`; `room` is the name `SaveToString` gives.
+    pub fn add_death_position(&mut self, room: &str, pos: [f32; 2]) {
+        let x = (pos[0] / 20.0).round_ties_even() as i32;
+        let y = (pos[1].max(-50.0) / 20.0).round_ties_even() as i32;
+        let entry = format!("{room}.{x}.{y}.0");
+        self.death_positions = Some(match self.death_positions.take() {
+            Some(text) if !text.is_empty() => format!("{text}<dpC>{entry}"),
+            _ => entry,
+        });
+    }
+
     /// `TickFlowerDepletion(ticks)`: consumed flowers' waits (the last field) count
     /// down; those below 1 go.
     pub fn tick_flower_depletion(&mut self, ticks: i32) {

@@ -119,6 +119,46 @@ impl HibernatingGame<'_> {
         }
         Ok((outcome, self.sim.world().region_state.clone()))
     }
+
+    /// `GoToStarveScreen`'s and `GoToDeathScreen`'s save: `SessionEnded(survived:
+    /// false)` with the sim's stream and the death save. `death` is the HUD prompt's
+    /// death room index and position.
+    ///
+    /// # Errors
+    /// When the save cannot be written.
+    pub fn session_ended_died(
+        &mut self,
+        saves: &mut PlayerProgression,
+        death: Option<(i32, [f32; 2])>,
+    ) -> Result<(), SaveError> {
+        let record = self.sim.session_record();
+        let travelled = record.woke_up_in_region.as_deref() != Some(self.sim.world().name());
+        let room = death.map(|(room, pos)| (self.room_index_name(room), pos));
+        let death = room.as_ref().map(|(room, pos)| (room.as_str(), *pos));
+        let mut rng = self.sim.take_rng();
+        let result = saves.session_ended_died(travelled, death, &mut rng);
+        self.sim.set_rng(rng);
+        result
+    }
+
+    /// `WorldCoordinate.SaveToString`'s room: its name in `RainWorld.roomIndexToName`
+    /// (`World/indexmaps/roomindexmap<worldVersion>.txt`), else the index.
+    fn room_index_name(&self, room: i32) -> String {
+        let version =
+            std::fs::read_to_string(self.assets.resolve_file_path("World/worldVersion.txt"))
+                .ok()
+                .and_then(|v| v.trim().parse::<i32>().ok())
+                .unwrap_or(0);
+        let map = std::fs::read_to_string(
+            self.assets
+                .resolve_file_path(&format!("World/indexmaps/roomindexmap{version}.txt")),
+        )
+        .unwrap_or_default();
+        map.lines()
+            .filter_map(|l| l.split_once(' '))
+            .find(|(i, _)| i.trim().parse::<i32>().ok() == Some(room))
+            .map_or_else(|| room.to_string(), |(_, name)| name.trim().to_owned())
+    }
 }
 
 /// `PlayerSessionRecord` of the sim's cycle.
@@ -330,5 +370,38 @@ mod tests {
                 .any(|(_, c)| format!("ID.{}.{}", c.id.spawner, c.id.number) == id && c.in_den);
             assert!(found, "{entry} restored");
         }
+    }
+
+    /// The HUD prompt's unset death room 0 saves as `GATE_CC_UW`, the first line of the
+    /// installed `roomindexmap2.txt`.
+    #[test]
+    fn a_starve_saves_the_death_with_the_index_map_room_name() {
+        let Some(assets) = assets() else { return };
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("sav");
+        let mut saves = PlayerProgression::load(&path, Some(ChecksumSalt::new("s"))).unwrap();
+        let mut sim = game(
+            &assets,
+            "SU_S01",
+            StoryStart::new_game(&SlugcatCampaign::SURVIVOR),
+        );
+        saves
+            .get_or_initiate_save_state(START, sim.save_state_seed(), false, true)
+            .unwrap();
+        saves.save_world_state_and_progression(false).unwrap();
+        HibernatingGame {
+            sim: &mut sim,
+            assets: &assets,
+        }
+        .session_ended_died(&mut saves, Some((0, [0.0, 0.0])))
+        .unwrap();
+        let mut again = PlayerProgression::load(&path, Some(ChecksumSalt::new("s"))).unwrap();
+        let lines = again.prog_lines();
+        let line = lines.iter().find(|l| l.starts_with("SAVE STATE")).unwrap();
+        assert!(
+            line.contains("<dpA>DEATHPOSS<dpB>GATE_CC_UW.0.0.0<dpA>"),
+            "{line}"
+        );
+        assert!(line.contains("<dpA>DEATHS<dpB>1<dpA>"), "{line}");
     }
 }

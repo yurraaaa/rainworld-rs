@@ -42,6 +42,11 @@ impl LevelTextures {
         self.rect
     }
 
+    /// `_fogAmount` of the palette.
+    pub(crate) fn fog_amount(&self) -> f32 {
+        self.params.fog_amount
+    }
+
     /// The image, palette and noise views.
     pub(crate) fn views(&self) -> [&wgpu::TextureView; 3] {
         [&self.image, &self.palette, &self.noise]

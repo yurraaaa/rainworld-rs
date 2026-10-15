@@ -562,9 +562,13 @@ impl WgpuRenderer {
     /// as the screen.
     fn room_globals(&self) -> RoomGlobals {
         match (&self.level_view, &self.level) {
-            (Some(view), Some(textures)) => RoomGlobals::new(view, textures.rect()),
+            (Some(view), Some(textures)) => RoomGlobals {
+                fog_amount: textures.fog_amount(),
+                ..RoomGlobals::new(view, textures.rect())
+            },
             _ => RoomGlobals {
                 sprite_rect: [0.0; 4],
+                fog_amount: 0.0,
                 screen_size: [self.frame.size.0 as f32, self.frame.size.1 as f32],
                 rain: self.stage_pipeline.globals().rain,
             },
@@ -920,9 +924,11 @@ impl Renderer for WgpuRenderer {
         // The level, when drawn: its bind group, scissor and the batches behind it.
         let level = match (&self.level_view, split, &self.level) {
             (Some(view), Some(split), Some(textures)) => {
-                let behind_screen = self
-                    .sprite_pipeline
-                    .bind_behind_screen(&self.device, textures.views()[0]);
+                let behind_screen = self.sprite_pipeline.bind_behind_screen(
+                    &self.device,
+                    textures.views()[0],
+                    textures.views()[1],
+                );
                 self.draw_behind(&mut encoder, &batches[..split], &behind_screen);
                 let bind_group = self.level_pipeline.bind(
                     &self.device,
@@ -950,6 +956,7 @@ impl Renderer for WgpuRenderer {
                         level: textures.views()[0],
                         behind: &self.frame.behind,
                         grab: &self.frame.grab_view,
+                        palette: textures.views()[1],
                     },
                 );
                 Some((bind_group, self.scissor(view), split + 1, water, screen))

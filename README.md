@@ -24,7 +24,8 @@ Working now:
   pause menu saves as the game does.
 - **Shelters:** with enough food, staying still in a shelter closes its door and hibernates;
   the cycle is saved and the next one starts there with food, karma and the region's
-  creatures carried over. Saves from the real game can be imported (see below).
+  creatures carried over; a door closing on too little food saves the cycle as a death.
+  Saves from the real game can be imported (see below).
 - **Movement:** the slugcat's movement and physics, corridors and shortcuts, poles, water
   and swimming. The slugcat is drawn as the game draws it.
 - **Regions:** a whole region loads, and room-exit pipes take you between rooms, with the
