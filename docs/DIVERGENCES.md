@@ -55,10 +55,19 @@ it (D13). What still differs is only the seed and the call order:
   start room's overseers realized (`PlaceInRealizedRoom`, `Overseer`, `PlaceInRoom`,
   the graphics module's mycelia in the viewed room) before the player
   (`rainworld-re/notes/creature-model.md`). Per tick it parts from the game's again:
-  `FliesWorldAI.Update`, the abstract AI of every creature but overseers (D14), the
-  realized overseer's `OverseerAI` and graphics, and `LocalCoordinateOfNode`'s draws for
-  border exits, bat hives and garbage holes when an overseer is realized there are not
-  made.
+  `FliesWorldAI.Update`, the abstract AI of every creature but overseers (D14), and
+  `LocalCoordinateOfNode`'s draws for border exits, bat hives and garbage holes when an
+  overseer is realized there are not made.
+- **Overseers.** A realized overseer's update makes the game's draws in order
+  (`Overseer.Update`, `OverseerAI` with its communication module and the guide's
+  tutorial, then `OverseerGraphics.Update` while its room is viewed;
+  `rainworld-re/notes/overseer.md`); the guide's run in SU_C04 and its arrival in SU_A41
+  match an independent model draw for draw. Missing: the `NeuronSpark` a pair of linked
+  mycelia makes (its constructor's draw is made; its `SS_Mycelia_Spark` sound on its
+  first update is not), and `HologramMatrix.DrawSprites`'s per-frame draws (the lens's
+  colour and line flicker), which the app takes from a cosmetic stream of its own: the
+  game makes them on the global stream once per rendered frame, so their number follows
+  the frame rate, not the tick.
 
 **Why.** Matching the game's draw sequence would need every system that draws. Seeding
 from the command line keeps runs reproducible.
@@ -649,18 +658,32 @@ second part, else a single-room world for arena levels). The campaign descriptio
   overseers' abstract AI is ported (`OverseerAbstractAI.AbstractBehavior`, `Roam`,
   `PlayerGuideUpdate`, `RoomAllowed`, `HowInterestingIsCreature`), run by
   `AbstractRoom.Update` and `InDenUpdate`; it never picks a target, as nothing it
-  finds interesting is ever out of a den. A realized overseer is a body placeholder:
-  `Overseer`'s and `OverseerAI`'s constructor draws and `PlaceInRoom`, then frozen
-  (no `OverseerAI` update, movement, zipping, projections or sprites; its
-  `tutorialBehavior` is never built, so the rain-time and guide-tutorial branches of
-  `AbstractBehavior` read it as null). An abstract overseer moving into a realized room
-  stays abstract (`ChangeRooms`'s `CreatureEnterFromAbstractRoom` and the shortcut
-  arrival are not ported) and stops behaving there, as an abstract creature in a
-  realized room does. Which camera's room counts as viewed when `AddObject` builds the
-  graphics module is inferred from `RoomCamera` and `Room.AddObject`, not checked.
+  finds interesting is ever out of a den. A realized overseer is the game's
+  (`rainworld-re/notes/overseer.md`): `Overseer` with its zipping, hovering, root and
+  appendage, `OverseerAI` with the AI-map parts it reads (`ai-map.md`), the communication
+  module and the guide's `OverseerTutorialBehavior` (messages through the HUD's text
+  prompt, `pauseRain`, `bringInRain`), its graphics module in a viewed room, and
+  `ChangeRooms`'s `CreatureEnterFromAbstractRoom` with the lobby's teleportation
+  vessels and `TeleportingIntoRoom`. Still missing: holograms (projections, the lens
+  showing a picture, every `TryAddHologram` asks for none: overseer step 3), so a
+  communication-module concern only calls the guide over; the direction finder
+  (`OverseersWorldAI`, so progression is never shown); `RegionGate` (no gate scene: in
+  Moon's gates the concern is `None`, as the game's is with a closed gate);
+  `ActiveSwarmRoom` (the guide never notes a swarm room visited); and every creature
+  but the player and overseers in what the AI looks at. Which camera's room counts as
+  viewed when `AddObject` builds the graphics module is inferred from `RoomCamera` and
+  `Room.AddObject`, not checked.
   Not ported: bat blockages, swarm maps, `FliesWorldAI.Update`, scavenger and vulture
   world AI, `CreatureCommunities`, `AbstractCreature.Update` for other types, and
   `GeneratePopulation`'s non-fresh branch (saved populations).
+- **Overseer graphics.** `OverseerGraphics.Emerge` restarts the mycelia from the eye's
+  position of the last rendered frame in the game (`DrawSprites` caches it); the port
+  uses the last update's, as a headless run would. Sprites are drawn per container in
+  the game's container order, but within the Foreground container the overseers' come
+  after the player's; the game orders them by when the objects joined the room (the
+  guide, realized first, sits under the player). `NowViewed` builds graphics modules in
+  the abstract room's creature order, not in `physicalObjects`' (the order the bodies
+  were added); they differ only with several overseers in the room.
 - **Synchronous loading.** The game's `RoomPreparer` loads a room over several frames
   (and `RoomCamera.MoveCamera` its images asynchronously); the port loads a room's
   files and builds its water in one call, finishing at the end of the tick the room is
@@ -684,7 +707,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
   ordinary rooms (no gate mechanism, no region change), and a `RegionTransportation`
   node goes nowhere.
 - **Not ported:** the rain (the cycle's timer, day-night counter and water level stages
-  run, nothing reads them but the overseers' AI), karma and karma gates, shelters closing and
+  run; the overseers' AI and the HUD's rain meter read them, and the guide's tutorial
+  pins the timer), karma and karma gates, shelters closing and
   hibernation, saves, the map, `DisabledMapRooms` beyond the tag drop, and Remix's
   `RemoveNotVisitedRooms` branch.
 - **Room scripts.** `AddRoomSpecificScript` is `rw_sim::RoomScript::for_room`, called
@@ -727,11 +751,9 @@ story session.
   The swarm-circle draws it would make on top (only with the map shown over a region
   with swarm rooms) are counted, not made. Whether building the map's `MapData` draws
   from the stream is not checked.
-- **Stand-in rain cycle.** The world's `RainCycle` (drawn length, ticking timer; D14)
-  is not wired to the HUD yet. The rain meter reads
-  `RainCycleView::STAND_IN`: a cycle of `cycleTimeMax` (800 s, 26 circles) that stays at
-  its start, so the meter always shows full, never blinks at half time and nothing reads
-  a room's rain `DangerType`.
+- **Rain.** The rain meter reads the world's `RainCycle` (its drawn length and
+  ticking timer, which the guide's `pauseRain` pins at 2000 in the tutorial rooms; D14).
+  The rain itself is not ported, so nothing reads a room's rain `DangerType`.
 - **New-game state only.** Food is 0 and stays 0 (no eating), karma and cap are the
   campaign's new-game values (karma 0, cap 4; the Hunter karma 2), never reinforced, and
   the cycle number is the session's (0 in a new game, so the meters start hidden). No
