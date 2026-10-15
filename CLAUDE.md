@@ -128,8 +128,11 @@ before the user agrees.
   out; omitted DLC branches are listed in `docs/DIVERGENCES.md`.
   End goal: Remix fully implemented (its menu and options, enabling the
   DLCs the user owns), with each DLC taking effect exactly as in the
-  game. Code mods are out of scope until the port has its own modding
-  API. Until DLC support exists the port treats every DLC as not installed,
+  game. C# code mods will never load. An end-of-project goal is a proper
+  modding API with a built-in scripting language (Wren, Lua or another,
+  chosen when it's time) replacing the game's C# mod loading; until then
+  don't design it out (keep game logic behind types a script layer could
+  hook, and ExtEnums able to grow a modded variant later). Until DLC support exists the port treats every DLC as not installed,
   even where the game decides from files on disk (Downpour's
   `dlcsInstalled` check): the base-game menu scene and intro images.
 - Current phase is the player controller in a region whose only
