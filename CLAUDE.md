@@ -214,6 +214,10 @@ Briefs must repeat these rules.
   (e.g. `fn lerp(last: Vec2, cur: Vec2, t: f32)`); implement it on that
   type (`impl Vec2 { pub fn lerp(self, to: Vec2, t: f32) -> Vec2 }`), or
   on a trait for a foreign type.
+- The game's ExtEnums (`CreatureTemplate.Type`, `SlugcatStats.Name`, ...)
+  are Rust enums with a variant per base-game and DLC value, plus
+  `value()`/`from_value()` for the game's spelling. Never match or compare
+  on string literals.
 - WGSL shaders live in `crates/render/shaders/`, not among the Rust
   sources; load them with `include_str!("../shaders/<name>.wgsl")`.
 - Don't over-document. A simple function or field needs no doc comment,
