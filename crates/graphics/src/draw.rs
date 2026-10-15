@@ -1,6 +1,8 @@
 //! The backend-agnostic draw list: what a renderer needs to draw one frame of an
 //! object's Futile sprites.
 
+use std::borrow::Cow;
+
 use rw_sim::Vec2;
 
 /// Linear RGBA in `[0, 1]`, as Unity's `Color` (the game blends in gamma space, so
@@ -28,12 +30,30 @@ pub use rw_assets::SlugcatName;
 
 /// The room camera's sprite containers an object draws into (`RoomCamera.ReturnFContainer`).
 ///
-/// Midground is drawn before the level image, so level pixels nearer than depth 5
-/// cover it; Foreground sprites added after the level image draw over it.
+/// Midground, then Items, are drawn before the level image, so level pixels nearer
+/// than depth 5 cover them; Foreground sprites added after the level image draw over
+/// it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Layer {
     Midground,
+    Items,
     Foreground,
+}
+
+/// The game shader (`FShader`) an item is drawn with (`StreamingAssets/shaders`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum Shader {
+    /// `Futile/Basic`: texel times colour, alpha blended.
+    #[default]
+    Basic,
+    /// `Futile/FlatLight`: a soft disc of the colour over the element's quad.
+    FlatLight,
+    /// `Futile/OverseerZip`: the colour where the distance from the texture centre
+    /// plus `_NoiseTex2` noise stays under `3 * alpha`.
+    OverseerZip,
+    /// `Futile/Hologram`: noisy scan lines of the colour, the texel alpha read with a
+    /// sideways jitter.
+    Hologram,
 }
 
 /// One `FSprite`, placed as Futile does: the element's untrimmed source box is
@@ -51,21 +71,28 @@ pub struct Sprite {
     pub rotation: f32,
     pub scale: Vec2,
     pub anchor: Vec2,
+    /// `color` with `alpha` in `a`.
     pub color: Color,
+    pub shader: Shader,
     pub layer: Layer,
 }
 
-/// A `TriangleMesh` drawn with one flat colour (`customColor` false, every UV at the
-/// `Futile_White` texture's corner).
+/// A `TriangleMesh` over `Futile_White`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Mesh {
     pub index: usize,
     /// Vertices in room pixels.
     pub vertices: Vec<Vec2>,
+    /// `UVvertices` (0 to 1 over `Futile_White`), one per vertex; empty puts every
+    /// vertex on the texture's centre.
+    pub uvs: Vec<Vec2>,
     /// Vertex index triples.
-    pub triangles: &'static [[u16; 3]],
-    /// Every vertex's colour.
+    pub triangles: Cow<'static, [[u16; 3]]>,
+    /// Every vertex's colour, unless `vertex_colors` is set.
     pub color: Color,
+    /// `verticeColors` (`customColor`), one per vertex; empty uses `color`.
+    pub vertex_colors: Vec<Color>,
+    pub shader: Shader,
     pub layer: Layer,
 }
 

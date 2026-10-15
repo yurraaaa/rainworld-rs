@@ -3,11 +3,12 @@
 //!
 //! Behaviour: `rainworld-re/notes/slugcat-graphics.md` sections 4-7.
 
+use std::borrow::Cow;
 use std::f32::consts::TAU;
 
 use rw_sim::{Animation, BodyMode, Player, Vec2};
 
-use crate::draw::{Color, DrawItem, DrawList, Layer, Mesh, Sprite};
+use crate::draw::{Color, DrawItem, DrawList, Layer, Mesh, Shader, Sprite};
 use crate::elements::{
     BODY_A, FACE_A, FACE_B, FACE_DEAD, FACE_STUNNED, HEAD_A, HIPS_A, LEGS_A, LEGS_A_AIR,
     LEGS_A_CLIMBING, LEGS_A_CRAWLING, LEGS_A_ON_POLE, LEGS_A_POLE, LEGS_A_VERTICAL_POLE,
@@ -169,6 +170,7 @@ impl PlayerGraphics {
                 scale: Vec2::new(Self::body_scale_x(f.breath, vert), 1.0),
                 anchor: Vec2::new(0.5, 0.789_473_7),
                 color: self.body_color,
+                shader: Shader::Basic,
                 layer: SPRITE_LAYERS[0],
             },
             Sprite {
@@ -179,6 +181,7 @@ impl PlayerGraphics {
                 scale: Vec2::new(1.0 + 0.05 * f.breath, 1.0),
                 anchor: CENTRE,
                 color: self.body_color,
+                shader: Shader::Basic,
                 layer: SPRITE_LAYERS[1],
             },
         ]
@@ -210,8 +213,11 @@ impl PlayerGraphics {
         Mesh {
             index: 2,
             vertices,
-            triangles: &TAIL_TRIANGLES,
+            uvs: Vec::new(),
+            triangles: Cow::Borrowed(&TAIL_TRIANGLES),
             color: self.body_color,
+            vertex_colors: Vec::new(),
+            shader: Shader::Basic,
             layer: SPRITE_LAYERS[2],
         }
     }
@@ -274,6 +280,7 @@ impl PlayerGraphics {
                 scale: Vec2::new(facing, 1.0),
                 anchor: CENTRE,
                 color: self.body_color,
+                shader: Shader::Basic,
                 layer: SPRITE_LAYERS[3],
             },
             Sprite {
@@ -284,6 +291,7 @@ impl PlayerGraphics {
                 scale: Vec2::new(self.sprites.face_scale_x, 1.0),
                 anchor: CENTRE,
                 color: face_color,
+                shader: Shader::Basic,
                 layer: SPRITE_LAYERS[9],
             },
         ]
@@ -350,6 +358,7 @@ impl PlayerGraphics {
             scale: Vec2::new(self.sprites.legs_scale_x, 1.0),
             anchor: Vec2::new(0.5, 0.25),
             color: self.body_color,
+            shader: Shader::Basic,
             layer: SPRITE_LAYERS[4],
         }
     }
@@ -411,6 +420,7 @@ impl PlayerGraphics {
                 scale: Vec2::new(1.0, self.sprites.arm_scale_y[j]),
                 anchor: Vec2::new(0.9, 0.5),
                 color: self.body_color,
+                shader: Shader::Basic,
                 layer: SPRITE_LAYERS[5 + j],
             };
             // Futile keeps the hidden sprite's values; only visibility changes.
@@ -428,6 +438,7 @@ impl PlayerGraphics {
             scale: Vec2::new(if j == 0 { 1.0 } else { -1.0 }, 1.0),
             anchor: CENTRE,
             color: self.body_color,
+            shader: Shader::Basic,
             layer: SPRITE_LAYERS[7 + j],
         });
         (arm, cap)

@@ -21,7 +21,7 @@ mod tail;
 
 pub use atlas::{Atlas, AtlasError, AtlasFrame, Rect, Size};
 pub use body_part::{BodyPart, PointConnection};
-pub use draw::{Color, DrawItem, DrawList, Layer, Mesh, SlugcatName, Sprite};
+pub use draw::{Color, DrawItem, DrawList, Layer, Mesh, Shader, SlugcatName, Sprite};
 pub use hand::SlugcatHand;
 pub use limb::{GripSearch, Limb, LimbMode};
 pub use math::{CustomVec, Mathf};

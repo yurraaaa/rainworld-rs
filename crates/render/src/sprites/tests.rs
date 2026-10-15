@@ -28,6 +28,7 @@ fn sprite(element: &'static str, scale: [f32; 2], rotation: f32, layer: Layer) -
         scale: Vec2::from(scale),
         anchor: Vec2::new(0.5, 0.5),
         color: SpriteColor::rgb(1.0, 0.5, 0.25),
+        shader: rw_graphics::Shader::Basic,
         layer,
     }
 }
@@ -115,8 +116,11 @@ fn tail_mesh() -> SpriteMesh {
         vertices: (0..15)
             .map(|i| Vec2::new(i as f32, 2.0 * i as f32))
             .collect(),
-        triangles: &TAIL_TRIANGLES,
+        uvs: Vec::new(),
+        triangles: std::borrow::Cow::Borrowed(&TAIL_TRIANGLES),
         color: SpriteColor::rgb(0.0, 1.0, 0.0),
+        vertex_colors: Vec::new(),
+        shader: rw_graphics::Shader::Basic,
         layer: Layer::Midground,
     }
 }
