@@ -68,9 +68,10 @@ it (D13). What still differs is only the seed and the call order:
   Missing: the `NeuronSpark` a pair of linked
   mycelia makes (its constructor's draw is made; its `SS_Mycelia_Spark` sound on its
   first update is not), and `HologramMatrix.DrawSprites`'s per-frame draws (the lens's
-  colour and line flicker), which the app takes from a cosmetic stream of its own: the
-  game makes them on the global stream once per rendered frame, so their number follows
-  the frame rate, not the tick.
+  colour and line flicker) and the holograms' `DrawSprites` (line flicker, symbols, keys,
+  the gamepad silhouette, the light effect), which the app takes from a cosmetic stream
+  of its own: the game makes them on the global stream once per rendered frame, so their
+  number follows the frame rate, not the tick.
 
 **Why.** Matching the game's draw sequence would need every system that draws. Seeding
 from the command line keeps runs reproducible.
@@ -243,6 +244,14 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   element; a `Hologram` sprite of `Futile_White` would read its sideways-shifted alpha
   from the atlas around that element instead of a white texture (the overseer's
   hologram lines use `pixel`, which is in the atlas as in the game).
+  `LightSource` (an overseer hologram's light) runs the base-game path only (sloped
+  terrain masked black, creatures masked with a grab of the frame taken before the level
+  image is drawn; the game reads the last unnamed GrabPass, which differs only if a
+  projected image was drawn earlier in the Bloom container); the grab is sampled
+  nearest. `HologramImage` reads its projection cell from the sprite colour as the game
+  does; that the grab's y orientation and WGSL's rounding of ties match the game's HLSL
+  is inferred, not checked. The projection images (`Projections/RND_PROJ`, `STR_PROJ`)
+  load at startup, where the game loads them on first use.
   The Watcher ripple clip (`rippleClip`, `smoothRippleClip`, off without the `RIPPLE`
   keyword) is not ported.
 - **Window and scaling.** As in the game, the whole frame (level, sprites, debug
@@ -703,6 +712,12 @@ second part, else a single-room world for arena levels). The campaign descriptio
   Not ported: `FliesWorldAI.Update`, scavenger and vulture world AI,
   `CreatureCommunities`, `AbstractCreature.Update` for other types, and
   `GeneratePopulation`'s non-fresh branch (saved populations).
+- **Hologram graphics.** A hologram's colour base (`Color.Lerp(MainColor,
+  ColorOfSegment(0, 0), 0.5)`) is taken at its overseer's last update (holograms update
+  before their overseer, so it is the one the game reads); a hologram slated for removal
+  is not drawn on its last frame, where the game draws it once more. Not drawn: the
+  PS4/PS5 controller symbol (`ps*controllertiny` is not in the two atlases loaded,
+  rainWorld and uiSprites), and More Slugcats' projections and parts.
 - **Overseer graphics.** `OverseerGraphics.Emerge` restarts the mycelia from the eye's
   position of the last rendered frame in the game (`DrawSprites` caches it); the port
   uses the last update's, as a headless run would. Sprites are drawn per container in
