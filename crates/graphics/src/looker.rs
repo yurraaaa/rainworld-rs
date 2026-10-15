@@ -152,48 +152,4 @@ impl ObjectLooker {
             .mathf_pow(1.5)
             .lerp(1.0, 0.995)
     }
-
-    /// The object's trace key: `fly:<id>` or `overseer:<id>`.
-    fn key(around: &PlayerSurroundings<'_>, id: CreatureId) -> String {
-        let kind = if around.world.creature(id).kind() == CreatureType::Fly {
-            "fly"
-        } else {
-            "overseer"
-        };
-        format!("{kind}:{}", id.0)
-    }
-
-    /// The looker as a trace records it (`lookAtPoint` is never set).
-    pub(crate) fn to_json(self, around: &PlayerSurroundings<'_>) -> serde_json::Value {
-        serde_json::json!({
-            "current": self.current.map(|id| Self::key(around, id)),
-            "time": self.time,
-            "point": null,
-            "point_interest": 0.0,
-        })
-    }
-
-    /// An object of the room's update list as the looker's trace input; `room` is the
-    /// room's index (the trace writer names it).
-    pub(crate) fn seen_json(around: &PlayerSurroundings<'_>, id: CreatureId) -> serde_json::Value {
-        let c = around.world.creature(id);
-        let Some(s) = Seen::of(around, id) else {
-            return serde_json::Value::Null;
-        };
-        let room = if s.here {
-            Some(around.room)
-        } else {
-            c.fly().and_then(|f| f.room)
-        };
-        serde_json::json!({
-            "key": Self::key(around, id),
-            "kind": c.kind().value(),
-            "room": room,
-            "pos": [s.pos.x, s.pos.y],
-            "vel": [s.vel.x, s.vel.y],
-            "conscious": s.conscious,
-            "dead": c.fly().map_or(!c.state.alive, |f| f.dead),
-            "slated": s.slated,
-        })
-    }
 }

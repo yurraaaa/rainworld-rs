@@ -35,7 +35,6 @@ pub(crate) use creatures::RoomLists;
 pub use creatures::{AbstractTick, QuantifiedCount, WorldProcesses};
 pub use flies_world_ai::{FliesTick, FliesWorldAi, SwarmBehavior};
 pub use overseers_world_ai::{DirectionFinder, OverseersWorldAi, ShelterFinder, StoryProgress};
-pub use quantified::PlacedQuantified;
 pub use rain_cycle::{CYCLE_TIME_MAX, CYCLE_TIME_MIN, RainCycle, WaterLevelCycle, WaterStage};
 pub use realized::RealizedRoom;
 pub use realizer::{FollowCreature, RoomRealizer};
@@ -82,8 +81,6 @@ pub struct World {
     pub flocks: Vec<FlockBehavior>,
     /// The last `WaterDrip` id handed out.
     drip_ids: u64,
-    /// Ids of the drips added since the last [`World::take_new_drips`].
-    new_drips: Vec<u64>,
     /// The slugcat's body as the flies' graphics read their grabber, kept current by the
     /// game.
     pub(crate) player_body: Option<crate::creature::fly::PlayerBody>,
@@ -122,7 +119,6 @@ impl World {
             grasp_serial: 0,
             flocks: Vec::new(),
             drip_ids: 0,
-            new_drips: Vec::new(),
             player_body: None,
         };
         world.index_rooms();
@@ -144,14 +140,8 @@ impl World {
         drip.update_order = self.next_update_seq();
         if let Some(r) = self.realized_mut(room) {
             r.drips.push(drip);
-            self.new_drips.push(self.drip_ids);
         }
         self.drip_ids
-    }
-
-    /// The ids of the drips added since the last call.
-    pub(crate) fn take_new_drips(&mut self) -> Vec<u64> {
-        std::mem::take(&mut self.new_drips)
     }
 
     /// `World.RoomToWorldPos`: a room position on the region map.

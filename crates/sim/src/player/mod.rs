@@ -339,24 +339,11 @@ pub struct Player {
     shortcut_pull: Option<(Vec2, f32)>,
     /// `roomSettings.CeilingDrips` of the room it updates in.
     ceiling_drips: f32,
-    /// `WaterDrip`s made this tick, for the room to add, with the impacts that made them.
-    drips: Vec<ImpactDrips>,
+    /// `WaterDrip`s made this tick, for the room to add.
+    drips: Vec<WaterDrip>,
     /// The body as it was when this tick's shortcut pull began, where `Creature.Update`
     /// runs the graphics module's extra update.
     before_pull: Option<Box<Player>>,
-}
-
-/// The drips of one terrain impact (`Creature.TerrainImpact`) with the random state
-/// around them.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ImpactDrips {
-    pub impact: crate::TerrainImpact,
-    pub pos: Vec2,
-    pub rad: f32,
-    pub mass: f32,
-    pub ceiling_drips: f32,
-    pub rng: [[u32; 4]; 2],
-    pub drips: Vec<WaterDrip>,
 }
 
 impl Default for Player {

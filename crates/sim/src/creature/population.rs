@@ -275,7 +275,6 @@ impl World {
             session: cx.session,
             observer: &mut no_graphics,
             camera_room: -1,
-            new_flies: Vec::new(),
         };
         for (k, &count) in to_spawn.iter().enumerate() {
             for _ in 0..count {

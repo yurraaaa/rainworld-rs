@@ -5,10 +5,7 @@
 use rw_assets::{Room, Terrain};
 use rw_random::UnityRandom;
 use rw_sim::creature::CreatureId;
-use rw_sim::{
-    Animation, BodyMode, FliesCall, GraphicsCallRecord, HEAD, HIPS, Player, PlayerSurroundings,
-    Vec2, Water,
-};
+use rw_sim::{Animation, BodyMode, HEAD, HIPS, Player, PlayerSurroundings, Vec2, Water};
 
 use crate::body_part::{BodyPart, PointConnection};
 use crate::limb::{GripSearch, Limb, LimbMode};
@@ -68,8 +65,6 @@ pub(crate) struct HandContext<'a> {
     pub spear_dir: f32,
     /// `drawPositions[0, 0]`, nudged by a held fly's twitch.
     pub draw_pos0: &'a mut Vec2,
-    /// Where the grasp branch is recorded for a trace.
-    pub calls: Option<&'a mut Vec<GraphicsCallRecord>>,
 }
 
 impl SlugcatHand {
@@ -138,11 +133,6 @@ impl SlugcatHand {
     /// drawn in toward the mouth while eating, in the middle while switching hands,
     /// forward while walking; a live fly twitches the hand, the body and the head.
     fn hold(&mut self, cx: &mut HandContext<'_>) {
-        let before = cx.calls.is_some().then(|| {
-            let mut input = self.json(cx);
-            input["p_chunks"] = crate::PlayerGraphics::chunks_json(cx.player);
-            (input, cx.rng.state())
-        });
         let player = cx.player;
         let limb = self.limb.limb_number;
         let grab = player.grab_state();
@@ -171,23 +161,6 @@ impl SlugcatHand {
         if cx.grasps.live_fly[limb] {
             self.twitch(cx);
         }
-        if let Some((input, rng)) = before {
-            let after = self.json(cx);
-            let output = serde_json::json!({
-                "hand": after["hand"],
-                "head_vel": after["head_vel"],
-                "draw_pos0": after["draw_pos0"],
-            });
-            let record = GraphicsCallRecord {
-                call: FliesCall::Hand(limb),
-                rng: [rng, cx.rng.state()],
-                input: input.to_string(),
-                output: output.to_string(),
-            };
-            if let Some(calls) = cx.calls.as_deref_mut() {
-                calls.push(record);
-            }
-        }
     }
 
     /// A live fly in the hand (241859-241866): nine draws in source order.
@@ -208,28 +181,6 @@ impl SlugcatHand {
         let main = cx.player.head().pos;
         *cx.draw_pos0 += main.direction_to(part.pos) * (3.0 * rng.value());
         *cx.head_vel += main.direction_to(part.pos) * (2.0 * rng.value());
-    }
-
-    /// The hand's trace record: the hand and the graphics values the branch reads.
-    fn json(&self, cx: &HandContext<'_>) -> serde_json::Value {
-        let l = &self.limb;
-        serde_json::json!({
-            "i": l.limb_number,
-            "hand": {
-                "pos": [l.part.pos.x, l.part.pos.y],
-                "vel": [l.part.vel.x, l.part.vel.y],
-                "mode": format!("{:?}", l.mode),
-                "absolute_hunt_pos": [l.absolute_hunt_pos.x, l.absolute_hunt_pos.y],
-                "relative_hunt_pos": [l.relative_hunt_pos.x, l.relative_hunt_pos.y],
-                "hunt_speed": l.hunt_speed,
-                "quickness": l.quickness,
-            },
-            "head_vel": [cx.head_vel.x, cx.head_vel.y],
-            "draw_pos0": [cx.draw_pos0.x, cx.draw_pos0.y],
-            "spear_dir": cx.spear_dir,
-            "left_foot": cx.player.left_foot(),
-            "animation_frame": cx.player.animation_frame(),
-        })
     }
 
     /// `SlugcatHand.EngageInMovement` for the ported body modes and animations: sets

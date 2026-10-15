@@ -13,10 +13,6 @@ use std::sync::Arc;
 mod flies;
 #[path = "game_player.rs"]
 mod hands;
-pub use flies::{
-    CallExtra, FliesCall, FliesCallRecord, FliesState, FliesWorldView, GraphicsCallRecord,
-    PlayerSnapshot, ReleaseReason,
-};
 
 use rw_assets::{CreatureType, NodeType, Room, Shortcut, ShortcutType};
 use rw_random::UnityRandom;
@@ -26,13 +22,13 @@ use crate::campaign::SlugcatCampaign;
 use crate::creature::fly::FlyView;
 use crate::creature::overseer::hologram::{ControlPreset, OverseerHologram};
 use crate::creature::overseer::{
-    EdibleView, OverseerEffect, OverseerMode, OverseerTick, OverseerUpdate, OverseerView,
-    PlayerView, StoryStats, TutorialMessage,
+    OverseerEffect, OverseerMode, OverseerTick, OverseerUpdate, OverseerView, PlayerView,
+    StoryStats, TutorialMessage,
 };
 use crate::creature::population::PopulationContext;
 use crate::creature::{
-    AbstractCreature, CreatureId, CreatureTemplate, EntityId, IdIssuer, PlayerGuideState,
-    RealizedCreature, WorldCoordinate,
+    CreatureId, CreatureTemplate, EntityId, IdIssuer, PlayerGuideState, RealizedCreature,
+    WorldCoordinate,
 };
 use crate::room_script::{RoomScript, ScriptTick, StorySession};
 use crate::shortcut::{CreatureVessel, Transport};
@@ -76,10 +72,6 @@ pub trait PlayerObserver {
     /// Where the graphics' hands are after their update: (pos, vel) each.
     fn player_hands(&self) -> Option<[(Vec2, Vec2); 2]> {
         None
-    }
-    /// The graphics calls recorded since the last take (looker and hands).
-    fn take_graphics_calls(&mut self) -> Vec<GraphicsCallRecord> {
-        Vec::new()
     }
     /// A room script adds `dvx` to every tail segment's x velocity.
     fn nudge_tail_x(&mut self, _dvx: f32) {}
@@ -125,8 +117,6 @@ pub trait PlayerObserver {
     fn fly_to_front(&mut self, _id: EntityId) {}
     /// The fly's graphics module is dropped.
     fn fly_removed(&mut self, _id: EntityId) {}
-    /// A flies' call was recorded (traces snapshot the graphics here).
-    fn flies_recorded(&mut self) {}
 }
 
 /// What the game tells camera 0's HUD.
@@ -150,8 +140,6 @@ pub struct PlayerSurroundings<'a> {
     pub objects: Vec<CreatureId>,
     /// `FoodInStomach < MaxFoodInStomach`.
     pub hungry: bool,
-    /// The graphics record their looker and hand calls.
-    pub record: bool,
 }
 
 /// Which overseer call [`RainWorldGame::run_overseer`] makes.
@@ -218,8 +206,6 @@ pub struct Start {
 pub struct NewGameWorld {
     pub ids: IdIssuer,
     pub save_state_seed: i32,
-    /// The random state right before and after `FliesWorldAI`'s constructor.
-    pub flies_rng: [[u32; 4]; 2],
 }
 
 /// A running game.
@@ -258,10 +244,6 @@ pub struct RainWorldGame {
     tick: u64,
     /// What the room scripts read of the process manager.
     script_tick: ScriptTick,
-    /// The realized overseer calls recorded since `record_overseer_calls(true)`.
-    overseer_calls: Option<Vec<OverseerCallRecord>>,
-    /// The last overseer realized into a room, always recorded.
-    last_overseer_place: Option<OverseerCallRecord>,
     /// The last hologram id issued.
     hologram_ids: u64,
     /// Each realized creature's `Creature.lastCoord`; a new body starts at the default
@@ -269,66 +251,8 @@ pub struct RainWorldGame {
     last_coords: HashMap<CreatureId, WorldCoordinate>,
     /// `ColorEntrance` calls on camera 0 since the last `take_entrance_colors`.
     entrance_colors: Vec<EntranceColor>,
-    /// The flies' calls recorded since `record_flies_calls(true)`.
-    flies_calls: Option<Vec<FliesCallRecord>>,
-    flies_ctor_rng: [[u32; 4]; 2],
     /// Whether the player had a graphics module at its last update.
     player_graphics: bool,
-}
-
-/// One realized overseer call with what it read and the random stream around it (for
-/// comparing against a reference model).
-#[derive(Debug, Clone)]
-pub struct OverseerCallRecord {
-    pub tick: u64,
-    pub creature: CreatureId,
-    /// `Place` covers `RealizeInRoom` from `PlaceInRealizedRoom` on.
-    pub call: OverseerCall,
-    pub rng_before: [u32; 4],
-    pub rng_after: [u32; 4],
-    pub player: Option<PlayerView>,
-    /// The player's `abstractCreature.pos`.
-    pub player_pos: WorldCoordinate,
-    pub player_id: CreatureId,
-    /// The player's `bodyChunks[1].lastPos`.
-    pub player_hips_last: Vec2,
-    pub camera: CameraView,
-    pub rain_timer_before: i32,
-    pub rain_timer_after: i32,
-    pub cycle_length: i32,
-    pub hud: bool,
-    pub viewed: bool,
-    /// The room's `abstractRoom.creatures`.
-    pub creatures: Vec<CreatureId>,
-    /// The edible objects in the room as the call began.
-    pub edibles: Vec<EdibleView>,
-    /// The room's realized flies as the call began.
-    pub flies: Vec<FlyCallRecord>,
-    /// For `place`, the abstract creature before it was realized.
-    pub abstract_before: Option<AbstractCreature>,
-    /// Its abstract position as the call began.
-    pub pos_before: WorldCoordinate,
-    /// The abstract creature (with its body) after a `Place` or `TeleportIn`.
-    pub after: Option<AbstractCreature>,
-    /// The overseer's holograms after the call (the deleted ones gone), and its current
-    /// one's id.
-    pub holograms: Vec<OverseerHologram>,
-    pub current_hologram: Option<u64>,
-    /// The tutorial texts the call queued.
-    pub messages: Vec<TutorialMessage>,
-}
-
-/// A realized fly of an overseer call's room, as the overseer reads it.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct FlyCallRecord {
-    pub creature: CreatureId,
-    /// `abstractCreature.pos.room`.
-    pub abstract_room: i32,
-    /// `room`: `None` in a hive or a shortcut.
-    pub room: Option<i32>,
-    pub pos: Vec2,
-    pub last_pos: Vec2,
-    pub dead: bool,
 }
 
 impl RainWorldGame {
@@ -349,7 +273,6 @@ impl RainWorldGame {
         let NewGameWorld {
             mut ids,
             save_state_seed,
-            flies_rng,
         } = Self::new_game_world(&mut world, campaign, &mut rng);
         let session = StorySession {
             character: campaign.name,
@@ -400,13 +323,9 @@ impl RainWorldGame {
             start,
             tick: 0,
             script_tick: ScriptTick::default(),
-            overseer_calls: None,
-            last_overseer_place: None,
             hologram_ids: 0,
             last_coords: HashMap::new(),
             entrance_colors: Vec::new(),
-            flies_calls: None,
-            flies_ctor_rng: flies_rng,
             player_graphics: false,
         };
         if let Err(e) = game.world.activate_room(start.room) {
@@ -447,13 +366,10 @@ impl RainWorldGame {
         if !world.single_room() {
             world.generate_population(&mut population);
         }
-        let flies_rng_before = population.rng.state();
         world.create_flies_world_ai(&mut population);
-        let flies_rng = [flies_rng_before, rng.state()];
         NewGameWorld {
             ids,
             save_state_seed,
-            flies_rng,
         }
     }
 
@@ -462,9 +378,9 @@ impl RainWorldGame {
         self.world.creature(self.player_id).pos
     }
 
-    fn set_pos(&mut self, pos: WorldCoordinate, observer: &mut dyn PlayerObserver) {
+    fn set_pos(&mut self, pos: WorldCoordinate) {
         self.world.place_creature(self.player_id, pos);
-        self.move_carried(pos, observer);
+        self.move_carried(pos);
     }
 
     /// `AbstractCreature.RealizeInRoom` for the player at the start: an undefined node
@@ -492,7 +408,7 @@ impl RainWorldGame {
             pos.node = self.common_node(specific);
         }
         pos.tile = tile;
-        self.set_pos(pos, observer);
+        self.set_pos(pos);
         self.spawn_player(tile, observer);
     }
 
@@ -539,10 +455,7 @@ impl RainWorldGame {
         self.shortcuts.drop_player();
         self.sounds.owner_removed();
         let node = self.pos().node;
-        self.set_pos(
-            WorldCoordinate::new(self.camera_room, tile.0, tile.1, node),
-            observer,
-        );
+        self.set_pos(WorldCoordinate::new(self.camera_room, tile.0, tile.1, node));
         self.spawn_player(tile, observer);
         log::info!("respawned player");
     }
@@ -553,13 +466,10 @@ impl RainWorldGame {
     /// delay, its water, and the player in it with its graphics), then the loading
     /// step. A dead player is frozen (docs/DIVERGENCES.md D4).
     pub fn tick(&mut self, input: Input, observer: &mut dyn PlayerObserver) {
-        self.world.take_new_drips();
         let follow = self.follow_creature();
-        let active_before = self.world.active_rooms();
         if let (Some(realizer), Some(follow)) = (&mut self.realizer, follow) {
             realizer.update(&mut self.world, follow, self.camera_room, &mut self.rng);
         }
-        self.record_abstractized(&active_before, observer);
         self.update_abstract_room();
         self.enter_from_abstract_rooms();
         self.update_world_processes(observer);
@@ -655,11 +565,10 @@ impl RainWorldGame {
                 } else if self.world.creature(id).kind() == CreatureType::Fly {
                     self.realize_fly_in_room(index, id, observer);
                 } else {
-                    let before = self.rng.state();
-                    let creature = self.world.creature(id).clone();
+                    let _before = self.rng.state();
+                    let _creature = self.world.creature(id).clone();
                     if self.world.realize_overseer(id, 0, &mut self.rng) {
                         self.run_overseer(id, OverseerCall::Place, observer);
-                        self.mark_overseer_place(before, creature);
                     }
                 }
             }
@@ -853,7 +762,7 @@ impl RainWorldGame {
             let done = match vessel.owner {
                 VesselOwner::Teleport(id) => self.teleport_vessel_step(id, vessel, observer),
                 VesselOwner::Player => self.player_vessel_step(i, vessel, observer),
-                VesselOwner::Shortcut(v) => self.creature_lobby_step(v, vessel, observer),
+                VesselOwner::Shortcut(v) => self.creature_lobby_step(v, vessel),
                 VesselOwner::BatHive(id) => self.bat_hive_lobby_step(id, vessel),
             };
             if done {
@@ -924,10 +833,12 @@ impl RainWorldGame {
             );
             return false;
         };
-        self.set_pos(
-            WorldCoordinate::new(lobby.room, -1, -1, lobby.entrance_node),
-            observer,
-        );
+        self.set_pos(WorldCoordinate::new(
+            lobby.room,
+            -1,
+            -1,
+            lobby.entrance_node,
+        ));
         if matches!(
             node.kind,
             NodeType::Exit | NodeType::Den | NodeType::RegionTransportation
@@ -1066,8 +977,8 @@ impl RainWorldGame {
                     }
                 }
                 RoomObject::Fly(id) => self.run_fly(index, id, &room, observer),
-                RoomObject::Hover(id) => self.run_hover(index, id, observer),
-                RoomObject::Drip(id) => self.run_drip(index, id, &room, observer),
+                RoomObject::Hover(id) => self.run_hover(index, id),
+                RoomObject::Drip(id) => self.run_drip(index, id, &room),
             }
         }
         if !player_done {
@@ -1103,24 +1014,6 @@ impl RainWorldGame {
         })
     }
 
-    fn fly_call_records(&self, room: i32) -> Vec<FlyCallRecord> {
-        self.world
-            .room_creatures(room)
-            .iter()
-            .filter_map(|&id| {
-                let f = self.world.creature(id).fly()?;
-                Some(FlyCallRecord {
-                    creature: id,
-                    abstract_room: self.world.creature(id).pos.room,
-                    room: f.room,
-                    pos: f.pos(),
-                    last_pos: f.chunk().last_pos,
-                    dead: f.dead,
-                })
-            })
-            .collect()
-    }
-
     fn story_stats(&self) -> StoryStats {
         let stats = &self.campaign.stats;
         StoryStats {
@@ -1153,36 +1046,6 @@ impl RainWorldGame {
         let player = self.player_view(room_index);
         let edibles = self.room_edibles(room_index);
         let story = self.story_stats();
-        let wanted = self.overseer_calls.is_some() || call == OverseerCall::Place;
-        let record = wanted.then(|| OverseerCallRecord {
-            tick: self.tick,
-            creature: id,
-            call,
-            rng_before: self.rng.state(),
-            rng_after: [0; 4],
-            player,
-            player_pos: self.pos(),
-            player_id: self.player_id,
-            player_hips_last: self
-                .player
-                .as_ref()
-                .map_or(Vec2::ZERO, |p| p.body.chunks[1].last_pos),
-            camera: self.camera_view,
-            rain_timer_before: self.world.rain_cycle.timer,
-            rain_timer_after: 0,
-            cycle_length: self.world.rain_cycle.cycle_length,
-            hud: self.script_tick.hud_with_control_preset,
-            viewed: room_index == self.camera_room,
-            creatures: self.world.room_creatures(room_index).to_vec(),
-            edibles: edibles.clone(),
-            flies: self.fly_call_records(room_index),
-            abstract_before: None,
-            pos_before: self.world.creature(id).pos,
-            after: None,
-            holograms: Vec::new(),
-            current_hologram: None,
-            messages: Vec::new(),
-        });
         let Some(mut parts) = self.world.take_overseer(id) else {
             return;
         };
@@ -1263,68 +1126,9 @@ impl RainWorldGame {
             .body
             .holograms
             .retain(|h| !h.slated || Some(h.id) == current);
-        let holograms = record
-            .as_ref()
-            .map(|_| parts.body.holograms.clone())
-            .unwrap_or_default();
         self.world.put_overseer(id, parts, pos);
         self.world.rain_cycle = rain;
-        if let Some(mut record) = record {
-            record.rng_after = self.rng.state();
-            record.rain_timer_after = rain.timer;
-            if matches!(call, OverseerCall::Place | OverseerCall::TeleportIn) {
-                record.after = Some(self.world.creature(id).clone());
-            }
-            record.holograms = holograms;
-            record.messages = effects
-                .iter()
-                .filter_map(|e| match e {
-                    OverseerEffect::Message(m) => Some(*m),
-                    _ => None,
-                })
-                .collect();
-            record.current_hologram = current;
-            if call == OverseerCall::Place {
-                self.last_overseer_place = Some(record.clone());
-            }
-            if let Some(calls) = &mut self.overseer_calls {
-                calls.push(record);
-            }
-        }
         self.apply_overseer_effects(id, effects, observer);
-    }
-
-    /// The last call recorded was `Place`: it began at `rng_before` (before
-    /// `PlaceInRealizedRoom`).
-    fn mark_overseer_place(&mut self, rng_before: [u32; 4], creature: AbstractCreature) {
-        let recorded = self.overseer_calls.as_mut().and_then(|c| c.last_mut());
-        for last in [self.last_overseer_place.as_mut(), recorded]
-            .into_iter()
-            .flatten()
-        {
-            last.rng_before = rng_before;
-            last.abstract_before = Some(creature.clone());
-        }
-    }
-
-    /// The last realization of an overseer into a room (`RealizeInRoom` through
-    /// `PlaceInRoom`), recorded whether or not calls are.
-    #[must_use]
-    pub fn last_overseer_place(&self) -> Option<&OverseerCallRecord> {
-        self.last_overseer_place.as_ref()
-    }
-
-    /// Starts (or stops and clears) recording the realized overseer calls.
-    pub fn record_overseer_calls(&mut self, on: bool) {
-        self.overseer_calls = on.then(Vec::new);
-    }
-
-    /// The overseer calls recorded since the last call.
-    pub fn take_overseer_calls(&mut self) -> Vec<OverseerCallRecord> {
-        self.overseer_calls
-            .as_mut()
-            .map(std::mem::take)
-            .unwrap_or_default()
     }
 
     fn apply_overseer_effects(
@@ -1442,9 +1246,9 @@ impl RainWorldGame {
                 player.update_after_catch(room, water.as_ref(), &mut self.rng, sounds);
             }
         }
-        self.apply_player_releases(observer);
-        self.add_player_drips(index, observer);
-        self.pull_carried(observer);
+        self.apply_player_releases();
+        self.add_player_drips(index);
+        self.pull_carried();
         if self.player.as_ref().is_some_and(Player::movement_ran) {
             self.grab_update(index, room, water.as_ref(), observer);
         }
@@ -1453,7 +1257,7 @@ impl RainWorldGame {
         }
         let in_tube = self.player.as_ref().is_some_and(Player::in_shortcut);
         if in_tube {
-            self.carried_sucked_in(observer);
+            self.carried_sucked_in();
         }
         self.world.player_body = self.player_body();
         let around = PlayerSurroundings {
@@ -1462,13 +1266,11 @@ impl RainWorldGame {
             room: index,
             objects: self.room_physical_objects(index),
             hungry: self.food_in_stomach() < self.max_food(),
-            record: self.flies_calls.is_some(),
         };
         let water = self.world.realized(index).and_then(|r| r.water.as_ref());
         if let Some(player) = self.player.as_ref() {
             observer.updated(player, room, water, &around, &mut self.rng);
         }
-        self.record_graphics_calls(observer);
         let present = self
             .player
             .as_ref()
@@ -1508,26 +1310,6 @@ impl RainWorldGame {
             log::info!("player died; R respawns");
         } else if player.is_stunned() && !was_stunned {
             log::info!("player stunned for {} ticks", player.stun_ticks());
-        }
-    }
-
-    /// The looker and hand calls the player's graphics recorded, as flies' records.
-    fn record_graphics_calls(&mut self, observer: &mut dyn PlayerObserver) {
-        for g in observer.take_graphics_calls() {
-            let mut before = self.flies_record_start();
-            if let Some(b) = &mut before {
-                b.rng_before = g.rng[0];
-            }
-            let call = g.call;
-            let rng_after = g.rng[1];
-            let record = before.map(|mut b| {
-                b.graphics = Some(g);
-                b
-            });
-            self.flies_record_end(record, call, Vec::new(), observer);
-            if let Some(last) = self.flies_calls.as_mut().and_then(|c| c.last_mut()) {
-                last.rng_after = rng_after;
-            }
         }
     }
 
@@ -1705,7 +1487,7 @@ impl RainWorldGame {
     ) {
         // The port's teleport lets go of what the hands held.
         if self.player.is_some() {
-            self.release_all_grasps(ReleaseReason::Teleport, observer);
+            self.release_all_grasps();
         }
         let player = self.player.get_or_insert_with(Player::new);
         player.clear_vessel();

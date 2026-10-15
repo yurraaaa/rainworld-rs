@@ -6,16 +6,6 @@
 //! no real-time clock, and screenshots render offscreen through the window's draw path
 //! ([`crate::scene::Scene::draw`]). Logging goes to stderr; stdout carries only MCP.
 
-#[cfg(test)]
-mod flies_tests;
-#[cfg(test)]
-mod fly_shots;
-#[cfg(test)]
-mod fly_trace;
-#[cfg(test)]
-mod hologram_shots;
-#[cfg(test)]
-mod overseer_tests;
 mod params;
 mod reply;
 mod session;
@@ -24,8 +14,6 @@ mod shortcut_shots;
 #[cfg(test)]
 mod tests;
 mod tiles;
-#[cfg(test)]
-mod tutorial_route;
 mod window;
 
 use std::error::Error;

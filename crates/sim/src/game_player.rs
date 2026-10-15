@@ -9,13 +9,10 @@ use std::sync::Arc;
 
 use rw_assets::{Room, SlugcatName};
 
-use super::{
-    CallExtra, FliesCall, HudEvent, PlayerObserver, RainWorldGame, ReleaseReason, RoomObject,
-};
+use super::{HudEvent, PlayerObserver, RainWorldGame, RoomObject};
 use crate::creature::fly::{FlyRoomTick, MovementMode};
 use crate::creature::overseer::EdibleView;
 use crate::creature::{CreatureId, GrabRequest, Shareability, WorldCoordinate};
-use crate::player::ImpactDrips;
 use crate::{Animation, FloatExt, Player, SoundId, Vec2, Water, WaterDrip};
 
 /// `Player.ObjectGrabability` (the values a fly or an overseer can have).
@@ -135,7 +132,6 @@ impl RainWorldGame {
         else {
             return;
         };
-        let before = self.flies_record_start();
         let grasps = self.player_grasps();
         let Some(p) = self.player.as_ref() else {
             return;
@@ -168,15 +164,6 @@ impl RainWorldGame {
                 }
             }
         }
-        let single_room = self.world.single_room();
-        self.flies_record_end_extra(
-            before,
-            FliesCall::Catch,
-            CallExtra::Catch {
-                single_room_world: single_room,
-            },
-            observer,
-        );
     }
 
     /// `Player.Collide` with a fly: a belly slide stuns it 2 ticks; a conscious player
@@ -286,82 +273,33 @@ impl RainWorldGame {
     }
 
     /// `Stun` or `Die` let go of everything (`LoseAllGrasps`), one record per grasp.
-    pub(super) fn apply_player_releases(&mut self, observer: &mut dyn PlayerObserver) {
+    pub(super) fn apply_player_releases(&mut self) {
         let Some(p) = self.player.as_mut() else {
             return;
         };
         if !p.take_release_grasps() {
             return;
         }
-        let reason = if p.is_dead() {
-            ReleaseReason::Die
-        } else {
-            ReleaseReason::Stun
-        };
-        self.release_all_grasps(reason, observer);
+        self.release_all_grasps();
     }
 
-    /// Lets go of everything held, one record per grasp.
-    pub(super) fn release_all_grasps(
-        &mut self,
-        reason: ReleaseReason,
-        observer: &mut dyn PlayerObserver,
-    ) {
+    /// Lets go of everything held.
+    pub(super) fn release_all_grasps(&mut self) {
         for grasp in 0..2 {
             if self.player_grasps()[grasp].is_none() {
                 continue;
             }
-            let before = self.flies_record_start();
             self.player_release_grasp(grasp);
-            self.flies_record_end_extra(
-                before,
-                FliesCall::PlayerRelease,
-                CallExtra::PlayerRelease { grasp, reason },
-                observer,
-            );
         }
     }
 
     /// The drips the player's terrain impacts threw this tick, into its room.
-    pub(super) fn add_player_drips(&mut self, index: i32, observer: &mut dyn PlayerObserver) {
+    pub(super) fn add_player_drips(&mut self, index: i32) {
         let Some(p) = self.player.as_mut() else {
             return;
         };
-        for ImpactDrips {
-            impact,
-            pos,
-            rad,
-            mass,
-            ceiling_drips,
-            rng,
-            drips,
-        } in p.take_drips()
-        {
-            let mut before = self.flies_record_start();
-            if let Some(b) = &mut before {
-                b.rng_before = rng[0];
-            }
-            for d in drips {
-                self.world.add_drip(index, d);
-            }
-            self.flies_record_end_extra(
-                before,
-                FliesCall::ImpactDrips,
-                CallExtra::ImpactDrips {
-                    room: index,
-                    impact,
-                    pos,
-                    rad,
-                    mass,
-                    ceiling_drips,
-                    rng_after: rng[1],
-                },
-                observer,
-            );
-            // The drips were drawn inside the player's update, before what followed it.
-            if let Some(last) = self.flies_calls.as_mut().and_then(|c| c.last_mut()) {
-                last.rng_after = rng[1];
-            }
+        for d in p.take_drips() {
+            self.world.add_drip(index, d);
         }
     }
 
@@ -373,7 +311,6 @@ impl RainWorldGame {
         water: Option<&Water>,
         observer: &mut dyn PlayerObserver,
     ) {
-        let before = self.flies_record_start();
         let eu = self.even_update();
         let Some(p) = self.player.as_ref() else {
             return;
@@ -385,7 +322,6 @@ impl RainWorldGame {
             && !input[0].throw
             && p.submersion(water) < 0.5;
         let mut eating = false;
-        let mut head_pos = None;
         self.switch_hands(index, input[0].pickup && !input[1].pickup);
         if neutral {
             let grasps = self.player_grasps();
@@ -416,7 +352,7 @@ impl RainWorldGame {
                 if self.food_in_stomach() < self.max_food() {
                     if g.eat_counter < 1 {
                         self.player_mut().grab_mut().eat_counter = 15;
-                        head_pos = self.bite_edible_object(index, eu, observer);
+                        self.bite_edible_object(index, eu, observer);
                     }
                 } else if g.eat_counter < 20 && self.script_tick.hud_with_control_preset {
                     self.hud_events.push(HudEvent::RefuseFood);
@@ -469,12 +405,6 @@ impl RainWorldGame {
         if self.player_ref().grab_state().want_to_pick_up > 0 {
             self.drop_or_pick_up(index, &input, observer);
         }
-        self.flies_record_end_extra(
-            before,
-            FliesCall::GrabUpdate,
-            CallExtra::GrabUpdate { head_pos },
-            observer,
-        );
     }
 
     fn player_ref(&self) -> &Player {
@@ -529,21 +459,17 @@ impl RainWorldGame {
     }
 
     /// `BiteEdibleObject`: the first held fly is bitten (`BiteFly` on the graphics with
-    /// its drips, then `Fly.BitByPlayer`). Returns the graphics' head position.
-    fn bite_edible_object(
-        &mut self,
-        index: i32,
-        eu: bool,
-        observer: &mut dyn PlayerObserver,
-    ) -> Option<Vec2> {
+    /// its drips, then `Fly.BitByPlayer`).
+    fn bite_edible_object(&mut self, index: i32, eu: bool, observer: &mut dyn PlayerObserver) {
         let grasps = self.player_grasps();
-        let (hand, fly) = (0..2).find_map(|i| grasps[i].map(|f| (i, f)))?;
+        let Some((hand, fly)) = (0..2).find_map(|i| grasps[i].map(|f| (i, f))) else {
+            return;
+        };
         let head = observer.player_bite_fly(hand, fly);
         if let Some(head) = head {
             self.bite_fly_drips(index, head);
         }
         self.bit_by_player(index, fly, hand, eu, observer);
-        head
     }
 
     /// The drips of `PlayerGraphics.BiteFly`: the loop bound `Random.Range(0, 3)` is
@@ -845,7 +771,6 @@ impl RainWorldGame {
         if grasps.iter().all(Option::is_none) {
             return;
         }
-        let before = self.flies_record_start();
         let eu = self.even_update();
         let hands = observer.player_hands();
         let p = self.player_ref();
@@ -866,25 +791,15 @@ impl RainWorldGame {
                 }
             }
         }
-        self.flies_record_end_extra(
-            before,
-            FliesCall::ModuleUpdated,
-            CallExtra::ModuleUpdated {
-                actually_viewed: hands.is_some(),
-                hands,
-            },
-            observer,
-        );
     }
 
     /// The carried objects in the entering branch of the player's `Creature.Update`:
     /// pulled toward the tube like the player's own chunks.
-    pub(super) fn pull_carried(&mut self, observer: &mut dyn PlayerObserver) {
+    pub(super) fn pull_carried(&mut self) {
         let Some((target, radius)) = self.player.as_ref().and_then(Player::shortcut_pull) else {
             return;
         };
         for id in self.carried() {
-            let before = self.flies_record_start();
             for c in &mut self.world.fly_at(id).body.chunks {
                 c.vel *= 0.06;
                 if c.pos.dist_less(target, radius) {
@@ -895,12 +810,6 @@ impl RainWorldGame {
                     c.pos += c.pos.direction_to(target) * 4.5;
                 }
             }
-            self.flies_record_end_extra(
-                before,
-                FliesCall::CarriedPull(id),
-                CallExtra::CarriedPull { target, radius },
-                observer,
-            );
         }
     }
 
@@ -914,24 +823,17 @@ impl RainWorldGame {
     }
 
     /// `SuckedIntoShortCut` of the player: every connected object leaves the room with it.
-    pub(super) fn carried_sucked_in(&mut self, observer: &mut dyn PlayerObserver) {
+    pub(super) fn carried_sucked_in(&mut self) {
         for id in self.carried() {
-            let before = self.flies_record_start();
             let f = self.world.fly_at(id);
             f.in_shortcut = true;
             f.room = None;
-            self.flies_record_end_extra(
-                before,
-                FliesCall::CarriedSuckedIn(id),
-                CallExtra::None,
-                observer,
-            );
         }
     }
 
     /// `AbstractPhysicalObject.Move` through the player's sticks: what it carries moves
     /// to `to` with it.
-    pub(super) fn move_carried(&mut self, to: WorldCoordinate, observer: &mut dyn PlayerObserver) {
+    pub(super) fn move_carried(&mut self, to: WorldCoordinate) {
         let carried: Vec<CreatureId> = self
             .world
             .connected_objects(self.player_id)
@@ -943,14 +845,7 @@ impl RainWorldGame {
             if from.same_room_and_node(to) {
                 continue;
             }
-            let before = self.flies_record_start();
             self.world.move_creature(id, to);
-            self.flies_record_end_extra(
-                before,
-                FliesCall::CarriedMove(id),
-                CallExtra::CarriedMove { to },
-                observer,
-            );
         }
     }
 
@@ -970,7 +865,6 @@ impl RainWorldGame {
         let hole = map_room.shortcut_hole_direction(entrance.0, entrance.1);
         let hole = Vec2::new(hole.0 as f32, hole.1 as f32);
         for id in self.carried() {
-            let before = self.flies_record_start();
             let mut cx = FlyRoomTick {
                 rng: &mut self.rng,
                 observer: &mut *observer,
@@ -987,15 +881,6 @@ impl RainWorldGame {
             if came_from != Some(room) {
                 self.world.fly_new_room(id, room, &mut cx);
             }
-            self.flies_record_end_extra(
-                before,
-                FliesCall::CarriedSpitOut(id),
-                CallExtra::CarriedSpitOut {
-                    pos: entrance,
-                    room,
-                },
-                observer,
-            );
         }
     }
 
@@ -1011,13 +896,7 @@ impl RainWorldGame {
     }
 
     /// A drip's slot in its room's update list; slated, it is cleaned out after.
-    pub(super) fn run_drip(
-        &mut self,
-        index: i32,
-        id: u64,
-        room: &Room,
-        observer: &mut dyn PlayerObserver,
-    ) {
+    pub(super) fn run_drip(&mut self, index: i32, id: u64, room: &Room) {
         let Some(realized) = self.world.realized(index) else {
             return;
         };
@@ -1025,12 +904,11 @@ impl RainWorldGame {
             return;
         };
         let glitter = realized.water_glitter;
-        let level = realized
+        let _level = realized
             .water
             .as_ref()
             .map_or(f32::MIN, |w| w.level_at(realized.drips[pos].pos.x));
-        let drip_before = realized.drips[pos].clone();
-        let before = self.flies_record_start();
+        let _drip_before = realized.drips[pos].clone();
         let Some(realized) = self.world.realized_mut(index) else {
             return;
         };
@@ -1038,17 +916,6 @@ impl RainWorldGame {
         let drip = &mut realized.drips[pos];
         drip.update(room, water, glitter, &mut self.rng);
         let slated = drip.slated;
-        self.flies_record_end_extra(
-            before,
-            FliesCall::Drip(id),
-            CallExtra::Drip {
-                room: index,
-                glitter,
-                float_water_level: level,
-                before: Box::new(drip_before),
-            },
-            observer,
-        );
         if slated && let Some(r) = self.world.realized_mut(index) {
             r.drips.retain(|d| d.id != id);
         }

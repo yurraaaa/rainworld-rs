@@ -42,9 +42,8 @@ pub use chunk::{BodyChunk, Contact, DEFAULT_RESTRICT_IN_ROOM_RANGE, PhysicsParam
 pub use creature::WorldCoordinate;
 pub use float_ext::FloatExt;
 pub use game::{
-    CallExtra, CameraMove, FliesCall, FliesCallRecord, FliesState, FliesWorldView, FlyCallRecord,
-    GraphicsCallRecord, HudEvent, NewGameWorld, OverseerCall, OverseerCallRecord, PlayerObserver,
-    PlayerSnapshot, PlayerSurroundings, RainWorldGame, ReleaseReason, Start,
+    CameraMove, HudEvent, NewGameWorld, OverseerCall, PlayerObserver, PlayerSurroundings,
+    RainWorldGame, Start,
 };
 pub use object::{
     BodyChunkConnection, ConnectionKind, PhysicalObject, TerrainImpactHandler, slugcat,

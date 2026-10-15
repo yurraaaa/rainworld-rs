@@ -67,12 +67,8 @@ it (D13). What still differs is only the seed and the call order:
   of a fly or the player throws in a room with `CeilingDrips`. The player catching,
   holding, biting, eating, throwing and carrying flies through pipes makes the game's
   draws (`Player.Update`'s catch, `GrabUpdate`, `BiteEdibleObject`'s drips, the
-  `PlayerObjectLooker` and `SlugcatHand` draws of `PlayerGraphics.Update`). The bat
-  flies' draws match an independent model call for call over the whole tutorial route,
-  2500 ticks among SU_A42's flies, 4000 in the swarm room SU_A24 with flies leaving and
-  entering through the pipes, the Survivor and the Hunter eating SU_A42's flies, the
-  Survivor carrying one down to SU_A41 and throwing it, and the eating tutorial route. Per tick the stream parts from
-  the game's again with the abstract AI of every creature but overseers and flies
+  `PlayerObjectLooker` and `SlugcatHand` draws of `PlayerGraphics.Update`). Per tick the
+  stream parts from the game's again with the abstract AI of every creature but overseers and flies
   (D14).
   `LocalCoordinateOfNode` draws for bat hives, garbage holes and border exits; a border
   exit's tile is not known (its border tiles are not mapped), only its draw is made.
@@ -80,10 +76,7 @@ it (D13). What still differs is only the seed and the call order:
   (`Overseer.Update`, `OverseerAI` with its communication module and the guide's
   tutorial, then `OverseerGraphics.Update` while its room is viewed;
   `rainworld-re/notes/overseer.md`), and so does each of its holograms' `Update` in its
-  own slot of the room's update list; the guide's run in SU_C04 and its arrival in
-  SU_A41, and a whole tutorial run from SU_C04 into the shelter SU_S01 (unfed, and by
-  SU_A42 eating four bat flies under the Eat instruction; every guide and hologram
-  call), match an independent model draw for draw.
+  own slot of the room's update list.
   Missing: the `NeuronSpark` a pair of linked
   mycelia makes (its constructor's draw is made; its `SS_Mycelia_Spark` sound on its
   first update is not), and `HologramMatrix.DrawSprites`'s per-frame draws (the lens's
@@ -783,7 +776,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   ported: a creature's terrain impact's `InGameNoise` and the rain's
   `CreatureSmashedInGround`, which needs the rain. The fly's `RoomNotACycleHazard` reads the room settings'
   `DangerType` as registered with no DLC (a DLC value such as `Blizzard` counts as
-  unregistered). Not exercised by the model comparison: a fly's death, water and dens.
+  unregistered).
   The other quantified types (leeches, sea leeches, spiders) are counted but not
   placed; no vanilla SU spawner has them. The `FlyLure` and `Lure` placed objects are
   not read (none in the tutorial rooms; SU_A17 and SU_B08 place one).

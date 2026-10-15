@@ -1,231 +1,18 @@
 //! The game's parts for the bat flies: `FliesWorldAI.Update` among the world processes,
 //! `ReadyForAI`'s placement and realization, the realized flies' slots in a room's update
 //! list, `FliesRoomAI`, their shortcut vessels and lobby turns, the camera's view of
-//! them, and the per-call records a reference model is compared against.
+//! them.
 
 use std::sync::Arc;
 
 use rw_assets::{CreatureType, NodeType, Room, Shortcut};
 
 use super::{PlayerObserver, RainWorldGame, RoomObject};
-use crate::camera::CameraView;
-use crate::creature::fly::{FliesRoomAi, FlockBehavior, FlyRoomTick, FlyRun, FlyTick, PlayerBody};
-use crate::creature::{AbstractCreature, CreatureId, WorldCoordinate};
-use crate::player::GrabState;
+use crate::creature::fly::{FlyRoomTick, FlyRun, FlyTick, PlayerBody};
+use crate::creature::{CreatureId, WorldCoordinate};
 use crate::shortcut::{CreatureVessel, ShortcutVessel, Transport};
-use crate::world::{FliesTick, PlacedQuantified};
-use crate::{
-    Animation, BodyChunk, BodyMode, INPUT_HISTORY, Input, LobbyVessel, SoundId, TerrainImpact,
-    Vec2, VesselOwner, VesselStep, WaterDrip, WaterGlitter,
-};
-
-/// Which flies' call a record is.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FliesCall {
-    /// `FliesWorldAI.Update`.
-    Update,
-    /// `Room.ReadyForAI`'s quantified placement in the room.
-    Ready(i32),
-    /// `AbstractRoom.Abstractize` of the room (no draws).
-    Abstractize(i32),
-    /// `ReadyForAI`'s `RealizeInRoom` of an abstract fly.
-    Realize { room: i32, id: CreatureId },
-    /// `FliesRoomAI.Update` of the room.
-    RoomsAi(i32),
-    /// The fly's slot in its room's update list (with its graphics update).
-    Fly(CreatureId),
-    /// The fly's hover loop emitter in the update list.
-    Hover(CreatureId),
-    /// One shortcut handler step of the fly's vessel.
-    Vessel(CreatureId),
-    /// The fly's vessel's turn in the lobby.
-    Lobby(CreatureId),
-    /// `NowViewed` building the fly's graphics.
-    NowViewed { room: i32, id: CreatureId },
-    /// `NoLongerViewed` of the room.
-    NoLongerViewed(i32),
-    /// The bat-fly catch in `Player.Update`.
-    Catch,
-    /// `Player.GrabUpdate`.
-    GrabUpdate,
-    /// `PlayerObjectLooker.Update`.
-    Looker,
-    /// The grasp branch of `SlugcatHand.Update` of hand `i`.
-    Hand(usize),
-    /// `Player.GraphicsModuleUpdated` with something held.
-    ModuleUpdated,
-    /// A grasp let go by `Stun` or `Die`.
-    PlayerRelease,
-    /// A `WaterDrip`'s update.
-    Drip(u64),
-    /// The drips of one of the player's terrain impacts.
-    ImpactDrips,
-    /// A carried fly pulled toward the shortcut the player enters.
-    CarriedPull(CreatureId),
-    /// A carried fly leaving the room with the player.
-    CarriedSuckedIn(CreatureId),
-    /// A carried fly's abstract move with the player.
-    CarriedMove(CreatureId),
-    /// A carried fly spat out of the shortcut with the player.
-    CarriedSpitOut(CreatureId),
-}
-
-/// Why a grasp was let go outside `GrabUpdate`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ReleaseReason {
-    Stun,
-    Die,
-    /// The port's `set_player` (not a game function).
-    Teleport,
-}
-
-/// What a call read besides the common fields.
-#[derive(Debug, Clone, PartialEq)]
-pub enum CallExtra {
-    None,
-    Catch {
-        single_room_world: bool,
-    },
-    /// `head_pos`: the graphics' head, where `BiteFly`'s drips start.
-    GrabUpdate {
-        head_pos: Option<Vec2>,
-    },
-    ModuleUpdated {
-        actually_viewed: bool,
-        hands: Option<[(Vec2, Vec2); 2]>,
-    },
-    PlayerRelease {
-        grasp: usize,
-        reason: ReleaseReason,
-    },
-    Drip {
-        room: i32,
-        glitter: WaterGlitter,
-        float_water_level: f32,
-        before: Box<WaterDrip>,
-    },
-    ImpactDrips {
-        room: i32,
-        impact: TerrainImpact,
-        pos: Vec2,
-        rad: f32,
-        mass: f32,
-        ceiling_drips: f32,
-        /// The random state after the drips (the record's `rng_after` is later).
-        rng_after: [u32; 4],
-    },
-    CarriedPull {
-        target: Vec2,
-        radius: f32,
-    },
-    CarriedMove {
-        to: WorldCoordinate,
-    },
-    CarriedSpitOut {
-        pos: (i32, i32),
-        room: i32,
-    },
-}
-
-/// A call inside the player's graphics, recorded by them: the random state around it
-/// and what it read and left, as JSON text.
-#[derive(Debug, Clone, PartialEq)]
-pub struct GraphicsCallRecord {
-    pub call: FliesCall,
-    pub rng: [[u32; 4]; 2],
-    pub input: String,
-    pub output: String,
-}
-
-/// The slugcat as the records see it.
-#[derive(Debug, Clone, PartialEq)]
-pub struct PlayerSnapshot {
-    pub id: CreatureId,
-    /// `None` in a shortcut.
-    pub room: Option<i32>,
-    pub chunks: [BodyChunk; 2],
-    pub submersion: f32,
-    pub input: [Input; INPUT_HISTORY],
-    pub conscious: bool,
-    pub dead: bool,
-    pub stun: i32,
-    pub animation: Animation,
-    pub body_mode: BodyMode,
-    pub standing: bool,
-    pub flip_direction: i32,
-    pub roll_direction: i32,
-    pub roll_counter: i32,
-    pub food: i32,
-    pub quarter_food: i32,
-    pub max_food: i32,
-    pub food_to_hibernate: i32,
-    pub grab: GrabState,
-    pub grasps: [Option<CreatureId>; 2],
-    pub graphics: bool,
-    pub hud: bool,
-}
-
-/// A realized fly not deleted: its abstract creature (with the `Fly`) and its vessel (in
-/// the lobby with `true`).
-pub type FlyRecord = (CreatureId, AbstractCreature, Option<(CreatureVessel, bool)>);
-
-/// A realized room's creature list: (id, type, realized).
-pub type RoomCreatures = (i32, Vec<(CreatureId, CreatureType, bool)>);
-
-/// The realized flies after a call.
-#[derive(Debug, Clone)]
-pub struct FliesState {
-    pub flies: Vec<FlyRecord>,
-    pub flocks: Vec<FlockBehavior>,
-    /// The realized rooms' `FliesRoomAI`s.
-    pub rooms_ai: Vec<(i32, FliesRoomAi)>,
-    /// The player after the call.
-    pub player: Option<PlayerSnapshot>,
-    /// The realized rooms' drips.
-    pub drips: Vec<WaterDrip>,
-}
-
-/// What a call saw of the creatures around the flies.
-#[derive(Debug, Clone)]
-pub struct FliesWorldView {
-    pub creatures: Vec<RoomCreatures>,
-    pub player: Option<PlayerBody>,
-    /// The player's abstract room.
-    pub player_room: i32,
-}
-
-/// One flies' call with the random stream around it and the world it saw.
-#[derive(Debug, Clone)]
-pub struct FliesCallRecord {
-    pub tick: u64,
-    pub call: FliesCall,
-    pub rng_before: [u32; 4],
-    pub rng_after: [u32; 4],
-    pub rain_timer: i32,
-    pub cycle_length: i32,
-    /// The realized rooms and whether each is fully loaded, before the call.
-    pub realized: Vec<(i32, bool)>,
-    pub camera: CameraView,
-    pub world: FliesWorldView,
-    pub placed: Vec<PlacedQuantified>,
-    /// The flies the call created, in order.
-    pub new_ids: Vec<CreatureId>,
-    /// After the call: every room's stored fly counts that are not 0 (room, node, count).
-    pub counts: Vec<(i32, i32, i32)>,
-    /// After the call: the rooms holding fly `AbstractCreature`s, and how many.
-    pub creatures: Vec<(i32, usize)>,
-    /// `nextIssuedId` after the call.
-    pub next_id: i32,
-    pub state: Option<FliesState>,
-    /// The player before the call.
-    pub player: Option<PlayerSnapshot>,
-    /// `game.evenUpdate`.
-    pub eu: bool,
-    pub extra: CallExtra,
-    /// The drips the call added, in order.
-    pub new_drip_ids: Vec<u64>,
-    pub graphics: Option<GraphicsCallRecord>,
-}
+use crate::world::FliesTick;
+use crate::{LobbyVessel, SoundId, Vec2, VesselOwner, VesselStep};
 
 impl RainWorldGame {
     /// The world processes in `worldProcesses` order: `OverseersWorldAI` (made by the
@@ -239,7 +26,6 @@ impl RainWorldGame {
             karma: self.campaign.start_karma,
         };
         self.world.update_world_processes(Some(story));
-        let before = self.flies_record_start();
         let session = self.story_session();
         let mut cx = FliesTick {
             rng: &mut self.rng,
@@ -247,18 +33,14 @@ impl RainWorldGame {
             session: &session,
             observer: &mut *observer,
             camera_room: self.camera_room,
-            new_flies: Vec::new(),
         };
         self.world.update_flies_world_ai(&mut cx);
-        let new = cx.new_flies;
         // `ChangeRooms` puts the flies it realized into the lobby at once.
         self.enter_from_abstract_rooms();
-        self.flies_record_end_new(before, FliesCall::Update, Vec::new(), new, observer);
     }
 
     /// `ReadyForAI`'s `PlaceQuantifiedCreaturesInRoom` for room `index`.
     pub(super) fn place_quantified(&mut self, index: i32, observer: &mut dyn PlayerObserver) {
-        let before = self.flies_record_start();
         let session = self.story_session();
         let mut cx = FliesTick {
             rng: &mut self.rng,
@@ -266,227 +48,11 @@ impl RainWorldGame {
             session: &session,
             observer: &mut *observer,
             camera_room: self.camera_room,
-            new_flies: Vec::new(),
         };
         let placed = self.world.place_quantified_creatures(index, &mut cx);
-        if !placed.is_empty() {
-            log::info!("placed {} flies in room {index}", placed.len());
+        if placed > 0 {
+            log::info!("placed {placed} flies in room {index}");
         }
-        let new = placed.iter().map(|p| p.creature).collect();
-        self.flies_record_end_new(before, FliesCall::Ready(index), placed, new, observer);
-    }
-
-    /// Records the abstraction of the rooms that left the active list.
-    pub(super) fn record_abstractized(
-        &mut self,
-        active_before: &[i32],
-        observer: &mut dyn PlayerObserver,
-    ) {
-        if self.flies_calls.is_none() {
-            return;
-        }
-        let now = self.world.active_rooms();
-        for &room in active_before.iter().filter(|r| !now.contains(r)) {
-            let before = self.flies_record_start();
-            self.flies_record_end(before, FliesCall::Abstractize(room), Vec::new(), observer);
-        }
-    }
-
-    pub(super) fn flies_record_start(&self) -> Option<FliesCallRecord> {
-        self.flies_calls.as_ref()?;
-        let rain = &self.world.rain_cycle;
-        let active = self.world.active_rooms();
-        let creatures = active
-            .iter()
-            .map(|&r| {
-                let list = self
-                    .world
-                    .room_creatures(r)
-                    .iter()
-                    .map(|&c| {
-                        let a = self.world.creature(c);
-                        (c, a.kind(), a.is_realized())
-                    })
-                    .collect();
-                (r, list)
-            })
-            .collect();
-        Some(FliesCallRecord {
-            tick: self.tick,
-            call: FliesCall::Update,
-            rng_before: self.rng.state(),
-            rng_after: [0; 4],
-            rain_timer: rain.timer,
-            cycle_length: rain.cycle_length,
-            realized: active
-                .iter()
-                .map(|&r| (r, self.world.realized(r).is_some_and(|x| x.fully_loaded())))
-                .collect(),
-            camera: self.camera_view,
-            world: FliesWorldView {
-                creatures,
-                player: self.player_body(),
-                player_room: self.pos().room,
-            },
-            placed: Vec::new(),
-            new_ids: Vec::new(),
-            counts: Vec::new(),
-            creatures: Vec::new(),
-            next_id: 0,
-            state: None,
-            player: self.player_snapshot(),
-            eu: self.even_update(),
-            extra: CallExtra::None,
-            new_drip_ids: Vec::new(),
-            graphics: None,
-        })
-    }
-
-    /// The player as the records see it.
-    pub(super) fn player_snapshot(&self) -> Option<PlayerSnapshot> {
-        let p = self.player.as_ref()?;
-        let chunks = [p.head().clone(), p.hips().clone()];
-        let room = (!p.in_shortcut() && !p.is_destroyed()).then(|| self.pos().room);
-        let water = room.and_then(|r| self.world.realized(r)?.water.as_ref());
-        let stats = &self.campaign.stats;
-        Some(PlayerSnapshot {
-            id: self.player_id,
-            room,
-            chunks,
-            submersion: p.submersion(water),
-            input: *p.input_history(),
-            conscious: p.is_conscious(),
-            dead: p.is_dead(),
-            stun: p.stun_ticks(),
-            animation: p.animation(),
-            body_mode: p.body_mode(),
-            standing: p.is_standing(),
-            flip_direction: p.flip_direction(),
-            roll_direction: p.roll_direction(),
-            roll_counter: p.roll_counter(),
-            food: self.food_in_stomach(),
-            quarter_food: self.quarter_food_points(),
-            max_food: stats.max_food,
-            food_to_hibernate: stats.food_to_hibernate,
-            grab: *p.grab_state(),
-            grasps: self.player_grasps(),
-            graphics: self.player_graphics,
-            hud: self.script_tick.hud_with_control_preset,
-        })
-    }
-
-    /// Ends a record of a call with what it read besides the common fields.
-    pub(super) fn flies_record_end_extra(
-        &mut self,
-        record: Option<FliesCallRecord>,
-        call: FliesCall,
-        extra: CallExtra,
-        observer: &mut dyn PlayerObserver,
-    ) {
-        let record = record.map(|mut r| {
-            r.extra = extra;
-            r
-        });
-        self.flies_record_end(record, call, Vec::new(), observer);
-    }
-
-    pub(super) fn flies_record_end(
-        &mut self,
-        record: Option<FliesCallRecord>,
-        call: FliesCall,
-        placed: Vec<PlacedQuantified>,
-        observer: &mut dyn PlayerObserver,
-    ) {
-        self.flies_record_end_new(record, call, placed, Vec::new(), observer);
-    }
-
-    fn flies_record_end_new(
-        &mut self,
-        record: Option<FliesCallRecord>,
-        call: FliesCall,
-        placed: Vec<PlacedQuantified>,
-        new_ids: Vec<CreatureId>,
-        observer: &mut dyn PlayerObserver,
-    ) {
-        let Some(mut record) = record else { return };
-        record.call = call;
-        record.rng_after = self.rng.state();
-        record.placed = placed;
-        record.new_ids = new_ids;
-        let world = &self.world;
-        for i in 0..world.number_of_rooms() {
-            let room = world.first_room_index() + i32::try_from(i).unwrap_or(0);
-            for q in world.room_quantified(room) {
-                if q.kind == CreatureType::Fly && q.count != 0 {
-                    record.counts.push((room, q.node, q.count));
-                }
-            }
-            let flies = world
-                .room_creatures(room)
-                .iter()
-                .filter(|&&c| world.creature(c).kind() == CreatureType::Fly)
-                .count();
-            if flies > 0 {
-                record.creatures.push((room, flies));
-            }
-        }
-        record.counts.sort_unstable();
-        record.next_id = self.ids.next_issued_id;
-        record.new_drip_ids = self.world.take_new_drips();
-        record.state = Some(self.flies_state());
-        if let Some(calls) = &mut self.flies_calls {
-            calls.push(record);
-        }
-        observer.flies_recorded();
-    }
-
-    fn flies_state(&self) -> FliesState {
-        let flies = self
-            .world
-            .creatures()
-            .filter(|(_, c)| c.fly().is_some() && !c.slated_for_deletion)
-            .map(|(id, c)| (id, c.clone(), self.shortcuts.creature_vessel(id)))
-            .collect();
-        let rooms_ai = self
-            .world
-            .active_rooms()
-            .into_iter()
-            .filter_map(|r| Some((r, self.world.realized(r)?.flies_room_ai.clone()?)))
-            .collect();
-        let drips = self
-            .world
-            .active_rooms()
-            .into_iter()
-            .filter_map(|r| self.world.realized(r))
-            .flat_map(|r| r.drips.iter().cloned())
-            .collect();
-        FliesState {
-            flies,
-            flocks: self.world.flocks.clone(),
-            rooms_ai,
-            player: self.player_snapshot(),
-            drips,
-        }
-    }
-
-    /// Starts or stops recording the flies' calls.
-    pub fn record_flies_calls(&mut self, on: bool) {
-        self.flies_calls = on.then(Vec::new);
-    }
-
-    /// The flies' calls recorded since the last take.
-    pub fn take_flies_calls(&mut self) -> Vec<FliesCallRecord> {
-        self.flies_calls
-            .as_mut()
-            .map(std::mem::take)
-            .unwrap_or_default()
-    }
-
-    /// The random state right before and after `FliesWorldAI`'s constructor in the world
-    /// load.
-    #[must_use]
-    pub fn flies_ctor_rng(&self) -> [[u32; 4]; 2] {
-        self.flies_ctor_rng
     }
 }
 
@@ -500,7 +66,6 @@ impl RainWorldGame {
         if !has {
             return;
         }
-        let before = self.flies_record_start();
         let sounds = if index == self.camera_room {
             &mut self.sounds
         } else {
@@ -512,7 +77,6 @@ impl RainWorldGame {
             camera_room: self.camera_room,
         };
         self.world.update_flies_room_ai(index, &mut cx, sounds);
-        self.flies_record_end(before, FliesCall::RoomsAi(index), Vec::new(), observer);
     }
 
     /// The realized flies and their hover emitters in room `index`'s update list.
@@ -563,7 +127,6 @@ impl RainWorldGame {
         let Some(ai_map) = self.world.realized(index).and_then(|r| r.ai_map.clone()) else {
             return;
         };
-        let before = self.flies_record_start();
         let water = self.world.realized_mut(index).and_then(|r| r.water.take());
         let camera_room = self
             .world
@@ -609,7 +172,6 @@ impl RainWorldGame {
         if self.world.fly_ref(id).slated {
             self.clean_out_fly(id);
         }
-        self.flies_record_end(before, FliesCall::Fly(id), Vec::new(), observer);
     }
 
     /// `CleanOutObjectNotInThisRoom` of a fly slated for deletion: its abstract creature
@@ -622,19 +184,13 @@ impl RainWorldGame {
 
     /// The hover loop emitter of fly `id` in room `index`'s update list
     /// (`ChunkSoundEmitter.Update`: it follows the fly's chunk).
-    pub(super) fn run_hover(
-        &mut self,
-        index: i32,
-        id: CreatureId,
-        observer: &mut dyn PlayerObserver,
-    ) {
+    pub(super) fn run_hover(&mut self, index: i32, id: CreatureId) {
         let Some(fly) = self.world.creature(id).fly() else {
             return;
         };
         let Some(mut h) = fly.hover.filter(|h| h.room == index && !h.slated) else {
             return;
         };
-        let before = self.flies_record_start();
         let (owner_room, pos) = (fly.room, fly.pos());
         let sounds = if index == self.camera_room {
             &mut self.sounds
@@ -647,7 +203,6 @@ impl RainWorldGame {
             sounds.stop_emitter(h.sound);
         }
         self.world.fly_at(id).hover = Some(h);
-        self.flies_record_end(before, FliesCall::Hover(id), Vec::new(), observer);
     }
 
     /// `CreatureEnterFromAbstractRoom` of a fly moved into a realized room: a shortcut
@@ -708,7 +263,6 @@ impl RainWorldGame {
             self.shortcuts.transport.remove(i);
             return true;
         };
-        let before = self.flies_record_start();
         let sounds = if v.room == self.camera_room {
             &mut self.sounds
         } else {
@@ -729,7 +283,6 @@ impl RainWorldGame {
                 go_on = self.creature_vessel_node(i, v, node, kind);
             }
         }
-        self.flies_record_end(before, FliesCall::Vessel(v.creature), Vec::new(), observer);
         go_on
     }
 
@@ -843,20 +396,18 @@ impl RainWorldGame {
         &mut self,
         mut v: CreatureVessel,
         lobby: LobbyVessel,
-        observer: &mut dyn PlayerObserver,
     ) -> bool {
         let id = v.creature;
         if self.world.creature(id).fly().is_none() {
             log::warn!("a lobby vessel's creature is no longer realized; vessel dropped");
             return true;
         }
-        let before = self.flies_record_start();
         let coord = WorldCoordinate::new(lobby.room, -1, -1, lobby.entrance_node);
         let ready = self
             .world
             .realized(lobby.room)
             .map(|r| r.ready_for_player() && r.ready_for_ai());
-        let done = match ready {
+        match ready {
             None => {
                 self.world.abstractize_fly(id, coord);
                 true
@@ -888,9 +439,7 @@ impl RainWorldGame {
                 true
             }
             Some(false) => false,
-        };
-        self.flies_record_end(before, FliesCall::Lobby(id), Vec::new(), observer);
-        done
+        }
     }
 
     /// A bat hive vessel's lobby turn: once the room is ready the creature moves there
@@ -926,19 +475,12 @@ impl RainWorldGame {
         if c.kind() != CreatureType::Fly || c.is_realized() || c.in_den {
             return;
         }
-        let before = self.flies_record_start();
         let mut cx = FlyRoomTick {
             rng: &mut self.rng,
             observer: &mut *observer,
             camera_room: self.camera_room,
         };
         self.world.realize_fly_in_room(id, index, &mut cx);
-        self.flies_record_end(
-            before,
-            FliesCall::Realize { room: index, id },
-            Vec::new(),
-            observer,
-        );
     }
 
     /// The camera left room `from` for room `to`: `NoLongerViewed` drops the graphics
@@ -964,17 +506,10 @@ impl RainWorldGame {
             .map(|(id, _)| id)
             .collect();
         if !leaving.is_empty() {
-            let before = self.flies_record_start();
             for id in leaving {
                 self.world.fly_at(id).graphics = false;
                 observer.fly_removed(self.world.creature(id).id);
             }
-            self.flies_record_end(
-                before,
-                FliesCall::NoLongerViewed(from),
-                Vec::new(),
-                observer,
-            );
         }
         let mut objects: Vec<(u64, CreatureId, bool)> = self
             .world
@@ -998,16 +533,9 @@ impl RainWorldGame {
             if self.world.fly_ref(id).graphics {
                 continue;
             }
-            let before = self.flies_record_start();
             self.world.fly_at(id).graphics = true;
             let view = self.world.fly_view(id, None);
             observer.fly_added(&view, &mut self.rng);
-            self.flies_record_end(
-                before,
-                FliesCall::NowViewed { room: to, id },
-                Vec::new(),
-                observer,
-            );
         }
     }
 }

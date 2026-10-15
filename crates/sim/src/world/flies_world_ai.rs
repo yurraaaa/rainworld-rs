@@ -11,7 +11,7 @@ use rw_assets::{CreatureType, NodeType};
 use rw_random::UnityRandom;
 
 use super::World;
-use crate::creature::{CreatureId, CreatureTemplate, IdIssuer, WorldCoordinate};
+use crate::creature::{CreatureTemplate, IdIssuer, WorldCoordinate};
 use crate::room_script::StorySession;
 use crate::{FloatExt, PlayerObserver};
 
@@ -63,8 +63,6 @@ pub struct FliesTick<'a> {
     pub observer: &'a mut dyn PlayerObserver,
     /// `cameras[0].room`.
     pub camera_room: i32,
-    /// The flies created during the call, in order (for traces).
-    pub new_flies: Vec<CreatureId>,
 }
 
 impl World {
@@ -427,7 +425,6 @@ impl World {
                 .in_hive
                 .push(cid);
         }
-        cx.new_flies.push(cid);
     }
 
     /// `World.MoveQuantifiedCreatureFromAbstractRoom` from unrealized room `from` to `to`:
@@ -485,7 +482,6 @@ impl World {
                 cx.rng,
             );
             let cid = self.insert_creature(c);
-            cx.new_flies.push(cid);
             let dest = WorldCoordinate::new(to, -1, -1, back);
             self.change_rooms_realize(cid, dest, 0, cx.rng);
             self.move_creature(cid, dest);

@@ -5,7 +5,7 @@
 
 use rw_random::UnityRandom;
 
-use super::{Animation, BodyMode, HEAD, HIPS, ImpactDrips, Player};
+use super::{Animation, BodyMode, HEAD, HIPS, Player};
 use crate::creature::CreatureId;
 use crate::{TerrainImpact, Vec2, WaterDrip};
 
@@ -121,7 +121,7 @@ impl Player {
     }
 
     /// The drips this tick's impacts threw.
-    pub(crate) fn take_drips(&mut self) -> Vec<ImpactDrips> {
+    pub(crate) fn take_drips(&mut self) -> Vec<WaterDrip> {
         std::mem::take(&mut self.drips)
     }
 
@@ -138,19 +138,7 @@ impl Player {
         if !impact.first_contact {
             return;
         }
-        let before = rng.state();
         let drips = WaterDrip::from_impact(&impact, pos, rad, mass, self.ceiling_drips, rng);
-        if drips.is_empty() && before == rng.state() {
-            return;
-        }
-        self.drips.push(ImpactDrips {
-            impact,
-            pos,
-            rad,
-            mass,
-            ceiling_drips: self.ceiling_drips,
-            rng: [before, rng.state()],
-            drips,
-        });
+        self.drips.extend(drips);
     }
 }

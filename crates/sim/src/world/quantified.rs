@@ -10,23 +10,12 @@ use crate::FloatExt;
 use crate::creature::fly::FlyRoomTick;
 use crate::creature::{CreatureId, CreatureTemplate, WorldCoordinate};
 
-/// One placed quantified creature (for traces and tests).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PlacedQuantified {
-    pub creature: CreatureId,
-    pub tile: (i32, i32),
-    pub node: i32,
-}
-
 impl World {
     /// `Room.ReadyForAI`'s quantified part: each quantified type with any counted in
     /// room `room` (the counts as stored: the room is not fully loaded yet) is placed.
-    pub fn place_quantified_creatures(
-        &mut self,
-        room: i32,
-        cx: &mut FliesTick<'_>,
-    ) -> Vec<PlacedQuantified> {
-        let mut placed = Vec::new();
+    /// Returns how many were.
+    pub fn place_quantified_creatures(&mut self, room: i32, cx: &mut FliesTick<'_>) -> usize {
+        let mut placed = 0;
         let mut kinds: Vec<CreatureType> = Vec::new();
         for q in self.room_quantified(room) {
             if !kinds.contains(&q.kind) {
@@ -43,7 +32,7 @@ impl World {
                 continue;
             }
             if kind == CreatureType::Fly {
-                placed.extend(self.place_flies(room, cx));
+                placed += self.place_flies(room, cx);
             } else {
                 log::warn!("placing quantified {kind} is not ported");
             }
@@ -56,8 +45,8 @@ impl World {
     /// a random one per fly there, improved by 20 tries on `PlaceQCScore`; then each a new
     /// `AbstractCreature` in the room, whose `RealizeInRoom` draws its node, realizes the
     /// `Fly` and places it on its tile.
-    fn place_flies(&mut self, room: i32, cx: &mut FliesTick<'_>) -> Vec<PlacedQuantified> {
-        let mut placed = Vec::new();
+    fn place_flies(&mut self, room: i32, cx: &mut FliesTick<'_>) -> usize {
+        let mut placed = 0;
         let Some(nodes) = self.abstract_room(room).map(|r| r.nodes.len()) else {
             return placed;
         };
@@ -102,7 +91,7 @@ impl World {
                 );
                 let cid = self.insert_creature(c);
                 self.add_entity(cid);
-                let node = self.realize_in_room_node(cid, cx);
+                self.realize_in_room_node(cid, cx);
                 self.realize_fly(cid, cx.rng);
                 let mut place = FlyRoomTick {
                     rng: &mut *cx.rng,
@@ -110,11 +99,7 @@ impl World {
                     camera_room: cx.camera_room,
                 };
                 self.place_fly(cid, room, &mut place);
-                placed.push(PlacedQuantified {
-                    creature: cid,
-                    tile,
-                    node,
-                });
+                placed += 1;
             }
         }
         placed

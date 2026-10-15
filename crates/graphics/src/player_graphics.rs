@@ -11,10 +11,7 @@ use std::f32::consts::TAU;
 use rw_assets::{Room, Terrain, tile_centre};
 use rw_random::UnityRandom;
 use rw_sim::creature::CreatureId;
-use rw_sim::{
-    Animation, BodyMode, FliesCall, GraphicsCallRecord, Player, PlayerSurroundings, RoomExt, Vec2,
-    Water,
-};
+use rw_sim::{Animation, BodyMode, Player, PlayerSurroundings, RoomExt, Vec2, Water};
 
 use crate::body_part::{BodyPart, PointConnection};
 use crate::draw::{Color, SlugcatName};
@@ -111,8 +108,6 @@ pub struct PlayerGraphics {
     pub looker: ObjectLooker,
     /// `spearDir`: leans the held objects forward while walking (-1..=1).
     pub spear_dir: f32,
-    /// The looker and hand calls recorded for a trace.
-    calls: Vec<GraphicsCallRecord>,
 }
 
 impl PlayerGraphics {
@@ -162,7 +157,6 @@ impl PlayerGraphics {
             corridor_turn_dir: player.corridor_turn_dir(),
             looker: ObjectLooker::default(),
             spear_dir: 0.0,
-            calls: Vec::new(),
         }
     }
 
@@ -263,24 +257,6 @@ impl PlayerGraphics {
         self.hands
             .each_ref()
             .map(|h| (h.limb.part.pos, h.limb.part.vel))
-    }
-
-    /// The chunks the graphics read, for a trace record.
-    pub(crate) fn chunks_json(player: &Player) -> serde_json::Value {
-        let chunks: Vec<serde_json::Value> = player
-            .chunks()
-            .iter()
-            .map(|c| {
-                serde_json::json!({"pos": [c.pos.x, c.pos.y],
-                    "last_pos": [c.last_pos.x, c.last_pos.y], "vel": [c.vel.x, c.vel.y]})
-            })
-            .collect();
-        serde_json::Value::Array(chunks)
-    }
-
-    /// The looker and hand calls recorded since the last take.
-    pub fn take_calls(&mut self) -> Vec<GraphicsCallRecord> {
-        std::mem::take(&mut self.calls)
     }
 
     /// What `Player.Update` does to its graphics module directly: `Player.Blink`, and
@@ -569,34 +545,13 @@ impl PlayerGraphics {
         }
     }
 
-    /// `objectLooker.Update()`, recorded for a trace when asked.
     fn update_looker(
         &mut self,
         player: &Player,
         around: &PlayerSurroundings<'_>,
         rng: &mut UnityRandom,
     ) {
-        let before = (self.looker, rng.state());
         self.looker.update(around, player.head().pos, rng);
-        if around.record {
-            let objects: Vec<serde_json::Value> = around
-                .objects
-                .iter()
-                .map(|&id| ObjectLooker::seen_json(around, id))
-                .collect();
-            self.calls.push(GraphicsCallRecord {
-                call: FliesCall::Looker,
-                rng: [before.1, rng.state()],
-                input: serde_json::json!({
-                    "looker": before.0.to_json(around),
-                    "p_room": around.room,
-                    "p_chunks": Self::chunks_json(player),
-                    "objects": objects,
-                })
-                .to_string(),
-                output: serde_json::json!({ "looker": self.looker.to_json(around) }).to_string(),
-            });
-        }
     }
 
     /// CorridorTurn: the body and hips draw positions jump up to 3 and 2 px in random
@@ -890,7 +845,6 @@ impl PlayerGraphics {
                 grasps,
                 spear_dir: self.spear_dir,
                 draw_pos0: &mut self.draw_positions[0][0],
-                calls: around.record.then_some(&mut self.calls),
             };
             let hand = &mut self.hands[i];
             hand.update(&mut cx);

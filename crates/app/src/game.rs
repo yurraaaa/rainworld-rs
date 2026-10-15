@@ -26,8 +26,8 @@ use rw_sim::creature::{CreatureId, EntityId};
 use rw_sim::room_script::{RoomScript, SuC04StartUp};
 use rw_sim::world::World;
 use rw_sim::{
-    CameraMove, CameraView, GraphicsCallRecord, HudEvent, Input, PhysicalObject, Player,
-    PlayerObserver, PlayerSurroundings, RainWorldGame, SoundEvent, Sounds, Start, Vec2, Water,
+    CameraMove, CameraView, HudEvent, Input, PhysicalObject, Player, PlayerObserver,
+    PlayerSurroundings, RainWorldGame, SoundEvent, Sounds, Start, Vec2, Water,
 };
 
 use crate::shortcuts::CameraShortcuts;
@@ -72,15 +72,8 @@ struct Graphics {
     holograms: Vec<HologramGraphics>,
     /// The flies' graphics modules, in sprite order (`MoveToFront` moves one last).
     flies: Vec<FlyGraphics>,
-    /// The flies' graphics at each recorded flies' call (traces).
-    #[cfg(test)]
-    fly_log: Option<Vec<Vec<FlyGraphics>>>,
     /// The camera room palette's earth colour (`OverseerGraphics.ApplyPalette`).
     earth: Color,
-    /// Holograms the sim cannot make yet, drawn in the camera's room after the real ones
-    /// (screenshot tests).
-    #[cfg(test)]
-    extra_holograms: Vec<(OverseerHologram, HologramGraphics)>,
     /// The lens's and holograms' per-frame draws (the game's come from the global
     /// stream: D1).
     cosmetic: UnityRandom,
@@ -169,13 +162,6 @@ impl PlayerObserver for Graphics {
 
     fn player_hands(&self) -> Option<[(Vec2, Vec2); 2]> {
         self.module.as_ref().map(PlayerGraphics::hand_motion)
-    }
-
-    fn take_graphics_calls(&mut self) -> Vec<GraphicsCallRecord> {
-        self.module
-            .as_mut()
-            .map(PlayerGraphics::take_calls)
-            .unwrap_or_default()
     }
 
     fn overseer_added(&mut self, view: &OverseerView<'_>, rng: &mut UnityRandom) {
@@ -268,13 +254,6 @@ impl PlayerObserver for Graphics {
 
     fn fly_removed(&mut self, id: EntityId) {
         self.flies.retain(|g| g.id != id);
-    }
-
-    fn flies_recorded(&mut self) {
-        #[cfg(test)]
-        if let Some(log) = &mut self.fly_log {
-            log.push(self.flies.clone());
-        }
     }
 
     fn nudge_tail_x(&mut self, dvx: f32) {
@@ -423,11 +402,7 @@ impl Game {
             hologram_bases: Vec::new(),
             holograms: Vec::new(),
             flies: Vec::new(),
-            #[cfg(test)]
-            fly_log: None,
             earth: Color::BLACK,
-            #[cfg(test)]
-            extra_holograms: Vec::new(),
             cosmetic: UnityRandom::new(0),
         };
         let sim = RainWorldGame::new(world, campaign, start, rng, sounds, &mut graphics);
@@ -632,13 +607,6 @@ impl Game {
         )
     }
 
-    /// Overseer `id`'s graphics module, while its room is viewed.
-    #[cfg(test)]
-    #[must_use]
-    pub fn overseer_graphics(&self, id: EntityId) -> Option<&OverseerGraphics> {
-        self.graphics.overseers.iter().find(|g| g.id == id)
-    }
-
     /// The overseers' sprites in the camera's room at `alpha` between ticks, oldest
     /// first (the order their sprites joined the containers), in the room palette's
     /// earth colour.
@@ -712,29 +680,6 @@ impl Game {
                 Some(g.draw(view, black, alpha))
             })
             .collect()
-    }
-
-    /// Fly `id`'s graphics module.
-    #[cfg(test)]
-    #[must_use]
-    pub fn fly_graphics(&self, id: EntityId) -> Option<&FlyGraphics> {
-        self.graphics.flies.iter().find(|g| g.id == id)
-    }
-
-    /// Starts recording the flies' graphics at each recorded flies' call.
-    #[cfg(test)]
-    pub fn record_fly_graphics(&mut self) {
-        self.graphics.fly_log = Some(Vec::new());
-    }
-
-    /// The flies' graphics recorded since the last call, one entry per flies' call.
-    #[cfg(test)]
-    pub fn take_fly_graphics(&mut self) -> Vec<Vec<FlyGraphics>> {
-        self.graphics
-            .fly_log
-            .as_mut()
-            .map(std::mem::take)
-            .unwrap_or_default()
     }
 
     /// Camera 0's shortcut sprites at this frame (`ShortcutGraphics.Draw`), its image at
@@ -815,28 +760,7 @@ impl Game {
             };
             lists.push(g.draw(h, &frame, &mut graphics.cosmetic));
         }
-        #[cfg(test)]
-        for (h, g) in &mut graphics.extra_holograms {
-            let frame = HologramFrame {
-                t: alpha,
-                cam_pos,
-                screen_size,
-                head: h.pos,
-            };
-            lists.push(g.draw(h, &frame, &mut graphics.cosmetic));
-        }
         lists
-    }
-
-    /// Draws `hologram` in the camera's room from now on, its parts' colours lerped
-    /// toward `base` for `updates` updates.
-    #[cfg(test)]
-    pub fn show_extra_hologram(&mut self, hologram: OverseerHologram, base: Color, updates: usize) {
-        let mut g = HologramGraphics::new(&hologram);
-        for _ in 0..updates {
-            g.update(&hologram, base);
-        }
-        self.graphics.extra_holograms.push((hologram, g));
     }
 
     /// The rain cycle as the HUD's rain meter reads it.
