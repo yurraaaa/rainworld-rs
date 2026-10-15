@@ -70,8 +70,8 @@ it (D13). What still differs is only the seed and the call order:
   `PlayerObjectLooker` and `SlugcatHand` draws of `PlayerGraphics.Update`). The bat
   flies' draws match an independent model call for call over the whole tutorial route,
   2500 ticks among SU_A42's flies, 4000 in the swarm room SU_A24 with flies leaving and
-  entering through the pipes, the Survivor and the Hunter eating SU_A42's flies and the
-  Survivor carrying one down to SU_A41 and throwing it. Per tick the stream parts from
+  entering through the pipes, the Survivor and the Hunter eating SU_A42's flies, the
+  Survivor carrying one down to SU_A41 and throwing it, and the eating tutorial route. Per tick the stream parts from
   the game's again with the abstract AI of every creature but overseers and flies
   (D14).
   `LocalCoordinateOfNode` draws for bat hives, garbage holes and border exits; a border
@@ -81,8 +81,9 @@ it (D13). What still differs is only the seed and the call order:
   tutorial, then `OverseerGraphics.Update` while its room is viewed;
   `rainworld-re/notes/overseer.md`), and so does each of its holograms' `Update` in its
   own slot of the room's update list; the guide's run in SU_C04 and its arrival in
-  SU_A41, and a whole tutorial run from SU_C04 into the shelter SU_S01 (with and without
-  food, every guide and hologram call), match an independent model draw for draw.
+  SU_A41, and a whole tutorial run from SU_C04 into the shelter SU_S01 (unfed, and by
+  SU_A42 eating four bat flies under the Eat instruction; every guide and hologram
+  call), match an independent model draw for draw.
   Missing: the `NeuronSpark` a pair of linked
   mycelia makes (its constructor's draw is made; its `SS_Mycelia_Spark` sound on its
   first update is not), and `HologramMatrix.DrawSprites`'s per-frame draws (the lens's
@@ -739,31 +740,32 @@ second part, else a single-room world for arena levels). The campaign descriptio
   base-game hologram, `Projecting`, the tutorial's input instructions and pointers, the
   communication module's pointers, images and anger). Holograms that cannot appear yet,
   for want of what triggers them: the creature and food pointers (no dangerous creature
-  or food item is realized), the angry hologram (`angryWithPlayer` is never set: no
+  or food item is realized: bat flies are small creatures and no food item to the
+  communication module), the angry hologram (`angryWithPlayer` is never set: no
   weapons), the gate scene (`RegionGate` is not ported: in Moon's gates the concern is
   `None`, as the game's is with a closed gate), the placed scenes
   (`ShowProjectedImageEvent` triggers are not ported, and an image's
   `ProjectedImagePosition` placed object is not read), the forced direction
   (`ReliableIggyDirection` is not ported; the port makes no pointer for it), the
   in-world super jump, pick-up and scavenger-trade instructions (their placed triggers are
-  not ported), and the tutorial's Eat instruction (it needs edible objects in SU_A42 or
-  SU_A44). A door pointer without the tutorial would follow the player with a
+  not ported), and the tutorial's Eat instruction in SU_A44 (its fruit is not realized;
+  SU_A42's, over the bat flies, is ported). A door pointer without the tutorial would follow the player with a
   `CreatureDoorDistanceTracker` (on the Fly's exit distances, which now exist): it is
   made but its update is not ported, so the pointer keeps pointing. The bat pointer's `CycleStartUp` is
   1 (the cycle's start-up ticks are not ported), and a new game has discovered no
   shelters and visited no rooms. The controls picture is always the keyboard's (the
   gamepad and Switch pictures are ported but no other control preset exists). A pointer
   whose overseer has left the room goes on updating where the game's would throw (shelter
-  and direction pointers without `FORCEPOINT`): the port logs and stops there. Food can
-  only be set by a tool (`set_player`'s `food`): nothing is eaten. Missing as well: every
-  creature but the player and overseers in what the AI looks at. Which camera's room
+  and direction pointers without `FORCEPOINT`): the port logs and stops there. The
+  overseer's AI looks at the player, overseers and bat flies; no other creature is
+  realized. Which camera's room
   counts as viewed when `AddObject` builds the graphics module is inferred from
   `RoomCamera` and `Room.AddObject`, not checked.
   `OverseersWorldAI` is ported (its shelter finder and the guide's direction finder,
   on the room files' baked node connectivity), as are the flies' swarm room map (with
   the world file's bat migration blockages), `GetSwarmRoomDistance`, `ActiveSwarmRoom`
   and a new game's `RegionState` swarm counters.
-- **Bat flies (step 2 of 4).** `FliesWorldAI` is ported whole (the constructor, `Update`
+- **Bat flies.** `FliesWorldAI` is ported whole (the constructor, `Update`
   with the migration, start-up and respawn, the behaviour re-roll, `MigrationDirection`,
   `ClosestSwarmRoom`), with `World.MoveQuantifiedCreatureFromAbstractRoom` and the
   quantified counts (`NumberOfQuantifiedCreatureInRoom/InNode`, `Quantify`,
@@ -880,7 +882,8 @@ story session.
   from the stream is not checked.
 - **Rain.** The rain meter reads the world's `RainCycle` (its drawn length and
   ticking timer, which the guide's `pauseRain` pins at 2000 in the tutorial rooms; D14).
-  The rain itself is not ported, so nothing reads a room's rain `DangerType`.
+  The rain itself is not ported; only the bat flies read a room's rain `DangerType`
+  (`RoomNotACycleHazard`, D14).
 - **New-game state only.** Food starts at 0 and rises only by eating bat flies (a full
   pip each, a quarter pip for the Hunter; no saves), karma and cap are the campaign's
   new-game values (karma 0, cap 4; the Hunter karma 2), never reinforced, and

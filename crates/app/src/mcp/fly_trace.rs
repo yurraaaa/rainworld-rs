@@ -23,7 +23,7 @@ use super::tutorial_route::{RouteView, TutorialRoute};
 const ROUTE_MAX_TICKS: u64 = 20_000;
 
 /// The sounds a fly, its vessel or the slugcat's hands play.
-const FLY_SOUNDS: [SoundId; 20] = [
+const FLY_SOUNDS: [SoundId; 21] = [
     SoundId::FlyCaught,
     SoundId::FlyCaughtDead,
     SoundId::SlugcatBiteFly,
@@ -44,6 +44,7 @@ const FLY_SOUNDS: [SoundId; 20] = [
     SoundId::BatAfraidFlyingSounds,
     SoundId::BatHoverFlyLoop,
     SoundId::BatAttatchToChain,
+    SoundId::BatDetatchFromChain,
 ];
 
 /// The run with every flies' call and the flies' graphics after each.
@@ -77,11 +78,11 @@ impl FlyTrace {
         })
     }
 
-    /// The whole tutorial route (food 0) from SU_C04 into the shelter SU_S01; SU_A42's
-    /// five flies are realized while the player is in SU_A41, never viewed.
-    pub(super) fn tutorial() -> Option<Self> {
+    /// The whole tutorial `route` from SU_C04 into the shelter SU_S01. On the food-0
+    /// route SU_A42's five flies are realized while the player is in SU_A41, never
+    /// viewed; the eating route catches and eats four of them.
+    pub(super) fn tutorial(mut route: TutorialRoute) -> Option<Self> {
         let mut t = Self::new_survivor()?;
-        let mut route = TutorialRoute::new();
         let mut state = t.session.state().expect("state");
         while !route.done() && state.tick < ROUTE_MAX_TICKS {
             let input = route.input(&RouteView::of(&state));
@@ -960,7 +961,8 @@ fn dump_fly_trace() {
         .unwrap_or(2500);
     let run = match std::env::var("FLY_ROUTE").as_deref() {
         Ok("a24") => FlyTrace::run_a24(ticks),
-        Ok("tutorial") => FlyTrace::tutorial(),
+        Ok("tutorial") => FlyTrace::tutorial(TutorialRoute::new()),
+        Ok("tutorial_eat") => FlyTrace::tutorial(TutorialRoute::eating()),
         Ok("eat") => FlyTrace::caught("White").map(FlyTrace::eaten),
         Ok("eat_red") => FlyTrace::caught("Red").map(FlyTrace::eaten),
         Ok("carry") => FlyTrace::carried(),

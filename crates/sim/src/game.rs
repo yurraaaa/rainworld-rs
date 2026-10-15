@@ -26,8 +26,8 @@ use crate::campaign::SlugcatCampaign;
 use crate::creature::fly::FlyView;
 use crate::creature::overseer::hologram::{ControlPreset, OverseerHologram};
 use crate::creature::overseer::{
-    OverseerEffect, OverseerMode, OverseerTick, OverseerUpdate, OverseerView, PlayerView,
-    StoryStats, TutorialMessage,
+    EdibleView, OverseerEffect, OverseerMode, OverseerTick, OverseerUpdate, OverseerView,
+    PlayerView, StoryStats, TutorialMessage,
 };
 use crate::creature::population::PopulationContext;
 use crate::creature::{
@@ -300,6 +300,10 @@ pub struct OverseerCallRecord {
     pub viewed: bool,
     /// The room's `abstractRoom.creatures`.
     pub creatures: Vec<CreatureId>,
+    /// The edible objects in the room as the call began.
+    pub edibles: Vec<EdibleView>,
+    /// The room's realized flies as the call began.
+    pub flies: Vec<FlyCallRecord>,
     /// For `place`, the abstract creature before it was realized.
     pub abstract_before: Option<AbstractCreature>,
     /// Its abstract position as the call began.
@@ -312,6 +316,19 @@ pub struct OverseerCallRecord {
     pub current_hologram: Option<u64>,
     /// The tutorial texts the call queued.
     pub messages: Vec<TutorialMessage>,
+}
+
+/// A realized fly of an overseer call's room, as the overseer reads it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FlyCallRecord {
+    pub creature: CreatureId,
+    /// `abstractCreature.pos.room`.
+    pub abstract_room: i32,
+    /// `room`: `None` in a hive or a shortcut.
+    pub room: Option<i32>,
+    pub pos: Vec2,
+    pub last_pos: Vec2,
+    pub dead: bool,
 }
 
 impl RainWorldGame {
@@ -1080,7 +1097,28 @@ impl RainWorldGame {
             hips_contact_y: chunks[1].contact().y,
             input_x: inputs[0].x,
             input_y: inputs[0].y,
+            pickup: inputs[0].pickup,
+            throw: inputs[0].throw,
+            eat_counter: p.grab_state().eat_counter,
         })
+    }
+
+    fn fly_call_records(&self, room: i32) -> Vec<FlyCallRecord> {
+        self.world
+            .room_creatures(room)
+            .iter()
+            .filter_map(|&id| {
+                let f = self.world.creature(id).fly()?;
+                Some(FlyCallRecord {
+                    creature: id,
+                    abstract_room: self.world.creature(id).pos.room,
+                    room: f.room,
+                    pos: f.pos(),
+                    last_pos: f.chunk().last_pos,
+                    dead: f.dead,
+                })
+            })
+            .collect()
     }
 
     fn story_stats(&self) -> StoryStats {
@@ -1113,6 +1151,7 @@ impl RainWorldGame {
             _ => self.world.creature(id).pos.room,
         };
         let player = self.player_view(room_index);
+        let edibles = self.room_edibles(room_index);
         let story = self.story_stats();
         let wanted = self.overseer_calls.is_some() || call == OverseerCall::Place;
         let record = wanted.then(|| OverseerCallRecord {
@@ -1135,6 +1174,8 @@ impl RainWorldGame {
             hud: self.script_tick.hud_with_control_preset,
             viewed: room_index == self.camera_room,
             creatures: self.world.room_creatures(room_index).to_vec(),
+            edibles: edibles.clone(),
+            flies: self.fly_call_records(room_index),
             abstract_before: None,
             pos_before: self.world.creature(id).pos,
             after: None,
@@ -1174,6 +1215,7 @@ impl RainWorldGame {
                 hologram_ids: &mut self.hologram_ids,
                 player_id: self.player_id,
                 player,
+                edibles,
                 player_karma: self.campaign.start_karma,
                 camera: self.camera_view,
                 story,

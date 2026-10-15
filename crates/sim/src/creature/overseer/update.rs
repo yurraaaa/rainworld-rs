@@ -105,6 +105,22 @@ pub struct PlayerView {
     /// `input[0].x`, `input[0].y`.
     pub input_x: i8,
     pub input_y: i8,
+    /// `input[0].pckp`, `input[0].thrw`.
+    pub pickup: bool,
+    pub throw: bool,
+    pub eat_counter: i32,
+}
+
+/// An `IPlayerEdible` in the room's `physicalObjects` (a realized fly in the room), in
+/// list order, as `OverseerTutorialBehavior` reads it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct EdibleView {
+    /// `firstChunk.pos`.
+    pub pos: Vec2,
+    /// Nothing holds it and it is not burrowing (`foodArrows` point at these).
+    pub free: bool,
+    /// `grabbedBy[0].grabber` is the player.
+    pub held_by_player: bool,
 }
 
 /// The story numbers the tutorial reads.
@@ -163,6 +179,8 @@ pub(crate) struct OverseerTick<'a> {
     pub player_id: CreatureId,
     /// The realized player, if any.
     pub player: Option<PlayerView>,
+    /// The edible objects in the overseer's room.
+    pub edibles: Vec<EdibleView>,
     pub player_karma: i32,
     pub camera: CameraView,
     pub story: StoryStats,
@@ -264,6 +282,15 @@ impl OverseerUpdate<'_, '_> {
                 in_room: p.in_room,
                 pos: p.pos,
                 last_pos: p.last_pos,
+                ..base
+            });
+        }
+        if let Some(f) = c.fly() {
+            return Some(RealizedInfo {
+                dead: f.dead,
+                in_room: f.room == Some(self.cx.room_index),
+                pos: f.pos(),
+                last_pos: f.chunk().last_pos,
                 ..base
             });
         }
@@ -1382,8 +1409,9 @@ impl OverseerUpdate<'_, '_> {
         }
     }
 
-    /// `ReevaluateConcern`: returns the hologram to try. Only the player and overseers
-    /// are realized, so no creature is dangerous and no food item is realized.
+    /// `ReevaluateConcern`: returns the hologram to try. Only the player, overseers and
+    /// bat flies are realized, so no creature is dangerous and no food item is realized
+    /// (`FoodDelicousScore` scores fruit, jellyfish, seed cobs and bubble fruit only).
     fn reevaluate_concern(
         &mut self,
         comm: &mut CommunicationModule,
@@ -1715,7 +1743,9 @@ impl OverseerUpdate<'_, '_> {
             }
             "SU_A42" => {
                 t.bat_trouble += 1;
-                // `EatInstructionRelevant` counts edible objects: none is realized.
+                if self.eat_instruction_relevant(t, name, food) {
+                    self.tutorial_hologram(HologramMessage::EatInstruction, 0.5);
+                }
                 if !t.messages_displayed[1] && t.bat_trouble > 30 {
                     self.tutorial_text("Catch and eat them", 10, 120, true);
                     t.messages_displayed[1] = true;
@@ -1774,7 +1804,9 @@ impl OverseerUpdate<'_, '_> {
                     self.tutorial_text("Jump and grab them. They're delicious!", 10, 120, true);
                     t.messages_displayed[4] = true;
                 }
-                // `EatInstructionRelevant` counts edible objects: none is realized.
+                if self.eat_instruction_relevant(t, name, food) {
+                    self.tutorial_hologram(HologramMessage::EatInstruction, 0.5);
+                }
             }
             _ => {}
         }
@@ -1786,6 +1818,18 @@ impl OverseerUpdate<'_, '_> {
         if let Some(a22) = world.room_index("SU_A22") {
             self.cx.effects.push(OverseerEffect::KillGreenLizards(a22));
         }
+    }
+
+    /// `EatInstructionRelevant` with the edible objects of the overseer's room.
+    fn eat_instruction_relevant(&self, t: &TutorialBehavior, room: &str, food: i32) -> bool {
+        let s = self.cx.story;
+        t.eat_instruction_relevant(
+            room,
+            food,
+            s.food_to_hibernate,
+            s.max_food,
+            self.cx.edibles.len(),
+        )
     }
 
     /// The hibernation food lines when the stomach passes a mark.

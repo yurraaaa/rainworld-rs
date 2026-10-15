@@ -112,7 +112,7 @@ recommendation. Nothing is ported before the user agrees.
   `dlcsInstalled` check): the base-game menu scene and intro images.
 - Current phase is the player controller in a region whose only
   behaving creatures are the overseers and the bat flies, not the full
-  game (campaign step 1, overseer step 1, batflies step 3):
+  game (campaign step 1, overseer step 1, batflies done):
   - A story starts at the campaign's start den in its region's world;
     room-exit shortcuts carry the player between the region's rooms, which
     load synchronously (D14). The population is generated with the
@@ -123,9 +123,9 @@ recommendation. Nothing is ported before the user agrees.
     loads realizes its flies: body, AI, flocks, hives, chains, pipe
     travel, sounds and graphics. The player catches them (reaching, the
     looker), holds, throws, carries them through pipes and eats them
-    (bites, drips, food and the food meter); the tutorial's eat
-    instruction and food pointer are not there yet (batflies step 4).
-    Gates, region changes,
+    (bites, drips, food and the food meter), under the tutorial's Eat
+    instruction in SU_A42; fed, the guide moves on to SU_A43's super-jump
+    lesson. Gates, region changes,
     the rain and saves are not there yet.
   - Death freezes the body until R respawns it (revisit once the real
     game loop exists). A body that falls out of the room is destroyed,

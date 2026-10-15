@@ -1,10 +1,12 @@
 //! A reactive input program through the Outskirts tutorial (SU_C04, SU_A41, SU_A43,
-//! SU_A22 into the shelter SU_S01) for a new Survivor game, pausing where the guide
+//! SU_A22 into the shelter SU_S01, optionally by SU_A42 to catch and eat four bat
+//! flies first) for a new Survivor game, pausing where the guide
 //! overseer's holograms trigger (`OverseerTutorialBehavior`). Each tick's input is
 //! chosen from the game state, not from a tick table, so the route survives changes in
 //! when the guide follows the player.
 
 use rw_sim::Animation;
+use rw_sim::creature::fly::MovementMode;
 
 use super::Session;
 use super::params::{InputParam, NewGameParams, StepParams};
@@ -28,6 +30,12 @@ pub(super) struct RouteView {
     guide_room: Option<String>,
     /// `SU_C04StartUp` still holds the body.
     held: bool,
+    food: i32,
+    /// A hand holds something (a bat fly).
+    holding: bool,
+    /// The bat flies in the player's room that nothing holds and that are not
+    /// burrowing.
+    flies: Vec<[f32; 2]>,
 }
 
 impl RouteView {
@@ -54,6 +62,20 @@ impl RouteView {
                 .start_up
                 .as_ref()
                 .is_some_and(|u| u.push_right || !u.stood_up),
+            food: p.map_or(0, |p| p.food),
+            holding: p.is_some_and(|p| p.grasps.iter().any(Option::is_some)),
+            flies: s
+                .creatures
+                .iter()
+                .filter_map(|c| c.fly.as_ref())
+                .filter(|f| {
+                    f.room.as_deref() == Some(s.player_room.as_str())
+                        && f.grabbed_by.is_empty()
+                        && f.mov_mode.as_deref().and_then(MovementMode::from_value)
+                            != Some(MovementMode::Burrow)
+                })
+                .map(|f| f.pos)
+                .collect(),
         }
     }
 
@@ -93,6 +115,16 @@ enum Leg {
     PoleWait,
     ClimbPole,
     OnPole,
+    /// Up the left pole to the tunnel of the exit to SU_A42, and through it.
+    ClimbToA42,
+    ToA42,
+    /// SU_A42: catch and eat bat flies until the stomach holds enough to hibernate.
+    A42Wait,
+    Hunt,
+    Eat,
+    /// Back down SU_A42's exit shaft to SU_A41, and down the left pole.
+    OutOfA42,
+    DownPole,
     DropOffPole,
     ToRightPole,
     ClimbRightPole,
@@ -117,6 +149,14 @@ enum Leg {
     Done,
 }
 
+/// Survivor's `foodToHibernate`.
+const FOOD_TO_HIBERNATE: i32 = 4;
+/// Ticks to stand in SU_A42 with the guide before hunting (the Eat instruction needs
+/// `batTrouble` 100).
+const A42_WAIT: u64 = 200;
+/// Where to wait in SU_A42 while every fly is in a hive: more than 20 tiles from the
+/// right hives, so flies come out of them (`FlyEmergeFromHive`).
+const LURE_SPOT: [f32; 2] = [150.0, 190.0];
 /// Ticks to keep the hips in the box zone (the hologram shows from 800).
 const BOX_TICKS: u64 = 1000;
 const BOX_CROUCH_FROM: u64 = 880;
@@ -148,6 +188,8 @@ pub(super) struct TutorialRoute {
     /// Walk into SU_A43's pit before the leap (the guide's super-jump lesson).
     pit_first: bool,
     fell: bool,
+    /// Go by SU_A42 and eat bat flies before SU_A43.
+    eat: bool,
 }
 
 impl TutorialRoute {
@@ -164,6 +206,7 @@ impl TutorialRoute {
             events: Vec::new(),
             pit_first: false,
             fell: false,
+            eat: false,
         }
     }
 
@@ -171,6 +214,16 @@ impl TutorialRoute {
     pub(super) fn pit_first() -> Self {
         Self {
             pit_first: true,
+            ..Self::new()
+        }
+    }
+
+    /// The route that first eats four bat flies in SU_A42, then drops into SU_A43's
+    /// pit (where the guide's super-jump lesson needs a fed slugcat).
+    pub(super) fn eating() -> Self {
+        Self {
+            pit_first: true,
+            eat: true,
             ..Self::new()
         }
     }
@@ -306,9 +359,78 @@ impl TutorialRoute {
             }
             Leg::OnPole => {
                 if self.leg_ticks >= 200 {
-                    self.go(v, Leg::DropOffPole);
+                    let next = if self.eat && v.food < FOOD_TO_HIBERNATE {
+                        Leg::ClimbToA42
+                    } else {
+                        Leg::DropOffPole
+                    };
+                    self.go(v, next);
                 }
                 InputParam::default()
+            }
+            Leg::ClimbToA42 => {
+                if v.main[1] > 580.0 {
+                    self.go(v, Leg::ToA42);
+                }
+                Self::y(1)
+            }
+            Leg::ToA42 => {
+                if v.room == "SU_A42" && !v.in_shortcut {
+                    self.go(v, Leg::A42Wait);
+                }
+                // Off the pole into the tunnel with a jump to the left.
+                InputParam {
+                    x: -1,
+                    jump: v.animation == Animation::ClimbOnBeam && self.leg_ticks % 20 < 5,
+                    ..InputParam::default()
+                }
+            }
+            Leg::A42Wait => {
+                if self.since_guide(v).is_some_and(|t| t >= A42_WAIT) {
+                    self.go(v, Leg::Hunt);
+                }
+                InputParam::default()
+            }
+            Leg::Hunt => {
+                if v.holding {
+                    self.go(v, Leg::Eat);
+                    return InputParam::default();
+                }
+                self.hunt(v)
+            }
+            Leg::Eat => {
+                if !v.holding {
+                    self.note(v, format!("ate a bat fly: food {}", v.food));
+                    let next = if v.food >= FOOD_TO_HIBERNATE {
+                        Leg::OutOfA42
+                    } else {
+                        Leg::Hunt
+                    };
+                    self.go(v, next);
+                }
+                InputParam {
+                    pickup: true,
+                    ..InputParam::default()
+                }
+            }
+            Leg::OutOfA42 => {
+                if v.room == "SU_A41" && !v.in_shortcut {
+                    self.go(v, Leg::DownPole);
+                }
+                self.out_of_a42(v)
+            }
+            Leg::DownPole => {
+                if v.animation != Animation::ClimbOnBeam {
+                    return InputParam {
+                        x: i8::from(v.main[0] < 525.0),
+                        y: 1,
+                        ..InputParam::default()
+                    };
+                }
+                if v.main[1] < 420.0 {
+                    self.go(v, Leg::DropOffPole);
+                }
+                Self::y(-1)
             }
             Leg::DropOffPole => {
                 if v.animation != Animation::ClimbOnBeam && v.hips_contact_y < 0 {
@@ -451,6 +573,62 @@ impl TutorialRoute {
         }
     }
 
+    /// Toward the nearest free bat fly, jumping when it is above or when no progress
+    /// was made for a while (out of the exit shaft, onto ledges), tapping pick-up when
+    /// it is in reach. With every fly in its hive, back off to the left end, where the
+    /// flies come out of the far hives.
+    fn hunt(&mut self, v: &RouteView) -> InputParam {
+        let target = v.flies.iter().min_by(|a, b| {
+            let da = (a[0] - v.main[0]).hypot(a[1] - v.main[1]);
+            let db = (b[0] - v.main[0]).hypot(b[1] - v.main[1]);
+            da.total_cmp(&db)
+        });
+        let to = target.copied().unwrap_or(LURE_SPOT);
+        let dx = to[0] - v.main[0];
+        let dy = to[1] - v.main[1];
+        let x = if dx.abs() < 10.0 {
+            0
+        } else {
+            dx.signum() as i8
+        };
+        let moved = (v.main[0] - self.best).abs() > 2.0;
+        if moved || x == 0 {
+            self.best = v.main[0];
+            self.stalled = 0;
+        } else {
+            self.stalled += 1;
+        }
+        let above = target.is_some() && dy > 15.0 && dx.abs() < 60.0;
+        if self.jump_hold == 0 && ((above && v.hips_contact_y < 0) || self.stalled > 20) {
+            self.jump_hold = 20;
+            self.stalled = 0;
+        }
+        let jump = self.jump_hold > 0;
+        self.jump_hold = self.jump_hold.saturating_sub(1);
+        let near = target.is_some() && dx.hypot(dy) < 50.0;
+        InputParam {
+            x,
+            jump,
+            pickup: near && self.leg_ticks.is_multiple_of(2),
+            ..InputParam::default()
+        }
+    }
+
+    /// Along SU_A42's floor to its exit shaft (tile 10) and down it.
+    fn out_of_a42(&mut self, v: &RouteView) -> InputParam {
+        if v.in_shortcut || v.room != "SU_A42" {
+            return InputParam::default();
+        }
+        let tx = (v.main[0] / 20.0).floor();
+        if tx > 11.0 {
+            self.walk(v, -1)
+        } else if tx < 10.0 {
+            self.walk(v, 1)
+        } else {
+            Self::y(-1)
+        }
+    }
+
     /// Stand up (hold up briefly) and then stand still.
     fn stand(ticks: u32) -> InputParam {
         Self::y(i8::from(ticks < 10))
@@ -578,21 +756,13 @@ fn print_tutorial_route() {
     let Some(mut s) = Session::route_survivor() else {
         return;
     };
-    let mut route = if std::env::var_os("ROUTE_PIT").is_some() {
+    let mut route = if std::env::var_os("ROUTE_EAT").is_some() {
+        TutorialRoute::eating()
+    } else if std::env::var_os("ROUTE_PIT").is_some() {
         TutorialRoute::pit_first()
     } else {
         TutorialRoute::new()
     };
-    if let Some(food) = std::env::var("ROUTE_FOOD")
-        .ok()
-        .and_then(|f| f.parse().ok())
-    {
-        s.set_player(&super::params::SetPlayerParams {
-            food: Some(food),
-            ..Default::default()
-        })
-        .expect("food");
-    }
     let ticks = s.run_route(&mut route, MAX_TICKS);
     let every: u64 = std::env::var("ROUTE_EVERY")
         .ok()
@@ -601,11 +771,12 @@ fn print_tutorial_route() {
     for t in ticks.iter().filter(|t| t.view.tick % every == 0) {
         let v = &t.view;
         println!(
-            "{:>5} in x{} y{} j{} | {} main {:?} hips {:?} cy {} {} sc {} {:?} lobby {:?} | guide {:?} {:?}",
+            "{:>5} in x{} y{} j{} p{} | {} main {:?} hips {:?} cy {} {} sc {} {:?} lobby {:?} | food {} hold {} flies {:?} | guide {:?} {:?}",
             v.tick,
             t.input.x,
             t.input.y,
             u8::from(t.input.jump),
+            u8::from(t.input.pickup),
             v.room,
             v.main,
             v.hips,
@@ -614,6 +785,9 @@ fn print_tutorial_route() {
             v.in_shortcut,
             v.shortcut_tile,
             v.lobby_room,
+            v.food,
+            v.holding,
+            v.flies,
             v.guide_room,
             t.guide,
         );

@@ -745,7 +745,7 @@ impl HologramUpdate<'_, '_> {
             } else if (p.pos.x < p.hips.x) != (jump_direction < 0) {
                 direction = (jump_direction, 0);
             } else {
-                hold = p.input_x == 0 && p.input_y == 0 && p.jump[0];
+                hold = p.input_x == 0 && p.input_y == 0 && p.jump[0] && !p.pickup && !p.throw;
                 meter_visible = Some(true);
                 show_jump = in_position_counter < 80;
             }
@@ -784,8 +784,9 @@ impl HologramUpdate<'_, '_> {
         });
     }
 
-    /// `Eat.Update`: no edible object is realized in the port, so it shows the inputs
-    /// in SU_A44 and is never relevant.
+    /// `Eat.Update`: arrows over the free edibles; once the player holds one, the wait
+    /// meter fills with `eatCounter` while it stands still, and the red cross shows when
+    /// it keeps moving.
     fn eat(&mut self, p: crate::creature::overseer::PlayerView) {
         let Some(Controller::Eat {
             food_arrows,
@@ -797,8 +798,10 @@ impl HologramUpdate<'_, '_> {
         else {
             return;
         };
-        if let Some(i) = self.holo.instruction_mut()
-            && let Some(m) = i.wait_meter.as_mut()
+        if let Some(m) = self
+            .holo
+            .instruction_mut()
+            .and_then(|i| i.wait_meter.as_mut())
         {
             m.blink_when_full = false;
         }
@@ -806,33 +809,60 @@ impl HologramUpdate<'_, '_> {
             b.time_up = if show_slow_button_press { 4 } else { 10 };
             b.time_down = if show_slow_button_press { 40 } else { 10 };
         }
-        let name = self
-            .cx
-            .world
+        let world = self.cx.world;
+        let name = world
             .abstract_room(self.cx.room_index)
             .map_or("", |r| r.name.as_str());
         let a44 = name == "SU_A44";
-        let close_to = if a44 {
-            Vec2::new(480.0, 330.0)
-        } else if p.pos.x > 500.0 {
-            Vec2::new(330.0, 250.0)
-        } else {
-            Vec2::new(850.0, 250.0)
-        };
+        if let Some(i) = self.holo.instruction_mut() {
+            i.close_to_pos = if a44 {
+                Vec2::new(480.0, 330.0)
+            } else if p.pos.x > 500.0 {
+                Vec2::new(330.0, 250.0)
+            } else {
+                Vec2::new(850.0, 250.0)
+            };
+        }
+        let edibles = self.cx.edibles.len();
+        let held = self.cx.edibles.iter().any(|e| e.held_by_player);
         if let Some(t) = self.ai.tutorial.as_mut() {
+            let count = i32::try_from(edibles).unwrap_or(i32::MAX);
             if a44 {
-                t.available_fruit_in_fruit_room = -1;
+                t.available_fruit_in_fruit_room = count - 1;
             } else if name == "SU_A42" {
-                t.bats_in_bat_room = 0;
+                t.bats_in_bat_room = count;
             }
         }
-        for a in food_arrows {
-            self.holo.parts[a].visible = false;
+        let free: Vec<Vec2> = self
+            .cx
+            .edibles
+            .iter()
+            .filter(|e| e.free && !held)
+            .map(|e| e.pos)
+            .collect();
+        let pos = self.holo.pos;
+        for (k, a) in food_arrows.into_iter().enumerate() {
+            let part = &mut self.holo.parts[a];
+            match free.get(k).copied() {
+                Some(at) => {
+                    part.visible = true;
+                    part.offset = at + Vec2::new(0.0, 20.0) - pos;
+                }
+                None => part.visible = false,
+            }
         }
-        // `EatInstructionRelevant` finds no edible object.
-        self.holo.still_relevant = false;
-        log::info!("eat no longer relevant!");
+        let s = self.cx.story;
+        self.holo.still_relevant = held
+            || self.ai.tutorial.as_ref().is_some_and(|t| {
+                t.eat_instruction_relevant(name, p.food, s.food_to_hibernate, s.max_food, edibles)
+            });
+        if !self.holo.still_relevant {
+            log::info!("eat no longer relevant!");
+        }
         self.holo.wait_meter_update();
+        let mut hide_inputs = true;
+        let mut show_pickup = false;
+        let mut show_jump = false;
         if p.input_x == 0 && p.input_y == 0 && !p.jump[0] {
             still_counter += 1;
             moving_counter -= 1;
@@ -842,33 +872,67 @@ impl HologramUpdate<'_, '_> {
         }
         still_counter = still_counter.clamp(0, 60);
         moving_counter = moving_counter.clamp(0, 60);
-        let mut show_pickup = false;
-        let mut show_jump = false;
-        let mut hide_inputs = true;
-        if a44 {
-            show_slow_button_press = false;
+        let mut tell_to_stay_still = false;
+        let cross = self.holo.instruction().and_then(|i| i.red_cross);
+        let mut cross_visible = cross.is_some_and(|c| self.holo.parts[c].visible);
+        let mut meter = None;
+        if held && self.ai.tutorial.is_some() {
+            self.holo.overseer_sit_still = true;
             hide_inputs = false;
-            show_pickup = true;
-            show_jump = true;
-            let pick = self.holo.device_button(true).map_or(0, |b| b.counter);
-            if let Some(jump) = self.holo.device_button(false)
-                && (pick - jump.counter).abs() < 5
-            {
-                jump.counter = 0;
+            if still_counter > 30 {
+                let filled = (p.eat_counter as f32).inverse_lerp(40.0, 10.0);
+                meter = Some((true, Some((p.pos - pos, filled))));
+                show_pickup = !cross_visible;
+                show_slow_button_press = true;
+                if still_counter > 50
+                    && moving_counter < 10
+                    && tell_player_to_stay_still_counter < 10
+                {
+                    cross_visible = false;
+                }
+            } else if moving_counter > 30 {
+                meter = Some((false, None));
+                if moving_counter > 55 {
+                    tell_to_stay_still = true;
+                    if tell_player_to_stay_still_counter >= 40 {
+                        cross_visible = true;
+                    }
+                }
             }
+        } else {
+            meter = Some((false, None));
+            if a44 && !held {
+                show_slow_button_press = false;
+                hide_inputs = false;
+                show_pickup = true;
+                show_jump = true;
+                let pick = self.holo.device_button(true).map_or(0, |b| b.counter);
+                if let Some(jump) = self.holo.device_button(false)
+                    && (pick - jump.counter).abs() < 5
+                {
+                    jump.counter = 0;
+                }
+            }
+            self.holo.overseer_sit_still = false;
+            cross_visible = false;
         }
-        tell_player_to_stay_still_counter = (tell_player_to_stay_still_counter - 1).clamp(0, 40);
-        self.holo.overseer_sit_still = false;
+        tell_player_to_stay_still_counter += if tell_to_stay_still { 1 } else { -1 };
+        tell_player_to_stay_still_counter = tell_player_to_stay_still_counter.clamp(0, 40);
+        if let Some(c) = cross {
+            self.holo.parts[c].visible = cross_visible;
+        }
         let Some(i) = self.holo.instruction_mut() else {
             return;
         };
-        i.close_to_pos = close_to;
         i.hide_inputs = hide_inputs;
         i.show_pickup = show_pickup;
         i.show_jump = show_jump;
-        let cross = i.red_cross;
-        if let Some(m) = i.wait_meter.as_mut() {
-            m.visible = false;
+        if let (Some(m), Some((visible, fill))) = (i.wait_meter.as_mut(), meter) {
+            m.visible = visible;
+            if let Some((offset, filled)) = fill {
+                m.offset = offset;
+                m.filled = filled;
+            }
         }
         i.controller = Some(Controller::Eat {
             food_arrows,
@@ -877,9 +941,6 @@ impl HologramUpdate<'_, '_> {
             tell_player_to_stay_still_counter,
             show_slow_button_press,
         });
-        if let Some(c) = cross {
-            self.holo.parts[c].visible = false;
-        }
     }
 
     /// `TutorialText`, shown only with a HUD.

@@ -30,7 +30,8 @@ Working now:
 - **Creatures:** the creature framework is in place. Overseers spawn and move between
   rooms, and the guide overseer follows the player with its tutorial text and holograms.
   Bat flies spread between rooms, fly, swarm, flee from the slugcat, burrow, hang in
-  chains and travel the pipes. The slugcat catches, carries, throws and eats them.
+  chains and travel the pipes. The slugcat catches, carries, throws and eats them, and
+  the guide's tutorial teaches it to (the Eat instruction, then the super jump once fed).
 
 Not yet ported:
 

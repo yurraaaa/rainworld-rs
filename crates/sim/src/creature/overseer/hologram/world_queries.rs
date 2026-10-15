@@ -42,8 +42,18 @@ impl World {
         self.data().shelters.clone()
     }
 
-    pub(crate) fn quantified_in_room(&self, room: i32, kind: rw_assets::CreatureType) -> i32 {
-        self.number_of_quantified_creature_in_room(room, kind)
+    /// `BatPointer.FliesInRoom`: a realized room's abstract creatures of `kind`, else
+    /// the quantified count.
+    pub(crate) fn flies_in_room(&self, room: i32, kind: rw_assets::CreatureType) -> i32 {
+        if self.realized(room).is_none() {
+            return self.number_of_quantified_creature_in_room(room, kind);
+        }
+        let n = self
+            .room_creatures(room)
+            .iter()
+            .filter(|&&c| self.creature(c).template.kind == kind)
+            .count();
+        i32::try_from(n).unwrap_or(i32::MAX)
     }
 
     pub(crate) fn guide_swarm_room_distance(&self, coord: WorldCoordinate, swarm: usize) -> f32 {

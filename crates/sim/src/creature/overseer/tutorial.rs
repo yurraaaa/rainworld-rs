@@ -76,4 +76,27 @@ impl TutorialBehavior {
             score
         }
     }
+
+    /// `EatInstructionRelevant` in room `room` (by name) with `food` pips and `edibles`
+    /// `IPlayerEdible`s in the room: SU_A42 until the stomach holds enough to hibernate,
+    /// SU_A44 until it is full; both only after the player's trouble.
+    #[must_use]
+    pub fn eat_instruction_relevant(
+        &self,
+        room: &str,
+        food: i32,
+        food_to_hibernate: i32,
+        max_food: i32,
+        edibles: usize,
+    ) -> bool {
+        let a44 = room == "SU_A44";
+        if a44 {
+            if food >= max_food || self.fruit_trouble < 200 {
+                return false;
+            }
+        } else if room != "SU_A42" || food >= food_to_hibernate || self.bat_trouble < 100 {
+            return false;
+        }
+        edibles >= if a44 { 2 } else { 1 }
+    }
 }

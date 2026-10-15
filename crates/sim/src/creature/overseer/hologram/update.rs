@@ -765,7 +765,7 @@ impl HologramUpdate<'_, '_> {
             if !world.guide_active_swarm_room(swarm) || (su && name == "SU_A42") {
                 continue;
             }
-            let flies = world.quantified_in_room(swarm, CreatureType::Fly);
+            let flies = world.flies_in_room(swarm, CreatureType::Fly);
             if flies <= 0 {
                 continue;
             }

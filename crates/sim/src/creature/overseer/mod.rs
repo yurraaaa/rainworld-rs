@@ -15,5 +15,5 @@ pub use abstract_ai::{OverseerAbstractAi, PlayerGuideState, TUTORIAL_ROOMS};
 pub use ai::{CommunicationModule, OverseerAi, PlayerConcern, ZipMatrix};
 pub use body::{APPENDAGE_SEGMENTS, OverseerBody, OverseerMode};
 pub use tutorial::{TutorialBehavior, TutorialMessage};
-pub use update::{OverseerColor, OverseerView, PlayerView};
+pub use update::{EdibleView, OverseerColor, OverseerView, PlayerView};
 pub(crate) use update::{OverseerEffect, OverseerTick, OverseerUpdate, StoryStats};

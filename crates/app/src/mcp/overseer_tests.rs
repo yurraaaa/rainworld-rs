@@ -12,6 +12,7 @@ use rw_sim::creature::overseer::hologram::{
 
 use super::Session;
 use super::params::{InputParam, NewGameParams, StepParams};
+use super::tutorial_route::{RouteView, TutorialRoute};
 
 impl Session {
     fn new_survivor(seed: u64) -> Option<Self> {
@@ -26,14 +27,6 @@ impl Session {
             .sim_mut()
             .record_overseer_calls(true);
         Some(s)
-    }
-
-    fn set_food(&mut self, food: i32) {
-        self.set_player(&super::params::SetPlayerParams {
-            food: Some(food),
-            ..Default::default()
-        })
-        .expect("food");
     }
 
     fn tick_with(&mut self, input: InputParam) {
@@ -108,32 +101,25 @@ fn dump_overseer_trace() {
 }
 
 /// The tutorial route's run (a new Survivor game, seed 1, `TutorialRoute` through
-/// SU_C04, SU_A41, SU_A43 and SU_A22 into SU_S01) with every guide call recorded.
+/// SU_C04, SU_A41, SU_A43 and SU_A22 into SU_S01, the eating route by SU_A42) with
+/// every guide call recorded.
 struct RouteTrace {
     calls: Vec<OverseerCallRecord>,
     session: Session,
 }
 
 impl RouteTrace {
-    /// With `food` pips in the stomach from the start (the fed run shows the shelter
-    /// pointers and the super jump).
-    fn run(food: i32, pit_first: bool) -> Option<Self> {
+    fn run(mut route: TutorialRoute) -> Option<Self> {
         let mut session = Session::new_survivor(1)?;
-        session.set_food(food);
         let place = session
             .scene_mut()
             .and_then(|sc| sc.game().sim().last_overseer_place().cloned())
             .expect("the guide was placed while the first room loaded");
         let guide = place.creature;
         let mut calls = vec![place];
-        let mut route = if pit_first {
-            super::tutorial_route::TutorialRoute::pit_first()
-        } else {
-            super::tutorial_route::TutorialRoute::new()
-        };
         let mut state = session.state().expect("state");
         while !route.done() && state.tick < ROUTE_MAX_TICKS {
-            let input = route.input(&super::tutorial_route::RouteView::of(&state));
+            let input = route.input(&RouteView::of(&state));
             state = session
                 .step(&StepParams {
                     ticks: Some(1),
@@ -178,12 +164,14 @@ fn dump_route_trace() {
     let Some(path) = std::env::var_os("ROUTE_TRACE") else {
         return;
     };
-    let food = std::env::var("ROUTE_FOOD")
-        .ok()
-        .and_then(|f| f.parse().ok())
-        .unwrap_or(0);
-    let pit_first = std::env::var_os("ROUTE_PIT").is_some();
-    let Some(mut t) = RouteTrace::run(food, pit_first) else {
+    let route = if std::env::var_os("ROUTE_EAT").is_some() {
+        TutorialRoute::eating()
+    } else if std::env::var_os("ROUTE_PIT").is_some() {
+        TutorialRoute::pit_first()
+    } else {
+        TutorialRoute::new()
+    };
+    let Some(mut t) = RouteTrace::run(route) else {
         return;
     };
     let input = t.model_input();
@@ -223,14 +211,21 @@ impl RouteTrace {
                 player["standing"] = json!(p.standing);
                 player["animation"] = json!(format!("{:?}", p.animation));
                 player["input0"] = json!({
-                    "x": p.input_x, "y": p.input_y, "jmp": p.jump[0], "pckp": false, "thrw": false,
+                    "x": p.input_x, "y": p.input_y, "jmp": p.jump[0], "pckp": p.pickup,
+                    "thrw": p.throw,
                 });
+                player["eat_counter"] = json!(p.eat_counter);
                 player["food"] = json!(p.food);
                 player["max_food"] = json!(7);
                 player["food_to_hibernate"] = json!(4);
                 player["grabbed"] = json!(false);
                 player["room_null"] = json!(p.in_shortcut);
             }
+            e["edibles"] = c
+                .edibles
+                .iter()
+                .map(|f| json!({"pos": f.pos.to_array(), "free": f.free, "held": f.held_by_player}))
+                .collect();
             ticks.push(e);
         }
         self.calls = calls;
@@ -268,31 +263,31 @@ fn route_matches_reference_model() {
     let expected: Value =
         serde_json::from_str(include_str!("../../tests/data/overseer_route_model.json"))
             .expect("model output");
-    ModelCompare::route(0, false, &expected);
+    ModelCompare::route(TutorialRoute::new(), &expected);
 }
 
-/// The same with 4 food pips from the start and a drop into SU_A43's pit before the
-/// leap: the shelter pointers (the shelter finder's door in SU_A43, `FORCEPOINT` in
-/// SU_A22), "Leap the gap", the super-jump lesson and the rain brought in.
+/// The eating route: four bat flies caught and eaten in SU_A42 under the Eat
+/// instruction, then a drop into SU_A43's pit before the leap: the shelter pointers
+/// (the shelter finder's door in SU_A43, `FORCEPOINT` in SU_A22), "Leap the gap", the
+/// super-jump lesson and the rain brought in.
 #[test]
-fn fed_route_matches_reference_model() {
+fn eating_route_matches_reference_model() {
     let expected: Value = serde_json::from_str(include_str!(
-        "../../tests/data/overseer_route_fed_model.json"
+        "../../tests/data/overseer_route_eat_model.json"
     ))
     .expect("model output");
-    ModelCompare::route(4, true, &expected);
+    ModelCompare::route(TutorialRoute::eating(), &expected);
 }
 
 /// The port's guide and holograms in the model's state format.
 struct ModelCompare;
 
 impl ModelCompare {
-    /// Runs the route (with `food`, by the pit if `pit_first`) against `expected`.
-    fn route(food: i32, pit_first: bool, expected: &Value) {
+    /// Runs `route` against `expected`.
+    fn route(mut route: TutorialRoute, expected: &Value) {
         let Some(mut session) = Session::new_survivor(1) else {
             return;
         };
-        session.set_food(food);
         let place = session
             .scene_mut()
             .and_then(|sc| sc.game().sim().last_overseer_place().cloned())
@@ -307,15 +302,10 @@ impl ModelCompare {
         let mut next_state = 0;
         let mut calls: Vec<OverseerCallRecord> = Vec::new();
         let mut compared_states = 0;
-        let mut route = if pit_first {
-            super::tutorial_route::TutorialRoute::pit_first()
-        } else {
-            super::tutorial_route::TutorialRoute::new()
-        };
         let mut state = session.state().expect("state");
         let mut messages = Vec::new();
         while !route.done() && state.tick < ROUTE_MAX_TICKS {
-            let input = route.input(&super::tutorial_route::RouteView::of(&state));
+            let input = route.input(&RouteView::of(&state));
             state = session
                 .step(&StepParams {
                     ticks: Some(1),
@@ -481,6 +471,7 @@ impl ModelCompare {
             "zipPathCount": b.zip_path_count,
             "lookAt": ai.look_at.to_array(),
             "bringUpLens": ai.bring_up_lens,
+            "casualInterestCreature": Self::creature_key(session, ai.casual_interest_creature),
             "stationaryCounter": b.stationary_counter,
             "conversationDelay": b.conversation_delay,
             "abstract": {"playerGuideCounter": oa.player_guide_counter},
@@ -503,8 +494,22 @@ impl ModelCompare {
                 "bringInRain": t.bring_in_rain,
                 "displayRunMessage": t.display_run_message,
                 "lastFoodInStomach": t.last_food_in_stomach,
+                "batsInBatRoom": t.bats_in_bat_room,
             })),
         })
+    }
+
+    /// The model's name for a creature: "player", or "fly:<index>".
+    fn creature_key(session: &mut Session, id: Option<CreatureId>) -> Value {
+        let Some(id) = id else {
+            return Value::Null;
+        };
+        let sim = session.scene_mut().expect("scene").game().sim();
+        if id == sim.player_creature() {
+            json!("player")
+        } else {
+            json!(format!("fly:{}", id.0))
+        }
     }
 
     fn hologram(
@@ -587,6 +592,19 @@ impl ModelCompare {
                 "moveKeysUp": move_keys_up,
                 "jumpDirection": jump_direction,
             }),
+            Controller::Eat {
+                still_counter,
+                moving_counter,
+                tell_player_to_stay_still_counter,
+                show_slow_button_press,
+                ..
+            } => json!({
+                "kind": "Eat",
+                "stillCounter": still_counter,
+                "movingCounter": moving_counter,
+                "tellPlayerToStayStillCounter": tell_player_to_stay_still_counter,
+                "showSlowButtonPress": show_slow_button_press,
+            }),
             other => json!({"kind": format!("{other:?}")}),
         }
     }
@@ -633,6 +651,8 @@ impl ModelCompare {
             PartKind::MeterBox { lit, .. } => ("MeterBox", vec![json!(lit)]),
             PartKind::Symbol(s) => ("Symbol", vec![json!(s.element)]),
             PartKind::LightEffect { .. } => ("HologramLightEffect", Vec::new()),
+            PartKind::FoodArrow => ("FoodArrow", Vec::new()),
+            PartKind::RedCross { .. } => ("RedCross", Vec::new()),
             other => {
                 let name = format!("{other:?}");
                 return json!([name]);
@@ -1040,16 +1060,26 @@ impl Session {
     }
 
     fn model_tick(&mut self, c: &OverseerCallRecord, guide: rw_sim::creature::CreatureId) -> Value {
-        let creatures: Vec<&str> = c
+        let creatures: Vec<Value> = c
             .creatures
             .iter()
             .map(|&id| {
                 if id == guide {
-                    "guide"
+                    json!("guide")
                 } else if id == c.player_id {
-                    "player"
+                    json!("player")
+                } else if let Some(f) = c.flies.iter().find(|f| f.creature == id) {
+                    json!({
+                        "kind": "Fly",
+                        "id": id.0,
+                        "here": f.abstract_room == c.pos_before.room,
+                        "in_room": f.room == Some(c.pos_before.room),
+                        "pos": f.pos.to_array(),
+                        "last_pos": f.last_pos.to_array(),
+                        "dead": f.dead,
+                    })
                 } else {
-                    "other"
+                    json!("other")
                 }
             })
             .collect();

@@ -8,6 +8,7 @@ use rw_sim::FliesCall;
 use serde_json::{Value, json};
 
 use super::fly_trace::FlyTrace;
+use super::tutorial_route::TutorialRoute;
 
 impl FlyTrace {
     /// The fixture's call code for call `i`.
@@ -187,12 +188,31 @@ fn flies_route_matches_reference_model() {
     let expected: Value =
         serde_json::from_str(include_str!("../../tests/data/flies_route_model.json"))
             .expect("model output");
-    let Some(mut t) = FlyTrace::tutorial() else {
+    let Some(mut t) = FlyTrace::tutorial(TutorialRoute::new()) else {
         return;
     };
     t.assert_matches(&expected, "flies route");
     assert!(t.count("r") > 0, "rooms ready for their flies");
     assert!(t.count("f") > 1000, "the realized flies update");
+}
+
+/// The eating route: the tutorial route by SU_A42, where four of its flies are caught
+/// by input alone and eaten (food 0 to 4), then on through SU_A43 (the rain brought
+/// in, so no fly leaves a hive late in the cycle) into SU_S01.
+#[test]
+fn flies_eating_route_matches_reference_model() {
+    let expected: Value =
+        serde_json::from_str(include_str!("../../tests/data/flies_route_eat_model.json"))
+            .expect("model output");
+    let Some(mut t) = FlyTrace::tutorial(TutorialRoute::eating()) else {
+        return;
+    };
+    t.assert_matches(&expected, "eating route");
+    assert_eq!(
+        t.foods(),
+        [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0)],
+        "four flies eaten"
+    );
 }
 
 /// The tutorial route into SU_A41, 400 ticks walking about SU_A42 among its five flies

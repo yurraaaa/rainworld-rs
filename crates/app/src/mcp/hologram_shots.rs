@@ -1,6 +1,6 @@
 //! Headless screenshots of the guide's holograms on the tutorial route (new Survivor
-//! game, seed 1): the box, bat, pole and food pictures with no food, and the shelter
-//! pointers and super-jump lesson fed by the pit.
+//! game, seed 1): the box, bat, pole and food pictures with no food, and on the eating
+//! route the Eat instruction, the shelter pointers and the super-jump lesson by the pit.
 
 use std::path::{Path, PathBuf};
 
@@ -14,17 +14,17 @@ use rw_sim::creature::overseer::hologram::{
 };
 
 use super::Session;
-use super::params::{NewGameParams, ScreenshotParams, SetPlayerParams, StepParams};
+use super::params::{NewGameParams, ScreenshotParams, StepParams};
 use super::tutorial_route::{RouteView, TutorialRoute};
 
 /// Ticks after a hologram first shows when it is photographed.
-const SHOT_AGES: [u64; 7] = [3, 8, 14, 22, 40, 80, 160];
+const SHOT_AGES: [u64; 8] = [3, 8, 14, 22, 40, 80, 160, 400];
 
 /// Half the side of the crop around a hologram, in screen pixels, and its zoom.
 const CROP: i32 = 110;
 const ZOOM: usize = 3;
 
-const MAX_TICKS: u64 = 6000;
+const MAX_TICKS: u64 = 8000;
 
 /// One hologram in the camera's room.
 struct Shown {
@@ -44,7 +44,7 @@ struct Shots {
 }
 
 impl Shots {
-    fn run(dir: &Path, name: &'static str, food: i32, pit_first: bool) {
+    fn run(dir: &Path, name: &'static str, mut route: TutorialRoute) {
         let Some(mut session) = Session::installed() else {
             return;
         };
@@ -54,22 +54,11 @@ impl Shots {
                 seed: Some(1),
             })
             .expect("new game");
-        session
-            .set_player(&SetPlayerParams {
-                food: Some(food),
-                ..SetPlayerParams::default()
-            })
-            .expect("food");
         let mut shots = Self {
             dir: dir.to_owned(),
             name,
             session,
             seen: Vec::new(),
-        };
-        let mut route = if pit_first {
-            TutorialRoute::pit_first()
-        } else {
-            TutorialRoute::new()
         };
         let mut state = shots.session.state().expect("state");
         while !route.done() && state.tick < MAX_TICKS {
@@ -178,8 +167,8 @@ fn hologram_screenshots() {
         return;
     };
     let dir = PathBuf::from(dir);
-    Shots::run(&dir, "route", 0, false);
-    Shots::run(&dir, "fed", 4, true);
+    Shots::run(&dir, "route", TutorialRoute::new());
+    Shots::run(&dir, "eat", TutorialRoute::eating());
 }
 
 /// A hand-made image hologram.

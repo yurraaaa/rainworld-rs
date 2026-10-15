@@ -12,7 +12,8 @@ use rw_assets::{Room, SlugcatName};
 use super::{
     CallExtra, FliesCall, HudEvent, PlayerObserver, RainWorldGame, ReleaseReason, RoomObject,
 };
-use crate::creature::fly::FlyRoomTick;
+use crate::creature::fly::{FlyRoomTick, MovementMode};
+use crate::creature::overseer::EdibleView;
 use crate::creature::{CreatureId, GrabRequest, Shareability, WorldCoordinate};
 use crate::player::ImpactDrips;
 use crate::{Animation, FloatExt, Player, SoundId, Vec2, Water, WaterDrip};
@@ -618,6 +619,29 @@ impl RainWorldGame {
                 self.world.release_grasp(g.grabber, g.grasp_used);
             }
         }
+    }
+
+    /// The `IPlayerEdible`s of room `index`'s `physicalObjects` (only flies, in creation
+    /// order) as the tutorial's Eat instruction reads them (233759, 235452).
+    pub(crate) fn room_edibles(&self, index: i32) -> Vec<EdibleView> {
+        let mut flies: Vec<(u64, EdibleView)> = self
+            .world
+            .creatures()
+            .filter_map(|(_, c)| {
+                let f = c.fly().filter(|f| f.room == Some(index) && !f.slated)?;
+                let edible = EdibleView {
+                    pos: f.pos(),
+                    free: c.grabbed_by.is_empty() && f.mov_mode != Some(MovementMode::Burrow),
+                    held_by_player: c
+                        .grabbed_by
+                        .first()
+                        .is_some_and(|g| g.grabber == self.player_id),
+                };
+                Some((f.update_order, edible))
+            })
+            .collect();
+        flies.sort_unstable_by_key(|&(seq, _)| seq);
+        flies.into_iter().map(|(_, e)| e).collect()
     }
 
     /// `PickupCandidate(favorSpears)`: the nearest object within reach (40 px beyond its
