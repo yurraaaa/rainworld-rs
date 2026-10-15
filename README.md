@@ -28,7 +28,7 @@ Working now:
 - **HUD:** the food, karma and rain meters, text prompts and the controls page. There is
   no map yet.
 - **Creatures:** the creature framework is in place. Overseers spawn and move between
-  rooms; their body, AI and graphics are being ported.
+  rooms, and the guide overseer follows the player with its tutorial text and holograms.
 
 Not yet ported:
 
