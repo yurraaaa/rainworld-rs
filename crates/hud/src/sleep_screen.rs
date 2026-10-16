@@ -4,7 +4,7 @@
 //! of its HUD ([`SleepHud`]), CONTINUE and EXIT, the starving warning, the
 //! watched-screen counters, the meters ever shown and the map toggle. PASSAGE shows as
 //! the game shows it but stays greyed out: the custom end-game and fast travel screens
-//! are not ported (D13). Not ported: the kills display (no kills are recorded), the
+//! are not ported (D13). The kills display is [`SleepScreenKills`]. Not ported: the
 //! Expedition, Watcher and More Slugcats branches.
 //! Behaviour: `rainworld-re/notes/menu.md` ("Sleep and death screens").
 
@@ -13,11 +13,12 @@ use rw_menu::menu::{Kind, Menu, MenuCx, MenuScreen, ObjectId, SceneId};
 use rw_menu::{Font, MenuColor, MenuShared, MenuSoundId, ProcessId, StoryGameInitCondition};
 use rw_random::UnityRandom;
 use rw_save::WatchedScreen;
+use rw_save::session::KillRecord;
 use rw_sim::{FloatExt, Input, MapDiscovery, Vec2};
 
 use crate::{
     EndgameTokens, HudOwnerType, KarmaLadder, LadderIo, MapOwner, MeterSource, PauseMenu,
-    ScreenTick, SleepDeathScreenDataPackage, SleepHud, SleepHudSetup,
+    ScreenTick, SleepDeathScreenDataPackage, SleepHud, SleepHudSetup, SleepScreenKills,
 };
 
 /// The screen's buttons.
@@ -64,6 +65,8 @@ struct ScreenState {
     tokens: Option<EndgameTokens>,
     /// The tokens' per-frame draws (D1).
     cosmetic: UnityRandom,
+    /// `killsDisplay`: on the sleep screen after a cycle with kills.
+    kills: Option<SleepScreenKills>,
     hud: SleepHud,
     food: i32,
     player_room: i32,
@@ -201,6 +204,12 @@ impl SleepAndDeathScreen {
         self.screen.tokens.as_ref()
     }
 
+    /// `killsDisplay`.
+    #[must_use]
+    pub fn kills(&self) -> Option<&SleepScreenKills> {
+        self.screen.kills.as_ref()
+    }
+
     #[must_use]
     pub fn scene(&self) -> ObjectId {
         self.screen.scene
@@ -214,6 +223,10 @@ impl SleepAndDeathScreen {
             s.starved_warning_counter += 1;
         }
         self.menu.update(&mut self.screen, cx);
+        let s = &mut self.screen;
+        if let Some(kills) = &mut s.kills {
+            kills.update(&mut self.menu, cx.shared, s.page, input.map);
+        }
         self.karma_ladder_screen_update(cx);
         let s = &mut self.screen;
         let greyed = s.buttons_greyed_out(cx);
@@ -306,7 +319,7 @@ impl SleepAndDeathScreen {
         let tick = ScreenTick {
             owner: s.hud.owner(),
             current_food: s.food,
-            allow_food_meter_tick: true,
+            allow_food_meter_tick: s.kills.as_ref().is_none_or(|k| k.counted_and_done),
             map_button: s.input.map,
             start_malnourished: s.start_malnourished,
             goal_malnourished: s.goal_malnourished,
@@ -375,6 +388,9 @@ impl SleepAndDeathScreen {
             );
         }
         s.hud.draw(&mut self.menu.stage, t);
+        if let Some(kills) = &s.kills {
+            kills.draw(&mut self.menu, owner, t);
+        }
         if let Some(label) = s.starved_label
             && let Kind::Label(l) = &self.menu.object(label).kind
         {
@@ -531,6 +547,7 @@ impl ScreenState {
             ladder,
             tokens: None,
             cosmetic: UnityRandom::new(0),
+            kills: None,
             hud,
             food: package.food,
             player_room: package.player_room,
@@ -551,7 +568,7 @@ impl ScreenState {
             input: Input::NONE,
             frames_per_second: 40,
         };
-        state.watch_and_warn(menu, shared, slugcat);
+        state.watch_and_warn(menu, shared, slugcat, &package.session_record.kills);
         let fulfilled_now = state.passages(menu, shared, trackers.is_some());
         // No dev tools and no Remix: only validation skips the forced watch; a passage
         // fulfilled on the sleep screen forces it again.
@@ -638,13 +655,26 @@ impl ScreenState {
     /// The rest of `GetDataFromGame`: the watched-screen counters (the first viewings
     /// wait for the ladder), the flower, the starving warning and the malnourished food
     /// meter.
-    fn watch_and_warn(&mut self, menu: &mut Menu, shared: &mut MenuShared, slugcat: SlugcatName) {
-        let hud = &mut self.hud;
+    fn watch_and_warn(
+        &mut self,
+        menu: &mut Menu,
+        shared: &mut MenuShared,
+        slugcat: SlugcatName,
+        kills: &[KillRecord],
+    ) {
         let misc = &mut shared.saves.misc;
         if self.id == ProcessId::SleepScreen {
             let watched = misc.watched(WatchedScreen::Sleep);
             self.force_watch_animation |= watched < 2;
             misc.set_watched(WatchedScreen::Sleep, watched + 1);
+            if !kills.is_empty() {
+                let pos = Vec2::new(Self::left_hand_buttons_x(shared.screen_size), 728.0);
+                let buttons = PauseMenu::continue_and_exit_buttons_x(shared.screen_size);
+                let mut display = SleepScreenKills::new(&shared.atlases, pos, buttons, kills);
+                display.started = true;
+                self.kills = Some(display);
+            }
+            let hud = &mut self.hud;
             if self.goal_malnourished {
                 let text = shared
                     .translator
@@ -689,6 +719,7 @@ impl ScreenState {
             self.show_flower = self.karma_reinforced || slugcat == SlugcatName::Yellow;
         }
         if self.start_malnourished {
+            let hud = &mut self.hud;
             let max = hud.food_meter.max_food as f32;
             hud.food_meter.move_survival_limit(max, false);
         }

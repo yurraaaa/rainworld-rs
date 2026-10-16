@@ -15,9 +15,12 @@ use super::{
 };
 use crate::camera::CameraView;
 use crate::creature::{AbstractCreatureAi, CreatureId, EntityId, WorldCoordinate};
+use crate::item::{ObjectId, WeaponMode};
 use crate::room_ext::RoomExt;
 use crate::world::{AiMap, EIGHT_DIRECTIONS, RainCycle, World};
-use crate::{FloatExt, PlayerObserver, SoundId, Sounds, Vec2};
+use crate::{
+    CosmeticKind, FloatExt, OverseerEffectSprite, PlayerObserver, SoundId, Sounds, Spark, Vec2,
+};
 
 /// `Custom.eightDirectionsAndZero`'s first eight (the zero offset first).
 const EIGHT_AND_ZERO: [(i32, i32); 8] = [
@@ -43,6 +46,18 @@ pub enum OverseerColor {
     Green,
     /// Everyone else: (114, 230, 196) / 255.
     Wild,
+}
+
+impl OverseerColor {
+    /// `MainColor`'s RGB.
+    #[must_use]
+    pub fn rgb(self) -> [f32; 3] {
+        match self {
+            Self::Yellow => [1.0, 0.8, 0.3],
+            Self::Green => [0.0, 1.0, 0.0],
+            Self::Wild => [114.0 / 255.0, 230.0 / 255.0, 196.0 / 255.0],
+        }
+    }
 }
 
 /// What the graphics module reads of a realized overseer.
@@ -138,7 +153,7 @@ pub(crate) struct StoryStats {
 }
 
 /// What an overseer does to the rest of the game.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) enum OverseerEffect {
     /// `TutorialText` (only with a HUD).
     Message(TutorialMessage),
@@ -159,6 +174,10 @@ pub(crate) enum OverseerEffect {
     KillGreenLizards(i32),
     /// The super-jump lesson holds the crouch charge down: `player.superLaunchJump = 0`.
     ResetSuperLaunchJump,
+    /// `Destroy()`: the dead overseer has died away and leaves the room.
+    Destroy,
+    /// `room.AddObject` of a cosmetic sprite (a dying overseer's effects and sparks).
+    Cosmetic(CosmeticKind),
 }
 
 /// What a realized overseer reads and writes of the game for one call.
@@ -315,6 +334,9 @@ impl OverseerUpdate<'_, '_> {
 
     /// `Overseer.Update` (and the `Creature`/`PhysicalObject` parts before it).
     pub fn update(&mut self) {
+        if self.body.stun > 0 {
+            self.body.stun -= 1;
+        }
         self.body.drop_slated_holograms();
         let water = self
             .cx
@@ -323,6 +345,7 @@ impl OverseerUpdate<'_, '_> {
             .and_then(|r| r.water.as_ref());
         self.body.body.update_with(self.cx.room, water, &mut ());
         self.pos.tile = self.body.chunk().pos.tile();
+        self.body.can_be_hit_by_weapons = self.body.extended > 0.2;
         self.body.update_appendage();
         self.body.update_appendage();
         let b = &mut *self.body;
@@ -330,6 +353,11 @@ impl OverseerUpdate<'_, '_> {
         b.last_root_dir = b.root_dir;
         b.last_extended = b.extended;
         b.in_shortcut = b.extended <= 0.2;
+        b.last_dying = b.dying;
+        if b.dead {
+            self.dying_update();
+        }
+        let b = &mut *self.body;
         if b.conversation_delay > 0 {
             b.conversation_delay -= 1;
         }
@@ -401,10 +429,87 @@ impl OverseerUpdate<'_, '_> {
         }
     }
 
+    /// `Update`'s dead branch: the body shakes (four draws), the first tick plays
+    /// `Overseer_Death`, it stays extended and dies away over six ticks, then is
+    /// destroyed. Not ported: the `ShockWave` a viewed death shows and the
+    /// `OverseerCarcass` it leaves (docs/DIVERGENCES.md D14).
+    fn dying_update(&mut self) {
+        let dying = self.body.dying;
+        let dir = Vec2::random_unit(self.cx.rng);
+        let push = dir * (self.cx.rng.value() * 4.0 * dying);
+        self.body.chunk_mut().vel += push;
+        let dir = Vec2::random_unit(self.cx.rng);
+        let push = dir * (self.cx.rng.value() * 4.0 * dying);
+        self.body.chunk_mut().pos += push;
+        if self.body.last_dying == 0.0 {
+            let pos = self.body.chunk().pos;
+            self.cx.sounds.play_on_object(
+                SoundId::OverseerDeath,
+                pos,
+                false,
+                1.0,
+                1.0,
+                self.cx.rng,
+            );
+        }
+        let b = &mut *self.body;
+        b.extended = 1.0;
+        b.dying = (b.dying + 1.0 / 6.0).min(1.0);
+        if b.dying >= 1.0 {
+            self.cx.effects.push(OverseerEffect::Destroy);
+        }
+    }
+
+    /// `OverseerGraphics.Update`'s dying part, which no draw of that update comes
+    /// before: in view (400 px margin), ten `OverseerEffect`s and three sparks of its
+    /// colour along the body (the game places them on the drawn body, the port between
+    /// root and eye).
+    fn dying_graphics(&mut self) {
+        let pos = self.body.chunk().pos;
+        if self.body.dying <= 0.0
+            || !self
+                .cx
+                .camera
+                .viewed(self.cx.room_index, self.cx.room, pos, 400.0)
+        {
+            return;
+        }
+        let [r, g, b] = self.color().rgb();
+        let dying = self.body.dying;
+        for _ in 0..10 {
+            let f = self.cx.rng.value();
+            let at = self.segment_pos(f);
+            let dir = Vec2::random_unit(self.cx.rng);
+            let vel = dir * (self.cx.rng.value() * 0.1);
+            let rad = 80.0.lerp(10.0, dying);
+            let fac = 1.0.lerp(0.1, dying);
+            let e = OverseerEffectSprite::new(at, vel, [r, g, b], rad, fac, self.cx.rng);
+            self.cx
+                .effects
+                .push(OverseerEffect::Cosmetic(CosmeticKind::OverseerEffect(e)));
+        }
+        for _ in 0..3 {
+            let f = self.cx.rng.value();
+            let at = self.segment_pos(f);
+            let dir = Vec2::random_unit(self.cx.rng);
+            let vel = self.body.chunk().vel * 0.5 + dir * (14.0 * self.cx.rng.value());
+            let spark = Spark::new(at, vel, [r, g, b, 1.0], 14, 21, self.cx.rng);
+            self.cx
+                .effects
+                .push(OverseerEffect::Cosmetic(CosmeticKind::Spark(spark)));
+        }
+    }
+
+    /// A point along the body from the eye (0) to the root (1).
+    fn segment_pos(&self, f: f32) -> Vec2 {
+        self.body.chunk().pos.lerp(self.body.root_pos, f)
+    }
+
     /// `Update`, then the graphics module's (`Room.Update` runs each object's right
     /// after it).
     pub fn update_with_graphics(&mut self) {
         self.update();
+        self.dying_graphics();
         let (color, partner) = (self.color(), self.partner_id());
         let view = OverseerView::new(self.id, self.body, self.ai, color, partner);
         let cx = &mut *self.cx;
@@ -507,6 +612,9 @@ impl OverseerUpdate<'_, '_> {
 
     /// `SwitchModes`.
     pub fn switch_modes(&mut self, mode: OverseerMode) {
+        if self.body.dead {
+            return;
+        }
         let b = &mut *self.body;
         if b.mode == OverseerMode::Conversing {
             b.conversation_delay = self.cx.rng.range_i32(50, 120);
@@ -563,6 +671,75 @@ impl OverseerUpdate<'_, '_> {
             }
             OverseerMode::SittingInWall => b.zip_prog_speed = 0.0,
             _ => {}
+        }
+    }
+
+    /// `OverseerAI.FlyingWeapon`: a thrown weapon within 600 px in sight. Watching and
+    /// still for a while, with the weapon heading at it, it may withdraw into the wall
+    /// (one draw); then the guide, when the weapon was the player's and passed closest
+    /// to it, likes the player less (a spear 0.1, a rock 0.05) and stays away longer.
+    /// It looks at the nearest such weapon.
+    pub fn flying_weapon(&mut self, weapon: ObjectId) {
+        let Some(w) = self.cx.world.object(weapon).realized.as_deref() else {
+            return;
+        };
+        let c = w.chunk();
+        let (pos, vel) = (c.pos, c.vel);
+        let me = self.body.chunk().pos;
+        if !me.dist_less(pos, 600.0) || !self.cx.room.visual_contact(me, pos) {
+            return;
+        }
+        let spear = w.spear().is_some();
+        let thrown_by = w.thrown_by;
+        let closest = w.thrown_closest_to_creature;
+        let stationary = (self.body.stationary_counter as f32).inverse_lerp(10.0, 40.0);
+        if self.cx.rng.value() < stationary * 0.75
+            && self.body.mode == OverseerMode::Watching
+            && me.dist_less(pos + vel.normalized() * 100.0, 100.0)
+        {
+            self.body.after_withdraw_mode = OverseerMode::SittingInWall;
+            self.switch_modes(OverseerMode::Withdrawing);
+            if self.abs.is_player_guide
+                && let Some(by) = thrown_by
+                && closest.is_none_or(|c| c == self.me)
+                && self.cx.world.creature(by).kind() == CreatureType::Slugcat
+            {
+                self.cx
+                    .guide
+                    .influence_like(if spear { -0.1 } else { -0.05 });
+                self.cx.guide.increase_like_on_save = false;
+                if self.abs.go_to_player {
+                    self.abs.player_guide_counter /= if spear { 5 } else { 2 };
+                }
+            }
+        }
+        let nearer = self.ai.look_at_flying_weapon.is_none_or(|old| {
+            self.cx
+                .world
+                .object(old)
+                .realized
+                .as_deref()
+                .is_none_or(|o| me.distance(pos) < me.distance(o.chunk().pos))
+        });
+        if nearer {
+            self.ai.look_at_flying_weapon = Some(weapon);
+        }
+    }
+
+    /// `Overseer.HitByWeapon`: the guide hit by the player's weapon likes the player
+    /// 0.1 less, stays away longer, and below -0.5 goes away (one draw).
+    pub fn hit_by_weapon(&mut self, by_slugcat: bool) {
+        if !self.abs.is_player_guide || !by_slugcat {
+            return;
+        }
+        self.cx.guide.influence_like(-0.1);
+        self.cx.guide.increase_like_on_save = false;
+        if self.abs.go_to_player {
+            self.abs.player_guide_counter /= 4;
+        }
+        if self.cx.guide.likes_player < -0.5 {
+            let time = self.cx.rng.range_i32(200, 1500);
+            self.abs.player_guide_go_away(time);
         }
     }
 
@@ -868,6 +1045,16 @@ impl OverseerUpdate<'_, '_> {
                 None => mine > 0.0,
             }
         });
+        if let Some(w) = self.ai.look_at_flying_weapon {
+            let weapon = self.cx.world.object(w).realized.as_deref();
+            if let Some(weapon) = weapon {
+                self.ai.look_at = weapon.chunk().pos;
+            }
+            if weapon.is_none_or(|w| w.mode != WeaponMode::Thrown) {
+                self.ai.look_at_flying_weapon = None;
+            }
+            return;
+        }
         if let Some(c) = casual.or(target) {
             if let Some(info) = self.realized(c) {
                 self.ai.look_at = info.pos;

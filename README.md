@@ -64,8 +64,7 @@ Not yet ported:
   earned and shown on the meters);
 - region gates;
 - creatures other than overseers and bat flies (lizards roam abstractly, but have no
-  body yet);
-- thrown rocks and spears hitting creatures (they pass through them for now).
+  body yet), so thrown rocks and spears hit only bat flies and overseers.
 
 ## Building and running
 

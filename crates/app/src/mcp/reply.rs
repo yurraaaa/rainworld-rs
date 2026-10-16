@@ -65,6 +65,22 @@ pub struct State {
     pub rain: RainState,
     /// The camera room's shelter door, when it has one.
     pub shelter_door: Option<ShelterDoorState>,
+    /// What the session keeps of its deaths.
+    pub session: SessionInfo,
+}
+
+/// The first player's session kills and peace, and the cycle's respawn additions.
+#[derive(Debug, Clone, Serialize)]
+pub struct SessionInfo {
+    /// Each kill: `CreatureTemplate.Type` and `EntityID`.
+    pub kills: Vec<(String, [i32; 2])>,
+    pub peaceful: bool,
+    /// Spawners added to `respawnCreatures` and `waitRespawnCreatures` this cycle.
+    pub respawn: Vec<i32>,
+    pub wait_respawn: Vec<i32>,
+    /// The guide state's `likesPlayer` and `increaseLikeOnSave`.
+    pub guide_likes_player: f32,
+    pub guide_increase_like_on_save: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -95,6 +111,13 @@ pub struct CreatureInfo {
     pub in_den: bool,
     pub realized: bool,
     pub alive: bool,
+    /// `killTag`'s EntityID and `killTagCounter`.
+    pub kill_tag: Option<[i32; 2]>,
+    pub kill_tag_counter: i32,
+    /// The realized creature's `stun`.
+    pub stun: Option<i32>,
+    /// The spear it is impaled on (`ImpaledOnSpearStick`), by EntityID.
+    pub impaled_on: Option<[i32; 2]>,
     /// The plain abstract AI (lizards).
     pub abstract_ai: Option<AbstractAiInfo>,
     /// An overseer's abstract AI and body.
@@ -143,6 +166,8 @@ pub struct WeaponInfo {
     pub collision_layer: i32,
     /// A spear's wall position while stuck.
     pub stuck_in_wall: Option<[f32; 2]>,
+    /// The creatures impaled on a spear, by EntityID, with their place on it.
+    pub impaled: Vec<([i32; 2], i32)>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -199,6 +224,9 @@ pub struct OverseerInfo {
     pub mode: Option<String>,
     pub pos: Option<[f32; 2]>,
     pub extended: Option<f32>,
+    /// The realized body's `dead` and `dying` (0 to 1 as it dies away).
+    pub dead: Option<bool>,
+    pub dying: Option<f32>,
 }
 
 /// `SU_C04StartUp`'s state.
@@ -430,6 +458,15 @@ pub struct KarmaScreenState {
     pub meters: Vec<MeterState>,
     /// The passage tokens: their passage, fade and position on the page.
     pub tokens: Vec<TokenState>,
+    /// The kill trophies (`SleepScreenKills`), when the cycle had kills.
+    pub kills: Option<KillsState>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct KillsState {
+    /// Each trophy's creature type, position on the page and whether it shows yet.
+    pub trophies: Vec<(String, [f32; 2], bool)>,
+    pub counted_and_done: bool,
 }
 
 /// An `EndgameMeter`.

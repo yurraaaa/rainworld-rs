@@ -22,6 +22,8 @@ impl CosmeticSprites for Cosmetic {
         let item = match &self.kind {
             CosmeticKind::Spark(s) => s.mesh(room, t),
             CosmeticKind::Spikes(s) => s.mesh(room, t),
+            // The `OverseerZip` shader's glow is not drawn.
+            CosmeticKind::OverseerEffect(_) => return DrawList { items: Vec::new() },
         };
         DrawList {
             items: vec![DrawItem::Mesh(item)],

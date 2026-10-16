@@ -44,7 +44,7 @@ pub mod world;
 
 pub use camera::CameraView;
 pub use chunk::{BodyChunk, Contact, DEFAULT_RESTRICT_IN_ROOM_RANGE, PhysicsParams, TerrainImpact};
-pub use cosmetic::{Cosmetic, CosmeticKind, ExplosionSpikes, Spark};
+pub use cosmetic::{Cosmetic, CosmeticKind, ExplosionSpikes, OverseerEffectSprite, Spark};
 pub use creature::WorldCoordinate;
 pub use float_ext::FloatExt;
 pub use game::{

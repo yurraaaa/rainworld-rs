@@ -66,7 +66,7 @@ impl World {
     }
 
     /// `Lineage.denString`: the den's `SaveToString`, `;n` for a later lineage there.
-    fn lineage_den_string(&self, l: &Lineage) -> String {
+    pub(crate) fn lineage_den_string(&self, l: &Lineage) -> String {
         let den = self.coordinate_save_string(WorldCoordinate::new(l.den.room, -1, -1, l.den.node));
         if l.den_lineage > 0 {
             format!("{den};{}", l.den_lineage)
@@ -239,7 +239,12 @@ impl World {
 
     /// `Lineage.ChanceToProgress`: below the last stage, a roll against the stage's
     /// chance advances the counter.
-    fn lineage_chance_to_progress(&mut self, l: &Lineage, den: &str, rng: &mut UnityRandom) {
+    pub(crate) fn lineage_chance_to_progress(
+        &mut self,
+        l: &Lineage,
+        den: &str,
+        rng: &mut UnityRandom,
+    ) {
         let Some(state) = &mut self.region_state else {
             return;
         };

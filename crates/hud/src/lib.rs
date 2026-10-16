@@ -19,6 +19,7 @@ mod rain_meter;
 mod screen_package;
 mod select_hud;
 mod sleep_hud;
+mod sleep_kills;
 mod sleep_screen;
 mod slugcat_select;
 mod text_prompt;
@@ -31,7 +32,7 @@ use std::sync::Arc;
 use rw_menu::{AtlasManager, Font, MenuMic, MenuSoundId, NodeId, StageTree, Translator};
 use rw_random::UnityRandom;
 use rw_render::StageBatch;
-use rw_sim::{FloatExt, MapDiscovery, SoundId, Sounds, Vec2};
+use rw_sim::{MapDiscovery, SoundId, Sounds, Vec2};
 
 pub use circle::{FADABLE_COLORS, FadeCircle, HudCircle, SnapGraphic};
 pub use controls_page::{ControlMap, ControlsPage, IllustrationSource, PageText};
@@ -51,6 +52,7 @@ pub use screen_package::{
 };
 pub use select_hud::{SelectHud, SelectHudSetup};
 pub use sleep_hud::{SleepHud, SleepHudSetup};
+pub use sleep_kills::{CreatureSymbol, KillTrophy, SleepScreenKills};
 pub use sleep_screen::{ScreenButton, SleepAndDeathScreen};
 pub use slugcat_select::{
     ContinuePage, PageKind, SaveGameData, SlugcatPage, SlugcatSelectMenu, SlugcatSelectScreen,
@@ -89,42 +91,6 @@ impl CustomFloat for f32 {
 
     fn mathf_sign(self) -> f32 {
         if self >= 0.0 { 1.0 } else { -1.0 }
-    }
-}
-
-/// `RWCustom.Custom` helpers on positions.
-pub trait CustomVec2 {
-    /// `Custom.CirclesCollisionTime(x1, y1, x2, y2, vx1, vy1, r1, r2)` with `self` the
-    /// first circle's position: the fraction of `vel` the first circle moves before it
-    /// touches the second at `other` (NaN when it never does).
-    fn circles_collision_time(self, other: Vec2, vel: Vec2, r1: f32, r2: f32) -> f32;
-    /// `Custom.VerticalCrossPoint(self, b, x)`: the line through both at `x`.
-    fn vertical_cross_point(self, b: Vec2, x: f32) -> Vec2;
-}
-
-impl CustomVec2 for Vec2 {
-    fn circles_collision_time(self, other: Vec2, vel: Vec2, r1: f32, r2: f32) -> f32 {
-        let (x1, y1, x2, y2, vx, vy) = (self.x, self.y, other.x, other.y, vel.x, vel.y);
-        let (e, f) = (0.001_f32, 0.001_f32);
-        let b = -x1 * vx - y1 * vy + vx * x2 + vy * y2 + x1 * e - x2 * e + y1 * f - y2 * f;
-        let a = vx.mathf_pow(2.0) + vy.mathf_pow(2.0) - 2.0 * vx * e + e.mathf_pow(2.0)
-            - 2.0 * vy * f
-            + f.mathf_pow(2.0);
-        let c = x1.mathf_pow(2.0) + y1.mathf_pow(2.0) - r1.mathf_pow(2.0) - 2.0 * x1 * x2
-            + x2.mathf_pow(2.0)
-            - 2.0 * y1 * y2
-            + y2.mathf_pow(2.0)
-            - 2.0 * r1 * r2
-            - r2.mathf_pow(2.0);
-        (2.0 * b - ((-2.0 * b).mathf_pow(2.0) - 4.0 * a * c).sqrt()) / (2.0 * a)
-    }
-
-    fn vertical_cross_point(self, b: Vec2, x: f32) -> Vec2 {
-        if self.y == b.y {
-            return Vec2::new(x, self.y);
-        }
-        let slope = (self.y - b.y) / (self.x - b.x);
-        Vec2::new(x, self.y - self.x * slope + slope * x)
     }
 }
 

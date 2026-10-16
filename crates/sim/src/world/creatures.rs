@@ -385,6 +385,8 @@ impl World {
             grabbed_by: Vec::new(),
             sticks: Vec::new(),
             saved_state: None,
+            kill_tag: None,
+            kill_tag_counter: 0,
         };
         let room = self.abstract_room(pos.room);
         if template.top_ancestor() == CreatureType::GarbageWorm {
@@ -797,10 +799,15 @@ impl World {
             return false;
         }
         let guide = c.overseer_ai().is_some_and(|a| a.is_player_guide);
-        let body = OverseerBody::new(c, guide, rng);
+        let mut body = OverseerBody::new(c, guide, rng);
+        // `Creature`'s constructor: `dead = State.dead` (a dead overseer realized again
+        // dies away again).
+        body.dead = !c.state.alive;
         let ai = OverseerAi::new(guide, cycle, rng);
         let c = self.creature_mut(id);
         c.realized = Some(RealizedCreature::Overseer(Box::new(body)));
+        c.kill_tag = None;
+        c.kill_tag_counter = 0;
         if let Some(base) = &mut c.ai {
             base.real_ai = true;
             if let AiKind::Overseer(o) = &mut base.kind {

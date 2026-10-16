@@ -18,6 +18,9 @@ pub trait FloatExt: Sized {
     /// `Mathf.Pow`: `(float)Math.Pow(self, p)`, in double precision.
     fn mathf_pow(self, p: f32) -> f32;
 
+    /// `Custom.InRange`: between `a` and `b` inclusive, in either order.
+    fn in_range(self, a: f32, b: f32) -> bool;
+
     /// `Custom.LerpAndTick`: lerp toward `to`, then step a further `tick` toward it
     /// without passing it.
     fn lerp_and_tick(self, to: f32, lerp: f32, tick: f32) -> f32 {
@@ -45,6 +48,14 @@ impl FloatExt for f32 {
 
     fn mathf_pow(self, p: f32) -> f32 {
         f64::from(self).powf(f64::from(p)) as f32
+    }
+
+    fn in_range(self, a: f32, b: f32) -> bool {
+        if a < b {
+            self >= a && self <= b
+        } else {
+            self >= b && self <= a
+        }
     }
 
     fn lerp_map_pow(self, from_a: f32, to_a: f32, from_b: f32, to_b: f32, exponent: f32) -> f32 {

@@ -52,6 +52,7 @@ pub use realizer::{FollowCreature, RoomRealizer};
 pub use region_state::{ConsumedItem, RegionState};
 pub use swarm_rooms::{SwarmRoomMap, SwarmRoomMapper};
 pub use weapons::ItemTick;
+pub(crate) use weapons::UpdatePart;
 
 /// A world and its realized rooms.
 pub struct World {
@@ -102,6 +103,10 @@ pub struct World {
     pub(crate) player_mass: f32,
     /// `RegionState.loadedCreatures`: creatures read from the save, until saved again.
     loaded_creatures: Vec<CreatureId>,
+    /// The spears' sticks into creatures (both ends' `stuckObjects`).
+    pub(crate) spear_sticks: Vec<crate::item::SpearStick>,
+    /// What the session keeps of the creatures that die (kills, respawns).
+    pub session: crate::creature::SessionDeaths,
 }
 
 impl World {
@@ -141,6 +146,8 @@ impl World {
             player_body: None,
             player_mass: crate::slugcat::CHUNK_MASS * 2.0,
             loaded_creatures: Vec::new(),
+            spear_sticks: Vec::new(),
+            session: crate::creature::SessionDeaths::default(),
         };
         world.index_rooms();
         world

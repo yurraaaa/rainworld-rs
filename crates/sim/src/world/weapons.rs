@@ -35,16 +35,18 @@ pub struct ItemTick<'a> {
 /// What a thrown spear sticks by: the abstract tiles of the room's stuck spears and
 /// its `NoSpearStickZone`s (position, radius).
 #[derive(Debug, Default)]
-struct SpearStickRules {
+pub(crate) struct SpearStickRules {
     stuck: Vec<(i32, i32)>,
     zones: Vec<(Vec2, f32)>,
 }
 
 /// Which part of an item's `Update` runs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum UpdatePart {
-    /// Up to a thrown weapon's walk over collision layer 0.
+pub(crate) enum UpdatePart {
+    /// Up to the `Thrown` branch; true when thrown.
     Start,
+    /// The `Thrown` branch after the creatures are told of it, up to the layer-0 walk.
+    Thrown,
     /// The physics and the rest.
     Finish,
 }
@@ -76,25 +78,43 @@ impl World {
     /// taken from its node, `PlaceInRoom`.
     pub(crate) fn realize_object_in_room(&mut self, id: ObjectId, rng: &mut UnityRandom) {
         let index = self.object(id).pos.room;
-        let o = self.object(id);
-        if o.in_den {
+        if self.object(id).in_den {
             return;
         }
-        if o.realized.is_none() {
-            let Some(weapon) = Weapon::realize(o, rng) else {
-                log::debug!("{} objects are not realized", o.kind.value());
-                return;
-            };
-            self.object_mut(id).realized = Some(Box::new(weapon));
+        self.realize_object(id, rng);
+        if self.object(id).realized.is_none() {
+            return;
         }
-        let Some(room) = self.realized(index).map(|r| r.room.clone()) else {
+        if self.realized(index).is_none() {
             log::warn!("TRYING TO REALIZE IN NON REALIZED ROOM!");
             return;
-        };
+        }
         if !self.object(id).pos.tile_defined() {
             let node = self.object(id).pos.node;
             self.object_mut(id).pos.tile = self.local_coordinate_of_node(index, node, rng);
         }
+        self.place_object(id, rng);
+    }
+
+    /// `AbstractPhysicalObject.Realize` of a rock or spear (others are not realized).
+    pub(crate) fn realize_object(&mut self, id: ObjectId, rng: &mut UnityRandom) {
+        let o = self.object(id);
+        if o.realized.is_some() {
+            return;
+        }
+        let Some(weapon) = Weapon::realize(o, rng) else {
+            log::debug!("{} objects are not realized", o.kind.value());
+            return;
+        };
+        self.object_mut(id).realized = Some(Box::new(weapon));
+    }
+
+    /// `PlaceInRoom` of realized object `id` in the realized room of its position.
+    pub(crate) fn place_object(&mut self, id: ObjectId, rng: &mut UnityRandom) {
+        let index = self.object(id).pos.room;
+        let Some(room) = self.realized(index).map(|r| r.room.clone()) else {
+            return;
+        };
         let mut seq = self.update_seq;
         let object = &mut self.objects[id.0];
         if let Some(mut weapon) = object.realized.take() {
@@ -284,30 +304,24 @@ impl World {
             .collect()
     }
 
-    /// Object `id`'s `Update` in room `index`'s update list: up to the thrown weapon's
-    /// walk over collision layer 0, the walk, then the rest.
-    pub(crate) fn update_weapon(&mut self, index: i32, id: ObjectId, cx: &mut ItemTick<'_>) {
+    /// What a thrown spear of room `index` sticks by (nothing for other weapons).
+    pub(crate) fn spear_stick_rules(&self, index: i32, id: ObjectId) -> SpearStickRules {
         let thrown_spear = self
             .realized_weapon(id, index)
             .is_some_and(|w| w.mode == WeaponMode::Thrown && w.spear().is_some());
-        let rules = if thrown_spear {
+        if thrown_spear {
             SpearStickRules {
                 stuck: self.stuck_spear_tiles(index),
                 zones: self.no_spear_stick_zones(index),
             }
         } else {
             SpearStickRules::default()
-        };
-        let walk = self.weapon_part(index, id, cx, &rules, UpdatePart::Start);
-        if walk {
-            self.thrown_through_layer_zero(index, id, cx);
         }
-        self.weapon_part(index, id, cx, &rules, UpdatePart::Finish);
     }
 
     /// One part of object `id`'s `Update` in room `index`; the sparks it makes join the
-    /// room. Returns whether the layer-0 walk is due.
-    fn weapon_part(
+    /// room. Returns the part's answer (see [`UpdatePart`]).
+    pub(crate) fn weapon_part(
         &mut self,
         index: i32,
         id: ObjectId,
@@ -356,6 +370,7 @@ impl World {
             };
             match part {
                 UpdatePart::Start => walk = weapon.update_start(object, &mut tick),
+                UpdatePart::Thrown => weapon.thrown_update(object, &mut tick),
                 UpdatePart::Finish => weapon.update_finish(object, &mut tick),
             }
             room.water = water;
@@ -416,26 +431,9 @@ impl World {
         self.add_cosmetic_at(room, seq, kind);
     }
 
-    /// The end of `Weapon.Update`'s `Thrown` branch (81610-81670): the objects of
-    /// collision layer 0 (flies, overseers, thrown and wall-stuck weapons) whose chunk
-    /// the weapon's last move crossed, in the order they joined the layer. Another
-    /// thrown heavy weapon is a parry (`HitAnotherThrownWeapon`) that ends the walk;
-    /// anything else is pushed along and hit without stopping the weapon until the hit
-    /// chunks weigh more than 0.6, when it drops there. Nothing is skipped as held by the
-    /// thrower unless it is.
-    fn thrown_through_layer_zero(&mut self, index: i32, id: ObjectId, cx: &mut ItemTick<'_>) {
-        let Some(me) = self.realized_weapon(id, index) else {
-            return;
-        };
-        let thrower = me.thrown_by;
-        let c = me.chunk();
-        let (last, pos) = (c.last_pos, c.pos);
-        let rad = c.rad
-            + if thrower.is_some_and(|t| Some(t) == cx.player.map(|p| p.0)) {
-                5.0
-            } else {
-                0.0
-            };
+    /// `room.physicalObjects[0]` of room `index` without weapon `me`: its flies,
+    /// overseers and thrown or wall-stuck weapons, in the order they joined the layer.
+    pub(crate) fn layer_zero(&self, index: i32, me: ObjectId) -> Vec<Entity> {
         let mut layer: Vec<(u64, Entity)> = self
             .creatures()
             .filter_map(|(cid, cr)| {
@@ -451,73 +449,44 @@ impl World {
         for (oid, o) in self.objects() {
             if let Some(w) = o.realized.as_deref().filter(|w| w.room == index)
                 && w.collision_layer == 0
-                && oid != id
+                && oid != me
             {
                 layer.push((w.layer_order, Entity::Object(oid)));
             }
         }
         layer.sort_unstable_by_key(|&(seq, _)| seq);
-        let mut mass = 0.0f32;
-        for (_, e) in layer {
-            // Step 5: creatures (`HitSomethingWithoutStopping` of a fly or an overseer,
-            // a spear's `TryImpaleSmallCreature`, their appendages).
-            let Entity::Object(oid) = e else { continue };
-            let o = self.object(oid);
-            if thrower.is_some_and(|t| o.grabbed_by.iter().any(|g| g.grabber == t)) {
-                continue;
-            }
-            let Some(other) = o.realized.as_deref() else {
-                continue;
-            };
-            let oc = other.chunk();
-            let t = last.circles_collision_time(oc.pos, pos - last, rad, oc.rad);
-            if !(t > 0.0 && t < 1.0) {
-                continue;
-            }
-            let my_mode = self.realized_weapon(id, index).map(|w| w.mode);
-            if other.mode == WeaponMode::Thrown
-                && my_mode == Some(WeaponMode::Thrown)
-                && other.heavy_weapon()
-            {
-                self.hit_another_thrown_weapon(index, id, oid, cx);
-                break;
-            }
-            let other_mass = oc.mass;
-            let other_pos = oc.pos;
-            let my_vel = self
-                .realized_weapon(id, index)
-                .map_or(Vec2::ZERO, |w| w.chunk().vel);
-            if let Some(w) = self.object_mut(oid).realized.as_deref_mut() {
-                w.chunk_mut().vel += my_vel;
-            }
-            // `HitSomethingWithoutStopping` of an object: `HitByWeapon`, which does
-            // nothing for a rock or spear.
-            mass += other_mass;
-            if mass > 0.6 {
-                if let Some(w) = self.object_mut(id).realized.as_deref_mut() {
-                    w.chunk_mut().pos = other_pos;
-                }
-                self.change_weapon_mode(id, WeaponMode::Free, cx.rng);
-                if let Some(w) = self.object_mut(id).realized.as_deref_mut() {
-                    w.chunk_mut().vel *= 0.5;
-                }
-                cx.sounds.play_on_object(
-                    SoundId::SpearHitSmallCreature,
-                    other_pos,
-                    false,
-                    1.0,
-                    1.0,
-                    cx.rng,
-                );
-                break;
-            }
+        layer.into_iter().map(|(_, e)| e).collect()
+    }
+
+    /// The realized body chunk of a layer-0 object (a fly's, an overseer's or a
+    /// weapon's only chunk).
+    pub(crate) fn layer_zero_chunk(&mut self, e: Entity) -> Option<&mut BodyChunk> {
+        match e {
+            Entity::Object(id) => self.weapon_mut(id).map(Weapon::chunk_mut),
+            Entity::Creature(id) => match &mut self.creature_mut(id).realized {
+                Some(crate::creature::RealizedCreature::Fly(f)) => Some(f.chunk_mut()),
+                Some(crate::creature::RealizedCreature::Overseer(b)) => Some(b.chunk_mut()),
+                _ => None,
+            },
+        }
+    }
+
+    /// `canBeHitByWeapons` of a layer-0 object.
+    #[must_use]
+    pub fn can_be_hit_by_weapons(&self, e: Entity) -> bool {
+        match e {
+            Entity::Object(_) => true,
+            Entity::Creature(id) => self
+                .creature(id)
+                .overseer_body()
+                .is_none_or(|b| b.can_be_hit_by_weapons),
         }
     }
 
     /// `HitAnotherThrownWeapon` (81710): two thrown weapons crossing in opposite
     /// directions parry, with sparks (3, plus 2 for each spear) and a shared random
     /// direction they glance off along.
-    fn hit_another_thrown_weapon(
+    pub(crate) fn hit_another_thrown_weapon(
         &mut self,
         index: i32,
         a: ObjectId,
@@ -625,7 +594,7 @@ impl World {
     }
 
     /// Cosmetic `id`'s `Update` in room `index`; a destroyed one leaves the room.
-    pub(crate) fn update_cosmetic(&mut self, index: i32, id: u64) {
+    pub(crate) fn update_cosmetic(&mut self, index: i32, id: u64, rng: &mut UnityRandom) {
         let Some(r) = self.realized_mut(index) else {
             return;
         };
@@ -633,7 +602,7 @@ impl World {
         let Some(c) = r.cosmetics.iter_mut().find(|c| c.id == id) else {
             return;
         };
-        if c.update(&room) {
+        if c.update(&room, rng) {
             r.cosmetics.retain(|c| c.id != id);
         }
     }

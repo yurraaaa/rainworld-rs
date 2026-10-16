@@ -226,6 +226,8 @@ pub struct Weapon {
     pub throw_mode_frames: i32,
     pub floor_bounce_frames: i32,
     pub closest_crit_dist: f32,
+    /// `thrownClosestToCreature`: the creature the throw passed closest to so far.
+    pub thrown_closest_to_creature: Option<CreatureId>,
     /// `inFrontOfObjects`: -1 unset, 1 in `Items`, 0 in `Background`.
     pub in_front_of_objects: i32,
     pub blink: i32,
@@ -296,6 +298,7 @@ impl Weapon {
             throw_mode_frames: -1,
             floor_bounce_frames: 0,
             closest_crit_dist: f32::MAX,
+            thrown_closest_to_creature: None,
             in_front_of_objects: -1,
             blink: 0,
             forbidden_to_player: 0,
@@ -491,8 +494,9 @@ impl Weapon {
         if new == WeaponMode::Free {
             self.set_random_spin(cx.rng);
         }
-        // Leaving `Thrown` near a creature tells the `SocialEventRecognizer`
-        // (`WeaponAttack`), which nothing ported listens to; `closestCritDist` is step 5's.
+        // Leaving `Thrown` near a creature tells the `SocialEventRecognizer` of a missed
+        // `WeaponAttack`, which nothing ported listens to.
+        self.thrown_closest_to_creature = None;
         self.closest_crit_dist = f32::MAX;
         self.mode = new;
     }
@@ -577,22 +581,23 @@ impl Weapon {
         Vec2::new(self.throw_dir.0 as f32, self.throw_dir.1 as f32)
     }
 
-    /// `Update` of a rock or spear alone in its room (nothing else in collision layer
-    /// 0): [`Self::update_start`] then [`Self::update_finish`].
+    /// `Update` of a rock or spear alone in its room (no creature to notify or hit,
+    /// nothing else in collision layer 0): [`Self::update_start`],
+    /// [`Self::thrown_update`] when thrown, then [`Self::update_finish`].
     pub fn update(&mut self, object: &mut AbstractObject, cx: &mut WeaponTick<'_>) {
-        self.update_start(object, cx);
+        if self.update_start(object, cx) {
+            self.thrown_update(object, cx);
+        }
         self.update_finish(object, cx);
     }
 
-    /// `Weapon.Update` up to its `base.Update`. True when a thrown weapon's walk over
-    /// collision layer 0 is due next (the world runs it, then [`Self::update_finish`]).
+    /// `Weapon.Update` up to its `Thrown` branch. True when the weapon is thrown: the
+    /// game then tells the room's creatures of it, runs [`Self::thrown_update`], the
+    /// trace against collision layer 1 and the walk over layer 0, then
+    /// [`Self::update_finish`].
     pub fn update_start(&mut self, object: &mut AbstractObject, cx: &mut WeaponTick<'_>) -> bool {
         self.last_mode = self.mode;
-        let exit_speed = if self.override_exit_thrown_speed > 0.0 {
-            self.override_exit_thrown_speed
-        } else {
-            self.exit_thrown_mode_speed
-        };
+        let exit_speed = self.exit_speed();
         if self.vibrate > 0 {
             self.vibrate -= 1;
         }
@@ -625,13 +630,19 @@ impl Weapon {
             {
                 self.rotation_speed *= 0.7;
             }
-            WeaponMode::Thrown => {
-                self.thrown_update(exit_speed, object, cx);
-                return true;
-            }
+            WeaponMode::Thrown => return true,
             _ => {}
         }
         false
+    }
+
+    /// `exitThrownModeSpeed`, or the weak throw's override.
+    fn exit_speed(&self) -> f32 {
+        if self.override_exit_thrown_speed > 0.0 {
+            self.override_exit_thrown_speed
+        } else {
+            self.exit_thrown_mode_speed
+        }
     }
 
     /// The rest of `Update` after the layer-0 walk: `PlayerCarryableItem.Update` (with
@@ -690,18 +701,16 @@ impl Weapon {
         self.floor_bounce_frames /= 2;
     }
 
-    /// `Weapon.Update`'s `Thrown` branch up to the layer-0 walk: the turn with a player
-    /// thrower (one draw), the tumble back to `Free` under the exit speed or when the
-    /// throw frames run out, then a belly-slide bounce up off a slope, the wall hit, or
-    /// the trace against collision layer 1.
-    fn thrown_update(
-        &mut self,
-        exit_speed: f32,
-        object: &mut AbstractObject,
-        cx: &mut WeaponTick<'_>,
-    ) {
-        // Step 5: the room's creatures are told of the weapon (`INotifyOfFlyingWeapons`,
-        // the overseers) and `thrownClosestToCreature` / `closestCritDist` are kept.
+    /// `Weapon.Update`'s `Thrown` branch after the creatures are told of the weapon, up
+    /// to the layer-0 walk: the turn with a player thrower (one draw), the tumble back
+    /// to `Free` under the exit speed or when the throw frames run out, then a
+    /// belly-slide bounce up off a slope, the wall hit, or the trace against collision
+    /// layer 1. That layer holds only the player, and the trace exempts the thrower,
+    /// which in the port is always the player: nothing is hit (`HitSomething` false), so
+    /// a hit through a wall, `HitSomething` with `Violence`, `WeaponAttack` and the
+    /// spear lodging in a creature are not reached.
+    pub fn thrown_update(&mut self, object: &mut AbstractObject, cx: &mut WeaponTick<'_>) {
+        let exit_speed = self.exit_speed();
         if self.change_dir_counter > 0
             && let Some((player, dir)) = cx.player
             && self.thrown_by == Some(player)
@@ -737,10 +746,6 @@ impl Weapon {
             self.hit_wall(object, cx);
             self.floor_bounce_frames = 0;
         } else {
-            // `TraceProjectileAgainstBodyChunks` over collision layer 1 finds only the
-            // player, exempt as the thrower. Step 5 hits creatures here (`HitSomething`,
-            // `HitByWeapon`, `WeaponAttack`, the hit through a wall turned `HitWall`);
-            // with nothing hit, `HitSomething` is false.
             self.first_frame_trace_from_pos = None;
             self.forbidden_to_player = 40;
         }

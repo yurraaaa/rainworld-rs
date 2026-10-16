@@ -11,6 +11,7 @@
 //! `rainworld-re/notes/creature-model.md`.
 
 pub(crate) mod ai;
+pub mod death;
 pub mod fly;
 pub mod grasp;
 pub mod overseer;
@@ -18,6 +19,7 @@ pub mod pathing;
 pub(crate) mod population;
 pub mod template;
 mod template_abstract;
+pub mod violence;
 
 use rw_assets::CreatureType;
 use rw_random::UnityRandom;
@@ -25,6 +27,7 @@ use rw_random::UnityRandom;
 use crate::FloatExt;
 
 pub use ai::{AbstractCreatureAi, AiKind, CarriedItem, ItemKind};
+pub use death::{CommunityInfluence, SessionDeaths, SessionKill};
 pub use fly::{
     DropStatus, FlockBehavior, FlockId, Fly, FlyAi, FlyBehavior, FlyView, HoverEmitter,
     MovementMode, TrackedThreat,
@@ -33,6 +36,7 @@ pub use grasp::{GrabRequest, Grasp, GripStick, Shareability};
 pub use overseer::{OverseerAbstractAi, OverseerAi, OverseerBody, PlayerGuideState};
 pub use template::{CreatureTemplate, Relationship, RelationshipType, WaterRelationship};
 pub use template_abstract::{AbstractCost, AbstractMovement};
+pub use violence::{Community, DamageType, ViolenceTemplate};
 
 /// `EntityID`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -268,6 +272,10 @@ pub struct AbstractCreature {
     pub grabbed_by: Vec<Grasp>,
     /// `stuckObjects` between creatures, in the order they were made.
     pub sticks: Vec<GripStick>,
+    /// The realized creature's `killTag` (cleared when it is realized anew) and
+    /// `killTagCounter`.
+    pub kill_tag: Option<CreatureId>,
+    pub kill_tag_counter: i32,
     /// The state entries of a creature loaded from the save (`CreatureState.ToString`),
     /// written back as read.
     pub saved_state: Option<String>,
@@ -393,6 +401,13 @@ impl AbstractCreature {
     #[must_use]
     pub fn overseer_ai(&self) -> Option<&OverseerAbstractAi> {
         match &self.ai.as_ref()?.kind {
+            AiKind::Overseer(o) => Some(o),
+            _ => None,
+        }
+    }
+
+    pub fn overseer_ai_mut(&mut self) -> Option<&mut OverseerAbstractAi> {
+        match &mut self.ai.as_mut()?.kind {
             AiKind::Overseer(o) => Some(o),
             _ => None,
         }

@@ -8,6 +8,7 @@ use rw_save::{
     ChecksumSalt, ImportReport, Options, Platform, PlayerProgression, SaveSlot, SaveState,
 };
 use rw_sim::campaign::StoryStart;
+use rw_sim::creature::PlayerGuideState;
 
 /// Where saves are read and written.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -138,6 +139,12 @@ impl SaveStateStart for SaveState {
             in_memory,
             live_region_state: None,
             swallowed_item: self.swallowed_item(0).map(str::to_owned),
+            guide: PlayerGuideState {
+                likes_player: self.misc_world.player_guide.likes_player,
+                hand_holding: self.misc_world.player_guide.hand_holding,
+                angry_with_player: self.misc_world.player_guide.angry_with_player(),
+                ..PlayerGuideState::default()
+            },
             den,
         }
     }

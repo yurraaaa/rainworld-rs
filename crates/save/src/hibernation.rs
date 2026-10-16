@@ -52,7 +52,7 @@ impl SaveState {
 
     /// `SessionEnded(game, survived: true, newMalnourished)` up to the save it ends
     /// with (`SaveWorldStateAndProgression`, done by the progression). Not ported:
-    /// kills (`AppendKills`), friends in the den and the spinning top's branches.
+    /// friends in the den and the spinning top's branches.
     pub fn session_ended_survived(
         &mut self,
         world: &mut dyn HibernationWorld,
@@ -70,6 +70,9 @@ impl SaveState {
             &world.default_alignments(),
             self.save_state_number,
         );
+        for influence in world.community_influences() {
+            communities.influence_like_of_player(influence, &region);
+        }
         let difficulty = self.session_difficulty();
 
         self.last_malnourished = self.malnourished;
@@ -105,6 +108,7 @@ impl SaveState {
         // One player: `swallowedItems` is that player's string, or null with nothing
         // swallowed.
         self.swallowed_items = world.swallowed_item();
+        self.append_kills(&record.kills);
 
         record.went_to_sleep_in_region = Some(region);
         self.tot_time += record.time / 40;

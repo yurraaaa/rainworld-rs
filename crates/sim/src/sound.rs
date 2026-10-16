@@ -117,6 +117,7 @@ sound_ids! {
     HudGameOverPrompt = "HUD_Game_Over_Prompt",
     OverseerWithdraw = "Overseer_Withdraw",
     OverseerEmerge = "Overseer_Emerge",
+    OverseerDeath = "Overseer_Death",
     OverseerImageLoop = "Overseer_Image_LOOP",
     OverseerImageSmallFlicker = "Overseer_Image_Small_Flicker",
     OverseerImageBigFlicker = "Overseer_Image_Big_Flicker",

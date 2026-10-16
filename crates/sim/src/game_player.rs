@@ -526,6 +526,7 @@ impl RainWorldGame {
         }) else {
             return;
         };
+        self.world.set_kill_tag(fly, self.player_id);
         let head = observer.player_bite_fly(hand, fly);
         if let Some(head) = head {
             self.bite_fly_drips(index, head);
@@ -559,7 +560,7 @@ impl RainWorldGame {
     ) {
         self.world.fly_at(fly).bites -= 1;
         if !self.world.fly_ref(fly).dead {
-            self.world.fly_die(fly);
+            self.world.fly_die(fly, &mut self.rng);
         }
         let f = self.world.fly_ref(fly);
         let id = if f.bites == 0 {

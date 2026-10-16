@@ -16,7 +16,7 @@ use rw_render::StageShader;
 use rw_save::win_state::{EndgameId, EndgameTracker, Progress};
 use rw_sim::{FloatExt, Vec2};
 
-use crate::{CustomFloat, CustomVec2, LadderIo};
+use crate::{CustomFloat, LadderIo};
 
 /// What the ladder builds its meters from: the screen's win state and the label font.
 pub struct MeterSource<'a> {

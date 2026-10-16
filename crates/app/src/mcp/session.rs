@@ -13,7 +13,7 @@ use rw_render::{RoomLayers, WgpuRenderer};
 use rw_save::SaveSlot;
 use rw_sim::campaign::SlugcatCampaign;
 use rw_sim::creature::{AbstractCreature, CreatureId};
-use rw_sim::item::{Entity, Weapon};
+use rw_sim::item::{Entity, ObjectId, SpearStickKind, Weapon};
 use rw_sim::{Input, StomachObject, Vec2, WorldCoordinate};
 
 use super::params::{
@@ -25,11 +25,11 @@ use super::reply::HeldInfo;
 use super::reply::{
     AbstractAiInfo, ChunkState, ControlsPageState, CreatureInfo, ExitInfo, ExitList, FlyInfo,
     FoodMeterState, HudState, ImpactState, ImportReply, KarmaMeterState, KarmaScreenState,
-    LobbyState, MapMarkerState, MapState, MeterState, NodeRef, ObjectInfo, OptionsState,
-    OverseerInfo, PauseMenuState, PlayerState, ProcessState, RainMeterState, RainState,
-    RealizedState, RoomInfo, RoomList, SaveInfo, SaveStateInfo, Screenshot, ShelterDoorState,
-    SleepState, SlideShowState, StartUpState, State, StepTrace, StoryInfo, TextPromptState,
-    TokenState, WeaponInfo,
+    KillsState, LobbyState, MapMarkerState, MapState, MeterState, NodeRef, ObjectInfo,
+    OptionsState, OverseerInfo, PauseMenuState, PlayerState, ProcessState, RainMeterState,
+    RainState, RealizedState, RoomInfo, RoomList, SaveInfo, SaveStateInfo, Screenshot, SessionInfo,
+    ShelterDoorState, SleepState, SlideShowState, StartUpState, State, StepTrace, StoryInfo,
+    TextPromptState, TokenState, WeaponInfo,
 };
 use super::tiles::TileDump;
 use crate::frontend::{AppContext, Frontend, FrontendRenderer, GameSetup};
@@ -432,7 +432,25 @@ impl Session {
                     closed_fac: d.closed_fac,
                     close_speed: d.close_speed,
                 }),
+            session: Self::session_info(scene),
         })
+    }
+
+    fn session_info(scene: &Scene) -> SessionInfo {
+        let sim = scene.game().sim();
+        let deaths = sim.session_deaths();
+        SessionInfo {
+            kills: deaths
+                .kills
+                .iter()
+                .map(|k| (k.kind.value().to_owned(), [k.id.spawner, k.id.number]))
+                .collect(),
+            peaceful: deaths.peaceful,
+            respawn: deaths.respawn_creatures.clone(),
+            wait_respawn: deaths.wait_respawn_creatures.clone(),
+            guide_likes_player: sim.guide_state().likes_player,
+            guide_increase_like_on_save: sim.guide_state().increase_like_on_save,
+        }
     }
 
     /// The world's creatures but the player, in creation order.
@@ -442,7 +460,7 @@ impl Session {
         world
             .creatures()
             .filter(|(id, c)| *id != sim.player_creature() && !c.slated_for_deletion)
-            .map(|(_, c)| CreatureInfo {
+            .map(|(id, c)| CreatureInfo {
                 kind: c.kind().value().to_owned(),
                 id: [c.id.spawner, c.id.number],
                 room: Self::room_name(scene, c.pos.room),
@@ -451,6 +469,23 @@ impl Session {
                 in_den: c.in_den,
                 realized: c.is_realized(),
                 alive: c.state.alive,
+                kill_tag: c.kill_tag.map(|k| {
+                    let k = world.creature(k).id;
+                    [k.spawner, k.number]
+                }),
+                kill_tag_counter: c.kill_tag_counter,
+                stun: c
+                    .fly()
+                    .map(|f| f.stun)
+                    .or_else(|| c.overseer_body().map(|b| b.stun)),
+                impaled_on: world
+                    .spear_sticks_of(Entity::Creature(id))
+                    .iter()
+                    .find(|s| matches!(s.kind, SpearStickKind::Impaled { .. }))
+                    .map(|s| {
+                        let o = world.object(s.spear).id;
+                        [o.spawner, o.number]
+                    }),
                 abstract_ai: Self::abstract_ai_info(scene, c),
                 overseer: c.overseer_ai().map(|o| OverseerInfo {
                     player_guide: o.is_player_guide,
@@ -470,6 +505,8 @@ impl Session {
                     mode: c.overseer_body().map(|b| format!("{:?}", b.mode)),
                     pos: c.overseer_body().map(|b| b.chunk().pos.to_array()),
                     extended: c.overseer_body().map(|b| b.extended),
+                    dead: c.overseer_body().map(|b| b.dead),
+                    dying: c.overseer_body().map(|b| b.dying),
                 }),
                 fly: Self::fly_info(scene, c),
             })
@@ -508,7 +545,7 @@ impl Session {
             .sim()
             .world()
             .objects()
-            .map(|(_, o)| ObjectInfo {
+            .map(|(oid, o)| ObjectInfo {
                 kind: o.kind.value().to_owned(),
                 id: [o.id.spawner, o.id.number],
                 room: Self::room_name(scene, o.pos.room),
@@ -516,12 +553,16 @@ impl Session {
                 tile: [o.pos.tile.0, o.pos.tile.1],
                 stuck_in_wall_cycles: o.spear().map(|s| s.stuck_in_wall_cycles),
                 explosive: o.spear().map(|s| s.explosive),
-                realized: o.realized.as_deref().map(|w| Self::weapon_info(scene, w)),
+                realized: o
+                    .realized
+                    .as_deref()
+                    .map(|w| Self::weapon_info(scene, oid, w)),
             })
             .collect()
     }
 
-    fn weapon_info(scene: &Scene, w: &Weapon) -> WeaponInfo {
+    fn weapon_info(scene: &Scene, id: ObjectId, w: &Weapon) -> WeaponInfo {
+        let world = scene.game().sim().world();
         let c = w.chunk();
         WeaponInfo {
             room: Self::room_name(scene, w.room),
@@ -535,6 +576,19 @@ impl Session {
                 .spear()
                 .and_then(|s| s.stuck_in_wall)
                 .map(|p| p.to_array()),
+            impaled: world
+                .spear_sticks_of(Entity::Object(id))
+                .iter()
+                .filter_map(|s| match s.kind {
+                    SpearStickKind::Impaled {
+                        on_spear_position, ..
+                    } => {
+                        let c = world.creature(s.creature).id;
+                        Some(([c.spawner, c.number], on_spear_position))
+                    }
+                    SpearStickKind::Lodged { .. } => None,
+                })
+                .collect(),
         }
     }
 
@@ -998,6 +1052,20 @@ impl Session {
                         pos: (t.pos + token.pos).to_array(),
                     })
                     .collect()
+            }),
+            kills: p.kills().map(|k| KillsState {
+                trophies: k
+                    .trophies
+                    .iter()
+                    .map(|t| {
+                        (
+                            t.symbol.kind.value().to_owned(),
+                            (k.pos + t.pos).to_array(),
+                            t.sprites.is_some(),
+                        )
+                    })
+                    .collect(),
+                counted_and_done: k.counted_and_done,
             }),
         }
     }

@@ -191,6 +191,50 @@ impl Vec2 {
         (2.0 * num3 - root) / (2.0 * num5)
     }
 
+    /// `Custom.VerticalCrossPoint`: where the line through `self` and `b` crosses `x`.
+    #[must_use]
+    pub fn vertical_cross_point(self, b: Self, x: f32) -> Self {
+        if self.y == b.y {
+            return Self::new(x, self.y);
+        }
+        let k = (self.y - b.y) / (self.x - b.x);
+        Self::new(x, self.y - self.x * k + k * x)
+    }
+
+    /// `Custom.HorizontalCrossPoint`: where the line through `self` and `b` crosses `y`.
+    #[must_use]
+    pub fn horizontal_cross_point(self, b: Self, y: f32) -> Self {
+        if self.x == b.x {
+            return Self::new(self.x, y);
+        }
+        let k = (self.y - b.y) / (self.x - b.x);
+        Self::new((y - (self.y - self.x * k)) / k, y)
+    }
+
+    /// `Custom.LineIntersection` of the line through `self` and `b1` with the line
+    /// through `a2` and `b2`.
+    #[must_use]
+    pub fn line_intersection(self, b1: Self, a2: Self, b2: Self) -> Self {
+        if self.x == b1.x {
+            return a2.vertical_cross_point(b2, self.x);
+        }
+        if a2.x == b2.x {
+            return self.vertical_cross_point(b1, a2.x);
+        }
+        if self.y == b1.y {
+            return a2.horizontal_cross_point(b2, self.y);
+        }
+        if a2.y == b2.y {
+            return self.horizontal_cross_point(b1, a2.y);
+        }
+        let k1 = (self.y - b1.y) / (self.x - b1.x);
+        let c1 = self.y - self.x * k1;
+        let k2 = (a2.y - b2.y) / (a2.x - b2.x);
+        let c2 = a2.y - a2.x * k2;
+        let x = (c1 - c2) / (k2 - k1);
+        Self::new(x, c2 + k2 * x)
+    }
+
     /// Middle of the tile containing this position (`Room.MiddleOfTile(Vector2)`).
     #[must_use]
     pub fn tile_middle(self) -> Self {

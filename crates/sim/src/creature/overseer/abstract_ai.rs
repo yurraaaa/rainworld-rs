@@ -30,6 +30,9 @@ pub struct PlayerGuideState {
     pub guide_symbol: i32,
     /// Rooms whose picture the guide has shown.
     pub images_shown: Vec<String>,
+    /// `increaseLikeOnSave`: the save raises the like (a weapon thrown at the guide
+    /// clears it for the cycle).
+    pub increase_like_on_save: bool,
 }
 
 impl Default for PlayerGuideState {
@@ -48,6 +51,7 @@ impl Default for PlayerGuideState {
             scav_trade_instruction_completed: false,
             guide_symbol: 0,
             images_shown: Vec::new(),
+            increase_like_on_save: true,
         }
     }
 }

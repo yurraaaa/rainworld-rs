@@ -1,6 +1,7 @@
 //! A cycle's end as the save sees it: `PlayerSessionRecord`, the world queries
 //! `SaveState.SessionEnded` makes ([`HibernationWorld`]) and the slugcat's food stats.
 
+use rw_assets::CreatureType;
 use rw_random::UnityRandom;
 
 /// `PlayerSessionRecord.KillRecord`.
@@ -8,11 +9,44 @@ use rw_random::UnityRandom;
 pub struct KillRecord {
     /// `CreatureTemplate.Type` value.
     pub creature: String,
+    /// The kill symbol's `intData`.
+    pub int_data: i32,
     /// The template's `countsAsAKill`.
     pub counts_as_a_kill: i32,
     /// `Template.IsLizard`; with `lizard_index` its place in `WinState.lizardsOrder`.
     pub lizard: bool,
     pub lizard_index: Option<usize>,
+}
+
+impl KillRecord {
+    /// `WinState.lizardsOrder`.
+    const LIZARDS_ORDER: [CreatureType; 6] = [
+        CreatureType::GreenLizard,
+        CreatureType::PinkLizard,
+        CreatureType::BlueLizard,
+        CreatureType::WhiteLizard,
+        CreatureType::YellowLizard,
+        CreatureType::BlackLizard,
+    ];
+
+    /// A kill of `creature` with its symbol's `intData`, its template's
+    /// `countsAsAKill` and `IsLizard`.
+    #[must_use]
+    pub fn new(creature: CreatureType, int_data: i32, counts_as_a_kill: i32, lizard: bool) -> Self {
+        Self {
+            creature: creature.value().to_owned(),
+            int_data,
+            counts_as_a_kill,
+            lizard,
+            lizard_index: Self::LIZARDS_ORDER.iter().position(|&l| l == creature),
+        }
+    }
+
+    /// The kill's `IconSymbolData.ToString()`: type, item type and `intData`.
+    #[must_use]
+    pub fn symbol(&self) -> String {
+        format!("{}-Creature-{}", self.creature, self.int_data)
+    }
 }
 
 /// What `PlayerSessionRecord.AddEat` was given.
@@ -120,4 +154,8 @@ pub trait HibernationWorld {
     fn player_grasps(&self) -> Vec<String>;
     /// The save string of the first player's `objectInStomach`, if any.
     fn swallowed_item(&self) -> Option<String>;
+    /// The session's `InfluenceLikeOfPlayer` calls, in order (all in its region).
+    fn community_influences(&self) -> Vec<crate::communities::CommunityInfluence> {
+        Vec::new()
+    }
 }

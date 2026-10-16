@@ -9,6 +9,8 @@
 
 use rw_assets::{ActiveMods, SlugcatName, Timeline};
 
+use crate::creature::PlayerGuideState;
+
 /// `SlugcatStats` (not malnourished unless built so).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SlugcatStats {
@@ -169,7 +171,7 @@ impl SlugcatCampaign {
 
 /// What a story game starts from: its `SaveState` after `LoadGame`, empty for a new
 /// game or read from a save.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct StoryStart {
     /// `GetSaveStateDenToUse`.
     pub den: String,
@@ -200,6 +202,9 @@ pub struct StoryStart {
     pub live_region_state: Option<crate::world::RegionState>,
     /// The first player's `swallowedItems` entry (`""` and `"0"` are none).
     pub swallowed_item: Option<String>,
+    /// `miscWorldSaveData.playerGuideState` as loaded (its like, hand holding and
+    /// anger; the rest of the save's guide state is not read yet).
+    pub guide: PlayerGuideState,
 }
 
 impl StoryStart {
@@ -225,6 +230,7 @@ impl StoryStart {
             in_memory: false,
             live_region_state: None,
             swallowed_item: None,
+            guide: PlayerGuideState::default(),
         }
     }
 }

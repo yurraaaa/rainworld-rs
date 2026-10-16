@@ -23,7 +23,7 @@ pub mod user_data;
 pub mod win_state;
 
 pub use checksum::ChecksumSalt;
-pub use communities::{CommunityId, CreatureCommunities};
+pub use communities::{CommunityId, CommunityInfluence, CreatureCommunities};
 pub use coordinate::SavedCoordinate;
 pub use dirs::{Platform, SaveSlot};
 pub use dreams::{DreamId, DreamsState};

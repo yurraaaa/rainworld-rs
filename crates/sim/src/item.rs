@@ -5,8 +5,10 @@
 //! kind stays a string (docs/DIVERGENCES.md D16). A realized rock or spear is a
 //! [`Weapon`]. Behaviour: `rainworld-re/notes/items.md`.
 
+mod spear_stick;
 mod weapon;
 
+pub use spear_stick::{SpearStick, SpearStickKind};
 pub use weapon::{
     ChunkDynamicSoundLoop, ModeChange, SpearParts, Throw, WEAPON_PARAMS, Weapon, WeaponKind,
     WeaponMode, WeaponTick,

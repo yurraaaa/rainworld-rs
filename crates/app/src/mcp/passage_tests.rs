@@ -19,7 +19,7 @@ use crate::saves::SaveConfig;
 
 /// Fed in SU_S01; the Survivor fulfilled and unused, the Saint two cycles from it, the
 /// Survivor's meter shown before.
-const SAVE: &str = "SAVE STATE<progDivB>SAV STATE NUMBER<svB>White<svA>SEED<svB>4321<svA>\
+pub(super) const SAVE: &str = "SAVE STATE<progDivB>SAV STATE NUMBER<svB>White<svA>SEED<svB>4321<svA>\
     DENPOS<svB>SU_S01<svA>LASTVDENPOS<svB>SU_S01<svA>CYCLENUM<svB>5<svA>FOOD<svB>4<svA>\
     NEXTID<svB>2500<svA>DEATHPERSISTENTSAVEDATA<svB>REINFORCEDKARMA<dpB>0<dpA>KARMA<dpB>2<dpA>\
     KARMACAP<dpB>5<dpA>GHOSTS<dpB><dpA>WINSTATE<dpB>Survivor<egA>0<egA>5<wsA>\
@@ -29,7 +29,7 @@ const SAVE: &str = "SAVE STATE<progDivB>SAV STATE NUMBER<svB>White<svA>SEED<svB>
     QUITS<dpB>0<dpA><svA><progDivA>MISCPROG<progDivB>CURRENTSLUGCAT<mpdB>White<mpdA>\
     INTEGERS<mpdB>0,4,4,0,0,0,0,0,0,0,0<mpdA><progDivA>";
 
-const WHITE: CampaignStart<'static> = CampaignStart {
+pub(super) const WHITE: CampaignStart<'static> = CampaignStart {
     slugcat: SlugcatName::White,
     den: "SU_C04",
     vanilla: true,
@@ -41,7 +41,7 @@ fn continued() -> Option<(Session, StreamingAssets, tempfile::TempDir)> {
 }
 
 /// A session continuing `save`.
-fn continued_with(save: &str) -> Option<(Session, StreamingAssets, tempfile::TempDir)> {
+pub(super) fn continued_with(save: &str) -> Option<(Session, StreamingAssets, tempfile::TempDir)> {
     let assets = StreamingAssets::new(GameDir::from_env().streaming_assets());
     if !assets.file("levels").is_dir() {
         eprintln!("skipping: no game under {}", assets.path().display());
@@ -121,7 +121,7 @@ impl Session {
 
     /// Out of the start shelter and back (only then does a fed slugcat sleep), onto the
     /// spawn position, then still until the sleep screen starts.
-    fn sleep(&mut self) -> KarmaScreenState {
+    pub(super) fn sleep(&mut self) -> KarmaScreenState {
         self.pipe_to("SU_A22");
         self.pipe_to("SU_S01");
         let game = self.frontend_mut().unwrap().game_mut().unwrap();
@@ -138,11 +138,11 @@ impl Session {
         panic!("never slept");
     }
 
-    fn screen(&mut self) -> KarmaScreenState {
+    pub(super) fn screen(&mut self) -> KarmaScreenState {
         self.frames(1, &[]).karma_screen.expect("the sleep screen")
     }
 
-    fn process_shot(&mut self, dir: &Path, name: &str) {
+    pub(super) fn process_shot(&mut self, dir: &Path, name: &str) {
         let params = ScreenshotParams {
             save_path: Some(
                 dir.join(format!("{name}.png"))
