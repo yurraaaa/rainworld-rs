@@ -114,6 +114,18 @@ before the user agrees.
   running them and can kill the session. Check for the game with `pidof`
   or `/proc/<pid>/exe`.
 
+### The decompiled game
+
+Read the game's code (never copy it) from
+`/tmp/claude-1000/ilspy/split/`: one file per top-level type, named after it
+(`Lizard.cs`, `LizardAI.cs`), namespaces as folders (`HUD/`, `Menu/`,
+`OverseerHolograms/`, `MoreSlugcats/`); nested types are in their parent's
+file. List the folder or grep it to find a class. If it is missing (`/tmp`
+was cleared), regenerate it with `../rainworld-re/tools/decompile_split.sh`,
+which needs the existing `/tmp/claude-1000/ilspy/ilspycmd` and never installs
+it. The single-file `/tmp/claude-1000/ilspy/full/Assembly-CSharp.decompiled.cs`
+remains for older notes' line numbers; new notes cite file and member.
+
 ## Decisions
 
 - Reimplement what the game does, in every situation. Diverge only where
