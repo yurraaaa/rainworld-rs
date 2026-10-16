@@ -94,6 +94,7 @@ impl World {
         match &mut self.creature_mut(id).realized {
             Some(RealizedCreature::Fly(f)) => f.stun = f.stun.max(st),
             Some(RealizedCreature::Overseer(b)) => b.stun = b.stun.max(st),
+            Some(RealizedCreature::Lizard(l)) => l.stun = l.stun.max(st),
             _ => {}
         }
     }
@@ -105,6 +106,7 @@ impl World {
         match &c.realized {
             Some(RealizedCreature::Fly(f)) => f.dead,
             Some(RealizedCreature::Overseer(b)) => b.dead,
+            Some(RealizedCreature::Lizard(l)) => l.dead,
             Some(RealizedCreature::Player) | None => !c.state.alive,
         }
     }
@@ -122,6 +124,7 @@ impl World {
         match &mut self.creature_mut(id).realized {
             Some(RealizedCreature::Fly(f)) => f.dead = true,
             Some(RealizedCreature::Overseer(b)) => b.dead = true,
+            Some(RealizedCreature::Lizard(l)) => l.dead = true,
             _ => {}
         }
         self.lose_all_grasps(id);

@@ -623,11 +623,17 @@ impl CreatureTemplate {
         Self::SLUGCAT,
         Self::LIZARD,
         Self::lizard(CreatureType::PinkLizard, 0.45),
-        Self::lizard(CreatureType::GreenLizard, 0.45),
+        Self {
+            body_size: 3.0,
+            ..Self::lizard(CreatureType::GreenLizard, 0.45)
+        },
         Self::lizard(CreatureType::BlueLizard, 0.35),
         Self::lizard(CreatureType::YellowLizard, 0.4),
         Self::lizard(CreatureType::WhiteLizard, 0.5),
-        Self::lizard(CreatureType::RedLizard, 0.8),
+        Self {
+            body_size: 3.0,
+            ..Self::lizard(CreatureType::RedLizard, 0.8)
+        },
         Self::lizard(CreatureType::BlackLizard, 0.45),
         Self {
             water_relationship: WaterRelationship::Amphibious,

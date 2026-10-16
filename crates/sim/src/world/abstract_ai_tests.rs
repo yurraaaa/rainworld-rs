@@ -600,7 +600,7 @@ fn a_green_stows_its_prey_kills_it_and_drops_it_in_the_den() {
     assert!(world.room_creatures(0).is_empty());
 
     // Coming out (`MoveEntityOutOfDen`), the green leaves the dropped mouse in the den.
-    world.move_entity_out_of_den(Entity::Creature(green));
+    world.move_entity_out_of_den(Entity::Creature(green), &mut UnityRandom::new(1));
     assert!(!world.creature(green).in_den);
     assert_eq!(world.room_dens(0), [mouse]);
     assert_eq!(world.room_creatures(0), [green]);
@@ -641,7 +641,7 @@ fn an_ai_that_keeps_its_prey_brings_it_out_of_the_den() {
     world.move_entity_to_den(green, &mut rng);
     assert!(!world.creature(mouse).state.alive);
     assert_eq!(world.creature(green).sticks.len(), 1);
-    world.move_entity_out_of_den(Entity::Creature(green));
+    world.move_entity_out_of_den(Entity::Creature(green), &mut UnityRandom::new(1));
     assert!(!world.creature(mouse).in_den);
     assert_eq!(world.room_creatures(0), [mouse, green]);
     assert!(world.room_dens(0).is_empty());

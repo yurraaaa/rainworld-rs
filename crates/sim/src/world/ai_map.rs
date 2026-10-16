@@ -188,6 +188,15 @@ impl AiMap {
         }
     }
 
+    /// A tile clamped into the map.
+    #[must_use]
+    pub fn clamp_tile(&self, t: (i32, i32)) -> (i32, i32) {
+        (
+            t.0.clamp(0, self.width() - 1),
+            t.1.clamp(0, self.height() - 1),
+        )
+    }
+
     /// `getClampedAItile`.
     #[must_use]
     pub fn clamped_tile(&self, x: i32, y: i32) -> &AiTile {

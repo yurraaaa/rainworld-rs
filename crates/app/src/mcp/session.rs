@@ -25,11 +25,11 @@ use super::params::{
 use super::reply::{
     AbstractAiInfo, ChunkState, ControlsPageState, CreatureInfo, ExitInfo, ExitList, FlyInfo,
     FoodMeterState, HudState, ImpactState, ImportReply, KarmaMeterState, KarmaScreenState,
-    KillsState, LobbyState, MapMarkerState, MapState, MeterState, NodeRef, ObjectInfo,
-    OptionsState, OverseerInfo, PauseMenuState, PlayerState, ProcessState, RainMeterState,
-    RainState, RealizedState, RoomInfo, RoomList, SaveInfo, SaveStateInfo, Screenshot, SessionInfo,
-    ShelterDoorState, SleepState, SlideShowState, StartUpState, State, StepTrace, StoryInfo,
-    TextPromptState, TokenState, WeaponInfo,
+    KillsState, LizardChunk, LizardInfo, LobbyState, MapMarkerState, MapState, MeterState, NodeRef,
+    ObjectInfo, OptionsState, OverseerInfo, PauseMenuState, PlayerState, ProcessState,
+    RainMeterState, RainState, RealizedState, RoomInfo, RoomList, SaveInfo, SaveStateInfo,
+    Screenshot, SessionInfo, ShelterDoorState, SleepState, SlideShowState, StartUpState, State,
+    StepTrace, StoryInfo, TextPromptState, TokenState, WeaponInfo,
 };
 use super::reply::{DangerInfo, HoloLightState, LightSourceState, MusicState, TriggerState};
 use super::reply::{
@@ -616,7 +616,8 @@ impl Session {
                 stun: c
                     .fly()
                     .map(|f| f.stun)
-                    .or_else(|| c.overseer_body().map(|b| b.stun)),
+                    .or_else(|| c.overseer_body().map(|b| b.stun))
+                    .or_else(|| c.lizard().map(|l| l.stun)),
                 impaled_on: world
                     .spear_sticks_of(Entity::Creature(id))
                     .iter()
@@ -662,6 +663,7 @@ impl Session {
                         .map(|m| m.most_dangerous_creature_danger),
                 }),
                 fly: Self::fly_info(scene, c),
+                lizard: Self::lizard_info(scene, id, c),
                 danger: world.creature_danger(id).map(|d| DangerInfo {
                     dangerous_to_player: d.dangerous_to_player,
                     danger_pos: d.danger_pos.to_array(),
@@ -768,6 +770,16 @@ impl Session {
                     SpearStickKind::Lodged { .. } => None,
                 })
                 .collect(),
+            lodged_in: world
+                .spear_sticks_of(Entity::Object(id))
+                .iter()
+                .find_map(|s| match s.kind {
+                    SpearStickKind::Lodged { chunk, .. } => {
+                        let c = world.creature(s.creature).id;
+                        Some(([c.spawner, c.number], chunk))
+                    }
+                    SpearStickKind::Impaled { .. } => None,
+                }),
         }
     }
 
@@ -791,6 +803,59 @@ impl Session {
                 .grabbed_by
                 .iter()
                 .map(|g| Self::entity_id(scene, g.grabber))
+                .collect(),
+        })
+    }
+
+    fn lizard_info(scene: &Scene, id: CreatureId, c: &AbstractCreature) -> Option<LizardInfo> {
+        let l = c.lizard()?;
+        let world = scene.game().sim().world();
+        let holding = c.grasps.first().is_some_and(Option::is_some);
+        let (throat_health, limb_health) = c.state.lizard_health_parts().unwrap_or((1.0, [1.0; 4]));
+        Some(LizardInfo {
+            room: l.room.map(|r| Self::room_name(scene, r)),
+            chunks: l
+                .chunks()
+                .iter()
+                .map(|ch| LizardChunk {
+                    pos: ch.pos.to_array(),
+                    vel: ch.vel.to_array(),
+                })
+                .collect(),
+            health: c.state.health,
+            throat_health,
+            limb_health,
+            dead: l.dead,
+            in_shortcut: l.in_shortcut,
+            jaw_open: l.jaw_open(holding),
+            last_jaw_open: l.last_jaw_open,
+            jaw_forced_shut: l.jaw_forced_shut,
+            bite_delay: l.bite_delay,
+            apply_gravity: l.apply_gravity,
+            in_allowed_terrain_counter: l.in_allowed_terrain_counter,
+            turned_by_rock_counter: l.turned_by_rock_counter,
+            lungs: l.lungs,
+            effect_color: l.effect_color,
+            grasps: c
+                .grasps
+                .iter()
+                .map(|g| g.map(|g| HeldInfo::of(world, g.grabbed).id))
+                .collect(),
+            grabbed_by: c
+                .grabbed_by
+                .iter()
+                .map(|g| Self::entity_id(scene, g.grabber))
+                .collect(),
+            spears: world
+                .spear_sticks_of(Entity::Creature(id))
+                .iter()
+                .filter_map(|s| match s.kind {
+                    SpearStickKind::Lodged { chunk, .. } => {
+                        let o = world.object(s.spear).id;
+                        Some(([o.spawner, o.number], chunk))
+                    }
+                    SpearStickKind::Impaled { .. } => None,
+                })
                 .collect(),
         })
     }

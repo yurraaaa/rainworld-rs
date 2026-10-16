@@ -184,7 +184,11 @@ pub trait Renderer {
     /// of the way from `last_pos` to `pos`), a line for every active connection, and a
     /// small mark where a chunk touches terrain, styled by `status` at `time` seconds.
     fn draw_object(&mut self, obj: &PhysicalObject, alpha: f32, status: BodyStatus, time: f32) {
-        let style = status.style(time);
+        self.draw_object_styled(obj, alpha, status.style(time));
+    }
+
+    /// [`Renderer::draw_object`] with a given style (the debug view's other bodies).
+    fn draw_object_styled(&mut self, obj: &PhysicalObject, alpha: f32, style: BodyStyle) {
         for (i, chunk) in obj.chunks.iter().enumerate() {
             let c = chunk.interpolated_pos(alpha);
             self.draw_circle(c, chunk.rad, style.fill[i % style.fill.len()]);

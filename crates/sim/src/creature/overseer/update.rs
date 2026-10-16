@@ -324,6 +324,15 @@ impl OverseerUpdate<'_, '_> {
                 ..base
             });
         }
+        if let Some(l) = c.lizard() {
+            return Some(RealizedInfo {
+                dead: l.dead,
+                in_room: l.room == Some(self.cx.room_index),
+                pos: l.head().pos,
+                last_pos: l.head().last_pos,
+                ..base
+            });
+        }
         let body = c.overseer_body()?;
         Some(RealizedInfo {
             in_room: body.in_room && c.pos.room == self.cx.room_index,

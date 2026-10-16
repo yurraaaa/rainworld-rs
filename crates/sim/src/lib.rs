@@ -22,6 +22,7 @@
 mod camera;
 pub mod campaign;
 mod chunk;
+pub mod color;
 mod cosmetic;
 pub mod creature;
 mod float_ext;

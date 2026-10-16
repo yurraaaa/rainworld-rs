@@ -58,6 +58,28 @@ pub enum GameStart {
     },
 }
 
+/// What a body in the debug view is, for its colour.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DebugBody {
+    Lizard,
+    Fly,
+    Overseer,
+    Item,
+}
+
+impl DebugBody {
+    /// The fill colour.
+    #[must_use]
+    pub fn color(self) -> rw_render::Color {
+        match self {
+            Self::Lizard => rw_render::Color::rgb(0.3, 1.0, 0.35),
+            Self::Fly => rw_render::Color::rgb(0.3, 0.6, 1.0),
+            Self::Overseer => rw_render::Color::rgb(1.0, 0.85, 0.3),
+            Self::Item => rw_render::Color::rgb(0.8, 0.8, 0.8),
+        }
+    }
+}
+
 /// The game and the player's graphics.
 pub struct Game {
     sim: RainWorldGame,
@@ -1126,6 +1148,41 @@ impl Game {
         self.shown_player()
             .filter(|p| !p.in_shortcut())
             .map(|p| &p.body)
+    }
+
+    /// The debug view's other bodies in the camera's room: realized lizards, flies and
+    /// overseers, then rocks and spears, each with its status and kind.
+    #[must_use]
+    pub fn debug_bodies(&self) -> Vec<(&PhysicalObject, BodyStatus, DebugBody)> {
+        use rw_sim::creature::RealizedCreature as R;
+        let room = self.sim.camera_room();
+        let world = self.sim.world();
+        let mut list = Vec::new();
+        for (_, c) in world.creatures() {
+            let (body, stun, dead, kind) = match &c.realized {
+                Some(R::Lizard(l)) if l.room == Some(room) => {
+                    (&l.body, l.stunned(), l.dead, DebugBody::Lizard)
+                }
+                Some(R::Fly(f)) if f.room == Some(room) => {
+                    (&f.body, f.stunned(), f.dead, DebugBody::Fly)
+                }
+                Some(R::Overseer(b)) if b.in_room && c.pos.room == room => {
+                    (&b.body, b.stun >= 10, b.dead, DebugBody::Overseer)
+                }
+                _ => continue,
+            };
+            let status = BodyStatus {
+                stunned: stun && !dead,
+                dead,
+            };
+            list.push((body, status, kind));
+        }
+        for (_, o) in world.objects() {
+            if let Some(w) = o.realized.as_deref().filter(|w| w.room == room) {
+                list.push((&w.body, BodyStatus::ALIVE, DebugBody::Item));
+            }
+        }
+        list
     }
 
     /// The shortcut tile the player is travelling through in the camera's room, if any.

@@ -227,6 +227,9 @@ pub struct CreatureInfo {
     pub overseer: Option<OverseerInfo>,
     /// A realized bat fly's body and AI.
     pub fly: Option<FlyInfo>,
+    /// A realized lizard's body.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lizard: Option<LizardInfo>,
     /// The realized creature's danger to the player.
     pub danger: Option<DangerInfo>,
     /// `state.socialMemory`'s relationships.
@@ -291,6 +294,9 @@ pub struct WeaponInfo {
     pub stuck_in_wall: Option<[f32; 2]>,
     /// The creatures impaled on a spear, by EntityID, with their place on it.
     pub impaled: Vec<([i32; 2], i32)>,
+    /// The creature a spear is lodged in, by EntityID, with the chunk.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lodged_in: Option<([i32; 2], usize)>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -309,6 +315,45 @@ pub struct FlyInfo {
     pub grasps: Vec<Option<[i32; 2]>>,
     /// The EntityIDs of the creatures holding it.
     pub grabbed_by: Vec<[i32; 2]>,
+}
+
+/// A realized lizard (`kill_tag` and `stun` are the creature entry's).
+#[derive(Debug, Clone, Serialize)]
+pub struct LizardInfo {
+    /// The room it is in; `None` inside a shortcut.
+    pub room: Option<String>,
+    /// Head, middle and hips.
+    pub chunks: Vec<LizardChunk>,
+    /// `LizardState.health`, `throatHealth` and `limbHealth`.
+    pub health: f32,
+    pub throat_health: f32,
+    pub limb_health: [f32; 4],
+    pub dead: bool,
+    pub in_shortcut: bool,
+    /// `jawOpen`, `lastJawOpen` and `jawForcedShut`.
+    pub jaw_open: f32,
+    pub last_jaw_open: f32,
+    pub jaw_forced_shut: f32,
+    pub bite_delay: i32,
+    /// `applyGravity` and `inAllowedTerrainCounter` (footing).
+    pub apply_gravity: bool,
+    pub in_allowed_terrain_counter: i32,
+    pub turned_by_rock_counter: i32,
+    pub lungs: f32,
+    /// `effectColor` (RGB).
+    pub effect_color: [f32; 3],
+    /// The EntityID of what each grasp holds.
+    pub grasps: Vec<Option<[i32; 2]>>,
+    /// The EntityIDs of the creatures holding it.
+    pub grabbed_by: Vec<[i32; 2]>,
+    /// The spears lodged in it, by EntityID, with their chunk.
+    pub spears: Vec<([i32; 2], usize)>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct LizardChunk {
+    pub pos: [f32; 2],
+    pub vel: [f32; 2],
 }
 
 /// A room and node (`WorldCoordinate` without its tile).

@@ -194,23 +194,38 @@ impl RainWorldGame {
     }
 
     /// `openTime < 400`: every realized creature but the slugcat and its friends is
-    /// stunned for 20 ticks (the flies; the overseers have no stun in the port).
+    /// stunned for 20 ticks (the flies and the lizards; the overseers have no stun in the
+    /// port). A creature with a social memory gets a relationship with the player
+    /// (`GetOrInitiateRelationship`); one that likes the player is stunned only while
+    /// the door has been open under 120 ticks and is not closing.
     fn stun_shelter_creatures(&mut self, index: i32) {
-        let flies: Vec<CreatureId> = self
-            .world
-            .room_creatures(index)
+        let (open_time, closing) = self
+            .shelter_doors
             .iter()
-            .copied()
-            .filter(|&c| {
-                self.world
-                    .creature(c)
-                    .fly()
-                    .is_some_and(|f| f.room == Some(index))
-            })
-            .collect();
-        for id in flies {
-            let f = self.world.fly_at(id);
-            f.stun = f.stun.max(20);
+            .find(|d| d.room == index)
+            .map_or((0, false), |d| (d.open_time, d.is_closing()));
+        let player = self.world.creature(self.player_id).id;
+        for id in self.world.room_creatures(index).to_vec() {
+            let in_room = match &self.world.creature(id).realized {
+                Some(crate::creature::RealizedCreature::Fly(f)) => f.room == Some(index),
+                Some(crate::creature::RealizedCreature::Lizard(l)) => l.room == Some(index),
+                _ => false,
+            };
+            if !in_room {
+                continue;
+            }
+            let mut friend = false;
+            if let Some(m) = &mut self.world.creature_mut(id).state.social_memory {
+                let r = m.get_or_initiate(player);
+                friend = r.like >= 0.5 || r.temp_like > 0.5;
+            }
+            if !friend || (open_time < 120 && !closing) {
+                if self.world.creature(id).lizard().is_some() {
+                    self.lizard_stun(id, 20);
+                } else {
+                    self.world.stun_creature(id, 20);
+                }
+            }
         }
     }
 

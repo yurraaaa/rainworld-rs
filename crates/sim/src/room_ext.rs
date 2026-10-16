@@ -42,6 +42,33 @@ pub trait RoomExt {
         true
     }
 
+    /// `Room.RayTraceTilesForTerrain`: no Solid tile on the line of tiles from `a` to
+    /// `b`, ends included.
+    fn ray_trace_tiles_for_terrain(&self, a: (i32, i32), b: (i32, i32)) -> bool {
+        let (mut dx, mut dy) = ((b.0 - a.0).abs(), (b.1 - a.1).abs());
+        let (mut x, mut y) = a;
+        let mut n = 1 + dx + dy;
+        let sx = if b.0 > a.0 { 1 } else { -1 };
+        let sy = if b.1 > a.1 { 1 } else { -1 };
+        let mut err = dx - dy;
+        dx *= 2;
+        dy *= 2;
+        while n > 0 {
+            if self.is_solid_tile(x, y) {
+                return false;
+            }
+            if err > 0 {
+                x += sx;
+                err -= dy;
+            } else {
+                y += sy;
+                err += dx;
+            }
+            n -= 1;
+        }
+        true
+    }
+
     /// `Room.VisualContact` between two tiles' middles.
     fn visual_contact_tiles(&self, a: (i32, i32), b: (i32, i32)) -> bool {
         self.visual_contact(Vec2::middle_of_tile(a), Vec2::middle_of_tile(b))

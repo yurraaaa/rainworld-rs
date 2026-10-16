@@ -219,6 +219,18 @@ impl PhysicalObject {
         water: Option<&Water>,
         owner: &mut dyn TerrainImpactHandler,
     ) {
+        self.update_chunks(room, water, owner);
+        self.update_connections();
+    }
+
+    /// The chunk half of [`PhysicalObject::update_with`] (`PhysicalObject.Update` sets
+    /// the abstract tile between the two halves).
+    pub fn update_chunks(
+        &mut self,
+        room: &Room,
+        water: Option<&Water>,
+        owner: &mut dyn TerrainImpactHandler,
+    ) {
         self.impacts.clear();
         for i in 0..self.chunks.len() {
             self.chunks[i].integrate(&self.params, water);
@@ -241,6 +253,10 @@ impl PhysicalObject {
             }
             self.chunks[i].count_splash_stop(water);
         }
+    }
+
+    /// Every connection in order (`BodyChunkConnection.Update`).
+    pub fn update_connections(&mut self) {
         for c in &self.connections {
             c.apply(&mut self.chunks);
         }

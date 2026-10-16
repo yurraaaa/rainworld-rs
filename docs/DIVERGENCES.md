@@ -92,8 +92,10 @@ it (D13). What still differs is only the seed and the call order:
   with saved shells rolls `value < 0.2` per shell and, when it passes, one more for
   the shell. From the first creature out of its den (100 to
   1000 ticks into a cycle) every story run's stream has shifted from before, as the
-  game's does. Missing: the draws a creature would make on being realized
-  (`PlaceInRealizedRoom`, its body, AI and graphics), as it stays abstract (D14), and
+  game's does. Missing: the draws a creature other than a bat fly, an overseer or a
+  green lizard would make on being realized (`PlaceInRealizedRoom`, its body, AI and
+  graphics), as it stays abstract (D14), a green lizard's `LizardGraphics` and
+  `LizardAI` constructor draws (lizard steps 5 and 6), and
   per tick the scavengers' abstract AI and `ScavengersWorldAI` (one `Range` over the
   scavengers every tick once a world has any), which are not ported (D14).
   `LocalCoordinateOfNode` draws for bat hives, garbage holes and border exits; a border
@@ -223,11 +225,10 @@ apply to `HeavyCarry` objects only, which no ported object is.
   skims, sticking: `rainworld-re/notes/items.md` section 11) and so is hitting the
   creatures of collision layer 0, the bat flies and overseers
   (`HitSomethingWithoutStopping`, `TryImpaleSmallCreature`, `INotifyOfFlyingWeapons`;
-  section 12). `HitSomething` has nothing to hit: the trace runs over collision layer
-  1, where the only ported creature is the player, and a weapon never hits its thrower,
-  so `Creature.Violence`'s effects, `LodgeInCreature` and `StuckInCreature` are not
-  ported (the templates' damage resistances and `Violence`'s damage and stun arithmetic
-  are, `rw_sim::creature::violence`). Adrenaline's
+  section 12), and of collision layer 1, the green lizards (`HitSomething`, `Violence`,
+  `LodgeInCreature`, `StuckInCreature`; D14). `SocialEventRecognizer.WeaponAttack`
+  only breaks the peaceful record: the hit creatures' reactions are their AI's (lizard
+  steps 6 and 7). Adrenaline's
   throw force (`Lerp(1, 1.5, Adrenaline)`) is 1 (adrenaline is skipped for now, a user
   decision of 2026-10-16). Remix and More Slugcats branches
   (Gourmand, Saint, Spearmaster, Rivulet's upward throw, the MMF slow-spear and
@@ -554,8 +555,10 @@ direction.
   push of 14, 34-tick jump window, exit after 16, a hop on its end, a 1.2x rocket
   jump, a longer stun on a creature) starts with its spikes. Picking up an item
   during the whiplash jump is not ported.
-- **Other creatures:** a belly slide or roll hitting a creature (stun, `rollCounter`
-  cap, "slugsmash") is not ported (no realized creatures to hit; D14).
+- **Other creatures:** a belly slide into a creature of collision layer 1 (a green
+  lizard, D14) stuns it (2 ticks, 4 on a long slide), caps `rollCounter` at 11 and
+  pushes the head on, as `Player.Collide` does; the Gourmand's roll attack ("slugsmash")
+  is More Slugcats'.
 - **More Slugcats / Watcher omitted:** Rivulet, slugpup and Gourmand values (skid and
   flip jump, roll jump, belly-slide push, kick and jumps, roll durations), the pyro
   jump's `Flip`, and the Watcher curved-terrain drop-through test.
@@ -687,10 +690,11 @@ updates in) and the passage screen's `Passages` song are ported as hooks
   realized creatures of the player's room (`rw_sim::creature::CreatureDanger`: the
   templates' `dangerousToPlayer`, `DangerPos`, the AI's `CurrentPlayerAggression` and
   its tracker's view of the player). No realized creature has a tracker yet (the
-  overseer's AI has none, a bat fly no AI), so `VisualContact` and
-  `EstimatedChanceOfFinding` read false and 0 as the game's do for them; the creatures
-  realized so far are not dangerous, so the threat stays 0 in play (and the threat
-  layers silent) until lizards come. Ripple layers (Watcher) are not read; any ghost
+  overseer's AI has none, a bat fly no AI, the green lizard's `LizardAI` is a stand-in
+  until lizard step 6), so `VisualContact` and `EstimatedChanceOfFinding` read false
+  and 0; for the overseers and flies that is the game's answer, for a lizard the game's
+  tracker would see the player, so a realized green lizard weighs on the threat less
+  than in the game until its AI comes. Ripple layers (Watcher) are not read; any ghost
   mode counts as 1 (no world ghost is ported).
 - **Music not ported:** the echoes' `GhostSong` and ghost mode
   (`ResumeProcedural` is there, unused), `SSSong`, gate and region-change songs (no
@@ -1034,7 +1038,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
 (`rw_sim::campaign`, `campaign-model.md`) gives the timeline, start den and stats.
 
 **What differs:**
-- **Only overseers and bat flies behave; the other creatures roam abstractly.** The `CREATURES` section is read in full (simple spawners
+- **Only overseers and bat flies behave; the other creatures roam abstractly** (green
+  lizards also get a body that does not move yet, below). The `CREATURES` section is read in full (simple spawners
   and lineages with their dens, amounts, spawn data and night flags; quantified
   counts; `rw_assets::creatures`), and a new game's `GeneratePopulation` builds every
   `AbstractCreature` with all of its constructor draws (D1) and `setCustomFlags`' base
@@ -1061,9 +1066,11 @@ second part, else a single-room world for arena levels). The campaign descriptio
   for want of what triggers them: the creature pointer (`CreatureDangerScore` with
   every template's `dangerousToPlayer`, the aggression of the creature's AI, distance
   and hand-holding, and `CreaturePointer` pointing at the creature's `DangerPos` and
-  warning the player of it, are ported; no realized type is dangerous yet: the player,
-  bat flies and overseers score 0 as in the game, and a pole mimic's mimicking, which
-  hides it, is not read, pole mimics not being realized), the food pointer (no food
+  warning the player of it, are ported; the player, bat flies and overseers score 0 as
+  in the game, a realized green lizard scores with `LizardAI.CurrentPlayerAggression`'s
+  1 (the stand-in AI tracks no relationship, as the game's tracker before it meets the
+  player), and a pole mimic's mimicking, which hides it, is not read, pole mimics not
+  being realized), the food pointer (no food
   item to the communication module is realized), the angry hologram (`angryWithPlayer` is set only when the
   Moon's swarmer neuron is eaten or carried off, 217937, and is otherwise read from the
   save; no iterator is ported), the gate scene (`RegionGate` is not ported: in Moon's gates the concern is
@@ -1088,8 +1095,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
   gamepad and Switch pictures are ported but no other control preset exists). A pointer
   whose overseer has left the room goes on updating where the game's would throw (shelter
   and direction pointers without `FORCEPOINT`): the port logs and stops there. The
-  overseer's AI looks at the player, overseers and bat flies; no other creature is
-  realized. Which camera's room
+  overseer's AI looks at the player, overseers, bat flies and green lizards; no other
+  creature is realized. Which camera's room
   counts as viewed when `AddObject` builds the graphics module is inferred from
   `RoomCamera` and `Room.AddObject`, not checked.
   The Monk's guide light is ported (`Player.Update`'s `HologramLight.TryCreate`, the
@@ -1169,10 +1176,10 @@ second part, else a single-room world for arena levels). The campaign descriptio
   creatures; the game reads only creatures from them); stuck objects moved to the den
   are not realized by `ChangeRooms`. The scavengers' and drop bugs' gear stays IDs
   (`CarriedItem`): neither drops it in a den, so nothing needs it as an object yet.
-  **A creature entering a realized room stays abstract.** The game realizes it there
-  (`ChangeRooms`' `Realize` and `CreatureEnterFromAbstractRoom`, `IsExitingDen` in a
-  realized room, `ReadyForAI`'s `RealizeInRoom` with `PlaceInRealizedRoom`), but no
-  creature but the overseer and the bat fly has a body yet. The port keeps it in the room's
+  **A creature entering a realized room stays abstract** unless it is an overseer, a
+  bat fly or a green lizard. The game realizes it there (`ChangeRooms`' `Realize` and
+  `CreatureEnterFromAbstractRoom`, `IsExitingDen` in a realized room, `ReadyForAI`'s
+  `RealizeInRoom` with `PlaceInRealizedRoom`), but no other creature has a body yet. The port keeps it in the room's
   lists as an abstract creature, as it does for every other unrealized type: its
   `AbstractCreatureAI.Update` only adds to its time buffer while the room is realized
   (the game skips `AbstractBehavior` there too), so it waits, unseen and harmless,
@@ -1207,14 +1214,45 @@ second part, else a single-room world for arena levels). The campaign descriptio
   and a spore plant stay abstract (not realized, a user decision of 2026-10-16; the
   spore plant lacks its consumable fields). The player picks them up, carries them (through shortcuts and room exits
   too), swallows rocks and throws them (D3); thrown spears stick into walls (the room
-  edge ring, `NoSpearStickZone`s and a moving shelter door excepted) and hit bat flies
-  and overseers (D3). Not yet: items falling between rooms
+  edge ring, `NoSpearStickZone`s and a moving shelter door excepted) and hit bat flies,
+  overseers and green lizards (D3; spears lodge in lizards). Not yet: items falling
+  between rooms
   (an item below the room is clamped at -1200 px as the game does for objects; only
   creatures are destroyed there); and objects of other kinds (placed food,
   pearls, ...).
   Arena levels (single-room worlds) make items as a story room does (the arena's
   `levelItems` setting is not ported). `GeneratePopulation`'s reset clears a room's
   `creatures` but not its `entities`, as the game does.
+- **Green lizards (lizard step 3 of 9: the body).** A green lizard is realized as the
+  game's does (`ReadyForAI`'s `RealizeInRoom`, `PlaceInRealizedRoom` with
+  `RandomizeSpawnPositionInRoom` and the `QuickPathFinder`, a den exit into a realized
+  room through the lobby and the pipe, `SpitOutOfShortCut`) and abstracted with its room
+  or toward an unrealized one (`rainworld-re` `creature-model.md` section 13). Its body
+  is `Lizard`'s with `LizardState`: the constructor (green breed data; the other breeds
+  stay abstract until their data is entered), `Update`'s body part (bite delay, jaw,
+  the three health rolls, the rock's turn, `Creature.Update`'s health death roll and
+  fall out of the room, `PhysicalObject.Update`, the lungs), `Act`'s footing, terrain
+  impacts with their sounds, `Violence` with the head shield and hits in the mouth,
+  `Stun`, `SpearStick`, `Die`, and the bites (`AttemptBite`, `Bite`, `DamageAttack`,
+  `JawsSnapShut`, `CarryObject`; `Collide` calls them for a conscious lizard touching
+  a creature it would kill, by the static relationship, which is what the game's
+  `DynamicRelationship` gives for a creature its tracker lacks). Rocks and spears
+  thrown by the player hit it through collision layer 1 (`Rock.HitSomething`,
+  `Spear.HitSomething`, `LodgeInCreature`, a spear stuck in a creature and pinned to a
+  wall), kill it with the kill tag (the session's kills and the sleep screen, D13), and
+  its state saves with its throat health. Not yet, with their steps: `LizardAI` (a
+  passive stand-in that decides nothing and draws nothing, so the lizard lies where it
+  lands: tracker, relationships, social events and taming are steps 6 and 7), movement
+  (`Act`'s locomotion, entering shortcuts, travel between rooms with its three chunks:
+  step 4), `LizardGraphics` and `LizardVoice` (step 5: the voice's `MakeSound` draw is
+  made, its sound is not; the graphics' draws, the head shield's sparks and flash,
+  `WhiteFlicker` and the body part a spear lodges by are missing, D1), eating a dead
+  lizard (step 8: the player cannot grab creatures yet), the drowning bubble (its draws
+  are made, the object is not), lethal water and the rain's flood (no rain yet). The
+  `kill_green_lizards` tutorial message is the game's: it marks the state dead without
+  touching a realized body. More Slugcats', Watcher's and Remix's lizard branches
+  (rot, the other DLC breeds, `LizardState.rotType` behaviour) are left out with their
+  DLCs.
 - **Bat flies.** `FliesWorldAI` is ported whole (the constructor, `Update`
   with the migration, start-up and respawn, the behaviour re-roll, `MigrationDirection`,
   `ClosestSwarmRoom`), with `World.MoveQuantifiedCreatureFromAbstractRoom` and the

@@ -10,8 +10,8 @@ mod weapon;
 
 pub use spear_stick::{SpearStick, SpearStickKind};
 pub use weapon::{
-    ChunkDynamicSoundLoop, ModeChange, SpearParts, Throw, WEAPON_PARAMS, Weapon, WeaponKind,
-    WeaponMode, WeaponTick,
+    ChunkDynamicSoundLoop, ModeChange, SpearParts, StuckIn, Throw, WEAPON_PARAMS, Weapon,
+    WeaponKind, WeaponMode, WeaponTick,
 };
 
 use rw_assets::{AbstractObjectType, ActiveMods};

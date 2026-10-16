@@ -661,6 +661,10 @@ impl FrameDraw<'_> {
         match sprites {
             Some((level, list)) => r.draw_sprites(list, Layer::Midground, level.origin),
             None => {
+                for (body, status, kind) in self.game.debug_bodies() {
+                    let style = status.style(self.time).tinted(kind.color(), status.dead);
+                    r.draw_object_styled(body, self.alpha, style);
+                }
                 if let Some(body) = self.game.body() {
                     r.draw_object(body, self.alpha, self.game.status(), self.time);
                 }
@@ -888,6 +892,34 @@ mod tests {
         assert_eq!(r.rings, chunks, "one radius ring per body chunk");
         assert!(r.lines >= 1, "the connection rod");
         assert!(!r.level);
+    }
+
+    #[test]
+    fn debug_view_draws_the_rooms_other_bodies() {
+        // A floor along the bottom (cells are column by column, top first) and dense
+        // random items, so rocks lie in the room.
+        let (w, h) = (20, 12);
+        let column = format!("{}1|", "0|".repeat(h - 1));
+        let cells = column.repeat(w);
+        let text = format!(
+            "Test\n{w}*{h}|-1|0\n1*1|0|0\n0,0\nBorder: Solid\n\n\n\n\n17|0|0|\nblob\n{cells}\n"
+        );
+        let room = Room::parse(&text).expect("test room parses");
+        let settings = rw_assets::RoomSettings {
+            random_item_density: 1.0,
+            ..rw_assets::RoomSettings::ANCESTOR
+        };
+        let mut game = Game::new(room, &settings, 1, Some((5, 5)));
+        let sprites = game
+            .draw_list(1.0, SpriteColor::BLACK, SpriteColor::BLACK)
+            .expect("player");
+        let bodies = game.debug_bodies();
+        assert!(!bodies.is_empty(), "items in the room");
+        let others: usize = bodies.iter().map(|(b, _, _)| b.chunks.len()).sum();
+        let chunks = game.body().expect("body").chunks.len() + others;
+        let r = Recorder::record(&game, None, &sprites);
+        assert_eq!(r.circles, chunks, "one circle per body chunk");
+        assert_eq!(r.rings, chunks, "one radius ring per body chunk");
     }
 
     #[test]

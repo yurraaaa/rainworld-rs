@@ -774,7 +774,12 @@ impl World {
     /// `FindPath`: in the same room with a connection the path is the destination;
     /// else `AbstractSpacePathFinder.Path`, empty when it finds none. Defines the
     /// creature's own node first.
-    fn find_path(&mut self, id: CreatureId, dest: WorldCoordinate, rng: &mut UnityRandom) {
+    pub(super) fn find_path(
+        &mut self,
+        id: CreatureId,
+        dest: WorldCoordinate,
+        rng: &mut UnityRandom,
+    ) {
         let t = self.creature(id).template;
         let dest = self.define_node(dest, &t, rng);
         let pos = self.creature(id).pos;

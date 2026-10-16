@@ -448,7 +448,7 @@ impl RoomRealizer {
 
     /// `KillRoom`.
     fn kill_room(&mut self, cx: &mut Ctx<'_>, room: i32) {
-        cx.world.abstractize(room);
+        cx.world.abstractize(room, cx.rng);
         match self
             .recently_abstracted
             .iter_mut()

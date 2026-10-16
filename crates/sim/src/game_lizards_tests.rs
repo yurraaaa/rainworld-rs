@@ -1,0 +1,371 @@
+//! One green lizard in one test room. Expected values from the `Lizard` constructor
+//! (`Lizard.cs` 1-200), `Lizard.Update`'s health rolls, `Violence` (1567),
+//! `HitHeadShield` (1539), `HitInMouth` (1557), `Stun`, `SpearStick`, `Rock.HitSomething`,
+//! `Spear.HitSomething`/`LodgeInCreature`, `Creature.Update`'s health death roll and
+//! `LizardBreeds.BreedTemplate` (green: toughness 2.5, so damage resistance 5 and stun
+//! resistance 2.5; body size 1.2, mass 7.5).
+
+use std::sync::Arc;
+
+use rw_assets::world::{FixedRoom, LoadedRoom, WorldData};
+use rw_assets::{ActiveMods, CreatureType, RoomSettings};
+use rw_random::UnityRandom;
+
+use super::super::lizard_hits::Hit;
+use crate::campaign::{SlugcatCampaign, StoryStart};
+use crate::creature::{
+    CreatureId, CreatureTemplate, DamageType, EntityId, Lizard, WorldCoordinate,
+};
+use crate::item::{AbstractObject, Entity, ObjectId, SpearStickKind, WeaponMode};
+use crate::tests::room;
+use crate::world::World;
+use crate::{Input, RainWorldGame, Sounds, Start, Vec2};
+
+/// A Survivor story in a 20 x 8 walled room with `objects`, the player at (2, 1).
+fn game(objects: Vec<AbstractObject>) -> (RainWorldGame, Vec<ObjectId>) {
+    let mut rows = vec!["####################"];
+    rows.extend(["#..................#"; 6]);
+    rows.push("####################");
+    let room = room(&rows);
+    let data = WorldData::from_room(&room);
+    let settings = RoomSettings {
+        random_item_density: 0.0,
+        ..RoomSettings::ANCESTOR
+    };
+    let rooms = Arc::new(FixedRoom(LoadedRoom { room, settings }));
+    let campaign = &SlugcatCampaign::SURVIVOR;
+    let mut world = World::new(data, rooms, campaign.timeline, ActiveMods::NONE, true);
+    let ids: Vec<ObjectId> = objects.into_iter().map(|o| world.add_object(o)).collect();
+    let mut g = RainWorldGame::new_story(
+        world,
+        campaign,
+        StoryStart::new_game(campaign),
+        Start {
+            room: 0,
+            tile: Some((2, 1)),
+        },
+        UnityRandom::new(5),
+        Sounds::default(),
+        &mut (),
+    );
+    for _ in 0..20 {
+        g.tick(Input::NONE, &mut ());
+    }
+    (g, ids)
+}
+
+/// Head, middle and hips along the floor, facing right, head at x 200.
+const BODY: [Vec2; 3] = [
+    Vec2::new(200.0, 29.6),
+    Vec2::new(181.3, 29.6),
+    Vec2::new(162.6, 29.6),
+];
+
+impl RainWorldGame {
+    /// An abstract green lizard at tile (10, 3) of room 0.
+    fn abstract_lizard(&mut self) -> CreatureId {
+        let session = self.story_session();
+        let template = CreatureTemplate::of(CreatureType::GreenLizard, ActiveMods::NONE);
+        let id = self.ids.new_id(-1);
+        let at = WorldCoordinate::new(0, 10, 3, -1);
+        let c = self
+            .world
+            .new_creature(template, at, id, &session, &mut self.ids, &mut self.rng);
+        let l = self.world.insert_creature(c);
+        self.world.add_entity(l);
+        l
+    }
+
+    /// A realized green lizard in room 0, placed at its tile (`PlaceInRoom`).
+    fn placed_lizard(&mut self) -> CreatureId {
+        let l = self.abstract_lizard();
+        assert!(self.world.realize_lizard(l, &mut self.rng));
+        self.world.place_lizard(l, 0, &mut self.rng);
+        l
+    }
+
+    /// A realized green lizard lying still at [`BODY`].
+    fn lying_lizard(&mut self) -> CreatureId {
+        let l = self.placed_lizard();
+        for (c, pos) in self.world.lizard_at(l).body.chunks.iter_mut().zip(BODY) {
+            c.hard_set_position(pos);
+            c.vel = Vec2::ZERO;
+        }
+        l
+    }
+
+    fn rock_hit(&self, chunk: usize, dir: Vec2) -> Hit {
+        Hit {
+            source: None,
+            direction_and_momentum: Some(dir),
+            chunk: Some(chunk),
+            kind: DamageType::Blunt,
+            damage: 0.01,
+            stun_bonus: 45.0,
+        }
+    }
+
+    /// Weapon `id` thrown by the player from `pos` at `vel`.
+    fn throw_at(&mut self, id: ObjectId, pos: Vec2, vel: Vec2) {
+        let player = self.player_id;
+        let w = self.world.weapon_mut(id).expect("realized");
+        w.mode = WeaponMode::Thrown;
+        w.thrown_by = Some(player);
+        w.throw_dir = (vel.x.signum() as i32, 0);
+        w.rotation = vel.normalized();
+        w.first_frame_trace_from_pos = None;
+        let c = w.chunk_mut();
+        c.hard_set_position(pos);
+        c.vel = vel;
+    }
+
+    fn lizard_test_weapon_mode(&self, id: ObjectId) -> WeaponMode {
+        self.world
+            .object(id)
+            .realized
+            .as_deref()
+            .expect("realized")
+            .mode
+    }
+
+    fn lizard_tick(&mut self, l: CreatureId) {
+        let room = Arc::clone(&self.world.realized(0).expect("room 0").room);
+        self.run_lizard(0, l, &room);
+    }
+}
+
+fn rock(n: i32) -> AbstractObject {
+    AbstractObject::new_rock(EntityId::new(0, n), WorldCoordinate::new(0, 10, 4, -1))
+}
+
+fn spear(n: i32) -> AbstractObject {
+    AbstractObject::new_spear(
+        EntityId::new(0, n),
+        WorldCoordinate::new(0, 10, 4, -1),
+        false,
+    )
+}
+
+#[test]
+fn the_constructor_builds_the_green_body() {
+    let (mut g, _) = game(vec![]);
+    let l = g.abstract_lizard();
+    let before = g.rng.clone();
+    let lizard = Lizard::new(g.world.creature(l), &mut g.rng).expect("green data");
+    assert_eq!(g.rng, before, "effectColor is drawn under the ID's seed");
+    for c in lizard.chunks() {
+        // 8 * bodySizeFac 1.2; bodyMass 7.5 / 3.
+        assert!((c.rad - 9.6).abs() < 1e-5);
+        assert!((c.mass - 2.5).abs() < 1e-5);
+        assert!(c.go_through_floors);
+    }
+    let rods = &lizard.body.connections;
+    // 17 * 1 * (1.2 + 1) / 2, and the push at 1 + bodyStiffnes 0.5 times it with
+    // elasticity 1 - Lerp(0.9, 0.5, 0.5).
+    assert!((rods[0].distance - 18.7).abs() < 1e-4);
+    assert!((rods[1].distance - 18.7).abs() < 1e-4);
+    assert!((rods[2].distance - 28.05).abs() < 1e-4);
+    assert!((rods[2].elasticity - 0.3).abs() < 1e-5);
+    // Hue 0.32 +- 0.1, full saturation: green is the largest channel.
+    let [r, gr, b] = lizard.effect_color;
+    assert!(gr >= r && gr >= b, "{:?}", lizard.effect_color);
+    let again = Lizard::new(g.world.creature(l), &mut g.rng).expect("green data");
+    assert_eq!(again.effect_color, lizard.effect_color, "seeded by the ID");
+}
+
+#[test]
+fn the_mean_spawn_flag_sets_spawn_data_evil() {
+    let (mut g, _) = game(vec![]);
+    let l = g.abstract_lizard();
+    g.world.creature_mut(l).spawn_data = Some("{Mean:0.7}".into());
+    let lizard = Lizard::new(g.world.creature(l), &mut g.rng).expect("green data");
+    assert!((lizard.spawn_data_evil - 0.7).abs() < 1e-6);
+}
+
+#[test]
+fn a_placed_lizard_falls_and_rests_on_the_floor() {
+    let (mut g, _) = game(vec![]);
+    let l = g.placed_lizard();
+    assert_eq!(g.world.lizard_ref(l).new_to_room_invinsibility, 40);
+    for _ in 0..60 {
+        g.tick(Input::NONE, &mut ());
+    }
+    let lizard = g.world.lizard_ref(l);
+    for c in lizard.chunks() {
+        assert!((c.pos.y - 29.6).abs() < 1.0, "on the floor: {:?}", c.pos);
+    }
+    assert!(!lizard.dead);
+    assert_eq!(lizard.new_to_room_invinsibility, 0);
+    assert_eq!(g.world.creature(l).pos.room, 0);
+    assert_eq!(g.world.creature(l).pos.tile.1, 1);
+}
+
+#[test]
+fn a_healthy_lizard_update_makes_four_draws() {
+    // Three health rolls (each stops after `value * k > health` fails) and the lungs'.
+    let (mut g, _) = game(vec![]);
+    let l = g.lying_lizard();
+    for _ in 0..40 {
+        g.lizard_tick(l);
+    }
+    for _ in 0..5 {
+        let mut expected = g.rng.clone();
+        for _ in 0..4 {
+            expected.value();
+        }
+        g.lizard_tick(l);
+        assert_eq!(g.rng, expected);
+    }
+}
+
+#[test]
+fn a_rock_to_the_body_hurts_and_stuns_with_one_draw() {
+    let (mut g, _) = game(vec![]);
+    let l = g.lying_lizard();
+    let mut expected = g.rng.clone();
+    expected.value();
+    g.creature_violence(l, g.rock_hit(1, Vec2::new(0.0, -5.0)));
+    assert_eq!(g.rng, expected, "the stun's lengthening draw");
+    // 0.01 / 5, and (0.01 * 30 + 45) / 2.5 at full health.
+    assert!((g.world.creature(l).state.health - 0.998).abs() < 1e-6);
+    let lizard = g.world.lizard_ref(l);
+    assert_eq!(lizard.stun, 18);
+    // The push over the chunk's mass.
+    assert!((lizard.chunks()[1].vel.y + 2.0).abs() < 1e-5);
+}
+
+#[test]
+fn the_head_shield_turns_a_hit_from_the_front() {
+    let (mut g, _) = game(vec![]);
+    let l = g.lying_lizard();
+    let mut expected = g.rng.clone();
+    expected.value();
+    g.creature_violence(l, g.rock_hit(0, Vec2::new(-3.0, 0.0)));
+    assert_eq!(g.rng, expected, "a silent room: the stun's draw only");
+    // A tenth of the damage; (0.01 * 0.5 * 30 + 45 * 2/3) / 2.5 stun; a third of the push.
+    assert!((g.world.creature(l).state.health - 0.9998).abs() < 1e-6);
+    let lizard = g.world.lizard_ref(l);
+    assert_eq!(lizard.stun, 12);
+    assert!((lizard.chunks()[0].vel.x + 0.4).abs() < 1e-5);
+}
+
+#[test]
+fn a_hit_in_the_open_mouth_hurts_more_and_the_throat() {
+    let (mut g, _) = game(vec![]);
+    let l = g.lying_lizard();
+    *g.world.lizard_at(l).jaw_open_field_mut() = 1.0;
+    g.creature_violence(l, g.rock_hit(0, Vec2::new(-3.0, 0.0)));
+    // Half again the damage, double the stun.
+    let state = &g.world.creature(l).state;
+    assert!((state.health - 0.997).abs() < 1e-6);
+    let (throat, _) = state.lizard_health_parts().expect("a lizard state");
+    assert!((throat - 0.997).abs() < 1e-6);
+    assert_eq!(g.world.lizard_ref(l).stun, 36);
+    assert_eq!(
+        g.world.creature(l).state_save_string(),
+        "<cB>Health<cC>0.997<cB>ThroatHealth<cC>0.997"
+    );
+}
+
+#[test]
+fn a_hurt_lizard_is_stunned_longer() {
+    // `Stun` below half health: times 1 + InverseLerp(0.75, 0, health) * 1.5.
+    let (mut g, _) = game(vec![]);
+    let l = g.lying_lizard();
+    g.world.creature_mut(l).state.health = 0.25;
+    g.lizard_stun(l, 30);
+    assert_eq!(g.world.lizard_ref(l).stun, 60);
+}
+
+#[test]
+fn a_thrown_rock_hits_the_lizard_and_bounces_off() {
+    let (mut g, ids) = game(vec![rock(1)]);
+    let l = g.lying_lizard();
+    g.throw_at(ids[0], Vec2::new(181.3, 90.0), Vec2::new(0.0, -50.0));
+    assert!(!g.trace_layer_one(0, ids[0]));
+    assert_eq!(g.lizard_test_weapon_mode(ids[0]), WeaponMode::Free);
+    assert!((g.world.creature(l).state.health - 0.998).abs() < 1e-6);
+    assert_eq!(g.world.lizard_ref(l).stun, 18);
+    assert_eq!(g.world.creature(l).kill_tag, Some(g.player_id));
+    let w = g.world.weapon_mut(ids[0]).expect("realized");
+    assert_eq!(w.forbidden_to_player, 40);
+    assert!(w.thrown_by.is_none());
+    assert!(w.chunk().vel.y > 0.0, "bounced back up");
+    assert!(!g.world.session.peaceful, "a slugcat's hit");
+}
+
+#[test]
+fn a_spear_lodges_in_the_hips_and_the_lizard_dies_of_its_wounds() {
+    let (mut g, ids) = game(vec![spear(1)]);
+    let l = g.lying_lizard();
+    g.throw_at(ids[0], Vec2::new(120.0, 30.0), Vec2::new(50.0, 0.0));
+    assert!(!g.trace_layer_one(0, ids[0]));
+    assert_eq!(
+        g.lizard_test_weapon_mode(ids[0]),
+        WeaponMode::StuckInCreature
+    );
+    // Stab 1 / 5 and (30 + 20) / 2.5.
+    assert!((g.world.creature(l).state.health - 0.8).abs() < 1e-6);
+    assert_eq!(g.world.lizard_ref(l).stun, 20);
+    let sticks = g.world.spear_sticks_of(Entity::Creature(l));
+    assert_eq!(sticks.len(), 1);
+    assert!(matches!(
+        sticks[0].kind,
+        SpearStickKind::Lodged { chunk: 2, .. }
+    ));
+    // Below zero the update rolls `value < -health && value < 0.025` every tick.
+    g.world.creature_mut(l).state.health = -1.0;
+    for _ in 0..2000 {
+        g.tick(Input::NONE, &mut ());
+        if g.world.lizard_ref(l).dead {
+            break;
+        }
+    }
+    assert!(g.world.lizard_ref(l).dead);
+    assert!(!g.world.creature(l).state.alive);
+    let kills = &g.world.session.kills;
+    assert_eq!(kills.len(), 1);
+    assert_eq!(kills[0].kind, CreatureType::GreenLizard);
+    assert_eq!(
+        g.world.creature(l).state_save_string(),
+        "Dead<cB><cB>Health<cC>-1"
+    );
+}
+
+#[test]
+fn a_spear_on_the_head_shield_bounces_off() {
+    let (mut g, ids) = game(vec![spear(1)]);
+    let l = g.lying_lizard();
+    g.throw_at(ids[0], Vec2::new(260.0, 30.0), Vec2::new(-50.0, 0.0));
+    assert!(!g.trace_layer_one(0, ids[0]));
+    assert_eq!(g.lizard_test_weapon_mode(ids[0]), WeaponMode::Free);
+    assert!(g.world.spear_sticks_of(Entity::Creature(l)).is_empty());
+    // A tenth of 1 / 5; (0.5 * 30 + 20 * 2/3) / 2.5.
+    assert!((g.world.creature(l).state.health - 0.98).abs() < 1e-6);
+    assert_eq!(g.world.lizard_ref(l).stun, 11);
+}
+
+#[test]
+fn an_abstracted_lizard_realizes_again() {
+    let (mut g, _) = game(vec![]);
+    let l = g.lying_lizard();
+    let pos = g.world.creature(l).pos;
+    g.world.abstractize_lizard(l, pos, &mut g.rng);
+    assert!(g.world.creature(l).lizard().is_none());
+    assert!(g.world.room_lizards(0).is_empty());
+    assert!(g.world.realize_lizard(l, &mut g.rng));
+    g.world.place_lizard(l, 0, &mut g.rng);
+    assert_eq!(g.world.room_lizards(0).len(), 1);
+}
+
+#[test]
+fn a_realized_lizard_is_a_danger_to_the_player() {
+    // `CreatureDangerScore`'s inputs: green `dangerousToPlayer`, `LizardAI.
+    // CurrentPlayerAggression` without a player relationship (1) and the head.
+    let (mut g, _) = game(vec![]);
+    let l = g.lying_lizard();
+    let d = g.world.creature_danger(l).expect("realized");
+    assert_eq!(d.player_aggression, Some(1.0));
+    assert_eq!(d.danger_pos, BODY[0]);
+    assert!(d.dangerous_to_player > 0.0);
+}

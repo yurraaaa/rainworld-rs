@@ -59,6 +59,7 @@ impl CreatureVessel {
         room: &Room,
         rng: &mut UnityRandom,
         sounds: &mut Sounds,
+        tick_sound: SoundId,
     ) -> VesselStep {
         let from = self.vessel.pos;
         if !self.vessel.step(room) {
@@ -66,7 +67,7 @@ impl CreatureVessel {
         }
         let pos = self.vessel.pos;
         let middle = Vec2::middle_of_tile(pos);
-        sounds.play_at(SoundId::SmallNpcTickAlongInShortcut, middle, 1.0, 1.0, rng);
+        sounds.play_at(tick_sound, middle, 1.0, 1.0, rng);
         let tile = room.tile(pos.0, pos.1);
         if tile.terrain == Terrain::ShortcutEntrance {
             return VesselStep::SpatOut;
@@ -385,6 +386,32 @@ impl World {
             entrance: entrance?,
             creature: CreatureType::Slugcat,
         })
+    }
+}
+
+impl crate::creature::CreatureTemplate {
+    /// `ShortcutHandler.NPCShortcutSound`: entering (0), ticking along (1) or leaving
+    /// (2), small (small creatures and body size under 0.4), large (over 1.5) or medium.
+    #[must_use]
+    pub fn npc_shortcut_sound(&self, situation: u8) -> SoundId {
+        let size = if self.small_creature || self.body_size < 0.4 {
+            0
+        } else if self.body_size > 1.5 {
+            2
+        } else {
+            1
+        };
+        match (situation, size) {
+            (0, 0) => SoundId::SmallNpcEnterShortcut,
+            (0, 2) => SoundId::LargeNpcEnterShortcut,
+            (0, _) => SoundId::MediumNpcEnterShortcut,
+            (1, 0) => SoundId::SmallNpcTickAlongInShortcut,
+            (1, 2) => SoundId::LargeNpcTickAlongInShortcut,
+            (1, _) => SoundId::MediumNpcTickAlongInShortcut,
+            (_, 0) => SoundId::SmallNpcExitShortcut,
+            (_, 2) => SoundId::LargeNpcExitShortcut,
+            _ => SoundId::MediumNpcExitShortcut,
+        }
     }
 }
 
