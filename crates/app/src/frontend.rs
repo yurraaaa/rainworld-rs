@@ -23,7 +23,7 @@ use rw_render::{
     Camera, Color, MapGlobals, MenuSceneGlobals, Renderer, Resolution, StageBatch, StageGlobals,
 };
 use rw_save::WinOutcome;
-use rw_save::{CampaignStart, SaveSlot};
+use rw_save::{CampaignStart, PlayerProgression, SaveSlot};
 use rw_sim::campaign::SlugcatCampaign;
 use rw_sim::world::RegionState;
 use rw_sim::{SessionEnd, SoundId, Vec2};
@@ -66,6 +66,8 @@ pub struct AppContext {
     pub save_backed_up: bool,
     /// The region state the last cycle's world kept in memory, for the next cycle.
     pub carried_region_state: Option<RegionState>,
+    /// The slot's progression while a dev start plays on a detached copy (D16).
+    stashed_saves: Option<PlayerProgression>,
 }
 
 /// Where the music player's songs play: through the audio output, or silently in
@@ -181,6 +183,7 @@ impl AppContext {
             start,
             save_backed_up: false,
             carried_region_state: None,
+            stashed_saves: None,
         })
     }
 
@@ -328,15 +331,13 @@ impl AppContext {
         };
         // `StoryGameSession`: the save state, saved at once as a death and a quit.
         let mut fade_in_time = condition.game_fade_in_time();
+        if story.is_none() {
+            self.dev_save_state(&game);
+        }
         if let Some((_, campaign)) = story {
             let load = condition == StoryGameInitCondition::Load;
             let seed = game.sim().save_state_seed();
-            let world_version = std::fs::read_to_string(
-                self.menu.assets.resolve_file_path("World/worldVersion.txt"),
-            )
-            .ok()
-            .and_then(|v| v.trim().parse().ok())
-            .unwrap_or(0);
+            let world_version = self.world_version();
             match self.menu.saves.get_or_initiate_save_state(
                 Self::campaign_start(campaign),
                 seed,
@@ -361,6 +362,71 @@ impl AppContext {
             pause_menu: None,
             last_pause_button: false,
         }
+    }
+
+    /// A dev start's save state: a new game's at the start room, in memory only. It
+    /// lives in a detached copy of the slot's progression (made afresh for each dev
+    /// game), so `Win`, starving and the screens after them have it while nothing
+    /// reaches the disk (D16).
+    fn dev_save_state(&mut self, game: &Game) {
+        let real = match self.stashed_saves.take() {
+            Some(real) => real,
+            None => std::mem::replace(&mut self.menu.saves, PlayerProgression::in_memory(None)),
+        };
+        self.menu.saves = real.detached();
+        self.stashed_saves = Some(real);
+        let sim = game.sim();
+        let den = sim
+            .world()
+            .abstract_room(sim.player_pos().room)
+            .map(|r| r.name.clone())
+            .unwrap_or_default();
+        let start = CampaignStart {
+            slugcat: sim.campaign().name,
+            den: &den,
+            vanilla: true,
+        };
+        let seed = sim.save_state_seed();
+        let world_version = self.world_version();
+        match self
+            .menu
+            .saves
+            .get_or_initiate_save_state(start, seed, false, false)
+        {
+            Ok(state) => state.world_version = world_version,
+            Err(e) => log::error!("the dev start's save state: {e}"),
+        }
+    }
+
+    /// The slot's progression back after a dev start, before any process but the game
+    /// and its screens.
+    fn end_dev_saves(&mut self, next: ProcessId) {
+        let game_or_screen = matches!(
+            next,
+            ProcessId::Game
+                | ProcessId::SleepScreen
+                | ProcessId::GhostScreen
+                | ProcessId::DeathScreen
+                | ProcessId::KarmaToMaxScreen
+                | ProcessId::Dream
+                | ProcessId::StarveScreen
+        );
+        if game_or_screen {
+            return;
+        }
+        if let Some(real) = self.stashed_saves.take() {
+            log::info!("dev start over: the slot's progression again");
+            self.carried_region_state = None;
+            self.menu.set_saves(real);
+        }
+    }
+
+    /// `RainWorld.worldVersion` (`World/worldVersion.txt`).
+    fn world_version(&self) -> i32 {
+        std::fs::read_to_string(self.menu.assets.resolve_file_path("World/worldVersion.txt"))
+            .ok()
+            .and_then(|v| v.trim().parse().ok())
+            .unwrap_or(0)
     }
 
     fn campaign_start(campaign: &SlugcatCampaign) -> CampaignStart<'static> {
@@ -481,6 +547,7 @@ impl MenuContext for AppContext {
 impl ProcessFactory<AppProcess> for AppContext {
     fn create_process(&mut self, id: ProcessId, old: Option<&AppProcess>) -> AppProcess {
         log::info!("process {id:?}");
+        self.end_dev_saves(id);
         // `PostSwitchMainProcess`: `progression.Revert()` before every process but these
         // screens and dreams, so a game loads the stored state (or a starved one).
         if !matches!(
@@ -778,25 +845,32 @@ impl GameProcess {
             SessionEnd::Win { malnourished } => {
                 log::info!("Win (malnourished: {malnourished})");
                 self.scene.game().store_map_discovery(&mut ctx.menu.saves);
+                // A dev start's copy has no file to back up, and its `Win` is not the
+                // run's backup.
+                let mut dev_backed_up = true;
+                let backed_up = if self.scene.game().story_session() {
+                    &mut ctx.save_backed_up
+                } else {
+                    &mut dev_backed_up
+                };
                 let assets = ctx.menu.assets.clone();
                 let mut game = HibernatingGame {
                     sim: self.scene.game_mut().sim_mut(),
                     assets: &assets,
                 };
-                let next =
-                    match game.win(&mut ctx.menu.saves, malnourished, &mut ctx.save_backed_up) {
-                        Ok((outcome, region)) => {
-                            ctx.carried_region_state = region;
-                            match outcome {
-                                WinOutcome::Dream(_) => ProcessId::Dream,
-                                WinOutcome::SleepScreen => ProcessId::SleepScreen,
-                            }
+                let next = match game.win(&mut ctx.menu.saves, malnourished, backed_up) {
+                    Ok((outcome, region)) => {
+                        ctx.carried_region_state = region;
+                        match outcome {
+                            WinOutcome::Dream(_) => ProcessId::Dream,
+                            WinOutcome::SleepScreen => ProcessId::SleepScreen,
                         }
-                        Err(e) => {
-                            log::error!("saving the cycle: {e}");
-                            ProcessId::SleepScreen
-                        }
-                    };
+                    }
+                    Err(e) => {
+                        log::error!("saving the cycle: {e}");
+                        ProcessId::SleepScreen
+                    }
+                };
                 requests.switch_to(next);
             }
             SessionEnd::Starve => {

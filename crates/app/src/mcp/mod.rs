@@ -7,6 +7,8 @@
 //! ([`crate::scene::Scene::draw`]). Logging goes to stderr; stdout carries only MCP.
 
 #[cfg(test)]
+mod dev_start_tests;
+#[cfg(test)]
 mod game_over_tests;
 #[cfg(test)]
 mod kills_tests;
