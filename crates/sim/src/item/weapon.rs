@@ -145,6 +145,8 @@ pub struct ChunkDynamicSoundLoop {
     last_vol: f32,
     p: f32,
     pub emitter: Option<LoopEmitter>,
+    /// Emitters `Stop` let go, still in the room until their next update destroys them.
+    pub released: Vec<LoopEmitter>,
 }
 
 impl Default for ChunkDynamicSoundLoop {
@@ -156,6 +158,7 @@ impl Default for ChunkDynamicSoundLoop {
             last_vol: 1.0,
             p: 1.0,
             emitter: None,
+            released: Vec::new(),
         }
     }
 }
@@ -1177,14 +1180,14 @@ impl ChunkDynamicSoundLoop {
             self.emitter = None;
         }
         if self.sound != self.last_sound {
-            self.stop(cx.sounds);
+            self.stop();
             if self.sound.is_some() && self.v > 0.0 && owner_room.is_some() {
                 self.start(pos, cx);
             }
             self.last_sound = self.sound;
         }
         if self.v == 0.0 && self.last_vol > 0.0 {
-            self.stop(cx.sounds);
+            self.stop();
         } else if self.v > 0.0
             && self.last_vol == 0.0
             && self.sound.is_some()
@@ -1226,11 +1229,39 @@ impl ChunkDynamicSoundLoop {
         });
     }
 
-    /// `Stop`: the emitter is let go (`alive = false`); the port stops its sound at once.
-    pub fn stop(&mut self, sounds: &mut Sounds) {
-        if let Some(e) = self.emitter.take() {
-            sounds.stop_emitter(e.sound);
+    /// `Stop`: the emitter is let go (`alive = false`); it dies at its next update.
+    pub fn stop(&mut self) {
+        if let Some(mut e) = self.emitter.take() {
+            e.alive = false;
+            if !e.slated {
+                self.released.push(e);
+            }
         }
+    }
+
+    /// The emitter, held or let go, that joined the update list at `order`.
+    pub fn emitter_mut(&mut self, order: u64) -> Option<&mut LoopEmitter> {
+        self.emitter
+            .iter_mut()
+            .chain(self.released.iter_mut())
+            .find(|e| e.update_order == order)
+    }
+
+    /// The emitters still in a room's update list.
+    pub fn emitters(&self) -> impl Iterator<Item = &LoopEmitter> {
+        self.emitter
+            .iter()
+            .chain(&self.released)
+            .filter(|e| !e.slated)
+    }
+
+    /// Every emitter, held or let go, leaves the loop (its owner's graphics are gone):
+    /// they stay in the room as they are.
+    pub fn take_emitters(&mut self) -> Vec<LoopEmitter> {
+        let mut all: Vec<LoopEmitter> = self.emitter.take().into_iter().collect();
+        all.append(&mut self.released);
+        all.retain(|e| !e.slated);
+        all
     }
 }
 

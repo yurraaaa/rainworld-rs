@@ -14,7 +14,7 @@ use crate::item::{AbstractObject, Entity, ObjectId, WeaponMode};
 use crate::player::StomachObject;
 use crate::tests::room;
 use crate::world::World;
-use crate::{Input, RainWorldGame, SoundId, Sounds, Start, Vec2};
+use crate::{Input, RainWorldGame, SoundEvent, SoundId, Sounds, Start, Vec2};
 use rw_assets::CreatureType;
 
 const PICKUP: Input = Input {
@@ -511,5 +511,62 @@ fn a_held_rock_stays_in_the_hand_while_walking() {
             .as_deref()
             .expect("realized");
         assert_eq!(w.chunk().pos, hand);
+    }
+}
+
+/// `DynamicSoundLoop.Stop` only sets `emitter.alive = false` and drops it. A rock that
+/// stops skidding lets its loop go; the emitter joined the room after the rock, so it
+/// updated first that tick, and at its next update it finds no upkeep and `Destroy`s
+/// itself, which cuts the sound.
+#[test]
+fn a_stopped_rock_loop_dies_at_its_next_update() {
+    let (mut g, ids) = game(floor_room(), (2, 1), vec![rock(1, (6, 1))]);
+    let text = "Volume: 6\nVolume exponent: 1.8\nRock_Skidding_On_Ground_LOOP : clip\n";
+    let names = rw_assets::ClipNames::new(["clip".to_owned()], None);
+    let table = rw_assets::SoundTable::parse(text, &names).unwrap();
+    g.sounds = Sounds::new(Arc::new(table));
+    g.world
+        .weapon_mut(ids[0])
+        .expect("realized")
+        .chunk_mut()
+        .vel = Vec2::new(12.0, 0.0);
+    g.tick(Input::NONE, &mut ());
+    let held = g.weapon_loop(ids[0]).emitter.expect("the skid loop").sound;
+    g.world
+        .weapon_mut(ids[0])
+        .expect("realized")
+        .chunk_mut()
+        .vel = Vec2::ZERO;
+    g.sounds.take_events();
+    g.tick(Input::NONE, &mut ());
+    let events = g.sounds.take_events();
+    assert!(
+        !events.iter().any(|e| matches!(e, SoundEvent::Stop(_))),
+        "the tick it was let go: {events:?}"
+    );
+    let released = &g.weapon_loop(ids[0]).released;
+    assert!(g.weapon_loop(ids[0]).emitter.is_none());
+    assert_eq!(released.len(), 1);
+    assert!(!released[0].alive && !released[0].slated);
+    g.tick(Input::NONE, &mut ());
+    let stops: Vec<_> = g
+        .sounds
+        .take_events()
+        .into_iter()
+        .filter(|e| matches!(e, SoundEvent::Stop(_)))
+        .collect();
+    assert_eq!(stops, vec![SoundEvent::Stop(held)], "its next update");
+    assert!(g.weapon_loop(ids[0]).released.is_empty());
+}
+
+impl RainWorldGame {
+    fn weapon_loop(&self, id: ObjectId) -> &crate::item::ChunkDynamicSoundLoop {
+        &self
+            .world
+            .object(id)
+            .realized
+            .as_deref()
+            .expect("realized")
+            .sound_loop
     }
 }

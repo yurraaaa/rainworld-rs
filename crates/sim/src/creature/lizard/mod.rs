@@ -154,6 +154,9 @@ pub struct Lizard {
     /// Its `LizardGraphics` module's shared state, while it has one (its room is
     /// viewed and the app builds graphics).
     pub graphics: Option<LizardGraphicsLink>,
+    /// The loop emitters of a graphics module `NoLongerViewed` dropped: still in their
+    /// room, unkept, until their own update destroys them.
+    pub dropped_loop_emitters: Vec<crate::LoopEmitter>,
     /// `voice`, built on first use from the game's sound table (its constructor draws
     /// only on the ID's seed, so when makes no difference).
     pub voice: Option<LizardVoice>,
@@ -268,6 +271,7 @@ impl Lizard {
             bite_control_reset: false,
             effect_color,
             graphics: None,
+            dropped_loop_emitters: Vec::new(),
             voice: None,
             ai: LizardAi::default(),
             short_cut_rad_add: 0.0,

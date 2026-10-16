@@ -297,7 +297,7 @@ pub enum SoundEvent {
 }
 
 /// `StaticSoundLoop`: a looping sound at a fixed position whose emitter is made while
-/// its volume is above 0 and dropped when it falls to 0.
+/// its volume is above 0 and let go when it falls to 0.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StaticSoundLoop {
     pub id: SoundId,
@@ -305,6 +305,8 @@ pub struct StaticSoundLoop {
     pub volume: f32,
     pub pitch: f32,
     emitter: Option<EmitterId>,
+    /// Emitters let go (`alive = false`), still in the room until their next update.
+    released: Vec<EmitterId>,
 }
 
 impl StaticSoundLoop {
@@ -316,11 +318,26 @@ impl StaticSoundLoop {
             volume,
             pitch,
             emitter: None,
+            released: Vec::new(),
         }
     }
 
-    /// `Update`: keeps the emitter alive with the current volume and pitch, drops it at
-    /// volume 0, or starts the loop (`Room.PlaySound(id, emitter, loop: true, ...)`).
+    #[must_use]
+    pub fn emitter(&self) -> Option<EmitterId> {
+        self.emitter
+    }
+
+    /// `SoundEmitter.Update` of the emitters let go: unkept, each is destroyed and the
+    /// microphone cuts its sound. The owner calls it where the emitters update, which
+    /// for an owner that was in the room first is before its own update.
+    pub fn update_released(&mut self, sounds: &mut Sounds) {
+        for e in self.released.drain(..) {
+            sounds.stop_emitter(e);
+        }
+    }
+
+    /// `Update`: keeps the emitter alive with the current volume and pitch, lets it go
+    /// at volume 0, or starts the loop (`Room.PlaySound(id, emitter, loop: true, ...)`).
     ///
     /// Unheard (the camera is in another room), the game's emitter dies two ticks on
     /// (`soundStillPlaying`) and is remade without a sound, so it starts again on return.
@@ -329,7 +346,7 @@ impl StaticSoundLoop {
             self.emitter = None;
         } else if let Some(emitter) = self.emitter {
             if self.volume == 0.0 {
-                sounds.stop_emitter(emitter);
+                self.released.push(emitter);
                 self.emitter = None;
             } else {
                 sounds.update_emitter(emitter, self.volume, self.pitch);
@@ -357,7 +374,33 @@ pub struct LoopEmitter {
     pub playing: bool,
 }
 
+/// Where a body's new emitter joins: its room's update list (the world's counter) and
+/// what the microphone's refresh reads.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct EmitterPlace {
+    pub room: i32,
+    pub camera_room: i32,
+    pub tick: u64,
+    pub update_seq: u64,
+}
+
 impl LoopEmitter {
+    /// A new emitter joining the room at `place`; `played`: the microphone made a sound
+    /// for it (heard only in the camera's room).
+    pub fn join(sound: EmitterId, played: bool, place: &mut EmitterPlace) -> Self {
+        place.update_seq += 1;
+        Self {
+            sound,
+            room: place.room,
+            update_order: place.update_seq,
+            alive: true,
+            slated: false,
+            still_playing: true,
+            last_playing_tick: place.tick,
+            playing: played && place.room == place.camera_room,
+        }
+    }
+
     /// `ChunkSoundEmitter.Update` with the microphone's refresh before it.
     pub fn update(&mut self, owner_room: Option<i32>, camera_room: i32, tick: u64) {
         if self.playing && camera_room == self.room {

@@ -343,6 +343,14 @@ impl ShelterDoor {
         f - f.floor()
     }
 
+    /// The let-go loop emitters' updates. They joined the room after the door (added in
+    /// `Room.Loaded`, first in the update list), so `Room.Update`'s backward walk runs
+    /// them before it.
+    pub fn update_loop_emitters(&mut self, sounds: &mut Sounds) {
+        self.working_loop.update_released(sounds);
+        self.gasket_mover_loop.update_released(sounds);
+    }
+
     /// `Update` from `openTime` on: the timer-driven opening at cycle start (or the
     /// close speed), the bolt, hatch, segment, piston, cover and gasket sounds and loops,
     /// and the parts' progress. `rain_timer` is `rainCycle.timer`.

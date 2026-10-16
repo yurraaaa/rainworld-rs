@@ -161,6 +161,7 @@ impl RainWorldGame {
         } else {
             &mut self.silent
         };
+        self.shelter_doors[k].update_loop_emitters(sounds);
         let step = self.shelter_doors[k].update(timer, sounds, &mut self.rng);
         if step.stun_creatures {
             self.stun_shelter_creatures(index);

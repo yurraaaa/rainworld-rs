@@ -8,7 +8,7 @@ use rw_random::UnityRandom;
 
 use super::{DoorStep, ShelterDoor};
 use crate::tests::room;
-use crate::{SoundEvent, SoundId, Sounds, Vec2};
+use crate::{EmitterId, SoundEvent, SoundId, Sounds, Vec2};
 
 /// A 12 x 10 shelter whose room exit is in the floor at x 5.
 fn shelter() -> Room {
@@ -195,4 +195,52 @@ fn shelter_range_and_hostiles() {
     assert!(ShelterDoor::hostile_for_shelter(CreatureType::Spider));
     assert!(!ShelterDoor::hostile_for_shelter(CreatureType::Fly));
     assert!(!ShelterDoor::hostile_for_shelter(CreatureType::Overseer));
+}
+
+impl ShelterDoor {
+    /// One turn in the room's update list: the loop emitters (which joined after the
+    /// door) before the door; the `Stop`s it made.
+    fn turn(&mut self, sounds: &mut Sounds, rng: &mut UnityRandom) -> Vec<EmitterId> {
+        sounds.take_events();
+        self.update_loop_emitters(sounds);
+        self.update(1000, sounds, rng);
+        sounds
+            .take_events()
+            .into_iter()
+            .filter_map(|e| match e {
+                SoundEvent::Stop(id) => Some(id),
+                _ => None,
+            })
+            .collect()
+    }
+}
+
+/// `StaticSoundLoop.Update` at volume 0 sets `emitter.alive = false` and drops it. While
+/// the door closes, each loop fades to 0 and is let go; its emitter, which updates
+/// before the door, is destroyed at its next update and nothing stops before.
+#[test]
+fn a_silenced_static_loop_dies_at_its_next_update() {
+    let mut rng = UnityRandom::new(1);
+    let mut sounds = all_sounds();
+    let mut d = door(1000, &mut rng);
+    d.close();
+    let (mut let_go, mut stopped) = (Vec::new(), Vec::new());
+    for _ in 0..400 {
+        let before = [d.working_loop.emitter(), d.gasket_mover_loop.emitter()];
+        let stops = d.turn(&mut sounds, &mut rng);
+        assert_eq!(stops, std::mem::take(&mut let_go));
+        stopped.extend(stops);
+        let after = [d.working_loop.emitter(), d.gasket_mover_loop.emitter()];
+        let_go = before
+            .into_iter()
+            .zip(after)
+            .filter_map(|(b, a)| b.filter(|_| a != b))
+            .collect();
+    }
+    assert_eq!(d.closed_fac, 1.0);
+    assert_eq!(d.working_loop.emitter(), None);
+    assert!(
+        stopped.len() >= 2,
+        "both loops played and were let go: {stopped:?}"
+    );
 }

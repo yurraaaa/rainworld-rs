@@ -797,8 +797,7 @@ updates in) and the passage screen's `Passages` song are ported as hooks
 - **Item sounds.** A spear sticking into the ground plays `Spear_Stick_In_Ground`; a
   skidding rock runs `Rock_Skidding_On_Ground_LOOP` as a `ChunkDynamicSoundLoop` (its
   loop is made only in a room a camera shows, as the game's `DynamicSoundLoop` makes
-  one only with a microphone in the room; a stopped loop stops at once, where the
-  game fades it out over its last update). The `Through_Air` loops are commented out
+  one only with a microphone in the room). The `Through_Air` loops are commented out
   of the game's `sounds.txt` and never play. Throws play `Slugcat_Throw_Rock` /
   `Slugcat_Throw_Spear`, wall hits `Rock_Hit_Wall` / `Spear_Bounce_Off_Wall`, sticking
   `Spear_Stick_In_Wall`, skims `Weapon_Skid`, the backward belly-slide throw

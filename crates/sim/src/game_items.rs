@@ -504,18 +504,17 @@ impl RainWorldGame {
         }
         self.player_release_grasp(grasp);
         let coord = self.pos();
-        if let Some(e) = self
+        let emitters = self
             .world
-            .object(id)
-            .realized
-            .as_deref()
-            .and_then(|w| w.sound_loop.emitter)
-        {
-            let sounds = if index == self.camera_room {
-                &mut self.sounds
-            } else {
-                &mut self.silent
-            };
+            .weapon_mut(id)
+            .map(|w| w.sound_loop.take_emitters())
+            .unwrap_or_default();
+        let sounds = if index == self.camera_room {
+            &mut self.sounds
+        } else {
+            &mut self.silent
+        };
+        for e in emitters {
             sounds.stop_emitter(e.sound);
         }
         self.world.abstractize_object(id, coord);

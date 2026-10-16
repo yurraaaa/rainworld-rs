@@ -72,7 +72,8 @@ pub use shortcut::{
     CreatureVessel, EntranceColor, LobbyVessel, ShortcutHandler, ShortcutsBlinking, VesselOwner,
 };
 pub use sound::{
-    EmitterId, LoopEmitter, PlayedSound, SoundEvent, SoundId, SoundSource, Sounds, StaticSoundLoop,
+    EmitterId, EmitterPlace, LoopEmitter, PlayedSound, SoundEvent, SoundId, SoundSource, Sounds,
+    StaticSoundLoop,
 };
 pub use spawn::{determine_safe_spawn_tile, place_in_room};
 pub use vec2::{TileExt, Vec2};

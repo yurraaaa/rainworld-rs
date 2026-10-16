@@ -21,7 +21,7 @@ impl RainWorldGame {
             self.world
                 .room_weapon_loops(index)
                 .into_iter()
-                .map(|(seq, id)| (seq, RoomObject::WeaponLoop(id))),
+                .map(|(order, owner)| (order, RoomObject::WeaponLoop { owner, order })),
         );
         list
     }
@@ -36,9 +36,12 @@ impl RainWorldGame {
             .collect()
     }
 
-    /// The `ChunkSoundEmitter` of item `id`'s sound loop in room `index`.
-    pub(super) fn run_weapon_loop(&mut self, index: i32, id: ObjectId) {
-        self.with_item_tick(index, |world, cx| world.update_weapon_loop(index, id, cx));
+    /// The `ChunkSoundEmitter` of item `owner`'s sound loop that joined room `index` at
+    /// `order`.
+    pub(super) fn run_weapon_loop(&mut self, index: i32, owner: ObjectId, order: u64) {
+        self.with_item_tick(index, |world, cx| {
+            world.update_weapon_loop(index, owner, order, cx);
+        });
     }
 
     /// `f` with the world and what an item's turn in room `index` reads of the game.

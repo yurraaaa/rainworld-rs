@@ -302,13 +302,17 @@ impl World {
             .collect()
     }
 
-    /// The loop emitters of the items in room `room`, by their place in its update list.
+    /// The loop emitters, held or let go, of the items in room `room`, by their place in
+    /// its update list.
     #[must_use]
     pub fn room_weapon_loops(&self, room: i32) -> Vec<(u64, ObjectId)> {
         self.objects()
-            .filter_map(|(id, o)| {
-                let e = o.realized.as_deref()?.sound_loop.emitter?;
-                (e.room == room && !e.slated).then_some((e.update_order, id))
+            .filter_map(|(id, o)| Some((id, o.realized.as_deref()?)))
+            .flat_map(|(id, w)| {
+                w.sound_loop
+                    .emitters()
+                    .filter(move |e| e.room == room)
+                    .map(move |e| (e.update_order, id))
             })
             .collect()
     }
@@ -628,17 +632,23 @@ impl World {
         }
     }
 
-    /// The `ChunkSoundEmitter.Update` of object `id`'s loop in room `index`: it follows
-    /// the chunk and dies when no longer kept alive or heard.
-    pub(crate) fn update_weapon_loop(&mut self, index: i32, id: ObjectId, cx: &mut ItemTick<'_>) {
+    /// The `ChunkSoundEmitter.Update` of object `id`'s loop emitter that joined room
+    /// `index` at `order`: it follows the chunk and dies when no longer kept alive or
+    /// heard.
+    pub(crate) fn update_weapon_loop(
+        &mut self,
+        index: i32,
+        id: ObjectId,
+        order: u64,
+        cx: &mut ItemTick<'_>,
+    ) {
         let Some(w) = self.objects[id.0].realized.as_deref_mut() else {
             return;
         };
         let (owner_room, pos) = (w.room, w.chunk().pos);
         let Some(e) = w
             .sound_loop
-            .emitter
-            .as_mut()
+            .emitter_mut(order)
             .filter(|e| e.room == index && !e.slated)
         else {
             return;
@@ -647,6 +657,7 @@ impl World {
         e.update(Some(owner_room), cx.camera_room, cx.tick);
         if e.slated {
             cx.sounds.stop_emitter(e.sound);
+            w.sound_loop.released.retain(|e| !e.slated);
         }
     }
 

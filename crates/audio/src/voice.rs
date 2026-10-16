@@ -17,8 +17,8 @@ pub struct Emitter {
     pub volume: f32,
     pub pitch: f32,
     pub looped: bool,
-    /// A loop's owner set it this tick (`requireActiveUpkeep`).
-    pub refreshed: bool,
+    /// Ticks ended since a loop's owner last set it (`requireActiveUpkeep`).
+    pub unkept: u8,
 }
 
 /// The chunk emitters by handle.
@@ -46,7 +46,7 @@ impl Emitters {
             volume: sound.emitter_volume,
             pitch: sound.emitter_pitch,
             looped: sound.looped,
-            refreshed: true,
+            unkept: 0,
         });
     }
 
@@ -59,7 +59,7 @@ impl Emitters {
         if let Some(e) = self.0.get_mut(&id) {
             e.volume = volume;
             e.pitch = pitch;
-            e.refreshed = true;
+            e.unkept = 0;
         }
     }
 
@@ -110,12 +110,14 @@ impl Emitters {
         self.0.retain(|id, e| e.looped || used.contains(id));
     }
 
-    /// `SoundEmitter.Update` for loops: those not refreshed this tick die.
+    /// A loop the sim let go without a `Stop` dies at the end of its second unkept tick,
+    /// where the game's emitter that updates before its owner dies (the sim's `Stop`
+    /// ends every loop it tracks on its own tick).
     pub fn end_tick(&mut self) {
-        self.0.retain(|_, e| !e.looped || e.refreshed);
         for e in self.0.values_mut() {
-            e.refreshed = false;
+            e.unkept = e.unkept.saturating_add(1);
         }
+        self.0.retain(|_, e| !e.looped || e.unkept <= 2);
     }
 }
 
@@ -233,8 +235,9 @@ mod tests {
         }
     }
 
+    /// A loop lives through one unkept tick and dies at the end of the second.
     #[test]
-    fn loops_die_the_tick_they_are_not_refreshed() {
+    fn loops_die_after_two_unkept_ticks() {
         let chunk = BodyChunk::new(Vec2::new(10.0, 20.0), 5.0, 0.5);
         let mut chunks = [chunk.clone(), chunk];
         let mut emitters = Emitters::default();
@@ -251,6 +254,8 @@ mod tests {
             (e.last_pos, e.pos),
             (Vec2::new(10.0, 20.0), Vec2::new(15.0, 20.0))
         );
+        emitters.end_tick();
+        assert!(emitters.get(EmitterId(0)).is_some(), "one unkept tick");
         emitters.end_tick();
         assert!(emitters.get(EmitterId(0)).is_none());
         assert!(emitters.get(EmitterId(1)).is_some());

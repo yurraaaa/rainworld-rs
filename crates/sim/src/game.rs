@@ -72,8 +72,8 @@ use crate::shelter::{SessionEnd, ShelterDoor};
 use crate::shortcut::{CreatureVessel, Transport};
 use crate::world::{AbstractTick, FollowCreature, RainCycle, RegionState, RoomRealizer, World};
 use crate::{
-    EntranceColor, HudMapLink, Input, LobbyVessel, MapDiscovery, Player, ShortcutHandler, Sounds,
-    Vec2, VesselOwner, VesselStep, Water, determine_safe_spawn_tile,
+    EmitterPlace, EntranceColor, HudMapLink, Input, LobbyVessel, MapDiscovery, Player,
+    ShortcutHandler, Sounds, Vec2, VesselOwner, VesselStep, Water, determine_safe_spawn_tile,
 };
 
 /// What the app attaches to the player (its graphics module), called where the game
@@ -288,10 +288,18 @@ enum RoomObject {
     Weapon(ObjectId),
     /// A `Spark` or `ExplosionSpikes` by id.
     Cosmetic(u64),
-    /// A rock's or spear's loop emitter.
-    WeaponLoop(ObjectId),
-    /// The `ChunkSoundEmitter` of a lizard's graphics' loop.
-    LizardLoop(CreatureId),
+    /// A rock's or spear's loop emitter, held or let go, by its place in the update list.
+    WeaponLoop {
+        owner: ObjectId,
+        order: u64,
+    },
+    /// A `ChunkSoundEmitter` of a lizard's graphics' loop, by its place in the update list.
+    LizardLoop {
+        owner: CreatureId,
+        order: u64,
+    },
+    /// An emitter of the player's slide loop, by its place in the update list.
+    SlideLoop(u64),
     /// A `ChunkSoundEmitter` of a lizard's voice, by its place in the update list.
     LizardVoice {
         owner: CreatureId,
@@ -1283,6 +1291,7 @@ impl RainWorldGame {
         objects.extend(self.room_cosmetic_objects(index));
         objects.extend(self.room_holo_light_objects(index));
         objects.extend(self.room_light_source_objects(index));
+        objects.extend(self.room_slide_loop_objects(index));
         objects.sort_by_key(|&(seq, _)| std::cmp::Reverse(seq));
         let mut player_done = false;
         for (seq, object) in objects {
@@ -1319,8 +1328,13 @@ impl RainWorldGame {
                 RoomObject::Hover(id) => self.run_hover(index, id),
                 RoomObject::Drip(id) => self.run_drip(index, id, &room),
                 RoomObject::Weapon(id) => self.run_weapon(index, id, observer),
-                RoomObject::WeaponLoop(id) => self.run_weapon_loop(index, id),
-                RoomObject::LizardLoop(id) => self.run_lizard_loop(index, id),
+                RoomObject::WeaponLoop { owner, order } => {
+                    self.run_weapon_loop(index, owner, order);
+                }
+                RoomObject::LizardLoop { owner, order } => {
+                    self.run_lizard_loop(index, owner, order);
+                }
+                RoomObject::SlideLoop(order) => self.run_slide_loop(index, order),
                 RoomObject::LizardVoice { owner, order } => {
                     self.run_lizard_voice_emitter(index, owner, order)
                 }
@@ -1353,6 +1367,43 @@ impl RainWorldGame {
     ) {
         if let Some(room) = self.world.realized(index).map(|r| Arc::clone(&r.room)) {
             self.update_room_player(index, &room, input, observer);
+        }
+    }
+
+    /// The player's slide loop emitters in room `index`'s update list.
+    fn room_slide_loop_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
+        self.player.as_ref().map_or_else(Vec::new, |p| {
+            p.slide_loop_emitters()
+                .filter(|e| e.room == index)
+                .map(|e| (e.update_order, RoomObject::SlideLoop(e.update_order)))
+                .collect()
+        })
+    }
+
+    /// The `ChunkSoundEmitter.Update` of the slide loop emitter that joined room `index`
+    /// at `order`: it dies when the player left the room (`room` null in a shortcut) or
+    /// nothing kept it alive since its last update; its sound is cut then.
+    fn run_slide_loop(&mut self, index: i32, order: u64) {
+        let player_room = self.pos().room;
+        let (camera_room, tick) = (self.camera_room, self.tick);
+        let Some(p) = self.player.as_mut() else {
+            return;
+        };
+        let owner_room = (!p.in_shortcut() && !p.is_destroyed()).then_some(player_room);
+        let Some(e) = p
+            .slide_loop_emitter_mut(order)
+            .filter(|e| e.room == index && !e.slated)
+        else {
+            return;
+        };
+        e.update(owner_room, camera_room, tick);
+        if e.slated {
+            let sounds = if index == camera_room {
+                &mut self.sounds
+            } else {
+                &mut self.silent
+            };
+            sounds.stop_emitter(e.sound);
         }
     }
 
@@ -1647,7 +1698,16 @@ impl RainWorldGame {
         };
         let was_stunned = player.is_stunned();
         player.set_ceiling_drips(ceiling_drips);
-        if player.update_before_catch(room, water.as_ref(), input, &mut self.rng, sounds) {
+        player.retain_released_slide_loops(|r| self.world.realized(r).is_some());
+        player.set_emitter_place(EmitterPlace {
+            room: index,
+            camera_room: self.camera_room,
+            tick: self.tick,
+            update_seq: self.world.update_seq(),
+        });
+        let rest = player.update_before_catch(room, water.as_ref(), input, &mut self.rng, sounds);
+        self.world.set_update_seq(player.emitter_place().update_seq);
+        if rest {
             self.player_catch(index, observer);
             self.player_shelter_step(index, room);
             let sounds = if index == self.camera_room {
