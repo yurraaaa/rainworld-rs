@@ -3,10 +3,14 @@
 //! `LoseAllGrasps`, `AbstractCreature.DropCarriedObject`, `GetAllConnectedObjects`).
 //!
 //! A realized creature's `grasps` and `grabbedBy` are kept on its `AbstractCreature`
-//! (valid while it is realized) so that any creature's grab can reach both ends.
-//! Only creatures grab and are grabbed so far.
+//! (valid while it is realized), an object's `grabbedBy` and `stuckObjects` on its
+//! `AbstractObject`, so that any grab can reach both ends. Creatures grab; creatures and
+//! objects (rocks, spears) are grabbed.
+
+use rw_random::UnityRandom;
 
 use super::{CreatureId, RealizedCreature};
+use crate::item::{Entity, WeaponMode};
 use crate::world::World;
 
 /// `Creature.Grasp.Shareability`.
@@ -57,7 +61,7 @@ impl Shareability {
 pub struct Grasp {
     pub serial: u64,
     pub grabber: CreatureId,
-    pub grabbed: CreatureId,
+    pub grabbed: Entity,
     pub grasp_used: usize,
     pub chunk_grabbed: usize,
     pub shareability: Shareability,
@@ -66,12 +70,12 @@ pub struct Grasp {
 }
 
 /// `AbstractPhysicalObject.CreatureGripStick`: `a` holds `b` with grasp `grasp`. Both
-/// creatures list it (`stuckObjects`).
+/// ends list it (`stuckObjects`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GripStick {
     pub serial: u64,
     pub a: CreatureId,
-    pub b: CreatureId,
+    pub b: Entity,
     pub grasp: usize,
     pub carry: bool,
 }
@@ -80,7 +84,7 @@ pub struct GripStick {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct GrabRequest {
     pub grabber: CreatureId,
-    pub grabbed: CreatureId,
+    pub grabbed: Entity,
     pub grasp_used: usize,
     pub chunk_grabbed: usize,
     pub shareability: Shareability,
@@ -89,32 +93,92 @@ pub struct GrabRequest {
     pub pacifying: bool,
 }
 
+impl Grasp {
+    /// The grabbed creature, if it is one.
+    #[must_use]
+    pub fn grabbed_creature(&self) -> Option<CreatureId> {
+        self.grabbed.creature()
+    }
+}
+
 impl World {
     fn next_grasp_serial(&mut self) -> u64 {
         self.grasp_serial += 1;
         self.grasp_serial
     }
 
-    /// `TotalMass` of a realized creature (0 when not realized).
-    fn total_mass(&self, id: CreatureId) -> f32 {
-        match &self.creature(id).realized {
-            Some(RealizedCreature::Fly(f)) => f.body.chunks.iter().map(|c| c.mass).sum(),
-            Some(RealizedCreature::Player) => self.player_mass,
-            _ => 0.0,
+    /// `grabbedBy` of a creature or an object.
+    #[must_use]
+    pub fn grabbed_by(&self, e: Entity) -> &[Grasp] {
+        match e {
+            Entity::Creature(id) => &self.creature(id).grabbed_by,
+            Entity::Object(id) => &self.object(id).grabbed_by,
         }
     }
 
-    /// `Creature.Grab`. Returns whether the grasp was made.
-    pub fn grab(&mut self, r: GrabRequest) -> bool {
+    fn grabbed_by_mut(&mut self, e: Entity) -> &mut Vec<Grasp> {
+        match e {
+            Entity::Creature(id) => &mut self.creature_mut(id).grabbed_by,
+            Entity::Object(id) => &mut self.object_mut(id).grabbed_by,
+        }
+    }
+
+    /// The grip sticks of a creature or an object (its `stuckObjects`).
+    #[must_use]
+    pub fn sticks_of(&self, e: Entity) -> &[GripStick] {
+        match e {
+            Entity::Creature(id) => &self.creature(id).sticks,
+            Entity::Object(id) => &self.object(id).sticks,
+        }
+    }
+
+    fn sticks_mut(&mut self, e: Entity) -> &mut Vec<GripStick> {
+        match e {
+            Entity::Creature(id) => &mut self.creature_mut(id).sticks,
+            Entity::Object(id) => &mut self.object_mut(id).sticks,
+        }
+    }
+
+    /// `TotalMass` of a realized creature or object (0 when not realized).
+    #[must_use]
+    pub fn total_mass(&self, e: Entity) -> f32 {
+        match e {
+            Entity::Creature(id) => match &self.creature(id).realized {
+                Some(RealizedCreature::Fly(f)) => f.body.chunks.iter().map(|c| c.mass).sum(),
+                Some(RealizedCreature::Player) => self.player_mass,
+                _ => 0.0,
+            },
+            Entity::Object(id) => self
+                .object(id)
+                .realized
+                .as_ref()
+                .map_or(0.0, |w| w.body.chunks.iter().map(|c| c.mass).sum()),
+        }
+    }
+
+    /// The grabbed object is slated for deletion (or, an item, not realized).
+    fn grab_refused(&self, e: Entity) -> bool {
+        match e {
+            Entity::Creature(id) => {
+                let obj = self.creature(id);
+                obj.slated_for_deletion || obj.realized_slated()
+            }
+            Entity::Object(id) => self.object(id).realized.is_none(),
+        }
+    }
+
+    /// `Creature.Grab`. Returns whether the grasp was made. `rng` is for the object's
+    /// `Grabbed` (a weapon's `ChangeMode(Carried)`, which draws nothing).
+    pub fn grab(&mut self, r: GrabRequest, rng: &mut UnityRandom) -> bool {
         let slots = self.creature(r.grabber).grasps.len();
         if slots == 0 || r.grasp_used > slots {
             return false;
         }
-        let obj = self.creature(r.grabbed);
-        if obj.slated_for_deletion || obj.realized_slated() {
+        if self.grab_refused(r.grabbed) {
             return false;
         }
-        let carry_heavier = self.total_mass(r.grabbed) < self.total_mass(r.grabber);
+        let carry_heavier =
+            self.total_mass(r.grabbed) < self.total_mass(Entity::Creature(r.grabber));
         let same =
             self.creature(r.grabber).grasps[r.grasp_used].is_some_and(|g| g.grabbed == r.grabbed);
         if same {
@@ -125,10 +189,11 @@ impl World {
                     ..r
                 },
                 r.pacifying || carry_heavier,
+                rng,
             );
             return true;
         }
-        let blocked = self.creature(r.grabbed).grabbed_by.iter().any(|g| {
+        let blocked = self.grabbed_by(r.grabbed).iter().any(|g| {
             g.grabber == r.grabber
                 || (g.shareability.conflicts(r.shareability)
                     && ((r.override_equally_dominant && g.dominance == r.dominance)
@@ -137,7 +202,7 @@ impl World {
         if blocked {
             return false;
         }
-        let holders = self.creature(r.grabbed).grabbed_by.clone();
+        let holders = self.grabbed_by(r.grabbed).to_vec();
         for g in holders.iter().rev() {
             if g.shareability.conflicts(r.shareability) {
                 self.release(*g);
@@ -146,12 +211,13 @@ impl World {
         if self.creature(r.grabber).grasps[r.grasp_used].is_some() {
             self.release_grasp(r.grabber, r.grasp_used);
         }
-        self.make_grasp(r, r.pacifying || carry_heavier);
+        self.make_grasp(r, r.pacifying || carry_heavier, rng);
         true
     }
 
-    /// The new grasp, `obj.Grabbed` (`GoThroughFloors`, `grabbedBy.Add`) and the stick.
-    fn make_grasp(&mut self, r: GrabRequest, carry: bool) {
+    /// The new grasp, `obj.Grabbed` (a weapon's `ChangeMode(Carried)`, then
+    /// `GoThroughFloors`, `grabbedBy.Add`) and the stick.
+    fn make_grasp(&mut self, r: GrabRequest, carry: bool, rng: &mut UnityRandom) {
         let grasp = Grasp {
             serial: self.next_grasp_serial(),
             grabber: r.grabber,
@@ -163,11 +229,21 @@ impl World {
             pacifying: r.pacifying,
         };
         self.creature_mut(r.grabber).grasps[r.grasp_used] = Some(grasp);
-        let obj = self.creature_mut(r.grabbed);
-        if let Some(RealizedCreature::Fly(f)) = &mut obj.realized {
-            f.body.set_go_through_floors(true);
+        match r.grabbed {
+            Entity::Creature(id) => {
+                if let Some(RealizedCreature::Fly(f)) = &mut self.creature_mut(id).realized {
+                    f.body.set_go_through_floors(true);
+                }
+            }
+            Entity::Object(id) => {
+                self.change_weapon_mode(id, WeaponMode::Carried, rng);
+                if let Some(w) = self.object_mut(id).realized.as_deref_mut() {
+                    w.body.set_go_through_floors(true);
+                }
+            }
         }
-        obj.grabbed_by.push(grasp);
+        self.grabbed_by_mut(r.grabbed).push(grasp);
+        self.sync_held(r.grabbed);
         let stick = GripStick {
             serial: self.next_grasp_serial(),
             a: r.grabber,
@@ -176,15 +252,25 @@ impl World {
             carry,
         };
         self.creature_mut(r.grabber).sticks.push(stick);
-        self.creature_mut(r.grabbed).sticks.push(stick);
+        self.sticks_mut(r.grabbed).push(stick);
+    }
+
+    /// An object's realized body is `held` while something grasps it.
+    fn sync_held(&mut self, e: Entity) {
+        if let Entity::Object(id) = e {
+            let held = !self.object(id).grabbed_by.is_empty();
+            if let Some(w) = self.object_mut(id).realized.as_deref_mut() {
+                w.body.held = held;
+            }
+        }
     }
 
     /// `Grasp.Release`: off the grabbed's `grabbedBy` and the grabber's slot, then
     /// `DropCarriedObject(graspUsed)`.
     pub fn release(&mut self, g: Grasp) {
-        self.creature_mut(g.grabbed)
-            .grabbed_by
+        self.grabbed_by_mut(g.grabbed)
             .retain(|o| o.serial != g.serial);
+        self.sync_held(g.grabbed);
         if let Some(slot) = self.creature_mut(g.grabber).grasps.get_mut(g.grasp_used) {
             *slot = None;
         }
@@ -221,7 +307,7 @@ impl World {
             })
             .collect();
         for g in &grasps {
-            for held in &mut self.creature_mut(g.grabbed).grabbed_by {
+            for held in self.grabbed_by_mut(g.grabbed) {
                 if held.serial == g.serial {
                     held.grasp_used = g.grasp_used;
                 }
@@ -236,8 +322,8 @@ impl World {
             else {
                 continue;
             };
-            for o in [s.a, s.b] {
-                for t in &mut self.creature_mut(o).sticks {
+            for o in [Entity::Creature(s.a), s.b] {
+                for t in self.sticks_mut(o) {
                     if t.serial == s.serial {
                         t.grasp = k;
                     }
@@ -277,23 +363,21 @@ impl World {
         self.creature_mut(s.a)
             .sticks
             .retain(|o| o.serial != s.serial);
-        self.creature_mut(s.b)
-            .sticks
-            .retain(|o| o.serial != s.serial);
+        self.sticks_mut(s.b).retain(|o| o.serial != s.serial);
     }
 
-    /// `GetAllConnectedObjects`: the creature, then depth first through its sticks (A
+    /// `GetAllConnectedObjects`: the object, then depth first through its sticks (A
     /// before B).
     #[must_use]
-    pub fn connected_objects(&self, id: CreatureId) -> Vec<CreatureId> {
-        let mut list = vec![id];
-        self.add_connected(id, &mut list);
+    pub fn connected_objects(&self, e: Entity) -> Vec<Entity> {
+        let mut list = vec![e];
+        self.add_connected(e, &mut list);
         list
     }
 
-    fn add_connected(&self, id: CreatureId, list: &mut Vec<CreatureId>) {
-        for s in &self.creature(id).sticks {
-            for other in [s.a, s.b] {
+    fn add_connected(&self, e: Entity, list: &mut Vec<Entity>) {
+        for s in self.sticks_of(e) {
+            for other in [Entity::Creature(s.a), s.b] {
                 if !list.contains(&other) {
                     list.push(other);
                     self.add_connected(other, list);
@@ -304,8 +388,8 @@ impl World {
 
     /// `PhysicalObject.Update`'s clean-up: grasps on it that their grabber no longer
     /// holds are dropped from `grabbedBy`.
-    pub(crate) fn clean_grabbed_by(&mut self, id: CreatureId) {
-        let held: Vec<Grasp> = self.creature(id).grabbed_by.clone();
+    pub(crate) fn clean_grabbed_by(&mut self, e: Entity) {
+        let held: Vec<Grasp> = self.grabbed_by(e).to_vec();
         let keep: Vec<Grasp> = held
             .into_iter()
             .filter(|g| {
@@ -317,6 +401,7 @@ impl World {
                     .is_some_and(|o| o.serial == g.serial)
             })
             .collect();
-        self.creature_mut(id).grabbed_by = keep;
+        *self.grabbed_by_mut(e) = keep;
+        self.sync_held(e);
     }
 }

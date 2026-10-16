@@ -1,27 +1,22 @@
 //! The slugcat's hands in the game: the bat-fly catch in `Player.Update` (87506) with
-//! `Player.Collide` (88193), `GrabUpdate` (91722: eating, picking up, dropping,
-//! throwing, switching hands), `GraphicsModuleUpdated` (87786) moving what the hands
-//! hold, the grasps `Stun` and `Die` drop, the food the player eats, the flies carried
-//! through shortcuts, and the `WaterDrip`s in the rooms' update lists. Base game, Remix
-//! off: the only objects a room holds are flies and overseers, so only flies are held.
+//! `Player.Collide` (88193), `GrabUpdate` (91722: eating, swallowing, picking up,
+//! dropping, throwing, switching hands), `GraphicsModuleUpdated` (87786) moving what the
+//! hands hold, the grasps `Stun` and `Die` drop, the food the player eats, the objects
+//! carried through shortcuts, and the `WaterDrip`s in the rooms' update lists. Base game,
+//! Remix off: the objects a room holds are flies, overseers, rocks and spears. Picking
+//! items up, laying them down and swallowing them are in `game_items.rs`.
 
 use std::sync::Arc;
 
 use rw_assets::{Room, SlugcatName};
 
+use super::items::Grabability;
 use super::{HudEvent, PlayerObserver, RainWorldGame, RoomObject};
 use crate::creature::fly::{FlyRoomTick, MovementMode};
 use crate::creature::overseer::EdibleView;
 use crate::creature::{CreatureId, GrabRequest, Shareability, WorldCoordinate};
 use crate::item::Entity;
 use crate::{Animation, FloatExt, Player, SoundId, Vec2, Water, WaterDrip};
-
-/// `Player.ObjectGrabability` (the values a fly or an overseer can have).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-enum Grabability {
-    CantGrab,
-    OneHand,
-}
 
 impl RainWorldGame {
     /// `game.evenUpdate`: toggled before the rooms update, false at construction, so true
@@ -125,28 +120,9 @@ impl RainWorldGame {
 
     /// The player's two grasps: what each holds.
     #[must_use]
-    pub fn player_grasps(&self) -> [Option<CreatureId>; 2] {
+    pub fn player_grasps(&self) -> [Option<Entity>; 2] {
         let grasps = &self.world.creature(self.player_id).grasps;
         [0, 1].map(|i| grasps.get(i).copied().flatten().map(|g| g.grabbed))
-    }
-
-    /// `Player.Grabability` of a creature in the room.
-    fn grabability(&self, id: CreatureId) -> Grabability {
-        let c = self.world.creature(id);
-        match c.fly() {
-            Some(f) => {
-                let held_by_me = c
-                    .grabbed_by
-                    .first()
-                    .is_some_and(|g| g.grabber == self.player_id);
-                if held_by_me || f.shortcut_delay == 0 {
-                    Grabability::OneHand
-                } else {
-                    Grabability::CantGrab
-                }
-            }
-            None => Grabability::CantGrab,
-        }
     }
 
     /// The auto-catch block of `Player.Update` (87506-87517): with a free hand and room
@@ -186,7 +162,7 @@ impl RainWorldGame {
                 let reach = if narrow { 10.0 } else { 20.0 } * num9;
                 if self.world.fly_auto_grabable(fly)
                     && head.dist_less(f.pos(), reach)
-                    && self.grabability(fly) == Grabability::OneHand
+                    && self.grabability(Entity::Creature(fly)) == Grabability::OneHand
                     && self.world.creature(fly).grabbed_by.is_empty()
                 {
                     self.player_collide_fly(index, fly, observer);
@@ -221,7 +197,7 @@ impl RainWorldGame {
         // The `else if (wantToPickUp > 0 && CanIPickThisUp)` branch cannot follow from the
         // catch, which already asked for room in the stomach and a one-handed grab.
         if self.food_in_stomach() >= self.max_food()
-            || self.grabability(fly) != Grabability::OneHand
+            || self.grabability(Entity::Creature(fly)) != Grabability::OneHand
         {
             return;
         }
@@ -243,11 +219,11 @@ impl RainWorldGame {
                 log::info!("swarm room {name} is a candidate for depletion");
             }
         }
-        self.slugcat_grab(fly, k, observer);
+        self.slugcat_grab(Entity::Creature(fly), k, observer);
     }
 
     /// `room.PlaySound(id, pos)` in room `index` (silent off camera).
-    fn play_in_room(&mut self, index: i32, id: SoundId, pos: Vec2) {
+    pub(super) fn play_in_room(&mut self, index: i32, id: SoundId, pos: Vec2) {
         let sounds = if index == self.camera_room {
             &mut self.sounds
         } else {
@@ -256,14 +232,40 @@ impl RainWorldGame {
         sounds.play_at(id, pos, 1.0, 1.0, &mut self.rng);
     }
 
-    /// `Player.SlugcatGrab` of a fly: an edible's pacifying grab, then the regular one
-    /// (which finds the same object held and regrabs it through `Player.ReleaseGrasp`,
-    /// whose `Slugcat_Lose_Grasp` has no sounds.txt line). `Fly.Grabbed` brings its
+    /// `room.PlaySound(id, chunk)` on an object's chunk at `pos` in room `index`.
+    pub(super) fn play_on_object(&mut self, index: i32, id: SoundId, pos: Vec2) {
+        let sounds = if index == self.camera_room {
+            &mut self.sounds
+        } else {
+            &mut self.silent
+        };
+        sounds.play_on_object(id, pos, false, 1.0, 1.0, &mut self.rng);
+    }
+
+    /// `room.PlaySound(id, mainBodyChunk)` of the player in room `index`.
+    pub(super) fn play_on_player(&mut self, index: i32, id: SoundId) {
+        let sounds = if index == self.camera_room {
+            &mut self.sounds
+        } else {
+            &mut self.silent
+        };
+        sounds.play_on_chunk(id, 0, false, 1.0, 1.0, &mut self.rng);
+    }
+
+    /// `Player.SlugcatGrab`: an edible's pacifying grab first, then the regular one
+    /// (which, for a fly, finds the same object held and regrabs it through
+    /// `Player.ReleaseGrasp`, whose `Slugcat_Lose_Grasp` has no sounds.txt line). Not a
+    /// cicada or a jet fish, so the regular grab pacifies. `Fly.Grabbed` brings its
     /// sprites to the front.
-    fn slugcat_grab(&mut self, fly: CreatureId, grasp: usize, observer: &mut dyn PlayerObserver) {
+    pub(super) fn slugcat_grab(
+        &mut self,
+        obj: Entity,
+        grasp: usize,
+        observer: &mut dyn PlayerObserver,
+    ) {
         let request = GrabRequest {
             grabber: self.player_id,
-            grabbed: fly,
+            grabbed: obj,
             grasp_used: grasp,
             chunk_grabbed: 0,
             shareability: Shareability::CanOnlyShareWithNonExclusive,
@@ -271,8 +273,8 @@ impl RainWorldGame {
             override_equally_dominant: false,
             pacifying: true,
         };
-        if self.world.grab(request) {
-            self.fly_grabbed_by_player(fly, observer);
+        if self.world.player_edible(obj) && self.world.grab(request, &mut self.rng) {
+            self.grabbed_by_player(obj, observer);
         }
         if let Some(p) = self.player.as_mut() {
             let g = p.grab_mut();
@@ -280,19 +282,20 @@ impl RainWorldGame {
             g.want_to_pick_up = 0;
             g.no_pick_up_on_release = 20;
         }
-        // Not a cicada or a jet fish: pacifying.
         let request = GrabRequest {
             override_equally_dominant: true,
             ..request
         };
-        if self.world.grab(request) {
-            self.fly_grabbed_by_player(fly, observer);
+        if self.world.grab(request, &mut self.rng) {
+            self.grabbed_by_player(obj, observer);
         }
     }
 
     /// `Fly.Grabbed` by the player: `MoveObjectToContainer` of its graphics.
-    fn fly_grabbed_by_player(&mut self, fly: CreatureId, observer: &mut dyn PlayerObserver) {
-        if self.world.fly_ref(fly).graphics {
+    fn grabbed_by_player(&mut self, obj: Entity, observer: &mut dyn PlayerObserver) {
+        if let Entity::Creature(fly) = obj
+            && self.world.creature(fly).fly().is_some_and(|f| f.graphics)
+        {
             observer.fly_to_front(self.world.creature(fly).id);
         }
     }
@@ -333,7 +336,8 @@ impl RainWorldGame {
         }
     }
 
-    /// `Player.GrabUpdate` for a player holding nothing but flies, base game.
+    /// `Player.GrabUpdate` (base game, Remix off; the Hunter's spear on the back is not
+    /// ported).
     pub(super) fn grab_update(
         &mut self,
         index: i32,
@@ -352,10 +356,18 @@ impl RainWorldGame {
             && !input[0].throw
             && p.submersion(water) < 0.5;
         let mut eating = false;
+        let mut swallowing = false;
         self.switch_hands(index, input[0].pickup && !input[1].pickup);
         if neutral {
             let grasps = self.player_grasps();
-            let edible = (0..2).find(|&i| grasps[i].is_some());
+            let edible = (0..2).find(|&i| grasps[i].is_some_and(|e| self.world.player_edible(e)));
+            let stomach = self.player_ref().object_in_stomach().is_some();
+            let full = self.food_in_stomach() >= self.max_food();
+            let swallowable = if (edible.is_none() || full) && !stomach {
+                (0..2).find(|&i| grasps[i].is_some_and(|e| self.world.can_be_swallowed(e)))
+            } else {
+                None
+            };
             let g = *self.player_ref().grab_state();
             if edible.is_some() && g.no_pick_up_on_release < 1 {
                 if !input[0].pickup {
@@ -367,6 +379,9 @@ impl RainWorldGame {
             } else if input[0].pickup && !input[1].pickup {
                 self.pickup_pressed();
             }
+            if input[0].pickup && (swallowable.is_some() || stomach) {
+                swallowing = true;
+            }
             let g = *self.player_ref().grab_state();
             let p = self.player_ref();
             let still = p.head().pos.dist_less(p.head().last_pos, 3.6);
@@ -376,10 +391,10 @@ impl RainWorldGame {
                 && p.is_conscious()
                 && still
             {
-                let fly = grasps[e].unwrap_or(self.player_id);
-                observer.player_look_at(Some(fly));
+                observer.player_look_at(grasps[e]);
                 eating = true;
                 if self.food_in_stomach() < self.max_food() {
+                    swallowing = false;
                     if g.eat_counter < 1 {
                         self.player_mut().grab_mut().eat_counter = 15;
                         self.bite_edible_object(index, eu, observer);
@@ -397,22 +412,23 @@ impl RainWorldGame {
         } else if !eating && g.eat_counter < 40 {
             g.eat_counter += 1;
         }
-        // Nothing held can be swallowed: the counter stays at 0.
-        g.swallow_and_regurgitate_counter = 0;
+        if swallowing {
+            self.swallow_and_regurgitate_update(index, observer);
+        } else {
+            self.player_mut().grab_mut().swallow_and_regurgitate_counter = 0;
+        }
         for i in 0..2 {
-            let slated = self.player_grasps()[i]
-                .is_some_and(|f| self.world.creature(f).fly().is_some_and(|f| f.slated));
+            let slated = self.player_grasps()[i].is_some_and(|e| {
+                e.creature()
+                    .and_then(|f| self.world.creature(f).fly())
+                    .is_some_and(|f| f.slated)
+            });
             if slated {
                 self.player_release_grasp(i);
             }
         }
-        let candidate = if self.player_ref().grab_state().dont_grab_stuff < 1 {
-            self.pickup_candidate(index, room, 20.0)
-        } else {
-            None
-        };
+        self.update_pickup_candidate(index, room);
         let g = self.player_mut().grab_mut();
-        g.pick_up_candidate = candidate;
         for counter in [
             &mut g.switch_hands_counter,
             &mut g.want_to_pick_up,
@@ -437,11 +453,11 @@ impl RainWorldGame {
         }
     }
 
-    fn player_ref(&self) -> &Player {
+    pub(super) fn player_ref(&self) -> &Player {
         self.player.as_ref().expect("the player updates")
     }
 
-    fn player_mut(&mut self) -> &mut Player {
+    pub(super) fn player_mut(&mut self) -> &mut Player {
         self.player.as_mut().expect("the player updates")
     }
 
@@ -453,9 +469,19 @@ impl RainWorldGame {
     }
 
     /// The switch-hands press and its progress: a second press within 15 ticks while
-    /// holding something starts it; halfway the grasps swap.
+    /// holding something (not a two-handed or dragged object in hand 0) starts it;
+    /// halfway the grasps swap.
     fn switch_hands(&mut self, index: i32, pressed: bool) {
-        let holding = self.player_grasps().iter().any(Option::is_some);
+        let grasps = self.player_grasps();
+        let mut holding = grasps.iter().any(Option::is_some);
+        if grasps[0].is_some_and(|e| {
+            matches!(
+                self.grabability(e),
+                Grabability::TwoHands | Grabability::Drag
+            )
+        }) {
+            holding = false;
+        }
         let head = self.player_ref().head().pos;
         if pressed && self.player_ref().grab_state().switch_hands_process == 0.0 {
             if holding {
@@ -492,7 +518,12 @@ impl RainWorldGame {
     /// its drips, then `Fly.BitByPlayer`).
     fn bite_edible_object(&mut self, index: i32, eu: bool, observer: &mut dyn PlayerObserver) {
         let grasps = self.player_grasps();
-        let Some((hand, fly)) = (0..2).find_map(|i| grasps[i].map(|f| (i, f))) else {
+        let Some((hand, fly)) = (0..2).find_map(|i| {
+            grasps[i]
+                .filter(|&e| self.world.player_edible(e))
+                .and_then(Entity::creature)
+                .map(|f| (i, f))
+        }) else {
             return;
         };
         let head = observer.player_bite_fly(hand, fly);
@@ -604,61 +635,24 @@ impl RainWorldGame {
         flies.into_iter().map(|(_, e)| e).collect()
     }
 
-    /// `PickupCandidate(favorSpears)`: the nearest object within reach (40 px beyond its
-    /// radius, and in sight or within 20) the player can pick up; objects on the facing
-    /// side count 10 px nearer. Only flies can be picked up; the room's physical objects
-    /// are in creation order.
-    fn pickup_candidate(&self, index: i32, room: &Room, _favor_spears: f32) -> Option<CreatureId> {
-        let p = self.player_ref();
-        let head = p.head().pos;
-        let flip = p.flip_direction();
-        let held = self.player_grasps();
-        let mut flies: Vec<(u64, CreatureId)> = self
-            .world
-            .creatures()
-            .filter_map(|(id, c)| {
-                let f = c.fly()?;
-                (f.room == Some(index)).then_some((f.update_order, id))
-            })
-            .collect();
-        flies.sort_unstable();
-        let mut best = None;
-        let mut best_dist = f32::MAX;
-        for (_, id) in flies {
-            let f = self.world.fly_ref(id);
-            let pos = f.pos();
-            let rad = f.chunk().rad;
-            let in_reach = head.dist_less(pos, rad + 40.0)
-                && (head.dist_less(pos, rad + 20.0)
-                    || crate::room_ext::RoomExt::visual_contact(room, head, pos));
-            let can = self.grabability(id) != Grabability::CantGrab && !held.contains(&Some(id));
-            if !(in_reach && can) {
-                continue;
-            }
-            let mut dist = head.distance(pos);
-            if (pos.x < head.x) == (flip < 0) {
-                dist -= 10.0;
-            }
-            if dist < best_dist {
-                best = Some(id);
-                best_dist = dist;
-            }
-        }
-        best
-    }
-
-    /// `ThrowObject` of a held fly: `AerobicIncrease(0.75)`, `TossObject`,
-    /// `dontGrabStuff` 15, a look at it, let go.
+    /// `ThrowObject`: `AerobicIncrease(0.75)`, a weapon thrown or anything else tossed,
+    /// `dontGrabStuff` 15, a look at it, a carried item forbidden to the player, let go.
     fn throw_object(&mut self, index: i32, grasp: usize, observer: &mut dyn PlayerObserver) {
-        let Some(fly) = self.player_grasps()[grasp] else {
+        let Some(obj) = self.player_grasps()[grasp] else {
             return;
         };
         self.player_mut().aerobic_increase(0.75);
-        self.toss_object(index, fly);
+        match obj {
+            Entity::Object(id) => self.throw_weapon(index, grasp, id),
+            Entity::Creature(fly) => self.toss_object(index, fly),
+        }
         self.player_mut().grab_mut().dont_grab_stuff = 15;
-        observer.player_look_at(Some(fly));
+        observer.player_look_at(Some(obj));
+        if let Entity::Object(id) = obj {
+            self.world.forbid(id);
+        }
         self.player_release_grasp(grasp);
-        log::info!("threw a bat fly");
+        log::info!("threw a held object");
     }
 
     /// `TossObject` of a fly (`Slugcat_Throw_Creature`): a one-handed light toss along
@@ -740,85 +734,41 @@ impl RainWorldGame {
         }
     }
 
-    /// The end of `GrabUpdate` while `wantToPickUp` lasts: down held for 5 ticks (10 and
-    /// no sideways input in deep water) lays the first held object down; otherwise the
-    /// pick-up candidate is picked up in a free hand (a held fly let go first when both
-    /// are full).
-    fn drop_or_pick_up(
-        &mut self,
-        index: i32,
-        input: &[crate::Input; crate::INPUT_HISTORY],
-        observer: &mut dyn PlayerObserver,
-    ) {
-        let grasps = self.player_grasps();
-        let p = self.player_ref();
-        let drop = if p.animation() == Animation::DeepSwim {
-            grasps.iter().any(Option::is_some) && input[..10].iter().all(|i| i.y <= -1 && i.x == 0)
-        } else {
-            input[..5].iter().all(|i| i.y <= -1)
-        };
-        if drop {
-            if let Some(i) = (0..2).find(|&i| grasps[i].is_some()) {
-                self.player_mut().grab_mut().want_to_pick_up = 0;
-                self.release_object(index, i);
-            }
-            return;
-        }
-        let Some(candidate) = self.player_ref().grab_state().pick_up_candidate else {
-            return;
-        };
-        if grasps.iter().all(Option::is_some) {
-            let fly = grasps
-                .iter()
-                .position(|g| g.is_some_and(|f| self.world.creature(f).fly().is_some()));
-            if let Some(i) = fly {
-                self.player_release_grasp(i);
-            }
-        }
-        let grasps = self.player_grasps();
-        if let Some(k) = (0..2).find(|&k| grasps[k].is_none()) {
-            let pos = self.world.fly_ref(candidate).pos();
-            self.play_in_room(index, SoundId::SlugcatPickUpCreature, pos);
-            self.slugcat_grab(candidate, k, observer);
-            if self.world.fly_ref(candidate).graphics {
-                observer.fly_to_front(self.world.creature(candidate).id);
-            }
-            log::info!("picked up a bat fly");
-        }
-        self.player_mut().grab_mut().want_to_pick_up = 0;
-    }
-
-    /// `ReleaseObject` of a fly: `Slugcat_Lay_Down_Creature`, let go.
-    fn release_object(&mut self, index: i32, grasp: usize) {
-        let Some(fly) = self.player_grasps()[grasp] else {
-            return;
-        };
-        let pos = self.world.fly_ref(fly).pos();
-        self.play_in_room(index, SoundId::SlugcatLayDownCreature, pos);
-        self.player_release_grasp(grasp);
-    }
-
-    /// `Player.GraphicsModuleUpdated`: each held fly follows its hand (`MoveFromOutside
-    /// MyUpdate` with the hand's velocity) while the room is viewed, else sits on the
-    /// head chunk.
+    /// `Player.GraphicsModuleUpdated`: what the graphics' hands did to the body, then
+    /// each held object follows its hand (`MoveFromOutsideMyUpdate` with the hand's
+    /// velocity, a weapon turned the way it is held, `GetHeldItemDirection`) while the
+    /// room is viewed, else sits on the head chunk. Nothing ported is a heavy carry.
     pub(super) fn graphics_module_updated(&mut self, observer: &mut dyn PlayerObserver) {
+        let hands = observer.player_hands();
+        if let Some(h) = hands {
+            self.player_mut().body.chunks[0].vel += h.body_push;
+        }
         let grasps = self.player_grasps();
         if grasps.iter().all(Option::is_none) {
             return;
         }
         let eu = self.even_update();
-        let hands = observer.player_hands();
         let p = self.player_ref();
         let (head_pos, head_vel) = (p.head().pos, p.head().vel);
         for (i, held) in grasps.iter().enumerate() {
-            let Some(fly) = *held else { continue };
-            let f = self.world.fly_at(fly);
-            let even = f.even_update;
-            let c = f.chunk_mut();
+            let Some(obj) = *held else { continue };
+            if let (Some(h), Entity::Object(id)) = (hands, obj)
+                && let Some(overlap) = h.overlap[i]
+            {
+                self.world.change_overlap(id, overlap);
+            }
+            let even = self.world.entity_even_update(obj);
+            let Some(c) = self.world.chunk_mut(obj, 0) else {
+                continue;
+            };
             match hands {
                 Some(h) => {
-                    c.vel = h[i].1;
-                    c.move_from_outside_my_update(even, eu, h[i].0);
+                    c.vel = h.hands[i].1;
+                    c.move_from_outside_my_update(even, eu, h.hands[i].0);
+                    if let Entity::Object(id) = obj {
+                        let dir = self.held_item_direction(i, h.spear_dir);
+                        self.world.set_held_rotation(id, dir);
+                    }
                 }
                 None => {
                     c.pos = head_pos;
@@ -834,8 +784,11 @@ impl RainWorldGame {
         let Some((target, radius)) = self.player.as_ref().and_then(Player::shortcut_pull) else {
             return;
         };
-        for id in self.carried() {
-            for c in &mut self.world.fly_at(id).body.chunks {
+        for e in self.carried() {
+            let Some(chunks) = self.world.body_chunks_mut(e) else {
+                continue;
+            };
+            for c in chunks {
                 c.vel *= 0.06;
                 if c.pos.dist_less(target, radius) {
                     c.pos = target;
@@ -848,44 +801,55 @@ impl RainWorldGame {
         }
     }
 
-    /// The realized flies stuck to the player (`GetAllConnectedObjects` but itself).
-    fn carried(&self) -> Vec<CreatureId> {
+    /// The realized objects stuck to the player (`GetAllConnectedObjects` but itself).
+    fn carried(&self) -> Vec<Entity> {
         self.world
-            .connected_objects(self.player_id)
+            .connected_objects(Entity::Creature(self.player_id))
             .into_iter()
-            .filter(|&id| id != self.player_id && self.world.creature(id).fly().is_some())
+            .filter(|&e| match e {
+                Entity::Creature(id) => self.world.creature(id).fly().is_some(),
+                Entity::Object(id) => self.world.object(id).realized.is_some(),
+            })
             .collect()
     }
 
     /// `SuckedIntoShortCut` of the player: every connected object leaves the room with it.
     pub(super) fn carried_sucked_in(&mut self) {
-        for id in self.carried() {
-            let f = self.world.fly_at(id);
-            f.in_shortcut = true;
-            f.room = None;
+        for e in self.carried() {
+            match e {
+                Entity::Creature(id) => {
+                    let f = self.world.fly_at(id);
+                    f.in_shortcut = true;
+                    f.room = None;
+                }
+                Entity::Object(id) => self.world.object_leaves_room(id),
+            }
         }
     }
 
     /// `AbstractPhysicalObject.Move` through the player's sticks: what it carries moves
     /// to `to` with it.
     pub(super) fn move_carried(&mut self, to: WorldCoordinate) {
-        let carried: Vec<CreatureId> = self
+        let carried: Vec<Entity> = self
             .world
-            .connected_objects(self.player_id)
+            .connected_objects(Entity::Creature(self.player_id))
             .into_iter()
-            .filter(|&id| id != self.player_id)
+            .filter(|&e| e != Entity::Creature(self.player_id))
             .collect();
-        for id in carried {
-            let from = self.world.creature(id).pos;
+        for e in carried {
+            let from = self.world.entity_pos(e);
             if from.same_room_and_node(to) {
                 continue;
             }
-            self.world.move_creature(id, to);
+            match e {
+                Entity::Creature(id) => self.world.move_creature(id, to),
+                Entity::Object(id) => self.world.move_object(id, to),
+            }
         }
     }
 
     /// The base `Creature.SpitOutOfShortCut`'s loop for what the player carries: each
-    /// object's chunks at the entrance (a draw each), added to the room, spat out
+    /// object's chunks at the entrance (a draw each), added to the room, a fly spat out
     /// itself (`Fly.SpitOutOfShortCut`) and `NewRoom`.
     pub(super) fn spit_out_carried(&mut self, observer: &mut dyn PlayerObserver) {
         // The head stops 2.5 px out of the entrance's middle: still on its tile.
@@ -899,7 +863,14 @@ impl RainWorldGame {
         let middle = Vec2::middle_of_tile(entrance);
         let hole = map_room.shortcut_hole_direction(entrance.0, entrance.1);
         let hole = Vec2::new(hole.0 as f32, hole.1 as f32);
-        for id in self.carried() {
+        for e in self.carried() {
+            let id = match e {
+                Entity::Creature(id) => id,
+                Entity::Object(id) => {
+                    self.world.spit_out_object(id, room, middle, &mut self.rng);
+                    continue;
+                }
+            };
             let mut cx = FlyRoomTick {
                 rng: &mut self.rng,
                 observer: &mut *observer,
@@ -939,11 +910,6 @@ impl RainWorldGame {
             return;
         };
         let glitter = realized.water_glitter;
-        let _level = realized
-            .water
-            .as_ref()
-            .map_or(f32::MIN, |w| w.level_at(realized.drips[pos].pos.x));
-        let _drip_before = realized.drips[pos].clone();
         let Some(realized) = self.world.realized_mut(index) else {
             return;
         };

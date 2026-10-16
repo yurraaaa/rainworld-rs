@@ -32,7 +32,7 @@ mod tests;
 use rw_assets::{Room, Terrain};
 use rw_random::UnityRandom;
 
-pub use grab::GrabState;
+pub use grab::{GrabState, StomachObject};
 pub use input::{INPUT_HISTORY, Input, PlayerController};
 pub use shortcut::VesselStep;
 pub use sleep::ShelterCheck;
@@ -354,6 +354,8 @@ pub struct Player {
 
     /// The counters `GrabUpdate` keeps.
     pub(crate) grab: GrabState,
+    /// `objectInStomach`.
+    stomach: Option<StomachObject>,
     /// `Stun` or `Die` let go of everything (`LoseAllGrasps`); the game applies it.
     release_grasps: bool,
     /// `MovementUpdate` ran this tick (so `GrabUpdate`, its last step, is due).
@@ -479,6 +481,7 @@ impl Player {
             aerobic_level: 0.0,
             exhausted: false,
             grab: GrabState::default(),
+            stomach: None,
             release_grasps: false,
             movement_ran: false,
             shortcut_pull: None,

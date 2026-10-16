@@ -78,6 +78,14 @@ impl HibernationWorld for HibernatingGame<'_> {
         .iter()
         .any(|p| self.assets.resolve_file_path(p).is_file())
     }
+
+    fn player_grasps(&self) -> Vec<String> {
+        self.sim.player_grasp_save_strings()
+    }
+
+    fn swallowed_item(&self) -> Option<String> {
+        self.sim.swallowed_item_save_string()
+    }
 }
 
 impl HibernatingGame<'_> {

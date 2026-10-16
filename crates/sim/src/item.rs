@@ -14,7 +14,7 @@ pub use weapon::{
 
 use rw_assets::{AbstractObjectType, ActiveMods};
 
-use crate::creature::{CreatureId, EntityId, WorldCoordinate};
+use crate::creature::{CreatureId, EntityId, Grasp, GripStick, WorldCoordinate};
 
 /// Index of an object in the world's object arena.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -26,6 +26,24 @@ pub struct ObjectId(pub usize);
 pub enum Entity {
     Creature(CreatureId),
     Object(ObjectId),
+}
+
+impl Entity {
+    #[must_use]
+    pub fn creature(self) -> Option<CreatureId> {
+        match self {
+            Self::Creature(id) => Some(id),
+            Self::Object(_) => None,
+        }
+    }
+
+    #[must_use]
+    pub fn object(self) -> Option<ObjectId> {
+        match self {
+            Self::Object(id) => Some(id),
+            Self::Creature(_) => None,
+        }
+    }
 }
 
 /// `AbstractSpear`'s own fields (the DLC ones, `hue`, `electric`, `needle`, `poison`,
@@ -78,6 +96,10 @@ pub struct AbstractObject {
     pub unrecognized_attributes: Vec<String>,
     /// `realizedObject`.
     pub realized: Option<Box<Weapon>>,
+    /// The realized object's `grabbedBy`.
+    pub grabbed_by: Vec<Grasp>,
+    /// `stuckObjects`: the grip sticks of the creatures holding it.
+    pub sticks: Vec<GripStick>,
 }
 
 impl AbstractObject {
@@ -109,6 +131,8 @@ impl AbstractObject {
             even_update: false,
             unrecognized_attributes: Vec::new(),
             realized: None,
+            grabbed_by: Vec::new(),
+            sticks: Vec::new(),
         }
     }
 

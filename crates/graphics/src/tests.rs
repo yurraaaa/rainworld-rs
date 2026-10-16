@@ -108,6 +108,7 @@ fn update_alone(g: &mut PlayerGraphics, p: &Player, r: &Room, rng: &mut UnityRan
     let around = PlayerSurroundings {
         world: &world,
         grasps: [None; 2],
+        stomach: false,
         room: 0,
         objects: Vec::new(),
         hungry: true,
@@ -1398,4 +1399,46 @@ fn breath_quickens_with_the_aerobic_level() {
     p.set_aerobic_level(1.0);
     update_alone(&mut g, &p, &r, &mut rng);
     assert_close(g.breath - before, 1.0 / 15.0, "panting");
+}
+
+// ---- swallowing ---------------------------------------------------------------------
+
+#[test]
+fn the_swallow_shakes_with_six_draws_from_halfway() {
+    // `SlugcatHand.Update` (241815): t = InverseLerp(10, 90, counter); below 0.5 the
+    // hand is drawn in without draws, from 0.5 the eyes shut and the hand, the head and
+    // the main chunk each take an `RNV` and a `value`.
+    let r = flat_room();
+    let mut rng = UnityRandom::new(3);
+    let (p, _) = grounded_player(&mut rng);
+    for (counter, draws) in [(49, 0), (50, 6), (90, 6)] {
+        let mut hand = crate::hand::SlugcatHand::new(0);
+        let (mut disbalance, mut head_vel, mut draw_pos0) = (0.0, Vec2::ZERO, Vec2::ZERO);
+        let (mut blink, mut overlap, mut body_push) = (0, [None; 2], Vec2::ZERO);
+        let mut rng = UnityRandom::new(9);
+        let mut cx = crate::hand::HandContext {
+            player: &p,
+            room: &r,
+            water: None,
+            balance_counter: 0.0,
+            disbalance: &mut disbalance,
+            head_vel: &mut head_vel,
+            airborne_counter: 0.0,
+            hand0: (Vec2::ZERO, false),
+            rng: &mut rng,
+            grasps: crate::hand::HandGrasp::default(),
+            spear_dir: 0.0,
+            draw_pos0: &mut draw_pos0,
+            blink: &mut blink,
+            overlap: &mut overlap,
+            body_push: &mut body_push,
+        };
+        hand.swallow_reach(&mut cx, counter);
+        let mut expect = UnityRandom::new(9);
+        for _ in 0..draws {
+            expect.value();
+        }
+        assert_eq!(rng.state(), expect.state(), "counter {counter}");
+        assert_eq!(blink, if draws > 0 { 5 } else { 0 });
+    }
 }

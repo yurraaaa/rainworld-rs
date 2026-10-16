@@ -23,11 +23,12 @@ use rw_sim::creature::fly::FlyView;
 use rw_sim::creature::overseer::OverseerView;
 use rw_sim::creature::overseer::hologram::OverseerHologram;
 use rw_sim::creature::{CreatureId, EntityId};
+use rw_sim::item::Entity;
 use rw_sim::room_script::{RoomScript, SuC04StartUp};
 use rw_sim::shelter::ShelterDoor;
 use rw_sim::world::World;
 use rw_sim::{
-    CameraMove, CameraView, HudEvent, Input, PhysicalObject, Player, PlayerObserver,
+    CameraMove, CameraView, HudEvent, Input, PhysicalObject, Player, PlayerHands, PlayerObserver,
     PlayerSurroundings, RainWorldGame, SoundEvent, Sounds, Start, Vec2, Water,
 };
 
@@ -157,7 +158,7 @@ impl PlayerObserver for Graphics {
         self.module.is_some()
     }
 
-    fn player_look_at(&mut self, target: Option<CreatureId>) {
+    fn player_look_at(&mut self, target: Option<Entity>) {
         if let Some(g) = &mut self.module {
             g.look_at(target);
         }
@@ -167,8 +168,20 @@ impl PlayerObserver for Graphics {
         self.module.as_mut().map(|g| g.bite_fly(hand, fly))
     }
 
-    fn player_hands(&self) -> Option<[(Vec2, Vec2); 2]> {
+    fn player_hands(&self) -> Option<PlayerHands> {
         self.module.as_ref().map(PlayerGraphics::hand_motion)
+    }
+
+    fn player_swallowing(&mut self) {
+        if let Some(g) = &mut self.module {
+            g.swallow();
+        }
+    }
+
+    fn nudge_player_head(&mut self, dv: Vec2) {
+        if let Some(g) = &mut self.module {
+            g.nudge_head(dv);
+        }
     }
 
     fn overseer_added(&mut self, view: &OverseerView<'_>, rng: &mut UnityRandom) {

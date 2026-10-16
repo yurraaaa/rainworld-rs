@@ -15,11 +15,14 @@ mod exit;
 mod flies;
 #[path = "game_player.rs"]
 mod hands;
+#[path = "game_items.rs"]
+mod items;
 #[path = "game_map.rs"]
 mod map;
 #[path = "game_over.rs"]
 mod over;
 
+pub use items::Grabability;
 pub use over::GameOver;
 #[path = "game_shelter.rs"]
 mod shelter_door;
@@ -77,16 +80,20 @@ pub trait PlayerObserver {
         false
     }
     /// `PlayerGraphics.LookAtObject(target)`, or `LookAtNothing` for `None`.
-    fn player_look_at(&mut self, _target: Option<CreatureId>) {}
+    fn player_look_at(&mut self, _target: Option<Entity>) {}
     /// `PlayerGraphics.BiteFly(hand)` up to its drips: returns `head.pos`, where they
     /// start (`None` without a graphics module).
     fn player_bite_fly(&mut self, _hand: usize, _fly: CreatureId) -> Option<Vec2> {
         None
     }
-    /// Where the graphics' hands are after their update: (pos, vel) each.
-    fn player_hands(&self) -> Option<[(Vec2, Vec2); 2]> {
+    /// What the graphics' hands did in their update.
+    fn player_hands(&self) -> Option<PlayerHands> {
         None
     }
+    /// `PlayerGraphics.swallowing = 20` (`GrabUpdate` swallowed an object).
+    fn player_swallowing(&mut self) {}
+    /// `(graphicsModule as PlayerGraphics).head.vel += dv`.
+    fn nudge_player_head(&mut self, _dv: Vec2) {}
     /// A room script adds `dvx` to every tail segment's x velocity.
     fn nudge_tail_x(&mut self, _dvx: f32) {}
     /// A realized overseer is in the camera's room (`AddObject` or `NowViewed`): its
@@ -144,11 +151,26 @@ pub enum HudEvent {
     RefuseFood,
 }
 
+/// What `Player.GraphicsModuleUpdated` reads of the graphics' last update.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct PlayerHands {
+    /// Each hand's (pos, vel).
+    pub hands: [(Vec2, Vec2); 2],
+    /// `spearDir`.
+    pub spear_dir: f32,
+    /// A hand's `ChangeOverlap` of the weapon it holds.
+    pub overlap: [Option<bool>; 2],
+    /// What the hands added to the main chunk's velocity (the swallow's shake).
+    pub body_push: Vec2,
+}
+
 /// What the player's graphics read of its room and hands.
 pub struct PlayerSurroundings<'a> {
     pub world: &'a World,
     /// What the player holds in each hand.
-    pub grasps: [Option<CreatureId>; 2],
+    pub grasps: [Option<Entity>; 2],
+    /// `objectInStomach != null`.
+    pub stomach: bool,
     pub room: i32,
     /// The room's physical objects in its update list, oldest first, the player left out.
     pub objects: Vec<Entity>,
@@ -555,6 +577,7 @@ impl RainWorldGame {
     fn spawn_player(&mut self, tile: (i32, i32), observer: &mut dyn PlayerObserver) {
         let mut player = Player::create(&mut self.rng);
         player.set_stats(self.character_stats);
+        player.set_object_in_stomach(self.stomach_from_save());
         self.world.player_mass = player.total_mass();
         self.karma_flower_grow_pos = None;
         self.player_wakes_in_shelter(&mut player);
@@ -1474,6 +1497,10 @@ impl RainWorldGame {
         let around = PlayerSurroundings {
             world: &self.world,
             grasps: self.player_grasps(),
+            stomach: self
+                .player
+                .as_ref()
+                .is_some_and(|p| p.object_in_stomach().is_some()),
             room: index,
             objects: self.room_physical_objects(index),
             hungry: self.food_in_stomach() < self.max_food(),

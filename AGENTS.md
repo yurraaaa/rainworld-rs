@@ -150,7 +150,10 @@ before the user agrees.
     looker), holds, throws, carries them through pipes and eats them
     (bites, drips, food and the food meter), under the tutorial's Eat
     instruction in SU_A42; fed, the guide moves on to SU_A43's super-jump
-    lesson. Saves (`rw-save`, D16): Continue from the slugcat select, New
+    lesson. Rocks and spears lie in the rooms; the player picks them up,
+    carries them (through pipes and room exits), switches hands, lays them
+    down and swallows and regurgitates rocks; throwing them only drops
+    them until it is ported (D3). Saves (`rw-save`, D16): Continue from the slugcat select, New
     Game's wipe and the start's death-and-quit save. Shelters (D17): the
     door closes on a fed, still slugcat, `Win` writes the whole save state
     and region state, the sleep screen (karma ladder, food meter, map;
@@ -207,8 +210,8 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   (arena levels: a single-room world), as `slugcat` (default `White`); `new_game` starts a campaign
   (`White`, `Yellow`, `Red`) at its start den (`malnourished` starts it
   malnourished). `get_state` reports the
-  camera's room, the player (with its food, quarter pips, grasps,
-  eat counter, malnourishment, aerobic level and exhaustion), the player's room and node, the vessel waiting in the
+  camera's room, the player (with its food, quarter pips, grasps and
+  pick-up candidate as `{kind, id}`, stomach, swallow counter, eat counter, malnourishment, aerobic level and exhaustion), the player's room and node, the vessel waiting in the
   lobby, the realized rooms' entry waits and `creatures` (every
   abstract creature: kind, ID, room, node, tile, in den, realized,
   alive; overseers also their AI's destination, guide state, last rooms
@@ -231,7 +234,8 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   shelter markers), the text prompt and the SU_C04 controls page,
   `hud_message` queues a text-prompt message, and the `map` input field
   (Space in the window) holds the map button (the map shows after 30
-  ticks; x/y pan it, jump and throw change layers); `pickup` (left Shift) picks up, drops and eats,
+  ticks; x/y pan it, jump and throw change layers); `pickup` (left Shift) picks up, drops (with down),
+  switches hands (double tap), eats, swallows and regurgitates (held),
   `throw` (X) throws.
 - To check behaviour, prefer these tools over `--screenshot`/`--script`.
   Briefs for agents that check behaviour should say so.

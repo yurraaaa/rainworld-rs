@@ -64,7 +64,7 @@ impl World {
         }
     }
 
-    pub(super) fn entity_even_update(&self, e: Entity) -> bool {
+    pub(crate) fn entity_even_update(&self, e: Entity) -> bool {
         match e {
             Entity::Creature(id) => self.creature(id).even_update,
             Entity::Object(id) => self.object(id).even_update,
@@ -80,6 +80,27 @@ impl World {
             self.lists[l].add_entity(Entity::Object(id));
         }
         id
+    }
+
+    /// Puts a new object into the arena in no room's entities (a swallowed object read
+    /// from the save).
+    pub(crate) fn add_detached_object(&mut self, object: AbstractObject) -> ObjectId {
+        self.objects.push(object);
+        ObjectId(self.objects.len() - 1)
+    }
+
+    /// `AbstractRoom.AddEntity` of object `id` into the room of its `pos`.
+    pub(crate) fn add_object_entity(&mut self, id: ObjectId) {
+        if let Some(l) = self.local(self.object(id).pos.room) {
+            self.lists[l].add_entity(Entity::Object(id));
+        }
+    }
+
+    /// `AbstractRoom.RemoveEntity` of object `id` from the room of its `pos`.
+    pub(crate) fn remove_object_entity(&mut self, id: ObjectId) {
+        if let Some(l) = self.local(self.object(id).pos.room) {
+            self.lists[l].remove_entity(Entity::Object(id));
+        }
     }
 
     /// `AbstractPhysicalObject.Move(newCoord)`: `ChangeRooms` between the rooms'
