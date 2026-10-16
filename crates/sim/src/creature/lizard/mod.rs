@@ -1,23 +1,30 @@
 //! The realized lizard (`Lizard`, 3 body chunks), shared by every breed; the breed's
 //! numbers come from [`LizardBreedParams`]. Ported: the constructor, the body part of
-//! `Update` with the `Creature` and `AirBreatherCreature` updates under it, the footing
-//! part of `Act`, damage (`Violence`, `Stun`, `SpearStick`, the head shield, hits in
-//! the mouth), biting, `CarryObject`, terrain impacts and `SpitOutOfShortCut`. The AI is
-//! a passive stand-in (`LizardAI` is lizard step 7) and nothing runs `Act`'s movement
-//! (step 4); the graphics module and the voice are step 5 (docs/DIVERGENCES.md D14).
+//! `Update` with the `Creature` and `AirBreatherCreature` updates under it, `Act` with
+//! the path following, the movement animations, gripping, swimming and the animations'
+//! physics, shortcut travel, damage (`Violence`, `Stun`, `SpearStick`, the head shield,
+//! hits in the mouth), biting, `CarryObject`, terrain impacts and `SpitOutOfShortCut`.
+//! The AI is a stand-in ([`LizardAi`]: its path finder and the base AI's updates;
+//! `LizardAI`'s behaviours are lizard step 7); the graphics module and the voice are
+//! step 5 (docs/DIVERGENCES.md D14).
 //!
 //! The updates that reach the rest of the game are `RainWorldGame`'s (`game_lizards.rs`,
-//! `game_lizard_hits.rs`). Behaviour: `rainworld-re/notes/creature-model.md` section 13,
-//! decompile `Lizard.cs`.
+//! `game_lizard_act.rs`, `game_lizard_hits.rs`). Behaviour:
+//! `rainworld-re/notes/creature-model.md` sections 13 and 14, decompile `Lizard.cs`.
 
+mod ai;
 mod breed;
+mod movement;
 
 use rw_random::UnityRandom;
 
+pub use ai::LizardAi;
 pub use breed::{LizardBreedParams, SpeedMultiplier};
+pub use movement::{AnimationOutcome, BodyPartDestination, MovementAnimation};
 
 use super::{AbstractCreature, WorldCoordinate};
 use crate::object::{BodyChunkConnection, ConnectionKind, PhysicalObject};
+use crate::world::MovementConnection;
 use crate::{BodyChunk, FloatExt, PhysicsParams, Vec2};
 
 /// `Lizard.Animation`.
@@ -84,13 +91,6 @@ impl LizardAnimation {
     }
 }
 
-/// The passive stand-in for `LizardAI` until lizard step 7: it decides nothing and
-/// draws nothing. `forbiddenEntranceCounter` is its path finder's (step 4).
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct LizardAi {
-    pub forbidden_entrance_counter: i32,
-}
-
 /// A realized `Lizard` with its stand-in AI.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Lizard {
@@ -141,6 +141,26 @@ pub struct Lizard {
     /// Whether the game would have a `LizardGraphics` module (not yet: step 5).
     pub graphics: bool,
     pub ai: LizardAi,
+    /// `shortCutRadAdd`.
+    pub short_cut_rad_add: f32,
+    pub upcoming_connections: Vec<MovementConnection>,
+    pub following_connection: Option<MovementConnection>,
+    pub last_following_connection: Option<MovementConnection>,
+    pub commited_to_drop_connection: Option<MovementConnection>,
+    pub movement_animation: Option<MovementAnimation>,
+    pub grip_point: Option<Vec2>,
+    pub time_spent_trying_this_move: i32,
+    pub desperation_smoother: f32,
+    pub limbs_aim_for: Vec2,
+    pub straighten_out_needed: f32,
+    pub narrow_upcoming: bool,
+    pub climb_upcoming: bool,
+    pub shortcut_upcoming: bool,
+    pub body_wiggle: f32,
+    /// `bodyWiggleCounter` (0-100 through [`Lizard::set_body_wiggle_counter`]).
+    pub body_wiggle_counter: i32,
+    /// `NPCTransportationDestination`.
+    pub npc_transportation_destination: Option<WorldCoordinate>,
 }
 
 /// `Lizard`'s physics scalars as the constructor sets them (`Update` changes them
@@ -232,6 +252,23 @@ impl Lizard {
             effect_color,
             graphics: false,
             ai: LizardAi::default(),
+            short_cut_rad_add: 0.0,
+            upcoming_connections: Vec::new(),
+            following_connection: None,
+            last_following_connection: None,
+            commited_to_drop_connection: None,
+            movement_animation: None,
+            grip_point: None,
+            time_spent_trying_this_move: 0,
+            desperation_smoother: 0.0,
+            limbs_aim_for: Vec2::ZERO,
+            straighten_out_needed: 0.0,
+            narrow_upcoming: false,
+            climb_upcoming: false,
+            shortcut_upcoming: false,
+            body_wiggle: 0.0,
+            body_wiggle_counter: 0,
+            npc_transportation_destination: None,
         })
     }
 
@@ -308,11 +345,10 @@ impl Lizard {
         self.read_jaw_open(holding) > 0.9 && self.bite_delay == 0
     }
 
-    /// `BodyStiff`: unconscious, or conscious without a movement animation (there are
-    /// none before step 4).
+    /// `BodyStiff`: unconscious, or conscious without a movement animation.
     #[must_use]
     pub fn body_stiff(&self) -> bool {
-        true
+        !self.conscious() || self.movement_animation.is_none()
     }
 
     /// `ShortCutColor`.

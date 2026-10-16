@@ -305,6 +305,44 @@ impl CreatureTemplate {
         }
     }
 
+    /// `shortcutSegments`: the vessel's length in tubes (`InitStaticWorld`), inherited
+    /// from the ancestor, 1 by default.
+    #[must_use]
+    pub fn shortcut_segments(&self) -> i32 {
+        use CreatureType as T;
+        match self.kind {
+            T::Slugcat
+            | T::Snail
+            | T::LanternMouse
+            | T::BrotherLongLegs
+            | T::Scavenger
+            | T::EggBug
+            | T::BigSpider
+            | T::DropBug => 2,
+            T::LizardTemplate | T::DaddyLongLegs | T::Centipede | T::BigNeedleWorm => 3,
+            T::Vulture | T::TempleGuard | T::RedCentipede => 5,
+            T::SmallNeedleWorm => 1,
+            _ => self
+                .ancestor
+                .map_or(1, |a| Self::of(a, ActiveMods::NONE).shortcut_segments()),
+        }
+    }
+
+    /// `canAutoAbstractPath`: true for every base-game template (Watcher's loach has
+    /// it false).
+    #[must_use]
+    pub fn can_auto_abstract_path(&self) -> bool {
+        true
+    }
+
+    /// `UseAnyRoomBorderExit`: the template maps a border exit type.
+    #[must_use]
+    pub fn use_any_room_border_exit(&self) -> bool {
+        self.maps_node(NodeType::SideExit)
+            || self.maps_node(NodeType::SkyExit)
+            || self.maps_node(NodeType::SeaExit)
+    }
+
     /// `RoomRealizer.GetCreaturePerformanceEstimation` (base game).
     #[must_use]
     pub fn performance_estimation(&self) -> f32 {

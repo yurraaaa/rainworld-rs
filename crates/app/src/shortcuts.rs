@@ -5,7 +5,7 @@
 
 use rw_assets::{CreatureType, PlacedObjectType, RoomEffectType, SlugcatName};
 use rw_graphics::{
-    DrawList, ExitBehind, ShortcutFrame, ShortcutGraphics, ShortcutPalette, ShortcutRoom,
+    Color, DrawList, ExitBehind, ShortcutFrame, ShortcutGraphics, ShortcutPalette, ShortcutRoom,
     ShortcutVessel,
 };
 use rw_random::UnityRandom;
@@ -142,14 +142,21 @@ impl CameraShortcuts {
             .filter_map(|v| match v {
                 None => Self::player_vessel(sim, slugcat),
                 Some(v) if v.room == room => {
-                    let kind = world.creature(v.creature).kind();
-                    let (pos, last) = v.tiles();
+                    let c = world.creature(v.creature);
+                    let (pos, last_positions) = v.positions();
+                    // `Lizard.ShortCutColor` is its effect colour.
+                    let color = match c.lizard() {
+                        Some(l) => {
+                            let [r, g, b] = l.effect_color;
+                            Color::rgb(r, g, b)
+                        }
+                        None => ShortcutGraphics::creature_color(c.kind(), slugcat),
+                    };
                     Some(ShortcutVessel {
                         pos,
-                        last_positions: vec![last],
-                        color: ShortcutGraphics::creature_color(kind, slugcat),
-                        // Only flies ride vessels yet: the template default.
-                        segments: 1,
+                        last_positions,
+                        color,
+                        segments: c.template.shortcut_segments(),
                     })
                 }
                 Some(_) => None,

@@ -125,6 +125,20 @@ pub struct SetPlayerParams {
     pub food: Option<u32>,
 }
 
+#[derive(Debug, Clone, Default, Deserialize, JsonSchema)]
+pub struct SetDestinationParams {
+    /// The realized lizard's EntityID [spawner, number], as get_state reports it.
+    pub creature: [i32; 2],
+    /// The destination's room name (default the lizard's room).
+    pub room: Option<String>,
+    /// The destination tile.
+    pub x: i32,
+    pub y: i32,
+    /// The run speed its AI keeps (default 0.5; the behaviours that set it are not
+    /// ported yet).
+    pub run_speed: Option<f32>,
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ViewParam {

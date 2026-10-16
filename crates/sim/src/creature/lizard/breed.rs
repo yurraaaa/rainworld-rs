@@ -31,6 +31,32 @@ impl SpeedMultiplier {
     const DEFAULT: Self = Self::new(0.1, 1.0, 1.0, 1.0);
 }
 
+impl std::ops::Add for SpeedMultiplier {
+    type Output = Self;
+
+    fn add(self, b: Self) -> Self {
+        Self::new(
+            self.speed + b.speed,
+            self.horizontal + b.horizontal,
+            self.up + b.up,
+            self.down + b.down,
+        )
+    }
+}
+
+impl std::ops::Div<f32> for SpeedMultiplier {
+    type Output = Self;
+
+    fn div(self, b: f32) -> Self {
+        Self::new(
+            self.speed / b,
+            self.horizontal / b,
+            self.up / b,
+            self.down / b,
+        )
+    }
+}
+
 /// `LizardBreedParams`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LizardBreedParams {
@@ -215,6 +241,12 @@ impl LizardBreedParams {
             taming_difficulty: 0.8,
             vision: [850.0, 0.3, 0.85, 0.7],
         }
+    }
+
+    /// `TerrainSpeed`.
+    #[must_use]
+    pub fn terrain_speed(&self, acc: Accessibility) -> SpeedMultiplier {
+        self.terrain_speeds[acc.index()]
     }
 
     /// Body chunk radius: `8 * bodySizeFac * bodyRadFac`.

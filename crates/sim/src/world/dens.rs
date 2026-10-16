@@ -53,7 +53,8 @@ impl World {
                 .realized(pos.room)
                 .is_some_and(RealizedRoom::shortcuts_ready)
             {
-                if self.realize_lizard(id, rng) {
+                // `Realize` keeps a body it already has (one that went in realized).
+                if self.realize_lizard(id, rng) || self.creature(id).lizard().is_some() {
                     if let Some(l) = self.creature_mut(id).lizard_mut() {
                         l.in_shortcut = true;
                     }

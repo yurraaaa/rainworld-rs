@@ -48,6 +48,18 @@ impl CreatureVessel {
     pub fn tiles(&self) -> ((i32, i32), (i32, i32)) {
         (self.vessel.pos, self.vessel.last_pos)
     }
+
+    /// The tube tile and every `lastPositions` entry, newest first.
+    #[must_use]
+    pub fn positions(&self) -> ((i32, i32), Vec<(i32, i32)>) {
+        (self.vessel.pos, self.vessel.last_positions())
+    }
+
+    /// Updates the vessel still sits out (`wait`).
+    #[must_use]
+    pub fn wait(&self) -> i32 {
+        self.vessel.wait
+    }
 }
 
 impl CreatureVessel {
@@ -256,23 +268,57 @@ impl ShortcutsBlinking {
     }
 }
 
-/// `ShortcutHandler.ShortCutVessel` for a one-segment creature (the slugcat).
+/// `ShortcutHandler.ShortCutVessel`: `lastPositions` holds `shortcutSegments - 1`
+/// tiles (1 to 4 in the base game; one for the slugcat).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShortcutVessel {
     pub(crate) pos: (i32, i32),
     /// `lastPositions[0]`.
     pub(crate) last_pos: (i32, i32),
-    /// Updates to sit out; always 0 without Jolly co-op.
+    /// `lastPositions[1..]`.
+    older: [(i32, i32); 3],
+    /// `lastPositions.Length`.
+    len: usize,
+    /// Updates to sit out (an NPC transport's distance; the player's is 0 without Jolly
+    /// co-op).
     pub(crate) wait: i32,
 }
 
 impl ShortcutVessel {
+    /// A vessel with one last position (the slugcat's).
     pub(crate) fn new(pos: (i32, i32)) -> Self {
+        Self::with_segments(pos, 2, 0)
+    }
+
+    /// The constructor for a creature of `shortcut_segments` (`IntClamp(segments - 1,
+    /// 1, 100)` last positions, all at `pos`).
+    pub(crate) fn with_segments(pos: (i32, i32), shortcut_segments: i32, wait: i32) -> Self {
+        let len = usize::try_from((shortcut_segments - 1).clamp(1, 4)).unwrap_or(1);
         Self {
             pos,
             last_pos: pos,
-            wait: 0,
+            older: [pos; 3],
+            len,
+            wait,
         }
+    }
+
+    /// `lastPositions`, newest first.
+    pub(crate) fn last_positions(&self) -> Vec<(i32, i32)> {
+        let mut v = vec![self.last_pos];
+        v.extend_from_slice(&self.older[..self.len - 1]);
+        v
+    }
+
+    /// `PushNewLastPos`.
+    fn push_new_last_pos(&mut self, pos: (i32, i32)) {
+        if self.len > 1 {
+            for i in (1..self.len - 1).rev() {
+                self.older[i] = self.older[i - 1];
+            }
+            self.older[0] = self.last_pos;
+        }
+        self.last_pos = pos;
     }
 
     /// One `ShortcutHandler.Update` step: counts `wait` down, or moves one tile along
@@ -284,7 +330,7 @@ impl ShortcutVessel {
         }
         let prev = self.pos;
         self.pos = room.next_shortcut_position(self.pos, self.last_pos);
-        self.last_pos = prev;
+        self.push_new_last_pos(prev);
         true
     }
 }

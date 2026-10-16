@@ -2,7 +2,7 @@
 //! door that opens at cycle start, closes when the slugcat sleeps and ends the cycle.
 //! Its graphics are `rw_graphics::ShelterDoorSprites`. Left out: the ancient (More
 //! Slugcats) doors, broken shelters, `PrecycleModule`, the tutorials and dream ghost,
-//! `GetStuffInWalls`, the AI remap on opening and `ScreenMovement`.
+//! `GetStuffInWalls` and `ScreenMovement`.
 
 use rw_assets::shortcut::{FOUR_DIRECTIONS, ShortcutType};
 use rw_assets::{ActiveMods, PlacedObjectType, Room, RoomSettings, Terrain};
@@ -48,6 +48,8 @@ pub struct ShelterDoor {
     pub open_time: i32,
     /// Its place in the room's update list.
     pub update_order: u64,
+    /// `aiMapper`: the room's AI map built again once the door has opened.
+    pub ai_mapper: Option<crate::world::AiMapper>,
 }
 
 /// What one `ShelterDoor.Update` asks of the room and the game.
@@ -63,6 +65,15 @@ pub struct DoorStep {
     pub starve_check: bool,
     /// The close tiles become Solid (`Some(true)`) or Air.
     pub close_tiles: Option<bool>,
+}
+
+impl ShelterDoor {
+    /// `closedFac` reached 0 while opening: a new `AImapper` starts.
+    fn start_ai_mapper(&mut self, last: f32) {
+        if self.close_speed < 0.0 && last > 0.0 && self.closed_fac == 0.0 {
+            self.ai_mapper = Some(crate::world::AiMapper::default());
+        }
+    }
 }
 
 impl ShelterDoor {
@@ -116,6 +127,7 @@ impl ShelterDoor {
             kill_hostiles: slugcat_in_room,
             open_time: 0,
             update_order: 0,
+            ai_mapper: None,
         };
         door.find_entrance(room);
         if room.name().eq_ignore_ascii_case("sl_scrushed") {
@@ -243,6 +255,7 @@ impl ShelterDoor {
             kill_hostiles: false,
             open_time: 0,
             update_order: 0,
+            ai_mapper: None,
         }
     }
 
@@ -357,6 +370,7 @@ impl ShelterDoor {
                 step.closed = true;
             }
         }
+        self.start_ai_mapper(last);
         let p_zero = self.p_zero;
         let last_cylinders = last.inverse_lerp(0.53, 0.61);
         if self.close_speed < 0.0

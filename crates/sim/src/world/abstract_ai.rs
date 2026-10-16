@@ -191,41 +191,6 @@ impl World {
         0.1.lerp(0.9, (1.0 - value).mathf_pow(2.0))
     }
 
-    /// `QuickConnectivity.DefineNodeOfLocalCoordinate`: a defined node as is, else a
-    /// random relevant node (one draw, a second over all nodes when there is none).
-    /// In a room ready for AI the game then picks the node by the creature's exit
-    /// distances, which needs its AI map (not ported for these creatures): the drawn
-    /// node is kept there.
-    pub(crate) fn define_node(
-        &self,
-        coord: WorldCoordinate,
-        t: &CreatureTemplate,
-        rng: &mut UnityRandom,
-    ) -> WorldCoordinate {
-        if coord.node_defined() {
-            return coord;
-        }
-        let Some(room) = self.abstract_room(coord.room) else {
-            return coord;
-        };
-        let specific = rng.range_i32(0, t.nodes_relevant(room));
-        let mut node = t.common_node_index(room, specific);
-        if node < 0 {
-            let n = i32::try_from(room.nodes.len()).unwrap_or(i32::MAX);
-            node = rng.range_i32(0, n);
-        }
-        if self
-            .realized(coord.room)
-            .is_some_and(super::RealizedRoom::ready_for_ai)
-        {
-            log::warn!(
-                "DefineNodeOfLocalCoordinate in a room ready for AI: {} has no AI map",
-                t.kind
-            );
-        }
-        WorldCoordinate { node, ..coord }
-    }
-
     /// `AbstractCreatureAI.Update(time)` after `timeBuffer += time` (the caller's): in
     /// an unrealized room `AbstractBehavior`, then a destination without a path is reset
     /// to where it stands.
@@ -292,6 +257,22 @@ impl World {
                 self.random_move_within_room(id, cx.rng);
             }
         }
+    }
+
+    /// `AbstractBehavior` of a realized creature: only `MigrationBehavior`.
+    pub(crate) fn realized_abstract_behavior(
+        &mut self,
+        id: CreatureId,
+        time: i32,
+        rng: &mut UnityRandom,
+    ) {
+        self.migration_behavior(id, time, rng);
+    }
+
+    /// The den an AI goes home to (`denPosition`).
+    pub(crate) fn den_position_of(&self, id: CreatureId) -> Option<WorldCoordinate> {
+        let c = self.creature(id);
+        c.ai.as_ref()?.den_position(c, self.offscreen_den_index())
     }
 
     /// `MigrationBehavior`: a creature following another moves with it while it lives
@@ -715,14 +696,22 @@ impl World {
         }
     }
 
-    /// `InternalSetDestination` of an unrealized creature (`SetDestination`).
+    /// `InternalSetDestination`: `SetDestination` of an unrealized creature; a realized
+    /// one only takes another room as its migration destination.
     fn internal_set_destination(
         &mut self,
         id: CreatureId,
         dest: WorldCoordinate,
         rng: &mut UnityRandom,
     ) {
-        self.set_destination(id, dest, rng);
+        let c = self.creature(id);
+        if !c.is_realized() {
+            self.set_destination(id, dest, rng);
+        } else if dest.room != c.pos.room
+            && let Some(ai) = self.ai_of_mut(id)
+        {
+            ai.migration_destination = Some(dest);
+        }
     }
 
     /// `MigrateTo`.
@@ -730,10 +719,12 @@ impl World {
         self.internal_set_destination(id, dest, rng);
     }
 
-    /// `SetDestination` of an abstract creature: a dropped realized AI's flag cleared
-    /// when the destination's room is not realized; without a path there, the node is
-    /// defined and a path searched (`FindPath`); with a path the destination is set and
-    /// a new room becomes the migration destination.
+    /// `SetDestination`: a realized creature with its AI hands the destination to the
+    /// AI's path finder, takes it, and a more attractive other room becomes the
+    /// migration destination. Else a dropped realized AI's flag is cleared when the
+    /// destination's room is not realized; without a path there, the node is defined
+    /// and a path searched (`FindPath`); with a path the destination is set and a new
+    /// room becomes the migration destination.
     pub fn set_destination(
         &mut self,
         id: CreatureId,
@@ -745,6 +736,26 @@ impl World {
         let pos = c.pos;
         let Some(ai) = &c.ai else { return };
         if ai.freeze_destination {
+            return;
+        }
+        if c.is_realized() && ai.real_ai {
+            if let Some(pf) = self.path_finder_of(id) {
+                self.with_path_finders(|pfs, w| pfs.set_destination(pf, w, dest, rng));
+            }
+            let kind = self.creature(id).kind();
+            let attraction = self.attraction_value_for_room(dest.room, kind);
+            let Some(ai) = self.ai_of(id) else { return };
+            let migration_target = ai.migration_target(pos);
+            let more_attractive = ai
+                .migration_destination
+                .is_none_or(|m| attraction > self.attraction_value_for_room(m.room, kind));
+            let migrate = dest.room != pos.room && migration_target != dest && more_attractive;
+            if let Some(ai) = self.ai_of_mut(id) {
+                ai.destination = dest;
+                if migrate {
+                    ai.migration_destination = Some(dest);
+                }
+            }
             return;
         }
         let realized_dest = self.realized(dest.room).is_some();

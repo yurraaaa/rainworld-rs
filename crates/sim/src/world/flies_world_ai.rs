@@ -198,15 +198,14 @@ impl World {
 
     /// `ClosestSwarmRoom`: the room's own when it is an active swarm room, else the swarm
     /// room with the lowest distance from the node whose behaviour is not Inactive.
-    fn closest_swarm_room(&self, coord: WorldCoordinate) -> i32 {
+    fn closest_swarm_room(&self, coord: WorldCoordinate, rng: &mut UnityRandom) -> i32 {
         if self.active_swarm_room(coord.room) {
             return self
                 .abstract_room(coord.room)
                 .map_or(-1, |r| r.swarm_room_index);
         }
-        if !coord.node_defined() {
-            log::warn!("QuickConnectivity.DefineNodeOfLocalCoordinate is not ported");
-        }
+        let fly = crate::creature::CreatureTemplate::of(CreatureType::Fly, self.mods);
+        let coord = self.define_node(coord, &fly, rng);
         let (mut best, mut result) = (f32::MAX, -1);
         for i in 0..self.data.swarm_rooms.len() {
             let k = i32::try_from(i).unwrap_or(-1);
@@ -224,7 +223,7 @@ impl World {
         let Some(room) = self.abstract_room(coord.room) else {
             return -1;
         };
-        let closest = self.closest_swarm_room(coord);
+        let closest = self.closest_swarm_room(coord, rng);
         let here = self.number_of_quantified_creature_in_room(coord.room, CreatureType::Fly);
         if self.active_swarm_room(coord.room) && here < 6 {
             return -1;

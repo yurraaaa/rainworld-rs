@@ -21,6 +21,7 @@ mod movement;
 mod objects;
 mod overseers_world_ai;
 mod quantified;
+mod quick_connectivity;
 mod quick_path;
 mod rain_cycle;
 mod realized;
@@ -44,12 +45,14 @@ use rw_random::UnityRandom;
 pub use abstract_path::{FloodMethod, SearchingFor};
 pub(crate) use ai_map::EIGHT_DIRECTIONS;
 pub use ai_map::{AiMap, AiTile};
+pub use ai_mapper::AiMapper;
 pub use creature_ai_map::CreatureSpecificAiMap;
 pub(crate) use creatures::RoomLists;
 pub use creatures::{AbstractTick, QuantifiedCount, WorldProcesses};
 pub use flies_world_ai::{FliesTick, FliesWorldAi, SwarmBehavior};
 pub use movement::{Accessibility, Legality, MovementConnection, MovementType, PathCost};
 pub use overseers_world_ai::{DirectionFinder, OverseersWorldAi, ShelterFinder, StoryProgress};
+pub use quick_connectivity::QuickConnectivity;
 pub use quick_path::{QuickPath, QuickPathFinder};
 pub use rain_cycle::{CYCLE_TIME_MAX, CYCLE_TIME_MIN, RainCycle, WaterLevelCycle, WaterStage};
 pub use realized::RealizedRoom;
@@ -115,6 +118,9 @@ pub struct World {
     pub(crate) dislodged: Vec<(i32, Vec2)>,
     /// What the session keeps of the creatures that die (kills, respawns).
     pub session: crate::creature::SessionDeaths,
+    /// The realized AIs' path finders, their accessibility mappers and the frame's
+    /// `PathfinderResourceDivider` (the game's).
+    pub(crate) path_finders: crate::creature::PathFinders,
 }
 
 impl World {
@@ -157,6 +163,7 @@ impl World {
             spear_sticks: Vec::new(),
             dislodged: Vec::new(),
             session: crate::creature::SessionDeaths::default(),
+            path_finders: crate::creature::PathFinders::default(),
         };
         world.index_rooms();
         world

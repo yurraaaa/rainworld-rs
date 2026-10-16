@@ -23,6 +23,8 @@ mod holo_light;
 mod instructions;
 #[path = "game_items.rs"]
 mod items;
+#[path = "game_lizard_act.rs"]
+mod lizard_act;
 #[path = "game_lizard_hits.rs"]
 mod lizard_hits;
 #[path = "game_lizards.rs"]
@@ -670,7 +672,7 @@ impl RainWorldGame {
 
     /// One 40 Hz tick in `RainWorldGame.Update`'s order: the room realizer, one
     /// abstract room (in turn, with the time of a whole round), the rain cycle, the
-    /// shortcut handler on every third tick, every active room (newest first: the entry
+    /// path finders' budget, the shortcut handler on every third tick, every active room (newest first: the entry
     /// delay, its water, and the player in it with its graphics), then the loading
     /// step.
     pub fn tick(&mut self, input: Input, observer: &mut dyn PlayerObserver) {
@@ -689,6 +691,7 @@ impl RainWorldGame {
         self.update_world_processes(observer);
         self.world.rain_cycle.update(&mut self.rng);
         self.rain_request_stop_song();
+        self.world.path_finders.divider.update();
         if self.shortcuts.divide() {
             self.update_shortcuts(observer);
         }

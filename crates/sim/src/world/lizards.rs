@@ -9,7 +9,9 @@ use rw_random::UnityRandom;
 
 use super::{QuickPathFinder, RealizedRoom, World};
 use crate::Vec2;
-use crate::creature::{CreatureId, Lizard, RealizedCreature, WorldCoordinate};
+use crate::creature::{
+    CreatureId, Lizard, PathFinders, PatherKind, RealizedCreature, WorldCoordinate,
+};
 use crate::item::Entity;
 
 impl World {
@@ -32,10 +34,48 @@ impl World {
         self.creature(id).lizard().expect("a realized lizard")
     }
 
+    /// The path finders taken out of the world for `f`, which gets the world without
+    /// them.
+    pub(crate) fn with_path_finders<R>(
+        &mut self,
+        f: impl FnOnce(&mut PathFinders, &mut World) -> R,
+    ) -> R {
+        let mut finders = std::mem::take(&mut self.path_finders);
+        let r = f(&mut finders, self);
+        self.path_finders = finders;
+        r
+    }
+
+    /// The path finder of creature `id`'s realized AI.
+    #[must_use]
+    pub fn path_finder_of(&self, id: CreatureId) -> Option<usize> {
+        self.creature(id).lizard()?.ai.path_finder
+    }
+
+    /// Creature `id`'s realized path finder.
+    #[must_use]
+    pub fn path_finder(&self, id: CreatureId) -> Option<&crate::creature::PathFinder> {
+        self.path_finders.get(self.path_finder_of(id)?)
+    }
+
+    /// Whether creature `id`'s path finder's accessibility mapper is running.
+    #[must_use]
+    pub fn path_finder_mapping(&self, id: CreatureId) -> bool {
+        self.path_finder(id).is_some_and(|f| f.mapper.is_some())
+    }
+
+    /// `ArtificialIntelligence.NewArea`: the AI is stranded or not. The den finder's
+    /// remapping is lizard step 7.
+    pub(crate) fn ai_new_area(&mut self, id: CreatureId, stranded: bool) {
+        if let Some(l) = self.creature_mut(id).lizard_mut() {
+            l.ai.stranded = stranded;
+        }
+    }
+
     /// `AbstractCreature.Realize` of a lizard: the body (the constructor's `effectColor`
     /// makes no net draw), no kill tag, a grasp per template grasp, then `InitiateAI`
-    /// (the stand-in AI draws nothing) and every stuck object realized. False for a
-    /// breed without data.
+    /// (the `LizardPather`'s cells draw twice each) and every stuck object realized.
+    /// False for a breed without data.
     pub(crate) fn realize_lizard(&mut self, id: CreatureId, rng: &mut UnityRandom) -> bool {
         let c = self.creature(id);
         if c.realized.is_some() {
@@ -53,6 +93,11 @@ impl World {
         c.grabbed_by.clear();
         if let Some(ai) = self.ai_of_mut(id) {
             ai.real_ai = true;
+        }
+        let kind = PatherKind::Lizard(self.creature(id).kind());
+        let pf = self.with_path_finders(|pfs, w| pfs.create(w, id, kind, rng));
+        if let Some(l) = self.creature_mut(id).lizard_mut() {
+            l.ai.path_finder = Some(pf);
         }
         for s in self.creature(id).sticks.clone() {
             for other in [Some(s.a), s.b.creature()].into_iter().flatten() {
@@ -78,8 +123,8 @@ impl World {
     /// `AbstractCreature.RealizeInRoom` of an abstract lizard in its loaded room: a
     /// shelter puts it on the door's spawn tile, an undefined node is drawn, the
     /// abstract AI's `PlaceInRealizedRoom`, `Realize`, a tile from the node if it has
-    /// none, and every connected object placed. The path finder's accessibility
-    /// mapping is lizard step 4.
+    /// none, every connected object placed, then the path finder maps what it can reach
+    /// from there (the placing path's tiles already reachable).
     pub(crate) fn realize_lizard_in_room(
         &mut self,
         id: CreatureId,
@@ -98,7 +143,7 @@ impl World {
             let specific = rng.range_i32(0, t.nodes_relevant(data));
             self.creature_mut(id).pos.node = t.common_node_index(data, specific);
         }
-        self.place_in_realized_room(id, rng);
+        let already = self.place_in_realized_room(id, rng);
         if self.creature(id).in_den {
             return;
         }
@@ -128,20 +173,30 @@ impl World {
                 }
             }
         }
+        if let Some(pf) = self.path_finder_of(id) {
+            let pos = self.creature(id).pos;
+            self.with_path_finders(|pfs, w| {
+                pfs.initi_accessibility_mapping(pf, w, pos, already, rng);
+            });
+        }
     }
 
     /// `AbstractCreatureAI.PlaceInRealizedRoom`: near its destination the creature takes
     /// `timeBuffer * offScreenSpeed` random steps from its tile; else it is put along a
     /// `QuickPathFinder` path toward the destination (or the exit its path leaves by)
-    /// as far as the time buffer carries it.
-    fn place_in_realized_room(&mut self, id: CreatureId, rng: &mut UnityRandom) {
+    /// as far as the time buffer carries it; that path's tiles are returned.
+    fn place_in_realized_room(
+        &mut self,
+        id: CreatureId,
+        rng: &mut UnityRandom,
+    ) -> Option<Vec<(i32, i32)>> {
         let c = self.creature(id);
         let (parent, t) = (c.pos, c.template);
-        let Some(ai) = self.ai_of(id) else { return };
-        let (dest, time_buffer, real_ai) = (ai.destination, ai.time_buffer, ai.real_ai);
+        let ai = self.ai_of(id)?;
+        let (dest, time_buffer) = (ai.destination, ai.time_buffer);
         let Some(realized) = self.realized(parent.room) else {
             log::warn!("TRYING TO PLACE IN REALIZED ROOM WITH NO REALIZED ROOM");
-            return;
+            return None;
         };
         let (w, h) = (realized.room.width(), realized.room.height());
         let mut pos = parent;
@@ -157,7 +212,7 @@ impl World {
             let repeats = (time_buffer as f32 * t.off_screen_speed) as i32;
             let tile = self.randomize_spawn_position(id, pos.tile, repeats, rng);
             self.creature_mut(id).pos.tile = tile;
-            return;
+            return None;
         }
         let mut target = WorldCoordinate::new(parent.room, -1, -1, -1);
         if dest.room == parent.room {
@@ -166,35 +221,40 @@ impl World {
                 target.tile = self.local_coordinate_of_node(parent.room, dest.node, rng);
             }
         } else {
-            if real_ai {
-                log::debug!("the realized AI's path finder `DestinationExit` is lizard step 4");
-            }
             let exit = self.destination_exit(id, parent.room, parent.node);
             if exit > -1 {
                 target.tile = self.local_coordinate_of_node(parent.room, exit, rng);
             }
         }
         if !target.tile_defined() {
-            return;
+            return None;
         }
-        let Some(map) = self.realized(parent.room).and_then(|r| r.ai_map.clone()) else {
-            return;
-        };
-        let Some(path) = QuickPathFinder::new(pos.tile, target.tile, &map, &t).run() else {
-            return;
-        };
+        let map = self.realized(parent.room).and_then(|r| r.ai_map.clone())?;
+        let path = QuickPathFinder::new(pos.tile, target.tile, &map, &t).run()?;
         if path.tiles.is_empty() {
-            return;
+            return None;
         }
         // `offscreenSpeedFac` is 1 for every base-game AI.
         let len = i32::try_from(path.tiles.len()).unwrap_or(i32::MAX);
         let steps = ((time_buffer as f32 * t.off_screen_speed) as i32).clamp(0, len - 1);
         self.creature_mut(id).pos.tile = path.tiles[usize::try_from(steps).unwrap_or(0)];
+        Some(path.tiles)
     }
 
-    /// `AbstractCreatureAI.DestinationExit` without a realized path finder: the first
-    /// step of the path in `room` reachable from `entered_by`.
+    /// `AbstractCreatureAI.DestinationExit`: the realized AI's path finder's while it has
+    /// one, else the first step of the path in `room` reachable from `entered_by`.
     fn destination_exit(&self, id: CreatureId, room: i32, entered_by: i32) -> i32 {
+        if self.ai_of(id).is_some_and(|a| a.real_ai)
+            && let Some(pf) = self
+                .path_finder_of(id)
+                .and_then(|p| self.path_finders.get(p))
+        {
+            let env = crate::creature::path_finder::PathEnv {
+                world: self,
+                pos: self.creature(id).pos,
+            };
+            return pf.destination_exit(&env, room, entered_by);
+        }
         let t = self.creature(id).template;
         let Some(ai) = self.ai_of(id) else { return -1 };
         ai.path
@@ -293,7 +353,7 @@ impl World {
                 }
             }
         }
-        self.lizard_new_room(id);
+        self.lizard_new_room(id, rng);
     }
 
     /// `Room.AddObject` of a lizard: the end of the room's update list. In a viewed
@@ -307,19 +367,51 @@ impl World {
         }
     }
 
-    /// `Creature.NewRoom`: the stand-in AI's `NewRoom` does nothing; 40 ticks of
-    /// `newToRoomInvinsibility`.
-    pub(crate) fn lizard_new_room(&mut self, id: CreatureId) {
-        if let Some(l) = self.creature_mut(id).lizard_mut() {
+    /// `Creature.NewRoom`: the AI's `NewRoom`, then 40 ticks of `newToRoomInvinsibility`.
+    /// `LizardAI.NewRoom` zeroes its room clock; the base, in a room other than the
+    /// last, resets the path finder to the room and clears the stuck tracker's move log,
+    /// and an abstract destination in this room without a tile gets a random tile of it
+    /// (two draws).
+    pub(crate) fn lizard_new_room(&mut self, id: CreatureId, rng: &mut UnityRandom) {
+        let Some(l) = self.creature_mut(id).lizard_mut() else {
+            return;
+        };
+        let Some(room) = l.room else {
             l.new_to_room_invinsibility = 40;
+            return;
+        };
+        l.ai.time_in_room = 0;
+        if l.ai.last_room != room {
+            l.ai.last_room = room;
+            l.ai.time_in_room = 0;
+            if let Some(pf) = l.ai.path_finder {
+                self.with_path_finders(|pfs, w| pfs.new_room(pf, w, room, rng));
+            }
+            self.lizard_at(id).ai.stuck.new_room();
+            let dest = self.ai_of(id).map(|a| a.destination);
+            if let Some(dest) = dest
+                && dest.room == room
+                && !dest.tile_defined()
+                && let Some(r) = self.realized(room)
+            {
+                let (w, h) = (r.room.width(), r.room.height());
+                let x = rng.range_i32(0, w);
+                let y = rng.range_i32(0, h);
+                if let Some(pf) = self.path_finder_of(id) {
+                    let to = WorldCoordinate::new(room, x, y, -1);
+                    self.with_path_finders(|pfs, w| pfs.set_destination(pf, w, to, rng));
+                }
+            }
         }
+        self.lizard_at(id).new_to_room_invinsibility = 40;
     }
 
     /// `AbstractCreature.Abstractize(coord)` of a realized lizard: at its own position
     /// `distanceToMyNode` is its exit distance (or the walk to its node's entrance);
     /// `Move(coord)`, what it holds abstracted with it; the realized AI's destination is
-    /// defined again and its path rebuilt (the abstract `FindPath` stands in for the
-    /// path finder's `CreatePathForAbstractreature`, lizard step 4), and the AI dropped.
+    /// defined again and set (the path finder's too), its path built from the path
+    /// finder's cells (`CreatePathForAbstractreature`, else `FindPath`), and the AI and
+    /// its path finder dropped.
     pub(crate) fn abstractize_lizard(
         &mut self,
         id: CreatureId,
@@ -331,8 +423,12 @@ impl World {
             return;
         }
         let room = c.pos.room;
+        let path_finder = self.path_finder_of(id);
         if !self.realized(room).is_some_and(RealizedRoom::ready_for_ai) {
             self.creature_mut(id).realized = None;
+            if let Some(pf) = path_finder {
+                self.path_finders.release(pf);
+            }
             return;
         }
         let t = c.template;
@@ -360,7 +456,7 @@ impl World {
             match e {
                 Entity::Object(o) => self.abstractize_object(o, coord),
                 Entity::Creature(o) if self.creature(o).fly().is_some() => {
-                    self.abstractize_fly(o, coord);
+                    self.abstractize_fly(o, coord, rng);
                 }
                 Entity::Creature(o) if self.creature(o).lizard().is_some() => {
                     self.abstractize_lizard(o, coord, rng);
@@ -385,11 +481,29 @@ impl World {
             if let Some(dest) = dest
                 && !dest.same_room_and_node(self.creature(id).pos)
             {
-                self.find_path(id, dest, rng);
+                let env = crate::creature::path_finder::PathEnv {
+                    world: self,
+                    pos: self.creature(id).pos,
+                };
+                let path = self
+                    .path_finder_of(id)
+                    .and_then(|p| self.path_finders.get(p))
+                    .and_then(|pf| pf.create_path_for_abstract_creature(&env, dest));
+                match path {
+                    Some(path) => {
+                        if let Some(ai) = self.ai_of_mut(id) {
+                            ai.path = path;
+                        }
+                    }
+                    None => self.find_path(id, dest, rng),
+                }
             }
             if let Some(ai) = self.ai_of_mut(id) {
                 ai.real_ai = false;
             }
+        }
+        if let Some(pf) = path_finder {
+            self.path_finders.release(pf);
         }
         self.creature_mut(id).realized = None;
     }

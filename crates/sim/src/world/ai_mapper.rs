@@ -13,7 +13,64 @@ use super::AiMap;
 use super::ai_map::{AiTile, EIGHT_DIRECTIONS, FOUR_DIRECTIONS};
 use super::movement::{Accessibility, MovementConnection, MovementType};
 
+/// An `AImapper` run over a realized room (a shelter whose door opened): without Remix
+/// `Update` takes one step per tile in each of the first two passes, one to start the
+/// terrain proximity, one per tile it queues plus two to finish, and one to end, so
+/// `2 * width * height + queued + 4` steps. The room does not change while it runs, so
+/// the map is built at the first step and handed over once the steps are done.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct AiMapper {
+    pub steps: i32,
+    /// The steps the run takes, known from the first step.
+    pub total: Option<i32>,
+    map: Option<AiMap>,
+}
+
+impl AiMapper {
+    #[must_use]
+    pub fn done(&self) -> bool {
+        self.total.is_some_and(|t| self.steps >= t)
+    }
+
+    /// `n` calls of `Update`, mapping `room` over a copy of its current map `old`.
+    pub(crate) fn update(&mut self, n: i32, old: &AiMap, room: &Room) {
+        if self.done() {
+            return;
+        }
+        let total = match self.total {
+            Some(t) => t,
+            None => {
+                let (map, queued) = old.remapped(room);
+                let t = 2 * map.width * map.height + i32::try_from(queued).unwrap_or(0) + 4;
+                self.map = Some(map);
+                self.total = Some(t);
+                t
+            }
+        };
+        self.steps = (self.steps + n).min(total);
+    }
+
+    /// `ReturnAIMap()` once done.
+    pub(crate) fn take_map(&mut self) -> Option<AiMap> {
+        if self.done() { self.map.take() } else { None }
+    }
+}
+
 impl AiMap {
+    /// `room.aimap.map = new AImapper(room).ReturnAIMap().map`: this map with its tiles
+    /// mapped again from `room` (their baked visibility gone; the terrain proximity,
+    /// creature layers and exits kept), and how many tiles the terrain proximity pass
+    /// queued.
+    pub(crate) fn remapped(&self, room: &Room) -> (Self, usize) {
+        let mut fresh = self.clone();
+        fresh.tiles = Vec::with_capacity(self.tiles.len());
+        fresh.terrain_proximity = vec![-1; self.terrain_proximity.len()];
+        fresh.map_room(room);
+        let queued = fresh.terrain_proximity.iter().filter(|&&p| p > 0).count();
+        fresh.terrain_proximity.clone_from(&self.terrain_proximity);
+        (fresh, queued)
+    }
+
     /// The mapper's passes over `room`.
     pub(crate) fn map_room(&mut self, room: &Room) {
         for x in 0..self.width {

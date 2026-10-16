@@ -234,7 +234,11 @@ impl RainWorldGame {
                 Some(VesselOwner::Shortcut(CreatureVessel {
                     creature: id,
                     room: to.room,
-                    vessel: ShortcutVessel::new(tile),
+                    vessel: ShortcutVessel::with_segments(
+                        tile,
+                        self.world.creature(id).template.shortcut_segments(),
+                        0,
+                    ),
                     entrance_node: to.node,
                 }))
             }
@@ -295,10 +299,10 @@ impl RainWorldGame {
     }
 
     /// The node cases of the vessel step: a room exit sends the vessel to the lobby of
-    /// the room behind (even a faulty exit drops it), a den is the fly's
-    /// `OpportunityToEnterDen` (it rides on: a fly is never `InDen`; lizards reach dens
-    /// in vessels only once they enter shortcuts, lizard step 4), a region
-    /// transport needs an `NPCTransportationDestination` (none).
+    /// the room behind (even a faulty exit drops it), a den is the creature's
+    /// `OpportunityToEnterDen` (a creature that went in leaves the tubes; a fly is never
+    /// `InDen`), a region transport sends it to the lobby of its
+    /// `NPCTransportationDestination`'s room when it has one with a node.
     fn creature_vessel_node(
         &mut self,
         i: usize,
@@ -339,6 +343,30 @@ impl RainWorldGame {
             Shortcut::CreatureDen => {
                 self.world
                     .opportunity_to_enter_den(v.creature, &mut self.rng);
+                if self.world.creature(v.creature).in_den {
+                    self.shortcuts.transport.remove(i);
+                }
+            }
+            Shortcut::RegionTransportation => {
+                let dest = self
+                    .world
+                    .creature(v.creature)
+                    .lizard()
+                    .and_then(|l| l.npc_transportation_destination);
+                if let Some(dest) = dest
+                    && dest.room > -1
+                    && dest.node_defined()
+                {
+                    v.entrance_node = dest.node;
+                    v.room = dest.room;
+                    self.shortcuts.lobby.push(LobbyVessel {
+                        room: dest.room,
+                        entrance_node: dest.node,
+                        updates: 0,
+                        owner: VesselOwner::Shortcut(v),
+                    });
+                    self.shortcuts.transport.remove(i);
+                }
             }
             _ => {}
         }
@@ -428,7 +456,7 @@ impl RainWorldGame {
                 if lizard {
                     self.abstractize_lizard_to(id, coord);
                 } else {
-                    self.world.abstractize_fly(id, coord);
+                    self.world.abstractize_fly(id, coord, &mut self.rng);
                 }
                 true
             }
@@ -449,7 +477,8 @@ impl RainWorldGame {
                 ) && let Some(tile) = node_tile
                 {
                     v.room = lobby.room;
-                    v.vessel = ShortcutVessel::new(tile);
+                    let segments = self.world.creature(id).template.shortcut_segments();
+                    v.vessel = ShortcutVessel::with_segments(tile, segments, 0);
                     v.entrance_node = -1;
                     self.shortcuts.transport.push(Transport::Creature(v));
                     if kind == Some(NodeType::Exit) {
@@ -474,7 +503,7 @@ impl RainWorldGame {
             .map(|r| r.ready_for_player() && r.ready_for_ai());
         match ready {
             None => {
-                self.world.abstractize_fly(id, coord);
+                self.world.abstractize_fly(id, coord, &mut self.rng);
                 true
             }
             Some(true) => {

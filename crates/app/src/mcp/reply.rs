@@ -348,6 +348,77 @@ pub struct LizardInfo {
     pub grabbed_by: Vec<[i32; 2]>,
     /// The spears lodged in it, by EntityID, with their chunk.
     pub spears: Vec<([i32; 2], usize)>,
+    /// Its AI and movement.
+    pub movement: LizardMoveInfo,
+}
+
+/// A realized lizard's path finder, stuck tracker and movement.
+#[derive(Debug, Clone, Serialize)]
+pub struct LizardMoveInfo {
+    /// The path finder's destination and effectual destination; `None` without one.
+    pub destination: Option<CoordInfo>,
+    pub effectual_destination: Option<CoordInfo>,
+    /// Its accessibility mapper is running.
+    pub mapping: bool,
+    pub forbidden_entrance_counter: i32,
+    pub stranded: bool,
+    /// `AI.runSpeed`, and the MCP `set_destination` override it starts from.
+    pub run_speed: f32,
+    pub dev_run_speed: Option<f32>,
+    pub animation: String,
+    /// `followingConnection`, `upcomingConnections` and `movementAnimation`.
+    pub following: Option<ConnectionInfo>,
+    pub upcoming: Vec<ConnectionInfo>,
+    pub movement_animation: Option<MovementAnimationInfo>,
+    pub grip_point: Option<[f32; 2]>,
+    /// `LegsGripping` and `NoGripCounter` (fixed until the limbs exist).
+    pub legs_gripping: i32,
+    pub no_grip_counter: i32,
+    pub time_spent_trying_this_move: i32,
+    pub desperation_smoother: f32,
+    pub body_wiggle_counter: i32,
+    /// The stuck tracker's counter and `Utility()`.
+    pub stuck_counter: i32,
+    pub stuck_utility: f32,
+    /// `enteringShortCut`.
+    pub entering_shortcut: Option<[i32; 2]>,
+    /// Its shortcut vessel while in the tubes.
+    pub vessel: Option<VesselInfo>,
+}
+
+/// A `WorldCoordinate`.
+#[derive(Debug, Clone, Serialize)]
+pub struct CoordInfo {
+    pub room: String,
+    pub tile: [i32; 2],
+    pub node: i32,
+}
+
+/// A `MovementConnection`.
+#[derive(Debug, Clone, Serialize)]
+pub struct ConnectionInfo {
+    pub kind: String,
+    pub start: [i32; 2],
+    pub dest: [i32; 2],
+    pub distance: i32,
+}
+
+/// A lizard's `MovementAnimation`.
+#[derive(Debug, Clone, Serialize)]
+pub struct MovementAnimationInfo {
+    pub connection: ConnectionInfo,
+    pub step: i32,
+    pub total_steps: i32,
+}
+
+/// A creature's `ShortCutVessel`.
+#[derive(Debug, Clone, Serialize)]
+pub struct VesselInfo {
+    pub room: String,
+    pub pos: [i32; 2],
+    /// `lastPositions`, newest first.
+    pub last_positions: Vec<[i32; 2]>,
+    pub wait: i32,
 }
 
 #[derive(Debug, Clone, Serialize)]
