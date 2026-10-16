@@ -158,6 +158,7 @@ impl RainWorldGame {
             return;
         };
         let head = link.head.for_bubble(l.params, l.jaw_open(holding));
+        let module = link.module;
         let main = l.body.chunks[0].pos;
         if self.rng.value() >= 0.6 && impact.chunk != 0 {
             return;
@@ -166,7 +167,7 @@ impl RainWorldGame {
         for _ in 0..n {
             let stickiness = self.rng.value();
             let params = [1.0, stickiness, impact.speed / 15.0];
-            let mut b = LizardBubble::new(id, main, head, params, &mut self.rng);
+            let mut b = LizardBubble::new((id, module), main, head, params, &mut self.rng);
             let d = impact.direction;
             if d.x != 0 {
                 b.vel.x = b.vel.x.abs() * -f32::from(d.x);
@@ -223,11 +224,11 @@ impl RainWorldGame {
         let Some(c) = self.world.room_cosmetics(index).iter().find(|c| c.id == id) else {
             return;
         };
-        let (lizard, pos) = match &c.kind {
-            CosmeticKind::Spark(s) => (s.lizard.map(|(l, _)| l), s.pos),
-            CosmeticKind::LizardBubble(b) => (Some(b.lizard), b.pos),
-            CosmeticKind::Flash(f) => (f.lizard, f.pos),
-            CosmeticKind::Spikes(_) | CosmeticKind::OverseerEffect(_) => (None, Vec2::ZERO),
+        let (lizard, pos, module) = match &c.kind {
+            CosmeticKind::Spark(s) => (s.lizard.map(|(l, _)| l), s.pos, None),
+            CosmeticKind::LizardBubble(b) => (Some(b.lizard), b.pos, Some(b.module)),
+            CosmeticKind::Flash(f) => (f.lizard, f.pos, None),
+            CosmeticKind::Spikes(_) | CosmeticKind::OverseerEffect(_) => (None, Vec2::ZERO, None),
         };
         let mut tie = CosmeticTie {
             water_level: self
@@ -243,7 +244,10 @@ impl RainWorldGame {
                 && let Some(g) = &l.graphics
             {
                 tie.white_flicker = Some(g.white_flicker);
-                tie.head = Some(g.head.for_bubble(l.params, l.jaw_open(holding)));
+                // A bubble reads only the module that made it.
+                if module.is_none_or(|m| m == g.module) {
+                    tie.head = Some(g.head.for_bubble(l.params, l.jaw_open(holding)));
+                }
             }
         }
         self.world.update_cosmetic(index, id, tie, &mut self.rng);
