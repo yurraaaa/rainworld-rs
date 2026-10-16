@@ -179,7 +179,7 @@ impl World {
         for &id in ids.iter().rev() {
             if self.creature(id).template.quantified && self.creature(id).quantify() {
                 self.creature_mut(id).slated_for_deletion = true;
-                self.lists[l].creatures.retain(|&c| c != id);
+                self.lists[l].remove_creature(id);
             }
         }
     }

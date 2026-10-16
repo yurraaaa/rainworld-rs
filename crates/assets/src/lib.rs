@@ -9,6 +9,7 @@ mod font_config;
 mod identity;
 mod nodes;
 mod noise;
+mod objects;
 mod palette;
 mod placed;
 mod placed_types;
@@ -35,6 +36,7 @@ pub use nodes::{
     AbstractRoomNode, BASE_PRE_BAKED_PATHING_CREATURES, ConnMap, Connectivity, NodeType,
 };
 pub use noise::NoiseTexture;
+pub use objects::AbstractObjectType;
 pub use palette::{EffectColors, PaletteImage, PaletteTexture, RoomPalette};
 pub use placed::{PlacedObject, RoomEffect};
 pub use placed_types::{PlacedObjectType, RoomEffectType};
@@ -42,7 +44,7 @@ pub use png_image::PngImage;
 pub use region_map::{MapConnectionLine, RegionMapFiles};
 pub use region_properties::{RegionParams, RegionProperties, RoomAttractions};
 pub use room::{
-    Room, RoomError, Shortcut, Slope, TILE_SIZE, Terrain, Tile, TileFlags, tile_centre,
+    Room, RoomError, RoomItem, Shortcut, Slope, TILE_SIZE, Terrain, Tile, TileFlags, tile_centre,
     tile_position,
 };
 pub use room_visuals::RoomVisuals;

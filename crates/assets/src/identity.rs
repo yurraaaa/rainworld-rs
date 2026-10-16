@@ -242,6 +242,35 @@ impl Timeline {
         }
     }
 
+    /// `SlugcatStats.SpearSpawnModifier`: the chance that a random item is a spear.
+    #[must_use]
+    pub fn spear_spawn_modifier(self, chance: f32) -> f32 {
+        let exponent: f32 = match self {
+            Self::Red => 0.85,
+            Self::Spear => 0.9,
+            Self::Artificer => 0.8,
+            Self::Gourmand => 0.95,
+            Self::Saint => 1.4,
+            _ => return chance,
+        };
+        f64::from(chance).powf(f64::from(exponent)) as f32
+    }
+
+    /// `SlugcatStats.SpearSpawnExplosiveRandomChance`. The Survivor's and Monk's
+    /// timelines come after the Artificer's and the Hunter's, so theirs is 0.
+    #[must_use]
+    pub fn spear_spawn_explosive_random_chance(self) -> f32 {
+        if self.at_or_before(Self::Artificer) {
+            0.012
+        } else if self.at_or_before(Self::Red) {
+            0.008
+        } else if self == Self::Gourmand {
+            0.001
+        } else {
+            0.0
+        }
+    }
+
     /// `SlugcatStats.AtOrBeforeTimeline(self, other)`.
     #[must_use]
     pub fn at_or_before(self, other: Self) -> bool {

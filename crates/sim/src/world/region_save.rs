@@ -130,10 +130,10 @@ impl World {
         )
     }
 
-    /// `AdaptWorldToRegionState` with the port's objects: the saved objects and sticks
-    /// stay as text (no items are simulated), the saved creatures go back into their dens
-    /// (a shelter's into the room), then the region's `RainCycleTick` for the cycles since
-    /// it was last updated.
+    /// `AdaptWorldToRegionState` with the port's objects: saved rocks and spears join
+    /// their rooms, other objects and the sticks stay as text, the saved creatures go
+    /// back into their dens (a shelter's into the room), then the region's
+    /// `RainCycleTick` for the cycles since it was last updated (stuck spears count down).
     pub(crate) fn adapt_world_to_region_state(
         &mut self,
         cx: &mut PopulationContext<'_>,
@@ -143,7 +143,9 @@ impl World {
             return;
         };
         let objects = std::mem::take(&mut state.saved_objects);
-        state.unrecognized_saved_objects = objects;
+        let (loaded, unrecognized) = self.load_saved_objects(objects);
+        state.saved_objects = loaded;
+        state.unrecognized_saved_objects = unrecognized;
         let population = std::mem::take(&mut state.saved_population);
         for entry in population {
             match self.load_saved_creature(&entry, cx) {
@@ -156,6 +158,7 @@ impl World {
             }
         }
         let cycle = cx.session.cycle_number;
+        self.stuck_in_wall_tick(cycle - state.last_cycle_updated);
         state.rain_cycle_tick(cycle - state.last_cycle_updated, food_rep_bonus, cycle);
         self.region_state = Some(state);
     }
@@ -195,10 +198,10 @@ impl World {
     }
 
     /// `AdaptRegionStateToWorld(playerShelter, -1)`: the unrecognized objects and
-    /// creatures return to the saved lists, then every saved creature of the world's rooms
+    /// creatures return to the saved lists, then the rooms' stuck spears and shelter
+    /// objects, and every saved creature of the world's rooms
     /// (`CreatureToStringInDenPos`); loaded creatures not saved and dead are put up for
-    /// respawn. The saved sticks are kept as read (no objects are simulated). Returns
-    /// `SaveToString()`.
+    /// respawn. The saved sticks are kept as read. Returns `SaveToString()`.
     pub fn adapt_region_state_to_world(
         &mut self,
         player_shelter: i32,
@@ -206,6 +209,7 @@ impl World {
     ) -> Option<String> {
         let mut state = self.region_state.take()?;
         state.saved_objects = std::mem::take(&mut state.unrecognized_saved_objects);
+        state.saved_objects.extend(self.objects_to_save());
         state.saved_population = std::mem::take(&mut state.unrecognized_population);
         for l in 0..self.lists.len() {
             let lists = &self.lists[l];

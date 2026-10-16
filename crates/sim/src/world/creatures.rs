@@ -3,8 +3,8 @@
 //! (`AbstractCreature` construction, `Move`, dens, `AbstractRoom.Update`, realizing an
 //! overseer in a loaded room and abstracting it again).
 //!
-//! Objects other than creatures are not kept as entities: a room's `entities` would hold
-//! the same creatures in the same order plus carried items, whose updates draw nothing.
+//! A room's `entities` (creatures and objects, [`Entity`]) are kept beside its creature
+//! lists; the objects are `world/objects.rs`'.
 
 use std::collections::HashMap;
 
@@ -20,16 +20,38 @@ use crate::creature::{
     OverseerAbstractAi, OverseerAi, OverseerBody, Personality, PlayerGuideState, RealizedCreature,
     WorldCoordinate,
 };
+use crate::item::Entity;
 use crate::room_script::StorySession;
 
 /// One abstract room's lists.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub(crate) struct RoomLists {
+    /// `entities`: creatures and objects out of dens, in the order they joined.
+    pub entities: Vec<Entity>,
     pub creatures: Vec<CreatureId>,
     pub in_dens: Vec<CreatureId>,
     pub even_update: bool,
     /// `quantifiedCreatures`: per node and type, a count.
     pub quantified: Vec<QuantifiedCount>,
+}
+
+impl RoomLists {
+    /// `entities.Add` unless it is there.
+    pub fn add_entity(&mut self, e: Entity) {
+        if !self.entities.contains(&e) {
+            self.entities.push(e);
+        }
+    }
+
+    pub fn remove_entity(&mut self, e: Entity) {
+        self.entities.retain(|&x| x != e);
+    }
+
+    /// Out of `entities` and `creatures` (`RemoveEntity`, `MoveEntityToDen`).
+    pub fn remove_creature(&mut self, id: CreatureId) {
+        self.remove_entity(Entity::Creature(id));
+        self.creatures.retain(|&c| c != id);
+    }
 }
 
 /// Quantified creatures of one type at one node.
@@ -430,10 +452,12 @@ impl World {
     /// `AbstractRoom.AddEntity`.
     pub(crate) fn add_entity(&mut self, id: CreatureId) {
         let room = self.creature(id).pos.room;
-        if let Some(l) = self.local(room)
-            && !self.lists[l].creatures.contains(&id)
-        {
-            self.lists[l].creatures.push(id);
+        if let Some(l) = self.local(room) {
+            let lists = &mut self.lists[l];
+            lists.add_entity(Entity::Creature(id));
+            if !lists.creatures.contains(&id) {
+                lists.creatures.push(id);
+            }
         }
     }
 
@@ -452,7 +476,7 @@ impl World {
         let room = self.creature(id).pos.room;
         if let Some(l) = self.local(room) {
             let lists = &mut self.lists[l];
-            lists.creatures.retain(|&c| c != id);
+            lists.remove_creature(id);
             if !lists.in_dens.contains(&id) {
                 lists.in_dens.push(id);
             }
@@ -463,8 +487,7 @@ impl World {
     pub(crate) fn remove_entity(&mut self, id: CreatureId) {
         let room = self.creature(id).pos.room;
         if let Some(l) = self.local(room) {
-            let lists = &mut self.lists[l];
-            lists.creatures.retain(|&c| c != id);
+            self.lists[l].remove_creature(id);
         }
     }
 
@@ -582,7 +605,7 @@ impl World {
         self.creature_mut(id).pos = to;
         if from.room != to.room {
             if let Some(l) = self.local(from.room) {
-                self.lists[l].creatures.retain(|&c| c != id);
+                self.lists[l].remove_creature(id);
             }
             self.add_entity(id);
         }
@@ -602,7 +625,7 @@ impl World {
             if to.room != from.room {
                 if let Some(l) = self.local(from.room) {
                     let lists = &mut self.lists[l];
-                    lists.creatures.retain(|&c| c != id);
+                    lists.remove_creature(id);
                     lists.in_dens.retain(|&c| c != id);
                 }
                 self.creature_mut(id).pos.room = to.room;
@@ -627,22 +650,32 @@ impl World {
         }
     }
 
-    /// `AbstractRoom.Update(timePassed)` of global room `room`: its creatures not yet
-    /// updated this round, then `UpdateCreaturesInDens`.
+    /// `AbstractRoom.Update(timePassed)` of global room `room`: its entities not yet
+    /// updated this round (an object only counts `timeSpentHere`), then
+    /// `UpdateCreaturesInDens`.
     pub fn update_abstract_room(&mut self, room: i32, time: i32, cx: &mut AbstractTick<'_>) {
         let Some(l) = self.local(room) else { return };
         let even = !self.lists[l].even_update;
         self.lists[l].even_update = even;
         'restart: loop {
             let mut i = 0;
-            while let Some(&id) = self.lists[l].creatures.get(i) {
-                if self.creature(id).even_update != even {
-                    let before = self.creature(id).pos.room;
-                    self.creature_mut(id).even_update = even;
-                    self.update_creature(id, time, cx);
-                    let list = &self.lists[l].creatures;
-                    let changed = list.get(i).is_none_or(|&c| {
-                        self.creature(c).pos.room != before || self.creature(c).in_den
+            while let Some(&e) = self.lists[l].entities.get(i) {
+                if self.entity_even_update(e) != even {
+                    let before = self.entity_pos(e).room;
+                    match e {
+                        Entity::Creature(id) => {
+                            self.creature_mut(id).even_update = even;
+                            self.update_creature(id, time, cx);
+                        }
+                        Entity::Object(id) => {
+                            let o = self.object_mut(id);
+                            o.even_update = even;
+                            o.time_spent_here += time;
+                        }
+                    }
+                    let list = &self.lists[l].entities;
+                    let changed = list.get(i).is_none_or(|&x| {
+                        self.entity_pos(x).room != before || self.entity_in_den(x)
                     });
                     if changed {
                         continue 'restart;

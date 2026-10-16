@@ -199,7 +199,9 @@ impl Server {
         contacts, body mode, animation, facing, standing, stun, death, shortcut travel, \
         this tick's terrain impacts, input and controller; the new game's fade delay and \
         SU_C04 start script; the world's creatures (kind, ID, room, node, tile, den, \
-        realized; overseers' destination, guide state, last rooms and tiles)."
+        realized; overseers' destination, guide state, last rooms and tiles); the \
+        world's abstract rocks and spears (kind, ID, room, node, tile, a spear's \
+        stuck-in-wall cycles and explosive flag)."
     )]
     fn get_state(&self) -> Result<CallToolResult, String> {
         Self::json(&self.session()?.state()?)

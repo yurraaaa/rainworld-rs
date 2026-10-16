@@ -59,6 +59,8 @@ pub struct State {
     pub start_up: Option<StartUpState>,
     /// The world's creatures but the player (in dens or out, abstract or realized).
     pub creatures: Vec<CreatureInfo>,
+    /// The world's physical objects other than creatures (rocks, spears), abstract.
+    pub objects: Vec<ObjectInfo>,
     /// `world.rainCycle`.
     pub rain: RainState,
     /// The camera room's shelter door, when it has one.
@@ -97,6 +99,22 @@ pub struct CreatureInfo {
     pub overseer: Option<OverseerInfo>,
     /// A realized bat fly's body and AI.
     pub fly: Option<FlyInfo>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ObjectInfo {
+    /// `AbstractPhysicalObject.AbstractObjectType`.
+    pub kind: String,
+    /// `EntityID` (spawner, number).
+    pub id: [i32; 2],
+    pub room: String,
+    pub node: i32,
+    /// `pos.Tile`; `[-1, -1]` when undefined.
+    pub tile: [i32; 2],
+    /// A spear's `stuckInWallCycles` (> 0 horizontal, < 0 vertical, 0 free).
+    pub stuck_in_wall_cycles: Option<i32>,
+    /// A spear's `explosive`.
+    pub explosive: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize)]

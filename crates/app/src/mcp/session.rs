@@ -23,10 +23,10 @@ use super::params::{
 use super::reply::{
     ChunkState, ControlsPageState, CreatureInfo, ExitInfo, ExitList, FlyInfo, FoodMeterState,
     HudState, ImpactState, ImportReply, KarmaMeterState, KarmaScreenState, LobbyState,
-    MapMarkerState, MapState, MeterState, OptionsState, OverseerInfo, PauseMenuState, PlayerState,
-    ProcessState, RainMeterState, RainState, RealizedState, RoomInfo, RoomList, SaveInfo,
-    SaveStateInfo, Screenshot, ShelterDoorState, SleepState, SlideShowState, StartUpState, State,
-    StepTrace, StoryInfo, TextPromptState, TokenState,
+    MapMarkerState, MapState, MeterState, ObjectInfo, OptionsState, OverseerInfo, PauseMenuState,
+    PlayerState, ProcessState, RainMeterState, RainState, RealizedState, RoomInfo, RoomList,
+    SaveInfo, SaveStateInfo, Screenshot, ShelterDoorState, SleepState, SlideShowState,
+    StartUpState, State, StepTrace, StoryInfo, TextPromptState, TokenState,
 };
 use super::tiles::TileDump;
 use crate::frontend::{AppContext, Frontend, FrontendRenderer, GameSetup};
@@ -418,6 +418,7 @@ impl Session {
                 controls_page_due: s.controls_page_due(),
             }),
             creatures: Self::creatures(scene),
+            objects: Self::objects(scene),
             rain: RainState {
                 timer: world.rain_cycle.timer,
                 cycle_length: world.rain_cycle.cycle_length,
@@ -467,6 +468,25 @@ impl Session {
                     extended: c.overseer_body().map(|b| b.extended),
                 }),
                 fly: Self::fly_info(scene, c),
+            })
+            .collect()
+    }
+
+    /// The world's objects, in creation order.
+    fn objects(scene: &Scene) -> Vec<ObjectInfo> {
+        scene
+            .game()
+            .sim()
+            .world()
+            .objects()
+            .map(|(_, o)| ObjectInfo {
+                kind: o.kind.value().to_owned(),
+                id: [o.id.spawner, o.id.number],
+                room: Self::room_name(scene, o.pos.room),
+                node: o.pos.node,
+                tile: [o.pos.tile.0, o.pos.tile.1],
+                stuck_in_wall_cycles: o.spear().map(|s| s.stuck_in_wall_cycles),
+                explosive: o.spear().map(|s| s.explosive),
             })
             .collect()
     }

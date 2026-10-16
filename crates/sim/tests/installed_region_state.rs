@@ -17,11 +17,17 @@ use rw_sim::world::World;
 
 const DEFAULT_RW_DIR: &str = "/home/yura/.local/share/Steam/steamapps/common/Rain World";
 
-/// A Survivor's SU state as cycle 2 left it: an unknown (More Slugcats) creature, an
-/// object, a stick, an unknown entry, one swarm room depleted for 4 more cycles.
+/// A Survivor's SU state as cycle 2 left it: an unknown (More Slugcats) creature, a rock
+/// in shelter SU_S04, a dangle fruit (kept as text), two spears stuck in SU_A13's walls
+/// for 2 and 1 more cycles and a rock there, a stick, an unknown entry, one swarm room
+/// depleted for 4 more cycles.
 const SAVED: &str = "REGIONNAME<rgB>SU<rgA>LASTCYCLEUPDATED<rgB>2<rgA>\
     SWARMROOMS<rgB>SU_A24:4,SU_A40:0<rgA>LINEAGES<rgB>SU_A30.-1.-1.2:1<rgA>\
-    OBJECTS<rgB>ID.-239.10152<oA>Rock<oA>SU_S04.22.24.0<rgC><rgA>\
+    OBJECTS<rgB>ID.-239.10152<oA>Rock<oA>SU_S04.22.24.0<rgC>\
+    ID.-1.300<oB>0<oA>DangleFruit<oA>SU_S04.3.3.0<oA>0<oA>2<rgC>\
+    ID.-12.10200<oB>0<oA>Spear<oA>SU_A13.30.20.-1<oA>2<oA>0<rgC>\
+    ID.-12.10201<oB>0<oA>Spear<oA>SU_A13.31.20.-1<oA>-1<oA>0<rgC>\
+    ID.-12.10202<oB>0<oA>Rock<oA>SU_A13.5.5.-1<rgC><rgA>\
     POPULATION<rgB>GreenLizard<cA>ID.5028.9955<cA>SU_B12.2<cA><rgC>\
     PinkLizard<cA>ID.5014.9942<cA>SU_A20.6<cA>SpawnData<cC>{X}<cB><cB>Health<cC>0.5<rgC>\
     SlugNPC<cA>ID.-1.77<cA>SU_S01.0<cA><rgC><rgA>\
@@ -103,6 +109,25 @@ fn continue_restores_the_saved_population_and_keeps_the_rest() {
     assert_eq!(state.consumed_items[0].wait_cycles, 4);
     assert_eq!(state.last_cycle_updated, 3);
     assert_eq!(state.unrecognized_population.len(), 1);
+    // `AdaptWorldToRegionState` placed the rocks and spears; `RainCycleTick(1)` freed
+    // the spear stuck for 1 more cycle.
+    let objects: Vec<_> = world
+        .objects()
+        .map(|(_, o)| {
+            let room = world.abstract_room(o.pos.room).unwrap().name.clone();
+            (o.id.number, room, o.spear().map(|s| s.stuck_in_wall_cycles))
+        })
+        .collect();
+    assert_eq!(
+        objects,
+        [
+            (10152, "SU_S04".to_owned(), None),
+            (10200, "SU_A13".to_owned(), Some(1)),
+            (10201, "SU_A13".to_owned(), Some(0)),
+            (10202, "SU_A13".to_owned(), None),
+        ]
+    );
+    assert_eq!(state.unrecognized_saved_objects.len(), 1);
 
     for (id, kind) in [
         (EntityId::new(5028, 9955), CreatureType::GreenLizard),
@@ -131,7 +156,14 @@ fn continue_restores_the_saved_population_and_keeps_the_rest() {
         "REGIONNAME<rgB>SU<rgA>LASTCYCLEUPDATED<rgB>3<rgA>SWARMROOMS<rgB>SU_A24:3,SU_A40:0,"
     ));
     assert!(saved.contains("LINEAGES<rgB>SU_A30.-1.-1.2:1,"));
-    assert!(saved.contains("OBJECTS<rgB>ID.-239.10152<oA>Rock<oA>SU_S04.22.24.0<rgC><rgA>"));
+    // The text kept first, then room by room (SU_S04 comes before SU_A13): the shelter's
+    // rock (written with its ripple layer) and the spear still stuck; the free spear and
+    // the rock outside a shelter are not saved.
+    assert!(saved.contains(
+        "OBJECTS<rgB>ID.-1.300<oB>0<oA>DangleFruit<oA>SU_S04.3.3.0<oA>0<oA>2<rgC>\
+         ID.-239.10152<oB>0<oA>Rock<oA>SU_S04.22.24.0<rgC>\
+         ID.-12.10200<oB>0<oA>Spear<oA>SU_A13.30.20.-1<oA>1<oA>0<rgC><rgA>"
+    ));
     // Rewritten with the ID's ripple layer; the state as read.
     assert!(saved.contains("<rgC>GreenLizard<cA>ID.5028.9955<cB>0<cA>SU_B12.2<cA><rgC>"));
     assert!(saved.contains(

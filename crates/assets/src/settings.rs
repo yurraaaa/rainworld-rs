@@ -83,6 +83,8 @@ pub struct SettingsFile {
     pub danger_type: Option<Option<DangerType>>,
     pub ceiling_drips: Option<f32>,
     pub rain_intensity: Option<f32>,
+    pub random_item_density: Option<f32>,
+    pub random_item_spear_chance: Option<f32>,
     /// The file's own `AmbientSounds:` entries (every such line adds).
     pub ambient_sounds: Vec<AmbientSound>,
     /// The file's own `Effects:` entries (every such line adds).
@@ -114,6 +116,9 @@ pub struct RoomSettings {
     pub danger_type: Option<DangerType>,
     pub ceiling_drips: f32,
     pub rain_intensity: f32,
+    /// `RandomItemDensity`: `Room.Loaded` makes `W*H*d^2/5 + 1` random item attempts.
+    pub random_item_density: f32,
+    pub random_item_spear_chance: f32,
     /// Own ambient sounds, then the parent's that are not overridden (templates and
     /// the root do not inherit).
     pub ambient_sounds: Vec<AmbientSound>,
@@ -165,6 +170,10 @@ impl SettingsFile {
                 }
                 "CeilingDrips" => file.ceiling_drips = Some(Self::float(value)?),
                 "RainIntensity" => file.rain_intensity = Some(Self::float(value)?),
+                "RandomItemDensity" => file.random_item_density = Some(Self::float(value)?),
+                "RandomItemSpearChance" => {
+                    file.random_item_spear_chance = Some(Self::float(value)?);
+                }
                 "AmbientSounds" => file.ambient_sounds.extend(AmbientSound::parse_list(value)?),
                 "Effects" => file.effects.extend(RoomEffect::parse_list(value)),
                 "PlacedObjects" => file.placed_objects.extend(PlacedObject::parse_list(value)),
@@ -228,6 +237,12 @@ impl SettingsFile {
             danger_type: self.danger_type.unwrap_or(parent.danger_type),
             ceiling_drips: self.ceiling_drips.unwrap_or(parent.ceiling_drips),
             rain_intensity: self.rain_intensity.unwrap_or(parent.rain_intensity),
+            random_item_density: self
+                .random_item_density
+                .unwrap_or(parent.random_item_density),
+            random_item_spear_chance: self
+                .random_item_spear_chance
+                .unwrap_or(parent.random_item_spear_chance),
             ambient_sounds: AmbientSound::inherit(&self.ambient_sounds, &parent.ambient_sounds),
             effects: RoomEffect::inherit(&self.effects, &parent.effects),
             placed_objects: self.placed_objects.clone(),
@@ -262,6 +277,8 @@ impl RoomSettings {
         danger_type: Some(DangerType::Rain),
         ceiling_drips: 0.5,
         rain_intensity: 1.0,
+        random_item_density: 0.5,
+        random_item_spear_chance: 0.2,
         ambient_sounds: Vec::new(),
         effects: Vec::new(),
         placed_objects: Vec::new(),

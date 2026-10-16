@@ -11,6 +11,7 @@ mod ai_map;
 mod creature_ai_map;
 mod creatures;
 mod flies_world_ai;
+mod objects;
 mod overseers_world_ai;
 mod quantified;
 mod rain_cycle;
@@ -27,7 +28,9 @@ use rw_assets::world::{AbstractRoomData, RoomSource, WorldData};
 use rw_assets::{ActiveMods, AssetError, CreatureType, RoomAttraction, Timeline};
 
 use crate::Vec2;
-use crate::creature::{AbstractCreature, CreatureId, FlockBehavior, WorldCoordinate};
+use crate::creature::{AbstractCreature, CreatureId, FlockBehavior, IdIssuer, WorldCoordinate};
+use crate::item::AbstractObject;
+use rw_random::UnityRandom;
 
 pub(crate) use ai_map::EIGHT_DIRECTIONS;
 pub use ai_map::{AiMap, MovementConnection, MovementType};
@@ -56,10 +59,12 @@ pub struct World {
     pub(crate) mods: ActiveMods,
     /// A story session (`game.IsStorySession`), for the room rules that ask.
     pub(crate) story: bool,
-    /// Per abstract room, whether it finished loading before (`!firstTimeRealized`).
+    /// Per abstract room, whether it was realized before this cycle (`!firstTimeRealized`).
     loaded_before: Vec<bool>,
     /// Every creature, the player's included (`AbstractCreature`s by `CreatureId`).
     creatures: Vec<AbstractCreature>,
+    /// Every other physical object (`AbstractPhysicalObject`s by `ObjectId`).
+    objects: Vec<AbstractObject>,
     /// Per abstract room, its creature lists.
     pub(crate) lists: Vec<RoomLists>,
     /// Per abstract room, `roomAttractions` from `Room_Attr` lines.
@@ -113,6 +118,7 @@ impl World {
             story,
             loaded_before: vec![false; count],
             creatures: Vec::new(),
+            objects: Vec::new(),
             lists: vec![RoomLists::default(); count],
             attractions: Vec::new(),
             sky_access_nodes: Vec::new(),
@@ -234,12 +240,19 @@ impl World {
     }
 
     /// `World.ActivateRoom` / `AbstractRoom.RealizeRoom`: reads the room and adds it to
-    /// the active rooms, loading until this tick's loading step. The off-screen den and
-    /// realized rooms are left alone.
+    /// the active rooms, loading until this tick's loading step. On its first
+    /// realization in the cycle (`firstTimeRealized`, cleared at the end of
+    /// `Room.Loaded`) the room makes its items, with their IDs and draws. The off-screen
+    /// den and realized rooms are left alone.
     ///
     /// # Errors
     /// When the room's files cannot be read.
-    pub fn activate_room(&mut self, index: i32) -> Result<(), AssetError> {
+    pub fn activate_room(
+        &mut self,
+        index: i32,
+        ids: &mut IdIssuer,
+        rng: &mut UnityRandom,
+    ) -> Result<(), AssetError> {
         let Some(i) = self.local(index) else {
             return Ok(());
         };
@@ -249,13 +262,19 @@ impl World {
         }
         let loaded = self.rooms.load_room(data.file_name())?;
         log::info!("realized room {}", data.name);
+        let first_time = !self.loaded_before[i];
+        if first_time {
+            self.place_room_items(index, &loaded.room, &loaded.settings, ids, rng);
+        }
+        self.loaded_before[i] = true;
+        let data = &self.data.rooms[i];
         self.realized[i] = Some(RealizedRoom::new(
             loaded,
             data,
             self.story,
             self.timeline,
             self.mods,
-            !self.loaded_before[i],
+            first_time,
         ));
         self.active.push(i);
         self.loading.push(i);
@@ -284,7 +303,6 @@ impl World {
         for i in std::mem::take(&mut self.loading) {
             if let Some(room) = &mut self.realized[i] {
                 room.finish_loading();
-                self.loaded_before[i] = true;
                 done.push(self.data.rooms[i].index);
             }
         }
