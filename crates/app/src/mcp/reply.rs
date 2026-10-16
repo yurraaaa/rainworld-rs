@@ -101,7 +101,7 @@ pub struct CreatureInfo {
     pub in_den: bool,
     pub realized: bool,
     pub alive: bool,
-    /// The plain abstract AI (lizards).
+    /// The abstract AI's shared fields (every roaming type).
     pub abstract_ai: Option<AbstractAiInfo>,
     /// An overseer's abstract AI and body.
     pub overseer: Option<OverseerInfo>,

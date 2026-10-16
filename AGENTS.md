@@ -142,10 +142,12 @@ before the user agrees.
   - A story starts at the campaign's start den in its region's world;
     room-exit shortcuts carry the player between the region's rooms, which
     load synchronously (D14). The population is generated with the
-    game's draws but only overseers and lizards leave their dens. Lizards
-    run the general abstract creature AI (D14): den counters, roaming,
-    migration along the region's connections, paths, dens; they have no
-    body yet and wait unrealized in realized rooms. Overseers have their
+    game's draws and every creature but the scavengers leaves its den.
+    They run the general abstract creature AI or their type's own
+    (vultures, cicadas, big eels, deer, Miros birds, needle worms; D14):
+    den counters, roaming, migration along the region's connections and
+    highways, paths, dens; they have no body yet and wait unrealized in
+    realized rooms. Overseers have their
     body, AI, graphics, the guide's tutorial text and their holograms
     (those whose triggers are ported: D14). The bat flies' world
     process moves their per-node counts between rooms, and a room that
@@ -218,7 +220,7 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   pick-up candidate as `{kind, id}`, stomach, swallow counter, eat counter, malnourishment, aerobic level and exhaustion), the player's room and node, the vessel waiting in the
   lobby, the realized rooms' entry waits and `creatures` (every
   abstract creature: kind, ID, room, node, tile, in den, realized,
-  alive; lizards also their abstract AI: destination, path, migration
+  alive; roaming creatures also their abstract AI: destination, path, migration
   destination, den, time buffer and den counter; overseers also their AI's
   destination, guide state, last rooms and realized tiles; realized flies their room, position, velocity,
   behaviour, movement mode, grasps and holders) and `objects` (every

@@ -996,7 +996,7 @@ fn su_a07_spot_trigger_requests_its_song() {
 }
 
 /// `get_state` reports the lizards' abstract AI: a new game's greens wait in their dens
-/// (the den is their den position and their destination), other creatures have none.
+/// (the den is their den position and their destination); overseers report none.
 #[test]
 fn lizards_report_their_abstract_ai() {
     let Some(mut s) = Session::installed() else {

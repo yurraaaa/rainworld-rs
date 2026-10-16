@@ -8,6 +8,7 @@
 //! `rainworld-re/notes/world-loading.md`, `room-realizer.md`.
 
 mod abstract_ai;
+mod abstract_ai_kinds;
 mod abstract_path;
 mod ai_map;
 mod ai_mapper;

@@ -49,7 +49,9 @@ Working now:
   Bat flies spread between rooms, fly, swarm, flee from the slugcat, burrow, hang in
   chains and travel the pipes. The slugcat catches, carries, throws and eats them, and
   the guide's tutorial teaches it to (the Eat instruction, then the super jump once fed).
-  Lizards leave their dens and roam the region's unrealized rooms abstractly, without
+  The other creatures (all but the scavengers) leave their dens and roam the region's
+  unrealized rooms abstractly as the game's do: lizards, cicadas, centipedes, needle
+  worms, drop bugs and the rest walk the pipes, vultures cross the sky. They have no
   bodies yet (one that reaches a loaded room waits there, unseen, until it unloads).
 - **Items:** rocks and spears lie in the rooms, roll, stick into the ground, and spears
   stuck in walls are poles; shelters keep them across cycles. The slugcat picks them
@@ -64,8 +66,8 @@ Not yet ported:
   behind the sleep screen's PASSAGE button (it shows, greyed out; passages are still
   earned and shown on the meters);
 - region gates;
-- creatures other than overseers and bat flies (lizards roam abstractly, but have no
-  body yet);
+- creatures other than overseers and bat flies (the others roam abstractly, but have
+  no body yet; scavengers stay in their den);
 - thrown rocks and spears hitting creatures (they pass through them for now).
 
 ## Building and running

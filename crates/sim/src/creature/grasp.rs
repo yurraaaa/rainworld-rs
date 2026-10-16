@@ -255,6 +255,20 @@ impl World {
         self.sticks_mut(r.grabbed).push(stick);
     }
 
+    /// `new CreatureGripStick(a, b, grasp, carry)` between abstract creatures, with no
+    /// realized grasp.
+    pub(crate) fn add_grip_stick(&mut self, a: CreatureId, b: Entity, grasp: usize, carry: bool) {
+        let stick = GripStick {
+            serial: self.next_grasp_serial(),
+            a,
+            b,
+            grasp,
+            carry,
+        };
+        self.creature_mut(a).sticks.push(stick);
+        self.sticks_mut(b).push(stick);
+    }
+
     /// An object's realized body is `held` while something grasps it.
     fn sync_held(&mut self, e: Entity) {
         if let Entity::Object(id) = e {

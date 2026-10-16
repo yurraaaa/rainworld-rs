@@ -2,9 +2,13 @@
 //! draws. The plain behaviour (lizards) is `world/abstract_ai.rs`, the overseer's
 //! `overseer/abstract_ai.rs`.
 
-use rw_assets::{CreatureType, NodeType, SlugcatName, Timeline};
+use rw_assets::{CreatureType, SlugcatName, Timeline};
 use rw_random::UnityRandom;
 
+use super::ai_kinds::{
+    BigEelAbstractAi, CicadaAbstractAi, DeerAbstractAi, MirosBirdAbstractAi, NeedleWormAbstractAi,
+    VultureAbstractAi,
+};
 use super::overseer::OverseerAbstractAi;
 use super::{AbstractCreature, CreatureId, EntityId, IdIssuer, WorldCoordinate};
 use crate::FloatExt;
@@ -38,23 +42,14 @@ pub struct CarriedItem {
 pub enum AiKind {
     Plain,
     Overseer(OverseerAbstractAi),
-    Vulture {
-        check_rooms: Vec<WorldCoordinate>,
-        dont_go_to_this_room: i32,
-    },
-    Scavenger {
-        carry_rocks: i32,
-        dont_migrate: i32,
-    },
-    NeedleWorm {
-        migrate_active: bool,
-        mother: Option<CreatureId>,
-    },
+    Vulture(VultureAbstractAi),
+    Scavenger { carry_rocks: i32, dont_migrate: i32 },
+    NeedleWorm(NeedleWormAbstractAi),
     DropBug,
-    Cicada,
-    BigEel,
-    Deer,
-    MirosBird,
+    Cicada(CicadaAbstractAi),
+    BigEel(BigEelAbstractAi),
+    Deer(DeerAbstractAi),
+    MirosBird(MirosBirdAbstractAi),
 }
 
 /// `AbstractCreatureAI`.
@@ -110,34 +105,41 @@ impl AbstractCreatureAi {
         let kind = parent.kind();
         ai.kind = match kind {
             CreatureType::Vulture | CreatureType::KingVulture => {
-                let mut vulture = VultureInit {
-                    parent,
+                let mut vulture = VultureAbstractAi {
                     check_rooms: Vec::new(),
+                    time_in_room: 0,
                     dont_go_to_this_room: -1,
                 };
-                vulture.add_random_check_room(cx);
-                AiKind::Vulture {
-                    check_rooms: vulture.check_rooms,
-                    dont_go_to_this_room: vulture.dont_go_to_this_room,
-                }
+                cx.world
+                    .vulture_add_random_check_room(parent.pos, kind, &mut vulture, cx.rng);
+                AiKind::Vulture(vulture)
             }
-            CreatureType::CicadaA | CreatureType::CicadaB => AiKind::Cicada,
-            CreatureType::BigEel => AiKind::BigEel,
-            CreatureType::Deer => AiKind::Deer,
-            CreatureType::MirosBird => AiKind::MirosBird,
+            CreatureType::CicadaA | CreatureType::CicadaB => {
+                AiKind::Cicada(CicadaAbstractAi::default())
+            }
+            CreatureType::BigEel => AiKind::BigEel(BigEelAbstractAi {
+                go_to: None,
+                last_room: parent.pos.room,
+                time_in_room: 0,
+            }),
+            CreatureType::Deer => AiKind::Deer(DeerAbstractAi::new(parent, cx.world)),
+            CreatureType::MirosBird => AiKind::MirosBird(MirosBirdAbstractAi::new(cx.world)),
             CreatureType::Scavenger => Self::scavenger(parent, cx),
             CreatureType::Overseer => AiKind::Overseer(OverseerAbstractAi::new(parent, cx)),
             CreatureType::BigNeedleWorm | CreatureType::SmallNeedleWorm => {
                 let migrate_active = cx.rng.value() < 0.5;
                 let mother = if kind == CreatureType::SmallNeedleWorm {
-                    cx.world.find_needle_mother(parent.pos, None, cx.rng)
+                    cx.world
+                        .find_needle_mother(parent.pos.room, parent.pos, None, cx.rng)
                 } else {
                     None
                 };
-                AiKind::NeedleWorm {
-                    migrate_active,
+                AiKind::NeedleWorm(NeedleWormAbstractAi {
                     mother,
-                }
+                    migrate_active,
+                    migrate_active_counter: 0,
+                    temp_suppress_follow_creature: false,
+                })
             }
             CreatureType::DropBug => {
                 Self::drop_bug_item(parent, cx);
@@ -394,128 +396,5 @@ impl ScavengerGear<'_> {
             None => num = num.lerp(1.0, 0.15),
         }
         cx.rng.value() < num
-    }
-}
-
-/// `VultureAbstractAI`'s constructor (`AddRandomCheckRoom`), base game (not a Miros
-/// bird).
-struct VultureInit<'p> {
-    parent: &'p AbstractCreature,
-    check_rooms: Vec<WorldCoordinate>,
-    dont_go_to_this_room: i32,
-}
-
-impl VultureInit<'_> {
-    fn add_random_check_room(&mut self, cx: &mut AiContext<'_>) {
-        let world = cx.world;
-        let kind = self.parent.kind();
-        let here = self.parent.pos.room;
-        let own_room = cx.rng.value() > 0.5
-            && here != self.dont_go_to_this_room
-            && cx.rng.value() < world.attraction_value(here, kind)
-            && world
-                .abstract_room(here)
-                .is_some_and(|r| r.nodes.iter().any(|n| n.kind == NodeType::SkyExit));
-        if own_room {
-            self.dont_go_to_this_room = here;
-            self.add_room_cluster(here, cx);
-            return;
-        }
-        let sky = world.sky_access_nodes();
-        let total: f32 = sky
-            .iter()
-            .filter(|c| self.viable(c.room, world))
-            .map(|c| self.weight(c.room, world))
-            .sum();
-        let mut pick = cx.rng.value() * total;
-        for c in sky.iter().filter(|c| self.viable(c.room, world)) {
-            let w = self.weight(c.room, world);
-            if pick < w {
-                self.add_room_cluster(c.room, cx);
-                break;
-            }
-            pick -= w;
-        }
-    }
-
-    /// `AddRoomClusterToCheckList`.
-    fn add_room_cluster(&mut self, original: i32, cx: &mut AiContext<'_>) {
-        let world = cx.world;
-        let Some(room) = world.abstract_room(original) else {
-            return;
-        };
-        let kind = self.parent.kind();
-        let mut list: Vec<(WorldCoordinate, i32)> = Vec::new();
-        if original != self.parent.pos.room
-            && room.nodes.iter().any(|n| n.kind == NodeType::SkyExit)
-            && self.viable(original, world)
-        {
-            let node =
-                world.random_relevant_node_by_width(original, &self.parent.template, 5, cx.rng);
-            let w = 100_000 + cx.rng.range_i32(0, 50);
-            list.push((WorldCoordinate::new(original, -1, -1, node), w));
-        }
-        for &c in &room.connections {
-            if c <= -1 || !self.viable(c, world) {
-                continue;
-            }
-            if cx.rng.value() >= world.attraction_value(c, kind) * 1.5 {
-                continue;
-            }
-            let Some(other) = world.abstract_room(c) else {
-                continue;
-            };
-            if !other.nodes.iter().any(|n| n.kind == NodeType::SkyExit) {
-                continue;
-            }
-            let num = cx.rng.range_i32(
-                50,
-                500 + 2000 * world.size_dependent_attraction(c, kind) as i32,
-            );
-            let node = world.random_relevant_node_by_width(c, &self.parent.template, 5, cx.rng);
-            let w = num + cx.rng.range_i32(0, 50);
-            list.push((WorldCoordinate::new(c, -1, -1, node), w));
-        }
-        while !list.is_empty() {
-            let best = list
-                .iter()
-                .enumerate()
-                .filter(|(_, (c, _))| c.node_defined())
-                .fold(
-                    None,
-                    |best: Option<(usize, i32)>, (i, &(_, w))| match best {
-                        Some((_, bw)) if w <= bw => best,
-                        _ => Some((i, w)),
-                    },
-                );
-            match best {
-                Some((i, _)) => {
-                    self.check_rooms.push(list[i].0);
-                    list.remove(i);
-                }
-                // `list.RemoveAt(-1)` throws; with no node defined the game's constructor
-                // fails here. Stop instead.
-                None => break,
-            }
-        }
-    }
-
-    fn weight(&self, room: i32, world: &World) -> f32 {
-        world
-            .size_dependent_attraction(room, self.parent.kind())
-            .mathf_pow(2.0)
-    }
-
-    /// `RoomViableRoamDestination`.
-    fn viable(&self, room: i32, world: &World) -> bool {
-        if world.attraction(room, self.parent.kind()) == Some(rw_assets::RoomAttraction::Forbidden)
-        {
-            return false;
-        }
-        world.abstract_room(room).is_some_and(|r| {
-            r.nodes
-                .iter()
-                .any(|n| n.kind == NodeType::SkyExit && n.entrance_width > 4)
-        })
     }
 }

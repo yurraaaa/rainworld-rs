@@ -83,6 +83,10 @@ pub struct AbstractTick<'a> {
     pub player_karma: i32,
     /// `saveState.cycleNumber`.
     pub cycle: i32,
+    /// `nextIssuedId` (a cicada's caught fly takes a `GetNewID`).
+    pub ids: &'a mut IdIssuer,
+    /// What a new creature's constructor reads of the session.
+    pub session: &'a StorySession,
 }
 
 impl World {
@@ -312,21 +316,19 @@ impl World {
         -1
     }
 
-    /// `NeedleWormAbstractAI.FindMotherInRoom` for a small worm at `pos` (its
-    /// `denPosition` is `den`), over the room's creatures then its dens.
+    /// `NeedleWormAbstractAI.FindMotherInRoom(room)` for a small worm at `pos` (its
+    /// `denPosition` is `den`), over the room's creatures then its dens: one draw per
+    /// living big worm.
     pub(crate) fn find_needle_mother(
         &self,
+        room: i32,
         pos: WorldCoordinate,
         den: Option<WorldCoordinate>,
         rng: &mut UnityRandom,
     ) -> Option<CreatureId> {
         let mut best = f32::MIN;
         let mut mother = None;
-        for &id in self
-            .room_creatures(pos.room)
-            .iter()
-            .chain(self.room_dens(pos.room))
-        {
+        for &id in self.room_creatures(room).iter().chain(self.room_dens(room)) {
             let c = self.creature(id);
             if c.kind() != CreatureType::BigNeedleWorm || !c.state.alive {
                 continue;
@@ -612,9 +614,30 @@ impl World {
         }
     }
 
-    /// `AbstractCreature.Move(newCoord)`: `ChangeRooms` moves it between the room lists
-    /// (realizing it first is [`Self::change_rooms_realize`]).
+    /// `AbstractCreature.Move(newCoord)`: a carried quantified creature (`Quantify`)
+    /// moving into an unrealized room becomes a count at the new node; a garbage worm
+    /// first takes its new room's garbage-hole node; `ChangeRooms` moves it between the
+    /// room lists (realizing it first is [`Self::change_rooms_realize`]); the creatures
+    /// stuck to it follow (`AbstractPhysicalObject.Move`), then `Moved`.
     pub(crate) fn move_creature(&mut self, id: CreatureId, mut to: WorldCoordinate) {
+        let c = self.creature(id);
+        if c.quantify() && self.realized(to.room).is_none() {
+            log::debug!("quantified creature delete itself!");
+            let kind = c.kind();
+            self.remove_entity(id);
+            self.destroy_abstract(id);
+            self.add_quantified_at(to.room, to.node, kind);
+            return;
+        }
+        if c.kind() == CreatureType::GarbageWorm
+            && let Some(node) = self.abstract_room(to.room).and_then(|r| {
+                r.nodes
+                    .iter()
+                    .position(|n| n.kind == NodeType::GarbageHoles)
+            })
+        {
+            self.creature_mut(id).pos.node = i32::try_from(node).unwrap_or(-1);
+        }
         let from = self.creature(id).pos;
         if let Some(ai) = &mut self.creature_mut(id).ai
             && to.room != from.room
@@ -636,6 +659,21 @@ impl World {
                 to.tile = from.tile;
             }
             self.creature_mut(id).pos = to;
+            // Only between abstract creatures: what a realized player carries is moved
+            // by its own code.
+            let sticks = self.creature(id).sticks.clone();
+            for s in sticks {
+                for other in [Some(s.a), s.b.creature()].into_iter().flatten() {
+                    let c = self.creature(id);
+                    if other != id
+                        && c.realized.is_none()
+                        && self.creature(other).realized.is_none()
+                        && c.sticks.iter().any(|t| t.serial == s.serial)
+                    {
+                        self.move_creature(other, to);
+                    }
+                }
+            }
         }
         self.moved(id);
     }
@@ -704,8 +742,8 @@ impl World {
     }
 
     /// `AbstractCreature.Update(time)`: the abstract AI of a living, unrealized creature
-    /// out of its den and not carried: the overseers' and the plain one of the types
-    /// whose template [`CreatureTemplate::abstract_ai_ported`] (the lizards).
+    /// out of its den and not carried: the overseers', and the plain or own one of every
+    /// template that [`CreatureTemplate::abstract_ai_ported`] (all but the scavengers).
     fn update_creature(&mut self, id: CreatureId, time: i32, cx: &mut AbstractTick<'_>) {
         let c = self.creature_mut(id);
         c.time_spent_here += time;
@@ -782,6 +820,15 @@ impl World {
             _ => {}
         }
         self.entering.push((id, to));
+    }
+
+    /// Whether creature `id` is carried by a creature the port keeps abstract (a
+    /// cicada's caught fly): it stays abstract with its carrier (D14).
+    #[must_use]
+    pub fn held_by_abstract_creature(&self, id: CreatureId) -> bool {
+        self.creature(id).sticks.iter().any(|s| {
+            s.a != id && s.b == Entity::Creature(id) && self.creature(s.a).realized.is_none()
+        })
     }
 
     /// `Realize` of an overseer: the `Overseer` (no draws) and its `OverseerAI` (one
@@ -904,15 +951,14 @@ impl World {
 
     /// `AbstractCreature.InDenUpdate`: the den counter runs down (a night creature's
     /// only after dark), and at below 0 the creature comes out; one that wants to stay
-    /// for the rest of the cycle stops counting (-1). Only creatures whose abstract AI is
-    /// ported (overseers, lizards) leave their dens; the rest stay in
-    /// (docs/DIVERGENCES.md D14). A pre-cycle creature passes the game's precycle test
-    /// (no precycles without More Slugcats) and then wants to stay.
+    /// for the rest of the cycle stops counting (-1). The scavengers, whose abstract AI is
+    /// not ported, stay in (docs/DIVERGENCES.md D14). A pre-cycle creature passes the
+    /// game's precycle test (no precycles without More Slugcats) and then wants to stay.
     fn in_den_update(&mut self, id: CreatureId, time: i32) {
         let day_night = self.rain_cycle.day_night_counter;
         let wants_to_stay = self.wants_to_stay_in_den(id);
         let c = self.creature_mut(id);
-        if c.kind() != CreatureType::Overseer && !c.template.abstract_ai_ported() {
+        if c.template.held_in_den() {
             return;
         }
         let night_ok = !c.night_creature || day_night as f32 > 600.0 || c.ignore_cycle;

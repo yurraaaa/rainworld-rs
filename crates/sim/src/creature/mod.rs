@@ -5,17 +5,20 @@
 //!
 //! Ported: the constructors with all their random draws for every base-game type, the
 //! world-load population ([`population`]), the overseers' abstract AI ([`overseer`]),
-//! the plain `AbstractCreatureAI` for the lizards (`world/abstract_ai.rs`), dens, `Move`
-//! and the realize/abstractize hooks. Other types' AI behaviour is not ported: they stay
-//! in their dens (docs/DIVERGENCES.md D14). Design:
+//! the plain `AbstractCreatureAI` (`world/abstract_ai.rs`) and the other subclasses
+//! ([`ai_kinds`], `world/abstract_ai_kinds.rs`) for every type but the scavenger (which
+//! stays in its den, docs/DIVERGENCES.md D14), the relationships, dens, `Move` and the
+//! realize/abstractize hooks. Design:
 //! `rainworld-re/notes/creature-model.md`.
 
 pub(crate) mod ai;
+pub mod ai_kinds;
 pub mod fly;
 pub mod grasp;
 pub mod overseer;
 pub mod pathing;
 pub(crate) mod population;
+mod relationships;
 pub mod template;
 mod template_abstract;
 

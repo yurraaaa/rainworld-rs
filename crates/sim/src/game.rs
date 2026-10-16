@@ -675,12 +675,15 @@ impl RainWorldGame {
         let room =
             self.world.first_room_index() + i32::try_from(self.update_abstract_room).unwrap_or(0);
         let time = i32::try_from(count).unwrap_or(i32::MAX);
+        let session = self.story_session();
         let mut cx = AbstractTick {
             rng: &mut self.rng,
             guide: &self.guide,
             player: Some(self.player_id),
             player_karma: self.story.karma,
             cycle: self.story.cycle_number,
+            ids: &mut self.ids,
+            session: &session,
         };
         self.world.update_abstract_room(room, time, &mut cx);
     }
@@ -745,6 +748,9 @@ impl RainWorldGame {
                         self.realize_player(observer);
                     }
                 } else if self.world.creature(id).kind() == CreatureType::Fly {
+                    if self.world.held_by_abstract_creature(id) {
+                        continue;
+                    }
                     self.realize_fly_in_room(index, id, observer);
                 } else {
                     let _before = self.rng.state();

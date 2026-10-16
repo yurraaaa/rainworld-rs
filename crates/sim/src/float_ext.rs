@@ -15,6 +15,11 @@ pub trait FloatExt: Sized {
     /// `Custom.LerpMap` with an exponent applied to the clamped fraction.
     fn lerp_map_pow(self, from_a: f32, to_a: f32, from_b: f32, to_b: f32, exponent: f32) -> f32;
 
+    /// C#'s `(int)` cast as the game's x86-64 runtime does it (`cvttss2si`): truncation,
+    /// with NaN and out-of-range values giving `int.MinValue` (INFERRED from the
+    /// instruction; Rust's `as` saturates instead).
+    fn to_int_cs(self) -> i32;
+
     /// `Mathf.Pow`: `(float)Math.Pow(self, p)`, in double precision.
     fn mathf_pow(self, p: f32) -> f32;
 
@@ -45,6 +50,14 @@ impl FloatExt for f32 {
 
     fn mathf_pow(self, p: f32) -> f32 {
         f64::from(self).powf(f64::from(p)) as f32
+    }
+
+    fn to_int_cs(self) -> i32 {
+        if self.is_nan() || self >= 2_147_483_648.0 || self < -2_147_483_648.0 {
+            i32::MIN
+        } else {
+            self as i32
+        }
     }
 
     fn lerp_map_pow(self, from_a: f32, to_a: f32, from_b: f32, to_b: f32, exponent: f32) -> f32 {

@@ -155,22 +155,34 @@ fn at(room: i32, node: i32) -> WorldCoordinate {
 /// Runs `f` with an abstract tick on `rng`.
 struct Ticker {
     guide: PlayerGuideState,
+    ids: IdIssuer,
+    session: StorySession,
 }
 
 impl Ticker {
     fn new() -> Self {
         Self {
             guide: PlayerGuideState::default(),
+            ids: IdIssuer {
+                next_issued_id: 1000,
+            },
+            session: StorySession {
+                character: SlugcatName::White,
+                cycle_number: 0,
+                den_position: String::new(),
+            },
         }
     }
 
-    fn tick<'a>(&'a self, rng: &'a mut UnityRandom) -> AbstractTick<'a> {
+    fn tick<'a>(&'a mut self, rng: &'a mut UnityRandom) -> AbstractTick<'a> {
         AbstractTick {
             rng,
             guide: &self.guide,
             player: None,
             player_karma: 0,
             cycle: 0,
+            ids: &mut self.ids,
+            session: &self.session,
         }
     }
 }
@@ -191,7 +203,7 @@ fn a_green_in_its_den_counts_down_then_comes_out_without_drawing() {
     assert_eq!(c.distance_to_my_node, 0, "an int field's default");
     // Each room update subtracts `NumberOfRooms` (4); out when below 0.
     let updates = counter / 4 + 1;
-    let ticker = Ticker::new();
+    let mut ticker = Ticker::new();
     for k in 1..=updates {
         assert!(world.creature(id).in_den, "in at update {k}");
         world.update_abstract_room(0, 4, &mut ticker.tick(&mut rng));
@@ -207,7 +219,7 @@ fn a_green_in_its_den_counts_down_then_comes_out_without_drawing() {
 
 #[test]
 fn rain_pre_cycle_and_night_keep_a_green_in() {
-    let ticker = Ticker::new();
+    let mut ticker = Ticker::new();
     // Rain within 60 s: `WantToStayInDenUntilEndOfCycle`, counter -1 for good.
     let mut world = world();
     let mut rng = UnityRandom::new(5);
@@ -270,7 +282,7 @@ fn an_idle_green_rolls_to_migrate_then_to_roam() {
     // update), then (when that passes) `TimeInfluencedRandomRoll(0.1 * Lerp(2, 0.1,
     // 0.5) = 0.105, 4)`; not leaving, `TimeInfluencedRandomRoll(roamInRoomChance 0.1,
     // 4)`, and on success `RandomMoveWithinRoom`'s `Range(0, 2)`.
-    let ticker = Ticker::new();
+    let mut ticker = Ticker::new();
     for seed in 0..40 {
         let mut world = world();
         let id = green_out(&mut world, at(0, 1));
@@ -307,7 +319,7 @@ fn an_idle_green_rolls_to_migrate_then_to_roam() {
 fn follow_path_moves_once_the_buffer_covers_the_way() {
     // A node 1 -> node 0: length 8 / 0.09 = 88.9; `timeBuffer > 88.9` moves and pays
     // `(int)88.9 = 88`.
-    let ticker = Ticker::new();
+    let mut ticker = Ticker::new();
     let mut world = world();
     let id = green_out(&mut world, at(0, 1));
     let ai = world.creature_mut(id).ai.as_mut().expect("AI");
@@ -338,7 +350,7 @@ fn follow_path_takes_the_shortcut_into_the_next_room() {
     // A's exit (node 0) to B's entrance (node 0): both tubes, 4 + 5 = 9. In floats
     // `Lerp(0.1, 0.9, 0.25)` is 0.29999998 and 9 / (0.3 * 0.29999998) = 100.00001, so a
     // buffer of 100 waits, 101 moves and pays 100.
-    let ticker = Ticker::new();
+    let mut ticker = Ticker::new();
     let mut world = world();
     let id = green_out(&mut world, at(0, 0));
     let ai = world.creature_mut(id).ai.as_mut().expect("AI");
@@ -364,7 +376,7 @@ fn a_stuck_green_jumps_to_a_random_reachable_node() {
     // `TimeInfluencedRandomRoll(0.5, 4)`; on success `Range(0, 2)` over the mapped
     // nodes it can reach from node 1 (node 0 only: a node's path to itself is -1, so
     // the list is [0]), then `SetDestination(pos)` and the distance is 0.
-    let ticker = Ticker::new();
+    let mut ticker = Ticker::new();
     for seed in 0..10 {
         let mut world = world();
         let id = green_out(&mut world, at(0, 1));
@@ -494,7 +506,7 @@ fn moving_to_a_more_attractive_neighbour_draws_per_candidate_and_once_more() {
 fn a_green_passing_its_den_late_in_the_cycle_goes_in() {
     // `FollowPath` at a den node calls `OpportunityToEnterDen`: with the rain within
     // 60 s it wants to stay, so it goes in with counter -1.
-    let ticker = Ticker::new();
+    let mut ticker = Ticker::new();
     let mut world = world();
     let id = green_out(&mut world, at(0, 0));
     world.creature_mut(id).remain_in_den_counter = -1;

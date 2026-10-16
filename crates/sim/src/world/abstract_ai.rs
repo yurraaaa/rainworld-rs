@@ -4,7 +4,8 @@
 //! `MoveToMoreAttractiveNeighborRoom`, `GoToDen`, `AbstractCreature.OpportunityToEnterDen`
 //! and `QuickConnectivity.DefineNodeOfLocalCoordinate`'s abstract branch, with every
 //! random draw in the game's order. Runs for the templates whose
-//! [`CreatureTemplate::abstract_ai_ported`] (the lizards).
+//! [`CreatureTemplate::abstract_ai_ported`]; the subclasses' own `AbstractBehavior`s are
+//! `abstract_ai_kinds.rs`.
 
 use rw_assets::{CreatureType, NodeType, RoomAttraction};
 use rw_random::UnityRandom;
@@ -171,11 +172,11 @@ impl World {
         ((d - 100.0).max(0.0) * 0.15) as i32 + 1
     }
 
-    fn ai_of(&self, id: CreatureId) -> Option<&AbstractCreatureAi> {
+    pub(super) fn ai_of(&self, id: CreatureId) -> Option<&AbstractCreatureAi> {
         self.creature(id).ai.as_ref()
     }
 
-    fn ai_of_mut(&mut self, id: CreatureId) -> Option<&mut AbstractCreatureAi> {
+    pub(super) fn ai_of_mut(&mut self, id: CreatureId) -> Option<&mut AbstractCreatureAi> {
         self.creature_mut(id).ai.as_mut()
     }
 
@@ -233,7 +234,7 @@ impl World {
         if self.realized(room).is_some() {
             return;
         }
-        self.abstract_behavior(id, time, cx);
+        self.kind_abstract_behavior(id, time, cx);
         let rng = &mut *cx.rng;
         let pos = self.creature(id).pos;
         let Some(ai) = self.ai_of(id) else { return };
@@ -251,7 +252,12 @@ impl World {
 
     /// `AbstractBehavior` of an unrealized creature (no follow creature can be set yet:
     /// no social memory is filled).
-    fn abstract_behavior(&mut self, id: CreatureId, time: i32, cx: &mut AbstractTick<'_>) {
+    pub(super) fn abstract_behavior(
+        &mut self,
+        id: CreatureId,
+        time: i32,
+        cx: &mut AbstractTick<'_>,
+    ) {
         let rng = &mut *cx.rng;
         let c = self.creature(id);
         let t = c.template;
@@ -293,7 +299,12 @@ impl World {
     /// while (`abstractedLaziness`), half the time on a random walk of rooms, else to a
     /// more attractive neighbour. A creature with a social memory may pick one it feels
     /// strongly about to follow; no social memory is filled yet, so that draws nothing.
-    fn migration_behavior(&mut self, id: CreatureId, time: i32, rng: &mut UnityRandom) -> bool {
+    pub(super) fn migration_behavior(
+        &mut self,
+        id: CreatureId,
+        time: i32,
+        rng: &mut UnityRandom,
+    ) -> bool {
         let c = self.creature(id);
         let Some(ai) = &c.ai else { return false };
         if let Some(other) = ai.follow_creature {
@@ -337,7 +348,7 @@ impl World {
     }
 
     /// `MoveWithCreature` (never reached yet: nothing sets `followCreature`).
-    fn move_with_creature(
+    pub(super) fn move_with_creature(
         &mut self,
         id: CreatureId,
         other: CreatureId,
@@ -382,7 +393,7 @@ impl World {
     /// to the path's next step, it moves there (`Move`) and pays the time; at a den node
     /// it may go in. A creature with no distance to its node and a full buffer is stuck:
     /// half the time it jumps to a random node it can reach.
-    fn follow_path(&mut self, id: CreatureId, time: i32, cx: &mut AbstractTick<'_>) {
+    pub(super) fn follow_path(&mut self, id: CreatureId, time: i32, cx: &mut AbstractTick<'_>) {
         let t = self.creature(id).template;
         let speed = t.off_screen_speed * self.offscreen_speed_fac(id);
         let c = self.creature(id);
@@ -390,7 +401,7 @@ impl World {
         let pos = c.pos;
         if pos.node_defined()
             && c.distance_to_my_node > -1
-            && ai.time_buffer > (c.distance_to_my_node as f32 / speed) as i32
+            && ai.time_buffer > (c.distance_to_my_node as f32 / speed).to_int_cs()
         {
             if let Some(&next) = ai.path.last() {
                 let mut next = next;
@@ -419,7 +430,7 @@ impl World {
                 if buffer as f32 > num as f32 / speed {
                     self.abstract_move(id, next, cx);
                     if let Some(ai) = self.ai_of_mut(id) {
-                        ai.time_buffer -= (num as f32 / speed) as i32;
+                        ai.time_buffer -= (num as f32 / speed).to_int_cs();
                     }
                 }
             }
@@ -809,16 +820,6 @@ impl World {
                 self.move_entity_to_den(id);
             }
         }
-    }
-}
-
-impl CreatureTemplate {
-    /// Whether this template eats `other` (`CreatureRelationship(...).type == Eats`).
-    /// The relationships are not ported: no abstract creature holds prey yet, so this
-    /// answers false.
-    #[must_use]
-    pub fn eats(&self, _other: CreatureType) -> bool {
-        false
     }
 }
 

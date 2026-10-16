@@ -2,7 +2,8 @@
 //! abstract world reads. A template inherits its ancestor's fields, then sets its own.
 //!
 //! The pathing data (resistances, swimming, `isTooCloseToTerrain`) is in [`super::pathing`].
-//! Not ported: the relationships, lizard breed parameters and the cosmetic fields.
+//! The relationships are in [`super::relationships`]. Not ported: lizard breed
+//! parameters and the cosmetic fields.
 
 use rw_assets::{ActiveMods, CreatureType, NodeType};
 
