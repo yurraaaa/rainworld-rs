@@ -145,6 +145,7 @@ impl World {
         match e {
             Entity::Creature(id) => match &self.creature(id).realized {
                 Some(RealizedCreature::Fly(f)) => f.body.chunks.iter().map(|c| c.mass).sum(),
+                Some(RealizedCreature::Lizard(l)) => l.total_mass(),
                 Some(RealizedCreature::Player) => self.player_mass,
                 _ => 0.0,
             },
@@ -230,11 +231,11 @@ impl World {
         };
         self.creature_mut(r.grabber).grasps[r.grasp_used] = Some(grasp);
         match r.grabbed {
-            Entity::Creature(id) => {
-                if let Some(RealizedCreature::Fly(f)) = &mut self.creature_mut(id).realized {
-                    f.body.set_go_through_floors(true);
-                }
-            }
+            Entity::Creature(id) => match &mut self.creature_mut(id).realized {
+                Some(RealizedCreature::Fly(f)) => f.body.set_go_through_floors(true),
+                Some(RealizedCreature::Lizard(l)) => l.body.set_go_through_floors(true),
+                _ => {}
+            },
             Entity::Object(id) => {
                 self.change_weapon_mode(id, WeaponMode::Carried, rng);
                 if let Some(w) = self.object_mut(id).realized.as_deref_mut() {

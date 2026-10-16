@@ -149,7 +149,7 @@ remains for older notes' line numbers; new notes cite file and member.
   `dlcsInstalled` check): the base-game menu scene and intro images.
 - Current phase is the player controller in a region whose only
   behaving creatures are the overseers and the bat flies, with the lizards
-  under way (green lizards step 2 of 9, the abstract AI, done), not the
+  under way (green lizards step 3 of 9, the body, done), not the
   full game (campaign step 1, overseer step 1, batflies done):
   - A story starts at the campaign's start den in its region's world;
     room-exit shortcuts carry the player between the region's rooms, which
@@ -159,7 +159,10 @@ remains for older notes' line numbers; new notes cite file and member.
     (vultures, cicadas, big eels, deer, Miros birds, needle worms; D14):
     den counters, roaming, migration along the region's connections and
     highways, paths, dens; they have no body yet and wait unrealized in
-    realized rooms. Overseers have their
+    realized rooms, except the green lizards: they come out of their dens
+    into realized rooms with their body (no AI, movement or graphics yet:
+    they lie where they land), take rock and spear hits (head shield,
+    mouth, stun, lodged spears), die and are counted as kills. Overseers have their
     body, AI, graphics, the guide's tutorial text, the Monk's guide light and their holograms
     (those whose triggers are ported: D14). The bat flies' world
     process moves their per-node counts between rooms, and a room that
@@ -172,7 +175,8 @@ remains for older notes' line numbers; new notes cite file and member.
     carries them (through pipes and room exits), switches hands, lays them
     down, swallows and regurgitates rocks and throws them (bouncing off and
     sticking in walls, belly-slide throws), killing or stunning bat flies
-    and overseers (spears impale flies; the sleep screen shows kills, D3). Saves (`rw-save`, D16): Continue from the slugcat select, New
+    overseers and green lizards (spears impale flies and lodge in lizards; the
+  sleep screen shows kills, D3). Saves (`rw-save`, D16): Continue from the slugcat select, New
     Game's wipe and the start's death-and-quit save. Shelters (D17): the
     door closes on a fed, still slugcat, `Win` writes the whole save state
     and region state, the sleep screen (karma ladder, food meter, map;
@@ -236,13 +240,17 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   alive; roaming creatures also their abstract AI: destination, path, migration
   destination, den, time buffer, den counter and followed creature; overseers also their AI's
   destination, guide state, last rooms, realized tiles and most dangerous creature with its score; realized flies their room, position, velocity,
-  behaviour, movement mode, grasps and holders; any creature its social memory
+  behaviour, movement mode, grasps and holders; realized lizards (`lizard`) their
+  room, chunks, health, throat and limb health, jaw, bite delay, footing, rock turn,
+  lungs, effect colour, grasps, holders and lodged spears; any creature its stun and
+  kill tag, its social memory
   (`social`: subject, like, temp like, fear, temp fear, know), a realized one its danger
   (`danger`: `dangerousToPlayer`, `DangerPos`, aggression) and what its grip
   sticks carry (`carries`); empty fields are left out) and `objects` (every
   abstract rock and spear: kind, ID, room, node, tile, a spear's
   stuck-in-wall cycles and explosive flag; realized ones also their
-  room, position, velocity, mode, rotation and collision layer), `triggers` (the
+  room, position, velocity, mode, rotation, collision layer and the creature
+  a spear is lodged in), `triggers` (the
   realized rooms' trigger checkers and the objects their events added) and `music`
   (the music player: song, next song, mixes, procedural threat layers, threat tracker
   with its threats and each creature's `ThreatOfCreature`, play records), `holo_lights`
@@ -257,7 +265,9 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   `screenshot` act on the camera's room. To test a transition, put the
   player on an exit's entrance and hold its input.
 - `screenshot` returns a PNG drawn by the window's draw path (level
-  graphic or debug view, sprites, overlays), rendered offscreen;
+  graphic or debug view, sprites, overlays), rendered offscreen; the debug
+  view outlines every realized body's chunks and rods in the camera's room
+  (player, lizards, flies, overseers, rocks and spears, a colour per kind);
   `crop_radius` zooms on the player (or on `crop_center`). `get_tiles` gives the geometry as
   text. In a region world the uncropped visuals view includes the HUD;
   `get_hud` reports its meters (the food meter's `quarter_pips` too, the

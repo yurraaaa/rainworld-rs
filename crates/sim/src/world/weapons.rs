@@ -45,10 +45,18 @@ pub(crate) struct SpearStickRules {
 pub(crate) enum UpdatePart {
     /// Up to the `Thrown` branch; true when thrown.
     Start,
-    /// The `Thrown` branch after the creatures are told of it, up to the layer-0 walk.
+    /// The `Thrown` branch after the creatures are told of it, up to the layer-0 walk;
+    /// true when the trace against collision layer 1 is due.
     Thrown,
+    /// The trace found nothing.
+    TracedNothing,
+    /// A creature hit behind a wall: `HitWall`, and the update returns.
+    HitWall,
     /// The physics and the rest.
     Finish,
+    /// Only `Rock.Update`'s or `Spear.Update`'s own part (after `Weapon.Update`
+    /// returned early).
+    Own,
 }
 
 impl World {
@@ -254,6 +262,7 @@ impl World {
             object.realized = Some(weapon);
         }
         self.update_seq = seq;
+        self.pull_out_of_stuck_object(id);
     }
 
     /// `Player.CanBeSwallowed` of a realized object (the base game's, without the
@@ -370,8 +379,14 @@ impl World {
             };
             match part {
                 UpdatePart::Start => walk = weapon.update_start(object, &mut tick),
-                UpdatePart::Thrown => weapon.thrown_update(object, &mut tick),
+                UpdatePart::Thrown => walk = weapon.thrown_update(object, &mut tick),
+                UpdatePart::TracedNothing => weapon.traced_nothing(),
+                UpdatePart::HitWall => {
+                    weapon.hit_wall(object, &mut tick);
+                    weapon.floor_bounce_frames = 0;
+                }
                 UpdatePart::Finish => weapon.update_finish(object, &mut tick),
+                UpdatePart::Own => weapon.update_own(object, &mut tick),
             }
             room.water = water;
         }

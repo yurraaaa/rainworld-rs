@@ -291,6 +291,7 @@ impl RainWorldGame {
             self.world.release_grasp(g.grabber, g.grasp_used);
         }
         let sound = self.world.weapon_picked_up(id, &mut self.rng);
+        self.flush_dislodged();
         if let Some(pos) = self.world.chunk_pos(Entity::Object(id), 0) {
             self.play_on_object(index, sound, pos);
         }

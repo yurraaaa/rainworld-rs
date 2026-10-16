@@ -148,6 +148,23 @@ impl CreatureTemplate {
             .nth(usize::try_from(specific).unwrap_or(usize::MAX))
             .map_or(-1, |(i, _)| i32::try_from(i).unwrap_or(-1))
     }
+
+    /// `AbstractRoom.CommonToCreatureSpecificNodeIndex`: -1 for a node the template
+    /// does not map.
+    #[must_use]
+    pub fn specific_node_index(&self, room: &AbstractRoomData, common: i32) -> i32 {
+        let Some(node) = usize::try_from(common).ok().and_then(|n| room.nodes.get(n)) else {
+            return -1;
+        };
+        if !self.maps_node(node.kind) {
+            return -1;
+        }
+        let before = room.nodes[..usize::try_from(common).unwrap_or(0)]
+            .iter()
+            .filter(|n| self.maps_node(n.kind))
+            .count();
+        i32::try_from(before).unwrap_or(-1)
+    }
 }
 
 #[cfg(test)]

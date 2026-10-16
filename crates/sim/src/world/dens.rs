@@ -7,7 +7,7 @@
 use rw_assets::CreatureType;
 use rw_random::UnityRandom;
 
-use super::World;
+use super::{RealizedRoom, World};
 use crate::creature::{CreatureId, WorldCoordinate};
 use crate::item::Entity;
 
@@ -42,20 +42,30 @@ impl World {
 
     /// `AbstractRoom.MoveEntityOutOfDen` of `e` in its room: `IsExitingDen`, then back
     /// among the room's entities.
-    pub(crate) fn move_entity_out_of_den(&mut self, e: Entity) {
-        self.physical_is_exiting_den(e);
+    pub(crate) fn move_entity_out_of_den(&mut self, e: Entity, rng: &mut UnityRandom) {
+        self.physical_is_exiting_den(e, rng);
         if let Entity::Creature(id) = e {
             // `AbstractCreature.IsExitingDen`.
             let c = self.creature_mut(id);
             c.time_spent_here = 0;
-            let room = c.pos.room;
-            if self.realized(room).is_some() {
-                log::debug!(
-                    "{} leaves its den into a realized room; it stays abstract",
-                    self.creature(id).kind()
-                );
+            let pos = c.pos;
+            if self
+                .realized(pos.room)
+                .is_some_and(RealizedRoom::shortcuts_ready)
+            {
+                if self.realize_lizard(id, rng) {
+                    if let Some(l) = self.creature_mut(id).lizard_mut() {
+                        l.in_shortcut = true;
+                    }
+                    self.entering.push((id, pos));
+                } else if !self.creature(id).is_realized() {
+                    log::debug!(
+                        "{} leaves its den into a realized room; it stays abstract",
+                        self.creature(id).kind()
+                    );
+                }
             }
-            if let Some(l) = self.local(room) {
+            if let Some(l) = self.local(pos.room) {
                 self.lists[l].in_dens.retain(|&c| c != id);
             }
             self.add_entity(id);
@@ -176,7 +186,7 @@ impl World {
 
     /// `AbstractPhysicalObject.IsExitingDen`: not `InDen`, and each stuck object's ends
     /// still in the den come out with it.
-    fn physical_is_exiting_den(&mut self, e: Entity) {
+    fn physical_is_exiting_den(&mut self, e: Entity, rng: &mut UnityRandom) {
         self.set_in_den(e, false);
         let count = self.stuck_ends(e).len();
         for i in 0..count {
@@ -185,7 +195,7 @@ impl World {
             };
             for end in [a, b] {
                 if self.entity_in_den(end) {
-                    self.move_entity_out_of_den(end);
+                    self.move_entity_out_of_den(end, rng);
                 }
             }
         }

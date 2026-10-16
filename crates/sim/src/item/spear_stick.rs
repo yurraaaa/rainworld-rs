@@ -67,6 +67,27 @@ impl World {
             .collect()
     }
 
+    /// `PulledOutOfStuckObject` after a `ChangeMode` out of `StuckInCreature`: the
+    /// spear's first lodged stick goes, and its sound waits for the game.
+    pub(crate) fn pull_out_of_stuck_object(&mut self, spear: ObjectId) {
+        let Some(w) = self.object_mut(spear).realized.as_deref_mut() else {
+            return;
+        };
+        let (room, pos) = (w.room, w.chunk().pos);
+        let Some(s) = w.spear_mut().filter(|s| s.pulled_out) else {
+            return;
+        };
+        s.pulled_out = false;
+        self.dislodged.push((room, pos));
+        let lodged = self
+            .spear_sticks_of(Entity::Object(spear))
+            .into_iter()
+            .find(|s| matches!(s.kind, SpearStickKind::Lodged { .. }));
+        if let Some(s) = lodged {
+            self.deactivate_spear_stick(s.serial);
+        }
+    }
+
     /// `AbstractObjectStick.Deactivate` of a spear stick.
     pub(crate) fn deactivate_spear_stick(&mut self, serial: u64) {
         self.spear_sticks.retain(|s| s.serial != serial);

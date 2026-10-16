@@ -766,7 +766,11 @@ impl World {
 
     pub(crate) fn body_chunks(&self, e: Entity) -> Option<&[crate::BodyChunk]> {
         match e {
-            Entity::Creature(id) => self.creature(id).fly().map(|f| &f.body.chunks[..]),
+            Entity::Creature(id) => match &self.creature(id).realized {
+                Some(RealizedCreature::Fly(f)) => Some(&f.body.chunks[..]),
+                Some(RealizedCreature::Lizard(l)) => Some(&l.body.chunks[..]),
+                _ => None,
+            },
             Entity::Object(id) => self
                 .object(id)
                 .realized
@@ -777,10 +781,11 @@ impl World {
 
     pub(crate) fn body_chunks_mut(&mut self, e: Entity) -> Option<&mut [crate::BodyChunk]> {
         match e {
-            Entity::Creature(id) => self
-                .creature_mut(id)
-                .fly_mut()
-                .map(|f| &mut f.body.chunks[..]),
+            Entity::Creature(id) => match &mut self.creature_mut(id).realized {
+                Some(RealizedCreature::Fly(f)) => Some(&mut f.body.chunks[..]),
+                Some(RealizedCreature::Lizard(l)) => Some(&mut l.body.chunks[..]),
+                _ => None,
+            },
             Entity::Object(id) => self
                 .object_mut(id)
                 .realized
@@ -796,6 +801,7 @@ impl World {
                 Some(RealizedCreature::Fly(f)) => f.body.chunks.len(),
                 Some(RealizedCreature::Player) => 2,
                 Some(RealizedCreature::Overseer(_)) => 1,
+                Some(RealizedCreature::Lizard(l)) => l.chunks().len(),
                 None => 0,
             },
             Entity::Object(id) => self

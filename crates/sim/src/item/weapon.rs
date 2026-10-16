@@ -101,6 +101,24 @@ pub struct SpearParts {
     /// `spearmasterNeedleType`, drawn in the constructor (More Slugcats reads it).
     pub needle_type: i32,
     pub needle_fade_counter: i32,
+    /// `stuckInObject` and its chunk, `stuckRotation` and `stuckBodyPart` while lodged
+    /// in a creature.
+    pub stuck_in: Option<StuckIn>,
+    pub pin_to_wall_counter: i32,
+    /// `ChangeMode` pulled it out of a creature: the world plays
+    /// `Spear_Dislodged_From_Creature` and drops the stick (`PulledOutOfStuckObject`).
+    pub pulled_out: bool,
+}
+
+/// Where a spear is lodged in a creature.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct StuckIn {
+    pub creature: CreatureId,
+    pub chunk: usize,
+    /// Degrees from the chunk's rotation (from the wall when pinned).
+    pub rotation: f32,
+    /// -1: no graphics body part.
+    pub body_part: i32,
 }
 
 /// What kind of weapon.
@@ -266,6 +284,9 @@ impl Weapon {
                     always_stick_in_walls: false,
                     needle_type: rng.range_i32(0, 3),
                     needle_fade_counter: 400,
+                    stuck_in: None,
+                    pin_to_wall_counter: 0,
+                    pulled_out: false,
                 };
                 (WeaponKind::Spear(Box::new(parts)), 7.0)
             }
@@ -325,7 +346,7 @@ impl Weapon {
         }
     }
 
-    fn spear_mut(&mut self) -> Option<&mut SpearParts> {
+    pub(crate) fn spear_mut(&mut self) -> Option<&mut SpearParts> {
         match &mut self.kind {
             WeaponKind::Spear(s) => Some(s),
             WeaponKind::Rock => None,
@@ -424,7 +445,15 @@ impl Weapon {
     ) {
         let mode = self.mode;
         let throw_y = self.throw_dir.1;
+        let mut overlap = None;
         if let WeaponKind::Spear(s) = &mut self.kind {
+            if mode == WeaponMode::StuckInCreature {
+                s.stuck_in = None;
+                s.pulled_out = true;
+                overlap = Some(true);
+            } else if new == WeaponMode::StuckInCreature {
+                overlap = Some(false);
+            }
             if new != WeaponMode::Thrown {
                 s.spear_damage_bonus = 1.0;
             }
@@ -469,6 +498,9 @@ impl Weapon {
             if new != WeaponMode::StuckInWall && new != WeaponMode::StuckInCreature {
                 s.stuck_in_wall = None;
             }
+        }
+        if let Some(o) = overlap {
+            self.change_overlap(o);
         }
         if new == mode {
             return;
@@ -585,10 +617,16 @@ impl Weapon {
     /// nothing else in collision layer 0): [`Self::update_start`],
     /// [`Self::thrown_update`] when thrown, then [`Self::update_finish`].
     pub fn update(&mut self, object: &mut AbstractObject, cx: &mut WeaponTick<'_>) {
-        if self.update_start(object, cx) {
-            self.thrown_update(object, cx);
+        if self.update_start(object, cx) && self.thrown_update(object, cx) {
+            self.traced_nothing();
         }
         self.update_finish(object, cx);
+    }
+
+    /// The trace against collision layer 1 found nothing to hit.
+    pub fn traced_nothing(&mut self) {
+        self.first_frame_trace_from_pos = None;
+        self.forbidden_to_player = 40;
     }
 
     /// `Weapon.Update` up to its `Thrown` branch. True when the weapon is thrown: the
@@ -649,6 +687,11 @@ impl Weapon {
     /// the physics), then `Rock.Update`'s or `Spear.Update`'s own part.
     pub fn update_finish(&mut self, object: &mut AbstractObject, cx: &mut WeaponTick<'_>) {
         self.carryable_update(object, cx);
+        self.update_own(object, cx);
+    }
+
+    /// `Rock.Update`'s or `Spear.Update`'s own part after the base.
+    pub fn update_own(&mut self, object: &mut AbstractObject, cx: &mut WeaponTick<'_>) {
         if self.spear().is_some() {
             self.spear_update(object, cx);
         } else {
@@ -705,11 +748,9 @@ impl Weapon {
     /// to the layer-0 walk: the turn with a player thrower (one draw), the tumble back
     /// to `Free` under the exit speed or when the throw frames run out, then a
     /// belly-slide bounce up off a slope, the wall hit, or the trace against collision
-    /// layer 1. That layer holds only the player, and the trace exempts the thrower,
-    /// which in the port is always the player: nothing is hit (`HitSomething` false), so
-    /// a hit through a wall, `HitSomething` with `Violence`, `WeaponAttack` and the
-    /// spear lodging in a creature are not reached.
-    pub fn thrown_update(&mut self, object: &mut AbstractObject, cx: &mut WeaponTick<'_>) {
+    /// layer 1. True when the trace is due (the game's, with the player and the lizards
+    /// in that layer).
+    pub fn thrown_update(&mut self, object: &mut AbstractObject, cx: &mut WeaponTick<'_>) -> bool {
         let exit_speed = self.exit_speed();
         if self.change_dir_counter > 0
             && let Some((player, dir)) = cx.player
@@ -746,9 +787,9 @@ impl Weapon {
             self.hit_wall(object, cx);
             self.floor_bounce_frames = 0;
         } else {
-            self.first_frame_trace_from_pos = None;
-            self.forbidden_to_player = 40;
+            return true;
         }
+        false
     }
 
     /// The "vertical bounce": a belly-slide throw along a floor that meets a slope turns
@@ -800,7 +841,7 @@ impl Weapon {
     /// `HitWall`: seven sparks when the room is viewed, the sound (a spear's bounce or
     /// a rock's hit), a new spin and `Free`, out of the player's reach for 10 ticks.
     /// The camera's `ScreenMovement` bump is not ported (docs/DIVERGENCES.md D7).
-    fn hit_wall(&mut self, object: &mut AbstractObject, cx: &mut WeaponTick<'_>) {
+    pub fn hit_wall(&mut self, object: &mut AbstractObject, cx: &mut WeaponTick<'_>) {
         let dir = self.throw_dir_vec();
         let c = self.chunk();
         let (pos, rad) = (c.pos, c.rad);

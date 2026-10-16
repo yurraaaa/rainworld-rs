@@ -17,6 +17,7 @@ pub mod danger;
 pub mod death;
 pub mod fly;
 pub mod grasp;
+pub mod lizard;
 pub mod overseer;
 pub mod pathing;
 pub(crate) mod population;
@@ -40,6 +41,7 @@ pub use fly::{
     MovementMode, TrackedThreat,
 };
 pub use grasp::{GrabRequest, Grasp, GripStick, Shareability};
+pub use lizard::{LUNG_CAPACITY, Lizard, LizardAnimation, LizardBreedParams};
 pub use overseer::{OverseerAbstractAi, OverseerAi, OverseerBody, PlayerGuideState};
 pub use social_memory::{Relationship as SocialRelationship, SocialMemory};
 pub use state_save::{StateParts, StateSave};
@@ -247,6 +249,7 @@ pub enum RealizedCreature {
     Player,
     Overseer(Box<OverseerBody>),
     Fly(Box<Fly>),
+    Lizard(Box<Lizard>),
 }
 
 /// The base-game creature flags of `setCustomFlags`.
@@ -402,7 +405,11 @@ impl AbstractCreature {
     /// The realized object's `slatedForDeletetion`.
     #[must_use]
     pub fn realized_slated(&self) -> bool {
-        matches!(&self.realized, Some(RealizedCreature::Fly(f)) if f.slated)
+        match &self.realized {
+            Some(RealizedCreature::Fly(f)) => f.slated,
+            Some(RealizedCreature::Lizard(l)) => l.slated,
+            _ => false,
+        }
     }
 
     /// The realized fly.

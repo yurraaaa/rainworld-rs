@@ -61,6 +61,29 @@ pub enum StateParts {
     },
 }
 
+impl super::CreatureState {
+    /// `LizardState.throatHealth`.
+    pub fn throat_health_mut(&mut self) -> Option<&mut f32> {
+        match &mut self.parts {
+            StateParts::Lizard { throat_health, .. } => Some(throat_health),
+            _ => None,
+        }
+    }
+
+    /// `LizardState.throatHealth` and `limbHealth`.
+    #[must_use]
+    pub fn lizard_health_parts(&self) -> Option<(f32, [f32; 4])> {
+        match &self.parts {
+            StateParts::Lizard {
+                throat_health,
+                limb_health,
+                ..
+            } => Some((*throat_health, *limb_health)),
+            _ => None,
+        }
+    }
+}
+
 impl StateParts {
     /// The constructor's values for state kind `kind`.
     #[must_use]

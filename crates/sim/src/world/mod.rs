@@ -16,10 +16,12 @@ mod creature_ai_map;
 mod creatures;
 mod dens;
 mod flies_world_ai;
+mod lizards;
 mod movement;
 mod objects;
 mod overseers_world_ai;
 mod quantified;
+mod quick_path;
 mod rain_cycle;
 mod realized;
 mod realizer;
@@ -48,6 +50,7 @@ pub use creatures::{AbstractTick, QuantifiedCount, WorldProcesses};
 pub use flies_world_ai::{FliesTick, FliesWorldAi, SwarmBehavior};
 pub use movement::{Accessibility, Legality, MovementConnection, MovementType, PathCost};
 pub use overseers_world_ai::{DirectionFinder, OverseersWorldAi, ShelterFinder, StoryProgress};
+pub use quick_path::{QuickPath, QuickPathFinder};
 pub use rain_cycle::{CYCLE_TIME_MAX, CYCLE_TIME_MIN, RainCycle, WaterLevelCycle, WaterStage};
 pub use realized::RealizedRoom;
 pub use realizer::{FollowCreature, RoomRealizer};
@@ -107,6 +110,9 @@ pub struct World {
     loaded_creatures: Vec<CreatureId>,
     /// The spears' sticks into creatures (both ends' `stuckObjects`).
     pub(crate) spear_sticks: Vec<crate::item::SpearStick>,
+    /// Spears pulled out of creatures since the game last played their
+    /// `Spear_Dislodged_From_Creature` (room, position).
+    pub(crate) dislodged: Vec<(i32, Vec2)>,
     /// What the session keeps of the creatures that die (kills, respawns).
     pub session: crate::creature::SessionDeaths,
 }
@@ -149,6 +155,7 @@ impl World {
             player_mass: crate::slugcat::CHUNK_MASS * 2.0,
             loaded_creatures: Vec::new(),
             spear_sticks: Vec::new(),
+            dislodged: Vec::new(),
             session: crate::creature::SessionDeaths::default(),
         };
         world.index_rooms();
@@ -299,11 +306,11 @@ impl World {
 
     /// `AbstractRoom.Abstractize`: its realized creatures and objects become abstract,
     /// then the realized room is dropped.
-    pub fn abstractize(&mut self, index: i32) {
+    pub fn abstractize(&mut self, index: i32, rng: &mut UnityRandom) {
         let Some(i) = self.local(index) else { return };
         if self.realized[i].is_some() {
             self.abstractize_objects(index);
-            self.abstractize_creatures(index);
+            self.abstractize_creatures(index, rng);
             self.count_quantified_creatures(index);
         }
         if self.realized[i].take().is_some() {

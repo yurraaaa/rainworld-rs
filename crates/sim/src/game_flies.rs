@@ -1,7 +1,7 @@
 //! The game's parts for the bat flies: `FliesWorldAI.Update` among the world processes,
 //! `ReadyForAI`'s placement and realization, the realized flies' slots in a room's update
-//! list, `FliesRoomAI`, their shortcut vessels and lobby turns, the camera's view of
-//! them.
+//! list, `FliesRoomAI`, their shortcut vessels and lobby turns (shared with the
+//! lizards'), the camera's view of them.
 
 use std::sync::Arc;
 
@@ -247,15 +247,17 @@ impl RainWorldGame {
         }
     }
 
-    /// One `ShortcutHandler.Update` turn of the fly vessel at `transport[i]`. Returns
-    /// `false` where the game returns from the whole update.
+    /// One `ShortcutHandler.Update` turn of the fly or lizard vessel at `transport[i]`
+    /// (the tick sound by its template's size). Returns `false` where the game returns
+    /// from the whole update.
     pub(super) fn creature_vessel_step(
         &mut self,
         i: usize,
         mut v: CreatureVessel,
         observer: &mut dyn PlayerObserver,
     ) -> bool {
-        if self.world.creature(v.creature).fly().is_none() {
+        let c = self.world.creature(v.creature);
+        if c.fly().is_none() && c.lizard().is_none() {
             log::warn!("a vessel's creature is no longer realized; vessel dropped");
             self.shortcuts.transport.remove(i);
             return true;
@@ -264,19 +266,24 @@ impl RainWorldGame {
             self.shortcuts.transport.remove(i);
             return true;
         };
-        let sounds = if v.room == self.camera_room {
-            &mut self.sounds
-        } else {
-            &mut self.silent
-        };
-        let step = v.step(&room, &mut self.rng, sounds);
+        let tick = self
+            .world
+            .creature(v.creature)
+            .template
+            .npc_shortcut_sound(1);
+        let (sounds, rng) = self.room_sounds(v.room);
+        let step = v.step(&room, rng, sounds, tick);
         self.shortcuts.transport[i] = Transport::Creature(v);
         let mut go_on = true;
         match step {
             VesselStep::Waited | VesselStep::Moved => {}
             VesselStep::SpatOut => {
                 self.shortcuts.transport.remove(i);
-                self.spit_out_fly(v, observer);
+                if self.world.creature(v.creature).lizard().is_some() {
+                    self.spit_out_lizard(v);
+                } else {
+                    self.spit_out_fly(v, observer);
+                }
             }
             VesselStep::Node { node, kind, .. } => {
                 let node = node.map_or(-1, |n| i32::try_from(n).unwrap_or(-1));
@@ -289,7 +296,8 @@ impl RainWorldGame {
 
     /// The node cases of the vessel step: a room exit sends the vessel to the lobby of
     /// the room behind (even a faulty exit drops it), a den is the fly's
-    /// `OpportunityToEnterDen` (it rides on: a fly is never `InDen`), a region
+    /// `OpportunityToEnterDen` (it rides on: a fly is never `InDen`; lizards reach dens
+    /// in vessels only once they enter shortcuts, lizard step 4), a region
     /// transport needs an `NPCTransportationDestination` (none).
     fn creature_vessel_node(
         &mut self,
@@ -395,17 +403,18 @@ impl RainWorldGame {
         self.world.fly_spat_out(me, middle, hole, &mut cx);
     }
 
-    /// A fly vessel's turn in the lobby: abstracted toward an unrealized room; into a
-    /// room ready for the player and for AI it moves there, restarts at the entrance
-    /// node's tile in the tubes and the entrance blinks (1.5, the fly's colour on camera
-    /// 0). Returns whether it left the lobby.
+    /// A fly or lizard vessel's turn in the lobby: abstracted toward an unrealized room;
+    /// into a room ready for the player and for AI it moves there, restarts at the
+    /// entrance node's tile in the tubes and the entrance blinks (1.5, the creature's
+    /// colour on camera 0). Returns whether it left the lobby.
     pub(super) fn creature_lobby_step(
         &mut self,
         mut v: CreatureVessel,
         lobby: LobbyVessel,
     ) -> bool {
         let id = v.creature;
-        if self.world.creature(id).fly().is_none() {
+        let lizard = self.world.creature(id).lizard().is_some();
+        if self.world.creature(id).fly().is_none() && !lizard {
             log::warn!("a lobby vessel's creature is no longer realized; vessel dropped");
             return true;
         }
@@ -416,7 +425,11 @@ impl RainWorldGame {
             .map(|r| r.ready_for_player() && r.ready_for_ai());
         match ready {
             None => {
-                self.world.abstractize_fly(id, coord);
+                if lizard {
+                    self.abstractize_lizard_to(id, coord);
+                } else {
+                    self.world.abstractize_fly(id, coord);
+                }
                 true
             }
             Some(true) => {
@@ -440,7 +453,8 @@ impl RainWorldGame {
                     v.entrance_node = -1;
                     self.shortcuts.transport.push(Transport::Creature(v));
                     if kind == Some(NodeType::Exit) {
-                        self.blink_arrival(lobby, 1.5, CreatureType::Fly);
+                        let creature = self.world.creature(id).kind();
+                        self.blink_arrival(lobby, 1.5, creature);
                     }
                 }
                 true

@@ -23,6 +23,10 @@ mod holo_light;
 mod instructions;
 #[path = "game_items.rs"]
 mod items;
+#[path = "game_lizard_hits.rs"]
+mod lizard_hits;
+#[path = "game_lizards.rs"]
+mod lizards;
 #[path = "game_map.rs"]
 mod map;
 #[path = "game_over.rs"]
@@ -242,6 +246,7 @@ enum RoomObject {
     HoloLight(u64),
     /// A `LightSource` by id.
     LightSource(u64),
+    Lizard(CreatureId),
 }
 
 /// No graphics.
@@ -350,6 +355,8 @@ pub struct RainWorldGame {
     eaten: Vec<EntityId>,
     /// The realized shelters' doors.
     shelter_doors: Vec<ShelterDoor>,
+    /// `Room.chunkGlue`: a spear's chunk moved onto another chunk after the update list.
+    chunk_glue: Vec<(ObjectId, lizard_hits::ChunkRef, Vec2)>,
     closed_shelter_regions: Vec<String>,
     /// Shelters the player was spat out into (`TempDiscoverShelter`), until taken.
     entered_shelters: Vec<String>,
@@ -474,6 +481,7 @@ impl RainWorldGame {
             session_food: 0,
             eaten: Vec::new(),
             shelter_doors: Vec::new(),
+            chunk_glue: Vec::new(),
             closed_shelter_regions: Vec::new(),
             entered_shelters: Vec::new(),
             karma_flower_grow_pos: None,
@@ -780,6 +788,10 @@ impl RainWorldGame {
                         continue;
                     }
                     self.realize_fly_in_room(index, id, observer);
+                } else if crate::creature::LizardBreedParams::of(self.world.creature(id).kind())
+                    .is_some()
+                {
+                    self.realize_lizard_in_room(index, id);
                 } else {
                     let _before = self.rng.state();
                     let _creature = self.world.creature(id).clone();
@@ -1206,6 +1218,7 @@ impl RainWorldGame {
                 .map(|(seq, owner, id)| (seq, RoomObject::Hologram { owner, id })),
         );
         objects.extend(self.room_fly_objects(index));
+        objects.extend(self.room_lizard_objects(index));
         objects.extend(self.room_drip_objects(index));
         objects.extend(self.room_weapon_objects(index));
         objects.extend(self.room_trigger_objects(index));
@@ -1244,6 +1257,7 @@ impl RainWorldGame {
                     }
                 }
                 RoomObject::Fly(id) => self.run_fly(index, id, &room, observer),
+                RoomObject::Lizard(id) => self.run_lizard(index, id, &room),
                 RoomObject::Hover(id) => self.run_hover(index, id),
                 RoomObject::Drip(id) => self.run_drip(index, id, &room),
                 RoomObject::Weapon(id) => self.run_weapon(index, id, observer),
@@ -1262,6 +1276,8 @@ impl RainWorldGame {
         self.update_room_scripts(index, observer);
         // The door joined the update list in `Room.Loaded`, before everything else.
         self.update_shelter_door(index);
+        self.apply_chunk_glue();
+        self.collide_creatures(index);
         self.world.collide_weapons(index, &mut self.rng);
     }
 

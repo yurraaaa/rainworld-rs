@@ -155,7 +155,7 @@ fn items_come_only_on_the_first_realization() {
     let mut rng = UnityRandom::new(9);
     world.activate_room(0, &mut ids, &mut rng).expect("loads");
     let count = objects(&world).len();
-    world.abstractize(0);
+    world.abstractize(0, &mut UnityRandom::new(1));
     let state = rng.state();
     world.activate_room(0, &mut ids, &mut rng).expect("loads");
     assert_eq!(rng.state(), state);
@@ -240,7 +240,7 @@ fn shortcuts_ready_realizes_the_room_objects_in_entity_order() {
     assert!(r.update_order < s.update_order);
     assert_eq!(world.room_weapons(0).len(), 2);
     // `AbstractRoom.Abstractize` drops them.
-    world.abstractize(0);
+    world.abstractize(0, &mut UnityRandom::new(1));
     assert!(world.object(rock).realized.is_none() && world.object(spear).realized.is_none());
     assert_eq!(world.object(rock).time_spent_here, 0);
 }
@@ -322,7 +322,7 @@ fn reliable_spears_come_once_and_multiplayer_items_on_every_realization() {
         assert_eq!(origin.as_deref(), Some("Test:0"), "seed {seed}");
 
         // Realized again: only the multiplayer item's draw.
-        world.abstractize(0);
+        world.abstractize(0, &mut UnityRandom::new(1));
         let mut expect = rng.clone();
         expect.value();
         world.activate_room(0, &mut ids, &mut rng).expect("loads");

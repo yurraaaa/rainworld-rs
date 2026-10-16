@@ -159,6 +159,19 @@ impl BodyChunk {
         }
     }
 
+    /// `PhysicalObject.PushOutOf` for this chunk: out of the circle at `pos`, the
+    /// overlap taken off its position and velocity.
+    pub fn push_out_of(&mut self, pos: Vec2, rad: f32) {
+        if !self.pos.dist_less(pos, rad + self.rad) {
+            return;
+        }
+        let dist = self.pos.distance(pos);
+        let dir = self.pos.direction_to(pos);
+        let d = dir * (rad + self.rad - dist);
+        self.pos -= d;
+        self.vel -= d;
+    }
+
     /// Moves the chunk to `pos` with no history and no velocity (`HardSetPosition` + zero vel).
     pub fn reset_at(&mut self, pos: Vec2) {
         self.pos = pos;

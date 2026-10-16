@@ -182,6 +182,14 @@ impl Vec2 {
         a / (std::f32::consts::PI * 2.0) * 360.0
     }
 
+    /// `Custom.Angle(self, other)`: `Vector2.Angle` signed by the side of the line
+    /// through `other` and `-other` that `self` lies on (`Mathf.Sign(0)` is 1).
+    #[must_use]
+    pub fn signed_angle(self, other: Self) -> f32 {
+        let side = self.distance_to_line(other, -other);
+        self.angle_to(other) * if side >= 0.0 { 1.0 } else { -1.0 }
+    }
+
     /// `Custom.DistanceToLine(self, l2, l1)`: signed distance to the line through both.
     #[must_use]
     pub fn distance_to_line(self, l2: Self, l1: Self) -> f32 {

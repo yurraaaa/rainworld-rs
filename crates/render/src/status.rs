@@ -70,6 +70,20 @@ impl BodyStatus {
     }
 }
 
+impl BodyStyle {
+    /// The fill of a living body in `color` (a dead one keeps its grey).
+    #[must_use]
+    pub fn tinted(self, color: Color, dead: bool) -> Self {
+        if dead {
+            return self;
+        }
+        Self {
+            fill: [color.with_alpha(0.35), color.with_alpha(0.25)],
+            ..self
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

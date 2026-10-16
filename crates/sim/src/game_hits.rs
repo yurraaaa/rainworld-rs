@@ -28,16 +28,29 @@ impl RainWorldGame {
         let thrown = self.with_item_tick(index, |world, cx| {
             world.weapon_part(index, id, cx, &rules, UpdatePart::Start)
         });
+        let mut returned = false;
         if thrown {
             self.notify_of_flying_weapon(index, id, observer);
-            self.with_item_tick(index, |world, cx| {
+            let trace = self.with_item_tick(index, |world, cx| {
                 world.weapon_part(index, id, cx, &rules, UpdatePart::Thrown)
             });
-            self.thrown_through_layer_zero(index, id, observer);
+            returned = trace && self.trace_layer_one(index, id);
+            if !returned {
+                self.thrown_through_layer_zero(index, id, observer);
+            }
         }
+        if !returned {
+            self.recreate_spear_sticks(index, id);
+        }
+        let part = if returned {
+            UpdatePart::Own
+        } else {
+            UpdatePart::Finish
+        };
         self.with_item_tick(index, |world, cx| {
-            world.weapon_part(index, id, cx, &rules, UpdatePart::Finish)
+            world.weapon_part(index, id, cx, &rules, part)
         });
+        self.spear_stuck_in_creature_update(index, id);
         let eu = self.even_update();
         self.world.hold_impaled(index, id, eu);
     }

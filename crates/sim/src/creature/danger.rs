@@ -3,9 +3,9 @@
 //! `dangerousToPlayer`, `DangerPos`, and its realized AI's view of the player
 //! (`CurrentPlayerAggression` and the tracker's representation).
 //!
-//! Every creature realized so far (the overseer and the bat fly) uses the base
-//! `DangerPos` (`mainBodyChunk.pos`). The base-game overrides arrive with their
-//! creatures: `Lizard.DangerPos` (197872, the tongue's tip while it lashes out),
+//! Every creature realized so far (the overseer, the bat fly and the green lizard)
+//! uses the base `DangerPos` (`mainBodyChunk.pos`). The base-game overrides arrive with
+//! their creatures: `Lizard.DangerPos` (197872, the tongue's tip while it lashes out),
 //! `Vulture.DangerPos` (284462, a king vulture's shooting or charging tusk), and
 //! `CurrentPlayerAggression` of `CicadaAI` (150153), `DropBugAI` (178192), `LizardAI`
 //! (202014), `BigNeedleWormAI` (213919) and `ScavengerAI` (255506).
@@ -42,13 +42,15 @@ pub struct CreatureDanger {
 }
 
 impl RealizedCreature {
-    /// `DangerPos`; `None` for the player, whose body the game keeps.
+    /// `DangerPos`; `None` for the player, whose body the game keeps. A lizard's is its
+    /// head (the tongue's tip of the tongued breeds is not ported).
     #[must_use]
     pub fn danger_pos(&self) -> Option<Vec2> {
         match self {
             Self::Player => None,
             Self::Overseer(b) => Some(b.chunk().pos),
             Self::Fly(f) => Some(f.chunk().pos),
+            Self::Lizard(l) => Some(l.head().pos),
         }
     }
 
@@ -59,6 +61,7 @@ impl RealizedCreature {
             Self::Player => None,
             Self::Overseer(b) => Some(b.chunk().vel),
             Self::Fly(f) => Some(f.chunk().vel),
+            Self::Lizard(l) => Some(l.head().vel),
         }
     }
 
@@ -69,6 +72,7 @@ impl RealizedCreature {
             Self::Player => None,
             Self::Overseer(b) => Some(b.dead),
             Self::Fly(f) => Some(f.dead),
+            Self::Lizard(l) => Some(l.dead),
         }
     }
 }
@@ -76,9 +80,14 @@ impl RealizedCreature {
 impl AbstractCreature {
     /// `abstractAI.RealAI.CurrentPlayerAggression(player)`: the base
     /// `ArtificialIntelligence`'s 1 for an overseer (`OverseerAI` does not override it);
-    /// a bat fly has no abstract AI (`FlyAI` is no `ArtificialIntelligence`).
+    /// a bat fly has no abstract AI (`FlyAI` is no `ArtificialIntelligence`). `LizardAI`'s
+    /// is 1 while its tracker has no relationship with the player, as the stand-in AI's
+    /// never has (the tracker is lizard step 6).
     #[must_use]
     pub fn current_player_aggression(&self) -> Option<f32> {
+        if self.lizard().is_some() {
+            return self.ai.as_ref().filter(|a| a.real_ai).map(|_| 1.0);
+        }
         self.overseer_ai()
             .and_then(|a| a.real_ai.as_ref())
             .map(|_| 1.0)

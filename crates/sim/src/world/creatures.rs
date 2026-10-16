@@ -682,7 +682,7 @@ impl World {
         while n > 0 {
             n -= 1;
             if let Some(&id) = self.lists[l].in_dens.get(n) {
-                self.in_den_update(id, time);
+                self.in_den_update(id, time, cx.rng);
             }
         }
     }
@@ -756,6 +756,7 @@ impl World {
         let kind = c.kind();
         if kind == CreatureType::Fly {
             self.realize_fly(id, rng);
+        } else if self.realize_lizard(id, rng) {
         } else if !self.realize_overseer_parts(id, cycle, rng) {
             log::warn!("{kind} entering realized room {} stays abstract", to.room);
             return;
@@ -763,6 +764,7 @@ impl World {
         match &mut self.creature_mut(id).realized {
             Some(RealizedCreature::Overseer(body)) => body.in_shortcut = true,
             Some(RealizedCreature::Fly(fly)) => fly.in_shortcut = true,
+            Some(RealizedCreature::Lizard(l)) => l.in_shortcut = true,
             _ => {}
         }
         self.entering.push((id, to));
@@ -905,7 +907,7 @@ impl World {
     /// for the rest of the cycle stops counting (-1). The scavengers, whose abstract AI is
     /// not ported, stay in (docs/DIVERGENCES.md D14). A pre-cycle creature passes the
     /// game's precycle test (no precycles without More Slugcats) and then wants to stay.
-    fn in_den_update(&mut self, id: CreatureId, time: i32) {
+    fn in_den_update(&mut self, id: CreatureId, time: i32, rng: &mut UnityRandom) {
         let day_night = self.rain_cycle.day_night_counter;
         let wants_to_stay = self.wants_to_stay_in_den(id);
         let c = self.creature_mut(id);
@@ -923,7 +925,7 @@ impl World {
         c.remain_in_den_counter -= time;
         if c.remain_in_den_counter < 0 {
             c.remain_in_den_counter = -1;
-            self.move_entity_out_of_den(Entity::Creature(id));
+            self.move_entity_out_of_den(Entity::Creature(id), rng);
         }
     }
 
@@ -1043,7 +1045,7 @@ impl World {
     /// a realized overseer drops its body and keeps its node; its realized AI stays. A
     /// realized fly (in the room, a hive or a shortcut) drops its body and its grasps'
     /// flies with it. Rooms out of the camera's view have no graphics modules to drop.
-    pub(crate) fn abstractize_creatures(&mut self, room: i32) {
+    pub(crate) fn abstractize_creatures(&mut self, room: i32, rng: &mut UnityRandom) {
         let ids: Vec<CreatureId> = self.room_creatures(room).iter().rev().copied().collect();
         for id in ids {
             let c = self.creature_mut(id);
@@ -1058,6 +1060,10 @@ impl World {
                 Some(RealizedCreature::Fly(_)) => {
                     let pos = c.pos;
                     self.abstractize_fly(id, pos);
+                }
+                Some(RealizedCreature::Lizard(_)) => {
+                    let pos = c.pos;
+                    self.abstractize_lizard(id, pos, rng);
                 }
                 _ => {}
             }
