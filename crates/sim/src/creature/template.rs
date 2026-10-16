@@ -3,8 +3,8 @@
 //!
 //! Not ported: tile and connection resistances beyond the node types they map, the
 //! relationships, lizard breed parameters and the cosmetic fields. `waterRelationship`
-//! is set for the Fly only; the others keep the constructor's Amphibious until their
-//! creature is ported.
+//! is set for the Fly and the lizards; the others keep the constructor's Amphibious until
+//! their creature is ported.
 
 use rw_assets::{ActiveMods, CreatureType, NodeType};
 
@@ -323,6 +323,7 @@ impl CreatureTemplate {
         ai: true,
         require_ai_map: true,
         body_size: 2.0,
+        water_relationship: WaterRelationship::AirAndSurface,
         ..Self::base(CreatureType::LizardTemplate)
     };
     const FLY: Self = Self {
@@ -574,7 +575,10 @@ impl CreatureTemplate {
         Self::child(CreatureType::WhiteLizard, &Self::LIZARD),
         Self::child(CreatureType::RedLizard, &Self::LIZARD),
         Self::child(CreatureType::BlackLizard, &Self::LIZARD),
-        Self::child(CreatureType::Salamander, &Self::LIZARD),
+        Self {
+            water_relationship: WaterRelationship::Amphibious,
+            ..Self::child(CreatureType::Salamander, &Self::LIZARD)
+        },
         Self::child(CreatureType::CyanLizard, &Self::LIZARD),
         Self::FLY,
         Self::LEECH,

@@ -1,5 +1,6 @@
 //! `AbstractCreatureAI` and the per-type abstract AI constructors, with their random
-//! draws (the behaviour of every type but the overseer is not ported).
+//! draws. The plain behaviour (lizards) is `world/abstract_ai.rs`, the overseer's
+//! `overseer/abstract_ai.rs`.
 
 use rw_assets::{CreatureType, NodeType, SlugcatName, Timeline};
 use rw_random::UnityRandom;
@@ -69,6 +70,11 @@ pub struct AbstractCreatureAi {
     /// `RealAI != null`: the realized AI was built and not dropped (an overseer's has no
     /// path finder, so it outlives abstraction).
     pub real_ai: bool,
+    /// `path`: the next step last, the destination first.
+    pub path: Vec<WorldCoordinate>,
+    pub stranded_in_room: i32,
+    pub follow_creature: Option<CreatureId>,
+    pub freeze_destination: bool,
     pub kind: AiKind,
 }
 
@@ -89,6 +95,10 @@ impl AbstractCreatureAi {
             time_buffer: 0,
             den_position: None,
             real_ai: false,
+            path: Vec::new(),
+            stranded_in_room: -1,
+            follow_creature: None,
+            freeze_destination: false,
             kind: AiKind::Plain,
         }
     }
@@ -150,6 +160,32 @@ impl AbstractCreatureAi {
         } else {
             self.den_position
         }
+    }
+
+    /// `WantToMigrate`.
+    #[must_use]
+    pub fn want_to_migrate(&self, pos: WorldCoordinate) -> bool {
+        self.migration_destination
+            .is_some_and(|m| m.room != pos.room)
+    }
+
+    /// The `MigrationDestination` getter of a creature at `pos`.
+    #[must_use]
+    pub fn migration_target(&self, pos: WorldCoordinate) -> WorldCoordinate {
+        match self.migration_destination {
+            Some(m) if m.room != pos.room => m,
+            _ => self.destination,
+        }
+    }
+
+    /// `DoIHaveAPathToCoordinate` of a creature at `pos`.
+    #[must_use]
+    pub fn has_path_to(&self, dest: WorldCoordinate, pos: WorldCoordinate) -> bool {
+        self.path
+            .first()
+            .map_or(dest.same_room_and_node(pos), |&p| {
+                dest.same_room_and_node(p)
+            })
     }
 
     /// `SetDestinationNoPathing`.
