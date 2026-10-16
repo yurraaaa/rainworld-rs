@@ -335,7 +335,7 @@ impl RainWorldGame {
         if let Some(abs) = self.world.creature_mut(guide).overseer_ai_mut() {
             abs.go_to_player = true;
             abs.player_guide_counter = likes.lerp_map(-0.5, 1.0, 400.0, 1800.0) as i32;
-            log::info!(
+            log::debug!(
                 "guide brought to the player for {}",
                 abs.player_guide_counter
             );
