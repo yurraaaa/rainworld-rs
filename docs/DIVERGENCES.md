@@ -1215,7 +1215,7 @@ shelter.
 
 ## Not ported yet (not divergences, just absent)
 
-Player (stage one leaves out): zero gravity, grabbing, throwing and eating anything but
+Player (stage one leaves out): sneaking and visibility (`privSneak`, `Sneak`, `VisibilityBonus`; the `SlugcatStats` stealth values exist but nothing reads them, as no ported creature sees or hears the player), zero gravity, grabbing, throwing and eating anything but
 bat flies, swallowing, adrenaline, Red's illness, the WALLSTUCK safety
 (needs `VisualContact`), carried-object speed factors, vines, tube worm,
 Jolly co-op, MSC / Watcher class mechanics. Ported because ground classification
