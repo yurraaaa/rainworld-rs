@@ -1258,8 +1258,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   `Win`, D16). `NewWorld` (a region change) is not reachable (no gates).
 - **Hologram graphics.** A hologram's colour base (`Color.Lerp(MainColor,
   ColorOfSegment(0, 0), 0.5)`) is taken at its overseer's last update (holograms update
-  before their overseer, so it is the one the game reads); a hologram slated for removal
-  is not drawn on its last frame, where the game draws it once more. Not drawn: the
+  before their overseer, so it is the one the game reads). Not drawn: the
   PS4/PS5 controller symbol (`ps*controllertiny` is not in the two atlases loaded,
   rainWorld and uiSprites), and More Slugcats' projections and parts.
 - **Overseer graphics.** `OverseerGraphics.Emerge` restarts the mycelia from the eye's

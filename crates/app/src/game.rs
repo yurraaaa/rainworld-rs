@@ -1280,6 +1280,25 @@ pub(crate) mod tests {
         );
         assert_eq!(game.body().expect("body").chunks[0].vel, rw_sim::Vec2::ZERO);
     }
+
+    #[test]
+    fn slated_light_source_is_not_drawn() {
+        // `LightSource.DrawSprites` ends with `CleanSpritesAndRemove` when slated, in
+        // the same call that set the sprites, so Futile never renders them.
+        let mut game = Game::new(open_room(), &RoomSettings::ANCESTOR, 1, None);
+        let index = game.sim.camera_room();
+        let pos = rw_sim::Vec2::new(200.0, 120.0);
+        let mut light = rw_sim::LightSource::new(999, index, pos, false, [1.0, 0.8, 0.3], None);
+        light.rad = 100.0;
+        light.last_rad = 100.0;
+        let room = game.sim.world_mut().realized_mut(index).expect("room");
+        room.light_sources.push(light);
+        let cam = rw_sim::Vec2::ZERO;
+        assert_eq!(game.holo_light_draw_lists(1.0, cam, 0.0).len(), 1);
+        let room = game.sim.world_mut().realized_mut(index).expect("room");
+        room.light_sources[0].slated = true;
+        assert!(game.holo_light_draw_lists(1.0, cam, 0.0).is_empty());
+    }
 }
 
 /// A guide light or a light source, by update-list id.
