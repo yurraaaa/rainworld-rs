@@ -7,8 +7,9 @@ use rw_assets::SoundTable;
 use rw_random::UnityRandom;
 
 use super::{RealizedRoom, World};
-use crate::item::{Entity, ModeChange, ObjectId, Weapon, WeaponTick};
-use crate::{BodyChunk, Sounds, SurfaceChunk, Vec2};
+use crate::creature::WorldCoordinate;
+use crate::item::{Entity, ModeChange, ObjectId, Weapon, WeaponKind, WeaponMode, WeaponTick};
+use crate::{BodyChunk, SoundId, Sounds, SurfaceChunk, Vec2};
 
 /// What an item's turn in the update list reads of the game.
 pub struct ItemTick<'a> {
@@ -24,47 +25,205 @@ pub struct ItemTick<'a> {
 
 impl World {
     /// `ShortCutsReady`'s objects: each object among room `index`'s entities that is not
-    /// in a den, in list order, is realized and placed (`RealizeInRoom`: `Realize`, an
-    /// undefined tile taken from its node, `PlaceInRoom`). Objects held by a creature
-    /// are realized with it (step 3).
+    /// in a den and not connected to a creature (those come with it), in list order, is
+    /// realized and placed.
     pub(crate) fn realize_room_objects(&mut self, index: i32, rng: &mut UnityRandom) {
-        let Some(room) = self.realized(index).map(|r| r.room.clone()) else {
-            return;
-        };
         let ids: Vec<ObjectId> = self.room_objects(index).collect();
         for id in ids {
+            let held = self
+                .connected_objects(Entity::Object(id))
+                .iter()
+                .any(|e| e.creature().is_some());
             let o = self.object(id);
-            if o.in_den {
+            if o.in_den || held {
                 continue;
             }
             if o.pos.room != index {
                 log::warn!("Object in wrong room! {:?}", o.id);
                 continue;
             }
-            if o.realized.is_none() {
-                let Some(weapon) = Weapon::realize(o, rng) else {
-                    log::debug!("{} objects are not realized", o.kind.value());
-                    continue;
-                };
-                self.object_mut(id).realized = Some(Box::new(weapon));
-            }
-            if !self.object(id).pos.tile_defined() {
-                let node = self.object(id).pos.node;
-                self.object_mut(id).pos.tile = self.local_coordinate_of_node(index, node, rng);
-            }
-            let mut seq = self.update_seq;
-            let object = &mut self.objects[id.0];
-            if let Some(mut weapon) = object.realized.take() {
-                let mut cx = ModeChange {
-                    room: &room,
-                    rng,
-                    update_seq: &mut seq,
-                };
-                weapon.place_in_room(object, index, &mut cx);
-                object.realized = Some(weapon);
-            }
-            self.update_seq = seq;
+            self.realize_object_in_room(id, rng);
         }
+    }
+
+    /// `RealizeInRoom` in the object's room: `Realize` (unless it is), an undefined tile
+    /// taken from its node, `PlaceInRoom`.
+    pub(crate) fn realize_object_in_room(&mut self, id: ObjectId, rng: &mut UnityRandom) {
+        let index = self.object(id).pos.room;
+        let o = self.object(id);
+        if o.in_den {
+            return;
+        }
+        if o.realized.is_none() {
+            let Some(weapon) = Weapon::realize(o, rng) else {
+                log::debug!("{} objects are not realized", o.kind.value());
+                return;
+            };
+            self.object_mut(id).realized = Some(Box::new(weapon));
+        }
+        let Some(room) = self.realized(index).map(|r| r.room.clone()) else {
+            log::warn!("TRYING TO REALIZE IN NON REALIZED ROOM!");
+            return;
+        };
+        if !self.object(id).pos.tile_defined() {
+            let node = self.object(id).pos.node;
+            self.object_mut(id).pos.tile = self.local_coordinate_of_node(index, node, rng);
+        }
+        let mut seq = self.update_seq;
+        let object = &mut self.objects[id.0];
+        if let Some(mut weapon) = object.realized.take() {
+            let mut cx = ModeChange {
+                room: &room,
+                rng,
+                update_seq: &mut seq,
+            };
+            weapon.place_in_room(object, index, &mut cx);
+            object.realized = Some(weapon);
+        }
+        self.update_seq = seq;
+    }
+
+    /// `Room.RemoveObject` of a realized object carried into a shortcut: it leaves the
+    /// room's lists (no room until it is spat out).
+    pub(crate) fn object_leaves_room(&mut self, id: ObjectId) {
+        if let Some(w) = self.object_mut(id).realized.as_deref_mut() {
+            w.room = -1;
+        }
+    }
+
+    /// `Room.AddObject` of realized object `id` into room `room`: the end of its update
+    /// list and of its collision layer.
+    pub(crate) fn object_joins_room(&mut self, id: ObjectId, room: i32) {
+        let seq = self.next_update_seq();
+        if let Some(w) = self.object_mut(id).realized.as_deref_mut() {
+            w.room = room;
+            w.update_order = seq;
+            w.layer_order = seq;
+        }
+    }
+
+    /// The base `Creature.SpitOutOfShortCut`'s loop for a carried object: its chunk at
+    /// the entrance's middle (`RNV`, one draw), still, `AddObject` into `room`, and
+    /// `NewRoom` when it comes from another room.
+    pub(crate) fn spit_out_object(
+        &mut self,
+        id: ObjectId,
+        room: i32,
+        middle: Vec2,
+        rng: &mut UnityRandom,
+    ) {
+        let Some(w) = self.object_mut(id).realized.as_deref_mut() else {
+            return;
+        };
+        let came_from = w.room;
+        for c in &mut w.body.chunks {
+            c.hard_set_position(middle + Vec2::random_unit(rng));
+            c.vel = Vec2::ZERO;
+        }
+        self.object_joins_room(id, room);
+        if came_from != room
+            && let Some(w) = self.object_mut(id).realized.as_deref_mut()
+        {
+            w.new_room();
+        }
+    }
+
+    /// `AbstractPhysicalObject.Abstractize(coord)` of one object: `timeSpentHere` 0,
+    /// `Move(coord)`, the realized object out of its room and dropped.
+    pub(crate) fn abstractize_object(&mut self, id: ObjectId, coord: WorldCoordinate) {
+        self.object_mut(id).time_spent_here = 0;
+        self.move_object(id, coord);
+        self.object_mut(id).realized = None;
+    }
+
+    /// `PlayerCarryableItem.Forbid` of realized object `id`.
+    pub(crate) fn forbid(&mut self, id: ObjectId) {
+        if let Some(w) = self.object_mut(id).realized.as_deref_mut() {
+            w.forbid();
+        }
+    }
+
+    /// `Weapon.ChangeOverlap` of realized object `id`.
+    pub(crate) fn change_overlap(&mut self, id: ObjectId, overlap: bool) {
+        if let Some(w) = self.object_mut(id).realized.as_deref_mut() {
+            w.change_overlap(overlap);
+        }
+    }
+
+    /// A held weapon turned the way its hand holds it: `setRotation`, no spin.
+    pub(crate) fn set_held_rotation(&mut self, id: ObjectId, dir: Vec2) {
+        if let Some(w) = self.object_mut(id).realized.as_deref_mut() {
+            w.set_rotation = Some(dir);
+            w.rotation_speed = 0.0;
+        }
+    }
+
+    /// `Rock.PickedUp` or `Spear.PickedUp` up to its sound, which it returns: a spear
+    /// with a wall's pole state is pulled out first (the realized room's tiles get their
+    /// poles back), then `ChangeMode(Carried)`.
+    pub(crate) fn weapon_picked_up(&mut self, id: ObjectId, rng: &mut UnityRandom) -> SoundId {
+        let Some(w) = self.object(id).realized.as_deref() else {
+            return SoundId::SlugcatPickUpMiscInanimate;
+        };
+        if w.spear().is_none() {
+            return SoundId::SlugcatPickUpRock;
+        }
+        let room = w.room;
+        if w.has_horizontal_beam_state()
+            && let Some(local) = self.local(room)
+        {
+            let World {
+                objects, realized, ..
+            } = self;
+            let object = &mut objects[id.0];
+            if let (Some(r), Some(mut w)) = (realized[local].as_mut(), object.realized.take()) {
+                w.pull_out_of_wall(object, std::sync::Arc::make_mut(&mut r.room));
+                object.realized = Some(w);
+            }
+        }
+        self.change_weapon_mode(id, WeaponMode::Carried, rng);
+        SoundId::SlugcatPickUpSpear
+    }
+
+    /// `ChangeMode` of realized object `id`, with the realized room of its `pos`.
+    pub(crate) fn change_weapon_mode(
+        &mut self,
+        id: ObjectId,
+        mode: WeaponMode,
+        rng: &mut UnityRandom,
+    ) {
+        let room = self.object(id).pos.room;
+        let Some(room) = self.realized(room).map(|r| r.room.clone()) else {
+            return;
+        };
+        let mut seq = self.update_seq;
+        let object = &mut self.objects[id.0];
+        if let Some(mut weapon) = object.realized.take() {
+            let mut cx = ModeChange {
+                room: &room,
+                rng,
+                update_seq: &mut seq,
+            };
+            weapon.change_mode(mode, object, &mut cx);
+            object.realized = Some(weapon);
+        }
+        self.update_seq = seq;
+    }
+
+    /// `Player.CanBeSwallowed` of a realized object (the base game's, without the
+    /// Spearmaster's refusal): of the ported objects, a rock.
+    #[must_use]
+    pub fn can_be_swallowed(&self, e: Entity) -> bool {
+        e.object()
+            .and_then(|id| self.object(id).realized.as_deref())
+            .is_some_and(|w| w.kind == WeaponKind::Rock)
+    }
+
+    /// An `IPlayerEdible` that is `Edible`: of the ported objects, a realized fly.
+    #[must_use]
+    pub fn player_edible(&self, e: Entity) -> bool {
+        e.creature()
+            .is_some_and(|id| self.creature(id).fly().is_some())
     }
 
     /// The realized object `id` if it is in room `room`.

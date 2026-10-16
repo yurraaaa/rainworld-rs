@@ -70,9 +70,21 @@ it (D13). What still differs is only the seed and the call order:
   of a fly or the player throws in a room with `CeilingDrips`. The player catching,
   holding, biting, eating, throwing and carrying flies through pipes makes the game's
   draws (`Player.Update`'s catch, `GrabUpdate`, `BiteEdibleObject`'s drips, the
-  `PlayerObjectLooker` and `SlugcatHand` draws of `PlayerGraphics.Update`). Per tick the
-  stream parts from the game's again with the abstract AI of every creature but overseers and flies
-  (D14).
+  `PlayerObjectLooker` and `SlugcatHand` draws of `PlayerGraphics.Update`), and so do
+  picking up, laying down, swallowing and regurgitating rocks and spears (the pick-up
+  candidate's `Blink` sound, `PickedUp`'s and `ReleaseObject`'s sounds, `Regurgitate`'s
+  22 draws and sound, 2 more with graphics, the `SlugcatHand` swallow shake's 6 and
+  `PlayerGraphics`' swallow blink `Range(-5, 8)`). The lizards'
+  abstract AI makes its draws in its room's update (`MigrationBehavior`'s laziness
+  `Range` and time-influenced rolls, the roam roll, `RandomMoveWithinRoom`,
+  `RandomMoveToOtherRoom`'s two per step, `MoveToMoreAttractiveNeighborRoom`'s,
+  `FollowPath`'s stuck roll, `DefineNodeOfLocalCoordinate` and
+  `AbstractSpacePathFinder`'s node picks): from the first lizard out of its den (100 to
+  1000 ticks into a cycle) every story run's stream has shifted from before, as the
+  game's does. Missing: the draws a lizard would make on being realized
+  (`PlaceInRealizedRoom`, its body, AI and graphics), as it stays abstract (D14). Per
+  tick the stream parts from the game's again with the abstract AI of every creature
+  but overseers, flies and lizards (D14).
   `LocalCoordinateOfNode` draws for bat hives, garbage holes and border exits; a border
   exit's tile is not known (its border tiles are not mapped), only its draw is made.
 - **Room items.** A room realized for the first time in a cycle makes its items' draws
@@ -149,7 +161,19 @@ recovery). Stun and death are D4; vertical
 poles and ledge grabs are D6; skid, flip, roll, belly slide and rocket jump are D9;
 corridors are D10.
 
+Grabbing is ported for bat flies, rocks and spears (`rainworld-re/notes/items.md`
+section 10): `Grabability`, `CanIPickThisUp`, `PickupCandidate` and the item `Blink`,
+picking up and laying down, switching hands, swallowing and regurgitating a rock, and
+carrying held objects through shortcuts (D5). The carried-object speed factors all
+apply to `HeavyCarry` objects only, which no ported object is.
+
 **What differs from the game where the game's behaviour is kept out of scope:**
+- **Throwing rocks and spears.** `ThrowObject` runs for a held rock or spear up to the
+  weapon branch (`Weapon.Thrown`, `ThrownSpear`, the recoil, `Blink(15)`), which is
+  not ported yet: the throw only lets go of it (forbidden to the player for 40 ticks
+  as in the game's tail of `ThrowObject`), so it drops. Thrown bat flies are ported.
+- **The Hunter's spear on the back** (`SpearOnBack`, `CanPutSpearToBack`) is not
+  ported: a Hunter picks spears up into the hands only.
 - **Random numbers.** The player's draws (stacked-body nudge `Random.Range(-1, 1)`,
   initial facing in `Player::create`, the `Stun` threshold, the corridor-turn jiggle,
   the water) use the game's generator and calls; only seed and call order differ (D1).
@@ -242,7 +266,8 @@ vessels. `ShortcutGraphics` draws every vessel in the room in its creature's col
 - **The player's vessel lives on `Player`.** The game's vessel list holds a plain
   `ShortCutVessel` for the player too; the port keeps the player's on `Player` (with
   its slot in the list) or in the lobby, and its `wait` is always 0 (Jolly co-op).
-- **Not ported:** being pulled in by a carried object (the player grasps nothing),
+- **Not ported:** being pulled in by a grabber entering a shortcut (no ported
+  creature grabs the player; what the player holds goes through with it),
   `cantBeGrabbedCounter`, MSC tongue release, the arena hooks of `SpitOutOfShortCut` and
   den entry (`PlayerTryingToEnterDen`), dens for creatures other than flies (a fly's
   `OpportunityToEnterDen` never takes it in), NPC transports
@@ -408,11 +433,14 @@ in `PlayerGraphics` (they use the generic poses of their body mode, as in the ga
   palette's fog colour), fading by 0.005 a tick once cured. Red's illness (also
   `malnourished` 1) is not ported.
 - **Looking and holding.** `PlayerObjectLooker` is ported whole and looks at the
-  room's bat flies, overseers, rocks and spears; the hands hold, reach for and bite bat flies
-  (`SlugcatHand` grasp branch, `BiteFly`, `LookAtObject`). The rain-warning look-up and
+  room's bat flies, overseers, rocks and spears; the hands hold bat flies, rocks and
+  spears (a spear swung forward while walking, `spearDir`, with `ChangeOverlap`), reach
+  for and bite bat flies and bring a rock to the mouth to swallow it (`SlugcatHand`
+  grasp branch, `BiteFly`, `LookAtObject`); the swallow and regurgitation gulp, blink
+  and heave of `PlayerGraphics.Update` are ported. The rain-warning look-up and
   the afraid-of-creature poses (and their blink and aerobic effects) are not ported.
-- **Not ported:** grasps of anything but bat flies (swallowing, spear on back, heavy
-  carry, two-handed objects, mauling and its `Blink`s),
+- **Not ported:** the spear on the back, heavy carry, two-handed objects, mauling and
+  its `Blink`s,
   the map-button stand-still blink,
   zero gravity (`ZeroGPoleGrab`, `ZeroGSwim`), antler and vine climbing,
   adrenaline jitter, hypothermia and poison tints, the Mark (sprites 10 and 11
@@ -450,7 +478,7 @@ direction.
 **What differs:**
 - **Remix (MMF) wall pounce omitted** (`cfgWallpounce`: a fast head-first wall hit with
   a buffered jump launches a `RocketJump` away from the wall).
-- **Held items** (only bat flies can be held so far): the long belly slide (`longBellySlide`, started by throwing during a
+- **Held items** (thrown rocks and spears wait for throwing, D3): the long belly slide (`longBellySlide`, started by throwing during a
   slide, with its 39-tick push, 34-tick jump window and own exit and jump values),
   picking up an item during the whiplash jump, and the thrown-spear roll are not ported.
 - **Other creatures:** a belly slide or roll hitting a creature (stun, `rollCounter`
@@ -899,11 +927,13 @@ second part, else a single-room world for arena levels). The campaign descriptio
 (`rw_sim::campaign`, `campaign-model.md`) gives the timeline, start den and stats.
 
 **What differs:**
-- **Only overseers and bat flies behave.** The `CREATURES` section is read in full (simple spawners
+- **Only overseers and bat flies behave; lizards roam abstractly.** The `CREATURES` section is read in full (simple spawners
   and lineages with their dens, amounts, spawn data and night flags; quantified
   counts; `rw_assets::creatures`), and a new game's `GeneratePopulation` builds every
-  `AbstractCreature` with all of its constructor draws (D1): the creatures go into
-  their dens and stay there (`InDenUpdate` lets only overseers out), quantified
+  `AbstractCreature` with all of its constructor draws (D1) and `setCustomFlags`' base
+  flags (`Night`, `Ignorecycle`, `PreCycle`; the region's `globalCreatureFlags` are not
+  read, as no vanilla region sets them): the creatures go into
+  their dens and stay there (`InDenUpdate` lets only overseers and lizards out), quantified
   creatures are counted per node (the bat flies move, are placed and realized, below), and items
   (scavenger gear, drop bugs' items) are kept as IDs and kinds on their carrier, not as
   objects in the room's entities. The
@@ -941,6 +971,40 @@ second part, else a single-room world for arena levels). The campaign descriptio
   realized. Which camera's room
   counts as viewed when `AddObject` builds the graphics module is inferred from
   `RoomCamera` and `Room.AddObject`, not checked.
+  The plain `AbstractCreatureAI` is ported and runs for every lizard breed
+  (`CreatureTemplate::abstract_ai_ported`): `InDenUpdate` with
+  `WantToStayInDenUntilEndOfCycle` (the rain within 60 s, a pre-cycle creature, which
+  without More Slugcats' precycles never comes out, a night creature waiting for dark),
+  `Update`, `AbstractBehavior`, `MigrationBehavior`, `RandomMoveWithinRoom`,
+  `RandomMoveToOtherRoom`, `MoveToMoreAttractiveNeighborRoom`, `FollowPath` with its
+  timing (`offScreenSpeed * offscreenSpeedFac`, the room's connection lengths and the
+  shortcuts' tube lengths) and stuck jump, `SetDestination`/`FindPath`,
+  `AbstractSpacePathFinder`, `GoToDen` with `AbstractSpaceNodeFinder`, `Moved` and
+  `OpportunityToEnterDen` (rainworld-re `creature-model.md` §10). Lizards do not flee
+  the rain: there is no rain yet, and the realized `EscapeRain` behaviour waits for it
+  (the user's decision); abstractly a lizard only goes into a den it passes once the
+  rain is within 60 s, as in the game. Not reachable yet, for want of what triggers
+  them: following a creature (`followCreature`, from a social memory relationship;
+  social memories are not kept), taking prey home (`GoToDen` from `stowFoodInDen`
+  needs a held creature it eats; the relationships are not ported, so
+  `CreatureTemplate::eats` answers false) and the stow-food den entry.
+  **A lizard entering a realized room stays abstract.** The game realizes it there
+  (`ChangeRooms`' `Realize` and `CreatureEnterFromAbstractRoom`, `IsExitingDen` in a
+  realized room, `ReadyForAI`'s `RealizeInRoom` with `PlaceInRealizedRoom`), but the
+  lizard has no body yet (lizards steps 3 and 4). The port keeps it in the room's
+  lists as an abstract creature, as it does for every other unrealized type: its
+  `AbstractCreatureAI.Update` only adds to its time buffer while the room is realized
+  (the game skips `AbstractBehavior` there too), so it waits, unseen and harmless,
+  until the room is abstracted, then walks on with the buffered time. None of the
+  realization's draws are made (D1). `DefineNodeOfLocalCoordinate` in a room ready for
+  AI keeps its drawn node instead of choosing by the creature's exit distances (the
+  lizards' AI map is step 1); a creature only asks there once it is realized.
+  `AbstractCreature.distanceToMyNode` now starts at 0, the game's default (it was -1).
+  Left out with their DLC or modes: More Slugcats' flooded dens, battle arenas,
+  precycles (`preTimer`/`maxPreTimer`), the slugpup's and the scavenger king's
+  migration rules and the MSC-only template flags (`doesNotUseDens`,
+  `abstractImmobile`); Expedition's hunted unlocks; arena den emergence; world
+  migration influences; named attractions (no vanilla creature has one).
   `OverseersWorldAI` is ported (its shelter finder and the guide's direction finder,
   on the room files' baked node connectivity), as are the flies' swarm room map (with
   the world file's bat migration blockages), `GetSwarmRoomDistance`, `ActiveSwarmRoom`
@@ -956,7 +1020,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
   hang in their walls and make poles, D6), in the room's update order with the
   collision pass between items (`Room.Update`), in the water's object loop, and
   abstractizes them with the room. An explosive spear is realized as a plain `Spear`
-  (its fuse, rag and blast come with `ExplosiveSpear`). Not yet: picking up, carrying,
+  (its fuse, rag and blast come with `ExplosiveSpear`). The player picks them up,
+  carries them (through shortcuts and room exits too) and swallows rocks (D3). Not yet:
   throwing and hitting (`Thrown`, `StuckInCreature`), items falling between rooms
   (an item below the room is clamped at -1200 px as the game does for objects; only
   creatures are destroyed there); and objects of other kinds (placed food,
@@ -1002,7 +1067,9 @@ second part, else a single-room world for arena levels). The campaign descriptio
   `BringToRoomAndGuidePlayer` branch of the world
   process's update and More Slugcats' goal rooms and guide symbols are left out.
   Not ported: scavenger and vulture world AI, `CreatureCommunities` in the sim (the save
-  keeps their likes, D16) and `AbstractCreature.Update` for other types.
+  keeps their likes, D16) and `AbstractCreature.Update` for types other than overseers
+  and lizards (their abstract AI subclasses and their templates' connection
+  resistances).
 - **Hologram graphics.** A hologram's colour base (`Color.Lerp(MainColor,
   ColorOfSegment(0, 0), 0.5)`) is taken at its overseer's last update (holograms update
   before their overseer, so it is the one the game reads); a hologram slated for removal
@@ -1059,7 +1126,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
 is simpler and loses nothing gameplay-visible beyond the shorter waits.
 
 **Affects.** How long a vessel waits to enter a room, and anything creatures other than
-overseers and bat flies would do.
+overseers and bat flies would do (lizards roam, but never appear in a loaded room).
 
 ## D15: The in-game HUD
 
@@ -1162,8 +1229,11 @@ Differences:
   spears are saved as the game saves them (in shelters, and spears stuck in walls), but
   saved objects of other kinds are kept as text and written before them (the game
   writes those it recognizes in room order with the rest, and drops karma flowers);
-  sticks (`STICKS`, which the game rebuilds from the shelters' objects) and swallowed or
-  held objects (`PLAYERGRASPS`) are kept as read, and so are the kills (`AppendKills`), communities' likes beyond
+  sticks (`STICKS`, which the game rebuilds from the shelters' objects) are kept as
+  read; `Win` writes the player's held objects (`PLAYERGRASPS`) and swallowed object
+  (`SWALLOWEDITEMS`) as `BringUpToDate` does, but a swallowed creature or object of a
+  kind the port does not type stays as its save string (it cannot be coughed up) and
+  is written back as read, and so are the kills (`AppendKills`), communities' likes beyond
   their cycle tick, and friends in the den. A saved creature the world cannot place
   stays in the saved list. Session time is the sim's ticks.
 - **Win state.** Integer and float passage trackers are read and written as the game
@@ -1183,8 +1253,10 @@ Differences:
   hash); the files have no NUL padding (the game writes `MemoryStream.GetBuffer()`);
   they are written to a temporary file and renamed.
 - **Continue.** The den region's saved region state and the respawn list are applied
-  (`AdaptWorldToRegionState`, `GeneratePopulation(fresh: false)`); communities,
-  swallowed and held objects, kills and dreams are kept in the save but not applied.
+  (`AdaptWorldToRegionState`, `GeneratePopulation(fresh: false)`) and a swallowed rock
+  or spear is back in the stomach (the `Player` constructor); held objects are not
+  restored, as in the base game (only More Slugcats' forced end rooms read
+  `PLAYERGRASPS`); communities, kills and dreams are kept in the save but not applied.
   `BackwardsCompability` world-version updates and the automatic `backup/` copies
   (`CreateCopyOfSaves`) are not ported. The slot is `options.saveSlot` (D13).
 - **Reset progress.** `WipeAll` keeps only `MISCPROG`, as the game, with its shelters,
@@ -1274,9 +1346,9 @@ shelter.
 
 ## Not ported yet (not divergences, just absent)
 
-Player (stage one leaves out): sneaking and visibility (`privSneak`, `Sneak`, `VisibilityBonus`; the `SlugcatStats` stealth values exist but nothing reads them, as no ported creature sees or hears the player), zero gravity, grabbing, throwing and eating anything but
-bat flies, swallowing, adrenaline, Red's illness, the WALLSTUCK safety
-(needs `VisualContact`), carried-object speed factors, vines, tube worm,
+Player (stage one leaves out): sneaking and visibility (`privSneak`, `Sneak`, `VisibilityBonus`; the `SlugcatStats` stealth values exist but nothing reads them, as no ported creature sees or hears the player), zero gravity, grabbing and eating anything but bat flies, rocks and spears, throwing
+rocks and spears (D3), adrenaline, Red's illness, the WALLSTUCK safety
+(needs `VisualContact`), vines, tube worm,
 Jolly co-op, MSC / Watcher class mechanics. Ported because ground classification
 produces them anyway: wall slide and wall jump (`WallClimb`, `canWallJump`, `jumpStun`;
 only the wall-jump impulse has a test), `LedgeCrawl`, `CrawlTurn`, the crouch super-jump

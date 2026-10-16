@@ -13,6 +13,7 @@ use rw_random::UnityRandom;
 use super::{Fly, FlyBehavior, FlyView, HoverEmitter, MovementMode};
 use crate::camera::CameraView;
 use crate::creature::{CreatureId, RealizedCreature, WorldCoordinate};
+use crate::item::Entity;
 use crate::room_ext::RoomExt;
 use crate::shortcut::{CreatureVessel, ShortcutHandler, ShortcutVessel, Transport};
 use crate::world::{AiMap, EIGHT_DIRECTIONS, World};
@@ -287,7 +288,7 @@ impl FlyRun<'_, '_, '_> {
         let c = self.world.creature_mut(self.me);
         c.pos.tile = tile;
         c.pos.room = index;
-        self.world.clean_grabbed_by(self.me);
+        self.world.clean_grabbed_by(Entity::Creature(self.me));
         if !self.fr().sticks_respawned {
             self.recreate_sticks();
             self.f().sticks_respawned = true;
@@ -329,7 +330,7 @@ impl FlyRun<'_, '_, '_> {
             }
             let chunks = self.world.chunk_count(s.b);
             let chunk = self.cx.rng.range_i32(0, chunks as i32);
-            let grabbed = self.world.grab(crate::creature::GrabRequest {
+            let request = crate::creature::GrabRequest {
                 grabber: self.me,
                 grabbed: s.b,
                 grasp_used: s.grasp,
@@ -338,7 +339,8 @@ impl FlyRun<'_, '_, '_> {
                 dominance: 0.5,
                 override_equally_dominant: true,
                 pacifying: true,
-            });
+            };
+            let grabbed = self.world.grab(request, self.cx.rng);
             if !grabbed {
                 self.world.deactivate_stick(*s);
             }
@@ -358,7 +360,7 @@ impl FlyRun<'_, '_, '_> {
             + Vec2::new(hole.0 as f32, hole.1 as f32) * -5.0;
         let radius = 10.0f32.max(self.fr().short_cut_rad_add);
         let mut moving = 0;
-        for other in self.world.connected_objects(self.me) {
+        for other in self.world.connected_objects(Entity::Creature(self.me)) {
             let Some(chunks) = self.world.body_chunks_mut(other) else {
                 continue;
             };
@@ -370,7 +372,7 @@ impl FlyRun<'_, '_, '_> {
                 } else {
                     c.last_pos = c.pos;
                     c.pos += c.pos.direction_to(target) * 4.5;
-                    if other == self.me {
+                    if other == Entity::Creature(self.me) {
                         moving += 1;
                     }
                 }
@@ -410,10 +412,15 @@ impl FlyRun<'_, '_, '_> {
                 entrance_node: -1,
             }));
         self.f().entering_shortcut = None;
-        for other in self.world.connected_objects(self.me) {
-            if let Some(f) = self.world.creature_mut(other).fly_mut() {
-                f.in_shortcut = true;
-                f.room = None;
+        for other in self.world.connected_objects(Entity::Creature(self.me)) {
+            match other {
+                Entity::Creature(o) => {
+                    if let Some(f) = self.world.creature_mut(o).fly_mut() {
+                        f.in_shortcut = true;
+                        f.room = None;
+                    }
+                }
+                Entity::Object(o) => self.world.object_leaves_room(o),
             }
         }
     }
@@ -749,33 +756,55 @@ impl World {
         self.creature(id).fly().expect("a realized fly")
     }
 
-    /// Chunk `i` of a realized creature with a body in the world (a fly).
-    pub(crate) fn chunk_pos(&self, id: CreatureId, i: usize) -> Option<Vec2> {
-        self.creature(id)
-            .fly()
-            .and_then(|f| f.body.chunks.get(i))
-            .map(|c| c.pos)
+    /// Chunk `i` of a realized object with a body in the world (a fly, a rock or a
+    /// spear).
+    pub(crate) fn chunk_pos(&self, e: Entity, i: usize) -> Option<Vec2> {
+        self.body_chunks(e).and_then(|c| c.get(i)).map(|c| c.pos)
     }
 
-    pub(crate) fn chunk_mut(&mut self, id: CreatureId, i: usize) -> Option<&mut crate::BodyChunk> {
-        self.creature_mut(id)
-            .fly_mut()
-            .and_then(|f| f.body.chunks.get_mut(i))
+    pub(crate) fn chunk_mut(&mut self, e: Entity, i: usize) -> Option<&mut crate::BodyChunk> {
+        self.body_chunks_mut(e).and_then(|c| c.get_mut(i))
     }
 
-    pub(crate) fn body_chunks_mut(&mut self, id: CreatureId) -> Option<&mut [crate::BodyChunk]> {
-        self.creature_mut(id)
-            .fly_mut()
-            .map(|f| &mut f.body.chunks[..])
+    pub(crate) fn body_chunks(&self, e: Entity) -> Option<&[crate::BodyChunk]> {
+        match e {
+            Entity::Creature(id) => self.creature(id).fly().map(|f| &f.body.chunks[..]),
+            Entity::Object(id) => self
+                .object(id)
+                .realized
+                .as_deref()
+                .map(|w| &w.body.chunks[..]),
+        }
     }
 
-    /// `bodyChunks.Length` of a realized creature.
-    pub(crate) fn chunk_count(&self, id: CreatureId) -> usize {
-        match &self.creature(id).realized {
-            Some(RealizedCreature::Fly(f)) => f.body.chunks.len(),
-            Some(RealizedCreature::Player) => 2,
-            Some(RealizedCreature::Overseer(_)) => 1,
-            None => 0,
+    pub(crate) fn body_chunks_mut(&mut self, e: Entity) -> Option<&mut [crate::BodyChunk]> {
+        match e {
+            Entity::Creature(id) => self
+                .creature_mut(id)
+                .fly_mut()
+                .map(|f| &mut f.body.chunks[..]),
+            Entity::Object(id) => self
+                .object_mut(id)
+                .realized
+                .as_deref_mut()
+                .map(|w| &mut w.body.chunks[..]),
+        }
+    }
+
+    /// `bodyChunks.Length` of a realized object.
+    pub(crate) fn chunk_count(&self, e: Entity) -> usize {
+        match e {
+            Entity::Creature(id) => match &self.creature(id).realized {
+                Some(RealizedCreature::Fly(f)) => f.body.chunks.len(),
+                Some(RealizedCreature::Player) => 2,
+                Some(RealizedCreature::Overseer(_)) => 1,
+                None => 0,
+            },
+            Entity::Object(id) => self
+                .object(id)
+                .realized
+                .as_ref()
+                .map_or(0, |w| w.body.chunks.len()),
         }
     }
 
@@ -797,16 +826,24 @@ impl World {
             .iter()
             .find(|g| self.creature(g.grabber).fly().is_some())?;
         let holds = self.creature(g.grabber).grasps.first().copied().flatten();
-        holds.filter(|h| h.grabbed == id).map(|_| g.grabber)
+        holds
+            .filter(|h| h.grabbed == Entity::Creature(id))
+            .map(|_| g.grabber)
     }
 
     /// `FirstInChain`.
     pub(crate) fn first_in_chain(&self, id: CreatureId) -> CreatureId {
         let mut fly = id;
-        while let Some(g) = self.creature(fly).grasps.first().copied().flatten()
-            && self.creature(g.grabbed).fly().is_some()
+        while let Some(o) = self
+            .creature(fly)
+            .grasps
+            .first()
+            .copied()
+            .flatten()
+            .and_then(|g| g.grabbed_creature())
+            && self.creature(o).fly().is_some()
         {
-            fly = g.grabbed;
+            fly = o;
         }
         fly
     }

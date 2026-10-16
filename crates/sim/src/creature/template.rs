@@ -157,6 +157,16 @@ impl WaterRelationship {
             Self::WaterOnly => deep_water,
         }
     }
+
+    /// `CreatureTemplate.AbstractSubmersionLegal`.
+    #[must_use]
+    pub fn abstract_submersion_legal(self, node_submerged: bool) -> bool {
+        if node_submerged {
+            matches!(self, Self::WaterOnly | Self::Amphibious)
+        } else {
+            self != Self::WaterOnly
+        }
+    }
 }
 
 impl CreatureTemplate {

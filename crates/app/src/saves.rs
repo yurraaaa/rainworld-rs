@@ -137,6 +137,7 @@ impl SaveStateStart for SaveState {
                 .map(str::to_owned),
             in_memory,
             live_region_state: None,
+            swallowed_item: self.swallowed_item(0).map(str::to_owned),
             den,
         }
     }

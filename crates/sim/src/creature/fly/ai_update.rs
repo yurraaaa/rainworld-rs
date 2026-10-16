@@ -10,6 +10,7 @@ use rw_assets::{ActiveMods, CreatureType, NodeType, Terrain};
 use super::update::FlyRun;
 use super::{DropStatus, FlockBehavior, FlyAi, FlyBehavior, MovementMode, TrackedThreat};
 use crate::creature::{CreatureId, CreatureTemplate, GrabRequest, RealizedCreature, Shareability};
+use crate::item::Entity;
 use crate::room_ext::RoomExt;
 use crate::world::{EIGHT_DIRECTIONS, MovementConnection, MovementType, World};
 use crate::{FloatExt, SoundId, Vec2};
@@ -330,16 +331,17 @@ impl FlyRun<'_, '_, '_> {
     /// chain is drawn in front.
     fn attach_to(&mut self, o: CreatureId) {
         self.change_behavior(FlyBehavior::Chain);
-        self.world.grab(GrabRequest {
+        let request = GrabRequest {
             grabber: self.me,
-            grabbed: o,
+            grabbed: Entity::Creature(o),
             grasp_used: 0,
             chunk_grabbed: 0,
             shareability: Shareability::NonExclusive,
             dominance: 1.0,
             override_equally_dominant: false,
             pacifying: false,
-        });
+        };
+        self.world.grab(request, self.cx.rng);
         self.world.check_chain_for_loops(self.me);
         self.play_on_chunk(SoundId::BatAttatchToChain);
         let mut fly = o;
@@ -348,8 +350,8 @@ impl FlyRun<'_, '_, '_> {
                 let id = self.world.creature(fly).id;
                 self.cx.observer.fly_to_front(id);
             }
-            match self.world.creature(fly).grasps[0] {
-                Some(g) if self.world.creature(g.grabbed).fly().is_some() => fly = g.grabbed,
+            match self.world.creature(fly).grasps[0].and_then(|g| g.grabbed_creature()) {
+                Some(o) if self.world.creature(o).fly().is_some() => fly = o,
                 _ => break,
             }
         }
@@ -630,10 +632,13 @@ impl FlyRun<'_, '_, '_> {
                 }
             }
             Some(g) => {
-                if self.leave_chain(g.grabbed)
+                let Some(held) = g.grabbed_creature() else {
+                    return;
+                };
+                if self.leave_chain(held)
                     || (self.cx.rng.value() < 0.004_166_667
                         && self.world.last_in_chain(self.me) == self.me
-                        && self.world.first_in_chain(self.me) == g.grabbed)
+                        && self.world.first_in_chain(self.me) == held)
                 {
                     self.change_behavior(FlyBehavior::Idle);
                 }
@@ -767,7 +772,7 @@ impl FlyRun<'_, '_, '_> {
         if w.fly_ref(o).ai.behavior != Some(FlyBehavior::Chain) || w.next_in_chain(o).is_some() {
             return false;
         }
-        if w.creature(o).grasps[0].is_some_and(|g| g.grabbed == self.me) {
+        if w.creature(o).grasps[0].is_some_and(|g| g.grabbed == Entity::Creature(self.me)) {
             return false;
         }
         if w.last_in_chain(o) != o {

@@ -7,6 +7,7 @@ use rw_random::UnityRandom;
 
 use super::{Fly, FlyAi};
 use crate::creature::{CreatureId, CreatureTemplate, RealizedCreature};
+use crate::item::Entity;
 use crate::world::World;
 use crate::{PlayerObserver, SoundId, Sounds, Vec2};
 
@@ -41,7 +42,7 @@ impl World {
         c.grasps = vec![None];
         c.grabbed_by.clear();
         for s in self.creature(id).sticks.clone() {
-            for other in [s.a, s.b] {
+            for other in [Some(s.a), s.b.creature()].into_iter().flatten() {
                 if other != id {
                     self.realize_fly(other, rng);
                 }
@@ -106,7 +107,7 @@ impl World {
             .grasps
             .iter()
             .flatten()
-            .map(|g| g.grabbed)
+            .filter_map(|g| g.grabbed_creature())
             .collect();
         for other in held {
             if self.creature(other).fly().is_none() {
@@ -145,10 +146,15 @@ impl World {
             pos.tile = self.local_coordinate_of_node(room, pos.node, cx.rng);
             self.creature_mut(id).pos = pos;
         }
-        for o in self.connected_objects(id) {
-            self.creature_mut(o).pos = pos;
-            if self.creature(o).fly().is_some() {
-                self.place_fly(o, room, cx);
+        for o in self.connected_objects(Entity::Creature(id)) {
+            match o {
+                Entity::Creature(o) => {
+                    self.creature_mut(o).pos = pos;
+                    if self.creature(o).fly().is_some() {
+                        self.place_fly(o, room, cx);
+                    }
+                }
+                Entity::Object(o) => self.object_mut(o).pos = pos,
             }
         }
     }

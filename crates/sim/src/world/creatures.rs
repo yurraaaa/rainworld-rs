@@ -373,10 +373,11 @@ impl World {
             spawn_data: None,
             night_creature: false,
             ignore_cycle: false,
+            pre_cycle: false,
             in_den: false,
             time_spent_here: 0,
             even_update: false,
-            distance_to_my_node: -1,
+            distance_to_my_node: 0,
             slated_for_deletion: false,
             realized: None,
             carried: Vec::new(),
@@ -496,9 +497,9 @@ impl World {
     /// then runs the Fly's `IsEnteringDen` (`RespawnOneFly`, `RemoveEntity`, no `InDen`)
     /// and keeps it in the room's den list. Returns whether it went in.
     pub(crate) fn fly_opportunity_to_enter_den(&mut self, id: CreatureId) -> bool {
-        let time_until_rain = self.rain_cycle.time_until_rain();
+        let wants_to_stay = self.wants_to_stay_in_den(id);
         let c = self.creature_mut(id);
-        if c.wants_to_stay_in_den(time_until_rain) {
+        if wants_to_stay {
             c.remain_in_den_counter = -1;
         } else if c.remain_in_den_counter <= 0 {
             return false;
@@ -640,13 +641,21 @@ impl World {
     }
 
     /// `AbstractCreatureAI.Moved` (and the overseer's, whose guide case needs an angry
-    /// guide: not in a new game).
-    fn moved(&mut self, id: CreatureId) {
+    /// guide: not in a new game): the path is cut at the node reached, and a migration
+    /// destination in this room is done.
+    pub(crate) fn moved(&mut self, id: CreatureId) {
         let pos = self.creature(id).pos;
-        if let Some(ai) = &mut self.creature_mut(id).ai
-            && ai.migration_destination.is_some_and(|m| m.room == pos.room)
-        {
-            ai.migration_destination = None;
+        if let Some(ai) = &mut self.creature_mut(id).ai {
+            if let Some(i) = ai
+                .path
+                .iter()
+                .rposition(|p| p.room == pos.room && p.node == pos.node)
+            {
+                ai.path.truncate(i);
+            }
+            if ai.migration_destination.is_some_and(|m| m.room == pos.room) {
+                ai.migration_destination = None;
+            }
         }
     }
 
@@ -695,16 +704,22 @@ impl World {
     }
 
     /// `AbstractCreature.Update(time)`: the abstract AI of a living, unrealized creature
-    /// out of its den.
+    /// out of its den and not carried: the overseers' and the plain one of the types
+    /// whose template [`CreatureTemplate::abstract_ai_ported`] (the lizards).
     fn update_creature(&mut self, id: CreatureId, time: i32, cx: &mut AbstractTick<'_>) {
         let c = self.creature_mut(id);
         c.time_spent_here += time;
-        if c.in_den || c.realized.is_some() || !c.state.alive {
+        if c.in_den || c.realized.is_some() || !c.state.alive || c.pacified_because_carried(id) {
             return;
         }
-        let (pos, ignore_cycle) = (c.pos, c.ignore_cycle);
+        let (pos, ignore_cycle, plain) = (c.pos, c.ignore_cycle, c.template.abstract_ai_ported());
         let Some(mut ai) = c.ai.take() else { return };
         ai.time_buffer += time;
+        if plain {
+            self.creature_mut(id).ai = Some(ai);
+            self.abstract_ai_update(id, time, cx);
+            return;
+        }
         let mut step = AbstractStep::Stay;
         if self.realized(pos.room).is_none()
             && let AiKind::Overseer(mut overseer) = std::mem::replace(&mut ai.kind, AiKind::Plain)
@@ -887,20 +902,24 @@ impl World {
             .collect()
     }
 
-    /// `AbstractCreature.InDenUpdate`. Only creatures whose abstract AI is ported (the
-    /// overseers) leave their dens; the rest stay in (docs/DIVERGENCES.md D14).
+    /// `AbstractCreature.InDenUpdate`: the den counter runs down (a night creature's
+    /// only after dark), and at below 0 the creature comes out; one that wants to stay
+    /// for the rest of the cycle stops counting (-1). Only creatures whose abstract AI is
+    /// ported (overseers, lizards) leave their dens; the rest stay in
+    /// (docs/DIVERGENCES.md D14). A pre-cycle creature passes the game's precycle test
+    /// (no precycles without More Slugcats) and then wants to stay.
     fn in_den_update(&mut self, id: CreatureId, time: i32) {
-        let time_until_rain = self.rain_cycle.time_until_rain();
         let day_night = self.rain_cycle.day_night_counter;
+        let wants_to_stay = self.wants_to_stay_in_den(id);
         let c = self.creature_mut(id);
-        if c.kind() != CreatureType::Overseer {
+        if c.kind() != CreatureType::Overseer && !c.template.abstract_ai_ported() {
             return;
         }
         let night_ok = !c.night_creature || day_night as f32 > 600.0 || c.ignore_cycle;
         if c.remain_in_den_counter <= -1 || !night_ok {
             return;
         }
-        if c.wants_to_stay_in_den(time_until_rain) {
+        if wants_to_stay {
             c.remain_in_den_counter = -1;
             return;
         }
@@ -909,6 +928,14 @@ impl World {
             c.remain_in_den_counter = -1;
             self.move_entity_out_of_den(id);
         }
+    }
+
+    /// `AbstractCreature.WantToStayInDenUntilEndOfCycle` (the rain's margin is 60 s in a
+    /// story session, 15 s otherwise).
+    pub(crate) fn wants_to_stay_in_den(&self, id: CreatureId) -> bool {
+        let margin = if self.story { 60 * 40 } else { 15 * 40 };
+        self.creature(id)
+            .wants_to_stay_in_den(self.rain_cycle.time_until_rain(), margin)
     }
 
     /// `Room.ReadyForAI` for one creature: `AbstractCreature.RealizeInRoom` of an
@@ -1084,7 +1111,7 @@ impl World {
             .grasps
             .iter()
             .flatten()
-            .map(|g| g.grabbed)
+            .filter_map(|g| g.grabbed_creature())
             .collect();
         // Cleared first: a circular chain stops here (the game releases such a grasp).
         self.creature_mut(id).realized = None;
@@ -1132,24 +1159,26 @@ pub(crate) struct OverseerParts {
 }
 
 impl AbstractCreature {
-    /// `WantToStayInDenUntilEndOfCycle` for a creature whose realized AI never ran.
-    fn wants_to_stay_in_den(&self, time_until_rain: i32) -> bool {
+    /// `WantToStayInDenUntilEndOfCycle` with `margin` ticks of rain warning: dead, hurt,
+    /// the rain close (not for night creatures or those ignoring the cycle), a
+    /// pre-cycle creature, then the abstract AI's own test (a kept realized AI, an
+    /// overseer's, answers false).
+    fn wants_to_stay_in_den(&self, time_until_rain: i32, margin: i32) -> bool {
         if !self.state.alive {
             return true;
         }
         if self.state.has_health() && self.state.health < 0.6 {
             return true;
         }
-        if time_until_rain < 60 * 40 && !self.night_creature && !self.ignore_cycle {
+        let rain_close = time_until_rain < margin && !self.night_creature && !self.ignore_cycle;
+        if rain_close || self.pre_cycle {
             return true;
         }
         if let Some(ai) = &self.ai {
-            // A realized AI that is kept (an overseer's) answers false; else
-            // `AbstractCreatureAI.WantToStayInDenUntilEndOfCycle` without one.
             if ai.real_ai {
                 return false;
             }
-            return (!self.night_creature && !self.ignore_cycle && time_until_rain < 60 * 40)
+            return rain_close
                 || (self.state.kind == crate::creature::StateKind::Lizard
                     && self.state.health < 0.5)
                 || (self.state.has_health() && self.state.health < 0.75);

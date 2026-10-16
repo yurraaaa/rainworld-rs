@@ -46,8 +46,8 @@ pub use chunk::{BodyChunk, Contact, DEFAULT_RESTRICT_IN_ROOM_RANGE, PhysicsParam
 pub use creature::WorldCoordinate;
 pub use float_ext::FloatExt;
 pub use game::{
-    CameraMove, GameOver, HudEvent, NewGameWorld, OverseerCall, PlayerObserver, PlayerSurroundings,
-    RainWorldGame, Start,
+    CameraMove, GameOver, Grabability, HudEvent, NewGameWorld, OverseerCall, PlayerHands,
+    PlayerObserver, PlayerSurroundings, RainWorldGame, Start,
 };
 pub use map_discovery::{DiscoveryTexture, HudMapLink, MapDiscovery, MapRoom, UnityTexture};
 pub use object::{
@@ -55,7 +55,7 @@ pub use object::{
 };
 pub use player::{
     Animation, BodyMode, GrabState, HEAD, HIPS, INPUT_HISTORY, Input, Player, PlayerController,
-    ShelterCheck, VesselStep,
+    ShelterCheck, StomachObject, VesselStep,
 };
 pub use room_ext::RoomExt;
 pub use shelter::SessionEnd;

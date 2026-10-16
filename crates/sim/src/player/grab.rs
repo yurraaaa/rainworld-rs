@@ -6,7 +6,7 @@
 use rw_random::UnityRandom;
 
 use super::{Animation, BodyMode, HEAD, HIPS, Player};
-use crate::creature::CreatureId;
+use crate::item::{Entity, ObjectId};
 use crate::{TerrainImpact, Vec2, WaterDrip};
 
 /// The `Player` fields `GrabUpdate` reads and sets.
@@ -20,10 +20,30 @@ pub struct GrabState {
     pub switch_hands_process: f32,
     pub want_to_throw: i32,
     pub swallow_and_regurgitate_counter: i32,
-    pub pick_up_candidate: Option<CreatureId>,
+    pub pick_up_candidate: Option<Entity>,
+}
+
+/// `objectInStomach`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StomachObject {
+    /// A rock or spear of the world's arena, in no room.
+    Object(ObjectId),
+    /// A saved object or creature the port does not type, kept as its save string
+    /// (docs/DIVERGENCES.md D16).
+    Saved(String),
 }
 
 impl Player {
+    /// `objectInStomach`.
+    #[must_use]
+    pub fn object_in_stomach(&self) -> Option<&StomachObject> {
+        self.stomach.as_ref()
+    }
+
+    pub(crate) fn set_object_in_stomach(&mut self, object: Option<StomachObject>) {
+        self.stomach = object;
+    }
+
     #[must_use]
     pub fn grab_state(&self) -> &GrabState {
         &self.grab

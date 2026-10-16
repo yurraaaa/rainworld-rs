@@ -180,7 +180,8 @@ fn story_world_load_draws_match_the_model() {
 /// The overseers after `rounds` rounds of `RainWorldGame.Update`'s abstract room rotation
 /// (`updateAbstractRoom`, time `NumberOfRooms`), run after a new Survivor game's world
 /// load with no player and the rain timer at 0 (no room is realized, the rain cycle
-/// draws nothing).
+/// draws nothing). The model has only the overseers: every other creature is held in
+/// its den (`remainInDenCounter` -1).
 struct AbstractRun {
     world: World,
     rng: UnityRandom,
@@ -209,6 +210,14 @@ impl AbstractRun {
         let mut rng = UnityRandom::new(SEED);
         RainWorldGame::new_game_world(&mut world, campaign, &mut rng);
         let ids = Self::overseers(&world);
+        let others: Vec<CreatureId> = world
+            .creatures()
+            .filter(|(_, c)| c.kind() != CreatureType::Overseer)
+            .map(|(id, _)| id)
+            .collect();
+        for id in others {
+            world.creature_mut(id).remain_in_den_counter = -1;
+        }
         let guide = PlayerGuideState::default();
         let count = world.number_of_rooms();
         let time = i32::try_from(count).expect("room count");
@@ -433,4 +442,101 @@ fn guide_is_realized_in_the_start_room() {
     assert!(!tiles.tile(hover.0, hover.1).is_solid());
     assert!(tiles.tile(root.0, root.1).is_solid());
     assert!((hover.0 - root.0).abs() <= 1 && (hover.1 - root.1).abs() <= 1 && hover != root);
+}
+
+/// One green lizard of a new Survivor game (seed 42), every other creature held: the
+/// guide dead, the rest kept in their dens. The lizard leaves its den on the room update
+/// its counter runs out (`InDenUpdate`, `NumberOfRooms` per update) without a draw, then
+/// walks the region abstractly: every room change goes through an exit to the room it
+/// leads to, arriving at that room's exit back (`FollowPath` over `RandomMoveToOtherRoom`
+/// / `MoveToMoreAttractiveNeighborRoom` paths), and it only ever stands on nodes a green
+/// maps (exits and dens).
+#[test]
+fn su_green_lizard_leaves_its_den_and_walks_between_connected_rooms() {
+    use rw_assets::NodeType;
+
+    let Some(installed) = Installed::open() else {
+        return;
+    };
+    let campaign = &SlugcatCampaign::SURVIVOR;
+    let mut world = installed.world("SU_C04", campaign);
+    let mut rng = UnityRandom::new(SEED);
+    RainWorldGame::new_game_world(&mut world, campaign, &mut rng);
+    let green = world
+        .creatures()
+        .find(|(_, c)| c.kind() == CreatureType::GreenLizard)
+        .map(|(id, _)| id)
+        .expect("a green lizard");
+    let others: Vec<CreatureId> = world
+        .creatures()
+        .map(|(id, _)| id)
+        .filter(|&id| id != green)
+        .collect();
+    for id in others {
+        let c = world.creature_mut(id);
+        c.remain_in_den_counter = -1;
+        c.state.alive = false;
+    }
+    let c = world.creature(green);
+    assert!(c.in_den);
+    let home = c.pos;
+    let counter = c.remain_in_den_counter;
+    let count = world.number_of_rooms();
+    let time = i32::try_from(count).expect("room count");
+    let local = usize::try_from(home.room - world.first_room_index()).expect("room");
+    // The room is updated on ticks `local + k * count` (local 0 last in a round).
+    let first = if local == 0 { count } else { local };
+    let exit_tick = first + usize::try_from(counter / time).expect("counter") * count;
+
+    let guide = PlayerGuideState::default();
+    let start = rng.state();
+    let mut index = 0;
+    let mut rooms_visited = vec![home.room];
+    let mut pos = home;
+    for tick in 1..=200 * count {
+        index += 1;
+        if index >= count {
+            index = 0;
+        }
+        let mut cx = AbstractTick {
+            rng: &mut rng,
+            guide: &guide,
+            player: None,
+            player_karma: 0,
+            cycle: 0,
+        };
+        let target = world.first_room_index() + i32::try_from(index).expect("index");
+        world.update_abstract_room(target, time, &mut cx);
+        let c = world.creature(green);
+        if tick < exit_tick {
+            assert!(c.in_den, "in its den at tick {tick}");
+            assert_eq!(rng.state(), start, "no draws before it leaves");
+        } else if tick == exit_tick {
+            assert!(!c.in_den, "out at tick {tick}");
+        }
+        let now = c.pos;
+        let kind = world.abstract_room(now.room).expect("room").nodes
+            [usize::try_from(now.node).expect("node")]
+        .kind;
+        assert!(matches!(kind, NodeType::Exit | NodeType::Den), "{now:?}");
+        if now.room != pos.room {
+            let from = world.abstract_room(pos.room).expect("room");
+            let to = world.abstract_room(now.room).expect("room");
+            assert_eq!(
+                pos.node,
+                from.exit_index(now.room),
+                "leaves by the exit to {}",
+                to.name
+            );
+            assert_eq!(
+                now.node,
+                to.exit_index(pos.room),
+                "arrives at the exit back"
+            );
+            assert_eq!(c.ai.as_ref().expect("AI").last_room, pos.room);
+            rooms_visited.push(now.room);
+        }
+        pos = now;
+    }
+    assert!(rooms_visited.len() > 1, "it left its room in 200 rounds");
 }

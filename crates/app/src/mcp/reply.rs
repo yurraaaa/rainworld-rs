@@ -95,6 +95,8 @@ pub struct CreatureInfo {
     pub in_den: bool,
     pub realized: bool,
     pub alive: bool,
+    /// The plain abstract AI (lizards).
+    pub abstract_ai: Option<AbstractAiInfo>,
     /// An overseer's abstract AI and body.
     pub overseer: Option<OverseerInfo>,
     /// A realized bat fly's body and AI.
@@ -117,6 +119,15 @@ pub struct ObjectInfo {
     pub explosive: Option<bool>,
     /// The realized rock or spear; `None` while abstract.
     pub realized: Option<WeaponInfo>,
+}
+
+/// A held or swallowed object.
+#[derive(Debug, Clone, Serialize)]
+pub struct HeldInfo {
+    /// `AbstractObjectType` or `CreatureTemplate.Type`.
+    pub kind: String,
+    /// `EntityID` (spawner, number).
+    pub id: [i32; 2],
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -150,6 +161,26 @@ pub struct FlyInfo {
     pub grasps: Vec<Option<[i32; 2]>>,
     /// The EntityIDs of the creatures holding it.
     pub grabbed_by: Vec<[i32; 2]>,
+}
+
+/// A room and node (`WorldCoordinate` without its tile).
+#[derive(Debug, Clone, Serialize)]
+pub struct NodeRef {
+    pub room: String,
+    pub node: i32,
+}
+
+/// `AbstractCreatureAI`'s state.
+#[derive(Debug, Clone, Serialize)]
+pub struct AbstractAiInfo {
+    pub destination: NodeRef,
+    /// `path`, the destination first and the next step last.
+    pub path: Vec<NodeRef>,
+    pub migration_destination: Option<NodeRef>,
+    pub den_position: Option<NodeRef>,
+    pub time_buffer: i32,
+    pub remain_in_den_counter: i32,
+    pub time_spent_here: i32,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -254,8 +285,14 @@ pub struct PlayerState {
     pub malnourished: bool,
     pub aerobic_level: f32,
     pub exhausted: bool,
-    /// The creature IDs held in each hand.
-    pub grasps: [Option<usize>; 2],
+    /// What each hand holds.
+    pub grasps: [Option<HeldInfo>; 2],
+    /// `objectInStomach` (an untyped saved object: its save string as `kind`).
+    pub stomach: Option<HeldInfo>,
+    /// `swallowAndRegurgitateCounter`.
+    pub swallow_counter: i32,
+    /// `pickUpCandidate`.
+    pub pick_up_candidate: Option<HeldInfo>,
     pub eat_counter: i32,
     pub sleep: SleepState,
 }

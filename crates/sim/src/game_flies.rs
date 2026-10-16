@@ -10,6 +10,7 @@ use rw_assets::{CreatureType, NodeType, Room, Shortcut};
 use super::{PlayerObserver, RainWorldGame, RoomObject};
 use crate::creature::fly::{FlyRoomTick, FlyRun, FlyTick, PlayerBody};
 use crate::creature::{CreatureId, WorldCoordinate};
+use crate::item::Entity;
 use crate::shortcut::{CreatureVessel, ShortcutVessel, Transport};
 use crate::world::FliesTick;
 use crate::{LobbyVessel, SoundId, Vec2, VesselOwner, VesselStep};
@@ -369,10 +370,15 @@ impl RainWorldGame {
             observer: &mut *observer,
             camera_room: self.camera_room,
         };
-        for o in self.world.connected_objects(me) {
-            if self.world.creature(o).fly().is_none() {
-                continue;
-            }
+        for o in self.world.connected_objects(Entity::Creature(me)) {
+            let o = match o {
+                Entity::Creature(o) if self.world.creature(o).fly().is_some() => o,
+                Entity::Creature(_) => continue,
+                Entity::Object(o) => {
+                    self.world.spit_out_object(o, room, middle, cx.rng);
+                    continue;
+                }
+            };
             for c in &mut self.world.fly_at(o).body.chunks {
                 let p = middle + Vec2::random_unit(cx.rng);
                 c.hard_set_position(p);

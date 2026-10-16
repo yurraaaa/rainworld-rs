@@ -13,21 +13,23 @@ use rw_render::{RoomLayers, WgpuRenderer};
 use rw_save::SaveSlot;
 use rw_sim::campaign::SlugcatCampaign;
 use rw_sim::creature::{AbstractCreature, CreatureId};
-use rw_sim::item::Weapon;
-use rw_sim::{Input, Vec2};
+use rw_sim::item::{Entity, Weapon};
+use rw_sim::{Input, StomachObject, Vec2, WorldCoordinate};
 
 use super::params::{
     HudMessageParams, ImportSaveParams, InputParam, ListRoomsParams, LoadProcessParams,
     LoadRoomParams, NewGameParams, ProcessParam, RespawnParams, ScreenshotParams, SetPlayerParams,
     StepParams, StepProcessParams, StepSequenceParams, TilesParams, ViewParam,
 };
+use super::reply::HeldInfo;
 use super::reply::{
-    ChunkState, ControlsPageState, CreatureInfo, ExitInfo, ExitList, FlyInfo, FoodMeterState,
-    HudState, ImpactState, ImportReply, KarmaMeterState, KarmaScreenState, LobbyState,
-    MapMarkerState, MapState, MeterState, ObjectInfo, OptionsState, OverseerInfo, PauseMenuState,
-    PlayerState, ProcessState, RainMeterState, RainState, RealizedState, RoomInfo, RoomList,
-    SaveInfo, SaveStateInfo, Screenshot, ShelterDoorState, SleepState, SlideShowState,
-    StartUpState, State, StepTrace, StoryInfo, TextPromptState, TokenState, WeaponInfo,
+    AbstractAiInfo, ChunkState, ControlsPageState, CreatureInfo, ExitInfo, ExitList, FlyInfo,
+    FoodMeterState, HudState, ImpactState, ImportReply, KarmaMeterState, KarmaScreenState,
+    LobbyState, MapMarkerState, MapState, MeterState, NodeRef, ObjectInfo, OptionsState,
+    OverseerInfo, PauseMenuState, PlayerState, ProcessState, RainMeterState, RainState,
+    RealizedState, RoomInfo, RoomList, SaveInfo, SaveStateInfo, Screenshot, ShelterDoorState,
+    SleepState, SlideShowState, StartUpState, State, StepTrace, StoryInfo, TextPromptState,
+    TokenState, WeaponInfo,
 };
 use super::tiles::TileDump;
 use crate::frontend::{AppContext, Frontend, FrontendRenderer, GameSetup};
@@ -449,6 +451,7 @@ impl Session {
                 in_den: c.in_den,
                 realized: c.is_realized(),
                 alive: c.state.alive,
+                abstract_ai: Self::abstract_ai_info(scene, c),
                 overseer: c.overseer_ai().map(|o| OverseerInfo {
                     player_guide: o.is_player_guide,
                     destination: c
@@ -471,6 +474,31 @@ impl Session {
                 fly: Self::fly_info(scene, c),
             })
             .collect()
+    }
+
+    fn node_ref(scene: &Scene, c: WorldCoordinate) -> NodeRef {
+        NodeRef {
+            room: Self::room_name(scene, c.room),
+            node: c.node,
+        }
+    }
+
+    /// The plain abstract AI of a creature that runs it.
+    fn abstract_ai_info(scene: &Scene, c: &AbstractCreature) -> Option<AbstractAiInfo> {
+        if !c.template.abstract_ai_ported() {
+            return None;
+        }
+        let ai = c.ai.as_ref()?;
+        let den = scene.game().sim().world().offscreen_den_index();
+        Some(AbstractAiInfo {
+            destination: Self::node_ref(scene, ai.destination),
+            path: ai.path.iter().map(|&p| Self::node_ref(scene, p)).collect(),
+            migration_destination: ai.migration_destination.map(|m| Self::node_ref(scene, m)),
+            den_position: ai.den_position(c, den).map(|d| Self::node_ref(scene, d)),
+            time_buffer: ai.time_buffer,
+            remain_in_den_counter: c.remain_in_den_counter,
+            time_spent_here: c.time_spent_here,
+        })
     }
 
     /// The world's objects, in creation order.
@@ -524,7 +552,7 @@ impl Session {
             grasps: c
                 .grasps
                 .iter()
-                .map(|g| g.map(|g| Self::entity_id(scene, g.grabbed)))
+                .map(|g| g.map(|g| HeldInfo::of(scene.game().sim().world(), g.grabbed).id))
                 .collect(),
             grabbed_by: c
                 .grabbed_by
@@ -1139,7 +1167,21 @@ impl PlayerState {
             malnourished: player.malnourished(),
             aerobic_level: player.aerobic_level(),
             exhausted: player.exhausted(),
-            grasps: sim.player_grasps().map(|g| g.map(|id| id.0)),
+            grasps: sim
+                .player_grasps()
+                .map(|g| g.map(|e| HeldInfo::of(sim.world(), e))),
+            stomach: player.object_in_stomach().map(|o| match o {
+                StomachObject::Object(id) => HeldInfo::of(sim.world(), Entity::Object(*id)),
+                StomachObject::Saved(s) => HeldInfo {
+                    kind: s.clone(),
+                    id: [0, 0],
+                },
+            }),
+            swallow_counter: player.grab_state().swallow_and_regurgitate_counter,
+            pick_up_candidate: player
+                .grab_state()
+                .pick_up_candidate
+                .map(|e| HeldInfo::of(sim.world(), e)),
             eat_counter: player.grab_state().eat_counter,
             sleep: SleepState {
                 sleep_counter: player.sleep_counter(),
@@ -1289,6 +1331,26 @@ impl HudState {
                 want_to_continue: p.want_to_continue,
                 labels: hud.controls_page_texts().unwrap_or_default(),
             }),
+        }
+    }
+}
+
+impl HeldInfo {
+    /// What a hand holds: its kind and EntityID.
+    fn of(world: &rw_sim::world::World, e: Entity) -> Self {
+        let (kind, id) = match e {
+            Entity::Creature(id) => {
+                let c = world.creature(id);
+                (c.kind().value().to_owned(), c.id)
+            }
+            Entity::Object(id) => {
+                let o = world.object(id);
+                (o.kind.value().to_owned(), o.id)
+            }
+        };
+        Self {
+            kind,
+            id: [id.spawner, id.number],
         }
     }
 }

@@ -7,6 +7,8 @@
 //! game spreads it over frames on a thread (docs/DIVERGENCES.md D14). Behaviour:
 //! `rainworld-re/notes/world-loading.md`, `room-realizer.md`.
 
+mod abstract_ai;
+mod abstract_path;
 mod ai_map;
 mod ai_mapper;
 mod creature_ai_map;
@@ -35,6 +37,7 @@ use crate::creature::{AbstractCreature, CreatureId, FlockBehavior, IdIssuer, Wor
 use crate::item::AbstractObject;
 use rw_random::UnityRandom;
 
+pub use abstract_path::{FloodMethod, SearchingFor};
 pub(crate) use ai_map::EIGHT_DIRECTIONS;
 pub use ai_map::{AiMap, AiTile};
 pub use creature_ai_map::CreatureSpecificAiMap;

@@ -116,4 +116,8 @@ pub trait HibernationWorld {
     /// `TrySetVanillaDen`'s check: the room's file is in its region's rooms or the gate
     /// shelters.
     fn vanilla_room_exists(&self, room: &str) -> bool;
+    /// The save strings of what the first player holds, hand 0 first (`playerGrasps`).
+    fn player_grasps(&self) -> Vec<String>;
+    /// The save string of the first player's `objectInStomach`, if any.
+    fn swallowed_item(&self) -> Option<String>;
 }

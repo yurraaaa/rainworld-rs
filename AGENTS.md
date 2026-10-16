@@ -136,12 +136,16 @@ before the user agrees.
   even where the game decides from files on disk (Downpour's
   `dlcsInstalled` check): the base-game menu scene and intro images.
 - Current phase is the player controller in a region whose only
-  behaving creatures are the overseers and the bat flies, not the full
-  game (campaign step 1, overseer step 1, batflies done):
+  behaving creatures are the overseers and the bat flies, with the lizards
+  under way (green lizards step 2 of 9, the abstract AI, done), not the
+  full game (campaign step 1, overseer step 1, batflies done):
   - A story starts at the campaign's start den in its region's world;
     room-exit shortcuts carry the player between the region's rooms, which
     load synchronously (D14). The population is generated with the
-    game's draws but only overseers leave their dens; overseers have their
+    game's draws but only overseers and lizards leave their dens. Lizards
+    run the general abstract creature AI (D14): den counters, roaming,
+    migration along the region's connections, paths, dens; they have no
+    body yet and wait unrealized in realized rooms. Overseers have their
     body, AI, graphics, the guide's tutorial text and their holograms
     (those whose triggers are ported: D14). The bat flies' world
     process moves their per-node counts between rooms, and a room that
@@ -150,7 +154,10 @@ before the user agrees.
     looker), holds, throws, carries them through pipes and eats them
     (bites, drips, food and the food meter), under the tutorial's Eat
     instruction in SU_A42; fed, the guide moves on to SU_A43's super-jump
-    lesson. Saves (`rw-save`, D16): Continue from the slugcat select, New
+    lesson. Rocks and spears lie in the rooms; the player picks them up,
+    carries them (through pipes and room exits), switches hands, lays them
+    down and swallows and regurgitates rocks; throwing them only drops
+    them until it is ported (D3). Saves (`rw-save`, D16): Continue from the slugcat select, New
     Game's wipe and the start's death-and-quit save. Shelters (D17): the
     door closes on a fed, still slugcat, `Win` writes the whole save state
     and region state, the sleep screen (karma ladder, food meter, map;
@@ -207,12 +214,13 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   (arena levels: a single-room world), as `slugcat` (default `White`); `new_game` starts a campaign
   (`White`, `Yellow`, `Red`) at its start den (`malnourished` starts it
   malnourished). `get_state` reports the
-  camera's room, the player (with its food, quarter pips, grasps,
-  eat counter, malnourishment, aerobic level and exhaustion), the player's room and node, the vessel waiting in the
+  camera's room, the player (with its food, quarter pips, grasps and
+  pick-up candidate as `{kind, id}`, stomach, swallow counter, eat counter, malnourishment, aerobic level and exhaustion), the player's room and node, the vessel waiting in the
   lobby, the realized rooms' entry waits and `creatures` (every
   abstract creature: kind, ID, room, node, tile, in den, realized,
-  alive; overseers also their AI's destination, guide state, last rooms
-  and realized tiles; realized flies their room, position, velocity,
+  alive; lizards also their abstract AI: destination, path, migration
+  destination, den, time buffer and den counter; overseers also their AI's
+  destination, guide state, last rooms and realized tiles; realized flies their room, position, velocity,
   behaviour, movement mode, grasps and holders) and `objects` (every
   abstract rock and spear: kind, ID, room, node, tile, a spear's
   stuck-in-wall cycles and explosive flag; realized ones also their
@@ -231,7 +239,8 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   shelter markers), the text prompt and the SU_C04 controls page,
   `hud_message` queues a text-prompt message, and the `map` input field
   (Space in the window) holds the map button (the map shows after 30
-  ticks; x/y pan it, jump and throw change layers); `pickup` (left Shift) picks up, drops and eats,
+  ticks; x/y pan it, jump and throw change layers); `pickup` (left Shift) picks up, drops (with down),
+  switches hands (double tap), eats, swallows and regurgitates (held),
   `throw` (X) throws.
 - To check behaviour, prefer these tools over `--screenshot`/`--script`.
   Briefs for agents that check behaviour should say so.
