@@ -70,6 +70,18 @@ impl super::CreatureState {
         }
     }
 
+    /// `LizardState.throatHealth` and `limbHealth`, to change.
+    pub fn lizard_health_parts_mut(&mut self) -> Option<(&mut f32, &mut [f32; 4])> {
+        match &mut self.parts {
+            StateParts::Lizard {
+                throat_health,
+                limb_health,
+                ..
+            } => Some((throat_health, limb_health)),
+            _ => None,
+        }
+    }
+
     /// `LizardState.throatHealth` and `limbHealth`.
     #[must_use]
     pub fn lizard_health_parts(&self) -> Option<(f32, [f32; 4])> {

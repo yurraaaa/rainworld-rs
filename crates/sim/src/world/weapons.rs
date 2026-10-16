@@ -609,7 +609,13 @@ impl World {
     }
 
     /// Cosmetic `id`'s `Update` in room `index`; a destroyed one leaves the room.
-    pub(crate) fn update_cosmetic(&mut self, index: i32, id: u64, rng: &mut UnityRandom) {
+    pub(crate) fn update_cosmetic(
+        &mut self,
+        index: i32,
+        id: u64,
+        tie: crate::cosmetic::CosmeticTie,
+        rng: &mut UnityRandom,
+    ) {
         let Some(r) = self.realized_mut(index) else {
             return;
         };
@@ -617,7 +623,7 @@ impl World {
         let Some(c) = r.cosmetics.iter_mut().find(|c| c.id == id) else {
             return;
         };
-        if c.update(&room, rng) {
+        if c.update(&room, tie, rng) {
             r.cosmetics.retain(|c| c.id != id);
         }
     }

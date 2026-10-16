@@ -16,6 +16,9 @@ pub struct TailSegment {
     pub affect_previous: f32,
     /// 1 when slack, down to 0.2 when pulled far beyond `connection_rad`.
     pub stretched: f32,
+    /// `pullInPreviousPosition`: the correction also moves the previous segment (else
+    /// only its velocity).
+    pub pull_in_previous_position: bool,
 }
 
 /// What a segment hangs on.
@@ -35,6 +38,7 @@ impl TailSegment {
             connection_rad,
             affect_previous,
             stretched: 1.0,
+            pull_in_previous_position: true,
         }
     }
 
@@ -62,7 +66,9 @@ impl TailSegment {
                     let other = dir * ((self.connection_rad - dist) * self.affect_previous);
                     p.pos -= own;
                     p.vel -= own;
-                    prev.pos += other;
+                    if self.pull_in_previous_position {
+                        prev.pos += other;
+                    }
                     prev.vel += other;
                     self.stretched = Self::stretch_for(self.connection_rad, dist);
                 }

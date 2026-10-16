@@ -181,17 +181,16 @@ impl Lizard {
         usize::try_from(i.rem_euclid(4)).unwrap_or(0)
     }
 
-    /// `LegsGripping`: the graphics' legs that hold on, 2 without a graphics module
-    /// (the graphics are lizard step 5, docs/DIVERGENCES.md).
+    /// `LegsGripping`: the graphics' legs that hold on, 2 without a graphics module.
     #[must_use]
     pub fn legs_gripping(&self) -> i32 {
-        2
+        self.graphics.as_ref().map_or(2, |g| g.legs_grabbing)
     }
 
     /// `NoGripCounter`: the graphics', 0 without them.
     #[must_use]
     pub fn no_grip_counter(&self) -> i32 {
-        0
+        self.graphics.as_ref().map_or(0, |g| g.no_grip_counter)
     }
 
     /// `MovementAnimation.Update(speedFac)`: each destination's chunk is slowed by the

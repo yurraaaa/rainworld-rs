@@ -12,7 +12,7 @@ use crate::creature::fly::{FlyRoomTick, FlyRun, FlyTick, PlayerBody};
 use crate::creature::{CreatureId, WorldCoordinate};
 use crate::item::Entity;
 use crate::shortcut::{CreatureVessel, ShortcutVessel, Transport};
-use crate::world::FliesTick;
+use crate::world::{FliesTick, LizardRoomCx};
 use crate::{LobbyVessel, SoundId, Vec2, VesselOwner, VesselStep};
 
 impl RainWorldGame {
@@ -284,7 +284,7 @@ impl RainWorldGame {
             VesselStep::SpatOut => {
                 self.shortcuts.transport.remove(i);
                 if self.world.creature(v.creature).lizard().is_some() {
-                    self.spit_out_lizard(v);
+                    self.spit_out_lizard(v, observer);
                 } else {
                     self.spit_out_fly(v, observer);
                 }
@@ -561,24 +561,58 @@ impl RainWorldGame {
                 observer.fly_removed(self.world.creature(id).id);
             }
         }
-        let mut objects: Vec<(u64, CreatureId, bool)> = self
+        let lizards_leaving: Vec<CreatureId> = self
+            .world
+            .creatures()
+            .filter(|(_, c)| {
+                c.lizard()
+                    .and_then(|l| l.graphics.as_ref())
+                    .is_some_and(|g| g.drawn_in.contains(&from))
+            })
+            .map(|(id, _)| id)
+            .collect();
+        for id in lizards_leaving {
+            if let Some(mut g) = self.world.lizard_at(id).graphics.take() {
+                g.sound_loop.stop(&mut self.sounds);
+            }
+            observer.lizard_removed(self.world.creature(id).id);
+        }
+        let mut objects: Vec<(u64, CreatureId, Viewed)> = self
             .world
             .room_overseers(to)
             .into_iter()
-            .map(|(seq, id)| (seq, id, false))
+            .map(|(seq, id)| (seq, id, Viewed::Overseer))
             .collect();
         for (id, c) in self.world.creatures() {
             if let Some(f) = c.fly().filter(|f| f.room == Some(to)) {
-                objects.push((f.update_order, id, true));
+                objects.push((f.update_order, id, Viewed::Fly));
             }
         }
+        objects.extend(
+            self.world
+                .room_lizards(to)
+                .into_iter()
+                .map(|(seq, id)| (seq, id, Viewed::Lizard)),
+        );
         objects.sort_by_key(|&(seq, _, _)| seq);
-        for (_, id, is_fly) in objects {
-            if !is_fly {
-                if let Some(view) = self.world.overseer_view(id) {
-                    observer.overseer_added(&view, &mut self.rng);
+        for (_, id, kind) in objects {
+            match kind {
+                Viewed::Overseer => {
+                    if let Some(view) = self.world.overseer_view(id) {
+                        observer.overseer_added(&view, &mut self.rng);
+                    }
+                    continue;
                 }
-                continue;
+                Viewed::Lizard => {
+                    let mut cx = LizardRoomCx {
+                        rng: &mut self.rng,
+                        observer: &mut *observer,
+                        camera_room: self.camera_room,
+                    };
+                    self.world.lizard_initiate_graphics(id, &mut cx);
+                    continue;
+                }
+                Viewed::Fly => {}
             }
             if self.world.fly_ref(id).graphics {
                 continue;
@@ -588,4 +622,12 @@ impl RainWorldGame {
             observer.fly_added(&view, &mut self.rng);
         }
     }
+}
+
+/// What `Room.NowViewed` gives a graphics module, in update-list order.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Viewed {
+    Overseer,
+    Fly,
+    Lizard,
 }

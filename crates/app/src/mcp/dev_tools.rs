@@ -249,7 +249,12 @@ impl RoomShot {
         if let Some(r) = world.realized(self.room) {
             let mut shown: Vec<_> = r.cosmetics.iter().filter(|c| !c.slated).collect();
             shown.sort_by_key(|c| c.update_order);
-            lists.extend(shown.iter().map(|c| c.draw(&r.room, 1.0)));
+            let none = rw_graphics::NoLizards(black);
+            lists.extend(
+                shown
+                    .iter()
+                    .map(|c| c.draw(&r.room, 1.0, &none, &mut cosmetic)),
+            );
         }
         lists
     }

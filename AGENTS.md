@@ -149,7 +149,7 @@ remains for older notes' line numbers; new notes cite file and member.
   `dlcsInstalled` check): the base-game menu scene and intro images.
 - Current phase is the player controller in a region whose only
   behaving creatures are the overseers and the bat flies, with the lizards
-  under way (green lizards step 4 of 9, pathfinding and movement, done), not the
+  under way (green lizards step 5a of 9, the body, head and leg graphics, done), not the
   full game (campaign step 1, overseer step 1, batflies done):
   - A story starts at the campaign's start den in its region's world;
     room-exit shortcuts carry the player between the region's rooms, which
@@ -162,7 +162,9 @@ remains for older notes' line numbers; new notes cite file and member.
     realized rooms, except the green lizards: they come out of their dens
     into realized rooms with their body, walk and take shortcuts after
     their abstract AI's destinations (path finder, movement, shortcut and
-    room travel; the AI's own decisions and the graphics are not there yet),
+    room travel; the AI's own decisions are not there yet), are drawn
+    (body, tail, head, jaws and legs whose grip feeds the movement; the
+    cosmetics' sprites and the voice are step 5b),
     take rock and spear hits (head shield,
     mouth, stun, lodged spears), die and are counted as kills. Overseers have their
     body, AI, graphics, the guide's tutorial text, the Monk's guide light and their holograms
@@ -250,7 +252,10 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   stranded, run speed and its dev override, animation, following and upcoming
   connections, movement animation, grip point, limb grips, time on this move,
   desperation, wiggle count, stuck counter and utility, the shortcut being entered
-  and the vessel in the tubes: position, last positions, wait); any creature its stun and
+  and the vessel in the tubes: position, last positions, wait) and, in a viewed room,
+  `graphics` (culled, legs grabbing, no-grip counter, limbs: mode, position, hunt and
+  grab positions, grip counter, reaching, disabled, flip; head, head and depth
+  rotations, jaw, blink, flicker, white flicker, look position, cosmetics, light); any creature its stun and
   kill tag, its social memory
   (`social`: subject, like, temp like, fear, temp fear, know), a realized one its danger
   (`danger`: `dangerousToPlayer`, `DangerPos`, aggression) and what its grip

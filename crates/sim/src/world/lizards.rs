@@ -8,11 +8,21 @@
 use rw_random::UnityRandom;
 
 use super::{QuickPathFinder, RealizedRoom, World};
+use crate::PlayerObserver;
 use crate::Vec2;
+use crate::creature::lizard::LizardView;
 use crate::creature::{
     CreatureId, Lizard, PathFinders, PatherKind, RealizedCreature, WorldCoordinate,
 };
 use crate::item::Entity;
+
+/// What placing a lizard in a room reads of the game: the stream, the graphics
+/// observer and the viewed room (`Room.BeingViewed`).
+pub(crate) struct LizardRoomCx<'a> {
+    pub rng: &'a mut UnityRandom,
+    pub observer: &'a mut dyn PlayerObserver,
+    pub camera_room: i32,
+}
 
 impl World {
     /// Realized lizard `id`.
@@ -129,7 +139,7 @@ impl World {
         &mut self,
         id: CreatureId,
         shelter_spawn: Option<(i32, i32)>,
-        rng: &mut UnityRandom,
+        cx: &mut LizardRoomCx<'_>,
     ) {
         let room = self.creature(id).pos.room;
         if let Some(tile) = shelter_spawn {
@@ -140,14 +150,14 @@ impl World {
             let Some(data) = self.abstract_room(room) else {
                 return;
             };
-            let specific = rng.range_i32(0, t.nodes_relevant(data));
+            let specific = cx.rng.range_i32(0, t.nodes_relevant(data));
             self.creature_mut(id).pos.node = t.common_node_index(data, specific);
         }
-        let already = self.place_in_realized_room(id, rng);
+        let already = self.place_in_realized_room(id, cx.rng);
         if self.creature(id).in_den {
             return;
         }
-        if !self.realize_lizard(id, rng) && self.creature(id).lizard().is_none() {
+        if !self.realize_lizard(id, cx.rng) && self.creature(id).lizard().is_none() {
             return;
         }
         if self.realized(room).is_none() {
@@ -156,7 +166,7 @@ impl World {
         }
         let mut pos = self.creature(id).pos;
         if !pos.tile_defined() {
-            pos.tile = self.local_coordinate_of_node(room, pos.node, rng);
+            pos.tile = self.local_coordinate_of_node(room, pos.node, cx.rng);
             self.creature_mut(id).pos = pos;
         }
         for o in self.connected_objects(Entity::Creature(id)) {
@@ -164,19 +174,19 @@ impl World {
                 Entity::Creature(o) => {
                     self.creature_mut(o).pos = pos;
                     if self.creature(o).lizard().is_some() {
-                        self.place_lizard(o, room, rng);
+                        self.place_lizard(o, room, cx);
                     }
                 }
                 Entity::Object(o) => {
                     self.object_mut(o).pos = pos;
-                    self.place_object(o, rng);
+                    self.place_object(o, cx.rng);
                 }
             }
         }
         if let Some(pf) = self.path_finder_of(id) {
             let pos = self.creature(id).pos;
             self.with_path_finders(|pfs, w| {
-                pfs.initi_accessibility_mapping(pf, w, pos, already, rng);
+                pfs.initi_accessibility_mapping(pf, w, pos, already, cx.rng);
             });
         }
     }
@@ -320,14 +330,14 @@ impl World {
     /// `Creature.PlaceInRoom` of a realized lizard: added to the room, each chunk on its
     /// tile's middle a random degree off (a draw each), still; what it holds on its
     /// head; then `NewRoom`.
-    pub(crate) fn place_lizard(&mut self, id: CreatureId, room: i32, rng: &mut UnityRandom) {
-        self.lizard_add_object(id, room);
+    pub(crate) fn place_lizard(&mut self, id: CreatureId, room: i32, cx: &mut LizardRoomCx<'_>) {
+        self.lizard_add_object(id, room, cx);
         let middle = Vec2::middle_of_tile(self.creature(id).pos.tile);
         let Some(l) = self.creature_mut(id).lizard_mut() else {
             return;
         };
         for c in &mut l.body.chunks {
-            c.reset_at(middle + Vec2::from_degrees(rng.value() * 360.0));
+            c.reset_at(middle + Vec2::from_degrees(cx.rng.value() * 360.0));
             c.set_pos = None;
         }
         let main = l.head().pos;
@@ -353,18 +363,77 @@ impl World {
                 }
             }
         }
-        self.lizard_new_room(id, rng);
+        self.lizard_new_room(id, cx);
     }
 
-    /// `Room.AddObject` of a lizard: the end of the room's update list. In a viewed
-    /// room the game builds its `LizardGraphics` (lizard step 5).
-    pub(crate) fn lizard_add_object(&mut self, id: CreatureId, room: i32) {
+    /// `Room.AddObject` of a lizard: the end of the room's update list; in a viewed
+    /// room `InitiateGraphicsModule`.
+    pub(crate) fn lizard_add_object(
+        &mut self,
+        id: CreatureId,
+        room: i32,
+        cx: &mut LizardRoomCx<'_>,
+    ) {
         let seq = self.next_update_seq();
         if let Some(l) = self.creature_mut(id).lizard_mut() {
             l.room = Some(room);
             l.update_order = seq;
             l.slated = false;
         }
+        let has = self
+            .creature(id)
+            .lizard()
+            .is_some_and(|l| l.graphics.is_some());
+        if has {
+            // `drawable = graphicsModule`: the room's drawables hold it too.
+            if let Some(link) = self.lizard_at(id).graphics.as_mut()
+                && !link.drawn_in.contains(&room)
+            {
+                link.drawn_in.push(room);
+            }
+        } else if room == cx.camera_room {
+            self.lizard_initiate_graphics(id, cx);
+        }
+    }
+
+    /// `Lizard.InitiateGraphicsModule`: a `LizardGraphics` unless it has one, then its
+    /// `Reset` (when the observer builds graphics).
+    pub(crate) fn lizard_initiate_graphics(&mut self, id: CreatureId, cx: &mut LizardRoomCx<'_>) {
+        if !cx.observer.builds_lizard_graphics() {
+            return;
+        }
+        let Some(l) = self.creature_mut(id).lizard_mut() else {
+            return;
+        };
+        let mut link = l.graphics.take().unwrap_or_default();
+        if let Some(room) = l.room
+            && !link.drawn_in.contains(&room)
+        {
+            link.drawn_in.push(room);
+        }
+        if let Some(view) = self.lizard_view(id, None) {
+            cx.observer.lizard_added(&view, &mut link, cx.rng);
+        }
+        self.lizard_at(id).graphics = Some(link);
+    }
+
+    /// What `LizardGraphics` reads of realized lizard `id`; `grabbed` is the position of
+    /// the chunk its jaws hold when that is a creature's.
+    #[must_use]
+    pub fn lizard_view(&self, id: CreatureId, grabbed: Option<Vec2>) -> Option<LizardView<'_>> {
+        let c = self.creature(id);
+        let lizard = c.lizard()?;
+        let limb_health = c.state.lizard_health_parts().map_or([1.0; 4], |(_, l)| l);
+        Some(LizardView {
+            id: c.id,
+            creature: id,
+            kind: c.kind(),
+            lizard,
+            health: c.state.health,
+            limb_health,
+            holding: c.grasps.first().is_some_and(Option::is_some),
+            grabbed_creature: grabbed,
+        })
     }
 
     /// `Creature.NewRoom`: the AI's `NewRoom`, then 40 ticks of `newToRoomInvinsibility`.
@@ -372,12 +441,13 @@ impl World {
     /// last, resets the path finder to the room and clears the stuck tracker's move log,
     /// and an abstract destination in this room without a tile gets a random tile of it
     /// (two draws).
-    pub(crate) fn lizard_new_room(&mut self, id: CreatureId, rng: &mut UnityRandom) {
+    pub(crate) fn lizard_new_room(&mut self, id: CreatureId, cx: &mut LizardRoomCx<'_>) {
         let Some(l) = self.creature_mut(id).lizard_mut() else {
             return;
         };
         let Some(room) = l.room else {
-            l.new_to_room_invinsibility = 40;
+            self.lizard_graphics_reset(id, cx);
+            self.lizard_at(id).new_to_room_invinsibility = 40;
             return;
         };
         l.ai.time_in_room = 0;
@@ -385,7 +455,7 @@ impl World {
             l.ai.last_room = room;
             l.ai.time_in_room = 0;
             if let Some(pf) = l.ai.path_finder {
-                self.with_path_finders(|pfs, w| pfs.new_room(pf, w, room, rng));
+                self.with_path_finders(|pfs, w| pfs.new_room(pf, w, room, cx.rng));
             }
             self.lizard_at(id).ai.stuck.new_room();
             let dest = self.ai_of(id).map(|a| a.destination);
@@ -395,15 +465,31 @@ impl World {
                 && let Some(r) = self.realized(room)
             {
                 let (w, h) = (r.room.width(), r.room.height());
-                let x = rng.range_i32(0, w);
-                let y = rng.range_i32(0, h);
+                let x = cx.rng.range_i32(0, w);
+                let y = cx.rng.range_i32(0, h);
                 if let Some(pf) = self.path_finder_of(id) {
                     let to = WorldCoordinate::new(room, x, y, -1);
-                    self.with_path_finders(|pfs, w| pfs.set_destination(pf, w, to, rng));
+                    self.with_path_finders(|pfs, w| pfs.set_destination(pf, w, to, cx.rng));
                 }
             }
         }
+        self.lizard_graphics_reset(id, cx);
         self.lizard_at(id).new_to_room_invinsibility = 40;
+    }
+
+    /// `Creature.NewRoom`'s `graphicsModule.Reset()`.
+    fn lizard_graphics_reset(&mut self, id: CreatureId, cx: &mut LizardRoomCx<'_>) {
+        let Some(mut link) = self
+            .creature_mut(id)
+            .lizard_mut()
+            .and_then(|l| l.graphics.take())
+        else {
+            return;
+        };
+        if let Some(view) = self.lizard_view(id, None) {
+            cx.observer.lizard_reset(&view, &mut link, cx.rng);
+        }
+        self.lizard_at(id).graphics = Some(link);
     }
 
     /// `AbstractCreature.Abstractize(coord)` of a realized lizard: at its own position

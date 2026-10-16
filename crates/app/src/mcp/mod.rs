@@ -14,6 +14,8 @@ mod dev_tools_tests;
 mod game_over_tests;
 #[cfg(test)]
 mod kills_tests;
+#[cfg(test)]
+mod lizard_graphics_tests;
 mod music_reply;
 mod params;
 #[cfg(test)]

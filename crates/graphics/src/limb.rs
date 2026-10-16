@@ -51,6 +51,8 @@ pub struct Limb {
     pub absolute_hunt_pos: Vec2,
     /// Within `hunt_speed` of the target this tick (or retracted).
     pub reached_snap_position: bool,
+    /// Pulled back to the connection until it gets there (`retract`).
+    pub retract: bool,
 }
 
 /// No grip found yet (the game's `(-100000, -100000)` sentinel).
@@ -71,13 +73,21 @@ impl Limb {
             relative_hunt_pos: Vec2::ZERO,
             absolute_hunt_pos: Vec2::ZERO,
             reached_snap_position: false,
+            retract: false,
         }
     }
 
-    /// `Limb.Update` (the slugcat never sets `retract`). `connection` is the chunk the
-    /// limb hangs on, `rotation_chunk` the chunk that orients relative targets.
+    /// `Limb.Update`. `connection` is the chunk the limb hangs on, `rotation_chunk` the
+    /// chunk that orients relative targets.
     pub fn update(&mut self, room: &Room, connection: &BodyChunk, rotation_chunk: Vec2) {
         self.part.last_pos = self.part.pos;
+        if self.retract && self.mode != LimbMode::Retracted {
+            self.mode = LimbMode::HuntAbsolutePosition;
+            self.absolute_hunt_pos = connection.pos;
+            if self.absolute_hunt_pos.distance(self.part.pos) < self.hunt_speed {
+                self.mode = LimbMode::Retracted;
+            }
+        }
         if self.mode == LimbMode::HuntRelativePosition {
             self.absolute_hunt_pos = connection.pos
                 + self
@@ -117,8 +127,9 @@ impl Limb {
     /// `Limb.FindGrip`: among the 3x3 tiles around `search_from`, the terrain point
     /// nearest `goal` within `max_radius` of `attached` (Solid tiles at their free
     /// edges, Floor tops, slope lines, beam centre lines, optionally walls behind);
-    /// if one is found the limb hunts it in absolute mode. Without burrow terrain.
-    pub fn find_grip(&mut self, room: &Room, s: GripSearch) {
+    /// if one is found the limb hunts it in absolute mode and true is returned
+    /// (`GrabbedTerrain`). Without burrow terrain.
+    pub fn find_grip(&mut self, room: &Room, s: GripSearch) -> bool {
         let mut search_from = s.search_from;
         let mut goal = s.goal;
         if s.attached.distance(search_from) >= s.max_radius {
@@ -188,7 +199,22 @@ impl Limb {
         if best.x != NO_GRIP.x && best.y != NO_GRIP.y {
             self.mode = LimbMode::HuntAbsolutePosition;
             self.absolute_hunt_pos = best;
+            return true;
         }
+        false
+    }
+
+    /// `OverLappingHuntPos`.
+    #[must_use]
+    pub fn overlapping_hunt_pos(&self) -> bool {
+        self.reached_snap_position
+            || self.part.pos.distance(self.absolute_hunt_pos) < self.part.rad + 1.0
+    }
+
+    /// `defaultHuntSpeed`.
+    #[must_use]
+    pub fn default_hunt_speed(&self) -> f32 {
+        self.default_hunt_speed
     }
 
     /// Takes `cand` as the best grip if it is nearer `goal` and within reach.

@@ -80,7 +80,12 @@ impl RainWorldGame {
     fn placed_lizard(&mut self) -> CreatureId {
         let l = self.abstract_lizard();
         assert!(self.world.realize_lizard(l, &mut self.rng));
-        self.world.place_lizard(l, 0, &mut self.rng);
+        let mut cx = crate::world::LizardRoomCx {
+            rng: &mut self.rng,
+            observer: &mut (),
+            camera_room: -1,
+        };
+        self.world.place_lizard(l, 0, &mut cx);
         l
     }
 
@@ -130,7 +135,7 @@ impl RainWorldGame {
 
     fn lizard_tick(&mut self, l: CreatureId) {
         let room = Arc::clone(&self.world.realized(0).expect("room 0").room);
-        self.run_lizard(0, l, &room);
+        self.run_lizard(0, l, &room, &mut ());
     }
 }
 
@@ -356,7 +361,12 @@ fn an_abstracted_lizard_realizes_again() {
     assert!(g.world.creature(l).lizard().is_none());
     assert!(g.world.room_lizards(0).is_empty());
     assert!(g.world.realize_lizard(l, &mut g.rng));
-    g.world.place_lizard(l, 0, &mut g.rng);
+    let mut cx = crate::world::LizardRoomCx {
+        rng: &mut g.rng,
+        observer: &mut (),
+        camera_room: -1,
+    };
+    g.world.place_lizard(l, 0, &mut cx);
     assert_eq!(g.world.room_lizards(0).len(), 1);
 }
 
@@ -370,4 +380,51 @@ fn a_realized_lizard_is_a_danger_to_the_player() {
     assert_eq!(d.player_aggression, Some(1.0));
     assert_eq!(d.danger_pos, BODY[0]);
     assert!(d.dangerous_to_player > 0.0);
+}
+
+/// `LizardGraphics.TerrainImpact`: with graphics a first contact over 10 px a tick rolls
+/// once; the head (or 60%) blows `1 + InverseLerp(20, 90, speed) * 3` bubbles, each a
+/// stickiness draw before its constructor. Without graphics nothing is drawn.
+#[test]
+fn a_hard_landing_with_graphics_blows_bubbles() {
+    let (mut g, _) = game(vec![]);
+    let l = g.lying_lizard();
+    let impact = crate::TerrainImpact {
+        chunk: 0,
+        direction: crate::Contact { x: 0, y: -1 },
+        speed: 60.0,
+        first_contact: true,
+    };
+    let before = g.rng.clone();
+    g.lizard_impact_bubbles(0, l, &impact);
+    assert_eq!(g.rng, before, "no graphics, no draws");
+    g.world.lizard_at(l).graphics = Some(crate::creature::lizard::LizardGraphicsLink::default());
+    let count = g.world.room_cosmetics(0).len();
+    g.lizard_impact_bubbles(0, l, &impact);
+    // 1 + (int)(InverseLerp(20, 90, 60) * 3) = 2.
+    assert_eq!(g.world.room_cosmetics(0).len(), count + 2);
+    for c in &g.world.room_cosmetics(0)[count..] {
+        let crate::cosmetic::CosmeticKind::LizardBubble(b) = &c.kind else {
+            panic!("a bubble");
+        };
+        assert!(b.vel.y >= 0.0, "thrown up off the floor");
+    }
+}
+
+/// `Lizard.Update`'s white-flicker roll reaches the graphics: a sick lizard with
+/// graphics flickers within a few hundred ticks.
+#[test]
+fn a_sick_lizard_with_graphics_flickers_white() {
+    let (mut g, _) = game(vec![]);
+    let l = g.lying_lizard();
+    g.world.lizard_at(l).graphics = Some(crate::creature::lizard::LizardGraphicsLink::default());
+    g.world.creature_mut(l).state.health = 0.01;
+    g.world.lizard_at(l).stun = 1000;
+    let mut flickered = false;
+    for _ in 0..400 {
+        g.lizard_tick(l);
+        let link = g.world.lizard_ref(l).graphics.as_ref().expect("link");
+        flickered |= link.white_flicker_calls > 0 && (1..5).contains(&link.white_flicker);
+    }
+    assert!(flickered);
 }
