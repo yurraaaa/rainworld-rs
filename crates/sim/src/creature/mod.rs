@@ -347,7 +347,9 @@ impl AbstractCreature {
     /// `PacifiedBecauseCarried`: a grip stick where `B == this` equals its `carry`.
     #[must_use]
     pub fn pacified_because_carried(&self, me: CreatureId) -> bool {
-        self.sticks.iter().any(|s| (s.b == me) == s.carry)
+        self.sticks
+            .iter()
+            .any(|s| (s.b == crate::item::Entity::Creature(me)) == s.carry)
     }
 
     /// The realized object's `slatedForDeletetion`.

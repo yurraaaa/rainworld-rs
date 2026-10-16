@@ -121,6 +121,15 @@ pub struct ObjectInfo {
     pub realized: Option<WeaponInfo>,
 }
 
+/// A held or swallowed object.
+#[derive(Debug, Clone, Serialize)]
+pub struct HeldInfo {
+    /// `AbstractObjectType` or `CreatureTemplate.Type`.
+    pub kind: String,
+    /// `EntityID` (spawner, number).
+    pub id: [i32; 2],
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct WeaponInfo {
     pub room: String,
@@ -276,8 +285,14 @@ pub struct PlayerState {
     pub malnourished: bool,
     pub aerobic_level: f32,
     pub exhausted: bool,
-    /// The creature IDs held in each hand.
-    pub grasps: [Option<usize>; 2],
+    /// What each hand holds.
+    pub grasps: [Option<HeldInfo>; 2],
+    /// `objectInStomach` (an untyped saved object: its save string as `kind`).
+    pub stomach: Option<HeldInfo>,
+    /// `swallowAndRegurgitateCounter`.
+    pub swallow_counter: i32,
+    /// `pickUpCandidate`.
+    pub pick_up_candidate: Option<HeldInfo>,
     pub eat_counter: i32,
     pub sleep: SleepState,
 }

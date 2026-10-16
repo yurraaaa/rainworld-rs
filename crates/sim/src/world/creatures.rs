@@ -1110,7 +1110,7 @@ impl World {
             .grasps
             .iter()
             .flatten()
-            .map(|g| g.grabbed)
+            .filter_map(|g| g.grabbed_creature())
             .collect();
         // Cleared first: a circular chain stops here (the game releases such a grasp).
         self.creature_mut(id).realized = None;

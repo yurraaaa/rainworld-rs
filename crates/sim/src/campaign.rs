@@ -198,6 +198,8 @@ pub struct StoryStart {
     /// (no `new SaveState`), and its region state object is reused if given.
     pub in_memory: bool,
     pub live_region_state: Option<crate::world::RegionState>,
+    /// The first player's `swallowedItems` entry (`""` and `"0"` are none).
+    pub swallowed_item: Option<String>,
 }
 
 impl StoryStart {
@@ -222,6 +224,7 @@ impl StoryStart {
             region_state: None,
             in_memory: false,
             live_region_state: None,
+            swallowed_item: None,
         }
     }
 }

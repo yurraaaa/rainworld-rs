@@ -152,12 +152,7 @@ impl ObjectLooker {
         if !seen.here || seen.on_back {
             return 0.0;
         }
-        if around
-            .grasps
-            .iter()
-            .flatten()
-            .any(|&g| Entity::Creature(g) == id)
-        {
+        if around.grasps.iter().flatten().any(|&g| g == id) {
             return 0.0;
         }
         let mut num = 1.0;

@@ -18,6 +18,7 @@ use crate::creature::grasp::GripStick;
 use crate::creature::{
     AbstractCreatureAi, AbstractMovement, CreatureId, CreatureTemplate, WorldCoordinate,
 };
+use crate::item::Entity;
 
 impl World {
     /// `IsRoomInRegion`.
@@ -264,7 +265,9 @@ impl World {
             let sticks: Vec<GripStick> = c.sticks.clone();
             for stick in sticks {
                 // `stuckObjects[i].B` is a creature this template eats.
-                if t.eats(self.creature(stick.b).kind()) {
+                if let Entity::Creature(prey) = stick.b
+                    && t.eats(self.creature(prey).kind())
+                {
                     self.go_to_den(id, rng);
                     going_home = true;
                 }
@@ -797,7 +800,10 @@ impl World {
         if c.remain_in_den_counter > 0 {
             self.move_entity_to_den(id);
         } else if c.template.stow_food_in_den() {
-            let carrying = c.sticks.iter().any(|s| s.a == id);
+            let carrying = c
+                .sticks
+                .iter()
+                .any(|s| s.a == id && matches!(s.b, Entity::Creature(_)));
             if carrying {
                 self.creature_mut(id).remain_in_den_counter = 200;
                 self.move_entity_to_den(id);

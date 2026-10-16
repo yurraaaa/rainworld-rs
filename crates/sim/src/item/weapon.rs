@@ -311,6 +311,47 @@ impl Weapon {
         }
     }
 
+    /// `PlayerCarryableItem.Forbid`: 40 ticks out of the player's reach.
+    pub fn forbid(&mut self) {
+        self.forbidden_to_player = 40;
+    }
+
+    /// `ChangeOverlap`: in front of the other objects (`Items`) or behind them
+    /// (`Background`).
+    pub fn change_overlap(&mut self, overlap: bool) {
+        self.in_front_of_objects = i32::from(overlap);
+    }
+
+    /// Whether `Spear.PickedUp` pulls it out of a wall first (`hasHorizontalBeamState`).
+    #[must_use]
+    pub fn has_horizontal_beam_state(&self) -> bool {
+        self.spear().is_some_and(|s| s.has_horizontal_beam_state)
+    }
+
+    /// `Spear.PickedUp`'s pull out of a wall: `resetHorizontalBeamState` (the tiles'
+    /// poles put back), `stuckInWall` the zero vector, a vibration, terrain collision
+    /// back and no cycles left in the wall.
+    pub fn pull_out_of_wall(&mut self, object: &mut AbstractObject, room: &mut Room) {
+        let Some(s) = self.spear_mut() else {
+            return;
+        };
+        if let Some(abs) = object.spear_mut() {
+            s.reset_horizontal_beam_state(room, abs);
+        }
+        s.stuck_in_wall = Some(Vec2::ZERO);
+        self.vibrate = 20;
+        self.chunk_mut().collide_with_terrain = true;
+        if let Some(abs) = object.spear_mut() {
+            abs.stuck_in_wall_cycles = 0;
+        }
+    }
+
+    /// `NewRoom` (`Weapon`'s and `PlayerCarryableItem`'s).
+    pub fn new_room(&mut self) {
+        self.last_outside_terrain_pos = None;
+        self.in_front_of_objects = -1;
+    }
+
     /// `SetRandomSpin`: a rock spins at up to 100 degrees a tick either way (one draw);
     /// a spear at 50 to 150 in a random direction (two) and is `spinning`.
     pub fn set_random_spin(&mut self, rng: &mut UnityRandom) {

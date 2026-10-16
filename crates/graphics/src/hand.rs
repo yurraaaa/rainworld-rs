@@ -4,7 +4,7 @@
 
 use rw_assets::{Room, Terrain};
 use rw_random::UnityRandom;
-use rw_sim::creature::CreatureId;
+use rw_sim::item::Entity;
 use rw_sim::{Animation, BodyMode, HEAD, HIPS, Player, PlayerSurroundings, Vec2, Water};
 
 use crate::body_part::{BodyPart, PointConnection};
@@ -25,27 +25,49 @@ pub struct SlugcatHand {
 /// What the slugcat's grasps hold, as the hands read it.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub(crate) struct HandGrasp {
-    pub held: [Option<CreatureId>; 2],
+    pub held: [Option<Entity>; 2],
     /// The held object is a fly that is not dead.
     pub live_fly: [bool; 2],
+    /// The held object is an `IPlayerEdible` (a fly).
+    pub edible: [bool; 2],
+    /// `CanBeSwallowed` of the held object (a rock).
+    pub swallowable: [bool; 2],
+    /// A weapon is held (it takes `ChangeOverlap`).
+    pub weapon: [bool; 2],
+    /// `objectInStomach != null`.
+    pub stomach: bool,
 }
 
 impl HandGrasp {
     pub(crate) fn of(around: &PlayerSurroundings<'_>) -> Self {
-        let mut out = Self::default();
+        let mut out = Self {
+            stomach: around.stomach,
+            ..Self::default()
+        };
         for i in 0..2 {
             let held = around.grasps[i];
             out.held[i] = held;
             out.live_fly[i] = held
+                .and_then(Entity::creature)
                 .and_then(|id| around.world.creature(id).fly())
                 .is_some_and(|f| !f.dead);
+            out.edible[i] = held.is_some_and(|e| around.world.player_edible(e));
+            out.swallowable[i] = held.is_some_and(|e| around.world.can_be_swallowed(e));
+            out.weapon[i] = held
+                .and_then(Entity::object)
+                .is_some_and(|id| around.world.object(id).realized.is_some());
         }
         out
     }
 
-    /// The first hand holding something edible (every holdable object, a fly, is).
+    /// The first hand holding something edible.
     fn edible_hand(&self) -> Option<usize> {
-        (0..2).find(|&i| self.held[i].is_some())
+        (0..2).find(|&i| self.edible[i])
+    }
+
+    /// The first hand holding something it can swallow.
+    fn swallowable_hand(&self) -> Option<usize> {
+        (0..2).find(|&i| self.swallowable[i])
     }
 }
 
@@ -65,6 +87,12 @@ pub(crate) struct HandContext<'a> {
     pub spear_dir: f32,
     /// `drawPositions[0, 0]`, nudged by a held fly's twitch.
     pub draw_pos0: &'a mut Vec2,
+    /// The graphics' `blink`, closed while swallowing.
+    pub blink: &'a mut i32,
+    /// The held weapons' `ChangeOverlap` per hand, for `Player.GraphicsModuleUpdated`.
+    pub overlap: &'a mut [Option<bool>; 2],
+    /// What the hands add to the player's main chunk velocity this update.
+    pub body_push: &'a mut Vec2,
 }
 
 impl SlugcatHand {
@@ -130,8 +158,10 @@ impl SlugcatHand {
     }
 
     /// The grasp branch (241784-241872): the held object rides below the shoulder,
-    /// drawn in toward the mouth while eating, in the middle while switching hands,
-    /// forward while walking; a live fly twitches the hand, the body and the head.
+    /// drawn in toward the mouth while eating or swallowing (then shaking, with six
+    /// draws, once halfway), in the middle while switching hands, forward while walking
+    /// (a weapon in front of or behind the body); a live fly twitches the hand, the body
+    /// and the head.
     fn hold(&mut self, cx: &mut HandContext<'_>) {
         let player = cx.player;
         let limb = self.limb.limb_number;
@@ -146,6 +176,11 @@ impl SlugcatHand {
             rel.y += rw_sim::FloatExt::lerp_map(eat, 40.0, 20.0, 2.0, 4.0);
             rel.x *= rw_sim::FloatExt::lerp_map(eat, 40.0, 20.0, 1.0, 1.2);
         }
+        let counter = grab.swallow_and_regurgitate_counter;
+        if counter > 10 && !cx.grasps.stomach && cx.grasps.swallowable_hand() == Some(limb) {
+            self.swallow_reach(cx, counter);
+        }
+        let rel = &mut self.limb.relative_hunt_pos;
         rel.x *= 1.0 - (grab.switch_hands_process * std::f32::consts::PI).sin();
         if cx.spear_dir != 0.0 && player.body_mode() == BodyMode::Stand {
             let x = f32::from(player.input_history()[0].x);
@@ -157,10 +192,37 @@ impl SlugcatHand {
             b.x -= ((frame + foot) as f32 / 12.0 * std::f32::consts::TAU).cos() * 4.0 * x;
             b.x += x * 2.0;
             *rel = rel.lerp(b, cx.spear_dir.abs());
+            if cx.grasps.weapon[limb] {
+                cx.overlap[limb] =
+                    Some((cx.spear_dir > -0.4 && limb == 0) || (cx.spear_dir < 0.4 && limb == 1));
+            }
         }
         if cx.grasps.live_fly[limb] {
             self.twitch(cx);
         }
+    }
+
+    /// The swallow (241815-241850): the object brought to the mouth over the first half
+    /// of the count to 90, then held there shaking: the eyes shut, and the hand, the head
+    /// and the body's main chunk jitter (`RNV`, `value` each, in that order).
+    pub(crate) fn swallow_reach(&mut self, cx: &mut HandContext<'_>, counter: i32) {
+        let t = (counter as f32).inverse_lerp(10.0, 90.0);
+        let rel = &mut self.limb.relative_hunt_pos;
+        if t < 0.5 {
+            *rel *= 0.9f32.lerp_to(0.7, t * 2.0);
+            rel.y += 2.0f32.lerp_to(4.0, t * 2.0);
+            rel.x *= 1.0f32.lerp_to(1.2, t * 2.0);
+            return;
+        }
+        *cx.blink = 5;
+        let shake = t.inverse_lerp(0.5, 1.0);
+        let rng = &mut *cx.rng;
+        let dir = Vec2::random_unit(rng);
+        *rel = Vec2::new(0.0, -4.0) + dir * (2.0 * rng.value() * shake);
+        let dir = Vec2::random_unit(rng);
+        *cx.head_vel += dir * (2.0 * rng.value() * shake);
+        let dir = Vec2::random_unit(rng);
+        *cx.body_push += dir * (0.2 * rng.value() * shake);
     }
 
     /// A live fly in the hand (241859-241866): nine draws in source order.
