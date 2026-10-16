@@ -78,29 +78,33 @@ impl RainWorldGame {
         self.world.lizard_at(id).voice = Some(voice);
     }
 
-    /// The lizards' voice emitters in room `index`'s update list.
+    /// The lizards' voice emitters, held or released, in room `index`'s update list.
     pub(super) fn room_lizard_voice_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         self.world
             .creatures()
-            .filter_map(|(id, c)| {
-                let e = c.lizard()?.voice.as_ref()?.sound_a.as_ref()?.emitter;
-                (e.room == index && !e.slated)
-                    .then_some((e.update_order, RoomObject::LizardVoice(id)))
+            .filter_map(|(id, c)| Some((id, c.lizard()?.voice.as_ref()?)))
+            .flat_map(|(owner, v)| {
+                v.emitters().filter(|e| e.room == index).map(move |e| {
+                    let order = e.update_order;
+                    (order, RoomObject::LizardVoice { owner, order })
+                })
             })
             .collect()
     }
 
-    /// The `ChunkSoundEmitter.Update` of lizard `id`'s voice emitter in room `index`.
-    pub(super) fn run_lizard_voice_emitter(&mut self, index: i32, id: CreatureId) {
-        let Some(l) = self.world.creature_mut(id).lizard_mut() else {
+    /// The `ChunkSoundEmitter.Update` of lizard `owner`'s voice emitter that joined room
+    /// `index` at `order`: it follows the head, and dies when its owner left the room or
+    /// nothing kept it alive since its last update; its sound is cut then.
+    pub(super) fn run_lizard_voice_emitter(&mut self, index: i32, owner: CreatureId, order: u64) {
+        let Some(l) = self.world.creature_mut(owner).lizard_mut() else {
             return;
         };
         let (owner_room, pos) = (l.room, l.body.chunks[0].pos);
-        let Some(e) = l
-            .voice
-            .as_mut()
-            .and_then(|v| v.sound_a.as_mut())
-            .map(|s| &mut s.emitter)
+        let Some(voice) = l.voice.as_mut() else {
+            return;
+        };
+        let Some(e) = voice
+            .emitter_mut(order)
             .filter(|e| e.room == index && !e.slated)
         else {
             return;
@@ -114,6 +118,7 @@ impl RainWorldGame {
         e.update(owner_room, self.camera_room, self.tick);
         if e.slated {
             sounds.stop_emitter(e.sound);
+            voice.released.retain(|e| !e.slated);
         }
     }
 }

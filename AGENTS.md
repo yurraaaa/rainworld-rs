@@ -260,7 +260,7 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   start sprite, sprites, overlap, graphic, colored, count and the long scales' tips;
   `voice_visualization` and its intensity, and `voice`: trigger, sound, emotion,
   progression, intensity, volume, pitch, making a sound, saved and visualized
-  intensity, emitter, playing); any creature its stun and
+  intensity, emitter, playing, released emitters); any creature its stun and
   kill tag, its social memory
   (`social`: subject, like, temp like, fear, temp fear, know), a realized one its danger
   (`danger`: `dangerousToPlayer`, `DangerPos`, aggression) and what its grip

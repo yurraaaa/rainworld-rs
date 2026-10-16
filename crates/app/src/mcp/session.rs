@@ -1000,6 +1000,7 @@ impl Session {
             visualized_intensity: v.visualized_intensity(),
             emitter: v.sound_a.is_some(),
             playing: v.sound_a.as_ref().is_some_and(|s| s.emitter.playing),
+            released: v.released.len(),
         }
     }
 

@@ -239,6 +239,9 @@ pub struct LizardVoice {
     /// `ptch` (`Pitch`).
     pub pitch: f32,
     pub sound_a: Option<VoiceSound>,
+    /// Emitters `soundA` let go: still in the room's update list until their own
+    /// update finds no upkeep and destroys them.
+    pub released: Vec<LoopEmitter>,
     /// The visualizer's `savedIntensity`.
     pub saved_intensity: f32,
 }
@@ -277,6 +280,7 @@ impl LizardVoice {
             volume: 1.0,
             pitch: 1.0,
             sound_a: None,
+            released: Vec::new(),
             saved_intensity: 0.0,
         }
     }
@@ -380,13 +384,33 @@ impl LizardVoice {
                 self.pitch = 0.5f32.lerp(1.5, art.return_mod(p, 1)) * self.my_pitch;
             }
         }
-        if cx.holding {
-            self.drop_sound(cx.sounds);
-        }
         if let Some(s) = &self.sound_a {
             cx.sounds
                 .update_emitter(s.emitter.sound, self.volume, self.pitch);
         }
+        if cx.holding {
+            self.drop_sound();
+        }
+    }
+
+    /// The emitter, held or released, that joined the update list at `order`.
+    pub fn emitter_mut(&mut self, order: u64) -> Option<&mut LoopEmitter> {
+        self.sound_a
+            .as_mut()
+            .map(|s| &mut s.emitter)
+            .into_iter()
+            .chain(self.released.iter_mut())
+            .find(|e| e.update_order == order)
+    }
+
+    /// The emitters still in a room's update list.
+    pub fn emitters(&self) -> impl Iterator<Item = &LoopEmitter> {
+        self.sound_a
+            .as_ref()
+            .map(|s| &s.emitter)
+            .into_iter()
+            .chain(&self.released)
+            .filter(|e| !e.slated)
     }
 
     /// `CreatureVoice.Update`: the sound is let go when there is none, the volume is 0,
@@ -398,7 +422,7 @@ impl LizardVoice {
             || self.sound_id != self.last_sound_id
             || self.sound_a.as_ref().is_some_and(|s| s.emitter.slated)
         {
-            self.drop_sound(cx.sounds);
+            self.drop_sound();
         }
         self.last_sound_id = self.sound_id;
         if let Some(s) = &mut self.sound_a {
@@ -411,13 +435,13 @@ impl LizardVoice {
         self.update_visualizer(cx);
     }
 
-    /// Lets the emitter go; the port stops its sound at once (the game's dies on its
-    /// next update without upkeep).
-    fn drop_sound(&mut self, sounds: &mut Sounds) {
+    /// `soundA = null`: the emitter stays in the room, unkept, until its update
+    /// destroys it.
+    fn drop_sound(&mut self) {
         if let Some(s) = self.sound_a.take()
             && !s.emitter.slated
         {
-            sounds.stop_emitter(s.emitter.sound);
+            self.released.push(s.emitter);
         }
     }
 

@@ -424,6 +424,8 @@ pub struct LizardVoiceInfo {
     /// The emitter is up, and its clip still plays where the camera hears it.
     pub emitter: bool,
     pub playing: bool,
+    /// Emitters let go that the room still updates (they die at their next update).
+    pub released: usize,
 }
 
 /// One `LizardLimb`.
