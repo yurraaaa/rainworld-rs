@@ -128,6 +128,10 @@ impl RainWorldGame {
         if let Some(f) = pf.and_then(|p| self.world.path_finders.get_mut(p)) {
             f.walk_past_point_of_no_return = walk_past;
         }
+        // `fear`, `hunger` and `rainFear` are the smoothed utilities of trackers that
+        // track nothing until lizard step 6, so 0.
+        let l = self.world.lizard_at(id);
+        l.ai.excitement = l.ai.excitement.lerp(0.0, 0.1);
         let holding = self.lizard_holding(id);
         let l = self.world.lizard_at(id);
         let jaw = l.read_jaw_open(holding) - 0.01;
