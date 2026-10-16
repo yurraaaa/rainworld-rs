@@ -1109,6 +1109,12 @@ second part, else a single-room world for arena levels). The campaign descriptio
   scavenger-trade hint, the Scholar), `dreamsState.guideHasShownHimselfToPlayer`, Moon's
   like rising on save (`SLaiState`; no iterator is ported), and destroying an angry
   guide in the off-screen den (`OverseerAbstractAI.Moved`, until iterators are ported).
+  Placed light sources (`PlacedObject.Type.LightSource` in 126 base-game rooms' settings)
+  are not created, so those rooms lack their lamps' glow and `Needed` and
+  `CompleteDarkness` don't see them; with them wait `LightSource`'s placed-light paths
+  (blinking, `colorFromEnvironment`, `effectColor`, `nightLight`, `fadeWithSun`) and the
+  colour setter's alpha quirk. Skipped by the user (2026-10-16), to be ported with the
+  rest of the room effects.
   The `AbstractCreature` constructor's abstract AI switch (300531..300570) is ported
   for every base type but the scavenger (`CreatureTemplate::abstract_ai_ported`): the
   vultures', cicadas', big eels', deer's (Remix's deer behaviour off), Miros birds' and
