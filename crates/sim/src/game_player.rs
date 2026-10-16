@@ -184,9 +184,9 @@ impl RainWorldGame {
         let Some(p) = self.player.as_mut() else {
             return;
         };
-        if p.collide_with_creature() {
+        if let Some(stun) = p.collide_with_creature() {
             let f = self.world.fly_at(fly);
-            f.stun = f.stun.max(2);
+            f.stun = f.stun.max(stun);
         }
         let Some(p) = self.player.as_ref() else {
             return;
@@ -637,13 +637,18 @@ impl RainWorldGame {
 
     /// `ThrowObject`: `AerobicIncrease(0.75)`, a weapon thrown or anything else tossed,
     /// `dontGrabStuff` 15, a look at it, a carried item forbidden to the player, let go.
-    fn throw_object(&mut self, index: i32, grasp: usize, observer: &mut dyn PlayerObserver) {
+    pub(super) fn throw_object(
+        &mut self,
+        index: i32,
+        grasp: usize,
+        observer: &mut dyn PlayerObserver,
+    ) {
         let Some(obj) = self.player_grasps()[grasp] else {
             return;
         };
         self.player_mut().aerobic_increase(0.75);
         match obj {
-            Entity::Object(id) => self.throw_weapon(index, grasp, id),
+            Entity::Object(id) => self.throw_weapon(index, grasp, id, observer),
             Entity::Creature(fly) => self.toss_object(index, fly),
         }
         self.player_mut().grab_mut().dont_grab_stuff = 15;

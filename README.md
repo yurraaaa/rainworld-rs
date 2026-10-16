@@ -50,8 +50,9 @@ Working now:
   the guide's tutorial teaches it to (the Eat instruction, then the super jump once fed).
 - **Items:** rocks and spears lie in the rooms, roll, stick into the ground, and spears
   stuck in walls are poles; shelters keep them across cycles. The slugcat picks them
-  up, carries them (through pipes too), switches hands, lays them down, and swallows
-  and coughs up rocks.
+  up, carries them (through pipes too), switches hands, lays them down, swallows
+  and coughs up rocks, and throws them: rocks bounce off walls, spears stick in them
+  (also from belly-slide throws, which kick off a long slide when thrown backwards).
 
 Not yet ported:
 
@@ -61,7 +62,7 @@ Not yet ported:
   earned and shown on the meters);
 - region gates;
 - creatures other than overseers and bat flies;
-- throwing rocks and spears (a throw drops them for now).
+- thrown rocks and spears hitting creatures (they pass through them for now).
 
 ## Building and running
 

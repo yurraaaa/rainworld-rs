@@ -272,3 +272,66 @@ fn the_collision_pass_pushes_two_items_apart_by_mass() {
     assert_eq!(ca.vel, crate::Vec2::new(0.0, -5.0) + na);
     assert_eq!(cb.vel, crate::Vec2::new(0.0, 5.0) + nb);
 }
+
+fn placed(kind: &str, pos: [f32; 2], data: &str, active: bool) -> rw_assets::PlacedObject {
+    rw_assets::PlacedObject {
+        kind: kind.to_owned(),
+        pos,
+        data: data.to_owned(),
+        active,
+    }
+}
+
+#[test]
+fn reliable_spears_come_once_and_multiplayer_items_on_every_realization() {
+    // `Room.Loaded`: the first placed-object loop spawns a story's `MultiplayerItem` on
+    // each realization (one draw against its chance, then `GetNewID()`); the second,
+    // only when `firstTimeRealized`, a spear per active `ReliableSpear` with
+    // `placedObjectOrigin` "ROOM:n". A shelter makes no random items.
+    let mut settings = density(0.0);
+    settings.placed_objects = vec![
+        placed("ReliableSpear", [25.0, 25.0], "", true),
+        placed("MultiplayerItem", [45.0, 25.0], "Rock~0~0~0.5", true),
+        placed("ReliableSpear", [65.0, 25.0], "", false),
+    ];
+    let (mut rocks, mut misses) = (0, 0);
+    for seed in 0..12 {
+        let mut world = world_of(room(&["....", "....", "####"]), settings.clone(), true);
+        let mut ids = IdIssuer {
+            next_issued_id: 1000,
+        };
+        let mut rng = UnityRandom::new(seed);
+        world.activate_room(0, &mut ids, &mut rng).expect("loads");
+        let mut expect = UnityRandom::new(seed);
+        let rock = expect.value() <= 0.5;
+        let mut want = Vec::new();
+        if rock {
+            rocks += 1;
+            want.push((AbstractObjectType::Rock, 1001, (2, 1), None));
+        } else {
+            misses += 1;
+        }
+        let spear = 1001 + i32::from(rock);
+        want.push((AbstractObjectType::Spear, spear, (1, 1), Some(false)));
+        assert_eq!(rng.state(), expect.state(), "seed {seed}");
+        assert_eq!(objects(&world), want, "seed {seed}");
+        let origin = world
+            .room_objects(0)
+            .map(|id| world.object(id))
+            .find_map(|o| o.placed_object_origin.clone());
+        assert_eq!(origin.as_deref(), Some("Test:0"), "seed {seed}");
+
+        // Realized again: only the multiplayer item's draw.
+        world.abstractize(0);
+        let mut expect = rng.clone();
+        expect.value();
+        world.activate_room(0, &mut ids, &mut rng).expect("loads");
+        assert_eq!(rng.state(), expect.state(), "seed {seed}");
+        let spears = objects(&world)
+            .iter()
+            .filter(|o| o.0 == AbstractObjectType::Spear)
+            .count();
+        assert_eq!(spears, 1, "seed {seed}");
+    }
+    assert!(rocks > 0 && misses > 0, "{rocks} {misses}");
+}

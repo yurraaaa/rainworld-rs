@@ -466,6 +466,7 @@ impl Scene {
             lists.extend(self.game.overseer_draw_lists(alpha, earth));
             lists.extend(self.game.fly_draw_lists(alpha, face));
             lists.extend(self.game.drip_draw_lists(alpha, face, darkness));
+            lists.extend(self.game.cosmetic_draw_lists(alpha));
             lists
         } else {
             Vec::new()
@@ -617,6 +618,12 @@ impl FrameDraw<'_> {
         if let Some((level, list)) = shortcuts {
             r.draw_sprites(list, Layer::BackgroundShortcuts, level.origin);
             r.draw_sprites(list, Layer::Background, level.origin);
+        }
+        // The `Background` container (a held weapon behind the body) before `Midground`.
+        if let Some(level) = self.level {
+            for o in self.overseers {
+                r.draw_sprites(o, Layer::Background, level.origin);
+            }
         }
         let sprites = self.level.as_ref().zip(self.sprites);
         match sprites {

@@ -92,6 +92,9 @@ pub trait PlayerObserver {
     }
     /// `PlayerGraphics.swallowing = 20` (`GrabUpdate` swallowed an object).
     fn player_swallowing(&mut self) {}
+    /// `PlayerGraphics.ThrowObject(hand, obj)`: the hand follows the thrown weapon for
+    /// five updates.
+    fn player_throw_object(&mut self, _hand: usize, _obj: Entity) {}
     /// `(graphicsModule as PlayerGraphics).head.vel += dv`.
     fn nudge_player_head(&mut self, _dv: Vec2) {}
     /// A room script adds `dvx` to every tail segment's x velocity.
@@ -206,6 +209,8 @@ enum RoomObject {
     Drip(u64),
     /// A realized rock or spear.
     Weapon(ObjectId),
+    /// A `Spark` or `ExplosionSpikes` by id.
+    Cosmetic(u64),
     /// A rock's or spear's loop emitter.
     WeaponLoop(ObjectId),
 }
@@ -1145,6 +1150,7 @@ impl RainWorldGame {
         objects.extend(self.room_fly_objects(index));
         objects.extend(self.room_drip_objects(index));
         objects.extend(self.room_weapon_objects(index));
+        objects.extend(self.room_cosmetic_objects(index));
         objects.sort_by_key(|&(seq, _)| std::cmp::Reverse(seq));
         let mut player_done = false;
         for (seq, object) in objects {
@@ -1180,6 +1186,7 @@ impl RainWorldGame {
                 RoomObject::Drip(id) => self.run_drip(index, id, &room),
                 RoomObject::Weapon(id) => self.run_weapon(index, id, false),
                 RoomObject::WeaponLoop(id) => self.run_weapon(index, id, true),
+                RoomObject::Cosmetic(id) => self.world.update_cosmetic(index, id),
             }
         }
         if !player_done {

@@ -244,7 +244,8 @@ impl World {
     /// `World.ActivateRoom` / `AbstractRoom.RealizeRoom`: reads the room and adds it to
     /// the active rooms, loading until this tick's loading step. On its first
     /// realization in the cycle (`firstTimeRealized`, cleared at the end of
-    /// `Room.Loaded`) the room makes its items, with their IDs and draws. The off-screen
+    /// `Room.Loaded`) the room makes its items, with their IDs and draws (a story's
+    /// `MultiplayerItem`s on every realization). The off-screen
     /// den and realized rooms are left alone.
     ///
     /// # Errors
@@ -265,9 +266,7 @@ impl World {
         let loaded = self.rooms.load_room(data.file_name())?;
         log::info!("realized room {}", data.name);
         let first_time = !self.loaded_before[i];
-        if first_time {
-            self.place_room_items(index, &loaded.room, &loaded.settings, ids, rng);
-        }
+        self.place_room_items(index, &loaded.room, &loaded.settings, first_time, ids, rng);
         self.loaded_before[i] = true;
         let data = &self.data.rooms[i];
         self.realized[i] = Some(RealizedRoom::new(

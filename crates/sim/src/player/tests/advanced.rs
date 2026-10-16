@@ -35,6 +35,15 @@ impl Player {
         p
     }
 
+    /// Belly sliding at `roll_counter` `n` along `dir`, the stick at `x`, wherever the
+    /// body is (for the game's throw tests).
+    pub(crate) fn set_belly_slide(&mut self, n: i32, dir: i32, x: i8) {
+        self.animation = Animation::BellySlide;
+        self.roll_direction = dir;
+        self.roll_counter = n;
+        self.input[0] = Input::new(x, 0, false);
+    }
+
     /// Ready for a landing roll: down-right held long enough, recently airborne.
     fn holding_down_right(mut self, consistent: i32) -> Self {
         self.input[0] = DOWN_RIGHT;
@@ -672,4 +681,47 @@ fn reversing_and_jumping_during_the_skid_flips() {
     assert_eq!(p.body.chunks[HEAD].vel.y, 9.0);
     assert_eq!(p.body.chunks[HIPS].vel.y, 7.0);
     assert_eq!(p.jump_boost, 5.0);
+}
+
+#[test]
+fn a_backward_throw_kicks_off_a_long_belly_slide() {
+    // `ThrowObject` (93192): rollCounter back to 8, both chunks 6 along the slide and
+    // 16 px a tick faster, the hips 17 up.
+    let mut p = Player::sliding(11, LEFT);
+    p.exit_belly_slide_counter = 3;
+    p.start_long_belly_slide();
+    assert_eq!(p.roll_counter, 8);
+    assert!(p.long_belly_slide());
+    assert_eq!(p.exit_belly_slide_counter, 0);
+    assert_vec(p.body.chunks[HEAD].pos, 123.0, 49.0);
+    assert_vec(p.body.chunks[HIPS].pos, 106.0, 65.0);
+    assert_vec(p.body.chunks[HEAD].vel, 16.0, 0.0);
+    assert_vec(p.body.chunks[HIPS].vel, 16.0, 0.0);
+}
+
+#[test]
+fn a_long_belly_slide_pushes_14_over_39_ticks_and_ends_standing() {
+    let r = flat_room();
+    let mut p = Player::sliding(13, DOWN_RIGHT);
+    p.long_belly_slide = true;
+    p.belly_slide(&r);
+    // No contact: head 14 sin(13 / 39 pi), then * 0.5; solid under it: -2.3.
+    let push = 14.0 * (13.0 / 39.0 * PI).sin();
+    assert_vec(p.body.chunks[HEAD].vel, push * 0.5, -2.3);
+    // Past tick 16 (and 6 in the air) a long slide goes on.
+    for n in [16, 39] {
+        let mut p = Player::sliding(n, DOWN_RIGHT);
+        p.long_belly_slide = true;
+        p.belly_slide(&r);
+        assert_eq!(p.animation(), Animation::BellySlide, "n {n}");
+    }
+    // After 39 it ends standing with a hop (6, 4) and no slowed movement.
+    let mut p = Player::sliding(40, DOWN_RIGHT);
+    p.long_belly_slide = true;
+    p.belly_slide(&r);
+    assert_eq!(p.animation(), Animation::None);
+    assert!(p.is_standing() && !p.long_belly_slide());
+    assert_eq!(p.body.chunks[HEAD].vel.y, 6.0);
+    assert_eq!(p.body.chunks[HIPS].vel.y, 4.0);
+    assert_eq!(p.slow_movement_stun, 0);
 }

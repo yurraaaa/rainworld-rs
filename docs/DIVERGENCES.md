@@ -84,7 +84,8 @@ it (D13). What still differs is only the seed and the call order:
   `value` per entry of the room file's item list, then `Room.Loaded`'s random items, two
   `Range` draws per attempt (`(int)(W * H * density^2 / 5) + 1` attempts, so at least
   one even at density 0; none in shelters and gates), one more on a free tile and one
-  more for a spear, each item taking an ID. This shifted the stream of every room
+  more for a spear, each item taking an ID (placed spears and multiplayer items: below).
+  This shifted the stream of every room
   realization since; no test pinned the old one. The rest of `Room.Loaded`'s draws
   (placed objects and effects the port does not make) are still missing.
 - **Realized rocks and spears.** Realizing a room's rocks and spears (`ShortCutsReady`,
@@ -96,6 +97,19 @@ it (D13). What still differs is only the seed and the call order:
   `Room.Update`'s collision pass draws 2 to nudge two items apart at the same x.
   `Rock.DrawSprites` / `Spear.DrawSprites`' vibrate (2) and blink (1) draws come from
   the app's cosmetic stream, for the same per-frame reason as the holograms' (below).
+- **Thrown rocks and spears.** A throw makes the game's draws: `Weapon.Thrown` and
+  `ChangeMode` draw nothing, the throw sound draws its 7, `ThrownSpear` draws once for
+  a slugcat without throwing skill (the Monk's or a starving slugcat's damage bonus),
+  and a belly slide's backward throw adds `ExplosionSpikes` (2 and 4 per spike) and
+  `Slugcat_Rocket_Jump`. In flight, a turn back of the thrower draws 1, the tumble to
+  `Free` its `SetRandomSpin`, a `HitWall` 4 per spark (seven, in the viewed room) and
+  its sound, a floor or slope skim 3 or 4 per spark and `Weapon_Skid`, a spear's stick
+  roll 1 (when the hit is in reach and not close) and `Spear_Stick_In_Wall`; a parried
+  weapon's `WeaponDeflect` its spin and sparks. Each `Spark` and `ExplosionSpikes`
+  updates in its own slot of the room's update list (`rw_sim::cosmetic`).
+- **Placed spears and items.** `Room.Loaded`'s story `MultiplayerItem`s draw once
+  against their chance (on every realization) and take an ID, then on a first
+  realization each `ReliableSpear` takes an ID (no draw), before the random items.
 - **Overseers.** A realized overseer's update makes the game's draws in order
   (`Overseer.Update`, `OverseerAI` with its communication module and the guide's
   tutorial, then `OverseerGraphics.Update` while its room is viewed;
@@ -160,10 +174,15 @@ carrying held objects through shortcuts (D5). The carried-object speed factors a
 apply to `HeavyCarry` objects only, which no ported object is.
 
 **What differs from the game where the game's behaviour is kept out of scope:**
-- **Throwing rocks and spears.** `ThrowObject` runs for a held rock or spear up to the
-  weapon branch (`Weapon.Thrown`, `ThrownSpear`, the recoil, `Blink(15)`), which is
-  not ported yet: the throw only lets go of it (forbidden to the player for 40 ticks
-  as in the game's tail of `ThrowObject`), so it drops. Thrown bat flies are ported.
+- **Throwing rocks and spears** is ported (`ThrowObject`'s weapon branch, `Weapon.Thrown`,
+  `ThrownSpear` with the slugcats' throwing skills, the belly-slide throws, the
+  recoil, `Blink(15)`, `PlayerGraphics.ThrowObject`'s throwing hand; flight, wall hits,
+  skims, sticking: `rainworld-re/notes/items.md` section 11). Hitting creatures is
+  not: a thrown weapon passes through every creature (`HitSomething`,
+  `WeaponAttack`), and nothing hears it fly (`INotifyOfFlyingWeapons`). Adrenaline's
+  throw force (`Lerp(1, 1.5, Adrenaline)`) is 1. Remix and More Slugcats branches
+  (Gourmand, Saint, Spearmaster, Rivulet's upward throw, the MMF slow-spear and
+  climbing-grip rules) are omitted.
 - **The Hunter's spear on the back** (`SpearOnBack`, `CanPutSpearToBack`) is not
   ported: a Hunter picks spears up into the hands only.
 - **Random numbers.** The player's draws (stacked-body nudge `Random.Range(-1, 1)`,
@@ -284,7 +303,7 @@ corridors (D10).
 
 **What differs:**
 - **Remix (MMF) branches omitted:** the climbing-grip throw recoil on a pole
-  (`cfgClimbingGrip`; throwing is not ported), the vine grab's exclusion of
+  (`cfgClimbingGrip`), the vine grab's exclusion of
   `ClimbOnBeam` (vines are not ported). The corridor exit onto a pole is in D10.
 - **More Slugcats / Watcher omitted:** the slugpup's smaller slide-up hop (2.25 px,
   +1 vy, 0.3x lift, 0.5x slide forces) and the slugpup, Rivulet and Gourmand
@@ -385,7 +404,8 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   rain-cycle darkening (`DarkPalette`, `ShaderLight` before rain), lightning, room
   effects that grade colours (Darkness, Brightness, Contrast, Desaturation, Hue, DayNight)
   or modify effect colours (`ModifyEffectColorA/B`, unused in base-game rooms), ghost /
-  rot / mushroom palettes, screen shake, `_bkg` backgrounds, the heat / melt / ripple
+  rot / mushroom palettes, screen shake (and the camera bump of a weapon hitting a
+  wall, `ScreenMovement`), `_bkg` backgrounds, the heat / melt / ripple
   shader variants, swarm rooms, and the properties-file line preprocessing (no base-game
   `Room Setting Templates` line uses it).
 
@@ -426,7 +446,8 @@ in `PlayerGraphics` (they use the generic poses of their body mode, as in the ga
   `malnourished` 1) is not ported.
 - **Looking and holding.** `PlayerObjectLooker` is ported whole and looks at the
   room's bat flies, overseers, rocks and spears; the hands hold bat flies, rocks and
-  spears (a spear swung forward while walking, `spearDir`, with `ChangeOverlap`), reach
+  spears (a spear swung forward while walking, `spearDir`, with `ChangeOverlap`; the
+  throwing hand of `ThrowObject`), reach
   for and bite bat flies and bring a rock to the mouth to swallow it (`SlugcatHand`
   grasp branch, `BiteFly`, `LookAtObject`); the swallow and regurgitation gulp, blink
   and heave of `PlayerGraphics.Update` are ported. The rain-warning look-up and
@@ -470,22 +491,23 @@ direction.
 **What differs:**
 - **Remix (MMF) wall pounce omitted** (`cfgWallpounce`: a fast head-first wall hit with
   a buffered jump launches a `RocketJump` away from the wall).
-- **Held items** (thrown rocks and spears wait for throwing, D3): the long belly slide (`longBellySlide`, started by throwing during a
-  slide, with its 39-tick push, 34-tick jump window and own exit and jump values),
-  picking up an item during the whiplash jump, and the thrown-spear roll are not ported.
+- **Held items.** The belly-slide throws are ported: forward (with throwing skill) the
+  weapon skims the floor; backward the long belly slide (`longBellySlide`: 39-tick
+  push of 14, 34-tick jump window, exit after 16, a hop on its end, a 1.2x rocket
+  jump, a longer stun on a creature) starts with its spikes. Picking up an item
+  during the whiplash jump is not ported.
 - **Other creatures:** a belly slide or roll hitting a creature (stun, `rollCounter`
   cap, "slugsmash") is not ported (no realized creatures to hit; D14).
 - **More Slugcats / Watcher omitted:** Rivulet, slugpup and Gourmand values (skid and
   flip jump, roll jump, belly-slide push, kick and jumps, roll durations), the pyro
   jump's `Flip`, and the Watcher curved-terrain drop-through test.
-- **Not ported:** adrenaline factors, `WaterDrip` and `ExplosionSpikes`
-  particles (their random draws are cosmetic).
+- **Not ported:** adrenaline factors.
 
-**Why.** Remix and DLC are out of the base-game scope; the rest waits for grabbing,
-throwing, creatures, adrenaline and audio.
+**Why.** Remix and DLC are out of the base-game scope; the rest waits for
+creatures and adrenaline.
 
-**Affects.** Remix wall pounces, item tricks during slides, slides and rolls into
-creatures, DLC slugcats.
+**Affects.** Remix wall pounces, picking up during a whiplash jump, slides and rolls
+into creatures, DLC slugcats.
 
 ## D10: Corridors
 
@@ -608,8 +630,11 @@ runs it as the game's side process (D13), silent on `TimedSources` without audio
   loop is made only in a room a camera shows, as the game's `DynamicSoundLoop` makes
   one only with a microphone in the room; a stopped loop stops at once, where the
   game fades it out over its last update). The `Through_Air` loops are commented out
-  of the game's `sounds.txt` and never play. Thrown items' and hits' sounds come
-  with throwing.
+  of the game's `sounds.txt` and never play. Throws play `Slugcat_Throw_Rock` /
+  `Slugcat_Throw_Spear`, wall hits `Rock_Hit_Wall` / `Spear_Bounce_Off_Wall`, sticking
+  `Spear_Stick_In_Wall`, skims `Weapon_Skid`, the backward belly-slide throw
+  `Slugcat_Rocket_Jump`, the long slide's end `Slugcat_Normal_Jump`. Creature hits'
+  sounds come with them.
 - **Not ported:** the rain and thunder loops and one-shots and the
   drown-out of volume group 0, other creatures', item and object sounds, the sounds of
   unported menu screens and objects, `PlayCustomSound` / loose mod clips next to
@@ -976,9 +1001,14 @@ second part, else a single-room world for arena levels). The campaign descriptio
   hang in their walls and make poles, D6), in the room's update order with the
   collision pass between items (`Room.Update`), in the water's object loop, and
   abstractizes them with the room. An explosive spear is realized as a plain `Spear`
-  (its fuse, rag and blast come with `ExplosiveSpear`). The player picks them up,
-  carries them (through shortcuts and room exits too) and swallows rocks (D3). Not yet:
-  throwing and hitting (`Thrown`, `StuckInCreature`), items falling between rooms
+  (its fuse, rag and blast come with `ExplosiveSpear`). In a story, `Room.Loaded`'s
+  `MultiplayerItem`s spawn on every realization and `ReliableSpear`s on the first
+  (with their `placedObjectOrigin`); of the multiplayer items' kinds a scavenger bomb
+  and a spore plant stay abstract (not realized; the spore plant lacks its consumable
+  fields). The player picks them up, carries them (through shortcuts and room exits
+  too), swallows rocks and throws them (D3); thrown spears stick into walls (the room
+  edge ring, `NoSpearStickZone`s and a moving shelter door excepted). Not yet:
+  hitting creatures (`HitSomething`, `StuckInCreature`), items falling between rooms
   (an item below the room is clamped at -1200 px as the game does for objects; only
   creatures are destroyed there); and objects of other kinds (placed food,
   pearls, ...).
@@ -1297,8 +1327,8 @@ shelter.
 
 ## Not ported yet (not divergences, just absent)
 
-Player (stage one leaves out): sneaking and visibility (`privSneak`, `Sneak`, `VisibilityBonus`; the `SlugcatStats` stealth values exist but nothing reads them, as no ported creature sees or hears the player), zero gravity, grabbing and eating anything but bat flies, rocks and spears, throwing
-rocks and spears (D3), adrenaline, Red's illness, the WALLSTUCK safety
+Player (stage one leaves out): sneaking and visibility (`privSneak`, `Sneak`, `VisibilityBonus`; the `SlugcatStats` stealth values exist but nothing reads them, as no ported creature sees or hears the player), zero gravity, grabbing and eating anything but bat flies, rocks and spears, thrown
+weapons hitting creatures (D3), adrenaline, Red's illness, the WALLSTUCK safety
 (needs `VisualContact`), vines, tube worm,
 Jolly co-op, MSC / Watcher class mechanics. Ported because ground classification
 produces them anyway: wall slide and wall jump (`WallClimb`, `canWallJump`, `jumpStun`;

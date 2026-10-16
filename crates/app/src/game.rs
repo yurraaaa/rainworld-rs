@@ -12,8 +12,9 @@ use rw_assets::world::{GameRooms, LineFilter, Regions, StoryConditions, WorldDat
 use rw_assets::{ActiveMods, Room, RoomSettings, SlugcatName, SoundTable, StreamingAssets};
 use rw_audio::Follow as SoundFollow;
 use rw_graphics::{
-    Color, DrawList, FlyGraphics, HologramFrame, HologramGraphics, OverseerGraphics,
-    PlayerGraphics, ShelterDoorSprites, ShortcutPalette, WaterDripSprites, WeaponSprites,
+    Color, CosmeticSprites, DrawList, FlyGraphics, HologramFrame, HologramGraphics,
+    OverseerGraphics, PlayerGraphics, ShelterDoorSprites, ShortcutPalette, WaterDripSprites,
+    WeaponSprites,
 };
 use rw_hud::{HudSetup, OwnerTick, RainCycleView, StartCondition, Subregions};
 use rw_random::UnityRandom;
@@ -175,6 +176,12 @@ impl PlayerObserver for Graphics {
     fn player_swallowing(&mut self) {
         if let Some(g) = &mut self.module {
             g.swallow();
+        }
+    }
+
+    fn player_throw_object(&mut self, hand: usize, obj: Entity) {
+        if let Some(g) = &mut self.module {
+            g.throw_object(hand, obj);
         }
     }
 
@@ -751,6 +758,18 @@ impl Game {
                     .draw(o.id, room, alpha, black, water, cosmetic)
             })
             .collect()
+    }
+
+    /// The sparks and spikes in the camera's room at `alpha` between ticks, oldest
+    /// first.
+    pub fn cosmetic_draw_lists(&self, alpha: f32) -> Vec<DrawList> {
+        let world = self.sim.world();
+        let Some(room) = world.realized(self.sim.camera_room()) else {
+            return Vec::new();
+        };
+        let mut shown: Vec<_> = room.cosmetics.iter().filter(|c| !c.slated).collect();
+        shown.sort_by_key(|c| c.update_order);
+        shown.iter().map(|c| c.draw(&room.room, alpha)).collect()
     }
 
     /// The water drips in the camera's room at `alpha` between ticks, oldest first

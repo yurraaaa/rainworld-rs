@@ -14,9 +14,7 @@ use rw_random::UnityRandom;
 use rw_render::StageShader;
 use rw_sim::{FloatExt, Vec2};
 
-use crate::{
-    CustomFloat, CustomVec2, EndgameMeter, FadeCircle, MeterFrame, MeterSource, karma_symbol_sprite,
-};
+use crate::{CustomFloat, EndgameMeter, FadeCircle, MeterFrame, MeterSource, karma_symbol_sprite};
 
 /// `KarmaLadder.Phase`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

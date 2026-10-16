@@ -1,15 +1,20 @@
 //! The world's realized rocks and spears: `ShortCutsReady` realizes a room's objects
-//! (61622), each runs in its slot of the room's update list, `Room.Update`'s collision
-//! pass pushes those of layers 1 and up apart (63520), and `AbstractRoom.Abstractize`
-//! drops them (304092). Behaviour: `rainworld-re/notes/items.md` sections 6-8.
+//! (61622), each runs in its slot of the room's update list (a thrown one walks
+//! collision layer 0 in the middle, 81610), `Room.Update`'s collision pass pushes those
+//! of layers 1 and up apart (63520), and `AbstractRoom.Abstractize` drops them
+//! (304092). Behaviour: `rainworld-re/notes/items.md` sections 6-11.
 
-use rw_assets::SoundTable;
+use rw_assets::{PlacedObjectType, ResizableData, SoundTable};
 use rw_random::UnityRandom;
 
 use super::{RealizedRoom, World};
-use crate::creature::WorldCoordinate;
-use crate::item::{Entity, ModeChange, ObjectId, Weapon, WeaponKind, WeaponMode, WeaponTick};
-use crate::{BodyChunk, SoundId, Sounds, SurfaceChunk, Vec2};
+use crate::creature::{CreatureId, WorldCoordinate};
+use crate::item::{
+    Entity, ModeChange, ObjectId, Throw, Weapon, WeaponKind, WeaponMode, WeaponTick,
+};
+use crate::{
+    BodyChunk, Cosmetic, CosmeticKind, FloatExt, SoundId, Sounds, Spark, SurfaceChunk, Vec2,
+};
 
 /// What an item's turn in the update list reads of the game.
 pub struct ItemTick<'a> {
@@ -21,6 +26,27 @@ pub struct ItemTick<'a> {
     pub camera_room: i32,
     pub tick: u64,
     pub eu: bool,
+    /// The player's creature and its `ThrowDirection`.
+    pub player: Option<(CreatureId, i32)>,
+    /// The room is a shelter whose door `IsClosing` or `IsOpening`.
+    pub shelter_door_moving: bool,
+}
+
+/// What a thrown spear sticks by: the abstract tiles of the room's stuck spears and
+/// its `NoSpearStickZone`s (position, radius).
+#[derive(Debug, Default)]
+struct SpearStickRules {
+    stuck: Vec<(i32, i32)>,
+    zones: Vec<(Vec2, f32)>,
+}
+
+/// Which part of an item's `Update` runs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum UpdatePart {
+    /// Up to a thrown weapon's walk over collision layer 0.
+    Start,
+    /// The physics and the rest.
+    Finish,
 }
 
 impl World {
@@ -258,11 +284,41 @@ impl World {
             .collect()
     }
 
-    /// Object `id`'s `Update` in room `index`'s update list.
+    /// Object `id`'s `Update` in room `index`'s update list: up to the thrown weapon's
+    /// walk over collision layer 0, the walk, then the rest.
     pub(crate) fn update_weapon(&mut self, index: i32, id: ObjectId, cx: &mut ItemTick<'_>) {
-        let Some(local) = self.local(index) else {
-            return;
+        let thrown_spear = self
+            .realized_weapon(id, index)
+            .is_some_and(|w| w.mode == WeaponMode::Thrown && w.spear().is_some());
+        let rules = if thrown_spear {
+            SpearStickRules {
+                stuck: self.stuck_spear_tiles(index),
+                zones: self.no_spear_stick_zones(index),
+            }
+        } else {
+            SpearStickRules::default()
         };
+        let walk = self.weapon_part(index, id, cx, &rules, UpdatePart::Start);
+        if walk {
+            self.thrown_through_layer_zero(index, id, cx);
+        }
+        self.weapon_part(index, id, cx, &rules, UpdatePart::Finish);
+    }
+
+    /// One part of object `id`'s `Update` in room `index`; the sparks it makes join the
+    /// room. Returns whether the layer-0 walk is due.
+    fn weapon_part(
+        &mut self,
+        index: i32,
+        id: ObjectId,
+        cx: &mut ItemTick<'_>,
+        rules: &SpearStickRules,
+        part: UpdatePart,
+    ) -> bool {
+        let Some(local) = self.local(index) else {
+            return false;
+        };
+        let mut added = Vec::new();
         let World {
             objects,
             realized,
@@ -271,11 +327,12 @@ impl World {
         } = self;
         let object = &mut objects[id.0];
         let Some(room) = realized[local].as_mut() else {
-            return;
+            return false;
         };
         let Some(mut weapon) = object.realized.take() else {
-            return;
+            return false;
         };
+        let mut walk = false;
         if weapon.room == index {
             let ready_for_ai = room.ready_for_ai();
             let water = room.water.take();
@@ -291,11 +348,294 @@ impl World {
                 tick: cx.tick,
                 eu: cx.eu,
                 update_seq,
+                player: cx.player,
+                stuck_spear_tiles: &rules.stuck,
+                no_stick_zones: &rules.zones,
+                shelter_door_moving: cx.shelter_door_moving,
+                cosmetics: &mut added,
             };
-            weapon.update(object, &mut tick);
+            match part {
+                UpdatePart::Start => walk = weapon.update_start(object, &mut tick),
+                UpdatePart::Finish => weapon.update_finish(object, &mut tick),
+            }
             room.water = water;
         }
         object.realized = Some(weapon);
+        for (seq, kind) in added {
+            self.add_cosmetic_at(index, seq, kind);
+        }
+        walk
+    }
+
+    /// The abstract tiles of room `index`'s realized spears stuck in walls.
+    fn stuck_spear_tiles(&self, index: i32) -> Vec<(i32, i32)> {
+        self.room_objects(index)
+            .filter_map(|id| {
+                let o = self.object(id);
+                let w = o.realized.as_deref()?;
+                (w.spear().is_some() && w.mode == WeaponMode::StuckInWall).then_some(o.pos.tile)
+            })
+            .collect()
+    }
+
+    /// Room `index`'s `NoSpearStickZone`s (every one in its settings: the game does not
+    /// look at `active` here), as position and radius.
+    fn no_spear_stick_zones(&self, index: i32) -> Vec<(Vec2, f32)> {
+        let Some(r) = self.realized(index) else {
+            return Vec::new();
+        };
+        r.settings
+            .placed_objects
+            .iter()
+            .filter(|o| o.object_type(self.mods) == Some(PlacedObjectType::NoSpearStickZone))
+            .filter_map(|o| {
+                let rad = ResizableData::parse(&o.data)?.rad();
+                Some((Vec2::new(o.pos[0], o.pos[1]), rad))
+            })
+            .collect()
+    }
+
+    /// `room.AddObject` of a cosmetic sprite at update-list place `seq`.
+    pub(crate) fn add_cosmetic_at(&mut self, room: i32, seq: u64, kind: CosmeticKind) {
+        self.drip_ids += 1;
+        let cosmetic = Cosmetic {
+            id: self.drip_ids,
+            room,
+            update_order: seq,
+            slated: false,
+            kind,
+        };
+        if let Some(r) = self.realized_mut(room) {
+            r.cosmetics.push(cosmetic);
+        }
+    }
+
+    /// `room.AddObject` of a cosmetic sprite at the end of the update list.
+    pub(crate) fn add_cosmetic(&mut self, room: i32, kind: CosmeticKind) {
+        let seq = self.next_update_seq();
+        self.add_cosmetic_at(room, seq, kind);
+    }
+
+    /// The end of `Weapon.Update`'s `Thrown` branch (81610-81670): the objects of
+    /// collision layer 0 (flies, overseers, thrown and wall-stuck weapons) whose chunk
+    /// the weapon's last move crossed, in the order they joined the layer. Another
+    /// thrown heavy weapon is a parry (`HitAnotherThrownWeapon`) that ends the walk;
+    /// anything else is pushed along and hit without stopping the weapon until the hit
+    /// chunks weigh more than 0.6, when it drops there. Nothing is skipped as held by the
+    /// thrower unless it is.
+    fn thrown_through_layer_zero(&mut self, index: i32, id: ObjectId, cx: &mut ItemTick<'_>) {
+        let Some(me) = self.realized_weapon(id, index) else {
+            return;
+        };
+        let thrower = me.thrown_by;
+        let c = me.chunk();
+        let (last, pos) = (c.last_pos, c.pos);
+        let rad = c.rad
+            + if thrower.is_some_and(|t| Some(t) == cx.player.map(|p| p.0)) {
+                5.0
+            } else {
+                0.0
+            };
+        let mut layer: Vec<(u64, Entity)> = self
+            .creatures()
+            .filter_map(|(cid, cr)| {
+                let f = cr.fly().filter(|f| f.room == Some(index))?;
+                Some((f.update_order, Entity::Creature(cid)))
+            })
+            .collect();
+        layer.extend(
+            self.room_overseers(index)
+                .into_iter()
+                .map(|(seq, cid)| (seq, Entity::Creature(cid))),
+        );
+        for (oid, o) in self.objects() {
+            if let Some(w) = o.realized.as_deref().filter(|w| w.room == index)
+                && w.collision_layer == 0
+                && oid != id
+            {
+                layer.push((w.layer_order, Entity::Object(oid)));
+            }
+        }
+        layer.sort_unstable_by_key(|&(seq, _)| seq);
+        let mut mass = 0.0f32;
+        for (_, e) in layer {
+            // Step 5: creatures (`HitSomethingWithoutStopping` of a fly or an overseer,
+            // a spear's `TryImpaleSmallCreature`, their appendages).
+            let Entity::Object(oid) = e else { continue };
+            let o = self.object(oid);
+            if thrower.is_some_and(|t| o.grabbed_by.iter().any(|g| g.grabber == t)) {
+                continue;
+            }
+            let Some(other) = o.realized.as_deref() else {
+                continue;
+            };
+            let oc = other.chunk();
+            let t = last.circles_collision_time(oc.pos, pos - last, rad, oc.rad);
+            if !(t > 0.0 && t < 1.0) {
+                continue;
+            }
+            let my_mode = self.realized_weapon(id, index).map(|w| w.mode);
+            if other.mode == WeaponMode::Thrown
+                && my_mode == Some(WeaponMode::Thrown)
+                && other.heavy_weapon()
+            {
+                self.hit_another_thrown_weapon(index, id, oid, cx);
+                break;
+            }
+            let other_mass = oc.mass;
+            let other_pos = oc.pos;
+            let my_vel = self
+                .realized_weapon(id, index)
+                .map_or(Vec2::ZERO, |w| w.chunk().vel);
+            if let Some(w) = self.object_mut(oid).realized.as_deref_mut() {
+                w.chunk_mut().vel += my_vel;
+            }
+            // `HitSomethingWithoutStopping` of an object: `HitByWeapon`, which does
+            // nothing for a rock or spear.
+            mass += other_mass;
+            if mass > 0.6 {
+                if let Some(w) = self.object_mut(id).realized.as_deref_mut() {
+                    w.chunk_mut().pos = other_pos;
+                }
+                self.change_weapon_mode(id, WeaponMode::Free, cx.rng);
+                if let Some(w) = self.object_mut(id).realized.as_deref_mut() {
+                    w.chunk_mut().vel *= 0.5;
+                }
+                cx.sounds.play_on_object(
+                    SoundId::SpearHitSmallCreature,
+                    other_pos,
+                    false,
+                    1.0,
+                    1.0,
+                    cx.rng,
+                );
+                break;
+            }
+        }
+    }
+
+    /// `HitAnotherThrownWeapon` (81710): two thrown weapons crossing in opposite
+    /// directions parry, with sparks (3, plus 2 for each spear) and a shared random
+    /// direction they glance off along.
+    fn hit_another_thrown_weapon(
+        &mut self,
+        index: i32,
+        a: ObjectId,
+        b: ObjectId,
+        cx: &mut ItemTick<'_>,
+    ) {
+        let (Some(wa), Some(wb)) = (
+            self.realized_weapon(a, index),
+            self.realized_weapon(b, index),
+        ) else {
+            return;
+        };
+        let (ca, cb) = (wa.chunk(), wb.chunk());
+        if (cb.pos.x - cb.last_pos.x < 0.0) == (ca.pos.x - ca.last_pos.x < 0.0) {
+            return;
+        }
+        let between = cb.last_pos.lerp(ca.last_pos, 0.5);
+        let n =
+            3 + if wa.spear().is_some() { 2 } else { 0 } + if wb.spear().is_some() { 2 } else { 0 };
+        for _ in 0..n {
+            let at = between + Vec2::from_degrees(cx.rng.value() * 360.0) * (5.0 * cx.rng.value());
+            let dir = Vec2::from_degrees(cx.rng.value() * 360.0);
+            let vel = dir * (2.0f32.lerp(7.0, cx.rng.value()) * n as f32);
+            let spark = Spark::new(at, vel, [1.0; 4], 10, 170, cx.rng);
+            self.add_cosmetic(index, CosmeticKind::Spark(spark));
+        }
+        let dir = Vec2::from_degrees(cx.rng.value() * 360.0);
+        let speed = self
+            .realized_weapon(a, index)
+            .map_or(0.0, |w| w.chunk().vel.length());
+        self.weapon_deflect(a, between, dir, speed, cx.rng);
+        let speed = self
+            .realized_weapon(a, index)
+            .map_or(0.0, |w| w.chunk().vel.length());
+        self.weapon_deflect(b, between, -dir, speed, cx.rng);
+        cx.sounds.play_at(
+            SoundId::SpearBounceOffCreautureShell,
+            between,
+            1.0,
+            1.0,
+            cx.rng,
+        );
+    }
+
+    /// `WeaponDeflect` of realized object `id`.
+    fn weapon_deflect(
+        &mut self,
+        id: ObjectId,
+        between: Vec2,
+        dir: Vec2,
+        speed: f32,
+        rng: &mut UnityRandom,
+    ) {
+        let room = self.object(id).pos.room;
+        let Some(room) = self.realized(room).map(|r| r.room.clone()) else {
+            return;
+        };
+        let mut seq = self.update_seq;
+        let object = &mut self.objects[id.0];
+        if let Some(mut w) = object.realized.take() {
+            let mut cx = ModeChange {
+                room: &room,
+                rng,
+                update_seq: &mut seq,
+            };
+            w.weapon_deflect(between, dir, speed, object, &mut cx);
+            object.realized = Some(w);
+        }
+        self.update_seq = seq;
+    }
+
+    /// `Weapon.Thrown` of realized object `id` (it must be in its room); returns the
+    /// throw sound `Rock`'s or `Spear`'s override plays.
+    pub(crate) fn throw_weapon(
+        &mut self,
+        id: ObjectId,
+        throw: Throw,
+        rng: &mut UnityRandom,
+    ) -> Option<SoundId> {
+        let room = self.object(id).pos.room;
+        let room = self.realized(room).map(|r| r.room.clone())?;
+        let mut seq = self.update_seq;
+        let object = &mut self.objects[id.0];
+        let mut w = object.realized.take()?;
+        let mut cx = ModeChange {
+            room: &room,
+            rng,
+            update_seq: &mut seq,
+        };
+        let sound = w.thrown(throw, object, &mut cx);
+        object.realized = Some(w);
+        self.update_seq = seq;
+        Some(sound)
+    }
+
+    /// The realized weapon `id`, mutable.
+    pub(crate) fn weapon_mut(&mut self, id: ObjectId) -> Option<&mut Weapon> {
+        self.object_mut(id).realized.as_deref_mut()
+    }
+
+    /// The cosmetic sprites in room `index`'s update list.
+    #[must_use]
+    pub fn room_cosmetics(&self, index: i32) -> &[Cosmetic] {
+        self.realized(index).map_or(&[], |r| &r.cosmetics)
+    }
+
+    /// Cosmetic `id`'s `Update` in room `index`; a destroyed one leaves the room.
+    pub(crate) fn update_cosmetic(&mut self, index: i32, id: u64) {
+        let Some(r) = self.realized_mut(index) else {
+            return;
+        };
+        let room = r.room.clone();
+        let Some(c) = r.cosmetics.iter_mut().find(|c| c.id == id) else {
+            return;
+        };
+        if c.update(&room) {
+            r.cosmetics.retain(|c| c.id != id);
+        }
     }
 
     /// The `ChunkSoundEmitter.Update` of object `id`'s loop in room `index`: it follows

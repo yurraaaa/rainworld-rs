@@ -268,6 +268,12 @@ impl ShelterDoor {
         self.close_speed > 0.0
     }
 
+    /// `IsOpening`: not fully open (`closedFac != 0`).
+    #[must_use]
+    pub fn is_opening(&self) -> bool {
+        self.closed_fac != 0.0
+    }
+
     /// `Close`: start closing (the More Slugcats and Jolly Co-op checks left out).
     pub fn close(&mut self) {
         self.close_speed = Self::CLOSE_SPEED;
