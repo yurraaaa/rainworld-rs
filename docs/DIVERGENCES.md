@@ -256,8 +256,9 @@ physics with neutral input, its water, graphics and room camera as in the game.
   room (`load_room`, `--room`, arena levels: `StartCondition::Dev`) are not story
   sessions: a death there has no game over, and R (MCP `respawn`) replaces the player
   with a fresh one in the camera's room, also after the body fell out of the room (the
-  game has no respawn). In a story session (a new or continued campaign) R does
-  nothing. Not ported: `setupValues.invincibility` (a dev setting) and `Die` without a
+  game has no respawn). Their hibernation and starving reach the screens on an
+  in-memory save state that is never written (D16). In a story session (a new or
+  continued campaign) R does nothing. Not ported: `setupValues.invincibility` (a dev setting) and `Die` without a
   realized room (unreachable in the port).
 - **`Player.Stun` side effects.** The game un-stands the player (and drops grasps) when
   the stun exceeds `Random.Range(5, 12)` and draws `Random.Range(40, 80)` for the spear
@@ -1395,6 +1396,13 @@ Differences:
   0 and (0, 0) on a starve, as in the game). `GoToDeathScreen` comes from the game-over
   prompt's map press (D15) or a shelter door closing on a dead slugcat. The save's
   `FLOWERPOS` is written from `PlaceKarmaFlowerOnDeathSpot` (D17).
+- **Dev starts save nothing** (port-only; user decision). A dev start (`--room`,
+  `load_process`'s game, arena levels; D4) plays on a copy of the slot's progression
+  with no file (`PlayerProgression::detached`), made afresh for each dev game, with a
+  new game's save state at the start room. `Win`, starving and the sleep and starve
+  screens run on it as in a story, but nothing reaches the disk (no save, backup or
+  map write, and its `Win` does not use up the run's `_Backup`); the slot's
+  progression comes back before any process but the game and its screens.
 - **Session time.** The game stops counting `SessionRecord.time` while the prompt is in
   game-over mode (`Player.Update`, `TimeTick`) and counts `playerGrabbedTime` while a
   living player is in it; the port's session time is the sim's ticks, which go on.

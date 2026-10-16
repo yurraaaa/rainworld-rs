@@ -290,7 +290,7 @@ impl Session {
 
     /// Unfed in the shelter when the cycle's rain is over: the door closes on too little
     /// food.
-    fn starve(&mut self) {
+    pub(super) fn starve(&mut self) {
         let game = self.frontend_mut().unwrap().game_mut().expect("the game");
         let sim = game.scene.game_mut().sim_mut();
         sim.set_food_in_stomach(0);

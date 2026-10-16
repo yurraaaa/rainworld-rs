@@ -127,6 +127,21 @@ impl PlayerProgression {
         Ok(p)
     }
 
+    /// A copy of the stored data with no file, so nothing it saves reaches the disk,
+    /// and no save state in memory (the port's dev starts, D16).
+    #[must_use]
+    pub fn detached(&self) -> Self {
+        Self {
+            file: self.file.clone(),
+            misc: self.misc.clone(),
+            map_discovery: self.map_discovery.clone(),
+            map_last_updated: self.map_last_updated.clone(),
+            game_tinkered_with: self.game_tinkered_with,
+            temp_shelters_discovered: self.temp_shelters_discovered.clone(),
+            ..Self::in_memory(self.salt.clone())
+        }
+    }
+
     #[must_use]
     pub fn path(&self) -> Option<&Path> {
         self.path.as_deref()
