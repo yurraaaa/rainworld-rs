@@ -1657,7 +1657,7 @@ Differences:
   starve (without its `DeathEvent`) or a door closing on a dead Hunter out of cycles
   saves an ordinary death.
 - **Not ported:** More Slugcats' ancient and broken shelters, `PrecycleModule`, the
-  shelter tutorials, the dream ghost, `GetStuffInWalls`, the door's screen shake, the social-memory stun of creatures in the room,
+  shelter tutorials, the dream ghost, `GetStuffInWalls`, the door's screen shake,
   killing hostiles at close (the check alone is ported), and every Jolly Co-op and More
   Slugcats branch.
 - **Malnourishment, DLC and Remix branches omitted:** More Slugcats' slugcats' own
