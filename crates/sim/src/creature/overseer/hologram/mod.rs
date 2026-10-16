@@ -118,6 +118,8 @@ pub enum PointerKind {
 pub enum ObjectPointerKind {
     /// `CreaturePointer`.
     Creature {
+        /// `pointAtCreature`.
+        point_at: Option<crate::creature::CreatureId>,
         has_warned_counter_visible: i32,
         has_warned_counter_off_screen: i32,
         cycle: i32,

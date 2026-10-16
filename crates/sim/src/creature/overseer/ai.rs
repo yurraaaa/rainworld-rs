@@ -117,6 +117,8 @@ pub struct CommunicationModule {
     pub objects_already_talked_about: Vec<EntityId>,
     pub most_dangerous_creature_in_room: Option<CreatureId>,
     pub most_delicious_food_in_room: Option<Entity>,
+    /// `holoLight`: the id of the `HologramLight` it projects.
+    pub holo_light: Option<u64>,
 }
 
 impl CommunicationModule {
@@ -148,6 +150,7 @@ impl CommunicationModule {
             objects_already_talked_about: Vec::new(),
             most_dangerous_creature_in_room: None,
             most_delicious_food_in_room: None,
+            holo_light: None,
         }
     }
 

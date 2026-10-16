@@ -170,7 +170,10 @@ impl HologramUpdate<'_, '_> {
     fn point_at(&self) -> Vec2 {
         match &self.holo.kind {
             HologramKind::Door { door, .. } => door.door_pos,
-            _ => self.body.chunk().pos,
+            _ => self
+                .holo
+                .pointed_creature_pos(self.cx.world)
+                .unwrap_or(self.body.chunk().pos),
         }
     }
 
@@ -191,7 +194,7 @@ impl HologramUpdate<'_, '_> {
                 }
                 num
             }
-            HologramKind::Object { .. } => view.pointing_score(t, self.body.chunk().pos),
+            HologramKind::Object { .. } => view.pointing_score(t, self.point_at()),
             HologramKind::Angry { .. } => match view.danger {
                 Some(d) => Self::mid(t).distance(d),
                 None => self.cx.rng.value(),
@@ -989,8 +992,9 @@ impl HologramUpdate<'_, '_> {
         self.holo.still_relevant = false;
     }
 
-    /// `ObjectPointer.Update` and its subclasses': nothing they point at is ever
-    /// realized in the port, so they fall out of relevance.
+    /// `ObjectPointer.Update` and its subclasses': the creature pointer follows the
+    /// communication module's most dangerous creature; no food object is ever realized
+    /// in the port, so the food pointer falls out of relevance.
     fn object_update(&mut self, pointer: ObjectPointerKind) {
         let point_at = self.point_at();
         let to = self.holo.pos.direction_to(point_at);
@@ -1001,15 +1005,13 @@ impl HologramUpdate<'_, '_> {
         }
         arrow.visible = !viewed;
         let comm = self.ai.communication.as_ref();
-        let importance = match pointer {
-            ObjectPointerKind::Creature { .. } => {
-                comm.map_or(0.0, |c| c.most_dangerous_creature_danger)
+        match pointer {
+            ObjectPointerKind::Creature { .. } => self.creature_pointer_update(),
+            ObjectPointerKind::Food { .. } => {
+                self.holo.importance = comm.map_or(0.0, |c| c.most_delicous_food_delicious);
+                self.holo.still_relevant = false;
             }
-            ObjectPointerKind::Food { .. } => comm.map_or(0.0, |c| c.most_delicous_food_delicious),
-        };
-        self.holo.importance = importance;
-        // No creature or food object to point at.
-        self.holo.still_relevant = false;
+        }
         if let HologramKind::Object { pointer } = &mut self.holo.kind {
             match pointer {
                 ObjectPointerKind::Creature { cycle, .. }
@@ -1017,6 +1019,81 @@ impl HologramUpdate<'_, '_> {
                     *cycle += 1;
                 }
             }
+        }
+    }
+
+    /// `CreaturePointer.Update`: points at the most dangerous creature's realized body,
+    /// and once shown long enough (on screen 10 ticks for a known type, else 40; off
+    /// screen 80 to 120 by hand-holding) the player counts as warned of it.
+    fn creature_pointer_update(&mut self) {
+        let (most, danger) = self.ai.communication.as_ref().map_or((None, 0.0), |c| {
+            (
+                c.most_dangerous_creature_in_room,
+                c.most_dangerous_creature_danger,
+            )
+        });
+        if let Some(c) = most {
+            let realized = self.cx.world.creature(c).is_realized().then_some(c);
+            self.set_pointed_creature(realized);
+        }
+        self.holo.importance = danger;
+        let point_at = match self.holo.kind {
+            HologramKind::Object {
+                pointer: ObjectPointerKind::Creature { point_at, .. },
+            } => point_at,
+            _ => None,
+        };
+        if self.holo.fade > 0.8
+            && let Some(target) = point_at
+        {
+            let pos = self.point_at();
+            let c = self.cx.world.creature(target);
+            let (id, kind) = (c.id, c.template.kind);
+            let knows = self.cx.guide.knows_creature_type(kind);
+            let on_screen = self.score_view().viewed(pos, -10.0) && kind != CreatureType::PoleMimic;
+            let off_limit = 80.0.lerp(120.0, self.cx.guide.hand_holding).to_int_cs();
+            let mut warned = None;
+            if let HologramKind::Object {
+                pointer:
+                    ObjectPointerKind::Creature {
+                        has_warned_counter_visible: visible,
+                        has_warned_counter_off_screen: off,
+                        ..
+                    },
+            } = &mut self.holo.kind
+            {
+                if on_screen {
+                    *visible += 1;
+                    if *visible > if knows { 10 } else { 40 } {
+                        warned = Some(true);
+                        *visible = 0;
+                    }
+                } else {
+                    *off += 1;
+                    if *off > off_limit {
+                        warned = Some(false);
+                        *off = 0;
+                    }
+                }
+            }
+            if let Some(handled) = warned {
+                if let Some(comm) = self.ai.communication.as_mut() {
+                    comm.player_has_now_been_warned_of_creature(id, kind, handled, self.cx.guide);
+                }
+                self.holo.still_relevant = false;
+            }
+        }
+        if self.holo.importance == 0.0 || point_at.is_none() {
+            self.holo.still_relevant = false;
+        }
+    }
+
+    fn set_pointed_creature(&mut self, creature: Option<crate::creature::CreatureId>) {
+        if let HologramKind::Object {
+            pointer: ObjectPointerKind::Creature { point_at, .. },
+        } = &mut self.holo.kind
+        {
+            *point_at = creature;
         }
     }
 
@@ -1229,17 +1306,18 @@ impl OverseerHologram {
 
     /// `InfluenceHoverScoreOfTile` for a tile whose middle is `mid`: pointers keep their
     /// overseer near what they point at, the angry hologram near the player (drawing).
+    /// `object_point_at` is an object pointer's `PointAt`.
     pub(crate) fn influence_hover_score(
         &self,
         mid: Vec2,
         f: f32,
         player_pos: Option<Vec2>,
+        object_point_at: Vec2,
         rng: &mut rw_random::UnityRandom,
     ) -> f32 {
         let point_at = match &self.kind {
             HologramKind::Door { door, .. } => door.door_pos,
-            // `ObjectPointer.PointAt`: no object is ever pointed at.
-            HologramKind::Object { .. } => Vec2::ZERO,
+            HologramKind::Object { .. } => object_point_at,
             HologramKind::Angry { .. } => {
                 return match player_pos {
                     Some(p) => f + mid.distance(p) * 0.1.lerp(1.9, rng.value()),
@@ -1259,7 +1337,12 @@ impl OverseerHologram {
 
     /// `lookAt` (the overseer looks there while projecting).
     #[must_use]
-    pub fn look_at(&self, player_pos: Option<Vec2>, overseer_pos: Vec2) -> Vec2 {
+    pub fn look_at(
+        &self,
+        player_pos: Option<Vec2>,
+        overseer_pos: Vec2,
+        object_point_at: Vec2,
+    ) -> Vec2 {
         let pointing = matches!(
             self.kind,
             HologramKind::Door { .. } | HologramKind::Object { .. }
@@ -1274,9 +1357,24 @@ impl OverseerHologram {
             Some(p) => p,
             None if pointing => match &self.kind {
                 HologramKind::Door { door, .. } => door.door_pos,
-                _ => overseer_pos,
+                _ => object_point_at,
             },
             None => self.pos,
         }
+    }
+
+    /// A creature pointer's `PointAt` while its creature is realized: its `DangerPos`.
+    #[must_use]
+    pub fn pointed_creature_pos(&self, world: &crate::world::World) -> Option<Vec2> {
+        let HologramKind::Object {
+            pointer:
+                ObjectPointerKind::Creature {
+                    point_at: Some(c), ..
+                },
+        } = self.kind
+        else {
+            return None;
+        };
+        world.creature(c).realized.as_ref()?.danger_pos()
     }
 }

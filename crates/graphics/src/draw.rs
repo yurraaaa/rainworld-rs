@@ -120,6 +120,9 @@ pub enum Shader {
     /// `Futile/Hologram`: noisy scan lines of the colour, the texel alpha read with a
     /// sideways jitter.
     Hologram,
+    /// `Futile/HoloGrid`: the guide's light, a grid over the level's near layers and
+    /// lit terrain edges, displaced toward the eye (the colour's xy) by depth.
+    HoloGrid,
     /// `Futile/LightSource`: a disc of the colour lighting the level image by its depth,
     /// shadowed by nearer level pixels and hidden on creatures drawn behind the level.
     LightSource,

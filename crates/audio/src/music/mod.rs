@@ -27,4 +27,4 @@ pub use sources::{
     MusicClock, MusicSources, SourcePlayback, TimedSources, TimedTrack, TrackId, TrackIds,
 };
 pub use stream::{KiraMusic, MusicOutput};
-pub use threat::{GameMusicView, ThreatDetermination, ThreatTracker};
+pub use threat::{CreatureThreat, GameMusicView, ThreatDetermination, ThreatTracker};

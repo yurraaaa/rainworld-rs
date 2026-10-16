@@ -13,6 +13,7 @@
 
 pub(crate) mod ai;
 pub mod ai_kinds;
+pub mod danger;
 pub mod death;
 pub mod fly;
 pub mod grasp;
@@ -32,6 +33,7 @@ use rw_random::UnityRandom;
 use crate::FloatExt;
 
 pub use ai::{AbstractCreatureAi, AiKind, CarriedItem, ItemKind};
+pub use danger::{CreatureDanger, TrackedRep};
 pub use death::{CommunityInfluence, SessionDeaths, SessionKill};
 pub use fly::{
     DropStatus, FlockBehavior, FlockId, Fly, FlyAi, FlyBehavior, FlyView, HoverEmitter,

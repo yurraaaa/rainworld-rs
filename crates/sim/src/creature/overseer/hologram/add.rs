@@ -116,6 +116,7 @@ impl OverseerUpdate<'_, '_> {
                     importance,
                     room,
                     ObjectPointerKind::Creature {
+                        point_at: None,
                         has_warned_counter_visible: 0,
                         has_warned_counter_off_screen: 0,
                         cycle: 0,

@@ -34,6 +34,8 @@ pub struct CreatureTemplate {
     pub sea_highway: bool,
     pub side_highway: bool,
     pub water_relationship: WaterRelationship,
+    /// `dangerousToPlayer`: the threat music's and the guide's weight of the type.
+    pub dangerous_to_player: f32,
 }
 
 /// `CreatureTemplate.Relationship.Type`.
@@ -194,6 +196,7 @@ impl CreatureTemplate {
             sea_highway: false,
             side_highway: false,
             water_relationship: WaterRelationship::Amphibious,
+            dangerous_to_player: 0.0,
         }
     }
 
@@ -203,6 +206,15 @@ impl CreatureTemplate {
             kind,
             ancestor: Some(ancestor.kind),
             ..*ancestor
+        }
+    }
+
+    /// A lizard breed: `LizardBreeds.BreedTemplate` sets `dangerousToPlayer` from the
+    /// breed's `danger`.
+    const fn lizard(kind: CreatureType, danger: f32) -> Self {
+        Self {
+            dangerous_to_player: danger,
+            ..Self::child(kind, &Self::LIZARD)
         }
     }
 
@@ -351,6 +363,7 @@ impl CreatureTemplate {
         ..Self::base(CreatureType::Fly)
     };
     const LEECH: Self = Self {
+        dangerous_to_player: 0.05,
         abstracted_laziness: 100,
         require_ai_map: true,
         off_screen_speed: 0.1,
@@ -369,6 +382,7 @@ impl CreatureTemplate {
         ..Self::base(CreatureType::Snail)
     };
     const VULTURE: Self = Self {
+        dangerous_to_player: 0.7,
         abstracted_laziness: 10,
         ai: true,
         require_ai_map: true,
@@ -414,6 +428,7 @@ impl CreatureTemplate {
         ..Self::base(CreatureType::CicadaA)
     };
     const SPIDER: Self = Self {
+        dangerous_to_player: 0.1,
         abstracted_laziness: 100,
         require_ai_map: true,
         off_screen_speed: 0.1,
@@ -434,6 +449,7 @@ impl CreatureTemplate {
         ..Self::base(CreatureType::JetFish)
     };
     const BIG_EEL: Self = Self {
+        dangerous_to_player: 0.8,
         abstracted_laziness: 100,
         ai: true,
         require_ai_map: true,
@@ -465,6 +481,7 @@ impl CreatureTemplate {
         ..Self::base(CreatureType::TubeWorm)
     };
     const DADDY_LONG_LEGS: Self = Self {
+        dangerous_to_player: 0.85,
         abstracted_laziness: 400,
         roam_between_rooms_chance: 0.05,
         ai: true,
@@ -475,6 +492,7 @@ impl CreatureTemplate {
         ..Self::base(CreatureType::DaddyLongLegs)
     };
     const TENTACLE_PLANT: Self = Self {
+        dangerous_to_player: 0.5,
         ai: true,
         off_screen_speed: 0.0,
         body_size: 2.0,
@@ -483,6 +501,7 @@ impl CreatureTemplate {
         ..Self::base(CreatureType::TentaclePlant)
     };
     const MIROS_BIRD: Self = Self {
+        dangerous_to_player: 0.6,
         abstracted_laziness: 10,
         ai: true,
         require_ai_map: true,
@@ -511,6 +530,7 @@ impl CreatureTemplate {
         ..Self::base(CreatureType::TempleGuard)
     };
     const CENTIPEDE: Self = Self {
+        dangerous_to_player: 0.3,
         off_screen_speed: 0.3,
         grasps: 2,
         abstracted_laziness: 150,
@@ -520,6 +540,7 @@ impl CreatureTemplate {
         ..Self::base(CreatureType::Centipede)
     };
     const SCAVENGER: Self = Self {
+        dangerous_to_player: 0.65,
         off_screen_speed: 0.75,
         grasps: 4,
         abstracted_laziness: 50,
@@ -560,6 +581,7 @@ impl CreatureTemplate {
         ..Self::base(CreatureType::EggBug)
     };
     const BIG_SPIDER: Self = Self {
+        dangerous_to_player: 0.35,
         off_screen_speed: 0.3,
         abstracted_laziness: 50,
         ai: true,
@@ -570,6 +592,7 @@ impl CreatureTemplate {
         ..Self::base(CreatureType::BigSpider)
     };
     const BIG_NEEDLE_WORM: Self = Self {
+        dangerous_to_player: 0.5,
         abstracted_laziness: 10,
         roam_between_rooms_chance: 0.07,
         ai: true,
@@ -582,6 +605,7 @@ impl CreatureTemplate {
         ..Self::base(CreatureType::BigNeedleWorm)
     };
     const DROP_BUG: Self = Self {
+        dangerous_to_player: 0.4,
         abstracted_laziness: 200,
         roam_between_rooms_chance: 0.025,
         off_screen_speed: 0.1,
@@ -598,28 +622,30 @@ impl CreatureTemplate {
         Self::STANDARD,
         Self::SLUGCAT,
         Self::LIZARD,
-        Self::child(CreatureType::PinkLizard, &Self::LIZARD),
-        Self::child(CreatureType::GreenLizard, &Self::LIZARD),
-        Self::child(CreatureType::BlueLizard, &Self::LIZARD),
-        Self::child(CreatureType::YellowLizard, &Self::LIZARD),
-        Self::child(CreatureType::WhiteLizard, &Self::LIZARD),
-        Self::child(CreatureType::RedLizard, &Self::LIZARD),
-        Self::child(CreatureType::BlackLizard, &Self::LIZARD),
+        Self::lizard(CreatureType::PinkLizard, 0.45),
+        Self::lizard(CreatureType::GreenLizard, 0.45),
+        Self::lizard(CreatureType::BlueLizard, 0.35),
+        Self::lizard(CreatureType::YellowLizard, 0.4),
+        Self::lizard(CreatureType::WhiteLizard, 0.5),
+        Self::lizard(CreatureType::RedLizard, 0.8),
+        Self::lizard(CreatureType::BlackLizard, 0.45),
         Self {
             water_relationship: WaterRelationship::Amphibious,
-            ..Self::child(CreatureType::Salamander, &Self::LIZARD)
+            ..Self::lizard(CreatureType::Salamander, 0.4)
         },
-        Self::child(CreatureType::CyanLizard, &Self::LIZARD),
+        Self::lizard(CreatureType::CyanLizard, 0.65),
         Self::FLY,
         Self::LEECH,
         Self {
             body_size: 0.15,
+            dangerous_to_player: 0.07,
             ..Self::child(CreatureType::SeaLeech, &Self::LEECH)
         },
         Self::SNAIL,
         Self::VULTURE,
         Self {
             body_size: 8.5,
+            dangerous_to_player: 0.9,
             ..Self::child(CreatureType::KingVulture, &Self::VULTURE)
         },
         Self::GARBAGE_WORM,
@@ -635,6 +661,7 @@ impl CreatureTemplate {
         Self {
             body_size: 2.5,
             off_screen_speed: 0.1,
+            dangerous_to_player: 0.75,
             ..Self::child(CreatureType::BrotherLongLegs, &Self::DADDY_LONG_LEGS)
         },
         Self::TENTACLE_PLANT,
@@ -649,17 +676,20 @@ impl CreatureTemplate {
         Self::CENTIPEDE,
         Self {
             body_size: 8.5,
+            dangerous_to_player: 0.9,
             ..Self::child(CreatureType::RedCentipede, &Self::CENTIPEDE)
         },
         Self {
             roam_between_rooms_chance: -1.0,
             abstracted_laziness: 1000,
             body_size: 0.2,
+            dangerous_to_player: 0.0,
             ..Self::child(CreatureType::SmallCentipede, &Self::CENTIPEDE)
         },
         Self {
             can_fly: true,
             body_size: 1.2,
+            dangerous_to_player: 0.4,
             ..Self::child(CreatureType::Centiwing, &Self::CENTIPEDE)
         },
         Self::SCAVENGER,
@@ -673,6 +703,7 @@ impl CreatureTemplate {
         Self::BIG_SPIDER,
         Self {
             body_size: 1.2,
+            dangerous_to_player: 0.5,
             ..Self::child(CreatureType::SpitterSpider, &Self::BIG_SPIDER)
         },
         Self::BIG_NEEDLE_WORM,
@@ -681,6 +712,7 @@ impl CreatureTemplate {
             body_size: 0.15,
             roam_between_rooms_chance: 0.05,
             off_screen_speed: 3.2,
+            dangerous_to_player: 0.0,
             ..Self::child(CreatureType::SmallNeedleWorm, &Self::BIG_NEEDLE_WORM)
         },
         Self::DROP_BUG,

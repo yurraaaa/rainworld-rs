@@ -14,7 +14,7 @@ use rw_random::UnityRandom;
 use super::super::OverseerCall;
 use crate::campaign::{SlugcatCampaign, StoryStart};
 use crate::creature::overseer::hologram::{
-    Controller, HologramKind, HologramMessage, ImageId, PartKind, PointerKind,
+    Controller, HologramKind, HologramMessage, ImageId, ObjectPointerKind, PartKind, PointerKind,
 };
 use crate::creature::overseer::{CommunicationModule, OverseerBody, PlayerConcern};
 use crate::creature::{CreatureId, CreatureTemplate, EntityId, RealizedCreature, WorldCoordinate};
@@ -426,4 +426,172 @@ fn placed_scene_shows_at_the_projected_image_position() {
     };
     assert_eq!(image.show_pos, Some(Vec2::new(577.9059, 432.9265)));
     assert_eq!(image.images, [ImageId::MoonDoubleSize]);
+}
+
+/// The Monk in the dark (`Needed` = `InverseLerp(0.85, 0.92, 0.9)` above 0.5) with the
+/// guide realized beside it: the player's update makes the guide's `HologramLight` (one,
+/// however long it stays dark), which then follows the player. In a lighter room, as
+/// the Survivor, or with the glow, none.
+#[test]
+fn the_monk_in_the_dark_gets_the_guides_light() {
+    for (darkness, monk, glow, lit) in [
+        (0.9, true, false, true),
+        (0.8, true, false, false),
+        (0.9, false, false, false),
+        (0.9, true, true, false),
+    ] {
+        let story = StoryStart {
+            the_glow: glow,
+            ..new_game()
+        };
+        let (mut g, _) = game("", Vec::new(), story);
+        if monk {
+            g.campaign = &SlugcatCampaign::MONK;
+        }
+        let guide = g.placed_test_guide(Vec2::new(200.0, 100.0));
+        g.set_camera_darkness(darkness);
+        let room = Arc::clone(&g.world.realized(0).expect("room").room);
+        for _ in 0..5 {
+            g.update_room_player(0, &room, Input::NONE, &mut ());
+            for id in g.room_holo_light_objects(0).into_iter().map(|(id, _)| id) {
+                g.run_holo_light(0, id, &mut ());
+            }
+        }
+        let lights = &g.world.realized(0).expect("room").holo_lights;
+        assert_eq!(lights.len(), usize::from(lit), "{darkness} {monk} {glow}");
+        let comm_light = g.placed_test_comm(guide).holo_light;
+        assert_eq!(
+            comm_light,
+            g.world
+                .realized(0)
+                .unwrap()
+                .holo_lights
+                .first()
+                .map(|l| l.id)
+        );
+        if lit {
+            let light = &g.world.realized(0).unwrap().holo_lights[0];
+            assert_eq!(light.overseer, guide);
+            assert!(light.power > 0.0);
+        }
+    }
+}
+
+impl RainWorldGame {
+    /// A realized bat fly in room 0 made into a dangerous, not small creature (no
+    /// realized base-game type is dangerous yet), still at the player's main chunk plus
+    /// `offset`.
+    fn dangerous_test_fly(&mut self, danger: f32, offset: Vec2) -> CreatureId {
+        let session = self.story_session();
+        let mut template = CreatureTemplate::of(CreatureType::Fly, ActiveMods::NONE);
+        template.small_creature = false;
+        template.dangerous_to_player = danger;
+        let id = self.ids.new_id(-1);
+        let c = self.world.new_creature(
+            template,
+            WorldCoordinate::new(0, 10, 2, -1),
+            id,
+            &session,
+            &mut self.ids,
+            &mut self.rng,
+        );
+        let fly = self.world.insert_creature(c);
+        self.world.add_entity(fly);
+        let mut cx = crate::creature::fly::FlyRoomTick {
+            rng: &mut self.rng,
+            observer: &mut (),
+            camera_room: self.camera_room,
+        };
+        self.world.realize_fly_in_room(fly, 0, &mut cx);
+        let at = self.player.as_ref().expect("player").body.chunks[0].pos + offset;
+        let f = self.world.creature_mut(fly).fly_mut().expect("realized");
+        f.chunk_mut().hard_set_position(at);
+        f.chunk_mut().vel = Vec2::ZERO;
+        fly
+    }
+}
+
+/// `ReevaluateConcern`'s creature `Range` picking a dangerous creature 290 px from the
+/// player: `CreatureDangerScore` is its danger 0.5 (a fly has no AI, so no aggression
+/// factor) times `InverseLerp(1100, 20, 290)` = 0.75, to the power
+/// `Lerp(1.25, 0.25, handHolding 0.8)` = 0.45. The draws are the creature `Range`, the
+/// realized pick's `value` and the hungry player's entity `Range`. A creature talked
+/// about scores 0.
+#[test]
+fn the_guide_scores_a_dangerous_creature() {
+    let (mut g, _) = game("", Vec::new(), new_game());
+    let guide = g.placed_test_guide(Vec2::new(200.0, 100.0));
+    let fly = g.dangerous_test_fly(0.5, Vec2::new(290.0, 0.0));
+    assert_eq!(g.world.room_creatures(0), [g.player_id, guide, fly]);
+    // The overseer's AI is the base `ArtificialIntelligence` (aggression 1, no
+    // tracker); a fly has no AI.
+    let overseer = g.world.creature_danger(guide).expect("realized");
+    assert_eq!(overseer.dangerous_to_player, 0.0);
+    assert_eq!(
+        (overseer.player_aggression, overseer.player_rep),
+        (Some(1.0), None)
+    );
+    let f = g.world.creature_danger(fly).expect("realized");
+    assert_eq!((f.player_aggression, f.player_rep), (None, None));
+    assert_eq!(g.world.creature_danger(g.player_id), None);
+    let around = g.creatures_around_player();
+    assert_eq!(
+        around.iter().map(|c| c.creature).collect::<Vec<_>>(),
+        [guide, fly]
+    );
+    g.rng = UnityRandom::new(seed_for_entity(2));
+    let mut expected = g.rng.clone();
+    assert_eq!(expected.range_i32(0, 3), 2);
+    expected.value();
+    expected.range_i32(0, 3);
+    g.run_overseer(guide, OverseerCall::Communication, &mut ());
+    assert_eq!(g.rng, expected, "three draws");
+    let comm = g.placed_test_comm(guide);
+    assert_eq!(comm.most_dangerous_creature_in_room, Some(fly));
+    assert!((comm.most_dangerous_creature_danger - 0.643_152_65).abs() < 1e-6);
+    assert_eq!(comm.current_concern, PlayerConcern::DangerousCreature);
+
+    // The `CreaturePointer` points at the fly; shown on screen (fade above 0.8) for
+    // more than 40 updates, an unknown type, the player counts as warned: the type is
+    // now known, the fly talked about, and the pointer no longer relevant.
+    let holo = g
+        .placed_test_body(guide)
+        .hologram
+        .expect("a creature pointer");
+    let mut warned_at = None;
+    for i in 0..100 {
+        g.run_overseer(guide, OverseerCall::Hologram(holo), &mut ());
+        let h = g.placed_test_body(guide).current_hologram().cloned();
+        let h = h.expect("the pointer");
+        let HologramKind::Object {
+            pointer: ObjectPointerKind::Creature { point_at, .. },
+        } = h.kind
+        else {
+            panic!("a creature pointer");
+        };
+        assert_eq!(point_at, Some(fly));
+        assert_eq!(
+            h.importance,
+            g.placed_test_comm(guide).most_dangerous_creature_danger
+        );
+        if !h.still_relevant {
+            warned_at = Some(i);
+            break;
+        }
+    }
+    assert!(warned_at.is_some());
+    assert!(g.guide.knows_creature_type(CreatureType::Fly));
+    let fly_id = g.world.creature(fly).id;
+    assert!(
+        g.placed_test_comm(guide)
+            .objects_already_talked_about
+            .contains(&fly_id)
+    );
+
+    // Talked about (and now known and on screen): it scores 0.
+    g.rng = UnityRandom::new(seed_for_entity(2));
+    g.run_overseer(guide, OverseerCall::Communication, &mut ());
+    let comm = g.placed_test_comm(guide);
+    assert_eq!(comm.most_dangerous_creature_in_room, None);
+    assert_eq!(comm.most_dangerous_creature_danger, 0.0);
 }

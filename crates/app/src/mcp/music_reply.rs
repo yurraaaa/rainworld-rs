@@ -76,6 +76,22 @@ pub struct ThreatState {
     pub region: Option<String>,
     pub recommended_drone_volume: f32,
     pub current_threat: f32,
+    pub current_music_agnostic_threat: f32,
+    /// `ThreatDetermination`'s tick threat, before smoothing into the current one.
+    pub threat: f32,
+    pub music_agnostic_threat: f32,
+    pub threat_decline_counter: i32,
+    pub music_agnostic_threat_decline_counter: i32,
+    /// Each realized creature around the player and its `ThreatOfCreature`.
+    pub creatures: Vec<CreatureThreatState>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CreatureThreatState {
+    pub kind: String,
+    /// EntityID (spawner, number).
+    pub id: [i32; 2],
+    pub threat: f32,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -116,6 +132,23 @@ impl MusicState {
                 region: t.region.clone(),
                 recommended_drone_volume: t.recommended_drone_volume,
                 current_threat: t.current_threat,
+                current_music_agnostic_threat: t.current_music_agnostic_threat,
+                threat: t.threat_determine.threat,
+                music_agnostic_threat: t.threat_determine.music_agnostic_threat,
+                threat_decline_counter: t.threat_determine.threat_decline_counter,
+                music_agnostic_threat_decline_counter: t
+                    .threat_determine
+                    .music_agnostic_threat_decline_counter,
+                creatures: t
+                    .threat_determine
+                    .creatures
+                    .iter()
+                    .map(|c| CreatureThreatState {
+                        kind: c.kind.value().to_owned(),
+                        id: [c.id.spawner, c.id.number],
+                        threat: c.threat,
+                    })
+                    .collect(),
             }),
             play_records: records.map(|r| {
                 r.iter()

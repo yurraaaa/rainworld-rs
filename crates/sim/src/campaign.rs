@@ -182,6 +182,8 @@ pub struct StoryStart {
     pub karma_cap: i32,
     pub karma_reinforced: bool,
     pub the_mark: bool,
+    /// `saveState.theGlow`: the player is `glowing`.
+    pub the_glow: bool,
     /// `saveState.RedExtraCycles`: the Hunter's cycles last 5 more.
     pub red_extra_cycles: bool,
     pub guide_overseer_dead: bool,
@@ -224,6 +226,7 @@ impl StoryStart {
             karma_cap: campaign.start_karma_cap,
             karma_reinforced: false,
             the_mark: campaign.start_with_mark,
+            the_glow: false,
             red_extra_cycles: false,
             guide_overseer_dead: false,
             next_issued_id: None,

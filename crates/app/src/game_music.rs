@@ -64,7 +64,7 @@ impl Scene {
     #[must_use]
     pub fn music_view(&self) -> Option<GameMusicView> {
         let sim = self.game.sim();
-        sim.player().filter(|p| !p.in_shortcut())?;
+        let player = sim.player().filter(|p| !p.in_shortcut())?;
         let room = sim.player_pos().room;
         let world = sim.world();
         let settings = &world.realized(room)?.settings;
@@ -86,6 +86,9 @@ impl Scene {
                 && settings.danger_type != Some(DangerType::None),
             single_room_world: world.single_room(),
             music_bank,
+            player_pos: player.body.chunks[0].pos,
+            input: *player.input_history(),
+            creatures: sim.creatures_around_player(),
         })
     }
 

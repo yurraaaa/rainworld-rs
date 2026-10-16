@@ -31,10 +31,10 @@ use super::reply::{
     ShelterDoorState, SleepState, SlideShowState, StartUpState, State, StepTrace, StoryInfo,
     TextPromptState, TokenState, WeaponInfo,
 };
+use super::reply::{DangerInfo, HoloLightState, MusicState, TriggerState};
 use super::reply::{
     FliesWorldInfo, HeldInfo, QuantifiedInfo, RegionStateInfo, RelationshipInfo, RoomDens,
 };
-use super::reply::{MusicState, TriggerState};
 use super::tiles::TileDump;
 use crate::frontend::{AppContext, Frontend, FrontendRenderer, GameSetup};
 use crate::game::{Game, GameStart};
@@ -466,6 +466,8 @@ impl Session {
                 s.music.as_ref().map(|m| MusicState::of(m, records))
             }),
             triggers: TriggerState::all(sim),
+            holo_lights: Self::holo_lights(scene),
+            holo_light_needed: sim.holo_light_needed(),
             dens: Self::dens(scene),
             quantified: Self::quantified(scene),
             flies_world: world.flies_world_ai().map(|f| FliesWorldInfo {
@@ -553,6 +555,32 @@ impl Session {
         }
     }
 
+    fn holo_lights(scene: &Scene) -> Vec<HoloLightState> {
+        let world = scene.game().sim().world();
+        world
+            .active_rooms()
+            .into_iter()
+            .filter_map(|i| world.realized(i))
+            .flat_map(|r| r.holo_lights.iter())
+            .map(|l| {
+                let o = world.creature(l.overseer).id;
+                HoloLightState {
+                    room: Self::room_name(scene, l.room),
+                    overseer: [o.spawner, o.number],
+                    pos: l.pos.to_array(),
+                    proj_pos: l.proj_pos.to_array(),
+                    power: l.power,
+                    flicker: l.flicker,
+                    out_of_range_counter: l.out_of_range_counter,
+                    not_needed_counter: l.not_needed_counter,
+                    active_linger: l.active_linger,
+                    respawn: l.respawn,
+                    power_down_and_kill: l.power_down_and_kill,
+                }
+            })
+            .collect()
+    }
+
     /// The world's creatures but the player, in creation order.
     fn creatures(scene: &Scene) -> Vec<CreatureInfo> {
         let sim = scene.game().sim();
@@ -607,8 +635,27 @@ impl Session {
                     extended: c.overseer_body().map(|b| b.extended),
                     dead: c.overseer_body().map(|b| b.dead),
                     dying: c.overseer_body().map(|b| b.dying),
+                    most_dangerous_creature: o
+                        .real_ai
+                        .as_ref()
+                        .and_then(|a| a.communication.as_ref())
+                        .and_then(|m| m.most_dangerous_creature_in_room)
+                        .map(|d| {
+                            let d = world.creature(d).id;
+                            [d.spawner, d.number]
+                        }),
+                    most_dangerous_creature_danger: o
+                        .real_ai
+                        .as_ref()
+                        .and_then(|a| a.communication.as_ref())
+                        .map(|m| m.most_dangerous_creature_danger),
                 }),
                 fly: Self::fly_info(scene, c),
+                danger: world.creature_danger(id).map(|d| DangerInfo {
+                    dangerous_to_player: d.dangerous_to_player,
+                    danger_pos: d.danger_pos.to_array(),
+                    player_aggression: d.player_aggression,
+                }),
                 social: c
                     .state
                     .social_memory
