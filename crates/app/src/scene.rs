@@ -694,6 +694,12 @@ impl FrameDraw<'_> {
         if let Some((level, list)) = shortcuts {
             r.draw_sprites(list, Layer::Water, level.origin);
         }
+        // The guide's hologram light.
+        if let Some(level) = self.level {
+            for o in self.overseers {
+                r.draw_sprites(o, Layer::Water, level.origin);
+            }
+        }
         // `Bloom`, after `Water` (and the empty `GrabShaders`).
         if let Some(level) = self.level {
             for h in self.holograms {
