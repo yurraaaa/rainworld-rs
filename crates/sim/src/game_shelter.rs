@@ -256,7 +256,8 @@ impl RainWorldGame {
         } else {
             SessionEnd::Death
         };
-        log::info!("shelter closed: {end:?}");
+        // Called every tick while closed, as in the game; the switch happens once
+        // (`end_session` returns while a process is upcoming, as `Win` does).
         self.session_end.get_or_insert(end);
     }
 
