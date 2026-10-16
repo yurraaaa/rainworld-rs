@@ -1,8 +1,13 @@
 //! `Music.MusicPlayer`, the side process holding the current song and the next one,
 //! and the mix between them. Behaviour: `rainworld-re/notes/music.md` section 4.1.
 
+use rw_assets::{MusicEvent, StopMusicEvent, StopMusicType};
+use rw_random::UnityRandom;
+use rw_save::SongPlayRecord;
+
 use super::song::{PieceInput, Song};
 use super::sources::{MusicSources, TrackId};
+use super::threat::{GameMusicView, ThreatTracker};
 
 /// `MusicPlayer.MusicContext`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28,7 +33,7 @@ pub enum MusicProcess {
 }
 
 impl MusicProcess {
-    fn is_game(self) -> bool {
+    pub(crate) fn is_game(self) -> bool {
         matches!(self, Self::StoryGame | Self::ArenaGame)
     }
 }
@@ -65,47 +70,13 @@ impl MusicSettings {
     }
 }
 
-/// `StopMusicEvent.Type`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum StopMusicType {
-    AllSongs,
-    SpecificSong,
-    AllButSpecific,
-}
-
-/// `StopMusicEvent` (room trigger `StopMusicEvent`).
-#[derive(Debug, Clone, PartialEq)]
-pub struct StopMusicEvent {
-    pub stop_type: StopMusicType,
-    pub song_name: String,
-    pub prio: f32,
-    pub fade_out_time: f32,
-}
-
-/// The part of `PlayerThreatTracker` that the player reads outside the game; the
-/// in-game tracker (threat, ghosts, room switches) is not ported.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct ThreatTracker {
-    pub recommended_drone_volume: f32,
-    pub current_threat: f32,
-}
-
-impl ThreatTracker {
-    fn new() -> Self {
-        Self {
-            recommended_drone_volume: 0.3,
-            current_threat: 0.0,
-        }
-    }
-
-    /// `PlayerThreatTracker.Update` outside `ProcessID.Game`; in the game it keeps its
-    /// values (not ported).
-    fn update(&mut self, process: Option<MusicProcess>) {
-        if !process.is_some_and(MusicProcess::is_game) {
-            self.recommended_drone_volume = 0.0;
-            self.current_threat = 0.0;
-        }
-    }
+/// A story game's save state as `GameRequestsSong` reads and writes it.
+#[derive(Debug)]
+pub struct StorySongs<'a> {
+    /// `deathPersistentSaveData.songsPlayRecords`.
+    pub records: &'a mut Vec<SongPlayRecord>,
+    /// `saveState.cycleNumber`.
+    pub cycle_number: i32,
 }
 
 /// `Music.MusicPlayer`. Its owner calls [`Self::update`] once per 40 Hz tick, after
@@ -121,10 +92,15 @@ pub struct MusicPlayer {
     pub threat_tracker: Option<ThreatTracker>,
     pub has_played_a_song_this_cycle: bool,
     pub settings: MusicSettings,
+    /// `nextProcedural`: the bank asked for while a piece plays (`""` for none).
+    pub next_procedural: Option<String>,
+    pub current_procedural_region: Option<String>,
     asset_bundles_loaded: bool,
     requested_asset_bundles_load: bool,
     /// The main process, for the threat tracker.
-    process: Option<MusicProcess>,
+    pub(crate) process: Option<MusicProcess>,
+    /// The game as the threat tracker reads it, set by the owner before each update.
+    pub(crate) game_view: Option<GameMusicView>,
     next_track: u64,
 }
 
@@ -147,9 +123,12 @@ impl MusicPlayer {
             threat_tracker: None,
             has_played_a_song_this_cycle: false,
             settings,
+            next_procedural: None,
+            current_procedural_region: None,
             asset_bundles_loaded: false,
             requested_asset_bundles_load: false,
             process,
+            game_view: None,
             next_track: 0,
         };
         player.update_music_context(process);
@@ -204,7 +183,8 @@ impl MusicPlayer {
         if let Some(tracker) = &mut self.threat_tracker
             && !process.is_some_and(MusicProcess::is_game)
         {
-            tracker.current_threat = 0.0;
+            tracker.threat_determine.current_threat = 0.0;
+            tracker.threat_determine.current_music_agnostic_threat = 0.0;
         }
         if self.music_context != MusicContext::Menu {
             let context = self.music_context;
@@ -222,6 +202,99 @@ impl MusicPlayer {
             {
                 self.next_song = None;
             }
+            // The arena's `MultiplayerDJ` is not ported.
+            if context != MusicContext::StoryMode {
+                self.next_procedural = Some(String::new());
+            }
+        }
+    }
+
+    /// What the threat tracker reads of the game this tick: `None` without a realized
+    /// player in a room.
+    pub fn set_game_view(&mut self, view: Option<GameMusicView>) {
+        self.game_view = view;
+    }
+
+    /// `NewRegion`: the threat layers of `region`'s bank are asked for. Building the
+    /// `ProceduralMusic` piece is not ported yet, so the request is only kept.
+    pub fn new_region(&mut self, region: &str) {
+        log::info!("NEW MUSIC REGION: {region}");
+        self.next_procedural = Some(region.to_owned());
+        self.current_procedural_region = Some(region.to_owned());
+    }
+
+    /// `GameRequestsSong(musicEvent)`: a room trigger's song, refused while a song of at
+    /// least its priority (or the same song) plays, above its threat, in ghost or laugh
+    /// mode, within its rest since it last played in this save (`story`; a negative
+    /// rest is never again), or after another song this cycle when it plays once per
+    /// cycle. The play record is written unless a waiting song outranks it.
+    pub fn game_requests_song(&mut self, event: &MusicEvent, story: Option<StorySongs<'_>>) {
+        log::info!("Game request song {}", event.song_name);
+        let name = event.song_name.as_str();
+        if !self.settings.play_music
+            || self
+                .song
+                .as_ref()
+                .is_some_and(|s| s.priority >= event.prio || s.name == name)
+            || self.threat_tracker.as_ref().is_some_and(|t| {
+                event.max_threat_level < t.current_threat
+                    || t.ghost_mode > 0.0
+                    || t.spinning_top_laugh_mode > 0.0
+            })
+        {
+            return;
+        }
+        if let Some(s) = &story
+            && s.records.iter().any(|r| {
+                r.song_name == name
+                    && (s.cycle_number - r.cycle_last_played < event.cycles_rest
+                        || event.cycles_rest < 0)
+            })
+        {
+            return;
+        }
+        if event.one_song_per_cycle && self.has_played_a_song_this_cycle {
+            return;
+        }
+        self.has_played_a_song_this_cycle = true;
+        log::info!("Play song {name}");
+        let id = self.track_id();
+        let mut song = Song::new(name, MusicContext::StoryMode, id);
+        song.fade_out_at_threat = event.max_threat_level;
+        song.looped = event.looped;
+        song.priority = event.prio;
+        song.base_volume = event.volume;
+        song.fade_in_time = event.fade_in_time;
+        song.stop_at_death = event.stop_at_death;
+        song.stop_at_gate = event.stop_at_gate;
+        if event.rooms_range > -1
+            && let Some(t) = &self.threat_tracker
+        {
+            song.room_transitions = event.rooms_range + t.room_switches;
+        }
+        if self.song.is_none() {
+            song.play_when_ready = true;
+            self.song = Some(song);
+        } else {
+            if self
+                .next_song
+                .as_ref()
+                .is_some_and(|n| n.priority >= event.prio || n.name == name)
+            {
+                return;
+            }
+            song.play_when_ready = false;
+            self.next_song = Some(song);
+        }
+        let Some(s) = story else {
+            return;
+        };
+        match s.records.iter_mut().find(|r| r.song_name == name) {
+            Some(r) => r.cycle_last_played = s.cycle_number,
+            None => s.records.push(SongPlayRecord {
+                song_name: name.to_owned(),
+                cycle_last_played: s.cycle_number,
+            }),
         }
     }
 
@@ -244,6 +317,7 @@ impl MusicPlayer {
         {
             return;
         }
+        self.next_procedural = Some(String::new());
         let (rain, music) = (self.track_id(), self.track_id());
         self.start_or_queue(Song::intro_roll(rain, music));
     }
@@ -275,10 +349,11 @@ impl MusicPlayer {
     pub fn game_requests_song_stop(&mut self, event: &StopMusicEvent) {
         for song in [&mut self.song, &mut self.next_song].into_iter().flatten() {
             let named = song.name == event.song_name;
+            // An unregistered type stops like `AllSongs` (`StopSongIfItShouldStop`).
             let applies = match event.stop_type {
-                StopMusicType::AllSongs => true,
-                StopMusicType::SpecificSong => named,
-                StopMusicType::AllButSpecific => !named,
+                Some(StopMusicType::SpecificSong) => named,
+                Some(StopMusicType::AllButSpecific) => !named,
+                Some(StopMusicType::AllSongs) | None => true,
             };
             if event.prio >= song.priority && applies {
                 song.fade_out(event.fade_out_time);
@@ -292,6 +367,7 @@ impl MusicPlayer {
             song.fade_out(fade_out_time);
         }
         self.next_song = None;
+        self.next_procedural = Some(String::new());
     }
 
     /// `RainRequestStopSong` (base game: no siren song to spare).
@@ -302,13 +378,17 @@ impl MusicPlayer {
         self.next_song = None;
     }
 
-    /// `DeathEvent` (the threat tracker's decline counter is not ported).
+    /// `DeathEvent`.
     pub fn death_event(&mut self) {
         if let Some(song) = self.song.as_mut().filter(|s| s.stop_at_death) {
             song.fade_out(60.0);
         }
         if self.next_song.as_ref().is_some_and(|s| s.stop_at_death) {
             self.next_song = None;
+        }
+        if let Some(t) = &mut self.threat_tracker {
+            let d = &mut t.threat_determine;
+            d.threat_decline_counter = d.threat_decline_counter.max(400);
         }
     }
 
@@ -327,8 +407,8 @@ impl MusicPlayer {
         self.has_played_a_song_this_cycle = false;
     }
 
-    /// `MusicPlayer.Update`: one 40 Hz tick.
-    pub fn update(&mut self, sources: &mut dyn MusicSources) {
+    /// `MusicPlayer.Update`: one 40 Hz tick; `rng` is the shared `UnityEngine.Random`.
+    pub fn update(&mut self, sources: &mut dyn MusicSources, rng: &mut UnityRandom) {
         if let Some(song) = &mut self.song {
             song.run_pending(sources);
         }
@@ -373,6 +453,7 @@ impl MusicPlayer {
             self.main_song_mix = (self.main_song_mix - 0.025).max(0.0);
             self.drone_goal_mix = self
                 .threat_tracker
+                .as_ref()
                 .map_or(0.0, |t| t.recommended_drone_volume);
         }
         if let Some(mut next) = self.next_song.take() {
@@ -392,8 +473,7 @@ impl MusicPlayer {
                 }
             }
         }
-        if let Some(tracker) = &mut self.threat_tracker {
-            tracker.update(self.process);
-        }
+        // `proceduralMusic` is not ported (D12).
+        self.threat_tracker_update(rng);
     }
 }

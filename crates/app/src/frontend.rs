@@ -233,19 +233,38 @@ impl AppContext {
     }
 
     /// The music player's frame (`MusicPlayer.RawUpdate`): its ticks on its own stacker.
-    fn update_music(&mut self, dt: f32) {
+    /// In a game its threat tracker reads the game and it draws from the game's random
+    /// stream (which the game holds while it runs).
+    fn update_music(&mut self, dt: f32, mut current: Option<&mut AppProcess>) {
         let Some(player) = &mut self.menu.music else {
             return;
         };
         for _ in 0..self.music_stacker.advance(dt, 40) {
+            let game = match current.as_deref_mut() {
+                Some(AppProcess::Game(g)) => Some(&mut g.scene),
+                _ => None,
+            };
             match &mut self.music_sink {
                 MusicSink::Timed(sources) => {
-                    player.update(sources.as_mut());
+                    match game {
+                        Some(scene) => scene.update_music(player, sources.as_mut()),
+                        None => {
+                            player.set_game_view(None);
+                            player.update(sources.as_mut(), &mut self.menu.random);
+                        }
+                    }
                     sources.advance();
                 }
                 MusicSink::Output(output) => {
                     if let Some(audio) = &mut self.audio {
-                        player.update(&mut output.sources(audio));
+                        let mut sources = output.sources(audio);
+                        match game {
+                            Some(scene) => scene.update_music(player, &mut sources),
+                            None => {
+                                player.set_game_view(None);
+                                player.update(&mut sources, &mut self.menu.random);
+                            }
+                        }
                     }
                 }
             }
@@ -294,6 +313,10 @@ impl AppContext {
             Some((slugcat, _)) => GameStart::NewStory(slugcat),
             None => self.game.start.clone(),
         };
+        // The `RainWorldGame` constructor's first act.
+        if let Some(music) = &mut self.menu.music {
+            music.new_cycle_event();
+        }
         let rng = std::mem::replace(&mut self.menu.random, UnityRandom::new(0));
         let table = Arc::clone(&self.game.sound_table);
         let game = Game::start(&self.menu.assets, &start, rng, table)
@@ -520,10 +543,10 @@ impl ProcessFactory<AppProcess> for AppContext {
         }
     }
 
-    fn update_side_processes(&mut self, current: Option<&AppProcess>, dt: f32) {
+    fn update_side_processes(&mut self, mut current: Option<&mut AppProcess>, dt: f32) {
         self.apply_volumes();
-        self.update_music(dt);
-        self.update_menu_mic(current.is_some_and(AppProcess::is_menu));
+        self.update_music(dt, current.as_deref_mut());
+        self.update_menu_mic(current.is_some_and(|p| p.is_menu()));
     }
 
     fn pre_switch(&mut self, next: ProcessId) {

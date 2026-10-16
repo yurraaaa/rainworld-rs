@@ -39,7 +39,8 @@ Working now:
   and swimming. The slugcat is drawn as the game draws it.
 - **Regions:** a whole region loads, and room-exit pipes take you between rooms, with the
   camera switching between screens.
-- **Sound:** sound effects and room ambience; menu and title music.
+- **Sound:** sound effects and room ambience; menu and title music; in the game, the
+  songs that rooms' triggers ask for (SU_A07, SU_A53, SU_B04).
 - **HUD:** the food, karma and rain meters, text prompts, the controls page and the
   region map (hold Space; arrows pan, jump and throw change layers), revealed where you
   have been; what you discovered is saved.

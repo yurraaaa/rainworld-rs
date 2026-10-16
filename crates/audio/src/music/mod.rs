@@ -10,12 +10,12 @@ mod player;
 mod song;
 mod sources;
 mod stream;
+mod threat;
 
 pub use bank::{ClipLength, SongBank};
-pub use player::{
-    MusicContext, MusicPlayer, MusicProcess, MusicSettings, StopMusicEvent, StopMusicType,
-    ThreatTracker,
-};
+pub use player::{MusicContext, MusicPlayer, MusicProcess, MusicSettings, StorySongs};
+pub use rw_assets::{MusicEvent, StopMusicEvent, StopMusicType};
 pub use song::{IntroRoll, Song, SongKind, SubTrack};
 pub use sources::{MusicClock, MusicSources, SourcePlayback, TimedSources, TimedTrack, TrackId};
 pub use stream::{KiraMusic, MusicOutput};
+pub use threat::{GameMusicView, ThreatDetermination, ThreatTracker};

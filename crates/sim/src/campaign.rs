@@ -200,6 +200,8 @@ pub struct StoryStart {
     pub live_region_state: Option<crate::world::RegionState>,
     /// The first player's `swallowedItems` entry (`""` and `"0"` are none).
     pub swallowed_item: Option<String>,
+    /// `deathPersistentSaveData.DangleFruitInWaterMessage`.
+    pub dangle_fruit_in_water_message: bool,
 }
 
 impl StoryStart {
@@ -225,6 +227,7 @@ impl StoryStart {
             in_memory: false,
             live_region_state: None,
             swallowed_item: None,
+            dangle_fruit_in_water_message: false,
         }
     }
 }

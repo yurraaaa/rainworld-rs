@@ -1,8 +1,9 @@
 //! Room settings files (`<room>_settings.txt`) and their template inheritance, for the
 //! values the port uses: `Palette`, `FadePalette`, `EffectColorA/B`, `Clouds`, `Grime`,
 //! the water surface's `WaveSpeed`, `WaveLength`, `WaveAmplitude`, `SecondWaveLength`
-//! and `SecondWaveAmplitude`, `DangerType`, `CeilingDrips`, `RainIntensity`, `AmbientSounds`, `Effects`
-//! and `PlacedObjects`. Mirrors `RoomSettings` (constructor,
+//! and `SecondWaveAmplitude`, `DangerType`, `CeilingDrips`, `RainIntensity`, `AmbientSounds`, `Effects`,
+//! `PlacedObjects`, `BkgDroneVolume`, `BkgDroneNoThreatVolume` and `Triggers`
+//! (`triggers.rs`). Mirrors `RoomSettings` (constructor,
 //! `FindParent`, `Load`, `InheritAmbientSounds`) and
 //! `Region.GetRoomSettingsTemplate`; see `rainworld-re/notes/room-format.md` section 6.
 //!
@@ -15,6 +16,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::identity::ext_enum;
+use crate::triggers::EventTrigger;
 use crate::{
     ActiveMods, AmbientSound, AssetError, PlacedObject, RoomEffect, RoomEffectType,
     StreamingAssets, Timeline,
@@ -93,6 +95,10 @@ pub struct SettingsFile {
     pub placed_objects: Vec<PlacedObject>,
     /// A `RoomSpecificScriptActive:` line (any value).
     pub room_specific_script: bool,
+    pub bkg_drone_volume: Option<f32>,
+    pub bkg_drone_no_threat_volume: Option<f32>,
+    /// `Triggers:` entries (every such line adds).
+    pub triggers: Vec<EventTrigger>,
 }
 
 /// A room's settings after inheritance.
@@ -128,6 +134,12 @@ pub struct RoomSettings {
     pub placed_objects: Vec<PlacedObject>,
     /// `roomSpecificScript`: the room's own file asks for its script (never inherited).
     pub room_specific_script: bool,
+    /// `BkgDroneVolume`: the threat tracker's drone level in this room.
+    pub bkg_drone_volume: f32,
+    /// `BkgDroneNoThreatVolume` (read only by the dev tools).
+    pub bkg_drone_no_threat_volume: f32,
+    /// The room's own triggers (never inherited).
+    pub triggers: Vec<EventTrigger>,
 }
 
 /// A region's settings templates (`Room Setting Templates:` in `properties.txt`).
@@ -178,6 +190,11 @@ impl SettingsFile {
                 "Effects" => file.effects.extend(RoomEffect::parse_list(value)),
                 "PlacedObjects" => file.placed_objects.extend(PlacedObject::parse_list(value)),
                 "RoomSpecificScriptActive" => file.room_specific_script = true,
+                "BkgDroneVolume" => file.bkg_drone_volume = Some(Self::float(value)?),
+                "BkgDroneNoThreatVolume" => {
+                    file.bkg_drone_no_threat_volume = Some(Self::float(value)?);
+                }
+                "Triggers" => file.triggers.extend(EventTrigger::parse_list(value)?),
                 _ => {}
             }
         }
@@ -185,7 +202,7 @@ impl SettingsFile {
     }
 
     /// `int.Parse` with `NumberStyles.Any`: surrounding spaces and a zero fraction allowed.
-    fn int(value: &str) -> Result<i32, String> {
+    pub(crate) fn int(value: &str) -> Result<i32, String> {
         let v = value.trim();
         v.parse::<i32>()
             .ok()
@@ -196,7 +213,7 @@ impl SettingsFile {
             .ok_or_else(|| format!("invalid integer {value:?}"))
     }
 
-    fn float(value: &str) -> Result<f32, String> {
+    pub(crate) fn float(value: &str) -> Result<f32, String> {
         value
             .trim()
             .parse()
@@ -247,6 +264,11 @@ impl SettingsFile {
             effects: RoomEffect::inherit(&self.effects, &parent.effects),
             placed_objects: self.placed_objects.clone(),
             room_specific_script: self.room_specific_script,
+            bkg_drone_volume: self.bkg_drone_volume.unwrap_or(parent.bkg_drone_volume),
+            bkg_drone_no_threat_volume: self
+                .bkg_drone_no_threat_volume
+                .unwrap_or(parent.bkg_drone_no_threat_volume),
+            triggers: self.triggers.clone(),
         }
     }
 
@@ -283,6 +305,9 @@ impl RoomSettings {
         effects: Vec::new(),
         placed_objects: Vec::new(),
         room_specific_script: false,
+        bkg_drone_volume: 0.3,
+        bkg_drone_no_threat_volume: 1.0,
+        triggers: Vec::new(),
     };
 
     /// `FlyAI.RoomNotACycleHazard`: no rain danger (or a blizzard, with the DLCs), or

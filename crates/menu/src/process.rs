@@ -239,7 +239,7 @@ pub trait ProcessFactory<P> {
 
     /// The side processes' frame (`sideProcesses[i].RawUpdate`) after the main
     /// process's; `current` is `None` between the halves of a switch.
-    fn update_side_processes(&mut self, _current: Option<&P>, _dt: f32) {}
+    fn update_side_processes(&mut self, _current: Option<&mut P>, _dt: f32) {}
 
     /// The start of `PreSwitchMainProcess(next)`, before the current process ends.
     fn pre_switch(&mut self, _next: ProcessId) {}
@@ -395,7 +395,7 @@ impl<P> ProcessManager<P> {
         for (id, fade) in requests.switches {
             self.actual_process_switch(id, fade);
         }
-        ctx.update_side_processes(self.current.as_ref(), dt);
+        ctx.update_side_processes(self.current.as_mut(), dt);
         if self.after_mod_finalization.is_some() && !self.mod_finalization_done {
             self.mod_finalization_done = true;
         }

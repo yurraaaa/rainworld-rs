@@ -7,5 +7,7 @@ license.workspace = true
 [dependencies]
 rw-sim.workspace = true
 rw-assets.workspace = true
+rw-random.workspace = true
+rw-save.workspace = true
 log.workspace = true
 kira = { version = "0.12.5", default-features = false, features = ["cpal"] }

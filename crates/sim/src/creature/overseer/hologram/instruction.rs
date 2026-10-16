@@ -1,6 +1,6 @@
 //! `OverseerTutorialBehavior.InputInstruction`: the pictures of the controls the guide
-//! projects during the tutorial (and for the in-world super jump, pick-up and
-//! scavenger-trade triggers, which are not ported), with their controllers.
+//! projects during the tutorial and for the in-world pick-up trigger (the in-world super
+//! jump and scavenger trade ones are not ported), with their controllers.
 
 use super::parts::{ButtonState, HologramPart, PartKind, SymbolPart};
 use super::{ControlPreset, HologramMessage, HologramUpdate, OverseerHologram};
@@ -49,9 +49,10 @@ pub enum Controller {
         tell_player_to_stay_still_counter: i32,
         show_slow_button_press: bool,
     },
-    /// `PickupObjectInputInstructionController` (its trigger is not ported).
+    /// `PickupObjectInputInstructionController`.
     PickupObject {
         arrow: usize,
+        text_shown: bool,
     },
     /// `ScavTradeInputInstructionController` (its trigger is not ported).
     ScavengerTrade,
@@ -181,6 +182,7 @@ impl OverseerHologram {
                     arrow.visible = false;
                     Some(Controller::PickupObject {
                         arrow: h.add_part(arrow),
+                        text_shown: false,
                     })
                 }
                 HologramMessage::ScavengerTrade => Some(Controller::ScavengerTrade),
@@ -581,6 +583,10 @@ impl HologramUpdate<'_, '_> {
         let Some(controller) = self.holo.instruction().and_then(|i| i.controller.clone()) else {
             return;
         };
+        if let Controller::PickupObject { arrow, text_shown } = controller {
+            self.pickup_object(arrow, text_shown);
+            return;
+        }
         let Some(p) = self.cx.player else {
             return;
         };
@@ -590,9 +596,66 @@ impl HologramUpdate<'_, '_> {
             Controller::SuperJump { .. } => self.super_jump(p),
             Controller::Eat { .. } => self.eat(p),
             Controller::PickupObject { .. } | Controller::ScavengerTrade => {
-                // Their in-world triggers (`PickupObjectInstruction`,
-                // `ScavengerTradeInstructionTrigger`) are not ported.
+                // `ScavengerTradeInstructionTrigger` is not ported.
                 self.holo.still_relevant = false;
+            }
+        }
+    }
+
+    /// `PickupObjectInputInstructionController.Update`: points at the guide's
+    /// `PickupObjectInstruction` (SU_A23's text the first time), and counts it once the
+    /// player carries a rock or spear.
+    fn pickup_object(&mut self, arrow: usize, mut text_shown: bool) {
+        let id = self
+            .ai
+            .communication
+            .as_ref()
+            .and_then(|c| c.input_instruction);
+        let Some(view) = id
+            .and_then(|id| self.cx.instructions.iter().find(|i| i.id == id))
+            .copied()
+            .filter(|i| !i.slated)
+        else {
+            self.holo.still_relevant = false;
+            return;
+        };
+        let in_su_a23 = self
+            .cx
+            .world
+            .abstract_room(self.cx.room_index)
+            .is_some_and(|r| r.name == "SU_A23");
+        if !text_shown && self.cx.hud && in_su_a23 {
+            self.cx
+                .effects
+                .push(crate::creature::overseer::OverseerEffect::Message(
+                    crate::creature::overseer::TutorialMessage {
+                        text: "Objects can be picked up, carried, and tossed",
+                        wait: 0,
+                        time: 160,
+                        hide_hud: true,
+                    },
+                ));
+            text_shown = true;
+        }
+        let picked = view.player_has_picked_up_an_item;
+        let pos = self.holo.pos;
+        self.holo.parts[arrow].visible = !picked;
+        self.holo.parts[arrow].offset = view.instruction_pos + Vec2::new(0.0, 20.0) - pos;
+        if let Some(i) = self.holo.instruction_mut() {
+            i.close_to_pos = view.instruction_pos + Vec2::new(0.0, 60.0);
+            i.show_pickup = !picked;
+            i.show_throw = picked;
+            i.controller = Some(Controller::PickupObject { arrow, text_shown });
+        }
+        if view.mark_instruction_as_followed {
+            // `InWorldInputInstructionCompleted`.
+            log::info!("input instruction completed");
+            self.cx.guide.pickup_objects_shown += 1;
+            self.cx
+                .effects
+                .push(crate::creature::overseer::OverseerEffect::InstructionFollowed(view.id));
+            if let Some(i) = self.cx.instructions.iter_mut().find(|i| i.id == view.id) {
+                i.mark_instruction_as_followed = false;
             }
         }
     }

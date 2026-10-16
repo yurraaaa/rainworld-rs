@@ -60,10 +60,10 @@ impl ProcessFactory<Proc> for Ctx {
         }
     }
 
-    fn update_side_processes(&mut self, _current: Option<&Proc>, dt: f32) {
+    fn update_side_processes(&mut self, _current: Option<&mut Proc>, dt: f32) {
         if let Some(player) = &mut self.shared.music {
             for _ in 0..self.music_stacker.advance(dt, 40) {
-                player.update(&mut self.sources);
+                player.update(&mut self.sources, &mut self.shared.random);
                 self.sources.advance();
             }
         }

@@ -9,7 +9,48 @@
 use rw_assets::SlugcatName;
 
 use crate::coordinate::SavedCoordinate;
+use crate::songs::SongPlayRecord;
 use crate::win_state::{EndgameId, WinState};
+
+/// `DeathPersistentSaveData.Tutorial` (base game).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Tutorial {
+    GoExplore,
+    ScavToll,
+    ScavMerchant,
+    DangleFruitInWater,
+    KarmaFlower,
+    PoleMimic,
+}
+
+impl Tutorial {
+    /// The digit order of the old format (`ParseTutorialMessages`).
+    pub const LEGACY_ORDER: [Self; 6] = [
+        Self::GoExplore,
+        Self::ScavToll,
+        Self::ScavMerchant,
+        Self::DangleFruitInWater,
+        Self::KarmaFlower,
+        Self::PoleMimic,
+    ];
+
+    #[must_use]
+    pub fn value(self) -> &'static str {
+        match self {
+            Self::GoExplore => "GoExplore",
+            Self::ScavToll => "ScavToll",
+            Self::ScavMerchant => "ScavMerchant",
+            Self::DangleFruitInWater => "DangleFruitInWater",
+            Self::KarmaFlower => "KarmaFlower",
+            Self::PoleMimic => "PoleMimic",
+        }
+    }
+
+    #[must_use]
+    pub fn from_value(value: &str) -> Option<Self> {
+        Self::LEGACY_ORDER.into_iter().find(|t| t.value() == value)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DeathPersistentSaveData {
@@ -26,7 +67,7 @@ pub struct DeathPersistentSaveData {
     pub karma_flower_position: Option<String>,
     /// `GHOSTS`' value as read (always written).
     pub ghosts: String,
-    pub songs_play_records: Option<String>,
+    pub songs_play_records: Vec<SongPlayRecord>,
     pub session_records: Option<String>,
     pub win_state: WinState,
     pub consumed_flowers: Option<String>,
@@ -85,7 +126,7 @@ impl DeathPersistentSaveData {
             pebbles_increased_reds_karma_cap: false,
             karma_flower_position: None,
             ghosts: String::new(),
-            songs_play_records: None,
+            songs_play_records: Vec::new(),
             session_records: None,
             win_state: WinState::default(),
             consumed_flowers: None,
@@ -134,7 +175,9 @@ impl DeathPersistentSaveData {
                 "REINFORCEDKARMA" => self.reinforced_karma = value == Some("1"),
                 "FLOWERPOS" => self.karma_flower_position = owned,
                 "GHOSTS" => self.ghosts = owned.unwrap_or_default(),
-                "SONGSPLAYRECORDS" => self.songs_play_records = owned,
+                "SONGSPLAYRECORDS" => {
+                    SongPlayRecord::parse_into(value.unwrap_or(""), &mut self.songs_play_records)?
+                }
                 "SESSIONRECORDS" => self.session_records = owned,
                 "WINSTATE" => self.win_state = WinState::from_string(value.unwrap_or("")),
                 "CONSUMEDFLOWERS" => self.consumed_flowers = owned,
@@ -195,11 +238,8 @@ impl DeathPersistentSaveData {
         }
         Self::push_entry(&mut t, "FLOWERPOS", self.karma_flower_position.as_deref());
         Self::push_entry(&mut t, "GHOSTS", Some(&self.ghosts));
-        Self::push_entry(
-            &mut t,
-            "SONGSPLAYRECORDS",
-            self.songs_play_records.as_deref(),
-        );
+        let songs = SongPlayRecord::save_string(&self.songs_play_records);
+        Self::push_entry(&mut t, "SONGSPLAYRECORDS", songs.as_deref());
         Self::push_entry(&mut t, "SESSIONRECORDS", self.session_records.as_deref());
         let win = self.win_state.save_to_string(died);
         if !win.is_empty() {
@@ -344,6 +384,47 @@ impl DeathPersistentSaveData {
             .collect()
     }
 
+    /// `tutorialMessages` as names (a DLC or mod one stays as written), the old
+    /// digit-string format read as `ParseTutorialMessages` reads it.
+    #[must_use]
+    pub fn tutorial_message_list(&self) -> Vec<String> {
+        let s = &self.tutorial_messages;
+        if !s.is_empty() && s.chars().all(|c| c.is_ascii_digit()) {
+            return s
+                .chars()
+                .zip(Tutorial::LEGACY_ORDER)
+                .filter(|(c, _)| *c != '0')
+                .map(|(_, t)| t.value().to_owned())
+                .collect();
+        }
+        s.split(',')
+            .filter(|t| !t.is_empty())
+            .map(str::to_owned)
+            .collect()
+    }
+
+    /// `tutorialMessages.Contains(tutorial)` (the `...Message` properties).
+    #[must_use]
+    pub fn tutorial_message(&self, tutorial: Tutorial) -> bool {
+        self.tutorial_message_list()
+            .iter()
+            .any(|t| t == tutorial.value())
+    }
+
+    /// `SetTutorialValue`: written back as the game writes it.
+    pub fn set_tutorial_message(&mut self, tutorial: Tutorial, flag: bool) {
+        let mut list = self.tutorial_message_list();
+        let at = list.iter().position(|t| t == tutorial.value());
+        match at {
+            None if flag => list.push(tutorial.value().to_owned()),
+            Some(i) if !flag => {
+                list.remove(i);
+            }
+            _ => {}
+        }
+        self.tutorial_messages = list.join(",");
+    }
+
     /// `endGameMetersEverShown.Add`: written back as the game writes it.
     pub fn add_meter_shown(&mut self, id: EndgameId) {
         let mut shown = self.meters_ever_shown();
@@ -469,5 +550,26 @@ mod tests {
         let s = d.save_to_string(true, false);
         assert!(s.starts_with("REDSDEATH<dpA>REINFORCEDKARMA<dpB>0<dpA>KARMA<dpB>3<dpA>"));
         assert!(s.contains("QUITS<dpB>1<dpA>"));
+    }
+
+    #[test]
+    fn tutorial_messages_and_song_records() {
+        let mut d = DeathPersistentSaveData::new(SlugcatName::White);
+        d.from_string("TUTMESSAGES<dpB>000101<dpA>SONGSPLAYRECORDS<dpB>NA_01 - Proxima<dpD>2<dpA>")
+            .unwrap();
+        assert!(d.tutorial_message(Tutorial::DangleFruitInWater));
+        assert!(!d.tutorial_message(Tutorial::KarmaFlower));
+        d.set_tutorial_message(Tutorial::GoExplore, true);
+        assert_eq!(
+            d.tutorial_messages,
+            "DangleFruitInWater,PoleMimic,GoExplore"
+        );
+        d.set_tutorial_message(Tutorial::PoleMimic, false);
+        assert_eq!(d.tutorial_messages, "DangleFruitInWater,GoExplore");
+        assert_eq!(d.songs_play_records[0].cycle_last_played, 2);
+        assert!(
+            d.save_to_string(false, false)
+                .contains("SONGSPLAYRECORDS<dpB>NA_01 - Proxima<dpD>2<dpA>")
+        );
     }
 }

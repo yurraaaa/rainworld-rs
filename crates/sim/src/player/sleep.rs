@@ -71,6 +71,11 @@ impl Player {
         self.still_in_start_shelter
     }
 
+    #[cfg(test)]
+    pub(crate) fn leave_start_shelter(&mut self) {
+        self.still_in_start_shelter = false;
+    }
+
     #[must_use]
     pub fn touched_no_input_counter(&self) -> i32 {
         self.touched_no_input_counter
