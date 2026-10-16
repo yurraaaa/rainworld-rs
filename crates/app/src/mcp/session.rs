@@ -11,11 +11,13 @@ use std::sync::Arc;
 use rw_assets::SlugcatName;
 use rw_assets::{SoundTable, StreamingAssets, UnityResources};
 use rw_audio::music::{MusicProcess, TimedSources};
+use rw_graphics::{CosmeticShape, LizardCosmetic};
 use rw_menu::{KeyboardKey, MainLoopProcess, MenuShared, ProcessId, StoryGameInitCondition};
 use rw_random::UnityRandom;
 use rw_render::{RoomLayers, WgpuRenderer};
 use rw_save::SaveSlot;
 use rw_sim::campaign::SlugcatCampaign;
+use rw_sim::creature::lizard::LizardVoice;
 use rw_sim::creature::{AbstractCreature, CreatureId, Lizard};
 use rw_sim::item::{Entity, ObjectId, SpearStickKind, Weapon};
 use rw_sim::{Input, StomachObject, Vec2, WorldCoordinate};
@@ -36,8 +38,8 @@ use super::reply::{
     StepTrace, StoryInfo, TextPromptState, TokenState, WeaponInfo,
 };
 use super::reply::{
-    ConnectionInfo, CoordInfo, LizardGraphicsInfo, LizardLimbInfo, LizardMoveInfo,
-    MovementAnimationInfo, VesselInfo,
+    ConnectionInfo, CoordInfo, LizardCosmeticInfo, LizardGraphicsInfo, LizardLimbInfo,
+    LizardMoveInfo, LizardVoiceInfo, MovementAnimationInfo, VesselInfo,
 };
 use super::reply::{DangerInfo, HoloLightState, LightSourceState, MusicState, TriggerState};
 use super::reply::{
@@ -943,13 +945,62 @@ impl Session {
             flicker: g.flicker,
             white_flicker: link.white_flicker,
             look_pos: g.look_pos.to_array(),
-            cosmetics: g
-                .cosmetics
-                .iter()
-                .map(|k| k.shape.name().to_owned())
-                .collect(),
+            cosmetics: g.cosmetics.iter().map(Self::lizard_cosmetic_info).collect(),
             light: link.light,
+            voice_visualization_intensity: g.voice_visualization_intensity,
+            voice_visualization: g.voice_visualization,
+            voice: l.voice.as_ref().map(Self::lizard_voice_info),
         })
+    }
+
+    fn lizard_cosmetic_info(c: &LizardCosmetic) -> LizardCosmeticInfo {
+        let (graphic, colored, count, tips) = match &c.shape {
+            CosmeticShape::SpineSpikes(b) | CosmeticShape::BumpHawk(b) => (
+                b.graphic,
+                b.colored,
+                usize::try_from(b.bumps).unwrap_or(0),
+                Vec::new(),
+            ),
+            CosmeticShape::LongShoulderScales(s)
+            | CosmeticShape::ShortBodyScales(s)
+            | CosmeticShape::TailTuft(s)
+            | CosmeticShape::LongHeadScales(s) => (
+                s.graphic,
+                i32::from(s.colored),
+                s.positions.len(),
+                s.scale_objects
+                    .iter()
+                    .map(|o| o.part.pos.to_array())
+                    .collect(),
+            ),
+        };
+        LizardCosmeticInfo {
+            kind: c.shape.name().to_owned(),
+            start_sprite: c.start_sprite,
+            sprites: c.number_of_sprites,
+            overlap: c.sprites_overlap.value().to_owned(),
+            graphic,
+            colored,
+            count,
+            tips,
+        }
+    }
+
+    fn lizard_voice_info(v: &LizardVoice) -> LizardVoiceInfo {
+        LizardVoiceInfo {
+            trigger: v.my_voice_trigger.map(|s| s.name().to_owned()),
+            sound: v.sound_id.map(|s| s.name().to_owned()),
+            emotion: v.articulation.map(|e| e.value().to_owned()),
+            progression: v.current_articulation_progression,
+            emotion_intensity: v.current_emotion_intensity,
+            volume: v.volume,
+            pitch: v.pitch,
+            making_a_sound: v.making_a_sound(),
+            saved_intensity: v.saved_intensity,
+            visualized_intensity: v.visualized_intensity(),
+            emitter: v.sound_a.is_some(),
+            playing: v.sound_a.as_ref().is_some_and(|s| s.emitter.playing),
+        }
     }
 
     fn lizard_move_info(scene: &Scene, id: CreatureId, l: &Lizard) -> LizardMoveInfo {

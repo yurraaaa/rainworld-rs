@@ -7,7 +7,7 @@
 use rw_assets::{Room, Terrain};
 use rw_random::UnityRandom;
 
-use super::BubbleHead;
+use super::{BubbleHead, LizardVoiceView};
 use crate::creature::CreatureId;
 use crate::room_ext::RoomExt;
 use crate::{FloatExt, Vec2};
@@ -39,6 +39,8 @@ pub struct LizardBubble {
     pub last_liberated_origin: Vec2,
     pub life_time_when_free: f32,
     pub stickiness: f32,
+    /// The module's voice as last read.
+    pub voice: LizardVoiceView,
 }
 
 impl LizardBubble {
@@ -86,6 +88,7 @@ impl LizardBubble {
             last_liberated_origin: pos,
             life_time_when_free: 0.0,
             stickiness,
+            voice: LizardVoiceView::default(),
         };
         if bubble.stickiness() == 0.0 {
             bubble.free_floating = true;
@@ -104,18 +107,27 @@ impl LizardBubble {
 
     /// `Update` then `CosmeticSprite.Update`, `head` the graphics' head now (`None`
     /// keeps the last one) and `water_level` `Room.FloatWaterLevel(pos)`; true once it
-    /// is destroyed. The voice's pull (`voiceVisualizationIntensity`) is lizard step 5b.
+    /// is destroyed; `voice` the module's voice now (`None` keeps the last). While the
+    /// voice sounds it pushes the bubble away from the head, harder the louder it shows.
     pub fn update(
         &mut self,
         room: &Room,
         head: Option<BubbleHead>,
+        voice: Option<LizardVoiceView>,
         water_level: f32,
         rng: &mut UnityRandom,
     ) -> bool {
         if let Some(h) = head {
             self.head = h;
         }
+        if let Some(v) = voice {
+            self.voice = v;
+        }
         self.vel = self.vel.slerp(Vec2::from_degrees(rng.value() * 360.0), 0.2);
+        if self.voice.intensity > 0.0 {
+            self.vel += self.head.pos.direction_to(self.pos)
+                * (-0.5f32).lerp(3.0, self.voice.visualization);
+        }
         self.last_life = self.life;
         self.life -= 1.0 / self.life_time as f32;
         let slated = self.life <= 0.0;

@@ -94,8 +94,8 @@ it (D13). What still differs is only the seed and the call order:
   1000 ticks into a cycle) every story run's stream has shifted from before, as the
   game's does. Missing: the draws a creature other than a bat fly, an overseer or a
   green lizard would make on being realized (`PlaceInRealizedRoom`, its body, AI and
-  graphics), as it stays abstract (D14), a green lizard's voice (lizard step 5b) and
-  its AI's trackers' (lizard step 6), and
+  graphics), as it stays abstract (D14), and a green lizard's AI's trackers' (lizard
+  step 6), and
   per tick the scavengers' abstract AI and `ScavengersWorldAI` (one `Range` over the
   scavengers every tick once a world has any), which are not ported (D14).
   `LocalCoordinateOfNode` draws for bat hives, garbage holes and border exits (a border
@@ -115,7 +115,13 @@ it (D13). What still differs is only the seed and the call order:
   `LookAtNothing`; 1 per spotted animation), the eyes (4), the blink (1, or 2 during a
   stun flicker), the tail direction (1, and 2 when it changes), each limb's health rolls
   and foot sounds, and the bubbles (11 each: a lunge, a threat display, a jumping head,
-  `bubble` ticks, a hard landing's 1 + 12 each) and a lunging green lizard's drips. Its
+  `bubble` ticks or a voice shown above 0.5, a hard landing's 1 + 12 each), a lunging
+  green lizard's drips and the voice's body shake (3 while it shows above 0.2). Its
+  cosmetics draw only while `showDominance` is above 0 (never in the base game). Its
+  `LizardVoice` (lizard step 5b) draws the intensity of each `MakeSound` without one
+  (1, whether or not it sounds) and, in the camera's room, the microphone's 7 each time
+  its sound is made (again whenever the clip has played out while the emotion lasts);
+  its constructor draws on the ID's seed. Its
   constructor draws on a stream seeded by the creature's ID, the global one restored, as
   the game's does. A spear lodging in it with graphics rolls for the body part (1, then
   the part's), the head shield's sparks draw 4 each, and the sick lizard's white flicker
@@ -570,14 +576,20 @@ head with its jump and `bubble` bubbles), `SuckedIntoShortCut`, `Stun`, `WhiteFl
 colour layer and the five head sprites, in `AddToContainer`'s order, coloured as
 `ApplyPalette` and `HeadColor`; `LizardBubble` in full, the head shield's sparks and
 `StationaryEffect` flash, and the body part a lodged spear follows. Differences:
-- **Cosmetics.** The choice and the constructors' state (`SpineSpikes`, `BumpHawk`,
-  `LongShoulderScales`, `ShortBodyScales`, `TailTuft`, `LongHeadScales`) are ported for
-  the green lizard; their sprites, `DrawSprites` and updates (which draw only while
-  `showDominance` is above 0, never in the base game) are lizard step 5b, so the
-  lizard is drawn without spikes or scales. `graphicHeight` (an atlas element's
-  height) is not stored yet. The other breeds' choices and cosmetics come with them.
-- **The voice** is silent until step 5b: `voiceVisualization` and its intensity are 0
-  (no bubbles, jaw or body shake from it).
+- **Cosmetics** (lizard step 5b). The green lizard's (`SpineSpikes`, `BumpHawk`,
+  `LongShoulderScales`, `ShortBodyScales`, `TailTuft`, `LongHeadScales`) are ported
+  whole: the choice, the constructors, `LongBodyScales.Update` (the scales trailing
+  their roots, their shake while `showDominance` is above 0, which no base-game lizard
+  shows), `DrawSprites`, the `ApplyPalette` colours (applied every frame, as nothing
+  changes them between palette changes for a green) and `AddToContainer`'s overlap
+  places, over `SpinePosition` and `GetBackPos`. `graphicHeight` is the
+  `LizardScaleA` element's height, kept as a table in `rw_graphics::elements` and
+  checked against the installed atlas. The other breeds' choices and cosmetics come
+  with them; a HUD cosmetic (none in the base game) would be drawn after those in
+  front, in the midground.
+- **The voice** (lizard step 5b) is the game's: `voiceVisualization` and its intensity
+  pull the jaw open, light the head, blow bubbles and shake the body as the game's do;
+  `voiceVisualization` itself is computed in the sim (D12).
 - **The AI's looks.** `LizardAI` is a stand-in (D14): its tracker is empty, so the
   looker never looks at a creature (`lookCreature` stays null, the eye beams stay off)
   and `CreatureSpotted` and the fleeing `lookPos` are not called.
@@ -791,7 +803,28 @@ updates in) and the passage screen's `Passages` song are ported as hooks
   unported menu screens and objects, `PlayCustomSound` / loose mod clips next to
   `sounds.txt` (a name found only there counts
   as present for the draws but is not decoded), the Watcher ripple ambience and DLC
-  sound IDs. Deafness, fade to black and `globalSoundMuffle` stay 0; time speed is 1.
+  sound IDs (a lizard voice's Remix `Love` call and the rot voices among them). Deafness,
+  fade to black and `globalSoundMuffle` stay 0; time speed is 1.
+- **The lizard voice's visualization is computed in the sim.** `LizardVoice` (with
+  `CreatureVoice`) is ported whole: its seeded articulations, `MakeSound`, the volume
+  and pitch it gives its `Lizard_Voice_*` one-shot on the head chunk each tick (a
+  `requireActiveUpkeep` emitter in the room's update list, replayed while the emotion
+  lasts once the clip has played out or the emitter died), and the sound let go while
+  the jaws hold something. The game's `IntensityVisualizer` reads
+  `AudioSource.GetSpectrumData` (64 bins, Blackman-Harris) of the playing sound, which
+  Unity's audio thread fills, so in the game it depends on real-time audio. The port
+  computes it in the sim from the clip, decoded once when the sound table loads
+  (`SoundTable::pcm`, the `Lizard_Voice_*` and `Lizard_Love_Voice_*` clips): from the
+  tick after the sound is made, at the position the ticks have played it to (`sample
+  rate * pitch / 40` per tick), a 128-point FFT of the last 128 mixer-rate samples,
+  the mean of the 64 bins through the game's `Pow(InverseLerp(0.0002, 0.003, mean),
+  0.5)`, times the voice's volume. INFERRED, not read from Unity: the 48 kHz mixer
+  rate, the window's periodic form, the `2 / N` magnitude scale, that the spectrum is
+  taken before the source's volume, and the frame alignment (the game's spectrum is of
+  whatever the audio thread mixed last). It is 0 when the camera is not in the voice's
+  room (no sound object), as in the game, but the crowd cap (above) does not silence it.
+  Its draws (the body shake and voice bubbles) follow from it, so they are the port's
+  and not the game's real-time ones.
 - **`AllowSound`'s crowd cap is applied by the audio, after the sim made the draws.** In
   the game a refused sound makes no draws after `silentChance`'s; the cap depends on how
   many sounds the audio thread still plays, which the tick-deterministic sim does not
@@ -1323,8 +1356,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
   jump animations belong to breeds whose data is not entered; a green lizard never
   enters them, and the port goes back to Standard if one does. Not yet, with their
   steps: the AI's decisions (tracker, relationships, social events and taming are steps
-  6 and 7), the cosmetics' sprites and `LizardVoice` (step 5b: the voice's `MakeSound`
-  draw is made, its sound is not), eating a dead
+  6 and 7; the AI's `MakeSound` calls, boredom, pain, frustration, blood lust,
+  dominance and submission, come with them), eating a dead
   lizard (step 8: the player cannot grab creatures yet), the drowning bubble (its draws
   are made, the object is not), lethal water and the rain's flood (no rain yet). The
   `kill_green_lizards` tutorial message is the game's: it marks the state dead without

@@ -10,8 +10,9 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Arc;
 
-use crate::unity::AssetBundle;
+use crate::unity::{AssetBundle, AudioClip, PcmAudio};
 use crate::{AssetError, StreamingAssets};
 
 /// The clip names the loader can see: the bundle's asset names (lower case, full path
@@ -92,6 +93,9 @@ pub struct SoundTable {
     /// Lower-case sound ID -> trigger, `None` when a clip is missing.
     triggers: HashMap<String, Option<SoundTrigger>>,
     clips: Vec<SoundClip>,
+    /// Decoded clips by variation asset: those whose spectrum the game reads while they
+    /// play (`CreatureVoice`'s visualizer), decoded once when the table loads.
+    pcm: HashMap<String, Arc<PcmAudio>>,
 }
 
 impl ClipNames {
@@ -174,7 +178,57 @@ impl SoundTable {
         let path = assets.file("soundeffects/sounds.txt");
         let text = fs::read_to_string(&path).map_err(|e| AssetError::io(&path, e))?;
         let names = ClipNames::from_bundle(bundle, Some(assets.file("soundeffects")));
-        Self::parse(&text, &names).map_err(|m| AssetError::format(&path, m))
+        let mut table = Self::parse(&text, &names).map_err(|m| AssetError::format(&path, m))?;
+        table.decode_visualized(bundle);
+        Ok(table)
+    }
+
+    /// The trigger prefixes (lower case) of the sounds a `CreatureVoice` visualizes: the
+    /// lizard voices, its only subclass's.
+    const VISUALIZED: [&'static str; 2] = ["lizard_voice_", "lizard_love_voice_"];
+
+    /// Decodes the bundle clips of the visualized triggers.
+    fn decode_visualized(&mut self, bundle: &AssetBundle) {
+        let mut assets: Vec<String> = Vec::new();
+        for (id, trigger) in &self.triggers {
+            let Some(trigger) = trigger else { continue };
+            if !Self::VISUALIZED.iter().any(|p| id.starts_with(p)) {
+                continue;
+            }
+            for s in &trigger.samples {
+                let clip = &self.clips[s.clip];
+                if clip.in_bundle {
+                    assets.extend(
+                        clip.variations
+                            .iter()
+                            .filter(|v| v.exists)
+                            .map(|v| v.asset.clone()),
+                    );
+                }
+            }
+        }
+        for asset in assets {
+            let decoded = bundle
+                .load::<AudioClip>(&asset)
+                .and_then(|clip| bundle.decode_audio(&clip));
+            match decoded {
+                Ok(pcm) => {
+                    self.pcm.insert(asset, Arc::new(pcm));
+                }
+                Err(e) => log::warn!("visualized clip {asset}: {e}"),
+            }
+        }
+    }
+
+    /// A decoded visualized clip by variation asset.
+    #[must_use]
+    pub fn pcm(&self, asset: &str) -> Option<&Arc<PcmAudio>> {
+        self.pcm.get(asset)
+    }
+
+    /// Adds a decoded clip (tests build tables without a bundle).
+    pub fn insert_pcm(&mut self, asset: &str, pcm: PcmAudio) {
+        self.pcm.insert(asset.to_owned(), Arc::new(pcm));
     }
 
     /// Parses the file text against the clip names.

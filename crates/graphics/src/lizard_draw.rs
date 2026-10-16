@@ -2,7 +2,7 @@
 //! the body circles and mesh, the tail mesh, the legs and their colour layer, the five
 //! head sprites; in the midground, in the game's container order. Its draws (jaw twitch,
 //! head jitter, flicker colour, the every-second-draw toggle) come from the cosmetic
-//! stream (D1). The cosmetics' sprites are lizard step 5b.
+//! stream (D1). The cosmetics' sprites are `lizard_cosmetics_draw.rs`'.
 
 use std::borrow::Cow;
 
@@ -16,6 +16,8 @@ use crate::elements::{
     LIZARD_ARM, LIZARD_ARM_COLOR, LIZARD_EYES, LIZARD_HEAD, LIZARD_JAW, LIZARD_LOWER_TEETH,
     LIZARD_UPPER_TEETH,
 };
+use crate::lizard_cosmetics::SpritesOverlap;
+use crate::lizard_cosmetics_draw::CosmeticDraw;
 use crate::lizard_graphics::LizardGraphics;
 use crate::math::CustomVec;
 
@@ -37,6 +39,8 @@ const TAIL: usize = 6;
 const LIMBS: usize = 7;
 const HEAD: usize = 11;
 const LIMB_COLORS: usize = 16;
+/// The last of the near legs' sprites, after which come the cosmetics behind the head.
+const LAST_NEAR_LIMB_COLOR: usize = 19;
 
 /// `AddToContainer`'s order of the base sprites (body circle 4 is never placed).
 const CONTAINER_ORDER: [usize; 20] = [
@@ -49,6 +53,18 @@ impl Color {
     pub fn from_rgb(c: [f32; 3]) -> Self {
         Self::rgb(c[0], c[1], c[2])
     }
+}
+
+/// `LizardGraphics.LizardSpineData`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LizardSpineData {
+    pub f: f32,
+    pub pos: Vec2,
+    pub outer_pos: Vec2,
+    pub dir: Vec2,
+    pub perp: Vec2,
+    pub depth_rotation: f32,
+    pub rad: f32,
 }
 
 /// What `HeadColor` and `HeadRotation` read of the lizard.
@@ -94,7 +110,7 @@ impl LizardGraphics {
 
     /// `HeadColor(t)`: white during the strong white flicker (or every second draw of a
     /// weak one), else between the palette's black and the effect colour by the blink,
-    /// the head colour setter and the stun flicker.
+    /// the head colour setter, the stun flicker and the voice.
     #[must_use]
     pub fn head_color(&self, lizard: &LizardReading, black: Color, t: f32) -> Color {
         if self.white_flicker > 0 && (self.white_flicker > 15 || self.every_second_draw) {
@@ -114,6 +130,13 @@ impl LizardGraphics {
         if self.flicker > 10 {
             a = self.flicker_color;
         }
+        let voice = self
+            .last_voice_visualization
+            .lerp(self.voice_visualization, t);
+        let voicing = self
+            .last_voice_visualization_intensity
+            .lerp(self.voice_visualization_intensity, t);
+        a = a.lerp(voice.max(0.0).mathf_pow(0.75), voicing);
         black.lerp(Color::from_rgb(self.effect_color), a)
     }
 
@@ -133,6 +156,78 @@ impl LizardGraphics {
             .mathf_pow(params.tail_coloration_exponent)
             * self.ivars.tail_color;
         black.lerp(Color::from_rgb(self.effect_color), c)
+    }
+
+    /// `SpinePosition(s, t)`: the point `s` of the way along body and tail, its
+    /// direction, width and the depth-rotated point on its side.
+    #[must_use]
+    pub fn spine_position(&self, view: &LizardView<'_>, s: f32, t: f32) -> LizardSpineData {
+        let c = &view.lizard.body.connections;
+        let body = c[0].distance + c[1].distance;
+        let split = body / (body + self.tail_length);
+        let n = self.tail.len();
+        let fat = self.ivars.fatness;
+        let (from, from_rad, next, at, at_rad, f);
+        if s < split {
+            let x = s.inverse_lerp(0.0, split);
+            let i = (x * 4.0 - 1.0).floor() as i32;
+            let j = (x * 4.0).floor() as i32;
+            if i < 0 {
+                let head = self.head.last_pos.lerp(self.head.pos, t);
+                from = self.body_position(0, t).lerp(head, 0.5);
+                from_rad = self.head.rad;
+            } else {
+                from = self.body_position(i as usize, t);
+                from_rad = Self::body_chunk_display_rad(view, if i < 2 { 1 } else { 2 }) * fat;
+            }
+            next = if j + 1 >= 4 {
+                self.tail_pos(0, t)
+            } else {
+                self.body_position((j + 1) as usize, t)
+            };
+            at = self.body_position(j as usize, t);
+            at_rad = Self::body_chunk_display_rad(view, if j < 2 { 1 } else { 2 });
+            f = (x * 4.0).inverse_lerp((i + 1) as f32, (j + 1) as f32);
+        } else {
+            let x = s.inverse_lerp(split, 1.0);
+            let i = (x * n as f32 - 1.0).floor() as i32;
+            let j = ((x * n as f32).floor() as usize).min(n - 1);
+            if i < 0 {
+                from = self.body_position(3, t);
+                from_rad = Self::body_chunk_display_rad(view, 2) * fat;
+            } else {
+                from = self.tail_pos(i as usize, t);
+                from_rad = self.tail[i as usize].stretched_rad() * fat * self.ivars.tail_fatness;
+            }
+            next = self.tail_pos((j + 1).min(n - 1), t);
+            at = self.tail_pos(j, t);
+            at_rad = self.tail[j].stretched_rad();
+            f = (x * n as f32).inverse_lerp((i + 1) as f32, (j + 1) as f32);
+        }
+        let mut dir = (at - from).lerp(next - at, f).normalized();
+        if dir == Vec2::ZERO {
+            dir = (self.tail[n - 1].part.pos - self.tail[n - 2].part.pos).normalized();
+        }
+        let perp = dir.perpendicular();
+        let rad = from_rad.lerp(at_rad, f);
+        let depth = self.last_depth_rotation.lerp(self.depth_rotation, t);
+        let depth = depth.abs().mathf_pow(1.2f32.lerp(0.3, s.mathf_pow(0.5)))
+            * crate::math::Mathf::unity_sign(depth);
+        let pos = from.lerp(at, f);
+        LizardSpineData {
+            f: s,
+            pos,
+            outer_pos: pos + perp * (depth * rad),
+            dir,
+            perp,
+            depth_rotation: depth,
+            rad,
+        }
+    }
+
+    /// Tail segment `i` at `t`.
+    fn tail_pos(&self, i: usize, t: f32) -> Vec2 {
+        self.tail[i].part.last_pos.lerp(self.tail[i].part.pos, t)
     }
 
     /// `BodyPosition(p, t)`.
@@ -183,7 +278,13 @@ impl LizardGraphics {
         if ready && lizard.conscious() {
             jaw += rng.value() * 0.2;
         }
-        let jaw = jaw.clamp(0.0, 1.0);
+        let voice = self
+            .last_voice_visualization
+            .lerp(self.voice_visualization, t);
+        let voicing = self
+            .last_voice_visualization_intensity
+            .lerp(self.voice_visualization_intensity, t);
+        let jaw = jaw.lerp(voice + 0.2, voicing * 0.8).clamp(0.0, 1.0);
         self.draw_body(view, black, t, rng, &mut slots);
         self.draw_limbs(view, black, t, &mut slots);
         self.draw_tail(view, black, t, &mut slots);
@@ -192,7 +293,7 @@ impl LizardGraphics {
         if lizard.conscious() {
             if lizard.bubble > 0 {
                 let deg = rng.value() * 360.0;
-                at += Vec2::from_degrees(deg) * (2.0 * lizard.bubble_intensity * 0.5);
+                at += Vec2::from_degrees(deg) * (2.0 * self.bubble_intensity(view));
             }
             if self.white_flicker > 0 {
                 let deg = rng.value() * 360.0;
@@ -206,7 +307,7 @@ impl LizardGraphics {
                     | LizardAnimation::ThreatReSpotted
             ) {
                 let deg = rng.value() * 360.0;
-                at += Vec2::from_degrees(deg) * rng.value();
+                at += Vec2::from_degrees(deg) * (rng.value() * (1.0 + 2.0 * voice));
             }
         }
         let aim = self.dp(0, t).aim_to(head);
@@ -251,6 +352,17 @@ impl LizardGraphics {
                 color,
             ));
         }
+        let cx = CosmeticDraw {
+            g: self,
+            view,
+            black,
+            t,
+        };
+        let cosmetics: Vec<(SpritesOverlap, Vec<DrawItem>)> = self
+            .cosmetics
+            .iter()
+            .map(|c| (c.sprites_overlap, c.draw(&cx)))
+            .collect();
         if self.flicker > 10 {
             self.flicker_color = rng.value();
         }
@@ -258,11 +370,32 @@ impl LizardGraphics {
             self.every_second_draw = !self.every_second_draw;
         }
         DrawList {
-            items: CONTAINER_ORDER
-                .iter()
-                .filter_map(|&i| slots[i].take())
-                .collect(),
+            items: Self::container_order(slots, cosmetics),
         }
+    }
+
+    /// `AddToContainer`'s order: the cosmetics behind everything, then the far legs,
+    /// body and tail, those on the body's surface, the near legs, those behind the head,
+    /// the head, those in front (and on the HUD, which no base-game cosmetic is).
+    fn container_order(
+        mut slots: Vec<Option<DrawItem>>,
+        cosmetics: Vec<(SpritesOverlap, Vec<DrawItem>)>,
+    ) -> Vec<DrawItem> {
+        let mut items = Vec::new();
+        SpritesOverlap::Behind.add_to_container(&cosmetics, &mut items);
+        for &i in &CONTAINER_ORDER {
+            items.extend(slots[i].take());
+            match i {
+                TAIL => SpritesOverlap::BodySurface.add_to_container(&cosmetics, &mut items),
+                LAST_NEAR_LIMB_COLOR => {
+                    SpritesOverlap::BehindHead.add_to_container(&cosmetics, &mut items);
+                }
+                _ => {}
+            }
+        }
+        SpritesOverlap::InFront.add_to_container(&cosmetics, &mut items);
+        SpritesOverlap::Hud.add_to_container(&cosmetics, &mut items);
+        items
     }
 
     /// The head sprites' `anchorY`: 0.55 for the green lizard, else 0.7; graphics 8,
@@ -491,5 +624,16 @@ impl LizardGraphics {
             shader: Shader::default(),
             layer: Layer::Midground,
         })
+    }
+}
+
+impl SpritesOverlap {
+    /// The cosmetics of this overlap, in list order, added to `items`.
+    fn add_to_container(self, cosmetics: &[(Self, Vec<DrawItem>)], items: &mut Vec<DrawItem>) {
+        for (o, list) in cosmetics {
+            if *o == self {
+                items.extend(list.iter().cloned());
+            }
+        }
     }
 }

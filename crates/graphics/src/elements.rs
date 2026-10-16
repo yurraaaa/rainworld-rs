@@ -465,3 +465,31 @@ pub const LIZARD_EYES: [[&str; 10]; 4] = [
         "LizardEyes3.9",
     ],
 ];
+
+/// `"LizardScaleA" + graphic`: a scale or spike's dark part.
+pub const LIZARD_SCALE_A: [&str; 7] = [
+    "LizardScaleA0",
+    "LizardScaleA1",
+    "LizardScaleA2",
+    "LizardScaleA3",
+    "LizardScaleA4",
+    "LizardScaleA5",
+    "LizardScaleA6",
+];
+
+/// `"LizardScaleB" + graphic`: its coloured part.
+pub const LIZARD_SCALE_B: [&str; 7] = [
+    "LizardScaleB0",
+    "LizardScaleB1",
+    "LizardScaleB2",
+    "LizardScaleB3",
+    "LizardScaleB4",
+    "LizardScaleB5",
+    "LizardScaleB6",
+];
+
+pub const CIRCLE_20: &str = "Circle20";
+pub const PIXEL: &str = "pixel";
+
+/// The `LizardScaleA` elements' `sourcePixelSize.y` in the `rainWorld` atlas.
+pub const LIZARD_SCALE_A_HEIGHT: [f32; 7] = [18.0, 14.0, 10.0, 18.0, 37.0, 29.0, 17.0];

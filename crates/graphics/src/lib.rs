@@ -23,6 +23,7 @@ mod hologram_shape;
 mod light_source;
 mod limb;
 mod lizard_cosmetics;
+mod lizard_cosmetics_draw;
 mod lizard_draw;
 mod lizard_graphics;
 mod lizard_limb;
@@ -54,7 +55,8 @@ pub use limb::{GripSearch, Limb, LimbMode};
 pub use lizard_cosmetics::{
     CosmeticShape, LizardCosmetic, LizardScale, Scales, SpineBumps, SpritesOverlap,
 };
-pub use lizard_draw::LizardReading;
+pub use lizard_cosmetics_draw::CosmeticDraw;
+pub use lizard_draw::{LizardReading, LizardSpineData};
 pub use lizard_graphics::{
     CreatureLooker, IndividualVariations, LIZARD_BASE_SPRITES, LizardGraphics,
 };

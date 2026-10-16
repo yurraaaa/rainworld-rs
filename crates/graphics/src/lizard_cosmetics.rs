@@ -1,12 +1,15 @@
 //! The `LizardCosmetics` a green lizard can get (`SpineSpikes`, `BumpHawk`,
 //! `LongShoulderScales`, `ShortBodyScales`, `TailTuft`, `LongHeadScales`): their
 //! constructors, which draw on the graphics' seeded stream, and the choice among them in
-//! `LizardGraphics`' constructor. Their updates draw only while `showDominance` is above
-//! 0 (never in the base game); their sprites are lizard step 5b.
+//! `LizardGraphics`' constructor. Their updates and sprites are in
+//! `lizard_cosmetics_draw.rs`.
 
 use rw_assets::CreatureType;
 use rw_random::UnityRandom;
 use rw_sim::{FloatExt, Vec2};
+
+use crate::body_part::BodyPart;
+use crate::elements::LIZARD_SCALE_A_HEIGHT;
 
 /// `Template.SpritesOverlap`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,14 +49,24 @@ pub struct SpineBumps {
     pub colored: i32,
 }
 
-/// A `LizardScale`: a body part a long scale's tip follows.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+/// A `LizardScale`: a body part a long scale's tip follows (made at the origin, never
+/// reset).
+#[derive(Debug, Clone, PartialEq)]
 pub struct LizardScale {
-    pub pos: Vec2,
-    pub last_pos: Vec2,
-    pub vel: Vec2,
+    pub part: BodyPart,
     pub length: f32,
     pub width: f32,
+}
+
+impl LizardScale {
+    #[must_use]
+    pub fn new(length: f32, width: f32) -> Self {
+        Self {
+            part: BodyPart::new(0.0, 0.0, 0.0),
+            length,
+            width,
+        }
+    }
 }
 
 /// `BodyScales` and the `LongBodyScales` fields.
@@ -68,6 +81,8 @@ pub struct Scales {
     pub scale_objects: Vec<LizardScale>,
     pub backwards_factors: Vec<f32>,
     pub rigor: f32,
+    /// `LongBodyScales.graphicHeight`: the `LizardScaleA` element's height.
+    pub graphic_height: f32,
 }
 
 /// One cosmetic's kind and state.
@@ -314,6 +329,7 @@ impl LizardCosmetic {
         if cx.kind == CreatureType::PinkLizard && rng.value() < 0.25 {
             s.graphic = 0;
         }
+        s.set_graphic_height();
         let (lo, hi) = s.y_range();
         let p = 0.1f32.lerp(0.9, rng.value());
         for pos in &s.positions {
@@ -321,11 +337,10 @@ impl LizardCosmetic {
             let bump = (t * std::f32::consts::PI)
                 .sin()
                 .lerp(1.0, if t < 0.5 { 0.5 } else { 0.0 });
-            s.scale_objects.push(LizardScale {
-                length: a.lerp(b, bump),
-                width: 0.8f32.lerp(1.2, bump) * width_fac,
-                ..LizardScale::default()
-            });
+            s.scale_objects.push(LizardScale::new(
+                a.lerp(b, bump),
+                0.8f32.lerp(1.2, bump) * width_fac,
+            ));
             s.backwards_factors.push(pos.y * 0.7);
         }
         let n = s.positions.len();
@@ -418,15 +433,15 @@ impl LizardCosmetic {
                 }
             }
         }
+        s.set_graphic_height();
         let (lo, hi) = s.y_range();
         let spread = 1.0f32.lerp(1.5, rng.value());
         for pos in &mut s.positions {
             let t = pos.y.inverse_lerp(lo, hi);
-            s.scale_objects.push(LizardScale {
-                length: a.lerp(b, t),
-                width: 0.8f32.lerp(1.2, t) * width_fac,
-                ..LizardScale::default()
-            });
+            s.scale_objects.push(LizardScale::new(
+                a.lerp(b, t),
+                0.8f32.lerp(1.2, t) * width_fac,
+            ));
             s.backwards_factors
                 .push(0.3 + 0.7 * pos.y.inverse_lerp(0.75, 1.0));
             pos.x *= pos.y.inverse_lerp(1.05, 0.85) * spread;
@@ -462,14 +477,14 @@ impl LizardCosmetic {
         if cx.kind == CreatureType::BlackLizard {
             s.colored = false;
         }
+        s.set_graphic_height();
         let width = rng.value();
         let backwards = rng.value().mathf_pow(0.85);
         for _ in 0..s.positions.len() {
-            s.scale_objects.push(LizardScale {
-                length: 5.0f32.lerp(35.0, size),
-                width: 0.65f32.lerp(1.2, width * size),
-                ..LizardScale::default()
-            });
+            s.scale_objects.push(LizardScale::new(
+                5.0f32.lerp(35.0, size),
+                0.65f32.lerp(1.2, width * size),
+            ));
             s.backwards_factors.push(backwards);
         }
         let n = s.positions.len();
@@ -483,6 +498,12 @@ impl LizardCosmetic {
 }
 
 impl Scales {
+    /// `graphicHeight = sourcePixelSize.y` of `"LizardScaleA" + graphic`.
+    fn set_graphic_height(&mut self) {
+        let g = usize::try_from(self.graphic).unwrap_or(0).min(6);
+        self.graphic_height = LIZARD_SCALE_A_HEIGHT[g];
+    }
+
     /// `GeneratePatchPattern`.
     fn generate_patch_pattern(
         &mut self,
