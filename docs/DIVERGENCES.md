@@ -143,7 +143,10 @@ it (D13). What still differs is only the seed and the call order:
   (`Overseer.Update`, `OverseerAI` with its communication module and the guide's
   tutorial, then `OverseerGraphics.Update` while its room is viewed;
   `rainworld-re/notes/overseer.md`), and so does each of its holograms' `Update` in its
-  own slot of the room's update list.
+  own slot of the room's update list. `ReevaluateConcern`'s creature draw is over the
+  room's abstract creatures and its object draw over the room's whole entity list in
+  the game's order (creatures, then objects; `World::room_entities`), so a room with
+  rocks or spears takes the game's draws.
   Missing: the `NeuronSpark` a pair of linked
   mycelia makes (its constructor's draw is made; its `SS_Mycelia_Spark` sound on its
   first update is not), and `HologramMatrix.DrawSprites`'s per-frame draws (the lens's
@@ -1024,11 +1027,22 @@ second part, else a single-room world for arena levels). The campaign descriptio
   communication module), the angry hologram (`angryWithPlayer` is set only when the
   Moon's swarmer neuron is eaten or carried off, 217937, and is otherwise read from the
   save; no iterator is ported), the gate scene (`RegionGate` is not ported: in Moon's gates the concern is
-  `None`, as the game's is with a closed gate), the forced direction
-  (`ReliableIggyDirection` is not ported; the port makes no pointer for it), the
-  in-world super jump and scavenger-trade instructions (`SuperJumpInstruction` and
-  `ScavengerTradeInstructionTrigger` are not ported), and the tutorial's Eat instruction in SU_A44 (its fruit is not realized;
-  SU_A42's, over the bat flies, is ported). A door pointer without the tutorial would follow the player with a
+  `None`, as the game's is with a closed gate), the danger pointer
+  (`CreatureDangerScore` reads the templates' `dangerousToPlayer`, which is not ported:
+  every realized type scores 0, as the player, flies and overseers do in the game), the
+  scavenger-trade instruction (`ScavengerTradeInstructionTrigger` is ported and waits,
+  as the game's does, for a realized data pearl from its room; data pearls are never
+  realized, so in GW_A22 it never fires; its controller is ported), the forced
+  direction (`ReliableIggyDirection` and its `ForcedDirectionPointer` are ported, but
+  no base-game room places one), and the tutorial's Eat instruction in SU_A44 (its
+  fruit is not realized; SU_A42's, over the bat flies, is ported). The in-world super
+  jump instruction (`SuperJumpInstruction` in SU_A13, HI_B04 and HI_A06) is ported,
+  with its ghost and completion; it is not SU_A43's tutorial lesson, which the
+  tutorial behaviour gives and which does not count `superJumpsShown`.
+  `FoodDelicousScore` gives a seed cob the game's score without its dead and opened
+  checks (seed cobs are never realized). Where the game throws (an in-world super jump
+  shown over another instruction, unparsable placed data, a forced hologram without a
+  direction) the port logs and goes on. A door pointer without the tutorial would follow the player with a
   `CreatureDoorDistanceTracker` (on the Fly's exit distances, which now exist): it is
   made but its update is not ported, so the pointer keeps pointing. The bat pointer's `CycleStartUp` is
   1 (the cycle's start-up ticks are not ported), and a new game has discovered no
@@ -1224,10 +1238,10 @@ second part, else a single-room world for arena levels). The campaign descriptio
   the game, the start room's triggers wait until the player leaves its start shelter
   (`stillInStartShelter`), `SeeCreature` never fires, and `PreRegionBump`/`RegionBump`
   read the HUD's subregion tracker. Differs: `SLOracleState.playerEncounters` (Moon) is
-  read as 0, so Shoreline's image triggers fire as for a player who never met her; an
-  image's `ProjectedImagePosition` placed object is not read (the hologram stands where
-  the overseer is); the guide's state (images and pick-ups shown, how much it likes the
-  player) starts from its defaults each game, not from the save (D16). The More
+  read as 0, so Shoreline's image triggers fire as for a player who never met her
+  (`EverMetMoon`, which gates the image triggers and the gate scene, is read from the
+  save's `SLaiState`). An image stands at the room's `ProjectedImagePosition` placed
+  objects as the game places it (`DisplayPosScore`, its `Range(0, 25)` jitter draw). The More
   Slugcats, Watcher and Challenge events are parsed and ignored.
 - **Room scripts.** `AddRoomSpecificScript` is `rw_sim::RoomScript::for_room`, called
   when a room with `RoomSpecificScriptActive` loads; only `SU_C04StartUp` is ported (the
@@ -1358,8 +1372,7 @@ Differences:
   is written back as read, and so are friends in the den. `Win` appends the cycle's kills
   (`AppendKills`; a saved kill the port cannot type stays as read), applies the
   session's `InfluenceLikeOfPlayer` calls to the communities, adds the cycle's respawn
-  and wait-respawn spawners, and writes the guide's like, hand holding and
-  `increaseLikeOnSave` (the rest of `PlayerGuideState` stays as read). A saved creature the world cannot place
+  and wait-respawn spawners, and writes the guide's whole `PlayerGuideState`. A saved creature the world cannot place
   stays in the saved list. Session time is the sim's ticks.
 - **Win state.** Integer and float passage trackers are read and written as the game
   does, including the death penalty (applied, as in the game, only to a tracker whose
@@ -1417,8 +1430,14 @@ Differences:
   saved with the rest of the death-persistent data. `TUTMESSAGES` is read in both the
   old digit format and the name list (`ParseTutorialMessages`); setting a message
   (`DangleFruitInWaterMessage`, D14) writes it back as a name list, as the game does.
-  The guide's `PlayerGuideState` (images and pick-ups shown, likes) is not read from
-  or written to the save: each game starts it at its defaults.
+  The guide's `PlayerGuideState` is read and written with every base-game field
+  (`rw_save::PlayerGuideState`; the legacy digit item and creature lists are read as
+  the game's `ParseItemTypes`/`ParseCreatureTypes` do), its `ToString` included: a
+  state with forced directions given saves only those (the game's `text =` bug). The
+  per-cycle fields (`want*HandHoldingThisCycle`, `hasBeenToASwarmRoomThisCycle`,
+  `increaseLikeOnSave`) are not saved and live on with the state in memory, as in the
+  game. Unknown entries are kept. Moon's state (`SLaiState`) is kept as read, so
+  `SLOrcacleState.ToString`'s raising of her like on each save is not applied.
 - **Play time.** `AppendTimeOnCycleEnd` is not ported: `ExitGame`, starving and dying add
   nothing to `DEATHTIME` or `TOTTIME`; `Win` adds the cycle's ticks / 40 to `TOTTIME`.
 

@@ -17,6 +17,8 @@ pub use instruction::{
 pub use parts::{ButtonState, HoloColor, HoloImage, HologramPart, PartColor, PartKind, SymbolPart};
 pub(crate) use update::HologramUpdate;
 
+use rw_assets::IggySymbol;
+
 use crate::Vec2;
 
 /// `OverseerHologram.Message` (base game).
@@ -102,6 +104,13 @@ pub enum PointerKind {
     },
     /// `DirectionPointer`.
     Direction { cycle: i32 },
+    /// `ForcedDirectionPointer`: the guide's `forcedDirectionToGive` (a
+    /// `ReliableIggyDirection` room object) when it was made.
+    Forced {
+        direction: u64,
+        symbol: Option<IggySymbol>,
+        cycle: i32,
+    },
 }
 
 /// What an `ObjectPointer` points at.
@@ -269,6 +278,19 @@ impl OverseerHologram {
                 pointer: PointerKind::Direction { cycle },
                 ..
             } if cycle % 30 >= 15 => HoloColor::White,
+            HologramKind::Door {
+                pointer: PointerKind::Forced { symbol, cycle, .. },
+                ..
+            } => match symbol {
+                Some(IggySymbol::Food) if cycle % 60 >= 30 => HoloColor::Mint,
+                Some(IggySymbol::SlugcatFace | IggySymbol::DynamicDirection)
+                    if cycle % 30 >= 15 =>
+                {
+                    HoloColor::White
+                }
+                Some(IggySymbol::Danger) if cycle % 30 >= 15 => HoloColor::Red,
+                _ => HoloColor::Base,
+            },
             HologramKind::Object {
                 pointer: ObjectPointerKind::Creature { cycle, .. },
             } if cycle % 30 >= 15 => HoloColor::Red,

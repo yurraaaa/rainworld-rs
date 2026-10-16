@@ -41,7 +41,10 @@ pub use nodes::{
 pub use noise::NoiseTexture;
 pub use objects::AbstractObjectType;
 pub use palette::{EffectColors, PaletteImage, PaletteTexture, RoomPalette};
-pub use placed::{MultiplayerItemData, PlacedObject, ResizableData, RoomEffect};
+pub use placed::{
+    IggyCondition, IggySymbol, MultiplayerItemData, PlacedObject, QuadData,
+    ReliableIggyDirectionData, ResizableData, RoomEffect,
+};
 pub use placed_types::{MultiplayerItemType, PlacedObjectType, RoomEffectType};
 pub use png_image::PngImage;
 pub use region_map::{MapConnectionLine, RegionMapFiles};
