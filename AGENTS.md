@@ -156,8 +156,8 @@ before the user agrees.
     instruction in SU_A42; fed, the guide moves on to SU_A43's super-jump
     lesson. Rocks and spears lie in the rooms; the player picks them up,
     carries them (through pipes and room exits), switches hands, lays them
-    down and swallows and regurgitates rocks; throwing them only drops
-    them until it is ported (D3). Saves (`rw-save`, D16): Continue from the slugcat select, New
+    down, swallows and regurgitates rocks and throws them (bouncing off and
+    sticking in walls, belly-slide throws; creature hits are not ported, D3). Saves (`rw-save`, D16): Continue from the slugcat select, New
     Game's wipe and the start's death-and-quit save. Shelters (D17): the
     door closes on a fed, still slugcat, `Win` writes the whole save state
     and region state, the sleep screen (karma ladder, food meter, map;

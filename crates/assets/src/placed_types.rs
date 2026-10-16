@@ -335,6 +335,29 @@ impl PlacedObjectType {
     }
 }
 
+ext_enum! {
+    /// `PlacedObject.MultiplayerItemData.Type`.
+    pub enum MultiplayerItemType {
+        Base {
+            Rock = "Rock",
+            Spear = "Spear",
+            ExplosiveSpear = "ExplosiveSpear",
+            Bomb = "Bomb",
+            SporePlant = "SporePlant",
+        }
+    }
+}
+
+impl MultiplayerItemType {
+    /// The registered value whose string is `value`.
+    #[must_use]
+    pub fn from_value(value: &str, mods: ActiveMods) -> Option<Self> {
+        Self::registered(mods)
+            .into_iter()
+            .find(|t| t.value() == value)
+    }
+}
+
 impl RoomEffectType {
     /// The registered value whose string is `value`.
     #[must_use]

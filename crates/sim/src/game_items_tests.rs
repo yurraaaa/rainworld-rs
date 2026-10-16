@@ -381,3 +381,83 @@ fn a_saved_swallowed_rock_comes_back_up() {
     g.story.swallowed_item = Some("0".to_owned());
     assert_eq!(g.stomach_from_save(), None);
 }
+
+#[test]
+fn a_thrown_rock_leaves_the_hand_at_forty_and_kicks_the_slugcat() {
+    // `ThrowObject`: `Thrown` along `ThrowDirection` (the stick, right); the head gets
+    // 8 along the throw, the hips 4 against it.
+    let (mut g, ids) = game(floor_room(), (4, 1), vec![rock(1, (5, 1))]);
+    g.slugcat_grab(Entity::Object(ids[0]), 0, &mut ());
+    g.tick(Input::new(1, 0, false), &mut ());
+    let (head, hips) = (g.player_ref().head().vel, g.player_ref().hips().vel);
+    g.throw_object(0, 0, &mut ());
+    assert_eq!(g.player_grasps(), [None, None]);
+    assert_eq!(g.mode(ids[0]), WeaponMode::Thrown);
+    let w = g.world.weapon_mut(ids[0]).expect("rock");
+    assert_eq!(w.throw_dir, (1, 0));
+    assert!(w.chunk().vel.x > 39.0, "{:?}", w.chunk().vel);
+    assert_eq!(g.player_ref().head().vel.x, head.x + 8.0);
+    assert_eq!(g.player_ref().hips().vel.x, hips.x - 4.0);
+}
+
+#[test]
+fn a_monk_spear_draws_once_for_its_damage_and_flies_slower() {
+    // `ThrownSpear` with throwingSkill 0: spearDamageBonus 0.6 + 0.3 value^4, 18 throw
+    // frames, vel.x * 0.77.
+    let (mut g, ids) = game(floor_room(), (4, 1), vec![spear(1, (5, 1))]);
+    g.character_stats.throwing_skill = 0;
+    let w = g.world.weapon_mut(ids[0]).expect("spear");
+    w.chunk_mut().vel = Vec2::new(40.0, 0.0);
+    let mut expect = g.rng.clone();
+    let bonus = 0.6 + 0.3 * expect.value().powf(4.0);
+    g.thrown_spear(ids[0]);
+    assert_eq!(g.rng.state(), expect.state());
+    let w = g.world.weapon_mut(ids[0]).expect("spear");
+    assert_eq!(w.spear().expect("spear").spear_damage_bonus, bonus);
+    assert_eq!(w.throw_mode_frames, 18);
+    assert_eq!(w.chunk().vel.x, 40.0 * 0.77);
+    // The Survivor (skill 1) draws nothing and keeps the speed.
+    let (mut g, ids) = game(floor_room(), (4, 1), vec![spear(1, (5, 1))]);
+    g.world.weapon_mut(ids[0]).expect("spear").chunk_mut().vel = Vec2::new(40.0, 0.0);
+    let expect = g.rng.clone();
+    g.thrown_spear(ids[0]);
+    assert_eq!(g.rng.state(), expect.state());
+    assert_eq!(
+        g.world.weapon_mut(ids[0]).expect("spear").chunk().vel.x,
+        40.0
+    );
+}
+
+#[test]
+fn a_forward_belly_slide_throw_skims_the_spear_along_the_floor() {
+    // `ThrowObject` (93175): rollCounter 9..14, thrown along the slide with skill: +15
+    // px a tick, 30 floor bounce frames, always sticking, 5 down, not through floors.
+    let (mut g, ids) = game(floor_room(), (2, 1), vec![spear(1, (3, 1))]);
+    g.slugcat_grab(Entity::Object(ids[0]), 0, &mut ());
+    g.player_mut().set_belly_slide(10, 1, 1);
+    g.throw_object(0, 0, &mut ());
+    let w = g.world.weapon_mut(ids[0]).expect("spear");
+    assert_eq!(w.floor_bounce_frames, 30);
+    assert!(w.spear().expect("spear").always_stick_in_walls);
+    assert!(!w.chunk().go_through_floors);
+    assert!(w.chunk().vel.x > 54.0, "{:?}", w.chunk().vel);
+    assert!(!g.player_ref().long_belly_slide());
+}
+
+#[test]
+fn a_backward_belly_slide_throw_starts_a_long_slide_with_spikes() {
+    // Thrown against the slide: up 5 (a rock), the long slide, `ExplosionSpikes` 40 px
+    // behind the hips, `Slugcat_Rocket_Jump`. A second one in the long slide does not.
+    let (mut g, ids) = game(floor_room(), (5, 1), vec![rock(1, (5, 1)), rock(2, (5, 1))]);
+    g.slugcat_grab(Entity::Object(ids[0]), 0, &mut ());
+    g.slugcat_grab(Entity::Object(ids[1]), 1, &mut ());
+    g.player_mut().set_belly_slide(12, 1, -1);
+    g.throw_object(0, 0, &mut ());
+    assert!(g.player_ref().long_belly_slide());
+    assert_eq!(g.player_ref().roll_counter(), 8);
+    assert_eq!(g.world.room_cosmetics(0).len(), 1);
+    g.player_mut().set_belly_slide(12, 1, -1);
+    g.throw_object(0, 1, &mut ());
+    assert_eq!(g.player_ref().roll_counter(), 12);
+    assert_eq!(g.world.room_cosmetics(0).len(), 1);
+}

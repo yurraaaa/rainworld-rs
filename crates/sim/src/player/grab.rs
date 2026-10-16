@@ -76,14 +76,14 @@ impl Player {
         self.body.chunks[HEAD].submersion(water)
     }
 
-    /// The belly-slide part of `Player.Collide` with a creature: the slide caps the roll
-    /// counter at 11 and pushes the head on. Returns whether the player slides (the
-    /// creature is then stunned for 2 ticks; `longBellySlide` is only set by throwing a
-    /// weapon). A sleeping slugcat wakes.
-    pub(crate) fn collide_with_creature(&mut self) -> bool {
-        let slides = self.animation == Animation::BellySlide;
-        if slides {
-            if self.roll_counter > 11 {
+    /// The belly-slide part of `Player.Collide` with a creature: a short slide caps the
+    /// roll counter at 11, and the head is pushed on. Returns the creature's stun while
+    /// the player slides (2 ticks, 4 on a long slide). A sleeping slugcat wakes.
+    pub(crate) fn collide_with_creature(&mut self) -> Option<i32> {
+        let mut stun = None;
+        if self.animation == Animation::BellySlide {
+            stun = Some(if self.long_belly_slide { 4 } else { 2 });
+            if !self.long_belly_slide && self.roll_counter > 11 {
                 self.roll_counter = 11;
             }
             self.body.chunks[HEAD].vel.x += self.roll_direction as f32 * 3.0;
@@ -91,7 +91,7 @@ impl Player {
         if self.sleeping() {
             self.sleep_counter = 0;
         }
-        slides
+        stun
     }
 
     #[must_use]

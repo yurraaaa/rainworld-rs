@@ -3,7 +3,7 @@
 //! places. `RoomSettings.LoadEffects`, `LoadPlacedObjects`, `PlacedObject.FromString`,
 //! `PlacedObject.FilterData`.
 
-use crate::{ActiveMods, PlacedObjectType, SlugcatName, Timeline};
+use crate::{ActiveMods, MultiplayerItemType, PlacedObjectType, SlugcatName, Timeline};
 
 /// `RoomSettings.RoomEffect`: type name and amount.
 #[derive(Debug, Clone, PartialEq)]
@@ -127,6 +127,60 @@ impl PlacedObject {
     }
 }
 
+/// `PlacedObject.ResizableObjectData` (a `NoSpearStickZone`'s): the handle, whose length
+/// is the radius.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ResizableData {
+    pub handle: [f32; 2],
+}
+
+impl ResizableData {
+    /// `handle.x~handle.y~...`; `None` where the game's `float.Parse` would throw.
+    #[must_use]
+    pub fn parse(data: &str) -> Option<Self> {
+        let mut fields = data.split('~');
+        let x = fields.next()?.trim().parse().ok()?;
+        let y = fields.next()?.trim().parse().ok()?;
+        Some(Self { handle: [x, y] })
+    }
+
+    /// `Rad`: the handle's length.
+    #[must_use]
+    pub fn rad(self) -> f32 {
+        (self.handle[0] * self.handle[0] + self.handle[1] * self.handle[1]).sqrt()
+    }
+}
+
+/// `PlacedObject.MultiplayerItemData`: what spawns and how likely.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MultiplayerItemData {
+    /// `type`; `None` for a value no mod registers (it matches none of the game's
+    /// branches, so a rock spawns).
+    pub kind: Option<MultiplayerItemType>,
+    pub panel: [f32; 2],
+    pub chance: f32,
+}
+
+impl MultiplayerItemData {
+    /// `type~panel.x~panel.y~chance~...`; `None` where the game's `float.Parse` would
+    /// throw.
+    #[must_use]
+    pub fn parse(data: &str, mods: ActiveMods) -> Option<Self> {
+        let fields: Vec<&str> = data.split('~').collect();
+        let kind = MultiplayerItemType::from_value(fields.first()?, mods);
+        let panel = [
+            fields.get(1)?.trim().parse().ok()?,
+            fields.get(2)?.trim().parse().ok()?,
+        ];
+        let chance = fields.get(3)?.trim().parse().ok()?;
+        Some(Self {
+            kind,
+            panel,
+            chance,
+        })
+    }
+}
+
 /// `PlacedObject.FilterData`: the handle (radius) and the slugcats it lets through.
 #[derive(Debug, Clone, PartialEq)]
 struct FilterData {
@@ -216,6 +270,19 @@ mod tests {
         PlacedObject::apply_filters(&mut objects, Timeline::Yellow, ActiveMods::NONE);
         let active: Vec<bool> = objects.iter().map(|o| o.active).collect();
         assert_eq!(active, [true, true, false, true]);
+    }
+
+    #[test]
+    fn resizable_and_multiplayer_item_data() {
+        // SU_A04's `NoSpearStickZone><918.743><558.3001><-138~111`.
+        let r = ResizableData::parse("-138~111").unwrap();
+        assert_eq!(r.rad(), (138.0f32 * 138.0 + 111.0 * 111.0).sqrt());
+        let m = MultiplayerItemData::parse("Spear~-10~17.32~0.5", ActiveMods::NONE).unwrap();
+        assert_eq!(m.kind, Some(MultiplayerItemType::Spear));
+        assert_eq!((m.panel, m.chance), ([-10.0, 17.32], 0.5));
+        let odd = MultiplayerItemData::parse("Lantern~0~0~1", ActiveMods::NONE).unwrap();
+        assert_eq!(odd.kind, None);
+        assert!(MultiplayerItemData::parse("Rock~x~0~1", ActiveMods::NONE).is_none());
     }
 
     #[test]

@@ -52,8 +52,9 @@ Working now:
   bodies yet (one that reaches a loaded room waits there, unseen, until it unloads).
 - **Items:** rocks and spears lie in the rooms, roll, stick into the ground, and spears
   stuck in walls are poles; shelters keep them across cycles. The slugcat picks them
-  up, carries them (through pipes too), switches hands, lays them down, and swallows
-  and coughs up rocks.
+  up, carries them (through pipes too), switches hands, lays them down, swallows
+  and coughs up rocks, and throws them: rocks bounce off walls, spears stick in them
+  (also from belly-slide throws, which kick off a long slide when thrown backwards).
 
 Not yet ported:
 
@@ -64,7 +65,7 @@ Not yet ported:
 - region gates;
 - creatures other than overseers and bat flies (lizards roam abstractly, but have no
   body yet);
-- throwing rocks and spears (a throw drops them for now).
+- thrown rocks and spears hitting creatures (they pass through them for now).
 
 ## Building and running
 

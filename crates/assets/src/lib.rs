@@ -40,8 +40,8 @@ pub use nodes::{
 pub use noise::NoiseTexture;
 pub use objects::AbstractObjectType;
 pub use palette::{EffectColors, PaletteImage, PaletteTexture, RoomPalette};
-pub use placed::{PlacedObject, RoomEffect};
-pub use placed_types::{PlacedObjectType, RoomEffectType};
+pub use placed::{MultiplayerItemData, PlacedObject, ResizableData, RoomEffect};
+pub use placed_types::{MultiplayerItemType, PlacedObjectType, RoomEffectType};
 pub use png_image::PngImage;
 pub use region_map::{MapConnectionLine, RegionMapFiles};
 pub use region_properties::{RegionParams, RegionProperties, RoomAttractions};

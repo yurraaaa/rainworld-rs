@@ -21,6 +21,9 @@ impl Player {
         rng: &mut UnityRandom,
         sounds: &mut Sounds,
     ) {
+        if self.long_belly_slide && self.animation != Animation::BellySlide {
+            self.long_belly_slide = false;
+        }
         if self.animation != Animation::Roll {
             self.stop_rolling_counter = 0;
         }

@@ -8,9 +8,12 @@
 //! Behaviour: `rainworld-re/notes/items.md` section 10.
 
 use super::{PlayerObserver, RainWorldGame};
-use crate::item::{Entity, ObjectId, SavedObject, WeaponMode};
+use crate::item::{Entity, ObjectId, SavedObject, Throw, WeaponMode};
 use crate::player::StomachObject;
-use crate::{Animation, BodyMode, FloatExt, Input, SoundId, Vec2, WaterDrip};
+use crate::room_ext::RoomExt;
+use crate::{
+    Animation, BodyMode, CosmeticKind, ExplosionSpikes, FloatExt, Input, SoundId, Vec2, WaterDrip,
+};
 
 /// `Player.ObjectGrabability`, in the game's order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -318,14 +321,139 @@ impl RainWorldGame {
         self.player_release_grasp(grasp);
     }
 
-    /// `ThrowObject`'s weapon branch (`Weapon.Thrown`, `ThrownSpear`, the recoil and
-    /// `Blink(15)`): rocks and spears are thrown in step 4; until then the throw only
-    /// lets go of the weapon (docs/DIVERGENCES.md D3).
-    pub(super) fn throw_weapon(&mut self, _index: i32, _grasp: usize, id: ObjectId) {
-        log::info!(
-            "throwing a {} is not ported yet",
-            self.world.object(id).kind.value()
-        );
+    /// `ThrowObject`'s weapon branch (93127-93222, Remix and More Slugcats off, no
+    /// adrenaline): thrown along `ThrowDirection` (straight down from a flip holding
+    /// only down) from 10 px ahead of the head and 4 up (the head itself when that is
+    /// Solid), with `frc` 1; `ThrownSpear`; the belly-slide throws; the recoil, the
+    /// throwing hand's animation and `Blink(15)`.
+    pub(super) fn throw_weapon(
+        &mut self,
+        index: i32,
+        grasp: usize,
+        id: ObjectId,
+        observer: &mut dyn PlayerObserver,
+    ) {
+        let eu = self.even_update();
+        let p = self.player_ref();
+        let input = p.input_history()[0];
+        let mut dir = (p.throw_direction(), 0);
+        if p.animation() == Animation::Flip && input.y < 0 && input.x == 0 {
+            dir = (0, -1);
+        }
+        let d = Vec2::new(dir.0 as f32, dir.1 as f32);
+        let (main_pos, main_vel) = (p.head().pos, p.head().vel);
+        let mut pos = main_pos + d * 10.0 + Vec2::new(0.0, 4.0);
+        let solid = self
+            .world
+            .realized(index)
+            .is_some_and(|r| r.room.tile_at_pos(pos).is_solid());
+        if solid {
+            pos = main_pos;
+        }
+        let throw = Throw {
+            by: self.player_id,
+            by_vel: main_vel,
+            pos,
+            first_frame_trace_from_pos: Some(main_pos - d * 10.0),
+            dir,
+            frc: 1.0,
+            eu,
+        };
+        let Some(sound) = self.world.throw_weapon(id, throw, &mut self.rng) else {
+            return;
+        };
+        if let Some(at) = self.world.chunk_pos(Entity::Object(id), 0) {
+            self.play_on_object(index, sound, at);
+        }
+        let spear = self
+            .world
+            .weapon_mut(id)
+            .is_some_and(|w| w.spear().is_some());
+        if spear {
+            self.thrown_spear(id);
+        }
+        self.belly_slide_throw(index, id, dir.0);
+        let p = self.player_mut();
+        p.body.chunks[0].vel += d * 8.0;
+        p.body.chunks[1].vel -= d * 4.0;
+        observer.player_throw_object(grasp, Entity::Object(id));
+        self.player_mut().blink(15);
+    }
+
+    /// `ThrownSpear` (93423): with no throwing skill (the Monk, a malnourished slugcat)
+    /// 18 throw frames, a damage bonus of `0.6 + 0.3 value^4` (one draw) and 0.77 of the
+    /// speed; the Hunter's skill 2 a bonus of 1.25 and 1.2 times the speed.
+    fn thrown_spear(&mut self, id: ObjectId) {
+        let skill = self.character_stats.throwing_skill;
+        let bonus = match skill {
+            0 => Some(0.6 + 0.3 * self.rng.value().mathf_pow(4.0)),
+            2 => Some(1.25),
+            _ => None,
+        };
+        let Some(w) = self.world.weapon_mut(id) else {
+            return;
+        };
+        let Some(bonus) = bonus else { return };
+        if skill == 0 {
+            w.throw_mode_frames = 18;
+            w.chunk_mut().vel.x *= 0.77;
+        } else {
+            w.chunk_mut().vel.x *= 1.2;
+        }
+        w.set_spear_damage_bonus(bonus);
+    }
+
+    /// The belly-slide throws (ticks 9 to 14 of a slide): forward, with some throwing
+    /// skill, the weapon gets 15 px a tick more and skims the floor (30 bounce frames, a
+    /// spear always sticks, through no floors, 5 down); backward, unless the slide is
+    /// already long, it goes up 3 (a rock 5) and the slugcat kicks off into a long belly
+    /// slide with spikes behind it and `Slugcat_Rocket_Jump`.
+    fn belly_slide_throw(&mut self, index: i32, id: ObjectId, dir_x: i32) {
+        let p = self.player_ref();
+        let n = p.roll_counter();
+        if p.animation() != Animation::BellySlide || n <= 8 || n >= 15 {
+            return;
+        }
+        let roll = p.roll_direction();
+        let (long, hips) = (p.long_belly_slide(), p.hips().pos);
+        let skill = self.character_stats.throwing_skill;
+        if dir_x == roll && skill > 0 {
+            let Some(w) = self.world.weapon_mut(id) else {
+                return;
+            };
+            w.chunk_mut().vel.x += dir_x as f32 * 15.0;
+            if w.heavy_weapon() {
+                w.floor_bounce_frames = 30;
+                w.set_always_stick_in_walls();
+                let c = w.chunk_mut();
+                c.go_through_floors = false;
+                c.vel.y -= 5.0;
+            }
+            w.change_dir_counter = 0;
+        } else if dir_x == -roll && !long {
+            let Some(w) = self.world.weapon_mut(id) else {
+                return;
+            };
+            w.chunk_mut().vel.y += if w.spear().is_some() { 3.0 } else { 5.0 };
+            w.change_dir_counter = 0;
+            let at = hips + Vec2::new(roll as f32 * -40.0, 0.0);
+            if let Some(room) = self.world.realized(index).map(|r| r.room.clone()) {
+                let spikes = ExplosionSpikes::new(
+                    &room,
+                    at,
+                    6,
+                    5.5,
+                    4.0,
+                    4.5,
+                    21.0,
+                    [1.0, 1.0, 1.0, 0.25],
+                    &mut self.rng,
+                );
+                self.world.add_cosmetic(index, CosmeticKind::Spikes(spikes));
+            }
+            self.player_mut().start_long_belly_slide();
+            self.play_on_player(index, SoundId::SlugcatRocketJump);
+        }
     }
 
     /// The swallow-and-regurgitate counter while pick-up is held (`flag2`): over 110 with

@@ -19,7 +19,7 @@ const EPS: f32 = 1e-4;
 
 /// Builds a room from ASCII rows, top row first: `.` Air, `#` Solid, `/` Slope,
 /// `=` Air with a horizontal beam, `|` Air with a vertical beam.
-fn room(rows: &[&str]) -> Room {
+pub(crate) fn room(rows: &[&str]) -> Room {
     let h = rows.len();
     let w = rows[0].len();
     let mut grid = String::new();

@@ -1,5 +1,6 @@
 //! The game's parts for the rocks and spears: their slots in a room's update list, their
-//! sound loops' emitters, and the room's collision pass after the update list.
+//! sound loops' emitters, the sparks and spikes they and the throws make, and the room's
+//! collision pass after the update list.
 
 use std::sync::Arc;
 
@@ -25,6 +26,16 @@ impl RainWorldGame {
         list
     }
 
+    /// The sparks and spikes in room `index`'s update list.
+    pub(super) fn room_cosmetic_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
+        self.world
+            .room_cosmetics(index)
+            .iter()
+            .filter(|c| !c.slated)
+            .map(|c| (c.update_order, RoomObject::Cosmetic(c.id)))
+            .collect()
+    }
+
     /// Item `id`'s `Update` in room `index`, or with `emitter` the `ChunkSoundEmitter`
     /// of its sound loop.
     pub(super) fn run_weapon(&mut self, index: i32, id: ObjectId, emitter: bool) {
@@ -35,6 +46,14 @@ impl RainWorldGame {
         } else {
             &mut self.silent
         };
+        let player = self
+            .player
+            .as_ref()
+            .map(|p| (self.player_id, p.throw_direction()));
+        let shelter_door_moving = self
+            .shelter_doors
+            .iter()
+            .any(|d| d.room == index && (d.is_closing() || d.is_opening()));
         let mut cx = ItemTick {
             rng: &mut self.rng,
             sounds,
@@ -42,6 +61,8 @@ impl RainWorldGame {
             camera_room: self.camera_room,
             tick: self.tick,
             eu,
+            player,
+            shelter_door_moving,
         };
         if emitter {
             self.world.update_weapon_loop(index, id, &mut cx);

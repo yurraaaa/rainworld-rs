@@ -8,8 +8,8 @@
 mod weapon;
 
 pub use weapon::{
-    ChunkDynamicSoundLoop, ModeChange, SpearParts, WEAPON_PARAMS, Weapon, WeaponKind, WeaponMode,
-    WeaponTick,
+    ChunkDynamicSoundLoop, ModeChange, SpearParts, Throw, WEAPON_PARAMS, Weapon, WeaponKind,
+    WeaponMode, WeaponTick,
 };
 
 use rw_assets::{AbstractObjectType, ActiveMods};
@@ -100,6 +100,9 @@ pub struct AbstractObject {
     pub grabbed_by: Vec<Grasp>,
     /// `stuckObjects`: the grip sticks of the creatures holding it.
     pub sticks: Vec<GripStick>,
+    /// `placedObjectOrigin` (`"ROOM:index"` of the placed object that made it; read by
+    /// Remix's key-item tracking only).
+    pub placed_object_origin: Option<String>,
 }
 
 impl AbstractObject {
@@ -119,6 +122,13 @@ impl AbstractObject {
         Self::new(AbstractObjectType::Spear, ObjectData::Spear(spear), id, pos)
     }
 
+    /// `new AbstractPhysicalObject(world, kind, null, pos, id)` of a kind the port does
+    /// not type (it is never realized).
+    #[must_use]
+    pub fn new_plain(kind: AbstractObjectType, id: EntityId, pos: WorldCoordinate) -> Self {
+        Self::new(kind, ObjectData::Plain, id, pos)
+    }
+
     fn new(kind: AbstractObjectType, data: ObjectData, id: EntityId, pos: WorldCoordinate) -> Self {
         Self {
             kind,
@@ -133,6 +143,7 @@ impl AbstractObject {
             realized: None,
             grabbed_by: Vec::new(),
             sticks: Vec::new(),
+            placed_object_origin: None,
         }
     }
 

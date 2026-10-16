@@ -6,11 +6,11 @@ use std::sync::Arc;
 use rw_assets::{ClipNames, Room, SoundTable};
 use rw_random::UnityRandom;
 
-use super::{ModeChange, Weapon, WeaponKind, WeaponMode, WeaponTick};
-use crate::creature::{EntityId, WorldCoordinate};
+use super::{ModeChange, Throw, Weapon, WeaponKind, WeaponMode, WeaponTick};
+use crate::creature::{CreatureId, EntityId, WorldCoordinate};
 use crate::item::AbstractObject;
 use crate::tests::room;
-use crate::{FloatExt, SoundEvent, SoundId, Sounds, Vec2};
+use crate::{CosmeticKind, FloatExt, SoundEvent, SoundId, Sounds, Spark, Vec2};
 
 /// One item's room, stream and sound sink.
 struct Bench {
@@ -20,7 +20,15 @@ struct Bench {
     table: Arc<SoundTable>,
     seq: u64,
     tick: u64,
+    /// The sparks the updates added.
+    cosmetics: Vec<(u64, CosmeticKind)>,
+    stuck: Vec<(i32, i32)>,
+    zones: Vec<(Vec2, f32)>,
+    door_moving: bool,
 }
+
+/// The thrower in these tests.
+const THROWER: CreatureId = CreatureId(0);
 
 impl Bench {
     fn new(rows: &[&str], seed: i32) -> Self {
@@ -31,7 +39,37 @@ impl Bench {
             table: Arc::new(SoundTable::default()),
             seq: 0,
             tick: 0,
+            cosmetics: Vec::new(),
+            stuck: Vec::new(),
+            zones: Vec::new(),
+            door_moving: false,
         }
+    }
+
+    /// `Thrown` by [`THROWER`] (standing still) from `pos` along `dir`, `frc` 1.
+    fn throw(
+        &mut self,
+        w: &mut Weapon,
+        o: &mut AbstractObject,
+        pos: Vec2,
+        dir: (i32, i32),
+    ) -> SoundId {
+        let room = Arc::clone(&self.room);
+        let mut cx = ModeChange {
+            room: &room,
+            rng: &mut self.rng,
+            update_seq: &mut self.seq,
+        };
+        let throw = Throw {
+            by: THROWER,
+            by_vel: Vec2::ZERO,
+            pos,
+            first_frame_trace_from_pos: None,
+            dir,
+            frc: 1.0,
+            eu: w.even_update,
+        };
+        w.thrown(throw, o, &mut cx)
     }
 
     /// A sink and table where these sounds play (one clip each).
@@ -73,9 +111,36 @@ impl Bench {
             tick: self.tick,
             eu: self.tick.is_multiple_of(2),
             update_seq: &mut self.seq,
+            player: None,
+            stuck_spear_tiles: &self.stuck,
+            no_stick_zones: &self.zones,
+            shelter_door_moving: self.door_moving,
+            cosmetics: &mut self.cosmetics,
         };
         w.update(object, &mut cx);
         self.tick += 1;
+    }
+
+    /// Steps until the weapon leaves `Thrown` (at most 100 ticks); returns the ticks.
+    fn fly(&mut self, w: &mut Weapon, o: &mut AbstractObject) -> usize {
+        let mut ticks = 0;
+        while w.mode == WeaponMode::Thrown {
+            self.step(w, o);
+            ticks += 1;
+            assert!(ticks < 100, "still thrown");
+        }
+        ticks
+    }
+
+    fn played(&mut self) -> Vec<SoundId> {
+        self.sounds
+            .take_events()
+            .into_iter()
+            .filter_map(|e| match e {
+                SoundEvent::Play(p) => Some(p.id),
+                _ => None,
+            })
+            .collect()
     }
 }
 
@@ -293,6 +358,11 @@ fn poles_wait_for_ready_for_ai_and_reset_restores_the_tiles() {
         tick: 0,
         eu: true,
         update_seq: &mut b.seq,
+        player: None,
+        stuck_spear_tiles: &[],
+        no_stick_zones: &[],
+        shelter_door_moving: false,
+        cosmetics: &mut b.cosmetics,
     };
     w.update(&mut o, &mut cx);
     assert!(!b.room.tile(3, 3).horizontal_pole());
@@ -341,4 +411,294 @@ fn a_fast_rock_on_the_ground_starts_the_skid_loop() {
         Some(e.sound),
         "kept, not restarted"
     );
+}
+
+/// 40 x 6: a floor, open above.
+const FLAT: [&str; 6] = [
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "........................................",
+    "########################################",
+];
+
+/// 10 x 6: a floor and a wall from x 7 on (its face at x 140).
+const WALL: [&str; 6] = [
+    "..........",
+    ".......###",
+    ".......###",
+    ".......###",
+    ".......###",
+    "##########",
+];
+
+/// The wall at x 1: a spear in front of it is in the room's outer ring.
+const EDGE: [&str; 6] = ["......", ".#....", ".#....", ".#....", ".#....", "######"];
+
+/// The same wall one tile in.
+const INNER: [&str; 6] = ["......", "..#...", "..#...", "..#...", "..#...", "######"];
+
+#[test]
+fn a_thrown_rock_flies_at_forty_and_tumbles_free_under_thirty() {
+    // `Weapon.Thrown` sideways: vel = thrower vel * (0.2, 0.5) + (40 dir frc, 3 for a
+    // rock); `ChangeMode(Thrown)`: layer 0, `setRotation` = throwDir, no spin, in
+    // `Items`. No draws.
+    let mut b = Bench::new(&FLAT, 21);
+    let mut o = rock((2, 2));
+    let mut w = b.place(&mut o);
+    let state = b.rng.state();
+    let room = Arc::clone(&b.room);
+    let mut cx = ModeChange {
+        room: &room,
+        rng: &mut b.rng,
+        update_seq: &mut b.seq,
+    };
+    let throw = Throw {
+        by: THROWER,
+        by_vel: Vec2::new(2.0, -4.0),
+        pos: Vec2::new(50.0, 50.0),
+        first_frame_trace_from_pos: Some(Vec2::new(40.0, 46.0)),
+        dir: (1, 0),
+        frc: 1.0,
+        eu: w.even_update,
+    };
+    assert_eq!(w.thrown(throw, &mut o, &mut cx), SoundId::SlugcatThrowRock);
+    assert_eq!(b.rng.state(), state);
+    assert_eq!(w.chunk().vel, Vec2::new(0.4 + 40.0, -2.0 + 3.0));
+    assert_eq!((w.mode, w.collision_layer), (WeaponMode::Thrown, 0));
+    assert_eq!(w.set_rotation, Some(Vec2::new(1.0, 0.0)));
+    assert_eq!((w.rotation_speed, w.in_front_of_objects), (0.0, 1));
+    assert_eq!(
+        (w.change_dir_counter, w.override_exit_thrown_speed),
+        (3, 0.0)
+    );
+    assert_eq!(w.thrown_by, Some(THROWER));
+    // Each thrown tick: out of the player's reach for 40 ticks, no draws, water
+    // retardation immunity 0.9. It lands, the floor's friction slows it, and the first
+    // tick that starts under 30 px a tick spins it twice (`SetRandomSpin`, then
+    // `ChangeMode(Free)`'s): two draws. The trace branch still runs and sets the 40.
+    let mut ticks = 0;
+    loop {
+        let before = b.rng.clone();
+        let speed = w.chunk().vel.length();
+        b.step(&mut w, &mut o);
+        ticks += 1;
+        assert!(ticks < 100);
+        if w.mode == WeaponMode::Thrown {
+            assert!(speed >= 30.0);
+            assert_eq!(b.rng.state(), before.state());
+            // `PlayerCarryableItem.Update` counts it down in the same update.
+            assert_eq!(w.forbidden_to_player, 39);
+            assert_eq!(w.body.params.water_retardation_immunity, 0.9);
+            continue;
+        }
+        assert!(speed < 30.0, "{speed}");
+        let mut expect = before;
+        expect.value();
+        expect.value();
+        assert_eq!(b.rng.state(), expect.state());
+        assert_eq!(w.forbidden_to_player, 39);
+        assert_eq!(w.collision_layer, 2);
+        break;
+    }
+    assert!(ticks > 3);
+    assert_eq!(w.chunk().contact().y, -1, "skidding on the floor");
+}
+
+#[test]
+fn a_rock_thrown_at_a_wall_hits_it_with_seven_sparks() {
+    // The chunk touches the wall (`ContactPoint == throwDir`) and bounces off at 16 px
+    // a tick. The next tick it first tumbles under the exit speed (`SetRandomSpin`,
+    // `ChangeMode(Free)`: two spins), then `HitWall`s: in a viewed room seven sparks
+    // (DegToVec(value * 360) * 10 value each, then the spark's own draws),
+    // `Rock_Hit_Wall`, `SetRandomSpin` (`ChangeMode(Free)` is already done), 10 ticks
+    // out of reach, counted down once in the same update.
+    let mut b = Bench::new(&WALL, 4).with_sounds(&[SoundId::RockHitWall]);
+    let mut o = rock((3, 2));
+    let mut w = b.place(&mut o);
+    b.throw(&mut w, &mut o, Vec2::new(70.0, 50.0), (1, 0));
+    while w.chunk().contact().x != 1 {
+        b.step(&mut w, &mut o);
+        assert!(b.tick < 10);
+    }
+    let mut expect = b.rng.clone();
+    b.step(&mut w, &mut o);
+    expect.value();
+    expect.value();
+    for _ in 0..7 {
+        expect.value();
+        expect.value();
+        Spark::new(Vec2::ZERO, Vec2::ZERO, [1.0; 4], 2, 4, &mut expect);
+    }
+    let mut replay = Sounds::new(Arc::clone(&b.table));
+    replay.play_on_object(
+        SoundId::RockHitWall,
+        Vec2::ZERO,
+        false,
+        1.0,
+        1.0,
+        &mut expect,
+    );
+    expect.value();
+    assert_eq!(b.rng.state(), expect.state());
+    assert_eq!(b.cosmetics.len(), 7);
+    assert_eq!(b.played(), [SoundId::RockHitWall]);
+    assert_eq!((w.mode, w.forbidden_to_player), (WeaponMode::Free, 9));
+}
+
+#[test]
+fn a_spear_thrown_close_to_a_wall_sticks_and_makes_poles() {
+    // 65 px from the wall, within 140: `Spear.Update` draws `value < 0.33` but sticks
+    // anyway. stuckInWall = MiddleOfTile(6, 2) = (130, 50); `ChangeMode(StuckInWall)`
+    // draws the cycles, Range(3, 7) (positive: thrown sideways), sees the open left side
+    // and turns the spear into the wall, 5 px out: (125, 50); `Spear_Stick_In_Wall`.
+    let mut b = Bench::new(&WALL, 8).with_sounds(&[SoundId::SpearStickInWall]);
+    let mut o = spear((3, 2), 0);
+    let mut w = b.place(&mut o);
+    b.throw(&mut w, &mut o, Vec2::new(70.0, 50.0), (1, 0));
+    let mut before = b.rng.clone();
+    while w.mode == WeaponMode::Thrown {
+        before = b.rng.clone();
+        b.step(&mut w, &mut o);
+        assert!(b.tick < 10);
+    }
+    let mut expect = before;
+    expect.value();
+    let cycles = expect.range_i32(3, 7);
+    let mut replay = Sounds::new(Arc::clone(&b.table));
+    replay.play_on_object(
+        SoundId::SpearStickInWall,
+        Vec2::ZERO,
+        false,
+        1.0,
+        1.0,
+        &mut expect,
+    );
+    assert_eq!(b.rng.state(), expect.state());
+    assert_eq!(w.mode, WeaponMode::StuckInWall);
+    assert_eq!(o.spear().map(|s| s.stuck_in_wall_cycles), Some(cycles));
+    assert_eq!(
+        w.spear().and_then(|s| s.stuck_in_wall),
+        Some(Vec2::new(125.0, 50.0))
+    );
+    assert_eq!(w.set_rotation, Some(Vec2::new(1.0, 0.0)));
+    assert_eq!((w.vibrate, w.collision_layer), (10, 0));
+    assert!(!w.chunk().collide_with_terrain);
+    assert_eq!(b.played(), [SoundId::SpearStickInWall]);
+    // The next update writes the poles: the stuck tile and its open neighbour.
+    b.step(&mut w, &mut o);
+    assert!(b.room.tile(6, 2).horizontal_pole());
+    assert!(b.room.tile(5, 2).horizontal_pole());
+    assert!(!b.room.tile(7, 2).horizontal_pole());
+    assert_eq!(w.chunk().pos, Vec2::new(125.0, 50.0));
+}
+
+/// Throws a spear (explosive or not) from the middle of `tile` right into the wall
+/// next to it, after `setup`; returns the spear and its object after the throw ends.
+fn throw_at_wall(
+    rows: &[&str],
+    tile: (i32, i32),
+    explosive: bool,
+    setup: fn(&mut Bench),
+) -> (Weapon, AbstractObject) {
+    let mut b = Bench::new(rows, 2);
+    setup(&mut b);
+    let mut o = spear(tile, 0);
+    if let Some(s) = o.spear_mut() {
+        s.explosive = explosive;
+    }
+    let mut w = b.place(&mut o);
+    let at = Vec2::middle_of_tile(tile);
+    b.throw(&mut w, &mut o, at, (1, 0));
+    b.fly(&mut w, &mut o);
+    (w, o)
+}
+
+fn no_setup(_: &mut Bench) {}
+
+#[test]
+fn spears_never_stick_in_the_rooms_outer_tile_ring() {
+    // The abstract tile (0, 2) is on the ring (`x <= 0`): no stick (the game logs
+    // "Spear prevented from stabbing the edge of a room"); the next tick it `HitWall`s.
+    let (w, _) = throw_at_wall(&EDGE, (0, 2), false, no_setup);
+    assert_eq!(w.mode, WeaponMode::Free);
+    // One tile in, the same throw sticks.
+    let (w, _) = throw_at_wall(&INNER, (1, 2), false, no_setup);
+    assert_eq!(w.mode, WeaponMode::StuckInWall);
+    // An explosive spear is exempt from the ring rule; it keeps no cycles or poles.
+    let (w, o) = throw_at_wall(&EDGE, (0, 2), true, no_setup);
+    assert_eq!(w.mode, WeaponMode::StuckInWall);
+    assert_eq!(o.spear().map(|s| s.stuck_in_wall_cycles), Some(0));
+    assert!(!w.spear().is_some_and(|s| s.add_poles));
+}
+
+#[test]
+fn zones_stuck_spears_and_moving_shelter_doors_keep_a_spear_out() {
+    // `NoSpearStickZone`: DistLess(MiddleOfTile(pos), zone, rad).
+    let (w, _) = throw_at_wall(&INNER, (1, 2), false, |b| {
+        b.zones.push((Vec2::new(30.0, 50.0), 1.0));
+    });
+    assert_eq!(w.mode, WeaponMode::Free);
+    let (w, _) = throw_at_wall(&INNER, (1, 2), false, |b| {
+        b.zones.push((Vec2::new(300.0, 50.0), 100.0));
+    });
+    assert_eq!(w.mode, WeaponMode::StuckInWall, "a zone out of reach");
+    // Another spear stuck on that abstract tile.
+    let (w, _) = throw_at_wall(&INNER, (1, 2), false, |b| b.stuck.push((1, 2)));
+    assert_eq!(w.mode, WeaponMode::Free);
+    // A shelter door closing or opening.
+    let (w, _) = throw_at_wall(&INNER, (1, 2), false, |b| b.door_moving = true);
+    assert_eq!(w.mode, WeaponMode::Free);
+}
+
+#[test]
+fn a_far_spear_sticks_a_third_of_the_time_and_a_belly_slide_one_always() {
+    // 40 x 8 with a wall from x 25: 450 px away, beyond 140, within 560.
+    let open = ".".repeat(40);
+    let wall = format!("{}{}", ".".repeat(25), "#".repeat(15));
+    let floor = "#".repeat(40);
+    let mut rows = vec![open];
+    rows.extend(std::iter::repeat_n(wall, 6));
+    rows.push(floor);
+    let rows: Vec<&str> = rows.iter().map(String::as_str).collect();
+    let mut sticks = 0;
+    for seed in 0..12 {
+        let mut b = Bench::new(&rows, seed);
+        let mut o = spear((2, 4), 0);
+        let mut w = b.place(&mut o);
+        b.throw(&mut w, &mut o, Vec2::new(50.0, 90.0), (1, 0));
+        let mut draws = b.rng.clone();
+        while w.mode == WeaponMode::Thrown {
+            draws = b.rng.clone();
+            b.step(&mut w, &mut o);
+        }
+        let first = draws.value();
+        if w.mode == WeaponMode::StuckInWall {
+            sticks += 1;
+            assert!(first < 0.33);
+        }
+    }
+    assert!(sticks > 0 && sticks < 12, "{sticks}");
+    // `alwaysStickInWalls` (set by the belly-slide throw after `Thrown`) always sticks.
+    for seed in 0..12 {
+        let mut b = Bench::new(&rows, seed);
+        let mut o = spear((2, 4), 0);
+        let mut w = b.place(&mut o);
+        b.throw(&mut w, &mut o, Vec2::new(50.0, 90.0), (1, 0));
+        w.set_always_stick_in_walls();
+        b.fly(&mut w, &mut o);
+        assert_eq!(w.mode, WeaponMode::StuckInWall, "seed {seed}");
+    }
+}
+
+#[test]
+fn circles_collision_time_is_the_first_touch() {
+    // A circle of radius 5 moving 40 px right from (0, 0) toward one of radius 5 at
+    // (30, 0) touches it after 20 px: t = 0.5.
+    let t = Vec2::ZERO.circles_collision_time(Vec2::new(30.0, 0.0), Vec2::new(40.0, 0.0), 5.0, 5.0);
+    assert!((t - 0.5).abs() < 1e-3, "{t}");
+    let miss =
+        Vec2::ZERO.circles_collision_time(Vec2::new(30.0, 30.0), Vec2::new(40.0, 0.0), 5.0, 5.0);
+    assert!(miss.is_nan());
 }
