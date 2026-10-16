@@ -327,6 +327,8 @@ pub struct RainWorldGame {
     script_tick: ScriptTick,
     /// The last hologram id issued.
     hologram_ids: u64,
+    /// The player's room when the guide's being brought was last logged.
+    guide_brought_logged_room: Option<i32>,
     /// Each realized creature's `Creature.lastCoord`; a new body starts at the default
     /// coordinate (room 0, tile (0, 0)).
     last_coords: HashMap<CreatureId, WorldCoordinate>,
@@ -461,6 +463,7 @@ impl RainWorldGame {
             tick: 0,
             script_tick: ScriptTick::default(),
             hologram_ids: 0,
+            guide_brought_logged_room: None,
             last_coords: HashMap::new(),
             entrance_colors: Vec::new(),
             player_graphics: false,
