@@ -26,7 +26,7 @@ use crate::creature::{
 use crate::item::Entity;
 use crate::room_script::StorySession;
 use crate::tests::room;
-use crate::world::{AbstractTick, World};
+use crate::world::{AbstractTick, FliesWorldAi, World};
 
 const LAYERS: usize = 15;
 const GREEN_LAYER: usize = 2;
@@ -536,6 +536,15 @@ fn a_green_passing_its_den_late_in_the_cycle_goes_in() {
 
 /// A lantern mouse (a green's prey) with ID number `number`, standing at `pos`.
 fn mouse_out(world: &mut World, pos: WorldCoordinate, number: i32) -> CreatureId {
+    creature_out(world, CreatureType::LanternMouse, pos, number)
+}
+
+fn creature_out(
+    world: &mut World,
+    kind: CreatureType,
+    pos: WorldCoordinate,
+    number: i32,
+) -> CreatureId {
     let session = StorySession {
         character: SlugcatName::White,
         cycle_number: 0,
@@ -544,7 +553,7 @@ fn mouse_out(world: &mut World, pos: WorldCoordinate, number: i32) -> CreatureId
     let mut ids = IdIssuer {
         next_issued_id: 1000,
     };
-    let template = CreatureTemplate::of(CreatureType::LanternMouse, ActiveMods::NONE);
+    let template = CreatureTemplate::of(kind, ActiveMods::NONE);
     let mut rng = UnityRandom::new(0);
     let c = world.new_creature(
         template,
@@ -745,4 +754,36 @@ fn a_followed_creature_is_followed_until_the_like_fades_or_it_dies() {
     assert_eq!(g.ai.as_ref().expect("AI").follow_creature, None);
     let memory = g.state.social_memory.as_ref().expect("memory");
     assert!(memory.relationships.is_empty());
+}
+
+#[test]
+fn a_fly_entering_a_den_goes_back_to_the_swarm() {
+    // `OpportunityToEnterDen` (301182) of a fly: counter 0, rain far, nothing. With the
+    // counter above 0, `MoveEntityToDen` (304144) runs `IsEnteringDen`'s quantified-fly
+    // branch (301223): `RespawnOneFly` and `RemoveEntity`, never `InDen`; the room
+    // still lists it in `entitiesInDens`. No draws.
+    let mut world = world();
+    world.processes.flies = Some(FliesWorldAi {
+        migration_targets: Vec::new(),
+        swarm_room_behaviors: Vec::new(),
+        flies_to_spawn: Vec::new(),
+        flies_to_respawn: 0,
+        all_initial_flies_spawned: true,
+    });
+    let fly = creature_out(&mut world, CreatureType::Fly, at(0, 1), 7);
+    world.creature_mut(fly).remain_in_den_counter = 0;
+    let mut rng = UnityRandom::new(4);
+    let before = rng.state();
+    world.opportunity_to_enter_den(fly, &mut rng);
+    assert_eq!(world.room_creatures(0), [fly]);
+    assert!(world.room_dens(0).is_empty());
+
+    world.creature_mut(fly).remain_in_den_counter = 30;
+    world.opportunity_to_enter_den(fly, &mut rng);
+    assert_eq!(rng.state(), before);
+    assert!(!world.creature(fly).in_den);
+    assert_eq!(world.creature(fly).remain_in_den_counter, 30);
+    assert!(world.room_creatures(0).is_empty());
+    assert_eq!(world.room_dens(0), [fly]);
+    assert_eq!(world.flies_world_ai().map(|f| f.flies_to_respawn), Some(1));
 }

@@ -329,7 +329,8 @@ impl RainWorldGame {
                 self.shortcuts.transport.remove(i);
             }
             Shortcut::CreatureDen => {
-                self.world.fly_opportunity_to_enter_den(v.creature);
+                self.world
+                    .opportunity_to_enter_den(v.creature, &mut self.rng);
             }
             _ => {}
         }

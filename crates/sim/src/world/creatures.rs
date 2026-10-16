@@ -482,29 +482,6 @@ impl World {
         }
     }
 
-    /// `OpportunityToEnterDen` of a fly's vessel at a den node: it goes in when it wants
-    /// to stay there for the rest of the cycle or still has to stay in. `MoveEntityToDen`
-    /// then runs the Fly's `IsEnteringDen` (`RespawnOneFly`, `RemoveEntity`, no `InDen`)
-    /// and keeps it in the room's den list. Returns whether it went in.
-    pub(crate) fn fly_opportunity_to_enter_den(&mut self, id: CreatureId) -> bool {
-        let wants_to_stay = self.wants_to_stay_in_den(id);
-        let c = self.creature_mut(id);
-        if wants_to_stay {
-            c.remain_in_den_counter = -1;
-        } else if c.remain_in_den_counter <= 0 {
-            return false;
-        }
-        self.respawn_one_fly();
-        self.remove_entity(id);
-        let room = self.creature(id).pos.room;
-        if let Some(l) = self.local(room)
-            && !self.lists[l].in_dens.contains(&id)
-        {
-            self.lists[l].in_dens.push(id);
-        }
-        true
-    }
-
     /// `AbstractRoom.AddQuantifiedCreature(node, type, amount)` (node -1 draws one of the
     /// room's connections).
     pub(crate) fn add_quantified(
