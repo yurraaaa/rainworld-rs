@@ -20,6 +20,8 @@ pub mod overseer;
 pub mod pathing;
 pub(crate) mod population;
 mod relationships;
+pub mod social_memory;
+mod state_save;
 pub mod template;
 mod template_abstract;
 pub mod violence;
@@ -37,6 +39,8 @@ pub use fly::{
 };
 pub use grasp::{GrabRequest, Grasp, GripStick, Shareability};
 pub use overseer::{OverseerAbstractAi, OverseerAi, OverseerBody, PlayerGuideState};
+pub use social_memory::{Relationship as SocialRelationship, SocialMemory};
+pub use state_save::{StateParts, StateSave};
 pub use template::{CreatureTemplate, Relationship, RelationshipType, WaterRelationship};
 pub use template_abstract::{AbstractCost, AbstractMovement};
 pub use violence::{Community, DamageType, ViolenceTemplate};
@@ -58,6 +62,21 @@ impl EntityId {
             number,
             alt_seed: -1,
         }
+    }
+
+    /// `EntityID ==`: the game compares the numbers only.
+    #[must_use]
+    pub fn same_entity(self, other: Self) -> bool {
+        self.number == other.number
+    }
+
+    /// `EntityID.FromString` (`ID.spawner.number`); `None` where the game would throw.
+    #[must_use]
+    pub fn from_save_string(s: &str) -> Option<Self> {
+        let mut parts = s.split('.').skip(1);
+        let spawner = parts.next()?.trim().parse().ok()?;
+        let number = parts.next()?.trim().parse().ok()?;
+        Some(Self::new(spawner, number))
     }
 
     /// `RandomSeed`.
@@ -185,7 +204,7 @@ pub enum StateKind {
 }
 
 /// `CreatureState`: alive or dead, and health where the state has it (1 when created).
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CreatureState {
     pub kind: StateKind,
     pub alive: bool,
@@ -195,13 +214,27 @@ pub struct CreatureState {
     pub food_in_stomach: u32,
     /// `PlayerState.quarterFoodPoints`.
     pub quarter_food_points: i32,
+    /// `socialMemory`: an empty one for templates with `socialMemory`; a save's `Social`
+    /// entry gives one to any creature.
+    pub social_memory: Option<SocialMemory>,
+    /// The subclass's own saved fields.
+    pub parts: StateParts,
+    /// Saved fields nothing in the port reads.
+    pub save: StateSave,
 }
 
 impl CreatureState {
-    /// Whether the state is a `HealthState` (or a subclass).
+    /// Whether the state is a `HealthState` (or a subclass): not the player's, the
+    /// garbage worm's, the vulture grub's or a `NoHealthState`.
     #[must_use]
-    pub fn has_health(self) -> bool {
-        !matches!(self.kind, StateKind::Player | StateKind::NoHealth)
+    pub fn has_health(&self) -> bool {
+        !matches!(
+            self.kind,
+            StateKind::Player
+                | StateKind::NoHealth
+                | StateKind::GarbageWorm
+                | StateKind::VultureGrub
+        )
     }
 }
 
@@ -279,9 +312,6 @@ pub struct AbstractCreature {
     /// `killTagCounter`.
     pub kill_tag: Option<CreatureId>,
     pub kill_tag_counter: i32,
-    /// The state entries of a creature loaded from the save (`CreatureState.ToString`),
-    /// written back as read.
-    pub saved_state: Option<String>,
 }
 
 impl AbstractCreature {
@@ -315,6 +345,9 @@ impl AbstractCreature {
             health: 1.0,
             food_in_stomach: 0,
             quarter_food_points: 0,
+            social_memory: template.social_memory().then(SocialMemory::default),
+            parts: StateParts::of(kind),
+            save: StateSave::default(),
         }
     }
 

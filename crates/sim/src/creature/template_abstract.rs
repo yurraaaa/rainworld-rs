@@ -91,6 +91,37 @@ impl CreatureTemplate {
         )
     }
 
+    /// `socialMemory` (`InitStaticWorld`, copied by children): the lizards, vultures,
+    /// cicadas, jet fish, scavengers and the big needle worm (the small one clears it);
+    /// of the DLC templates those the game sets (124013.., 123064..).
+    #[must_use]
+    pub fn social_memory(&self) -> bool {
+        use CreatureType as T;
+        match self.kind {
+            T::SmallNeedleWorm | T::StowawayBug => false,
+            T::MirosVulture
+            | T::ScavengerElite
+            | T::ScavengerKing
+            | T::SlugNpc
+            | T::BigMoth
+            | T::FireSprite
+            | T::ScavengerTemplar
+            | T::ScavengerDisciple
+            | T::Rat
+            | T::Frog
+            | T::RippleSpider => true,
+            _ => matches!(
+                self.top_ancestor(),
+                T::LizardTemplate
+                    | T::Vulture
+                    | T::CicadaA
+                    | T::JetFish
+                    | T::Scavenger
+                    | T::BigNeedleWorm
+            ),
+        }
+    }
+
     /// `mappedNodeTypes[node.type]` of node `node` of `room` (false out of range).
     #[must_use]
     pub fn maps_room_node(&self, room: &AbstractRoomData, node: i32) -> bool {
@@ -138,6 +169,19 @@ mod tests {
 
     fn stow(kind: CreatureType) -> bool {
         CreatureTemplate::of(kind, ActiveMods::NONE).stow_food_in_den()
+    }
+
+    fn sm(kind: CreatureType) -> bool {
+        CreatureTemplate::of(kind, ActiveMods::NONE).social_memory()
+    }
+
+    #[test]
+    fn social_memory_per_template() {
+        use CreatureType as T;
+        assert!(sm(T::GreenLizard) && sm(T::KingVulture) && sm(T::CicadaB));
+        assert!(sm(T::JetFish) && sm(T::Scavenger) && sm(T::BigNeedleWorm));
+        assert!(!sm(T::SmallNeedleWorm) && !sm(T::Slugcat) && !sm(T::DropBug));
+        assert!(!sm(T::Fly) && !sm(T::Overseer) && !sm(T::LanternMouse));
     }
 
     /// The abstract lists of `InitStaticWorld` (125287..) for the roaming types.

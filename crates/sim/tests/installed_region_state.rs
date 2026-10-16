@@ -28,7 +28,8 @@ const SAVED: &str = "REGIONNAME<rgB>SU<rgA>LASTCYCLEUPDATED<rgB>2<rgA>\
     ID.-12.10200<oB>0<oA>Spear<oA>SU_A13.30.20.-1<oA>2<oA>0<rgC>\
     ID.-12.10201<oB>0<oA>Spear<oA>SU_A13.31.20.-1<oA>-1<oA>0<rgC>\
     ID.-12.10202<oB>0<oA>Rock<oA>SU_A13.5.5.-1<rgC><rgA>\
-    POPULATION<rgB>GreenLizard<cA>ID.5028.9955<cA>SU_B12.2<cA><rgC>\
+    POPULATION<rgB>GreenLizard<cA>ID.5028.9955<cA>SU_B12.2<cA>\
+    Social<cC>REL<rA>ID.-1.0<rA>L<rB>0.4<smA>REL<rA>ID.-1.5<rA>L<rB>0.2<cB><rgC>\
     PinkLizard<cA>ID.5014.9942<cA>SU_A20.6<cA>SpawnData<cC>{X}<cB><cB>Health<cC>0.5<rgC>\
     SlugNPC<cA>ID.-1.77<cA>SU_S01.0<cA><rgC><rgA>\
     STICKS<rgB>254<stkA>gripStk<stkA>ID.-1.1<stkA>ID.-1.2<stkA>0<stkA>1<rgC><rgA>\
@@ -164,10 +165,14 @@ fn continue_restores_the_saved_population_and_keeps_the_rest() {
          ID.-239.10152<oB>0<oA>Rock<oA>SU_S04.22.24.0<rgC>\
          ID.-12.10200<oB>0<oA>Spear<oA>SU_A13.30.20.-1<oA>1<oA>0<rgC><rgA>"
     ));
-    // Rewritten with the ID's ripple layer; the state as read.
-    assert!(saved.contains("<rgC>GreenLizard<cA>ID.5028.9955<cB>0<cA>SU_B12.2<cA><rgC>"));
+    // Rewritten with the ID's ripple layer; the states after one `CycleTick`: the like
+    // of 0.4 faded x0.97, the one of 0.2 forgotten; health up a quarter.
     assert!(saved.contains(
-        "PinkLizard<cA>ID.5014.9942<cB>0<cA>SU_A20.6<cA>SpawnData<cC>{X}<cB><cB>Health<cC>0.5<rgC>"
+        "<rgC>GreenLizard<cA>ID.5028.9955<cB>0<cA>SU_B12.2<cA>\
+         Social<cC>REL<rA>ID.-1.0<rA>L<rB>0.388<cB><rgC>"
+    ));
+    assert!(saved.contains(
+        "PinkLizard<cA>ID.5014.9942<cB>0<cA>SU_A20.6<cA>SpawnData<cC>{X}<cB><cB>Health<cC>0.75<rgC>"
     ));
     // `AdaptRegionStateToWorld` puts the unknown creatures first.
     assert!(saved.contains("<rgA>POPULATION<rgB>SlugNPC<cA>ID.-1.77<cA>SU_S01.0<cA><rgC>"));

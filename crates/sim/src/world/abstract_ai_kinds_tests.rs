@@ -459,7 +459,7 @@ fn only_scavengers_are_held_in_their_dens() {
     let scav = ticker.spawn(&mut world, CreatureType::Scavenger, at(1, 1), 2, &mut rng);
     for id in [grub, scav] {
         world.creature_mut(id).remain_in_den_counter = 10;
-        world.move_entity_to_den(id);
+        world.move_entity_to_den(id, &mut rng);
     }
     world.update_abstract_room(1, 55, &mut ticker.tick(&mut rng));
     assert!(!world.creature(grub).in_den);

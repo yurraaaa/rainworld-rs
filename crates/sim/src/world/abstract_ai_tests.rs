@@ -20,8 +20,10 @@ use rw_assets::{ActiveMods, ConnMap, CreatureType, RoomSettings, SlugcatName, Ti
 use rw_random::UnityRandom;
 
 use crate::creature::{
-    CreatureId, CreatureTemplate, EntityId, IdIssuer, PlayerGuideState, WorldCoordinate,
+    AbstractCreatureAi, AiKind, CreatureId, CreatureTemplate, EntityId, IdIssuer, PlayerGuideState,
+    WorldCoordinate,
 };
+use crate::item::Entity;
 use crate::room_script::StorySession;
 use crate::tests::room;
 use crate::world::{AbstractTick, World};
@@ -192,7 +194,7 @@ fn a_green_in_its_den_counts_down_then_comes_out_without_drawing() {
     let mut world = world();
     let mut rng = UnityRandom::new(5);
     let id = green(&mut world, at(0, 1), &mut rng);
-    world.move_entity_to_den(id);
+    world.move_entity_to_den(id, &mut rng);
     // The constructor's `Range(100, 1000)`, the den and spawn den.
     let mut model = UnityRandom::new(5);
     let counter = model.range_i32(100, 1000);
@@ -224,7 +226,7 @@ fn rain_pre_cycle_and_night_keep_a_green_in() {
     let mut world = world();
     let mut rng = UnityRandom::new(5);
     let id = green(&mut world, at(0, 1), &mut rng);
-    world.move_entity_to_den(id);
+    world.move_entity_to_den(id, &mut rng);
     world.rain_cycle.timer = 100_000 - 2399;
     world.update_abstract_room(0, 4, &mut ticker.tick(&mut rng));
     assert_eq!(world.creature(id).remain_in_den_counter, -1);
@@ -259,7 +261,7 @@ fn world_with_flags(data: &str) -> World {
     c.night_creature = true;
     c.spawn_data = Some(data.to_owned());
     c.set_custom_flags();
-    world.move_entity_to_den(id);
+    world.move_entity_to_den(id, &mut rng);
     world
 }
 
@@ -530,4 +532,217 @@ fn a_green_passing_its_den_late_in_the_cycle_goes_in() {
     assert!(c.in_den);
     assert_eq!(c.remain_in_den_counter, -1);
     assert!(world.room_dens(0).contains(&id));
+}
+
+/// A lantern mouse (a green's prey) with ID number `number`, standing at `pos`.
+fn mouse_out(world: &mut World, pos: WorldCoordinate, number: i32) -> CreatureId {
+    let session = StorySession {
+        character: SlugcatName::White,
+        cycle_number: 0,
+        den_position: String::new(),
+    };
+    let mut ids = IdIssuer {
+        next_issued_id: 1000,
+    };
+    let template = CreatureTemplate::of(CreatureType::LanternMouse, ActiveMods::NONE);
+    let mut rng = UnityRandom::new(0);
+    let c = world.new_creature(
+        template,
+        pos,
+        EntityId::new(-1, number),
+        &session,
+        &mut ids,
+        &mut rng,
+    );
+    let id = world.insert_creature(c);
+    world.add_entity(id);
+    id
+}
+
+/// A green out at A's den carrying a mouse (grasp 0, a carry stick).
+fn green_with_prey(world: &mut World) -> (CreatureId, CreatureId) {
+    let green = green_out(world, at(0, 1));
+    let mouse = mouse_out(world, at(0, 1), 7);
+    world.add_grip_stick(green, Entity::Creature(mouse), 0, true);
+    (green, mouse)
+}
+
+#[test]
+fn a_green_stows_its_prey_kills_it_and_drops_it_in_the_den() {
+    // `OpportunityToEnterDen` (301182) with a counter of -1 and no rain: the stow branch
+    // (a grip stick on a creature) sets 200 and goes in. `IsEnteringDen` (303528 then
+    // 301221): the mouse comes into the den first, then dies (`AbstractCreature.Die`:
+    // spawner -1, no respawn) and the plain AI drops it (`DoIwantToDropThisItemInDen`
+    // true). No draws.
+    let mut world = world();
+    let (green, mouse) = green_with_prey(&mut world);
+    world.creature_mut(green).remain_in_den_counter = -1;
+    let mut rng = UnityRandom::new(4);
+    let before = rng.state();
+    world.opportunity_to_enter_den(green, &mut rng);
+    assert_eq!(rng.state(), before);
+    let g = world.creature(green);
+    assert!(g.in_den);
+    assert_eq!(g.remain_in_den_counter, 200);
+    assert!(g.sticks.is_empty());
+    let m = world.creature(mouse);
+    assert!(m.in_den && !m.state.alive && m.sticks.is_empty());
+    assert_eq!(world.room_dens(0), [mouse, green]);
+    assert!(world.room_creatures(0).is_empty());
+
+    // Coming out (`MoveEntityOutOfDen`), the green leaves the dropped mouse in the den.
+    world.move_entity_out_of_den(Entity::Creature(green));
+    assert!(!world.creature(green).in_den);
+    assert_eq!(world.room_dens(0), [mouse]);
+    assert_eq!(world.room_creatures(0), [green]);
+}
+
+#[test]
+fn prey_killed_in_the_den_keeps_a_soon_leaving_creature_in_for_200_ticks() {
+    // Counter 50 (> 0): in without stowing; the kill raises a counter in (-1, 200) to
+    // 200. With the rain within 60 s it wants to stay: -1, and the kill keeps it.
+    let mut world = world();
+    let (green, _) = green_with_prey(&mut world);
+    world.creature_mut(green).remain_in_den_counter = 50;
+    let mut rng = UnityRandom::new(4);
+    world.opportunity_to_enter_den(green, &mut rng);
+    assert_eq!(world.creature(green).remain_in_den_counter, 200);
+
+    let mut world = self::world();
+    let (green, mouse) = green_with_prey(&mut world);
+    world.rain_cycle.timer = 100_000 - 100;
+    world.opportunity_to_enter_den(green, &mut rng);
+    assert_eq!(world.creature(green).remain_in_den_counter, -1);
+    assert!(!world.creature(mouse).state.alive);
+}
+
+#[test]
+fn an_ai_that_keeps_its_prey_brings_it_out_of_the_den() {
+    // A scavenger's `DoIwantToDropThisItemInDen` is false: the dead mouse stays stuck,
+    // and `IsExitingDen` takes it out with the carrier (whose own `AddEntity` comes
+    // after). Drop bugs drop creatures only.
+    let mut world = world();
+    let (green, mouse) = green_with_prey(&mut world);
+    let plain = world.creature(green).ai.clone().expect("AI");
+    world.creature_mut(green).ai.as_mut().expect("AI").kind = AiKind::Scavenger {
+        carry_rocks: 0,
+        dont_migrate: 0,
+    };
+    let mut rng = UnityRandom::new(4);
+    world.move_entity_to_den(green, &mut rng);
+    assert!(!world.creature(mouse).state.alive);
+    assert_eq!(world.creature(green).sticks.len(), 1);
+    world.move_entity_out_of_den(Entity::Creature(green));
+    assert!(!world.creature(mouse).in_den);
+    assert_eq!(world.room_creatures(0), [mouse, green]);
+    assert!(world.room_dens(0).is_empty());
+
+    let drop_bug = AbstractCreatureAi {
+        kind: AiKind::DropBug,
+        ..plain.clone()
+    };
+    assert!(drop_bug.wants_to_drop_in_den(true));
+    assert!(!drop_bug.wants_to_drop_in_den(false));
+    assert!(plain.wants_to_drop_in_den(false));
+}
+
+/// Gives creature `id` a relationship with ID number `number` of like `like`.
+fn befriend(world: &mut World, id: CreatureId, number: i32, like: f32) {
+    let m = world
+        .creature_mut(id)
+        .state
+        .social_memory
+        .as_mut()
+        .expect("lizards have a social memory");
+    m.get_or_initiate(EntityId::new(3, number)).like = like;
+}
+
+#[test]
+fn a_strong_like_drawn_from_the_social_memory_starts_following() {
+    // `MigrationBehavior` (302457) with no follow creature: `Range(0, count)` picks a
+    // relationship; above 0.95 (either way) the first creature with that ID number in a
+    // room's `creatures` is followed, true. A weaker one goes on to the laziness
+    // `Range(0, 50)` against `timeSpentHere` 0, which never passes: false.
+    for seed in 0..20 {
+        let mut world = world();
+        let green = green_out(&mut world, at(0, 1));
+        let friend = mouse_out(&mut world, at(2, 1), 7);
+        befriend(&mut world, green, 6, 0.5);
+        befriend(&mut world, green, 7, -0.97);
+        let mut rng = UnityRandom::new(seed);
+        let followed = world.migration_behavior(green, 4, &mut rng);
+        let mut m = UnityRandom::new(seed);
+        let strong = m.range_i32(0, 2) == 1;
+        if !strong {
+            m.range_i32(0, 50);
+        }
+        assert_eq!(rng.state(), m.state(), "seed {seed}");
+        assert_eq!(followed, strong, "seed {seed}");
+        let follow = world
+            .creature(green)
+            .ai
+            .as_ref()
+            .expect("AI")
+            .follow_creature;
+        assert_eq!(follow, strong.then_some(friend), "seed {seed}");
+    }
+}
+
+#[test]
+fn a_followed_creature_is_followed_until_the_like_fades_or_it_dies() {
+    let mut world = world();
+    let green = green_out(&mut world, at(0, 1));
+    let friend = mouse_out(&mut world, at(2, 1), 7);
+    befriend(&mut world, green, 7, 1.0);
+    world
+        .creature_mut(green)
+        .ai
+        .as_mut()
+        .expect("AI")
+        .follow_creature = Some(friend);
+    // `MoveWithCreature` -> `TryToGoToRoom(C 1)`: a mapped den node, so
+    // `SetDestination` there (the path found from defined nodes: no draws); true.
+    let mut rng = UnityRandom::new(2);
+    let before = rng.state();
+    assert!(world.migration_behavior(green, 4, &mut rng));
+    assert_eq!(rng.state(), before);
+    let ai = world.creature(green).ai.as_ref().expect("AI");
+    assert_eq!(ai.destination, at(2, 1));
+    assert_eq!(
+        ai.path,
+        vec![at(2, 1), at(2, 0), at(1, 1), at(1, 0), at(0, 0), at(0, 1)]
+    );
+    assert_eq!(ai.follow_creature, Some(friend));
+    // `offscreenSpeedFac` is 1 while following.
+    assert_eq!(world.offscreen_speed_fac(green), 1.0);
+
+    // A like under 0.9 stops it after this move.
+    befriend(&mut world, green, 7, 0.89);
+    assert!(world.migration_behavior(green, 4, &mut rng));
+    assert_eq!(
+        world
+            .creature(green)
+            .ai
+            .as_ref()
+            .expect("AI")
+            .follow_creature,
+        None
+    );
+
+    // A dead one: the relationship is discarded and the roaming part follows, which
+    // draws nothing while it still migrates to C (`MigrationDestination` elsewhere).
+    world
+        .creature_mut(green)
+        .ai
+        .as_mut()
+        .expect("AI")
+        .follow_creature = Some(friend);
+    world.creature_mut(friend).state.alive = false;
+    let before = rng.state();
+    assert!(!world.migration_behavior(green, 4, &mut rng));
+    assert_eq!(rng.state(), before);
+    let g = world.creature(green);
+    assert_eq!(g.ai.as_ref().expect("AI").follow_creature, None);
+    let memory = g.state.social_memory.as_ref().expect("memory");
+    assert!(memory.relationships.is_empty());
 }
