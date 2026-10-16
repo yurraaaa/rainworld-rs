@@ -177,6 +177,16 @@ impl RegionProperties {
 }
 
 impl RegionParams {
+    /// `proceduralMusicBank` (the last such line; `""` without one).
+    #[must_use]
+    pub fn procedural_music_bank(&self) -> &str {
+        self.other
+            .iter()
+            .rev()
+            .find(|(k, _)| k == "proceduralMusicBank")
+            .map_or("", |(_, v)| v.as_str())
+    }
+
     /// The `Region` constructor's loop over the preprocessed lines.
     fn read(text: &str, filter: &LineFilter) -> Self {
         let mut params = Self::default();

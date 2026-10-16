@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use rw_assets::StreamingAssets;
 use rw_save::{
-    ChecksumSalt, ImportReport, Options, Platform, PlayerProgression, SaveSlot, SaveState,
+    ChecksumSalt, ImportReport, Options, Platform, PlayerProgression, SaveSlot, SaveState, Tutorial,
 };
 use rw_sim::campaign::StoryStart;
 
@@ -138,6 +138,7 @@ impl SaveStateStart for SaveState {
             in_memory,
             live_region_state: None,
             swallowed_item: self.swallowed_item(0).map(str::to_owned),
+            dangle_fruit_in_water_message: d.tutorial_message(Tutorial::DangleFruitInWater),
             den,
         }
     }

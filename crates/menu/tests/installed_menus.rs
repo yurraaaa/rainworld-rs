@@ -57,7 +57,7 @@ impl ProcessFactory<Proc> for Ctx {
         }
     }
 
-    fn update_side_processes(&mut self, current: Option<&Proc>, _dt: f32) {
+    fn update_side_processes(&mut self, current: Option<&mut Proc>, _dt: f32) {
         let menu = matches!(current, Some(Proc::Main(_) | Proc::Select(_)));
         self.shared.mic.graf_update(menu);
         let frame = self.frame;

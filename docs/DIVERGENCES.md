@@ -96,6 +96,15 @@ it (D13). What still differs is only the seed and the call order:
   This shifted the stream of every room
   realization since; no test pinned the old one. The rest of `Room.Loaded`'s draws
   (placed objects and effects the port does not make) are still missing.
+- **Triggers and music.** An `ActiveTriggerChecker` firing its event draws one
+  `Random.value` when its `fireChance` is not 1 (SU_B04's song, 0.4565), in its slot of
+  the room's update list; the guide's `BringGuideToPlayerEvent` and the image and
+  pickup instructions make the overseer's draws. The music player, updated after the
+  game each tick as the game's side process, draws `Random.Range(80, 400)` when a room
+  switch's delay ends. Missing: `ProceduralMusic.Reset`'s stem choice
+  (`Random.Range` per non-empty threat layer, 5 for SU, made when `NewRegion` builds the
+  bank: in the first room of a game, and after a bank change once the old one faded;
+  music step 2).
 - **Realized rocks and spears.** Realizing a room's rocks and spears (`ShortCutsReady`,
   in entity order) makes the game's draws: the `Weapon` constructor's rotation and the
   spear's needle `Range(0, 3)`, then `PlaceInRoom`'s `SetRandomSpin` (2 for a rock, 4
@@ -611,16 +620,25 @@ the NPC shortcut sounds) are ported. The menus'
 `rw_audio::MenuPlayback` (the sources), with the options' sound-effects volume (D13). `rw_audio::music` is the `MusicPlayer` side process with `Song`, `MenuOrSlideShowSong`
 and `IntroRollMusic` (`music.md` section 4.1), streaming `music_songs` clips; the app
 runs it as the game's side process (D13), silent on `TimedSources` without audio
-(`--mute`, `--screenshot`, MCP).
+(`--mute`, `--screenshot`, MCP). In a game, the sim queues the music player's requests
+(`rw_sim::trigger::MusicRequest`: a room trigger's `MusicEvent` or `StopMusicEvent`,
+`RainCycle`'s `RainRequestStopSong`), the app hands them to `GameRequestsSong` /
+`GameRequestsSongStop` / `RainRequestStopSong` with the save state's `songsPlayRecords`
+(D16), and the `PlayerThreatTracker`'s room switches, drone level and
+`Random.Range(80, 400)` delays run from the player's room (`rw_audio::music::GameMusicView`).
+`NewCycleEvent` is sent when a story game starts (D17) and `DeathEvent` on death.
 
 **What differs:**
-- **Music not ported:** `GameRequestsSong` (room-trigger `MusicEvent`s, play records),
-  the in-game `PlayerThreatTracker` (threat, ghost mode, room switches and their
-  `Random.Range(80, 400)`; outside the game its zeroing is ported), `ProceduralMusic`
-  (threat layers, `music_procedural`, its `Random.Range` stem choice), the arena
-  `MultiplayerDJ` (its shuffle draws), `GhostSong`, `SSSong`, `VoidSeaMusic`, the DLC
-  songs, `ResetSongStream`, MMF stream resync, and loose mod `.ogg` overrides. None of
-  the ported paths draws from `UnityEngine.Random`.
+- **Music not ported:** `ThreatDetermination.Update` (the threat of the creatures in
+  the player's room: the threat stays 0, so no song is refused or faded by threat),
+  `ProceduralMusic` (`NewRegion` only records the bank in `nextProcedural`; its
+  `Reset`'s stem draws are missing, D1), the screen music (sleep, death, starve) and
+  the starve and Hunter fades, the echoes' `GhostSong` and ghost mode, `SSSong`,
+  gate and region-change songs (no gates yet), `VoidSeaMusic`, the ending songs, the
+  arena `MultiplayerDJ` (its shuffle draws), the DLC songs and their branches
+  (rot presence, the Watcher's spinning tops, Challenge threat music),
+  `ResetSongStream`, MMF stream resync, the pitch trim and loose mod `.ogg`
+  overrides. The ported in-game paths draw what the game draws (D1).
 - **Music timing.** A sub-track's clip loads on a background thread and becomes
   ready on the first update after it arrived (the game's `AssetBundle` load and
   `LoadAudioData` take a frame or more, so this is at least as fast); headless runs use
@@ -978,12 +996,10 @@ second part, else a single-room world for arena levels). The campaign descriptio
   or food item is realized: bat flies are small creatures and no food item to the
   communication module), the angry hologram (`angryWithPlayer` is never set: no
   weapons), the gate scene (`RegionGate` is not ported: in Moon's gates the concern is
-  `None`, as the game's is with a closed gate), the placed scenes
-  (`ShowProjectedImageEvent` triggers are not ported, and an image's
-  `ProjectedImagePosition` placed object is not read), the forced direction
+  `None`, as the game's is with a closed gate), the forced direction
   (`ReliableIggyDirection` is not ported; the port makes no pointer for it), the
-  in-world super jump, pick-up and scavenger-trade instructions (their placed triggers are
-  not ported), and the tutorial's Eat instruction in SU_A44 (its fruit is not realized;
+  in-world super jump and scavenger-trade instructions (`SuperJumpInstruction` and
+  `ScavengerTradeInstructionTrigger` are not ported), and the tutorial's Eat instruction in SU_A44 (its fruit is not realized;
   SU_A42's, over the bat flies, is ported). A door pointer without the tutorial would follow the player with a
   `CreatureDoorDistanceTracker` (on the Fly's exit distances, which now exist): it is
   made but its update is not ported, so the pointer keeps pointing. The bat pointer's `CycleStartUp` is
@@ -1134,9 +1150,28 @@ second part, else a single-room world for arena levels). The campaign descriptio
   ordinary rooms (no gate mechanism, no region change), and a `RegionTransportation`
   node goes nowhere.
 - **Not ported:** the rain (the cycle's timer, day-night counter and water level stages
-  run; the overseers' AI and the HUD's rain meter read them, and the guide's tutorial
-  pins the timer), karma gates, `DisabledMapRooms` beyond the tag drop, and Remix's
+  run; the overseers' AI, the HUD's rain meter and `MusicAllowed` read them, and the
+  guide's tutorial pins the timer), karma gates, `DisabledMapRooms` beyond the tag drop, and Remix's
   `RemoveNotVisitedRooms` branch.
+- **Room triggers.** A room's settings `Triggers` (`rw_assets::EventTrigger`, every
+  base-game trigger and event type) become `ActiveTriggerChecker`s when it loads
+  (`Room.Loaded`, after the room script and before its items, filtered by the save's
+  cycle and slugcat), updating in the room's update list with their wait, delay,
+  karma, `fireChance` (D1) and `multiUse` (a failed chance still removes a single-use
+  checker). The events that fire are the game's: `MusicEvent` and `StopMusicEvent`
+  (to the music player, D12, gated by `RainCycle.MusicAllowed`), `ShowProjectedImageEvent`
+  (the guide shows the room's placed scene, its 0.99 `ShowPlacedScene` concern),
+  `PickUpObjectInstruction` (the guide's pick-up hologram over the nearest free rock or
+  spear, its text in SU_A23), `BringGuideToPlayerEvent`, `RoomSpecificTextMessage`
+  (`SL_C05`'s `DangleFruitInWaterMessage`, saved in the tutorial messages, D16). As in
+  the game, the start room's triggers wait until the player leaves its start shelter
+  (`stillInStartShelter`), `SeeCreature` never fires, and `PreRegionBump`/`RegionBump`
+  read the HUD's subregion tracker. Differs: `SLOracleState.playerEncounters` (Moon) is
+  read as 0, so Shoreline's image triggers fire as for a player who never met her; an
+  image's `ProjectedImagePosition` placed object is not read (the hologram stands where
+  the overseer is); the guide's state (images and pick-ups shown, how much it likes the
+  player) starts from its defaults each game, not from the save (D16). The More
+  Slugcats, Watcher and Challenge events are parsed and ignored.
 - **Room scripts.** `AddRoomSpecificScript` is `rw_sim::RoomScript::for_room`, called
   when a room with `RoomSpecificScriptActive` loads; only `SU_C04StartUp` is ported (the
   new Survivor or Monk held in the tunnel, pushed out, standing up). It updates after
@@ -1309,6 +1344,13 @@ Differences:
   region from the progression, else its `MAP`/`MAPUPDATE` lines (`LoadMapTexture`); the
   pause menu's Exit copies the sim's textures and times into the progression before
   saving. A game left any other way loses its discovery, which the game keeps in memory.
+- **Songs and tutorial messages.** `SONGSPLAYRECORDS` is typed (`rw_save::SongPlayRecord`)
+  and live: `GameRequestsSong` reads and writes the current save state's records (D12),
+  saved with the rest of the death-persistent data. `TUTMESSAGES` is read in both the
+  old digit format and the name list (`ParseTutorialMessages`); setting a message
+  (`DangleFruitInWaterMessage`, D14) writes it back as a name list, as the game does.
+  The guide's `PlayerGuideState` (images and pick-ups shown, likes) is not read from
+  or written to the save: each game starts it at its defaults.
 - **Play time.** `AppendTimeOnCycleEnd` is not ported: `ExitGame`, starving and dying add
   nothing to `DEATHTIME` or `TOTTIME`; `Win` adds the cycle's ticks / 40 to `TOTTIME`.
 
@@ -1352,6 +1394,10 @@ Differences:
   excludes a tile), a grasp by a creature (never grabbed), the karma flower that grows
   there in the next cycle (`AbstractConsumable` placed at world load) and eating it,
   and the Hunter's `miscProgressionData.redsFlower`.
+- **Music.** The `RainWorldGame` constructor's `MusicPlayer.NewCycleEvent` (a new
+  cycle may play a `oneSongPerCycle` song again) is sent when each story game starts,
+  a new cycle after a hibernation included; the dev respawn (R) is no new cycle and
+  sends none.
 - **The Hunter out of cycles.** `GoToRedsGameOver` (statistics screen, `redsDeath`) is
   not ported: `GameOver` logs and returns, so the dead Hunter gets no prompt and the
   pause menu's exit is the way out; a starve or a door closing on a dead Hunter out of
@@ -1397,8 +1443,8 @@ the dream screens, PASSAGE's custom end-game and fast travel screens, the sleep
 screen's kills, the outro and DLC slideshows, the slugcat select menu's
 colour and Jolly Co-op controls, the `SceneRain` and `SceneMultiply` layers, menu objects those use (vertical and
 subtle sliders, check box groups, symbol buttons, scroll boxes, `UIelementWrapper`),
-Remix's options (FPS, VSync, quality, analogue sensitivity, backgrounds), and in-game
-music (D12).
+Remix's options (FPS, VSync, quality, analogue sensitivity, backgrounds), and the
+in-game music beyond the triggers' songs (D12).
 
 Passage triggers (`WinState.CycleCompleted` and `PlayerDied` are ported whole; these
 inputs to them are not): kills (`PlayerSessionRecord.AddKill`, `BreakPeaceful` from

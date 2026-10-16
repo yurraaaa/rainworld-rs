@@ -26,6 +26,8 @@ pub use items::Grabability;
 pub use over::GameOver;
 #[path = "game_shelter.rs"]
 mod shelter_door;
+#[path = "game_triggers.rs"]
+mod triggers;
 #[path = "game_weapons.rs"]
 mod weapons;
 
@@ -152,6 +154,9 @@ pub enum HudEvent {
     HalfTimeBlinkReset,
     /// `foodMeter.RefuseFood()`.
     RefuseFood,
+    /// `RoomSpecificTextMessage` showed its text:
+    /// `deathPersistentSaveData.DangleFruitInWaterMessage = true`.
+    DangleFruitInWaterMessage,
 }
 
 /// What `Player.GraphicsModuleUpdated` reads of the graphics' last update.
@@ -213,6 +218,8 @@ enum RoomObject {
     Cosmetic(u64),
     /// A rock's or spear's loop emitter.
     WeaponLoop(ObjectId),
+    /// A trigger checker or an object a trigger added, by id.
+    Trigger(u64),
 }
 
 /// No graphics.
@@ -326,6 +333,12 @@ pub struct RainWorldGame {
     karma_flower_grow_pos: Option<WorldCoordinate>,
     /// The player's death called `GameOver`; taken by the app.
     game_over: Option<GameOver>,
+    /// The realized rooms' trigger checkers and the objects their events added.
+    trigger_objects: Vec<crate::trigger::TriggerObject>,
+    /// What the game asked of the music player this tick; taken by the app.
+    music_requests: Vec<crate::trigger::MusicRequest>,
+    /// Camera 0's HUD as the checkers read it, set by the app.
+    trigger_hud: crate::trigger::TriggerHud,
 }
 
 impl RainWorldGame {
@@ -438,6 +451,9 @@ impl RainWorldGame {
             entered_shelters: Vec::new(),
             karma_flower_grow_pos: None,
             game_over: None,
+            trigger_objects: Vec::new(),
+            music_requests: Vec::new(),
+            trigger_hud: crate::trigger::TriggerHud::default(),
         };
         if let Err(e) = game
             .world
@@ -636,6 +652,7 @@ impl RainWorldGame {
         self.enter_from_abstract_rooms();
         self.update_world_processes(observer);
         self.world.rain_cycle.update(&mut self.rng);
+        self.rain_request_stop_song();
         if self.shortcuts.divide() {
             self.update_shortcuts(observer);
         }
@@ -720,6 +737,7 @@ impl RainWorldGame {
         let session = self.story_session();
         for index in self.world.finish_loading() {
             self.add_shelter_door(index);
+            self.add_trigger_checkers(index);
             self.world.realize_room_objects(index, &mut self.rng);
             for id in self.world.room_creatures(index).to_vec() {
                 if id == self.player_id {
@@ -1150,6 +1168,7 @@ impl RainWorldGame {
         objects.extend(self.room_fly_objects(index));
         objects.extend(self.room_drip_objects(index));
         objects.extend(self.room_weapon_objects(index));
+        objects.extend(self.room_trigger_objects(index));
         objects.extend(self.room_cosmetic_objects(index));
         objects.sort_by_key(|&(seq, _)| std::cmp::Reverse(seq));
         let mut player_done = false;
@@ -1186,9 +1205,11 @@ impl RainWorldGame {
                 RoomObject::Drip(id) => self.run_drip(index, id, &room),
                 RoomObject::Weapon(id) => self.run_weapon(index, id, false),
                 RoomObject::WeaponLoop(id) => self.run_weapon(index, id, true),
+                RoomObject::Trigger(id) => self.run_trigger_object(index, id),
                 RoomObject::Cosmetic(id) => self.world.update_cosmetic(index, id),
             }
         }
+        self.remove_slated_trigger_objects();
         if !player_done {
             self.update_room_player_now(index, input, observer);
         }
@@ -1270,6 +1291,7 @@ impl RainWorldGame {
         let player = self.player_view(room_index);
         let edibles = self.room_edibles(room_index);
         let story = self.story_stats();
+        let instructions = self.input_instruction_views();
         let Some(mut parts) = self.world.take_overseer(id) else {
             return;
         };
@@ -1310,6 +1332,7 @@ impl RainWorldGame {
                 hud: self.script_tick.hud_with_control_preset,
                 viewed: room_index == self.camera_room,
                 effects: Vec::new(),
+                instructions,
             };
             let mut run = OverseerUpdate {
                 me: id,
@@ -1398,6 +1421,9 @@ impl RainWorldGame {
                     }
                 }
                 OverseerEffect::KillGreenLizards(room) => self.world.kill_green_lizards(room),
+                OverseerEffect::InstructionFollowed(instruction) => {
+                    self.instruction_followed(instruction);
+                }
                 OverseerEffect::ResetSuperLaunchJump => {
                     if let Some(p) = self.player.as_mut() {
                         p.reset_super_launch_jump();
