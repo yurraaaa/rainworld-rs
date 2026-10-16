@@ -14,7 +14,7 @@ use kira::{AudioManager, Frame, Tween};
 use rw_assets::StreamingAssets;
 use rw_assets::unity::{Fsb5, Fsb5Stream};
 
-use super::bank::SongBank;
+use super::bank::{MusicBundle, SongBank};
 use super::sources::{MusicSources, TrackId};
 use crate::output::CpalOutput;
 use crate::{Audio, Source};
@@ -90,27 +90,36 @@ impl Decoder for SongDecoder {
 }
 
 enum LoaderEvent {
-    /// The bundle opened (or failed to).
+    /// The bundles opened (or failed to).
     Bundle,
     Clip(TrackId, Option<Arc<Vec<u8>>>),
 }
 
-/// Reads song banks from the bundle in its own thread.
+/// Reads clip banks from the music bundles in its own thread.
 struct SongLoader {
-    path: PathBuf,
-    requests: Receiver<(TrackId, String)>,
+    songs: PathBuf,
+    procedural: PathBuf,
+    requests: Receiver<(TrackId, MusicBundle, String)>,
     events: Sender<LoaderEvent>,
 }
 
 impl SongLoader {
     fn run(self) {
-        let bank = SongBank::open_path(&self.path)
-            .inspect_err(|e| log::warn!("music bundle unavailable ({e}); songs stay silent"))
-            .ok();
+        let [songs, procedural] = [&self.songs, &self.procedural].map(|path| {
+            SongBank::open_path(path)
+                .inspect_err(|e| {
+                    log::warn!("music bundle unavailable ({e}); its clips stay silent")
+                })
+                .ok()
+        });
         if self.events.send(LoaderEvent::Bundle).is_err() {
             return;
         }
-        while let Ok((track, name)) = self.requests.recv() {
+        while let Ok((track, bundle, name)) = self.requests.recv() {
+            let bank = match bundle {
+                MusicBundle::Songs => &songs,
+                MusicBundle::Procedural => &procedural,
+            };
             let bytes = bank.as_ref().and_then(|b| {
                 b.bank(&name)
                     .inspect_err(|e| log::warn!("song {name}: {e}"))
@@ -145,20 +154,21 @@ struct KiraTrack {
 /// The music's sources: the clip loader and a streamed kira sound per playing
 /// sub-track, mixed on the main track (under `AudioListener.volume`).
 pub struct MusicOutput {
-    requests: Sender<(TrackId, String)>,
+    requests: Sender<(TrackId, MusicBundle, String)>,
     events: Receiver<LoaderEvent>,
     bundles_loaded: bool,
     tracks: HashMap<TrackId, KiraTrack>,
 }
 
 impl MusicOutput {
-    /// Starts the loader thread on `music_songs`.
+    /// Starts the loader thread on `music_songs` and `music_procedural`.
     #[must_use]
     pub fn new(assets: &StreamingAssets) -> Self {
         let (requests, loader_requests) = channel();
         let (loader_events, events) = channel();
         let loader = SongLoader {
-            path: assets.asset_bundle(SongBank::BUNDLE),
+            songs: assets.asset_bundle(MusicBundle::Songs.value()),
+            procedural: assets.asset_bundle(MusicBundle::Procedural.value()),
             requests: loader_requests,
             events: loader_events,
         };
@@ -255,8 +265,13 @@ impl MusicSources for KiraMusic<'_> {
         self.output.bundles_loaded
     }
 
-    fn load(&mut self, track: TrackId, clip: &str) {
-        let state = if self.output.requests.send((track, clip.to_owned())).is_ok() {
+    fn load(&mut self, track: TrackId, bundle: MusicBundle, clip: &str) {
+        let state = if self
+            .output
+            .requests
+            .send((track, bundle, clip.to_owned()))
+            .is_ok()
+        {
             ClipState::Loading
         } else {
             ClipState::Missing

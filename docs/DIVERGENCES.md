@@ -112,12 +112,14 @@ it (D13). What still differs is only the seed and the call order:
   the room's update list; the guide's `BringGuideToPlayerEvent` and the image and
   pickup instructions make the overseer's draws. The music player, updated after the
   game each tick as the game's side process, draws `Random.Range(80, 400)` when a room
-  switch's delay ends; `ThreatDetermination` draws nothing. The Monk's `HologramLight`
+  switch's delay ends, and `ProceduralMusic.Reset`'s stem choice (`Random.Range` per
+  non-empty threat layer, 5 for SU, whatever the threat): when `NewRegion` builds the
+  bank (the first room of a game, or once the old piece faded), 200 silent updates
+  later (the first day/night reading), and after each later re-scramble (an audible
+  spell, a new subregion, nightfall). No draws are made without a music player
+  (`musicVolume` 0). `ThreatDetermination` draws nothing. The Monk's `HologramLight`
   draws three to nine a tick in its slot of the room's update list (its `DrawSprites`
-  draws come from the app's cosmetic stream, per frame). Missing: `ProceduralMusic.Reset`'s stem choice
-  (`Random.Range` per non-empty threat layer, 5 for SU, made when `NewRegion` builds the
-  bank: in the first room of a game, and after a bank change once the old one faded;
-  music step 2).
+  draws come from the app's cosmetic stream, per frame).
 - **Realized rocks and spears.** Realizing a room's rocks and spears (`ShortCutsReady`,
   in entity order) makes the game's draws: the `Weapon` constructor's rotation and the
   spear's needle `Range(0, 3)`, then `PlaceInRoom`'s `SetRandomSpin` (2 for a rock, 4
@@ -663,7 +665,19 @@ runs it as the game's side process (D13), silent on `TimedSources` without audio
 `GameRequestsSongStop` / `RainRequestStopSong` with the save state's `songsPlayRecords`
 (D16), and the `PlayerThreatTracker`'s room switches, drone level and
 `Random.Range(80, 400)` delays run from the player's room (`rw_audio::music::GameMusicView`).
-`NewCycleEvent` is sent when a story game starts (D17) and `DeathEvent` on death.
+`NewRegion` builds the region's `ProceduralMusic` (`rw_audio::music::procedural`: the
+`music/procedural/<bank>.txt` parse with its `{D}`/`{N}`/`{M}`/`{Sub}` prefixes and
+`ONELAYERGROUP`, `Reset`'s stem choice, the layer volumes by threat, the re-scramble on
+silence, subregion and day/night, the `nextProcedural` fade), whose stems stream from
+`music_procedural` and play looped from the same tick, at volume 0 while the threat is
+0. It reads the threat tracker's `currentThreat` (0 until `ThreatDetermination` is
+ported). `NewCycleEvent` is sent when a story game starts (D17), `DeathEvent` on death
+and on a starve, `FadeOutAllSongs(30)` when the dream stand-in starts (the `DreamScreen`
+constructor) and `FadeOutAllSongs(20)` for the Hunter out of cycles
+(`GoToRedsGameOver`, D17). The sleep, death and starve screens ask nothing of the music
+player in the game either. The credits' song (`EndCredits`: `desiredCreditsSong`, 400
+updates in) and the passage screen's `Passages` song are ported as hooks
+(`CreditsMusic`, `MusicPlayer::custom_end_game_screen`) for screens not ported yet.
 
 **What differs:**
 - **Threat.** `ThreatDetermination.Update` is ported with `ThreatOfCreature` over the
@@ -672,17 +686,20 @@ runs it as the game's side process (D13), silent on `TimedSources` without audio
   its tracker's view of the player). No realized creature has a tracker yet (the
   overseer's AI has none, a bat fly no AI), so `VisualContact` and
   `EstimatedChanceOfFinding` read false and 0 as the game's do for them; the creatures
-  realized so far are not dangerous, so the threat stays 0 in play until lizards come.
-  Ripple layers (Watcher) are not read; any ghost mode counts as 1 (no world ghost is
-  ported).
-- **Music not ported:** `ProceduralMusic` (`NewRegion` only records the bank in `nextProcedural`; its
-  `Reset`'s stem draws are missing, D1), the screen music (sleep, death, starve) and
-  the starve and Hunter fades, the echoes' `GhostSong` and ghost mode, `SSSong`,
-  gate and region-change songs (no gates yet), `VoidSeaMusic`, the ending songs, the
-  arena `MultiplayerDJ` (its shuffle draws), the DLC songs and their branches
-  (rot presence, the Watcher's spinning tops, Challenge threat music),
-  `ResetSongStream`, MMF stream resync, the pitch trim and loose mod `.ogg`
-  overrides. The ported in-game paths draw what the game draws (D1).
+  realized so far are not dangerous, so the threat stays 0 in play (and the threat
+  layers silent) until lizards come. Ripple layers (Watcher) are not read; any ghost
+  mode counts as 1 (no world ghost is ported).
+- **Music not ported:** the echoes' `GhostSong` and ghost mode
+  (`ResumeProcedural` is there, unused), `SSSong`, gate and region-change songs (no
+  gates yet), `VoidSeaMusic`, the ending songs, the arena `MultiplayerDJ` (its shuffle
+  draws), the DLC songs and their branches (rot presence, the Watcher's spinning tops,
+  Challenge threat music, the MSC credits songs), `ResetSongStream`, MMF stream resync,
+  and loose mod `.ogg` overrides. Mushroom mode is 0 (no mushrooms), so `{M}` stems stay
+  silent. The ported in-game paths draw what the game draws (D1).
+- **No pitch trim on the threat layers.** The game nudges each stem's pitch by up to
+  0.8% to keep it in phase with the first (`source.time`); the port starts every stem in
+  the same tick on kira's one clock and leaves them at pitch 1 (on `TimedSources` the
+  positions are ticks and never drift). No draws are involved.
 - **Music timing.** A sub-track's clip loads on a background thread and becomes
   ready on the first update after it arrived (the game's `AssetBundle` load and
   `LoadAudioData` take a frame or more, so this is at least as fast); headless runs use
@@ -1515,7 +1532,8 @@ and region state stay in memory and are reused, its trackers' shown values reset
 starts in the shelter with its door shut and the slugcat curled up.
 Differences:
 - **Sleep screen and dreams.** The sleep screen is ported (D13); its CONTINUE starts
-  the next cycle. The dream screen (`DreamScreen`) is not: a stand-in shows 40 black
+  the next cycle. The dream screen (`DreamScreen`) is not: a stand-in fades the music
+  as its constructor does (`FadeOutAllSongs(30)`), shows 40 black
   frames, then starts the next cycle as the sleep screen's continue does
   (`StoryGameInitCondition.Load`). The Moon and Pebbles event dreams are not ported (no
   iterators).
@@ -1544,10 +1562,12 @@ Differences:
   cycle may play a `oneSongPerCycle` song again) is sent when each story game starts,
   a new cycle after a hibernation included; the dev respawn (R) is no new cycle and
   sends none.
-- **The Hunter out of cycles.** `GoToRedsGameOver` (statistics screen, `redsDeath`) is
-  not ported: `GameOver` logs and returns, so the dead Hunter gets no prompt and the
-  pause menu's exit is the way out; a starve or a door closing on a dead Hunter out of
-  cycles saves an ordinary death.
+- **The Hunter out of cycles.** Of `GoToRedsGameOver` only the music's
+  `FadeOutAllSongs(20)` is ported (from `GameOver`, a starve and the death screen's
+  request); the illness fade, `redsDeath`, the statistics screen and its save are not:
+  `GameOver` returns with no prompt, so the pause menu's exit is the way out, and a
+  starve (without its `DeathEvent`) or a door closing on a dead Hunter out of cycles
+  saves an ordinary death.
 - **Not ported:** More Slugcats' ancient and broken shelters, `PrecycleModule`, the
   shelter tutorials, the dream ghost, `GetStuffInWalls`, the AI map rebuild when the
   door opens, the door's screen shake, the social-memory stun of creatures in the room,
@@ -1589,7 +1609,7 @@ the dream screens, PASSAGE's custom end-game and fast travel screens, the outro 
 colour and Jolly Co-op controls, the `SceneRain` and `SceneMultiply` layers, menu objects those use (vertical and
 subtle sliders, check box groups, symbol buttons, scroll boxes, `UIelementWrapper`),
 Remix's options (FPS, VSync, quality, analogue sensitivity, backgrounds), and the
-in-game music beyond the triggers' songs (D12).
+in-game music beyond the triggers' songs and the threat layers (D12).
 
 Passage triggers (`WinState.CycleCompleted` and `PlayerDied` are ported whole; these
 inputs to them are not): kills of anything but bat flies and overseers (both count 0

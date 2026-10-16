@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use rw_assets::SlugcatName;
 use rw_assets::{SoundTable, StreamingAssets, UnityResources};
-use rw_audio::music::{MusicPlayer, MusicProcess, SongBank, TimedSources};
+use rw_audio::music::{MusicProcess, TimedSources};
 use rw_menu::{KeyboardKey, MainLoopProcess, MenuShared, ProcessId, StoryGameInitCondition};
 use rw_random::UnityRandom;
 use rw_render::{RoomLayers, WgpuRenderer};
@@ -84,7 +84,7 @@ impl Session {
             .inspect_err(|e| log::warn!("no slugcat sprites ({e}); drawing the circle body"))
             .ok()
             .map(Arc::new);
-        let music = TimedSources::new(SongBank::open(&assets).ok());
+        let music = TimedSources::installed(&assets);
         Self {
             sound_table: Game::load_sound_table(&assets),
             music_sources: music,
@@ -249,7 +249,7 @@ impl Session {
         // new game's `NewCycleEvent`.
         if let Some(shared) = &mut self.hud_shared {
             if shared.music.is_none() {
-                shared.music = MusicPlayer::new(shared.music_settings, None);
+                shared.music = shared.new_music_player(None);
             }
             if let Some(music) = &mut shared.music {
                 music.update_music_context(Some(MusicProcess::StoryGame));

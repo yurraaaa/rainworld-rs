@@ -95,7 +95,7 @@ fn requests_play_queue_and_refuse() {
     );
     assert_eq!((song.priority, song.fade_out_at_threat), (0.5, 1.0));
     assert_eq!(song.room_transitions, 6);
-    assert!(song.play_when_ready && s.player.has_played_a_song_this_cycle);
+    assert!(song.piece.play_when_ready && s.player.has_played_a_song_this_cycle);
     assert_eq!(
         s.records,
         [SongPlayRecord {

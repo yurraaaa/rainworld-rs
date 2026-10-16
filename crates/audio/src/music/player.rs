@@ -1,12 +1,15 @@
 //! `Music.MusicPlayer`, the side process holding the current song and the next one,
 //! and the mix between them. Behaviour: `rainworld-re/notes/music.md` section 4.1.
 
+use std::sync::Arc;
+
 use rw_assets::{MusicEvent, StopMusicEvent, StopMusicType};
 use rw_random::UnityRandom;
 use rw_save::SongPlayRecord;
 
+use super::procedural::{ProceduralFiles, ProceduralInput, ProceduralMusic, ProceduralView};
 use super::song::{PieceInput, Song};
-use super::sources::{MusicSources, TrackId};
+use super::sources::{MusicSources, TrackId, TrackIds};
 use super::threat::{GameMusicView, ThreatTracker};
 
 /// `MusicPlayer.MusicContext`.
@@ -95,13 +98,18 @@ pub struct MusicPlayer {
     /// `nextProcedural`: the bank asked for while a piece plays (`""` for none).
     pub next_procedural: Option<String>,
     pub current_procedural_region: Option<String>,
+    pub procedural_music: Option<ProceduralMusic>,
     asset_bundles_loaded: bool,
     requested_asset_bundles_load: bool,
     /// The main process, for the threat tracker.
     pub(crate) process: Option<MusicProcess>,
     /// The game as the threat tracker reads it, set by the owner before each update.
     pub(crate) game_view: Option<GameMusicView>,
-    next_track: u64,
+    /// The game as the procedural piece reads it; `None` outside a game.
+    procedural_view: Option<ProceduralView>,
+    /// The procedural banks; without them every bank is empty.
+    procedural_files: Option<Arc<dyn ProceduralFiles>>,
+    track_ids: TrackIds,
 }
 
 impl MusicPlayer {
@@ -125,11 +133,14 @@ impl MusicPlayer {
             settings,
             next_procedural: None,
             current_procedural_region: None,
+            procedural_music: None,
             asset_bundles_loaded: false,
             requested_asset_bundles_load: false,
             process,
             game_view: None,
-            next_track: 0,
+            procedural_view: None,
+            procedural_files: None,
+            track_ids: TrackIds::default(),
         };
         player.update_music_context(process);
         Some(player)
@@ -142,8 +153,14 @@ impl MusicPlayer {
     }
 
     fn track_id(&mut self) -> TrackId {
-        self.next_track += 1;
-        TrackId(self.next_track)
+        self.track_ids.next_id()
+    }
+
+    /// Where `ProceduralMusic` reads its banks.
+    #[must_use]
+    pub fn with_procedural_files(mut self, files: Arc<dyn ProceduralFiles>) -> Self {
+        self.procedural_files = Some(files);
+        self
     }
 
     /// `UpdateMusicContext`, called on creation and after every main process switch.
@@ -215,12 +232,73 @@ impl MusicPlayer {
         self.game_view = view;
     }
 
-    /// `NewRegion`: the threat layers of `region`'s bank are asked for. Building the
-    /// `ProceduralMusic` piece is not ported yet, so the request is only kept.
-    pub fn new_region(&mut self, region: &str) {
+    /// What the procedural piece reads of the game this tick: `None` outside a game.
+    pub fn set_procedural_view(&mut self, view: Option<ProceduralView>) {
+        self.procedural_view = view;
+    }
+
+    /// `NewRegion`: `region`'s threat layers are built at once (`Reset`'s draws) when
+    /// no piece plays and the bundles are loaded, else once the playing piece has
+    /// faded out.
+    pub fn new_region(&mut self, region: &str, rng: &mut UnityRandom) {
         log::info!("NEW MUSIC REGION: {region}");
-        self.next_procedural = Some(region.to_owned());
+        self.next_procedural = None;
+        if self.procedural_music.is_none() && self.asset_bundles_loaded {
+            self.build_procedural(region, rng);
+        } else {
+            self.next_procedural = Some(region.to_owned());
+        }
         self.current_procedural_region = Some(region.to_owned());
+    }
+
+    /// `new ProceduralMusic(this, bank)`.
+    fn build_procedural(&mut self, bank: &str, rng: &mut UnityRandom) {
+        self.procedural_music = Some(ProceduralMusic::new(
+            bank,
+            self.procedural_files.as_deref(),
+            self.procedural_view.as_ref(),
+            rng,
+            &mut self.track_ids,
+        ));
+    }
+
+    /// `ResumeProcedural`: the last region's bank again (after an echo's song).
+    pub fn resume_procedural(&mut self) {
+        self.next_procedural = self.current_procedural_region.clone();
+    }
+
+    /// The procedural piece's part of [`Self::update`]: while another bank (or none) is
+    /// asked for, the piece fades out and is dropped at volume 0; with no piece, the
+    /// asked-for bank is built.
+    fn update_procedural(&mut self, sources: &mut dyn MusicSources, rng: &mut UnityRandom) {
+        if let Some(mut piece) = self.procedural_music.take() {
+            if self.next_procedural.is_some() {
+                self.drone_goal_mix = 0.0;
+            }
+            let input = ProceduralInput {
+                piece: PieceInput {
+                    main_song_mix: self.main_song_mix,
+                    ripple_dimension: self.ripple_dimension,
+                    settings: &self.settings,
+                    asset_bundles_loaded: self.asset_bundles_loaded,
+                },
+                threat: self.threat_tracker.as_ref().map(|t| t.current_threat),
+                drone_goal_mix: self.drone_goal_mix,
+                view: self.procedural_view.as_ref(),
+            };
+            piece.update(&input, sources, rng, &mut self.track_ids);
+            if self.next_procedural.is_some() && piece.piece.volume == 0.0 {
+                piece.stop_and_destroy(sources);
+            } else {
+                self.procedural_music = Some(piece);
+            }
+        } else if self.asset_bundles_loaded
+            && let Some(bank) = self.next_procedural.clone()
+            && !bank.is_empty()
+        {
+            self.build_procedural(&bank, rng);
+            self.next_procedural = None;
+        }
     }
 
     /// `GameRequestsSong(musicEvent)`: a room trigger's song, refused while a song of at
@@ -261,7 +339,7 @@ impl MusicPlayer {
         let id = self.track_id();
         let mut song = Song::new(name, MusicContext::StoryMode, id);
         song.fade_out_at_threat = event.max_threat_level;
-        song.looped = event.looped;
+        song.piece.looped = event.looped;
         song.priority = event.prio;
         song.base_volume = event.volume;
         song.fade_in_time = event.fade_in_time;
@@ -273,7 +351,7 @@ impl MusicPlayer {
             song.room_transitions = event.rooms_range + t.room_switches;
         }
         if self.song.is_none() {
-            song.play_when_ready = true;
+            song.piece.play_when_ready = true;
             self.song = Some(song);
         } else {
             if self
@@ -283,7 +361,7 @@ impl MusicPlayer {
             {
                 return;
             }
-            song.play_when_ready = false;
+            song.piece.play_when_ready = false;
             self.next_song = Some(song);
         }
         let Some(s) = story else {
@@ -301,10 +379,10 @@ impl MusicPlayer {
     /// Makes `song` the current song, or the next one when a song plays.
     fn start_or_queue(&mut self, mut song: Song) {
         if self.song.is_none() {
-            song.play_when_ready = true;
+            song.piece.play_when_ready = true;
             self.song = Some(song);
         } else {
-            song.play_when_ready = false;
+            song.piece.play_when_ready = false;
             self.next_song = Some(song);
         }
     }
@@ -410,7 +488,7 @@ impl MusicPlayer {
     /// `MusicPlayer.Update`: one 40 Hz tick; `rng` is the shared `UnityEngine.Random`.
     pub fn update(&mut self, sources: &mut dyn MusicSources, rng: &mut UnityRandom) {
         if let Some(song) = &mut self.song {
-            song.run_pending(sources);
+            song.piece.run_pending(sources);
         }
         if !self.asset_bundles_loaded {
             if !self.requested_asset_bundles_load {
@@ -459,7 +537,7 @@ impl MusicPlayer {
         if let Some(mut next) = self.next_song.take() {
             match &mut self.song {
                 None => {
-                    next.play_when_ready = true;
+                    next.piece.play_when_ready = true;
                     self.main_song_mix = if next.fade_in_time == 0.0 { 1.0 } else { 0.0 };
                     self.song = Some(next);
                 }
@@ -473,7 +551,7 @@ impl MusicPlayer {
                 }
             }
         }
-        // `proceduralMusic` is not ported (D12).
+        self.update_procedural(sources, rng);
         self.threat_tracker_update(rng);
     }
 }

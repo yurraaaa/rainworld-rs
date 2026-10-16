@@ -509,6 +509,13 @@ impl Game {
 
     /// `RoomCamera.Update`'s condition for firing up the HUD: the followed player is
     /// realized in a world that is not a single room.
+    /// The region's subregions (`world.region.subRegions`) and its rooms' subregion
+    /// names; `None` without a region.
+    #[must_use]
+    pub fn subregions(&self) -> Option<&Subregions> {
+        self.subregions.as_ref()
+    }
+
     #[must_use]
     pub fn hud_due(&self) -> bool {
         self.sim.player().is_some() && !self.sim.world().single_room()

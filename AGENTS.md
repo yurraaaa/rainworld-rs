@@ -232,9 +232,9 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   stuck-in-wall cycles and explosive flag; realized ones also their
   room, position, velocity, mode, rotation and collision layer), `triggers` (the
   realized rooms' trigger checkers and the objects their events added) and `music`
-  (the music player: song, next song, mixes, threat tracker with its threats and each
-  creature's `ThreatOfCreature`, play records), `holo_lights` (the guide's lights) and
-  `holo_light_needed`, `session`
+  (the music player: song, next song, mixes, procedural threat layers, threat tracker
+  with its threats and each creature's `ThreatOfCreature`, play records), `holo_lights`
+  (the guide's lights) and `holo_light_needed`, `session`
   (kills, peace, respawn lists, guide like, community influences), `dens` (each
   room's den contents), `quantified` (each room's quantified creatures per node),
   `flies_world` (the flies' spawn and respawn counters) and `region_state` (swarm

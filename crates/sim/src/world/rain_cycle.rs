@@ -128,6 +128,12 @@ impl RainCycle {
         self.cycle_length - self.timer
     }
 
+    /// `AmountLeft`: the share of the cycle before the rain, below 0 after it.
+    #[must_use]
+    pub fn amount_left(&self) -> f32 {
+        (self.cycle_length - self.timer) as f32 / self.cycle_length as f32
+    }
+
     /// `Update` (the counter always may tick: no gates, ghosts or dialogs ported).
     pub fn update(&mut self, rng: &mut UnityRandom) {
         if self.pause > 0 {

@@ -40,7 +40,8 @@ Working now:
 - **Regions:** a whole region loads, and room-exit pipes take you between rooms, with the
   camera switching between screens.
 - **Sound:** sound effects and room ambience; menu and title music; in the game, the
-  songs that rooms' triggers ask for (SU_A07, SU_A53, SU_B04).
+  songs that rooms' triggers ask for (SU_A07, SU_A53, SU_B04) and the region's
+  threat layers (silent until creatures threaten).
 - **HUD:** the food, karma and rain meters, text prompts, the controls page and the
   region map (hold Space; arrows pan, jump and throw change layers), revealed where you
   have been; what you discovered is saved.
