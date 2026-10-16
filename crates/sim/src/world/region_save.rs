@@ -42,42 +42,6 @@ impl<'a> SavedCreature<'a> {
     }
 }
 
-impl AbstractCreature {
-    /// `CreatureState.BaseSaveString` of a creature the port made this cycle: its
-    /// health, social memory and meat are untouched, so only death and `spawnData` show.
-    fn base_save_string(&self) -> String {
-        let mut text = String::new();
-        if !self.state.alive {
-            text.push_str("Dead<cB>");
-        }
-        if let Some(data) = &self.spawn_data {
-            text.push_str(&format!("SpawnData<cC>{data}<cB>"));
-        }
-        text
-    }
-
-    /// `CreatureState.ToString()`: a loaded creature's state as read, else the base
-    /// string.
-    fn state_save_string(&self) -> String {
-        self.saved_state
-            .clone()
-            .unwrap_or_else(|| self.base_save_string())
-    }
-
-    /// `CreatureState.LoadFromString`'s `Dead` and `SpawnData`.
-    fn load_state(&mut self, state: &str) {
-        for entry in state.split("<cB>") {
-            let mut kv = entry.split("<cC>");
-            match kv.next() {
-                Some("Dead") => self.state.alive = false,
-                Some("SpawnData") => self.spawn_data = kv.next().map(str::to_owned),
-                _ => {}
-            }
-        }
-        self.saved_state = Some(state.to_owned());
-    }
-}
-
 impl World {
     /// `WorldCoordinate.ResolveRoomName` through the room index map: the off-screen den is
     /// `<region>OffscreenDen` there.
@@ -133,7 +97,8 @@ impl World {
     /// `AdaptWorldToRegionState` with the port's objects: saved rocks and spears join
     /// their rooms, other objects and the sticks stay as text, the saved creatures go
     /// back into their dens (a shelter's into the room), then the region's
-    /// `RainCycleTick` for the cycles since it was last updated (stuck spears count down).
+    /// `RainCycleTick` for the cycles since it was last updated (stuck spears count down,
+    /// the creatures' states tick once).
     pub(crate) fn adapt_world_to_region_state(
         &mut self,
         cx: &mut PopulationContext<'_>,
@@ -159,8 +124,29 @@ impl World {
         }
         let cycle = cx.session.cycle_number;
         self.stuck_in_wall_tick(cycle - state.last_cycle_updated);
+        if cycle - state.last_cycle_updated > 0 {
+            self.creatures_cycle_tick(cx.rng);
+        }
         state.rain_cycle_tick(cycle - state.last_cycle_updated, food_rep_bonus, cycle);
         self.region_state = Some(state);
+    }
+
+    /// `RegionState.RainCycleTick`'s creatures: `CreatureState.CycleTick` of each
+    /// creature among each room's entities, then in its dens, rooms in order.
+    fn creatures_cycle_tick(&mut self, rng: &mut UnityRandom) {
+        let ids: Vec<CreatureId> = self
+            .lists
+            .iter()
+            .flat_map(|l| {
+                l.entities
+                    .iter()
+                    .filter_map(|e| e.creature())
+                    .chain(l.in_dens.iter().copied())
+            })
+            .collect();
+        for id in ids {
+            self.creature_mut(id).state.cycle_tick(rng);
+        }
     }
 
     /// `AbstractCreatureFromString(world, s, onlyInCurrentRegion: true)` and its placing.
@@ -184,7 +170,7 @@ impl World {
         if self.abstract_room(room).is_some_and(|r| r.shelter()) {
             self.add_entity(id);
         } else {
-            self.move_entity_to_den(id);
+            self.move_entity_to_den(id, cx.rng);
         }
         Some(id)
     }

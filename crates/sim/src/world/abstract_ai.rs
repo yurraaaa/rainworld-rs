@@ -17,7 +17,7 @@ use super::{AbstractTick, World};
 use crate::FloatExt;
 use crate::creature::grasp::GripStick;
 use crate::creature::{
-    AbstractCreatureAi, AbstractMovement, CreatureId, CreatureTemplate, WorldCoordinate,
+    AbstractCreatureAi, AbstractMovement, CreatureId, CreatureTemplate, EntityId, WorldCoordinate,
 };
 use crate::item::Entity;
 
@@ -250,8 +250,7 @@ impl World {
         }
     }
 
-    /// `AbstractBehavior` of an unrealized creature (no follow creature can be set yet:
-    /// no social memory is filled).
+    /// `AbstractBehavior` of an unrealized creature.
     pub(super) fn abstract_behavior(
         &mut self,
         id: CreatureId,
@@ -295,10 +294,12 @@ impl World {
         }
     }
 
-    /// `MigrationBehavior`: rolls to leave the room once the creature has been there a
-    /// while (`abstractedLaziness`), half the time on a random walk of rooms, else to a
-    /// more attractive neighbour. A creature with a social memory may pick one it feels
-    /// strongly about to follow; no social memory is filled yet, so that draws nothing.
+    /// `MigrationBehavior`: a creature following another moves with it while it lives
+    /// (and stops once its like of it is below 0.9 either way); else, with a social
+    /// memory, one relationship is drawn and a like or hate above 0.95 starts following
+    /// that creature wherever it is out of a den. Then it rolls to leave the room once
+    /// it has been there a while (`abstractedLaziness`), half the time on a random walk
+    /// of rooms, else to a more attractive neighbour.
     pub(super) fn migration_behavior(
         &mut self,
         id: CreatureId,
@@ -309,12 +310,46 @@ impl World {
         let Some(ai) = &c.ai else { return false };
         if let Some(other) = ai.follow_creature {
             let o = self.creature(other);
+            let subject = o.id;
             if o.state.alive && !o.slated_for_deletion {
                 self.move_with_creature(id, other, false, rng);
+                let stop = self
+                    .creature(id)
+                    .state
+                    .social_memory
+                    .as_ref()
+                    .is_some_and(|m| m.get(subject).is_some_and(|r| r.like.abs() < 0.9));
+                if stop {
+                    log::debug!("{id:?} stopped following {other:?}");
+                    if let Some(ai) = self.ai_of_mut(id) {
+                        ai.follow_creature = None;
+                    }
+                }
                 return true;
+            }
+            match &mut self.creature_mut(id).state.social_memory {
+                Some(m) => m.discard(subject),
+                // The game reads the social memory without a null check here; no base
+                // creature without one follows a creature into this branch.
+                None => log::warn!("{id:?} followed a dead creature without a social memory"),
             }
             if let Some(ai) = self.ai_of_mut(id) {
                 ai.follow_creature = None;
+            }
+        } else if let Some(m) = &c.state.social_memory
+            && !m.relationships.is_empty()
+        {
+            let n = i32::try_from(m.relationships.len()).unwrap_or(i32::MAX);
+            let k = usize::try_from(rng.range_i32(0, n)).unwrap_or(0);
+            let r = &m.relationships[k];
+            if r.like.abs() > 0.95
+                && let Some(found) = self.find_creature_out_of_dens(r.subject)
+            {
+                log::debug!("{id:?} following creature {found:?}");
+                if let Some(ai) = self.ai_of_mut(id) {
+                    ai.follow_creature = Some(found);
+                }
+                return true;
             }
         }
         let c = self.creature(id);
@@ -347,7 +382,18 @@ impl World {
         true
     }
 
-    /// `MoveWithCreature` (never reached yet: nothing sets `followCreature`).
+    /// The first creature with ID `subject` in the rooms' `creatures` lists, rooms in
+    /// order (`EntityID ==`: the number).
+    fn find_creature_out_of_dens(&self, subject: EntityId) -> Option<CreatureId> {
+        let first = self.first_room_index();
+        let rooms = i32::try_from(self.number_of_rooms()).unwrap_or(i32::MAX);
+        (first..first + rooms)
+            .flat_map(|r| self.room_creatures(r).iter().copied())
+            .find(|&c| self.creature(c).id.same_entity(subject))
+    }
+
+    /// `MoveWithCreature`: towards the room of `other` (or of its destination) unless
+    /// already going there.
     pub(super) fn move_with_creature(
         &mut self,
         id: CreatureId,
@@ -436,7 +482,7 @@ impl World {
             }
             let pos = self.creature(id).pos;
             if pos.node_defined() && self.node_kind(pos) == Some(NodeType::Den) {
-                self.opportunity_to_enter_den(id);
+                self.opportunity_to_enter_den(id, cx.rng);
             }
         }
         let c = self.creature(id);
@@ -800,16 +846,16 @@ impl World {
     /// `AbstractCreature.OpportunityToEnterDen` at its den node: in when it wants to
     /// stay there for the rest of the cycle (counter -1) or still has time to wait, or
     /// with prey to stow (counter 200). Precycles are DLC.
-    fn opportunity_to_enter_den(&mut self, id: CreatureId) {
+    fn opportunity_to_enter_den(&mut self, id: CreatureId, rng: &mut UnityRandom) {
         if self.wants_to_stay_in_den(id) {
             log::debug!("{} stay in den until cycle end", self.creature(id).kind());
             self.creature_mut(id).remain_in_den_counter = -1;
-            self.move_entity_to_den(id);
+            self.move_entity_to_den(id, rng);
             return;
         }
         let c = self.creature(id);
         if c.remain_in_den_counter > 0 {
-            self.move_entity_to_den(id);
+            self.move_entity_to_den(id, rng);
         } else if c.template.stow_food_in_den() {
             let carrying = c
                 .sticks
@@ -817,7 +863,7 @@ impl World {
                 .any(|s| s.a == id && matches!(s.b, Entity::Creature(_)));
             if carrying {
                 self.creature_mut(id).remain_in_den_counter = 200;
-                self.move_entity_to_den(id);
+                self.move_entity_to_den(id, rng);
             }
         }
     }

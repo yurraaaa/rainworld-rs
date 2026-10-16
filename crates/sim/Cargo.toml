@@ -7,6 +7,7 @@ license.workspace = true
 [dependencies]
 rw-assets.workspace = true
 rw-random.workspace = true
+rw-save.workspace = true
 log.workspace = true
 base64 = "0.23"
 

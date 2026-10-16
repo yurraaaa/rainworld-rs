@@ -98,6 +98,17 @@ impl AbstractCreatureAi {
         }
     }
 
+    /// `DoIwantToDropThisItemInDen`: a scavenger keeps everything, a drop bug only
+    /// creatures (its item stays), every other AI drops all.
+    #[must_use]
+    pub fn wants_to_drop_in_den(&self, item_is_creature: bool) -> bool {
+        match self.kind {
+            AiKind::Scavenger { .. } => false,
+            AiKind::DropBug => item_is_creature,
+            _ => true,
+        }
+    }
+
     /// The constructor `AbstractCreature` picks by type, with its draws. Carried items
     /// and `ignoreCycle` are set on `parent`.
     pub(crate) fn new(parent: &mut AbstractCreature, cx: &mut AiContext<'_>) -> Self {
