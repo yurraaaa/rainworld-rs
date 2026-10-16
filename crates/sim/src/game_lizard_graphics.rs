@@ -185,28 +185,42 @@ impl RainWorldGame {
         }
     }
 
-    /// The lizards' graphics' loop emitters in room `index`'s update list.
+    /// The lizards' graphics' loop emitters, held, let go or left by dropped graphics,
+    /// in room `index`'s update list.
     pub(super) fn room_lizard_loop_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         self.world
             .creatures()
-            .filter_map(|(id, c)| {
-                let e = c.lizard()?.graphics.as_ref()?.sound_loop.emitter?;
-                (e.room == index && !e.slated)
-                    .then_some((e.update_order, RoomObject::LizardLoop(id)))
+            .filter_map(|(id, c)| Some((id, c.lizard()?)))
+            .flat_map(|(owner, l)| {
+                l.graphics
+                    .iter()
+                    .flat_map(|g| g.sound_loop.emitters())
+                    .chain(l.dropped_loop_emitters.iter().filter(|e| !e.slated))
+                    .filter(move |e| e.room == index)
+                    .map(move |e| {
+                        let order = e.update_order;
+                        (order, RoomObject::LizardLoop { owner, order })
+                    })
             })
             .collect()
     }
 
-    /// The `ChunkSoundEmitter.Update` of lizard `id`'s graphics' loop in room `index`.
-    pub(super) fn run_lizard_loop(&mut self, index: i32, id: CreatureId) {
-        let Some(l) = self.world.creature_mut(id).lizard_mut() else {
+    /// The `ChunkSoundEmitter.Update` of lizard `owner`'s graphics' loop emitter that
+    /// joined room `index` at `order`.
+    pub(super) fn run_lizard_loop(&mut self, index: i32, owner: CreatureId, order: u64) {
+        let Some(l) = self.world.creature_mut(owner).lizard_mut() else {
             return;
         };
         let (owner_room, pos) = (l.room, l.body.chunks[0].pos);
         let Some(e) = l
             .graphics
             .as_mut()
-            .and_then(|g| g.sound_loop.emitter.as_mut())
+            .and_then(|g| g.sound_loop.emitter_mut(order))
+            .or_else(|| {
+                l.dropped_loop_emitters
+                    .iter_mut()
+                    .find(|e| e.update_order == order)
+            })
             .filter(|e| e.room == index && !e.slated)
         else {
             return;
@@ -220,6 +234,10 @@ impl RainWorldGame {
         e.update(owner_room, self.camera_room, self.tick);
         if e.slated {
             sounds.stop_emitter(e.sound);
+            if let Some(g) = &mut l.graphics {
+                g.sound_loop.released.retain(|e| !e.slated);
+            }
+            l.dropped_loop_emitters.retain(|e| !e.slated);
         }
     }
 

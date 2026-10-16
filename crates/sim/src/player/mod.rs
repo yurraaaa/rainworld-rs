@@ -41,7 +41,8 @@ use crate::campaign::{SlugcatCampaign, SlugcatStats};
 use crate::room_ext::RoomExt;
 use crate::shortcut::ShortcutVessel;
 use crate::{
-    BodyChunk, EmitterId, PhysicalObject, SoundId, Sounds, Vec2, Water, WaterDrip, place_in_room,
+    BodyChunk, EmitterPlace, LoopEmitter, PhysicalObject, SoundId, Sounds, Vec2, Water, WaterDrip,
+    place_in_room,
 };
 use sounds::QueuedSound;
 
@@ -332,8 +333,13 @@ pub struct Player {
     /// Which footstep sound is next (`leftFoot`).
     left_foot: bool,
     /// The sliding / stunned loop and its sound (`slideLoop`, `slideLoopSound`).
-    slide_loop: Option<EmitterId>,
+    slide_loop: Option<LoopEmitter>,
     slide_loop_sound: Option<SoundId>,
+    /// Slide loops let go (`alive = false`), still in their room until their next
+    /// update destroys them.
+    released_slide_loops: Vec<LoopEmitter>,
+    /// Where a new slide loop's emitter joins.
+    emitter_place: EmitterPlace,
     /// `room.PlaySound` calls on a chunk made where no generator is at hand; their
     /// draws are made before the next draw of the tick (same order as the game).
     sound_queue: Vec<QueuedSound>,
@@ -472,6 +478,8 @@ impl Player {
             left_foot: false,
             slide_loop: None,
             slide_loop_sound: None,
+            released_slide_loops: Vec::new(),
+            emitter_place: EmitterPlace::default(),
             sound_queue: Vec::new(),
             sleep_counter: 0,
             sleep_curl_up: 0.0,

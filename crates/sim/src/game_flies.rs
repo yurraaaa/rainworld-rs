@@ -572,8 +572,9 @@ impl RainWorldGame {
             .map(|(id, _)| id)
             .collect();
         for id in lizards_leaving {
-            if let Some(mut g) = self.world.lizard_at(id).graphics.take() {
-                g.sound_loop.stop(&mut self.sounds);
+            let l = self.world.lizard_at(id);
+            if let Some(mut g) = l.graphics.take() {
+                l.dropped_loop_emitters.extend(g.sound_loop.take_emitters());
             }
             observer.lizard_removed(self.world.creature(id).id);
         }

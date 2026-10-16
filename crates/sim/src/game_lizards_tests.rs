@@ -549,3 +549,55 @@ fn violence_voices_pain_and_the_next_update_plays_it() {
             .making_a_sound()
     );
 }
+
+/// `Room.NoLongerViewed` drops the lizard's graphics module (`RemoveGraphicsModule`)
+/// without touching its `soundLoop`'s emitter, which the module's last update kept
+/// alive. The emitter stays in the room: its next update spends that `alive`, the one
+/// after finds no upkeep and `Destroy`s it.
+#[test]
+fn a_dropped_graphics_loop_emitter_dies_at_its_second_update() {
+    let (mut g, _) = game(vec![]);
+    let l = g.lying_lizard();
+    let mut link = crate::creature::lizard::LizardGraphicsLink {
+        drawn_in: vec![0],
+        ..Default::default()
+    };
+    let sound = crate::EmitterId(900);
+    link.sound_loop.emitter = Some(crate::LoopEmitter {
+        sound,
+        room: 0,
+        update_order: g.world.next_update_seq(),
+        alive: true,
+        slated: false,
+        still_playing: true,
+        last_playing_tick: g.tick,
+        playing: true,
+    });
+    g.world.lizard_at(l).graphics = Some(link);
+    g.sounds.take_events();
+    g.camera_changed_room(0, 0, &mut ());
+    let stops = g.lizard_loop_stops();
+    assert_eq!(stops, vec![], "the drop");
+    assert_eq!(g.world.lizard_ref(l).dropped_loop_emitters.len(), 1);
+    g.tick(Input::NONE, &mut ());
+    assert_eq!(g.lizard_loop_stops(), vec![], "its next update");
+    let e = g.world.lizard_ref(l).dropped_loop_emitters[0];
+    assert!(!e.alive && !e.slated);
+    g.tick(Input::NONE, &mut ());
+    assert_eq!(g.lizard_loop_stops(), vec![sound], "the one after");
+    assert!(g.world.lizard_ref(l).dropped_loop_emitters.is_empty());
+}
+
+impl RainWorldGame {
+    /// The `Stop`s since the last call.
+    fn lizard_loop_stops(&mut self) -> Vec<crate::EmitterId> {
+        self.sounds
+            .take_events()
+            .into_iter()
+            .filter_map(|e| match e {
+                crate::SoundEvent::Stop(id) => Some(id),
+                _ => None,
+            })
+            .collect()
+    }
+}
