@@ -386,7 +386,6 @@ impl World {
             grasps: Vec::new(),
             grabbed_by: Vec::new(),
             sticks: Vec::new(),
-            saved_state: None,
             kill_tag: None,
             kill_tag_counter: 0,
         };
@@ -475,19 +474,6 @@ impl World {
         }
     }
 
-    /// `AbstractRoom.MoveEntityToDen` (the den is the creature's position: no move).
-    pub(crate) fn move_entity_to_den(&mut self, id: CreatureId) {
-        self.creature_mut(id).in_den = true;
-        let room = self.creature(id).pos.room;
-        if let Some(l) = self.local(room) {
-            let lists = &mut self.lists[l];
-            lists.remove_creature(id);
-            if !lists.in_dens.contains(&id) {
-                lists.in_dens.push(id);
-            }
-        }
-    }
-
     /// `AbstractRoom.RemoveEntity`: out of its room's lists.
     pub(crate) fn remove_entity(&mut self, id: CreatureId) {
         let room = self.creature(id).pos.room;
@@ -517,25 +503,6 @@ impl World {
             self.lists[l].in_dens.push(id);
         }
         true
-    }
-
-    /// `AbstractRoom.MoveEntityOutOfDen` (`IsExitingDen`: the room is not realized, or
-    /// the creature stays abstract, see [`Self::move_creature`]).
-    fn move_entity_out_of_den(&mut self, id: CreatureId) {
-        let c = self.creature_mut(id);
-        c.in_den = false;
-        c.time_spent_here = 0;
-        let room = c.pos.room;
-        if self.realized(room).is_some() {
-            log::debug!(
-                "{} leaves its den into a realized room; it stays abstract",
-                self.creature(id).kind()
-            );
-        }
-        if let Some(l) = self.local(room) {
-            self.lists[l].in_dens.retain(|&c| c != id);
-        }
-        self.add_entity(id);
     }
 
     /// `AbstractRoom.AddQuantifiedCreature(node, type, amount)` (node -1 draws one of the
@@ -979,7 +946,7 @@ impl World {
         c.remain_in_den_counter -= time;
         if c.remain_in_den_counter < 0 {
             c.remain_in_den_counter = -1;
-            self.move_entity_out_of_den(id);
+            self.move_entity_out_of_den(Entity::Creature(id));
         }
     }
 

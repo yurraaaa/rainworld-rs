@@ -177,7 +177,7 @@ impl World {
     /// `AbstractCreature.Die`: a living creature from a spawner goes on the respawn
     /// lists (story only), then the state dies (`abstractAI.Die` does nothing in the
     /// base game).
-    fn abstract_die(&mut self, id: CreatureId, rng: &mut UnityRandom) {
+    pub(crate) fn abstract_die(&mut self, id: CreatureId, rng: &mut UnityRandom) {
         let c = self.creature(id);
         if c.state.alive && c.id.spawner >= 0 && self.story {
             self.add_creature_to_respawn(id, rng);

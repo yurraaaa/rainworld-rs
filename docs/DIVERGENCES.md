@@ -83,7 +83,14 @@ it (D13). What still differs is only the seed and the call order:
   subclasses' own (the vultures' `AddRandomCheckRoom`, the cicadas' catch rolls, a caught
   fly's `GetNewID` and constructor draws and the swarm-room search's `Random` flood, the
   big eels' and deer's check rooms, the Miros birds' raids, the needle worms' mother
-  search and migrate-active counter): from the first creature out of its den (100 to
+  search and migrate-active counter), and `MigrationBehavior`'s `Range(0, count)` over
+  the social memory of a creature that has relationships and follows no one (only
+  saved relationships exist yet: nothing in the port makes one). Den entry
+  (`IsEnteringDen`'s killing of carried prey) draws nothing unless the prey's death
+  progresses a lineage (`AddCreatureToRespawn`). A region loaded cycles after it was
+  last updated ticks each creature's state once (`RainCycleTick`): a living centipede
+  with saved shells rolls `value < 0.2` per shell and, when it passes, one more for
+  the shell. From the first creature out of its den (100 to
   1000 ticks into a cycle) every story run's stream has shifted from before, as the
   game's does. Missing: the draws a creature would make on being realized
   (`PlaceInRealizedRoom`, its body, AI and graphics), as it stays abstract (D14), and
@@ -1084,12 +1091,30 @@ second part, else a single-room world for arena levels). The campaign descriptio
   `OpportunityToEnterDen` (rainworld-re `creature-model.md` §10). Lizards do not flee
   the rain: there is no rain yet, and the realized `EscapeRain` behaviour waits for it
   (the user's decision); abstractly a lizard only goes into a den it passes once the
-  rain is within 60 s, as in the game. Not reachable yet, for want of what triggers
-  them: following a creature from a social memory relationship (social memories are not
-  kept; a small needle worm's following of its mother is ported), a realized creature's
-  prey taken home, and `IsEnteringDen`'s killing and dropping of carried prey (an
-  abstract creature only carries a caught fly, which is counted again before it reaches
-  a den).
+  rain is within 60 s, as in the game. Following through the social memory
+  (`CreatureState.socialMemory`, `creature/social_memory.rs`) is ported: with no
+  follow creature, `MigrationBehavior` draws one relationship and a like or hate above
+  0.95 follows that creature (searched in the rooms' `creatures`, not dens); a followed
+  creature is moved with (`MoveWithCreature`, `offscreenSpeedFac` 1) until the like is
+  under 0.9, and a dead one's relationship is discarded (the game reads a null social
+  memory there without a check; no base creature reaches it, the port logs). So far
+  only a saved relationship (an imported save's tamed lizard) can start it: the
+  realized trackers that make and change relationships are lizard step 6, and no event
+  the port produces (kills, weapon hits) touches a social memory in the base game
+  without them (the only base-game direct writer is Watcher's graffiti cloud).
+  Den entry is ported with what is stuck to the creature (`AbstractPhysicalObject
+  .IsEnteringDen`/`IsExitingDen`, `world/dens.rs`): stuck objects are moved to the den
+  and into it, a held creature dies there (a creature that would come out sooner then
+  waits 200 ticks) and is dropped as `DoIwantToDropThisItemInDen` says (all for the
+  plain AI and every subclass but the drop bug, which keeps its item, and the
+  scavenger, which keeps everything); what stays stuck comes out with its carrier.
+  The realized AI's `preyTracker.ForgetPrey` is skipped (no realized AI). The port
+  keeps grip sticks and spear sticks in two lists, so it walks a creature's grip
+  sticks before its spear sticks (the game, one list in creation order). An object
+  taken into a den leaves the room's entities but joins no den list (the port's hold
+  creatures; the game reads only creatures from them); stuck objects moved to the den
+  are not realized by `ChangeRooms`. The scavengers' and drop bugs' gear stays IDs
+  (`CarriedItem`): neither drops it in a den, so nothing needs it as an object yet.
   **A creature entering a realized room stays abstract.** The game realizes it there
   (`ChangeRooms`' `Realize` and `CreatureEnterFromAbstractRoom`, `IsExitingDen` in a
   realized room, `ReadyForAI`'s `RealizeInRoom` with `PlaceInRealizedRoom`), but no
@@ -1360,8 +1385,16 @@ Differences:
   every other entry kept, unknown ones at the end as the game writes them) and map
   lines it holds a texture or time for. `Win` writes the whole save state in the game's
   order, its unknown entries kept at the end.
-- **What a hibernation saves.** Creatures keep their state string as read (the port
-  has no `CreatureState` beyond alive, so `CycleTick` does not age it); rocks and
+- **What a hibernation saves.** A creature's state string is read and written as the
+  game's `CreatureState` and its base subclasses do (`creature/state_save.rs`): `Dead`,
+  `Social` (the social memory, `SocialMemory.ToString` with its trailing separator when
+  the last relationship is not saved), `SpawnData`, `MeatLeft` (written back as read:
+  `meatPoints` is not ported), `MiscFlags`, `MiscData`, `HealthState`'s `Health`, the
+  lizard's throat, limbs and rot type, the mouse's battery, the vulture's `NOMASK`, the
+  needle worm's `EGGSPAWN`, the centipede's shells and `MEATINIT`, then the other
+  entries in the order read (the DLC ones among them, as with the DLCs off). A region
+  loaded cycles later ticks each state once (`RainCycleTick`: health, a lizard's limbs,
+  the social memory fading, a centipede's shells); rocks and
   spears are saved as the game saves them (in shelters, and spears stuck in walls), but
   saved objects of other kinds are kept as text and written before them (the game
   writes those it recognizes in room order with the rest, and drops karma flowers);

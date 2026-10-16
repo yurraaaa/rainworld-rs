@@ -276,7 +276,7 @@ impl World {
         if template.kind == CreatureType::BigNeedleWorm {
             self.small_worms_find_mother(cid, cx.rng);
         }
-        self.move_entity_to_den(cid);
+        self.move_entity_to_den(cid, cx.rng);
     }
 
     /// A big needle worm's constructor asks the small ones out in its room (not in dens)

@@ -14,6 +14,7 @@ mod ai_map;
 mod ai_mapper;
 mod creature_ai_map;
 mod creatures;
+mod dens;
 mod flies_world_ai;
 mod movement;
 mod objects;
