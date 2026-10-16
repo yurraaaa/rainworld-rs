@@ -4,7 +4,7 @@
 //! ([`OverseerUpdate`]); what it does to the rest of the game comes back as
 //! [`OverseerEffect`]s.
 
-use rw_assets::{CreatureType, Room};
+use rw_assets::{AbstractObjectType, CreatureType, Room};
 use rw_random::UnityRandom;
 
 use super::abstract_ai::{AbstractStep, GuideContext, Parent, TUTORIAL_ROOMS};
@@ -15,9 +15,9 @@ use super::{
 };
 use crate::camera::CameraView;
 use crate::creature::{AbstractCreatureAi, CreatureId, EntityId, WorldCoordinate};
-use crate::item::{ObjectId, WeaponMode};
+use crate::item::{Entity, ObjectId, WeaponMode};
 use crate::room_ext::RoomExt;
-use crate::trigger::InputInstructionView;
+use crate::trigger::{ForcedDirectionView, InputInstructionView, InstructionViewKind};
 use crate::world::{AiMap, EIGHT_DIRECTIONS, RainCycle, World};
 use crate::{
     CosmeticKind, FloatExt, OverseerEffectSprite, PlayerObserver, SoundId, Sounds, Spark, Vec2,
@@ -151,6 +151,8 @@ pub(crate) struct StoryStats {
     pub yellow: bool,
     /// `deathPersistentSaveData.howWellIsPlayerDoing`.
     pub how_well_is_player_doing: f32,
+    /// `miscWorldSaveData.EverMetMoon`.
+    pub ever_met_moon: bool,
 }
 
 /// What an overseer does to the rest of the game.
@@ -181,6 +183,8 @@ pub(crate) enum OverseerEffect {
     Cosmetic(CosmeticKind),
     /// `markInstructionAsFollowed = false` on input instruction object `id`.
     InstructionFollowed(u64),
+    /// `completed = true` on input instruction object `id`.
+    InstructionCompleted(u64),
 }
 
 /// What a realized overseer reads and writes of the game for one call.
@@ -215,6 +219,8 @@ pub(crate) struct OverseerTick<'a> {
     pub effects: Vec<OverseerEffect>,
     /// The rooms' input instruction triggers (`communication.inputInstruction`).
     pub instructions: Vec<InputInstructionView>,
+    /// The rooms' `ReliableIggyDirection`s (`communication.forcedDirectionToGive`).
+    pub forced_directions: Vec<ForcedDirectionView>,
 }
 
 /// What `RealizedCreatureInterest`, `HoverScoreOfTile` and the mode checks read of a
@@ -1582,12 +1588,12 @@ impl OverseerUpdate<'_, '_> {
 
     /// `OverseerCommunicationModule.Update`: the player in the guide's room, no
     /// tutorial, and the guide likes the player (or has anger to show).
-    fn communication_update(&mut self) {
+    pub(crate) fn communication_update(&mut self) {
         let Some(mut comm) = self.ai.communication.take() else {
             return;
         };
         let guide = &*self.cx.guide;
-        let anger = guide.angry_with_player && !guide.displayed_anger;
+        let anger = guide.angry_with_player() && !guide.displayed_anger();
         let mut hologram = None;
         if self.cx.player.is_some_and(|p| p.in_room)
             && self.ai.tutorial.is_none()
@@ -1601,9 +1607,7 @@ impl OverseerUpdate<'_, '_> {
         }
     }
 
-    /// `ReevaluateConcern`: returns the hologram to try. Only the player, overseers and
-    /// bat flies are realized, so no creature is dangerous and no food item is realized
-    /// (`FoodDelicousScore` scores fruit, jellyfish, seed cobs and bubble fruit only).
+    /// `ReevaluateConcern`: returns the hologram to try.
     fn reevaluate_concern(
         &mut self,
         comm: &mut CommunicationModule,
@@ -1649,12 +1653,12 @@ impl OverseerUpdate<'_, '_> {
             }
         }
         if let Some(id) = comm.input_instruction {
-            match self.cx.instructions.iter().find(|i| i.id == id) {
-                Some(i) if !i.completed && !i.slated && i.room == room => {
+            match self.instruction(id) {
+                Some(i) if !i.trigger.completed && !i.slated && i.room == room => {
                     if self
                         .cx
                         .camera
-                        .viewed(room, self.cx.room, i.instruction_pos, 20.0)
+                        .viewed(room, self.cx.room, i.trigger.instruction_pos, 20.0)
                         && 0.7 > comm.current_concern_weight
                     {
                         comm.current_concern_weight = 0.7;
@@ -1664,21 +1668,15 @@ impl OverseerUpdate<'_, '_> {
                 _ => comm.input_instruction = None,
             }
         }
-        let list = self.cx.world.room_creatures(room);
-        let len = i32::try_from(list.len()).unwrap_or(i32::MAX);
-        let pick = list[usize::try_from(self.cx.rng.range_i32(0, len)).unwrap_or(0)];
-        comm.most_dangerous_creature_danger = 0.0;
-        if self.realized(pick).is_some() {
-            // `PlayerHasNowBeenWarnedOfCreature` needs a dangerous creature.
-            self.cx.rng.value();
-        }
+        self.creature_concern(comm);
         if player.food < self.cx.story.food_to_hibernate {
-            // `entities[Range(0, Count)]`: the room holds at least this overseer.
-            self.cx.rng.range_i32(0, len);
+            self.food_concern(comm, player);
+        } else {
+            comm.most_delicious_food_in_room = None;
+            comm.most_delicous_food_delicious = 0.0;
         }
-        comm.most_delicous_food_delicious = 0.0;
         let guide = &*self.cx.guide;
-        if guide.angry_with_player && !guide.displayed_anger {
+        if guide.angry_with_player() && !guide.displayed_anger() {
             comm.current_concern_weight = 1.0;
             comm.current_concern = PlayerConcern::Anger;
         }
@@ -1694,9 +1692,16 @@ impl OverseerUpdate<'_, '_> {
             } else {
                 comm.image_to_show = None;
             }
+        } else if let Some(id) = comm.forced_direction_to_give {
+            if self.forced_direction(id).is_some_and(|d| d.room == room) {
+                if comm.current_concern_weight < 0.98 {
+                    comm.current_concern = PlayerConcern::ForcedDirection;
+                    comm.current_concern_weight = 0.98;
+                }
+            } else {
+                comm.forced_direction_to_give = None;
+            }
         }
-        // `forcedDirectionToGive` (`ReliableIggyDirection`) is never set: its placed
-        // object is not ported.
         if comm.current_concern == PlayerConcern::None || !open {
             if let Some(h) = self.body.current_hologram_mut() {
                 h.still_relevant = false;
@@ -1723,13 +1728,203 @@ impl OverseerUpdate<'_, '_> {
             PlayerConcern::FoodItemInRoom => HologramMessage::FoodObject,
             PlayerConcern::Anger => HologramMessage::Angry,
             PlayerConcern::ForcedDirection => HologramMessage::ForcedDirection,
-            // The only input instruction trigger ported is `PickupObjectInstruction`.
-            PlayerConcern::InputInstruction if comm.input_instruction.is_some() => {
-                HologramMessage::PickupObject
+            PlayerConcern::InputInstruction => {
+                let kind = comm
+                    .input_instruction
+                    .and_then(|id| self.instruction(id))
+                    .map(|i| i.kind);
+                match kind {
+                    Some(InstructionViewKind::SuperJump { .. }) => {
+                        HologramMessage::InWorldSuperJump
+                    }
+                    Some(InstructionViewKind::Pickup { .. }) => HologramMessage::PickupObject,
+                    Some(InstructionViewKind::ScavengerTrade { .. }) => {
+                        HologramMessage::ScavengerTrade
+                    }
+                    None => return None,
+                }
             }
-            PlayerConcern::InputInstruction | PlayerConcern::None => return None,
+            PlayerConcern::None => return None,
         };
         Some((message, weight))
+    }
+
+    /// The input instruction object `id` as this tick sees it.
+    pub(crate) fn instruction(&self, id: u64) -> Option<InputInstructionView> {
+        self.cx.instructions.iter().find(|i| i.id == id).copied()
+    }
+
+    /// The `ReliableIggyDirection` object `id`, while it is in a room.
+    pub(crate) fn forced_direction(&self, id: u64) -> Option<ForcedDirectionView> {
+        self.cx
+            .forced_directions
+            .iter()
+            .find(|d| d.id == id)
+            .copied()
+    }
+
+    /// `ReevaluateConcern`'s creature part: a random creature of the room (a `Range`)
+    /// may become the most dangerous one, and a realized one is a chance (a `value`) to
+    /// count as warned of when its type is known.
+    fn creature_concern(&mut self, comm: &mut CommunicationModule) {
+        let room = self.cx.room_index;
+        let list = self.cx.world.room_creatures(room);
+        let len = i32::try_from(list.len()).unwrap_or(i32::MAX);
+        let pick = list[usize::try_from(self.cx.rng.range_i32(0, len)).unwrap_or(0)];
+        comm.most_dangerous_creature_danger =
+            self.creature_danger_score(comm.most_dangerous_creature_in_room);
+        let danger = self.creature_danger_score(Some(pick));
+        if danger > comm.most_dangerous_creature_danger * 1.1 {
+            comm.most_dangerous_creature_in_room = Some(pick);
+            comm.most_dangerous_creature_danger = danger;
+        }
+        if comm.most_dangerous_creature_danger == 0.0 {
+            comm.most_dangerous_creature_in_room = None;
+        } else if comm.most_dangerous_creature_danger > comm.current_concern_weight {
+            comm.current_concern_weight = comm.most_dangerous_creature_danger;
+            comm.current_concern = PlayerConcern::DangerousCreature;
+        }
+        let Some(info) = self.realized(pick) else {
+            return;
+        };
+        if self.cx.rng.value() < 0.025
+            && self.creature_any_potential_danger_at_all(pick)
+            && self.cx.camera.viewed(room, self.cx.room, info.pos, -10.0)
+            && self.cx.guide.knows_creature_type(info.kind)
+        {
+            let id = self.cx.world.creature(pick).id;
+            comm.player_has_now_been_warned_of_creature(id, info.kind, false, self.cx.guide);
+        }
+    }
+
+    /// `CreatureAnyPotentialDangerAtAll`: a realized, living, not small creature in the
+    /// player's room.
+    fn creature_any_potential_danger_at_all(&self, id: CreatureId) -> bool {
+        let c = self.cx.world.creature(id);
+        if c.template.small_creature || c.pos.room != self.cx.room_index {
+            return false;
+        }
+        let slated = id != self.me
+            && matches!(&c.realized, Some(crate::creature::RealizedCreature::Overseer(b)) if b.slated);
+        self.realized(id).is_some_and(|r| !r.dead) && !slated
+    }
+
+    /// `CreatureDangerScore`. A creature whose type the player knows and that a camera
+    /// shows scores 0; else its template's `dangerousToPlayer`, which is 0 for every
+    /// creature the port realizes (slugcat, overseer, bat fly: 125330, 125408, 126246
+    /// set none), so the rest (aggression, distance, the hand-holding power) never
+    /// runs.
+    fn creature_danger_score(&self, creature: Option<CreatureId>) -> f32 {
+        let Some(id) = creature.filter(|&c| self.creature_any_potential_danger_at_all(c)) else {
+            return 0.0;
+        };
+        let Some(info) = self.realized(id) else {
+            return 0.0;
+        };
+        let viewed = self
+            .cx
+            .camera
+            .viewed(self.cx.room_index, self.cx.room, info.pos, 60.0);
+        if self.cx.guide.knows_creature_type(info.kind) && viewed {
+            return 0.0;
+        }
+        0.0
+    }
+
+    /// `ReevaluateConcern`'s food part while the player is hungry: a random entity of
+    /// the room (creatures and objects, a `Range`) may become the most delicious food,
+    /// and food the player holds is learnt about.
+    fn food_concern(&mut self, comm: &mut CommunicationModule, player: PlayerView) {
+        let pick = self
+            .cx
+            .world
+            .random_room_entity(self.cx.room_index, self.cx.rng);
+        comm.most_delicous_food_delicious =
+            self.food_delicious_score(comm, comm.most_delicious_food_in_room, player);
+        let score = self.food_delicious_score(comm, pick, player);
+        if score > comm.most_delicous_food_delicious * 1.1 {
+            comm.most_delicious_food_in_room = pick;
+            comm.most_delicous_food_delicious = score;
+        }
+        if comm.most_delicous_food_delicious == 0.0 {
+            comm.most_delicious_food_in_room = None;
+        } else if comm.most_delicous_food_delicious > comm.current_concern_weight {
+            comm.current_concern_weight = comm.most_delicous_food_delicious;
+            comm.current_concern = PlayerConcern::FoodItemInRoom;
+        }
+        if let Some(Entity::Object(o)) = comm.most_delicious_food_in_room {
+            let object = self.cx.world.object(o);
+            let held_by_player = self
+                .cx
+                .world
+                .grabbed_by(Entity::Object(o))
+                .first()
+                .is_some_and(|g| g.grabber == self.cx.player_id);
+            if !self.cx.guide.knows_item_type(object.kind)
+                && object.realized.is_some()
+                && held_by_player
+            {
+                log::info!("player has learnt about {:?}", object.kind);
+                self.cx.guide.learn_item_type(object.kind);
+            }
+        }
+    }
+
+    /// `FoodDelicousScore`: dangle fruit, jellyfish, seed cobs and bubble fruit within
+    /// 1100 px, less once the player knows the kind. A creature's type is `Creature`,
+    /// which scores 0; only weapons are ever realized in the port, so every entity
+    /// scores 0 (the seed cob's `dead`/`opened` are read with its realization).
+    fn food_delicious_score(
+        &self,
+        comm: &CommunicationModule,
+        food: Option<Entity>,
+        player: PlayerView,
+    ) -> f32 {
+        let Some(Entity::Object(o)) = food else {
+            return 0.0;
+        };
+        let object = self.cx.world.object(o);
+        let Some(realized) = object.realized.as_deref() else {
+            return 0.0;
+        };
+        if object.pos.room != self.cx.room_index
+            || !matches!(
+                object.kind,
+                AbstractObjectType::DangleFruit
+                    | AbstractObjectType::JellyFish
+                    | AbstractObjectType::SeedCob
+                    | AbstractObjectType::WaterNut
+            )
+        {
+            return 0.0;
+        }
+        let at = realized.body.chunks[0].pos;
+        let mut num = at.distance(player.pos).inverse_lerp(1100.0, 400.0);
+        if num == 0.0 {
+            return 0.0;
+        }
+        if self.cx.guide.knows_item_type(object.kind) {
+            if num <= 0.2
+                || !self
+                    .cx
+                    .camera
+                    .viewed(self.cx.room_index, self.cx.room, at, 0.0)
+            {
+                return 0.0;
+            }
+            num = 0.3;
+        }
+        if comm.objects_already_talked_about.contains(&object.id) {
+            return 0.0;
+        }
+        if food == comm.most_delicious_food_in_room
+            && comm.current_concern == PlayerConcern::FoodItemInRoom
+        {
+            num *= 1.1;
+        }
+        num * self
+            .general_player_food_need(comm, player.food)
+            .lerp(0.6, 0.5)
     }
 
     /// `progressionShowTendency` on entering a room: how near the direction finder's
@@ -1807,6 +2002,7 @@ impl OverseerUpdate<'_, '_> {
             return false;
         };
         data.gate()
+            && !self.cx.story.ever_met_moon
             && matches!(
                 data.name.as_str(),
                 "GATE_SU_HI" | "GATE_HI_GW" | "GATE_GW_SL" | "GATE_SH_SL"
@@ -1849,15 +2045,22 @@ impl OverseerUpdate<'_, '_> {
             return 0.69;
         }
         let guide = &*self.cx.guide;
-        let mut need = self.general_player_food_need(food);
+        let mut need = self.general_player_food_need(comm, food);
         if guide.has_been_to_a_swarm_room_this_cycle {
             need *= 0.2;
         }
         need * guide.want_food_hand_holding_this_cycle
     }
 
-    /// `GeneralPlayerFoodNeed` after the first few cycles.
-    fn general_player_food_need(&self, food: i32) -> f32 {
+    /// `GeneralPlayerFoodNeed`.
+    fn general_player_food_need(&self, comm: &CommunicationModule, food: i32) -> f32 {
+        if comm.first_few_cycles {
+            return if food < self.cx.story.food_to_hibernate {
+                0.69
+            } else {
+                0.0
+            };
+        }
         let guide = &*self.cx.guide;
         let rain = &self.cx.rain;
         let timer = rain.timer as f32;

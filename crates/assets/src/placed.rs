@@ -3,6 +3,7 @@
 //! places. `RoomSettings.LoadEffects`, `LoadPlacedObjects`, `PlacedObject.FromString`,
 //! `PlacedObject.FilterData`.
 
+use crate::identity::ext_enum;
 use crate::{ActiveMods, MultiplayerItemType, PlacedObjectType, SlugcatName, Timeline};
 
 /// `RoomSettings.RoomEffect`: type name and amount.
@@ -151,6 +152,164 @@ impl ResizableData {
     }
 }
 
+/// `PlacedObject.QuadObjectData` (a `SuperJumpInstruction`'s): three handles relative
+/// to the object.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct QuadData {
+    pub handles: [[f32; 2]; 3],
+}
+
+impl QuadData {
+    /// `h0.x~h0.y~h1.x~h1.y~h2.x~h2.y~...`; `None` where the game's `float.Parse` would
+    /// throw.
+    #[must_use]
+    pub fn parse(data: &str) -> Option<Self> {
+        let mut fields = data.split('~');
+        let mut handles = [[0.0; 2]; 3];
+        for h in &mut handles {
+            h[0] = fields.next()?.trim().parse().ok()?;
+            h[1] = fields.next()?.trim().parse().ok()?;
+        }
+        Some(Self { handles })
+    }
+}
+
+ext_enum! {
+    /// `ReliableIggyDirection.ReliableIggyDirectionData.Symbol`.
+    pub enum IggySymbol {
+        Base {
+            Shelter = "Shelter",
+            DynamicDirection = "DynamicDirection",
+            SlugcatFace = "SlugcatFace",
+            Food = "Food",
+            Bat = "Bat",
+            Danger = "Danger",
+        }
+    }
+}
+
+ext_enum! {
+    /// `ReliableIggyDirection.ReliableIggyDirectionData.Condition`.
+    pub enum IggyCondition {
+        Base {
+            AnyTime = "AnyTime",
+            BeforeMoon = "BeforeMoon",
+            AfterMoon = "AfterMoon",
+            AfterPebblesAndMoon = "AfterPebblesAndMoon",
+        }
+    }
+}
+
+/// `ReliableIggyDirectionData`: where and when the guide is made to point at an exit.
+/// A symbol or condition no mod registers is `None` (it equals none of the game's).
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReliableIggyDirectionData {
+    pub handle: [f32; 2],
+    pub panel: [f32; 2],
+    pub exit: i32,
+    pub symbol: Option<IggySymbol>,
+    pub condition: Option<IggyCondition>,
+    pub cycles_to_show: i32,
+    pub point_player_back: bool,
+    pub available_to_players: Vec<SlugcatName>,
+}
+
+impl ReliableIggyDirectionData {
+    /// `FromString`: `handle~panel~exit~symbol~condition~cycles~back~players~...`, the
+    /// symbol and condition as names or old numbers, the players as `|`-separated names
+    /// or old digits. `None` where the game's parsing would throw.
+    #[must_use]
+    pub fn parse(data: &str, mods: ActiveMods) -> Option<Self> {
+        let f = DataFields(data.split('~').collect());
+        let symbol = match f.int(5) {
+            // `ParseReliableIggySymbol`: an unknown number is `Shelter`.
+            Some(n) => usize::try_from(n)
+                .ok()
+                .and_then(|i| IggySymbol::ALL.get(i))
+                .copied()
+                .or(Some(IggySymbol::Shelter)),
+            None => IggySymbol::from_value(f.get(5)?),
+        };
+        let condition = match f.int(6) {
+            Some(n) => usize::try_from(n)
+                .ok()
+                .and_then(|i| IggyCondition::ALL.get(i))
+                .copied()
+                .or(Some(IggyCondition::AnyTime)),
+            None => IggyCondition::from_value(f.get(6)?),
+        };
+        let players = f.get(9)?;
+        let available_to_players =
+            if !players.is_empty() && players.bytes().all(|b| b.is_ascii_digit()) {
+                // `ParsePlayerAvailability`: digit i set to '1' allows the i-th base name.
+                let base = [
+                    SlugcatName::White,
+                    SlugcatName::Yellow,
+                    SlugcatName::Red,
+                    SlugcatName::Night,
+                ];
+                players
+                    .bytes()
+                    .zip(base)
+                    .filter(|&(b, _)| b == b'1')
+                    .map(|(_, n)| n)
+                    .collect()
+            } else {
+                players
+                    .split('|')
+                    .filter_map(|n| SlugcatName::from_value(n, mods))
+                    .collect()
+            };
+        Some(Self {
+            handle: [f.float(0)?, f.float(1)?],
+            panel: [f.float(2)?, f.float(3)?],
+            exit: f.int(4)?,
+            symbol,
+            condition,
+            cycles_to_show: f.int(7)?,
+            point_player_back: f.get(8)? == "1",
+            available_to_players,
+        })
+    }
+
+    /// `Rad`: the handle's length.
+    #[must_use]
+    pub fn rad(&self) -> f32 {
+        (self.handle[0] * self.handle[0] + self.handle[1] * self.handle[1]).sqrt()
+    }
+}
+
+impl IggySymbol {
+    #[must_use]
+    pub fn from_value(value: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|s| s.value() == value)
+    }
+}
+
+impl IggyCondition {
+    #[must_use]
+    pub fn from_value(value: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|c| c.value() == value)
+    }
+}
+
+/// A placed object's data split on `~`.
+struct DataFields<'a>(Vec<&'a str>);
+
+impl<'a> DataFields<'a> {
+    fn get(&self, i: usize) -> Option<&'a str> {
+        self.0.get(i).copied()
+    }
+
+    fn float(&self, i: usize) -> Option<f32> {
+        self.get(i)?.trim().parse().ok()
+    }
+
+    fn int(&self, i: usize) -> Option<i32> {
+        self.get(i)?.trim().parse().ok()
+    }
+}
+
 /// `PlacedObject.MultiplayerItemData`: what spawns and how likely.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MultiplayerItemData {
@@ -283,6 +442,53 @@ mod tests {
         let odd = MultiplayerItemData::parse("Lantern~0~0~1", ActiveMods::NONE).unwrap();
         assert_eq!(odd.kind, None);
         assert!(MultiplayerItemData::parse("Rock~x~0~1", ActiveMods::NONE).is_none());
+    }
+
+    /// SU_A13's `SuperJumpInstruction><475.6972><329.9665><-271~-102~-265~-126~-6~-32`.
+    #[test]
+    fn quad_data() {
+        let q = QuadData::parse("-271~-102~-265~-126~-6~-32").unwrap();
+        assert_eq!(
+            q.handles,
+            [[-271.0, -102.0], [-265.0, -126.0], [-6.0, -32.0]]
+        );
+        assert!(QuadData::parse("1~2~3").is_none());
+    }
+
+    /// Names or the old numbers (`ParseReliableIggySymbol` / `Condition`: unknown numbers
+    /// are `Shelter` / `AnyTime`), players by name or digit.
+    #[test]
+    fn reliable_iggy_direction_data() {
+        let d = ReliableIggyDirectionData::parse(
+            "30~40~50~50~2~Food~AfterMoon~5~0~White|Yellow",
+            ActiveMods::NONE,
+        )
+        .unwrap();
+        assert_eq!(d.rad(), 50.0);
+        assert_eq!(d.exit, 2);
+        assert_eq!(d.symbol, Some(IggySymbol::Food));
+        assert_eq!(d.condition, Some(IggyCondition::AfterMoon));
+        assert_eq!((d.cycles_to_show, d.point_player_back), (5, false));
+        assert_eq!(
+            d.available_to_players,
+            [SlugcatName::White, SlugcatName::Yellow]
+        );
+        let d =
+            ReliableIggyDirectionData::parse("0~100~0~0~0~1~9~0~1~0110", ActiveMods::NONE).unwrap();
+        assert_eq!(d.symbol, Some(IggySymbol::DynamicDirection));
+        assert_eq!(d.condition, Some(IggyCondition::AnyTime));
+        assert!(d.point_player_back);
+        assert_eq!(
+            d.available_to_players,
+            [SlugcatName::Yellow, SlugcatName::Red]
+        );
+        let d =
+            ReliableIggyDirectionData::parse("0~100~0~0~0~Odd~Odd~0~1~", ActiveMods::NONE).unwrap();
+        assert_eq!((d.symbol, d.condition), (None, None));
+        assert!(d.available_to_players.is_empty());
+        assert!(
+            ReliableIggyDirectionData::parse("0~100~0~0~0~1~1~0~1", ActiveMods::NONE).is_none()
+        );
     }
 
     #[test]

@@ -149,6 +149,27 @@ impl TriggerState {
                 counter: None,
                 wait: None,
             },
+            TriggerObjectKind::SuperJumpInstruction(_) => Self {
+                room,
+                kind: "super_jump_instruction",
+                event: None,
+                counter: None,
+                wait: None,
+            },
+            TriggerObjectKind::ScavTradeInstruction(_) => Self {
+                room,
+                kind: "scav_trade_instruction",
+                event: None,
+                counter: None,
+                wait: None,
+            },
+            TriggerObjectKind::ReliableIggyDirection(_) => Self {
+                room,
+                kind: "reliable_iggy_direction",
+                event: None,
+                counter: None,
+                wait: None,
+            },
             TriggerObjectKind::TextMessage => Self {
                 room,
                 kind: "text_message",

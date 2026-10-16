@@ -4,6 +4,9 @@ use super::{
     HologramMessage, HologramUpdate, ImageHologram, ImageId, ObjectPointerKind, OverseerHologram,
     PointerKind,
 };
+use rw_assets::{IggySymbol, PlacedObjectType};
+
+use crate::Vec2;
 use crate::creature::overseer::PlayerGuideState;
 use crate::creature::overseer::update::OverseerUpdate;
 
@@ -65,6 +68,7 @@ impl OverseerUpdate<'_, '_> {
                 self.cx.control_preset,
                 tutorial,
                 me,
+                self.cx.rng,
             )
         } else {
             match message {
@@ -100,7 +104,7 @@ impl OverseerUpdate<'_, '_> {
                     )
                 }
                 HologramMessage::ProgressionDirection => {
-                    let symbol = PlayerGuideState::guidance_symbol(self.cx.guide.guide_symbol);
+                    let symbol = PlayerGuideState::guidance_symbol(self.cx.guide.guide_symbol());
                     let pointer = PointerKind::Direction { cycle: 0 };
                     OverseerHologram::new_door_pointer(
                         id, message, importance, room, pointer, symbol, me,
@@ -134,9 +138,39 @@ impl OverseerUpdate<'_, '_> {
                 HologramMessage::Angry => {
                     OverseerHologram::new_angry(id, importance, room, self.cx.rng)
                 }
+                HologramMessage::ForcedDirection => {
+                    let Some(direction) = self
+                        .ai
+                        .communication
+                        .as_ref()
+                        .and_then(|c| c.forced_direction_to_give)
+                        .and_then(|id| self.forced_direction(id))
+                    else {
+                        // The game's constructor dereferences a null direction here.
+                        log::warn!("forced direction hologram without a direction");
+                        return;
+                    };
+                    let element = match direction.symbol {
+                        Some(IggySymbol::Shelter) => "shelterSymbol",
+                        Some(IggySymbol::Food) => "foodSymbol",
+                        Some(IggySymbol::DynamicDirection) => {
+                            PlayerGuideState::guidance_symbol(self.cx.guide.guide_symbol())
+                        }
+                        Some(IggySymbol::Danger) => "miscDangerSymbol",
+                        Some(IggySymbol::Bat) => "batSymbol",
+                        Some(IggySymbol::SlugcatFace) | None => "GuidanceSlugcat",
+                    };
+                    log::info!("forced dir");
+                    let pointer = PointerKind::Forced {
+                        direction: direction.id,
+                        symbol: direction.symbol,
+                        cycle: 0,
+                    };
+                    OverseerHologram::new_door_pointer(
+                        id, message, importance, room, pointer, element, me,
+                    )
+                }
                 _ => {
-                    // `ForcedDirection` needs `ReliableIggyDirection` (not ported); the
-                    // game would add a null object here.
                     log::warn!("no hologram for {message:?}");
                     return;
                 }
@@ -147,17 +181,25 @@ impl OverseerUpdate<'_, '_> {
     }
 
     /// The `OverseerImage` constructor's pictures for this room (the gate scenes and
-    /// the placed scenes), which can also pick the guide's symbol.
+    /// the placed scenes), which can also pick the guide's symbol, and the room's first
+    /// `ProjectedImagePosition` (every placed object, active or not).
     fn room_image(&mut self) -> ImageHologram {
         use ImageId::{
             Clue1, Clue2, Clue3, Clue4, MoonAndSwarmers, MoonDoubleSize, MoonFullFigure,
             MoonPortrait, ScavAndPearls, ScavSlugcatTrade, Slugcat1, Slugcat2, Slugcat3, Slugcat4,
             Slugcat5, Slugcat6, Slugcat7, Swarmers,
         };
+        let mods = self.cx.world.mods();
+        let show_pos = self.cx.world.realized(self.cx.room_index).and_then(|r| {
+            r.settings
+                .placed_objects
+                .iter()
+                .find(|o| o.object_type(mods) == Some(PlacedObjectType::ProjectedImagePosition))
+                .map(|o| Vec2::from(o.pos))
+        });
         let mut image = ImageHologram {
             images: Vec::new(),
-            // `ProjectedImagePosition` placed objects are not read.
-            show_pos: None,
+            show_pos,
             counter: 0,
             curr_image: 0,
             time_on_each_image: 0,
@@ -183,12 +225,12 @@ impl OverseerUpdate<'_, '_> {
             ),
             "GATE_SU_DS" => (&[], 0, 0),
             "GATE_HI_GW" => {
-                guide.guide_symbol = 1;
+                guide.set_guide_symbol(1);
                 (&[MoonFullFigure, MoonDoubleSize, MoonPortrait], 40, 900)
             }
             // `GATE_SL_VS` shows them only with More Slugcats.
             "GATE_GW_SL" | "GATE_SH_SL" => {
-                guide.guide_symbol = 1;
+                guide.set_guide_symbol(1);
                 (
                     &[
                         Clue1, Clue1, Clue1, Clue1, Clue1, Clue2, Clue3, Clue4, Clue4, Slugcat3,
@@ -225,7 +267,7 @@ impl OverseerUpdate<'_, '_> {
                 110,
             ),
             "SL_A15" => {
-                guide.guide_symbol = 2;
+                guide.set_guide_symbol(2);
                 (
                     &[Swarmers, MoonAndSwarmers, Swarmers, MoonAndSwarmers, Clue2],
                     40,
@@ -240,7 +282,7 @@ impl OverseerUpdate<'_, '_> {
         image.images = images.to_vec();
         image.time_on_each_image = each;
         image.show_time = show;
-        if guide.guide_symbol == 0
+        if guide.guide_symbol() == 0
             && image.images.iter().any(|i| {
                 matches!(
                     i,
@@ -248,21 +290,8 @@ impl OverseerUpdate<'_, '_> {
                 )
             })
         {
-            guide.guide_symbol = 1;
+            guide.set_guide_symbol(1);
         }
         image
-    }
-}
-
-impl PlayerGuideState {
-    /// `OverseerGuidanceSymbol(guideSymbol)` (base game; More Slugcats adds Pebbles and
-    /// the energy cell).
-    #[must_use]
-    pub fn guidance_symbol(selector: i32) -> &'static str {
-        match selector {
-            1 => "GuidanceMoon",
-            2 => "GuidanceNeuron",
-            _ => "GuidanceSlugcat",
-        }
     }
 }

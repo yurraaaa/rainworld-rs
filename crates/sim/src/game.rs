@@ -17,6 +17,8 @@ mod flies;
 mod hands;
 #[path = "game_hits.rs"]
 mod hits;
+#[path = "game_instructions.rs"]
+mod instructions;
 #[path = "game_items.rs"]
 mod items;
 #[path = "game_map.rs"]
@@ -203,6 +205,9 @@ pub enum OverseerCall {
     FlyingWeapon(ObjectId),
     /// `HitByWeapon` of a weapon thrown by a slugcat (or not).
     HitByWeapon { by_slugcat: bool },
+    /// `OverseerCommunicationModule.Update` alone.
+    #[cfg(test)]
+    Communication,
 }
 
 /// An object in a room's update list the port runs besides the player.
@@ -1287,6 +1292,7 @@ impl RainWorldGame {
             karma_cap: self.story.karma_cap,
             yellow: self.campaign.name == rw_assets::SlugcatName::Yellow,
             how_well_is_player_doing: -1.0,
+            ever_met_moon: self.story.ever_met_moon,
         }
     }
 
@@ -1311,6 +1317,7 @@ impl RainWorldGame {
         let edibles = self.room_edibles(room_index);
         let story = self.story_stats();
         let instructions = self.input_instruction_views();
+        let forced_directions = self.forced_direction_views();
         let Some(mut parts) = self.world.take_overseer(id) else {
             return;
         };
@@ -1352,6 +1359,7 @@ impl RainWorldGame {
                 viewed: room_index == self.camera_room,
                 effects: Vec::new(),
                 instructions,
+                forced_directions,
             };
             let mut run = OverseerUpdate {
                 me: id,
@@ -1374,6 +1382,8 @@ impl RainWorldGame {
                 OverseerCall::Hologram(hid) => run.update_hologram(hid),
                 OverseerCall::FlyingWeapon(w) => run.flying_weapon(w),
                 OverseerCall::HitByWeapon { by_slugcat } => run.hit_by_weapon(by_slugcat),
+                #[cfg(test)]
+                OverseerCall::Communication => run.communication_update(),
             }
             pos = run.pos;
             rain = cx.rain;
@@ -1456,6 +1466,9 @@ impl RainWorldGame {
                 }
                 OverseerEffect::InstructionFollowed(instruction) => {
                     self.instruction_followed(instruction);
+                }
+                OverseerEffect::InstructionCompleted(instruction) => {
+                    self.instruction_completed(instruction);
                 }
                 OverseerEffect::ResetSuperLaunchJump => {
                     if let Some(p) = self.player.as_mut() {

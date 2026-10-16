@@ -139,15 +139,55 @@ impl SaveStateStart for SaveState {
             in_memory,
             live_region_state: None,
             swallowed_item: self.swallowed_item(0).map(str::to_owned),
-            guide: PlayerGuideState {
-                likes_player: self.misc_world.player_guide.likes_player,
-                hand_holding: self.misc_world.player_guide.hand_holding,
-                angry_with_player: self.misc_world.player_guide.angry_with_player(),
-                ..PlayerGuideState::default()
-            },
+            guide: self.misc_world.player_guide.to_game(),
+            ever_met_moon: self.misc_world.ever_met_moon(),
+            ss_ai_conversations_had: self.misc_world.ss_ai_conversations_had(),
             dangle_fruit_in_water_message: d.tutorial_message(Tutorial::DangleFruitInWater),
             den,
         }
+    }
+}
+
+/// The save state's `PlayerGuideState` and the game's copy of it: the game changes it
+/// during a cycle, the save state keeps it (with its unknown entries) in memory and on
+/// disk.
+pub trait GuideStateCopy {
+    fn to_game(&self) -> PlayerGuideState;
+    fn update_from_game(&mut self, guide: &PlayerGuideState);
+}
+
+impl GuideStateCopy for rw_save::PlayerGuideState {
+    fn to_game(&self) -> PlayerGuideState {
+        PlayerGuideState {
+            integers: self.integers,
+            item_types: self.item_types.clone(),
+            creature_types: self.creature_types.clone(),
+            likes_player: self.likes_player,
+            hand_holding: self.hand_holding,
+            images_shown: self.images_shown.clone(),
+            forced_directions_given: self.forced_directions_given.clone(),
+            increase_like_on_save: self.increase_like_on_save,
+            has_been_to_a_swarm_room_this_cycle: self.has_been_to_a_swarm_room_this_cycle,
+            want_food_hand_holding_this_cycle: self.want_food_hand_holding_this_cycle,
+            want_shelter_hand_holding_this_cycle: self.want_shelter_hand_holding_this_cycle,
+            want_direction_hand_holding_this_cycle: self.want_direction_hand_holding_this_cycle,
+        }
+    }
+
+    fn update_from_game(&mut self, guide: &PlayerGuideState) {
+        self.integers = guide.integers;
+        self.item_types.clone_from(&guide.item_types);
+        self.creature_types.clone_from(&guide.creature_types);
+        self.likes_player = guide.likes_player;
+        self.hand_holding = guide.hand_holding;
+        self.images_shown.clone_from(&guide.images_shown);
+        self.forced_directions_given
+            .clone_from(&guide.forced_directions_given);
+        self.increase_like_on_save = guide.increase_like_on_save;
+        self.has_been_to_a_swarm_room_this_cycle = guide.has_been_to_a_swarm_room_this_cycle;
+        self.want_food_hand_holding_this_cycle = guide.want_food_hand_holding_this_cycle;
+        self.want_shelter_hand_holding_this_cycle = guide.want_shelter_hand_holding_this_cycle;
+        self.want_direction_hand_holding_this_cycle = guide.want_direction_hand_holding_this_cycle;
     }
 }
 
@@ -182,6 +222,47 @@ mod tests {
         assert_eq!(
             state.story_start("CC_S04".to_owned(), true).next_issued_id,
             None
+        );
+    }
+
+    /// The whole guide state goes to the game and back: the save keeps its unknown
+    /// entries, the per-cycle fields stay with the state in memory, and Moon's
+    /// encounters and Pebbles' conversations come from the rest of the misc data.
+    #[test]
+    fn guide_state_goes_to_the_game_and_back() {
+        let line = "SAV STATE NUMBER<svB>White<svA>MISCWORLDSAVEDATA<svB>SSaiConversationsHad<mwB>2\
+            <mwA>SLaiState<mwB>integersArray<slosB>1.0<slosA><mwA>playerGuideState<mwB>\
+            integersArray<pgsB>0.2.1.0.0.0.1<pgsA>itemTypes<pgsB>DangleFruit<pgsA>creatureTypes\
+            <pgsB>PinkLizard<pgsA>likesPlayer<pgsB>0.5<pgsA>directionHandHolding<pgsB>0.7<pgsA>\
+            imagesShown<pgsB>SU_A22<pgsA>modKey<pgsB>1<pgsA><mwA><svA>";
+        let mut state = SaveState::new(SlugcatName::White, 0);
+        state.load_game(line, "SU_C04", true).unwrap();
+        let start = state.story_start("SU_C04".to_owned(), false);
+        assert!(start.ever_met_moon);
+        assert_eq!(start.ss_ai_conversations_had, 2);
+        let mut guide = start.guide;
+        assert_eq!(guide.super_jumps_shown(), 2);
+        assert_eq!(guide.guide_symbol(), 1);
+        assert!(guide.knows_item_type(rw_assets::AbstractObjectType::DangleFruit));
+        assert!(guide.has_image_been_shown_in_room("SU_A22"));
+        guide.set_super_jumps_shown(3);
+        guide.image_shown_in_room("SU_A37");
+        guide.increment_times_forced_direction_has_been_given(4);
+        guide.want_food_hand_holding_this_cycle = 0.25;
+        let saved = &mut state.misc_world.player_guide;
+        saved.update_from_game(&guide);
+        assert_eq!(saved.want_food_hand_holding_this_cycle, 0.25);
+        let text = saved.save_string();
+        // A forced direction makes `ToString` start over from it; each save also raises
+        // `likesPlayer` by 0.1 and `handHolding` by 0.025 (in floats).
+        assert_eq!(text, "forcedDirsGiven<pgsB>4,1<pgsA>modKey<pgsB>1<pgsA>");
+        saved.forced_directions_given.clear();
+        assert_eq!(
+            saved.save_string(),
+            "integersArray<pgsB>0.3.1.0.0.0.1<pgsA>itemTypes<pgsB>DangleFruit<pgsA>\
+             creatureTypes<pgsB>PinkLizard<pgsA>likesPlayer<pgsB>0.7<pgsA>\
+             directionHandHolding<pgsB>0.7499999<pgsA>imagesShown<pgsB>SU_A22.SU_A37<pgsA>\
+             modKey<pgsB>1<pgsA>"
         );
     }
 }

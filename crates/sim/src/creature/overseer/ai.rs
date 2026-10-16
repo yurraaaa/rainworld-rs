@@ -1,15 +1,15 @@
 //! `OverseerAI`'s state and its zip pathing matrix. The update itself is in
 //! [`super::update`], where the body, the AI and the room meet.
 
+use rw_assets::{CreatureType, ShowProjectedImageEvent};
 use rw_random::UnityRandom;
 
 use super::hologram::HologramMessage;
 use super::{PlayerGuideState, TutorialBehavior};
-use rw_assets::ShowProjectedImageEvent;
-
 use crate::Vec2;
-use crate::creature::CreatureId;
-use crate::item::ObjectId;
+use crate::creature::{CreatureId, EntityId};
+use crate::item::{Entity, ObjectId};
+use crate::trigger::InstructionViewKind;
 use crate::world::World;
 
 /// `zipPathingMatrix` and its offset: path costs from the centre tile through walls,
@@ -109,8 +109,14 @@ pub struct CommunicationModule {
     /// `imageToShow`, set by a `ShowProjectedImageEvent` trigger.
     pub image_to_show: Option<ShowProjectedImageEvent>,
     pub show_image_room: i32,
-    /// `inputInstruction`: the id of the `PickupObjectInstruction` room object.
+    /// `inputInstruction`: the id of the input instruction room object.
     pub input_instruction: Option<u64>,
+    /// `forcedDirectionToGive`: the id of a `ReliableIggyDirection` room object.
+    pub forced_direction_to_give: Option<u64>,
+    /// `objectsAlreadyTalkedAbout`: creatures warned of and food shown.
+    pub objects_already_talked_about: Vec<EntityId>,
+    pub most_dangerous_creature_in_room: Option<CreatureId>,
+    pub most_delicious_food_in_room: Option<Entity>,
 }
 
 impl CommunicationModule {
@@ -138,6 +144,53 @@ impl CommunicationModule {
             image_to_show: None,
             show_image_room: -1,
             input_instruction: None,
+            forced_direction_to_give: None,
+            objects_already_talked_about: Vec::new(),
+            most_dangerous_creature_in_room: None,
+            most_delicious_food_in_room: None,
+        }
+    }
+
+    /// `PlayerHasNowBeenWarnedOfCreature`: remembers the creature (at most 21), and its
+    /// type when it is now handled.
+    pub fn player_has_now_been_warned_of_creature(
+        &mut self,
+        id: EntityId,
+        kind: CreatureType,
+        creature_type_now_handled: bool,
+        guide: &mut PlayerGuideState,
+    ) {
+        log::info!("creature talked about: {kind:?} {creature_type_now_handled}");
+        if creature_type_now_handled && !guide.knows_creature_type(kind) {
+            guide.creature_types.push(kind.value().to_owned());
+        }
+        if self.objects_already_talked_about.contains(&id) {
+            return;
+        }
+        if self.objects_already_talked_about.len() > 20 {
+            self.objects_already_talked_about.remove(0);
+        }
+        self.objects_already_talked_about.push(id);
+    }
+
+    /// `InWorldInputInstructionCompleted`: counts the current instruction's kind.
+    pub fn in_world_input_instruction_completed(
+        &self,
+        kind: Option<InstructionViewKind>,
+        guide: &mut PlayerGuideState,
+    ) {
+        log::info!("input instruction completed");
+        match kind {
+            Some(InstructionViewKind::SuperJump { .. }) => {
+                guide.set_super_jumps_shown(guide.super_jumps_shown() + 1);
+            }
+            Some(InstructionViewKind::Pickup { .. }) => {
+                guide.set_pickup_objects_shown(guide.pickup_objects_shown() + 1);
+            }
+            Some(InstructionViewKind::ScavengerTrade { .. }) => {
+                guide.set_scav_trade_instruction_completed(true);
+            }
+            None => {}
         }
     }
 

@@ -318,7 +318,7 @@ impl World {
         if cx.session.character == SlugcatName::Red {
             return;
         }
-        if cx.guide_overseer_dead || cx.guide.angry_with_player || !roll {
+        if cx.guide_overseer_dead || cx.guide.angry_with_player() || !roll {
             return;
         }
         let den = self.offscreen_den_index();

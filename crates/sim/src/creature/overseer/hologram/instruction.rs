@@ -1,9 +1,13 @@
 //! `OverseerTutorialBehavior.InputInstruction`: the pictures of the controls the guide
-//! projects during the tutorial and for the in-world pick-up trigger (the in-world super
-//! jump and scavenger trade ones are not ported), with their controllers.
+//! projects during the tutorial and for the in-world triggers (pick up, super jump,
+//! scavenger trade), with their controllers.
+
+use rw_random::UnityRandom;
 
 use super::parts::{ButtonState, HologramPart, PartKind, SymbolPart};
-use super::{ControlPreset, HologramMessage, HologramUpdate, OverseerHologram};
+use super::{ControlPreset, HologramMessage, HologramUpdate, ImageId, OverseerHologram};
+use crate::creature::overseer::{OverseerEffect, TutorialMessage};
+use crate::trigger::{InputInstructionView, InstructionViewKind};
 use crate::{FloatExt, Vec2};
 
 /// Which picture of the controls.
@@ -54,9 +58,34 @@ pub enum Controller {
         arrow: usize,
         text_shown: bool,
     },
-    /// `ScavTradeInputInstructionController` (its trigger is not ported).
-    ScavengerTrade,
+    /// `ScavTradeInputInstructionController`: `arrow`, `holo_image` and `frame` are part
+    /// indices; `show_image` indexes [`SCAV_TRADE_IMAGES`].
+    ScavengerTrade {
+        arrow: usize,
+        holo_image: usize,
+        frame: usize,
+        phase: ScavTradePhase,
+        show_image: usize,
+        image_counter: i32,
+        show_image_timer: i32,
+    },
 }
+
+/// `ScavTradeInputInstructionController.Phase`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScavTradePhase {
+    None,
+    InitialProjections,
+    PickupPearl,
+    Projections,
+}
+
+/// The scavenger trade instruction's pictures, cycled every 80 updates.
+pub const SCAV_TRADE_IMAGES: [ImageId; 3] = [
+    ImageId::ScavOutpost,
+    ImageId::ScavAndPearls,
+    ImageId::ScavSlugcatTrade,
+];
 
 /// `WaitMeter`: 16 boxes round the player that fill up.
 #[derive(Debug, Clone, PartialEq)]
@@ -113,8 +142,10 @@ impl InputInstruction {
 impl OverseerHologram {
     /// `KeyBoardInstruction`, `GamePadInstruction` or `SwitchInstruction` for `message`:
     /// the `InputInstruction` constructor's parts (player ghost, wait meter, food
-    /// arrows), then the device's, then the red cross. `overseer_pos` places the
-    /// in-world super jump's ghost.
+    /// arrows, the scavenger trade's arrow and picture, whose `HoloImage` draws), then
+    /// the device's, then the red cross. `overseer_pos` places the in-world super jump's
+    /// ghost.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new_instruction(
         id: u64,
         message: HologramMessage,
@@ -123,6 +154,7 @@ impl OverseerHologram {
         preset: ControlPreset,
         tutorial: bool,
         overseer_pos: Vec2,
+        rng: &mut UnityRandom,
     ) -> Self {
         let mut h = Self::new(id, message, importance, room);
         let mut ghost = None;
@@ -185,7 +217,27 @@ impl OverseerHologram {
                         text_shown: false,
                     })
                 }
-                HologramMessage::ScavengerTrade => Some(Controller::ScavengerTrade),
+                HologramMessage::ScavengerTrade => {
+                    log::info!("new scav trade");
+                    let mut arrow = HologramPart::new(PartKind::FoodArrow);
+                    arrow.visible = false;
+                    let arrow = h.add_part(arrow);
+                    let mut image = Self::holo_image(rng);
+                    image.visible = false;
+                    let holo_image = h.add_part(image);
+                    let mut frame = HologramPart::new(PartKind::Frame);
+                    frame.visible = false;
+                    let frame = h.add_part(frame);
+                    Some(Controller::ScavengerTrade {
+                        arrow,
+                        holo_image,
+                        frame,
+                        phase: ScavTradePhase::None,
+                        show_image: 0,
+                        image_counter: 0,
+                        show_image_timer: 0,
+                    })
+                }
                 _ => None,
             }
         };
@@ -587,6 +639,10 @@ impl HologramUpdate<'_, '_> {
             self.pickup_object(arrow, text_shown);
             return;
         }
+        if let Controller::ScavengerTrade { .. } = controller {
+            self.scav_trade(controller);
+            return;
+        }
         let Some(p) = self.cx.player else {
             return;
         };
@@ -595,10 +651,8 @@ impl HologramUpdate<'_, '_> {
             Controller::ClimbPole => self.climb_pole(p),
             Controller::SuperJump { .. } => self.super_jump(p),
             Controller::Eat { .. } => self.eat(p),
-            Controller::PickupObject { .. } | Controller::ScavengerTrade => {
-                // `ScavengerTradeInstructionTrigger` is not ported.
-                self.holo.still_relevant = false;
-            }
+            Controller::ScavengerTrade { .. } => self.scav_trade(controller),
+            Controller::PickupObject { .. } => {}
         }
     }
 
@@ -611,10 +665,20 @@ impl HologramUpdate<'_, '_> {
             .communication
             .as_ref()
             .and_then(|c| c.input_instruction);
-        let Some(view) = id
+        let Some((view, picked, followed)) = id
             .and_then(|id| self.cx.instructions.iter().find(|i| i.id == id))
-            .copied()
             .filter(|i| !i.slated)
+            .and_then(|i| match i.kind {
+                InstructionViewKind::Pickup {
+                    player_has_picked_up_an_item,
+                    mark_instruction_as_followed,
+                } => Some((
+                    *i,
+                    player_has_picked_up_an_item,
+                    mark_instruction_as_followed,
+                )),
+                _ => None,
+            })
         else {
             self.holo.still_relevant = false;
             return;
@@ -637,27 +701,185 @@ impl HologramUpdate<'_, '_> {
                 ));
             text_shown = true;
         }
-        let picked = view.player_has_picked_up_an_item;
+        let at = view.trigger.instruction_pos;
         let pos = self.holo.pos;
         self.holo.parts[arrow].visible = !picked;
-        self.holo.parts[arrow].offset = view.instruction_pos + Vec2::new(0.0, 20.0) - pos;
+        self.holo.parts[arrow].offset = at + Vec2::new(0.0, 20.0) - pos;
         if let Some(i) = self.holo.instruction_mut() {
-            i.close_to_pos = view.instruction_pos + Vec2::new(0.0, 60.0);
+            i.close_to_pos = at + Vec2::new(0.0, 60.0);
             i.show_pickup = !picked;
             i.show_throw = picked;
             i.controller = Some(Controller::PickupObject { arrow, text_shown });
         }
-        if view.mark_instruction_as_followed {
-            // `InWorldInputInstructionCompleted`.
-            log::info!("input instruction completed");
-            self.cx.guide.pickup_objects_shown += 1;
+        if followed {
+            if let Some(comm) = self.ai.communication.as_ref() {
+                comm.in_world_input_instruction_completed(Some(view.kind), self.cx.guide);
+            }
             self.cx
                 .effects
-                .push(crate::creature::overseer::OverseerEffect::InstructionFollowed(view.id));
-            if let Some(i) = self.cx.instructions.iter_mut().find(|i| i.id == view.id) {
-                i.mark_instruction_as_followed = false;
+                .push(OverseerEffect::InstructionFollowed(view.id));
+            if let Some(InstructionViewKind::Pickup {
+                mark_instruction_as_followed,
+                ..
+            }) = self
+                .cx
+                .instructions
+                .iter_mut()
+                .find(|i| i.id == view.id)
+                .map(|i| &mut i.kind)
+            {
+                *mark_instruction_as_followed = false;
             }
         }
+    }
+
+    /// The communication's current input instruction while it is a live object.
+    fn current_instruction(&self) -> Option<InputInstructionView> {
+        let id = self.ai.communication.as_ref()?.input_instruction?;
+        self.cx.instructions.iter().find(|i| i.id == id).copied()
+    }
+
+    /// The controller set the instruction's `completed` and calls
+    /// `InWorldInputInstructionCompleted`.
+    fn complete_instruction(&mut self, view: InputInstructionView) {
+        self.cx
+            .effects
+            .push(OverseerEffect::InstructionCompleted(view.id));
+        if let Some(i) = self.cx.instructions.iter_mut().find(|i| i.id == view.id) {
+            i.trigger.completed = true;
+        }
+        let current = self.current_instruction().map(|i| i.kind);
+        if let Some(comm) = self.ai.communication.as_ref() {
+            comm.in_world_input_instruction_completed(current, self.cx.guide);
+        }
+    }
+
+    /// The realized object `o`'s first chunk.
+    fn object_pos(&self, o: crate::item::ObjectId) -> Vec2 {
+        self.cx
+            .world
+            .object(o)
+            .realized
+            .as_deref()
+            .map_or(Vec2::ZERO, |w| w.body.chunks[0].pos)
+    }
+
+    /// `ScavTradeInputInstructionController.Update`: once its trigger has found a pearl,
+    /// the trade pictures (with an arrow at the pearl), then the pick-up input until
+    /// the player holds the pearl, then the pictures again with the text; it counts as
+    /// shown 400 updates after that.
+    fn scav_trade(&mut self, controller: Controller) {
+        let Controller::ScavengerTrade {
+            arrow,
+            holo_image,
+            frame,
+            mut phase,
+            mut show_image,
+            mut image_counter,
+            mut show_image_timer,
+        } = controller
+        else {
+            return;
+        };
+        let current = self
+            .current_instruction()
+            .filter(|i| !i.slated && i.trigger.activated);
+        let Some((view, placed_at, pearl)) = current.and_then(|i| match i.kind {
+            InstructionViewKind::ScavengerTrade { pos, pearl } => Some((i, pos, pearl)),
+            _ => None,
+        }) else {
+            self.holo.still_relevant = false;
+            return;
+        };
+        let pos = self.holo.pos;
+        let pearl_pos = pearl.map_or(Vec2::ZERO, |o| self.object_pos(o));
+        let mut show_pickup = false;
+        let mut hide_inputs = None;
+        let mut close_to = None;
+        self.holo.parts[arrow].visible = false;
+        self.holo.parts[holo_image].visible = false;
+        self.holo.parts[frame].visible = false;
+        match phase {
+            ScavTradePhase::None => {
+                if pearl.is_some() {
+                    phase = ScavTradePhase::InitialProjections;
+                }
+            }
+            ScavTradePhase::PickupPearl => {
+                show_pickup = true;
+                close_to = Some(pearl_pos + Vec2::new(0.0, 60.0));
+                self.holo.parts[arrow].visible = true;
+                self.holo.parts[arrow].offset = pearl_pos + Vec2::new(0.0, 20.0) - pos;
+                let held = pearl.is_some_and(|o| {
+                    self.cx
+                        .world
+                        .grabbed_by(crate::item::Entity::Object(o))
+                        .first()
+                        .is_some_and(|g| g.grabber == self.cx.player_id)
+                });
+                if held {
+                    phase = ScavTradePhase::Projections;
+                }
+            }
+            ScavTradePhase::InitialProjections | ScavTradePhase::Projections if self.cx.hud => {
+                self.holo.parts[holo_image].visible = true;
+                self.holo.parts[frame].visible = true;
+                if self.holo.parts[holo_image].part_fade > 0.9 {
+                    show_image_timer += 1;
+                }
+                hide_inputs = Some(true);
+                close_to = Some(placed_at);
+                if phase == ScavTradePhase::InitialProjections {
+                    self.holo.parts[arrow].visible = true;
+                    self.holo.parts[arrow].offset = pearl_pos + Vec2::new(0.0, 20.0) - pos;
+                    if show_image_timer > 240 {
+                        show_image_timer = 0;
+                        phase = ScavTradePhase::PickupPearl;
+                        hide_inputs = Some(false);
+                    }
+                } else if show_image_timer == 220 {
+                    self.cx
+                        .effects
+                        .push(OverseerEffect::Message(TutorialMessage {
+                            text: "These pearls are valued by the Scavengers",
+                            wait: 0,
+                            time: 200,
+                            hide_hud: true,
+                        }));
+                } else if show_image_timer > 400 && !view.trigger.completed {
+                    show_image_timer = 0;
+                    self.complete_instruction(view);
+                }
+                image_counter += 1;
+                if image_counter > 80 {
+                    image_counter = 0;
+                    show_image += 1;
+                    if show_image >= SCAV_TRADE_IMAGES.len() {
+                        show_image = 0;
+                    }
+                }
+            }
+            ScavTradePhase::InitialProjections | ScavTradePhase::Projections => {}
+        }
+        let Some(i) = self.holo.instruction_mut() else {
+            return;
+        };
+        i.show_pickup = show_pickup;
+        if let Some(h) = hide_inputs {
+            i.hide_inputs = h;
+        }
+        if let Some(c) = close_to {
+            i.close_to_pos = c;
+        }
+        i.controller = Some(Controller::ScavengerTrade {
+            arrow,
+            holo_image,
+            frame,
+            phase,
+            show_image,
+            image_counter,
+            show_image_timer,
+        });
     }
 
     /// `GetUpOnFirstBox.Update`.
@@ -714,13 +936,14 @@ impl HologramUpdate<'_, '_> {
         }
     }
 
-    /// `SuperJump.Update` (in the tutorial; the in-world trigger is not ported).
+    /// `SuperJump.Update`: SU_A43's lesson, or the in-world `SuperJumpInstruction`
+    /// (done once the player's main chunk is within 50 px of its first handle).
     fn super_jump(&mut self, p: crate::creature::overseer::PlayerView) {
         let Some(Controller::SuperJump {
             in_tutorial_section,
             mut in_position_counter,
             move_keys_up,
-            jump_direction,
+            mut jump_direction,
         }) = self.holo.instruction().and_then(|i| i.controller.clone())
         else {
             return;
@@ -771,8 +994,33 @@ impl HologramUpdate<'_, '_> {
                     t.player_has_made_super_jump = true;
                 }
             }
+        } else if let Some(view) = self.current_instruction() {
+            self.holo.still_relevant = self.holo.still_relevant && !view.trigger.completed;
+            if let InstructionViewKind::SuperJump { pos, handles } = view.kind {
+                // `Mathf.Sign`: 1 for 0.
+                jump_direction = if handles[0].x >= 0.0 { 1 } else { -1 };
+                let ghost = self.holo.instruction_mut().and_then(|i| {
+                    i.close_to_pos = pos + Vec2::new(0.0, 20.0);
+                    i.player_ghost
+                });
+                if let Some(g) = ghost
+                    && let PartKind::PlayerGhost {
+                        symbol,
+                        room_position,
+                    } = &mut self.holo.parts[g].kind
+                {
+                    *room_position = Some(pos);
+                    symbol.scale_x = jump_direction as f32;
+                }
+                if p.pos.dist_less(pos + handles[0], 50.0) {
+                    self.complete_instruction(view);
+                }
+            } else {
+                // The game casts it to `SuperJumpInstruction` and throws.
+                log::warn!("in-world super jump hologram over another instruction");
+                self.holo.still_relevant = false;
+            }
         } else {
-            // `communication.inputInstruction` (a `SuperJumpInstruction`) is never set.
             self.holo.still_relevant = false;
         }
         let ghost = self.holo.instruction().and_then(|i| i.player_ghost);
@@ -820,9 +1068,7 @@ impl HologramUpdate<'_, '_> {
         }
         in_position_counter = if hold { in_position_counter + 1 } else { 0 };
         if in_tutorial_section && in_position_counter < 60 {
-            self.cx
-                .effects
-                .push(crate::creature::overseer::OverseerEffect::ResetSuperLaunchJump);
+            self.cx.effects.push(OverseerEffect::ResetSuperLaunchJump);
         }
         let pos = self.holo.pos;
         let Some(i) = self.holo.instruction_mut() else {

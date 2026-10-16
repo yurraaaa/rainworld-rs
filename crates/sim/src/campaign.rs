@@ -202,9 +202,12 @@ pub struct StoryStart {
     pub live_region_state: Option<crate::world::RegionState>,
     /// The first player's `swallowedItems` entry (`""` and `"0"` are none).
     pub swallowed_item: Option<String>,
-    /// `miscWorldSaveData.playerGuideState` as loaded (its like, hand holding and
-    /// anger; the rest of the save's guide state is not read yet).
+    /// `miscWorldSaveData.playerGuideState` as loaded.
     pub guide: PlayerGuideState,
+    /// `miscWorldSaveData.EverMetMoon`.
+    pub ever_met_moon: bool,
+    /// `miscWorldSaveData.SSaiConversationsHad`.
+    pub ss_ai_conversations_had: i32,
     /// `deathPersistentSaveData.DangleFruitInWaterMessage`.
     pub dangle_fruit_in_water_message: bool,
 }
@@ -233,6 +236,8 @@ impl StoryStart {
             live_region_state: None,
             swallowed_item: None,
             guide: PlayerGuideState::default(),
+            ever_met_moon: false,
+            ss_ai_conversations_had: 0,
             dangle_fruit_in_water_message: false,
         }
     }
