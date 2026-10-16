@@ -107,6 +107,21 @@ pub struct HoloLightState {
     pub active_linger: i32,
     pub respawn: bool,
     pub power_down_and_kill: bool,
+    /// Its `LightSource`, once made.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub light_source: Option<LightSourceState>,
+}
+
+/// A `LightSource` (pos, rad and alpha as last drawn).
+#[derive(Debug, Clone, Serialize)]
+pub struct LightSourceState {
+    pub pos: [f32; 2],
+    pub rad: f32,
+    pub alpha: f32,
+    /// After the setter's division by its largest component.
+    pub color: [f32; 3],
+    /// Not slated for deletion.
+    pub alive: bool,
 }
 
 /// One room's den contents, by EntityID.

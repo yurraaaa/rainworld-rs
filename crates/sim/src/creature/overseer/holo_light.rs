@@ -4,7 +4,7 @@
 use rw_random::UnityRandom;
 
 use crate::creature::CreatureId;
-use crate::{FloatExt, Vec2};
+use crate::{FloatExt, LightSource, Vec2};
 
 /// A `HologramLight` in its room's update list.
 #[derive(Debug, Clone, PartialEq)]
@@ -36,8 +36,19 @@ pub struct HologramLight {
     pub power_down_and_kill: bool,
     pub respawn: bool,
     pub active_linger: i32,
-    /// Its `LightSource` was made (on the first update); it only lights the drawing.
-    pub light_source: bool,
+    /// Its `LightSource`'s id, made on its first update.
+    pub light_source: Option<u64>,
+}
+
+/// What `Update` does with its `LightSource`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum LightSourceStep {
+    Keep,
+    /// None yet: make one at this position, warm (1, 0.8, 0.3) and tied to the light.
+    Create(Vec2),
+    /// It was slated or left the room: destroy it and forget it (a new one is made
+    /// next update).
+    Destroy(u64),
 }
 
 /// What `HologramLight.Update` reads of its overseer and player.
@@ -64,6 +75,8 @@ pub struct HoloLightTick {
     pub hips: Vec2,
     /// `HologramLight.Needed(player)`.
     pub needed: f32,
+    /// Its light source is slated or in another room.
+    pub light_source_gone: bool,
 }
 
 impl HologramLight {
@@ -94,7 +107,7 @@ impl HologramLight {
             power_down_and_kill: false,
             respawn: false,
             active_linger: 0,
-            light_source: false,
+            light_source: None,
         }
     }
 
@@ -105,8 +118,9 @@ impl HologramLight {
 
     /// `Update`: three to nine draws (the displacement goal's chance, two more when it
     /// moves and three more when it leaves 60 px; the flicker's two chances and a value
-    /// after each that passes).
-    pub fn update(&mut self, t: &HoloLightTick, rng: &mut UnityRandom) {
+    /// after each that passes). The caller makes or destroys the light source.
+    #[must_use]
+    pub fn update(&mut self, t: &HoloLightTick, rng: &mut UnityRandom) -> LightSourceStep {
         self.last_pos = self.pos;
         self.last_power = self.power;
         self.last_displace = self.displace;
@@ -157,7 +171,14 @@ impl HologramLight {
         } else if self.active_linger > 0 {
             self.active_linger -= 1;
         }
-        self.light_source = true;
+        let step = match self.light_source {
+            None => LightSourceStep::Create(self.pos),
+            Some(id) if t.light_source_gone => {
+                self.light_source = None;
+                LightSourceStep::Destroy(id)
+            }
+            Some(_) => LightSourceStep::Keep,
+        };
         if t.player_here
             && !t.player_entering_shortcut
             && self.active_linger > 0
@@ -185,6 +206,7 @@ impl HologramLight {
         if t.player_elsewhere || !t.still_the_guides || self.not_needed_counter >= 500 {
             self.power_down_and_kill = true;
         }
+        step
     }
 
     /// The light fades out before it jumps to the player, then follows it and powers
@@ -210,15 +232,31 @@ impl HologramLight {
         self.power = cap.min(self.power + 1.0 / 30.0);
     }
 
-    /// `HologramLight.Needed`: how dark it is around the player in the camera's room
-    /// (`InverseLerp(0.85, 0.92, darkness)`), 0 when dead or below 0.85. No light
-    /// sources or lanterns are ported, so none lighten it.
+    /// `HologramLight.Needed`: how dark it is around the player at `pos` in the
+    /// camera's room (`InverseLerp(0.85, 0.92, darkness)`), 0 when dead or below 0.85;
+    /// less near each light source of rad above 120 and alpha above 0.2. No lanterns
+    /// are ported.
     #[must_use]
-    pub fn needed(in_camera_room: bool, darkness: f32, dead: bool) -> f32 {
+    pub fn needed(
+        in_camera_room: bool,
+        darkness: f32,
+        dead: bool,
+        pos: Vec2,
+        lights: &[LightSource],
+    ) -> f32 {
         if !in_camera_room || darkness < 0.85 || dead {
             return 0.0;
         }
-        darkness.inverse_lerp(0.85, 0.92)
+        let mut needed = darkness.inverse_lerp(0.85, 0.92);
+        for l in lights.iter().filter(|l| !l.slated) {
+            if l.rad > 120.0 && l.alpha > 0.2 && pos.dist_less(l.pos, l.rad + 200.0) {
+                needed -= pos.distance(l.pos).inverse_lerp(l.rad + 200.0, l.rad * 0.8);
+                if needed <= 0.0 {
+                    return 0.0;
+                }
+            }
+        }
+        needed
     }
 }
 
@@ -226,9 +264,9 @@ impl HologramLight {
 mod tests {
     use rw_random::UnityRandom;
 
-    use super::{HoloLightTick, HologramLight};
-    use crate::Vec2;
+    use super::{HoloLightTick, HologramLight, LightSourceStep};
     use crate::creature::CreatureId;
+    use crate::{LightSource, Vec2};
 
     fn tick() -> HoloLightTick {
         HoloLightTick {
@@ -243,6 +281,7 @@ mod tests {
             main_chunk: (Vec2::new(100.0, 100.0), Vec2::new(100.0, 100.0)),
             hips: Vec2::new(100.0, 90.0),
             needed: 0.7,
+            light_source_gone: false,
         }
     }
 
@@ -273,7 +312,7 @@ mod tests {
         for _ in 0..3 {
             expected.value();
         }
-        light.update(&tick(), &mut rng);
+        let _ = light.update(&tick(), &mut rng);
         assert_eq!(rng, expected);
 
         let s = (0..)
@@ -293,7 +332,7 @@ mod tests {
         for _ in 0..5 {
             expected.value();
         }
-        light.update(&tick(), &mut rng);
+        let _ = light.update(&tick(), &mut rng);
         assert_eq!(rng, expected);
         assert!(light.displace_goal.length() <= 20.0);
         assert!(light.displace_goal.length() > 0.0);
@@ -308,7 +347,7 @@ mod tests {
         let mut light = HologramLight::new(1, 0, CreatureId(1));
         light.pos = Vec2::new(100.0, 150.0);
         let mut rng = UnityRandom::new(3);
-        light.update(&tick(), &mut rng);
+        let _ = light.update(&tick(), &mut rng);
         let goal = Vec2::new(100.0, 97.0);
         let expected = Vec2::new(100.0, 143.0).lerp(goal, 0.1);
         assert!(light.pos.distance(expected) < 1e-3);
@@ -321,28 +360,63 @@ mod tests {
             ..tick()
         };
         for _ in 0..499 {
-            light.update(&dark, &mut rng);
+            let _ = light.update(&dark, &mut rng);
         }
         assert_eq!(light.not_needed_counter, 499);
         assert!(!light.power_down_and_kill);
-        light.update(&dark, &mut rng);
+        let _ = light.update(&dark, &mut rng);
         assert!(light.power_down_and_kill);
         let mut ticks = 0;
         while !light.slated {
-            light.update(&dark, &mut rng);
+            let _ = light.update(&dark, &mut rng);
             ticks += 1;
             assert!(ticks < 100);
         }
         assert_eq!(light.power, 0.0);
     }
 
-    /// `Needed`: `InverseLerp(0.85, 0.92, darkness)` in the camera's room, alive.
+    /// The first update asks for a light source where the light was before it moved;
+    /// with one it is kept, and one gone (slated or moved) is destroyed and forgotten.
+    #[test]
+    fn makes_and_drops_its_light_source() {
+        let mut light = HologramLight::new(1, 0, CreatureId(1));
+        light.pos = Vec2::new(100.0, 150.0);
+        let mut rng = UnityRandom::new(3);
+        let step = light.update(&tick(), &mut rng);
+        assert_eq!(step, LightSourceStep::Create(Vec2::new(100.0, 150.0)));
+        assert_ne!(light.pos, Vec2::new(100.0, 150.0));
+        light.light_source = Some(7);
+        assert_eq!(light.update(&tick(), &mut rng), LightSourceStep::Keep);
+        let gone = HoloLightTick {
+            light_source_gone: true,
+            ..tick()
+        };
+        assert_eq!(light.update(&gone, &mut rng), LightSourceStep::Destroy(7));
+        assert_eq!(light.light_source, None);
+    }
+
+    /// `Needed`: `InverseLerp(0.85, 0.92, darkness)` in the camera's room, alive; a
+    /// light of rad 200 and alpha 0.5 takes `InverseLerp(400, 160, distance)` off it
+    /// within 400 px; the guide light's own (alpha at most 0.1) none.
     #[test]
     fn needed_by_darkness() {
-        assert_eq!(HologramLight::needed(true, 0.8, false), 0.0);
-        assert!((HologramLight::needed(true, 0.9, false) - 0.05 / 0.07).abs() < 1e-6);
-        assert_eq!(HologramLight::needed(true, 1.0, false), 1.0);
-        assert_eq!(HologramLight::needed(false, 1.0, false), 0.0);
-        assert_eq!(HologramLight::needed(true, 1.0, true), 0.0);
+        let p = Vec2::ZERO;
+        assert_eq!(HologramLight::needed(true, 0.8, false, p, &[]), 0.0);
+        assert!((HologramLight::needed(true, 0.9, false, p, &[]) - 0.05 / 0.07).abs() < 1e-6);
+        assert_eq!(HologramLight::needed(true, 1.0, false, p, &[]), 1.0);
+        assert_eq!(HologramLight::needed(false, 1.0, false, p, &[]), 0.0);
+        assert_eq!(HologramLight::needed(true, 1.0, true, p, &[]), 0.0);
+        let mut light = LightSource::new(1, 0, Vec2::new(280.0, 0.0), false, [1.0; 3], None);
+        light.rad = 200.0;
+        light.alpha = 0.5;
+        let n = HologramLight::needed(true, 1.0, false, p, std::slice::from_ref(&light));
+        assert!((n - 0.5).abs() < 1e-6);
+        light.alpha = 0.1;
+        let n = HologramLight::needed(true, 1.0, false, p, std::slice::from_ref(&light));
+        assert_eq!(n, 1.0);
+        light.alpha = 0.5;
+        light.pos = Vec2::new(100.0, 0.0);
+        let n = HologramLight::needed(true, 1.0, false, p, std::slice::from_ref(&light));
+        assert_eq!(n, 0.0);
     }
 }

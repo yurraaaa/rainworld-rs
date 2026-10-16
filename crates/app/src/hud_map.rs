@@ -68,7 +68,7 @@ impl Game {
             discovery_active: sim.map_discovery_active(),
             in_room_pos,
             room,
-            complete_darkness: sim.complete_darkness(room),
+            complete_darkness: sim.complete_darkness(room, player.chunks()[HEAD].pos),
             input: player.map_input(),
             rooms_visited,
             now_ticks: MapOwner::now_ticks(),

@@ -55,7 +55,7 @@ pub use stage::{
 pub use status::{BodyStatus, BodyStyle};
 pub use water::WaterSurface;
 pub use water_sprites::{
-    ApplyDepth, PlayerLight, WaterFrame, WaterSprites, WaterTriangleMesh, WaterVertex,
+    ApplyDepth, PlayerLight, SurfaceLight, WaterFrame, WaterSprites, WaterTriangleMesh, WaterVertex,
 };
 
 use rw_assets::{PngImage, Room, TILE_SIZE};
@@ -123,9 +123,11 @@ pub trait Renderer {
     /// `pos - cam_pos`; `cam_pos` is the game's `floor(camera) - 0.02` (the level view
     /// origin), and the same for every call in a frame. Call it with
     /// [`Layer::Midground`] then [`Layer::Items`] before
-    /// [`draw_level`](Renderer::draw_level) and [`Layer::Foreground`] after, as the
-    /// game's containers order them, and [`Layer::Bloom`] after the water. The shaders' `_spriteRect`, `_screenSize` and
-    /// `_RAIN` come from the frame's level, `_NoiseTex2` from the stage globals.
+    /// [`draw_level`](Renderer::draw_level) and [`Layer::Foreground`] then
+    /// [`Layer::ForegroundLights`] after, as the game's containers order them, and
+    /// [`Layer::Bloom`] after the water. The shaders' `_spriteRect`, `_screenSize`,
+    /// `_RAIN` and `_NoiseTex` come from the frame's level, `_NoiseTex2` from the stage
+    /// globals.
     /// Nothing is drawn before an atlas is set.
     fn draw_sprites(&mut self, list: &DrawList, layer: Layer, cam_pos: [f32; 2]);
 

@@ -22,7 +22,7 @@ use crate::item::{AbstractObject, Entity, ObjectId};
 use crate::tests::room;
 use crate::trigger::TriggerObjectKind;
 use crate::world::World;
-use crate::{Input, RainWorldGame, Sounds, Start, Vec2};
+use crate::{Input, LightSource, LightTie, RainWorldGame, Sounds, Start, Vec2};
 
 /// SU_A13's `SuperJumpInstruction` handles moved to (200, 100): the trigger line runs
 /// from (240, 70) (handle 2) to (160, 50) (handle 1); handle 0 at (260, 100) is the
@@ -475,6 +475,64 @@ fn the_monk_in_the_dark_gets_the_guides_light() {
             assert!(light.power > 0.0);
         }
     }
+}
+
+/// The guide's light makes its `LightSource` (warm, tied to it, at rad and alpha 0
+/// until drawn) on its first update; the light source, newer in the update list,
+/// first updates the next tick. Once the guide's light is destroyed, the dark light
+/// source is destroyed on its next update.
+#[test]
+fn the_guides_light_has_a_light_source() {
+    let (mut g, _) = game("", Vec::new(), new_game());
+    g.campaign = &SlugcatCampaign::MONK;
+    g.placed_test_guide(Vec2::new(200.0, 100.0));
+    g.set_camera_darkness(0.9);
+    g.update_room(0, Input::NONE, &mut ());
+    let r = g.world.realized(0).expect("room");
+    assert_eq!(r.holo_lights.len(), 1);
+    assert!(r.light_sources.is_empty());
+    g.update_room(0, Input::NONE, &mut ());
+    let r = g.world.realized(0).expect("room");
+    let (holo, light) = (&r.holo_lights[0], &r.light_sources[0]);
+    assert_eq!(holo.light_source, Some(light.id));
+    assert_eq!(light.tied_to, Some(LightTie::HoloLight(holo.id)));
+    assert_eq!((light.color, light.color_alpha), ([1.0, 0.8, 0.3], 1.0));
+    assert_eq!((light.rad, light.alpha, light.slated), (0.0, 0.0, false));
+    for _ in 0..10 {
+        g.update_room(0, Input::NONE, &mut ());
+    }
+    let r = g.world.realized(0).expect("room");
+    assert_eq!((r.holo_lights.len(), r.light_sources.len()), (1, 1));
+    assert_eq!(r.light_sources[0].last_pos, r.light_sources[0].pos);
+
+    g.world.realized_mut(0).expect("room").holo_lights[0].slated = true;
+    g.set_camera_darkness(0.0);
+    g.update_room(0, Input::NONE, &mut ());
+    let r = g.world.realized(0).expect("room");
+    assert!(r.holo_lights.is_empty());
+    assert!(r.light_sources.is_empty());
+}
+
+/// `CompleteDarkness(pos, 0, 0.95, false)`: the camera's room at darkness 0.95 or
+/// more, unless a light source's rad reaches `pos`.
+#[test]
+fn light_sources_break_complete_darkness() {
+    let (mut g, _) = game("", Vec::new(), new_game());
+    g.set_camera_darkness(0.95);
+    let pos = Vec2::new(100.0, 100.0);
+    assert!(g.complete_darkness(0, pos));
+    let mut light = LightSource::new(9, 0, Vec2::new(200.0, 100.0), false, [1.0; 3], None);
+    light.rad = 100.0;
+    g.world
+        .realized_mut(0)
+        .expect("room")
+        .light_sources
+        .push(light);
+    assert!(g.complete_darkness(0, pos));
+    g.world.realized_mut(0).expect("room").light_sources[0].rad = 100.5;
+    assert!(!g.complete_darkness(0, pos));
+    g.set_camera_darkness(0.94);
+    assert!(!g.complete_darkness(0, Vec2::new(0.0, 0.0)));
 }
 
 impl RainWorldGame {

@@ -4,7 +4,8 @@
 // `Futile/Basic`, fs_flat_light `FlatLight`, fs_overseer_zip `OverseerZip`,
 // fs_hologram `Hologram`, fs_light_source `LightSource`, fs_holo_grid `HoloGrid`,
 // fs_hologram_image `HologramImage`, fs_shortcut `ShortCut0`, fs_colored_sprite3
-// `ColoredSprite2` with `no_grab_tex` (the `ColoredSprite3` shader).
+// `ColoredSprite2` with `no_grab_tex` (the `ColoredSprite3` shader),
+// fs_under_water_light `UnderWaterLight`.
 //
 // `uv` is where the port's atlas is sampled; `tex` is the shader's `i.uv` (they differ
 // only for `Futile_White`, a texture of its own in the game).
@@ -43,6 +44,9 @@ const SCREEN_PIXEL_OFFSET: vec2<f32> = vec2(-0.5, 0.5);
 @group(2) @binding(1) var behind_tex: texture_2d<f32>;
 @group(2) @binding(2) var grab_tex: texture_2d<f32>;
 @group(2) @binding(3) var pal_tex: texture_2d<f32>;
+// `_NoiseTex` (`Palettes/noise`, bilinear, repeat).
+@group(2) @binding(4) var noise_tex: texture_2d<f32>;
+@group(2) @binding(5) var noise_sampler: sampler;
 
 struct VertexOut {
     @builtin(position) position: vec4<f32>,
@@ -233,6 +237,56 @@ fn fs_light_source(in: VertexOut) -> @location(0) vec4<f32> {
     }
     dist *= textureSampleLevel(atlas, atlas_sampler, in.uv, 0.0).x;
     return vec4(in.color.rgb, dist * in.color.a * (0.65 + highlight * 0.35));
+}
+
+fn noise_at(uv: vec2<f32>) -> f32 {
+    return textureSampleLevel(noise_tex, noise_sampler, uv, 0.0).x;
+}
+
+// `UnderWaterLight` (not `VOIDSEA`, not `strong`; no brain mold or ripple): the level
+// read a little displaced by noise, near pixels lit most, 6/30 over a creature drawn
+// behind the level (the last grab, as `LightSource`); a soft disc grown by depth,
+// rippled by two noise sines, `(clr.rgb, dist * clr.a * lerp(0.75, 0.5, centerDist))`.
+@fragment
+fn fs_under_water_light(in: VertexOut) -> @location(0) vec4<f32> {
+    var tc = level_coord(in.scr);
+    let rbcol = sin((room.rain + noise_at(tc * 1.2) * 3.0) * 3.14 * 2.0) * 0.5 + 0.5;
+    var distortion = vec2(
+        mix(-0.002, 0.002, rbcol) * mix(1.0, 20.0, pow(in.tex.y, 200.0)),
+        -0.02 * pow(in.tex.y, 8.0),
+    );
+    distortion = floor(distortion * room.screen) / room.screen;
+    var dist = depth_of(level_at(tc + distortion));
+    if dist > 6.0 / 30.0 && drawn(textureLoad(behind_tex, frame_px(in.scr), 0)) {
+        dist = 6.0 / 30.0;
+    }
+    let dir = normalize(in.tex - vec2(0.5));
+    let cd = clamp(distance(in.tex, vec2(0.5)) * 2.0, 0.0, 1.0);
+    tc += cd * dir * 0.02;
+    let d = dist;
+    if dist < 0.2 {
+        dist = pow(1.0 - dist * 5.0, 0.35);
+    } else {
+        dist = clamp((dist - 0.2) * 1.3, 0.0, 1.0);
+    }
+    dist = 1.0 - dist;
+    dist *= pow(pow(1.0 - pow(min(cd + d * 0.5, 1.0), 2.0), 3.5), 1.0);
+    var wave = room.rain * 6.0 + noise_at(vec2(
+        d / 10.0 + mix(tc.x, 0.5, d / 3.0) * 2.1,
+        room.rain * 0.1 + d / 5.0 + mix(tc.y, 0.5, d / 3.0) * 2.1,
+    )) * 7.0;
+    let col = sin(wave * 3.14 * 2.0) * 0.5 + 0.5;
+    tc += dir * 0.15 * pow(1.0 - cd, 1.7);
+    wave = room.rain * 2.7 + noise_at(vec2(
+        d / 7.0 + mix(tc.x, 0.5, d / 5.0) * 1.3,
+        room.rain * -0.21 + d / 8.0 + mix(tc.y, 0.5, d / 6.0) * 1.3,
+    )) * 6.33;
+    let col2 = sin(wave * 3.14 * 2.0) * 0.5 + 0.5;
+    if pow(max(col, col2), 47.0) >= 0.8 {
+        dist = pow(dist, 0.6 + 0.4 * cd);
+    }
+    dist *= mix(1.0, max(col, col2), pow(cd, 1.5));
+    return vec4(in.color.rgb, dist * in.color.a * mix(0.75, 0.5, cd));
 }
 
 // `HoloGrid`'s `DepthAtTextCoord`: the level depth, 6/30 over a creature drawn behind

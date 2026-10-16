@@ -403,7 +403,9 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   element; a `Hologram` sprite of `Futile_White` would read its sideways-shifted alpha
   from the atlas around that element instead of a white texture (the overseer's
   hologram lines use `pixel`, which is in the atlas as in the game).
-  `LightSource` (an overseer hologram's light) runs the base-game path only (sloped
+  `LightSource` (an overseer hologram's light and the guide light's `LightSource`; the
+  game draws the latter as a 64-segment `CircularSprite`, the port as a quad, the same
+  pixels as the shader is 0 outside the inscribed circle) runs the base-game path only (sloped
   terrain masked black, creatures masked with a grab of the frame taken before the level
   image is drawn; the game reads the last unnamed GrabPass, which differs only if a
   projected image was drawn earlier in the Bloom container); the grab is sampled
@@ -632,8 +634,9 @@ restrictions (`rainworld-re/notes/water.md`), base game with Remix off, Survivor
   palette water colours, shine, the player light with `outOfBreathFac`, `_waterDepth`
   from `waterInFrontOfTerrain` (2/31 for `GATE_` rooms, taken from the name), in the
   `Water` container after the level, foreground sprites and shortcuts. The debug view
-  keeps its own flat translucent water. Still differing: no light sources screen onto
-  the surface colour (`GetSurfaceColor`'s light loop; no lights are ported), splashes
+  keeps its own flat translucent water. Light sources screen onto the surface colour
+  (`GetSurfaceColor`'s light loop) as they were before the frame's drawing, as in the
+  game. Still differing: splashes
   and bubbles (separate `Splash` / `Bubble` objects, not part of `Water`'s sprites) are
   not drawn, the water gates' `cosmeticLowerBorder` / `cosmeticSurfaceDisplace` and the
   DLC branches (`WaterSlush`, air pockets, inverted water, `Gutter`, ripple, brain
@@ -1091,10 +1094,15 @@ second part, else a single-room world for arena levels). The campaign descriptio
   `RoomCamera` and `Room.AddObject`, not checked.
   The Monk's guide light is ported (`Player.Update`'s `HologramLight.TryCreate`, the
   light's `Update` with its draws, `BringGuide(world, -0.8)` when the guide cannot
-  project, the communication module dropping a light that left its room). `Needed`
-  reads camera 0's palette darkness only: no light sources or lanterns are ported, so
-  none lighten a room, and the light's own `LightSource` (alpha at most 0.1) is not
-  drawn. Its `HoloGrid` glow and lines are drawn. The light lives in its realized room
+  project, the communication module dropping a light that left its room) with its
+  `LightSource` (made on its first update, hard-set by its drawing, fading and
+  destroyed once the light is gone; drawn in `ForegroundLights` with `LightSource`,
+  and in rooms with water also in `Water` with `UnderWaterLight`, base-game path:
+  no void sea, `strong`, brain mold or ripple). `Needed` and `CompleteDarkness` (the
+  map discovery's) read the room's light sources; no lanterns are ported. A light
+  source's rad and alpha come from its owner's drawing, as in the game; headless runs
+  (MCP `step` draws nothing) leave the guide light's at their last drawn values (0
+  until a frame is drawn). The light's `HoloGrid` glow and lines are drawn. The light lives in its realized room
   and goes with it; once its overseer is unrealized the light keeps its last eye
   position and counts as still the guide's (the game's stale overseer object keeps
   both). Skipped by the user for now (2026-10-16): realized data pearls (the
@@ -1354,8 +1362,7 @@ story session.
   (the karma flower is not spawned, so the world load's clearing of the position when
   the flower is gone is not ported); a saved coordinate in the old numeric-room form
   places no death marker or flower (the port does not resolve room indices from old
-  saves); `CompleteDarkness` is the camera palette's darkness alone (no
-  light sources are ported); in a shortcut the owner's position is its vessel's tile
+  saves); in a shortcut the owner's position is its vessel's tile
   even while the vessel waits for another room; the cycle label counts 19 cycles (no
   Remix settings, no extra cycles). Not ported: the More Slugcats gate locks, Remix's
   item and creature markers and fast reveal, Watcher warp and spinning-top markers, and

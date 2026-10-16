@@ -17,7 +17,7 @@ pub use abstract_ai::{OverseerAbstractAi, TUTORIAL_ROOMS};
 pub use ai::{CommunicationModule, OverseerAi, PlayerConcern, ZipMatrix};
 pub use body::{APPENDAGE_SEGMENTS, OverseerBody, OverseerMode};
 pub use guide_state::PlayerGuideState;
-pub use holo_light::{HoloLightTick, HologramLight};
+pub use holo_light::{HoloLightTick, HologramLight, LightSourceStep};
 pub use tutorial::{TutorialBehavior, TutorialMessage};
 pub use update::{EdibleView, OverseerColor, OverseerView, PlayerView};
 pub(crate) use update::{OverseerEffect, OverseerTick, OverseerUpdate, StoryStats};
