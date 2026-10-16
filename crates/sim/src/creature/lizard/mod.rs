@@ -5,7 +5,7 @@
 //! physics, shortcut travel, damage (`Violence`, `Stun`, `SpearStick`, the head shield,
 //! hits in the mouth), biting, `CarryObject`, terrain impacts and `SpitOutOfShortCut`.
 //! The AI is a stand-in ([`LizardAi`]: its path finder and the base AI's updates;
-//! `LizardAI`'s behaviours are lizard step 7); the voice is step 5b. The graphics module
+//! `LizardAI`'s behaviours are lizard step 7); the voice is [`LizardVoice`]. The graphics module
 //! is `rw-graphics`' `LizardGraphics`; what it shares with the body is
 //! [`LizardGraphicsLink`] (docs/DIVERGENCES.md D14).
 //!
@@ -18,6 +18,7 @@ mod breed;
 mod bubble;
 mod graphics_link;
 mod movement;
+mod voice;
 
 use rw_random::UnityRandom;
 
@@ -26,9 +27,13 @@ pub use breed::{LizardBreedParams, SpeedMultiplier};
 pub use bubble::LizardBubble;
 pub use graphics_link::{
     BubbleHead, LightUpkeep, LizardGraphicsLink, LizardGraphicsTick, LizardHead, LizardSpawn,
-    LizardView,
+    LizardView, LizardVoiceView,
 };
 pub use movement::{AnimationOutcome, BodyPartDestination, MovementAnimation};
+pub use voice::{
+    LizardEmotion, LizardVoice, VoiceArticulation, VoiceCx, VoicePlayback, VoiceSound,
+    VoiceSpectrum,
+};
 
 use super::{AbstractCreature, WorldCoordinate};
 use crate::object::{BodyChunkConnection, ConnectionKind, PhysicalObject};
@@ -149,6 +154,9 @@ pub struct Lizard {
     /// Its `LizardGraphics` module's shared state, while it has one (its room is
     /// viewed and the app builds graphics).
     pub graphics: Option<LizardGraphicsLink>,
+    /// `voice`, built on first use from the game's sound table (its constructor draws
+    /// only on the ID's seed, so when makes no difference).
+    pub voice: Option<LizardVoice>,
     pub ai: LizardAi,
     /// `shortCutRadAdd`.
     pub short_cut_rad_add: f32,
@@ -260,6 +268,7 @@ impl Lizard {
             bite_control_reset: false,
             effect_color,
             graphics: None,
+            voice: None,
             ai: LizardAi::default(),
             short_cut_rad_add: 0.0,
             upcoming_connections: Vec::new(),

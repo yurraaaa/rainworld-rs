@@ -44,6 +44,15 @@ pub struct LizardGraphicsLink {
     pub parts: Vec<Vec2>,
     /// Velocity added to `bodyParts[i]` since the module's last update.
     pub pushes: Vec<(usize, Vec2)>,
+    /// The module's voice reading as of its last update.
+    pub voice: LizardVoiceView,
+}
+
+/// `voiceVisualizationIntensity` and `voiceVisualization` of a lizard's graphics.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct LizardVoiceView {
+    pub intensity: f32,
+    pub visualization: f32,
 }
 
 impl LizardGraphicsLink {

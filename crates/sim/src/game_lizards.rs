@@ -10,6 +10,7 @@ use std::sync::Arc;
 use rw_assets::{Room, Terrain};
 
 use super::{PlayerObserver, RainWorldGame, RoomObject};
+use crate::creature::lizard::LizardEmotion;
 use crate::creature::{CreatureId, LUNG_CAPACITY, WorldCoordinate};
 use crate::item::Entity;
 use crate::room_ext::RoomExt;
@@ -44,6 +45,7 @@ impl RainWorldGame {
             .map(|(seq, id)| (seq, RoomObject::Lizard(id)))
             .collect();
         list.extend(self.room_lizard_loop_objects(index));
+        list.extend(self.room_lizard_voice_objects(index));
         list
     }
 
@@ -87,7 +89,7 @@ impl RainWorldGame {
         if self.world.creature(id).in_den {
             return;
         }
-        self.lizard_update_start(id);
+        self.lizard_update_start(index, id);
         if self.world.lizard_ref(id).conscious() {
             self.lizard_act(index, id);
         } else {
@@ -134,13 +136,15 @@ impl RainWorldGame {
     /// `Lizard.Update` before `Act`: `lastJawOpen`, the bite delay counting down with the
     /// jaw open and up with it shut, the forced shut easing, the three health rolls (a
     /// stun, the white flicker of the graphics, a jaw twitch), the stiffness push on
-    /// while `BodyStiff`, the turn a rock gave, the bubble and lounge counters. The
-    /// voice's `Update` (lizard step 5) draws nothing.
-    fn lizard_update_start(&mut self, id: CreatureId) {
+    /// while `BodyStiff`, the turn a rock gave, the bubble and lounge counters; the
+    /// voice's `Update` after `lastJawOpen`.
+    fn lizard_update_start(&mut self, index: i32, id: CreatureId) {
         let holding = self.lizard_holding(id);
         let health = self.world.creature(id).state.health;
         let l = self.world.lizard_at(id);
         l.last_jaw_open = l.read_jaw_open(holding);
+        self.lizard_voice_update(index, id);
+        let l = self.world.lizard_at(id);
         if l.read_jaw_open(holding) > 0.9 {
             if l.bite_delay > 0 {
                 l.bite_delay -= 1;
@@ -595,7 +599,7 @@ impl RainWorldGame {
     /// `SpitOutCreature` of a lizard's vessel (the large NPC exit sound) and
     /// `Lizard.SpitOutOfShortCut`: the base's stuck objects out at the entrance (a draw
     /// per chunk), then the three chunks out of the hole 15 px apart, moving 2 px a tick
-    /// out of it, and half the time a voice (one draw; the voice is lizard step 5).
+    /// out of it, and half the time an `OutOfShortcut` voice.
     pub(super) fn spit_out_lizard(&mut self, v: CreatureVessel, observer: &mut dyn PlayerObserver) {
         let (room, pos) = (v.room, v.vessel.pos);
         let Some(map_room) = self.world.realized(room).map(|r| Arc::clone(&r.room)) else {
@@ -657,14 +661,8 @@ impl RainWorldGame {
             c.vel = hole * 2.0;
         }
         if self.rng.value() < 0.5 {
-            self.lizard_voice(id);
+            self.lizard_voice(id, LizardEmotion::OutOfShortcut);
         }
-    }
-
-    /// `LizardVoice.MakeSound(emotion)` without an intensity: one draw for it (the voice
-    /// is lizard step 5).
-    pub(super) fn lizard_voice(&mut self, _id: CreatureId) {
-        self.rng.value();
     }
 
     /// A lizard vessel's lobby turn into a ready room puts it in the room's tubes at

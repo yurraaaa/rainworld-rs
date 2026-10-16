@@ -216,6 +216,13 @@ sound_ids! {
     LizardBlueWhiteFootRelease = "Lizard_BlueWhite_Foot_Release",
     LizardPinkYellowRedFootGrab = "Lizard_PinkYellowRed_Foot_Grab",
     LizardPinkYellowRedFootRelease = "Lizard_PinkYellowRed_Foot_Release",
+    LizardVoicePinkA = "Lizard_Voice_Pink_A",
+    LizardVoicePinkB = "Lizard_Voice_Pink_B",
+    LizardVoicePinkC = "Lizard_Voice_Pink_C",
+    LizardVoicePinkD = "Lizard_Voice_Pink_D",
+    LizardVoicePinkE = "Lizard_Voice_Pink_E",
+    LizardVoiceGreenA = "Lizard_Voice_Green_A",
+    LizardVoiceBlueA = "Lizard_Voice_Blue_A",
     // No `sounds.txt` line: it never plays.
     SpearHitSmallCreature = "Spear_Hit_Small_Creature",
 }

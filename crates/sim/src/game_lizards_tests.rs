@@ -24,6 +24,14 @@ use crate::{Input, RainWorldGame, Sounds, Start, Vec2};
 
 /// A Survivor story in a 20 x 8 walled room with `objects`, the player at (2, 1).
 fn game(objects: Vec<AbstractObject>) -> (RainWorldGame, Vec<ObjectId>) {
+    game_with_sounds(objects, Sounds::default())
+}
+
+/// [`game`] playing sounds into `sounds`.
+fn game_with_sounds(
+    objects: Vec<AbstractObject>,
+    sounds: Sounds,
+) -> (RainWorldGame, Vec<ObjectId>) {
     let mut rows = vec!["####################"];
     rows.extend(["#..................#"; 6]);
     rows.push("####################");
@@ -46,7 +54,7 @@ fn game(objects: Vec<AbstractObject>) -> (RainWorldGame, Vec<ObjectId>) {
             tile: Some((2, 1)),
         },
         UnityRandom::new(5),
-        Sounds::default(),
+        sounds,
         &mut (),
     );
     for _ in 0..20 {
@@ -498,4 +506,46 @@ fn a_sick_lizard_with_graphics_flickers_white() {
         flickered |= link.white_flicker_calls > 0 && (1..5).contains(&link.white_flicker);
     }
     assert!(flickered);
+}
+
+/// `Violence` voices the pain before the head shield and the stun:
+/// `MakeSound(PainImpact, Max(damage * 2, stun / 40))` (no draw: its intensity is given),
+/// here `Max(0.002 * 2, 18.12 / 40)`; the lizard's next update plays the green voice
+/// on its head (the microphone's 7 draws) after its other rolls.
+#[test]
+fn violence_voices_pain_and_the_next_update_plays_it() {
+    let text =
+        "Volume: 6\nVolume exponent: 1.8\nLizard_Voice_Green_A : LizardVoiceGreenA/vol=0.3\n";
+    let names = rw_assets::sound_table::ClipNames::new(["lizardvoicegreena".to_owned()], None);
+    let table = Arc::new(rw_assets::SoundTable::parse(text, &names).unwrap());
+    let (mut g, _) = game_with_sounds(vec![], Sounds::new(table));
+    let l = g.lying_lizard();
+    let mut expected = g.rng.clone();
+    expected.value();
+    g.creature_violence(l, g.rock_hit(1, Vec2::new(0.0, -5.0)));
+    assert_eq!(g.rng, expected, "the stun's draw only");
+    let v = g.world.lizard_ref(l).voice.clone().expect("built");
+    assert_eq!(
+        v.articulation,
+        Some(crate::creature::lizard::LizardEmotion::PainImpact)
+    );
+    assert!((v.current_emotion_intensity - (0.01 * 30.0 + 45.0) / 2.5 / 40.0).abs() < 1e-6);
+    assert_eq!(v.sound_id, Some(crate::SoundId::LizardVoiceGreenA));
+    g.sounds.take_events();
+    g.lizard_tick(l);
+    let played = g
+        .sounds
+        .take_events()
+        .into_iter()
+        .filter(|e| matches!(e, crate::SoundEvent::Play(p) if p.id == crate::SoundId::LizardVoiceGreenA))
+        .count();
+    assert_eq!(played, 1);
+    assert!(
+        g.world
+            .lizard_ref(l)
+            .voice
+            .as_ref()
+            .unwrap()
+            .making_a_sound()
+    );
 }

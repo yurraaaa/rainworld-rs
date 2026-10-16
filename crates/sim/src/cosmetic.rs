@@ -10,7 +10,7 @@ use rw_assets::{Room, Terrain};
 use rw_random::UnityRandom;
 
 use crate::creature::CreatureId;
-use crate::creature::lizard::{BubbleHead, LizardBubble};
+use crate::creature::lizard::{BubbleHead, LizardBubble, LizardVoiceView};
 use crate::room_ext::RoomExt;
 use crate::{FloatExt, Vec2};
 
@@ -42,6 +42,8 @@ pub struct CosmeticTie {
     pub white_flicker: Option<i32>,
     /// That module's head, while it is the lizard's.
     pub head: Option<BubbleHead>,
+    /// That module's voice reading, while it is the lizard's.
+    pub voice: Option<LizardVoiceView>,
     /// `Room.FloatWaterLevel(pos)` at the object.
     pub water_level: f32,
 }
@@ -311,7 +313,9 @@ impl Cosmetic {
             CosmeticKind::Spark(s) => s.update(room, tie.white_flicker),
             CosmeticKind::Spikes(s) => s.update(),
             CosmeticKind::OverseerEffect(e) => e.update(rng),
-            CosmeticKind::LizardBubble(b) => b.update(room, tie.head, tie.water_level, rng),
+            CosmeticKind::LizardBubble(b) => {
+                b.update(room, tie.head, tie.voice, tie.water_level, rng)
+            }
             CosmeticKind::Flash(f) => f.update(),
         };
         self.slated

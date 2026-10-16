@@ -374,11 +374,56 @@ pub struct LizardGraphicsInfo {
     pub flicker: i32,
     pub white_flicker: i32,
     pub look_pos: [f32; 2],
-    /// The cosmetics' kinds, in sprite order.
-    pub cosmetics: Vec<String>,
+    /// The cosmetics, in sprite order.
+    pub cosmetics: Vec<LizardCosmeticInfo>,
     /// Its head light's id while it has one.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub light: Option<u64>,
+    /// `voiceVisualizationIntensity` and `voiceVisualization` as of its last update.
+    pub voice_visualization_intensity: f32,
+    pub voice_visualization: f32,
+    /// The body's `LizardVoice`, once built.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub voice: Option<LizardVoiceInfo>,
+}
+
+/// One `LizardCosmetics.Template`.
+#[derive(Debug, Clone, Serialize)]
+pub struct LizardCosmeticInfo {
+    pub kind: String,
+    pub start_sprite: usize,
+    pub sprites: usize,
+    pub overlap: String,
+    /// The `LizardScaleA`/`B` element number (spikes and long scales).
+    pub graphic: i32,
+    /// `colored` (0-2 for spikes, 0/1 otherwise).
+    pub colored: i32,
+    /// Bumps, or scales.
+    pub count: usize,
+    /// The long scales' tips (`scaleObjects[i].pos`).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub tips: Vec<[f32; 2]>,
+}
+
+/// A `LizardVoice`.
+#[derive(Debug, Clone, Serialize)]
+pub struct LizardVoiceInfo {
+    /// `myVoiceTrigger`.
+    pub trigger: Option<String>,
+    /// `soundID` now, and the emotion articulating it.
+    pub sound: Option<String>,
+    pub emotion: Option<String>,
+    pub progression: f32,
+    pub emotion_intensity: f32,
+    pub volume: f32,
+    pub pitch: f32,
+    /// `MakingASound`, the visualizer's `savedIntensity` and `VisualizedIntensity`.
+    pub making_a_sound: bool,
+    pub saved_intensity: f32,
+    pub visualized_intensity: f32,
+    /// The emitter is up, and its clip still plays where the camera hears it.
+    pub emitter: bool,
+    pub playing: bool,
 }
 
 /// One `LizardLimb`.

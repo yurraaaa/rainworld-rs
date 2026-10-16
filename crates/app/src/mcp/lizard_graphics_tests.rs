@@ -200,12 +200,41 @@ fn a_calm_lizards_draw_makes_one_draw() {
         .iter()
         .map(rw_graphics::DrawItem::index)
         .collect();
+    let base: Vec<usize> = order.iter().copied().filter(|&i| i < 20).collect();
     assert_eq!(
-        order,
+        base,
         [
             7, 16, 9, 18, 5, 0, 1, 2, 3, 6, 8, 17, 10, 19, 11, 12, 13, 14, 15
         ]
     );
+    // `AddToContainer`: the cosmetics behind the head go between the near legs and the
+    // head, those in front after the head; each in sprite order.
+    let place: Vec<usize> = (0..order.len().max(20) + 1)
+        .map(|i| order.iter().position(|&o| o == i).unwrap_or(usize::MAX))
+        .collect();
+    for c in &g.cosmetics {
+        let range = c.start_sprite..c.start_sprite + c.number_of_sprites;
+        let drawn: Vec<usize> = order
+            .iter()
+            .copied()
+            .filter(|i| range.contains(i))
+            .collect();
+        assert_eq!(
+            drawn,
+            range.clone().collect::<Vec<_>>(),
+            "{}",
+            c.shape.name()
+        );
+        for i in range {
+            match c.sprites_overlap {
+                rw_graphics::SpritesOverlap::BehindHead => {
+                    assert!(place[i] > place[19] && place[i] < place[11]);
+                }
+                rw_graphics::SpritesOverlap::InFront => assert!(place[i] > place[15]),
+                o => panic!("a green's cosmetic is never {o:?}"),
+            }
+        }
+    }
     assert!(
         list.sprite(11)
             .expect("jaw")
@@ -337,4 +366,89 @@ fn a_dropped_module_still_colours_its_flash_and_sparks() {
         game.lizard_module(g.creature, g.module, 0.5),
         Some(expected)
     );
+}
+
+/// `SpineSpikes.DrawSprites` on a straight lizard facing right, unturned: chunks 20 px
+/// apart, the head 10 px ahead, the tail's seven segments 10 px apart behind. Then
+/// `BodyPosition` is 10 px steps from the head back (0 to 3), so `SpinePosition(s)` is
+/// `-40 s / split` along the body and `-40 - 70 (s - split) / (1 - split)` along the tail
+/// (`split` the body rods over the rods and tail). With `spineLength` half of
+/// `BodyAndTailLength` the three spikes sit at 0.05, 0.275 and 0.5, sized by
+/// `Sin(Pow(k / 2, 1) * PI)` between min and max, flattened to a fifth (`depthRotation`
+/// 0), turned -180 degrees (see below); the coloured layer follows at
+/// `startSprite + bumps`.
+#[test]
+fn spine_spikes_follow_a_straight_spine() {
+    let Some((mut s, id)) = Session::with_green_lizard(None) else {
+        return;
+    };
+    s.lizard_ticks(10);
+    let mut g = s.lizard_module(id);
+    let scene = s.scene_mut().expect("game");
+    let world = scene.game().sim().world();
+    let view = world.lizard_view(g.creature, None).expect("view");
+    let o = Vec2::new(500.0, 300.0);
+    for i in 0..3 {
+        let p = o + Vec2::new(-20.0 * i as f32, 0.0);
+        g.draw_positions[i] = [p, p];
+    }
+    g.head.pos = o + Vec2::new(10.0, 0.0);
+    g.head.last_pos = g.head.pos;
+    for (j, t) in g.tail.iter_mut().enumerate() {
+        t.part.pos = o + Vec2::new(-40.0 - 10.0 * (j + 1) as f32, 0.0);
+        t.part.last_pos = t.part.pos;
+    }
+    g.depth_rotation = 0.0;
+    g.last_depth_rotation = 0.0;
+    let c = &view.lizard.body.connections;
+    let rods = c[0].distance + c[1].distance;
+    let split = rods / (rods + g.tail_length);
+    let body_and_tail = g.body_length + g.tail_length;
+    let spikes = rw_graphics::LizardCosmetic {
+        start_sprite: 20,
+        number_of_sprites: 6,
+        sprites_overlap: rw_graphics::SpritesOverlap::BehindHead,
+        shape: rw_graphics::CosmeticShape::SpineSpikes(rw_graphics::SpineBumps {
+            bumps: 3,
+            spine_length: 0.5 * body_and_tail,
+            size_skew_exponent: 1.0,
+            size_range_min: 0.4,
+            size_range_max: 1.0,
+            graphic: 3,
+            scale_x: -1.0,
+            colored: 1,
+        }),
+    };
+    let cx = rw_graphics::CosmeticDraw {
+        g: &g,
+        view: &view,
+        black: Color::BLACK,
+        t: 1.0,
+    };
+    let items = spikes.draw(&cx);
+    assert_eq!(items.len(), 6);
+    for (k, s) in [0.05f32, 0.275, 0.5].into_iter().enumerate() {
+        let x = if s < split {
+            -40.0 * s / split
+        } else {
+            -40.0 - 70.0 * (s - split) / (1.0 - split)
+        };
+        let size = 0.4 + 0.6 * (k as f32 / 2.0 * std::f32::consts::PI).sin();
+        for (index, element) in [(20 + k, "LizardScaleA3"), (23 + k, "LizardScaleB3")] {
+            let rw_graphics::DrawItem::Sprite(sp) = &items[index - 20] else {
+                panic!("a sprite");
+            };
+            assert_eq!(sp.index, index);
+            assert_eq!(sp.element, element);
+            assert!(
+                (sp.pos - (o + Vec2::new(x, 0.0))).length() < 1e-3,
+                "spike {k}"
+            );
+            // Unturned, the aim is between two zero vectors: `-perp * 0` is (0, 0) and
+            // `perp * 0` (-0, -0), whose difference's `Atan2(-0, -0)` is -180 degrees.
+            assert_eq!(sp.rotation, -180.0);
+            assert!((sp.scale.x + size).abs() < 1e-5 && (sp.scale.y - 0.2 * size).abs() < 1e-5);
+            assert_eq!(sp.anchor, Vec2::new(0.5, 0.15));
+        }
+    }
 }

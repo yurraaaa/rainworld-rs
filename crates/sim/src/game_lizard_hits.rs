@@ -13,6 +13,7 @@ use rw_assets::{CreatureType, Terrain};
 
 use super::RainWorldGame;
 use crate::cosmetic::{CosmeticKind, ExplosionSpikes, Spark, StationaryEffect};
+use crate::creature::lizard::LizardEmotion;
 use crate::creature::{
     CreatureId, DamageType, GrabRequest, RealizedCreature, RelationshipType, Shareability,
 };
@@ -121,7 +122,8 @@ impl RainWorldGame {
         self.world.creature_die(id, &mut self.rng);
     }
 
-    /// `Lizard.LoseAllGrasps` (the graphics' sprites are lizard step 5).
+    /// `Lizard.LoseAllGrasps` (its graphics' `ReleaseAllInternallyContainedSprites`:
+    /// the port draws no held object inside the jaws).
     pub(super) fn lizard_lose_all_grasps(&mut self, id: CreatureId) {
         self.world.lose_all_grasps(id);
     }
@@ -145,7 +147,7 @@ impl RainWorldGame {
     }
 
     /// `Lizard.Violence`: damage and stun over the template's resistances, a pain
-    /// voice (its intensity given: no draw), the head shield turning a hit to the head
+    /// voice, the head shield turning a hit to the head
     /// (`Lizard_Head_Shield_Deflect`; a tenth of the damage, a third of the push) or a
     /// hit in the mouth (half again the damage, double stun up to 120, the throat
     /// hurt), the push, a rock's turn, the stun lengthened when hurt (one draw), then
@@ -153,6 +155,7 @@ impl RainWorldGame {
     pub fn lizard_violence(&mut self, id: CreatureId, hit: Hit) {
         let t = self.world.creature(id).template.violence();
         let (mut num, mut num2) = t.violence(hit.kind, hit.damage, hit.stun_bonus, 1.0);
+        self.lizard_voice_with(id, LizardEmotion::PainImpact, (num * 2.0).max(num2 / 40.0));
         let mut dir = hit.direction_and_momentum;
         if hit.chunk == Some(0)
             && let Some(d) = dir

@@ -15,7 +15,7 @@ use rw_assets::shortcut::FOUR_DIRECTIONS;
 use rw_assets::{CreatureType, Room, ShortcutType, Terrain};
 
 use super::{PlayerObserver, RainWorldGame};
-use crate::creature::lizard::{AnimationOutcome, MovementAnimation};
+use crate::creature::lizard::{AnimationOutcome, LizardEmotion, MovementAnimation};
 use crate::creature::{CreatureId, LizardAnimation, WorldCoordinate};
 use crate::item::Entity;
 use crate::room_ext::RoomExt;
@@ -699,7 +699,7 @@ impl RainWorldGame {
 
     /// `EnterAnimation`: a lower-priority animation unless forced, or the same one, is
     /// ignored; else the clock restarts and the animation sets its time, bubble and
-    /// voice (a draw for `MakeSound`). The lounge sets its delay (a draw), its direction
+    /// voice. The lounge sets its delay (a draw), its direction
     /// (toward `focus` when there is one), leaves at once when that points backward for
     /// a breed that can exit lounges, and plays its sounds.
     pub(super) fn lizard_enter_animation(
@@ -725,28 +725,29 @@ impl RainWorldGame {
                 l.bubble = 40;
                 l.bubble_intensity = 0.1;
                 if !black {
-                    self.lizard_voice(id);
+                    self.lizard_voice(id, LizardEmotion::Curious);
                 }
             }
             LizardAnimation::PreySpotted => {
                 l.bubble = 30;
                 l.bubble_intensity = 1.0;
                 l.time_to_remain_in_animation = 30;
-                self.lizard_voice(id);
+                self.lizard_voice(id, LizardEmotion::SpottedPreyFirstTime);
             }
             LizardAnimation::PreyReSpotted => {
                 l.bubble = 10;
                 l.bubble_intensity = 0.4;
                 l.time_to_remain_in_animation = 10;
+                // A yellow lizard's pack voices are its breed's (not entered yet).
                 if !black {
-                    self.lizard_voice(id);
+                    self.lizard_voice(id, LizardEmotion::ReSpottedPrey);
                 }
             }
             LizardAnimation::ThreatSpotted => {
                 l.bubble_intensity = 1.0;
                 let t = self.rng.range_i32(10, 50);
                 self.world.lizard_at(id).time_to_remain_in_animation = t;
-                self.lizard_voice(id);
+                self.lizard_voice(id, LizardEmotion::Fear);
             }
             LizardAnimation::ThreatReSpotted => {
                 l.bubble_intensity = 1.0;

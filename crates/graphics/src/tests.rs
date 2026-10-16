@@ -1255,6 +1255,21 @@ fn installed_atlas_has_the_slugcat_frames() {
     for name in names {
         assert!(atlas.get(name).is_some(), "{name} missing");
     }
+    // The lizard cosmetics' elements, and `graphicHeight` as the constructors read it.
+    for (i, name) in elements::LIZARD_SCALE_A.iter().enumerate() {
+        let f = atlas.get(name).unwrap_or_else(|| panic!("{name} missing"));
+        assert_eq!(
+            f.source_size.h as f32,
+            elements::LIZARD_SCALE_A_HEIGHT[i],
+            "{name}"
+        );
+    }
+    for name in elements::LIZARD_SCALE_B
+        .iter()
+        .chain(&[elements::CIRCLE_20, elements::PIXEL])
+    {
+        assert!(atlas.get(name).is_some(), "{name} missing");
+    }
 }
 
 // ---- malnourishment and exhaustion ------------------------------------------------

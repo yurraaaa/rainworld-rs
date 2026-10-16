@@ -10,7 +10,7 @@ use rw_random::UnityRandom;
 use rw_sim::color::RandomVariation;
 use rw_sim::creature::lizard::{
     BubbleHead, LightUpkeep, LizardBubble, LizardGraphicsLink, LizardGraphicsTick, LizardHead,
-    LizardSpawn, LizardView,
+    LizardSpawn, LizardView, LizardVoice, LizardVoiceView,
 };
 use rw_sim::creature::{CreatureId, EntityId, LizardAnimation};
 use rw_sim::{CameraView, FloatExt, RoomExt, SoundId, Vec2, WaterDrip};
@@ -127,6 +127,10 @@ pub struct LizardGraphics {
     pub tail_length: f32,
     pub head_connection_rad: f32,
     pub show_dominance: f32,
+    pub voice_visualization_intensity: f32,
+    pub last_voice_visualization_intensity: f32,
+    pub voice_visualization: f32,
+    pub last_voice_visualization: f32,
     pub belly_drag_volume: f32,
     /// `whiteCamoColorAmount` (-1 for the breeds that never camouflage).
     pub white_camo_color_amount: f32,
@@ -238,6 +242,10 @@ impl LizardGraphics {
             tail_length,
             head_connection_rad,
             show_dominance: 0.0,
+            voice_visualization_intensity: 0.0,
+            last_voice_visualization_intensity: 0.0,
+            voice_visualization: 0.0,
+            last_voice_visualization: 0.0,
             belly_drag_volume: 0.0,
             white_camo_color_amount: -1.0,
             effect_color: lizard.effect_color,
@@ -358,6 +366,12 @@ impl LizardGraphics {
         }
     }
 
+    /// `BubbleIntensity`.
+    #[must_use]
+    pub fn bubble_intensity(&self, view: &LizardView<'_>) -> f32 {
+        view.lizard.bubble_intensity * 0.5 + self.voice_visualization_intensity
+    }
+
     /// `new LizardBubble(this, intensity, stickiness, extraSpeed)`.
     fn bubble(
         &self,
@@ -386,6 +400,15 @@ impl LizardGraphics {
         cx: &mut LizardGraphicsTick<'_>,
     ) {
         self.lizard = LizardReading::of(view);
+        let voice = view.lizard.voice.as_ref();
+        self.last_voice_visualization_intensity = self.voice_visualization_intensity;
+        self.voice_visualization_intensity = if voice.is_some_and(LizardVoice::making_a_sound) {
+            1.0
+        } else {
+            0.0
+        };
+        self.last_voice_visualization = self.voice_visualization;
+        self.voice_visualization = voice.map_or(0.0, LizardVoice::visualized_intensity);
         for (i, dv) in std::mem::take(&mut link.pushes) {
             if let Some(p) = self.part_mut(i) {
                 p.vel += dv;
@@ -407,6 +430,9 @@ impl LizardGraphics {
         let params = lizard.params;
         self.show_dominance =
             (self.show_dominance - 1.0 / 60.0f32.lerp(120.0, cx.rng.value())).clamp(0.0, 1.0);
+        if !self.culled {
+            self.update_cosmetics(view, cx);
+        }
         if self.white_flicker > 0 {
             self.white_flicker -= 1;
         }
@@ -480,6 +506,16 @@ impl LizardGraphics {
         self.update_limbs(view, cx);
         self.update_tail(view, cx.room, cx);
         self.update_head(view, cx);
+        if self.voice_visualization > 0.2 {
+            let shake = 8.0
+                * self
+                    .voice_visualization
+                    .inverse_lerp(0.2, 1.0)
+                    .mathf_pow(0.5);
+            for (i, dp) in self.draw_positions.iter_mut().enumerate() {
+                dp[0] += Vec2::random_unit(cx.rng) * shake / (1 + i) as f32;
+            }
+        }
         link.legs_grabbing = self.legs_grabbing;
         link.no_grip_counter = self.no_grip_counter;
         link.white_flicker = self.white_flicker;
@@ -490,6 +526,10 @@ impl LizardGraphics {
     /// The head and body parts as the body and the room's objects read them.
     pub fn write_link(&self, link: &mut LizardGraphicsLink) {
         link.head = self.head_now();
+        link.voice = LizardVoiceView {
+            intensity: self.voice_visualization_intensity,
+            visualization: self.voice_visualization,
+        };
         link.parts = self
             .limbs
             .iter()
@@ -598,7 +638,7 @@ impl LizardGraphics {
             }
             LizardAnimation::Lounge => {
                 self.head_color_setter = 1.0;
-                let b = self.bubble(view, [0.0, 1.0, 0.0], cx.rng);
+                let b = self.bubble(view, [0.0, 1.0, self.voice_visualization * 10.0], cx.rng);
                 cx.add(LizardSpawn::Bubble(b));
                 if view.kind == CreatureType::GreenLizard {
                     for (m, c) in lizard.body.chunks.iter().enumerate() {
@@ -620,7 +660,8 @@ impl LizardGraphics {
             }
             LizardAnimation::ThreatSpotted | LizardAnimation::ThreatReSpotted => {
                 if lizard.time_in_animation < 10 || cx.rng.value() < 1.0 / 6.0 {
-                    let mut b = self.bubble(view, [0.0, 0.5, 0.0], cx.rng);
+                    let extra = self.voice_visualization.mathf_pow(2.0) * 20.0;
+                    let mut b = self.bubble(view, [0.0, 0.5, extra], cx.rng);
                     let deg = cx.rng.value() * 360.0;
                     b.vel = Vec2::from_degrees(deg) * 17.0f32.lerp(21.0, cx.rng.value());
                     b.life_time = 10.0f32.lerp(15.0, cx.rng.value()) as i32;
@@ -845,21 +886,25 @@ impl LizardGraphics {
             let n = 1 + (moved.length().inverse_lerp(10.0, 180.0) * 4.0) as i32;
             for _ in 0..n {
                 let stickiness = cx.rng.value();
-                let b = self.bubble(view, [1.0, stickiness, 3.0], cx.rng);
+                let extra = 3.0 + self.voice_visualization * 10.0;
+                let b = self.bubble(view, [1.0, stickiness, extra], cx.rng);
                 cx.add(LizardSpawn::Bubble(b));
             }
         }
-        let intensity = lizard.bubble_intensity * 0.5;
+        let intensity = self.bubble_intensity(view);
         if lizard.bubble > 0 {
             let deg = cx.rng.value() * 360.0;
             self.head.pos += Vec2::from_degrees(deg) * (5.0 * intensity);
+        }
+        if lizard.bubble > 0 || self.voice_visualization > 0.5 {
+            let extra = self.voice_visualization.mathf_pow(2.0) * 20.0;
             let mut k = 0;
             loop {
                 let limit = cx.rng.range_i32(1, 1 + (intensity * 3.0) as i32);
                 if k >= limit {
                     break;
                 }
-                let b = self.bubble(view, [intensity, 0.0, 0.0], cx.rng);
+                let b = self.bubble(view, [intensity, 0.0, extra], cx.rng);
                 cx.add(LizardSpawn::Bubble(b));
                 k += 1;
             }

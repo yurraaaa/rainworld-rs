@@ -159,6 +159,7 @@ impl RainWorldGame {
         };
         let head = link.head.for_bubble(l.params, l.jaw_open(holding));
         let module = link.module;
+        let voice = link.voice.visualization;
         let main = l.body.chunks[0].pos;
         if self.rng.value() >= 0.6 && impact.chunk != 0 {
             return;
@@ -166,7 +167,11 @@ impl RainWorldGame {
         let n = 1 + (impact.speed.inverse_lerp(20.0, 90.0) * 3.0) as i32;
         for _ in 0..n {
             let stickiness = self.rng.value();
-            let params = [1.0, stickiness, impact.speed / 15.0];
+            let params = [
+                1.0,
+                stickiness,
+                impact.speed / 15.0 + voice.mathf_pow(2.0) * 20.0,
+            ];
             let mut b = LizardBubble::new((id, module), main, head, params, &mut self.rng);
             let d = impact.direction;
             if d.x != 0 {
@@ -247,6 +252,7 @@ impl RainWorldGame {
             {
                 tie.white_flicker = Some(g.white_flicker);
                 tie.head = Some(g.head.for_bubble(l.params, l.jaw_open(holding)));
+                tie.voice = Some(g.voice);
             }
         }
         self.world.update_cosmetic(index, id, tie, &mut self.rng);

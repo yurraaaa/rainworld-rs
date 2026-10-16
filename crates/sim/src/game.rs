@@ -31,6 +31,8 @@ mod lizard_act;
 mod lizard_graphics;
 #[path = "game_lizard_hits.rs"]
 mod lizard_hits;
+#[path = "game_lizard_voice.rs"]
+mod lizard_voice;
 #[path = "game_lizards.rs"]
 mod lizards;
 #[path = "game_map.rs"]
@@ -290,6 +292,8 @@ enum RoomObject {
     WeaponLoop(ObjectId),
     /// The `ChunkSoundEmitter` of a lizard's graphics' loop.
     LizardLoop(CreatureId),
+    /// The `ChunkSoundEmitter` of a lizard's voice.
+    LizardVoice(CreatureId),
     /// A trigger checker or an object a trigger added, by id.
     Trigger(u64),
     /// A `HologramLight` by id.
@@ -1314,6 +1318,7 @@ impl RainWorldGame {
                 RoomObject::Weapon(id) => self.run_weapon(index, id, observer),
                 RoomObject::WeaponLoop(id) => self.run_weapon_loop(index, id),
                 RoomObject::LizardLoop(id) => self.run_lizard_loop(index, id),
+                RoomObject::LizardVoice(id) => self.run_lizard_voice_emitter(index, id),
                 RoomObject::Trigger(id) => self.run_trigger_object(index, id),
                 RoomObject::Cosmetic(id) => self.run_cosmetic(index, id),
                 RoomObject::HoloLight(id) => self.run_holo_light(index, id, observer),

@@ -149,7 +149,7 @@ remains for older notes' line numbers; new notes cite file and member.
   `dlcsInstalled` check): the base-game menu scene and intro images.
 - Current phase is the player controller in a region whose only
   behaving creatures are the overseers and the bat flies, with the lizards
-  under way (green lizards step 5a of 9, the body, head and leg graphics, done), not the
+  under way (green lizards step 5 of 9, the graphics, cosmetics and voice, done), not the
   full game (campaign step 1, overseer step 1, batflies done):
   - A story starts at the campaign's start den in its region's world;
     room-exit shortcuts carry the player between the region's rooms, which
@@ -163,8 +163,9 @@ remains for older notes' line numbers; new notes cite file and member.
     into realized rooms with their body, walk and take shortcuts after
     their abstract AI's destinations (path finder, movement, shortcut and
     room travel; the AI's own decisions are not there yet), are drawn
-    (body, tail, head, jaws and legs whose grip feeds the movement; the
-    cosmetics' sprites and the voice are step 5b),
+    (body, tail, head, jaws, legs whose grip feeds the movement, and their
+    spikes and scales), voice their pain, fright and calls (`LizardVoice`, its
+    sound on the head and the visualization read from the clip, D12),
     take rock and spear hits (head shield,
     mouth, stun, lodged spears), die and are counted as kills. Overseers have their
     body, AI, graphics, the guide's tutorial text, the Monk's guide light and their holograms
@@ -255,7 +256,11 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   and the vessel in the tubes: position, last positions, wait) and, in a viewed room,
   `graphics` (culled, legs grabbing, no-grip counter, limbs: mode, position, hunt and
   grab positions, grip counter, reaching, disabled, flip; head, head and depth
-  rotations, jaw, blink, flicker, white flicker, look position, cosmetics, light); any creature its stun and
+  rotations, jaw, blink, flicker, white flicker, look position, light, `cosmetics`: kind,
+  start sprite, sprites, overlap, graphic, colored, count and the long scales' tips;
+  `voice_visualization` and its intensity, and `voice`: trigger, sound, emotion,
+  progression, intensity, volume, pitch, making a sound, saved and visualized
+  intensity, emitter, playing); any creature its stun and
   kill tag, its social memory
   (`social`: subject, like, temp like, fear, temp fear, know), a realized one its danger
   (`danger`: `dangerousToPlayer`, `DangerPos`, aggression) and what its grip
