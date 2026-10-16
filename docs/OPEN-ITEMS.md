@@ -8,6 +8,16 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **The Hunter's `SpearOnBack`**, and the LF_H01 spear.
 - **`ExplosiveSpear` behaviour.** The flag is ported; the explosion is not.
 
+## Waiting for the user's answer
+- **Lizard step 6** (perception and social data): go-ahead, and whether to split it
+  into 6a (tracker, vision, relationships, the eyes looking) and 6b (noise, the
+  player's sneaking, communities, the pather's threat costs). See
+  `../rainworld-re/surveys/lizards.md` and `LIZARDS-HANDOFF.md` if present.
+- **Player grabbing lizards earlier:** picking up, carrying and eating dead or stunned
+  lizards needs no AI, so it could be its own small step before 6. Lizards grabbing
+  the player stays in step 8.
+- **Sound timing leftovers** (below, under "To look into").
+
 ## To look into
 - **Headless speed.** MCP `step` runs about 20 ticks/s with lizards around (seen
   2026-10-16), below the game's 40, while the window keeps full fps. A profile showed
