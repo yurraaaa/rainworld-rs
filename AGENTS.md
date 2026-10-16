@@ -227,7 +227,7 @@ so it serves the checkout's current code). Tools: `list_rooms`,
 `load_room`, `new_game`, `step`, `step_sequence`, `respawn`, `set_player`,
 `get_state`, `get_exits`, `get_tiles`, `get_hud`, `hud_message`,
 `screenshot`, `load_process`, `step_process`, `import_save`,
-`set_destination`.
+`set_destination`, `spawn_creature`.
 
 - Headless and deterministic: the sim advances only in `step` /
   `step_sequence` (40 ticks per second); the same start, seed and inputs
@@ -269,18 +269,32 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   `flies_world` (the flies' spawn and respawn counters) and `region_state` (swarm
   room and lineage counters, consumed items, saved counts); `get_exits` lists the
   camera room's exits (entrance tile, the input that enters, destination
-  room, arrival node and camera). `set_player`, `get_tiles` and
-  `screenshot` act on the camera's room. To test a transition, put the
+  room, arrival node and camera). `set_player` acts on the camera's room;
+  `get_tiles` and `screenshot` too, or on another realized room given as
+  `room`. To test a transition, put the
   player on an exit's entrance and hold its input. `set_destination` (a dev
   override, not game behaviour) gives a realized lizard, by its EntityID, a
   destination tile (in its room or a named one) through the abstract AI's
   `SetDestination`, and a run speed (default 0.5) its stand-in AI keeps.
+  `spawn_creature` (a dev tool) adds a creature of a base-game type
+  (`kind` in the game's spelling) at `tile` of `room` (default the
+  camera's) as the game makes one (`GetNewID`, or `EntityID(-1, seed_id)`;
+  personality, state, abstract AI, with their draws) and, in a room ready
+  for AI, realizes it there (`RealizeInRoom`, kept on the exact tile) when
+  the port has its body (green lizards, flies, overseers); it returns the
+  ID, and says why it stayed abstract otherwise.
 - `screenshot` returns a PNG drawn by the window's draw path (level
   graphic or debug view, sprites, overlays), rendered offscreen; the debug
   view outlines every realized body's chunks and rods in the camera's room
   (player, lizards, flies, overseers, rocks and spears, a colour per kind);
-  `crop_radius` zooms on the player (or on `crop_center`). `get_tiles` gives the geometry as
-  text. In a region world the uncropped visuals view includes the HUD;
+  `crop_radius` zooms on the player (or on `crop_center`). With `room`
+  it draws another realized room from its camera `camera` (default 0) with
+  its own renderer and room camera, reading the world only: the game, its
+  camera and the cosmetic stream are untouched. Creatures there have no
+  graphics modules (the game builds them only in viewed rooms), so they are
+  drawn as debug bodies over the level graphic; items draw their sprites;
+  the level view leaves out water and the HUD. `get_tiles` gives the
+  geometry as text. In a region world the uncropped visuals view includes the HUD;
   `get_hud` reports its meters (the food meter's `quarter_pips` too, the
   text prompt's `game_over`),
   the region map (pan, layer, pending reveal, player marker, gate and

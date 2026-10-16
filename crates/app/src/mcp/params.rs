@@ -163,12 +163,33 @@ pub struct ScreenshotParams {
     pub scale: Option<f32>,
     /// Also write the PNG to this path.
     pub save_path: Option<String>,
+    /// Draw this realized room (name) instead of the camera's, as its camera `camera`
+    /// would show it, leaving the game untouched. Its creatures have no graphics
+    /// modules there (the game builds them only in viewed rooms): they are drawn as
+    /// debug bodies.
+    pub room: Option<String>,
+    /// With `room`: the room camera to frame (default 0).
+    pub camera: Option<usize>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, JsonSchema)]
 pub struct TilesParams {
     /// Inclusive tile rectangle [x0, y0, x1, y1] (y up); default the whole room.
     pub rect: Option<[i32; 4]>,
+    /// A realized room's name (default the camera's room).
+    pub room: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, JsonSchema)]
+pub struct SpawnCreatureParams {
+    /// The `CreatureTemplate.Type` value, e.g. "GreenLizard", "Fly", "Overseer".
+    pub kind: String,
+    /// The room's name (default the camera's room).
+    pub room: Option<String>,
+    /// The tile [x, y] (y up).
+    pub tile: [i32; 2],
+    /// Use EntityID(-1, seed_id) (the personality's seed) instead of a new ID.
+    pub seed_id: Option<i32>,
 }
 
 /// A process `load_process` can start.

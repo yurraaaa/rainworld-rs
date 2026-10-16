@@ -1250,6 +1250,21 @@ impl Game {
     pub fn set_food_in_stomach(&mut self, food: u32) {
         self.sim.set_food_in_stomach(food);
     }
+
+    /// [`RainWorldGame::dev_spawn_creature`] with the graphics as the observer.
+    ///
+    /// # Errors
+    /// For a type that is not a spawnable creature or an unknown room.
+    pub fn dev_spawn_creature(
+        &mut self,
+        kind: rw_assets::CreatureType,
+        room: i32,
+        tile: (i32, i32),
+        seed_id: Option<i32>,
+    ) -> Result<CreatureId, String> {
+        self.sim
+            .dev_spawn_creature(kind, room, tile, seed_id, &mut self.graphics)
+    }
 }
 
 #[cfg(test)]

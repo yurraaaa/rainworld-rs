@@ -9,6 +9,8 @@
 #[cfg(test)]
 mod dev_start_tests;
 #[cfg(test)]
+mod dev_tools_tests;
+#[cfg(test)]
 mod game_over_tests;
 #[cfg(test)]
 mod kills_tests;
@@ -47,7 +49,7 @@ use crate::saves::SaveConfig;
 use params::{
     HudMessageParams, ImportSaveParams, ListRoomsParams, LoadProcessParams, LoadRoomParams,
     NewGameParams, RespawnParams, ScreenshotParams, SetDestinationParams, SetPlayerParams,
-    StepParams, StepProcessParams, StepSequenceParams, TilesParams,
+    SpawnCreatureParams, StepParams, StepProcessParams, StepSequenceParams, TilesParams,
 };
 pub use session::Session;
 
@@ -243,9 +245,25 @@ impl Server {
     }
 
     #[tool(
+        description = "Dev tool: add a new creature of a base-game type (CreatureTemplate.Type \
+        value, e.g. GreenLizard, Fly, Overseer) at a tile of a room (default the camera's), \
+        with a new ID, state, personality and abstract AI as the game makes them. In a \
+        loaded room it is realized and placed on that tile (RealizeInRoom) when the port \
+        has its body (green lizards, flies, overseers); otherwise it stays abstract. \
+        Returns its ID."
+    )]
+    fn spawn_creature(
+        &self,
+        Parameters(p): Parameters<SpawnCreatureParams>,
+    ) -> Result<CallToolResult, String> {
+        Self::json(&self.session()?.spawn_creature(&p)?)
+    }
+
+    #[tool(
         description = "Render the current frame as the window shows it (level graphic or debug \
         tiles, with the slugcat; or the loaded process with its fade) and return it as a \
-        PNG image."
+        PNG image. With room: another realized room from its camera, the game untouched \
+        (its creatures as debug bodies)."
     )]
     fn screenshot(
         &self,
@@ -331,7 +349,8 @@ impl Server {
     }
 
     #[tool(
-        description = "Text map of the room's tiles in a rectangle (default the whole room), \
+        description = "Text map of the room's tiles (the camera's, or a realized room by \
+        name) in a rectangle (default the whole room), \
         one character per tile, top row first, with a legend."
     )]
     fn get_tiles(&self, Parameters(p): Parameters<TilesParams>) -> Result<CallToolResult, String> {

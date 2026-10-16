@@ -2,6 +2,9 @@
 //! room), stepped only on request, and a headless renderer for screenshots. Every tool is a method returning a typed reply or
 //! an error message.
 
+#[path = "dev_tools.rs"]
+mod dev_tools;
+
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -69,6 +72,8 @@ pub struct Session {
     frontend: Option<(Frontend, u64)>,
     /// Created on the first screenshot.
     renderer: Option<FrontendRenderer<WgpuRenderer>>,
+    /// Draws other rooms than the camera's, so `renderer`'s uploads stay the camera's.
+    room_renderer: Option<FrontendRenderer<WgpuRenderer>>,
     /// The fonts, atlases and strings the game mode's HUD draws with, loaded with the
     /// first game.
     hud_shared: Option<MenuShared>,
@@ -98,6 +103,7 @@ impl Session {
             black_delay: 0.0,
             frontend: None,
             renderer: None,
+            room_renderer: None,
             hud_shared: None,
             saves,
         }
@@ -991,9 +997,16 @@ impl Session {
             return Err("scale must be in (0, 4]".to_owned());
         }
         if self.frontend.is_some() {
+            if params.room.is_some() {
+                return Err("room needs a game (load_room or new_game)".to_owned());
+            }
             return self.process_screenshot(params, level, scale);
         }
+        let room = self.room_named(params.room.as_deref())?;
         let scene = self.scene()?;
+        if room != scene.game().sim().camera_room() {
+            return self.room_screenshot(room, params, level, scale);
+        }
         let (framing, size) = match params.crop_radius {
             Some(r) if r > 0.0 => {
                 let centre = params.crop_center.unwrap_or_else(|| scene.focus());
@@ -1452,8 +1465,8 @@ impl Session {
     /// # Errors
     /// Without a room, or when the rectangle is empty or too large.
     pub fn tiles(&self, params: &TilesParams) -> Result<String, String> {
-        let scene = self.scene()?;
-        let room = scene.game().room();
+        let (room, player) = self.room_tiles(self.room_named(params.room.as_deref())?)?;
+        let room = room.as_ref();
         let [x0, y0, x1, y1] = params
             .rect
             .unwrap_or([0, 0, room.width() - 1, room.height() - 1]);
@@ -1464,12 +1477,6 @@ impl Session {
         if count > MAX_TILES {
             return Err(format!("{count} tiles requested; at most {MAX_TILES}"));
         }
-        let player = scene
-            .game()
-            .live_player()
-            .filter(|p| !p.in_shortcut())
-            .map(|p| p.chunks().iter().map(|c| c.pos.tile()).collect())
-            .unwrap_or_default();
         Ok(TileDump {
             room,
             min: (x0, y0),
