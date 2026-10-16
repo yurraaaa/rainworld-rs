@@ -2,9 +2,9 @@
 // alpha blended (SrcAlpha, OneMinusSrcAlpha) by the pipeline, as every shader here.
 // One fragment entry per game shader (StreamingAssets/shaders/<Name>.shader): fs_basic
 // `Futile/Basic`, fs_flat_light `FlatLight`, fs_overseer_zip `OverseerZip`,
-// fs_hologram `Hologram`, fs_light_source `LightSource`, fs_hologram_image `HologramImage`,
-// fs_shortcut `ShortCut0`, fs_colored_sprite3 `ColoredSprite2` with `no_grab_tex` (the
-// `ColoredSprite3` shader).
+// fs_hologram `Hologram`, fs_light_source `LightSource`, fs_holo_grid `HoloGrid`,
+// fs_hologram_image `HologramImage`, fs_shortcut `ShortCut0`, fs_colored_sprite3
+// `ColoredSprite2` with `no_grab_tex` (the `ColoredSprite3` shader).
 //
 // `uv` is where the port's atlas is sampled; `tex` is the shader's `i.uv` (they differ
 // only for `Futile_White`, a texture of its own in the game).
@@ -233,6 +233,65 @@ fn fs_light_source(in: VertexOut) -> @location(0) vec4<f32> {
     }
     dist *= textureSampleLevel(atlas, atlas_sampler, in.uv, 0.0).x;
     return vec4(in.color.rgb, dist * in.color.a * (0.65 + highlight * 0.35));
+}
+
+// `HoloGrid`'s `DepthAtTextCoord`: the level depth, 6/30 over a creature drawn behind
+// the level (deeper than layer 6).
+fn holo_grid_depth(tc: vec2<f32>, scr: vec2<f32>) -> f32 {
+    let d = depth_of(level_at(tc));
+    if d > 6.0 / 30.0 && drawn(textureLoad(behind_tex, frame_px(scr), 0)) {
+        return 6.0 / 30.0;
+    }
+    return d;
+}
+
+// `HoloGrid` (the guide's light): nothing over sky; a grid of lines every 20 of 300
+// across the sprite (pushed out by depth) on layers past 1; the sample pushed toward the
+// eye (`clr.xy`, by `clr.z`); terrain edges of layers 3-7, 14-17 and 22-24 lit (1 on the
+// near ones, else 0.35); cut by scan-line noise against `_hologramThreshold * clr.a`;
+// (0.87, 0.72, 0.35) at `0.6 * light * (1 - centerDist)`.
+@fragment
+fn fs_holo_grid(in: VertexOut) -> @location(0) vec4<f32> {
+    var tc = level_coord(in.scr);
+    var scr = in.scr;
+    var uv = in.tex;
+    let a = in.color.a;
+    var light = 0.0;
+    var cd = clamp(distance(vec2(0.5), uv) * 2.0 + (1.0 - a), 0.0, 1.0);
+    var dpth = holo_grid_depth(tc, scr);
+    if dpth >= 0.999 {
+        return vec4(0.0);
+    }
+    uv += ((tc - vec2(0.5, 0.66)) * 0.4 + (uv - vec2(0.5)) * 0.4) * dpth;
+    if dpth > 0.03 && (fmod_trunc(floor(uv.x * 300.0), 20.0) == 10.0
+        || fmod_trunc(floor(uv.y * 300.0), 20.0) == 10.0) {
+        light = 0.35;
+    }
+    let push = normalize(uv - in.color.xy) * mix(-0.2, (0.2 - dpth) * cd / 40.0, in.color.z);
+    scr -= push;
+    tc -= push;
+    dpth = holo_grid_depth(tc, scr);
+    if (dpth > 3.0 / 30.0 && dpth < 7.0 / 30.0) || (dpth > 14.0 / 30.0 && dpth < 17.0 / 30.0)
+        || (dpth > 22.0 / 30.0 && dpth < 24.0 / 30.0) {
+        let px = vec2(1.0 / room.screen.x, 1.0 / room.screen.y);
+        if holo_grid_depth(tc + vec2(-1.0 / 1400.0, 0.0), scr + vec2(-px.x, 0.0)) > dpth
+            || holo_grid_depth(tc + vec2(1.0 / 1400.0, 0.0), scr + vec2(px.x, 0.0)) > dpth
+            || holo_grid_depth(tc + vec2(0.0, 1.0 / 800.0), scr + vec2(0.0, px.y)) > dpth
+            || holo_grid_depth(tc + vec2(0.0, -1.0 / 800.0), scr + vec2(0.0, -px.y)) > dpth {
+            light = select(0.35, 1.0, dpth < 7.0 / 30.0);
+        }
+        cd = pow(cd, 2.0);
+    }
+    var h = noise2_at(vec2<f32>(tc.x * 4.0, tc.y * 8.0 - room.rain * 10.0)) * 2.0;
+    h -= pow(a, 2.0) * (1.0 - pow(cd, 2.0));
+    if fmod_trunc(round((tc.y - room.rain * 0.15) * 400.0), 3.0) == 0.0 {
+        h += mix(0.6, 0.15, light);
+    }
+    if h > room.hologram_threshold * a {
+        return vec4(0.0);
+    }
+    light *= 1.0 - cd;
+    return vec4(0.87, 0.72, 0.35, light * 0.6);
 }
 
 fn screen_blend(a: f32, b: f32) -> f32 {

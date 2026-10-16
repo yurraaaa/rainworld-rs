@@ -479,6 +479,7 @@ impl Scene {
             lists.extend(self.game.fly_draw_lists(alpha, face));
             lists.extend(self.game.drip_draw_lists(alpha, face, darkness));
             lists.extend(self.game.cosmetic_draw_lists(alpha));
+            lists.extend(self.game.holo_light_draw_lists(alpha));
             lists
         } else {
             Vec::new()

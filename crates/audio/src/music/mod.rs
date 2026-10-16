@@ -18,4 +18,4 @@ pub use rw_assets::{MusicEvent, StopMusicEvent, StopMusicType};
 pub use song::{IntroRoll, Song, SongKind, SubTrack};
 pub use sources::{MusicClock, MusicSources, SourcePlayback, TimedSources, TimedTrack, TrackId};
 pub use stream::{KiraMusic, MusicOutput};
-pub use threat::{GameMusicView, ThreatDetermination, ThreatTracker};
+pub use threat::{CreatureThreat, GameMusicView, ThreatDetermination, ThreatTracker};

@@ -51,6 +51,8 @@ pub struct RealizedRoom {
     /// The sparks and spikes in the room's update list.
     pub cosmetics: Vec<Cosmetic>,
     pub water_glitter: WaterGlitter,
+    /// The guide's `HologramLight`s in the room's update list.
+    pub holo_lights: Vec<crate::creature::overseer::HologramLight>,
 }
 
 impl RealizedRoom {
@@ -80,6 +82,7 @@ impl RealizedRoom {
             drips: Vec::new(),
             cosmetics: Vec::new(),
             water_glitter: WaterGlitter::default(),
+            holo_lights: Vec::new(),
         }
     }
 

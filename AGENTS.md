@@ -148,7 +148,7 @@ before the user agrees.
     den counters, roaming, migration along the region's connections and
     highways, paths, dens; they have no body yet and wait unrealized in
     realized rooms. Overseers have their
-    body, AI, graphics, the guide's tutorial text and their holograms
+    body, AI, graphics, the guide's tutorial text, the Monk's guide light and their holograms
     (those whose triggers are ported: D14). The bat flies' world
     process moves their per-node counts between rooms, and a room that
     loads realizes its flies: body, AI, flocks, hives, chains, pipe
@@ -223,15 +223,18 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   abstract creature: kind, ID, room, node, tile, in den, realized,
   alive; roaming creatures also their abstract AI: destination, path, migration
   destination, den, time buffer, den counter and followed creature; overseers also their AI's
-  destination, guide state, last rooms and realized tiles; realized flies their room, position, velocity,
+  destination, guide state, last rooms, realized tiles and most dangerous creature with its score; realized flies their room, position, velocity,
   behaviour, movement mode, grasps and holders; any creature its social memory
-  (`social`: subject, like, temp like, fear, temp fear, know) and what its grip
+  (`social`: subject, like, temp like, fear, temp fear, know), a realized one its danger
+  (`danger`: `dangerousToPlayer`, `DangerPos`, aggression) and what its grip
   sticks carry (`carries`); empty fields are left out) and `objects` (every
   abstract rock and spear: kind, ID, room, node, tile, a spear's
   stuck-in-wall cycles and explosive flag; realized ones also their
   room, position, velocity, mode, rotation and collision layer), `triggers` (the
   realized rooms' trigger checkers and the objects their events added) and `music`
-  (the music player: song, next song, mixes, threat tracker, play records), `session`
+  (the music player: song, next song, mixes, threat tracker with its threats and each
+  creature's `ThreatOfCreature`, play records), `holo_lights` (the guide's lights) and
+  `holo_light_needed`, `session`
   (kills, peace, respawn lists, guide like, community influences), `dens` (each
   room's den contents), `quantified` (each room's quantified creatures per node),
   `flies_world` (the flies' spawn and respawn counters) and `region_state` (swarm

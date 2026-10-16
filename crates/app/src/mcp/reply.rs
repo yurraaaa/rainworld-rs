@@ -71,6 +71,11 @@ pub struct State {
     pub music: Option<MusicState>,
     /// The realized rooms' trigger checkers and the objects their events added.
     pub triggers: Vec<TriggerState>,
+    /// The guide's `HologramLight`s (the Monk's light in dark rooms).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub holo_lights: Vec<HoloLightState>,
+    /// `HologramLight.Needed(player)` now.
+    pub holo_light_needed: f32,
     /// What the session keeps of its deaths.
     pub session: SessionInfo,
     /// Each room's `entitiesInDens` (rooms with none left out).
@@ -85,6 +90,23 @@ pub struct State {
     /// The world's `regionState`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub region_state: Option<RegionStateInfo>,
+}
+
+/// A `HologramLight`.
+#[derive(Debug, Clone, Serialize)]
+pub struct HoloLightState {
+    pub room: String,
+    /// The projecting overseer's EntityID.
+    pub overseer: [i32; 2],
+    pub pos: [f32; 2],
+    pub proj_pos: [f32; 2],
+    pub power: f32,
+    pub flicker: f32,
+    pub out_of_range_counter: i32,
+    pub not_needed_counter: i32,
+    pub active_linger: i32,
+    pub respawn: bool,
+    pub power_down_and_kill: bool,
 }
 
 /// One room's den contents, by EntityID.
@@ -190,6 +212,8 @@ pub struct CreatureInfo {
     pub overseer: Option<OverseerInfo>,
     /// A realized bat fly's body and AI.
     pub fly: Option<FlyInfo>,
+    /// The realized creature's danger to the player.
+    pub danger: Option<DangerInfo>,
     /// `state.socialMemory`'s relationships.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub social: Vec<RelationshipInfo>,
@@ -314,6 +338,20 @@ pub struct OverseerInfo {
     /// The realized body's `dead` and `dying` (0 to 1 as it dies away).
     pub dead: Option<bool>,
     pub dying: Option<f32>,
+    /// The communication module's `mostDangerousCreatureInRoom` (EntityID) and its
+    /// `CreatureDangerScore`.
+    pub most_dangerous_creature: Option<[i32; 2]>,
+    pub most_dangerous_creature_danger: Option<f32>,
+}
+
+/// What the threat music and the guide read of a realized creature.
+#[derive(Debug, Clone, Serialize)]
+pub struct DangerInfo {
+    /// The template's `dangerousToPlayer`.
+    pub dangerous_to_player: f32,
+    pub danger_pos: [f32; 2],
+    /// `CurrentPlayerAggression` (none without a realized AI).
+    pub player_aggression: Option<f32>,
 }
 
 /// `SU_C04StartUp`'s state.

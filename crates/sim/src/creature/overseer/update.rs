@@ -976,11 +976,10 @@ impl OverseerUpdate<'_, '_> {
         }
         let player_pos = self.cx.player.map(|p| p.pos);
         let me = self.body.chunk().pos;
-        match self
-            .body
-            .current_hologram()
-            .map(|h| h.look_at(player_pos, me))
-        {
+        match self.body.current_hologram().map(|h| {
+            let point_at = h.pointed_creature_pos(self.cx.world).unwrap_or(me);
+            h.look_at(player_pos, me, point_at)
+        }) {
             Some(look) => self.ai.look_at = look,
             None => self.choose_look_at(),
         }
@@ -1352,7 +1351,16 @@ impl OverseerUpdate<'_, '_> {
             } else {
                 num += 1000.0;
             }
-            num = h.influence_hover_score(mid, num, self.cx.player.map(|p| p.pos), self.cx.rng);
+            let point_at = h
+                .pointed_creature_pos(self.cx.world)
+                .unwrap_or(self.body.chunk().pos);
+            num = h.influence_hover_score(
+                mid,
+                num,
+                self.cx.player.map(|p| p.pos),
+                point_at,
+                self.cx.rng,
+            );
         } else {
             let look = self.ai.look_at;
             num += (300.0 - mid.distance(look)).abs();
@@ -1599,6 +1607,16 @@ impl OverseerUpdate<'_, '_> {
             && self.ai.tutorial.is_none()
             && (anger || self.like_of_player() >= 0.5)
         {
+            if let Some(light) = comm.holo_light {
+                let live = self
+                    .cx
+                    .world
+                    .realized(self.cx.room_index)
+                    .is_some_and(|r| r.holo_lights.iter().any(|l| l.id == light && !l.slated));
+                if !live {
+                    comm.holo_light = None;
+                }
+            }
             hologram = self.reevaluate_concern(&mut comm);
         }
         self.ai.communication = Some(comm);
@@ -1772,8 +1790,8 @@ impl OverseerUpdate<'_, '_> {
         let len = i32::try_from(list.len()).unwrap_or(i32::MAX);
         let pick = list[usize::try_from(self.cx.rng.range_i32(0, len)).unwrap_or(0)];
         comm.most_dangerous_creature_danger =
-            self.creature_danger_score(comm.most_dangerous_creature_in_room);
-        let danger = self.creature_danger_score(Some(pick));
+            self.creature_danger_score(comm, comm.most_dangerous_creature_in_room);
+        let danger = self.creature_danger_score(comm, Some(pick));
         if danger > comm.most_dangerous_creature_danger * 1.1 {
             comm.most_dangerous_creature_in_room = Some(pick);
             comm.most_dangerous_creature_danger = danger;
@@ -1809,16 +1827,20 @@ impl OverseerUpdate<'_, '_> {
         self.realized(id).is_some_and(|r| !r.dead) && !slated
     }
 
-    /// `CreatureDangerScore`. A creature whose type the player knows and that a camera
-    /// shows scores 0; else its template's `dangerousToPlayer`, which is 0 for every
-    /// creature the port realizes (slugcat, overseer, bat fly: 125330, 125408, 126246
-    /// set none), so the rest (aggression, distance, the hand-holding power) never
-    /// runs.
-    fn creature_danger_score(&self, creature: Option<CreatureId>) -> f32 {
+    /// `CreatureDangerScore` (231884). A creature whose type the player knows and that a
+    /// camera shows scores 0; else its template's `dangerousToPlayer` (a scavenger's 1)
+    /// times its AI's aggression to the player, fading from 20 to 1100 px from the
+    /// player, 0 once talked about, raised to a power of the guide's hand-holding. A
+    /// mimicking pole mimic is never seen (pole mimics are not realized yet).
+    pub(crate) fn creature_danger_score(
+        &self,
+        comm: &CommunicationModule,
+        creature: Option<CreatureId>,
+    ) -> f32 {
         let Some(id) = creature.filter(|&c| self.creature_any_potential_danger_at_all(c)) else {
             return 0.0;
         };
-        let Some(info) = self.realized(id) else {
+        let (Some(info), Some(player)) = (self.realized(id), self.cx.player) else {
             return 0.0;
         };
         let viewed = self
@@ -1828,7 +1850,23 @@ impl OverseerUpdate<'_, '_> {
         if self.cx.guide.knows_creature_type(info.kind) && viewed {
             return 0.0;
         }
-        0.0
+        let c = self.cx.world.creature(id);
+        let mut num = if info.kind == CreatureType::Scavenger {
+            1.0
+        } else {
+            c.template.dangerous_to_player
+        };
+        if num == 0.0 {
+            return 0.0;
+        }
+        if let Some(aggression) = c.current_player_aggression() {
+            num *= aggression;
+        }
+        num *= info.pos.distance(player.pos).inverse_lerp(1100.0, 20.0);
+        if num == 0.0 || comm.objects_already_talked_about.contains(&c.id) {
+            return 0.0;
+        }
+        num.mathf_pow(1.25.lerp(0.25, self.cx.guide.hand_holding))
     }
 
     /// `ReevaluateConcern`'s food part while the player is hungry: a random entity of

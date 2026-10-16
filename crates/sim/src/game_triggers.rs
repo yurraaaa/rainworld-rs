@@ -324,7 +324,7 @@ impl RainWorldGame {
 
     /// `BringGuideToPlayerEvent.BringGuide(world, minLike)`: the guide heads for the
     /// player for 400 to 1800 ticks by how much it likes them.
-    fn bring_guide(&mut self, min_like: f32) {
+    pub(super) fn bring_guide(&mut self, min_like: f32) {
         let Some(guide) = self.world.overseers_world_ai().and_then(|o| o.player_guide) else {
             return;
         };

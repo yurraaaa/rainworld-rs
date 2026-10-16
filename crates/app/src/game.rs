@@ -13,16 +13,16 @@ use rw_assets::{ActiveMods, Room, RoomSettings, SlugcatName, SoundTable, Streami
 use rw_audio::Follow as SoundFollow;
 use rw_graphics::{
     Color, CosmeticSprites, DrawList, FlyGraphics, HologramFrame, HologramGraphics,
-    OverseerGraphics, PlayerGraphics, ShelterDoorSprites, ShortcutPalette, WaterDripSprites,
-    WeaponSprites,
+    HologramLightSprites, OverseerGraphics, PlayerGraphics, ShelterDoorSprites, ShortcutPalette,
+    WaterDripSprites, WeaponSprites,
 };
 use rw_hud::{HudSetup, OwnerTick, RainCycleView, StartCondition, Subregions};
 use rw_random::UnityRandom;
 use rw_render::{BodyStatus, ChunkInterpolation, Follow, PlayerLight, WaterSurface};
 use rw_sim::campaign::{self, SlugcatCampaign, StoryStart};
 use rw_sim::creature::fly::FlyView;
-use rw_sim::creature::overseer::OverseerView;
 use rw_sim::creature::overseer::hologram::OverseerHologram;
+use rw_sim::creature::overseer::{OverseerBody, OverseerView};
 use rw_sim::creature::{CreatureId, EntityId};
 use rw_sim::item::Entity;
 use rw_sim::room_script::{RoomScript, SuC04StartUp};
@@ -221,6 +221,13 @@ impl PlayerObserver for Graphics {
             g.update(view, room, camera, partner, rng);
             self.set_hologram_base(view);
         }
+    }
+
+    fn overseer_eye(&self, id: EntityId, body: &OverseerBody) -> Option<Vec2> {
+        self.overseers
+            .iter()
+            .find(|g| g.id == id)
+            .map(|g| g.eye(body, 1.0))
     }
 
     fn overseer_removed(&mut self, id: EntityId) {
@@ -770,6 +777,36 @@ impl Game {
         let mut shown: Vec<_> = room.cosmetics.iter().filter(|c| !c.slated).collect();
         shown.sort_by_key(|c| c.update_order);
         shown.iter().map(|c| c.draw(&room.room, alpha)).collect()
+    }
+
+    /// The guide's lights in the camera's room at `alpha` between ticks, oldest first
+    /// (`HologramLight.DrawSprites` on the cosmetic stream).
+    pub fn holo_light_draw_lists(&mut self, alpha: f32) -> Vec<DrawList> {
+        let world = self.sim.world();
+        let Some(room) = world.realized(self.sim.camera_room()) else {
+            return Vec::new();
+        };
+        room.holo_lights
+            .iter()
+            .filter(|l| !l.slated)
+            .map(|l| {
+                let c = world.creature(l.overseer);
+                let eye = c
+                    .overseer_body()
+                    .filter(|b| b.in_room && c.pos.room == l.room)
+                    .map(|b| {
+                        self.graphics
+                            .overseers
+                            .iter()
+                            .find(|g| g.id == c.id)
+                            .map_or_else(
+                                || b.chunk().last_pos.lerp(b.chunk().pos, alpha),
+                                |g| g.eye(b, alpha),
+                            )
+                    });
+                l.draw(&room.room, eye, alpha, &mut self.graphics.cosmetic)
+            })
+            .collect()
     }
 
     /// The water drips in the camera's room at `alpha` between ticks, oldest first

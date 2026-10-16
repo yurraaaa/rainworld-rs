@@ -17,6 +17,8 @@ mod flies;
 mod hands;
 #[path = "game_hits.rs"]
 mod hits;
+#[path = "game_holo_light.rs"]
+mod holo_light;
 #[path = "game_instructions.rs"]
 mod instructions;
 #[path = "game_items.rs"]
@@ -43,8 +45,8 @@ use crate::campaign::{SlugcatCampaign, SlugcatStats, StoryStart};
 use crate::creature::fly::FlyView;
 use crate::creature::overseer::hologram::{ControlPreset, OverseerHologram};
 use crate::creature::overseer::{
-    OverseerEffect, OverseerMode, OverseerTick, OverseerUpdate, OverseerView, PlayerView,
-    StoryStats, TutorialMessage,
+    OverseerBody, OverseerEffect, OverseerMode, OverseerTick, OverseerUpdate, OverseerView,
+    PlayerView, StoryStats, TutorialMessage,
 };
 use crate::creature::population::PopulationContext;
 use crate::creature::{
@@ -122,6 +124,11 @@ pub trait PlayerObserver {
         _camera: &CameraView,
         _rng: &mut UnityRandom,
     ) {
+    }
+    /// `OverseerGraphics.DrawPosOfSegment(0, 1)`, the eye, while the overseer has a
+    /// graphics module.
+    fn overseer_eye(&self, _id: EntityId, _body: &OverseerBody) -> Option<Vec2> {
+        None
     }
     /// The overseer's graphics module is dropped (`NoLongerViewed`, or abstracted).
     fn overseer_removed(&mut self, _id: EntityId) {}
@@ -231,6 +238,8 @@ enum RoomObject {
     WeaponLoop(ObjectId),
     /// A trigger checker or an object a trigger added, by id.
     Trigger(u64),
+    /// A `HologramLight` by id.
+    HoloLight(u64),
 }
 
 /// No graphics.
@@ -1193,6 +1202,7 @@ impl RainWorldGame {
         objects.extend(self.room_weapon_objects(index));
         objects.extend(self.room_trigger_objects(index));
         objects.extend(self.room_cosmetic_objects(index));
+        objects.extend(self.room_holo_light_objects(index));
         objects.sort_by_key(|&(seq, _)| std::cmp::Reverse(seq));
         let mut player_done = false;
         for (seq, object) in objects {
@@ -1231,9 +1241,11 @@ impl RainWorldGame {
                 RoomObject::WeaponLoop(id) => self.run_weapon_loop(index, id),
                 RoomObject::Trigger(id) => self.run_trigger_object(index, id),
                 RoomObject::Cosmetic(id) => self.world.update_cosmetic(index, id, &mut self.rng),
+                RoomObject::HoloLight(id) => self.run_holo_light(index, id, observer),
             }
         }
         self.remove_slated_trigger_objects();
+        self.remove_slated_holo_lights(index);
         if !player_done {
             self.update_room_player_now(index, input, observer);
         }
@@ -1521,6 +1533,7 @@ impl RainWorldGame {
         self.player_graphics = observer.has_player_graphics();
         self.report_spawn_room(index);
         self.player_sleep_update(room, input);
+        self.monk_hologram_light(index);
         self.player_map_discovery(index, room, moved);
         let sounds = if index == self.camera_room {
             &mut self.sounds

@@ -8,6 +8,7 @@ use rw_audio::music::{
 };
 use rw_random::UnityRandom;
 use rw_save::SongPlayRecord;
+use rw_sim::{INPUT_HISTORY, Input, Vec2};
 
 struct Story {
     player: MusicPlayer,
@@ -62,6 +63,9 @@ impl Story {
             rain_mutes_drone: false,
             single_room_world: false,
             music_bank: "SU".to_owned(),
+            player_pos: Vec2::ZERO,
+            input: [Input::NONE; INPUT_HISTORY],
+            creatures: Vec::new(),
         }
     }
 

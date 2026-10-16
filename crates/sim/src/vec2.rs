@@ -164,6 +164,17 @@ impl Vec2 {
         self + self.direction_to(to) * max
     }
 
+    /// `Vector2.ClampMagnitude`.
+    #[must_use]
+    pub fn clamp_magnitude(self, max: f32) -> Self {
+        let sqr = self.x * self.x + self.y * self.y;
+        if sqr > max * max {
+            self * (max / sqr.sqrt())
+        } else {
+            self
+        }
+    }
+
     /// `Custom.VecToDeg`: degrees clockwise from straight up.
     #[must_use]
     pub fn to_degrees(self) -> f32 {

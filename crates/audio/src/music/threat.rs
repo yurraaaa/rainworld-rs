@@ -1,8 +1,11 @@
 //! `Music.PlayerThreatTracker` (room switches, the drone level, ghost and laugh modes)
-//! and its `ThreatDetermination`, whose threat level is not ported yet. Behaviour:
-//! `rainworld-re/notes/music.md` section 3.
+//! and its `ThreatDetermination` (the threat of the creatures around the player).
+//! Behaviour: `rainworld-re/notes/music.md` section 3.
 
+use rw_assets::CreatureType;
 use rw_random::UnityRandom;
+use rw_sim::creature::{CreatureDanger, EntityId};
+use rw_sim::{FloatExt, INPUT_HISTORY, Input, Vec2};
 
 use super::player::{MusicPlayer, MusicProcess};
 
@@ -21,15 +24,198 @@ pub struct GameMusicView {
     pub single_room_world: bool,
     /// The region's `proceduralMusicBank`, else its name.
     pub music_bank: String,
+    /// The player's `mainBodyChunk.pos`.
+    pub player_pos: Vec2,
+    /// `player.input`, newest first.
+    pub input: [Input; INPUT_HISTORY],
+    /// The other realized creatures of the player's abstract room, in its order.
+    pub creatures: Vec<CreatureDanger>,
 }
 
-/// `ThreatDetermination`: only the state other code reads; `Update` (the threat of the
-/// creatures in the player's room) is not ported, so the threat stays 0.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+/// A creature's `ThreatOfCreature` in the last update.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CreatureThreat {
+    pub id: EntityId,
+    pub kind: CreatureType,
+    pub threat: f32,
+}
+
+/// `ThreatDetermination` for player 0. It draws no random numbers.
+#[derive(Debug, Clone, PartialEq)]
 pub struct ThreatDetermination {
-    pub current_threat: f32,
-    pub current_music_agnostic_threat: f32,
     pub threat_decline_counter: i32,
+    pub current_threat: f32,
+    pub threat: f32,
+    pub music_agnostic_threat_decline_counter: i32,
+    pub current_music_agnostic_threat: f32,
+    pub music_agnostic_threat: f32,
+    pub room: i32,
+    pub last_room: i32,
+    pub last_last_room: i32,
+    /// Each creature's threat in the last update (for inspection).
+    pub creatures: Vec<CreatureThreat>,
+}
+
+impl Default for ThreatDetermination {
+    fn default() -> Self {
+        Self {
+            threat_decline_counter: 0,
+            current_threat: 0.0,
+            threat: 0.0,
+            music_agnostic_threat_decline_counter: 0,
+            current_music_agnostic_threat: 0.0,
+            music_agnostic_threat: 0.0,
+            room: -1,
+            last_room: -1,
+            last_last_room: -1,
+            creatures: Vec::new(),
+        }
+    }
+}
+
+impl ThreatDetermination {
+    /// `Update` while `Players[0]` is a realized player in a room (`view`), with
+    /// camera 0's `ghostMode`. No world ghost is ported, so any ghost mode counts as 1.
+    pub fn update(&mut self, view: &GameMusicView, ghost_mode: f32) {
+        if view.game_over {
+            self.current_threat = 0.0;
+            self.current_music_agnostic_threat = 0.0;
+            return;
+        }
+        let mut drone = view.bkg_drone_volume;
+        if view.rain_mutes_drone {
+            drone = 0.0;
+        }
+        let ghost = if ghost_mode > 0.0 { 1.0 } else { 0.0 };
+        if ghost > 0.0 {
+            drone = 0.0;
+        }
+        if !view.single_room_world && view.room != self.room {
+            self.last_last_room = self.last_room;
+            self.last_room = self.room;
+            self.room = view.room;
+            if self.room != self.last_last_room {
+                self.threat_decline_counter = self.threat_decline_counter.max(120);
+                self.music_agnostic_threat_decline_counter =
+                    self.music_agnostic_threat_decline_counter.max(120);
+            }
+        }
+        self.threat = 0.0;
+        self.music_agnostic_threat = 0.0;
+        self.creatures.clear();
+        for c in &view.creatures {
+            let t = Self::threat_of_creature(c, view.player_pos);
+            if drone > 0.0 {
+                self.threat = (self.threat + t).lerp(self.threat.max(t), 0.75);
+            }
+            self.music_agnostic_threat =
+                (self.music_agnostic_threat + t).lerp(self.music_agnostic_threat.max(t), 0.75);
+            self.creatures.push(CreatureThreat {
+                id: c.id,
+                kind: c.kind,
+                threat: t,
+            });
+        }
+        let power = (Self::input_changes(&view.input) as f32).lerp_map(5.0, 30.0, 1.2, 0.8);
+        if drone > 0.0 {
+            self.threat = self.threat.clamp(0.0, 1.0).mathf_pow(power);
+        }
+        self.music_agnostic_threat = self.music_agnostic_threat.clamp(0.0, 1.0).mathf_pow(power);
+        if ghost > 0.0 {
+            self.music_agnostic_threat = 0.0;
+        }
+        self.threat = Self::hump(self.threat);
+        self.music_agnostic_threat = Self::hump(self.music_agnostic_threat);
+        if self.threat_decline_counter > 0 {
+            self.threat_decline_counter -= 1;
+        }
+        if self.music_agnostic_threat_decline_counter > 0 {
+            self.music_agnostic_threat_decline_counter -= 1;
+        }
+        if self.threat < self.current_threat - 0.35 {
+            self.threat_decline_counter = self.threat_decline_counter.max(10);
+        }
+        if self.music_agnostic_threat < self.current_music_agnostic_threat - 0.35 {
+            self.music_agnostic_threat_decline_counter =
+                self.music_agnostic_threat_decline_counter.max(10);
+        }
+        self.current_threat = Self::follow(
+            self.current_threat,
+            self.threat,
+            self.threat_decline_counter,
+        );
+        self.current_music_agnostic_threat = Self::follow(
+            self.current_music_agnostic_threat,
+            self.music_agnostic_threat,
+            self.music_agnostic_threat_decline_counter,
+        );
+    }
+
+    /// The input changes over the history against the newest input: a direction or the
+    /// pick-up button 1, jump or throw 2.
+    #[must_use]
+    pub fn input_changes(input: &[Input; INPUT_HISTORY]) -> i32 {
+        let now = input[0];
+        input[1..]
+            .iter()
+            .map(|i| {
+                i32::from(i.x != now.x)
+                    + i32::from(i.y != now.y)
+                    + 2 * i32::from(i.jump != now.jump)
+                    + 2 * i32::from(i.throw != now.throw)
+                    + i32::from(i.pickup != now.pickup)
+            })
+            .sum()
+    }
+
+    /// Between 0.25 and 0.75 a threat is drawn toward 0.5.
+    fn hump(t: f32) -> f32 {
+        if t > 0.25 && t < 0.75 {
+            t.lerp(0.5, (t - 0.5).abs().inverse_lerp(0.25, 0.0))
+        } else {
+            t
+        }
+    }
+
+    /// The current level rises toward the threat fast and falls slowly, faster while
+    /// the decline counter runs.
+    fn follow(current: f32, threat: f32, decline: i32) -> f32 {
+        if current < threat {
+            (current + 1.0 / 280.0.lerp(80.0, threat)).min(1.0)
+        } else if decline > 0 {
+            (current - 1.0 / 800.0.lerp(4200.0, threat)).max(0.0)
+        } else {
+            (current - 1.0 / 1600.0.lerp(22000.0, threat.mathf_pow(0.25))).max(0.0)
+        }
+    }
+
+    /// `ThreatOfCreature`: the template's danger, a third of it when dead; else fading
+    /// with distance from 300 to 2400 px (to 0.2 while the creature sees the player),
+    /// up to doubled when close and fast, scaled by how well it knows where the player
+    /// is and by its aggression. Ripple layers are the Watcher's: every base-game
+    /// creature shares the player's.
+    #[must_use]
+    pub fn threat_of_creature(c: &CreatureDanger, player_pos: Vec2) -> f32 {
+        let mut danger = c.dangerous_to_player;
+        if danger == 0.0 {
+            return 0.0;
+        }
+        if c.dead {
+            return danger / 3.0;
+        }
+        let (visual, chance) = c.player_rep.map_or((false, 0.0), |r| {
+            (r.visual_contact, r.estimated_chance_of_finding)
+        });
+        let dist = c.danger_pos.distance(player_pos);
+        danger *= dist.lerp_map(300.0, 2400.0, 1.0, if visual { 0.2 } else { 0.0 });
+        danger *= 1.0
+            + dist.inverse_lerp(300.0, 20.0) * c.first_chunk_vel.length().inverse_lerp(2.0, 7.0);
+        danger *= (1.0_f32 / 3.0).lerp(1.0, chance.mathf_pow(0.75));
+        if let Some(aggression) = c.player_aggression {
+            danger *= aggression;
+        }
+        danger
+    }
 }
 
 /// `PlayerThreatTracker` for player 0.
@@ -167,6 +353,8 @@ impl MusicPlayer {
         let Some(tracker) = &mut self.threat_tracker else {
             return;
         };
+        let ghost_mode = tracker.ghost_mode;
+        tracker.threat_determine.update(&view, ghost_mode);
         if has_song {
             tracker.threat_determine.current_threat = 0.0;
         }
@@ -175,3 +363,7 @@ impl MusicPlayer {
             tracker.threat_determine.current_music_agnostic_threat;
     }
 }
+
+#[cfg(test)]
+#[path = "threat_tests.rs"]
+mod tests;

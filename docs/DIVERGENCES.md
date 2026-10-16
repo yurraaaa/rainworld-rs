@@ -112,7 +112,9 @@ it (D13). What still differs is only the seed and the call order:
   the room's update list; the guide's `BringGuideToPlayerEvent` and the image and
   pickup instructions make the overseer's draws. The music player, updated after the
   game each tick as the game's side process, draws `Random.Range(80, 400)` when a room
-  switch's delay ends. Missing: `ProceduralMusic.Reset`'s stem choice
+  switch's delay ends; `ThreatDetermination` draws nothing. The Monk's `HologramLight`
+  draws three to nine a tick in its slot of the room's update list (its `DrawSprites`
+  draws come from the app's cosmetic stream, per frame). Missing: `ProceduralMusic.Reset`'s stem choice
   (`Random.Range` per non-empty threat layer, 5 for SU, made when `NewRegion` builds the
   bank: in the first room of a game, and after a bank change once the old one faded;
   music step 2).
@@ -664,9 +666,16 @@ runs it as the game's side process (D13), silent on `TimedSources` without audio
 `NewCycleEvent` is sent when a story game starts (D17) and `DeathEvent` on death.
 
 **What differs:**
-- **Music not ported:** `ThreatDetermination.Update` (the threat of the creatures in
-  the player's room: the threat stays 0, so no song is refused or faded by threat),
-  `ProceduralMusic` (`NewRegion` only records the bank in `nextProcedural`; its
+- **Threat.** `ThreatDetermination.Update` is ported with `ThreatOfCreature` over the
+  realized creatures of the player's room (`rw_sim::creature::CreatureDanger`: the
+  templates' `dangerousToPlayer`, `DangerPos`, the AI's `CurrentPlayerAggression` and
+  its tracker's view of the player). No realized creature has a tracker yet (the
+  overseer's AI has none, a bat fly no AI), so `VisualContact` and
+  `EstimatedChanceOfFinding` read false and 0 as the game's do for them; the creatures
+  realized so far are not dangerous, so the threat stays 0 in play until lizards come.
+  Ripple layers (Watcher) are not read; any ghost mode counts as 1 (no world ghost is
+  ported).
+- **Music not ported:** `ProceduralMusic` (`NewRegion` only records the bank in `nextProcedural`; its
   `Reset`'s stem draws are missing, D1), the screen music (sleep, death, starve) and
   the starve and Hunter fades, the echoes' `GhostSong` and ghost mode, `SSSong`,
   gate and region-change songs (no gates yet), `VoidSeaMusic`, the ending songs, the
@@ -1029,14 +1038,16 @@ second part, else a single-room world for arena levels). The campaign descriptio
   vessels and `TeleportingIntoRoom`, and its holograms (`TryAddHologram` with every
   base-game hologram, `Projecting`, the tutorial's input instructions and pointers, the
   communication module's pointers, images and anger). Holograms that cannot appear yet,
-  for want of what triggers them: the creature and food pointers (no dangerous creature
-  or food item is realized: bat flies are small creatures and no food item to the
-  communication module), the angry hologram (`angryWithPlayer` is set only when the
+  for want of what triggers them: the creature pointer (`CreatureDangerScore` with
+  every template's `dangerousToPlayer`, the aggression of the creature's AI, distance
+  and hand-holding, and `CreaturePointer` pointing at the creature's `DangerPos` and
+  warning the player of it, are ported; no realized type is dangerous yet: the player,
+  bat flies and overseers score 0 as in the game, and a pole mimic's mimicking, which
+  hides it, is not read, pole mimics not being realized), the food pointer (no food
+  item to the communication module is realized), the angry hologram (`angryWithPlayer` is set only when the
   Moon's swarmer neuron is eaten or carried off, 217937, and is otherwise read from the
   save; no iterator is ported), the gate scene (`RegionGate` is not ported: in Moon's gates the concern is
-  `None`, as the game's is with a closed gate), the danger pointer
-  (`CreatureDangerScore` reads the templates' `dangerousToPlayer`, which is not ported:
-  every realized type scores 0, as the player, flies and overseers do in the game), the
+  `None`, as the game's is with a closed gate), the
   scavenger-trade instruction (`ScavengerTradeInstructionTrigger` is ported and waits,
   as the game's does, for a realized data pearl from its room; data pearls are never
   realized, so in GW_A22 it never fires; its controller is ported), the forced
@@ -1061,6 +1072,18 @@ second part, else a single-room world for arena levels). The campaign descriptio
   realized. Which camera's room
   counts as viewed when `AddObject` builds the graphics module is inferred from
   `RoomCamera` and `Room.AddObject`, not checked.
+  The Monk's guide light is ported (`Player.Update`'s `HologramLight.TryCreate`, the
+  light's `Update` with its draws, `BringGuide(world, -0.8)` when the guide cannot
+  project, the communication module dropping a light that left its room). `Needed`
+  reads camera 0's palette darkness only: no light sources or lanterns are ported, so
+  none lighten a room, and the light's own `LightSource` (alpha at most 0.1) is not
+  drawn. Its `HoloGrid` glow and lines are drawn. The light lives in its realized room
+  and goes with it; once its overseer is unrealized the light keeps its last eye
+  position and counts as still the guide's (the game's stale overseer object keeps
+  both). Skipped by the user for now (2026-10-16): realized data pearls (the
+  scavenger-trade hint, the Scholar), `dreamsState.guideHasShownHimselfToPlayer`, Moon's
+  like rising on save (`SLaiState`; no iterator is ported), and destroying an angry
+  guide in the off-screen den (`OverseerAbstractAI.Moved`, until iterators are ported).
   The `AbstractCreature` constructor's abstract AI switch (300531..300570) is ported
   for every base type but the scavenger (`CreatureTemplate::abstract_ai_ported`): the
   vultures', cicadas', big eels', deer's (Remix's deer behaviour off), Miros birds' and
@@ -1338,8 +1361,8 @@ story session.
   state is the session's: after a malnourished `Win` the progression's starved state.
 - **Game over.** `Player.Die` → `RainWorldGame.GameOver` → `InitGameOverMode` with the
   food in the stomach, `Players[0].pos.room` and the main chunk at the death restricted
-  to the room grown by 50 px; then the music's `DeathEvent` (its song fade; the
-  threat tracker's `threatDeclineCounter` is not, D12). The prompt's game-over press
+  to the room grown by 50 px; then the music's `DeathEvent` (its song fade and the
+  threat's decline counter, D12). The prompt's game-over press
   reads this tick's map button (the default keyboard binding, `GetButton(11)`), not the
   dead player's input. Differences: there is no `dependentOnGrasp` (no creature grasps
   the player, so `Player.Update`'s danger-grasp game over and the escape that cancels
