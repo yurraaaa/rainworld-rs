@@ -581,11 +581,12 @@ colour layer and the five head sprites, in `AddToContainer`'s order, coloured as
 - **The AI's looks.** `LizardAI` is a stand-in (D14): its tracker is empty, so the
   looker never looks at a creature (`lookCreature` stays null, the eye beams stay off)
   and `CreatureSpotted` and the fleeing `lookPos` are not called.
-- **A dropped module's bubbles.** A bubble keeps the module that made it, as the game's
-  keeps its `LizardGraphics`, and reads the lizard's excitement and jaw from the
-  creature's realized body, else as the module last read them. The game reads the body
-  object the module was made for, so a lizard abstracted and realized again within a
-  bubble's life differs.
+- **A dropped module's bubbles, sparks and flash.** A bubble, and a head-shield spark
+  or flash, keeps the module it was given, as the game's keep their `LizardGraphics`
+  (a spark reads its `whiteFlicker`, frozen once dropped), and reads the lizard's
+  excitement and jaw from the creature's realized body, else as the module last read
+  them. The game reads the body object the module was made for, so a lizard abstracted
+  and realized again within one's life differs.
 - **Not ported:** the white lizard's camouflage, the black lizard's head lighting up from
   noise, the salamander's colours, the cyan lizard's tail, the tongue, the vision beams
   (`lizardLaserEyes` is a dev setup value), the debug visualization,

@@ -441,7 +441,7 @@ impl World {
     }
 
     /// `room.AddObject` of a cosmetic sprite at the end of the update list.
-    pub(crate) fn add_cosmetic(&mut self, room: i32, kind: CosmeticKind) {
+    pub fn add_cosmetic(&mut self, room: i32, kind: CosmeticKind) {
         let seq = self.next_update_seq();
         self.add_cosmetic_at(room, seq, kind);
     }

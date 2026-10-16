@@ -224,11 +224,11 @@ impl RainWorldGame {
         let Some(c) = self.world.room_cosmetics(index).iter().find(|c| c.id == id) else {
             return;
         };
-        let (lizard, pos, module) = match &c.kind {
-            CosmeticKind::Spark(s) => (s.lizard.map(|(l, _)| l), s.pos, None),
-            CosmeticKind::LizardBubble(b) => (Some(b.lizard), b.pos, Some(b.module)),
-            CosmeticKind::Flash(f) => (f.lizard, f.pos, None),
-            CosmeticKind::Spikes(_) | CosmeticKind::OverseerEffect(_) => (None, Vec2::ZERO, None),
+        let (lizard, pos) = match &c.kind {
+            CosmeticKind::Spark(s) => (s.lizard, s.pos),
+            CosmeticKind::LizardBubble(b) => (Some((b.lizard, b.module)), b.pos),
+            CosmeticKind::Flash(f) => (f.lizard, f.pos),
+            CosmeticKind::Spikes(_) | CosmeticKind::OverseerEffect(_) => (None, Vec2::ZERO),
         };
         let mut tie = CosmeticTie {
             water_level: self
@@ -238,16 +238,15 @@ impl RainWorldGame {
                 .map_or(f32::MIN, |w| w.level_at(pos.x)),
             ..CosmeticTie::default()
         };
-        if let Some(owner) = lizard {
+        // It reads only the module it was given; a dropped one no longer changes.
+        if let Some((owner, module)) = lizard {
             let holding = self.lizard_holding(owner);
             if let Some(l) = self.world.creature(owner).lizard()
                 && let Some(g) = &l.graphics
+                && g.module == module
             {
                 tie.white_flicker = Some(g.white_flicker);
-                // A bubble reads only the module that made it.
-                if module.is_none_or(|m| m == g.module) {
-                    tie.head = Some(g.head.for_bubble(l.params, l.jaw_open(holding)));
-                }
+                tie.head = Some(g.head.for_bubble(l.params, l.jaw_open(holding)));
             }
         }
         self.world.update_cosmetic(index, id, tie, &mut self.rng);

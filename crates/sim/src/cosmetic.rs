@@ -38,9 +38,9 @@ pub enum CosmeticKind {
 /// What a cosmetic tied to a lizard's graphics reads of them in its update.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct CosmeticTie {
-    /// The graphics' `whiteFlicker`, while they exist.
+    /// The `whiteFlicker` of the module the cosmetic was given, while it is the lizard's.
     pub white_flicker: Option<i32>,
-    /// The graphics' head, while they exist.
+    /// That module's head, while it is the lizard's.
     pub head: Option<BubbleHead>,
     /// `Room.FloatWaterLevel(pos)` at the object.
     pub water_level: f32,
@@ -55,13 +55,14 @@ pub struct StationaryEffect {
     pub life: f32,
     pub last_life: f32,
     pub life_time: i32,
-    /// The lizard whose head colour it shows.
-    pub lizard: Option<CreatureId>,
+    /// The lizard and the serial of the graphics module whose head colour it shows
+    /// (`lizard`, kept even after the module is dropped).
+    pub lizard: Option<(CreatureId, u64)>,
 }
 
 impl StationaryEffect {
     #[must_use]
-    pub fn flashing_orb(pos: Vec2, lizard: Option<CreatureId>) -> Self {
+    pub fn flashing_orb(pos: Vec2, lizard: Option<(CreatureId, u64)>) -> Self {
         Self {
             pos,
             last_pos: pos,
@@ -156,9 +157,12 @@ pub struct Spark {
     pub gravity: f32,
     /// RGBA.
     pub color: [f32; 4],
-    /// The lizard whose graphics it belongs to (`lizard`), with their `whiteFlicker` as
-    /// last read: it fades fast below 5 and takes the head's colour above 0.
-    pub lizard: Option<(CreatureId, i32)>,
+    /// The lizard and the serial of the graphics module it was given (`lizard`, kept
+    /// even after the module is dropped).
+    pub lizard: Option<(CreatureId, u64)>,
+    /// That module's `whiteFlicker` as last read: it fades fast below 5 and takes the
+    /// head's colour above 0.
+    pub white_flicker: i32,
 }
 
 /// `ExplosionSpikes`: a ring of thin spikes that grow and fade over `2 * lifeTime` ticks.
@@ -204,6 +208,7 @@ impl Spark {
             gravity,
             color,
             lizard: None,
+            white_flicker: 0,
         }
     }
 
@@ -213,11 +218,11 @@ impl Spark {
         self.last_last_pos = self.last_pos;
         self.vel.y -= self.gravity;
         self.life -= 1.0 / self.life_time as f32;
-        if let Some((_, flicker)) = &mut self.lizard {
+        if self.lizard.is_some() {
             if let Some(f) = white_flicker {
-                *flicker = f;
+                self.white_flicker = f;
             }
-            if *flicker < 5 {
+            if self.white_flicker < 5 {
                 self.life -= 0.2;
             }
         }
