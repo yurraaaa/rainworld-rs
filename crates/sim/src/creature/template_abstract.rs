@@ -4,7 +4,8 @@
 use rw_assets::CreatureType;
 use rw_assets::world::AbstractRoomData;
 
-use super::{CreatureTemplate, WaterRelationship};
+use super::CreatureTemplate;
+use crate::world::MovementType;
 
 /// The `MovementConnection.MovementType`s of the abstract path costs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -25,51 +26,36 @@ pub struct AbstractCost {
     pub allowed: bool,
 }
 
-impl AbstractCost {
-    /// The constructor's default for an unlisted connection (100, `IllegalConnection`).
-    const ILLEGAL: Self = Self {
-        resistance: 100.0,
-        allowed: false,
-    };
-
-    const fn allowed(resistance: f32) -> Self {
-        Self {
-            resistance,
-            allowed: true,
+impl AbstractMovement {
+    #[must_use]
+    pub fn movement_type(self) -> MovementType {
+        match self {
+            Self::OffScreenMovement => MovementType::OffScreenMovement,
+            Self::ShortCut => MovementType::ShortCut,
+            Self::BetweenRooms => MovementType::BetweenRooms,
+            Self::SkyHighway => MovementType::SkyHighway,
+            Self::SeaHighway => MovementType::SeaHighway,
+            Self::SideHighway => MovementType::SideHighway,
+            Self::RegionTransportation => MovementType::RegionTransportation,
         }
     }
 }
 
 impl CreatureTemplate {
     /// Whether the plain `AbstractCreatureAI` behaviour runs for this template: the
-    /// lizards so far (their connection resistances are ported; other types stay in
-    /// their dens, docs/DIVERGENCES.md D14).
+    /// lizards so far (other types stay in their dens, docs/DIVERGENCES.md D14).
     #[must_use]
     pub fn abstract_ai_ported(&self) -> bool {
         self.top_ancestor() == CreatureType::LizardTemplate
     }
 
-    /// `ConnectionResistance(type)` for the abstract movement types. Ported for the
-    /// lizards (`LizardTemplate`'s list, the breeds' `ShortCut`: Blue 15, White 2, Cyan
-    /// 5); other templates answer the constructor's default.
+    /// `ConnectionResistance(type)` for the abstract movement types.
     #[must_use]
     pub fn abstract_resistance(&self, movement: AbstractMovement) -> AbstractCost {
-        if !self.abstract_ai_ported() {
-            return AbstractCost::ILLEGAL;
-        }
-        match movement {
-            AbstractMovement::OffScreenMovement => AbstractCost::allowed(1.0),
-            AbstractMovement::ShortCut => AbstractCost::allowed(match self.kind {
-                CreatureType::BlueLizard => 15.0,
-                CreatureType::WhiteLizard => 2.0,
-                CreatureType::CyanLizard => 5.0,
-                _ => 1.5,
-            }),
-            AbstractMovement::BetweenRooms => AbstractCost::allowed(10.0),
-            AbstractMovement::SkyHighway
-            | AbstractMovement::SeaHighway
-            | AbstractMovement::SideHighway
-            | AbstractMovement::RegionTransportation => AbstractCost::ILLEGAL,
+        let cost = self.connection_resistance(movement.movement_type());
+        AbstractCost {
+            resistance: cost.resistance,
+            allowed: cost.allowed(),
         }
     }
 
@@ -105,17 +91,5 @@ impl CreatureTemplate {
             .filter(|(_, n)| self.maps_node(n.kind))
             .nth(usize::try_from(specific).unwrap_or(usize::MAX))
             .map_or(-1, |(i, _)| i32::try_from(i).unwrap_or(-1))
-    }
-}
-
-impl WaterRelationship {
-    /// `CreatureTemplate.AbstractSubmersionLegal`.
-    #[must_use]
-    pub fn abstract_submersion_legal(self, node_submerged: bool) -> bool {
-        if node_submerged {
-            matches!(self, Self::WaterOnly | Self::Amphibious)
-        } else {
-            self != Self::WaterOnly
-        }
     }
 }

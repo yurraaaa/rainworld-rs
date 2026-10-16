@@ -56,7 +56,10 @@ impl World {
             let Some(map) = self.realized(room).and_then(|r| r.ai_map.as_ref()) else {
                 return placed;
             };
-            let Some(fly) = map.fly() else { return placed };
+            let fly_template = CreatureTemplate::of(CreatureType::Fly, rw_assets::ActiveMods::NONE);
+            let Some(fly) = map.creature_map(&fly_template) else {
+                return placed;
+            };
             let mut candidates: Vec<(i32, i32)> = fly
                 .accessible_tiles()
                 .iter()
@@ -141,7 +144,10 @@ impl World {
         let Some(map) = self.realized(room).and_then(|r| r.ai_map.as_ref()) else {
             return 0.0;
         };
-        let Some(fly) = map.fly() else { return 0.0 };
+        let fly_template = CreatureTemplate::of(CreatureType::Fly, rw_assets::ActiveMods::NONE);
+        let Some(fly) = map.creature_map(&fly_template) else {
+            return 0.0;
+        };
         let mut score = 0.0f32;
         score += map.visibility(x, y) as f32;
         score += map.terrain_proximity(x, y) as f32 * 0.2;

@@ -14,8 +14,9 @@ use std::path::PathBuf;
 use rw_assets::world::{
     GameRooms, LineFilter, Regions, RoomSource, StoryConditions, WorldData, WorldRequest,
 };
-use rw_assets::{ActiveMods, Room, StreamingAssets};
+use rw_assets::{ActiveMods, CreatureType, Room, StreamingAssets};
 use rw_sim::campaign::SlugcatCampaign;
+use rw_sim::creature::CreatureTemplate;
 use rw_sim::world::{AiMap, MovementType};
 use serde_json::{Value, json};
 
@@ -50,7 +51,8 @@ struct Digest;
 
 impl Digest {
     fn of(room: &Room, map: &AiMap) -> Value {
-        let fly = map.fly().expect("the Fly's map");
+        let template = CreatureTemplate::of(CreatureType::Fly, ActiveMods::NONE);
+        let fly = map.creature_map(&template).expect("the Fly's map");
         let (w, h) = (room.width(), room.height());
         let mut grid = Sum::new(1_000_003);
         for &v in fly.grid() {
@@ -65,7 +67,11 @@ impl Digest {
             let mut reach = 0;
             for x in 0..w {
                 for y in 0..h {
-                    let v = map.fly_exit_distance_and_check_neighbours((x, y), node);
+                    let v = map.exit_distance_for_creature_and_check_neighbours(
+                        (x, y),
+                        node,
+                        &template,
+                    );
                     if v > 0 {
                         reach += 1;
                     }
@@ -80,18 +86,17 @@ impl Digest {
         for x in 0..w {
             for y in 0..h {
                 floor.add(i64::from(map.floor_altitude(x, y)));
-                for c in map.fly_outgoing_paths(room, x, y) {
+                // The Fly's types, in list order (the old partial map's list).
+                for c in &map.tile(x, y).outgoing_paths {
                     match c.kind {
                         MovementType::Standard => standard += 1,
                         MovementType::ShortCut => shortcut += 1,
                         MovementType::NpcTransportation => npc += 1,
+                        _ => continue,
                     }
                     if c.kind != MovementType::NpcTransportation {
-                        paths.add(
-                            i64::from(c.dest.0) * 1009
-                                + i64::from(c.dest.1) * 7
-                                + i64::from(c.distance),
-                        );
+                        let (dx, dy) = c.dest_tile();
+                        paths.add(i64::from(dx) * 1009 + i64::from(dy) * 7 + i64::from(c.distance));
                     }
                 }
             }
@@ -149,7 +154,7 @@ fn su_fly_maps_match_reference_model() {
     let mut mismatches = Vec::new();
     for r in data.rooms.iter().filter(|r| !r.offscreen_den) {
         let loaded = rooms.load_room(r.file_name()).expect("room loads");
-        let map = AiMap::new(&loaded.room);
+        let map = AiMap::new(&loaded.room, r.index, r.shelter() || r.gate(), false);
         let got = Digest::of(&loaded.room, &map);
         let want = &model["rooms"][&r.name];
         assert!(!want.is_null(), "{} is in the model", r.name);
@@ -160,7 +165,8 @@ fn su_fly_maps_match_reference_model() {
         cells += got["cells"].as_u64().expect("cells");
         accessible += got["accessible"].as_u64().expect("accessible");
         tiles += u64::try_from(loaded.room.width() * loaded.room.height()).expect("tiles");
-        let fly = map.fly().expect("the Fly's map");
+        let template = CreatureTemplate::of(CreatureType::Fly, ActiveMods::NONE);
+        let fly = map.creature_map(&template).expect("the Fly's map");
         assert_eq!(
             fly.cells(),
             fly.baked_ints(),
@@ -185,7 +191,10 @@ fn su_fly_maps_detect_a_wrong_value() {
     let (data, rooms) = su_rooms(&sa);
     let r = data.room_named("SU_A42").expect("SU_A42");
     let loaded = rooms.load_room(r.file_name()).expect("room loads");
-    let got = Digest::of(&loaded.room, &AiMap::new(&loaded.room));
+    let got = Digest::of(
+        &loaded.room,
+        &AiMap::new(&loaded.room, r.index, false, false),
+    );
     let mut want = model["rooms"]["SU_A42"].clone();
     assert_eq!(got, want);
     want["exit_distances"][1][0] = json!(want["exit_distances"][1][0].as_u64().expect("reach") + 1);
