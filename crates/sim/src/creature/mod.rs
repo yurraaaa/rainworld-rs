@@ -13,6 +13,7 @@ pub(crate) mod ai;
 pub mod fly;
 pub mod grasp;
 pub mod overseer;
+pub mod pathing;
 pub(crate) mod population;
 pub mod template;
 

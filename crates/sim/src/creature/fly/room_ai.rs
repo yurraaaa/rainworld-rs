@@ -6,7 +6,7 @@ use rw_assets::CreatureType;
 use rw_random::UnityRandom;
 
 use super::{Fly, FlyAi};
-use crate::creature::{CreatureId, RealizedCreature};
+use crate::creature::{CreatureId, CreatureTemplate, RealizedCreature};
 use crate::world::World;
 use crate::{PlayerObserver, SoundId, Sounds, Vec2};
 
@@ -250,13 +250,16 @@ impl World {
             .filter(|c| FlyAi::afraid_of(c.kind()))
             .map(|c| c.pos.tile)
             .collect();
+        let fly = CreatureTemplate::of(CreatureType::Fly, rw_assets::ActiveMods::NONE);
         let mut best = 0.0f32;
         let mut pick = None;
         for (i, _) in hives.iter().enumerate() {
             let mut score = cx.rng.value() * 50.0;
             let node = exits + i32::try_from(i).unwrap_or(0);
             for &tile in &feared {
-                let d = map.as_ref().map_or(-1, |m| m.fly_exit_distance(tile, node));
+                let d = map
+                    .as_ref()
+                    .map_or(-1, |m| m.exit_distance_for_creature(tile, node, &fly));
                 score += d as f32;
                 if (1..20).contains(&d) {
                     score -= 1000.0;

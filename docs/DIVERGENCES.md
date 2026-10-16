@@ -986,15 +986,18 @@ second part, else a single-room world for arena levels). The campaign descriptio
   The other quantified types (leeches, sea leeches, spiders) are counted but not
   placed; no vanilla SU spawner has them. The `FlyLure` and `Lure` placed objects are
   not read (none in the tutorial rooms; SU_A17 and SU_B08 place one).
-- **The Fly's AI map.** The AI map has the parts the Fly reads (`floorAltitude` and
-  `smoothedFloorAltitude`, the
-  tiles' water, the Fly's accessibility, its Standard, ShortCut and NPCTransportation
-  outgoing paths, and its `CreatureSpecificAImap` from the room file's layer 6); the
-  other accessibility classes, passages, fall risk and creature maps wait for the first
-  ground creature (`ai-map.md`). Not ported: the worm grass access modifier (the game
-  makes worm grass tiles inaccessible when it builds the map, after baking, so in the 28
-  vanilla rooms with worm grass, SU_A32 and SU_B05 among them, its decoded distances
-  shift; the port decodes them as baked) and `ModifyTileWaterLevels` (WaterCutoff and
+- **The AI map.** `AImap` is built as `AImapper` builds it, for every base-game
+  template (accessibility classes, terrain proximity, floor altitudes, narrow spaces,
+  fall risk, every movement connection, `TileAccessibleToCreature`,
+  `IsConnectionAllowedForCreature` and the costs), and each pre-baked pathing creature's
+  `CreatureSpecificAImap` is decoded from the room file as the game decodes it, stale
+  layers included (`ai-map.md`). The flies read this map. Not ported: the worm grass
+  access modifier (the game makes worm grass tiles inaccessible when it builds the map,
+  after baking, so in the 28 vanilla rooms with worm grass, SU_A32 and SU_B05 among
+  them, its decoded distances shift; the port decodes them as baked), the map rebuild
+  when a shelter door opens, Remix's zero-gravity lizard branches, Downpour's
+  `TerrainManager` curved floors and sand, More Slugcats' `daddyCorruptionImmune`
+  branch, and `ModifyTileWaterLevels` (WaterCutoff and
   AirPocket objects, which no vanilla region room places). Remix's
   `BringToRoomAndGuidePlayer` branch of the world
   process's update and More Slugcats' goal rooms and guide symbols are left out.

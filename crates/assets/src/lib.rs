@@ -3,6 +3,7 @@
 //! directory.
 
 pub mod ambient;
+mod border_exits;
 pub mod creatures;
 mod files;
 mod font_config;
@@ -26,6 +27,7 @@ pub mod unity;
 pub mod world;
 
 pub use ambient::{AmbientKind, AmbientSound};
+pub use border_exits::RoomBorderExit;
 pub use creatures::{
     CreatureSpawner, CreatureType, Lineage, RoomAttraction, SimpleSpawner, SpawnerDen,
 };

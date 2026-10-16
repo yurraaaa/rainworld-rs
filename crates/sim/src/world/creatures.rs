@@ -1068,7 +1068,8 @@ impl World {
                 .realized(room)
                 .and_then(|r| r.ai_map.as_ref())
                 .map_or(-1, |m| {
-                    m.fly_exit_distance_and_check_neighbours(pos.tile, specific)
+                    let fly = CreatureTemplate::of(CreatureType::Fly, rw_assets::ActiveMods::NONE);
+                    m.exit_distance_for_creature_and_check_neighbours(pos.tile, specific, &fly)
                 });
             if distance == -1 {
                 log::debug!("abstracted fly without an exit distance to its node");
