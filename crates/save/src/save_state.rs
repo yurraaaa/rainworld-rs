@@ -46,8 +46,8 @@ pub struct SaveState {
     /// `REGIONSTATE` values: the regions' in `regions.txt` order, unknown regions last.
     pub region_states: Vec<String>,
     /// `SWALLOWEDITEMS`, `UNRECOGNIZEDSWALLOWED`, `PLAYERGRASPS` and
-    /// `UNRECOGNIZEDPLAYERGRASPS` values as read (the port loads no stomach or held
-    /// objects, so it keeps them).
+    /// `UNRECOGNIZEDPLAYERGRASPS` values as read; `Win` rewrites the first and third
+    /// (`BringUpToDate`).
     pub swallowed_items: Option<String>,
     unrecognized_swallowed: Option<String>,
     pub player_grasps: Option<String>,
@@ -296,6 +296,16 @@ impl SaveState {
         }
         let t = ((self.how_well_is_player_doing + 1.0) / 2.0).clamp(0.0, 1.0);
         -1.0 + 2.0 * t * t
+    }
+
+    /// Player `player`'s `swallowedItems` entry, unless empty or `"0"` (nothing swallowed).
+    #[must_use]
+    pub fn swallowed_item(&self, player: usize) -> Option<&str> {
+        self.swallowed_items
+            .as_deref()?
+            .split("<svB>")
+            .nth(player)
+            .filter(|s| !s.is_empty() && *s != "0")
     }
 
     /// The saved `REGIONSTATE` of `region` (`regionLoadStrings`).

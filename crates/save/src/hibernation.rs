@@ -52,8 +52,7 @@ impl SaveState {
 
     /// `SessionEnded(game, survived: true, newMalnourished)` up to the save it ends
     /// with (`SaveWorldStateAndProgression`, done by the progression). Not ported:
-    /// kills (`AppendKills`), friends in the den, the spinning top's branches, and the
-    /// grasps and stomach `BringUpToDate` rebuilds (the saved ones are kept).
+    /// kills (`AppendKills`), friends in the den and the spinning top's branches.
     pub fn session_ended_survived(
         &mut self,
         world: &mut dyn HibernationWorld,
@@ -98,9 +97,14 @@ impl SaveState {
         self.den_position.clone_from(&den);
         self.try_set_vanilla_den(&den, world);
         self.next_issued_id = world.next_issued_id();
+        let grasps = world.player_grasps();
+        self.player_grasps = (!grasps.is_empty()).then(|| grasps.join("<svB>"));
         let state = world.adapt_region_state_to_world(&mut self.respawn_creatures);
         self.set_region_state(&region, state, &regions);
         self.communities = Some(communities.save_string());
+        // One player: `swallowedItems` is that player's string, or null with nothing
+        // swallowed.
+        self.swallowed_items = world.swallowed_item();
 
         record.went_to_sleep_in_region = Some(region);
         self.tot_time += record.time / 40;
@@ -235,6 +239,8 @@ mod tests {
     struct World {
         food: i32,
         depletes: u32,
+        grasps: Vec<String>,
+        stomach: Option<String>,
     }
 
     impl HibernationWorld for World {
@@ -267,6 +273,12 @@ mod tests {
         fn vanilla_room_exists(&self, _room: &str) -> bool {
             true
         }
+        fn player_grasps(&self) -> Vec<String> {
+            self.grasps.clone()
+        }
+        fn swallowed_item(&self) -> Option<String> {
+            self.stomach.clone()
+        }
     }
 
     const SURVIVOR: HibernationStats = HibernationStats {
@@ -282,7 +294,12 @@ mod tests {
     }
 
     fn end(s: &mut SaveState, food: i32, malnourished: bool) -> PlayerSessionRecord {
-        let mut world = World { food, depletes: 0 };
+        let mut world = World {
+            food,
+            depletes: 0,
+            grasps: Vec::new(),
+            stomach: None,
+        };
         let mut record = PlayerSessionRecord {
             woke_up_in_region: Some("SU".to_owned()),
             time: 4000,
@@ -409,9 +426,14 @@ mod tests {
         p.get_or_initiate_save_state(start, 42, false, true)
             .unwrap();
         p.temp_discover_shelter("SU_S01");
+        // `BringUpToDate`: a spear in hand and a rock swallowed.
+        let spear = "ID.-1.7<oB>0<oA>Spear<oA>SU_S01.5.5.0<oA>0<oA>0";
+        let rock = "ID.-1.8<oB>0<oA>Rock<oA>SU_S01.5.5.0";
         let mut world = World {
             food: 4,
             depletes: 0,
+            grasps: vec![spear.to_owned()],
+            stomach: Some(rock.to_owned()),
         };
         let mut record = PlayerSessionRecord {
             woke_up_in_region: Some("SU".to_owned()),
@@ -437,6 +459,8 @@ mod tests {
         assert!(lines[0].starts_with("SAVE STATE<progDivB>SAV STATE NUMBER<svB>White<svA>"));
         assert!(lines[0].contains("DENPOS<svB>SU_S01<svA>"));
         assert!(lines[0].contains("FOOD<svB>0<svA>"));
+        assert!(lines[0].contains(&format!("SWALLOWEDITEMS<svB>{rock}<svA>")));
+        assert!(lines[0].contains(&format!("PLAYERGRASPS<svB>{spear}<svA>")));
         let misc = lines.iter().find(|l| l.starts_with("MISCPROG")).unwrap();
         assert!(misc.contains("SHELTERLIST<mpdB>SU<mpdB>SU_S01<mpdA>"));
         assert!(misc.contains("CONDITIONALSHELTERDATA<mpdB>SU_S01 : White : <mpdC><mpdA>"));

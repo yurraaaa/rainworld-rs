@@ -307,7 +307,10 @@ impl RainWorldGame {
         let mut quarters = 0;
         let grasps = self.player_grasps();
         for (i, grasp) in grasps.iter().enumerate() {
-            let Some(fly) = grasp.filter(|&c| self.world.creature(c).fly().is_some()) else {
+            let Some(fly) = grasp
+                .and_then(crate::item::Entity::creature)
+                .filter(|&c| self.world.creature(c).fly().is_some())
+            else {
                 continue;
             };
             quarters += self.fly_nourishment();

@@ -6,13 +6,13 @@
 //! fear (no creature the slugcat fears is ported), the rain look point, the throw
 //! reach (only weapons and frogs), zero gravity, pups, the Mark, DLC.
 
-use std::f32::consts::TAU;
+use std::f32::consts::{PI, TAU};
 
 use rw_assets::{Room, Terrain, tile_centre};
 use rw_random::UnityRandom;
 use rw_sim::creature::CreatureId;
 use rw_sim::item::Entity;
-use rw_sim::{Animation, BodyMode, Player, PlayerSurroundings, RoomExt, Vec2, Water};
+use rw_sim::{Animation, BodyMode, Player, PlayerHands, PlayerSurroundings, RoomExt, Vec2, Water};
 
 use crate::body_part::{BodyPart, PointConnection};
 use crate::draw::{Color, SlugcatName};
@@ -110,6 +110,12 @@ pub struct PlayerGraphics {
     pub looker: ObjectLooker,
     /// `spearDir`: leans the held objects forward while walking (-1..=1).
     pub spear_dir: f32,
+    /// `swallowing`: ticks left of the swallow's gulp.
+    pub swallowing: i32,
+    /// The held weapons' `ChangeOverlap` in the last update, per hand.
+    overlap: [Option<bool>; 2],
+    /// What the hands added to the player's main chunk velocity in the last update.
+    body_push: Vec2,
 }
 
 impl PlayerGraphics {
@@ -163,6 +169,9 @@ impl PlayerGraphics {
             corridor_turn_dir: player.corridor_turn_dir(),
             looker: ObjectLooker::default(),
             spear_dir: 0.0,
+            swallowing: 0,
+            overlap: [None; 2],
+            body_push: Vec2::ZERO,
         };
         graphics.apply_palette(player);
         graphics
@@ -233,6 +242,8 @@ impl PlayerGraphics {
         if player.is_destroyed() {
             return;
         }
+        self.overlap = [None; 2];
+        self.body_push = Vec2::ZERO;
         self.player_pokes(player);
         if let Some(entrance) = self.entering_shortcut.take() {
             let seen = player.before_pull().unwrap_or(player);
@@ -261,11 +272,21 @@ impl PlayerGraphics {
     }
 
     /// `PlayerGraphics.LookAtObject`, or `LookAtNothing` for `None`.
-    pub fn look_at(&mut self, target: Option<CreatureId>) {
+    pub fn look_at(&mut self, target: Option<Entity>) {
         match target {
-            Some(id) => self.looker.look_at_object(Entity::Creature(id)),
+            Some(id) => self.looker.look_at_object(id),
             None => self.looker.look_at_nothing(),
         }
+    }
+
+    /// `GrabUpdate` swallowed an object: `swallowing = 20`.
+    pub fn swallow(&mut self) {
+        self.swallowing = 20;
+    }
+
+    /// `Regurgitate`'s push on the head.
+    pub fn nudge_head(&mut self, dv: Vec2) {
+        self.head.vel += dv;
     }
 
     /// `PlayerGraphics.BiteFly(hand)` but its drips, which the sim makes: the head jerks
@@ -280,12 +301,19 @@ impl PlayerGraphics {
         self.head.pos
     }
 
-    /// The hands' (pos, vel) for `Player.GraphicsModuleUpdated`.
+    /// What `Player.GraphicsModuleUpdated` reads: the hands' (pos, vel), `spearDir`,
+    /// the held weapons' overlap and the hands' push on the main chunk.
     #[must_use]
-    pub fn hand_motion(&self) -> [(Vec2, Vec2); 2] {
-        self.hands
-            .each_ref()
-            .map(|h| (h.limb.part.pos, h.limb.part.vel))
+    pub fn hand_motion(&self) -> PlayerHands {
+        PlayerHands {
+            hands: self
+                .hands
+                .each_ref()
+                .map(|h| (h.limb.part.pos, h.limb.part.vel)),
+            spear_dir: self.spear_dir,
+            overlap: self.overlap,
+            body_push: self.body_push,
+        }
     }
 
     /// What `Player.Update` does to its graphics module directly: `Player.Blink`, and
@@ -399,6 +427,7 @@ impl PlayerGraphics {
             self.beam_balance(player, rng);
         }
         self.update_tail(player, room, water, fast, tail_drag);
+        self.swallow_update(player, around, rng);
 
         self.blink -= 1;
         if self.blink < -rng.range_i32(2, 1800) {
@@ -520,6 +549,44 @@ impl PlayerGraphics {
     fn look_point(&self, around: &PlayerSurroundings<'_>) -> Vec2 {
         self.looker
             .look_point(around, self.head.pos, self.look_direction)
+    }
+
+    /// The swallow and regurgitation block (239058-239086): a blink drawn every tenth
+    /// tick of a long hold, the gulp's 20 ticks pulling the head toward the hips, and a
+    /// full stomach heaving the body while the count to regurgitation runs.
+    fn swallow_update(
+        &mut self,
+        player: &Player,
+        around: &PlayerSurroundings<'_>,
+        rng: &mut UnityRandom,
+    ) {
+        let counter = player.grab_state().swallow_and_regurgitate_counter;
+        if counter > 15 && counter % 10 == 0 {
+            self.blink = self.blink.max(rng.range_i32(-5, 8));
+        }
+        if self.swallowing > 0 {
+            self.swallowing -= 1;
+            self.blink = 5;
+            let t = 0.4 * (self.swallowing as f32 / 12.0 * PI).sin();
+            self.draw_positions[0][0] =
+                self.draw_positions[0][0].lerp(self.draw_positions[1][0], t);
+        } else if around.stomach && counter > 0 {
+            if counter > 30 {
+                self.blink = 5;
+            }
+            let num14 = (counter as f32).inverse_lerp(0.0, 110.0);
+            let num15 = counter as f32 / 30.0f32.lerp_to(15.0, num14);
+
+            if player.is_standing() {
+                self.draw_positions[0][0].y += (num15 * TAU).sin() * num14 * 2.0;
+                self.draw_positions[1][0].y += -((num15 + 0.2) * TAU).sin() * num14 * 3.0;
+            } else {
+                self.draw_positions[0][0].y += (num15 * TAU).sin() * num14 * 3.0;
+                self.draw_positions[0][0].x += (num15 * TAU).cos() * num14;
+                self.draw_positions[1][0].y += ((num15 + 0.2) * TAU).sin() * num14 * 2.0;
+                self.draw_positions[1][0].x += -(num15 * TAU).cos() * num14 * 3.0;
+            }
+        }
     }
 
     /// The hands' block for food (239320-239348): hungry, close to a fly it could
@@ -942,6 +1009,9 @@ impl PlayerGraphics {
                 grasps,
                 spear_dir: self.spear_dir,
                 draw_pos0: &mut self.draw_positions[0][0],
+                blink: &mut self.blink,
+                overlap: &mut self.overlap,
+                body_push: &mut self.body_push,
             };
             let hand = &mut self.hands[i];
             hand.update(&mut cx);
