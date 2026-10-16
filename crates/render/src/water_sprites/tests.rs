@@ -50,6 +50,8 @@ fn frame<'a>(surface: &'a WaterSurface, palette: &'a RoomPalette) -> WaterFrame<
         // Shine 0 at x = y: 0.5 + 0.5 sin(-0.25 * 2pi) = 0.
         glitter: 0.25,
         light: None,
+        lights: &[],
+        darkness: 0.0,
         time_stacker: 1.0,
     }
 }
@@ -501,4 +503,25 @@ fn surface_band_reference() {
     sprite.grab = [200, 10, 10];
     assert!(sprite.surface(0.27, color).is_some());
     assert_eq!(sprite.surface(0.28, color), None);
+}
+
+/// `GetSurfaceColor`'s light loop: a light 100 px straight above a point on a flat
+/// surface screens `color * alpha * InverseLerp(500, 0, 100)` on (it lies on the
+/// normal's line); one more than 0.7 rad below adds nothing (but makes it opaque).
+#[test]
+fn light_sources_screen_onto_the_surface() {
+    let light = SurfaceLight {
+        pos: [0.0, 100.0],
+        rad: 256.0,
+        color: [1.0, 0.8, 0.3],
+        alpha: 0.1,
+    };
+    let c = light.screen_on([0.0, 0.0, 0.0, 0.5], Vec2::ZERO, Vec2::new(1.0, 0.0), 1.0);
+    assert!(close4(c, [0.08, 0.064, 0.024, 1.0]), "{c:?}");
+    let below = SurfaceLight {
+        pos: [0.0, -200.0],
+        ..light
+    };
+    let c = below.screen_on([0.5, 0.5, 0.5, 0.5], Vec2::ZERO, Vec2::new(1.0, 0.0), 1.0);
+    assert!(close4(c, [0.5, 0.5, 0.5, 1.0]), "{c:?}");
 }

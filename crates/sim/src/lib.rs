@@ -27,6 +27,7 @@ pub mod creature;
 mod float_ext;
 mod game;
 pub mod item;
+mod light_source;
 pub mod map_discovery;
 mod object;
 mod player;
@@ -52,6 +53,7 @@ pub use game::{
     CameraMove, GameOver, Grabability, HudEvent, NewGameWorld, OverseerCall, PlayerHands,
     PlayerObserver, PlayerSurroundings, RainWorldGame, Start,
 };
+pub use light_source::{LightHardSet, LightSource, LightTie};
 pub use map_discovery::{DiscoveryTexture, HudMapLink, MapDiscovery, MapRoom, UnityTexture};
 pub use object::{
     BodyChunkConnection, ConnectionKind, PhysicalObject, TerrainImpactHandler, slugcat,

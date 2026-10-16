@@ -10,8 +10,8 @@ use rw_hud::{Hud, IllustrationSource, PageText};
 use rw_menu::{AtlasManager, Font, MenuShared};
 use rw_random::UnityRandom;
 use rw_render::{
-    Camera, LevelView, Renderer, RoomCamera, RoomLayers, StageBatch, WaterFrame, WaterSprites,
-    WaterSurface,
+    Camera, LevelView, Renderer, RoomCamera, RoomLayers, StageBatch, SurfaceLight, WaterFrame,
+    WaterSprites, WaterSurface,
 };
 use rw_sim::{HudEvent, Input, SoundEvent};
 
@@ -482,6 +482,8 @@ impl Scene {
             .visuals
             .as_ref()
             .map_or(0.0, |v| v.room_palette().darkness);
+        // `Water` draws before the light sources' owners hard-set them this frame.
+        let surface_lights = self.game.surface_lights();
         // The shelter door's (added with the room), the items' (realized before the
         // creatures), the flies' and the drips' sprites join the overseers', in sprite
         // order.
@@ -492,7 +494,8 @@ impl Scene {
             lists.extend(self.game.fly_draw_lists(alpha, face));
             lists.extend(self.game.drip_draw_lists(alpha, face, darkness));
             lists.extend(self.game.cosmetic_draw_lists(alpha));
-            lists.extend(self.game.holo_light_draw_lists(alpha));
+            let cam_pos = rw_sim::Vec2::from(self.camera.view_origin(alpha));
+            lists.extend(self.game.holo_light_draw_lists(alpha, cam_pos, darkness));
             lists
         } else {
             Vec::new()
@@ -534,7 +537,7 @@ impl Scene {
         let palette = self.visuals.as_ref().map(Visuals::room_palette);
         let water_depth = match (&level, &water, palette) {
             (Some(view), Some(surface), Some(palette)) => {
-                self.draw_water_sprites(surface, view, palette, alpha)
+                self.draw_water_sprites(surface, view, palette, &surface_lights, alpha)
             }
             _ => None,
         };
@@ -580,6 +583,7 @@ impl Scene {
         surface: &WaterSurface,
         view: &LevelView,
         palette: rw_assets::RoomPalette,
+        lights: &[SurfaceLight],
         alpha: f32,
     ) -> Option<f32> {
         let game = &self.game;
@@ -601,6 +605,8 @@ impl Scene {
             palette: &palette,
             glitter: game.water_glitter(alpha),
             light: game.player_light(alpha),
+            lights,
+            darkness: palette.darkness,
             time_stacker: alpha,
         });
         Some(game.water_depth())
@@ -678,6 +684,9 @@ impl FrameDraw<'_> {
             for o in self.overseers {
                 r.draw_sprites(o, Layer::Foreground, level.origin);
             }
+            for o in self.overseers {
+                r.draw_sprites(o, Layer::ForegroundLights, level.origin);
+            }
         }
         match (shortcuts, self.level) {
             (Some((level, list)), _) => r.draw_sprites(list, Layer::Shortcuts, level.origin),
@@ -694,7 +703,7 @@ impl FrameDraw<'_> {
         if let Some((level, list)) = shortcuts {
             r.draw_sprites(list, Layer::Water, level.origin);
         }
-        // The guide's hologram light.
+        // The guide's hologram light and its light source's glow under water.
         if let Some(level) = self.level {
             for o in self.overseers {
                 r.draw_sprites(o, Layer::Water, level.origin);
@@ -795,6 +804,7 @@ mod tests {
                 Layer::Midground => "midground",
                 Layer::Items => "items",
                 Layer::Foreground => "foreground",
+                Layer::ForegroundLights => "foreground lights",
                 Layer::Shortcuts => "shortcuts",
                 Layer::Water => "water",
                 Layer::Bloom => "bloom",

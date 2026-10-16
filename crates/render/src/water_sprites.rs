@@ -39,6 +39,19 @@ pub struct PlayerLight {
     pub out_of_breath: [f32; 4],
 }
 
+/// A room `LightSource` as `Water.GetSurfaceColor` reads it (as it was before this
+/// frame's drawables hard-set it: `Water` draws first).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SurfaceLight {
+    /// `Pos`, room pixels.
+    pub pos: [f32; 2],
+    pub rad: f32,
+    /// `color`'s rgb.
+    pub color: [f32; 3],
+    /// `Alpha`.
+    pub alpha: f32,
+}
+
 /// What `Water.DrawSprites` reads in one frame.
 #[derive(Debug, Clone, Copy)]
 pub struct WaterFrame<'a> {
@@ -54,6 +67,10 @@ pub struct WaterFrame<'a> {
     pub glitter: f32,
     /// `None` unless the camera follows a live player in this room.
     pub light: Option<PlayerLight>,
+    /// The room's light sources.
+    pub lights: &'a [SurfaceLight],
+    /// `Room.Darkness`: the camera's palette darkness.
+    pub darkness: f32,
     pub time_stacker: f32,
 }
 
@@ -174,6 +191,40 @@ impl PlayerLight {
     }
 }
 
+impl SurfaceLight {
+    /// One light's turn in `GetSurfaceColor`'s loop: `Custom.Screen(color, b)` (opaque),
+    /// `b` its colour by alpha, nearness above the point (and within 0.7 rad below
+    /// it), closeness to the surface normal's line, darkness and a rightward tangent.
+    #[must_use]
+    pub fn screen_on(
+        &self,
+        color: [f32; 4],
+        point: Vec2,
+        tangent: Vec2,
+        darkness: f32,
+    ) -> [f32; 4] {
+        let pos = Vec2::from(self.pos);
+        let mut near = pos.y.inverse_lerp(point.y + 500.0, point.y);
+        if pos.y < point.y {
+            near *= pos.y.inverse_lerp(point.y - self.rad * 0.7, point.y);
+        }
+        let normal = point + tangent.perpendicular() + Vec2::new(0.0, 1.0 - near);
+        let line = pos.distance_to_line(point, normal).abs();
+        let f = self.alpha
+            * near
+            * line.inverse_lerp(10.0 + 160.0 * near, 10.0)
+            * darkness
+            * tangent.x.inverse_lerp(0.1, 0.3);
+        let b = self.color.map(|c| c * f);
+        [
+            1.0 - (1.0 - color[0]) * (1.0 - b[0]),
+            1.0 - (1.0 - color[1]) * (1.0 - b[1]),
+            1.0 - (1.0 - color[2]) * (1.0 - b[2]),
+            1.0,
+        ]
+    }
+}
+
 impl WaterFrame<'_> {
     /// `Room.WaterShinyness`.
     #[must_use]
@@ -182,15 +233,21 @@ impl WaterFrame<'_> {
         (0.5 + phase.sin() * 0.5).powf(7.0)
     }
 
-    /// `Water.GetSurfaceColor` without light sources (none are ported): the front
-    /// edge's colour from the shine and the surface slope.
+    /// `Water.GetSurfaceColor`: the front edge's colour from the shine and the surface
+    /// slope, in the dark with each light source screened on.
     #[must_use]
     pub fn surface_color(&self, point: Vec2, tangent: Vec2) -> [f32; 4] {
         let s = self.shinyness(point);
         let slope = tangent.dot(Vec2::from_degrees(60.0));
         let s = s.powf(0.1) * slope.inverse_lerp(0.9 - s * 0.1, 0.98 - s * 0.05);
         let p = self.palette;
-        p.water_surface_color1.lerp_color(p.water_shine_color, s)
+        let mut color = p.water_surface_color1.lerp_color(p.water_shine_color, s);
+        if self.darkness > 0.0 {
+            for light in self.lights {
+                color = light.screen_on(color, point, tangent, self.darkness);
+            }
+        }
+        color
     }
 
     /// `ApplyDepthOnVector`'s vanishing point: centre, two thirds up the screen.

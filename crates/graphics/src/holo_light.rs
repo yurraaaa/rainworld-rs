@@ -5,7 +5,7 @@ use rw_assets::Room;
 use rw_assets::shortcut::FOUR_DIRECTIONS;
 use rw_random::UnityRandom;
 use rw_sim::creature::overseer::HologramLight;
-use rw_sim::{FloatExt, Vec2};
+use rw_sim::{FloatExt, LightHardSet, Vec2};
 
 use crate::draw::{Color, DrawItem, DrawList, Layer, Shader, Sprite};
 use crate::math::CustomVec;
@@ -13,8 +13,15 @@ use crate::math::CustomVec;
 /// The light's sprites, drawn by the camera of its room.
 pub trait HologramLightSprites {
     /// `DrawSprites` at `t` (draws on the cosmetic stream): `eye` is the overseer's eye
-    /// (`OverseerEyePos(t)`) while it is in the light's room, else `None`.
-    fn draw(&self, room: &Room, eye: Option<Vec2>, t: f32, rng: &mut UnityRandom) -> DrawList;
+    /// (`OverseerEyePos(t)`) while it is in the light's room, else `None`. Also what it
+    /// hard-sets on its `LightSource`.
+    fn draw(
+        &self,
+        room: &Room,
+        eye: Option<Vec2>,
+        t: f32,
+        rng: &mut UnityRandom,
+    ) -> (DrawList, LightHardSet);
 }
 
 /// The lines' colour.
@@ -31,7 +38,13 @@ impl Direction {
 }
 
 impl HologramLightSprites for HologramLight {
-    fn draw(&self, room: &Room, eye: Option<Vec2>, t: f32, rng: &mut UnityRandom) -> DrawList {
+    fn draw(
+        &self,
+        room: &Room,
+        eye: Option<Vec2>,
+        t: f32,
+        rng: &mut UnityRandom,
+    ) -> (DrawList, LightHardSet) {
         let flicker = self.last_flicker.lerp(self.flicker, t);
         let power = self.last_power.lerp(self.power, t);
         let mut num2 = power * (1.0 - flicker.mathf_pow(2.0 + rng.value() * 2.0));
@@ -62,6 +75,11 @@ impl HologramLightSprites for HologramLight {
             layer: Layer::Water,
         })];
         let reach = 8.0 * 6.0.lerp(16.0, grow);
+        let light = LightHardSet {
+            pos: b,
+            rad: reach * 2.0,
+            alpha: num2.inverse_lerp(0.75, 1.0) * 0.1,
+        };
         for i in 1..10 {
             if num2 < 0.5 {
                 continue;
@@ -70,7 +88,7 @@ impl HologramLightSprites for HologramLight {
                 items.push(DrawItem::Sprite(Sprite { index: i, ..line }));
             }
         }
-        DrawList { items }
+        (DrawList { items }, light)
     }
 }
 
@@ -166,13 +184,19 @@ mod tests {
         let mut rng = UnityRandom::new(4);
         let mut expected = rng.clone();
         expected.value();
-        let list = light.draw(&room, Some(Vec2::new(100.0, 30.0)), 1.0, &mut rng);
+        let (list, set) = light.draw(&room, Some(Vec2::new(100.0, 30.0)), 1.0, &mut rng);
         assert_eq!(rng, expected);
         assert_eq!(list.items.len(), 1);
+        // Unpowered: the light source at the eye, rad `2 * 8 * Lerp(6, 16, 0)`, dark.
+        assert_eq!(set.pos, Vec2::new(100.0, 30.0));
+        assert_eq!((set.rad, set.alpha), (96.0, 0.0));
 
         light.power = 1.0;
         light.last_power = 1.0;
-        let list = light.draw(&room, Some(Vec2::new(100.0, 30.0)), 1.0, &mut rng);
+        let (list, set) = light.draw(&room, Some(Vec2::new(100.0, 30.0)), 1.0, &mut rng);
+        // Fully powered: rad `2 * 8 * 16`, alpha `InverseLerp(0.75, 1, 1) * 0.1`.
+        assert_eq!(set.pos, Vec2::new(100.0, 20.0));
+        assert_eq!((set.rad, set.alpha), (256.0, 0.1));
         let DrawItem::Sprite(grid) = &list.items[0] else {
             panic!("a sprite");
         };

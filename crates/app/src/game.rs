@@ -9,16 +9,18 @@ use std::sync::Arc;
 use rw_assets::unity::AssetBundle;
 use rw_assets::world::AbstractRoomData;
 use rw_assets::world::{GameRooms, LineFilter, Regions, StoryConditions, WorldData, WorldRequest};
-use rw_assets::{ActiveMods, Room, RoomSettings, SlugcatName, SoundTable, StreamingAssets};
+use rw_assets::{
+    ActiveMods, Room, RoomEffectType, RoomSettings, SlugcatName, SoundTable, StreamingAssets,
+};
 use rw_audio::Follow as SoundFollow;
 use rw_graphics::{
     Color, CosmeticSprites, DrawList, FlyGraphics, HologramFrame, HologramGraphics,
-    HologramLightSprites, OverseerGraphics, PlayerGraphics, ShelterDoorSprites, ShortcutPalette,
-    WaterDripSprites, WeaponSprites,
+    HologramLightSprites, LightSourceSprites, LightSourceView, OverseerGraphics, PlayerGraphics,
+    ShelterDoorSprites, ShortcutPalette, WaterDripSprites, WeaponSprites,
 };
 use rw_hud::{HudSetup, OwnerTick, RainCycleView, StartCondition, Subregions};
 use rw_random::UnityRandom;
-use rw_render::{BodyStatus, ChunkInterpolation, Follow, PlayerLight, WaterSurface};
+use rw_render::{BodyStatus, ChunkInterpolation, Follow, PlayerLight, SurfaceLight, WaterSurface};
 use rw_sim::campaign::{self, SlugcatCampaign, StoryStart};
 use rw_sim::creature::fly::FlyView;
 use rw_sim::creature::overseer::hologram::OverseerHologram;
@@ -786,34 +788,116 @@ impl Game {
         shown.iter().map(|c| c.draw(&room.room, alpha)).collect()
     }
 
-    /// The guide's lights in the camera's room at `alpha` between ticks, oldest first
-    /// (`HologramLight.DrawSprites` on the cosmetic stream).
-    pub fn holo_light_draw_lists(&mut self, alpha: f32) -> Vec<DrawList> {
-        let world = self.sim.world();
-        let Some(room) = world.realized(self.sim.camera_room()) else {
+    /// The guide's lights and their light sources in the camera's room at `alpha`
+    /// between ticks, in update-list order (`HologramLight.DrawSprites` on the cosmetic
+    /// stream, hard-setting its light source before that draws); `cam_pos` and
+    /// `darkness` are the camera's position and palette darkness.
+    pub fn holo_light_draw_lists(
+        &mut self,
+        alpha: f32,
+        cam_pos: Vec2,
+        darkness: f32,
+    ) -> Vec<DrawList> {
+        let index = self.sim.camera_room();
+        let Some(room) = self.sim.world().realized(index) else {
             return Vec::new();
         };
-        room.holo_lights
+        let view = LightSourceView {
+            cam_pos,
+            darkness,
+            darken_lights: room.settings.effect_amount(RoomEffectType::DarkenLights),
+            water: room.room.water_level().is_some(),
+            water_lights: room.settings.effect_amount(RoomEffectType::WaterLights) > 0.0,
+        };
+        let mut order: Vec<_> = room
+            .holo_lights
             .iter()
             .filter(|l| !l.slated)
-            .map(|l| {
-                let c = world.creature(l.overseer);
-                let eye = c
-                    .overseer_body()
-                    .filter(|b| b.in_room && c.pos.room == l.room)
-                    .map(|b| {
-                        self.graphics
-                            .overseers
-                            .iter()
-                            .find(|g| g.id == c.id)
-                            .map_or_else(
-                                || b.chunk().last_pos.lerp(b.chunk().pos, alpha),
-                                |g| g.eye(b, alpha),
-                            )
-                    });
-                l.draw(&room.room, eye, alpha, &mut self.graphics.cosmetic)
+            .map(|l| LightDrawable::Holo(l.id))
+            .chain(
+                room.light_sources
+                    .iter()
+                    .filter(|l| !l.slated)
+                    .map(|l| LightDrawable::Source(l.id)),
+            )
+            .collect();
+        order.sort_by_key(LightDrawable::id);
+        let mut lists = Vec::with_capacity(order.len());
+        for drawable in order {
+            match drawable {
+                LightDrawable::Holo(id) => {
+                    if let Some(list) = self.holo_light_frame(index, id, alpha) {
+                        lists.push(list);
+                    }
+                }
+                LightDrawable::Source(id) => {
+                    let light = self
+                        .sim
+                        .world()
+                        .realized(index)
+                        .and_then(|r| r.light_sources.iter().find(|l| l.id == id));
+                    if let Some(light) = light {
+                        lists.push(light.draw(&view, alpha));
+                    }
+                }
+            }
+        }
+        lists
+    }
+
+    /// The camera room's light sources as `Water.GetSurfaceColor` reads them.
+    #[must_use]
+    pub fn surface_lights(&self) -> Vec<SurfaceLight> {
+        self.sim
+            .world()
+            .realized(self.sim.camera_room())
+            .map_or_else(Vec::new, |r| {
+                r.light_sources
+                    .iter()
+                    .filter(|l| !l.slated)
+                    .map(|l| SurfaceLight {
+                        pos: l.pos.to_array(),
+                        rad: l.rad,
+                        color: l.color,
+                        alpha: l.alpha,
+                    })
+                    .collect()
             })
-            .collect()
+    }
+
+    /// Guide light `id`'s sprites; hard-sets its light source.
+    fn holo_light_frame(&mut self, index: i32, id: u64, alpha: f32) -> Option<DrawList> {
+        let world = self.sim.world();
+        let room = world.realized(index)?;
+        let l = room.holo_lights.iter().find(|l| l.id == id)?;
+        let c = world.creature(l.overseer);
+        let eye = c
+            .overseer_body()
+            .filter(|b| b.in_room && c.pos.room == l.room)
+            .map(|b| {
+                self.graphics
+                    .overseers
+                    .iter()
+                    .find(|g| g.id == c.id)
+                    .map_or_else(
+                        || b.chunk().last_pos.lerp(b.chunk().pos, alpha),
+                        |g| g.eye(b, alpha),
+                    )
+            });
+        let source = l.light_source;
+        let (list, set) = l.draw(&room.room, eye, alpha, &mut self.graphics.cosmetic);
+        let light = source.and_then(|s| {
+            self.sim
+                .world_mut()
+                .realized_mut(index)?
+                .light_sources
+                .iter_mut()
+                .find(|l| l.id == s)
+        });
+        if let Some(light) = light {
+            light.hard_set(set);
+        }
+        Some(list)
     }
 
     /// The water drips in the camera's room at `alpha` between ticks, oldest first
@@ -1195,5 +1279,20 @@ pub(crate) mod tests {
             &[Input::NONE; rw_sim::INPUT_HISTORY]
         );
         assert_eq!(game.body().expect("body").chunks[0].vel, rw_sim::Vec2::ZERO);
+    }
+}
+
+/// A guide light or a light source, by update-list id.
+#[derive(Debug, Clone, Copy)]
+enum LightDrawable {
+    Holo(u64),
+    Source(u64),
+}
+
+impl LightDrawable {
+    fn id(&self) -> u64 {
+        match *self {
+            Self::Holo(id) | Self::Source(id) => id,
+        }
     }
 }

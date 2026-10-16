@@ -93,7 +93,8 @@ pub use rw_assets::SlugcatName;
 ///
 /// BackgroundShortcuts, Background, Midground, then Items, are drawn before the level
 /// image, so level pixels nearer than depth 5 cover them; Foreground sprites added
-/// after the level image draw over it, then Shortcuts, Water and Bloom.
+/// after the level image draw over it, then ForegroundLights, Shortcuts, Water and
+/// Bloom.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Layer {
     BackgroundShortcuts,
@@ -101,6 +102,7 @@ pub enum Layer {
     Midground,
     Items,
     Foreground,
+    ForegroundLights,
     Shortcuts,
     Water,
     Bloom,
@@ -137,6 +139,9 @@ pub enum Shader {
     /// colour at the texel's depth (red, deepened by `1 - alpha`) and row (blue), fogged,
     /// hidden behind nearer level pixels.
     ColoredSprite3,
+    /// `Futile/UnderWaterLight`: a light source's glow under the water surface, faded by
+    /// level depth and rippled by `_NoiseTex`.
+    UnderWaterLight,
 }
 
 /// One `FSprite`, placed as Futile does: the element's untrimmed source box is

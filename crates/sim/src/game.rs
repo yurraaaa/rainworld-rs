@@ -240,6 +240,8 @@ enum RoomObject {
     Trigger(u64),
     /// A `HologramLight` by id.
     HoloLight(u64),
+    /// A `LightSource` by id.
+    LightSource(u64),
 }
 
 /// No graphics.
@@ -1206,6 +1208,7 @@ impl RainWorldGame {
         objects.extend(self.room_trigger_objects(index));
         objects.extend(self.room_cosmetic_objects(index));
         objects.extend(self.room_holo_light_objects(index));
+        objects.extend(self.room_light_source_objects(index));
         objects.sort_by_key(|&(seq, _)| std::cmp::Reverse(seq));
         let mut player_done = false;
         for (seq, object) in objects {
@@ -1245,6 +1248,7 @@ impl RainWorldGame {
                 RoomObject::Trigger(id) => self.run_trigger_object(index, id),
                 RoomObject::Cosmetic(id) => self.world.update_cosmetic(index, id, &mut self.rng),
                 RoomObject::HoloLight(id) => self.run_holo_light(index, id, observer),
+                RoomObject::LightSource(id) => self.run_light_source(index, id),
             }
         }
         self.remove_slated_trigger_objects();

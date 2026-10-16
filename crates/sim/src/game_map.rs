@@ -40,11 +40,19 @@ impl RainWorldGame {
             && p.y < room.pixel_height()
     }
 
-    /// `Room.CompleteDarkness(pos, 0, 0.95, false)` for room `index` (no light sources
-    /// are ported).
+    /// `Room.CompleteDarkness(pos, 0, 0.95, false)` for room `index`: the camera shows
+    /// it at darkness 0.95 or more and no light source reaches `pos` (within its rad;
+    /// the light sources' rad and position are what their owners last drew).
     #[must_use]
-    pub fn complete_darkness(&self, index: i32) -> bool {
-        index == self.camera_room && self.camera_darkness >= 0.95
+    pub fn complete_darkness(&self, index: i32, pos: Vec2) -> bool {
+        if index != self.camera_room || self.camera_darkness < 0.95 {
+            return false;
+        }
+        !self.world.realized(index).is_some_and(|r| {
+            r.light_sources
+                .iter()
+                .any(|l| !l.slated && pos.dist_less(l.pos, l.rad))
+        })
     }
 
     /// `Player.Update`'s first report of the room it is in (`addedSpawnRoomToDiscovery`).
@@ -83,7 +91,7 @@ impl RainWorldGame {
             return;
         };
         let first = player.chunks()[HEAD].pos;
-        if !exits.is_empty() && self.hud_map.present && !self.complete_darkness(index) {
+        if !exits.is_empty() && self.hud_map.present && !self.complete_darkness(index, first) {
             let i = self.rng.range_i32(0, exits.len() as i32) as usize;
             let exit = exits[i];
             if self.camera_view.viewed(index, room, exit, -10.0) {

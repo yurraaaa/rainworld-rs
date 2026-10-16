@@ -5,7 +5,11 @@ use rw_assets::{CreatureType, SlugcatName};
 
 use super::{PlayerObserver, RainWorldGame, RoomObject};
 use crate::creature::CreatureId;
-use crate::creature::overseer::{HoloLightTick, HologramLight, OverseerMode};
+use crate::creature::overseer::{HoloLightTick, HologramLight, LightSourceStep, OverseerMode};
+use crate::{LightSource, LightTie};
+
+/// `HologramLight`'s light: `new Color(1, 0.8, 0.3)`.
+const HOLO_LIGHT_COLOR: [f32; 3] = [1.0, 0.8, 0.3];
 
 impl RainWorldGame {
     /// `Player.Update` for the Monk in room `index`: in the dark (`Needed` above 0.5),
@@ -37,8 +41,19 @@ impl RainWorldGame {
             return 0.0;
         };
         let in_room = !p.in_shortcut() && !p.is_destroyed();
-        let in_camera_room = in_room && self.pos().room == self.camera_room;
-        HologramLight::needed(in_camera_room, self.camera_darkness, p.is_dead())
+        let room = self.pos().room;
+        let in_camera_room = in_room && room == self.camera_room;
+        let lights = self
+            .world
+            .realized(room)
+            .map_or(&[][..], |r| &r.light_sources[..]);
+        HologramLight::needed(
+            in_camera_room,
+            self.camera_darkness,
+            p.is_dead(),
+            p.body.chunks[0].pos,
+            lights,
+        )
     }
 
     /// `HologramLight.TryCreate`: the first player guide among the room's creatures
@@ -115,7 +130,37 @@ impl RainWorldGame {
     pub(super) fn remove_slated_holo_lights(&mut self, index: i32) {
         if let Some(r) = self.world.realized_mut(index) {
             r.holo_lights.retain(|l| !l.slated);
+            r.light_sources.retain(|l| !l.slated);
         }
+    }
+
+    pub(super) fn room_light_source_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
+        self.world.realized(index).map_or_else(Vec::new, |r| {
+            r.light_sources
+                .iter()
+                .filter(|l| !l.slated)
+                .map(|l| (l.id, RoomObject::LightSource(l.id)))
+                .collect()
+        })
+    }
+
+    /// The light source `id`'s `Update` in its slot of room `index`'s update list.
+    pub(super) fn run_light_source(&mut self, index: i32, id: u64) {
+        let Some(r) = self.world.realized_mut(index) else {
+            return;
+        };
+        let Some(light) = r.light_sources.iter_mut().find(|l| l.id == id && !l.slated) else {
+            return;
+        };
+        let tie_gone = match light.tied_to {
+            Some(LightTie::HoloLight(h)) => !r.holo_lights.iter().any(|l| l.id == h && !l.slated),
+            None => false,
+        };
+        let level = r
+            .water
+            .as_ref()
+            .map_or(f32::MIN, |w| w.level_at(light.pos.x));
+        light.update(tie_gone, level);
     }
 
     /// The light `id`'s `Update` in its slot of room `index`'s update list.
@@ -132,7 +177,7 @@ impl RainWorldGame {
         else {
             return;
         };
-        let tick = self.holo_light_tick(light, observer);
+        let tick = self.holo_light_tick(light, index, observer);
         let Some(light) = self
             .world
             .realized_mut(index)
@@ -140,15 +185,48 @@ impl RainWorldGame {
         else {
             return;
         };
-        light.update(&tick, &mut self.rng);
+        match light.update(&tick, &mut self.rng) {
+            LightSourceStep::Keep => {}
+            LightSourceStep::Create(pos) => {
+                let source = self.world.next_update_seq();
+                let Some(r) = self.world.realized_mut(index) else {
+                    return;
+                };
+                if let Some(light) = r.holo_lights.iter_mut().find(|l| l.id == id) {
+                    light.light_source = Some(source);
+                }
+                let tie = Some(LightTie::HoloLight(id));
+                r.light_sources.push(LightSource::new(
+                    source,
+                    index,
+                    pos,
+                    false,
+                    HOLO_LIGHT_COLOR,
+                    tie,
+                ));
+            }
+            LightSourceStep::Destroy(source) => {
+                let sources = self.world.realized_mut(index).map(|r| &mut r.light_sources);
+                if let Some(l) = sources.and_then(|s| s.iter_mut().find(|l| l.id == source)) {
+                    l.slated = true;
+                }
+            }
+        }
     }
 
     /// What light `light` reads of its overseer and the player this tick.
     fn holo_light_tick(
         &self,
         light: &HologramLight,
+        index: i32,
         observer: &dyn PlayerObserver,
     ) -> HoloLightTick {
+        let light_source_gone = light.light_source.is_some_and(|s| {
+            !self
+                .world
+                .realized(index)
+                .is_some_and(|r| r.light_sources.iter().any(|l| l.id == s && !l.slated))
+        });
         let c = self.world.creature(light.overseer);
         let body = c.overseer_body();
         let eye = body.map(|b| {
@@ -183,6 +261,7 @@ impl RainWorldGame {
             main_chunk: chunks.map_or_else(Default::default, |c| (c[0].pos, c[0].last_pos)),
             hips: chunks.map_or_else(Default::default, |c| c[1].pos),
             needed: self.holo_light_needed(),
+            light_source_gone,
         }
     }
 }

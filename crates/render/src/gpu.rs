@@ -935,6 +935,7 @@ impl Renderer for WgpuRenderer {
                     &self.device,
                     textures.views()[0],
                     textures.views()[1],
+                    textures.views()[2],
                 );
                 self.draw_behind(&mut encoder, &batches[..split], &behind_screen);
                 let bind_group = self.level_pipeline.bind(
@@ -964,6 +965,7 @@ impl Renderer for WgpuRenderer {
                         behind: &self.frame.behind,
                         grab: &self.frame.grab_view,
                         palette: textures.views()[1],
+                        noise: textures.views()[2],
                     },
                 );
                 Some((bind_group, self.scissor(view), split + 1, water, screen))

@@ -31,7 +31,7 @@ use super::reply::{
     ShelterDoorState, SleepState, SlideShowState, StartUpState, State, StepTrace, StoryInfo,
     TextPromptState, TokenState, WeaponInfo,
 };
-use super::reply::{DangerInfo, HoloLightState, MusicState, TriggerState};
+use super::reply::{DangerInfo, HoloLightState, LightSourceState, MusicState, TriggerState};
 use super::reply::{
     FliesWorldInfo, HeldInfo, QuantifiedInfo, RegionStateInfo, RelationshipInfo, RoomDens,
 };
@@ -561,9 +561,19 @@ impl Session {
             .active_rooms()
             .into_iter()
             .filter_map(|i| world.realized(i))
-            .flat_map(|r| r.holo_lights.iter())
-            .map(|l| {
+            .flat_map(|r| r.holo_lights.iter().map(move |l| (r, l)))
+            .map(|(r, l)| {
                 let o = world.creature(l.overseer).id;
+                let light_source = l
+                    .light_source
+                    .and_then(|id| r.light_sources.iter().find(|s| s.id == id))
+                    .map(|s| LightSourceState {
+                        pos: s.pos.to_array(),
+                        rad: s.rad,
+                        alpha: s.alpha,
+                        color: s.color,
+                        alive: !s.slated,
+                    });
                 HoloLightState {
                     room: Self::room_name(scene, l.room),
                     overseer: [o.spawner, o.number],
@@ -576,6 +586,7 @@ impl Session {
                     active_linger: l.active_linger,
                     respawn: l.respawn,
                     power_down_and_kill: l.power_down_and_kill,
+                    light_source,
                 }
             })
             .collect()
