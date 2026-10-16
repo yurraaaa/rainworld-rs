@@ -22,7 +22,6 @@ use super::params::{
     LoadRoomParams, NewGameParams, ProcessParam, RespawnParams, ScreenshotParams, SetPlayerParams,
     StepParams, StepProcessParams, StepSequenceParams, TilesParams, ViewParam,
 };
-use super::reply::HeldInfo;
 use super::reply::{
     AbstractAiInfo, ChunkState, ControlsPageState, CreatureInfo, ExitInfo, ExitList, FlyInfo,
     FoodMeterState, HudState, ImpactState, ImportReply, KarmaMeterState, KarmaScreenState,
@@ -31,6 +30,9 @@ use super::reply::{
     RainState, RealizedState, RoomInfo, RoomList, SaveInfo, SaveStateInfo, Screenshot, SessionInfo,
     ShelterDoorState, SleepState, SlideShowState, StartUpState, State, StepTrace, StoryInfo,
     TextPromptState, TokenState, WeaponInfo,
+};
+use super::reply::{
+    FliesWorldInfo, HeldInfo, QuantifiedInfo, RegionStateInfo, RelationshipInfo, RoomDens,
 };
 use super::reply::{MusicState, TriggerState};
 use super::tiles::TileDump;
@@ -464,7 +466,69 @@ impl Session {
                 s.music.as_ref().map(|m| MusicState::of(m, records))
             }),
             triggers: TriggerState::all(sim),
+            dens: Self::dens(scene),
+            quantified: Self::quantified(scene),
+            flies_world: world.flies_world_ai().map(|f| FliesWorldInfo {
+                to_respawn: f.flies_to_respawn,
+                to_spawn: f.flies_to_spawn.clone(),
+                all_initial_spawned: f.all_initial_flies_spawned,
+            }),
+            region_state: world.region_state.as_ref().map(|r| RegionStateInfo {
+                last_cycle_updated: r.last_cycle_updated,
+                new_rooms_this_cycle: r.new_rooms_this_cycle,
+                swarm_room_counters: r.swarm_room_counters.clone(),
+                lineage_counters: r.lineage_counters.clone(),
+                consumed_items: r
+                    .consumed_items
+                    .iter()
+                    .map(|c| (c.origin_room.clone(), c.placed_object_index, c.wait_cycles))
+                    .collect(),
+                rooms_visited: r.rooms_visited.len(),
+                saved_population: r.saved_population.len(),
+                saved_objects: r.saved_objects.len(),
+                saved_sticks: r.saved_sticks.len(),
+            }),
         })
+    }
+
+    /// The rooms with creatures in their dens.
+    fn dens(scene: &Scene) -> Vec<RoomDens> {
+        let world = scene.game().sim().world();
+        world
+            .data()
+            .rooms
+            .iter()
+            .filter(|r| !world.room_dens(r.index).is_empty())
+            .map(|r| RoomDens {
+                room: r.name.clone(),
+                creatures: world
+                    .room_dens(r.index)
+                    .iter()
+                    .map(|&c| Self::entity_id(scene, c))
+                    .collect(),
+            })
+            .collect()
+    }
+
+    fn quantified(scene: &Scene) -> Vec<QuantifiedInfo> {
+        let world = scene.game().sim().world();
+        world
+            .data()
+            .rooms
+            .iter()
+            .flat_map(|r| {
+                world
+                    .room_quantified(r.index)
+                    .iter()
+                    .filter(|q| q.count > 0)
+                    .map(|q| QuantifiedInfo {
+                        room: r.name.clone(),
+                        node: q.node,
+                        kind: q.kind.value().to_owned(),
+                        count: q.count,
+                    })
+            })
+            .collect()
     }
 
     fn session_info(scene: &Scene) -> SessionInfo {
@@ -481,6 +545,11 @@ impl Session {
             wait_respawn: deaths.wait_respawn_creatures.clone(),
             guide_likes_player: sim.guide_state().likes_player,
             guide_increase_like_on_save: sim.guide_state().increase_like_on_save,
+            influences: deaths
+                .influences
+                .iter()
+                .map(|i| (i.community.value().to_owned(), i.influence))
+                .collect(),
         }
     }
 
@@ -540,6 +609,26 @@ impl Session {
                     dying: c.overseer_body().map(|b| b.dying),
                 }),
                 fly: Self::fly_info(scene, c),
+                social: c
+                    .state
+                    .social_memory
+                    .iter()
+                    .flat_map(|m| &m.relationships)
+                    .map(|r| RelationshipInfo {
+                        subject: [r.subject.spawner, r.subject.number],
+                        like: r.like,
+                        temp_like: r.temp_like,
+                        fear: r.fear,
+                        temp_fear: r.temp_fear,
+                        know: r.know,
+                    })
+                    .collect(),
+                carries: c
+                    .sticks
+                    .iter()
+                    .filter(|s| s.a == id)
+                    .map(|s| HeldInfo::of(world, s.b))
+                    .collect(),
             })
             .collect()
     }
@@ -566,6 +655,7 @@ impl Session {
             time_buffer: ai.time_buffer,
             remain_in_den_counter: c.remain_in_den_counter,
             time_spent_here: c.time_spent_here,
+            follow_creature: ai.follow_creature.map(|f| Self::entity_id(scene, f)),
         })
     }
 

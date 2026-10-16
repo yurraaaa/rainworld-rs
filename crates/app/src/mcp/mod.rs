@@ -206,11 +206,13 @@ impl Server {
         this tick's terrain impacts, input and controller; the new game's fade delay and \
         SU_C04 start script; the world's creatures (kind, ID, room, node, tile, den, \
         realized; roaming creatures' abstract AI: destination, path, migration destination, den, \
-        time buffer and den counter; overseers' destination, guide state, last rooms and \
-        tiles); the \
+        time buffer, den counter and followed creature; overseers' destination, guide state, \
+        last rooms and tiles; social memory; what grip sticks carry); the \
         world's rocks and spears (kind, ID, room, node, tile, a spear's \
         stuck-in-wall cycles and explosive flag; realized ones' room, position, \
-        velocity, mode, rotation and collision layer)."
+        velocity, mode, rotation and collision layer); each room's den contents and \
+        quantified creatures; the flies' world counters; the region state's counters; \
+        the session's kills, respawn lists and influences. Empty fields are left out."
     )]
     fn get_state(&self) -> Result<CallToolResult, String> {
         Self::json(&self.session()?.state()?)

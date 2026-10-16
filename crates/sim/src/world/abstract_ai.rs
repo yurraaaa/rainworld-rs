@@ -845,8 +845,9 @@ impl World {
 
     /// `AbstractCreature.OpportunityToEnterDen` at its den node: in when it wants to
     /// stay there for the rest of the cycle (counter -1) or still has time to wait, or
-    /// with prey to stow (counter 200). Precycles are DLC.
-    fn opportunity_to_enter_den(&mut self, id: CreatureId, rng: &mut UnityRandom) {
+    /// with prey to stow (counter 200). Precycles and `doesNotUseDens` (only DLC
+    /// templates set it) are DLC.
+    pub(crate) fn opportunity_to_enter_den(&mut self, id: CreatureId, rng: &mut UnityRandom) {
         if self.wants_to_stay_in_den(id) {
             log::debug!("{} stay in den until cycle end", self.creature(id).kind());
             self.creature_mut(id).remain_in_den_counter = -1;

@@ -73,6 +73,63 @@ pub struct State {
     pub triggers: Vec<TriggerState>,
     /// What the session keeps of its deaths.
     pub session: SessionInfo,
+    /// Each room's `entitiesInDens` (rooms with none left out).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub dens: Vec<RoomDens>,
+    /// Each room's `quantifiedCreatures` with a count above 0.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub quantified: Vec<QuantifiedInfo>,
+    /// `FliesWorldAI`'s spawn and respawn counters.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub flies_world: Option<FliesWorldInfo>,
+    /// The world's `regionState`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub region_state: Option<RegionStateInfo>,
+}
+
+/// One room's den contents, by EntityID.
+#[derive(Debug, Clone, Serialize)]
+pub struct RoomDens {
+    pub room: String,
+    pub creatures: Vec<[i32; 2]>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct QuantifiedInfo {
+    pub room: String,
+    pub node: i32,
+    /// `CreatureTemplate.Type`.
+    pub kind: String,
+    pub count: i32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct FliesWorldInfo {
+    /// `fliesToRespawn`.
+    pub to_respawn: i32,
+    /// `fliesToSpawn`, per swarm room.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub to_spawn: Vec<i32>,
+    pub all_initial_spawned: bool,
+}
+
+/// `RegionState`'s counters (empty lists left out).
+#[derive(Debug, Clone, Serialize)]
+pub struct RegionStateInfo {
+    pub last_cycle_updated: i32,
+    pub new_rooms_this_cycle: i32,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub swarm_room_counters: Vec<(String, i32)>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub lineage_counters: Vec<(String, i32)>,
+    /// Each consumed item: origin room, placed object index, wait cycles.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub consumed_items: Vec<(String, i32, i32)>,
+    pub rooms_visited: usize,
+    /// Saved creature, object and stick strings.
+    pub saved_population: usize,
+    pub saved_objects: usize,
+    pub saved_sticks: usize,
 }
 
 /// The first player's session kills and peace, and the cycle's respawn additions.
@@ -87,6 +144,9 @@ pub struct SessionInfo {
     /// The guide state's `likesPlayer` and `increaseLikeOnSave`.
     pub guide_likes_player: f32,
     pub guide_increase_like_on_save: bool,
+    /// Community influences to apply at `Win`: community, influence.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub influences: Vec<(String, f32)>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -130,6 +190,24 @@ pub struct CreatureInfo {
     pub overseer: Option<OverseerInfo>,
     /// A realized bat fly's body and AI.
     pub fly: Option<FlyInfo>,
+    /// `state.socialMemory`'s relationships.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub social: Vec<RelationshipInfo>,
+    /// What its grip sticks carry.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub carries: Vec<HeldInfo>,
+}
+
+/// `SocialMemory.Relationship`.
+#[derive(Debug, Clone, Serialize)]
+pub struct RelationshipInfo {
+    /// The subject's EntityID.
+    pub subject: [i32; 2],
+    pub like: f32,
+    pub temp_like: f32,
+    pub fear: f32,
+    pub temp_fear: f32,
+    pub know: f32,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -212,6 +290,9 @@ pub struct AbstractAiInfo {
     pub time_buffer: i32,
     pub remain_in_den_counter: i32,
     pub time_spent_here: i32,
+    /// `followCreature`'s EntityID.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub follow_creature: Option<[i32; 2]>,
 }
 
 #[derive(Debug, Clone, Serialize)]

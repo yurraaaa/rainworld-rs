@@ -222,14 +222,20 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   lobby, the realized rooms' entry waits and `creatures` (every
   abstract creature: kind, ID, room, node, tile, in den, realized,
   alive; roaming creatures also their abstract AI: destination, path, migration
-  destination, den, time buffer and den counter; overseers also their AI's
+  destination, den, time buffer, den counter and followed creature; overseers also their AI's
   destination, guide state, last rooms and realized tiles; realized flies their room, position, velocity,
-  behaviour, movement mode, grasps and holders) and `objects` (every
+  behaviour, movement mode, grasps and holders; any creature its social memory
+  (`social`: subject, like, temp like, fear, temp fear, know) and what its grip
+  sticks carry (`carries`); empty fields are left out) and `objects` (every
   abstract rock and spear: kind, ID, room, node, tile, a spear's
   stuck-in-wall cycles and explosive flag; realized ones also their
   room, position, velocity, mode, rotation and collision layer), `triggers` (the
   realized rooms' trigger checkers and the objects their events added) and `music`
-  (the music player: song, next song, mixes, threat tracker, play records); `get_exits` lists the
+  (the music player: song, next song, mixes, threat tracker, play records), `session`
+  (kills, peace, respawn lists, guide like, community influences), `dens` (each
+  room's den contents), `quantified` (each room's quantified creatures per node),
+  `flies_world` (the flies' spawn and respawn counters) and `region_state` (swarm
+  room and lineage counters, consumed items, saved counts); `get_exits` lists the
   camera room's exits (entrance tile, the input that enters, destination
   room, arrival node and camera). `set_player`, `get_tiles` and
   `screenshot` act on the camera's room. To test a transition, put the
