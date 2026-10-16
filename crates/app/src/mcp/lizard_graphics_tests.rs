@@ -7,8 +7,9 @@ use rw_assets::{Room, Terrain};
 use super::Session;
 use super::params::{InputParam, SpawnCreatureParams, StepParams};
 use super::reply::{LizardInfo, State};
-use rw_graphics::{Color, LIZARD_BASE_SPRITES, LizardGraphics};
+use rw_graphics::{Color, LIZARD_BASE_SPRITES, LizardGraphics, LizardReading};
 use rw_random::UnityRandom;
+use rw_sim::{CosmeticKind, Input, Vec2};
 
 /// The first air tile with air above and solid ground below, from the bottom left.
 trait GroundTile {
@@ -216,5 +217,76 @@ fn a_calm_lizards_draw_makes_one_draw() {
             .expect("eyes")
             .element
             .starts_with("LizardEyes")
+    );
+}
+
+/// `HeadRotation(t)`: the aim from `drawPositions[0]` to the head, both lerped by `t`,
+/// plus `jawOpenAngle * (1 - jawOpenLowerJawFac)` times the lerped jaw (clamped) and
+/// head depth rotation.
+#[test]
+fn head_rotation_lerps_the_head_and_jaw() {
+    let Some((mut s, id)) = Session::with_green_lizard(None) else {
+        return;
+    };
+    s.lizard_ticks(20);
+    let mut g = s.lizard_module(id);
+    g.draw_positions[0] = [Vec2::ZERO, Vec2::ZERO];
+    g.head.last_pos = Vec2::new(0.0, 10.0);
+    g.head.pos = Vec2::new(20.0, 10.0);
+    g.last_head_depth_rotation = 0.0;
+    g.head_depth_rotation = 1.0;
+    let lizard = LizardReading {
+        excitement: 0.5,
+        last_jaw_open: 0.0,
+        jaw_open: 2.0,
+        jaw_turn: 40.0,
+    };
+    // Aim from (0, 0) to (10, 10): 45; jaw Clamp(Lerp(0, 2, 0.5)) = 1, depth 0.5.
+    assert!((g.head_rotation(&lizard, 0.5) - 65.0).abs() < 1e-4);
+    // At 1: aim from (0, 0) to (20, 10), jaw 1, depth 1.
+    let aim = 20f32.atan2(10.0).to_degrees();
+    assert!((g.head_rotation(&lizard, 1.0) - (aim + 40.0)).abs() < 1e-4);
+    let b = g.for_bubble(&lizard, Color::BLACK, 0.25);
+    assert_eq!(b.head, Vec2::new(5.0, 10.0));
+}
+
+/// A bubble keeps the module that made it: once the module is dropped its bubbles
+/// still read its head colour, and it is forgotten once no bubble refers to it.
+#[test]
+fn a_dropped_module_still_colours_its_bubbles() {
+    let Some((mut s, id)) = Session::with_green_lizard(None) else {
+        return;
+    };
+    s.lizard_ticks(20);
+    let g = s.lizard_module(id);
+    assert_ne!(g.module, 0);
+    let game = s.scene_mut().expect("game").game_mut();
+    let view = game
+        .sim()
+        .world()
+        .lizard_view(g.creature, None)
+        .expect("view");
+    let expected = g.for_bubble(&LizardReading::of(&view), Color::BLACK, 0.5);
+    assert_eq!(
+        game.bubble_module(g.creature, g.module, 0.5),
+        Some(expected)
+    );
+    game.remove_lizard_module(g.id);
+    assert!(game.lizard_graphics().iter().all(|m| m.module != g.module));
+    assert_eq!(
+        game.bubble_module(g.creature, g.module, 0.5),
+        Some(expected)
+    );
+    game.tick(Input::NONE);
+    let world = game.sim().world();
+    let referred = world.active_rooms().into_iter().any(|r| {
+        world
+            .room_cosmetics(r)
+            .iter()
+            .any(|c| matches!(&c.kind, CosmeticKind::LizardBubble(b) if b.module == g.module))
+    });
+    assert_eq!(
+        game.bubble_module(g.creature, g.module, 0.5).is_some(),
+        referred
     );
 }

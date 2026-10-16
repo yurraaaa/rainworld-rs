@@ -14,10 +14,10 @@ use rw_assets::{
 };
 use rw_audio::Follow as SoundFollow;
 use rw_graphics::{
-    Color, CosmeticSprites, DrawList, FlyGraphics, HologramFrame, HologramGraphics,
+    BubbleModule, Color, CosmeticSprites, DrawList, FlyGraphics, HologramFrame, HologramGraphics,
     HologramLightSprites, LightSourceSprites, LightSourceView, LizardColors, LizardGraphics,
-    OverseerGraphics, PlayerGraphics, ShelterDoorSprites, ShortcutPalette, WaterDripSprites,
-    WeaponSprites,
+    LizardReading, OverseerGraphics, PlayerGraphics, ShelterDoorSprites, ShortcutPalette,
+    WaterDripSprites, WeaponSprites,
 };
 use rw_hud::{HudSetup, OwnerTick, RainCycleView, StartCondition, Subregions};
 use rw_random::UnityRandom;
@@ -33,8 +33,8 @@ use rw_sim::room_script::{RoomScript, SuC04StartUp};
 use rw_sim::shelter::ShelterDoor;
 use rw_sim::world::World;
 use rw_sim::{
-    CameraMove, CameraView, HudEvent, Input, PhysicalObject, Player, PlayerHands, PlayerObserver,
-    PlayerSurroundings, RainWorldGame, SoundEvent, Sounds, Start, Vec2, Water,
+    CameraMove, CameraView, CosmeticKind, HudEvent, Input, PhysicalObject, Player, PlayerHands,
+    PlayerObserver, PlayerSurroundings, RainWorldGame, SoundEvent, Sounds, Start, Vec2, Water,
 };
 
 use crate::shortcuts::CameraShortcuts;
@@ -109,6 +109,10 @@ struct Graphics {
     flies: Vec<FlyGraphics>,
     /// The lizards' graphics modules, in the order they were built.
     lizards: Vec<LizardGraphics>,
+    /// Dropped lizard modules their bubbles still refer to.
+    dropped_lizards: Vec<LizardGraphics>,
+    /// The last module serial given out.
+    lizard_serial: u64,
     /// The camera room palette's earth colour (`OverseerGraphics.ApplyPalette`).
     earth: Color,
     /// The lens's and holograms' per-frame draws (the game's come from the global
@@ -117,6 +121,33 @@ struct Graphics {
 }
 
 impl Graphics {
+    /// Moves the lizard modules `dropped` picks out of the live ones; their bubbles keep
+    /// them, as the game's keep their `LizardGraphics`.
+    fn drop_lizards(&mut self, dropped: impl Fn(&LizardGraphics) -> bool) {
+        let (gone, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut self.lizards)
+            .into_iter()
+            .partition(|g| dropped(g));
+        self.lizards = kept;
+        self.dropped_lizards.extend(gone);
+    }
+
+    /// Forgets the dropped lizard modules no bubble in `world` refers to.
+    fn forget_dropped_lizards(&mut self, world: &World) {
+        if self.dropped_lizards.is_empty() {
+            return;
+        }
+        let used: Vec<u64> = world
+            .active_rooms()
+            .into_iter()
+            .flat_map(|r| world.room_cosmetics(r))
+            .filter_map(|c| match &c.kind {
+                CosmeticKind::LizardBubble(b) => Some(b.module),
+                _ => None,
+            })
+            .collect();
+        self.dropped_lizards.retain(|g| used.contains(&g.module));
+    }
+
     /// Overseer `id`'s graphics module and its conversation partner's.
     fn overseer_pair(
         &mut self,
@@ -334,9 +365,14 @@ impl PlayerObserver for Graphics {
             Some(i) if !link.parts.is_empty() => i,
             found => {
                 if let Some(i) = found {
-                    self.lizards.remove(i);
+                    let old = self.lizards.remove(i);
+                    self.dropped_lizards.push(old);
                 }
-                self.lizards.push(LizardGraphics::new(view));
+                self.lizard_serial += 1;
+                link.module = self.lizard_serial;
+                let mut g = LizardGraphics::new(view);
+                g.module = self.lizard_serial;
+                self.lizards.push(g);
                 self.lizards.len() - 1
             }
         };
@@ -381,7 +417,7 @@ impl PlayerObserver for Graphics {
     }
 
     fn lizard_removed(&mut self, id: EntityId) {
-        self.lizards.retain(|g| g.id != id);
+        self.drop_lizards(|g| g.id == id);
     }
 
     fn nudge_tail_x(&mut self, dvx: f32) {
@@ -577,6 +613,8 @@ impl Game {
             holograms: Vec::new(),
             flies: Vec::new(),
             lizards: Vec::new(),
+            dropped_lizards: Vec::new(),
+            lizard_serial: 0,
             earth: Color::BLACK,
             cosmetic: UnityRandom::new(0),
         };
@@ -775,6 +813,7 @@ impl Game {
         let was_in_shortcut = self.sim.player().is_some_and(Player::in_shortcut);
         self.shortcuts.update();
         self.sim.tick(input, &mut self.graphics);
+        self.graphics.forget_dropped_lizards(self.sim.world());
         self.shortcuts.sync(&mut self.sim, self.graphics.slugcat);
         let in_shortcut = self.sim.player().is_some_and(Player::in_shortcut);
         if in_shortcut != was_in_shortcut {
@@ -881,6 +920,7 @@ impl Game {
         shown.sort_by_key(|c| c.update_order);
         let heads = LizardHeads {
             graphics: &self.graphics.lizards,
+            dropped: &self.graphics.dropped_lizards,
             world,
             black,
         };
@@ -902,10 +942,18 @@ impl Game {
             .filter(|(_, c)| c.lizard().is_some_and(|l| l.graphics.is_some()))
             .map(|(_, c)| c.id)
             .collect();
-        self.graphics.lizards.retain(|g| realized.contains(&g.id));
+        self.graphics.drop_lizards(|g| !realized.contains(&g.id));
         let graphics = &mut self.graphics;
         let mut lists = Vec::new();
         for g in &mut graphics.lizards {
+            let in_view = world
+                .creature(g.creature)
+                .lizard()
+                .and_then(|l| l.graphics.as_ref())
+                .is_some_and(|link| link.drawn_in.contains(&camera_room));
+            if in_view {
+                g.palette_black = Some(black);
+            }
             let shown = world
                 .creature(g.creature)
                 .lizard()
@@ -1405,6 +1453,27 @@ pub(crate) mod tests {
         fn head_y(&self) -> f32 {
             self.body().expect("body in room").chunks[0].pos.y
         }
+
+        /// The observer's `lizard_removed` (`RemoveGraphicsModule`) for body `id`.
+        pub(crate) fn remove_lizard_module(&mut self, id: EntityId) {
+            self.graphics.lizard_removed(id);
+        }
+
+        /// What a bubble of lizard `id`'s module `module` reads at `t`.
+        pub(crate) fn bubble_module(
+            &self,
+            id: CreatureId,
+            module: u64,
+            t: f32,
+        ) -> Option<BubbleModule> {
+            LizardHeads {
+                graphics: &self.graphics.lizards,
+                dropped: &self.graphics.dropped_lizards,
+                world: self.sim.world(),
+                black: Color::BLACK,
+            }
+            .bubble_module(id, module, t)
+        }
     }
 
     #[test]
@@ -1507,6 +1576,7 @@ impl LightDrawable {
 /// The lizards' head colours, as their cosmetics read them when drawn.
 struct LizardHeads<'a> {
     graphics: &'a [LizardGraphics],
+    dropped: &'a [LizardGraphics],
     world: &'a World,
     black: Color,
 }
@@ -1515,7 +1585,26 @@ impl LizardColors for LizardHeads<'_> {
     fn lizard_head(&self, id: CreatureId, t: f32) -> Option<(Color, i32)> {
         let g = self.graphics.iter().find(|g| g.creature == id)?;
         let view = self.world.lizard_view(id, None)?;
-        Some((g.head_color(&view, self.black, t), g.white_flicker))
+        let black = g.palette_black.unwrap_or(self.black);
+        Some((
+            g.head_color(&LizardReading::of(&view), black, t),
+            g.white_flicker,
+        ))
+    }
+
+    /// The module's own lizard while it is realized (the game's module reads the
+    /// body it was made for), else as the module last read it.
+    fn bubble_module(&self, id: CreatureId, module: u64, t: f32) -> Option<BubbleModule> {
+        let g = self
+            .graphics
+            .iter()
+            .chain(self.dropped)
+            .find(|g| g.module == module)?;
+        let lizard = self
+            .world
+            .lizard_view(id, None)
+            .map_or(g.lizard, |v| LizardReading::of(&v));
+        Some(g.for_bubble(&lizard, self.black, t))
     }
 
     fn black(&self) -> Color {

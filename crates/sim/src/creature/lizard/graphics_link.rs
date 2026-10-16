@@ -18,6 +18,9 @@ use crate::{CameraView, Sounds, Vec2, Water, WaterDrip};
 /// nowhere else); velocity pushes wait for its next update.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct LizardGraphicsLink {
+    /// The module's serial, set by the observer that builds it (0 for none); the
+    /// bubbles keep the module that made them, even after it is dropped.
+    pub module: u64,
     /// `legsGrabbing`: the limbs holding on (`LegsGripping`).
     pub legs_grabbing: i32,
     /// `noGripCounter` (`NoGripCounter`).

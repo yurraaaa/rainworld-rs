@@ -16,7 +16,9 @@ use rw_sim::creature::{CreatureId, EntityId, LizardAnimation};
 use rw_sim::{CameraView, FloatExt, RoomExt, SoundId, Vec2, WaterDrip};
 
 use crate::body_part::{BodyPart, PointConnection};
+use crate::draw::Color;
 use crate::lizard_cosmetics::{CosmeticCx, LizardCosmetic};
+use crate::lizard_draw::LizardReading;
 use crate::lizard_limb::{LimbTick, LizardLimb};
 use crate::math::CustomVec;
 use crate::tail::{TailAnchor, TailSegment};
@@ -73,6 +75,13 @@ impl CreatureLooker {
 pub struct LizardGraphics {
     pub id: EntityId,
     pub creature: CreatureId,
+    /// Its serial (`LizardGraphicsLink::module`).
+    pub module: u64,
+    /// The lizard as the module last read it (a dropped module's bubbles read this once
+    /// the body is gone).
+    pub lizard: LizardReading,
+    /// `palette.blackColor`, once its sprites were in the camera's room.
+    pub palette_black: Option<Color>,
     pub kind: CreatureType,
     pub culled: bool,
     pub last_culled: bool,
@@ -184,6 +193,9 @@ impl LizardGraphics {
         Self {
             id: view.id,
             creature: view.creature,
+            module: 0,
+            lizard: LizardReading::of(view),
+            palette_black: None,
             kind: view.kind,
             culled: true,
             last_culled: true,
@@ -357,7 +369,7 @@ impl LizardGraphics {
             .head_now()
             .for_bubble(view.lizard.params, view.jaw_open());
         LizardBubble::new(
-            view.creature,
+            (view.creature, self.module),
             view.lizard.body.chunks[0].pos,
             head,
             params,
@@ -373,6 +385,7 @@ impl LizardGraphics {
         link: &mut LizardGraphicsLink,
         cx: &mut LizardGraphicsTick<'_>,
     ) {
+        self.lizard = LizardReading::of(view);
         for (i, dv) in std::mem::take(&mut link.pushes) {
             if let Some(p) = self.part_mut(i) {
                 p.vel += dv;

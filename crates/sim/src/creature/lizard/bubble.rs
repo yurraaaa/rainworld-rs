@@ -17,8 +17,10 @@ use crate::{FloatExt, Vec2};
 pub struct LizardBubble {
     /// The lizard whose graphics made it.
     pub lizard: CreatureId,
-    /// The graphics' head as last read (the game keeps the module the bubble refers to,
-    /// even after its room stops being viewed).
+    /// The serial of the graphics module that made it (`LizardGraphicsLink::module`).
+    pub module: u64,
+    /// That module's head as last read (the game keeps the module the bubble refers
+    /// to, even after the module is dropped).
     pub head: BubbleHead,
     pub pos: Vec2,
     pub last_pos: Vec2,
@@ -45,7 +47,7 @@ impl LizardBubble {
     /// head's velocity plus a random push, its hollowness; stuck to the head unless it
     /// has no stickiness.
     pub fn new(
-        lizard: CreatureId,
+        (lizard, module): (CreatureId, u64),
         main: Vec2,
         head: BubbleHead,
         [intensity, stickiness, extra_speed]: [f32; 3],
@@ -66,6 +68,7 @@ impl LizardBubble {
         let hollow_ness = 0.5f32.lerp(1.5, rng.value());
         let mut bubble = Self {
             lizard,
+            module,
             head,
             pos,
             last_pos: pos,
@@ -187,7 +190,13 @@ mod tests {
                 vel: Vec2::new(1.0, 0.0),
                 rotation: 90.0,
             };
-            let b = LizardBubble::new(CreatureId(0), Vec2::ZERO, head, [1.0, 0.5, 2.0], &mut rng);
+            let b = LizardBubble::new(
+                (CreatureId(0), 1),
+                Vec2::ZERO,
+                head,
+                [1.0, 0.5, 2.0],
+                &mut rng,
+            );
             for _ in 0..3 {
                 expected.value();
             }
@@ -209,7 +218,7 @@ mod tests {
     fn a_bubble_without_stickiness_floats_free() {
         let mut rng = UnityRandom::new(3);
         let b = LizardBubble::new(
-            CreatureId(0),
+            (CreatureId(0), 1),
             Vec2::ZERO,
             BubbleHead::default(),
             [1.0, 0.0, 0.0],

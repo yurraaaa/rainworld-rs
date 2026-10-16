@@ -51,18 +51,58 @@ impl Color {
     }
 }
 
+/// What `HeadColor` and `HeadRotation` read of the lizard.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LizardReading {
+    /// `AI.excitement`.
+    pub excitement: f32,
+    pub last_jaw_open: f32,
+    /// `JawOpen`.
+    pub jaw_open: f32,
+    /// `jawOpenAngle * (1 - jawOpenLowerJawFac)`.
+    pub jaw_turn: f32,
+}
+
+impl LizardReading {
+    #[must_use]
+    pub fn of(view: &LizardView<'_>) -> Self {
+        let params = view.lizard.params;
+        Self {
+            excitement: view.lizard.ai.excitement,
+            last_jaw_open: view.lizard.last_jaw_open,
+            jaw_open: view.jaw_open(),
+            jaw_turn: params.jaw_open_angle * (1.0 - params.jaw_open_lower_jaw_fac),
+        }
+    }
+}
+
 impl LizardGraphics {
+    /// `HeadRotation(t)`, in degrees.
+    #[must_use]
+    pub fn head_rotation(&self, lizard: &LizardReading, t: f32) -> f32 {
+        let head = self.head.last_pos.lerp(self.head.pos, t);
+        let aim = self.dp(0, t).aim_to(head);
+        let depth = self
+            .last_head_depth_rotation
+            .lerp(self.head_depth_rotation, t);
+        let jaw = lizard
+            .last_jaw_open
+            .lerp(lizard.jaw_open, t)
+            .clamp(0.0, 1.0);
+        aim + lizard.jaw_turn * jaw * depth
+    }
+
     /// `HeadColor(t)`: white during the strong white flicker (or every second draw of a
     /// weak one), else between the palette's black and the effect colour by the blink,
     /// the head colour setter and the stun flicker.
     #[must_use]
-    pub fn head_color(&self, view: &LizardView<'_>, black: Color, t: f32) -> Color {
+    pub fn head_color(&self, lizard: &LizardReading, black: Color, t: f32) -> Color {
         if self.white_flicker > 0 && (self.white_flicker > 15 || self.every_second_draw) {
             return Color::WHITE;
         }
         let blink = self.last_blink.lerp(self.blink, t);
         let wave = 0.5 + 0.5 * (blink * 2.0 * std::f32::consts::PI).sin();
-        let mut a = 1.0 - wave.mathf_pow(1.5 + view.lizard.ai.excitement * 1.5);
+        let mut a = 1.0 - wave.mathf_pow(1.5 + lizard.excitement * 1.5);
         if self.head_color_setter != 0.0 {
             let to = if self.head_color_setter > 0.0 {
                 1.0
@@ -182,7 +222,7 @@ impl LizardGraphics {
             LIZARD_HEAD[turn][graphics[3]],
             LIZARD_EYES[turn][graphics[4]],
         ];
-        let head_color = self.head_color(view, black, t);
+        let head_color = self.head_color(&LizardReading::of(view), black, t);
         let size = params.head_size * self.ivars.head_size;
         let sign = if depth >= 0.0 { 1.0 } else { -1.0 };
         let lower = params.jaw_open_lower_jaw_fac;
