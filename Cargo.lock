@@ -2225,6 +2225,8 @@ dependencies = [
  "kira",
  "log",
  "rw-assets",
+ "rw-random",
+ "rw-save",
  "rw-sim",
 ]
 

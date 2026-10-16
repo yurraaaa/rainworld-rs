@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use rw_assets::StreamingAssets;
 use rw_save::{
-    ChecksumSalt, ImportReport, Options, Platform, PlayerProgression, SaveSlot, SaveState,
+    ChecksumSalt, ImportReport, Options, Platform, PlayerProgression, SaveSlot, SaveState, Tutorial,
 };
 use rw_sim::campaign::StoryStart;
 use rw_sim::creature::PlayerGuideState;
@@ -145,6 +145,7 @@ impl SaveStateStart for SaveState {
                 angry_with_player: self.misc_world.player_guide.angry_with_player(),
                 ..PlayerGuideState::default()
             },
+            dangle_fruit_in_water_message: d.tutorial_message(Tutorial::DangleFruitInWater),
             den,
         }
     }

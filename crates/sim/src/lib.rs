@@ -36,6 +36,7 @@ pub mod shelter;
 mod shortcut;
 mod sound;
 mod spawn;
+pub mod trigger;
 mod vec2;
 mod vec3;
 mod water;

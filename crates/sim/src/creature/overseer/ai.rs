@@ -5,9 +5,12 @@ use rw_random::UnityRandom;
 
 use super::hologram::HologramMessage;
 use super::{PlayerGuideState, TutorialBehavior};
+use rw_assets::ShowProjectedImageEvent;
+
 use crate::Vec2;
 use crate::creature::CreatureId;
 use crate::item::ObjectId;
+use crate::world::World;
 
 /// `zipPathingMatrix` and its offset: path costs from the centre tile through walls,
 /// `f32::MAX` where not reached yet.
@@ -103,6 +106,11 @@ pub struct CommunicationModule {
     pub free_movement_streak: i32,
     pub un_wanted_swarm_room: i32,
     pub un_wanted_shelter: i32,
+    /// `imageToShow`, set by a `ShowProjectedImageEvent` trigger.
+    pub image_to_show: Option<ShowProjectedImageEvent>,
+    pub show_image_room: i32,
+    /// `inputInstruction`: the id of the `PickupObjectInstruction` room object.
+    pub input_instruction: Option<u64>,
 }
 
 impl CommunicationModule {
@@ -127,7 +135,36 @@ impl CommunicationModule {
             free_movement_streak: 0,
             un_wanted_swarm_room: -1,
             un_wanted_shelter: -1,
+            image_to_show: None,
+            show_image_room: -1,
+            input_instruction: None,
         }
+    }
+
+    /// `AnyProgressionDirection(player)`: `player_room` is the realized player's room
+    /// (`None` in a shortcut).
+    #[must_use]
+    pub fn any_progression_direction(
+        &self,
+        world: &World,
+        player_room: Option<i32>,
+        player_karma: i32,
+    ) -> bool {
+        if self.first_few_cycles {
+            return false;
+        }
+        let Some(finder) = world.guide_direction_finder() else {
+            return false;
+        };
+        if player_room.is_some_and(|r| {
+            r == self.no_progression_direction_from_room || r == finder.show_to_room
+        }) {
+            return false;
+        }
+        if player_karma < finder.min_karma {
+            return !finder.destination_room_visited;
+        }
+        true
     }
 
     /// `PlayerIsFollowingADirection`.

@@ -142,10 +142,12 @@ before the user agrees.
   - A story starts at the campaign's start den in its region's world;
     room-exit shortcuts carry the player between the region's rooms, which
     load synchronously (D14). The population is generated with the
-    game's draws but only overseers and lizards leave their dens. Lizards
-    run the general abstract creature AI (D14): den counters, roaming,
-    migration along the region's connections, paths, dens; they have no
-    body yet and wait unrealized in realized rooms. Overseers have their
+    game's draws and every creature but the scavengers leaves its den.
+    They run the general abstract creature AI or their type's own
+    (vultures, cicadas, big eels, deer, Miros birds, needle worms; D14):
+    den counters, roaming, migration along the region's connections and
+    highways, paths, dens; they have no body yet and wait unrealized in
+    realized rooms. Overseers have their
     body, AI, graphics, the guide's tutorial text and their holograms
     (those whose triggers are ported: D14). The bat flies' world
     process moves their per-node counts between rooms, and a room that
@@ -219,13 +221,15 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   pick-up candidate as `{kind, id}`, stomach, swallow counter, eat counter, malnourishment, aerobic level and exhaustion), the player's room and node, the vessel waiting in the
   lobby, the realized rooms' entry waits and `creatures` (every
   abstract creature: kind, ID, room, node, tile, in den, realized,
-  alive; lizards also their abstract AI: destination, path, migration
+  alive; roaming creatures also their abstract AI: destination, path, migration
   destination, den, time buffer and den counter; overseers also their AI's
   destination, guide state, last rooms and realized tiles; realized flies their room, position, velocity,
   behaviour, movement mode, grasps and holders) and `objects` (every
   abstract rock and spear: kind, ID, room, node, tile, a spear's
   stuck-in-wall cycles and explosive flag; realized ones also their
-  room, position, velocity, mode, rotation and collision layer); `get_exits` lists the
+  room, position, velocity, mode, rotation and collision layer), `triggers` (the
+  realized rooms' trigger checkers and the objects their events added) and `music`
+  (the music player: song, next song, mixes, threat tracker, play records); `get_exits` lists the
   camera room's exits (entrance tile, the input that enters, destination
   room, arrival node and camera). `set_player`, `get_tiles` and
   `screenshot` act on the camera's room. To test a transition, put the
@@ -259,7 +263,8 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   to go straight to the game), then a new Survivor game at `SU_C04`, black
   for 3 s while the start script holds the slugcat. Music runs silently
   (`TimedSources`), so runs stay deterministic; the slideshow follows its
-  ticks. `step_process` reports the slideshow's clock and scene and, in
+  ticks. `step_process` reports the slideshow's clock and scene, `music` and
+  `triggers` as `get_state` does and, in
   the game, the pause menu (Escape opens it; its buttons, selection and
   fade); `get_hud` reads the game process's HUD; in
   game mode `get_state` reports the fade delay, the SU_C04 start script

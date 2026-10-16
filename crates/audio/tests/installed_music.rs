@@ -126,14 +126,14 @@ fn intro_roll_on_real_lengths() {
     let mut player = MusicPlayer::new(MusicSettings::new(1.8), Some(MusicProcess::Other)).unwrap();
     player.request_intro_roll_music();
     for tick in 1..=340 {
-        player.update(&mut sources);
+        player.update(&mut sources, &mut rw_random::UnityRandom::new(0));
         sources.advance();
         let song = player.song.as_ref().expect("intro roll music");
         let rain_playing = sources.is_playing(song.sub_tracks[0].id());
         assert_eq!(rain_playing, (3..3 + rain_ticks).contains(&tick), "{tick}");
     }
     player.song.as_mut().unwrap().start_music();
-    player.update(&mut sources);
+    player.update(&mut sources, &mut rw_random::UnityRandom::new(0));
     let song = player.song.as_ref().unwrap();
     assert!(sources.is_playing(song.sub_tracks[1].id()));
     eprintln!("rain lasts {rain_ticks} ticks");
@@ -171,7 +171,10 @@ fn listen_to_the_intro_roll_music() {
             song.start_music();
             song.fade_out_rain();
         }
-        player.update(&mut output.sources(&mut audio));
+        player.update(
+            &mut output.sources(&mut audio),
+            &mut rw_random::UnityRandom::new(0),
+        );
         let next = start + Duration::from_secs_f32(tick as f32 / 40.0);
         std::thread::sleep(next.saturating_duration_since(Instant::now()));
     }

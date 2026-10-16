@@ -21,6 +21,9 @@ use crate::sprites::SpriteAssets;
 use crate::timestep::TICK_RATE;
 use crate::visuals::Visuals;
 
+#[path = "game_music.rs"]
+mod music;
+
 /// Screen pixels kept free around the room in the debug view.
 pub const MARGIN: f32 = 16.0;
 
@@ -259,8 +262,10 @@ impl Scene {
             .as_ref()
             .map_or(0.0, |v| v.room_palette().darkness);
         self.game.sim_mut().set_camera_darkness(darkness);
+        self.link_trigger_hud();
         self.game.tick(input);
         self.apply_game_over(shared);
+        self.apply_music_requests(shared);
         self.apply_hud_events(shared);
         if let Some(hud) = &mut self.hud {
             hud.update_controls_page(continue_page, pause_menu);
@@ -343,13 +348,20 @@ impl Scene {
 
     /// The guide's `TutorialText`s (translated, darkening the screen), its rain meter
     /// resets and the food meter's refusals.
-    fn apply_hud_events(&mut self, shared: &MenuShared) {
+    fn apply_hud_events(&mut self, shared: &mut MenuShared) {
         let events = self.game.take_hud_events();
         let Some(hud) = &mut self.hud else {
             return;
         };
         for event in events {
             match event {
+                HudEvent::DangleFruitInWaterMessage => {
+                    if let Some(state) = shared.saves.current_save_state.as_mut() {
+                        state
+                            .death_persistent
+                            .set_tutorial_message(rw_save::Tutorial::DangleFruitInWater, true);
+                    }
+                }
                 HudEvent::Message(m) => {
                     let text = shared.translator.translate(m.text);
                     hud.add_message(text, m.wait, m.time, true, m.hide_hud);

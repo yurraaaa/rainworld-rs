@@ -17,6 +17,7 @@ use crate::camera::CameraView;
 use crate::creature::{AbstractCreatureAi, CreatureId, EntityId, WorldCoordinate};
 use crate::item::{ObjectId, WeaponMode};
 use crate::room_ext::RoomExt;
+use crate::trigger::InputInstructionView;
 use crate::world::{AiMap, EIGHT_DIRECTIONS, RainCycle, World};
 use crate::{
     CosmeticKind, FloatExt, OverseerEffectSprite, PlayerObserver, SoundId, Sounds, Spark, Vec2,
@@ -178,6 +179,8 @@ pub(crate) enum OverseerEffect {
     Destroy,
     /// `room.AddObject` of a cosmetic sprite (a dying overseer's effects and sparks).
     Cosmetic(CosmeticKind),
+    /// `markInstructionAsFollowed = false` on input instruction object `id`.
+    InstructionFollowed(u64),
 }
 
 /// What a realized overseer reads and writes of the game for one call.
@@ -210,6 +213,8 @@ pub(crate) struct OverseerTick<'a> {
     /// Whether the camera shows this room (`BeingViewed`).
     pub viewed: bool,
     pub effects: Vec<OverseerEffect>,
+    /// The rooms' input instruction triggers (`communication.inputInstruction`).
+    pub instructions: Vec<InputInstructionView>,
 }
 
 /// What `RealizedCreatureInterest`, `HoverScoreOfTile` and the mode checks read of a
@@ -1643,7 +1648,22 @@ impl OverseerUpdate<'_, '_> {
                 }
             }
         }
-        // `inputInstruction` is set by the in-world instruction triggers (not ported).
+        if let Some(id) = comm.input_instruction {
+            match self.cx.instructions.iter().find(|i| i.id == id) {
+                Some(i) if !i.completed && !i.slated && i.room == room => {
+                    if self
+                        .cx
+                        .camera
+                        .viewed(room, self.cx.room, i.instruction_pos, 20.0)
+                        && 0.7 > comm.current_concern_weight
+                    {
+                        comm.current_concern_weight = 0.7;
+                        comm.current_concern = PlayerConcern::InputInstruction;
+                    }
+                }
+                _ => comm.input_instruction = None,
+            }
+        }
         let list = self.cx.world.room_creatures(room);
         let len = i32::try_from(list.len()).unwrap_or(i32::MAX);
         let pick = list[usize::try_from(self.cx.rng.range_i32(0, len)).unwrap_or(0)];
@@ -1665,9 +1685,18 @@ impl OverseerUpdate<'_, '_> {
         if self.gate_scene_room() {
             // `regionGate` is not ported (null): no gate scene.
             comm.current_concern = PlayerConcern::None;
+        } else if comm.image_to_show.is_some() {
+            if room == comm.show_image_room && self.want_to_show_image() {
+                if comm.current_concern_weight < 0.99 {
+                    comm.current_concern = PlayerConcern::ShowPlacedScene;
+                    comm.current_concern_weight = 0.99;
+                }
+            } else {
+                comm.image_to_show = None;
+            }
         }
-        // `imageToShow` (`ShowProjectedImageEvent`) and `forcedDirectionToGive`
-        // (`ReliableIggyDirection`) are never set: their triggers are not ported.
+        // `forcedDirectionToGive` (`ReliableIggyDirection`) is never set: its placed
+        // object is not ported.
         if comm.current_concern == PlayerConcern::None || !open {
             if let Some(h) = self.body.current_hologram_mut() {
                 h.still_relevant = false;
@@ -1694,6 +1723,10 @@ impl OverseerUpdate<'_, '_> {
             PlayerConcern::FoodItemInRoom => HologramMessage::FoodObject,
             PlayerConcern::Anger => HologramMessage::Angry,
             PlayerConcern::ForcedDirection => HologramMessage::ForcedDirection,
+            // The only input instruction trigger ported is `PickupObjectInstruction`.
+            PlayerConcern::InputInstruction if comm.input_instruction.is_some() => {
+                HologramMessage::PickupObject
+            }
             PlayerConcern::InputInstruction | PlayerConcern::None => return None,
         };
         Some((message, weight))
@@ -1728,22 +1761,30 @@ impl OverseerUpdate<'_, '_> {
         tendency
     }
 
-    /// `AnyProgressionDirection`.
+    /// `AnyProgressionDirection` for the player in the guide's room.
     fn any_progression_direction(&self, comm: &CommunicationModule) -> bool {
-        if comm.first_few_cycles {
-            return false;
+        comm.any_progression_direction(
+            self.cx.world,
+            Some(self.cx.room_index),
+            self.cx.player_karma,
+        )
+    }
+
+    /// `WantToShowImage(room.abstractRoom.name)`.
+    fn want_to_show_image(&self) -> bool {
+        let gate_scene = self
+            .body
+            .current_hologram()
+            .is_some_and(|h| h.message == HologramMessage::GateScene);
+        if gate_scene {
+            return true;
         }
-        let Some(finder) = self.cx.world.guide_direction_finder() else {
-            return false;
-        };
-        let room = self.cx.room_index;
-        if room == comm.no_progression_direction_from_room || room == finder.show_to_room {
-            return false;
-        }
-        if self.cx.player_karma < finder.min_karma {
-            return !finder.destination_room_visited;
-        }
-        true
+        let name = self
+            .cx
+            .world
+            .abstract_room(self.cx.room_index)
+            .map_or("", |r| r.name.as_str());
+        !self.cx.guide.has_image_been_shown_in_room(name)
     }
 
     /// `PlayerProgressionNeed`.

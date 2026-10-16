@@ -294,11 +294,11 @@ impl World {
             let den =
                 c.ai.as_ref()
                     .and_then(|a| a.den_position(c, self.offscreen_den_index()));
-            let mother = self.find_needle_mother(c.pos, den, rng);
+            let mother = self.find_needle_mother(room, c.pos, den, rng);
             if let Some(ai) = &mut self.creature_mut(small).ai
-                && let crate::creature::AiKind::NeedleWorm { mother: m, .. } = &mut ai.kind
+                && let crate::creature::AiKind::NeedleWorm(worm) = &mut ai.kind
             {
-                *m = mother;
+                worm.mother = mother;
             }
         }
     }

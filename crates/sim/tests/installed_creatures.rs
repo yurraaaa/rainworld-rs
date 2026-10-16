@@ -17,6 +17,7 @@ use rw_assets::{ActiveMods, CreatureType, StreamingAssets};
 use rw_random::UnityRandom;
 use rw_sim::campaign::SlugcatCampaign;
 use rw_sim::creature::{CreatureId, EntityId, PlayerGuideState};
+use rw_sim::room_script::StorySession;
 use rw_sim::world::{AbstractTick, RainCycle, World};
 use rw_sim::{RainWorldGame, Sounds, Start, WorldCoordinate};
 
@@ -208,7 +209,8 @@ impl AbstractRun {
         // The model takes `lastRoom`'s default (global room 0) to be outside the world.
         assert_ne!(world.first_room_index(), 0);
         let mut rng = UnityRandom::new(SEED);
-        RainWorldGame::new_game_world(&mut world, campaign, &mut rng);
+        let mut issuer = RainWorldGame::new_game_world(&mut world, campaign, &mut rng).ids;
+        let session = Self::session(campaign);
         let ids = Self::overseers(&world);
         let others: Vec<CreatureId> = world
             .creatures()
@@ -235,6 +237,8 @@ impl AbstractRun {
                 player: None,
                 player_karma: 0,
                 cycle: 0,
+                ids: &mut issuer,
+                session: &session,
             };
             let target = world.first_room_index() + i32::try_from(index).expect("index");
             world.update_abstract_room(target, time, &mut cx);
@@ -251,6 +255,15 @@ impl AbstractRun {
             }
         }
         Self { world, rng, moves }
+    }
+
+    /// The new game's `StorySession` (cycle 0, its start den).
+    fn session(campaign: &'static SlugcatCampaign) -> StorySession {
+        StorySession {
+            character: campaign.name,
+            cycle_number: 0,
+            den_position: campaign.start_den.to_owned(),
+        }
     }
 
     fn name(world: &World, room: i32) -> String {
@@ -461,7 +474,8 @@ fn su_green_lizard_leaves_its_den_and_walks_between_connected_rooms() {
     let campaign = &SlugcatCampaign::SURVIVOR;
     let mut world = installed.world("SU_C04", campaign);
     let mut rng = UnityRandom::new(SEED);
-    RainWorldGame::new_game_world(&mut world, campaign, &mut rng);
+    let mut ids = RainWorldGame::new_game_world(&mut world, campaign, &mut rng).ids;
+    let session = AbstractRun::session(campaign);
     let green = world
         .creatures()
         .find(|(_, c)| c.kind() == CreatureType::GreenLizard)
@@ -504,6 +518,8 @@ fn su_green_lizard_leaves_its_den_and_walks_between_connected_rooms() {
             player: None,
             player_karma: 0,
             cycle: 0,
+            ids: &mut ids,
+            session: &session,
         };
         let target = world.first_room_index() + i32::try_from(index).expect("index");
         world.update_abstract_room(target, time, &mut cx);
@@ -539,4 +555,139 @@ fn su_green_lizard_leaves_its_den_and_walks_between_connected_rooms() {
         pos = now;
     }
     assert!(rooms_visited.len() > 1, "it left its room in 200 rounds");
+}
+
+/// A creature's room change: its kind, where it was, where it is.
+type RoomChange = (CreatureType, WorldCoordinate, WorldCoordinate);
+
+/// `rounds` rounds of a new game (seed 42) with no player and the rain far off: the
+/// world and every room change.
+fn run_all_creatures(
+    campaign: &'static SlugcatCampaign,
+    rounds: usize,
+) -> Option<(World, Vec<RoomChange>)> {
+    let installed = Installed::open()?;
+    let mut world = installed.world("SU_C04", campaign);
+    let mut rng = UnityRandom::new(SEED);
+    let mut ids = RainWorldGame::new_game_world(&mut world, campaign, &mut rng).ids;
+    world.rain_cycle.cycle_length = 1_000_000;
+    let session = AbstractRun::session(campaign);
+    let guide = PlayerGuideState::default();
+    let count = world.number_of_rooms();
+    let time = i32::try_from(count).expect("room count");
+    let mut index = 0;
+    let mut changes = Vec::new();
+    for _ in 0..rounds * count {
+        index += 1;
+        if index >= count {
+            index = 0;
+        }
+        let before: Vec<(CreatureId, WorldCoordinate)> =
+            world.creatures().map(|(id, c)| (id, c.pos)).collect();
+        let mut cx = AbstractTick {
+            rng: &mut rng,
+            guide: &guide,
+            player: None,
+            player_karma: 0,
+            cycle: 0,
+            ids: &mut ids,
+            session: &session,
+        };
+        let target = world.first_room_index() + i32::try_from(index).expect("index");
+        world.update_abstract_room(target, time, &mut cx);
+        for (id, from) in before {
+            let c = world.creature(id);
+            if c.pos.room != from.room && !c.slated_for_deletion {
+                changes.push((c.kind(), from, c.pos));
+            }
+        }
+    }
+    Some((world, changes))
+}
+
+/// Room changes go only the ways the game allows: through a shortcut exit into the room
+/// it leads to, arriving at that room's exit back, or along a highway from a border
+/// exit to another of the same type. Overseers teleport and are left out.
+fn assert_room_changes(world: &World, changes: &[RoomChange]) {
+    use rw_assets::NodeType;
+    for &(kind, from, to) in changes {
+        if kind == CreatureType::Overseer {
+            continue;
+        }
+        let a = world.abstract_room(from.room).expect("room");
+        let b = world.abstract_room(to.room).expect("room");
+        let from_node = usize::try_from(from.node).expect("node");
+        let to_kind = b.nodes[usize::try_from(to.node).expect("node")].kind;
+        match a.nodes[from_node].kind {
+            NodeType::Exit => {
+                assert_eq!(
+                    a.connections[from_node], to.room,
+                    "{kind} leaves {} by the exit to {}",
+                    a.name, b.name
+                );
+                assert_eq!(
+                    to.node,
+                    b.exit_index(from.room),
+                    "{kind} arrives at the exit back"
+                );
+            }
+            k @ (NodeType::SkyExit | NodeType::SeaExit | NodeType::SideExit) => {
+                assert_eq!(to_kind, k, "{kind} along a highway");
+            }
+            other => panic!("{kind} left {} from a {other:?} node", a.name),
+        }
+    }
+}
+
+fn kinds_moved(changes: &[RoomChange]) -> Vec<CreatureType> {
+    let mut kinds: Vec<CreatureType> = changes
+        .iter()
+        .map(|c| c.0)
+        .filter(|&k| k != CreatureType::Overseer)
+        .collect();
+    kinds.sort_by_key(|k| k.value());
+    kinds.dedup();
+    kinds
+}
+
+/// Survivor (seed 42): several kinds leave their dens and change rooms through exits;
+/// the scavengers stay in the off-screen den (not ported).
+#[test]
+fn su_survivor_creatures_leave_their_dens_and_roam_through_exits() {
+    let Some((world, changes)) = run_all_creatures(&SlugcatCampaign::SURVIVOR, 300) else {
+        return;
+    };
+    assert_room_changes(&world, &changes);
+    let kinds = kinds_moved(&changes);
+    eprintln!(
+        "Survivor: {kinds:?} changed rooms ({} changes)",
+        changes.len()
+    );
+    let cicadas_out = world
+        .creatures()
+        .filter(|(_, c)| c.template.is_cicada() && !c.in_den)
+        .count();
+    assert!(cicadas_out > 0, "cicadas come out of their dens");
+    assert!(kinds.len() >= 3, "several kinds roam: {kinds:?}");
+    assert!(
+        world
+            .creatures()
+            .filter(|(_, c)| c.kind() == CreatureType::Scavenger)
+            .all(|(_, c)| c.in_den)
+    );
+}
+
+/// Hunter (seed 42): vultures cross the sky, drop bugs and the rest walk.
+#[test]
+fn su_hunter_creatures_leave_their_dens_and_roam_through_exits() {
+    let Some((world, changes)) = run_all_creatures(&SlugcatCampaign::HUNTER, 300) else {
+        return;
+    };
+    assert_room_changes(&world, &changes);
+    let kinds = kinds_moved(&changes);
+    eprintln!(
+        "Hunter: {kinds:?} changed rooms ({} changes)",
+        changes.len()
+    );
+    assert!(kinds.len() >= 3, "several kinds roam: {kinds:?}");
 }

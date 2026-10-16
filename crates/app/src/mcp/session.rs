@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use rw_assets::SlugcatName;
 use rw_assets::{SoundTable, StreamingAssets, UnityResources};
+use rw_audio::music::{MusicPlayer, MusicProcess, SongBank, TimedSources};
 use rw_menu::{KeyboardKey, MainLoopProcess, MenuShared, ProcessId, StoryGameInitCondition};
 use rw_random::UnityRandom;
 use rw_render::{RoomLayers, WgpuRenderer};
@@ -31,6 +32,7 @@ use super::reply::{
     ShelterDoorState, SleepState, SlideShowState, StartUpState, State, StepTrace, StoryInfo,
     TextPromptState, TokenState, WeaponInfo,
 };
+use super::reply::{MusicState, TriggerState};
 use super::tiles::TileDump;
 use crate::frontend::{AppContext, Frontend, FrontendRenderer, GameSetup};
 use crate::game::{Game, GameStart};
@@ -68,6 +70,8 @@ pub struct Session {
     hud_shared: Option<MenuShared>,
     /// Where `load_process`'s menus keep their saves and `import_save` reads and writes.
     saves: SaveConfig,
+    /// Game mode's music player's silent sources (its player is `hud_shared.music`).
+    music_sources: TimedSources,
 }
 
 impl Session {
@@ -78,8 +82,10 @@ impl Session {
             .inspect_err(|e| log::warn!("no slugcat sprites ({e}); drawing the circle body"))
             .ok()
             .map(Arc::new);
+        let music = TimedSources::new(SongBank::open(&assets).ok());
         Self {
             sound_table: Game::load_sound_table(&assets),
+            music_sources: music,
             assets,
             resources,
             sprites,
@@ -230,6 +236,24 @@ impl Session {
     }
 
     fn start_game(&mut self, start: GameStart, seed: u64) -> Result<(), String> {
+        if self.hud_shared.is_none() {
+            let screen = rw_render::Resolution::DEFAULT.size_f32();
+            self.hud_shared = MenuShared::load(self.assets.clone(), &self.resources, screen)
+                .inspect_err(|e| log::warn!("no fonts ({e}); the game has no HUD"))
+                .ok();
+        }
+        // The music player runs beside the game as the process manager's side process
+        // would: made once with the default options, its `UpdateMusicContext` and the
+        // new game's `NewCycleEvent`.
+        if let Some(shared) = &mut self.hud_shared {
+            if shared.music.is_none() {
+                shared.music = MusicPlayer::new(shared.music_settings, None);
+            }
+            if let Some(music) = &mut shared.music {
+                music.update_music_context(Some(MusicProcess::StoryGame));
+                music.new_cycle_event();
+            }
+        }
         let rng = UnityRandom::new(seed as i32);
         let game = Game::start(&self.assets, &start, rng, Arc::clone(&self.sound_table))?;
         let source = VisualsSource {
@@ -251,12 +275,6 @@ impl Session {
                 StoryGameInitCondition::Dev.game_initial_black_seconds(*slugcat)
             }
         };
-        if self.hud_shared.is_none() {
-            let screen = rw_render::Resolution::DEFAULT.size_f32();
-            self.hud_shared = MenuShared::load(self.assets.clone(), &self.resources, screen)
-                .inspect_err(|e| log::warn!("no fonts ({e}); the game has no HUD"))
-                .ok();
-        }
         self.scene = Some(Scene::new(game, Some(source)));
         self.start = Some(start);
         self.frontend = None;
@@ -306,6 +324,10 @@ impl Session {
         };
         scene.game_mut().set_fade_delay_in_progress(delay > 0.0);
         scene.tick(input, self.hud_shared.as_mut());
+        if let Some(music) = self.hud_shared.as_mut().and_then(|s| s.music.as_mut()) {
+            scene.update_music(music, &mut self.music_sources);
+            self.music_sources.advance();
+        }
         if self.black_delay > 0.0 {
             self.black_delay -= FRAME_SECONDS;
         }
@@ -433,6 +455,15 @@ impl Session {
                     close_speed: d.close_speed,
                 }),
             session: Self::session_info(scene),
+            music: self.hud_shared.as_ref().and_then(|s| {
+                let records = s
+                    .saves
+                    .current_save_state
+                    .as_ref()
+                    .map(|st| &st.death_persistent.songs_play_records[..]);
+                s.music.as_ref().map(|m| MusicState::of(m, records))
+            }),
+            triggers: TriggerState::all(sim),
         })
     }
 
@@ -947,6 +978,14 @@ impl Session {
                 .map(Self::pause_menu_state),
             karma_screen: frontend.sleep_screen().map(Self::karma_screen_state),
             options: Self::options_state(frontend),
+            music: frontend.ctx.menu.music.as_ref().map(|m| {
+                let records = saves
+                    .current_save_state
+                    .as_ref()
+                    .map(|s| &s.death_persistent.songs_play_records[..]);
+                MusicState::of(m, records)
+            }),
+            triggers: game.map_or_else(Vec::new, |g| TriggerState::all(g.sim())),
         })
     }
 

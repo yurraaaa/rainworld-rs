@@ -12,6 +12,7 @@ const EXPONENT: f32 = 1.8;
 struct Run {
     player: MusicPlayer,
     sources: TimedSources,
+    rng: rw_random::UnityRandom,
 }
 
 impl Run {
@@ -31,12 +32,16 @@ impl Run {
         }
         let player = MusicPlayer::new(MusicSettings::new(EXPONENT), Some(MusicProcess::Other))
             .expect("music on");
-        Self { player, sources }
+        Self {
+            player,
+            sources,
+            rng: rw_random::UnityRandom::new(0),
+        }
     }
 
     /// One tick: the player's update, then a tick of playback.
     fn tick(&mut self) {
-        self.player.update(&mut self.sources);
+        self.player.update(&mut self.sources, &mut self.rng);
         self.sources.advance();
     }
 
@@ -230,7 +235,7 @@ fn stop_music_event_rules() {
     run.player.menu_requests_song("A", 0.5, 0.0);
     run.tick();
     let stop = StopMusicEvent {
-        stop_type: StopMusicType::AllButSpecific,
+        stop_type: Some(StopMusicType::AllButSpecific),
         song_name: "A".into(),
         prio: 1.0,
         fade_out_time: 82.0,
@@ -239,12 +244,12 @@ fn stop_music_event_rules() {
     assert!(!run.player.song.as_ref().unwrap().fading_out());
     run.player.game_requests_song_stop(&StopMusicEvent {
         prio: 0.4,
-        stop_type: StopMusicType::AllSongs,
+        stop_type: Some(StopMusicType::AllSongs),
         ..stop.clone()
     });
     assert!(!run.player.song.as_ref().unwrap().fading_out());
     run.player.game_requests_song_stop(&StopMusicEvent {
-        stop_type: StopMusicType::SpecificSong,
+        stop_type: Some(StopMusicType::SpecificSong),
         ..stop
     });
     assert_eq!(run.player.song.as_ref().unwrap().fade_out_time, 82.0);

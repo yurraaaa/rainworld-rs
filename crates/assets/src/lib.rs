@@ -23,6 +23,7 @@ mod settings;
 mod short_strings;
 pub mod shortcut;
 pub mod sound_table;
+pub mod triggers;
 pub mod unity;
 pub mod world;
 
@@ -55,5 +56,9 @@ pub use short_strings::ShortStrings;
 pub use shortcut::{ShortcutData, ShortcutMap, ShortcutType};
 pub use sound_table::{
     ClipNames, ClipVariation, SoundClip, SoundSample, SoundTable, SoundTrigger, TriggerState,
+};
+pub use triggers::{
+    EventTrigger, EventType, MusicEvent, ShowProjectedImageEvent, SpotArea, StopMusicEvent,
+    StopMusicType, TriggerType, TriggeredEvent,
 };
 pub use unity::UnityResources;

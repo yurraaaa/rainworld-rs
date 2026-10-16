@@ -74,17 +74,21 @@ it (D13). What still differs is only the seed and the call order:
   picking up, laying down, swallowing and regurgitating rocks and spears (the pick-up
   candidate's `Blink` sound, `PickedUp`'s and `ReleaseObject`'s sounds, `Regurgitate`'s
   22 draws and sound, 2 more with graphics, the `SlugcatHand` swallow shake's 6 and
-  `PlayerGraphics`' swallow blink `Range(-5, 8)`). The lizards'
-  abstract AI makes its draws in its room's update (`MigrationBehavior`'s laziness
-  `Range` and time-influenced rolls, the roam roll, `RandomMoveWithinRoom`,
-  `RandomMoveToOtherRoom`'s two per step, `MoveToMoreAttractiveNeighborRoom`'s,
-  `FollowPath`'s stuck roll, `DefineNodeOfLocalCoordinate` and
-  `AbstractSpacePathFinder`'s node picks): from the first lizard out of its den (100 to
+  `PlayerGraphics`' swallow blink `Range(-5, 8)`). Every base-game creature with an
+  abstract AI but the scavengers makes its draws in its room's update: the plain
+  `AbstractCreatureAI`'s (`MigrationBehavior`'s laziness `Range` and time-influenced
+  rolls, the roam roll, `RandomMoveWithinRoom`, `RandomMoveToOtherRoom`'s two per step,
+  `MoveToMoreAttractiveNeighborRoom`'s, `FollowPath`'s stuck roll,
+  `DefineNodeOfLocalCoordinate` and `AbstractSpacePathFinder`'s node picks) and the
+  subclasses' own (the vultures' `AddRandomCheckRoom`, the cicadas' catch rolls, a caught
+  fly's `GetNewID` and constructor draws and the swarm-room search's `Random` flood, the
+  big eels' and deer's check rooms, the Miros birds' raids, the needle worms' mother
+  search and migrate-active counter): from the first creature out of its den (100 to
   1000 ticks into a cycle) every story run's stream has shifted from before, as the
-  game's does. Missing: the draws a lizard would make on being realized
-  (`PlaceInRealizedRoom`, its body, AI and graphics), as it stays abstract (D14). Per
-  tick the stream parts from the game's again with the abstract AI of every creature
-  but overseers, flies and lizards (D14).
+  game's does. Missing: the draws a creature would make on being realized
+  (`PlaceInRealizedRoom`, its body, AI and graphics), as it stays abstract (D14), and
+  per tick the scavengers' abstract AI and `ScavengersWorldAI` (one `Range` over the
+  scavengers every tick once a world has any), which are not ported (D14).
   `LocalCoordinateOfNode` draws for bat hives, garbage holes and border exits; a border
   exit's tile is not known (its border tiles are not mapped), only its draw is made.
 - **Room items.** A room realized for the first time in a cycle makes its items' draws
@@ -96,6 +100,15 @@ it (D13). What still differs is only the seed and the call order:
   This shifted the stream of every room
   realization since; no test pinned the old one. The rest of `Room.Loaded`'s draws
   (placed objects and effects the port does not make) are still missing.
+- **Triggers and music.** An `ActiveTriggerChecker` firing its event draws one
+  `Random.value` when its `fireChance` is not 1 (SU_B04's song, 0.4565), in its slot of
+  the room's update list; the guide's `BringGuideToPlayerEvent` and the image and
+  pickup instructions make the overseer's draws. The music player, updated after the
+  game each tick as the game's side process, draws `Random.Range(80, 400)` when a room
+  switch's delay ends. Missing: `ProceduralMusic.Reset`'s stem choice
+  (`Random.Range` per non-empty threat layer, 5 for SU, made when `NewRegion` builds the
+  bank: in the first room of a game, and after a bank change once the old one faded;
+  music step 2).
 - **Realized rocks and spears.** Realizing a room's rocks and spears (`ShortCutsReady`,
   in entity order) makes the game's draws: the `Weapon` constructor's rotation and the
   spear's needle `Range(0, 3)`, then `PlaceInRoom`'s `SetRandomSpin` (2 for a rock, 4
@@ -631,16 +644,25 @@ the NPC shortcut sounds) are ported. The menus'
 `rw_audio::MenuPlayback` (the sources), with the options' sound-effects volume (D13). `rw_audio::music` is the `MusicPlayer` side process with `Song`, `MenuOrSlideShowSong`
 and `IntroRollMusic` (`music.md` section 4.1), streaming `music_songs` clips; the app
 runs it as the game's side process (D13), silent on `TimedSources` without audio
-(`--mute`, `--screenshot`, MCP).
+(`--mute`, `--screenshot`, MCP). In a game, the sim queues the music player's requests
+(`rw_sim::trigger::MusicRequest`: a room trigger's `MusicEvent` or `StopMusicEvent`,
+`RainCycle`'s `RainRequestStopSong`), the app hands them to `GameRequestsSong` /
+`GameRequestsSongStop` / `RainRequestStopSong` with the save state's `songsPlayRecords`
+(D16), and the `PlayerThreatTracker`'s room switches, drone level and
+`Random.Range(80, 400)` delays run from the player's room (`rw_audio::music::GameMusicView`).
+`NewCycleEvent` is sent when a story game starts (D17) and `DeathEvent` on death.
 
 **What differs:**
-- **Music not ported:** `GameRequestsSong` (room-trigger `MusicEvent`s, play records),
-  the in-game `PlayerThreatTracker` (threat, ghost mode, room switches and their
-  `Random.Range(80, 400)`; outside the game its zeroing is ported), `ProceduralMusic`
-  (threat layers, `music_procedural`, its `Random.Range` stem choice), the arena
-  `MultiplayerDJ` (its shuffle draws), `GhostSong`, `SSSong`, `VoidSeaMusic`, the DLC
-  songs, `ResetSongStream`, MMF stream resync, and loose mod `.ogg` overrides. None of
-  the ported paths draws from `UnityEngine.Random`.
+- **Music not ported:** `ThreatDetermination.Update` (the threat of the creatures in
+  the player's room: the threat stays 0, so no song is refused or faded by threat),
+  `ProceduralMusic` (`NewRegion` only records the bank in `nextProcedural`; its
+  `Reset`'s stem draws are missing, D1), the screen music (sleep, death, starve) and
+  the starve and Hunter fades, the echoes' `GhostSong` and ghost mode, `SSSong`,
+  gate and region-change songs (no gates yet), `VoidSeaMusic`, the ending songs, the
+  arena `MultiplayerDJ` (its shuffle draws), the DLC songs and their branches
+  (rot presence, the Watcher's spinning tops, Challenge threat music),
+  `ResetSongStream`, MMF stream resync, the pitch trim and loose mod `.ogg`
+  overrides. The ported in-game paths draw what the game draws (D1).
 - **Music timing.** A sub-track's clip loads on a background thread and becomes
   ready on the first update after it arrived (the game's `AssetBundle` load and
   `LoadAudioData` take a frame or more, so this is at least as fast); headless runs use
@@ -972,13 +994,15 @@ second part, else a single-room world for arena levels). The campaign descriptio
 (`rw_sim::campaign`, `campaign-model.md`) gives the timeline, start den and stats.
 
 **What differs:**
-- **Only overseers and bat flies behave; lizards roam abstractly.** The `CREATURES` section is read in full (simple spawners
+- **Only overseers and bat flies behave; the other creatures roam abstractly.** The `CREATURES` section is read in full (simple spawners
   and lineages with their dens, amounts, spawn data and night flags; quantified
   counts; `rw_assets::creatures`), and a new game's `GeneratePopulation` builds every
   `AbstractCreature` with all of its constructor draws (D1) and `setCustomFlags`' base
   flags (`Night`, `Ignorecycle`, `PreCycle`; the region's `globalCreatureFlags` are not
-  read, as no vanilla region sets them): the creatures go into
-  their dens and stay there (`InDenUpdate` lets only overseers and lizards out), quantified
+  read, as no vanilla region sets them, nor are `migrationInfluences`: both left out by
+  the user's decision): the creatures go into
+  their dens and come out as the game's do, but the scavengers stay in theirs (their
+  abstract AI and world process are not ported), quantified
   creatures are counted per node (the bat flies move, are placed and realized, below), and items
   (scavenger gear, drop bugs' items) are kept as IDs and kinds on their carrier, not as
   objects in the room's entities. The
@@ -999,12 +1023,10 @@ second part, else a single-room world for arena levels). The campaign descriptio
   communication module), the angry hologram (`angryWithPlayer` is set only when the
   Moon's swarmer neuron is eaten or carried off, 217937, and is otherwise read from the
   save; no iterator is ported), the gate scene (`RegionGate` is not ported: in Moon's gates the concern is
-  `None`, as the game's is with a closed gate), the placed scenes
-  (`ShowProjectedImageEvent` triggers are not ported, and an image's
-  `ProjectedImagePosition` placed object is not read), the forced direction
+  `None`, as the game's is with a closed gate), the forced direction
   (`ReliableIggyDirection` is not ported; the port makes no pointer for it), the
-  in-world super jump, pick-up and scavenger-trade instructions (their placed triggers are
-  not ported), and the tutorial's Eat instruction in SU_A44 (its fruit is not realized;
+  in-world super jump and scavenger-trade instructions (`SuperJumpInstruction` and
+  `ScavengerTradeInstructionTrigger` are not ported), and the tutorial's Eat instruction in SU_A44 (its fruit is not realized;
   SU_A42's, over the bat flies, is ported). A door pointer without the tutorial would follow the player with a
   `CreatureDoorDistanceTracker` (on the Fly's exit distances, which now exist): it is
   made but its update is not ported, so the pointer keeps pointing. The bat pointer's `CycleStartUp` is
@@ -1017,8 +1039,26 @@ second part, else a single-room world for arena levels). The campaign descriptio
   realized. Which camera's room
   counts as viewed when `AddObject` builds the graphics module is inferred from
   `RoomCamera` and `Room.AddObject`, not checked.
-  The plain `AbstractCreatureAI` is ported and runs for every lizard breed
-  (`CreatureTemplate::abstract_ai_ported`): `InDenUpdate` with
+  The `AbstractCreature` constructor's abstract AI switch (300531..300570) is ported
+  for every base type but the scavenger (`CreatureTemplate::abstract_ai_ported`): the
+  vultures', cicadas', big eels', deer's (Remix's deer behaviour off), Miros birds' and
+  needle worms' own `AbstractBehavior`s (`world/abstract_ai_kinds.rs`), and the plain
+  `AbstractCreatureAI` for the drop bugs and every other type with an AI, on the
+  templates' off-screen connection costs and `stowFoodInDen`
+  (`creature/template_abstract.rs`) and the relationships (`creature/relationships.rs`,
+  for `HavePrey` and prey to stow). Creatures without an AI (vulture grubs, hazers,
+  pole mimics) come out of their dens and stand there, as the game's do; the
+  quantified leeches and spiders stay counts (the game moves only the bat flies'
+  counts). A vulture whose save says `NOMASK` would look for its lost mask; the mask is
+  never an object in the port's world, so the search finds nothing and it behaves as
+  with its mask, as the game's would without the object. The deer's six hard-coded LF
+  rooms are read without a null check in the game (a deer elsewhere would throw); the
+  port skips a missing room. A cicada that catches a counted fly carries a new abstract
+  fly, which turns back into a count at the next node it is carried to (`Quantify` in
+  `Move`); a carried fly in a room that loads stays abstract with its carrier. C#'s
+  `(int)` of NaN or infinity (`FollowPath` with an off-screen speed of 0) is
+  `int.MinValue` (INFERRED from the x86-64 instruction), not Rust's saturation.
+  The plain AI: `InDenUpdate` with
   `WantToStayInDenUntilEndOfCycle` (the rain within 60 s, a pre-cycle creature, which
   without More Slugcats' precycles never comes out, a night creature waiting for dark),
   `Update`, `AbstractBehavior`, `MigrationBehavior`, `RandomMoveWithinRoom`,
@@ -1030,14 +1070,15 @@ second part, else a single-room world for arena levels). The campaign descriptio
   the rain: there is no rain yet, and the realized `EscapeRain` behaviour waits for it
   (the user's decision); abstractly a lizard only goes into a den it passes once the
   rain is within 60 s, as in the game. Not reachable yet, for want of what triggers
-  them: following a creature (`followCreature`, from a social memory relationship;
-  social memories are not kept), taking prey home (`GoToDen` from `stowFoodInDen`
-  needs a held creature it eats; the relationships are not ported, so
-  `CreatureTemplate::eats` answers false) and the stow-food den entry.
-  **A lizard entering a realized room stays abstract.** The game realizes it there
+  them: following a creature from a social memory relationship (social memories are not
+  kept; a small needle worm's following of its mother is ported), a realized creature's
+  prey taken home, and `IsEnteringDen`'s killing and dropping of carried prey (an
+  abstract creature only carries a caught fly, which is counted again before it reaches
+  a den).
+  **A creature entering a realized room stays abstract.** The game realizes it there
   (`ChangeRooms`' `Realize` and `CreatureEnterFromAbstractRoom`, `IsExitingDen` in a
-  realized room, `ReadyForAI`'s `RealizeInRoom` with `PlaceInRealizedRoom`), but the
-  lizard has no body yet (lizards steps 3 and 4). The port keeps it in the room's
+  realized room, `ReadyForAI`'s `RealizeInRoom` with `PlaceInRealizedRoom`), but no
+  creature but the overseer and the bat fly has a body yet. The port keeps it in the room's
   lists as an abstract creature, as it does for every other unrealized type: its
   `AbstractCreatureAI.Update` only adds to its time buffer while the room is realized
   (the game skips `AbstractBehavior` there too), so it waits, unseen and harmless,
@@ -1117,10 +1158,10 @@ second part, else a single-room world for arena levels). The campaign descriptio
   AirPocket objects, which no vanilla region room places). Remix's
   `BringToRoomAndGuidePlayer` branch of the world
   process's update and More Slugcats' goal rooms and guide symbols are left out.
-  Not ported: scavenger and vulture world AI, `CreatureCommunities` in the sim (a kill's
-  `InfluenceLikeOfPlayer` is recorded and applied to the save at `Win`, D16) and `AbstractCreature.Update` for types other than overseers
-  and lizards (their abstract AI subclasses and their templates' connection
-  resistances).
+  Not ported: the scavengers' abstract AI (`ScavengerAbstractAI`: squads, outposts,
+  traders, kill squads, re-gearing) and `ScavengersWorldAI`, and `CreatureCommunities`
+  in the sim (a kill's `InfluenceLikeOfPlayer` is recorded and applied to the save at
+  `Win`, D16). `NewWorld` (a region change) is not reachable (no gates).
 - **Hologram graphics.** A hologram's colour base (`Color.Lerp(MainColor,
   ColorOfSegment(0, 0), 0.5)`) is taken at its overseer's last update (holograms update
   before their overseer, so it is the one the game reads); a hologram slated for removal
@@ -1165,9 +1206,28 @@ second part, else a single-room world for arena levels). The campaign descriptio
   ordinary rooms (no gate mechanism, no region change), and a `RegionTransportation`
   node goes nowhere.
 - **Not ported:** the rain (the cycle's timer, day-night counter and water level stages
-  run; the overseers' AI and the HUD's rain meter read them, and the guide's tutorial
-  pins the timer), karma gates, `DisabledMapRooms` beyond the tag drop, and Remix's
+  run; the overseers' AI, the HUD's rain meter and `MusicAllowed` read them, and the
+  guide's tutorial pins the timer), karma gates, `DisabledMapRooms` beyond the tag drop, and Remix's
   `RemoveNotVisitedRooms` branch.
+- **Room triggers.** A room's settings `Triggers` (`rw_assets::EventTrigger`, every
+  base-game trigger and event type) become `ActiveTriggerChecker`s when it loads
+  (`Room.Loaded`, after the room script and before its items, filtered by the save's
+  cycle and slugcat), updating in the room's update list with their wait, delay,
+  karma, `fireChance` (D1) and `multiUse` (a failed chance still removes a single-use
+  checker). The events that fire are the game's: `MusicEvent` and `StopMusicEvent`
+  (to the music player, D12, gated by `RainCycle.MusicAllowed`), `ShowProjectedImageEvent`
+  (the guide shows the room's placed scene, its 0.99 `ShowPlacedScene` concern),
+  `PickUpObjectInstruction` (the guide's pick-up hologram over the nearest free rock or
+  spear, its text in SU_A23), `BringGuideToPlayerEvent`, `RoomSpecificTextMessage`
+  (`SL_C05`'s `DangleFruitInWaterMessage`, saved in the tutorial messages, D16). As in
+  the game, the start room's triggers wait until the player leaves its start shelter
+  (`stillInStartShelter`), `SeeCreature` never fires, and `PreRegionBump`/`RegionBump`
+  read the HUD's subregion tracker. Differs: `SLOracleState.playerEncounters` (Moon) is
+  read as 0, so Shoreline's image triggers fire as for a player who never met her; an
+  image's `ProjectedImagePosition` placed object is not read (the hologram stands where
+  the overseer is); the guide's state (images and pick-ups shown, how much it likes the
+  player) starts from its defaults each game, not from the save (D16). The More
+  Slugcats, Watcher and Challenge events are parsed and ignored.
 - **Room scripts.** `AddRoomSpecificScript` is `rw_sim::RoomScript::for_room`, called
   when a room with `RoomSpecificScriptActive` loads; only `SU_C04StartUp` is ported (the
   new Survivor or Monk held in the tunnel, pushed out, standing up). It updates after
@@ -1187,7 +1247,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
 is simpler and loses nothing gameplay-visible beyond the shorter waits.
 
 **Affects.** How long a vessel waits to enter a room, and anything creatures other than
-overseers and bat flies would do (lizards roam, but never appear in a loaded room).
+overseers and bat flies would do (the others roam, but never appear in a loaded room).
 
 ## D15: The in-game HUD
 
@@ -1344,6 +1404,13 @@ Differences:
   region from the progression, else its `MAP`/`MAPUPDATE` lines (`LoadMapTexture`); the
   pause menu's Exit copies the sim's textures and times into the progression before
   saving. A game left any other way loses its discovery, which the game keeps in memory.
+- **Songs and tutorial messages.** `SONGSPLAYRECORDS` is typed (`rw_save::SongPlayRecord`)
+  and live: `GameRequestsSong` reads and writes the current save state's records (D12),
+  saved with the rest of the death-persistent data. `TUTMESSAGES` is read in both the
+  old digit format and the name list (`ParseTutorialMessages`); setting a message
+  (`DangleFruitInWaterMessage`, D14) writes it back as a name list, as the game does.
+  The guide's `PlayerGuideState` (images and pick-ups shown, likes) is not read from
+  or written to the save: each game starts it at its defaults.
 - **Play time.** `AppendTimeOnCycleEnd` is not ported: `ExitGame`, starving and dying add
   nothing to `DEATHTIME` or `TOTTIME`; `Win` adds the cycle's ticks / 40 to `TOTTIME`.
 
@@ -1390,6 +1457,10 @@ Differences:
   excludes a tile), a grasp by a creature (never grabbed), the karma flower that grows
   there in the next cycle (`AbstractConsumable` placed at world load) and eating it,
   and the Hunter's `miscProgressionData.redsFlower`.
+- **Music.** The `RainWorldGame` constructor's `MusicPlayer.NewCycleEvent` (a new
+  cycle may play a `oneSongPerCycle` song again) is sent when each story game starts,
+  a new cycle after a hibernation included; the dev respawn (R) is no new cycle and
+  sends none.
 - **The Hunter out of cycles.** `GoToRedsGameOver` (statistics screen, `redsDeath`) is
   not ported: `GameOver` logs and returns, so the dead Hunter gets no prompt and the
   pause menu's exit is the way out; a starve or a door closing on a dead Hunter out of
@@ -1434,8 +1505,8 @@ Front end: the regions, arena and Remix menus, input settings, credits, backups,
 the dream screens, PASSAGE's custom end-game and fast travel screens, the outro and DLC slideshows, the slugcat select menu's
 colour and Jolly Co-op controls, the `SceneRain` and `SceneMultiply` layers, menu objects those use (vertical and
 subtle sliders, check box groups, symbol buttons, scroll boxes, `UIelementWrapper`),
-Remix's options (FPS, VSync, quality, analogue sensitivity, backgrounds), and in-game
-music (D12).
+Remix's options (FPS, VSync, quality, analogue sensitivity, backgrounds), and the
+in-game music beyond the triggers' songs (D12).
 
 Passage triggers (`WinState.CycleCompleted` and `PlayerDied` are ported whole; these
 inputs to them are not): kills of anything but bat flies and overseers (both count 0

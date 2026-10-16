@@ -913,8 +913,90 @@ fn subregion_name_not_shown_on_a_dev_start() {
     assert_eq!(s.hud_state().expect("hud").text_prompt.queued, 0);
 }
 
+impl Session {
+    /// `take_exit_to` on a `load_room` session.
+    fn walk_out_to(&mut self, dest: &str) -> State {
+        let scene = self.scene_mut().expect("scene");
+        let exits = super::reply::ExitList::of(scene).expect("exits");
+        let exit = exits
+            .exits
+            .iter()
+            .find(|e| e.destination.as_deref() == Some(dest))
+            .unwrap_or_else(|| panic!("no exit to {dest} from {}", exits.room));
+        let [x, y] = exit.entrance_tile.expect("entrance");
+        let [ix, iy] = exit.enter_input.expect("way in").map(|v| v as i8);
+        let pos = rw_sim::Vec2::from(rw_assets::tile_centre(x, y));
+        scene.game_mut().set_player(pos, rw_sim::Vec2::default());
+        let input = InputParam {
+            x: ix,
+            y: iy,
+            ..InputParam::default()
+        };
+        for _ in 0..400 {
+            let state = self.run(1, input);
+            let game = self.scene_mut().expect("scene").game();
+            let here = game
+                .sim()
+                .world()
+                .abstract_room(game.sim().player_pos().room);
+            if here.is_some_and(|r| r.name == dest)
+                && game.live_player().is_some_and(|p| !p.in_shortcut())
+            {
+                return state;
+            }
+        }
+        panic!("never reached {dest}");
+    }
+}
+
+/// SU_A07's spot trigger (`MusicEvent` NA_01 - Proxima, `rooms` 6, single use): once
+/// the player's main chunk is inside it, `ActiveTriggerChecker` waits 10 ticks, then
+/// fires; `GameRequestsSong` plays the song at once (nothing else is playing) and the
+/// checker is destroyed.
+#[test]
+fn su_a07_spot_trigger_requests_its_song() {
+    let Some(mut s) = Session::installed() else {
+        return;
+    };
+    s.load("SU_B05", 1);
+    s.run(20, InputParam::default());
+    let state = s.walk_out_to("SU_A07");
+    let checkers = state
+        .triggers
+        .iter()
+        .filter(|t| t.room == "SU_A07" && t.event.as_deref() == Some("MusicEvent"))
+        .count();
+    assert_eq!(checkers, 1);
+    s.set_player(&SetPlayerParams {
+        tile: None,
+        pos: Some([710.0, 289.0]),
+        vel: None,
+        food: None,
+    })
+    .expect("set player");
+    let state = s.run(12, InputParam::default());
+    let music = state.music.as_ref().expect("music player");
+    let song = music.song.as_ref().expect("song requested");
+    assert_eq!(song.name, "NA_01 - Proxima");
+    assert_eq!(
+        (
+            song.room_transitions,
+            music.threat.as_ref().map(|t| t.room_switches)
+        ),
+        (8, Some(2)),
+        "rooms 6 + the 2 switches"
+    );
+    assert!(
+        !state
+            .triggers
+            .iter()
+            .any(|t| t.room == "SU_A07" && t.event.as_deref() == Some("MusicEvent"))
+    );
+    println!("{}", serde_json::to_string_pretty(music).expect("json"));
+}
+
 /// `get_state` reports the lizards' abstract AI: a new game's greens wait in their dens
-/// (the den is their den position and their destination), other creatures have none.
+/// (the den is their den position and their destination); overseers report none.
 #[test]
 fn lizards_report_their_abstract_ai() {
     let Some(mut s) = Session::installed() else {

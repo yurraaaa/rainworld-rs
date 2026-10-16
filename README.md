@@ -39,7 +39,8 @@ Working now:
   and swimming. The slugcat is drawn as the game draws it.
 - **Regions:** a whole region loads, and room-exit pipes take you between rooms, with the
   camera switching between screens.
-- **Sound:** sound effects and room ambience; menu and title music.
+- **Sound:** sound effects and room ambience; menu and title music; in the game, the
+  songs that rooms' triggers ask for (SU_A07, SU_A53, SU_B04).
 - **HUD:** the food, karma and rain meters, text prompts, the controls page and the
   region map (hold Space; arrows pan, jump and throw change layers), revealed where you
   have been; what you discovered is saved.
@@ -48,7 +49,9 @@ Working now:
   Bat flies spread between rooms, fly, swarm, flee from the slugcat, burrow, hang in
   chains and travel the pipes. The slugcat catches, carries, throws and eats them, and
   the guide's tutorial teaches it to (the Eat instruction, then the super jump once fed).
-  Lizards leave their dens and roam the region's unrealized rooms abstractly, without
+  The other creatures (all but the scavengers) leave their dens and roam the region's
+  unrealized rooms abstractly as the game's do: lizards, cicadas, centipedes, needle
+  worms, drop bugs and the rest walk the pipes, vultures cross the sky. They have no
   bodies yet (one that reaches a loaded room waits there, unseen, until it unloads).
 - **Items:** rocks and spears lie in the rooms, roll, stick into the ground, and spears
   stuck in walls are poles; shelters keep them across cycles. The slugcat picks them
@@ -63,8 +66,9 @@ Not yet ported:
   behind the sleep screen's PASSAGE button (it shows, greyed out; passages are still
   earned and shown on the meters);
 - region gates;
-- creatures other than overseers and bat flies (lizards roam abstractly, but have no
-  body yet), so thrown rocks and spears hit only bat flies and overseers.
+- creatures other than overseers and bat flies (the others roam abstractly, but have
+  no body yet; scavengers stay in their den), so thrown rocks and spears hit only bat
+  flies and overseers.
 
 ## Building and running
 

@@ -4,6 +4,8 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 
+pub use super::music_reply::{MusicState, TriggerState};
+
 use super::params::InputParam;
 
 #[derive(Debug, Clone, Serialize)]
@@ -65,6 +67,10 @@ pub struct State {
     pub rain: RainState,
     /// The camera room's shelter door, when it has one.
     pub shelter_door: Option<ShelterDoorState>,
+    /// The music player beside the game (its song requests, threat tracker).
+    pub music: Option<MusicState>,
+    /// The realized rooms' trigger checkers and the objects their events added.
+    pub triggers: Vec<TriggerState>,
     /// What the session keeps of its deaths.
     pub session: SessionInfo,
 }
@@ -118,7 +124,7 @@ pub struct CreatureInfo {
     pub stun: Option<i32>,
     /// The spear it is impaled on (`ImpaledOnSpearStick`), by EntityID.
     pub impaled_on: Option<[i32; 2]>,
-    /// The plain abstract AI (lizards).
+    /// The abstract AI's shared fields (every roaming type).
     pub abstract_ai: Option<AbstractAiInfo>,
     /// An overseer's abstract AI and body.
     pub overseer: Option<OverseerInfo>,
@@ -402,6 +408,10 @@ pub struct ProcessState {
     pub karma_screen: Option<KarmaScreenState>,
     /// The options (always) and the options menu, when it is the current process.
     pub options: OptionsState,
+    /// `manager.musicPlayer`, once made.
+    pub music: Option<MusicState>,
+    /// The running game's trigger checkers and the objects their events added.
+    pub triggers: Vec<TriggerState>,
 }
 
 /// `rainWorld.options` and the options menu.

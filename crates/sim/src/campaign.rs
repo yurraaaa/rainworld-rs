@@ -205,6 +205,8 @@ pub struct StoryStart {
     /// `miscWorldSaveData.playerGuideState` as loaded (its like, hand holding and
     /// anger; the rest of the save's guide state is not read yet).
     pub guide: PlayerGuideState,
+    /// `deathPersistentSaveData.DangleFruitInWaterMessage`.
+    pub dangle_fruit_in_water_message: bool,
 }
 
 impl StoryStart {
@@ -231,6 +233,7 @@ impl StoryStart {
             live_region_state: None,
             swallowed_item: None,
             guide: PlayerGuideState::default(),
+            dangle_fruit_in_water_message: false,
         }
     }
 }
