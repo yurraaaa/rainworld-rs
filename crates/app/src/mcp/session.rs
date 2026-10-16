@@ -13,14 +13,15 @@ use rw_random::UnityRandom;
 use rw_render::{RoomLayers, WgpuRenderer};
 use rw_save::SaveSlot;
 use rw_sim::campaign::SlugcatCampaign;
-use rw_sim::creature::{AbstractCreature, CreatureId};
+use rw_sim::creature::{AbstractCreature, CreatureId, Lizard};
 use rw_sim::item::{Entity, ObjectId, SpearStickKind, Weapon};
 use rw_sim::{Input, StomachObject, Vec2, WorldCoordinate};
 
 use super::params::{
     HudMessageParams, ImportSaveParams, InputParam, ListRoomsParams, LoadProcessParams,
-    LoadRoomParams, NewGameParams, ProcessParam, RespawnParams, ScreenshotParams, SetPlayerParams,
-    StepParams, StepProcessParams, StepSequenceParams, TilesParams, ViewParam,
+    LoadRoomParams, NewGameParams, ProcessParam, RespawnParams, ScreenshotParams,
+    SetDestinationParams, SetPlayerParams, StepParams, StepProcessParams, StepSequenceParams,
+    TilesParams, ViewParam,
 };
 use super::reply::{
     AbstractAiInfo, ChunkState, ControlsPageState, CreatureInfo, ExitInfo, ExitList, FlyInfo,
@@ -31,6 +32,7 @@ use super::reply::{
     Screenshot, SessionInfo, ShelterDoorState, SleepState, SlideShowState, StartUpState, State,
     StepTrace, StoryInfo, TextPromptState, TokenState, WeaponInfo,
 };
+use super::reply::{ConnectionInfo, CoordInfo, LizardMoveInfo, MovementAnimationInfo, VesselInfo};
 use super::reply::{DangerInfo, HoloLightState, LightSourceState, MusicState, TriggerState};
 use super::reply::{
     FliesWorldInfo, HeldInfo, QuantifiedInfo, RegionStateInfo, RelationshipInfo, RoomDens,
@@ -398,6 +400,36 @@ impl Session {
         };
         let vel = Vec2::from(params.vel.unwrap_or([0.0, 0.0]));
         self.scene_or_err()?.game_mut().set_player(pos, vel);
+        self.state()
+    }
+
+    /// A dev override: sets a realized lizard's destination (`AbstractCreatureAI.
+    /// SetDestination`) and the run speed its AI keeps.
+    ///
+    /// # Errors
+    /// Without a room, for an unknown room or creature, or one that is not a realized
+    /// lizard.
+    pub fn set_destination(&mut self, params: &SetDestinationParams) -> Result<State, String> {
+        let sim = self.scene_or_err()?.game_mut().sim_mut();
+        let [spawner, number] = params.creature;
+        let id = sim
+            .world()
+            .creatures()
+            .find(|(_, c)| c.id.spawner == spawner && c.id.number == number)
+            .map(|(id, _)| id)
+            .ok_or_else(|| format!("no creature {spawner}.{number}"))?;
+        let room = match &params.room {
+            Some(name) => sim
+                .world()
+                .room_index(name)
+                .ok_or_else(|| format!("no room {name}"))?,
+            None => sim.world().creature(id).pos.room,
+        };
+        let dest = WorldCoordinate::new(room, params.x, params.y, -1);
+        let speed = Some(params.run_speed.unwrap_or(0.5));
+        if !sim.dev_set_lizard_destination(id, dest, speed) {
+            return Err(format!("{spawner}.{number} is not a realized lizard"));
+        }
         self.state()
     }
 
@@ -857,7 +889,71 @@ impl Session {
                     SpearStickKind::Impaled { .. } => None,
                 })
                 .collect(),
+            movement: Self::lizard_move_info(scene, id, l),
         })
+    }
+
+    fn lizard_move_info(scene: &Scene, id: CreatureId, l: &Lizard) -> LizardMoveInfo {
+        let sim = scene.game().sim();
+        let world = sim.world();
+        let pf = world.path_finder(id);
+        let vessel = sim
+            .transport_vessels()
+            .flatten()
+            .find(|v| v.creature == id)
+            .map(|v| {
+                let (pos, last) = v.positions();
+                VesselInfo {
+                    room: Self::room_name(scene, v.room),
+                    pos: [pos.0, pos.1],
+                    last_positions: last.iter().map(|t| [t.0, t.1]).collect(),
+                    wait: v.wait(),
+                }
+            });
+        LizardMoveInfo {
+            destination: pf.map(|f| Self::coord_info(scene, f.get_destination())),
+            effectual_destination: pf
+                .map(|f| Self::coord_info(scene, f.get_effectual_destination())),
+            mapping: world.path_finder_mapping(id),
+            forbidden_entrance_counter: pf.map_or(0, |f| f.forbidden_entrance_counter),
+            stranded: l.ai.stranded,
+            run_speed: l.ai.run_speed,
+            dev_run_speed: l.ai.dev_run_speed,
+            animation: l.animation.value().to_owned(),
+            following: l.following_connection.map(ConnectionInfo::of),
+            upcoming: l
+                .upcoming_connections
+                .iter()
+                .copied()
+                .map(ConnectionInfo::of)
+                .collect(),
+            movement_animation: l
+                .movement_animation
+                .as_ref()
+                .map(|a| MovementAnimationInfo {
+                    connection: ConnectionInfo::of(a.connection),
+                    step: a.step,
+                    total_steps: a.total_steps,
+                }),
+            grip_point: l.grip_point.map(Vec2::to_array),
+            legs_gripping: l.legs_gripping(),
+            no_grip_counter: l.no_grip_counter(),
+            time_spent_trying_this_move: l.time_spent_trying_this_move,
+            desperation_smoother: l.desperation_smoother,
+            body_wiggle_counter: l.body_wiggle_counter,
+            stuck_counter: l.ai.stuck.stuck_counter,
+            stuck_utility: l.ai.stuck.utility(),
+            entering_shortcut: l.entering_shortcut.map(|t| [t.0, t.1]),
+            vessel,
+        }
+    }
+
+    fn coord_info(scene: &Scene, c: WorldCoordinate) -> CoordInfo {
+        CoordInfo {
+            room: Self::room_name(scene, c.room),
+            tile: [c.tile.0, c.tile.1],
+            node: c.node,
+        }
     }
 
     /// Creature `id`'s EntityID as `[spawner, number]`.
@@ -1651,6 +1747,17 @@ impl HudState {
                 want_to_continue: p.want_to_continue,
                 labels: hud.controls_page_texts().unwrap_or_default(),
             }),
+        }
+    }
+}
+
+impl ConnectionInfo {
+    fn of(c: rw_sim::world::MovementConnection) -> Self {
+        Self {
+            kind: c.kind.value().to_owned(),
+            start: [c.start.tile.0, c.start.tile.1],
+            dest: [c.dest.tile.0, c.dest.tile.1],
+            distance: c.distance,
         }
     }
 }

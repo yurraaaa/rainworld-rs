@@ -147,13 +147,14 @@ impl RainWorldGame {
         door.close();
     }
 
-    /// `ShelterDoor.Update` of room `index`'s door: the stun of creatures in a closed or
-    /// newly open shelter, `DoorClosed`, the sleep and starvation marks, the close
-    /// tiles, and `KillAllHostiles`' check.
+    /// `ShelterDoor.Update` of room `index`'s door: the AI remap after opening, the stun
+    /// of creatures in a closed or newly open shelter, `DoorClosed`, the sleep and
+    /// starvation marks, the close tiles, and `KillAllHostiles`' check.
     pub(super) fn update_shelter_door(&mut self, index: i32) {
         let Some(k) = self.shelter_doors.iter().position(|d| d.room == index) else {
             return;
         };
+        self.run_shelter_ai_mapper(index, k);
         let timer = self.world.rain_cycle.timer;
         let sounds = if index == self.camera_room {
             &mut self.sounds
@@ -238,6 +239,41 @@ impl RainWorldGame {
                 room.set_terrain(x, y, terrain);
             }
         }
+    }
+
+    /// The door's `aiMapper`: 100 steps a tick; once done, in a room ready for AI, the
+    /// room's AI map takes its tiles and every path finder in the room resets
+    /// (`UpdatePathfindingCreatures`).
+    pub(super) fn run_shelter_ai_mapper(&mut self, index: i32, k: usize) {
+        let Some(mapper) = self.shelter_doors[k].ai_mapper.as_mut() else {
+            return;
+        };
+        if mapper.done() {
+            if !self
+                .world
+                .realized(index)
+                .is_some_and(crate::world::RealizedRoom::ready_for_ai)
+            {
+                return;
+            }
+            let map = mapper.take_map();
+            self.shelter_doors[k].ai_mapper = None;
+            if let (Some(map), Some(r)) = (map, self.world.realized_mut(index)) {
+                r.ai_map = Some(Arc::new(map));
+            }
+            let rng = &mut self.rng;
+            self.world
+                .with_path_finders(|pfs, w| pfs.reset_room(w, index, rng));
+            return;
+        }
+        let Some(r) = self.world.realized(index) else {
+            return;
+        };
+        let Some(old) = r.ai_map.clone() else {
+            return;
+        };
+        let room = Arc::clone(&r.room);
+        mapper.update(100, &old, &room);
     }
 
     /// `KillAllHostiles`: while a hostile creature is alive in the shelter the check

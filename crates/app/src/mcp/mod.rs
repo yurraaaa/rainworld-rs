@@ -46,8 +46,8 @@ use serde::Serialize;
 use crate::saves::SaveConfig;
 use params::{
     HudMessageParams, ImportSaveParams, ListRoomsParams, LoadProcessParams, LoadRoomParams,
-    NewGameParams, RespawnParams, ScreenshotParams, SetPlayerParams, StepParams, StepProcessParams,
-    StepSequenceParams, TilesParams,
+    NewGameParams, RespawnParams, ScreenshotParams, SetDestinationParams, SetPlayerParams,
+    StepParams, StepProcessParams, StepSequenceParams, TilesParams,
 };
 pub use session::Session;
 
@@ -207,7 +207,8 @@ impl Server {
         SU_C04 start script; the world's creatures (kind, ID, room, node, tile, den, \
         realized; roaming creatures' abstract AI: destination, path, migration destination, den, \
         time buffer, den counter and followed creature; overseers' destination, guide state, \
-        last rooms and tiles; social memory; what grip sticks carry); the \
+        last rooms and tiles; realized lizards' body, path finder, movement and shortcut \
+        travel; social memory; what grip sticks carry); the \
         world's rocks and spears (kind, ID, room, node, tile, a spear's \
         stuck-in-wall cycles and explosive flag; realized ones' room, position, \
         velocity, mode, rotation and collision layer); each room's den contents and \
@@ -227,6 +228,18 @@ impl Server {
         Parameters(p): Parameters<SetPlayerParams>,
     ) -> Result<CallToolResult, String> {
         Self::json(&self.session()?.set_player(&p)?)
+    }
+
+    #[tool(
+        description = "Dev override: set a realized lizard's destination (room, default \
+        its own, and tile) as AbstractCreatureAI.SetDestination does, and the run speed its \
+        AI keeps (default 0.5) while the behaviours that set it are not ported."
+    )]
+    fn set_destination(
+        &self,
+        Parameters(p): Parameters<SetDestinationParams>,
+    ) -> Result<CallToolResult, String> {
+        Self::json(&self.session()?.set_destination(&p)?)
     }
 
     #[tool(

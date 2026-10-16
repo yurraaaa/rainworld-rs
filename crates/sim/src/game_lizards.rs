@@ -1,7 +1,7 @@
 //! The realized lizards in a room's update list: `Lizard.Update`'s body part with
 //! `AirBreatherCreature.Update`, `Creature.Update` and `PhysicalObject.Update` under it,
-//! `Act`'s footing (the movement is lizard step 4), terrain impacts, and their shortcut
-//! vessels, lobby turns and `SpitOutOfShortCut`. Decompile: `Lizard.cs` 822-1062 and
+//! terrain impacts, and their shortcut vessels, lobby turns and `SpitOutOfShortCut`
+//! (`Act` and entering shortcuts are `game_lizard_act.rs`). Decompile: `Lizard.cs` 822-1062 and
 //! 1460-1711, `Creature.cs` 369-707, `AirBreatherCreature.cs`. Behaviour:
 //! `rainworld-re/notes/creature-model.md` section 13.
 
@@ -174,42 +174,6 @@ impl RainWorldGame {
             .is_some_and(Option::is_some)
     }
 
-    /// `Act` as far as it goes without the AI and the movement: the time on allowed
-    /// terrain (a chunk on a tile the template can use, else a dry usable tile next to
-    /// one keeps some of it), gravity until footing is regained, and the swim fading.
-    /// The AI's `Update` and the movement are lizard steps 4 and 7.
-    fn lizard_act(&mut self, index: i32, id: CreatureId) {
-        let t = self.world.creature(id).template;
-        let Some(map) = self.world.realized(index).and_then(|r| r.ai_map.clone()) else {
-            return;
-        };
-        let l = self.world.lizard_at(id);
-        let tiles: Vec<(i32, i32)> = l.body.chunks.iter().map(|c| c.pos.tile()).collect();
-        let on_allowed = tiles
-            .iter()
-            .any(|&tile| map.tile_accessible_to_creature(tile, &t));
-        if on_allowed && l.in_allowed_terrain_counter < 100 {
-            l.in_allowed_terrain_counter += 1;
-        } else {
-            let near = tiles.iter().any(|&(x, y)| {
-                rw_assets::shortcut::FOUR_DIRECTIONS
-                    .iter()
-                    .any(|&(dx, dy)| {
-                        let n = (x + dx, y + dy);
-                        map.tile_accessible_to_creature(n, &t) && !map.tile(n.0, n.1).any_water()
-                    })
-            });
-            l.in_allowed_terrain_counter = if near {
-                (l.in_allowed_terrain_counter - 10).max(0)
-            } else {
-                0
-            };
-        }
-        // `NoGripCounter` is the graphics' (0 without them); nothing commits to a drop.
-        l.apply_gravity = l.in_allowed_terrain_counter < l.params.regain_footing_counter;
-        l.swim = (l.swim - 0.05).clamp(0.0, 1.0);
-    }
-
     /// The struggle of an unconscious, living lizard held by something (not a leech):
     /// for 22 ticks its jaw opens and its chunks jerk (a direction and a value each),
     /// and at the 22nd, jaw ready, it may bite its holder free; let go, the count
@@ -265,12 +229,21 @@ impl RainWorldGame {
         }
     }
 
-    /// The friction sets: after a lounge, falling with gravity, or held up by the legs
+    /// The first two connections pull during a Standard movement animation; the friction
+    /// sets: after a lounge, falling with gravity, or held up by the legs
     /// without it.
     fn lizard_frictions(&mut self, id: CreatureId) {
         let l = self.world.lizard_at(id);
+        let pull = l
+            .movement_animation
+            .as_ref()
+            .is_some_and(|a| a.connection.kind == crate::world::MovementType::Standard);
         for c in &mut l.body.connections[..2] {
-            c.kind = crate::object::ConnectionKind::Normal;
+            c.kind = if pull {
+                crate::object::ConnectionKind::Pull
+            } else {
+                crate::object::ConnectionKind::Normal
+            };
         }
         let p = &mut l.body.params;
         let through_floors;
@@ -311,8 +284,13 @@ impl RainWorldGame {
             .realized(index)
             .and_then(|r| r.ai_map.as_ref())
             .is_some_and(|m| m.tile_at(tile).narrow_space);
+        let forbidden = self
+            .world
+            .path_finder_of(id)
+            .and_then(|p| self.world.path_finders.get(p))
+            .is_some_and(|f| f.forbidden_entrance_counter > 0);
         let l = self.world.lizard_at(id);
-        if l.conscious() && l.ai.forbidden_entrance_counter > 0 {
+        if l.conscious() && forbidden {
             for c in &mut l.body.chunks {
                 let t = c.pos.tile();
                 if room.tile(t.0, t.1).terrain == Terrain::ShortcutEntrance {
@@ -336,7 +314,7 @@ impl RainWorldGame {
 
     /// `Creature.Update` for a lizard: `NewTile`, the counters, a pacifying holder's
     /// stun, the kill tag, the health death roll, the release and the death under the
-    /// room, then `PhysicalObject.Update` (lizards entering shortcuts are step 4).
+    /// room, then the pull into a shortcut being entered or `PhysicalObject.Update`.
     fn lizard_creature_update(&mut self, index: i32, id: CreatureId, room: &Arc<Room>) {
         let coord = self.world.creature(id).pos;
         let last = self.world.lizard_ref(id).last_coord;
@@ -390,7 +368,9 @@ impl RainWorldGame {
             self.world.lizard_at(id).slated = true;
             self.world.destroy_abstract(id);
         }
-        self.lizard_physics(index, id, room);
+        if !self.lizard_pull_into_shortcut(index, id) {
+            self.lizard_physics(index, id, room);
+        }
     }
 
     /// `PhysicalObject.Update`: the chunks, the abstract tile from the head, the
@@ -497,12 +477,16 @@ impl RainWorldGame {
     /// under water they empty, and below 0.3 it drowns: bubbles, letting go, struggling,
     /// stuns and at last death. The bubble itself is not ported (its draws are made).
     fn lizard_lungs(&mut self, index: i32, id: CreatureId) {
-        let water = self.world.realized(index).and_then(|r| r.water.clone());
-        let has_water = water.is_some();
         let l = self.world.lizard_ref(id);
-        if l.dead || l.room.is_none() {
+        if l.dead {
             return;
         }
+        // A lizard sucked into a shortcut this tick has no room: no water.
+        let water = l
+            .room
+            .and_then(|_| self.world.realized(index))
+            .and_then(|r| r.water.clone());
+        let has_water = water.is_some();
         let submersion = l.body.submersion(water.as_ref());
         let capacity = LUNG_CAPACITY;
         let lungs = l.lungs;
@@ -603,7 +587,7 @@ impl RainWorldGame {
                     self.world.lizard_add_object(o, room);
                     self.lizard_spat_out_body(o, middle, &map_room, pos);
                     if came_from != Some(room) {
-                        self.world.lizard_new_room(o);
+                        self.world.lizard_new_room(o, &mut self.rng);
                     }
                 }
                 Entity::Creature(_) => {}

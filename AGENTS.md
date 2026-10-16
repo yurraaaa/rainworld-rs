@@ -149,7 +149,7 @@ remains for older notes' line numbers; new notes cite file and member.
   `dlcsInstalled` check): the base-game menu scene and intro images.
 - Current phase is the player controller in a region whose only
   behaving creatures are the overseers and the bat flies, with the lizards
-  under way (green lizards step 3 of 9, the body, done), not the
+  under way (green lizards step 4 of 9, pathfinding and movement, done), not the
   full game (campaign step 1, overseer step 1, batflies done):
   - A story starts at the campaign's start den in its region's world;
     room-exit shortcuts carry the player between the region's rooms, which
@@ -160,8 +160,10 @@ remains for older notes' line numbers; new notes cite file and member.
     den counters, roaming, migration along the region's connections and
     highways, paths, dens; they have no body yet and wait unrealized in
     realized rooms, except the green lizards: they come out of their dens
-    into realized rooms with their body (no AI, movement or graphics yet:
-    they lie where they land), take rock and spear hits (head shield,
+    into realized rooms with their body, walk and take shortcuts after
+    their abstract AI's destinations (path finder, movement, shortcut and
+    room travel; the AI's own decisions and the graphics are not there yet),
+    take rock and spear hits (head shield,
     mouth, stun, lodged spears), die and are counted as kills. Overseers have their
     body, AI, graphics, the guide's tutorial text, the Monk's guide light and their holograms
     (those whose triggers are ported: D14). The bat flies' world
@@ -224,7 +226,8 @@ registered in `.mcp.json` as `rainworld-rs` (it runs `cargo run --release`,
 so it serves the checkout's current code). Tools: `list_rooms`,
 `load_room`, `new_game`, `step`, `step_sequence`, `respawn`, `set_player`,
 `get_state`, `get_exits`, `get_tiles`, `get_hud`, `hud_message`,
-`screenshot`, `load_process`, `step_process`, `import_save`.
+`screenshot`, `load_process`, `step_process`, `import_save`,
+`set_destination`.
 
 - Headless and deterministic: the sim advances only in `step` /
   `step_sequence` (40 ticks per second); the same start, seed and inputs
@@ -242,7 +245,12 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   destination, guide state, last rooms, realized tiles and most dangerous creature with its score; realized flies their room, position, velocity,
   behaviour, movement mode, grasps and holders; realized lizards (`lizard`) their
   room, chunks, health, throat and limb health, jaw, bite delay, footing, rock turn,
-  lungs, effect colour, grasps, holders and lodged spears; any creature its stun and
+  lungs, effect colour, grasps, holders, lodged spears and `movement` (path finder
+  destination and effectual destination, mapping, forbidden-entrance counter,
+  stranded, run speed and its dev override, animation, following and upcoming
+  connections, movement animation, grip point, limb grips, time on this move,
+  desperation, wiggle count, stuck counter and utility, the shortcut being entered
+  and the vessel in the tubes: position, last positions, wait); any creature its stun and
   kill tag, its social memory
   (`social`: subject, like, temp like, fear, temp fear, know), a realized one its danger
   (`danger`: `dangerousToPlayer`, `DangerPos`, aggression) and what its grip
@@ -263,7 +271,10 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   camera room's exits (entrance tile, the input that enters, destination
   room, arrival node and camera). `set_player`, `get_tiles` and
   `screenshot` act on the camera's room. To test a transition, put the
-  player on an exit's entrance and hold its input.
+  player on an exit's entrance and hold its input. `set_destination` (a dev
+  override, not game behaviour) gives a realized lizard, by its EntityID, a
+  destination tile (in its room or a named one) through the abstract AI's
+  `SetDestination`, and a run speed (default 0.5) its stand-in AI keeps.
 - `screenshot` returns a PNG drawn by the window's draw path (level
   graphic or debug view, sprites, overlays), rendered offscreen; the debug
   view outlines every realized body's chunks and rods in the camera's room

@@ -204,6 +204,10 @@ sound_ids! {
     LizardJawsShutMissCreature = "Lizard_Jaws_Shut_Miss_Creature",
     LizardJawsGrabNpc = "Lizard_Jaws_Grab_NPC",
     LizardJawsGrabPlayer = "Lizard_Jaws_Grab_Player",
+    LizardGrabPole = "Lizard_Grab_Pole",
+    LizardPrepareToShootTongue = "Lizard_Prepare_To_Shoot_Tongue",
+    LizardPrepareLungeAttackInit = "Lizard_Prepare_Lunge_Attack_Init",
+    LizardLungeAttackInit = "Lizard_Lunge_Attack_Init",
     // No `sounds.txt` line: it never plays.
     SpearHitSmallCreature = "Spear_Hit_Small_Creature",
 }

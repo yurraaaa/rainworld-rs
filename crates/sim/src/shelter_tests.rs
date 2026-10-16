@@ -101,14 +101,19 @@ fn the_door_opens_with_the_cycle_timer() {
     assert_eq!(d.closed_fac, 0.5);
     d.update(429, &mut sounds, &mut rng);
     assert!(d.closed_fac > 0.0);
-    // From 430 the close speed (-1) takes it: open, the tiles air again.
+    assert!(d.ai_mapper.is_none());
+    // From 430 the close speed (-1) takes it: open, the tiles air again, and a new
+    // `AImapper` starts (opening, `closedFac` from above 0 to 0).
     let step = d.update(430, &mut sounds, &mut rng);
     assert_eq!(d.closed_fac, 0.0);
     assert_eq!(step.close_tiles, Some(false));
     assert_eq!(d.open_time, 0);
+    assert_eq!(d.ai_mapper, Some(crate::world::AiMapper::default()));
+    d.ai_mapper = None;
     let step = d.update(431, &mut sounds, &mut rng);
     assert_eq!(d.open_time, 1);
     assert!(step.stun_creatures);
+    assert!(d.ai_mapper.is_none(), "only once");
 }
 
 #[test]

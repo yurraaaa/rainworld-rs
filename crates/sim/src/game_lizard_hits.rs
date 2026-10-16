@@ -118,7 +118,7 @@ impl RainWorldGame {
     }
 
     /// The room a realized lizard is in, for its sounds.
-    fn lizard_room(&self, id: CreatureId) -> i32 {
+    pub(super) fn lizard_room(&self, id: CreatureId) -> i32 {
         self.world
             .creature(id)
             .lizard()

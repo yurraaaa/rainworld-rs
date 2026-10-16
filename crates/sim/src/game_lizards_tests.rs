@@ -201,10 +201,12 @@ fn a_placed_lizard_falls_and_rests_on_the_floor() {
 }
 
 #[test]
-fn a_healthy_lizard_update_makes_four_draws() {
-    // Three health rolls (each stops after `value * k > health` fails) and the lungs'.
+fn a_healthy_stunned_lizard_update_makes_four_draws() {
+    // Three health rolls (each stops after `value * k > health` fails) and the lungs';
+    // stunned, it does not `Act`.
     let (mut g, _) = game(vec![]);
     let l = g.lying_lizard();
+    g.world.lizard_at(l).stun = 1000;
     for _ in 0..40 {
         g.lizard_tick(l);
     }

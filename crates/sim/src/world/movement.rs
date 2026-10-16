@@ -201,6 +201,22 @@ impl MovementConnection {
         }
     }
 
+    /// `here -> there` when `outgoing`, else `there -> here`.
+    #[must_use]
+    pub fn directed(
+        outgoing: bool,
+        kind: MovementType,
+        here: WorldCoordinate,
+        there: WorldCoordinate,
+        distance: i32,
+    ) -> Self {
+        if outgoing {
+            Self::new(kind, here, there, distance)
+        } else {
+            Self::new(kind, there, here, distance)
+        }
+    }
+
     /// `StartTile`.
     #[must_use]
     pub fn start_tile(&self) -> (i32, i32) {
@@ -307,6 +323,15 @@ impl PathCost {
     #[must_use]
     pub fn less_than(self, other: Self) -> bool {
         self.compare(other) == Ordering::Less
+    }
+
+    /// `operator <=` (false for a NaN resistance at equal legality).
+    #[must_use]
+    pub fn less_or_equal(self, other: Self) -> bool {
+        if self.legality == other.legality {
+            return self.resistance <= other.resistance;
+        }
+        self.legality < other.legality
     }
 }
 

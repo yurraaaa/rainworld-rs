@@ -990,9 +990,8 @@ impl World {
     }
 
     /// `Room.LocalCoordinateOfNode`: exits, dens and region transports by their
-    /// shortcut's entrance, a random tile of a bat hive or of the garbage holes. Border
-    /// exits draw one of their border tiles, which are not mapped (`MapRoomBorders` is
-    /// not ported): the draw is made and the tile is `(-1, -1)`.
+    /// shortcut's entrance, a random tile of a border exit, a bat hive or the garbage
+    /// holes.
     pub(crate) fn local_coordinate_of_node(
         &self,
         room: i32,
@@ -1013,9 +1012,17 @@ impl World {
                 .leading_to_node(usize::try_from(node).unwrap_or(0))
                 .map_or((-1, -1), |s| s.start),
             NodeType::SideExit | NodeType::SkyExit | NodeType::SeaExit => {
-                rng.next_u32();
-                log::warn!("a border exit's tiles are not mapped");
-                (-1, -1)
+                let exits = realized.room.shortcut_map().nodes().len();
+                let index = usize::try_from(node).unwrap_or(0).saturating_sub(exits);
+                let tiles = realized
+                    .ai_map
+                    .as_ref()
+                    .and_then(|m| m.border_exits().get(index))
+                    .map(|e| e.tiles.as_slice())
+                    .unwrap_or_default();
+                let len = i32::try_from(tiles.len()).unwrap_or(i32::MAX);
+                let i = usize::try_from(rng.range_i32(0, len)).unwrap_or(0);
+                tiles.get(i).copied().unwrap_or((-1, -1))
             }
             NodeType::BatHive => {
                 let first = data
@@ -1059,7 +1066,7 @@ impl World {
                 }
                 Some(RealizedCreature::Fly(_)) => {
                     let pos = c.pos;
-                    self.abstractize_fly(id, pos);
+                    self.abstractize_fly(id, pos, rng);
                 }
                 Some(RealizedCreature::Lizard(_)) => {
                     let pos = c.pos;
@@ -1073,7 +1080,12 @@ impl World {
     /// `AbstractCreature.Abstractize(coord)` of a realized fly: at its own position the
     /// node stays (it is always defined for a fly) and `distanceToMyNode` is its exit
     /// distance; then `Move(coord)`, the flies it holds abstracted to `coord` too.
-    pub(crate) fn abstractize_fly(&mut self, id: CreatureId, coord: WorldCoordinate) {
+    pub(crate) fn abstractize_fly(
+        &mut self,
+        id: CreatureId,
+        coord: WorldCoordinate,
+        rng: &mut UnityRandom,
+    ) {
         let c = self.creature(id);
         if c.fly().is_none() {
             return;
@@ -1083,12 +1095,12 @@ impl World {
             self.creature_mut(id).realized = None;
             return;
         }
-        let pos = self.creature(id).pos;
+        let mut pos = self.creature(id).pos;
         let mut distance = 0;
         if coord == pos {
-            if !pos.node_defined() {
-                log::warn!("QuickConnectivity.DefineNodeOfLocalCoordinate is not ported");
-            }
+            let fly = CreatureTemplate::of(CreatureType::Fly, rw_assets::ActiveMods::NONE);
+            pos = self.define_node(pos, &fly, rng);
+            self.creature_mut(id).pos = pos;
             let specific = self
                 .fly_nodes(room)
                 .iter()
@@ -1098,7 +1110,6 @@ impl World {
                 .realized(room)
                 .and_then(|r| r.ai_map.as_ref())
                 .map_or(-1, |m| {
-                    let fly = CreatureTemplate::of(CreatureType::Fly, rw_assets::ActiveMods::NONE);
                     m.exit_distance_for_creature_and_check_neighbours(pos.tile, specific, &fly)
                 });
             if distance == -1 {
@@ -1119,7 +1130,7 @@ impl World {
         // Cleared first: a circular chain stops here (the game releases such a grasp).
         self.creature_mut(id).realized = None;
         for other in held {
-            self.abstractize_fly(other, coord);
+            self.abstractize_fly(other, coord, rng);
         }
     }
 

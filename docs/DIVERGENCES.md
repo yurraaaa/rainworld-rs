@@ -94,12 +94,20 @@ it (D13). What still differs is only the seed and the call order:
   1000 ticks into a cycle) every story run's stream has shifted from before, as the
   game's does. Missing: the draws a creature other than a bat fly, an overseer or a
   green lizard would make on being realized (`PlaceInRealizedRoom`, its body, AI and
-  graphics), as it stays abstract (D14), a green lizard's `LizardGraphics` and
-  `LizardAI` constructor draws (lizard steps 5 and 6), and
+  graphics), as it stays abstract (D14), a green lizard's `LizardGraphics` draws and
+  its AI's trackers' (lizard steps 5 and 6), and
   per tick the scavengers' abstract AI and `ScavengersWorldAI` (one `Range` over the
   scavengers every tick once a world has any), which are not ported (D14).
-  `LocalCoordinateOfNode` draws for bat hives, garbage holes and border exits; a border
-  exit's tile is not known (its border tiles are not mapped), only its draw is made.
+  `LocalCoordinateOfNode` draws for bat hives, garbage holes and border exits (a border
+  exit's tile is one of its mapped border tiles).
+  A realized green lizard makes its movement's draws (lizard step 4): its path
+  finder's cells (two each, made for every node of the world and every tile of each
+  room it enters), the AI's abstract-behaviour roll, `AwayFromForbiddenEntrance`,
+  `NewRoom`'s random destination tile, the bubble roll, `GetFrameSpeed`,
+  `MovementAnimation` (three per destination a tick), `GripPointBehavior`, the random
+  step and the desperate shove, the shake, `EnterAnimation`'s and the shortcut sounds,
+  and `DefineNodeOfLocalCoordinate`'s `LocalCoordinateOfNode` draws in a room ready for
+  AI.
 - **Room items.** A room realized for the first time in a cycle makes its items' draws
   where the game makes them, in `RealizeRoom` (`rainworld-re/notes/items.md`): one
   `value` per entry of the room file's item list, then `Room.Loaded`'s random items, two
@@ -1039,7 +1047,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
 
 **What differs:**
 - **Only overseers and bat flies behave; the other creatures roam abstractly** (green
-  lizards also get a body that does not move yet, below). The `CREATURES` section is read in full (simple spawners
+  lizards also get a body that walks and takes shortcuts, below). The `CREATURES` section is read in full (simple spawners
   and lineages with their dens, amounts, spawn data and night flags; quantified
   counts; `rw_assets::creatures`), and a new game's `GeneratePopulation` builds every
   `AbstractCreature` with all of its constructor draws (D1) and `setCustomFlags`' base
@@ -1185,8 +1193,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
   (the game skips `AbstractBehavior` there too), so it waits, unseen and harmless,
   until the room is abstracted, then walks on with the buffered time. None of the
   realization's draws are made (D1). `DefineNodeOfLocalCoordinate` in a room ready for
-  AI keeps its drawn node instead of choosing by the creature's exit distances (the
-  lizards' AI map is step 1); a creature only asks there once it is realized.
+  AI chooses the node as the game does: by the creature's exit distances from a tile
+  an exit is reachable from, else by `QuickConnectivity` there and back.
   `AbstractCreature.distanceToMyNode` now starts at 0, the game's default (it was -1).
   Left out with their DLC or modes: More Slugcats' flooded dens, battle arenas,
   precycles (`preTimer`/`maxPreTimer`), the slugpup's and the scavenger king's
@@ -1223,7 +1231,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   Arena levels (single-room worlds) make items as a story room does (the arena's
   `levelItems` setting is not ported). `GeneratePopulation`'s reset clears a room's
   `creatures` but not its `entities`, as the game does.
-- **Green lizards (lizard step 3 of 9: the body).** A green lizard is realized as the
+- **Green lizards (lizard steps 3 and 4 of 9: the body and movement).** A green lizard is realized as the
   game's does (`ReadyForAI`'s `RealizeInRoom`, `PlaceInRealizedRoom` with
   `RandomizeSpawnPositionInRoom` and the `QuickPathFinder`, a den exit into a realized
   room through the lobby and the pipe, `SpitOutOfShortCut`) and abstracted with its room
@@ -1240,11 +1248,35 @@ second part, else a single-room world for arena levels). The campaign descriptio
   thrown by the player hit it through collision layer 1 (`Rock.HitSomething`,
   `Spear.HitSomething`, `LodgeInCreature`, a spear stuck in a creature and pinned to a
   wall), kill it with the kill tag (the session's kills and the sleep screen, D13), and
-  its state saves with its throat health. Not yet, with their steps: `LizardAI` (a
-  passive stand-in that decides nothing and draws nothing, so the lizard lies where it
-  lands: tracker, relationships, social events and taming are steps 6 and 7), movement
-  (`Act`'s locomotion, entering shortcuts, travel between rooms with its three chunks:
-  step 4), `LizardGraphics` and `LizardVoice` (step 5: the voice's `MakeSound` draw is
+  its state saves with its throat health. It moves as the game's (lizard step 4,
+  `creature-model.md` section 14): the `PathFinder` with `LizardPather`'s costs and
+  `FollowPath`, the shared accessibility mappers and the resource divider, the stuck and
+  discomfort trackers, `Act` with `FollowConnection`, the movement animations,
+  `GripPointBehavior`, `SwimBehavior`, `GetFrameSpeed`, the wiggle, desperation and
+  shake, `ActAnimation`'s and `EnterAnimation`'s physics, entering shortcuts and riding
+  them as a three-segment vessel (NPC transport included) into realized and abstract
+  rooms. Its `LizardAI` is a stand-in until step 7: its `Update` counts the panic and
+  the room time down and up, rolls the abstract AI's `AbstractBehavior` (a realized
+  creature's `MigrationBehavior`) at `1 / LerpMap(RoomLike, 0.35, 1, 10, 1000)`, evens
+  out the social memory's temps, walks past the point of no return when stranded or
+  its den is not reachable and back, closes the jaw a little and keeps `runSpeed` at the
+  stuck tracker's utility (0 while it is not stuck; the behaviours that set it are step
+  7); `NewRoom` sets a random tile of the new room as the destination. So a realized
+  lizard follows its abstract AI's destinations and migrations and otherwise stands.
+  The MCP `set_destination` tool sets a destination and a run speed the AI keeps: a dev
+  override, not game behaviour. Until the graphics' limbs exist (step 5)
+  `LegsGripping` is 2 and `NoGripCounter` 0 (the game's values hold only without a
+  graphics module, that is out of view): in a viewed room the frame speed, gravity and
+  lounge pushes do not follow its legs, and nothing holds its body along the floor
+  (it can end up standing on its head in a tall corridor). Not ported: the den finder's
+  remap in `NewArea` (step 7), the yellow lizards' pack term of the travel preference,
+  the obstacle and threat terms of the travel costs (the trackers, step 6),
+  `nonShortcutRoomEntrancePos` (entering a room from its border), and `PathWithExits`
+  and `BestRegionTransportationGoal`, which nothing calls yet. The tongue, spit and
+  jump animations belong to breeds whose data is not entered; a green lizard never
+  enters them, and the port goes back to Standard if one does. Not yet, with their
+  steps: the AI's decisions (tracker, relationships, social events and taming are steps
+  6 and 7), `LizardGraphics` and `LizardVoice` (step 5: the voice's `MakeSound` draw is
   made, its sound is not; the graphics' draws, the head shield's sparks and flash,
   `WhiteFlicker` and the body part a spear lodges by are missing, D1), eating a dead
   lizard (step 8: the player cannot grab creatures yet), the drowning bubble (its draws
@@ -1283,8 +1315,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
   layers included (`ai-map.md`). The flies read this map. Not ported: the worm grass
   access modifier (the game makes worm grass tiles inaccessible when it builds the map,
   after baking, so in the 28 vanilla rooms with worm grass, SU_A32 and SU_B05 among
-  them, its decoded distances shift; the port decodes them as baked), the map rebuild
-  when a shelter door opens, Remix's zero-gravity lizard branches, Downpour's
+  them, its decoded distances shift; the port decodes them as baked), Remix's
+  zero-gravity lizard branches and threaded mapper, Downpour's
   `TerrainManager` curved floors and sand, More Slugcats' `daddyCorruptionImmune`
   branch, and `ModifyTileWaterLevels` (WaterCutoff and
   AirPocket objects, which no vanilla region room places). Remix's
@@ -1594,6 +1626,12 @@ Differences:
   some food but less than `foodToHibernate` that is a malnourished survival, saved as
   the game does (only the progression and death-persistent data reach the disk; the
   new state stays in memory as the starved state) and the next cycle is malnourished.
+- **The AI map after opening.** As in the game, a door that has opened runs a new
+  `AImapper` over the room, 100 steps a tick, and then gives the room's AI map its new
+  tiles (the baked visibility is gone from them, as in the game) and resets every path
+  finder in the room (`UpdatePathfindingCreatures`). The room does not change while it
+  runs, so the port maps it at the first step and hands it over when the game's step
+  count (`2 * width * height` plus the terrain-proximity steps) is reached.
 - **Objects in shelters.** Rocks and spears in any shelter when `Win` saves, and spears
   stuck in walls anywhere, are written to the region state and come back the next cycle
   (D16) and are realized in their rooms (D14).
@@ -1619,8 +1657,7 @@ Differences:
   starve (without its `DeathEvent`) or a door closing on a dead Hunter out of cycles
   saves an ordinary death.
 - **Not ported:** More Slugcats' ancient and broken shelters, `PrecycleModule`, the
-  shelter tutorials, the dream ghost, `GetStuffInWalls`, the AI map rebuild when the
-  door opens, the door's screen shake, the social-memory stun of creatures in the room,
+  shelter tutorials, the dream ghost, `GetStuffInWalls`, the door's screen shake, the social-memory stun of creatures in the room,
   killing hostiles at close (the check alone is ported), and every Jolly Co-op and More
   Slugcats branch.
 - **Malnourishment, DLC and Remix branches omitted:** More Slugcats' slugcats' own

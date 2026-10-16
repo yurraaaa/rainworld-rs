@@ -15,7 +15,8 @@ use crate::creature::{CreatureTemplate, WorldCoordinate};
 pub(crate) const FOUR_DIRECTIONS: [(i32, i32); 4] = [(-1, 0), (0, -1), (1, 0), (0, 1)];
 
 /// `Custom.fourDirectionsAndZero`.
-const FOUR_DIRECTIONS_AND_ZERO: [(i32, i32); 5] = [(0, 0), (-1, 0), (0, -1), (1, 0), (0, 1)];
+pub(crate) const FOUR_DIRECTIONS_AND_ZERO: [(i32, i32); 5] =
+    [(0, 0), (-1, 0), (0, -1), (1, 0), (0, 1)];
 
 /// `Custom.eightDirections`.
 pub(crate) const EIGHT_DIRECTIONS: [(i32, i32); 8] = [
