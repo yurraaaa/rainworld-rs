@@ -1,12 +1,16 @@
 //! `Spark` (40664) and `ExplosionSpikes` (34870): `CosmeticSprite`s a weapon's terrain
 //! hits and the belly-slide throw add to their room's update list, and the
-//! `OverseerEffect` (232098) a dying overseer sheds. Their constructors draw on the
-//! shared stream, and the overseer effect's update too. The sprites are `rw-graphics`'
-//! (the overseer effect's, on the `OverseerZip` shader, is not drawn).
+//! `OverseerEffect` (232098) a dying overseer sheds, and a lizard's graphics'
+//! `LizardBubble`s and its head shield's sparks and `StationaryEffect` flash. Their
+//! constructors draw on the shared stream, and the overseer effect's and the bubble's
+//! updates too. The sprites are `rw-graphics`' (the overseer effect's, on the
+//! `OverseerZip` shader, is not drawn).
 
 use rw_assets::{Room, Terrain};
 use rw_random::UnityRandom;
 
+use crate::creature::CreatureId;
+use crate::creature::lizard::{BubbleHead, LizardBubble};
 use crate::room_ext::RoomExt;
 use crate::{FloatExt, Vec2};
 
@@ -27,6 +31,55 @@ pub enum CosmeticKind {
     Spark(Spark),
     Spikes(ExplosionSpikes),
     OverseerEffect(OverseerEffectSprite),
+    LizardBubble(Box<LizardBubble>),
+    Flash(StationaryEffect),
+}
+
+/// What a cosmetic tied to a lizard's graphics reads of them in its update.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct CosmeticTie {
+    /// The graphics' `whiteFlicker`, while they exist.
+    pub white_flicker: Option<i32>,
+    /// The graphics' head, while they exist.
+    pub head: Option<BubbleHead>,
+    /// `Room.FloatWaterLevel(pos)` at the object.
+    pub water_level: f32,
+}
+
+/// `StationaryEffect` of type `FlashingOrb`: a four-tick flash a lizard's head shield
+/// shows where it is hit (no draws in its update).
+#[derive(Debug, Clone, PartialEq)]
+pub struct StationaryEffect {
+    pub pos: Vec2,
+    pub last_pos: Vec2,
+    pub life: f32,
+    pub last_life: f32,
+    pub life_time: i32,
+    /// The lizard whose head colour it shows.
+    pub lizard: Option<CreatureId>,
+}
+
+impl StationaryEffect {
+    #[must_use]
+    pub fn flashing_orb(pos: Vec2, lizard: Option<CreatureId>) -> Self {
+        Self {
+            pos,
+            last_pos: pos,
+            life: 1.0,
+            last_life: 1.0,
+            life_time: 4,
+            lizard,
+        }
+    }
+
+    /// `Update` (the lizard's `whiteFlicker` is never below 0) then
+    /// `CosmeticSprite.Update`; true once destroyed.
+    pub fn update(&mut self) -> bool {
+        self.last_life = self.life;
+        self.life -= 1.0 / self.life_time as f32;
+        self.last_pos = self.pos;
+        self.life <= 0.0
+    }
 }
 
 /// `OverseerEffect`: a drifting, spinning glow of a dying overseer's colour.
@@ -90,8 +143,7 @@ impl OverseerEffectSprite {
     }
 }
 
-/// `Spark`: a short falling streak that bounces once off a floor (`lizard` is null for
-/// every ported caller).
+/// `Spark`: a short falling streak that bounces once off a floor.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Spark {
     pub pos: Vec2,
@@ -104,6 +156,9 @@ pub struct Spark {
     pub gravity: f32,
     /// RGBA.
     pub color: [f32; 4],
+    /// The lizard whose graphics it belongs to (`lizard`), with their `whiteFlicker` as
+    /// last read: it fades fast below 5 and takes the head's colour above 0.
+    pub lizard: Option<(CreatureId, i32)>,
 }
 
 /// `ExplosionSpikes`: a ring of thin spikes that grow and fade over `2 * lifeTime` ticks.
@@ -148,15 +203,24 @@ impl Spark {
             life_time,
             gravity,
             color,
+            lizard: None,
         }
     }
 
     /// `Update` then `CosmeticSprite.Update`; true once it is destroyed.
-    pub fn update(&mut self, room: &Room) -> bool {
+    pub fn update(&mut self, room: &Room, white_flicker: Option<i32>) -> bool {
         self.last_last_last_pos = self.last_last_pos;
         self.last_last_pos = self.last_pos;
         self.vel.y -= self.gravity;
         self.life -= 1.0 / self.life_time as f32;
+        if let Some((_, flicker)) = &mut self.lizard {
+            if let Some(f) = white_flicker {
+                *flicker = f;
+            }
+            if *flicker < 5 {
+                self.life -= 0.2;
+            }
+        }
         let mut slated = false;
         if room.tile_at_pos(self.pos).terrain == Terrain::Solid {
             let above = room.tile_at_pos(self.pos + Vec2::new(0.0, 20.0)).terrain;
@@ -237,11 +301,13 @@ impl ExplosionSpikes {
 
 impl Cosmetic {
     /// Its `Update`; true once destroyed.
-    pub fn update(&mut self, room: &Room, rng: &mut UnityRandom) -> bool {
+    pub fn update(&mut self, room: &Room, tie: CosmeticTie, rng: &mut UnityRandom) -> bool {
         self.slated = match &mut self.kind {
-            CosmeticKind::Spark(s) => s.update(room),
+            CosmeticKind::Spark(s) => s.update(room, tie.white_flicker),
             CosmeticKind::Spikes(s) => s.update(),
             CosmeticKind::OverseerEffect(e) => e.update(rng),
+            CosmeticKind::LizardBubble(b) => b.update(room, tie.head, tie.water_level, rng),
+            CosmeticKind::Flash(f) => f.update(),
         };
         self.slated
     }

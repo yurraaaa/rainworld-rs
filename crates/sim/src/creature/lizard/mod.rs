@@ -5,8 +5,9 @@
 //! physics, shortcut travel, damage (`Violence`, `Stun`, `SpearStick`, the head shield,
 //! hits in the mouth), biting, `CarryObject`, terrain impacts and `SpitOutOfShortCut`.
 //! The AI is a stand-in ([`LizardAi`]: its path finder and the base AI's updates;
-//! `LizardAI`'s behaviours are lizard step 7); the graphics module and the voice are
-//! step 5 (docs/DIVERGENCES.md D14).
+//! `LizardAI`'s behaviours are lizard step 7); the voice is step 5b. The graphics module
+//! is `rw-graphics`' `LizardGraphics`; what it shares with the body is
+//! [`LizardGraphicsLink`] (docs/DIVERGENCES.md D14).
 //!
 //! The updates that reach the rest of the game are `RainWorldGame`'s (`game_lizards.rs`,
 //! `game_lizard_act.rs`, `game_lizard_hits.rs`). Behaviour:
@@ -14,12 +15,19 @@
 
 mod ai;
 mod breed;
+mod bubble;
+mod graphics_link;
 mod movement;
 
 use rw_random::UnityRandom;
 
 pub use ai::LizardAi;
 pub use breed::{LizardBreedParams, SpeedMultiplier};
+pub use bubble::LizardBubble;
+pub use graphics_link::{
+    BubbleHead, LightUpkeep, LizardGraphicsLink, LizardGraphicsTick, LizardHead, LizardSpawn,
+    LizardView,
+};
 pub use movement::{AnimationOutcome, BodyPartDestination, MovementAnimation};
 
 use super::{AbstractCreature, WorldCoordinate};
@@ -138,8 +146,9 @@ pub struct Lizard {
     pub swim: f32,
     pub bite_control_reset: bool,
     pub effect_color: [f32; 3],
-    /// Whether the game would have a `LizardGraphics` module (not yet: step 5).
-    pub graphics: bool,
+    /// Its `LizardGraphics` module's shared state, while it has one (its room is
+    /// viewed and the app builds graphics).
+    pub graphics: Option<LizardGraphicsLink>,
     pub ai: LizardAi,
     /// `shortCutRadAdd`.
     pub short_cut_rad_add: f32,
@@ -250,7 +259,7 @@ impl Lizard {
             swim: 0.0,
             bite_control_reset: false,
             effect_color,
-            graphics: false,
+            graphics: None,
             ai: LizardAi::default(),
             short_cut_rad_add: 0.0,
             upcoming_connections: Vec::new(),

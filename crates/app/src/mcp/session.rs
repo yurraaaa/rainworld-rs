@@ -35,7 +35,10 @@ use super::reply::{
     Screenshot, SessionInfo, ShelterDoorState, SleepState, SlideShowState, StartUpState, State,
     StepTrace, StoryInfo, TextPromptState, TokenState, WeaponInfo,
 };
-use super::reply::{ConnectionInfo, CoordInfo, LizardMoveInfo, MovementAnimationInfo, VesselInfo};
+use super::reply::{
+    ConnectionInfo, CoordInfo, LizardGraphicsInfo, LizardLimbInfo, LizardMoveInfo,
+    MovementAnimationInfo, VesselInfo,
+};
 use super::reply::{DangerInfo, HoloLightState, LightSourceState, MusicState, TriggerState};
 use super::reply::{
     FliesWorldInfo, HeldInfo, QuantifiedInfo, RegionStateInfo, RelationshipInfo, RoomDens,
@@ -896,6 +899,56 @@ impl Session {
                 })
                 .collect(),
             movement: Self::lizard_move_info(scene, id, l),
+            graphics: Self::lizard_graphics_info(scene, c, l, holding),
+        })
+    }
+
+    fn lizard_graphics_info(
+        scene: &Scene,
+        c: &AbstractCreature,
+        l: &Lizard,
+        holding: bool,
+    ) -> Option<LizardGraphicsInfo> {
+        let link = l.graphics.as_ref()?;
+        let g = scene
+            .game()
+            .lizard_graphics()
+            .iter()
+            .find(|g| g.id == c.id)?;
+        let jaw = l.jaw_open(holding);
+        Some(LizardGraphicsInfo {
+            culled: g.culled,
+            legs_grabbing: link.legs_grabbing,
+            no_grip_counter: link.no_grip_counter,
+            limbs: g
+                .limbs
+                .iter()
+                .map(|limb| LizardLimbInfo {
+                    mode: format!("{:?}", limb.limb.mode),
+                    pos: limb.limb.part.pos.to_array(),
+                    hunt_pos: limb.limb.absolute_hunt_pos.to_array(),
+                    grab_pos: limb.grab_pos.to_array(),
+                    grip_counter: limb.grip_counter,
+                    reaching_for_terrain: limb.reaching_for_terrain,
+                    currently_disabled: limb.currently_disabled,
+                    flip: limb.flip,
+                })
+                .collect(),
+            head: link.head.pos.to_array(),
+            head_rotation: link.head.rotation(l.params, jaw),
+            head_depth_rotation: g.head_depth_rotation,
+            depth_rotation: g.depth_rotation,
+            jaw_open: jaw,
+            blink: g.blink,
+            flicker: g.flicker,
+            white_flicker: link.white_flicker,
+            look_pos: g.look_pos.to_array(),
+            cosmetics: g
+                .cosmetics
+                .iter()
+                .map(|k| k.shape.name().to_owned())
+                .collect(),
+            light: link.light,
         })
     }
 

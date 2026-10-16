@@ -9,11 +9,12 @@ use std::sync::Arc;
 
 use rw_assets::{Room, Terrain};
 
-use super::{RainWorldGame, RoomObject};
+use super::{PlayerObserver, RainWorldGame, RoomObject};
 use crate::creature::{CreatureId, LUNG_CAPACITY, WorldCoordinate};
 use crate::item::Entity;
 use crate::room_ext::RoomExt;
 use crate::shortcut::CreatureVessel;
+use crate::world::LizardRoomCx;
 use crate::{
     BodyChunk, FloatExt, SoundId, Sounds, TerrainImpact, TerrainImpactHandler, Vec2, WaterDrip,
 };
@@ -36,11 +37,14 @@ impl TerrainImpactHandler for LizardImpacts {
 impl RainWorldGame {
     /// The realized lizards in room `index`'s update list.
     pub(super) fn room_lizard_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
-        self.world
+        let mut list: Vec<(u64, RoomObject)> = self
+            .world
             .room_lizards(index)
             .into_iter()
             .map(|(seq, id)| (seq, RoomObject::Lizard(id)))
-            .collect()
+            .collect();
+        list.extend(self.room_lizard_loop_objects(index));
+        list
     }
 
     /// The player spawn tile of room `index`'s shelter door.
@@ -63,7 +67,13 @@ impl RainWorldGame {
 
     /// Lizard `id`'s slot in room `index`'s update list: `Lizard.Update`. A lizard
     /// slated for deletion is cleaned out.
-    pub(super) fn run_lizard(&mut self, index: i32, id: CreatureId, room: &Arc<Room>) {
+    pub(super) fn run_lizard(
+        &mut self,
+        index: i32,
+        id: CreatureId,
+        room: &Arc<Room>,
+        observer: &mut dyn PlayerObserver,
+    ) {
         let Some(l) = self.world.creature(id).lizard() else {
             return;
         };
@@ -95,12 +105,20 @@ impl RainWorldGame {
             self.lizard_carry_object(index, id);
         }
         self.lizard_pushes(index, id, room);
-        self.lizard_creature_update(index, id, room);
+        self.lizard_creature_update(index, id, room, observer);
         if self.world.creature(id).lizard().is_some() {
             self.lizard_lungs(index, id);
         }
         if self.world.creature(id).lizard().is_some_and(|l| l.slated) {
             self.clean_out_lizard(id);
+        } else if self
+            .world
+            .creature(id)
+            .lizard()
+            .is_some_and(|l| l.room == Some(index))
+        {
+            // `Room.Update`: the graphics module's `Update` right after its owner's.
+            self.lizard_graphics_update(index, id, observer);
         }
     }
 
@@ -132,7 +150,7 @@ impl RainWorldGame {
         }
         l.jaw_forced_shut = (l.jaw_forced_shut - 1.0 / 60.0).max(0.0);
         let dead = l.dead;
-        let graphics = l.graphics;
+        let graphics = l.graphics.is_some();
         let rng = &mut self.rng;
         if !dead && rng.value() * 0.7 > health && rng.value() < 0.125 {
             let cap = 27 - ((20.0 * health) as i32).clamp(0, 10);
@@ -142,9 +160,12 @@ impl RainWorldGame {
         }
         let rng = &mut self.rng;
         if !dead && rng.value() * 0.2 > health && rng.value() < 0.025 && graphics {
-            // `LizardGraphics.WhiteFlicker(Range(1, 5))`: lizard step 5.
-            rng.range_i32(1, 5);
+            let fl = rng.range_i32(1, 5);
+            if let Some(g) = &mut self.world.lizard_at(id).graphics {
+                g.white_flicker(fl);
+            }
         }
+        let rng = &mut self.rng;
         if !dead && rng.value() * 0.5 > health && rng.value() < 0.05 {
             let v = rng.value();
             self.world.lizard_at(id).set_jaw_open(v, holding);
@@ -315,7 +336,13 @@ impl RainWorldGame {
     /// `Creature.Update` for a lizard: `NewTile`, the counters, a pacifying holder's
     /// stun, the kill tag, the health death roll, the release and the death under the
     /// room, then the pull into a shortcut being entered or `PhysicalObject.Update`.
-    fn lizard_creature_update(&mut self, index: i32, id: CreatureId, room: &Arc<Room>) {
+    fn lizard_creature_update(
+        &mut self,
+        index: i32,
+        id: CreatureId,
+        room: &Arc<Room>,
+        observer: &mut dyn PlayerObserver,
+    ) {
         let coord = self.world.creature(id).pos;
         let last = self.world.lizard_ref(id).last_coord;
         if (coord.tile != last.tile || coord.room != last.room)
@@ -368,7 +395,7 @@ impl RainWorldGame {
             self.world.lizard_at(id).slated = true;
             self.world.destroy_abstract(id);
         }
-        if !self.lizard_pull_into_shortcut(index, id) {
+        if !self.lizard_pull_into_shortcut(index, id, observer) {
             self.lizard_physics(index, id, room);
         }
     }
@@ -403,7 +430,7 @@ impl RainWorldGame {
 
     /// `Lizard.TerrainImpact` of each impact: a first contact over 1.5 plays the light
     /// and the heavy impact by its share of 6 to 14 (pitched by body size); then the
-    /// base's drips off a wet ceiling. The graphics' impact is lizard step 5.
+    /// base's drips off a wet ceiling, after the graphics' bubbles.
     fn lizard_terrain_impacts(&mut self, index: i32, id: CreatureId, log: &LizardImpacts) {
         let ceiling_drips = self
             .world
@@ -412,6 +439,7 @@ impl RainWorldGame {
         let size = self.world.lizard_ref(id).params.body_size_fac;
         let pitch = (1.0 / size).lerp(1.0, 0.8);
         for (impact, pos, rad, mass, head) in &log.list {
+            self.lizard_impact_bubbles(index, id, impact);
             if impact.speed > 1.5 && impact.first_contact {
                 let num = impact.speed.inverse_lerp(6.0, 14.0);
                 let (sounds, rng) = self.room_sounds(index);
@@ -540,7 +568,12 @@ impl RainWorldGame {
 
     /// `ReadyForAI`'s `RealizeInRoom` of abstract lizard `id` in its loaded room (a
     /// shelter's door gives its spawn tile).
-    pub(super) fn realize_lizard_in_room(&mut self, index: i32, id: CreatureId) {
+    pub(super) fn realize_lizard_in_room(
+        &mut self,
+        index: i32,
+        id: CreatureId,
+        observer: &mut dyn PlayerObserver,
+    ) {
         let c = self.world.creature(id);
         if c.is_realized() || c.in_den || crate::creature::LizardBreedParams::of(c.kind()).is_none()
         {
@@ -551,14 +584,19 @@ impl RainWorldGame {
             .abstract_room(index)
             .is_some_and(rw_assets::world::AbstractRoomData::shelter);
         let spawn = shelter.then(|| self.shelter_spawn_tile(index)).flatten();
-        self.world.realize_lizard_in_room(id, spawn, &mut self.rng);
+        let mut cx = LizardRoomCx {
+            rng: &mut self.rng,
+            observer,
+            camera_room: self.camera_room,
+        };
+        self.world.realize_lizard_in_room(id, spawn, &mut cx);
     }
 
     /// `SpitOutCreature` of a lizard's vessel (the large NPC exit sound) and
     /// `Lizard.SpitOutOfShortCut`: the base's stuck objects out at the entrance (a draw
     /// per chunk), then the three chunks out of the hole 15 px apart, moving 2 px a tick
     /// out of it, and half the time a voice (one draw; the voice is lizard step 5).
-    pub(super) fn spit_out_lizard(&mut self, v: CreatureVessel) {
+    pub(super) fn spit_out_lizard(&mut self, v: CreatureVessel, observer: &mut dyn PlayerObserver) {
         let (room, pos) = (v.room, v.vessel.pos);
         let Some(map_room) = self.world.realized(room).map(|r| Arc::clone(&r.room)) else {
             return;
@@ -584,10 +622,20 @@ impl RainWorldGame {
                         c.vel = Vec2::ZERO;
                     }
                     let came_from = self.world.lizard_ref(o).room;
-                    self.world.lizard_add_object(o, room);
+                    let mut cx = LizardRoomCx {
+                        rng: &mut self.rng,
+                        observer: &mut *observer,
+                        camera_room: self.camera_room,
+                    };
+                    self.world.lizard_add_object(o, room, &mut cx);
                     self.lizard_spat_out_body(o, middle, &map_room, pos);
                     if came_from != Some(room) {
-                        self.world.lizard_new_room(o, &mut self.rng);
+                        let mut cx = LizardRoomCx {
+                            rng: &mut self.rng,
+                            observer: &mut *observer,
+                            camera_room: self.camera_room,
+                        };
+                        self.world.lizard_new_room(o, &mut cx);
                     }
                 }
                 Entity::Creature(_) => {}

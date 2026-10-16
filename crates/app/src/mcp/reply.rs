@@ -350,6 +350,49 @@ pub struct LizardInfo {
     pub spears: Vec<([i32; 2], usize)>,
     /// Its AI and movement.
     pub movement: LizardMoveInfo,
+    /// Its graphics module, while its room is viewed (or was, and it has not left it).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub graphics: Option<LizardGraphicsInfo>,
+}
+
+/// A lizard's `LizardGraphics`.
+#[derive(Debug, Clone, Serialize)]
+pub struct LizardGraphicsInfo {
+    pub culled: bool,
+    /// `legsGrabbing` (the body's `LegsGripping`) and `noGripCounter`.
+    pub legs_grabbing: i32,
+    pub no_grip_counter: i32,
+    pub limbs: Vec<LizardLimbInfo>,
+    /// `head.pos` and `HeadRotation(1)` (degrees), `headDepthRotation`, `depthRotation`.
+    pub head: [f32; 2],
+    pub head_rotation: f32,
+    pub head_depth_rotation: f32,
+    pub depth_rotation: f32,
+    /// `JawOpen` as the head draws it.
+    pub jaw_open: f32,
+    pub blink: f32,
+    pub flicker: i32,
+    pub white_flicker: i32,
+    pub look_pos: [f32; 2],
+    /// The cosmetics' kinds, in sprite order.
+    pub cosmetics: Vec<String>,
+    /// Its head light's id while it has one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub light: Option<u64>,
+}
+
+/// One `LizardLimb`.
+#[derive(Debug, Clone, Serialize)]
+pub struct LizardLimbInfo {
+    pub mode: String,
+    pub pos: [f32; 2],
+    /// `absoluteHuntPos` while it holds terrain or reaches for it.
+    pub hunt_pos: [f32; 2],
+    pub grab_pos: [f32; 2],
+    pub grip_counter: i32,
+    pub reaching_for_terrain: bool,
+    pub currently_disabled: bool,
+    pub flip: f32,
 }
 
 /// A realized lizard's path finder, stuck tracker and movement.

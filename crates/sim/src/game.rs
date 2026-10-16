@@ -27,6 +27,8 @@ mod instructions;
 mod items;
 #[path = "game_lizard_act.rs"]
 mod lizard_act;
+#[path = "game_lizard_graphics.rs"]
+mod lizard_graphics;
 #[path = "game_lizard_hits.rs"]
 mod lizard_hits;
 #[path = "game_lizards.rs"]
@@ -51,6 +53,7 @@ use rw_random::UnityRandom;
 use crate::camera::CameraView;
 use crate::campaign::{SlugcatCampaign, SlugcatStats, StoryStart};
 use crate::creature::fly::FlyView;
+use crate::creature::lizard::{LizardGraphicsLink, LizardGraphicsTick, LizardView};
 use crate::creature::overseer::hologram::{ControlPreset, OverseerHologram};
 use crate::creature::overseer::{
     OverseerBody, OverseerEffect, OverseerMode, OverseerTick, OverseerUpdate, OverseerView,
@@ -162,6 +165,47 @@ pub trait PlayerObserver {
     fn fly_to_front(&mut self, _id: EntityId) {}
     /// The fly's graphics module is dropped.
     fn fly_removed(&mut self, _id: EntityId) {}
+    /// Whether this observer builds lizard graphics modules (else a lizard never has
+    /// one, as out of view).
+    fn builds_lizard_graphics(&self) -> bool {
+        false
+    }
+    /// `Lizard.InitiateGraphicsModule`: the `LizardGraphics` constructor unless it has
+    /// one (under the lizard's seed, the stream restored), then its `Reset`; the module
+    /// leaves its head and parts in `link`.
+    fn lizard_added(
+        &mut self,
+        _view: &LizardView<'_>,
+        _link: &mut LizardGraphicsLink,
+        _rng: &mut UnityRandom,
+    ) {
+    }
+    /// `LizardGraphics.Reset`.
+    fn lizard_reset(
+        &mut self,
+        _view: &LizardView<'_>,
+        _link: &mut LizardGraphicsLink,
+        _rng: &mut UnityRandom,
+    ) {
+    }
+    /// `LizardGraphics.Update`.
+    fn lizard_updated(
+        &mut self,
+        _view: &LizardView<'_>,
+        _link: &mut LizardGraphicsLink,
+        _cx: &mut LizardGraphicsTick<'_>,
+    ) {
+    }
+    /// `LizardGraphics.SuckedIntoShortCut(pos)`.
+    fn lizard_sucked_into_shortcut(
+        &mut self,
+        _id: EntityId,
+        _link: &mut LizardGraphicsLink,
+        _pos: Vec2,
+    ) {
+    }
+    /// The lizard's graphics module is dropped.
+    fn lizard_removed(&mut self, _id: EntityId) {}
 }
 
 /// What the game tells camera 0's HUD.
@@ -244,6 +288,8 @@ enum RoomObject {
     Cosmetic(u64),
     /// A rock's or spear's loop emitter.
     WeaponLoop(ObjectId),
+    /// The `ChunkSoundEmitter` of a lizard's graphics' loop.
+    LizardLoop(CreatureId),
     /// A trigger checker or an object a trigger added, by id.
     Trigger(u64),
     /// A `HologramLight` by id.
@@ -796,7 +842,7 @@ impl RainWorldGame {
                 } else if crate::creature::LizardBreedParams::of(self.world.creature(id).kind())
                     .is_some()
                 {
-                    self.realize_lizard_in_room(index, id);
+                    self.realize_lizard_in_room(index, id, observer);
                 } else {
                     let _before = self.rng.state();
                     let _creature = self.world.creature(id).clone();
@@ -1262,13 +1308,14 @@ impl RainWorldGame {
                     }
                 }
                 RoomObject::Fly(id) => self.run_fly(index, id, &room, observer),
-                RoomObject::Lizard(id) => self.run_lizard(index, id, &room),
+                RoomObject::Lizard(id) => self.run_lizard(index, id, &room, observer),
                 RoomObject::Hover(id) => self.run_hover(index, id),
                 RoomObject::Drip(id) => self.run_drip(index, id, &room),
                 RoomObject::Weapon(id) => self.run_weapon(index, id, observer),
                 RoomObject::WeaponLoop(id) => self.run_weapon_loop(index, id),
+                RoomObject::LizardLoop(id) => self.run_lizard_loop(index, id),
                 RoomObject::Trigger(id) => self.run_trigger_object(index, id),
-                RoomObject::Cosmetic(id) => self.world.update_cosmetic(index, id, &mut self.rng),
+                RoomObject::Cosmetic(id) => self.run_cosmetic(index, id),
                 RoomObject::HoloLight(id) => self.run_holo_light(index, id, observer),
                 RoomObject::LightSource(id) => self.run_light_source(index, id),
             }

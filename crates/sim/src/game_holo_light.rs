@@ -146,6 +146,19 @@ impl RainWorldGame {
 
     /// The light source `id`'s `Update` in its slot of room `index`'s update list.
     pub(super) fn run_light_source(&mut self, index: i32, id: u64) {
+        let tie = self
+            .world
+            .realized(index)
+            .and_then(|r| r.light_sources.iter().find(|l| l.id == id))
+            .and_then(|l| l.tied_to);
+        let lizard_tie_gone = match tie {
+            Some(LightTie::Lizard(c)) => !self
+                .world
+                .creature(c)
+                .lizard()
+                .is_some_and(|l| !l.slated && l.room == Some(index)),
+            _ => false,
+        };
         let Some(r) = self.world.realized_mut(index) else {
             return;
         };
@@ -154,6 +167,7 @@ impl RainWorldGame {
         };
         let tie_gone = match light.tied_to {
             Some(LightTie::HoloLight(h)) => !r.holo_lights.iter().any(|l| l.id == h && !l.slated),
+            Some(LightTie::Lizard(_)) => lizard_tie_gone,
             None => false,
         };
         let level = r

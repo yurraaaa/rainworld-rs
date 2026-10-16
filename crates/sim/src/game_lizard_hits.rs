@@ -12,7 +12,7 @@
 use rw_assets::{CreatureType, Terrain};
 
 use super::RainWorldGame;
-use crate::cosmetic::{CosmeticKind, ExplosionSpikes};
+use crate::cosmetic::{CosmeticKind, ExplosionSpikes, Spark, StationaryEffect};
 use crate::creature::{
     CreatureId, DamageType, GrabRequest, RealizedCreature, RelationshipType, Shareability,
 };
@@ -34,6 +34,7 @@ pub struct ViolenceSource {
     pub owner: Entity,
     pub pos: Vec2,
     pub last_pos: Vec2,
+    pub vel: Vec2,
 }
 
 /// One hit: `Violence`'s arguments after the target.
@@ -92,8 +93,9 @@ impl RainWorldGame {
         }
     }
 
-    /// `Lizard.Stun`: below half health longer (up to 2.5 times); the graphics' stun is
-    /// lizard step 5; the longer stun kept, and a stunned lizard lets go of all.
+    /// `Lizard.Stun`: below half health longer (up to 2.5 times); over 5 the graphics'
+    /// flicker on a lizard not yet stunned; the longer stun kept, and a stunned lizard
+    /// lets go of all.
     pub(super) fn lizard_stun(&mut self, id: CreatureId, st: i32) {
         let health = self.world.creature(id).state.health;
         let mut st = st;
@@ -101,6 +103,13 @@ impl RainWorldGame {
             st = (st as f32 * (1.0 + health.inverse_lerp(0.75, 0.0) * 1.5)) as i32;
         }
         let l = self.world.lizard_at(id);
+        let stunned = l.stunned();
+        if st > 5
+            && !stunned
+            && let Some(g) = &mut l.graphics
+        {
+            g.stun(st);
+        }
         l.stun = l.stun.max(st);
         if l.stunned() {
             self.lizard_lose_all_grasps(id);
@@ -149,7 +158,9 @@ impl RainWorldGame {
             && let Some(d) = dir
         {
             if self.lizard_hit_head_shield(id, d) {
-                // The sparks, flicker and flash of the graphics are lizard step 5.
+                if let Some(s) = hit.source {
+                    self.lizard_head_shield_effects(id, s, (num, num2), d);
+                }
                 num *= 0.1;
                 num2 = (hit.damage * 0.5 * 30.0 + hit.stun_bonus * (2.0 / 3.0))
                     / t.base_stun_resistance;
@@ -201,18 +212,34 @@ impl RainWorldGame {
         true
     }
 
-    /// `Lizard.SpearStick`: no chunk, or the head shield, and the spear bounces; in the
-    /// mouth it stuns 100. The body part a spear lodges by (with graphics) and the cyan
-    /// lizard's gas leak are later steps.
-    pub fn lizard_spear_stick(&mut self, id: CreatureId, chunk: Option<usize>, dir: Vec2) -> bool {
+    /// `Lizard.SpearStick`: no chunk, or the head shield, and the spear bounces; with
+    /// graphics a spear (`spear`) may lodge by the head or a limb (one roll, 1 in 7, 1
+    /// in 2 in the mouth, then the part's), which loses its health; in the mouth it
+    /// stuns 100. The cyan lizard's gas leak is a later step.
+    pub fn lizard_spear_stick(
+        &mut self,
+        id: CreatureId,
+        chunk: Option<usize>,
+        dir: Vec2,
+        spear: Option<ObjectId>,
+    ) -> bool {
         let Some(chunk) = chunk else {
             return false;
         };
+        let rot = self.world.lizard_ref(id).chunk_rotation(chunk);
+        let side = dir.signed_angle(-rot) * if chunk == 2 { -1.0 } else { 1.0 };
         if chunk == 0 && self.lizard_hit_head_shield(id, dir) {
             return false;
         }
         let holding = self.lizard_holding(id);
         let mouth = chunk == 0 && self.world.lizard_at(id).hit_in_mouth(dir, holding);
+        let graphics = self.world.lizard_ref(id).graphics.is_some();
+        if let Some(spear) = spear
+            && graphics
+            && self.rng.value() < 1.0 / if mouth { 2.0 } else { 7.0 }
+        {
+            self.lizard_spear_body_part(id, spear, chunk, side, mouth);
+        }
         if mouth {
             self.lizard_stun(id, 100);
         }
@@ -480,6 +507,7 @@ impl RainWorldGame {
             owner: Entity::Creature(id),
             pos: h.pos,
             last_pos: h.last_pos,
+            vel: h.vel,
         }
     }
 
@@ -628,6 +656,15 @@ impl RainWorldGame {
             c.vel = head_vel;
             if !loose {
                 c.move_from_outside_my_update(even, eu, to);
+            }
+        }
+        let l = self.world.lizard_ref(id);
+        if let Entity::Object(o) = g.grabbed
+            && let Some(link) = &l.graphics
+        {
+            let set = (l.body.chunks[0].pos - link.head.pos).perpendicular();
+            if let Some(w) = self.world.weapon_mut(o) {
+                w.set_rotation = Some(set);
             }
         }
         if loose {
@@ -787,6 +824,7 @@ impl RainWorldGame {
             owner: Entity::Object(id),
             pos: w.chunk().pos,
             last_pos: w.chunk().last_pos,
+            vel: w.chunk().vel,
         })
     }
 
@@ -896,7 +934,7 @@ impl RainWorldGame {
         let _dmg = 0.55f32.lerp(0.62, self.rng.value());
         let vel = self.world.weapon_mut(id).map_or(vel, |w| w.chunk().vel);
         let sticks = if self.world.creature(target).lizard().is_some() {
-            self.lizard_spear_stick(target, Some(chunk), vel)
+            self.lizard_spear_stick(target, Some(chunk), vel, Some(id))
         } else {
             true
         };
@@ -956,14 +994,17 @@ impl RainWorldGame {
         let throw_dir = w.throw_dir;
         let dir = w.throw_dir_vec();
         let bonus = w.spear().map_or(1.0, |s| s.spear_damage_bonus);
+        let (body_part, kept_rotation) = w
+            .spear()
+            .map_or((-1, 0.0), |s| (s.stuck_body_part, s.stuck_rotation));
         let rotation = w.rotation;
         let tile = tc.pos.tile();
         let ahead = (tile.0 + throw_dir.0, tile.1 + throw_dir.1);
         let mut stuck = StuckIn {
             creature: target,
             chunk,
-            rotation: 0.0,
-            body_part: -1,
+            rotation: kept_rotation,
+            body_part,
         };
         let mut pinned = None;
         if bonus > 0.9
@@ -972,7 +1013,8 @@ impl RainWorldGame {
         {
             pinned = Some(tc.pos.tile_middle() + dir * (10.0 - tc.rad));
             stuck.rotation = rotation.to_degrees();
-        } else {
+            stuck.body_part = -1;
+        } else if body_part == -1 {
             let rot = self.chunk_rotation(r);
             stuck.rotation = dir.signed_angle(rot);
         }
@@ -985,6 +1027,8 @@ impl RainWorldGame {
         }
         if let Some(s) = self.world.weapon_mut(id).and_then(|w| w.spear_mut()) {
             s.stuck_in = Some(stuck);
+            s.stuck_body_part = stuck.body_part;
+            s.stuck_rotation = stuck.rotation;
             if pinned.is_some() {
                 s.stuck_in_wall = pinned;
                 s.pin_to_wall_counter = 300;
@@ -1084,12 +1128,17 @@ impl RainWorldGame {
         let Some(tc) = self.chunk_of(r) else { return };
         match pinned {
             None => {
+                let part = self.stuck_body_part_pos(index, stuck);
                 let rot = self.chunk_rotation(r);
                 if let Some(w) = self.world.weapon_mut(id) {
                     w.chunk_mut().vel = tc.vel;
-                    w.set_rotation = Some(Vec2::from_degrees(stuck.rotation + rot.to_degrees()));
+                    w.set_rotation = Some(Vec2::from_degrees(
+                        stuck.rotation
+                            + part.map_or(rot.to_degrees(), |p| (p - tc.pos).to_degrees()),
+                    ));
                 }
-                self.move_with_other_object(id, r, Vec2::ZERO);
+                let offset = part.map_or(Vec2::ZERO, |p| tc.pos.lerp(p, 0.5) - tc.pos);
+                self.move_with_other_object(id, r, offset);
             }
             Some(wall) => self.pinned_spear_update(id, r, stuck, wall),
         }
@@ -1103,6 +1152,122 @@ impl RainWorldGame {
                 .change_weapon_mode(id, WeaponMode::Free, &mut self.rng);
             self.flush_dislodged();
         }
+    }
+
+    /// `BodyPartByIndex(stuckBodyPart)`'s position, which a lodged spear follows while
+    /// its room is viewed and the creature's graphics have the part.
+    fn stuck_body_part_pos(&self, index: i32, stuck: StuckIn) -> Option<Vec2> {
+        if stuck.body_part < 0 || index != self.camera_room {
+            return None;
+        }
+        let link = self
+            .world
+            .creature(stuck.creature)
+            .lizard()?
+            .graphics
+            .as_ref()?;
+        link.parts
+            .get(usize::try_from(stuck.body_part).ok()?)
+            .copied()
+    }
+
+    /// `SpearStick`'s body part for a spear lodging in chunk `chunk` of lizard `id`
+    /// with graphics (`side` is the hit's angle against the chunk): the head (chunk 0, a
+    /// third of the time or in the mouth), else a limb on the hit's side (for the
+    /// middle chunk only half the time), whose health goes to 0; then
+    /// `Spear.ProvideRotationBodyPart`.
+    fn lizard_spear_body_part(
+        &mut self,
+        id: CreatureId,
+        spear: ObjectId,
+        chunk: usize,
+        side: f32,
+        mouth: bool,
+    ) {
+        let head = self
+            .world
+            .lizard_ref(id)
+            .graphics
+            .as_ref()
+            .map_or(0, |g| g.parts.len().saturating_sub(1));
+        let part = if chunk == 0 && ((self.rng.value() < 1.0 / 3.0) | mouth) {
+            Some(head)
+        } else if chunk != 1 || self.rng.value() < 0.5 {
+            let limb = match (chunk != 2, side < 0.0) {
+                (true, true) => 1,
+                (true, false) => 0,
+                (false, true) => 2,
+                (false, false) => 3,
+            };
+            if let Some((_, l)) = self.world.creature_mut(id).state.lizard_health_parts_mut() {
+                l[limb] = 0.0;
+            }
+            Some(limb)
+        } else {
+            None
+        };
+        let Some(part) = part else { return };
+        let Some(w) = self.world.weapon_mut(spear) else {
+            return;
+        };
+        let vel = w.chunk().vel;
+        let chunk_pos = self.world.lizard_ref(id).body.chunks[chunk].pos;
+        let Some(pos) = self
+            .world
+            .lizard_at(id)
+            .graphics
+            .as_mut()
+            .and_then(|g| g.push_part(part, vel))
+        else {
+            return;
+        };
+        if let Some(s) = self.world.weapon_mut(spear).and_then(|w| w.spear_mut()) {
+            s.stuck_body_part = i32::try_from(part).unwrap_or(-1);
+            s.stuck_rotation = vel.signed_angle((pos - chunk_pos).normalized());
+        }
+    }
+
+    /// `Lizard.Violence`'s head-shield effects with graphics and a source: up to 25
+    /// sparks off the source (four draws each and the spark's), the white flicker, the
+    /// flash, and the head knocked by twice the hit.
+    fn lizard_head_shield_effects(
+        &mut self,
+        id: CreatureId,
+        source: ViolenceSource,
+        (num, num2): (f32, f32),
+        dir: Vec2,
+    ) {
+        if self.world.lizard_ref(id).graphics.is_none() {
+            return;
+        }
+        let Some(room) = self.world.lizard_ref(id).room else {
+            return;
+        };
+        let n = (num2 / 2.0).max(((num * 30.0) as i32) as f32).min(25.0) as i32;
+        for _ in 0..n {
+            let d = Vec2::from_degrees(self.rng.value() * 360.0);
+            let pos = source.pos + d * (5.0 * self.rng.value());
+            let d = Vec2::from_degrees(self.rng.value() * 360.0);
+            let speed = 0.2f32.lerp(0.4, self.rng.value()) * source.vel.length();
+            let vel = source.vel * -0.1 + d * speed;
+            let mut spark = Spark::new(pos, vel, [1.0; 4], 10, 170, &mut self.rng);
+            let flicker = self
+                .world
+                .lizard_ref(id)
+                .graphics
+                .as_ref()
+                .map_or(0, |g| g.white_flicker);
+            spark.lizard = Some((id, flicker));
+            self.world.add_cosmetic(room, CosmeticKind::Spark(spark));
+        }
+        let Some(g) = self.world.lizard_at(id).graphics.as_mut() else {
+            return;
+        };
+        g.white_flicker(n);
+        let head = g.parts.len().saturating_sub(1);
+        g.pushes.push((head, dir * 2.0));
+        let flash = StationaryEffect::flashing_orb(source.pos, Some(id));
+        self.world.add_cosmetic(room, CosmeticKind::Flash(flash));
     }
 
     /// The pinned part of the `StuckInCreature` branch.
@@ -1149,6 +1314,7 @@ impl RainWorldGame {
             if let Some(s) = self.world.weapon_mut(id).and_then(|w| w.spear_mut()) {
                 if let Some(st) = &mut s.stuck_in {
                     st.rotation = set.signed_angle(rot);
+                    s.stuck_rotation = st.rotation;
                 }
                 s.stuck_in_wall = None;
             }
@@ -1192,6 +1358,8 @@ impl RainWorldGame {
                     rotation: angle,
                     body_part,
                 });
+                p.stuck_body_part = body_part;
+                p.stuck_rotation = angle;
             }
         }
     }

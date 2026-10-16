@@ -83,7 +83,12 @@ impl RainWorldGame {
         let l = self.world.insert_creature(c);
         self.world.add_entity(l);
         assert!(self.world.realize_lizard(l, &mut self.rng));
-        self.world.place_lizard(l, 0, &mut self.rng);
+        let mut cx = crate::world::LizardRoomCx {
+            rng: &mut self.rng,
+            observer: &mut (),
+            camera_room: -1,
+        };
+        self.world.place_lizard(l, 0, &mut cx);
         let mid = Vec2::new(tile.0 as f32 * 20.0 + 10.0, tile.1 as f32 * 20.0 + 9.6);
         for (i, c) in self.world.lizard_at(l).body.chunks.iter_mut().enumerate() {
             c.hard_set_position(mid + Vec2::new(facing * 18.7 * (1.0 - i as f32), 0.0));

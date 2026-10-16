@@ -14,7 +14,7 @@ use std::sync::Arc;
 use rw_assets::shortcut::FOUR_DIRECTIONS;
 use rw_assets::{CreatureType, Room, ShortcutType, Terrain};
 
-use super::RainWorldGame;
+use super::{PlayerObserver, RainWorldGame};
 use crate::creature::lizard::{AnimationOutcome, MovementAnimation};
 use crate::creature::{CreatureId, LizardAnimation, WorldCoordinate};
 use crate::item::Entity;
@@ -1391,7 +1391,12 @@ impl RainWorldGame {
     /// object's chunks are pulled into the entrance (4.5 px a tick, slowed to 6%),
     /// `SuckedIntoShortCut` once none of the lizard's own chunks still moves; a stun
     /// cancels. Returns false when it is not entering.
-    pub(super) fn lizard_pull_into_shortcut(&mut self, index: i32, id: CreatureId) -> bool {
+    pub(super) fn lizard_pull_into_shortcut(
+        &mut self,
+        index: i32,
+        id: CreatureId,
+        observer: &mut dyn PlayerObserver,
+    ) -> bool {
         let Some(entrance) = self.world.lizard_ref(id).entering_shortcut else {
             self.world.lizard_at(id).short_cut_rad_add = 0.9;
             return false;
@@ -1399,9 +1404,9 @@ impl RainWorldGame {
         let Some(room) = self.world.realized(index).map(|r| Arc::clone(&r.room)) else {
             return true;
         };
-        let l = self.world.lizard_at(id);
-        l.short_cut_rad_add += 0.2;
-        let radius = 10.0f32.max(l.short_cut_rad_add);
+        self.world.lizard_at(id).short_cut_rad_add += 0.2;
+        self.lizard_graphics_update(index, id, observer);
+        let radius = 10.0f32.max(self.world.lizard_ref(id).short_cut_rad_add);
         let hole = room.shortcut_hole_direction(entrance.0, entrance.1);
         let target =
             Vec2::middle_of_tile(entrance) + Vec2::new(hole.0 as f32, hole.1 as f32) * -5.0;
@@ -1427,6 +1432,7 @@ impl RainWorldGame {
         if moving == 0 {
             self.lizard_sucked_into_shortcut(index, id, entrance, &room);
         }
+        self.lizard_graphics_sucked(id, target, observer);
         if let Some(l) = self.world.creature_mut(id).lizard_mut()
             && l.stunned()
         {

@@ -208,6 +208,14 @@ sound_ids! {
     LizardPrepareToShootTongue = "Lizard_Prepare_To_Shoot_Tongue",
     LizardPrepareLungeAttackInit = "Lizard_Prepare_Lunge_Attack_Init",
     LizardLungeAttackInit = "Lizard_Lunge_Attack_Init",
+    LizardBellyDragLoop = "Lizard_Belly_Drag_LOOP",
+    LizardLoungeAttackLoop = "Lizard_Lounge_Attack_LOOP",
+    LizardGreenFootGrab = "Lizard_Green_Foot_Grab",
+    LizardGreenFootRelease = "Lizard_Green_Foot_Release",
+    LizardBlueWhiteFootGrab = "Lizard_BlueWhite_Foot_Grab",
+    LizardBlueWhiteFootRelease = "Lizard_BlueWhite_Foot_Release",
+    LizardPinkYellowRedFootGrab = "Lizard_PinkYellowRed_Foot_Grab",
+    LizardPinkYellowRedFootRelease = "Lizard_PinkYellowRed_Foot_Release",
     // No `sounds.txt` line: it never plays.
     SpearHitSmallCreature = "Spear_Hit_Small_Creature",
 }

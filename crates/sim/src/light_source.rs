@@ -1,6 +1,6 @@
 //! `LightSource` (128563): a light in its room's update list and `lightSources`. Only
-//! the Monk's guide light makes one so far, so the placed-object paths (blinking,
-//! colour from the environment, night lights, fading with the sun) stay at their
+//! the Monk's guide light and a lizard's graphics make one so far, so the placed-object
+//! paths (blinking, colour from the environment, night lights, fading with the sun) stay at their
 //! defaults. Its sprites are `rw-graphics`'. No draws.
 
 use crate::Vec2;
@@ -10,6 +10,8 @@ use crate::Vec2;
 pub enum LightTie {
     /// A `HologramLight` by id.
     HoloLight(u64),
+    /// A lizard (its graphics' head light).
+    Lizard(crate::creature::CreatureId),
 }
 
 /// `LightSource`.

@@ -4,7 +4,8 @@
 //! Ported: the slugcat ([`PlayerGraphics`]: tail, head, legs, hands, draw offsets,
 //! breathing, blinking, sprite frame choice), base game with Remix off; Futile atlas
 //! frame data ([`Atlas`]); the overseer's ([`OverseerGraphics`]: mycelia, lens, sprites)
-//! and its holograms' ([`HologramGraphics`]); the bat fly's ([`FlyGraphics`]); the shelter door's
+//! and its holograms' ([`HologramGraphics`]); the bat fly's ([`FlyGraphics`]); the
+//! lizard's body, legs, tail and head ([`LizardGraphics`]); the shelter door's
 //! ([`ShelterDoorSprites`]). Behaviour: `rainworld-re/notes/slugcat-graphics.md` and
 //! `sprite-atlases.md`; differences from the game are in `docs/DIVERGENCES.md`.
 
@@ -21,6 +22,10 @@ mod hologram_matrix;
 mod hologram_shape;
 mod light_source;
 mod limb;
+mod lizard_cosmetics;
+mod lizard_draw;
+mod lizard_graphics;
+mod lizard_limb;
 mod looker;
 mod math;
 mod mycelium;
@@ -36,7 +41,7 @@ mod weapon_graphics;
 
 pub use atlas::{Atlas, AtlasError, AtlasFrame, Rect, Size};
 pub use body_part::{BodyPart, PointConnection};
-pub use cosmetic_graphics::CosmeticSprites;
+pub use cosmetic_graphics::{CosmeticSprites, LizardColors, NoLizards};
 pub use draw::{Color, DrawItem, DrawList, Layer, Mesh, Shader, SlugcatName, Sprite};
 pub use fly_graphics::FlyGraphics;
 pub use hand::SlugcatHand;
@@ -46,6 +51,13 @@ pub use hologram_matrix::{HoloLine, HologramMatrix, LensFrame};
 pub use hologram_shape::{HologramLine, PartShape};
 pub use light_source::{LightSourceSprites, LightSourceView};
 pub use limb::{GripSearch, Limb, LimbMode};
+pub use lizard_cosmetics::{
+    CosmeticShape, LizardCosmetic, LizardScale, Scales, SpineBumps, SpritesOverlap,
+};
+pub use lizard_graphics::{
+    CreatureLooker, IndividualVariations, LIZARD_BASE_SPRITES, LizardGraphics,
+};
+pub use lizard_limb::LizardLimb;
 pub use looker::ObjectLooker;
 pub use math::{Custom, CustomVec, Mathf, UnityVector3, Vec2Bezier, Vec3};
 pub use mycelium::{Mycelium, MyceliumLink};

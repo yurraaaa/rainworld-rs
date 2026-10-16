@@ -15,14 +15,16 @@ use rw_assets::{
 use rw_audio::Follow as SoundFollow;
 use rw_graphics::{
     Color, CosmeticSprites, DrawList, FlyGraphics, HologramFrame, HologramGraphics,
-    HologramLightSprites, LightSourceSprites, LightSourceView, OverseerGraphics, PlayerGraphics,
-    ShelterDoorSprites, ShortcutPalette, WaterDripSprites, WeaponSprites,
+    HologramLightSprites, LightSourceSprites, LightSourceView, LizardColors, LizardGraphics,
+    OverseerGraphics, PlayerGraphics, ShelterDoorSprites, ShortcutPalette, WaterDripSprites,
+    WeaponSprites,
 };
 use rw_hud::{HudSetup, OwnerTick, RainCycleView, StartCondition, Subregions};
 use rw_random::UnityRandom;
 use rw_render::{BodyStatus, ChunkInterpolation, Follow, PlayerLight, SurfaceLight, WaterSurface};
 use rw_sim::campaign::{self, SlugcatCampaign, StoryStart};
 use rw_sim::creature::fly::FlyView;
+use rw_sim::creature::lizard::{LizardGraphicsLink, LizardGraphicsTick, LizardView};
 use rw_sim::creature::overseer::hologram::OverseerHologram;
 use rw_sim::creature::overseer::{OverseerBody, OverseerView};
 use rw_sim::creature::{CreatureId, EntityId};
@@ -105,6 +107,8 @@ struct Graphics {
     holograms: Vec<HologramGraphics>,
     /// The flies' graphics modules, in sprite order (`MoveToFront` moves one last).
     flies: Vec<FlyGraphics>,
+    /// The lizards' graphics modules, in the order they were built.
+    lizards: Vec<LizardGraphics>,
     /// The camera room palette's earth colour (`OverseerGraphics.ApplyPalette`).
     earth: Color,
     /// The lens's and holograms' per-frame draws (the game's come from the global
@@ -314,6 +318,72 @@ impl PlayerObserver for Graphics {
         self.flies.retain(|g| g.id != id);
     }
 
+    fn builds_lizard_graphics(&self) -> bool {
+        true
+    }
+
+    /// A link without parts is a new module (one kept here belongs to an earlier body
+    /// of the creature and is replaced); with parts, the module only resets.
+    fn lizard_added(
+        &mut self,
+        view: &LizardView<'_>,
+        link: &mut LizardGraphicsLink,
+        rng: &mut UnityRandom,
+    ) {
+        let i = match self.lizards.iter().position(|g| g.id == view.id) {
+            Some(i) if !link.parts.is_empty() => i,
+            found => {
+                if let Some(i) = found {
+                    self.lizards.remove(i);
+                }
+                self.lizards.push(LizardGraphics::new(view));
+                self.lizards.len() - 1
+            }
+        };
+        let g = &mut self.lizards[i];
+        g.reset(view, rng);
+        g.write_link(link);
+    }
+
+    fn lizard_reset(
+        &mut self,
+        view: &LizardView<'_>,
+        link: &mut LizardGraphicsLink,
+        rng: &mut UnityRandom,
+    ) {
+        if let Some(g) = self.lizards.iter_mut().find(|g| g.id == view.id) {
+            g.reset(view, rng);
+            g.write_link(link);
+        }
+    }
+
+    fn lizard_updated(
+        &mut self,
+        view: &LizardView<'_>,
+        link: &mut LizardGraphicsLink,
+        cx: &mut LizardGraphicsTick<'_>,
+    ) {
+        if let Some(g) = self.lizards.iter_mut().find(|g| g.id == view.id) {
+            g.update(view, link, cx);
+        }
+    }
+
+    fn lizard_sucked_into_shortcut(
+        &mut self,
+        id: EntityId,
+        link: &mut LizardGraphicsLink,
+        pos: Vec2,
+    ) {
+        if let Some(g) = self.lizards.iter_mut().find(|g| g.id == id) {
+            g.sucked_into_shortcut(pos);
+            g.write_link(link);
+        }
+    }
+
+    fn lizard_removed(&mut self, id: EntityId) {
+        self.lizards.retain(|g| g.id != id);
+    }
+
     fn nudge_tail_x(&mut self, dvx: f32) {
         if let Some(g) = &mut self.module {
             for segment in &mut g.tail {
@@ -506,6 +576,7 @@ impl Game {
             hologram_bases: Vec::new(),
             holograms: Vec::new(),
             flies: Vec::new(),
+            lizards: Vec::new(),
             earth: Color::BLACK,
             cosmetic: UnityRandom::new(0),
         };
@@ -798,16 +869,61 @@ impl Game {
             .collect()
     }
 
-    /// The sparks and spikes in the camera's room at `alpha` between ticks, oldest
-    /// first.
-    pub fn cosmetic_draw_lists(&self, alpha: f32) -> Vec<DrawList> {
+    /// The sparks, spikes and lizard bubbles and flashes in the camera's room at `alpha`
+    /// between ticks, oldest first, in the palette's `black` (the flashes draw on the
+    /// cosmetic stream).
+    pub fn cosmetic_draw_lists(&mut self, alpha: f32, black: Color) -> Vec<DrawList> {
         let world = self.sim.world();
         let Some(room) = world.realized(self.sim.camera_room()) else {
             return Vec::new();
         };
         let mut shown: Vec<_> = room.cosmetics.iter().filter(|c| !c.slated).collect();
         shown.sort_by_key(|c| c.update_order);
-        shown.iter().map(|c| c.draw(&room.room, alpha)).collect()
+        let heads = LizardHeads {
+            graphics: &self.graphics.lizards,
+            world,
+            black,
+        };
+        let rng = &mut self.graphics.cosmetic;
+        shown
+            .iter()
+            .map(|c| c.draw(&room.room, alpha, &heads, rng))
+            .collect()
+    }
+
+    /// The lizards' sprites in the camera's room at `alpha` between ticks, in the
+    /// order their modules were built, in the palette's `black` (their draws come from
+    /// the cosmetic stream).
+    pub fn lizard_draw_lists(&mut self, alpha: f32, black: Color) -> Vec<DrawList> {
+        let world = self.sim.world();
+        let camera_room = self.sim.camera_room();
+        let realized: Vec<EntityId> = world
+            .creatures()
+            .filter(|(_, c)| c.lizard().is_some_and(|l| l.graphics.is_some()))
+            .map(|(_, c)| c.id)
+            .collect();
+        self.graphics.lizards.retain(|g| realized.contains(&g.id));
+        let graphics = &mut self.graphics;
+        let mut lists = Vec::new();
+        for g in &mut graphics.lizards {
+            let shown = world
+                .creature(g.creature)
+                .lizard()
+                .is_some_and(|l| l.room == Some(camera_room) && !l.in_shortcut);
+            if !shown {
+                continue;
+            }
+            if let Some(view) = world.lizard_view(g.creature, None) {
+                lists.push(g.draw(&view, black, alpha, &mut graphics.cosmetic));
+            }
+        }
+        lists
+    }
+
+    /// The lizards' graphics modules (for MCP replies).
+    #[must_use]
+    pub fn lizard_graphics(&self) -> &[LizardGraphics] {
+        &self.graphics.lizards
     }
 
     /// The guide's lights and their light sources in the camera's room at `alpha`
@@ -1385,5 +1501,24 @@ impl LightDrawable {
         match *self {
             Self::Holo(id) | Self::Source(id) => id,
         }
+    }
+}
+
+/// The lizards' head colours, as their cosmetics read them when drawn.
+struct LizardHeads<'a> {
+    graphics: &'a [LizardGraphics],
+    world: &'a World,
+    black: Color,
+}
+
+impl LizardColors for LizardHeads<'_> {
+    fn lizard_head(&self, id: CreatureId, t: f32) -> Option<(Color, i32)> {
+        let g = self.graphics.iter().find(|g| g.creature == id)?;
+        let view = self.world.lizard_view(id, None)?;
+        Some((g.head_color(&view, self.black, t), g.white_flicker))
+    }
+
+    fn black(&self) -> Color {
+        self.black
     }
 }

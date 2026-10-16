@@ -94,8 +94,8 @@ it (D13). What still differs is only the seed and the call order:
   1000 ticks into a cycle) every story run's stream has shifted from before, as the
   game's does. Missing: the draws a creature other than a bat fly, an overseer or a
   green lizard would make on being realized (`PlaceInRealizedRoom`, its body, AI and
-  graphics), as it stays abstract (D14), a green lizard's `LizardGraphics` draws and
-  its AI's trackers' (lizard steps 5 and 6), and
+  graphics), as it stays abstract (D14), a green lizard's voice (lizard step 5b) and
+  its AI's trackers' (lizard step 6), and
   per tick the scavengers' abstract AI and `ScavengersWorldAI` (one `Range` over the
   scavengers every tick once a world has any), which are not ported (D14).
   `LocalCoordinateOfNode` draws for bat hives, garbage holes and border exits (a border
@@ -108,6 +108,22 @@ it (D13). What still differs is only the seed and the call order:
   step and the desperate shove, the shake, `EnterAnimation`'s and the shortcut sounds,
   and `DefineNodeOfLocalCoordinate`'s `LocalCoordinateOfNode` draws in a room ready for
   AI.
+  In a viewed room a green lizard has its `LizardGraphics` (lizard step 5a), whose
+  `Update` runs after the lizard's in its slot of the update list (and once more while
+  it is pulled into a shortcut) and makes the game's draws: culling's `Reset` (12),
+  `showDominance`'s (1), the `CreatureLooker` focus roll (1, then 1 more and 1 or 2 for
+  `LookAtNothing`; 1 per spotted animation), the eyes (4), the blink (1, or 2 during a
+  stun flicker), the tail direction (1, and 2 when it changes), each limb's health rolls
+  and foot sounds, and the bubbles (11 each: a lunge, a threat display, a jumping head,
+  `bubble` ticks, a hard landing's 1 + 12 each) and a lunging green lizard's drips. Its
+  constructor draws on a stream seeded by the creature's ID, the global one restored, as
+  the game's does. A spear lodging in it with graphics rolls for the body part (1, then
+  the part's), the head shield's sparks draw 4 each, and the sick lizard's white flicker
+  is drawn. `LizardGraphics.DrawSprites`' draws (the ready jaw's twitch, the head and
+  threatened body's jitter, the flicker colour, the every-second-draw toggle) and the
+  head shield flash's come from the app's cosmetic stream, for the same per-frame
+  reason as the holograms'. A lizard in a room nobody views has no graphics module and
+  makes none of these draws, as in the game.
 - **Room items.** A room realized for the first time in a cycle makes its items' draws
   where the game makes them, in `RealizeRoom` (`rainworld-re/notes/items.md`): one
   `value` per entry of the room file's item list, then `Room.Loaded`'s random items, two
@@ -543,6 +559,35 @@ is outside the base-game scope.
 
 **Affects.** Exact blink timing and jitter; the look of the slugcat in the unported
 states (they fall back to the nearest ported pose: Default for the airborne ones).
+
+**Lizard graphics (`rw_graphics::LizardGraphics`, lizard step 5a).** The green
+lizard's `LizardGraphics` constructor, `Reset`, `Update` (culling, the belly-drag and
+lounge loop, the look focus over the AI's empty tracker, eyes, head colour setter and
+its bubbles and drips, blink, the head light in a dark room, breath, `LizardLimb`s with
+their grip, flip, foot sounds and `LegsGripping`, the depth rotations, the tail, the
+head with its jump and `bubble` bubbles), `SuckedIntoShortCut`, `Stun`, `WhiteFlicker`,
+`TerrainImpact`, `DrawSprites` for the body circles and mesh, tail mesh, legs and their
+colour layer and the five head sprites, in `AddToContainer`'s order, coloured as
+`ApplyPalette` and `HeadColor`; `LizardBubble` in full, the head shield's sparks and
+`StationaryEffect` flash, and the body part a lodged spear follows. Differences:
+- **Cosmetics.** The choice and the constructors' state (`SpineSpikes`, `BumpHawk`,
+  `LongShoulderScales`, `ShortBodyScales`, `TailTuft`, `LongHeadScales`) are ported for
+  the green lizard; their sprites, `DrawSprites` and updates (which draw only while
+  `showDominance` is above 0, never in the base game) are lizard step 5b, so the
+  lizard is drawn without spikes or scales. `graphicHeight` (an atlas element's
+  height) is not stored yet. The other breeds' choices and cosmetics come with them.
+- **The voice** is silent until step 5b: `voiceVisualization` and its intensity are 0
+  (no bubbles, jaw or body shake from it).
+- **The AI's looks.** `LizardAI` is a stand-in (D14): its tracker is empty, so the
+  looker never looks at a creature (`lookCreature` stays null, the eye beams stay off)
+  and `CreatureSpotted` and the fleeing `lookPos` are not called.
+- **Bubble drawing.** A bubble stuck to the head stretches toward the head as of the
+  last update (the game lerps the head and `HeadRotation` by the frame's time stacker).
+- **Not ported:** the white lizard's camouflage, the black lizard's head lighting up from
+  noise, the salamander's colours, the cyan lizard's tail, the tongue, the vision beams
+  (`lizardLaserEyes` is a dev setup value), the debug visualization,
+  `overrideHeadGraphic` (Saint timeline and Winterized), mud, and every More
+  Slugcats, Watcher and Remix branch (rot, the DLC breeds' cosmetics and colours).
 
 ## D9: Skid, flip, roll, belly slide and rocket jump
 
@@ -1264,11 +1309,9 @@ second part, else a single-room world for arena levels). The campaign descriptio
   7); `NewRoom` sets a random tile of the new room as the destination. So a realized
   lizard follows its abstract AI's destinations and migrations and otherwise stands.
   The MCP `set_destination` tool sets a destination and a run speed the AI keeps: a dev
-  override, not game behaviour. Until the graphics' limbs exist (step 5)
-  `LegsGripping` is 2 and `NoGripCounter` 0 (the game's values hold only without a
-  graphics module, that is out of view): in a viewed room the frame speed, gravity and
-  lounge pushes do not follow its legs, and nothing holds its body along the floor
-  (it can end up standing on its head in a tall corridor). Not ported: the den finder's
+  override, not game behaviour. `LegsGripping` and `NoGripCounter` come from its
+  graphics' legs in a viewed room (lizard step 5a, D8), and are 2 and 0 without a
+  graphics module, as in the game. Not ported: the den finder's
   remap in `NewArea` (step 7), the yellow lizards' pack term of the travel preference,
   the obstacle and threat terms of the travel costs (the trackers, step 6),
   `nonShortcutRoomEntrancePos` (entering a room from its border), and `PathWithExits`
@@ -1276,9 +1319,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
   jump animations belong to breeds whose data is not entered; a green lizard never
   enters them, and the port goes back to Standard if one does. Not yet, with their
   steps: the AI's decisions (tracker, relationships, social events and taming are steps
-  6 and 7), `LizardGraphics` and `LizardVoice` (step 5: the voice's `MakeSound` draw is
-  made, its sound is not; the graphics' draws, the head shield's sparks and flash,
-  `WhiteFlicker` and the body part a spear lodges by are missing, D1), eating a dead
+  6 and 7), the cosmetics' sprites and `LizardVoice` (step 5b: the voice's `MakeSound`
+  draw is made, its sound is not), eating a dead
   lizard (step 8: the player cannot grab creatures yet), the drowning bubble (its draws
   are made, the object is not), lethal water and the rain's flood (no rain yet). The
   `kill_green_lizards` tutorial message is the game's: it marks the state dead without

@@ -50,6 +50,7 @@ pub use creature_ai_map::CreatureSpecificAiMap;
 pub(crate) use creatures::RoomLists;
 pub use creatures::{AbstractTick, QuantifiedCount, WorldProcesses};
 pub use flies_world_ai::{FliesTick, FliesWorldAi, SwarmBehavior};
+pub(crate) use lizards::LizardRoomCx;
 pub use movement::{Accessibility, Legality, MovementConnection, MovementType, PathCost};
 pub use overseers_world_ai::{DirectionFinder, OverseersWorldAi, ShelterFinder, StoryProgress};
 pub use quick_connectivity::QuickConnectivity;
@@ -186,6 +187,46 @@ impl World {
             r.drips.push(drip);
         }
         self.drip_ids
+    }
+
+    /// `Room.AddObject` of a drip that took update-list place `seq`.
+    pub(crate) fn add_drip_at(&mut self, room: i32, mut drip: crate::WaterDrip, seq: u64) {
+        self.drip_ids += 1;
+        drip.id = self.drip_ids;
+        drip.room = room;
+        drip.update_order = seq;
+        if let Some(r) = self.realized_mut(room) {
+            r.drips.push(drip);
+        }
+    }
+
+    /// The update-list counter (`next_update_seq`'s last value).
+    #[must_use]
+    pub(crate) fn update_seq(&self) -> u64 {
+        self.update_seq
+    }
+
+    pub(crate) fn set_update_seq(&mut self, seq: u64) {
+        self.update_seq = seq;
+    }
+
+    /// Light source `id` in whichever realized room holds it.
+    #[must_use]
+    pub(crate) fn light_source(&self, id: u64) -> Option<&crate::light_source::LightSource> {
+        self.realized
+            .iter()
+            .flatten()
+            .find_map(|r| r.light_sources.iter().find(|l| l.id == id))
+    }
+
+    pub(crate) fn light_source_mut(
+        &mut self,
+        id: u64,
+    ) -> Option<&mut crate::light_source::LightSource> {
+        self.realized
+            .iter_mut()
+            .flatten()
+            .find_map(|r| r.light_sources.iter_mut().find(|l| l.id == id))
     }
 
     /// `World.RoomToWorldPos`: a room position on the region map.

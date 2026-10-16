@@ -10,7 +10,7 @@ mod weapon;
 
 pub use spear_stick::{SpearStick, SpearStickKind};
 pub use weapon::{
-    ChunkDynamicSoundLoop, ModeChange, SpearParts, StuckIn, Throw, WEAPON_PARAMS, Weapon,
+    ChunkDynamicSoundLoop, LoopCx, ModeChange, SpearParts, StuckIn, Throw, WEAPON_PARAMS, Weapon,
     WeaponKind, WeaponMode, WeaponTick,
 };
 

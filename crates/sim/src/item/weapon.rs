@@ -104,6 +104,11 @@ pub struct SpearParts {
     /// `stuckInObject` and its chunk, `stuckRotation` and `stuckBodyPart` while lodged
     /// in a creature.
     pub stuck_in: Option<StuckIn>,
+    /// `stuckBodyPart`: kept from one lodging to the next, as the game keeps it (-1:
+    /// none). While it is set, a new lodging keeps `stuckRotation` too.
+    pub stuck_body_part: i32,
+    /// `stuckRotation`, kept the same way.
+    pub stuck_rotation: f32,
     pub pin_to_wall_counter: i32,
     /// `ChangeMode` pulled it out of a creature: the world plays
     /// `Spear_Dislodged_From_Creature` and drops the stick (`PulledOutOfStuckObject`).
@@ -285,6 +290,8 @@ impl Weapon {
                     needle_type: rng.range_i32(0, 3),
                     needle_fade_counter: 400,
                     stuck_in: None,
+                    stuck_body_part: -1,
+                    stuck_rotation: 0.0,
                     pin_to_wall_counter: 0,
                     pulled_out: false,
                 };
@@ -1145,8 +1152,27 @@ impl ChunkDynamicSoundLoop {
         self.v
     }
 
+    /// The `Pitch` setter.
+    pub fn set_pitch(&mut self, p: f32) {
+        self.p = p;
+    }
+
     /// `DynamicSoundLoop.Update` for an owner in `owner_room` whose chunk is at `pos`.
     pub fn update(&mut self, owner_room: Option<i32>, pos: Vec2, cx: &mut WeaponTick<'_>) {
+        let mut lcx = LoopCx {
+            room_index: cx.room_index,
+            sounds: cx.sounds,
+            rng: cx.rng,
+            triggers: cx.triggers,
+            camera_room: cx.camera_room,
+            tick: cx.tick,
+            update_seq: cx.update_seq,
+        };
+        self.update_in(owner_room, pos, &mut lcx);
+    }
+
+    /// `DynamicSoundLoop.Update` with what it reads of the room and game.
+    pub fn update_in(&mut self, owner_room: Option<i32>, pos: Vec2, cx: &mut LoopCx<'_>) {
         if self.emitter.is_some_and(|e| e.slated) {
             self.emitter = None;
         }
@@ -1177,7 +1203,7 @@ impl ChunkDynamicSoundLoop {
 
     /// `Start`: a sound with a working trigger plays on the chunk as a loop
     /// (`Room.PlaySound(sound, chunk, loop: true, v, p)`), its emitter a new room object.
-    fn start(&mut self, pos: Vec2, cx: &mut WeaponTick<'_>) {
+    fn start(&mut self, pos: Vec2, cx: &mut LoopCx<'_>) {
         let Some(sound) = self.sound else { return };
         if cx.triggers.trigger(sound.name()).is_none() {
             return;
@@ -1201,11 +1227,24 @@ impl ChunkDynamicSoundLoop {
     }
 
     /// `Stop`: the emitter is let go (`alive = false`); the port stops its sound at once.
-    fn stop(&mut self, sounds: &mut Sounds) {
+    pub fn stop(&mut self, sounds: &mut Sounds) {
         if let Some(e) = self.emitter.take() {
             sounds.stop_emitter(e.sound);
         }
     }
+}
+
+/// What a `DynamicSoundLoop` reads of its room and the game.
+pub struct LoopCx<'a> {
+    pub room_index: i32,
+    pub sounds: &'a mut Sounds,
+    pub rng: &'a mut UnityRandom,
+    /// `soundLoader.workingTriggers`.
+    pub triggers: &'a SoundTable,
+    pub camera_room: i32,
+    pub tick: u64,
+    /// The world's `updateList` position counter (the emitter joins the room).
+    pub update_seq: &'a mut u64,
 }
 
 #[cfg(test)]

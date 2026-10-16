@@ -6,6 +6,7 @@ use super::{OverseerCall, PlayerObserver, RainWorldGame};
 use crate::Vec2;
 use crate::creature::{CreatureId, CreatureTemplate, EntityId, LizardBreedParams, WorldCoordinate};
 use crate::item::Entity;
+use crate::world::LizardRoomCx;
 
 impl RainWorldGame {
     /// A dev spawn as the game's dev tools make one: `new AbstractCreature(world,
@@ -72,7 +73,12 @@ impl RainWorldGame {
             self.realize_fly_in_room(room, id, observer);
         } else if LizardBreedParams::of(kind).is_some() {
             // Not the game-level call: a shelter would put it on the door's spawn tile.
-            self.world.realize_lizard_in_room(id, None, &mut self.rng);
+            let mut cx = LizardRoomCx {
+                rng: &mut self.rng,
+                observer,
+                camera_room: self.camera_room,
+            };
+            self.world.realize_lizard_in_room(id, None, &mut cx);
         } else if self.world.realize_overseer(id, 0, &mut self.rng) {
             self.run_overseer(id, OverseerCall::Place, observer);
         }

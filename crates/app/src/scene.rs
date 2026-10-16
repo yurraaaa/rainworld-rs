@@ -485,15 +485,16 @@ impl Scene {
         // `Water` draws before the light sources' owners hard-set them this frame.
         let surface_lights = self.game.surface_lights();
         // The shelter door's (added with the room), the items' (realized before the
-        // creatures), the flies' and the drips' sprites join the overseers', in sprite
-        // order.
+        // creatures), the flies', the lizards' and the drips' sprites join the
+        // overseers', in sprite order.
         let overseers = if target.sprites.is_some() {
             let mut lists: Vec<_> = self.game.shelter_draw_list(alpha).into_iter().collect();
             lists.extend(self.game.weapon_draw_lists(alpha, face));
             lists.extend(self.game.overseer_draw_lists(alpha, earth));
             lists.extend(self.game.fly_draw_lists(alpha, face));
+            lists.extend(self.game.lizard_draw_lists(alpha, face));
             lists.extend(self.game.drip_draw_lists(alpha, face, darkness));
-            lists.extend(self.game.cosmetic_draw_lists(alpha));
+            lists.extend(self.game.cosmetic_draw_lists(alpha, face));
             let cam_pos = rw_sim::Vec2::from(self.camera.view_origin(alpha));
             lists.extend(self.game.holo_light_draw_lists(alpha, cam_pos, darkness));
             lists

@@ -1,33 +1,192 @@
-//! `Spark.DrawSprites` (40745) and `ExplosionSpikes.DrawSprites` (34935): a white
-//! streak in `Midground`, and a ring of fading spikes in `Foreground`. No draws.
+//! `Spark.DrawSprites` (40745), `ExplosionSpikes.DrawSprites` (34935),
+//! `LizardBubble.DrawSprites` and `StationaryEffect.DrawSprites`: a streak in
+//! `Midground` (in the lizard's head colour while its graphics flicker white), a ring of
+//! fading spikes in `Foreground`, a lizard's bubble and its head shield's flash. The
+//! flash draws on the cosmetic stream (D1).
 
 use std::borrow::Cow;
 
 use rw_assets::Room;
-use rw_sim::{Cosmetic, CosmeticKind, ExplosionSpikes, RoomExt, Spark};
+use rw_random::UnityRandom;
+use rw_sim::creature::CreatureId;
+use rw_sim::creature::lizard::LizardBubble;
+use rw_sim::{Cosmetic, CosmeticKind, ExplosionSpikes, RoomExt, Spark, StationaryEffect, Vec2};
 
-use crate::draw::{Color, DrawItem, DrawList, Layer, Mesh, Shader};
-use crate::math::Mathf;
+use crate::draw::{Color, DrawItem, DrawList, Layer, Mesh, Shader, Sprite};
+use crate::math::{CustomVec, Mathf};
 
 const STREAK: [[u16; 3]; 1] = [[0, 1, 2]];
 
-/// The sprites of a spark or a ring of spikes.
+/// `LizardBubble0` to `7`, by hollowness.
+const BUBBLES: [&str; 8] = [
+    "LizardBubble0",
+    "LizardBubble1",
+    "LizardBubble2",
+    "LizardBubble3",
+    "LizardBubble4",
+    "LizardBubble5",
+    "LizardBubble6",
+    "LizardBubble7",
+];
+
+/// What the lizards' cosmetics read of their graphics when drawn.
+pub trait LizardColors {
+    /// `HeadColor(t)` and `whiteFlicker` of lizard `id`'s graphics, while it has them.
+    fn lizard_head(&self, id: CreatureId, t: f32) -> Option<(Color, i32)>;
+    /// The room palette's black.
+    fn black(&self) -> Color;
+}
+
+/// No lizard graphics (a room nobody views).
+pub struct NoLizards(pub Color);
+
+impl LizardColors for NoLizards {
+    fn lizard_head(&self, _id: CreatureId, _t: f32) -> Option<(Color, i32)> {
+        None
+    }
+
+    fn black(&self) -> Color {
+        self.0
+    }
+}
+
+/// The sprites of a cosmetic sprite.
 pub trait CosmeticSprites {
-    /// `DrawSprites` at `t` between ticks in `room`.
-    fn draw(&self, room: &Room, t: f32) -> DrawList;
+    /// `DrawSprites` at `t` between ticks in `room`; the flash draws on `rng`.
+    fn draw(
+        &self,
+        room: &Room,
+        t: f32,
+        lizards: &dyn LizardColors,
+        rng: &mut UnityRandom,
+    ) -> DrawList;
 }
 
 impl CosmeticSprites for Cosmetic {
-    fn draw(&self, room: &Room, t: f32) -> DrawList {
+    fn draw(
+        &self,
+        room: &Room,
+        t: f32,
+        lizards: &dyn LizardColors,
+        rng: &mut UnityRandom,
+    ) -> DrawList {
         let item = match &self.kind {
-            CosmeticKind::Spark(s) => s.mesh(room, t),
-            CosmeticKind::Spikes(s) => s.mesh(room, t),
+            CosmeticKind::Spark(s) => {
+                let mut m = s.mesh(room, t);
+                if let Some((color, flicker)) =
+                    s.lizard.and_then(|(id, _)| lizards.lizard_head(id, t))
+                    && flicker > 0
+                {
+                    m.color = color;
+                }
+                DrawItem::Mesh(m)
+            }
+            CosmeticKind::Spikes(s) => DrawItem::Mesh(s.mesh(room, t)),
             // The `OverseerZip` shader's glow is not drawn.
             CosmeticKind::OverseerEffect(_) => return DrawList { items: Vec::new() },
+            CosmeticKind::LizardBubble(b) => b.sprite(t, lizards),
+            CosmeticKind::Flash(f) => f.sprite(t, lizards, rng),
         };
-        DrawList {
-            items: vec![DrawItem::Mesh(item)],
+        DrawList { items: vec![item] }
+    }
+}
+
+/// A lizard bubble's or flash's sprite.
+trait LizardCosmeticSprite {
+    fn sprite_at(
+        element: &'static str,
+        pos: Vec2,
+        scale: Vec2,
+        rotation: f32,
+        anchor_y: f32,
+        color: Color,
+    ) -> DrawItem {
+        DrawItem::Sprite(Sprite {
+            index: 0,
+            element,
+            pos,
+            rotation,
+            scale,
+            anchor: Vec2::new(0.5, anchor_y),
+            color,
+            shader: Shader::default(),
+            layer: Layer::Midground,
+        })
+    }
+}
+
+impl LizardCosmeticSprite for LizardBubble {}
+impl LizardCosmeticSprite for StationaryEffect {}
+
+/// `LizardBubble.DrawSprites`.
+trait BubbleSprite {
+    fn sprite(&self, t: f32, lizards: &dyn LizardColors) -> DrawItem;
+}
+
+impl BubbleSprite for LizardBubble {
+    /// Fading from the head colour to black over the second half of its life, hollow
+    /// rings once free, stretched toward the head while stuck to it (the head as of
+    /// the last update: the game lerps it).
+    fn sprite(&self, t: f32, lizards: &dyn LizardColors) -> DrawItem {
+        let last = (std::f32::consts::PI * self.last_life)
+            .sin()
+            .lerp_to(self.last_life, 0.5);
+        let now = (std::f32::consts::PI * self.life)
+            .sin()
+            .lerp_to(self.life, 0.5);
+        let size = 0.625 * last.lerp_to(now, t);
+        let pos = self.last_pos.lerp(self.pos, t);
+        let black = lizards.black();
+        let head = lizards
+            .lizard_head(self.lizard, t)
+            .map_or(black, |(c, _)| c);
+        let life = self.last_life.lerp_to(self.life, t);
+        let color = head.lerp(black, 1.0 - (life * 2.0).clamp(0.0, 1.0));
+        let mut frame = 0;
+        if self.hollow {
+            let h = self.life.inverse_lerp(self.life_time_when_free, 0.0);
+            frame = ((rw_sim::FloatExt::mathf_pow(h, self.hollow_ness) * 7.0) as i32).clamp(1, 7);
         }
+        let element = BUBBLES[usize::try_from(frame).unwrap_or(0)];
+        if self.stuck_to_origin || !self.free_floating {
+            let anchor = if self.stuck_to_origin {
+                self.head.pos + self.origin_point.rotate_around_origo(self.head.rotation)
+            } else {
+                self.last_liberated_origin.lerp(self.liberated_origin, t)
+            };
+            let stretch = pos.distance(anchor) / 16.0;
+            let scale = Vec2::new(
+                size.min(size / stretch.lerp_to(1.0, 0.35)),
+                size.max(stretch - 0.3125),
+            );
+            let anchor_y = stretch.inverse_lerp(1.25, 0.3125) * 0.5;
+            Self::sprite_at(element, pos, scale, pos.aim_to(anchor), anchor_y, color)
+        } else {
+            Self::sprite_at(element, pos, Vec2::new(size, size), 0.0, 0.5, color)
+        }
+    }
+}
+
+/// `StationaryEffect.DrawSprites` of a `FlashingOrb`.
+trait FlashSprite {
+    fn sprite(&self, t: f32, lizards: &dyn LizardColors, rng: &mut UnityRandom) -> DrawItem;
+}
+
+impl FlashSprite for StationaryEffect {
+    /// A circle jittering by up to 10 px, its size random, fading with its life; in
+    /// the lizard's head colour (grey to white without one). Three or four draws.
+    fn sprite(&self, t: f32, lizards: &dyn LizardColors, rng: &mut UnityRandom) -> DrawItem {
+        let life = self.last_life.lerp_to(self.life, t);
+        let deg = rng.value() * 360.0;
+        let pos =
+            self.last_pos.lerp(self.pos, t) + Vec2::from_degrees(deg) * (rng.value() * 10.0 * life);
+        let scale = rw_sim::FloatExt::mathf_pow(rng.value() * life, 0.1);
+        let color = match self.lizard.and_then(|id| lizards.lizard_head(id, t)) {
+            Some((c, _)) if self.lizard.is_some() => c,
+            _ if self.lizard.is_some() => Color::WHITE,
+            _ => Color::GRAY.lerp(Color::WHITE, rng.value()),
+        };
+        Self::sprite_at("Circle20", pos, Vec2::new(scale, scale), 0.0, 0.5, color)
     }
 }
 
