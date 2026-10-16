@@ -170,6 +170,27 @@ impl Vec2 {
             / (dy.mathf_pow(2.0) + dx.mathf_pow(2.0)).sqrt()
     }
 
+    /// `Custom.CirclesCollisionTime`: when, as a fraction of `vel`, a circle of radius
+    /// `r1` moving from here first touches one of radius `r2` at `other` (NaN when it
+    /// never does), with the game's 0.001 offsets.
+    #[must_use]
+    pub fn circles_collision_time(self, other: Self, vel: Self, r1: f32, r2: f32) -> f32 {
+        let (x1, y1, x2, y2, vx, vy) = (self.x, self.y, other.x, other.y, vel.x, vel.y);
+        let (e1, e2) = (0.001f32, 0.001f32);
+        let num3 = -x1 * vx - y1 * vy + vx * x2 + vy * y2 + x1 * e1 - x2 * e1 + y1 * e2 - y2 * e2;
+        let num5 = vx.mathf_pow(2.0) + vy.mathf_pow(2.0) - 2.0 * vx * e1 + e1.mathf_pow(2.0)
+            - 2.0 * vy * e2
+            + e2.mathf_pow(2.0);
+        let num6 = x1.mathf_pow(2.0) + y1.mathf_pow(2.0) - r1.mathf_pow(2.0) - 2.0 * x1 * x2
+            + x2.mathf_pow(2.0)
+            - 2.0 * y1 * y2
+            + y2.mathf_pow(2.0)
+            - 2.0 * r1 * r2
+            - r2.mathf_pow(2.0);
+        let root = ((-2.0 * num3).mathf_pow(2.0) - 4.0 * num5 * num6).sqrt();
+        (2.0 * num3 - root) / (2.0 * num5)
+    }
+
     /// Middle of the tile containing this position (`Room.MiddleOfTile(Vector2)`).
     #[must_use]
     pub fn tile_middle(self) -> Self {

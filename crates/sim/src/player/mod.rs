@@ -274,6 +274,8 @@ pub struct Player {
     roll_counter: i32,
     stop_rolling_counter: i32,
     exit_belly_slide_counter: i32,
+    /// `longBellySlide`: a slide restarted by a throw backwards out of it.
+    long_belly_slide: bool,
     whiplash_jump: bool,
     flip_from_slide: bool,
     rocket_jump_from_belly_slide: bool,
@@ -438,6 +440,7 @@ impl Player {
             roll_counter: 0,
             stop_rolling_counter: 0,
             exit_belly_slide_counter: 0,
+            long_belly_slide: false,
             whiplash_jump: false,
             flip_from_slide: false,
             rocket_jump_from_belly_slide: false,
@@ -611,7 +614,7 @@ impl Player {
     }
 
     /// `Player.Blink`.
-    fn blink(&mut self, ticks: i32) {
+    pub(crate) fn blink(&mut self, ticks: i32) {
         self.blink_request = self.blink_request.max(ticks);
     }
 

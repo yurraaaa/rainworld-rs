@@ -3,6 +3,7 @@
 //! directory.
 
 pub mod ambient;
+mod border_exits;
 pub mod creatures;
 mod files;
 mod font_config;
@@ -27,6 +28,7 @@ pub mod unity;
 pub mod world;
 
 pub use ambient::{AmbientKind, AmbientSound};
+pub use border_exits::RoomBorderExit;
 pub use creatures::{
     CreatureSpawner, CreatureType, Lineage, RoomAttraction, SimpleSpawner, SpawnerDen,
 };
@@ -39,8 +41,8 @@ pub use nodes::{
 pub use noise::NoiseTexture;
 pub use objects::AbstractObjectType;
 pub use palette::{EffectColors, PaletteImage, PaletteTexture, RoomPalette};
-pub use placed::{PlacedObject, RoomEffect};
-pub use placed_types::{PlacedObjectType, RoomEffectType};
+pub use placed::{MultiplayerItemData, PlacedObject, ResizableData, RoomEffect};
+pub use placed_types::{MultiplayerItemType, PlacedObjectType, RoomEffectType};
 pub use png_image::PngImage;
 pub use region_map::{MapConnectionLine, RegionMapFiles};
 pub use region_properties::{RegionParams, RegionProperties, RoomAttractions};

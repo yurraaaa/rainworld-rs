@@ -181,6 +181,15 @@ sound_ids! {
     RockThroughAirLoop = "Rock_Through_Air_LOOP",
     SpearSpinningThroughAirLoop = "Spear_Spinning_Through_Air_LOOP",
     SpearThrownThroughAirLoop = "Spear_Thrown_Through_Air_LOOP",
+    SlugcatThrowRock = "Slugcat_Throw_Rock",
+    SlugcatThrowSpear = "Slugcat_Throw_Spear",
+    SpearStickInWall = "Spear_Stick_In_Wall",
+    SpearBounceOffWall = "Spear_Bounce_Off_Wall",
+    RockHitWall = "Rock_Hit_Wall",
+    WeaponSkid = "Weapon_Skid",
+    SpearBounceOffCreautureShell = "Spear_Bounce_Off_Creauture_Shell",
+    // No `sounds.txt` line: it never plays.
+    SpearHitSmallCreature = "Spear_Hit_Small_Creature",
 }
 
 /// A `ChunkSoundEmitter` handle: follows a body chunk; loops are updated and stopped

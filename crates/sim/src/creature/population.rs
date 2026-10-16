@@ -266,6 +266,7 @@ impl World {
         let mut c = self.new_creature(template, pos, id, cx.session, cx.ids, cx.rng);
         c.spawn_data = spawn_data;
         c.night_creature = night;
+        c.set_custom_flags();
         let cid = self.insert_creature(c);
         if template.kind == CreatureType::BigNeedleWorm {
             self.small_worms_find_mother(cid, cx.rng);

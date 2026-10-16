@@ -194,8 +194,9 @@ impl Player {
         }
     }
 
-    /// Belly slide: a 6-tick hips kick back, a half-sine head push over 15 ticks,
-    /// holding to the ground, the drop through a one-tile hole, and the exits.
+    /// Belly slide: a 6-tick hips kick back, a half-sine head push over 15 ticks (14 px
+    /// over 39 on a long slide), holding to the ground, the drop through a one-tile hole,
+    /// and the exits (a long slide's later, standing up with a hop).
     pub(super) fn belly_slide(&mut self, room: &Room) {
         self.body_mode = BodyMode::Default;
         let dir = self.roll_direction;
@@ -208,7 +209,9 @@ impl Player {
         } else if self.is_tile_solid(room, HIPS, 0, -1) || self.is_tile_solid(room, HIPS, 0, -2) {
             self.body.chunks[HIPS].vel.y -= 0.5;
         }
-        self.body.chunks[HEAD].vel.x += 18.1 * d * (n as f32 / 15.0 * PI).sin();
+        let long = self.long_belly_slide;
+        let (push, span) = if long { (14.0, 39.0) } else { (18.1, 15.0) };
+        self.body.chunks[HEAD].vel.x += push * d * (n as f32 / span * PI).sin();
         if self.is_tile_solid(room, HEAD, 0, -1) || self.is_tile_solid(room, HEAD, 0, -2) {
             self.body.chunks[HEAD].vel.y -= 2.3;
         }
@@ -237,21 +240,46 @@ impl Player {
         } else {
             self.exit_belly_slide_counter = 0;
         }
-        if n > 5 && x == -dir {
+        if long {
+            self.whiplash_jump = false;
+        } else if n > 5 && x == -dir {
             self.whiplash_jump = true;
         }
         let ungrounded =
             !self.is_tile_solid(room, HEAD, 0, -1) && !self.is_tile_solid(room, HIPS, 0, -1);
         let jump_pressed = now.jump && !prev.jump;
-        if (n > 8 && self.exit_belly_slide_counter > 6)
-            || n > 15
-            || (n > 6 && ungrounded)
-            || (jump_pressed && n > 0 && n < 12)
+        let (exit_after, last, jump_window) = if long { (16, 39, 34) } else { (6, 15, 12) };
+        if (n > 8 && self.exit_belly_slide_counter > exit_after)
+            || n > last
+            || (!long && n > 6 && ungrounded)
+            || (jump_pressed && n > 0 && n < jump_window)
         {
             self.end_belly_slide(room);
         } else {
             self.standing = false;
         }
+    }
+
+    /// `ThrowObject`'s throw backwards out of a belly slide (93192), the slugcat's part:
+    /// the slide starts over from tick 8 as a long one, the body kicked 6 px and 16 px
+    /// a tick on along the slide, the hips 17 px up. The caller adds the spikes and the
+    /// `Slugcat_Rocket_Jump`.
+    pub(crate) fn start_long_belly_slide(&mut self) {
+        let d = self.roll_direction as f32;
+        self.roll_counter = 8;
+        let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
+        head.pos.x += d * 6.0;
+        hips.pos.x += d * 6.0;
+        hips.pos.y += 17.0;
+        head.vel.x += d * 16.0;
+        hips.vel.x += d * 16.0;
+        self.exit_belly_slide_counter = 0;
+        self.long_belly_slide = true;
+    }
+
+    #[must_use]
+    pub fn long_belly_slide(&self) -> bool {
+        self.long_belly_slide
     }
 
     /// Both chunks fall into the one-tile hole under the head.
@@ -276,6 +304,14 @@ impl Player {
         }
         self.roll_direction = 0;
         self.animation = Animation::None;
+        if self.long_belly_slide {
+            self.long_belly_slide = false;
+            self.standing = true;
+            self.body.chunks[HEAD].vel.y = 6.0;
+            self.body.chunks[HIPS].vel.y = 4.0;
+            self.play_sound(SoundId::SlugcatNormalJump, HEAD, 0.5, 1.0);
+            return;
+        }
         self.standing = self.input_y() == 1 && !self.is_tile_solid(room, HEAD, 0, 1);
         for c in &mut self.body.chunks {
             if c.vel.x.abs() > 8.0 {
@@ -340,7 +376,8 @@ impl Player {
             let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
             hips.pos += Vec2::new(5.0 * d, 5.0);
             head.pos = hips.pos + Vec2::new(5.0 * d, 5.0);
-            hips.vel = Vec2::new(9.0 * d, 8.5);
+            let boost = if self.long_belly_slide { 1.2 } else { 1.0 };
+            hips.vel = Vec2::new(9.0 * d, 8.5) * boost;
             head.vel = hips.vel;
             self.animation = Animation::RocketJump;
             self.rocket_jump_from_belly_slide = true;

@@ -1,10 +1,8 @@
 //! `CreatureTemplate`s as `StaticWorld.InitStaticWorld` builds them, for the fields the
 //! abstract world reads. A template inherits its ancestor's fields, then sets its own.
 //!
-//! Not ported: tile and connection resistances beyond the node types they map, the
-//! relationships, lizard breed parameters and the cosmetic fields. `waterRelationship`
-//! is set for the Fly only; the others keep the constructor's Amphibious until their
-//! creature is ported.
+//! The pathing data (resistances, swimming, `isTooCloseToTerrain`) is in [`super::pathing`].
+//! Not ported: the relationships, lizard breed parameters and the cosmetic fields.
 
 use rw_assets::{ActiveMods, CreatureType, NodeType};
 
@@ -159,6 +157,16 @@ impl WaterRelationship {
             Self::WaterOnly => deep_water,
         }
     }
+
+    /// `CreatureTemplate.AbstractSubmersionLegal`.
+    #[must_use]
+    pub fn abstract_submersion_legal(self, node_submerged: bool) -> bool {
+        if node_submerged {
+            matches!(self, Self::WaterOnly | Self::Amphibious)
+        } else {
+            self != Self::WaterOnly
+        }
+    }
 }
 
 impl CreatureTemplate {
@@ -310,7 +318,10 @@ impl CreatureTemplate {
 /// Field values from `InitStaticWorld` (line numbers of the 1.11.8 decompile in
 /// `rainworld-re/notes/creature-model.md`).
 impl CreatureTemplate {
-    const STANDARD: Self = Self::base(CreatureType::StandardGroundCreature);
+    const STANDARD: Self = Self {
+        water_relationship: WaterRelationship::AirAndSurface,
+        ..Self::base(CreatureType::StandardGroundCreature)
+    };
     const SLUGCAT: Self = Self {
         grasps: 2,
         off_screen_speed: 0.1,
@@ -323,6 +334,7 @@ impl CreatureTemplate {
         ai: true,
         require_ai_map: true,
         body_size: 2.0,
+        water_relationship: WaterRelationship::AirAndSurface,
         ..Self::base(CreatureType::LizardTemplate)
     };
     const FLY: Self = Self {
@@ -345,6 +357,7 @@ impl CreatureTemplate {
         quantified: true,
         grasps: 1,
         small_creature: true,
+        water_relationship: WaterRelationship::WaterOnly,
         ..Self::base(CreatureType::Leech)
     };
     const SNAIL: Self = Self {
@@ -365,6 +378,7 @@ impl CreatureTemplate {
         hibernate_off_screen: true,
         uses_shortcuts: false,
         sky_highway: true,
+        water_relationship: WaterRelationship::AirAndSurface,
         ..Self::base(CreatureType::Vulture)
     };
     const GARBAGE_WORM: Self = Self {
@@ -374,6 +388,7 @@ impl CreatureTemplate {
         grasps: 1,
         save_creature: false,
         uses_shortcuts: false,
+        water_relationship: WaterRelationship::AirOnly,
         ..Self::base(CreatureType::GarbageWorm)
     };
     const LANTERN_MOUSE: Self = Self {
@@ -383,6 +398,7 @@ impl CreatureTemplate {
         require_ai_map: true,
         body_size: 0.7,
         grasps: 1,
+        water_relationship: WaterRelationship::AirAndSurface,
         ..Self::base(CreatureType::LanternMouse)
     };
     const CICADA: Self = Self {
@@ -393,6 +409,7 @@ impl CreatureTemplate {
         off_screen_speed: 0.5,
         body_size: 0.6,
         grasps: 1,
+        water_relationship: WaterRelationship::AirOnly,
         ..Self::base(CreatureType::CicadaA)
     };
     const SPIDER: Self = Self {
@@ -412,6 +429,7 @@ impl CreatureTemplate {
         off_screen_speed: 2.0,
         body_size: 0.8,
         grasps: 1,
+        water_relationship: WaterRelationship::WaterOnly,
         ..Self::base(CreatureType::JetFish)
     };
     const BIG_EEL: Self = Self {
@@ -423,6 +441,7 @@ impl CreatureTemplate {
         hibernate_off_screen: true,
         uses_shortcuts: false,
         sea_highway: true,
+        water_relationship: WaterRelationship::WaterOnly,
         ..Self::base(CreatureType::BigEel)
     };
     const DEER: Self = Self {
@@ -433,6 +452,7 @@ impl CreatureTemplate {
         hibernate_off_screen: true,
         uses_shortcuts: false,
         side_highway: true,
+        water_relationship: WaterRelationship::AirOnly,
         ..Self::base(CreatureType::Deer)
     };
     const TUBE_WORM: Self = Self {
@@ -440,6 +460,7 @@ impl CreatureTemplate {
         require_ai_map: true,
         off_screen_speed: 0.0,
         body_size: 0.25,
+        water_relationship: WaterRelationship::AirOnly,
         ..Self::base(CreatureType::TubeWorm)
     };
     const DADDY_LONG_LEGS: Self = Self {
@@ -471,6 +492,7 @@ impl CreatureTemplate {
         hibernate_off_screen: true,
         uses_shortcuts: false,
         side_highway: true,
+        water_relationship: WaterRelationship::AirAndSurface,
         ..Self::base(CreatureType::MirosBird)
     };
     const TEMPLE_GUARD: Self = Self {
@@ -484,6 +506,7 @@ impl CreatureTemplate {
         body_size: 7.0,
         grasps: 1,
         uses_shortcuts: false,
+        water_relationship: WaterRelationship::AirAndSurface,
         ..Self::base(CreatureType::TempleGuard)
     };
     const CENTIPEDE: Self = Self {
@@ -492,6 +515,7 @@ impl CreatureTemplate {
         abstracted_laziness: 150,
         ai: true,
         require_ai_map: true,
+        water_relationship: WaterRelationship::AirAndSurface,
         ..Self::base(CreatureType::Centipede)
     };
     const SCAVENGER: Self = Self {
@@ -504,6 +528,7 @@ impl CreatureTemplate {
         hibernate_off_screen: true,
         roam_between_rooms_chance: -1.0,
         roam_in_room_chance: -1.0,
+        water_relationship: WaterRelationship::AirAndSurface,
         ..Self::base(CreatureType::Scavenger)
     };
     /// No connection resistances: no node type is mapped.
@@ -521,6 +546,7 @@ impl CreatureTemplate {
         off_screen_speed: 0.0,
         body_size: 0.2,
         uses_shortcuts: false,
+        water_relationship: WaterRelationship::AirOnly,
         ..Self::base(CreatureType::VultureGrub)
     };
     const EGG_BUG: Self = Self {
@@ -529,6 +555,7 @@ impl CreatureTemplate {
         ai: true,
         require_ai_map: true,
         body_size: 0.4,
+        water_relationship: WaterRelationship::AirAndSurface,
         ..Self::base(CreatureType::EggBug)
     };
     const BIG_SPIDER: Self = Self {
@@ -538,6 +565,7 @@ impl CreatureTemplate {
         require_ai_map: true,
         body_size: 1.1,
         grasps: 1,
+        water_relationship: WaterRelationship::AirAndSurface,
         ..Self::base(CreatureType::BigSpider)
     };
     const BIG_NEEDLE_WORM: Self = Self {
@@ -549,6 +577,7 @@ impl CreatureTemplate {
         off_screen_speed: 1.5,
         body_size: 0.7,
         grasps: 1,
+        water_relationship: WaterRelationship::AirOnly,
         ..Self::base(CreatureType::BigNeedleWorm)
     };
     const DROP_BUG: Self = Self {
@@ -559,6 +588,7 @@ impl CreatureTemplate {
         require_ai_map: true,
         body_size: 1.2,
         grasps: 1,
+        water_relationship: WaterRelationship::AirAndSurface,
         ..Self::base(CreatureType::DropBug)
     };
 
@@ -574,7 +604,10 @@ impl CreatureTemplate {
         Self::child(CreatureType::WhiteLizard, &Self::LIZARD),
         Self::child(CreatureType::RedLizard, &Self::LIZARD),
         Self::child(CreatureType::BlackLizard, &Self::LIZARD),
-        Self::child(CreatureType::Salamander, &Self::LIZARD),
+        Self {
+            water_relationship: WaterRelationship::Amphibious,
+            ..Self::child(CreatureType::Salamander, &Self::LIZARD)
+        },
         Self::child(CreatureType::CyanLizard, &Self::LIZARD),
         Self::FLY,
         Self::LEECH,
@@ -631,7 +664,10 @@ impl CreatureTemplate {
         Self::SCAVENGER,
         Self::OVERSEER,
         Self::VULTURE_GRUB,
-        Self::child(CreatureType::Hazer, &Self::VULTURE_GRUB),
+        Self {
+            water_relationship: WaterRelationship::Amphibious,
+            ..Self::child(CreatureType::Hazer, &Self::VULTURE_GRUB)
+        },
         Self::EGG_BUG,
         Self::BIG_SPIDER,
         Self {

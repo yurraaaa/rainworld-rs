@@ -136,12 +136,16 @@ before the user agrees.
   even where the game decides from files on disk (Downpour's
   `dlcsInstalled` check): the base-game menu scene and intro images.
 - Current phase is the player controller in a region whose only
-  behaving creatures are the overseers and the bat flies, not the full
-  game (campaign step 1, overseer step 1, batflies done):
+  behaving creatures are the overseers and the bat flies, with the lizards
+  under way (green lizards step 2 of 9, the abstract AI, done), not the
+  full game (campaign step 1, overseer step 1, batflies done):
   - A story starts at the campaign's start den in its region's world;
     room-exit shortcuts carry the player between the region's rooms, which
     load synchronously (D14). The population is generated with the
-    game's draws but only overseers leave their dens; overseers have their
+    game's draws but only overseers and lizards leave their dens. Lizards
+    run the general abstract creature AI (D14): den counters, roaming,
+    migration along the region's connections, paths, dens; they have no
+    body yet and wait unrealized in realized rooms. Overseers have their
     body, AI, graphics, the guide's tutorial text and their holograms
     (those whose triggers are ported: D14). The bat flies' world
     process moves their per-node counts between rooms, and a room that
@@ -152,8 +156,8 @@ before the user agrees.
     instruction in SU_A42; fed, the guide moves on to SU_A43's super-jump
     lesson. Rocks and spears lie in the rooms; the player picks them up,
     carries them (through pipes and room exits), switches hands, lays them
-    down and swallows and regurgitates rocks; throwing them only drops
-    them until it is ported (D3). Saves (`rw-save`, D16): Continue from the slugcat select, New
+    down, swallows and regurgitates rocks and throws them (bouncing off and
+    sticking in walls, belly-slide throws; creature hits are not ported, D3). Saves (`rw-save`, D16): Continue from the slugcat select, New
     Game's wipe and the start's death-and-quit save. Shelters (D17): the
     door closes on a fed, still slugcat, `Win` writes the whole save state
     and region state, the sleep screen (karma ladder, food meter, map;
@@ -214,8 +218,9 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   pick-up candidate as `{kind, id}`, stomach, swallow counter, eat counter, malnourishment, aerobic level and exhaustion), the player's room and node, the vessel waiting in the
   lobby, the realized rooms' entry waits and `creatures` (every
   abstract creature: kind, ID, room, node, tile, in den, realized,
-  alive; overseers also their AI's destination, guide state, last rooms
-  and realized tiles; realized flies their room, position, velocity,
+  alive; lizards also their abstract AI: destination, path, migration
+  destination, den, time buffer and den counter; overseers also their AI's
+  destination, guide state, last rooms and realized tiles; realized flies their room, position, velocity,
   behaviour, movement mode, grasps and holders) and `objects` (every
   abstract rock and spear: kind, ID, room, node, tile, a spear's
   stuck-in-wall cycles and explosive flag; realized ones also their

@@ -101,6 +101,8 @@ pub struct CreatureInfo {
     pub in_den: bool,
     pub realized: bool,
     pub alive: bool,
+    /// The plain abstract AI (lizards).
+    pub abstract_ai: Option<AbstractAiInfo>,
     /// An overseer's abstract AI and body.
     pub overseer: Option<OverseerInfo>,
     /// A realized bat fly's body and AI.
@@ -165,6 +167,26 @@ pub struct FlyInfo {
     pub grasps: Vec<Option<[i32; 2]>>,
     /// The EntityIDs of the creatures holding it.
     pub grabbed_by: Vec<[i32; 2]>,
+}
+
+/// A room and node (`WorldCoordinate` without its tile).
+#[derive(Debug, Clone, Serialize)]
+pub struct NodeRef {
+    pub room: String,
+    pub node: i32,
+}
+
+/// `AbstractCreatureAI`'s state.
+#[derive(Debug, Clone, Serialize)]
+pub struct AbstractAiInfo {
+    pub destination: NodeRef,
+    /// `path`, the destination first and the next step last.
+    pub path: Vec<NodeRef>,
+    pub migration_destination: Option<NodeRef>,
+    pub den_position: Option<NodeRef>,
+    pub time_buffer: i32,
+    pub remain_in_den_counter: i32,
+    pub time_spent_here: i32,
 }
 
 #[derive(Debug, Clone, Serialize)]

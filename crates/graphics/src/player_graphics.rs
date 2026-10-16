@@ -11,7 +11,7 @@ use std::f32::consts::{PI, TAU};
 use rw_assets::{Room, Terrain, tile_centre};
 use rw_random::UnityRandom;
 use rw_sim::creature::CreatureId;
-use rw_sim::item::Entity;
+use rw_sim::item::{Entity, ObjectId};
 use rw_sim::{Animation, BodyMode, Player, PlayerHands, PlayerSurroundings, RoomExt, Vec2, Water};
 
 use crate::body_part::{BodyPart, PointConnection};
@@ -112,6 +112,12 @@ pub struct PlayerGraphics {
     pub spear_dir: f32,
     /// `swallowing`: ticks left of the swallow's gulp.
     pub swallowing: i32,
+    /// `throwCounter`: updates left of the throwing hand following the thrown object.
+    pub throw_counter: i32,
+    /// `thrownObject` (only weapons are thrown this way).
+    thrown_object: Option<ObjectId>,
+    /// `handEngagedInThrowing`.
+    hand_engaged_in_throwing: usize,
     /// The held weapons' `ChangeOverlap` in the last update, per hand.
     overlap: [Option<bool>; 2],
     /// What the hands added to the player's main chunk velocity in the last update.
@@ -170,6 +176,9 @@ impl PlayerGraphics {
             looker: ObjectLooker::default(),
             spear_dir: 0.0,
             swallowing: 0,
+            throw_counter: 0,
+            thrown_object: None,
+            hand_engaged_in_throwing: 0,
             overlap: [None; 2],
             body_push: Vec2::ZERO,
         };
@@ -282,6 +291,39 @@ impl PlayerGraphics {
     /// `GrabUpdate` swallowed an object: `swallowing = 20`.
     pub fn swallow(&mut self) {
         self.swallowing = 20;
+    }
+
+    /// `ThrowObject(hand, obj)`.
+    pub fn throw_object(&mut self, hand: usize, obj: Entity) {
+        self.throw_counter = 5;
+        self.thrown_object = obj.object();
+        self.hand_engaged_in_throwing = hand;
+    }
+
+    /// The hands' throwing branch (239248): the throwing hand reaches for the thrown
+    /// object (on it within 40 px, else pushed 6 toward it), the other hand pulled 3
+    /// back. Returns false when nothing is being thrown (the next branches run).
+    fn throw_hands(&mut self, around: &PlayerSurroundings<'_>) -> bool {
+        let at = self
+            .thrown_object
+            .and_then(|id| around.world.object(id).realized.as_deref())
+            .map(|w| w.chunk().pos);
+        let Some(at) = at.filter(|_| self.throw_counter > 0) else {
+            return false;
+        };
+        let i = self.hand_engaged_in_throwing;
+        let hand = &mut self.hands[i];
+        hand.reaching_for_object = true;
+        hand.limb.absolute_hunt_pos = at;
+        if hand.limb.part.pos.dist_less(at, 40.0) {
+            hand.limb.part.pos = at;
+        } else {
+            hand.limb.part.vel += hand.limb.part.pos.direction_to(at) * 6.0;
+        }
+        let pull = self.hands[i].limb.part.pos.direction_to(at) * 3.0;
+        self.hands[1 - i].limb.part.vel -= pull;
+        self.throw_counter -= 1;
+        true
     }
 
     /// `Regurgitate`'s push on the head.
@@ -461,7 +503,7 @@ impl PlayerGraphics {
 
         self.update_head(player, room);
         self.update_legs(player, room);
-        if player.is_conscious() {
+        if player.is_conscious() && !self.throw_hands(around) {
             self.reach_for_fly(player, around);
         }
         self.update_hands(player, room, water, around, rng);

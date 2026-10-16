@@ -7,10 +7,14 @@
 //! game spreads it over frames on a thread (docs/DIVERGENCES.md D14). Behaviour:
 //! `rainworld-re/notes/world-loading.md`, `room-realizer.md`.
 
+mod abstract_ai;
+mod abstract_path;
 mod ai_map;
+mod ai_mapper;
 mod creature_ai_map;
 mod creatures;
 mod flies_world_ai;
+mod movement;
 mod objects;
 mod overseers_world_ai;
 mod quantified;
@@ -33,12 +37,14 @@ use crate::creature::{AbstractCreature, CreatureId, FlockBehavior, IdIssuer, Wor
 use crate::item::AbstractObject;
 use rw_random::UnityRandom;
 
+pub use abstract_path::{FloodMethod, SearchingFor};
 pub(crate) use ai_map::EIGHT_DIRECTIONS;
-pub use ai_map::{AiMap, MovementConnection, MovementType};
+pub use ai_map::{AiMap, AiTile};
 pub use creature_ai_map::CreatureSpecificAiMap;
 pub(crate) use creatures::RoomLists;
 pub use creatures::{AbstractTick, QuantifiedCount, WorldProcesses};
 pub use flies_world_ai::{FliesTick, FliesWorldAi, SwarmBehavior};
+pub use movement::{Accessibility, Legality, MovementConnection, MovementType, PathCost};
 pub use overseers_world_ai::{DirectionFinder, OverseersWorldAi, ShelterFinder, StoryProgress};
 pub use rain_cycle::{CYCLE_TIME_MAX, CYCLE_TIME_MIN, RainCycle, WaterLevelCycle, WaterStage};
 pub use realized::RealizedRoom;
@@ -244,7 +250,8 @@ impl World {
     /// `World.ActivateRoom` / `AbstractRoom.RealizeRoom`: reads the room and adds it to
     /// the active rooms, loading until this tick's loading step. On its first
     /// realization in the cycle (`firstTimeRealized`, cleared at the end of
-    /// `Room.Loaded`) the room makes its items, with their IDs and draws. The off-screen
+    /// `Room.Loaded`) the room makes its items, with their IDs and draws (a story's
+    /// `MultiplayerItem`s on every realization). The off-screen
     /// den and realized rooms are left alone.
     ///
     /// # Errors
@@ -265,9 +272,7 @@ impl World {
         let loaded = self.rooms.load_room(data.file_name())?;
         log::info!("realized room {}", data.name);
         let first_time = !self.loaded_before[i];
-        if first_time {
-            self.place_room_items(index, &loaded.room, &loaded.settings, ids, rng);
-        }
+        self.place_room_items(index, &loaded.room, &loaded.settings, first_time, ids, rng);
         self.loaded_before[i] = true;
         let data = &self.data.rooms[i];
         self.realized[i] = Some(RealizedRoom::new(
@@ -305,7 +310,8 @@ impl World {
         let mut done = Vec::new();
         for i in std::mem::take(&mut self.loading) {
             if let Some(room) = &mut self.realized[i] {
-                room.finish_loading();
+                let data = &self.data.rooms[i];
+                room.finish_loading(data.index, data.shelter() || data.gate());
                 done.push(self.data.rooms[i].index);
             }
         }

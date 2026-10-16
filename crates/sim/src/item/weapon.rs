@@ -1,19 +1,28 @@
 //! Realized rocks and spears: `Weapon` (81224) over `PlayerCarryableItem` (79261) and
 //! `PhysicalObject` (78561), with `Rock` (246997) and `Spear` (270804) on top. Ported:
-//! the constructors, `PlaceInRoom`, `ChangeMode`, and `Update` in the `Free`, `Carried`
-//! and `StuckInWall` modes, a wall-stuck spear's poles and the items' sound loops.
-//! Thrown weapons (step 4), creature hits (step 5) and the grasps (step 3) are not
-//! ported yet. Behaviour: `rainworld-re/notes/items.md` sections 6-8.
+//! the constructors, `PlaceInRoom`, `ChangeMode`, `Thrown` (81682), `HitWall` (81812),
+//! and `Update` in every mode but `StuckInCreature`: the floor bounce of a belly-slide
+//! throw, a thrown weapon's turn, tumble, slope bounce and wall hit, a thrown spear
+//! sticking in a wall with its poles, and the items' sound loops. Creature hits are
+//! step 5 (the hooks are marked). Behaviour: `rainworld-re/notes/items.md` sections
+//! 6-11.
 
 use std::sync::Arc;
 
-use rw_assets::{AbstractObjectType, Room, SoundTable, TileFlags};
+use rw_assets::{AbstractObjectType, Room, Slope, SoundTable, Terrain, TileFlags};
 use rw_random::UnityRandom;
 
 use super::{AbstractObject, AbstractSpear, ObjectData};
+use crate::creature::CreatureId;
 use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
-use crate::{BodyChunk, LoopEmitter, PhysicalObject, PhysicsParams, SoundId, Sounds, Vec2, Water};
+use crate::{
+    BodyChunk, CosmeticKind, LoopEmitter, PhysicalObject, PhysicsParams, SoundId, Sounds, Spark,
+    Vec2, Water,
+};
+
+/// A spark's colour (`new Color(1, 1, 1)`).
+const WHITE: [f32; 4] = [1.0; 4];
 
 /// `EffectiveRoomGravity`: no gravity effects are ported.
 const ROOM_GRAVITY: f32 = 1.0;
@@ -147,6 +156,30 @@ pub struct WeaponTick<'a> {
     pub eu: bool,
     /// The world's `updateList` position counter (a loop's emitter joins the room).
     pub update_seq: &'a mut u64,
+    /// The player's creature and its `ThrowDirection` (a weapon it threw turns with it).
+    pub player: Option<(CreatureId, i32)>,
+    /// The abstract tiles of the room's spears stuck in walls (`Spear.Update` reads the
+    /// room's entities; filled only for a thrown spear).
+    pub stuck_spear_tiles: &'a [(i32, i32)],
+    /// The room's `NoSpearStickZone`s: position and radius.
+    pub no_stick_zones: &'a [(Vec2, f32)],
+    /// A shelter whose door `IsClosing` or `IsOpening`.
+    pub shelter_door_moving: bool,
+    /// The sparks this update adds to the room, with their places in its update list.
+    pub cosmetics: &'a mut Vec<(u64, CosmeticKind)>,
+}
+
+/// `Weapon.Thrown`'s arguments.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Throw {
+    pub by: CreatureId,
+    /// The thrower's `mainBodyChunk.vel`.
+    pub by_vel: Vec2,
+    pub pos: Vec2,
+    pub first_frame_trace_from_pos: Option<Vec2>,
+    pub dir: (i32, i32),
+    pub frc: f32,
+    pub eu: bool,
 }
 
 /// What `ChangeMode` and `PlaceInRoom` read.
@@ -179,7 +212,13 @@ pub struct Weapon {
     pub rotation_speed: f32,
     pub set_rotation: Option<Vec2>,
     pub tail_pos: Vec2,
+    pub thrown_by: Option<CreatureId>,
+    pub thrown_pos: Vec2,
+    pub first_frame_trace_from_pos: Option<Vec2>,
     pub throw_dir: (i32, i32),
+    pub change_dir_counter: i32,
+    /// `doNotTumbleAtLowSpeed` (only Remix's upward bomb throw sets it).
+    pub do_not_tumble_at_low_speed: bool,
     pub vibrate: i32,
     /// `exitThrownModeSpeed` (30).
     pub exit_thrown_mode_speed: f32,
@@ -245,7 +284,12 @@ impl Weapon {
             rotation_speed: 0.0,
             set_rotation: None,
             tail_pos: Vec2::ZERO,
+            thrown_by: None,
+            thrown_pos: Vec2::ZERO,
+            first_frame_trace_from_pos: None,
             throw_dir: (0, 0),
+            change_dir_counter: 0,
+            do_not_tumble_at_low_speed: false,
             vibrate: 0,
             exit_thrown_mode_speed: 30.0,
             override_exit_thrown_speed: 0.0,
@@ -438,6 +482,7 @@ impl Weapon {
         }
         if new != WeaponMode::Thrown {
             self.throw_mode_frames = -1;
+            self.first_frame_trace_from_pos = None;
         }
         let c = self.chunk_mut();
         c.collide_with_objects = new != WeaponMode::Carried;
@@ -446,27 +491,114 @@ impl Weapon {
         if new == WeaponMode::Free {
             self.set_random_spin(cx.rng);
         }
+        // Leaving `Thrown` near a creature tells the `SocialEventRecognizer`
+        // (`WeaponAttack`), which nothing ported listens to; `closestCritDist` is step 5's.
         self.closest_crit_dist = f32::MAX;
         self.mode = new;
     }
 
-    /// `Update` of a rock or spear in its slot of the room's update list.
-    pub fn update(&mut self, object: &mut AbstractObject, cx: &mut WeaponTick<'_>) {
-        self.weapon_update(object, cx);
-        if self.spear().is_some() {
-            self.spear_update(object, cx);
+    /// `HeavyWeapon`: true for a rock and a spear.
+    #[must_use]
+    pub fn heavy_weapon(&self) -> bool {
+        true
+    }
+
+    /// `Thrown` (`Weapon`'s, then `Rock`'s or `Spear`'s up to its sound, which it
+    /// returns): from `throw.pos` (`MoveFromOutsideMyUpdate`) at 40 px a tick along a
+    /// sideways `dir` plus a part of the thrower's velocity and a lift (rock 3, spear
+    /// 1.5), or at 40 along a vertical one; in `Items`, turned along `dir`, not spinning.
+    pub fn thrown(
+        &mut self,
+        throw: Throw,
+        object: &mut AbstractObject,
+        cx: &mut ModeChange<'_>,
+    ) -> SoundId {
+        self.thrown_by = Some(throw.by);
+        self.thrown_pos = throw.pos;
+        self.throw_dir = throw.dir;
+        self.first_frame_trace_from_pos = throw.first_frame_trace_from_pos;
+        self.change_dir_counter = 3;
+        self.change_overlap(true);
+        let even = self.even_update;
+        let spear = self.spear().is_some();
+        self.chunk_mut()
+            .move_from_outside_my_update(even, throw.eu, throw.pos);
+        let sound = if spear {
+            SoundId::SlugcatThrowSpear
         } else {
-            self.rock_update(cx);
+            SoundId::SlugcatThrowRock
+        };
+        if let Some(s) = self.spear_mut() {
+            s.always_stick_in_walls = false;
+        }
+        let (dx, dy) = throw.dir;
+        let c = self.chunk_mut();
+        if dx != 0 {
+            c.vel.y = throw.by_vel.y * 0.5;
+            c.vel.x = throw.by_vel.x * 0.2;
+            c.vel.x += dx as f32 * 40.0 * throw.frc;
+            c.vel.y += if spear { 1.5 } else { 3.0 };
+        } else {
+            if dy == 0 {
+                self.change_mode(WeaponMode::Free, object, cx);
+                return sound;
+            }
+            c.vel.x = throw.by_vel.x * 0.5;
+            c.vel.y = dy as f32 * 40.0 * throw.frc;
+        }
+        self.override_exit_thrown_speed = if throw.frc >= 1.0 {
+            0.0
+        } else {
+            self.exit_thrown_mode_speed.min(throw.frc * 20.0)
+        };
+        self.change_mode(WeaponMode::Thrown, object, cx);
+        self.set_rotation = Some(Vec2::new(dx as f32, dy as f32));
+        self.rotation_speed = 0.0;
+        sound
+    }
+
+    /// A spear's `spearDamageBonus`.
+    pub fn set_spear_damage_bonus(&mut self, bonus: f32) {
+        if let Some(s) = self.spear_mut() {
+            s.spear_damage_bonus = bonus;
         }
     }
 
-    /// `Weapon.Update` up to its `base.Update`, then that.
-    fn weapon_update(&mut self, object: &mut AbstractObject, cx: &mut WeaponTick<'_>) {
+    /// A spear's `alwaysStickInWalls = true`.
+    pub fn set_always_stick_in_walls(&mut self) {
+        if let Some(s) = self.spear_mut() {
+            s.always_stick_in_walls = true;
+        }
+    }
+
+    /// `throwDir` as a vector.
+    #[must_use]
+    pub fn throw_dir_vec(&self) -> Vec2 {
+        Vec2::new(self.throw_dir.0 as f32, self.throw_dir.1 as f32)
+    }
+
+    /// `Update` of a rock or spear alone in its room (nothing else in collision layer
+    /// 0): [`Self::update_start`] then [`Self::update_finish`].
+    pub fn update(&mut self, object: &mut AbstractObject, cx: &mut WeaponTick<'_>) {
+        self.update_start(object, cx);
+        self.update_finish(object, cx);
+    }
+
+    /// `Weapon.Update` up to its `base.Update`. True when a thrown weapon's walk over
+    /// collision layer 0 is due next (the world runs it, then [`Self::update_finish`]).
+    pub fn update_start(&mut self, object: &mut AbstractObject, cx: &mut WeaponTick<'_>) -> bool {
         self.last_mode = self.mode;
+        let exit_speed = if self.override_exit_thrown_speed > 0.0 {
+            self.override_exit_thrown_speed
+        } else {
+            self.exit_thrown_mode_speed
+        };
         if self.vibrate > 0 {
             self.vibrate -= 1;
         }
-        // `floorBounceFrames` is only set by belly-slide throws (step 4).
+        if self.floor_bounce_frames > 0 && self.throw_dir.1 == 0 {
+            self.floor_bounce(exit_speed, cx);
+        }
         self.last_rotation = self.rotation;
         match self.set_rotation.take() {
             Some(r) => self.rotation = r,
@@ -480,17 +612,12 @@ impl Weapon {
         } else {
             0.0
         };
+        // `stuckObjects` with more than one stick (a spear in several creatures) is step 5.
         self.tail_pos = self.chunk().last_pos;
         match self.mode {
             WeaponMode::Carried => {
                 if !self.body.held {
-                    let room = Arc::clone(cx.room);
-                    let mut change = ModeChange {
-                        room: &room,
-                        rng: cx.rng,
-                        update_seq: cx.update_seq,
-                    };
-                    self.change_mode(WeaponMode::Free, object, &mut change);
+                    self.change_mode_in(WeaponMode::Free, object, cx);
                 }
             }
             WeaponMode::Free
@@ -498,10 +625,215 @@ impl Weapon {
             {
                 self.rotation_speed *= 0.7;
             }
-            // Thrown weapons are step 4.
+            WeaponMode::Thrown => {
+                self.thrown_update(exit_speed, object, cx);
+                return true;
+            }
             _ => {}
         }
+        false
+    }
+
+    /// The rest of `Update` after the layer-0 walk: `PlayerCarryableItem.Update` (with
+    /// the physics), then `Rock.Update`'s or `Spear.Update`'s own part.
+    pub fn update_finish(&mut self, object: &mut AbstractObject, cx: &mut WeaponTick<'_>) {
         self.carryable_update(object, cx);
+        if self.spear().is_some() {
+            self.spear_update(object, cx);
+        } else {
+            self.rock_update(cx);
+        }
+    }
+
+    /// `ChangeMode` in an update, against the room it updates in.
+    fn change_mode_in(
+        &mut self,
+        new: WeaponMode,
+        object: &mut AbstractObject,
+        cx: &mut WeaponTick<'_>,
+    ) {
+        let room = Arc::clone(cx.room);
+        let mut change = ModeChange {
+            room: &room,
+            rng: cx.rng,
+            update_seq: cx.update_seq,
+        };
+        self.change_mode(new, object, &mut change);
+    }
+
+    /// The floor bounce of a belly-slide throw (`floorBounceFrames`): a fast weapon
+    /// touching a floor or ceiling springs off it with four sparks and `Weapon_Skid`, at
+    /// least at its exit speed, and the frames halve.
+    fn floor_bounce(&mut self, exit_speed: f32, cx: &mut WeaponTick<'_>) {
+        self.floor_bounce_frames -= 1;
+        let contact = self.chunk().contact();
+        if contact.y == 0 || self.chunk().vel.x.abs() <= 5.0 {
+            return;
+        }
+        let cy = f32::from(contact.y);
+        let c = self.chunk_mut();
+        c.vel.y = (c.vel.y.abs() + 1.0) * -cy + if contact.y < 0 { 4.5 } else { 0.0 };
+        let (pos, vel) = (c.pos, c.vel);
+        let contact_vec = Vec2::new(f32::from(contact.x), cy);
+        let at = Vec2::new(pos.x, pos.tile_middle().y + cy * 10.0);
+        for _ in 0..4 {
+            let mut v = vel * cx.rng.value();
+            v += Vec2::random_unit(cx.rng) * (cx.rng.value() * 4.0);
+            v -= contact_vec * (4.0 * cx.rng.value());
+            cx.add_spark(at, v, 6, 18);
+        }
+        cx.sounds
+            .play_on_object(SoundId::WeaponSkid, pos, false, 1.0, 1.0, cx.rng);
+        let c = self.chunk_mut();
+        let sign = if c.vel.x >= 0.0 { 1.0 } else { -1.0 };
+        c.vel.x = (exit_speed + 1.0).max(c.vel.x.abs()) * sign;
+        self.floor_bounce_frames /= 2;
+    }
+
+    /// `Weapon.Update`'s `Thrown` branch up to the layer-0 walk: the turn with a player
+    /// thrower (one draw), the tumble back to `Free` under the exit speed or when the
+    /// throw frames run out, then a belly-slide bounce up off a slope, the wall hit, or
+    /// the trace against collision layer 1.
+    fn thrown_update(
+        &mut self,
+        exit_speed: f32,
+        object: &mut AbstractObject,
+        cx: &mut WeaponTick<'_>,
+    ) {
+        // Step 5: the room's creatures are told of the weapon (`INotifyOfFlyingWeapons`,
+        // the overseers) and `thrownClosestToCreature` / `closestCritDist` are kept.
+        if self.change_dir_counter > 0
+            && let Some((player, dir)) = cx.player
+            && self.thrown_by == Some(player)
+            && dir == -self.throw_dir.0
+        {
+            self.change_dir_counter = 0;
+            self.throw_dir = (dir, 0);
+            let c = self.chunk_mut();
+            c.vel.x = c.vel.x.abs() * dir as f32;
+            let vx = c.vel.x;
+            let nudge = Vec2::from_degrees(cx.rng.value() * 360.0) * 0.1;
+            self.rotation = (self.rotation + nudge).normalized();
+            self.set_rotation = Some(Vec2::from_degrees(if vx < 0.0 { 270.0 } else { 90.0 }));
+        }
+        self.change_dir_counter -= 1;
+        if self.throw_mode_frames > 0 {
+            self.throw_mode_frames -= 1;
+        }
+        if (self.chunk().vel.length() < exit_speed && !self.do_not_tumble_at_low_speed)
+            || self.throw_mode_frames == 0
+        {
+            self.set_random_spin(cx.rng);
+            self.change_mode_in(WeaponMode::Free, object, cx);
+            self.forbidden_to_player = 10;
+        }
+        let c = self.chunk();
+        let contact = c.contact();
+        let touching = contact.x != 0 || contact.y != 0;
+        let on_slope = cx.room.tile_at_pos(c.pos).terrain == Terrain::Slope;
+        if self.floor_bounce_frames > 0 && self.throw_dir.0 != 0 && touching && on_slope {
+            self.slope_bounce(exit_speed, object, cx);
+        } else if (i32::from(contact.x), i32::from(contact.y)) == self.throw_dir {
+            self.hit_wall(object, cx);
+            self.floor_bounce_frames = 0;
+        } else {
+            // `TraceProjectileAgainstBodyChunks` over collision layer 1 finds only the
+            // player, exempt as the thrower. Step 5 hits creatures here (`HitSomething`,
+            // `HitByWeapon`, `WeaponAttack`, the hit through a wall turned `HitWall`);
+            // with nothing hit, `HitSomething` is false.
+            self.first_frame_trace_from_pos = None;
+            self.forbidden_to_player = 40;
+        }
+    }
+
+    /// The "vertical bounce": a belly-slide throw along a floor that meets a slope turns
+    /// up (or down) it, thrown anew from the tile's middle, with four sparks and
+    /// `Weapon_Skid`.
+    fn slope_bounce(
+        &mut self,
+        exit_speed: f32,
+        object: &mut AbstractObject,
+        cx: &mut WeaponTick<'_>,
+    ) {
+        log::info!("vertical bounce");
+        let spear = self.spear().is_some();
+        let pos = self.chunk().pos;
+        self.chunk_mut().vel.x = 0.5 * self.throw_dir.0 as f32;
+        let (tx, ty) = pos.tile();
+        let up = matches!(
+            cx.room.identify_slope(tx, ty),
+            Some(Slope::UpLeft | Slope::UpRight)
+        );
+        self.throw_dir = (0, if up { 1 } else { -1 });
+        let extra = if !up {
+            0.0
+        } else if spear {
+            5.0
+        } else {
+            10.0
+        };
+        let c = self.chunk_mut();
+        let sign = if up { 1.0 } else { -1.0 };
+        c.vel.y = sign * c.vel.length().max(exit_speed + 1.0 + extra);
+        c.pos = pos.tile_middle();
+        let (pos, vel) = (c.pos, c.vel);
+        self.floor_bounce_frames = 0;
+        self.change_mode_in(WeaponMode::Thrown, object, cx);
+        self.thrown_pos = pos;
+        self.throw_mode_frames = -1;
+        self.set_rotation = Some(self.throw_dir_vec());
+        self.rotation_speed = 0.0;
+        for _ in 0..4 {
+            let mut v = vel * cx.rng.value();
+            v += Vec2::random_unit(cx.rng) * cx.rng.value();
+            cx.add_spark(pos, v, 6, 18);
+        }
+        cx.sounds
+            .play_on_object(SoundId::WeaponSkid, pos, false, 1.0, 1.0, cx.rng);
+    }
+
+    /// `HitWall`: seven sparks when the room is viewed, the sound (a spear's bounce or
+    /// a rock's hit), a new spin and `Free`, out of the player's reach for 10 ticks.
+    /// The camera's `ScreenMovement` bump is not ported (docs/DIVERGENCES.md D7).
+    fn hit_wall(&mut self, object: &mut AbstractObject, cx: &mut WeaponTick<'_>) {
+        let dir = self.throw_dir_vec();
+        let c = self.chunk();
+        let (pos, rad) = (c.pos, c.rad);
+        if cx.room_index == cx.camera_room {
+            for _ in 0..7 {
+                let mut v = Vec2::from_degrees(cx.rng.value() * 360.0) * (10.0 * cx.rng.value());
+                v += -dir * 10.0;
+                cx.add_spark(pos + dir * (rad - 1.0), v, 2, 4);
+            }
+        }
+        let sound = if self.spear().is_some() {
+            SoundId::SpearBounceOffWall
+        } else {
+            SoundId::RockHitWall
+        };
+        cx.sounds
+            .play_on_object(sound, pos, false, 1.0, 1.0, cx.rng);
+        self.set_random_spin(cx.rng);
+        self.change_mode_in(WeaponMode::Free, object, cx);
+        self.forbidden_to_player = 10;
+    }
+
+    /// `WeaponDeflect`: halfway to `between`, shaking, `Free` and off along `dir` at half
+    /// `bounce_speed`, spinning anew.
+    pub fn weapon_deflect(
+        &mut self,
+        between: Vec2,
+        dir: Vec2,
+        bounce_speed: f32,
+        object: &mut AbstractObject,
+        cx: &mut ModeChange<'_>,
+    ) {
+        let c = self.chunk_mut();
+        c.pos = c.pos.lerp(between, 0.5);
+        self.vibrate = 20;
+        self.change_mode(WeaponMode::Free, object, cx);
+        self.chunk_mut().vel = dir * (bounce_speed * 0.5);
+        self.set_random_spin(cx.rng);
     }
 
     /// `PlayerCarryableItem.Update` with `PhysicalObject.Update` first.
@@ -604,9 +936,67 @@ impl Weapon {
                 c.pos = at;
                 c.vel *= 0.0;
             }
-            // Thrown and stuck in a creature are steps 4 and 5.
+            WeaponMode::Thrown => self.thrown_spear(object, cx),
+            // Stuck in a creature, and the impaled flies' loop after it, are step 5.
             _ => {}
         }
+    }
+
+    /// `Spear.Update`'s `Thrown` branch: half the gravity taken back, and a spear
+    /// within 560 px of its throw (more with a damage bonus) that meets Solid ahead from
+    /// an Air tile sticks in the wall a third of the time (always within 140 px or after
+    /// a belly-slide throw): not where another spear is stuck, not in the room's outer
+    /// tile ring by its unclamped abstract tile (an explosive spear is exempt), not in a
+    /// `NoSpearStickZone`, and not while a shelter door moves.
+    fn thrown_spear(&mut self, object: &mut AbstractObject, cx: &mut WeaponTick<'_>) {
+        let explosive = object.spear().is_some_and(|a| a.explosive);
+        self.chunk_mut().vel.y += 0.45;
+        let Some(s) = self.spear() else { return };
+        let (bonus, always) = (s.spear_damage_bonus, s.always_stick_in_walls);
+        let c = self.chunk();
+        let (pos, contact) = (c.pos, c.contact());
+        let dir = self.throw_dir_vec();
+        let near = self.thrown_pos.dist_less(pos, 560.0 * bonus.max(1.0));
+        if !near
+            || (i32::from(contact.x), i32::from(contact.y)) != self.throw_dir
+            || cx.room.tile_at_pos(pos).terrain != Terrain::Air
+            || cx.room.tile_at_pos(pos + dir * 20.0).terrain != Terrain::Solid
+        {
+            return;
+        }
+        let chance = if explosive { 0.8 } else { 0.33 };
+        if !(cx.rng.value() < chance || self.thrown_pos.dist_less(pos, 140.0) || always) {
+            return;
+        }
+        let tile = object.pos.tile;
+        let mut stick = !cx.stuck_spear_tiles.contains(&tile);
+        if stick && !explosive {
+            let (w, h) = (cx.room.width(), cx.room.height());
+            if tile.1 <= 0 || tile.1 >= h - 1 || tile.0 <= 0 || tile.0 >= w - 1 {
+                stick = false;
+                log::info!("Spear prevented from stabbing the edge of a room");
+            } else if cx
+                .no_stick_zones
+                .iter()
+                .any(|&(at, rad)| pos.tile_middle().dist_less(at, rad))
+            {
+                stick = false;
+            }
+        }
+        if stick && cx.shelter_door_moving {
+            stick = false;
+        }
+        if !stick {
+            return;
+        }
+        if let Some(s) = self.spear_mut() {
+            s.stuck_in_wall = Some(pos.tile_middle());
+        }
+        self.vibrate = 10;
+        self.change_mode_in(WeaponMode::StuckInWall, object, cx);
+        cx.sounds
+            .play_on_object(SoundId::SpearStickInWall, pos, false, 1.0, 1.0, cx.rng);
+        self.chunk_mut().collide_with_terrain = false;
     }
 
     /// `Spear.Update`'s `Free` branch.
@@ -684,6 +1074,16 @@ impl SpearParts {
         }
         self.has_horizontal_beam_state = false;
         spear.stuck_in_wall_cycles = 0;
+    }
+}
+
+impl WeaponTick<'_> {
+    /// `room.AddObject(new Spark(pos, vel, white, null, standard, exceptional))`.
+    fn add_spark(&mut self, pos: Vec2, vel: Vec2, standard: i32, exceptional: i32) {
+        let spark = Spark::new(pos, vel, WHITE, standard, exceptional, self.rng);
+        *self.update_seq += 1;
+        self.cosmetics
+            .push((*self.update_seq, CosmeticKind::Spark(spark)));
     }
 }
 
