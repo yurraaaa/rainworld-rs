@@ -4,8 +4,9 @@
 //!
 //! Usage: `rainworld-rs [ROOM] [--seed N] [--screenshot FILE.ppm] [--debug-view]
 //! [--spawn X,Y] [--script STEPS] [--resolution WxH] [--windowed] [--mute]
-//! [--process NAME]` (default room
-//! `summit`, seed 1; `--screenshot` saves the frame after one second, or once the
+//! [--process NAME] [--slugcat NAME]` (default room
+//! `summit`, seed 1, the Survivor; `--slugcat` (`White`, `Yellow`, `Red`) is the slugcat a
+//! game started in a room plays; `--screenshot` saves the frame after one second, or once the
 //! script has run, and quits; `--debug-view` starts in the debug view; `--spawn` puts
 //! the player on tile X,Y; `--script` plays `X,Y,J[,M]:TICKS;...` input steps instead of
 //! the keyboard; `--resolution` is one of the game's screen sizes, default 1366x768;
@@ -55,7 +56,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::Arc;
 
-use rw_assets::{Room, StreamingAssets, UnityResources};
+use rw_assets::{ActiveMods, Room, SlugcatName, StreamingAssets, UnityResources};
 use rw_menu::ProcessId;
 use rw_render::Resolution;
 
@@ -95,11 +96,13 @@ struct Args {
     save_dir: Option<PathBuf>,
     /// `--game-saves`: the game's save directory the importer reads.
     game_saves: Option<PathBuf>,
+    /// `--slugcat`: who a room start plays.
+    slugcat: SlugcatName,
 }
 
 impl Args {
     /// Parses `[ROOM] [--seed N] [--screenshot FILE] [--debug-view] [--spawn X,Y]
-    /// [--script STEPS] [--resolution WxH] [--windowed] [--mute]` or `--mcp [--window]` (program
+    /// [--script STEPS] [--resolution WxH] [--windowed] [--mute] [--slugcat NAME]` or `--mcp [--window]` (program
     /// name already removed).
     fn parse<I>(args: I) -> Result<Self, String>
     where
@@ -121,6 +124,7 @@ impl Args {
         let mut start = None;
         let mut save_dir = None;
         let mut game_saves = None;
+        let mut slugcat = SlugcatName::White;
         while let Some(arg) = args.next() {
             match arg.as_str() {
                 "--save-dir" => {
@@ -139,6 +143,11 @@ impl Args {
                 "--screenshot" => {
                     let value = args.next().ok_or("--screenshot needs a path")?;
                     screenshot = Some(PathBuf::from(value));
+                }
+                "--slugcat" => {
+                    let value = args.next().ok_or("--slugcat needs a name")?;
+                    slugcat = SlugcatName::from_value(&value, ActiveMods::NONE)
+                        .ok_or_else(|| format!("unknown slugcat {value:?} (White, Yellow, Red)"))?;
                 }
                 "--debug-view" => debug_view = true,
                 "--mcp" => mcp = true,
@@ -183,7 +192,7 @@ impl Args {
                                 [--debug-view] [--spawn X,Y] [--script X,Y,J[,M]:TICKS;...] \
                                 [--resolution WxH] [--windowed] [--mute] \
                                 [--process intro-roll|main-menu|slugcat-select|game|font-test] \
-                                [--save-dir DIR] [--game-saves DIR]\n       \
+                                [--save-dir DIR] [--game-saves DIR] [--slugcat White|Yellow|Red]\n       \
                                 rainworld-rs --mcp [--window] [--save-dir DIR] [--game-saves DIR]"
                             .to_owned(),
                     );
@@ -217,6 +226,7 @@ impl Args {
             start,
             save_dir,
             game_saves,
+            slugcat,
         })
     }
 }
@@ -283,7 +293,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         start: game::GameStart::Room {
             name: room.name().to_owned(),
             tile: args.spawn,
-            slugcat: rw_assets::SlugcatName::White,
+            slugcat: args.slugcat,
         },
         seed: args.seed,
         sound_table: table,
@@ -347,6 +357,7 @@ mod tests {
                 start: ProcessId::IntroRoll,
                 save_dir: None,
                 game_saves: None,
+                slugcat: SlugcatName::White,
             })
         );
     }
@@ -368,6 +379,7 @@ mod tests {
             start: ProcessId::IntroRoll,
             save_dir: None,
             game_saves: None,
+            slugcat: SlugcatName::White,
         });
         assert_eq!(Args::parse(["SU_A22", "--seed", "7"]), want);
         assert_eq!(Args::parse(["--seed", "7", "SU_A22"]), want);
@@ -410,6 +422,14 @@ mod tests {
         }
         let args = Args::parse(["--spawn", "1,2", "--process", "main-menu"]).unwrap();
         assert_eq!(args.start, ProcessId::MainMenu);
+    }
+
+    #[test]
+    fn slugcat() {
+        let args = Args::parse(["SU_A22", "--slugcat", "Red"]).expect("parses");
+        assert_eq!(args.slugcat, SlugcatName::Red);
+        assert!(Args::parse(["--slugcat", "red"]).is_err());
+        assert!(Args::parse(["--slugcat"]).is_err());
     }
 
     #[test]
