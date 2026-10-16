@@ -61,6 +61,17 @@ pub struct CreatureCommunities {
     pub scavenger_shyness: f32,
     /// `playerOpinions[community, region + 1, 0]`.
     opinions: Vec<Vec<f32>>,
+    /// `loadedPlayerOpinions`: the opinions as the session loaded them.
+    loaded: Vec<Vec<f32>>,
+}
+
+/// One `InfluenceLikeOfPlayer` call of a story session, in the session's region.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CommunityInfluence {
+    pub community: CommunityId,
+    pub influence: f32,
+    pub inter_region_bleed: f32,
+    pub inter_community_bleed: f32,
 }
 
 impl CreatureCommunities {
@@ -71,6 +82,7 @@ impl CreatureCommunities {
             regions: regions.to_vec(),
             scavenger_shyness: 0.0,
             opinions: vec![vec![0.0; regions.len() + 1]; CommunityId::ALL.len()],
+            loaded: vec![vec![0.0; regions.len() + 1]; CommunityId::ALL.len()],
         }
     }
 
@@ -88,7 +100,46 @@ impl CreatureCommunities {
             Some(s) => c.from_string(s),
             None => c.load_default_alignments(default_alignments, slugcat),
         }
+        c.loaded.clone_from(&c.opinions);
         c
+    }
+
+    /// `InfluenceLikeOfPlayer` in a story session, in region `region` (one the
+    /// communities do not list changes nothing): the community's cell, the bleed into
+    /// its everywhere cell, and for a single community the bleed into `All`'s.
+    pub fn influence_like_of_player(&mut self, i: CommunityInfluence, region: &str) {
+        let comm = i.community.index();
+        let column = self.region_column(region);
+        if let Some(column) = column {
+            self.influence_cell(comm, column, i.influence);
+            self.influence_cell(comm, 0, i.influence * i.inter_region_bleed);
+        }
+        if i.community != CommunityId::All
+            && let Some(column) = column
+        {
+            self.influence_cell(0, column, i.influence * i.inter_community_bleed);
+            self.influence_cell(
+                0,
+                0,
+                i.influence * i.inter_region_bleed * i.inter_community_bleed,
+            );
+        }
+    }
+
+    /// `InfluenceCell` of a story session: within 0.5 of the loaded opinion, and -1 to 1.
+    fn influence_cell(&mut self, comm: usize, column: usize, influence: f32) {
+        let loaded = self.loaded[comm][column];
+        let v = &mut self.opinions[comm][column];
+        *v = (*v + influence)
+            .clamp(loaded - 0.5, loaded + 0.5)
+            .clamp(-1.0, 1.0);
+    }
+
+    /// `playerOpinions[community, column, 0]`.
+    #[must_use]
+    pub fn opinion(&self, community: CommunityId, region: Option<&str>) -> f32 {
+        let column = region.map_or(Some(0), |r| self.region_column(r));
+        column.map_or(0.0, |c| self.opinions[community.index()][c])
     }
 
     fn region_column(&self, region: &str) -> Option<usize> {
@@ -272,5 +323,29 @@ mod tests {
         assert!(c.save_string().contains("SU:0|SH"));
         let again = CreatureCommunities::for_session(Some(&s), &regions(), "", SlugcatName::White);
         assert_eq!(again.save_string(), s);
+    }
+
+    #[test]
+    fn a_kill_lowers_the_like_of_the_player_within_half_of_the_loaded() {
+        // `Killing` by the slugcat: `InfluenceLikeOfPlayer(community, region, -0.05 *
+        // communityInfluence, 0.25, 0)`: the region cell, a quarter of it everywhere, and
+        // nothing into `All` (no community bleed); `InfluenceCell` keeps each within 0.5
+        // of the loaded value.
+        let mut c =
+            CreatureCommunities::for_session(None, &regions(), ALIGNMENTS, SlugcatName::White);
+        let kill = CommunityInfluence {
+            community: CommunityId::Lizards,
+            influence: -0.05,
+            inter_region_bleed: 0.25,
+            inter_community_bleed: 0.0,
+        };
+        c.influence_like_of_player(kill, "SU");
+        assert!((c.opinion(CommunityId::Lizards, Some("SU")) - -0.08).abs() < 1e-6);
+        assert!((c.opinion(CommunityId::Lizards, None) - -0.0125).abs() < 1e-6);
+        assert_eq!(c.opinion(CommunityId::All, Some("SU")), 0.0);
+        for _ in 0..20 {
+            c.influence_like_of_player(kill, "SU");
+        }
+        assert!((c.opinion(CommunityId::Lizards, Some("SU")) - -0.53).abs() < 1e-6);
     }
 }

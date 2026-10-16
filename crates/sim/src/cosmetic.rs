@@ -1,6 +1,8 @@
 //! `Spark` (40664) and `ExplosionSpikes` (34870): `CosmeticSprite`s a weapon's terrain
-//! hits and the belly-slide throw add to their room's update list. Their constructors
-//! draw on the shared stream; their updates do not. The sprites are `rw-graphics`'.
+//! hits and the belly-slide throw add to their room's update list, and the
+//! `OverseerEffect` (232098) a dying overseer sheds. Their constructors draw on the
+//! shared stream, and the overseer effect's update too. The sprites are `rw-graphics`'
+//! (the overseer effect's, on the `OverseerZip` shader, is not drawn).
 
 use rw_assets::{Room, Terrain};
 use rw_random::UnityRandom;
@@ -24,6 +26,68 @@ pub struct Cosmetic {
 pub enum CosmeticKind {
     Spark(Spark),
     Spikes(ExplosionSpikes),
+    OverseerEffect(OverseerEffectSprite),
+}
+
+/// `OverseerEffect`: a drifting, spinning glow of a dying overseer's colour.
+#[derive(Debug, Clone, PartialEq)]
+pub struct OverseerEffectSprite {
+    pub pos: Vec2,
+    pub last_pos: Vec2,
+    pub vel: Vec2,
+    /// RGB.
+    pub color: [f32; 3],
+    pub rad: f32,
+    pub rotation: f32,
+    pub last_rotation: f32,
+    pub rot_vel: f32,
+    pub life: f32,
+    pub last_life: f32,
+    pub life_time: f32,
+}
+
+impl OverseerEffectSprite {
+    /// The constructor: its rotation, spin and life from three draws.
+    pub fn new(
+        pos: Vec2,
+        vel: Vec2,
+        color: [f32; 3],
+        rad: f32,
+        life_time_fac: f32,
+        rng: &mut UnityRandom,
+    ) -> Self {
+        let rotation = rng.value() * 360.0;
+        let rot_vel = (-26.0f32).lerp(26.0, rng.value());
+        let life_time = 5.0f32.lerp(11.0, rng.value()) * life_time_fac;
+        Self {
+            pos,
+            last_pos: pos,
+            vel,
+            color,
+            rad,
+            rotation,
+            last_rotation: rotation,
+            rot_vel,
+            life: 1.0,
+            last_life: 1.0,
+            life_time,
+        }
+    }
+
+    /// `Update`: slowing with a random nudge (two draws), spinning with its speed; gone
+    /// the tick after its life runs out. True once destroyed.
+    pub fn update(&mut self, rng: &mut UnityRandom) -> bool {
+        self.vel *= 0.9;
+        let dir = Vec2::random_unit(rng);
+        self.vel += dir * (rng.value() * 0.04);
+        self.last_rotation = self.rotation;
+        self.rotation += self.rot_vel * self.vel.length();
+        self.last_life = self.life;
+        self.life -= 1.0 / self.life_time;
+        self.last_pos = self.pos;
+        self.pos += self.vel;
+        self.last_life <= 0.0
+    }
 }
 
 /// `Spark`: a short falling streak that bounces once off a floor (`lizard` is null for
@@ -173,10 +237,11 @@ impl ExplosionSpikes {
 
 impl Cosmetic {
     /// Its `Update`; true once destroyed.
-    pub fn update(&mut self, room: &Room) -> bool {
+    pub fn update(&mut self, room: &Room, rng: &mut UnityRandom) -> bool {
         self.slated = match &mut self.kind {
             CosmeticKind::Spark(s) => s.update(room),
             CosmeticKind::Spikes(s) => s.update(),
+            CosmeticKind::OverseerEffect(e) => e.update(rng),
         };
         self.slated
     }

@@ -35,10 +35,15 @@ impl World {
             return;
         }
         let rain = self.rain_approaching();
-        let (fly, flock) = Fly::new(id, self.flocks.len(), rain, rng);
+        let dead = !c.state.alive;
+        let (mut fly, flock) = Fly::new(id, self.flocks.len(), rain, rng);
+        // `Creature`'s constructor: `dead = State.dead`.
+        fly.dead = dead;
         self.flocks.push(flock);
         let c = self.creature_mut(id);
         c.realized = Some(RealizedCreature::Fly(Box::new(fly)));
+        c.kill_tag = None;
+        c.kill_tag_counter = 0;
         c.grasps = vec![None];
         c.grabbed_by.clear();
         for s in self.creature(id).sticks.clone() {
@@ -47,6 +52,9 @@ impl World {
                     self.realize_fly(other, rng);
                 }
             }
+        }
+        for s in self.spear_sticks_of(Entity::Creature(id)) {
+            self.realize_object(s.spear, rng);
         }
     }
 
@@ -154,7 +162,10 @@ impl World {
                         self.place_fly(o, room, cx);
                     }
                 }
-                Entity::Object(o) => self.object_mut(o).pos = pos,
+                Entity::Object(o) => {
+                    self.object_mut(o).pos = pos;
+                    self.place_object(o, cx.rng);
+                }
             }
         }
     }

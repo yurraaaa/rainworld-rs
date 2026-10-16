@@ -8,6 +8,8 @@
 
 #[cfg(test)]
 mod game_over_tests;
+#[cfg(test)]
+mod kills_tests;
 mod music_reply;
 mod params;
 #[cfg(test)]

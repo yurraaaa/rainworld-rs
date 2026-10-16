@@ -159,7 +159,8 @@ before the user agrees.
     lesson. Rocks and spears lie in the rooms; the player picks them up,
     carries them (through pipes and room exits), switches hands, lays them
     down, swallows and regurgitates rocks and throws them (bouncing off and
-    sticking in walls, belly-slide throws; creature hits are not ported, D3). Saves (`rw-save`, D16): Continue from the slugcat select, New
+    sticking in walls, belly-slide throws), killing or stunning bat flies
+    and overseers (spears impale flies; the sleep screen shows kills, D3). Saves (`rw-save`, D16): Continue from the slugcat select, New
     Game's wipe and the start's death-and-quit save. Shelters (D17): the
     door closes on a fed, still slugcat, `Win` writes the whole save state
     and region state, the sleep screen (karma ladder, food meter, map;

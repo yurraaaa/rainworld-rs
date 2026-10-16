@@ -60,8 +60,10 @@ pub struct SaveState {
     /// Seconds.
     pub tot_time: i32,
     pub cycles_in_current_world_version: i32,
-    /// `KILLS` as read.
-    kills: Option<String>,
+    /// `kills`: each kill symbol (`IconSymbolData` as text) and how many.
+    pub kills: Vec<(String, i32)>,
+    /// `unrecognizedKills`: entries of creature types the game does not know.
+    unrecognized_kills: Vec<String>,
     /// `skipNextCycleFoodDrain` (`JUSTBEATGAME`).
     pub skip_next_cycle_food_drain: bool,
     /// Every other entry, whole, in read order.
@@ -143,7 +145,8 @@ impl SaveState {
             tot_food: 0,
             tot_time: 0,
             cycles_in_current_world_version: 0,
-            kills: None,
+            kills: Vec::new(),
+            unrecognized_kills: Vec::new(),
             skip_next_cycle_food_drain: false,
             unrecognized: Vec::new(),
             how_well_is_player_doing: 0.0,
@@ -228,7 +231,7 @@ impl SaveState {
             "CURRVERCYCLES" => {
                 self.cycles_in_current_world_version = ParseError::int("CURRVERCYCLES", value)?;
             }
-            "KILLS" => self.kills = value.map(str::to_owned),
+            "KILLS" => self.load_kills(value.unwrap_or_default())?,
             "SWALLOWEDITEMS" => self.swallowed_items = rest,
             "UNRECOGNIZEDSWALLOWED" => self.unrecognized_swallowed = rest,
             "PLAYERGRASPS" => self.player_grasps = rest,
@@ -245,6 +248,37 @@ impl SaveState {
             _ => self.unrecognized.push(entry.to_owned()),
         }
         Ok(())
+    }
+
+    /// `KILLS`: entries `symbol<svD>count` by `<svC>`; a symbol whose creature type is
+    /// not a base-game one is kept unrecognized. (The game also reads the symbols'
+    /// numeric pre-1.9 form; here it stays unrecognized.)
+    fn load_kills(&mut self, value: &str) -> Result<(), ParseError> {
+        self.kills.clear();
+        for entry in value.split("<svC>").filter(|e| !e.is_empty()) {
+            let mut parts = entry.split("<svD>");
+            let symbol = parts.next().unwrap_or_default();
+            let kind = symbol.split('-').next().unwrap_or_default();
+            if rw_assets::CreatureType::from_value(kind, ActiveMods::NONE).is_none() {
+                self.unrecognized_kills.push(entry.to_owned());
+                continue;
+            }
+            let count = ParseError::int("KILLS", parts.next())?;
+            self.kills.push((symbol.to_owned(), count));
+        }
+        Ok(())
+    }
+
+    /// `AppendKills`: each kill of the cycle counts once more for its symbol.
+    pub fn append_kills(&mut self, kills: &[crate::session::KillRecord]) {
+        log::info!("appending {} kills to kills record", kills.len());
+        for k in kills {
+            let symbol = k.symbol();
+            match self.kills.iter_mut().find(|(s, _)| *s == symbol) {
+                Some((_, n)) => *n += 1,
+                None => self.kills.push((symbol, 1)),
+            }
+        }
     }
 
     fn load_ids(ids: &mut Vec<i32>, value: Option<&str>) -> Result<(), ParseError> {
@@ -427,7 +461,15 @@ impl SaveState {
             "CURRVERCYCLES<svB>{}<svA>",
             self.cycles_in_current_world_version
         ));
-        Self::push_entry(&mut t, "KILLS", self.kills.as_deref());
+        if !self.kills.is_empty() {
+            let list: Vec<String> = self
+                .kills
+                .iter()
+                .map(|(symbol, n)| format!("{symbol}<svD>{n}"))
+                .chain(self.unrecognized_kills.iter().cloned())
+                .collect();
+            t.push_str(&format!("KILLS<svB>{}<svA>", list.join("<svC>")));
+        }
         if self.red_extra_cycles {
             t.push_str("REDEXTRACYCLES<svA>");
         }
@@ -586,5 +628,32 @@ mod tests {
                 "REGIONNAME<rgB>XX<rgA>"
             ]
         );
+    }
+
+    #[test]
+    fn kills_are_appended_by_symbol_and_unknown_ones_kept() {
+        // `KILLS<svB>symbol<svD>count<svC>...`: `AppendKills` counts each record once
+        // more for its symbol; a type the game does not know stays as read, last.
+        let line = "SAV STATE NUMBER<svB>White<svA>KILLS<svB>Fly-Creature-0<svD>3<svC>\
+            Inspector-Creature-0<svD>1<svC>Overseer-Creature-0<svD>1<svA>";
+        let mut s = SaveState::new(SlugcatName::White, 5);
+        s.load_game(line, "SU_C04", true).unwrap();
+        assert_eq!(
+            s.kills,
+            [
+                ("Fly-Creature-0".to_owned(), 3),
+                ("Overseer-Creature-0".to_owned(), 1)
+            ]
+        );
+        let overseer =
+            crate::session::KillRecord::new(rw_assets::CreatureType::Overseer, 0, 1, false);
+        let lizard =
+            crate::session::KillRecord::new(rw_assets::CreatureType::PinkLizard, 0, 2, true);
+        assert_eq!(lizard.lizard_index, Some(1));
+        s.append_kills(&[overseer, lizard]);
+        assert!(s.save_to_string().contains(
+            "KILLS<svB>Fly-Creature-0<svD>3<svC>Overseer-Creature-0<svD>2<svC>\
+             PinkLizard-Creature-0<svD>1<svC>Inspector-Creature-0<svD>1<svA>"
+        ));
     }
 }

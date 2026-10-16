@@ -216,7 +216,7 @@ impl FlyRun<'_, '_, '_> {
 
     /// `Fly.Die`.
     pub(crate) fn die(&mut self) {
-        self.world.fly_die(self.me);
+        self.world.fly_die(self.me, self.cx.rng);
     }
 
     /// `Creature.Update` (the parts a fly reaches) with `PhysicalObject.Update`.
@@ -250,6 +250,7 @@ impl FlyRun<'_, '_, '_> {
             f.shortcut_delay -= 1;
         }
         let floor = -f.chunk().restrict_in_room_range + 1.0;
+        self.world.kill_tag_tick(self.me);
         let no_water = self.cx.room.water_level().is_none_or(|l| l < -10);
         let f = self.fr();
         // `canFly`: only a stunned or dead fly falls out.
@@ -738,13 +739,10 @@ impl World {
         f.conscious() && free && f.shortcut_delay < 1
     }
 
-    /// `Fly.Die`: `surfaceFriction` 0.3, then `Creature.Die` (its grasps let go).
-    pub(crate) fn fly_die(&mut self, id: CreatureId) {
-        let f = self.fly_at(id);
-        f.body.params.surface_friction = 0.3;
-        f.dead = true;
-        self.lose_all_grasps(id);
-        self.creature_mut(id).state.alive = false;
+    /// `Fly.Die`: `surfaceFriction` 0.3, then `Creature.Die`.
+    pub(crate) fn fly_die(&mut self, id: CreatureId, rng: &mut UnityRandom) {
+        self.fly_at(id).body.params.surface_friction = 0.3;
+        self.creature_die(id, rng);
     }
 
     /// The realized fly `id` (an invariant of the callers).
@@ -813,6 +811,9 @@ impl World {
         let sticks = self.creature(id).sticks.clone();
         for s in sticks.iter().rev() {
             self.deactivate_stick(*s);
+        }
+        for s in self.spear_sticks_of(Entity::Creature(id)) {
+            self.deactivate_spear_stick(s.serial);
         }
         self.creature_mut(id).slated_for_deletion = true;
     }

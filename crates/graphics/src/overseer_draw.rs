@@ -34,14 +34,20 @@ struct Frame<'a> {
 }
 
 impl Frame<'_> {
-    /// `ColorOfSegment` (not dying).
+    /// `ColorOfSegment`: dying, it fades to its clear main colour.
     fn color_of_segment(&self, f: f32) -> Color {
-        Self::segment_color(
+        let living = Self::segment_color(
             self.main,
             self.earth,
             f,
             DrawPositions::extension(self.body, f, self.t),
-        )
+        );
+        living.lerp(self.main.with_alpha(0.0), self.dying())
+    }
+
+    /// `Lerp(lastDying, dying, t)`.
+    fn dying(&self) -> f32 {
+        self.body.last_dying.lerp(self.body.dying, self.t)
     }
 
     /// `ColorOfSegment` (not dying) at extension `ext` of segment `f`.
@@ -61,6 +67,7 @@ impl Frame<'_> {
         let tip = 5.0.lerp(0.0, f.mathf_pow(k));
         (1.0 + (f * std::f32::consts::PI).mathf_sin())
             .lerp(tip, DrawPositions::extension(self.body, f, self.t))
+            * (1.0 - self.dying()).mathf_pow(0.2)
     }
 
     fn segment(&self, f: f32) -> Vec2 {

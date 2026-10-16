@@ -4,8 +4,9 @@
 use rw_assets::StreamingAssets;
 use rw_assets::world::Regions;
 use rw_random::UnityRandom;
-use rw_save::session::{HibernationStats, HibernationWorld, PlayerSessionRecord};
+use rw_save::session::{HibernationStats, HibernationWorld, KillRecord, PlayerSessionRecord};
 use rw_save::{PlayerProgression, SaveError, WinOutcome};
+use rw_sim::creature::ViolenceTemplate;
 use rw_sim::world::RegionState;
 use rw_sim::{RainWorldGame, WorldCoordinate};
 
@@ -86,6 +87,22 @@ impl HibernationWorld for HibernatingGame<'_> {
     fn swallowed_item(&self) -> Option<String> {
         self.sim.swallowed_item_save_string()
     }
+
+    fn community_influences(&self) -> Vec<rw_save::CommunityInfluence> {
+        self.sim
+            .session_deaths()
+            .influences
+            .iter()
+            .filter_map(|i| {
+                Some(rw_save::CommunityInfluence {
+                    community: rw_save::CommunityId::from_value(i.community.value())?,
+                    influence: i.influence,
+                    inter_region_bleed: i.inter_region_bleed,
+                    inter_community_bleed: i.inter_community_bleed,
+                })
+            })
+            .collect()
+    }
 }
 
 impl HibernatingGame<'_> {
@@ -110,7 +127,19 @@ impl HibernatingGame<'_> {
         };
         let mut record = self.sim.session_record();
         if let Some(state) = saves.current_save_state.as_mut() {
+            let deaths = self.sim.session_deaths();
             state.respawn_creatures.clone_from(&story.respawn_creatures);
+            state
+                .respawn_creatures
+                .extend_from_slice(&deaths.respawn_creatures);
+            state
+                .wait_respawn_creatures
+                .extend_from_slice(&deaths.wait_respawn_creatures);
+            let guide = self.sim.guide_state();
+            let saved = &mut state.misc_world.player_guide;
+            saved.likes_player = guide.likes_player;
+            saved.hand_holding = guide.hand_holding;
+            saved.increase_like_on_save = guide.increase_like_on_save;
             state.tot_food += self.sim.session_food();
         }
         let mut rng = self.sim.take_rng();
@@ -202,6 +231,16 @@ impl SessionRecordSource for RainWorldGame {
         for &id in self.eaten() {
             record.add_eat((id.spawner, id.number), rw_save::session::EatenKind::Meat);
         }
+        let deaths = self.session_deaths();
+        record.peaceful = deaths.peaceful;
+        record.kills = deaths
+            .kills
+            .iter()
+            .map(|k| {
+                let counts = ViolenceTemplate::of(k.kind).counts_as_a_kill;
+                KillRecord::new(k.kind, k.int_data, counts, k.lizard)
+            })
+            .collect();
         record
     }
 }

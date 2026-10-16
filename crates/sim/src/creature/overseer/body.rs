@@ -80,6 +80,16 @@ pub struct OverseerBody {
     pub holograms: Vec<OverseerHologram>,
     /// `hologram`: the id of the current one.
     pub hologram: Option<u64>,
+    /// `Creature.stun` (nothing an overseer does reads it).
+    pub stun: i32,
+    /// `canBeHitByWeapons` and its appendage's `canBeHit`: extended past 0.2.
+    pub can_be_hit_by_weapons: bool,
+    pub dead: bool,
+    /// `dying` and `lastDying`: 0 to 1 over the six ticks after death.
+    pub dying: f32,
+    pub last_dying: f32,
+    /// `slatedForDeletetion`: destroyed when it has died away (out of its room's lists).
+    pub slated: bool,
 }
 
 impl OverseerBody {
@@ -122,6 +132,12 @@ impl OverseerBody {
             update_order: 0,
             holograms: Vec::new(),
             hologram: None,
+            stun: 0,
+            can_be_hit_by_weapons: true,
+            dead: false,
+            dying: 0.0,
+            last_dying: 0.0,
+            slated: false,
         }
     }
 
@@ -148,6 +164,21 @@ impl OverseerBody {
 
     /// `Appendage.Update` with `AppendagePosition` as without graphics: hidden far away
     /// when withdrawn, else evenly from the root to the body.
+    /// `Appendage.LineCross`: the segment from `a` to `b` crosses one of the
+    /// appendage's segments.
+    #[must_use]
+    pub fn appendage_line_cross(&self, a: Vec2, b: Vec2) -> bool {
+        let len = a.distance(b);
+        self.appendage.windows(2).any(|s| {
+            let p = a.line_intersection(b, s[0], s[1]);
+            let seg = s[0].distance(s[1]);
+            p.dist_less(a, len)
+                && p.dist_less(b, len)
+                && p.dist_less(s[0], seg)
+                && p.dist_less(s[1], seg)
+        })
+    }
+
     pub(crate) fn update_appendage(&mut self) {
         let pos = self.chunk().pos;
         for (i, seg) in self.appendage.iter_mut().enumerate() {

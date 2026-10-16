@@ -24,7 +24,7 @@ pub mod user_data;
 pub mod win_state;
 
 pub use checksum::ChecksumSalt;
-pub use communities::{CommunityId, CreatureCommunities};
+pub use communities::{CommunityId, CommunityInfluence, CreatureCommunities};
 pub use coordinate::SavedCoordinate;
 pub use death_persistent::Tutorial;
 pub use dirs::{Platform, SaveSlot};

@@ -9,6 +9,7 @@ use rw_assets::ShowProjectedImageEvent;
 
 use crate::Vec2;
 use crate::creature::CreatureId;
+use crate::item::ObjectId;
 use crate::world::World;
 
 /// `zipPathingMatrix` and its offset: path costs from the centre tile through walls,
@@ -238,6 +239,8 @@ pub struct OverseerAi {
     /// `ArtificialIntelligence.timeInRoom` and `lastRoom`.
     pub time_in_room: i32,
     pub last_room: i32,
+    /// `lookAtFlyingWeapon`.
+    pub look_at_flying_weapon: Option<ObjectId>,
 }
 
 impl OverseerAi {
@@ -264,6 +267,7 @@ impl OverseerAi {
             communication: guide.then(|| CommunicationModule::new(cycle)),
             time_in_room: 0,
             last_room: -1,
+            look_at_flying_weapon: None,
         }
     }
 

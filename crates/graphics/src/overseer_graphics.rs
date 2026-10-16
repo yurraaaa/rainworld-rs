@@ -54,11 +54,8 @@ impl OverseerGraphics {
     /// `MainColor`.
     #[must_use]
     pub fn main_color(color: OverseerColor) -> Color {
-        match color {
-            OverseerColor::Yellow => Color::rgb(1.0, 0.8, 0.3),
-            OverseerColor::Green => Color::rgb(0.0, 1.0, 0.0),
-            OverseerColor::Wild => Color::rgb(114.0 / 255.0, 230.0 / 255.0, 196.0 / 255.0),
-        }
+        let [r, g, b] = color.rgb();
+        Color::rgb(r, g, b)
     }
 }
 
@@ -234,6 +231,11 @@ impl OverseerGraphics {
             (self.convo_mode - 1.0 / 30.0).max(0.0)
         };
         self.update_lens(view);
+        // Dying, it looks away from its root (its effects and sparks are the sim's).
+        if body.dying > 0.0 {
+            let pos = body.chunk().pos;
+            self.cosmetic_look_at = pos + body.root_pos.direction_to(pos) * 1000.0;
+        }
         // `GraphicsModule.Update`: back in view, it resets; the lens moves only then.
         self.last_culled = self.culled;
         self.culled = self.should_be_culled(body, room, camera);
@@ -269,7 +271,10 @@ impl OverseerGraphics {
         } else {
             up
         };
-        self.holo_lens_up = self.holo_lens_up.min(1.0 - self.convo_mode).min(1.0);
+        self.holo_lens_up = self
+            .holo_lens_up
+            .min(1.0 - self.convo_mode)
+            .min(1.0 - view.body.dying);
         if view.body.mode == OverseerMode::Zipping {
             self.holo_lens_up = if lens < 0.5 { 0.0 } else { 1.0 };
         }

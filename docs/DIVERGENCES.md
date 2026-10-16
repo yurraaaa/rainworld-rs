@@ -128,6 +128,14 @@ it (D13). What still differs is only the seed and the call order:
   roll 1 (when the hit is in reach and not close) and `Spear_Stick_In_Wall`; a parried
   weapon's `WeaponDeflect` its spin and sparks. Each `Spark` and `ExplosionSpikes`
   updates in its own slot of the room's update list (`rw_sim::cosmetic`).
+- **Weapons hitting creatures.** An overseer hearing of a flying weapon
+  (`OverseerAI.FlyingWeapon`) draws once; a rock hitting a fly draws once (kill or
+  stun), one hitting an overseer (no small creature) or a spear none; `Overseer.HitByWeapon` draws `Range(200, 1500)` when the
+  guide goes away; a killed lineage's `ChanceToProgress` draws once below its last
+  stage; a dead overseer draws four a tick and `Overseer_Death`'s sound draws, and in
+  view its graphics' ten `OverseerEffect`s (three each, then two a tick each) and three
+  sparks; a guide killed out of view takes a new ID (`GetNewID`, no draw). The order is
+  the game's (`rainworld-re/notes/items.md` section 12).
 - **Placed spears and items.** `Room.Loaded`'s story `MultiplayerItem`s draw once
   against their chance (on every realization) and take an ID, then on a first
   realization each `ReliableSpear` takes an ID (no draw), before the random items.
@@ -198,10 +206,16 @@ apply to `HeavyCarry` objects only, which no ported object is.
 - **Throwing rocks and spears** is ported (`ThrowObject`'s weapon branch, `Weapon.Thrown`,
   `ThrownSpear` with the slugcats' throwing skills, the belly-slide throws, the
   recoil, `Blink(15)`, `PlayerGraphics.ThrowObject`'s throwing hand; flight, wall hits,
-  skims, sticking: `rainworld-re/notes/items.md` section 11). Hitting creatures is
-  not: a thrown weapon passes through every creature (`HitSomething`,
-  `WeaponAttack`), and nothing hears it fly (`INotifyOfFlyingWeapons`). Adrenaline's
-  throw force (`Lerp(1, 1.5, Adrenaline)`) is 1. Remix and More Slugcats branches
+  skims, sticking: `rainworld-re/notes/items.md` section 11) and so is hitting the
+  creatures of collision layer 0, the bat flies and overseers
+  (`HitSomethingWithoutStopping`, `TryImpaleSmallCreature`, `INotifyOfFlyingWeapons`;
+  section 12). `HitSomething` has nothing to hit: the trace runs over collision layer
+  1, where the only ported creature is the player, and a weapon never hits its thrower,
+  so `Creature.Violence`'s effects, `LodgeInCreature` and `StuckInCreature` are not
+  ported (the templates' damage resistances and `Violence`'s damage and stun arithmetic
+  are, `rw_sim::creature::violence`). Adrenaline's
+  throw force (`Lerp(1, 1.5, Adrenaline)`) is 1 (adrenaline is skipped for now, a user
+  decision of 2026-10-16). Remix and More Slugcats branches
   (Gourmand, Saint, Spearmaster, Rivulet's upward throw, the MMF slow-spear and
   climbing-grip rules) are omitted.
 - **The Hunter's spear on the back** (`SpearOnBack`, `CanPutSpearToBack`) is not
@@ -257,6 +271,12 @@ physics with neutral input, its water, graphics and room camera as in the game.
   Sofanthiel's sound. Base-game branches with no ported counterpart: the Pomegranate
   grasp and the deer-antlers ride cancelling fall damage.
 - **Water.** Drowning is D11; inverted water (DLC) is not modelled.
+
+- **Other creatures.** Bat flies and overseers are stunned (`Stun`'s counter) and die
+  (`Creature.Die`, `AbstractCreature.Die`) as in the game: the kill tag and its 200
+  ticks, the slugcat's `Killing` (kill, peaceful streak, community like) and the
+  respawn lists. `SocialEventRecognizer`'s listeners and the More Slugcats and Watcher
+  branches of `Die` are not ported.
 
 **Why.** The respawn is a development aid the user kept outside story sessions; the
 rest is out of the base-game scope or randomness (D1).
@@ -426,7 +446,7 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   effects that grade colours (Darkness, Brightness, Contrast, Desaturation, Hue, DayNight)
   or modify effect colours (`ModifyEffectColorA/B`, unused in base-game rooms), ghost /
   rot / mushroom palettes, screen shake (and the camera bump of a weapon hitting a
-  wall, `ScreenMovement`), `_bkg` backgrounds, the heat / melt / ripple
+  wall, `HitWall`'s `ScreenMovement`: skipped for now, a user decision of 2026-10-16), `_bkg` backgrounds, the heat / melt / ripple
   shader variants, swarm rooms, and the properties-file line preprocessing (no base-game
   `Room Setting Templates` line uses it).
 
@@ -663,8 +683,8 @@ runs it as the game's side process (D13), silent on `TimedSources` without audio
   of the game's `sounds.txt` and never play. Throws play `Slugcat_Throw_Rock` /
   `Slugcat_Throw_Spear`, wall hits `Rock_Hit_Wall` / `Spear_Bounce_Off_Wall`, sticking
   `Spear_Stick_In_Wall`, skims `Weapon_Skid`, the backward belly-slide throw
-  `Slugcat_Rocket_Jump`, the long slide's end `Slugcat_Normal_Jump`. Creature hits'
-  sounds come with them.
+  `Slugcat_Rocket_Jump`, the long slide's end `Slugcat_Normal_Jump`. A weapon stopped
+  by a creature plays `Spear_Hit_Small_Creature`, a dying overseer `Overseer_Death`.
 - **Not ported:** the rain and thunder loops and one-shots and the
   drown-out of volume group 0, other creatures', item and object sounds, the sounds of
   unported menu screens and objects, `PlayCustomSound` / loose mod clips next to
@@ -754,9 +774,9 @@ real-time audio rather than the sim.
   - `CueAchievement` on a fulfilment is not made (the port has no achievements).
   - The tokens' glow size draws `Random.value` once per token and rendered frame; the
     port takes it from the screen's own cosmetic stream (D1).
-  - Not ported: the kills display (`SleepScreenKills`: the port records no kills; the
-    only creature it can kill, the bat fly, is quantified and earns no trophy, so the
-    game's display would show nothing for it), the statistics screen's `ScoreFlash`,
+  - The kills display (`SleepScreenKills`, `KillTrophy`, `CreatureSymbol`) is ported
+    for the session's kills (a quantified bat fly earns no trophy; overseers do).
+    Not ported: the statistics screen's `ScoreFlash`,
     the Hunter's `GoToRedsGameOver` (D17), and the Expedition, Watcher and More
     Slugcats branches (Remix's Traveller region colours and list-change animation, the
     collectibles tracker).
@@ -1000,8 +1020,9 @@ second part, else a single-room world for arena levels). The campaign descriptio
   communication module's pointers, images and anger). Holograms that cannot appear yet,
   for want of what triggers them: the creature and food pointers (no dangerous creature
   or food item is realized: bat flies are small creatures and no food item to the
-  communication module), the angry hologram (`angryWithPlayer` is never set: no
-  weapons), the gate scene (`RegionGate` is not ported: in Moon's gates the concern is
+  communication module), the angry hologram (`angryWithPlayer` is set only when the
+  Moon's swarmer neuron is eaten or carried off, 217937, and is otherwise read from the
+  save; no iterator is ported), the gate scene (`RegionGate` is not ported: in Moon's gates the concern is
   `None`, as the game's is with a closed gate), the forced direction
   (`ReliableIggyDirection` is not ported; the port makes no pointer for it), the
   in-world super jump and scavenger-trade instructions (`SuperJumpInstruction` and
@@ -1089,11 +1110,11 @@ second part, else a single-room world for arena levels). The campaign descriptio
   (its fuse, rag and blast come with `ExplosiveSpear`). In a story, `Room.Loaded`'s
   `MultiplayerItem`s spawn on every realization and `ReliableSpear`s on the first
   (with their `placedObjectOrigin`); of the multiplayer items' kinds a scavenger bomb
-  and a spore plant stay abstract (not realized; the spore plant lacks its consumable
-  fields). The player picks them up, carries them (through shortcuts and room exits
+  and a spore plant stay abstract (not realized, a user decision of 2026-10-16; the
+  spore plant lacks its consumable fields). The player picks them up, carries them (through shortcuts and room exits
   too), swallows rocks and throws them (D3); thrown spears stick into walls (the room
-  edge ring, `NoSpearStickZone`s and a moving shelter door excepted). Not yet:
-  hitting creatures (`HitSomething`, `StuckInCreature`), items falling between rooms
+  edge ring, `NoSpearStickZone`s and a moving shelter door excepted) and hit bat flies
+  and overseers (D3). Not yet: items falling between rooms
   (an item below the room is clamped at -1200 px as the game does for objects; only
   creatures are destroyed there); and objects of other kinds (placed food,
   pearls, ...).
@@ -1139,8 +1160,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
   process's update and More Slugcats' goal rooms and guide symbols are left out.
   Not ported: the scavengers' abstract AI (`ScavengerAbstractAI`: squads, outposts,
   traders, kill squads, re-gearing) and `ScavengersWorldAI`, and `CreatureCommunities`
-  in the sim (the save keeps their likes, D16). `NewWorld` (a region change) is not
-  reachable (no gates).
+  in the sim (a kill's `InfluenceLikeOfPlayer` is recorded and applied to the save at
+  `Win`, D16). `NewWorld` (a region change) is not reachable (no gates).
 - **Hologram graphics.** A hologram's colour base (`Color.Lerp(MainColor,
   ColorOfSegment(0, 0), 0.5)`) is taken at its overseer's last update (holograms update
   before their overseer, so it is the one the game reads); a hologram slated for removal
@@ -1155,6 +1176,16 @@ second part, else a single-room world for arena levels). The campaign descriptio
   guide, realized first, sits under the player). `NowViewed` builds graphics modules in
   the abstract room's creature order, not in `physicalObjects`' (the order the bodies
   were added); they differ only with several overseers in the room.
+- **Overseers hit and killed** (D3). Hearing of a flying weapon, being stunned, the
+  guide's lost like (`FlyingWeapon`, `HitByWeapon`), `Overseer.Die` with the guide's
+  return in the off-screen den, the dead overseer's six ticks of dying and its graphics'
+  fade are ported. Differences: a dying overseer's `OverseerEffect`s are simulated but
+  not drawn (the `OverseerZip` shader is not ported), and its effects and sparks start
+  on the straight line from root to eye, where the game places them on the drawn
+  body's segments; `ApplyForceOnAppendage` and the appendage cross test use the
+  simulated root and eye, not the graphics' segments. Not ported: `OverseerCarcass`
+  (the dead overseer's falling eye, its `GetNewID` and constructor draws) and the
+  `ShockWave` of its death.
 - **Fly graphics.** The flies' sprites go into the Midground container after the
   slugcat's; the game orders a container by when each graphics module joined it (flies
   realized before the player's body sit under it).
@@ -1323,8 +1354,11 @@ Differences:
   read; `Win` writes the player's held objects (`PLAYERGRASPS`) and swallowed object
   (`SWALLOWEDITEMS`) as `BringUpToDate` does, but a swallowed creature or object of a
   kind the port does not type stays as its save string (it cannot be coughed up) and
-  is written back as read, and so are the kills (`AppendKills`), communities' likes beyond
-  their cycle tick, and friends in the den. A saved creature the world cannot place
+  is written back as read, and so are friends in the den. `Win` appends the cycle's kills
+  (`AppendKills`; a saved kill the port cannot type stays as read), applies the
+  session's `InfluenceLikeOfPlayer` calls to the communities, adds the cycle's respawn
+  and wait-respawn spawners, and writes the guide's like, hand holding and
+  `increaseLikeOnSave` (the rest of `PlayerGuideState` stays as read). A saved creature the world cannot place
   stays in the saved list. Session time is the sim's ticks.
 - **Win state.** Integer and float passage trackers are read and written as the game
   does, including the death penalty (applied, as in the game, only to a tracker whose
@@ -1346,7 +1380,8 @@ Differences:
   (`AdaptWorldToRegionState`, `GeneratePopulation(fresh: false)`) and a swallowed rock
   or spear is back in the stomach (the `Player` constructor); held objects are not
   restored, as in the base game (only More Slugcats' forced end rooms read
-  `PLAYERGRASPS`); communities, kills and dreams are kept in the save but not applied.
+  `PLAYERGRASPS`); the guide's like, hand holding and anger are applied, while
+  communities (no creature reads them), kills and dreams are kept in the save.
   `BackwardsCompability` world-version updates and the automatic `backup/` copies
   (`CreateCopyOfSaves`) are not ported. The slot is `options.saveSlot` (D13).
 - **Reset progress.** `WipeAll` keeps only `MISCPROG`, as the game, with its shelters,
@@ -1411,6 +1446,9 @@ Differences:
 - **Objects in shelters.** Rocks and spears in any shelter when `Win` saves, and spears
   stuck in walls anywhere, are written to the region state and come back the next cycle
   (D16) and are realized in their rooms (D14).
+- **Kills.** A cycle's kills, its respawn and wait-respawn spawners and its community
+  influences reach the save only through `Win` (D16), as in the game; a death or a
+  quit drops them.
 - **Karma flowers.** The player's `karmaFlowerGrowPos` is tracked as `Player.Update`
   does (`PlaceKarmaFlower`: reinforced karma, the Monk, the Hunter out of cycles), and
   `PlaceKarmaFlowerOnDeathSpot` stores it in the save state's `karmaFlowerPosition`
@@ -1448,7 +1486,7 @@ shelter.
 ## Not ported yet (not divergences, just absent)
 
 Player (stage one leaves out): sneaking and visibility (`privSneak`, `Sneak`, `VisibilityBonus`; the `SlugcatStats` stealth values exist but nothing reads them, as no ported creature sees or hears the player), zero gravity, grabbing and eating anything but bat flies, rocks and spears, thrown
-weapons hitting creatures (D3), adrenaline, Red's illness, the WALLSTUCK safety
+weapons hitting creatures other than bat flies and overseers (D3), adrenaline, Red's illness, the WALLSTUCK safety
 (needs `VisualContact`), vines, tube worm,
 Jolly co-op, MSC / Watcher class mechanics. Ported because ground classification
 produces them anyway: wall slide and wall jump (`WallClimb`, `canWallJump`, `jumpStun`;
@@ -1464,18 +1502,16 @@ cosmetic insects (`InsectCoordinator`), among them the `MiniFly`s that buzz arou
 corpses and a malnourished slugcat (the bat flies do not).
 
 Front end: the regions, arena and Remix menus, input settings, credits, backups,
-the dream screens, PASSAGE's custom end-game and fast travel screens, the sleep
-screen's kills, the outro and DLC slideshows, the slugcat select menu's
+the dream screens, PASSAGE's custom end-game and fast travel screens, the outro and DLC slideshows, the slugcat select menu's
 colour and Jolly Co-op controls, the `SceneRain` and `SceneMultiply` layers, menu objects those use (vertical and
 subtle sliders, check box groups, symbol buttons, scroll boxes, `UIelementWrapper`),
 Remix's options (FPS, VSync, quality, analogue sensitivity, backgrounds), and the
 in-game music beyond the triggers' songs (D12).
 
 Passage triggers (`WinState.CycleCompleted` and `PlayerDied` are ported whole; these
-inputs to them are not): kills (`PlayerSessionRecord.AddKill`, `BreakPeaceful` from
-kills and weapon hits), so the Outlaw only resets, the Saint never breaks its streak
-and the Dragon Slayer never fills (eating a bat fly kills it in the game, but a fly
-counts 0 and is no lizard, so no tracker sees it); plant food, so the Monk only resets;
+inputs to them are not): kills of anything but bat flies and overseers (both count 0
+and are no lizards, so the Outlaw only resets, the Saint never breaks its streak and
+the Dragon Slayer never fills); plant food, so the Monk only resets;
 pearls found (Scholar); a friend in the den (the Friend only resets); changes to the
 scavengers' like (Chieftain: the saved like is read); region gates, so the Wanderer
 (Traveller) can only mark SU. More Slugcats' Nomad, Pilgrim, Martyr, Mother and

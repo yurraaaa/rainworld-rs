@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use super::{RainWorldGame, RoomObject};
 use crate::item::ObjectId;
-use crate::world::ItemTick;
+use crate::world::{ItemTick, World};
 
 impl RainWorldGame {
     /// The realized items and their loop emitters in room `index`'s update list.
@@ -36,16 +36,19 @@ impl RainWorldGame {
             .collect()
     }
 
-    /// Item `id`'s `Update` in room `index`, or with `emitter` the `ChunkSoundEmitter`
-    /// of its sound loop.
-    pub(super) fn run_weapon(&mut self, index: i32, id: ObjectId, emitter: bool) {
+    /// The `ChunkSoundEmitter` of item `id`'s sound loop in room `index`.
+    pub(super) fn run_weapon_loop(&mut self, index: i32, id: ObjectId) {
+        self.with_item_tick(index, |world, cx| world.update_weapon_loop(index, id, cx));
+    }
+
+    /// `f` with the world and what an item's turn in room `index` reads of the game.
+    pub(super) fn with_item_tick<R>(
+        &mut self,
+        index: i32,
+        f: impl FnOnce(&mut World, &mut ItemTick<'_>) -> R,
+    ) -> R {
         let triggers = Arc::clone(self.sounds.table());
         let eu = self.even_update();
-        let sounds = if index == self.camera_room {
-            &mut self.sounds
-        } else {
-            &mut self.silent
-        };
         let player = self
             .player
             .as_ref()
@@ -54,6 +57,11 @@ impl RainWorldGame {
             .shelter_doors
             .iter()
             .any(|d| d.room == index && (d.is_closing() || d.is_opening()));
+        let sounds = if index == self.camera_room {
+            &mut self.sounds
+        } else {
+            &mut self.silent
+        };
         let mut cx = ItemTick {
             rng: &mut self.rng,
             sounds,
@@ -64,10 +72,6 @@ impl RainWorldGame {
             player,
             shelter_door_moving,
         };
-        if emitter {
-            self.world.update_weapon_loop(index, id, &mut cx);
-        } else {
-            self.world.update_weapon(index, id, &mut cx);
-        }
+        f(&mut self.world, &mut cx)
     }
 }

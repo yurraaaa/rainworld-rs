@@ -398,6 +398,12 @@ impl World {
                 }
             }
         }
+        for other in self.spear_stick_partners(e) {
+            if !list.contains(&other) {
+                list.push(other);
+                self.add_connected(other, list);
+            }
+        }
     }
 
     /// `PhysicalObject.Update`'s clean-up: grasps on it that their grabber no longer

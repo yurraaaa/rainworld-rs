@@ -36,7 +36,7 @@ use rw_sim::{
 use crate::shortcuts::CameraShortcuts;
 
 /// How a game starts.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum GameStart {
     /// `StoryGameInitCondition.New` for a campaign: its start den, at the den's start
     /// position (`TryGetPlayerStartPos`, else (15, 25)).

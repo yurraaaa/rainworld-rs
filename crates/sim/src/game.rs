@@ -15,6 +15,8 @@ mod exit;
 mod flies;
 #[path = "game_player.rs"]
 mod hands;
+#[path = "game_hits.rs"]
+mod hits;
 #[path = "game_items.rs"]
 mod items;
 #[path = "game_map.rs"]
@@ -197,6 +199,10 @@ pub enum OverseerCall {
     Update,
     /// The `Update` of the overseer's hologram with this id.
     Hologram(u64),
+    /// `FlyingWeapon`: this thrown weapon is in its room.
+    FlyingWeapon(ObjectId),
+    /// `HitByWeapon` of a weapon thrown by a slugcat (or not).
+    HitByWeapon { by_slugcat: bool },
 }
 
 /// An object in a room's update list the port runs besides the player.
@@ -382,7 +388,7 @@ impl RainWorldGame {
             cycle_number: story.cycle_number,
             den_position: story.den.clone(),
         };
-        let guide = PlayerGuideState::default();
+        let guide = story.guide.clone();
         let player_pos = WorldCoordinate::new(start.room, 15, 25, -1);
         let template = CreatureTemplate::of(rw_assets::CreatureType::Slugcat, world.mods());
         let mut player = world.new_creature(
@@ -505,7 +511,7 @@ impl RainWorldGame {
             cycle_number: story.cycle_number,
             den_position: story.den.clone(),
         };
-        let guide = PlayerGuideState::default();
+        let guide = &story.guide;
         world.rain_cycle = RainCycle::new_story(campaign.name, rng);
         let mut respawn = story.respawn_creatures.clone();
         let fresh = story.region_state.is_none() && story.live_region_state.is_none();
@@ -524,7 +530,7 @@ impl RainWorldGame {
             ids: &mut ids,
             rng,
             guide_overseer_dead: story.guide_overseer_dead,
-            guide: &guide,
+            guide,
             food_to_hibernate: campaign.stats.food_to_hibernate,
             respawn: &mut respawn,
         };
@@ -785,6 +791,12 @@ impl RainWorldGame {
             cycle_number: self.story.cycle_number,
             den_position: self.story.den.clone(),
         }
+    }
+
+    /// What the session keeps of its deaths (kills, respawns, community influences).
+    #[must_use]
+    pub fn session_deaths(&self) -> &crate::creature::SessionDeaths {
+        &self.world.session
     }
 
     /// How the cycle ended, once it has; taken by the process that ends the game.
@@ -1193,6 +1205,7 @@ impl RainWorldGame {
                         && self.world.creature(id).pos.room == index;
                     if in_room {
                         self.creature_new_tile(id);
+                        self.world.kill_tag_tick(id);
                         self.run_overseer(id, OverseerCall::Update, observer);
                     }
                 }
@@ -1209,10 +1222,10 @@ impl RainWorldGame {
                 RoomObject::Fly(id) => self.run_fly(index, id, &room, observer),
                 RoomObject::Hover(id) => self.run_hover(index, id),
                 RoomObject::Drip(id) => self.run_drip(index, id, &room),
-                RoomObject::Weapon(id) => self.run_weapon(index, id, false),
-                RoomObject::WeaponLoop(id) => self.run_weapon(index, id, true),
+                RoomObject::Weapon(id) => self.run_weapon(index, id, observer),
+                RoomObject::WeaponLoop(id) => self.run_weapon_loop(index, id),
                 RoomObject::Trigger(id) => self.run_trigger_object(index, id),
-                RoomObject::Cosmetic(id) => self.world.update_cosmetic(index, id),
+                RoomObject::Cosmetic(id) => self.world.update_cosmetic(index, id, &mut self.rng),
             }
         }
         self.remove_slated_trigger_objects();
@@ -1359,6 +1372,8 @@ impl RainWorldGame {
                 OverseerCall::TeleportIn => run.teleport_into_room(),
                 OverseerCall::Update => run.update_with_graphics(),
                 OverseerCall::Hologram(hid) => run.update_hologram(hid),
+                OverseerCall::FlyingWeapon(w) => run.flying_weapon(w),
+                OverseerCall::HitByWeapon { by_slugcat } => run.hit_by_weapon(by_slugcat),
             }
             pos = run.pos;
             rain = cx.rain;
@@ -1427,6 +1442,18 @@ impl RainWorldGame {
                     }
                 }
                 OverseerEffect::KillGreenLizards(room) => self.world.kill_green_lizards(room),
+                OverseerEffect::Cosmetic(kind) => {
+                    let room = self.world.creature(id).pos.room;
+                    self.world.add_cosmetic(room, kind);
+                }
+                OverseerEffect::Destroy => {
+                    if let Some(RealizedCreature::Overseer(body)) =
+                        &mut self.world.creature_mut(id).realized
+                    {
+                        body.in_room = false;
+                        body.slated = true;
+                    }
+                }
                 OverseerEffect::InstructionFollowed(instruction) => {
                     self.instruction_followed(instruction);
                 }

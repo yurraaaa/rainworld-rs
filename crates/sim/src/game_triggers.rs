@@ -9,8 +9,7 @@ use rw_assets::{
 };
 
 use super::{HudEvent, RainWorldGame, RoomObject};
-use crate::creature::overseer::{CommunicationModule, OverseerAbstractAi, TutorialMessage};
-use crate::creature::{AbstractCreature, AiKind};
+use crate::creature::overseer::{CommunicationModule, TutorialMessage};
 use crate::item::{Entity, ObjectId, WeaponMode};
 use crate::trigger::{
     ActiveTriggerChecker, InputInstructionView, MusicRequest, PickupObjectInstruction, TriggerHud,
@@ -50,15 +49,6 @@ impl World {
             .as_mut()?
             .communication
             .as_mut()
-    }
-}
-
-impl AbstractCreature {
-    pub(crate) fn overseer_ai_mut(&mut self) -> Option<&mut OverseerAbstractAi> {
-        match &mut self.ai.as_mut()?.kind {
-            AiKind::Overseer(o) => Some(o),
-            _ => None,
-        }
     }
 }
 

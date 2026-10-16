@@ -67,8 +67,8 @@ Not yet ported:
   earned and shown on the meters);
 - region gates;
 - creatures other than overseers and bat flies (the others roam abstractly, but have
-  no body yet; scavengers stay in their den);
-- thrown rocks and spears hitting creatures (they pass through them for now).
+  no body yet; scavengers stay in their den), so thrown rocks and spears hit only bat
+  flies and overseers.
 
 ## Building and running
 

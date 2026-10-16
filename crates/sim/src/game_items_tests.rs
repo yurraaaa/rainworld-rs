@@ -461,3 +461,55 @@ fn a_backward_belly_slide_throw_starts_a_long_slide_with_spikes() {
     assert_eq!(g.player_ref().roll_counter(), 12);
     assert_eq!(g.world.room_cosmetics(0).len(), 1);
 }
+
+/// Hands a fixed offset from the head, as a graphics module would report them.
+struct OffsetHands {
+    head: Vec2,
+}
+
+impl crate::PlayerObserver for OffsetHands {
+    fn created(&mut self, _: &crate::Player, _: &mut UnityRandom) {}
+    fn updated(
+        &mut self,
+        player: &crate::Player,
+        _: &Room,
+        _: Option<&crate::Water>,
+        _: &crate::PlayerSurroundings<'_>,
+        _: &mut UnityRandom,
+    ) {
+        self.head = player.head().pos;
+    }
+    fn spat_out(&mut self, _: &crate::Player, _: &mut UnityRandom) {}
+    fn player_hands(&self) -> Option<crate::PlayerHands> {
+        let hand = (self.head + Vec2::new(-12.0, -8.0), Vec2::new(1.0, 0.0));
+        Some(crate::PlayerHands {
+            hands: [hand, hand],
+            ..crate::PlayerHands::default()
+        })
+    }
+}
+
+#[test]
+fn a_held_rock_stays_in_the_hand_while_walking() {
+    // `GraphicsModuleUpdated`: the held chunk takes the hand's velocity and
+    // `MoveFromOutsideMyUpdate(eu, hand.pos)`, which compares the realized rock's own
+    // `evenUpdate` (the `eu` of its last update), so after every tick the rock is at the
+    // hand. Comparing the abstract entity's flag (flipped by the abstract room's
+    // updates) lagged it a tick on alternate ticks.
+    use crate::PlayerObserver;
+    let (mut g, ids) = game(floor_room(), (3, 1), vec![rock(1, (4, 1))]);
+    let mut hands = OffsetHands { head: Vec2::ZERO };
+    g.tick(PICKUP, &mut hands);
+    assert_eq!(g.player_grasps()[0], Some(Entity::Object(ids[0])));
+    for _ in 0..30 {
+        g.tick(Input::new(1, 0, false), &mut hands);
+        let hand = hands.player_hands().expect("hands").hands[0].0;
+        let w = g
+            .world
+            .object(ids[0])
+            .realized
+            .as_deref()
+            .expect("realized");
+        assert_eq!(w.chunk().pos, hand);
+    }
+}
