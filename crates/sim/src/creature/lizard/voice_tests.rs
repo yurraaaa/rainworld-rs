@@ -219,7 +219,9 @@ fn the_sound_plays_once_and_follows_the_articulation() {
     assert!(r.voice.sound_a.is_none());
 }
 
-/// Something in the jaws lets the sound go.
+/// Something in the jaws lets the sound go after the base update kept it alive and the
+/// articulation set its volume: the emitter lives through its next update and dies at
+/// the one after.
 #[test]
 fn holding_drops_the_sound() {
     let mut r = Rig::new(false);
@@ -227,14 +229,17 @@ fn holding_drops_the_sound() {
         .make_sound_with(LizardEmotion::Fear, 1.0, true, false);
     r.update(false);
     assert!(r.voice.sound_a.is_some());
+    r.sounds.take_events();
     r.update(true);
     assert!(r.voice.sound_a.is_none());
-    assert!(
-        r.sounds
-            .take_events()
-            .iter()
-            .any(|e| matches!(e, SoundEvent::Stop(_)))
-    );
+    let events = r.sounds.take_events();
+    assert!(matches!(events[..], [SoundEvent::Emitter { .. }]));
+    let mut e = r.voice.released[0];
+    assert!(e.alive);
+    e.update(Some(0), 0, r.tick);
+    assert!(!e.alive && !e.slated);
+    e.update(Some(0), 0, r.tick + 1);
+    assert!(e.slated);
 }
 
 /// A constant signal: with a periodic Blackman-Harris window only bins 0 to 3 are

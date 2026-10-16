@@ -10,14 +10,27 @@ use rw_assets::{ActiveMods, CreatureType, RoomSettings};
 use rw_random::UnityRandom;
 
 use crate::campaign::{SlugcatCampaign, StoryStart};
-use crate::creature::lizard::{AnimationOutcome, MovementAnimation};
+use crate::creature::lizard::{AnimationOutcome, LizardEmotion, LizardVoice, MovementAnimation};
 use crate::creature::{CreatureId, CreatureTemplate, WorldCoordinate};
 use crate::tests::room;
 use crate::world::{AiMap, AiMapper, MovementConnection, MovementType, World};
-use crate::{Input, RainWorldGame, Sounds, Start, Vec2};
+use crate::{EmitterId, Input, RainWorldGame, SoundEvent, Sounds, Start, Vec2};
 
 /// A Survivor story in a room of `rows`, the player at `player`.
 fn game(rows: &[&str], player: (i32, i32)) -> RainWorldGame {
+    game_with_sounds(rows, player, Sounds::default())
+}
+
+/// As [`game`], with the green lizard's voice in the sound table.
+fn game_with_voice(rows: &[&str], player: (i32, i32)) -> RainWorldGame {
+    let text =
+        "Volume: 6\nVolume exponent: 1.8\nLizard_Voice_Green_A : LizardVoiceGreenA/vol=0.3\n";
+    let names = rw_assets::sound_table::ClipNames::new(["lizardvoicegreena".to_owned()], None);
+    let table = Arc::new(rw_assets::SoundTable::parse(text, &names).unwrap());
+    game_with_sounds(rows, player, Sounds::new(table))
+}
+
+fn game_with_sounds(rows: &[&str], player: (i32, i32), sounds: Sounds) -> RainWorldGame {
     let room = room(rows);
     let data = WorldData::from_room(&room);
     let settings = RoomSettings {
@@ -36,7 +49,7 @@ fn game(rows: &[&str], player: (i32, i32)) -> RainWorldGame {
             tile: Some(player),
         },
         UnityRandom::new(5),
-        Sounds::default(),
+        sounds,
         &mut (),
     );
     for _ in 0..20 {
@@ -98,6 +111,24 @@ impl RainWorldGame {
             self.tick(Input::NONE, &mut ());
         }
         l
+    }
+
+    /// One tick; the `Stop` events it made.
+    fn tick_stops(&mut self) -> Vec<EmitterId> {
+        self.sounds.take_events();
+        self.tick(Input::NONE, &mut ());
+        self.sounds
+            .take_events()
+            .into_iter()
+            .filter_map(|e| match e {
+                SoundEvent::Stop(id) => Some(id),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn voice(&self, l: CreatureId) -> &LizardVoice {
+        self.world.lizard_ref(l).voice.as_ref().expect("voice")
     }
 
     fn head_tile(&self, l: CreatureId) -> (i32, i32) {
@@ -384,4 +415,64 @@ fn excitement_settles_with_nothing_tracked() {
     g.world.lizard_at(l).ai.excitement = 0.5;
     g.tick(Input::NONE, &mut ());
     assert!((g.world.lizard_ref(l).ai.excitement - 0.45).abs() < 1e-6);
+}
+
+/// `CreatureVoice.Update` lets `soundA` go once the call is over (`soundID` None)
+/// without touching the emitter, which updates before the lizard (`Room.Update` runs
+/// the list backwards and the emitter joined after it). On the drop's tick it spends
+/// the `alive` the last upkeep gave it; on the next its update finds no upkeep and
+/// `Destroy`s it, and the microphone's `ObjectSound` (`Done` once its controller is
+/// slated, no `fadeOutOnDestroy`) cuts the sound.
+#[test]
+fn a_dropped_voice_emitter_dies_at_its_next_update() {
+    let mut g = game_with_voice(&HALL, (2, 1));
+    let l = g.act_lizard((14, 1), 1.0);
+    g.lizard_voice_with(l, LizardEmotion::Fear, 1.0);
+    g.tick(Input::NONE, &mut ());
+    g.tick(Input::NONE, &mut ());
+    let emitter = g.voice(l).sound_a.as_ref().expect("emitter").emitter.sound;
+    let v = g.world.lizard_at(l).voice.as_mut().expect("voice");
+    v.sound_id = None;
+    v.articulation = None;
+    assert_eq!(g.tick_stops(), vec![], "the drop's tick");
+    let v = g.voice(l);
+    assert!(v.sound_a.is_none());
+    assert_eq!(v.released.len(), 1);
+    assert!(!v.released[0].alive && !v.released[0].slated);
+    assert_eq!(g.tick_stops(), vec![emitter], "its next update");
+    assert!(g.voice(l).released.is_empty());
+    assert_eq!(g.tick_stops(), vec![]);
+}
+
+/// `Creature.SuckedIntoShortCut` takes the lizard out of the room (`RemoveObject`:
+/// `room = null`). On that tick its emitter updated before it and the voice's upkeep
+/// came before `Act`; at its next update `ChunkSoundEmitter.Update` sees
+/// `chunk.owner.room != room` and destroys it.
+#[test]
+fn a_voice_emitter_dies_when_its_lizard_enters_a_shortcut() {
+    let mut g = game_with_voice(&SPLIT, (5, 3));
+    let l = g.act_lizard((8, 3), -1.0);
+    g.dev_set_lizard_destination(l, WorldCoordinate::new(0, 17, 3, -1), Some(0.5));
+    let mut emitter = None;
+    for _ in 0..800 {
+        if !g.voice(l).making_a_sound() {
+            g.lizard_voice_with(l, LizardEmotion::Fear, 1.0);
+        }
+        emitter = g.voice(l).sound_a.as_ref().map(|s| s.emitter.sound);
+        let stops = g.tick_stops();
+        if g.world.lizard_ref(l).in_shortcut {
+            assert_eq!(stops, vec![], "the tick it went in");
+            break;
+        }
+    }
+    let emitter = emitter.expect("an emitter when it went in");
+    let held = g.voice(l).sound_a.as_ref().expect("still held").emitter;
+    assert_eq!(held.sound, emitter);
+    assert!(
+        held.alive && !held.slated,
+        "the voice kept it alive before Act sucked it in"
+    );
+    assert_eq!(g.tick_stops(), vec![emitter], "its next update");
+    assert!(g.voice(l).sound_a.as_ref().unwrap().emitter.slated);
+    assert_eq!(g.tick_stops(), vec![]);
 }
