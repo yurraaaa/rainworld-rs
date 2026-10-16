@@ -83,6 +83,15 @@ it (D13). What still differs is only the seed and the call order:
   more for a spear, each item taking an ID. This shifted the stream of every room
   realization since; no test pinned the old one. The rest of `Room.Loaded`'s draws
   (placed objects and effects the port does not make) are still missing.
+- **Realized rocks and spears.** Realizing a room's rocks and spears (`ShortCutsReady`,
+  in entity order) makes the game's draws: the `Weapon` constructor's rotation and the
+  spear's needle `Range(0, 3)`, then `PlaceInRoom`'s `SetRandomSpin` (2 for a rock, 4
+  for a spear in all). Each tick, in its slot of the room's update list,
+  `PlayerCarryableItem.Update` draws 2 to reset an item found inside terrain, a free
+  spear landing point first draws 1 and plays `Spear_Stick_In_Ground`, and
+  `Room.Update`'s collision pass draws 2 to nudge two items apart at the same x.
+  `Rock.DrawSprites` / `Spear.DrawSprites`' vibrate (2) and blink (1) draws come from
+  the app's cosmetic stream, for the same per-frame reason as the holograms' (below).
 - **Overseers.** A realized overseer's update makes the game's draws in order
   (`Overseer.Update`, `OverseerAI` with its communication module and the guide's
   tutorial, then `OverseerGraphics.Update` while its room is viewed;
@@ -266,6 +275,12 @@ corridors (D10).
   and the ripple-levitation freeze of the facing (`rippleActivating`).
 - **Not ported entries to the pole:** `ZeroGPoleGrab` (zero gravity) and the deer antlers. The blink
   on the pole is not ported.
+- **Spears stuck in walls** make poles as `Spear.addPoles` does (a horizontal beam on the
+  spear's tile and its non-solid neighbours along it, or vertical poles for a spear in a floor or
+  ceiling, once the room is ready for AI) and `resetHorizontalBeamState` clears them.
+  The port writes them into the realized room's own copy of its tiles (as the game
+  writes `Room.Tile`), so every tile read sees them; the copy is dropped with the
+  realized room, and a re-realized room gets them again from its stuck spears.
 
 **Why.** Remix and DLC are out of the base-game scope; the rest waits for zero gravity,
 grabbing and audio.
@@ -393,7 +408,7 @@ in `PlayerGraphics` (they use the generic poses of their body mode, as in the ga
   palette's fog colour), fading by 0.005 a tick once cured. Red's illness (also
   `malnourished` 1) is not ported.
 - **Looking and holding.** `PlayerObjectLooker` is ported whole and looks at the
-  room's bat flies and overseers; the hands hold, reach for and bite bat flies
+  room's bat flies, overseers, rocks and spears; the hands hold, reach for and bite bat flies
   (`SlugcatHand` grasp branch, `BiteFly`, `LookAtObject`). The rain-warning look-up and
   the afraid-of-creature poses (and their blink and aerobic effects) are not ported.
 - **Not ported:** grasps of anything but bat flies (swallowing, spear on back, heavy
@@ -568,6 +583,13 @@ runs it as the game's side process (D13), silent on `TimedSources` without audio
   body chunk (`PlaySound(id, chunk)`), so they move with it; the port plays them at the
   chunk's position on the tick they start (the hover loop does follow its fly). The
   draws are the game's; only what is heard differs.
+- **Item sounds.** A spear sticking into the ground plays `Spear_Stick_In_Ground`; a
+  skidding rock runs `Rock_Skidding_On_Ground_LOOP` as a `ChunkDynamicSoundLoop` (its
+  loop is made only in a room a camera shows, as the game's `DynamicSoundLoop` makes
+  one only with a microphone in the room; a stopped loop stops at once, where the
+  game fades it out over its last update). The `Through_Air` loops are commented out
+  of the game's `sounds.txt` and never play. Thrown items' and hits' sounds come
+  with throwing.
 - **Not ported:** the rain and thunder loops and one-shots and the
   drown-out of volume group 0, other creatures', item and object sounds, the sounds of
   unported menu screens and objects, `PlayCustomSound` / loose mod clips next to
@@ -929,8 +951,16 @@ second part, else a single-room world for arena levels). The campaign descriptio
   items (with their IDs and draws, D1; explosive spears are flagged, at the game's
   chances: 0 for the Survivor's and Monk's timelines); saved rocks and spears return to
   their rooms, stuck spears count down their cycles, and objects move between rooms'
-  lists with `Move`. Not yet: realizing them (`ShortCutsReady`), so they are not seen,
-  touched, picked up or carried; and objects of other kinds (placed food, pearls, ...).
+  lists with `Move`. A realized room realizes them in `ShortCutsReady` (`Rock`,
+  `Spear`: free items lie, roll, skid and stick into the ground; saved stuck spears
+  hang in their walls and make poles, D6), in the room's update order with the
+  collision pass between items (`Room.Update`), in the water's object loop, and
+  abstractizes them with the room. An explosive spear is realized as a plain `Spear`
+  (its fuse, rag and blast come with `ExplosiveSpear`). Not yet: picking up, carrying,
+  throwing and hitting (`Thrown`, `StuckInCreature`), items falling between rooms
+  (an item below the room is clamped at -1200 px as the game does for objects; only
+  creatures are destroyed there); and objects of other kinds (placed food,
+  pearls, ...).
   Arena levels (single-room worlds) make items as a story room does (the arena's
   `levelItems` setting is not ported). `GeneratePopulation`'s reset clears a room's
   `creatures` but not its `entities`, as the game does.
@@ -1208,7 +1238,7 @@ Differences:
   new state stays in memory as the starved state) and the next cycle is malnourished.
 - **Objects in shelters.** Rocks and spears in any shelter when `Win` saves, and spears
   stuck in walls anywhere, are written to the region state and come back the next cycle
-  (D16); they stay abstract until realization is ported (D14).
+  (D16) and are realized in their rooms (D14).
 - **Karma flowers.** The player's `karmaFlowerGrowPos` is tracked as `Player.Update`
   does (`PlaceKarmaFlower`: reinforced karma, the Monk, the Hunter out of cycles), and
   `PlaceKarmaFlowerOnDeathSpot` stores it in the save state's `karmaFlowerPosition`

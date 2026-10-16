@@ -59,7 +59,7 @@ pub struct State {
     pub start_up: Option<StartUpState>,
     /// The world's creatures but the player (in dens or out, abstract or realized).
     pub creatures: Vec<CreatureInfo>,
-    /// The world's physical objects other than creatures (rocks, spears), abstract.
+    /// The world's physical objects other than creatures (rocks, spears).
     pub objects: Vec<ObjectInfo>,
     /// `world.rainCycle`.
     pub rain: RainState,
@@ -115,6 +115,23 @@ pub struct ObjectInfo {
     pub stuck_in_wall_cycles: Option<i32>,
     /// A spear's `explosive`.
     pub explosive: Option<bool>,
+    /// The realized rock or spear; `None` while abstract.
+    pub realized: Option<WeaponInfo>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct WeaponInfo {
+    pub room: String,
+    pub pos: [f32; 2],
+    pub vel: [f32; 2],
+    /// `Weapon.Mode`.
+    pub mode: String,
+    /// `rotation` (a unit vector) and `rotationSpeed` (degrees per tick).
+    pub rotation: [f32; 2],
+    pub rotation_speed: f32,
+    pub collision_layer: i32,
+    /// A spear's wall position while stuck.
+    pub stuck_in_wall: Option<[f32; 2]>,
 }
 
 #[derive(Debug, Clone, Serialize)]

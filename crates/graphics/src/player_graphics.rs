@@ -11,6 +11,7 @@ use std::f32::consts::TAU;
 use rw_assets::{Room, Terrain, tile_centre};
 use rw_random::UnityRandom;
 use rw_sim::creature::CreatureId;
+use rw_sim::item::Entity;
 use rw_sim::{Animation, BodyMode, Player, PlayerSurroundings, RoomExt, Vec2, Water};
 
 use crate::body_part::{BodyPart, PointConnection};
@@ -262,7 +263,7 @@ impl PlayerGraphics {
     /// `PlayerGraphics.LookAtObject`, or `LookAtNothing` for `None`.
     pub fn look_at(&mut self, target: Option<CreatureId>) {
         match target {
-            Some(id) => self.looker.look_at_object(id),
+            Some(id) => self.looker.look_at_object(Entity::Creature(id)),
             None => self.looker.look_at_nothing(),
         }
     }
@@ -274,7 +275,7 @@ impl PlayerGraphics {
         self.head.vel += self.head.pos.direction_to(self.hands[hand].limb.part.pos) * 2.0;
         self.draw_positions[0][0] += Vec2::new(0.0, 1.0);
         self.hands[hand].limb.part.pos = self.draw_positions[0][0];
-        self.looker.look_at_object(fly);
+        self.looker.look_at_object(Entity::Creature(fly));
         self.blink = self.blink.max(5);
         self.head.pos
     }
@@ -525,7 +526,7 @@ impl PlayerGraphics {
     /// auto-grab and in sight, a hand whose other hand has reached its place reaches for
     /// it (not while moving away from it), the head and body leaning in.
     fn reach_for_fly(&mut self, player: &Player, around: &PlayerSurroundings<'_>) {
-        let Some(fly) = self.looker.current else {
+        let Some(Entity::Creature(fly)) = self.looker.current else {
             return;
         };
         let climbing = player.body_mode() == BodyMode::ClimbingOnBeam

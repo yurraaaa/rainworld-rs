@@ -42,7 +42,7 @@ fn waterreactor_fall_float_dive_and_drown() {
         let input = if t < 200 { Input::NONE } else { down };
         water.update(
             &room,
-            p.body.chunks.iter_mut(),
+            rw_sim::SurfaceChunk::player(&mut p.body.chunks),
             &mut rng,
             &mut Sounds::default(),
         );

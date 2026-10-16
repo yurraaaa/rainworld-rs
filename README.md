@@ -57,8 +57,9 @@ Not yet ported:
   earned and shown on the meters);
 - region gates;
 - creatures other than overseers and bat flies;
-- rocks and spears: rooms place them and shelters keep them across cycles, but they are
-  not in the rooms to see or pick up yet.
+- picking up, carrying and throwing rocks and spears (they lie in the rooms, roll,
+  stick into the ground, and spears stuck in walls are poles; shelters keep them
+  across cycles).
 
 ## Building and running
 

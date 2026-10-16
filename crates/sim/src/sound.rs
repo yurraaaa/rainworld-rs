@@ -168,6 +168,11 @@ sound_ids! {
     ShelterGasketsUnseal = "Shelter_Gaskets_Unseal",
     ShelterWorkingBackgroundLoop = "Shelter_Working_Background_Loop",
     ShelterGasketMoverLoop = "Shelter_Gasket_Mover_LOOP",
+    SpearStickInGround = "Spear_Stick_In_Ground",
+    RockSkiddingOnGroundLoop = "Rock_Skidding_On_Ground_LOOP",
+    RockThroughAirLoop = "Rock_Through_Air_LOOP",
+    SpearSpinningThroughAirLoop = "Spear_Spinning_Through_Air_LOOP",
+    SpearThrownThroughAirLoop = "Spear_Thrown_Through_Air_LOOP",
 }
 
 /// A `ChunkSoundEmitter` handle: follows a body chunk; loops are updated and stopped
@@ -280,6 +285,47 @@ impl StaticSoundLoop {
         } else if self.volume > 0.0 {
             self.emitter =
                 Some(sounds.play_on_object(self.id, self.pos, true, self.volume, self.pitch, rng));
+        }
+    }
+}
+
+/// A looping `ChunkSoundEmitter` (`requireActiveUpkeep`), a room object of its own: a
+/// fly's hover loop, an item's `ChunkDynamicSoundLoop`. `still_playing` follows the
+/// microphone with one frame per tick (INFERRED: the game counts rendered frames).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LoopEmitter {
+    pub sound: EmitterId,
+    pub room: i32,
+    pub update_order: u64,
+    pub alive: bool,
+    pub slated: bool,
+    pub still_playing: bool,
+    pub last_playing_tick: u64,
+    /// The camera's microphone made a sound object for it.
+    pub playing: bool,
+}
+
+impl LoopEmitter {
+    /// `ChunkSoundEmitter.Update` with the microphone's refresh before it.
+    pub fn update(&mut self, owner_room: Option<i32>, camera_room: i32, tick: u64) {
+        if self.playing && camera_room == self.room {
+            self.last_playing_tick = tick;
+            self.still_playing = true;
+        }
+        if owner_room != Some(self.room) {
+            self.alive = false;
+        }
+        if self.alive {
+            self.alive = false;
+        } else {
+            self.slated = true;
+        }
+        if self.still_playing {
+            if self.last_playing_tick + 1 < tick {
+                self.still_playing = false;
+            }
+        } else {
+            self.slated = true;
         }
     }
 }

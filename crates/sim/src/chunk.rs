@@ -80,6 +80,8 @@ pub struct BodyChunk {
     pub collide_with_slopes: bool,
     /// Ignore one-way `Floor` tiles.
     pub go_through_floors: bool,
+    /// Pushed by other objects in the room's collision pass (`collideWithObjects`).
+    pub collide_with_objects: bool,
     /// How far outside the room the chunk is allowed (px).
     pub restrict_in_room_range: f32,
     /// Ticks before this chunk can splash the water surface again (`splashStop`).
@@ -106,6 +108,7 @@ impl BodyChunk {
             collide_with_terrain: true,
             collide_with_slopes: true,
             go_through_floors: false,
+            collide_with_objects: true,
             restrict_in_room_range: DEFAULT_RESTRICT_IN_ROOM_RANGE,
             splash_stop: 0,
             set_pos: None,

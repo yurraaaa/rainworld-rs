@@ -3,14 +3,15 @@
 
 use rw_assets::CreatureType;
 use rw_random::UnityRandom;
-use rw_sim::creature::{CreatureId, Relationship, RelationshipType};
+use rw_sim::creature::{Relationship, RelationshipType};
+use rw_sim::item::{Entity, WeaponMode};
 use rw_sim::{FloatExt, PlayerSurroundings, RoomExt, Vec2};
 
 /// The object looker (`lookAtPoint` is only set by DLC and tutorial callers).
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct ObjectLooker {
     /// `currentMostInteresting`.
-    pub current: Option<CreatureId>,
+    pub current: Option<Entity>,
     /// `timeLookingAtThis`.
     pub time: i32,
 }
@@ -18,7 +19,8 @@ pub struct ObjectLooker {
 /// A realized object as the looker reads it.
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Seen {
-    kind: CreatureType,
+    /// `None` for an object that is not a creature.
+    kind: Option<CreatureType>,
     /// `obj.room == player.room`.
     here: bool,
     /// `bodyChunks[0]` (also `DangerPos`, the main chunk, for flies and overseers).
@@ -26,30 +28,50 @@ struct Seen {
     vel: Vec2,
     conscious: bool,
     slated: bool,
+    /// A weapon on the Hunter's back.
+    on_back: bool,
 }
 
 impl Seen {
-    fn of(around: &PlayerSurroundings<'_>, id: CreatureId) -> Option<Self> {
+    fn of(around: &PlayerSurroundings<'_>, entity: Entity) -> Option<Self> {
+        let id = match entity {
+            Entity::Creature(id) => id,
+            Entity::Object(id) => {
+                let w = around.world.object(id).realized.as_deref()?;
+                let c = w.chunk();
+                return Some(Self {
+                    kind: None,
+                    here: w.room == around.room,
+                    pos: c.pos,
+                    vel: c.vel,
+                    conscious: false,
+                    slated: false,
+                    on_back: w.mode == WeaponMode::OnBack,
+                });
+            }
+        };
         let c = around.world.creature(id);
         if let Some(f) = c.fly() {
             return Some(Self {
-                kind: c.kind(),
+                kind: Some(c.kind()),
                 here: f.room == Some(around.room),
                 pos: f.pos(),
                 vel: f.chunk().vel,
                 conscious: f.conscious(),
                 slated: f.slated,
+                on_back: false,
             });
         }
         let o = c.overseer_body()?;
         let chunk = o.body.chunks.first()?;
         Some(Self {
-            kind: c.kind(),
+            kind: Some(c.kind()),
             here: o.in_room && c.pos.room == around.room,
             pos: chunk.pos,
             vel: chunk.vel,
             conscious: c.state.alive,
             slated: false,
+            on_back: false,
         })
     }
 }
@@ -73,7 +95,7 @@ impl ObjectLooker {
         self.time = 0;
     }
 
-    pub fn look_at_object(&mut self, id: CreatureId) {
+    pub fn look_at_object(&mut self, id: Entity) {
         self.current = Some(id);
         self.time = 0;
     }
@@ -113,28 +135,33 @@ impl ObjectLooker {
         }
     }
 
-    /// `HowInterestingIsThisObject`: 0 for nothing, an object elsewhere or one in the
-    /// hands; else 1 plus the relationship's intensity (and an afraid bonus), more when
-    /// moving and in sight within 400 px, divided by a slowly growing power of the
-    /// distance.
+    /// `HowInterestingIsThisObject`: 0 for nothing, an object elsewhere, a weapon on
+    /// the back or one in the hands; else 1 plus a creature's relationship intensity
+    /// (and an afraid bonus), more when moving and in sight within 400 px, divided by a
+    /// slowly growing power of the distance.
     fn interest(
         &self,
         around: &PlayerSurroundings<'_>,
-        id: Option<CreatureId>,
+        id: Option<Entity>,
         player_pos: Vec2,
     ) -> f32 {
         let Some(id) = id else { return 0.0 };
         let Some(seen) = Seen::of(around, id) else {
             return 0.0;
         };
-        if !seen.here {
+        if !seen.here || seen.on_back {
             return 0.0;
         }
-        if around.grasps.contains(&Some(id)) {
+        if around
+            .grasps
+            .iter()
+            .flatten()
+            .any(|&g| Entity::Creature(g) == id)
+        {
             return 0.0;
         }
         let mut num = 1.0;
-        if let Some(r) = Relationship::of_slugcat_to(seen.kind) {
+        if let Some(r) = seen.kind.and_then(Relationship::of_slugcat_to) {
             num += r.intensity;
             if r.kind == RelationshipType::Afraid && seen.conscious {
                 num += 3.0 + r.intensity * 3.0;

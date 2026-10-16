@@ -14,7 +14,7 @@
 //!
 //! Above the room: the campaigns ([`campaign`]), the world with its realized rooms, the
 //! room realizer and the rain cycle ([`world`]), the creatures with the world's
-//! population and the overseers' abstract AI ([`creature`]), the abstract rocks and
+//! population and the overseers' abstract AI ([`creature`]), the rocks and
 //! spears ([`item`]), and [`RainWorldGame`],
 //! which moves the player between rooms through room-exit shortcuts
 //! (`world-loading.md`, `room-realizer.md`, `creature-model.md`).
@@ -63,12 +63,12 @@ pub use shortcut::{
     CreatureVessel, EntranceColor, LobbyVessel, ShortcutHandler, ShortcutsBlinking, VesselOwner,
 };
 pub use sound::{
-    EmitterId, PlayedSound, SoundEvent, SoundId, SoundSource, Sounds, StaticSoundLoop,
+    EmitterId, LoopEmitter, PlayedSound, SoundEvent, SoundId, SoundSource, Sounds, StaticSoundLoop,
 };
 pub use spawn::{determine_safe_spawn_tile, place_in_room};
 pub use vec2::{TileExt, Vec2};
 pub use vec3::Vec3;
-pub use water::Water;
+pub use water::{SurfaceChunk, Water};
 pub use water_drip::{WaterDrip, WaterGlitter};
 
 #[cfg(test)]

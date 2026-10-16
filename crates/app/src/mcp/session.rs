@@ -13,6 +13,7 @@ use rw_render::{RoomLayers, WgpuRenderer};
 use rw_save::SaveSlot;
 use rw_sim::campaign::SlugcatCampaign;
 use rw_sim::creature::{AbstractCreature, CreatureId};
+use rw_sim::item::Weapon;
 use rw_sim::{Input, Vec2};
 
 use super::params::{
@@ -26,7 +27,7 @@ use super::reply::{
     MapMarkerState, MapState, MeterState, ObjectInfo, OptionsState, OverseerInfo, PauseMenuState,
     PlayerState, ProcessState, RainMeterState, RainState, RealizedState, RoomInfo, RoomList,
     SaveInfo, SaveStateInfo, Screenshot, ShelterDoorState, SleepState, SlideShowState,
-    StartUpState, State, StepTrace, StoryInfo, TextPromptState, TokenState,
+    StartUpState, State, StepTrace, StoryInfo, TextPromptState, TokenState, WeaponInfo,
 };
 use super::tiles::TileDump;
 use crate::frontend::{AppContext, Frontend, FrontendRenderer, GameSetup};
@@ -487,8 +488,26 @@ impl Session {
                 tile: [o.pos.tile.0, o.pos.tile.1],
                 stuck_in_wall_cycles: o.spear().map(|s| s.stuck_in_wall_cycles),
                 explosive: o.spear().map(|s| s.explosive),
+                realized: o.realized.as_deref().map(|w| Self::weapon_info(scene, w)),
             })
             .collect()
+    }
+
+    fn weapon_info(scene: &Scene, w: &Weapon) -> WeaponInfo {
+        let c = w.chunk();
+        WeaponInfo {
+            room: Self::room_name(scene, w.room),
+            pos: c.pos.to_array(),
+            vel: c.vel.to_array(),
+            mode: w.mode.value().to_owned(),
+            rotation: w.rotation.to_array(),
+            rotation_speed: w.rotation_speed,
+            collision_layer: w.collision_layer,
+            stuck_in_wall: w
+                .spear()
+                .and_then(|s| s.stuck_in_wall)
+                .map(|p| p.to_array()),
+        }
     }
 
     fn fly_info(scene: &Scene, c: &AbstractCreature) -> Option<FlyInfo> {

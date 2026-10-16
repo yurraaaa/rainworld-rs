@@ -21,7 +21,7 @@ pub(crate) use update::{FlyRun, FlyTick};
 
 use super::{CreatureId, EntityId, WorldCoordinate};
 use crate::object::PhysicalObject;
-use crate::{BodyChunk, EmitterId, PhysicsParams, Vec2};
+use crate::{BodyChunk, PhysicsParams, Vec2};
 
 /// `Fly.MovementMode`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -63,46 +63,8 @@ impl MovementMode {
     }
 }
 
-/// The hover loop's `ChunkSoundEmitter` (`requireActiveUpkeep`), a room object of its
-/// own. `still_playing` follows the microphone with one frame per tick (INFERRED: the
-/// game counts rendered frames).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct HoverEmitter {
-    pub sound: EmitterId,
-    pub room: i32,
-    pub update_order: u64,
-    pub alive: bool,
-    pub slated: bool,
-    pub still_playing: bool,
-    pub last_playing_tick: u64,
-    /// The camera's microphone made a sound object for it.
-    pub playing: bool,
-}
-
-impl HoverEmitter {
-    /// `ChunkSoundEmitter.Update` with the microphone's refresh before it.
-    pub fn update(&mut self, owner_room: Option<i32>, camera_room: i32, tick: u64) {
-        if self.playing && camera_room == self.room {
-            self.last_playing_tick = tick;
-            self.still_playing = true;
-        }
-        if owner_room != Some(self.room) {
-            self.alive = false;
-        }
-        if self.alive {
-            self.alive = false;
-        } else {
-            self.slated = true;
-        }
-        if self.still_playing {
-            if self.last_playing_tick + 1 < tick {
-                self.still_playing = false;
-            }
-        } else {
-            self.slated = true;
-        }
-    }
-}
+/// The hover loop's `ChunkSoundEmitter`.
+pub use crate::sound::LoopEmitter as HoverEmitter;
 
 /// A realized `Fly` with its `FlyAI`.
 #[derive(Debug, Clone, PartialEq)]

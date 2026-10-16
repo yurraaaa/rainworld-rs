@@ -365,7 +365,7 @@ fn out_of_air_stuns_and_drowns_after_120_steps() {
     for tick in 1..=121 {
         w.update(
             &r,
-            p.body.chunks.iter_mut(),
+            crate::SurfaceChunk::player(&mut p.body.chunks),
             &mut rng,
             &mut Sounds::default(),
         );
@@ -431,7 +431,7 @@ fn a_dropped_body_floats_up_and_surface_swims() {
     for _ in 0..400 {
         w.update(
             &r,
-            p.body.chunks.iter_mut(),
+            crate::SurfaceChunk::player(&mut p.body.chunks),
             &mut rng,
             &mut Sounds::default(),
         );

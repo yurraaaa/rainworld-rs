@@ -203,3 +203,72 @@ fn move_object_changes_rooms_and_keeps_the_tile_for_an_undefined_one() {
     assert!(world.room_entities(0).is_empty());
     assert_eq!(world.room_entities(1).len(), 1);
 }
+
+/// A 4 x 2 room with no Solid tile: the one random-item attempt never finds a place.
+fn open_world() -> World {
+    world_of(room(&["....", "...."]), density(0.0), false)
+}
+
+fn add_rock(world: &mut World, n: i32, tile: (i32, i32)) -> crate::item::ObjectId {
+    world.add_object(AbstractObject::new_rock(
+        EntityId::new(0, n),
+        crate::creature::WorldCoordinate::new(0, tile.0, tile.1, -1),
+    ))
+}
+
+#[test]
+fn shortcuts_ready_realizes_the_room_objects_in_entity_order() {
+    // `ShortCutsReady` (61622): `RealizeInRoom` per object, in `entities` order. The
+    // rock makes 2 draws (rotation, spin), the spear 4 (rotation, needle, spin's two).
+    let mut world = open_world();
+    let rock = add_rock(&mut world, 1, (1, 1));
+    let spear = world.add_object(AbstractObject::new_spear(
+        EntityId::new(0, 2),
+        crate::creature::WorldCoordinate::new(0, 2, 1, -1),
+        false,
+    ));
+    let mut ids = IdIssuer { next_issued_id: 0 };
+    let mut rng = UnityRandom::new(4);
+    world.activate_room(0, &mut ids, &mut rng).expect("loads");
+    world.finish_loading();
+    world.realize_room_objects(0, &mut rng);
+    assert_eq!(rng.state(), after_draws(4, 2 + 2 + 4));
+    let (r, s) = (
+        world.realized_weapon(rock, 0).expect("rock"),
+        world.realized_weapon(spear, 0).expect("spear"),
+    );
+    assert!(r.update_order < s.update_order);
+    assert_eq!(world.room_weapons(0).len(), 2);
+    // `AbstractRoom.Abstractize` drops them.
+    world.abstractize(0);
+    assert!(world.object(rock).realized.is_none() && world.object(spear).realized.is_none());
+    assert_eq!(world.object(rock).time_spent_here, 0);
+}
+
+#[test]
+fn the_collision_pass_pushes_two_items_apart_by_mass() {
+    // Two rocks at one spot: distance 0, `DirVec` (0, 1); equal masses share the 10 px
+    // overlap, the first moving down 5 and the second up 5 (pos and vel). Their x
+    // stays equal, so each gets DegToVec(value * 360) * 0.0001 more velocity (2 draws).
+    let mut world = open_world();
+    let a = add_rock(&mut world, 1, (1, 1));
+    let b = add_rock(&mut world, 2, (1, 1));
+    let mut ids = IdIssuer { next_issued_id: 0 };
+    let mut rng = UnityRandom::new(8);
+    world.activate_room(0, &mut ids, &mut rng).expect("loads");
+    world.finish_loading();
+    world.realize_room_objects(0, &mut rng);
+    let mut expect = rng.clone();
+    world.collide_weapons(0, &mut rng);
+    let na = crate::Vec2::random_unit(&mut expect) * 0.0001;
+    let nb = crate::Vec2::random_unit(&mut expect) * 0.0001;
+    assert_eq!(rng.state(), expect.state());
+    let (ca, cb) = (
+        world.realized_weapon(a, 0).expect("a").chunk().clone(),
+        world.realized_weapon(b, 0).expect("b").chunk().clone(),
+    );
+    assert_eq!(ca.pos, crate::Vec2::new(30.0, 25.0));
+    assert_eq!(cb.pos, crate::Vec2::new(30.0, 35.0));
+    assert_eq!(ca.vel, crate::Vec2::new(0.0, -5.0) + na);
+    assert_eq!(cb.vel, crate::Vec2::new(0.0, 5.0) + nb);
+}
