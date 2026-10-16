@@ -374,3 +374,14 @@ fn the_shelter_mapper_takes_two_passes_and_the_proximity_steps() {
         }
     }
 }
+
+#[test]
+fn excitement_settles_with_nothing_tracked() {
+    // `LizardAI.Update`: `excitement` lerps 0.1 toward max(hunger, CombinedFear), 0
+    // while the trackers track nothing.
+    let mut g = game(&HALL, (2, 1));
+    let l = g.act_lizard((8, 1), 1.0);
+    g.world.lizard_at(l).ai.excitement = 0.5;
+    g.tick(Input::NONE, &mut ());
+    assert!((g.world.lizard_ref(l).ai.excitement - 0.45).abs() < 1e-6);
+}
