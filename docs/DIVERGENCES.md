@@ -590,6 +590,12 @@ colour layer and the five head sprites, in `AddToContainer`'s order, coloured as
 - **The voice** (lizard step 5b) is the game's: `voiceVisualization` and its intensity
   pull the jaw open, light the head, blow bubbles and shake the body as the game's do;
   `voiceVisualization` itself is computed in the sim (D12).
+- **Left out until their step, breed or DLC** (user, 2026-10-16): objects held in the
+  jaws (`AddObjectToInternalContainer`, `ReleaseAllInternallyContainedSprites`; lizard
+  step 8), the AI's own `MakeSound` calls (step 7), the yellow pack's `PreyReSpotted`
+  voice and other breeds' colour paths (white camouflage and so on; with those breeds),
+  More Slugcats' rot voices, Remix's Love voice and safari-control voices (with those
+  DLCs).
 - **The AI's looks.** `LizardAI` is a stand-in (D14): its tracker is empty, so the
   looker never looks at a creature (`lookCreature` stays null, the eye beams stay off)
   and `CreatureSpotted` and the fleeing `lookPos` are not called.
