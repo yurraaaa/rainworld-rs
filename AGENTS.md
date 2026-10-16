@@ -30,6 +30,28 @@ A brief names:
 - **Sources**: the game is read, never copied or transliterated.
 - **The docs it must update**, and to grep for the rest. A doc left stale
   by a delegated change is the orchestrator's fault.
+- **Omissions as questions**: the agent lists every piece of game
+  behaviour it left out as a question for the user ("port or skip for
+  now?"), never deciding to skip on its own; the orchestrator brings each
+  one to the user.
+- **MCP fields** for the new state (`get_state` and friends), so it can be
+  debugged headless, and known-good test spots (room, seed, tiles) so the
+  agent doesn't guess.
+- **Size**: a step one agent can't finish in one context is split in two
+  (e.g. lizard step 5 into 5a graphics, 5b cosmetics and voice); an agent
+  short of context commits a coherent part and reports what is left.
+
+### Merging a branch
+
+In the agent's worktree: `git merge main`; `cargo fmt --all -- --check`;
+`cargo clippy --workspace --all-targets` with 0 warnings; `cargo test
+--release --workspace` (sum the `test result` lines); grep the diff for
+bound closures (`let x = |`) and string-literal match arms; look at the
+screenshots. Then on main `git merge --no-ff`, remove the worktree and
+branch, push, and in `../rainworld-re` commit only the notes files the
+agent named. Commits are GPG-signed; if pinentry fails, ask the user,
+never bypass signing. New work starts only on the user's explicit
+go-ahead; an answer to another question is not one.
 
 ### Pick the model by the work
 
