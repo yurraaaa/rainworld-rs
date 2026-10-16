@@ -188,7 +188,8 @@ apply to `HeavyCarry` objects only, which no ported object is.
   skims, sticking: `rainworld-re/notes/items.md` section 11). Hitting creatures is
   not: a thrown weapon passes through every creature (`HitSomething`,
   `WeaponAttack`), and nothing hears it fly (`INotifyOfFlyingWeapons`). Adrenaline's
-  throw force (`Lerp(1, 1.5, Adrenaline)`) is 1. Remix and More Slugcats branches
+  throw force (`Lerp(1, 1.5, Adrenaline)`) is 1 (adrenaline is skipped for now, a user
+  decision of 2026-10-16). Remix and More Slugcats branches
   (Gourmand, Saint, Spearmaster, Rivulet's upward throw, the MMF slow-spear and
   climbing-grip rules) are omitted.
 - **The Hunter's spear on the back** (`SpearOnBack`, `CanPutSpearToBack`) is not
@@ -413,7 +414,7 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   effects that grade colours (Darkness, Brightness, Contrast, Desaturation, Hue, DayNight)
   or modify effect colours (`ModifyEffectColorA/B`, unused in base-game rooms), ghost /
   rot / mushroom palettes, screen shake (and the camera bump of a weapon hitting a
-  wall, `ScreenMovement`), `_bkg` backgrounds, the heat / melt / ripple
+  wall, `HitWall`'s `ScreenMovement`: skipped for now, a user decision of 2026-10-16), `_bkg` backgrounds, the heat / melt / ripple
   shader variants, swarm rooms, and the properties-file line preprocessing (no base-game
   `Room Setting Templates` line uses it).
 
@@ -1048,8 +1049,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
   (its fuse, rag and blast come with `ExplosiveSpear`). In a story, `Room.Loaded`'s
   `MultiplayerItem`s spawn on every realization and `ReliableSpear`s on the first
   (with their `placedObjectOrigin`); of the multiplayer items' kinds a scavenger bomb
-  and a spore plant stay abstract (not realized; the spore plant lacks its consumable
-  fields). The player picks them up, carries them (through shortcuts and room exits
+  and a spore plant stay abstract (not realized, a user decision of 2026-10-16; the
+  spore plant lacks its consumable fields). The player picks them up, carries them (through shortcuts and room exits
   too), swallows rocks and throws them (D3); thrown spears stick into walls (the room
   edge ring, `NoSpearStickZone`s and a moving shelter door excepted). Not yet:
   hitting creatures (`HitSomething`, `StuckInCreature`), items falling between rooms

@@ -75,6 +75,22 @@ impl World {
         }
     }
 
+    /// The realized object's `UpdatableAndDeletable.evenUpdate` (the `eu` of its last
+    /// update), which `MoveFromOutsideMyUpdate` compares; not the abstract entity's flag.
+    pub(crate) fn realized_even_update(&self, e: Entity) -> bool {
+        match e {
+            Entity::Creature(id) => self
+                .creature(id)
+                .fly()
+                .map_or(self.creature(id).even_update, |f| f.even_update),
+            Entity::Object(id) => self
+                .object(id)
+                .realized
+                .as_deref()
+                .map_or(self.object(id).even_update, |w| w.even_update),
+        }
+    }
+
     /// Puts a new object into the arena and `AddEntity`s it to its room.
     pub(crate) fn add_object(&mut self, object: AbstractObject) -> ObjectId {
         let room = object.pos.room;

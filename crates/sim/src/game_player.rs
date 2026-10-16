@@ -762,7 +762,7 @@ impl RainWorldGame {
             {
                 self.world.change_overlap(id, overlap);
             }
-            let even = self.world.entity_even_update(obj);
+            let even = self.world.realized_even_update(obj);
             let Some(c) = self.world.chunk_mut(obj, 0) else {
                 continue;
             };
