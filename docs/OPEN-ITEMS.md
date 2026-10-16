@@ -8,6 +8,13 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **The Hunter's `SpearOnBack`**, and the LF_H01 spear.
 - **`ExplosiveSpear` behaviour.** The flag is ported; the explosion is not.
 
+## Planned
+- **Code quality pass after the lizard steps** (user, 2026-10-16): once lizard steps
+  6 to 9 are merged, go over the workspace one crate at a time, a step per crate,
+  finding code quality improvements (duplicated code to merge, and the like) and
+  bringing them to the user before changing anything. This is in addition to the
+  end-of-project review and optimisation pass in AGENTS.md.
+
 ## Waiting for the user's answer
 - **Lizard step 6** (perception and social data): go-ahead, and whether to split it
   into 6a (tracker, vision, relationships, the eyes looking) and 6b (noise, the
