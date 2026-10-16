@@ -320,6 +320,9 @@ impl Scene {
     /// `PlaceKarmaFlowerOnDeathSpot`, camera 0's HUD into game-over mode, then the
     /// music's `DeathEvent`.
     fn apply_game_over(&mut self, shared: &mut MenuShared) {
+        if self.game.sim_mut().take_reds_game_over() {
+            Self::go_to_reds_game_over(shared);
+        }
         let Some(over) = self.game.sim_mut().take_game_over() else {
             return;
         };
@@ -343,6 +346,16 @@ impl Scene {
         }
         if let Some(music) = &mut shared.music {
             music.death_event();
+        }
+    }
+
+    /// `GoToRedsGameOver`, with no process switch asked for yet: only the music's
+    /// `FadeOutAllSongs(20)` is ported (the illness fade, `redsDeath`, the statistics
+    /// and the save are not, D17).
+    pub fn go_to_reds_game_over(shared: &mut MenuShared) {
+        log::warn!("GoToRedsGameOver: only its music fade is ported");
+        if let Some(music) = &mut shared.music {
+            music.reds_game_over();
         }
     }
 

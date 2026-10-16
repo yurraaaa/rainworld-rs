@@ -51,6 +51,11 @@ impl RainWorldGame {
         self.game_over.take()
     }
 
+    /// Whether `GameOver` went to `GoToRedsGameOver` since the last call.
+    pub fn take_reds_game_over(&mut self) -> bool {
+        std::mem::take(&mut self.reds_game_over)
+    }
+
     /// `Player.Update`'s `karmaFlowerGrowPos` (86975): a living, ungrabbed player that
     /// places flowers marks the hips' tile when they stand on solid ground with two free
     /// tiles above, outside deep water, worm grass (none in the port), narrow spaces and
@@ -93,14 +98,14 @@ impl RainWorldGame {
     }
 
     /// `RainWorldGame.GameOver(null)` for the player in `room`: story sessions only; the
-    /// Hunter out of cycles goes to `GoToRedsGameOver` (not ported, D17).
+    /// Hunter out of cycles goes to `GoToRedsGameOver` (only its music is ported, D17).
     fn game_over(&mut self, main: Vec2, room: &Room) {
         log::info!("Trying to game over...");
         if !self.is_story_session() {
             return;
         }
         if self.red_is_out_of_cycles() {
-            log::warn!("GoToRedsGameOver (the Hunter's statistics) is not ported");
+            self.reds_game_over = true;
             return;
         }
         let death_pos = Vec2::new(

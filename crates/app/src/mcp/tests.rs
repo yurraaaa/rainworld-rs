@@ -1032,3 +1032,23 @@ fn lizards_report_their_abstract_ai() {
             .all(|c| c.abstract_ai.is_none())
     );
 }
+
+/// A game in SU builds the region's procedural piece (`NewRegion("SU")` on the first
+/// room, built once the bundles load): five layers of `music_procedural` stems, silent
+/// at threat 0.
+#[test]
+fn a_game_in_su_builds_its_threat_layers() {
+    let Some(mut s) = Session::installed() else {
+        return;
+    };
+    s.load("SU_B05", 1);
+    let state = s.run(20, InputParam::default());
+    let music = state.music.as_ref().expect("music player");
+    let piece = music.procedural.as_ref().expect("procedural piece");
+    assert_eq!(piece.bank, "SU");
+    assert_eq!(piece.bank_layers.len(), 5);
+    assert_eq!(piece.layers.len(), 5);
+    assert!(piece.layers.iter().all(|l| l.stem.starts_with("TH_SU - ")));
+    assert!(piece.layers.iter().all(|l| l.volume == 0.0));
+    assert_eq!(music.current_procedural_region.as_deref(), Some("SU"));
+}

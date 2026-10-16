@@ -876,10 +876,9 @@ impl MenuScreen for OptionsScreen {
         cx.shared.apply_music_volume();
         if cx.shared.options.music_volume > 0.0 {
             if cx.shared.music.is_none() {
-                cx.shared.music = rw_audio::music::MusicPlayer::new(
-                    cx.shared.music_settings,
-                    Some(ProcessId::OptionsMenu.music_process()),
-                );
+                cx.shared.music = cx
+                    .shared
+                    .new_music_player(Some(ProcessId::OptionsMenu.music_process()));
             }
             if let Some(music) = &mut cx.shared.music
                 && music.song.is_none()

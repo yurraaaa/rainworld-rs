@@ -47,7 +47,7 @@ impl Run {
 
     fn source_volume(&self, sub_track: usize) -> Option<f32> {
         let song = self.player.song.as_ref()?;
-        let id = song.sub_tracks[sub_track].id();
+        let id = song.piece.sub_tracks[sub_track].id();
         self.sources.track(id).map(|t| t.volume)
     }
 
@@ -55,7 +55,7 @@ impl Run {
         self.player
             .song
             .as_ref()
-            .is_some_and(|s| self.sources.is_playing(s.sub_tracks[sub_track].id()))
+            .is_some_and(|s| self.sources.is_playing(s.piece.sub_tracks[sub_track].id()))
     }
 }
 
@@ -93,7 +93,7 @@ fn menu_song_fade_in_and_out_ladder() {
         piece_volume = mix * 0.3;
         mix = (mix + 1.0 / (1.0 + 50.0)).min(1.0);
         assert_eq!(run.player.main_song_mix, mix, "tick {tick}");
-        assert_eq!(run.player.song.as_ref().unwrap().volume, piece_volume);
+        assert_eq!(run.player.song.as_ref().unwrap().piece.volume, piece_volume);
     }
     // 1/51 per update: 1 after 51 updates.
     assert_eq!(run.player.main_song_mix, 1.0);
@@ -164,7 +164,7 @@ fn next_song_replaces_the_current_one() {
     run.tick();
     let song = run.player.song.as_ref().unwrap();
     assert_eq!(song.name, "B");
-    assert!(song.play_when_ready);
+    assert!(song.piece.play_when_ready);
     assert_eq!(run.player.main_song_mix, 1.0);
 }
 

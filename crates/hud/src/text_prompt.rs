@@ -50,11 +50,7 @@ impl Subregions {
     /// has none or names one the region does not list).
     #[must_use]
     pub fn index_of(&self, room: &str) -> usize {
-        let Some((_, name)) = self
-            .rooms
-            .iter()
-            .find(|(r, _)| r.eq_ignore_ascii_case(room))
-        else {
+        let Some(name) = self.room_subregion(room) else {
             return 0;
         };
         self.names
@@ -63,6 +59,15 @@ impl Subregions {
             .skip(1)
             .find(|(_, n)| *n == name)
             .map_or(0, |(i, _)| i)
+    }
+
+    /// `room`'s `subregionName`.
+    #[must_use]
+    pub fn room_subregion(&self, room: &str) -> Option<&str> {
+        self.rooms
+            .iter()
+            .find(|(r, _)| r.eq_ignore_ascii_case(room))
+            .map(|(_, name)| name.as_str())
     }
 
     /// Reads `world/<region>/properties.txt` (`Subregion:` lines) and the room lines of

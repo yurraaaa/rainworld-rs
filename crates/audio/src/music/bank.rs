@@ -1,4 +1,5 @@
-//! The `music_songs` bundle: song clips by name (`AssetBundle.LoadAsset<AudioClip>`).
+//! The music bundles (`music_songs`, `music_procedural`): clips by name
+//! (`AssetBundle.LoadAsset<AudioClip>`).
 
 use std::path::Path;
 
@@ -22,7 +23,25 @@ impl ClipLength {
     }
 }
 
-/// The opened `music_songs` bundle.
+/// Which bundle a sub-track's clip comes from (`MusicPiece.IsProcedural`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MusicBundle {
+    Songs,
+    Procedural,
+}
+
+impl MusicBundle {
+    /// `MusicPlayer.ASSETBUNDLE_MUSIC_SONGS` / `ASSETBUNDLE_MUSIC_PROCEDURAL`.
+    #[must_use]
+    pub fn value(self) -> &'static str {
+        match self {
+            Self::Songs => "music_songs",
+            Self::Procedural => "music_procedural",
+        }
+    }
+}
+
+/// An opened music bundle.
 #[derive(Debug)]
 pub struct SongBank {
     bundle: AssetBundle,
@@ -31,10 +50,24 @@ pub struct SongBank {
 impl SongBank {
     pub const BUNDLE: &'static str = "music_songs";
 
+    /// The `music_songs` bundle.
+    ///
     /// # Errors
     /// When the bundle cannot be read.
     pub fn open(assets: &StreamingAssets) -> Result<Self, AssetError> {
-        Self::open_path(&assets.asset_bundle(Self::BUNDLE))
+        Self::open_bundle(assets, MusicBundle::Songs)
+    }
+
+    /// # Errors
+    /// When the bundle cannot be read.
+    pub fn open_bundle(assets: &StreamingAssets, bundle: MusicBundle) -> Result<Self, AssetError> {
+        Self::open_path(&assets.asset_bundle(bundle.value()))
+    }
+
+    /// `AssetBundle.Contains(name)`.
+    #[must_use]
+    pub fn contains(&self, name: &str) -> bool {
+        self.bundle.contains(name)
     }
 
     /// # Errors

@@ -1,7 +1,7 @@
 //! What `get_state` and `step_process` report of the music player and the room
 //! triggers.
 
-use rw_audio::music::{MusicPlayer, Song};
+use rw_audio::music::{MusicPlayer, ProceduralMusic, Song};
 use rw_save::SongPlayRecord;
 use rw_sim::RainWorldGame;
 use rw_sim::trigger::{TriggerObject, TriggerObjectKind};
@@ -18,6 +18,10 @@ pub struct MusicState {
     pub has_played_a_song_this_cycle: bool,
     /// `nextProcedural` (`""`: none asked for).
     pub next_procedural: Option<String>,
+    /// `currentProceduralRegion`.
+    pub current_procedural_region: Option<String>,
+    /// `proceduralMusic`: the region's threat layers.
+    pub procedural: Option<ProceduralState>,
     pub threat: Option<ThreatState>,
     /// The save state's `songsPlayRecords`, when a story save is loaded.
     pub play_records: Option<Vec<PlayRecordState>>,
@@ -34,6 +38,33 @@ pub struct SongState {
     pub room_transitions: i32,
     pub looped: bool,
     pub started_playing: bool,
+}
+
+/// `ProceduralMusic`.
+#[derive(Debug, Clone, Serialize)]
+pub struct ProceduralState {
+    pub bank: String,
+    /// The bank's layers, each its tracks' stems.
+    pub bank_layers: Vec<Vec<String>>,
+    /// The piece's volume (eased toward `drone_goal_mix`).
+    pub volume: f32,
+    pub started_playing: bool,
+    /// One per sub-track: the chosen stem and its volume.
+    pub layers: Vec<LayerState>,
+    pub audible_counter: i32,
+    pub silent_counter: i32,
+    pub re_scramble_on_next_silence: bool,
+    pub last_valid_subregion: Option<String>,
+    /// `lastValidDaynight`: `Any` (not read yet), `Day` or `Night`.
+    pub last_valid_daynight: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct LayerState {
+    pub layer: usize,
+    pub stem: String,
+    pub volume: f32,
+    pub ready: bool,
 }
 
 /// `PlayerThreatTracker`.
@@ -76,6 +107,8 @@ impl MusicState {
             drone_goal_mix: player.drone_goal_mix,
             has_played_a_song_this_cycle: player.has_played_a_song_this_cycle,
             next_procedural: player.next_procedural.clone(),
+            current_procedural_region: player.current_procedural_region.clone(),
+            procedural: player.procedural_music.as_ref().map(ProceduralState::of),
             threat: player.threat_tracker.as_ref().map(|t| ThreatState {
                 room: t.room,
                 room_switches: t.room_switches,
@@ -96,6 +129,39 @@ impl MusicState {
     }
 }
 
+impl ProceduralState {
+    fn of(p: &ProceduralMusic) -> Self {
+        let tracks = &p.instruction.tracks;
+        Self {
+            bank: p.name.clone(),
+            bank_layers: p
+                .instruction
+                .layers
+                .iter()
+                .map(|l| l.iter().map(|&k| tracks[k].name.clone()).collect())
+                .collect(),
+            volume: p.piece.volume,
+            started_playing: p.piece.started_playing,
+            layers: p
+                .piece
+                .sub_tracks
+                .iter()
+                .map(|t| LayerState {
+                    layer: t.index,
+                    stem: t.track_name.clone(),
+                    volume: t.volume,
+                    ready: t.ready_to_play,
+                })
+                .collect(),
+            audible_counter: p.audible_counter,
+            silent_counter: p.silent_counter,
+            re_scramble_on_next_silence: p.re_scramble_on_next_silence,
+            last_valid_subregion: p.last_valid_subregion.clone(),
+            last_valid_daynight: format!("{:?}", p.last_valid_daynight),
+        }
+    }
+}
+
 impl SongState {
     fn of(s: &Song) -> Self {
         Self {
@@ -105,8 +171,8 @@ impl SongState {
             fade_in_time: s.fade_in_time,
             fade_out_time: s.fade_out_time,
             room_transitions: s.room_transitions,
-            looped: s.looped,
-            started_playing: s.started_playing,
+            looped: s.piece.looped,
+            started_playing: s.piece.started_playing,
         }
     }
 }

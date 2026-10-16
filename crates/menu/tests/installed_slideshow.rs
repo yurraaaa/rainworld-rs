@@ -280,7 +280,7 @@ impl Harness {
     /// The song's first source as the slideshow reads it.
     fn source(&self) -> Option<SourcePlayback> {
         let song = self.ctx.shared.music.as_ref()?.song.as_ref()?;
-        let track = song.sub_tracks.first()?.id();
+        let track = song.piece.sub_tracks.first()?.id();
         self.ctx.sources.playback(track)
     }
 }
@@ -334,7 +334,7 @@ fn white_intro_follows_its_song() {
                 .music
                 .as_ref()
                 .and_then(|m| m.song.as_ref())
-                .is_some_and(|s| s.started_playing)
+                .is_some_and(|s| s.piece.started_playing)
                 && p.is_playing
                 && p.clip_length.is_some_and(|l| p.time < l)
         });

@@ -3,18 +3,30 @@
 
 use std::collections::HashMap;
 
-use super::bank::{ClipLength, SongBank};
+use super::bank::{ClipLength, MusicBundle, SongBank};
 
 /// A sub-track's source.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TrackId(pub u64);
 
+/// Hands out the music player's source ids.
+#[derive(Debug, Clone, Default)]
+pub struct TrackIds(u64);
+
+impl TrackIds {
+    pub fn next_id(&mut self) -> TrackId {
+        self.0 += 1;
+        TrackId(self.0)
+    }
+}
+
 /// What `MusicPiece.SubTrack` does with its `AudioSource` and clip.
 pub trait MusicSources {
     /// `music_songs` and `music_procedural` are loaded (`AssetBundleManager`).
     fn bundles_loaded(&self) -> bool;
-    /// Starts loading the clip named `clip` for `track` (`LoadAsset`, `LoadAudioData`).
-    fn load(&mut self, track: TrackId, clip: &str);
+    /// Starts loading the clip named `clip` of `bundle` for `track` (`LoadAsset`,
+    /// `LoadAudioData`).
+    fn load(&mut self, track: TrackId, bundle: MusicBundle, clip: &str);
     /// The clip's audio data is loaded (`AudioDataLoadState.Loaded`).
     fn loaded(&self, track: TrackId) -> bool;
     /// `AudioSource.isPlaying`.
@@ -65,13 +77,14 @@ pub struct TimedTrack {
 #[derive(Debug, Default)]
 pub struct TimedSources {
     bank: Option<SongBank>,
-    lengths: HashMap<String, Option<ClipLength>>,
+    procedural: Option<SongBank>,
+    lengths: HashMap<(MusicBundle, String), Option<ClipLength>>,
     tracks: HashMap<TrackId, TimedTrack>,
 }
 
 impl TimedSources {
-    /// Clip lengths from the bank's FSB5 headers; with none, every clip is missing
-    /// unless given by [`Self::with_length`].
+    /// Song lengths from the `music_songs` bank's FSB5 headers; with none, every song
+    /// is missing unless given by [`Self::with_length`].
     #[must_use]
     pub fn new(bank: Option<SongBank>) -> Self {
         Self {
@@ -80,9 +93,39 @@ impl TimedSources {
         }
     }
 
+    /// Lengths from the installed game's `music_songs` and `music_procedural`; a missing
+    /// bundle leaves its clips missing.
     #[must_use]
-    pub fn with_length(mut self, clip: &str, length: ClipLength) -> Self {
-        self.lengths.insert(clip.to_owned(), Some(length));
+    pub fn installed(assets: &rw_assets::StreamingAssets) -> Self {
+        let [songs, procedural] = [MusicBundle::Songs, MusicBundle::Procedural].map(|b| {
+            SongBank::open_bundle(assets, b)
+                .inspect_err(|e| log::warn!("no {} bundle ({e}); its clips are missing", b.value()))
+                .ok()
+        });
+        Self::new(songs).with_procedural(procedural)
+    }
+
+    /// Stem lengths from the `music_procedural` bank.
+    #[must_use]
+    pub fn with_procedural(mut self, bank: Option<SongBank>) -> Self {
+        self.procedural = bank;
+        self
+    }
+
+    /// The song `clip`'s length.
+    #[must_use]
+    pub fn with_length(self, clip: &str, length: ClipLength) -> Self {
+        self.with_bundle_length(MusicBundle::Songs, clip, length)
+    }
+
+    #[must_use]
+    pub fn with_bundle_length(
+        mut self,
+        bundle: MusicBundle,
+        clip: &str,
+        length: ClipLength,
+    ) -> Self {
+        self.lengths.insert((bundle, clip.to_owned()), Some(length));
         self
     }
 
@@ -123,12 +166,17 @@ impl MusicSources for TimedSources {
         true
     }
 
-    fn load(&mut self, track: TrackId, clip: &str) {
-        let length = match self.lengths.get(clip) {
+    fn load(&mut self, track: TrackId, bundle: MusicBundle, clip: &str) {
+        let key = (bundle, clip.to_owned());
+        let length = match self.lengths.get(&key) {
             Some(length) => *length,
             None => {
-                let length = self.bank.as_ref().and_then(|b| b.length(clip));
-                self.lengths.insert(clip.to_owned(), length);
+                let bank = match bundle {
+                    MusicBundle::Songs => self.bank.as_ref(),
+                    MusicBundle::Procedural => self.procedural.as_ref(),
+                };
+                let length = bank.and_then(|b| b.length(clip));
+                self.lengths.insert(key, length);
                 length
             }
         };

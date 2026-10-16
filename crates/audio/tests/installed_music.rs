@@ -9,8 +9,8 @@ use rw_assets::unity::{AssetBundle, Fsb5, Fsb5Stream};
 use rw_assets::{SoundTable, StreamingAssets};
 use rw_audio::Audio;
 use rw_audio::music::{
-    MusicOutput, MusicPlayer, MusicProcess, MusicSettings, MusicSources, Song, SongBank,
-    TimedSources,
+    InstalledProcedural, MusicBundle, MusicOutput, MusicPlayer, MusicProcess, MusicSettings,
+    MusicSources, ProceduralInstruction, Song, SongBank, TimedSources, TrackId,
 };
 
 const DEFAULT_RW_DIR: &str = "/home/yura/.local/share/Steam/steamapps/common/Rain World";
@@ -129,13 +129,13 @@ fn intro_roll_on_real_lengths() {
         player.update(&mut sources, &mut rw_random::UnityRandom::new(0));
         sources.advance();
         let song = player.song.as_ref().expect("intro roll music");
-        let rain_playing = sources.is_playing(song.sub_tracks[0].id());
+        let rain_playing = sources.is_playing(song.piece.sub_tracks[0].id());
         assert_eq!(rain_playing, (3..3 + rain_ticks).contains(&tick), "{tick}");
     }
     player.song.as_mut().unwrap().start_music();
     player.update(&mut sources, &mut rw_random::UnityRandom::new(0));
     let song = player.song.as_ref().unwrap();
-    assert!(sources.is_playing(song.sub_tracks[1].id()));
+    assert!(sources.is_playing(song.piece.sub_tracks[1].id()));
     eprintln!("rain lasts {rain_ticks} ticks");
 }
 
@@ -183,8 +183,45 @@ fn listen_to_the_intro_roll_music() {
     eprintln!(
         "after {seconds} s: mix {}, rain playing {}, music playing {}",
         player.main_song_mix,
-        sources.is_playing(song.sub_tracks[0].id()),
-        sources.is_playing(song.sub_tracks[1].id())
+        sources.is_playing(song.piece.sub_tracks[0].id()),
+        sources.is_playing(song.piece.sub_tracks[1].id())
     );
-    assert!(sources.is_playing(song.sub_tracks[0].id()));
+    assert!(sources.is_playing(song.piece.sub_tracks[0].id()));
+}
+
+/// The installed procedural banks as `ProceduralMusicInstruction` reads them: SU's 8
+/// stems and 5 layers; SI's quirks (`"TH_SI - PERC1 "` with its trailing space and
+/// `"TH_SI -SNARE"` match no track, `"NEURTAL <PA>"` is a tag, not `<PA>`).
+#[test]
+fn procedural_banks_parse() {
+    let Some(assets) = Install::assets() else {
+        return;
+    };
+    let files = InstalledProcedural::open(&assets);
+    let su = ProceduralInstruction::load("SU", &files);
+    assert_eq!(su.tracks.len(), 8);
+    let sizes: Vec<usize> = su.layers.iter().map(Vec::len).collect();
+    assert_eq!(sizes, [2, 4, 6, 7, 2]);
+    assert_eq!(su.tracks[0].name, "TH_SU - KICK");
+    assert!(!su.use_one_layer_group);
+    let si = ProceduralInstruction::load("SI", &files);
+    assert_eq!(si.tracks.len(), 9);
+    let sizes: Vec<usize> = si.layers.iter().map(Vec::len).collect();
+    assert_eq!(sizes, [1, 3, 5, 7, 6, 1]);
+    assert!(si.tracks.iter().all(|t| !t.remain_in_panic_mode));
+    // No file: no layers, no draws.
+    assert!(ProceduralInstruction::load("DS", &files).layers.is_empty());
+}
+
+/// The SU stems load on timed sources from `music_procedural`.
+#[test]
+fn procedural_stems_have_lengths() {
+    let Some(assets) = Install::assets() else {
+        return;
+    };
+    let mut sources = TimedSources::installed(&assets);
+    sources.load(TrackId(1), MusicBundle::Procedural, "TH_SU - KICK");
+    assert!(sources.loaded(TrackId(1)));
+    sources.load(TrackId(2), MusicBundle::Songs, "TH_SU - KICK");
+    assert!(!sources.loaded(TrackId(2)));
 }

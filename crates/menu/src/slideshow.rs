@@ -373,8 +373,8 @@ impl SlideShowScreen {
             .music
             .as_ref()
             .and_then(|m| m.song.as_ref())
-            .filter(|s| s.started_playing)
-            .and_then(|s| s.sub_tracks.first())
+            .filter(|s| s.piece.started_playing)
+            .and_then(|s| s.piece.sub_tracks.first())
             .map(rw_audio::music::SubTrack::id);
         let source = track
             .and_then(|t| ctx.music_playback(t))
