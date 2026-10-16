@@ -41,6 +41,11 @@ A brief names:
   (e.g. lizard step 5 into 5a graphics, 5b cosmetics and voice); an agent
   short of context commits a coherent part and reports what is left.
 
+### Bugs and open items
+
+Bugs seen in play go in `docs/BUGS.md`; approved-but-unstarted work and things to
+look into go in `docs/OPEN-ITEMS.md`. Check both when planning.
+
 ### Merging a branch
 
 In the agent's worktree: `git merge main`; `cargo fmt --all -- --check`;
@@ -99,8 +104,9 @@ Speed matters; tests must not become a maintenance cost.
 ### Surveys when behaviour is unclear
 
 Survey only when the game's behaviour or the scope is genuinely unclear: a
-read-only agent writes findings, marked observed or inferred, to a scratch
-file. Re-check key facts against the original, then bring the scope and
+read-only agent writes findings, marked observed or inferred, to
+`../rainworld-re/surveys/<topic>.md` (decompiled excerpts are welcome there),
+and the user's decisions are appended at its end. Re-check key facts against the original, then bring the scope and
 open decisions to the user with a recommendation. Nothing new is started
 before the user agrees.
 
@@ -124,7 +130,7 @@ before the user agrees.
   where it would be installed. Briefs must say this. This is absolute:
   `../rainworld-re/tools/decompile_types.sh` can install `ilspycmd` itself
   if it is missing, so agents must not run it unless `ilspycmd` is already
-  present (default `/tmp/ilspy`, or `$ILSPY_DIR`); otherwise ask first.
+  present (default `~/.local/share/ilspy`, or `$ILSPY_DIR`); otherwise ask first.
   Library crates from crates.io added as Cargo dependencies and fetched
   by cargo are fine; say in the report which crates were added.
 - Agents don't open windows (no windowed or fullscreen runs, no
@@ -139,13 +145,13 @@ before the user agrees.
 ### The decompiled game
 
 Read the game's code (never copy it) from
-`/tmp/claude-1000/ilspy/split/`: one file per top-level type, named after it
+`/home/yura/.local/share/ilspy/split/`: one file per top-level type, named after it
 (`Lizard.cs`, `LizardAI.cs`), namespaces as folders (`HUD/`, `Menu/`,
 `OverseerHolograms/`, `MoreSlugcats/`); nested types are in their parent's
 file. List the folder or grep it to find a class. If it is missing (`/tmp`
 was cleared), regenerate it with `../rainworld-re/tools/decompile_split.sh`,
-which needs the existing `/tmp/claude-1000/ilspy/ilspycmd` and never installs
-it. The single-file `/tmp/claude-1000/ilspy/full/Assembly-CSharp.decompiled.cs`
+which needs the existing `/home/yura/.local/share/ilspy/ilspycmd` and never installs
+it. The single-file `/home/yura/.local/share/ilspy/full/Assembly-CSharp.decompiled.cs`
 remains for older notes' line numbers; new notes cite file and member.
 
 ## Decisions
