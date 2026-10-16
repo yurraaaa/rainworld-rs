@@ -213,7 +213,9 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   abstract creature: kind, ID, room, node, tile, in den, realized,
   alive; overseers also their AI's destination, guide state, last rooms
   and realized tiles; realized flies their room, position, velocity,
-  behaviour, movement mode, grasps and holders); `get_exits` lists the
+  behaviour, movement mode, grasps and holders) and `objects` (every
+  abstract rock and spear: kind, ID, room, node, tile, a spear's
+  stuck-in-wall cycles and explosive flag); `get_exits` lists the
   camera room's exits (entrance tile, the input that enters, destination
   room, arrival node and camera). `set_player`, `get_tiles` and
   `screenshot` act on the camera's room. To test a transition, put the

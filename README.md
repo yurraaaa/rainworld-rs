@@ -56,7 +56,9 @@ Not yet ported:
   behind the sleep screen's PASSAGE button (it shows, greyed out; passages are still
   earned and shown on the meters);
 - region gates;
-- creatures other than overseers and bat flies.
+- creatures other than overseers and bat flies;
+- rocks and spears: rooms place them and shelters keep them across cycles, but they are
+  not in the rooms to see or pick up yet.
 
 ## Building and running
 

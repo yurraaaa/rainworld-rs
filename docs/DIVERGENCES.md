@@ -75,6 +75,14 @@ it (D13). What still differs is only the seed and the call order:
   (D14).
   `LocalCoordinateOfNode` draws for bat hives, garbage holes and border exits; a border
   exit's tile is not known (its border tiles are not mapped), only its draw is made.
+- **Room items.** A room realized for the first time in a cycle makes its items' draws
+  where the game makes them, in `RealizeRoom` (`rainworld-re/notes/items.md`): one
+  `value` per entry of the room file's item list, then `Room.Loaded`'s random items, two
+  `Range` draws per attempt (`(int)(W * H * density^2 / 5) + 1` attempts, so at least
+  one even at density 0; none in shelters and gates), one more on a free tile and one
+  more for a spear, each item taking an ID. This shifted the stream of every room
+  realization since; no test pinned the old one. The rest of `Room.Loaded`'s draws
+  (placed objects and effects the port does not make) are still missing.
 - **Overseers.** A realized overseer's update makes the game's draws in order
   (`Overseer.Update`, `OverseerAI` with its communication module and the guide's
   tutorial, then `OverseerGraphics.Update` while its room is viewed;
@@ -875,7 +883,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
   `AbstractCreature` with all of its constructor draws (D1): the creatures go into
   their dens and stay there (`InDenUpdate` lets only overseers out), quantified
   creatures are counted per node (the bat flies move, are placed and realized, below), and items
-  (scavenger gear, drop bugs' items) are kept as IDs and kinds on their carrier. The
+  (scavenger gear, drop bugs' items) are kept as IDs and kinds on their carrier, not as
+  objects in the room's entities. The
   overseers' abstract AI is ported (`OverseerAbstractAI.AbstractBehavior`, `Roam`,
   `PlayerGuideUpdate`, `RoomAllowed`, `HowInterestingIsCreature`), run by
   `AbstractRoom.Update` and `InDenUpdate`; it never picks a target, as nothing it
@@ -914,6 +923,17 @@ second part, else a single-room world for arena levels). The campaign descriptio
   on the room files' baked node connectivity), as are the flies' swarm room map (with
   the world file's bat migration blockages), `GetSwarmRoomDistance`, `ActiveSwarmRoom`
   and a new game's `RegionState` swarm counters.
+- **Rocks and spears (abstract).** A room's `entities` hold creatures and objects
+  (`rw_sim::item`, `rainworld-re/notes/items.md`). On its first realization in a cycle a
+  room makes the rocks and spears of its file's item list and `Room.Loaded`'s random
+  items (with their IDs and draws, D1; explosive spears are flagged, at the game's
+  chances: 0 for the Survivor's and Monk's timelines); saved rocks and spears return to
+  their rooms, stuck spears count down their cycles, and objects move between rooms'
+  lists with `Move`. Not yet: realizing them (`ShortCutsReady`), so they are not seen,
+  touched, picked up or carried; and objects of other kinds (placed food, pearls, ...).
+  Arena levels (single-room worlds) make items as a story room does (the arena's
+  `levelItems` setting is not ported). `GeneratePopulation`'s reset clears a room's
+  `creatures` but not its `entities`, as the game does.
 - **Bat flies.** `FliesWorldAI` is ported whole (the constructor, `Update`
   with the migration, start-up and respawn, the behaviour re-roll, `MigrationDirection`,
   `ClosestSwarmRoom`), with `World.MoveQuantifiedCreatureFromAbstractRoom` and the
@@ -1105,9 +1125,12 @@ Differences:
   lines it holds a texture or time for. `Win` writes the whole save state in the game's
   order, its unknown entries kept at the end.
 - **What a hibernation saves.** Creatures keep their state string as read (the port
-  has no `CreatureState` beyond alive, so `CycleTick` does not age it); objects in
-  shelters, sticks and swallowed or held objects are kept as read (the port has no
-  items to save), and so are the kills (`AppendKills`), communities' likes beyond
+  has no `CreatureState` beyond alive, so `CycleTick` does not age it); rocks and
+  spears are saved as the game saves them (in shelters, and spears stuck in walls), but
+  saved objects of other kinds are kept as text and written before them (the game
+  writes those it recognizes in room order with the rest, and drops karma flowers);
+  sticks (`STICKS`, which the game rebuilds from the shelters' objects) and swallowed or
+  held objects (`PLAYERGRASPS`) are kept as read, and so are the kills (`AppendKills`), communities' likes beyond
   their cycle tick, and friends in the den. A saved creature the world cannot place
   stays in the saved list. Session time is the sim's ticks.
 - **Win state.** Integer and float passage trackers are read and written as the game
@@ -1183,6 +1206,9 @@ Differences:
   some food but less than `foodToHibernate` that is a malnourished survival, saved as
   the game does (only the progression and death-persistent data reach the disk; the
   new state stays in memory as the starved state) and the next cycle is malnourished.
+- **Objects in shelters.** Rocks and spears in any shelter when `Win` saves, and spears
+  stuck in walls anywhere, are written to the region state and come back the next cycle
+  (D16); they stay abstract until realization is ported (D14).
 - **Karma flowers.** The player's `karmaFlowerGrowPos` is tracked as `Player.Update`
   does (`PlaceKarmaFlower`: reinforced karma, the Monk, the Hunter out of cycles), and
   `PlaceKarmaFlowerOnDeathSpot` stores it in the save state's `karmaFlowerPosition`

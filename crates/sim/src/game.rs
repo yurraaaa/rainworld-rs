@@ -405,7 +405,10 @@ impl RainWorldGame {
             karma_flower_grow_pos: None,
             game_over: None,
         };
-        if let Err(e) = game.world.activate_room(start.room) {
+        if let Err(e) = game
+            .world
+            .activate_room(start.room, &mut game.ids, &mut game.rng)
+        {
             log::error!("cannot realize the first room: {e}");
         }
         game.finish_loading(observer);
@@ -586,7 +589,13 @@ impl RainWorldGame {
     pub fn tick(&mut self, input: Input, observer: &mut dyn PlayerObserver) {
         let follow = self.follow_creature();
         if let (Some(realizer), Some(follow)) = (&mut self.realizer, follow) {
-            realizer.update(&mut self.world, follow, self.camera_room, &mut self.rng);
+            realizer.update(
+                &mut self.world,
+                follow,
+                self.camera_room,
+                &mut self.ids,
+                &mut self.rng,
+            );
         }
         self.update_abstract_room();
         self.enter_from_abstract_rooms();
@@ -962,7 +971,10 @@ impl RainWorldGame {
         lobby.updates += 1;
         self.shortcuts.lobby[index] = lobby;
         let Some(dest) = self.world.realized(lobby.room) else {
-            if let Err(e) = self.world.activate_room(lobby.room) {
+            if let Err(e) = self
+                .world
+                .activate_room(lobby.room, &mut self.ids, &mut self.rng)
+            {
                 log::warn!("cannot realize room {}: {e}", lobby.room);
             }
             return false;
@@ -1497,7 +1509,7 @@ impl RainWorldGame {
             .abstract_room(self.pos().room)
             .and_then(|r| r.connections.get(data.dest_node?).copied());
         if let Some(dest) = dest.filter(|&d| d > -1)
-            && let Err(e) = self.world.activate_room(dest)
+            && let Err(e) = self.world.activate_room(dest, &mut self.ids, &mut self.rng)
         {
             log::warn!("cannot realize room {dest}: {e}");
         }

@@ -1,8 +1,9 @@
 //! Room geometry files (`<room>.txt`): size, water, cameras and the tile grid.
 //!
-//! Format: `rainworld-re/notes/room-format.md`. Lines 0, 1, 3, 9 (the node map), 10 (the
-//! baked AI data's visibility and creature int grids) and 11 are read; the light angle,
-//! placed items, the baked float grids and the `_settings.txt` file are skipped.
+//! Format: `rainworld-re/notes/room-format.md`. Lines 0, 1, 3, 5 (the items placed on a
+//! first realization), 9 (the node map), 10 (the baked AI data's visibility and creature
+//! int grids) and 11 are read; the light angle, the baked float grids and the
+//! `_settings.txt` file are skipped.
 //! The shortcut map ([`crate::ShortcutMap`]) is derived from the grid on parse.
 
 use std::error::Error;
@@ -258,6 +259,50 @@ impl Error for RoomError {
     }
 }
 
+/// One entry of line 5, as written: `LoadFromDataString` places it on the room's first
+/// realization in a cycle (0 a rock, 1 a spear; other types still make the draw and take
+/// an ID).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RoomItem {
+    pub kind: i32,
+    /// 1-based column.
+    pub x: i32,
+    /// Row counted from the top, 1-based.
+    pub y: i32,
+}
+
+impl RoomItem {
+    /// The tile it is placed on, `(x - 1, height - y)`.
+    #[must_use]
+    pub fn tile(self, height: i32) -> (i32, i32) {
+        (self.x - 1, height - self.y)
+    }
+
+    /// Line 5 split on `|`, every part but the last one read (the game's loop bound).
+    fn parse_list(line: &str) -> Result<Vec<Self>, RoomError> {
+        let parts: Vec<&str> = line.split('|').collect();
+        parts[..parts.len() - 1]
+            .iter()
+            .map(|part| {
+                let fields: Vec<&str> = part.split(',').collect();
+                Ok(Self {
+                    kind: Self::field(&fields, 0, part)?,
+                    x: Self::field(&fields, 1, part)?,
+                    y: Self::field(&fields, 2, part)?,
+                })
+            })
+            .collect()
+    }
+
+    /// `Convert.ToInt32` of field `i` (the game throws on a bad one).
+    fn field(fields: &[&str], i: usize, part: &str) -> Result<i32, RoomError> {
+        fields
+            .get(i)
+            .and_then(|f| f.trim().parse().ok())
+            .ok_or_else(|| bad(5, "item", part))
+    }
+}
+
 /// The lines of a geometry file, with checked access.
 struct Lines<'a>(Vec<&'a str>);
 
@@ -292,6 +337,8 @@ pub struct Room {
     baked_layers: Vec<Vec<i32>>,
     /// `Room.hives`: the hive tiles grouped as `AddHiveTile` groups them.
     hives: Vec<Vec<(i32, i32)>>,
+    /// Line 5's items.
+    items: Vec<RoomItem>,
 }
 
 impl Room {
@@ -360,12 +407,19 @@ impl Room {
             .map(|(i, cell)| Tile::parse(i, cell))
             .collect::<Result<Box<[Tile]>, RoomError>>()?;
 
+        // `VersionFix` moves an 8-line file's last lines down, leaving line 5 empty.
+        let items = if lines.0.len() == 8 {
+            Vec::new()
+        } else {
+            RoomItem::parse_list(lines.line(5)?)?
+        };
         let conn_map = ConnMap::parse(lines.line(9)?);
         let ai_line = lines.line(10).unwrap_or_default();
         let visibility = Self::parse_visibility(ai_line);
         let baked_layers = Self::parse_baked_layers(ai_line);
         let hives = Self::group_hives(width, height, &tiles);
         let mut room = Self {
+            items,
             conn_map,
             visibility,
             baked_layers,
@@ -483,6 +537,12 @@ impl Room {
     #[must_use]
     pub fn baked_layer_count(&self) -> usize {
         self.baked_layers.len()
+    }
+
+    /// Line 5's items, in file order.
+    #[must_use]
+    pub fn items(&self) -> &[RoomItem] {
+        &self.items
     }
 
     /// `Room.hives`.
@@ -738,6 +798,35 @@ mod tests {
 
     fn sample() -> Room {
         Room::parse(&file("2*3|-1|0", "-220,-30", GRID)).expect("sample parses")
+    }
+
+    /// Line 5 of the sample room replaced by `items`.
+    fn items(items: &str) -> Result<Vec<RoomItem>, RoomError> {
+        let text = file("2*3|-1|0", "-220,-30", GRID).replacen(
+            "Border: Solid\n\n",
+            &format!("Border: Solid\n{items}\n"),
+            1,
+        );
+        Room::parse(&text).map(|r| r.items().to_vec())
+    }
+
+    #[test]
+    fn items_read_every_part_before_the_last() {
+        const ROCK: RoomItem = RoomItem {
+            kind: 0,
+            x: 16,
+            y: 13,
+        };
+        const SPEAR: RoomItem = RoomItem {
+            kind: 1,
+            x: 2,
+            y: 3,
+        };
+        assert_eq!(items("").expect("empty"), []);
+        assert_eq!(items("0,16,13|").expect("one"), [ROCK]);
+        assert_eq!(items("1,2,3|0,16,13|7,1,1").expect("two"), [SPEAR, ROCK]);
+        assert!(items("0,x,1|").is_err());
+        assert_eq!(ROCK.tile(30), (15, 17));
     }
 
     #[test]

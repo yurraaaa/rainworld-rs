@@ -14,7 +14,8 @@
 //!
 //! Above the room: the campaigns ([`campaign`]), the world with its realized rooms, the
 //! room realizer and the rain cycle ([`world`]), the creatures with the world's
-//! population and the overseers' abstract AI ([`creature`]), and [`RainWorldGame`],
+//! population and the overseers' abstract AI ([`creature`]), the abstract rocks and
+//! spears ([`item`]), and [`RainWorldGame`],
 //! which moves the player between rooms through room-exit shortcuts
 //! (`world-loading.md`, `room-realizer.md`, `creature-model.md`).
 
@@ -24,6 +25,7 @@ mod chunk;
 pub mod creature;
 mod float_ext;
 mod game;
+pub mod item;
 pub mod map_discovery;
 mod object;
 mod player;

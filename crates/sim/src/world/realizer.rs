@@ -7,6 +7,7 @@
 use rw_random::UnityRandom;
 
 use super::World;
+use crate::creature::IdIssuer;
 
 /// `performanceBudget`.
 const PERFORMANCE_BUDGET: f32 = 1500.0;
@@ -76,6 +77,9 @@ struct Ctx<'a> {
     world: &'a mut World,
     follow: FollowCreature,
     camera_room: i32,
+    /// For the items a room makes when realized.
+    ids: &'a mut IdIssuer,
+    rng: &'a mut UnityRandom,
 }
 
 impl Ctx<'_> {
@@ -130,12 +134,15 @@ impl RoomRealizer {
         world: &mut World,
         follow: FollowCreature,
         camera_room: i32,
+        ids: &mut IdIssuer,
         rng: &mut UnityRandom,
     ) {
         let mut cx = Ctx {
             world,
             follow,
             camera_room,
+            ids,
+            rng,
         };
         self.update_trackers(&cx);
         for r in &mut self.recently_abstracted {
@@ -163,7 +170,7 @@ impl RoomRealizer {
         }
         let performance = self.current_performance(&cx);
         if performance > PERFORMANCE_BUDGET / 4.0 {
-            self.delete_distant_rooms(&mut cx, rng);
+            self.delete_distant_rooms(&mut cx);
         }
         if performance > PERFORMANCE_BUDGET {
             let candidates: Vec<i32> = self.trackers.iter().map(|t| t.room).collect();
@@ -189,7 +196,7 @@ impl RoomRealizer {
                 }
             }
         }
-        self.maybe_realize_neighbour(&mut cx, performance, rng);
+        self.maybe_realize_neighbour(&mut cx, performance);
     }
 
     /// The tracker loop at the top of `Update`.
@@ -247,12 +254,7 @@ impl RoomRealizer {
     /// The random neighbour at the end of `Update`: one `Random.Range` per tick while
     /// nothing loads and the budget is under half, realizing a neighbour drawn more than
     /// 40 ticks in a row.
-    fn maybe_realize_neighbour(
-        &mut self,
-        cx: &mut Ctx<'_>,
-        performance: f32,
-        rng: &mut UnityRandom,
-    ) {
+    fn maybe_realize_neighbour(&mut self, cx: &mut Ctx<'_>, performance: f32) {
         let connections = cx.connections(cx.follow.room);
         if self.currently_loading.is_some()
             || performance >= PERFORMANCE_BUDGET / 2.0
@@ -261,7 +263,7 @@ impl RoomRealizer {
             return;
         }
         let len = i32::try_from(connections.len()).unwrap_or(i32::MAX);
-        let drawn = connections[rng.range_i32(0, len) as usize];
+        let drawn = connections[cx.rng.range_i32(0, len) as usize];
         let room = cx.existing(drawn);
         let slot = match self
             .neighbour_candidates
@@ -294,7 +296,7 @@ impl RoomRealizer {
     /// `CheckForAndDeleteDistantRooms`: one random tracked room, abstracted unless it
     /// or a neighbour (two steps for a cheap room) is the creature's or the probable
     /// next room.
-    fn delete_distant_rooms(&mut self, cx: &mut Ctx<'_>, rng: &mut UnityRandom) {
+    fn delete_distant_rooms(&mut self, cx: &mut Ctx<'_>) {
         let follow_loaded = cx
             .world
             .realized(cx.follow.room)
@@ -303,7 +305,7 @@ impl RoomRealizer {
             return;
         }
         let len = i32::try_from(self.trackers.len()).unwrap_or(i32::MAX);
-        let pick = rng.range_i32(0, len) as usize;
+        let pick = cx.rng.range_i32(0, len) as usize;
         let room = self.trackers[pick].room;
         if room == cx.follow.room
             || Some(room) == self.probable_next
@@ -356,7 +358,7 @@ impl RoomRealizer {
             t.has_been_visited |= entering;
             return;
         }
-        if let Err(e) = cx.world.activate_room(room) {
+        if let Err(e) = cx.world.activate_room(room, cx.ids, cx.rng) {
             log::warn!("cannot realize room {room}: {e}");
         }
         self.currently_loading = cx.realized(room).then_some(room);
