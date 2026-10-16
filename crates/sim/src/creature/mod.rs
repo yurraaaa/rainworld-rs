@@ -5,8 +5,9 @@
 //!
 //! Ported: the constructors with all their random draws for every base-game type, the
 //! world-load population ([`population`]), the overseers' abstract AI ([`overseer`]),
-//! dens, `Move` and the realize/abstractize hooks. Other types' AI behaviour is not
-//! ported: they stay in their dens (docs/DIVERGENCES.md D14). Design:
+//! the plain `AbstractCreatureAI` for the lizards (`world/abstract_ai.rs`), dens, `Move`
+//! and the realize/abstractize hooks. Other types' AI behaviour is not ported: they stay
+//! in their dens (docs/DIVERGENCES.md D14). Design:
 //! `rainworld-re/notes/creature-model.md`.
 
 pub(crate) mod ai;
@@ -15,6 +16,7 @@ pub mod grasp;
 pub mod overseer;
 pub(crate) mod population;
 pub mod template;
+mod template_abstract;
 
 use rw_assets::CreatureType;
 use rw_random::UnityRandom;
@@ -29,6 +31,7 @@ pub use fly::{
 pub use grasp::{GrabRequest, Grasp, GripStick, Shareability};
 pub use overseer::{OverseerAbstractAi, OverseerAi, OverseerBody, PlayerGuideState};
 pub use template::{CreatureTemplate, Relationship, RelationshipType, WaterRelationship};
+pub use template_abstract::{AbstractCost, AbstractMovement};
 
 /// `EntityID`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -203,6 +206,33 @@ pub enum RealizedCreature {
     Fly(Box<Fly>),
 }
 
+/// The base-game creature flags of `setCustomFlags`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SpawnFlag {
+    Night,
+    Ignorecycle,
+    PreCycle,
+}
+
+impl SpawnFlag {
+    /// The game's spelling.
+    #[must_use]
+    pub fn value(self) -> &'static str {
+        match self {
+            Self::Night => "Night",
+            Self::Ignorecycle => "Ignorecycle",
+            Self::PreCycle => "PreCycle",
+        }
+    }
+
+    #[must_use]
+    pub fn from_value(value: &str) -> Option<Self> {
+        [Self::Night, Self::Ignorecycle, Self::PreCycle]
+            .into_iter()
+            .find(|f| f.value() == value)
+    }
+}
+
 /// `AbstractCreature`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct AbstractCreature {
@@ -219,6 +249,9 @@ pub struct AbstractCreature {
     pub spawn_data: Option<String>,
     pub night_creature: bool,
     pub ignore_cycle: bool,
+    /// `preCycle` (the `PreCycle` spawn flag): with no precycles in the base game it
+    /// keeps the creature in its den.
+    pub pre_cycle: bool,
     pub in_den: bool,
     pub time_spent_here: i32,
     /// `evenUpdate`.
@@ -280,6 +313,41 @@ impl AbstractCreature {
         self.template.quantified
             && self.state.alive
             && (!self.carried.is_empty() || !self.sticks.is_empty())
+    }
+
+    /// `setCustomFlags`' base-game flags: `nightCreature` and `ignoreCycle` are cleared,
+    /// then the spawn data's `{...}` list sets `Night`, `Ignorecycle` and `PreCycle`. The
+    /// others (DLC flags, `Seed`, `NamedAttr`, numbers) are kept in `spawn_data` only;
+    /// the region's `globalCreatureFlags` are not read (no vanilla region sets them).
+    pub fn set_custom_flags(&mut self) {
+        self.night_creature = false;
+        self.ignore_cycle = false;
+        let Some(data) = self.spawn_data.as_deref() else {
+            return;
+        };
+        let Some(list) = data
+            .strip_prefix('{')
+            .and_then(|d| d.get(..d.len().saturating_sub(1)))
+        else {
+            return;
+        };
+        for flag in list.split([',', '|']) {
+            match SpawnFlag::from_value(flag.split(':').next().unwrap_or("")) {
+                Some(SpawnFlag::Night) => {
+                    self.night_creature = true;
+                    self.ignore_cycle = false;
+                }
+                Some(SpawnFlag::Ignorecycle) => self.ignore_cycle = true,
+                Some(SpawnFlag::PreCycle) => self.pre_cycle = true,
+                None => {}
+            }
+        }
+    }
+
+    /// `PacifiedBecauseCarried`: a grip stick where `B == this` equals its `carry`.
+    #[must_use]
+    pub fn pacified_because_carried(&self, me: CreatureId) -> bool {
+        self.sticks.iter().any(|s| (s.b == me) == s.carry)
     }
 
     /// The realized object's `slatedForDeletetion`.

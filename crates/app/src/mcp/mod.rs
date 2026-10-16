@@ -47,7 +47,8 @@ use params::{
 pub use session::Session;
 
 const INSTRUCTIONS: &str = "Drives rainworld-rs, a reimplementation of Rain World \
-(one region at a time; of its creatures only the overseers behave, abstractly). Call load_room (a room in its region's world) or \
+(one region at a time; of its creatures the overseers and bat flies behave, and lizards \
+roam abstractly without bodies). Call load_room (a room in its region's world) or \
 new_game (a campaign's start) first. The simulation runs at 40 ticks per second and only \
 advances in step / step_sequence, so runs are deterministic: the same start, seed and \
 inputs give the same result. Positions are room pixels, y up, 20 px per tile, in the \
@@ -199,7 +200,9 @@ impl Server {
         contacts, body mode, animation, facing, standing, stun, death, shortcut travel, \
         this tick's terrain impacts, input and controller; the new game's fade delay and \
         SU_C04 start script; the world's creatures (kind, ID, room, node, tile, den, \
-        realized; overseers' destination, guide state, last rooms and tiles); the \
+        realized; lizards' abstract AI: destination, path, migration destination, den, \
+        time buffer and den counter; overseers' destination, guide state, last rooms and \
+        tiles); the \
         world's rocks and spears (kind, ID, room, node, tile, a spear's \
         stuck-in-wall cycles and explosive flag; realized ones' room, position, \
         velocity, mode, rotation and collision layer)."
