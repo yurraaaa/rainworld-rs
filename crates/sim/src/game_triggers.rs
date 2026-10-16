@@ -4,16 +4,14 @@
 //! `RainCycle.MusicAllowed` and `RainRequestStopSong`. Types: [`crate::trigger`].
 
 use rw_assets::{
-    AbstractObjectType, CreatureType, DangerType, EventType, ShowProjectedImageEvent, Timeline,
-    TriggeredEvent,
+    CreatureType, DangerType, EventType, ShowProjectedImageEvent, Timeline, TriggeredEvent,
 };
 
 use super::{HudEvent, RainWorldGame, RoomObject};
 use crate::creature::overseer::{CommunicationModule, TutorialMessage};
-use crate::item::{Entity, ObjectId, WeaponMode};
 use crate::trigger::{
-    ActiveTriggerChecker, InputInstructionView, MusicRequest, PickupObjectInstruction, TriggerHud,
-    TriggerObject, TriggerObjectKind, TriggerPlayer,
+    ActiveTriggerChecker, MusicRequest, PickupObjectInstruction, TriggerHud, TriggerObject,
+    TriggerObjectKind, TriggerPlayer,
 };
 use crate::world::World;
 use crate::{FloatExt, Vec2};
@@ -59,6 +57,7 @@ impl RainWorldGame {
         let world = &self.world;
         self.trigger_objects
             .retain(|o| o.room != index && world.realized(o.room).is_some());
+        self.add_placed_triggers(index);
         let story = self.is_story_session();
         let cycle = self.story.cycle_number;
         let (timeline, mods) = (self.world.timeline(), self.world.mods());
@@ -87,7 +86,7 @@ impl RainWorldGame {
     }
 
     /// `room.AddObject`: the end of the update list.
-    fn add_trigger_object(&mut self, room: i32, kind: TriggerObjectKind) {
+    pub(super) fn add_trigger_object(&mut self, room: i32, kind: TriggerObjectKind) {
         let id = self.world.next_update_seq();
         self.trigger_objects.push(TriggerObject {
             id,
@@ -109,26 +108,6 @@ impl RainWorldGame {
     /// Drops the trigger objects destroyed during room `index`'s update.
     pub(super) fn remove_slated_trigger_objects(&mut self) {
         self.trigger_objects.retain(|o| !o.slated);
-    }
-
-    /// The input instruction objects, as the guide's communication reads them.
-    pub(super) fn input_instruction_views(&self) -> Vec<InputInstructionView> {
-        self.trigger_objects
-            .iter()
-            .filter_map(TriggerObject::instruction_view)
-            .collect()
-    }
-
-    /// The overseer marked instruction `id` as followed and counted it.
-    pub(super) fn instruction_followed(&mut self, id: u64) {
-        if let Some(TriggerObjectKind::PickupInstruction(p)) = self
-            .trigger_objects
-            .iter_mut()
-            .find(|o| o.id == id)
-            .map(|o| &mut o.kind)
-        {
-            p.mark_instruction_as_followed = false;
-        }
     }
 
     /// Camera 0's HUD as the checkers read it (set by the app before the tick).
@@ -173,6 +152,13 @@ impl RainWorldGame {
         match &self.trigger_objects[at].kind {
             TriggerObjectKind::Checker(_) => self.run_checker(index, at),
             TriggerObjectKind::PickupInstruction(_) => self.run_pickup_instruction(index, id),
+            TriggerObjectKind::SuperJumpInstruction(_) => {
+                self.run_super_jump_instruction(index, id);
+            }
+            TriggerObjectKind::ScavTradeInstruction(_) => {
+                self.run_scav_trade_instruction(index, id);
+            }
+            TriggerObjectKind::ReliableIggyDirection(_) => self.run_iggy_direction(index, id),
             TriggerObjectKind::TextMessage => self.run_text_message(index),
         }
     }
@@ -275,10 +261,10 @@ impl RainWorldGame {
     }
 
     /// `ImageTrigger.AttemptTriggerFire`: the guide in the room is told to show the
-    /// room's pictures. Moon is not ported, so `SLOracleState.playerEncounters` is 0.
+    /// room's pictures (`afterEncounter` against the save's Moon encounters).
     fn attempt_image_trigger(&mut self, index: i32, id: u64, event: ShowProjectedImageEvent) {
         if self.is_story_session() {
-            let encountered_moon = false;
+            let encountered_moon = self.story.ever_met_moon;
             let name = self.room_name(index);
             if event.after_encounter != encountered_moon
                 || self.guide.has_image_been_shown_in_room(&name)
@@ -372,119 +358,6 @@ impl RainWorldGame {
             self.hud_events.push(HudEvent::DangleFruitInWaterMessage);
             self.story.dangle_fruit_in_water_message = true;
         }
-    }
-
-    /// `PickupObjectInstruction.Update` with its `InputInstructionTrigger` base.
-    fn run_pickup_instruction(&mut self, index: i32, id: u64) {
-        let Some(mut state) = self.pickup_state(id) else {
-            return;
-        };
-        let mut slated = false;
-        if state.completed {
-            slated = true;
-        } else if state.activated {
-            state.time_since_activated += 1;
-            let shown = self.guide.pickup_objects_shown;
-            if let Some(comm) = self.world.guide_communication_mut(index) {
-                // `PlayerNeedsInputInstruction`.
-                if shown <= 0 {
-                    comm.input_instruction = Some(id);
-                }
-            }
-        } else {
-            // `CheckTrigger(Players[0])`.
-            state.activated = state.item.is_some();
-        }
-        slated |= self.pickup_step(index, &mut state);
-        if let Some(o) = self.trigger_objects.iter_mut().find(|o| o.id == id) {
-            o.kind = TriggerObjectKind::PickupInstruction(state);
-            o.slated |= slated;
-        }
-    }
-
-    fn pickup_state(&self, id: u64) -> Option<PickupObjectInstruction> {
-        match &self.trigger_objects.iter().find(|o| o.id == id)?.kind {
-            TriggerObjectKind::PickupInstruction(p) => Some(p.clone()),
-            _ => None,
-        }
-    }
-
-    /// The rest of `PickupObjectInstruction.Update`: follows the carried rock or spear,
-    /// else picks the nearest free one (distances halved for one on screen and for the
-    /// current one). Returns whether it destroys itself.
-    fn pickup_step(&self, index: i32, state: &mut PickupObjectInstruction) -> bool {
-        let Some(player) = self.player.as_ref().filter(|p| !p.in_shortcut()) else {
-            return false;
-        };
-        if self.pos().room != index {
-            return true;
-        }
-        let main = player.body.chunks[0].pos;
-        if state.player_has_picked_up_an_item {
-            state.instruction_pos = main;
-            let held = state
-                .item
-                .is_some_and(|i| !self.world.grabbed_by(Entity::Object(i)).is_empty());
-            if !held || player.entering_shortcut().is_some() {
-                state.completed = true;
-                return true;
-            }
-            return false;
-        }
-        for grasp in self.player_grasps().into_iter().flatten() {
-            if let Entity::Object(o) = grasp
-                && Self::rock_or_spear(&self.world, o)
-            {
-                state.item = Some(o);
-                state.player_has_picked_up_an_item = true;
-                state.mark_instruction_as_followed = true;
-                return false;
-            }
-        }
-        let room = self.world.realized(index).map(|r| r.room.clone());
-        let mut nearest = f32::MAX;
-        for o in self.world.room_objects(index) {
-            if !Self::rock_or_spear(&self.world, o) {
-                continue;
-            }
-            let Some(w) = self.world.realized_weapon(o, index) else {
-                continue;
-            };
-            if w.mode != WeaponMode::Free || !self.world.grabbed_by(Entity::Object(o)).is_empty() {
-                continue;
-            }
-            let at = w.body.chunks[0].pos;
-            let mut d = at.distance(main);
-            if room
-                .as_ref()
-                .is_some_and(|r| self.camera_view.viewed(index, r, at, -20.0))
-            {
-                d /= 2.0;
-            }
-            if state.item == Some(o) {
-                d /= 2.0;
-            }
-            if d < nearest {
-                nearest = d;
-                state.item = Some(o);
-            }
-        }
-        match state.item {
-            None => true,
-            Some(item) => {
-                if let Some(w) = self.world.object(item).realized.as_deref() {
-                    state.instruction_pos = w.body.chunks[0].pos;
-                }
-                false
-            }
-        }
-    }
-
-    fn rock_or_spear(world: &World, o: ObjectId) -> bool {
-        matches!(
-            world.object(o).kind,
-            AbstractObjectType::Rock | AbstractObjectType::Spear
-        )
     }
 }
 

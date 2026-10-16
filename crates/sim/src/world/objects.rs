@@ -43,6 +43,14 @@ impl World {
             .map_or(&[], |l| self.lists[l].entities.as_slice())
     }
 
+    /// `entities[Random.Range(0, entities.Count)]` of global room `room`: one draw over
+    /// its creatures and objects (`None` for an empty list, where the game throws).
+    pub fn random_room_entity(&self, room: i32, rng: &mut UnityRandom) -> Option<Entity> {
+        let entities = self.room_entities(room);
+        let i = rng.range_i32(0, i32::try_from(entities.len()).unwrap_or(i32::MAX));
+        entities.get(usize::try_from(i).ok()?).copied()
+    }
+
     /// The objects among a room's entities, in list order.
     pub fn room_objects(&self, room: i32) -> impl Iterator<Item = ObjectId> + '_ {
         self.room_entities(room).iter().filter_map(|e| match e {

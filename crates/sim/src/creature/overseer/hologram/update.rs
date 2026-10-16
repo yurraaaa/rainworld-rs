@@ -224,6 +224,13 @@ impl HologramUpdate<'_, '_> {
     /// `Update(eu)` of the hologram's class.
     /// The subclasses go on after the base destroyed a hologram whose overseer left.
     pub fn update(&mut self) {
+        if let HologramKind::Door {
+            pointer: PointerKind::Forced { cycle, .. },
+            ..
+        } = &mut self.holo.kind
+        {
+            *cycle += 1;
+        }
         let alive = self.base_update();
         match self.holo.kind.clone() {
             HologramKind::Door { pointer, .. } => {
@@ -260,6 +267,8 @@ impl HologramUpdate<'_, '_> {
             PointerKind::Shelter { .. } | PointerKind::Direction { .. } => {
                 log::warn!("hologram update after its overseer left (the game throws here)");
             }
+            // `direction.room != overseer.room`.
+            PointerKind::Forced { .. } => self.holo.still_relevant = false,
         }
     }
 
@@ -458,6 +467,13 @@ impl HologramUpdate<'_, '_> {
                 let curr = i32::try_from(image.curr_image).unwrap_or(0);
                 (curr, index, image.show_time, 0.0)
             }
+            HologramKind::Instruction(i) => match &i.controller {
+                Some(super::Controller::ScavengerTrade { show_image, .. }) => {
+                    let img = super::instruction::SCAV_TRADE_IMAGES[*show_image];
+                    (i32::try_from(*show_image).unwrap_or(0), img.index(), 0, 0.5)
+                }
+                _ => (0, 0, 0, 0.0),
+            },
             _ => (0, 0, 0, 0.0),
         }
     }
@@ -699,7 +715,30 @@ impl HologramUpdate<'_, '_> {
             PointerKind::Bat { .. } => self.bat_update(),
             PointerKind::Shelter { forcepoint, .. } => self.shelter_update(forcepoint),
             PointerKind::Direction { .. } => self.direction_update(),
+            PointerKind::Forced { direction, .. } => self.forced_update(direction),
         }
+    }
+
+    /// `ForcedDirectionPointer.Update` after `DoorPointer`'s: points at its
+    /// `ReliableIggyDirection`'s exit, always shown, while that is in the guide's room.
+    fn forced_update(&mut self, direction: u64) {
+        let room = self.cx.room_index;
+        let Some(exit) = self
+            .cx
+            .forced_directions
+            .iter()
+            .find(|d| d.id == direction && d.room == room)
+            .map(|d| d.exit)
+        else {
+            self.holo.still_relevant = false;
+            return;
+        };
+        self.set_door(exit);
+        if let Some(d) = self.door_mut() {
+            d.pointer_necessary = true;
+        }
+        self.holo.parts[2].visible = true;
+        self.holo.parts[1].visible = true;
     }
 
     fn room_name(&self) -> &str {
@@ -1009,10 +1048,10 @@ impl HologramUpdate<'_, '_> {
         self.holo.still_relevant = false;
         let guide = &mut *self.cx.guide;
         if self.ai.communication.is_some() {
-            if !guide.displayed_anger {
+            if !guide.displayed_anger() {
                 guide.influence_like(-2.0);
             }
-            guide.displayed_anger = true;
+            guide.set_displayed_anger(true);
         }
         self.abs.player_guide_go_away(2000);
         let den = self.cx.world.offscreen_den_index();
@@ -1134,7 +1173,7 @@ impl OverseerHologram {
     }
 
     /// `HoloImage`'s constructor draws its first random image.
-    fn holo_image(rng: &mut rw_random::UnityRandom) -> super::HologramPart {
+    pub(super) fn holo_image(rng: &mut rw_random::UnityRandom) -> super::HologramPart {
         super::HologramPart::new(PartKind::HoloImage(Box::new(HoloImage {
             last_img: 0,
             last_show_img: (0, 0),

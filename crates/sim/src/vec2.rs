@@ -145,6 +145,16 @@ impl Vec2 {
         (self - other).length() < dist
     }
 
+    /// `Custom.IsPointBetweenPoints(a, b, self)`: strictly inside the box `a` and `b`
+    /// span.
+    #[must_use]
+    pub fn is_between_points(self, a: Self, b: Self) -> bool {
+        self.x > a.x.min(b.x)
+            && self.x < a.x.max(b.x)
+            && self.y > a.y.min(b.y)
+            && self.y < a.y.max(b.y)
+    }
+
     /// `Custom.MoveTowards`: at most `max` closer to `to`.
     #[must_use]
     pub fn move_towards(self, to: Self, max: f32) -> Self {

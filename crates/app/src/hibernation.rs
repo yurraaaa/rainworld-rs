@@ -10,6 +10,8 @@ use rw_sim::creature::ViolenceTemplate;
 use rw_sim::world::RegionState;
 use rw_sim::{RainWorldGame, WorldCoordinate};
 
+use crate::saves::GuideStateCopy;
+
 /// The running game as `SessionEnded` and `BringUpToDate` see it.
 pub struct HibernatingGame<'a> {
     pub sim: &'a mut RainWorldGame,
@@ -135,11 +137,10 @@ impl HibernatingGame<'_> {
             state
                 .wait_respawn_creatures
                 .extend_from_slice(&deaths.wait_respawn_creatures);
-            let guide = self.sim.guide_state();
-            let saved = &mut state.misc_world.player_guide;
-            saved.likes_player = guide.likes_player;
-            saved.hand_holding = guide.hand_holding;
-            saved.increase_like_on_save = guide.increase_like_on_save;
+            state
+                .misc_world
+                .player_guide
+                .update_from_game(self.sim.guide_state());
             state.tot_food += self.sim.session_food();
         }
         let mut rng = self.sim.take_rng();

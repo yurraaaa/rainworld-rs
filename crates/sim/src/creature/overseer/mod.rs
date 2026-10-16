@@ -6,14 +6,16 @@
 mod abstract_ai;
 mod ai;
 mod body;
+mod guide_state;
 pub mod hologram;
 mod tutorial;
 mod update;
 
 pub(crate) use abstract_ai::{AbstractStep, GuideContext, Parent};
-pub use abstract_ai::{OverseerAbstractAi, PlayerGuideState, TUTORIAL_ROOMS};
+pub use abstract_ai::{OverseerAbstractAi, TUTORIAL_ROOMS};
 pub use ai::{CommunicationModule, OverseerAi, PlayerConcern, ZipMatrix};
 pub use body::{APPENDAGE_SEGMENTS, OverseerBody, OverseerMode};
+pub use guide_state::PlayerGuideState;
 pub use tutorial::{TutorialBehavior, TutorialMessage};
 pub use update::{EdibleView, OverseerColor, OverseerView, PlayerView};
 pub(crate) use update::{OverseerEffect, OverseerTick, OverseerUpdate, StoryStats};

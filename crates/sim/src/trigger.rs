@@ -1,10 +1,15 @@
 //! Room settings triggers in a realized room: `ActiveTriggerChecker` (made by every
 //! `Room.Loaded` for the triggers the save lets through), the room objects their events
-//! add (`PickupObjectInstruction`, `RoomSpecificTextMessage`), and the song requests the
+//! add (`PickupObjectInstruction`, `RoomSpecificTextMessage`), the guide's placed
+//! triggers (`SuperJumpInstruction`, `ScavengerTradeInstructionTrigger`,
+//! `ReliableIggyDirection`), and the song requests the
 //! sim hands the music player (`rw-audio`). Behaviour: `rainworld-re/notes/music.md`
 //! section 4.2; the game side is `game_triggers.rs`.
 
-use rw_assets::{EventTrigger, MusicEvent, StopMusicEvent, TriggerType};
+use rw_assets::{
+    EventTrigger, IggySymbol, MusicEvent, QuadData, ReliableIggyDirectionData, StopMusicEvent,
+    TriggerType,
+};
 use rw_random::UnityRandom;
 
 use crate::Vec2;
@@ -151,14 +156,20 @@ impl ActiveTriggerChecker {
     }
 }
 
-/// `PickupObjectInstruction` (an `InputInstructionTrigger`): points the guide at the
-/// nearest free rock or spear until the player has carried one.
-#[derive(Debug, Clone, PartialEq)]
-pub struct PickupObjectInstruction {
+/// `InputInstructionTrigger`'s own fields.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct InstructionTrigger {
     pub instruction_pos: Vec2,
     pub activated: bool,
     pub completed: bool,
     pub time_since_activated: i32,
+}
+
+/// `PickupObjectInstruction` (an `InputInstructionTrigger`): points the guide at the
+/// nearest free rock or spear until the player has carried one.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PickupObjectInstruction {
+    pub trigger: InstructionTrigger,
     pub item: Option<ObjectId>,
     pub player_has_picked_up_an_item: bool,
     pub mark_instruction_as_followed: bool,
@@ -167,21 +178,98 @@ pub struct PickupObjectInstruction {
 impl PickupObjectInstruction {
     #[must_use]
     pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+/// `SuperJumpInstruction`, made by its placed object: the guide shows the super jump
+/// once the player drops through the line between handles 2 and 1.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SuperJumpInstruction {
+    pub trigger: InstructionTrigger,
+    /// The placed object's position and handles (`QuadObjectData`).
+    pub pos: Vec2,
+    pub handles: [Vec2; 3],
+}
+
+impl SuperJumpInstruction {
+    #[must_use]
+    pub fn new(pos: Vec2, quad: QuadData) -> Self {
         Self {
-            instruction_pos: Vec2::ZERO,
-            activated: false,
-            completed: false,
-            time_since_activated: 0,
-            item: None,
-            player_has_picked_up_an_item: false,
-            mark_instruction_as_followed: false,
+            trigger: InstructionTrigger {
+                instruction_pos: pos,
+                ..InstructionTrigger::default()
+            },
+            pos,
+            handles: quad.handles.map(Vec2::from),
+        }
+    }
+
+    #[must_use]
+    pub fn trg_a(&self) -> Vec2 {
+        self.pos + self.handles[2]
+    }
+
+    #[must_use]
+    pub fn trg_b(&self) -> Vec2 {
+        self.pos + self.handles[1]
+    }
+
+    /// `CheckTrigger`'s test on the player's main chunk: not rising, and its last move
+    /// crosses the trigger line.
+    #[must_use]
+    pub fn crossed(&self, last_pos: Vec2, pos: Vec2) -> bool {
+        if last_pos.y < pos.y {
+            return false;
+        }
+        let (a, b) = (self.trg_a(), self.trg_b());
+        let v = last_pos.line_intersection(pos, a, b);
+        v.is_between_points(a, b) && v.is_between_points(last_pos, pos)
+    }
+}
+
+/// `ScavengerTradeInstructionTrigger` (namespace `ScavTradeInstruction`), made by its
+/// placed object: activated by a realized data pearl that came from this room.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScavengerTradeInstructionTrigger {
+    pub trigger: InstructionTrigger,
+    pub pos: Vec2,
+    pub pearl: Option<ObjectId>,
+}
+
+impl ScavengerTradeInstructionTrigger {
+    #[must_use]
+    pub fn new(pos: Vec2) -> Self {
+        Self {
+            trigger: InstructionTrigger {
+                instruction_pos: pos,
+                ..InstructionTrigger::default()
+            },
+            pos,
+            pearl: None,
         }
     }
 }
 
-impl Default for PickupObjectInstruction {
-    fn default() -> Self {
-        Self::new()
+/// `ReliableIggyDirection`, made by its placed object: the guide points at an exit
+/// while the player is within the radius.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReliableIggyDirection {
+    pub pos: Vec2,
+    pub data: ReliableIggyDirectionData,
+    pub has_been_activated: bool,
+    pub first_update: bool,
+}
+
+impl ReliableIggyDirection {
+    #[must_use]
+    pub fn new(pos: Vec2, data: ReliableIggyDirectionData) -> Self {
+        Self {
+            pos,
+            data,
+            has_been_activated: false,
+            first_update: true,
+        }
     }
 }
 
@@ -190,6 +278,9 @@ impl Default for PickupObjectInstruction {
 pub enum TriggerObjectKind {
     Checker(ActiveTriggerChecker),
     PickupInstruction(PickupObjectInstruction),
+    SuperJumpInstruction(SuperJumpInstruction),
+    ScavTradeInstruction(ScavengerTradeInstructionTrigger),
+    ReliableIggyDirection(Box<ReliableIggyDirection>),
     /// `RoomSpecificTextMessage`.
     TextMessage,
 }
@@ -210,29 +301,96 @@ pub struct TriggerObject {
 pub struct InputInstructionView {
     pub id: u64,
     pub room: i32,
-    pub completed: bool,
     pub slated: bool,
-    pub instruction_pos: Vec2,
-    pub player_has_picked_up_an_item: bool,
-    pub mark_instruction_as_followed: bool,
+    pub trigger: InstructionTrigger,
+    pub kind: InstructionViewKind,
+}
+
+/// The input instruction's class and what its controller reads.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum InstructionViewKind {
+    Pickup {
+        player_has_picked_up_an_item: bool,
+        mark_instruction_as_followed: bool,
+    },
+    SuperJump {
+        pos: Vec2,
+        handles: [Vec2; 3],
+    },
+    ScavengerTrade {
+        pos: Vec2,
+        pearl: Option<ObjectId>,
+    },
+}
+
+/// What the guide reads of a `ReliableIggyDirection` (`forcedDirectionToGive`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ForcedDirectionView {
+    pub id: u64,
+    pub room: i32,
+    pub exit: i32,
+    pub symbol: Option<IggySymbol>,
 }
 
 impl TriggerObject {
     /// The view of an input instruction object.
     #[must_use]
     pub fn instruction_view(&self) -> Option<InputInstructionView> {
-        let TriggerObjectKind::PickupInstruction(p) = &self.kind else {
-            return None;
+        let (trigger, kind) = match &self.kind {
+            TriggerObjectKind::PickupInstruction(p) => (
+                p.trigger,
+                InstructionViewKind::Pickup {
+                    player_has_picked_up_an_item: p.player_has_picked_up_an_item,
+                    mark_instruction_as_followed: p.mark_instruction_as_followed,
+                },
+            ),
+            TriggerObjectKind::SuperJumpInstruction(s) => (
+                s.trigger,
+                InstructionViewKind::SuperJump {
+                    pos: s.pos,
+                    handles: s.handles,
+                },
+            ),
+            TriggerObjectKind::ScavTradeInstruction(s) => (
+                s.trigger,
+                InstructionViewKind::ScavengerTrade {
+                    pos: s.pos,
+                    pearl: s.pearl,
+                },
+            ),
+            _ => return None,
         };
         Some(InputInstructionView {
             id: self.id,
             room: self.room,
-            completed: p.completed,
             slated: self.slated,
-            instruction_pos: p.instruction_pos,
-            player_has_picked_up_an_item: p.player_has_picked_up_an_item,
-            mark_instruction_as_followed: p.mark_instruction_as_followed,
+            trigger,
+            kind,
         })
+    }
+
+    /// The view of a `ReliableIggyDirection`.
+    #[must_use]
+    pub fn forced_direction_view(&self) -> Option<ForcedDirectionView> {
+        let TriggerObjectKind::ReliableIggyDirection(d) = &self.kind else {
+            return None;
+        };
+        Some(ForcedDirectionView {
+            id: self.id,
+            room: self.room,
+            exit: d.data.exit,
+            symbol: d.data.symbol,
+        })
+    }
+
+    /// The `InputInstructionTrigger` fields of an input instruction object.
+    pub fn instruction_trigger_mut(&mut self) -> Option<&mut InstructionTrigger> {
+        match &mut self.kind {
+            TriggerObjectKind::PickupInstruction(p) => Some(&mut p.trigger),
+            TriggerObjectKind::SuperJumpInstruction(s) => Some(&mut s.trigger),
+            TriggerObjectKind::ScavTradeInstruction(s) => Some(&mut s.trigger),
+            _ => None,
+        }
     }
 }
 
@@ -335,6 +493,23 @@ mod tests {
 
     /// SU_B04's 0.4565217 chance draws one `Random.value` per fire; a chance of 1 and a
     /// trigger without an event draw nothing.
+    /// SU_A13's object: the line from handle 2 (468.6972, 297.9665) to handle 1
+    /// (210.6972, 203.9665). A main chunk falling across it fires; rising across it, or
+    /// falling straight down (outside `IsPointBetweenPoints`' strict box), does not.
+    #[test]
+    fn super_jump_trigger_line() {
+        let quad = QuadData::parse("-271~-102~-265~-126~-6~-32").unwrap();
+        let s = SuperJumpInstruction::new(Vec2::new(475.6972, 329.9665), quad);
+        assert_eq!(s.trigger.instruction_pos, Vec2::new(475.6972, 329.9665));
+        let mid = (s.trg_a() + s.trg_b()) / 2.0;
+        let above = mid + Vec2::new(-1.0, 8.0);
+        let below = mid + Vec2::new(1.0, -8.0);
+        assert!(s.crossed(above, below));
+        assert!(!s.crossed(below, above));
+        assert!(!s.crossed(mid + Vec2::new(0.0, 8.0), mid - Vec2::new(0.0, 8.0)));
+        assert!(!s.crossed(above + Vec2::new(0.0, 30.0), above + Vec2::new(2.0, 20.0)));
+    }
+
     #[test]
     fn fire_chance_draws_only_below_one() {
         let b04 = EventTrigger::parse(
