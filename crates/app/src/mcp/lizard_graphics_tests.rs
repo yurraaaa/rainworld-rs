@@ -9,7 +9,7 @@ use super::params::{InputParam, SpawnCreatureParams, StepParams};
 use super::reply::{LizardInfo, State};
 use rw_graphics::{Color, LIZARD_BASE_SPRITES, LizardGraphics, LizardReading};
 use rw_random::UnityRandom;
-use rw_sim::{CosmeticKind, Input, Vec2};
+use rw_sim::{CosmeticKind, Input, Spark, StationaryEffect, Vec2};
 
 /// The first air tile with air above and solid ground below, from the bottom left.
 trait GroundTile {
@@ -246,7 +246,7 @@ fn head_rotation_lerps_the_head_and_jaw() {
     // At 1: aim from (0, 0) to (20, 10), jaw 1, depth 1.
     let aim = 20f32.atan2(10.0).to_degrees();
     assert!((g.head_rotation(&lizard, 1.0) - (aim + 40.0)).abs() < 1e-4);
-    let b = g.for_bubble(&lizard, Color::BLACK, 0.25);
+    let b = g.for_cosmetics(&lizard, Color::BLACK, 0.25);
     assert_eq!(b.head, Vec2::new(5.0, 10.0));
 }
 
@@ -266,15 +266,15 @@ fn a_dropped_module_still_colours_its_bubbles() {
         .world()
         .lizard_view(g.creature, None)
         .expect("view");
-    let expected = g.for_bubble(&LizardReading::of(&view), Color::BLACK, 0.5);
+    let expected = g.for_cosmetics(&LizardReading::of(&view), Color::BLACK, 0.5);
     assert_eq!(
-        game.bubble_module(g.creature, g.module, 0.5),
+        game.lizard_module(g.creature, g.module, 0.5),
         Some(expected)
     );
     game.remove_lizard_module(g.id);
     assert!(game.lizard_graphics().iter().all(|m| m.module != g.module));
     assert_eq!(
-        game.bubble_module(g.creature, g.module, 0.5),
+        game.lizard_module(g.creature, g.module, 0.5),
         Some(expected)
     );
     game.tick(Input::NONE);
@@ -286,7 +286,55 @@ fn a_dropped_module_still_colours_its_bubbles() {
             .any(|c| matches!(&c.kind, CosmeticKind::LizardBubble(b) if b.module == g.module))
     });
     assert_eq!(
-        game.bubble_module(g.creature, g.module, 0.5).is_some(),
+        game.lizard_module(g.creature, g.module, 0.5).is_some(),
         referred
+    );
+}
+
+/// A head-shield flash and spark keep the module they were given (`Lizard.Violence`
+/// passes `graphicsModule`): once it is dropped they still read its head colour and
+/// keep it alive.
+#[test]
+fn a_dropped_module_still_colours_its_flash_and_sparks() {
+    let Some((mut s, id)) = Session::with_green_lizard(None) else {
+        return;
+    };
+    s.lizard_ticks(20);
+    let g = s.lizard_module(id);
+    let game = s.scene_mut().expect("game").game_mut();
+    let room = game
+        .sim()
+        .world()
+        .creature(g.creature)
+        .lizard()
+        .and_then(|l| l.room)
+        .expect("room");
+    let pos = game
+        .sim()
+        .world()
+        .lizard_view(g.creature, None)
+        .expect("view")
+        .lizard
+        .body
+        .chunks[0]
+        .pos;
+    let mut spark = Spark::new(pos, Vec2::ZERO, [1.0; 4], 10, 170, &mut UnityRandom::new(1));
+    spark.lizard = Some((g.creature, g.module));
+    let world = game.sim_mut().world_mut();
+    world.add_cosmetic(room, CosmeticKind::Spark(spark));
+    let flash = StationaryEffect::flashing_orb(pos, Some((g.creature, g.module)));
+    world.add_cosmetic(room, CosmeticKind::Flash(flash));
+    game.remove_lizard_module(g.id);
+    game.tick(Input::NONE);
+    assert!(game.lizard_graphics().iter().all(|m| m.module != g.module));
+    let view = game
+        .sim()
+        .world()
+        .lizard_view(g.creature, None)
+        .expect("view");
+    let expected = g.for_cosmetics(&LizardReading::of(&view), Color::BLACK, 0.5);
+    assert_eq!(
+        game.lizard_module(g.creature, g.module, 0.5),
+        Some(expected)
     );
 }

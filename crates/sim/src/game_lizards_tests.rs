@@ -11,8 +11,9 @@ use rw_assets::world::{FixedRoom, LoadedRoom, WorldData};
 use rw_assets::{ActiveMods, CreatureType, RoomSettings};
 use rw_random::UnityRandom;
 
-use super::super::lizard_hits::Hit;
+use super::super::lizard_hits::{Hit, ViolenceSource};
 use crate::campaign::{SlugcatCampaign, StoryStart};
+use crate::cosmetic::CosmeticKind;
 use crate::creature::{
     CreatureId, CreatureTemplate, DamageType, EntityId, Lizard, WorldCoordinate,
 };
@@ -97,6 +98,18 @@ impl RainWorldGame {
             c.vel = Vec2::ZERO;
         }
         l
+    }
+
+    /// Spark `id`'s `whiteFlicker` as last read, while it lives in room 0.
+    fn spark_flicker(&self, id: u64) -> Option<i32> {
+        self.world
+            .room_cosmetics(0)
+            .iter()
+            .find(|c| c.id == id)
+            .and_then(|c| match &c.kind {
+                CosmeticKind::Spark(s) => Some(s.white_flicker),
+                _ => None,
+            })
     }
 
     fn rock_hit(&self, chunk: usize, dir: Vec2) -> Hit {
@@ -409,6 +422,64 @@ fn a_hard_landing_with_graphics_blows_bubbles() {
         };
         assert!(b.vel.y >= 0.0, "thrown up off the floor");
     }
+}
+
+/// `Lizard.Violence`'s head-shield sparks and flash are given the lizard's graphics
+/// module; a spark reads `whiteFlicker` of that module only, not of a later one.
+#[test]
+fn head_shield_sparks_and_flash_keep_their_module() {
+    let (mut g, _) = game(vec![]);
+    let l = g.lying_lizard();
+    let link = crate::creature::lizard::LizardGraphicsLink {
+        module: 3,
+        ..Default::default()
+    };
+    g.world.lizard_at(l).graphics = Some(link);
+    let source = ViolenceSource {
+        owner: Entity::Creature(g.player_id),
+        pos: BODY[0] + Vec2::new(10.0, 0.0),
+        last_pos: BODY[0] + Vec2::new(13.0, 0.0),
+        vel: Vec2::new(-3.0, 0.0),
+    };
+    let hit = Hit {
+        source: Some(source),
+        ..g.rock_hit(0, Vec2::new(-3.0, 0.0))
+    };
+    let count = g.world.room_cosmetics(0).len();
+    g.creature_violence(l, hit);
+    let added: Vec<_> = g.world.room_cosmetics(0)[count..].to_vec();
+    assert!(added.len() > 1, "sparks and the flash");
+    for c in &added {
+        let lizard = match &c.kind {
+            CosmeticKind::Spark(s) => s.lizard,
+            CosmeticKind::Flash(f) => f.lizard,
+            _ => panic!("a spark or the flash"),
+        };
+        assert_eq!(lizard, Some((l, 3)));
+    }
+    let n = i32::try_from(added.len() - 1).expect("count");
+    let spark = added[0].id;
+    // Long-lived and still, so it outlives the two updates.
+    for c in &mut g.world.realized_mut(0).expect("room").cosmetics {
+        if let CosmeticKind::Spark(s) = &mut c.kind {
+            s.life_time = 1000;
+            s.pos = BODY[0];
+            s.vel = Vec2::ZERO;
+            s.gravity = 0.0;
+        }
+    }
+    g.run_cosmetic(0, spark);
+    let flicker = g.spark_flicker(spark);
+    assert_eq!(flicker, Some(n), "the module's WhiteFlicker(n)");
+    let link = g.world.lizard_at(l).graphics.as_mut().expect("link");
+    link.module = 4;
+    link.white_flicker = 0;
+    g.run_cosmetic(0, spark);
+    assert_eq!(
+        g.spark_flicker(spark),
+        flicker,
+        "a later module is not read"
+    );
 }
 
 /// `Lizard.Update`'s white-flicker roll reaches the graphics: a sick lizard with

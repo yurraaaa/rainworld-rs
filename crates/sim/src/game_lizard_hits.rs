@@ -1251,13 +1251,14 @@ impl RainWorldGame {
             let speed = 0.2f32.lerp(0.4, self.rng.value()) * source.vel.length();
             let vel = source.vel * -0.1 + d * speed;
             let mut spark = Spark::new(pos, vel, [1.0; 4], 10, 170, &mut self.rng);
-            let flicker = self
+            let (flicker, module) = self
                 .world
                 .lizard_ref(id)
                 .graphics
                 .as_ref()
-                .map_or(0, |g| g.white_flicker);
-            spark.lizard = Some((id, flicker));
+                .map_or((0, 0), |g| (g.white_flicker, g.module));
+            spark.lizard = Some((id, module));
+            spark.white_flicker = flicker;
             self.world.add_cosmetic(room, CosmeticKind::Spark(spark));
         }
         let Some(g) = self.world.lizard_at(id).graphics.as_mut() else {
@@ -1266,7 +1267,7 @@ impl RainWorldGame {
         g.white_flicker(n);
         let head = g.parts.len().saturating_sub(1);
         g.pushes.push((head, dir * 2.0));
-        let flash = StationaryEffect::flashing_orb(source.pos, Some(id));
+        let flash = StationaryEffect::flashing_orb(source.pos, Some((id, g.module)));
         self.world.add_cosmetic(room, CosmeticKind::Flash(flash));
     }
 

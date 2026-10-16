@@ -41,7 +41,7 @@ mod weapon_graphics;
 
 pub use atlas::{Atlas, AtlasError, AtlasFrame, Rect, Size};
 pub use body_part::{BodyPart, PointConnection};
-pub use cosmetic_graphics::{BubbleModule, CosmeticSprites, LizardColors, NoLizards};
+pub use cosmetic_graphics::{CosmeticSprites, LizardColors, LizardModule, NoLizards};
 pub use draw::{Color, DrawItem, DrawList, Layer, Mesh, Shader, SlugcatName, Sprite};
 pub use fly_graphics::FlyGraphics;
 pub use hand::SlugcatHand;

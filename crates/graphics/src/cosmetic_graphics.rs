@@ -31,9 +31,9 @@ const BUBBLES: [&str; 8] = [
     "LizardBubble7",
 ];
 
-/// What a `LizardBubble` reads of the graphics module that made it when drawn.
+/// What a bubble, spark or flash reads of the `LizardGraphics` it was given when drawn.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct BubbleModule {
+pub struct LizardModule {
     /// `HeadColor(t)`.
     pub head_color: Color,
     /// `palette.blackColor`.
@@ -42,28 +42,29 @@ pub struct BubbleModule {
     pub head: Vec2,
     /// `HeadRotation(t)`.
     pub rotation: f32,
+    pub white_flicker: i32,
 }
 
 impl LizardGraphics {
-    /// What its bubbles read at `t`, `black` standing in for a palette it never got.
+    /// What its cosmetics read at `t`, `black` standing in for a palette it never got.
     #[must_use]
-    pub fn for_bubble(&self, lizard: &LizardReading, black: Color, t: f32) -> BubbleModule {
+    pub fn for_cosmetics(&self, lizard: &LizardReading, black: Color, t: f32) -> LizardModule {
         let black = self.palette_black.unwrap_or(black);
-        BubbleModule {
+        LizardModule {
             head_color: self.head_color(lizard, black, t),
             black,
             head: self.head.last_pos.lerp(self.head.pos, t),
             rotation: self.head_rotation(lizard, t),
+            white_flicker: self.white_flicker,
         }
     }
 }
 
 /// What the lizards' cosmetics read of their graphics when drawn.
 pub trait LizardColors {
-    /// `HeadColor(t)` and `whiteFlicker` of lizard `id`'s graphics, while it has them.
-    fn lizard_head(&self, id: CreatureId, t: f32) -> Option<(Color, i32)>;
-    /// Graphics module `module` (lizard `id`'s) at `t`, kept while its bubbles live.
-    fn bubble_module(&self, id: CreatureId, module: u64, t: f32) -> Option<BubbleModule>;
+    /// Graphics module `module` (lizard `id`'s) at `t`, kept while a cosmetic given it
+    /// lives.
+    fn lizard_module(&self, id: CreatureId, module: u64, t: f32) -> Option<LizardModule>;
     /// The room palette's black.
     fn black(&self) -> Color;
 }
@@ -72,11 +73,7 @@ pub trait LizardColors {
 pub struct NoLizards(pub Color);
 
 impl LizardColors for NoLizards {
-    fn lizard_head(&self, _id: CreatureId, _t: f32) -> Option<(Color, i32)> {
-        None
-    }
-
-    fn bubble_module(&self, _id: CreatureId, _module: u64, _t: f32) -> Option<BubbleModule> {
+    fn lizard_module(&self, _id: CreatureId, _module: u64, _t: f32) -> Option<LizardModule> {
         None
     }
 
@@ -106,16 +103,7 @@ impl CosmeticSprites for Cosmetic {
         rng: &mut UnityRandom,
     ) -> DrawList {
         let item = match &self.kind {
-            CosmeticKind::Spark(s) => {
-                let mut m = s.mesh(room, t);
-                if let Some((color, flicker)) =
-                    s.lizard.and_then(|(id, _)| lizards.lizard_head(id, t))
-                    && flicker > 0
-                {
-                    m.color = color;
-                }
-                DrawItem::Mesh(m)
-            }
+            CosmeticKind::Spark(s) => DrawItem::Mesh(s.lizard_mesh(room, t, lizards)),
             CosmeticKind::Spikes(s) => DrawItem::Mesh(s.mesh(room, t)),
             // The `OverseerZip` shader's glow is not drawn.
             CosmeticKind::OverseerEffect(_) => return DrawList { items: Vec::new() },
@@ -172,7 +160,7 @@ impl BubbleSprite for LizardBubble {
             .lerp_to(self.life, 0.5);
         let size = 0.625 * last.lerp_to(now, t);
         let pos = self.last_pos.lerp(self.pos, t);
-        let module = lizards.bubble_module(self.lizard, self.module, t);
+        let module = lizards.lizard_module(self.lizard, self.module, t);
         let black = module.map_or(lizards.black(), |m| m.black);
         let head = module.map_or(black, |m| m.head_color);
         let life = self.last_life.lerp_to(self.life, t);
@@ -212,17 +200,20 @@ trait FlashSprite {
 
 impl FlashSprite for StationaryEffect {
     /// A circle jittering by up to 10 px, its size random, fading with its life; in
-    /// the lizard's head colour (grey to white without one). Three or four draws.
+    /// the head colour of the module it was given (grey to white without one). Three
+    /// or four draws. White stands in for a module this view lacks (a room nobody
+    /// views).
     fn sprite(&self, t: f32, lizards: &dyn LizardColors, rng: &mut UnityRandom) -> DrawItem {
         let life = self.last_life.lerp_to(self.life, t);
         let deg = rng.value() * 360.0;
         let pos =
             self.last_pos.lerp(self.pos, t) + Vec2::from_degrees(deg) * (rng.value() * 10.0 * life);
         let scale = rw_sim::FloatExt::mathf_pow(rng.value() * life, 0.1);
-        let color = match self.lizard.and_then(|id| lizards.lizard_head(id, t)) {
-            Some((c, _)) if self.lizard.is_some() => c,
-            _ if self.lizard.is_some() => Color::WHITE,
-            _ => Color::GRAY.lerp(Color::WHITE, rng.value()),
+        let color = match self.lizard {
+            Some((id, module)) => lizards
+                .lizard_module(id, module, t)
+                .map_or(Color::WHITE, |m| m.head_color),
+            None => Color::GRAY.lerp(Color::WHITE, rng.value()),
         };
         Self::sprite_at("Circle20", pos, Vec2::new(scale, scale), 0.0, 0.5, color)
     }
@@ -247,6 +238,27 @@ impl Rgba for [f32; 4] {
 /// A spark's or the spikes' triangles.
 trait CosmeticMesh {
     fn mesh(&self, room: &Room, t: f32) -> Mesh;
+}
+
+/// `Spark.DrawSprites`' colour.
+trait SparkMesh {
+    fn lizard_mesh(&self, room: &Room, t: f32, lizards: &dyn LizardColors) -> Mesh;
+}
+
+impl SparkMesh for Spark {
+    /// The head colour of the module it was given while that flickers white, else its
+    /// own colour.
+    fn lizard_mesh(&self, room: &Room, t: f32, lizards: &dyn LizardColors) -> Mesh {
+        let mut m = self.mesh(room, t);
+        if let Some(module) = self
+            .lizard
+            .and_then(|(id, module)| lizards.lizard_module(id, module, t))
+            && module.white_flicker > 0
+        {
+            m.color = module.head_color;
+        }
+        m
+    }
 }
 
 impl CosmeticMesh for Spark {
@@ -327,20 +339,16 @@ mod tests {
     use rw_random::UnityRandom;
     use rw_sim::creature::CreatureId;
     use rw_sim::creature::lizard::{BubbleHead, LizardBubble};
-    use rw_sim::{Spark, Vec2};
+    use rw_sim::{Spark, StationaryEffect, Vec2};
 
-    use super::{BubbleModule, BubbleSprite, CosmeticMesh, LizardColors};
+    use super::{BubbleSprite, CosmeticMesh, FlashSprite, LizardColors, LizardModule, SparkMesh};
     use crate::draw::{Color, DrawItem};
 
     /// One kept module, `module` 7.
-    struct OneModule(BubbleModule);
+    struct OneModule(LizardModule);
 
     impl LizardColors for OneModule {
-        fn lizard_head(&self, _id: CreatureId, _t: f32) -> Option<(Color, i32)> {
-            None
-        }
-
-        fn bubble_module(&self, _id: CreatureId, module: u64, _t: f32) -> Option<BubbleModule> {
+        fn lizard_module(&self, _id: CreatureId, module: u64, _t: f32) -> Option<LizardModule> {
             (module == 7).then_some(self.0)
         }
 
@@ -381,11 +389,12 @@ mod tests {
         }
     }
 
-    const MODULE: BubbleModule = BubbleModule {
+    const MODULE: LizardModule = LizardModule {
         head_color: Color::rgb(1.0, 0.0, 0.0),
         black: Color::rgb(0.0, 0.0, 1.0),
         head: Vec2::new(20.0, 10.0),
         rotation: 90.0,
+        white_flicker: 0,
     };
 
     /// Stuck, it stretches toward `head + RotateAroundOrigo(originPoint, rotation)`
@@ -420,6 +429,57 @@ mod tests {
             panic!("a sprite");
         };
         assert_eq!(sp.color, Color::WHITE);
+    }
+
+    /// A head-shield flash takes `HeadColor(t)` of the module it was given (three
+    /// draws, no colour draw), white when this view lacks it.
+    #[test]
+    fn a_flash_shows_its_modules_head_colour() {
+        let lizards = OneModule(MODULE);
+        let mut rng = UnityRandom::new(5);
+        let flash = StationaryEffect::flashing_orb(Vec2::ZERO, Some((CreatureId(0), 7)));
+        let DrawItem::Sprite(sp) = flash.sprite(0.5, &lizards, &mut rng) else {
+            panic!("a sprite");
+        };
+        assert_eq!(sp.color, MODULE.head_color);
+        let mut expect = UnityRandom::new(5);
+        for _ in 0..3 {
+            expect.value();
+        }
+        assert_eq!(rng.state(), expect.state());
+        let orphan = StationaryEffect::flashing_orb(Vec2::ZERO, Some((CreatureId(0), 8)));
+        let DrawItem::Sprite(sp) = orphan.sprite(0.5, &lizards, &mut rng) else {
+            panic!("a sprite");
+        };
+        assert_eq!(sp.color, Color::WHITE);
+    }
+
+    /// A spark takes its module's head colour only while the module's `whiteFlicker`
+    /// is above 0.
+    #[test]
+    fn a_spark_shows_its_modules_head_colour_while_it_flickers() {
+        let room = crate::tests::room(&["...."]);
+        let mut s = Spark::new(
+            Vec2::new(50.0, 50.0),
+            Vec2::new(5.0, 0.0),
+            [0.0, 1.0, 0.0, 1.0],
+            10,
+            170,
+            &mut UnityRandom::new(1),
+        );
+        s.lizard = Some((CreatureId(0), 7));
+        let flickering = LizardModule {
+            white_flicker: 1,
+            ..MODULE
+        };
+        assert_eq!(
+            s.lizard_mesh(&room, 0.0, &OneModule(flickering)).color,
+            MODULE.head_color
+        );
+        assert_eq!(
+            s.lizard_mesh(&room, 0.0, &OneModule(MODULE)).color,
+            Color::rgb(0.0, 1.0, 0.0)
+        );
     }
 
     #[test]

@@ -14,10 +14,10 @@ use rw_assets::{
 };
 use rw_audio::Follow as SoundFollow;
 use rw_graphics::{
-    BubbleModule, Color, CosmeticSprites, DrawList, FlyGraphics, HologramFrame, HologramGraphics,
+    Color, CosmeticSprites, DrawList, FlyGraphics, HologramFrame, HologramGraphics,
     HologramLightSprites, LightSourceSprites, LightSourceView, LizardColors, LizardGraphics,
-    LizardReading, OverseerGraphics, PlayerGraphics, ShelterDoorSprites, ShortcutPalette,
-    WaterDripSprites, WeaponSprites,
+    LizardModule, LizardReading, OverseerGraphics, PlayerGraphics, ShelterDoorSprites,
+    ShortcutPalette, WaterDripSprites, WeaponSprites,
 };
 use rw_hud::{HudSetup, OwnerTick, RainCycleView, StartCondition, Subregions};
 use rw_random::UnityRandom;
@@ -109,7 +109,7 @@ struct Graphics {
     flies: Vec<FlyGraphics>,
     /// The lizards' graphics modules, in the order they were built.
     lizards: Vec<LizardGraphics>,
-    /// Dropped lizard modules their bubbles still refer to.
+    /// Dropped lizard modules their bubbles, sparks and flashes still refer to.
     dropped_lizards: Vec<LizardGraphics>,
     /// The last module serial given out.
     lizard_serial: u64,
@@ -121,8 +121,8 @@ struct Graphics {
 }
 
 impl Graphics {
-    /// Moves the lizard modules `dropped` picks out of the live ones; their bubbles keep
-    /// them, as the game's keep their `LizardGraphics`.
+    /// Moves the lizard modules `dropped` picks out of the live ones; their bubbles,
+    /// sparks and flashes keep them, as the game's keep their `LizardGraphics`.
     fn drop_lizards(&mut self, dropped: impl Fn(&LizardGraphics) -> bool) {
         let (gone, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut self.lizards)
             .into_iter()
@@ -131,7 +131,7 @@ impl Graphics {
         self.dropped_lizards.extend(gone);
     }
 
-    /// Forgets the dropped lizard modules no bubble in `world` refers to.
+    /// Forgets the dropped lizard modules no cosmetic in `world` refers to.
     fn forget_dropped_lizards(&mut self, world: &World) {
         if self.dropped_lizards.is_empty() {
             return;
@@ -142,7 +142,9 @@ impl Graphics {
             .flat_map(|r| world.room_cosmetics(r))
             .filter_map(|c| match &c.kind {
                 CosmeticKind::LizardBubble(b) => Some(b.module),
-                _ => None,
+                CosmeticKind::Spark(s) => s.lizard.map(|(_, m)| m),
+                CosmeticKind::Flash(f) => f.lizard.map(|(_, m)| m),
+                CosmeticKind::Spikes(_) | CosmeticKind::OverseerEffect(_) => None,
             })
             .collect();
         self.dropped_lizards.retain(|g| used.contains(&g.module));
@@ -1459,20 +1461,20 @@ pub(crate) mod tests {
             self.graphics.lizard_removed(id);
         }
 
-        /// What a bubble of lizard `id`'s module `module` reads at `t`.
-        pub(crate) fn bubble_module(
+        /// What a cosmetic given lizard `id`'s module `module` reads at `t`.
+        pub(crate) fn lizard_module(
             &self,
             id: CreatureId,
             module: u64,
             t: f32,
-        ) -> Option<BubbleModule> {
+        ) -> Option<LizardModule> {
             LizardHeads {
                 graphics: &self.graphics.lizards,
                 dropped: &self.graphics.dropped_lizards,
                 world: self.sim.world(),
                 black: Color::BLACK,
             }
-            .bubble_module(id, module, t)
+            .lizard_module(id, module, t)
         }
     }
 
@@ -1582,19 +1584,9 @@ struct LizardHeads<'a> {
 }
 
 impl LizardColors for LizardHeads<'_> {
-    fn lizard_head(&self, id: CreatureId, t: f32) -> Option<(Color, i32)> {
-        let g = self.graphics.iter().find(|g| g.creature == id)?;
-        let view = self.world.lizard_view(id, None)?;
-        let black = g.palette_black.unwrap_or(self.black);
-        Some((
-            g.head_color(&LizardReading::of(&view), black, t),
-            g.white_flicker,
-        ))
-    }
-
     /// The module's own lizard while it is realized (the game's module reads the
     /// body it was made for), else as the module last read it.
-    fn bubble_module(&self, id: CreatureId, module: u64, t: f32) -> Option<BubbleModule> {
+    fn lizard_module(&self, id: CreatureId, module: u64, t: f32) -> Option<LizardModule> {
         let g = self
             .graphics
             .iter()
@@ -1604,7 +1596,7 @@ impl LizardColors for LizardHeads<'_> {
             .world
             .lizard_view(id, None)
             .map_or(g.lizard, |v| LizardReading::of(&v));
-        Some(g.for_bubble(&lizard, self.black, t))
+        Some(g.for_cosmetics(&lizard, self.black, t))
     }
 
     fn black(&self) -> Color {
