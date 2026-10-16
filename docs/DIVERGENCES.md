@@ -1416,7 +1416,10 @@ second part, else a single-room world for arena levels). The campaign descriptio
   node goes nowhere.
 - **Not ported:** the rain (the cycle's timer, day-night counter and water level stages
   run; the overseers' AI, the HUD's rain meter and `MusicAllowed` read them, and the
-  guide's tutorial pins the timer), karma gates, `DisabledMapRooms` beyond the tag drop, and Remix's
+  guide's tutorial pins the timer; once fewer than 2400 ticks are left, as after the
+  SU_A43 tutorial's bring-in-rain jump, `MusicAllowed` stays false for good because
+  no rain ends the cycle, so threat music is off in rooms whose `DangerType` isn't None),
+  karma gates, `DisabledMapRooms` beyond the tag drop, and Remix's
   `RemoveNotVisitedRooms` branch.
 - **Room triggers.** A room's settings `Triggers` (`rw_assets::EventTrigger`, every
   base-game trigger and event type) become `ActiveTriggerChecker`s when it loads
