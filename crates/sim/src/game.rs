@@ -344,6 +344,8 @@ pub struct RainWorldGame {
     karma_flower_grow_pos: Option<WorldCoordinate>,
     /// The player's death called `GameOver`; taken by the app.
     game_over: Option<GameOver>,
+    /// `GameOver` called `GoToRedsGameOver`; taken by the app.
+    reds_game_over: bool,
     /// The realized rooms' trigger checkers and the objects their events added.
     trigger_objects: Vec<crate::trigger::TriggerObject>,
     /// What the game asked of the music player this tick; taken by the app.
@@ -462,6 +464,7 @@ impl RainWorldGame {
             entered_shelters: Vec::new(),
             karma_flower_grow_pos: None,
             game_over: None,
+            reds_game_over: false,
             trigger_objects: Vec::new(),
             music_requests: Vec::new(),
             trigger_hud: crate::trigger::TriggerHud::default(),

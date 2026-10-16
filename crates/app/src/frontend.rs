@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use rw_assets::ActiveMods;
 use rw_assets::{SoundTable, StreamingAssets, UnityResources};
-use rw_audio::music::{MusicClock, MusicOutput, SongBank, SourcePlayback, TimedSources, TrackId};
+use rw_audio::music::{MusicClock, MusicOutput, SourcePlayback, TimedSources, TrackId};
 use rw_audio::{Audio, ListenerInput, MenuPlayback, MenuSoundStart};
 use rw_hud::{PauseGame, PauseMenu, PauseRequest, SleepAndDeathScreen, SlugcatSelectMenu};
 use rw_menu::StoryGameInitCondition;
@@ -166,9 +166,7 @@ impl AppContext {
         menu.set_saves(saves);
         menu.random = UnityRandom::new(game.seed as i32);
         menu.set_sound_table(Arc::clone(&game.sound_table));
-        let bank = SongBank::open(&menu.assets)
-            .inspect_err(|e| log::warn!("no music bank ({e}); songs are missing"))
-            .ok();
+        let sources = TimedSources::installed(&menu.assets);
         Ok(Self {
             menu,
             resources,
@@ -178,7 +176,7 @@ impl AppContext {
             script: None,
             audio: None,
             menu_audio: MenuPlayback::default(),
-            music_sink: MusicSink::Timed(Box::new(TimedSources::new(bank))),
+            music_sink: MusicSink::Timed(Box::new(sources)),
             music_stacker: TimeStacker::default(),
             start,
             save_backed_up: false,
@@ -253,6 +251,7 @@ impl AppContext {
                         Some(scene) => scene.update_music(player, sources.as_mut()),
                         None => {
                             player.set_game_view(None);
+                            player.set_procedural_view(None);
                             player.update(sources.as_mut(), &mut self.menu.random);
                         }
                     }
@@ -265,6 +264,7 @@ impl AppContext {
                             Some(scene) => scene.update_music(player, &mut sources),
                             None => {
                                 player.set_game_view(None);
+                                player.set_procedural_view(None);
                                 player.update(&mut sources, &mut self.menu.random);
                             }
                         }
@@ -575,11 +575,17 @@ impl ProcessFactory<AppProcess> for AppContext {
                 AppProcess::SlideShow(Box::new(SlideShow::new(&mut self.menu, id)))
             }
             ProcessId::Game => AppProcess::Game(Box::new(self.new_game())),
-            ProcessId::Dream => AppProcess::SleepStandIn(SleepStandIn {
-                id,
-                stage: Container::default(),
-                frames: 0,
-            }),
+            ProcessId::Dream => {
+                // The `DreamScreen` constructor's music.
+                if let Some(music) = &mut self.menu.music {
+                    music.dream_screen();
+                }
+                AppProcess::SleepStandIn(SleepStandIn {
+                    id,
+                    stage: Container::default(),
+                    frames: 0,
+                })
+            }
             ProcessId::SleepScreen | ProcessId::DeathScreen | ProcessId::StarveScreen => {
                 // `CommunicateWithUpcomingProcess` hands the screen the game's package
                 // before its first update.
@@ -875,18 +881,33 @@ impl GameProcess {
             }
             SessionEnd::Starve => {
                 log::info!("GO TO STARVE");
+                // The Hunter out of cycles goes to `GoToRedsGameOver`, whose music alone
+                // is ported; an ordinary death stands in for the rest (D17).
+                let reds = self.reds_game_over(ctx);
                 self.place_karma_flower_on_death_spot(ctx);
                 self.session_ended_died(ctx);
-                if let Some(music) = &mut ctx.menu.music {
+                if !reds && let Some(music) = &mut ctx.menu.music {
                     music.death_event();
                 }
                 requests.switch_to(ProcessId::StarveScreen);
             }
             SessionEnd::Death => {
+                self.reds_game_over(ctx);
                 self.session_ended_died(ctx);
                 requests.switch_to(ProcessId::DeathScreen);
             }
         }
+    }
+
+    /// `GoToStarveScreen`'s and `GoToDeathScreen`'s `RedIsOutOfCycles` branch: the
+    /// music of `GoToRedsGameOver`; whether it was taken.
+    fn reds_game_over(&mut self, ctx: &mut AppContext) -> bool {
+        let sim = self.scene.game().sim();
+        let reds = self.scene.game().story_session() && sim.red_is_out_of_cycles();
+        if reds {
+            Scene::go_to_reds_game_over(&mut ctx.menu);
+        }
+        reds
     }
 
     /// `PlaceKarmaFlowerOnDeathSpot` outside `GameOver` (the starve path).

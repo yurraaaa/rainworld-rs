@@ -4,7 +4,10 @@
 use std::sync::Arc;
 
 use rw_assets::{SoundTable, StreamingAssets, UnityResources};
-use rw_audio::music::{MusicPlayer, MusicSettings, SourcePlayback, TrackId};
+use rw_audio::music::{
+    InstalledProcedural, MusicPlayer, MusicProcess, MusicSettings, ProceduralFiles, SourcePlayback,
+    TrackId,
+};
 use rw_random::UnityRandom;
 use rw_render::StageTextureId;
 use rw_save::{Options, PlayerProgression, SaveSlot};
@@ -163,6 +166,8 @@ pub struct MenuShared {
     /// `requestPlayMusic`: `setup.playMusic`, on in the distribution build.
     pub request_play_music: bool,
     pub music_settings: MusicSettings,
+    /// The procedural music banks the music player builds its threat layers from.
+    pub procedural_files: Arc<dyn ProceduralFiles>,
     /// `Application.Quit()` was called.
     pub quit: bool,
     /// Sounds a menu played without a menu microphone, for the game's microphone
@@ -212,7 +217,10 @@ impl MenuShared {
         });
         let dlcs = Dlcs::default();
         let flat_illustrations = assets.file("flatmode.txt").exists();
+        let procedural_files: Arc<dyn ProceduralFiles> =
+            Arc::new(InstalledProcedural::open(&assets));
         Ok(Self {
+            procedural_files,
             assets,
             atlases,
             translator,
@@ -306,9 +314,16 @@ impl MenuShared {
     pub fn create_music_player(&mut self, current: Option<ProcessId>) {
         if self.request_play_music {
             self.request_play_music = false;
-            self.music =
-                MusicPlayer::new(self.music_settings, current.map(ProcessId::music_process));
+            self.music = self.new_music_player(current.map(ProcessId::music_process));
         }
+    }
+
+    /// `new MusicPlayer(manager)` (`None` when music is off), reading the procedural
+    /// banks.
+    #[must_use]
+    pub fn new_music_player(&self, process: Option<MusicProcess>) -> Option<MusicPlayer> {
+        MusicPlayer::new(self.music_settings, process)
+            .map(|m| m.with_procedural_files(Arc::clone(&self.procedural_files)))
     }
 
     /// `musicPlayer.UpdateMusicContext(currentMainLoop)` after a switch.

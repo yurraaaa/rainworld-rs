@@ -169,3 +169,22 @@ fn a_death_inside_the_room_keeps_its_position() {
     assert_eq!(g.take_game_over().map(|o| o.death_pos), Some(head));
     assert_ne!(head, Vec2::ZERO);
 }
+
+#[test]
+fn the_hunter_out_of_cycles_goes_to_reds_game_over() {
+    // `if (GetStorySession.RedIsOutOfCycles) { GoToRedsGameOver(); return; }`: no HUD
+    // game over; the app fades the music (`FadeOutAllSongs(20)`).
+    let hunter = &SlugcatCampaign::HUNTER;
+    let story = StoryStart {
+        cycle_number: 19,
+        ..StoryStart::new_game(hunter)
+    };
+    let mut g = game(floor_room(), hunter, story);
+    for _ in 0..40 {
+        g.tick(Input::NONE, &mut ());
+    }
+    g.kill_player();
+    assert_eq!(g.take_game_over(), None);
+    assert!(g.take_reds_game_over());
+    assert!(!g.take_reds_game_over());
+}

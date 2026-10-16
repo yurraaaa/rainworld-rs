@@ -151,7 +151,7 @@ impl MusicPlayer {
         tracker.spinning_top_laugh_mode = 0.0;
         if !view.single_room_world {
             if let Some(bank) = tracker.switch_room(&view) {
-                self.new_region(&bank);
+                self.new_region(&bank, rng);
             }
             if self
                 .threat_tracker
