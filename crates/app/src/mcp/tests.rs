@@ -245,7 +245,10 @@ fn tiles_dump_a_rectangle_with_the_player() {
         .tile;
     let rect = [head[0] - 5, head[1] - 3, head[0] + 5, head[1] + 3];
     let text = session
-        .tiles(&TilesParams { rect: Some(rect) })
+        .tiles(&TilesParams {
+            rect: Some(rect),
+            ..Default::default()
+        })
         .expect("tiles");
     let lines: Vec<&str> = text.lines().collect();
     // Header, legend, ruler, then 7 rows of 11 tiles under a 5-wide y label.
@@ -273,7 +276,8 @@ fn tiles_dump_a_rectangle_with_the_player() {
     assert!(
         session
             .tiles(&TilesParams {
-                rect: Some([5, 5, 4, 5])
+                rect: Some([5, 5, 4, 5]),
+                ..Default::default()
             })
             .is_err()
     );
@@ -359,6 +363,7 @@ fn screenshot_renders_offscreen() {
         crop_center: None,
         scale: Some(2.0),
         save_path: None,
+        ..Default::default()
     };
     let shot = match session.screenshot(&params) {
         Ok(shot) => shot,
