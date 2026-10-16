@@ -8,7 +8,9 @@ use rw_assets::{SlugcatName, StreamingAssets, UnityResources};
 use rw_menu::ProcessId;
 use rw_save::user_data::UserDataFile;
 use rw_save::{CampaignStart, PlayerProgression};
-use rw_sim::{DiscoveryTexture, UnityTexture};
+use rw_sim::creature::EntityId;
+use rw_sim::item::WeaponMode;
+use rw_sim::{Animation, DiscoveryTexture, UnityTexture, Vec2};
 
 use super::Session;
 use super::params::{ImportSaveParams, LoadProcessParams, ProcessParam};
@@ -222,4 +224,95 @@ fn map_discovery_loaded_and_saved() {
     let saved = DiscoveryTexture::from_base64_png(rewritten).expect("decodes");
     assert!(saved.0.r(2, 3) > 0.5);
     s.settle_on(ProcessId::MainMenu);
+}
+
+#[test]
+fn a_saved_stuck_spear_is_a_pole_in_the_shelter() {
+    // A spear saved stuck in SU_S01's left wall at tile (20, 19), 4 cycles left
+    // (horizontal), in the shelter the save wakes up in. `ShortCutsReady` realizes it
+    // stuck: the open side is to the right, so it points left (setRotation (-1, 0))
+    // and sits 5 px out from the tile's middle (410, 390). Its first update writes
+    // horizontal poles on its tile and the open one to the right.
+    let assets = StreamingAssets::new(GameDir::from_env().streaming_assets());
+    if !assets.file("levels").is_dir() {
+        eprintln!("skipping: no game under {}", assets.path().display());
+        return;
+    }
+    let Some(salt) = SaveConfig::salt(&assets) else {
+        eprintln!("skipping: no checksum salt");
+        return;
+    };
+    let save = SAVE.replace(
+        "FORCEPUPS<svB>0<svA>",
+        "FORCEPUPS<svB>0<svA>REGIONSTATE<svB>REGIONNAME<rgB>SU<rgA>LASTCYCLEUPDATED<rgB>5<rgA>\
+         OBJECTS<rgB>ID.-1.9000<oB>0<oA>Spear<oA>SU_S01.20.19.-1<oA>4<oA>0<rgC><rgA><svA>",
+    );
+    let game = tempfile::tempdir().unwrap();
+    let port = tempfile::tempdir().unwrap();
+    let mut file = UserDataFile::new();
+    file.set("save", salt.md5_sum(&save) + &save);
+    std::fs::write(game.path().join("sav"), file.to_bytes()).unwrap();
+    let resources = UnityResources::open(assets.data_dir()).expect("Unity resources");
+    let config = SaveConfig {
+        dir: Some(port.path().to_owned()),
+        game_saves: Some(game.path().to_owned()),
+    };
+    let mut s = Session::new(assets.clone(), std::sync::Arc::new(resources), config);
+    s.import_save(&ImportSaveParams::default())
+        .expect("imports");
+    s.load_process(&LoadProcessParams {
+        process: Some(ProcessParam::SlugcatSelect),
+        ..LoadProcessParams::default()
+    })
+    .expect("process loads");
+    s.settle_on(ProcessId::SlugcatSelect);
+    for _ in 0..80 {
+        if s.frames(1, &["Z"]).upcoming.is_some() {
+            break;
+        }
+    }
+    s.settle_on(ProcessId::Game);
+    s.frames(2, &[]);
+
+    let frontend = s.frontend_mut().expect("process");
+    let world = frontend.game().expect("a game").scene.game().sim().world();
+    let (_, spear) = world
+        .objects()
+        .find(|(_, o)| o.id == EntityId::new(-1, 9000))
+        .expect("the saved spear");
+    let room = world.room_index("SU_S01").expect("SU_S01");
+    assert_eq!(spear.pos.room, room);
+    assert_eq!(spear.spear().map(|a| a.stuck_in_wall_cycles), Some(4));
+    let w = spear.realized.as_deref().expect("realized");
+    assert_eq!(w.mode, WeaponMode::StuckInWall);
+    assert_eq!(w.collision_layer, 0);
+    assert_eq!(w.chunk().pos, Vec2::new(415.0, 390.0));
+    // DegToVec(VecToDeg(rotation) + 0) each tick: (-1, 0) up to float error.
+    assert!(w.rotation.distance(Vec2::new(-1.0, 0.0)) < 1e-6);
+    let tiles = &world.realized(room).expect("realized").room;
+    let poles: Vec<bool> = (19..=22)
+        .map(|x| tiles.tile(x, 19).horizontal_pole())
+        .collect();
+    assert_eq!(poles, [false, true, true, false]);
+
+    // The slugcat, holding up and dropped onto the pole, grabs it and hangs there.
+    s.frames(30, &["UpArrow"]);
+    let frontend = s.frontend_mut().expect("process");
+    let game = &mut frontend.game_mut().expect("a game").scene;
+    game.game_mut()
+        .set_player(Vec2::new(430.0, 380.0), Vec2::new(0.0, 0.0));
+    let mut hanging = false;
+    for _ in 0..40 {
+        s.frames(1, &["UpArrow"]);
+        let frontend = s.frontend_mut().expect("process");
+        let sim = frontend.game().expect("a game").scene.game().sim();
+        if sim
+            .player()
+            .is_some_and(|p| p.animation() == Animation::HangFromBeam)
+        {
+            hanging = true;
+            break;
+        }
+    }
+    assert!(hanging, "never hung from the spear");
 }

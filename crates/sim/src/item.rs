@@ -2,8 +2,15 @@
 //! `AbstractSpear`): what they are, where, and their save strings. The world keeps them
 //! in an arena ([`crate::world::World::object`]) and in its rooms' entity lists, beside
 //! the creatures ([`Entity`]). Rocks and spears are typed; a saved object of any other
-//! kind stays a string (docs/DIVERGENCES.md D16). Behaviour:
-//! `rainworld-re/notes/items.md`.
+//! kind stays a string (docs/DIVERGENCES.md D16). A realized rock or spear is a
+//! [`Weapon`]. Behaviour: `rainworld-re/notes/items.md`.
+
+mod weapon;
+
+pub use weapon::{
+    ChunkDynamicSoundLoop, ModeChange, SpearParts, WEAPON_PARAMS, Weapon, WeaponKind, WeaponMode,
+    WeaponTick,
+};
 
 use rw_assets::{AbstractObjectType, ActiveMods};
 
@@ -69,6 +76,8 @@ pub struct AbstractObject {
     pub even_update: bool,
     /// Save-string fields past the known ones, written back after them.
     pub unrecognized_attributes: Vec<String>,
+    /// `realizedObject`.
+    pub realized: Option<Box<Weapon>>,
 }
 
 impl AbstractObject {
@@ -99,6 +108,7 @@ impl AbstractObject {
             time_spent_here: 0,
             even_update: false,
             unrecognized_attributes: Vec::new(),
+            realized: None,
         }
     }
 

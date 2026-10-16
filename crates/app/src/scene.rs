@@ -457,10 +457,12 @@ impl Scene {
             .visuals
             .as_ref()
             .map_or(0.0, |v| v.room_palette().darkness);
-        // The shelter door's (added with the room, before the creatures), the flies' and
-        // the drips' sprites join the overseers', in sprite order.
+        // The shelter door's (added with the room), the items' (realized before the
+        // creatures), the flies' and the drips' sprites join the overseers', in sprite
+        // order.
         let overseers = if target.sprites.is_some() {
             let mut lists: Vec<_> = self.game.shelter_draw_list(alpha).into_iter().collect();
+            lists.extend(self.game.weapon_draw_lists(alpha, face));
             lists.extend(self.game.overseer_draw_lists(alpha, earth));
             lists.extend(self.game.fly_draw_lists(alpha, face));
             lists.extend(self.game.drip_draw_lists(alpha, face, darkness));

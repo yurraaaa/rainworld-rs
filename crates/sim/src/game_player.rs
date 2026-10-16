@@ -13,6 +13,7 @@ use super::{HudEvent, PlayerObserver, RainWorldGame, RoomObject};
 use crate::creature::fly::{FlyRoomTick, MovementMode};
 use crate::creature::overseer::EdibleView;
 use crate::creature::{CreatureId, GrabRequest, Shareability, WorldCoordinate};
+use crate::item::Entity;
 use crate::{Animation, FloatExt, Player, SoundId, Vec2, Water, WaterDrip};
 
 /// `Player.ObjectGrabability` (the values a fly or an overseer can have).
@@ -956,14 +957,20 @@ impl RainWorldGame {
     }
 
     /// The room's physical objects in its update list but the player, oldest first.
-    pub(super) fn room_physical_objects(&self, index: i32) -> Vec<CreatureId> {
-        let mut objects: Vec<(u64, CreatureId)> = self.world.room_overseers(index);
+    pub(super) fn room_physical_objects(&self, index: i32) -> Vec<Entity> {
+        let mut objects: Vec<(u64, Entity)> = self
+            .world
+            .room_overseers(index)
+            .into_iter()
+            .map(|(seq, id)| (seq, Entity::Creature(id)))
+            .collect();
         for (id, c) in self.world.creatures() {
             if let Some(f) = c.fly().filter(|f| f.room == Some(index)) {
-                objects.push((f.update_order, id));
+                objects.push((f.update_order, Entity::Creature(id)));
             }
         }
-        objects.sort_unstable();
+        objects.extend(self.world.room_weapon_entities(index));
+        objects.sort_unstable_by_key(|&(seq, _)| seq);
         objects.into_iter().map(|(_, id)| id).collect()
     }
 }

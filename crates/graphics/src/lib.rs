@@ -29,6 +29,7 @@ mod shelter_door_graphics;
 mod shortcut_graphics;
 mod tail;
 mod water_drip;
+mod weapon_graphics;
 
 pub use atlas::{Atlas, AtlasError, AtlasFrame, Rect, Size};
 pub use body_part::{BodyPart, PointConnection};
@@ -51,6 +52,7 @@ pub use shortcut_graphics::{
 };
 pub use tail::{TailAnchor, TailSegment};
 pub use water_drip::WaterDripSprites;
+pub use weapon_graphics::{PEBBLES, PebbleElement, SMALL_SPEAR, WeaponSprites};
 
 #[cfg(test)]
 mod hologram_tests;

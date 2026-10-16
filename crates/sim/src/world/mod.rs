@@ -20,6 +20,7 @@ mod realizer;
 mod region_save;
 mod region_state;
 mod swarm_rooms;
+mod weapons;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -44,6 +45,7 @@ pub use realized::RealizedRoom;
 pub use realizer::{FollowCreature, RoomRealizer};
 pub use region_state::{ConsumedItem, RegionState};
 pub use swarm_rooms::{SwarmRoomMap, SwarmRoomMapper};
+pub use weapons::ItemTick;
 
 /// A world and its realized rooms.
 pub struct World {
@@ -281,11 +283,12 @@ impl World {
         Ok(())
     }
 
-    /// `AbstractRoom.Abstractize`: its realized creatures become abstract, then the
-    /// realized room is dropped.
+    /// `AbstractRoom.Abstractize`: its realized creatures and objects become abstract,
+    /// then the realized room is dropped.
     pub fn abstractize(&mut self, index: i32) {
         let Some(i) = self.local(index) else { return };
         if self.realized[i].is_some() {
+            self.abstractize_objects(index);
             self.abstractize_creatures(index);
             self.count_quantified_creatures(index);
         }

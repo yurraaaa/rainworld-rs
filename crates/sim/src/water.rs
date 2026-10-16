@@ -75,6 +75,25 @@ pub struct Water {
     roll_back_amp: f32,
 }
 
+/// A body chunk the water's update reads.
+#[derive(Debug)]
+pub enum SurfaceChunk<'a> {
+    /// The player's chunk with its index (its splash sounds play on the chunk).
+    Player(usize, &'a mut BodyChunk),
+    /// Another object's chunk (a rock's, a spear's).
+    Object(&'a mut BodyChunk),
+}
+
+impl<'a> SurfaceChunk<'a> {
+    /// The player's chunks in order.
+    pub fn player(chunks: &'a mut [BodyChunk]) -> impl Iterator<Item = SurfaceChunk<'a>> {
+        chunks
+            .iter_mut()
+            .enumerate()
+            .map(|(i, c)| SurfaceChunk::Player(i, c))
+    }
+}
+
 impl Water {
     /// Surface point spacing (`triangleWidth`), px.
     pub const SPACING: f32 = 20.0;
@@ -216,16 +235,17 @@ impl Water {
 
     /// `Water.Update` (at the start of the room's tick, before any object moves): bodies
     /// crossing or moving in the surface push it (with the splash sound), then the
-    /// surface steps. `chunks` are the player's, in order.
+    /// surface steps. `chunks` are the room's physical objects' in `physicalObjects`
+    /// order (collision layer, then joining order).
     pub fn update<'a>(
         &mut self,
         room: &Room,
-        chunks: impl IntoIterator<Item = &'a mut BodyChunk>,
+        chunks: impl IntoIterator<Item = SurfaceChunk<'a>>,
         rng: &mut UnityRandom,
         sounds: &mut Sounds,
     ) {
-        for (index, chunk) in chunks.into_iter().enumerate() {
-            self.disturb(index, chunk, rng, sounds);
+        for chunk in chunks {
+            self.disturb(chunk, rng, sounds);
         }
         self.step_surface(room, rng);
     }
@@ -233,13 +253,11 @@ impl Water {
     /// A chunk passing the surface faster than 3 px/tick splashes it (once per
     /// `splash_stop` window, with `ThroughSurfaceSound`); one straddling it drags the two
     /// points around it.
-    fn disturb(
-        &mut self,
-        index: usize,
-        chunk: &mut BodyChunk,
-        rng: &mut UnityRandom,
-        sounds: &mut Sounds,
-    ) {
+    fn disturb(&mut self, surface: SurfaceChunk<'_>, rng: &mut UnityRandom, sounds: &mut Sounds) {
+        let (index, chunk) = match surface {
+            SurfaceChunk::Player(i, c) => (Some(i), c),
+            SurfaceChunk::Object(c) => (None, c),
+        };
         let level = self.level_at(chunk.pos.x);
         let (vel, rad) = (chunk.vel, chunk.rad);
         let entering = vel.y < -3.0 && chunk.last_pos.y > level && chunk.pos.y <= level;
@@ -276,7 +294,7 @@ impl Water {
     /// `Water.ThroughSurfaceSound`: only going down, a fast and a slow splash on the
     /// chunk, sized by its mass.
     fn through_surface_sound(
-        index: usize,
+        index: Option<usize>,
         chunk: &BodyChunk,
         rng: &mut UnityRandom,
         sounds: &mut Sounds,
@@ -303,8 +321,12 @@ impl Water {
                 SoundId::LargeObjectIntoWaterSlow,
             )
         };
-        sounds.play_on_chunk(fast_id, index, false, fast, 1.0, rng);
-        sounds.play_on_chunk(slow_id, index, false, slow, 1.0, rng);
+        for (id, volume) in [(fast_id, fast), (slow_id, slow)] {
+            match index {
+                Some(i) => sounds.play_on_chunk(id, i, false, volume, 1.0, rng),
+                None => sounds.play_on_object(id, chunk.pos, false, volume, 1.0, rng),
+            };
+        }
     }
 
     /// `Surface.Update`: one step of the damped wave equation on the front heights
@@ -409,6 +431,7 @@ mod tests {
     use rw_assets::{Room, RoomSettings};
     use rw_random::UnityRandom;
 
+    use super::SurfaceChunk;
     use crate::tests::room_with_water;
     use std::sync::Arc;
 
@@ -567,7 +590,7 @@ mod tests {
         let mut chunks = [c, up];
         w.update(
             &room,
-            chunks.iter_mut(),
+            SurfaceChunk::player(&mut chunks),
             &mut UnityRandom::new(1),
             &mut sounds,
         );
@@ -615,7 +638,7 @@ mod tests {
         let mut chunks = [c];
         w.update(
             &room,
-            chunks.iter_mut(),
+            SurfaceChunk::player(&mut chunks),
             &mut UnityRandom::new(1),
             &mut Sounds::default(),
         );
@@ -632,8 +655,7 @@ mod tests {
         chunks[0].pos.y = 50.0;
         let before = w.wave_height(16);
         w.disturb(
-            0,
-            &mut chunks[0],
+            SurfaceChunk::Player(0, &mut chunks[0]),
             &mut UnityRandom::new(1),
             &mut Sounds::default(),
         );

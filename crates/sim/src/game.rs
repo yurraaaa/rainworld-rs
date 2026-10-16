@@ -23,6 +23,8 @@ mod over;
 pub use over::GameOver;
 #[path = "game_shelter.rs"]
 mod shelter_door;
+#[path = "game_weapons.rs"]
+mod weapons;
 
 use rw_assets::{CreatureType, NodeType, Room, Shortcut, ShortcutType};
 use rw_random::UnityRandom;
@@ -40,6 +42,7 @@ use crate::creature::{
     CreatureId, CreatureTemplate, EntityId, IdIssuer, PlayerGuideState, RealizedCreature,
     WorldCoordinate,
 };
+use crate::item::{Entity, ObjectId};
 use crate::room_script::{RoomScript, ScriptTick, StorySession};
 use crate::shelter::{SessionEnd, ShelterDoor};
 use crate::shortcut::{CreatureVessel, Transport};
@@ -148,7 +151,7 @@ pub struct PlayerSurroundings<'a> {
     pub grasps: [Option<CreatureId>; 2],
     pub room: i32,
     /// The room's physical objects in its update list, oldest first, the player left out.
-    pub objects: Vec<CreatureId>,
+    pub objects: Vec<Entity>,
     /// `FoodInStomach < MaxFoodInStomach`.
     pub hungry: bool,
 }
@@ -179,6 +182,10 @@ enum RoomObject {
     Hover(CreatureId),
     /// A `WaterDrip` by id.
     Drip(u64),
+    /// A realized rock or spear.
+    Weapon(ObjectId),
+    /// A rock's or spear's loop emitter.
+    WeaponLoop(ObjectId),
 }
 
 /// No graphics.
@@ -685,6 +692,7 @@ impl RainWorldGame {
         let session = self.story_session();
         for index in self.world.finish_loading() {
             self.add_shelter_door(index);
+            self.world.realize_room_objects(index, &mut self.rng);
             for id in self.world.room_creatures(index).to_vec() {
                 if id == self.player_id {
                     if self.tick == 0 && self.player.is_none() {
@@ -1084,14 +1092,16 @@ impl RainWorldGame {
             .player
             .as_mut()
             .filter(|p| player_room == index && !p.in_shortcut());
+        let chunks = match here {
+            Some(p) => &mut p.body.chunks[..],
+            None => &mut [][..],
+        };
+        self.world
+            .update_water(index, chunks, &mut self.rng, sounds);
+        let Some(realized) = self.world.realized_mut(index) else {
+            return;
+        };
         let room = realized.room.clone();
-        if let Some(water) = &mut realized.water {
-            let chunks = match here {
-                Some(p) => &mut p.body.chunks[..],
-                None => &mut [][..],
-            };
-            water.update(&room, chunks.iter_mut(), &mut self.rng, sounds);
-        }
         realized.water_glitter.update();
         if let Some(blinking) = &mut realized.shortcuts_blinking {
             blinking.update(&room, &mut self.rng);
@@ -1111,11 +1121,12 @@ impl RainWorldGame {
         );
         objects.extend(self.room_fly_objects(index));
         objects.extend(self.room_drip_objects(index));
+        objects.extend(self.room_weapon_objects(index));
         objects.sort_by_key(|&(seq, _)| std::cmp::Reverse(seq));
         let mut player_done = false;
         for (seq, object) in objects {
             if !player_done && self.player_seq > seq {
-                self.update_room_player(index, &room, input, observer);
+                self.update_room_player_now(index, input, observer);
                 player_done = true;
             }
             match object {
@@ -1144,14 +1155,30 @@ impl RainWorldGame {
                 RoomObject::Fly(id) => self.run_fly(index, id, &room, observer),
                 RoomObject::Hover(id) => self.run_hover(index, id),
                 RoomObject::Drip(id) => self.run_drip(index, id, &room),
+                RoomObject::Weapon(id) => self.run_weapon(index, id, false),
+                RoomObject::WeaponLoop(id) => self.run_weapon(index, id, true),
             }
         }
         if !player_done {
-            self.update_room_player(index, &room, input, observer);
+            self.update_room_player_now(index, input, observer);
         }
         self.update_room_scripts(index, observer);
         // The door joined the update list in `Room.Loaded`, before everything else.
         self.update_shelter_door(index);
+        self.world.collide_weapons(index, &mut self.rng);
+    }
+
+    /// The player's turn in room `index`'s update list, reading the room as it is now
+    /// (a spear updated before it may have added poles).
+    fn update_room_player_now(
+        &mut self,
+        index: i32,
+        input: Input,
+        observer: &mut dyn PlayerObserver,
+    ) {
+        if let Some(room) = self.world.realized(index).map(|r| Arc::clone(&r.room)) {
+            self.update_room_player(index, &room, input, observer);
+        }
     }
 
     /// The player as a realized overseer in room `room` reads it.

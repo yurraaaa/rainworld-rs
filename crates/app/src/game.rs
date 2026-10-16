@@ -13,7 +13,7 @@ use rw_assets::{ActiveMods, Room, RoomSettings, SlugcatName, SoundTable, Streami
 use rw_audio::Follow as SoundFollow;
 use rw_graphics::{
     Color, DrawList, FlyGraphics, HologramFrame, HologramGraphics, OverseerGraphics,
-    PlayerGraphics, ShelterDoorSprites, ShortcutPalette, WaterDripSprites,
+    PlayerGraphics, ShelterDoorSprites, ShortcutPalette, WaterDripSprites, WeaponSprites,
 };
 use rw_hud::{HudSetup, OwnerTick, RainCycleView, StartCondition, Subregions};
 use rw_random::UnityRandom;
@@ -717,6 +717,27 @@ impl Game {
         self.sim
             .shelter_door(self.sim.camera_room())
             .map(|d| d.draw(alpha))
+    }
+
+    /// The rocks' and spears' sprites in the camera's room at `alpha` between ticks, in
+    /// the order they joined the room (`DrawSprites`, its vibrate and blink draws on the
+    /// cosmetic stream), in the palette's black.
+    pub fn weapon_draw_lists(&mut self, alpha: f32, black: Color) -> Vec<DrawList> {
+        let world = self.sim.world();
+        let room = self.sim.camera_room();
+        let water = world.realized(room).and_then(|r| r.water.as_ref());
+        let mut shown = world.room_weapons(room);
+        shown.sort_unstable();
+        let cosmetic = &mut self.graphics.cosmetic;
+        shown
+            .iter()
+            .filter_map(|&(_, id)| {
+                let o = world.object(id);
+                o.realized
+                    .as_deref()?
+                    .draw(o.id, room, alpha, black, water, cosmetic)
+            })
+            .collect()
     }
 
     /// The water drips in the camera's room at `alpha` between ticks, oldest first

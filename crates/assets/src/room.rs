@@ -112,6 +112,15 @@ impl TileFlags {
     const fn insert(&mut self, other: Self) {
         self.0 |= other.0;
     }
+
+    /// Sets or clears every flag in `other`.
+    pub const fn set(&mut self, other: Self, on: bool) {
+        if on {
+            self.0 |= other.0;
+        } else {
+            self.0 &= !other.0;
+        }
+    }
 }
 
 /// One grid cell.
@@ -673,6 +682,21 @@ impl Room {
         if self.contains(x, y) {
             let i = self.index(x, y);
             self.tiles[i].terrain = terrain;
+        }
+    }
+
+    /// `GetTile(x, y).verticalBeam` / `.horizontalBeam = on` (`flag` is
+    /// [`TileFlags::VERTICAL_POLE`] or [`TileFlags::HORIZONTAL_POLE`]): a spear stuck in a
+    /// wall makes a pole. Out of bounds it writes the clamped edge tile, as the game's
+    /// `GetTile` hands that tile out, unless the edge tile is a shortcut (the game hands
+    /// out a copy, so the write is lost).
+    pub fn set_pole(&mut self, x: i32, y: i32, flag: TileFlags, on: bool) {
+        let (cx, cy) = (x.clamp(0, self.width - 1), y.clamp(0, self.height - 1));
+        let i = self.index(cx, cy);
+        let tile = self.tiles[i];
+        let copy = tile.terrain == Terrain::ShortcutEntrance || tile.shortcut != Shortcut::None;
+        if self.contains(x, y) || !copy {
+            self.tiles[i].flags.set(flag, on);
         }
     }
 
