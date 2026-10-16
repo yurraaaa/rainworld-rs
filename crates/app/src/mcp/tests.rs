@@ -912,3 +912,41 @@ fn subregion_name_not_shown_on_a_dev_start() {
     assert_eq!((t.last_region, t.last_shown_region, t.counter), (1, 1, 0));
     assert_eq!(s.hud_state().expect("hud").text_prompt.queued, 0);
 }
+
+/// `get_state` reports the lizards' abstract AI: a new game's greens wait in their dens
+/// (the den is their den position and their destination), other creatures have none.
+#[test]
+fn lizards_report_their_abstract_ai() {
+    let Some(mut s) = Session::installed() else {
+        return;
+    };
+    s.new_game(&super::params::NewGameParams {
+        slugcat: "White".to_owned(),
+        seed: Some(1),
+        malnourished: None,
+    })
+    .expect("new game");
+    let st = s.run(1, InputParam::default());
+    let greens: Vec<_> = st
+        .creatures
+        .iter()
+        .filter(|c| c.kind == "GreenLizard")
+        .collect();
+    assert!(!greens.is_empty());
+    for c in greens {
+        let ai = c.abstract_ai.as_ref().expect("abstract AI");
+        assert!(c.in_den);
+        let den = ai.den_position.as_ref().expect("den");
+        assert_eq!((den.room.as_str(), den.node), (c.room.as_str(), c.node));
+        let dest = &ai.destination;
+        assert_eq!((dest.room.as_str(), dest.node), (c.room.as_str(), c.node));
+        assert!(ai.path.is_empty());
+        assert!(ai.remain_in_den_counter > -1 && ai.remain_in_den_counter < 1000);
+    }
+    assert!(
+        st.creatures
+            .iter()
+            .filter(|c| c.kind == "Overseer")
+            .all(|c| c.abstract_ai.is_none())
+    );
+}

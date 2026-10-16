@@ -342,8 +342,9 @@ pub struct Room {
     /// `SetVisibilityMapFromCompressedArray`); empty when the line is missing or bad.
     visibility: Vec<i32>,
     /// Line 10's pre-baked creature layers: each `<<DIV - A>>` part's int grid (before its
-    /// `<<DIV - B>>`), in `preBakedPathingCreatures` order.
-    baked_layers: Vec<Vec<i32>>,
+    /// `<<DIV - B>>`) and float grid (after it), in `preBakedPathingCreatures` order; both
+    /// empty when either does not decode (the game skips the layer).
+    baked_layers: Vec<(Vec<i32>, Vec<f32>)>,
     /// `Room.hives`: the hive tiles grouped as `AddHiveTile` groups them.
     hives: Vec<Vec<(i32, i32)>>,
     /// Line 5's items.
@@ -481,27 +482,52 @@ impl Room {
         Self::string_to_int_array(line.split("<<DIV - A>>").next().unwrap_or_default())
     }
 
-    /// `DecompressStringToAImaps`' int grids: each part after a `<<DIV - A>>`, up to its
-    /// `<<DIV - B>>`.
-    fn parse_baked_layers(line: &str) -> Vec<Vec<i32>> {
+    /// `DecompressStringToAImaps`' grids: each part after a `<<DIV - A>>` holds the int
+    /// grid up to its `<<DIV - B>>` and the float grid after it.
+    fn parse_baked_layers(line: &str) -> Vec<(Vec<i32>, Vec<f32>)> {
         line.split("<<DIV - A>>")
             .skip(1)
-            .map(|part| Self::string_to_int_array(part.split("<<DIV - B>>").next().unwrap_or("")))
+            .map(|part| {
+                let mut halves = part.split("<<DIV - B>>");
+                let ints = Self::decode_base64(halves.next().unwrap_or(""));
+                let floats = Self::decode_base64(halves.next().unwrap_or(""));
+                match (ints, floats) {
+                    (Some(i), Some(f)) => (
+                        i.as_chunks::<4>()
+                            .0
+                            .iter()
+                            .map(|&b| i32::from_le_bytes(b))
+                            .collect(),
+                        f.as_chunks::<4>()
+                            .0
+                            .iter()
+                            .map(|&b| f32::from_le_bytes(b))
+                            .collect(),
+                    ),
+                    _ => (Vec::new(), Vec::new()),
+                }
+            })
             .collect()
     }
 
     /// `StringToIntArray`: base64 of little-endian `int32`s; empty when it does not decode.
     fn string_to_int_array(text: &str) -> Vec<i32> {
+        Self::decode_base64(text).map_or_else(Vec::new, |bytes| {
+            bytes
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .map(|&b| i32::from_le_bytes(b))
+                .collect()
+        })
+    }
+
+    /// `Convert.FromBase64String`; `None` where it throws.
+    fn decode_base64(text: &str) -> Option<Vec<u8>> {
         use base64::Engine;
-        let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(text.trim()) else {
-            return Vec::new();
-        };
-        bytes
-            .as_chunks::<4>()
-            .0
-            .iter()
-            .map(|&b| i32::from_le_bytes(b))
-            .collect()
+        base64::engine::general_purpose::STANDARD
+            .decode(text.trim())
+            .ok()
     }
 
     /// `LoadFromDataString`'s hive grouping in file order (x outer, top row first): a hive
@@ -539,7 +565,18 @@ impl Room {
     /// stored: one value per accessible tile and node.
     #[must_use]
     pub fn baked_layer(&self, index: usize) -> Option<&[i32]> {
-        self.baked_layers.get(index).map(Vec::as_slice)
+        self.baked_layers
+            .get(index)
+            .map(|(ints, _)| ints.as_slice())
+    }
+
+    /// The float grid of pre-baked creature layer `index` (`AccessibilityDijkstraMapper`'s
+    /// accessibility), one value per tile of the room, x-major.
+    #[must_use]
+    pub fn baked_float_layer(&self, index: usize) -> Option<&[f32]> {
+        self.baked_layers
+            .get(index)
+            .map(|(_, floats)| floats.as_slice())
     }
 
     /// How many pre-baked creature layers line 10 holds.

@@ -74,9 +74,17 @@ it (D13). What still differs is only the seed and the call order:
   picking up, laying down, swallowing and regurgitating rocks and spears (the pick-up
   candidate's `Blink` sound, `PickedUp`'s and `ReleaseObject`'s sounds, `Regurgitate`'s
   22 draws and sound, 2 more with graphics, the `SlugcatHand` swallow shake's 6 and
-  `PlayerGraphics`' swallow blink `Range(-5, 8)`). Per tick the
-  stream parts from the game's again with the abstract AI of every creature but overseers and flies
-  (D14).
+  `PlayerGraphics`' swallow blink `Range(-5, 8)`). The lizards'
+  abstract AI makes its draws in its room's update (`MigrationBehavior`'s laziness
+  `Range` and time-influenced rolls, the roam roll, `RandomMoveWithinRoom`,
+  `RandomMoveToOtherRoom`'s two per step, `MoveToMoreAttractiveNeighborRoom`'s,
+  `FollowPath`'s stuck roll, `DefineNodeOfLocalCoordinate` and
+  `AbstractSpacePathFinder`'s node picks): from the first lizard out of its den (100 to
+  1000 ticks into a cycle) every story run's stream has shifted from before, as the
+  game's does. Missing: the draws a lizard would make on being realized
+  (`PlaceInRealizedRoom`, its body, AI and graphics), as it stays abstract (D14). Per
+  tick the stream parts from the game's again with the abstract AI of every creature
+  but overseers, flies and lizards (D14).
   `LocalCoordinateOfNode` draws for bat hives, garbage holes and border exits; a border
   exit's tile is not known (its border tiles are not mapped), only its draw is made.
 - **Room items.** A room realized for the first time in a cycle makes its items' draws
@@ -944,11 +952,13 @@ second part, else a single-room world for arena levels). The campaign descriptio
 (`rw_sim::campaign`, `campaign-model.md`) gives the timeline, start den and stats.
 
 **What differs:**
-- **Only overseers and bat flies behave.** The `CREATURES` section is read in full (simple spawners
+- **Only overseers and bat flies behave; lizards roam abstractly.** The `CREATURES` section is read in full (simple spawners
   and lineages with their dens, amounts, spawn data and night flags; quantified
   counts; `rw_assets::creatures`), and a new game's `GeneratePopulation` builds every
-  `AbstractCreature` with all of its constructor draws (D1): the creatures go into
-  their dens and stay there (`InDenUpdate` lets only overseers out), quantified
+  `AbstractCreature` with all of its constructor draws (D1) and `setCustomFlags`' base
+  flags (`Night`, `Ignorecycle`, `PreCycle`; the region's `globalCreatureFlags` are not
+  read, as no vanilla region sets them): the creatures go into
+  their dens and stay there (`InDenUpdate` lets only overseers and lizards out), quantified
   creatures are counted per node (the bat flies move, are placed and realized, below), and items
   (scavenger gear, drop bugs' items) are kept as IDs and kinds on their carrier, not as
   objects in the room's entities. The
@@ -986,6 +996,40 @@ second part, else a single-room world for arena levels). The campaign descriptio
   realized. Which camera's room
   counts as viewed when `AddObject` builds the graphics module is inferred from
   `RoomCamera` and `Room.AddObject`, not checked.
+  The plain `AbstractCreatureAI` is ported and runs for every lizard breed
+  (`CreatureTemplate::abstract_ai_ported`): `InDenUpdate` with
+  `WantToStayInDenUntilEndOfCycle` (the rain within 60 s, a pre-cycle creature, which
+  without More Slugcats' precycles never comes out, a night creature waiting for dark),
+  `Update`, `AbstractBehavior`, `MigrationBehavior`, `RandomMoveWithinRoom`,
+  `RandomMoveToOtherRoom`, `MoveToMoreAttractiveNeighborRoom`, `FollowPath` with its
+  timing (`offScreenSpeed * offscreenSpeedFac`, the room's connection lengths and the
+  shortcuts' tube lengths) and stuck jump, `SetDestination`/`FindPath`,
+  `AbstractSpacePathFinder`, `GoToDen` with `AbstractSpaceNodeFinder`, `Moved` and
+  `OpportunityToEnterDen` (rainworld-re `creature-model.md` §10). Lizards do not flee
+  the rain: there is no rain yet, and the realized `EscapeRain` behaviour waits for it
+  (the user's decision); abstractly a lizard only goes into a den it passes once the
+  rain is within 60 s, as in the game. Not reachable yet, for want of what triggers
+  them: following a creature (`followCreature`, from a social memory relationship;
+  social memories are not kept), taking prey home (`GoToDen` from `stowFoodInDen`
+  needs a held creature it eats; the relationships are not ported, so
+  `CreatureTemplate::eats` answers false) and the stow-food den entry.
+  **A lizard entering a realized room stays abstract.** The game realizes it there
+  (`ChangeRooms`' `Realize` and `CreatureEnterFromAbstractRoom`, `IsExitingDen` in a
+  realized room, `ReadyForAI`'s `RealizeInRoom` with `PlaceInRealizedRoom`), but the
+  lizard has no body yet (lizards steps 3 and 4). The port keeps it in the room's
+  lists as an abstract creature, as it does for every other unrealized type: its
+  `AbstractCreatureAI.Update` only adds to its time buffer while the room is realized
+  (the game skips `AbstractBehavior` there too), so it waits, unseen and harmless,
+  until the room is abstracted, then walks on with the buffered time. None of the
+  realization's draws are made (D1). `DefineNodeOfLocalCoordinate` in a room ready for
+  AI keeps its drawn node instead of choosing by the creature's exit distances (the
+  lizards' AI map is step 1); a creature only asks there once it is realized.
+  `AbstractCreature.distanceToMyNode` now starts at 0, the game's default (it was -1).
+  Left out with their DLC or modes: More Slugcats' flooded dens, battle arenas,
+  precycles (`preTimer`/`maxPreTimer`), the slugpup's and the scavenger king's
+  migration rules and the MSC-only template flags (`doesNotUseDens`,
+  `abstractImmobile`); Expedition's hunted unlocks; arena den emergence; world
+  migration influences; named attractions (no vanilla creature has one).
   `OverseersWorldAI` is ported (its shelter finder and the guide's direction finder,
   on the room files' baked node connectivity), as are the flies' swarm room map (with
   the world file's bat migration blockages), `GetSwarmRoomDistance`, `ActiveSwarmRoom`
@@ -1037,20 +1081,25 @@ second part, else a single-room world for arena levels). The campaign descriptio
   The other quantified types (leeches, sea leeches, spiders) are counted but not
   placed; no vanilla SU spawner has them. The `FlyLure` and `Lure` placed objects are
   not read (none in the tutorial rooms; SU_A17 and SU_B08 place one).
-- **The Fly's AI map.** The AI map has the parts the Fly reads (`floorAltitude` and
-  `smoothedFloorAltitude`, the
-  tiles' water, the Fly's accessibility, its Standard, ShortCut and NPCTransportation
-  outgoing paths, and its `CreatureSpecificAImap` from the room file's layer 6); the
-  other accessibility classes, passages, fall risk and creature maps wait for the first
-  ground creature (`ai-map.md`). Not ported: the worm grass access modifier (the game
-  makes worm grass tiles inaccessible when it builds the map, after baking, so in the 28
-  vanilla rooms with worm grass, SU_A32 and SU_B05 among them, its decoded distances
-  shift; the port decodes them as baked) and `ModifyTileWaterLevels` (WaterCutoff and
+- **The AI map.** `AImap` is built as `AImapper` builds it, for every base-game
+  template (accessibility classes, terrain proximity, floor altitudes, narrow spaces,
+  fall risk, every movement connection, `TileAccessibleToCreature`,
+  `IsConnectionAllowedForCreature` and the costs), and each pre-baked pathing creature's
+  `CreatureSpecificAImap` is decoded from the room file as the game decodes it, stale
+  layers included (`ai-map.md`). The flies read this map. Not ported: the worm grass
+  access modifier (the game makes worm grass tiles inaccessible when it builds the map,
+  after baking, so in the 28 vanilla rooms with worm grass, SU_A32 and SU_B05 among
+  them, its decoded distances shift; the port decodes them as baked), the map rebuild
+  when a shelter door opens, Remix's zero-gravity lizard branches, Downpour's
+  `TerrainManager` curved floors and sand, More Slugcats' `daddyCorruptionImmune`
+  branch, and `ModifyTileWaterLevels` (WaterCutoff and
   AirPocket objects, which no vanilla region room places). Remix's
   `BringToRoomAndGuidePlayer` branch of the world
   process's update and More Slugcats' goal rooms and guide symbols are left out.
   Not ported: scavenger and vulture world AI, `CreatureCommunities` in the sim (the save
-  keeps their likes, D16) and `AbstractCreature.Update` for other types.
+  keeps their likes, D16) and `AbstractCreature.Update` for types other than overseers
+  and lizards (their abstract AI subclasses and their templates' connection
+  resistances).
 - **Hologram graphics.** A hologram's colour base (`Color.Lerp(MainColor,
   ColorOfSegment(0, 0), 0.5)`) is taken at its overseer's last update (holograms update
   before their overseer, so it is the one the game reads); a hologram slated for removal
@@ -1107,7 +1156,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
 is simpler and loses nothing gameplay-visible beyond the shorter waits.
 
 **Affects.** How long a vessel waits to enter a room, and anything creatures other than
-overseers and bat flies would do.
+overseers and bat flies would do (lizards roam, but never appear in a loaded room).
 
 ## D15: The in-game HUD
 

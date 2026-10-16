@@ -7,10 +7,14 @@
 //! game spreads it over frames on a thread (docs/DIVERGENCES.md D14). Behaviour:
 //! `rainworld-re/notes/world-loading.md`, `room-realizer.md`.
 
+mod abstract_ai;
+mod abstract_path;
 mod ai_map;
+mod ai_mapper;
 mod creature_ai_map;
 mod creatures;
 mod flies_world_ai;
+mod movement;
 mod objects;
 mod overseers_world_ai;
 mod quantified;
@@ -33,12 +37,14 @@ use crate::creature::{AbstractCreature, CreatureId, FlockBehavior, IdIssuer, Wor
 use crate::item::AbstractObject;
 use rw_random::UnityRandom;
 
+pub use abstract_path::{FloodMethod, SearchingFor};
 pub(crate) use ai_map::EIGHT_DIRECTIONS;
-pub use ai_map::{AiMap, MovementConnection, MovementType};
+pub use ai_map::{AiMap, AiTile};
 pub use creature_ai_map::CreatureSpecificAiMap;
 pub(crate) use creatures::RoomLists;
 pub use creatures::{AbstractTick, QuantifiedCount, WorldProcesses};
 pub use flies_world_ai::{FliesTick, FliesWorldAi, SwarmBehavior};
+pub use movement::{Accessibility, Legality, MovementConnection, MovementType, PathCost};
 pub use overseers_world_ai::{DirectionFinder, OverseersWorldAi, ShelterFinder, StoryProgress};
 pub use rain_cycle::{CYCLE_TIME_MAX, CYCLE_TIME_MIN, RainCycle, WaterLevelCycle, WaterStage};
 pub use realized::RealizedRoom;
@@ -304,7 +310,8 @@ impl World {
         let mut done = Vec::new();
         for i in std::mem::take(&mut self.loading) {
             if let Some(room) = &mut self.realized[i] {
-                room.finish_loading();
+                let data = &self.data.rooms[i];
+                room.finish_loading(data.index, data.shelter() || data.gate());
                 done.push(self.data.rooms[i].index);
             }
         }

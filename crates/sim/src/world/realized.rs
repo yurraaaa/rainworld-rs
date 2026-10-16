@@ -4,9 +4,10 @@
 use std::sync::Arc;
 
 use rw_assets::world::{AbstractRoomData, LoadedRoom};
-use rw_assets::{ActiveMods, Room, RoomSettings, Timeline};
+use rw_assets::{ActiveMods, CreatureType, Room, RoomEffectType, RoomSettings, Timeline};
 
 use super::AiMap;
+use crate::creature::CreatureTemplate;
 use crate::creature::fly::FliesRoomAi;
 use crate::room_script::RoomScript;
 
@@ -117,14 +118,20 @@ impl RealizedRoom {
         wait
     }
 
-    /// `ShortCutsReady` then `ReadyForAI` (no creature needs the AI map): fully loaded
-    /// and open to the player once the delay runs out.
-    pub(crate) fn finish_loading(&mut self) {
+    /// `ShortCutsReady` then `ReadyForAI`: fully loaded and open to the player once the
+    /// delay runs out. `index` is the room's global index.
+    pub(crate) fn finish_loading(&mut self, index: i32, shelter_or_gate: bool) {
         self.shortcuts_blinking = Some(ShortcutsBlinking::new(
             self.room.shortcut_map().shortcuts().len(),
         ));
         self.water = Water::new(&self.room, &self.settings);
-        self.ai_map = Some(Arc::new(AiMap::new(&self.room)));
+        let lethal_water = self.settings.effect_amount(RoomEffectType::LethalWater) > 0.0;
+        self.ai_map = Some(Arc::new(AiMap::new(
+            &self.room,
+            index,
+            shelter_or_gate,
+            lethal_water,
+        )));
         self.loading_progress = 3;
         self.ready_for_non_ai_creatures = true;
     }
@@ -171,8 +178,9 @@ impl RealizedRoom {
     #[must_use]
     pub fn exit_distance(&self, tile: (i32, i32), exit: usize) -> i32 {
         let exit = i32::try_from(exit).unwrap_or(-1);
-        self.ai_map
-            .as_ref()
-            .map_or(-1, |m| m.fly_exit_distance_and_check_neighbours(tile, exit))
+        self.ai_map.as_ref().map_or(-1, |m| {
+            let fly = CreatureTemplate::of(CreatureType::Fly, ActiveMods::NONE);
+            m.exit_distance_for_creature_and_check_neighbours(tile, exit, &fly)
+        })
     }
 }

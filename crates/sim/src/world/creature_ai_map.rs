@@ -1,15 +1,15 @@
-//! `CreatureSpecificAImap` for the Fly: its accessible tiles and the per-node exit
-//! distances baked into the room file (layer 6), as `RoomPreprocessor.DecompressStringToAImaps`
-//! loads them. Only the Fly's is built; the other creatures' layers wait for their AI
-//! (`rainworld-re/notes/ai-map.md`).
+//! `CreatureSpecificAImap`: one pre-baked pathing creature's accessible tiles, the
+//! per-node exit distances and the accessibility grid baked into the room file, as
+//! `RoomPreprocessor.DecompressStringToAImaps` loads them.
 
-use rw_assets::{Room, ShortcutType};
+use rw_assets::Room;
 
 use super::AiMap;
 use crate::creature::CreatureTemplate;
 
-/// One creature's baked exit-distance grid over the bounding box of its accessible tiles.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// One creature's baked exit-distance grid over the bounding box of its accessible
+/// tiles, and its accessibility grid over the room.
+#[derive(Debug, Clone, PartialEq)]
 pub struct CreatureSpecificAiMap {
     /// `coveredArea`: left, bottom, right, top (inclusive).
     covered: (i32, i32, i32, i32),
@@ -18,6 +18,9 @@ pub struct CreatureSpecificAiMap {
     number_of_nodes: i32,
     /// `intGrid[x, y, node]`, node innermost; -1 off the accessible tiles.
     grid: Vec<i32>,
+    /// `floatGrid[x, y]` over the room (1 by 1 without accessible tiles).
+    float_size: (i32, i32),
+    float_grid: Vec<f32>,
     accessible_tiles: Vec<(i32, i32)>,
     /// How many ints the room file's layer held.
     baked_ints: usize,
@@ -25,29 +28,38 @@ pub struct CreatureSpecificAiMap {
 
 impl CreatureSpecificAiMap {
     /// The constructor (the bounding box of the template's accessible tiles, 0 on them)
-    /// then `LoadFromCompressedIntGrid` of the room file's layer for the template.
+    /// then `LoadFromCompressedIntGrid` and `LoadFromCompressedFloatGrid` of the room
+    /// file's layer `layer`.
     #[must_use]
-    pub fn new(ai_map: &AiMap, room: &Room, template: &CreatureTemplate) -> Self {
-        let number_of_nodes = Self::nodes_relevant_to_creature(room, template);
+    pub fn new(ai_map: &AiMap, room: &Room, template: &CreatureTemplate, layer: usize) -> Self {
+        let number_of_nodes = ai_map.nodes_relevant_to_creature(template);
         let accessible_tiles: Vec<(i32, i32)> = (0..room.width())
             .flat_map(|x| (0..room.height()).map(move |y| (x, y)))
-            .filter(|&(x, y)| ai_map.tile_accessible_to_creature(x, y, template))
+            .filter(|&t| ai_map.tile_accessible_to_creature(t, template))
             .collect();
         let covered = accessible_tiles.iter().fold(
             (room.width(), room.height(), 0, 0),
             |(l, b, r, t), &(x, y)| (l.min(x), b.min(y), r.max(x), t.max(y)),
         );
-        let size = if accessible_tiles.is_empty() {
-            (1, 1)
+        let (size, float_size) = if accessible_tiles.is_empty() {
+            ((1, 1), (1, 1))
         } else {
-            (covered.2 - covered.0 + 1, covered.3 - covered.1 + 1)
+            (
+                (covered.2 - covered.0 + 1, covered.3 - covered.1 + 1),
+                (room.width(), room.height()),
+            )
         };
         let cells = usize::try_from(size.0 * size.1 * number_of_nodes).unwrap_or(0);
+        // Without an accessible tile the game's -1 fill loop runs over an empty range, so
+        // its one cell per node stays 0 and loads a baked value (never read).
+        let fill = if accessible_tiles.is_empty() { 0 } else { -1 };
         let mut map = Self {
             covered,
             size,
             number_of_nodes,
-            grid: vec![-1; cells],
+            grid: vec![fill; cells],
+            float_size,
+            float_grid: vec![0.0; usize::try_from(float_size.0 * float_size.1).unwrap_or(0)],
             accessible_tiles,
             baked_ints: 0,
         };
@@ -59,50 +71,16 @@ impl CreatureSpecificAiMap {
                 }
             }
         }
-        let layer = usize::try_from(template.pre_baked_pathing_index())
-            .ok()
-            .and_then(|l| room.baked_layer(l));
-        if let Some(values) = layer {
+        if let Some(values) = room.baked_layer(layer) {
             map.load_from_compressed_int_grid(values);
         }
+        if let Some(values) = room.baked_float_layer(layer) {
+            map.float_grid
+                .iter_mut()
+                .zip(values)
+                .for_each(|(cell, &v)| *cell = v);
+        }
         map
-    }
-
-    /// `AIdataPreprocessor.NodesRelevantToCreature`: the room exits while the shortcut
-    /// leading to node `i` is a room exit, the dens, the region transports, then the
-    /// hives, as the template maps them (border exits and garbage holes are not mapped by
-    /// the creatures this is built for).
-    fn nodes_relevant_to_creature(room: &Room, template: &CreatureTemplate) -> i32 {
-        use rw_assets::NodeType;
-        let map = room.shortcut_map();
-        let nodes = map.nodes().len();
-        let mut n = 0;
-        if template.maps_node(NodeType::Exit) {
-            n += (0..nodes)
-                .take_while(|&i| {
-                    map.leading_to_node(i).map(|s| s.kind) == Some(ShortcutType::RoomExit)
-                })
-                .count();
-        }
-        if template.maps_node(NodeType::Den) {
-            n += (0..nodes)
-                .filter(|&i| {
-                    map.leading_to_node(i).map(|s| s.kind) == Some(ShortcutType::CreatureHole)
-                })
-                .count();
-        }
-        if template.maps_node(NodeType::RegionTransportation) {
-            n += (0..nodes)
-                .filter(|&i| {
-                    map.leading_to_node(i).map(|s| s.kind)
-                        == Some(ShortcutType::RegionTransportation)
-                })
-                .count();
-        }
-        if template.maps_node(NodeType::BatHive) {
-            n += room.hives().len();
-        }
-        i32::try_from(n).unwrap_or(i32::MAX)
     }
 
     /// The flat index of grid cell `(gx, gy, node)`.
@@ -137,6 +115,18 @@ impl CreatureSpecificAiMap {
             .map_or(-1, |c| self.grid[c])
     }
 
+    /// `GetAccessibility`: -1 outside the grid.
+    #[must_use]
+    pub fn accessibility(&self, x: i32, y: i32) -> f32 {
+        if (0..self.float_size.0).contains(&x) && (0..self.float_size.1).contains(&y) {
+            let i = usize::try_from(x * self.float_size.1 + y).unwrap_or(0);
+            self.float_grid[i]
+        } else {
+            -1.0
+        }
+    }
+
+    /// `accessableTiles`, x-major.
     #[must_use]
     pub fn accessible_tiles(&self) -> &[(i32, i32)] {
         &self.accessible_tiles
@@ -169,5 +159,11 @@ impl CreatureSpecificAiMap {
     #[must_use]
     pub fn grid(&self) -> &[i32] {
         &self.grid
+    }
+
+    /// The accessibility grid, x-major.
+    #[must_use]
+    pub fn float_grid(&self) -> &[f32] {
+        &self.float_grid
     }
 }

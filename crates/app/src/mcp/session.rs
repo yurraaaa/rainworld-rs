@@ -14,7 +14,7 @@ use rw_save::SaveSlot;
 use rw_sim::campaign::SlugcatCampaign;
 use rw_sim::creature::{AbstractCreature, CreatureId};
 use rw_sim::item::{Entity, Weapon};
-use rw_sim::{Input, StomachObject, Vec2};
+use rw_sim::{Input, StomachObject, Vec2, WorldCoordinate};
 
 use super::params::{
     HudMessageParams, ImportSaveParams, InputParam, ListRoomsParams, LoadProcessParams,
@@ -23,12 +23,13 @@ use super::params::{
 };
 use super::reply::HeldInfo;
 use super::reply::{
-    ChunkState, ControlsPageState, CreatureInfo, ExitInfo, ExitList, FlyInfo, FoodMeterState,
-    HudState, ImpactState, ImportReply, KarmaMeterState, KarmaScreenState, LobbyState,
-    MapMarkerState, MapState, MeterState, ObjectInfo, OptionsState, OverseerInfo, PauseMenuState,
-    PlayerState, ProcessState, RainMeterState, RainState, RealizedState, RoomInfo, RoomList,
-    SaveInfo, SaveStateInfo, Screenshot, ShelterDoorState, SleepState, SlideShowState,
-    StartUpState, State, StepTrace, StoryInfo, TextPromptState, TokenState, WeaponInfo,
+    AbstractAiInfo, ChunkState, ControlsPageState, CreatureInfo, ExitInfo, ExitList, FlyInfo,
+    FoodMeterState, HudState, ImpactState, ImportReply, KarmaMeterState, KarmaScreenState,
+    LobbyState, MapMarkerState, MapState, MeterState, NodeRef, ObjectInfo, OptionsState,
+    OverseerInfo, PauseMenuState, PlayerState, ProcessState, RainMeterState, RainState,
+    RealizedState, RoomInfo, RoomList, SaveInfo, SaveStateInfo, Screenshot, ShelterDoorState,
+    SleepState, SlideShowState, StartUpState, State, StepTrace, StoryInfo, TextPromptState,
+    TokenState, WeaponInfo,
 };
 use super::tiles::TileDump;
 use crate::frontend::{AppContext, Frontend, FrontendRenderer, GameSetup};
@@ -450,6 +451,7 @@ impl Session {
                 in_den: c.in_den,
                 realized: c.is_realized(),
                 alive: c.state.alive,
+                abstract_ai: Self::abstract_ai_info(scene, c),
                 overseer: c.overseer_ai().map(|o| OverseerInfo {
                     player_guide: o.is_player_guide,
                     destination: c
@@ -472,6 +474,31 @@ impl Session {
                 fly: Self::fly_info(scene, c),
             })
             .collect()
+    }
+
+    fn node_ref(scene: &Scene, c: WorldCoordinate) -> NodeRef {
+        NodeRef {
+            room: Self::room_name(scene, c.room),
+            node: c.node,
+        }
+    }
+
+    /// The plain abstract AI of a creature that runs it.
+    fn abstract_ai_info(scene: &Scene, c: &AbstractCreature) -> Option<AbstractAiInfo> {
+        if !c.template.abstract_ai_ported() {
+            return None;
+        }
+        let ai = c.ai.as_ref()?;
+        let den = scene.game().sim().world().offscreen_den_index();
+        Some(AbstractAiInfo {
+            destination: Self::node_ref(scene, ai.destination),
+            path: ai.path.iter().map(|&p| Self::node_ref(scene, p)).collect(),
+            migration_destination: ai.migration_destination.map(|m| Self::node_ref(scene, m)),
+            den_position: ai.den_position(c, den).map(|d| Self::node_ref(scene, d)),
+            time_buffer: ai.time_buffer,
+            remain_in_den_counter: c.remain_in_den_counter,
+            time_spent_here: c.time_spent_here,
+        })
     }
 
     /// The world's objects, in creation order.

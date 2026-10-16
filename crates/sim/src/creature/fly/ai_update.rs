@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use rw_assets::{NodeType, Terrain};
+use rw_assets::{ActiveMods, CreatureType, NodeType, Terrain};
 
 use super::update::FlyRun;
 use super::{DropStatus, FlockBehavior, FlyAi, FlyBehavior, MovementMode, TrackedThreat};
@@ -55,7 +55,8 @@ impl FlyRun<'_, '_, '_> {
 
     /// `ExitDistanceForCreature(tile, node, Fly)`.
     fn exit_distance(&self, tile: (i32, i32), node: i32) -> i32 {
-        self.cx.ai_map.fly_exit_distance(tile, node)
+        let fly = CreatureTemplate::of(CreatureType::Fly, ActiveMods::NONE);
+        self.cx.ai_map.exit_distance_for_creature(tile, node, &fly)
     }
 
     /// The room's nodes the Fly maps, in creature-specific order (common index, type).
@@ -868,20 +869,21 @@ impl FlyRun<'_, '_, '_> {
         let t = goal.tile();
         let mut best = i32::MAX;
         let mut pick: Option<MovementConnection> = None;
-        for c in map.fly_outgoing_paths(room, t.0, t.1) {
-            let d = self.exit_distance(c.dest, follow);
-            if map.fly_connection_allowed(&c) && d < best && d > -1 {
+        let fly = CreatureTemplate::of(CreatureType::Fly, ActiveMods::NONE);
+        for c in &map.tile(t.0, t.1).outgoing_paths {
+            let d = self.exit_distance(c.dest_tile(), follow);
+            if map.is_connection_allowed_for_creature(c, &fly) && d < best && d > -1 {
                 best = d;
-                pick = Some(c);
+                pick = Some(*c);
             }
         }
         let Some(c) = pick else {
             return pos + pos.direction_to(goal);
         };
         if c.kind == MovementType::ShortCut {
-            return Vec2::middle_of_tile(c.start);
+            return Vec2::middle_of_tile(c.start_tile());
         }
-        let next = Vec2::middle_of_tile(c.dest);
+        let next = Vec2::middle_of_tile(c.dest_tile());
         if !room.visual_contact(pos, next) {
             if room.visual_contact(pos, goal) {
                 return goal;
