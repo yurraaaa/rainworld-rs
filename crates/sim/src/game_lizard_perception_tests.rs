@@ -17,7 +17,7 @@ use crate::world::World;
 use crate::{FloatExt, Input, RainWorldGame, Sounds, Start, Vec2};
 
 /// A 30 x 6 room with a floor at y 1.
-const HALL: [&str; 6] = [
+pub(crate) const HALL: [&str; 6] = [
     "##############################",
     "#............................#",
     "#............................#",
@@ -27,7 +27,7 @@ const HALL: [&str; 6] = [
 ];
 
 /// Two halves split by a wall.
-const SPLIT: [&str; 7] = [
+pub(crate) const SPLIT: [&str; 7] = [
     "########################",
     "#...........#..........#",
     "#...........#..........#",
@@ -38,7 +38,7 @@ const SPLIT: [&str; 7] = [
 ];
 
 /// A Survivor story in `rows` with the player at `player`, after 20 ticks.
-fn game(rows: &[&str], player: (i32, i32)) -> RainWorldGame {
+pub(crate) fn game(rows: &[&str], player: (i32, i32)) -> RainWorldGame {
     let room = room(rows);
     let data = WorldData::from_room(&room);
     let settings = RoomSettings {
@@ -69,7 +69,12 @@ fn game(rows: &[&str], player: (i32, i32)) -> RainWorldGame {
 impl RainWorldGame {
     /// A realized green lizard at `tile` of room 0, its head toward `facing`, after
     /// `ticks` ticks.
-    fn seeing_lizard(&mut self, tile: (i32, i32), facing: f32, ticks: usize) -> CreatureId {
+    pub(crate) fn seeing_lizard(
+        &mut self,
+        tile: (i32, i32),
+        facing: f32,
+        ticks: usize,
+    ) -> CreatureId {
         let session = self.story_session();
         let template = CreatureTemplate::of(CreatureType::GreenLizard, ActiveMods::NONE);
         let id = self.ids.new_id(-1);

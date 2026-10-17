@@ -88,6 +88,8 @@ pub struct BodyChunk {
     pub splash_stop: i32,
     /// `setPos`: taken instead of `pos += vel` at the next update.
     pub set_pos: Option<Vec2>,
+    /// How loud its terrain impacts are (`loudness`, 1 by default).
+    pub loudness: f32,
     contact: Contact,
     last_contact: Contact,
     on_slope: i8,
@@ -112,6 +114,7 @@ impl BodyChunk {
             restrict_in_room_range: DEFAULT_RESTRICT_IN_ROOM_RANGE,
             splash_stop: 0,
             set_pos: None,
+            loudness: 1.0,
             contact: Contact::default(),
             last_contact: Contact::default(),
             on_slope: 0,

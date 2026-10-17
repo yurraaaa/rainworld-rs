@@ -51,16 +51,31 @@ pub(crate) struct FlyTick<'a> {
     pub eu: bool,
 }
 
-/// A fly's terrain impacts with where its chunk was at each (the drips start there).
+/// A fly's terrain impacts with where its chunk was at each (the drips start there) and
+/// the noise each makes (where, how strong).
 #[derive(Default)]
 struct ImpactLog {
-    impacts: Vec<(crate::TerrainImpact, Vec2, f32, f32)>,
+    impacts: Vec<LoggedImpact>,
+}
+
+struct LoggedImpact {
+    impact: crate::TerrainImpact,
+    pos: Vec2,
+    rad: f32,
+    mass: f32,
+    noise: Option<(Vec2, f32)>,
 }
 
 impl crate::TerrainImpactHandler for ImpactLog {
     fn terrain_impact(&mut self, chunks: &mut [crate::BodyChunk], impact: crate::TerrainImpact) {
         let c = &chunks[impact.chunk];
-        self.impacts.push((impact, c.pos, c.rad, c.mass));
+        self.impacts.push(LoggedImpact {
+            impact,
+            pos: c.pos,
+            rad: c.rad,
+            mass: c.mass,
+            noise: impact.noise_at(c),
+        });
     }
 }
 
@@ -296,14 +311,37 @@ impl FlyRun<'_, '_, '_> {
         }
     }
 
-    /// The base `Creature.TerrainImpact` of each first contact: drips off a wet ceiling.
+    /// The base `Creature.TerrainImpact` of each impact: `PhysicalObject.TerrainImpact`'s
+    /// noise, then on a first contact drips off a wet ceiling.
     fn impact_drips(&mut self, log: &ImpactLog) {
         let index = self.cx.room_index;
         let ceiling_drips = self
             .world
             .realized(index)
             .map_or(0.0, |r| r.settings.ceiling_drips);
-        for (impact, pos, rad, mass) in &log.impacts {
+        for LoggedImpact {
+            impact,
+            pos,
+            rad,
+            mass,
+            noise,
+        } in &log.impacts
+        {
+            if let Some((at, strength)) = *noise {
+                let noise = crate::InGameNoise {
+                    pos: at,
+                    strength,
+                    source: Some(Entity::Creature(self.me)),
+                    interesting: 1.0,
+                };
+                self.world.in_game_noise(
+                    index,
+                    noise,
+                    self.cx.water,
+                    self.cx.player.as_ref(),
+                    self.cx.rng,
+                );
+            }
             if !impact.first_contact {
                 continue;
             }

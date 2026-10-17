@@ -225,6 +225,49 @@ pub enum RepKind {
     Elaborate(ElaborateRep),
 }
 
+/// What `Ghost.Clone` reads besides the ghost: the represented creature's coordinate
+/// (the ghost constructor's), the tracker's ghost parameters, and whether the
+/// destination's room is realized.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct GhostCloneCx {
+    pub creature_pos: WorldCoordinate,
+    pub params: GhostParams,
+    pub dest_realized: bool,
+}
+
+impl ElaborateRep {
+    /// `Ghost.Clone(dest, generationAdd)` of ghost `gi`: a new ghost (one draw) at `dest`
+    /// (the middle of its tile when that room is realized), heading there from the
+    /// original's tile; returns its index.
+    pub fn clone_ghost(
+        &mut self,
+        gi: usize,
+        dest: WorldCoordinate,
+        generation_add: i32,
+        cx: GhostCloneCx,
+        rng: &mut UnityRandom,
+    ) -> usize {
+        let (pos, vel, coord, generation) = {
+            let src = &self.ghosts[gi];
+            (src.pos, src.vel, src.coord, src.generation)
+        };
+        let serial = self.next_serial();
+        let mut g = Ghost::new(serial, cx.creature_pos, pos, vel, cx.params, rng);
+        g.coord = dest;
+        if cx.dest_realized {
+            g.pos = Vec2::middle_of_tile(dest.tile);
+        }
+        g.last_coord = coord;
+        let from = Vec2::new(coord.tile.0 as f32, coord.tile.1 as f32);
+        g.vel = from.direction_to(Vec2::new(dest.tile.0 as f32, dest.tile.1 as f32));
+        g.generation = generation + generation_add;
+        g.push_forward = cx.params.push - generation;
+        self.best_ghost_dirty = true;
+        self.ghosts.push(g);
+        self.ghosts.len() - 1
+    }
+}
+
 /// `Tracker.CreatureRepresentation`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CreatureRep {

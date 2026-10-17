@@ -38,6 +38,8 @@ mod lizard_voice;
 mod lizards;
 #[path = "game_map.rs"]
 mod map;
+#[path = "game_noise.rs"]
+mod noise;
 #[path = "game_over.rs"]
 mod over;
 
@@ -1723,13 +1725,28 @@ impl RainWorldGame {
         if rest {
             self.player_catch(index, observer);
             self.player_shelter_step(index, room);
+            let body = self.player_hearing_body(index);
             let sounds = if index == self.camera_room {
                 &mut self.sounds
             } else {
                 &mut self.silent
             };
-            if let Some(player) = self.player.as_mut() {
-                player.update_after_clamp(room, water.as_ref(), &mut self.rng, sounds);
+            if let Some(player) = self.player.as_mut()
+                && let Some(body) = body
+            {
+                let mut hearing = noise::PlayerHearing {
+                    world: &mut self.world,
+                    room: index,
+                    water: water.as_ref(),
+                    player: body,
+                };
+                player.update_after_clamp(
+                    room,
+                    water.as_ref(),
+                    &mut self.rng,
+                    sounds,
+                    &mut hearing,
+                );
             }
         }
         self.game_over_on_death(room);

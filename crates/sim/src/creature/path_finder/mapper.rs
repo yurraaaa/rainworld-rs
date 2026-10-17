@@ -942,7 +942,7 @@ impl PathFinders {
                 continue;
             }
             let goal = pf.cell_at(c.dest);
-            let mut c_cost = pf.check_connection_cost(origin_cell.coord, goal.coord, &c);
+            let mut c_cost = pf.check_connection_cost(world, origin_cell.coord, goal.coord, &c);
             if !fall_risk
                 && let Some(dir) = body_direction
                 && c.kind == MovementType::Standard

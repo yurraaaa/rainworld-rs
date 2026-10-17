@@ -30,6 +30,7 @@ mod game;
 pub mod item;
 mod light_source;
 pub mod map_discovery;
+mod noise;
 mod object;
 mod player;
 mod room_ext;
@@ -59,6 +60,7 @@ pub use game::{
 };
 pub use light_source::{LightHardSet, LightSource, LightTie};
 pub use map_discovery::{DiscoveryTexture, HudMapLink, MapDiscovery, MapRoom, UnityTexture};
+pub use noise::{ImpactNoises, InGameNoise, NoiseSink};
 pub use object::{
     BodyChunkConnection, ConnectionKind, PhysicalObject, TerrainImpactHandler, slugcat,
 };

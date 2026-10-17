@@ -363,6 +363,8 @@ pub struct LizardInfo {
     /// `casualAggressionTarget`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub casual_aggression_target: Option<[i32; 2]>,
+    /// Its AI's noise tracker.
+    pub noise: NoiseTrackerInfo,
     /// Its graphics module, while its room is viewed (or was, and it has not left it).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub graphics: Option<LizardGraphicsInfo>,
@@ -391,6 +393,52 @@ pub struct TrackedCreatureInfo {
     /// An elaborate representation's ghosts.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub ghosts: Vec<GhostInfo>,
+}
+
+/// A `NoiseTracker`.
+#[derive(Debug, Clone, Serialize)]
+pub struct NoiseTrackerInfo {
+    pub hearing_skill: f32,
+    pub mysterious_noises: f32,
+    pub mysterious_noise_counter: i32,
+    /// `Utility()`.
+    pub utility: f32,
+    /// `soundToExamine`'s position.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sound_to_examine: Option<[f32; 2]>,
+    /// `sources`, in order.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub sources: Vec<NoiseSourceInfo>,
+    /// The last noises heard (up to 8, in the last 400 ticks), oldest first.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub heard: Vec<HeardNoiseInfo>,
+}
+
+/// One `NoiseTracker.TheorizedSource`.
+#[derive(Debug, Clone, Serialize)]
+pub struct NoiseSourceInfo {
+    pub pos: [f32; 2],
+    pub age: i32,
+    /// The tracked creature it is believed to be (`creatureRep`), by EntityID.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub creature: Option<[i32; 2]>,
+    /// `LASTSOUNDSTRENGTH`.
+    pub strength: f32,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub slated: bool,
+}
+
+/// A noise a noise tracker heard.
+#[derive(Debug, Clone, Serialize)]
+pub struct HeardNoiseInfo {
+    pub ticks_ago: i32,
+    /// Attributed to no tracked creature.
+    pub mysterious: bool,
+    pub pos: [f32; 2],
+    pub strength: f32,
+    pub interesting: f32,
+    /// The source's kind and EntityID.
+    pub source: Option<HeldInfo>,
 }
 
 /// One `Tracker.Ghost`.
@@ -740,6 +788,9 @@ pub struct PlayerState {
     pub pick_up_candidate: Option<HeldInfo>,
     pub eat_counter: i32,
     pub sleep: SleepState,
+    /// `privSneak` and `Sneak`.
+    pub priv_sneak: f32,
+    pub sneak: f32,
 }
 
 /// The player's shelter sleep and hibernation counters.
@@ -765,6 +816,8 @@ pub struct ChunkState {
     pub contact: [i8; 2],
     /// Downhill x direction of a touched floor slope, or 0.
     pub on_slope: i8,
+    /// `loudness`.
+    pub loudness: f32,
 }
 
 #[derive(Debug, Clone, Serialize)]

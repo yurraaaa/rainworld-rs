@@ -38,9 +38,9 @@ use super::reply::{
     StepTrace, StoryInfo, TextPromptState, TokenState, WeaponInfo,
 };
 use super::reply::{
-    ConnectionInfo, CoordInfo, DynamicRelationshipInfo, GhostInfo, LizardCosmeticInfo,
-    LizardGraphicsInfo, LizardLimbInfo, LizardMoveInfo, LizardVoiceInfo, MovementAnimationInfo,
-    TrackedCreatureInfo, VesselInfo,
+    ConnectionInfo, CoordInfo, DynamicRelationshipInfo, GhostInfo, HeardNoiseInfo,
+    LizardCosmeticInfo, LizardGraphicsInfo, LizardLimbInfo, LizardMoveInfo, LizardVoiceInfo,
+    MovementAnimationInfo, NoiseSourceInfo, NoiseTrackerInfo, TrackedCreatureInfo, VesselInfo,
 };
 use super::reply::{DangerInfo, HoloLightState, LightSourceState, MusicState, TriggerState};
 use super::reply::{
@@ -935,8 +935,47 @@ impl Session {
                 .casual_aggression_target
                 .and_then(|k| l.ai.tracker.rep(k))
                 .map(|r| Self::entity_id(scene, r.creature)),
+            noise: Self::noise_tracker_info(scene, l),
             graphics: Self::lizard_graphics_info(scene, c, l, holding),
         })
+    }
+
+    fn noise_tracker_info(scene: &Scene, l: &rw_sim::creature::Lizard) -> NoiseTrackerInfo {
+        let world = scene.game().sim().world();
+        let n = &l.ai.noise;
+        NoiseTrackerInfo {
+            hearing_skill: n.hearing_skill,
+            mysterious_noises: n.mysterious_noises,
+            mysterious_noise_counter: n.mysterious_noise_counter,
+            utility: n.utility(),
+            sound_to_examine: n.sound_to_examine().map(|s| s.pos.to_array()),
+            sources: n
+                .sources
+                .iter()
+                .map(|s| NoiseSourceInfo {
+                    pos: s.pos.to_array(),
+                    age: s.age,
+                    creature: s
+                        .creature_rep
+                        .and_then(|k| l.ai.tracker.rep(k))
+                        .map(|r| Self::entity_id(scene, r.creature)),
+                    strength: s.last_sound_strength,
+                    slated: s.slated_for_deletion,
+                })
+                .collect(),
+            heard: n
+                .heard
+                .iter()
+                .map(|h| HeardNoiseInfo {
+                    ticks_ago: h.ticks_ago,
+                    mysterious: h.mysterious,
+                    pos: h.noise.pos.to_array(),
+                    strength: h.noise.strength,
+                    interesting: h.noise.interesting,
+                    source: h.noise.source.map(|e| HeldInfo::of(world, e)),
+                })
+                .collect(),
+        }
     }
 
     fn tracked_creature_info(scene: &Scene, r: &RepReading) -> TrackedCreatureInfo {
@@ -1733,6 +1772,7 @@ impl PlayerState {
                         tile: c.pos.tile().into(),
                         contact: [contact.x, contact.y],
                         on_slope: c.on_slope(),
+                        loudness: c.loudness,
                     }
                 })
                 .collect(),
@@ -1788,6 +1828,12 @@ impl PlayerState {
                 .pick_up_candidate
                 .map(|e| HeldInfo::of(sim.world(), e)),
             eat_counter: player.grab_state().eat_counter,
+            priv_sneak: player.priv_sneak(),
+            sneak: player.sneak(
+                sim.world()
+                    .realized(sim.player_pos().room)
+                    .and_then(|r| r.water.as_ref()),
+            ),
             sleep: SleepState {
                 sleep_counter: player.sleep_counter(),
                 sleep_curl_up: player.sleep_curl_up(),

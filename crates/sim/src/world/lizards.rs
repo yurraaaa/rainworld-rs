@@ -441,7 +441,8 @@ impl World {
 
     /// `Creature.NewRoom`: the AI's `NewRoom`, then 40 ticks of `newToRoomInvinsibility`.
     /// `LizardAI.NewRoom` zeroes its room clock; the base, in a room other than the
-    /// last, resets the path finder to the room and clears the stuck tracker's move log,
+    /// last, resets the path finder to the room, empties the noise tracker and clears the
+    /// stuck tracker's move log,
     /// and an abstract destination in this room without a tile gets a random tile of it
     /// (two draws).
     pub(crate) fn lizard_new_room(&mut self, id: CreatureId, cx: &mut LizardRoomCx<'_>) {
@@ -460,6 +461,7 @@ impl World {
             if let Some(pf) = l.ai.path_finder {
                 self.with_path_finders(|pfs, w| pfs.new_room(pf, w, room, cx.rng));
             }
+            self.noise_tracker_new_room(id, room);
             self.lizard_at(id).ai.stuck.new_room();
             let dest = self.ai_of(id).map(|a| a.destination);
             if let Some(dest) = dest

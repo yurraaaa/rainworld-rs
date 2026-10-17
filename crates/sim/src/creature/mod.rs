@@ -19,6 +19,7 @@ pub mod fly;
 pub mod grasp;
 pub mod lizard;
 pub mod looker;
+pub mod noise_tracker;
 pub mod overseer;
 pub mod path_finder;
 pub mod pathing;
@@ -49,6 +50,7 @@ pub use fly::{
 pub use grasp::{GrabRequest, Grasp, GripStick, Shareability};
 pub use lizard::{LUNG_CAPACITY, Lizard, LizardAnimation, LizardBreedParams};
 pub use looker::{CreatureLooker, LookCandidate, LookCandidateParts};
+pub use noise_tracker::{HeardNoise, NoiseKind, NoiseTracker, TheorizedSource};
 pub use overseer::{OverseerAbstractAi, OverseerAi, OverseerBody, PlayerGuideState};
 pub use path_finder::{PathFinder, PathFinders, PatherKind};
 pub use relationship_tracker::{
@@ -61,8 +63,8 @@ pub use stuck_tracker::{DiscomfortTracker, MoveBacklog, StuckTracker};
 pub use template::{CreatureTemplate, Relationship, RelationshipType, WaterRelationship};
 pub use template_abstract::{AbstractCost, AbstractMovement};
 pub use tracker::{
-    BestGhost, CreatureRep, ElaborateRep, Ghost, GhostParams, RepKey, RepKind, RepReading,
-    Sighting, Tracker,
+    BestGhost, CreatureRep, ElaborateRep, Ghost, GhostCloneCx, GhostParams, RepKey, RepKind,
+    RepReading, Sighting, Tracker,
 };
 pub use violence::{Community, DamageType, ViolenceTemplate};
 pub use vision::{ChunkVisibility, CreatureVision, Eyes, LizardSight, PlayerVisibility};
@@ -171,6 +173,15 @@ impl WorldCoordinate {
     #[must_use]
     pub fn same_room_and_node(self, other: Self) -> bool {
         self.room == other.room && self.node == other.node
+    }
+
+    /// `Custom.ManhattanDistance` of two coordinates: `int.MaxValue` across rooms.
+    #[must_use]
+    pub fn manhattan_distance(self, other: Self) -> i32 {
+        if self.room != other.room {
+            return i32::MAX;
+        }
+        (self.tile.0 - other.tile.0).abs() + (self.tile.1 - other.tile.1).abs()
     }
 }
 

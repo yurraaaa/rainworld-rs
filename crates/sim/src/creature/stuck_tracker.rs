@@ -140,18 +140,10 @@ impl StuckTracker {
     }
 }
 
-/// `DiscomfortTracker`: discomfort comes from tracked uncomfortable creatures, unknown
-/// noises, an uncomfortable item and threats, all of them lizard step 6's trackers;
-/// until then every tile is comfortable, as the game's is with nothing tracked.
+/// `DiscomfortTracker`: what makes a tile uncomfortable to its AI is
+/// [`crate::world::World::discomfort_of_tile`]; a lizard's is not bothered by unknown
+/// noises (0).
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct DiscomfortTracker {
     pub uncomfortable_with_unknown_noises: f32,
-}
-
-impl DiscomfortTracker {
-    /// `DiscomfortOfTile`.
-    #[must_use]
-    pub fn discomfort_of_tile(&self, _test: WorldCoordinate) -> f32 {
-        0.0
-    }
 }

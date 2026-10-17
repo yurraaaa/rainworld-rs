@@ -177,7 +177,7 @@ remains for older notes' line numbers; new notes cite file and member.
   `dlcsInstalled` check): the base-game menu scene and intro images.
 - Current phase is the player controller in a region whose only
   behaving creatures are the overseers and the bat flies, with the lizards
-  under way (green lizards step 6a of 9, perception and relationships, done), not the
+  under way (green lizards step 6b of 9, hearing, noises and social influences, done), not the
   full game (campaign step 1, overseer step 1, batflies done):
   - A story starts at the campaign's start den in its region's world;
     room-exit shortcuts carry the player between the region's rooms, which
@@ -193,7 +193,9 @@ remains for older notes' line numbers; new notes cite file and member.
     room travel; the AI's own decisions are not there yet), see and track
     creatures (tracker, vision with the player's sneaking, relationships by
     the lizard community's like of the player, casual bites, the eyes
-    looking at what they track), are drawn
+    looking at what they track), hear the noises of footsteps and impacts (the
+    noise tracker; nothing reacts to them yet), dislike the player for its
+    attacks (social events, with the community), are drawn
     (body, tail, head, jaws, legs whose grip feeds the movement, and their
     spikes and scales), voice their pain, fright and calls (`LizardVoice`, its
     sound on the head and the visualization read from the clip, D12),
@@ -271,7 +273,8 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   (`White`, `Yellow`, `Red`) at its start den (`malnourished` starts it
   malnourished). `get_state` reports the
   camera's room, the player (with its food, quarter pips, grasps and
-  pick-up candidate as `{kind, id}`, stomach, swallow counter, released slide loops, eat counter, malnourishment, aerobic level and exhaustion), the player's room and node, the vessel waiting in the
+  pick-up candidate as `{kind, id}`, stomach, swallow counter, released slide loops, eat counter, malnourishment, aerobic level and exhaustion,
+  its chunks' `loudness`, `priv_sneak` and `sneak`), the player's room and node, the vessel waiting in the
   lobby, the realized rooms' entry waits and `creatures` (every
   abstract creature: kind, ID, room, node, tile, in den, realized,
   alive; roaming creatures also their abstract AI: destination, path, migration
@@ -288,7 +291,11 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   representation: creature ID, kind, simple or elaborate, age, ticks since seen,
   forget counter, visual contact, estimated chance of finding, best guess and last
   seen coordinates, priority, ghosts), `relationships` (creature ID, type, intensity,
-  tracking module, a slugcat's spear flag), `casual_aggression_target` and, in a viewed room,
+  tracking module, a slugcat's spear flag), `casual_aggression_target`, `noise` (the
+  noise tracker: hearing skill, mysterious noises and counter, utility, sound to
+  examine, sources: position, age, creature, strength, slated; and `heard`, the last
+  noises heard, a port-side log: ticks ago, mysterious, position, strength,
+  interesting, source) and, in a viewed room,
   `graphics` (culled, legs grabbing, no-grip counter, limbs: mode, position, hunt and
   grab positions, grip counter, reaching, disabled, flip; head, head and depth
   rotations, jaw, blink, flicker, white flicker, look position, `look_creature`, look

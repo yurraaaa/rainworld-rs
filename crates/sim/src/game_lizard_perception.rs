@@ -13,7 +13,7 @@ use super::RainWorldGame;
 use super::tracker::TrackedBody;
 use crate::creature::lizard::SpottedEye;
 use crate::creature::{
-    CreatureId, CreatureRep, ElaborateRep, Eyes, LizardAnimation, LizardSight, Relationship,
+    CreatureId, CreatureRep, ElaborateRep, Eyes, LizardAnimation, Relationship,
     RelationshipTracker, RelationshipType, RepKey, RepKind, TrackedCreatureState, Tracker,
     TrackingModule,
 };
@@ -21,30 +21,14 @@ use crate::item::Entity;
 use crate::{FloatExt, Vec2};
 
 impl RainWorldGame {
-    /// The eyes of AI `ai` (a lizard's: its breed's vision from the head, the angle off
-    /// its head, never blinded: nothing that blinds is ported).
+    /// The eyes of AI `ai`.
     pub(crate) fn ai_eyes(&self, ai: CreatureId) -> Option<Eyes> {
-        let l = self.world.creature(ai).lizard()?;
-        let (head, neck) = (l.body.chunks[0].pos, l.body.chunks[1].pos);
-        Some(Eyes {
-            vision: l.params.vision,
-            point: head,
-            lizard_angles: Some(LizardSight {
-                perfect: l.params.perfect_vision_angle,
-                periferal: l.params.periferal_vision_angle,
-                head,
-                neck,
-            }),
-            blinded: false,
-        })
+        self.world.ai_eyes(ai)
     }
 
     /// `AI.creature.realizedCreature.mainBodyChunk.pos`.
     pub(crate) fn ai_main_pos(&self, ai: CreatureId) -> Vec2 {
-        self.world
-            .creature(ai)
-            .lizard()
-            .map_or(Vec2::ZERO, |l| l.body.chunks[0].pos)
+        self.world.ai_main_pos(ai)
     }
 
     /// Body chunks 0 and 1 (`CreatureInterestBonus`).
@@ -59,14 +43,7 @@ impl RainWorldGame {
 
     /// The representations AI `ai` and its graphics refer to.
     pub(crate) fn ai_held_reps(&self, ai: CreatureId) -> Vec<RepKey> {
-        self.world.creature(ai).lizard().map_or_else(Vec::new, |l| {
-            let look = l
-                .graphics
-                .as_ref()
-                .and_then(|g| g.looker)
-                .and_then(|lk| lk.look_creature);
-            l.ai.held_reps(look)
-        })
+        self.world.ai_held_reps(ai)
     }
 
     /// `CreateTrackerRepresentationForCreature`: a lizard keeps a simple representation
@@ -298,7 +275,10 @@ impl RainWorldGame {
     }
 
     /// The tracker and relationship tracker of lizard `id`, taken out.
-    fn take_lizard_perception(&mut self, id: CreatureId) -> (Tracker, RelationshipTracker) {
+    pub(super) fn take_lizard_perception(
+        &mut self,
+        id: CreatureId,
+    ) -> (Tracker, RelationshipTracker) {
         let l = self.world.lizard_at(id);
         (
             std::mem::replace(&mut l.ai.tracker, Tracker::lizard()),
@@ -307,7 +287,12 @@ impl RainWorldGame {
     }
 
     /// Puts them back, dropping the representations nothing holds any more.
-    fn put_lizard_perception(&mut self, id: CreatureId, mut t: Tracker, rel: RelationshipTracker) {
+    pub(super) fn put_lizard_perception(
+        &mut self,
+        id: CreatureId,
+        mut t: Tracker,
+        rel: RelationshipTracker,
+    ) {
         let held = self.ai_held_reps(id);
         t.collect_detached(&held);
         let l = self.world.lizard_at(id);
@@ -315,12 +300,13 @@ impl RainWorldGame {
         l.ai.relationships = rel;
     }
 
-    /// The tracker's and relationship tracker's updates among `LizardAI`'s modules (the
-    /// noise tracker, den finder, rain, prey, threat and aggression trackers, utility
-    /// comparer and mission tracker between them are lizard steps 6b and 7).
+    /// The tracker's, noise tracker's and relationship tracker's updates among
+    /// `LizardAI`'s modules (the den finder, rain, prey, threat and aggression trackers,
+    /// utility comparer and mission tracker between them are lizard step 7).
     pub(super) fn lizard_perception_update(&mut self, id: CreatureId) {
         let (mut t, mut rel) = self.take_lizard_perception(id);
         self.tracker_update(id, &mut t, &mut rel);
+        self.world.noise_tracker_update(id, &t);
         self.relationships_update(id, &mut t, &mut rel);
         self.put_lizard_perception(id, t, rel);
     }
@@ -451,4 +437,4 @@ impl RainWorldGame {
 
 #[cfg(test)]
 #[path = "game_lizard_perception_tests.rs"]
-mod tests;
+pub(super) mod tests;

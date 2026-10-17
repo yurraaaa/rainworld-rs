@@ -11,8 +11,8 @@ use rw_random::UnityRandom;
 use super::{Animation, BodyMode, HEAD, HIPS, Player};
 use crate::float_ext::FloatExt;
 use crate::{
-    BodyChunk, DEFAULT_RESTRICT_IN_ROOM_RANGE, PhysicalObject, SoundId, Sounds, TerrainImpact,
-    TerrainImpactHandler, Vec2, Water,
+    BodyChunk, DEFAULT_RESTRICT_IN_ROOM_RANGE, NoiseSink, PhysicalObject, SoundId, Sounds,
+    TerrainImpact, TerrainImpactHandler, Vec2, Water,
 };
 
 /// Floor impacts faster than this kill (Survivor; Gourmand 80).
@@ -33,6 +33,7 @@ struct ImpactHandler<'a> {
     player: &'a mut Player,
     rng: &'a mut UnityRandom,
     sounds: &'a mut Sounds,
+    noises: &'a mut dyn NoiseSink,
 }
 
 impl Player {
@@ -185,6 +186,7 @@ impl Player {
         water: Option<&Water>,
         rng: &mut UnityRandom,
         sounds: &mut Sounds,
+        noises: &mut dyn NoiseSink,
     ) {
         self.flush_sounds(rng, sounds);
         let placeholder = PhysicalObject::new(Vec::new(), self.body.params);
@@ -193,6 +195,7 @@ impl Player {
             player: self,
             rng,
             sounds,
+            noises,
         };
         body.update_with(room, water, &mut handler);
         self.body = body;
@@ -239,13 +242,14 @@ impl Player {
     /// `Player.TerrainImpact` with Remix off: the landing roll pre-empts everything on
     /// this impact; otherwise a first contact kills on a floor above 60, stuns above 35,
     /// or plays a landing or bump sound by speed. Either way it ends in the base
-    /// `Creature.TerrainImpact`'s ceiling drips.
+    /// `PhysicalObject.TerrainImpact`'s noise and `Creature.TerrainImpact`'s ceiling drips.
     pub(super) fn terrain_impact_with(
         &mut self,
         chunks: &mut [BodyChunk],
         impact: TerrainImpact,
         rng: &mut UnityRandom,
         sounds: &mut Sounds,
+        noises: &mut dyn NoiseSink,
     ) {
         let speed = impact.speed;
         if speed > 12.0 {
@@ -258,6 +262,9 @@ impl Player {
         }
         self.flush_sounds(rng, sounds);
         let c = &chunks[impact.chunk];
+        if let Some((pos, strength)) = impact.noise_at(c) {
+            noises.in_game_noise(pos, strength, 1.0, rng);
+        }
         self.impact_drips(c.pos, c.rad, c.mass, impact, rng);
     }
 
@@ -298,6 +305,6 @@ impl Player {
 impl TerrainImpactHandler for ImpactHandler<'_> {
     fn terrain_impact(&mut self, chunks: &mut [BodyChunk], impact: TerrainImpact) {
         self.player
-            .terrain_impact_with(chunks, impact, self.rng, self.sounds);
+            .terrain_impact_with(chunks, impact, self.rng, self.sounds, self.noises);
     }
 }

@@ -800,12 +800,8 @@ impl RainWorldGame {
         if let Some(w) = self.world.weapon_mut(id) {
             w.forbidden_to_player = 40;
         }
-        // `SocialEventRecognizer.WeaponAttack`: the creatures' reactions are the AI's
-        // (lizard step 7); a slugcat's hit breaks the peaceful record.
-        if thrower.is_some_and(|t| self.world.creature(t).kind() == CreatureType::Slugcat)
-            && hit_something
-        {
-            self.world.break_peaceful(lid);
+        if let Some(t) = thrower {
+            self.world.weapon_attack(index, id, t, lid, hit_something);
         }
         if let Some(w) = self.world.weapon_mut(id) {
             w.thrown_by = None;

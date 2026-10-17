@@ -49,11 +49,12 @@ impl PatherKind {
         )
     }
 
-    /// `TravelPreference` of a connection inside the room: the base's discomfort (none
-    /// without tracked creatures), then the breed's terrain taste: green +10 into
-    /// narrow spaces, blue `30 - 3 * floorAltitude` (0-10), pink `2 * floorAltitude`,
-    /// a swimmer +5 out of water. The obstacle and threat terms are lizard step 6b
-    /// and the yellow lizard's `YellowAI` is not ported (both add nothing here).
+    /// `LizardAI.TravelPreference` of a connection inside the room after the base's
+    /// discomfort: the breed's terrain taste, green +10 into narrow spaces, blue
+    /// `30 - 3 * floorAltitude` (0-10), pink `2 * floorAltitude`, a swimmer +5 out of
+    /// water. The obstacle warning reads an `ObstacleTracker`, which no base-game AI
+    /// makes (0); the threat terms read the threat tracker and the fear (lizard step 7);
+    /// the yellow lizard's `YellowAI` is not ported.
     pub(crate) fn travel_preference(
         self,
         map: &AiMap,

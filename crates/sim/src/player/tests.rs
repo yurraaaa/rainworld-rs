@@ -57,14 +57,20 @@ impl Player {
     /// `TerrainImpact` as physics would deliver it, with the player's own chunks.
     fn receive_impact(&mut self, impact: TerrainImpact) {
         let mut chunks = std::mem::take(&mut self.body.chunks);
-        self.terrain_impact_with(&mut chunks, impact, &mut test_rng(), &mut Sounds::default());
+        self.terrain_impact_with(
+            &mut chunks,
+            impact,
+            &mut test_rng(),
+            &mut Sounds::default(),
+            &mut (),
+        );
         self.body.chunks = chunks;
     }
 
     /// [`Player::receive_impact`] with sounds.
     fn receive_impact_with(&mut self, impact: TerrainImpact, sounds: &mut Sounds) {
         let mut chunks = std::mem::take(&mut self.body.chunks);
-        self.terrain_impact_with(&mut chunks, impact, &mut test_rng(), sounds);
+        self.terrain_impact_with(&mut chunks, impact, &mut test_rng(), sounds, &mut ());
         self.body.chunks = chunks;
     }
 

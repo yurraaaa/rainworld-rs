@@ -45,6 +45,13 @@ impl RainWorldGame {
         let part = if returned {
             UpdatePart::Own
         } else {
+            let noises = self.with_item_tick(index, |world, cx| {
+                world.weapon_part(index, id, cx, &rules, UpdatePart::Physics);
+                std::mem::take(&mut cx.noises)
+            });
+            for n in noises {
+                self.room_noise(index, n);
+            }
             UpdatePart::Finish
         };
         self.with_item_tick(index, |world, cx| {
@@ -53,6 +60,13 @@ impl RainWorldGame {
         self.spear_stuck_in_creature_update(index, id);
         let eu = self.even_update();
         self.world.hold_impaled(index, id, eu);
+        let missed = self
+            .world
+            .weapon_mut(id)
+            .and_then(|w| w.missed_attack.take());
+        if let Some((thrower, victim)) = missed {
+            self.world.weapon_attack(index, id, thrower, victim, false);
+        }
     }
 
     /// The chunks (position, radius) of creature `id` when it is realized in room
