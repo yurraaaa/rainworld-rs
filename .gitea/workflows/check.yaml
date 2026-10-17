@@ -1,0 +1,33 @@
+name: Rust Checks
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  fmt:
+    name: Check Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        run: rustup component add rustfmt
+
+      - name: Run cargo fmt
+        run: cargo fmt --check
+
+  clippy:
+    name: Check Clippy Warnings
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        run: rustup component add clippy
+
+      - name: Run cargo clippy
+        run: cargo clippy -- -D warnings
