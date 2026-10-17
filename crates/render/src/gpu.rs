@@ -323,7 +323,7 @@ impl WgpuRenderer {
             let target_file = cache_dir.join(&cache_file);
             let temp_file = cache_dir.join(format!("{cache_file}.temp"));
 
-            if let Err(err) = std::fs::create_dir(&cache_dir)
+            if let Err(err) = std::fs::create_dir_all(&cache_dir)
                 .and_then(|_| std::fs::write(&temp_file, &data))
                 .and_then(|_| std::fs::rename(&temp_file, &target_file))
             {
