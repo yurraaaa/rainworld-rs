@@ -103,12 +103,26 @@ impl Player {
         self.emitter_place
     }
 
+    #[cfg(test)]
+    pub(crate) fn set_horizontal_corridor_slide(&mut self, ticks: i32) {
+        self.horizontal_corridor_slide_counter = ticks;
+    }
+
     /// The slide loop's emitters, held or let go, still in a room's update list.
     pub fn slide_loop_emitters(&self) -> impl Iterator<Item = &LoopEmitter> {
         self.slide_loop
             .iter()
             .chain(&self.released_slide_loops)
             .filter(|e| !e.slated)
+    }
+
+    /// The slide loop emitters let go and not yet destroyed.
+    #[must_use]
+    pub fn released_slide_loop_count(&self) -> usize {
+        self.released_slide_loops
+            .iter()
+            .filter(|e| !e.slated)
+            .count()
     }
 
     /// The slide loop emitter that joined the update list at `order`.

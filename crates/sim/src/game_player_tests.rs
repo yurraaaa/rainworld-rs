@@ -21,7 +21,15 @@ fn floor_room() -> Room {
 }
 
 pub(crate) fn story_game(campaign: &'static SlugcatCampaign, story: StoryStart) -> RainWorldGame {
-    let room = floor_room();
+    story_game_in(floor_room(), (4, 1), campaign, story)
+}
+
+fn story_game_in(
+    room: Room,
+    tile: (i32, i32),
+    campaign: &'static SlugcatCampaign,
+    story: StoryStart,
+) -> RainWorldGame {
     let data = WorldData::from_room(&room);
     let rooms = Arc::new(FixedRoom(LoadedRoom {
         room,
@@ -30,7 +38,7 @@ pub(crate) fn story_game(campaign: &'static SlugcatCampaign, story: StoryStart) 
     let world = World::new(data, rooms, campaign.timeline, ActiveMods::NONE, true);
     let start = Start {
         room: 0,
-        tile: Some((4, 1)),
+        tile: Some(tile),
     };
     RainWorldGame::new_story(
         world,
@@ -172,4 +180,58 @@ fn a_let_go_slide_loop_dies_at_its_next_update() {
     let p = g.player.as_ref().expect("player");
     assert_eq!(p.slide_loop_emitters().count(), 0);
     assert_eq!(g.tick_emitter_events(), (vec![], vec![]));
+}
+
+/// `Creature.Update` runs `SuckedIntoShortCut` inside `Player.Update`, after the slide
+/// loop's update kept the emitter alive that tick; `RemoveObject` nulls the player's
+/// `room`. The emitter joined after the player, so the next tick's backward walk updates
+/// it first and its `chunk.owner.room != room` check destroys it: the tick after entry.
+#[test]
+fn the_slide_loop_emitter_dies_the_tick_after_the_player_enters_a_pipe() {
+    let survivor = &SlugcatCampaign::SURVIVOR;
+    let pipe = room(&[
+        "############",
+        "############",
+        "#......ExE.#",
+        "############",
+    ]);
+    let mut g = story_game_in(pipe, (2, 1), survivor, StoryStart::new_game(survivor));
+    let text = "Volume: 6\nVolume exponent: 1.8\nSlugcat_Slide_In_Narrow_Corridor_LOOP : clip\n";
+    let names = ClipNames::new(["clip".to_owned()], None);
+    g.sounds = Sounds::new(Arc::new(SoundTable::parse(text, &names).unwrap()));
+    for _ in 0..30 {
+        g.tick(Input::NONE, &mut ());
+    }
+    let mut loop_id = None;
+    for _ in 0..80 {
+        g.player.as_mut().unwrap().set_horizontal_corridor_slide(25);
+        g.sounds.take_events();
+        g.tick(Input::new(1, 0, false), &mut ());
+        let kept = g
+            .sounds
+            .take_events()
+            .into_iter()
+            .find(|e| matches!(e, SoundEvent::Emitter { .. }));
+        if let Some(SoundEvent::Emitter { id, .. }) = kept {
+            loop_id = Some(id);
+        }
+        if g.player.as_ref().unwrap().in_shortcut() {
+            break;
+        }
+    }
+    let loop_id = loop_id.expect("the slide loop played");
+    assert!(
+        g.player.as_ref().unwrap().in_shortcut(),
+        "the tick it went in"
+    );
+    assert_eq!(g.player.as_ref().unwrap().slide_loop_emitters().count(), 1);
+    g.tick(Input::NONE, &mut ());
+    let stops: Vec<_> = g
+        .sounds
+        .take_events()
+        .into_iter()
+        .filter(|e| matches!(e, SoundEvent::Stop(_)))
+        .collect();
+    assert_eq!(stops, vec![SoundEvent::Stop(loop_id)], "the tick after");
+    assert_eq!(g.player.as_ref().unwrap().slide_loop_emitters().count(), 0);
 }

@@ -23,7 +23,6 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **Player grabbing lizards earlier:** picking up, carrying and eating dead or stunned
   lizards needs no AI, so it could be its own small step before 6. Lizards grabbing
   the player stays in step 8.
-- **Sound timing leftovers** (below, under "To look into").
 
 ## To look into
 - **Headless speed.** MCP `step` runs about 20 ticks/s with lizards around (seen
@@ -35,7 +34,3 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   den. Believed to be the game's behaviour; confirm once cicadas have bodies.
 - **`ShelterFinder` panics** (`ShelterFinder::update`, test `overseers_world_ai.rs`
   ~288) in test worlds without shelters. Real regions always have shelters.
-- **Sound timing leftovers** (asked 2026-10-16, no answer yet): swallowing a rock stops
-  its loop at once, the player body's sounds stop a tick early when entering a pipe,
-  and released emitters aren't reported over MCP. The game lets each live one more
-  update.

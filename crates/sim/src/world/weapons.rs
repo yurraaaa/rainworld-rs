@@ -13,8 +13,17 @@ use crate::item::{
     Entity, ModeChange, ObjectId, Throw, Weapon, WeaponKind, WeaponMode, WeaponTick,
 };
 use crate::{
-    BodyChunk, Cosmetic, CosmeticKind, FloatExt, SoundId, Sounds, Spark, SurfaceChunk, Vec2,
+    BodyChunk, Cosmetic, CosmeticKind, FloatExt, LoopEmitter, SoundId, Sounds, Spark, SurfaceChunk,
+    Vec2,
 };
+
+/// A loop emitter left in a room's update list by an item that is no longer there; its
+/// next update finds the owner's `room` null and destroys it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct OrphanLoop {
+    pub emitter: LoopEmitter,
+    pub pos: Vec2,
+}
 
 /// What an item's turn in the update list reads of the game.
 pub struct ItemTick<'a> {
@@ -315,6 +324,39 @@ impl World {
                     .map(move |e| (e.update_order, id))
             })
             .collect()
+    }
+
+    #[must_use]
+    pub fn orphan_loop_count(&self) -> usize {
+        self.orphan_loops.len()
+    }
+
+    /// The orphaned loop emitters in room `room`'s update list, by their place in it.
+    #[must_use]
+    pub fn room_orphan_loops(&self, room: i32) -> Vec<u64> {
+        self.orphan_loops
+            .iter()
+            .filter(|o| o.emitter.room == room)
+            .map(|o| o.emitter.update_order)
+            .collect()
+    }
+
+    /// `ChunkSoundEmitter.Update` of the orphaned emitter that joined room `index` at
+    /// `order`: its chunk's owner has no room, so it is destroyed and its sound cut.
+    pub(crate) fn update_orphan_loop(&mut self, index: i32, order: u64, cx: &mut ItemTick<'_>) {
+        let Some(o) = self
+            .orphan_loops
+            .iter_mut()
+            .find(|o| o.emitter.update_order == order && o.emitter.room == index)
+        else {
+            return;
+        };
+        cx.sounds.move_emitter(o.emitter.sound, o.pos);
+        o.emitter.update(None, cx.camera_room, cx.tick);
+        if o.emitter.slated {
+            cx.sounds.stop_emitter(o.emitter.sound);
+        }
+        self.orphan_loops.retain(|o| !o.emitter.slated);
     }
 
     /// What a thrown spear of room `index` sticks by (nothing for other weapons).
@@ -730,6 +772,7 @@ impl World {
     /// position (`timeSpentHere` 0, the realized object dropped).
     pub(crate) fn abstractize_objects(&mut self, room: i32) {
         let ids: Vec<ObjectId> = self.room_objects(room).collect();
+        self.orphan_loops.retain(|o| o.emitter.room != room);
         for id in ids.into_iter().rev() {
             let o = self.object_mut(id);
             o.time_spent_here = 0;
