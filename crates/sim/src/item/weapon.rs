@@ -17,8 +17,8 @@ use crate::creature::CreatureId;
 use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
 use crate::{
-    BodyChunk, CosmeticKind, LoopEmitter, PhysicalObject, PhysicsParams, SoundId, Sounds, Spark,
-    Vec2, Water,
+    BodyChunk, CosmeticKind, ImpactNoises, LoopEmitter, PhysicalObject, PhysicsParams, SoundId,
+    Sounds, Spark, Vec2, Water,
 };
 
 /// A spark's colour (`new Color(1, 1, 1)`).
@@ -254,13 +254,14 @@ pub struct Weapon {
     pub closest_crit_dist: f32,
     /// `thrownClosestToCreature`: the creature the throw passed closest to so far.
     pub thrown_closest_to_creature: Option<CreatureId>,
+    /// The thrower and the creature of a missed `WeaponAttack` that `ChangeMode` told
+    /// the room of, until the game hands it on.
+    pub missed_attack: Option<(CreatureId, CreatureId)>,
     /// `inFrontOfObjects`: -1 unset, 1 in `Items`, 0 in `Background`.
     pub in_front_of_objects: i32,
     pub blink: i32,
     pub forbidden_to_player: i32,
     pub last_outside_terrain_pos: Option<Vec2>,
-    /// `firstChunk.loudness`: Rock 9, Spear 7 (for the noise of terrain impacts).
-    pub loudness: f32,
     pub sound_loop: ChunkDynamicSoundLoop,
 }
 
@@ -302,9 +303,11 @@ impl Weapon {
             }
             ObjectData::Plain => (WeaponKind::Rock, 9.0),
         };
+        let mut chunk = BodyChunk::new(Vec2::ZERO, 5.0, 0.07);
+        chunk.loudness = loudness;
         Some(Self {
             kind,
-            body: PhysicalObject::new(vec![BodyChunk::new(Vec2::ZERO, 5.0, 0.07)], WEAPON_PARAMS),
+            body: PhysicalObject::new(vec![chunk], WEAPON_PARAMS),
             room: -1,
             update_order: 0,
             collision_layer: 2,
@@ -330,11 +333,11 @@ impl Weapon {
             floor_bounce_frames: 0,
             closest_crit_dist: f32::MAX,
             thrown_closest_to_creature: None,
+            missed_attack: None,
             in_front_of_objects: -1,
             blink: 0,
             forbidden_to_player: 0,
             last_outside_terrain_pos: None,
-            loudness,
             sound_loop: ChunkDynamicSoundLoop::default(),
         })
     }
@@ -536,8 +539,13 @@ impl Weapon {
         if new == WeaponMode::Free {
             self.set_random_spin(cx.rng);
         }
-        // Leaving `Thrown` near a creature tells the `SocialEventRecognizer` of a missed
-        // `WeaponAttack`, which nothing ported listens to.
+        // Leaving `Thrown` within 120 of a creature is a missed `WeaponAttack`.
+        if self.closest_crit_dist < 120.0
+            && self.mode == WeaponMode::Thrown
+            && let (Some(thrower), Some(victim)) = (self.thrown_by, self.thrown_closest_to_creature)
+        {
+            self.missed_attack = Some((thrower, victim));
+        }
         self.thrown_closest_to_creature = None;
         self.closest_crit_dist = f32::MAX;
         self.mode = new;
@@ -696,8 +704,24 @@ impl Weapon {
     /// The rest of `Update` after the layer-0 walk: `PlayerCarryableItem.Update` (with
     /// the physics), then `Rock.Update`'s or `Spear.Update`'s own part.
     pub fn update_finish(&mut self, object: &mut AbstractObject, cx: &mut WeaponTick<'_>) {
+        self.carryable_physics(cx);
+        self.update_after_physics(object, cx);
+    }
+
+    /// [`Self::update_finish`] after the physics.
+    pub fn update_after_physics(&mut self, object: &mut AbstractObject, cx: &mut WeaponTick<'_>) {
         self.carryable_update(object, cx);
         self.update_own(object, cx);
+    }
+
+    /// `PhysicalObject.Update` at the start of `PlayerCarryableItem.Update`: the chunk
+    /// moves. Returns its terrain impacts' noises (where, how strong); the game makes
+    /// them as it meets the impacts, with nothing else drawn in between.
+    pub fn carryable_physics(&mut self, cx: &mut WeaponTick<'_>) -> Vec<(Vec2, f32)> {
+        // `WeatherInertia` draws only in blizzard rooms (Saint), none in the base game.
+        let mut log = ImpactNoises::default();
+        self.body.update_with(cx.room, cx.water, &mut log);
+        log.0
     }
 
     /// `Rock.Update`'s or `Spear.Update`'s own part after the base.
@@ -892,10 +916,8 @@ impl Weapon {
         self.set_random_spin(cx.rng);
     }
 
-    /// `PlayerCarryableItem.Update` with `PhysicalObject.Update` first.
+    /// `PlayerCarryableItem.Update` after `PhysicalObject.Update`.
     fn carryable_update(&mut self, object: &mut AbstractObject, cx: &mut WeaponTick<'_>) {
-        // `WeatherInertia` draws only in blizzard rooms (Saint), none in the base game.
-        self.body.update_with(cx.room, cx.water, &mut ());
         object.pos.tile = self.chunk().pos.tile();
         object.pos.room = cx.room_index;
         self.even_update = cx.eu;

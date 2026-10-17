@@ -13,8 +13,8 @@ use crate::item::{
     Entity, ModeChange, ObjectId, Throw, Weapon, WeaponKind, WeaponMode, WeaponTick,
 };
 use crate::{
-    BodyChunk, Cosmetic, CosmeticKind, FloatExt, LoopEmitter, SoundId, Sounds, Spark, SurfaceChunk,
-    Vec2,
+    BodyChunk, Cosmetic, CosmeticKind, FloatExt, InGameNoise, LoopEmitter, SoundId, Sounds, Spark,
+    SurfaceChunk, Vec2,
 };
 
 /// A loop emitter left in a room's update list by an item that is no longer there; its
@@ -39,6 +39,8 @@ pub struct ItemTick<'a> {
     pub player: Option<(CreatureId, i32)>,
     /// The room is a shelter whose door `IsClosing` or `IsOpening`.
     pub shelter_door_moving: bool,
+    /// The noises the update made, for the game to make heard.
+    pub noises: Vec<InGameNoise>,
 }
 
 /// What a thrown spear sticks by: the abstract tiles of the room's stuck spears and
@@ -61,7 +63,9 @@ pub(crate) enum UpdatePart {
     TracedNothing,
     /// A creature hit behind a wall: `HitWall`, and the update returns.
     HitWall,
-    /// The physics and the rest.
+    /// `PhysicalObject.Update`: the physics, whose noises go to the tick.
+    Physics,
+    /// The rest after the physics.
     Finish,
     /// Only `Rock.Update`'s or `Spear.Update`'s own part (after `Weapon.Update`
     /// returned early).
@@ -431,7 +435,17 @@ impl World {
                     weapon.hit_wall(object, &mut tick);
                     weapon.floor_bounce_frames = 0;
                 }
-                UpdatePart::Finish => weapon.update_finish(object, &mut tick),
+                UpdatePart::Physics => {
+                    let noises = weapon.carryable_physics(&mut tick);
+                    cx.noises
+                        .extend(noises.into_iter().map(|(pos, strength)| InGameNoise {
+                            pos,
+                            strength,
+                            source: Some(Entity::Object(id)),
+                            interesting: 4.0,
+                        }));
+                }
+                UpdatePart::Finish => weapon.update_after_physics(object, &mut tick),
                 UpdatePart::Own => weapon.update_own(object, &mut tick),
             }
             room.water = water;

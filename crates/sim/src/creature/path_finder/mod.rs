@@ -737,6 +737,7 @@ impl PathFinder {
     #[must_use]
     pub fn check_connection_cost(
         &self,
+        world: &World,
         start: WorldCoordinate,
         goal: WorldCoordinate,
         connection: &MovementConnection,
@@ -777,9 +778,31 @@ impl PathFinder {
             && self.in_this_realized_room(connection.start)
             && let Some(map) = &self.map
         {
-            cost = self.kind.travel_preference(map, connection, cost);
+            cost = self.travel_preference(world, map, connection, cost);
         }
         cost
+    }
+
+    /// `ArtificialIntelligence.TravelPreference`: a destination tile the AI is
+    /// uncomfortable on costs 10 times its discomfort (unwanted above 0.75); then the
+    /// breed's own preference.
+    fn travel_preference(
+        &self,
+        world: &World,
+        map: &AiMap,
+        connection: &MovementConnection,
+        cost: PathCost,
+    ) -> PathCost {
+        let mut cost = cost;
+        if connection.dest.tile_defined() {
+            let num = world.discomfort_of_tile(self.creature, connection.dest, self);
+            if num > 0.75 {
+                cost = cost + PathCost::new(num * 10.0, Legality::Unwanted);
+            } else {
+                cost.resistance += num * 10.0;
+            }
+        }
+        self.kind.travel_preference(map, connection, cost)
     }
 
     /// The `Update` before its steps: the generation clock and the destination's cost
@@ -842,7 +865,7 @@ impl PathFinder {
             if !start.tile_defined() && !start.node_defined() {
                 continue;
             }
-            let cost = self.check_connection_cost(start, now_coord, &c);
+            let cost = self.check_connection_cost(env.world, start, now_coord, &c);
             if (!cost.allowed() || !self.cell(r).reachable)
                 && (!self.looking_for_impossible_path || !cost.considerable())
             {
@@ -1231,7 +1254,7 @@ impl PathFinder {
             let start = self.cell_at(at).coord;
             for c in self.paths(at, true) {
                 let goal = self.cell_at(c.dest);
-                let c_cost = self.check_connection_cost(start, goal.coord, c);
+                let c_cost = self.check_connection_cost(env.world, start, goal.coord, c);
                 let total = goal.cost_to_goal + c_cost;
                 if c_cost.legality < legality
                     || (c_cost.legality == legality

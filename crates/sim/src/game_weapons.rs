@@ -82,6 +82,7 @@ impl RainWorldGame {
             eu,
             player,
             shelter_door_moving,
+            noises: Vec::new(),
         };
         f(&mut self.world, &mut cx)
     }

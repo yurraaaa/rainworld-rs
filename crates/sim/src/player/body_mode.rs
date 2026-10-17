@@ -291,6 +291,7 @@ impl Player {
             if self.aerobic_level < 0.7 {
                 self.aerobic_increase(0.05);
             }
+            self.make_noise(self.body.chunks[HIPS].pos, 150.0, 1.0);
         }
         self.skid();
     }

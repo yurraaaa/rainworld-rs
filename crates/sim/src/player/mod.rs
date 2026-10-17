@@ -41,10 +41,10 @@ use crate::campaign::{SlugcatCampaign, SlugcatStats};
 use crate::room_ext::RoomExt;
 use crate::shortcut::ShortcutVessel;
 use crate::{
-    BodyChunk, EmitterPlace, LoopEmitter, PhysicalObject, SoundId, Sounds, Vec2, Water, WaterDrip,
-    place_in_room,
+    BodyChunk, EmitterPlace, LoopEmitter, NoiseSink, PhysicalObject, SoundId, Sounds, Vec2, Water,
+    WaterDrip, place_in_room,
 };
-use sounds::QueuedSound;
+use sounds::{QueuedNoise, QueuedSound};
 
 /// Index of the head chunk (`bodyChunks[0]`, `mainBodyChunk`).
 pub const HEAD: usize = 0;
@@ -345,6 +345,9 @@ pub struct Player {
     /// `room.PlaySound` calls on a chunk made where no generator is at hand; their
     /// draws are made before the next draw of the tick (same order as the game).
     sound_queue: Vec<QueuedSound>,
+    /// `room.InGameNoise` calls made where nobody can hear them yet, each after the
+    /// sounds queued before it; heard at the update's last flush.
+    noise_queue: Vec<QueuedNoise>,
 
     /// `sleepCounter`: above 0 waking up in a shelter, below 0 lying down; 0 awake.
     sleep_counter: i32,
@@ -484,6 +487,7 @@ impl Player {
             released_slide_loops: Vec::new(),
             emitter_place: EmitterPlace::default(),
             sound_queue: Vec::new(),
+            noise_queue: Vec::new(),
             sleep_counter: 0,
             sleep_curl_up: 0.0,
             sleep_when_still: false,
@@ -653,7 +657,7 @@ impl Player {
         sounds: &mut Sounds,
     ) {
         if self.update_before_catch(room, water, input, rng, sounds) {
-            self.update_after_catch(room, water, rng, sounds);
+            self.update_after_catch(room, water, rng, sounds, &mut ());
         }
     }
 
@@ -683,7 +687,7 @@ impl Player {
         };
         self.body.params.water_friction = self.water_friction;
         self.body.params.water_retardation_immunity = self.water_retardation_immunity;
-        self.update_counters_before_input(room, rng, sounds);
+        self.update_counters_before_input(room, water, rng, sounds);
         if !self.dead {
             self.lung_update(room, water, rng, sounds);
         }
@@ -702,23 +706,26 @@ impl Player {
         water: Option<&Water>,
         rng: &mut UnityRandom,
         sounds: &mut Sounds,
+        noises: &mut dyn NoiseSink,
     ) {
         self.clamp_to_cameras(room);
-        self.update_after_clamp(room, water, rng, sounds);
+        self.update_after_clamp(room, water, rng, sounds, noises);
     }
 
     /// [`Player::update_after_catch`] after the camera clamp, where `Player.Update` has its
-    /// shelter block: the creature update, physics or the pull, the state machine.
+    /// shelter block: the creature update, physics or the pull, the state machine. Its
+    /// noises go to `noises` as the game makes them.
     pub(crate) fn update_after_clamp(
         &mut self,
         room: &Room,
         water: Option<&Water>,
         rng: &mut UnityRandom,
         sounds: &mut Sounds,
+        noises: &mut dyn NoiseSink,
     ) {
         self.creature_update(water);
         if self.destroyed {
-            self.flush_sounds(rng, sounds);
+            self.flush_sounds_and_noises(rng, sounds, noises);
             return;
         }
         if let Some(entrance) = self.entering_shortcut {
@@ -726,7 +733,7 @@ impl Player {
             self.pull_into_shortcut(room, entrance);
         } else {
             self.short_cut_rad_add = shortcut::RAD_ADD_RESET;
-            self.update_physics(room, water, rng, sounds);
+            self.update_physics(room, water, rng, sounds, noises);
         }
         self.body.set_go_through_floors(false);
         if self.stun < 1 && !self.dead && self.entering_shortcut.is_none() && self.vessel.is_none()
@@ -734,7 +741,7 @@ impl Player {
             self.movement_ran = true;
             self.movement_update(room, water, rng, sounds);
         }
-        self.flush_sounds(rng, sounds);
+        self.flush_sounds_and_noises(rng, sounds, noises);
     }
 
     /// Counters, the slide loop and the jump-press buffer. They run before the new input
@@ -742,6 +749,7 @@ impl Player {
     fn update_counters_before_input(
         &mut self,
         room: &Room,
+        water: Option<&Water>,
         rng: &mut UnityRandom,
         sounds: &mut Sounds,
     ) {
@@ -794,13 +802,15 @@ impl Player {
         if self.grab.dont_grab_stuff > 0 {
             self.grab.dont_grab_stuff -= 1;
         }
-        self.update_sneak();
+        self.update_sneak(water);
     }
 
     /// `privSneak` rises while low (not standing, crawling, in a corridor, or still on a
-    /// pole) and off the air, else falls. The game's `ClimbIntoShortCut` body mode is
-    /// never set; zero gravity (`ZeroG`, 0.5) and the chunks' `loudness` are not ported.
-    fn update_sneak(&mut self) {
+    /// pole) and off the air, else falls; the head is then `1.5 * (1 - Sneak)` loud and
+    /// the hips `0.7 * (1 - Sneak)`, times the slugcat's `loudnessFac`. The game's
+    /// `ClimbIntoShortCut` body mode is never set; there is no zero-gravity body mode
+    /// (`ZeroG`: `privSneak` 0.5, both chunks 0.5 loud).
+    fn update_sneak(&mut self, water: Option<&Water>) {
         let low = !self.standing
             || matches!(self.body_mode, BodyMode::Crawl | BodyMode::CorridorClimb)
             || (self.animation == Animation::HangFromBeam && self.input[0].x == 0)
@@ -810,6 +820,22 @@ impl Player {
         } else {
             (self.priv_sneak - 0.04).max(0.0)
         };
+        let quiet = 1.0 - self.sneak(water);
+        let fac = self.stats.loudness_fac;
+        self.body.chunks[HEAD].loudness = 1.5 * quiet * fac;
+        self.body.chunks[HIPS].loudness = 0.7 * quiet * fac;
+    }
+
+    /// `Sneak`.
+    #[must_use]
+    pub fn sneak(&self, water: Option<&Water>) -> f32 {
+        crate::creature::PlayerVisibility {
+            general: self.stats.general_visibility_bonus,
+            stealth_in_sneak_mode: self.stats.visual_stealth_in_sneak_mode,
+            priv_sneak: self.priv_sneak,
+            submersion: self.body.submersion(water),
+        }
+        .sneak()
     }
 
     /// `privSneak`.

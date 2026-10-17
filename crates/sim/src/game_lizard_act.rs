@@ -94,10 +94,10 @@ impl RainWorldGame {
     /// `MigrationBehavior`) on a roll of `1 / LerpMap(RoomLike, 0.35, 1, 10, 1000)`
     /// (red lizards 1/50), the social memory's temps evened out, walking past the point
     /// of no return when stranded or the den is not getbackable, the jaw closing a
-    /// little, `runSpeed` at least the stuck tracker's utility, the casual aggression;
-    /// then the base update: the room clock again and the modules (the path finder, the
-    /// tracker, the relationship tracker, the stuck tracker; the discomfort tracker has
-    /// nothing to update). `DetermineBehavior` and the behaviours are lizard step 7.
+    /// little, `runSpeed` at least the stuck tracker's utility, the hearing skill by it,
+    /// the casual aggression; then the base update: the room clock again and the modules
+    /// (the path finder, the tracker, the noise tracker, the relationship tracker, the
+    /// stuck tracker; the discomfort tracker has nothing to update). `DetermineBehavior` and the behaviours are lizard step 7.
     pub(super) fn lizard_ai_update(&mut self, index: i32, id: CreatureId) {
         let l = self.world.lizard_at(id);
         if l.ai.panic > 0 {
@@ -139,6 +139,7 @@ impl RainWorldGame {
         // The behaviours that set `runSpeed` are lizard step 7: 0, or the dev override.
         let base = l.ai.dev_run_speed.unwrap_or(0.0);
         l.ai.run_speed = base.max(l.ai.stuck.utility());
+        l.ai.set_hearing_skill(kind);
         self.lizard_casual_aggression(id);
         self.world.lizard_at(id).ai.time_in_room += 1;
         if let Some(p) = pf {

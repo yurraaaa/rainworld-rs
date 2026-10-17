@@ -11,7 +11,7 @@ use rw_assets::creatures::CreatureSpawner;
 use rw_random::UnityRandom;
 
 use super::{Community, CreatureId, EntityId, RealizedCreature};
-use crate::world::World;
+use crate::world::{SocialEventId, World};
 
 /// `PlayerSessionRecord.KillRecord`: the kill's `IconSymbolData` (its type and
 /// `intData`), the victim's ID and `Template.IsLizard`.
@@ -131,27 +131,36 @@ impl World {
         self.abstract_die(id, rng);
     }
 
-    /// `SocialEventRecognizer.Killing`: no ported creature reacts to the social event; a
-    /// slugcat killer lowers the victim's community's like of the player (`-0.05 *
-    /// communityInfluence` in this region, bleeding 0.25 to the region-wide cell) and
-    /// adds the kill to the session record.
+    /// `SocialEventRecognizer.Killing`: the social event in the victim's room (the victim
+    /// is not dead yet), then a slugcat killer lowers the victim's community's like of
+    /// the player (`-0.05 * communityInfluence` in this region, bleeding 0.25 to the
+    /// region-wide cell) and adds the kill to the session record.
     fn killing(&mut self, killer: CreatureId, victim: CreatureId) {
+        let room = self.creature(victim).pos.room;
+        self.social_event(room, SocialEventId::Killing, killer, victim);
         if self.creature(killer).kind() != CreatureType::Slugcat {
             return;
         }
         let v = self.creature(victim).template.violence();
         if v.community != Community::None {
-            let influence = CommunityInfluence {
+            self.influence_and_record(CommunityInfluence {
                 community: v.community,
                 influence: -0.05 * v.community_influence,
                 inter_region_bleed: 0.25,
                 inter_community_bleed: 0.0,
-            };
-            self.influence_like_of_player(influence);
-            self.session.influences.push(influence);
+            });
         }
         if self.story {
             self.add_kill(victim);
+        }
+    }
+
+    /// `CreatureCommunities.InfluenceLikeOfPlayer` on the session's communities, kept to
+    /// be applied to the saved ones at `Win` (one of 0 changes nothing and is not kept).
+    pub(crate) fn influence_and_record(&mut self, i: CommunityInfluence) {
+        self.influence_like_of_player(i);
+        if i.influence != 0.0 {
+            self.session.influences.push(i);
         }
     }
 

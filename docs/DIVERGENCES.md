@@ -94,8 +94,8 @@ it (D13). What still differs is only the seed and the call order:
   1000 ticks into a cycle) every story run's stream has shifted from before, as the
   game's does. Missing: the draws a creature other than a bat fly, an overseer or a
   green lizard would make on being realized (`PlaceInRealizedRoom`, its body, AI and
-  graphics), as it stays abstract (D14), a green lizard AI's noise tracker and
-  behaviours (lizard steps 6b and 7), and
+  graphics), as it stays abstract (D14), a green lizard AI's behaviours and its
+  reaction to noise (lizard step 7), and
   per tick the scavengers' abstract AI and `ScavengersWorldAI` (one `Range` over the
   scavengers every tick once a world has any), which are not ported (D14).
   `LocalCoordinateOfNode` draws for bat hives, garbage holes and border exits (a border
@@ -262,8 +262,8 @@ apply to `HeavyCarry` objects only, which no ported object is.
   (`HitSomethingWithoutStopping`, `TryImpaleSmallCreature`, `INotifyOfFlyingWeapons`;
   section 12), and of collision layer 1, the green lizards (`HitSomething`, `Violence`,
   `LodgeInCreature`, `StuckInCreature`; D14). `SocialEventRecognizer.WeaponAttack`
-  only breaks the peaceful record: the hit creatures' reactions are their AI's (lizard
-  step 7). Adrenaline's
+  breaks the peaceful record and tells the room's lizards (hits and near misses,
+  `creature-model.md` section 18); their other reactions are lizard step 7. Adrenaline's
   throw force (`Lerp(1, 1.5, Adrenaline)`) is 1 (adrenaline is skipped for now, a user
   decision of 2026-10-16). Remix and More Slugcats branches
   (Gourmand, Saint, Spearmaster, Rivulet's upward throw, the MMF slow-spear and
@@ -326,8 +326,8 @@ physics with neutral input, its water, graphics and room camera as in the game.
 - **Other creatures.** Bat flies and overseers are stunned (`Stun`'s counter) and die
   (`Creature.Die`, `AbstractCreature.Die`) as in the game: the kill tag and its 200
   ticks, the slugcat's `Killing` (kill, peaceful streak, community like) and the
-  respawn lists. `SocialEventRecognizer`'s listeners and the More Slugcats and Watcher
-  branches of `Die` are not ported.
+  respawn lists. `SocialEventRecognizer`'s listeners other than the lizards' and the
+  More Slugcats and Watcher branches of `Die` are not ported.
 
 **Why.** The respawn is a development aid the user kept outside story sessions; the
 rest is out of the base-game scope or randomness (D1).
@@ -1380,18 +1380,36 @@ second part, else a single-room world for arena levels). The campaign descriptio
   `UpdateDynamicRelationship`, `VisualScore` and `LikeOfPlayer` (with those DLCs). A
   kill's community influence is applied to the session's communities at once, as the
   game's `InfluenceLikeOfPlayer` does, and again to the saved ones at `Win`.
+  It hears (lizard step 6b, `creature-model.md` section 18): the `NoiseTracker` with
+  its sources, mysterious noises and sound to examine, `HeardThisCreature` moving or
+  cloning ghosts, `hearingSkill` from the run speed; noises from the player's
+  footsteps and the terrain impacts of the player, lizards, flies, rocks and spears
+  (`BodyChunk.loudness`, the player's from `Sneak`); `SocialEventRecognizer`'s
+  `Killing` and `WeaponAttack` (hits and near misses) change its and its community's
+  like of the player (`LizardPlayerRelationChange`); the path finder's
+  `TravelPreference` adds `DiscomfortOfTile`. Nothing reacts to what it hears yet
+  (`ReactToNoise`, `InvestigateSound`: step 7). Left out of step 6b, each a question
+  to the user: `Deaf` and `room.BackgroundNoise` (nothing ported sets them), the
+  noise sources whose objects are not ported (explosions, firecrackers, scavenger
+  bombs, egg bugs, Miros birds, snails, the explosive spear's blast, karmic armor,
+  vultures, lightning, other creatures' impacts), the social event's fear branch
+  (`Afraid` victims, through the threat tracker, step 7), the item tracker's
+  uncomfortable items in `DiscomfortOfTile`, and the player's zero-gravity loudness
+  (the port has no `ZeroG` body mode). The MCP `noise.heard` log is the port's, not
+  the game's. The Watcher ripple layer test, Remix's water splash noises and the More
+  Slugcats noise sources are left out with their DLCs.
   The MCP `set_destination` tool sets a destination and a run speed the AI keeps: a dev
   override, not game behaviour. `LegsGripping` and `NoGripCounter` come from its
   graphics' legs in a viewed room (lizard step 5a, D8), and are 2 and 0 without a
   graphics module, as in the game. Not ported: the den finder's
   remap in `NewArea` (step 7), the yellow lizards' pack term of the travel preference,
-  the obstacle and threat terms of the travel costs (step 6b),
+  the threat terms of the travel costs (step 7; the obstacle term is dead code in the
+  game, which never makes an `ObstacleTracker`),
   `nonShortcutRoomEntrancePos` (entering a room from its border), and `PathWithExits`
   and `BestRegionTransportationGoal`, which nothing calls yet. The tongue, spit and
   jump animations belong to breeds whose data is not entered; a green lizard never
   enters them, and the port goes back to Standard if one does. Not yet, with their
-  steps: the noise tracker and hearing (step 6b), the AI's decisions (social events
-  are step 7, taming is skipped for now; the AI's `MakeSound` calls, boredom, pain, frustration, blood lust,
+  steps: the AI's decisions (step 7; taming is skipped for now; the AI's `MakeSound` calls, boredom, pain, frustration, blood lust,
   dominance and submission, come with them), eating a dead
   lizard (step 8: the player cannot grab creatures yet), the drowning bubble (its draws
   are made, the object is not), lethal water and the rain's flood (no rain yet). The
@@ -1414,7 +1432,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   travel (D5), `Abstractize` when its room is abstracted, and `FlyGraphics` in a viewed
   room (`rw_graphics`). The player catches, holds, throws, carries and eats flies (D1,
   D8); the quantifying of a fly held while its room is abstracted is not exercised. Not
-  ported: a creature's terrain impact's `InGameNoise` and the rain's
+  ported: the rain's
   `CreatureSmashedInGround`, which needs the rain. The fly's `RoomNotACycleHazard` reads the room settings'
   `DangerType` as registered with no DLC (a DLC value such as `Blizzard` counts as
   unregistered).
@@ -1437,9 +1455,9 @@ second part, else a single-room world for arena levels). The campaign descriptio
   `BringToRoomAndGuidePlayer` branch of the world
   process's update and More Slugcats' goal rooms and guide symbols are left out.
   Not ported: the scavengers' abstract AI (`ScavengerAbstractAI`: squads, outposts,
-  traders, kill squads, re-gearing) and `ScavengersWorldAI`, and `CreatureCommunities`
-  in the sim (a kill's `InfluenceLikeOfPlayer` is recorded and applied to the save at
-  `Win`, D16). `NewWorld` (a region change) is not reachable (no gates).
+  traders, kill squads, re-gearing) and `ScavengersWorldAI`. `CreatureCommunities`
+  is the session's copy on the world: a kill's or a lizard's `InfluenceLikeOfPlayer`
+  changes it at once and is recorded and applied to the save at `Win` (D16). `NewWorld` (a region change) is not reachable (no gates).
 - **Hologram graphics.** A hologram's colour base (`Color.Lerp(MainColor,
   ColorOfSegment(0, 0), 0.5)`) is taken at its overseer's last update (holograms update
   before their overseer, so it is the one the game reads). Not drawn: the
@@ -1792,7 +1810,7 @@ shelter.
 
 ## Not ported yet (not divergences, just absent)
 
-Player (stage one leaves out): the zero-gravity `privSneak` and the chunks' `loudness` (nothing hears yet, lizard step 6b), zero gravity, grabbing and eating anything but bat flies, rocks and spears, thrown
+Player (stage one leaves out): the zero-gravity `privSneak` and chunk `loudness` (no `ZeroG` body mode), zero gravity, grabbing and eating anything but bat flies, rocks and spears, thrown
 weapons hitting creatures other than bat flies and overseers (D3), adrenaline, Red's illness, the WALLSTUCK safety
 (needs `VisualContact`), vines, tube worm,
 Jolly co-op, MSC / Watcher class mechanics. Ported because ground classification

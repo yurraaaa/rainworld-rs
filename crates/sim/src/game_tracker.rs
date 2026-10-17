@@ -15,7 +15,7 @@ use rw_assets::shortcut::FOUR_DIRECTIONS;
 
 use super::RainWorldGame;
 use crate::creature::{
-    CreatureId, CreatureRep, DynamicRelationship, ElaborateRep, Ghost, RelationshipTracker,
+    CreatureId, CreatureRep, DynamicRelationship, Ghost, GhostCloneCx, RelationshipTracker,
     RelationshipType, RepKey, RepKind, Tracker, WorldCoordinate,
 };
 use crate::world::MovementConnection;
@@ -108,19 +108,13 @@ impl RainWorldGame {
         self.world.creature(ai).pos
     }
 
-    /// `VisualContact(lookAtPoint, bonus)` of AI `ai` in its abstract room (a room not
-    /// ready for AI gives the score's caught exception: no contact).
+    /// `VisualContact(lookAtPoint, bonus)` of AI `ai` in its abstract room.
     pub(crate) fn ai_sees_point(&self, ai: CreatureId, look: Vec2, bonus: f32) -> bool {
-        let Some(eyes) = self.ai_eyes(ai) else {
-            return false;
-        };
-        let Some(r) = self.world.realized(self.ai_pos(ai).room) else {
-            return false;
-        };
-        let Some(map) = r.ai_map.as_deref() else {
-            return false;
-        };
-        eyes.visual_contact(&r.room, map, r.water.is_some(), look, bonus)
+        let has_water = self
+            .world
+            .realized(self.ai_pos(ai).room)
+            .is_some_and(|r| r.water.is_some());
+        self.world.ai_sees_point(ai, look, bonus, has_water)
     }
 
     /// `VisualContact(lookAtCoord, bonus)`: its tile's middle, in the AI's room only.
@@ -166,74 +160,16 @@ impl RainWorldGame {
         rep.visual_contact
     }
 
-    /// `BestGuessForPosition()`: a simple representation's last seen coordinate; an
-    /// elaborate one's best ghost (found again when dirty), its node washed in the AI's
-    /// room.
+    /// `BestGuessForPosition()` (`World::rep_best_guess` with the AI's path finder).
     pub(crate) fn rep_best_guess(&self, ai: CreatureId, rep: &mut CreatureRep) -> WorldCoordinate {
-        let last_seen = rep.last_seen_coord;
-        match &mut rep.kind {
-            RepKind::Simple { .. } => last_seen,
-            RepKind::Elaborate(e) => {
-                if e.best_ghost_dirty {
-                    self.find_best_ghost(ai, e, last_seen);
-                }
-                let room = self.ai_pos(ai).room;
-                e.best().map_or(WorldCoordinate::new(-1, -1, -1, -1), |g| {
-                    if g.coord.room == room {
-                        g.coord.wash_node()
-                    } else {
-                        g.coord
-                    }
-                })
-            }
-        }
+        self.world
+            .rep_best_guess(ai, rep, self.world.path_finder(ai))
     }
 
     /// What `BestGuessForPosition()` would return now, without settling the guess.
     pub(crate) fn peek_best_guess(&self, ai: CreatureId, rep: &CreatureRep) -> WorldCoordinate {
         let mut copy = rep.clone();
         self.rep_best_guess(ai, &mut copy)
-    }
-
-    /// `FindBestGhost`: most reachable and getbackable for the AI's path finder, then
-    /// the lowest of generation and distance from the AI and the last sighting (a ghost
-    /// in a Solid tile 1000 less).
-    fn find_best_ghost(&self, ai: CreatureId, e: &mut ElaborateRep, last_seen: WorldCoordinate) {
-        let mut best_score = -1.0;
-        let mut best_ways = 0;
-        e.best_ghost_dirty = false;
-        e.lowest_generation_available = -1;
-        let ai_pos = self.ai_pos(ai);
-        let pf = self.world.path_finder(ai);
-        let mut best = None;
-        for g in &e.ghosts {
-            let mut score = (g.generation * 20) as f32
-                + self.world.between_rooms_distance(ai_pos, g.coord) * 0.5
-                + self.world.between_rooms_distance(last_seen, g.coord);
-            let ways = pf.map_or(0, |p| {
-                i32::from(p.coordinate_reachable(g.coord))
-                    + i32::from(p.coordinate_possible_to_get_back_from(g.coord))
-            });
-            if self.world.realized(g.coord.room).is_some_and(|r| {
-                crate::RoomExt::is_solid_tile(&*r.room, g.coord.tile.0, g.coord.tile.1)
-            }) {
-                score -= 1000.0;
-            }
-            if ways > best_ways {
-                best_ways = ways;
-                best_score = score;
-                best = Some(g.serial);
-            } else if ways == best_ways && (best_score < 0.0 || score <= best_score) {
-                best_score = score;
-                best = Some(g.serial);
-            }
-            if g.generation < e.lowest_generation_available || e.lowest_generation_available < 0 {
-                e.lowest_generation_available = g.generation;
-            }
-        }
-        if let Some(s) = best {
-            e.best_ghost = Some(crate::creature::BestGhost::Listed(s));
-        }
     }
 
     /// `Tracker.Update` of AI `ai` (`useTrackedCreatures` off): a random representation
@@ -554,8 +490,8 @@ impl RainWorldGame {
         e.best_ghost_dirty = true;
     }
 
-    /// `Ghost.Clone(dest, generationAdd)` of ghost `gi` of representation `i`: a new
-    /// ghost (one draw) at `dest`, heading there; returns its index.
+    /// `Ghost.Clone(dest, generationAdd)` of ghost `gi` of representation `i`; returns
+    /// the new ghost's index.
     fn ghost_clone(
         &mut self,
         t: &mut Tracker,
@@ -564,29 +500,15 @@ impl RainWorldGame {
         dest: WorldCoordinate,
         generation_add: i32,
     ) -> usize {
-        let params = t.ghosts;
-        let cpos = self.world.creature(t.reps[i].creature).pos;
-        let dest_realized = self.world.realized(dest.room).is_some();
+        let cx = GhostCloneCx {
+            creature_pos: self.world.creature(t.reps[i].creature).pos,
+            params: t.ghosts,
+            dest_realized: self.world.realized(dest.room).is_some(),
+        };
         let RepKind::Elaborate(e) = &mut t.reps[i].kind else {
             return 0;
         };
-        let (pos, vel, coord, generation) = {
-            let src = &e.ghosts[gi];
-            (src.pos, src.vel, src.coord, src.generation)
-        };
-        let serial = e.next_serial();
-        let mut g = Ghost::new(serial, cpos, pos, vel, params, &mut self.rng);
-        g.coord = dest;
-        if dest_realized {
-            g.pos = Vec2::middle_of_tile(dest.tile);
-        }
-        g.last_coord = coord;
-        g.vel = Vec2::of_tile(coord.tile).direction_to(Vec2::of_tile(dest.tile));
-        g.generation = generation + generation_add;
-        g.push_forward = params.push - generation;
-        e.best_ghost_dirty = true;
-        e.ghosts.push(g);
-        e.ghosts.len() - 1
+        e.clone_ghost(gi, dest, generation_add, cx, &mut self.rng)
     }
 
     /// `Ghost.Push`: an old ghost with no pushes left goes; else it is pushed

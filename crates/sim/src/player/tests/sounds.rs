@@ -117,3 +117,80 @@ fn landing_softly_while_standing_plays_the_standard_floor_impact() {
         [(SoundId::SlugcatFloorImpactStandard, HEAD, 0.5)]
     );
 }
+
+/// The noises a player made, with the random state each was made at.
+#[derive(Default)]
+struct NoiseLog(Vec<(Vec2, f32, f32, UnityRandom)>);
+
+impl crate::NoiseSink for NoiseLog {
+    fn in_game_noise(&mut self, pos: Vec2, strength: f32, interesting: f32, rng: &mut UnityRandom) {
+        self.0.push((pos, strength, interesting, rng.clone()));
+    }
+}
+
+/// `UpdateBodyMode`'s `Stand`: each footstep (every seventh frame walking) plays its
+/// sound and makes a noise at the hips, strength 150, interesting 1.
+#[test]
+fn footsteps_make_noises() {
+    let room = flat_room();
+    let mut p = Player::upright_at(Vec2::new(200.0, 50.0));
+    let mut sounds = all_sounds();
+    let mut rng = UnityRandom::new(5);
+    let mut log = NoiseLog::default();
+    let mut steps = 0;
+    for _ in 0..40 {
+        if p.update_before_catch(&room, None, Input::new(1, 0, false), &mut rng, &mut sounds) {
+            p.update_after_catch(&room, None, &mut rng, &mut sounds, &mut log);
+        }
+        steps += played(&mut sounds)
+            .iter()
+            .filter(|(id, ..)| matches!(id, SoundId::SlugcatStepA | SoundId::SlugcatStepB))
+            .count();
+    }
+    // The first noise is the landing's `TerrainImpact`, below the chunk that hit.
+    let landing = log.0.remove(0);
+    assert!(landing.1 > 150.0 && landing.0.y < 45.0);
+    assert!(steps >= 4, "{steps} steps");
+    assert_eq!(log.0.len(), steps);
+    for (pos, strength, interesting, _) in &log.0 {
+        assert_eq!((*strength, *interesting), (150.0, 1.0));
+        assert!((pos.y - 50.0).abs() < 10.0);
+    }
+}
+
+/// Queued noises are made where they were called among the queued sounds: one made
+/// after a sound hears the sound's draws done, one made before it none.
+#[test]
+fn noises_keep_their_place_among_sounds() {
+    let mut sounds = all_sounds();
+    let mut p = Player::new();
+    p.play_sound(SoundId::SlugcatStepA, HEAD, 1.0, 1.0);
+    let mut alone = UnityRandom::new(3);
+    p.flush_sounds(&mut alone, &mut sounds);
+
+    let mut rng = UnityRandom::new(3);
+    let mut log = NoiseLog::default();
+    p.make_noise(Vec2::ZERO, 10.0, 1.0);
+    p.play_sound(SoundId::SlugcatStepA, HEAD, 1.0, 1.0);
+    p.make_noise(Vec2::ZERO, 20.0, 1.0);
+    p.flush_sounds_and_noises(&mut rng, &mut sounds, &mut log);
+    assert_eq!(log.0.len(), 2);
+    assert_eq!(log.0[0].3, UnityRandom::new(3));
+    assert_eq!(log.0[1].3, alone);
+    assert_ne!(alone, UnityRandom::new(3));
+}
+
+/// `privSneak` rises 0.1 a tick low and falls 0.04 otherwise; the chunks' loudness is
+/// `1.5` (head) and `0.7` (hips) times `(1 - Sneak) * loudnessFac`, `Sneak` being
+/// `Lerp(Pow(InverseLerp(0, 0.5, privSneak), 0.5), 0.5, submersion)`.
+#[test]
+fn sneaking_quietens_the_chunks() {
+    let mut p = Player::upright_at(Vec2::new(200.0, 50.0));
+    p.priv_sneak = 0.3;
+    p.update_sneak(None);
+    assert!((p.priv_sneak - 0.26).abs() < 1e-6);
+    let quiet = 1.0 - 0.52f32.sqrt();
+    assert!((p.sneak(None) - 0.52f32.sqrt()).abs() < 1e-6);
+    assert!((p.body.chunks[HEAD].loudness - 1.5 * quiet).abs() < 1e-6);
+    assert!((p.body.chunks[HIPS].loudness - 0.7 * quiet).abs() < 1e-6);
+}

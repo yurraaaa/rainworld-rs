@@ -5,7 +5,7 @@ use rw_random::UnityRandom;
 
 use super::{Animation, BodyMode, HEAD, HIPS, Player};
 use crate::float_ext::FloatExt;
-use crate::{EmitterPlace, LoopEmitter, SoundId, Sounds};
+use crate::{EmitterPlace, LoopEmitter, NoiseSink, SoundId, Sounds, Vec2};
 
 /// A `room.PlaySound(id, bodyChunks[chunk], false, volume, pitch)` waiting for its draws.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -16,7 +16,51 @@ pub(super) struct QueuedSound {
     pitch: f32,
 }
 
+/// A `room.InGameNoise(new InGameNoise(pos, strength, this, interesting))` waiting for
+/// the update's last flush, after the first `after_sounds` queued sounds.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(super) struct QueuedNoise {
+    after_sounds: usize,
+    pos: Vec2,
+    strength: f32,
+    interesting: f32,
+}
+
 impl Player {
+    /// A noise made where nobody can hear it yet; it is heard at
+    /// [`Player::flush_sounds_and_noises`], after the sounds queued before it.
+    pub(super) fn make_noise(&mut self, pos: Vec2, strength: f32, interesting: f32) {
+        self.noise_queue.push(QueuedNoise {
+            after_sounds: self.sound_queue.len(),
+            pos,
+            strength,
+            interesting,
+        });
+    }
+
+    /// Plays the queued sounds and makes the queued noises in call order.
+    pub(super) fn flush_sounds_and_noises(
+        &mut self,
+        rng: &mut UnityRandom,
+        sounds: &mut Sounds,
+        noises: &mut dyn NoiseSink,
+    ) {
+        let queued = std::mem::take(&mut self.noise_queue);
+        let mut pending = queued.iter().peekable();
+        for (k, q) in std::mem::take(&mut self.sound_queue)
+            .into_iter()
+            .enumerate()
+        {
+            while let Some(n) = pending.next_if(|n| n.after_sounds <= k) {
+                noises.in_game_noise(n.pos, n.strength, n.interesting, rng);
+            }
+            sounds.play_on_chunk(q.id, q.chunk, false, q.volume, q.pitch, rng);
+        }
+        for n in pending {
+            noises.in_game_noise(n.pos, n.strength, n.interesting, rng);
+        }
+    }
+
     /// A one-shot on a chunk. Its draws are made at the next [`Player::flush_sounds`],
     /// which runs before any other draw of the tick.
     pub(super) fn play_sound(&mut self, id: SoundId, chunk: usize, volume: f32, pitch: f32) {
@@ -32,6 +76,9 @@ impl Player {
     pub(super) fn flush_sounds(&mut self, rng: &mut UnityRandom, sounds: &mut Sounds) {
         for q in std::mem::take(&mut self.sound_queue) {
             sounds.play_on_chunk(q.id, q.chunk, false, q.volume, q.pitch, rng);
+        }
+        for n in &mut self.noise_queue {
+            n.after_sounds = 0;
         }
     }
 

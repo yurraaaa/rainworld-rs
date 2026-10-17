@@ -3,12 +3,17 @@
 //! behaviour roll, the social memory's temps, `walkPastPointOfNoReturn`, the jaw,
 //! `runSpeed` from the stuck tracker, the casual aggression) and the base
 //! `ArtificialIntelligence`'s update and `NewRoom` with its path finder, tracker,
-//! relationship tracker, stuck tracker and discomfort tracker. The update itself is
-//! `RainWorldGame::lizard_ai_update` (`game_lizard_act.rs`).
+//! noise tracker, relationship tracker, stuck tracker and discomfort tracker. The update
+//! itself is `RainWorldGame::lizard_ai_update` (`game_lizard_act.rs`).
 
-use crate::creature::{DiscomfortTracker, RelationshipTracker, RepKey, StuckTracker, Tracker};
+use rw_assets::CreatureType;
 
-/// `LizardAI` as far as lizard step 6a goes.
+use crate::FloatExt;
+use crate::creature::{
+    DiscomfortTracker, NoiseTracker, RelationshipTracker, RepKey, StuckTracker, Tracker,
+};
+
+/// `LizardAI` as far as lizard step 6b goes.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LizardAi {
     /// The `LizardPather` (a number in the world's path finders).
@@ -25,6 +30,7 @@ pub struct LizardAi {
     pub stuck: StuckTracker,
     pub discomfort: DiscomfortTracker,
     pub tracker: Tracker,
+    pub noise: NoiseTracker,
     pub relationships: RelationshipTracker,
     /// `focusCreature`: set by the behaviours (lizard step 7), so none yet.
     pub focus_creature: Option<RepKey>,
@@ -41,7 +47,20 @@ impl LizardAi {
         let mut held: Vec<RepKey> = self.focus_creature.into_iter().collect();
         held.extend(self.casual_aggression_target);
         held.extend(look);
+        held.extend(self.noise.held_reps());
         held
+    }
+
+    /// `LizardAI.Update`'s `noiseTracker.hearingSkill`: 2 for black (and the Watcher's
+    /// indigo) lizards, else 1.3 standing still down to 0.6 at a run speed of 0.6. The
+    /// rot module's (More Slugcats, Watcher) is not ported.
+    pub fn set_hearing_skill(&mut self, kind: CreatureType) {
+        self.noise.hearing_skill =
+            if matches!(kind, CreatureType::BlackLizard | CreatureType::IndigoLizard) {
+                2.0
+            } else {
+                self.run_speed.lerp_map(0.0, 0.6, 1.3, 0.6)
+            };
     }
 }
 
@@ -59,6 +78,7 @@ impl Default for LizardAi {
             stuck: StuckTracker::lizard(),
             discomfort: DiscomfortTracker::default(),
             tracker: Tracker::lizard(),
+            noise: NoiseTracker::default(),
             relationships: RelationshipTracker::default(),
             focus_creature: None,
             casual_aggression_target: None,
