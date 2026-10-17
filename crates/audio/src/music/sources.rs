@@ -1,7 +1,7 @@
 //! The audio sources the music player drives (one Unity `AudioSource` per sub-track),
 //! and a silent, tick-timed implementation for headless runs and tests.
 
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 
 use super::bank::{ClipLength, MusicBundle, SongBank};
 
@@ -78,8 +78,8 @@ pub struct TimedTrack {
 pub struct TimedSources {
     bank: Option<SongBank>,
     procedural: Option<SongBank>,
-    lengths: HashMap<(MusicBundle, String), Option<ClipLength>>,
-    tracks: HashMap<TrackId, TimedTrack>,
+    lengths: FxHashMap<(MusicBundle, String), Option<ClipLength>>,
+    tracks: FxHashMap<TrackId, TimedTrack>,
 }
 
 impl TimedSources {

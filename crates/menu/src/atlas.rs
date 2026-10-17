@@ -6,10 +6,11 @@
 //! Textures are kept here with their sampling; a [`TextureSync`] uploads them to a
 //! renderer and frees the ones unloaded since.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 
+use rustc_hash::FxHashMap;
 use rw_assets::{AssetError, PngImage, StreamingAssets, UnityResources};
 use rw_graphics::Atlas;
 use rw_render::{Renderer, StageTextureId, TextureFilter, TextureSampling};
@@ -56,9 +57,9 @@ struct TextureEntry {
 #[derive(Debug, Default)]
 pub struct AtlasManager {
     atlases: Vec<AtlasEntry>,
-    elements: HashMap<String, Element>,
+    elements: FxHashMap<String, Element>,
     textures: BTreeMap<StageTextureId, TextureEntry>,
-    fonts: HashMap<String, Arc<Font>>,
+    fonts: FxHashMap<String, Arc<Font>>,
 }
 
 /// Why an atlas or font could not be loaded.
@@ -492,7 +493,7 @@ impl AtlasManager {
 #[derive(Debug, Default)]
 pub struct TextureSync {
     /// Each uploaded texture's version.
-    uploaded: HashMap<StageTextureId, u64>,
+    uploaded: FxHashMap<StageTextureId, u64>,
 }
 
 impl TextureSync {

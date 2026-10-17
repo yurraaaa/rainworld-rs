@@ -7,10 +7,11 @@
 //! (`Vol=`, `rangeFact=`) have no effect. A sample whose clip is in neither the
 //! `loadedsoundeffects` bundle nor `soundeffects/` silences its whole ID.
 
-use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
+
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::unity::{AssetBundle, AudioClip, PcmAudio};
 use crate::{AssetError, StreamingAssets};
@@ -19,7 +20,7 @@ use crate::{AssetError, StreamingAssets};
 /// and file stem) and an optional loose-file directory (`soundeffects/`).
 #[derive(Debug, Clone, Default)]
 pub struct ClipNames {
-    names: HashSet<String>,
+    names: FxHashSet<String>,
     loose_dir: Option<PathBuf>,
 }
 
@@ -91,11 +92,11 @@ pub struct SoundTable {
     /// Exponent of the per-source volume curve (line 1).
     pub volume_exponent: f32,
     /// Lower-case sound ID -> trigger, `None` when a clip is missing.
-    triggers: HashMap<String, Option<SoundTrigger>>,
+    triggers: FxHashMap<String, Option<SoundTrigger>>,
     clips: Vec<SoundClip>,
     /// Decoded clips by variation asset: those whose spectrum the game reads while they
     /// play (`CreatureVoice`'s visualizer), decoded once when the table loads.
-    pcm: HashMap<String, Arc<PcmAudio>>,
+    pcm: FxHashMap<String, Arc<PcmAudio>>,
 }
 
 impl ClipNames {
@@ -106,7 +107,7 @@ impl ClipNames {
     /// in `loose_dir`.
     #[must_use]
     pub fn new(names: impl IntoIterator<Item = String>, loose_dir: Option<PathBuf>) -> Self {
-        let mut set = HashSet::new();
+        let mut set = FxHashSet::default();
         for name in names {
             let lower = name.to_lowercase();
             let file = lower.rsplit('/').next().unwrap_or(&lower);
@@ -245,7 +246,7 @@ impl SoundTable {
             volume_exponent,
             ..Self::default()
         };
-        let mut clip_index: HashMap<String, usize> = HashMap::new();
+        let mut clip_index: FxHashMap<String, usize> = FxHashMap::default();
         let mut open_groups: Vec<(String, f32)> = Vec::new();
         for line in &lines {
             let parts: Vec<&str> = line.split(" : ").collect();
@@ -297,7 +298,7 @@ impl SoundTable {
         sample_list: &str,
         group_volume: f32,
         names: &ClipNames,
-        clip_index: &mut HashMap<String, usize>,
+        clip_index: &mut FxHashMap<String, usize>,
     ) -> Result<Option<SoundTrigger>, String> {
         let list = if sample_list.ends_with(',') {
             format!("{sample_list} ")

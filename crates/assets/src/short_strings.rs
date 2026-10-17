@@ -10,15 +10,16 @@
 //! second part maps the first part to the second (later lines win), anything else is
 //! skipped.
 
-use std::collections::HashMap;
 use std::path::Path;
+
+use rustc_hash::FxHashMap;
 
 use crate::{AssetError, StreamingAssets};
 
 /// A loaded table and what the loader skipped.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ShortStrings {
-    pub entries: HashMap<String, String>,
+    pub entries: FxHashMap<String, String>,
     /// Lines (after the `\r\n` split) that gave no entry.
     pub rejected: usize,
     /// Lines whose key was already present.

@@ -2,8 +2,7 @@
 //! start connects to it) and `DefineNodeOfLocalCoordinate`. Decompile
 //! `QuickConnectivity.cs`. Behaviour: `rainworld-re/notes/ai-map.md`.
 
-use std::collections::HashSet;
-
+use rustc_hash::FxHashSet;
 use rw_random::UnityRandom;
 
 use super::ai_map::FOUR_DIRECTIONS_AND_ZERO;
@@ -34,7 +33,7 @@ impl QuickConnectivity {
         let start = (start.0.clamp(0, w - 1), start.1.clamp(0, h - 1));
         let goal = (goal.0.clamp(0, w - 1), goal.1.clamp(0, h - 1));
         let legality = map.tile_cost_for_creature(start, template).legality;
-        let mut checked: HashSet<i32> = HashSet::new();
+        let mut checked: FxHashSet<i32> = FxHashSet::default();
         let mut queue = vec![goal];
         for i in 0..max_generations {
             if queue.is_empty() {

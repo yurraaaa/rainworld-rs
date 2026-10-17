@@ -20,10 +20,10 @@
 //! [`WgpuRenderer::headless`] has no window: it only draws the frame.
 
 use std::borrow::Cow;
-use std::collections::HashSet;
 use std::path::PathBuf;
 
 use log::warn;
+use rustc_hash::FxHashSet;
 use rw_assets::{PngImage, Room};
 use rw_graphics::{DrawList, Layer};
 use rw_sim::Vec2;
@@ -86,7 +86,7 @@ pub struct WgpuRenderer {
     /// This frame's camera position for sprites (stage origin in room pixels).
     stage_origin: [f32; 2],
     /// Atlas elements already reported missing.
-    missing: HashSet<&'static str>,
+    missing: FxHashSet<&'static str>,
     room: Option<StaticMesh>,
     grid: Option<StaticMesh>,
     queue_draws: DrawQueue,
@@ -355,7 +355,7 @@ impl WgpuRenderer {
             water_depth: 0.0,
             atlas: None,
             stage_origin: [0.0, 0.0],
-            missing: HashSet::new(),
+            missing: FxHashSet::default(),
             room: None,
             grid: None,
             queue_draws: DrawQueue::default(),

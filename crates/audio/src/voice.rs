@@ -1,8 +1,7 @@
 //! Sound objects (`DisembodiedSound`, `StaticPositionSound`, `ObjectSound`) and the
 //! chunk emitters they follow.
 
-use std::collections::HashMap;
-
+use rustc_hash::FxHashMap;
 use rw_sim::{BodyChunk, EmitterId, FloatExt, PlayedSound, SoundSource, Vec2, Water};
 
 use crate::mic::{Doppler, Microphone, SourceMix};
@@ -23,7 +22,7 @@ pub struct Emitter {
 
 /// The chunk emitters by handle.
 #[derive(Debug, Clone, Default)]
-pub struct Emitters(HashMap<EmitterId, Emitter>);
+pub struct Emitters(FxHashMap<EmitterId, Emitter>);
 
 impl Emitters {
     /// Makes the emitter of a chunk sound on its first play (`chunks`: the player's

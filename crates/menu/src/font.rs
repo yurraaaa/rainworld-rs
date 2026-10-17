@@ -5,8 +5,7 @@
 //! 1366 wide), so they are left out. Text is walked in UTF-16 units, as C# `char`s.
 //! The Thai-only placement rules of `GetQuadInfoForText` are not ported (English only).
 
-use std::collections::HashMap;
-
+use rustc_hash::FxHashMap;
 use rw_assets::FontConfig;
 use rw_render::StageTextureId;
 
@@ -78,10 +77,10 @@ pub struct Font {
     pub name: String,
     /// The atlas texture all its characters are on.
     pub texture: StageTextureId,
-    chars: HashMap<u32, CharInfo>,
+    chars: FxHashMap<u32, CharInfo>,
     /// `(first, second)` to the amount; the last line of a pair wins, as the game's
     /// search keeps the last match.
-    kernings: HashMap<(i32, i32), f32>,
+    kernings: FxHashMap<(i32, i32), f32>,
     line_height: f32,
     max_char_width: f32,
     text_params: TextParams,
@@ -106,7 +105,7 @@ impl Font {
     ) -> Self {
         let ratio = element.source_pixel_size[0] / config.config_width as f32;
         let [tex_w, tex_h] = element.texture_size;
-        let mut chars = HashMap::new();
+        let mut chars = FxHashMap::default();
         chars.insert(0, CharInfo::default());
         let mut max_char_width = 0.0_f32;
         for c in &config.chars {
@@ -149,7 +148,7 @@ impl Font {
                 .map(|k| ((k.first, k.second), k.amount as f32 * ratio))
                 .collect()
         } else {
-            HashMap::new()
+            FxHashMap::default()
         };
         Self {
             name: name.to_owned(),

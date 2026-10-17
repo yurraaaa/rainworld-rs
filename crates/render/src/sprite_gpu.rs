@@ -4,8 +4,8 @@
 //! palette) and the per-frame sprite buffers.
 
 use std::borrow::Cow;
-use std::collections::HashMap;
 
+use rustc_hash::FxHashMap;
 use rw_assets::PngImage;
 use rw_graphics::Shader;
 use wgpu::util::DeviceExt;
@@ -28,7 +28,7 @@ struct RoomUniform {
 
 /// The sprite pipelines, the atlas pages' bind groups and the frame's buffers.
 pub(crate) struct SpritePipeline {
-    pipelines: HashMap<Shader, wgpu::RenderPipeline>,
+    pipelines: FxHashMap<Shader, wgpu::RenderPipeline>,
     layout: wgpu::BindGroupLayout,
     noise_layout: wgpu::BindGroupLayout,
     screen_layout: wgpu::BindGroupLayout,

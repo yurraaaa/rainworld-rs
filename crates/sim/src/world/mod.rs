@@ -31,9 +31,9 @@ mod region_state;
 mod swarm_rooms;
 mod weapons;
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
+use rustc_hash::FxHashMap;
 use rw_assets::world::{AbstractRoomData, RoomSource, WorldData};
 use rw_assets::{ActiveMods, AssetError, CreatureType, RoomAttraction, Timeline};
 
@@ -86,7 +86,7 @@ pub struct World {
     /// Per abstract room, its creature lists.
     pub(crate) lists: Vec<RoomLists>,
     /// Per abstract room, `roomAttractions` from `Room_Attr` lines.
-    attractions: Vec<HashMap<CreatureType, RoomAttraction>>,
+    attractions: Vec<FxHashMap<CreatureType, RoomAttraction>>,
     /// `skyAccessNodes`.
     sky_access_nodes: Vec<WorldCoordinate>,
     pub(crate) processes: WorldProcesses,

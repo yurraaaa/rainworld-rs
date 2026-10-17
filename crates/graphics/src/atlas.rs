@@ -4,10 +4,10 @@
 //! and a Texture2D of the same path), read with [`UnityResources`]
 //! (`rainworld-re/notes/sprite-atlases.md`, `unity-assets.md`).
 
-use std::collections::HashMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
+use rustc_hash::{FxBuildHasher, FxHashMap};
 use rw_assets::{AssetError, UnityResources};
 
 use serde::Deserialize;
@@ -54,7 +54,7 @@ pub struct Atlas {
     /// The image file named in the metadata.
     pub image: String,
     pub size: Size,
-    pub frames: HashMap<String, AtlasFrame>,
+    pub frames: FxHashMap<String, AtlasFrame>,
 }
 
 /// Error from reading atlas frame data.
@@ -97,7 +97,7 @@ impl std::error::Error for AtlasError {
 /// The file layout of TexturePacker's "Unity3D" JSON.
 #[derive(Deserialize)]
 struct AtlasFile {
-    frames: HashMap<String, AtlasFrame>,
+    frames: FxHashMap<String, AtlasFrame>,
     meta: AtlasMeta,
 }
 
@@ -122,7 +122,7 @@ impl Atlas {
     /// As [`Atlas::parse`].
     pub fn parse_bytes(json: &[u8]) -> Result<Self, AtlasError> {
         let file: AtlasFile = serde_json::from_slice(json).map_err(AtlasError::Json)?;
-        let mut frames = HashMap::with_capacity(file.frames.len());
+        let mut frames = FxHashMap::with_capacity_and_hasher(file.frames.len(), FxBuildHasher);
         for (key, frame) in file.frames {
             // Futile cuts at the last '.'.
             let name = key
@@ -181,7 +181,7 @@ impl Atlas {
         Self {
             image: name.to_owned(),
             size: Size { w, h },
-            frames: HashMap::from([(name.to_owned(), frame)]),
+            frames: [(name.to_owned(), frame)].into_iter().collect(),
         }
     }
 
