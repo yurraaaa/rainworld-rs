@@ -302,6 +302,8 @@ enum RoomObject {
         owner: CreatureId,
         order: u64,
     },
+    /// A loop emitter whose item was swallowed, by its place in the update list.
+    OrphanLoop(u64),
     /// An emitter of the player's slide loop, by its place in the update list.
     SlideLoop(u64),
     /// A `ChunkSoundEmitter` of a lizard's voice, by its place in the update list.
@@ -1291,6 +1293,12 @@ impl RainWorldGame {
         objects.extend(self.room_lizard_objects(index));
         objects.extend(self.room_drip_objects(index));
         objects.extend(self.room_weapon_objects(index));
+        objects.extend(
+            self.world
+                .room_orphan_loops(index)
+                .into_iter()
+                .map(|order| (order, RoomObject::OrphanLoop(order))),
+        );
         objects.extend(self.room_trigger_objects(index));
         objects.extend(self.room_cosmetic_objects(index));
         objects.extend(self.room_holo_light_objects(index));
@@ -1338,6 +1346,7 @@ impl RainWorldGame {
                 RoomObject::LizardLoop { owner, order } => {
                     self.run_lizard_loop(index, owner, order);
                 }
+                RoomObject::OrphanLoop(order) => self.run_orphan_loop(index, order),
                 RoomObject::SlideLoop(order) => self.run_slide_loop(index, order),
                 RoomObject::LizardVoice { owner, order } => {
                     self.run_lizard_voice_emitter(index, owner, order)

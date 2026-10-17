@@ -90,6 +90,8 @@ pub struct State {
     /// The world's `regionState`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub region_state: Option<RegionStateInfo>,
+    /// Loop emitters of swallowed items that the room still updates.
+    pub orphan_emitters: usize,
 }
 
 /// A `HologramLight`.
@@ -297,6 +299,8 @@ pub struct WeaponInfo {
     /// The creature a spear is lodged in, by EntityID, with the chunk.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lodged_in: Option<([i32; 2], usize)>,
+    /// Loop emitters let go that the room still updates (they die at their next update).
+    pub released_emitters: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -445,6 +449,8 @@ pub struct LizardGraphicsInfo {
     /// `voiceVisualizationIntensity` and `voiceVisualization` as of its last update.
     pub voice_visualization_intensity: f32,
     pub voice_visualization: f32,
+    /// Loop emitters let go or left by dropped graphics that the room still updates.
+    pub released_emitters: usize,
     /// The body's `LizardVoice`, once built.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub voice: Option<LizardVoiceInfo>,
@@ -728,6 +734,8 @@ pub struct PlayerState {
     pub stomach: Option<HeldInfo>,
     /// `swallowAndRegurgitateCounter`.
     pub swallow_counter: i32,
+    /// Slide loop emitters let go that the room still updates.
+    pub released_slide_loops: usize,
     /// `pickUpCandidate`.
     pub pick_up_candidate: Option<HeldInfo>,
     pub eat_counter: i32,

@@ -559,7 +559,50 @@ fn a_stopped_rock_loop_dies_at_its_next_update() {
     assert!(g.weapon_loop(ids[0]).released.is_empty());
 }
 
+/// `Player.SwallowObject` calls `RemoveFromRoom` on the rock, which only nulls its
+/// `room`; the loop's `ChunkSoundEmitter` stays in the update list and finds
+/// `chunk.owner.room != room` at its next update (`alive = false`, then `Destroy`). It
+/// joined after the player, so `Room.Update`'s backward walk runs it first next tick.
+#[test]
+fn a_swallowed_rocks_loop_emitter_dies_at_its_next_update() {
+    let (mut g, ids) = game(floor_room(), (4, 1), vec![rock(1, (5, 1))]);
+    g.slugcat_grab(Entity::Object(ids[0]), 0, &mut ());
+    let sound = crate::EmitterId(900);
+    let order = g.world.next_update_seq();
+    g.world.weapon_mut(ids[0]).expect("rock").sound_loop.emitter = Some(crate::LoopEmitter {
+        sound,
+        room: 0,
+        update_order: order,
+        alive: true,
+        slated: false,
+        still_playing: true,
+        last_playing_tick: g.tick,
+        playing: true,
+    });
+    g.sounds.take_events();
+    g.swallow_object(0, 0);
+    assert_eq!(g.stops(), vec![], "the swallow");
+    assert_eq!(g.world.orphan_loop_count(), 1);
+    g.tick(Input::NONE, &mut ());
+    assert_eq!(g.stops(), vec![sound], "its next update");
+    assert_eq!(g.world.orphan_loop_count(), 0);
+    g.tick(Input::NONE, &mut ());
+    assert_eq!(g.stops(), vec![]);
+}
+
 impl RainWorldGame {
+    /// The `Stop`s since the last call.
+    fn stops(&mut self) -> Vec<crate::EmitterId> {
+        self.sounds
+            .take_events()
+            .into_iter()
+            .filter_map(|e| match e {
+                SoundEvent::Stop(id) => Some(id),
+                _ => None,
+            })
+            .collect()
+    }
+
     fn weapon_loop(&self, id: ObjectId) -> &crate::item::ChunkDynamicSoundLoop {
         &self
             .world

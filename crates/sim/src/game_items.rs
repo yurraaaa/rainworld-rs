@@ -11,6 +11,7 @@ use super::{PlayerObserver, RainWorldGame};
 use crate::item::{Entity, ObjectId, SavedObject, Throw, WeaponMode};
 use crate::player::StomachObject;
 use crate::room_ext::RoomExt;
+use crate::world::OrphanLoop;
 use crate::{
     Animation, BodyMode, CosmeticKind, ExplosionSpikes, FloatExt, Input, SoundId, Vec2, WaterDrip,
 };
@@ -504,19 +505,19 @@ impl RainWorldGame {
         }
         self.player_release_grasp(grasp);
         let coord = self.pos();
-        let emitters = self
+        let orphans = self
             .world
             .weapon_mut(id)
-            .map(|w| w.sound_loop.take_emitters())
+            .map(|w| {
+                let pos = w.chunk().pos;
+                w.sound_loop
+                    .take_emitters()
+                    .into_iter()
+                    .map(|emitter| OrphanLoop { emitter, pos })
+                    .collect::<Vec<_>>()
+            })
             .unwrap_or_default();
-        let sounds = if index == self.camera_room {
-            &mut self.sounds
-        } else {
-            &mut self.silent
-        };
-        for e in emitters {
-            sounds.stop_emitter(e.sound);
-        }
+        self.world.orphan_loops.extend(orphans);
         self.world.abstractize_object(id, coord);
         self.world.remove_object_entity(id);
         self.world.abstractize_object(id, coord);

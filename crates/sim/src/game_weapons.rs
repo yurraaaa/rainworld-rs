@@ -44,6 +44,14 @@ impl RainWorldGame {
         });
     }
 
+    /// The `ChunkSoundEmitter` of a swallowed item's loop that joined room `index` at
+    /// `order`.
+    pub(super) fn run_orphan_loop(&mut self, index: i32, order: u64) {
+        self.with_item_tick(index, |world, cx| {
+            world.update_orphan_loop(index, order, cx);
+        });
+    }
+
     /// `f` with the world and what an item's turn in room `index` reads of the game.
     pub(super) fn with_item_tick<R>(
         &mut self,

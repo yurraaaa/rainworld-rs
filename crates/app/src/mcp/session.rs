@@ -519,6 +519,7 @@ impl Session {
                 to_spawn: f.flies_to_spawn.clone(),
                 all_initial_spawned: f.all_initial_flies_spawned,
             }),
+            orphan_emitters: world.orphan_loop_count(),
             region_state: world.region_state.as_ref().map(|r| RegionStateInfo {
                 last_cycle_updated: r.last_cycle_updated,
                 new_rooms_this_cycle: r.new_rooms_this_cycle,
@@ -826,6 +827,7 @@ impl Session {
                     }
                     SpearStickKind::Impaled { .. } => None,
                 }),
+            released_emitters: w.sound_loop.released.iter().filter(|e| !e.slated).count(),
         }
     }
 
@@ -1016,6 +1018,13 @@ impl Session {
             light: link.light,
             voice_visualization_intensity: g.voice_visualization_intensity,
             voice_visualization: g.voice_visualization,
+            released_emitters: link
+                .sound_loop
+                .released
+                .iter()
+                .chain(&l.dropped_loop_emitters)
+                .filter(|e| !e.slated)
+                .count(),
             voice: l.voice.as_ref().map(Self::lizard_voice_info),
         })
     }
@@ -1773,6 +1782,7 @@ impl PlayerState {
                 },
             }),
             swallow_counter: player.grab_state().swallow_and_regurgitate_counter,
+            released_slide_loops: player.released_slide_loop_count(),
             pick_up_candidate: player
                 .grab_state()
                 .pick_up_candidate

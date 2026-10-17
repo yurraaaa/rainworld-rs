@@ -62,7 +62,7 @@ pub use realizer::{FollowCreature, RoomRealizer};
 pub use region_state::{ConsumedItem, RegionState};
 pub use swarm_rooms::{SwarmRoomMap, SwarmRoomMapper};
 pub use weapons::ItemTick;
-pub(crate) use weapons::UpdatePart;
+pub(crate) use weapons::{OrphanLoop, UpdatePart};
 
 /// A world and its realized rooms.
 pub struct World {
@@ -97,6 +97,8 @@ pub struct World {
     pub rain_cycle: RainCycle,
     /// The last `updateList` position handed out (`Room.AddObject` appends).
     update_seq: u64,
+    /// Loop emitters whose item left the room (swallowed), until their next update.
+    pub(crate) orphan_loops: Vec<OrphanLoop>,
     /// Creatures realized by `ChangeRooms` into a realized room, waiting to join the
     /// shortcut handler's lobby (`CreatureEnterFromAbstractRoom`).
     pub(crate) entering: Vec<(CreatureId, WorldCoordinate)>,
@@ -160,6 +162,7 @@ impl World {
             region_state,
             rain_cycle: RainCycle::default(),
             update_seq: 0,
+            orphan_loops: Vec::new(),
             entering: Vec::new(),
             grasp_serial: 0,
             flocks: Vec::new(),

@@ -271,7 +271,7 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   (`White`, `Yellow`, `Red`) at its start den (`malnourished` starts it
   malnourished). `get_state` reports the
   camera's room, the player (with its food, quarter pips, grasps and
-  pick-up candidate as `{kind, id}`, stomach, swallow counter, eat counter, malnourishment, aerobic level and exhaustion), the player's room and node, the vessel waiting in the
+  pick-up candidate as `{kind, id}`, stomach, swallow counter, released slide loops, eat counter, malnourishment, aerobic level and exhaustion), the player's room and node, the vessel waiting in the
   lobby, the realized rooms' entry waits and `creatures` (every
   abstract creature: kind, ID, room, node, tile, in den, realized,
   alive; roaming creatures also their abstract AI: destination, path, migration
@@ -296,7 +296,7 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   start sprite, sprites, overlap, graphic, colored, count and the long scales' tips;
   `voice_visualization` and its intensity, and `voice`: trigger, sound, emotion,
   progression, intensity, volume, pitch, making a sound, saved and visualized
-  intensity, emitter, playing, released emitters); any creature its stun and
+  intensity, emitter, playing, released emitters; also `released_emitters` on the graphics); any creature its stun and
   kill tag, its social memory
   (`social`: subject, like, temp like, fear, temp fear, know), a realized one its danger
   (`danger`: `dangerousToPlayer`, `DangerPos`, aggression) and what its grip
@@ -304,7 +304,7 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   abstract rock and spear: kind, ID, room, node, tile, a spear's
   stuck-in-wall cycles and explosive flag; realized ones also their
   room, position, velocity, mode, rotation, collision layer and the creature
-  a spear is lodged in), `triggers` (the
+  a spear is lodged in, its released emitters), `orphan_emitters` (swallowed items' loop emitters still in a room), `triggers` (the
   realized rooms' trigger checkers and the objects their events added) and `music`
   (the music player: song, next song, mixes, procedural threat layers, threat tracker
   with its threats and each creature's `ThreatOfCreature`, play records), `holo_lights`
