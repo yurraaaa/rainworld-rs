@@ -6,7 +6,6 @@
 //! `rainworld-re/notes/world-loading.md`, `room-realizer.md`, `shortcuts.md` section 5,
 //! `creature-model.md`.
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 #[path = "game_dev.rs"]
@@ -49,6 +48,7 @@ mod triggers;
 #[path = "game_weapons.rs"]
 mod weapons;
 
+use rustc_hash::FxHashMap;
 use rw_assets::{CreatureType, NodeType, Room, Shortcut, ShortcutType};
 use rw_random::UnityRandom;
 
@@ -401,7 +401,7 @@ pub struct RainWorldGame {
     guide_brought_logged_room: Option<i32>,
     /// Each realized creature's `Creature.lastCoord`; a new body starts at the default
     /// coordinate (room 0, tile (0, 0)).
-    last_coords: HashMap<CreatureId, WorldCoordinate>,
+    last_coords: FxHashMap<CreatureId, WorldCoordinate>,
     /// `ColorEntrance` calls on camera 0 since the last `take_entrance_colors`.
     entrance_colors: Vec<EntranceColor>,
     /// Whether the player had a graphics module at its last update.
@@ -536,7 +536,7 @@ impl RainWorldGame {
             script_tick: ScriptTick::default(),
             hologram_ids: 0,
             guide_brought_logged_room: None,
-            last_coords: HashMap::new(),
+            last_coords: FxHashMap::default(),
             entrance_colors: Vec::new(),
             player_graphics: false,
             map_discovery: MapDiscovery::default(),

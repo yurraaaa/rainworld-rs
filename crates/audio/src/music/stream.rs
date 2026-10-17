@@ -2,7 +2,6 @@
 //! streamed (decoded a Vorbis packet at a time on kira's decode thread) as Unity
 //! streams them (`m_LoadType` 2).
 
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
@@ -11,6 +10,7 @@ use std::thread;
 use kira::sound::PlaybackState;
 use kira::sound::streaming::{Decoder, StreamingSoundData, StreamingSoundHandle};
 use kira::{AudioManager, Frame, Tween};
+use rustc_hash::FxHashMap;
 use rw_assets::StreamingAssets;
 use rw_assets::unity::{Fsb5, Fsb5Stream};
 
@@ -157,7 +157,7 @@ pub struct MusicOutput {
     requests: Sender<(TrackId, MusicBundle, String)>,
     events: Receiver<LoaderEvent>,
     bundles_loaded: bool,
-    tracks: HashMap<TrackId, KiraTrack>,
+    tracks: FxHashMap<TrackId, KiraTrack>,
 }
 
 impl MusicOutput {
@@ -180,7 +180,7 @@ impl MusicOutput {
             requests,
             events,
             bundles_loaded: false,
-            tracks: HashMap::new(),
+            tracks: FxHashMap::default(),
         }
     }
 

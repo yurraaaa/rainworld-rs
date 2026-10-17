@@ -8,9 +8,10 @@
 //! Every conditional is kept as data and decided here for the given timeline and mods,
 //! so DLC worlds only add data. Behaviour: `rainworld-re/notes/world-loading.md`.
 
-use std::collections::HashMap;
 use std::fmt;
 use std::fs;
+
+use rustc_hash::FxHashMap;
 
 use crate::creatures::CreatureSpawner;
 use crate::region_properties::RegionProperties;
@@ -494,7 +495,7 @@ impl std::error::Error for WorldError {}
 struct ConditionalLinks {
     /// `(room, target, replacement)`: a named target, or the n-th `DISCONNECTED` (1-based).
     links: Vec<(String, LinkTarget, String)>,
-    replace_names: HashMap<String, String>,
+    replace_names: FxHashMap<String, String>,
     disabled_map_rooms: Vec<String>,
 }
 

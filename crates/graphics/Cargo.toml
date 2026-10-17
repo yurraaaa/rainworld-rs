@@ -8,5 +8,6 @@ license.workspace = true
 rw-sim.workspace = true
 rw-assets.workspace = true
 rw-random.workspace = true
+rustc-hash.workspace = true
 serde = { workspace = true }
 serde_json = { workspace = true }

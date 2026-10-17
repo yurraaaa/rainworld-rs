@@ -2,13 +2,13 @@
 //! `CacheAllAudio`). A sound waits for its clip as the game's `SoundObject` waits for
 //! its `AssetBundleLoadAssetOperation`.
 
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread;
 
 use kira::Frame;
 use kira::sound::static_sound::{StaticSoundData, StaticSoundSettings};
+use rustc_hash::FxHashMap;
 use rw_assets::unity::{AssetBundle, AudioClip, PcmAudio};
 
 /// A clip by bundle and asset name.
@@ -94,7 +94,7 @@ pub struct ClipLoader {
     effects: Sender<ClipKey>,
     ambient: Sender<ClipKey>,
     results: Receiver<(ClipKey, Option<StaticSoundData>)>,
-    cache: HashMap<ClipKey, ClipSlot>,
+    cache: FxHashMap<ClipKey, ClipSlot>,
 }
 
 impl ClipLoader {
@@ -108,7 +108,7 @@ impl ClipLoader {
             effects,
             ambient,
             results,
-            cache: HashMap::new(),
+            cache: FxHashMap::default(),
         }
     }
 

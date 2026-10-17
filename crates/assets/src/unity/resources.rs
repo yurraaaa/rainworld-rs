@@ -1,10 +1,11 @@
 //! `Resources.Load`: the `ResourceManager` path table of `globalgamemanagers` over the
 //! objects of `resources.assets` (`rainworld-re/notes/unity-assets.md` section 3).
 
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
+
+use rustc_hash::FxHashMap;
 
 use super::objects::{AudioClip, ImageData, StreamedResource, TextAsset, Texture2D};
 use super::reader::Reader;
@@ -17,7 +18,7 @@ pub struct UnityResources {
     data_dir: PathBuf,
     resources: SerializedFile,
     /// Lower-case resource path to the `resources.assets` objects of that path.
-    container: HashMap<String, Vec<i64>>,
+    container: FxHashMap<String, Vec<i64>>,
 }
 
 impl UnityResources {
@@ -40,7 +41,7 @@ impl UnityResources {
         let data = managers.object_data(manager)?;
         let entries = Self::parse_container(&data)
             .map_err(|m| AssetError::format(managers.path(), format!("ResourceManager: {m}")))?;
-        let mut container: HashMap<String, Vec<i64>> = HashMap::new();
+        let mut container: FxHashMap<String, Vec<i64>> = FxHashMap::default();
         for (path, file_id, path_id) in entries {
             let external = usize::try_from(file_id)
                 .ok()

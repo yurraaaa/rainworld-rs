@@ -6,8 +6,7 @@
 //! A room's `entities` (creatures and objects, [`Entity`]) are kept beside its creature
 //! lists; the objects are `world/objects.rs`'.
 
-use std::collections::HashMap;
-
+use rustc_hash::FxHashMap;
 use rw_assets::{CreatureType, NodeType, RoomAttraction, Timeline};
 use rw_random::UnityRandom;
 
@@ -99,7 +98,7 @@ impl World {
             .rooms
             .iter()
             .map(|room| {
-                let mut table = HashMap::new();
+                let mut table = FxHashMap::default();
                 for line in props.attractions_of(&room.name) {
                     for &(kind, a) in &line.by_type {
                         table.insert(kind, a);

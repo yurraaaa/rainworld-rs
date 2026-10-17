@@ -2,8 +2,8 @@
 //! uploaded texture, the shader globals and the frame's stage buffers.
 
 use std::borrow::Cow;
-use std::collections::HashMap;
 
+use rustc_hash::FxHashMap;
 use rw_assets::PngImage;
 use wgpu::util::DeviceExt;
 
@@ -20,13 +20,13 @@ struct StageTexture {
 }
 
 pub(crate) struct StagePipeline {
-    pipelines: HashMap<StageShader, wgpu::RenderPipeline>,
+    pipelines: FxHashMap<StageShader, wgpu::RenderPipeline>,
     texture_layout: wgpu::BindGroupLayout,
     uniform: wgpu::Buffer,
     /// `map.wgsl`'s `MapView`.
     map_uniform: wgpu::Buffer,
     uniform_bind_group: wgpu::BindGroup,
-    textures: HashMap<StageTextureId, StageTexture>,
+    textures: FxHashMap<StageTextureId, StageTexture>,
     /// White 1x1, bound as the text gradient until one is set.
     blank: StageTexture,
     globals: StageGlobals,
@@ -220,7 +220,7 @@ impl StagePipeline {
             uniform,
             map_uniform,
             uniform_bind_group,
-            textures: HashMap::new(),
+            textures: FxHashMap::default(),
             blank,
             globals: StageGlobals::default(),
             globals_bind_group,

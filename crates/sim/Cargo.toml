@@ -9,6 +9,7 @@ rw-assets.workspace = true
 rw-random.workspace = true
 rw-save.workspace = true
 log.workspace = true
+rustc-hash.workspace = true
 base64 = "0.23"
 
 [dev-dependencies]
