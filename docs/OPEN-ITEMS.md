@@ -25,6 +25,10 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   the player stays in step 8.
 
 ## To look into
+- **Loop emitters when a room abstractizes** (2026-10-17): a swallowed rock's loop now
+  lives one more update, as in the game, but an item whose room abstractizes (e.g. one
+  held there) still drops its loop emitters at once. Check against the game which
+  objects and paths this covers and whether they should live one more update too.
 - **Headless speed.** MCP `step` runs about 20 ticks/s with lizards around (seen
   2026-10-16), below the game's 40, while the window keeps full fps. A profile showed
   lizard pathfinding, limbs and graphics, the HUD map and text prompt spread across the
