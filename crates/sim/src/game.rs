@@ -30,6 +30,8 @@ mod lizard_act;
 mod lizard_graphics;
 #[path = "game_lizard_hits.rs"]
 mod lizard_hits;
+#[path = "game_lizard_perception.rs"]
+mod lizard_perception;
 #[path = "game_lizard_voice.rs"]
 mod lizard_voice;
 #[path = "game_lizards.rs"]
@@ -43,6 +45,8 @@ pub use items::Grabability;
 pub use over::GameOver;
 #[path = "game_shelter.rs"]
 mod shelter_door;
+#[path = "game_tracker.rs"]
+mod tracker;
 #[path = "game_triggers.rs"]
 mod triggers;
 #[path = "game_weapons.rs"]

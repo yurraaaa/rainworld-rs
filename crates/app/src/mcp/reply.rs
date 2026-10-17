@@ -354,9 +354,67 @@ pub struct LizardInfo {
     pub spears: Vec<([i32; 2], usize)>,
     /// Its AI and movement.
     pub movement: LizardMoveInfo,
+    /// Its AI's tracker (`Tracker.creatures`, in order).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub tracker: Vec<TrackedCreatureInfo>,
+    /// Its relationship tracker's relationships, in order.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub relationships: Vec<DynamicRelationshipInfo>,
+    /// `casualAggressionTarget`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub casual_aggression_target: Option<[i32; 2]>,
     /// Its graphics module, while its room is viewed (or was, and it has not left it).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub graphics: Option<LizardGraphicsInfo>,
+}
+
+/// One `Tracker.CreatureRepresentation`.
+#[derive(Debug, Clone, Serialize)]
+pub struct TrackedCreatureInfo {
+    pub id: [i32; 2],
+    pub kind: String,
+    /// `Simple` or `Elaborate`.
+    pub representation: String,
+    pub age: i32,
+    /// `ticksSinceSeen` (raw) and `forgetCounter`.
+    pub ticks_since_seen: i32,
+    pub forget_counter: i32,
+    /// The `VisualContact` getter.
+    pub visual_contact: bool,
+    pub estimated_chance_of_finding: f32,
+    /// `BestGuessForPosition()` and `lastSeenCoord`.
+    pub best_guess: CoordInfo,
+    pub last_seen: CoordInfo,
+    pub priority: f32,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub delete_me_next_frame: bool,
+    /// An elaborate representation's ghosts.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub ghosts: Vec<GhostInfo>,
+}
+
+/// One `Tracker.Ghost`.
+#[derive(Debug, Clone, Serialize)]
+pub struct GhostInfo {
+    pub coord: CoordInfo,
+    pub pos: [f32; 2],
+    pub generation: i32,
+    pub stopped: bool,
+}
+
+/// One `RelationshipTracker.DynamicRelationship`.
+#[derive(Debug, Clone, Serialize)]
+pub struct DynamicRelationshipInfo {
+    pub id: [i32; 2],
+    /// `currentRelationship`'s type and intensity.
+    pub kind: String,
+    pub intensity: f32,
+    /// `trackedByModule` (the modules are lizard step 7).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub module: Option<String>,
+    /// `LizardTrackState.spear` of a slugcat.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub spear: Option<bool>,
 }
 
 /// A lizard's `LizardGraphics`.
@@ -378,6 +436,11 @@ pub struct LizardGraphicsInfo {
     pub flicker: i32,
     pub white_flicker: i32,
     pub look_pos: [f32; 2],
+    /// `creatureLooker.lookCreature` and its focus delay; `eyeBeamsActive`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub look_creature: Option<[i32; 2]>,
+    pub look_focus_delay: i32,
+    pub eye_beams_active: f32,
     /// The cosmetics, in sprite order.
     pub cosmetics: Vec<LizardCosmeticInfo>,
     /// Its head light's id while it has one.

@@ -7,12 +7,13 @@
 //! uses the base `DangerPos` (`mainBodyChunk.pos`). The base-game overrides arrive with
 //! their creatures: `Lizard.DangerPos` (197872, the tongue's tip while it lashes out),
 //! `Vulture.DangerPos` (284462, a king vulture's shooting or charging tusk), and
-//! `CurrentPlayerAggression` of `CicadaAI` (150153), `DropBugAI` (178192), `LizardAI`
-//! (202014), `BigNeedleWormAI` (213919) and `ScavengerAI` (255506).
+//! `CurrentPlayerAggression` of `CicadaAI` (150153), `DropBugAI` (178192),
+//! `BigNeedleWormAI` (213919) and `ScavengerAI` (255506). `LizardAI`'s (202014) is in
+//! `world/tracking.rs`.
 
 use rw_assets::CreatureType;
 
-use super::{AbstractCreature, CreatureId, EntityId, RealizedCreature};
+use super::{CreatureId, EntityId, RealizedCreature};
 use crate::Vec2;
 use crate::world::World;
 
@@ -77,35 +78,28 @@ impl RealizedCreature {
     }
 }
 
-impl AbstractCreature {
-    /// `abstractAI.RealAI.CurrentPlayerAggression(player)`: the base
-    /// `ArtificialIntelligence`'s 1 for an overseer (`OverseerAI` does not override it);
-    /// a bat fly has no abstract AI (`FlyAI` is no `ArtificialIntelligence`). `LizardAI`'s
-    /// is 1 while its tracker has no relationship with the player, as the stand-in AI's
-    /// never has (the tracker is lizard step 6).
-    #[must_use]
-    pub fn current_player_aggression(&self) -> Option<f32> {
-        if self.lizard().is_some() {
-            return self.ai.as_ref().filter(|a| a.real_ai).map(|_| 1.0);
-        }
-        self.overseer_ai()
-            .and_then(|a| a.real_ai.as_ref())
-            .map(|_| 1.0)
-    }
-
-    /// The player's representation in `abstractAI.RealAI.tracker`: `OverseerAI` has no
-    /// tracker module, a bat fly no AI.
-    #[must_use]
-    pub fn player_tracker_rep(&self) -> Option<TrackedRep> {
-        None
-    }
-}
-
 impl World {
-    /// Creature `id` as the danger scores read it, while it is realized (not the
-    /// player).
+    /// The player's representation in creature `id`'s tracker, as `ThreatOfCreature`
+    /// reads it: the `VisualContact` getter (false out of the tracker's room) and
+    /// `EstimatedChanceOfFinding`. `OverseerAI` has no tracker, a bat fly no AI.
     #[must_use]
-    pub fn creature_danger(&self, id: CreatureId) -> Option<CreatureDanger> {
+    pub fn player_tracker_rep(&self, id: CreatureId, player: CreatureId) -> Option<TrackedRep> {
+        let t = self.tracker_of(id)?;
+        let r = t.representation_for(player)?;
+        let in_view = self.physical_room(player).is_some()
+            && self.physical_room(player) == Some(self.creature(id).pos.room);
+        let mut sighting = r.sighting(t.see_around_corners);
+        sighting.visual_contact &= in_view;
+        Some(TrackedRep {
+            visual_contact: sighting.visual_contact,
+            estimated_chance_of_finding: sighting.estimated_chance_of_finding(),
+        })
+    }
+
+    /// Creature `id` as the danger scores read it, while it is realized (not the
+    /// player), toward `player`.
+    #[must_use]
+    pub fn creature_danger(&self, id: CreatureId, player: CreatureId) -> Option<CreatureDanger> {
         let c = self.creature(id);
         let realized = c.realized.as_ref()?;
         Some(CreatureDanger {
@@ -116,8 +110,8 @@ impl World {
             dead: realized.dead()?,
             danger_pos: realized.danger_pos()?,
             first_chunk_vel: realized.first_chunk_vel()?,
-            player_rep: c.player_tracker_rep(),
-            player_aggression: c.current_player_aggression(),
+            player_rep: self.player_tracker_rep(id, player),
+            player_aggression: self.current_player_aggression(id, player),
         })
     }
 }
@@ -132,7 +126,7 @@ impl crate::RainWorldGame {
             .room_creatures(self.player_pos().room)
             .iter()
             .filter(|&&c| c != player)
-            .filter_map(|&c| self.world().creature_danger(c))
+            .filter_map(|&c| self.world().creature_danger(c, player))
             .collect()
     }
 }

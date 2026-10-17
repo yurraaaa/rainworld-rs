@@ -139,7 +139,7 @@ pub struct LizardBreedParams {
     pub taming_difficulty: f32,
     /// The template's `visualRadius`, `waterVision`, `throughSurfaceVision` and
     /// `movementBasedVision` the breed sets.
-    pub vision: [f32; 4],
+    pub vision: crate::creature::CreatureVision,
 }
 
 /// The green lizard (`BreedTemplate`'s `GreenLizard` block).
@@ -239,7 +239,12 @@ impl LizardBreedParams {
             frames_between_look_focus_change: 160,
             tongue: false,
             taming_difficulty: 0.8,
-            vision: [850.0, 0.3, 0.85, 0.7],
+            vision: crate::creature::CreatureVision {
+                visual_radius: 850.0,
+                water_vision: 0.3,
+                through_surface_vision: 0.85,
+                movement_based_vision: 0.7,
+            },
         }
     }
 

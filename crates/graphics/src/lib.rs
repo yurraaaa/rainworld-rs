@@ -57,9 +57,7 @@ pub use lizard_cosmetics::{
 };
 pub use lizard_cosmetics_draw::CosmeticDraw;
 pub use lizard_draw::{LizardReading, LizardSpineData};
-pub use lizard_graphics::{
-    CreatureLooker, IndividualVariations, LIZARD_BASE_SPRITES, LizardGraphics,
-};
+pub use lizard_graphics::{IndividualVariations, LIZARD_BASE_SPRITES, LizardGraphics};
 pub use lizard_limb::LizardLimb;
 pub use looker::ObjectLooker;
 pub use math::{Custom, CustomVec, Mathf, UnityVector3, Vec2Bezier, Vec3};

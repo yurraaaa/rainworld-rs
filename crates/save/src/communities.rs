@@ -234,6 +234,31 @@ impl CreatureCommunities {
         }
     }
 
+    /// `LikeOfPlayer(community, region, 0)` in a story session: the region's cell
+    /// pulled toward the everywhere cell, a single community's also toward `All`'s
+    /// cell of the region, through `ExponentMap(-1, 1, 1 + 0.2 * difficulty)`. `None`
+    /// (or a region the communities do not list) reads the everywhere column alone.
+    #[must_use]
+    pub fn like_of_player(
+        &self,
+        community: CommunityId,
+        region: Option<&str>,
+        difficulty: f32,
+    ) -> f32 {
+        let c = community.index();
+        let column = region.and_then(|r| self.region_column(r));
+        let col = column.unwrap_or(0);
+        let mut v = self.opinions[c][col];
+        if column.is_some() {
+            v = Self::minus_one_to_one_influence(v, self.opinions[c][0]);
+        }
+        if community != CommunityId::All && community != CommunityId::Scavengers {
+            v = Self::minus_one_to_one_influence(v, self.opinions[0][col]);
+        }
+        let t = ((v + 1.0) / 2.0).clamp(0.0, 1.0);
+        -1.0 + 2.0 * t.powf(1.0 + 0.2 * difficulty)
+    }
+
     /// `LikeOfPlayer(Scavengers or All, -1, 0)` in a story session: the everywhere
     /// column through `ExponentMap(-1, 1, 1 + 0.2 * difficulty)`.
     #[must_use]
@@ -304,6 +329,19 @@ mod tests {
         ]
         .map(str::to_owned)
         .to_vec()
+    }
+
+    #[test]
+    fn like_of_player_in_region() {
+        let c = CreatureCommunities::for_session(None, &regions(), ALIGNMENTS, SlugcatName::White);
+        // SU's -3 for lizards; everywhere 0 and All 0 leave it (`MinusOneToOneRangeFloatInfluence`
+        // with a 0 influence lerps by 0); `ExponentMap` with difficulty 0 is linear.
+        let like = c.like_of_player(CommunityId::Lizards, Some("SU"), 0.0);
+        assert!((like + 0.03).abs() < 1e-6, "{like}");
+        assert_eq!(c.like_of_player(CommunityId::Lizards, None, 0.0), 0.0);
+        // Difficulty 1: `-1 + 2 * 0.485^1.2`.
+        let hard = c.like_of_player(CommunityId::Lizards, Some("SU"), 1.0);
+        assert!((hard - (-1.0 + 2.0 * 0.485f32.powf(1.2))).abs() < 1e-6);
     }
 
     #[test]

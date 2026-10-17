@@ -9,7 +9,9 @@ use rw_assets::{CreatureType, Room, SoundTable};
 use rw_random::UnityRandom;
 
 use super::{Lizard, LizardBreedParams};
-use crate::creature::{CreatureId, EntityId};
+use crate::creature::{
+    CreatureId, CreatureLooker, EntityId, LookCandidate, RepKey, WorldCoordinate,
+};
 use crate::item::{ChunkDynamicSoundLoop, LoopCx};
 use crate::{CameraView, Sounds, Vec2, Water, WaterDrip};
 
@@ -46,6 +48,19 @@ pub struct LizardGraphicsLink {
     pub pushes: Vec<(usize, Vec2)>,
     /// The module's voice reading as of its last update.
     pub voice: LizardVoiceView,
+    /// `creatureLooker`, built on the module's first update (the AI's `CreatureSpotted`
+    /// reevaluates it too).
+    pub looker: Option<CreatureLooker>,
+    /// The eyes `CreatureSpotted` set on a spotted creature since the module's last
+    /// update (each also adds 0.1 to `eyeBeamsActive`).
+    pub spotted: Vec<SpottedEye>,
+}
+
+/// One `eyes[eye, 0] = pos` of `LizardGraphics.CreatureSpotted`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SpottedEye {
+    pub eye: usize,
+    pub pos: Vec2,
 }
 
 /// `voiceVisualizationIntensity` and `voiceVisualization` of a lizard's graphics.
@@ -90,6 +105,12 @@ pub struct LizardView<'a> {
     pub holding: bool,
     /// The grabbed chunk's position while `grasps[0]` holds a creature.
     pub grabbed_creature: Option<Vec2>,
+    /// The AI's tracker as the looker reads it (empty outside the graphics' update).
+    pub looks: &'a [LookCandidate],
+    /// `ForcedLookCreature()`: the AI's `focusCreature`.
+    pub forced_look: Option<RepKey>,
+    /// `abstractCreature.pos`.
+    pub at: WorldCoordinate,
 }
 
 impl LizardView<'_> {

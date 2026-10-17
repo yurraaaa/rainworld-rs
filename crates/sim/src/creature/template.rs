@@ -27,6 +27,8 @@ pub struct CreatureTemplate {
     pub roam_between_rooms_chance: f32,
     pub grasps: i32,
     pub body_size: f32,
+    /// `scaryness`: 1 for every base-game template (none sets it).
+    pub scaryness: f32,
     /// Allowed connections that map node types: the shortcut (Exit and Den nodes) and
     /// the sky, sea and side highways (their border exits).
     pub uses_shortcuts: bool,
@@ -104,6 +106,15 @@ pub struct Relationship {
 }
 
 impl Relationship {
+    /// `GoForKill`: eats or attacks, at all.
+    #[must_use]
+    pub fn go_for_kill(self) -> bool {
+        matches!(
+            self.kind,
+            RelationshipType::Eats | RelationshipType::Attacks
+        ) && self.intensity > 0.0
+    }
+
     /// The slugcat's relationship to `kind`, for the types a room holds so far: Fly
     /// (Eats 0.5, 126784) and Overseer (Ignores 0, 126936).
     #[must_use]
@@ -191,6 +202,7 @@ impl CreatureTemplate {
             roam_between_rooms_chance: 0.1,
             grasps: 0,
             body_size: 1.0,
+            scaryness: 1.0,
             uses_shortcuts: true,
             sky_highway: false,
             sea_highway: false,

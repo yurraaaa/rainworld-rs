@@ -433,6 +433,9 @@ impl World {
             limb_health,
             holding: c.grasps.first().is_some_and(Option::is_some),
             grabbed_creature: grabbed,
+            looks: &[],
+            forced_look: None,
+            at: c.pos,
         })
     }
 
