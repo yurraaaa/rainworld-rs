@@ -36,8 +36,10 @@ impl SaveSlot {
 }
 
 impl Platform {
+    const PORT_DIR_NAME: &str = "rainworld-rs";
+
     #[must_use]
-    pub fn current() -> Self {
+    pub const fn current() -> Self {
         if cfg!(target_os = "windows") {
             Self::Windows
         } else if cfg!(target_os = "linux") {
@@ -51,13 +53,25 @@ impl Platform {
     /// (`~/.local/share/rainworld-rs`, `%APPDATA%\rainworld-rs`).
     #[must_use]
     pub fn port_save_dir_in(data_dir: &Path) -> PathBuf {
-        data_dir.join("rainworld-rs")
+        data_dir.join(Self::PORT_DIR_NAME)
+    }
+
+    /// The port's cache directory under the platform data directory
+    #[must_use]
+    pub fn port_cache_dir_in(data_dir: &Path) -> PathBuf {
+        data_dir.join(Self::PORT_DIR_NAME)
     }
 
     /// The port's save directory, if the platform has a data directory.
     #[must_use]
     pub fn port_save_dir() -> Option<PathBuf> {
         directories::BaseDirs::new().map(|b| Self::port_save_dir_in(b.data_dir()))
+    }
+
+    /// The port's cache directory, if the platform has a cache directory.
+    #[must_use]
+    pub fn port_cache_dir() -> Option<PathBuf> {
+        directories::BaseDirs::new().map(|b| Self::port_cache_dir_in(b.cache_dir()))
     }
 
     /// The game's `persistentDataPath`: on Linux the Proton prefix next to the game's

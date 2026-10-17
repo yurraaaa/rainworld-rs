@@ -91,6 +91,7 @@ impl StagePipeline {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         format: wgpu::TextureFormat,
+        cache: &wgpu::PipelineCache,
     ) -> Self {
         let uniform_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("stage uniform"),
@@ -188,7 +189,10 @@ impl StagePipeline {
                 } else {
                     &layout
                 };
-                (id, Self::pipeline(device, layout, &shader, format, entry))
+                (
+                    id,
+                    Self::pipeline(device, layout, cache, &shader, format, entry),
+                )
             })
             .collect();
         let grab_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
@@ -274,6 +278,7 @@ impl StagePipeline {
     fn pipeline(
         device: &wgpu::Device,
         layout: &wgpu::PipelineLayout,
+        cache: &wgpu::PipelineCache,
         shader: &wgpu::ShaderModule,
         format: wgpu::TextureFormat,
         fragment: &str,
@@ -310,7 +315,7 @@ impl StagePipeline {
                 })],
             }),
             multiview_mask: None,
-            cache: None,
+            cache: Some(cache),
         })
     }
 

@@ -23,6 +23,7 @@ use std::borrow::Cow;
 use std::collections::HashSet;
 use std::path::PathBuf;
 
+use log::warn;
 use rw_assets::{PngImage, Room};
 use rw_graphics::{DrawList, Layer};
 use rw_sim::Vec2;
@@ -237,11 +238,15 @@ impl WgpuRenderer {
             adapter_info.driver,
             adapter_info.driver_info,
         );
+
+        let required_features = adapter.features() & wgpu::Features::PIPELINE_CACHE;
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("rw-render device"),
+            required_features,
             ..Default::default()
         }))
         .map_err(|e| RenderError::init("request device", e))?;
+
         if let Some(surface) = &surface
             && config.width > 0
             && config.height > 0
@@ -277,14 +282,57 @@ impl WgpuRenderer {
                 resource: camera_buffer.as_entire_binding(),
             }],
         });
-        let pipeline = Self::create_pipeline(&device, &bind_group_layout, format);
-        let level_pipeline = LevelPipeline::new(&device, format);
-        let sprite_pipeline = SpritePipeline::new(&device, &queue, format);
-        let water_pipeline = WaterPipeline::new(&device, format);
-        let stage_pipeline = StagePipeline::new(&device, &queue, format);
+
+        let cache_file = wgpu::util::pipeline_cache_key(&adapter_info);
+        let cache_dir = rw_save::Platform::port_cache_dir().unwrap_or_default();
+        let cache_data = match &cache_file {
+            Some(path) => match std::fs::read(cache_dir.join(path)) {
+                Ok(data) => Some(data),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+                Err(e) => {
+                    warn!("failed to read pipeline cache {path}: {e}");
+                    None
+                }
+            },
+            None => {
+                warn!("pipeline caching not supported");
+                None
+            }
+        };
+
+        let pipeline_cache = unsafe {
+            device.create_pipeline_cache(&wgpu::PipelineCacheDescriptor {
+                label: Some("rw-render pipeline cache"),
+                data: cache_data.as_deref(),
+                fallback: true,
+            })
+        };
+
+        let pipeline = Self::create_pipeline(&device, &pipeline_cache, &bind_group_layout, format);
+        let level_pipeline = LevelPipeline::new(&device, format, &pipeline_cache);
+        let sprite_pipeline = SpritePipeline::new(&device, &queue, format, &pipeline_cache);
+        let water_pipeline = WaterPipeline::new(&device, format, &pipeline_cache);
+        let stage_pipeline = StagePipeline::new(&device, &queue, format, &pipeline_cache);
         let frame = FrameTargets::new(&device, format, frame_size);
-        let mut present_pipeline = PresentPipeline::new(&device, format);
+        let mut present_pipeline = PresentPipeline::new(&device, format, &pipeline_cache);
         present_pipeline.bind(&device, &frame.view);
+
+        if let Some(cache_file) = cache_file
+            && let Some(data) = pipeline_cache.get_data()
+        {
+            let target_file = cache_dir.join(&cache_file);
+            let temp_file = cache_dir.join(format!("{cache_file}.temp"));
+
+            if let Err(err) = std::fs::create_dir(&cache_dir)
+                .and_then(|_| std::fs::write(&temp_file, &data))
+                .and_then(|_| std::fs::rename(&temp_file, &target_file))
+            {
+                warn!(
+                    "failed to save pipeline cache to {}: {err}",
+                    target_file.display()
+                );
+            };
+        }
 
         Ok(Self {
             surface,
@@ -323,6 +371,7 @@ impl WgpuRenderer {
     /// The debug pipeline: coloured triangle lists, alpha blended, no culling.
     fn create_pipeline(
         device: &wgpu::Device,
+        cache: &wgpu::PipelineCache,
         bind_group_layout: &wgpu::BindGroupLayout,
         format: wgpu::TextureFormat,
     ) -> wgpu::RenderPipeline {
@@ -367,7 +416,7 @@ impl WgpuRenderer {
                 })],
             }),
             multiview_mask: None,
-            cache: None,
+            cache: Some(cache),
         })
     }
 

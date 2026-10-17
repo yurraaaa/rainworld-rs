@@ -2290,6 +2290,7 @@ dependencies = [
  "pollster",
  "rw-assets",
  "rw-graphics",
+ "rw-save",
  "rw-sim",
  "wgpu",
 ]

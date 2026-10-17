@@ -8,6 +8,7 @@ license.workspace = true
 rw-sim.workspace = true
 rw-assets.workspace = true
 rw-graphics.workspace = true
+rw-save.workspace = true
 wgpu.workspace = true
 bytemuck.workspace = true
 pollster.workspace = true

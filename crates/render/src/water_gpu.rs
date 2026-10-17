@@ -52,7 +52,11 @@ impl WaterPipeline {
         },
     };
 
-    pub(crate) fn new(device: &wgpu::Device, format: wgpu::TextureFormat) -> Self {
+    pub(crate) fn new(
+        device: &wgpu::Device,
+        format: wgpu::TextureFormat,
+        cache: &wgpu::PipelineCache,
+    ) -> Self {
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("water"),
             entries: &[
@@ -87,8 +91,15 @@ impl WaterPipeline {
             bind_group_layouts: &[Some(&layout)],
             immediate_size: 0,
         });
-        let surface = Self::pipeline(device, &pipeline_layout, &shader, format, "fs_surface");
-        let deep = Self::pipeline(device, &pipeline_layout, &shader, format, "fs_deep");
+        let surface = Self::pipeline(
+            device,
+            &pipeline_layout,
+            cache,
+            &shader,
+            format,
+            "fs_surface",
+        );
+        let deep = Self::pipeline(device, &pipeline_layout, cache, &shader, format, "fs_deep");
         let noise_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("water noise"),
             address_mode_u: wgpu::AddressMode::Repeat,
@@ -116,6 +127,7 @@ impl WaterPipeline {
     fn pipeline(
         device: &wgpu::Device,
         layout: &wgpu::PipelineLayout,
+        cache: &wgpu::PipelineCache,
         shader: &wgpu::ShaderModule,
         format: wgpu::TextureFormat,
         fragment: &str,
@@ -152,7 +164,7 @@ impl WaterPipeline {
                 })],
             }),
             multiview_mask: None,
-            cache: None,
+            cache: Some(cache),
         })
     }
 

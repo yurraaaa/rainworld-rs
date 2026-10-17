@@ -15,7 +15,11 @@ pub(crate) struct PresentPipeline {
 
 impl PresentPipeline {
     /// A pipeline writing `format`.
-    pub(crate) fn new(device: &wgpu::Device, format: wgpu::TextureFormat) -> Self {
+    pub(crate) fn new(
+        device: &wgpu::Device,
+        format: wgpu::TextureFormat,
+        cache: &wgpu::PipelineCache,
+    ) -> Self {
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("present"),
             entries: &[
@@ -71,7 +75,7 @@ impl PresentPipeline {
                 })],
             }),
             multiview_mask: None,
-            cache: None,
+            cache: Some(cache),
         });
         let samplers = [wgpu::FilterMode::Nearest, wgpu::FilterMode::Linear].map(|filter| {
             device.create_sampler(&wgpu::SamplerDescriptor {

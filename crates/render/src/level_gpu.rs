@@ -54,7 +54,11 @@ impl LevelTextures {
 }
 
 impl LevelPipeline {
-    pub(crate) fn new(device: &wgpu::Device, format: wgpu::TextureFormat) -> Self {
+    pub(crate) fn new(
+        device: &wgpu::Device,
+        format: wgpu::TextureFormat,
+        cache: &wgpu::PipelineCache,
+    ) -> Self {
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("level"),
             entries: &[
@@ -116,7 +120,7 @@ impl LevelPipeline {
                 })],
             }),
             multiview_mask: None,
-            cache: None,
+            cache: Some(cache),
         });
         // `_NoiseTex` import settings: bilinear, repeat (mip 0 only; always magnified).
         let noise_sampler = device.create_sampler(&wgpu::SamplerDescriptor {

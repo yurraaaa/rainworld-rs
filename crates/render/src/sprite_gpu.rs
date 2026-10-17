@@ -95,6 +95,7 @@ impl SpritePipeline {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         format: wgpu::TextureFormat,
+        cache: &wgpu::PipelineCache,
     ) -> Self {
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("sprites"),
@@ -158,7 +159,8 @@ impl SpritePipeline {
         let pipelines = Self::SHADERS
             .iter()
             .map(|&(id, entry)| {
-                let pipeline = Self::pipeline(device, &pipeline_layout, &shader, format, entry);
+                let pipeline =
+                    Self::pipeline(device, &pipeline_layout, cache, &shader, format, entry);
                 (id, pipeline)
             })
             .collect();
@@ -253,6 +255,7 @@ impl SpritePipeline {
     fn pipeline(
         device: &wgpu::Device,
         layout: &wgpu::PipelineLayout,
+        cache: &wgpu::PipelineCache,
         shader: &wgpu::ShaderModule,
         format: wgpu::TextureFormat,
         fragment: &str,
@@ -291,7 +294,7 @@ impl SpritePipeline {
                 })],
             }),
             multiview_mask: None,
-            cache: None,
+            cache: Some(cache),
         })
     }
 
