@@ -674,7 +674,10 @@ impl MainLoopProcess<AppContext> for GameProcess {
             self.prompt_death_screen(ctx, requests);
             let events = self.scene.game_mut().take_sound_events();
             if let Some(audio) = &mut ctx.audio {
-                audio.play_events(events, self.scene.game().body().map(|b| &b.chunks[..]));
+                audio.play_events(
+                    events,
+                    self.scene.game().sound_body().map(|b| &b.chunks[..]),
+                );
             }
             return;
         }
@@ -967,7 +970,7 @@ impl GameProcess {
             screen_width: ctx.resolution.size_f32()[0],
             follow: Some(game.sound_follow()),
         };
-        let chunks = game.body().map(|b| &b.chunks[..]);
+        let chunks = game.sound_body().map(|b| &b.chunks[..]);
         audio.tick(events, &listener, chunks, game.water());
     }
 }

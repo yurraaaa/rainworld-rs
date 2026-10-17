@@ -86,6 +86,8 @@ impl DebugBody {
 pub struct Game {
     sim: RainWorldGame,
     graphics: Graphics,
+    /// The last tick took the player into a shortcut.
+    entered_shortcut: bool,
     /// `menuSetup.startGameCondition`: `New` for a new story, `Dev` for a room start.
     start_condition: StartCondition,
     /// The region's subregions, for the HUD; `None` in a world without a region.
@@ -629,6 +631,7 @@ impl Game {
             start_condition: StartCondition::Dev,
             subregions: None,
             shortcuts: CameraShortcuts::default(),
+            entered_shortcut: false,
         }
     }
 
@@ -818,6 +821,7 @@ impl Game {
         self.graphics.forget_dropped_lizards(self.sim.world());
         self.shortcuts.sync(&mut self.sim, self.graphics.slugcat);
         let in_shortcut = self.sim.player().is_some_and(Player::in_shortcut);
+        self.entered_shortcut = in_shortcut && !was_in_shortcut;
         if in_shortcut != was_in_shortcut {
             log::info!(
                 "player {} a shortcut",
@@ -1316,6 +1320,16 @@ impl Game {
             .map(|p| &p.body)
     }
 
+    /// The body whose chunk emitters the audio follows: [`Game::body`], and the tick the
+    /// player went into a shortcut too, as its `ChunkSoundEmitter`s update before it
+    /// (`Room.Update` walks the newest first) and are destroyed only at the next tick.
+    #[must_use]
+    pub fn sound_body(&self) -> Option<&PhysicalObject> {
+        self.shown_player()
+            .filter(|p| !p.in_shortcut() || self.entered_shortcut)
+            .map(|p| &p.body)
+    }
+
     /// The debug view's other bodies in the camera's room: realized lizards, flies and
     /// overseers, then rocks and spears, each with its status and kind.
     #[must_use]
@@ -1476,6 +1490,57 @@ pub(crate) mod tests {
             }
             .lizard_module(id, module, t)
         }
+    }
+
+    /// A closed 11 x 5 room with a pipe entrance at (3, 1) and one at (5, 1).
+    fn pipe_room() -> Room {
+        let rows = [
+            "###########",
+            "#...#.....#",
+            "#...#.....#",
+            "#..ExE....#",
+            "###########",
+        ];
+        let mut grid = String::new();
+        for x in 0..rows[0].len() {
+            for row in rows {
+                grid.push_str(match row.as_bytes()[x] {
+                    b'.' => "0|",
+                    b'#' => "1|",
+                    b'E' => "4,3|",
+                    _ => "1,3|",
+                });
+            }
+        }
+        let text = format!(
+            "Test\n11*5|-1|0\n1*1|0|0\n0,0\nBorder: Solid\n\n\n\n\n17|0|0|\nblob\n{grid}\n"
+        );
+        Room::parse(&text).expect("test room parses")
+    }
+
+    /// The player's `ChunkSoundEmitter`s are destroyed one tick after `SuckedIntoShortCut`
+    /// removes it from the room: the emitters update before the player in `Room.Update`'s
+    /// backward walk, so the tick it goes in they still follow its chunks.
+    #[test]
+    fn the_audio_follows_the_body_one_tick_into_a_shortcut() {
+        let mut game = Game::new(pipe_room(), &RoomSettings::ANCESTOR, 1, Some((2, 1)));
+        for _ in 0..20 {
+            game.tick(Input::NONE);
+        }
+        assert!(game.sound_body().is_some());
+        let mut entered = false;
+        for _ in 0..120 {
+            game.tick(Input::new(1, 0, false));
+            if game.sim.player().is_some_and(Player::in_shortcut) {
+                entered = true;
+                break;
+            }
+        }
+        assert!(entered, "the player went into the pipe");
+        assert!(game.body().is_none());
+        assert!(game.sound_body().is_some(), "the tick it went in");
+        game.tick(Input::NONE);
+        assert!(game.sound_body().is_none(), "the next tick");
     }
 
     #[test]
