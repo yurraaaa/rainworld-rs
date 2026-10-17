@@ -29,6 +29,7 @@ mod realizer;
 mod region_save;
 mod region_state;
 mod swarm_rooms;
+mod tracking;
 mod weapons;
 
 use std::sync::Arc;
@@ -119,6 +120,11 @@ pub struct World {
     pub(crate) dislodged: Vec<(i32, Vec2)>,
     /// What the session keeps of the creatures that die (kills, respawns).
     pub session: crate::creature::SessionDeaths,
+    /// `session.creatureCommunities`: the player's standing, changed at once by the
+    /// session's influences (the save applies them again at `Win`).
+    pub communities: rw_save::CreatureCommunities,
+    /// `session.difficulty`.
+    pub session_difficulty: f32,
     /// The realized AIs' path finders, their accessibility mappers and the frame's
     /// `PathfinderResourceDivider` (the game's).
     pub(crate) path_finders: crate::creature::PathFinders,
@@ -164,6 +170,8 @@ impl World {
             spear_sticks: Vec::new(),
             dislodged: Vec::new(),
             session: crate::creature::SessionDeaths::default(),
+            communities: rw_save::CreatureCommunities::new(&[]),
+            session_difficulty: 0.0,
             path_finders: crate::creature::PathFinders::default(),
         };
         world.index_rooms();

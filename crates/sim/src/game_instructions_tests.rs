@@ -583,15 +583,18 @@ fn the_guide_scores_a_dangerous_creature() {
     assert_eq!(g.world.room_creatures(0), [g.player_id, guide, fly]);
     // The overseer's AI is the base `ArtificialIntelligence` (aggression 1, no
     // tracker); a fly has no AI.
-    let overseer = g.world.creature_danger(guide).expect("realized");
+    let overseer = g
+        .world
+        .creature_danger(guide, g.player_id)
+        .expect("realized");
     assert_eq!(overseer.dangerous_to_player, 0.0);
     assert_eq!(
         (overseer.player_aggression, overseer.player_rep),
         (Some(1.0), None)
     );
-    let f = g.world.creature_danger(fly).expect("realized");
+    let f = g.world.creature_danger(fly, g.player_id).expect("realized");
     assert_eq!((f.player_aggression, f.player_rep), (None, None));
-    assert_eq!(g.world.creature_danger(g.player_id), None);
+    assert_eq!(g.world.creature_danger(g.player_id, g.player_id), None);
     let around = g.creatures_around_player();
     assert_eq!(
         around.iter().map(|c| c.creature).collect::<Vec<_>>(),

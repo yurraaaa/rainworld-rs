@@ -12,7 +12,9 @@ use rw_sim::creature::lizard::{
     BubbleHead, LightUpkeep, LizardBubble, LizardGraphicsLink, LizardGraphicsTick, LizardHead,
     LizardSpawn, LizardView, LizardVoice, LizardVoiceView,
 };
-use rw_sim::creature::{CreatureId, EntityId, LizardAnimation};
+use rw_sim::creature::{
+    CreatureId, CreatureLooker, EntityId, LizardAnimation, LookCandidate, RelationshipType,
+};
 use rw_sim::{CameraView, FloatExt, RoomExt, SoundId, Vec2, WaterDrip};
 
 use crate::body_part::{BodyPart, PointConnection};
@@ -34,40 +36,6 @@ pub struct IndividualVariations {
     pub tail_length: f32,
     pub tail_fatness: f32,
     pub tail_color: f32,
-}
-
-/// `CreatureLooker` over the lizard AI's tracker, which tracks no creature yet (lizard
-/// step 7), so it never finds one to look at.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct CreatureLooker {
-    pub look_focus_delay: i32,
-    pub chance_to_look_at_nothing: f32,
-    pub frames_between_focus_change: i32,
-}
-
-impl CreatureLooker {
-    /// `Update`: with the focus delay run out, a `1 / framesBetweenFocusChange` chance to
-    /// look again: then over `chanceToLookAtNothing` a reevaluation, else at nothing.
-    fn update(&mut self, g: &mut LizardGraphics, rng: &mut UnityRandom) {
-        if self.look_focus_delay > 0 {
-            self.look_focus_delay -= 1;
-        }
-        if self.look_focus_delay < 1 && rng.value() < 1.0 / self.frames_between_focus_change as f32
-        {
-            self.look_focus_delay = self.frames_between_focus_change;
-            if rng.value() > self.chance_to_look_at_nothing {
-                Self::reevaluate(rng);
-                return;
-            }
-            g.look_at_nothing(rng);
-        }
-    }
-
-    /// `ReevaluateLookObject` with no creature to favour: its coin for random interest
-    /// (no tracked creatures to score).
-    fn reevaluate(rng: &mut UnityRandom) {
-        let _ = rng.value() < 0.5;
-    }
 }
 
 /// A lizard's graphics module.
@@ -114,7 +82,6 @@ pub struct LizardGraphics {
     pub breath: f32,
     pub last_breath: f32,
     pub tail_direction: Vec2,
-    pub looker: Option<CreatureLooker>,
     pub look_pos: Vec2,
     pub scanning: f32,
     pub head_color_setter: f32,
@@ -230,7 +197,6 @@ impl LizardGraphics {
             breath,
             last_breath: 0.0,
             tail_direction,
-            looker: None,
             look_pos: Vec2::ZERO,
             scanning: 0.0,
             head_color_setter: 0.0,
@@ -409,6 +375,10 @@ impl LizardGraphics {
         };
         self.last_voice_visualization = self.voice_visualization;
         self.voice_visualization = voice.map_or(0.0, LizardVoice::visualized_intensity);
+        for spotted in std::mem::take(&mut link.spotted) {
+            self.eyes[spotted.eye][0] = spotted.pos;
+            self.eye_beams_active = (self.eye_beams_active + 0.1).clamp(0.0, 1.0);
+        }
         for (i, dv) in std::mem::take(&mut link.pushes) {
             if let Some(p) = self.part_mut(i) {
                 p.vel += dv;
@@ -436,19 +406,16 @@ impl LizardGraphics {
         if self.white_flicker > 0 {
             self.white_flicker -= 1;
         }
-        match self.looker {
-            None => {
-                self.looker = Some(CreatureLooker {
-                    look_focus_delay: 0,
-                    chance_to_look_at_nothing: 0.3,
-                    frames_between_focus_change: params.frames_between_look_focus_change,
-                });
-            }
+        let mut looker = match link.looker {
+            None => CreatureLooker::new(0.3, params.frames_between_look_focus_change),
             Some(mut looker) => {
-                looker.update(self, cx.rng);
-                self.looker = Some(looker);
+                if looker.update(view.looks, view.forced_look, view.at, cx.rng) {
+                    self.look_at_nothing(cx.rng);
+                }
+                looker
             }
-        }
+        };
+        // The prey and threat trackers' choices are lizard step 7: none to favour.
         if matches!(
             lizard.animation,
             LizardAnimation::PreySpotted
@@ -456,10 +423,12 @@ impl LizardGraphics {
                 | LizardAnimation::ThreatSpotted
                 | LizardAnimation::ThreatReSpotted
         ) {
-            CreatureLooker::reevaluate(cx.rng);
+            looker.reevaluate(view.looks, None, 10.0, view.at, cx.rng);
         }
-        self.eye_beams_active = (self.eye_beams_active - 0.05).clamp(0.0, 1.0);
-        self.update_eyes(view, cx.rng);
+        link.looker = Some(looker);
+        let target = looker.target(view.looks);
+        let reach = self.follow_look_target(view, target);
+        self.update_eyes(view, cx.rng, reach, target);
         self.update_head_color_setter(view, cx);
         self.scanning += 0.05;
         if self.scanning > 1.0 {
@@ -594,10 +563,55 @@ impl LizardGraphics {
         sl.update_in(lizard.room, pos, &mut cx.loop_cx());
     }
 
-    /// The eyes' wandering (two draws each).
-    fn update_eyes(&mut self, view: &LizardView<'_>, rng: &mut UnityRandom) {
+    /// The look position moving toward the creature looked at (where it is seen, else
+    /// its best guessed tile), and the eye beams by how well it is seen; returns how far
+    /// the eyes may wander (180, less while looking at a creature, less again in sight).
+    fn follow_look_target(&mut self, view: &LizardView<'_>, target: Option<&LookCandidate>) -> f32 {
+        let lizard = view.lizard;
+        let step = 100.0f32.lerp(20.0, lizard.params.neck_stiffness);
+        if let Some(c) = target {
+            if c.visual_contact()
+                && let Some(p) = c.main_pos
+            {
+                self.look_pos = self.look_pos.move_towards(p, step);
+            } else {
+                let tile = c.best_guess().tile;
+                self.look_pos = self.look_pos.move_towards(Vec2::middle_of_tile(tile), step);
+            }
+        }
+        let mut reach = 180.0;
+        match target {
+            Some(c) if lizard.conscious() => {
+                reach -= 80.0;
+                if c.visual_contact() {
+                    reach -= 50.0;
+                    if c.relationship.kind == RelationshipType::Eats
+                        || c.relationship.intensity > 0.5
+                    {
+                        self.eye_beams_active = 1.0;
+                    } else {
+                        self.eye_beams_active =
+                            (self.eye_beams_active + 1.0 / 30.0).clamp(0.0, 1.0);
+                    }
+                } else {
+                    self.eye_beams_active = (self.eye_beams_active - 0.0125).clamp(0.0, 1.0);
+                }
+            }
+            _ => self.eye_beams_active = (self.eye_beams_active - 0.05).clamp(0.0, 1.0),
+        }
+        reach
+    }
+
+    /// The eyes' wandering (two draws each) within `reach`, held closer while the
+    /// creature looked at is in sight.
+    fn update_eyes(
+        &mut self,
+        view: &LizardView<'_>,
+        rng: &mut UnityRandom,
+        reach: f32,
+        target: Option<&LookCandidate>,
+    ) {
         let chunks = &view.lizard.body.chunks;
-        let reach = 180.0f32;
         let ahead = chunks[0].pos + chunks[1].pos.direction_to(chunks[0].pos) * 300.0;
         for l in 0..2 {
             let eye = &mut self.eyes[l];
@@ -610,6 +624,9 @@ impl LizardGraphics {
             } else {
                 let to = self.look_pos.lerp(ahead, reach.inverse_lerp(25.0, 180.0));
                 eye[0] = eye[0].lerp(to + eye[2], 0.3);
+            }
+            if target.is_some_and(LookCandidate::visual_contact) {
+                eye[2] *= 0.5;
             }
             let back = (chunks[0].pos - chunks[1].pos).normalized();
             if back.dot((eye[0] - chunks[1].pos).normalized())

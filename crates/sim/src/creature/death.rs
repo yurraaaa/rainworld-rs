@@ -141,16 +141,36 @@ impl World {
         }
         let v = self.creature(victim).template.violence();
         if v.community != Community::None {
-            self.session.influences.push(CommunityInfluence {
+            let influence = CommunityInfluence {
                 community: v.community,
                 influence: -0.05 * v.community_influence,
                 inter_region_bleed: 0.25,
                 inter_community_bleed: 0.0,
-            });
+            };
+            self.influence_like_of_player(influence);
+            self.session.influences.push(influence);
         }
         if self.story {
             self.add_kill(victim);
         }
+    }
+
+    /// `CreatureCommunities.InfluenceLikeOfPlayer` in the world's region, on the
+    /// session's communities.
+    fn influence_like_of_player(&mut self, i: CommunityInfluence) {
+        let (Some(community), Some(region)) = (
+            rw_save::CommunityId::from_value(i.community.value()),
+            self.region_name().map(str::to_owned),
+        ) else {
+            return;
+        };
+        let i = rw_save::CommunityInfluence {
+            community,
+            influence: i.influence,
+            inter_region_bleed: i.inter_region_bleed,
+            inter_community_bleed: i.inter_community_bleed,
+        };
+        self.communities.influence_like_of_player(i, &region);
     }
 
     /// `PlayerSessionRecord.BreakPeaceful`: a victim that counts as a kill ends the

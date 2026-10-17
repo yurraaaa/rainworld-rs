@@ -556,7 +556,19 @@ impl Game {
             ),
             _ => (tile, StoryStart::new_game(campaign)),
         };
-        let world = World::new(data, rooms, campaign.timeline, mods, true);
+        let mut world = World::new(data, rooms, campaign.timeline, mods, true);
+        // `StoryGameSession`'s constructor: the saved communities, else the defaults.
+        let region_names: Vec<String> = regions.0.iter().map(|r| r.name.clone()).collect();
+        let alignments =
+            std::fs::read_to_string(assets.resolve_file_path("World/default alignments.txt"))
+                .unwrap_or_default();
+        world.communities = rw_save::CreatureCommunities::for_session(
+            story.communities.as_deref(),
+            &region_names,
+            &alignments,
+            campaign.name,
+        );
+        world.session_difficulty = story.difficulty;
         let start_at = Start { room: first, tile };
         let mut game = Self::build(world, campaign, story, start_at, rng, Sounds::new(table));
         game.subregions = subregions;

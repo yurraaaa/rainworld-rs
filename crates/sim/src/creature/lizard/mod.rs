@@ -27,7 +27,7 @@ pub use breed::{LizardBreedParams, SpeedMultiplier};
 pub use bubble::LizardBubble;
 pub use graphics_link::{
     BubbleHead, LightUpkeep, LizardGraphicsLink, LizardGraphicsTick, LizardHead, LizardSpawn,
-    LizardView, LizardVoiceView,
+    LizardView, LizardVoiceView, SpottedEye,
 };
 pub use movement::{AnimationOutcome, BodyPartDestination, MovementAnimation};
 pub use voice::{

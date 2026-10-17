@@ -212,7 +212,8 @@ impl Server {
         realized; roaming creatures' abstract AI: destination, path, migration destination, den, \
         time buffer, den counter and followed creature; overseers' destination, guide state, \
         last rooms and tiles; realized lizards' body, path finder, movement and shortcut \
-        travel; social memory; what grip sticks carry); the \
+        travel, tracker, relationships, casual aggression target and their graphics' look \
+        creature; social memory; what grip sticks carry); the \
         world's rocks and spears (kind, ID, room, node, tile, a spear's \
         stuck-in-wall cycles and explosive flag; realized ones' room, position, \
         velocity, mode, rotation and collision layer); each room's den contents and \

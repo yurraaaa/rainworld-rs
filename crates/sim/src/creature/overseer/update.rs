@@ -1868,7 +1868,11 @@ impl OverseerUpdate<'_, '_> {
         if num == 0.0 {
             return 0.0;
         }
-        if let Some(aggression) = c.current_player_aggression() {
+        if let Some(aggression) = self
+            .cx
+            .world
+            .current_player_aggression(id, self.cx.player_id)
+        {
             num *= aggression;
         }
         num *= info.pos.distance(player.pos).inverse_lerp(1100.0, 20.0);

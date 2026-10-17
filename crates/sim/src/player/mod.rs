@@ -298,6 +298,8 @@ pub struct Player {
     backwards_counter: i32,
     /// After a successful shaft shoot: no beam grabs while jump and up stay held.
     shoot_up_counter: i32,
+    /// `privSneak`: how long it has been low or still on a pole, 0 to 1.
+    priv_sneak: f32,
     /// Beam tile to catch after crawling head-first out of a shaft with down held.
     drop_grab_tile: Option<(i32, i32)>,
     /// Largest `Player.Blink(n)` this tick, for the graphics; 0 when none.
@@ -460,6 +462,7 @@ impl Player {
             horizontal_corridor_slide_counter: 0,
             backwards_counter: 0,
             shoot_up_counter: 0,
+            priv_sneak: 0.0,
             drop_grab_tile: None,
             blink_request: 0,
             map_input: Input::NONE,
@@ -791,6 +794,28 @@ impl Player {
         if self.grab.dont_grab_stuff > 0 {
             self.grab.dont_grab_stuff -= 1;
         }
+        self.update_sneak();
+    }
+
+    /// `privSneak` rises while low (not standing, crawling, in a corridor, or still on a
+    /// pole) and off the air, else falls. The game's `ClimbIntoShortCut` body mode is
+    /// never set; zero gravity (`ZeroG`, 0.5) and the chunks' `loudness` are not ported.
+    fn update_sneak(&mut self) {
+        let low = !self.standing
+            || matches!(self.body_mode, BodyMode::Crawl | BodyMode::CorridorClimb)
+            || (self.animation == Animation::HangFromBeam && self.input[0].x == 0)
+            || (self.animation == Animation::ClimbOnBeam && self.input[0].y == 0);
+        self.priv_sneak = if low && self.body_mode != BodyMode::Default {
+            (self.priv_sneak + 0.1).min(1.0)
+        } else {
+            (self.priv_sneak - 0.04).max(0.0)
+        };
+    }
+
+    /// `privSneak`.
+    #[must_use]
+    pub fn priv_sneak(&self) -> f32 {
+        self.priv_sneak
     }
 
     /// The jump-press edge sets the 5-tick buffer, or does the horizontal-pole hop.

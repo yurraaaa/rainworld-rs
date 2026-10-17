@@ -212,6 +212,10 @@ pub struct StoryStart {
     pub ss_ai_conversations_had: i32,
     /// `deathPersistentSaveData.DangleFruitInWaterMessage`.
     pub dangle_fruit_in_water_message: bool,
+    /// The save's `COMMUNITIES` string (none: the default alignments).
+    pub communities: Option<String>,
+    /// The session's `difficulty`.
+    pub difficulty: f32,
 }
 
 impl StoryStart {
@@ -242,6 +246,8 @@ impl StoryStart {
             ever_met_moon: false,
             ss_ai_conversations_had: 0,
             dangle_fruit_in_water_message: false,
+            communities: None,
+            difficulty: 0.0,
         }
     }
 }

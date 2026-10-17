@@ -144,6 +144,8 @@ impl SaveStateStart for SaveState {
             ever_met_moon: self.misc_world.ever_met_moon(),
             ss_ai_conversations_had: self.misc_world.ss_ai_conversations_had(),
             dangle_fruit_in_water_message: d.tutorial_message(Tutorial::DangleFruitInWater),
+            communities: self.communities.clone(),
+            difficulty: self.session_difficulty(),
             den,
         }
     }

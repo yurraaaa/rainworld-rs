@@ -16,10 +16,11 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   end-of-project review and optimisation pass in AGENTS.md.
 
 ## Waiting for the user's answer
-- **Lizard step 6** (perception and social data): go-ahead, and whether to split it
-  into 6a (tracker, vision, relationships, the eyes looking) and 6b (noise, the
-  player's sneaking, communities, the pather's threat costs). See
-  `../rainworld-re/surveys/lizards.md` and `LIZARDS-HANDOFF.md` if present.
+- **Lizard step 6b** (noise tracker and hearing, `InGameNoise`, the chunks'
+  loudness, community influence changes beyond kills, the pather's threat and
+  obstacle costs): go-ahead. Step 6a (tracker, vision with the player's `privSneak`,
+  relationships, the eyes looking) is done; its left-out items are listed in
+  `docs/DIVERGENCES.md` (green lizard section). See `../rainworld-re/surveys/lizards.md`.
 - **Player grabbing lizards earlier:** picking up, carrying and eating dead or stunned
   lizards needs no AI, so it could be its own small step before 6. Lizards grabbing
   the player stays in step 8.

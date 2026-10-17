@@ -447,10 +447,11 @@ fn a_dropped_voice_emitter_dies_at_its_next_update() {
 /// `Creature.SuckedIntoShortCut` takes the lizard out of the room (`RemoveObject`:
 /// `room = null`). On that tick its emitter updated before it and the voice's upkeep
 /// came before `Act`; at its next update `ChunkSoundEmitter.Update` sees
-/// `chunk.owner.room != room` and destroys it.
+/// `chunk.owner.room != room` and destroys it. The player waits behind the wall, out of
+/// sight, so the lizard's casual aggression leaves it be.
 #[test]
 fn a_voice_emitter_dies_when_its_lizard_enters_a_shortcut() {
-    let mut g = game_with_voice(&SPLIT, (5, 3));
+    let mut g = game_with_voice(&SPLIT, (18, 3));
     let l = g.act_lizard((8, 3), -1.0);
     g.dev_set_lizard_destination(l, WorldCoordinate::new(0, 17, 3, -1), Some(0.5));
     let mut emitter = None;

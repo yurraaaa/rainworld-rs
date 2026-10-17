@@ -422,7 +422,6 @@ impl RainWorldGame {
             let mass = c.mass;
             c.vel += head_vel * head_mass.lerp(1.1, 0.5) / mass.max(1.0);
         }
-        let template = self.world.creature(id).template;
         let other_mass = match chunk.owner {
             Entity::Creature(c) => self.creature_total_mass(c),
             Entity::Object(_) => self.world.total_mass(chunk.owner),
@@ -430,7 +429,7 @@ impl RainWorldGame {
         let relation = chunk
             .owner
             .creature()
-            .map(|c| template.relationship_to(self.world.creature(c).kind()).kind);
+            .map(|c| self.world.dynamic_relationship(id, c).kind);
         let grabs = relation == Some(RelationshipType::Eats)
             || (self.rng.value() < 0.5 && other_mass < my_mass * 1.2)
             || (relation.is_none() && other_mass < my_mass * 1.2);
@@ -544,13 +543,8 @@ impl RainWorldGame {
         let Entity::Creature(target) = chunk.owner else {
             return;
         };
-        let template = self.world.creature(id).template;
         let mut fac = fac;
-        if template
-            .relationship_to(self.world.creature(target).kind())
-            .kind
-            == RelationshipType::AgressiveRival
-        {
+        if self.world.dynamic_relationship(id, target).kind == RelationshipType::AgressiveRival {
             fac = 0.0;
         }
         let Some(at) = self.chunk_of(chunk).map(|c| c.pos) else {
@@ -627,11 +621,10 @@ impl RainWorldGame {
         let Some(g) = self.world.creature(id).grasps.first().copied().flatten() else {
             return;
         };
-        let template = self.world.creature(id).template;
         let eats = g
             .grabbed
             .creature()
-            .is_some_and(|c| template.eats(self.world.creature(c).kind()));
+            .is_some_and(|c| self.world.dynamic_relationship(id, c).kind == RelationshipType::Eats);
         if self.rng.value() < 0.025 && !eats {
             self.lizard_lose_all_grasps(id);
             return;
@@ -808,7 +801,7 @@ impl RainWorldGame {
             w.forbidden_to_player = 40;
         }
         // `SocialEventRecognizer.WeaponAttack`: the creatures' reactions are the AI's
-        // (lizard steps 6 and 7); a slugcat's hit breaks the peaceful record.
+        // (lizard step 7); a slugcat's hit breaks the peaceful record.
         if thrower.is_some_and(|t| self.world.creature(t).kind() == CreatureType::Slugcat)
             && hit_something
         {
@@ -1379,8 +1372,7 @@ impl RainWorldGame {
     /// they joined it): pairs within both collision ranges (50) that do not hold each
     /// other push their overlapping chunks apart by mass (a nudge of two draws at the
     /// same x) and `Collide` once each way. `Player.Collide`'s belly slide stuns the
-    /// other; `Lizard.Collide` bites what it would kill (by the static relationship:
-    /// the tracker and the rest are the AI's, lizard steps 6 and 7).
+    /// other; `Lizard.Collide` sees it (`SeeCreature`) and bites what it would kill.
     pub(super) fn collide_creatures(&mut self, index: i32) {
         let mut layer: Vec<(u64, CreatureId)> = self.world.room_lizards(index);
         if self
@@ -1482,10 +1474,8 @@ impl RainWorldGame {
         if self.world.creature(me).lizard().is_none() {
             return;
         }
-        let template = self.world.creature(me).template;
-        let rel = template.relationship_to(self.world.creature(other).kind());
-        let go_for_kill = matches!(rel.kind, RelationshipType::Eats | RelationshipType::Attacks)
-            && rel.intensity > 0.0;
+        self.lizard_collide_tracking(me, other);
+        let go_for_kill = self.world.dynamic_relationship(me, other).go_for_kill();
         let l = self.world.lizard_ref(me);
         if l.conscious() && !self.lizard_holding(me) && go_for_kill {
             if l.animation == crate::creature::LizardAnimation::Lounge && my_chunk == 0 {

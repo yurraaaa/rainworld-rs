@@ -32,6 +32,7 @@ impl RainWorldGame {
             return;
         };
         let grabbed = self.lizard_grabbed_creature_pos(id);
+        let (looks, forced_look) = self.lizard_look_view(id);
         let Some(mut link) = self.world.lizard_at(id).graphics.take() else {
             return;
         };
@@ -71,7 +72,9 @@ impl RainWorldGame {
             added: Vec::new(),
             light_upkeep: None,
         };
-        if let Some(view) = self.world.lizard_view(id, grabbed) {
+        if let Some(mut view) = self.world.lizard_view(id, grabbed) {
+            view.looks = &looks;
+            view.forced_look = forced_look;
             observer.lizard_updated(&view, &mut link, &mut cx);
         }
         let (seq, added, upkeep) = (cx.update_seq, cx.added, cx.light_upkeep);
@@ -109,6 +112,7 @@ impl RainWorldGame {
             light.set_alpha = Some(u.alpha);
         }
         self.world.lizard_at(id).graphics = Some(link);
+        self.lizard_apply_look_reads(id, &looks);
     }
 
     /// `graphicsModule.SuckedIntoShortCut(pos)` while lizard `id` enters a shortcut.

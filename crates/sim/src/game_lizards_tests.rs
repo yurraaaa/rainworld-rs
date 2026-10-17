@@ -397,7 +397,7 @@ fn a_realized_lizard_is_a_danger_to_the_player() {
     // CurrentPlayerAggression` without a player relationship (1) and the head.
     let (mut g, _) = game(vec![]);
     let l = g.lying_lizard();
-    let d = g.world.creature_danger(l).expect("realized");
+    let d = g.world.creature_danger(l, g.player_id).expect("realized");
     assert_eq!(d.player_aggression, Some(1.0));
     assert_eq!(d.danger_pos, BODY[0]);
     assert!(d.dangerous_to_player > 0.0);

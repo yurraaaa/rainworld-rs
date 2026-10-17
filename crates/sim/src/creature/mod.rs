@@ -18,17 +18,21 @@ pub mod death;
 pub mod fly;
 pub mod grasp;
 pub mod lizard;
+pub mod looker;
 pub mod overseer;
 pub mod path_finder;
 pub mod pathing;
 pub(crate) mod population;
+mod relationship_tracker;
 mod relationships;
 pub mod social_memory;
 mod state_save;
 pub mod stuck_tracker;
 pub mod template;
 mod template_abstract;
+pub mod tracker;
 pub mod violence;
+pub mod vision;
 
 use rw_assets::CreatureType;
 use rw_random::UnityRandom;
@@ -44,14 +48,24 @@ pub use fly::{
 };
 pub use grasp::{GrabRequest, Grasp, GripStick, Shareability};
 pub use lizard::{LUNG_CAPACITY, Lizard, LizardAnimation, LizardBreedParams};
+pub use looker::{CreatureLooker, LookCandidate, LookCandidateParts};
 pub use overseer::{OverseerAbstractAi, OverseerAi, OverseerBody, PlayerGuideState};
 pub use path_finder::{PathFinder, PathFinders, PatherKind};
+pub use relationship_tracker::{
+    DynamicRelationship, LizardTrackState, RelationshipTracker, TrackedCreatureState,
+    TrackingModule,
+};
 pub use social_memory::{Relationship as SocialRelationship, SocialMemory};
 pub use state_save::{StateParts, StateSave};
 pub use stuck_tracker::{DiscomfortTracker, MoveBacklog, StuckTracker};
 pub use template::{CreatureTemplate, Relationship, RelationshipType, WaterRelationship};
 pub use template_abstract::{AbstractCost, AbstractMovement};
+pub use tracker::{
+    BestGhost, CreatureRep, ElaborateRep, Ghost, GhostParams, RepKey, RepKind, RepReading,
+    Sighting, Tracker,
+};
 pub use violence::{Community, DamageType, ViolenceTemplate};
+pub use vision::{ChunkVisibility, CreatureVision, Eyes, LizardSight, PlayerVisibility};
 
 /// `EntityID`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -139,6 +153,18 @@ impl WorldCoordinate {
     #[must_use]
     pub fn node_defined(self) -> bool {
         self.node > -1
+    }
+
+    /// `WashNode`: the node left undefined.
+    #[must_use]
+    pub fn wash_node(self) -> Self {
+        Self { node: -1, ..self }
+    }
+
+    /// `CompareDisregardingNode`.
+    #[must_use]
+    pub fn same_room_and_tile(self, other: Self) -> bool {
+        self.room == other.room && self.tile == other.tile
     }
 
     /// `CompareDisregardingTile`.

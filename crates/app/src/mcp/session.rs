@@ -18,7 +18,7 @@ use rw_render::{RoomLayers, WgpuRenderer};
 use rw_save::SaveSlot;
 use rw_sim::campaign::SlugcatCampaign;
 use rw_sim::creature::lizard::LizardVoice;
-use rw_sim::creature::{AbstractCreature, CreatureId, Lizard};
+use rw_sim::creature::{AbstractCreature, CreatureId, Lizard, RepReading, TrackedCreatureState};
 use rw_sim::item::{Entity, ObjectId, SpearStickKind, Weapon};
 use rw_sim::{Input, StomachObject, Vec2, WorldCoordinate};
 
@@ -38,8 +38,9 @@ use super::reply::{
     StepTrace, StoryInfo, TextPromptState, TokenState, WeaponInfo,
 };
 use super::reply::{
-    ConnectionInfo, CoordInfo, LizardCosmeticInfo, LizardGraphicsInfo, LizardLimbInfo,
-    LizardMoveInfo, LizardVoiceInfo, MovementAnimationInfo, VesselInfo,
+    ConnectionInfo, CoordInfo, DynamicRelationshipInfo, GhostInfo, LizardCosmeticInfo,
+    LizardGraphicsInfo, LizardLimbInfo, LizardMoveInfo, LizardVoiceInfo, MovementAnimationInfo,
+    TrackedCreatureInfo, VesselInfo,
 };
 use super::reply::{DangerInfo, HoloLightState, LightSourceState, MusicState, TriggerState};
 use super::reply::{
@@ -707,11 +708,13 @@ impl Session {
                 }),
                 fly: Self::fly_info(scene, c),
                 lizard: Self::lizard_info(scene, id, c),
-                danger: world.creature_danger(id).map(|d| DangerInfo {
-                    dangerous_to_player: d.dangerous_to_player,
-                    danger_pos: d.danger_pos.to_array(),
-                    player_aggression: d.player_aggression,
-                }),
+                danger: world
+                    .creature_danger(id, scene.game().sim().player_creature())
+                    .map(|d| DangerInfo {
+                        dangerous_to_player: d.dangerous_to_player,
+                        danger_pos: d.danger_pos.to_array(),
+                        player_aggression: d.player_aggression,
+                    }),
                 social: c
                     .state
                     .social_memory
@@ -901,8 +904,65 @@ impl Session {
                 })
                 .collect(),
             movement: Self::lizard_move_info(scene, id, l),
+            tracker: scene
+                .game()
+                .sim()
+                .tracker_readings(id)
+                .iter()
+                .map(|r| Self::tracked_creature_info(scene, r))
+                .collect(),
+            relationships: l
+                .ai
+                .relationships
+                .relationships
+                .iter()
+                .filter_map(|&k| l.ai.tracker.rep(k))
+                .filter_map(|r| {
+                    let d = r.dynamic_relationship.as_ref()?;
+                    Some(DynamicRelationshipInfo {
+                        id: Self::entity_id(scene, r.creature),
+                        kind: d.current.kind.value().to_owned(),
+                        intensity: d.current.intensity,
+                        module: d.tracked_by_module.map(|m| m.value().to_owned()),
+                        spear: d.state.map(|TrackedCreatureState::Lizard(s)| s.spear),
+                    })
+                })
+                .collect(),
+            casual_aggression_target: l
+                .ai
+                .casual_aggression_target
+                .and_then(|k| l.ai.tracker.rep(k))
+                .map(|r| Self::entity_id(scene, r.creature)),
             graphics: Self::lizard_graphics_info(scene, c, l, holding),
         })
+    }
+
+    fn tracked_creature_info(scene: &Scene, r: &RepReading) -> TrackedCreatureInfo {
+        let world = scene.game().sim().world();
+        TrackedCreatureInfo {
+            id: Self::entity_id(scene, r.creature),
+            kind: world.creature(r.creature).kind().value().to_owned(),
+            representation: if r.elaborate { "Elaborate" } else { "Simple" }.to_owned(),
+            age: r.age,
+            ticks_since_seen: r.ticks_since_seen,
+            forget_counter: r.forget_counter,
+            visual_contact: r.visual_contact,
+            estimated_chance_of_finding: r.estimated_chance_of_finding,
+            best_guess: Self::coord_info(scene, r.best_guess),
+            last_seen: Self::coord_info(scene, r.last_seen),
+            priority: r.priority,
+            delete_me_next_frame: r.delete_me_next_frame,
+            ghosts: r
+                .ghosts
+                .iter()
+                .map(|g| GhostInfo {
+                    coord: Self::coord_info(scene, g.coord),
+                    pos: g.pos.to_array(),
+                    generation: g.generation,
+                    stopped: g.stopped,
+                })
+                .collect(),
+        }
     }
 
     fn lizard_graphics_info(
@@ -945,6 +1005,13 @@ impl Session {
             flicker: g.flicker,
             white_flicker: link.white_flicker,
             look_pos: g.look_pos.to_array(),
+            look_creature: link
+                .looker
+                .and_then(|lk| lk.look_creature)
+                .and_then(|k| l.ai.tracker.rep(k))
+                .map(|r| Self::entity_id(scene, r.creature)),
+            look_focus_delay: link.looker.map_or(0, |lk| lk.look_focus_delay),
+            eye_beams_active: g.eye_beams_active,
             cosmetics: g.cosmetics.iter().map(Self::lizard_cosmetic_info).collect(),
             light: link.light,
             voice_visualization_intensity: g.voice_visualization_intensity,

@@ -94,8 +94,8 @@ it (D13). What still differs is only the seed and the call order:
   1000 ticks into a cycle) every story run's stream has shifted from before, as the
   game's does. Missing: the draws a creature other than a bat fly, an overseer or a
   green lizard would make on being realized (`PlaceInRealizedRoom`, its body, AI and
-  graphics), as it stays abstract (D14), and a green lizard's AI's trackers' (lizard
-  step 6), and
+  graphics), as it stays abstract (D14), a green lizard AI's noise tracker and
+  behaviours (lizard steps 6b and 7), and
   per tick the scavengers' abstract AI and `ScavengersWorldAI` (one `Range` over the
   scavengers every tick once a world has any), which are not ported (D14).
   `LocalCoordinateOfNode` draws for bat hives, garbage holes and border exits (a border
@@ -107,7 +107,12 @@ it (D13). What still differs is only the seed and the call order:
   `MovementAnimation` (three per destination a tick), `GripPointBehavior`, the random
   step and the desperate shove, the shake, `EnterAnimation`'s and the shortcut sounds,
   and `DefineNodeOfLocalCoordinate`'s `LocalCoordinateOfNode` draws in a room ready for
-  AI.
+  AI. Its tracker and relationship tracker (lizard step 6a) make theirs: the casual
+  aggression's representation pick, `DoIWantToBiteThisCreature`'s rolls and the bite
+  coin, `Tracker.Update`'s representation check (a ghost pick, a ghost pushed on with
+  its connection rolls), its room-creature pick, each new elaborate representation's
+  first `Ghost` (`moveBuffer`), the ghosts' moves and clones, and `CreatureSpotted`'s
+  look reevaluation and eye pick in a viewed room.
   In a viewed room a green lizard has its `LizardGraphics` (lizard step 5a), whose
   `Update` runs after the lizard's in its slot of the update list (and once more while
   it is pulled into a shortcut) and makes the game's draws: culling's `Reset` (12),
@@ -258,7 +263,7 @@ apply to `HeavyCarry` objects only, which no ported object is.
   section 12), and of collision layer 1, the green lizards (`HitSomething`, `Violence`,
   `LodgeInCreature`, `StuckInCreature`; D14). `SocialEventRecognizer.WeaponAttack`
   only breaks the peaceful record: the hit creatures' reactions are their AI's (lizard
-  steps 6 and 7). Adrenaline's
+  step 7). Adrenaline's
   throw force (`Lerp(1, 1.5, Adrenaline)`) is 1 (adrenaline is skipped for now, a user
   decision of 2026-10-16). Remix and More Slugcats branches
   (Gourmand, Saint, Spearmaster, Rivulet's upward throw, the MMF slow-spear and
@@ -568,7 +573,7 @@ states (they fall back to the nearest ported pose: Default for the airborne ones
 
 **Lizard graphics (`rw_graphics::LizardGraphics`, lizard step 5a).** The green
 lizard's `LizardGraphics` constructor, `Reset`, `Update` (culling, the belly-drag and
-lounge loop, the look focus over the AI's empty tracker, eyes, head colour setter and
+lounge loop, the `CreatureLooker` over the AI's tracker, eyes, head colour setter and
 its bubbles and drips, blink, the head light in a dark room, breath, `LizardLimb`s with
 their grip, flip, foot sounds and `LegsGripping`, the depth rotations, the tail, the
 head with its jump and `bubble` bubbles), `SuckedIntoShortCut`, `Stun`, `WhiteFlicker`,
@@ -596,9 +601,16 @@ colour layer and the five head sprites, in `AddToContainer`'s order, coloured as
   voice and other breeds' colour paths (white camouflage and so on; with those breeds),
   More Slugcats' rot voices, Remix's Love voice and safari-control voices (with those
   DLCs).
-- **The AI's looks.** `LizardAI` is a stand-in (D14): its tracker is empty, so the
-  looker never looks at a creature (`lookCreature` stays null, the eye beams stay off)
-  and `CreatureSpotted` and the fleeing `lookPos` are not called.
+- **The AI's looks** (lizard step 6a). The looker picks among the tracked creatures,
+  the look position follows the one looked at (where it is seen, else its best
+  guessed tile), the eye beams follow how well it is seen, and `CreatureSpotted`
+  reevaluates the looker and flashes an eye. Until lizard step 7: the spotted
+  animations' reevaluation favours no creature (the game favours the prey tracker's
+  `MostAttractivePrey` or the threat tracker's `mostThreateningCreature`), and the
+  fleeing `lookPos` (behaviour `Flee`) is never reached. The looker's state lives in
+  the sim's graphics link (the AI reevaluates it); the eye flash `CreatureSpotted` sets
+  is applied at the start of the graphics' next update, before anything else reads
+  the eyes, rather than at once.
 - **A dropped module's bubbles, sparks and flash.** A bubble, and a head-shield spark
   or flash, keeps the module it was given, as the game's keep their `LizardGraphics`
   (a spark reads its `whiteFlicker`, frozen once dropped), and reads the lizard's
@@ -764,12 +776,11 @@ updates in) and the passage screen's `Passages` song are ported as hooks
 - **Threat.** `ThreatDetermination.Update` is ported with `ThreatOfCreature` over the
   realized creatures of the player's room (`rw_sim::creature::CreatureDanger`: the
   templates' `dangerousToPlayer`, `DangerPos`, the AI's `CurrentPlayerAggression` and
-  its tracker's view of the player). No realized creature has a tracker yet (the
-  overseer's AI has none, a bat fly no AI, the green lizard's `LizardAI` is a stand-in
-  until lizard step 6), so `VisualContact` and `EstimatedChanceOfFinding` read false
-  and 0; for the overseers and flies that is the game's answer, for a lizard the game's
-  tracker would see the player, so a realized green lizard weighs on the threat less
-  than in the game until its AI comes. Ripple layers (Watcher) are not read; any ghost
+  its tracker's view of the player: a green lizard's tracker, lizard step 6a; the
+  overseer's AI has none and a bat fly no AI, so theirs read false and 0 as in the
+  game). The `VisualContact` getter is read without its side effect (it clears the
+  field when the creature has left the AI's room; the tracker's own update clears it
+  the same tick). Ripple layers (Watcher) are not read; any ghost
   mode counts as 1 (no world ghost is ported).
 - **Music not ported:** the echoes' `GhostSong` and ghost mode
   (`ResumeProcedural` is there, unused), `SSSong`, gate and region-change songs (no
@@ -1162,9 +1173,9 @@ second part, else a single-room world for arena levels). The campaign descriptio
   every template's `dangerousToPlayer`, the aggression of the creature's AI, distance
   and hand-holding, and `CreaturePointer` pointing at the creature's `DangerPos` and
   warning the player of it, are ported; the player, bat flies and overseers score 0 as
-  in the game, a realized green lizard scores with `LizardAI.CurrentPlayerAggression`'s
-  1 (the stand-in AI tracks no relationship, as the game's tracker before it meets the
-  player), and a pole mimic's mimicking, which hides it, is not read, pole mimics not
+  in the game, a realized green lizard scores with `LizardAI.CurrentPlayerAggression`
+  (1 until its tracker relates to the player, then `InverseLerp(0.5, 0, LikeOfPlayer)`),
+  and a pole mimic's mimicking, which hides it, is not read, pole mimics not
   being realized), the food pointer (no food
   item to the communication module is realized), the angry hologram (`angryWithPlayer` is set only when the
   Moon's swarmer neuron is eaten or carried off, 217937, and is otherwise read from the
@@ -1254,8 +1265,9 @@ second part, else a single-room world for arena levels). The campaign descriptio
   creature is moved with (`MoveWithCreature`, `offscreenSpeedFac` 1) until the like is
   under 0.9, and a dead one's relationship is discarded (the game reads a null social
   memory there without a check; no base creature reaches it, the port logs). So far
-  only a saved relationship (an imported save's tamed lizard) can start it: the
-  realized trackers that make and change relationships are lizard step 6, and no event
+  only a saved relationship (an imported save's tamed lizard) can start it: a lizard
+  touching a player it dislikes lowers its temporary like (lizard step 6a), which
+  never reaches the following threshold; taming is skipped for now, and no event
   the port produces (kills, weapon hits) touches a social memory in the base game
   without them (the only base-game direct writer is Watcher's graffiti cloud).
   Den entry is ported with what is stuck to the creature (`AbstractPhysicalObject
@@ -1329,9 +1341,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
   fall out of the room, `PhysicalObject.Update`, the lungs), `Act`'s footing, terrain
   impacts with their sounds, `Violence` with the head shield and hits in the mouth,
   `Stun`, `SpearStick`, `Die`, and the bites (`AttemptBite`, `Bite`, `DamageAttack`,
-  `JawsSnapShut`, `CarryObject`; `Collide` calls them for a conscious lizard touching
-  a creature it would kill, by the static relationship, which is what the game's
-  `DynamicRelationship` gives for a creature its tracker lacks). Rocks and spears
+  `JawsSnapShut`, `CarryObject`; `Collide` sees the creature it touches and bites what
+  it would kill by its dynamic relationship). Rocks and spears
   thrown by the player hit it through collision layer 1 (`Rock.HitSomething`,
   `Spear.HitSomething`, `LodgeInCreature`, a spear stuck in a creature and pinned to a
   wall), kill it with the kill tag (the session's kills and the sleep screen, D13), and
@@ -1350,18 +1361,37 @@ second part, else a single-room world for arena levels). The campaign descriptio
   stuck tracker's utility (0 while it is not stuck; the behaviours that set it are step
   7); `NewRoom` sets a random tile of the new room as the destination. So a realized
   lizard follows its abstract AI's destinations and migrations and otherwise stands.
+  It sees and tracks creatures (lizard step 6a, `creature-model.md` section 17):
+  the `Tracker` with simple and elaborate representations and their ghosts,
+  `VisualContact` with `LizardAI.VisualScore` (the breed's vision, water, narrow
+  spaces, the angle off the head) and `BodyChunk`/`Player.VisibilityBonus`
+  (`privSneak`), `SeeCreature` from `Collide`, the `RelationshipTracker` with
+  `UpdateDynamicRelationship` (a slugcat by `LikeOfPlayer`: the region's lizard
+  community opinion, spawn evil and the temporary like; the spear it holds), and the
+  casual aggression that bites a target in reach. The relationship tracker sorts each
+  relationship into the module that would track it, but the prey, threat and
+  aggression trackers are step 7, so nothing reads it yet. Left out of step 6a, each
+  a question to the user: what blinds (`Blinded`, flashes) and the vision obscurers
+  (`VisionObscurer` objects), `useTrackedCreatures` (no base lizard sets it), the
+  aggression tracker's anger on touching a rival (`IncrementAnger`, step 7), gifts and
+  taming (`FriendTracker`, skipped), the black lizard's `HeadLightsUpFromNoise` and the
+  white lizard's camouflage in `VisibilityBonus` (with those breeds), and the Remix,
+  Jolly (`friendlyLizards`), Expedition, More Slugcats and Watcher branches of
+  `UpdateDynamicRelationship`, `VisualScore` and `LikeOfPlayer` (with those DLCs). A
+  kill's community influence is applied to the session's communities at once, as the
+  game's `InfluenceLikeOfPlayer` does, and again to the saved ones at `Win`.
   The MCP `set_destination` tool sets a destination and a run speed the AI keeps: a dev
   override, not game behaviour. `LegsGripping` and `NoGripCounter` come from its
   graphics' legs in a viewed room (lizard step 5a, D8), and are 2 and 0 without a
   graphics module, as in the game. Not ported: the den finder's
   remap in `NewArea` (step 7), the yellow lizards' pack term of the travel preference,
-  the obstacle and threat terms of the travel costs (the trackers, step 6),
+  the obstacle and threat terms of the travel costs (step 6b),
   `nonShortcutRoomEntrancePos` (entering a room from its border), and `PathWithExits`
   and `BestRegionTransportationGoal`, which nothing calls yet. The tongue, spit and
   jump animations belong to breeds whose data is not entered; a green lizard never
   enters them, and the port goes back to Standard if one does. Not yet, with their
-  steps: the AI's decisions (tracker, relationships, social events and taming are steps
-  6 and 7; the AI's `MakeSound` calls, boredom, pain, frustration, blood lust,
+  steps: the noise tracker and hearing (step 6b), the AI's decisions (social events
+  are step 7, taming is skipped for now; the AI's `MakeSound` calls, boredom, pain, frustration, blood lust,
   dominance and submission, come with them), eating a dead
   lizard (step 8: the player cannot grab creatures yet), the drowning bubble (its draws
   are made, the object is not), lethal water and the rain's flood (no rain yet). The
@@ -1762,7 +1792,7 @@ shelter.
 
 ## Not ported yet (not divergences, just absent)
 
-Player (stage one leaves out): sneaking and visibility (`privSneak`, `Sneak`, `VisibilityBonus`; the `SlugcatStats` stealth values exist but nothing reads them, as no ported creature sees or hears the player), zero gravity, grabbing and eating anything but bat flies, rocks and spears, thrown
+Player (stage one leaves out): the zero-gravity `privSneak` and the chunks' `loudness` (nothing hears yet, lizard step 6b), zero gravity, grabbing and eating anything but bat flies, rocks and spears, thrown
 weapons hitting creatures other than bat flies and overseers (D3), adrenaline, Red's illness, the WALLSTUCK safety
 (needs `VisualContact`), vines, tube worm,
 Jolly co-op, MSC / Watcher class mechanics. Ported because ground classification
