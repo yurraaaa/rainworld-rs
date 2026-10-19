@@ -123,6 +123,10 @@ Nothing new starts before the user agrees.
   lock: give parallel agents disjoint crates or worktrees. Benchmarks run
   alone.
 - `SendMessage` a running agent by id, telling it to reply to `main`.
+- Agents send no progress updates, status pings or "waiting on X" messages:
+  each costs the orchestrator context and usage. An agent sends one final
+  report, or a message only when it is blocked on a decision it cannot make
+  (a question for the user, a needed install). Briefs state this.
 - The machine is shared with someone who may be playing. No agent starts,
   stops or kills the game or Steam.
 - No agent downloads or installs programs (`dotnet tool install`, `pip
