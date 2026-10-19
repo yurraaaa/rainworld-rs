@@ -1,4 +1,6 @@
 //! ASCII test rooms.
+//!
+//! Mirrors: - (port-only: test fixtures)
 
 use rw_assets::Room;
 

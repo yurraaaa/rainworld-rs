@@ -324,6 +324,12 @@ Briefs must repeat these rules.
   Rust enums with a variant per base-game and DLC value, plus
   `value()`/`from_value()` for the game's spelling. Never match or compare on
   string literals.
+- Every source file's module header has a `//! Mirrors: <Type>.cs[, ...]
+  [(Member, ...)]` line naming the decompiled file(s) it ports, or `//!
+  Mirrors: - (port-only: reason)`. A new or renamed file keeps it right;
+  `python3 scripts/check_mirrors.py` must exit 0 (it also regenerates
+  `docs/MIRRORS.md`; `python3 scripts/port_status.py` regenerates
+  `docs/PORT-STATUS.md`).
 - WGSL shaders live in `crates/render/shaders/`, loaded with
   `include_str!("../shaders/<name>.wgsl")`.
 - Don't over-document. A simple function or field needs no doc comment, or

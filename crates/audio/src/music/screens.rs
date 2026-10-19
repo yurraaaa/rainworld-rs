@@ -1,6 +1,8 @@
 //! What the menu screens and the game's endings ask of the music player. The sleep,
 //! death and starve screens ask nothing (their `KarmaLadderScreen` plays only menu
 //! sound loops); the starve's `DeathEvent` comes from `GoToStarveScreen`.
+//!
+//! Mirrors: Music/MusicPlayer.cs (GameRequestsSong), Menu/DreamScreen.cs, Menu/KarmaLadderScreen.cs
 
 use super::player::MusicPlayer;
 use super::song::SongKind;

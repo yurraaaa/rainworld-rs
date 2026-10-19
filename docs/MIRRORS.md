@@ -11,12 +11,12 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 |---|---|---|---|---|
 | app | 11 | 19 | 0 | 0 |
 | assets | 19 | 13 | 0 | 0 |
-| audio | 10 | 5 | 0 | 1 |
+| audio | 11 | 5 | 0 | 0 |
 | graphics | 27 | 4 | 0 | 0 |
 | hud | 22 | 0 | 0 | 0 |
-| menu | 26 | 2 | 0 | 1 |
+| menu | 27 | 2 | 0 | 0 |
 | random | 0 | 1 | 0 | 0 |
-| render | 6 | 17 | 0 | 1 |
+| render | 6 | 18 | 0 | 0 |
 | save | 15 | 5 | 0 | 0 |
 | sim | 135 | 5 | 0 | 0 |
 
@@ -95,7 +95,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/audio/src/music/mod.rs` | mirrors | Music/MusicPlayer.cs |
 | `crates/audio/src/music/player.rs` | mirrors | Music/MusicPlayer.cs |
 | `crates/audio/src/music/procedural.rs` | mirrors | Music/ProceduralMusic.cs |
-| `crates/audio/src/music/screens.rs` | unmapped |  |
+| `crates/audio/src/music/screens.rs` | mirrors | Menu/DreamScreen.cs, Menu/KarmaLadderScreen.cs, Music/MusicPlayer.cs |
 | `crates/audio/src/music/song.rs` | mirrors | Music/IntroRollMusic.cs, Music/MenuOrSlideShowSong.cs, Music/MusicPiece.cs, Music/Song.cs |
 | `crates/audio/src/music/sources.rs` | port-only | - |
 | `crates/audio/src/music/stream.rs` | port-only | - |
@@ -166,7 +166,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/menu/src/label.rs` | mirrors | FLabel.cs |
 | `crates/menu/src/lib.rs` | port-only | - |
 | `crates/menu/src/main_menu.rs` | mirrors | Menu/MainMenu.cs |
-| `crates/menu/src/menu/build.rs` | unmapped |  |
+| `crates/menu/src/menu/build.rs` | mirrors | Menu/MenuObject.cs |
 | `crates/menu/src/menu/depth.rs` | mirrors | Menu/MenuDepthIllustration.cs, Menu/MenuScene.cs |
 | `crates/menu/src/menu/depth/slugcat_scenes.rs` | mirrors | Menu/MenuScene.cs |
 | `crates/menu/src/menu/draw.rs` | mirrors | Menu/Menu.cs, Menu/MenuObject.cs |
@@ -205,7 +205,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/render/src/stage.rs` | mirrors | FStage.cs, Futile.cs |
 | `crates/render/src/stage_gpu.rs` | port-only | - |
 | `crates/render/src/status.rs` | port-only | - |
-| `crates/render/src/test_room.rs` | unmapped |  |
+| `crates/render/src/test_room.rs` | port-only | - |
 | `crates/render/src/water.rs` | port-only | - |
 | `crates/render/src/water_gpu.rs` | port-only | - |
 | `crates/render/src/water_sprites.rs` | mirrors | Water.cs, WaterTriangleMesh.cs |
@@ -464,17 +464,18 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `Menu/Dialog.cs` | `crates/menu/src/dialog.rs` |
 | `Menu/DialogConfirm.cs` | `crates/menu/src/dialog.rs` |
 | `Menu/DialogNotify.cs` | `crates/menu/src/dialog.rs` |
+| `Menu/DreamScreen.cs` | `crates/audio/src/music/screens.rs` |
 | `Menu/EndgameMeter.cs` | `crates/hud/src/endgame_meter.rs` |
 | `Menu/EndgameTokens.cs` | `crates/hud/src/endgame_tokens.rs` |
 | `Menu/InitializationScreen.cs` | `crates/menu/src/initialization.rs` |
 | `Menu/InteractiveMenuScene.cs` | `crates/menu/src/menu/scene.rs` |
 | `Menu/IntroRoll.cs` | `crates/menu/src/intro_roll.rs` |
 | `Menu/KarmaLadder.cs` | `crates/hud/src/karma_ladder.rs` |
-| `Menu/KarmaLadderScreen.cs` | `crates/hud/src/screen_package.rs`, `crates/hud/src/sleep_screen.rs` |
+| `Menu/KarmaLadderScreen.cs` | `crates/audio/src/music/screens.rs`, `crates/hud/src/screen_package.rs`, `crates/hud/src/sleep_screen.rs` |
 | `Menu/MainMenu.cs` | `crates/menu/src/main_menu.rs` |
 | `Menu/Menu.cs` | `crates/menu/src/color.rs`, `crates/menu/src/menu/draw.rs`, `crates/menu/src/menu/mod.rs`, `crates/menu/src/menu/update.rs` |
 | `Menu/MenuDepthIllustration.cs` | `crates/menu/src/menu/depth.rs` |
-| `Menu/MenuObject.cs` | `crates/menu/src/menu/draw.rs`, `crates/menu/src/menu/object.rs`, `crates/menu/src/menu/update.rs` |
+| `Menu/MenuObject.cs` | `crates/menu/src/menu/build.rs`, `crates/menu/src/menu/draw.rs`, `crates/menu/src/menu/object.rs`, `crates/menu/src/menu/update.rs` |
 | `Menu/MenuScene.cs` | `crates/menu/src/menu/depth.rs`, `crates/menu/src/menu/depth/slugcat_scenes.rs` |
 | `Menu/OptionsMenu.cs` | `crates/menu/src/options_menu.rs` |
 | `Menu/PauseMenu.cs` | `crates/hud/src/pause_menu.rs` |
@@ -494,7 +495,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `Music/IntroRollMusic.cs` | `crates/audio/src/music/song.rs` |
 | `Music/MenuOrSlideShowSong.cs` | `crates/audio/src/music/song.rs` |
 | `Music/MusicPiece.cs` | `crates/audio/src/music/song.rs` |
-| `Music/MusicPlayer.cs` | `crates/app/src/game_music.rs`, `crates/audio/src/music/mod.rs`, `crates/audio/src/music/player.rs` |
+| `Music/MusicPlayer.cs` | `crates/app/src/game_music.rs`, `crates/audio/src/music/mod.rs`, `crates/audio/src/music/player.rs`, `crates/audio/src/music/screens.rs` |
 | `Music/PlayerThreatTracker.cs` | `crates/app/src/game_music.rs`, `crates/audio/src/music/threat.rs` |
 | `Music/ProceduralMusic.cs` | `crates/audio/src/music/procedural.rs` |
 | `Music/Song.cs` | `crates/audio/src/music/song.rs` |

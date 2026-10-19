@@ -1,6 +1,8 @@
 //! The menu objects' constructors: each makes its sprites in the game's order (they
 //! are drawn in the order added to their container), and registers selectables with
 //! their page. The caller adds the object to its owner's `subObjects`, as the game.
+//!
+//! Mirrors: Menu/MenuObject.cs (the individual object classes' constructors)
 
 use rw_render::StageShader;
 use rw_sim::Vec2;
