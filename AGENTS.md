@@ -329,7 +329,9 @@ Briefs must repeat these rules.
   Mirrors: - (port-only: reason)`. A new or renamed file keeps it right;
   `python3 scripts/check_mirrors.py` must exit 0 (it also regenerates
   `docs/MIRRORS.md`; `python3 scripts/port_status.py` regenerates
-  `docs/PORT-STATUS.md`).
+  `docs/PORT-STATUS.md`). The same script fails when a source file is not
+  named in its crate's `README.md`; a change that makes a README line untrue
+  corrects it in the same change.
 - WGSL shaders live in `crates/render/shaders/`, loaded with
   `include_str!("../shaders/<name>.wgsl")`.
 - Don't over-document. A simple function or field needs no doc comment, or

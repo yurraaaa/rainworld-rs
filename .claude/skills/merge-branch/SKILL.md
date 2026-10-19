@@ -11,8 +11,9 @@ real output of each.
 
 1. In `<wt>`: `git merge main`. Resolve conflicts; re-run what the conflict touched.
    Then `python3 scripts/check_mirrors.py` must exit 0 (new files carry a
-   `//! Mirrors:` header); a new crate or module must be in `docs/MAP.md`
-   and its crate `README.md`. Send violations back to the agent.
+   `//! Mirrors:` header); the script also fails when a file is missing from its
+   crate `README.md`; read the README lines for the names the diff touched
+   and send stale ones back; a new crate must be in `docs/MAP.md`. Send violations back to the agent.
 2. In `<wt>`: `cargo fmt --all -- --check` (must print nothing).
 3. In `<wt>`: `cargo clippy --workspace --all-targets` (0 warnings).
 4. In `<wt>`: `cargo test --release --workspace`; sum the `test result:` lines

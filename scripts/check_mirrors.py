@@ -157,8 +157,25 @@ def write_doc(rows, counts):
         fh.write("\n".join(out) + "\n")
 
 
+def readme_errors(files):
+    """Every source file must be named in its crate's README.md file map."""
+    texts = {}
+    errs = []
+    for f in files:
+        crate = f.split("/")[1]
+        if crate not in texts:
+            with open(os.path.join(ROOT, "crates", crate, "README.md")) as fh:
+                texts[crate] = fh.read()
+        parts = f.split("/")
+        key = parts[-2] + "/" if parts[-1] == "mod.rs" else parts[-1]
+        if key not in texts[crate]:
+            errs.append(f"{f}: not named in crates/{crate}/README.md (looked for `{key}`)")
+    return errs
+
+
 def main():
     rows, errors = load()
+    errors += readme_errors(list(rows))
     counts = defaultdict(lambda: defaultdict(int))
     for f, r in rows.items():
         counts[f.split("/")[1]][r["kind"]] += 1

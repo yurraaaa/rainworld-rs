@@ -60,8 +60,12 @@ Rules for this task:
   Do not spawn opus or fable agents.
 - Keep the navigation docs true: a file you add, rename or move gets a
   `//! Mirrors: <Type>.cs` header (or `Mirrors: - (port-only: reason)`);
-  `python3 scripts/check_mirrors.py` must exit 0. A new crate or top-level
-  module updates `docs/MAP.md` and that crate's `README.md` file map. Do not
+  `python3 scripts/check_mirrors.py` must exit 0. Every file you add, rename,
+  move or delete is reflected in that crate's `README.md` file map (the
+  checker fails if a source file is not named there), and a README line you
+  made untrue (what a module holds, a "where is X?" entry, a type name) is
+  corrected in the same change. A new crate or top-level module also updates
+  `docs/MAP.md`. Do not
   commit the generated `docs/MIRRORS.md` / `docs/PORT-STATUS.md` (the
   orchestrator regenerates them at merge); `git checkout` them if changed.
 - Run only the per-crate commands in docs/checks.md, not the workspace suite.
