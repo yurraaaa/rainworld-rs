@@ -19,6 +19,8 @@ mod gpu;
 mod level;
 mod level_gpu;
 mod mesh;
+mod overlay;
+mod overlay_gpu;
 mod present;
 mod present_gpu;
 mod room_camera;
@@ -41,6 +43,7 @@ pub use frame_image::FrameImage;
 pub use gpu::WgpuRenderer;
 pub use level::{LevelGraphics, LevelParams, LevelView};
 pub use mesh::{Color, Mesh, Vertex};
+pub use overlay::{Overlay, OverlayDraw, OverlayVertex};
 pub use present::{PresentFilter, PresentRect, Resolution};
 pub use room_camera::{Follow, RoomCamera};
 pub use room_geometry::{RoomDebugGeometry, RoomShape, SlopeGeometry};
@@ -175,6 +178,14 @@ pub trait Renderer {
     /// [`RenderError`] when the backend cannot render; recoverable surface states
     /// (outdated, timeout, occluded) are handled internally and skip the frame.
     fn present(&mut self) -> Result<(), RenderError>;
+
+    /// Uploads the debug overlay's texture: `width * height` RGBA pixels, rows top to
+    /// bottom. Until then the overlay is drawn untextured.
+    fn set_overlay_texture(&mut self, width: u32, height: u32, rgba: &[u8]);
+
+    /// Draws `overlay` over this frame when it is presented: over the window at its
+    /// physical size, or over the frame without a window. Cleared by `begin_frame`.
+    fn draw_overlay(&mut self, overlay: Overlay);
 
     /// Saves the next frame, at [`size`](Renderer::size), to `path` (binary PPM). Errors are reported by
     /// that frame's [`present`](Renderer::present).

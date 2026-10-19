@@ -835,6 +835,8 @@ mod tests {
             Ok(())
         }
         fn capture_next_frame(&mut self, _: PathBuf) {}
+        fn set_overlay_texture(&mut self, _: u32, _: u32, _: &[u8]) {}
+        fn draw_overlay(&mut self, _: rw_render::Overlay) {}
     }
 
     impl Recorder {

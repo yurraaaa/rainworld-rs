@@ -23,6 +23,8 @@ rmcp = { version = "3.5.1", default-features = false, features = ["server", "mac
 schemars = "1.0"
 tokio = { version = "1", features = ["rt"] }
 base64 = "0.23"
+imgui = { version = "0.12", features = ["tables-api"] }
+imgui-winit-support = "0.13"
 
 [dev-dependencies]
 tempfile = "3.27.0"

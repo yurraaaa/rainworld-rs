@@ -49,6 +49,7 @@ use super::reply::{
 use super::tiles::TileDump;
 use crate::frontend::{AppContext, Frontend, FrontendRenderer, GameSetup};
 use crate::game::{Game, GameStart};
+use crate::room_catalog::RoomCatalog;
 use crate::saves::SaveConfig;
 use crate::scene::{Framing, Scene, SceneRenderer, SceneView, VisualsSource};
 use crate::sprites::SpriteAssets;
@@ -147,35 +148,9 @@ impl Session {
     /// # Errors
     /// When no room directory can be read.
     pub fn list_rooms(&self, params: &ListRoomsParams) -> Result<RoomList, String> {
-        let world = self.assets.file("world");
-        let mut dirs: Vec<(String, PathBuf)> = std::fs::read_dir(&world)
-            .map_err(|e| format!("cannot read {}: {e}", world.display()))?
-            .filter_map(Result::ok)
-            .filter_map(|entry| {
-                let name = entry.file_name().into_string().ok()?;
-                let region = name.strip_suffix("-rooms")?.to_owned();
-                Some((region, entry.path()))
-            })
-            .collect();
-        dirs.push(("gates".to_owned(), self.assets.file("world/gates")));
-        dirs.push(("arena".to_owned(), self.assets.file("levels")));
         let region = params.region.as_deref().map(str::to_lowercase);
         let prefix = params.prefix.as_deref().unwrap_or("").to_lowercase();
-        let mut rooms: Vec<String> = dirs
-            .iter()
-            .filter(|(r, _)| region.as_ref().is_none_or(|want| want == r))
-            .filter_map(|(_, dir)| std::fs::read_dir(dir).ok())
-            .flatten()
-            .filter_map(Result::ok)
-            .filter_map(|entry| {
-                let file = entry.file_name().into_string().ok()?;
-                let name = file.strip_suffix(".txt")?;
-                let image = entry.path().with_file_name(format!("{name}_1.png"));
-                (name.starts_with(&prefix) && image.is_file()).then(|| name.to_owned())
-            })
-            .collect();
-        rooms.sort();
-        rooms.dedup();
+        let mut rooms = RoomCatalog::read(&self.assets)?.rooms(region.as_deref(), &prefix);
         let count = rooms.len();
         let limit = params.limit.unwrap_or(500) as usize;
         rooms.truncate(limit);

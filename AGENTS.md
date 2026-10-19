@@ -263,7 +263,7 @@ so it serves the checkout's current code). Tools: `list_rooms`,
 `load_room`, `new_game`, `step`, `step_sequence`, `respawn`, `set_player`,
 `get_state`, `get_exits`, `get_tiles`, `get_hud`, `hud_message`,
 `screenshot`, `load_process`, `step_process`, `import_save`,
-`set_destination`, `spawn_creature`.
+`set_destination`, `spawn_creature`, `spawn_object`, `teleport_player`.
 
 - Headless and deterministic: the sim advances only in `step` /
   `step_sequence` (40 ticks per second); the same start, seed and inputs
@@ -308,7 +308,7 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   (`social`: subject, like, temp like, fear, temp fear, know), a realized one its danger
   (`danger`: `dangerousToPlayer`, `DangerPos`, aggression) and what its grip
   sticks carry (`carries`); empty fields are left out) and `objects` (every
-  abstract rock and spear: kind, ID, room, node, tile, a spear's
+  abstract object: kind, ID, room, node, tile, a spear's
   stuck-in-wall cycles and explosive flag; realized ones also their
   room, position, velocity, mode, rotation, collision layer and the creature
   a spear is lodged in, its released emitters), `orphan_emitters` (swallowed items' loop emitters still in a room), `triggers` (the
@@ -335,7 +335,18 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   personality, state, abstract AI, with their draws) and, in a room ready
   for AI, realizes it there (`RealizeInRoom`, kept on the exact tile) when
   the port has its body (green lizards, flies, overseers); it returns the
-  ID, and says why it stayed abstract otherwise.
+  ID, and says why it stayed abstract otherwise. `spawn_object` (a dev
+  tool) adds an item at `tile` of `room` the same way (`GetNewID`, the
+  arena sandbox's `SpawnItems`): a `Rock` or `Spear` (`explosive` for an
+  explosive one) realized there once the room's shortcuts are ready, or
+  another base-game loose item (`RainWorldGame::DEV_SPAWN_OBJECTS`: data
+  pearls, fruit, flare bombs, ...) as a plain abstract object, with a note
+  saying why. `teleport_player` (a dev tool) sends the player to exit
+  `node` (default the first exit) of another `room` of the world, keeping
+  the world and the session: it and what it carries go into a vessel in the
+  shortcut lobby, the room is realized at once, and the lobby brings it out
+  of that exit once the room is ready, the camera following (a few ticks:
+  step until `room` changes).
 - `screenshot` returns a PNG drawn by the window's draw path (level
   graphic or debug view, sprites, overlays), rendered offscreen; the debug
   view outlines every realized body's chunks and rods in the camera's room
@@ -393,6 +404,16 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   karma, buttons, map, end-game meters and passage tokens);
   the pause menu's Exit saves (a death after 30 s, a quit after 5).
 - `--mcp --window` also shows the driven scene in a window.
+- The windowed app (not MCP) has a debug UI (Dear ImGui, `imgui` and
+  `imgui-winit-support`, drawn by `rw-render`'s overlay; D18): F1 toggles
+  it. Tabs: Region (a stub until regions and gates are ported),
+  Teleport (the world's rooms; goes there as `teleport_player` does),
+  Creatures (every abstract creature as `get_state` lists them; moves the
+  player to a realized one in the camera's room, or goes to its room),
+  Spawn creature and Spawn object (as `spawn_creature` and
+  `spawn_object`). The `--mcp --window` mirror has no debug UI. Its actions apply before the next frame's ticks; while
+  a text field has focus or the mouse is over it, key and mouse presses
+  go to it only. A tool is a `DebugTab` in `crates/app/src/debug_ui/tabs.rs`.
 - End of the project: a review of code cleanliness and quality across the
   workspace, then an optimisation pass, once the whole game is ported
   (not after individual milestones).

@@ -20,8 +20,10 @@ use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::PhysicalKey;
 use winit::window::{Fullscreen, Window, WindowId};
 
+use crate::debug_ui::{DebugAction, DebugUi, DebugView};
 use crate::frontend::{Frontend, FrontendRenderer};
 use crate::input::{Action, Command, Script, WinitKey};
+use crate::room_catalog::RoomCatalog;
 use crate::scene::{Framing, SceneRenderer, SceneView};
 use crate::sprites::SpriteAssets;
 use crate::timestep::{FrameClock, TICK_RATE};
@@ -83,11 +85,19 @@ struct App {
     quit_after_frame: bool,
     /// Error that ended the loop, reported by [`run`].
     fatal: Option<Box<dyn Error>>,
+    /// F1's debug UI and the actions it asked for, applied before the next ticks.
+    debug_ui: DebugUi,
+    debug_actions: Vec<DebugAction>,
 }
 
 impl App {
     fn new(frontend: Frontend, sprites: Option<Arc<SpriteAssets>>, options: Options) -> Self {
+        let catalog = RoomCatalog::read(&frontend.ctx.menu.assets)
+            .inspect_err(|e| log::warn!("debug UI without rooms: {e}"))
+            .ok();
         Self {
+            debug_ui: DebugUi::new(catalog),
+            debug_actions: Vec::new(),
             sprites,
             show_visuals: !options.debug_view,
             clock: FrameClock::default(),
@@ -108,7 +118,7 @@ impl App {
     /// FullScreenWindow), or in a window the screen's size in physical pixels, not
     /// resizable (`resizableWindow: 0`). Either way the frame is drawn at the game's
     /// resolution and scaled to the window.
-    fn create_view(&self, event_loop: &ActiveEventLoop) -> Result<View, Box<dyn Error>> {
+    fn create_view(&mut self, event_loop: &ActiveEventLoop) -> Result<View, Box<dyn Error>> {
         let [width, height] = self.screen.size.map(|v| v as u32);
         let attrs = Window::default_attributes()
             .with_title(format!("rainworld-rs - {}", self.title))
@@ -130,11 +140,15 @@ impl App {
             physical.width,
             physical.height
         );
-        let renderer = WgpuRenderer::new(
+        let mut renderer = WgpuRenderer::new(
             Arc::clone(&window),
             (physical.width, physical.height),
             self.resolution,
         )?;
+        self.debug_ui.attach(&window);
+        if let Some(font) = self.debug_ui.take_font_texture() {
+            renderer.set_overlay_texture(font.width, font.height, &font.rgba);
+        }
         let renderer = FrontendRenderer::new(SceneRenderer::new(renderer, self.sprites.clone()));
         Ok(View { window, renderer })
     }
@@ -174,6 +188,14 @@ impl App {
             Some(Command::ToggleGrid) => {
                 self.layers.grid = !self.layers.grid;
                 log::info!("grid {}", if self.layers.grid { "on" } else { "off" });
+            }
+            Some(Command::ToggleDebugUi) => {
+                self.debug_ui.toggle();
+                // The game hides the cursor full screen; the UI needs it.
+                if let Some(view) = &self.view {
+                    view.window
+                        .set_cursor_visible(self.debug_ui.is_open() || self.screen.cursor_visible);
+                }
             }
             Some(Command::Screenshot) => {
                 let path = PathBuf::from(format!("screenshot-{}.ppm", self.process_frames.1));
@@ -248,6 +270,14 @@ impl App {
 
     fn frame(&mut self, event_loop: &ActiveEventLoop) {
         let dt = self.clock.delta(Instant::now());
+        for action in std::mem::take(&mut self.debug_actions) {
+            let status = action.apply(&mut self.frontend);
+            match &status {
+                Ok(text) => log::info!("debug UI: {text}"),
+                Err(text) => log::warn!("debug UI: {text}"),
+            }
+            self.debug_ui.set_status(status);
+        }
         self.frontend.update(dt);
         self.sync_window();
         if self.frontend.quit_requested() {
@@ -273,6 +303,18 @@ impl App {
         };
         self.frontend.draw(&mut view.renderer, scene_view);
         let r = &mut view.renderer.scene.renderer;
+        if self.debug_ui.is_open() {
+            let size = view.window.inner_size();
+            let (overlay, actions) = self.debug_ui.frame(
+                &DebugView::of(&self.frontend),
+                Some(&view.window),
+                (size.width, size.height),
+                view.window.scale_factor() as f32,
+                dt,
+            );
+            r.draw_overlay(overlay);
+            self.debug_actions.extend(actions);
+        }
         if let Some(path) = screenshot {
             log::info!("saving screenshot to {}", path.display());
             r.capture_next_frame(path);
@@ -301,6 +343,9 @@ impl ApplicationHandler for App {
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
+        if let Some(view) = &self.view {
+            self.debug_ui.handle_event(&view.window, &event);
+        }
         match event {
             WindowEvent::CloseRequested => {
                 log::info!("window close requested");
@@ -315,8 +360,18 @@ impl ApplicationHandler for App {
                 self.frontend.ctx.input.clear();
                 self.frontend.ctx.menu.input.clear();
             }
-            WindowEvent::KeyboardInput { event, .. } => self.on_key(&event),
+            WindowEvent::KeyboardInput { event, .. } => {
+                if !self.debug_ui.captures_key(&event) {
+                    self.on_key(&event);
+                }
+            }
             WindowEvent::CursorMoved { position, .. } => self.on_cursor(position),
+            WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                ..
+            }
+            | WindowEvent::MouseWheel { .. }
+                if self.debug_ui.captures_mouse() => {}
             WindowEvent::MouseInput { state, button, .. } => {
                 let index = match button {
                     MouseButton::Left => 0,

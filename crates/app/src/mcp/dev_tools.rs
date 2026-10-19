@@ -1,5 +1,5 @@
-//! Dev tools: `spawn_creature`, and `screenshot` / `get_tiles` of a realized room other
-//! than the camera's.
+//! Dev tools: `spawn_creature`, `spawn_object`, and `screenshot` / `get_tiles` of a
+//! realized room other than the camera's.
 //!
 //! A room shot reads the world and draws with its own renderer and its own room camera,
 //! so the camera's renderer uploads, the room camera, the cosmetic stream and the
@@ -7,18 +7,20 @@
 
 use std::sync::Arc;
 
-use rw_assets::{CreatureType, Room};
+use rw_assets::{AbstractObjectType, CreatureType, Room};
 use rw_graphics::{CosmeticSprites, DrawList, Layer, ShelterDoorSprites, WeaponSprites};
 use rw_render::{
     BodyStatus, Camera, LevelView, Renderer, RoomCamera, RoomLayers, WaterSurface, WgpuRenderer,
 };
 use rw_sim::Vec2;
-use serde::Serialize;
 
 use super::Session;
+use crate::dev_spawn::{SpawnReply, TeleportReply};
 use crate::frontend::FrontendRenderer;
 use crate::game::{DebugBody, Game};
-use crate::mcp::params::{ScreenshotParams, SpawnCreatureParams};
+use crate::mcp::params::{
+    ScreenshotParams, SpawnCreatureParams, SpawnObjectParams, TeleportPlayerParams,
+};
 use crate::mcp::reply::Screenshot;
 use crate::scene::{Framing, MARGIN, SceneRenderer, SceneView};
 use crate::timestep::TICK_RATE;
@@ -26,20 +28,6 @@ use crate::visuals::Visuals;
 
 /// A room's tiles and the tiles the player's chunks are on there.
 type RoomTiles = (Arc<Room>, Vec<(i32, i32)>);
-
-/// What `spawn_creature` made.
-#[derive(Debug, Clone, Serialize)]
-pub struct SpawnReply {
-    /// The new creature's EntityID [spawner, number].
-    pub id: [i32; 2],
-    pub kind: String,
-    pub room: String,
-    pub tile: [i32; 2],
-    pub realized: bool,
-    /// Why it was not realized.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub note: Option<String>,
-}
 
 impl Session {
     /// The global index of room `name`, or the camera's room.
@@ -61,43 +49,48 @@ impl Session {
     /// Without a game, for an unknown type or room, or a tile outside a realized room.
     pub fn spawn_creature(&mut self, params: &SpawnCreatureParams) -> Result<SpawnReply, String> {
         let room = self.room_named(params.room.as_deref())?;
-        let world = self.scene()?.game().sim().world();
-        let kind = CreatureType::from_value(&params.kind, world.mods())
+        let mods = self.scene()?.game().sim().world().mods();
+        let kind = CreatureType::from_value(&params.kind, mods)
             .ok_or_else(|| format!("unknown creature type {:?}", params.kind))?;
         let [x, y] = params.tile;
-        if let Some(r) = world.realized(room)
-            && r.room.get(x, y).is_none()
-        {
-            return Err(format!("tile [{x}, {y}] is outside {}", r.room.name()));
-        }
-        let id = self.scene_or_err()?.game_mut().dev_spawn_creature(
+        self.scene_or_err()?
+            .game_mut()
+            .spawn_creature(kind, room, (x, y), params.seed_id)
+    }
+
+    /// Sends the player through the shortcut lobby to an exit of a room of this world
+    /// (`dev_teleport_player`).
+    ///
+    /// # Errors
+    /// Without a game, for an unknown room or node, or a player that cannot travel.
+    pub fn teleport_player(
+        &mut self,
+        params: &TeleportPlayerParams,
+    ) -> Result<TeleportReply, String> {
+        let room = self.room_named(Some(&params.room))?;
+        self.scene_or_err()?
+            .game_mut()
+            .teleport_player(room, params.node)
+    }
+
+    /// Adds a new item at a tile (`dev_spawn_object`): a rock or spear realized there
+    /// when its room is loaded, another kind abstract.
+    ///
+    /// # Errors
+    /// Without a game, for a kind that is not a spawnable item, an unknown room, or a
+    /// tile outside a realized room.
+    pub fn spawn_object(&mut self, params: &SpawnObjectParams) -> Result<SpawnReply, String> {
+        let room = self.room_named(params.room.as_deref())?;
+        let mods = self.scene()?.game().sim().world().mods();
+        let kind = AbstractObjectType::from_value(&params.kind, mods)
+            .ok_or_else(|| format!("unknown object type {:?}", params.kind))?;
+        let [x, y] = params.tile;
+        self.scene_or_err()?.game_mut().spawn_object(
             kind,
             room,
             (x, y),
-            params.seed_id,
-        )?;
-        let scene = self.scene()?;
-        let world = scene.game().sim().world();
-        let c = world.creature(id);
-        let realized = c.is_realized();
-        let note = match world.realized(room) {
-            _ if realized => None,
-            None => Some("its room is not loaded: added abstract".to_owned()),
-            Some(r) if !r.ready_for_ai() => {
-                Some("its room is still loading: realized when it is ready".to_owned())
-            }
-            Some(_) => {
-                Some("the port has no realized body for this type: added abstract".to_owned())
-            }
-        };
-        Ok(SpawnReply {
-            id: [c.id.spawner, c.id.number],
-            kind: kind.value().to_owned(),
-            room: Self::room_name(scene, room),
-            tile: [c.pos.tile.0, c.pos.tile.1],
-            realized,
-            note,
-        })
+            params.explosive.unwrap_or(false),
+        )
     }
 
     /// Draws realized room `room` (not the camera's) as camera `params.camera` would

@@ -13,7 +13,9 @@
 //! of one shader and atlas page; a `HologramImage` draw first copies the frame drawn so
 //! far to a "grab" texture, its GrabPass), a fourth the game's water (`water_gpu`), which
 //! reads the level textures and the "behind" target too, and a fifth the stage quads
-//! (`stage_gpu`: the menu shaders, one texture per draw). Draw calls keep their call
+//! (`stage_gpu`: the menu shaders, one texture per draw). The debug overlay
+//! (`overlay_gpu`) goes over the window after the frame is shown, or over the frame
+//! when headless. Draw calls keep their call
 //! order across pipelines ([`DrawQueue`]). The WGSL shaders are compiled at runtime by
 //! wgpu.
 //!
@@ -30,14 +32,15 @@ use rw_sim::Vec2;
 use wgpu::util::DeviceExt;
 
 use crate::level_gpu::{LevelPipeline, LevelTextures};
+use crate::overlay_gpu::OverlayPipeline;
 use crate::present_gpu::PresentPipeline;
 use crate::sprite_gpu::{ScreenTextures, SpritePipeline};
 use crate::stage_gpu::StagePipeline;
 use crate::water_gpu::{WaterBinding, WaterPipeline};
 use crate::{
-    Batch, Camera, Color, DrawQueue, FrameImage, LevelGraphics, LevelView, Mesh, PresentRect,
-    RenderError, Renderer, Resolution, RoomDebugGeometry, RoomGlobals, RoomLayers, SpriteAtlas,
-    StageBatch, StageGlobals, StageTextureId, TextureSampling, Vertex, WaterSprites,
+    Batch, Camera, Color, DrawQueue, FrameImage, LevelGraphics, LevelView, Mesh, Overlay,
+    PresentRect, RenderError, Renderer, Resolution, RoomDebugGeometry, RoomGlobals, RoomLayers,
+    SpriteAtlas, StageBatch, StageGlobals, StageTextureId, TextureSampling, Vertex, WaterSprites,
 };
 
 const BACKGROUND: wgpu::Color = wgpu::Color {
@@ -65,6 +68,9 @@ pub struct WgpuRenderer {
     /// The frame everything is drawn to, at [`Renderer::size`].
     frame: FrameTargets,
     present_pipeline: PresentPipeline,
+    overlay_pipeline: OverlayPipeline,
+    /// This frame's debug overlay.
+    overlay: Overlay,
     adapter_info: wgpu::AdapterInfo,
     pipeline: wgpu::RenderPipeline,
     camera_buffer: wgpu::Buffer,
@@ -316,6 +322,7 @@ impl WgpuRenderer {
         let frame = FrameTargets::new(&device, format, frame_size);
         let mut present_pipeline = PresentPipeline::new(&device, format, &pipeline_cache);
         present_pipeline.bind(&device, &frame.view);
+        let overlay_pipeline = OverlayPipeline::new(&device, &queue, format, &pipeline_cache);
 
         if let Some(cache_file) = cache_file
             && let Some(data) = pipeline_cache.get_data()
@@ -338,6 +345,8 @@ impl WgpuRenderer {
             surface,
             frame,
             present_pipeline,
+            overlay_pipeline,
+            overlay: Overlay::default(),
             device,
             queue,
             adapter_info,
@@ -717,6 +726,7 @@ impl WgpuRenderer {
                 label: Some("present"),
             });
         self.present_pipeline.draw(&mut encoder, &view, rect);
+        self.overlay_pipeline.draw(&mut encoder, &view, window);
         self.queue.submit([encoder.finish()]);
         self.queue.present(texture);
         Ok(())
@@ -844,6 +854,16 @@ impl Renderer for WgpuRenderer {
         self.level_view = None;
         self.stage_origin = [0.0, 0.0];
         self.background = BACKGROUND;
+        self.overlay = Overlay::default();
+    }
+
+    fn set_overlay_texture(&mut self, width: u32, height: u32, rgba: &[u8]) {
+        self.overlay_pipeline
+            .set_texture(&self.device, &self.queue, width, height, rgba);
+    }
+
+    fn draw_overlay(&mut self, overlay: Overlay) {
+        self.overlay = overlay;
     }
 
     fn draw_room(&mut self, layers: RoomLayers) {
@@ -1070,12 +1090,24 @@ impl Renderer for WgpuRenderer {
             self.draw_batches(&mut pass, &batches[first_batch..end], water, screen);
             first_batch = end;
         }
+        let overlay = std::mem::take(&mut self.overlay);
+        if self.surface.is_none() {
+            self.overlay_pipeline
+                .upload(&self.device, &self.queue, &overlay, self.frame.size);
+            self.overlay_pipeline
+                .draw(&mut encoder, &self.frame.view, self.frame.size);
+        }
         let readback = self
             .capture
             .is_some()
             .then(|| self.copy_frame(&mut encoder))
             .flatten();
         self.queue.submit([encoder.finish()]);
+        if self.surface.is_some() {
+            let window = (self.config.width, self.config.height);
+            self.overlay_pipeline
+                .upload(&self.device, &self.queue, &overlay, window);
+        }
         self.present_to_window()?;
         if let Some(capture) = self.capture.take() {
             let readback = readback.ok_or(RenderError::CaptureUnsupported)?;

@@ -1,10 +1,13 @@
-//! `spawn_creature` and room screenshots, on SU_A07 of the installed game (skipped
+//! `spawn_creature`, `spawn_object` and room screenshots, on SU_A07 of the installed game (skipped
 //! without it; the screenshot test skips without a Vulkan adapter).
 
 use rw_assets::{Room, Terrain};
 
 use super::Session;
-use super::params::{InputParam, ScreenshotParams, SpawnCreatureParams, StepParams, TilesParams};
+use super::params::{
+    InputParam, ScreenshotParams, SpawnCreatureParams, SpawnObjectParams, StepParams,
+    TeleportPlayerParams, TilesParams,
+};
 
 /// The first air tile standing on solid ground, scanning from the bottom left.
 trait FloorTile {
@@ -145,4 +148,153 @@ fn another_rooms_screenshot_leaves_the_game_untouched() {
     assert_eq!(&rng, s.scene_mut().expect("game").game().cosmetic_rng());
     // The camera's room still draws.
     assert!(s.screenshot(&ScreenshotParams::default()).is_ok());
+}
+
+/// A rock and a spear are realized on the asked tile with new IDs, making the game's
+/// draws: `Weapon`'s rotation and `Rock.SetRandomSpin`'s value (2); the rotation,
+/// `Spear`'s `spearmasterNeedleType` and `Spear.SetRandomSpin`'s two values (4).
+#[test]
+fn spawned_objects_are_realized_on_their_tile() {
+    let Some(mut s) = Session::su_a07() else {
+        return;
+    };
+    let (x, y) = s.camera_floor_tile();
+    for (kind, draws) in [("Rock", 2), ("Spear", 4)] {
+        let mut expected = s.scene_mut().expect("game").game().sim().rng().clone();
+        for _ in 0..draws {
+            expected.value();
+        }
+        let reply = s
+            .spawn_object(&SpawnObjectParams {
+                kind: kind.to_owned(),
+                tile: [x, y],
+                ..Default::default()
+            })
+            .expect("spawns");
+        assert!(reply.realized && reply.note.is_none(), "{reply:?}");
+        assert_eq!((reply.kind.as_str(), reply.tile), (kind, [x, y]));
+        assert_eq!(s.scene_mut().expect("game").game().sim().rng(), &expected);
+        let state = s.state().expect("state");
+        let o = state
+            .objects
+            .iter()
+            .find(|o| o.id == reply.id)
+            .expect("in get_state");
+        assert_eq!((o.room.as_str(), o.tile), ("SU_A07", [x, y]));
+        let w = o.realized.as_ref().expect("realized");
+        let centre = rw_assets::tile_centre(x, y);
+        assert!((w.pos[0] - centre[0]).hypot(w.pos[1] - centre[1]) < 0.01);
+    }
+    assert!(
+        s.spawn_object(&SpawnObjectParams {
+            kind: "Oracle".to_owned(),
+            tile: [x, y],
+            ..Default::default()
+        })
+        .is_err()
+    );
+}
+
+/// An item the port has no body for is added abstract with a new ID and a note, and
+/// makes no draws (`GetNewID` and the constructors draw nothing).
+#[test]
+fn spawned_items_without_a_body_stay_abstract() {
+    let Some(mut s) = Session::su_a07() else {
+        return;
+    };
+    let (x, y) = s.camera_floor_tile();
+    let before = s.scene_mut().expect("game").game().sim().rng().clone();
+    let reply = s
+        .spawn_object(&SpawnObjectParams {
+            kind: "DataPearl".to_owned(),
+            tile: [x, y],
+            ..Default::default()
+        })
+        .expect("spawns");
+    assert!(!reply.realized, "{reply:?}");
+    assert_eq!(
+        reply.note.as_deref(),
+        Some("the port does not realize DataPearl objects: added abstract")
+    );
+    assert_eq!(s.scene_mut().expect("game").game().sim().rng(), &before);
+    let state = s.state().expect("state");
+    let o = state
+        .objects
+        .iter()
+        .find(|o| o.id == reply.id)
+        .expect("in get_state");
+    assert_eq!(
+        (o.kind.as_str(), o.room.as_str(), o.tile),
+        ("DataPearl", "SU_A07", [x, y])
+    );
+    assert!(o.realized.is_none());
+}
+
+/// The teleport keeps the world: the player goes through the lobby and comes out of
+/// the target room's first exit, the camera following, every creature still there
+/// with its ID, and the clock running on. To a room already realized the call itself
+/// makes no draws.
+#[test]
+fn teleport_keeps_the_world_and_comes_out_of_an_exit() {
+    let Some(mut s) = Session::su_a07() else {
+        return;
+    };
+    let before = s.state().expect("state");
+    let target = before
+        .realized_rooms
+        .iter()
+        .map(|r| r.room.clone())
+        .find(|r| *r != before.room)
+        .expect("a realized neighbour");
+    let rng = s.scene_mut().expect("game").game().sim().rng().clone();
+    let params = TeleportPlayerParams {
+        room: target.clone(),
+        node: None,
+    };
+    let reply = s.teleport_player(&params).expect("teleports");
+    assert_eq!(reply.room, target);
+    assert_eq!(s.scene_mut().expect("game").game().sim().rng(), &rng);
+    assert!(s.teleport_player(&params).is_err(), "already travelling");
+    let mut arrived = None;
+    for _ in 0..80 {
+        let state = s
+            .step(&StepParams {
+                ticks: Some(1),
+                input: Some(InputParam::default()),
+            })
+            .expect("steps");
+        if state.room == target && state.player.as_ref().is_some_and(|p| !p.in_shortcut) {
+            arrived = Some(state);
+            break;
+        }
+    }
+    let after = arrived.expect("arrives within 2 s");
+    assert_eq!(
+        (after.player_room.as_str(), after.player_node),
+        (target.as_str(), reply.node)
+    );
+    assert!(after.tick > before.tick);
+    let exit = s
+        .exits()
+        .expect("exits")
+        .exits
+        .into_iter()
+        .find(|e| i32::try_from(e.node).ok() == Some(reply.node))
+        .expect("the exit");
+    let head = &after.player.as_ref().expect("player").chunks[0];
+    // Spat out of the entrance (`SpitOutOfShortCut`), then moving out of the hole.
+    let [ex, ey] = exit.entrance_tile.expect("an entrance");
+    assert!(
+        (head.tile[0] - ex).abs() <= 1 && (head.tile[1] - ey).abs() <= 1,
+        "{:?} vs {:?}",
+        head.tile,
+        [ex, ey]
+    );
+    assert!(
+        before
+            .creatures
+            .iter()
+            .map(|c| c.id)
+            .eq(after.creatures.iter().map(|c| c.id))
+    );
 }

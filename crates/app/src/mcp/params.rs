@@ -192,6 +192,27 @@ pub struct SpawnCreatureParams {
     pub seed_id: Option<i32>,
 }
 
+#[derive(Debug, Clone, Default, Deserialize, JsonSchema)]
+pub struct TeleportPlayerParams {
+    /// The room's name, in the current world.
+    pub room: String,
+    /// The exit node to come out of (default the room's first exit).
+    pub node: Option<i32>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, JsonSchema)]
+pub struct SpawnObjectParams {
+    /// The `AbstractPhysicalObject.AbstractObjectType` value, e.g. "Rock", "Spear",
+    /// "DataPearl" (only rocks and spears are realized).
+    pub kind: String,
+    /// The room's name (default the camera's room).
+    pub room: Option<String>,
+    /// The tile [x, y] (y up).
+    pub tile: [i32; 2],
+    /// A spear: an explosive one.
+    pub explosive: Option<bool>,
+}
+
 /// A process `load_process` can start.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]

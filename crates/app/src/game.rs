@@ -1457,6 +1457,20 @@ impl Game {
         self.sim
             .dev_spawn_creature(kind, room, tile, seed_id, &mut self.graphics)
     }
+
+    /// [`RainWorldGame::dev_spawn_object`].
+    ///
+    /// # Errors
+    /// For a kind the port does not realize or an unknown room.
+    pub fn dev_spawn_object(
+        &mut self,
+        kind: rw_assets::AbstractObjectType,
+        room: i32,
+        tile: (i32, i32),
+        explosive: bool,
+    ) -> Result<rw_sim::item::ObjectId, String> {
+        self.sim.dev_spawn_object(kind, room, tile, explosive)
+    }
 }
 
 #[cfg(test)]
