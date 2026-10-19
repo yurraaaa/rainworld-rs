@@ -4,6 +4,8 @@
 //! The base game's entries are typed or kept as their text, and `save_to_string` writes
 //! them in the game's order; every other entry (DLC, Remix, mods) is kept as read and
 //! written at the end, where the game writes `unrecognizedSaveStrings`.
+//!
+//! Mirrors: SaveState.cs
 
 use rw_assets::{ActiveMods, SlugcatName};
 

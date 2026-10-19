@@ -1,6 +1,8 @@
 //! `Music.PlayerThreatTracker` (room switches, the drone level, ghost and laugh modes)
 //! and its `ThreatDetermination` (the threat of the creatures around the player).
 //! Behaviour: `rainworld-re/notes/music.md` section 3.
+//!
+//! Mirrors: Music/PlayerThreatTracker.cs, ThreatDetermination.cs
 
 use rw_assets::CreatureType;
 use rw_random::UnityRandom;

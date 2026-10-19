@@ -2,6 +2,8 @@
 //! with its `OverseerAI`, the player guide's tutorial and its holograms (drawn by
 //! `rw-graphics`; triggers not ported are in docs/divergences/ D14). Behaviour:
 //! `rainworld-re/notes/creature-model.md`, `overseer.md`.
+//!
+//! Mirrors: Overseer.cs, OverseerAI.cs
 
 mod abstract_ai;
 mod ai;

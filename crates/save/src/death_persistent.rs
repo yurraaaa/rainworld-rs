@@ -5,6 +5,8 @@
 //! `SaveToString` writes them. Keys the base game does not read with every DLC off
 //! (More Slugcats, Remix, Watcher, mods) are its `unrecognizedSaveStrings`, written
 //! back at the end.
+//!
+//! Mirrors: DeathPersistentSaveData.cs
 
 use rw_assets::SlugcatName;
 

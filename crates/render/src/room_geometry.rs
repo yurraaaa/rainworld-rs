@@ -3,6 +3,8 @@
 //! Slope orientation comes from [`Room::identify_slope`]; the solid half of each
 //! direction is the table in `rainworld-re/notes/slope-collision.md` section 2 (the
 //! names are the game's and are not geometric).
+//!
+//! Mirrors: -
 
 use rw_assets::{Room, Shortcut, Slope, TILE_SIZE, Terrain};
 

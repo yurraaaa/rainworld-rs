@@ -4,6 +4,8 @@
 //!
 //! Behaviour: `rainworld-re/notes/shortcuts.md` sections 3 and 10. The map itself is
 //! [`rw_assets::ShortcutMap`].
+//!
+//! Mirrors: ShortcutHandler.cs, Room.cs (shortcutsBlinking), Creature.cs (NewTile)
 
 use rw_assets::shortcut::FOUR_DIRECTIONS;
 use rw_assets::{CreatureType, Room, Shortcut, ShortcutType, Terrain};

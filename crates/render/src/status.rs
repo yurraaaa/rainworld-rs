@@ -1,4 +1,6 @@
 //! How a body's condition changes its debug drawing.
+//!
+//! Mirrors: -
 
 use crate::Color;
 

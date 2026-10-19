@@ -2,6 +2,8 @@
 //! (`resources.assets`, `globalgamemanagers`), their streamed data (`.resS`,
 //! `.resource`) and UnityFS bundles (`StreamingAssets/AssetBundles`). Format:
 //! `rainworld-re/notes/unity-assets.md`.
+//!
+//! Mirrors: -
 
 mod bcn;
 mod bundle;

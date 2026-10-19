@@ -1,5 +1,7 @@
 //! `VirtualMicrophone`: the listener and the formulas that turn a sound's position into
 //! pan, volume and low-pass (`rainworld-re/notes/sound.md` sections 2.3, 2.4).
+//!
+//! Mirrors: VirtualMicrophone.cs
 
 use rw_sim::{FloatExt, Vec2, Water};
 

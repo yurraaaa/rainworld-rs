@@ -1,4 +1,6 @@
 //! Renderer errors.
+//!
+//! Mirrors: -
 
 use std::error::Error;
 use std::fmt;

@@ -1,4 +1,6 @@
 //! `OverseerHologram.HologramPart` and its subclasses: the state their `Update` keeps.
+//!
+//! Mirrors: OverseerHolograms/OverseerHologram.cs (HologramPart)
 
 use rw_random::UnityRandom;
 

@@ -2,6 +2,8 @@
 //! object on it (`Creature.PlaceInRoom`).
 //!
 //! Both draw from the game's `UnityEngine.Random` ([`UnityRandom`]) with the game's calls.
+//!
+//! Mirrors: Room.cs (DetermineSafeSpawnTile), Creature.cs (PlaceInRoom)
 
 use rw_assets::{Room, Shortcut, tile_centre};
 use rw_random::UnityRandom;

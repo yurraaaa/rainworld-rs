@@ -1,5 +1,7 @@
 //! The room sprites' atlases: `rainWorld` and `uiSprites` from the game's
 //! `resources.assets`, and the overseer images' projection textures.
+//!
+//! Mirrors: - (port-only: atlas loading)
 
 use rw_assets::{PngImage, StreamingAssets, UnityResources};
 use rw_graphics::Atlas;

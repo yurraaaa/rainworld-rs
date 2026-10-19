@@ -1,5 +1,7 @@
 //! `AmbientSoundPlayer`: one endless loop per `AmbientSounds:` entry of the room
 //! (`rainworld-re/notes/sound.md` section 2.5).
+//!
+//! Mirrors: AmbientSoundPlayer.cs
 
 use rw_assets::{AmbientKind, AmbientSound};
 use rw_sim::{FloatExt, Vec2};

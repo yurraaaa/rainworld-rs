@@ -6,6 +6,8 @@
 //! sticking in a wall with its poles, and the items' sound loops. Creature hits are
 //! step 5 (the hooks are marked). Behaviour: `rainworld-re/notes/items.md` sections
 //! 6-11.
+//!
+//! Mirrors: Weapon.cs, Rock.cs, Spear.cs, PlayerCarryableItem.cs, PhysicalObject.cs
 
 use std::sync::Arc;
 

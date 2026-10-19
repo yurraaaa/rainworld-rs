@@ -1,5 +1,7 @@
 //! A cycle's end as the save sees it: `PlayerSessionRecord`, the world queries
 //! `SaveState.SessionEnded` makes ([`HibernationWorld`]) and the slugcat's food stats.
+//!
+//! Mirrors: PlayerSessionRecord.cs, SaveState.cs (SessionEnded)
 
 use rw_assets::CreatureType;
 use rw_random::UnityRandom;

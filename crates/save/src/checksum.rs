@@ -4,6 +4,8 @@
 //! The salt is part of a constant in the game's code (`Custom.encrptString`); the port
 //! reads it from the installed `Assembly-CSharp.dll` instead of shipping it: the
 //! constant is the assembly's only user string of 1000 or more base64 characters.
+//!
+//! Mirrors: RWCustom/Custom.cs (Md5Sum, encrptString), PlayerProgression.cs
 
 use std::path::Path;
 

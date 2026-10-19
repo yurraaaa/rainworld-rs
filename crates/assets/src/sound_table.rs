@@ -6,6 +6,8 @@
 //! keys are case sensitive and unknown ones are ignored, so the shipped file's typos
 //! (`Vol=`, `rangeFact=`) have no effect. A sample whose clip is in neither the
 //! `loadedsoundeffects` bundle nor `soundeffects/` silences its whole ID.
+//!
+//! Mirrors: SoundLoader.cs (LoadSounds)
 
 use std::fs;
 use std::path::PathBuf;

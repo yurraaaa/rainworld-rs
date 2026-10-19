@@ -6,6 +6,8 @@
 //! when enabled. Here each is a closed Rust enum with a variant for every base and DLC
 //! value; what is registered (and so the index) depends on [`ActiveMods`]. Design:
 //! `rainworld-re/notes/campaign-model.md`.
+//!
+//! Mirrors: SlugcatStats.cs, ModManager.cs
 
 /// `ModManager`'s flags. The port runs the base game with all of them off.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]

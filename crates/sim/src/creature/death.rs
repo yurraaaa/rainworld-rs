@@ -5,6 +5,9 @@
 //! `SaveState.AddCreatureToRespawn` (48297: a lineage's `ChanceToProgress`). What the
 //! session keeps of it is [`SessionDeaths`]. Behaviour: `rainworld-re/notes/items.md`
 //! section 12.
+//!
+//! Mirrors: Creature.cs (SetKillTag, Update, Die), SocialEventRecognizer.cs (Killing), AbstractCreature.cs (Die),
+//!   SaveState.cs (AddCreatureToRespawn)
 
 use rw_assets::CreatureType;
 use rw_assets::creatures::CreatureSpawner;

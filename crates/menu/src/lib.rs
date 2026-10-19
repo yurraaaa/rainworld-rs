@@ -4,6 +4,9 @@
 //! between the game and the menus behind a fade. Windowing stays in the app; drawing goes through
 //! `rw-render`'s stage. Behaviour: `rainworld-re/notes/menu.md`; differences from the
 //! game are in `docs/divergences/`.
+//!
+//! Mirrors: -
+//!   (module list and re-exports only)
 
 mod atlas;
 mod color;

@@ -3,6 +3,8 @@
 //! confirmation when quitting counts as a loss. The arena and sandbox buttons, the
 //! Expedition unlocks and the controller rumble are not ported. Behaviour:
 //! `rainworld-re/notes/menu.md` ("PauseMenu").
+//!
+//! Mirrors: Menu/PauseMenu.cs
 
 use rw_menu::menu::{Menu, MenuCx, MenuScreen, ObjectId};
 use rw_menu::{Alignment, Font, MenuColor, MenuShared, MenuSoundId, NodeId, ProcessId, Sprite};

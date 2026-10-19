@@ -1,5 +1,7 @@
 //! `Music.MusicPlayer`, the side process holding the current song and the next one,
 //! and the mix between them. Behaviour: `rainworld-re/notes/music.md` section 4.1.
+//!
+//! Mirrors: Music/MusicPlayer.cs
 
 use std::sync::Arc;
 

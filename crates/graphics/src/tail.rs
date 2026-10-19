@@ -1,5 +1,7 @@
 //! `TailSegment`: a body part kept within `connection_rad` of the previous segment
 //! (or, for the first, of a point).
+//!
+//! Mirrors: TailSegment.cs
 
 use rw_assets::Room;
 use rw_sim::Vec2;

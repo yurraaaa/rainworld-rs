@@ -1,4 +1,6 @@
 //! `MenuObject` and the ported subclasses' state, kept in the menu's arena.
+//!
+//! Mirrors: Menu/MenuObject.cs
 
 use rw_sim::Vec2;
 

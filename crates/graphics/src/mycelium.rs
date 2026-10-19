@@ -1,6 +1,8 @@
 //! `Mycelium`: a hair of an overseer (the only owner ported), a short chain of points
 //! pulled toward a fixed length, reaching out from its body and linking up with a
 //! conversation partner's. Behaviour: `rainworld-re/notes/overseer.md`.
+//!
+//! Mirrors: CoralBrain/Mycelium.cs
 
 use std::borrow::Cow;
 

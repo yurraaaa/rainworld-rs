@@ -3,6 +3,8 @@
 //!
 //! Entries are kept as read, in place; only the guide state is parsed, since writing
 //! it changes it (`ToString` raises `likesPlayer` and `handHolding`).
+//!
+//! Mirrors: MiscWorldSaveData.cs, PlayerGuideState.cs
 
 use rw_assets::{AbstractObjectType, ActiveMods, CreatureType};
 

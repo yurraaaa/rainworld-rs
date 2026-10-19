@@ -1,6 +1,8 @@
 //! `AbstractSpacePathFinder` and `AbstractSpaceNodeFinder` (16334, 15982): searches over
 //! the abstract rooms' nodes, on the room files' baked connectivity, the shortcuts
 //! between rooms and the border highways.
+//!
+//! Mirrors: AbstractSpacePathFinder.cs, AbstractSpaceNodeFinder.cs
 
 use rw_assets::NodeType;
 use rw_random::UnityRandom;

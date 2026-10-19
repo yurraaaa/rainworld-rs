@@ -1,4 +1,6 @@
 //! Tile lookups by [`Vec2`] room-pixel positions on the foreign [`Room`] type.
+//!
+//! Mirrors: -
 
 use rw_assets::{Room, Slope, Tile};
 

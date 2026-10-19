@@ -1,5 +1,7 @@
 //! What `RainWorldGame.CommunicateWithUpcomingProcess` reads of the game for the sleep,
 //! dream, death and starve screens' data package.
+//!
+//! Mirrors: RainWorldGame.cs (CommunicateWithUpcomingProcess)
 
 use rw_assets::StreamingAssets;
 use rw_hud::{

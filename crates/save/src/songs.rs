@@ -1,5 +1,7 @@
 //! `DeathPersistentSaveData.SongPlayRecord`s (`SONGSPLAYRECORDS`): when each trigger
 //! song last played, `name<dpD>cycle` entries separated by `<dpC>`.
+//!
+//! Mirrors: DeathPersistentSaveData.cs (SongPlayRecord)
 
 use crate::death_persistent::ParseError;
 

@@ -1,5 +1,7 @@
 //! The player's `room.PlaySound` calls and its slide loop (`Player.Update`'s
 //! `slideLoop`; `rainworld-re/notes/sound.md` section 2.7).
+//!
+//! Mirrors: Player.cs (Update)
 
 use rw_random::UnityRandom;
 

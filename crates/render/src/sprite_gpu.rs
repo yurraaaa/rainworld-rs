@@ -2,6 +2,8 @@
 //! per atlas page, the room globals, `_NoiseTex2`, the screen-sized textures some
 //! shaders read (level image, what was drawn behind the level, the frame grab, the
 //! palette) and the per-frame sprite buffers.
+//!
+//! Mirrors: -
 
 use std::borrow::Cow;
 

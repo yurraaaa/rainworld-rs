@@ -1,4 +1,6 @@
 //! `DreamsState` (the Survivor's and the Monk's): `DREAMSSTATE<svB>integersArray<dsB>...`.
+//!
+//! Mirrors: DreamsState.cs
 
 /// `DreamsState.DreamID` of the base game.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

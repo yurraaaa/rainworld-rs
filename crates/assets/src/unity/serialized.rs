@@ -1,5 +1,7 @@
 //! Unity serialized files (format version 22): header, object table and external
 //! references (`rainworld-re/notes/unity-assets.md` section 2).
+//!
+//! Mirrors: -
 
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};

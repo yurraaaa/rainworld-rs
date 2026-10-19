@@ -2,6 +2,8 @@
 //! buttons and the background sound loop. Screens (`MainMenu`, `SlugcatSelectMenu`)
 //! own a [`Menu`] and answer its signals through [`MenuScreen`]. Behaviour:
 //! `rainworld-re/notes/menu.md` ("Menu framework").
+//!
+//! Mirrors: Menu/Menu.cs
 
 mod build;
 mod depth;

@@ -4,6 +4,8 @@
 //! shared stream (culling's `Reset`, the leg rolls and sounds, the eyes, the blink, the
 //! look focus, bubbles). The constructor draws on a stream seeded by the creature's ID.
 //! Drawing is in `lizard_draw.rs`.
+//!
+//! Mirrors: LizardGraphics.cs
 
 use rw_assets::{CreatureType, Room};
 use rw_random::UnityRandom;

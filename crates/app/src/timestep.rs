@@ -1,5 +1,7 @@
 //! Frame timing: the simulation rate and Unity's `Time.deltaTime` as the process
 //! manager receives it.
+//!
+//! Mirrors: MainLoopProcess.cs
 
 use std::time::{Duration, Instant};
 

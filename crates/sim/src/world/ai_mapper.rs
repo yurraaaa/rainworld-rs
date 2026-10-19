@@ -4,6 +4,8 @@
 //! risk and smoothed altitude (`FindFallRiskOfCurrentTile`), rows bottom-up and left to
 //! right, then the terrain proximity (`TerrainProximityMapper`). The room's terrain
 //! curves (`TerrainManager`, DLC only) are not ported. No random draws.
+//!
+//! Mirrors: AImapper.cs
 
 use std::collections::VecDeque;
 

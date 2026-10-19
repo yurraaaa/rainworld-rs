@@ -10,6 +10,8 @@
 //!
 //! Not drawn yet: object-cast shadows (needs the room's light angle), wet-terrain
 //! ripples, rain darkening, the heat/melt/ripple variants and room-effect grading.
+//!
+//! Mirrors: RoomCamera.cs
 
 use rw_assets::{NoiseTexture, PaletteTexture, PngImage, RoomSettings};
 

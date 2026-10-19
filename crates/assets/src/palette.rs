@@ -4,6 +4,8 @@
 //! `ApplyFade`; see `rainworld-re/notes/room-rendering.md` section 2.
 //!
 //! Coordinates here are Unity's: `y` = 0 is the bottom row of the PNG.
+//!
+//! Mirrors: RoomCamera.cs (LoadPalette, ApplyEffectColorsToPaletteTexture, ApplyFade)
 
 use crate::{AssetError, PngImage, StreamingAssets};
 

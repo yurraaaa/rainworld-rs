@@ -8,6 +8,9 @@
 //! own conversions (`random::<f32>()`, `random_range`) draw from the same
 //! stream but do not map words the way Unity does; use the inherent methods
 //! for game parity.
+//!
+//! Mirrors: -
+//! (UnityEngine.Random is engine code, not in Assembly-CSharp)
 
 use core::convert::Infallible;
 use core::f32::consts::TAU;

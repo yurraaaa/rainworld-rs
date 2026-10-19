@@ -2,6 +2,8 @@
 //! `rw-graphics`): its `Update` after the lizard's (and once more while it enters a
 //! shortcut), what it adds to the room (bubbles, drips, its head light), its belly-drag
 //! loop's emitter, the bubbles of a hard landing, and the cosmetics tied to it.
+//!
+//! Mirrors: LizardGraphics.cs (Update)
 
 use std::sync::Arc;
 

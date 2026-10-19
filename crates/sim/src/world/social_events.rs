@@ -4,6 +4,8 @@
 //! social memory of the player and its community's like of the player). Gifts
 //! (`ItemOffering`, `OwnedItemOnGround`) belong to taming, which is not ported.
 //! Decompile: `SocialEventRecognizer.cs`, `LizardAI.cs` 1765-1876.
+//!
+//! Mirrors: SocialEventRecognizer.cs, LizardAI.cs
 
 use rw_assets::{AbstractObjectType, CreatureType};
 

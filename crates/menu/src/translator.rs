@@ -1,6 +1,8 @@
 //! `InGameTranslator` for English: `Translate` looks the text up in
 //! `text/text_eng/strings.txt` and returns it unchanged when missing (a distribution
 //! build). Other languages and mods' string files are not loaded.
+//!
+//! Mirrors: InGameTranslator.cs
 
 use rw_assets::{AssetError, ShortStrings, StreamingAssets};
 

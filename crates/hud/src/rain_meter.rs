@@ -2,6 +2,8 @@
 //! ticks of the rain cycle, emptying as the cycle runs out, and its blink at half time.
 //! It reads the cycle through [`RainCycleView`]; the Remix tick-tock, the hidden-timer
 //! regions and the Saint's and void sea's rules are not ported.
+//!
+//! Mirrors: HUD/RainMeter.cs
 
 use rw_menu::{NodeId, StageTree};
 use rw_sim::{FloatExt, Vec2};

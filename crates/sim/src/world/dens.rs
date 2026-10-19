@@ -3,6 +3,8 @@
 //! .IsEnteringDen`/`IsExitingDen` (303528..: whatever is stuck comes along) and
 //! `AbstractCreature.IsEnteringDen` (301221: carried prey is killed, then dropped as the
 //! AI's `DoIwantToDropThisItemInDen` says).
+//!
+//! Mirrors: AbstractRoom.cs, AbstractPhysicalObject.cs, AbstractCreature.cs
 
 use rw_assets::CreatureType;
 use rw_random::UnityRandom;

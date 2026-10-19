@@ -3,6 +3,8 @@
 //! LikeOfPlayer` and `CurrentPlayerAggression`; and how uncomfortable a tile is to it
 //! (`DiscomfortTracker.DiscomfortOfTile`). Decompile: `ArtificialIntelligence.cs`
 //! 368-398, `LizardAI.cs` 1463-1488, `DiscomfortTracker.cs`.
+//!
+//! Mirrors: ArtificialIntelligence.cs, LizardAI.cs, DiscomfortTracker.cs
 
 use super::World;
 use crate::creature::{

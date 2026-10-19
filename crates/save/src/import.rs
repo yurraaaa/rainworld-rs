@@ -1,6 +1,9 @@
 //! Importing one of the game's save slots: the slot file is read from the game's save
 //! directory (never written) and copied into the port's, after the port's previous
 //! file for that slot is moved to `backup/<unix seconds>_import/`.
+//!
+//! Mirrors: -
+//! (port-only importer of the game's slot files)
 
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};

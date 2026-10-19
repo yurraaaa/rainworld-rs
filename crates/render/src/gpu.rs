@@ -20,6 +20,8 @@
 //! wgpu.
 //!
 //! [`WgpuRenderer::headless`] has no window: it only draws the frame.
+//!
+//! Mirrors: -
 
 use std::borrow::Cow;
 use std::path::PathBuf;

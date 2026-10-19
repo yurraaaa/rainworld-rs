@@ -2,6 +2,8 @@
 //! the slugcat's 12 sprites as a [`DrawList`].
 //!
 //! Behaviour: `rainworld-re/notes/slugcat-graphics.md` sections 4-7.
+//!
+//! Mirrors: PlayerGraphics.cs (DrawSprites, InitiateSprites, AddToContainer)
 
 use std::borrow::Cow;
 use std::f32::consts::TAU;

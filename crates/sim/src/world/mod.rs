@@ -6,6 +6,8 @@
 //! tick's loading step (`RainWorldGame.Update` runs the `RoomPreparer`s there), where the
 //! game spreads it over frames on a thread (docs/divergences/ D14). Behaviour:
 //! `rainworld-re/notes/world-loading.md`, `room-realizer.md`.
+//!
+//! Mirrors: World.cs, AbstractRoom.cs, RoomPreparer.cs
 
 mod abstract_ai;
 mod abstract_ai_kinds;

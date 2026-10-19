@@ -4,6 +4,8 @@
 //! both in its own save directory and never writes the game's. Entries the game does
 //! not recognise with Remix and the DLCs off are kept as read and written back last,
 //! as the game does (`unrecognizedSaveStrings`).
+//!
+//! Mirrors: Options.cs
 
 use std::path::Path;
 

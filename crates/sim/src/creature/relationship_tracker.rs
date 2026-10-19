@@ -3,6 +3,8 @@
 //! that type, and the AI's per-creature state. The relationship itself lives in its
 //! representation (`trackerRep.dynamicRelationship`); its `Update` runs in
 //! `game_tracker.rs`. Decompile: `RelationshipTracker.cs`.
+//!
+//! Mirrors: RelationshipTracker.cs
 
 use super::{Relationship, RelationshipType, RepKey};
 

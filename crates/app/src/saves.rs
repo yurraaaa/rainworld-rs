@@ -1,5 +1,7 @@
 //! The app's save slot: where the port's saves and the game's live, loading the slot
 //! for the menus, what a story game takes from its save state, and the importer.
+//!
+//! Mirrors: PlayerProgression.cs, SaveState.cs
 
 use std::path::PathBuf;
 

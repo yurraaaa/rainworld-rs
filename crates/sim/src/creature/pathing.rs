@@ -4,6 +4,8 @@
 //! constructor from `TileTypeResistance`/`TileConnectionResistance` lists), `canSwim`,
 //! `waterPathingResistance`, `doubleReachUpConnectionParams`, `isTooCloseToTerrain`
 //! and the `preBakedPathingCreatures` list. Base game only; Remix's deer setting is off.
+//!
+//! Mirrors: StaticWorld.cs (InitStaticWorld), CreatureTemplate.cs, LizardBreeds.cs
 
 use std::sync::LazyLock;
 

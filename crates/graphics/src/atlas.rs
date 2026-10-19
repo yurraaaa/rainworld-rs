@@ -3,6 +3,8 @@
 //! The atlases are Unity resources `Atlases/<name>` in `resources.assets` (a TextAsset
 //! and a Texture2D of the same path), read with [`UnityResources`]
 //! (`rainworld-re/notes/sprite-atlases.md`, `unity-assets.md`).
+//!
+//! Mirrors: FAtlas.cs, FAtlasElement.cs
 
 use std::fmt;
 use std::path::{Path, PathBuf};

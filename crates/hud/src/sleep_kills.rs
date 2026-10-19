@@ -4,6 +4,8 @@
 //! eighth tick with a tick sound, kills of the same kind collapsed behind each other
 //! (`PlayerResultBox.KillTrophy`, `CollapseCreatureSymbols`); holding the map button
 //! hurries it. The food meter waits for it (`AllowFoodMeterTick`).
+//!
+//! Mirrors: Menu/SleepScreenKills.cs, Menu/PlayerResultBox.cs (KillTrophy)
 
 use rw_assets::{ActiveMods, CreatureType};
 use rw_menu::menu::{Kind, Menu, ObjectId};

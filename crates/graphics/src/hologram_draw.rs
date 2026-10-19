@@ -3,6 +3,8 @@
 //! turned in 3D, given depth on the screen and flickering as they fade. All of a
 //! hologram's sprites go to the `Bloom` container. Behaviour:
 //! `rainworld-re/notes/overseer.md` §7.
+//!
+//! Mirrors: OverseerHolograms/OverseerHologram.cs (InitiateSprites, DrawSprites)
 
 use rw_random::UnityRandom;
 use rw_sim::creature::overseer::hologram::{

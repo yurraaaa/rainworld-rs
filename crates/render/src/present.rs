@@ -5,6 +5,8 @@
 //! in a window of that same size (`Screen.SetResolution`). In full-screen mode Unity
 //! scales that window to the display, keeping its aspect with black bars
 //! (`rainworld-re/notes/room-rendering.md`, "Resolution and scaling").
+//!
+//! Mirrors: FScreen.cs
 
 use std::fmt;
 use std::str::FromStr;

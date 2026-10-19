@@ -4,6 +4,8 @@
 //! `AbstractRoom.NumberOfQuantifiedCreatureInRoom`. None of it draws a random number.
 //!
 //! Behaviour: `rainworld-re/notes/creature-model.md` §7.
+//!
+//! Mirrors: SwarmRoomMapper.cs, FliesWorldAI.cs, WorldLoader.cs, AbstractRoom.cs
 
 use std::collections::VecDeque;
 

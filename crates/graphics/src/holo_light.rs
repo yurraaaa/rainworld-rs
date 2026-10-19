@@ -1,5 +1,7 @@
 //! `HologramLight.DrawSprites` (227841): the guide's light, a `HoloGrid` glow and nine
 //! flickering lines from the overseer's eye to the terrain around it.
+//!
+//! Mirrors: HologramLight.cs (DrawSprites)
 
 use rw_assets::Room;
 use rw_assets::shortcut::FOUR_DIRECTIONS;

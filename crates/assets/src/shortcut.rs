@@ -4,6 +4,8 @@
 //! Behaviour: `rainworld-re/notes/shortcuts.md` sections 1 and 3, `room-format.md`
 //! section 5. Lives here, derived once per room, because both the simulation (entering,
 //! travelling, spawning) and the renderer need it.
+//!
+//! Mirrors: ShortcutMapper.cs, ShortcutHandler.cs (NextShortcutPosition)
 
 use crate::{Room, Shortcut, Terrain};
 

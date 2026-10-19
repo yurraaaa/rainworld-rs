@@ -3,6 +3,8 @@
 //! Behaviour: `rainworld-re/notes/physics-core.md` sections 3-4 and
 //! `slope-collision.md` section 3, impact reports `falls.md` section 1, water
 //! `water.md` section 2. Burrowing, terrain curves and `setPos` are not ported.
+//!
+//! Mirrors: BodyChunk.cs (Update)
 
 use rw_assets::{Room, Slope, TILE_SIZE, Terrain, tile_centre, tile_position};
 

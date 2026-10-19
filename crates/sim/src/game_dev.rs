@@ -1,4 +1,6 @@
 //! Developer tools that add to the world through the game's own code paths.
+//!
+//! Mirrors: -
 
 use rw_assets::{AbstractObjectType, CreatureType, NodeType};
 

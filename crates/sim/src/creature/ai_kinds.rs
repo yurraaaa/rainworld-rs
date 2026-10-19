@@ -4,6 +4,9 @@
 //! `BigEelAbstractAI` (139532), `DeerAbstractAI` (174999), `MirosBirdAbstractAI`
 //! (209826), `NeedleWormAbstractAI` (215520). Their behaviour is
 //! `world/abstract_ai_kinds.rs`.
+//!
+//! Mirrors: AbstractCreatureAI.cs, VultureAbstractAI.cs, CicadaAbstractAI.cs, BigEelAbstractAI.cs, DeerAbstractAI.cs,
+//!   MirosBirdAbstractAI.cs, NeedleWormAbstractAI.cs
 
 use rw_assets::{CreatureType, NodeType, RoomAttraction};
 use rw_random::UnityRandom;

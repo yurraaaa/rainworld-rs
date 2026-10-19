@@ -5,6 +5,8 @@
 //! constructors draw on the shared stream, and the overseer effect's and the bubble's
 //! updates too. The sprites are `rw-graphics`' (the overseer effect's, on the
 //! `OverseerZip` shader, is not drawn).
+//!
+//! Mirrors: Spark.cs, ExplosionSpikes.cs, OverseerEffect.cs, LizardBubble.cs, StationaryEffect.cs
 
 use rw_assets::{Room, Terrain};
 use rw_random::UnityRandom;

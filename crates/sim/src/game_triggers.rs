@@ -2,6 +2,8 @@
 //! updates and `FireEvent` (`MusicEvent`, `StopMusicEvent`, `ImageTrigger`,
 //! `PickupObjectInstruction`, `RoomSpecificTextMessage`, `BringGuideToPlayerEvent`),
 //! `RainCycle.MusicAllowed` and `RainRequestStopSong`. Types: [`crate::trigger`].
+//!
+//! Mirrors: ActiveTriggerChecker.cs, Room.cs (Loaded), RainCycle.cs (MusicAllowed)
 
 use rw_assets::{
     CreatureType, DangerType, EventType, ShowProjectedImageEvent, Timeline, TriggeredEvent,

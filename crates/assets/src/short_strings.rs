@@ -9,6 +9,8 @@
 //! trimmed at the end; a line splitting on `|` into at least two parts with a non-empty
 //! second part maps the first part to the second (later lines win), anything else is
 //! skipped.
+//!
+//! Mirrors: InGameTranslator.cs (LoadShortStrings)
 
 use std::path::Path;
 

@@ -3,6 +3,8 @@
 //! see (`BodyChunk.VisibilityBonus`, `Player.VisibilityBonus`, `Player.Sneak`).
 //! Decompile: `ArtificialIntelligence.cs` 159-231, `LizardAI.cs` 1184-1192,
 //! `BodyChunk.cs` 162-165, `Player.cs` 2162 and 2208-2233.
+//!
+//! Mirrors: ArtificialIntelligence.cs, LizardAI.cs, BodyChunk.cs, Player.cs
 
 use crate::world::AiMap;
 use crate::{FloatExt, RoomExt, Vec2};

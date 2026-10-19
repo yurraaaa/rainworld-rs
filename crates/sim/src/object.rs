@@ -1,6 +1,8 @@
 //! A physical object: body chunks joined by distance constraints (`PhysicalObject`).
 //!
 //! Behaviour: `rainworld-re/notes/physics-core.md` sections 1-2.
+//!
+//! Mirrors: PhysicalObject.cs
 
 use rw_assets::Room;
 

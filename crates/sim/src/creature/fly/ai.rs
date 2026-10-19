@@ -1,4 +1,6 @@
 //! `FlyAI`'s state, its `TrackedThreat`s and the flock behaviours flies share.
+//!
+//! Mirrors: FlyAI.cs
 
 use rw_assets::CreatureType;
 use rw_random::UnityRandom;

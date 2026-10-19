@@ -5,6 +5,8 @@
 //! carried through shortcuts, and the `WaterDrip`s in the rooms' update lists. Base game,
 //! Remix off: the objects a room holds are flies, overseers, rocks and spears. Picking
 //! items up, laying them down and swallowing them are in `game_items.rs`.
+//!
+//! Mirrors: Player.cs (Update, Collide, GrabUpdate, GraphicsModuleUpdated), WaterDrip.cs
 
 use std::sync::Arc;
 

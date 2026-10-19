@@ -4,6 +4,8 @@
 //! `Creature.PlaceInRoom`, `Room.AddObject`, `NewRoom` and `AbstractCreature.Abstractize`.
 //! Decompile: `AbstractCreature.cs` 426-602 and 715-860, `AbstractCreatureAI.cs` 249-316
 //! and 770-808, `Creature.cs` 317-367.
+//!
+//! Mirrors: AbstractCreature.cs, AbstractCreatureAI.cs, Creature.cs
 
 use rw_random::UnityRandom;
 

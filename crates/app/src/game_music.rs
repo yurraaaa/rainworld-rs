@@ -2,6 +2,8 @@
 //! sim's song requests (`GameRequestsSong` with the save's play records,
 //! `GameRequestsSongStop`, `RainRequestStopSong`), and what `PlayerThreatTracker` reads
 //! of the game.
+//!
+//! Mirrors: Music/MusicPlayer.cs, Music/PlayerThreatTracker.cs, RainWorldGame.cs
 
 use rw_assets::DangerType;
 use rw_audio::music::{GameMusicView, HudSubregion, MusicPlayer, ProceduralView, StorySongs};

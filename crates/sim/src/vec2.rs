@@ -1,4 +1,6 @@
 //! Minimal 2D float vector with the arithmetic the physics needs, in `f32` as the game.
+//!
+//! Mirrors: -
 
 use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
 

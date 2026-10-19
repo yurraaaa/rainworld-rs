@@ -1,6 +1,8 @@
 //! What the HUD map reads of the game: `MapData` of the world, the player as its owner
 //! (`MapOwnerInRoomPosition`, `MapDiscoveryActive`, `MapInput`), the Hunter's cycle
 //! label, and the link the player's exit discovery reads back.
+//!
+//! Mirrors: HUD/Map.cs
 
 use rw_assets::{SlugcatName, StreamingAssets};
 use rw_hud::{Hud, MapData, MapOwner};

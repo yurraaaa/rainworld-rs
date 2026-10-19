@@ -4,6 +4,8 @@
 //! properties). The simulation decides what to make of them (`rw_sim::creature`).
 //!
 //! Behaviour: `rainworld-re/notes/creature-model.md`, `world-loading.md`.
+//!
+//! Mirrors: CreatureTemplate.cs, WorldLoader.cs (AddSpawnersFromString, AddLineageFromString)
 
 use crate::ActiveMods;
 use crate::identity::ext_enum;

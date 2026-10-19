@@ -4,6 +4,8 @@
 //! points at its current one. Its parts hold what the update decides (fades, offsets,
 //! key presses); the line geometry and drawing are `rw-graphics`'. Behaviour:
 //! `rainworld-re/notes/overseer.md` §7.
+//!
+//! Mirrors: OverseerHolograms/OverseerHologram.cs
 
 mod add;
 mod instruction;

@@ -5,6 +5,8 @@
 //! Headless and deterministic: the simulation only advances inside `step` calls, with
 //! no real-time clock, and screenshots render offscreen through the window's draw path
 //! ([`crate::scene::Scene::draw`]). Logging goes to stderr; stdout carries only MCP.
+//!
+//! Mirrors: - (port-only: MCP server)
 
 #[cfg(test)]
 mod debug_action_tests;

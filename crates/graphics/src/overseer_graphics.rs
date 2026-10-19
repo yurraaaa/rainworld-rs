@@ -1,5 +1,7 @@
 //! `OverseerGraphics`: the overseer's cosmetic simulation (its mycelia, its lens, the
 //! look direction, culling) and its sprites. Behaviour: `rainworld-re/notes/overseer.md`.
+//!
+//! Mirrors: OverseerGraphics.cs
 
 use rw_assets::Room;
 use rw_random::UnityRandom;

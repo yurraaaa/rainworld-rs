@@ -1,5 +1,7 @@
 //! `PlayerGuideState` (in `miscWorldSaveData`): what the guide overseer knows of the
 //! player, kept in the save state across cycles. The save text is `rw-save`'s.
+//!
+//! Mirrors: PlayerGuideState.cs, MiscWorldSaveData.cs
 
 use rw_assets::{AbstractObjectType, CreatureType};
 

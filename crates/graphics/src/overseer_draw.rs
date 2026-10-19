@@ -1,5 +1,7 @@
 //! `OverseerGraphics.DrawSprites`: the overseer's glow, eye bulb, body meshes, mycelia
 //! and lens as a [`DrawList`].
+//!
+//! Mirrors: OverseerGraphics.cs (DrawSprites)
 
 use std::borrow::Cow;
 

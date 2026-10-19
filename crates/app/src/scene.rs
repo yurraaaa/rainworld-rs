@@ -1,5 +1,7 @@
 //! What a frame shows: the game with its level graphic and water and the HUD, drawn the
 //! same way in the window and in headless (MCP) screenshots.
+//!
+//! Mirrors: RoomCamera.cs
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};

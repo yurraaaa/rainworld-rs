@@ -2,6 +2,8 @@
 //! the `ClimbOnBeam`, `GetUpToBeamTip`, `BeamTip` and `HangUnderVerticalBeam` animations.
 //!
 //! Behaviour: `vertical-poles.md`.
+//!
+//! Mirrors: Player.cs (GrabVerticalPole, UpdateAnimation)
 
 use rw_assets::Room;
 

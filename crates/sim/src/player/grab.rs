@@ -2,6 +2,8 @@
 //! the belly-slide push of `Collide`, the grasps `Stun` and `Die` drop, the objects
 //! carried into a shortcut and the drips its impacts throw. The grasps themselves live
 //! on its `AbstractCreature`; [`crate::RainWorldGame`] runs the catch and `GrabUpdate`.
+//!
+//! Mirrors: Player.cs (GrabUpdate, ThrowDirection, Collide, Stun, Die)
 
 use rw_random::UnityRandom;
 

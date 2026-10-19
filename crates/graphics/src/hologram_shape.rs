@@ -2,6 +2,8 @@
 //! constructor builds with `AddLine` and its variants (`OverseerHolograms` and
 //! `OverseerTutorialBehavior` in the decompile). Behaviour:
 //! `rainworld-re/notes/overseer.md` §7.
+//!
+//! Mirrors: OverseerHolograms/OverseerHologram.cs, OverseerTutorialBehavior.cs
 
 use rw_sim::creature::overseer::hologram::{HologramPart, PartKind};
 use rw_sim::{Vec2, Vec3};

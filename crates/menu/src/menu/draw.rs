@@ -1,4 +1,6 @@
 //! `GrafUpdate`: the objects place and colour their sprites for a frame.
+//!
+//! Mirrors: Menu/MenuObject.cs, Menu/Menu.cs (GrafUpdate)
 
 use std::f32::consts::PI;
 

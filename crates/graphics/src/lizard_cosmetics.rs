@@ -3,6 +3,11 @@
 //! constructors, which draw on the graphics' seeded stream, and the choice among them in
 //! `LizardGraphics`' constructor. Their updates and sprites are in
 //! `lizard_cosmetics_draw.rs`.
+//!
+//! Mirrors: LizardGraphics.cs (constructor), LizardCosmetics/SpineSpikes.cs,
+//!   LizardCosmetics/BumpHawk.cs, LizardCosmetics/LongShoulderScales.cs,
+//!   LizardCosmetics/ShortBodyScales.cs, LizardCosmetics/TailTuft.cs,
+//!   LizardCosmetics/LongHeadScales.cs
 
 use rw_assets::CreatureType;
 use rw_random::UnityRandom;

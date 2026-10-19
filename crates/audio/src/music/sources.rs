@@ -1,5 +1,7 @@
 //! The audio sources the music player drives (one Unity `AudioSource` per sub-track),
 //! and a silent, tick-timed implementation for headless runs and tests.
+//!
+//! Mirrors: - (audio source seam; Unity AudioSource has no counterpart)
 
 use rustc_hash::FxHashMap;
 

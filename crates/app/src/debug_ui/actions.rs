@@ -1,5 +1,7 @@
 //! What the debug UI asks of the game, applied between frames (between ticks) through
 //! the code paths the MCP tools use.
+//!
+//! Mirrors: - (port-only: dev UI)
 
 use rw_assets::{AbstractObjectType, CreatureType};
 use rw_sim::Vec2;

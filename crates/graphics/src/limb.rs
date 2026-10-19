@@ -1,5 +1,7 @@
 //! `Limb`: a body part that hunts a target point at a capped speed, and the terrain
 //! grip search (`FindGrip`).
+//!
+//! Mirrors: Limb.cs
 
 use rw_assets::{Room, Slope, Terrain, tile_centre};
 use rw_sim::{BodyChunk, Vec2};

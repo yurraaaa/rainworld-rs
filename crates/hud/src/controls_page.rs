@@ -5,6 +5,8 @@
 //! sprites in the HUD stage. The pause menu shows the same map with the pick-up
 //! instructions. The gamepad presets' pictures and the special-button rows (More
 //! Slugcats, Watcher) are not ported.
+//!
+//! Mirrors: Menu/TutorialControlsPage.cs, Menu/ControlMap.cs
 
 use std::sync::Arc;
 

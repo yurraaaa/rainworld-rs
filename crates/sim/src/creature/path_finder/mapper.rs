@@ -8,6 +8,8 @@
 //! A path finder lives here by a number while its creature's AI holds it; a dropped AI's
 //! path finder stays while a mapper still counts it as a client, as the game's
 //! reference does, and goes with the mapper.
+//!
+//! Mirrors: PathFinder.cs (AccessibilityMapper), PathfinderResourceDivider.cs, LizardPather.cs (FollowPath)
 
 use std::collections::BTreeMap;
 

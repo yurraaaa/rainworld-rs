@@ -6,6 +6,9 @@
 //! A trigger is `<type><tA>key<tB>value<tA>...`; its event is `<type><eA>key<eB>value...`.
 //! Only `Spot` makes a `SpotTrigger`; every other type (`SeeCreature` included) is a
 //! plain `EventTrigger`.
+//!
+//! Mirrors: RoomSettings.cs (LoadTriggers), EventTrigger.cs, SpotTrigger.cs, TriggeredEvent.cs,
+//!   MusicEvent.cs, StopMusicEvent.cs, ShowProjectedImageEvent.cs
 
 use crate::identity::ext_enum;
 use crate::{ActiveMods, SettingsFile, SlugcatName, Timeline};

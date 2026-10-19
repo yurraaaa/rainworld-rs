@@ -2,6 +2,8 @@
 //! the screen's bottom left, sliding into a row as their meters show them, and when the
 //! PASSAGE button is due. `Passage` (the token's activation and the black fade before
 //! the custom end-game screen) is not ported: the button is disabled (D13).
+//!
+//! Mirrors: Menu/EndgameTokens.cs
 
 use rw_menu::{AtlasManager, MenuColor, NodeId, Sprite, StageTree};
 use rw_random::UnityRandom;

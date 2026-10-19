@@ -4,6 +4,8 @@
 //! file. [`super::ai_mapper`] builds it as `AImapper` does; the queries here are the
 //! game's `TileAccessibleToCreature`, `IsConnectionAllowedForCreature` and the costs
 //! the pathfinders read (`rainworld-re/notes/ai-map.md`).
+//!
+//! Mirrors: AImap.cs, AItile.cs
 
 use rw_assets::{CreatureType, NodeType, Room, RoomBorderExit, ShortcutMap, ShortcutType};
 

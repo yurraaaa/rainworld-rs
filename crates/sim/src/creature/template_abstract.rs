@@ -1,6 +1,8 @@
 //! The template fields the abstract creature AI reads: the off-screen connection
 //! resistances (from [`super::pathing`]), `stowFoodInDen` (`InitStaticWorld`, 125287),
 //! and which templates' abstract AI is ported.
+//!
+//! Mirrors: StaticWorld.cs (InitStaticWorld), CreatureTemplate.cs
 
 use rw_assets::CreatureType;
 use rw_assets::world::AbstractRoomData;

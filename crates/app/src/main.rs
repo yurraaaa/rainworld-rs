@@ -36,6 +36,8 @@
 //! working directory), F1 the debug UI ([`debug_ui`]), Esc the pause menu (in the
 //! game). Menus take
 //! Rewired's default UI keys: arrows, Enter/Space/Z submit, Esc cancel, and the mouse.
+//!
+//! Mirrors: - (port-only: CLI entry point)
 
 mod app;
 mod debug_ui;

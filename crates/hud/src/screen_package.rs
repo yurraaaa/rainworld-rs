@@ -1,6 +1,8 @@
 //! `KarmaLadderScreen.SleepDeathScreenDataPackage` and how `RainWorldGame.
 //! CommunicateWithUpcomingProcess` fills it for the sleep, dream, death and starve
 //! screens (Remix, More Slugcats and Watcher branches left out).
+//!
+//! Mirrors: Menu/KarmaLadderScreen.cs (SleepDeathScreenDataPackage), RainWorldGame.cs (CommunicateWithUpcomingProcess)
 
 use rw_assets::{SlugcatName, StreamingAssets};
 use rw_menu::ProcessId;

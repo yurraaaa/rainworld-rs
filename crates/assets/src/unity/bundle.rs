@@ -2,6 +2,8 @@
 //! and the bundle's `AssetBundle` name table (`rainworld-re/notes/unity-assets.md`
 //! sections 4 and 5). Blocks are decompressed on demand, so a clip costs only the
 //! blocks it spans.
+//!
+//! Mirrors: -
 
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};

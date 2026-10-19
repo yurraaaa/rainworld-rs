@@ -2,6 +2,8 @@
 //! `MenuSoundObject`'s volume (`Clamp01(Pow(value * soundData.vol * sfxVolume,
 //! volumeExponent))`) and pitch (`value * soundData.pitch`). The menus decide what
 //! plays and make the random draws (`rw-menu`'s `MenuMic`); this only sounds it.
+//!
+//! Mirrors: MenuMicrophone.cs (MenuSoundObject)
 
 use crate::clips::{ClipKey, ClipSlot};
 use crate::mic::SourceMix;

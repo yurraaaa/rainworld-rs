@@ -1,4 +1,6 @@
 //! `HSLColor`, `Custom.HSL2RGB` and the menu palette (`Menu.MenuColor`).
+//!
+//! Mirrors: HSLColor.cs, RWCustom/Custom.cs (HSL2RGB), Menu/Menu.cs (MenuColor)
 
 use rw_sim::FloatExt;
 

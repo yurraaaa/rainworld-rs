@@ -1,4 +1,6 @@
 //! `Overseer.TryAddHologram` and the constructors' room-dependent parts.
+//!
+//! Mirrors: Overseer.cs (TryAddHologram), OverseerHolograms/OverseerHologram.cs
 
 use super::{
     HologramMessage, HologramUpdate, ImageHologram, ImageId, ObjectPointerKind, OverseerHologram,

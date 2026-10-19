@@ -2,6 +2,8 @@
 //! building the surface band and the deep water body as `WaterTriangleMesh`es, coloured
 //! from the room palette. `water.wgsl` (`WaterSurface` / `DeepWater`) shades them.
 //! GPU-free. Behaviour: `rainworld-re/notes/water-rendering.md`, base game.
+//!
+//! Mirrors: Water.cs, WaterTriangleMesh.cs
 
 use bytemuck::{Pod, Zeroable};
 use rw_assets::RoomPalette;

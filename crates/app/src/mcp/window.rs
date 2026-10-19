@@ -1,5 +1,7 @@
 //! `--mcp --window`: a window that shows the scene the MCP tools drive. It never steps
 //! the simulation; V toggles the level graphic / debug view, G the grid, Esc quits.
+//!
+//! Mirrors: - (port-only: MCP window)
 
 use std::error::Error;
 use std::sync::{Arc, Mutex};

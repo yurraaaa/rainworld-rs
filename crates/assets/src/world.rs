@@ -7,6 +7,8 @@
 //!
 //! Every conditional is kept as data and decided here for the given timeline and mods,
 //! so DLC worlds only add data. Behaviour: `rainworld-re/notes/world-loading.md`.
+//!
+//! Mirrors: Region.cs, WorldLoader.cs, World.cs
 
 use std::fmt;
 use std::fs;

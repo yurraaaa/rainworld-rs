@@ -3,6 +3,8 @@
 //! (the population written back at hibernation), the creature strings of
 //! `SaveState.AbstractCreatureFromString` / `AbstractCreatureToStringStoryWorld`, and
 //! `SaveState.DepleteOneSwarmRoom`.
+//!
+//! Mirrors: RegionState.cs, SaveState.cs
 
 use rw_assets::CreatureType;
 use rw_random::UnityRandom;

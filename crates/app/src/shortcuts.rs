@@ -2,6 +2,8 @@
 //! made for the camera's room on `NewRoom`, faded each camera tick, coloured by the
 //! game's `ColorEntrance` calls and drawn with the room's blink state and the player's
 //! vessel.
+//!
+//! Mirrors: ShortcutGraphics.cs
 
 use rw_assets::{CreatureType, PlacedObjectType, RoomEffectType, SlugcatName};
 use rw_graphics::{

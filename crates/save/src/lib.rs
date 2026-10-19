@@ -2,6 +2,9 @@
 //! ([`user_data`]), `PlayerProgression` and `SaveState`, a survived cycle's save
 //! ([`hibernation`]), the options ([`options`]), where the port keeps its saves, and the importer of the game's
 //! slots. Format notes: `rainworld-re/notes/saves.md`.
+//!
+//! Mirrors: -
+//! (crate root; re-exports)
 
 pub mod checksum;
 pub mod communities;

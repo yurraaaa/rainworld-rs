@@ -6,6 +6,8 @@
 //! the region and cycle, and a HUD ([`SelectHud`]) with the saved karma and food. In
 //! depth mode the menu has the rain effect behind the pages, and a continue page the
 //! mark and glow its save has ([`PageLights`]); flat mode has neither.
+//!
+//! Mirrors: Menu/SlugcatSelectMenu.cs
 
 mod lights;
 

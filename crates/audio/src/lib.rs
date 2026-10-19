@@ -3,6 +3,8 @@
 //!
 //! Behaviour: `rainworld-re/notes/sound.md` sections 2.2 to 2.5. Divergences:
 //! docs/divergences/ D12.
+//!
+//! Mirrors: - (crate root)
 
 mod ambient;
 mod clips;

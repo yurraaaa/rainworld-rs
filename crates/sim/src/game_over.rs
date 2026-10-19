@@ -1,5 +1,7 @@
 //! `RainWorldGame.GameOver` and the karma flower's spot: `Player.karmaFlowerGrowPos`
 //! and `StoryGameSession.PlaceKarmaFlowerOnDeathSpot`.
+//!
+//! Mirrors: RainWorldGame.cs (GameOver), Player.cs (karmaFlowerGrowPos), StoryGameSession.cs (PlaceKarmaFlowerOnDeathSpot)
 
 use rw_assets::{Room, SlugcatName};
 

@@ -5,6 +5,8 @@
 //! int grids) and 11 are read; the light angle, the baked float grids and the
 //! `_settings.txt` file are skipped.
 //! The shortcut map ([`crate::ShortcutMap`]) is derived from the grid on parse.
+//!
+//! Mirrors: Room.cs
 
 use std::error::Error;
 use std::fmt;

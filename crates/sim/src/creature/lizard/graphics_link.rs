@@ -4,6 +4,8 @@
 //! spear read, its head light and its belly-drag loop; what it reads of the body
 //! ([`LizardView`]) and of the room ([`LizardGraphicsTick`]), and the objects it adds
 //! to the room.
+//!
+//! Mirrors: LizardGraphics.cs, Lizard.cs
 
 use rw_assets::{CreatureType, Room, SoundTable};
 use rw_random::UnityRandom;

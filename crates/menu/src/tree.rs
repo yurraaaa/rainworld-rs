@@ -1,6 +1,8 @@
 //! Futile's display list as menus keep it: nodes live while their objects hold them,
 //! containers draw their children in the order they were added (`FContainer.AddChild`
 //! appends), and an object changes its sprites in place every frame.
+//!
+//! Mirrors: FContainer.cs
 
 use rw_render::StageBatch;
 

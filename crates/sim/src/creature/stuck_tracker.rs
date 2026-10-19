@@ -1,5 +1,7 @@
 //! AI modules that read the path finder: `StuckTracker` with its `MoveBacklog`, and
 //! `DiscomfortTracker`. Decompile `StuckTracker.cs`, `DiscomfortTracker.cs`.
+//!
+//! Mirrors: StuckTracker.cs, DiscomfortTracker.cs
 
 use super::WorldCoordinate;
 use crate::FloatExt;

@@ -2,6 +2,9 @@
 //! `BatPointer`, `ShelterPointer`, `DirectionPointer`, `ObjectPointer`,
 //! `CreaturePointer`, `FoodPointer`, `AngryHologram`, `OverseerImage`), with their
 //! `DisplayPosScore`s.
+//!
+//! Mirrors: OverseerHolograms/OverseerHologram.cs, OverseerHolograms/AngryHologram.cs,
+//!   OverseerHolograms/OverseerImage.cs
 
 use rw_assets::CreatureType;
 

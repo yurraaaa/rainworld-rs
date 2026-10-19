@@ -5,6 +5,8 @@
 //!
 //! Behaviour: `rainworld-re/notes/sprite-atlases.md` section 3 (`FSprite.UpdateLocalVertices`,
 //! `FMatrix.SetScaleThenRotate`, the room sprite shaders).
+//!
+//! Mirrors: FSprite.cs, FMatrix.cs, TriangleMesh.cs
 
 use std::ops::Range;
 

@@ -2,6 +2,9 @@
 //! true)` with `RainCycleTick` and `BringUpToDate`, and the save that follows
 //! (`SaveWorldStateAndProgression`); a starved one: `SessionEnded(survived: false)` saved
 //! as a death. Every DLC off.
+//!
+//! Mirrors: RainWorldGame.cs (Win), SaveState.cs (SessionEnded, RainCycleTick, BringUpToDate),
+//!   PlayerProgression.cs (SaveWorldStateAndProgression)
 
 use rw_assets::SlugcatName;
 use rw_random::UnityRandom;

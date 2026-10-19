@@ -3,6 +3,8 @@
 //!
 //! Behaviour: `slugcat-movement.md` sections 3-4, `horizontal-beams.md` section 1,
 //! `vertical-poles.md` sections 0-1, `ledge-grab.md` section 1, `corridors.md` section 1.
+//!
+//! Mirrors: Player.cs (MovementUpdate)
 
 use rw_assets::{Room, ShortcutType, Terrain};
 use rw_random::UnityRandom;

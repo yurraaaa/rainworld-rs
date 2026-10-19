@@ -2,6 +2,8 @@
 //! resolution, language, save slot, reset progress, the volume sliders, vibration,
 //! speedrun validation, the input settings and credits buttons, BACK; and the port's
 //! save importer (docs/divergences/ D13). Behaviour: `rainworld-re/notes/menu.md`.
+//!
+//! Mirrors: Menu/OptionsMenu.cs
 
 use rw_save::{Language, Options, SaveSlot};
 use rw_sim::{FloatExt, Vec2};

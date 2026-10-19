@@ -1,6 +1,8 @@
 //! `MusicPiece`, its `SubTrack`s, `Song` and the song subclasses the base-game menus
 //! use (`MenuOrSlideShowSong`, `IntroRollMusic`). Behaviour: `rainworld-re/notes/music.md`
 //! section 4.
+//!
+//! Mirrors: Music/MusicPiece.cs, Music/Song.cs, Music/MenuOrSlideShowSong.cs, Music/IntroRollMusic.cs
 
 use super::bank::MusicBundle;
 use super::player::{MusicContext, MusicSettings};

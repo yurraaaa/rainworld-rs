@@ -1,5 +1,7 @@
 //! `RWCustom.Custom`'s colour and random-variation helpers: `HSL2RGB`,
 //! `RandomDeviation`, `ClampedRandomVariation`, `WrappedRandomVariation`.
+//!
+//! Mirrors: RWCustom/Custom.cs (HSL2RGB, RandomDeviation, ClampedRandomVariation, WrappedRandomVariation)
 
 use rw_random::UnityRandom;
 

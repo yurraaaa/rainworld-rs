@@ -4,6 +4,8 @@
 //! A room shot reads the world and draws with its own renderer and its own room camera,
 //! so the camera's renderer uploads, the room camera, the cosmetic stream and the
 //! simulation are untouched.
+//!
+//! Mirrors: - (port-only: MCP server)
 
 use std::sync::Arc;
 

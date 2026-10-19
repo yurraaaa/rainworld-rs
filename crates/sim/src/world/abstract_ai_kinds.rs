@@ -5,6 +5,9 @@
 //! `creature/overseer`, the scavenger's is not ported (they stay in their dens).
 //! A creature is never realized here (D14), so each `realizedCreature == null` test
 //! passes.
+//!
+//! Mirrors: VultureAbstractAI.cs, CicadaAbstractAI.cs, BigEelAbstractAI.cs, DeerAbstractAI.cs,
+//!   MirosBirdAbstractAI.cs, NeedleWormAbstractAI.cs, DropBugAbstractAI.cs
 
 use rw_assets::{CreatureType, NodeType, RoomAttraction};
 use rw_random::UnityRandom;

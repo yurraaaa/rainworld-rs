@@ -2,6 +2,8 @@
 //!
 //! Behaviour: `slugcat-movement.md` section 6, `slope-collision.md` section 5,
 //! `horizontal-beams.md` section 3 (foot assist). `CorridorClimb` is in `corridor.rs`.
+//!
+//! Mirrors: Player.cs (UpdateBodyMode)
 
 use rw_assets::{Room, Terrain};
 

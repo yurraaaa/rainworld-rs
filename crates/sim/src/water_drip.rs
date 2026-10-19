@@ -2,6 +2,8 @@
 //! terrain impact or shaken loose by the slugcat's bites. A `CosmeticSprite` in its
 //! room's update list whose `Update` draws on the shared stream; the sprites are
 //! `rw-graphics`'.
+//!
+//! Mirrors: WaterDrip.cs
 
 use rw_assets::{Room, Terrain};
 use rw_random::UnityRandom;

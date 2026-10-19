@@ -3,6 +3,8 @@
 //! `Midground` (in the lizard's head colour while its graphics flicker white), a ring of
 //! fading spikes in `Foreground`, a lizard's bubble and its head shield's flash. The
 //! flash draws on the cosmetic stream (D1).
+//!
+//! Mirrors: Spark.cs, ExplosionSpikes.cs, LizardBubble.cs, StationaryEffect.cs (DrawSprites)
 
 use std::borrow::Cow;
 

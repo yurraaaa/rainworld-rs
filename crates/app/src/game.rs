@@ -3,6 +3,8 @@
 //! camera's room.
 //!
 //! This is the only place the app touches the simulation.
+//!
+//! Mirrors: RainWorldGame.cs
 
 use std::sync::Arc;
 

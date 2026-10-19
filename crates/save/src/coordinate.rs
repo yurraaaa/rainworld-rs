@@ -1,5 +1,7 @@
 //! `WorldCoordinate` as a save writes it: `<room>.<x>.<y>.<abstractNode>`, the room by
 //! name (`INV.` in front of a coordinate of the Inv campaign).
+//!
+//! Mirrors: WorldCoordinate.cs
 
 /// A saved `WorldCoordinate`, its room still a name (the world resolves it).
 #[derive(Debug, Clone, PartialEq, Eq)]

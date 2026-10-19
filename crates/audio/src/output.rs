@@ -5,6 +5,8 @@
 //! then closes the stream. A process exiting meanwhile ran ALSA's `snd_pcm_close` (it
 //! `dlclose`s PipeWire modules) concurrently with glibc's exit-time teardown, which
 //! unmapped the MangoHud Vulkan layer under its own polling thread: SIGSEGV on quit.
+//!
+//! Mirrors: - (kira/cpal backend glue)
 
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};

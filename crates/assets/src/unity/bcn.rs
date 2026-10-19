@@ -4,6 +4,8 @@
 //! Interpolated colours and alphas are truncated, not rounded: that reproduces
 //! AssetRipper's decode of every texture in `resources.assets` exactly. GPUs may round
 //! differently (by 1/255).
+//!
+//! Mirrors: -
 
 /// One 8-byte DXT1 (BC1) block: two RGB565 endpoints and 2-bit indices.
 pub(crate) struct Bc1Block(pub [u8; 8]);

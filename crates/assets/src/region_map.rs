@@ -1,6 +1,8 @@
 //! The region map's files in `world/<region>/`: the map image `map_<region>.png` (three
 //! layers stacked bottom to top) and the shortcut lines of `map_<region>.txt`
 //! (`HUD.Map.LoadConnectionPositions`).
+//!
+//! Mirrors: HUD/Map.cs (LoadConnectionPositions)
 
 use std::fs;
 use std::path::PathBuf;

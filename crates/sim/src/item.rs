@@ -4,6 +4,8 @@
 //! the creatures ([`Entity`]). Rocks and spears are typed; a saved object of any other
 //! kind stays a string (docs/divergences/ D16). A realized rock or spear is a
 //! [`Weapon`]. Behaviour: `rainworld-re/notes/items.md`.
+//!
+//! Mirrors: AbstractPhysicalObject.cs, AbstractSpear.cs
 
 mod spear_stick;
 mod weapon;

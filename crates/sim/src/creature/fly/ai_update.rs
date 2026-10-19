@@ -2,6 +2,8 @@
 //! path along the baked Fly layer and the threats. Base game: no lures (`luredCounter`
 //! stays 0), no safari control, no arena challenge limits, every creature on ripple
 //! layer 0, `RoomNotACycleHazard` only matters with Remix.
+//!
+//! Mirrors: FlyAI.cs
 
 use std::sync::Arc;
 

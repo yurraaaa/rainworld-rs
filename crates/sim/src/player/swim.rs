@@ -3,6 +3,8 @@
 //!
 //! Behaviour: `rainworld-re/notes/water.md` sections 3-5, base game with Remix off
 //! (docs/divergences/ D11), Survivor stats.
+//!
+//! Mirrors: Player.cs (LungUpdate, UpdateAnimation, GravitateToOpening)
 
 use rw_assets::Room;
 use rw_random::UnityRandom;

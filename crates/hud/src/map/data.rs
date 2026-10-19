@@ -1,5 +1,7 @@
 //! `HUD.Map.MapData` built from a region world (`MapData(World, RainWorld)`), and what
 //! `Map` loads with it: the map image, the connection lines and the sky layers.
+//!
+//! Mirrors: HUD/Map.cs (MapData)
 
 use rw_assets::room::Room;
 use rw_assets::world::AbstractRoomData;

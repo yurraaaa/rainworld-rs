@@ -1,6 +1,8 @@
 //! Read-only loaders for the user's installed game data (rooms, worlds, palettes, and
 //! the Unity asset files: atlases, textures, audio clips). Never writes to the game
 //! directory.
+//!
+//! Mirrors: -
 
 pub mod ambient;
 mod border_exits;

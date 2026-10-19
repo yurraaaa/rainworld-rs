@@ -1,6 +1,8 @@
 //! `QuickPathFinder`: a search back from the goal over the AI map's incoming
 //! connections, with the game's sorted-list heap (ties keep insertion order), then the
 //! walk forward from the start. Deterministic: no draws.
+//!
+//! Mirrors: QuickPathFinder.cs
 
 use std::collections::VecDeque;
 

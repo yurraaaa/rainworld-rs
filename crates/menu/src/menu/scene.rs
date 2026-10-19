@@ -4,6 +4,8 @@
 //! neither, so those draw nothing more, but the camera and focus still make the game's
 //! random draws every tick (D1). The gamepad camera input is zero with the keyboard
 //! preset.
+//!
+//! Mirrors: Menu/InteractiveMenuScene.cs (Update)
 
 use rw_sim::{FloatExt, Vec2};
 

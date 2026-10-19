@@ -1,6 +1,8 @@
 //! The water surface as drawn this frame, and the debug view's flat translucent water
 //! (`rainworld-re/notes/water.md` sections 1 and 6). The game's own water drawing is
 //! [`crate::WaterSprites`].
+//!
+//! Mirrors: -
 
 use rw_assets::{Room, TILE_SIZE};
 

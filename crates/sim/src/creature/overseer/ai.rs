@@ -1,5 +1,7 @@
 //! `OverseerAI`'s state and its zip pathing matrix. The update itself is in
 //! [`super::update`], where the body, the AI and the room meet.
+//!
+//! Mirrors: OverseerAI.cs
 
 use rw_assets::{CreatureType, ShowProjectedImageEvent};
 use rw_random::UnityRandom;

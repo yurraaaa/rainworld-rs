@@ -6,6 +6,8 @@
 //! Hunter's cycle label. Owned by the player, or by the sleep and death screens (which
 //! show it at once, without discovery). Behaviour: `rainworld-re/notes/hud.md`
 //! section 5.
+//!
+//! Mirrors: HUD/Map.cs
 
 mod connection;
 mod data;

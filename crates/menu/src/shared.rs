@@ -1,5 +1,8 @@
 //! What the menu processes share across processes (`RainWorld`, `ProcessManager` and
 //! Futile's globals, and `UnityEngine.Random`).
+//!
+//! Mirrors: -
+//!   (port-side holder of globals the game keeps on RainWorld, ProcessManager and Futile)
 
 use std::sync::Arc;
 

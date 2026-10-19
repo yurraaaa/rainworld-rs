@@ -1,5 +1,7 @@
 //! `PlayerGraphics.PlayerObjectLooker` (236851): what the slugcat looks at among its
 //! room's objects.
+//!
+//! Mirrors: PlayerGraphics.cs (PlayerObjectLooker)
 
 use rw_assets::CreatureType;
 use rw_random::UnityRandom;

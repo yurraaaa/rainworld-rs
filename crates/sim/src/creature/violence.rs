@@ -3,6 +3,8 @@
 //! leave it (More Slugcats, Remix and Watcher off): the resistances, the kill limit,
 //! `quickDeath`, `countsAsAKill` and the community `Killing` influences. Kept apart from
 //! the template's movement and AI fields. Values: `rainworld-re/notes/creature-model.md`.
+//!
+//! Mirrors: Creature.cs (Violence), StaticWorld.cs, LizardBreeds.cs
 
 use rw_assets::CreatureType;
 

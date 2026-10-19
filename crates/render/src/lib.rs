@@ -10,6 +10,8 @@
 //!
 //! Coordinates are room pixels: y up, origin at the room's bottom-left corner,
 //! [`rw_assets::TILE_SIZE`] px per tile.
+//!
+//! Mirrors: -
 
 mod body;
 mod camera;

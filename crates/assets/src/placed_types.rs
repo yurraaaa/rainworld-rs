@@ -1,5 +1,7 @@
 //! The placed-object and room-effect types a room's settings file names
 //! (`PlacedObject.Type`, `RoomSettings.RoomEffect.Type`), every base and DLC value.
+//!
+//! Mirrors: PlacedObject.cs, RoomSettings.cs
 
 use crate::ActiveMods;
 use crate::identity::ext_enum;

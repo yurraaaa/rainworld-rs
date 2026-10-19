@@ -1,6 +1,9 @@
 //! The `AmbientSounds:` line of room settings files (`RoomSettings.LoadAmbientSounds`,
 //! `OmniDirectionalSound`, `DirectionalSound`, `SpotSound`; `rainworld-re/notes/sound.md`
 //! section 2.5). Entries are `", "`-separated, fields `"><"`-separated.
+//!
+//! Mirrors: RoomSettings.cs (LoadAmbientSounds), OmniDirectionalSound.cs, DirectionalSound.cs,
+//!   SpotSound.cs
 
 use crate::SoundTable;
 

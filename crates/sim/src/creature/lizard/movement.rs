@@ -2,6 +2,8 @@
 //! turn) and the body numbers `Act` steers by (`BodyForce`, `BodyDesperation`,
 //! `BodyWiggleFac`, `BodyDirection`, the legs' grip). Decompile `Lizard.cs` 47-190 and
 //! 1395-1530.
+//!
+//! Mirrors: Lizard.cs (MovementAnimation)
 
 use rw_random::UnityRandom;
 

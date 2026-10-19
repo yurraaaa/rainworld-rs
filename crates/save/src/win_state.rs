@@ -4,6 +4,8 @@
 //! Integer and float trackers are read; bool-array and list trackers (Traveller,
 //! Dragon Slayer, Scholar) are written back as read until a cycle changes them
 //! (docs/divergences/).
+//!
+//! Mirrors: WinState.cs
 
 use rw_assets::SlugcatName;
 

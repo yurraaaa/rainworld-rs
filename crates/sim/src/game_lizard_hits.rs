@@ -8,6 +8,8 @@
 //! layer-1 collisions. Decompile: `Lizard.cs` 1064-1712, `Creature.cs` 831-925,
 //! `Weapon.cs` 334-390, `Rock.cs` 50-95, `Spear.cs` 576-822 and 977-1160, `Room.cs`
 //! 4688-4760.
+//!
+//! Mirrors: Lizard.cs (Violence, Stun, SpearStick, AttemptBite, Bite), Creature.cs (Violence, Die), Weapon.cs (Update), Rock.cs (HitSomething), Spear.cs (HitSomething, LodgeInCreature, Update)
 
 use rw_assets::{CreatureType, Terrain};
 

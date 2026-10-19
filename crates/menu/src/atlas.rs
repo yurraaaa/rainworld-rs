@@ -5,6 +5,8 @@
 //!
 //! Textures are kept here with their sampling; a [`TextureSync`] uploads them to a
 //! renderer and frees the ones unloaded since.
+//!
+//! Mirrors: FAtlasManager.cs
 
 use std::collections::BTreeMap;
 use std::sync::Arc;

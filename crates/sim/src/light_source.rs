@@ -2,6 +2,8 @@
 //! the Monk's guide light and a lizard's graphics make one so far, so the placed-object
 //! paths (blinking, colour from the environment, night lights, fading with the sun) stay at their
 //! defaults. Its sprites are `rw-graphics`'. No draws.
+//!
+//! Mirrors: LightSource.cs
 
 use crate::Vec2;
 

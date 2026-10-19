@@ -3,6 +3,8 @@
 //! `dropGrabTile` catch.
 //!
 //! Behaviour: `corridors.md`, base game with Remix off (docs/divergences/ D10).
+//!
+//! Mirrors: Player.cs
 
 use rw_assets::Room;
 use rw_random::UnityRandom;

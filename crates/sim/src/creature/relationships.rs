@@ -5,6 +5,8 @@
 //! (126962), then makes the egg bug afraid of every type by body size and every type
 //! ignore overseers; last, the cyan lizard's Eats intensities are scaled by 0.3.
 //! Base game only (the DLC tables are not ported).
+//!
+//! Mirrors: StaticWorld.cs (InitStaticWorldRelationships), CreatureTemplate.cs
 
 use std::sync::OnceLock;
 

@@ -10,6 +10,8 @@
 //! `CurrentPlayerAggression` of `CicadaAI` (150153), `DropBugAI` (178192),
 //! `BigNeedleWormAI` (213919) and `ScavengerAI` (255506). `LizardAI`'s (202014) is in
 //! `world/tracking.rs`.
+//!
+//! Mirrors: ThreatDetermination.cs, Creature.cs, Lizard.cs, ArtificialIntelligence.cs
 
 use rw_assets::CreatureType;
 
