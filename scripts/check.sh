@@ -9,3 +9,5 @@ cargo fmt -p "$pkg" -- --check
 cargo check -p "$pkg" --all-targets
 cargo clippy -p "$pkg" --all-targets -- -D warnings
 cargo test --release -p "$pkg" "$@"
+python3 scripts/check_mirrors.py >/dev/null
+git checkout -- docs/MIRRORS.md

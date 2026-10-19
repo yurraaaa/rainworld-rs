@@ -24,7 +24,7 @@ Do, in order:
    divergence candidate; the orchestrator decides.
 5. Grep the diff for: bound closures (`let x = |`), string-literal match
    arms, free private helper fns for type behaviour, comments restating code.
-6. Grep docs for every name the diff touched; list stale hits (MAP.md,
+6. Run `python3 scripts/check_mirrors.py` (exit 0; new files have a `Mirrors:` header; generated docs not committed in the branch). Grep docs for every name the diff touched; list stale hits (MAP.md,
    crate README, `docs/divergences/`, BUGS, OPEN-ITEMS).
 7. Omissions: original behaviour the diff does not reach that the author
    did not list as "port or skip for now?".

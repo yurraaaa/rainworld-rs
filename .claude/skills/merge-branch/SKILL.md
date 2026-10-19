@@ -10,6 +10,9 @@ Run the checks in the agent's worktree (`<wt>` = `.claude/worktrees/<id>`,
 real output of each.
 
 1. In `<wt>`: `git merge main`. Resolve conflicts; re-run what the conflict touched.
+   Then `python3 scripts/check_mirrors.py` must exit 0 (new files carry a
+   `//! Mirrors:` header); a new crate or module must be in `docs/MAP.md`
+   and its crate `README.md`. Send violations back to the agent.
 2. In `<wt>`: `cargo fmt --all -- --check` (must print nothing).
 3. In `<wt>`: `cargo clippy --workspace --all-targets` (0 warnings).
 4. In `<wt>`: `cargo test --release --workspace`; sum the `test result:` lines
@@ -25,7 +28,10 @@ real output of each.
 8. On main (main checkout): `git merge --no-ff <branch>`. Commits are
    GPG-signed; if pinentry fails, ask the user, never bypass signing.
 9. Remove the worktree and branch: `git worktree remove <wt>`,
-   `git branch -d <branch>`. Then `git push`.
+   `git branch -d <branch>`. On main regenerate and commit the generated
+   docs: `python3 scripts/check_mirrors.py && python3 scripts/port_status.py`,
+   and in `../rainworld-re` `python3 tools/index_decompile.py --rust-repo
+   ../rainworld-rs` (commit its `index/` with the notes). Then `git push`.
 10. In `../rainworld-re`: commit only the notes files the agent named in
     its report ("Notes added" heading).
 

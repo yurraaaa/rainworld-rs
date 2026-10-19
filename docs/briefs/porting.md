@@ -20,7 +20,7 @@ into <crate/module>. Step <n of m>: <scope in one sentence>.
   count/order tests per function. No scripted routes or whole-run fixtures.
 - MCP fields to add for the new state: <names>, in `crates/app/src/mcp/`.
   Known-good spots: <room, seed, tiles, creature spawn>.
-- Docs to update: <MAP.md / crate README / divergences / OPEN-ITEMS / BUGS>;
+- Docs to update: <MAP.md / crate README file map / `Mirrors:` headers / divergences / OPEN-ITEMS / BUGS>;
   grep for the names you touched.
 - Size: if this will not fit your context, commit a coherent part and report
   what is left. Planned split: <5a/5b or none>.
@@ -58,6 +58,12 @@ Rules for this task:
 - For decompile lookups with a small answer after much reading, spawn
   read-only agents with model haiku (plain lookups) or sonnet (judgement).
   Do not spawn opus or fable agents.
+- Keep the navigation docs true: a file you add, rename or move gets a
+  `//! Mirrors: <Type>.cs` header (or `Mirrors: - (port-only: reason)`);
+  `python3 scripts/check_mirrors.py` must exit 0. A new crate or top-level
+  module updates `docs/MAP.md` and that crate's `README.md` file map. Do not
+  commit the generated `docs/MIRRORS.md` / `docs/PORT-STATUS.md` (the
+  orchestrator regenerates them at merge); `git checkout` them if changed.
 - Run only the per-crate commands in docs/checks.md, not the workspace suite.
 - Send no progress updates or status pings. One final report; a message to
   `main` (SendMessage) only when blocked on a decision you cannot make.
