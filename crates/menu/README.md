@@ -40,4 +40,4 @@ processes behind a fade. Depends on `rw-assets`, `rw-render` (stage drawing), `r
 ## Links
 - Notes: `../rainworld-re/notes/menu.md`, `slideshow.md`, `saves.md`, `sound.md`, `unity-assets.md`, `sprite-atlases.md`, `menu-survey.md`.
 - Surveys: `../rainworld-re/surveys/menus.md`, `intro.md`, `depth-scenes.md`, `sleep-death-screens.md`.
-- Divergences (single file): `docs/DIVERGENCES.md` D13 Front end; D1 for menu random draws; D12 for sound.
+- Divergences: `docs/divergences/menu.md` D13 Front end; D1 for menu random draws; D12 for sound.

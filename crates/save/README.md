@@ -45,4 +45,4 @@ the real game's save storage.
 
 ## Links
 - Notes: `../rainworld-re/notes/saves.md`, `campaign-model.md`, `shelter.md`; surveys: `campaign.md`, `sleep-death-screens.md`.
-- Divergences (single file, no per-crate files): `docs/DIVERGENCES.md` D16 Saves, D17 Shelters and hibernation, D13 (save import button).
+- Divergences: `docs/divergences/save.md` D16 Saves, D17 Shelters and hibernation, D13 (save import button).

@@ -56,6 +56,6 @@ Gameplay logic belongs in `rw-sim`, not here.
 
 ## Cross-links
 
-- Divergences: `../../docs/divergences/app.md` (D18 debug UI and dev spawns); the import button is D13 (`../../docs/divergences/menu.md`?).
+- Divergences: `../../docs/divergences/app.md` (D18 debug UI and dev spawns); the import button is D13 (`../../docs/divergences/menu.md`).
 - Notes (`../../../rainworld-re/notes/`): `menu.md`, `saves.md`, `shelter.md`, `hud.md`, `music.md`, `sound.md`, `room-rendering.md`, `unity-assets.md`.
 - Surveys (`../../../rainworld-re/surveys/`): `menus.md`, `sleep-death-screens.md`, `campaign.md`.

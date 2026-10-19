@@ -2,6 +2,9 @@
 
 ## You are an orchestrator. Delegate by default
 
+Find code via `docs/MAP.md` (crate table, links to each crate's README with
+its file map). Adding a crate or module updates the map and that README.
+
 The main session's scarcest resource is its context. The main session
 decides, subagents find out, the main session checks and commits.
 

@@ -56,6 +56,5 @@ Notes in `../rainworld-re/notes/`: `hud.md`, `menu.md`, `campaign-model.md`,
 `saves.md`, `shelter.md`. Surveys: `sleep-death-screens.md`, `menus.md`,
 `food-pip-clip.md`, `malnourishment.md`, `campaign.md`.
 
-Divergences are in the single `docs/DIVERGENCES.md` (there is no
-`docs/divergences/` directory): D15 the in-game HUD, D13 front end (menus,
+Divergences: `docs/divergences/` (one file per crate, IDs global): D15 the in-game HUD, D13 front end (menus,
 select, PASSAGE greyed out), D16 saves, D17 shelters.

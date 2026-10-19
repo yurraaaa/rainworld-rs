@@ -167,8 +167,8 @@ Surveys (`../rainworld-re/surveys/`): `lizards.md`, `bat-flies.md`, `rocks-spear
 `sleep-death-screens.md`, `malnourishment.md`, `food-pip-clip.md`.
 (`notes/intro-overseer-survey.md` covers the guide and `room_script.rs`.)
 
-Divergences: there is no `docs/divergences/sim.md`; entries are in `docs/DIVERGENCES.md`
-(`grep -n '^## D'`). Relevant: D1 random sequence, D2 spawning, D3 movement, D4 falls,
+Divergences: `docs/divergences/` (`sim.md` holds most; IDs are global,
+`grep -n '^## D'`). Relevant: D1 random sequence, D2 spawning, D3 movement, D4 falls,
 D5 shortcuts, D6 poles/ledges, D9 skid/roll/belly slide, D10 corridors, D11 water,
 D12 sound, D14 worlds/rooms/realizer (creatures, lizards, flies, overseers), D16 saves,
 D17 shelters, D18 dev tools.

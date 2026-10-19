@@ -65,7 +65,6 @@ Notes in `../rainworld-re/notes/`: `slugcat-graphics.md`, `overseer.md`,
 `water-rendering.md`. Surveys: `lizards.md`, `bat-flies.md`,
 `rocks-spears.md`, `depth-scenes.md`.
 
-Divergences are in the single `docs/DIVERGENCES.md` (there is no
-`docs/divergences/` directory): D8 slugcat graphics, D5 shortcuts, D7 room
+Divergences: `docs/divergences/` (one file per crate, IDs global): D8 slugcat graphics, D5 shortcuts, D7 room
 graphics, D14 worlds, rooms and the realizer (creature and overseer
 graphics), D17 shelters.
