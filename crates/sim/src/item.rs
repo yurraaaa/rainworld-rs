@@ -2,7 +2,7 @@
 //! `AbstractSpear`): what they are, where, and their save strings. The world keeps them
 //! in an arena ([`crate::world::World::object`]) and in its rooms' entity lists, beside
 //! the creatures ([`Entity`]). Rocks and spears are typed; a saved object of any other
-//! kind stays a string (docs/DIVERGENCES.md D16). A realized rock or spear is a
+//! kind stays a string (docs/divergences/ D16). A realized rock or spear is a
 //! [`Weapon`]. Behaviour: `rainworld-re/notes/items.md`.
 
 mod spear_stick;

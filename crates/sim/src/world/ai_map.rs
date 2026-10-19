@@ -300,7 +300,7 @@ impl AiMap {
     /// `TileAccessibleToCreature`: the template's water rule; a pre-baked layer; the
     /// lethal-water modifier (no water on the tile or under it); the template's
     /// `isTooCloseToTerrain`; then its resistance for the tile's class, a swimmer also
-    /// taking any non-Solid water tile. Worm grass is not ported (DIVERGENCES D14).
+    /// taking any non-Solid water tile. Worm grass is not ported (docs/divergences/ D14).
     #[must_use]
     pub fn tile_accessible_to_creature(
         &self,

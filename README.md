@@ -2,7 +2,7 @@
 
 A faithful reimplementation of [Rain World](https://store.steampowered.com/app/312520/Rain_World/)
 (v1.11.8) in Rust. The goal is to do what the game does, tick for tick, and to record every
-place where the port differs in [`docs/DIVERGENCES.md`](docs/DIVERGENCES.md).
+place where the port differs in [`docs/divergences/`](docs/divergences/README.md).
 
 The port ships no game assets. It reads them, read-only, from your installed copy of Rain
 World at startup: rooms, world files, palettes, sprite atlases, fonts, illustrations, sound

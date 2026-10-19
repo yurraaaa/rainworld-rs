@@ -564,7 +564,7 @@ impl Sounds {
 
     /// `VirtualMicrophone.PlaySound` with its draws. The voice cap of `AllowSound` is
     /// not applied here (it depends on what the audio is still playing;
-    /// docs/DIVERGENCES.md D12).
+    /// docs/divergences/ D12).
     fn play(
         &mut self,
         id: SoundId,

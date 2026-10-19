@@ -45,7 +45,7 @@ impl AbstractMovement {
 impl CreatureTemplate {
     /// Whether the plain `AbstractCreatureAI` or the template's own abstract AI runs:
     /// every base type with an AI but the overseer (its own update) and the scavengers
-    /// (not ported: they stay in their dens, docs/DIVERGENCES.md D14).
+    /// (not ported: they stay in their dens, docs/divergences/ D14).
     #[must_use]
     pub fn abstract_ai_ported(&self) -> bool {
         self.ai && self.kind != CreatureType::Overseer && !self.held_in_den()

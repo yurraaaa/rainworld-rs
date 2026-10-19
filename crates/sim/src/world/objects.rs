@@ -197,7 +197,7 @@ impl World {
     /// against its chance; then an ID (`GetNewID()`) and a rock, a spear, an explosive
     /// spear, a scavenger bomb or a spore plant. The last two are not realized by the
     /// port, and the spore plant is a plain object without its consumable fields
-    /// (docs/DIVERGENCES.md D14).
+    /// (docs/divergences/ D14).
     fn place_multiplayer_items(
         &mut self,
         index: i32,

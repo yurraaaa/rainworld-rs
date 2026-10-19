@@ -3,7 +3,7 @@
 //! `MISCPROG`, and the DLCs' `MAP_<slugcat>` lines), key and value by `<progDivB>`.
 //!
 //! Every change is written to the slot file at once (`UserData.WriteMode.Immediate`).
-//! Lines the port does not own are kept as read (docs/DIVERGENCES.md).
+//! Lines the port does not own are kept as read (docs/divergences/).
 
 use std::path::{Path, PathBuf};
 

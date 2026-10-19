@@ -271,7 +271,7 @@ impl UserDataFile {
     }
 
     /// `Hashtable.Insert`: expands first when full, then sets or adds (a new key goes
-    /// last; the game's order follows the string hashes: docs/DIVERGENCES.md).
+    /// last; the game's order follows the string hashes: docs/divergences/).
     pub fn set(&mut self, key: &str, value: String) {
         self.insert(key, value, None);
     }

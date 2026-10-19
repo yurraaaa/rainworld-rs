@@ -130,7 +130,7 @@ pub struct StuckIn {
 #[derive(Debug, Clone, PartialEq)]
 pub enum WeaponKind {
     Rock,
-    /// A `Spear`. An `ExplosiveSpear` is realized as one too (docs/DIVERGENCES.md D14).
+    /// A `Spear`. An `ExplosiveSpear` is realized as one too (docs/divergences/ D14).
     Spear(Box<SpearParts>),
 }
 
@@ -874,7 +874,7 @@ impl Weapon {
 
     /// `HitWall`: seven sparks when the room is viewed, the sound (a spear's bounce or
     /// a rock's hit), a new spin and `Free`, out of the player's reach for 10 ticks.
-    /// The camera's `ScreenMovement` bump is not ported (docs/DIVERGENCES.md D7).
+    /// The camera's `ScreenMovement` bump is not ported (docs/divergences/ D7).
     pub fn hit_wall(&mut self, object: &mut AbstractObject, cx: &mut WeaponTick<'_>) {
         let dir = self.throw_dir_vec();
         let c = self.chunk();

@@ -4,7 +4,7 @@
 //! It lives in the simulation because chunk submersion, buoyancy and drag, swimming and
 //! breathing all read the surface height at a chunk's x, and bodies crossing or moving in
 //! the surface push it. Behaviour: `rainworld-re/notes/water.md` section 1 and the
-//! decompiled `Water` class; base game with Remix off. Not ported (docs/DIVERGENCES.md
+//! decompiled `Water` class; base game with Remix off. Not ported (docs/divergences/
 //! D11): `WaterCutoff` and `AirPocket` placed objects (no base-game room uses them), the
 //! unused `WaterViscosity` effect, rain rumble and flooding (no rain cycle yet), and the
 //! cosmetic splashes, bubbles and sounds.

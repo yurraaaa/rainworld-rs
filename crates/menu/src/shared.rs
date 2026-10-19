@@ -90,7 +90,7 @@ impl Default for Progression {
 }
 
 /// `RainWorld.dlcsInstalled`. The game finds it from files ([`Dlcs::check`]); until DLC
-/// support exists the port runs with none installed (docs/DIVERGENCES.md D13).
+/// support exists the port runs with none installed (docs/divergences/ D13).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Dlcs {
     pub downpour: bool,

@@ -4,7 +4,7 @@
 //! The port reads and writes the selected slugcat and `INTEGERS` (the Hunter unlock and
 //! the tutorial counters a wipe resets) and the conditional shelters a wipe edits; every
 //! other entry is written back as read, in place (the game regenerates them in its own
-//! order: docs/DIVERGENCES.md).
+//! order: docs/divergences/).
 
 use rw_assets::{ActiveMods, SlugcatName};
 

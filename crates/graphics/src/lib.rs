@@ -7,7 +7,7 @@
 //! and its holograms' ([`HologramGraphics`]); the bat fly's ([`FlyGraphics`]); the
 //! lizard's body, legs, tail and head ([`LizardGraphics`]); the shelter door's
 //! ([`ShelterDoorSprites`]). Behaviour: `rainworld-re/notes/slugcat-graphics.md` and
-//! `sprite-atlases.md`; differences from the game are in `docs/DIVERGENCES.md`.
+//! `sprite-atlases.md`; differences from the game are in `docs/divergences/`.
 
 mod atlas;
 mod body_part;

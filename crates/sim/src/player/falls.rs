@@ -3,7 +3,7 @@
 //!
 //! Behaviour: `rainworld-re/notes/falls.md`, landing roll `advanced-moves.md`
 //! section 5. Remix (MMF) is off: no fall into a shortcut, no wall pounce
-//! (docs/DIVERGENCES.md D4, D9).
+//! (docs/divergences/ D4, D9).
 
 use rw_assets::Room;
 use rw_random::UnityRandom;

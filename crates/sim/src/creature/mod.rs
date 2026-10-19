@@ -7,7 +7,7 @@
 //! world-load population ([`population`]), the overseers' abstract AI ([`overseer`]),
 //! the plain `AbstractCreatureAI` (`world/abstract_ai.rs`) and the other subclasses
 //! ([`ai_kinds`], `world/abstract_ai_kinds.rs`) for every type but the scavenger (which
-//! stays in its den, docs/DIVERGENCES.md D14), the relationships, dens, `Move` and the
+//! stays in its den, docs/divergences/ D14), the relationships, dens, `Move` and the
 //! realize/abstractize hooks. Design:
 //! `rainworld-re/notes/creature-model.md`.
 

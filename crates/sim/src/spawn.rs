@@ -40,7 +40,7 @@ pub fn determine_safe_spawn_tile(room: &Room, rng: &mut UnityRandom) -> (i32, i3
         .count();
     for _ in 0..SPAWN_TRIES {
         let node = (rng.value() * exit_and_den_count as f32) as usize;
-        // The game throws here when the room has no shortcuts (docs/DIVERGENCES.md D2).
+        // The game throws here when the room has no shortcuts (docs/divergences/ D2).
         let Some(shortcut) = map.leading_to_node(node) else {
             break;
         };

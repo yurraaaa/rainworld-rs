@@ -2,7 +2,7 @@
 //! as the game's `VirtualMicrophone` mixes them, on kira (cpal; desktop and Android).
 //!
 //! Behaviour: `rainworld-re/notes/sound.md` sections 2.2 to 2.5. Divergences:
-//! docs/DIVERGENCES.md D12.
+//! docs/divergences/ D12.
 
 mod ambient;
 mod clips;

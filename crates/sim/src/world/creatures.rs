@@ -62,7 +62,7 @@ pub struct QuantifiedCount {
 }
 
 /// The world processes: the overseers' and the flies' are ported; the scavengers' is a
-/// marker (its update is not ported, docs/DIVERGENCES.md D14).
+/// marker (its update is not ported, docs/divergences/ D14).
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct WorldProcesses {
     /// `overseersWorldAI`, made by the first overseer's abstract AI.
@@ -904,7 +904,7 @@ impl World {
     /// `AbstractCreature.InDenUpdate`: the den counter runs down (a night creature's
     /// only after dark), and at below 0 the creature comes out; one that wants to stay
     /// for the rest of the cycle stops counting (-1). The scavengers, whose abstract AI is
-    /// not ported, stay in (docs/DIVERGENCES.md D14). A pre-cycle creature passes the
+    /// not ported, stay in (docs/divergences/ D14). A pre-cycle creature passes the
     /// game's precycle test (no precycles without More Slugcats) and then wants to stay.
     fn in_den_update(&mut self, id: CreatureId, time: i32, rng: &mut UnityRandom) {
         let day_night = self.rain_cycle.day_night_counter;

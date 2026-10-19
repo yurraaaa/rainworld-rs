@@ -29,7 +29,7 @@ pub enum StomachObject {
     /// A rock or spear of the world's arena, in no room.
     Object(ObjectId),
     /// A saved object or creature the port does not type, kept as its save string
-    /// (docs/DIVERGENCES.md D16).
+    /// (docs/divergences/ D16).
     Saved(String),
 }
 

@@ -2,7 +2,7 @@
 //! `BellySlide` with their jumps. The landing roll that starts a roll is in `falls.rs`.
 //!
 //! Behaviour: `rainworld-re/notes/advanced-moves.md`, Survivor values, no adrenaline,
-//! no held items (docs/DIVERGENCES.md D9).
+//! no held items (docs/divergences/ D9).
 
 use std::f32::consts::PI;
 

@@ -82,7 +82,7 @@ pub struct DoorPointer {
     pub report_player_exit_entrance: bool,
     pub pointer_necessary: bool,
     /// Whether a `CreatureDoorDistanceTracker` was made (it needs the Fly exit-distance
-    /// maps, not loaded: docs/DIVERGENCES.md D14).
+    /// maps, not loaded: docs/divergences/ D14).
     pub tracker: bool,
     /// The pointer's `lastRoom`.
     pub last_room: i32,

@@ -1,7 +1,7 @@
 //! `OptionsMenu` of the base game with Remix off (not a console): screen mode and
 //! resolution, language, save slot, reset progress, the volume sliders, vibration,
 //! speedrun validation, the input settings and credits buttons, BACK; and the port's
-//! save importer (docs/DIVERGENCES.md D13). Behaviour: `rainworld-re/notes/menu.md`.
+//! save importer (docs/divergences/ D13). Behaviour: `rainworld-re/notes/menu.md`.
 
 use rw_save::{Language, Options, SaveSlot};
 use rw_sim::{FloatExt, Vec2};

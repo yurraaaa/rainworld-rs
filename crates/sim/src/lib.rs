@@ -10,7 +10,7 @@
 //! draws, as events for `rw-audio`). Behaviour is specified in `rainworld-re/notes/physics-core.md`,
 //! `slope-collision.md`, `slugcat-movement.md`, `horizontal-beams.md`,
 //! `vertical-poles.md`, `ledge-grab.md`, `advanced-moves.md`, `corridors.md`, `falls.md`
-//! `shortcuts.md`, `water.md` and `sound.md`; known differences from the game are in `docs/DIVERGENCES.md`.
+//! `shortcuts.md`, `water.md` and `sound.md`; known differences from the game are in `docs/divergences/`.
 //!
 //! Above the room: the campaigns ([`campaign`]), the world with its realized rooms, the
 //! room realizer and the rain cycle ([`world`]), the creatures with the world's

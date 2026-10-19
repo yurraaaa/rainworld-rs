@@ -1,6 +1,6 @@
 //! `MainMenu` of the base game with Remix off: the title, the main-menu depth scene
 //! and six buttons. Story goes to the slugcat select menu, Options to the options menu and Exit quits; the others
-//! switch to processes the port does not have yet (docs/DIVERGENCES.md D13).
+//! switch to processes the port does not have yet (docs/divergences/ D13).
 
 use rw_render::StageShader;
 use rw_sim::Vec2;

@@ -90,7 +90,7 @@ pub struct GameProcess {
 }
 
 /// A process the port does not have yet: its name on black; the pause button (Esc)
-/// returns to the main menu (docs/DIVERGENCES.md D13).
+/// returns to the main menu (docs/divergences/ D13).
 pub struct Unported {
     id: ProcessId,
     stage: Container,

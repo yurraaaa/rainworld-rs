@@ -3,7 +3,7 @@
 //! menu, the options menu with its dialogs and the intro slideshows, the menu microphone, the music player's place, and the process manager that switches
 //! between the game and the menus behind a fade. Windowing stays in the app; drawing goes through
 //! `rw-render`'s stage. Behaviour: `rainworld-re/notes/menu.md`; differences from the
-//! game are in `docs/DIVERGENCES.md`.
+//! game are in `docs/divergences/`.
 
 mod atlas;
 mod color;

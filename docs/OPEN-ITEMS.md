@@ -25,7 +25,7 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `fear > 0.2` drop): go-ahead. Steps 6a (tracker, vision, relationships) and 6b
   (noise tracker and hearing, `InGameNoise` from the ported sources, the chunks'
   loudness, the social events' community influence, the discomfort travel cost) are
-  done; their left-out items are listed in `docs/DIVERGENCES.md` (green lizard
+  done; their left-out items are listed in `docs/divergences/` (green lizard
   section). See `../rainworld-re/surveys/lizards.md`.
 - **Player grabbing lizards earlier:** picking up, carrying and eating dead or stunned
   lizards needs no AI, so it could be its own small step before 6. Lizards grabbing

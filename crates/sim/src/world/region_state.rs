@@ -5,7 +5,7 @@
 //! (`World.regionState`).
 //!
 //! Saved creatures and objects the port does not simulate are kept as their strings and
-//! written back unchanged (docs/DIVERGENCES.md D16).
+//! written back unchanged (docs/divergences/ D16).
 
 use rw_assets::world::WorldData;
 use rw_random::UnityRandom;

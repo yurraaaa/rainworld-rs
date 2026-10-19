@@ -2,7 +2,7 @@
 //! animations, `GravitateToOpening`, breath and drowning (`LungUpdate`).
 //!
 //! Behaviour: `rainworld-re/notes/water.md` sections 3-5, base game with Remix off
-//! (docs/DIVERGENCES.md D11), Survivor stats.
+//! (docs/divergences/ D11), Survivor stats.
 
 use rw_assets::Room;
 use rw_random::UnityRandom;

@@ -7,7 +7,7 @@
 //! The AI is a stand-in ([`LizardAi`]: its path finder and the base AI's updates;
 //! `LizardAI`'s behaviours are lizard step 7); the voice is [`LizardVoice`]. The graphics module
 //! is `rw-graphics`' `LizardGraphics`; what it shares with the body is
-//! [`LizardGraphicsLink`] (docs/DIVERGENCES.md D14).
+//! [`LizardGraphicsLink`] (docs/divergences/ D14).
 //!
 //! The updates that reach the rest of the game are `RainWorldGame`'s (`game_lizards.rs`,
 //! `game_lizard_act.rs`, `game_lizard_hits.rs`). Behaviour:

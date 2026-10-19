@@ -1,6 +1,6 @@
 //! The game's music (`Music` namespace): the `MusicPlayer` side process, its songs,
 //! the region's procedural threat layers and their sources. Behaviour:
-//! `rainworld-re/notes/music.md`; what is not ported: docs/DIVERGENCES.md D12.
+//! `rainworld-re/notes/music.md`; what is not ported: docs/divergences/ D12.
 //!
 //! The player is pure tick logic over [`MusicSources`]: [`MusicOutput`] plays it
 //! through kira, [`TimedSources`] runs it silently and deterministically.

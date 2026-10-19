@@ -8,7 +8,7 @@
 //! damage, stun and death: `falls.md`. Skid, flip, roll, belly slide and rocket jump:
 //! `advanced-moves.md`. Corridors: `corridors.md`. Shortcuts: `shortcuts.md`.
 //! Swimming, breath and drowning: `water.md`.
-//! What is not ported is listed in `docs/DIVERGENCES.md`.
+//! What is not ported is listed in `docs/divergences/`.
 
 mod advanced;
 mod animation;

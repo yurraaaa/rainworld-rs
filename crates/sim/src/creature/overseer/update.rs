@@ -452,7 +452,7 @@ impl OverseerUpdate<'_, '_> {
     /// `Update`'s dead branch: the body shakes (four draws), the first tick plays
     /// `Overseer_Death`, it stays extended and dies away over six ticks, then is
     /// destroyed. Not ported: the `ShockWave` a viewed death shows and the
-    /// `OverseerCarcass` it leaves (docs/DIVERGENCES.md D14).
+    /// `OverseerCarcass` it leaves (docs/divergences/ D14).
     fn dying_update(&mut self) {
         let dying = self.body.dying;
         let dir = Vec2::random_unit(self.cx.rng);

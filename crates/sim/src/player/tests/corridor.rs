@@ -352,7 +352,7 @@ fn corridor_turn_takes_40_ticks_with_a_pull_rod() {
     assert_eq!(p.corridor_turn_dir, None);
     assert_eq!(p.body.connections[0].kind, ConnectionKind::Normal);
     assert_eq!(p.slow_movement_stun, 9);
-    // The ends have swapped (with the port's jiggle-free turn, docs/DIVERGENCES.md D10).
+    // The ends have swapped (with the port's jiggle-free turn, docs/divergences/ D10).
     p.run(&r, LEFT, 9);
     assert!(p.body.chunks[HEAD].pos.x < p.body.chunks[HIPS].pos.x);
     assert_eq!(p.slow_movement_stun, 0);

@@ -4,7 +4,7 @@
 //!
 //! Loading is synchronous: a room realized during a tick finishes loading in that
 //! tick's loading step (`RainWorldGame.Update` runs the `RoomPreparer`s there), where the
-//! game spreads it over frames on a thread (docs/DIVERGENCES.md D14). Behaviour:
+//! game spreads it over frames on a thread (docs/divergences/ D14). Behaviour:
 //! `rainworld-re/notes/world-loading.md`, `room-realizer.md`.
 
 mod abstract_ai;
