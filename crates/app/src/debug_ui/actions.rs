@@ -2,16 +2,14 @@
 //! the code paths the MCP tools use.
 
 use rw_assets::{AbstractObjectType, CreatureType};
-use rw_menu::{ProcessId, ProcessRequests};
 use rw_sim::Vec2;
 
 use crate::frontend::Frontend;
-use crate::game::GameStart;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DebugAction {
-    /// `load_room`'s start: the room's region world, the player in that room.
-    LoadRoom(String),
+    /// `teleport_player` to a room of the world, out of its first exit.
+    Teleport(String),
     /// `set_player` onto a tile of the camera's room.
     MovePlayer((i32, i32)),
     SpawnCreature {
@@ -42,25 +40,10 @@ impl DebugAction {
             .scene
             .game_mut();
         match self {
-            Self::LoadRoom(name) => {
-                let slugcat = game.sim().campaign().name;
-                let assets = &frontend.ctx.menu.assets;
-                if assets
-                    .find_room_file(&name.to_lowercase(), ".txt")
-                    .is_none()
-                {
-                    return Err(format!("room {name} not found"));
-                }
-                frontend.ctx.game.start = GameStart::Room {
-                    name: name.clone(),
-                    tile: None,
-                    slugcat,
-                };
-                frontend.ctx.menu.in_game_slugcat = None;
-                frontend
-                    .manager
-                    .request_switch(ProcessId::Game, ProcessRequests::FADE_OUT_SECONDS);
-                Ok(format!("loading {name} (a dev start)"))
+            Self::Teleport(room) => {
+                let index = Self::room_index(game, &room)?;
+                let r = game.teleport_player(index, None)?;
+                Ok(format!("teleporting to {} (exit node {})", r.room, r.node))
             }
             Self::MovePlayer((x, y)) => {
                 if game.room().get(x, y).is_none() {

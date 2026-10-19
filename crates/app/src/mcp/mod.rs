@@ -54,7 +54,7 @@ use params::{
     HudMessageParams, ImportSaveParams, ListRoomsParams, LoadProcessParams, LoadRoomParams,
     NewGameParams, RespawnParams, ScreenshotParams, SetDestinationParams, SetPlayerParams,
     SpawnCreatureParams, SpawnObjectParams, StepParams, StepProcessParams, StepSequenceParams,
-    TilesParams,
+    TeleportPlayerParams, TilesParams,
 };
 pub use session::Session;
 
@@ -266,16 +266,34 @@ impl Server {
     }
 
     #[tool(
-        description = "Dev tool: add a new rock or spear (kind Rock or Spear; explosive for \
-        an explosive spear) at a tile of a room (default the camera's), with a new ID, as \
-        the arena sandbox makes items. In a loaded room it is realized and placed there \
-        (RealizeInRoom); otherwise it stays abstract. Returns its ID."
+        description = "Dev tool: add a new item (AbstractObjectType value: Rock, Spear, \
+        or another base-game loose item such as DataPearl, DangleFruit, FlareBomb; \
+        explosive for an explosive spear) at a tile of a room (default the camera's), with \
+        a new ID, as the arena sandbox makes items. Rocks and spears in a loaded room are \
+        realized and placed there (RealizeInRoom); other kinds, which the port has no body \
+        for, and items in unloaded rooms stay abstract (the reply's note says why). \
+        Returns its ID."
     )]
     fn spawn_object(
         &self,
         Parameters(p): Parameters<SpawnObjectParams>,
     ) -> Result<CallToolResult, String> {
         Self::json(&self.session()?.spawn_object(&p)?)
+    }
+
+    #[tool(
+        description = "Dev tool: send the player to another room of the current world, \
+        keeping the world and the session: the player and what it carries go into a \
+        shortcut vessel that waits in the shortcut lobby for the room (realized at once), \
+        and come out of its exit `node` (default its first exit) once the room is ready, \
+        the camera following, as a room exit carries the player. Step a few ticks to \
+        arrive. Fails for a dead, held or travelling player."
+    )]
+    fn teleport_player(
+        &self,
+        Parameters(p): Parameters<TeleportPlayerParams>,
+    ) -> Result<CallToolResult, String> {
+        Self::json(&self.session()?.teleport_player(&p)?)
     }
 
     #[tool(

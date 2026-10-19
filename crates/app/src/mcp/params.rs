@@ -193,8 +193,17 @@ pub struct SpawnCreatureParams {
 }
 
 #[derive(Debug, Clone, Default, Deserialize, JsonSchema)]
+pub struct TeleportPlayerParams {
+    /// The room's name, in the current world.
+    pub room: String,
+    /// The exit node to come out of (default the room's first exit).
+    pub node: Option<i32>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, JsonSchema)]
 pub struct SpawnObjectParams {
-    /// The `AbstractPhysicalObject.AbstractObjectType` value: "Rock" or "Spear".
+    /// The `AbstractPhysicalObject.AbstractObjectType` value, e.g. "Rock", "Spear",
+    /// "DataPearl" (only rocks and spears are realized).
     pub kind: String,
     /// The room's name (default the camera's room).
     pub room: Option<String>,

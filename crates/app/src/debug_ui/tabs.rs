@@ -56,33 +56,12 @@ impl DebugTab for RegionTab {
     }
 }
 
-/// The current region's rooms; loading one starts its world there as `load_room` does.
+/// The current world's rooms; the player travels to one through the shortcut lobby
+/// (`teleport_player`), the world kept.
 #[derive(Default)]
 struct TeleportTab {
     filter: String,
     selected: Option<String>,
-    /// The region the cached rooms are of, and them.
-    rooms: Option<(String, Vec<String>)>,
-}
-
-impl TeleportTab {
-    /// The region's rooms on disk (upper case, as the world names them), else the
-    /// world's rooms.
-    fn rooms(&mut self, game: &GameView, cx: &TabCx<'_>) -> &[String] {
-        if self.rooms.as_ref().is_none_or(|(r, _)| *r != game.region) {
-            let region = game.region.to_lowercase();
-            let rooms = match cx.catalog {
-                Some(c) => c
-                    .rooms(Some(&region), "")
-                    .iter()
-                    .map(|r| r.to_uppercase())
-                    .collect(),
-                None => game.rooms.clone(),
-            };
-            self.rooms = Some((game.region.clone(), rooms));
-        }
-        self.rooms.as_ref().map_or(&[], |(_, r)| r.as_slice())
-    }
 }
 
 impl DebugTab for TeleportTab {
@@ -99,42 +78,36 @@ impl DebugTab for TeleportTab {
             "Region {}, camera in {}",
             game.region, game.camera_room
         ));
-        ui.text_disabled("Loading a room restarts its world there (as MCP load_room).");
+        ui.text_disabled("The player comes out of the room's first exit (MCP teleport_player).");
         ui.input_text("Filter", &mut self.filter).build();
-        let filter = self.filter.clone();
-        let rooms: Vec<String> = RoomFilter(&filter)
-            .apply(self.rooms(game, cx))
-            .into_iter()
-            .map(str::to_owned)
-            .collect();
+        let rooms = RoomFilter(&self.filter).apply(&game.rooms);
         let mut load = None;
         ui.child_window("rooms").size([0.0, -30.0]).build(|| {
-            for room in &rooms {
-                let current = *room == game.camera_room;
-                let label = if current {
+            for &room in &rooms {
+                let label = if room == game.camera_room {
                     format!("{room}  (camera)")
                 } else {
-                    room.clone()
+                    room.to_owned()
                 };
-                let selected = self.selected.as_ref() == Some(room);
+                let selected = self.selected.as_deref() == Some(room);
                 if ui.selectable_config(&label).selected(selected).build() {
-                    self.selected = Some(room.clone());
+                    self.selected = Some(room.to_owned());
                 }
                 if ui.is_item_hovered() && ui.is_mouse_double_clicked(imgui::MouseButton::Left) {
-                    load = Some(room.clone());
+                    load = Some(room.to_owned());
                 }
             }
         });
         let chosen = self.selected.clone();
         ui.disabled(chosen.is_none(), || {
-            if ui.button("Load room") {
+            if ui.button("Go to room") {
                 load = chosen.clone();
             }
         });
         ui.same_line();
         ui.text(format!("{} rooms", rooms.len()));
         if let Some(room) = load {
-            cx.actions.push(DebugAction::LoadRoom(room));
+            cx.actions.push(DebugAction::Teleport(room));
         }
     }
 }
@@ -219,10 +192,16 @@ impl DebugTab for CreaturesTab {
                 cx.actions.push(DebugAction::MovePlayer(c.tile));
             }
         });
-        if selected.is_some() && here.is_none() {
-            ui.same_line();
-            ui.text_disabled("(only a realized creature in the camera's room)");
-        }
+        let elsewhere =
+            selected.filter(|c| c.room != game.camera_room && game.rooms.contains(&c.room));
+        ui.same_line();
+        ui.disabled(elsewhere.is_none(), || {
+            if ui.button("Go to its room")
+                && let Some(c) = elsewhere
+            {
+                cx.actions.push(DebugAction::Teleport(c.room.clone()));
+            }
+        });
         let flags = TableFlags::ROW_BG
             | TableFlags::BORDERS_INNER_V
             | TableFlags::SCROLL_Y
@@ -336,7 +315,7 @@ impl DebugTab for SpawnObjectTab {
             ui.text_disabled("No game is running.");
             return;
         };
-        ui.combo("Kind", &mut self.kind, &SPAWN_OBJECT_KINDS, |k| {
+        ui.combo("Kind", &mut self.kind, SPAWN_OBJECT_KINDS, |k| {
             Cow::Borrowed(k.value())
         });
         let kind = SPAWN_OBJECT_KINDS
@@ -347,7 +326,7 @@ impl DebugTab for SpawnObjectTab {
             ui.checkbox("Explosive", &mut self.explosive);
         }
         self.place.draw(ui, game);
-        ui.text_disabled("As MCP spawn_object.");
+        ui.text_disabled("As MCP spawn_object: only rocks and spears get a body.");
         if ui.button("Spawn") {
             match self.place.resolve(game) {
                 Ok((room, tile)) => {

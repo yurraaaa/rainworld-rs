@@ -17,7 +17,7 @@ pub struct GameView {
     pub camera_room: String,
     /// The player's tile when it is in the camera's room.
     pub player_tile: Option<(i32, i32)>,
-    /// Every room of the world, in world order.
+    /// Every room of the world but the off-screen den, in world order.
     pub rooms: Vec<String>,
     pub creatures: Vec<CreatureRow>,
     pub creature_kinds: Vec<CreatureType>,
@@ -36,9 +36,8 @@ pub struct CreatureRow {
     pub alive: bool,
 }
 
-/// The object kinds a dev spawn makes (the ones the port realizes).
-pub const SPAWN_OBJECT_KINDS: [AbstractObjectType; 2] =
-    [AbstractObjectType::Rock, AbstractObjectType::Spear];
+/// The object kinds a dev spawn makes (only rocks and spears are realized).
+pub const SPAWN_OBJECT_KINDS: &[AbstractObjectType] = &rw_sim::RainWorldGame::DEV_SPAWN_OBJECTS;
 
 impl DebugView {
     #[must_use]
@@ -62,7 +61,13 @@ impl GameView {
             region: world.name().to_uppercase(),
             camera_room: game.room_name(sim.camera_room()),
             player_tile,
-            rooms: world.data().rooms.iter().map(|r| r.name.clone()).collect(),
+            rooms: world
+                .data()
+                .rooms
+                .iter()
+                .filter(|r| !r.offscreen_den)
+                .map(|r| r.name.clone())
+                .collect(),
             creatures: CreatureRow::rows(game),
             creature_kinds: sim.dev_spawnable_creatures(),
         }

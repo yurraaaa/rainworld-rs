@@ -1,12 +1,12 @@
 //! Developer tools that add to the world through the game's own code paths.
 
-use rw_assets::{AbstractObjectType, CreatureType};
+use rw_assets::{AbstractObjectType, CreatureType, NodeType};
 
 use super::{OverseerCall, PlayerObserver, RainWorldGame};
-use crate::Vec2;
 use crate::creature::{CreatureId, CreatureTemplate, EntityId, LizardBreedParams, WorldCoordinate};
 use crate::item::{AbstractObject, Entity, ObjectId};
 use crate::world::LizardRoomCx;
+use crate::{LobbyVessel, Vec2, VesselOwner};
 
 impl RainWorldGame {
     /// Whether `dev_spawn_creature` takes `kind`: not the slugcat or a template.
@@ -75,11 +75,43 @@ impl RainWorldGame {
         Ok(cid)
     }
 
+    /// The base-game items a dev spawn makes: rocks and spears, realized, and the loose
+    /// items the port has no body for, which stay abstract.
+    pub const DEV_SPAWN_OBJECTS: [AbstractObjectType; 24] = [
+        AbstractObjectType::Rock,
+        AbstractObjectType::Spear,
+        AbstractObjectType::FlareBomb,
+        AbstractObjectType::VultureMask,
+        AbstractObjectType::PuffBall,
+        AbstractObjectType::DangleFruit,
+        AbstractObjectType::DataPearl,
+        AbstractObjectType::WaterNut,
+        AbstractObjectType::JellyFish,
+        AbstractObjectType::Lantern,
+        AbstractObjectType::KarmaFlower,
+        AbstractObjectType::Mushroom,
+        AbstractObjectType::FirecrackerPlant,
+        AbstractObjectType::SlimeMold,
+        AbstractObjectType::FlyLure,
+        AbstractObjectType::ScavengerBomb,
+        AbstractObjectType::SporePlant,
+        AbstractObjectType::EggBugEgg,
+        AbstractObjectType::NeedleEgg,
+        AbstractObjectType::BubbleGrass,
+        AbstractObjectType::NshSwarmer,
+        AbstractObjectType::OverseerCarcass,
+        AbstractObjectType::SlOracleSwarmer,
+        AbstractObjectType::SsOracleSwarmer,
+    ];
+
     /// A dev spawn of an object as the arena sandbox makes one (`SpawnItems`): `new
-    /// AbstractPhysicalObject` (a rock) or `new AbstractSpear` at `tile` of global room
-    /// `room` with `GetNewID()`, `AbstractRoom.AddEntity`, then `RealizeInRoom` once the
-    /// room's shortcuts are ready (a room still loading realizes it then, with its other
-    /// objects). `Err` for a kind the port does not realize or a room the world lacks.
+    /// AbstractPhysicalObject` (a rock, or a plain object of another kind, without its
+    /// subclass's fields, as D14's spore plants) or `new AbstractSpear` at `tile` of
+    /// global room `room` with `GetNewID()`, `AbstractRoom.AddEntity`, then
+    /// `RealizeInRoom` once the room's shortcuts are ready (a room still loading
+    /// realizes it then, with its other objects); the port realizes only rocks and
+    /// spears. `Err` for a kind not in [`Self::DEV_SPAWN_OBJECTS`] or a room the world
+    /// lacks.
     ///
     /// # Errors
     /// See above.
@@ -99,7 +131,10 @@ impl RainWorldGame {
             AbstractObjectType::Spear => {
                 AbstractObject::new_spear(self.ids.new_id(-1), pos, explosive)
             }
-            other => return Err(format!("the port has no {} object", other.value())),
+            k if Self::DEV_SPAWN_OBJECTS.contains(&k) => {
+                AbstractObject::new_plain(k, self.ids.new_id(-1), pos)
+            }
+            other => return Err(format!("{} is not a spawnable item", other.value())),
         };
         let id = self.world.add_object(object);
         if self
@@ -110,6 +145,68 @@ impl RainWorldGame {
             self.world.realize_object_in_room(id, &mut self.rng);
         }
         Ok(id)
+    }
+
+    /// A dev teleport of the player to exit node `node` of global room `room` (the
+    /// room's first exit when `None`), the way a room exit carries it: the player and
+    /// what it carries are sucked into a vessel (`SuckInCreature`), the room is
+    /// activated at once, and the vessel waits in `betweenRoomsWaitingLobby` with that
+    /// entrance node; the lobby then moves the abstract creature, spits the player out
+    /// of the exit once the room is `ReadyForPlayer` and moves the camera. The world
+    /// and the session stay as they are. Returns the entrance node.
+    ///
+    /// # Errors
+    /// Without a live player free in a room (dead, held, already in a shortcut), for
+    /// an unknown room, the off-screen den, or a node that is not one of its exits.
+    pub fn dev_teleport_player(&mut self, room: i32, node: Option<i32>) -> Result<i32, String> {
+        let data = self
+            .world
+            .abstract_room(room)
+            .ok_or_else(|| format!("no room {room} in the world"))?;
+        if data.offscreen_den {
+            return Err("the off-screen den is not a room to enter".to_owned());
+        }
+        let exits: Vec<i32> = data
+            .nodes
+            .iter()
+            .enumerate()
+            .filter(|(_, n)| n.kind == NodeType::Exit)
+            .filter_map(|(i, _)| i32::try_from(i).ok())
+            .collect();
+        let node = match node {
+            Some(n) if exits.contains(&n) => n,
+            Some(n) => return Err(format!("node {n} is not an exit of {}", data.name)),
+            None => *exits
+                .first()
+                .ok_or_else(|| format!("{} has no exits", data.name))?,
+        };
+        if self.pos().room == room {
+            return Err(format!("the player is already in {}", data.name));
+        }
+        let player = self.player.as_ref().ok_or("there is no player")?;
+        if player.is_dead() {
+            return Err("the player is dead".to_owned());
+        }
+        if player.in_shortcut() || self.player_in_lobby() {
+            return Err("the player is already in a shortcut".to_owned());
+        }
+        if !self.world.creature(self.player_id).grabbed_by.is_empty() {
+            return Err("the player is held".to_owned());
+        }
+        if let Some(p) = self.player.as_mut() {
+            p.dev_enter_vessel();
+        }
+        self.carried_sucked_in();
+        if let Err(e) = self.world.activate_room(room, &mut self.ids, &mut self.rng) {
+            log::warn!("cannot realize room {room}: {e}");
+        }
+        self.shortcuts.lobby.push(LobbyVessel {
+            room,
+            entrance_node: node,
+            updates: 0,
+            owner: VesselOwner::Player,
+        });
+        Ok(node)
     }
 
     /// `RealizeInRoom` of a dev-spawned creature, as `ReadyForAI` realizes one.

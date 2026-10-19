@@ -172,6 +172,13 @@ impl Player {
         }
     }
 
+    /// The dev teleport's `SuckInCreature`: a vessel on the head's tile, the body out of
+    /// the room (the lobby then carries it to another room's node).
+    pub(crate) fn dev_enter_vessel(&mut self) {
+        self.vessel = Some(ShortcutVessel::new(self.head().pos.tile()));
+        self.entering_shortcut = None;
+    }
+
     /// `SetAllPositions`: the vessel restarts on `tile` (another room's node).
     pub(crate) fn set_vessel_at(&mut self, tile: (i32, i32)) {
         if let Some(v) = &mut self.vessel {

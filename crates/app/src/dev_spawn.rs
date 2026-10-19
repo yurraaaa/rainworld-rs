@@ -1,5 +1,5 @@
-//! Dev spawns of creatures and objects, shared by the MCP tools (`spawn_creature`,
-//! `spawn_object`) and the debug UI.
+//! Dev spawns of creatures and objects and the dev teleport, shared by the MCP tools
+//! (`spawn_creature`, `spawn_object`, `teleport_player`) and the debug UI.
 
 use rw_assets::{AbstractObjectType, CreatureType};
 use serde::Serialize;
@@ -18,6 +18,14 @@ pub struct SpawnReply {
     /// Why it was not realized.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
+}
+
+/// Where a dev teleport sends the player: the room and the exit node it comes out of
+/// once the room is ready (a few ticks later).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct TeleportReply {
+    pub room: String,
+    pub node: i32,
 }
 
 impl Game {
@@ -78,11 +86,28 @@ impl Game {
         })
     }
 
-    /// Adds a new rock or spear at a tile ([`Game::dev_spawn_object`]), realized there
-    /// when its room's shortcuts are ready.
+    /// Sends the player to an exit of room `room` through the shortcut lobby
+    /// ([`rw_sim::RainWorldGame::dev_teleport_player`]); the world is kept.
     ///
     /// # Errors
-    /// For a kind the port does not realize, an unknown room, or a tile outside a
+    /// As `dev_teleport_player`.
+    pub fn teleport_player(
+        &mut self,
+        room: i32,
+        node: Option<i32>,
+    ) -> Result<TeleportReply, String> {
+        let node = self.sim_mut().dev_teleport_player(room, node)?;
+        Ok(TeleportReply {
+            room: self.room_name(room),
+            node,
+        })
+    }
+
+    /// Adds a new item at a tile ([`Game::dev_spawn_object`]): a rock or spear realized
+    /// there when its room's shortcuts are ready, another kind abstract.
+    ///
+    /// # Errors
+    /// For a kind that is not a spawnable item, an unknown room, or a tile outside a
     /// realized room.
     pub fn spawn_object(
         &mut self,
@@ -96,8 +121,13 @@ impl Game {
         let world = self.sim().world();
         let o = world.object(id);
         let realized = o.realized.is_some();
+        let weapon = matches!(kind, AbstractObjectType::Rock | AbstractObjectType::Spear);
         let note = match world.realized(room) {
             _ if realized => None,
+            _ if !weapon => Some(format!(
+                "the port does not realize {} objects: added abstract",
+                kind.value()
+            )),
             None => Some("its room is not loaded: added abstract".to_owned()),
             Some(_) => Some("its room is still loading: realized when it is ready".to_owned()),
         };

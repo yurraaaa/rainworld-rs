@@ -15,10 +15,12 @@ use rw_render::{
 use rw_sim::Vec2;
 
 use super::Session;
-use crate::dev_spawn::SpawnReply;
+use crate::dev_spawn::{SpawnReply, TeleportReply};
 use crate::frontend::FrontendRenderer;
 use crate::game::{DebugBody, Game};
-use crate::mcp::params::{ScreenshotParams, SpawnCreatureParams, SpawnObjectParams};
+use crate::mcp::params::{
+    ScreenshotParams, SpawnCreatureParams, SpawnObjectParams, TeleportPlayerParams,
+};
 use crate::mcp::reply::Screenshot;
 use crate::scene::{Framing, MARGIN, SceneRenderer, SceneView};
 use crate::timestep::TICK_RATE;
@@ -56,12 +58,27 @@ impl Session {
             .spawn_creature(kind, room, (x, y), params.seed_id)
     }
 
-    /// Adds a new rock or spear at a tile (`dev_spawn_object`), realized there when its
-    /// room is loaded.
+    /// Sends the player through the shortcut lobby to an exit of a room of this world
+    /// (`dev_teleport_player`).
     ///
     /// # Errors
-    /// Without a game, for a kind other than a rock or spear, an unknown room, or a tile
-    /// outside a realized room.
+    /// Without a game, for an unknown room or node, or a player that cannot travel.
+    pub fn teleport_player(
+        &mut self,
+        params: &TeleportPlayerParams,
+    ) -> Result<TeleportReply, String> {
+        let room = self.room_named(Some(&params.room))?;
+        self.scene_or_err()?
+            .game_mut()
+            .teleport_player(room, params.node)
+    }
+
+    /// Adds a new item at a tile (`dev_spawn_object`): a rock or spear realized there
+    /// when its room is loaded, another kind abstract.
+    ///
+    /// # Errors
+    /// Without a game, for a kind that is not a spawnable item, an unknown room, or a
+    /// tile outside a realized room.
     pub fn spawn_object(&mut self, params: &SpawnObjectParams) -> Result<SpawnReply, String> {
         let room = self.room_named(params.room.as_deref())?;
         let mods = self.scene()?.game().sim().world().mods();

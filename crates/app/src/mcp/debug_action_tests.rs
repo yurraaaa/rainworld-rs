@@ -87,27 +87,44 @@ fn spawns_and_moves_apply_to_the_running_game() {
     assert!(s.apply(DebugAction::MovePlayer((-5, -5))).is_err());
 }
 
+/// "Go to its room" for a creature in another room: the room is loaded, the
+/// player arrives there with the camera, and the same world (that creature, the game
+/// clock) goes on.
 #[test]
-fn load_room_restarts_the_world_in_that_room() {
+fn teleport_goes_to_a_creatures_room_in_the_same_world() {
     let Some(mut s) = Session::game_process_at("SU_C04") else {
         return;
     };
-    s.apply(DebugAction::LoadRoom("SU_A07".to_owned()))
-        .expect("loads");
-    assert_eq!(s.frames(1, &[]).upcoming.as_deref(), Some("Game"));
-    for _ in 0..400 {
-        let state = s.frames(1, &[]);
-        if state.upcoming.is_none() && state.fade_to_black == 0.0 {
+    let view = s.debug_view();
+    let creature = view
+        .creatures
+        .iter()
+        .find(|c| c.room != view.camera_room && view.rooms.contains(&c.room))
+        .expect("a creature in another room")
+        .clone();
+    let tick = s.frames(1, &[]).game_tick.expect("game");
+    let reply = s
+        .apply(DebugAction::Teleport(creature.room.clone()))
+        .expect("teleports");
+    assert!(
+        reply.starts_with(&format!("teleporting to {}", creature.room)),
+        "{reply}"
+    );
+    let mut arrived = false;
+    for _ in 0..120 {
+        s.frames(1, &[]);
+        if s.debug_view().camera_room == creature.room {
+            arrived = true;
             break;
         }
     }
+    assert!(arrived, "never reached {}", creature.room);
+    assert!(s.frames(1, &[]).game_tick.expect("game") > tick);
     let view = s.debug_view();
-    assert_eq!(
-        (view.region.as_str(), view.camera_room.as_str()),
-        ("SU", "SU_A07")
-    );
+    assert!(view.player_tile.is_some() || view.camera_room == creature.room);
+    assert!(view.creatures.iter().any(|c| c.id == creature.id));
     assert!(
-        s.apply(DebugAction::LoadRoom("NO_ROOM".to_owned()))
+        s.apply(DebugAction::Teleport("NO_ROOM".to_owned()))
             .is_err()
     );
 }
