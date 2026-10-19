@@ -17,28 +17,12 @@ decides, subagents find out, the main session checks and commits.
 
 ### Briefs: write as though you will not be asked a follow-up
 
-Name:
-
-- **Design decisions** that apply and the design files to read. For a
-  component without a design file, say so and list the open decisions so
-  the agent asks instead of deciding.
-- **Files not to touch** while other work is in flight (workspace
-  `Cargo.toml`, a crate's `lib.rs` are where agents collide).
-- **What is ruled out, and by what evidence.**
-- **Reference and comparison**: which game files, function or data is the
-  oracle, what counts as a match, expected read/rejected/matching counts.
-- **Sources**: the game is read, never copied or transliterated.
-- **Docs to update**, and to grep for the rest. A doc left stale by a
-  delegated change is the orchestrator's fault.
-- **Omissions as questions**: the agent lists every piece of game behaviour
-  it left out as "port or skip for now?", never deciding to skip itself;
-  the orchestrator brings each to the user.
-- **MCP fields** for new state, so it can be debugged headless, and
-  known-good test spots (room, seed, tiles).
-- **Size**: a step one agent can't finish in one context is split in two;
-  an agent short of context commits a coherent part and reports the rest.
-- **The standing rules**: code style (below), no downloads/installs, no
-  windows, shared machine, worktree, and "use cheap research agents".
+Copy the template from `docs/briefs/` (`porting.md`, `research.md`,
+`review.md`; index in `docs/briefs/README.md`), fill every field and paste
+the standing-rules block verbatim. A field you cannot fill is a decision for
+the user: ask before spawning. Every agent ends with
+`docs/briefs/report-format.md`. Skills: `port-survey`, `port-step`,
+`merge-branch`.
 
 Brief agents so that contradicting you is welcome: when the game's data or
 code disagrees with you, the original wins.
@@ -64,6 +48,9 @@ A subagent's success is a claim, not a result. Ask for pasted output
 check that test expectations come from the game's code or data, and grep
 and read every doc hit for the names it touched.
 
+Verify with a `docs/briefs/review.md` agent given only the branch and the
+oracle, not the author's conclusion.
+
 Report exactly what was observed: "builds" is not "matches the original";
 "tests pass" means the port agrees with the data those tests use, nothing
 more.
@@ -81,15 +68,10 @@ split into several by topic, in a folder with a `README.md` index, as
 
 ### Merging a branch
 
-In the agent's worktree: `git merge main`; `cargo fmt --all -- --check`;
-`cargo clippy --workspace --all-targets` (0 warnings); `cargo test
---release --workspace` (sum the `test result` lines); grep the diff for
-bound closures (`let x = |`) and string-literal match arms; look at the
-screenshots. Then on main `git merge --no-ff`, remove the worktree and
-branch, push, and in `../rainworld-re` commit only the notes files the
-agent named. Commits are GPG-signed; if pinentry fails, ask the user,
-never bypass signing. New work starts only on the user's explicit go-ahead;
-an answer to another question is not one.
+Use the `merge-branch` skill (`.claude/skills/merge-branch/SKILL.md`).
+Commits are GPG-signed; if pinentry fails, ask the user, never bypass
+signing. New work starts only on the user's explicit go-ahead; an answer to
+another question is not one.
 
 ### Testing: small and local, the user's play is acceptance
 
@@ -104,6 +86,9 @@ an answer to another question is not one.
   makes 4n+1 draws") and check them in review against the decompile.
 - Python reference models are optional throwaway checks, never committed.
 - Keep briefs short, docs minimal, screenshots only for visual work.
+- Commands per crate (inner loop, which tests need the installed game, when
+  the workspace suite runs): `docs/checks.md` and `scripts/check.sh <crate>`.
+  Agents never run the workspace suite; the orchestrator does at merge.
 
 ### Surveys when behaviour is unclear
 
@@ -119,9 +104,8 @@ Nothing new starts before the user agrees.
 - Agents that edit the repo each work in their own git worktree (Agent
   `isolation: "worktree"`), never the main checkout; the orchestrator
   reviews and merges. Read-only agents need none.
-- Say what else is running. Agents sharing `target/` serialise on cargo's
-  lock: give parallel agents disjoint crates or worktrees. Benchmarks run
-  alone.
+- Say what else is running. Cargo-lock contention: `docs/checks.md` (Parallel
+  worktrees). Benchmarks run alone.
 - `SendMessage` a running agent by id, telling it to reply to `main`.
 - Agents send no progress updates, status pings or "waiting on X" messages:
   each costs the orchestrator context and usage. An agent sends one final

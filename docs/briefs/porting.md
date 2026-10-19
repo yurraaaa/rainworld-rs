@@ -59,7 +59,8 @@ Rules for this task:
   read-only agents with model haiku (plain lookups) or sonnet (judgement).
   Do not spawn opus or fable agents.
 - Run only the per-crate commands in docs/checks.md, not the workspace suite.
-- Reply to `main` by SendMessage when you need a decision.
+- Send no progress updates or status pings. One final report; a message to
+  `main` (SendMessage) only when blocked on a decision you cannot make.
 ```
 
 End with the report in [`report-format.md`](report-format.md).
