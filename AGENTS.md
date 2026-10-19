@@ -220,8 +220,9 @@ for older notes' line numbers; new notes cite file and member.
   paths, input) behind small seams, prefer Android-capable crates, avoid
   desktop-only assumptions in sim, assets and render. Touch input and
   getting game files onto the device are open.
-- End of project: a code cleanliness/quality review across the workspace,
-  then an optimisation pass, once the whole game is ported.
+- Cleanup, review and optimisation is its own milestone (M13), after Remix
+  and the DLCs (M12): a code cleanliness/quality review across the workspace,
+  then an optimisation pass. Milestones: `docs/MILESTONES.md`.
 
 ## Driving the app
 
