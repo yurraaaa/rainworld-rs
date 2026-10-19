@@ -125,8 +125,9 @@ These are the game's default keyboard bindings.
 | Esc | Pause menu (again to continue) | Back |
 
 Development keys: R respawns (only in a room started directly, not in a campaign), V
-toggles the level graphic and the debug view, G shows the tile grid, and F12 saves a
-screenshot.
+toggles the level graphic and the debug view, G shows the tile grid, F12 saves a
+screenshot, and F1 opens the debug UI (load a room of the region, list the creatures,
+spawn creatures, rocks and spears).
 
 ## Workspace
 

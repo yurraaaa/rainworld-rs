@@ -345,3 +345,31 @@ fn colored_sprite3_tests_the_level_texel_under_the_pixel() {
     assert_ne!(pixel(&frame, 32, 47), sprite);
     assert_ne!(pixel(&frame, 15, 32), sprite);
 }
+
+/// The debug overlay goes over the headless frame in target pixels (y down), textured
+/// by its atlas times the vertex colour and clipped to its draw's rectangle.
+#[test]
+fn overlay_draws_clipped_over_the_frame() {
+    let Some(mut r) = renderer() else { return };
+    r.set_overlay_texture(2, 1, &[255, 255, 255, 255, 0, 0, 0, 0]);
+    let overlay = Overlay {
+        vertices: [[0.0, 0.0], [32.0, 0.0], [32.0, 16.0], [0.0, 16.0]]
+            .map(|pos| crate::OverlayVertex {
+                pos,
+                uv: [0.25, 0.5],
+                color: [255, 0, 0, 255],
+            })
+            .to_vec(),
+        indices: vec![0, 1, 2, 0, 2, 3],
+        draws: vec![crate::OverlayDraw {
+            first: 0,
+            count: 6,
+            clip: [0.0, 0.0, 16.0, 64.0],
+        }],
+    };
+    r.draw_overlay(overlay);
+    let image = r.render_image().unwrap();
+    assert_eq!(pixel(&image, 4, 4), [255, 0, 0]);
+    assert_eq!(pixel(&image, 20, 4), [0, 0, 0]);
+    assert_eq!(pixel(&image, 4, 40), [0, 0, 0]);
+}

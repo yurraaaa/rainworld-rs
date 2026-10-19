@@ -1,10 +1,12 @@
-//! `spawn_creature` and room screenshots, on SU_A07 of the installed game (skipped
+//! `spawn_creature`, `spawn_object` and room screenshots, on SU_A07 of the installed game (skipped
 //! without it; the screenshot test skips without a Vulkan adapter).
 
 use rw_assets::{Room, Terrain};
 
 use super::Session;
-use super::params::{InputParam, ScreenshotParams, SpawnCreatureParams, StepParams, TilesParams};
+use super::params::{
+    InputParam, ScreenshotParams, SpawnCreatureParams, SpawnObjectParams, StepParams, TilesParams,
+};
 
 /// The first air tile standing on solid ground, scanning from the bottom left.
 trait FloorTile {
@@ -145,4 +147,49 @@ fn another_rooms_screenshot_leaves_the_game_untouched() {
     assert_eq!(&rng, s.scene_mut().expect("game").game().cosmetic_rng());
     // The camera's room still draws.
     assert!(s.screenshot(&ScreenshotParams::default()).is_ok());
+}
+
+/// A rock and a spear are realized on the asked tile with new IDs, making the game's
+/// draws: `Weapon`'s rotation and `Rock.SetRandomSpin`'s value (2); the rotation,
+/// `Spear`'s `spearmasterNeedleType` and `Spear.SetRandomSpin`'s two values (4).
+#[test]
+fn spawned_objects_are_realized_on_their_tile() {
+    let Some(mut s) = Session::su_a07() else {
+        return;
+    };
+    let (x, y) = s.camera_floor_tile();
+    for (kind, draws) in [("Rock", 2), ("Spear", 4)] {
+        let mut expected = s.scene_mut().expect("game").game().sim().rng().clone();
+        for _ in 0..draws {
+            expected.value();
+        }
+        let reply = s
+            .spawn_object(&SpawnObjectParams {
+                kind: kind.to_owned(),
+                tile: [x, y],
+                ..Default::default()
+            })
+            .expect("spawns");
+        assert!(reply.realized && reply.note.is_none(), "{reply:?}");
+        assert_eq!((reply.kind.as_str(), reply.tile), (kind, [x, y]));
+        assert_eq!(s.scene_mut().expect("game").game().sim().rng(), &expected);
+        let state = s.state().expect("state");
+        let o = state
+            .objects
+            .iter()
+            .find(|o| o.id == reply.id)
+            .expect("in get_state");
+        assert_eq!((o.room.as_str(), o.tile), ("SU_A07", [x, y]));
+        let w = o.realized.as_ref().expect("realized");
+        let centre = rw_assets::tile_centre(x, y);
+        assert!((w.pos[0] - centre[0]).hypot(w.pos[1] - centre[1]) < 0.01);
+    }
+    assert!(
+        s.spawn_object(&SpawnObjectParams {
+            kind: "DataPearl".to_owned(),
+            tile: [x, y],
+            ..Default::default()
+        })
+        .is_err()
+    );
 }

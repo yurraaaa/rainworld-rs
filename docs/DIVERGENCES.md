@@ -1808,6 +1808,26 @@ Differences:
 flower in the next cycle, the Hunter's last cycle, and creatures caught in a closing
 shelter.
 
+## D18: Debug UI and dev spawns (port-only dev tools)
+
+**What.** The windowed app has a debug UI the game does not have (Dear ImGui over the
+window, F1; `crates/app/src/debug_ui`): a region switcher (a stub until regions and
+gates are ported), loading a room of the current region, the list of every abstract
+creature, and spawning creatures and rocks or spears. Loading a room restarts the
+room's world as a dev start (the MCP `load_room` path, `GameStart::Room`, with the
+game's shared random stream): the running world, and a story's unsaved cycle, are
+dropped. Spawns go through `dev_spawn_creature` (the game's dev-tools creature) and
+`dev_spawn_object` (a rock or spear made as the arena sandbox's `SpawnItems` makes
+items, `RealizeInRoom` once the room's shortcuts are ready), which MCP's
+`spawn_creature` and `spawn_object` call too. The UI's actions apply between frames,
+before the next ticks; the UI itself makes no random draws. The headless MCP path has
+no debug UI.
+
+**Why.** Developer tooling for testing in the window.
+
+**Affects.** Nothing unless used; a spawn draws from the game's random stream as the
+game's own constructors do.
+
 ## Not ported yet (not divergences, just absent)
 
 Player (stage one leaves out): the zero-gravity `privSneak` and chunk `loudness` (no `ZeroG` body mode), zero gravity, grabbing and eating anything but bat flies, rocks and spears, thrown

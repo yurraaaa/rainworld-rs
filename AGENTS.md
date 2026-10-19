@@ -263,7 +263,7 @@ so it serves the checkout's current code). Tools: `list_rooms`,
 `load_room`, `new_game`, `step`, `step_sequence`, `respawn`, `set_player`,
 `get_state`, `get_exits`, `get_tiles`, `get_hud`, `hud_message`,
 `screenshot`, `load_process`, `step_process`, `import_save`,
-`set_destination`, `spawn_creature`.
+`set_destination`, `spawn_creature`, `spawn_object`.
 
 - Headless and deterministic: the sim advances only in `step` /
   `step_sequence` (40 ticks per second); the same start, seed and inputs
@@ -335,7 +335,10 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   personality, state, abstract AI, with their draws) and, in a room ready
   for AI, realizes it there (`RealizeInRoom`, kept on the exact tile) when
   the port has its body (green lizards, flies, overseers); it returns the
-  ID, and says why it stayed abstract otherwise.
+  ID, and says why it stayed abstract otherwise. `spawn_object` (a dev
+  tool) adds a `Rock` or `Spear` (`explosive` for an explosive one) at
+  `tile` of `room` the same way (`GetNewID`, the arena sandbox's
+  `SpawnItems`), realized there once the room's shortcuts are ready.
 - `screenshot` returns a PNG drawn by the window's draw path (level
   graphic or debug view, sprites, overlays), rendered offscreen; the debug
   view outlines every realized body's chunks and rods in the camera's room
@@ -393,6 +396,16 @@ so it serves the checkout's current code). Tools: `list_rooms`,
   karma, buttons, map, end-game meters and passage tokens);
   the pause menu's Exit saves (a death after 30 s, a quit after 5).
 - `--mcp --window` also shows the driven scene in a window.
+- The windowed app (not MCP) has a debug UI (Dear ImGui, `imgui` and
+  `imgui-winit-support`, drawn by `rw-render`'s overlay; D18): F1 toggles
+  it. Tabs: Region (a stub until regions and gates are ported),
+  Teleport (the current region's rooms; loading one restarts its world
+  there as `load_room` does), Creatures (every abstract creature as
+  `get_state` lists them; moves the player to a realized one in the
+  camera's room), Spawn creature and Spawn object (as `spawn_creature` and
+  `spawn_object`). Its actions apply before the next frame's ticks; while
+  a text field has focus or the mouse is over it, key and mouse presses
+  go to it only. A tool is a `DebugTab` in `crates/app/src/debug_ui/tabs.rs`.
 - End of the project: a review of code cleanliness and quality across the
   workspace, then an optimisation pass, once the whole game is ported
   (not after individual milestones).

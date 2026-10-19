@@ -192,6 +192,18 @@ pub struct SpawnCreatureParams {
     pub seed_id: Option<i32>,
 }
 
+#[derive(Debug, Clone, Default, Deserialize, JsonSchema)]
+pub struct SpawnObjectParams {
+    /// The `AbstractPhysicalObject.AbstractObjectType` value: "Rock" or "Spear".
+    pub kind: String,
+    /// The room's name (default the camera's room).
+    pub room: Option<String>,
+    /// The tile [x, y] (y up).
+    pub tile: [i32; 2],
+    /// A spear: an explosive one.
+    pub explosive: Option<bool>,
+}
+
 /// A process `load_process` can start.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]

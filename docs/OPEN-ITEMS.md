@@ -5,6 +5,9 @@ the user's go-ahead before it starts. Bugs seen in play are in `BUGS.md`; the li
 plan is in `../rainworld-re/surveys/lizards.md`.
 
 ## Approved, not started
+- **Debug UI region switcher** (2026-10-19): the F1 debug UI's Region tab lists the
+  regions on disk but its button does nothing; it needs region changes and gates,
+  which are not ported.
 - **The Hunter's `SpearOnBack`**, and the LF_H01 spear.
 - **`ExplosiveSpear` behaviour.** The flag is ported; the explosion is not.
 

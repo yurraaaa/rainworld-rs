@@ -7,6 +7,8 @@
 //! ([`crate::scene::Scene::draw`]). Logging goes to stderr; stdout carries only MCP.
 
 #[cfg(test)]
+mod debug_action_tests;
+#[cfg(test)]
 mod dev_start_tests;
 #[cfg(test)]
 mod dev_tools_tests;
@@ -51,7 +53,8 @@ use crate::saves::SaveConfig;
 use params::{
     HudMessageParams, ImportSaveParams, ListRoomsParams, LoadProcessParams, LoadRoomParams,
     NewGameParams, RespawnParams, ScreenshotParams, SetDestinationParams, SetPlayerParams,
-    SpawnCreatureParams, StepParams, StepProcessParams, StepSequenceParams, TilesParams,
+    SpawnCreatureParams, SpawnObjectParams, StepParams, StepProcessParams, StepSequenceParams,
+    TilesParams,
 };
 pub use session::Session;
 
@@ -260,6 +263,19 @@ impl Server {
         Parameters(p): Parameters<SpawnCreatureParams>,
     ) -> Result<CallToolResult, String> {
         Self::json(&self.session()?.spawn_creature(&p)?)
+    }
+
+    #[tool(
+        description = "Dev tool: add a new rock or spear (kind Rock or Spear; explosive for \
+        an explosive spear) at a tile of a room (default the camera's), with a new ID, as \
+        the arena sandbox makes items. In a loaded room it is realized and placed there \
+        (RealizeInRoom); otherwise it stays abstract. Returns its ID."
+    )]
+    fn spawn_object(
+        &self,
+        Parameters(p): Parameters<SpawnObjectParams>,
+    ) -> Result<CallToolResult, String> {
+        Self::json(&self.session()?.spawn_object(&p)?)
     }
 
     #[tool(
