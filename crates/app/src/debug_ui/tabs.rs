@@ -263,6 +263,7 @@ impl SpawnPlace {
 struct SpawnCreatureTab {
     kind: usize,
     place: SpawnPlace,
+    amount: u8,
     error: Option<String>,
 }
 
@@ -276,16 +277,25 @@ impl DebugTab for SpawnCreatureTab {
             ui.text_disabled("No game is running.");
             return;
         };
+        if self.amount == 0 {
+            self.amount = 1;
+        }
         let kinds: &[CreatureType] = &game.creature_kinds;
         ui.combo("Kind", &mut self.kind, kinds, |k| Cow::Borrowed(k.value()));
         self.place.draw(ui, game);
         ui.text_disabled("As MCP spawn_creature: realized where the port has the body.");
+        ui.slider("Amount to spawn", 1, u8::MAX, &mut self.amount);
         if ui.button("Spawn") {
             match (kinds.get(self.kind), self.place.resolve(game)) {
                 (Some(&kind), Ok((room, tile))) => {
                     self.error = None;
-                    cx.actions
-                        .push(DebugAction::SpawnCreature { kind, room, tile });
+                    for _ in 1..=self.amount {
+                        cx.actions.push(DebugAction::SpawnCreature {
+                            kind,
+                            room: room.clone(),
+                            tile,
+                        });
+                    }
                 }
                 (_, Err(e)) => self.error = Some(e),
                 (None, _) => self.error = Some("no kind chosen".to_owned()),
