@@ -1,6 +1,8 @@
 //! `OverseerGraphics.HologramMatrix`: the overseer's lens, a wireframe of lines in 3D
 //! that folds out in front of its eye while `bringUpLens` is high, turning and
 //! morphing between two shapes. Behaviour: `rainworld-re/notes/overseer.md`.
+//!
+//! Mirrors: OverseerGraphics.cs (HologramMatrix)
 
 use rw_random::UnityRandom;
 use rw_sim::{FloatExt, Vec2};

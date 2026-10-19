@@ -3,6 +3,8 @@
 //!
 //! Base game (the More Slugcats overseer branch is not ported). The next-room guess
 //! reads the Fly's baked exit distances ([`super::RealizedRoom::exit_distance`]).
+//!
+//! Mirrors: RoomRealizer.cs
 
 use rw_random::UnityRandom;
 

@@ -1,4 +1,6 @@
 //! Per-tick controller input (`Player.InputPackage`) and the history ring.
+//!
+//! Mirrors: Player.cs (InputPackage)
 
 /// Number of past inputs the player keeps (`Player.input`, newest first).
 pub const INPUT_HISTORY: usize = 10;

@@ -1,4 +1,6 @@
 //! A bounds-checked cursor over serialized Unity data.
+//!
+//! Mirrors: -
 
 /// Reads fixed-size values, C strings and Unity's length-prefixed, 4-byte aligned
 /// strings and arrays. Errors are messages naming the offset.

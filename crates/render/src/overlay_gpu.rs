@@ -1,5 +1,7 @@
 //! Draws an [`Overlay`] over a target (the window's surface texture, or the frame when
 //! headless).
+//!
+//! Mirrors: -
 
 use std::borrow::Cow;
 

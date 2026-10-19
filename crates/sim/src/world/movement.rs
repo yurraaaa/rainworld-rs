@@ -1,5 +1,7 @@
 //! The AI map's vocabulary: tile accessibility classes (`AItile.Accessibility`),
 //! movement connections (`MovementConnection`) and path costs (`PathCost`).
+//!
+//! Mirrors: AItile.cs, MovementConnection.cs, PathCost.cs
 
 use std::cmp::Ordering;
 

@@ -4,6 +4,8 @@
 //! Vertical poles are in `poles.rs`, `LedgeGrab` in `ledge.rs`, `Flip`, `Roll`,
 //! `RocketJump` and `BellySlide` in `advanced.rs`, `CorridorTurn` in `corridor.rs`,
 //! `DeepSwim` and `SurfaceSwim` in `swim.rs`.
+//!
+//! Mirrors: Player.cs (UpdateAnimation)
 
 use rw_assets::{Room, Terrain};
 use rw_random::UnityRandom;

@@ -4,6 +4,8 @@
 //! burrowing) and the pull of a chain grasp. Decompile lines: `Fly` 184644-184928,
 //! `Creature.Update` (Creature.cs 369-707), `PhysicalObject.Update` (PhysicalObject.cs
 //! 478).
+//!
+//! Mirrors: Fly.cs, Creature.cs (Update), PhysicalObject.cs (Update)
 
 use std::sync::Arc;
 

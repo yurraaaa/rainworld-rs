@@ -1,6 +1,8 @@
 //! Futile's display tree: containers holding sprites, labels and containers, drawn in
 //! tree order (`FStage` depth order) into a [`StageBatch`] of screen-pixel quads.
 //! Positions are stage pixels, y up, origin at the screen's bottom-left.
+//!
+//! Mirrors: FStage.cs, FContainer.cs
 
 use rw_render::{SpriteVertex, StageBatch, StageShader};
 

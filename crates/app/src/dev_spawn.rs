@@ -1,5 +1,7 @@
 //! Dev spawns of creatures and objects and the dev teleport, shared by the MCP tools
 //! (`spawn_creature`, `spawn_object`, `teleport_player`) and the debug UI.
+//!
+//! Mirrors: - (port-only: dev tools)
 
 use rw_assets::{AbstractObjectType, CreatureType};
 use serde::Serialize;

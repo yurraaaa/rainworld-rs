@@ -2,6 +2,8 @@
 //! region map, drawn into the screen's own stage and sounding through its menu
 //! microphone. The screen (`SleepAndDeathScreen`) is not here; it builds this with
 //! its HUD containers and feeds it a [`ScreenTick`] each tick.
+//!
+//! Mirrors: HUD/HUD.cs (InitSleepHud)
 
 use rw_menu::{AtlasManager, MenuMic, NodeId, StageTree};
 use rw_random::UnityRandom;

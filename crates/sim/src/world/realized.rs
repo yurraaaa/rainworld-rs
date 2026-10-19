@@ -1,5 +1,7 @@
 //! A realized room (`Room`) as far as the world needs it: geometry, settings, water and
 //! the loading state that decides when a player may enter (`ReadyForPlayer`).
+//!
+//! Mirrors: Room.cs
 
 use std::sync::Arc;
 

@@ -4,6 +4,8 @@
 //!
 //! Every change is written to the slot file at once (`UserData.WriteMode.Immediate`).
 //! Lines the port does not own are kept as read (docs/divergences/).
+//!
+//! Mirrors: PlayerProgression.cs
 
 use std::path::{Path, PathBuf};
 

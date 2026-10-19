@@ -1,6 +1,8 @@
 //! `FliesRoomAI` (183857-183981): a realized room's flies and the ones resting in its
 //! hives, which emerge now and then. Also the realization and placing of a fly
 //! (`AbstractCreature.Realize`, `Creature.PlaceInRoom`, `Room.AddObject`, `Fly.NewRoom`).
+//!
+//! Mirrors: FliesRoomAI.cs, AbstractCreature.cs (Realize), Creature.cs (PlaceInRoom), Room.cs (AddObject), Fly.cs (NewRoom)
 
 use rw_assets::CreatureType;
 use rw_random::UnityRandom;

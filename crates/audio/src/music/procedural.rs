@@ -1,6 +1,8 @@
 //! `Music.ProceduralMusic`: a region's threat layers, one stem of
 //! `music_procedural` per layer, faded in by the threat tracker's threat. Behaviour:
 //! `rainworld-re/notes/music.md` section 2.
+//!
+//! Mirrors: Music/ProceduralMusic.cs
 
 use std::fmt::Debug;
 

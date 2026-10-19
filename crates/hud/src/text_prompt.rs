@@ -2,6 +2,8 @@
 //! text, for messages (tutorials, subregion names), the game-over prompt and the
 //! pause text, and the `SubregionTracker` that announces subregions. Symbol and music
 //! messages and the Hunter's cycle count-up are not ported.
+//!
+//! Mirrors: HUD/TextPrompt.cs, HUD/SubregionTracker.cs
 
 use std::f32::consts::PI;
 use std::sync::Arc;

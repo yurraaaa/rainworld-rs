@@ -1,4 +1,5 @@
 //! Atlas element names the slugcat sprites use (`rainWorld` atlas, base game).
+//! Mirrors: - (atlas element name table)
 
 /// `HeadA{i}`: head seen at angle `i * 360 / 34` degrees from upright.
 pub const HEAD_A: [&str; 18] = [

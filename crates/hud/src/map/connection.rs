@@ -1,5 +1,7 @@
 //! `Map.OnMapConnection`: a dashed bezier line between two rooms' exits that grows out
 //! from the end the reveal reaches first.
+//!
+//! Mirrors: HUD/Map.cs (OnMapConnection)
 
 use rw_assets::shortcut::FOUR_DIRECTIONS;
 use rw_graphics::Vec2Bezier;

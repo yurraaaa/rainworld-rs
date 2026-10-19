@@ -5,6 +5,8 @@
 //! `ArtificialIntelligence`'s update and `NewRoom` with its path finder, tracker,
 //! noise tracker, relationship tracker, stuck tracker and discomfort tracker. The update
 //! itself is `RainWorldGame::lizard_ai_update` (`game_lizard_act.rs`).
+//!
+//! Mirrors: LizardAI.cs (Update), ArtificialIntelligence.cs (Update, NewRoom)
 
 use rw_assets::CreatureType;
 

@@ -1,6 +1,8 @@
 //! The rooms on disk a game can start in (`list_rooms`, the debug UI's room list):
 //! `world/<region>-rooms`, `world/gates` and `levels`, each room with a first camera
 //! image.
+//!
+//! Mirrors: - (port-only: room listing)
 
 use std::path::PathBuf;
 

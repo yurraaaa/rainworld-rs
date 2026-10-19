@@ -6,6 +6,9 @@
 //! (valid while it is realized), an object's `grabbedBy` and `stuckObjects` on its
 //! `AbstractObject`, so that any grab can reach both ends. Creatures grab; creatures and
 //! objects (rocks, spears) are grabbed.
+//!
+//! Mirrors: Creature.cs (Grasp, Grab, ReleaseGrasp, LoseAllGrasps), AbstractPhysicalObject.cs (CreatureGripStick,
+//!   GetAllConnectedObjects), AbstractCreature.cs (DropCarriedObject)
 
 use rw_random::UnityRandom;
 

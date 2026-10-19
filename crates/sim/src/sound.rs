@@ -6,6 +6,8 @@
 //! sample pick, the four volume and pitch values, the variation check and the variation
 //! that plays, and the random start when asked. An audio backend turns the
 //! [`SoundEvent`]s into sound; the sim never reads back from it.
+//!
+//! Mirrors: Room.cs (PlaySound), VirtualMicrophone.cs (PlaySound), SoundLoader.cs
 
 use std::sync::Arc;
 

@@ -4,6 +4,8 @@
 //! `TryImpaleSmallCreature`, the creatures' `Stun` and `Die` (`Overseer.Die`'s guide),
 //! `Overseer.HitByWeapon`, and the creatures impaled on a spear held on its shaft (the
 //! end of `Spear.Update`, 271475). Behaviour: `rainworld-re/notes/items.md` section 12.
+//!
+//! Mirrors: Weapon.cs (Update), Spear.cs (TryImpaleSmallCreature, Update), Overseer.cs (Die, HitByWeapon), Creature.cs (Stun, Die)
 
 use rw_assets::CreatureType;
 

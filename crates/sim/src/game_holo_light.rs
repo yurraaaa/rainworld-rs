@@ -1,5 +1,7 @@
 //! The Monk's guide light: `Player.Update`'s call of `HologramLight.TryCreate`
 //! (86836), `TryCreate` (227960) and the light's slot in its room's update list.
+//!
+//! Mirrors: HologramLight.cs (TryCreate), Player.cs (Update)
 
 use rw_assets::{CreatureType, SlugcatName};
 

@@ -2,6 +2,8 @@
 //! room's entry delay (`Room.Loaded`'s `waitToEnterAfterFullyLoaded`) and, later, what it
 //! places. `RoomSettings.LoadEffects`, `LoadPlacedObjects`, `PlacedObject.FromString`,
 //! `PlacedObject.FilterData`.
+//!
+//! Mirrors: RoomSettings.cs (LoadEffects, LoadPlacedObjects), PlacedObject.cs
 
 use crate::identity::ext_enum;
 use crate::{ActiveMods, MultiplayerItemType, PlacedObjectType, SlugcatName, Timeline};

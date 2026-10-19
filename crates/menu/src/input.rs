@@ -5,6 +5,8 @@
 //! The keyboard bindings are Rewired's shipped defaults for player 0's UI map
 //! (`RainWorld_Data/level0`, the "Rewired Input Manager" object;
 //! `rainworld-re/notes/menu.md` "Input"). Saved custom bindings are not read.
+//!
+//! Mirrors: RWInput.cs (PlayerUIInput)
 
 /// The Rewired `KeyboardKeyCode`s the default maps use (numeric values are Rewired's).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

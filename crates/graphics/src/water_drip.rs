@@ -1,4 +1,5 @@
 //! `WaterDrip.DrawSprites` (42328): a thin triangle trailing the drip and a glint.
+//! Mirrors: WaterDrip.cs (DrawSprites)
 
 use std::borrow::Cow;
 

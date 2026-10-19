@@ -1,5 +1,7 @@
 //! `Resources.Load`: the `ResourceManager` path table of `globalgamemanagers` over the
 //! objects of `resources.assets` (`rainworld-re/notes/unity-assets.md` section 3).
+//!
+//! Mirrors: -
 
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};

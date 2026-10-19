@@ -1,4 +1,6 @@
 //! The `get_tiles` text map.
+//!
+//! Mirrors: - (port-only: MCP server)
 
 use std::fmt;
 

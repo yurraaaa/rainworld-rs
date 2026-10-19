@@ -6,6 +6,9 @@
 //! 93760, `Regurgitate` 93817), `GetHeldItemDirection` (87891), and the stomach's and
 //! hands' save strings (`BringUpToDate` 47383, the `Player` constructor 86588).
 //! Behaviour: `rainworld-re/notes/items.md` section 10.
+//!
+//! Mirrors: Player.cs (Grabability, HeavyCarry, FreeHand, CanIPickThisUp, PickupCandidate, GrabUpdate, ReleaseObject, SwallowObject, Regurgitate),
+//!   PlayerCarryableItem.cs (Blink)
 
 use super::{PlayerObserver, RainWorldGame};
 use crate::item::{Entity, ObjectId, SavedObject, Throw, WeaponMode};

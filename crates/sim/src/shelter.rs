@@ -3,6 +3,8 @@
 //! Its graphics are `rw_graphics::ShelterDoorSprites`. Left out: the ancient (More
 //! Slugcats) doors, broken shelters, `PrecycleModule`, the tutorials and dream ghost,
 //! `GetStuffInWalls` and `ScreenMovement`.
+//!
+//! Mirrors: ShelterDoor.cs
 
 use rw_assets::shortcut::{FOUR_DIRECTIONS, ShortcutType};
 use rw_assets::{ActiveMods, PlacedObjectType, Room, RoomSettings, Terrain};

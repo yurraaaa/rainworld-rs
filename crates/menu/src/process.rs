@@ -6,6 +6,8 @@
 //! [`ProcessFactory::update_side_processes`]; the switch queue only holds requests
 //! while a dialog runs, so with none it is always empty. Mod finalization between the two halves of a switch finishes at once,
 //! as with no mods to enable or disable.
+//!
+//! Mirrors: MainLoopProcess.cs, ProcessManager.cs
 
 use std::collections::VecDeque;
 

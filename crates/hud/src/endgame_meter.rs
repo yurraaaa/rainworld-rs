@@ -4,6 +4,8 @@
 //! fulfilment and their sounds and random draws. Base game with Remix off: no custom
 //! passages, the Traveller's region colours are Remix's, the statistics screen's
 //! `ScoreFlash` is not used here.
+//!
+//! Mirrors: Menu/EndgameMeter.cs
 
 use std::f32::consts::PI;
 use std::sync::Arc;

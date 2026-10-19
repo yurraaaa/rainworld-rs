@@ -1,5 +1,7 @@
 //! `OverseerTutorialBehavior`'s state: the guide's lessons in Survivor's and Monk's
 //! first cycle in Outskirts. Its update is [`super::OverseerUpdate::tutorial_update`].
+//!
+//! Mirrors: OverseerTutorialBehavior.cs
 
 /// `OverseerTutorialBehavior`.
 #[derive(Debug, Clone, PartialEq, Eq)]

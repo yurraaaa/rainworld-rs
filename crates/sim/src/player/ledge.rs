@@ -1,6 +1,8 @@
 //! `LedgeGrab`: catching a wall top at head height and hauling up over it.
 //!
 //! Behaviour: `ledge-grab.md`.
+//!
+//! Mirrors: Player.cs (UpdateAnimation)
 
 use rw_assets::Room;
 

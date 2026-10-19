@@ -1,6 +1,8 @@
 //! The Unity `Mathf`/`Vector2` and game `Custom` helpers the graphics use, as
 //! extension traits on `f32` and [`Vec2`]. `Custom.DegToVec` and `Custom.RNV` are
 //! rw-sim's [`Vec2::from_degrees`] and [`Vec2::random_unit`].
+//!
+//! Mirrors: - (Mathf/Vector2/Custom helpers are Unity/library code)
 
 use rw_sim::Vec2;
 pub use rw_sim::Vec3;

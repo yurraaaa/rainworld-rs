@@ -3,6 +3,8 @@
 //! spots a threat). A `CosmeticSprite` in the room's update list whose constructor and
 //! update draw on the shared stream; its sprite is `rw-graphics`'. Decompile
 //! `LizardBubble.cs`.
+//!
+//! Mirrors: LizardBubble.cs
 
 use rw_assets::{Room, Terrain};
 use rw_random::UnityRandom;

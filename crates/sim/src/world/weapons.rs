@@ -3,6 +3,8 @@
 //! collision layer 0 in the middle, 81610), `Room.Update`'s collision pass pushes those
 //! of layers 1 and up apart (63520), and `AbstractRoom.Abstractize` drops them
 //! (304092). Behaviour: `rainworld-re/notes/items.md` sections 6-11.
+//!
+//! Mirrors: Room.cs, AbstractRoom.cs, Weapon.cs
 
 use rw_assets::{PlacedObjectType, ResizableData, SoundTable};
 use rw_random::UnityRandom;

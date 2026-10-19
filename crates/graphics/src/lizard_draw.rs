@@ -3,6 +3,8 @@
 //! head sprites; in the midground, in the game's container order. Its draws (jaw twitch,
 //! head jitter, flicker colour, the every-second-draw toggle) come from the cosmetic
 //! stream (D1). The cosmetics' sprites are `lizard_cosmetics_draw.rs`'.
+//!
+//! Mirrors: LizardGraphics.cs (DrawSprites, ApplyPalette, AddToContainer)
 
 use std::borrow::Cow;
 

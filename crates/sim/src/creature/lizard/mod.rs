@@ -12,6 +12,8 @@
 //! The updates that reach the rest of the game are `RainWorldGame`'s (`game_lizards.rs`,
 //! `game_lizard_act.rs`, `game_lizard_hits.rs`). Behaviour:
 //! `rainworld-re/notes/creature-model.md` sections 13 and 14, decompile `Lizard.cs`.
+//!
+//! Mirrors: Lizard.cs, Creature.cs, AirBreatherCreature.cs
 
 mod ai;
 mod breed;

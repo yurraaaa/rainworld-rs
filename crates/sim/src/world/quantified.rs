@@ -2,6 +2,8 @@
 //! the room is ready for AI, and `AbstractRoom.CountQuantifiedCreatures` when it is
 //! abstracted again. Base game; the Fly's placement is ported, the other quantified types
 //! (leeches, sea leeches, spiders) are not placed yet (docs/divergences/ D14).
+//!
+//! Mirrors: Room.cs, AbstractRoom.cs
 
 use rw_assets::CreatureType;
 

@@ -1,5 +1,7 @@
 //! The backend-agnostic draw list: what a renderer needs to draw one frame of an
 //! object's Futile sprites.
+//!
+//! Mirrors: - (backend-agnostic draw list replacing Futile sprites)
 
 use std::borrow::Cow;
 

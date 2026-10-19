@@ -5,6 +5,8 @@
 //! [`RainCycleView`], makes the game's HUD sounds and random draws through the sim, and
 //! draws into its own Futile stage (`rw_menu::StageTree`), which the app draws above
 //! the room. Behaviour: `rainworld-re/notes/hud.md`.
+//!
+//! Mirrors: HUD/HUD.cs (InitSinglePlayerHud)
 
 mod circle;
 mod controls_page;

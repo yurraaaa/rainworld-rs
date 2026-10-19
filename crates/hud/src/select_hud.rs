@@ -1,6 +1,8 @@
 //! The HUD a slugcat select continue page owns (`SlugcatPageContinue` as `IOwnAHUD`,
 //! owner `CharacterSelect`): the karma meter, then the food meter, both in the page's
 //! second HUD container. The page places and fades them after each update.
+//!
+//! Mirrors: Menu/SlugcatSelectMenu.cs (SlugcatPageContinue)
 
 use rw_menu::{MenuMic, NodeId, StageTree};
 use rw_random::UnityRandom;

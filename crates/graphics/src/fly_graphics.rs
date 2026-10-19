@@ -1,6 +1,8 @@
 //! `FlyGraphics` (decompile 186207-186431): the bat fly's lower body, wing beats and its
 //! four sprites. Its `Update` draws from the game's shared random stream; `DrawSprites`
 //! makes no draws.
+//!
+//! Mirrors: FlyGraphics.cs
 
 use rw_assets::Room;
 use rw_random::UnityRandom;

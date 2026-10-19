@@ -4,6 +4,8 @@
 //!
 //! The player is pure tick logic over [`MusicSources`]: [`MusicOutput`] plays it
 //! through kira, [`TimedSources`] runs it silently and deterministically.
+//!
+//! Mirrors: Music/MusicPlayer.cs
 
 mod bank;
 mod player;

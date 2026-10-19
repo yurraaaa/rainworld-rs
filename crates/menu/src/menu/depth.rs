@@ -2,6 +2,8 @@
 //! over a depth map, moved by the scene's camera and blurred by its focus), the
 //! `BuildScene` tables of the scenes the port shows in depth, `positions.txt`, and the
 //! scene's shader globals. Behaviour: `rainworld-re/notes/menu.md` ("Depth scenes").
+//!
+//! Mirrors: Menu/MenuDepthIllustration.cs, Menu/MenuScene.cs (BuildScene)
 
 use rw_assets::{SlugcatName, StreamingAssets};
 use rw_render::{MenuSceneGlobals, StageShader};

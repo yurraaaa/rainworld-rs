@@ -1,5 +1,7 @@
 //! What `get_state` and `step_process` report of the music player and the room
 //! triggers.
+//!
+//! Mirrors: - (port-only: MCP server)
 
 use rw_audio::music::{MusicPlayer, ProceduralMusic, Song};
 use rw_save::SongPlayRecord;

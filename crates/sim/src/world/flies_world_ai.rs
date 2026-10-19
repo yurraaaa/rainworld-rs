@@ -6,6 +6,8 @@
 //! Base game: the echo and Watcher spinning-top checks of `AddFlyToSwarmRoom` never
 //! apply (no echo in a new game, Watcher off). The realized flies (`FliesRoomAI`, the
 //! `Fly` body) are not ported yet (docs/divergences/ D14).
+//!
+//! Mirrors: FliesWorldAI.cs, AbstractRoom.cs, World.cs
 
 use rw_assets::{CreatureType, NodeType};
 use rw_random::UnityRandom;

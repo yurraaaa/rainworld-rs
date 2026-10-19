@@ -1,6 +1,8 @@
 //! `SlugcatHand`: a hand on the head chunk that reaches for terrain and beams while
 //! the body mode needs it, holds what the slugcat carries, and retracts (hidden)
 //! otherwise.
+//!
+//! Mirrors: SlugcatHand.cs
 
 use rw_assets::{Room, Terrain};
 use rw_random::UnityRandom;

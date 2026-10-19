@@ -1,5 +1,7 @@
 //! The game's side of a lizard's `LizardVoice`: its update in `Lizard.Update`, the calls
 //! that make a sound, and its emitter's place in the room's update list.
+//!
+//! Mirrors: LizardVoice.cs, Lizard.cs (Update)
 
 use std::sync::Arc;
 

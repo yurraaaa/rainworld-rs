@@ -5,6 +5,8 @@
 //! the tutorial counters a wipe resets) and the conditional shelters a wipe edits; every
 //! other entry is written back as read, in place (the game regenerates them in its own
 //! order: docs/divergences/).
+//!
+//! Mirrors: PlayerProgression.cs (MiscProgressionData)
 
 use rw_assets::{ActiveMods, SlugcatName};
 

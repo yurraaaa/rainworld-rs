@@ -2,6 +2,8 @@
 //! position and `mostLikelyNextCamPos`, and the visibility tests on them
 //! (`PositionCurrentlyVisible`, `PositionVisibleInNextScreen`, `Room.ViewedByAnyCamera`).
 //! The app's room camera chooses the cameras and hands them in every tick.
+//!
+//! Mirrors: RoomCamera.cs (PositionCurrentlyVisible, PositionVisibleInNextScreen), Room.cs (ViewedByAnyCamera)
 
 use rw_assets::Room;
 

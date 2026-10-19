@@ -2,6 +2,8 @@
 //! from (`TheorizedSource`), the mysterious noises and the sound to examine. Hearing a
 //! noise and the module's update read the world and are `world/hearing.rs`. Decompile:
 //! `NoiseTracker.cs`.
+//!
+//! Mirrors: NoiseTracker.cs
 
 use super::RepKey;
 use crate::{FloatExt, InGameNoise, Vec2};

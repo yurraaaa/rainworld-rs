@@ -2,6 +2,8 @@
 //! reinforced ring and when it shows. The scavenger-karma flash (Artificer), the void
 //! sea and gate blinking, ripple symbols (Watcher) and the Saint's echo fade are DLC or
 //! not ported (`rainworld-re/notes/hud.md`).
+//!
+//! Mirrors: HUD/KarmaMeter.cs
 
 use std::f32::consts::PI;
 

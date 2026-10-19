@@ -1,4 +1,6 @@
 //! What the debug UI's tabs read of the running game, gathered once per UI frame.
+//!
+//! Mirrors: - (port-only: dev UI)
 
 use rw_assets::{AbstractObjectType, CreatureType};
 

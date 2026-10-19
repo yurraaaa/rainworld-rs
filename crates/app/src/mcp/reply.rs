@@ -1,4 +1,6 @@
 //! Tool results, sent as JSON text.
+//!
+//! Mirrors: - (port-only: MCP server)
 
 use std::path::PathBuf;
 

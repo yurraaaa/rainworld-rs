@@ -1,6 +1,8 @@
 //! Clips decoded on demand on background threads and kept for the session (the game's
 //! `CacheAllAudio`). A sound waits for its clip as the game's `SoundObject` waits for
 //! its `AssetBundleLoadAssetOperation`.
+//!
+//! Mirrors: SoundLoader.cs
 
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender, channel};

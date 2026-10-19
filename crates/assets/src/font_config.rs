@@ -6,6 +6,8 @@
 //!
 //! The game reads `common` positionally: the line height is the first field and the
 //! texture width the third (`common lineHeight= base= scaleW= ...`).
+//!
+//! Mirrors: FFont.cs (LoadAndParseConfigFile)
 
 use std::fmt;
 

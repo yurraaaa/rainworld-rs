@@ -1,6 +1,8 @@
 //! The shortcut graphics on the installed game: headless screenshots of the entrance
 //! symbols and of the slugcat travelling a pipe, the symbols the tutorial rooms' exits
 //! get, and the blink of a pipe the player walks up to.
+//!
+//! Mirrors: - (port-only: MCP screenshots)
 
 use std::path::Path;
 

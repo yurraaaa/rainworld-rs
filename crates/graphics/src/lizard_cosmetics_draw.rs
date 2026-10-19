@@ -3,6 +3,8 @@
 //! `AddToContainer` puts them among the body's sprites (decompile
 //! `LizardCosmetics/*.cs`). Their only draws are the scales' shake while
 //! `showDominance` is above 0, which no base-game lizard shows.
+//!
+//! Mirrors: LizardCosmetics/LongBodyScales.cs, LizardCosmetics/Template.cs
 
 use rw_random::UnityRandom;
 use rw_sim::creature::lizard::{LizardGraphicsTick, LizardView};

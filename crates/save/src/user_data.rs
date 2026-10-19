@@ -3,6 +3,9 @@
 //! as UTF-8 XML with a byte-order mark and no declaration. The game writes
 //! `MemoryStream.GetBuffer()`, so its files end in NUL padding, which reading drops
 //! (`TruncateNullBytes`). Format: `rainworld-re/notes/saves.md`.
+//!
+//! Mirrors: -
+//! (Kittehface.Framework20.UserData lives outside Assembly-CSharp)
 
 use std::fmt;
 

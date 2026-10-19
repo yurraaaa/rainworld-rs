@@ -4,6 +4,8 @@
 //! `vertical-poles.md` section 6, `ledge-grab.md` section 3, `corridors.md` section 5,
 //! `advanced-moves.md`
 //! sections 1-3 (the roll, belly-slide and flip jumps are in `advanced.rs`).
+//!
+//! Mirrors: Player.cs (Jump, WallJump)
 
 use rw_assets::Room;
 

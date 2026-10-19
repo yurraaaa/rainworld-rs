@@ -1,6 +1,8 @@
 //! `LizardBreedParams`, as `LizardBreeds.BreedTemplate` fills them per breed. Only the
 //! green lizard's are entered so far; a breed without data is not realized (it waits
 //! abstract in a realized room, docs/divergences/ D14).
+//!
+//! Mirrors: LizardBreeds.cs (BreedTemplate)
 
 use rw_assets::CreatureType;
 use rw_random::UnityRandom;

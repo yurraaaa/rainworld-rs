@@ -1,5 +1,7 @@
 //! The room's border exits (`ShortcutMapper.MapRoomBorders`, `RoomBorderExit`): runs
 //! of open tiles along the room's edge that side, sky and sea highways enter by.
+//!
+//! Mirrors: ShortcutMapper.cs (MapRoomBorders), RoomBorderExit.cs
 
 use crate::{NodeType, Room};
 

@@ -1,5 +1,8 @@
 //! Floats as the game's saves write them: Mono's `float.ToString(InvariantCulture)`,
 //! the general format with 7 significant digits (`0.4444444`, `0.925`, `1E-06`).
+//!
+//! Mirrors: -
+//! (Mono's float formatting, not in Assembly-CSharp)
 
 /// Save-file float text.
 pub trait CsFloat {

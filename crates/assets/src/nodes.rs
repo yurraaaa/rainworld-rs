@@ -4,6 +4,8 @@
 //! (`AIdataPreprocessor.ReturnNodes`).
 //!
 //! Behaviour: `rainworld-re/notes/world-loading.md`.
+//!
+//! Mirrors: AbstractRoomNode.cs, RoomPreprocessor.cs, AIdataPreprocessor.cs
 
 use crate::{Room, ShortcutMap, tile_centre};
 

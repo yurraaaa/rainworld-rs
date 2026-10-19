@@ -1,6 +1,8 @@
 //! `RainCycle` and its `WaterLevelCycle` (base game, no precycles): built by the `World`
 //! constructor with its draws, the timer ticked by `RainWorldGame.Update`. The rain
 //! itself (`RainHit`, `GlobalRain`) is not ported.
+//!
+//! Mirrors: RainCycle.cs, WaterLevelCycle.cs
 
 use rw_assets::SlugcatName;
 use rw_random::UnityRandom;

@@ -1,6 +1,8 @@
 //! `CreatureSpecificAImap`: one pre-baked pathing creature's accessible tiles, the
 //! per-node exit distances and the accessibility grid baked into the room file, as
 //! `RoomPreprocessor.DecompressStringToAImaps` loads them.
+//!
+//! Mirrors: CreatureSpecificAImap.cs, RoomPreprocessor.cs
 
 use rw_assets::Room;
 

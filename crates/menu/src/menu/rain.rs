@@ -1,5 +1,7 @@
 //! `RainEffect`: the menus' falling rain, lightning and the edge darkening over them
 //! (the intro roll's and, outside flat mode, the slugcat select menu's).
+//!
+//! Mirrors: Menu/RainEffect.cs
 
 use rw_graphics::CustomVec;
 use rw_random::UnityRandom;

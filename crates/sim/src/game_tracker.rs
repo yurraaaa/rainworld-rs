@@ -9,6 +9,8 @@
 //! (`game_lizard_perception.rs`). Decompile: `Tracker.cs`, `RelationshipTracker.cs`,
 //! `ArtificialIntelligence.cs` 159-231 and 363-407. Behaviour:
 //! `rainworld-re/notes/creature-model.md` section 17.
+//!
+//! Mirrors: Tracker.cs, RelationshipTracker.cs, ArtificialIntelligence.cs
 
 use rw_assets::ShortcutType;
 use rw_assets::shortcut::FOUR_DIRECTIONS;

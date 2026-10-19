@@ -1,6 +1,9 @@
 //! Where saves live: the port's own data directory, and the game's
 //! `Application.persistentDataPath`, which the importer only reads. The platform is a
 //! parameter so each resolution is testable anywhere (Android comes later).
+//!
+//! Mirrors: -
+//! (platform paths and Application.persistentDataPath; port-only seam)
 
 use std::path::{Path, PathBuf};
 

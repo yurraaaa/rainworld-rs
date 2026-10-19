@@ -2,6 +2,8 @@
 //! in time with its song (the intro before a new Survivor or Monk game). Its scenes are
 //! `SlideShowMenuScene`s (`menu::slide_show_scene`). Behaviour:
 //! `rainworld-re/notes/slideshow.md`.
+//!
+//! Mirrors: Menu/SlideShow.cs
 
 use rw_sim::{FloatExt, Vec2};
 

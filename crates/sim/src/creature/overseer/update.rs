@@ -3,6 +3,8 @@
 //! in and out. The overseer's parts are taken out of the world while it runs
 //! ([`OverseerUpdate`]); what it does to the rest of the game comes back as
 //! [`OverseerEffect`]s.
+//!
+//! Mirrors: Overseer.cs, OverseerAI.cs, OverseerTutorialBehavior.cs
 
 use rw_assets::{AbstractObjectType, CreatureType, Room};
 use rw_random::UnityRandom;

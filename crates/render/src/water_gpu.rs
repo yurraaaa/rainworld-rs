@@ -1,5 +1,7 @@
 //! GPU side of the game's water: the `water.wgsl` pipelines (`WaterSurface` and
 //! `DeepWater`), reading the current camera's level textures and the "behind" target.
+//!
+//! Mirrors: -
 
 use std::borrow::Cow;
 use std::ops::Range;

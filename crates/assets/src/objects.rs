@@ -1,5 +1,7 @@
 //! `AbstractPhysicalObject.AbstractObjectType`: the kinds of physical object, as saves and
 //! the game's code name them. What the simulation makes of them is `rw_sim`'s.
+//!
+//! Mirrors: AbstractPhysicalObject.cs
 
 use crate::ActiveMods;
 use crate::identity::ext_enum;

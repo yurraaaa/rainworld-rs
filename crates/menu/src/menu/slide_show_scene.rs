@@ -2,6 +2,8 @@
 //! (keyed to the slide's display time, the third column its focus), the depth branch of
 //! `BuildScene` for the intro scenes and `ApplySceneSpecificAlphas`. No random draws.
 //! Behaviour: `rainworld-re/notes/slideshow.md` ("Scenes").
+//!
+//! Mirrors: Menu/SlideShowMenuScene.cs
 
 use rw_assets::StreamingAssets;
 use rw_graphics::Vec2Bezier;

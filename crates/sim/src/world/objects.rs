@@ -4,6 +4,8 @@
 //! spears and random items), `Move`, and the region state's saved objects
 //! (`AdaptWorldToRegionState`, `AdaptRegionStateToWorld`, `StuckInWallTick`).
 //! Behaviour: `rainworld-re/notes/items.md`.
+//!
+//! Mirrors: AbstractRoom.cs, Room.cs, RegionState.cs
 
 use rw_assets::{
     AbstractObjectType, MultiplayerItemData, MultiplayerItemType, PlacedObject, PlacedObjectType,

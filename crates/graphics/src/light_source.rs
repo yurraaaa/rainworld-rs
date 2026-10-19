@@ -2,6 +2,8 @@
 //! with water, its glow under the surface. The game's sprite 0 is a 64-segment
 //! `CircularSprite`; a quad draws the same, as the shader is 0 outside the inscribed
 //! circle. No draws.
+//!
+//! Mirrors: LightSource.cs (DrawSprites)
 
 use rw_sim::{FloatExt, LightSource, Vec2};
 

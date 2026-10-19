@@ -1,6 +1,8 @@
 //! PNG files decoded to raw 8-bit RGBA, as Unity's `Texture2D.LoadImage` gives them to
 //! an ARGB32 texture: no gamma or sRGB conversion, grey copied to R, G and B, alpha 255
 //! when the file has none.
+//!
+//! Mirrors: -
 
 use std::fs;
 use std::io::Cursor;

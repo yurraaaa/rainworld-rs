@@ -1,6 +1,8 @@
 //! `InitializationScreen`, reduced: the port loads fonts, strings and settings before
 //! the manager starts, so on its first tick it requests the start process (the game's
 //! `WRAP_UP` step: `IntroRoll`, or `Game` with `setup.startScreen` off).
+//!
+//! Mirrors: Menu/InitializationScreen.cs
 
 use crate::process::{MainLoopProcess, ProcessId, ProcessRequests};
 use crate::stage::Container;

@@ -1,6 +1,8 @@
 //! `Dialog` with `DialogConfirm` (OK, CANCEL) and `DialogNotify` (OK): a menu shown over
 //! the current one (`ProcessManager.ShowDialog`), which freezes it until a button is
 //! clicked (`StopSideProcess`).
+//!
+//! Mirrors: Menu/Dialog.cs, Menu/DialogConfirm.cs, Menu/DialogNotify.cs, ProcessManager.cs (ShowDialog)
 
 use rw_sim::Vec2;
 

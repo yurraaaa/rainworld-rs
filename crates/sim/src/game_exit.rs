@@ -1,5 +1,7 @@
 //! What the pause menu and `ExitGame` read of `RainWorldGame`; the exit's save is the
 //! app's (`AppContext::exit_game`).
+//!
+//! Mirrors: RainWorldGame.cs (ExitGame)
 
 use super::RainWorldGame;
 

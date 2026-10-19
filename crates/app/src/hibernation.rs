@@ -1,5 +1,7 @@
 //! `RainWorldGame.Win`: the save side (`rw_save`) run over the sim, and what the next
 //! cycle takes from it.
+//!
+//! Mirrors: RainWorldGame.cs (Win)
 
 use rw_assets::StreamingAssets;
 use rw_assets::world::Regions;

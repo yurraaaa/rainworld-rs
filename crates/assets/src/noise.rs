@@ -4,6 +4,8 @@
 //! `StreamingAssets/palettes/noise.png`, so it differs from that file by up to 20/255.
 //!
 //! Only the red channel of mip 0 is kept: the shader reads `.x` and always magnifies.
+//!
+//! Mirrors: -
 
 use crate::{AssetError, PngImage, UnityResources};
 

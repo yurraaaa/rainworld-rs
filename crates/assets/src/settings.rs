@@ -11,6 +11,8 @@
 //! `Template:` line, else the region's first template, else the root defaults
 //! ([`RoomSettings::ANCESTOR`]). Templates inherit from the root only. `FadePalette` is
 //! never inherited.
+//!
+//! Mirrors: RoomSettings.cs, Region.cs
 
 use std::fs;
 use std::path::{Path, PathBuf};

@@ -1,5 +1,7 @@
 //! GPU side of the stage: a `stage.wgsl` pipeline per game shader, one bind group per
 //! uploaded texture, the shader globals and the frame's stage buffers.
+//!
+//! Mirrors: -
 
 use std::borrow::Cow;
 

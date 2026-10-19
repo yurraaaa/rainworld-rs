@@ -1,4 +1,6 @@
 //! Unity's `Rect` and Futile's `FMatrix`, with their exact field semantics.
+//!
+//! Mirrors: FMatrix.cs
 
 /// Unity's `Rect`: `x_min` is `x` and `x_max` is `x + width` even when the width is
 /// negative (the game builds such rects for empty text lines).

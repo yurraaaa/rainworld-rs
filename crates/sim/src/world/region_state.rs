@@ -6,6 +6,8 @@
 //!
 //! Saved creatures and objects the port does not simulate are kept as their strings and
 //! written back unchanged (docs/divergences/ D16).
+//!
+//! Mirrors: RegionState.cs, World.cs
 
 use rw_assets::world::WorldData;
 use rw_random::UnityRandom;

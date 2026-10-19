@@ -3,6 +3,8 @@
 //! `SoundLoader` exactly as for a room sound), and the loops' volume, pitch and fade.
 //! An audio backend plays the [`MenuSoundEvent`]s and follows [`MenuMic::loops`]; the
 //! menus never read back from it.
+//!
+//! Mirrors: MenuMicrophone.cs
 
 use std::sync::Arc;
 

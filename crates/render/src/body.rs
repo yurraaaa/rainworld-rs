@@ -1,4 +1,6 @@
 //! Render interpolation for simulation types (extension traits on `rw_sim` types).
+//!
+//! Mirrors: -
 
 use rw_sim::BodyChunk;
 

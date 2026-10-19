@@ -1,6 +1,8 @@
 //! The player's part in map discovery (`Player.Update`): reporting the spawn room
 //! visited and discovering the way to the first room's exits on the HUD map
 //! (`ExternalExitDiscover`, `ExternalSmallDiscover`, `ExternalOnePixelDiscover`).
+//!
+//! Mirrors: Player.cs (Update), HUD/Map.cs (ExternalExitDiscover, ExternalSmallDiscover, ExternalOnePixelDiscover)
 
 use rw_assets::{Room, ShortcutType};
 

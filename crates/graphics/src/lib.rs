@@ -8,6 +8,8 @@
 //! lizard's body, legs, tail and head ([`LizardGraphics`]); the shelter door's
 //! ([`ShelterDoorSprites`]). Behaviour: `rainworld-re/notes/slugcat-graphics.md` and
 //! `sprite-atlases.md`; differences from the game are in `docs/divergences/`.
+//!
+//! Mirrors: - (crate root)
 
 mod atlas;
 mod body_part;

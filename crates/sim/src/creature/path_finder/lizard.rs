@@ -1,6 +1,8 @@
 //! The breed-specific parts of a path finder: `LizardPather.HeuristicForCell` and
 //! `LizardAI.TravelPreference` (its terrain part; `FollowPath` is
 //! [`super::PathFinders::follow_path`]).
+//!
+//! Mirrors: LizardPather.cs (HeuristicForCell), LizardAI.cs (TravelPreference)
 
 use rw_assets::CreatureType;
 

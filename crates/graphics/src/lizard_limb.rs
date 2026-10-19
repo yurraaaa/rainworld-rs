@@ -1,6 +1,8 @@
 //! `LizardLimb` (decompile `LizardLimb.cs`): a leg that steps ahead of its chunk,
 //! reaches for terrain and holds it. Its grip counters are the body's `LegsGripping`.
 //! Its `Update` draws on the shared stream (the health rolls and the foot sounds).
+//!
+//! Mirrors: LizardLimb.cs
 
 use rw_assets::{CreatureType, Room};
 use rw_random::UnityRandom;

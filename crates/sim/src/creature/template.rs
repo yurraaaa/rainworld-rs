@@ -4,6 +4,8 @@
 //! The pathing data (resistances, swimming, `isTooCloseToTerrain`) is in [`super::pathing`].
 //! The relationships are in [`super::relationships`]. Not ported: lizard breed
 //! parameters and the cosmetic fields.
+//!
+//! Mirrors: StaticWorld.cs (InitStaticWorld), CreatureTemplate.cs
 
 use rw_assets::{ActiveMods, CreatureType, NodeType};
 

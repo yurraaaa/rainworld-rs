@@ -3,6 +3,8 @@
 //!
 //! Behaviour: `rainworld-re/notes/advanced-moves.md`, Survivor values, no adrenaline,
 //! no held items (docs/divergences/ D9).
+//!
+//! Mirrors: Player.cs
 
 use std::f32::consts::PI;
 

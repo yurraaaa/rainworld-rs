@@ -2,6 +2,8 @@
 //! (`PlayerProgression.mapDiscoveryTextures`, `mapLastUpdatedTime`), what `HUD.Map` and
 //! the player's exit discovery write into them, and their save form: a base64 PNG in a
 //! `MAP<progDivB>REGION<progDivB>...` progression line (`rainworld-re/notes/hud.md`).
+//!
+//! Mirrors: PlayerProgression.cs (mapDiscoveryTextures), HUD/Map.cs
 
 use std::collections::BTreeMap;
 

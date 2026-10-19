@@ -9,6 +9,8 @@
 //! `advanced-moves.md`. Corridors: `corridors.md`. Shortcuts: `shortcuts.md`.
 //! Swimming, breath and drowning: `water.md`.
 //! What is not ported is listed in `docs/divergences/`.
+//!
+//! Mirrors: Player.cs
 
 mod advanced;
 mod animation;

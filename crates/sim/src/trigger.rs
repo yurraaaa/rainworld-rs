@@ -5,6 +5,8 @@
 //! `ReliableIggyDirection`), and the song requests the
 //! sim hands the music player (`rw-audio`). Behaviour: `rainworld-re/notes/music.md`
 //! section 4.2; the game side is `game_triggers.rs`.
+//!
+//! Mirrors: ActiveTriggerChecker.cs, SuperJumpInstruction.cs, ScavengerTradeInstructionTrigger.cs, ReliableIggyDirection.cs, PickupObjectInstruction.cs, RoomSpecificTextMessage.cs
 
 use rw_assets::{
     EventTrigger, IggySymbol, MusicEvent, QuadData, ReliableIggyDirectionData, StopMusicEvent,

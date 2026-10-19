@@ -1,5 +1,7 @@
 //! Locating game files under `StreamingAssets`, and the error type of the visual-asset
 //! loaders (images, palettes, settings, noise).
+//!
+//! Mirrors: -
 
 use std::error::Error;
 use std::fmt;

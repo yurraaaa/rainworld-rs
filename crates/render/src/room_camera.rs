@@ -5,6 +5,8 @@
 //! shows a [`RoomCamera::SCREEN_SIZE`] window resting at `cam + (17, 18)`; it leans
 //! up to 8 px toward a camera the creature is heading for and switches with a hard cut
 //! once the creature leaves the current camera's zone for another's.
+//!
+//! Mirrors: RoomCamera.cs (GetCameraBestIndex, Update, DrawUpdate)
 
 use rw_sim::Vec2;
 

@@ -4,6 +4,9 @@
 //!
 //! Behaviour: `rainworld-re/notes/shortcuts.md` sections 2-5, Remix off. What happens at
 //! a room exit is the world's business ([`crate::RainWorldGame`]).
+//!
+//! Mirrors: Player.cs (MovementUpdate, SpitOutOfShortCut), Creature.cs (Update, SuckedIntoShortCut),
+//!   ShortcutHandler.cs (Update)
 
 use rw_assets::{Room, Shortcut, ShortcutType, Terrain, tile_centre};
 use rw_random::UnityRandom;

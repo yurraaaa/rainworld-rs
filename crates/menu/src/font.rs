@@ -4,6 +4,8 @@
 //! Futile's display and resource scales are 1 in Rain World (one resolution level,
 //! 1366 wide), so they are left out. Text is walked in UTF-16 units, as C# `char`s.
 //! The Thai-only placement rules of `GetQuadInfoForText` are not ported (English only).
+//!
+//! Mirrors: FFont.cs
 
 use rustc_hash::FxHashMap;
 use rw_assets::FontConfig;

@@ -5,6 +5,8 @@
 //! Behaviour: `rainworld-re/notes/creature-model.md` (realized flies) and the decompile
 //! lines given on each item. The graphics (`FlyGraphics`) are `rw-graphics`', called
 //! through [`crate::PlayerObserver`].
+//!
+//! Mirrors: Fly.cs, FlyAI.cs, FliesRoomAI.cs
 
 mod ai;
 mod ai_update;

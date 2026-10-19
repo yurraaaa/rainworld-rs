@@ -1,6 +1,8 @@
 //! `OverseerTutorialBehavior.InputInstruction`: the pictures of the controls the guide
 //! projects during the tutorial and for the in-world triggers (pick up, super jump,
 //! scavenger trade), with their controllers.
+//!
+//! Mirrors: OverseerTutorialBehavior.cs (InputInstruction)
 
 use rw_random::UnityRandom;
 

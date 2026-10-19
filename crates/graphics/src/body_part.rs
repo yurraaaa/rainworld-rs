@@ -1,5 +1,7 @@
 //! `BodyPart`: a cosmetic point mass that is pushed out of terrain (base of the
 //! tail segments, head, legs and hands).
+//!
+//! Mirrors: BodyPart.cs
 
 use rw_assets::{Room, Slope, Terrain, tile_centre};
 use rw_random::UnityRandom;

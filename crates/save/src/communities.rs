@@ -1,5 +1,7 @@
 //! `CreatureCommunities` of a story session: the player's standing per community and
 //! region (`COMMUNITIES<svB>SCAVSHY<coB>x<coA>All<coB>EVERY:0|CC:0|...`).
+//!
+//! Mirrors: CreatureCommunities.cs
 
 use rw_assets::SlugcatName;
 

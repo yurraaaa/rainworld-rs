@@ -2,6 +2,8 @@
 //! spawners in file order, the player guide (`OverseerSpawnConditions`), the region's
 //! overseers; then the `FliesWorldAI` constructor's bat flies. Every random draw is the
 //! game's, in its order (`rainworld-re/notes/creature-model.md`).
+//!
+//! Mirrors: WorldLoader.cs (GeneratePopulation), FliesWorldAI.cs
 
 use rw_assets::creatures::{CreatureSpawner, Lineage, SimpleSpawner};
 use rw_assets::{CreatureType, NodeType, SlugcatName};

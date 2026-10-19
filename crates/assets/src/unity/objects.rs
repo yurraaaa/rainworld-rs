@@ -1,5 +1,7 @@
 //! The object classes rainworld-rs reads, in their Unity 2020.3 layouts
 //! (`rainworld-re/notes/unity-assets.md` section 4).
+//!
+//! Mirrors: -
 
 use super::bcn::{Bc1Block, Bc3Block};
 use super::reader::Reader;

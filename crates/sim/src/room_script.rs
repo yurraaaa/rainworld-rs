@@ -2,6 +2,8 @@
 //! (`AddRoomSpecificScript`), of which the start of a new Survivor or Monk game in
 //! SU_C04 is ported. Behaviour: `rainworld-re/notes/intro-overseer-survey.md` section
 //! 2.3 and `slideshow.md`.
+//!
+//! Mirrors: RoomSpecificScript.cs, Room.cs (AddRoomSpecificScript)
 
 use rw_assets::{ActiveMods, SlugcatName};
 

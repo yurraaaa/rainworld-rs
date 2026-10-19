@@ -1,6 +1,8 @@
 //! The game's parts for the rocks and spears: their slots in a room's update list, their
 //! sound loops' emitters, the sparks and spikes they and the throws make, and the room's
 //! collision pass after the update list.
+//!
+//! Mirrors: Weapon.cs, Rock.cs, Spear.cs, Room.cs (Update)
 
 use std::sync::Arc;
 

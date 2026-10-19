@@ -5,6 +5,8 @@
 //! ([`crate::creature`]); the player is an `AbstractCreature` too. Behaviour:
 //! `rainworld-re/notes/world-loading.md`, `room-realizer.md`, `shortcuts.md` section 5,
 //! `creature-model.md`.
+//!
+//! Mirrors: RainWorldGame.cs
 
 use std::sync::Arc;
 

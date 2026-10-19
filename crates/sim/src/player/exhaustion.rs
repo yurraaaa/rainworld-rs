@@ -3,6 +3,8 @@
 //! (86492) and the `Player.Update` block after the map discovery (86884-86941), base
 //! game: More Slugcats' Saint, wounds and Gourmand and the Watcher's camouflage are
 //! not ported.
+//!
+//! Mirrors: Player.cs (Player ctor, SetMalnourished, AerobicIncrease, Update)
 
 use rw_random::UnityRandom;
 

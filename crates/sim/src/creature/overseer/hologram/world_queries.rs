@@ -1,5 +1,7 @@
 //! What the holograms and the communication module read of the world's processes
 //! (`OverseersWorldAI`'s finders, `FliesWorldAI`'s swarm rooms).
+//!
+//! Mirrors: OverseersWorldAI.cs, FliesWorldAI.cs
 
 use crate::creature::WorldCoordinate;
 use crate::world::World;

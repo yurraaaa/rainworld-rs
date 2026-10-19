@@ -3,6 +3,8 @@
 //! Key events update [`InputState`] whenever they arrive; once per simulation tick
 //! [`InputState::take_tick_input`] produces an [`Input`]. A key pressed and released
 //! between two ticks still counts for the next tick, so short taps are never lost.
+//!
+//! Mirrors: - (port-only: keyboard to per-tick input)
 
 use rw_menu::KeyboardKey;
 use rw_sim::Input;

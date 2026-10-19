@@ -2,6 +2,8 @@
 //! bottom-left, as `Futile.stage` with origin (0, 0)), each drawn with one texture and
 //! one of the game's shaders. Consecutive quads with the same texture and shader share
 //! a draw, as Futile's render layers batch facets of one atlas and shader.
+//!
+//! Mirrors: FStage.cs, Futile.cs
 
 use std::ops::Range;
 

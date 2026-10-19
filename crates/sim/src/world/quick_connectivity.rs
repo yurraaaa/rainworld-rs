@@ -1,6 +1,8 @@
 //! `QuickConnectivity`: `Check` (a bounded search back from the goal for whether the
 //! start connects to it) and `DefineNodeOfLocalCoordinate`. Decompile
 //! `QuickConnectivity.cs`. Behaviour: `rainworld-re/notes/ai-map.md`.
+//!
+//! Mirrors: QuickConnectivity.cs
 
 use rustc_hash::FxHashSet;
 use rw_random::UnityRandom;

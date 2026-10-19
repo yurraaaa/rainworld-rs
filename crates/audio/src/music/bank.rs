@@ -1,5 +1,7 @@
 //! The music bundles (`music_songs`, `music_procedural`): clips by name
 //! (`AssetBundle.LoadAsset<AudioClip>`).
+//!
+//! Mirrors: - (asset bundle loading)
 
 use std::path::Path;
 

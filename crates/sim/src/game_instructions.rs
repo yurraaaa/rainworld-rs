@@ -3,6 +3,8 @@
 //! the `InputInstructionTrigger`s' updates (with the event-made
 //! `PickupObjectInstruction`), and what the guide's communication reads of them. Types:
 //! [`crate::trigger`]. Behaviour: `rainworld-re/notes/overseer.md` §7b.
+//!
+//! Mirrors: Room.cs (Loaded), SuperJumpInstruction.cs, ScavengerTradeInstructionTrigger.cs, ReliableIggyDirection.cs, InputInstructionTrigger.cs
 
 use rw_assets::{
     AbstractObjectType, CreatureType, IggyCondition, PlacedObjectType, QuadData,

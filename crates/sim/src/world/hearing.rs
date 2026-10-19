@@ -5,6 +5,8 @@
 //! representations' `VisualContact` getter, `BestGuessForPosition`, `Ghost.Clone`).
 //! Decompile: `Room.cs` `InGameNoise`, `Creature.cs` `HeardNoise`, `NoiseTracker.cs`,
 //! `Tracker.cs`. Behaviour: `rainworld-re/notes/creature-model.md` section 18.
+//!
+//! Mirrors: Room.cs, Creature.cs, NoiseTracker.cs, Tracker.cs
 
 use rw_assets::AbstractObjectType;
 use rw_random::UnityRandom;

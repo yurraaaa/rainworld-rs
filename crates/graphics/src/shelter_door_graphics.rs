@@ -1,6 +1,8 @@
 //! `ShelterDoor.InitiateSprites` / `DrawSprites` (263972) of a regular shelter: 42
 //! `shelterGate` sprites in the `Items` container, all turned to face the entrance,
 //! drawn with `ColoredSprite3` (palette colours by the texels' depth).
+//!
+//! Mirrors: ShelterDoor.cs (InitiateSprites, DrawSprites)
 
 use rw_sim::Vec2;
 use rw_sim::shelter::ShelterDoor;

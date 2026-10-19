@@ -3,6 +3,8 @@
 //! its phases, sounds, sprites and random draws. The ripple ladder (Watcher), the
 //! ghost screen's cap increase and More Slugcats' vengeance and karma-to-minimum modes
 //! are not ported. Its end-game meters are [`EndgameMeter`]s.
+//!
+//! Mirrors: Menu/KarmaLadder.cs (KarmaSymbol nested)
 
 use std::f32::consts::PI;
 

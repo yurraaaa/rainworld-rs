@@ -1,4 +1,6 @@
 //! Unity / `RWCustom.Custom` scalar helpers on `f32`.
+//!
+//! Mirrors: RWCustom/Custom.cs
 
 pub trait FloatExt: Sized {
     /// `Mathf.Lerp`: `self` at `t = 0`, `to` at `t = 1`, `t` clamped to `[0, 1]`.

@@ -10,6 +10,8 @@
 //! stays in its den, docs/divergences/ D14), the relationships, dens, `Move` and the
 //! realize/abstractize hooks. Design:
 //! `rainworld-re/notes/creature-model.md`.
+//!
+//! Mirrors: AbstractWorldEntity.cs, AbstractCreature.cs, AbstractCreatureAI.cs
 
 pub(crate) mod ai;
 pub mod ai_kinds;

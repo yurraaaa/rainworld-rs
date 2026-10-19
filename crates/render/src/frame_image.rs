@@ -1,4 +1,6 @@
 //! A rendered frame read back from the GPU.
+//!
+//! Mirrors: -
 
 use std::fs::File;
 use std::io::{self, BufWriter, Write};

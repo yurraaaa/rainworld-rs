@@ -1,4 +1,6 @@
 //! CPU tessellation of debug shapes into a coloured triangle list.
+//!
+//! Mirrors: -
 
 use bytemuck::{Pod, Zeroable};
 

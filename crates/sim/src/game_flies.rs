@@ -2,6 +2,8 @@
 //! `ReadyForAI`'s placement and realization, the realized flies' slots in a room's update
 //! list, `FliesRoomAI`, their shortcut vessels and lobby turns (shared with the
 //! lizards'), the camera's view of them.
+//!
+//! Mirrors: FliesWorldAI.cs (Update), FliesRoomAI.cs, Room.cs (ReadyForAI)
 
 use std::sync::Arc;
 

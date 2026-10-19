@@ -1,6 +1,8 @@
 //! Everything the level graphic of one room needs from disk: settings, palettes with
 //! effect colours, and the per-camera images (`<room>_<N>.png`, loaded on demand like
 //! the game's camera texture).
+//!
+//! Mirrors: -
 
 use std::path::PathBuf;
 

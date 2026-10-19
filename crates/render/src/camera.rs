@@ -1,4 +1,6 @@
 //! 2D camera: room pixels (y up) to clip space.
+//!
+//! Mirrors: -
 
 /// Maps room pixels to the viewport: `screen = (world - centre) * scale`, centred.
 #[derive(Debug, Clone, Copy, PartialEq)]

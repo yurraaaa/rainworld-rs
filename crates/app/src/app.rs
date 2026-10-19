@@ -5,6 +5,8 @@
 //! per tick, sound events to the [`rw_audio::Audio`] output) and its per-frame update,
 //! and the switch fade advances. Then the frame is drawn with the leftover tick
 //! fraction as the interpolation factor.
+//!
+//! Mirrors: - (port-only: winit event loop and frame pacing)
 
 use std::error::Error;
 use std::path::PathBuf;

@@ -1,5 +1,7 @@
 //! `SaveStateMiner`: pulls single values out of a stored `SAVE STATE` string without
 //! loading it (the slugcat select menu's `MineForSaveData`).
+//!
+//! Mirrors: SaveStateMiner.cs
 
 /// `SaveStateMiner.Target`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

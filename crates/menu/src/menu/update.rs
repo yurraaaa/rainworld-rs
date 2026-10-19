@@ -1,4 +1,6 @@
 //! `Menu.Update` and the objects' `Update`s: selection, pressing and holding.
+//!
+//! Mirrors: Menu/Menu.cs, Menu/MenuObject.cs (Update)
 
 use rw_sim::{FloatExt, Vec2};
 

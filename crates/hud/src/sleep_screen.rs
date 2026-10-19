@@ -7,6 +7,8 @@
 //! are not ported (D13). The kills display is [`SleepScreenKills`]. Not ported: the
 //! Expedition, Watcher and More Slugcats branches.
 //! Behaviour: `rainworld-re/notes/menu.md` ("Sleep and death screens").
+//!
+//! Mirrors: Menu/SleepAndDeathScreen.cs, Menu/KarmaLadderScreen.cs
 
 use rw_assets::SlugcatName;
 use rw_menu::menu::{Kind, Menu, MenuCx, MenuScreen, ObjectId, SceneId};

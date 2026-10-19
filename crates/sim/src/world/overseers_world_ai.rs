@@ -5,6 +5,8 @@
 //! Neither draws a random number.
 //!
 //! Behaviour: `rainworld-re/notes/creature-model.md` §7.
+//!
+//! Mirrors: OverseersWorldAI.cs
 
 use rw_assets::world::WorldData;
 use rw_assets::{ActiveMods, CreatureType};

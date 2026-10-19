@@ -1,6 +1,8 @@
 //! Music sources on kira: clips read from `music_songs` on a loader thread, then
 //! streamed (decoded a Vorbis packet at a time on kira's decode thread) as Unity
 //! streams them (`m_LoadType` 2).
+//!
+//! Mirrors: - (kira streaming sources)
 
 use std::path::PathBuf;
 use std::sync::Arc;

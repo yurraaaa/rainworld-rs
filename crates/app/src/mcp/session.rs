@@ -1,6 +1,8 @@
 //! The state the MCP tools drive: one loaded game (a world, seen from the camera's
 //! room), stepped only on request, and a headless renderer for screenshots. Every tool is a method returning a typed reply or
 //! an error message.
+//!
+//! Mirrors: - (port-only: MCP server)
 
 #[path = "dev_tools.rs"]
 mod dev_tools;

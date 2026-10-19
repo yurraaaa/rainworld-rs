@@ -1,6 +1,8 @@
 //! A debug overlay (the windowed app's debug UI): textured, coloured triangles in
 //! target pixels (y down, origin top-left), drawn over the presented window at its
 //! physical size, or over the frame when headless. One texture, the UI's font atlas.
+//!
+//! Mirrors: -
 
 use bytemuck::{Pod, Zeroable};
 

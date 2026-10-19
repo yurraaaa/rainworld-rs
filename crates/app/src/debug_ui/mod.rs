@@ -3,6 +3,8 @@
 //! queues [`DebugAction`]s, which the app applies before the next frame's ticks
 //! through the code paths of the MCP tools. It never draws from the game's random
 //! streams. Drawn by the renderer's overlay ([`rw_render::Overlay`]).
+//!
+//! Mirrors: - (port-only: dev UI)
 
 mod actions;
 mod tabs;

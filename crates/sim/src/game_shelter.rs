@@ -1,5 +1,7 @@
 //! The game's side of shelters: the `ShelterDoor` `Room.Loaded` adds, its update in the
 //! room, the player's sleep and hibernation checks, `FoodInRoom` and `DoorClosed`.
+//!
+//! Mirrors: ShelterDoor.cs, Room.cs (Loaded), Player.cs (sleep checks)
 
 use std::sync::Arc;
 

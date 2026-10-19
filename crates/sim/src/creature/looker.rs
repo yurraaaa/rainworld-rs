@@ -6,6 +6,8 @@
 //! the reads that change a representation (the `VisualContact` getter clearing the
 //! field, `BestGuessForPosition` settling a dirty guess) are recorded on the copy and
 //! applied back to the tracker afterwards, as the game makes them in place.
+//!
+//! Mirrors: CreatureLooker.cs
 
 use std::cell::Cell;
 

@@ -1,5 +1,7 @@
 //! `HUDCircle` (a ring drawn with `VectorCircleFadable`, or a ready-made atlas element
 //! once it settles on its snap size) and `FadeCircle` (an expanding ring that fades).
+//!
+//! Mirrors: HUD/HUDCircle.cs, HUD/FadeCircle.cs
 
 use rw_menu::{AtlasManager, NodeId, Sprite, StageColor, StageTree};
 use rw_render::StageShader;

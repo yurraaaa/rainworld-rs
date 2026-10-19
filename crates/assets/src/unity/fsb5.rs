@@ -7,6 +7,8 @@
 //! port ships the ones the game uses ([`VorbisSetups`], from vgmstream's
 //! `vorbis_codebooks_fsb.h`; provenance in `data/README.md`) and rebuilds the
 //! identification and comment headers, then decodes with `lewton`.
+//!
+//! Mirrors: -
 
 use std::ops::Range;
 

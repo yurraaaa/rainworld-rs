@@ -2,6 +2,8 @@
 //! lives in the `CreatureState` of templates with `socialMemory` and is saved with it
 //! (`Social<cC>...`). The abstract AI follows a creature it likes or hates strongly
 //! (`MigrationBehavior`); the realized AIs' trackers read and change it.
+//!
+//! Mirrors: SocialMemory.cs
 
 use rw_save::cs_float::CsFloat;
 

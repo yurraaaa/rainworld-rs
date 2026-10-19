@@ -1,5 +1,7 @@
 //! Sound objects (`DisembodiedSound`, `StaticPositionSound`, `ObjectSound`) and the
 //! chunk emitters they follow.
+//!
+//! Mirrors: VirtualMicrophone.cs (DisembodiedSound, StaticPositionSound, ObjectSound), SoundLoader.cs
 
 use rustc_hash::FxHashMap;
 use rw_sim::{BodyChunk, EmitterId, FloatExt, PlayedSound, SoundSource, Vec2, Water};

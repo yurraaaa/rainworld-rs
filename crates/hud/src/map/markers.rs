@@ -1,5 +1,7 @@
 //! The map's `FadeInMarker`s that a base-game story map has: gates, shelters, death
 //! positions and the karma flower.
+//!
+//! Mirrors: HUD/Map.cs (FadeInMarker)
 
 use rw_menu::{AtlasManager, MenuColor, NodeId, Sprite, StageColor, StageTree};
 use rw_render::StageShader;

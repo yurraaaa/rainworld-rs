@@ -1,6 +1,8 @@
 //! `AbstractCreatureAI` and the per-type abstract AI constructors, with their random
 //! draws. The plain behaviour (lizards) is `world/abstract_ai.rs`, the overseer's
 //! `overseer/abstract_ai.rs`.
+//!
+//! Mirrors: AbstractCreatureAI.cs
 
 use rw_assets::{CreatureType, SlugcatName, Timeline};
 use rw_random::UnityRandom;

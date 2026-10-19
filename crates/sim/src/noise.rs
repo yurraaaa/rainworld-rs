@@ -2,6 +2,8 @@
 //! noise and the sink an updating object hands its `room.InGameNoise` calls to. Who hears
 //! them is `world/hearing.rs`. Decompile: `Noise/InGameNoise.cs`, `PhysicalObject.cs`
 //! `TerrainImpact`, `Room.cs` `InGameNoise`.
+//!
+//! Mirrors: Noise/InGameNoise.cs, PhysicalObject.cs (TerrainImpact), Room.cs (InGameNoise)
 
 use rw_random::UnityRandom;
 

@@ -2,6 +2,8 @@
 //! the reduced `Initialization` and the menu screens, drawn the same way in the window
 //! and in MCP screenshots (each process's frame, then the switch fade over it). The
 //! music player and the menu microphone run as side processes after them.
+//!
+//! Mirrors: ProcessManager.cs, RainWorld.cs
 
 use std::sync::Arc;
 

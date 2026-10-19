@@ -6,6 +6,8 @@
 //! Adding a slugcat is adding a [`SlugcatCampaign`] to [`SlugcatCampaign::all`] (gated by
 //! its mod) and its timeline/name to `rw_assets::{SlugcatName, Timeline}`. Design:
 //! `rainworld-re/notes/campaign-model.md`.
+//!
+//! Mirrors: SlugcatStats.cs, SaveState.cs (GetStoryDenPosition), RainWorldGame.cs (TryGetPlayerStartPos)
 
 use rw_assets::{ActiveMods, SlugcatName, Timeline};
 

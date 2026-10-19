@@ -6,6 +6,8 @@
 //! its `Update` and `Lizard.Collide`'s `SeeCreature` and temporary dislike. Decompile:
 //! `LizardAI.cs` 1084-1095, 1184-1192, 1317-1488, 1667-1683; `Lizard.cs` 1408-1432;
 //! `LizardGraphics.cs` 1474-1489.
+//!
+//! Mirrors: LizardAI.cs, Lizard.cs (Collide), LizardGraphics.cs
 
 use rw_assets::{AbstractObjectType, CreatureType};
 

@@ -2,6 +2,8 @@
 //! `AbstractSpearStick`, `A` the spear, `B` the creature): both ends list them among
 //! their `stuckObjects`, and they carry the creature with the spear (and the spear with
 //! the creature) through shortcuts. The world keeps them beside the grip sticks.
+//!
+//! Mirrors: AbstractPhysicalObject.cs (AbstractSpearStick, ImpaledOnSpearStick)
 
 use super::ObjectId;
 use crate::creature::CreatureId;

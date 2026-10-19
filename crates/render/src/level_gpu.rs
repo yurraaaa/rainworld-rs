@@ -1,5 +1,7 @@
 //! GPU side of the level graphic: the `level.wgsl` pipeline and the uploaded textures
 //! of the current camera.
+//!
+//! Mirrors: -
 
 use std::borrow::Cow;
 

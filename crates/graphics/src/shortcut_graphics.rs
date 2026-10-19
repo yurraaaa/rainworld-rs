@@ -7,6 +7,8 @@
 //! symbols (dens, NPC and region transports, shown when controlling a creature), the
 //! Remix gate symbol and underwater shortcuts, and the arena's exit darkening are left
 //! out; the blink state is the room's (`rw_sim::ShortcutsBlinking`).
+//!
+//! Mirrors: ShortcutGraphics.cs
 
 use rw_assets::{
     CreatureType, PlacedObjectType, Room, Shortcut, ShortcutType, SlugcatName, Terrain, tile_centre,

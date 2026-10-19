@@ -1,4 +1,6 @@
 //! Tool parameters; their doc comments become the JSON schema descriptions.
+//!
+//! Mirrors: - (port-only: MCP server)
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

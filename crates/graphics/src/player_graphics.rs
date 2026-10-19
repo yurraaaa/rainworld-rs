@@ -5,6 +5,8 @@
 //! corridor and swimming (`water.md`) branches. Not ported (docs/divergences/ D8):
 //! fear (no creature the slugcat fears is ported), the rain look point, the throw
 //! reach (only weapons and frogs), zero gravity, pups, the Mark, DLC.
+//!
+//! Mirrors: PlayerGraphics.cs
 
 use std::f32::consts::{PI, TAU};
 

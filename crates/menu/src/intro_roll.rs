@@ -1,6 +1,8 @@
 //! `IntroRoll`, the title roll at start-up: three full-screen illustrations over the
 //! rain effect, lightning and thunder, the title music, then the main menu on any
 //! button or after 40 seconds. Behaviour: `rainworld-re/notes/menu.md` ("IntroRoll").
+//!
+//! Mirrors: Menu/IntroRoll.cs
 
 use rw_sim::{FloatExt, Vec2};
 

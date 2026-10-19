@@ -1,4 +1,6 @@
 //! Draws the offscreen frame into the window's letterbox rectangle ([`PresentRect`]).
+//!
+//! Mirrors: -
 
 use std::borrow::Cow;
 

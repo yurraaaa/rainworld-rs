@@ -1,6 +1,8 @@
 //! `FLabel`: text in one font, laid out by [`Font::quad_lines`] and placed around the
 //! label's position by its anchor (`UpdateLocalPosition`). Behaviour:
 //! `rainworld-re/notes/menu.md` ("Fonts").
+//!
+//! Mirrors: FLabel.cs
 
 use std::sync::Arc;
 

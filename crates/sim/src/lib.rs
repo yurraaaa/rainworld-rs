@@ -18,6 +18,8 @@
 //! spears ([`item`]), and [`RainWorldGame`],
 //! which moves the player between rooms through room-exit shortcuts
 //! (`world-loading.md`, `room-realizer.md`, `creature-model.md`).
+//!
+//! Mirrors: -
 
 mod camera;
 pub mod campaign;

@@ -1,4 +1,6 @@
 //! The debug UI's tools, one tab each.
+//!
+//! Mirrors: - (port-only: dev UI)
 
 use std::borrow::Cow;
 

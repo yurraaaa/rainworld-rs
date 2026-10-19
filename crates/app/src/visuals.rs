@@ -1,5 +1,7 @@
 //! The room's level graphic: settings, palettes and the shown camera's image (the
 //! scene's room camera chooses which).
+//!
+//! Mirrors: RoomCamera.cs
 
 use rw_assets::{
     AssetError, NoiseTexture, PaletteTexture, PngImage, Room, RoomVisuals, StreamingAssets,

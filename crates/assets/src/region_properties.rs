@@ -2,6 +2,8 @@
 //! `RegionParams` (lines preprocessed with the timeline filter, `properties-<timeline>`
 //! first), and `World.LoadMapConfig`'s `Room_Attr` lines (raw lines, `Properties-
 //! <timeline>` first).
+//!
+//! Mirrors: Region.cs, World.cs (LoadMapConfig)
 
 use std::fs;
 

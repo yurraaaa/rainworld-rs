@@ -5,6 +5,8 @@
 //! character-select screen's, the More Slugcats pup meters and the Watcher's
 //! camouflage back circle and ripple ladder branches are not
 //! (`rainworld-re/notes/hud.md`).
+//!
+//! Mirrors: HUD/FoodMeter.cs
 
 use std::f32::consts::PI;
 

@@ -3,6 +3,8 @@
 //! container, in the palette's black, turned by the item's rotation. A spear pivots on
 //! its tip while thrown or stuck in a creature. `DrawSprites` draws a vibrating item's
 //! jitter and a blinking one's flicker from the cosmetic stream (docs/divergences/ D1).
+//!
+//! Mirrors: Rock.cs, Spear.cs (InitiateSprites, DrawSprites, ApplyPalette)
 
 use std::borrow::Cow;
 

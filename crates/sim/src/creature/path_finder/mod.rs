@@ -6,6 +6,8 @@
 //! `FollowPath`, `LizardAI.TravelPreference`) are [`PatherKind`]'s. Every `PathingCell`
 //! makes two draws when it is made. Behaviour: `rainworld-re/notes/creature-model.md`
 //! section 14.
+//!
+//! Mirrors: PathFinder.cs
 
 mod lizard;
 pub(crate) mod mapper;

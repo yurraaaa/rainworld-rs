@@ -5,6 +5,8 @@
 //!
 //! A room's `entities` (creatures and objects, [`Entity`]) are kept beside its creature
 //! lists; the objects are `world/objects.rs`'.
+//!
+//! Mirrors: AbstractCreature.cs, AbstractRoom.cs, AbstractCreatureAI.cs
 
 use rustc_hash::FxHashMap;
 use rw_assets::{CreatureType, NodeType, RoomAttraction, Timeline};

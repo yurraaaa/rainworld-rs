@@ -6,6 +6,8 @@
 //! The game's visualizer reads `AudioSource.GetSpectrumData` of the playing sound, which
 //! the audio thread fills; the port computes it in the sim from the decoded clip at the
 //! position the ticks have played to ([`VoiceSpectrum`]; docs/divergences/ D12).
+//!
+//! Mirrors: LizardVoice.cs, CreatureVoice.cs
 
 use rw_assets::unity::PcmAudio;
 use rw_assets::{CreatureType, SoundTable};
