@@ -3,24 +3,24 @@
 The gameplay simulation: a fixed 40 Hz tick over the world, rooms, the slugcat,
 creatures (abstract and realized), items, water, shortcuts, shelters, noise and the
 game's random draws. It is engine-agnostic: no I/O, no windowing, no rendering, no
-cosmetic graphics (those are `rw-graphics`, `rw-render`), no save-file text format
+cosmetic graphics (those are `rw-graphics`, `rw-render`), no save-file I/O
 (`rw-save`), no HUD (`rw-hud`), no menus (`rw-menu`). Where the sim needs a graphics
 module's state it keeps a small "link" struct (e.g. `creature/lizard/graphics_link.rs`).
-Entry point: `Game` in `game.rs` (`RainWorldGame` for one player). Draws come from the
+Entry point: `RainWorldGame` in `game.rs` (the app's `Game` wraps it). Draws come from the
 shared `UnityRandom` stream (`rw-random`); every sound makes its draws too (`sound.rs`).
 
 Navigation aids: module headers (`grep -n '^//!' <file>`), decompile line numbers in
 comments refer to `/home/yura/.local/share/ilspy/full/Assembly-CSharp.decompiled.cs`.
-Notes/surveys are in `../rainworld-re/` (see the last section).
+Notes/surveys are in `../../../rainworld-re/` (see the last section).
 
 ## Top-level files (`src/`)
 
 | File | Holds (key types) | Ports |
 |---|---|---|
 | `lib.rs` | module list, re-exports | - |
-| `game.rs` | `Game`: world, player, shortcut handler + lobby, realizer, order of a tick, sessions | `RainWorldGame` |
-| `game_*.rs` | `impl Game` splits, below | - |
-| `game_dev.rs` | dev spawns/teleports through the game's own paths (MCP, debug UI) | `DEV_SPAWN_OBJECTS`? |
+| `game.rs` | `RainWorldGame`: world, player, shortcut handler + lobby, realizer, order of a tick, sessions | `RainWorldGame` |
+| `game_*.rs` | `impl RainWorldGame` splits, below | - |
+| `game_dev.rs` | dev spawns/teleports through the game's own paths (MCP, debug UI) | - (port dev tool, D18) |
 | `game_exit.rs` | what pause/`ExitGame` read | `RainWorldGame.ExitGame` |
 | `game_flies.rs` | bat flies in the tick: world process, `ReadyForAI`, vessels, lobby turns | `FliesWorldAI` hookup |
 | `game_hits.rs` | thrown rock/spear vs creatures | `Weapon.Update` Thrown branch |
@@ -46,12 +46,12 @@ Notes/surveys are in `../rainworld-re/` (see the last section).
 | `campaign.rs` | per-slugcat campaign data: food, start den, karma | `SlugcatStats`, `SaveState` |
 | `chunk.rs` | `BodyChunk` integration + tile collision | `BodyChunk.Update` |
 | `object.rs` | `PhysicalObject`: chunks + distance constraints | `PhysicalObject` |
-| `item.rs` | abstract objects (`AbstractPhysicalObject`, `AbstractSpear`), save strings | `AbstractPhysicalObject` |
+| `item.rs` | abstract objects (`AbstractObject`, `Entity`, `ObjectData`, `AbstractSpear`), save strings | `AbstractPhysicalObject` |
 | `light_source.rs` | `LightSource` in the update list | `LightSource` |
 | `map_discovery.rs` | per-region discovery textures, base64 PNG form | `PlayerProgression` map textures |
 | `noise.rs` | `InGameNoise`, terrain-impact noise, `NoiseSink` | `Noise/InGameNoise.cs` |
 | `room_ext.rs`, `color.rs`, `float_ext.rs`, `vec2.rs`, `vec3.rs` | position lookups on `Room`; `Custom` colour/scalar helpers; vectors | `RWCustom.Custom` |
-| `room_script.rs` | room-specific scripts (SU_C04 start) | `RoomSpecificScript` |
+| `room_script.rs` | room-specific scripts (`RoomScript`, SU_C04 start) | `RoomSpecificScript` |
 | `shelter.rs` | `ShelterDoor` (intact, base game) | `ShelterDoor` |
 | `shortcut.rs` | `ShortcutHandler` divider, vessels, entrance blinking | `ShortcutHandler` |
 | `sound.rs` | `Room.PlaySound` events + `VirtualMicrophone` draws | `VirtualMicrophone.PlaySound` |
@@ -59,11 +59,11 @@ Notes/surveys are in `../rainworld-re/` (see the last section).
 | `trigger.rs` | triggers in a realized room, event-made room objects | `ActiveTriggerChecker` |
 | `water.rs` | wavy surface sim, `FloatWaterLevel` | `Water`, `DefaultSurface` |
 | `water_drip.rs` | `WaterDrip` droplets | `WaterDrip` |
-| `cosmetic.rs` | `Spark`, `ExplosionSpikes`, `OverseerEffect` sprites in update lists | `CosmeticSprite`s |
+| `cosmetic.rs` | `Spark`, `ExplosionSpikes`, `OverseerEffectSprite` sprites in update lists | `CosmeticSprite`s |
 
 ## `player/` (slugcat; `Player.cs` split by topic)
 
-`mod.rs` (`Player`, two-chunk body), `input.rs` (`InputPackage`), `movement.rs`
+`mod.rs` (`Player`, two-chunk body), `input.rs` (`Input`), `movement.rs`
 (`MovementUpdate`), `body_mode.rs` (`UpdateBodyMode`), `animation.rs`
 (`UpdateAnimation`), `jump.rs`, `advanced.rs` (flip, roll, rocket jump, belly slide),
 `poles.rs`, `ledge.rs`, `corridor.rs`, `swim.rs` (water, breath, `LungUpdate`),
@@ -86,10 +86,10 @@ Notes/surveys are in `../rainworld-re/` (see the last section).
 | `flies_world_ai.rs`, `swarm_rooms.rs`, `quantified.rs` | bat-fly world process, swarm map, quantified counts | `FliesWorldAI`, `SwarmRoomMapper` |
 | `overseers_world_ai.rs` | shelter finder, guide direction | `OverseersWorldAI` |
 | `lizards.rs` | lizard realize/abstractize, `RealizeInRoom` | `AbstractCreature.Realize` |
-| `ai_map.rs`, `ai_mapper.rs`, `creature_ai_map.rs`, `movement.rs` | `AImap`, `AImapper`, baked per-creature maps, accessibility/connection/cost vocabulary | `AImap`, `AImapper` |
+| `ai_map.rs`, `ai_mapper.rs`, `creature_ai_map.rs`, `movement.rs` | `AiMap`, `AiMapper`, baked per-creature maps, accessibility/connection/cost vocabulary | `AImap`, `AImapper` |
 | `quick_path.rs`, `quick_connectivity.rs` | `QuickPathFinder`, `QuickConnectivity` | same |
 | `hearing.rs` | noise delivery to creatures and `NoiseTracker` | `Room.InGameNoise`, `HeardNoise` |
-| `tracking.rs`, `social_events.rs` | tracker answers (relationships); `SocialEventRecognizer` | `DynamicRelationship`, `SocialEventRecognizer` |
+| `tracking.rs`, `social_events.rs` | tracker answers (relationships); `SocialEventId` and the recognizer's functions | `DynamicRelationship`, `SocialEventRecognizer` |
 | `rain_cycle.rs` | `RainCycle`, `WaterLevelCycle` | `RainCycle` |
 | `region_state.rs`, `region_save.rs` | `RegionState` and adapting world to/from it | `RegionState` |
 | `*_tests.rs` | tests of siblings | - |
@@ -98,7 +98,7 @@ Notes/surveys are in `../rainworld-re/` (see the last section).
 
 | File | Holds | Ports |
 |---|---|---|
-| `mod.rs` | `AbstractCreature`, `AbstractWorldEntity` | `AbstractCreature` |
+| `mod.rs` | `AbstractCreature`, `EntityId`, `IdIssuer`, `WorldCoordinate`, `CreatureState`, `RealizedCreature` | `AbstractCreature` |
 | `template.rs`, `template_abstract.rs`, `pathing.rs`, `relationships.rs`, `violence.rs` | `CreatureTemplate` data, resistances, relationship tables, damage data | `StaticWorld.InitStaticWorld`, `LizardBreeds` |
 | `ai.rs`, `ai_kinds.rs` | abstract AI state + constructors | `AbstractCreatureAI` subclasses |
 | `population.rs` | world creature generation | `WorldLoader.GeneratePopulation` |
@@ -108,20 +108,22 @@ Notes/surveys are in `../rainworld-re/` (see the last section).
 | `noise_tracker.rs`, `stuck_tracker.rs` | `NoiseTracker`; `StuckTracker`, `DiscomfortTracker` | same |
 
 - `lizard/`: `mod.rs` (`Lizard`), `breed.rs` (`LizardBreedParams`, green only), `ai.rs`
-  (stand-in `LizardAI`), `movement.rs` (`MovementAnimation`), `voice.rs` (`LizardVoice`),
+  (stand-in `LizardAi`), `movement.rs` (`MovementAnimation`), `voice.rs` (`LizardVoice`),
   `bubble.rs` (`LizardBubble`), `graphics_link.rs` (state shared with `rw-graphics`).
 - `fly/`: `mod.rs` (`Fly`), `update.rs` (`Fly.Update`), `ai.rs` + `ai_update.rs`
-  (`FlyAI`, flocking), `room_ai.rs` (`FliesRoomAI`, hives).
-- `overseer/`: `abstract_ai.rs` (`OverseerAbstractAI`), `ai.rs` (`OverseerAI` state,
-  zip matrix), `body.rs` (`Overseer`), `update.rs` (the whole realized update),
-  `tutorial.rs` (`OverseerTutorialBehavior`), `guide_state.rs` (`PlayerGuideState`),
-  `holo_light.rs` (`HologramLight`).
+  (`FlyAi`, flocking), `room_ai.rs` (`FliesRoomAi`, hives).
+- `overseer/`: `abstract_ai.rs` (`OverseerAbstractAi`), `ai.rs` (`OverseerAi` state,
+  zip matrix), `body.rs` (`OverseerBody`), `update.rs` (the whole realized update),
+  `tutorial.rs` (`TutorialBehavior`, `TutorialMessage`), `guide_state.rs` (`PlayerGuideState`),
+  `holo_light.rs` (`HologramLight`), `hologram/` (the projected pictures: `mod.rs`
+  `OverseerHolograms`, `add.rs` `TryAddHologram`, `update.rs`, `parts.rs`, `instruction.rs`,
+  `world_queries.rs`).
 - `path_finder/`: `mod.rs` (`PathFinder`), `mapper.rs` (`AccessibilityMapper`, world path
-  finders), `lizard.rs` (`LizardPather`, `TravelPreference`).
+  finders), `lizard.rs` (`PatherKind`, the lizard pather's cost functions).
 
 ## `item/`
 
-`weapon.rs` (`Weapon`, `Rock`, `Spear`), `spear_stick.rs` (`AbstractSpearStick`),
+`weapon.rs` (`Weapon`, `WeaponKind::{Rock, Spear}`), `spear_stick.rs` (`SpearStick`, `SpearStickKind`),
 `weapon_tests.rs`.
 
 ## Where is X?
@@ -156,19 +158,21 @@ Notes/surveys are in `../rainworld-re/` (see the last section).
 
 ## Cross-links
 
-Notes (`../rainworld-re/notes/`): `physics-core.md`, `slope-collision.md`,
+Notes (`../../../rainworld-re/notes/`): `physics-core.md`, `slope-collision.md`,
 `slugcat-movement.md`, `advanced-moves.md`, `falls.md`, `corridors.md`,
 `vertical-poles.md`, `horizontal-beams.md`, `ledge-grab.md`, `shortcuts.md`, `water.md`,
 `ai-map.md`, `creature-model.md`, `items.md`, `shelter.md`, `saves.md`, `sound.md`,
 `unity-random.md`, `overseer.md`, `room-realizer.md`, `world-format.md`,
 `world-loading.md`, `room-format.md`, `campaign-model.md`, `music.md`.
-Surveys (`../rainworld-re/surveys/`): `lizards.md`, `bat-flies.md`, `rocks-spears.md`,
+Surveys (`../../../rainworld-re/surveys/`): `lizards.md`, `bat-flies.md`, `rocks-spears.md`,
 `spawning.md`, `violence-templates.md`, `items-room-edges.md`, `campaign.md`,
 `sleep-death-screens.md`, `malnourishment.md`, `food-pip-clip.md`.
 (`notes/intro-overseer-survey.md` covers the guide and `room_script.rs`.)
 
-Divergences: `docs/divergences/` (`sim.md` holds most; IDs are global,
-`grep -n '^## D'`). Relevant: D1 random sequence, D2 spawning, D3 movement, D4 falls,
-D5 shortcuts, D6 poles/ledges, D9 skid/roll/belly slide, D10 corridors, D11 water,
-D12 sound, D14 worlds/rooms/realizer (creatures, lizards, flies, overseers), D16 saves,
-D17 shelters, D18 dev tools.
+Divergences: `../../docs/divergences/` (IDs are global, `grep -n '^## D'`). In `sim.md`:
+D2 spawning, D3 movement, D4 falls, D5 shortcuts, D6 poles/ledges, D9 skid/roll/belly
+slide, D10 corridors, D11 water, D14 worlds/rooms/realizer (creatures, lizards, flies,
+overseers), D17 shelters. Elsewhere: D1 `random.md`, D12 `audio.md`, D13 `menu.md`,
+D16 `save.md`, D18 `app.md`.
+
+Tests: `*_tests.rs` beside their module, `player/tests/`, and `tests/` (12 `installed_*.rs` integration tests that read the installed game, plus `data/`).

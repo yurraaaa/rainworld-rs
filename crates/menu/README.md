@@ -24,7 +24,7 @@ processes behind a fade. Depends on `rw-assets`, `rw-render` (stage drawing), `r
 - `menu/update.rs`: `Menu.Update` and objects' `Update`. `menu/draw.rs`: `GrafUpdate`.
 - `menu/depth.rs` (+ `depth/slugcat_scenes.rs`): `DepthScene`, `MenuDepthIllustration`, `BuildScene` tables, `positions.txt`.
 - `menu/scene.rs`: `InteractiveMenuScene.Update`. `menu/slide_show_scene.rs`: `SlideShowMenuScene`, `CameraPath`. `menu/rain.rs`: `RainEffect`.
-- `tests/installed_*.rs`: tests against the installed game (depth scenes, fonts, intro roll, menus, options, sleep scenes, slideshow).
+- `tests/installed_*.rs`: tests against the installed game (depth scenes, fonts, intro roll, intro scenes, menus, options, sleep scenes, slideshow).
 
 ## Where is X?
 - Process switching / fade / `ProcessId`: `process.rs`.
@@ -38,6 +38,6 @@ processes behind a fade. Depends on `rw-assets`, `rw-render` (stage drawing), `r
 - Hooking the manager into the window/MCP: `crates/app/src/frontend.rs`, `crates/app/src/mcp/session.rs`.
 
 ## Links
-- Notes: `../rainworld-re/notes/menu.md`, `slideshow.md`, `saves.md`, `sound.md`, `unity-assets.md`, `sprite-atlases.md`, `menu-survey.md`.
-- Surveys: `../rainworld-re/surveys/menus.md`, `intro.md`, `depth-scenes.md`, `sleep-death-screens.md`.
-- Divergences: `docs/divergences/menu.md` D13 Front end; D1 for menu random draws; D12 for sound.
+- Notes: `../../../rainworld-re/notes/menu.md`, `slideshow.md`, `saves.md`, `sound.md`, `unity-assets.md`, `sprite-atlases.md`, `menu-survey.md`.
+- Surveys: `../../../rainworld-re/surveys/menus.md`, `intro.md`, `depth-scenes.md`, `sleep-death-screens.md`.
+- Divergences: `../../docs/divergences/menu.md` D13 Front end; D1 for menu random draws; D12 for sound.

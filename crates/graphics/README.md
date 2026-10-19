@@ -60,11 +60,11 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 
 ## Cross-links
 
-Notes in `../rainworld-re/notes/`: `slugcat-graphics.md`, `overseer.md`,
+Notes in `../../../rainworld-re/notes/`: `slugcat-graphics.md`, `overseer.md`,
 `sprite-atlases.md`, `room-rendering.md`, `shortcuts.md`, `shelter.md`,
 `water-rendering.md`. Surveys: `lizards.md`, `bat-flies.md`,
 `rocks-spears.md`, `depth-scenes.md`.
 
-Divergences: `docs/divergences/` (one file per crate, IDs global): D8 slugcat graphics, D5 shortcuts, D7 room
+Divergences: `../../docs/divergences/` (one file per crate, IDs global): D8 slugcat graphics, D5 shortcuts, D7 room
 graphics, D14 worlds, rooms and the realizer (creature and overseer
 graphics), D17 shelters.

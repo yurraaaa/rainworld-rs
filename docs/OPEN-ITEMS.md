@@ -17,6 +17,17 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   finding code quality improvements (duplicated code to merge, and the like) and
   bringing them to the user before changing anything. This is in addition to the
   end-of-project review and optimisation pass in AGENTS.md.
+- **End-of-project cleanup items** (user, 2026-10-19), for the review pass in AGENTS.md:
+  - `rw-hud` holds the sleep, death, pause and slugcat select screens beside the
+    in-game HUD; decide whether they move (e.g. into `rw-menu` or their own crate).
+  - `rw-graphics`' `cosmetic_graphics.rs` is a catch-all (sparks, explosion spikes,
+    bubbles); split or rename it.
+  - `rw-sim`'s file split: `game.rs` (2051 lines, sessions, lobby, tick order),
+    lizard and fly logic outside `creature/` (`world/lizards.rs`, `game_lizard_*.rs`,
+    `game_flies.rs`), weapons in `world/weapons.rs`, `item/weapon.rs` and
+    `game_weapons.rs`, save-state writing across about six files, `trigger.rs` vs
+    `game_triggers.rs`, `noise.rs` vs `world/hearing.rs`.
+  - `rw-menu`'s `font_test.rs` (port-only screen) stays for now.
 
 ## Waiting for the user's answer
 - **Lizard step 7** (the AI's trackers and behaviours: prey, threat, aggression, den

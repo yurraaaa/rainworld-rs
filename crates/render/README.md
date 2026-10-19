@@ -44,7 +44,7 @@ lists and overlays.
 - Water: `water_sprites.rs` (mesh), `water_gpu.rs` + `water.wgsl`.
 - Debug ImGui overlay: `overlay.rs`, `overlay_gpu.rs`, `overlay.wgsl`.
 - Debug tile/body view: `room_geometry.rs`, `mesh.rs`, `status.rs`, `debug.wgsl`.
-- Region map shader: `map.wgsl`; which module drives it? (not traced, probably `stage_gpu.rs`)?
+- Region map shader: `map.wgsl`, pipelines built in `stage_gpu.rs` (`StageShader::Map*`), chosen by `rw-hud`'s `map/mod.rs`.
 
 ## Cross-links
 

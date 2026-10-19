@@ -44,5 +44,5 @@ the real game's save storage.
 - Float/coordinate text formats: `cs_float.rs`, `coordinate.rs`.
 
 ## Links
-- Notes: `../rainworld-re/notes/saves.md`, `campaign-model.md`, `shelter.md`; surveys: `campaign.md`, `sleep-death-screens.md`.
-- Divergences: `docs/divergences/save.md` D16 Saves, D17 Shelters and hibernation, D13 (save import button).
+- Notes: `../../../rainworld-re/notes/saves.md`, `campaign-model.md`, `shelter.md`; surveys: `campaign.md`, `sleep-death-screens.md`.
+- Divergences: `../../docs/divergences/save.md` D16 Saves, D17 Shelters and hibernation, D13 (save import button).

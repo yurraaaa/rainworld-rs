@@ -9,4 +9,4 @@ use the inherent methods). Every crate that draws from the game's shared stream 
   `next_u32`, `value`, `range_f32`, `range_i32`, `inside_unit_circle`, `on_unit_sphere`,
   `inside_unit_sphere`); tests in the same file.
 
-Notes: `../rainworld-re/notes/unity-random.md`. Port-wide draw-order rules: `docs/divergences/random.md` D1.
+Notes: `../../../rainworld-re/notes/unity-random.md`. Port-wide draw-order rules: `../../docs/divergences/random.md` D1.

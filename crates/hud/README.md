@@ -6,7 +6,7 @@ widgets: sleep, death and starve screens (karma ladder, end-game meters,
 tokens, kills) and the slugcat select menu. Depends on `rw-assets`, `rw-sim`,
 `rw-random`, `rw-render` (sprite output), `rw-menu` (menu widgets),
 `rw-graphics`, `rw-save`. Widgets read their owner through small view structs
-(`*Neighbours`, `RainCycleView`, `MapOwner`, `OwnerTick`) rather than the sim
+(`PromptNeighbours`, `RainCycleView`, `MapOwner`, `OwnerTick`) rather than the sim
 directly.
 
 ## File map (`crates/hud/src/`)
@@ -52,9 +52,9 @@ directly.
 
 ## Cross-links
 
-Notes in `../rainworld-re/notes/`: `hud.md`, `menu.md`, `campaign-model.md`,
+Notes in `../../../rainworld-re/notes/`: `hud.md`, `menu.md`, `campaign-model.md`,
 `saves.md`, `shelter.md`. Surveys: `sleep-death-screens.md`, `menus.md`,
 `food-pip-clip.md`, `malnourishment.md`, `campaign.md`.
 
-Divergences: `docs/divergences/` (one file per crate, IDs global): D15 the in-game HUD, D13 front end (menus,
+Divergences: `../../docs/divergences/` (one file per crate, IDs global): D15 the in-game HUD, D13 front end (menus,
 select, PASSAGE greyed out), D16 saves, D17 shelters.

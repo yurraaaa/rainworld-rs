@@ -62,10 +62,10 @@ not behaviour. Game assets are never committed.
 
 ## Cross-links
 
-Notes in `../rainworld-re/notes/`: `room-format.md`, `world-format.md`,
+Notes in `../../../rainworld-re/notes/`: `room-format.md`, `world-format.md`,
 `world-loading.md`, `room-rendering.md`, `unity-assets.md`,
 `sprite-atlases.md`, `sound.md`, `menu.md` (fonts, strings), `shortcuts.md`,
 `ai-map.md`. Surveys: `spawning.md`.
 
-Divergences: `docs/divergences/` (one file per crate, IDs global): D7 room graphics, D12 sound, D13 front end
+Divergences: `../../docs/divergences/` (one file per crate, IDs global): D7 room graphics, D12 sound, D13 front end
 (fonts, strings), D14 worlds, rooms and the realizer.
