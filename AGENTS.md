@@ -160,8 +160,8 @@ for older notes' line numbers; new notes cite file and member.
   installed, even where the game checks files on disk (Downpour's
   `dlcsInstalled`).
 - Current phase: the player controller in a region whose behaving creatures
-  are overseers, bat flies and green lizards (lizards at step 6b of 9:
-  hearing, noises and social influences done), not the full game. Details
+  are overseers, bat flies and green lizards (lizards at step 7a of 9:
+  decisions and calm behaviours done), not the full game. Details
   live in `docs/` and `../rainworld-re`; in short:
   - A story starts at the campaign's start den; room-exit shortcuts carry the
     player between the region's rooms (synchronous loads, D14). The
@@ -170,9 +170,12 @@ for older notes' line numbers; new notes cite file and member.
     (D14), unrealized without a body. Green lizards, flies and overseers
     have bodies when their room is realized.
   - Lizards: path finder and movement, tracker, vision, relationships,
-    noise hearing (nothing reacts yet), social events, graphics, voice
-    (D12), rock/spear hits, death and kills. Their own AI decisions are not
-    there yet.
+    noise hearing, social events, graphics, voice (D12), rock/spear hits,
+    death and kills. Their AI decides as the game's (step 7a: utility
+    comparer, prey/threat/aggression/rain trackers, den finder) and they walk
+    on their own (idle, travel, den-going, frustrated, investigating sounds);
+    the bodies of Hunt and Flee (7b), Fighting and missions (7c) are a
+    stand-in that stops the lizard.
   - Overseers: body, AI, graphics, guide tutorial text, Monk's guide light,
     holograms whose triggers are ported (D14). Bat flies: world process,
     realization, flocks, hives, chains, pipe travel, sounds, graphics.
@@ -258,7 +261,9 @@ prefer these over `--screenshot`/`--script`; briefs for such agents say so.
   on an exit's entrance and hold its input.
 - Dev tools (not game behaviour): `set_destination` gives a realized lizard
   (by EntityID) a destination tile through the abstract AI's
-  `SetDestination` and a run speed (default 0.5). `spawn_creature` adds a
+  `SetDestination` and a run speed (default 0.5) its AI keeps, its
+  behaviours' bodies skipped, until `release: true` hands run speed and
+  destination back to them. `spawn_creature` adds a
   base-game creature (`kind` in the game's spelling) at `tile` of `room` as
   the game makes one (`GetNewID` or `EntityID(-1, seed_id)`, with their draws)
   and realizes it (`RealizeInRoom`) when the room is ready and the port has

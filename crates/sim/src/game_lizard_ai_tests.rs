@@ -443,3 +443,38 @@ fn an_idle_lizard_walks_on_its_own() {
     assert!(walked);
     assert!(moved > 20.0, "{moved}");
 }
+
+/// A hall whose only node is a den (node 0) in the left wall.
+const DEN_HALL: [&str; 6] = [
+    "##############################",
+    "#............................#",
+    "#............................#",
+    "##...........................#",
+    "DE...........................#",
+    "##############################",
+];
+
+/// `CheckOriginalDenReachability` in a single-room world (no spawner's den): a lizard
+/// not made in a den keeps `spawnDen` (-1, -1, -1, -1), which `TryAssigningDen` turns
+/// down (no node), so the reachable den at node 0 of room 0 is not made its den this
+/// way; that den itself would be taken.
+#[test]
+fn no_spawn_den_assigns_no_den() {
+    let mut g = game(&DEN_HALL, (10, 1));
+    let l = g.quiet_lizard((20, 1));
+    assert_eq!(g.world.creature(l).spawn_den, None);
+    if let Some(a) = g.world.creature_mut(l).ai.as_mut() {
+        a.den_position = None;
+    }
+    g.world.check_original_den_reachability(l);
+    assert_eq!(
+        g.world.creature(l).ai.as_ref().and_then(|a| a.den_position),
+        None
+    );
+    let den = WorldCoordinate::new(0, -1, -1, 0);
+    g.world.try_assigning_den(l, den);
+    assert_eq!(
+        g.world.creature(l).ai.as_ref().and_then(|a| a.den_position),
+        Some(den)
+    );
+}

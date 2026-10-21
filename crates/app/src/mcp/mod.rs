@@ -245,7 +245,8 @@ impl Server {
         description = "Dev override: set a realized lizard's destination (room, default \
         its own, and tile) as AbstractCreatureAI.SetDestination does, and the run speed its \
         AI keeps (default 0.5); the AI's behaviours stop setting run speed and destination \
-        while the override holds (it still decides its behaviour)."
+        while the override holds (it still decides its behaviour). `release: true` ends \
+        the override so the behaviours drive run speed and destination again."
     )]
     fn set_destination(
         &self,

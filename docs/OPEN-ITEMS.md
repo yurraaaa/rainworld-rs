@@ -36,10 +36,10 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   threat travel terms; `rainworld-re/notes/lizard-ai.md`): 7b Hunt and Flee bodies,
   `AggressiveBehavior`, the lounge decision, `RequestHeavyAi`, the spotted look's
   favour, the flee `lookPos`, the social events' fear branch; 7c Fighting, rivalry,
-  `LizardCommunication`, `MissionTracker`. Go-ahead for each.
-- **Player grabbing lizards earlier:** picking up, carrying and eating dead or stunned
-  lizards needs no AI, so it could be its own small step before 6. Lizards grabbing
-  the player stays in step 8.
+  `LizardCommunication`, `MissionTracker`. Go-ahead for each. Order agreed (user,
+  2026-10-21): 7b, step 8 (player side: grabbed, bitten, `GameOver(grasp)`), 7c, then
+  the player picking up, carrying and eating dead or stunned lizards as its own step,
+  then step 9. Details in `../rainworld-re/surveys/lizards.md` (user decisions).
 
 ## To look into
 - **Loop emitters when a room abstractizes** (2026-10-17): a swallowed rock's loop now

@@ -754,15 +754,15 @@ impl World {
 
     /// `CheckOriginalDenReachability`: the spawner's den (not in a single-room world),
     /// else the creature's spawn den, is tried when the den position is another.
-    fn check_original_den_reachability(&mut self, ai: CreatureId) {
+    pub(crate) fn check_original_den_reachability(&mut self, ai: CreatureId) {
         let c = self.creature(ai);
         let spawner = self
             .spawner(c.id)
             .map(|s| s.den())
             .map(|d| WorldCoordinate::new(d.room, -1, -1, d.node));
-        // A creature not made in a den keeps the struct's default (room 0, tile (0, 0),
-        // node 0), which a region world never has.
-        let spawn_den = c.spawn_den.unwrap_or(WorldCoordinate::new(0, 0, 0, 0));
+        // A creature not made in a den keeps `spawnDen`'s initial (-1, -1, -1, -1),
+        // which `TryAssigningDen` turns down (no node).
+        let spawn_den = c.spawn_den.unwrap_or(WorldCoordinate::new(-1, -1, -1, -1));
         if let Some(s) = spawner
             && self.ai_of(ai).and_then(|a| a.den_position) != Some(s)
         {
@@ -776,7 +776,7 @@ impl World {
 
     /// `TryAssigningDen`: a den on a node the creature maps that its path finder can
     /// reach becomes its den (the running search dropped).
-    fn try_assigning_den(&mut self, ai: CreatureId, den: WorldCoordinate) {
+    pub(crate) fn try_assigning_den(&mut self, ai: CreatureId, den: WorldCoordinate) {
         if !den.node_defined() {
             return;
         }

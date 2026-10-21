@@ -133,12 +133,15 @@ pub struct SetDestinationParams {
     pub creature: [i32; 2],
     /// The destination's room name (default the lizard's room).
     pub room: Option<String>,
-    /// The destination tile.
-    pub x: i32,
-    pub y: i32,
-    /// The run speed its AI keeps (default 0.5; the behaviours that set it are not
-    /// ported yet).
+    /// The destination tile (required unless `release`).
+    pub x: Option<i32>,
+    pub y: Option<i32>,
+    /// The run speed its AI keeps (default 0.5).
     pub run_speed: Option<f32>,
+    /// End the override instead: the behaviours set run speed and destination again
+    /// (room, x, y and run_speed are ignored).
+    #[serde(default)]
+    pub release: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, JsonSchema)]

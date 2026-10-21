@@ -409,6 +409,15 @@ impl Session {
             .find(|(_, c)| c.id.spawner == spawner && c.id.number == number)
             .map(|(id, _)| id)
             .ok_or_else(|| format!("no creature {spawner}.{number}"))?;
+        if params.release {
+            if !sim.dev_release_lizard(id) {
+                return Err(format!("{spawner}.{number} is not a realized lizard"));
+            }
+            return self.state();
+        }
+        let (Some(x), Some(y)) = (params.x, params.y) else {
+            return Err("x and y are required unless release".to_owned());
+        };
         let room = match &params.room {
             Some(name) => sim
                 .world()
@@ -416,7 +425,7 @@ impl Session {
                 .ok_or_else(|| format!("no room {name}"))?,
             None => sim.world().creature(id).pos.room,
         };
-        let dest = WorldCoordinate::new(room, params.x, params.y, -1);
+        let dest = WorldCoordinate::new(room, x, y, -1);
         let speed = Some(params.run_speed.unwrap_or(0.5));
         if !sim.dev_set_lizard_destination(id, dest, speed) {
             return Err(format!("{spawner}.{number} is not a realized lizard"));

@@ -547,7 +547,8 @@ impl RainWorldGame {
         num
     }
 
-    /// `ComfortableIdlePosition`: out of water (a swimmer is happy in it), not facing
+    /// `ComfortableIdlePosition`: out of water (the game's swimmers, salamanders, are
+    /// comfortable in it; none is ported, so water is never comfortable), not facing
     /// a wall 30 px ahead, head and tail on one row (a blue lizard: or one column).
     fn lizard_comfortable_idle_position(&self, index: i32, id: CreatureId) -> bool {
         let Some(r) = self.world.realized(index) else {
@@ -675,6 +676,16 @@ impl RainWorldGame {
         }
         self.world.lizard_at(id).ai.dev_run_speed = run_speed;
         self.world.set_destination(id, dest, &mut self.rng);
+        true
+    }
+
+    /// Ends the dev override of `dev_set_lizard_destination`: the behaviours set run
+    /// speed and destination again. Returns whether `id` is a realized lizard.
+    pub fn dev_release_lizard(&mut self, id: CreatureId) -> bool {
+        if self.world.creature(id).lizard().is_none() {
+            return false;
+        }
+        self.world.lizard_at(id).ai.dev_run_speed = None;
         true
     }
 }
