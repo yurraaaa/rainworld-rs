@@ -464,7 +464,7 @@ pub struct DynamicRelationshipInfo {
     /// `currentRelationship`'s type and intensity.
     pub kind: String,
     pub intensity: f32,
-    /// `trackedByModule` (the modules are lizard step 7).
+    /// `trackedByModule`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub module: Option<String>,
     /// `LizardTrackState.spear` of a slugcat.

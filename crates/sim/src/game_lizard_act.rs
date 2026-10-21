@@ -1247,7 +1247,7 @@ impl RainWorldGame {
         }
     }
 
-    /// A swimmer's stroke in `SwimBehavior` (its lurking is lizard step 7): toward a
+    /// A swimmer's stroke in `SwimBehavior` (lurking belongs to other breeds): toward a
     /// destination in water it sees, else toward the path's next tile, at
     /// `1.3 * Lerp(0.5, 1, runSpeed)` (less at the surface).
     fn lizard_swimmer_stroke(&mut self, r: &ActRoom, id: CreatureId, coord: WorldCoordinate) {

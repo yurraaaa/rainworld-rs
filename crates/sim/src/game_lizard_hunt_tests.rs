@@ -423,3 +423,32 @@ fn attacking_what_it_fears_relieves_it() {
     assert_eq!(o, 0.05);
     assert!((fac - expect).abs() < 1e-6);
 }
+
+/// `focusCreature` is a reference the AI keeps: when the tracker drops the
+/// representation the focus still reads it (its `VisualContact`, the realized body), so
+/// a crouch on a seen target goes on.
+#[test]
+fn the_focus_outlives_its_place_in_the_tracker() {
+    let mut g = game(&HALL, (3, 1));
+    let (l, k) = g.hunter((10, 1), 40);
+    g.world.lizard_at(l).ai.focus_creature = Some(k);
+    let seen = g.lizard_focus(l).expect("focus").visual;
+    assert!(seen, "the hunter sees the player");
+    let held = g.ai_held_reps(l);
+    let t = &mut g.world.lizard_at(l).ai.tracker;
+    let i = t.index_of(k).expect("listed");
+    t.remove_rep(i, &held);
+    assert!(g.world.lizard_ref(l).ai.tracker.index_of(k).is_none());
+    let f = g.lizard_focus(l).expect("still the focus");
+    assert_eq!(f.creature, g.player_id);
+    assert!(f.visual);
+    assert!(f.chunks.is_some(), "the realized body");
+    let lz = g.world.lizard_at(l);
+    lz.ai.behavior = LizardBehavior::Hunt;
+    lz.animation = LizardAnimation::PrepareToLounge;
+    g.lizard_act_animation(l);
+    assert_eq!(
+        g.world.lizard_ref(l).animation,
+        LizardAnimation::PrepareToLounge
+    );
+}

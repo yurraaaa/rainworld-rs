@@ -160,8 +160,8 @@ for older notes' line numbers; new notes cite file and member.
   installed, even where the game checks files on disk (Downpour's
   `dlcsInstalled`).
 - Current phase: the player controller in a region whose behaving creatures
-  are overseers, bat flies and green lizards (lizards at step 7a of 9:
-  decisions and calm behaviours done), not the full game. Details
+  are overseers, bat flies and green lizards (lizards at step 7b of 9:
+  decisions, calm behaviours, hunting and fleeing done), not the full game. Details
   live in `docs/` and `../rainworld-re`; in short:
   - A story starts at the campaign's start den; room-exit shortcuts carry the
     player between the region's rooms (synchronous loads, D14). The
@@ -253,7 +253,7 @@ prefer these over `--screenshot`/`--script`; briefs for such agents say so.
   graphics and voice; overseers with AI and guide state; stun/kill tag,
   `social`, `danger`, `carries`), every abstract object (and realized
   state), `orphan_emitters`, `triggers`, `music`, `holo_lights`, `session`,
-  `dens`, `quantified`, `flies_world`, `region_state`. Empty fields are left
+  `dens`, `quantified`, `flies_world`, `region_state`, `heavy_ai`. Empty fields are left
   out; the field list is in `crates/app/src/mcp/`. New sim state must be
   added there. `get_exits` lists the camera room's exits (entrance tile, the
   input that enters, destination room, arrival node, camera).

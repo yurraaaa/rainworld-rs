@@ -1,7 +1,7 @@
 //! A lizard taking and dealing damage: `Lizard.Violence` (the head shield, hits in the
 //! mouth, a rock's turn), `Stun`, `SpearStick`, `Creature.Die`; its bites (`AttemptBite`,
-//! `Bite`, `DamageAttack`, `JawsSnapShut`, `CarryObject`), which nothing calls until the
-//! AI decides (lizard step 7); the base `Creature.Violence` of what it bites; a thrown
+//! `Bite`, `DamageAttack`, `JawsSnapShut`, `CarryObject`), called by the AI's hunt and
+//! casual aggression (`game_lizard_hunt.rs`); the base `Creature.Violence` of what it bites; a thrown
 //! weapon's trace against collision layer 1 (`Weapon.Update` 81340) with
 //! `Rock.HitSomething` and `Spear.HitSomething`/`LodgeInCreature`, a spear stuck in a
 //! creature (`Spear.Update`'s `StuckInCreature` branch), the room's chunk glue and the

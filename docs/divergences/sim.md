@@ -558,7 +558,13 @@ second part, else a single-room world for arena levels). The campaign descriptio
   `LizardCommunication`'s dominance and submission voices and `MissionTracker`'s
   missions, so its utility is 0); picked, they are a stand-in that eases `runSpeed` to
   0 by half and keeps the destination, with no draws. The tongue branch of
-  `AggressiveBehavior` belongs to tongued breeds (none entered). The friend tracker
+  `AggressiveBehavior` belongs to tongued breeds (none entered). Left out with their
+  DLCs or features (step 7b): in `AggressiveBehavior`, Remix's friend bite
+  (`AttemptBite(null)` on a liked friend), DLCShared's SpitLizard jaw clamp, the
+  `safariControlled` early return and Watcher's `ApplyLocustDeterrent` in the tongue
+  clause; safari control in the Hunt body's blood-lust test (`!safariControlled`, the
+  draw is still made; the Flee body has no safari test of its own); More Slugcats' `LickedByPlayer` sighting at
+  the top of `Update`; Watcher's indigo lizard locust branch. The friend tracker
   (taming, skipped) has utility 0 and `CareAboutRain` true.
   It sees and tracks creatures (lizard step 6a, `creature-model.md` section 17):
   the `Tracker` with simple and elaborate representations and their ghosts,

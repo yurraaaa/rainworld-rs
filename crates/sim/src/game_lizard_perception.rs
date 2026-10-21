@@ -360,7 +360,7 @@ impl RainWorldGame {
 
     /// `Lizard.Collide`'s tracking: it sees the creature (`SeeCreature`), and touching a
     /// player it dislikes (and temporarily likes above -0.5) lowers its temporary like
-    /// by 0.05. A rival's anger (`AgressionTracker.IncrementAnger`) is lizard step 7.
+    /// by 0.05. A rival's anger (`AgressionTracker.IncrementAnger`) is lizard step 7c.
     pub(super) fn lizard_collide_tracking(&mut self, me: CreatureId, other: CreatureId) {
         let (mut t, mut rel) = self.take_lizard_perception(me);
         self.tracker_see_creature(me, &mut t, &mut rel, other);
