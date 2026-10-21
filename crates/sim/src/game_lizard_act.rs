@@ -1,15 +1,13 @@
-//! A realized lizard's AI and movement: the stand-in `LizardAI.Update` with the base
-//! `ArtificialIntelligence.Update` (its path finder, stuck and discomfort trackers),
-//! `Lizard.Act` (`FollowPath`, the movement animations, `FollowConnection`,
+//! A realized lizard's movement: `Lizard.Act` (its AI's update first, which is
+//! `game_lizard_ai.rs`) (`FollowPath`, the movement animations, `FollowConnection`,
 //! `GripPointBehavior`, `SwimBehavior`, `GetFrameSpeed`, the wiggle, desperation and
 //! shake), `ActAnimation`, `EnterAnimation`, and entering shortcuts (`Creature.Update`'s
 //! `enteringShortCut` branch, `SuckedIntoShortCut`, `ShortcutHandler.SuckInCreature`).
-//! Decompile: `Lizard.cs` 497-666 and 1730-2985, `LizardAI.cs` 755-1160,
-//! `ArtificialIntelligence.cs` 245-334, `Creature.cs` 635-690 and 1022-1070,
+//! Decompile: `Lizard.cs` 497-666 and 1730-2985, `Creature.cs` 635-690 and 1022-1070,
 //! `ShortcutHandler.cs` 365-380. Behaviour: `rainworld-re/notes/creature-model.md`
 //! section 14.
 //!
-//! Mirrors: Lizard.cs (Act), LizardAI.cs (Update), ArtificialIntelligence.cs (Update), Creature.cs
+//! Mirrors: Lizard.cs (Act), Creature.cs
 
 use std::sync::Arc;
 
@@ -70,7 +68,7 @@ impl ActRoom {
 impl crate::creature::Lizard {
     /// `PhysicalObject.IsTileSolid`: Solid, or a one-way floor below a chunk not going
     /// through floors.
-    fn is_tile_solid(&self, room: &Room, i: usize, dx: i32, dy: i32) -> bool {
+    pub(crate) fn is_tile_solid(&self, room: &Room, i: usize, dx: i32, dy: i32) -> bool {
         let (x, y) = self.body.chunks[i].pos.tile();
         match room.tile(x + dx, y + dy).terrain {
             Terrain::Solid => true,
@@ -89,92 +87,6 @@ impl RainWorldGame {
             map: r.ai_map.clone()?,
             water: r.water.clone(),
         })
-    }
-
-    /// `LizardAI.Update` as the stand-in runs it: the panic count down, the room clock,
-    /// the abstract AI's `AbstractBehavior(1)` (a realized creature's
-    /// `MigrationBehavior`) on a roll of `1 / LerpMap(RoomLike, 0.35, 1, 10, 1000)`
-    /// (red lizards 1/50), the social memory's temps evened out, walking past the point
-    /// of no return when stranded or the den is not getbackable, the jaw closing a
-    /// little, `runSpeed` at least the stuck tracker's utility, the hearing skill by it,
-    /// the casual aggression; then the base update: the room clock again and the modules
-    /// (the path finder, the tracker, the noise tracker, the relationship tracker, the
-    /// stuck tracker; the discomfort tracker has nothing to update). `DetermineBehavior` and the behaviours are lizard step 7.
-    pub(super) fn lizard_ai_update(&mut self, index: i32, id: CreatureId) {
-        let l = self.world.lizard_at(id);
-        if l.ai.panic > 0 {
-            l.ai.panic -= 1;
-        }
-        l.ai.time_in_room += 1;
-        let kind = self.world.creature(id).kind();
-        let chance = if kind == CreatureType::RedLizard {
-            50.0
-        } else {
-            self.lizard_room_like(index, id)
-                .lerp_map(0.35, 1.0, 10.0, 1000.0)
-        };
-        if self.rng.value() < 1.0 / chance {
-            self.world.realized_abstract_behavior(id, 1, &mut self.rng);
-        }
-        if let Some(m) = &mut self.world.creature_mut(id).state.social_memory {
-            m.even_out_all_temps(0.0005);
-        }
-        let pf = self.world.path_finder_of(id);
-        let den = self.world.den_position_of(id);
-        let stranded = self.world.lizard_ref(id).ai.stranded;
-        let walk_past = stranded
-            || den.is_none_or(|d| {
-                !pf.and_then(|p| self.world.path_finders.get(p))
-                    .is_some_and(|f| f.coordinate_possible_to_get_back_from(d))
-            });
-        if let Some(f) = pf.and_then(|p| self.world.path_finders.get_mut(p)) {
-            f.walk_past_point_of_no_return = walk_past;
-        }
-        // `fear`, `hunger` and `rainFear` are the smoothed utilities of trackers that
-        // track nothing until lizard step 6, so 0.
-        let l = self.world.lizard_at(id);
-        l.ai.excitement = l.ai.excitement.lerp(0.0, 0.1);
-        let holding = self.lizard_holding(id);
-        let l = self.world.lizard_at(id);
-        let jaw = l.read_jaw_open(holding) - 0.01;
-        l.set_jaw_open(jaw, holding);
-        // The behaviours that set `runSpeed` are lizard step 7: 0, or the dev override.
-        let base = l.ai.dev_run_speed.unwrap_or(0.0);
-        l.ai.run_speed = base.max(l.ai.stuck.utility());
-        l.ai.set_hearing_skill(kind);
-        self.lizard_casual_aggression(id);
-        self.world.lizard_at(id).ai.time_in_room += 1;
-        if let Some(p) = pf {
-            self.world
-                .with_path_finders(|pfs, w| pfs.update(p, w, &mut self.rng));
-        }
-        self.lizard_perception_update(id);
-        let pos = self.world.creature(id).pos;
-        let (dest, effectual) = pf
-            .and_then(|p| self.world.path_finders.get(p))
-            .map_or((pos, pos), |f| {
-                (f.get_destination(), f.get_effectual_destination())
-            });
-        self.world
-            .lizard_at(id)
-            .ai
-            .stuck
-            .update(pos, dest, effectual);
-    }
-
-    /// `LizardAI.RoomLike`: the room's size-dependent attraction, times 0.9 for each
-    /// other lizard in it (a friend's room, lizard step 7, would be 1).
-    fn lizard_room_like(&self, index: i32, id: CreatureId) -> f32 {
-        let kind = self.world.creature(id).kind();
-        let mut like = self.world.size_dependent_attraction(index, kind);
-        for &c in self.world.room_creatures(index) {
-            if c != id
-                && self.world.creature(c).template.top_ancestor() == CreatureType::LizardTemplate
-            {
-                like *= 0.9;
-            }
-        }
-        like
     }
 
     /// `Lizard.Act`: the AI's update; footing (time on allowed terrain, gravity until
@@ -350,24 +262,6 @@ impl RainWorldGame {
             self.lizard_follow_connection(&r, id, speed);
         }
         self.lizard_act_end(&r, id, head_ok, rest_ok);
-    }
-
-    /// A dev override (MCP `set_destination`): `AbstractCreatureAI.SetDestination` of a
-    /// realized lizard, and the run speed its AI keeps until set again (`None` returns it
-    /// to the stand-in's 0, which the stuck tracker's utility raises). Returns whether
-    /// `id` is a realized lizard.
-    pub fn dev_set_lizard_destination(
-        &mut self,
-        id: CreatureId,
-        dest: WorldCoordinate,
-        run_speed: Option<f32>,
-    ) -> bool {
-        if self.world.creature(id).lizard().is_none() {
-            return false;
-        }
-        self.world.lizard_at(id).ai.dev_run_speed = run_speed;
-        self.world.set_destination(id, dest, &mut self.rng);
-        true
     }
 
     /// `CoordinateReachableAndGetbackable` of path finder `pf`.
@@ -714,23 +608,17 @@ impl RainWorldGame {
         force: bool,
         focus: Option<Vec2>,
     ) {
-        let l = self.world.lizard_at(id);
-        if (!force && anim < l.animation) || l.animation == anim {
+        if !self.world.lizard_at(id).begin_animation(anim, force) {
             return;
         }
-        l.time_in_animation = 0;
-        l.animation = anim;
         let black = self.world.creature(id).kind() == CreatureType::BlackLizard;
         let room = self.lizard_room(id);
         let l = self.world.lizard_at(id);
         match anim {
             LizardAnimation::Standard => l.time_to_remain_in_animation = -1,
-            LizardAnimation::HearSound => {
-                l.time_to_remain_in_animation = 40;
-                l.bubble = 40;
-                l.bubble_intensity = 0.1;
-                if !black {
-                    self.lizard_voice(id, LizardEmotion::Curious);
+            LizardAnimation::HearSound | LizardAnimation::PreyReSpotted => {
+                if let Some(e) = l.cue_animation(anim, black) {
+                    self.lizard_voice(id, e);
                 }
             }
             LizardAnimation::PreySpotted => {
@@ -738,15 +626,6 @@ impl RainWorldGame {
                 l.bubble_intensity = 1.0;
                 l.time_to_remain_in_animation = 30;
                 self.lizard_voice(id, LizardEmotion::SpottedPreyFirstTime);
-            }
-            LizardAnimation::PreyReSpotted => {
-                l.bubble = 10;
-                l.bubble_intensity = 0.4;
-                l.time_to_remain_in_animation = 10;
-                // A yellow lizard's pack voices are its breed's (not entered yet).
-                if !black {
-                    self.lizard_voice(id, LizardEmotion::ReSpottedPrey);
-                }
             }
             LizardAnimation::ThreatSpotted => {
                 l.bubble_intensity = 1.0;

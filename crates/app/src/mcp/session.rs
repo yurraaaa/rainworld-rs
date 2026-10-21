@@ -40,9 +40,11 @@ use super::reply::{
     StepTrace, StoryInfo, TextPromptState, TokenState, WeaponInfo,
 };
 use super::reply::{
-    ConnectionInfo, CoordInfo, DynamicRelationshipInfo, GhostInfo, HeardNoiseInfo,
-    LizardCosmeticInfo, LizardGraphicsInfo, LizardLimbInfo, LizardMoveInfo, LizardVoiceInfo,
-    MovementAnimationInfo, NoiseSourceInfo, NoiseTrackerInfo, TrackedCreatureInfo, VesselInfo,
+    AgressionTrackerInfo, ConnectionInfo, CoordInfo, DynamicRelationshipInfo, GhostInfo,
+    HeardNoiseInfo, LizardCosmeticInfo, LizardDecisionInfo, LizardGraphicsInfo, LizardLimbInfo,
+    LizardMoveInfo, LizardVoiceInfo, MovementAnimationInfo, NoiseSourceInfo, NoiseTrackerInfo,
+    PreyTrackerInfo, ThreatTrackerInfo, TrackedCreatureInfo, TrackedPreyInfo, UtilityInfo,
+    VesselInfo,
 };
 use super::reply::{DangerInfo, HoloLightState, LightSourceState, MusicState, TriggerState};
 use super::reply::{
@@ -407,6 +409,15 @@ impl Session {
             .find(|(_, c)| c.id.spawner == spawner && c.id.number == number)
             .map(|(id, _)| id)
             .ok_or_else(|| format!("no creature {spawner}.{number}"))?;
+        if params.release {
+            if !sim.dev_release_lizard(id) {
+                return Err(format!("{spawner}.{number} is not a realized lizard"));
+            }
+            return self.state();
+        }
+        let (Some(x), Some(y)) = (params.x, params.y) else {
+            return Err("x and y are required unless release".to_owned());
+        };
         let room = match &params.room {
             Some(name) => sim
                 .world()
@@ -414,7 +425,7 @@ impl Session {
                 .ok_or_else(|| format!("no room {name}"))?,
             None => sim.world().creature(id).pos.room,
         };
-        let dest = WorldCoordinate::new(room, params.x, params.y, -1);
+        let dest = WorldCoordinate::new(room, x, y, -1);
         let speed = Some(params.run_speed.unwrap_or(0.5));
         if !sim.dev_set_lizard_destination(id, dest, speed) {
             return Err(format!("{spawner}.{number} is not a realized lizard"));
@@ -883,6 +894,7 @@ impl Session {
                 })
                 .collect(),
             movement: Self::lizard_move_info(scene, id, l),
+            decision: Self::lizard_decision_info(scene, id, l),
             tracker: scene
                 .game()
                 .sim()
@@ -1148,6 +1160,115 @@ impl Session {
             stuck_utility: l.ai.stuck.utility(),
             entering_shortcut: l.entering_shortcut.map(|t| [t.0, t.1]),
             vessel,
+        }
+    }
+
+    /// The EntityID of the creature lizard `l`'s representation `k` stands for.
+    fn rep_entity(
+        scene: &Scene,
+        l: &Lizard,
+        k: Option<rw_sim::creature::RepKey>,
+    ) -> Option<[i32; 2]> {
+        k.and_then(|k| l.ai.tracker.rep(k))
+            .map(|r| Self::entity_id(scene, r.creature))
+    }
+
+    fn lizard_decision_info(scene: &Scene, id: CreatureId, l: &Lizard) -> LizardDecisionInfo {
+        let sim = scene.game().sim();
+        let world = sim.world();
+        let c = world.creature(id);
+        let ai = &l.ai;
+        let readings = sim.lizard_utility_readings(id);
+        let abs = c.ai.as_ref();
+        LizardDecisionInfo {
+            behavior: ai.behavior.value().to_owned(),
+            current_utility: ai.current_utility,
+            highest: readings
+                .as_ref()
+                .and_then(|r| r.highest)
+                .map(|m| m.value().to_owned()),
+            highest_utility: readings.as_ref().map_or(0.0, |r| r.highest_utility),
+            utilities: readings
+                .as_ref()
+                .map(|r| {
+                    r.modules
+                        .iter()
+                        .map(|&(m, utility, weight)| UtilityInfo {
+                            module: m.value().to_owned(),
+                            utility,
+                            weight,
+                        })
+                        .collect()
+                })
+                .unwrap_or_default(),
+            travel_utility: readings.as_ref().map_or(0.0, |r| r.travel),
+            fear: ai.fear,
+            hunger: ai.hunger,
+            rain_fear: ai.rain_fear,
+            excitement: ai.excitement,
+            panic: ai.panic,
+            last_distress_length: ai.last_distress_length,
+            destination: Self::coord_info(scene, abs.map_or(c.pos, |a| a.destination)),
+            idle_counter: ai.idle_counter,
+            idle_restlessness: ai.idle_restlessness,
+            idle_spot_win_streak: ai.idle_spot_win_streak,
+            unable_to_find_comfortable_position: ai.unable_to_find_comfortable_position,
+            forbidden_idle_spot: Self::coord_info(scene, ai.forbidden_idle_spot),
+            den: abs
+                .and_then(|a| a.den_position)
+                .map(|d| Self::coord_info(scene, d)),
+            den_finder: ai.den_finder.status.value().to_owned(),
+            den_search_updates_left: ai.den_finder.search.as_ref().map(|s| s.updates_left),
+            focus_creature: Self::rep_entity(scene, l, ai.focus_creature),
+            prey: PreyTrackerInfo {
+                current: Self::rep_entity(scene, l, ai.prey.current),
+                frustration: ai.prey.frustration,
+                prey: ai
+                    .prey
+                    .prey
+                    .iter()
+                    .map(|p| TrackedPreyInfo {
+                        id: Self::rep_entity(scene, l, Some(p.rep)),
+                        unreachable_counter: p.unreachable_counter,
+                        at_position_but_cant_see_counter: p.at_position_but_cant_see_counter,
+                    })
+                    .collect(),
+            },
+            threat: ThreatTrackerInfo {
+                current_threat: ai.threat.current_threat,
+                utility: ai.threat.utility(),
+                most_threatening: Self::rep_entity(scene, l, ai.threat.most_threatening),
+                reset_counter: ai.threat.reset_counter,
+                creatures: ai
+                    .threat
+                    .creatures
+                    .iter()
+                    .map(|t| (Self::rep_entity(scene, l, Some(t.rep)), t.severity))
+                    .collect(),
+                points: ai
+                    .threat
+                    .points
+                    .iter()
+                    .map(|p| ([p.pos.tile.0, p.pos.tile.1], p.severity))
+                    .collect(),
+            },
+            agression: AgressionTrackerInfo {
+                highest_anger: ai.agression.highest_anger,
+                target: Self::rep_entity(scene, l, ai.agression.highest_target),
+                creatures: ai
+                    .agression
+                    .creatures
+                    .iter()
+                    .map(|a| {
+                        (
+                            Self::rep_entity(scene, l, Some(a.rep)),
+                            a.anger,
+                            a.base_anger,
+                        )
+                    })
+                    .collect(),
+            },
+            injury: rw_sim::creature::lizard::LizardAi::injury_utility(c.state.health),
         }
     }
 

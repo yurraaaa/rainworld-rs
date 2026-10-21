@@ -30,12 +30,16 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   - `rw-menu`'s `font_test.rs` (port-only screen) stays for now.
 
 ## Waiting for the user's answer
-- **Lizard step 7 go-ahead.** Split and order agreed (user, 2026-10-21): 7a (trackers,
-  utility comparer, den finder, the calm behaviours, `runSpeed`: lizards walk), 7b (Hunt,
-  Flee, aggression, lounge, `RequestHeavyAi`), step 8 (player side: grabbed, bitten,
-  `GameOver(grasp)`), 7c (lizard fights, communication, missions), then the player
-  picking up, carrying and eating dead or stunned lizards as its own step, then step 9.
-  Details in `../rainworld-re/surveys/lizards.md` (user decisions).
+- **Lizard steps 7b and 7c** (7a done: trackers, utility comparer, den finder with
+  `NewArea`'s remap, `DetermineBehavior`, the Idle, Travelling, EscapeRain,
+  ReturnPrey, Injured, Frustrated and InvestigateSound bodies, `ReactToNoise`, the
+  threat travel terms; `rainworld-re/notes/lizard-ai.md`): 7b Hunt and Flee bodies,
+  `AggressiveBehavior`, the lounge decision, `RequestHeavyAi`, the spotted look's
+  favour, the flee `lookPos`, the social events' fear branch; 7c Fighting, rivalry,
+  `LizardCommunication`, `MissionTracker`. Go-ahead for each. Order agreed (user,
+  2026-10-21): 7b, step 8 (player side: grabbed, bitten, `GameOver(grasp)`), 7c, then
+  the player picking up, carrying and eating dead or stunned lizards as its own step,
+  then step 9. Details in `../rainworld-re/surveys/lizards.md` (user decisions).
 
 ## To look into
 - **Loop emitters when a room abstractizes** (2026-10-17): a swallowed rock's loop now

@@ -76,17 +76,10 @@ impl World {
         self.path_finder(id).is_some_and(|f| f.mapper.is_some())
     }
 
-    /// `ArtificialIntelligence.NewArea`: the AI is stranded or not. The den finder's
-    /// remapping is lizard step 7.
-    pub(crate) fn ai_new_area(&mut self, id: CreatureId, stranded: bool) {
-        if let Some(l) = self.creature_mut(id).lizard_mut() {
-            l.ai.stranded = stranded;
-        }
-    }
-
     /// `AbstractCreature.Realize` of a lizard: the body (the constructor's `effectColor`
     /// makes no net draw), no kill tag, a grasp per template grasp, then `InitiateAI`
-    /// (the `LizardPather`'s cells draw twice each) and every stuck object realized.
+    /// (the `LizardPather`'s cells draw twice each; the den finder, without a den,
+    /// defines the creature's node) and every stuck object realized.
     /// False for a breed without data.
     pub(crate) fn realize_lizard(&mut self, id: CreatureId, rng: &mut UnityRandom) -> bool {
         let c = self.creature(id);
@@ -110,6 +103,10 @@ impl World {
         let pf = self.with_path_finders(|pfs, w| pfs.create(w, id, kind, rng));
         if let Some(l) = self.creature_mut(id).lizard_mut() {
             l.ai.path_finder = Some(pf);
+        }
+        // The `DenFinder` constructor, after the pather's: without a den it maps.
+        if self.ai_of(id).is_some_and(|a| a.den_position.is_none()) {
+            self.den_finder_reset_mapping(id, false, rng);
         }
         for s in self.creature(id).sticks.clone() {
             for other in [Some(s.a), s.b.creature()].into_iter().flatten() {
@@ -442,9 +439,10 @@ impl World {
     }
 
     /// `Creature.NewRoom`: the AI's `NewRoom`, then 40 ticks of `newToRoomInvinsibility`.
-    /// `LizardAI.NewRoom` zeroes its room clock; the base, in a room other than the
-    /// last, resets the path finder to the room, empties the noise tracker and clears the
-    /// stuck tracker's move log,
+    /// `LizardAI.NewRoom` zeroes its own room clock; the base, in a room other than the
+    /// last, zeroes its clock, resets the path finder to the room, empties the noise
+    /// tracker, gives the threat tracker the room's map and a random node to flee to (a
+    /// draw), clears the stuck tracker's move log,
     /// and an abstract destination in this room without a tile gets a random tile of it
     /// (two draws).
     pub(crate) fn lizard_new_room(&mut self, id: CreatureId, cx: &mut LizardRoomCx<'_>) {
@@ -456,7 +454,7 @@ impl World {
             self.lizard_at(id).new_to_room_invinsibility = 40;
             return;
         };
-        l.ai.time_in_room = 0;
+        l.ai.lizard_time_in_room = 0;
         if l.ai.last_room != room {
             l.ai.last_room = room;
             l.ai.time_in_room = 0;
@@ -464,6 +462,7 @@ impl World {
                 self.with_path_finders(|pfs, w| pfs.new_room(pf, w, room, cx.rng));
             }
             self.noise_tracker_new_room(id, room);
+            self.threat_tracker_new_room(id, room, cx.rng);
             self.lizard_at(id).ai.stuck.new_room();
             let dest = self.ai_of(id).map(|a| a.destination);
             if let Some(dest) = dest

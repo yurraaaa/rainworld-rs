@@ -90,14 +90,15 @@ colour layer and the five head sprites, in `AddToContainer`'s order, coloured as
   `voiceVisualization` itself is computed in the sim (D12).
 - **Left out until their step, breed or DLC** (user, 2026-10-16): objects held in the
   jaws (`AddObjectToInternalContainer`, `ReleaseAllInternallyContainedSprites`; lizard
-  step 8), the AI's own `MakeSound` calls (step 7), the yellow pack's `PreyReSpotted`
+  step 8), the AI's own `MakeSound` calls of Hunt and the lizards' communication (steps
+  7b, 7c; boredom, pain, frustration and the small noise are ported), the yellow pack's `PreyReSpotted`
   voice and other breeds' colour paths (white camouflage and so on; with those breeds),
   More Slugcats' rot voices, Remix's Love voice and safari-control voices (with those
   DLCs).
 - **The AI's looks** (lizard step 6a). The looker picks among the tracked creatures,
   the look position follows the one looked at (where it is seen, else its best
   guessed tile), the eye beams follow how well it is seen, and `CreatureSpotted`
-  reevaluates the looker and flashes an eye. Until lizard step 7: the spotted
+  reevaluates the looker and flashes an eye. Until lizard step 7b: the spotted
   animations' reevaluation favours no creature (the game favours the prey tracker's
   `MostAttractivePrey` or the threat tracker's `mostThreateningCreature`), and the
   fleeing `lookPos` (behaviour `Flee`) is never reached. The looker's state lives in

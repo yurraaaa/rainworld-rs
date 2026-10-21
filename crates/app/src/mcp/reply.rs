@@ -356,6 +356,8 @@ pub struct LizardInfo {
     pub spears: Vec<([i32; 2], usize)>,
     /// Its AI and movement.
     pub movement: LizardMoveInfo,
+    /// Its AI's behaviour and what decides it.
+    pub decision: LizardDecisionInfo,
     /// Its AI's tracker (`Tracker.creatures`, in order).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub tracker: Vec<TrackedCreatureInfo>,
@@ -559,6 +561,88 @@ pub struct LizardLimbInfo {
     pub reaching_for_terrain: bool,
     pub currently_disabled: bool,
     pub flip: f32,
+}
+
+/// A lizard AI's behaviour (`DetermineBehavior`) and its modules.
+#[derive(Debug, Clone, Serialize)]
+pub struct LizardDecisionInfo {
+    pub behavior: String,
+    /// `currentUtility`, the utility comparer's highest module and utility now.
+    pub current_utility: f32,
+    pub highest: Option<String>,
+    pub highest_utility: f32,
+    /// Each compared module's smoothed (weighted) utility and weight, in order.
+    pub utilities: Vec<UtilityInfo>,
+    /// `TravelUtility`.
+    pub travel_utility: f32,
+    pub fear: f32,
+    pub hunger: f32,
+    pub rain_fear: f32,
+    pub excitement: f32,
+    pub panic: i32,
+    pub last_distress_length: i32,
+    /// The abstract AI's destination (the idle spot while idle).
+    pub destination: CoordInfo,
+    pub idle_counter: i32,
+    pub idle_restlessness: i32,
+    pub idle_spot_win_streak: i32,
+    pub unable_to_find_comfortable_position: i32,
+    pub forbidden_idle_spot: CoordInfo,
+    /// The abstract AI's `denPosition` and the den finder's status.
+    pub den: Option<CoordInfo>,
+    pub den_finder: String,
+    pub den_search_updates_left: Option<i32>,
+    /// `focusCreature`, by EntityID.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub focus_creature: Option<[i32; 2]>,
+    pub prey: PreyTrackerInfo,
+    pub threat: ThreatTrackerInfo,
+    pub agression: AgressionTrackerInfo,
+    /// `LizardInjuryTracker.Utility()`.
+    pub injury: f32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct UtilityInfo {
+    pub module: String,
+    pub utility: f32,
+    pub weight: f32,
+}
+
+/// `PreyTracker`: the current prey, frustration and each prey (by EntityID).
+#[derive(Debug, Clone, Serialize)]
+pub struct PreyTrackerInfo {
+    pub current: Option<[i32; 2]>,
+    pub frustration: f32,
+    pub prey: Vec<TrackedPreyInfo>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TrackedPreyInfo {
+    pub id: Option<[i32; 2]>,
+    pub unreachable_counter: i32,
+    pub at_position_but_cant_see_counter: i32,
+}
+
+/// `ThreatTracker`: its threat, the most threatening creature, the threat creatures
+/// (EntityID, severity) and points (tile, severity).
+#[derive(Debug, Clone, Serialize)]
+pub struct ThreatTrackerInfo {
+    pub current_threat: f32,
+    pub utility: f32,
+    pub most_threatening: Option<[i32; 2]>,
+    pub reset_counter: i32,
+    pub creatures: Vec<(Option<[i32; 2]>, f32)>,
+    pub points: Vec<([i32; 2], f32)>,
+}
+
+/// `AgressionTracker`: the angriest anger and target, each anger (EntityID, anger,
+/// base anger).
+#[derive(Debug, Clone, Serialize)]
+pub struct AgressionTrackerInfo {
+    pub highest_anger: f32,
+    pub target: Option<[i32; 2]>,
+    pub creatures: Vec<(Option<[i32; 2]>, f32, f32)>,
 }
 
 /// A realized lizard's path finder, stuck tracker and movement.

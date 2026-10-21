@@ -217,8 +217,9 @@ impl Server {
         realized; roaming creatures' abstract AI: destination, path, migration destination, den, \
         time buffer, den counter and followed creature; overseers' destination, guide state, \
         last rooms and tiles; realized lizards' body, path finder, movement and shortcut \
-        travel, tracker, relationships, casual aggression target and their graphics' look \
-        creature; social memory; what grip sticks carry); the \
+        travel, AI decision (behaviour, utilities, moods, idle spot, den, prey, threat and \
+        aggression trackers, injury), tracker, relationships, casual aggression target and \
+        their graphics' look creature; social memory; what grip sticks carry); the \
         world's rocks and spears (kind, ID, room, node, tile, a spear's \
         stuck-in-wall cycles and explosive flag; realized ones' room, position, \
         velocity, mode, rotation and collision layer); each room's den contents and \
@@ -243,7 +244,9 @@ impl Server {
     #[tool(
         description = "Dev override: set a realized lizard's destination (room, default \
         its own, and tile) as AbstractCreatureAI.SetDestination does, and the run speed its \
-        AI keeps (default 0.5) while the behaviours that set it are not ported."
+        AI keeps (default 0.5); the AI's behaviours stop setting run speed and destination \
+        while the override holds (it still decides its behaviour). `release: true` ends \
+        the override so the behaviours drive run speed and destination again."
     )]
     fn set_destination(
         &self,

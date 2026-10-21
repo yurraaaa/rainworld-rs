@@ -55,7 +55,7 @@ impl PatherKind {
     /// discomfort: the breed's terrain taste, green +10 into narrow spaces, blue
     /// `30 - 3 * floorAltitude` (0-10), pink `2 * floorAltitude`, a swimmer +5 out of
     /// water. The obstacle warning reads an `ObstacleTracker`, which no base-game AI
-    /// makes (0); the threat terms read the threat tracker and the fear (lizard step 7);
+    /// makes (0); the threat terms are [`crate::world::World::lizard_threat_travel_cost`];
     /// the yellow lizard's `YellowAI` is not ported.
     pub(crate) fn travel_preference(
         self,

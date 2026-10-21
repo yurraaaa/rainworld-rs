@@ -821,11 +821,13 @@ impl RainWorldGame {
                 .sticks
                 .iter()
                 .any(|s| s.a == c || s.b == crate::item::Entity::Creature(c));
-        let mut rep = self.create_tracker_rep(ai, t, c, &body);
+        let rep = self.create_tracker_rep(ai, t, c, &body);
         self.ai_creature_spotted(ai, !stuck, &rep, t);
-        self.establish_dynamic_relationship(ai, rel, &mut rep);
         let key = rep.key;
+        // The game relates to it before listing it; the modules it is sorted into
+        // find it by key either way.
         t.reps.push(rep);
+        self.establish_dynamic_relationship(ai, t, rel, key);
         if t.reps.len() > t.max_tracked_creatures as usize {
             let ai_tile = self.ai_pos(ai).tile;
             let mut least = f32::MAX;
@@ -859,21 +861,30 @@ impl RainWorldGame {
 
     /// `RelationshipTracker.EstablishDynamicRelationship(rep)`: unless the AI does not
     /// track it or already relates to it, a relationship starting from the static one,
-    /// sorted into its module, with the AI's state for it.
+    /// sorted into its module (before the representation has it), with the AI's state
+    /// for it.
     fn establish_dynamic_relationship(
-        &self,
+        &mut self,
         ai: CreatureId,
+        t: &mut Tracker,
         rel: &mut RelationshipTracker,
-        rep: &mut CreatureRep,
+        key: RepKey,
     ) {
-        let initial = self.world.static_relationship(ai, rep.creature);
-        if initial.kind == RelationshipType::DoesntTrack || rel.relationships.contains(&rep.key) {
+        let Some(c) = t.rep(key).map(|r| r.creature) else {
+            return;
+        };
+        let initial = self.world.static_relationship(ai, c);
+        if initial.kind == RelationshipType::DoesntTrack || rel.relationships.contains(&key) {
             return;
         }
-        let module = self.ai_module_to_track(ai, initial);
-        let state = self.ai_tracked_creature_state(ai, rep.creature);
-        rep.dynamic_relationship = Some(DynamicRelationship::new(initial, module, state));
-        rel.relationships.push(rep.key);
+        let module = self
+            .world
+            .sort_creature_into_module(ai, t, rel, key, None, initial);
+        let state = self.ai_tracked_creature_state(ai, c);
+        if let Some(r) = t.rep_mut(key) {
+            r.dynamic_relationship = Some(DynamicRelationship::new(initial, module, state));
+        }
+        rel.relationships.push(key);
     }
 
     /// `RelationshipTracker.Update`: relationships whose representation is deleted go,
@@ -886,47 +897,38 @@ impl RainWorldGame {
         rel: &mut RelationshipTracker,
     ) {
         for n in (0..rel.relationships.len()).rev() {
-            let key = rel.relationships[n];
+            // A module change may have forgotten relationships above `n`.
+            let Some(&key) = rel.relationships.get(n) else {
+                continue;
+            };
             let Some(i) = t.index_of(key).filter(|&i| !t.reps[i].delete_me_next_frame) else {
                 rel.relationships.remove(n);
                 continue;
             };
             let new = self.ai_update_dynamic_relationship(ai, t, i);
-            let module = self.ai_module_to_track(ai, new);
-            let mut forget = None;
-            let c = t.reps[i].creature;
-            if let Some(d) = &mut t.reps[i].dynamic_relationship {
-                if new.kind != d.current.kind && d.tracked_by_module != module {
+            let Some(d) = t.reps[i].dynamic_relationship.as_ref() else {
+                continue;
+            };
+            let (old_kind, old_module) = (d.current.kind, d.tracked_by_module);
+            if new.kind != old_kind {
+                let module = self
+                    .world
+                    .sort_creature_into_module(ai, t, rel, key, old_module, new);
+                if let Some(d) = t.rep_mut(key).and_then(|r| r.dynamic_relationship.as_mut()) {
                     d.tracked_by_module = module;
-                    if new.kind == RelationshipType::DoesntTrack {
-                        forget = Some(c);
-                    }
                 }
-                let weight = d.tracked_by_module_weight;
-                d.current = new;
-                t.reps[i].priority = new.intensity * weight;
             }
-            if let Some(c) = forget {
-                Self::forget_and_stop_tracking(t, rel, c);
-            }
-        }
-    }
-
-    /// `ForgetCreatureAndStopTracking`: its representations destroyed and its
-    /// relationships dropped.
-    fn forget_and_stop_tracking(t: &mut Tracker, rel: &mut RelationshipTracker, c: CreatureId) {
-        let keys: Vec<RepKey> = t
-            .reps
-            .iter()
-            .filter(|r| r.creature == c)
-            .map(|r| r.key)
-            .collect();
-        for k in &keys {
-            if let Some(r) = t.rep_mut(*k) {
-                r.destroy();
+            if let Some(r) = t.rep_mut(key) {
+                let weight = r
+                    .dynamic_relationship
+                    .as_ref()
+                    .map_or(1.0, |d| d.tracked_by_module_weight);
+                r.priority = new.intensity * weight;
+                if let Some(d) = &mut r.dynamic_relationship {
+                    d.current = new;
+                }
             }
         }
-        rel.relationships.retain(|k| !keys.contains(k));
     }
 
     /// The listed representations and the dropped ones still held, for the looker,

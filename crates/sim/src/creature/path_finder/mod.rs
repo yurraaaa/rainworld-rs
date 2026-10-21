@@ -786,8 +786,10 @@ impl PathFinder {
     }
 
     /// `ArtificialIntelligence.TravelPreference`: a destination tile the AI is
-    /// uncomfortable on costs 10 times its discomfort (unwanted above 0.75); then the
-    /// breed's own preference.
+    /// uncomfortable on costs 10 times its discomfort (unwanted above 0.75); then
+    /// `LizardAI`'s threat terms (while it senses a threat, `threat^3 * 2 * fear^0.5`
+    /// of the destination tile; afraid above 0.2, 100 for a drop into a more
+    /// threatened area) and the breed's own preference.
     fn travel_preference(
         &self,
         world: &World,
@@ -804,6 +806,7 @@ impl PathFinder {
                 cost.resistance += num * 10.0;
             }
         }
+        let cost = world.lizard_threat_travel_cost(self.creature, connection, cost);
         self.kind.travel_preference(map, connection, cost)
     }
 
@@ -1386,7 +1389,7 @@ impl PathFinder {
 }
 
 /// `Custom.eightDirectionsAndZero`.
-const EIGHT_DIRECTIONS_AND_ZERO: [(i32, i32); 9] = [
+pub(crate) const EIGHT_DIRECTIONS_AND_ZERO: [(i32, i32); 9] = [
     (0, 0),
     (-1, 0),
     (-1, -1),

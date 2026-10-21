@@ -17,10 +17,15 @@ impl RainWorldGame {
             (c.kind(), c.id.random_seed())
         };
         let table = Arc::clone(self.sounds.table());
-        self.world
-            .lizard_at(id)
+        let l = self.world.lizard_at(id);
+        let pending = std::mem::take(&mut l.pending_voice);
+        let v = l
             .voice
-            .get_or_insert_with(|| LizardVoice::new(kind, seed, &table))
+            .get_or_insert_with(|| LizardVoice::new(kind, seed, &table));
+        for s in pending {
+            v.make_sound_with(s.emotion, s.intensity, s.conscious, s.holding);
+        }
+        v
     }
 
     /// `voice.MakeSound(emotion)`: the intensity's draw, then the sound.

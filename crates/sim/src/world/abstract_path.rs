@@ -368,11 +368,27 @@ impl AbstractSpaceNodeFinder<'_> {
     /// `ReturnPathToClosest` after running from `pos`: the goal first, `pos`'s node last.
     /// The constructor's `DefineNodeOfLocalCoordinate` is the caller's.
     pub fn run(&self, pos: WorldCoordinate, rng: &mut UnityRandom) -> Option<Vec<WorldCoordinate>> {
+        self.run_counted(pos, rng).0
+    }
+
+    /// [`Self::run`] and how many of the game's `Update`s it takes to finish: one per
+    /// node flooded (one more to fail) and one per step back along the path; a start on
+    /// a goal finishes on the first. Only a cost flood (no draws) may be run ahead of
+    /// those updates.
+    pub fn run_counted(
+        &self,
+        pos: WorldCoordinate,
+        rng: &mut UnityRandom,
+    ) -> (Option<Vec<WorldCoordinate>>, i32) {
         let world = self.world;
         let t = self.template;
         if self.is_goal(pos) {
-            return Some(vec![WorldCoordinate::new(pos.room, -1, -1, pos.node)]);
+            return (
+                Some(vec![WorldCoordinate::new(pos.room, -1, -1, pos.node)]),
+                1,
+            );
         }
+        let mut updates = 0;
         let mut nodes = vec![SearchNode {
             pos,
             parent: None,
@@ -381,8 +397,9 @@ impl AbstractSpaceNodeFinder<'_> {
         let mut queue = vec![0usize];
         let mut checked = Checked::new(world);
         loop {
+            updates += 1;
             if queue.is_empty() {
-                return None;
+                return (None, updates);
             }
             let pick = match self.flood_method {
                 FloodMethod::Cost => {
@@ -494,7 +511,8 @@ impl AbstractSpaceNodeFinder<'_> {
                     n = p;
                     path.push(nodes[n].pos);
                 }
-                return Some(path);
+                let steps = i32::try_from(path.len()).unwrap_or(i32::MAX);
+                return (Some(path), updates + steps);
             }
         }
     }

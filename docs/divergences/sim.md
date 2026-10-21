@@ -46,7 +46,7 @@ apply to `HeavyCarry` objects only, which no ported object is.
   section 12), and of collision layer 1, the green lizards (`HitSomething`, `Violence`,
   `LodgeInCreature`, `StuckInCreature`; D14). `SocialEventRecognizer.WeaponAttack`
   breaks the peaceful record and tells the room's lizards (hits and near misses,
-  `creature-model.md` section 18); their other reactions are lizard step 7. Adrenaline's
+  `creature-model.md` section 18); the fear branch of their reaction is lizard step 7b. Adrenaline's
   throw force (`Lerp(1, 1.5, Adrenaline)`) is 1 (adrenaline is skipped for now, a user
   decision of 2026-10-16). Remix and More Slugcats branches
   (Gourmand, Saint, Spearmaster, Rivulet's upward throw, the MMF slow-spear and
@@ -439,10 +439,11 @@ second part, else a single-room world for arena levels). The campaign descriptio
   timing (`offScreenSpeed * offscreenSpeedFac`, the room's connection lengths and the
   shortcuts' tube lengths) and stuck jump, `SetDestination`/`FindPath`,
   `AbstractSpacePathFinder`, `GoToDen` with `AbstractSpaceNodeFinder`, `Moved` and
-  `OpportunityToEnterDen` (rainworld-re `creature-model.md` §10). Lizards do not flee
-  the rain: there is no rain yet, and the realized `EscapeRain` behaviour waits for it
-  (the user's decision); abstractly a lizard only goes into a den it passes once the
-  rain is within 60 s, as in the game. Following through the social memory
+  `OpportunityToEnterDen` (rainworld-re `creature-model.md` §10). No rain falls yet,
+  but the cycle's timer runs, and lizards go home before the rain as in the game (user
+  decision 2026-10-21): the realized `RainTracker` reads `TimeUntilRain` and the
+  `EscapeRain` behaviour heads for the den in the cycle's last 4000 ticks; abstractly a
+  lizard goes into a den it passes once the rain is within 60 s. Following through the social memory
   (`CreatureState.socialMemory`, `creature/social_memory.rs`) is ported: with no
   follow creature, `MigrationBehavior` draws one relationship and a like or hate above
   0.95 follows that creature (searched in the rooms' `creatures`, not dens); a followed
@@ -537,14 +538,20 @@ second part, else a single-room world for arena levels). The campaign descriptio
   `GripPointBehavior`, `SwimBehavior`, `GetFrameSpeed`, the wiggle, desperation and
   shake, `ActAnimation`'s and `EnterAnimation`'s physics, entering shortcuts and riding
   them as a three-segment vessel (NPC transport included) into realized and abstract
-  rooms. Its `LizardAI` is a stand-in until step 7: its `Update` counts the panic and
-  the room time down and up, rolls the abstract AI's `AbstractBehavior` (a realized
-  creature's `MigrationBehavior`) at `1 / LerpMap(RoomLike, 0.35, 1, 10, 1000)`, evens
-  out the social memory's temps, walks past the point of no return when stranded or
-  its den is not reachable and back, closes the jaw a little and keeps `runSpeed` at the
-  stuck tracker's utility (0 while it is not stuck; the behaviours that set it are step
-  7); `NewRoom` sets a random tile of the new room as the destination. So a realized
-  lizard follows its abstract AI's destinations and migrations and otherwise stands.
+  rooms. Its `LizardAI` decides as the game's (lizard step 7a, `rainworld-re`
+  `notes/lizard-ai.md`): `Update` with the moods from the `UtilityComparer`,
+  `DetermineBehavior` over the threat, prey, rain, injury, aggression, mission and
+  noise trackers, the `DenFinder` (with `NewArea`'s remap), and the bodies of Idle
+  (`IdleSpotScore`, `ComfortableIdlePosition`), Travelling, EscapeRain, ReturnPrey,
+  Injured, Frustrated and InvestigateSound with their `runSpeed`, draws and voices
+  (boredom, pain, frustration), `ReactToNoise`, and `WantToStayInDenUntilEndOfCycle`.
+  Not yet, with their steps: the bodies of Hunt and Flee (7b: `AggressiveBehavior`,
+  the lounge, `FleeTo`, the blood-lust voice, the spotted look's favour) and of
+  Fighting and ActingOutMission (7c, with `LizardCommunication`'s dominance and
+  submission voices and `MissionTracker`'s missions, so its utility is 0); picked,
+  they are a stand-in that eases `runSpeed` to 0 by half and keeps the destination,
+  with no draws. Flee's `RequestHeavyAi` gate (7b) is not applied (the update always
+  runs). The friend tracker (taming, skipped) has utility 0 and `CareAboutRain` true.
   It sees and tracks creatures (lizard step 6a, `creature-model.md` section 17):
   the `Tracker` with simple and elaborate representations and their ghosts,
   `VisualContact` with `LizardAI.VisualScore` (the breed's vision, water, narrow
@@ -553,11 +560,10 @@ second part, else a single-room world for arena levels). The campaign descriptio
   `UpdateDynamicRelationship` (a slugcat by `LikeOfPlayer`: the region's lizard
   community opinion, spawn evil and the temporary like; the spear it holds), and the
   casual aggression that bites a target in reach. The relationship tracker sorts each
-  relationship into the module that would track it, but the prey, threat and
-  aggression trackers are step 7, so nothing reads it yet. Left out of step 6a, each
+  relationship into the prey, threat or aggression tracker (step 7a). Left out of step 6a, each
   a question to the user: what blinds (`Blinded`, flashes) and the vision obscurers
   (`VisionObscurer` objects), `useTrackedCreatures` (no base lizard sets it), the
-  aggression tracker's anger on touching a rival (`IncrementAnger`, step 7), gifts and
+  aggression tracker's anger on touching a rival (`IncrementAnger`, step 7c), gifts and
   taming (`FriendTracker`, skipped), the black lizard's `HeadLightsUpFromNoise` and the
   white lizard's camouflage in `VisibilityBonus` (with those breeds), and the Remix,
   Jolly (`friendlyLizards`), Expedition, More Slugcats and Watcher branches of
@@ -571,30 +577,30 @@ second part, else a single-room world for arena levels). The campaign descriptio
   (`BodyChunk.loudness`, the player's from `Sneak`); `SocialEventRecognizer`'s
   `Killing` and `WeaponAttack` (hits and near misses) change its and its community's
   like of the player (`LizardPlayerRelationChange`); the path finder's
-  `TravelPreference` adds `DiscomfortOfTile`. Nothing reacts to what it hears yet
-  (`ReactToNoise`, `InvestigateSound`: step 7). Left out of step 6b, each a question
+  `TravelPreference` adds `DiscomfortOfTile`; `ReactToNoise` and `InvestigateSound`
+  answer what it hears (step 7a). Left out of step 6b, each a question
   to the user: `Deaf` and `room.BackgroundNoise` (nothing ported sets them), the
   noise sources whose objects are not ported (explosions, firecrackers, scavenger
   bombs, egg bugs, Miros birds, snails, the explosive spear's blast, karmic armor,
   vultures, lightning, other creatures' impacts), the social event's fear branch
-  (`Afraid` victims, through the threat tracker, step 7), the item tracker's
+  (`Afraid` victims, through the threat tracker, step 7b), the item tracker's
   uncomfortable items in `DiscomfortOfTile`, and the player's zero-gravity loudness
   (the port has no `ZeroG` body mode). The MCP `noise.heard` log is the port's, not
   the game's. The Watcher ripple layer test, Remix's water splash noises and the More
   Slugcats noise sources are left out with their DLCs.
-  The MCP `set_destination` tool sets a destination and a run speed the AI keeps: a dev
-  override, not game behaviour. `LegsGripping` and `NoGripCounter` come from its
+  The MCP `set_destination` tool sets a destination and a run speed the AI keeps, the
+  behaviours' bodies skipped meanwhile (D18): a dev override, not game behaviour. `LegsGripping` and `NoGripCounter` come from its
   graphics' legs in a viewed room (lizard step 5a, D8), and are 2 and 0 without a
-  graphics module, as in the game. Not ported: the den finder's
-  remap in `NewArea` (step 7), the yellow lizards' pack term of the travel preference,
-  the threat terms of the travel costs (step 7; the obstacle term is dead code in the
-  game, which never makes an `ObstacleTracker`),
+  graphics module, as in the game. The travel costs have the threat terms (step 7a;
+  the obstacle term is dead code in the game, which never makes an `ObstacleTracker`).
+  Not ported: the yellow lizards' pack term of the travel preference and the
+  salamander's `IdleSpotScore` taste (with those breeds),
   `nonShortcutRoomEntrancePos` (entering a room from its border), and `PathWithExits`
   and `BestRegionTransportationGoal`, which nothing calls yet. The tongue, spit and
   jump animations belong to breeds whose data is not entered; a green lizard never
   enters them, and the port goes back to Standard if one does. Not yet, with their
-  steps: the AI's decisions (step 7; taming is skipped for now; the AI's `MakeSound` calls, boredom, pain, frustration, blood lust,
-  dominance and submission, come with them), eating a dead
+  steps: the Hunt, Flee, Fighting and mission behaviours (7b, 7c; taming is skipped for
+  now; the blood-lust, dominance and submission voices come with them), eating a dead
   lizard (step 8: the player cannot grab creatures yet), the drowning bubble (its draws
   are made, the object is not), lethal water and the rain's flood (no rain yet). The
   `kill_green_lizards` tutorial message is the game's: it marks the state dead without
