@@ -30,17 +30,12 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   - `rw-menu`'s `font_test.rs` (port-only screen) stays for now.
 
 ## Waiting for the user's answer
-- **Lizard step 7** (the AI's trackers and behaviours: prey, threat, aggression, den
-  finder, utility comparer, `ReactToNoise`/`InvestigateSound`, the social events'
-  fear branch, and the pather's threat travel terms: `ThreatTracker` costs and the
-  `fear > 0.2` drop): go-ahead. Steps 6a (tracker, vision, relationships) and 6b
-  (noise tracker and hearing, `InGameNoise` from the ported sources, the chunks'
-  loudness, the social events' community influence, the discomfort travel cost) are
-  done; their left-out items are listed in `docs/divergences/` (green lizard
-  section). See `../rainworld-re/surveys/lizards.md`.
-- **Player grabbing lizards earlier:** picking up, carrying and eating dead or stunned
-  lizards needs no AI, so it could be its own small step before 6. Lizards grabbing
-  the player stays in step 8.
+- **Lizard step 7 go-ahead.** Split and order agreed (user, 2026-10-21): 7a (trackers,
+  utility comparer, den finder, the calm behaviours, `runSpeed`: lizards walk), 7b (Hunt,
+  Flee, aggression, lounge, `RequestHeavyAi`), step 8 (player side: grabbed, bitten,
+  `GameOver(grasp)`), 7c (lizard fights, communication, missions), then the player
+  picking up, carrying and eating dead or stunned lizards as its own step, then step 9.
+  Details in `../rainworld-re/surveys/lizards.md` (user decisions).
 
 ## To look into
 - **Loop emitters when a room abstractizes** (2026-10-17): a swallowed rock's loop now
