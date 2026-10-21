@@ -302,7 +302,7 @@ Ported:
 | `LightSource` | `crates/graphics/src/light_source.rs`, `crates/sim/src/light_source.rs` |
 | `Limb` | `crates/graphics/src/limb.rs` |
 | `Lizard` | `crates/sim/src/creature/danger.rs`, `crates/sim/src/creature/lizard/graphics_link.rs`, `crates/sim/src/creature/lizard/mod.rs`, `crates/sim/src/creature/lizard/movement.rs`, `crates/sim/src/game_lizard_act.rs`, `crates/sim/src/game_lizard_hits.rs`, `crates/sim/src/game_lizard_perception.rs`, `crates/sim/src/game_lizard_voice.rs`, `crates/sim/src/game_lizards.rs` |
-| `LizardAI` | `crates/sim/src/creature/lizard/ai.rs`, `crates/sim/src/creature/path_finder/lizard.rs`, `crates/sim/src/creature/vision.rs`, `crates/sim/src/game_lizard_ai.rs`, `crates/sim/src/game_lizard_perception.rs`, `crates/sim/src/world/hearing.rs`, `crates/sim/src/world/social_events.rs`, `crates/sim/src/world/tracking.rs` |
+| `LizardAI` | `crates/sim/src/creature/lizard/ai.rs`, `crates/sim/src/creature/path_finder/lizard.rs`, `crates/sim/src/creature/vision.rs`, `crates/sim/src/game_lizard_ai.rs`, `crates/sim/src/game_lizard_hunt.rs`, `crates/sim/src/game_lizard_perception.rs`, `crates/sim/src/world/hearing.rs`, `crates/sim/src/world/social_events.rs`, `crates/sim/src/world/tracking.rs` |
 | `LizardBreeds` | `crates/sim/src/creature/lizard/breed.rs`, `crates/sim/src/creature/pathing.rs`, `crates/sim/src/creature/violence.rs` |
 | `LizardBubble` | `crates/graphics/src/cosmetic_graphics.rs`, `crates/sim/src/cosmetic.rs`, `crates/sim/src/creature/lizard/bubble.rs` |
 | `LizardGraphics` | `crates/graphics/src/lizard_cosmetics.rs`, `crates/graphics/src/lizard_draw.rs`, `crates/graphics/src/lizard_graphics.rs`, `crates/sim/src/creature/lizard/graphics_link.rs`, `crates/sim/src/game_lizard_graphics.rs`, `crates/sim/src/game_lizard_perception.rs` |
@@ -347,7 +347,7 @@ Ported:
 | `RainCycle` | `crates/sim/src/game_triggers.rs`, `crates/sim/src/world/rain_cycle.rs` |
 | `RainTracker` | `crates/sim/src/creature/rain_tracker.rs` |
 | `RainWorld` | `crates/app/src/frontend.rs` |
-| `RainWorldGame` | `crates/app/src/game.rs`, `crates/app/src/game_music.rs`, `crates/app/src/hibernation.rs`, `crates/app/src/screen_package.rs`, `crates/hud/src/screen_package.rs`, `crates/save/src/hibernation.rs`, `crates/sim/src/campaign.rs`, `crates/sim/src/game.rs`, `crates/sim/src/game_exit.rs`, `crates/sim/src/game_over.rs` |
+| `RainWorldGame` | `crates/app/src/game.rs`, `crates/app/src/game_music.rs`, `crates/app/src/hibernation.rs`, `crates/app/src/screen_package.rs`, `crates/hud/src/screen_package.rs`, `crates/save/src/hibernation.rs`, `crates/sim/src/campaign.rs`, `crates/sim/src/game.rs`, `crates/sim/src/game_exit.rs`, `crates/sim/src/game_heavy_ai.rs`, `crates/sim/src/game_over.rs` |
 | `Region` | `crates/assets/src/region_properties.rs`, `crates/assets/src/settings.rs`, `crates/assets/src/world.rs` |
 | `RegionState` | `crates/sim/src/world/objects.rs`, `crates/sim/src/world/region_save.rs`, `crates/sim/src/world/region_state.rs` |
 | `RelationshipTracker` | `crates/sim/src/creature/relationship_tracker.rs`, `crates/sim/src/game_tracker.rs`, `crates/sim/src/world/ai_modules.rs` |
@@ -388,7 +388,7 @@ Ported:
 | `SwarmRoomMapper` | `crates/sim/src/world/swarm_rooms.rs` |
 | `TailSegment` | `crates/graphics/src/tail.rs` |
 | `ThreatDetermination` | `crates/audio/src/music/threat.rs`, `crates/sim/src/creature/danger.rs` |
-| `ThreatTracker` | `crates/sim/src/creature/threat_tracker.rs`, `crates/sim/src/world/ai_modules.rs` |
+| `ThreatTracker` | `crates/sim/src/creature/threat_tracker.rs`, `crates/sim/src/world/ai_modules.rs`, `crates/sim/src/world/threat_flight.rs` |
 | `Tracker` | `crates/sim/src/creature/tracker.rs`, `crates/sim/src/game_tracker.rs`, `crates/sim/src/world/hearing.rs` |
 | `TriangleMesh` | `crates/render/src/sprites.rs` |
 | `TriggeredEvent` | `crates/assets/src/triggers.rs` |

@@ -18,7 +18,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | random | 0 | 1 | 0 | 0 |
 | render | 6 | 18 | 0 | 0 |
 | save | 15 | 5 | 0 | 0 |
-| sim | 143 | 5 | 0 | 0 |
+| sim | 146 | 5 | 0 | 0 |
 
 ## Rust file to C# files
 
@@ -294,6 +294,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/sim/src/game_dev.rs` | port-only | - |
 | `crates/sim/src/game_exit.rs` | mirrors | RainWorldGame.cs |
 | `crates/sim/src/game_flies.rs` | mirrors | FliesRoomAI.cs, FliesWorldAI.cs, Room.cs |
+| `crates/sim/src/game_heavy_ai.rs` | mirrors | RainWorldGame.cs |
 | `crates/sim/src/game_hits.rs` | mirrors | Creature.cs, Overseer.cs, Spear.cs, Weapon.cs |
 | `crates/sim/src/game_holo_light.rs` | mirrors | HologramLight.cs, Player.cs |
 | `crates/sim/src/game_instructions.rs` | mirrors | InputInstructionTrigger.cs, ReliableIggyDirection.cs, Room.cs, ScavTradeInstruction/ScavengerTradeInstructionTrigger.cs, SuperJumpInstruction.cs |
@@ -302,6 +303,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/sim/src/game_lizard_ai.rs` | mirrors | ArtificialIntelligence.cs, LizardAI.cs |
 | `crates/sim/src/game_lizard_graphics.rs` | mirrors | LizardGraphics.cs |
 | `crates/sim/src/game_lizard_hits.rs` | mirrors | Creature.cs, Lizard.cs, Rock.cs, Spear.cs, Weapon.cs |
+| `crates/sim/src/game_lizard_hunt.rs` | mirrors | LizardAI.cs |
 | `crates/sim/src/game_lizard_perception.rs` | mirrors | Lizard.cs, LizardAI.cs, LizardGraphics.cs |
 | `crates/sim/src/game_lizard_voice.rs` | mirrors | Lizard.cs, LizardVoice.cs |
 | `crates/sim/src/game_lizards.rs` | mirrors | AirBreatherCreature.cs, Creature.cs, Lizard.cs, PhysicalObject.cs |
@@ -375,6 +377,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/sim/src/world/region_state.rs` | mirrors | RegionState.cs, World.cs |
 | `crates/sim/src/world/social_events.rs` | mirrors | LizardAI.cs, SocialEventRecognizer.cs |
 | `crates/sim/src/world/swarm_rooms.rs` | mirrors | AbstractRoom.cs, FliesWorldAI.cs, SwarmRoomMapper.cs, WorldLoader.cs |
+| `crates/sim/src/world/threat_flight.rs` | mirrors | ThreatTracker.cs |
 | `crates/sim/src/world/tracking.rs` | mirrors | ArtificialIntelligence.cs, DiscomfortTracker.cs, LizardAI.cs |
 | `crates/sim/src/world/weapons.rs` | mirrors | AbstractRoom.cs, Room.cs, Weapon.cs |
 
@@ -455,7 +458,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `LightSource.cs` | `crates/graphics/src/light_source.rs`, `crates/sim/src/light_source.rs` |
 | `Limb.cs` | `crates/graphics/src/limb.rs` |
 | `Lizard.cs` | `crates/sim/src/creature/danger.rs`, `crates/sim/src/creature/lizard/graphics_link.rs`, `crates/sim/src/creature/lizard/mod.rs`, `crates/sim/src/creature/lizard/movement.rs`, `crates/sim/src/game_lizard_act.rs`, `crates/sim/src/game_lizard_hits.rs`, `crates/sim/src/game_lizard_perception.rs`, `crates/sim/src/game_lizard_voice.rs`, `crates/sim/src/game_lizards.rs` |
-| `LizardAI.cs` | `crates/sim/src/creature/lizard/ai.rs`, `crates/sim/src/creature/path_finder/lizard.rs`, `crates/sim/src/creature/vision.rs`, `crates/sim/src/game_lizard_ai.rs`, `crates/sim/src/game_lizard_perception.rs`, `crates/sim/src/world/hearing.rs`, `crates/sim/src/world/social_events.rs`, `crates/sim/src/world/tracking.rs` |
+| `LizardAI.cs` | `crates/sim/src/creature/lizard/ai.rs`, `crates/sim/src/creature/path_finder/lizard.rs`, `crates/sim/src/creature/vision.rs`, `crates/sim/src/game_lizard_ai.rs`, `crates/sim/src/game_lizard_hunt.rs`, `crates/sim/src/game_lizard_perception.rs`, `crates/sim/src/world/hearing.rs`, `crates/sim/src/world/social_events.rs`, `crates/sim/src/world/tracking.rs` |
 | `LizardBreeds.cs` | `crates/sim/src/creature/lizard/breed.rs`, `crates/sim/src/creature/pathing.rs`, `crates/sim/src/creature/violence.rs` |
 | `LizardBubble.cs` | `crates/graphics/src/cosmetic_graphics.rs`, `crates/sim/src/cosmetic.rs`, `crates/sim/src/creature/lizard/bubble.rs` |
 | `LizardCosmetics/BumpHawk.cs` | `crates/graphics/src/lizard_cosmetics.rs` |
@@ -548,7 +551,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `RainCycle.cs` | `crates/sim/src/game_triggers.rs`, `crates/sim/src/world/rain_cycle.rs` |
 | `RainTracker.cs` | `crates/sim/src/creature/rain_tracker.rs` |
 | `RainWorld.cs` | `crates/app/src/frontend.rs` |
-| `RainWorldGame.cs` | `crates/app/src/game.rs`, `crates/app/src/game_music.rs`, `crates/app/src/hibernation.rs`, `crates/app/src/screen_package.rs`, `crates/hud/src/screen_package.rs`, `crates/save/src/hibernation.rs`, `crates/sim/src/campaign.rs`, `crates/sim/src/game.rs`, `crates/sim/src/game_exit.rs`, `crates/sim/src/game_over.rs` |
+| `RainWorldGame.cs` | `crates/app/src/game.rs`, `crates/app/src/game_music.rs`, `crates/app/src/hibernation.rs`, `crates/app/src/screen_package.rs`, `crates/hud/src/screen_package.rs`, `crates/save/src/hibernation.rs`, `crates/sim/src/campaign.rs`, `crates/sim/src/game.rs`, `crates/sim/src/game_exit.rs`, `crates/sim/src/game_heavy_ai.rs`, `crates/sim/src/game_over.rs` |
 | `Region.cs` | `crates/assets/src/region_properties.rs`, `crates/assets/src/settings.rs`, `crates/assets/src/world.rs` |
 | `RegionState.cs` | `crates/sim/src/world/objects.rs`, `crates/sim/src/world/region_save.rs`, `crates/sim/src/world/region_state.rs` |
 | `RelationshipTracker.cs` | `crates/sim/src/creature/relationship_tracker.rs`, `crates/sim/src/game_tracker.rs`, `crates/sim/src/world/ai_modules.rs` |
@@ -589,7 +592,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `SwarmRoomMapper.cs` | `crates/sim/src/world/swarm_rooms.rs` |
 | `TailSegment.cs` | `crates/graphics/src/tail.rs` |
 | `ThreatDetermination.cs` | `crates/audio/src/music/threat.rs`, `crates/sim/src/creature/danger.rs` |
-| `ThreatTracker.cs` | `crates/sim/src/creature/threat_tracker.rs`, `crates/sim/src/world/ai_modules.rs` |
+| `ThreatTracker.cs` | `crates/sim/src/creature/threat_tracker.rs`, `crates/sim/src/world/ai_modules.rs`, `crates/sim/src/world/threat_flight.rs` |
 | `Tracker.cs` | `crates/sim/src/creature/tracker.rs`, `crates/sim/src/game_tracker.rs`, `crates/sim/src/world/hearing.rs` |
 | `TriangleMesh.cs` | `crates/render/src/sprites.rs` |
 | `TriggeredEvent.cs` | `crates/assets/src/triggers.rs` |
