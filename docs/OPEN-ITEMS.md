@@ -30,14 +30,13 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   - `rw-menu`'s `font_test.rs` (port-only screen) stays for now.
 
 ## Waiting for the user's answer
-- **Lizard step 7** (the AI's trackers and behaviours: prey, threat, aggression, den
-  finder, utility comparer, `ReactToNoise`/`InvestigateSound`, the social events'
-  fear branch, and the pather's threat travel terms: `ThreatTracker` costs and the
-  `fear > 0.2` drop): go-ahead. Steps 6a (tracker, vision, relationships) and 6b
-  (noise tracker and hearing, `InGameNoise` from the ported sources, the chunks'
-  loudness, the social events' community influence, the discomfort travel cost) are
-  done; their left-out items are listed in `docs/divergences/` (green lizard
-  section). See `../rainworld-re/surveys/lizards.md`.
+- **Lizard steps 7b and 7c** (7a done: trackers, utility comparer, den finder with
+  `NewArea`'s remap, `DetermineBehavior`, the Idle, Travelling, EscapeRain,
+  ReturnPrey, Injured, Frustrated and InvestigateSound bodies, `ReactToNoise`, the
+  threat travel terms; `rainworld-re/notes/lizard-ai.md`): 7b Hunt and Flee bodies,
+  `AggressiveBehavior`, the lounge decision, `RequestHeavyAi`, the spotted look's
+  favour, the flee `lookPos`, the social events' fear branch; 7c Fighting, rivalry,
+  `LizardCommunication`, `MissionTracker`. Go-ahead for each.
 - **Player grabbing lizards earlier:** picking up, carrying and eating dead or stunned
   lizards needs no AI, so it could be its own small step before 6. Lizards grabbing
   the player stays in step 8.

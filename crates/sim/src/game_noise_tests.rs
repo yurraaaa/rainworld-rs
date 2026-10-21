@@ -3,7 +3,8 @@
 //! `Update`), `Tracker.cs` (`HeardThisCreature`), `LizardAI.cs` (`SocialEvent`,
 //! `LizardPlayerRelationChange`) and `DiscomfortTracker.DiscomfortOfTile`.
 
-use crate::creature::{CreatureId, RepKind, WorldCoordinate};
+use crate::creature::lizard::LizardBehavior;
+use crate::creature::{CreatureId, LizardAnimation, RepKind, WorldCoordinate};
 use crate::game::lizard_perception::tests::{HALL, SPLIT, game};
 use crate::item::Entity;
 use crate::world::SocialEventId;
@@ -30,16 +31,24 @@ impl RainWorldGame {
 
 /// A noise behind a lizard that tracks nothing: no creature to guess, so a new unknown
 /// source, mysterious (`interesting` 1 from a player: not kin, not a rock), the
-/// counter at 200 and the source the one to examine; no draws.
+/// counter at 200 and the source the one to examine; the idle lizard listens
+/// (`ReactToNoise`: `HearSound`, whose curious voice is the one draw).
 #[test]
 fn an_unseen_noise_is_mysterious() {
     let mut g = game(&HALL, (3, 1));
     let l = g.seeing_lizard((20, 1), 1.0, 5);
     assert!(g.world.lizard_ref(l).ai.tracker.reps.is_empty());
+    assert_eq!(g.world.lizard_ref(l).ai.behavior, LizardBehavior::Idle);
     let pos = g.head(l) - Vec2::new(60.0, 0.0);
-    let probe = g.rng.clone();
+    let mut probe = g.rng.clone();
+    let _ = probe.value();
     g.player_noise(pos, 150.0);
-    assert_eq!(g.rng, probe, "no draws");
+    assert_eq!(g.rng, probe, "one draw");
+    let lz = g.world.lizard_ref(l);
+    assert_eq!(
+        (lz.animation, lz.time_to_remain_in_animation, lz.bubble),
+        (LizardAnimation::HearSound, 40, 40)
+    );
     let n = &g.world.lizard_ref(l).ai.noise;
     assert_eq!(n.sources.len(), 1);
     let s = &n.sources[0];
@@ -123,7 +132,9 @@ fn a_close_sound_is_examined() {
 /// source (`NoiseMatch` within `LerpMap(ticksSinceSeen, 20, 600, 200, 1000)`), not
 /// mysterious; `HeardThisCreature` halves the unseen ticks past `seeAroundCorners + 5`;
 /// its nearest ghost within 100 px moves to the noise, a still one given a random
-/// heading (one draw), the newest guess (generation 0, the others one older).
+/// heading (one draw), the newest guess (generation 0, the others one older). A
+/// creature's noise is not the sound to examine: the lizard answers with a small noise
+/// of its own and a bubble (`ReactToNoise`; the voice's intensity the second draw).
 #[test]
 fn a_tracked_creature_is_heard() {
     let mut g = game(&SPLIT, (18, 1));
@@ -146,10 +157,14 @@ fn a_tracked_creature_is_heard() {
     let pos = Vec2::middle_of_tile((17, 1));
     let mut probe = g.rng.clone();
     let _ = probe.value();
+    let _ = probe.value();
     g.player_noise(pos, 400.0);
-    assert_eq!(g.rng, probe, "one draw");
+    assert_eq!(g.rng, probe, "two draws");
     let ai = &g.world.lizard_ref(l).ai;
     let key = ai.tracker.reps[0].key;
+    // Just noticed, the player is still the static `SocialDependent`: not prey yet.
+    assert_eq!(ai.prey.current, None);
+    assert!(g.world.lizard_ref(l).bubble >= 5);
     assert_eq!(ai.noise.sources[0].creature_rep, Some(key));
     assert_eq!(ai.noise.mysterious_noises, 0.0);
     let r = &ai.tracker.reps[0];
@@ -165,7 +180,7 @@ fn a_tracked_creature_is_heard() {
 }
 
 /// Further than 100 px from its ghosts the noise clones the nearest one there (the
-/// clone's move buffer: one draw).
+/// clone's move buffer: one draw; the lizard's small noise in answer: another).
 #[test]
 fn a_far_noise_clones_a_ghost() {
     let mut g = game(&SPLIT, (18, 1));
@@ -184,8 +199,9 @@ fn a_far_noise_clones_a_ghost() {
     let pos = Vec2::middle_of_tile((21, 1));
     let mut probe = g.rng.clone();
     let _ = probe.value();
+    let _ = probe.value();
     g.player_noise(pos, 400.0);
-    assert_eq!(g.rng, probe, "one draw");
+    assert_eq!(g.rng, probe, "two draws");
     let RepKind::Elaborate(e) = &g.world.lizard_ref(l).ai.tracker.reps[0].kind else {
         panic!("elaborate");
     };

@@ -863,7 +863,13 @@ impl PathFinders {
             }
         }
         world.creature_mut(creature).pos.node = pos.node;
-        world.ai_new_area(creature, stranded);
+        let den = world
+            .creature(creature)
+            .ai
+            .as_ref()
+            .and_then(|a| a.den_position);
+        let den_reachable = den.is_some_and(|d| pf.coordinate_reachable(d));
+        world.ai_new_area(creature, stranded, den_reachable, rng);
     }
 
     /// `OutOfElement()`: standing on an accessible tile the cells say it cannot reach and

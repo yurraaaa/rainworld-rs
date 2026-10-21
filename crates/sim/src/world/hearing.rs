@@ -4,18 +4,20 @@
 //! they share with the AI's own update (an AI's eyes and `VisualContact`, the
 //! representations' `VisualContact` getter, `BestGuessForPosition`, `Ghost.Clone`).
 //! Decompile: `Room.cs` `InGameNoise`, `Creature.cs` `HeardNoise`, `NoiseTracker.cs`,
-//! `Tracker.cs`. Behaviour: `rainworld-re/notes/creature-model.md` section 18.
+//! `Tracker.cs`, `LizardAI.cs` (ReactToNoise). Behaviour:
+//! `rainworld-re/notes/creature-model.md` section 18.
 //!
-//! Mirrors: Room.cs, Creature.cs, NoiseTracker.cs, Tracker.cs
+//! Mirrors: Room.cs, Creature.cs, NoiseTracker.cs, Tracker.cs, LizardAI.cs (ReactToNoise)
 
-use rw_assets::AbstractObjectType;
+use rw_assets::{AbstractObjectType, CreatureType};
 use rw_random::UnityRandom;
 
 use super::World;
 use crate::creature::fly::PlayerBody;
+use crate::creature::lizard::{LizardBehavior, LizardEmotion, PendingSound};
 use crate::creature::{
-    CreatureId, CreatureRep, ElaborateRep, Eyes, GhostCloneCx, LizardSight, NoiseKind,
-    NoiseTracker, PathFinder, RepKey, RepKind, Tracker, WorldCoordinate,
+    CreatureId, CreatureRep, ElaborateRep, Eyes, GhostCloneCx, LizardAnimation, LizardSight,
+    NoiseKind, NoiseTracker, PathFinder, RepKey, RepKind, Tracker, WorldCoordinate,
 };
 use crate::item::Entity;
 use crate::{FloatExt, InGameNoise, Vec2, Water};
@@ -215,6 +217,68 @@ impl World {
         n.log_heard(noise, mysterious);
         self.refresh_source(t, n, j, &map, noise, rng);
         self.update_examine_sound(ai, n);
+        let source = (n.sources[j].serial, n.sources[j].creature_rep);
+        self.lizard_react_to_noise(ai, source, n.sound_to_examine, rng);
+    }
+
+    /// `LizardAI.ReactToNoise(source)`, `source` by serial and creature: a black
+    /// lizard's bubble for a creature it heard; its prey heard is re-spotted; the sound
+    /// to examine, heard idle, travelling or investigating (or lurking), makes it
+    /// listen; else a small noise of its own (a draw) and a bubble.
+    fn lizard_react_to_noise(
+        &mut self,
+        ai: CreatureId,
+        source: (u32, Option<RepKey>),
+        sound_to_examine: Option<u32>,
+        rng: &mut UnityRandom,
+    ) {
+        let black = self.creature(ai).kind() == CreatureType::BlackLizard;
+        let holding = self
+            .creature(ai)
+            .grasps
+            .first()
+            .is_some_and(Option::is_some);
+        let l = self.lizard_at(ai);
+        let anim = if source.1.is_some() && black {
+            l.bubble = l.bubble.max(4);
+            return;
+        } else if source.1.is_some() && source.1 == l.ai.prey.current {
+            LizardAnimation::PreyReSpotted
+        } else if matches!(
+            l.ai.behavior,
+            LizardBehavior::Idle
+                | LizardBehavior::InvestigateSound
+                | LizardBehavior::Lurk
+                | LizardBehavior::Travelling
+        ) && Some(source.0) == sound_to_examine
+        {
+            LizardAnimation::HearSound
+        } else {
+            let conscious = l.conscious();
+            let intensity = 0.8f32.lerp(1.2, rng.value());
+            let l = self.lizard_at(ai);
+            l.make_sound_with(PendingSound {
+                emotion: LizardEmotion::GeneralSmallNoise,
+                intensity,
+                conscious,
+                holding,
+            });
+            l.bubble = l.bubble.max(5);
+            return;
+        };
+        if !l.begin_animation(anim, false) {
+            return;
+        }
+        if let Some(emotion) = l.cue_animation(anim, black) {
+            let conscious = l.conscious();
+            let intensity = 0.8f32.lerp(1.2, rng.value());
+            self.lizard_at(ai).make_sound_with(PendingSound {
+                emotion,
+                intensity,
+                conscious,
+                holding,
+            });
+        }
     }
 
     /// `LerpMap(TicksSinceSeen, 20, 600, 200, 1000)`: how far off a noise may be to be a

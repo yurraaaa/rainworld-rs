@@ -58,7 +58,7 @@ pub use creature::WorldCoordinate;
 pub use float_ext::FloatExt;
 pub use game::{
     CameraMove, GameOver, Grabability, HudEvent, NewGameWorld, OverseerCall, PlayerHands,
-    PlayerObserver, PlayerSurroundings, RainWorldGame, Start,
+    PlayerObserver, PlayerSurroundings, RainWorldGame, Start, UtilityReadings,
 };
 pub use light_source::{LightHardSet, LightSource, LightTie};
 pub use map_discovery::{DiscoveryTexture, HudMapLink, MapDiscovery, MapRoom, UnityTexture};

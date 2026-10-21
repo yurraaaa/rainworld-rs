@@ -28,7 +28,8 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `game_instructions.rs` | guide's placed room objects, input-instruction triggers | `SuperJumpInstruction`, `ReliableIggyDirection` |
 | `game_items.rs` | slugcat grabbing: `Grabability`, `CanIPickThisUp`, pick-up candidate | `Player` item rules |
 | `game_lizards.rs` | realized lizards in the update list, vessels, `SpitOutOfShortCut` | `Lizard.Update` |
-| `game_lizard_act.rs` | stand-in lizard AI + movement (`Act`, `FollowPath`) | `Lizard.Act`, `LizardAI.Update` |
+| `game_lizard_act.rs` | lizard movement (`Act`, `FollowPath`, animations) | `Lizard.Act` |
+| `game_lizard_ai.rs`, `game_lizard_ai_tests.rs` | lizard AI update: moods, `DetermineBehavior`, behaviours, `IdleSpotScore`, base AI module order | `LizardAI.Update`, `ArtificialIntelligence.Update` |
 | `game_lizard_hits.rs` | lizard damage dealt/taken, bites, stun, spear stick | `Lizard.Violence`, `Bite` |
 | `game_lizard_perception.rs` | lizard eyes, tracker representation, relationships | `LizardAI` (tracker parts) |
 | `game_lizard_graphics.rs` | game side of `LizardGraphics` (bubbles, drips, head light) | `LizardGraphics` hookup |
@@ -88,7 +89,8 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `lizards.rs` | lizard realize/abstractize, `RealizeInRoom` | `AbstractCreature.Realize` |
 | `ai_map.rs`, `ai_mapper.rs`, `creature_ai_map.rs`, `movement.rs` | `AiMap`, `AiMapper`, baked per-creature maps, accessibility/connection/cost vocabulary | `AImap`, `AImapper` |
 | `quick_path.rs`, `quick_connectivity.rs` | `QuickPathFinder`, `QuickConnectivity` | same |
-| `hearing.rs` | noise delivery to creatures and `NoiseTracker` | `Room.InGameNoise`, `HeardNoise` |
+| `hearing.rs` | noise delivery to creatures and `NoiseTracker`; `LizardAI.ReactToNoise` | `Room.InGameNoise`, `HeardNoise` |
+| `ai_modules.rs` | prey/threat/aggression trackers' and den finder's updates, `SortCreatureIntoModule`, threat of a tile, threat travel cost, `NewArea` | `PreyTracker`, `ThreatTracker`, `AgressionTracker`, `DenFinder` |
 | `tracking.rs`, `social_events.rs` | tracker answers (relationships); `SocialEventId` and the recognizer's functions | `DynamicRelationship`, `SocialEventRecognizer` |
 | `rain_cycle.rs` | `RainCycle`, `WaterLevelCycle` | `RainCycle` |
 | `region_state.rs`, `region_save.rs` | `RegionState` and adapting world to/from it | `RegionState` |
@@ -106,9 +108,10 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `death.rs`, `grasp.rs`, `danger.rs` | kill tag/die; `Grasp` + grip sticks; threat/danger reads | `Creature.Die`, `Creature.Grab` |
 | `tracker.rs`, `relationship_tracker.rs`, `looker.rs`, `vision.rs` | AI modules | `Tracker`, `RelationshipTracker`, `CreatureLooker`, `VisualScore` |
 | `noise_tracker.rs`, `stuck_tracker.rs` | `NoiseTracker`; `StuckTracker`, `DiscomfortTracker` | same |
+| `prey_tracker.rs`, `threat_tracker.rs`, `agression_tracker.rs`, `rain_tracker.rs`, `den_finder.rs`, `utility_comparer.rs` | AI modules' state (their world reads are `world/ai_modules.rs`); `UtilityComparer` with `FloatTweener` | same |
 
 - `lizard/`: `mod.rs` (`Lizard`), `breed.rs` (`LizardBreedParams`, green only), `ai.rs`
-  (stand-in `LizardAi`), `movement.rs` (`MovementAnimation`), `voice.rs` (`LizardVoice`),
+  (`LizardAi` state, `LizardBehavior`, injury utility), `movement.rs` (`MovementAnimation`), `voice.rs` (`LizardVoice`),
   `bubble.rs` (`LizardBubble`), `graphics_link.rs` (state shared with `rw-graphics`).
 - `fly/`: `mod.rs` (`Fly`), `update.rs` (`Fly.Update`), `ai.rs` + `ai_update.rs`
   (`FlyAi`, flocking), `room_ai.rs` (`FliesRoomAi`, hives).
@@ -141,6 +144,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | Spear sticking, lodged spears | `item/spear_stick.rs`, `item/weapon.rs`, `game_lizard_hits.rs`, `game_hits.rs` |
 | Thrown weapon hits | `game_hits.rs`, `item/weapon.rs` |
 | Lizard movement / path following | `game_lizard_act.rs`, `creature/lizard/movement.rs`, `creature/path_finder/` |
+| Lizard decisions (behaviour, utilities, idle spot, den) | `game_lizard_ai.rs`, `creature/lizard/ai.rs`, `world/ai_modules.rs`, `creature/utility_comparer.rs` |
 | Room tile AI map | `world/ai_map.rs`, `ai_mapper.rs` |
 | Shelters, sleep, hibernation | `shelter.rs`, `game_shelter.rs`, `player/sleep.rs` |
 | Save-state writing (sim side) | `world/region_state.rs`, `region_save.rs`, `creature/state_save.rs`, `item.rs` (object strings), `creature/overseer/guide_state.rs`, `map_discovery.rs`; text format in `rw-save` |
@@ -162,7 +166,7 @@ Notes (`../../../rainworld-re/notes/`): `physics-core.md`, `slope-collision.md`,
 `slugcat-movement.md`, `advanced-moves.md`, `falls.md`, `corridors.md`,
 `vertical-poles.md`, `horizontal-beams.md`, `ledge-grab.md`, `shortcuts.md`, `water.md`,
 `ai-map.md`, `creature-model.md`, `items.md`, `shelter.md`, `saves.md`, `sound.md`,
-`unity-random.md`, `overseer.md`, `room-realizer.md`, `world-format.md`,
+`unity-random.md`, `overseer.md`, `lizard-ai.md`, `room-realizer.md`, `world-format.md`,
 `world-loading.md`, `room-format.md`, `campaign-model.md`, `music.md`.
 Surveys (`../../../rainworld-re/surveys/`): `lizards.md`, `bat-flies.md`, `rocks-spears.md`,
 `spawning.md`, `violence-templates.md`, `items-room-edges.md`, `campaign.md`,

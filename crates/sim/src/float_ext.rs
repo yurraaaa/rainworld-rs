@@ -78,3 +78,20 @@ impl FloatExt for f32 {
         from_b + (to_b - from_b) * t
     }
 }
+
+/// `Custom.SCurve` (kept off [`FloatExt`], whose users have their own).
+pub(crate) trait SCurve {
+    fn s_curve(self, k: f32) -> f32;
+}
+
+impl SCurve for f32 {
+    fn s_curve(self, k: f32) -> f32 {
+        let x = self * 2.0 - 1.0;
+        if x < 0.0 {
+            let x = (1.0 + x).abs();
+            return k * x / (k - x + 1.0) * 0.5;
+        }
+        let k = -1.0 - k;
+        0.5 + k * x / (k - x + 1.0) * 0.5
+    }
+}

@@ -213,6 +213,8 @@ fn a_placed_lizard_falls_and_rests_on_the_floor() {
     let (mut g, _) = game(vec![]);
     let l = g.placed_lizard();
     assert_eq!(g.world.lizard_ref(l).new_to_room_invinsibility, 40);
+    // Held still (no idle walk) to see the body settle.
+    g.world.lizard_at(l).ai.dev_run_speed = Some(0.0);
     for _ in 0..60 {
         g.tick(Input::NONE, &mut ());
     }

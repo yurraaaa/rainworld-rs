@@ -14,6 +14,7 @@ mod abstract_ai_kinds;
 mod abstract_path;
 mod ai_map;
 mod ai_mapper;
+mod ai_modules;
 mod creature_ai_map;
 mod creatures;
 mod dens;

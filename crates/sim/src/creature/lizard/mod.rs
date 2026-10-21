@@ -4,8 +4,8 @@
 //! the path following, the movement animations, gripping, swimming and the animations'
 //! physics, shortcut travel, damage (`Violence`, `Stun`, `SpearStick`, the head shield,
 //! hits in the mouth), biting, `CarryObject`, terrain impacts and `SpitOutOfShortCut`.
-//! The AI is a stand-in ([`LizardAi`]: its path finder and the base AI's updates;
-//! `LizardAI`'s behaviours are lizard step 7); the voice is [`LizardVoice`]. The graphics module
+//! The AI is [`LizardAi`] (lizard step 7a: its modules, `DetermineBehavior` and the
+//! behaviours but Hunt, Flee, Fighting and missions); the voice is [`LizardVoice`]. The graphics module
 //! is `rw-graphics`' `LizardGraphics`; what it shares with the body is
 //! [`LizardGraphicsLink`] (docs/divergences/ D14).
 //!
@@ -24,7 +24,8 @@ mod voice;
 
 use rw_random::UnityRandom;
 
-pub use ai::LizardAi;
+pub use ai::{LizardAi, LizardBehavior};
+
 pub use breed::{LizardBreedParams, SpeedMultiplier};
 pub use bubble::LizardBubble;
 pub use graphics_link::{
@@ -38,6 +39,15 @@ pub use voice::{
 };
 
 use super::{AbstractCreature, WorldCoordinate};
+
+/// A `MakeSound(emotion, intensity)` with what it checks of the lizard at the call.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PendingSound {
+    pub emotion: LizardEmotion,
+    pub intensity: f32,
+    pub conscious: bool,
+    pub holding: bool,
+}
 use crate::object::{BodyChunkConnection, ConnectionKind, PhysicalObject};
 use crate::world::MovementConnection;
 use crate::{BodyChunk, FloatExt, PhysicsParams, Vec2};
@@ -162,6 +172,9 @@ pub struct Lizard {
     /// `voice`, built on first use from the game's sound table (its constructor draws
     /// only on the ID's seed, so when makes no difference).
     pub voice: Option<LizardVoice>,
+    /// `MakeSound` calls made (their intensity drawn) before the voice was built,
+    /// handed to it in order when it is.
+    pub pending_voice: Vec<PendingSound>,
     pub ai: LizardAi,
     /// `shortCutRadAdd`.
     pub short_cut_rad_add: f32,
@@ -275,7 +288,11 @@ impl Lizard {
             graphics: None,
             dropped_loop_emitters: Vec::new(),
             voice: None,
-            ai: LizardAi::default(),
+            pending_voice: Vec::new(),
+            ai: LizardAi::new(
+                c.kind(),
+                c.ai.as_ref().is_some_and(|a| a.den_position.is_some()),
+            ),
             short_cut_rad_add: 0.0,
             upcoming_connections: Vec::new(),
             following_connection: None,
@@ -294,6 +311,52 @@ impl Lizard {
             body_wiggle_counter: 0,
             npc_transportation_destination: None,
         })
+    }
+
+    /// `EnterAnimation`'s test: a lower-priority animation unless forced, or the same
+    /// one, is ignored; else the clock restarts on it.
+    pub fn begin_animation(&mut self, anim: LizardAnimation, force: bool) -> bool {
+        if (!force && anim < self.animation) || self.animation == anim {
+            return false;
+        }
+        self.time_in_animation = 0;
+        self.animation = anim;
+        true
+    }
+
+    /// `EnterAnimation`'s set-up of the hearing and re-spotting animations (they make
+    /// no draws of their own): their time and bubble, and the voice they make (none for
+    /// a black lizard).
+    pub fn cue_animation(&mut self, anim: LizardAnimation, black: bool) -> Option<LizardEmotion> {
+        match anim {
+            LizardAnimation::HearSound => {
+                self.time_to_remain_in_animation = 40;
+                self.bubble = 40;
+                self.bubble_intensity = 0.1;
+                (!black).then_some(LizardEmotion::Curious)
+            }
+            LizardAnimation::PreyReSpotted => {
+                self.bubble = 10;
+                self.bubble_intensity = 0.4;
+                self.time_to_remain_in_animation = 10;
+                // A yellow lizard's pack voices are its breed's (not entered yet).
+                (!black).then_some(LizardEmotion::ReSpottedPrey)
+            }
+            _ => None,
+        }
+    }
+
+    /// `voice.MakeSound(emotion, intensity)` where the voice may not be built yet.
+    pub fn make_sound_with(&mut self, sound: PendingSound) {
+        match &mut self.voice {
+            Some(v) => v.make_sound_with(
+                sound.emotion,
+                sound.intensity,
+                sound.conscious,
+                sound.holding,
+            ),
+            None => self.pending_voice.push(sound),
+        }
     }
 
     /// `mainBodyChunk` (chunk 0).

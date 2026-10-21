@@ -1176,8 +1176,8 @@ pub(crate) struct OverseerParts {
 impl AbstractCreature {
     /// `WantToStayInDenUntilEndOfCycle` with `margin` ticks of rain warning: dead, hurt,
     /// the rain close (not for night creatures or those ignoring the cycle), a
-    /// pre-cycle creature, then the abstract AI's own test (a kept realized AI, an
-    /// overseer's, answers false).
+    /// pre-cycle creature, then the abstract AI's own test (a kept realized AI answers:
+    /// a lizard's by its behaviour, an overseer's false).
     fn wants_to_stay_in_den(&self, time_until_rain: i32, margin: i32) -> bool {
         if !self.state.alive {
             return true;
@@ -1191,7 +1191,11 @@ impl AbstractCreature {
         }
         if let Some(ai) = &self.ai {
             if ai.real_ai {
-                return false;
+                // `RealAI.WantToStayInDenUntilEndOfCycle()`: a lizard's (no base-game
+                // lizard has an `injuryTracker`); the overseer's base answers false.
+                return self
+                    .lizard()
+                    .is_some_and(|l| l.ai.want_to_stay_in_den_until_end_of_cycle());
             }
             return rain_close
                 || (self.state.kind == crate::creature::StateKind::Lizard

@@ -13,10 +13,12 @@
 //!
 //! Mirrors: AbstractWorldEntity.cs, AbstractCreature.cs, AbstractCreatureAI.cs
 
+pub mod agression_tracker;
 pub(crate) mod ai;
 pub mod ai_kinds;
 pub mod danger;
 pub mod death;
+pub mod den_finder;
 pub mod fly;
 pub mod grasp;
 pub mod lizard;
@@ -26,6 +28,8 @@ pub mod overseer;
 pub mod path_finder;
 pub mod pathing;
 pub(crate) mod population;
+pub mod prey_tracker;
+pub mod rain_tracker;
 mod relationship_tracker;
 mod relationships;
 pub mod social_memory;
@@ -33,7 +37,9 @@ mod state_save;
 pub mod stuck_tracker;
 pub mod template;
 mod template_abstract;
+pub mod threat_tracker;
 pub mod tracker;
+pub mod utility_comparer;
 pub mod violence;
 pub mod vision;
 
@@ -42,9 +48,11 @@ use rw_random::UnityRandom;
 
 use crate::FloatExt;
 
+pub use agression_tracker::{AgressionTracker, AngerRelationship};
 pub use ai::{AbstractCreatureAi, AiKind, CarriedItem, ItemKind};
 pub use danger::{CreatureDanger, TrackedRep};
 pub use death::{CommunityInfluence, SessionDeaths, SessionKill};
+pub use den_finder::{DenFinder, DenSearch, NodeFinderStatus};
 pub use fly::{
     DropStatus, FlockBehavior, FlockId, Fly, FlyAi, FlyBehavior, FlyView, HoverEmitter,
     MovementMode, TrackedThreat,
@@ -55,6 +63,8 @@ pub use looker::{CreatureLooker, LookCandidate, LookCandidateParts};
 pub use noise_tracker::{HeardNoise, NoiseKind, NoiseTracker, TheorizedSource};
 pub use overseer::{OverseerAbstractAi, OverseerAi, OverseerBody, PlayerGuideState};
 pub use path_finder::{PathFinder, PathFinders, PatherKind};
+pub use prey_tracker::{PreyTracker, TrackedPrey};
+pub use rain_tracker::RainTracker;
 pub use relationship_tracker::{
     DynamicRelationship, LizardTrackState, RelationshipTracker, TrackedCreatureState,
     TrackingModule,
@@ -64,9 +74,14 @@ pub use state_save::{StateParts, StateSave};
 pub use stuck_tracker::{DiscomfortTracker, MoveBacklog, StuckTracker};
 pub use template::{CreatureTemplate, Relationship, RelationshipType, WaterRelationship};
 pub use template_abstract::{AbstractCost, AbstractMovement};
+pub use threat_tracker::{ThreatCreature, ThreatPoint, ThreatTracker};
 pub use tracker::{
     BestGhost, CreatureRep, ElaborateRep, Ghost, GhostCloneCx, GhostParams, RepKey, RepKind,
     RepReading, Sighting, Tracker,
+};
+pub use utility_comparer::{
+    FloatTween, FloatTweenBasic, RawUtilities, TweenType, UtilityComparer, UtilityModule,
+    UtilityTracker,
 };
 pub use violence::{Community, DamageType, ViolenceTemplate};
 pub use vision::{ChunkVisibility, CreatureVision, Eyes, LizardSight, PlayerVisibility};
@@ -163,6 +178,15 @@ impl WorldCoordinate {
     #[must_use]
     pub fn wash_node(self) -> Self {
         Self { node: -1, ..self }
+    }
+
+    /// `WorldCoordinate + IntVector2` (`AddIntVector`): the tile moved, the node kept.
+    #[must_use]
+    pub fn add_tile(self, d: (i32, i32)) -> Self {
+        Self {
+            tile: (self.tile.0 + d.0, self.tile.1 + d.1),
+            ..self
+        }
     }
 
     /// `CompareDisregardingNode`.

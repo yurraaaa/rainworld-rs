@@ -94,3 +94,38 @@ impl DynamicRelationship {
 pub struct RelationshipTracker {
     pub relationships: Vec<RepKey>,
 }
+
+impl RelationshipTracker {
+    /// `ForgetCreatureAndStopTracking`: its representations destroyed and its
+    /// relationships dropped.
+    pub fn forget_creature_and_stop_tracking(
+        &mut self,
+        t: &mut super::Tracker,
+        c: super::CreatureId,
+    ) {
+        let keys: Vec<RepKey> = t
+            .reps
+            .iter()
+            .chain(&t.detached)
+            .filter(|r| r.creature == c)
+            .map(|r| r.key)
+            .collect();
+        for k in &keys {
+            if let Some(r) = t.rep_mut(*k) {
+                r.destroy();
+            }
+        }
+        self.relationships.retain(|k| !keys.contains(k));
+    }
+
+    /// `ModuleHasAbandonedCreature(crit)` (outside a module change, which ignores it):
+    /// a creature it relates to through `rep` is forgotten.
+    pub fn module_has_abandoned(&mut self, t: &mut super::Tracker, rep: RepKey) {
+        if !self.relationships.contains(&rep) {
+            return;
+        }
+        if let Some(c) = t.rep(rep).map(|r| r.creature) {
+            self.forget_creature_and_stop_tracking(t, c);
+        }
+    }
+}

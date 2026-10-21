@@ -1,7 +1,7 @@
 //! What `LizardAI` adds to the shared tracker and relationship tracker
 //! (`game_tracker.rs`): its eyes (`VisualScore` with the angle off its head), the
 //! representation it makes of a creature, `CreatureSpotted` (its graphics' looker and
-//! eyes, the spotted animations), `ModuleToTrackRelationship`,
+//! eyes, the spotted animations),
 //! `CreateTrackedCreatureState`, `UpdateDynamicRelationship`, the casual aggression of
 //! its `Update` and `Lizard.Collide`'s `SeeCreature` and temporary dislike. Decompile:
 //! `LizardAI.cs` 1084-1095, 1184-1192, 1317-1488, 1667-1683; `Lizard.cs` 1408-1432;
@@ -17,7 +17,6 @@ use crate::creature::lizard::SpottedEye;
 use crate::creature::{
     CreatureId, CreatureRep, ElaborateRep, Eyes, LizardAnimation, Relationship,
     RelationshipTracker, RelationshipType, RepKey, RepKind, TrackedCreatureState, Tracker,
-    TrackingModule,
 };
 use crate::item::Entity;
 use crate::{FloatExt, Vec2};
@@ -92,18 +91,6 @@ impl RainWorldGame {
             &mut self.rng,
         );
         CreatureRep::new(key, c, at, 1.0, RepKind::Elaborate(e))
-    }
-
-    /// `ModuleToTrackRelationship` of AI `ai`.
-    pub(crate) fn ai_module_to_track(
-        &self,
-        ai: CreatureId,
-        r: Relationship,
-    ) -> Option<TrackingModule> {
-        self.world
-            .creature(ai)
-            .lizard()
-            .and_then(|_| TrackingModule::for_lizard(r))
     }
 
     /// `CreateTrackedCreatureState`: a lizard's `LizardTrackState` of a slugcat.
@@ -300,17 +287,6 @@ impl RainWorldGame {
         let l = self.world.lizard_at(id);
         l.ai.tracker = t;
         l.ai.relationships = rel;
-    }
-
-    /// The tracker's, noise tracker's and relationship tracker's updates among
-    /// `LizardAI`'s modules (the den finder, rain, prey, threat and aggression trackers,
-    /// utility comparer and mission tracker between them are lizard step 7).
-    pub(super) fn lizard_perception_update(&mut self, id: CreatureId) {
-        let (mut t, mut rel) = self.take_lizard_perception(id);
-        self.tracker_update(id, &mut t, &mut rel);
-        self.world.noise_tracker_update(id, &t);
-        self.relationships_update(id, &mut t, &mut rel);
-        self.put_lizard_perception(id, t, rel);
     }
 
     /// `LizardAI.Update`'s casual aggression: with its jaws free, a random tracked

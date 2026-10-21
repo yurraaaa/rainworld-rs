@@ -28,6 +28,8 @@ mod instructions;
 mod items;
 #[path = "game_lizard_act.rs"]
 mod lizard_act;
+#[path = "game_lizard_ai.rs"]
+mod lizard_ai;
 #[path = "game_lizard_graphics.rs"]
 mod lizard_graphics;
 #[path = "game_lizard_hits.rs"]
@@ -46,6 +48,7 @@ mod noise;
 mod over;
 
 pub use items::Grabability;
+pub use lizard_ai::UtilityReadings;
 pub use over::GameOver;
 #[path = "game_shelter.rs"]
 mod shelter_door;

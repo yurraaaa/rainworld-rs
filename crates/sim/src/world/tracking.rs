@@ -130,8 +130,8 @@ impl World {
     /// unseen, more where that creature can go) uncomfortable; with
     /// `uncomfortableWithUnknownNoises` (no lizard's) and a sound to examine, so do the
     /// unknown sources within 600 px. The uncomfortable item (`ItemTracker`, the
-    /// scavengers') is not ported; the threat tracker's threat of the tile is lizard
-    /// step 7; More Slugcats' blizzard warmth and the Watcher's locusts are left out with
+    /// scavengers') is not ported; last the tile's threat pulls it toward 1 (by
+    /// `InverseLerp(0.1, 1, threat)^0.25`). More Slugcats' blizzard warmth and the Watcher's locusts are left out with
     /// their DLCs. The best guesses are read without settling them.
     #[must_use]
     pub fn discomfort_of_tile(
@@ -184,6 +184,7 @@ impl World {
                 );
             }
         }
-        num
+        let threat = self.threat_of_tile(ai, test).inverse_lerp(0.1, 1.0);
+        num.lerp(1.0, threat.mathf_pow(0.25))
     }
 }
