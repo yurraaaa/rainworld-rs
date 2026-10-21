@@ -29,7 +29,9 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `game_items.rs` | slugcat grabbing: `Grabability`, `CanIPickThisUp`, pick-up candidate | `Player` item rules |
 | `game_lizards.rs` | realized lizards in the update list, vessels, `SpitOutOfShortCut` | `Lizard.Update` |
 | `game_lizard_act.rs` | lizard movement (`Act`, `FollowPath`, animations) | `Lizard.Act` |
-| `game_lizard_ai.rs`, `game_lizard_ai_tests.rs` | lizard AI update: moods, `DetermineBehavior`, behaviours, `IdleSpotScore`, base AI module order | `LizardAI.Update`, `ArtificialIntelligence.Update` |
+| `game_lizard_ai.rs`, `game_lizard_ai_tests.rs` | lizard AI update: the flee heavy-AI gate, moods, `DetermineBehavior`, behaviours, `IdleSpotScore`, base AI module order | `LizardAI.Update`, `ArtificialIntelligence.Update` |
+| `game_lizard_hunt.rs`, `game_lizard_hunt_tests.rs` | Hunt and Flee bodies, `AggressiveBehavior` (lounge decision, bites), fall risks, `BitCreature` | `LizardAI` |
+| `game_heavy_ai.rs` | `HeavyAiThrottle`: `RequestHeavyAi`'s three-a-tick limit | `RainWorldGame.RequestHeavyAi` |
 | `game_lizard_hits.rs` | lizard damage dealt/taken, bites, stun, spear stick | `Lizard.Violence`, `Bite` |
 | `game_lizard_perception.rs` | lizard eyes, tracker representation, relationships | `LizardAI` (tracker parts) |
 | `game_lizard_graphics.rs` | game side of `LizardGraphics` (bubbles, drips, head light) | `LizardGraphics` hookup |
@@ -88,10 +90,11 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `overseers_world_ai.rs` | shelter finder, guide direction | `OverseersWorldAI` |
 | `lizards.rs` | lizard realize/abstractize, `RealizeInRoom` | `AbstractCreature.Realize` |
 | `ai_map.rs`, `ai_mapper.rs`, `creature_ai_map.rs`, `movement.rs` | `AiMap`, `AiMapper`, baked per-creature maps, accessibility/connection/cost vocabulary | `AImap`, `AImapper` |
-| `quick_path.rs`, `quick_connectivity.rs` | `QuickPathFinder`, `QuickConnectivity` | same |
+| `quick_path.rs`, `quick_connectivity.rs` | `QuickPathFinder`, `QuickConnectivity` (`Check`, `QuickPath`) | same |
 | `hearing.rs` | noise delivery to creatures and `NoiseTracker`; `LizardAI.ReactToNoise` | `Room.InGameNoise`, `HeardNoise` |
 | `ai_modules.rs` | prey/threat/aggression trackers' and den finder's updates, `SortCreatureIntoModule`, threat of a tile, threat travel cost, `NewArea` | `PreyTracker`, `ThreatTracker`, `AgressionTracker`, `DenFinder` |
-| `tracking.rs`, `social_events.rs` | tracker answers (relationships); `SocialEventId` and the recognizer's functions | `DynamicRelationship`, `SocialEventRecognizer` |
+| `threat_flight.rs` | the threat tracker's flight: `FleeTo`, `EvaluateFlightDestThreat`, `GenerateRandomPath`, `FindMostAttractiveExit` | `ThreatTracker` |
+| `tracking.rs`, `social_events.rs` | tracker answers (relationships); `SocialEventId` and the recognizer's functions (with lizards' fear relief) | `DynamicRelationship`, `SocialEventRecognizer` |
 | `rain_cycle.rs` | `RainCycle`, `WaterLevelCycle` | `RainCycle` |
 | `region_state.rs`, `region_save.rs` | `RegionState` and adapting world to/from it | `RegionState` |
 | `*_tests.rs` | tests of siblings | - |
@@ -145,6 +148,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | Thrown weapon hits | `game_hits.rs`, `item/weapon.rs` |
 | Lizard movement / path following | `game_lizard_act.rs`, `creature/lizard/movement.rs`, `creature/path_finder/` |
 | Lizard decisions (behaviour, utilities, idle spot, den) | `game_lizard_ai.rs`, `creature/lizard/ai.rs`, `world/ai_modules.rs`, `creature/utility_comparer.rs` |
+| Lizard hunting, lounging, fleeing | `game_lizard_hunt.rs`, `world/threat_flight.rs`, `game_heavy_ai.rs` |
 | Room tile AI map | `world/ai_map.rs`, `ai_mapper.rs` |
 | Shelters, sleep, hibernation | `shelter.rs`, `game_shelter.rs`, `player/sleep.rs` |
 | Save-state writing (sim side) | `world/region_state.rs`, `region_save.rs`, `creature/state_save.rs`, `item.rs` (object strings), `creature/overseer/guide_state.rs`, `map_discovery.rs`; text format in `rw-save` |

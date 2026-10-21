@@ -86,6 +86,9 @@ pub struct State {
     /// Each room's `quantifiedCreatures` with a count above 0.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub quantified: Vec<QuantifiedInfo>,
+    /// `RainWorldGame.RequestHeavyAi`'s counters after the last tick's reset and the
+    /// last-run list (EntityIDs).
+    pub heavy_ai: HeavyAiInfo,
     /// `FliesWorldAI`'s spawn and respawn counters.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub flies_world: Option<FliesWorldInfo>,
@@ -461,7 +464,7 @@ pub struct DynamicRelationshipInfo {
     /// `currentRelationship`'s type and intensity.
     pub kind: String,
     pub intensity: f32,
-    /// `trackedByModule` (the modules are lizard step 7).
+    /// `trackedByModule`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub module: Option<String>,
     /// `LizardTrackState.spear` of a slugcat.
@@ -600,6 +603,58 @@ pub struct LizardDecisionInfo {
     pub agression: AgressionTrackerInfo,
     /// `LizardInjuryTracker.Utility()`.
     pub injury: f32,
+    /// The Hunt body's `AggressiveBehavior` target (the most attractive prey) and the
+    /// lounge's and bite's counters.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hunt: Option<HuntInfo>,
+    pub lounge: LoungeInfo,
+    /// The threat tracker's flight destinations.
+    pub flee: FleeInfo,
+    /// This tick's `RequestHeavyAi` answer (asked only when it fled last update).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub heavy_ai_granted: Option<bool>,
+}
+
+/// The hunted prey's representation: EntityID, `VisualContact` as last updated, age
+/// (ticks tracked) and best guess.
+#[derive(Debug, Clone, Serialize)]
+pub struct HuntInfo {
+    pub target: Option<[i32; 2]>,
+    pub visual_contact: bool,
+    pub age: i32,
+    pub guess: CoordInfo,
+}
+
+/// `loungeDelay`, `postLoungeStun`, `attemptBiteFrames`, `biteDelay`, `JawOpen`,
+/// `loungeDir`.
+#[derive(Debug, Clone, Serialize)]
+pub struct LoungeInfo {
+    pub lounge_delay: i32,
+    pub post_lounge_stun: i32,
+    pub attempt_bite_frames: i32,
+    pub bite_delay: i32,
+    pub jaw_open: f32,
+    pub lounge_dir: [f32; 2],
+}
+
+/// `FleeTo`'s last answer, `savedFleeDest`, `testFleeDest` and its threat,
+/// `antiFlickerCounter`.
+#[derive(Debug, Clone, Serialize)]
+pub struct FleeInfo {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub flee_to: Option<CoordInfo>,
+    pub saved: CoordInfo,
+    pub test: CoordInfo,
+    pub test_threat: f32,
+    pub anti_flicker_counter: i32,
+}
+
+/// `_concurrentHeavyAi`, `_concurrentHeavyAiDelayedExceptLastRunAis`, `_lastRunAiIds`.
+#[derive(Debug, Clone, Serialize)]
+pub struct HeavyAiInfo {
+    pub concurrent: i32,
+    pub delayed_except_last_run: i32,
+    pub last_run: Vec<[i32; 2]>,
 }
 
 #[derive(Debug, Clone, Serialize)]

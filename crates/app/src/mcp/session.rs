@@ -47,6 +47,7 @@ use super::reply::{
     VesselInfo,
 };
 use super::reply::{DangerInfo, HoloLightState, LightSourceState, MusicState, TriggerState};
+use super::reply::{FleeInfo, HeavyAiInfo, HuntInfo, LoungeInfo};
 use super::reply::{
     FliesWorldInfo, HeldInfo, QuantifiedInfo, RegionStateInfo, RelationshipInfo, RoomDens,
 };
@@ -502,6 +503,16 @@ impl Session {
             holo_light_needed: sim.holo_light_needed(),
             dens: Self::dens(scene),
             quantified: Self::quantified(scene),
+            heavy_ai: HeavyAiInfo {
+                concurrent: sim.heavy_ai().concurrent,
+                delayed_except_last_run: sim.heavy_ai().delayed_except_last_run,
+                last_run: sim
+                    .heavy_ai()
+                    .last_run
+                    .iter()
+                    .map(|e| [e.spawner, e.number])
+                    .collect(),
+            },
             flies_world: world.flies_world_ai().map(|f| FliesWorldInfo {
                 to_respawn: f.flies_to_respawn,
                 to_spawn: f.flies_to_spawn.clone(),
@@ -1269,7 +1280,48 @@ impl Session {
                     .collect(),
             },
             injury: rw_sim::creature::lizard::LizardAi::injury_utility(c.state.health),
+            hunt: Self::hunt_info(scene, id, l),
+            lounge: LoungeInfo {
+                lounge_delay: l.lounge_delay,
+                post_lounge_stun: l.post_lounge_stun,
+                attempt_bite_frames: ai.attempt_bite_frames,
+                bite_delay: l.bite_delay,
+                jaw_open: l.jaw_open(c.grasps.first().is_some_and(Option::is_some)),
+                lounge_dir: [l.lounge_dir.x, l.lounge_dir.y],
+            },
+            flee: FleeInfo {
+                flee_to: ai.flee_to.map(|d| Self::coord_info(scene, d)),
+                saved: Self::coord_info(scene, ai.threat.saved_flee_dest),
+                test: Self::coord_info(scene, ai.threat.test_flee_dest),
+                test_threat: ai.threat.flee_threat,
+                anti_flicker_counter: ai.threat.anti_flicker_counter,
+            },
+            heavy_ai_granted: ai.heavy_ai_granted,
         }
+    }
+
+    /// The most attractive prey while hunting, as the tracker reads it now.
+    fn hunt_info(scene: &Scene, id: CreatureId, l: &Lizard) -> Option<HuntInfo> {
+        if l.ai.behavior != rw_sim::creature::lizard::LizardBehavior::Hunt {
+            return None;
+        }
+        let prey =
+            l.ai.prey
+                .most_attractive()
+                .and_then(|k| l.ai.tracker.rep(k))?
+                .creature;
+        let r = scene
+            .game()
+            .sim()
+            .tracker_readings(id)
+            .into_iter()
+            .find(|r| r.creature == prey)?;
+        Some(HuntInfo {
+            target: Some(Self::entity_id(scene, r.creature)),
+            visual_contact: r.visual_contact,
+            age: r.age,
+            guess: Self::coord_info(scene, r.best_guess),
+        })
     }
 
     fn coord_info(scene: &Scene, c: WorldCoordinate) -> CoordInfo {

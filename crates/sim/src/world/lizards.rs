@@ -434,12 +434,14 @@ impl World {
             grabbed_creature: grabbed,
             looks: &[],
             forced_look: None,
+            prey_look: lizard.ai.prey.most_attractive(),
+            threat_look: lizard.ai.threat.most_threatening,
             at: c.pos,
         })
     }
 
     /// `Creature.NewRoom`: the AI's `NewRoom`, then 40 ticks of `newToRoomInvinsibility`.
-    /// `LizardAI.NewRoom` zeroes its own room clock; the base, in a room other than the
+    /// `LizardAI.NewRoom` zeroes its bite frames and its own room clock; the base, in a room other than the
     /// last, zeroes its clock, resets the path finder to the room, empties the noise
     /// tracker, gives the threat tracker the room's map and a random node to flee to (a
     /// draw), clears the stuck tracker's move log,
@@ -454,6 +456,7 @@ impl World {
             self.lizard_at(id).new_to_room_invinsibility = 40;
             return;
         };
+        l.ai.attempt_bite_frames = 0;
         l.ai.lizard_time_in_room = 0;
         if l.ai.last_room != room {
             l.ai.last_room = room;

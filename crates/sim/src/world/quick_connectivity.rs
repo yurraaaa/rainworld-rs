@@ -1,15 +1,17 @@
 //! `QuickConnectivity`: `Check` (a bounded search back from the goal for whether the
-//! start connects to it) and `DefineNodeOfLocalCoordinate`. Decompile
+//! start connects to it), `QuickPath` (the same search, then the path walked) and
+//! `DefineNodeOfLocalCoordinate`. Decompile
 //! `QuickConnectivity.cs`. Behaviour: `rainworld-re/notes/ai-map.md`.
 //!
 //! Mirrors: QuickConnectivity.cs
 
-use rustc_hash::FxHashSet;
+use rustc_hash::{FxHashMap, FxHashSet};
 use rw_random::UnityRandom;
 
 use super::ai_map::FOUR_DIRECTIONS_AND_ZERO;
-use super::{AiMap, RealizedRoom, World};
+use super::{AiMap, Legality, PathCost, RealizedRoom, World};
 use crate::creature::{CreatureTemplate, WorldCoordinate};
+use crate::vec2::TileExt;
 
 /// `QuickConnectivity`.
 pub struct QuickConnectivity;
@@ -71,6 +73,129 @@ impl QuickConnectivity {
             }
         }
         -1
+    }
+
+    /// `QuickPath`: a search back from `goal` over incoming connections within
+    /// `max_distance` (straight tiles) of `start`, taking (in an open medium) the queued
+    /// tile nearest the start, for at most `max_generations`; then the walk from `start`
+    /// down the cheapest outgoing costs, written over the start of `path`. Returns the
+    /// tiles walked before `goal` (1 when `start` is `goal`), 0 for no path. The
+    /// frame's iteration quota never stops it (its flag is never set).
+    #[allow(clippy::too_many_arguments)]
+    pub fn quick_path(
+        map: &AiMap,
+        template: &CreatureTemplate,
+        start: (i32, i32),
+        goal: (i32, i32),
+        max_distance: i32,
+        max_generations: i32,
+        in_open_medium: bool,
+        path: &mut Vec<(i32, i32)>,
+    ) -> usize {
+        if start == goal {
+            if path.is_empty() {
+                path.push(start);
+            } else {
+                path[0] = start;
+            }
+            return 1;
+        }
+        if start.float_dist(goal) > max_distance as f32
+            || !map.tile_accessible_to_creature(start, template)
+            || !map.tile_accessible_to_creature(goal, template)
+        {
+            return 0;
+        }
+        let (w, h) = (map.width(), map.height());
+        let start = (start.0.clamp(0, w - 1), start.1.clamp(0, h - 1));
+        let goal = (goal.0.clamp(0, w - 1), goal.1.clamp(0, h - 1));
+        let unset = PathCost::new(-1.0, Legality::Unallowed);
+        let mut matrix: FxHashMap<i32, PathCost> = FxHashMap::default();
+        let mut next = vec![goal];
+        let mut dists = Vec::new();
+        if in_open_medium {
+            dists.push(goal.float_dist(start));
+        }
+        matrix.insert(goal.0 * h + goal.1, PathCost::new(0.0, Legality::Allowed));
+        let mut found = false;
+        for _ in 0..max_generations {
+            if found {
+                break;
+            }
+            if next.is_empty() {
+                return 0;
+            }
+            let mut index = 0;
+            if in_open_medium {
+                let mut best = f32::MAX;
+                for (j, &d) in dists.iter().enumerate() {
+                    if d < best {
+                        index = j;
+                        best = d;
+                    }
+                }
+            }
+            let t = next.remove(index);
+            if in_open_medium {
+                dists.remove(index);
+            }
+            let cost = *matrix.entry(t.0 * h + t.1).or_insert(unset);
+            for c in &map.tile(t.0, t.1).incoming_paths {
+                let step = template.connection_resistance(c.kind)
+                    + map.tile_cost_for_creature(c.start_tile(), template);
+                if !step.allowed() {
+                    continue;
+                }
+                let s = c.start_tile();
+                let key = s.0 * h + s.1;
+                if matrix.entry(key).or_insert(unset).resistance >= 0.0 {
+                    continue;
+                }
+                let d = s.float_dist(start);
+                if d <= max_distance as f32 {
+                    matrix.insert(key, cost + step);
+                    next.push(s);
+                    if in_open_medium {
+                        dists.push(d);
+                    }
+                    if s == start {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if !found {
+            return 0;
+        }
+        let mut at = start;
+        let mut n = 0;
+        for _ in 0..max_generations {
+            let mut best = PathCost::new(0.0, Legality::Unallowed);
+            let mut to = at;
+            for c in &map.tile(at.0, at.1).outgoing_paths {
+                let d = c.dest_tile();
+                let v = matrix.get(&(d.0 * h + d.1)).copied().unwrap_or(unset);
+                if v.less_than(best) {
+                    best = v;
+                    to = d;
+                }
+            }
+            if !best.allowed() {
+                return 0;
+            }
+            if path.len() <= n {
+                path.push(at);
+            } else {
+                path[n] = at;
+            }
+            n += 1;
+            at = to;
+            if to == goal {
+                return n;
+            }
+        }
+        0
     }
 }
 

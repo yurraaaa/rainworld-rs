@@ -4,8 +4,8 @@
 //! the path following, the movement animations, gripping, swimming and the animations'
 //! physics, shortcut travel, damage (`Violence`, `Stun`, `SpearStick`, the head shield,
 //! hits in the mouth), biting, `CarryObject`, terrain impacts and `SpitOutOfShortCut`.
-//! The AI is [`LizardAi`] (lizard step 7a: its modules, `DetermineBehavior` and the
-//! behaviours but Hunt, Flee, Fighting and missions); the voice is [`LizardVoice`]. The graphics module
+//! The AI is [`LizardAi`] (lizard steps 7a, 7b: its modules, `DetermineBehavior` and the
+//! behaviours but Fighting and missions, step 7c); the voice is [`LizardVoice`]. The graphics module
 //! is `rw-graphics`' `LizardGraphics`; what it shares with the body is
 //! [`LizardGraphicsLink`] (docs/divergences/ D14).
 //!

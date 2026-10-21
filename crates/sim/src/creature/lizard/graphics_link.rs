@@ -56,6 +56,8 @@ pub struct LizardGraphicsLink {
     /// The eyes `CreatureSpotted` set on a spotted creature since the module's last
     /// update (each also adds 0.1 to `eyeBeamsActive`).
     pub spotted: Vec<SpottedEye>,
+    /// The `lookPos` the fleeing AI set since the module's last update.
+    pub set_look_pos: Option<Vec2>,
 }
 
 /// One `eyes[eye, 0] = pos` of `LizardGraphics.CreatureSpotted`.
@@ -111,6 +113,10 @@ pub struct LizardView<'a> {
     pub looks: &'a [LookCandidate],
     /// `ForcedLookCreature()`: the AI's `focusCreature`.
     pub forced_look: Option<RepKey>,
+    /// `preyTracker.MostAttractivePrey` and `threatTracker.mostThreateningCreature`,
+    /// favoured by the spotted and threat animations' look.
+    pub prey_look: Option<RepKey>,
+    pub threat_look: Option<RepKey>,
     /// `abstractCreature.pos`.
     pub at: WorldCoordinate,
 }

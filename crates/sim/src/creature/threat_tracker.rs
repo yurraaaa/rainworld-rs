@@ -1,7 +1,7 @@
 //! `ThreatTracker`'s state and the threat of a tile or area from its threat points.
 //! The threat creatures' updates (they read the tracker and the world) are
 //! `world/ai_modules.rs`; `FleeTo`, `GenerateRandomPath`, `EvaluateFlightDestThreat`
-//! and `FindMostAttractiveExit` serve the Flee behaviour (lizard step 7b). Decompile:
+//! and `FindMostAttractiveExit` are `world/threat_flight.rs`. Decompile:
 //! `ThreatTracker.cs`.
 //!
 //! Mirrors: ThreatTracker.cs
@@ -57,6 +57,8 @@ pub struct ThreatTracker {
     pub max_remembered_creatures: usize,
     pub accessibility_consideration: f32,
     pub current_threat: f32,
+    /// The threat of the test destination at the last `FleeTo` (port-only, for MCP).
+    pub flee_threat: f32,
     next_point: u32,
 }
 
@@ -75,6 +77,7 @@ impl ThreatTracker {
             max_remembered_creatures,
             accessibility_consideration: 5.0,
             current_threat: 0.0,
+            flee_threat: 0.0,
             next_point: 0,
         }
     }

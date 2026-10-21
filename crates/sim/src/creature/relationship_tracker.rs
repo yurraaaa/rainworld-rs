@@ -8,8 +8,7 @@
 
 use super::{Relationship, RelationshipType, RepKey};
 
-/// The `AIModule` a relationship is sorted into (`ModuleToTrackRelationship`). The
-/// modules themselves are lizard step 7; until then only which one is recorded.
+/// The `AIModule` a relationship is sorted into (`ModuleToTrackRelationship`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrackingModule {
     PreyTracker,

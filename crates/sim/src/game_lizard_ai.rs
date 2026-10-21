@@ -3,9 +3,9 @@
 //! behaviours' bodies, `runSpeed`, the hearing skill, the casual aggression) and the
 //! base `ArtificialIntelligence.Update` with its modules in the constructor's order;
 //! `TravelUtility`, `RoomLike`, `IdleSpotScore` and `ComfortableIdlePosition`.
-//! The bodies of Hunt and Flee (lizard step 7b), Fighting and ActingOutMission (7c)
-//! are a stand-in: the lizard eases to a stop and keeps its destination, with no
-//! draws. Decompile: `LizardAI.cs` (Update, DetermineBehavior, TravelUtility,
+//! Hunt and Flee are `game_lizard_hunt.rs`; the bodies of Fighting and
+//! ActingOutMission (lizard step 7c) are a stand-in: the lizard eases to a stop and
+//! keeps its destination, with no draws. Decompile: `LizardAI.cs` (Update, DetermineBehavior, TravelUtility,
 //! RoomLike, IdleSpotScore, ComfortableIdlePosition), `ArtificialIntelligence.cs`
 //! (Update). Behaviour: `rainworld-re/notes/lizard-ai.md`.
 //!
@@ -36,9 +36,16 @@ pub struct UtilityReadings {
 }
 
 impl RainWorldGame {
-    /// `LizardAI.Update`. The Flee behaviour's `RequestHeavyAi` gate is lizard step 7b
-    /// (the update always runs). A dev run speed (D18) replaces the behaviours' bodies.
+    /// `LizardAI.Update`. A lizard that fled last update runs it (the base AI's modules
+    /// too) only when `RequestHeavyAi` grants it. A dev run speed (D18) replaces the
+    /// behaviours' bodies.
     pub(super) fn lizard_ai_update(&mut self, index: i32, id: CreatureId) {
+        let granted = (self.world.lizard_ref(id).ai.behavior == LizardBehavior::Flee)
+            .then(|| self.heavy_ai.request(self.world.creature(id).id));
+        self.world.lizard_at(id).ai.heavy_ai_granted = granted;
+        if granted == Some(false) {
+            return;
+        }
         let l = self.world.lizard_at(id);
         if l.ai.panic > 0 {
             l.ai.panic -= 1;
@@ -166,11 +173,11 @@ impl RainWorldGame {
                 let ai = &mut self.world.lizard_at(id).ai;
                 ai.run_speed = ai.run_speed.lerp(0.6, 0.2);
             }
-            // Lizard steps 7b (Hunt, Flee) and 7c (Fighting, missions): a stand-in.
-            // Lurk, GoToSpitPos and FollowFriend are other breeds' and taming's.
-            LizardBehavior::Hunt
-            | LizardBehavior::Flee
-            | LizardBehavior::Fighting
+            LizardBehavior::Hunt => self.lizard_hunt(id),
+            LizardBehavior::Flee => self.lizard_flee(id),
+            // Lizard step 7c (Fighting, missions): a stand-in. Lurk, GoToSpitPos and
+            // FollowFriend are other breeds' and taming's.
+            LizardBehavior::Fighting
             | LizardBehavior::ActingOutMission
             | LizardBehavior::Lurk
             | LizardBehavior::GoToSpitPos
@@ -321,7 +328,7 @@ impl RainWorldGame {
             }
         }
         if self.rng.value() < 0.0125 {
-            self.lizard_enter_animation(id, LizardAnimation::PreyReSpotted, false, None);
+            self.lizard_enter_animation(id, LizardAnimation::PreyReSpotted, false);
         }
         if self.rng.value() < 0.0125 {
             let w = (self.rng.value() * 100.0) as i32;

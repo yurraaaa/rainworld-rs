@@ -34,6 +34,7 @@ mod region_save;
 mod region_state;
 mod social_events;
 mod swarm_rooms;
+mod threat_flight;
 mod tracking;
 mod weapons;
 

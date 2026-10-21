@@ -71,6 +71,42 @@ pub trait RoomExt {
         true
     }
 
+    /// `Room.RayTraceTilesList`: the line of tiles from `a` to `b` written over the
+    /// start of `path`; returns their number.
+    fn ray_trace_tiles_list(
+        &self,
+        a: (i32, i32),
+        b: (i32, i32),
+        path: &mut Vec<(i32, i32)>,
+    ) -> usize {
+        let (mut dx, mut dy) = ((b.0 - a.0).abs(), (b.1 - a.1).abs());
+        let (mut x, mut y) = a;
+        let mut n = 1 + dx + dy;
+        let sx = if b.0 > a.0 { 1 } else { -1 };
+        let sy = if b.1 > a.1 { 1 } else { -1 };
+        let mut err = dx - dy;
+        dx *= 2;
+        dy *= 2;
+        let mut i = 0;
+        while n > 0 {
+            if path.len() <= i {
+                path.push((x, y));
+            } else {
+                path[i] = (x, y);
+            }
+            i += 1;
+            if err > 0 {
+                x += sx;
+                err -= dy;
+            } else {
+                y += sy;
+                err += dx;
+            }
+            n -= 1;
+        }
+        i
+    }
+
     /// `Room.VisualContact` between two tiles' middles.
     fn visual_contact_tiles(&self, a: (i32, i32), b: (i32, i32)) -> bool {
         self.visual_contact(Vec2::middle_of_tile(a), Vec2::middle_of_tile(b))

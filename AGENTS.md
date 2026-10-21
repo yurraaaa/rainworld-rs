@@ -160,8 +160,8 @@ for older notes' line numbers; new notes cite file and member.
   installed, even where the game checks files on disk (Downpour's
   `dlcsInstalled`).
 - Current phase: the player controller in a region whose behaving creatures
-  are overseers, bat flies and green lizards (lizards at step 7a of 9:
-  decisions and calm behaviours done), not the full game. Details
+  are overseers, bat flies and green lizards (lizards at step 7b of 9:
+  decisions, calm behaviours, hunting and fleeing done), not the full game. Details
   live in `docs/` and `../rainworld-re`; in short:
   - A story starts at the campaign's start den; room-exit shortcuts carry the
     player between the region's rooms (synchronous loads, D14). The
@@ -173,9 +173,10 @@ for older notes' line numbers; new notes cite file and member.
     noise hearing, social events, graphics, voice (D12), rock/spear hits,
     death and kills. Their AI decides as the game's (step 7a: utility
     comparer, prey/threat/aggression/rain trackers, den finder) and they walk
-    on their own (idle, travel, den-going, frustrated, investigating sounds);
-    the bodies of Hunt and Flee (7b), Fighting and missions (7c) are a
-    stand-in that stops the lizard.
+    on their own (idle, travel, den-going, frustrated, investigating sounds),
+    hunt (approach, lounge, bite and hold; the player's side is step 8) and
+    flee (7b); the bodies of Fighting and missions (7c) are a stand-in that
+    stops the lizard.
   - Overseers: body, AI, graphics, guide tutorial text, Monk's guide light,
     holograms whose triggers are ported (D14). Bat flies: world process,
     realization, flocks, hives, chains, pipe travel, sounds, graphics.
@@ -252,7 +253,7 @@ prefer these over `--screenshot`/`--script`; briefs for such agents say so.
   graphics and voice; overseers with AI and guide state; stun/kill tag,
   `social`, `danger`, `carries`), every abstract object (and realized
   state), `orphan_emitters`, `triggers`, `music`, `holo_lights`, `session`,
-  `dens`, `quantified`, `flies_world`, `region_state`. Empty fields are left
+  `dens`, `quantified`, `flies_world`, `region_state`, `heavy_ai`. Empty fields are left
   out; the field list is in `crates/app/src/mcp/`. New sim state must be
   added there. `get_exits` lists the camera room's exits (entrance tile, the
   input that enters, destination room, arrival node, camera).
