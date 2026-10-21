@@ -46,7 +46,7 @@ apply to `HeavyCarry` objects only, which no ported object is.
   section 12), and of collision layer 1, the green lizards (`HitSomething`, `Violence`,
   `LodgeInCreature`, `StuckInCreature`; D14). `SocialEventRecognizer.WeaponAttack`
   breaks the peaceful record and tells the room's lizards (hits and near misses,
-  `creature-model.md` section 18); the fear branch of their reaction is lizard step 7b. Adrenaline's
+  `creature-model.md` section 18), with the fear branch for lizards that fear the thrower (step 7b). Adrenaline's
   throw force (`Lerp(1, 1.5, Adrenaline)`) is 1 (adrenaline is skipped for now, a user
   decision of 2026-10-16). Remix and More Slugcats branches
   (Gourmand, Saint, Spearmaster, Rivulet's upward throw, the MMF slow-spear and
@@ -545,13 +545,21 @@ second part, else a single-room world for arena levels). The campaign descriptio
   (`IdleSpotScore`, `ComfortableIdlePosition`), Travelling, EscapeRain, ReturnPrey,
   Injured, Frustrated and InvestigateSound with their `runSpeed`, draws and voices
   (boredom, pain, frustration), `ReactToNoise`, and `WantToStayInDenUntilEndOfCycle`.
-  Not yet, with their steps: the bodies of Hunt and Flee (7b: `AggressiveBehavior`,
-  the lounge, `FleeTo`, the blood-lust voice, the spotted look's favour) and of
-  Fighting and ActingOutMission (7c, with `LizardCommunication`'s dominance and
-  submission voices and `MissionTracker`'s missions, so its utility is 0); picked,
-  they are a stand-in that eases `runSpeed` to 0 by half and keeps the destination,
-  with no draws. Flee's `RequestHeavyAi` gate (7b) is not applied (the update always
-  runs). The friend tracker (taming, skipped) has utility 0 and `CareAboutRain` true.
+  Hunt and Flee are the game's (step 7b, `lizard-ai.md` section 9): `AggressiveBehavior`
+  (approach, jaw, the lounge decision, `AttemptBite`, `JawsSnapShut`), the blood-lust
+  voice, `BitCreature`, the PrepareToLounge/Lounge/ThreatSpotted animations' focus
+  terms, `ThreatTracker.FleeTo` (with `EvaluateFlightDestThreat` and
+  `QuickConnectivity.QuickPath`), the flee `lookPos` and `RainWorldGame.RequestHeavyAi`
+  (a game field, not the game's statics; nothing else reads them). `GenerateRandomPath`
+  and `FindMostAttractiveExit` are ported but nothing on these paths calls them (in the
+  game `MissionTracker`, firecrackers and More Slugcats' yeeks do). A green lizard
+  fears no creature the port realizes, so Flee is reached only in tests. Not yet: the
+  bodies of Fighting and ActingOutMission and FightingStance's lean (7c, with
+  `LizardCommunication`'s dominance and submission voices and `MissionTracker`'s
+  missions, so its utility is 0); picked, they are a stand-in that eases `runSpeed` to
+  0 by half and keeps the destination, with no draws. The tongue branch of
+  `AggressiveBehavior` belongs to tongued breeds (none entered). The friend tracker
+  (taming, skipped) has utility 0 and `CareAboutRain` true.
   It sees and tracks creatures (lizard step 6a, `creature-model.md` section 17):
   the `Tracker` with simple and elaborate representations and their ghosts,
   `VisualContact` with `LizardAI.VisualScore` (the breed's vision, water, narrow
@@ -582,8 +590,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   to the user: `Deaf` and `room.BackgroundNoise` (nothing ported sets them), the
   noise sources whose objects are not ported (explosions, firecrackers, scavenger
   bombs, egg bugs, Miros birds, snails, the explosive spear's blast, karmic armor,
-  vultures, lightning, other creatures' impacts), the social event's fear branch
-  (`Afraid` victims, through the threat tracker, step 7b), the item tracker's
+  vultures, lightning, other creatures' impacts), the item tracker's
   uncomfortable items in `DiscomfortOfTile`, and the player's zero-gravity loudness
   (the port has no `ZeroG` body mode). The MCP `noise.heard` log is the port's, not
   the game's. The Watcher ripple layer test, Remix's water splash noises and the More
@@ -599,8 +606,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
   and `BestRegionTransportationGoal`, which nothing calls yet. The tongue, spit and
   jump animations belong to breeds whose data is not entered; a green lizard never
   enters them, and the port goes back to Standard if one does. Not yet, with their
-  steps: the Hunt, Flee, Fighting and mission behaviours (7b, 7c; taming is skipped for
-  now; the blood-lust, dominance and submission voices come with them), eating a dead
+  steps: the Fighting and mission behaviours (7c; taming is skipped for
+  now; the dominance and submission voices come with them), eating a dead
   lizard (step 8: the player cannot grab creatures yet), the drowning bubble (its draws
   are made, the object is not), lethal water and the rain's flood (no rain yet). The
   `kill_green_lizards` tutorial message is the game's: it marks the state dead without

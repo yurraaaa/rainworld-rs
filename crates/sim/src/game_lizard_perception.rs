@@ -166,7 +166,7 @@ impl RainWorldGame {
             } else {
                 LizardAnimation::PreyReSpotted
             };
-            self.lizard_enter_animation(ai, anim, false, None);
+            self.lizard_enter_animation(ai, anim, false);
         }
     }
 

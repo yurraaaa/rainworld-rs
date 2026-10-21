@@ -173,9 +173,10 @@ for older notes' line numbers; new notes cite file and member.
     noise hearing, social events, graphics, voice (D12), rock/spear hits,
     death and kills. Their AI decides as the game's (step 7a: utility
     comparer, prey/threat/aggression/rain trackers, den finder) and they walk
-    on their own (idle, travel, den-going, frustrated, investigating sounds);
-    the bodies of Hunt and Flee (7b), Fighting and missions (7c) are a
-    stand-in that stops the lizard.
+    on their own (idle, travel, den-going, frustrated, investigating sounds),
+    hunt (approach, lounge, bite and hold; the player's side is step 8) and
+    flee (7b); the bodies of Fighting and missions (7c) are a stand-in that
+    stops the lizard.
   - Overseers: body, AI, graphics, guide tutorial text, Monk's guide light,
     holograms whose triggers are ported (D14). Bat flies: world process,
     realization, flocks, hives, chains, pipe travel, sounds, graphics.

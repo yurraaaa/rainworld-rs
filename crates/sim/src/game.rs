@@ -18,6 +18,8 @@ mod exit;
 mod flies;
 #[path = "game_player.rs"]
 mod hands;
+#[path = "game_heavy_ai.rs"]
+mod heavy_ai;
 #[path = "game_hits.rs"]
 mod hits;
 #[path = "game_holo_light.rs"]
@@ -34,6 +36,8 @@ mod lizard_ai;
 mod lizard_graphics;
 #[path = "game_lizard_hits.rs"]
 mod lizard_hits;
+#[path = "game_lizard_hunt.rs"]
+mod lizard_hunt;
 #[path = "game_lizard_perception.rs"]
 mod lizard_perception;
 #[path = "game_lizard_voice.rs"]
@@ -47,6 +51,7 @@ mod noise;
 #[path = "game_over.rs"]
 mod over;
 
+pub use heavy_ai::HeavyAiThrottle;
 pub use items::Grabability;
 pub use lizard_ai::UtilityReadings;
 pub use over::GameOver;
@@ -421,6 +426,8 @@ pub struct RainWorldGame {
     player_graphics: bool,
     /// `progression.mapDiscoveryTextures`.
     map_discovery: MapDiscovery,
+    /// `RequestHeavyAi`'s state (the game's statics).
+    heavy_ai: HeavyAiThrottle,
     /// Camera 0's HUD map, as the app last reported it.
     hud_map: HudMapLink,
     /// Camera 0's `PaletteDarkness()`, as the app last reported it.
@@ -553,6 +560,7 @@ impl RainWorldGame {
             entrance_colors: Vec::new(),
             player_graphics: false,
             map_discovery: MapDiscovery::default(),
+            heavy_ai: HeavyAiThrottle::default(),
             hud_map: HudMapLink::default(),
             camera_darkness: 0.0,
             session_end: None,
@@ -776,6 +784,7 @@ impl RainWorldGame {
         }
         self.finish_loading(observer);
         self.sync_player_state();
+        self.heavy_ai.end_of_tick();
         self.tick += 1;
     }
 

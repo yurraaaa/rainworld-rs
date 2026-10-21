@@ -101,6 +101,24 @@ impl RainWorldGame {
         }
         l
     }
+
+    /// A lizard at `tile` facing `facing`, held there (a dev run speed of 0 on its own
+    /// tile, its behaviours' bodies skipped) for `ticks` ticks, then handed back to them.
+    pub(crate) fn still_lizard(
+        &mut self,
+        tile: (i32, i32),
+        facing: f32,
+        ticks: usize,
+    ) -> CreatureId {
+        let l = self.seeing_lizard(tile, facing, 0);
+        let at = WorldCoordinate::new(0, tile.0, tile.1, -1);
+        self.dev_set_lizard_destination(l, at, Some(0.0));
+        for _ in 0..ticks {
+            self.tick(Input::NONE, &mut ());
+        }
+        self.dev_release_lizard(l);
+        l
+    }
 }
 
 /// A lizard facing the player across a hall sees it: an elaborate representation (a
@@ -111,7 +129,7 @@ impl RainWorldGame {
 #[test]
 fn a_lizard_tracks_the_player_it_sees() {
     let mut g = game(&HALL, (3, 1));
-    let l = g.seeing_lizard((10, 1), -1.0, 40);
+    let l = g.still_lizard((10, 1), -1.0, 40);
     assert_eq!(g.world.lizard_ref(l).spawn_data_evil, 0.0);
     let player = g.player_id;
     let t = &g.world.lizard_ref(l).ai.tracker;

@@ -10,7 +10,9 @@
 use rw_assets::{AbstractObjectType, CreatureType};
 
 use super::World;
+use crate::FloatExt;
 use crate::creature::{CommunityInfluence, CreatureId, RelationshipType};
+use crate::item::Entity;
 use crate::item::ObjectId;
 
 /// `SocialEventRecognizer.EventID`.
@@ -123,9 +125,9 @@ impl World {
     /// `LizardAI.SocialEvent`: a slugcat it tracks attacking it, or attacking a creature
     /// it tracks (with one of the two seen in the last 40 ticks), changes how it and its
     /// community like the slugcat: by the attack's offence (a third on the dead), all of
-    /// it when it is the victim, three quarters when the victim is of its pack. Fear for
-    /// a victim it is afraid of reads the threat tracker (lizard step 7) and is not
-    /// ported; a gift (`ItemOffering`) is taming's, also not ported.
+    /// it when it is the victim, three quarters when the victim is of its pack; an attack
+    /// on a creature it is afraid of makes it like the slugcat more. A gift
+    /// (`ItemOffering`) is taming's, not ported.
     fn lizard_social_event(
         &mut self,
         me: CreatureId,
@@ -167,11 +169,65 @@ impl World {
         }
         match victim_rel.map(|r| r.kind) {
             None => self.lizard_player_relation_change(me, -offence, subject),
+            Some(RelationshipType::Afraid) => {
+                let (change, fac) = self.lizard_fear_relief(me, id, object, offence);
+                self.lizard_player_relation_change(me, change.mathf_pow(0.5) * fac, subject);
+            }
             Some(RelationshipType::Pack) => {
                 self.lizard_player_relation_change(me, -offence * 0.75, subject);
             }
             Some(_) => {}
         }
+    }
+
+    /// `LizardAI.SocialEvent`'s fear branch: the offence and its factor for an attack
+    /// on a creature lizard `me` is afraid of: 0.1, plus `0.7 * LerpMap(distance to its
+    /// DangerPos, 120, 320, 1, 0.1)` while it is a threat creature; 2 while it holds
+    /// the lizard (a hit then counting fully).
+    pub(crate) fn lizard_fear_relief(
+        &self,
+        me: CreatureId,
+        id: SocialEventId,
+        object: CreatureId,
+        offence: f32,
+    ) -> (f32, f32) {
+        let l = self.lizard_ref(me);
+        let mut fac = 0.1;
+        let threat = l.ai.threat.creatures.iter().any(|c| {
+            l.ai.tracker
+                .rep(c.rep)
+                .is_some_and(|r| r.creature == object)
+        });
+        if threat
+            && let Some(danger) = self
+                .creature(object)
+                .realized
+                .as_ref()
+                .and_then(crate::creature::RealizedCreature::danger_pos)
+        {
+            fac += 0.7
+                * l.head()
+                    .pos
+                    .distance(danger)
+                    .lerp_map(120.0, 320.0, 1.0, 0.1);
+        }
+        let holds_me = self
+            .creature(object)
+            .grasps
+            .iter()
+            .flatten()
+            .any(|g| g.grabbed == Entity::Creature(me));
+        let mut offence = offence;
+        if holds_me {
+            if matches!(
+                id,
+                SocialEventId::NonLethalAttack | SocialEventId::LethalAttack
+            ) {
+                offence = 1.0;
+            }
+            fac = 2.0;
+        }
+        (offence, fac)
     }
 
     /// `LizardPlayerRelationChange`: the lizard's social memory of the player (temporary

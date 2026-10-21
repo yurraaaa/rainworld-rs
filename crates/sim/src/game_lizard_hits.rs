@@ -393,7 +393,8 @@ impl RainWorldGame {
     /// (`biteDamageChance`; the player for 1.5, others for the breed's damage), with
     /// `Lizard_Jaws_Grab_Player` or `_NPC`; else half the time an attacked creature
     /// takes a `DamageAttack`, or the jaws shut on nothing and lizards holding it let
-    /// go. The AI's `BitCreature` is lizard step 7; the player's `Grabbed` is step 8.
+    /// go. A grabbed creature goes through the AI's `BitCreature` before the damage roll;
+    /// the player's `Grabbed` is step 8.
     pub fn lizard_bite(&mut self, id: CreatureId, chunk: Option<ChunkRef>) {
         let held = !self.world.creature(id).grabbed_by.is_empty();
         if self.lizard_holding(id) && !held {
@@ -463,6 +464,7 @@ impl RainWorldGame {
                         self.world.lose_all_grasps(c);
                     }
                 }
+                self.lizard_bit_creature(id);
                 if self.rng.value() < params.bite_damage_chance {
                     let at = self.chunk_of(chunk).map_or(head, |c| c.pos);
                     let damage = if player {

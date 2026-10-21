@@ -381,6 +381,9 @@ impl LizardGraphics {
             self.eyes[spotted.eye][0] = spotted.pos;
             self.eye_beams_active = (self.eye_beams_active + 0.1).clamp(0.0, 1.0);
         }
+        if let Some(p) = link.set_look_pos.take() {
+            self.look_pos = p;
+        }
         for (i, dv) in std::mem::take(&mut link.pushes) {
             if let Some(p) = self.part_mut(i) {
                 p.vel += dv;
@@ -417,15 +420,14 @@ impl LizardGraphics {
                 looker
             }
         };
-        // The prey and threat trackers' choices are lizard step 7: none to favour.
-        if matches!(
-            lizard.animation,
-            LizardAnimation::PreySpotted
-                | LizardAnimation::PreyReSpotted
-                | LizardAnimation::ThreatSpotted
-                | LizardAnimation::ThreatReSpotted
-        ) {
-            looker.reevaluate(view.looks, None, 10.0, view.at, cx.rng);
+        match lizard.animation {
+            LizardAnimation::PreySpotted | LizardAnimation::PreyReSpotted => {
+                looker.reevaluate(view.looks, view.prey_look, 10.0, view.at, cx.rng);
+            }
+            LizardAnimation::ThreatSpotted | LizardAnimation::ThreatReSpotted => {
+                looker.reevaluate(view.looks, view.threat_look, 10.0, view.at, cx.rng);
+            }
+            _ => {}
         }
         link.looker = Some(looker);
         let target = looker.target(view.looks);

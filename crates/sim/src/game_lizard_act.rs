@@ -14,9 +14,10 @@ use std::sync::Arc;
 use rw_assets::shortcut::FOUR_DIRECTIONS;
 use rw_assets::{CreatureType, Room, ShortcutType, Terrain};
 
+use super::lizard_hunt::LizardFocus;
 use super::{PlayerObserver, RainWorldGame};
-use crate::creature::lizard::{AnimationOutcome, LizardEmotion, MovementAnimation};
-use crate::creature::{CreatureId, LizardAnimation, WorldCoordinate};
+use crate::creature::lizard::{AnimationOutcome, LizardBehavior, LizardEmotion, MovementAnimation};
+use crate::creature::{CreatureId, LizardAnimation, RelationshipType, WorldCoordinate};
 use crate::item::Entity;
 use crate::room_ext::RoomExt;
 use crate::shortcut::{CreatureVessel, ShortcutVessel, Transport};
@@ -145,7 +146,7 @@ impl RainWorldGame {
             || l.commited_to_drop_connection.is_some();
         l.swim = (l.swim - 0.05).clamp(0.0, 1.0);
         l.ai.stuck.satisfied_with_this_position = l.swim > 0.5;
-        let speed = self.lizard_act_animation(index, id, None);
+        let speed = self.lizard_act_animation(id);
         let pf = self.world.path_finder_of(id);
         let l = self.world.lizard_ref(id);
         let mut coord = r.coordinate(l.head().pos);
@@ -327,7 +328,7 @@ impl RainWorldGame {
         l.time_in_animation += 1;
         if l.time_to_remain_in_animation > -1 && l.time_in_animation > l.time_to_remain_in_animation
         {
-            self.lizard_enter_animation(id, LizardAnimation::Standard, true, None);
+            self.lizard_enter_animation(id, LizardAnimation::Standard, true);
         }
     }
 
@@ -440,7 +441,7 @@ impl RainWorldGame {
                 l.set_body_wiggle_counter(w);
                 if fit == 0.0 && self.rng.value() < 0.025 {
                     self.world.lizard_at(id).set_body_wiggle_counter(0);
-                    self.lizard_enter_animation(id, LizardAnimation::Standard, true, None);
+                    self.lizard_enter_animation(id, LizardAnimation::Standard, true);
                 }
             }
         }
@@ -467,18 +468,23 @@ impl RainWorldGame {
 
     /// `ActAnimation`: the animation's run speed and its physics. Standard runs at the
     /// AI's `runSpeed`; the spotted and threat animations stop or slow and set the
-    /// jaw (draws as the game's); the fighting stance and the threat leaning need the
-    /// focus creature (lizard step 7); the tongue, spit and jump animations belong to
-    /// breeds not entered yet and fall back to Standard; the lounge's crouch pushes at
-    /// the focus and its leap propels the body along `loungeDir`, ending in a snap of
-    /// the jaws; the shake runs at 0.75. A post-lounge stun slows it to a tenth.
-    pub(super) fn lizard_act_animation(
-        &mut self,
-        index: i32,
-        id: CreatureId,
-        focus: Option<Vec2>,
-    ) -> f32 {
+    /// jaw (draws as the game's), the threat spotted pushing the head away from a seen
+    /// focus creature it fears; the fighting stance's lean is lizard step 7c; the
+    /// tongue, spit and jump animations belong to breeds not entered yet and fall back
+    /// to Standard; the lounge's crouch pushes at the focus and its leap propels the
+    /// body along `loungeDir` (a breed that can exit lounges only while hunting a seen
+    /// focus), ending in a snap of the jaws; the shake runs at 0.75. A post-lounge stun
+    /// slows it to a tenth.
+    pub(super) fn lizard_act_animation(&mut self, id: CreatureId) -> f32 {
         let holding = self.lizard_holding(id);
+        let focus = match self.world.lizard_ref(id).animation {
+            LizardAnimation::ThreatSpotted
+            | LizardAnimation::PrepareToLounge
+            | LizardAnimation::Lounge => self.lizard_focus(id),
+            _ => None,
+        };
+        let hunting_seen = self.world.lizard_ref(id).ai.behavior == LizardBehavior::Hunt
+            && focus.as_ref().is_some_and(|f| f.visual);
         let l = self.world.lizard_at(id);
         let run = l.ai.run_speed;
         let mut num = 0.0;
@@ -497,7 +503,18 @@ impl RainWorldGame {
             LizardAnimation::ThreatSpotted => {
                 num = 0.5;
                 let v = self.rng.value();
-                self.world.lizard_at(id).set_jaw_open(v, holding);
+                let l = self.world.lizard_at(id);
+                l.set_jaw_open(v, holding);
+                if let Some(f) = &focus
+                    && f.static_relationship == RelationshipType::Afraid
+                    && f.visual
+                    && let Some(danger) = f.main()
+                {
+                    let legs = l.legs_gripping() as f32;
+                    let dir = l.head().pos.direction_to(danger);
+                    l.body.chunks[0].vel += dir * (5.0 * legs);
+                    l.body.chunks[1].vel -= dir * (6.0 * legs);
+                }
             }
             LizardAnimation::FightingStance => l.set_jaw_open(1.0, holding),
             LizardAnimation::ThreatReSpotted => {
@@ -513,18 +530,17 @@ impl RainWorldGame {
                 l.set_body_wiggle_counter(0);
                 num = 0.2;
                 // Not hunting: back to Standard (no tongue on the entered breeds).
-                self.lizard_enter_animation(id, LizardAnimation::Standard, true, None);
+                self.lizard_enter_animation(id, LizardAnimation::Standard, true);
             }
             LizardAnimation::Spit | LizardAnimation::PrepareToJump => {
                 log::warn!("{:?} on a breed without it", l.animation);
-                self.lizard_enter_animation(id, LizardAnimation::Standard, true, None);
+                self.lizard_enter_animation(id, LizardAnimation::Standard, true);
             }
             LizardAnimation::Jumping => {}
             LizardAnimation::PrepareToLounge => {
                 l.set_body_wiggle_counter(0);
-                // `AI.behavior == Hunt` with a seen focus creature: lizard step 7.
-                if !l.params.can_exit_lounge_warm_up {
-                    match focus {
+                if !l.params.can_exit_lounge_warm_up || hunting_seen {
+                    match focus.as_ref().and_then(LizardFocus::main) {
                         Some(at) => {
                             if l.legs_gripping() > 0 {
                                 let push = l.params.pre_lounge_crouch_movement;
@@ -533,26 +549,20 @@ impl RainWorldGame {
                                 }
                             }
                             if l.time_in_animation >= l.params.pre_lounge_crouch {
-                                self.lizard_enter_animation(
-                                    id,
-                                    LizardAnimation::Lounge,
-                                    false,
-                                    focus,
-                                );
+                                self.lizard_enter_animation(id, LizardAnimation::Lounge, false);
                             }
                         }
                         None => {
-                            self.lizard_enter_animation(id, LizardAnimation::Standard, true, None);
+                            self.lizard_enter_animation(id, LizardAnimation::Standard, true);
                         }
                     }
                 } else {
-                    self.lizard_enter_animation(id, LizardAnimation::Standard, true, None);
+                    self.lizard_enter_animation(id, LizardAnimation::Standard, true);
                 }
             }
             LizardAnimation::Lounge => {
-                // `canExitLounge` keeps leaping only while hunting a seen focus (step 7).
                 let leaping = l.time_in_animation < l.params.lounge_maximum_frames
-                    && !l.params.can_exit_lounge;
+                    && (!l.params.can_exit_lounge || hunting_seen);
                 if leaping {
                     let jaw = l.read_jaw_open(holding) + 0.1;
                     l.set_jaw_open(jaw, holding);
@@ -568,7 +578,7 @@ impl RainWorldGame {
                     let head = l.head().pos;
                     let at = head + l.body.chunks[1].pos.direction_to(head) * 10.0;
                     self.lizard_jaws_snap_shut(id, at);
-                    self.lizard_enter_animation(id, LizardAnimation::Standard, true, None);
+                    self.lizard_enter_animation(id, LizardAnimation::Standard, true);
                     let l = self.world.lizard_at(id);
                     l.post_lounge_stun = 40;
                     l.in_allowed_terrain_counter = 0;
@@ -577,11 +587,10 @@ impl RainWorldGame {
             LizardAnimation::ShakePrey => {
                 num = 0.75;
                 if !holding && self.rng.value() < 0.025 {
-                    self.lizard_enter_animation(id, LizardAnimation::Standard, true, None);
+                    self.lizard_enter_animation(id, LizardAnimation::Standard, true);
                 }
             }
         }
-        let _ = index;
         let l = self.world.lizard_ref(id);
         if l.post_lounge_stun > 0 {
             num *= 0.1;
@@ -590,27 +599,33 @@ impl RainWorldGame {
             && l.ai.run_speed > 0.1
             && l.animation != LizardAnimation::Spit
         {
-            // `AI.hunger` is the prey tracker's (lizard step 6): 0.
-            num = num.lerp(1.0, 0.2);
+            num = num.lerp(1.0, 0.2f32.lerp(0.7, l.ai.hunger));
         }
         num
     }
 
     /// `EnterAnimation`: a lower-priority animation unless forced, or the same one, is
     /// ignored; else the clock restarts and the animation sets its time, bubble and
-    /// voice. The lounge sets its delay (a draw), its direction
-    /// (toward `focus` when there is one), leaves at once when that points backward for
-    /// a breed that can exit lounges, and plays its sounds.
+    /// voice. The lounge sets its delay (a draw), its direction (toward the realized
+    /// focus creature), leaves at once when that points backward for a breed that can
+    /// exit lounges, and plays its sounds.
     pub(super) fn lizard_enter_animation(
         &mut self,
         id: CreatureId,
         anim: LizardAnimation,
         force: bool,
-        focus: Option<Vec2>,
     ) {
         if !self.world.lizard_at(id).begin_animation(anim, force) {
             return;
         }
+        let focus = if matches!(
+            anim,
+            LizardAnimation::PrepareToLounge | LizardAnimation::Lounge
+        ) {
+            self.lizard_focus(id).as_ref().and_then(LizardFocus::main)
+        } else {
+            None
+        };
         let black = self.world.creature(id).kind() == CreatureType::BlackLizard;
         let room = self.lizard_room(id);
         let l = self.world.lizard_at(id);
@@ -706,7 +721,7 @@ impl RainWorldGame {
         let body = l.body.chunks[1].pos.direction_to(head);
         if body.dot(l.lounge_dir) < 0.0 {
             if l.params.can_exit_lounge || l.params.can_exit_lounge_warm_up {
-                self.lizard_enter_animation(id, LizardAnimation::Standard, true, None);
+                self.lizard_enter_animation(id, LizardAnimation::Standard, true);
             } else {
                 l.lounge_dir = body;
             }

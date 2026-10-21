@@ -121,6 +121,12 @@ pub struct LizardAi {
     pub casual_aggression_target: Option<RepKey>,
     /// `usedToVultureMask` (no vulture masks are ported, so it stays 0).
     pub used_to_vulture_mask: i32,
+    pub attempt_bite_frames: i32,
+    /// This tick's `RequestHeavyAi` answer while fleeing (port-only, for MCP; `None`
+    /// when not asked).
+    pub heavy_ai_granted: Option<bool>,
+    /// What the last Flee update's `FleeTo` returned (port-only, for MCP).
+    pub flee_to: Option<WorldCoordinate>,
 }
 
 impl LizardAi {
@@ -162,6 +168,9 @@ impl LizardAi {
             focus_creature: None,
             casual_aggression_target: None,
             used_to_vulture_mask: 0,
+            attempt_bite_frames: 0,
+            heavy_ai_granted: None,
+            flee_to: None,
         }
     }
 
