@@ -33,9 +33,6 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **Async room loading** (user, 2026-10-22): plan and decisions in
   `../rainworld-re/surveys/async-room-loading.md`; later. `ShortcutHelper` its own job
   after it.
-- **The player's water drips** (user, 2026-10-22; start at 17:40): the `WaterDrip`s the
-  slugcat sheds when it skids, slides and shoots out of a corridor (`Player.cs` around
-  5453, 6636, 9287), with their random draws.
 - **Water visual effects** (user, 2026-10-22): steps A1 (bubbles, `Water.Update`'s two
   draws a tick, creature chunks on the surface), B (calm surface sound) at 17:40; then A2
   (splashes), C (`WaterLight`). Plan in `../rainworld-re/surveys/room-effects/water-effects.md`.

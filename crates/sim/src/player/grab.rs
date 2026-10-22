@@ -147,7 +147,7 @@ impl Player {
         self.ceiling_drips = ceiling_drips;
     }
 
-    /// The drips this tick's impacts threw.
+    /// The drips this tick's impacts and moves threw.
     pub(crate) fn take_drips(&mut self) -> Vec<WaterDrip> {
         std::mem::take(&mut self.drips)
     }

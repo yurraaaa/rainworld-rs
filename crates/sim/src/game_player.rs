@@ -357,7 +357,7 @@ impl RainWorldGame {
         }
     }
 
-    /// The drips the player's terrain impacts threw this tick, into its room.
+    /// The drips the player threw this tick (impacts, skids, corridor shoots), into its room.
     pub(super) fn add_player_drips(&mut self, index: i32) {
         let Some(p) = self.player.as_mut() else {
             return;

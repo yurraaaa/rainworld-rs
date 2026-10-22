@@ -10,6 +10,7 @@ use std::f32::consts::PI;
 
 use rw_assets::{Room, Terrain};
 
+use super::drips::DripBurst;
 use super::{Animation, BodyMode, HEAD, HIPS, Player};
 use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
@@ -72,6 +73,14 @@ impl Player {
             let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
             head.vel.x += n_sd - sd * if n < 0.0 { 0.8 } else { 0.5 };
             hips.vel.x += n_sd + sd * 0.5;
+            if matches!(self.slide_counter, 4 | 7 | 11) {
+                let hips = &self.body.chunks[HIPS];
+                let pos = hips.pos + Vec2::new(0.0, -hips.rad + 1.0);
+                self.shed_drips(DripBurst::Skid {
+                    pos,
+                    slide_direction: self.slide_direction,
+                });
+            }
         } else if x != 0 {
             if x == sd {
                 self.init_slide_counter = (self.init_slide_counter + 1).min(30);

@@ -83,7 +83,8 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 `falls.rs` (impact, stun, die), `grabbed.rs` (held: `dangerGrasp` state and timers,
 `cantBeGrabbedCounter`, the pacifying stun, `WALLSTUCK`), `exhaustion.rs` (aerobic level, malnourishment),
 `grab.rs` (hand counters, `ThrowDirection`), `carry.rs` (`HeavyCarry`: run slowdown, drag through narrow spaces, pulled into a shortcut, jump power), `shortcut.rs` (enter/ride/leave tubes),
-`sleep.rs` (`SleepUpdate`), `sounds.rs` (slide loop, plays), `spear_on_back.rs` (the Hunter's
+`sleep.rs` (`SleepUpdate`), `sounds.rs` (slide loop, plays), `drips.rs` (the skid's and
+corridor shoots' `WaterDrip`s), `spear_on_back.rs` (the Hunter's
 `SpearOnBack` state, `DropSpear`'s draws in `Stun` and `Die`). `tests.rs`, `tests/`: tests.
 
 ## `world/` (the loaded world and its abstract layer)
