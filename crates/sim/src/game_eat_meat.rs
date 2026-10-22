@@ -160,6 +160,8 @@ impl RainWorldGame {
                 c.vel += centre.direction_to(main) * 0.9 / c.mass;
             }
             self.eat_meat_drips(index, &chunk, centre, (main + head) / 2.0);
+            let id = self.world.creature(prey).id;
+            self.add_eat(id);
             self.world.creature_mut(prey).state.meat_left -= 1;
             self.add_food(1);
             self.play_on_player(index, SoundId::SlugcatEatMeatB);

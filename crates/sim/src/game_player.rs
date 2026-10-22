@@ -16,7 +16,9 @@ use super::items::Grabability;
 use super::{HudEvent, PlayerObserver, RainWorldGame, RoomObject};
 use crate::creature::fly::MovementMode;
 use crate::creature::overseer::EdibleView;
-use crate::creature::{CreatureId, GrabRequest, RealizedCreature, Shareability, WorldCoordinate};
+use crate::creature::{
+    CreatureId, EntityId, GrabRequest, RealizedCreature, Shareability, WorldCoordinate,
+};
 use crate::item::Entity;
 use crate::player::HeavyCarry;
 use crate::{Animation, FloatExt, Player, SoundId, Vec2, Water, WaterDrip};
@@ -639,14 +641,19 @@ impl RainWorldGame {
         }
     }
 
+    /// `SessionRecord.AddEat`.
+    pub(super) fn add_eat(&mut self, id: EntityId) {
+        if !self.eaten.contains(&id) {
+            self.eaten.push(id);
+        }
+    }
+
     /// `Player.ObjectEaten` of a fly in a story: look away, the nourishment in whole and
     /// quarter pips, then every grasp on it lets go.
     fn object_eaten(&mut self, fly: CreatureId, observer: &mut dyn PlayerObserver) {
         observer.player_look_at(None);
         let id = self.world.creature(fly).id;
-        if !self.eaten.contains(&id) {
-            self.eaten.push(id);
-        }
+        self.add_eat(id);
         let mut num = self.fly_nourishment();
         while num >= 4 {
             self.add_food(1);

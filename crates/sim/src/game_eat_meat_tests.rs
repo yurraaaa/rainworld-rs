@@ -255,6 +255,7 @@ fn the_hunter_eats_a_green_in_eight_bites_then_tosses_it() {
     assert_eq!(bites, [48, 63, 78, 93, 108, 123, 138, 153]);
     assert_eq!(g.world.creature(l).state.meat_left, 0);
     assert_eq!(g.food_in_stomach(), food + 8);
+    assert_eq!(g.eaten(), [g.world.creature(l).id], "SessionRecord.AddEat");
     // Tossed at the next multiple of 80 (160) with no meat left.
     assert_eq!(tossed_at, Some(8));
     assert_eq!(g.player_ref().grab_state().eat_meat, 0);
