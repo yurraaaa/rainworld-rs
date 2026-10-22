@@ -1367,6 +1367,10 @@ pub struct PlayerState {
     pub standing: bool,
     pub stunned: bool,
     pub stun_ticks: i32,
+    /// `canJump` (coyote time) and `jumpChunkCounter` (ticks left to jump off the
+    /// chunk the hips rest on; negative after such a jump).
+    pub can_jump: i32,
+    pub jump_chunk_counter: i32,
     pub dead: bool,
     pub in_shortcut: bool,
     pub vessel_tile: Option<[i32; 2]>,

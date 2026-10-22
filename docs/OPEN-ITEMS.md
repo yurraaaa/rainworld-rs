@@ -16,9 +16,6 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   region state's `STICKS` with the save work; the back spear's zero-gravity placement
   with zero gravity.
 
-- **`Jump`'s slope push** (user, 2026-10-22): the `terrainCurveNormal` branch
-  (Player.cs:13247-13251) was never ported in `crates/sim/src/player/jump.rs`. Small job.
-
 - **Graphics module order and lifetime** (user, 2026-10-22, found in the draw-order
   review; inferred from code): `camera_changed_room` (`crates/sim/src/game_flies.rs`)
   builds overseer, fly and lizard modules in one list by seq, where `Room.NowViewed`
