@@ -66,6 +66,8 @@ pub struct RealizedRoom {
     pub dripping_sound: Option<crate::DrippingSound>,
     /// The water's calm surface loop, made with the water.
     pub water_sound: Option<crate::WaterSound>,
+    /// `socialEventRecognizer`.
+    pub social_events: super::social_events::SocialEventRecognizer,
 }
 
 impl RealizedRoom {
@@ -103,6 +105,7 @@ impl RealizedRoom {
             ceiling_tiles,
             dripping_sound: None,
             water_sound: None,
+            social_events: super::social_events::SocialEventRecognizer::default(),
         }
     }
 

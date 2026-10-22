@@ -142,7 +142,7 @@ impl World {
     /// region-wide cell) and adds the kill to the session record.
     fn killing(&mut self, killer: CreatureId, victim: CreatureId) {
         let room = self.creature(victim).pos.room;
-        self.social_event(room, SocialEventId::Killing, killer, victim);
+        self.social_event(room, SocialEventId::Killing, killer, victim, None);
         if self.creature(killer).kind() != CreatureType::Slugcat {
             return;
         }
