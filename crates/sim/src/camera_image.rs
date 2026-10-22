@@ -3,7 +3,7 @@
 //! `PixelColorAtCoordinate` colours the placed lights; `ApplyPalette` gives the
 //! effect-coloured ones their colour (D24). No draws.
 //!
-//! Mirrors: RoomCamera.cs (PixelColorAtCoordinate), LightSource.cs (ApplyPalette)
+//! Mirrors: RoomCamera.cs (PixelColorAtCoordinate)
 
 use std::sync::Arc;
 

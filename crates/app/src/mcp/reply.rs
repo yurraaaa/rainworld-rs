@@ -189,6 +189,8 @@ pub struct RoomLightState {
     /// After the setter's division by its largest component.
     pub color: [f32; 3],
     pub color_alpha: f32,
+    /// `color.a` after the setter (1 / `color_alpha`).
+    pub color_a: f32,
     pub flat: bool,
     pub fade_with_sun: bool,
     pub color_from_environment: bool,
@@ -223,6 +225,7 @@ impl RoomLightState {
             alpha_now: l.alpha_now(shader_light),
             color: l.color,
             color_alpha: l.color_alpha,
+            color_a: l.color_a,
             flat: l.flat,
             fade_with_sun: l.fade_with_sun,
             color_from_environment: l.color_from_environment,

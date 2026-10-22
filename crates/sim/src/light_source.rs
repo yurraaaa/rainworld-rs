@@ -31,7 +31,7 @@ pub struct LightSourceTick {
     pub shader_light: f32,
     /// `cameras[0].PixelColorAtCoordinate(pos)` at the position after `setPos`, when
     /// camera 0 shows the room.
-    pub environment_color: Option<[f32; 3]>,
+    pub environment_color: Option<[f32; 4]>,
     /// `room.FloatWaterLevel(pos)` at the position after `setPos`.
     pub water_level: f32,
 }
@@ -57,6 +57,10 @@ pub struct LightSource {
     pub color: [f32; 3],
     /// The largest component the setter divided by.
     pub color_alpha: f32,
+    /// `color.a`: Unity's `Color` division divides the alpha too, so it is the given
+    /// alpha over `color_alpha` (1 for white). Futile multiplies it by the sprite's
+    /// alpha, which cancels the draw's `colorAlpha` factor.
+    pub color_a: f32,
     pub environmental_light: bool,
     /// `colorFromEnvironment`: the colour is the camera's level pixel under it.
     pub color_from_environment: bool,
@@ -111,6 +115,7 @@ impl LightSource {
             affected_by_palette_darkness: if environmental_light { 0.0 } else { 1.0 },
             color: [1.0; 3],
             color_alpha: 0.0,
+            color_a: 1.0,
             environmental_light,
             color_from_environment: false,
             effect_color: -1,
@@ -126,14 +131,34 @@ impl LightSource {
         light
     }
 
-    /// The `color` setter.
+    /// The `color` setter of an opaque `new Color(r, g, b)`.
     pub fn set_color(&mut self, c: [f32; 3]) {
-        self.color_alpha = c.iter().fold(0.0f32, |m, &v| if v > m { v } else { m });
-        self.color = if self.color_alpha == 0.0 {
-            [1.0; 3]
+        let [r, g, b] = c;
+        self.set_color_rgba([r, g, b, 1.0]);
+    }
+
+    /// The `color` setter: the largest of r, g and b is `colorAlpha`, and all four
+    /// channels are divided by it (`Color / float`); black becomes `Color.white`.
+    pub fn set_color_rgba(&mut self, c: [f32; 4]) {
+        let [r, g, b, a] = c;
+        self.color_alpha = [r, g, b]
+            .iter()
+            .fold(0.0f32, |m, &v| if v > m { v } else { m });
+        if self.color_alpha == 0.0 {
+            self.color = [1.0; 3];
+            self.color_a = 1.0;
         } else {
-            c.map(|v| v / self.color_alpha)
-        };
+            self.color = [r, g, b].map(|v| v / self.color_alpha);
+            self.color_a = a / self.color_alpha;
+        }
+    }
+
+    /// `ApplyPalette` for a light drawn by camera `c`: an effect-coloured light takes
+    /// its palette texel.
+    pub fn apply_palette(&mut self, c: &crate::CameraImage) {
+        if self.effect_color >= 0 {
+            self.set_color_rgba(c.effect_color(self.effect_color));
+        }
     }
 
     /// The `Alpha` property (Watcher's void weaver and night lights not ported).
@@ -207,7 +232,7 @@ impl LightSource {
         if self.color_from_environment
             && let Some(c) = tick.environment_color
         {
-            self.set_color(c);
+            self.set_color_rgba(c);
         }
         self.water_surface_level = tick.water_level;
         if self.require_up_keep {
@@ -247,10 +272,13 @@ mod tests {
         l.color_from_environment = true;
         let mut t = tick(false);
         t.shader_light = -0.25;
-        t.environment_color = Some([0.25, 0.5, 0.125]);
+        t.environment_color = Some([0.25, 0.5, 0.125, 1.0]);
         l.update(&t);
         assert_eq!((l.rad, l.alpha, l.last_alpha), (50.0, 0.75, 0.0));
-        assert_eq!((l.color, l.color_alpha), ([0.5, 1.0, 0.25], 0.5));
+        assert_eq!(
+            (l.color, l.color_alpha, l.color_a),
+            ([0.5, 1.0, 0.25], 0.5, 2.0)
+        );
         let want = 0.75 * 0.5f32.powf(1.2);
         assert!((l.alpha_now(-0.25) - want).abs() < 1e-6);
         l.update(&t);
@@ -281,10 +309,13 @@ mod tests {
         assert_eq!((l.color, l.color_alpha), ([1.0, 0.8, 0.3], 1.0));
         assert_eq!(l.affected_by_palette_darkness, 1.0);
         let l = LightSource::new(1, 0, Vec2::ZERO, true, [0.0, 0.25, 0.5], None);
-        assert_eq!((l.color, l.color_alpha), ([0.0, 0.5, 1.0], 0.5));
+        assert_eq!(
+            (l.color, l.color_alpha, l.color_a),
+            ([0.0, 0.5, 1.0], 0.5, 2.0)
+        );
         assert_eq!(l.affected_by_palette_darkness, 0.0);
         let l = LightSource::new(1, 0, Vec2::ZERO, false, [0.0; 3], None);
-        assert_eq!((l.color, l.color_alpha), ([1.0; 3], 0.0));
+        assert_eq!((l.color, l.color_alpha, l.color_a), ([1.0; 3], 0.0, 1.0));
     }
 
     /// Lit when its tie goes: rad and alpha are set to 0 (alpha this update, rad the

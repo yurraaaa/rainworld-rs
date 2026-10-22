@@ -4,7 +4,7 @@
 //! `ApplyPalette`), and the room's light queries (`Darkness`, `LightSourceExposure`,
 //! `LightSourceColor`, `DarknessOfPoint`). No draws.
 //!
-//! Mirrors: Room.cs (Loaded, Darkness, LightSourceExposure, LightSourceColor, DarknessOfPoint), LightSource.cs (Update, ApplyPalette), PlayerGraphics.cs (Update)
+//! Mirrors: Room.cs (Loaded, Darkness, LightSourceExposure, LightSourceColor, DarknessOfPoint), LightSource.cs (Update), PlayerGraphics.cs (Update)
 
 use rw_assets::{LightColorType, LightSourceData, SlugcatName};
 
@@ -53,7 +53,7 @@ impl RainWorldGame {
             && let Some(r) = self.world.realized_mut(c.room)
         {
             for l in r.light_sources.iter_mut() {
-                RealizedRoom::apply_palette(l, c);
+                l.apply_palette(c);
             }
         }
     }
@@ -97,7 +97,7 @@ impl RainWorldGame {
         light.flat = data.flat;
         light.effect_color = data.effect_color();
         if let Some(c) = self.camera_image.as_ref().filter(|c| c.room == index) {
-            RealizedRoom::apply_palette(&mut light, c);
+            light.apply_palette(c);
         }
         if let Some(r) = self.world.realized_mut(index) {
             r.light_sources.push(light);
@@ -131,10 +131,7 @@ impl RainWorldGame {
             .filter(|c| {
                 light.color_from_environment && c.room == index && index == self.camera_room
             })
-            .map(|c| {
-                let [r, g, b, _] = c.pixel_color_at_coordinate(pos);
-                [r, g, b]
-            });
+            .map(|c| c.pixel_color_at_coordinate(pos));
         let shader_light = self.world.rain_cycle.shader_light();
         let Some(r) = self.world.realized_mut(index) else {
             return;
@@ -209,14 +206,6 @@ impl RainWorldGame {
 }
 
 impl RealizedRoom {
-    /// `LightSource.ApplyPalette` for a light drawn by camera `c`.
-    pub(crate) fn apply_palette(light: &mut LightSource, c: &CameraImage) {
-        if light.effect_color >= 0 {
-            let [r, g, b, _] = c.effect_color(light.effect_color);
-            light.set_color([r, g, b]);
-        }
-    }
-
     /// `Room.LightSourceExposure(pos)`: the lights' summed exposure terms, clamped.
     #[must_use]
     pub fn light_source_exposure(&self, pos: Vec2) -> f32 {

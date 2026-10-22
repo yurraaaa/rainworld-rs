@@ -964,9 +964,17 @@ range; `PhysicalObject.Update` prunes stale `grabbedBy` entries (the player and 
   under-water glow, `DefaultSlugcatColor`'s More Slugcats and Watcher colours, Remix
   custom and Jolly colours (`SlugcatColor`), the slugpup's `ShortCutColor` light, the
   Watcher's forced glow and the Jolly Co-op under-water light.
+- **The colour's alpha is kept as the game's**, not a divergence but easy to lose: the
+  `color` setter divides all four channels (`Color / float`), so `LightSource::color_a`
+  is `a / colorAlpha`, and the draw multiplies the sprite alpha (which has the
+  `colorAlpha` factor) by it, as Futile's vertex colour does (`color.a * alpha`); the
+  factor cancels.
 - **Not ported (no owner yet):** `setupValues.playerGlowing` (dev setting) and arena
-  `playersGlowing` (no arena sessions); lights of lanterns, flare bombs, creatures but
-  the green lizard, gates, oracles and explosions come with their owners.
+  `playersGlowing` (no arena sessions); `theGlow` and the player's `glowing` set
+  mid-cycle by eating a neuron fly (`OracleSwarmer.BitByPlayer`, `SLOracleSwarmer`) or
+  spearing one (`Spear.cs`), with the neuron flies; lights of lanterns, flare
+  bombs, creatures but the green lizard, gates, oracles and explosions come with their
+  owners.
 
 ## Not ported yet (not divergences, just absent)
 

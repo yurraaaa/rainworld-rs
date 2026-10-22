@@ -116,10 +116,16 @@ impl LightSourceData {
 mod tests {
     use super::{LightBlinkType, LightColorType, LightSourceData};
 
-    /// `su_a34`'s first light and a blinking night light: every field, rad the
-    /// handle's length.
+    /// `su_a34`'s first light (`su_a34_settings.txt`), a made-up light with a 3-4-5
+    /// handle and a blinking night light: every field, rad the handle's length.
     #[test]
     fn parses_the_short_and_long_forms() {
+        let d =
+            LightSourceData::parse("0.3369565~Environment~0~100~-225~164.6025~1~0").expect("data");
+        assert_eq!(
+            (d.strength, d.rad(), d.panel),
+            (0.3369565, 100.0, [-225.0, 164.6025])
+        );
         let d = LightSourceData::parse("0.75~Environment~-40~-30~65~37.5~1~0").expect("data");
         assert_eq!(d.strength, 0.75);
         assert_eq!(d.color_type, Some(LightColorType::Environment));

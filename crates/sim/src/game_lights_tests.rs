@@ -19,7 +19,7 @@ use crate::{
     RainWorldGame, Sounds, Start, Vec2, Water,
 };
 
-/// `su_a34`'s first light (environment colour, fading with the sun) at (100, 60), a
+/// A made-up light (environment colour, fading with the sun, a 3-4-5 handle) at (100, 60), a
 /// `SuperJumpInstruction` and a flat effect-colour light at (300, 60) that does not
 /// fade.
 const PLACED: &str = "LightSource><100><60><0.75~Environment~-40~-30~65~37.5~1~0, \
