@@ -160,9 +160,9 @@ for older notes' line numbers; new notes cite file and member.
   installed, even where the game checks files on disk (Downpour's
   `dlcsInstalled`).
 - Current phase: the player controller in a region whose behaving creatures
-  are overseers, bat flies and green lizards (lizards at step 8 of 9:
-  decisions, calm behaviours, hunting and fleeing, the player's side of a bite,
-  fights, communication and missions done), not the full game. Details
+  are overseers, bat flies and green lizards (all 9 lizard steps
+  done: decisions, calm behaviours, hunting and fleeing, the player's side of a
+  bite, fights, communication, missions, carrying and eating, lineages), not the full game. Details
   live in `docs/` and `../rainworld-re`; in short:
   - A story starts at the campaign's start den; room-exit shortcuts carry the
     player between the region's rooms (synchronous loads, D14). The
@@ -177,7 +177,10 @@ for older notes' line numbers; new notes cite file and member.
     on their own (idle, travel, den-going, frustrated, investigating sounds),
     hunt (approach, lounge, bite and hold) and
     flee (7b); rivals fight, signal dominance and submission, and a lizard
-    that submits leaves the room on a mission (7c).
+    that submits leaves the room on a mission (7c). Their deaths register with
+    their spawners (lineages progress on the slugcat's kills; respawn and wait
+    lists carried across cycles and saves); lizards stay in shelters and are
+    saved there (step 9).
   - Overseers: body, AI, graphics, guide tutorial text, Monk's guide light,
     holograms whose triggers are ported (D14). Bat flies: world process,
     realization, flocks, hives, chains, pipe travel, sounds, graphics.
