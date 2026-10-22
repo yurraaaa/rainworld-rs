@@ -155,7 +155,9 @@ impl Graphics {
                 CosmeticKind::LizardBubble(b) => Some(b.module),
                 CosmeticKind::Spark(s) => s.lizard.map(|(_, m)| m),
                 CosmeticKind::Flash(f) => f.lizard.map(|(_, m)| m),
-                CosmeticKind::Spikes(_) | CosmeticKind::OverseerEffect(_) => None,
+                CosmeticKind::Spikes(_)
+                | CosmeticKind::OverseerEffect(_)
+                | CosmeticKind::Bubble(_) => None,
             })
             .collect();
         self.dropped_lizards.retain(|g| used.contains(&g.module));

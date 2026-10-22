@@ -1,5 +1,6 @@
 //! Water: entering the `Swimming` body mode, the `DeepSwim` and `SurfaceSwim`
-//! animations, `GravitateToOpening`, breath and drowning (`LungUpdate`).
+//! animations, `GravitateToOpening`, breath and drowning (`LungUpdate`) with their
+//! bubbles.
 //!
 //! Behaviour: `rainworld-re/notes/water.md` sections 3-5, base game with Remix off
 //! (docs/divergences/ D11), Survivor stats.
@@ -11,7 +12,7 @@ use rw_random::UnityRandom;
 
 use super::{Animation, BodyMode, HEAD, HIPS, Player, ROOM_GRAVITY};
 use crate::float_ext::FloatExt;
-use crate::{Sounds, Vec2, Water};
+use crate::{Bubble, Sounds, Vec2, Water};
 
 /// `SlugcatStats.drownThreshold`: below this much air the slugcat struggles.
 pub(super) const DROWN_THRESHOLD: f32 = 1.0 / 3.0;
@@ -140,7 +141,7 @@ impl Player {
     /// stroke); holding a direction builds `swim_force`, advances the stroke cycle with
     /// a pulse at its end, and pushes the head that way (bent upward when short of
     /// breath); water friction follows how well the motion lines up with the body.
-    pub(super) fn deep_swim(&mut self, water: Option<&Water>) {
+    pub(super) fn deep_swim(&mut self, water: Option<&Water>, rng: &mut UnityRandom) {
         self.dynamic_run_speed = [0.0, 0.0];
         self.can_jump = 0;
         self.standing = false;
@@ -156,6 +157,12 @@ impl Player {
                 let along = hips.pos.direction_to(head.pos);
                 self.body.chunks[HEAD].vel += along * SWIM_BOOST_FORCE;
                 self.air_in_lungs -= SWIM_BOOST_COST;
+                // `room.BeingViewed`.
+                let place = self.emitter_place;
+                if place.room == place.camera_room {
+                    let main = &self.body.chunks[HEAD];
+                    self.add_bubble(Bubble::new(main.pos, main.vel, false, false, rng));
+                }
             } else {
                 self.swim_cycle = 0.0;
             }
@@ -396,7 +403,12 @@ impl Player {
             * if self.lungs_exhausted { 4.5 } else { 9.0 }
             * if holding_up { 1.5 } else { 1.0 }
             * (SETUP_LUNGS / 100.0);
+        let air = self.air_in_lungs;
         self.air_in_lungs -= 1.0 / ticks * self.stats.lungs_fac;
+        if self.air_in_lungs < 2.0 / 3.0 && air >= 2.0 / 3.0 {
+            let head = &self.body.chunks[HEAD];
+            self.add_bubble(Bubble::new(head.pos, head.vel, false, false, rng));
+        }
         let floor = if self.heading_for_air(room, water) {
             -0.3
         } else {
@@ -420,8 +432,27 @@ impl Player {
                 let keep = 1.0_f32.lerp(0.9, self.air_in_lungs.inverse_lerp(0.0, DROWN_THRESHOLD));
                 self.body.chunks[HIPS].vel *= keep;
             }
+            if (rng.value() > self.air_in_lungs * 2.0 || self.lungs_exhausted) && rng.value() > 0.5
+            {
+                let push =
+                    Vec2::from_degrees(rng.value() * 360.0) * 6.0.lerp(0.0, self.air_in_lungs);
+                let head = &self.body.chunks[HEAD];
+                let bubble = Bubble::new(head.pos, head.vel + push, false, false, rng);
+                self.add_bubble(bubble);
+            }
         }
         self.submerged = true;
+    }
+
+    /// `room.AddObject` of a bubble, after the drips made so far this tick.
+    fn add_bubble(&mut self, bubble: Bubble) {
+        self.bubbles.push((self.drips.len(), bubble));
+    }
+
+    /// The bubbles made this tick, each with the number of this tick's drips made before
+    /// it.
+    pub(crate) fn take_bubbles(&mut self) -> Vec<(usize, Bubble)> {
+        std::mem::take(&mut self.bubbles)
     }
 
     /// Out of air but holding up, less than 200 px under the surface, with no solid

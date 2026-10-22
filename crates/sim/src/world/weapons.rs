@@ -16,7 +16,7 @@ use crate::item::{
 };
 use crate::{
     BodyChunk, Cosmetic, CosmeticKind, FloatExt, ImpactCall, InGameNoise, LoopEmitter, RoomCall,
-    SoundId, Sounds, Spark, SurfaceChunk, Vec2,
+    SoundId, Sounds, Spark, Vec2,
 };
 
 /// A loop emitter left in a room's update list by an item that is no longer there; its
@@ -702,15 +702,20 @@ impl World {
         tie: crate::cosmetic::CosmeticTie,
         rng: &mut UnityRandom,
     ) {
-        let Some(r) = self.realized_mut(index) else {
+        let Some(RealizedRoom {
+            room,
+            water,
+            cosmetics,
+            ..
+        }) = self.realized_mut(index)
+        else {
             return;
         };
-        let room = r.room.clone();
-        let Some(c) = r.cosmetics.iter_mut().find(|c| c.id == id) else {
+        let Some(c) = cosmetics.iter_mut().find(|c| c.id == id) else {
             return;
         };
-        if c.update(&room, tie, rng) {
-            r.cosmetics.retain(|c| c.id != id);
+        if c.update(room, water.as_ref(), tie, rng) {
+            cosmetics.retain(|c| c.id != id);
         }
     }
 
@@ -818,45 +823,6 @@ impl World {
             o.time_spent_here = 0;
             o.realized = None;
         }
-    }
-
-    /// `Water.Update` of room `index`: the realized items' chunks of layer 0 (stuck or
-    /// thrown), then the player's (`player`, layer 1), then the other items' (layer 2).
-    pub(crate) fn update_water(
-        &mut self,
-        index: i32,
-        player: &mut [BodyChunk],
-        rng: &mut UnityRandom,
-        sounds: &mut Sounds,
-    ) {
-        let Some(local) = self.local(index) else {
-            return;
-        };
-        let World {
-            objects, realized, ..
-        } = self;
-        let Some(RealizedRoom {
-            room,
-            water: Some(water),
-            ..
-        }) = realized[local].as_mut()
-        else {
-            return;
-        };
-        let mut items: Vec<(i32, u64, &mut BodyChunk)> = objects
-            .iter_mut()
-            .filter_map(|o| o.realized.as_deref_mut().filter(|w| w.room == index))
-            .map(|w| (w.collision_layer, w.layer_order, &mut w.body.chunks[0]))
-            .collect();
-        items.sort_by_key(|&(layer, order, _)| (layer, order));
-        let split = items.partition_point(|&(layer, _, _)| layer < 1);
-        let after = items.split_off(split);
-        let chunks = items
-            .into_iter()
-            .map(|(_, _, c)| SurfaceChunk::Object(c))
-            .chain(SurfaceChunk::player(player))
-            .chain(after.into_iter().map(|(_, _, c)| SurfaceChunk::Object(c)));
-        water.update(room, chunks, rng, sounds);
     }
 
     /// The realized items in room `room` as physical objects of its update list.

@@ -19,8 +19,8 @@ use crate::room_ext::RoomExt;
 use crate::shortcut::CreatureVessel;
 use crate::world::LizardRoomCx;
 use crate::{
-    BodyChunk, FloatExt, InGameNoise, ScreenMovement, SoundId, Sounds, TerrainImpact,
-    TerrainImpactHandler, Vec2, WaterDrip,
+    BodyChunk, Bubble, CosmeticKind, FloatExt, InGameNoise, ScreenMovement, SoundId, Sounds,
+    TerrainImpact, TerrainImpactHandler, Vec2, WaterDrip,
 };
 
 /// A lizard's terrain impact as `TerrainImpact` meets it: the impact, the chunk's
@@ -546,8 +546,8 @@ impl RainWorldGame {
     /// `AirBreatherCreature.Update` after the base: a living lizard with full lungs
     /// starts losing air under water (a draw every tick); out of water they refill;
     /// under water they empty, and below 0.3 it drowns: bubbles, letting go, struggling,
-    /// stuns and at last death. The bubble itself is not ported (its draws are made).
-    fn lizard_lungs(&mut self, index: i32, id: CreatureId) {
+    /// stuns and at last death.
+    pub(super) fn lizard_lungs(&mut self, index: i32, id: CreatureId) {
         let l = self.world.lizard_ref(id);
         if l.dead {
             return;
@@ -581,12 +581,10 @@ impl RainWorldGame {
         }
         let drown = (lungs.inverse_lerp(0.3, -0.3) * std::f32::consts::PI).sin();
         if self.rng.value() < drown * 0.5 {
-            // `new Bubble(head, RNV() * (value * 6), ...)`: two more draws in its
-            // constructor.
-            Vec2::random_unit(&mut self.rng);
-            for _ in 0..3 {
-                self.rng.value();
-            }
+            let pos = self.world.lizard_ref(id).body.chunks[0].pos;
+            let vel = Vec2::random_unit(&mut self.rng) * (self.rng.value() * 6.0);
+            let bubble = Bubble::new(pos, vel, false, false, &mut self.rng);
+            self.world.add_cosmetic(index, CosmeticKind::Bubble(bubble));
         }
         if self.rng.value() < 0.025 {
             self.lizard_lose_all_grasps(id);

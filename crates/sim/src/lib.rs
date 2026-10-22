@@ -21,6 +21,7 @@
 //!
 //! Mirrors: -
 
+mod bubble;
 mod camera;
 pub mod campaign;
 mod chunk;
@@ -52,6 +53,7 @@ mod water;
 mod water_drip;
 pub mod world;
 
+pub use bubble::{Bubble, BubbleMode};
 pub use camera::CameraView;
 pub use chunk::{BodyChunk, Contact, DEFAULT_RESTRICT_IN_ROOM_RANGE, PhysicsParams, TerrainImpact};
 pub use cosmetic::{
@@ -88,7 +90,7 @@ pub use sound::{
 pub use spawn::{determine_safe_spawn_tile, place_in_room};
 pub use vec2::{TileExt, Vec2};
 pub use vec3::Vec3;
-pub use water::{SurfaceChunk, Water};
+pub use water::{BubbleEmitter, ChunkOwner, SurfaceChunk, Water};
 pub use water_drip::{WaterDrip, WaterGlitter};
 
 #[cfg(test)]
