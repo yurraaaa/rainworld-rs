@@ -110,6 +110,14 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `../rainworld-re/surveys/lizards.md` (user decisions).
 
 ## To look into
+- **SkyAndLightBloom brightness** (2026-10-22, full-screen effects review): SI_A20's sunlit
+  walls blow out to near white (the shader sums up to 24 taps without dividing by `div`;
+  the port matches the maths). Compare with the real game in play.
+- **Full-screen effects leftovers** (review, small): `DeathFall::camera_viewing_point`
+  belongs on the room (`Room.CameraViewingPoint`); stale "not ported" rows for LightBurn,
+  SkyAndLightBloom, SkyBloom and wet terrain in `../rainworld-re/surveys/room-effects/`
+  (README, `screen-effects.md` §1.5 and the `_WetTerrain`/`_waterLevel` rows) and
+  `notes/room-rendering.md` §9.
 - **Camera room switches mid-tick** (2026-10-22, camera-shake review; inferred): the
   port's `camera_moves_to` sets the camera's room at once, where the game's
   `cameras[0].room` stays the old room until `ApplyPositionChange` at the next

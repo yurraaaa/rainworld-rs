@@ -99,8 +99,9 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   Differences: the grab of the `Bloom` shaders is sampled bilinear with clamped edges
   (Unity's default, INFERRED as for the object shadows); `CreatureMask` tests only the
   pre-level grab's red channel (INFERRED from HLSL's `bool4` to `bool` conversion);
-  `Fog` reads the pre-level grab as its `_GrabTexture` (it has no `GrabPass` of its own;
-  INFERRED that the last named grab is that one); holograms in `Bloom` are always drawn
+  `Fog` and `SpecificDepth` read `LevelColor`'s unnamed pre-level `GrabPass { }` as
+  their `_GrabTexture` (neither has a `GrabPass` of its own; INFERRED that no other
+  unnamed-grab sprite draws in `Foreground` between the level and them); holograms in `Bloom` are always drawn
   after the effect, where the game puts the effect back on top of its container after
   every `ApplyPalette`; `num4` is `ShaderLight` without lightning (`Lightning`'s flashes
   and palette are not ported, so a `Lightning` room's alpha is its amount times
