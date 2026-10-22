@@ -81,16 +81,22 @@ neutral input and no `MovementUpdate` while stunned or dead, surface friction 0.
 not conscious, and death plus destruction below the room bottom (-500, -250 in
 `WallClimb`) unless the room's water catches the body. As in the game, a destroyed body
 is gone (`Player::is_destroyed`; the app drops it and draws nothing). The first `Die`
-calls `GameOver` (story sessions; D15, D17); the dead body keeps simulating as plain
+calls `GameOver` (story sessions and dev starts; D15, D17); the dead body keeps simulating as plain
 physics with neutral input, its water, graphics and room camera as in the game.
 
 **What differs:**
-- **R respawn and no game over in dev starts** (user decision). The port's starts in a
-  room (`load_room`, `--room`, arena levels: `StartCondition::Dev`) are not story
-  sessions: a death there has no game over, and R (MCP `respawn`) replaces the player
-  with a fresh one in the camera's room, also after the body fell out of the room (the
-  game has no respawn). Their hibernation and starving reach the screens on an
-  in-memory save state that is never written (D16). In a story session (a new or
+- **Game over and R respawn in dev starts** (user decision, 2026-10-22). The port's
+  starts in a room (`load_room`, `--room`, arena levels: `StartCondition::Dev`) are not
+  story sessions, where the game's `GameOver` returns at once (`IsStorySession`); the
+  port runs it as in a story: the prompt's game-over mode (its sound, `dependentOnGrasp`
+  for a held player), `PlaceKarmaFlowerOnDeathSpot` and the music's `DeathEvent`. The
+  map press 40 ticks later goes to the death screen on the dev start's in-memory save
+  state, never written (D16), as their hibernation and starving reach the sleep and
+  starve screens; its CONTINUE starts a new dev game. R (MCP `respawn`) replaces the
+  player with a fresh one in the camera's room, also after the body fell out of the room
+  (the game has no respawn), and takes the prompt out of game-over mode
+  (`TextPrompt::leave_game_over_mode`: the dependent grasp dropped, no prompt sound or
+  death screen after it). In a story session (a new or
   continued campaign) R does nothing. Not ported: `setupValues.invincibility` (a dev setting) and `Die` without a
   realized room (unreachable in the port).
 - **`Player.Stun` side effects.** The game un-stands the player (and drops grasps) when

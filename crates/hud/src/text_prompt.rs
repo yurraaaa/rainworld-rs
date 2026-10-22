@@ -373,6 +373,16 @@ impl TextPrompt {
         self.play_game_over_sound = true;
     }
 
+    /// The port's dev-start respawn (R, D4; no game function): game-over mode ends as
+    /// when a held player gets free, the dependent grasp and an unplayed prompt sound
+    /// are dropped, and the death screen is no longer asked for.
+    pub fn leave_game_over_mode(&mut self) {
+        self.game_over_mode = false;
+        self.dependent_on_grasp = None;
+        self.play_game_over_sound = false;
+        self.go_to_death_screen = false;
+    }
+
     fn init_next_message(&mut self) {
         self.message_string.clone_from(&self.messages[0].text);
         self.hide_hud = self.messages[0].hide_hud;

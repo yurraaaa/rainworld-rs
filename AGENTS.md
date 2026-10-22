@@ -196,8 +196,9 @@ for older notes' line numbers; new notes cite file and member.
   - Death in a story session is the game's: the body keeps simulating,
     `GameOver` puts the HUD prompt in game-over mode, the map button 40 ticks
     later saves the death and shows the death screen, whose CONTINUE starts
-    the next cycle. R respawns only in dev starts (`load_room`, `--room`,
-    arena levels). A body that falls out of the room is destroyed.
+    the next cycle. Dev starts (`load_room`, `--room`, arena levels) game
+    over the same way on an unsaved state (D4, D16), and only there R
+    respawns, leaving game-over mode. A body that falls out of the room is destroyed.
   - Water uses the game's full wavy surface simulation.
 - Game assets inside Unity files (atlases, noise texture, audio) are read
   natively at startup by `rw_assets::unity`

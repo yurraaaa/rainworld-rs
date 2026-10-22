@@ -438,6 +438,40 @@ fn game_over_prompt_sound_plays_once_on_tick_22() {
 }
 
 #[test]
+fn a_dev_respawn_leaves_game_over_mode() {
+    // The port's R (D4): left during the lock, the prompt never asks for the death
+    // screen, plays no sound and fades back to nothing; its draws are then a HUD's
+    // without game over.
+    let text = "Volume: 6\nVolume exponent: 1.8\nHUD_Game_Over_Prompt : clip\n";
+    let names = rw_assets::ClipNames::new(["clip".to_owned()], None);
+    let table = std::sync::Arc::new(rw_assets::SoundTable::parse(text, &names).unwrap());
+    let mut rig = Rig::new(7, 4);
+    rig.sounds = Sounds::new(table);
+    rig.hud
+        .text_prompt
+        .enter_game_over_mode(Some(9), 0, 0, [0.0; 2]);
+    for _ in 0..10 {
+        rig.tick_held(false, &[9]);
+    }
+    rig.hud.text_prompt.leave_game_over_mode();
+    let p = &rig.hud.text_prompt;
+    assert!(!p.game_over_mode && !p.play_game_over_sound);
+    assert_eq!(p.dependent_on_grasp, None);
+    let mut alive = Rig::new(7, 4);
+    alive.rng = rig.rng.clone();
+    for _ in 0..80 {
+        rig.tick(true);
+        rig.tick(false);
+        alive.tick(true);
+        alive.tick(false);
+        assert!(!rig.hud.text_prompt.go_to_death_screen);
+    }
+    assert!(rig.sounds.take_events().is_empty());
+    assert_eq!(rig.rng, alive.rng);
+    assert_eq!(rig.hud.text_prompt.currently_showing, InfoId::Nothing);
+}
+
+#[test]
 fn game_over_press_needs_a_release_after_the_lock() {
     // Released through the lock, then pressed on tick 41: `lastAnyKey` is still the
     // initial true, so only a press after a released tick counts.

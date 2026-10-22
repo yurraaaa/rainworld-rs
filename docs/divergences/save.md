@@ -90,8 +90,8 @@ Differences:
 - **Dev starts save nothing** (port-only; user decision). A dev start (`--room`,
   `load_process`'s game, arena levels; D4) plays on a copy of the slot's progression
   with no file (`PlayerProgression::detached`), made afresh for each dev game, with a
-  new game's save state at the start room. `Win`, starving and the sleep and starve
-  screens run on it as in a story, but nothing reaches the disk (no save, backup or
+  new game's save state at the start room. `Win`, starving, a death's game over and the sleep,
+  starve and death screens run on it as in a story, but nothing reaches the disk (no save, backup or
   map write, and its `Win` does not use up the run's `_Backup`); the slot's
   progression comes back before any process but the game and its screens.
 - **Session time.** The game stops counting `SessionRecord.time` while the prompt is in
