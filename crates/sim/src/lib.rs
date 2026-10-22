@@ -47,6 +47,7 @@ pub mod shelter;
 mod shortcut;
 mod sound;
 mod spawn;
+mod splash;
 pub mod trigger;
 mod vec2;
 mod vec3;
@@ -92,9 +93,10 @@ pub use sound::{
     Sounds, StaticSoundLoop,
 };
 pub use spawn::{determine_safe_spawn_tile, place_in_room};
+pub use splash::Splash;
 pub use vec2::{TileExt, Vec2};
 pub use vec3::Vec3;
-pub use water::{BubbleEmitter, ChunkOwner, SurfaceChunk, Water};
+pub use water::{BubbleEmitter, ChunkOwner, SurfaceChunk, Water, WaterObject};
 pub use water_drip::{WaterDrip, WaterGlitter};
 pub use water_sound::WaterSound;
 

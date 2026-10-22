@@ -294,7 +294,7 @@ impl ExactRayTrace for Room {
 
 /// A `FloatRect` of a tile.
 #[derive(Debug, Clone, Copy)]
-struct TileRect {
+pub(crate) struct TileRect {
     left: f32,
     bottom: f32,
     right: f32,
@@ -311,6 +311,22 @@ impl TileRect {
         }
     }
 
+    /// `Room.TileRect(tile)`.
+    pub(crate) fn of_tile(tile: (i32, i32)) -> Self {
+        let m = Vec2::middle_of_tile(tile);
+        Self::new(m - Vec2::new(10.0, 10.0), m + Vec2::new(10.0, 10.0))
+    }
+
+    /// `FloatRect.Grow`.
+    pub(crate) fn grow(self, by: f32) -> Self {
+        Self {
+            left: self.left - by,
+            bottom: self.bottom - by,
+            right: self.right + by,
+            top: self.top + by,
+        }
+    }
+
     fn inside(&self, v: Vec2) -> bool {
         v.x > self.left && v.x < self.right && v.y > self.bottom && v.y < self.top
     }
@@ -318,6 +334,13 @@ impl TileRect {
     /// `Custom.RectCollision(pos, lastPos, rect)`'s lower-left corner: the crossing of
     /// the rectangle's edges nearest `last_pos`, or `pos`.
     fn collision(&self, pos: Vec2, last_pos: Vec2) -> Vec2 {
+        self.rect_collision(pos, last_pos).0
+    }
+
+    /// `Custom.RectCollision(pos, lastPos, rect)`: corner D (the crossing of the
+    /// rectangle's edges nearest `last_pos`, or `pos`) and corner B (which edge: `(1, 0)`
+    /// left, `(-1, 0)` right, `(0, 1)` bottom, `(0, -1)` top, zero for none).
+    pub(crate) fn rect_collision(&self, pos: Vec2, last_pos: Vec2) -> (Vec2, Vec2) {
         let left = last_pos.vertical_cross_point(pos, self.left);
         let right = last_pos.vertical_cross_point(pos, self.right);
         let (mut bottom, mut top) = (
@@ -333,15 +356,21 @@ impl TileRect {
         } else {
             last_pos.distance(pos)
         };
-        let mut hit = pos;
-        for (p, vertical) in [(left, true), (right, true), (bottom, false), (top, false)] {
+        let mut hit = (pos, Vec2::ZERO);
+        let edges = [
+            (left, true, Vec2::new(1.0, 0.0)),
+            (right, true, Vec2::new(-1.0, 0.0)),
+            (bottom, false, Vec2::new(0.0, 1.0)),
+            (top, false, Vec2::new(0.0, -1.0)),
+        ];
+        for (p, vertical, normal) in edges {
             let on_edge = if vertical {
                 p.y >= self.bottom && p.y <= self.top
             } else {
                 p.x >= self.left && p.x <= self.right
             };
             if on_edge && last_pos.dist_less(p, dst) {
-                hit = p;
+                hit = (p, normal);
                 dst = last_pos.distance(p);
             }
         }

@@ -1,7 +1,7 @@
 //! A realized room's `Water.Update` with the room's physical objects: every body's chunks
 //! in `physicalObjects` order (layer 0: flies, overseers, thrown and stuck weapons;
 //! layer 1: lizards and the player; layer 2: the other weapons; each layer in joining
-//! order), and the bubbles it makes added to the update list.
+//! order), and the splashes and bubbles it makes added to the update list.
 //!
 //! Mirrors: Water.cs (Update), Room.cs (physicalObjects)
 
@@ -10,7 +10,7 @@ use rw_random::UnityRandom;
 use super::{RealizedRoom, World};
 use crate::creature::RealizedCreature;
 use crate::item::Entity;
-use crate::{BodyChunk, ChunkOwner, CosmeticKind, Sounds, SurfaceChunk};
+use crate::{BodyChunk, ChunkOwner, CosmeticKind, Sounds, SurfaceChunk, WaterObject};
 
 /// A physical object of a room: its collision layer, place in that layer, and owner.
 pub(crate) type LayerEntry = (i32, u64, ChunkOwner);
@@ -18,7 +18,8 @@ pub(crate) type LayerEntry = (i32, u64, ChunkOwner);
 impl World {
     /// `Water.Update` of room `index`. `player` is the player's body in this room with
     /// its place in the update list (`None` when it is elsewhere or in a shortcut).
-    /// Bodies keep the `splash_stop` the water sets; the bubbles join the room.
+    /// Bodies keep the `splash_stop` the water sets; the splashes and bubbles join the
+    /// room.
     pub(crate) fn update_water(
         &mut self,
         index: i32,
@@ -64,8 +65,12 @@ impl World {
                 c.splash_stop = copy.splash_stop;
             }
         }
-        for b in made {
-            self.add_cosmetic(index, CosmeticKind::Bubble(b));
+        for o in made {
+            let kind = match o {
+                WaterObject::Bubble(b) => CosmeticKind::Bubble(b),
+                WaterObject::Splash(s) => CosmeticKind::Splash(s),
+            };
+            self.add_cosmetic(index, kind);
         }
     }
 

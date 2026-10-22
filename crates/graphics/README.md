@@ -38,7 +38,7 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 | `hologram_draw.rs` | hologram part sprites and lines | `OverseerHologram.DrawSprites` |
 | `holo_light.rs`, `light_source.rs` | guide light; light disc | `HologramLight`, `LightSource` |
 | `weapon_graphics.rs` | rock and spear sprites | `Rock`, `Spear` |
-| `water_drip.rs`, `cosmetic_graphics.rs` | drips; sparks, explosion spikes, lizard and air bubbles | `WaterDrip`, `Spark`, `ExplosionSpikes`, `LizardBubble`, `Bubble` |
+| `water_drip.rs`, `cosmetic_graphics.rs` | drips (`DripPalette`, water-coloured too); sparks, explosion spikes, lizard and air bubbles, splashes | `WaterDrip`, `Spark`, `ExplosionSpikes`, `LizardBubble`, `Bubble`, `Splash` |
 | `shortcut_graphics.rs` | pipe pixels, entrance symbols | `ShortcutGraphics` |
 | `shelter_door_graphics.rs` | shelter door sprites | `ShelterDoor` |
 | `sun_blocker.rs` | the `SunBlock` effect's screen-covering sprite in `Shadows` | `SunBlocker` |

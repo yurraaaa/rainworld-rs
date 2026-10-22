@@ -476,3 +476,65 @@ fn fs_colored_sprite3(in: VertexOut) -> @location(0) vec4<f32> {
     col = mix(col, palette_at(vec2(1.5 / 32.0, 7.5 / 8.0)), dpth * room.fog_amount);
     return vec4(clamp(col.rgb, vec3(1.0 / 255.0), vec3(1.0)), texcol.w);
 }
+
+// `WaterSplash` (no `RIPPLE`, a Watcher keyword), a `Splash`'s quads. The falloff `dist`
+// is radial, or with green sideways (`|uv.x - 0.5| * 2` to `0.7 - 0.4 clr.a`); the
+// screen pixel's level coordinate is pushed by a noise wobble (in whole pixels, less
+// toward the rim), and the level read twice that far. `h` is a noise pattern (red
+// scrolls it), raised toward 1 by the alpha unless the sprite is foam (blue), less
+// `dist`, then times the alpha (foam 0.05 less); under `Lerp(0.05, 0.01, alpha)` the
+// pixel is left alone. The colour runs from the palette's `waterColor2` to
+// `waterColor1` by the level depth `dp`, toward the fog colour with the alpha away from
+// the water line (`_waterLevel`); foam is whitened (a slow sine glint, more on far
+// layers). Deeper than layer 6, the pre-level grab (`_GrabTexture`: this shader has no
+// GrabPass, the last one is the level's) decides: the background bubbles' `(0, 1/255,
+// 0)` makes it lit water (`dp` 1, colour `waterColor1`), anything else drawn there
+// makes `dp` 6/30 and the splash takes that colour (half of it near the water line).
+@fragment
+fn fs_water_splash(in: VertexOut) -> @location(0) vec4<f32> {
+    let clr = in.color;
+    let proximity = 1.0 - clamp((in.scr.y - ((1.0 - room.water_level) - 0.14)) * 5.0, 0.0, 1.0);
+    var tc = level_coord(in.scr);
+    let sideways = pow(abs(in.tex.x - 0.5) * 2.0, 0.7 - clr.a * 0.4);
+    let dist = mix(center_dist(in.tex), sideways, clr.y);
+    let wobble = sin((room.rain + noise_at(tc * 1.2) * 3.0) * 3.14 * 2.0) * 0.5 + 0.5;
+    var distortion = vec2(mix(-0.002, 0.002, wobble) * (1.0 - dist));
+    distortion = floor(distortion * room.screen) / room.screen;
+    tc += distortion;
+    let pattern = noise_at(vec2(tc.x * 18.2, room.rain * 2.4 + tc.y * 12.2));
+    var h = 0.5 + sin((18.5 * room.rain + pattern * 3.0) * 3.14) * 0.5;
+    h *= noise_at(in.tex - vec2(room.rain * 23.0 * clr.x));
+    h = max(0.0, mix(h, 1.0, clr.a * (1.0 - clr.z)) - dist);
+    let texcol = level_at(tc + distortion);
+    var grab = textureLoad(behind_tex, frame_px(in.scr + distortion), 0);
+    var dp = depth_of(texcol);
+    if dp > 6.0 / 30.0 {
+        if byte(grab.r) == 0 && byte(grab.g) == 1 && byte(grab.b) == 0 {
+            dp = 1.0;
+            grab = palette_at(vec2(4.5 / 32.0, 7.5 / 8.0));
+        } else if drawn(grab) {
+            dp = 6.0 / 30.0;
+        }
+    }
+    h *= clr.a;
+    if clr.z > 0.5 {
+        h -= 0.05;
+    }
+    if h < mix(0.05, 0.01, clr.a) {
+        return vec4(0.0);
+    }
+    var col = mix(
+        palette_at(vec2(5.5 / 32.0, 7.5 / 8.0)),
+        palette_at(vec2(4.5 / 32.0, 7.5 / 8.0)),
+        dp,
+    );
+    col = mix(col, palette_at(vec2(0.5 / 32.0, 7.5 / 8.0)), (1.0 - clr.a) * 0.5 * dp * (1.0 - proximity));
+    if clr.z > 0.5 {
+        let glint = pow(0.5 + sin(room.rain * 25.0 + (tc.x - tc.y * 2.0) / 3.0) * 0.5, 7.0);
+        col = mix(col, vec4(1.0), (0.3 + 0.2 * glint + 0.5 * dp) * (1.0 - proximity));
+    }
+    if dp >= 6.0 / 30.0 && drawn(grab) {
+        col = mix(col, grab, mix(1.0, 0.5, proximity));
+    }
+    return col;
+}

@@ -44,9 +44,9 @@ pub trait RoomExt {
         true
     }
 
-    /// `Room.RayTraceTilesForTerrain`: no Solid tile on the line of tiles from `a` to
-    /// `b`, ends included.
-    fn ray_trace_tiles_for_terrain(&self, a: (i32, i32), b: (i32, i32)) -> bool {
+    /// `SharedPhysics.RayTraceTilesForTerrainReturnFirstSolid(room, a, b)` (tiles): the
+    /// first Solid tile on the line of tiles from `a` to `b`, ends included.
+    fn ray_trace_tiles_first_solid(&self, a: (i32, i32), b: (i32, i32)) -> Option<(i32, i32)> {
         let (mut dx, mut dy) = ((b.0 - a.0).abs(), (b.1 - a.1).abs());
         let (mut x, mut y) = a;
         let mut n = 1 + dx + dy;
@@ -57,7 +57,7 @@ pub trait RoomExt {
         dy *= 2;
         while n > 0 {
             if self.is_solid_tile(x, y) {
-                return false;
+                return Some((x, y));
             }
             if err > 0 {
                 x += sx;
@@ -68,7 +68,13 @@ pub trait RoomExt {
             }
             n -= 1;
         }
-        true
+        None
+    }
+
+    /// `Room.RayTraceTilesForTerrain`: no Solid tile on the line of tiles from `a` to
+    /// `b`, ends included.
+    fn ray_trace_tiles_for_terrain(&self, a: (i32, i32), b: (i32, i32)) -> bool {
+        self.ray_trace_tiles_first_solid(a, b).is_none()
     }
 
     /// `Room.RayTraceTilesList`: the line of tiles from `a` to `b` written over the

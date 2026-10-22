@@ -1,10 +1,11 @@
 //! `Spark.DrawSprites` (40745), `ExplosionSpikes.DrawSprites` (34935),
-//! `LizardBubble.DrawSprites`, `StationaryEffect.DrawSprites` and `Bubble.DrawSprites`: a
-//! streak in `Midground` (in the lizard's head colour while its graphics flicker white),
-//! a ring of fading spikes in `Foreground`, a lizard's bubble and its head shield's
-//! flash, and an air bubble in the water. The flash draws on the cosmetic stream (D1).
+//! `LizardBubble.DrawSprites`, `StationaryEffect.DrawSprites`, `Bubble.DrawSprites` and
+//! `Splash.DrawSprites`: a streak in `Midground` (in the lizard's head colour while its
+//! graphics flicker white), a ring of fading spikes in `Foreground`, a lizard's bubble
+//! and its head shield's flash, an air bubble in the water, and a splash's two
+//! `WaterSplash` quads. The flash draws on the cosmetic stream (D1).
 //!
-//! Mirrors: Spark.cs, ExplosionSpikes.cs, LizardBubble.cs, StationaryEffect.cs, Bubble.cs (DrawSprites)
+//! Mirrors: Spark.cs, ExplosionSpikes.cs, LizardBubble.cs, StationaryEffect.cs, Bubble.cs, SplashWater/Splash.cs (DrawSprites, InitiateSprites, AddToContainer)
 
 use std::borrow::Cow;
 
@@ -13,7 +14,7 @@ use rw_random::UnityRandom;
 use rw_sim::creature::CreatureId;
 use rw_sim::creature::lizard::LizardBubble;
 use rw_sim::{
-    Bubble, Cosmetic, CosmeticKind, ExplosionSpikes, RoomExt, Spark, StationaryEffect, Vec2,
+    Bubble, Cosmetic, CosmeticKind, ExplosionSpikes, RoomExt, Spark, Splash, StationaryEffect, Vec2,
 };
 
 use crate::draw::{Color, DrawItem, DrawList, Layer, Mesh, Shader, Sprite};
@@ -114,6 +115,11 @@ impl CosmeticSprites for Cosmetic {
             CosmeticKind::LizardBubble(b) => b.sprite(t, lizards),
             CosmeticKind::Flash(f) => f.sprite(t, lizards, rng),
             CosmeticKind::Bubble(b) => b.sprite(t),
+            CosmeticKind::Splash(s) => {
+                return DrawList {
+                    items: s.sprites(t),
+                };
+            }
         };
         DrawList { items: vec![item] }
     }
@@ -220,6 +226,45 @@ impl AirBubbleSprite for Bubble {
             shader: Shader::default(),
             layer: Layer::Midground,
         })
+    }
+}
+
+/// `Splash.DrawSprites`.
+trait SplashSprites {
+    fn sprites(&self, t: f32) -> Vec<DrawItem>;
+}
+
+impl SplashSprites for Splash {
+    /// Two `Futile_White` quads on the `WaterSplash` shader, anchored at their bottom
+    /// edge on the splash and stretched to the linger point (`rad / 8` wide, `distance
+    /// / 16` long), at half the life's alpha (clamped as `FNode.alpha`). Sprite 0, colour
+    /// `(0, 0, 0)`, is in `Water`; sprite 1, `(0, 0, 1)` (the shader's foam), in
+    /// `GrabShaders`.
+    fn sprites(&self, t: f32) -> Vec<DrawItem> {
+        let pos = self.last_pos.lerp(self.pos, t);
+        let linger = self.last_linger_pos.lerp(self.linger_pos, t);
+        let scale = Vec2::new(
+            self.last_rad.lerp_to(self.rad, t) / 8.0,
+            pos.distance(linger) / 16.0,
+        );
+        let alpha = (0.5 * self.last_life.lerp_to(self.life, t)).clamp(0.0, 1.0);
+        [Layer::Water, Layer::GrabShaders]
+            .into_iter()
+            .enumerate()
+            .map(|(i, layer)| {
+                DrawItem::Sprite(Sprite {
+                    index: i,
+                    element: "Futile_White",
+                    pos,
+                    rotation: pos.aim_to(linger),
+                    scale,
+                    anchor: Vec2::new(0.5, 0.0),
+                    color: Color::rgb(0.0, 0.0, i as f32).with_alpha(alpha),
+                    shader: Shader::WaterSplash,
+                    layer,
+                })
+            })
+            .collect()
     }
 }
 
@@ -373,9 +418,50 @@ mod tests {
 
     use super::{
         AirBubbleSprite, BubbleSprite, CosmeticMesh, FlashSprite, LizardColors, LizardModule,
-        SparkMesh,
+        SparkMesh, SplashSprites,
     };
-    use crate::draw::{Color, DrawItem, Layer};
+    use crate::draw::{Color, DrawItem, Layer, Shader};
+
+    /// `Splash.DrawSprites` halfway between ticks: both quads at the splash, anchored
+    /// `(0.5, 0)`, `rad / 8` wide and `distance / 16` long, aimed at the linger point,
+    /// alpha `0.5 * life` (clamped at 0), colour `(0, 0, i)`, sprite 0 in `Water` and 1 in
+    /// `GrabShaders`, both on `WaterSplash`.
+    #[test]
+    fn splash_sprites() {
+        let mut s = rw_sim::Splash::new(Vec2::ZERO, Vec2::new(0.0, 1.0), 8.0, 4.0, 0.0);
+        s.last_pos = Vec2::new(10.0, 50.0);
+        s.pos = Vec2::new(14.0, 54.0);
+        s.last_linger_pos = Vec2::new(12.0, 20.0);
+        s.linger_pos = Vec2::new(12.0, 20.0);
+        s.last_rad = 4.0;
+        s.rad = 6.0;
+        s.last_life = 0.8;
+        s.life = 0.6;
+        let items = s.sprites(0.5);
+        assert_eq!(items.len(), 2);
+        for (i, item) in items.iter().enumerate() {
+            let DrawItem::Sprite(sp) = item else {
+                panic!("a sprite");
+            };
+            assert_eq!(sp.index, i);
+            assert_eq!(sp.element, "Futile_White");
+            assert_eq!(sp.shader, Shader::WaterSplash);
+            assert_eq!(sp.pos, Vec2::new(12.0, 52.0));
+            assert_eq!(sp.anchor, Vec2::new(0.5, 0.0));
+            assert_eq!(sp.scale, Vec2::new(5.0 / 8.0, 32.0 / 16.0));
+            assert_eq!(sp.rotation, 180.0);
+            assert!((sp.color.a - 0.35).abs() < 1e-6);
+            assert_eq!((sp.color.r, sp.color.g, sp.color.b), (0.0, 0.0, i as f32));
+        }
+        assert_eq!(items[0].layer(), Layer::Water);
+        assert_eq!(items[1].layer(), Layer::GrabShaders);
+        s.last_life = -0.1;
+        s.life = -0.2;
+        let DrawItem::Sprite(sp) = &s.sprites(0.5)[0] else {
+            panic!("a sprite");
+        };
+        assert_eq!(sp.color.a, 0.0);
+    }
 
     /// `Bubble.DrawSprites` halfway between ticks: size 0 to 1 at full size `f`, scale
     /// `0.5 * f * 0.45`, in `(0, 1/255, 0)` in `Midground`.

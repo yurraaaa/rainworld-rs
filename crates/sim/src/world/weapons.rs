@@ -701,6 +701,7 @@ impl World {
         id: u64,
         tie: crate::cosmetic::CosmeticTie,
         rng: &mut UnityRandom,
+        sounds: &mut crate::Sounds,
     ) {
         let Some(RealizedRoom {
             room,
@@ -714,8 +715,12 @@ impl World {
         let Some(c) = cosmetics.iter_mut().find(|c| c.id == id) else {
             return;
         };
-        if c.update(room, water.as_ref(), tie, rng) {
+        let drip = c.update(room, water.as_mut(), tie, rng, sounds);
+        if c.slated {
             cosmetics.retain(|c| c.id != id);
+        }
+        if let Some(drip) = drip {
+            self.add_drip(index, drip);
         }
     }
 

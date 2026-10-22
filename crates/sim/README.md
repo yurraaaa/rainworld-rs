@@ -71,14 +71,15 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `sound.rs` | `Room.PlaySound` events + `VirtualMicrophone` draws (disembodied and rect loops too, `SoundRect`) | `VirtualMicrophone.PlaySound`, `PlayDisembodiedLoop`, `PlayRectSound` |
 | `spawn.rs` | safe spawn tile, placing an object | `DetermineSafeSpawnTile`, `PlaceInRoom` |
 | `trigger.rs` | triggers in a realized room, event-made room objects | `ActiveTriggerChecker` |
-| `water.rs` | wavy surface sim, `FloatWaterLevel`, `Water.Update`'s bottom roll, entry bubbles and `BubbleEmitter`s | `Water`, `DefaultSurface` |
+| `water.rs` | wavy surface sim, `FloatWaterLevel`, `Water.Update`'s bottom roll, entry splashes and bubbles (`WaterObject`), `BubbleEmitter`s, `WaterfallHitSurface` | `Water`, `DefaultSurface` |
 | `bubble.rs`, `bubble_tests.rs` | `Bubble` (`BubbleMode`): air bubbles in a room's update list | `Bubble` |
-| `game_water_tests.rs` | creatures' chunks in `Water.Update`, the water's bubbles' first update, the drowning lizard's bubble | - |
+| `splash.rs`, `splash_tests.rs` | `Splash`: water thrown up by bodies crossing the surface (update, sounds, terrain drips, `WaterfallHitSurface`) | `SplashWater.Splash`, `WaterParticle` |
+| `game_water_tests.rs` | creatures' chunks in `Water.Update`, the water's splashes' and bubbles' first update, the drowning lizard's bubble | - |
 | `water_drip.rs` | `WaterDrip` droplets; `Room.Update`'s ambient ceiling drip roll | `WaterDrip`, `Room.Update` |
 | `water_sound.rs`, `water_sound_tests.rs` | `WaterSound`: the water's calm surface loop (`RectangularDynamicSoundLoop` on the band under the surface, `SilenceWater`) | `Water.waterSounds`, `RectangularDynamicSoundLoop` |
 | `game_water_sound.rs`, `game_water_sound_tests.rs` | the surface loop at the head of `Water.Update` and its emitters in the update list | `Room.Update` |
 | `dripping_sound.rs`, `dripping_sound_tests.rs` | `DrippingSound`: the cycle start's `Cycle_Start_Drips` loop (`DisembodiedDynamicSoundLoop`) | `DrippingSound` |
-| `cosmetic.rs` | `Spark`, `ExplosionSpikes`, `OverseerEffectSprite` sprites and `Bubble`s (`CosmeticKind`) in update lists | `CosmeticSprite`s |
+| `cosmetic.rs` | `Spark`, `ExplosionSpikes`, `OverseerEffectSprite` sprites, `Bubble`s and `Splash`es (`CosmeticKind`) in update lists | `CosmeticSprite`s |
 
 ## `player/` (slugcat; `Player.cs` split by topic)
 
@@ -102,7 +103,7 @@ corridor shoots' `WaterDrip`s), `spear_on_back.rs` (the Hunter's
 | `creatures.rs` | creature arena, room lists, attractions | `AbstractRoom` creature lists |
 | `objects.rs` | object arena, room items on first realization | `Room.Loaded` objects |
 | `weapons.rs` | realized rocks/spears per room, `ShortCutsReady` | - |
-| `room_water.rs` | a room's `Water.Update` fed every physical object's chunks (`physicalObjects` order), its bubbles into the room | `Water.Update`, `Room.physicalObjects` |
+| `room_water.rs` | a room's `Water.Update` fed every physical object's chunks (`physicalObjects` order), its splashes and bubbles into the room | `Water.Update`, `Room.physicalObjects` |
 | `dens.rs` | into/out of dens with stuck items | `MoveEntityToDen` |
 | `abstract_ai.rs`, `abstract_path.rs` | plain abstract AI (roam, migrate, den); abstract pathfinders | `AbstractCreatureAI`, `AbstractSpacePathFinder` |
 | `abstract_ai_kinds.rs` | vulture, cicada, big eel, deer, Miros bird, needle worm behaviours | `*AbstractAI` |
@@ -169,7 +170,7 @@ sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `m
 | Question | Look in |
 |---|---|
 | Shortcuts / pipes, vessels, lobby | `shortcut.rs`, `player/shortcut.rs`, `game.rs` (lobby), `game_lizards.rs`, `game_flies.rs`, `game_carried.rs` (what a vessel carries) |
-| Water, swimming, drowning | `water.rs`, `world/room_water.rs`, `bubble.rs`, `player/swim.rs`, `water_drip.rs` |
+| Water, swimming, drowning | `water.rs`, `world/room_water.rs`, `bubble.rs`, `splash.rs`, `player/swim.rs`, `water_drip.rs` |
 | The water's surface sound | `water_sound.rs`, `game_water_sound.rs` (audio mix: `rw-audio` `voice.rs`) |
 | Ceiling drips, the cycle start's dripping sound | `water_drip.rs`, `dripping_sound.rs`, `game_drips.rs`, `screen_shake.rs` (shaken drips) |
 | Camera shake, `ScreenMovement` | `screen_shake.rs` (sim side), `rw-render` `room_camera.rs`, app `scene.rs` |

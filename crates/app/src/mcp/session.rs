@@ -490,6 +490,15 @@ impl Session {
                                 _ => None,
                             })
                             .collect(),
+                        splashes: r
+                            .cosmetics
+                            .iter()
+                            .filter(|c| !c.slated)
+                            .filter_map(|c| match &c.kind {
+                                CosmeticKind::Splash(s) => Some(s.pos.to_array()),
+                                _ => None,
+                            })
+                            .collect(),
                         bubble_emitters: r.water.as_ref().map_or_else(Vec::new, |w| {
                             w.bubble_emitters().iter().map(|e| e.amount).collect()
                         }),

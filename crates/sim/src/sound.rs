@@ -106,6 +106,8 @@ sound_ids! {
     MediumObjectIntoWaterSlow = "Medium_Object_Into_Water_Slow",
     LargeObjectIntoWaterFast = "Large_Object_Into_Water_Fast",
     LargeObjectIntoWaterSlow = "Large_Object_Into_Water_Slow",
+    SplashingWaterIntoTerrain = "Splashing_Water_Into_Terrain",
+    SplashingWaterIntoWaterSurface = "Splashing_Water_Into_Water_Surface",
     HudFoodMeterFillPlopA = "HUD_Food_Meter_Fill_Plop_A",
     HudFoodMeterFillPlopB = "HUD_Food_Meter_Fill_Plop_B",
     HudFoodMeterFillQuarterPlop = "HUD_Food_Meter_Fill_Quarter_Plop",
