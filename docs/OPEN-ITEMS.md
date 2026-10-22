@@ -33,6 +33,9 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **Async room loading** (user, 2026-10-22): plan and decisions in
   `../rainworld-re/surveys/async-room-loading.md`; later. `ShortcutHelper` its own job
   after it.
+- **The player's water drips** (user, 2026-10-22; start at 17:40): the `WaterDrip`s the
+  slugcat sheds when it skids, slides and shoots out of a corridor (`Player.cs` around
+  5453, 6636, 9287), with their random draws.
 
 ## Planned
 - **Room visual effects, lights and camera shake** (user, 2026-10-22): every non-DLC
