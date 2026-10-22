@@ -29,6 +29,13 @@ plan is in `../rainworld-re/surveys/lizards.md`.
     `game_triggers.rs`, `noise.rs` vs `world/hearing.rs`.
   - `rw-menu`'s `font_test.rs` (port-only screen) stays for now.
 
+- **Map: items and creatures stored in shelters** (noted 2026-10-22, not started): the
+  base game's map shows icons of what lies in each shelter
+  (`HUD/Map.cs` `ShelterMarker.ItemInShelterMarker`, `RevealSymbols`,
+  `GetItemInShelter`/`GetItemInShelterFromWorld`, `UpdateData(putItemsInShelters)`; no
+  Remix gate). The port's map draws the shelter marker but no item icons. Live creature
+  icons on the map are Remix's `cfgCreatureSense` and come with Remix.
+
 ## Waiting for the user's answer
 - **Lizard step 7c** (7a done: trackers, utility comparer, den finder,
   `DetermineBehavior`, the calm bodies; 7b done: Hunt and Flee, `AggressiveBehavior`,
