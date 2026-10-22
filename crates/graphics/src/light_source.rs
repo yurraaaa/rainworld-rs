@@ -1,5 +1,6 @@
-//! `LightSource.DrawSprites` (128843): the light's disc over the level and, in a room
-//! with water, its glow under the surface. The game's sprite 0 is a 64-segment
+//! `LightSource.DrawSprites`: the light's disc over the level and, in a room with
+//! water, its glow under the surface; its alpha is the `Alpha` property's (a placed
+//! light fades with the sun). The game's sprite 0 is a 64-segment
 //! `CircularSprite`; a quad draws the same, as the shader is 0 outside the inscribed
 //! circle. No draws.
 //!
@@ -22,6 +23,8 @@ pub struct LightSourceView {
     /// The room's `WaterLights` amount is above 0 (`AddToContainer` makes it
     /// submersible).
     pub water_lights: bool,
+    /// The rain cycle's `ShaderLight`, for the light's `Alpha`.
+    pub shader_light: f32,
 }
 
 pub trait LightSourceSprites {
@@ -35,7 +38,7 @@ impl LightSourceSprites for LightSource {
         let pos = self.last_pos.lerp(self.pos, t);
         let x = view.snap(pos.x, view.cam_pos.x);
         let rad = self.last_rad.lerp(self.rad, t);
-        let alpha = self.last_alpha.lerp(self.alpha, t)
+        let alpha = self.last_alpha.lerp(self.alpha_now(view.shader_light), t)
             * 1.0.lerp(view.darkness, self.affected_by_palette_darkness)
             * self.color_alpha
             * blink;
@@ -106,7 +109,15 @@ mod tests {
             darken_lights: 0.0,
             water,
             water_lights: false,
+            shader_light: 1.0,
         }
+    }
+
+    fn disc_alpha(list: &crate::draw::DrawList) -> f32 {
+        let DrawItem::Sprite(s) = &list.items[0] else {
+            panic!("a sprite");
+        };
+        s.color.a
     }
 
     fn light() -> LightSource {
@@ -134,6 +145,19 @@ mod tests {
         assert_eq!(s.scale, Vec2::new(20.0, 20.0));
         assert!((s.color.a - 0.09).abs() < 1e-6);
         assert_eq!((s.color.r, s.color.g, s.color.b), (1.0, 0.8, 0.3));
+    }
+
+    /// `Lerp(lastAlpha, Alpha, t)`: a light fading with the sun at `ShaderLight` -0.25
+    /// draws `0.1 * 0.5^1.2` at t = 1, its `lastAlpha` at t = 0.
+    #[test]
+    fn alpha_fades_with_the_sun() {
+        let mut l = light();
+        l.fade_with_sun = true;
+        let mut v = view(false);
+        v.shader_light = -0.25;
+        let want = 0.1 * 0.5f32.powf(1.2) * 0.9;
+        assert!((disc_alpha(&l.draw(&v, 1.0)) - want).abs() < 1e-6);
+        assert!((disc_alpha(&l.draw(&v, 0.0)) - 0.09).abs() < 1e-6);
     }
 
     /// With water, the under-water glow: above the surface by more than rad / 4 it has

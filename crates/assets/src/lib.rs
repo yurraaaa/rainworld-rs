@@ -15,6 +15,7 @@ mod noise;
 mod objects;
 mod palette;
 mod placed;
+mod placed_light;
 mod placed_types;
 mod png_image;
 pub mod region_map;
@@ -47,6 +48,7 @@ pub use placed::{
     IggyCondition, IggySymbol, MultiplayerItemData, PlacedObject, QuadData,
     ReliableIggyDirectionData, ResizableData, RoomEffect,
 };
+pub use placed_light::{LightBlinkType, LightColorType, LightSourceData};
 pub use placed_types::{MultiplayerItemType, PlacedObjectType, RoomEffectType};
 pub use png_image::PngImage;
 pub use region_map::{MapConnectionLine, RegionMapFiles};

@@ -59,7 +59,7 @@ impl RainWorldGame {
         let world = &self.world;
         self.trigger_objects
             .retain(|o| o.room != index && world.realized(o.room).is_some());
-        self.add_placed_triggers(index);
+        self.add_placed_room_objects(index);
         let story = self.is_story_session();
         let cycle = self.story.cycle_number;
         let (timeline, mods) = (self.world.timeline(), self.world.mods());

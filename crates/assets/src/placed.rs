@@ -296,18 +296,18 @@ impl IggyCondition {
 }
 
 /// A placed object's data split on `~`.
-struct DataFields<'a>(Vec<&'a str>);
+pub(crate) struct DataFields<'a>(pub(crate) Vec<&'a str>);
 
 impl<'a> DataFields<'a> {
-    fn get(&self, i: usize) -> Option<&'a str> {
+    pub(crate) fn get(&self, i: usize) -> Option<&'a str> {
         self.0.get(i).copied()
     }
 
-    fn float(&self, i: usize) -> Option<f32> {
+    pub(crate) fn float(&self, i: usize) -> Option<f32> {
         self.get(i)?.trim().parse().ok()
     }
 
-    fn int(&self, i: usize) -> Option<i32> {
+    pub(crate) fn int(&self, i: usize) -> Option<i32> {
         self.get(i)?.trim().parse().ok()
     }
 }

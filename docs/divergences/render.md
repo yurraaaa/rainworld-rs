@@ -26,7 +26,7 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   element; a `Hologram` sprite of `Futile_White` would read its sideways-shifted alpha
   from the atlas around that element instead of a white texture (the overseer's
   hologram lines use `pixel`, which is in the atlas as in the game).
-  `LightSource` (an overseer hologram's light and the guide light's `LightSource`; the
+  `LightSource` (placed lights, the player's glow, an overseer hologram's light and the guide light's `LightSource`; the
   game draws the latter as a 64-segment `CircularSprite`, the port as a quad, the same
   pixels as the shader is 0 outside the inscribed circle) runs the base-game path only (sloped
   terrain masked black, creatures masked with a grab of the frame taken before the level

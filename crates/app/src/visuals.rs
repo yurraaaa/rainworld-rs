@@ -4,6 +4,8 @@
 //!
 //! Mirrors: RoomCamera.cs (DarkPalette, ApplyFade, ChangeRoom, MoveCamera2, DrawUpdate, ApplyPalette)
 
+use std::sync::Arc;
+
 use rw_assets::{
     AssetError, DangerType, NoiseTexture, PaletteTexture, PngImage, Room, RoomEffectType,
     RoomVisuals, StreamingAssets, UnityResources,
@@ -23,7 +25,7 @@ pub struct Visuals {
     /// The camera whose image is shown.
     shown: usize,
     /// Every camera's image, decoded once at load so switching never stalls.
-    images: Vec<PngImage>,
+    images: Vec<Arc<PngImage>>,
     palette: PaletteTexture,
     /// The `DarkPalette` the palette was last built with (`fadeCoord.y`).
     dark: f32,
@@ -82,7 +84,7 @@ impl Visuals {
             s.grime
         );
         let images = (0..room.cameras().len())
-            .map(|i| visuals.camera_image(i))
+            .map(|i| visuals.camera_image(i).map(Arc::new))
             .collect::<Result<_, _>>()?;
         Ok(Self {
             effect: FullScreenEffect::select(visuals.settings()),
@@ -214,6 +216,18 @@ impl Visuals {
     #[must_use]
     pub fn palette_generation(&self) -> u32 {
         self.palette_generation
+    }
+
+    /// Camera 0's picture as the sim's lights read it: the shown camera's image (its
+    /// bottom-left at `cam_pos`) and palette, in global room `room`.
+    #[must_use]
+    pub fn camera_image(&self, room: i32, cam_pos: [f32; 2]) -> rw_sim::CameraImage {
+        rw_sim::CameraImage {
+            room,
+            cam_pos: cam_pos.into(),
+            image: Arc::clone(&self.images[self.shown]),
+            palette: self.palette.clone(),
+        }
     }
 
     /// Uploads the shown camera's graphic.

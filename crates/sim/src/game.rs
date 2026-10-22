@@ -36,6 +36,9 @@ mod insects;
 mod instructions;
 #[path = "game_items.rs"]
 mod items;
+#[path = "game_lights.rs"]
+mod lights;
+pub use lights::PlayerGlow;
 #[path = "game_lizard_act.rs"]
 mod lizard_act;
 #[path = "game_lizard_ai.rs"]
@@ -467,6 +470,10 @@ pub struct RainWorldGame {
     hud_map: HudMapLink,
     /// Camera 0's `PaletteDarkness()`, as the app last reported it.
     camera_darkness: f32,
+    /// Camera 0's level image and palette, as the app last reported them.
+    camera_image: Option<crate::CameraImage>,
+    /// `Player.glowing` and its graphics' light.
+    player_glow: lights::PlayerGlow,
     /// The camera's room change the insects have yet to follow.
     insect_view: Option<insects::InsectViewChange>,
     /// Set when the cycle ends (the shelter closes, the player starves).
@@ -601,6 +608,8 @@ impl RainWorldGame {
             heavy_ai: HeavyAiThrottle::default(),
             hud_map: HudMapLink::default(),
             camera_darkness: 0.0,
+            camera_image: None,
+            player_glow: lights::PlayerGlow::default(),
             insect_view: Some(insects::InsectViewChange {
                 from: None,
                 to: start.room,
@@ -770,6 +779,10 @@ impl RainWorldGame {
         self.karma_flower_grow_pos = None;
         self.player_wakes_in_shelter(&mut player);
         observer.created(&player, &mut self.rng);
+        self.player_glow = lights::PlayerGlow {
+            glowing: self.is_story_session() && self.story.the_glow,
+            light: None,
+        };
         player.place(tile, &mut self.rng);
         self.player = Some(player);
         self.sync_player_realized();
@@ -1916,6 +1929,9 @@ impl RainWorldGame {
         let water = self.world.realized(index).and_then(|r| r.water.as_ref());
         if let Some(player) = self.player.as_ref() {
             observer.updated(player, room, water, &around, &mut self.rng);
+            if observer.has_player_graphics() {
+                self.player_glow_update(index);
+            }
         }
         let present = self
             .player

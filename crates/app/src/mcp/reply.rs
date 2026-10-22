@@ -93,6 +93,9 @@ pub struct State {
     /// The guide's `HologramLight`s (the Monk's light in dark rooms).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub holo_lights: Vec<HoloLightState>,
+    /// The camera room's `LightSource`s in update-list order.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub lights: Vec<RoomLightState>,
     /// The realized rooms' cosmetic insects (rooms without a coordinator left out).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub insects: Vec<RoomInsects>,
@@ -172,6 +175,70 @@ pub struct LightSourceState {
     pub color: [f32; 3],
     /// Not slated for deletion.
     pub alive: bool,
+}
+
+/// A `LightSource` of the camera's room.
+#[derive(Debug, Clone, Serialize)]
+pub struct RoomLightState {
+    pub id: u64,
+    pub pos: [f32; 2],
+    pub rad: f32,
+    pub alpha: f32,
+    /// The `Alpha` property (a placed light fades with the sun).
+    pub alpha_now: f32,
+    /// After the setter's division by its largest component.
+    pub color: [f32; 3],
+    pub color_alpha: f32,
+    pub flat: bool,
+    pub fade_with_sun: bool,
+    pub color_from_environment: bool,
+    pub effect_color: i32,
+    pub affected_by_palette_darkness: f32,
+    /// `placed` (a room's placed light), `holo_light`, `lizard`, `insect`, `player` or
+    /// `untied`.
+    pub owner: &'static str,
+    pub slated: bool,
+}
+
+impl RoomLightState {
+    #[must_use]
+    pub fn all(sim: &rw_sim::RainWorldGame) -> Vec<Self> {
+        let shader_light = sim.world().rain_cycle.shader_light();
+        sim.world()
+            .realized(sim.camera_room())
+            .map_or_else(Vec::new, |r| {
+                r.light_sources
+                    .iter()
+                    .map(|l| Self::of(l, shader_light))
+                    .collect()
+            })
+    }
+
+    fn of(l: &rw_sim::LightSource, shader_light: f32) -> Self {
+        Self {
+            id: l.id,
+            pos: l.pos.to_array(),
+            rad: l.rad,
+            alpha: l.alpha,
+            alpha_now: l.alpha_now(shader_light),
+            color: l.color,
+            color_alpha: l.color_alpha,
+            flat: l.flat,
+            fade_with_sun: l.fade_with_sun,
+            color_from_environment: l.color_from_environment,
+            effect_color: l.effect_color,
+            affected_by_palette_darkness: l.affected_by_palette_darkness,
+            owner: match l.tied_to {
+                None if l.environmental_light => "placed",
+                None => "untied",
+                Some(rw_sim::LightTie::HoloLight(_)) => "holo_light",
+                Some(rw_sim::LightTie::Lizard(_)) => "lizard",
+                Some(rw_sim::LightTie::Insect(_)) => "insect",
+                Some(rw_sim::LightTie::Player) => "player",
+            },
+            slated: l.slated,
+        }
+    }
 }
 
 /// One room's den contents, by EntityID.

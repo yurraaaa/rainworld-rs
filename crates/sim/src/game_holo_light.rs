@@ -55,6 +55,7 @@ impl RainWorldGame {
             p.is_dead(),
             p.body.chunks[0].pos,
             lights,
+            self.world.rain_cycle.shader_light(),
         )
     }
 
@@ -134,50 +135,6 @@ impl RainWorldGame {
             r.holo_lights.retain(|l| !l.slated);
             r.light_sources.retain(|l| !l.slated);
         }
-    }
-
-    pub(super) fn room_light_source_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
-        self.world.realized(index).map_or_else(Vec::new, |r| {
-            r.light_sources
-                .iter()
-                .filter(|l| !l.slated)
-                .map(|l| (l.id, RoomObject::LightSource(l.id)))
-                .collect()
-        })
-    }
-
-    /// The light source `id`'s `Update` in its slot of room `index`'s update list.
-    pub(super) fn run_light_source(&mut self, index: i32, id: u64) {
-        let tie = self
-            .world
-            .realized(index)
-            .and_then(|r| r.light_sources.iter().find(|l| l.id == id))
-            .and_then(|l| l.tied_to);
-        let lizard_tie_gone = match tie {
-            Some(LightTie::Lizard(c)) => !self
-                .world
-                .creature(c)
-                .lizard()
-                .is_some_and(|l| !l.slated && l.room == Some(index)),
-            Some(LightTie::Insect(order)) => self.insect_tie_gone(index, order),
-            _ => false,
-        };
-        let Some(r) = self.world.realized_mut(index) else {
-            return;
-        };
-        let Some(light) = r.light_sources.iter_mut().find(|l| l.id == id && !l.slated) else {
-            return;
-        };
-        let tie_gone = match light.tied_to {
-            Some(LightTie::HoloLight(h)) => !r.holo_lights.iter().any(|l| l.id == h && !l.slated),
-            Some(LightTie::Lizard(_) | LightTie::Insect(_)) => lizard_tie_gone,
-            None => false,
-        };
-        let level = r
-            .water
-            .as_ref()
-            .map_or(f32::MIN, |w| w.level_at(light.pos.x));
-        light.update(tie_gone, level);
     }
 
     /// The light `id`'s `Update` in its slot of room `index`'s update list.

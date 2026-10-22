@@ -71,6 +71,11 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   DLCs; arena non-story light and `startUpTicks` 600 with arena sessions; insect
   explosions with explosions; insect terrain curves when terrain curves are ported; the
   `SunBlocker`'s (empty) update-list entry skipped.
+  Placed lights (L1, D24, notes `lights.md`) done: placed `LightSource`s, `Alpha` with
+  `fadeWithSun`, colour from the level image and effect colours, the glowing player's
+  light, `LightSourceExposure`/`LightSourceColor`/`DarknessOfPoint`, `Needed` reading
+  `Alpha`. Left: fixtures (L2a, L2b), `LightBeam`/`SpotLight` (L3), owners' lights with
+  their owners (L4); blinking and night lights with the DLCs.
   Step 3 (cosmetic insects, `rw_sim::insect`, `../rainworld-re/notes/cosmetic-insects.md`)
   done; its omissions are among the decisions above. Draw order for later steps:
   `Room.NowViewed` makes shared-stream draws for GreenSparks, ZeroGSpecks (`BlinkSpeck`),
