@@ -179,7 +179,7 @@ impl Scene {
             unbroken_shelter,
             &placed,
         )?;
-        fall.update(&realized.room, index, &sim.camera_view());
+        fall.place(&realized.room, index, &sim.camera_view());
         Some(fall)
     }
 
@@ -257,6 +257,11 @@ impl Scene {
             self.camera.screen_size()[1],
         );
         Some(visuals.state(&self.game.sim().world().rain_cycle, water_level))
+    }
+
+    #[must_use]
+    pub fn death_fall(&self) -> Option<&DeathFall> {
+        self.death_fall.as_ref()
     }
 
     /// Whether the camera moved to another room since the last call.
@@ -671,6 +676,10 @@ impl Scene {
             }
             if let Some(list) = self.full_screen_effect(alpha).filter(|_| level_view) {
                 lists.push((Drawable::FullScreenEffect, list));
+            }
+            if let Some(fall) = self.death_fall.as_ref().filter(|_| level_view) {
+                let width = self.camera.screen_size()[0];
+                lists.push((Drawable::DeathFall, fall.draw_list(width, cam_pos, alpha)));
             }
             self.game.in_container_order(lists)
         } else {

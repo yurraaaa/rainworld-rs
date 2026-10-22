@@ -163,6 +163,10 @@ pub enum Shader {
     /// `Futile/Fog` (full-screen, `Fog` rooms): banded translucent fog in the palette's
     /// fog colours, thinner on near layers, with light patches in the sky.
     Fog,
+    /// `Futile/DeathFall` (`DeathFallGraphic`, rooms with an open bottom): the grabbed
+    /// frame darkened (dark pixels to a faint inverse) over far level layers, more
+    /// opaque toward the sprite's bottom edge.
+    DeathFall,
 }
 
 impl Shader {
@@ -176,6 +180,7 @@ impl Shader {
                 | Self::SkyBloom
                 | Self::LightBloom
                 | Self::LightAndSkyBloom
+                | Self::DeathFall
         )
     }
 }

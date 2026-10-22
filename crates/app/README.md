@@ -21,12 +21,12 @@ Gameplay logic belongs in `rw-sim`, not here.
 | `scene.rs` | `Scene`/`SceneRenderer`: what a frame shows (level, water, sprites, HUD), shared by window and screenshots; the room camera's update before the sim tick and its shake after it, the frame's micro shake |
 | `visuals.rs` | room settings, palettes, shown camera image; `DarkPalette`/`ApplyFade`, `_light` from the rain cycle, `_waterLevel`, `LevelState` for `get_state`'s `level_params` |
 | `full_screen_effect.rs`, `full_screen_effect_tests.rs` | `FullScreenEffect`: the room camera's `fullScreenEffect` (Bloom, SkyBloom, SkyAndLightBloom, LightBurn/Lightning, Fog): `ApplyPalette`'s choice, `DrawUpdate`'s alpha, the `Futile_White` sprite |
-| `death_fall.rs` | `DeathFall`: the camera room's `DeathFallGraphic` height (for `_waterLevel`; not drawn) |
+| `death_fall.rs` | `DeathFall`: the camera room's `DeathFallGraphic`: height (also for `_waterLevel`), counter and its `DeathFall` sprite in `Bloom` |
 | `window_identity.rs` | window title "Rain World" and app id `rainworld-rs` (Wayland/X11) |
 | `sprites.rs` | atlas loading (`rainWorld`, `uiSprites`), overseer projection textures |
 | `shortcuts.rs` | camera-0 `ShortcutGraphics` fed from the game |
 | `jaws.rs`, `jaws_tests.rs` | `Jaws`: held objects' sprites nested into their holders' jaw containers (a held lizard's holds inside it; hold cycles D20) |
-| `sprite_order.rs`, `sprite_order_tests.rs` | `SpriteOrder`: camera 0's sprite leasers in container order as the game adds and re-adds them (new room, `AddObject`, releases, `ChangeOverlap`, jaw containers, the full-screen effect raised by `ApplyPalette`; D21) |
+| `sprite_order.rs`, `sprite_order_tests.rs` | `SpriteOrder`: camera 0's sprite leasers in container order as the game adds and re-adds them (new room, `AddObject`, releases, `ChangeOverlap`, jaw containers, the full-screen effect raised by `ApplyPalette`, the death fall first; D21) |
 | `hud_map.rs` | `MapData`/map owner the HUD map reads |
 | `game_music.rs` | game side of `MusicPlayer`: HUD state, song requests, threat tracker inputs |
 | `hibernation.rs` | `RainWorldGame.Win`: save side and next-cycle state |
@@ -59,7 +59,7 @@ Gameplay logic belongs in `rw-sim`, not here.
 - `get_hud`, `hud_message`: `session.rs` `hud_state`, `hud_message`.
 - Sleep/death/starve screens' data: `screen_package.rs`, `hibernation.rs`.
 - Music requests from the sim: `game_music.rs`.
-- Room full-screen effects (which, strength, container order): `full_screen_effect.rs`, raised in `scene.rs` (`apply_palette`), drawn by `rw-render`'s `full_screen.wgsl`; `get_state`'s `full_screen_effect`.
+- Room full-screen effects (which, strength, container order): `full_screen_effect.rs`, raised in `scene.rs` (`apply_palette`), drawn by `rw-render`'s `full_screen.wgsl`; `get_state`'s `full_screen_effect`. The death fall at an open bottom: `death_fall.rs` (drawn by `death_fall.wgsl`), `get_state`'s `death_fall`.
 
 ## Cross-links
 
