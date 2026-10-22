@@ -105,7 +105,8 @@ impl SaveState {
         self.next_issued_id = world.next_issued_id();
         let grasps = world.player_grasps();
         self.player_grasps = (!grasps.is_empty()).then(|| grasps.join("<svB>"));
-        let state = world.adapt_region_state_to_world(&mut self.respawn_creatures);
+        let state = world
+            .adapt_region_state_to_world(&mut self.respawn_creatures, &self.wait_respawn_creatures);
         self.set_region_state(&region, state, &regions);
         self.communities = Some(communities.save_string());
         // One player: `swallowedItems` is that player's string, or null with nothing
@@ -267,7 +268,7 @@ mod tests {
         fn region_name(&self) -> String {
             "SU".to_owned()
         }
-        fn adapt_region_state_to_world(&mut self, respawn: &mut Vec<i32>) -> String {
+        fn adapt_region_state_to_world(&mut self, respawn: &mut Vec<i32>, _: &[i32]) -> String {
             respawn.push(5003);
             "REGIONNAME<rgB>SU<rgA>LASTCYCLEUPDATED<rgB>0<rgA>".to_owned()
         }

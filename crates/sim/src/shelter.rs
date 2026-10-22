@@ -527,6 +527,24 @@ impl ShelterDoor {
         }
     }
 
+    /// `IsThisBigCreatureForShelter` (base game).
+    #[must_use]
+    pub fn big_for_shelter(kind: rw_assets::CreatureType) -> bool {
+        use rw_assets::CreatureType as T;
+        matches!(
+            kind,
+            T::Deer
+                | T::BrotherLongLegs
+                | T::DaddyLongLegs
+                | T::RedCentipede
+                | T::MirosBird
+                | T::PoleMimic
+                | T::TentaclePlant
+                | T::Vulture
+                | T::KingVulture
+        )
+    }
+
     /// `IsThisHostileCreatureForShelter` (base game).
     #[must_use]
     pub fn hostile_for_shelter(kind: rw_assets::CreatureType) -> bool {

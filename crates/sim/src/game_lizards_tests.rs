@@ -602,4 +602,132 @@ impl RainWorldGame {
             })
             .collect()
     }
+
+    /// The test room as region 5's world with one lineage at its node 0,
+    /// `Green-chance, NONE-0.5, Yellow-0.2, Red-0` (SU_B08's White chain with the
+    /// first chance replaced), its counter at `stage`; returns the spawner's ID.
+    fn with_lineage(&mut self, chance: f32, stage: i32) -> i32 {
+        use rw_assets::creatures::{CreatureSpawner, Lineage, SpawnerDen};
+        let data = &mut self.world.data;
+        data.single_room = false;
+        data.region = Some(rw_assets::world::RegionInfo {
+            name: "SU".to_owned(),
+            first_room_index: 0,
+            number_of_rooms: 2,
+            region_number: 5,
+        });
+        let lineage = Lineage {
+            den: SpawnerDen { room: 0, node: 0 },
+            creatures: vec![
+                Some(CreatureType::GreenLizard),
+                None,
+                Some(CreatureType::YellowLizard),
+                Some(CreatureType::RedLizard),
+            ],
+            progression_chances: vec![chance, 0.5, 0.2, 0.0],
+            spawn_data: vec![None; 4],
+            den_lineage: 0,
+            night_creature: false,
+        };
+        let den = self.world.lineage_den_string(&lineage);
+        self.world.data.spawners = vec![CreatureSpawner::Lineage(lineage)];
+        let mut state = crate::world::RegionState::new_game(&self.world.data);
+        state.set_lineage_counter(&den, stage);
+        self.world.region_state = Some(state);
+        5000
+    }
+
+    fn lineage_stage(&self) -> Option<i32> {
+        let den = format!("{}.-1.-1.0", self.world.data.rooms[0].name);
+        self.world.region_state.as_ref()?.lineage_counter(&den)
+    }
+
+    /// A lying green lizard of spawner `spawner`.
+    fn lineage_lizard(&mut self, spawner: i32) -> CreatureId {
+        let l = self.lying_lizard();
+        self.world.creature_mut(l).id = EntityId::new(spawner, 77);
+        l
+    }
+}
+
+/// `AbstractCreature.Die` -> `AddCreatureToRespawn`: a slugcat's kill of a lineage
+/// creature rolls `ChanceToProgress` once (`Random.value < progressionChances[n]`) and
+/// puts the spawner on the wait list; at the last stage there is no roll.
+#[test]
+fn a_slugcat_kill_of_a_lineage_lizard_rolls_once_and_waits() {
+    let (mut g, _) = game(vec![]);
+    let spawner = g.with_lineage(1.0, 0);
+    let l = g.lineage_lizard(spawner);
+    g.world.set_kill_tag(l, g.player_id);
+    let mut expected = g.rng.clone();
+    expected.value();
+    g.lizard_die(l);
+    assert_eq!(g.rng, expected, "one draw");
+    assert_eq!(g.lineage_stage(), Some(1), "Green -> NONE");
+    assert_eq!(g.world.session.wait_respawn_creatures, [spawner]);
+    assert!(g.world.session.respawn_creatures.is_empty());
+    assert!(!g.world.creature(l).state.alive);
+    // `Killing`: the session kill and the lizards' like of the player.
+    assert_eq!(g.world.session.kills.len(), 1);
+    assert!(g.world.session.kills[0].lizard);
+    let i = g.world.session.influences.last().expect("influence");
+    assert_eq!(i.community, crate::creature::Community::Lizards);
+
+    // A chance of 0 still draws; the last stage (Red, `n == length - 1`) does not.
+    let (mut g, _) = game(vec![]);
+    let spawner = g.with_lineage(0.0, 0);
+    let l = g.lineage_lizard(spawner);
+    g.world.set_kill_tag(l, g.player_id);
+    let mut expected = g.rng.clone();
+    expected.value();
+    g.lizard_die(l);
+    assert_eq!(g.rng, expected);
+    assert_eq!(g.lineage_stage(), Some(0));
+    let (mut g, _) = game(vec![]);
+    let spawner = g.with_lineage(1.0, 3);
+    let l = g.lineage_lizard(spawner);
+    g.world.set_kill_tag(l, g.player_id);
+    let before = g.rng.clone();
+    g.lizard_die(l);
+    assert_eq!(g.rng, before, "no roll at the last stage");
+    assert_eq!(g.lineage_stage(), Some(3));
+    assert_eq!(g.world.session.wait_respawn_creatures, [spawner]);
+}
+
+/// Killed by another lizard (7c's fights), or with no kill tag (the health roll,
+/// drowning), the spawner goes straight back on the respawn list, the lineage as it
+/// was.
+#[test]
+fn a_lizard_not_killed_by_the_slugcat_respawns_next_cycle() {
+    let (mut g, _) = game(vec![]);
+    let spawner = g.with_lineage(1.0, 0);
+    let l = g.lineage_lizard(spawner);
+    let rival = g.placed_lizard();
+    g.world.set_kill_tag(l, rival);
+    let before = g.rng.clone();
+    g.lizard_die(l);
+    assert_eq!(g.rng, before);
+    assert_eq!(g.lineage_stage(), Some(0));
+    assert_eq!(g.world.session.respawn_creatures, [spawner]);
+    assert!(g.world.session.wait_respawn_creatures.is_empty());
+    assert!(g.world.session.kills.is_empty());
+    // A second death adds nothing (`state.alive` is already false).
+    g.lizard_die(l);
+    assert_eq!(g.world.session.respawn_creatures, [spawner]);
+}
+
+/// `Creature.Update`'s fall out of the room: `Die` (no kill tag: respawn), then the
+/// creature is destroyed.
+#[test]
+fn a_lizard_falling_out_of_the_room_is_put_up_for_respawn() {
+    let (mut g, _) = game(vec![]);
+    let spawner = g.with_lineage(1.0, 0);
+    let l = g.lineage_lizard(spawner);
+    for c in &mut g.world.lizard_at(l).body.chunks {
+        c.hard_set_position(Vec2::new(200.0, -2000.0));
+    }
+    g.tick(Input::NONE, &mut ());
+    assert!(!g.world.creature(l).state.alive);
+    assert!(g.world.creature(l).slated_for_deletion);
+    assert_eq!(g.world.session.respawn_creatures, [spawner]);
 }

@@ -319,11 +319,11 @@ impl RainWorldGame {
                     || health < -1.0
                     || (health < 0.0 && self.rng.value() < 0.33))
             {
-                self.creature_dies_by_violence(id);
+                self.realized_creature_die(id);
             }
         }
         if num >= t.instant_death_damage_limit {
-            self.creature_dies_by_violence(id);
+            self.realized_creature_die(id);
         }
     }
 
@@ -347,8 +347,8 @@ impl RainWorldGame {
         }
     }
 
-    /// `Die` of a realized creature hurt by `Violence`.
-    fn creature_dies_by_violence(&mut self, id: CreatureId) {
+    /// `Die` of a realized creature (the type's override, then `Creature.Die`).
+    pub(super) fn realized_creature_die(&mut self, id: CreatureId) {
         if id == self.player_id {
             self.kill_player();
             return;

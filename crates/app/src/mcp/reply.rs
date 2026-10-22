@@ -213,6 +213,12 @@ pub struct SessionInfo {
     /// Spawners added to `respawnCreatures` and `waitRespawnCreatures` this cycle.
     pub respawn: Vec<i32>,
     pub wait_respawn: Vec<i32>,
+    /// The save's `respawnCreatures` left after `GeneratePopulation` (the next save
+    /// adds `respawn` to it).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub saved_respawn: Vec<i32>,
+    /// `LikeOfPlayer` of each community in this region (the session's communities).
+    pub like_of_player: Vec<(String, f32)>,
     /// The guide state's `likesPlayer` and `increaseLikeOnSave`.
     pub guide_likes_player: f32,
     pub guide_increase_like_on_save: bool,
@@ -1346,6 +1352,12 @@ pub struct SaveStateInfo {
     pub deaths: i32,
     pub quits: i32,
     pub loaded: bool,
+    /// `RESPAWNS` and `WAITRESPAWNS`.
+    pub respawn_creatures: Vec<i32>,
+    pub wait_respawn_creatures: Vec<i32>,
+    /// The `WinState` Dragon Slayer tracker's lizards killed (in `lizardsOrder`:
+    /// green, pink, blue, white, yellow, black), if it has one.
+    pub dragon_slayer: Option<Vec<bool>>,
 }
 
 /// A story game's start values and the player's room and food now.

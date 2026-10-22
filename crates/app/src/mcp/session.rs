@@ -597,6 +597,19 @@ impl Session {
             peaceful: deaths.peaceful,
             respawn: deaths.respawn_creatures.clone(),
             wait_respawn: deaths.wait_respawn_creatures.clone(),
+            saved_respawn: sim.story().respawn_creatures.clone(),
+            like_of_player: rw_save::CommunityId::ALL
+                .into_iter()
+                .map(|c| {
+                    let world = sim.world();
+                    let like = world.communities.like_of_player(
+                        c,
+                        world.region_name(),
+                        world.session_difficulty,
+                    );
+                    (c.value().to_owned(), like)
+                })
+                .collect(),
             guide_likes_player: sim.guide_state().likes_player,
             guide_increase_like_on_save: sim.guide_state().increase_like_on_save,
             influences: deaths
@@ -1684,6 +1697,9 @@ impl Session {
                     deaths: s.death_persistent.deaths,
                     quits: s.death_persistent.quits,
                     loaded: s.loaded,
+                    respawn_creatures: s.respawn_creatures.clone(),
+                    wait_respawn_creatures: s.wait_respawn_creatures.clone(),
+                    dragon_slayer: s.death_persistent.win_state.dragon_slayer(),
                 }),
             },
             story: game.map(|g| {
