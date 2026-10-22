@@ -24,7 +24,8 @@ in `PlayerGraphics` (they use the generic poses of their body mode, as in the ga
   order differ (D1).
 - **Swimming** is ported (draw offset from `swimCycle`, tail drag scaled by hip
   submersion, the `lungsExhausted` head bob and blink, the swimming hand targets, legs
-  hidden in `DeepSwim`); bubbles and splashes are not (D11). Under water the sprites
+  hidden in `DeepSwim`); its bubbles are `Bubble`s in the room (D11), splashes are
+  not yet (D11). Under water the sprites
   are tinted by the water's `DeepWater` shader, as in the game (D11).
 - **Breathing, exhaustion and malnourishment** are ported: breathing quickens and the
   body pants with `aerobicLevel`; the exhausted eyes and head bob; the malnourished

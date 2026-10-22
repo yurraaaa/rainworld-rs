@@ -51,7 +51,7 @@ impl Player {
             Animation::Flip => self.flip(),
             Animation::BellySlide => self.belly_slide(room),
             Animation::CorridorTurn => self.corridor_turn(rng, sounds),
-            Animation::DeepSwim => self.deep_swim(water),
+            Animation::DeepSwim => self.deep_swim(water, rng, sounds),
             Animation::SurfaceSwim => self.surface_swim(water),
             Animation::Dead => {}
         }

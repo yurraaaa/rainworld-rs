@@ -83,6 +83,9 @@ mod tracker;
 mod triggers;
 #[path = "game_water_sound.rs"]
 mod water_sound;
+#[cfg(test)]
+#[path = "game_water_tests.rs"]
+mod water_tests;
 #[path = "game_weapons.rs"]
 mod weapons;
 
@@ -1346,8 +1349,6 @@ impl RainWorldGame {
         }
     }
 
-    /// `Room.Update` of active room `index`: the entry delay, the water (pushed by the
-    /// player's body when it is here), then the player and its graphics.
     /// Room `index`'s update list besides the player, newest first (`Room.Update` walks
     /// `updateList` from its end), each with its place in the list.
     fn room_update_list(&self, index: i32) -> Vec<(u64, RoomObject)> {
@@ -1385,6 +1386,8 @@ impl RainWorldGame {
         objects
     }
 
+    /// `Room.Update` of active room `index`: the entry delay, the water (pushed by the
+    /// room's bodies, adding its bubbles), then the update list with the player.
     fn update_room(&mut self, index: i32, input: Input, observer: &mut dyn PlayerObserver) {
         let player_room = self.pos().room;
         let Some(realized) = self.world.realized_mut(index) else {
@@ -1398,16 +1401,13 @@ impl RainWorldGame {
         } else {
             &mut self.silent
         };
+        let player_seq = self.player_seq;
         let here = self
             .player
             .as_mut()
-            .filter(|p| player_room == index && !p.in_shortcut());
-        let chunks = match here {
-            Some(p) => &mut p.body.chunks[..],
-            None => &mut [][..],
-        };
-        self.world
-            .update_water(index, chunks, &mut self.rng, sounds);
+            .filter(|p| player_room == index && !p.in_shortcut())
+            .map(|p| (player_seq, &mut p.body.chunks[..]));
+        self.world.update_water(index, here, &mut self.rng, sounds);
         self.ambient_ceiling_drip(index);
         let Some(realized) = self.world.realized_mut(index) else {
             return;

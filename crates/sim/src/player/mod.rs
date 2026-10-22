@@ -403,6 +403,8 @@ pub struct Player {
     ceiling_drips: f32,
     /// `WaterDrip`s made this tick, for the room to add.
     drips: Vec<WaterDrip>,
+    /// `Bubble`s made this tick, for the room to add, each after the first `.0` drips.
+    bubbles: Vec<(usize, crate::Bubble)>,
     /// The body as it was when this tick's shortcut pull began, where `Creature.Update`
     /// runs the graphics module's extra update.
     before_pull: Option<Box<Player>>,
@@ -534,6 +536,7 @@ impl Player {
             shortcut_pull: None,
             ceiling_drips: 0.0,
             drips: Vec::new(),
+            bubbles: Vec::new(),
             before_pull: None,
         }
     }

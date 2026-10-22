@@ -21,7 +21,7 @@ use crate::creature::{
 };
 use crate::item::Entity;
 use crate::player::HeavyCarry;
-use crate::{Animation, FloatExt, Player, SoundId, Vec2, Water, WaterDrip};
+use crate::{Animation, CosmeticKind, FloatExt, Player, SoundId, Vec2, Water, WaterDrip};
 
 impl RainWorldGame {
     /// `game.evenUpdate`: toggled before the rooms update, false at construction, so true
@@ -357,13 +357,21 @@ impl RainWorldGame {
         }
     }
 
-    /// The drips the player threw this tick (impacts, skids, corridor shoots), into its room.
+    /// The drips (impacts, skids, corridor shoots) and bubbles the player made this tick,
+    /// into its room in the order made.
     pub(super) fn add_player_drips(&mut self, index: i32) {
         let Some(p) = self.player.as_mut() else {
             return;
         };
-        for d in p.take_drips() {
+        let mut bubbles = p.take_bubbles().into_iter().peekable();
+        for (i, d) in p.take_drips().into_iter().enumerate() {
+            while let Some((_, b)) = bubbles.next_if(|&(before, _)| before <= i) {
+                self.world.add_cosmetic(index, CosmeticKind::Bubble(b));
+            }
             self.world.add_drip(index, d);
+        }
+        for (_, b) in bubbles {
+            self.world.add_cosmetic(index, CosmeticKind::Bubble(b));
         }
     }
 

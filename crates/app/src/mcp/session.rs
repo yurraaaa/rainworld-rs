@@ -22,7 +22,7 @@ use rw_sim::campaign::SlugcatCampaign;
 use rw_sim::creature::lizard::LizardVoice;
 use rw_sim::creature::{AbstractCreature, CreatureId, Lizard, RepReading, TrackedCreatureState};
 use rw_sim::item::{Entity, ObjectId, SpearStickKind, Weapon};
-use rw_sim::{Input, StomachObject, Vec2, WorldCoordinate};
+use rw_sim::{CosmeticKind, Input, StomachObject, Vec2, WorldCoordinate};
 
 use super::params::{
     HudMessageParams, ImportSaveParams, InputParam, ListRoomsParams, LoadProcessParams,
@@ -481,6 +481,18 @@ impl Session {
                             .filter(|d| !d.slated)
                             .map(|d| d.pos.to_array())
                             .collect(),
+                        bubbles: r
+                            .cosmetics
+                            .iter()
+                            .filter(|c| !c.slated)
+                            .filter_map(|c| match &c.kind {
+                                CosmeticKind::Bubble(b) => Some(b.pos.to_array()),
+                                _ => None,
+                            })
+                            .collect(),
+                        bubble_emitters: r.water.as_ref().map_or_else(Vec::new, |w| {
+                            w.bubble_emitters().iter().map(|e| e.amount).collect()
+                        }),
                         dripping_sound: r
                             .dripping_sound
                             .as_ref()

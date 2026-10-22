@@ -34,9 +34,10 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `../rainworld-re/surveys/async-room-loading.md`; later. `ShortcutHelper` its own job
   after it.
 - **Water visual effects** (user, 2026-10-22): steps A1 (bubbles, `Water.Update`'s two
-  draws a tick, creature chunks on the surface), B (calm surface sound; done on its
-  branch, `water_sound.rs`) at 17:40; then A2
-  (splashes), C (`WaterLight`). Plan in `../rainworld-re/surveys/room-effects/water-effects.md`.
+  draws a tick, creature chunks on the surface; done on its branch, 2026-10-22), B (calm
+  surface sound; done on its branch, `water_sound.rs`) at 17:40; then A2 (splashes: the
+  `Splash` objects for the draws A1 already makes in `Water.Update`), C (`WaterLight`).
+  Plan in `../rainworld-re/surveys/room-effects/water-effects.md`.
   With the rain (M8): `Room.AddWater` makes a `Water`, so its surface loop, in rooms with
   no level water (rain flood, `WaterCycleTop`/`Bottom`, `BrokenShelterWaterLevel`).
 

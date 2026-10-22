@@ -1,0 +1,124 @@
+//! A realized room's `Water.Update` with the room's physical objects: every body's chunks
+//! in `physicalObjects` order (layer 0: flies, overseers, thrown and stuck weapons;
+//! layer 1: lizards and the player; layer 2: the other weapons; each layer in joining
+//! order), and the bubbles it makes added to the update list.
+//!
+//! Mirrors: Water.cs (Update), Room.cs (physicalObjects)
+
+use rw_random::UnityRandom;
+
+use super::{RealizedRoom, World};
+use crate::creature::RealizedCreature;
+use crate::item::Entity;
+use crate::{BodyChunk, ChunkOwner, CosmeticKind, Sounds, SurfaceChunk};
+
+/// A physical object of a room: its collision layer, place in that layer, and owner.
+pub(crate) type LayerEntry = (i32, u64, ChunkOwner);
+
+impl World {
+    /// `Water.Update` of room `index`. `player` is the player's body in this room with
+    /// its place in the update list (`None` when it is elsewhere or in a shortcut).
+    /// Bodies keep the `splash_stop` the water sets; the bubbles join the room.
+    pub(crate) fn update_water(
+        &mut self,
+        index: i32,
+        player: Option<(u64, &mut [BodyChunk])>,
+        rng: &mut UnityRandom,
+        sounds: &mut Sounds,
+    ) {
+        if self.realized(index).is_none_or(|r| r.water.is_none()) {
+            return;
+        }
+        let player_seq = player.as_ref().map(|(seq, _)| *seq);
+        let mut copies: Vec<(ChunkOwner, usize, BodyChunk)> = Vec::new();
+        for (_, _, owner) in self.physical_objects(index, player_seq) {
+            let chunks = match owner {
+                ChunkOwner::Player => player.as_ref().map(|(_, c)| &c[..]),
+                ChunkOwner::Entity(e) => self.surface_chunks(e),
+            };
+            for (i, c) in chunks.into_iter().flatten().enumerate() {
+                copies.push((owner, i, c.clone()));
+            }
+        }
+        let Some(RealizedRoom {
+            room,
+            water: Some(water),
+            ..
+        }) = self.realized_mut(index)
+        else {
+            return;
+        };
+        let chunks = copies.iter_mut().map(|(owner, index, chunk)| SurfaceChunk {
+            owner: *owner,
+            index: *index,
+            chunk,
+        });
+        let made = water.update(room, chunks, rng, sounds);
+        let mut player = player.map(|(_, c)| c);
+        for (owner, i, copy) in copies {
+            let chunk = match owner {
+                ChunkOwner::Player => player.as_deref_mut().and_then(|c| c.get_mut(i)),
+                ChunkOwner::Entity(e) => self.surface_chunks_mut(e).and_then(|c| c.get_mut(i)),
+            };
+            if let Some(c) = chunk {
+                c.splash_stop = copy.splash_stop;
+            }
+        }
+        for b in made {
+            self.add_cosmetic(index, CosmeticKind::Bubble(b));
+        }
+    }
+
+    /// Room `index`'s `physicalObjects`, layer by layer in joining order; the player at
+    /// `player_seq` when it is here.
+    pub(crate) fn physical_objects(&self, index: i32, player_seq: Option<u64>) -> Vec<LayerEntry> {
+        let mut list: Vec<LayerEntry> = Vec::new();
+        for (id, c) in self.creatures() {
+            let owner = ChunkOwner::Entity(Entity::Creature(id));
+            if let Some(f) = c.fly().filter(|f| f.room == Some(index)) {
+                list.push((0, f.update_order, owner));
+            } else if let Some(l) = c.lizard().filter(|l| l.room == Some(index) && !l.slated) {
+                list.push((1, l.update_order, owner));
+            }
+        }
+        list.extend(
+            self.room_overseers(index)
+                .into_iter()
+                .map(|(seq, id)| (0, seq, ChunkOwner::Entity(Entity::Creature(id)))),
+        );
+        if let Some(seq) = player_seq {
+            list.push((1, seq, ChunkOwner::Player));
+        }
+        for (id, o) in self.objects() {
+            if let Some(w) = o.realized.as_deref().filter(|w| w.room == index) {
+                let owner = ChunkOwner::Entity(Entity::Object(id));
+                list.push((w.collision_layer, w.layer_order, owner));
+            }
+        }
+        list.sort_by_key(|&(layer, seq, _)| (layer, seq));
+        list
+    }
+
+    /// The chunks of a realized fly, lizard, overseer or item.
+    fn surface_chunks(&self, e: Entity) -> Option<&[BodyChunk]> {
+        match e {
+            Entity::Creature(id) => match &self.creature(id).realized {
+                Some(RealizedCreature::Overseer(b)) => Some(&b.body.chunks[..]),
+                _ => self.body_chunks(e),
+            },
+            Entity::Object(_) => self.body_chunks(e),
+        }
+    }
+
+    fn surface_chunks_mut(&mut self, e: Entity) -> Option<&mut [BodyChunk]> {
+        let overseer = matches!(e, Entity::Creature(id)
+            if matches!(self.creature(id).realized, Some(RealizedCreature::Overseer(_))));
+        if !overseer {
+            return self.body_chunks_mut(e);
+        }
+        match &mut self.creature_mut(e.creature()?).realized {
+            Some(RealizedCreature::Overseer(b)) => Some(&mut b.body.chunks[..]),
+            _ => None,
+        }
+    }
+}

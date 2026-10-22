@@ -257,7 +257,9 @@ impl RainWorldGame {
             CosmeticKind::Spark(s) => (s.lizard, s.pos),
             CosmeticKind::LizardBubble(b) => (Some((b.lizard, b.module)), b.pos),
             CosmeticKind::Flash(f) => (f.lizard, f.pos),
-            CosmeticKind::Spikes(_) | CosmeticKind::OverseerEffect(_) => (None, Vec2::ZERO),
+            CosmeticKind::Spikes(_) | CosmeticKind::OverseerEffect(_) | CosmeticKind::Bubble(_) => {
+                (None, Vec2::ZERO)
+            }
         };
         let mut tie = CosmeticTie {
             water_level: self
