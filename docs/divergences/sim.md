@@ -78,6 +78,11 @@ bites, drips and food, `meatLeft` saved, the back spear locked while eating).
   scavengers steal, and they are not realized). A gift `giftOfferedToMe` is kept as
   the owned item's serial (the game keeps the reference). Of the receivers only lizards
   are ported (scavengers, cicadas, jetfish and the oracle read the owned items too).
+  Not reachable now: a gift whose room is abstracted counts as inactive (the game keeps
+  the reference, its `active` frozen); `ItemOffered` measures from a lizard's head, not
+  `Lizard.DangerPos`'s tongue tip (green has no tongue; it matters for the tongued
+  breeds); `ItemOffered`'s More Slugcats exclusions (a creature on a player's back, or
+  one the gifter holds) are a DLC branch, left out.
 - **Grabbing and eating creatures: DLC branches omitted.** `SlugcatCanMaul` (More
   Slugcats slugcats maul living creatures: `MaulingUpdate`), the More Slugcats
   `CanEatMeat` rules (Saint and Spearmaster eat no meat; Artificer, Gourmand and
@@ -535,9 +540,10 @@ second part, else a single-room world for arena levels). The campaign descriptio
   memory there without a check; no base creature reaches it, the port logs). So far
   only a saved relationship (an imported save's tamed lizard) can start it: a lizard
   touching a player it dislikes lowers its temporary like (lizard step 6a), which
-  never reaches the following threshold; taming is skipped for now, and no event
-  the port produces (kills, weapon hits) touches a social memory in the base game
-  without them (the only base-game direct writer is Watcher's graffiti cloud).
+  never reaches the following threshold. Gifts (`LizardAI.GiftRecieved`, ported) raise
+  the like toward it, but no creature the port realizes is one a lizard eats, so no
+  gift happens in play yet; taming's friend is skipped for now (the only other
+  base-game direct writer is Watcher's graffiti cloud).
   Den entry is ported with what is stuck to the creature (`AbstractPhysicalObject
   .IsEnteringDen`/`IsExitingDen`, `world/dens.rs`): stuck objects are moved to the den
   and into it, a held creature dies there (a creature that would come out sooner then

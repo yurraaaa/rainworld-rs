@@ -206,6 +206,26 @@ fn an_active_gift_is_eaten_in_the_dynamic_relationship() {
 }
 
 #[test]
+fn a_living_gift_is_eaten_at_0_65() {
+    // `UpdateDynamicRelationship`: a living gift creature is eaten at 0.65.
+    let mut g = game(&HALL, (3, 1));
+    let l = g.held_lizard((10, 1));
+    let f = g
+        .dev_spawn_creature(CreatureType::Fly, 0, (6, 1), None, &mut ())
+        .expect("fly");
+    assert!(g.world.creature(f).state.alive);
+    g.give(l, f);
+    let mut t = g.world.lizard_ref(l).ai.tracker.clone();
+    let mut rep = t.reps[0].clone();
+    rep.creature = f;
+    t.reps.push(rep);
+    let i = t.reps.len() - 1;
+    let rel = g.ai_update_dynamic_relationship(l, &mut t, i);
+    assert_eq!(rel.kind, RelationshipType::Eats);
+    assert_eq!(rel.intensity, 0.65);
+}
+
+#[test]
 fn holding_the_gift_receives_it() {
     // `FriendTracker.Update`: the lizard holding its gift receives it: like
     // `+1.2 / tamingDifficlty` (a dead creature) damped by `know`, temp like
