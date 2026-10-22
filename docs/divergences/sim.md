@@ -763,10 +763,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   rainWorld and uiSprites), and More Slugcats' projections and parts.
 - **Overseer graphics.** `OverseerGraphics.Emerge` restarts the mycelia from the eye's
   position of the last rendered frame in the game (`DrawSprites` caches it); the port
-  uses the last update's, as a headless run would. Sprites are drawn per container in
-  the game's container order, but within the Foreground container the overseers' come
-  after the player's; the game orders them by when the objects joined the room (the
-  guide, realized first, sits under the player).
+  uses the last update's, as a headless run would.
 - **Overseers hit and killed** (D3). Hearing of a flying weapon, being stunned, the
   guide's lost like (`FlyingWeapon`, `HitByWeapon`), `Overseer.Die` with the guide's
   return in the off-screen den, the dead overseer's six ticks of dying and its graphics'
