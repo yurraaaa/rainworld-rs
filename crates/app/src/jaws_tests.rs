@@ -8,6 +8,7 @@ use rw_sim::creature::CreatureId;
 use rw_sim::item::Entity;
 
 use super::{JawHolder, Jaws};
+use crate::sprite_order::Drawable;
 
 /// A lizard-like list: sprites `base..base + 5`, the jaw container after the second
 /// (lower jaw `+0`, `+1`, then the container, then `+2..+4`).
@@ -34,7 +35,7 @@ impl Lizard {
         }
     }
 
-    fn holder(held: Vec<Entity>) -> Option<JawHolder> {
+    fn holder(held: Vec<Drawable>) -> Option<JawHolder> {
         Some(JawHolder {
             container: InternalContainer {
                 at: 2,
@@ -50,8 +51,8 @@ impl Lizard {
 }
 
 impl Lizard {
-    fn id(n: usize) -> Entity {
-        Entity::Creature(CreatureId(n))
+    fn id(n: usize) -> Drawable {
+        Drawable::Entity(Entity::Creature(CreatureId(n)))
     }
 }
 
@@ -65,7 +66,7 @@ fn a_held_lizards_hold_nests_inside_it_inside_its_holder() {
         (c, Lizard::list(20)),
     ];
     let holders = vec![Lizard::holder(vec![b]), Lizard::holder(vec![c]), None];
-    Jaws::new(holders, Lizard::id(0)).contain(None, &mut objects);
+    Jaws::new(holders, Lizard::id(0)).contain(&mut objects);
     assert_eq!(
         Lizard::order(&objects[0].1),
         [0, 1, 10, 11, 20, 21, 22, 23, 24, 12, 13, 14, 2, 3, 4]
@@ -81,14 +82,22 @@ fn a_held_player_nests_inside_its_holder_inside_the_next() {
     let mut player = Lizard::list(30);
     player.items.truncate(3);
     player.items[1].set_layer(Layer::Foreground);
-    let mut objects = vec![(a, Lizard::list(0)), (b, Lizard::list(10))];
-    let holders = vec![Lizard::holder(vec![b]), Lizard::holder(vec![player_id])];
-    Jaws::new(holders, player_id).contain(Some(&mut player), &mut objects);
+    let mut objects = vec![
+        (player_id, player),
+        (a, Lizard::list(0)),
+        (b, Lizard::list(10)),
+    ];
+    let holders = vec![
+        None,
+        Lizard::holder(vec![b]),
+        Lizard::holder(vec![player_id]),
+    ];
+    Jaws::new(holders, player_id).contain(&mut objects);
     assert_eq!(
-        Lizard::order(&objects[0].1),
+        Lizard::order(&objects[1].1),
         [0, 1, 10, 11, 30, 32, 12, 13, 14, 2, 3, 4]
     );
-    assert_eq!(Lizard::order(&player), [31]);
+    assert_eq!(Lizard::order(&objects[0].1), [31]);
 }
 
 #[test]
@@ -97,7 +106,7 @@ fn a_hold_cycle_draws_nested_in_the_first_of_it() {
     let (a, b) = (Lizard::id(1), Lizard::id(2));
     let mut objects = vec![(a, Lizard::list(0)), (b, Lizard::list(10))];
     let holders = vec![Lizard::holder(vec![b]), Lizard::holder(vec![a])];
-    Jaws::new(holders, Lizard::id(0)).contain(None, &mut objects);
+    Jaws::new(holders, Lizard::id(0)).contain(&mut objects);
     assert_eq!(
         Lizard::order(&objects[0].1),
         [0, 1, 10, 11, 12, 13, 14, 2, 3, 4]

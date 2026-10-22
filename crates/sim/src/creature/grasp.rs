@@ -14,7 +14,7 @@ use rw_random::UnityRandom;
 
 use super::{CreatureId, RealizedCreature};
 use crate::item::{Entity, WeaponMode};
-use crate::world::World;
+use crate::world::{SpriteMove, World};
 
 /// `Creature.Grasp.Shareability`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -296,14 +296,24 @@ impl World {
     fn release_all_internally_contained(&mut self, id: CreatureId) {
         if let Some(link) = self.lizard_graphics_link(id) {
             let released = link.release_all_internally_contained();
-            self.sprites_to_front.extend(released);
+            self.sprites_to_default(released);
         }
     }
 
-    /// The objects whose sprites went back on top of their default containers since
-    /// the last call, in order.
-    pub fn take_sprites_to_front(&mut self) -> Vec<Entity> {
-        std::mem::take(&mut self.sprites_to_front)
+    /// `MoveObjectToContainer(obj, null)` of each of `released`, in order.
+    fn sprites_to_default(&mut self, released: Vec<Entity>) {
+        let seq = self.update_seq();
+        self.sprite_moves
+            .extend(released.into_iter().map(|obj| SpriteMove {
+                seq,
+                obj,
+                into: None,
+            }));
+    }
+
+    /// The internal-container moves since the last call, in order.
+    pub fn take_sprite_moves(&mut self) -> Vec<SpriteMove> {
+        std::mem::take(&mut self.sprite_moves)
     }
 
     /// `Grasp.Release`: the grabber's graphics let the object out of its container
@@ -312,7 +322,7 @@ impl World {
     pub fn release(&mut self, g: Grasp) {
         if let Some(link) = self.lizard_graphics_link(g.grabber) {
             let released = link.release_internally_contained(g.grabbed);
-            self.sprites_to_front.extend(released);
+            self.sprites_to_default(released);
         }
         self.grabbed_by_mut(g.grabbed)
             .retain(|o| o.serial != g.serial);

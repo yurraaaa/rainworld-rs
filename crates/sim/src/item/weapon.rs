@@ -281,6 +281,9 @@ pub struct Weapon {
     pub missed_attack: Option<(CreatureId, CreatureId)>,
     /// `inFrontOfObjects`: -1 unset, 1 in `Items`, 0 in `Background`.
     pub in_front_of_objects: i32,
+    /// How many times `ChangeOverlap` moved the sprites (each time it changed
+    /// `inFrontOfObjects`: `MoveObjectToContainer` to the top of `Items` or `Background`).
+    pub overlap_moves: u32,
     pub blink: i32,
     pub forbidden_to_player: i32,
     pub last_outside_terrain_pos: Option<Vec2>,
@@ -358,6 +361,7 @@ impl Weapon {
             thrown_closest_to_creature: None,
             missed_attack: None,
             in_front_of_objects: -1,
+            overlap_moves: 0,
             blink: 0,
             forbidden_to_player: 0,
             last_outside_terrain_pos: None,
@@ -423,6 +427,9 @@ impl Weapon {
     /// `ChangeOverlap`: in front of the other objects (`Items`) or behind them
     /// (`Background`).
     pub fn change_overlap(&mut self, overlap: bool) {
+        if self.in_front_of_objects != i32::from(overlap) {
+            self.overlap_moves = self.overlap_moves.wrapping_add(1);
+        }
         self.in_front_of_objects = i32::from(overlap);
     }
 

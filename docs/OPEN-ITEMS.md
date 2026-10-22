@@ -10,15 +10,6 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   which are not ported.
 - **`ExplosiveSpear` behaviour.** The flag is ported; the explosion is not.
 
-- **Draw order by container add order** (user, 2026-10-22): objects that never went
-  through a jaws release keep the port's order by kind, standing in for the game's order
-  of adding sprites to the camera's containers (`drawableObjects`,
-  `RoomCamera.MoveObjectToContainer`); a newly realized room's camera order too (D19).
-  Its own small job; touches the draw path for every object.
-  With it: an object's sprites follow its most recent `AddObjectToInternalContainer`
-  holder; the port gives them to whichever holder's entry it processes first when a
-  stale entry is left (`ReleaseSpecific`'s rising-loop quirk), `crates/app/src/jaws.rs`.
-
 - **Hunter follow-ups** (user, 2026-10-22, after the spear on the back): `HardmodeStart`
   (the Hunter's scripted LF_H01 first cycle, its spear, NSHSwarmer, `Red_stomach` pearl,
   Deer, scripted input/camera/map) as its own job later; `SocialEventRecognizer.

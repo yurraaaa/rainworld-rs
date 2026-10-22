@@ -884,7 +884,8 @@ graphics, what the jaws hold draws inside the lizard's head container
 (`AddObjectToInternalContainer`; released on `ReleaseGrasp`, `LoseAllGrasps`,
 `Grasp.Release`; re-added on `SpitOutOfShortCut`); released sprites go back on top of
 their default containers (`MoveObjectToContainer(obj, null)`, `ReleaseAll...` from the
-last entry to the first), and objects that join the room after that draw above them.
+last entry to the first), as camera 0's container order has it (`crates/app/src/
+sprite_order.rs`, D21).
 A lizard carrying the held player into a shortcut takes it along (`Creature.Update`'s
 pull, `SuckedIntoShortCut`, `FollowedByCamera` in the lobby, `SpitOutOfShortCut`'s
 connected objects with `Player.SpitOutOfShortCut(false)`), into its den too, where
@@ -896,12 +897,6 @@ range; `PhysicalObject.Update` prunes stale `grabbedBy` entries (the player and 
 - **Danger grabbers.** Only lizards realize; `Player.Grabbed`'s other base-game danger
   grabbers (vulture, big spider, drop bug) have no bodies yet, and Watcher's sand grub is
   DLC.
-- **Draw order under the released sprites.** Objects that did not go through a
-  release keep the port's order by kind (shelter door, items, overseers, flies,
-  lizards; the slugcat first in `Midground`), which stands for the game's container
-  order; only the released objects, and objects that joined the room after a release,
-  are placed as the game's `AddChild` would place them (above the rest). Overseers
-  joining after a release stay in the kind order.
 - **Remix branch omitted:** `ReleaseDoorForbiddenCreatures` in `SuckedIntoShortCut`
   (a grabbed creature whose template forbids shortcuts, or an immobile one, and the
   grasps between it and what enters are let go); the game calls it only with
@@ -916,8 +911,7 @@ range; `PhysicalObject.Update` prunes stale `grabbedBy` entries (the player and 
 
 **Why.** Base-game scope; the other grabbers come with their creatures.
 
-**Affects.** Escapes and deaths in lizards' jaws in co-op, DLC and with other creatures;
-the draw order of objects that never went through a jaws release.
+**Affects.** Escapes and deaths in lizards' jaws in co-op, DLC and with other creatures.
 
 ## Not ported yet (not divergences, just absent)
 

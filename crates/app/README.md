@@ -17,14 +17,14 @@ Gameplay logic belongs in `rw-sim`, not here.
 | `timestep.rs` | sim rate and Unity `Time.deltaTime` as the process manager sees it |
 | `input.rs` | keyboard to per-tick `Input` (`InputState`), Rewired-style key map |
 | `frontend.rs` | `Frontend`/`FrontendRenderer`: processes under `rw_menu::ProcessManager` (game, Initialization, menus), switch fade, `AppContext` |
-| `game.rs` | `Game`: `RainWorldGame` + player graphics; `start`, `tick`, `*_draw_lists` (with `contain_in_jaws`: what lizards hold drawn in their containers), sound events |
+| `game.rs` | `Game`: `RainWorldGame` + player graphics; `start`, `tick`, `*_draw_lists`, `sync_sprite_order` (camera 0's container record after each tick) and `in_container_order` (the frame's lists in that order, jaws nested), sound events |
 | `scene.rs` | `Scene`/`SceneRenderer`: what a frame shows (level, water, sprites, HUD), shared by window and screenshots |
 | `visuals.rs` | room settings, palettes, shown camera image |
 | `window_identity.rs` | window title "Rain World" and app id `rainworld-rs` (Wayland/X11) |
 | `sprites.rs` | atlas loading (`rainWorld`, `uiSprites`), overseer projection textures |
 | `shortcuts.rs` | camera-0 `ShortcutGraphics` fed from the game |
 | `jaws.rs`, `jaws_tests.rs` | `Jaws`: held objects' sprites nested into their holders' jaw containers (a held lizard's holds inside it; hold cycles D20) |
-| `sprite_order.rs` | `SpriteOrder`: sprites let out of a lizard's jaws (and later arrivals) drawn on top of their containers |
+| `sprite_order.rs`, `sprite_order_tests.rs` | `SpriteOrder`: camera 0's sprite leasers in container order as the game adds and re-adds them (new room, `AddObject`, releases, `ChangeOverlap`, jaw containers; D21) |
 | `hud_map.rs` | `MapData`/map owner the HUD map reads |
 | `game_music.rs` | game side of `MusicPlayer`: HUD state, song requests, threat tracker inputs |
 | `hibernation.rs` | `RainWorldGame.Win`: save side and next-cycle state |

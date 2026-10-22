@@ -19,6 +19,7 @@ use rw_sim::{HudEvent, Input, SoundEvent};
 
 use crate::game::Game;
 use crate::hibernation::HibernatingGame;
+use crate::sprite_order::Drawable;
 use crate::sprites::SpriteAssets;
 use crate::timestep::TICK_RATE;
 use crate::visuals::Visuals;
@@ -497,62 +498,50 @@ impl Scene {
             .map_or(0.0, |v| v.room_palette().darkness);
         // `Water` draws before the light sources' owners hard-set them this frame.
         let surface_lights = self.game.surface_lights();
-        // The shelter door's (added with the room), the items' (realized before the
-        // creatures), the flies', the lizards' and the drips' sprites join the
-        // overseers', in sprite order.
-        let mut player_slot = 0;
-        let overseers = if target.sprites.is_some() {
-            let mut lists: Vec<_> = self.game.shelter_draw_list(alpha).into_iter().collect();
-            let weapons = self.game.weapon_draw_lists(alpha, face);
-            let overseers = self.game.overseer_draw_lists(alpha, earth);
-            let flies = self.game.fly_draw_lists(alpha, face);
-            let lizards = self.game.lizard_draw_lists(alpha, face);
-            // What the lizards' jaws hold draws in their containers.
-            let (nw, nf) = (weapons.len(), flies.len());
-            let mut owned: Vec<_> = weapons.into_iter().chain(flies).chain(lizards).collect();
-            self.game.contain_in_jaws(sprites.as_mut(), &mut owned);
-            // Sprites let out of a lizard's jaws, and what joined the room after them,
-            // draw on top (the slugcat's too).
-            let player = rw_sim::item::Entity::Creature(self.game.sim().player_creature());
-            let mut now: Vec<_> = sprites.iter().map(|_| player).collect();
-            now.extend(owned.iter().map(|(e, _)| *e));
-            let top = self.game.sprites_on_top(&now);
-            let mut above = Vec::new();
-            let mut kept = Vec::new();
-            for (i, (e, l)) in owned.into_iter().enumerate() {
-                let group = if i < nw {
-                    0
-                } else if i < nw + nf {
-                    1
-                } else {
-                    2
-                };
-                match top.iter().position(|t| *t == e) {
-                    Some(k) => above.push((k, Some(l))),
-                    None => kept.push((group, l)),
-                }
+        // `ShortcutGraphics.Draw`, every frame there is a palette.
+        let shortcuts = match &self.visuals {
+            Some(visuals) if target.sprites.is_some() => {
+                let camera = self.camera.position(self.camera.current());
+                self.game
+                    .shortcut_draw_list(visuals.shortcut_palette(), rw_sim::Vec2::from(camera))
             }
-            if let Some(k) = top.iter().position(|t| *t == player) {
-                above.push((k, None));
-            }
-            above.sort_by_key(|&(k, _)| k);
-            let mut kept = kept.into_iter().peekable();
-            while let Some((_, l)) = kept.next_if(|&(g, _)| g == 0) {
-                lists.push(l);
-            }
-            lists.extend(overseers);
-            lists.extend(kept.map(|(_, l)| l));
-            for (_, l) in above {
-                match l {
-                    Some(l) => lists.push(l),
-                    None => player_slot = lists.len(),
-                }
-            }
+            _ => None,
+        };
+        // Every drawable's sprites, in camera 0's container order.
+        let has_player_sprites = sprites.is_some();
+        let objects = if target.sprites.is_some() {
+            self.game.sync_sprite_order();
+            let player = Drawable::Entity(rw_sim::item::Entity::Creature(
+                self.game.sim().player_creature(),
+            ));
+            let mut lists: Vec<(Drawable, DrawList)> =
+                sprites.take().map(|l| (player, l)).into_iter().collect();
+            lists.extend(
+                self.game
+                    .shelter_draw_list(alpha)
+                    .map(|l| (Drawable::ShelterDoor, l)),
+            );
+            let entities = [
+                self.game.weapon_draw_lists(alpha, face),
+                self.game.fly_draw_lists(alpha, face),
+                self.game.lizard_draw_lists(alpha, face),
+            ];
+            lists.extend(
+                entities
+                    .into_iter()
+                    .flatten()
+                    .map(|(e, l)| (Drawable::Entity(e), l)),
+            );
+            lists.extend(self.game.overseer_draw_lists(alpha, earth));
             lists.extend(self.game.drip_draw_lists(alpha, face, darkness));
             lists.extend(self.game.cosmetic_draw_lists(alpha, face));
             let cam_pos = rw_sim::Vec2::from(self.camera.view_origin(alpha));
             lists.extend(self.game.holo_light_draw_lists(alpha, cam_pos, darkness));
-            lists
+            let level_view = self.visuals.is_some() && view.level;
+            if let Some(list) = shortcuts.filter(|_| level_view) {
+                lists.push((Drawable::Shortcuts, list));
+            }
+            self.game.in_container_order(lists)
         } else {
             Vec::new()
         };
@@ -579,15 +568,6 @@ impl Scene {
             ),
             _ => Vec::new(),
         };
-        // `ShortcutGraphics.Draw`, every frame there is a palette.
-        let shortcuts = match &self.visuals {
-            Some(visuals) if target.sprites.is_some() => {
-                let camera = self.camera.position(self.camera.current());
-                self.game
-                    .shortcut_draw_list(visuals.shortcut_palette(), rw_sim::Vec2::from(camera))
-            }
-            _ => None,
-        };
         let r = &mut target.renderer;
         let water = self.game.water_surface(alpha);
         let palette = self.visuals.as_ref().map(Visuals::room_palette);
@@ -603,11 +583,9 @@ impl Scene {
             water: water.as_ref(),
             water_sprites,
             level,
-            sprites: sprites.as_ref(),
-            player_slot,
-            overseers: &overseers,
+            player_sprites: has_player_sprites,
+            objects: &objects,
             holograms: &holograms,
-            shortcuts: shortcuts.as_ref(),
             layers: view.layers,
             camera,
             alpha,
@@ -679,18 +657,15 @@ struct FrameDraw<'a> {
     water_sprites: Option<(&'a WaterSprites, f32)>,
     /// The game's window into the level graphic; `None` in the debug view.
     level: Option<LevelView>,
-    /// The slugcat's sprites, drawn only with the level graphic. Without it (the debug
-    /// view, or no atlas) the physical body is drawn: chunks, rods and contacts.
-    sprites: Option<&'a DrawList>,
-    /// The slugcat's sprites draw before `overseers[player_slot]` in the `Midground` and
-    /// `Foreground` containers (0: under all of them).
-    player_slot: usize,
-    /// The other objects' sprites (level view only), in container order.
-    overseers: &'a [DrawList],
+    /// The slugcat has sprites this frame. They draw only with the level graphic;
+    /// without it (the debug view, or no atlas) the physical body is drawn: chunks, rods
+    /// and contacts.
+    player_sprites: bool,
+    /// Every drawable's sprites (level view only), the slugcat's and the shortcut
+    /// graphics' among them, in the camera's container order.
+    objects: &'a [DrawList],
     /// The holograms' sprites (level view only), in the `Bloom` container.
     holograms: &'a [DrawList],
-    /// The shortcut graphics (level view only), in their containers.
-    shortcuts: Option<&'a DrawList>,
     layers: RoomLayers,
     camera: Camera,
     alpha: f32,
@@ -698,20 +673,12 @@ struct FrameDraw<'a> {
 }
 
 impl FrameDraw<'_> {
-    /// The objects' sprites in `layer`, the slugcat's at its slot.
-    fn draw_with_player(&self, r: &mut impl Renderer, layer: Layer, level: LevelView) {
-        for (i, o) in self.overseers.iter().enumerate() {
-            if i == self.player_slot
-                && let Some(list) = self.sprites
-            {
-                r.draw_sprites(list, layer, level.origin);
+    /// One container: every drawable's sprites in it, in order.
+    fn draw_layer(&self, r: &mut impl Renderer, layer: Layer, level: LevelView) {
+        for o in self.objects {
+            if o.layer(layer).next().is_some() {
+                r.draw_sprites(o, layer, level.origin);
             }
-            r.draw_sprites(o, layer, level.origin);
-        }
-        if self.player_slot >= self.overseers.len()
-            && let Some(list) = self.sprites
-        {
-            r.draw_sprites(list, layer, level.origin);
         }
     }
 
@@ -722,51 +689,29 @@ impl FrameDraw<'_> {
             ..self.layers
         });
         // Sprites sit at `room - camPos`, the level view's origin.
-        let shortcuts = self.level.as_ref().zip(self.shortcuts);
-        if let Some((level, list)) = shortcuts {
-            r.draw_sprites(list, Layer::BackgroundShortcuts, level.origin);
-            r.draw_sprites(list, Layer::Background, level.origin);
-        }
-        // The `Background` container (a held weapon behind the body) before `Midground`.
         if let Some(level) = self.level {
-            for o in self.overseers {
-                r.draw_sprites(o, Layer::Background, level.origin);
-            }
+            self.draw_layer(r, Layer::BackgroundShortcuts, level);
+            self.draw_layer(r, Layer::Background, level);
         }
-        let sprites = self.level.as_ref().zip(self.sprites);
-        match sprites {
-            Some(_) => {}
-            None => {
-                for (body, status, kind) in self.game.debug_bodies() {
-                    let style = status.style(self.time).tinted(kind.color(), status.dead);
-                    r.draw_object_styled(body, self.alpha, style);
-                }
-                if let Some(body) = self.game.body() {
-                    r.draw_object(body, self.alpha, self.game.status(), self.time);
-                }
+        if self.level.is_none() || !self.player_sprites {
+            for (body, status, kind) in self.game.debug_bodies() {
+                let style = status.style(self.time).tinted(kind.color(), status.dead);
+                r.draw_object_styled(body, self.alpha, style);
+            }
+            if let Some(body) = self.game.body() {
+                r.draw_object(body, self.alpha, self.game.status(), self.time);
             }
         }
         if let Some(level) = self.level {
-            self.draw_with_player(r, Layer::Midground, level);
-            for o in self.overseers {
-                r.draw_sprites(o, Layer::Items, level.origin);
-            }
-            if let Some(list) = self.shortcuts {
-                r.draw_sprites(list, Layer::Items, level.origin);
-            }
+            self.draw_layer(r, Layer::Midground, level);
+            self.draw_layer(r, Layer::Items, level);
             r.draw_level(level);
-        }
-        if let Some(level) = self.level {
-            self.draw_with_player(r, Layer::Foreground, level);
-            for o in self.overseers {
-                r.draw_sprites(o, Layer::ForegroundLights, level.origin);
-            }
-        }
-        match (shortcuts, self.level) {
-            (Some((level, list)), _) => r.draw_sprites(list, Layer::Shortcuts, level.origin),
+            self.draw_layer(r, Layer::Foreground, level);
+            self.draw_layer(r, Layer::ForegroundLights, level);
+            self.draw_layer(r, Layer::Shortcuts, level);
+        } else {
             // The debug view's vessel marker.
-            (None, None) => r.draw_shortcut_vessel(self.game.vessel_tile()),
-            (None, Some(_)) => {}
+            r.draw_shortcut_vessel(self.game.vessel_tile());
         }
         // The `Water` container, after the level, foreground sprites and shortcuts.
         match (self.level, self.water_sprites, self.water) {
@@ -774,17 +719,9 @@ impl FrameDraw<'_> {
             (None, _, Some(water)) => r.draw_water(water),
             _ => {}
         }
-        if let Some((level, list)) = shortcuts {
-            r.draw_sprites(list, Layer::Water, level.origin);
-        }
-        // The guide's hologram light and its light source's glow under water.
         if let Some(level) = self.level {
-            for o in self.overseers {
-                r.draw_sprites(o, Layer::Water, level.origin);
-            }
-        }
-        // `Bloom`, after `Water` (and the empty `GrabShaders`).
-        if let Some(level) = self.level {
+            self.draw_layer(r, Layer::Water, level);
+            // `Bloom`, after `Water` (and the empty `GrabShaders`).
             for h in self.holograms {
                 r.draw_sprites(h, Layer::Bloom, level.origin);
             }
@@ -909,6 +846,30 @@ mod tests {
     }
 
     impl Recorder {
+        fn sprite(index: usize, layer: Layer) -> rw_graphics::DrawItem {
+            rw_graphics::DrawItem::Sprite(rw_graphics::Sprite {
+                index,
+                element: "pixel",
+                pos: rw_sim::Vec2::ZERO,
+                rotation: 0.0,
+                scale: rw_sim::Vec2::new(1.0, 1.0),
+                anchor: rw_sim::Vec2::new(0.5, 0.5),
+                color: SpriteColor::BLACK,
+                shader: rw_graphics::Shader::Basic,
+                layer,
+            })
+        }
+
+        /// A slugcat-like list: one sprite in `Midground`, one in `Foreground`.
+        fn slugcat_sprites() -> DrawList {
+            DrawList {
+                items: vec![
+                    Self::sprite(0, Layer::Midground),
+                    Self::sprite(1, Layer::Foreground),
+                ],
+            }
+        }
+
         fn record(game: &Game, level: Option<LevelView>, sprites: &DrawList) -> Self {
             Self::record_with_water(game, level, sprites, None, None)
         }
@@ -932,16 +893,17 @@ mod tests {
             shortcuts: Option<&DrawList>,
         ) -> Self {
             let mut r = Self::default();
+            let objects: Vec<DrawList> = std::iter::once(sprites.clone())
+                .chain(shortcuts.cloned())
+                .collect();
             FrameDraw {
                 game,
                 water,
                 water_sprites,
                 level,
-                sprites: Some(sprites),
-                player_slot: 0,
-                overseers: &[],
+                player_sprites: true,
+                objects: &objects,
                 holograms: &[],
-                shortcuts,
                 layers: RoomLayers::default(),
                 camera: Camera::fit([1.0, 1.0], (1366, 768), 0.0),
                 alpha: 1.0,
@@ -954,10 +916,8 @@ mod tests {
 
     #[test]
     fn debug_view_draws_colliders_and_no_sprites() {
-        let mut game = Game::new(open_room(), &rw_assets::RoomSettings::ANCESTOR, 1, None);
-        let sprites = game
-            .draw_list(1.0, SpriteColor::BLACK, SpriteColor::BLACK)
-            .expect("player");
+        let game = Game::new(open_room(), &rw_assets::RoomSettings::ANCESTOR, 1, None);
+        let sprites = Recorder::slugcat_sprites();
         let chunks = game.body().expect("body").chunks.len();
         let r = Recorder::record(&game, None, &sprites);
         assert_eq!(r.sprite_calls, 0);
@@ -982,10 +942,8 @@ mod tests {
             random_item_density: 1.0,
             ..rw_assets::RoomSettings::ANCESTOR
         };
-        let mut game = Game::new(room, &settings, 1, Some((5, 5)));
-        let sprites = game
-            .draw_list(1.0, SpriteColor::BLACK, SpriteColor::BLACK)
-            .expect("player");
+        let game = Game::new(room, &settings, 1, Some((5, 5)));
+        let sprites = Recorder::slugcat_sprites();
         let bodies = game.debug_bodies();
         assert!(!bodies.is_empty(), "items in the room");
         let others: usize = bodies.iter().map(|(b, _, _)| b.chunks.len()).sum();
@@ -997,10 +955,8 @@ mod tests {
 
     #[test]
     fn visual_view_draws_sprites_around_the_level() {
-        let mut game = Game::new(open_room(), &rw_assets::RoomSettings::ANCESTOR, 1, None);
-        let sprites = game
-            .draw_list(1.0, SpriteColor::BLACK, SpriteColor::BLACK)
-            .expect("player");
+        let game = Game::new(open_room(), &rw_assets::RoomSettings::ANCESTOR, 1, None);
+        let sprites = Recorder::slugcat_sprites();
         let level = LevelView {
             origin: [-100.0, -50.0],
             size: [1366.0, 768.0],
@@ -1014,10 +970,8 @@ mod tests {
 
     #[test]
     fn water_sprites_after_the_level_and_foreground_flat_water_in_debug() {
-        let mut game = Game::new(open_room(), &rw_assets::RoomSettings::ANCESTOR, 1, None);
-        let sprites = game
-            .draw_list(1.0, SpriteColor::BLACK, SpriteColor::BLACK)
-            .expect("player");
+        let game = Game::new(open_room(), &rw_assets::RoomSettings::ANCESTOR, 1, None);
+        let sprites = Recorder::slugcat_sprites();
         let surface = WaterSurface::flat(400.0, 50.0);
         let water = WaterSprites::new(surface.len(), 1366.0);
         let level = LevelView {
@@ -1047,10 +1001,8 @@ mod tests {
     /// Items before the level, Shortcuts after Foreground, Water after the water.
     #[test]
     fn shortcut_sprites_in_their_containers() {
-        let mut game = Game::new(open_room(), &rw_assets::RoomSettings::ANCESTOR, 1, None);
-        let sprites = game
-            .draw_list(1.0, SpriteColor::BLACK, SpriteColor::BLACK)
-            .expect("player");
+        let game = Game::new(open_room(), &rw_assets::RoomSettings::ANCESTOR, 1, None);
+        let sprites = Recorder::slugcat_sprites();
         let surface = WaterSurface::flat(400.0, 50.0);
         let water = WaterSprites::new(surface.len(), 1366.0);
         let level = LevelView {
@@ -1058,7 +1010,24 @@ mod tests {
             size: [1366.0, 768.0],
             rain: 0.0,
         };
-        let shortcuts = DrawList::default();
+        let layers = [
+            Layer::BackgroundShortcuts,
+            Layer::Background,
+            Layer::Items,
+            Layer::Shortcuts,
+            Layer::Water,
+        ];
+        let template = sprites.items[0].clone();
+        let shortcuts = DrawList {
+            items: layers
+                .into_iter()
+                .map(|layer| {
+                    let mut item = template.clone();
+                    item.set_layer(layer);
+                    item
+                })
+                .collect(),
+        };
         let r = Recorder::record_all(
             &game,
             Some(level),

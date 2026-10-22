@@ -1974,6 +1974,12 @@ impl RainWorldGame {
         self.player_id
     }
 
+    /// The player's place in its room's update list (its last `AddObject`).
+    #[must_use]
+    pub fn player_seq(&self) -> u64 {
+        self.player_seq
+    }
+
     /// `saveState.seed`.
     #[must_use]
     pub fn save_state_seed(&self) -> i32 {
