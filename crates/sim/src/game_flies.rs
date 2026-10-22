@@ -345,6 +345,7 @@ impl RainWorldGame {
             Shortcut::CreatureDen => {
                 self.world
                     .opportunity_to_enter_den(v.creature, &mut self.rng);
+                self.player_killed_in_den(v.room);
                 if self.world.creature(v.creature).in_den {
                     self.shortcuts.transport.remove(i);
                 }
@@ -404,43 +405,35 @@ impl RainWorldGame {
             log::warn!("Double shortcut entry issue!");
             self.world.fly_at(me).entering_shortcut = None;
         }
+        for o in self.world.connected_objects(Entity::Creature(me)) {
+            match o {
+                Entity::Creature(o) if self.world.creature(o).fly().is_some() => {
+                    self.stuck_fly_spat_out(o, room, middle, hole, observer);
+                }
+                Entity::Creature(_) => {}
+                Entity::Object(o) => self.world.spit_out_object(o, room, middle, &mut self.rng),
+            }
+        }
         let mut cx = FlyRoomTick {
             rng: &mut self.rng,
             observer: &mut *observer,
             camera_room: self.camera_room,
         };
-        for o in self.world.connected_objects(Entity::Creature(me)) {
-            let o = match o {
-                Entity::Creature(o) if self.world.creature(o).fly().is_some() => o,
-                Entity::Creature(_) => continue,
-                Entity::Object(o) => {
-                    self.world.spit_out_object(o, room, middle, cx.rng);
-                    continue;
-                }
-            };
-            for c in &mut self.world.fly_at(o).body.chunks {
-                let p = middle + Vec2::random_unit(cx.rng);
-                c.hard_set_position(p);
-                c.vel = Vec2::ZERO;
-            }
-            let came_from = self.world.fly_ref(o).room;
-            self.world.fly_add_object(o, room, &mut cx);
-            self.world.fly_spat_out(o, middle, hole, &mut cx);
-            if came_from != Some(room) {
-                self.world.fly_new_room(o, room, &mut cx);
-            }
-        }
         self.world.fly_spat_out(me, middle, hole, &mut cx);
     }
 
-    /// A fly or lizard vessel's turn in the lobby: abstracted toward an unrealized room;
-    /// into a room ready for the player and for AI it moves there, restarts at the
-    /// entrance node's tile in the tubes and the entrance blinks (1.5, the creature's
-    /// colour on camera 0). Returns whether it left the lobby.
+    /// A fly or lizard vessel's turn in the lobby. Toward an unrealized room it is
+    /// abstracted there, unless camera 0 follows it or what it carries (the held player:
+    /// `FollowedByCamera`), which realizes the room and waits (an off-screen den is
+    /// never realized). Into a room ready for the player and for AI it moves there with
+    /// everything stuck to it, restarts at the entrance node's tile in the tubes, the
+    /// entrance blinks (1.5, the creature's colour on camera 0), and a followed vessel
+    /// takes the camera to the node's camera. Returns whether it left the lobby.
     pub(super) fn creature_lobby_step(
         &mut self,
         mut v: CreatureVessel,
         lobby: LobbyVessel,
+        observer: &mut dyn PlayerObserver,
     ) -> bool {
         let id = v.creature;
         let lizard = self.world.creature(id).lizard().is_some();
@@ -449,11 +442,21 @@ impl RainWorldGame {
             return true;
         }
         let coord = WorldCoordinate::new(lobby.room, -1, -1, lobby.entrance_node);
+        let followed = self.followed_by_camera(id);
         let ready = self
             .world
             .realized(lobby.room)
             .map(|r| r.ready_for_player() && r.ready_for_ai());
         match ready {
+            None if followed && lobby.room != self.world.offscreen_den_index() => {
+                if let Err(e) = self
+                    .world
+                    .activate_room(lobby.room, &mut self.ids, &mut self.rng)
+                {
+                    log::warn!("cannot realize room {}: {e}", lobby.room);
+                }
+                false
+            }
             None => {
                 if lizard {
                     self.abstractize_lizard_to(id, coord);
@@ -464,11 +467,13 @@ impl RainWorldGame {
             }
             Some(true) => {
                 self.world.move_creature(id, coord);
-                let kind = self.world.abstract_room(lobby.room).and_then(|a| {
+                self.move_stuck_objects(id, coord);
+                let node = self.world.abstract_room(lobby.room).and_then(|a| {
                     a.nodes
                         .get(usize::try_from(lobby.entrance_node).ok()?)
-                        .map(|n| n.kind)
+                        .cloned()
                 });
+                let kind = node.as_ref().map(|n| n.kind);
                 let node_tile = self.world.realized(lobby.room).and_then(|r| {
                     let n = usize::try_from(lobby.entrance_node).ok()?;
                     r.room.shortcut_map().nodes().get(n).copied()
@@ -487,6 +492,9 @@ impl RainWorldGame {
                         let creature = self.world.creature(id).kind();
                         self.blink_arrival(lobby, 1.5, creature);
                     }
+                }
+                if followed && let Some(node) = node {
+                    self.camera_moves_to(lobby.room, node.viewed_by_camera, observer);
                 }
                 true
             }

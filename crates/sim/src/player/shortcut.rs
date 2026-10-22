@@ -12,6 +12,7 @@ use rw_assets::{Room, Shortcut, ShortcutType, Terrain, tile_centre};
 use rw_random::UnityRandom;
 
 use super::{HEAD, HIPS, Player};
+use crate::creature::CreatureId;
 use crate::shortcut::ShortcutVessel;
 use crate::{SoundId, Sounds, Vec2};
 
@@ -39,10 +40,23 @@ impl Player {
         self.entering_shortcut
     }
 
-    /// Whether the player is inside a tube (`inShortcut`): out of the room, no body.
+    /// Whether the player is inside a tube (`inShortcut`), in its own vessel or carried
+    /// in another creature's: out of the room, no body.
     #[must_use]
     pub fn in_shortcut(&self) -> bool {
-        self.vessel.is_some()
+        self.vessel.is_some() || self.carried_by.is_some()
+    }
+
+    /// The creature whose vessel carries the body (`inShortcutVessel` not its own).
+    #[must_use]
+    pub fn carried_by(&self) -> Option<CreatureId> {
+        self.carried_by
+    }
+
+    /// `Creature.SuckedIntoShortCut`'s loop over the connected objects of creature
+    /// `carrier` going in: `inShortcut`, its vessel, out of the room.
+    pub(crate) fn carried_into_shortcut(&mut self, carrier: CreatureId) {
+        self.carried_by = Some(carrier);
     }
 
     /// The tube tile the player's vessel is on, if inside a shortcut.
@@ -193,18 +207,28 @@ impl Player {
     /// player put back into a room).
     pub(crate) fn clear_vessel(&mut self) {
         self.vessel = None;
+        self.carried_by = None;
         self.entering_shortcut = None;
     }
 
     /// `Player.SpitOutOfShortCut` into `room`: head 2.5 px out of the entrance middle
-    /// toward the room, hips 2.5 px into the tube, both moving `2 * hole`;
+    /// toward the room, hips 2.5 px into the tube, both moving `2 * hole`
+    /// (`HardSetPosition`, so a pending `setPos` lands there too);
     /// `shortcutDelay = 20`, `cantBeGrabbedCounter = 30`. Animation, body mode and
-    /// standing are kept. The base `Creature.SpitOutOfShortCut` first puts each chunk at
-    /// the middle plus `Custom.RNV()` (one draw each), which the player's positions
+    /// standing are kept. The base `Creature.SpitOutOfShortCut` loop (the player's own,
+    /// or that of the creature carrying it) first puts each chunk at the middle plus
+    /// `Custom.RNV()` (one draw each) with no velocity, which the player's positions
     /// overwrite.
-    fn spit_out_of_shortcut(&mut self, room: &Room, tile: (i32, i32), rng: &mut UnityRandom) {
-        for _ in &self.body.chunks {
-            Vec2::random_unit(rng);
+    pub(crate) fn spit_out_of_shortcut(
+        &mut self,
+        room: &Room,
+        tile: (i32, i32),
+        rng: &mut UnityRandom,
+    ) {
+        let middle = Vec2::from(tile_centre(tile.0, tile.1));
+        for c in &mut self.body.chunks {
+            c.hard_set_position(middle + Vec2::random_unit(rng));
+            c.vel = Vec2::ZERO;
         }
         self.entering_shortcut = None;
         self.force_sleep_counter = 0;
@@ -212,11 +236,11 @@ impl Player {
         self.still_in_start_shelter = false;
         self.shortcut_delay = SPIT_OUT_DELAY;
         self.vessel = None;
+        self.carried_by = None;
         let (hx, hy) = room.shortcut_hole_direction(tile.0, tile.1);
         let hole = Vec2::new(hx as f32, hy as f32);
-        let middle = Vec2::from(tile_centre(tile.0, tile.1));
         for (i, c) in self.body.chunks.iter_mut().enumerate() {
-            c.reset_at(middle - hole * ((-0.5 + i as f32) * 5.0));
+            c.hard_set_position(middle - hole * ((-0.5 + i as f32) * 5.0));
             c.vel = hole * 2.0;
         }
     }

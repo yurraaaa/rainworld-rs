@@ -86,21 +86,27 @@ impl LizardGraphicsLink {
         self.internal_container.push(obj);
     }
 
-    /// `ReleaseAllInternallyContainedSprites`.
-    pub fn release_all_internally_contained(&mut self) {
-        self.internal_container.clear();
+    /// `ReleaseAllInternallyContainedSprites`: from the last entry to the first, each is
+    /// moved back to its default containers. Returns them in that order.
+    pub fn release_all_internally_contained(&mut self) -> Vec<Entity> {
+        let mut released = std::mem::take(&mut self.internal_container);
+        released.reverse();
+        released
     }
 
     /// `ReleaseSpecificInternallyContainedObjectSprites(obj)`: as the game's loop, an
-    /// entry right after a removed one is skipped.
-    pub fn release_internally_contained(&mut self, obj: Entity) {
+    /// entry right after a removed one is skipped. Returns the entries moved back to
+    /// their default containers, in order.
+    pub fn release_internally_contained(&mut self, obj: Entity) -> Vec<Entity> {
+        let mut released = Vec::new();
         let mut i = 0;
         while i < self.internal_container.len() {
             if self.internal_container[i] == obj {
-                self.internal_container.remove(i);
+                released.push(self.internal_container.remove(i));
             }
             i += 1;
         }
+        released
     }
 
     /// `LizardGraphics.WhiteFlicker(fl)`.

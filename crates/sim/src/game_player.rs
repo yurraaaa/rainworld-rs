@@ -14,7 +14,7 @@ use rw_assets::{Room, SlugcatName};
 
 use super::items::Grabability;
 use super::{HudEvent, PlayerObserver, RainWorldGame, RoomObject};
-use crate::creature::fly::{FlyRoomTick, MovementMode};
+use crate::creature::fly::MovementMode;
 use crate::creature::overseer::EdibleView;
 use crate::creature::{CreatureId, GrabRequest, Shareability, WorldCoordinate};
 use crate::item::Entity;
@@ -872,28 +872,9 @@ impl RainWorldGame {
         let hole = map_room.shortcut_hole_direction(entrance.0, entrance.1);
         let hole = Vec2::new(hole.0 as f32, hole.1 as f32);
         for e in self.carried() {
-            let id = match e {
-                Entity::Creature(id) => id,
-                Entity::Object(id) => {
-                    self.world.spit_out_object(id, room, middle, &mut self.rng);
-                    continue;
-                }
-            };
-            let mut cx = FlyRoomTick {
-                rng: &mut self.rng,
-                observer: &mut *observer,
-                camera_room: self.camera_room,
-            };
-            for c in &mut self.world.fly_at(id).body.chunks {
-                let p = middle + Vec2::random_unit(cx.rng);
-                c.hard_set_position(p);
-                c.vel = Vec2::ZERO;
-            }
-            let came_from = self.world.fly_ref(id).room;
-            self.world.fly_add_object(id, room, &mut cx);
-            self.world.fly_spat_out(id, middle, hole, &mut cx);
-            if came_from != Some(room) {
-                self.world.fly_new_room(id, room, &mut cx);
+            match e {
+                Entity::Creature(id) => self.stuck_fly_spat_out(id, room, middle, hole, observer),
+                Entity::Object(id) => self.world.spit_out_object(id, room, middle, &mut self.rng),
             }
         }
     }

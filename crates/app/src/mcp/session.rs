@@ -1125,19 +1125,22 @@ impl Session {
         let sim = scene.game().sim();
         let world = sim.world();
         let pf = world.path_finder(id);
-        let vessel = sim
-            .transport_vessels()
-            .flatten()
-            .find(|v| v.creature == id)
-            .map(|v| {
-                let (pos, last) = v.positions();
-                VesselInfo {
-                    room: Self::room_name(scene, v.room),
-                    pos: [pos.0, pos.1],
-                    last_positions: last.iter().map(|t| [t.0, t.1]).collect(),
-                    wait: v.wait(),
-                }
-            });
+        let vessel = sim.creature_vessel(id).map(|(v, in_lobby)| {
+            let (pos, last) = v.positions();
+            VesselInfo {
+                room: Self::room_name(scene, v.room),
+                pos: [pos.0, pos.1],
+                last_positions: last.iter().map(|t| [t.0, t.1]).collect(),
+                wait: v.wait(),
+                in_lobby,
+                connected: world
+                    .connected_objects(Entity::Creature(id))
+                    .into_iter()
+                    .skip(1)
+                    .map(|e| HeldInfo::of(world, e))
+                    .collect(),
+            }
+        });
         LizardMoveInfo {
             destination: pf.map(|f| Self::coord_info(scene, f.get_destination())),
             effectual_destination: pf
@@ -1939,6 +1942,10 @@ impl PlayerState {
             dead: player.is_dead(),
             in_shortcut: player.in_shortcut(),
             vessel_tile: player.shortcut_vessel_tile().map(Into::into),
+            carried_by: player.carried_by().map(|c| {
+                let id = sim.world().creature(c).id;
+                [id.spawner, id.number]
+            }),
             impacts: player
                 .body
                 .impacts()

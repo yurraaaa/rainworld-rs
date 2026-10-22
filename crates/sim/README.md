@@ -20,6 +20,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `lib.rs` | module list, re-exports | - |
 | `game.rs` | `RainWorldGame`: world, player, shortcut handler + lobby, realizer, order of a tick, sessions | `RainWorldGame` |
 | `game_*.rs` | `impl RainWorldGame` splits, below | - |
+| `game_carried.rs`, `game_carried_tests.rs` | what a creature's vessel carries: `FollowedByCamera`, stuck objects moving out of the lobby, the held player spat out with its grabber or killed in its den | `AbstractCreature.FollowedByCamera`, `Creature.SpitOutOfShortCut` |
 | `game_dev.rs` | dev spawns/teleports through the game's own paths (MCP, debug UI) | - (port dev tool, D18) |
 | `game_exit.rs` | what pause/`ExitGame` read | `RainWorldGame.ExitGame` |
 | `game_flies.rs` | bat flies in the tick: world process, `ReadyForAI`, vessels, lobby turns | `FliesWorldAI` hookup |
@@ -141,7 +142,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 
 | Question | Look in |
 |---|---|
-| Shortcuts / pipes, vessels, lobby | `shortcut.rs`, `player/shortcut.rs`, `game.rs` (lobby), `game_lizards.rs`, `game_flies.rs` |
+| Shortcuts / pipes, vessels, lobby | `shortcut.rs`, `player/shortcut.rs`, `game.rs` (lobby), `game_lizards.rs`, `game_flies.rs`, `game_carried.rs` (what a vessel carries) |
 | Water, swimming, drowning | `water.rs`, `player/swim.rs`, `water_drip.rs` |
 | Abstract creature AI (roam, migrate) | `world/abstract_ai.rs`, `abstract_path.rs`, `creature/ai.rs` |
 | Type-specific abstract AI | `world/abstract_ai_kinds.rs`, `creature/ai_kinds.rs`, `creature/overseer/abstract_ai.rs` |

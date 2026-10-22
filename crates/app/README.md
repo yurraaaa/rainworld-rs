@@ -22,6 +22,7 @@ Gameplay logic belongs in `rw-sim`, not here.
 | `visuals.rs` | room settings, palettes, shown camera image |
 | `sprites.rs` | atlas loading (`rainWorld`, `uiSprites`), overseer projection textures |
 | `shortcuts.rs` | camera-0 `ShortcutGraphics` fed from the game |
+| `sprite_order.rs` | `SpriteOrder`: sprites let out of a lizard's jaws (and later arrivals) drawn on top of their containers |
 | `hud_map.rs` | `MapData`/map owner the HUD map reads |
 | `game_music.rs` | game side of `MusicPlayer`: HUD state, song requests, threat tracker inputs |
 | `hibernation.rs` | `RainWorldGame.Win`: save side and next-cycle state |

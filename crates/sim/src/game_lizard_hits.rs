@@ -60,7 +60,7 @@ impl RainWorldGame {
         self.world.body_chunks(r.owner)?.get(r.index).cloned()
     }
 
-    fn chunk_of_mut(&mut self, r: ChunkRef) -> Option<&mut BodyChunk> {
+    pub(super) fn chunk_of_mut(&mut self, r: ChunkRef) -> Option<&mut BodyChunk> {
         if r.owner == Entity::Creature(self.player_id) {
             return self.player.as_mut()?.body.chunks.get_mut(r.index);
         }
@@ -725,7 +725,7 @@ impl RainWorldGame {
     }
 
     /// The chunks of any realized object.
-    fn chunk_refs_of(&self, e: Entity) -> Vec<ChunkRef> {
+    pub(super) fn chunk_refs_of(&self, e: Entity) -> Vec<ChunkRef> {
         match e {
             Entity::Creature(c) => self.creature_chunk_refs(c),
             Entity::Object(_) => {

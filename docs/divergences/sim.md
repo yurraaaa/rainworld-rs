@@ -147,14 +147,17 @@ spit-out with every stuck object, the room-exit node into the lobby and the lobb
 `CreatureEnterFromAbstractRoom` (abstracted toward an unrealized room, restarted at the
 entrance node once the room is ready for the player and for AI), and the bat hive
 vessels. `ShortcutGraphics` draws every vessel in the room in its creature's colour.
+What is stuck to a creature rides its vessel (`GetAllConnectedObjects`): a lizard
+holding the player pulls it to the entrance and takes it in (`inShortcut`, the
+lizard's vessel), the lobby realizes an unrealized destination for a vessel that
+carries the player (`FollowedByCamera`) and moves the camera with it, and the
+spit-out puts the player out with the lizard (D19).
 
 **What differs:**
 - **The player's vessel lives on `Player`.** The game's vessel list holds a plain
   `ShortCutVessel` for the player too; the port keeps the player's on `Player` (with
   its slot in the list) or in the lobby, and its `wait` is always 0 (Jolly co-op).
-- **Not ported:** being pulled in by a grabber entering a shortcut (a lizard holding
-  the player enters alone, D19; what the player holds goes through with it), MSC
-  tongue release, the arena hooks of `SpitOutOfShortCut` and
+- **Not ported:** MSC tongue release, the arena hooks of `SpitOutOfShortCut` and
   den entry (`PlayerTryingToEnterDen`), dens for creatures other than flies (a fly's
   `OpportunityToEnterDen` never takes it in), NPC transports
   (`NPCTransportationDestination`), border travel, region transportation, and Remix
@@ -858,19 +861,32 @@ hands' objects under a danger grasp; a held head near the room bottom makes ever
 let go; `WALLSTUCK`, the karma flower spot and map discovery need a free body. With
 graphics, what the jaws hold draws inside the lizard's head container
 (`AddObjectToInternalContainer`; released on `ReleaseGrasp`, `LoseAllGrasps`,
-`Grasp.Release`; re-added on `SpitOutOfShortCut`).
+`Grasp.Release`; re-added on `SpitOutOfShortCut`); released sprites go back on top of
+their default containers (`MoveObjectToContainer(obj, null)`, `ReleaseAll...` from the
+last entry to the first), and objects that join the room after that draw above them.
+A lizard carrying the held player into a shortcut takes it along (`Creature.Update`'s
+pull, `SuckedIntoShortCut`, `FollowedByCamera` in the lobby, `SpitOutOfShortCut`'s
+connected objects with `Player.SpitOutOfShortCut(false)`), into its den too, where
+`IsEnteringDen` kills it (`Player.Die`: `GameOver`, `UI_Slugcat_Die`).
+`HardSetPosition` moves a pending `setPos`; a held body is not clamped to the room's
+range; `PhysicalObject.Update` prunes stale `grabbedBy` entries (the player and items).
 
 **What differs:**
 - **Danger grabbers.** Only lizards realize; `Player.Grabbed`'s other base-game danger
   grabbers (vulture, big spider, drop bug) have no bodies yet, and Watcher's sand grub is
   DLC.
-- **Draw order after release.** The game moves released sprites to the top of their
-  default container (`MoveObjectToContainer(obj, null)`), so a slugcat let go draws over
-  creatures that joined the room after it; the port draws objects in a fixed order per
-  kind (the slugcat first in `Midground`) once out of the jaws.
-- **Not ported:** being carried into a shortcut by the lizard (the player stays in the
-  room, D5), the Hunter's spear on the back in `DangerGraspPickup` (`SpearToHand`, D3),
-  `HardSetPosition`'s `setPos` in `WALLSTUCK`.
+- **Draw order under the released sprites.** Objects that did not go through a
+  release keep the port's order by kind (shelter door, items, overseers, flies,
+  lizards; the slugcat first in `Midground`), which stands for the game's container
+  order; only the released objects, and objects that joined the room after a release,
+  are placed as the game's `AddChild` would place them (above the rest). Overseers
+  joining after a release stay in the kind order.
+- **Not ported:** the Hunter's spear on the back in `DangerGraspPickup` (`SpearToHand`,
+  D3).
+- **Remix branch omitted:** `ReleaseDoorForbiddenCreatures` in `SuckedIntoShortCut`
+  (a grabbed creature whose template forbids shortcuts, or an immobile one, and the
+  grasps between it and what enters are let go); the game calls it only with
+  `ModManager.MMF`.
 - **DLC branches omitted:** a player AI's (slugpup's) nervous struggle draws, the
   Challenge module's player number, `slugOnBack.DropSlug` (More Slugcats, Jolly
   Co-op); Remix's `cfgJetfishItemProtection` in `Stun`; Saint's and Expedition's spear in
@@ -879,11 +895,11 @@ graphics, what the jaws hold draws inside the lizard's head container
   (camouflage, one-way placement, final warp: always false here, so `VisualContact`'s
   hidden-player clause never fires) and its soft toys in `TossObject`.
 
-**Why.** Base-game scope; the other grabbers and the shortcut carry come with their
-creatures and steps.
+**Why.** Base-game scope; the other grabbers come with their creatures, the Hunter's
+spear with its own step.
 
 **Affects.** Escapes and deaths in lizards' jaws in co-op, DLC and with other creatures;
-the slugcat's draw order after being dropped.
+the draw order of objects that never went through a jaws release.
 
 ## Not ported yet (not divergences, just absent)
 

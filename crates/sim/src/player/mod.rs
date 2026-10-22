@@ -226,6 +226,9 @@ pub struct Player {
     short_cut_rad_add: f32,
     /// Set while inside a tube; the body is then out of the room.
     vessel: Option<ShortcutVessel>,
+    /// `inShortcutVessel` of another creature: the creature whose vessel carries the
+    /// body (a lizard holding it went into a shortcut). The body is out of the room.
+    carried_by: Option<crate::creature::CreatureId>,
 
     /// Coyote time: ticks left in which a jump is still allowed.
     can_jump: i32,
@@ -423,6 +426,7 @@ impl Player {
             entering_shortcut: None,
             short_cut_rad_add: 0.0,
             vessel: None,
+            carried_by: None,
             can_jump: 0,
             want_to_jump: 0,
             jump_boost: 0.0,

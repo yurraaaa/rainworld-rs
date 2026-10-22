@@ -292,12 +292,27 @@ impl World {
         self.creature_mut(id).lizard_mut()?.graphics.as_mut()
     }
 
+    /// A lizard's `graphicsModule.ReleaseAllInternallyContainedSprites()`, if it has one.
+    fn release_all_internally_contained(&mut self, id: CreatureId) {
+        if let Some(link) = self.lizard_graphics_link(id) {
+            let released = link.release_all_internally_contained();
+            self.sprites_to_front.extend(released);
+        }
+    }
+
+    /// The objects whose sprites went back on top of their default containers since
+    /// the last call, in order.
+    pub fn take_sprites_to_front(&mut self) -> Vec<Entity> {
+        std::mem::take(&mut self.sprites_to_front)
+    }
+
     /// `Grasp.Release`: the grabber's graphics let the object out of its container
     /// (`ReleaseSpecificInternallyContainedObjectSprites`), then off the grabbed's
     /// `grabbedBy` and the grabber's slot, then `DropCarriedObject(graspUsed)`.
     pub fn release(&mut self, g: Grasp) {
         if let Some(link) = self.lizard_graphics_link(g.grabber) {
-            link.release_internally_contained(g.grabbed);
+            let released = link.release_internally_contained(g.grabbed);
+            self.sprites_to_front.extend(released);
         }
         self.grabbed_by_mut(g.grabbed)
             .retain(|o| o.serial != g.serial);
@@ -311,9 +326,7 @@ impl World {
     /// `Creature.ReleaseGrasp` (a lizard's graphics first let all it holds out of its
     /// jaws, `Lizard.ReleaseGrasp`).
     pub fn release_grasp(&mut self, id: CreatureId, grasp: usize) {
-        if let Some(link) = self.lizard_graphics_link(id) {
-            link.release_all_internally_contained();
-        }
+        self.release_all_internally_contained(id);
         if let Some(g) = self.creature(id).grasps.get(grasp).copied().flatten() {
             self.release(g);
         }
@@ -322,9 +335,7 @@ impl World {
     /// `Creature.LoseAllGrasps` (`Lizard.LoseAllGrasps` first lets all its jaws hold
     /// out of its graphics' container).
     pub fn lose_all_grasps(&mut self, id: CreatureId) {
-        if let Some(link) = self.lizard_graphics_link(id) {
-            link.release_all_internally_contained();
-        }
+        self.release_all_internally_contained(id);
         for i in 0..self.creature(id).grasps.len() {
             self.release_grasp(id, i);
         }

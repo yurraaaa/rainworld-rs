@@ -53,6 +53,7 @@ mod saves;
 mod scene;
 mod screen_package;
 mod shortcuts;
+mod sprite_order;
 mod sprites;
 mod timestep;
 mod visuals;

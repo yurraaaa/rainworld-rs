@@ -1330,10 +1330,10 @@ impl RainWorldGame {
             Vec2::middle_of_tile(entrance) + Vec2::new(hole.0 as f32, hole.1 as f32) * -5.0;
         let mut moving = 0;
         for other in self.world.connected_objects(Entity::Creature(id)) {
-            let Some(chunks) = self.world.body_chunks_mut(other) else {
-                continue;
-            };
-            for c in chunks {
+            for r in self.chunk_refs_of(other) {
+                let Some(c) = self.chunk_of_mut(r) else {
+                    continue;
+                };
                 c.vel *= 0.06;
                 if c.pos.dist_less(target, radius) {
                     c.pos = target;
@@ -1415,6 +1415,11 @@ impl RainWorldGame {
         self.world.lizard_at(id).entering_shortcut = None;
         for other in self.world.connected_objects(Entity::Creature(id)) {
             match other {
+                Entity::Creature(o) if o == self.player_id => {
+                    if let Some(p) = self.player.as_mut() {
+                        p.carried_into_shortcut(id);
+                    }
+                }
                 Entity::Creature(o) => match &mut self.world.creature_mut(o).realized {
                     Some(crate::creature::RealizedCreature::Lizard(l)) => {
                         l.in_shortcut = true;
