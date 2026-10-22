@@ -67,7 +67,7 @@ impl Mirror {
         // Windowed, so a driven session never covers the screen.
         let resolution = Resolution::DEFAULT;
         let attrs = Window::default_attributes()
-            .with_title("rainworld-rs - MCP")
+            .with_title("Rain World")
             .with_inner_size(PhysicalSize::new(resolution.width, resolution.height))
             .with_resizable(false);
         let window = Arc::new(event_loop.create_window(attrs)?);

@@ -295,7 +295,6 @@ fn run() -> Result<(), Box<dyn Error>> {
             .inspect_err(|e| log::warn!("no audio output ({e}); playing silently"))
             .ok()
     };
-    let title = room.name().to_owned();
     let setup = GameSetup {
         start: game::GameStart::Room {
             name: room.name().to_owned(),
@@ -317,7 +316,6 @@ fn run() -> Result<(), Box<dyn Error>> {
     let options = app::Options {
         screenshot: args.screenshot,
         debug_view: args.debug_view,
-        title,
     };
     app::run(Frontend::new(ctx), sprites, options)
 }
