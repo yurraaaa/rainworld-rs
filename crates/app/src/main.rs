@@ -47,6 +47,7 @@ mod game;
 mod hibernation;
 mod hud_map;
 mod input;
+mod jaws;
 mod mcp;
 mod room_catalog;
 mod saves;
