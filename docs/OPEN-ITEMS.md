@@ -58,8 +58,8 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   DLCs; arena non-story light and `startUpTicks` 600 with arena sessions; insect
   explosions with explosions; insect terrain curves when terrain curves are ported; the
   `SunBlocker`'s (empty) update-list entry skipped.
-- **Code quality pass after the lizard steps** (user, 2026-10-16): once lizard steps
-  6 to 9 are merged, go over the workspace one crate at a time, a step per crate,
+- **Code quality pass** (user, 2026-10-16; moved to M14 cleanup by the user 2026-10-22,
+  not after the lizard steps): go over the workspace one crate at a time, a step per crate,
   finding code quality improvements (duplicated code to merge, and the like) and
   bringing them to the user before changing anything. This is in addition to the
   end-of-project review and optimisation pass in AGENTS.md.
