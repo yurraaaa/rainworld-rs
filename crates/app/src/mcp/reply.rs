@@ -362,6 +362,8 @@ pub struct LizardInfo {
     pub health: f32,
     pub throat_health: f32,
     pub limb_health: [f32; 4],
+    /// `State.meatLeft`.
+    pub meat_left: i32,
     pub dead: bool,
     pub in_shortcut: bool,
     /// `jawOpen`, `lastJawOpen` and `jawForcedShut`.
@@ -1049,6 +1051,8 @@ pub struct PlayerState {
     pub exhausted: bool,
     /// What each hand holds.
     pub grasps: [Option<HeldInfo>; 2],
+    /// Each grasp's `grabbedChunk` index.
+    pub grasp_chunks: [Option<usize>; 2],
     /// `objectInStomach` (an untyped saved object: its save string as `kind`).
     pub stomach: Option<HeldInfo>,
     /// `swallowAndRegurgitateCounter`.
@@ -1058,6 +1062,8 @@ pub struct PlayerState {
     /// `pickUpCandidate`.
     pub pick_up_candidate: Option<HeldInfo>,
     pub eat_counter: i32,
+    /// `eatMeat`.
+    pub eat_meat: i32,
     pub sleep: SleepState,
     /// `privSneak` and `Sneak`.
     pub priv_sneak: f32,

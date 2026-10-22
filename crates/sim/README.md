@@ -27,7 +27,8 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `game_hits.rs` | thrown rock/spear vs creatures | `Weapon.Update` Thrown branch |
 | `game_holo_light.rs` | Monk guide light in the update list | `HologramLight.TryCreate` |
 | `game_instructions.rs` | guide's placed room objects, input-instruction triggers | `SuperJumpInstruction`, `ReliableIggyDirection` |
-| `game_items.rs` | slugcat grabbing: `Grabability`, `CanIPickThisUp`, pick-up candidate | `Player` item rules |
+| `game_items.rs` | slugcat grabbing: `Grabability` (dead lizards: `Drag`), `CanIPickThisUp`, pick-up candidate | `Player` item rules |
+| `game_eat_meat.rs`, `game_eat_meat_tests.rs` | eating a held dead creature: `CanEatMeat`, `GrabUpdate`'s meat block, `EatMeatUpdate` (bites, drips, food) | `Player.EatMeatUpdate` |
 | `game_lizards.rs` | realized lizards in the update list, vessels, `SpitOutOfShortCut` | `Lizard.Update` |
 | `game_lizard_act.rs` | lizard movement (`Act`, `FollowPath`, animations) | `Lizard.Act` |
 | `game_lizard_ai.rs`, `game_lizard_ai_tests.rs` | lizard AI update: the flee heavy-AI gate, moods, `DetermineBehavior`, behaviours, `IdleSpotScore`, base AI module order | `LizardAI.Update`, `ArtificialIntelligence.Update` |
@@ -41,7 +42,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `game_map.rs` | map discovery from the player's position | `Player.Update` discovery |
 | `game_noise.rs` | in-room noises heard at once | `Room.InGameNoise` |
 | `game_over.rs` | `GameOver`, karma flower spot | `RainWorldGame.GameOver` |
-| `game_player.rs` | slugcat hands: bat-fly catch, eat, swallow, throw, hand switch | `Player.GrabUpdate`, `Collide` |
+| `game_player.rs` | slugcat hands: bat-fly catch, eat, swallow, throw, hand switch; the heavy carry's rod and the body lent to the player's update | `Player.GrabUpdate`, `Collide` |
 | `game_player_grabbed.rs`, `game_player_grabbed_tests.rs` | the player held: `creature_grab` (`CanBeGrabbed`, `Player.Grabbed`), the `dangerGrasp` block, `ThrowToGetFree`, `DangerGraspPickup`, `GameOver(dangerGrasp)`, the release under the room | `Player.Update`, `Creature.Grab` |
 | `game_spear_on_back.rs`, `game_spear_on_back_tests.rs` | the Hunter's spear on the back: stash/retrieve by holding pick-up, `SpearToBack`, `SpearToHand`, `DropSpear` applied, carried on the back | `Player.SpearOnBack` |
 | `game_shelter.rs` | shelter door in the room, sleep/hibernate checks, `DoorClosed` | `ShelterDoor` hookup |
@@ -76,7 +77,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 `poles.rs`, `ledge.rs`, `corridor.rs`, `swim.rs` (water, breath, `LungUpdate`),
 `falls.rs` (impact, stun, die), `grabbed.rs` (held: `dangerGrasp` state and timers,
 `cantBeGrabbedCounter`, the pacifying stun, `WALLSTUCK`), `exhaustion.rs` (aerobic level, malnourishment),
-`grab.rs` (hand counters, `ThrowDirection`), `shortcut.rs` (enter/ride/leave tubes),
+`grab.rs` (hand counters, `ThrowDirection`), `carry.rs` (`HeavyCarry`: run slowdown, drag through narrow spaces, pulled into a shortcut, jump power), `shortcut.rs` (enter/ride/leave tubes),
 `sleep.rs` (`SleepUpdate`), `sounds.rs` (slide loop, plays), `spear_on_back.rs` (the Hunter's
 `SpearOnBack` state, `DropSpear`'s draws in `Stun` and `Die`). `tests.rs`, `tests/`: tests.
 
@@ -169,7 +170,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | Room triggers, guide instructions | `trigger.rs`, `game_triggers.rs`, `game_instructions.rs`, `room_script.rs` |
 | Room realization / loading | `world/realizer.rs`, `world/realized.rs`, `world/mod.rs` |
 | Rain cycle | `world/rain_cycle.rs` |
-| Eating, picking up, throwing | `game_player.rs`, `game_items.rs`, `player/grab.rs` |
+| Eating, picking up, throwing | `game_player.rs`, `game_items.rs`, `player/grab.rs`; creatures' meat: `game_eat_meat.rs`; carrying a heavy body: `player/carry.rs`, `game_player.rs` |
 | The Hunter's spear on the back | `game_spear_on_back.rs`, `player/spear_on_back.rs`, `item/on_back_stick.rs` |
 | Body physics / collision | `chunk.rs`, `object.rs`, `player/mod.rs` |
 | Overseer / guide | `creature/overseer/`, `world/overseers_world_ai.rs`, `game_holo_light.rs` |

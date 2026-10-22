@@ -13,10 +13,26 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **Hunter follow-ups** (user, 2026-10-22, after the spear on the back): `HardmodeStart`
   (the Hunter's scripted LF_H01 first cycle, its spear, NSHSwarmer, `Red_stomach` pearl,
   Deer, scripted input/camera/map) as its own job later; `SocialEventRecognizer.
-  CreaturePutItemOnGround` in `ReleaseObject` and the back spear's lay-down drop (small
-  job); the `sprOnBackStick` in the region state's `STICKS` with the save work; the
-  back spear's zero-gravity placement with zero gravity; `EatMeatUpdate`'s back-spear lock
-  with eating meat (the grab-lizards step).
+  CreaturePutItemOnGround` in `ReleaseObject`, the back spear's lay-down drop and a
+  dropped or tossed creature (small job; user 2026-10-22); the `sprOnBackStick` in the
+  region state's `STICKS` with the save work; the back spear's zero-gravity placement
+  with zero gravity.
+
+- **`Jump`'s slope push** (user, 2026-10-22): the `terrainCurveNormal` branch
+  (Player.cs:13247-13251) was never ported in `crates/sim/src/player/jump.rs`. Small job.
+
+- **Graphics module order and lifetime** (user, 2026-10-22, found in the draw-order
+  review; inferred from code): `camera_changed_room` (`crates/sim/src/game_flies.rs`)
+  builds overseer, fly and lizard modules in one list by seq, where `Room.NowViewed`
+  builds layer 0 (flies, overseers) before layer 1 (lizards); both draw from the shared
+  stream. `LizardGraphicsLink.drawn_in` is never pruned, so a lizard that left a room
+  loses its module at that room's `NoLongerViewed` and is rebuilt (with draws); the game
+  removes it from the old room's `drawableObjects` in `CleanOutObjectNotInThisRoom` and
+  keeps it. Small job.
+
+- **Async room loading** (user, 2026-10-22): plan and decisions in
+  `../rainworld-re/surveys/async-room-loading.md`; later. `ShortcutHelper` its own job
+  after it.
 
 ## Planned
 - **Code quality pass after the lizard steps** (user, 2026-10-16): once lizard steps
@@ -51,11 +67,23 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   FightingStance's lean), rivalry, `LizardCommunication`, `MissionTracker` and
   ActingOutMission; `rainworld-re/notes/lizard-ai.md`). Go-ahead for each. Order
   agreed (user, 2026-10-21): 7b (done), step 8 (done; player side: grabbed, bitten,
-  `GameOver(grasp)`), 7c (done), then the player picking up, carrying and eating dead
-  or stunned lizards as its own step, then step 9. Details in
+  `GameOver(grasp)`), 7c (done), the player picking up, carrying and eating dead
+  lizards (done; living and stunned ones cannot be grabbed in the base game), then
+  step 9. Details in
   `../rainworld-re/surveys/lizards.md` (user decisions).
 
 ## To look into
+- **Dragging a dead green while standing stalls** (2026-10-22, grab-lizards review): Red
+  holding chunk 0, standing and holding right for 600 ticks in SU_S01 moved neither
+  itself nor the body; crawling drags it. No code difference found; the user is checking
+  the real game.
+- **Creatures at open room edges** (user, 2026-10-22, for when more creatures get
+  bodies): room borders are not solid (`Room.GetTile` copies the edge tile outside the
+  room, so open air edges extend forever; the room file's `Border:` field is unread).
+  Check how the game handles a creature flying or falling past an open edge (bat flies
+  now, flying creatures later): sky and side exits (`SkyExit`/`SideExit`, border exit
+  nodes), `RoomBorderPushBack` (unported; base game or not?), removal when too far out,
+  and compare with the port.
 - **Loop emitters when a room abstractizes** (2026-10-17): a swallowed rock's loop now
   lives one more update, as in the game, but an item whose room abstractizes (e.g. one
   held there) still drops its loop emitters at once. Check against the game which

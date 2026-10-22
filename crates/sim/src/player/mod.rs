@@ -15,6 +15,7 @@
 mod advanced;
 mod animation;
 mod body_mode;
+mod carry;
 mod corridor;
 mod exhaustion;
 mod falls;
@@ -36,6 +37,7 @@ mod tests;
 use rw_assets::{Room, Terrain};
 use rw_random::UnityRandom;
 
+pub use carry::HeavyCarry;
 pub use grab::{GrabState, StomachObject};
 pub use grabbed::{DangerGraspState, DangerGraspStep};
 pub use input::{INPUT_HISTORY, Input, PlayerController};
@@ -63,7 +65,7 @@ const SURFACE_FRICTION: f32 = 0.5;
 /// Surface friction while stunned or dead.
 const UNCONSCIOUS_SURFACE_FRICTION: f32 = 0.3;
 /// `EffectiveRoomGravity`: room gravity 1 (no gravity effects are ported).
-const ROOM_GRAVITY: f32 = 1.0;
+pub(crate) const ROOM_GRAVITY: f32 = 1.0;
 
 /// Coarse movement state (`Player.BodyModeIndex`), recomputed every tick.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -379,6 +381,8 @@ pub struct Player {
     pub(crate) grab: GrabState,
     /// `objectInStomach`.
     stomach: Option<StomachObject>,
+    /// The heavy object hand 0 carries, lent for the update.
+    heavy_carry: Option<HeavyCarry>,
     /// `Stun` or `Die` let go of everything (`LoseAllGrasps`); the game applies it.
     release_grasps: bool,
     /// `spearOnBack` (the Hunter's).
@@ -519,6 +523,7 @@ impl Player {
             exhausted: false,
             grab: GrabState::default(),
             stomach: None,
+            heavy_carry: None,
             release_grasps: false,
             spear_on_back: None,
             back_spear_drop: None,

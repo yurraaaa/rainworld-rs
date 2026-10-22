@@ -33,8 +33,8 @@ Differences:
 - **What a hibernation saves.** A creature's state string is read and written as the
   game's `CreatureState` and its base subclasses do (`creature/state_save.rs`): `Dead`,
   `Social` (the social memory, `SocialMemory.ToString` with its trailing separator when
-  the last relationship is not saved), `SpawnData`, `MeatLeft` (written back as read:
-  `meatPoints` is not ported), `MiscFlags`, `MiscData`, `HealthState`'s `Health`, the
+  the last relationship is not saved), `SpawnData`, `MeatLeft` (written when it differs
+  from the template's `meatPoints`), `MiscFlags`, `MiscData`, `HealthState`'s `Health`, the
   lizard's throat, limbs and rot type, the mouse's battery, the vulture's `NOMASK`, the
   needle worm's `EGGSPAWN`, the centipede's shells and `MEATINIT`, then the other
   entries in the order read (the DLC ones among them, as with the DLCs off). A region

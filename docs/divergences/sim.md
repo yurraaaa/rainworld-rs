@@ -33,8 +33,12 @@ corridors are D10.
 Grabbing is ported for bat flies, rocks and spears (`rainworld-re/notes/items.md`
 section 10): `Grabability`, `CanIPickThisUp`, `PickupCandidate` and the item `Blink`,
 picking up and laying down, switching hands, swallowing and regurgitating a rock, and
-carrying held objects through shortcuts (D5). The carried-object speed factors all
-apply to `HeavyCarry` objects only, which no ported object is.
+carrying held objects through shortcuts (D5). Dead lizards are grabbed too
+(`rainworld-re/notes/items.md` section 14): `Grabability.Drag` by the chunk nearest the
+slugcat, carried as a `HeavyCarry` (the rod, the run slowdown, the drag through narrow
+spaces, the pull into a shortcut, `Jump`'s stronger push), through shortcuts and into
+shelters, tossed and dropped, and eaten by the Hunter (`CanEatMeat`, `EatMeatUpdate`'s
+bites, drips and food, `meatLeft` saved, the back spear locked while eating).
 
 **What differs from the game where the game's behaviour is kept out of scope:**
 - **Throwing rocks and spears** is ported (`ThrowObject`'s weapon branch, `Weapon.Thrown`,
@@ -66,6 +70,15 @@ apply to `HeavyCarry` objects only, which no ported object is.
   stick never puts it back. The Expedition back-spear unlock, the slugcat on the back
   (More Slugcats, Jolly Co-op) and the `VoidSeaScene` and garbage-worm uses are omitted.
   The Hunter's `LF_H01` start spear belongs to `HardmodeStart` (D14), not ported.
+- **Grabbing and eating creatures: DLC branches omitted.** `SlugcatCanMaul` (More
+  Slugcats slugcats maul living creatures: `MaulingUpdate`), the More Slugcats
+  `CanEatMeat` rules (Saint and Spearmaster eat no meat; Artificer, Gourmand and
+  Sofanthiel eat like the Hunter; the `pyroJumpCooldown` gate; Jolly Co-op's no eating
+  players), the Sofanthiel and Gourmand quarter food per bite, the More Slugcats
+  scavenger chunk masses and vulture-mask removal in `EatMeatUpdate`, the Remix `num12`
+  second-hand meat grasp, and the More Slugcats and Watcher additions to
+  `IsCreatureLegalToHoldWithoutStun` are left out with their DLCs. Living and stunned
+  lizards cannot be picked up in the base game (`CantGrab`), so the port does not either.
 - **Random numbers.** The player's draws (stacked-body nudge `Random.Range(-1, 1)`,
   initial facing in `Player::create`, the `Stun` threshold, the corridor-turn jiggle,
   the water) use the game's generator and calls; only seed and call order differ (D1).

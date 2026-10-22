@@ -145,6 +145,8 @@ sound_ids! {
     FlyCaughtDead = "Fly_Caught_Dead",
     SlugcatBiteFly = "Slugcat_Bite_Fly",
     SlugcatFinalBiteFly = "Slugcat_Final_Bite_Fly",
+    SlugcatEatMeatA = "Slugcat_Eat_Meat_A",
+    SlugcatEatMeatB = "Slugcat_Eat_Meat_B",
     SlugcatLoseGrasp = "Slugcat_Lose_Grasp",
     SlugcatPickUpCreature = "Slugcat_Pick_Up_Creature",
     SlugcatThrowCreature = "Slugcat_Throw_Creature",

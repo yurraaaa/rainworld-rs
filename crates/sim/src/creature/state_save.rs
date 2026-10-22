@@ -13,9 +13,6 @@ use super::{AbstractCreature, CreatureState, SocialMemory, StateKind};
 /// `CreatureState`'s saved fields that nothing in the port reads, written back.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct StateSave {
-    /// `meatLeft` read from a save (`meatPoints` is not ported: the game writes it only
-    /// when it differs from them, so a read value is written back).
-    pub meat_left: Option<i32>,
     pub misc_flags: i32,
     pub misc_data: String,
     /// `unrecognizedSaveStrings`: key and value, in the order first read.
@@ -284,8 +281,8 @@ impl AbstractCreature {
         if let Some(data) = &self.spawn_data {
             text.push_str(&format!("SpawnData<cC>{data}<cB>"));
         }
-        if let Some(meat) = s.save.meat_left {
-            text.push_str(&format!("MeatLeft<cC>{meat}<cB>"));
+        if s.meat_left != self.template.meat_points() {
+            text.push_str(&format!("MeatLeft<cC>{}<cB>", s.meat_left));
         }
         if s.save.misc_flags > 0 {
             text.push_str(&format!("MiscFlags<cC>{}<cB>", s.save.misc_flags));
@@ -335,7 +332,7 @@ impl AbstractCreature {
                     }
                 }
                 "SpawnData" => self.spawn_data = kv.get(1).map(|v| (*v).to_owned()),
-                "MeatLeft" => self.state.save.meat_left = Some(CreatureState::parse_int(kv.get(1))),
+                "MeatLeft" => self.state.meat_left = CreatureState::parse_int(kv.get(1)),
                 "MiscFlags" => self.state.save.misc_flags = CreatureState::parse_int(kv.get(1)),
                 "MiscData" => {
                     self.state.save.misc_data = kv.get(1).copied().unwrap_or("").to_owned();

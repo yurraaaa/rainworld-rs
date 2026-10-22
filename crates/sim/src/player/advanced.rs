@@ -331,10 +331,10 @@ impl Player {
 
     /// `Jump` while rolling: a rocket jump whose angle (60 to 35 degrees from up) and
     /// speed (9.5 to 13.1) grow over the first 25 roll ticks.
-    pub(super) fn roll_jump(&mut self) {
+    pub(super) fn roll_jump(&mut self, num: f32) {
         let dir = self.roll_direction as f32;
         let t = (self.roll_counter as f32).inverse_lerp(0.0, 25.0);
-        let vel = Vec2::from_degrees(dir * 60.0_f32.lerp(35.0, t)) * 9.5_f32.lerp(13.1, t);
+        let vel = Vec2::from_degrees(dir * 60.0_f32.lerp(35.0, t)) * (9.5_f32.lerp(13.1, t) * num);
         let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
         hips.vel = Vec2::ZERO;
         hips.pos += Vec2::new(5.0 * dir, 5.0);
@@ -348,7 +348,7 @@ impl Player {
 
     /// `Jump` from a belly slide: the whiplash flip back when reversed (now or earlier
     /// in the slide), else a rocket jump forward.
-    pub(super) fn belly_slide_jump(&mut self, room: &Room) {
+    pub(super) fn belly_slide_jump(&mut self, room: &Room, num: f32) {
         let dir = self.roll_direction;
         let d = dir as f32;
         if self.whiplash_jump || self.input_x() == -dir {
@@ -379,7 +379,7 @@ impl Player {
             hips.pos += Vec2::new(5.0 * d, 5.0);
             head.pos = hips.pos + Vec2::new(5.0 * d, 5.0);
             let boost = if self.long_belly_slide { 1.2 } else { 1.0 };
-            hips.vel = Vec2::new(9.0 * d, 8.5) * boost;
+            hips.vel = Vec2::new(9.0 * d, 8.5) * (num * boost);
             head.vel = hips.vel;
             self.animation = Animation::RocketJump;
             self.rocket_jump_from_belly_slide = true;
@@ -407,17 +407,17 @@ impl Player {
     }
 
     /// The skid flip jump (within ticks 1..9 of a skid), or `false` when not skidding.
-    pub(super) fn flip_jump(&mut self) -> bool {
+    pub(super) fn flip_jump(&mut self, num: f32) -> bool {
         if !(self.slide_counter > 0 && self.slide_counter < 10) {
             return false;
         }
         let sd = self.slide_direction as f32;
         let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
-        head.vel.y = 9.0;
-        hips.vel.y = 7.0;
+        head.vel.y = 9.0 * num;
+        hips.vel.y = 7.0 * num;
         head.vel.x *= 0.5;
         hips.vel.x *= 0.5;
-        head.vel.x -= sd * 4.0;
+        head.vel.x -= sd * 4.0 * num;
         self.jump_boost = 5.0;
         self.animation = Animation::Flip;
         self.play_sound(SoundId::SlugcatFlipJump, HEAD, 1.0, 1.0);

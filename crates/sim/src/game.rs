@@ -14,6 +14,8 @@ use std::sync::Arc;
 mod carried;
 #[path = "game_dev.rs"]
 mod dev;
+#[path = "game_eat_meat.rs"]
+mod eat_meat;
 #[path = "game_exit.rs"]
 mod exit;
 #[path = "game_flies.rs"]
@@ -278,6 +280,8 @@ pub struct PlayerSurroundings<'a> {
     pub objects: Vec<Entity>,
     /// `FoodInStomach < MaxFoodInStomach`.
     pub hungry: bool,
+    /// Hand 0's `grabbedChunk` (position, radius) when it is a `HeavyCarry`.
+    pub heavy_carry: Option<(Vec2, f32)>,
 }
 
 /// Which overseer call [`RainWorldGame::run_overseer`] makes.
@@ -1193,6 +1197,10 @@ impl RainWorldGame {
         if !dest.ready_for_player() {
             return false;
         }
+        if !dest.ready_for_ai() && self.carried_creature_needs_ai_map() {
+            log::info!("denied room entrance because of carried creature");
+            return false;
+        }
         let node_tile = usize::try_from(lobby.entrance_node)
             .ok()
             .and_then(|n| dest.room.shortcut_map().nodes().get(n).copied());
@@ -1235,6 +1243,21 @@ impl RainWorldGame {
         );
         self.camera_moves_to(lobby.room, node.viewed_by_camera, observer);
         true
+    }
+
+    /// `VesselAllowedInRoom`'s `CreatureAllowedInRoom` of the creatures the player carries
+    /// in a room `ReadyForPlayer` but not `readyForAI`: one is refused when it
+    /// `RequiresAIMapToEnterRoom` (a template that needs the AI map anywhere among the
+    /// connected objects, which they all share).
+    fn carried_creature_needs_ai_map(&self) -> bool {
+        let connected = self
+            .world
+            .connected_objects(Entity::Creature(self.player_id));
+        let creatures: Vec<CreatureId> = connected.iter().filter_map(|e| e.creature()).collect();
+        creatures.len() > 1
+            && creatures
+                .iter()
+                .any(|&c| self.world.creature(c).template.require_ai_map)
     }
 
     /// `cameras[0].MoveCamera(room, camera)` for a vessel camera 0 follows leaving the
@@ -1767,6 +1790,10 @@ impl RainWorldGame {
             self.player_catch(index, observer);
             self.player_shelter_step(index, room);
             let body = self.player_hearing_body(index);
+            let carry = self.heavy_carry_loan(index);
+            if let Some(player) = self.player.as_mut() {
+                player.lend_heavy_carry(carry);
+            }
             let sounds = if index == self.camera_room {
                 &mut self.sounds
             } else {
@@ -1789,6 +1816,7 @@ impl RainWorldGame {
                     &mut hearing,
                 );
             }
+            self.return_heavy_carry();
             // `PhysicalObject.Update`'s `grabbedBy` pruning, when physics ran (not the
             // pull into a shortcut).
             if self
@@ -1826,6 +1854,7 @@ impl RainWorldGame {
             room: index,
             objects: self.room_physical_objects(index),
             hungry: self.food_in_stomach() < self.max_food(),
+            heavy_carry: self.heavy_carry_chunk(),
         };
         let water = self.world.realized(index).and_then(|r| r.water.as_ref());
         if let Some(player) = self.player.as_ref() {
