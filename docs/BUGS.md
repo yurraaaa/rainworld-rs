@@ -10,3 +10,5 @@ Seen in play, not yet investigated. Remove an entry once fixed.
   closes as the player moves around it (even jumping over it without touching). In the
   game a dead lizard stays still (user). The jaw value stays fixed; the drawing changes.
   Being traced.
+- **Threat music keeps playing after the lizard dies** (2026-10-22): the threat theme
+  stays loud with only a dead lizard around. Not the game's behaviour (user). Being traced.
