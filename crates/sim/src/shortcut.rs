@@ -8,10 +8,10 @@
 //! Mirrors: ShortcutHandler.cs, Room.cs (shortcutsBlinking), Creature.cs (NewTile)
 
 use rw_assets::shortcut::FOUR_DIRECTIONS;
-use rw_assets::{CreatureType, Room, Shortcut, ShortcutType, Terrain};
+use rw_assets::{Room, Shortcut, ShortcutType, Terrain};
 use rw_random::UnityRandom;
 
-use crate::creature::{CreatureId, WorldCoordinate};
+use crate::creature::{CreatureId, ShortCutColor, WorldCoordinate};
 use crate::world::World;
 use crate::{FloatExt, Player, SoundId, Sounds, TileExt, Vec2, VesselStep};
 
@@ -338,12 +338,12 @@ impl ShortcutVessel {
 }
 
 /// `ShortcutGraphics.ColorEntrance` on camera 0, which shows `room`: the entrance of
-/// shortcut `entrance` flashes in the shortcut colour of a `creature`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// shortcut `entrance` flashes in a creature's `ShortCutColor()`.
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct EntranceColor {
     pub room: i32,
     pub entrance: usize,
-    pub creature: CreatureType,
+    pub color: ShortCutColor,
 }
 
 impl World {
@@ -389,7 +389,7 @@ impl World {
                         self.blink_exit_behind(coord.room, dest_node, blink, camera_room)
                     {
                         color = Some(EntranceColor {
-                            creature: template.kind,
+                            color: self.creature(id).short_cut_color(),
                             ..c
                         });
                     }
@@ -409,7 +409,7 @@ impl World {
 
     /// The room-exit branch of `NewTile`: through exit node `dest_node` of room `from`,
     /// the room behind, if realized and viewed, blinks the entrance leading back by
-    /// `fac`. Returns that entrance for `ColorEntrance` (the creature left unset).
+    /// `fac`. Returns that entrance for `ColorEntrance` (the colour left unset).
     fn blink_exit_behind(
         &mut self,
         from: i32,
@@ -432,7 +432,7 @@ impl World {
         Some(EntranceColor {
             room: to,
             entrance: entrance?,
-            creature: CreatureType::Slugcat,
+            color: ShortCutColor::Slugcat,
         })
     }
 }

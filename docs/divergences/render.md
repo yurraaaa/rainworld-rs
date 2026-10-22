@@ -69,8 +69,11 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   atlas's `RainWorld_White` (as for the room sprite shaders above); within the `Items`
   container the shortcut sprites are drawn after the overseers' (the game's order there
   follows when each was added, INFERRED irrelevant since `ShortCut0` only shows on pipe
-  texels); `ShortCutColor` is known only for the slugcat, the overseer and the fly (both
-  white), and `shortcutSegments` only for the slugcat (2) and the fly (1). Not
+  texels). `ShortCutColor` (vessel pixels and entrance flashes) is the template's
+  `shortcutColor`, the lizard's effect colour, the slugcat's colour and the constant
+  overrides (big eel, deer, jet fish, scavenger); the overrides that read body state
+  (centipedes, daddy long legs, big spiders, cicadas, egg bugs, vultures, snails,
+  lantern mice) wait for those bodies and fall back to the template meanwhile. Not
   ported: the arena's `DarkenExitSymbol` and `ChangeAllExitsToSheltersOrDots`, the More
   Slugcats symbols (dens, NPC and region transports, and showing them while
   controlling a creature) and the Remix gate symbol, underwater shortcuts and grayscale.

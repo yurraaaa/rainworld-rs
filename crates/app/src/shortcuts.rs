@@ -5,13 +5,13 @@
 //!
 //! Mirrors: ShortcutGraphics.cs
 
-use rw_assets::{CreatureType, PlacedObjectType, RoomEffectType, SlugcatName};
+use rw_assets::{PlacedObjectType, RoomEffectType, SlugcatName};
 use rw_graphics::{
-    Color, DrawList, ExitBehind, ShortcutFrame, ShortcutGraphics, ShortcutPalette, ShortcutRoom,
+    DrawList, ExitBehind, ShortcutFrame, ShortcutGraphics, ShortcutPalette, ShortcutRoom,
     ShortcutVessel,
 };
 use rw_random::UnityRandom;
-use rw_sim::{RainWorldGame, Vec2};
+use rw_sim::{RainWorldGame, ShortCutColor, Vec2};
 
 /// The shortcut graphics of the room camera 0 shows.
 #[derive(Default)]
@@ -42,7 +42,7 @@ impl CameraShortcuts {
         for c in colors.into_iter().filter(|c| c.room == room) {
             g.color_entrance(
                 c.entrance,
-                ShortcutGraphics::creature_color(c.creature, slugcat),
+                ShortcutGraphics::creature_color(c.color, slugcat),
             );
         }
     }
@@ -121,7 +121,7 @@ impl CameraShortcuts {
         Some(ShortcutVessel {
             pos: p.shortcut_vessel_tile()?,
             last_positions: p.shortcut_vessel_last_tile().into_iter().collect(),
-            color: ShortcutGraphics::creature_color(CreatureType::Slugcat, slugcat),
+            color: ShortcutGraphics::creature_color(ShortCutColor::Slugcat, slugcat),
             segments: Self::SLUGCAT_SEGMENTS,
         })
     }
@@ -146,14 +146,7 @@ impl CameraShortcuts {
                 Some(v) if v.room == room => {
                     let c = world.creature(v.creature);
                     let (pos, last_positions) = v.positions();
-                    // `Lizard.ShortCutColor` is its effect colour.
-                    let color = match c.lizard() {
-                        Some(l) => {
-                            let [r, g, b] = l.effect_color;
-                            Color::rgb(r, g, b)
-                        }
-                        None => ShortcutGraphics::creature_color(c.kind(), slugcat),
-                    };
+                    let color = ShortcutGraphics::creature_color(c.short_cut_color(), slugcat);
                     Some(ShortcutVessel {
                         pos,
                         last_positions,

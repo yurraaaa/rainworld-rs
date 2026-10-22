@@ -11,7 +11,8 @@
 //! realize/abstractize hooks. Design:
 //! `rainworld-re/notes/creature-model.md`.
 //!
-//! Mirrors: AbstractWorldEntity.cs, AbstractCreature.cs, AbstractCreatureAI.cs
+//! Mirrors: AbstractWorldEntity.cs, AbstractCreature.cs, AbstractCreatureAI.cs, Creature.cs
+//!   (ShortCutColor), Lizard.cs (ShortCutColor)
 
 pub mod agression_tracker;
 pub(crate) mod ai;
@@ -388,10 +389,36 @@ pub struct AbstractCreature {
     pub kill_tag_counter: i32,
 }
 
+/// A creature's `ShortCutColor()`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ShortCutColor {
+    /// The player's `PlayerGraphics.SlugcatColor` of its slugcat, which the graphics own.
+    Slugcat,
+    Rgb([f32; 3]),
+}
+
 impl AbstractCreature {
     #[must_use]
     pub fn kind(&self) -> CreatureType {
         self.template.kind
+    }
+
+    /// `Creature.ShortCutColor()` of the realized creature: the colour its vessel's
+    /// pipe pixels and the entrances it blinks take. The overrides that read body
+    /// state the port has no body for yet (centipedes, daddy long legs, spiders,
+    /// cicadas, egg bugs, vultures, snails, lantern mice) fall back to the template.
+    #[must_use]
+    pub fn short_cut_color(&self) -> ShortCutColor {
+        if let Some(l) = self.lizard() {
+            return ShortCutColor::Rgb(l.effect_color);
+        }
+        match self.kind() {
+            CreatureType::Slugcat => ShortCutColor::Slugcat,
+            CreatureType::BigEel => ShortCutColor::Rgb([1.0, 0.0, 1.0]),
+            CreatureType::Deer => ShortCutColor::Rgb([0.0, 0.0, 0.0]),
+            CreatureType::JetFish | CreatureType::Scavenger => ShortCutColor::Rgb([1.0; 3]),
+            _ => ShortCutColor::Rgb(self.template.shortcut_color),
+        }
     }
 
     /// The state the constructor builds.
