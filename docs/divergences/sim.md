@@ -50,7 +50,7 @@ bites, drips and food, `meatLeft` saved, the back spear locked while eating).
   section 12), and of collision layer 1, the green lizards (`HitSomething`, `Violence`,
   `LodgeInCreature`, `StuckInCreature`; D14). `SocialEventRecognizer.WeaponAttack`
   breaks the peaceful record and tells the room's lizards (hits and near misses,
-  `creature-model.md` section 18), with the fear branch for lizards that fear the thrower (step 7b). Adrenaline's
+  `creature-model/lizard-senses.md` section 18), with the fear branch for lizards that fear the thrower (step 7b). Adrenaline's
   throw force (`Lerp(1, 1.5, Adrenaline)`) is 1 (adrenaline is skipped for now, a user
   decision of 2026-10-16). Remix and More Slugcats branches
   (Gourmand, Saint, Spearmaster, Rivulet's upward throw, the MMF slow-spear and
@@ -514,7 +514,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   timing (`offScreenSpeed * offscreenSpeedFac`, the room's connection lengths and the
   shortcuts' tube lengths) and stuck jump, `SetDestination`/`FindPath`,
   `AbstractSpacePathFinder`, `GoToDen` with `AbstractSpaceNodeFinder`, `Moved` and
-  `OpportunityToEnterDen` (rainworld-re `creature-model.md` §10). No rain falls yet,
+  `OpportunityToEnterDen` (rainworld-re `creature-model/abstract-ai.md` §10). No rain falls yet,
   but the cycle's timer runs, and lizards go home before the rain as in the game (user
   decision 2026-10-21): the realized `RainTracker` reads `TimeUntilRain` and the
   `EscapeRain` behaviour heads for the den in the cycle's last 4000 ticks; abstractly a
@@ -594,7 +594,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   game's does (`ReadyForAI`'s `RealizeInRoom`, `PlaceInRealizedRoom` with
   `RandomizeSpawnPositionInRoom` and the `QuickPathFinder`, a den exit into a realized
   room through the lobby and the pipe, `SpitOutOfShortCut`) and abstracted with its room
-  or toward an unrealized one (`rainworld-re` `creature-model.md` section 13). Its body
+  or toward an unrealized one (`rainworld-re` `creature-model/lizard-body-and-movement.md` section 13). Its body
   is `Lizard`'s with `LizardState`: the constructor (green breed data; the other breeds
   stay abstract until their data is entered), `Update`'s body part (bite delay, jaw,
   the three health rolls, the rock's turn, `Creature.Update`'s health death roll and
@@ -607,7 +607,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   `Spear.HitSomething`, `LodgeInCreature`, a spear stuck in a creature and pinned to a
   wall), kill it with the kill tag (the session's kills and the sleep screen, D13), and
   its state saves with its throat health. It moves as the game's (lizard step 4,
-  `creature-model.md` section 14): the `PathFinder` with `LizardPather`'s costs and
+  `creature-model/lizard-body-and-movement.md` section 14): the `PathFinder` with `LizardPather`'s costs and
   `FollowPath`, the shared accessibility mappers and the resource divider, the stuck and
   discomfort trackers, `Act` with `FollowConnection`, the movement animations,
   `GripPointBehavior`, `SwimBehavior`, `GetFrameSpeed`, the wiggle, desperation and
@@ -664,7 +664,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   draw is still made; the Flee body has no safari test of its own); More Slugcats' `LickedByPlayer` sighting at
   the top of `Update`; Watcher's indigo lizard locust branch. The friend tracker
   (taming, skipped) has utility 0 and `CareAboutRain` true.
-  It sees and tracks creatures (lizard step 6a, `creature-model.md` section 17):
+  It sees and tracks creatures (lizard step 6a, `creature-model/lizard-senses.md` section 17):
   the `Tracker` with simple and elaborate representations and their ghosts,
   `VisualContact` with `LizardAI.VisualScore` (the breed's vision, water, narrow
   spaces, the angle off the head) and `BodyChunk`/`Player.VisibilityBonus`
@@ -681,7 +681,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   `UpdateDynamicRelationship`, `VisualScore` and `LikeOfPlayer` (with those DLCs). A
   kill's community influence is applied to the session's communities at once, as the
   game's `InfluenceLikeOfPlayer` does, and again to the saved ones at `Win`.
-  It hears (lizard step 6b, `creature-model.md` section 18): the `NoiseTracker` with
+  It hears (lizard step 6b, `creature-model/lizard-senses.md` section 18): the `NoiseTracker` with
   its sources, mysterious noises and sound to examine, `HeardThisCreature` moving or
   cloning ghosts, `hearingSkill` from the run speed; noises from the player's
   footsteps and the terrain impacts of the player, lizards, flies, rocks and spears
@@ -723,7 +723,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   flies (`PlaceQuantifiedCreaturesInRoom` and `PlaceQCScore` on the Fly's baked map)
   and realizes them; so does `MoveFly` into a realized room (through the lobby and the
   pipe) and `CreateFlyInHive` (a bat hive vessel). The realized fly is the game's
-  (`rainworld-re/notes/creature-model.md`): `Fly` with its flight modes, burrowing,
+  (`rainworld-re/notes/creature-model/overseers-and-flies.md`): `Fly` with its flight modes, burrowing,
   hanging and chains (the grasp framework: `Grasp`, `grabbedBy`, `LoseAllGrasps`),
   water and death, `FlyAI` with its threats, `FlockBehavior` and the swarm, chain and
   leave-room behaviours, `FliesRoomAI` with the hives, the hover loop, the shortcut

@@ -2,7 +2,7 @@
 //! `FlockBehavior`s, and the room's `FliesRoomAI`. Base game, Remix off: no safari
 //! control, no lures (`FlyLure` is not ported), no challenge limits.
 //!
-//! Behaviour: `rainworld-re/notes/creature-model.md` (realized flies) and the decompile
+//! Behaviour: `rainworld-re/notes/creature-model/overseers-and-flies.md` (realized flies) and the decompile
 //! lines given on each item. The graphics (`FlyGraphics`) are `rw-graphics`', called
 //! through [`crate::PlayerObserver`].
 //!

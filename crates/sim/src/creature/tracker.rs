@@ -2,7 +2,7 @@
 //! one `CreatureRepresentation` each, simple (the last tile seen) or elaborate (ghosts
 //! that guess where an unseen creature went). The data and its world-free parts are
 //! here; its `Update`, noticing, ghosts and forgetting run in `game_tracker.rs`.
-//! Decompile: `Tracker.cs`. Behaviour: `rainworld-re/notes/creature-model.md` section 17.
+//! Decompile: `Tracker.cs`. Behaviour: `rainworld-re/notes/creature-model/lizard-senses.md` section 17.
 //!
 //! Mirrors: Tracker.cs
 

@@ -9,7 +9,7 @@
 //! ([`ai_kinds`], `world/abstract_ai_kinds.rs`) for every type but the scavenger (which
 //! stays in its den, docs/divergences/ D14), the relationships, dens, `Move` and the
 //! realize/abstractize hooks. Design:
-//! `rainworld-re/notes/creature-model.md`.
+//! `rainworld-re/notes/creature-model/model.md`.
 //!
 //! Mirrors: AbstractWorldEntity.cs, AbstractCreature.cs, AbstractCreatureAI.cs, Creature.cs
 //!   (ShortCutColor), Lizard.cs (ShortCutColor)

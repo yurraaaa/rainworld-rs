@@ -1,7 +1,7 @@
 //! `FliesWorldAI`, the world process that spreads, gathers and migrates the region's
 //! bat flies between rooms while they are counted per node (quantified), and the
 //! quantified-creature bookkeeping of `AbstractRoom` and `World` it uses. Every random
-//! draw is the game's, in its order (`rainworld-re/notes/creature-model.md` §8).
+//! draw is the game's, in its order (`rainworld-re/notes/creature-model/overseers-and-flies.md` §8).
 //!
 //! Base game: the echo and Watcher spinning-top checks of `AddFlyToSwarmRoom` never
 //! apply (no echo in a new game, Watcher off). The realized flies (`FliesRoomAI`, the

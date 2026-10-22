@@ -3,7 +3,7 @@
 //! queries `FliesWorldAI` answers (`GetSwarmRoomDistance`, `ActiveSwarmRoom`) and
 //! `AbstractRoom.NumberOfQuantifiedCreatureInRoom`. None of it draws a random number.
 //!
-//! Behaviour: `rainworld-re/notes/creature-model.md` §7.
+//! Behaviour: `rainworld-re/notes/creature-model/overseers-and-flies.md` §7.
 //!
 //! Mirrors: SwarmRoomMapper.cs, FliesWorldAI.cs, WorldLoader.cs, AbstractRoom.cs
 

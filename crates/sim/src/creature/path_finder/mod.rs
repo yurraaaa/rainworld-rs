@@ -4,7 +4,7 @@
 //! from the [`mapper`] (`AccessibilityMapper`, shared between creatures with the same
 //! pre-baked pathing); the breed-specific parts (`LizardPather`'s heuristic and
 //! `FollowPath`, `LizardAI.TravelPreference`) are [`PatherKind`]'s. Every `PathingCell`
-//! makes two draws when it is made. Behaviour: `rainworld-re/notes/creature-model.md`
+//! makes two draws when it is made. Behaviour: `rainworld-re/notes/creature-model/lizard-body-and-movement.md`
 //! section 14.
 //!
 //! Mirrors: PathFinder.cs
