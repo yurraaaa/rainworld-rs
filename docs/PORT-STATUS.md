@@ -239,9 +239,9 @@ Ported:
 
 | Type | Rust files |
 |---|---|
-| `AbstractCreature` | `crates/sim/src/creature/death.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/creature/grasp.rs`, `crates/sim/src/creature/mod.rs`, `crates/sim/src/world/abstract_ai.rs`, `crates/sim/src/world/creatures.rs`, `crates/sim/src/world/dens.rs`, `crates/sim/src/world/lizards.rs` |
+| `AbstractCreature` | `crates/sim/src/creature/death.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/creature/grasp.rs`, `crates/sim/src/creature/mod.rs`, `crates/sim/src/game_carried.rs`, `crates/sim/src/world/abstract_ai.rs`, `crates/sim/src/world/creatures.rs`, `crates/sim/src/world/dens.rs`, `crates/sim/src/world/lizards.rs` |
 | `AbstractCreatureAI` | `crates/sim/src/creature/ai.rs`, `crates/sim/src/creature/ai_kinds.rs`, `crates/sim/src/creature/mod.rs`, `crates/sim/src/world/abstract_ai.rs`, `crates/sim/src/world/creatures.rs`, `crates/sim/src/world/lizards.rs` |
-| `AbstractPhysicalObject` | `crates/assets/src/objects.rs`, `crates/sim/src/creature/grasp.rs`, `crates/sim/src/item.rs`, `crates/sim/src/item/spear_stick.rs`, `crates/sim/src/world/dens.rs` |
+| `AbstractPhysicalObject` | `crates/assets/src/objects.rs`, `crates/sim/src/creature/grasp.rs`, `crates/sim/src/game_carried.rs`, `crates/sim/src/item.rs`, `crates/sim/src/item/spear_stick.rs`, `crates/sim/src/world/dens.rs` |
 | `AbstractRoom` | `crates/sim/src/world/creatures.rs`, `crates/sim/src/world/dens.rs`, `crates/sim/src/world/flies_world_ai.rs`, `crates/sim/src/world/mod.rs`, `crates/sim/src/world/objects.rs`, `crates/sim/src/world/quantified.rs`, `crates/sim/src/world/swarm_rooms.rs`, `crates/sim/src/world/weapons.rs` |
 | `AbstractRoomNode` | `crates/assets/src/nodes.rs` |
 | `AbstractSpaceNodeFinder` | `crates/sim/src/world/abstract_path.rs` |
@@ -261,7 +261,7 @@ Ported:
 | `BodyChunk` | `crates/sim/src/chunk.rs`, `crates/sim/src/creature/vision.rs` |
 | `BodyPart` | `crates/graphics/src/body_part.rs` |
 | `CicadaAbstractAI` | `crates/sim/src/creature/ai_kinds.rs`, `crates/sim/src/world/abstract_ai_kinds.rs` |
-| `Creature` | `crates/sim/src/creature/danger.rs`, `crates/sim/src/creature/death.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/creature/fly/update.rs`, `crates/sim/src/creature/grasp.rs`, `crates/sim/src/creature/lizard/mod.rs`, `crates/sim/src/creature/violence.rs`, `crates/sim/src/game_hits.rs`, `crates/sim/src/game_lizard_act.rs`, `crates/sim/src/game_lizard_hits.rs`, `crates/sim/src/game_lizards.rs`, `crates/sim/src/game_player_grabbed.rs`, `crates/sim/src/player/falls.rs`, `crates/sim/src/player/grabbed.rs`, `crates/sim/src/player/shortcut.rs`, `crates/sim/src/shortcut.rs`, `crates/sim/src/spawn.rs`, `crates/sim/src/world/hearing.rs`, `crates/sim/src/world/lizards.rs` |
+| `Creature` | `crates/sim/src/creature/danger.rs`, `crates/sim/src/creature/death.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/creature/fly/update.rs`, `crates/sim/src/creature/grasp.rs`, `crates/sim/src/creature/lizard/mod.rs`, `crates/sim/src/creature/violence.rs`, `crates/sim/src/game_carried.rs`, `crates/sim/src/game_hits.rs`, `crates/sim/src/game_lizard_act.rs`, `crates/sim/src/game_lizard_hits.rs`, `crates/sim/src/game_lizards.rs`, `crates/sim/src/game_player_grabbed.rs`, `crates/sim/src/player/falls.rs`, `crates/sim/src/player/grabbed.rs`, `crates/sim/src/player/shortcut.rs`, `crates/sim/src/shortcut.rs`, `crates/sim/src/spawn.rs`, `crates/sim/src/world/hearing.rs`, `crates/sim/src/world/lizards.rs` |
 | `CreatureCommunities` | `crates/save/src/communities.rs` |
 | `CreatureLooker` | `crates/sim/src/creature/looker.rs` |
 | `CreatureSpecificAImap` | `crates/sim/src/world/creature_ai_map.rs` |
@@ -294,7 +294,7 @@ Ported:
 | `FSprite` | `crates/render/src/sprites.rs` |
 | `FStage` | `crates/menu/src/stage.rs`, `crates/render/src/stage.rs` |
 | `Futile` | `crates/render/src/stage.rs` |
-| `GraphicsModule` | `crates/sim/src/creature/lizard/graphics_link.rs` |
+| `GraphicsModule` | `crates/app/src/sprite_order.rs`, `crates/sim/src/creature/lizard/graphics_link.rs` |
 | `HealthState` | `crates/sim/src/creature/state_save.rs` |
 | `HologramLight` | `crates/graphics/src/holo_light.rs`, `crates/sim/src/creature/overseer/holo_light.rs`, `crates/sim/src/game_holo_light.rs` |
 | `HSLColor` | `crates/menu/src/color.rs` |
@@ -336,7 +336,7 @@ Ported:
 | `PhysicalObject` | `crates/sim/src/creature/fly/update.rs`, `crates/sim/src/game_lizards.rs`, `crates/sim/src/item/weapon.rs`, `crates/sim/src/noise.rs`, `crates/sim/src/object.rs` |
 | `PickupObjectInstruction` | `crates/sim/src/trigger.rs` |
 | `PlacedObject` | `crates/assets/src/placed.rs`, `crates/assets/src/placed_types.rs` |
-| `Player` | `crates/sim/src/creature/vision.rs`, `crates/sim/src/game_holo_light.rs`, `crates/sim/src/game_items.rs`, `crates/sim/src/game_map.rs`, `crates/sim/src/game_over.rs`, `crates/sim/src/game_player.rs`, `crates/sim/src/game_player_grabbed.rs`, `crates/sim/src/game_shelter.rs`, `crates/sim/src/player/advanced.rs`, `crates/sim/src/player/animation.rs`, `crates/sim/src/player/body_mode.rs`, `crates/sim/src/player/corridor.rs`, `crates/sim/src/player/exhaustion.rs`, `crates/sim/src/player/falls.rs`, `crates/sim/src/player/grab.rs`, `crates/sim/src/player/grabbed.rs`, `crates/sim/src/player/input.rs`, `crates/sim/src/player/jump.rs`, `crates/sim/src/player/ledge.rs`, `crates/sim/src/player/mod.rs`, `crates/sim/src/player/movement.rs`, `crates/sim/src/player/poles.rs`, `crates/sim/src/player/shortcut.rs`, `crates/sim/src/player/sleep.rs`, `crates/sim/src/player/sounds.rs`, `crates/sim/src/player/swim.rs` |
+| `Player` | `crates/sim/src/creature/vision.rs`, `crates/sim/src/game_carried.rs`, `crates/sim/src/game_holo_light.rs`, `crates/sim/src/game_items.rs`, `crates/sim/src/game_map.rs`, `crates/sim/src/game_over.rs`, `crates/sim/src/game_player.rs`, `crates/sim/src/game_player_grabbed.rs`, `crates/sim/src/game_shelter.rs`, `crates/sim/src/player/advanced.rs`, `crates/sim/src/player/animation.rs`, `crates/sim/src/player/body_mode.rs`, `crates/sim/src/player/corridor.rs`, `crates/sim/src/player/exhaustion.rs`, `crates/sim/src/player/falls.rs`, `crates/sim/src/player/grab.rs`, `crates/sim/src/player/grabbed.rs`, `crates/sim/src/player/input.rs`, `crates/sim/src/player/jump.rs`, `crates/sim/src/player/ledge.rs`, `crates/sim/src/player/mod.rs`, `crates/sim/src/player/movement.rs`, `crates/sim/src/player/poles.rs`, `crates/sim/src/player/shortcut.rs`, `crates/sim/src/player/sleep.rs`, `crates/sim/src/player/sounds.rs`, `crates/sim/src/player/swim.rs` |
 | `PlayerCarryableItem` | `crates/sim/src/game_items.rs`, `crates/sim/src/item/weapon.rs` |
 | `PlayerGraphics` | `crates/graphics/src/looker.rs`, `crates/graphics/src/player_draw.rs`, `crates/graphics/src/player_graphics.rs` |
 | `PlayerGuideState` | `crates/save/src/misc_world.rs`, `crates/sim/src/creature/overseer/guide_state.rs` |
@@ -357,7 +357,7 @@ Ported:
 | `Rock` | `crates/graphics/src/weapon_graphics.rs`, `crates/sim/src/game_lizard_hits.rs`, `crates/sim/src/game_weapons.rs`, `crates/sim/src/item/weapon.rs` |
 | `Room` | `crates/assets/src/room.rs`, `crates/sim/src/camera.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/game_flies.rs`, `crates/sim/src/game_instructions.rs`, `crates/sim/src/game_noise.rs`, `crates/sim/src/game_shelter.rs`, `crates/sim/src/game_triggers.rs`, `crates/sim/src/game_weapons.rs`, `crates/sim/src/noise.rs`, `crates/sim/src/room_script.rs`, `crates/sim/src/shortcut.rs`, `crates/sim/src/sound.rs`, `crates/sim/src/spawn.rs`, `crates/sim/src/water.rs`, `crates/sim/src/world/hearing.rs`, `crates/sim/src/world/objects.rs`, `crates/sim/src/world/quantified.rs`, `crates/sim/src/world/realized.rs`, `crates/sim/src/world/weapons.rs` |
 | `RoomBorderExit` | `crates/assets/src/border_exits.rs` |
-| `RoomCamera` | `crates/app/src/game.rs`, `crates/app/src/scene.rs`, `crates/app/src/visuals.rs`, `crates/assets/src/palette.rs`, `crates/render/src/level.rs`, `crates/render/src/room_camera.rs`, `crates/sim/src/camera.rs` |
+| `RoomCamera` | `crates/app/src/game.rs`, `crates/app/src/scene.rs`, `crates/app/src/sprite_order.rs`, `crates/app/src/visuals.rs`, `crates/assets/src/palette.rs`, `crates/render/src/level.rs`, `crates/render/src/room_camera.rs`, `crates/sim/src/camera.rs` |
 | `RoomPreparer` | `crates/sim/src/world/mod.rs` |
 | `RoomPreprocessor` | `crates/assets/src/nodes.rs`, `crates/sim/src/world/creature_ai_map.rs` |
 | `RoomRealizer` | `crates/sim/src/world/realizer.rs` |
@@ -369,7 +369,7 @@ Ported:
 | `SaveStateMiner` | `crates/save/src/miner.rs` |
 | `ShelterDoor` | `crates/graphics/src/shelter_door_graphics.rs`, `crates/sim/src/game_shelter.rs`, `crates/sim/src/shelter.rs` |
 | `ShortcutGraphics` | `crates/app/src/shortcuts.rs`, `crates/graphics/src/shortcut_graphics.rs` |
-| `ShortcutHandler` | `crates/assets/src/shortcut.rs`, `crates/sim/src/player/shortcut.rs`, `crates/sim/src/shortcut.rs` |
+| `ShortcutHandler` | `crates/assets/src/shortcut.rs`, `crates/sim/src/game_carried.rs`, `crates/sim/src/player/shortcut.rs`, `crates/sim/src/shortcut.rs` |
 | `ShortcutMapper` | `crates/assets/src/border_exits.rs`, `crates/assets/src/shortcut.rs` |
 | `ShowProjectedImageEvent` | `crates/assets/src/triggers.rs` |
 | `SlugcatHand` | `crates/graphics/src/hand.rs` |
