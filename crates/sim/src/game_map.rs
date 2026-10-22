@@ -21,7 +21,7 @@ impl RainWorldGame {
         }
     }
 
-    /// `Player.MapDiscoveryActive`: conscious, in a realized room of a region world,
+    /// `Player.MapDiscoveryActive`: conscious, no danger grasp, in a realized room of a region world,
     /// the main chunk inside the room's bounds.
     #[must_use]
     pub fn map_discovery_active(&self) -> bool {
@@ -34,6 +34,7 @@ impl RainWorldGame {
         };
         let p = player.chunks()[HEAD].pos;
         player.is_conscious()
+            && player.danger_grasp().grasp.is_none()
             && !player.in_shortcut()
             && !self.world.single_room()
             && p.x > 0.0

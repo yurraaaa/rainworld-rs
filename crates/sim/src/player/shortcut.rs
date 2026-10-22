@@ -198,15 +198,17 @@ impl Player {
 
     /// `Player.SpitOutOfShortCut` into `room`: head 2.5 px out of the entrance middle
     /// toward the room, hips 2.5 px into the tube, both moving `2 * hole`;
-    /// `shortcutDelay = 20`. Animation, body mode and standing are kept. The base
-    /// `Creature.SpitOutOfShortCut` first puts each chunk at the middle plus `Custom.RNV()`
-    /// (one draw each), which the player's positions overwrite.
+    /// `shortcutDelay = 20`, `cantBeGrabbedCounter = 30`. Animation, body mode and
+    /// standing are kept. The base `Creature.SpitOutOfShortCut` first puts each chunk at
+    /// the middle plus `Custom.RNV()` (one draw each), which the player's positions
+    /// overwrite.
     fn spit_out_of_shortcut(&mut self, room: &Room, tile: (i32, i32), rng: &mut UnityRandom) {
         for _ in &self.body.chunks {
             Vec2::random_unit(rng);
         }
         self.entering_shortcut = None;
         self.force_sleep_counter = 0;
+        self.set_cant_be_grabbed_after_spit_out();
         self.still_in_start_shelter = false;
         self.shortcut_delay = SPIT_OUT_DELAY;
         self.vessel = None;

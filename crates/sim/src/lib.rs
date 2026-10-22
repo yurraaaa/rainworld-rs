@@ -67,8 +67,8 @@ pub use object::{
     BodyChunkConnection, ConnectionKind, PhysicalObject, TerrainImpactHandler, slugcat,
 };
 pub use player::{
-    Animation, BodyMode, GrabState, HEAD, HIPS, INPUT_HISTORY, Input, Player, PlayerController,
-    ShelterCheck, StomachObject, VesselStep,
+    Animation, BodyMode, DangerGraspState, DangerGraspStep, GrabState, HEAD, HIPS, INPUT_HISTORY,
+    Input, Player, PlayerController, ShelterCheck, StomachObject, VesselStep,
 };
 pub use room_ext::RoomExt;
 pub use shelter::SessionEnd;

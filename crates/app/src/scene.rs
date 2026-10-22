@@ -341,6 +341,7 @@ impl Scene {
         }
         if let Some(hud) = &mut self.hud {
             hud.text_prompt.enter_game_over_mode(
+                over.dependent_on_grasp,
                 over.food_in_stomach,
                 over.death_room,
                 over.death_pos.to_array(),
@@ -471,7 +472,7 @@ impl Scene {
             .visuals
             .as_ref()
             .map_or(rw_graphics::Color::BLACK, Visuals::fog_color);
-        let sprites = if target.sprites.is_some() {
+        let mut sprites = if target.sprites.is_some() {
             self.game.draw_list(alpha, face, fog)
         } else {
             None
@@ -491,10 +492,19 @@ impl Scene {
         // overseers', in sprite order.
         let overseers = if target.sprites.is_some() {
             let mut lists: Vec<_> = self.game.shelter_draw_list(alpha).into_iter().collect();
-            lists.extend(self.game.weapon_draw_lists(alpha, face));
-            lists.extend(self.game.overseer_draw_lists(alpha, earth));
-            lists.extend(self.game.fly_draw_lists(alpha, face));
-            lists.extend(self.game.lizard_draw_lists(alpha, face));
+            let weapons = self.game.weapon_draw_lists(alpha, face);
+            let overseers = self.game.overseer_draw_lists(alpha, earth);
+            let flies = self.game.fly_draw_lists(alpha, face);
+            let lizards = self.game.lizard_draw_lists(alpha, face);
+            // What the lizards' jaws hold draws in their containers.
+            let (nw, nf) = (weapons.len(), flies.len());
+            let mut owned: Vec<_> = weapons.into_iter().chain(flies).chain(lizards).collect();
+            self.game.contain_in_jaws(sprites.as_mut(), &mut owned);
+            let mut owned = owned.into_iter().map(|(_, l)| l);
+            lists.extend(owned.by_ref().take(nw));
+            lists.extend(overseers);
+            lists.extend(owned.by_ref().take(nf));
+            lists.extend(owned);
             lists.extend(self.game.drip_draw_lists(alpha, face, darkness));
             lists.extend(self.game.cosmetic_draw_lists(alpha, face));
             let cam_pos = rw_sim::Vec2::from(self.camera.view_origin(alpha));

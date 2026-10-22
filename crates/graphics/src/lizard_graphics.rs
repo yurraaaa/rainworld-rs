@@ -20,7 +20,7 @@ use rw_sim::creature::{
 use rw_sim::{CameraView, FloatExt, RoomExt, SoundId, Vec2, WaterDrip};
 
 use crate::body_part::{BodyPart, PointConnection};
-use crate::draw::Color;
+use crate::draw::{Color, InternalContainer};
 use crate::lizard_cosmetics::{CosmeticCx, LizardCosmetic};
 use crate::lizard_draw::LizardReading;
 use crate::lizard_limb::{LimbTick, LizardLimb};
@@ -55,6 +55,9 @@ pub struct LizardGraphics {
     pub kind: CreatureType,
     pub culled: bool,
     pub last_culled: bool,
+    /// `sLeaser.containers[0]` (the jaws' hold, between the lower and upper head
+    /// sprites) in the last draw list; `None` while culled.
+    pub internal_container: Option<InternalContainer>,
     pub ivars: IndividualVariations,
     pub limbs: Vec<LizardLimb>,
     /// `drawPositions[chunk, 0]` (now) and `[chunk, 1]` (last).
@@ -164,6 +167,7 @@ impl LizardGraphics {
         let deg = rng.value() * 360.0;
         let tail_direction = Vec2::from_degrees(deg) * rng.value();
         Self {
+            internal_container: None,
             id: view.id,
             creature: view.creature,
             module: 0,

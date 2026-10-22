@@ -932,6 +932,37 @@ pub struct PlayerState {
     /// `privSneak` and `Sneak`.
     pub priv_sneak: f32,
     pub sneak: f32,
+    /// The grasps holding the player (`grabbedBy`).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub held_by: Vec<GraspInfo>,
+    /// `dangerGrasp`, while set.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub danger_grasp: Option<GraspInfo>,
+    /// `dangerGraspTime` (30 drops the hands' objects, 60 is the game over), and the
+    /// struggle buttons as last read (`dangerGraspLastThrowButton`,
+    /// `dangerGraspPickupButton`).
+    pub danger_grasp_time: i32,
+    pub danger_grasp_throw_button: bool,
+    pub danger_grasp_pickup_button: bool,
+    /// Struggling is possible this tick: held by a danger grasp under 30 ticks, alive,
+    /// stunned under 30.
+    pub can_struggle: bool,
+    /// `cantBeGrabbedCounter`.
+    pub cant_be_grabbed_counter: i32,
+}
+
+/// A creature's grasp on the player.
+#[derive(Debug, Clone, Serialize)]
+pub struct GraspInfo {
+    /// The grabber's `CreatureTemplate.Type` and `EntityID`.
+    pub grabber: HeldInfo,
+    pub grasp_used: usize,
+    /// `chunkGrabbed`: 0 head, 1 hips.
+    pub chunk: usize,
+    pub pacifying: bool,
+    pub dominance: f32,
+    /// The port's grasp serial (the HUD's `dependentOnGrasp`).
+    pub serial: u64,
 }
 
 /// The player's shelter sleep and hibernation counters.
@@ -1247,8 +1278,12 @@ pub struct TextPromptState {
     pub showing: String,
     pub text: String,
     pub queued: usize,
-    /// `gameOverMode`: the player died; the map button goes to the death screen.
+    /// `gameOverMode`: the player died or a danger grasp held it 60 ticks; the map
+    /// button goes to the death screen.
     pub game_over: bool,
+    /// `dependentOnGrasp`'s serial: a game over that ends if the living player escapes.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dependent_on_grasp: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize)]

@@ -59,7 +59,7 @@ pub use sleep_screen::{ScreenButton, SleepAndDeathScreen};
 pub use slugcat_select::{
     ContinuePage, PageKind, SaveGameData, SlugcatPage, SlugcatSelectMenu, SlugcatSelectScreen,
 };
-pub use text_prompt::{InfoId, Message, SubregionTracker, Subregions, TextPrompt};
+pub use text_prompt::{InfoId, Message, PromptOwner, SubregionTracker, Subregions, TextPrompt};
 
 use food_meter::MeterNeighbours;
 use karma_meter::KarmaNeighbours;
@@ -147,6 +147,10 @@ pub struct OwnerTick {
     /// `room.roomSettings.DangerType != None`.
     pub room_rain_danger: bool,
     pub map: MapOwner,
+    /// The player is realized and not dead.
+    pub alive: bool,
+    /// The serials of the grasps on the player (`grabbedBy`).
+    pub held_by: Vec<u64>,
 }
 
 /// `HUD.OwnerType`: what owns a HUD.
@@ -459,7 +463,12 @@ impl Hud {
             karma_rad: self.karma_meter.rad,
             karma_fade: self.karma_meter.fade,
         };
+        let prompt_owner = PromptOwner {
+            alive: owner.alive,
+            held_by: &owner.held_by,
+        };
         self.text_prompt.update(
+            prompt_owner,
             &prompt,
             owner.room.as_deref(),
             owner.reveal_map,

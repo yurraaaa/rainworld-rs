@@ -530,7 +530,7 @@ impl RainWorldGame {
                 override_equally_dominant: true,
                 pacifying: true,
             };
-            if !self.world.grab(request, &mut self.rng) {
+            if !self.creature_grab(request) {
                 self.world.deactivate_stick(*s);
             }
         }
@@ -680,7 +680,8 @@ impl RainWorldGame {
         self.lizard_spat_out_body(me, middle, &map_room, pos);
     }
 
-    /// `Lizard.SpitOutOfShortCut` after the base's stuck objects.
+    /// `Lizard.SpitOutOfShortCut` after the base's stuck objects; with graphics, what
+    /// grasp 0 holds goes back into the jaws' container.
     fn lizard_spat_out_body(&mut self, id: CreatureId, middle: Vec2, room: &Room, pos: (i32, i32)) {
         let (hx, hy) = room.shortcut_hole_direction(pos.0, pos.1);
         let hole = Vec2::new(hx as f32, hy as f32);
@@ -694,6 +695,9 @@ impl RainWorldGame {
         }
         if self.rng.value() < 0.5 {
             self.lizard_voice(id, LizardEmotion::OutOfShortcut);
+        }
+        if let Some(g) = self.world.creature(id).grasps.first().copied().flatten() {
+            self.lizard_contain_in_jaws(id, g.grabbed);
         }
     }
 

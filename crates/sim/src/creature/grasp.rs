@@ -220,7 +220,8 @@ impl World {
     }
 
     /// The new grasp, `obj.Grabbed` (a weapon's `ChangeMode(Carried)`, then
-    /// `GoThroughFloors`, `grabbedBy.Add`) and the stick.
+    /// `GoThroughFloors`, `grabbedBy.Add`; the player's own `Grabbed` is the game's,
+    /// `RainWorldGame::creature_grab`) and the stick.
     fn make_grasp(&mut self, r: GrabRequest, carry: bool, rng: &mut UnityRandom) {
         let grasp = Grasp {
             serial: self.next_grasp_serial(),
@@ -283,9 +284,21 @@ impl World {
         }
     }
 
-    /// `Grasp.Release`: off the grabbed's `grabbedBy` and the grabber's slot, then
-    /// `DropCarriedObject(graspUsed)`.
+    /// A realized lizard's graphics link, if its graphics module exists.
+    fn lizard_graphics_link(
+        &mut self,
+        id: CreatureId,
+    ) -> Option<&mut crate::creature::lizard::LizardGraphicsLink> {
+        self.creature_mut(id).lizard_mut()?.graphics.as_mut()
+    }
+
+    /// `Grasp.Release`: the grabber's graphics let the object out of its container
+    /// (`ReleaseSpecificInternallyContainedObjectSprites`), then off the grabbed's
+    /// `grabbedBy` and the grabber's slot, then `DropCarriedObject(graspUsed)`.
     pub fn release(&mut self, g: Grasp) {
+        if let Some(link) = self.lizard_graphics_link(g.grabber) {
+            link.release_internally_contained(g.grabbed);
+        }
         self.grabbed_by_mut(g.grabbed)
             .retain(|o| o.serial != g.serial);
         self.sync_held(g.grabbed);
@@ -295,15 +308,23 @@ impl World {
         self.drop_carried_object(g.grabber, g.grasp_used);
     }
 
-    /// `Creature.ReleaseGrasp`.
+    /// `Creature.ReleaseGrasp` (a lizard's graphics first let all it holds out of its
+    /// jaws, `Lizard.ReleaseGrasp`).
     pub fn release_grasp(&mut self, id: CreatureId, grasp: usize) {
+        if let Some(link) = self.lizard_graphics_link(id) {
+            link.release_all_internally_contained();
+        }
         if let Some(g) = self.creature(id).grasps.get(grasp).copied().flatten() {
             self.release(g);
         }
     }
 
-    /// `Creature.LoseAllGrasps`.
+    /// `Creature.LoseAllGrasps` (`Lizard.LoseAllGrasps` first lets all its jaws hold
+    /// out of its graphics' container).
     pub fn lose_all_grasps(&mut self, id: CreatureId) {
+        if let Some(link) = self.lizard_graphics_link(id) {
+            link.release_all_internally_contained();
+        }
         for i in 0..self.creature(id).grasps.len() {
             self.release_grasp(id, i);
         }

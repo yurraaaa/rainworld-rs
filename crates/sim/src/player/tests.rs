@@ -12,6 +12,7 @@ use rw_assets::ShortcutType;
 mod advanced;
 mod corridor;
 mod exhaustion;
+mod grabbed;
 mod poles;
 mod sleep;
 mod sounds;

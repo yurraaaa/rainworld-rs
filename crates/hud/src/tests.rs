@@ -69,6 +69,25 @@ impl Rig {
         );
     }
 
+    /// A tick of a player `alive` or not, held by the grasps `held_by`.
+    fn tick_held(&mut self, alive: bool, held_by: &[u64]) {
+        let owner = OwnerTick {
+            room: Some("SU_C04".to_owned()),
+            alive,
+            held_by: held_by.to_vec(),
+            ..OwnerTick::default()
+        };
+        self.hud.update(
+            &owner,
+            false,
+            &RainCycleView::STAND_IN,
+            &self.translator,
+            &mut self.sounds,
+            &mut self.rng,
+            &mut self.discovery,
+        );
+    }
+
     /// (karma, food, rain, map) fades.
     fn fades(&self) -> [f32; 4] {
         [
@@ -356,7 +375,9 @@ fn game_over_prompt_locks_40_ticks_then_waits_for_a_press() {
     // after it, a rising edge of the map button (`lastAnyKey` starts true) calls
     // `GoToDeathScreen`.
     let mut rig = Rig::new(7, 4);
-    rig.hud.text_prompt.enter_game_over_mode(2, 7, [10.0, 20.0]);
+    rig.hud
+        .text_prompt
+        .enter_game_over_mode(None, 2, 7, [10.0, 20.0]);
     let p = &rig.hud.text_prompt;
     assert_eq!(
         (p.food_in_stomach, p.death_room, p.death_pos),
@@ -388,7 +409,9 @@ fn game_over_prompt_sound_plays_once_on_tick_22() {
     let table = std::sync::Arc::new(rw_assets::SoundTable::parse(text, &names).unwrap());
     let mut over = Rig::new(7, 4);
     over.sounds = Sounds::new(std::sync::Arc::clone(&table));
-    over.hud.text_prompt.enter_game_over_mode(0, 0, [0.0; 2]);
+    over.hud
+        .text_prompt
+        .enter_game_over_mode(None, 0, 0, [0.0; 2]);
     let mut alive = Rig::new(7, 4);
     let mut played = Vec::new();
     for tick in 1..=60 {
@@ -419,7 +442,9 @@ fn game_over_press_needs_a_release_after_the_lock() {
     // Released through the lock, then pressed on tick 41: `lastAnyKey` is still the
     // initial true, so only a press after a released tick counts.
     let mut rig = Rig::new(7, 4);
-    rig.hud.text_prompt.enter_game_over_mode(0, 0, [0.0; 2]);
+    rig.hud
+        .text_prompt
+        .enter_game_over_mode(None, 0, 0, [0.0; 2]);
     for _ in 0..40 {
         rig.tick(false);
     }
@@ -428,6 +453,42 @@ fn game_over_press_needs_a_release_after_the_lock() {
     rig.tick(false);
     rig.tick(true);
     assert!(rig.hud.text_prompt.go_to_death_screen);
+}
+
+#[test]
+fn a_game_over_on_a_grasp_ends_when_the_living_player_escapes() {
+    // `TextPrompt.Update` (Jolly off): with `dependentOnGrasp` discontinued and the
+    // owner not dead, `gameOverMode` goes false and the update returns at once (the
+    // lock is not counted down that tick). A dead owner keeps the game over.
+    let mut rig = Rig::new(7, 4);
+    rig.hud
+        .text_prompt
+        .enter_game_over_mode(Some(9), 0, 0, [0.0; 2]);
+    rig.tick_held(true, &[9]);
+    rig.tick_held(true, &[9]);
+    assert!(rig.hud.text_prompt.game_over_mode);
+    assert_eq!(rig.hud.text_prompt.dependent_on_grasp, Some(9));
+    let show = rig.hud.text_prompt.show;
+    rig.tick_held(true, &[]);
+    assert!(!rig.hud.text_prompt.game_over_mode);
+    assert_eq!(
+        rig.hud.text_prompt.show, show,
+        "the rest of the update is skipped"
+    );
+    let mut dead = Rig::new(7, 4);
+    dead.hud
+        .text_prompt
+        .enter_game_over_mode(Some(9), 0, 0, [0.0; 2]);
+    dead.tick_held(false, &[]);
+    assert!(dead.hud.text_prompt.game_over_mode);
+    // A death's game over (no grasp) ignores the grasps.
+    let mut death = Rig::new(7, 4);
+    death
+        .hud
+        .text_prompt
+        .enter_game_over_mode(None, 0, 0, [0.0; 2]);
+    death.tick_held(true, &[]);
+    assert!(death.hud.text_prompt.game_over_mode);
 }
 
 #[test]

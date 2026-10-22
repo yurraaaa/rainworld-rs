@@ -4,7 +4,7 @@
 //!
 //! This is the only place the app touches the simulation.
 //!
-//! Mirrors: RainWorldGame.cs
+//! Mirrors: RainWorldGame.cs, RoomCamera.cs (MoveObjectToInternalContainer)
 
 use std::sync::Arc;
 
@@ -724,6 +724,13 @@ impl Game {
             ready_for_win: player.ready_for_win(),
             force_sleep_counter: player.force_sleep_counter(),
             map: self.map_owner(),
+            alive: !player.is_dead(),
+            held_by: self
+                .sim
+                .player_grabbed_by()
+                .iter()
+                .map(|g| g.serial)
+                .collect(),
             ..OwnerTick::default()
         }
     }
@@ -910,7 +917,7 @@ impl Game {
     /// The rocks' and spears' sprites in the camera's room at `alpha` between ticks, in
     /// the order they joined the room (`DrawSprites`, its vibrate and blink draws on the
     /// cosmetic stream), in the palette's black.
-    pub fn weapon_draw_lists(&mut self, alpha: f32, black: Color) -> Vec<DrawList> {
+    pub fn weapon_draw_lists(&mut self, alpha: f32, black: Color) -> Vec<(Entity, DrawList)> {
         let world = self.sim.world();
         let room = self.sim.camera_room();
         let water = world.realized(room).and_then(|r| r.water.as_ref());
@@ -924,6 +931,7 @@ impl Game {
                 o.realized
                     .as_deref()?
                     .draw(o.id, room, alpha, black, water, cosmetic)
+                    .map(|l| (Entity::Object(id), l))
             })
             .collect()
     }
@@ -954,7 +962,7 @@ impl Game {
     /// The lizards' sprites in the camera's room at `alpha` between ticks, in the
     /// order their modules were built, in the palette's `black` (their draws come from
     /// the cosmetic stream).
-    pub fn lizard_draw_lists(&mut self, alpha: f32, black: Color) -> Vec<DrawList> {
+    pub fn lizard_draw_lists(&mut self, alpha: f32, black: Color) -> Vec<(Entity, DrawList)> {
         let world = self.sim.world();
         let camera_room = self.sim.camera_room();
         let realized: Vec<EntityId> = world
@@ -982,10 +990,73 @@ impl Game {
                 continue;
             }
             if let Some(view) = world.lizard_view(g.creature, None) {
-                lists.push(g.draw(&view, black, alpha, &mut graphics.cosmetic));
+                let list = g.draw(&view, black, alpha, &mut graphics.cosmetic);
+                lists.push((Entity::Creature(g.creature), list));
             }
         }
         lists
+    }
+
+    /// `AddObjectToInternalContainer` as drawn: the sprites of what each lizard's jaws
+    /// hold (`LizardGraphicsLink::internal_container`) move into the lizard's container
+    /// between its lower and upper head sprites, in the order they were put there. The
+    /// player's `Foreground` sprites stay where they are (`PlayerGraphics.AddToContainer`
+    /// puts only its `Midground` ones in the given container). Once let go they draw
+    /// in their kind's usual place, not on top (D19).
+    pub fn contain_in_jaws(
+        &self,
+        mut player: Option<&mut DrawList>,
+        objects: &mut [(Entity, DrawList)],
+    ) {
+        let world = self.sim.world();
+        let player_id = self.sim.player_creature();
+        for i in 0..objects.len() {
+            let Entity::Creature(lizard) = objects[i].0 else {
+                continue;
+            };
+            let Some(held) = world
+                .creature(lizard)
+                .lizard()
+                .and_then(|l| l.graphics.as_ref())
+                .map(|link| link.internal_container.clone())
+            else {
+                continue;
+            };
+            let Some(mut container) = self
+                .graphics
+                .lizards
+                .iter()
+                .find(|g| g.creature == lizard)
+                .and_then(|g| g.internal_container)
+            else {
+                continue;
+            };
+            for e in held {
+                if e == Entity::Creature(player_id) {
+                    if let Some(p) = player.as_deref_mut() {
+                        container = objects[i].1.take_into_container(
+                            container,
+                            p,
+                            &[rw_graphics::Layer::Midground],
+                        );
+                    }
+                    continue;
+                }
+                let Some(j) = objects.iter().position(|(o, _)| *o == e) else {
+                    continue;
+                };
+                let mut other = std::mem::take(&mut objects[j].1);
+                let layers: Vec<rw_graphics::Layer> = other
+                    .items
+                    .iter()
+                    .map(rw_graphics::DrawItem::layer)
+                    .collect();
+                container = objects[i]
+                    .1
+                    .take_into_container(container, &mut other, &layers);
+                objects[j].1 = other;
+            }
+        }
     }
 
     /// The lizards' graphics modules (for MCP replies).
@@ -1123,7 +1194,7 @@ impl Game {
     /// The flies' sprites in the camera's room at `alpha` between ticks, in sprite
     /// order, in the room palette's `black`. Drops the graphics of flies no longer
     /// realized.
-    pub fn fly_draw_lists(&mut self, alpha: f32, black: Color) -> Vec<DrawList> {
+    pub fn fly_draw_lists(&mut self, alpha: f32, black: Color) -> Vec<(Entity, DrawList)> {
         let world = self.sim.world();
         let camera_room = self.sim.camera_room();
         let shown: Vec<CreatureId> = world
@@ -1140,16 +1211,16 @@ impl Game {
             .map(|(_, c)| c.id)
             .collect();
         self.graphics.flies.retain(|g| realized.contains(&g.id));
-        let views: Vec<FlyView<'_>> = shown
+        let views: Vec<(CreatureId, FlyView<'_>)> = shown
             .iter()
-            .filter_map(|&c| world.realized_fly_view(c))
+            .filter_map(|&c| Some((c, world.realized_fly_view(c)?)))
             .collect();
         self.graphics
             .flies
             .iter()
             .filter_map(|g| {
-                let view = views.iter().find(|v| v.id == g.id)?;
-                Some(g.draw(view, black, alpha))
+                let (c, view) = views.iter().find(|(_, v)| v.id == g.id)?;
+                Some((Entity::Creature(*c), g.draw(view, black, alpha)))
             })
             .collect()
     }

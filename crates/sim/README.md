@@ -32,7 +32,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `game_lizard_ai.rs`, `game_lizard_ai_tests.rs` | lizard AI update: the flee heavy-AI gate, moods, `DetermineBehavior`, behaviours, `IdleSpotScore`, base AI module order | `LizardAI.Update`, `ArtificialIntelligence.Update` |
 | `game_lizard_hunt.rs`, `game_lizard_hunt_tests.rs` | Hunt and Flee bodies, `AggressiveBehavior` (lounge decision, bites), fall risks, `BitCreature` | `LizardAI` |
 | `game_heavy_ai.rs` | `HeavyAiThrottle`: `RequestHeavyAi`'s three-a-tick limit | `RainWorldGame.RequestHeavyAi` |
-| `game_lizard_hits.rs` | lizard damage dealt/taken, bites, stun, spear stick | `Lizard.Violence`, `Bite` |
+| `game_lizard_hits.rs` | lizard damage dealt/taken, bites (and the jaws' internal container), stun, spear stick | `Lizard.Violence`, `Bite` |
 | `game_lizard_perception.rs` | lizard eyes, tracker representation, relationships | `LizardAI` (tracker parts) |
 | `game_lizard_graphics.rs` | game side of `LizardGraphics` (bubbles, drips, head light) | `LizardGraphics` hookup |
 | `game_lizard_voice.rs` | `LizardVoice` update and emitters | `LizardVoice` hookup |
@@ -40,6 +40,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `game_noise.rs` | in-room noises heard at once | `Room.InGameNoise` |
 | `game_over.rs` | `GameOver`, karma flower spot | `RainWorldGame.GameOver` |
 | `game_player.rs` | slugcat hands: bat-fly catch, eat, swallow, throw, hand switch | `Player.GrabUpdate`, `Collide` |
+| `game_player_grabbed.rs`, `game_player_grabbed_tests.rs` | the player held: `creature_grab` (`CanBeGrabbed`, `Player.Grabbed`), the `dangerGrasp` block, `ThrowToGetFree`, `DangerGraspPickup`, `GameOver(dangerGrasp)`, the release under the room | `Player.Update`, `Creature.Grab` |
 | `game_shelter.rs` | shelter door in the room, sleep/hibernate checks, `DoorClosed` | `ShelterDoor` hookup |
 | `game_tracker.rs` | realized AI `Tracker`/`RelationshipTracker` running | `Tracker.cs`, `RelationshipTracker.cs` |
 | `game_triggers.rs` | `ActiveTriggerChecker`s, `FireEvent`s | `Room.Loaded` triggers |
@@ -70,7 +71,8 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 (`MovementUpdate`), `body_mode.rs` (`UpdateBodyMode`), `animation.rs`
 (`UpdateAnimation`), `jump.rs`, `advanced.rs` (flip, roll, rocket jump, belly slide),
 `poles.rs`, `ledge.rs`, `corridor.rs`, `swim.rs` (water, breath, `LungUpdate`),
-`falls.rs` (impact, stun, die), `exhaustion.rs` (aerobic level, malnourishment),
+`falls.rs` (impact, stun, die), `grabbed.rs` (held: `dangerGrasp` state and timers,
+`cantBeGrabbedCounter`, the pacifying stun, `WALLSTUCK`), `exhaustion.rs` (aerobic level, malnourishment),
 `grab.rs` (hand counters, `ThrowDirection`), `shortcut.rs` (enter/ride/leave tubes),
 `sleep.rs` (`SleepUpdate`), `sounds.rs` (slide loop, plays). `tests.rs`, `tests/`: tests.
 
@@ -115,7 +117,8 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 
 - `lizard/`: `mod.rs` (`Lizard`), `breed.rs` (`LizardBreedParams`, green only), `ai.rs`
   (`LizardAi` state, `LizardBehavior`, injury utility), `movement.rs` (`MovementAnimation`), `voice.rs` (`LizardVoice`),
-  `bubble.rs` (`LizardBubble`), `graphics_link.rs` (state shared with `rw-graphics`).
+  `bubble.rs` (`LizardBubble`), `graphics_link.rs` (state shared with `rw-graphics`, with the
+  jaws' `internalContainerObjects`).
 - `fly/`: `mod.rs` (`Fly`), `update.rs` (`Fly.Update`), `ai.rs` + `ai_update.rs`
   (`FlyAi`, flocking), `room_ai.rs` (`FliesRoomAi`, hives).
 - `overseer/`: `abstract_ai.rs` (`OverseerAbstractAi`), `ai.rs` (`OverseerAi` state,
@@ -153,6 +156,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | Shelters, sleep, hibernation | `shelter.rs`, `game_shelter.rs`, `player/sleep.rs` |
 | Save-state writing (sim side) | `world/region_state.rs`, `region_save.rs`, `creature/state_save.rs`, `item.rs` (object strings), `creature/overseer/guide_state.rs`, `map_discovery.rs`; text format in `rw-save` |
 | Death, game over, karma flower | `game_over.rs`, `creature/death.rs`, `player/falls.rs` |
+| The player bitten and held by a lizard, struggling free | `game_player_grabbed.rs`, `player/grabbed.rs`, `game_lizard_hits.rs` (`Bite`, the melee throw's hit) |
 | Random draws / sounds | `sound.rs`, `rw-random` crate; draws live beside each ported function |
 | Camera visibility | `camera.rs` |
 | Room triggers, guide instructions | `trigger.rs`, `game_triggers.rs`, `game_instructions.rs`, `room_script.rs` |
@@ -180,7 +184,7 @@ Surveys (`../../../rainworld-re/surveys/`): `lizards.md`, `bat-flies.md`, `rocks
 Divergences: `../../docs/divergences/` (IDs are global, `grep -n '^## D'`). In `sim.md`:
 D2 spawning, D3 movement, D4 falls, D5 shortcuts, D6 poles/ledges, D9 skid/roll/belly
 slide, D10 corridors, D11 water, D14 worlds/rooms/realizer (creatures, lizards, flies,
-overseers), D17 shelters. Elsewhere: D1 `random.md`, D12 `audio.md`, D13 `menu.md`,
+overseers), D17 shelters, D19 the player held by a creature. Elsewhere: D1 `random.md`, D12 `audio.md`, D13 `menu.md`,
 D16 `save.md`, D18 `app.md`.
 
 Tests: `*_tests.rs` beside their module, `player/tests/`, and `tests/` (12 `installed_*.rs` integration tests that read the installed game, plus `data/`).

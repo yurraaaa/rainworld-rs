@@ -2,10 +2,10 @@
 //! room is viewed) shares with the body: the grip its legs report (`LegsGripping`,
 //! `NoGripCounter`), the flickers, the head and body parts the bubbles and a lodged
 //! spear read, its head light and its belly-drag loop; what it reads of the body
-//! ([`LizardView`]) and of the room ([`LizardGraphicsTick`]), and the objects it adds
-//! to the room.
+//! ([`LizardView`]) and of the room ([`LizardGraphicsTick`]), the objects it adds
+//! to the room, and what its jaws hold inside its sprite container.
 //!
-//! Mirrors: LizardGraphics.cs, Lizard.cs
+//! Mirrors: LizardGraphics.cs, Lizard.cs, GraphicsModule.cs (AddObjectToInternalContainer, ReleaseAllInternallyContainedSprites, ReleaseSpecificInternallyContainedObjectSprites)
 
 use rw_assets::{CreatureType, Room, SoundTable};
 use rw_random::UnityRandom;
@@ -14,7 +14,7 @@ use super::{Lizard, LizardBreedParams};
 use crate::creature::{
     CreatureId, CreatureLooker, EntityId, LookCandidate, RepKey, WorldCoordinate,
 };
-use crate::item::{ChunkDynamicSoundLoop, LoopCx};
+use crate::item::{ChunkDynamicSoundLoop, Entity, LoopCx};
 use crate::{CameraView, Sounds, Vec2, Water, WaterDrip};
 
 /// The graphics module's state the body and the room's objects read or set. The body
@@ -58,6 +58,9 @@ pub struct LizardGraphicsLink {
     pub spotted: Vec<SpottedEye>,
     /// The `lookPos` the fleeing AI set since the module's last update.
     pub set_look_pos: Option<Vec2>,
+    /// `internalContainerObjects`: what the jaws hold, drawn inside the head's
+    /// container (all in container 0, between the lower and upper head sprites).
+    pub internal_container: Vec<Entity>,
 }
 
 /// One `eyes[eye, 0] = pos` of `LizardGraphics.CreatureSpotted`.
@@ -75,6 +78,28 @@ pub struct LizardVoiceView {
 }
 
 impl LizardGraphicsLink {
+    /// `GraphicsModule.AddObjectToInternalContainer(obj, 0)`.
+    pub fn add_to_internal_container(&mut self, obj: Entity) {
+        self.internal_container.push(obj);
+    }
+
+    /// `ReleaseAllInternallyContainedSprites`.
+    pub fn release_all_internally_contained(&mut self) {
+        self.internal_container.clear();
+    }
+
+    /// `ReleaseSpecificInternallyContainedObjectSprites(obj)`: as the game's loop, an
+    /// entry right after a removed one is skipped.
+    pub fn release_internally_contained(&mut self, obj: Entity) {
+        let mut i = 0;
+        while i < self.internal_container.len() {
+            if self.internal_container[i] == obj {
+                self.internal_container.remove(i);
+            }
+            i += 1;
+        }
+    }
+
     /// `LizardGraphics.WhiteFlicker(fl)`.
     pub fn white_flicker(&mut self, fl: i32) {
         if fl > self.white_flicker {

@@ -141,7 +141,7 @@ impl RainWorldGame {
     /// `PickupCandidate(favorSpears)`: the nearest object within reach (40 px beyond its
     /// radius, and in sight or within 20) the player can pick up; a spear counts
     /// `favor_spears` nearer and an object on the facing side 10 px nearer.
-    fn pickup_candidate(
+    pub(super) fn pickup_candidate(
         &self,
         index: i32,
         room: &rw_assets::Room,
@@ -388,7 +388,7 @@ impl RainWorldGame {
     /// `ThrownSpear` (93423): with no throwing skill (the Monk, a malnourished slugcat)
     /// 18 throw frames, a damage bonus of `0.6 + 0.3 value^4` (one draw) and 0.77 of the
     /// speed; the Hunter's skill 2 a bonus of 1.25 and 1.2 times the speed.
-    fn thrown_spear(&mut self, id: ObjectId) {
+    pub(super) fn thrown_spear(&mut self, id: ObjectId) {
         let skill = self.character_stats.throwing_skill;
         let bonus = match skill {
             0 => Some(0.6 + 0.3 * self.rng.value().mathf_pow(4.0)),

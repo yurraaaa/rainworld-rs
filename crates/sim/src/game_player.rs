@@ -665,7 +665,7 @@ impl RainWorldGame {
 
     /// `TossObject` of a fly (`Slugcat_Throw_Creature`): a one-handed light toss along
     /// `ThrowDirection`, kept outside the body at head height.
-    fn toss_object(&mut self, index: i32, fly: CreatureId) {
+    pub(super) fn toss_object(&mut self, index: i32, fly: CreatureId) {
         let pos = self.world.fly_ref(fly).pos();
         self.play_in_room(index, SoundId::SlugcatThrowCreature, pos);
         let p = self.player_ref();

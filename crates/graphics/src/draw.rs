@@ -202,6 +202,13 @@ impl DrawItem {
         }
     }
 
+    pub fn set_layer(&mut self, layer: Layer) {
+        match self {
+            Self::Sprite(s) => s.layer = layer,
+            Self::Mesh(m) => m.layer = layer,
+        }
+    }
+
     /// The game's sprite index.
     #[must_use]
     pub fn index(&self) -> usize {
@@ -219,7 +226,40 @@ pub struct DrawList {
     pub items: Vec<DrawItem>,
 }
 
+/// A container inside an object's sprites (`sLeaser.containers[i]`): its place among
+/// the items of the object's last draw list, and its layer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InternalContainer {
+    pub at: usize,
+    pub layer: Layer,
+}
+
 impl DrawList {
+    /// `MoveObjectToInternalContainer`: `other`'s items in the given layers move into
+    /// this list's `container`, after what it already holds (the rest stay in
+    /// `other`); returns the container moved past them.
+    pub fn take_into_container(
+        &mut self,
+        container: InternalContainer,
+        other: &mut DrawList,
+        layers: &[Layer],
+    ) -> InternalContainer {
+        let InternalContainer { at, layer } = container;
+        let (moved, kept): (Vec<DrawItem>, Vec<DrawItem>) = std::mem::take(&mut other.items)
+            .into_iter()
+            .partition(|i| layers.contains(&i.layer()));
+        other.items = kept;
+        let n = moved.len();
+        self.items.splice(
+            at..at,
+            moved.into_iter().map(|mut i| {
+                i.set_layer(layer);
+                i
+            }),
+        );
+        InternalContainer { at: at + n, layer }
+    }
+
     /// The items of one layer, in draw order.
     pub fn layer(&self, layer: Layer) -> impl Iterator<Item = &DrawItem> {
         self.items.iter().filter(move |i| i.layer() == layer)

@@ -160,8 +160,9 @@ for older notes' line numbers; new notes cite file and member.
   installed, even where the game checks files on disk (Downpour's
   `dlcsInstalled`).
 - Current phase: the player controller in a region whose behaving creatures
-  are overseers, bat flies and green lizards (lizards at step 7b of 9:
-  decisions, calm behaviours, hunting and fleeing done), not the full game. Details
+  are overseers, bat flies and green lizards (lizards at step 8 of 9:
+  decisions, calm behaviours, hunting and fleeing, the player's side of a bite
+  done), not the full game. Details
   live in `docs/` and `../rainworld-re`; in short:
   - A story starts at the campaign's start den; room-exit shortcuts carry the
     player between the region's rooms (synchronous loads, D14). The
@@ -174,7 +175,7 @@ for older notes' line numbers; new notes cite file and member.
     death and kills. Their AI decides as the game's (step 7a: utility
     comparer, prey/threat/aggression/rain trackers, den finder) and they walk
     on their own (idle, travel, den-going, frustrated, investigating sounds),
-    hunt (approach, lounge, bite and hold; the player's side is step 8) and
+    hunt (approach, lounge, bite and hold) and
     flee (7b); the bodies of Fighting and missions (7c) are a stand-in that
     stops the lizard.
   - Overseers: body, AI, graphics, guide tutorial text, Monk's guide light,
@@ -182,7 +183,10 @@ for older notes' line numbers; new notes cite file and member.
     realization, flocks, hives, chains, pipe travel, sounds, graphics.
   - Player: catches, holds, throws, eats flies (SU_A42's Eat lesson, then
     SU_A43's super-jump); picks up, carries, swaps, drops, swallows,
-    regurgitates and throws rocks and spears.
+    regurgitates and throws rocks and spears. Bitten by a lizard (step 8,
+    D19): held in its jaws (stunned, `dangerGrasp`), struggles free with a
+    throw (a weapon at the grabber) or grabs a weapon, dies of a hurting bite;
+    60 ticks held is `GameOver(dangerGrasp)`, cancelled if it gets free.
   - Saves (`rw-save`, D16): Continue, New Game wipe, start's death-and-quit
     save. Shelters (D17): door closes on a fed, still slugcat, `Win` writes
     the save and region state, the sleep screen (D13) continues the next
@@ -246,7 +250,8 @@ prefer these over `--screenshot`/`--script`; briefs for such agents say so.
   starts a campaign (`White`, `Yellow`, `Red`; `malnourished` option) at its
   start den.
 - `get_state` reports the camera room, the player (food, grasps, pick-up
-  candidate, stomach, counters, sneak/loudness, ...), the vessel in the
+  candidate, stomach, counters, sneak/loudness, `held_by`, `danger_grasp` and
+  its time, struggle buttons, `can_struggle`, `cant_be_grabbed_counter`, ...), the vessel in the
   lobby, realized rooms' entry waits, every abstract creature (kind, ID, room,
   node, tile, den, realized, alive, abstract AI; realized flies, lizards
   with their movement, tracker, relationships, noise and, in a viewed room,
