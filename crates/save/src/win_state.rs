@@ -642,6 +642,19 @@ impl WinState {
         }
     }
 
+    /// The Dragon Slayer tracker's lizards (in `lizardsOrder`), if it has one.
+    #[must_use]
+    pub fn dragon_slayer(&self) -> Option<Vec<bool>> {
+        let t = self
+            .trackers
+            .iter()
+            .find(|t| t.id == EndgameId::DragonSlayer)?;
+        match t.parsed() {
+            Progress::Bools { progress, .. } => Some(progress),
+            _ => None,
+        }
+    }
+
     /// `SaveToString(saveAsIfPlayerDied)`: on a death, the trackers that lose a point
     /// are written a point lower unless already fulfilled as last shown.
     #[must_use]
@@ -727,6 +740,37 @@ mod tests {
         let cx = CycleCompletion { karma: 3, ..cx };
         w.cycle_completed(&cx);
         assert_eq!(w.save_to_string(false), "Survivor<egA>0<egA>1<wsA>");
+    }
+
+    /// `CycleCompleted`'s Dragon Slayer: once the Survivor is fulfilled, each lizard
+    /// killed this cycle marks its `lizardsOrder` slot (green first); the tracker is
+    /// added on the first lizard kill.
+    #[test]
+    fn a_green_lizard_kill_marks_the_dragon_slayer() {
+        let mut w = WinState::from_string("Survivor<egA>1<egA>5<wsA>");
+        let mut r = record(true);
+        let green =
+            crate::session::KillRecord::new(rw_assets::CreatureType::GreenLizard, 0, 1, true);
+        assert_eq!(green.lizard_index, Some(0));
+        r.kills = vec![green.clone(), green];
+        let cx = CycleCompletion {
+            slugcat: SlugcatName::White,
+            karma: 0,
+            karma_cap: 5,
+            record: &r,
+            scavenger_like: 0.0,
+        };
+        w.cycle_completed(&cx);
+        assert_eq!(
+            w.dragon_slayer(),
+            Some(vec![true, false, false, false, false, false])
+        );
+        assert!(
+            w.save_to_string(false)
+                .contains("DragonSlayer<egA>0<egA>1.0.0.0.0.0.<wsA>"),
+            "{}",
+            w.save_to_string(false)
+        );
     }
 
     #[test]

@@ -97,6 +97,8 @@ pub struct SceneRenderer<R> {
     room_of: Option<(u64, i32)>,
     /// Scene, camera room and visuals generation whose level graphic is uploaded.
     level_of: Option<(u64, i32, u32)>,
+    /// The visuals' palette generation uploaded with it.
+    palette_of: u32,
 }
 
 impl Scene {
@@ -142,6 +144,7 @@ impl Scene {
                 })
                 .ok()
         });
+        self.apply_fade();
         let earth = self
             .visuals
             .as_ref()
@@ -171,6 +174,14 @@ impl Scene {
         self.camera.cut_to(i);
         if let Some(visuals) = &mut self.visuals {
             visuals.show(i);
+        }
+    }
+
+    /// `RoomCamera.Update`'s `ApplyFade` when `DarkPalette` changed (it runs before the
+    /// rain cycle's update in `RainWorldGame.Update`).
+    fn apply_fade(&mut self) {
+        if let Some(visuals) = &mut self.visuals {
+            visuals.fade(&self.game.sim().world().rain_cycle);
         }
     }
 
@@ -220,10 +231,10 @@ impl Scene {
         self.hud.as_mut()
     }
 
-    /// One 40 Hz tick: the HUD (`RoomCamera.Update` comes before the rooms in
-    /// `RainWorldGame.Update`), the game, the controls page (a room object), then the
-    /// room camera's move; returns the sound events since the last tick. Without
-    /// `shared` (fonts, atlases, strings) there is no HUD.
+    /// One 40 Hz tick: the HUD and the room camera (`RoomCamera.Update` comes before the
+    /// rooms in `RainWorldGame.Update`), the game, the controls page (a room object),
+    /// then the tick's camera shake and room move; returns the sound events since the
+    /// last tick. Without `shared` (fonts, atlases, strings) there is no HUD.
     pub fn tick(&mut self, input: Input, shared: Option<&mut MenuShared>) -> Vec<SoundEvent> {
         match shared {
             Some(shared) => {
@@ -231,7 +242,7 @@ impl Scene {
                 self.update_rooms(input, shared, false)
             }
             None => {
-                self.set_camera_view();
+                self.update_room_camera();
                 self.game.tick(input);
                 self.game.sim_mut().take_game_over();
                 self.after_game_tick()
@@ -245,11 +256,29 @@ impl Scene {
             .set_camera_view(self.camera.current(), self.camera.most_likely_next());
     }
 
-    /// The unpaused tick's `cameras[i].Update()`: the HUD. `input` is this tick's
-    /// controls, whose map button the game-over prompt reads.
+    /// The unpaused tick's `cameras[i].Update()`: the HUD, then the room camera up to
+    /// its shake (which the sim's tick makes). `input` is this tick's controls, whose
+    /// map button the game-over prompt reads.
     pub fn update_cameras(&mut self, input: Input, shared: &mut MenuShared) {
         self.set_camera_view();
         self.update_hud(input.map, shared, false);
+        self.update_room_camera();
+    }
+
+    /// `RoomCamera.Update`'s camera choice and window lerp, handed to the sim with the
+    /// window position its shake and the rooms' `ScreenMovement`s start from.
+    fn update_room_camera(&mut self) {
+        if self.camera.update(self.game.camera_follow().as_ref()) {
+            log::info!("camera {}", self.camera.current() + 1);
+            if let Some(visuals) = &mut self.visuals {
+                visuals.show(self.camera.current());
+            }
+        }
+        // `ApplyFade` when `fadeCoord` changed, still before the rooms update.
+        self.apply_fade();
+        self.set_camera_view();
+        let width = self.camera.screen_size()[0];
+        self.game.sim_mut().set_camera_pos(self.camera.pos(), width);
     }
 
     /// A paused tick (`RainWorldGame.Update` with `GamePaused`): only the HUD updates;
@@ -437,16 +466,27 @@ impl Scene {
         }
     }
 
-    /// The room camera after the game's tick; returns the sound events.
+    /// The room camera after the game's tick: the shake's jump and the rooms' bumps,
+    /// then a move to another room; returns the sound events.
     fn after_game_tick(&mut self) -> Vec<SoundEvent> {
+        let shake = self.game.sim_mut().take_camera_displacement();
+        self.camera.displace(shake);
         self.apply_camera_move();
-        if self.camera.update(self.game.camera_follow().as_ref()) {
-            log::info!("camera {}", self.camera.current() + 1);
-            if let Some(visuals) = &mut self.visuals {
-                visuals.show(self.camera.current());
-            }
-        }
         self.game.take_sound_events()
+    }
+
+    /// `DrawUpdate`'s micro shake for this frame, on the cosmetic stream (D1): a random
+    /// direction, then a random share of `8 * microShake` px.
+    fn draw_micro_shake(&mut self) {
+        let micro = self.game.sim().camera_shake().micro_shake;
+        let offset = if micro > 0.0 {
+            let rng = self.game.cosmetic_rng_mut();
+            let dir = rw_sim::Vec2::random_unit(rng);
+            dir * (8.0 * micro * rng.value())
+        } else {
+            rw_sim::Vec2::ZERO
+        };
+        self.camera.set_frame_shake(offset);
     }
 
     /// Size in room pixels that [`Framing::Auto`] shows: the game's screen, or the room
@@ -473,6 +513,7 @@ impl Scene {
     ) {
         target.sync(self);
         let alpha = self.frame_alpha(alpha);
+        self.draw_micro_shake();
         // The slugcat's sprites, eyes in the palette's black. Built every frame, as the
         // game runs `DrawSprites` whatever is shown; only the level view draws them.
         let face = self
@@ -558,9 +599,17 @@ impl Scene {
         let r = &mut target.renderer;
         let room = self.game.room();
         let time = (self.game.ticks() as f32 + alpha) / TICK_RATE as f32;
+        let rain = &self.game.sim().world().rain_cycle;
         let level = match &self.visuals {
-            Some(_) if view.level => Some(Visuals::view(&self.camera, alpha, time)),
+            Some(v) if view.level => Some(v.view(&self.camera, alpha, time, rain)),
             _ => None,
+        };
+        // `SunBlocker`s, alone in the `Shadows` container.
+        let shadows: Vec<DrawList> = match (&level, &self.visuals) {
+            (Some(level), Some(v)) if target.sprites.is_some() => (0..v.sun_blockers())
+                .map(|_| rw_graphics::SunBlocker::draw(rw_sim::Vec2::from(level.origin)))
+                .collect(),
+            _ => Vec::new(),
         };
         let camera = match (view.framing, &level) {
             (Framing::Rect { origin, size }, _) => Camera::window(origin, size, r.size()),
@@ -593,6 +642,7 @@ impl Scene {
             water_sprites,
             level,
             player_sprites: has_player_sprites,
+            shadows: &shadows,
             objects: &objects,
             holograms: &holograms,
             layers: view.layers,
@@ -670,6 +720,8 @@ struct FrameDraw<'a> {
     /// without it (the debug view, or no atlas) the physical body is drawn: chunks, rods
     /// and contacts.
     player_sprites: bool,
+    /// The `Shadows` container's sprites (level view only).
+    shadows: &'a [DrawList],
     /// Every drawable's sprites (level view only), the slugcat's and the shortcut
     /// graphics' among them, in the camera's container order.
     objects: &'a [DrawList],
@@ -699,6 +751,9 @@ impl FrameDraw<'_> {
         });
         // Sprites sit at `room - camPos`, the level view's origin.
         if let Some(level) = self.level {
+            for s in self.shadows {
+                r.draw_sprites(s, Layer::Shadows, level.origin);
+            }
             self.draw_layer(r, Layer::BackgroundShortcuts, level);
             self.draw_layer(r, Layer::Background, level);
         }
@@ -749,6 +804,7 @@ impl<R: Renderer> SceneRenderer<R> {
             sprites,
             room_of: None,
             level_of: None,
+            palette_of: 0,
         }
     }
 
@@ -763,6 +819,10 @@ impl<R: Renderer> SceneRenderer<R> {
             if self.level_of != Some(key) {
                 visuals.upload(&mut self.renderer, &scene.camera);
                 self.level_of = Some(key);
+                self.palette_of = visuals.palette_generation();
+            } else if self.palette_of != visuals.palette_generation() {
+                visuals.upload_palette(&mut self.renderer);
+                self.palette_of = visuals.palette_generation();
             }
         }
     }
@@ -800,6 +860,7 @@ mod tests {
         fn begin_frame(&mut self, _: Camera) {}
         fn draw_room(&mut self, _: RoomLayers) {}
         fn set_level(&mut self, _: &LevelGraphics<'_>) {}
+        fn set_level_palette(&mut self, _: &rw_assets::PaletteTexture) {}
         fn draw_level(&mut self, _: LevelView) {
             self.level = true;
             self.order.push("level");
@@ -819,6 +880,7 @@ mod tests {
         fn draw_sprites(&mut self, _: &DrawList, layer: Layer, _: [f32; 2]) {
             self.sprite_calls += 1;
             self.order.push(match layer {
+                Layer::Shadows => "shadows",
                 Layer::BackgroundShortcuts => "background shortcuts",
                 Layer::Background => "background",
                 Layer::Midground => "midground",
@@ -912,6 +974,7 @@ mod tests {
                 level,
                 player_sprites: true,
                 objects: &objects,
+                shadows: &[],
                 holograms: &[],
                 layers: RoomLayers::default(),
                 camera: Camera::fit([1.0, 1.0], (1366, 768), 0.0),
@@ -970,6 +1033,7 @@ mod tests {
             origin: [-100.0, -50.0],
             size: [1366.0, 768.0],
             rain: 0.0,
+            light: 1.0,
         };
         let r = Recorder::record(&game, Some(level), &sprites);
         assert_eq!(r.sprite_calls, 2, "midground and foreground");
@@ -987,6 +1051,7 @@ mod tests {
             origin: [0.0, 0.0],
             size: [1366.0, 768.0],
             rain: 0.0,
+            light: 1.0,
         };
         let r = Recorder::record_with_water(
             &game,
@@ -1018,6 +1083,7 @@ mod tests {
             origin: [0.0, 0.0],
             size: [1366.0, 768.0],
             rain: 0.0,
+            light: 1.0,
         };
         let layers = [
             Layer::BackgroundShortcuts,

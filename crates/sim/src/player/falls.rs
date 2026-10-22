@@ -272,7 +272,9 @@ impl Player {
     /// `Player.TerrainImpact` with Remix off: the landing roll pre-empts everything on
     /// this impact; otherwise a first contact kills on a floor above 60, stuns above 35,
     /// or plays a landing or bump sound by speed. Either way it ends in the base
-    /// `PhysicalObject.TerrainImpact`'s noise and `Creature.TerrainImpact`'s ceiling drips.
+    /// `PhysicalObject.TerrainImpact`'s screen movement and noise and
+    /// `Creature.TerrainImpact`'s ceiling drips. (The wall-pounce rocket jump that also
+    /// moves the screen here is Remix's.)
     pub(super) fn terrain_impact_with(
         &mut self,
         chunks: &mut [BodyChunk],
@@ -292,6 +294,9 @@ impl Player {
         }
         self.flush_sounds(rng, sounds);
         let c = &chunks[impact.chunk];
+        if let Some(m) = impact.screen_movement(c) {
+            noises.screen_movement(m, rng);
+        }
         if let Some((pos, strength)) = impact.noise_at(c) {
             noises.in_game_noise(pos, strength, 1.0, rng);
         }

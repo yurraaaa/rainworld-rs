@@ -15,8 +15,8 @@ use crate::item::{
     Entity, ModeChange, ObjectId, Throw, Weapon, WeaponKind, WeaponMode, WeaponTick,
 };
 use crate::{
-    BodyChunk, Cosmetic, CosmeticKind, FloatExt, InGameNoise, LoopEmitter, SoundId, Sounds, Spark,
-    SurfaceChunk, Vec2,
+    BodyChunk, Cosmetic, CosmeticKind, FloatExt, ImpactCall, InGameNoise, LoopEmitter, RoomCall,
+    SoundId, Sounds, Spark, SurfaceChunk, Vec2,
 };
 
 /// A loop emitter left in a room's update list by an item that is no longer there; its
@@ -41,8 +41,8 @@ pub struct ItemTick<'a> {
     pub player: Option<(CreatureId, i32)>,
     /// The room is a shelter whose door `IsClosing` or `IsOpening`.
     pub shelter_door_moving: bool,
-    /// The noises the update made, for the game to make heard.
-    pub noises: Vec<InGameNoise>,
+    /// The noises and screen movements the update made, for the game to make in order.
+    pub calls: Vec<RoomCall>,
 }
 
 /// What a thrown spear sticks by: the abstract tiles of the room's stuck spears and
@@ -441,6 +441,7 @@ impl World {
                 no_stick_zones: &rules.zones,
                 shelter_door_moving: cx.shelter_door_moving,
                 cosmetics: &mut added,
+                calls: &mut cx.calls,
             };
             match part {
                 UpdatePart::Start => walk = weapon.update_start(object, &mut tick),
@@ -451,14 +452,16 @@ impl World {
                     weapon.floor_bounce_frames = 0;
                 }
                 UpdatePart::Physics => {
-                    let noises = weapon.carryable_physics(&mut tick);
-                    cx.noises
-                        .extend(noises.into_iter().map(|(pos, strength)| InGameNoise {
+                    let calls = weapon.carryable_physics(&mut tick);
+                    tick.calls.extend(calls.into_iter().map(|c| match c {
+                        ImpactCall::ScreenMovement(m) => RoomCall::ScreenMovement(m),
+                        ImpactCall::Noise(pos, strength) => RoomCall::Noise(InGameNoise {
                             pos,
                             strength,
                             source: Some(Entity::Object(id)),
                             interesting: 4.0,
-                        }));
+                        }),
+                    }));
                 }
                 UpdatePart::Finish => weapon.update_after_physics(object, &mut tick),
                 UpdatePart::Own => weapon.update_own(object, &mut tick),

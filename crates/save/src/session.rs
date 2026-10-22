@@ -143,8 +143,9 @@ pub trait HibernationWorld {
     /// `world.region.name`.
     fn region_name(&self) -> String;
     /// `regionState.AdaptRegionStateToWorld(playerShelter, -1)`; returns
-    /// `RegionState.SaveToString()`. Dead loaded creatures' spawners go on `respawn`.
-    fn adapt_region_state_to_world(&mut self, respawn: &mut Vec<i32>) -> String;
+    /// `RegionState.SaveToString()`. Dead loaded creatures' spawners on neither list go
+    /// on `respawn`.
+    fn adapt_region_state_to_world(&mut self, respawn: &mut Vec<i32>, wait: &[i32]) -> String;
     /// `progression.regionNames` (`World/regions.txt` order).
     fn region_names(&self) -> Vec<String>;
     /// `World/default alignments.txt`, for a save without `COMMUNITIES`.

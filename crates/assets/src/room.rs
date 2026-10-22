@@ -334,6 +334,8 @@ pub struct Room {
     height: i32,
     water_level: Option<i32>,
     water_in_front: bool,
+    /// `lightAngle`: line 2's `x*y` (the level shader's object-shadow direction).
+    light_angle: [f32; 2],
     cameras: Vec<[f32; 2]>,
     /// Column-major as in the file: x outer, y from the top row down.
     tiles: Box<[Tile]>,
@@ -389,6 +391,16 @@ impl Room {
         // The game reads this flag only when the room has water.
         let water_in_front = water_level.is_some() && water_in_front;
 
+        // Line 2: `lightX*lightY|...`.
+        let light = lines.line(2)?.split('|').next().unwrap_or_default();
+        let (lx, ly) = light
+            .split_once('*')
+            .ok_or_else(|| bad(2, "light angle", light))?;
+        let light_angle = [
+            lx.trim().parse().map_err(|_| bad(2, "light x", lx))?,
+            ly.trim().parse().map_err(|_| bad(2, "light y", ly))?,
+        ];
+
         // Line 3: cameras `x,y|x,y`, converted to room pixels (y up, image bottom-left).
         let cameras = lines
             .line(3)?
@@ -441,6 +453,7 @@ impl Room {
             height,
             water_level,
             water_in_front,
+            light_angle,
             cameras,
             tiles,
             shortcut_map: ShortcutMap::default(),
@@ -665,6 +678,12 @@ impl Room {
         self.water_in_front
     }
 
+    /// `lightAngle` (geometry line 2).
+    #[must_use]
+    pub fn light_angle(&self) -> [f32; 2] {
+        self.light_angle
+    }
+
     /// Camera image bottom-left corners in room pixels (y up). Each image is 1400x800.
     #[must_use]
     pub fn cameras(&self) -> &[[f32; 2]] {
@@ -859,6 +878,14 @@ mod tests {
     // x=0: y2 Air+vpole, y1 Air, y0 Solid. x=1: y2 Entrance+path, y1 Slope, y0 Floor+hpole.
     const GRID: &str = "0,1|0|1|4,3|2|3,2|";
 
+    #[test]
+    fn light_angle_from_line_2() {
+        assert_eq!(sample().light_angle(), [1.0, 1.0]);
+        let text = file("2*3|-1|0", "-220,-30", GRID).replacen("1*1|0|0", "0.4540*0.8910|0|0", 1);
+        let room = Room::parse(&text).expect("parses");
+        assert_eq!(room.light_angle(), [0.454, 0.891]);
+    }
+
     fn sample() -> Room {
         Room::parse(&file("2*3|-1|0", "-220,-30", GRID)).expect("sample parses")
     }
@@ -1004,7 +1031,7 @@ mod tests {
         ));
         assert!(matches!(
             Room::parse("Test\n2*3"),
-            Err(RoomError::MissingLine { line: 3 })
+            Err(RoomError::MissingLine { line: 2 })
         ));
         assert!(matches!(
             Room::parse(""),

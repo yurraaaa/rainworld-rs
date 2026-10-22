@@ -16,8 +16,14 @@ struct Level {
     shading: vec4<f32>,
     // x: darkness, y: contrast, z: saturation, w: hue in degrees.
     grade: vec4<f32>,
-    // x: brightness, y: clouds speed, z: swarm room.
+    // x: brightness, y: clouds speed, z: swarm room, w: rimFix.
     extra: vec4<f32>,
+    // _lightDirAndPixelSize: xy room light angle, zw 1/1400 and 1/800.
+    light_dir: vec4<f32>,
+    // rgb: _AboveCloudsAtmosphereColor.
+    atmosphere: vec4<f32>,
+    // The game's window: xy origin in room pixels, zw size (sSize).
+    view: vec4<f32>,
 };
 
 @group(0) @binding(0) var<uniform> level: Level;
@@ -25,10 +31,15 @@ struct Level {
 @group(0) @binding(2) var palette_tex: texture_2d<f32>;
 @group(0) @binding(3) var noise_tex: texture_2d<f32>;
 @group(0) @binding(4) var noise_sampler: sampler;
-// What was drawn before the level (sprites behind it), same size as the target.
+// What was drawn before the level (the game's _GrabTexture), same size as the target.
 @group(0) @binding(5) var behind_tex: texture_2d<f32>;
+// Bilinear, clamped: how the object-shadow lookup reads the grab (INFERRED: Unity's
+// render textures default to bilinear).
+@group(0) @binding(6) var grab_sampler: sampler;
 
 const TAU_APPROX: f32 = 6.28; // the game uses 3.14 * 2
+// Futile's screenPixelOffset on the D3D build (Camera::SCREEN_PIXEL_OFFSET).
+const SCREEN_PIXEL_OFFSET: vec2<f32> = vec2(-0.5, 0.5);
 
 struct VertexOut {
     @builtin(position) position: vec4<f32>,
@@ -70,10 +81,40 @@ fn rotate_hue(c: vec3<f32>, degrees: f32) -> vec3<f32> {
     return c * cos_a + cross(k, c) * sin(angle) + k * dot(k, c) * (1.0 - cos_a);
 }
 
+// The game's screenPos at level uv `uv`: lerp over _spriteRect (the level image's rect
+// on the screen, Futile's pixel offset included), then flipped as on D3D
+// (UNITY_UV_STARTS_AT_TOP): x right, y down, 0..1 over the screen.
+fn screen_pos(uv: vec2<f32>) -> vec2<f32> {
+    let room = level.image_rect.xy + uv * level.image_rect.zw;
+    let up = (room - level.view.xy + SCREEN_PIXEL_OFFSET) / level.view.zw;
+    return vec2(up.x, 1.0 - up.y);
+}
+
+// The object-shadow lookup of a pixel at `depth` >= 5 (LevelColor: "casting shadows
+// from objects", with FixEdgeShadowStretch): whether anything was drawn behind the
+// level at the grab position toward the light. `here` is the fragment's frame pixel.
+fn object_shadow(uv: vec2<f32>, here: vec2<f32>, depth: i32) -> bool {
+    let sp = screen_pos(uv);
+    let fix = vec4(saturate(sp / 0.3), saturate(sp / 0.1));
+    let d = f32(depth - 5);
+    let ld = level.light_dir;
+    // Grab coordinates: x right, y up.
+    var grab = vec2(sp.x - ld.x * ld.z * d * fix.x, 1.0 - sp.y + ld.y * ld.w * d * fix.y);
+    grab = mix(grab, (grab - vec2(0.5, 0.3)) * (1.0 + d / 460.0) + vec2(0.5, 0.3), fix.zw);
+    // As a frame-pixel offset from this fragment (frame y down, scaled like the window).
+    let frame = vec2<f32>(textureDimensions(behind_tex));
+    let scale = abs(level.transform.xy) * frame * 0.5;
+    let offset = (grab - vec2(sp.x, 1.0 - sp.y)) * vec2(level.view.z, -level.view.w) * scale;
+    let c = textureSampleLevel(behind_tex, grab_sampler, (here + offset) / frame, 0.0);
+    return c.r != 0.0 || c.g != 0.0 || c.b != 0.0;
+}
+
 @fragment
 fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let size = vec2<i32>(textureDimensions(level_tex));
-    let pixel = clamp(vec2<i32>(floor(in.uv * vec2<f32>(size))), vec2(0), size - 1);
+    // `uv2`: rimFix moves the colour lookup half a texel down-left.
+    let shift = vec2(0.5 * level.extra.w);
+    let pixel = clamp(vec2<i32>(floor(in.uv * vec2<f32>(size) - shift)), vec2(0), size - 1);
     let code = textureLoad(level_tex, pixel, 0);
     let uv = in.uv;
     let rain = level.shading.x;
@@ -84,6 +125,9 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     if all(code.rgb == vec3(1.0)) {
         // Sky.
         colour = palette(0, 7);
+        if level.extra.w > 0.5 {
+            colour = vec4(level.atmosphere.rgb, 1.0);
+        }
         shows_behind = true;
     } else {
         let raw_red = i32(round(code.r * 255.0));
@@ -116,6 +160,10 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         let depth = i32(fmod_trunc(f32(red - 1), 30.0));
         let depth_f = f32(depth);
         let column = i32(f32(depth) * not_floor_dark);
+
+        if shadow != 1.0 && depth >= 5 && object_shadow(uv, in.position.xy, depth) {
+            shadow = 1.0;
+        }
 
         colour = mix(palette(column, group + 3), palette(column, group), shadow);
 

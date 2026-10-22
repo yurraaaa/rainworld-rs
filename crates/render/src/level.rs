@@ -1,25 +1,25 @@
 //! The level graphic: the current camera's image coloured through the room palette by
-//! `level.wgsl` (the game's `LevelColor` shader, basic path), drawn in front of the
-//! sprites queued before it.
+//! `level.wgsl` (the game's `LevelColor` shader without its heat, melt, ripple and
+//! combined-level variants), drawn in front of the sprites queued before it.
 //!
 //! Sprites are hidden behind the level as the game hides them: the level shader reads
-//! what was drawn before it ("behind"); sky pixels and pixels at depth >= 5 show that
-//! content wherever it is not black, depth 0-4 always covers it. The renderer draws the
-//! shapes queued before [`Renderer::draw_level`](crate::Renderer::draw_level) into an
-//! offscreen target cleared to black and hands it to the level shader.
+//! what was drawn before it ("behind", the game's `_GrabTexture` and
+//! `_PreLevelColorGrab`); sky pixels and pixels at depth >= 5 show that content wherever
+//! it is not black, depth 0-4 always covers it. The same target casts object shadows: a
+//! sunlit pixel at depth >= 5 turns shadowed where anything non-black was drawn behind
+//! the level a little along the room's light angle (a `SunBlocker` fills the screen with
+//! `(1/255, 0, 0)`, which shadows everything and masks nothing).
 //!
-//! Not drawn yet: object-cast shadows (needs the room's light angle), wet-terrain
-//! ripples, rain darkening, the heat/melt/ripple variants and room-effect grading.
+//! Not drawn yet: wet-terrain ripples and the heat/melt/ripple variants.
 //!
-//! Mirrors: RoomCamera.cs
+//! Mirrors: RoomCamera.cs (ApplyPalette, ChangeRoom, DrawUpdate shader globals), Room.cs (NowViewed)
 
-use rw_assets::{NoiseTexture, PaletteTexture, PngImage, RoomSettings};
+use rw_assets::{NoiseTexture, PaletteTexture, PngImage, RoomEffectType, RoomSettings};
 
-/// Uniform inputs of the level shader that come from the room, palette and game state.
+/// Uniform inputs of the level shader that stay fixed while a room is shown (per-frame
+/// ones are in [`LevelView`]).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LevelParams {
-    /// `_light`: 1 = full sun, -1 = no sun.
-    pub light: f32,
     pub grime: f32,
     pub fog_amount: f32,
     pub clouds_speed: f32,
@@ -30,35 +30,80 @@ pub struct LevelParams {
     pub hue: f32,
     pub brightness: f32,
     pub swarm_room: f32,
+    /// `_rimFix`: 1 in rooms with a sky scene (sky pixels take `atmosphere`, colour
+    /// lookups move half a texel down-left), else 0.
+    pub rim_fix: f32,
+    /// `_AboveCloudsAtmosphereColor`, RGB.
+    pub atmosphere: [f32; 3],
+    /// `room.lightAngle`, the object-shadow offset per depth step (`_lightDirAndPixelSize.xy`).
+    pub light_dir: [f32; 2],
 }
 
 impl LevelParams {
-    /// The game's values for a room with `settings` shown with `palette`, outside rain,
-    /// lightning, ghosts and colour-grading room effects.
+    /// The shader globals with no room effect: identity grading, no rimFix, no light angle.
+    pub const DEFAULT: Self = Self {
+        grime: 0.0,
+        fog_amount: 0.0,
+        clouds_speed: 1.0,
+        darkness: 1.0,
+        contrast: 1.0,
+        saturation: 1.0,
+        hue: 0.0,
+        brightness: 0.0,
+        swarm_room: 0.0,
+        rim_fix: 0.0,
+        atmosphere: [0.0; 3],
+        light_dir: [0.0; 2],
+    };
+
+    /// `atmosphereColor` of `AboveCloudsView` and `RoofTopView`, which their constructors
+    /// set as `_AboveCloudsAtmosphereColor` (changed later only by the `DayNight` effect).
+    pub const SKY_SCENE_ATMOSPHERE: [f32; 3] = [41.0 / 255.0, 59.0 / 255.0, 81.0 / 255.0];
+
+    /// The game's values for a room with `settings` and geometry light angle `light_dir`
+    /// shown with `palette`, without a ghost and without the colour-grading effects (no
+    /// base-game room uses them; they come with the DLCs, so their uniforms stay at the
+    /// game's defaults).
     #[must_use]
-    pub fn new(settings: &RoomSettings, palette: &PaletteTexture) -> Self {
+    pub fn new(settings: &RoomSettings, palette: &PaletteTexture, light_dir: [f32; 2]) -> Self {
+        let rim_fix = Self::rim_fix(settings);
         Self {
-            light: Self::light(settings.clouds, 1.0),
             grime: settings.grime,
             fog_amount: palette.fog_amount(),
-            clouds_speed: 1.0,
-            darkness: 1.0,
-            contrast: 1.0,
-            saturation: 1.0,
-            hue: 0.0,
-            brightness: 0.0,
-            swarm_room: 0.0,
+            rim_fix: if rim_fix { 1.0 } else { 0.0 },
+            atmosphere: if rim_fix {
+                Self::SKY_SCENE_ATMOSPHERE
+            } else {
+                [0.0; 3]
+            },
+            light_dir,
+            ..Self::DEFAULT
         }
     }
 
-    /// `_light`: 1 when `Clouds` is 0, else `lerp(shader_light, -1, clouds)`, where
-    /// `shader_light` is the rain cycle's light (1 long before rain).
+    /// `Room.NowViewed`: `_rimFix` is 1 when the room has an `AboveCloudsView`,
+    /// `RoofTopView` or `PinkSky` effect, whatever its amount.
     #[must_use]
-    pub fn light(clouds: f32, shader_light: f32) -> f32 {
+    pub fn rim_fix(settings: &RoomSettings) -> bool {
+        [
+            RoomEffectType::AboveCloudsView,
+            RoomEffectType::RoofTopView,
+            RoomEffectType::PinkSky,
+        ]
+        .into_iter()
+        .any(|kind| settings.has_effect(kind.value()))
+    }
+
+    /// `_light`: 1 when `Clouds` is 0, else `lerp(lerp(shader_light, -1, clouds), -0.4,
+    /// ghost_mode)`; `shader_light` is `num4` of `DrawUpdate` (the rain cycle's
+    /// `ShaderLight` in rooms with rain, else 1).
+    #[must_use]
+    pub fn light(clouds: f32, shader_light: f32, ghost_mode: f32) -> f32 {
         if clouds == 0.0 {
             1.0
         } else {
-            shader_light + (-1.0 - shader_light) * clouds.clamp(0.0, 1.0)
+            let cloudy = shader_light + (-1.0 - shader_light) * clouds.clamp(0.0, 1.0);
+            cloudy + (-0.4 - cloudy) * ghost_mode.clamp(0.0, 1.0)
         }
     }
 }
@@ -74,7 +119,7 @@ pub struct LevelGraphics<'a> {
     pub params: LevelParams,
 }
 
-/// Per-frame placement of the level: the game's visible window and shader time.
+/// Per-frame inputs of the level: the game's visible window, shader time and light.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LevelView {
     /// Bottom-left of the visible window in room pixels.
@@ -82,6 +127,8 @@ pub struct LevelView {
     pub size: [f32; 2],
     /// `_RAIN`: shader time in seconds / 5.
     pub rain: f32,
+    /// `_light`: 1 = full sun, -1 = no sun ([`LevelParams::light`]).
+    pub light: f32,
 }
 
 #[cfg(test)]
@@ -101,8 +148,33 @@ mod reference {
         pub noise: &'a NoiseTexture,
         pub params: LevelParams,
         pub rain: f32,
+        /// `_light`.
+        pub light: f32,
         /// The image's top row (decal colour table), 0..1 RGB.
         pub top_row: &'a [[f32; 3]],
+        /// What was drawn behind the level at the object-shadow lookup.
+        pub cast: [f32; 3],
+    }
+
+    /// The object-shadow grab position (x right, y up, 0..1 over the screen) of a pixel
+    /// at D3D screen position `sp` (x right, y down) and `depth` >= 5.
+    pub fn grab_pos(light_dir: [f32; 2], sp: [f32; 2], depth: i32) -> [f32; 2] {
+        let fix: [f32; 4] = [
+            (sp[0] / 0.3).clamp(0.0, 1.0),
+            (sp[1] / 0.3).clamp(0.0, 1.0),
+            (sp[0] / 0.1).clamp(0.0, 1.0),
+            (sp[1] / 0.1).clamp(0.0, 1.0),
+        ];
+        let d = (depth - 5) as f32;
+        let g = [
+            sp[0] - light_dir[0] / 1400.0 * d * fix[0],
+            1.0 - sp[1] + light_dir[1] / 800.0 * d * fix[1],
+        ];
+        let centre = [0.5, 0.3];
+        std::array::from_fn(|i| {
+            let zoomed = (g[i] - centre[i]) * (1.0 + d / 460.0) + centre[i];
+            g[i] + (zoomed - g[i]) * fix[2 + i]
+        })
     }
 
     pub trait Mix {
@@ -164,7 +236,12 @@ mod reference {
             let p = self.params;
             let fog = self.pal(1, 7);
             let (colour, shows_behind) = if code == [255, 255, 255] {
-                (self.pal(0, 7), true)
+                let sky = if p.rim_fix > 0.5 {
+                    p.atmosphere
+                } else {
+                    self.pal(0, 7)
+                };
+                (sky, true)
             } else {
                 let raw_red = i32::from(code[0]);
                 let mut green = i32::from(code[1]);
@@ -185,7 +262,7 @@ mod reference {
                     1.0 - uv[1] * 0.5 + self.rain * 0.2 * p.clouds_speed - layer,
                 ]);
                 let wave = 0.5 + ((n + drift - uv[1]).fmod_trunc(1.0) * GAME_TAU).sin() * 0.5;
-                let mut shadow = ((wave - 0.5) * 6.0 + 0.5 - p.light * 4.0).clamp(0.0, 1.0);
+                let mut shadow = ((wave - 0.5) * 6.0 + 0.5 - self.light * 4.0).clamp(0.0, 1.0);
                 let mut red = raw_red;
                 if red > 90 {
                     red -= 90;
@@ -196,6 +273,9 @@ mod reference {
                 let depth = ((red - 1) as f32).fmod_trunc(30.0) as i32;
                 let depth_f = depth as f32;
                 let column = (depth_f * not_floor_dark) as i32;
+                if shadow != 1.0 && depth >= 5 && self.cast != [0.0; 3] {
+                    shadow = 1.0;
+                }
                 let mut c = self
                     .pal(column, group + 3)
                     .mix(self.pal(column, group), shadow);
@@ -248,7 +328,7 @@ mod reference {
 
 #[cfg(test)]
 mod tests {
-    use super::reference::{Fmod, GAME_TAU, Mix, Shading};
+    use super::reference::{Fmod, GAME_TAU, Mix, Shading, grab_pos};
     use super::*;
     use rw_assets::PaletteImage;
 
@@ -300,7 +380,7 @@ mod tests {
                 grime,
                 ..RoomSettings::ANCESTOR
             };
-            Self::new(&settings, palette)
+            Self::new(&settings, palette, [0.0, 0.0])
         }
     }
 
@@ -318,9 +398,12 @@ mod tests {
 
     #[test]
     fn light_from_clouds() {
-        assert_eq!(LevelParams::light(0.0, 0.3), 1.0);
-        assert_eq!(LevelParams::light(1.0, 1.0), -1.0);
-        assert!((LevelParams::light(0.25, 1.0) - 0.5).abs() < 1e-6);
+        assert_eq!(LevelParams::light(0.0, 0.3, 0.0), 1.0);
+        assert_eq!(LevelParams::light(1.0, 1.0, 0.0), -1.0);
+        assert!((LevelParams::light(0.25, 1.0, 0.0) - 0.5).abs() < 1e-6);
+        // Rain light 0.6 at clouds 0.5: lerp(0.6, -1, 0.5) = -0.2; a full ghost -0.4.
+        assert!((LevelParams::light(0.5, 0.6, 0.0) + 0.2).abs() < 1e-6);
+        assert!((LevelParams::light(0.5, 0.6, 1.0) + 0.4).abs() < 1e-6);
     }
 
     #[test]
@@ -334,6 +417,8 @@ mod tests {
             noise: &noise,
             params: LevelParams::test(0.0, 0.5, &pal),
             rain: 0.0,
+            light: LevelParams::light(0.0, 1.0, 0.0),
+            cast: [0.0; 3],
             top_row: &top_row,
         };
         let uv = [0.3, 0.6];
@@ -390,6 +475,8 @@ mod tests {
             noise: &noise,
             params: LevelParams::test(1.0, 0.0, &pal),
             rain: 0.0,
+            light: LevelParams::light(1.0, 1.0, 0.0),
+            cast: [0.0; 3],
             top_row: &[],
         };
         let sprite = [0.9, 0.1, 0.2];
@@ -413,9 +500,11 @@ mod tests {
             noise: &noise,
             params: LevelParams::test(0.5, 0.0, &pal),
             rain: 0.0,
+            light: LevelParams::light(0.5, 1.0, 0.0),
+            cast: [0.0; 3],
             top_row: &[],
         };
-        assert_eq!(s.params.light, 0.0);
+        assert_eq!(s.light, 0.0);
         for v in [0.1f32, 0.3, 0.55, 0.8] {
             let wave = 0.5 + ((-v).fmod_trunc(1.0) * GAME_TAU).sin() * 0.5;
             let shadow = ((wave - 0.5) * 6.0 + 0.5).clamp(0.0, 1.0);
@@ -425,5 +514,80 @@ mod tests {
                 "v = {v}"
             );
         }
+    }
+
+    /// The object-shadow step: a sunlit pixel at depth >= 5 is shadowed where something
+    /// was drawn behind the level at the lookup; depth < 5 and unlit pixels are not.
+    /// The SunBlocker's `(1/255, 0, 0)` shadows without masking.
+    #[test]
+    fn object_shadow_and_sun_block() {
+        let pal = PaletteTexture::test();
+        let noise = NoiseTexture::zero();
+        let sun_block = [1.0 / 255.0, 0.0, 0.0];
+        let mut s = Shading {
+            palette: &pal,
+            noise: &noise,
+            params: LevelParams::test(0.0, 0.0, &pal),
+            rain: 0.0,
+            light: 1.0,
+            top_row: &[],
+            cast: sun_block,
+        };
+        let uv = [0.5, 0.5];
+        let fog = pal.rgb(1, 7);
+        // R = 101: sunlit, depth 10, group 0 -> shadowed row 0 instead of lit row 3.
+        let want = pal.rgb(10, 0).mix(fog, 0.2);
+        assert!(s.colour([101, 0, 0], uv, sun_block).approx(want));
+        // Depth 4 keeps its sun.
+        assert!(
+            s.colour([95, 0, 0], uv, sun_block)
+                .approx(pal.rgb(4, 3).mix(fog, 0.08))
+        );
+        s.cast = [0.0; 3];
+        assert!(
+            s.colour([101, 0, 0], uv, sun_block)
+                .approx(pal.rgb(10, 3).mix(fog, 0.2))
+        );
+    }
+
+    /// `_lightDirAndPixelSize` with SS_AI's light angle (0.454, 0.891), and
+    /// `FixEdgeShadowStretch` near the top-left corner; values worked from the shader.
+    #[test]
+    fn shadow_grab_position() {
+        let light = [0.454, 0.891];
+        let [x, y] = grab_pos(light, [0.5, 0.5], 25);
+        assert!((x - 0.493_232_3).abs() < 1e-6 && (y - 0.531_939_1).abs() < 1e-6);
+        let [x, y] = grab_pos(light, [0.05, 0.03], 15);
+        assert!((x - 0.044_562_34).abs() < 1e-6 && (y - 0.975_490_6).abs() < 1e-6);
+    }
+
+    /// `_rimFix`: AboveCloudsView, RoofTopView or PinkSky at any amount; sky pixels then
+    /// take the scene's atmosphere colour.
+    #[test]
+    fn rim_fix_sky() {
+        let pal = PaletteTexture::test();
+        let noise = NoiseTexture::zero();
+        let settings = RoomSettings {
+            effects: vec![rw_assets::RoomEffect {
+                kind: RoomEffectType::AboveCloudsView.value().to_owned(),
+                amount: 0.0,
+            }],
+            ..RoomSettings::ANCESTOR
+        };
+        let params = LevelParams::new(&settings, &pal, [0.0; 2]);
+        assert_eq!(params.rim_fix, 1.0);
+        assert_eq!(params.atmosphere, LevelParams::SKY_SCENE_ATMOSPHERE);
+        let s = Shading {
+            palette: &pal,
+            noise: &noise,
+            params,
+            rain: 0.0,
+            light: 1.0,
+            top_row: &[],
+            cast: [0.0; 3],
+        };
+        let sky = s.colour([255, 255, 255], [0.5, 0.5], [0.0; 3]);
+        assert!(sky.approx([41.0 / 255.0, 59.0 / 255.0, 81.0 / 255.0]));
+        assert_eq!(LevelParams::test(0.0, 0.0, &pal).rim_fix, 0.0);
     }
 }

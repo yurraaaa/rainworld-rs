@@ -288,8 +288,10 @@ mod tests {
                 grid.push('|');
             }
         }
-        Room::parse(&format!("T\n{w}*{h}|-1|0\n0\n0,0\n\n\n\n\n\n\n\n{grid}\n"))
-            .expect("test room parses")
+        Room::parse(&format!(
+            "T\n{w}*{h}|-1|0\n0*0|0|0\n0,0\n\n\n\n\n\n\n\n{grid}\n"
+        ))
+        .expect("test room parses")
     }
 
     #[test]

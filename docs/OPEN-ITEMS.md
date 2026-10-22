@@ -38,9 +38,33 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **Room visual effects, lights and camera shake** (user, 2026-10-22): every non-DLC
   room visual effect, rooms' lights and `RoomCamera` screen shake, as the step before the
   rain. Surveys: `../rainworld-re/surveys/room-effects.md`, `lights-camera-shake.md`.
-  - Step 3, cosmetic insects (`rw_sim::insect`, `../rainworld-re/notes/cosmetic-insects.md`):
-    left for the user to decide: insects fleeing explosions (`InsectCoordinator.Explosion`),
-    `NowViewed`'s echo-room early-out, the ant's `SpecificDepth` shader (D23).
+  Effects step 1 (level shader and palette machinery) left for later steps: the rain's
+  `GlobalRain.ShaderLight` after the cycle ends (the port keeps its initial -1; goes
+  with the rain), `BrokenZeroG`'s `DarkPalette` (`1 - CurrentLightsOn`, with zero
+  gravity), lightning's `num4` and palette texel overrides (with Lightning), ghost
+  mode's `_light`/`_cloudsSpeed`/palette grey-out (with echoes), wet terrain
+  (`_WetTerrain`, `_waterLevel`), the sky scenes behind rimFix rooms.
+  Camera shake core (S1) done: `rw_sim::CameraShake`, notes `camera-shake.md`. Left:
+  the rain-derived shake (S2, with the rain: `RainCycle.ScreenShake`/`MicroScreenShake`,
+  `GlobalRain` modes, flood `waterFlux.roomShake`, the `Screen_Shake_LOOP` rumble, gamepad
+  rumble from `controllerShake`), the `Lightning` and `AntiGravity` callers (S3, with
+  their effects), callers that come with their objects (explosive spears' and scavenger
+  bombs' explosions, cicadas, leviathans, region gates, Moon's wake-up), and
+  `PausedDrawUpdate`'s micro shake (skipped for now, user 2026-10-22; paused frames repeat
+  the last offset, D1), and the Remix clamps (with Remix).
+  User 2026-10-22 on the wave 1 omissions: wet terrain and the Ant's `SpecificDepth`
+  shader (D23) go with the full-screen effects step; the echo branches (ghost mode, the
+  insects' `CreaturesSleepInRoom` early-out) with echoes; PinkSky and DayNight with the
+  DLCs; arena non-story light and `startUpTicks` 600 with arena sessions; insect
+  explosions with explosions; insect terrain curves when terrain curves are ported; the
+  `SunBlocker`'s (empty) update-list entry skipped.
+  Step 3 (cosmetic insects, `rw_sim::insect`, `../rainworld-re/notes/cosmetic-insects.md`)
+  done; its omissions are among the decisions above. Draw order for later steps:
+  `Room.NowViewed` makes shared-stream draws for GreenSparks, ZeroGSpecks (`BlinkSpeck`),
+  CorruptionSpores and FairyParticles in its effect loop before the insect roll
+  (`Room.cs` ~2632-2700, then `insectCoordinator.NowViewed`); the steps porting those
+  effects place their draws before `apply_insect_view_change`'s roll. No base room has
+  both today.
 - **Code quality pass after the lizard steps** (user, 2026-10-16): once lizard steps
   6 to 9 are merged, go over the workspace one crate at a time, a step per crate,
   finding code quality improvements (duplicated code to merge, and the like) and
@@ -75,10 +99,15 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   agreed (user, 2026-10-21): 7b (done), step 8 (done; player side: grabbed, bitten,
   `GameOver(grasp)`), 7c (done), the player picking up, carrying and eating dead
   lizards (done; living and stunned ones cannot be grabbed in the base game), then
-  step 9. Details in
+  step 9 (done: lineages, respawn lists, shelters, census). Details in
   `../rainworld-re/surveys/lizards.md` (user decisions).
 
 ## To look into
+- **Camera room switches mid-tick** (2026-10-22, camera-shake review; inferred): the
+  port's `camera_moves_to` sets the camera's room at once, where the game's
+  `cameras[0].room` stays the old room until `ApplyPositionChange` at the next
+  `RoomCamera.Update`. For the rest of that tick `ScreenMovement`s and the drips'
+  viewed check go to the new room.
 - **Creatures at open room edges** (user, 2026-10-22, for when more creatures get
   bodies): room borders are not solid (`Room.GetTile` copies the edge tile outside the
   room, so open air edges extend forever; the room file's `Border:` field is unread).

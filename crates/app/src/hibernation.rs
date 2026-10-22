@@ -46,11 +46,11 @@ impl HibernationWorld for HibernatingGame<'_> {
         self.sim.world().name().to_owned()
     }
 
-    fn adapt_region_state_to_world(&mut self, respawn: &mut Vec<i32>) -> String {
+    fn adapt_region_state_to_world(&mut self, respawn: &mut Vec<i32>, wait: &[i32]) -> String {
         let shelter = self.sim.player_pos().room;
         self.sim
             .world_mut()
-            .adapt_region_state_to_world(shelter, respawn)
+            .adapt_region_state_to_world(shelter, respawn, wait)
             .unwrap_or_default()
     }
 
@@ -438,6 +438,77 @@ mod tests {
                 .any(|(_, c)| format!("ID.{}.{}", c.id.spawner, c.id.number) == id && c.in_den);
             assert!(found, "{entry} restored");
         }
+    }
+
+    /// The cycle's `AddCreatureToRespawn` lists reach the save at `Win`: the respawns
+    /// as added, the waiting ones after `RainCycleTick`'s roll (one `value < 1/3` each,
+    /// from the last); both are written and read back, and a death afterwards
+    /// (`SessionEnded(survived: false)`) leaves them as saved.
+    #[test]
+    fn the_respawn_lists_survive_the_win_and_the_save() {
+        let Some(assets) = assets() else { return };
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("sav");
+        let mut saves = PlayerProgression::load(&path, Some(ChecksumSalt::new("s"))).unwrap();
+        let mut sim = game(
+            &assets,
+            "SU_A22",
+            StoryStart::new_game(&SlugcatCampaign::SURVIVOR),
+        );
+        saves
+            .get_or_initiate_save_state(START, sim.save_state_seed(), false, true)
+            .unwrap();
+        let end = hibernate(&mut sim);
+        assert!(matches!(end, SessionEnd::Win { .. }));
+        sim.world_mut().session.respawn_creatures = vec![5004];
+        sim.world_mut().session.wait_respawn_creatures = vec![5003, 5007];
+        let mut backed_up = false;
+        HibernatingGame {
+            sim: &mut sim,
+            assets: &assets,
+        }
+        .win(&mut saves, false, &mut backed_up)
+        .unwrap();
+        let state = saves
+            .state_in_memory(rw_assets::SlugcatName::White)
+            .unwrap()
+            .clone();
+        assert!(state.respawn_creatures.contains(&5004));
+        let mut all: Vec<i32> = state
+            .wait_respawn_creatures
+            .iter()
+            .chain(state.respawn_creatures.iter().filter(|&&s| s != 5004))
+            .copied()
+            .filter(|s| [5003, 5007].contains(s))
+            .collect();
+        all.sort_unstable();
+        assert_eq!(all, [5003, 5007], "each either still waits or respawns");
+
+        let mut again = PlayerProgression::load(&path, Some(ChecksumSalt::new("s"))).unwrap();
+        let loaded = again.peek_save_state(START).unwrap().expect("saved");
+        assert_eq!(loaded.respawn_creatures, state.respawn_creatures);
+        assert_eq!(loaded.wait_respawn_creatures, state.wait_respawn_creatures);
+
+        // The next cycle dies: nothing of its lists is saved.
+        let mut next = game(
+            &assets,
+            "SU_S01",
+            loaded.story_start("SU_S01".to_owned(), false),
+        );
+        next.world_mut().session.wait_respawn_creatures = vec![5010];
+        let mut again = PlayerProgression::load(&path, Some(ChecksumSalt::new("s"))).unwrap();
+        again
+            .get_or_initiate_save_state(START, 0, true, false)
+            .unwrap();
+        HibernatingGame {
+            sim: &mut next,
+            assets: &assets,
+        }
+        .session_ended_died(&mut again, None)
+        .unwrap();
+        let mut reread = PlayerProgression::load(&path, Some(ChecksumSalt::new("s"))).unwrap();
+        let after = reread.peek_save_state(START).unwrap().expect("saved");
+        assert_eq!(after.wait_respawn_creatures, state.wait_respawn_creatures);
     }
 
     /// The HUD prompt's unset death room 0 saves as `GATE_CC_UW`, the first line of the

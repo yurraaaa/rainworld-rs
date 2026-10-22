@@ -1,25 +1,49 @@
 //! The room's level graphic: settings, palettes and the shown camera's image (the
-//! scene's room camera chooses which).
+//! scene's room camera chooses which), the palette's rain darkening (`DarkPalette`,
+//! `ApplyFade`) and the level shader's light (`_light`).
 //!
-//! Mirrors: RoomCamera.cs
+//! Mirrors: RoomCamera.cs (DarkPalette, ApplyFade, ChangeRoom, MoveCamera2, DrawUpdate)
 
 use rw_assets::{
-    AssetError, NoiseTexture, PaletteTexture, PngImage, Room, RoomVisuals, StreamingAssets,
-    UnityResources,
+    AssetError, DangerType, NoiseTexture, PaletteTexture, PngImage, Room, RoomEffectType,
+    RoomVisuals, StreamingAssets, UnityResources,
 };
 use rw_render::{LevelGraphics, LevelParams, LevelView, Renderer, RoomCamera};
+use rw_sim::world::RainCycle;
 
 /// Level graphic state of one room.
 pub struct Visuals {
     room: RoomVisuals,
     noise: NoiseTexture,
+    /// `room.lightAngle`.
+    light_angle: [f32; 2],
     /// The camera whose image is shown.
     shown: usize,
     /// Every camera's image, decoded once at load so switching never stalls.
     images: Vec<PngImage>,
     palette: PaletteTexture,
+    /// The `DarkPalette` the palette was last built with (`fadeCoord.y`).
+    dark: f32,
     /// Counts camera switches, so a renderer knows when its upload is stale.
     generation: u32,
+    /// Counts palette rebuilds without a camera switch (`ApplyFade` on a new dark).
+    palette_generation: u32,
+}
+
+/// The level shader's inputs for `get_state`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LevelState {
+    pub params: LevelParams,
+    /// `_light`.
+    pub light: f32,
+    /// `num4`: the room's light level before clouds.
+    pub shader_light: f32,
+    /// `DarkPalette`.
+    pub dark_palette: f32,
+    /// `paletteBlend`.
+    pub palette_blend: f32,
+    /// `SunBlocker`s in the room.
+    pub sun_blockers: usize,
 }
 
 impl Visuals {
@@ -53,11 +77,14 @@ impl Visuals {
             .collect::<Result<_, _>>()?;
         Ok(Self {
             noise: NoiseTexture::load(resources)?,
+            light_angle: room.light_angle(),
             images,
-            palette: visuals.palette_for_camera(0),
+            palette: visuals.palette_for_camera(0, 0.0),
             room: visuals,
             shown: 0,
+            dark: 0.0,
             generation: 0,
+            palette_generation: 0,
         })
     }
 
@@ -65,13 +92,95 @@ impl Visuals {
     pub fn show(&mut self, i: usize) {
         let i = i.min(self.images.len().saturating_sub(1));
         self.shown = i;
-        self.palette = self.room.palette_for_camera(i);
+        self.palette = self.room.palette_for_camera(i, self.dark);
         self.generation += 1;
+    }
+
+    /// `RoomCamera.Update`'s `ApplyFade` when `DarkPalette` changed under `rain`;
+    /// returns whether the palette was rebuilt.
+    pub fn fade(&mut self, rain: &RainCycle) -> bool {
+        let dark = self.dark_palette(rain);
+        if dark == self.dark {
+            return false;
+        }
+        self.dark = dark;
+        self.palette = self.room.palette_for_camera(self.shown, dark);
+        self.palette_generation += 1;
+        true
+    }
+
+    /// `DarkPalette`: 0 in rooms without rain danger, else the rain cycle's
+    /// `RainDarkPalette` times the room's `RainIntensity`. A start without a cycle
+    /// (`cycle_length` 0) keeps 0 (D22).
+    #[must_use]
+    pub fn dark_palette(&self, rain: &RainCycle) -> f32 {
+        if rain.cycle_length == 0 || !self.rain_danger() {
+            // A `BrokenZeroG` room would take `1 - CurrentLightsOn` of the broken
+            // anti-gravity here; zero gravity is not ported.
+            return 0.0;
+        }
+        rain.rain_dark_palette() * self.room.settings().rain_intensity
+    }
+
+    /// `num4` of `DrawUpdate`: the rain cycle's `ShaderLight` in rooms with rain danger,
+    /// else 1 (lightning is not ported). A start without a cycle keeps 1 (D22).
+    #[must_use]
+    pub fn shader_light(&self, rain: &RainCycle) -> f32 {
+        if rain.cycle_length == 0 || !self.rain_danger() {
+            return 1.0;
+        }
+        rain.shader_light()
+    }
+
+    /// `DangerType != None` (an unregistered value counts as rain, as in the game).
+    fn rain_danger(&self) -> bool {
+        self.room.settings().danger_type != Some(DangerType::None)
+    }
+
+    /// `_light` (no ghost).
+    #[must_use]
+    pub fn light(&self, rain: &RainCycle) -> f32 {
+        LevelParams::light(self.room.settings().clouds, self.shader_light(rain), 0.0)
+    }
+
+    /// The level shader's room-constant uniforms.
+    #[must_use]
+    pub fn params(&self) -> LevelParams {
+        LevelParams::new(self.room.settings(), &self.palette, self.light_angle)
+    }
+
+    /// `Room.Loaded` adds a `SunBlocker` per `SunBlock` effect, whatever its amount.
+    #[must_use]
+    pub fn sun_blockers(&self) -> usize {
+        self.room
+            .settings()
+            .effects
+            .iter()
+            .filter(|e| e.kind == RoomEffectType::SunBlock.value())
+            .count()
+    }
+
+    /// The level shader's inputs under `rain`, for `get_state`.
+    #[must_use]
+    pub fn state(&self, rain: &RainCycle) -> LevelState {
+        LevelState {
+            params: self.params(),
+            light: self.light(rain),
+            shader_light: self.shader_light(rain),
+            dark_palette: self.dark,
+            palette_blend: self.room.palette_blend(self.shown),
+            sun_blockers: self.sun_blockers(),
+        }
     }
 
     #[must_use]
     pub fn generation(&self) -> u32 {
         self.generation
+    }
+
+    #[must_use]
+    pub fn palette_generation(&self) -> u32 {
+        self.palette_generation
     }
 
     /// Uploads the shown camera's graphic.
@@ -82,8 +191,13 @@ impl Visuals {
             image: &self.images[current],
             palette: &self.palette,
             noise: &self.noise,
-            params: LevelParams::new(self.room.settings(), &self.palette),
+            params: self.params(),
         });
+    }
+
+    /// Uploads the palette alone (after [`fade`](Self::fade) rebuilt it).
+    pub fn upload_palette(&self, renderer: &mut impl Renderer) {
+        renderer.set_level_palette(&self.palette);
     }
 
     /// The palette's `blackColor` (the slugcat's eye colour), as stored.
@@ -129,13 +243,21 @@ impl Visuals {
         rw_graphics::Color { r, g, b, a }
     }
 
-    /// The game's window at `alpha` between ticks, `seconds` of shader time in.
+    /// The game's window at `alpha` between ticks, `seconds` of shader time in, lit
+    /// under `rain`.
     #[must_use]
-    pub fn view(camera: &RoomCamera, alpha: f32, seconds: f32) -> LevelView {
+    pub fn view(
+        &self,
+        camera: &RoomCamera,
+        alpha: f32,
+        seconds: f32,
+        rain: &RainCycle,
+    ) -> LevelView {
         LevelView {
             origin: camera.view_origin(alpha),
             size: camera.screen_size(),
             rain: seconds / 5.0,
+            light: self.light(rain),
         }
     }
 }

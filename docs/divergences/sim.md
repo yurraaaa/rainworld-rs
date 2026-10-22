@@ -138,11 +138,22 @@ physics with neutral input, its water, graphics and room camera as in the game.
   grasp and the deer-antlers ride cancelling fall damage.
 - **Water.** Drowning is D11; inverted water (DLC) is not modelled.
 
-- **Other creatures.** Bat flies and overseers are stunned (`Stun`'s counter) and die
-  (`Creature.Die`, `AbstractCreature.Die`) as in the game: the kill tag and its 200
-  ticks, the slugcat's `Killing` (kill, peaceful streak, community like) and the
-  respawn lists. `SocialEventRecognizer`'s listeners other than the lizards' and the
-  More Slugcats and Watcher branches of `Die` are not ported.
+- **Other creatures.** Bat flies, overseers and lizards are stunned (`Stun`'s
+  counter) and die (`Creature.Die`, `AbstractCreature.Die`) as in the game: the kill
+  tag and its 200 ticks, the slugcat's `Killing` (kill, peaceful streak, community
+  like) and the respawn lists (`AddCreatureToRespawn`: a slugcat's kill rolls the
+  lineage's `ChanceToProgress` and waits, any other death respawns next cycle; at
+  `Win` `RainCycleTick` rolls the wait list, `AdaptRegionStateToWorld` puts a dead
+  loaded creature on neither list up for respawn). Every death path a green lizard
+  has in the port reaches it: violence (weapons, a rival's bite), the health roll,
+  drowning, the fall out of the room, prey killed in a den. The tutorial's
+  `kill_green_lizards` is the game's `LizardState.Die` (no respawn). The shelter's
+  `KillAllHostiles` is ported whole; lizards are not hostile and stay in a shelter
+  (saved at its node 0). `SocialEventRecognizer`'s listeners other than the lizards'
+  and the More Slugcats and Watcher branches of `Die` (Saint's ascension, Gourmand's
+  slam, lava, brine, poison, hypothermia) are not ported, nor
+  `AbstractCreature.Update`'s death of a living creature without a room (no port
+  creature is without one).
 
 **Why.** The respawn is a development aid the user kept outside story sessions; the
 rest is out of the base-game scope or randomness (D1).
@@ -318,8 +329,8 @@ restrictions (`rainworld-re/notes/water.md`), base game with Remix off, Survivor
   uses `<=`), the Rivulet/Artificer/Saint/Watcher/energy-cell/jetfish branches and the
   More Slugcats flood.
 - **Not ported:** `WaterCutoff` and `AirPocket` placed objects (no base-game room
-  uses them), `WaterViscosity` (unused in the base game), rain rumble, screen shake and
-  flooding, lethal water, splashes and bubbles, ripple waves from explosions, the
+  uses them), `WaterViscosity` (unused in the base game), rain rumble, the rain's screen
+  shake (`RainCycle.ScreenShake`/`MicroScreenShake` in the waves) and flooding, lethal water, splashes and bubbles, ripple waves from explosions, the
   analogue swim direction (digital input only).
 - **Slerp is reconstructed.** `Vector3.Slerp` is native code. `rw_sim::Vec3::slerp`
   follows Unity's known implementation: lerp below magnitude 1e-5 or when nearly
@@ -415,8 +426,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
   shown over another instruction, unparsable placed data, a forced hologram without a
   direction) the port logs and goes on. A door pointer without the tutorial would follow the player with a
   `CreatureDoorDistanceTracker` (on the Fly's exit distances, which now exist): it is
-  made but its update is not ported, so the pointer keeps pointing. The bat pointer's `CycleStartUp` is
-  1 (the cycle's start-up ticks are not ported), and a new game has discovered no
+  made but its update is not ported, so the pointer keeps pointing. The bat pointer reads the
+  cycle's `CycleStartUp` as the game's does; a new game has discovered no
   shelters and visited no rooms. The controls picture is always the keyboard's (the
   gamepad and Switch pictures are ported but no other control preset exists). A pointer
   whose overseer has left the room goes on updating where the game's would throw (shelter
@@ -844,7 +855,9 @@ Differences:
   (D16) and are realized in their rooms (D14).
 - **Kills.** A cycle's kills, its respawn and wait-respawn spawners and its community
   influences reach the save only through `Win` (D16), as in the game; a death or a
-  quit drops them.
+  quit drops them, and the next cycle reloads the lists last saved. A lizard in the
+  shelter at `Win` (alive in the player's shelter, or dead in any) is saved at the
+  shelter's node 0 with its `LizardState` and comes back there.
 - **Karma flowers.** The player's `karmaFlowerGrowPos` is tracked as `Player.Update`
   does (`PlaceKarmaFlower`: reinforced karma, the Monk, the Hunter out of cycles), and
   `PlaceKarmaFlowerOnDeathSpot` stores it in the save state's `karmaFlowerPosition`
@@ -864,9 +877,10 @@ Differences:
   starve (without its `DeathEvent`) or a door closing on a dead Hunter out of cycles
   saves an ordinary death.
 - **Not ported:** More Slugcats' ancient and broken shelters, `PrecycleModule`, the
-  shelter tutorials, the dream ghost, `GetStuffInWalls`, the door's screen shake,
-  killing hostiles at close (the check alone is ported), and every Jolly Co-op and More
-  Slugcats branch.
+  shelter tutorials, the dream ghost, `GetStuffInWalls`,
+  and every Jolly Co-op and More Slugcats branch. `KillAllHostiles` is ported (a big
+  hostile goes back to its spawner's den; none of the hostile kinds has a body in the
+  port, so none is killed or destroyed there yet).
 - **Malnourishment, DLC and Remix branches omitted:** More Slugcats' slugcats' own
   malnourished stats, pup malnourishment and `malnourishedByCreature`, the Saint's and
   wounded exhaustion, Gourmand's exhaustion, the oracle and Artificer hooks, Expedition's

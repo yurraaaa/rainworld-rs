@@ -39,6 +39,7 @@ mod player;
 mod room_ext;
 pub mod room_script;
 mod shared_physics;
+mod screen_shake;
 pub mod shelter;
 mod shortcut;
 mod sound;
@@ -64,7 +65,7 @@ pub use game::{
 };
 pub use light_source::{LightHardSet, LightSource, LightTie};
 pub use map_discovery::{DiscoveryTexture, HudMapLink, MapDiscovery, MapRoom, UnityTexture};
-pub use noise::{ImpactNoises, InGameNoise, NoiseSink};
+pub use noise::{ImpactCall, ImpactCalls, InGameNoise, NoiseSink, RoomCall};
 pub use object::{
     BodyChunkConnection, ConnectionKind, PhysicalObject, TerrainImpactHandler, slugcat,
 };
@@ -73,6 +74,7 @@ pub use player::{
     Input, Player, PlayerController, ShelterCheck, SpearOnBack, StomachObject, VesselStep,
 };
 pub use room_ext::RoomExt;
+pub use screen_shake::{CameraShake, ScreenMovement};
 pub use shelter::SessionEnd;
 pub use shortcut::{
     CreatureVessel, EntranceColor, LobbyVessel, ShortcutHandler, ShortcutsBlinking, VesselOwner,

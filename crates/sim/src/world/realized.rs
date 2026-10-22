@@ -59,6 +59,8 @@ pub struct RealizedRoom {
     pub light_sources: Vec<crate::LightSource>,
     /// `insectCoordinator`, made by `Room.Loaded` for an insect effect or group.
     pub insects: Option<crate::insect::InsectCoordinator>,
+    /// `ceilingTiles` (`Room.Loaded`), where `ScreenMovement` shakes drips off.
+    pub ceiling_tiles: Vec<(i32, i32)>,
 }
 
 impl RealizedRoom {
@@ -74,6 +76,7 @@ impl RealizedRoom {
     ) -> Self {
         let wait = Self::entry_delay(&loaded.settings, &data.name, story, timeline, mods);
         let insects = crate::insect::InsectCoordinator::for_room(&loaded.settings, timeline, mods);
+        let ceiling_tiles = Self::find_ceiling_tiles(&loaded.room);
         Self {
             room: Arc::new(loaded.room),
             settings: loaded.settings,
@@ -92,6 +95,7 @@ impl RealizedRoom {
             holo_lights: Vec::new(),
             light_sources: Vec::new(),
             insects,
+            ceiling_tiles,
         }
     }
 

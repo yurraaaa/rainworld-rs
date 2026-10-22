@@ -46,6 +46,9 @@ pub struct State {
     pub room: String,
     /// Shown camera (0-based), when the room has a level graphic.
     pub camera: Option<usize>,
+    /// Camera 0's shake, once anything moved the screen.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub camera_shake: Option<CameraShakeState>,
     /// The player's room (differs from `room` while its vessel waits to enter).
     pub player_room: String,
     /// The player's `abstractNode`: the exit node last passed, -1 if none.
@@ -68,6 +71,9 @@ pub struct State {
     pub objects: Vec<ObjectInfo>,
     /// `world.rainCycle`.
     pub rain: RainState,
+    /// The camera room's level shader inputs, when it has a level graphic.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub level_params: Option<LevelParamsState>,
     /// The camera room's shelter door, when it has one.
     pub shelter_door: Option<ShelterDoorState>,
     /// The music player beside the game (its song requests, threat tracker).
@@ -214,6 +220,12 @@ pub struct SessionInfo {
     /// Spawners added to `respawnCreatures` and `waitRespawnCreatures` this cycle.
     pub respawn: Vec<i32>,
     pub wait_respawn: Vec<i32>,
+    /// The save's `respawnCreatures` left after `GeneratePopulation` (the next save
+    /// adds `respawn` to it).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub saved_respawn: Vec<i32>,
+    /// `LikeOfPlayer` of each community in this region (the session's communities).
+    pub like_of_player: Vec<(String, f32)>,
     /// The guide state's `likesPlayer` and `increaseLikeOnSave`.
     pub guide_likes_player: f32,
     pub guide_increase_like_on_save: bool,
@@ -234,6 +246,55 @@ pub struct ShelterDoorState {
 pub struct RainState {
     pub timer: i32,
     pub cycle_length: i32,
+}
+
+/// The level shader's uniforms (`RoomCamera`'s shader globals) and palette fade.
+#[derive(Debug, Clone, Serialize)]
+pub struct LevelParamsState {
+    /// `_light` (1 full sun, -1 none).
+    pub light: f32,
+    /// `num4`: the rain cycle's `ShaderLight` in rooms with rain danger, else 1.
+    pub shader_light: f32,
+    /// `DarkPalette`: the palette's blend toward its rain-dark half.
+    pub dark_palette: f32,
+    /// `paletteBlend`: the shown camera's `FadePalette` amount.
+    pub palette_blend: f32,
+    /// `_Grime`.
+    pub grime: f32,
+    /// `_fogAmount`.
+    pub fog_amount: f32,
+    /// `_darkness`, `_contrast`, `_saturation`, `_hue`, `_brightness`.
+    pub grade: [f32; 5],
+    /// `_cloudsSpeed`.
+    pub clouds_speed: f32,
+    /// `_rimFix`.
+    pub rim_fix: f32,
+    /// `_AboveCloudsAtmosphereColor` (RGB), used with `rim_fix`.
+    pub atmosphere: [f32; 3],
+    /// `_lightDirAndPixelSize.xy`: `room.lightAngle`.
+    pub light_dir: [f32; 2],
+    /// `SunBlocker`s drawn in the `Shadows` container.
+    pub sun_blockers: usize,
+}
+
+impl From<crate::visuals::LevelState> for LevelParamsState {
+    fn from(s: crate::visuals::LevelState) -> Self {
+        let p = s.params;
+        Self {
+            light: s.light,
+            shader_light: s.shader_light,
+            dark_palette: s.dark_palette,
+            palette_blend: s.palette_blend,
+            grime: p.grime,
+            fog_amount: p.fog_amount,
+            grade: [p.darkness, p.contrast, p.saturation, p.hue, p.brightness],
+            clouds_speed: p.clouds_speed,
+            rim_fix: p.rim_fix,
+            atmosphere: p.atmosphere,
+            light_dir: p.light_dir,
+            sun_blockers: s.sun_blockers,
+        }
+    }
 }
 
 /// One `AbstractCreature`.
@@ -978,6 +1039,39 @@ pub struct StartUpState {
     pub controls_page_due: bool,
 }
 
+/// `RoomCamera`'s shake (`rw_sim::CameraShake`).
+#[derive(Debug, Clone, Serialize)]
+pub struct CameraShakeState {
+    pub screen_shake: f32,
+    pub micro_shake: f32,
+    /// The window's bottom-left (`pos`) after the last tick.
+    pub pos: [f32; 2],
+    /// The last `ScreenMovement` that reached the camera, as applied (divided by its
+    /// distance factor): source, bump, shake.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_source: Option<[f32; 2]>,
+    pub last_bump: Option<[f32; 2]>,
+    pub last_shake: Option<f32>,
+}
+
+impl CameraShakeState {
+    /// `None` until anything moved the screen.
+    #[must_use]
+    pub fn of(s: &rw_sim::CameraShake) -> Option<Self> {
+        if s.last.is_none() && s.screen_shake == 0.0 && s.micro_shake == 0.0 {
+            return None;
+        }
+        Some(Self {
+            screen_shake: s.screen_shake,
+            micro_shake: s.micro_shake,
+            pos: s.pos.to_array(),
+            last_source: s.last.and_then(|m| m.source).map(rw_sim::Vec2::to_array),
+            last_bump: s.last.map(|m| m.bump.to_array()),
+            last_shake: s.last.map(|m| m.shake),
+        })
+    }
+}
+
 /// `betweenRoomsWaitingLobby`'s vessel.
 #[derive(Debug, Clone, Serialize)]
 pub struct LobbyState {
@@ -1314,6 +1408,12 @@ pub struct SaveStateInfo {
     pub deaths: i32,
     pub quits: i32,
     pub loaded: bool,
+    /// `RESPAWNS` and `WAITRESPAWNS`.
+    pub respawn_creatures: Vec<i32>,
+    pub wait_respawn_creatures: Vec<i32>,
+    /// The `WinState` Dragon Slayer tracker's lizards killed (in `lizardsOrder`:
+    /// green, pink, blue, white, yellow, black), if it has one.
+    pub dragon_slayer: Option<Vec<bool>>,
 }
 
 /// A story game's start values and the player's room and food now.

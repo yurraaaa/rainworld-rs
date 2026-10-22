@@ -67,6 +67,9 @@ pub use heavy_ai::HeavyAiThrottle;
 pub use items::Grabability;
 pub use lizard_ai::UtilityReadings;
 pub use over::GameOver;
+#[cfg(test)]
+#[path = "game_screen_shake_tests.rs"]
+mod screen_shake_tests;
 #[path = "game_shelter.rs"]
 mod shelter_door;
 #[path = "game_tracker.rs"]
@@ -100,8 +103,8 @@ use crate::shelter::{SessionEnd, ShelterDoor};
 use crate::shortcut::{CreatureVessel, Transport};
 use crate::world::{AbstractTick, FollowCreature, RainCycle, RegionState, RoomRealizer, World};
 use crate::{
-    EmitterPlace, EntranceColor, HudMapLink, Input, LobbyVessel, MapDiscovery, Player,
-    ShortCutColor, ShortcutHandler, Sounds, Vec2, VesselOwner, VesselStep, Water,
+    CameraShake, EmitterPlace, EntranceColor, HudMapLink, Input, LobbyVessel, MapDiscovery, Player,
+    ScreenMovement, ShortCutColor, ShortcutHandler, Sounds, Vec2, VesselOwner, VesselStep, Water,
     determine_safe_spawn_tile,
 };
 
@@ -413,6 +416,8 @@ pub struct RainWorldGame {
     camera_move: Option<CameraMove>,
     /// Camera 0's positions as the app's room camera last reported them.
     camera_view: CameraView,
+    /// Camera 0's shake and its window during the tick.
+    camera_shake: CameraShake,
     /// The player's place in its room's `updateList`.
     player_seq: u64,
     hud_events: Vec<HudEvent>,
@@ -565,6 +570,7 @@ impl RainWorldGame {
                 current: 0,
                 next: 0,
             },
+            camera_shake: CameraShake::default(),
             player_seq: 0,
             hud_events: Vec::new(),
             rng,
@@ -655,10 +661,7 @@ impl RainWorldGame {
             den_position: story.den.clone(),
         };
         let guide = &story.guide;
-        world.rain_cycle = RainCycle::new_story(campaign.name, rng);
-        if story.cycle_number > 0 {
-            world.rain_cycle.start_up_ticks = 2400;
-        }
+        world.rain_cycle = RainCycle::new_story(campaign.name, story.cycle_number, rng);
         let mut respawn = story.respawn_creatures.clone();
         let fresh = story.region_state.is_none() && story.live_region_state.is_none();
         // `World.LoadWorld`: the region state still in memory, else read from its load
@@ -787,13 +790,16 @@ impl RainWorldGame {
         log::info!("respawned player");
     }
 
-    /// One 40 Hz tick in `RainWorldGame.Update`'s order: the room realizer, one
+    /// One 40 Hz tick in `RainWorldGame.Update`'s order: camera 0's shake (the end of
+    /// `RoomCamera.Update`; the app ran its window's lerp before the tick), the room realizer, one
     /// abstract room (in turn, with the time of a whole round), the rain cycle, the
     /// path finders' budget, the shortcut handler on every third tick, every active room (newest first: the entry
     /// delay, its water, and the player in it with its graphics), then the loading
     /// step.
     pub fn tick(&mut self, input: Input, observer: &mut dyn PlayerObserver) {
+        // `RoomCamera.Update`: the room change (`ApplyPositionChange`) before the shake.
         self.apply_insect_view_change();
+        self.camera_shake.update(&mut self.rng);
         let follow = self.follow_creature();
         if let (Some(realizer), Some(follow)) = (&mut self.realizer, follow) {
             realizer.update(
@@ -1833,6 +1839,8 @@ impl RainWorldGame {
                     room: index,
                     water: water.as_ref(),
                     player: body,
+                    camera: self.camera_view,
+                    shake: &mut self.camera_shake,
                 };
                 player.update_after_clamp(
                     room,
@@ -1984,6 +1992,34 @@ impl RainWorldGame {
     #[must_use]
     pub fn camera_view(&self) -> CameraView {
         self.camera_view
+    }
+
+    /// Camera 0's shake state.
+    #[must_use]
+    pub fn camera_shake(&self) -> &CameraShake {
+        &self.camera_shake
+    }
+
+    /// Hands in the app's camera window (`pos` after `Update`'s lerp and clamp,
+    /// `ScreenSize.x`) before the tick.
+    pub fn set_camera_pos(&mut self, pos: Vec2, screen_width: f32) {
+        self.camera_shake.set_pos(pos, screen_width);
+    }
+
+    /// What the tick's shake jump and `ScreenMovement` bumps moved the camera window by.
+    pub fn take_camera_displacement(&mut self) -> Vec2 {
+        self.camera_shake.take_displacement()
+    }
+
+    /// `room.ScreenMovement(...)` in room `index`.
+    pub(crate) fn room_screen_movement(&mut self, index: i32, m: ScreenMovement) {
+        self.world.screen_movement(
+            index,
+            m,
+            &self.camera_view,
+            &mut self.camera_shake,
+            &mut self.rng,
+        );
     }
 
     /// The camera move since the last call (the first room, then each room entered).

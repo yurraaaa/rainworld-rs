@@ -1,14 +1,16 @@
 //! The game's side of shelters: the `ShelterDoor` `Room.Loaded` adds, its update in the
-//! room, the player's sleep and hibernation checks, `FoodInRoom` and `DoorClosed`.
+//! room, the player's sleep and hibernation checks, `FoodInRoom`, `KillAllHostiles` and
+//! `DoorClosed`.
 //!
 //! Mirrors: ShelterDoor.cs, Room.cs (Loaded), Player.cs (sleep checks)
 
 use std::sync::Arc;
 
+use rw_assets::creatures::CreatureSpawner;
 use rw_assets::{CreatureType, Room, SlugcatName, Terrain};
 
 use super::RainWorldGame;
-use crate::creature::CreatureId;
+use crate::creature::{CreatureId, WorldCoordinate};
 use crate::shelter::{SessionEnd, ShelterDoor};
 use crate::{Input, Player, ShelterCheck, TileExt};
 
@@ -164,7 +166,11 @@ impl RainWorldGame {
             &mut self.silent
         };
         self.shelter_doors[k].update_loop_emitters(sounds);
-        let step = self.shelter_doors[k].update(timer, sounds, &mut self.rng);
+        let mut moves = Vec::new();
+        let step = self.shelter_doors[k].update(timer, sounds, &mut self.rng, &mut moves);
+        for m in moves {
+            self.room_screen_movement(index, m);
+        }
         if step.stun_creatures {
             self.stun_shelter_creatures(index);
         }
@@ -279,22 +285,44 @@ impl RainWorldGame {
         mapper.update(100, &old, &room);
     }
 
-    /// `KillAllHostiles`: while a hostile creature is alive in the shelter the check
-    /// goes on (no hostile creature is realized in the port, so none is killed or moved
-    /// back to its den).
+    /// `KillAllHostiles`: each hostile creature in the shelter's range dies if realized
+    /// (its state first, so `AbstractCreature.Die` adds no respawn) and a big one goes back
+    /// to its spawner's den (`Move`); the check goes on while one of them was alive.
+    /// Lizards are not hostile: they stay in the shelter. The list is walked by index
+    /// as the game does, so the creature after one moved out is skipped this tick.
     fn kill_all_hostiles(&mut self, index: i32, k: usize) {
         let ancient = self
             .world
             .abstract_room(index)
             .is_some_and(|r| r.ancient_shelter);
-        let alive = self.world.room_creatures(index).iter().any(|&c| {
-            let c = self.world.creature(c);
-            ShelterDoor::hostile_for_shelter(c.kind())
-                && ShelterDoor::coord_inside_shelter_range(c.pos.tile, ancient)
-                && c.state.alive
-        });
+        let mut alive = false;
+        let mut i = 0;
+        while let Some(&id) = self.world.room_creatures(index).get(i) {
+            i += 1;
+            let c = self.world.creature(id);
+            if !ShelterDoor::hostile_for_shelter(c.kind())
+                || !ShelterDoor::coord_inside_shelter_range(c.pos.tile, ancient)
+            {
+                continue;
+            }
+            alive |= c.state.alive;
+            if c.is_realized() {
+                self.world.creature_mut(id).state.alive = false;
+                self.realized_creature_die(id);
+            }
+            let c = self.world.creature(id);
+            if ShelterDoor::big_for_shelter(c.kind()) {
+                log::info!("removed giant creature {:?} from shelter", c.id);
+                if let Some(den) = self.world.spawner(c.id).map(CreatureSpawner::den) {
+                    let den = WorldCoordinate::new(den.room, -1, -1, den.node);
+                    self.world.move_creature(id, den);
+                }
+                // No big creature has a body in the port: nothing to `Destroy`.
+            }
+        }
         if !alive {
             self.shelter_doors[k].kill_hostiles = false;
+            log::info!("killed all hostiles in shelter");
         }
     }
 
