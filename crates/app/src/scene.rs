@@ -157,8 +157,8 @@ impl Scene {
         self.game.set_palette_earth(earth);
     }
 
-    /// The camera room's `DeathFallGraphic` (`Room.Loaded`), at its height for this
-    /// tick's camera.
+    /// The camera room's `DeathFallGraphic` (`Room.Loaded`), as `InitiateSprites` sets
+    /// it on the camera's entry.
     fn new_death_fall(&self) -> Option<DeathFall> {
         let sim = self.game.sim();
         let world = sim.world();
@@ -173,14 +173,12 @@ impl Scene {
         let placed = realized
             .settings
             .placed_objects_for(world.timeline(), world.mods());
-        let mut fall = DeathFall::new(
+        DeathFall::new(
             &realized.room,
             realized.water.as_ref(),
             unbroken_shelter,
             &placed,
-        )?;
-        fall.place(&realized.room, index, &sim.camera_view());
-        Some(fall)
+        )
     }
 
     /// `DeathFallGraphic.Update` for this tick.
@@ -886,8 +884,8 @@ impl FrameDraw<'_> {
         }
         if let Some(level) = self.level {
             self.draw_layer(r, Layer::Water, level);
-            // `Bloom`, after `Water` (and the empty `GrabShaders`): the full-screen
-            // effect, then the holograms (D7).
+            // `Bloom`, after `Water` (and the empty `GrabShaders`): the death fall, the
+            // full-screen effect, then the holograms (D7).
             self.draw_layer(r, Layer::Bloom, level);
             for h in self.holograms {
                 r.draw_sprites(h, Layer::Bloom, level.origin);

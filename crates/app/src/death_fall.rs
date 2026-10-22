@@ -25,6 +25,8 @@ impl DeathFall {
     /// `Room.Loaded`'s `DeathFallGraphic`, when `RoomRequiresDeathFall`: not in an
     /// unbroken shelter, and some bottom-row tile open (no water) or under water below
     /// -1200 px. The `RoomWrap` (DLC) and terrain-curve checks are off in the base game.
+    /// The height is `InitiateSprites`' (made on each camera entry): the lowest camera's
+    /// bottom, focal points ignored until the next `Update`.
     #[must_use]
     pub fn new(
         room: &Room,
@@ -55,16 +57,11 @@ impl DeathFall {
         })
     }
 
-    /// `Update`: one more tick of the counter, and the height.
+    /// `Update`: one more tick of the counter; the height is the default, or the bottom
+    /// of the first camera of the room (`CameraViewingPoint`, 1366x768 rects) holding
+    /// the first focal point camera 0 shows.
     pub fn update(&mut self, room: &Room, index: i32, view: &CameraView) {
         self.counter += 1;
-        self.place(room, index, view);
-    }
-
-    /// `Update`'s height: the default, or the bottom of the first camera of the room
-    /// (`CameraViewingPoint`, 1366x768 rects) holding the first focal point camera 0
-    /// shows.
-    pub fn place(&mut self, room: &Room, index: i32, view: &CameraView) {
         self.height = self.default_height;
         for &p in &self.focal_points {
             if view.viewed(index, room, p, 0.0)
@@ -160,7 +157,8 @@ mod tests {
     }
 
     /// `Update`: a focal point the camera shows sets the height to the bottom of the
-    /// first camera rect (1366x768) holding it; out of view, the default.
+    /// first camera rect (1366x768) holding it; out of view, the default. Before the first
+    /// `Update` the height is `InitiateSprites`' default, whatever the focal points.
     #[test]
     fn a_viewed_focal_point_moves_the_height() {
         let r = room(false);
@@ -170,6 +168,11 @@ mod tests {
             current: 0,
             next: 0,
         };
+        assert_eq!(
+            fall.height, -860.0,
+            "InitiateSprites: the default until Update"
+        );
+        assert_eq!(fall.counter, 0);
         fall.update(&r, 3, &view);
         assert_eq!(fall.height, -560.0);
         fall.update(&r, 4, &view);
