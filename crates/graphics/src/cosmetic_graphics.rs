@@ -1,10 +1,10 @@
 //! `Spark.DrawSprites` (40745), `ExplosionSpikes.DrawSprites` (34935),
-//! `LizardBubble.DrawSprites` and `StationaryEffect.DrawSprites`: a streak in
-//! `Midground` (in the lizard's head colour while its graphics flicker white), a ring of
-//! fading spikes in `Foreground`, a lizard's bubble and its head shield's flash. The
-//! flash draws on the cosmetic stream (D1).
+//! `LizardBubble.DrawSprites`, `StationaryEffect.DrawSprites` and `Bubble.DrawSprites`: a
+//! streak in `Midground` (in the lizard's head colour while its graphics flicker white),
+//! a ring of fading spikes in `Foreground`, a lizard's bubble and its head shield's
+//! flash, and an air bubble in the water. The flash draws on the cosmetic stream (D1).
 //!
-//! Mirrors: Spark.cs, ExplosionSpikes.cs, LizardBubble.cs, StationaryEffect.cs (DrawSprites)
+//! Mirrors: Spark.cs, ExplosionSpikes.cs, LizardBubble.cs, StationaryEffect.cs, Bubble.cs (DrawSprites)
 
 use std::borrow::Cow;
 
@@ -12,7 +12,9 @@ use rw_assets::Room;
 use rw_random::UnityRandom;
 use rw_sim::creature::CreatureId;
 use rw_sim::creature::lizard::LizardBubble;
-use rw_sim::{Cosmetic, CosmeticKind, ExplosionSpikes, RoomExt, Spark, StationaryEffect, Vec2};
+use rw_sim::{
+    Bubble, Cosmetic, CosmeticKind, ExplosionSpikes, RoomExt, Spark, StationaryEffect, Vec2,
+};
 
 use crate::draw::{Color, DrawItem, DrawList, Layer, Mesh, Shader, Sprite};
 use crate::lizard_draw::LizardReading;
@@ -111,6 +113,7 @@ impl CosmeticSprites for Cosmetic {
             CosmeticKind::OverseerEffect(_) => return DrawList { items: Vec::new() },
             CosmeticKind::LizardBubble(b) => b.sprite(t, lizards),
             CosmeticKind::Flash(f) => f.sprite(t, lizards, rng),
+            CosmeticKind::Bubble(b) => b.sprite(t),
         };
         DrawList { items: vec![item] }
     }
@@ -192,6 +195,31 @@ impl BubbleSprite for LizardBubble {
         } else {
             Self::sprite_at(element, pos, Vec2::new(size, size), 0.0, 0.5, color)
         }
+    }
+}
+
+/// `Bubble.DrawSprites`.
+trait AirBubbleSprite {
+    fn sprite(&self, t: f32) -> DrawItem;
+}
+
+impl AirBubbleSprite for Bubble {
+    /// `LizardBubble5` in `Midground`, scaled `size * fullSize * 0.45`, in the
+    /// `(0, 1/255, 0)` the water's shader shows as lit water (`backgroundBubble`, set
+    /// only by More Slugcats' room scripts, is not ported: D11).
+    fn sprite(&self, t: f32) -> DrawItem {
+        let scale = self.last_size.lerp_to(self.size, t) * self.full_size * 0.45;
+        DrawItem::Sprite(Sprite {
+            index: 0,
+            element: "LizardBubble5",
+            pos: self.last_pos.lerp(self.pos, t),
+            rotation: 0.0,
+            scale: Vec2::new(scale, scale),
+            anchor: Vec2::new(0.5, 0.5),
+            color: Color::rgb(0.0, 1.0 / 255.0, 0.0),
+            shader: Shader::default(),
+            layer: Layer::Midground,
+        })
     }
 }
 
@@ -343,8 +371,36 @@ mod tests {
     use rw_sim::creature::lizard::{BubbleHead, LizardBubble};
     use rw_sim::{Spark, StationaryEffect, Vec2};
 
-    use super::{BubbleSprite, CosmeticMesh, FlashSprite, LizardColors, LizardModule, SparkMesh};
-    use crate::draw::{Color, DrawItem};
+    use super::{
+        AirBubbleSprite, BubbleSprite, CosmeticMesh, FlashSprite, LizardColors, LizardModule,
+        SparkMesh,
+    };
+    use crate::draw::{Color, DrawItem, Layer};
+
+    /// `Bubble.DrawSprites` halfway between ticks: size 0 to 1 at full size `f`, scale
+    /// `0.5 * f * 0.45`, in `(0, 1/255, 0)` in `Midground`.
+    #[test]
+    fn air_bubble_sprite() {
+        let mut b = rw_sim::Bubble::new(
+            Vec2::ZERO,
+            Vec2::ZERO,
+            false,
+            false,
+            &mut UnityRandom::new(1),
+        );
+        b.last_pos = Vec2::new(10.0, 20.0);
+        b.pos = Vec2::new(14.0, 30.0);
+        b.size = 1.0;
+        let DrawItem::Sprite(s) = b.sprite(0.5) else {
+            panic!("a sprite");
+        };
+        assert_eq!(s.element, "LizardBubble5");
+        assert_eq!(s.pos, Vec2::new(12.0, 25.0));
+        let scale = 0.5 * b.full_size * 0.45;
+        assert_eq!(s.scale, Vec2::new(scale, scale));
+        assert_eq!(s.color, Color::rgb(0.0, 1.0 / 255.0, 0.0));
+        assert_eq!(s.layer, Layer::Midground);
+    }
 
     /// One kept module, `module` 7.
     struct OneModule(LizardModule);

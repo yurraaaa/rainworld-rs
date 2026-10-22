@@ -10,7 +10,8 @@ use super::{assert_close, assert_vec, test_rng};
 use crate::player::swim::DROWN_THRESHOLD;
 use crate::player::{Animation, BodyMode, HEAD, HIPS, Input, Player};
 use crate::tests::room_with_water;
-use crate::{Vec2, Water};
+use crate::{FloatExt, Vec2, Water};
+use rw_random::UnityRandom;
 
 const UP: Input = Input::new(0, 1, false);
 const DOWN: Input = Input::new(0, -1, false);
@@ -212,7 +213,7 @@ fn deep_swim_boost_costs_air_and_cools_down() {
     let (_, w) = pool();
     let mut p =
         Player::upright_under(100.0, JUMP).with_mode(BodyMode::Swimming, Animation::DeepSwim);
-    p.deep_swim(Some(&w));
+    p.deep_swim(Some(&w), &mut test_rng(), &mut Sounds::default());
     // Along the body (straight up) * 3; air 1 - 0.2; 20-tick cooldown; cycle 2.7 + 0.01.
     assert_vec(p.head().vel, 0.0, 3.0);
     assert_close(p.air_in_lungs, 0.8, "air");
@@ -223,7 +224,7 @@ fn deep_swim_boost_costs_air_and_cools_down() {
     assert!(p.body.chunks[HEAD].go_through_floors && !p.standing && p.can_jump == 0);
     // Pressed again during the cooldown: the stroke restarts, no push, no air.
     p.input[1] = Input::NONE;
-    p.deep_swim(Some(&w));
+    p.deep_swim(Some(&w), &mut test_rng(), &mut Sounds::default());
     assert_vec(p.head().vel, 0.0, 3.0);
     assert_close(p.air_in_lungs, 0.8, "air kept");
     assert_close(p.swim_cycle, 0.01, "cycle restarted");
@@ -232,7 +233,7 @@ fn deep_swim_boost_costs_air_and_cools_down() {
     let mut p =
         Player::upright_under(100.0, JUMP).with_mode(BodyMode::Swimming, Animation::DeepSwim);
     p.air_in_lungs = 0.5;
-    p.deep_swim(Some(&w));
+    p.deep_swim(Some(&w), &mut test_rng(), &mut Sounds::default());
     assert_vec(p.head().vel, 0.0, 0.0);
     assert_eq!(p.water_jump_delay, 0);
 }
@@ -242,7 +243,7 @@ fn deep_swim_stroke_pushes_toward_the_held_direction() {
     let (_, w) = pool();
     let mut p =
         Player::upright_under(100.0, RIGHT).with_mode(BodyMode::Swimming, Animation::DeepSwim);
-    p.deep_swim(Some(&w));
+    p.deep_swim(Some(&w), &mut test_rng(), &mut Sounds::default());
     // No turn: target 0.2, swim_force lerp(0, 0.2, 0.7) = 0.14. Alignment 0 (at rest).
     // Head += (1, 0) * 0.5 * 0.14 * lerp(0, 1, 0.5) = 0.035; the along-body push is
     // 0 (alignment 0); speed 0.035 < 1.5 adds the full assist 0.2. Hips -0.1 - 0.1.
@@ -255,7 +256,7 @@ fn deep_swim_stroke_pushes_toward_the_held_direction() {
     let mut p =
         Player::upright_under(100.0, RIGHT).with_mode(BodyMode::Swimming, Animation::DeepSwim);
     p.air_in_lungs = DROWN_THRESHOLD / 2.0;
-    p.deep_swim(Some(&w));
+    p.deep_swim(Some(&w), &mut test_rng(), &mut Sounds::default());
     let s = std::f32::consts::FRAC_1_SQRT_2;
     assert_vec(p.head().vel, 0.235 * s, 0.235 * s);
     // At the top of the cycle the stroke pulses along the body:
@@ -263,7 +264,7 @@ fn deep_swim_stroke_pushes_toward_the_held_direction() {
     let mut p =
         Player::upright_under(100.0, RIGHT).with_mode(BodyMode::Swimming, Animation::DeepSwim);
     p.swim_cycle = 3.0;
-    p.deep_swim(Some(&w));
+    p.deep_swim(Some(&w), &mut test_rng(), &mut Sounds::default());
     assert_vec(p.head().vel, 0.235, 0.399);
 }
 
@@ -467,4 +468,127 @@ fn out_of_breath_follows_the_air_left() {
     p.dead = true;
     p.update_out_of_breath();
     assert_close(p.out_of_breath()[0], 0.35, "dead");
+}
+
+// ---- bubbles (`LungUpdate`, the deep-swim boost) -----------------------------------------
+
+/// Air crossing two thirds under water: `Bubble(firstChunk.pos, firstChunk.vel)`, its
+/// constructor's two draws and nothing else.
+#[test]
+fn lungs_crossing_two_thirds_let_out_a_bubble() {
+    let (r, w) = pool();
+    let mut rng = UnityRandom::new(3);
+    let mut p = Player::upright_under(100.0, Input::NONE);
+    p.body.chunks[HEAD].vel = Vec2::new(1.0, -2.0);
+    p.air_in_lungs = 2.0 / 3.0 + DRAIN / 2.0;
+    let mut copy = rng.clone();
+    p.lung_update(&r, Some(&w), &mut rng, &mut Sounds::default());
+    let bubbles = p.take_bubbles();
+    assert_eq!(bubbles.len(), 1);
+    let (drips_before, b) = &bubbles[0];
+    assert_eq!(*drips_before, 0);
+    assert_eq!(b.pos, p.head().pos);
+    assert_eq!(b.vel, Vec2::new(1.0, -2.0));
+    assert_eq!(b.full_size, 0.5.lerp(1.5, copy.value()));
+    copy.value();
+    assert_eq!(rng.state(), copy.state());
+    // The next tick, already under two thirds: nothing.
+    p.lung_update(&r, Some(&w), &mut rng, &mut Sounds::default());
+    assert!(p.take_bubbles().is_empty());
+}
+
+/// Short of breath (air 0.2): the flail roll (`value < 0.5`, then direction and
+/// strength), then `(value > air * 2 || lungsExhausted) && value > 0.5` lets out a
+/// bubble pushed `DegToVec(value * 360) * Lerp(6, 0, air)` (plus the constructor's two).
+#[test]
+fn short_of_breath_bubbles_draw_as_the_game() {
+    let (r, w) = pool();
+    let mut made = 0;
+    for seed in 0..40 {
+        let mut rng = UnityRandom::new(seed);
+        let mut p = Player::upright_under(100.0, UP);
+        p.air_in_lungs = 0.2 + DRAIN;
+        p.lungs_exhausted = seed % 2 == 0;
+        let mut copy = rng.clone();
+        p.lung_update(&r, Some(&w), &mut rng, &mut Sounds::default());
+        let air = p.air_in_lungs;
+        let mut head_vel = Vec2::ZERO;
+        if copy.value() < 0.5 {
+            let dir = Vec2::from_degrees(copy.value() * 360.0);
+            head_vel += dir * copy.value();
+        }
+        let first = copy.value() > air * 2.0;
+        let bubble = (first || p.lungs_exhausted) && copy.value() > 0.5;
+        let bubbles = p.take_bubbles();
+        if bubble {
+            made += 1;
+            let push = Vec2::from_degrees(copy.value() * 360.0) * 6.0.lerp(0.0, air);
+            copy.value();
+            copy.value();
+            assert_eq!(bubbles.len(), 1, "seed {seed}");
+            assert_eq!(bubbles[0].1.vel, head_vel + push, "seed {seed}");
+        } else {
+            assert!(bubbles.is_empty(), "seed {seed}");
+        }
+        assert_eq!(rng.state(), copy.state(), "seed {seed}");
+    }
+    assert!(made > 0 && made < 40);
+}
+
+/// A boost in a viewed room lets out a bubble at the head with its new speed (two
+/// draws); in a room nobody views, none and no draws.
+#[test]
+fn deep_swim_boost_bubble_only_when_viewed() {
+    let (_, w) = pool();
+    let mut p =
+        Player::upright_under(100.0, JUMP).with_mode(BodyMode::Swimming, Animation::DeepSwim);
+    let mut rng = UnityRandom::new(1);
+    let copy = rng.clone();
+    p.deep_swim(Some(&w), &mut rng, &mut Sounds::default());
+    let bubbles = p.take_bubbles();
+    assert_eq!(bubbles.len(), 1);
+    assert_eq!(bubbles[0].1.pos, p.head().pos);
+    assert_vec(bubbles[0].1.vel, 0.0, 3.0);
+    let mut two = copy.clone();
+    two.value();
+    two.value();
+    assert_eq!(rng.state(), two.state());
+
+    let mut p =
+        Player::upright_under(100.0, JUMP).with_mode(BodyMode::Swimming, Animation::DeepSwim);
+    p.set_emitter_place(crate::EmitterPlace {
+        room: 1,
+        camera_room: 0,
+        tick: 0,
+        update_seq: 0,
+    });
+    let mut rng = UnityRandom::new(1);
+    p.deep_swim(Some(&w), &mut rng, &mut Sounds::default());
+    assert!(p.take_bubbles().is_empty());
+    assert_eq!(rng.state(), copy.state());
+}
+
+/// Drips queued earlier in the tick make their draws before the boost bubble's, and
+/// the bubble joins the room after them.
+#[test]
+fn deep_swim_boost_bubble_after_queued_drips() {
+    let (_, w) = pool();
+    let mut p =
+        Player::upright_under(100.0, JUMP).with_mode(BodyMode::Swimming, Animation::DeepSwim);
+    p.set_ceiling_drips(1.0);
+    p.shed_drips(crate::player::drips::DripBurst::ShootUp {
+        pos: Vec2::new(300.0, 300.0),
+    });
+    let mut rng = UnityRandom::new(4);
+    let mut copy = rng.clone();
+    p.deep_swim(Some(&w), &mut rng, &mut Sounds::default());
+    // Four drips, each: the gate (always passes at `CeilingDrips` 1), x speed, life.
+    for _ in 0..12 {
+        copy.value();
+    }
+    let bubbles = p.take_bubbles();
+    assert_eq!(p.take_drips().len(), 4);
+    assert_eq!(bubbles.len(), 1);
+    assert_eq!(bubbles[0].0, 4);
+    assert_eq!(bubbles[0].1.full_size, 0.5.lerp(1.5, copy.value()));
 }

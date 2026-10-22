@@ -1223,6 +1223,12 @@ pub struct RealizedState {
     /// The live `WaterDrip`s' positions, oldest first (their count is the length).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub drips: Vec<[f32; 2]>,
+    /// The live `Bubble`s' positions, oldest first (their count is the length).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub bubbles: Vec<[f32; 2]>,
+    /// The water's live `BubbleEmitter`s' amounts, oldest first.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub bubble_emitters: Vec<f32>,
     /// The `DrippingSound`'s loop volume while it is in the update list.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dripping_sound: Option<f32>,

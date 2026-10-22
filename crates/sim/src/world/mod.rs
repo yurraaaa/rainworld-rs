@@ -33,6 +33,7 @@ mod realized;
 mod realizer;
 mod region_save;
 mod region_state;
+mod room_water;
 mod social_events;
 mod swarm_rooms;
 mod threat_flight;

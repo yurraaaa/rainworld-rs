@@ -317,7 +317,14 @@ force (`rainworld-re/notes/corridors.md`), base game with Remix off, Survivor va
 back point rows every 20 px, splashes when a chunk crosses at |vy| > 3, straddle drag,
 the wave equation with solid-tile damping, jitter, drift correction and neighbour blend,
 the smoothing and the `waveSpeed`/`waveLength`/`waveAmplitude`/second-wave offsets from
-the room settings). `BodyChunk` ports submersion, buoyancy, water friction and the skim
+the room settings). `Water.Update` reads every physical object's chunks in
+`physicalObjects` order (flies, overseers and layer-0 weapons; lizards and the player;
+the other weapons), so creatures splash, ripple and play the entry sounds; it rolls the
+bottom bubble every tick and makes the entry bubbles and `BubbleEmitter`s; `Bubble`
+(`rw_sim::Bubble`, a cosmetic in the update list) is ported with its creators for the
+ported owners: the water, `LungUpdate`'s two bubbles, the deep-swim boost's (viewed
+rooms) and the drowning lizard's (`surveys/room-effects/water-effects.md` W4-W6, P1,
+P2, B1). `BodyChunk` ports submersion, buoyancy, water friction and the skim
 rule; `Player` ports `LungUpdate` (lungs 128 as in a release build, drowning), the
 `Swimming` body mode, `DeepSwim` and `SurfaceSwim`, the swimming exits and the grab
 restrictions (`rainworld-re/notes/water.md`), base game with Remix off, Survivor values.
@@ -339,8 +346,17 @@ restrictions (`rainworld-re/notes/water.md`), base game with Remix off, Survivor
   More Slugcats flood.
 - **Not ported:** `WaterCutoff` and `AirPocket` placed objects (no base-game room
   uses them), `WaterViscosity` (unused in the base game), rain rumble, the rain's screen
-  shake (`RainCycle.ScreenShake`/`MicroScreenShake` in the waves) and flooding, lethal water, splashes and bubbles, ripple waves from explosions, the
-  analogue swim direction (digital input only).
+  shake (`RainCycle.ScreenShake`/`MicroScreenShake` in the waves) and flooding, lethal water, ripple waves from explosions, the
+  analogue swim direction (digital input only). `Splash` objects are step A2: their
+  `Reset` arguments' draws in `Water.Update` (three per small splash) and their count
+  toward the ten-splash cap are made, the objects and their own draws are not. The
+  owners' bubbles come with the owners (JetFish, eels, vultures, gates, waterfalls,
+  `BubbleGrass`, ...); `backgroundBubble` (only More Slugcats' room scripts set it) is
+  left out.
+- **Bubble emitter's chunk.** `Water.BubbleEmitter` keeps a reference to its chunk and
+  reads it for up to about 60 ticks, wherever its body has gone. The port reads the
+  chunk while its body is in the room's water update and otherwise keeps the position,
+  velocity and radius it last read (a body that left the room or entered a shortcut).
 - **Slerp is reconstructed.** `Vector3.Slerp` is native code. `rw_sim::Vec3::slerp`
   follows Unity's known implementation: lerp below magnitude 1e-5 or when nearly
   parallel, `OrthoNormalVectorFast` axis when opposite, else an axis-angle turn about
@@ -357,9 +373,9 @@ restrictions (`rainworld-re/notes/water.md`), base game with Remix off, Survivor
   `Water` container after the level, foreground sprites and shortcuts. The debug view
   keeps its own flat translucent water. Light sources screen onto the surface colour
   (`GetSurfaceColor`'s light loop) as they were before the frame's drawing, as in the
-  game. Still differing: splashes
-  and bubbles (separate `Splash` / `Bubble` objects, not part of `Water`'s sprites) are
-  not drawn, the water gates' `cosmeticLowerBorder` / `cosmeticSurfaceDisplace` and the
+  game. Bubbles draw as `Bubble.DrawSprites` (`LizardBubble5` in `Midground`, colour
+  `(0, 1/255, 0)` that the `DeepWater` shader shows as lit water). Still differing:
+  splashes (step A2) are not drawn, the water gates' `cosmeticLowerBorder` / `cosmeticSurfaceDisplace` and the
   DLC branches (`WaterSlush`, air pockets, inverted water, `Gutter`, ripple, brain
   mold, `WaterDepth` effect) are left out. The `_GrabTexture` the shaders read is the
   pre-level target (what LevelColor's grab pass holds in the game, INFERRED), and
@@ -686,8 +702,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   jump animations belong to breeds whose data is not entered; a green lizard never
   enters them, and the port goes back to Standard if one does. Not yet, with their
   steps: eating a dead lizard (its own step after 7c, user 2026-10-21: the player cannot grab creatures
-  yet), the drowning bubble (its draws
-  are made, the object is not), lethal water and the rain's flood (no rain yet). The
+  yet), lethal water and the rain's flood (no rain yet). The
   `kill_green_lizards` tutorial message is the game's: it marks the state dead without
   touching a realized body. More Slugcats', Watcher's and Remix's lizard branches
   (rot, the other DLC breeds, `LizardState.rotType` behaviour) are left out with their
