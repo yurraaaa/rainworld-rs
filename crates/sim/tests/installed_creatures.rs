@@ -424,6 +424,33 @@ fn uw_region_overseers_roam_as_the_model() {
     );
 }
 
+/// The SU census of green lizards a fresh story spawns in dens, counted by hand from
+/// the installed `world_su.txt` CREATURES block: White `SU_A07`, `SU_B04`, `SU_B05`,
+/// `SU_A10`, `(White,Red) SU_B12` plus the six Green-first lineages (B08, B12, A40, B07,
+/// C02, A06) = 11; Yellow the four `(White,Yellow)`/all simple ones plus six lineages =
+/// 10; Red `SU_A07`, `(Red) SU_A10`, `(Red) SU_B07`, `SU_B12` plus four lineages (B08,
+/// A40, B07, C02) = 8.
+#[test]
+fn su_fresh_census_of_green_lizards() {
+    let Some(installed) = Installed::open() else {
+        return;
+    };
+    for (campaign, expected) in [
+        (&SlugcatCampaign::SURVIVOR, 11),
+        (&SlugcatCampaign::MONK, 10),
+        (&SlugcatCampaign::HUNTER, 8),
+    ] {
+        let mut world = installed.world("SU_C04", campaign);
+        let mut rng = UnityRandom::new(SEED);
+        RainWorldGame::new_game_world(&mut world, campaign, &mut rng);
+        let greens = world
+            .creatures()
+            .filter(|(_, c)| c.kind() == CreatureType::GreenLizard && c.in_den)
+            .count();
+        assert_eq!(greens, expected, "{:?}", campaign.name);
+    }
+}
+
 /// `Overseer.PlaceInRoom` when SU_C04 loads at the start: the guide is realized on an
 /// open tile next to a solid one (`HardSetTile(tile, tile + eightDirectionsAndZero[j])`).
 #[test]

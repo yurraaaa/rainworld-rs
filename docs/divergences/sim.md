@@ -138,11 +138,22 @@ physics with neutral input, its water, graphics and room camera as in the game.
   grasp and the deer-antlers ride cancelling fall damage.
 - **Water.** Drowning is D11; inverted water (DLC) is not modelled.
 
-- **Other creatures.** Bat flies and overseers are stunned (`Stun`'s counter) and die
-  (`Creature.Die`, `AbstractCreature.Die`) as in the game: the kill tag and its 200
-  ticks, the slugcat's `Killing` (kill, peaceful streak, community like) and the
-  respawn lists. `SocialEventRecognizer`'s listeners other than the lizards' and the
-  More Slugcats and Watcher branches of `Die` are not ported.
+- **Other creatures.** Bat flies, overseers and lizards are stunned (`Stun`'s
+  counter) and die (`Creature.Die`, `AbstractCreature.Die`) as in the game: the kill
+  tag and its 200 ticks, the slugcat's `Killing` (kill, peaceful streak, community
+  like) and the respawn lists (`AddCreatureToRespawn`: a slugcat's kill rolls the
+  lineage's `ChanceToProgress` and waits, any other death respawns next cycle; at
+  `Win` `RainCycleTick` rolls the wait list, `AdaptRegionStateToWorld` puts a dead
+  loaded creature on neither list up for respawn). Every death path a green lizard
+  has in the port reaches it: violence (weapons, a rival's bite), the health roll,
+  drowning, the fall out of the room, prey killed in a den. The tutorial's
+  `kill_green_lizards` is the game's `LizardState.Die` (no respawn). The shelter's
+  `KillAllHostiles` is ported whole; lizards are not hostile and stay in a shelter
+  (saved at its node 0). `SocialEventRecognizer`'s listeners other than the lizards'
+  and the More Slugcats and Watcher branches of `Die` (Saint's ascension, Gourmand's
+  slam, lava, brine, poison, hypothermia) are not ported, nor
+  `AbstractCreature.Update`'s death of a living creature without a room (no port
+  creature is without one).
 
 **Why.** The respawn is a development aid the user kept outside story sessions; the
 rest is out of the base-game scope or randomness (D1).
@@ -844,7 +855,9 @@ Differences:
   (D16) and are realized in their rooms (D14).
 - **Kills.** A cycle's kills, its respawn and wait-respawn spawners and its community
   influences reach the save only through `Win` (D16), as in the game; a death or a
-  quit drops them.
+  quit drops them, and the next cycle reloads the lists last saved. A lizard in the
+  shelter at `Win` (alive in the player's shelter, or dead in any) is saved at the
+  shelter's node 0 with its `LizardState` and comes back there.
 - **Karma flowers.** The player's `karmaFlowerGrowPos` is tracked as `Player.Update`
   does (`PlaceKarmaFlower`: reinforced karma, the Monk, the Hunter out of cycles), and
   `PlaceKarmaFlowerOnDeathSpot` stores it in the save state's `karmaFlowerPosition`
@@ -865,8 +878,9 @@ Differences:
   saves an ordinary death.
 - **Not ported:** More Slugcats' ancient and broken shelters, `PrecycleModule`, the
   shelter tutorials, the dream ghost, `GetStuffInWalls`, the door's screen shake,
-  killing hostiles at close (the check alone is ported), and every Jolly Co-op and More
-  Slugcats branch.
+  and every Jolly Co-op and More Slugcats branch. `KillAllHostiles` is ported (a big
+  hostile goes back to its spawner's den; none of the hostile kinds has a body in the
+  port, so none is killed or destroyed there yet).
 - **Malnourishment, DLC and Remix branches omitted:** More Slugcats' slugcats' own
   malnourished stats, pup malnourishment and `malnourishedByCreature`, the Saint's and
   wounded exhaustion, Gourmand's exhaustion, the oracle and Artificer hooks, Expedition's

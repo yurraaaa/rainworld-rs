@@ -150,7 +150,7 @@ fn continue_restores_the_saved_population_and_keeps_the_rest() {
     let shelter = world.room_index("SU_S01").unwrap();
     let mut respawn = Vec::new();
     let saved = world
-        .adapt_region_state_to_world(shelter, &mut respawn)
+        .adapt_region_state_to_world(shelter, &mut respawn, &[])
         .unwrap();
     assert!(respawn.is_empty());
     assert!(saved.starts_with(
@@ -193,7 +193,7 @@ fn new_game_region_state_saves_its_fresh_population() {
     let shelter = world.room_index("SU_S01").unwrap();
     let mut respawn = Vec::new();
     let saved = world
-        .adapt_region_state_to_world(shelter, &mut respawn)
+        .adapt_region_state_to_world(shelter, &mut respawn, &[])
         .unwrap();
     // Every swarm room active, lineages at their first stage or past a NONE.
     assert!(saved.starts_with("REGIONNAME<rgB>SU<rgA>LASTCYCLEUPDATED<rgB>0<rgA>SWARMROOMS<rgB>"));
@@ -203,4 +203,137 @@ fn new_game_region_state_saves_its_fresh_population() {
     assert!(!saved.contains("Fly<cA>"));
     assert!(saved.contains("<rgA>POPULATION<rgB>"));
     assert!(saved.ends_with("ROOMSVISITED<rgB><rgA>"));
+}
+
+/// The White's `LINEAGE : SU_B08 : 2 : Green-0.1, NONE-0.5, Yellow-0.2, Red-0`
+/// spawner's ID.
+fn su_b08_lineage(world: &World) -> i32 {
+    let room = world.room_index("SU_B08").unwrap();
+    let index = world
+        .data()
+        .spawners
+        .iter()
+        .position(
+            |s| matches!(s, CreatureSpawner::Lineage(l) if l.den.room == room && l.den.node == 2),
+        )
+        .expect("SU_B08's lineage");
+    world.data().region.as_ref().unwrap().region_number * 1000 + i32::try_from(index).unwrap()
+}
+
+/// A Survivor continue in cycle 3 of `region_state` with `respawn` to respawn.
+fn continued(world: &mut World, region_state: &str, respawn: Vec<i32>) -> Vec<i32> {
+    let campaign = &SlugcatCampaign::SURVIVOR;
+    let story = StoryStart {
+        den: "SU_S01".to_owned(),
+        cycle_number: 3,
+        region_state: Some(region_state.to_owned()),
+        respawn_creatures: respawn,
+        next_issued_id: Some(20000),
+        ..StoryStart::new_game(campaign)
+    };
+    let mut rng = UnityRandom::new(42);
+    RainWorldGame::story_world(world, campaign, &story, &mut rng).respawn_creatures
+}
+
+/// `GeneratePopulation(false)`: a lineage put up for respawn spawns its saved stage,
+/// abstract in its den (`CurrentType` is Yellow at counter 2); at a NONE stage it rolls
+/// `ChanceToProgress` (0.5, stays below with seed 42's draw or not) and goes back on
+/// the respawn list, spawning nothing.
+#[test]
+fn a_progressed_lineage_spawns_its_next_stage() {
+    let Some(mut world) = world() else { return };
+    let b08 = su_b08_lineage(&world);
+    let state =
+        "REGIONNAME<rgB>SU<rgA>LASTCYCLEUPDATED<rgB>3<rgA>LINEAGES<rgB>SU_B08.-1.-1.2:2<rgA>";
+    let left = continued(&mut world, state, vec![b08]);
+    assert!(left.is_empty());
+    let spawned: Vec<_> = world
+        .creatures()
+        .filter(|(_, c)| c.id.spawner == b08)
+        .map(|(_, c)| (c.kind(), c.in_den, c.is_realized()))
+        .collect();
+    assert_eq!(spawned, [(CreatureType::YellowLizard, true, false)]);
+    let den = world
+        .creatures()
+        .find(|(_, c)| c.id.spawner == b08)
+        .unwrap()
+        .1
+        .pos;
+    assert_eq!(den.room, world.room_index("SU_B08").unwrap());
+    assert_eq!(den.node, 2);
+    let counters = &world.region_state.as_ref().unwrap().lineage_counters;
+    assert!(counters.contains(&("SU_B08.-1.-1.2".to_owned(), 2)));
+
+    let Some(mut none) = self::world() else {
+        return;
+    };
+    let state =
+        "REGIONNAME<rgB>SU<rgA>LASTCYCLEUPDATED<rgB>3<rgA>LINEAGES<rgB>SU_B08.-1.-1.2:1<rgA>";
+    let left = continued(&mut none, state, vec![b08]);
+    assert_eq!(left, [b08]);
+    assert!(none.creatures().all(|(_, c)| c.id.spawner != b08));
+    let n = none
+        .region_state
+        .as_ref()
+        .unwrap()
+        .lineage_counters
+        .iter()
+        .find(|(d, _)| d == "SU_B08.-1.-1.2")
+        .unwrap()
+        .1;
+    assert!(n == 1 || n == 2, "{n}");
+}
+
+/// `AdaptRegionStateToWorld`: a loaded creature that died is put up for respawn only
+/// when its spawner is on neither `respawnCreatures` nor `waitRespawnCreatures` (a
+/// slugcat's kill waits).
+#[test]
+fn a_loaded_creature_killed_by_the_slugcat_keeps_waiting() {
+    for (wait, expected) in [(vec![5028], vec![]), (vec![], vec![5028])] {
+        let Some(mut world) = world() else { return };
+        let state = "REGIONNAME<rgB>SU<rgA>LASTCYCLEUPDATED<rgB>3<rgA>\
+            POPULATION<rgB>GreenLizard<cA>ID.5028.9955<cA>SU_B12.2<cA><rgC><rgA>";
+        let b08 = su_b08_lineage(&world);
+        continued(&mut world, state, vec![b08]);
+        let (id, _) = world
+            .creatures()
+            .find(|(_, c)| c.id == EntityId::new(5028, 9955))
+            .expect("loaded");
+        world.creature_mut(id).state.alive = false;
+        let shelter = world.room_index("SU_S01").unwrap();
+        let mut respawn = Vec::new();
+        let saved = world
+            .adapt_region_state_to_world(shelter, &mut respawn, &wait)
+            .unwrap();
+        assert_eq!(respawn, expected, "wait {wait:?}");
+        assert!(!saved.contains("ID.5028.9955"), "dead outside a shelter");
+    }
+}
+
+/// `CreatureToStringInDenPos` of lizards in shelters: in the player's shelter a live
+/// one and, in any shelter, a dead one are saved at the shelter's node 0 with their
+/// `LizardState` (health, throat, limbs; dead), as read.
+#[test]
+fn lizards_in_shelters_save_at_the_shelters_node() {
+    let Some(mut world) = world() else { return };
+    let state = "REGIONNAME<rgB>SU<rgA>LASTCYCLEUPDATED<rgB>3<rgA>POPULATION<rgB>\
+        GreenLizard<cA>ID.-1.501<cA>SU_S01.0<cA><cB>Health<cC>0.5<cB>ThroatHealth<cC>0.25<rgC>\
+        GreenLizard<cA>ID.-1.502<cA>SU_S04.0<cA>Dead<cB>MeatLeft<cC>3<cB><cB>Health<cC>-1\
+        <cB>LimbHealth<cC>0.5<cC>1<cC>1<cC>0<rgC><rgA>";
+    // A respawn keeps the population from being reset as too small.
+    let b08 = su_b08_lineage(&world);
+    continued(&mut world, state, vec![b08]);
+    let shelter = world.room_index("SU_S01").unwrap();
+    let mut respawn = Vec::new();
+    let saved = world
+        .adapt_region_state_to_world(shelter, &mut respawn, &[])
+        .unwrap();
+    assert!(respawn.is_empty());
+    assert!(saved.contains(
+        "GreenLizard<cA>ID.-1.501<cB>0<cA>SU_S01.0<cA><cB>Health<cC>0.5<cB>ThroatHealth<cC>0.25<rgC>"
+    ));
+    assert!(saved.contains(
+        "GreenLizard<cA>ID.-1.502<cB>0<cA>SU_S04.0<cA>Dead<cB>MeatLeft<cC>3<cB><cB>Health<cC>-1\
+         <cB>LimbHealth<cC>0.5<cC>1<cC>1<cC>0<rgC>"
+    ));
 }

@@ -224,7 +224,8 @@ impl Server {
         stuck-in-wall cycles and explosive flag; realized ones' room, position, \
         velocity, mode, rotation and collision layer); each room's den contents and \
         quantified creatures; the flies' world counters; the region state's counters; \
-        the session's kills, respawn lists and influences; camera 0's sprite leasers in \
+        the session's kills, respawn lists (this cycle's and the save's left after the \
+        population), influences and each community's like of the player; camera 0's sprite leasers in \
         container order (`sprite_order`: kind, ID, a weapon behind, the jaws holding it, \
         shown). Empty fields are left out."
     )]
