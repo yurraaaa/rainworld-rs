@@ -44,7 +44,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `game_map.rs` | map discovery from the player's position | `Player.Update` discovery |
 | `game_noise.rs` | in-room noises heard at once | `Room.InGameNoise` |
 | `game_over.rs` | `GameOver`, karma flower spot | `RainWorldGame.GameOver` |
-| `game_player.rs` | slugcat hands: bat-fly catch, eat, swallow, throw, hand switch; the heavy carry's rod and the body lent to the player's update | `Player.GrabUpdate`, `Collide` |
+| `game_player.rs`, `game_jump_chunk_tests.rs` | slugcat hands: bat-fly catch, eat, swallow, throw, hand switch; the heavy carry's rod and the body lent to the player's update; the jump chunk's masses lent and `JumpOnChunk`'s push and stun applied | `Player.GrabUpdate`, `Collide`, `JumpOnChunk` |
 | `game_player_grabbed.rs`, `game_player_grabbed_tests.rs` | the player held: `creature_grab` (`CanBeGrabbed`, `Player.Grabbed`), the `dangerGrasp` block, `ThrowToGetFree`, `DangerGraspPickup`, `GameOver(dangerGrasp)`, the release under the room | `Player.Update`, `Creature.Grab` |
 | `game_spear_on_back.rs`, `game_spear_on_back_tests.rs` | the Hunter's spear on the back: stash/retrieve by holding pick-up, `SpearToBack`, `SpearToHand`, `DropSpear` applied, carried on the back | `Player.SpearOnBack` |
 | `game_shelter.rs` | shelter door in the room, sleep/hibernate checks, `KillAllHostiles`, `DoorClosed` | `ShelterDoor` hookup |
@@ -85,7 +85,8 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 
 `mod.rs` (`Player`, two-chunk body), `input.rs` (`Input`), `movement.rs`
 (`MovementUpdate`), `body_mode.rs` (`UpdateBodyMode`), `animation.rs`
-(`UpdateAnimation`), `jump.rs`, `advanced.rs` (flip, roll, rocket jump, belly slide),
+(`UpdateAnimation`), `jump.rs`, `jump_on_chunk.rs` (`jumpChunk`: `Collide`'s note of
+the chunk under the hips, `JumpOnChunk`), `advanced.rs` (flip, roll, rocket jump, belly slide),
 `poles.rs`, `ledge.rs`, `corridor.rs`, `swim.rs` (water, breath, `LungUpdate`),
 `falls.rs` (impact, stun, die), `grabbed.rs` (held: `dangerGrasp` state and timers,
 `cantBeGrabbedCounter`, the pacifying stun, `WALLSTUCK`), `exhaustion.rs` (aerobic level, malnourishment),

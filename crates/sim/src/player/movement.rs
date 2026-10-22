@@ -404,6 +404,10 @@ impl Player {
         {
             self.wall_jump(room, self.can_wall_jump.signum());
             self.want_to_jump = 0;
+        } else if self.jump_chunk_counter > 0 && self.want_to_jump > 0 {
+            self.jump_chunk_counter = -5;
+            self.want_to_jump = 0;
+            self.jump_on_chunk();
         }
         if spend_charge {
             self.super_launch_jump -= 1;

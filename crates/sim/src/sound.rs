@@ -86,6 +86,7 @@ sound_ids! {
     SlugcatGetUpOnHorizontalBeam = "Slugcat_Get_Up_On_Horizontal_Beam",
     SlugcatGetUpOnTopOfVerticalBeamTip = "Slugcat_Get_Up_On_Top_Of_Vertical_Beam_Tip",
     SlugcatRegainFooting = "Slugcat_Regain_Footing",
+    SlugcatJumpOnCreature = "Slugcat_Jump_On_Creature",
     SlugcatEnterWallSlide = "Slugcat_Enter_Wall_Slide",
     UiSlugcatStunnedLoop = "UI_Slugcat_Stunned_LOOP",
     SlugcatSlideInNarrowCorridorLoop = "Slugcat_Slide_In_Narrow_Corridor_LOOP",

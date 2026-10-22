@@ -9,7 +9,7 @@
 //! `Weapon.cs` 334-390, `Rock.cs` 50-95, `Spear.cs` 576-822 and 977-1160, `Room.cs`
 //! 4688-4760.
 //!
-//! Mirrors: Lizard.cs (Violence, Stun, SpearStick, AttemptBite, Bite), Creature.cs (Violence, Die), Weapon.cs (Update), Rock.cs (HitSomething), Spear.cs (HitSomething, LodgeInCreature, Update)
+//! Mirrors: Lizard.cs (Violence, Stun, SpearStick, AttemptBite, Bite), Creature.cs (Violence, Die), Weapon.cs (Update), Rock.cs (HitSomething), Spear.cs (HitSomething, LodgeInCreature, Update), Player.cs (Collide)
 
 use rw_assets::{CreatureType, Terrain};
 
@@ -328,7 +328,7 @@ impl RainWorldGame {
     }
 
     /// `Stun` of a realized creature (the player's `LoseAllGrasps` at once).
-    fn creature_stun(&mut self, id: CreatureId, st: i32) {
+    pub(super) fn creature_stun(&mut self, id: CreatureId, st: i32) {
         if id == self.player_id {
             let room = self.pos().room;
             let sounds = if room == self.camera_room {
@@ -1417,7 +1417,7 @@ impl RainWorldGame {
     /// they joined it): pairs within both collision ranges (50) that do not hold each
     /// other push their overlapping chunks apart by mass (a nudge of two draws at the
     /// same x) and `Collide` once each way. `Player.Collide`'s belly slide stuns the
-    /// other; `Lizard.Collide` sees it (`SeeCreature`) and bites what it would kill.
+    /// other and its hips note a chunk to jump off; `Lizard.Collide` sees it (`SeeCreature`) and bites what it would kill.
     pub(super) fn collide_creatures(&mut self, index: i32) {
         let mut layer: Vec<(u64, CreatureId)> = self.world.room_lizards(index);
         if self
@@ -1513,6 +1513,19 @@ impl RainWorldGame {
             let stun = self.player.as_mut().and_then(|p| p.collide_with_creature());
             if let Some(st) = stun {
                 self.creature_stun(other, st);
+            }
+            let r = ChunkRef {
+                owner: Entity::Creature(other),
+                index: other_chunk,
+            };
+            if let Some(chunk) = self.chunk_of(r)
+                && let Some(p) = self.player.as_mut()
+            {
+                let jump_chunk = crate::player::JumpChunk {
+                    owner: r.owner,
+                    index: r.index,
+                };
+                p.collide_jump_chunk(my_chunk, jump_chunk, &chunk);
             }
             return;
         }
