@@ -1,8 +1,8 @@
 //! The cosmetic insects' sprites (`InitiateSprites`, `DrawSprites`, `ApplyPalette` of
-//! each kind): pixels and `Circle20` ovals in `Midground` (the ant in `Foreground`), in
-//! palette colours. The dragonfly's, red swarmer's, beetle's and wasp's wings jitter
-//! with draws on the cosmetic stream (D1). The ant's `SpecificDepth` shader is not
-//! ported: it draws with `Basic` (D23).
+//! each kind): pixels and `Circle20` ovals in `Midground` (the ant in `Foreground`,
+//! shown only on its own level layer by `SpecificDepth`), in palette colours. The
+//! dragonfly's, red swarmer's, beetle's and wasp's wings jitter with draws on the
+//! cosmetic stream (D1).
 //!
 //! Mirrors: MiniFly.cs, FireFly.cs, TinyDragonfly.cs, RockFlea.cs, GrassHopper.cs, RedSwarmer.cs, Ant.cs, Beetle.cs, WaterGlowworm.cs, Wasp.cs, Moth.cs (InitiateSprites, DrawSprites, ApplyPalette)
 
@@ -360,6 +360,9 @@ impl KindSprites for Ant {
             color.with_alpha(1.0 - self.depth),
         );
         item.set_layer(Layer::Foreground);
+        if let DrawItem::Sprite(sprite) = &mut item {
+            sprite.shader = Shader::SpecificDepth;
+        }
         vec![item]
     }
 }

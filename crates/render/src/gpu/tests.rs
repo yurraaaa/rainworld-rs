@@ -497,6 +497,144 @@ fn palette_rewrite_refreshes_the_fog_amount() {
     assert_eq!(pixel(&r.render_image().unwrap(), 32, 32), [80, 0, 0]);
 }
 
+/// A `Futile_White` quad over frame pixels `x0..x1`, `y0..y1` (y down) of the 64x64
+/// frame.
+fn frame_quad(rect: [f32; 4], shader: Shader, color: SpriteColor, layer: Layer) -> DrawItem {
+    let [x0, y0, x1, y1] = rect;
+    DrawItem::Sprite(Sprite {
+        index: 0,
+        element: SpriteAtlas::FUTILE_WHITE,
+        pos: Vec2::new(x0 + 0.5, 64.0 - y1 + 0.5),
+        rotation: 0.0,
+        scale: Vec2::new((x1 - x0) / 16.0, (y1 - y0) / 16.0),
+        anchor: Vec2::ZERO,
+        color,
+        shader,
+        layer,
+    })
+}
+
+/// `SpecificDepth` (the ant): a quad of alpha `1 - 10.5 / 30` (layer 10) shows its
+/// colour, at the texel's alpha, only over layer-10 level pixels (red 11 or 101), not
+/// over sky (layer 30) or layer 20 (red 21); one of alpha `1 - 6.5 / 30` only where
+/// something drawn before the level covers a layer-20 pixel (counted as layer 6).
+#[test]
+fn specific_depth_shows_on_its_own_layer() {
+    let Some(mut r) = renderer() else { return };
+    let image = PngImage::from_pixels(
+        64,
+        64,
+        (0..64 * 64)
+            .map(|i| match i % 64 {
+                0..21 => [11, 0, 0, 255],
+                21..42 => [255, 255, 255, 255],
+                _ => [21, 0, 0, 255],
+            })
+            .collect(),
+    );
+    let palette = PaletteTexture::blend(
+        &PaletteImage::from_image(&PngImage::from_pixels(32, 16, vec![[0, 0, 90, 255]; 512]))
+            .unwrap(),
+        None,
+        0.0,
+    );
+    let noise =
+        NoiseTexture::from_image(&PngImage::from_pixels(64, 64, vec![[128, 0, 0, 255]; 4096]))
+            .unwrap();
+    r.set_level(&LevelGraphics {
+        camera_pos: [0.0, 0.0],
+        image: &image,
+        palette: &palette,
+        noise: &noise,
+        params: LevelParams::DEFAULT,
+    });
+    let behind = DrawList {
+        items: vec![frame_quad(
+            [48.0, 10.0, 62.0, 30.0],
+            Shader::Basic,
+            SpriteColor::rgb(0.0, 1.0, 0.0),
+            Layer::Items,
+        )],
+    };
+    r.draw_sprites(&behind, Layer::Items, [0.0, 0.0]);
+    r.draw_level(LevelView {
+        origin: [0.0, 0.0],
+        size: [64.0, 64.0],
+        rain: 0.0,
+        light: 1.0,
+        water_level: 1.0,
+    });
+    let ants = DrawList {
+        items: vec![
+            frame_quad(
+                [0.0, 0.0, 64.0, 32.0],
+                Shader::SpecificDepth,
+                SpriteColor {
+                    r: 1.0,
+                    g: 0.0,
+                    b: 0.0,
+                    a: 1.0 - 10.5 / 30.0,
+                },
+                Layer::Foreground,
+            ),
+            frame_quad(
+                [0.0, 32.0, 64.0, 64.0],
+                Shader::SpecificDepth,
+                SpriteColor {
+                    r: 1.0,
+                    g: 1.0,
+                    b: 0.0,
+                    a: 1.0 - 6.5 / 30.0,
+                },
+                Layer::Foreground,
+            ),
+        ],
+    };
+    r.draw_sprites(&ants, Layer::Foreground, [0.0, 0.0]);
+    let frame = r.render_image().unwrap();
+    assert_eq!(pixel(&frame, 10, 16), [255, 0, 0], "layer 10");
+    assert_eq!(pixel(&frame, 30, 16), [0, 0, 90], "sky");
+    assert_eq!(pixel(&frame, 44, 5), [0, 0, 90], "layer 20");
+    assert_eq!(
+        pixel(&frame, 55, 20),
+        [0, 255, 0],
+        "behind the level, not layer 10"
+    );
+    assert_eq!(pixel(&frame, 10, 48), [0, 0, 90], "layer 10, not 6");
+    assert_eq!(pixel(&frame, 55, 48), [0, 0, 90], "layer 20");
+    // Layer 6 over the creature's rows.
+    let over = DrawList {
+        items: vec![frame_quad(
+            [40.0, 12.0, 64.0, 28.0],
+            Shader::SpecificDepth,
+            SpriteColor {
+                r: 1.0,
+                g: 1.0,
+                b: 0.0,
+                a: 1.0 - 6.5 / 30.0,
+            },
+            Layer::Foreground,
+        )],
+    };
+    r.begin_frame(Camera::window([0.0, 0.0], [64.0, 64.0], SIZE));
+    r.draw_sprites(&behind, Layer::Items, [0.0, 0.0]);
+    r.draw_level(LevelView {
+        origin: [0.0, 0.0],
+        size: [64.0, 64.0],
+        rain: 0.0,
+        light: 1.0,
+        water_level: 1.0,
+    });
+    r.draw_sprites(&over, Layer::Foreground, [0.0, 0.0]);
+    let frame = r.render_image().unwrap();
+    assert_eq!(
+        pixel(&frame, 55, 20),
+        [255, 255, 0],
+        "layer 6 over the creature"
+    );
+    assert_eq!(pixel(&frame, 44, 20), [0, 0, 90], "layer 20 beside it");
+}
+
 /// A 64 px wide, 4096 px tall level (only its bottom 64 rows show) whose row `n` from
 /// the bottom has depth `n % 30` (red `1 + n % 30`, unlit), coloured red `8 * depth`
 /// from palette row 0, under a constant noise of 128, drawn with `_WetTerrain` and

@@ -120,7 +120,7 @@ pub struct State {
 #[derive(Debug, Clone, Serialize)]
 pub struct SpriteLeaserState {
     /// `player`, `creature`, `object`, `shelter_door`, `drip`, `cosmetic`,
-    /// `holo_light`, `light_source` or `shortcuts`.
+    /// `holo_light`, `light_source`, `insect`, `shortcuts` or `full_screen_effect`.
     pub kind: &'static str,
     /// A creature's or object's EntityID.
     #[serde(skip_serializing_if = "Option::is_none")]

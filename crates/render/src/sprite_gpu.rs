@@ -64,7 +64,7 @@ pub(crate) struct ScreenTextures<'a> {
 
 impl SpritePipeline {
     /// Each shader and its fragment entry point.
-    const SHADERS: [(Shader, &'static str); 15] = [
+    const SHADERS: [(Shader, &'static str); 16] = [
         (Shader::Basic, "fs_basic"),
         (Shader::FlatLight, "fs_flat_light"),
         (Shader::OverseerZip, "fs_overseer_zip"),
@@ -75,6 +75,7 @@ impl SpritePipeline {
         (Shader::ShortCut0, "fs_shortcut"),
         (Shader::ColoredSprite3, "fs_colored_sprite3"),
         (Shader::UnderWaterLight, "fs_under_water_light"),
+        (Shader::SpecificDepth, "fs_specific_depth"),
         (Shader::Bloom, "fs_bloom"),
         (Shader::SkyBloom, "fs_sky_bloom"),
         (Shader::LightBloom, "fs_light_bloom"),

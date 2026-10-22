@@ -145,6 +145,9 @@ pub enum Shader {
     /// `Futile/UnderWaterLight`: a light source's glow under the water surface, faded by
     /// level depth and rippled by `_NoiseTex`.
     UnderWaterLight,
+    /// `Futile/SpecificDepth` (the ant): the colour, with the texel's alpha, only where
+    /// the level pixel lies in the layer `1 - alpha` names (`floor(30 * depth)`).
+    SpecificDepth,
     /// `Futile/Bloom` (a room's full-screen effect): the frame grabbed, a plus-shaped
     /// blur of it brightening it (max, plus the blur to the power 1.5).
     Bloom,

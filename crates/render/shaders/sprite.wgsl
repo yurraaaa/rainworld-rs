@@ -5,7 +5,8 @@
 // fs_hologram `Hologram`, fs_light_source `LightSource`, fs_holo_grid `HoloGrid`,
 // fs_hologram_image `HologramImage`, fs_shortcut `ShortCut0`, fs_colored_sprite3
 // `ColoredSprite2` with `no_grab_tex` (the `ColoredSprite3` shader),
-// fs_under_water_light `UnderWaterLight`. The full-screen effects are in
+// fs_under_water_light `UnderWaterLight`, fs_specific_depth `SpecificDepth`. The
+// full-screen effects are in
 // full_screen.wgsl, appended to this file.
 //
 // `uv` is where the port's atlas is sampled; `tex` is the shader's `i.uv` (they differ
@@ -412,6 +413,26 @@ fn fs_shortcut(in: VertexOut) -> @location(0) vec4<f32> {
     let g = byte(texcol.g);
     if g > 7 && g < 11 && texcol.b == 0.0 {
         return in.color;
+    }
+    return vec4(0.0);
+}
+
+// `SpecificDepth` (the ant): the colour, with the texel's alpha, where the level layer
+// under the pixel (`(round(r * 255) - 1) % 30`, sky 30, a deep layer over something
+// drawn before the level 6: the level's grab) is the sprite's (`1 - alpha`, in 30ths).
+@fragment
+fn fs_specific_depth(in: VertexOut) -> @location(0) vec4<f32> {
+    let texcol = level_at(level_coord(in.scr));
+    let dpth = 1.0 - in.color.a;
+    var terrain = f32((byte(texcol.x) - 1) % 30) / 30.0;
+    if all(texcol.xyz == vec3(1.0)) {
+        terrain = 1.0;
+    }
+    if terrain > 6.0 / 30.0 && drawn(textureLoad(behind_tex, frame_px(in.scr), 0)) {
+        terrain = 6.0 / 30.0;
+    }
+    if floor(dpth * 30.0) == floor(terrain * 30.0) {
+        return vec4(in.color.rgb, textureSample(atlas, atlas_sampler, in.uv).a);
     }
     return vec4(0.0);
 }
