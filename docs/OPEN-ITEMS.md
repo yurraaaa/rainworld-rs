@@ -18,8 +18,6 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   physics room-range clamp skipped for grabbed objects, `PhysicalObject.Update`'s pruning
   of stale `grabbedBy` entries. Other grabber creatures come with their creatures, DLC
   branches with the DLCs.
-- **MCP: fresh music player per `load_room`/`new_game`** (user, 2026-10-22), so the same
-  start, seed and inputs give the same run within one server process.
 - **`ExplosiveSpear` behaviour.** The flag is ported; the explosion is not.
 
 ## Planned

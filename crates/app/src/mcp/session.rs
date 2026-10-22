@@ -240,12 +240,13 @@ impl Session {
                 .ok();
         }
         // The music player runs beside the game as the process manager's side process
-        // would: made once with the default options, its `UpdateMusicContext` and the
-        // new game's `NewCycleEvent`.
+        // would: made with the default options, its `UpdateMusicContext` and the new
+        // game's `NewCycleEvent`. Each dev start (not the game, where the player outlives
+        // sessions) gets a fresh player and sources: the player draws from the game's
+        // random stream, so runs then repeat within one server process.
+        self.music_sources.destroy_all();
         if let Some(shared) = &mut self.hud_shared {
-            if shared.music.is_none() {
-                shared.music = shared.new_music_player(None);
-            }
+            shared.music = shared.new_music_player(None);
             if let Some(music) = &mut shared.music {
                 music.update_music_context(Some(MusicProcess::StoryGame));
                 music.new_cycle_event();
