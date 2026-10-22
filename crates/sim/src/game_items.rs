@@ -351,7 +351,12 @@ impl RainWorldGame {
         if c.fly().is_some_and(|f| f.graphics) {
             observer.fly_to_front(c.id);
         } else if c.lizard().is_some_and(|l| l.graphics.is_some()) {
-            self.world.sprites_to_front.push(e);
+            let seq = self.world.update_seq();
+            self.world.sprite_moves.push(crate::world::SpriteMove {
+                seq,
+                obj: e,
+                into: None,
+            });
         }
     }
 
