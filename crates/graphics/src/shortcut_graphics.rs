@@ -11,10 +11,10 @@
 //! Mirrors: ShortcutGraphics.cs
 
 use rw_assets::{
-    CreatureType, PlacedObjectType, Room, Shortcut, ShortcutType, SlugcatName, Terrain, tile_centre,
+    PlacedObjectType, Room, Shortcut, ShortcutType, SlugcatName, Terrain, tile_centre,
 };
 use rw_random::UnityRandom;
-use rw_sim::{FloatExt, Vec2, Water};
+use rw_sim::{FloatExt, ShortCutColor, Vec2, Water};
 
 use crate::math::CustomVec;
 use crate::{Color, DrawItem, DrawList, Layer, Shader, Sprite};
@@ -302,14 +302,12 @@ impl ShortcutGraphics {
         }
     }
 
-    /// `ShortcutColor()` of a creature of kind `kind` (the story's slugcat in `slugcat`'s
-    /// colour); other creatures' template colours are white for the overseer, the only
-    /// other one realized yet.
+    /// A creature's `ShortCutColor()`, the player's in `slugcat`'s colour.
     #[must_use]
-    pub fn creature_color(kind: CreatureType, slugcat: SlugcatName) -> Color {
-        match kind {
-            CreatureType::Slugcat => crate::PlayerGraphics::default_slugcat_color(slugcat),
-            _ => Color::WHITE,
+    pub fn creature_color(color: ShortCutColor, slugcat: SlugcatName) -> Color {
+        match color {
+            ShortCutColor::Slugcat => crate::PlayerGraphics::default_slugcat_color(slugcat),
+            ShortCutColor::Rgb([r, g, b]) => Color::rgb(r, g, b),
         }
     }
 

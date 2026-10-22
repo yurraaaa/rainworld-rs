@@ -489,8 +489,8 @@ impl RainWorldGame {
                     v.entrance_node = -1;
                     self.shortcuts.transport.push(Transport::Creature(v));
                     if kind == Some(NodeType::Exit) {
-                        let creature = self.world.creature(id).kind();
-                        self.blink_arrival(lobby, 1.5, creature);
+                        let color = self.world.creature(id).short_cut_color();
+                        self.blink_arrival(lobby, 1.5, color);
                     }
                 }
                 if followed && let Some(node) = node {
@@ -642,3 +642,7 @@ enum Viewed {
     Fly,
     Lizard,
 }
+
+#[cfg(test)]
+#[path = "game_shortcut_color_tests.rs"]
+mod shortcut_color_tests;
