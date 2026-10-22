@@ -22,9 +22,23 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **Hunter follow-ups** (user, 2026-10-22, after the spear on the back): `HardmodeStart`
   (the Hunter's scripted LF_H01 first cycle, its spear, NSHSwarmer, `Red_stomach` pearl,
   Deer, scripted input/camera/map) as its own job later; `SocialEventRecognizer.
-  CreaturePutItemOnGround` in `ReleaseObject` and the back spear's lay-down drop (small
-  job); the `sprOnBackStick` in the region state's `STICKS` with the save work; the
-  back spear's zero-gravity placement with zero gravity.
+  CreaturePutItemOnGround` in `ReleaseObject`, the back spear's lay-down drop and a
+  dropped or tossed creature (small job; user 2026-10-22); the `sprOnBackStick` in the
+  region state's `STICKS` with the save work; the back spear's zero-gravity placement
+  with zero gravity.
+
+- **Graphics module order and lifetime** (user, 2026-10-22, found in the draw-order
+  review; inferred from code): `camera_changed_room` (`crates/sim/src/game_flies.rs`)
+  builds overseer, fly and lizard modules in one list by seq, where `Room.NowViewed`
+  builds layer 0 (flies, overseers) before layer 1 (lizards); both draw from the shared
+  stream. `LizardGraphicsLink.drawn_in` is never pruned, so a lizard that left a room
+  loses its module at that room's `NoLongerViewed` and is rebuilt (with draws); the game
+  removes it from the old room's `drawableObjects` in `CleanOutObjectNotInThisRoom` and
+  keeps it. Small job.
+
+- **Async room loading** (user, 2026-10-22): plan and decisions in
+  `../rainworld-re/surveys/async-room-loading.md`; later. `ShortcutHelper` its own job
+  after it.
 
 ## Planned
 - **Code quality pass after the lizard steps** (user, 2026-10-16): once lizard steps
