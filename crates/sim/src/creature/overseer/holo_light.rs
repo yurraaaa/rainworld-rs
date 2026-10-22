@@ -236,8 +236,8 @@ impl HologramLight {
 
     /// `HologramLight.Needed`: how dark it is around the player at `pos` in the
     /// camera's room (`InverseLerp(0.85, 0.92, darkness)`), 0 when dead or below 0.85;
-    /// less near each light source of rad above 120 and alpha above 0.2. No lanterns
-    /// are ported.
+    /// less near each light source of rad above 120 and `Alpha` (under `shader_light`)
+    /// above 0.2. No lanterns are ported.
     #[must_use]
     pub fn needed(
         in_camera_room: bool,
@@ -245,13 +245,17 @@ impl HologramLight {
         dead: bool,
         pos: Vec2,
         lights: &[LightSource],
+        shader_light: f32,
     ) -> f32 {
         if !in_camera_room || darkness < 0.85 || dead {
             return 0.0;
         }
         let mut needed = darkness.inverse_lerp(0.85, 0.92);
         for l in lights.iter().filter(|l| !l.slated) {
-            if l.rad > 120.0 && l.alpha > 0.2 && pos.dist_less(l.pos, l.rad + 200.0) {
+            if l.rad > 120.0
+                && l.alpha_now(shader_light) > 0.2
+                && pos.dist_less(l.pos, l.rad + 200.0)
+            {
                 needed -= pos.distance(l.pos).inverse_lerp(l.rad + 200.0, l.rad * 0.8);
                 if needed <= 0.0 {
                     return 0.0;
@@ -403,22 +407,29 @@ mod tests {
     #[test]
     fn needed_by_darkness() {
         let p = Vec2::ZERO;
-        assert_eq!(HologramLight::needed(true, 0.8, false, p, &[]), 0.0);
-        assert!((HologramLight::needed(true, 0.9, false, p, &[]) - 0.05 / 0.07).abs() < 1e-6);
-        assert_eq!(HologramLight::needed(true, 1.0, false, p, &[]), 1.0);
-        assert_eq!(HologramLight::needed(false, 1.0, false, p, &[]), 0.0);
-        assert_eq!(HologramLight::needed(true, 1.0, true, p, &[]), 0.0);
+        assert_eq!(HologramLight::needed(true, 0.8, false, p, &[], 1.0), 0.0);
+        assert!((HologramLight::needed(true, 0.9, false, p, &[], 1.0) - 0.05 / 0.07).abs() < 1e-6);
+        assert_eq!(HologramLight::needed(true, 1.0, false, p, &[], 1.0), 1.0);
+        assert_eq!(HologramLight::needed(false, 1.0, false, p, &[], 1.0), 0.0);
+        assert_eq!(HologramLight::needed(true, 1.0, true, p, &[], 1.0), 0.0);
         let mut light = LightSource::new(1, 0, Vec2::new(280.0, 0.0), false, [1.0; 3], None);
         light.rad = 200.0;
         light.alpha = 0.5;
-        let n = HologramLight::needed(true, 1.0, false, p, std::slice::from_ref(&light));
+        let n = HologramLight::needed(true, 1.0, false, p, std::slice::from_ref(&light), 1.0);
         assert!((n - 0.5).abs() < 1e-6);
         light.alpha = 0.1;
-        let n = HologramLight::needed(true, 1.0, false, p, std::slice::from_ref(&light));
+        let n = HologramLight::needed(true, 1.0, false, p, std::slice::from_ref(&light), 1.0);
         assert_eq!(n, 1.0);
         light.alpha = 0.5;
         light.pos = Vec2::new(100.0, 0.0);
-        let n = HologramLight::needed(true, 1.0, false, p, std::slice::from_ref(&light));
+        let n = HologramLight::needed(true, 1.0, false, p, std::slice::from_ref(&light), 1.0);
+        assert_eq!(n, 0.0);
+        // A placed light fading with the sun counts by `Alpha`: at `ShaderLight` -0.4
+        // it is 0.5 * 0.2^1.2 (below 0.2), at -0.1 0.5 * 0.8^1.2 (above).
+        light.fade_with_sun = true;
+        let n = HologramLight::needed(true, 1.0, false, p, std::slice::from_ref(&light), -0.4);
+        assert_eq!(n, 1.0);
+        let n = HologramLight::needed(true, 1.0, false, p, std::slice::from_ref(&light), -0.1);
         assert_eq!(n, 0.0);
     }
 }

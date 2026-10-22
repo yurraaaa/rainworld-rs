@@ -478,12 +478,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   scavenger-trade hint, the Scholar), `dreamsState.guideHasShownHimselfToPlayer`, Moon's
   like rising on save (`SLaiState`; no iterator is ported), and destroying an angry
   guide in the off-screen den (`OverseerAbstractAI.Moved`, until iterators are ported).
-  Placed light sources (`PlacedObject.Type.LightSource` in 126 base-game rooms' settings)
-  are not created, so those rooms lack their lamps' glow and `Needed` and
-  `CompleteDarkness` don't see them; with them wait `LightSource`'s placed-light paths
-  (blinking, `colorFromEnvironment`, `effectColor`, `nightLight`, `fadeWithSun`) and the
-  colour setter's alpha quirk. Skipped by the user (2026-10-16), to be ported with the
-  rest of the room effects.
+  Placed light sources are created and read by `Needed` and `CompleteDarkness` (D24).
   The `AbstractCreature` constructor's abstract AI switch (300531..300570) is ported
   for every base type but the scavenger (`CreatureTemplate::abstract_ai_ported`): the
   vultures', cicadas', big eels', deer's (Remix's deer behaviour off), Miros birds' and
@@ -966,6 +961,44 @@ range; `PhysicalObject.Update` prunes stale `grabbedBy` entries (the player and 
 **Why.** Base-game scope; the other grabbers come with their creatures.
 
 **Affects.** Escapes and deaths in lizards' jaws in co-op, DLC and with other creatures.
+
+## D24: Light sources (placed lights, the player's glow)
+
+`Room.Loaded`'s placed `LightSource`s (`rw_sim::game_lights`, data `rw_assets::LightSourceData`),
+`LightSource`'s `Alpha` (`fadeWithSun`), `Lightness`, `colorFromEnvironment`
+(`RoomCamera.PixelColorAtCoordinate` on camera 0's picture, `rw_sim::CameraImage`) and
+`effectColor` (`ApplyPalette`), the glowing player's light (`PlayerGraphics.Update`),
+`Room.Darkness`, `LightSourceExposure`, `LightSourceColor`, `DarknessOfPoint`, and
+`HologramLight.Needed` reading `Alpha`. Notes: `../../rainworld-re/notes/lights.md`.
+
+- **Blinking and night lights not ported** (user, 2026-10-22: with the DLCs that use
+  them; no base room has one): `SetLightSourceBlink`'s `blinkType`/`blinkRate`, the
+  `blinkTicker` from `room.syncTicker`, the draw's Flash/Fade factor, `nightLight`'s
+  `nightFade` and the `DayNight` fade-in. The data parser reads the fields.
+- **Camera 0's picture is handed over by the app** before each tick (`set_camera_image`:
+  the shown camera's level image and the palette after `ApplyFade`), and `ApplyPalette`'s
+  effect colour is applied to the camera room's lights then and when a placed light is
+  made in that room. The game calls `ApplyPalette` from `InitiateSprites` and on palette
+  changes (inferred: the same colour at every update, since the palette only changes
+  before the rooms update). Rooms the camera does not show keep their lights' last
+  colour, as in the game. `levelTexture.GetPixel`'s red is taken as `byte / 255` in
+  `f32` (Unity's `Color32` to `Color`, inferred).
+- **DLC and Remix branches omitted:** `Alpha`'s Watcher void weaver (0) branch,
+  Remix's `cosmeticLightSources` (`noGameplayImpact`), `waterInverted` (DLC shared)
+  under-water glow, `DefaultSlugcatColor`'s More Slugcats and Watcher colours, Remix
+  custom and Jolly colours (`SlugcatColor`), the slugpup's `ShortCutColor` light, the
+  Watcher's forced glow and the Jolly Co-op under-water light.
+- **The colour's alpha is kept as the game's**, not a divergence but easy to lose: the
+  `color` setter divides all four channels (`Color / float`), so `LightSource::color_a`
+  is `a / colorAlpha`, and the draw multiplies the sprite alpha (which has the
+  `colorAlpha` factor) by it, as Futile's vertex colour does (`color.a * alpha`); the
+  factor cancels.
+- **Not ported (no owner yet):** `setupValues.playerGlowing` (dev setting) and arena
+  `playersGlowing` (no arena sessions); `theGlow` and the player's `glowing` set
+  mid-cycle by eating a neuron fly (`OracleSwarmer.BitByPlayer`, `SLOracleSwarmer`) or
+  spearing one (`Spear.cs`), with the neuron flies; lights of lanterns, flare
+  bombs, creatures but the green lizard, gates, oracles and explosions come with their
+  owners.
 
 ## Not ported yet (not divergences, just absent)
 

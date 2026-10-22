@@ -18,6 +18,7 @@ not behaviour. Game assets are never committed.
 | `room_visuals.rs` | settings, palettes and per-camera images for one room's level graphic | `RoomCamera` |
 | `settings.rs` | `RoomSettings`, `SettingsFile`, template inheritance, `FadePalette`, `DangerType` | `RoomSettings` |
 | `placed.rs`, `placed_types.rs` | room effects and placed objects by type name; the `PlacedObject.Type` / `RoomEffect.Type` enums | `PlacedObject`, `RoomSettings.RoomEffect` |
+| `placed_light.rs` | a placed light's data: `LightSourceData`, `LightColorType`, `LightBlinkType` | `PlacedObject.LightSourceData` |
 | `triggers.rs` | `Triggers:` entries (event/spot triggers, music and image events) | `RoomSettings.LoadTriggers` |
 | `ambient.rs` | `AmbientSounds:` line | `RoomSettings.LoadAmbientSounds` |
 | `palette.rs` | `PaletteImage`, `EffectColors`, `PaletteTexture`, `RoomPalette` | `RoomCamera.LoadPalette` |
@@ -47,7 +48,7 @@ not behaviour. Game assets are never committed.
 ## Where is X?
 
 - Room tiles, water, cameras: `room.rs` (`Room`).
-- Room settings (palette, effects, grime, waves): `settings.rs`; placed objects: `placed.rs`.
+- Room settings (palette, effects, grime, waves): `settings.rs`; placed objects: `placed.rs` (lights' data: `placed_light.rs`).
 - Room palette blending: `palette.rs`; everything for one level graphic: `room_visuals.rs`.
 - World file, room list, connections: `world.rs` (`WorldData`); region list: `Regions`.
 - Region `properties.txt`: `region_properties.rs`.

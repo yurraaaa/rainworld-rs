@@ -23,6 +23,7 @@
 
 mod bubble;
 mod camera;
+mod camera_image;
 pub mod campaign;
 mod chunk;
 pub mod color;
@@ -56,6 +57,7 @@ pub mod world;
 
 pub use bubble::{Bubble, BubbleMode};
 pub use camera::CameraView;
+pub use camera_image::CameraImage;
 pub use chunk::{BodyChunk, Contact, DEFAULT_RESTRICT_IN_ROOM_RANGE, PhysicsParams, TerrainImpact};
 pub use cosmetic::{
     Cosmetic, CosmeticKind, CosmeticTie, ExplosionSpikes, OverseerEffectSprite, Spark,
@@ -66,9 +68,10 @@ pub use dripping_sound::DrippingSound;
 pub use float_ext::FloatExt;
 pub use game::{
     CameraMove, GameOver, Grabability, HeavyAiThrottle, HudEvent, NewGameWorld, OverseerCall,
-    PlayerHands, PlayerObserver, PlayerSurroundings, RainWorldGame, Start, UtilityReadings,
+    PlayerGlow, PlayerHands, PlayerObserver, PlayerSurroundings, RainWorldGame, Start,
+    UtilityReadings,
 };
-pub use light_source::{LightHardSet, LightSource, LightTie};
+pub use light_source::{LightHardSet, LightSource, LightSourceTick, LightTie};
 pub use map_discovery::{DiscoveryTexture, HudMapLink, MapDiscovery, MapRoom, UnityTexture};
 pub use noise::{ImpactCall, ImpactCalls, InGameNoise, NoiseSink, RoomCall};
 pub use object::{

@@ -1279,6 +1279,7 @@ impl Game {
             darken_lights: room.settings.effect_amount(RoomEffectType::DarkenLights),
             water: room.room.water_level().is_some(),
             water_lights: room.settings.effect_amount(RoomEffectType::WaterLights) > 0.0,
+            shader_light: self.sim.world().rain_cycle.shader_light(),
         };
         let mut order: Vec<_> = room
             .holo_lights
@@ -1316,9 +1317,10 @@ impl Game {
         lists
     }
 
-    /// The camera room's light sources as `Water.GetSurfaceColor` reads them.
+    /// The camera room's light sources as `Water.GetSurfaceColor` reads them (`Alpha`).
     #[must_use]
     pub fn surface_lights(&self) -> Vec<SurfaceLight> {
+        let shader_light = self.sim.world().rain_cycle.shader_light();
         self.sim
             .world()
             .realized(self.sim.camera_room())
@@ -1330,7 +1332,7 @@ impl Game {
                         pos: l.pos.to_array(),
                         rad: l.rad,
                         color: l.color,
-                        alpha: l.alpha,
+                        alpha: l.alpha_now(shader_light),
                     })
                     .collect()
             })

@@ -1,4 +1,5 @@
-//! The game's side of the guide's room objects: `Room.Loaded`'s placed
+//! The game's side of the guide's room objects: `Room.Loaded`'s placed objects (with the
+//! placed lights, made in [`super::lights`]),
 //! `SuperJumpInstruction`, `ScavengerTradeInstructionTrigger` and `ReliableIggyDirection`,
 //! the `InputInstructionTrigger`s' updates (with the event-made
 //! `PickupObjectInstruction`), and what the guide's communication reads of them. Types:
@@ -7,7 +8,7 @@
 //! Mirrors: Room.cs (Loaded), SuperJumpInstruction.cs, ScavengerTradeInstructionTrigger.cs, ReliableIggyDirection.cs, InputInstructionTrigger.cs
 
 use rw_assets::{
-    AbstractObjectType, CreatureType, IggyCondition, PlacedObjectType, QuadData,
+    AbstractObjectType, CreatureType, IggyCondition, LightSourceData, PlacedObjectType, QuadData,
     ReliableIggyDirectionData,
 };
 
@@ -71,10 +72,11 @@ impl World {
 }
 
 impl RainWorldGame {
-    /// `Room.Loaded`'s placed objects that are the guide's triggers, in the room
-    /// settings' order (inactive ones skipped). Data the game could not parse (it
-    /// throws) is skipped.
-    pub(super) fn add_placed_triggers(&mut self, index: i32) {
+    /// `Room.Loaded`'s placed objects that are ported room objects (the guide's
+    /// triggers and the placed lights), in the room settings' order (inactive ones
+    /// skipped), each joining the update list as it is made. Data the game could not
+    /// parse (it throws) is skipped.
+    pub(super) fn add_placed_room_objects(&mut self, index: i32) {
         let (timeline, mods) = (self.world.timeline(), self.world.mods());
         let Some(realized) = self.world.realized(index) else {
             return;
@@ -86,18 +88,23 @@ impl RainWorldGame {
             }
             let pos = Vec2::from(o.pos);
             let kind = match o.object_type(mods) {
-                Some(PlacedObjectType::SuperJumpInstruction) => QuadData::parse(&o.data).map(|q| {
-                    TriggerObjectKind::SuperJumpInstruction(SuperJumpInstruction::new(pos, q))
-                }),
-                Some(PlacedObjectType::ScavTradeInstruction) => {
-                    Some(TriggerObjectKind::ScavTradeInstruction(
-                        ScavengerTradeInstructionTrigger::new(pos),
-                    ))
+                Some(PlacedObjectType::LightSource) => {
+                    LightSourceData::parse(&o.data).map(|d| PlacedRoomObject::Light(pos, d))
                 }
+                Some(PlacedObjectType::SuperJumpInstruction) => QuadData::parse(&o.data).map(|q| {
+                    PlacedRoomObject::Trigger(TriggerObjectKind::SuperJumpInstruction(
+                        SuperJumpInstruction::new(pos, q),
+                    ))
+                }),
+                Some(PlacedObjectType::ScavTradeInstruction) => Some(PlacedRoomObject::Trigger(
+                    TriggerObjectKind::ScavTradeInstruction(ScavengerTradeInstructionTrigger::new(
+                        pos,
+                    )),
+                )),
                 Some(PlacedObjectType::ReliableIggyDirection) => {
                     ReliableIggyDirectionData::parse(&o.data, mods).map(|d| {
-                        TriggerObjectKind::ReliableIggyDirection(Box::new(
-                            ReliableIggyDirection::new(pos, d),
+                        PlacedRoomObject::Trigger(TriggerObjectKind::ReliableIggyDirection(
+                            Box::new(ReliableIggyDirection::new(pos, d)),
                         ))
                     })
                 }
@@ -108,8 +115,11 @@ impl RainWorldGame {
                 None => log::warn!("unreadable {} data {:?}", o.kind, o.data),
             }
         }
-        for kind in added {
-            self.add_trigger_object(index, kind);
+        for object in added {
+            match object {
+                PlacedRoomObject::Trigger(kind) => self.add_trigger_object(index, kind),
+                PlacedRoomObject::Light(pos, data) => self.add_placed_light(index, pos, &data),
+            }
         }
     }
 
@@ -447,3 +457,9 @@ impl RainWorldGame {
 #[cfg(test)]
 #[path = "game_instructions_tests.rs"]
 mod tests;
+
+/// A placed object `Room.Loaded` turns into a ported room object.
+enum PlacedRoomObject {
+    Trigger(TriggerObjectKind),
+    Light(Vec2, LightSourceData),
+}

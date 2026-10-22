@@ -213,13 +213,8 @@ impl PlayerGraphics {
     /// `PlayerGraphics.DefaultSlugcatColor` (Remix custom and Jolly colours off).
     #[must_use]
     pub fn default_slugcat_color(name: SlugcatName) -> Color {
-        if name == SlugcatName::Yellow {
-            Color::rgb(1.0, 1.0, 115.0 / 255.0)
-        } else if name == SlugcatName::Red {
-            Color::rgb(1.0, 115.0 / 255.0, 115.0 / 255.0)
-        } else {
-            Color::WHITE
-        }
+        let [r, g, b] = rw_sim::PlayerGlow::default_slugcat_color(name);
+        Color::rgb(r, g, b)
     }
 
     /// `PlayerGraphics.Reset`: draw positions at the chunks, every part at its chunk
