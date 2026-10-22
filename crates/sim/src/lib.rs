@@ -54,7 +54,7 @@ pub use cosmetic::{
     Cosmetic, CosmeticKind, CosmeticTie, ExplosionSpikes, OverseerEffectSprite, Spark,
     StationaryEffect,
 };
-pub use creature::WorldCoordinate;
+pub use creature::{ShortCutColor, WorldCoordinate};
 pub use float_ext::FloatExt;
 pub use game::{
     CameraMove, GameOver, Grabability, HeavyAiThrottle, HudEvent, NewGameWorld, OverseerCall,
