@@ -50,7 +50,14 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   rumble from `controllerShake`), the `Lightning` and `AntiGravity` callers (S3, with
   their effects), callers that come with their objects (explosive spears' and scavenger
   bombs' explosions, cicadas, leviathans, region gates, Moon's wake-up), and
-  `PausedDrawUpdate`'s micro shake (paused frames repeat; a question for the user).
+  `PausedDrawUpdate`'s micro shake (skipped for now, user 2026-10-22; paused frames repeat
+  the last offset, D1), and the Remix clamps (with Remix).
+  User 2026-10-22 on the wave 1 omissions: wet terrain and the Ant's `SpecificDepth`
+  shader (D23) go with the full-screen effects step; the echo branches (ghost mode, the
+  insects' `CreaturesSleepInRoom` early-out) with echoes; PinkSky and DayNight with the
+  DLCs; arena non-story light and `startUpTicks` 600 with arena sessions; insect
+  explosions with explosions; insect terrain curves when terrain curves are ported; the
+  `SunBlocker`'s (empty) update-list entry skipped.
 - **Code quality pass after the lizard steps** (user, 2026-10-16): once lizard steps
   6 to 9 are merged, go over the workspace one crate at a time, a step per crate,
   finding code quality improvements (duplicated code to merge, and the like) and
