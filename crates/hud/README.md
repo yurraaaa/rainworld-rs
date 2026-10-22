@@ -23,6 +23,8 @@ directly.
 | `map/data.rs` | map data from the world, gate requirements | `HUD.Map.MapData` |
 | `map/connection.rs` | dashed connection lines | `Map.OnMapConnection` |
 | `map/markers.rs` | gate, shelter, death, karma-flower markers | `Map.FadeInMarker` |
+| `map/shelter_items.rs` | a shelter marker's item icons: `ShelterSymbols`, `ItemInShelterMarker`, `ItemInShelterData` | `Map.ShelterMarker`, `GetItemInShelter` |
+| `icon_symbol.rs` | `IconSymbol`, `IconSymbolData` (item and creature icons), `SymbolWidths` | `IconSymbol`, `ItemSymbol` |
 | `controls_page.rs` | SU_C04 keyboard controls picture | `TutorialControlsPage` |
 | `pause_menu.rs` | pause menu of a story game | `Menu.PauseMenu` |
 | `sleep_screen.rs` | `SleepAndDeathScreen`: sleep, death, starve screens | `Menu.SleepAndDeathScreen` |
@@ -38,7 +40,8 @@ directly.
 ## Where is X?
 
 - Food meter pips, hibernation line, quarter pips: `food_meter.rs`.
-- Region map: `map/mod.rs`; data: `map/data.rs`; markers: `map/markers.rs`.
+- Region map: `map/mod.rs`; data: `map/data.rs`; markers: `map/markers.rs`; icons
+  of what lies in a shelter: `map/shelter_items.rs`, `icon_symbol.rs`.
 - Text prompt, game-over prompt, subregion names: `text_prompt.rs`.
 - Karma symbol in play: `karma_meter.rs`; ladder on the sleep screen: `karma_ladder.rs`.
 - Rain cycle ring: `rain_meter.rs`.

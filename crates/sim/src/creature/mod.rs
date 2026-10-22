@@ -17,6 +17,7 @@
 pub mod agression_tracker;
 pub(crate) mod ai;
 pub mod ai_kinds;
+mod centipede;
 pub mod danger;
 pub mod death;
 pub mod den_finder;

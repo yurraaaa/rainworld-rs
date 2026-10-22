@@ -336,6 +336,7 @@ impl SleepAndDeathScreen {
             input: s.input,
             rooms_visited: s.rooms_visited.clone(),
             now_ticks: MapOwner::now_ticks(),
+            shelter_items: None,
         };
         let reveal = s.reveal_map();
         let shared = &mut *cx.shared;

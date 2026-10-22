@@ -8,13 +8,14 @@ use rw_render::StageShader;
 use rw_sim::{FloatExt, Vec2};
 
 use super::GateRequirement;
+use super::shelter_items::ShelterSymbols;
 
 /// What a marker shows.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MarkerKind {
     /// `GateMarker`: the gate's karma symbol, red while closed to the player.
     Gate { show_as_open: bool },
-    /// `ShelterMarker` (the items stored in the shelter are not ported).
+    /// `ShelterMarker`, with its items ([`FadeInMarker::shelter`]).
     Shelter,
     /// `DeathMarker`: bones, red the cycle it happened, greyer as it ages.
     Death {
@@ -43,6 +44,8 @@ pub struct FadeInMarker {
     /// The death marker's black copy of the bones behind them.
     shade: Option<NodeId>,
     symbol: NodeId,
+    /// A shelter marker's items.
+    pub shelter: Option<ShelterSymbols>,
 }
 
 /// The map's state a marker draws with.
@@ -88,14 +91,16 @@ impl FadeInMarker {
 
     /// `ShelterMarker`.
     pub fn shelter(stage: &mut StageTree, container: NodeId, room: i32, pos: Vec2) -> Self {
-        Self::new(
+        let mut marker = Self::new(
             stage,
             container,
             MarkerKind::Shelter,
             room,
             pos,
             "ShelterMarker",
-        )
+        );
+        marker.shelter = Some(ShelterSymbols::default());
+        marker
     }
 
     /// `DeathMarker`: at the death's tile, aged `age` cycles.
@@ -160,6 +165,7 @@ impl FadeInMarker {
             bkg_fade,
             shade: None,
             symbol: bkg_fade,
+            shelter: None,
         }
     }
 
@@ -169,9 +175,13 @@ impl FadeInMarker {
         stage.add_sprite(container, symbol)
     }
 
-    pub fn update(&mut self) {
+    /// `Update` (a shelter marker's items tick after it while the map shows).
+    pub fn update(&mut self, map_visible: bool) {
         self.last_fade = self.fade;
         self.fade = (self.fade + self.fade_in_speed).min(1.0);
+        if let Some(s) = &mut self.shelter {
+            s.update(map_visible, self.fade);
+        }
     }
 
     /// `FadeIn(fdSpd)`: starts fading in over `ticks` unless already fading.

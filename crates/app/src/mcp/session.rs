@@ -53,7 +53,9 @@ use super::reply::{
     DeathFallState, FullScreenEffectState, LevelParamsState, SpearOnBackInfo, SpriteLeaserState,
     WaterLightState,
 };
-use super::reply::{FleeInfo, HeavyAiInfo, HuntInfo, LoungeInfo, OwnedItemState, WaterSoundState};
+use super::reply::{
+    FleeInfo, HeavyAiInfo, HuntInfo, LoungeInfo, OwnedItemState, ShelterIconState, WaterSoundState,
+};
 use super::reply::{
     FliesWorldInfo, GraspInfo, HeldInfo, QuantifiedInfo, RegionStateInfo, RelationshipInfo,
     RoomDens,
@@ -2262,6 +2264,16 @@ impl MapState {
                     .to_owned(),
                     room: m.room,
                     fade: m.fade,
+                    items: m
+                        .shelter
+                        .iter()
+                        .flat_map(|s| &s.items)
+                        .map(|i| ShelterIconState {
+                            sprite: i.symbol.sprite_name.clone(),
+                            pos: i.pos.to_array(),
+                            status: i.data.status,
+                        })
+                        .collect(),
                 })
                 .collect(),
         }
