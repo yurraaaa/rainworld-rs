@@ -43,10 +43,12 @@ Exit check: play the SU_A42 to SU_A43 tutorial through.
 **M6 - Green lizards** (current; `surveys/lizards.md`, steps S1 to S9)
 Done: S1 AI map, S2 abstract AI for the other creatures, S3 body, violence and
 death, S4 path finder and movement, S5 graphics and voice, S6a tracker, vision and
-relationships, S6b hearing, noises and social influences.
-Left: S7 the lizard's decision layer (prey, threat, aggression, den finder, utility,
-behaviours), S8 the player grabbed by a lizard (death by bite, escape), S9 lineage
-plumbing and acceptance (respawn, lizards in shelters, saved lineage).
+relationships, S6b hearing, noises and social influences, S7a decisions and calm
+behaviours, S7b hunting and fleeing, S8 the player grabbed by a lizard (death by bite,
+escape, game over on the grasp).
+Left: S7c lizard fights, communication and missions; the player picking up, carrying
+and eating dead or stunned lizards; S9 lineage plumbing and acceptance (respawn,
+lizards in shelters, saved lineage).
 Exit check: a green lizard hunts, bites and flees as in the game, and the player
 can be killed by one, across a cycle.
 
