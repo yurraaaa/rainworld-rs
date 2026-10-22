@@ -17,6 +17,7 @@ mod animation;
 mod body_mode;
 mod carry;
 mod corridor;
+mod drips;
 mod exhaustion;
 mod falls;
 mod grab;

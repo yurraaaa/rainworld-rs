@@ -230,7 +230,9 @@ corridors (D10).
 - **More Slugcats / Watcher omitted:** the slugpup's smaller slide-up hop (2.25 px,
   +1 vy, 0.3x lift, 0.5x slide forces) and the slugpup, Rivulet and Gourmand
   (`PainJumps`) sideways pole jump values, Saint's `monkAscension` blocking the grab,
-  and the ripple-levitation freeze of the facing (`rippleActivating`).
+  and the ripple-levitation freeze of the facing (`rippleActivating`), and the Rivulet's
+  pole-skip `WaterDrip`s (`Player.cs` 5453: 7 when `animation != None`; the base
+  game's pole skip needs `animation == None`, so it never makes them).
 - **Not ported entries to the pole:** `ZeroGPoleGrab` (zero gravity) and the deer antlers. The blink
   on the pole is not ported.
 - **Spears stuck in walls** make poles as `Spear.addPoles` does (a horizontal beam on the
@@ -258,7 +260,8 @@ direction.
 
 **What differs:**
 - **Remix (MMF) wall pounce omitted** (`cfgWallpounce`: a fast head-first wall hit with
-  a buffered jump launches a `RocketJump` away from the wall).
+  a buffered jump launches a `RocketJump` away from the wall, with its 7 `WaterDrip`s,
+  `Player.cs` 6636).
 - **Held items.** The belly-slide throws are ported: forward (with throwing skill) the
   weapon skims the floor; backward the long belly slide (`longBellySlide`: 39-tick
   push of 14, 34-tick jump window, exit after 16, a hop on its end, a 1.2x rocket
@@ -301,8 +304,8 @@ force (`rainworld-re/notes/corridors.md`), base game with Remix off, Survivor va
   damping factor, the Rivulet (14) and slugpup (4) `jumpBoost` of the corridor `Jump`
   branch, Saint's `monkAscension` blocking the beam exits.
 - **Not ported:** the zero-gravity branches (shaft `canCorridorJump` with the head down,
-  the zero-G slides), carried objects dragged through corridors, adrenaline factors and
-  the `WaterDrip` particles of the slides (their random draws are cosmetic).
+  the zero-G slides and their `WaterDrip`s), carried objects dragged through corridors and
+  adrenaline factors.
 
 **Why.** Remix, DLC, zero gravity and grabbing are out of scope.
 
@@ -955,7 +958,8 @@ charge and dive force (untested).
 Physics: burrowing, terrain curves (`TerrainCurve`), the curved-terrain `TerrainImpact`
 call, the room-range clamp's skip for grabbed objects, and `DefaultTile`.
 
-Room: the `WaterDrip`s of skids, slides and corridor shoots; `WaterFall` (the falling
+Room: the zero-gravity corridor slide's `WaterDrip`s (`Player.cs` 9423, with zero
+gravity); `WaterFall` (the falling
 water of waterfall tiles, with its water-coloured drips, bubbles and sound) and the
 `WaterGate`'s falls. `Room.Update`'s ambient ceiling drip and `Room.Loaded`'s
 `DrippingSound` are ported (`game_drips.rs`); its `Random.value < gravity` compares with
