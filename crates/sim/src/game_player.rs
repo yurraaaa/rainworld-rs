@@ -901,10 +901,15 @@ impl RainWorldGame {
 
     /// The lent object's chunks back from the player's update.
     /// The masses `JumpOnChunk` reads of the player's jump chunk, when its owner is
-    /// realized in room `index`.
+    /// realized in room `index` (`jumpChunk.owner.room`: a creature sucked into a
+    /// shortcut has none).
     pub(super) fn jump_chunk_body(&self, index: i32) -> Option<JumpChunkBody> {
         let c = self.player.as_ref()?.jump_chunk()?;
-        if self.world.entity_pos(c.owner).room != index {
+        let room = match c.owner {
+            Entity::Creature(id) => self.world.physical_room(id),
+            Entity::Object(_) => Some(self.world.entity_pos(c.owner).room),
+        };
+        if room != Some(index) {
             return None;
         }
         Some(JumpChunkBody {
