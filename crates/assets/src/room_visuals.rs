@@ -74,17 +74,26 @@ impl RoomVisuals {
         &self.settings
     }
 
-    /// The palette texture while `camera` is shown: palette A faded toward the
-    /// `FadePalette` palette by that camera's amount (0 past the list). No rain darkening.
+    /// The palette texture while `camera` is shown (`ApplyFade`): each palette's top
+    /// half darkened toward its rain-dark half by `dark` (`DarkPalette`), then palette A
+    /// faded toward the `FadePalette` palette by that camera's amount (0 past the list).
     #[must_use]
-    pub fn palette_for_camera(&self, camera: usize) -> PaletteTexture {
+    pub fn palette_for_camera(&self, camera: usize, dark: f32) -> PaletteTexture {
         let fade = self
-            .settings
-            .fade_palette
+            .palette_b
             .as_ref()
-            .zip(self.palette_b.as_ref())
-            .map(|(f, b)| (b, f.fade(camera)));
-        PaletteTexture::blend(&self.palette_a, fade, 0.0)
+            .map(|b| (b, self.palette_blend(camera)));
+        PaletteTexture::blend(&self.palette_a, fade, dark)
+    }
+
+    /// `paletteBlend` while `camera` is shown: its `FadePalette` amount, 0 without a
+    /// second palette or past the list.
+    #[must_use]
+    pub fn palette_blend(&self, camera: usize) -> f32 {
+        match (&self.settings.fade_palette, &self.palette_b) {
+            (Some(f), Some(_)) => f.fade(camera),
+            _ => 0.0,
+        }
     }
 
     /// Decodes the image of `camera`.

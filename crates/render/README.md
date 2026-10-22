@@ -15,7 +15,7 @@ lists and overlays.
 | `src/gpu.rs` | `WgpuRenderer` (`new`, `headless`, `render_image`, `present`), pipelines and frame orchestration; `gpu/tests.rs` |
 | `src/camera.rs` | `Camera`: room pixels (y up) to clip space |
 | `src/room_camera.rs` | `RoomCamera`, `Follow`: camera image choice and window position, moved by the shake (`displace`) and the frame's micro shake (`RoomCamera.GetCameraBestIndex/Update/DrawUpdate`) |
-| `src/level.rs`, `src/level_gpu.rs` | level graphic (`LevelGraphics`, `LevelParams`, `LevelView`) and its GPU side; `LevelColor` shader |
+| `src/level.rs`, `src/level_gpu.rs` | level graphic (`LevelGraphics`; `LevelParams`: the room's shader globals incl. `_rimFix` and light angle; `LevelView`: window, `_RAIN`, `_light`) and its GPU side (palette rewrites for `ApplyFade`) |
 | `src/sprites.rs` | Futile sprites on CPU: atlas coords, `FSprite` quads, `TriangleMesh`es from `DrawList`s, draw queue |
 | `src/sprite_gpu.rs` | GPU side: one `sprite.wgsl` pipeline per game shader, atlas pages, `_NoiseTex2`, grab textures |
 | `src/stage.rs`, `src/stage_gpu.rs` | Futile stage quads in screen pixels (menus, HUD) and their GPU side |
@@ -24,7 +24,7 @@ lists and overlays.
 | `src/overlay.rs`, `src/overlay_gpu.rs` | `Overlay` (ImGui triangles in target pixels) and its pass |
 | `src/room_geometry.rs`, `src/mesh.rs`, `src/status.rs`, `src/body.rs` | debug view: tile geometry, tessellation (`Mesh`, `Color`), body style by condition, `ChunkInterpolation` |
 | `src/frame_image.rs`, `src/error.rs`, `src/test_room.rs` | `FrameImage` PNG readback, `RenderError`, ASCII test rooms |
-| `shaders/level.wgsl` | `LevelColor` (camera image through palette) |
+| `shaders/level.wgsl` | `LevelColor` (camera image through palette, object shadows from the pre-level grab, `SunBlock`, rimFix, grading) |
 | `shaders/sprite.wgsl` | room sprite shaders (`fs_basic`, `fs_flat_light`, `fs_hologram*`, `fs_light_source`, `fs_under_water_light`, `fs_shortcut`, ...) |
 | `shaders/stage.wgsl` | menu/HUD shaders (`fs_vector_circle`, `fs_menu_text`, `fs_local_bloom`, ...) |
 | `shaders/water.wgsl`, `shaders/map.wgsl` | water; region map (`fs_map`, `fs_map_aerial`, `fs_map_shortcut`) |
@@ -37,7 +37,8 @@ lists and overlays.
 - Vulkan device/adapter setup: `gpu.rs` `new` (window), `headless` (offscreen).
 - Offscreen screenshots: `gpu.rs` `render_image` -> `frame_image.rs`.
 - Window presentation / letterbox: `present.rs`, `present_gpu.rs`, `present.wgsl`.
-- Level graphic and palette: `level.rs`, `level_gpu.rs`, `level.wgsl`.
+- Level graphic and palette: `level.rs`, `level_gpu.rs`, `level.wgsl`; the palette's rain darkening is rebuilt by the app (`visuals.rs`) and re-uploaded with `Renderer::set_level_palette`.
+- Grabs for screen effects: the frame before the level is `FrameTargets::behind` in `gpu.rs` (the game's `_GrabTexture` / `_PreLevelColorGrab`, read by the level, water and sprite shaders); a later draw that grabs gets the frame so far in `FrameTargets::grab` (`copy_to_grab` before each grabbing draw, found by `next_grab`); the level image, palette and noise views are `LevelTextures::views`.
 - Which camera image shows / scroll: `room_camera.rs`.
 - Sprite drawing from a `DrawList`: `sprites.rs`, then `sprite_gpu.rs` + `sprite.wgsl`, pipeline chosen by game shader.
 - Menu/HUD quads: `stage.rs`, `stage_gpu.rs`, `stage.wgsl`.

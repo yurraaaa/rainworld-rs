@@ -70,6 +70,9 @@ pub struct State {
     pub objects: Vec<ObjectInfo>,
     /// `world.rainCycle`.
     pub rain: RainState,
+    /// The camera room's level shader inputs, when it has a level graphic.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub level_params: Option<LevelParamsState>,
     /// The camera room's shelter door, when it has one.
     pub shelter_door: Option<ShelterDoorState>,
     /// The music player beside the game (its song requests, threat tracker).
@@ -239,6 +242,55 @@ pub struct ShelterDoorState {
 pub struct RainState {
     pub timer: i32,
     pub cycle_length: i32,
+}
+
+/// The level shader's uniforms (`RoomCamera`'s shader globals) and palette fade.
+#[derive(Debug, Clone, Serialize)]
+pub struct LevelParamsState {
+    /// `_light` (1 full sun, -1 none).
+    pub light: f32,
+    /// `num4`: the rain cycle's `ShaderLight` in rooms with rain danger, else 1.
+    pub shader_light: f32,
+    /// `DarkPalette`: the palette's blend toward its rain-dark half.
+    pub dark_palette: f32,
+    /// `paletteBlend`: the shown camera's `FadePalette` amount.
+    pub palette_blend: f32,
+    /// `_Grime`.
+    pub grime: f32,
+    /// `_fogAmount`.
+    pub fog_amount: f32,
+    /// `_darkness`, `_contrast`, `_saturation`, `_hue`, `_brightness`.
+    pub grade: [f32; 5],
+    /// `_cloudsSpeed`.
+    pub clouds_speed: f32,
+    /// `_rimFix`.
+    pub rim_fix: f32,
+    /// `_AboveCloudsAtmosphereColor` (RGB), used with `rim_fix`.
+    pub atmosphere: [f32; 3],
+    /// `_lightDirAndPixelSize.xy`: `room.lightAngle`.
+    pub light_dir: [f32; 2],
+    /// `SunBlocker`s drawn in the `Shadows` container.
+    pub sun_blockers: usize,
+}
+
+impl From<crate::visuals::LevelState> for LevelParamsState {
+    fn from(s: crate::visuals::LevelState) -> Self {
+        let p = s.params;
+        Self {
+            light: s.light,
+            shader_light: s.shader_light,
+            dark_palette: s.dark_palette,
+            palette_blend: s.palette_blend,
+            grime: p.grime,
+            fog_amount: p.fog_amount,
+            grade: [p.darkness, p.contrast, p.saturation, p.hue, p.brightness],
+            clouds_speed: p.clouds_speed,
+            rim_fix: p.rim_fix,
+            atmosphere: p.atmosphere,
+            light_dir: p.light_dir,
+            sun_blockers: s.sun_blockers,
+        }
+    }
 }
 
 /// One `AbstractCreature`.

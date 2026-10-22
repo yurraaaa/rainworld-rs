@@ -38,6 +38,7 @@ mod player_draw;
 mod player_graphics;
 mod shelter_door_graphics;
 mod shortcut_graphics;
+mod sun_blocker;
 mod tail;
 mod water_drip;
 mod weapon_graphics;
@@ -73,6 +74,7 @@ pub use shelter_door_graphics::ShelterDoorSprites;
 pub use shortcut_graphics::{
     ExitBehind, ShortcutFrame, ShortcutGraphics, ShortcutPalette, ShortcutRoom, ShortcutVessel,
 };
+pub use sun_blocker::SunBlocker;
 pub use tail::{TailAnchor, TailSegment};
 pub use water_drip::WaterDripSprites;
 pub use weapon_graphics::{PEBBLES, PebbleElement, SMALL_SPEAR, WeaponSprites};

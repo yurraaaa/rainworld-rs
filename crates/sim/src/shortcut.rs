@@ -483,7 +483,7 @@ mod tests {
                 grid.push('|');
             }
         }
-        let text = format!("T\n{w}*{h}|-1|0\n0\n0,0\n\n\n\n\n\n\n\n{grid}\n");
+        let text = format!("T\n{w}*{h}|-1|0\n0*0|0|0\n0,0\n\n\n\n\n\n\n\n{grid}\n");
         Room::parse(&text).expect("test room parses")
     }
 

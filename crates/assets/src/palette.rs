@@ -319,4 +319,34 @@ mod tests {
         assert!((p.fog_amount - 0.8).abs() < 1e-6);
         assert!((p.darkness - 0.6).abs() < 1e-6);
     }
+
+    trait FlatPalette {
+        /// Grey `normal` in the top half, grey `dark` in the rain-dark half.
+        fn flat(normal: u8, dark: u8) -> Self;
+    }
+
+    impl FlatPalette for PaletteImage {
+        fn flat(normal: u8, dark: u8) -> Self {
+            let pixels = (0..Self::HEIGHT)
+                .flat_map(|row| (0..Self::WIDTH).map(move |_| row))
+                .map(|row| if row < 8 { normal } else { dark })
+                .map(|v| [v, v, v, 255])
+                .collect();
+            Self::from_image(&PngImage::from_pixels(32, 16, pixels)).unwrap()
+        }
+    }
+
+    /// `ApplyFade`: `Lerp(Lerp(A, A dark, DarkPalette), Lerp(B, B dark, DarkPalette),
+    /// paletteBlend)`, stored at 8 bits.
+    #[test]
+    fn dark_half_then_fade() {
+        let (a, b) = (PaletteImage::flat(100, 200), PaletteImage::flat(0, 40));
+        assert_eq!(
+            PaletteTexture::blend(&a, None, 0.25).texel(3, 5),
+            [125, 125, 125, 255]
+        );
+        // A 125, B 10, half way: 67.5 rounds to 68.
+        let faded = PaletteTexture::blend(&a, Some((&b, 0.5)), 0.25);
+        assert_eq!(faded.texel(0, 7), [68, 68, 68, 255]);
+    }
 }

@@ -651,7 +651,7 @@ impl RainWorldGame {
             den_position: story.den.clone(),
         };
         let guide = &story.guide;
-        world.rain_cycle = RainCycle::new_story(campaign.name, rng);
+        world.rain_cycle = RainCycle::new_story(campaign.name, story.cycle_number, rng);
         let mut respawn = story.respawn_creatures.clone();
         let fresh = story.region_state.is_none() && story.live_region_state.is_none();
         // `World.LoadWorld`: the region state still in memory, else read from its load

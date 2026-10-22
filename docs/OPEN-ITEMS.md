@@ -38,6 +38,12 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **Room visual effects, lights and camera shake** (user, 2026-10-22): every non-DLC
   room visual effect, rooms' lights and `RoomCamera` screen shake, as the step before the
   rain. Surveys: `../rainworld-re/surveys/room-effects.md`, `lights-camera-shake.md`.
+  Effects step 1 (level shader and palette machinery) left for later steps: the rain's
+  `GlobalRain.ShaderLight` after the cycle ends (the port keeps its initial -1; goes
+  with the rain), `BrokenZeroG`'s `DarkPalette` (`1 - CurrentLightsOn`, with zero
+  gravity), lightning's `num4` and palette texel overrides (with Lightning), ghost
+  mode's `_light`/`_cloudsSpeed`/palette grey-out (with echoes), wet terrain
+  (`_WetTerrain`, `_waterLevel`), the sky scenes behind rimFix rooms.
   Camera shake core (S1) done: `rw_sim::CameraShake`, notes `camera-shake.md`. Left:
   the rain-derived shake (S2, with the rain: `RainCycle.ScreenShake`/`MicroScreenShake`,
   `GlobalRain` modes, flood `waterFlux.roomShake`, the `Screen_Shake_LOOP` rumble, gamepad

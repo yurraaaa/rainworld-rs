@@ -127,6 +127,7 @@ impl Session {
             let mut v = Visuals::load(&self.assets, &self.resources, &map, timeline)
                 .map_err(|e| format!("no level graphic for {}: {e}", map.name()))?;
             v.show(camera);
+            v.fade(&game.sim().world().rain_cycle);
             Some(v)
         } else {
             None
@@ -298,7 +299,7 @@ impl RoomShot {
         let time = (game.ticks() as f32 + 1.0) / TICK_RATE as f32;
         let level: Option<LevelView> = self.visuals.as_ref().map(|v| {
             v.upload(r, &self.camera);
-            Visuals::view(&self.camera, 1.0, time)
+            v.view(&self.camera, 1.0, time, &game.sim().world().rain_cycle)
         });
         let camera = match (view.framing, &level) {
             (Framing::Rect { origin, size }, _) => Camera::window(origin, size, r.size()),
@@ -323,6 +324,12 @@ impl RoomShot {
             ..view.layers
         });
         if let Some(level) = level {
+            // The room's `SunBlocker`s, alone in `Shadows`.
+            let blockers = self.visuals.as_ref().map_or(0, Visuals::sun_blockers);
+            for _ in 0..blockers {
+                let list = rw_graphics::SunBlocker::draw(Vec2::from(level.origin));
+                r.draw_sprites(&list, Layer::Shadows, level.origin);
+            }
             for layer in [Layer::Background, Layer::Midground, Layer::Items] {
                 for list in &items {
                     r.draw_sprites(list, layer, level.origin);

@@ -176,7 +176,7 @@ fn palette_with_effect_colours_and_fade() {
     let visuals = RoomVisuals::load(&sa, "SU_B04", 2, Some("white")).expect("visuals");
     let mut b = PaletteImage::load(&sa, 8).expect("palette8");
     b.apply_effect_colors(&effects, 9, 7).expect("in range");
-    let faded = visuals.palette_for_camera(1);
+    let faded = visuals.palette_for_camera(1, 0.0);
     let amount = 0.076_086_95_f32;
     for r in 0..8 {
         for x in 0..32 {
@@ -193,7 +193,7 @@ fn palette_with_effect_colours_and_fade() {
         }
     }
     // A camera past the fade list blends 0.
-    assert_eq!(visuals.palette_for_camera(5), plain);
+    assert_eq!(visuals.palette_for_camera(5, 0.0), plain);
 }
 
 #[test]
