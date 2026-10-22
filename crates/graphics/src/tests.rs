@@ -401,7 +401,7 @@ fn breath_advances_one_sixtieth_per_tick_until_death() {
     run(&mut p, &mut g, &r, Input::NONE, 30, &mut rng);
     assert_close(g.breath, 30.0 / 60.0, "breath");
     assert_close(g.last_breath, 29.0 / 60.0, "last breath");
-    p.die();
+    p.die(&mut UnityRandom::new(0));
     run(&mut p, &mut g, &r, Input::NONE, 5, &mut rng);
     assert_close(g.breath, 0.5, "dead: unchanged");
 }
@@ -559,7 +559,7 @@ fn face_by_blink_and_consciousness() {
     assert_eq!(face.rotation, head.rotation);
     // Unconscious graphics force the eyes shut (blink = 10 each tick).
     assert_eq!(g.blink, 9);
-    p.die();
+    p.die(&mut UnityRandom::new(0));
     run(&mut p, &mut g, &r, Input::NONE, 1, &mut rng);
     assert_eq!(
         g.draw(&p, 1.0, black, Color::BLACK)

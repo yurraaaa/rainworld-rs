@@ -180,7 +180,7 @@ impl RainWorldGame {
 
     /// `DangerGraspPickup`: with a free hand (the last) and no spear in hand, the
     /// nearest object in reach, favouring spears by 100 px, is grabbed and picked up
-    /// (`PickedUp`'s sound). The Hunter's spear on the back (`SpearToHand`) is not ported (D3).
+    /// (`PickedUp`'s sound); the Hunter takes the spear from its back instead (`SpearToHand`).
     pub(super) fn danger_grasp_pickup(
         &mut self,
         index: i32,
@@ -194,6 +194,11 @@ impl RainWorldGame {
         let Some(num) = (0..2).rev().find(|&i| grasps[i].is_none()) else {
             return;
         };
+        if self.spear_on_back().is_some_and(|s| s.has_a_spear()) {
+            let eu = self.even_update();
+            self.spear_to_hand(index, eu, observer);
+            return;
+        }
         let Some(obj) = self.pickup_candidate(index, room, 100.0) else {
             return;
         };

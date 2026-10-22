@@ -77,7 +77,7 @@ impl World {
         }
     }
 
-    /// The ends of `e`'s `stuckObjects`: its grip sticks, then its spear sticks (the
+    /// The ends of `e`'s `stuckObjects`: its grip, spear and on-back sticks (the
     /// game keeps one list in creation order; the port keeps the two apart).
     fn stuck_ends(&self, e: Entity) -> Vec<(Entity, Entity)> {
         let mut ends: Vec<(Entity, Entity)> = self
@@ -89,6 +89,12 @@ impl World {
             self.spear_sticks_of(e)
                 .iter()
                 .map(|s| (Entity::Object(s.spear), Entity::Creature(s.creature))),
+        );
+        ends.extend(
+            self.on_back_sticks()
+                .iter()
+                .filter(|s| e == Entity::Creature(s.player) || e == Entity::Object(s.spear))
+                .map(|s| (Entity::Creature(s.player), Entity::Object(s.spear))),
         );
         ends
     }

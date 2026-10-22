@@ -8,9 +8,10 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **Debug UI region switcher** (2026-10-19): the F1 debug UI's Region tab lists the
   regions on disk but its button does nothing; it needs region changes and gates,
   which are not ported.
-- **The Hunter's `SpearOnBack`**, and the LF_H01 spear; with it (user, 2026-10-22) its
-  use in `DangerGraspPickup` (`SpearToHand`) and `spearOnBack.DropSpear` in `Player.Die`
-  and `Player.Stun`.
+- **The LF_H01 spear** (the Hunter's `SpearOnBack` itself is ported, D3): the start
+  spear is made and put on the back by `HardmodeStart`, the Hunter's scripted first
+  cycle in `LF_H01` (swarmer in hand, pearl in the stomach, a deer, scripted input,
+  camera and map; D14), which is not ported. Port it whole, or only its spear?
 - **`ExplosiveSpear` behaviour.** The flag is ported; the explosion is not.
 
 - **Draw order by container add order** (user, 2026-10-22): objects that never went

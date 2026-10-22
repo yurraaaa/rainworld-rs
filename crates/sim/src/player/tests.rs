@@ -594,7 +594,7 @@ fn input_is_neutral_on_every_stun_tick() {
     p.step(&r, RIGHT);
     assert_eq!(p.input_history()[0], RIGHT);
 
-    p.die();
+    p.die(&mut UnityRandom::new(0));
     p.step(&r, RIGHT);
     assert_eq!(p.input_history()[0], Input::NONE);
 }
@@ -633,7 +633,7 @@ fn friction_is_0_3_while_not_conscious() {
     assert_eq!(p.body_mode(), BodyMode::Stunned);
 
     let mut p = Player::lying_at(Vec2::new(100.0, 48.0));
-    p.die();
+    p.die(&mut UnityRandom::new(0));
     p.step(&r, Input::NONE);
     assert_eq!(p.body.params.surface_friction, 0.3);
     assert_eq!(p.body_mode(), BodyMode::Dead);

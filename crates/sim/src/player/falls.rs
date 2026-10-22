@@ -71,6 +71,19 @@ impl Player {
     /// standing and releases the feet pin. A new
     /// longer stun above 10 plays `UI_Slugcat_Stunned_Init` (silent in the shipped game).
     pub fn stun(&mut self, ticks: i32, rng: &mut UnityRandom, sounds: &mut Sounds) {
+        let main_vel = self.body.chunks[HEAD].vel;
+        self.stun_with_main_vel(ticks, main_vel, rng, sounds);
+    }
+
+    /// [`Player::stun`], `main_vel` the main chunk's velocity (the body may be out for
+    /// a physics step).
+    fn stun_with_main_vel(
+        &mut self,
+        ticks: i32,
+        main_vel: Vec2,
+        rng: &mut UnityRandom,
+        sounds: &mut Sounds,
+    ) {
         self.flush_sounds(rng, sounds);
         let ticks = self.stun_multiplied(ticks);
         if ticks > rng.range_i32(UNSTAND_STUN_DRAW.0, UNSTAND_STUN_DRAW.1) {
@@ -80,8 +93,9 @@ impl Player {
             self.standing = false;
             self.feet_stuck_pos = None;
         }
-        // No spear on the back to drop.
-        let _ = rng.range_i32(SPEAR_DROP_STUN_DRAW.0, SPEAR_DROP_STUN_DRAW.1);
+        if ticks > rng.range_i32(SPEAR_DROP_STUN_DRAW.0, SPEAR_DROP_STUN_DRAW.1) {
+            self.drop_back_spear(main_vel, rng);
+        }
         if ticks > self.stun && ticks > 10 {
             self.play_sound(SoundId::UiSlugcatStunnedInit, HEAD, 1.0, 1.0);
             self.last_stun = ticks;
@@ -102,15 +116,18 @@ impl Player {
 
     /// `Player.Die`: the first call asks the game for `GameOver` (see
     /// [`Player::take_died_at`]) and plays `UI_Slugcat_Die` (silent in the shipped game);
-    /// its draws are made with the player's next ones. The hands let go.
-    pub fn die(&mut self) {
-        let main = self.body.chunks[HEAD].pos;
-        self.die_with_main_at(main);
+    /// its draws are made with the player's next ones. The hands let go; a spear on the
+    /// back drops first (`DropSpear`'s draws made now).
+    pub fn die(&mut self, rng: &mut UnityRandom) {
+        let main = &self.body.chunks[HEAD];
+        let (pos, vel) = (main.pos, main.vel);
+        self.die_with_main_at(pos, vel, rng);
     }
 
-    /// [`Player::die`] while the body is out for a physics step, `main` its main chunk's
-    /// position.
-    fn die_with_main_at(&mut self, main: Vec2) {
+    /// [`Player::die`] while the body is out for a physics step, `main` and `main_vel`
+    /// its main chunk's position and velocity.
+    fn die_with_main_at(&mut self, main: Vec2, main_vel: Vec2, rng: &mut UnityRandom) {
+        self.drop_back_spear(main_vel, rng);
         if !self.dead {
             self.died_at = Some(main);
             self.play_sound(SoundId::UiSlugcatDie, HEAD, 1.0, 1.0);
@@ -152,7 +169,7 @@ impl Player {
     /// The `Creature.Update` steps before physics: stun countdown (held at 10 by a
     /// pacifying grasp), shortcut-delay countdown, a hold let go near the bottom, then
     /// death and destruction below the room.
-    pub(super) fn creature_update(&mut self, water: Option<&Water>) {
+    pub(super) fn creature_update(&mut self, water: Option<&Water>, rng: &mut UnityRandom) {
         if self.stun > 0 {
             self.stun -= 1;
         }
@@ -162,7 +179,7 @@ impl Player {
         }
         self.release_under_room(self.out_of_room_limit());
         if self.fell_out_of_room(water) {
-            self.die();
+            self.die(rng);
             self.destroyed = true;
         }
     }
@@ -271,7 +288,7 @@ impl Player {
         if self.lands_in_roll(&impact) {
             self.start_landing_roll(chunks);
         } else if impact.first_contact {
-            self.first_contact_impact(impact, chunks[HEAD].pos, rng, sounds);
+            self.first_contact_impact(impact, &chunks[HEAD], rng, sounds);
         }
         self.flush_sounds(rng, sounds);
         let c = &chunks[impact.chunk];
@@ -286,17 +303,17 @@ impl Player {
     fn first_contact_impact(
         &mut self,
         impact: TerrainImpact,
-        main: Vec2,
+        main: &BodyChunk,
         rng: &mut UnityRandom,
         sounds: &mut Sounds,
     ) {
         let speed = impact.speed;
         if speed > FALL_DEATH_SPEED && impact.direction.y < 0 {
             self.play_sound(SoundId::SlugcatTerrainImpactDeath, HEAD, 1.0, 1.0);
-            self.die_with_main_at(main);
+            self.die_with_main_at(main.pos, main.vel, rng);
         } else if speed > FALL_STUN_SPEED {
             self.play_sound(SoundId::SlugcatTerrainImpactHard, HEAD, 1.0, 1.0);
-            self.stun(Self::fall_stun_ticks(speed), rng, sounds);
+            self.stun_with_main_vel(Self::fall_stun_ticks(speed), main.vel, rng, sounds);
         } else if impact.direction.y < 0 && self.is_conscious() {
             let id = if self.standing && impact.chunk == HIPS {
                 SoundId::SlugcatFloorImpactStandard

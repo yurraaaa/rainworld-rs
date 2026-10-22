@@ -68,7 +68,7 @@ pub use object::{
 };
 pub use player::{
     Animation, BodyMode, DangerGraspState, DangerGraspStep, GrabState, HEAD, HIPS, INPUT_HISTORY,
-    Input, Player, PlayerController, ShelterCheck, StomachObject, VesselStep,
+    Input, Player, PlayerController, ShelterCheck, SpearOnBack, StomachObject, VesselStep,
 };
 pub use room_ext::RoomExt;
 pub use shelter::SessionEnd;

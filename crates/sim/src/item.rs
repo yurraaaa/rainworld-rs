@@ -7,13 +7,15 @@
 //!
 //! Mirrors: AbstractPhysicalObject.cs, AbstractSpear.cs
 
+mod on_back_stick;
 mod spear_stick;
 mod weapon;
 
+pub use on_back_stick::OnBackStick;
 pub use spear_stick::{SpearStick, SpearStickKind};
 pub use weapon::{
-    ChunkDynamicSoundLoop, LoopCx, ModeChange, SpearParts, StuckIn, Throw, WEAPON_PARAMS, Weapon,
-    WeaponKind, WeaponMode, WeaponTick,
+    ChunkDynamicSoundLoop, LoopCx, ModeChange, SpearParts, SpearSpin, StuckIn, Throw,
+    WEAPON_PARAMS, Weapon, WeaponKind, WeaponMode, WeaponTick,
 };
 
 use rw_assets::{AbstractObjectType, ActiveMods};

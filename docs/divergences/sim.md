@@ -51,8 +51,22 @@ apply to `HeavyCarry` objects only, which no ported object is.
   decision of 2026-10-16). Remix and More Slugcats branches
   (Gourmand, Saint, Spearmaster, Rivulet's upward throw, the MMF slow-spear and
   climbing-grip rules) are omitted.
-- **The Hunter's spear on the back** (`SpearOnBack`, `CanPutSpearToBack`) is not
-  ported: a Hunter picks spears up into the hands only.
+- **The Hunter's spear on the back** (`SpearOnBack`, `AbstractOnBackStick`) is
+  ported: holding pick-up stashes a held spear or takes the back one, a spear in reach
+  goes straight to the back with full hands, down and pick-up on the ground lays it
+  down, `Stun`, `Die` and `DangerGraspPickup` use it, and it rides the back
+  (`GraphicsModuleUpdated`, the hands' reach in `PlayerGraphics`). Differences:
+  `DropSpear` called from `Stun` or `Die` makes its four draws (velocity and the `Free`
+  spin) where the game does, but the velocity and mode reach the spear when the game
+  next applies the slugcat's releases (the same tick). `CreaturePutItemOnGround`
+  (laying it down, as in `ReleaseObject`) is not ported (no social event keeps owned
+  items yet). The zero-gravity branch of `GraphicsModuleUpdated` is left out (no
+  zero-gravity rooms). The on-back sticks are kept apart from the grip and spear sticks
+  (`GetAllConnectedObjects` walks them last) and are not written to `STICKS` (D16): the
+  spear is saved as a shelter object and lies free next cycle, as the game's restored
+  stick never puts it back. The Expedition back-spear unlock, the slugcat on the back
+  (More Slugcats, Jolly Co-op) and the `VoidSeaScene` and garbage-worm uses are omitted.
+  The Hunter's `LF_H01` start spear belongs to `HardmodeStart` (D14), not ported.
 - **Random numbers.** The player's draws (stacked-body nudge `Random.Range(-1, 1)`,
   initial facing in `Player::create`, the `Stun` threshold, the corridor-turn jiggle,
   the water) use the game's generator and calls; only seed and call order differ (D1).
@@ -883,8 +897,6 @@ range; `PhysicalObject.Update` prunes stale `grabbedBy` entries (the player and 
   order; only the released objects, and objects that joined the room after a release,
   are placed as the game's `AddChild` would place them (above the rest). Overseers
   joining after a release stay in the kind order.
-- **Not ported:** the Hunter's spear on the back in `DangerGraspPickup` (`SpearToHand`,
-  D3).
 - **Remix branch omitted:** `ReleaseDoorForbiddenCreatures` in `SuckedIntoShortCut`
   (a grabbed creature whose template forbids shortcuts, or an immobile one, and the
   grasps between it and what enters are let go); the game calls it only with

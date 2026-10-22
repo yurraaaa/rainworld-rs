@@ -434,7 +434,8 @@ impl World {
                 }
             }
         }
-        for other in self.spear_stick_partners(e) {
+        let partners = self.spear_stick_partners(e);
+        for other in partners.into_iter().chain(self.on_back_partners(e)) {
             if !list.contains(&other) {
                 list.push(other);
                 self.add_connected(other, list);

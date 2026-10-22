@@ -30,6 +30,7 @@ use super::params::{
     SetDestinationParams, SetPlayerParams, StepParams, StepProcessParams, StepSequenceParams,
     TilesParams, ViewParam,
 };
+use super::reply::SpearOnBackInfo;
 use super::reply::{
     AbstractAiInfo, ChunkState, ControlsPageState, CreatureInfo, ExitInfo, ExitList, FlyInfo,
     FoodMeterState, HudState, ImpactState, ImportReply, KarmaMeterState, KarmaScreenState,
@@ -2018,6 +2019,16 @@ impl PlayerState {
                 && !player.is_dead()
                 && player.stun_ticks() < 30,
             cant_be_grabbed_counter: danger.cant_be_grabbed_counter,
+            spear_on_back: player.spear_on_back().map(|s| SpearOnBackInfo {
+                spear: s
+                    .spear
+                    .map(|id| HeldInfo::of(sim.world(), Entity::Object(id))),
+                counter: s.counter,
+                increment: s.increment,
+                flip: s.flip,
+                interaction_locked: s.interaction_locked,
+                stick: s.stick.is_some(),
+            }),
         }
     }
 }

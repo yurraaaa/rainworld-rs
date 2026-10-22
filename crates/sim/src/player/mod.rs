@@ -28,6 +28,7 @@ mod poles;
 mod shortcut;
 mod sleep;
 mod sounds;
+mod spear_on_back;
 mod swim;
 #[cfg(test)]
 mod tests;
@@ -40,6 +41,8 @@ pub use grabbed::{DangerGraspState, DangerGraspStep};
 pub use input::{INPUT_HISTORY, Input, PlayerController};
 pub use shortcut::VesselStep;
 pub use sleep::ShelterCheck;
+pub(crate) use spear_on_back::BackSpearDrop;
+pub use spear_on_back::SpearOnBack;
 
 use crate::campaign::{SlugcatCampaign, SlugcatStats};
 use crate::room_ext::RoomExt;
@@ -378,6 +381,10 @@ pub struct Player {
     stomach: Option<StomachObject>,
     /// `Stun` or `Die` let go of everything (`LoseAllGrasps`); the game applies it.
     release_grasps: bool,
+    /// `spearOnBack` (the Hunter's).
+    spear_on_back: Option<SpearOnBack>,
+    /// A `DropSpear` the game has yet to apply to the spear.
+    back_spear_drop: Option<BackSpearDrop>,
     /// Being held: `dangerGrasp`, its timers, `cantBeGrabbedCounter`.
     danger: DangerGraspState,
     /// `Creature.Update` let go of every grasp on the body (under the room).
@@ -513,6 +520,8 @@ impl Player {
             grab: GrabState::default(),
             stomach: None,
             release_grasps: false,
+            spear_on_back: None,
+            back_spear_drop: None,
             danger: DangerGraspState::default(),
             release_grabbed_by: false,
             movement_ran: false,
@@ -737,7 +746,7 @@ impl Player {
         sounds: &mut Sounds,
         noises: &mut dyn NoiseSink,
     ) {
-        self.creature_update(water);
+        self.creature_update(water, rng);
         if self.destroyed {
             self.flush_sounds_and_noises(rng, sounds, noises);
             return;
