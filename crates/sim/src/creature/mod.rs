@@ -22,6 +22,7 @@ pub mod danger;
 pub mod death;
 pub mod den_finder;
 pub mod fly;
+pub mod friend_tracker;
 pub mod grasp;
 pub mod lizard;
 pub mod looker;
@@ -60,6 +61,7 @@ pub use fly::{
     DropStatus, FlockBehavior, FlockId, Fly, FlyAi, FlyBehavior, FlyView, HoverEmitter,
     MovementMode, TrackedThreat,
 };
+pub use friend_tracker::{FriendTracker, GiftOffer};
 pub use grasp::{GrabRequest, Grasp, GripStick, Shareability};
 pub use lizard::{LUNG_CAPACITY, Lizard, LizardAnimation, LizardBreedParams};
 pub use looker::{CreatureLooker, LookCandidate, LookCandidateParts};

@@ -62,14 +62,27 @@ bites, drips and food, `meatLeft` saved, the back spear locked while eating).
   (`GraphicsModuleUpdated`, the hands' reach in `PlayerGraphics`). Differences:
   `DropSpear` called from `Stun` or `Die` makes its four draws (velocity and the `Free`
   spin) where the game does, but the velocity and mode reach the spear when the game
-  next applies the slugcat's releases (the same tick). `CreaturePutItemOnGround`
-  (laying it down, as in `ReleaseObject`) is not ported (no social event keeps owned
-  items yet). The zero-gravity branch of `GraphicsModuleUpdated` is left out (no
+  next applies the slugcat's releases (the same tick). The zero-gravity branch of `GraphicsModuleUpdated` is left out (no
   zero-gravity rooms). The on-back sticks are not written to `STICKS` (D16): the
   spear is saved as a shelter object and lies free next cycle, as the game's restored
   stick never puts it back. The Expedition back-spear unlock, the slugcat on the back
   (More Slugcats, Jolly Co-op) and the `VoidSeaScene` and garbage-worm uses are omitted.
   The Hunter's `LF_H01` start spear belongs to `HardmodeStart` (D14), not ported.
+- **Items put on the ground** (`SocialEventRecognizer.CreaturePutItemOnGround`,
+  `OwnedItemOnGround`, `ItemOffered`) are ported: `ReleaseObject`, `TossObject` and the
+  back spear laid down register the item; the room's recognizer offers a slugcat's
+  item to the closest lizard watching once the slugcat is 50 px away, and the item
+  lapses with age, when picked up or when its owner leaves the room. Differences: an
+  item with no body in the world (destroyed or abstract) is not offered, where the
+  game measures the position its body last had. `stolenProperty` is left out (only
+  scavengers steal, and they are not realized). A gift `giftOfferedToMe` is kept as
+  the owned item's serial (the game keeps the reference). Of the receivers only lizards
+  are ported (scavengers, cicadas, jetfish and the oracle read the owned items too).
+  Not reachable now: a gift whose room is abstracted counts as inactive (the game keeps
+  the reference, its `active` frozen); `ItemOffered` measures from a lizard's head, not
+  `Lizard.DangerPos`'s tongue tip (green has no tongue; it matters for the tongued
+  breeds); `ItemOffered`'s More Slugcats exclusions (a creature on a player's back, or
+  one the gifter holds) are a DLC branch, left out.
 - **Grabbing and eating creatures: DLC branches omitted.** `SlugcatCanMaul` (More
   Slugcats slugcats maul living creatures: `MaulingUpdate`), the More Slugcats
   `CanEatMeat` rules (Saint and Spearmaster eat no meat; Artificer, Gourmand and
@@ -527,9 +540,10 @@ second part, else a single-room world for arena levels). The campaign descriptio
   memory there without a check; no base creature reaches it, the port logs). So far
   only a saved relationship (an imported save's tamed lizard) can start it: a lizard
   touching a player it dislikes lowers its temporary like (lizard step 6a), which
-  never reaches the following threshold; taming is skipped for now, and no event
-  the port produces (kills, weapon hits) touches a social memory in the base game
-  without them (the only base-game direct writer is Watcher's graffiti cloud).
+  never reaches the following threshold. Gifts (`LizardAI.GiftRecieved`, ported) raise
+  the like toward it, but no creature the port realizes is one a lizard eats, so no
+  gift happens in play yet; taming's friend is skipped for now (the only other
+  base-game direct writer is Watcher's graffiti cloud).
   Den entry is ported with what is stuck to the creature (`AbstractPhysicalObject
   .IsEnteringDen`/`IsExitingDen`, `world/dens.rs`): stuck objects are moved to the den
   and into it, a held creature dies there (a creature that would come out sooner then
@@ -663,7 +677,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
   clause; safari control in the Hunt body's blood-lust test (`!safariControlled`, the
   draw is still made; the Flee body has no safari test of its own); More Slugcats' `LickedByPlayer` sighting at
   the top of `Update`; Watcher's indigo lizard locust branch. The friend tracker
-  (taming, skipped) has utility 0 and `CareAboutRain` true.
+  keeps only gifts (below); without a friend (taming, skipped) it has utility 0 and
+  `CareAboutRain` true.
   It sees and tracks creatures (lizard step 6a, `creature-model/lizard-senses.md` section 17):
   the `Tracker` with simple and elaborate representations and their ghosts,
   `VisualContact` with `LizardAI.VisualScore` (the breed's vision, water, narrow
@@ -674,8 +689,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
   casual aggression that bites a target in reach. The relationship tracker sorts each
   relationship into the prey, threat or aggression tracker (step 7a). Left out of step 6a, each
   a question to the user: what blinds (`Blinded`, flashes) and the vision obscurers
-  (`VisionObscurer` objects), `useTrackedCreatures` (no base lizard sets it), gifts and
-  taming (`FriendTracker`, skipped), the black lizard's `HeadLightsUpFromNoise` and the
+  (`VisionObscurer` objects), `useTrackedCreatures` (no base lizard sets it), taming
+  (`FriendTracker`'s friend, skipped), the black lizard's `HeadLightsUpFromNoise` and the
   white lizard's camouflage in `VisibilityBonus` (with those breeds), and the Remix,
   Jolly (`friendlyLizards`), Expedition, More Slugcats and Watcher branches of
   `UpdateDynamicRelationship`, `VisualScore` and `LikeOfPlayer` (with those DLCs). A
@@ -687,7 +702,13 @@ second part, else a single-room world for arena levels). The campaign descriptio
   footsteps and the terrain impacts of the player, lizards, flies, rocks and spears
   (`BodyChunk.loudness`, the player's from `Sneak`); `SocialEventRecognizer`'s
   `Killing` and `WeaponAttack` (hits and near misses) change its and its community's
-  like of the player (`LizardPlayerRelationChange`); the path finder's
+  like of the player (`LizardPlayerRelationChange`); an item the slugcat leaves
+  near it (`ItemOffering`) that is a creature it eats becomes its gift (`FriendTracker
+  .ItemOffered`): eaten in `UpdateDynamicRelationship`, raising `LikeOfPlayer` while
+  waited for, and received when held (`GiftRecieved`: like, temporary like, the
+  community), with the Watcher rot check, the More Slugcats Challenge taming multiplier
+  and Remix's love sound left out (no ported creature is one a lizard eats, so no gift
+  happens in play yet; user 2026-10-22); the path finder's
   `TravelPreference` adds `DiscomfortOfTile`; `ReactToNoise` and `InvestigateSound`
   answer what it hears (step 7a). Left out of step 6b, each a question
   to the user: `Deaf` and `room.BackgroundNoise` (nothing ported sets them), the
@@ -763,12 +784,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   rainWorld and uiSprites), and More Slugcats' projections and parts.
 - **Overseer graphics.** `OverseerGraphics.Emerge` restarts the mycelia from the eye's
   position of the last rendered frame in the game (`DrawSprites` caches it); the port
-  uses the last update's, as a headless run would. Sprites are drawn per container in
-  the game's container order, but within the Foreground container the overseers' come
-  after the player's; the game orders them by when the objects joined the room (the
-  guide, realized first, sits under the player). `NowViewed` builds graphics modules in
-  the abstract room's creature order, not in `physicalObjects`' (the order the bodies
-  were added); they differ only with several overseers in the room.
+  uses the last update's, as a headless run would.
 - **Overseers hit and killed** (D3). Hearing of a flying weapon, being stunned, the
   guide's lost like (`FlyingWeapon`, `HitByWeapon`), `Overseer.Die` with the guide's
   return in the off-screen den, the dead overseer's six ticks of dying and its graphics'
@@ -841,9 +857,23 @@ second part, else a single-room world for arena levels). The campaign descriptio
   den with nothing happening; the registry keeps its place. The other base-game scripts
   (`SS_E08`, `SU_A22`, `SL_C12`, `SB_A14`, `SB_D03`, `SU_A43`, `deathPit`, `LF_A03`,
   `SS_D02`) are not ported.
+- **A held creature placed twice.** `AbstractPhysicalObject.RealizeInRoom` calls
+  `PlaceInRoom` for every connected object, and `Creature.PlaceInRoom` also
+  `AddObject`s what each grasp holds; so a lizard or fly held by a creature realized
+  with it is `AddObject`ed twice: the game's `updateList`, `physicalObjects` and
+  `drawableObjects` hold it twice (two updates a tick, its module listed twice). The
+  port keeps one entry per object, at the later `AddObject`'s place; the draws (its
+  `PlaceInRoom`'s, a module built once) are the game's.
+- **Clean-out at once.** A creature leaving a room (`room = null`) is cleaned out of
+  that room (`CleanOutObjectNotInThisRoom`: its graphics module out of
+  `drawableObjects`) in the game at its own turn of that `Room.Update`, or at once when
+  it was already updated; the port takes the module out of the room's drawables when
+  it leaves (`Lizard::leave_room`). Both happen within the same room update, so no
+  camera move can fall between them.
 
 **Why.** Other creatures' AI, AI maps and the rain are later milestones; loading at once
-is simpler and loses nothing gameplay-visible beyond the shorter waits.
+is simpler and loses nothing gameplay-visible beyond the shorter waits. A list without
+duplicates is simpler, and the double update of a held creature is not ported.
 
 **Affects.** How long a vessel waits to enter a room, and anything creatures other than
 overseers and bat flies would do (the others roam, but never appear in a loaded room).
@@ -1017,7 +1047,7 @@ produces them anyway: wall slide and wall jump (`WallClimb`, `canWallJump`, `jum
 only the wall-jump impulse has a test), `LedgeCrawl`, `CrawlTurn`, the crouch super-jump
 charge and dive force (untested).
 
-Physics: burrowing, terrain curves (`TerrainCurve`), the curved-terrain `TerrainImpact`
+Physics: burrowing, terrain curves (`TerrainCurve`, so also `Jump`'s curve push, `Player.cs` 13247), the curved-terrain `TerrainImpact`
 call, the room-range clamp's skip for grabbed objects, and `DefaultTile`.
 
 Room: the zero-gravity corridor slide's `WaterDrip`s (`Player.cs` 9423, with zero

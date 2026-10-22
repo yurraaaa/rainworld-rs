@@ -386,6 +386,10 @@ fn a_tossed_body_is_pushed_by_its_held_chunk_only() {
             assert_eq!(dv, Vec2::ZERO);
         }
     }
+    // `TossObject` ends with `CreaturePutItemOnGround` (the drag branch too).
+    let owned = &g.world.realized(0).expect("room").social_events;
+    let o = owned.item_ownership(Entity::Creature(l)).expect("owned");
+    assert_eq!(o.owner, g.player_id);
 }
 
 #[test]

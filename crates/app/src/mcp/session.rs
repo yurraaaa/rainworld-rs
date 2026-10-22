@@ -54,7 +54,7 @@ use super::reply::{
     WaterLightState,
 };
 use super::reply::{
-    FleeInfo, HeavyAiInfo, HuntInfo, LoungeInfo, ShelterIconState, WaterSoundState,
+    FleeInfo, HeavyAiInfo, HuntInfo, LoungeInfo, OwnedItemState, ShelterIconState, WaterSoundState,
 };
 use super::reply::{
     FliesWorldInfo, GraspInfo, HeldInfo, QuantifiedInfo, RegionStateInfo, RelationshipInfo,
@@ -515,6 +515,12 @@ impl Session {
                             volume: w.sound_loop.volume(),
                             playing: w.playing(),
                         }),
+                        owned_items: r
+                            .social_events
+                            .owned_items_on_ground
+                            .iter()
+                            .map(|o| OwnedItemState::of(world, o))
+                            .collect(),
                     })
                 })
                 .collect(),
@@ -2059,6 +2065,8 @@ impl PlayerState {
             standing: player.is_standing(),
             stunned: player.is_stunned(),
             stun_ticks: player.stun_ticks(),
+            can_jump: player.can_jump(),
+            jump_chunk_counter: player.jump_chunk_counter(),
             dead: player.is_dead(),
             in_shortcut: player.in_shortcut(),
             vessel_tile: player.shortcut_vessel_tile().map(Into::into),

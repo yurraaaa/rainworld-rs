@@ -68,7 +68,7 @@ pub use rain_cycle::{CYCLE_TIME_MAX, CYCLE_TIME_MIN, RainCycle, WaterLevelCycle,
 pub use realized::RealizedRoom;
 pub use realizer::{FollowCreature, RoomRealizer};
 pub use region_state::{ConsumedItem, RegionState};
-pub use social_events::SocialEventId;
+pub use social_events::{OwnedItemOnGround, SocialEventId, SocialEventRecognizer};
 pub use swarm_rooms::{SwarmRoomMap, SwarmRoomMapper};
 pub use weapons::ItemTick;
 pub(crate) use weapons::{OrphanLoop, UpdatePart};
@@ -125,6 +125,8 @@ pub struct World {
     pub(crate) entering: Vec<(CreatureId, WorldCoordinate)>,
     /// The last grasp or stick serial handed out.
     pub(crate) grasp_serial: u64,
+    /// The last `OwnedItemOnGround` serial handed out.
+    pub(crate) owned_item_serial: u64,
     /// The graphics modules' internal-container moves since the last take, in order.
     pub(crate) sprite_moves: Vec<SpriteMove>,
     /// The realized player's `dead` flag (its body lives outside the world).
@@ -192,6 +194,7 @@ impl World {
             orphan_loops: Vec::new(),
             entering: Vec::new(),
             grasp_serial: 0,
+            owned_item_serial: 0,
             sprite_moves: Vec::new(),
             player_dead: false,
             flocks: Vec::new(),

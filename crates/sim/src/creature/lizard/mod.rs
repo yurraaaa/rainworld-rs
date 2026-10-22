@@ -215,6 +215,16 @@ const PARAMS: PhysicsParams = PhysicsParams {
 pub const LUNG_CAPACITY: f32 = 520.0;
 
 impl Lizard {
+    /// `room = null`, and its room's `CleanOutObjectNotInThisRoom` (later in the same
+    /// room update in the game, D14): the graphics module leaves that room's
+    /// `drawableObjects` and is kept.
+    pub fn leave_room(&mut self) {
+        if let (Some(room), Some(g)) = (self.room, self.graphics.as_mut()) {
+            g.drawn_in.retain(|&r| r != room);
+        }
+        self.room = None;
+    }
+
     /// The `Lizard` constructor: three chunks at (200, 500), the rods and the push,
     /// `GoThroughFloors`, the `Mean:x` spawn flag, then `effectColor` under the ID's
     /// seed with the global state restored (no net draw). `None` for a breed without
@@ -248,6 +258,8 @@ impl Lizard {
         rng.init_state(c.id.random_seed());
         let effect_color = params.effect_color(rng);
         rng.set_state(saved);
+        let taming_difficulty =
+            params.taming_difficulty * 0.9_f32.lerp(1.1, c.personality.dominance);
         Some(Self {
             params,
             body,
@@ -292,6 +304,7 @@ impl Lizard {
             ai: LizardAi::new(
                 c.kind(),
                 c.ai.as_ref().is_some_and(|a| a.den_position.is_some()),
+                taming_difficulty,
             ),
             short_cut_rad_add: 0.0,
             upcoming_connections: Vec::new(),

@@ -42,8 +42,9 @@ pub struct LizardGraphicsLink {
     pub light: Option<u64>,
     /// `soundLoop` (`ChunkDynamicSoundLoop` on the main chunk).
     pub sound_loop: ChunkDynamicSoundLoop,
-    /// The rooms whose `drawableObjects` hold the module (`NoLongerViewed` of any of
-    /// them removes it).
+    /// The rooms whose `drawableObjects` hold the module: `AddObject` and `NowViewed`
+    /// add one, [`Lizard::leave_room`] (`CleanOutObjectNotInThisRoom`) takes it out,
+    /// `NoLongerViewed` of any of them drops the module.
     pub drawn_in: Vec<i32>,
     /// The head as the module last left it.
     pub head: LizardHead,

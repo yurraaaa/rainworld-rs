@@ -875,6 +875,19 @@ pub struct LizardSocialInfo {
     pub mission_utility: f32,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub missions: Vec<MissionInfo>,
+    /// The friend tracker's `tamingDifficlty`.
+    pub taming_difficulty: f32,
+    /// `giftOfferedToMe`: the item's and the giver's IDs.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gift: Option<GiftInfo>,
+}
+
+/// A gift a lizard waits for.
+#[derive(Debug, Clone, Serialize)]
+pub struct GiftInfo {
+    pub item: [i32; 2],
+    pub owner: [i32; 2],
+    pub active: bool,
 }
 
 /// A `LizardCommunication` sent: its kind, the receiver and the game tick.
@@ -939,6 +952,12 @@ impl LizardSocialInfo {
                     }
                 })
                 .collect(),
+            taming_difficulty: ai.friend.taming_difficulty,
+            gift: ai.friend.gift_offered_to_me.map(|g| GiftInfo {
+                item: OwnedItemState::entity_id(world, g.item),
+                owner: Self::entity(world, g.owner),
+                active: world.gift_active(&g),
+            }),
         }
     }
 
@@ -1259,6 +1278,46 @@ pub struct RealizedState {
     /// The water's calm surface loop (`Water.waterSounds`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub water_sound: Option<WaterSoundState>,
+    /// The social event recognizer's `ownedItemsOnGround`, oldest first.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub owned_items: Vec<OwnedItemState>,
+}
+
+/// An `OwnedItemOnGround`: item and owner IDs, the creature it was offered to, age,
+/// `offered`, `active`.
+#[derive(Debug, Clone, Serialize)]
+pub struct OwnedItemState {
+    pub item: [i32; 2],
+    pub owner: [i32; 2],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offered_to: Option<[i32; 2]>,
+    pub age: i32,
+    pub offered: bool,
+    pub active: bool,
+}
+
+impl OwnedItemState {
+    #[must_use]
+    pub fn of(world: &rw_sim::world::World, o: &rw_sim::world::OwnedItemOnGround) -> Self {
+        Self {
+            item: Self::entity_id(world, o.item),
+            owner: LizardSocialInfo::entity(world, o.owner),
+            offered_to: o.offered_to.map(|c| LizardSocialInfo::entity(world, c)),
+            age: o.age,
+            offered: o.offered,
+            active: o.active,
+        }
+    }
+
+    /// A creature's or an object's `EntityID` (spawner, number).
+    #[must_use]
+    pub fn entity_id(world: &rw_sim::world::World, e: rw_sim::item::Entity) -> [i32; 2] {
+        let id = match e {
+            rw_sim::item::Entity::Creature(c) => world.creature(c).id,
+            rw_sim::item::Entity::Object(o) => world.object(o).id,
+        };
+        [id.spawner, id.number]
+    }
 }
 
 /// `Water.waterSounds`: its rect (left, bottom, right, top), loop volume, and whether
@@ -1308,6 +1367,10 @@ pub struct PlayerState {
     pub standing: bool,
     pub stunned: bool,
     pub stun_ticks: i32,
+    /// `canJump` (coyote time) and `jumpChunkCounter` (ticks left to jump off the
+    /// chunk the hips rest on; negative after such a jump).
+    pub can_jump: i32,
+    pub jump_chunk_counter: i32,
     pub dead: bool,
     pub in_shortcut: bool,
     pub vessel_tile: Option<[i32; 2]>,

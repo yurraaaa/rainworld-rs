@@ -65,6 +65,8 @@ mod noise;
 mod over;
 #[path = "game_player_grabbed.rs"]
 mod player_grabbed;
+#[path = "game_social_events.rs"]
+mod social_events;
 #[path = "game_spear_on_back.rs"]
 mod spear_on_back;
 
@@ -166,8 +168,10 @@ pub trait PlayerObserver {
     /// A room script adds `dvx` to every tail segment's x velocity.
     fn nudge_tail_x(&mut self, _dvx: f32) {}
     /// A realized overseer is in the camera's room (`AddObject` or `NowViewed`): its
-    /// `OverseerGraphics` is built unless it has one.
-    fn overseer_added(&mut self, _view: &OverseerView<'_>, _rng: &mut UnityRandom) {}
+    /// `OverseerGraphics` is built unless it has one. Returns whether it built one.
+    fn overseer_added(&mut self, _view: &OverseerView<'_>, _rng: &mut UnityRandom) -> bool {
+        false
+    }
     /// `OverseerGraphics.Reset`.
     fn overseer_reset(&mut self, _view: &OverseerView<'_>, _rng: &mut UnityRandom) {}
     /// Right after an overseer hologram's `Update` (the parts lerp their colours).
@@ -432,6 +436,8 @@ pub struct RainWorldGame {
     player_id: CreatureId,
     /// `cameras[0].room`.
     camera_room: i32,
+    /// See [`RainWorldGame::now_viewed_modules`].
+    now_viewed_modules: Vec<CreatureId>,
     camera_move: Option<CameraMove>,
     /// Camera 0's positions as the app's room camera last reported them.
     camera_view: CameraView,
@@ -584,6 +590,7 @@ impl RainWorldGame {
             player: None,
             player_id,
             camera_room: start.room,
+            now_viewed_modules: Vec::new(),
             camera_move: Some(CameraMove {
                 room: start.room,
                 camera: 0,
@@ -1400,7 +1407,8 @@ impl RainWorldGame {
     }
 
     /// `Room.Update` of active room `index`: the entry delay, the water (pushed by the
-    /// room's bodies, adding its bubbles), then the update list with the player.
+    /// room's bodies, adding its bubbles), the social event recognizer, then the update
+    /// list with the player.
     fn update_room(&mut self, index: i32, input: Input, observer: &mut dyn PlayerObserver) {
         let player_room = self.pos().room;
         let Some(realized) = self.world.realized_mut(index) else {
@@ -1421,6 +1429,7 @@ impl RainWorldGame {
             .filter(|p| player_room == index && !p.in_shortcut())
             .map(|p| (player_seq, &mut p.body.chunks[..]));
         self.world.update_water(index, here, &mut self.rng, sounds);
+        self.social_event_recognizer_update(index);
         self.ambient_ceiling_drip(index);
         let Some(realized) = self.world.realized_mut(index) else {
             return;
@@ -1867,8 +1876,10 @@ impl RainWorldGame {
             self.player_shelter_step(index, room);
             let body = self.player_hearing_body(index);
             let carry = self.heavy_carry_loan(index);
+            let jump_chunk = self.jump_chunk_body(index);
             if let Some(player) = self.player.as_mut() {
                 player.lend_heavy_carry(carry);
+                player.lend_jump_chunk_body(jump_chunk);
             }
             let sounds = if index == self.camera_room {
                 &mut self.sounds
@@ -1895,6 +1906,7 @@ impl RainWorldGame {
                 );
             }
             self.return_heavy_carry();
+            self.apply_jump_chunk_push();
             // `PhysicalObject.Update`'s `grabbedBy` pruning, when physics ran (not the
             // pull into a shortcut).
             if self

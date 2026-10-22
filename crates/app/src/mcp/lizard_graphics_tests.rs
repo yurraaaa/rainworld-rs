@@ -517,3 +517,88 @@ fn a_dominant_tail_shakes_with_two_draws_a_segment() {
         assert_eq!(rng, expected, "dominance {dominance}");
     }
 }
+
+impl Session {
+    /// The creature with EntityID `id`.
+    fn creature_id(&mut self, id: [i32; 2]) -> rw_sim::creature::CreatureId {
+        let world = self.scene_mut().expect("game").game().sim().world();
+        world
+            .creatures()
+            .find(|(_, c)| [c.id.spawner, c.id.number] == id)
+            .map(|(cid, _)| cid)
+            .expect("creature")
+    }
+}
+
+/// `InitiateGraphicsModule` of a lizard (`NowViewed`): a new `LizardGraphics` (the
+/// constructor under the ID's seed, no net draw) then `Reset`, or `Reset` alone on the
+/// module it kept; twelve draws either way, and a kept module keeps its serial.
+#[test]
+fn a_lizard_module_built_or_kept_makes_the_reset_draws_only() {
+    let Some((mut s, id)) = Session::with_green_lizard(None) else {
+        return;
+    };
+    s.lizard_ticks(20);
+    let cid = s.creature_id(id);
+    let game = s.scene_mut().expect("game").game_mut();
+    let (observer, sim) = game.observer_and_sim();
+    let world = sim.world();
+    let view = world.lizard_view(cid, None).expect("view");
+    let mut kept = world
+        .creature(cid)
+        .lizard()
+        .and_then(|l| l.graphics.clone())
+        .expect("module");
+    let serial = kept.module;
+    let mut rng = UnityRandom::new(3);
+    let mut expected = rng.clone();
+    for _ in 0..12 {
+        expected.value();
+    }
+    observer.lizard_added(&view, &mut kept, &mut rng);
+    assert_eq!(rng, expected, "kept: Reset");
+    assert_eq!(kept.module, serial);
+    let mut built = rw_sim::creature::lizard::LizardGraphicsLink::default();
+    for _ in 0..12 {
+        expected.value();
+    }
+    observer.lizard_added(&view, &mut built, &mut rng);
+    assert_eq!(rng, expected, "built: constructor (seeded) and Reset");
+    assert!(built.module > serial);
+}
+
+/// `FlyGraphics`' constructor: the lower body's `GenericBodyPart` resets (one draw),
+/// then `insectFlightWingSync` and the two `deathWingPositions`: four draws.
+#[test]
+fn a_fly_module_makes_four_constructor_draws() {
+    let Some(mut s) = Session::installed() else {
+        return;
+    };
+    s.load("SU_A07", 1);
+    let tile = s.scene_mut().expect("game").game().room().ground_tile();
+    let reply = s
+        .spawn_creature(&SpawnCreatureParams {
+            kind: "Fly".to_owned(),
+            tile: [tile.0, tile.1],
+            ..Default::default()
+        })
+        .expect("spawns");
+    let cid = s.creature_id(reply.id);
+    let game = s.scene_mut().expect("game").game_mut();
+    let (observer, sim) = game.observer_and_sim();
+    let c = sim.world().creature(cid);
+    let view = rw_sim::creature::fly::FlyView {
+        id: c.id,
+        fly: c.fly().expect("realized"),
+        grasp_pos: None,
+        grabber: None,
+        submersion: 0.0,
+    };
+    let mut rng = UnityRandom::new(3);
+    let mut expected = rng.clone();
+    for _ in 0..4 {
+        expected.value();
+    }
+    observer.fly_added(&view, &mut rng);
+    assert_eq!(rng, expected);
+}

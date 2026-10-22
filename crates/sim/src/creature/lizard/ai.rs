@@ -10,8 +10,8 @@ use rw_assets::CreatureType;
 
 use crate::FloatExt;
 use crate::creature::{
-    AgressionTracker, CreatureId, DenFinder, DiscomfortTracker, MissionTracker, NoiseTracker,
-    PreyTracker, RelationshipTracker, RepKey, StuckTracker, ThreatTracker, Tracker,
+    AgressionTracker, CreatureId, DenFinder, DiscomfortTracker, FriendTracker, MissionTracker,
+    NoiseTracker, PreyTracker, RelationshipTracker, RepKey, StuckTracker, ThreatTracker, Tracker,
     UtilityComparer, WorldCoordinate,
 };
 use crate::float_ext::SCurve;
@@ -143,6 +143,7 @@ pub struct LizardAi {
     pub agression: AgressionTracker,
     pub utility: UtilityComparer,
     pub missions: MissionTracker,
+    pub friend: FriendTracker,
     pub focus_creature: Option<RepKey>,
     pub casual_aggression_target: Option<RepKey>,
     /// `submittedTo`: the lizard it last submitted to.
@@ -161,9 +162,10 @@ pub struct LizardAi {
 
 impl LizardAi {
     /// The constructor's state for a lizard of `kind` (`has_den`: its abstract AI has
-    /// a den position; else the den finder's mapping is reset by the caller).
+    /// a den position; else the den finder's mapping is reset by the caller) and the
+    /// friend tracker's `tamingDifficlty`.
     #[must_use]
-    pub fn new(kind: CreatureType, has_den: bool) -> Self {
+    pub fn new(kind: CreatureType, has_den: bool, taming_difficulty: f32) -> Self {
         Self {
             path_finder: None,
             behavior: LizardBehavior::Idle,
@@ -196,6 +198,7 @@ impl LizardAi {
             agression: AgressionTracker::new(0.001, 0.001),
             utility: UtilityComparer::lizard(kind),
             missions: MissionTracker::default(),
+            friend: FriendTracker::new(taming_difficulty),
             focus_creature: None,
             casual_aggression_target: None,
             submitted_to: None,
@@ -263,7 +266,8 @@ impl LizardAi {
 
 impl Default for LizardAi {
     fn default() -> Self {
-        Self::new(CreatureType::GreenLizard, false)
+        // A green lizard of middling dominance: `tamingDifficulty` 0.8.
+        Self::new(CreatureType::GreenLizard, false, 0.8)
     }
 }
 
