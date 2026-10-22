@@ -426,8 +426,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
   shown over another instruction, unparsable placed data, a forced hologram without a
   direction) the port logs and goes on. A door pointer without the tutorial would follow the player with a
   `CreatureDoorDistanceTracker` (on the Fly's exit distances, which now exist): it is
-  made but its update is not ported, so the pointer keeps pointing. The bat pointer's `CycleStartUp` is
-  1 (the cycle's start-up ticks are not ported), and a new game has discovered no
+  made but its update is not ported, so the pointer keeps pointing. The bat pointer reads the
+  cycle's `CycleStartUp` as the game's does; a new game has discovered no
   shelters and visited no rooms. The controls picture is always the keyboard's (the
   gamepad and Switch pictures are ported but no other control preset exists). A pointer
   whose overseer has left the room goes on updating where the game's would throw (shelter
@@ -956,6 +956,12 @@ Physics: burrowing, terrain curves (`TerrainCurve`), the curved-terrain `Terrain
 call, the room-range clamp's skip for grabbed objects, and `DefaultTile`.
 
 Room: `Room.Update`'s ambient ceiling drips (`WaterDrip`s from the ceiling of a room with
-`CeilingDrips`), the `WaterDrip`s of skids, slides and corridor shoots, and the
-cosmetic insects (`InsectCoordinator`), among them the `MiniFly`s that buzz around
-corpses and a malnourished slugcat (the bat flies do not).
+`CeilingDrips`), and the `WaterDrip`s of skids, slides and corridor shoots.
+
+Cosmetic insects (`rw_sim::insect`, effects step 3): `InsectCoordinator.Explosion` (insects
+fleeing an explosion), `NowViewed`'s early-out in an echo's room
+(`worldGhost.CreaturesSleepInRoom`; no echoes yet) and terrain curves in their point
+collision. The coordinator's `NowViewed` runs at the head of the tick after the camera
+moved, as the game's `RoomCamera.ChangeRoom` does; a room's water surface is made only
+when it finishes loading (D14), so an insect rolled before that reads the still water
+level.

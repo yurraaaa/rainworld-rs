@@ -9,16 +9,16 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 
 | Crate | mirrors | port-only | fallback | unmapped |
 |---|---|---|---|---|
-| app | 13 | 20 | 0 | 0 |
+| app | 13 | 21 | 0 | 0 |
 | assets | 19 | 13 | 0 | 0 |
 | audio | 11 | 5 | 0 | 0 |
-| graphics | 28 | 4 | 0 | 0 |
+| graphics | 29 | 4 | 0 | 0 |
 | hud | 22 | 0 | 0 | 0 |
 | menu | 27 | 2 | 0 | 0 |
 | random | 0 | 1 | 0 | 0 |
 | render | 6 | 18 | 0 | 0 |
 | save | 15 | 5 | 0 | 0 |
-| sim | 158 | 5 | 0 | 0 |
+| sim | 174 | 5 | 0 | 0 |
 
 ## Rust file to C# files
 
@@ -39,6 +39,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/app/src/jaws.rs` | mirrors | FContainer.cs, GraphicsModule.cs, LizardGraphics.cs, PlayerGraphics.cs |
 | `crates/app/src/main.rs` | port-only | - |
 | `crates/app/src/mcp/dev_tools.rs` | port-only | - |
+| `crates/app/src/mcp/insect_reply.rs` | port-only | - |
 | `crates/app/src/mcp/mod.rs` | port-only | - |
 | `crates/app/src/mcp/music_reply.rs` | port-only | - |
 | `crates/app/src/mcp/params.rs` | port-only | - |
@@ -116,6 +117,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/graphics/src/hologram_draw.rs` | mirrors | OverseerHolograms/OverseerHologram.cs |
 | `crates/graphics/src/hologram_matrix.rs` | mirrors | OverseerGraphics.cs |
 | `crates/graphics/src/hologram_shape.rs` | mirrors | OverseerHolograms/OverseerHologram.cs, OverseerTutorialBehavior.cs |
+| `crates/graphics/src/insect_graphics.rs` | mirrors | Ant.cs, Beetle.cs, FireFly.cs, GrassHopper.cs, MiniFly.cs, Moth.cs, RedSwarmer.cs, RockFlea.cs, TinyDragonfly.cs, Wasp.cs, WaterGlowworm.cs |
 | `crates/graphics/src/lib.rs` | port-only | - |
 | `crates/graphics/src/light_source.rs` | mirrors | LightSource.cs |
 | `crates/graphics/src/limb.rs` | mirrors | Limb.cs |
@@ -304,6 +306,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/sim/src/game_heavy_ai.rs` | mirrors | RainWorldGame.cs |
 | `crates/sim/src/game_hits.rs` | mirrors | Creature.cs, Overseer.cs, Spear.cs, Weapon.cs |
 | `crates/sim/src/game_holo_light.rs` | mirrors | HologramLight.cs, Player.cs |
+| `crates/sim/src/game_insects.rs` | mirrors | FireFly.cs, Room.cs, RoomCamera.cs |
 | `crates/sim/src/game_instructions.rs` | mirrors | InputInstructionTrigger.cs, ReliableIggyDirection.cs, Room.cs, ScavTradeInstruction/ScavengerTradeInstructionTrigger.cs, SuperJumpInstruction.cs |
 | `crates/sim/src/game_items.rs` | mirrors | Player.cs, PlayerCarryableItem.cs |
 | `crates/sim/src/game_lizard_act.rs` | mirrors | Creature.cs, Lizard.cs |
@@ -325,6 +328,20 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/sim/src/game_tracker.rs` | mirrors | ArtificialIntelligence.cs, RelationshipTracker.cs, Tracker.cs |
 | `crates/sim/src/game_triggers.rs` | mirrors | ActiveTriggerChecker.cs, RainCycle.cs, Room.cs |
 | `crates/sim/src/game_weapons.rs` | mirrors | Rock.cs, Room.cs, Spear.cs, Weapon.cs |
+| `crates/sim/src/insect/ant.rs` | mirrors | Ant.cs |
+| `crates/sim/src/insect/avoider.rs` | mirrors | CosmeticInsect.cs |
+| `crates/sim/src/insect/beetle.rs` | mirrors | Beetle.cs |
+| `crates/sim/src/insect/coordinator.rs` | mirrors | InsectCoordinator.cs, PlacedObject.cs, Room.cs |
+| `crates/sim/src/insect/fire_fly.rs` | mirrors | FireFly.cs |
+| `crates/sim/src/insect/grass_hopper.rs` | mirrors | GrassHopper.cs |
+| `crates/sim/src/insect/mini_fly.rs` | mirrors | MiniFly.cs |
+| `crates/sim/src/insect/mod.rs` | mirrors | CosmeticInsect.cs, CosmeticSprite.cs |
+| `crates/sim/src/insect/moth.rs` | mirrors | Moth.cs |
+| `crates/sim/src/insect/red_swarmer.rs` | mirrors | RedSwarmer.cs |
+| `crates/sim/src/insect/rock_flea.rs` | mirrors | RockFlea.cs |
+| `crates/sim/src/insect/tiny_dragonfly.rs` | mirrors | TinyDragonfly.cs |
+| `crates/sim/src/insect/wasp.rs` | mirrors | Wasp.cs |
+| `crates/sim/src/insect/water_glowworm.rs` | mirrors | WaterGlowworm.cs |
 | `crates/sim/src/item.rs` | mirrors | AbstractPhysicalObject.cs, AbstractSpear.cs |
 | `crates/sim/src/item/on_back_stick.rs` | mirrors | Player.cs |
 | `crates/sim/src/item/spear_stick.rs` | mirrors | AbstractPhysicalObject.cs |
@@ -357,6 +374,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/sim/src/room_ext.rs` | port-only | - |
 | `crates/sim/src/room_script.rs` | mirrors | Room.cs, RoomSpecificScript.cs |
 | `crates/sim/src/screen_shake.rs` | mirrors | PhysicalObject.cs, Room.cs, RoomCamera.cs |
+| `crates/sim/src/shared_physics.rs` | mirrors | RWCustom/Custom.cs, SharedPhysics.cs |
 | `crates/sim/src/shelter.rs` | mirrors | ShelterDoor.cs |
 | `crates/sim/src/shortcut.rs` | mirrors | Creature.cs, Room.cs, ShortcutHandler.cs |
 | `crates/sim/src/sound.rs` | mirrors | Room.cs, SoundLoader.cs, VirtualMicrophone.cs |
@@ -418,12 +436,16 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `AgressionTracker.cs` | `crates/sim/src/creature/agression_tracker.rs`, `crates/sim/src/world/ai_modules.rs` |
 | `AirBreatherCreature.cs` | `crates/sim/src/creature/lizard/mod.rs`, `crates/sim/src/game_lizards.rs` |
 | `AmbientSoundPlayer.cs` | `crates/audio/src/ambient.rs` |
+| `Ant.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/insect/ant.rs` |
 | `ArtificialIntelligence.cs` | `crates/sim/src/creature/danger.rs`, `crates/sim/src/creature/lizard/ai.rs`, `crates/sim/src/creature/vision.rs`, `crates/sim/src/game_lizard_ai.rs`, `crates/sim/src/game_tracker.rs`, `crates/sim/src/world/ai_modules.rs`, `crates/sim/src/world/tracking.rs` |
+| `Beetle.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/insect/beetle.rs` |
 | `BigEelAbstractAI.cs` | `crates/sim/src/creature/ai_kinds.rs`, `crates/sim/src/world/abstract_ai_kinds.rs` |
 | `BodyChunk.cs` | `crates/sim/src/chunk.rs`, `crates/sim/src/creature/vision.rs` |
 | `BodyPart.cs` | `crates/graphics/src/body_part.rs` |
 | `CicadaAbstractAI.cs` | `crates/sim/src/creature/ai_kinds.rs`, `crates/sim/src/world/abstract_ai_kinds.rs` |
 | `CoralBrain/Mycelium.cs` | `crates/graphics/src/mycelium.rs` |
+| `CosmeticInsect.cs` | `crates/sim/src/insect/avoider.rs`, `crates/sim/src/insect/mod.rs` |
+| `CosmeticSprite.cs` | `crates/sim/src/insect/mod.rs` |
 | `Creature.cs` | `crates/sim/src/creature/danger.rs`, `crates/sim/src/creature/death.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/creature/fly/update.rs`, `crates/sim/src/creature/grasp.rs`, `crates/sim/src/creature/lizard/mod.rs`, `crates/sim/src/creature/mod.rs`, `crates/sim/src/creature/violence.rs`, `crates/sim/src/game_carried.rs`, `crates/sim/src/game_hits.rs`, `crates/sim/src/game_lizard_act.rs`, `crates/sim/src/game_lizard_hits.rs`, `crates/sim/src/game_lizards.rs`, `crates/sim/src/game_player_grabbed.rs`, `crates/sim/src/player/falls.rs`, `crates/sim/src/player/grabbed.rs`, `crates/sim/src/player/shortcut.rs`, `crates/sim/src/shortcut.rs`, `crates/sim/src/spawn.rs`, `crates/sim/src/world/hearing.rs`, `crates/sim/src/world/lizards.rs` |
 | `CreatureCommunities.cs` | `crates/save/src/communities.rs` |
 | `CreatureLooker.cs` | `crates/sim/src/creature/looker.rs` |
@@ -450,6 +472,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `FScreen.cs` | `crates/render/src/present.rs` |
 | `FSprite.cs` | `crates/render/src/sprites.rs` |
 | `FStage.cs` | `crates/menu/src/stage.rs`, `crates/render/src/stage.rs` |
+| `FireFly.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/game_insects.rs`, `crates/sim/src/insect/fire_fly.rs` |
 | `FliesRoomAI.cs` | `crates/sim/src/creature/fly/mod.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/game_flies.rs` |
 | `FliesWorldAI.cs` | `crates/sim/src/creature/overseer/hologram/world_queries.rs`, `crates/sim/src/creature/population.rs`, `crates/sim/src/game_flies.rs`, `crates/sim/src/world/flies_world_ai.rs`, `crates/sim/src/world/swarm_rooms.rs` |
 | `FloatTweener.cs` | `crates/sim/src/creature/utility_comparer.rs` |
@@ -458,6 +481,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `FlyGraphics.cs` | `crates/graphics/src/fly_graphics.rs` |
 | `Futile.cs` | `crates/render/src/stage.rs` |
 | `GraphicsModule.cs` | `crates/app/src/jaws.rs`, `crates/app/src/sprite_order.rs`, `crates/sim/src/creature/lizard/graphics_link.rs` |
+| `GrassHopper.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/insect/grass_hopper.rs` |
 | `HSLColor.cs` | `crates/menu/src/color.rs` |
 | `HUD/FadeCircle.cs` | `crates/hud/src/circle.rs` |
 | `HUD/FoodMeter.cs` | `crates/hud/src/food_meter.rs` |
@@ -472,6 +496,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `HologramLight.cs` | `crates/graphics/src/holo_light.rs`, `crates/sim/src/creature/overseer/holo_light.rs`, `crates/sim/src/game_holo_light.rs` |
 | `InGameTranslator.cs` | `crates/assets/src/short_strings.rs`, `crates/menu/src/translator.rs` |
 | `InputInstructionTrigger.cs` | `crates/sim/src/game_instructions.rs` |
+| `InsectCoordinator.cs` | `crates/sim/src/insect/coordinator.rs` |
 | `LightSource.cs` | `crates/graphics/src/light_source.rs`, `crates/sim/src/light_source.rs` |
 | `Limb.cs` | `crates/graphics/src/limb.rs` |
 | `Lizard.cs` | `crates/sim/src/creature/danger.rs`, `crates/sim/src/creature/lizard/graphics_link.rs`, `crates/sim/src/creature/lizard/mod.rs`, `crates/sim/src/creature/lizard/movement.rs`, `crates/sim/src/creature/mod.rs`, `crates/sim/src/game_lizard_act.rs`, `crates/sim/src/game_lizard_fight.rs`, `crates/sim/src/game_lizard_hits.rs`, `crates/sim/src/game_lizard_perception.rs`, `crates/sim/src/game_lizard_voice.rs`, `crates/sim/src/game_lizards.rs` |
@@ -519,10 +544,12 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `Menu/SlugcatSelectMenu.cs` | `crates/hud/src/select_hud.rs`, `crates/hud/src/slugcat_select.rs`, `crates/hud/src/slugcat_select/lights.rs` |
 | `Menu/TutorialControlsPage.cs` | `crates/hud/src/controls_page.rs` |
 | `MenuMicrophone.cs` | `crates/audio/src/menu_mic.rs`, `crates/menu/src/sound.rs` |
+| `MiniFly.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/insect/mini_fly.rs` |
 | `MirosBirdAbstractAI.cs` | `crates/sim/src/creature/ai_kinds.rs`, `crates/sim/src/world/abstract_ai_kinds.rs` |
 | `MiscWorldSaveData.cs` | `crates/save/src/misc_world.rs`, `crates/sim/src/creature/overseer/guide_state.rs` |
 | `MissionTracker.cs` | `crates/sim/src/creature/mission_tracker.rs`, `crates/sim/src/game_lizard_fight.rs`, `crates/sim/src/world/missions.rs` |
 | `ModManager.cs` | `crates/assets/src/identity.rs` |
+| `Moth.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/insect/moth.rs` |
 | `MovementConnection.cs` | `crates/sim/src/world/movement.rs` |
 | `Music/IntroRollMusic.cs` | `crates/audio/src/music/song.rs` |
 | `Music/MenuOrSlideShowSong.cs` | `crates/audio/src/music/song.rs` |
@@ -553,7 +580,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `PathfinderResourceDivider.cs` | `crates/sim/src/creature/path_finder/mapper.rs` |
 | `PhysicalObject.cs` | `crates/sim/src/creature/fly/update.rs`, `crates/sim/src/game_lizards.rs`, `crates/sim/src/item/weapon.rs`, `crates/sim/src/noise.rs`, `crates/sim/src/object.rs`, `crates/sim/src/screen_shake.rs` |
 | `PickupObjectInstruction.cs` | `crates/sim/src/trigger.rs` |
-| `PlacedObject.cs` | `crates/assets/src/placed.rs`, `crates/assets/src/placed_types.rs` |
+| `PlacedObject.cs` | `crates/assets/src/placed.rs`, `crates/assets/src/placed_types.rs`, `crates/sim/src/insect/coordinator.rs` |
 | `Player.cs` | `crates/sim/src/creature/vision.rs`, `crates/sim/src/game_carried.rs`, `crates/sim/src/game_eat_meat.rs`, `crates/sim/src/game_holo_light.rs`, `crates/sim/src/game_items.rs`, `crates/sim/src/game_map.rs`, `crates/sim/src/game_over.rs`, `crates/sim/src/game_player.rs`, `crates/sim/src/game_player_grabbed.rs`, `crates/sim/src/game_shelter.rs`, `crates/sim/src/game_spear_on_back.rs`, `crates/sim/src/item/on_back_stick.rs`, `crates/sim/src/player/advanced.rs`, `crates/sim/src/player/animation.rs`, `crates/sim/src/player/body_mode.rs`, `crates/sim/src/player/carry.rs`, `crates/sim/src/player/corridor.rs`, `crates/sim/src/player/exhaustion.rs`, `crates/sim/src/player/falls.rs`, `crates/sim/src/player/grab.rs`, `crates/sim/src/player/grabbed.rs`, `crates/sim/src/player/input.rs`, `crates/sim/src/player/jump.rs`, `crates/sim/src/player/ledge.rs`, `crates/sim/src/player/mod.rs`, `crates/sim/src/player/movement.rs`, `crates/sim/src/player/poles.rs`, `crates/sim/src/player/shortcut.rs`, `crates/sim/src/player/sleep.rs`, `crates/sim/src/player/sounds.rs`, `crates/sim/src/player/spear_on_back.rs`, `crates/sim/src/player/swim.rs` |
 | `PlayerCarryableItem.cs` | `crates/sim/src/game_items.rs`, `crates/sim/src/item/weapon.rs` |
 | `PlayerGraphics.cs` | `crates/app/src/jaws.rs`, `crates/graphics/src/looker.rs`, `crates/graphics/src/player_draw.rs`, `crates/graphics/src/player_graphics.rs` |
@@ -564,20 +591,22 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `ProcessManager.cs` | `crates/app/src/frontend.rs`, `crates/menu/src/dialog.rs`, `crates/menu/src/process.rs` |
 | `QuickConnectivity.cs` | `crates/sim/src/world/abstract_ai.rs`, `crates/sim/src/world/quick_connectivity.rs` |
 | `QuickPathFinder.cs` | `crates/sim/src/world/quick_path.rs` |
-| `RWCustom/Custom.cs` | `crates/menu/src/color.rs`, `crates/save/src/checksum.rs`, `crates/sim/src/color.rs`, `crates/sim/src/float_ext.rs` |
+| `RWCustom/Custom.cs` | `crates/menu/src/color.rs`, `crates/save/src/checksum.rs`, `crates/sim/src/color.rs`, `crates/sim/src/float_ext.rs`, `crates/sim/src/shared_physics.rs` |
 | `RWInput.cs` | `crates/menu/src/input.rs` |
 | `RainCycle.cs` | `crates/sim/src/game_triggers.rs`, `crates/sim/src/world/rain_cycle.rs` |
 | `RainTracker.cs` | `crates/sim/src/creature/rain_tracker.rs` |
 | `RainWorld.cs` | `crates/app/src/frontend.rs` |
 | `RainWorldGame.cs` | `crates/app/src/game.rs`, `crates/app/src/game_music.rs`, `crates/app/src/hibernation.rs`, `crates/app/src/screen_package.rs`, `crates/hud/src/screen_package.rs`, `crates/save/src/hibernation.rs`, `crates/sim/src/campaign.rs`, `crates/sim/src/game.rs`, `crates/sim/src/game_exit.rs`, `crates/sim/src/game_heavy_ai.rs`, `crates/sim/src/game_over.rs` |
+| `RedSwarmer.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/insect/red_swarmer.rs` |
 | `Region.cs` | `crates/assets/src/region_properties.rs`, `crates/assets/src/settings.rs`, `crates/assets/src/world.rs` |
 | `RegionState.cs` | `crates/sim/src/world/objects.rs`, `crates/sim/src/world/region_save.rs`, `crates/sim/src/world/region_state.rs` |
 | `RelationshipTracker.cs` | `crates/sim/src/creature/relationship_tracker.rs`, `crates/sim/src/game_tracker.rs`, `crates/sim/src/world/ai_modules.rs` |
 | `ReliableIggyDirection.cs` | `crates/sim/src/game_instructions.rs`, `crates/sim/src/trigger.rs` |
 | `Rock.cs` | `crates/graphics/src/weapon_graphics.rs`, `crates/sim/src/game_lizard_hits.rs`, `crates/sim/src/game_weapons.rs`, `crates/sim/src/item/weapon.rs` |
-| `Room.cs` | `crates/app/src/sprite_order.rs`, `crates/assets/src/room.rs`, `crates/render/src/level.rs`, `crates/sim/src/camera.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/game_flies.rs`, `crates/sim/src/game_instructions.rs`, `crates/sim/src/game_noise.rs`, `crates/sim/src/game_shelter.rs`, `crates/sim/src/game_triggers.rs`, `crates/sim/src/game_weapons.rs`, `crates/sim/src/noise.rs`, `crates/sim/src/room_script.rs`, `crates/sim/src/screen_shake.rs`, `crates/sim/src/shortcut.rs`, `crates/sim/src/sound.rs`, `crates/sim/src/spawn.rs`, `crates/sim/src/water.rs`, `crates/sim/src/world/hearing.rs`, `crates/sim/src/world/objects.rs`, `crates/sim/src/world/quantified.rs`, `crates/sim/src/world/realized.rs`, `crates/sim/src/world/weapons.rs` |
+| `RockFlea.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/insect/rock_flea.rs` |
+| `Room.cs` | `crates/app/src/sprite_order.rs`, `crates/assets/src/room.rs`, `crates/render/src/level.rs`, `crates/sim/src/camera.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/game_flies.rs`, `crates/sim/src/game_insects.rs`, `crates/sim/src/game_instructions.rs`, `crates/sim/src/game_noise.rs`, `crates/sim/src/game_shelter.rs`, `crates/sim/src/game_triggers.rs`, `crates/sim/src/game_weapons.rs`, `crates/sim/src/insect/coordinator.rs`, `crates/sim/src/noise.rs`, `crates/sim/src/room_script.rs`, `crates/sim/src/screen_shake.rs`, `crates/sim/src/shortcut.rs`, `crates/sim/src/sound.rs`, `crates/sim/src/spawn.rs`, `crates/sim/src/water.rs`, `crates/sim/src/world/hearing.rs`, `crates/sim/src/world/objects.rs`, `crates/sim/src/world/quantified.rs`, `crates/sim/src/world/realized.rs`, `crates/sim/src/world/weapons.rs` |
 | `RoomBorderExit.cs` | `crates/assets/src/border_exits.rs` |
-| `RoomCamera.cs` | `crates/app/src/game.rs`, `crates/app/src/scene.rs`, `crates/app/src/sprite_order.rs`, `crates/app/src/visuals.rs`, `crates/assets/src/palette.rs`, `crates/render/src/level.rs`, `crates/render/src/room_camera.rs`, `crates/sim/src/camera.rs`, `crates/sim/src/screen_shake.rs` |
+| `RoomCamera.cs` | `crates/app/src/game.rs`, `crates/app/src/scene.rs`, `crates/app/src/sprite_order.rs`, `crates/app/src/visuals.rs`, `crates/assets/src/palette.rs`, `crates/render/src/level.rs`, `crates/render/src/room_camera.rs`, `crates/sim/src/camera.rs`, `crates/sim/src/game_insects.rs`, `crates/sim/src/screen_shake.rs` |
 | `RoomPreparer.cs` | `crates/sim/src/world/mod.rs` |
 | `RoomPreprocessor.cs` | `crates/assets/src/nodes.rs`, `crates/sim/src/world/creature_ai_map.rs` |
 | `RoomRealizer.cs` | `crates/sim/src/world/realizer.rs` |
@@ -587,6 +616,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `SaveState.cs` | `crates/app/src/saves.rs`, `crates/save/src/hibernation.rs`, `crates/save/src/save_state.rs`, `crates/save/src/session.rs`, `crates/sim/src/campaign.rs`, `crates/sim/src/creature/death.rs`, `crates/sim/src/world/region_save.rs` |
 | `SaveStateMiner.cs` | `crates/save/src/miner.rs` |
 | `ScavTradeInstruction/ScavengerTradeInstructionTrigger.cs` | `crates/sim/src/game_instructions.rs`, `crates/sim/src/trigger.rs` |
+| `SharedPhysics.cs` | `crates/sim/src/shared_physics.rs` |
 | `ShelterDoor.cs` | `crates/graphics/src/shelter_door_graphics.rs`, `crates/sim/src/game_shelter.rs`, `crates/sim/src/shelter.rs` |
 | `ShortcutGraphics.cs` | `crates/app/src/shortcuts.rs`, `crates/graphics/src/shortcut_graphics.rs` |
 | `ShortcutHandler.cs` | `crates/assets/src/shortcut.rs`, `crates/sim/src/game_carried.rs`, `crates/sim/src/player/shortcut.rs`, `crates/sim/src/shortcut.rs` |
@@ -612,14 +642,17 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `TailSegment.cs` | `crates/graphics/src/tail.rs` |
 | `ThreatDetermination.cs` | `crates/audio/src/music/threat.rs`, `crates/sim/src/creature/danger.rs` |
 | `ThreatTracker.cs` | `crates/sim/src/creature/threat_tracker.rs`, `crates/sim/src/world/ai_modules.rs`, `crates/sim/src/world/threat_flight.rs` |
+| `TinyDragonfly.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/insect/tiny_dragonfly.rs` |
 | `Tracker.cs` | `crates/sim/src/creature/tracker.rs`, `crates/sim/src/game_tracker.rs`, `crates/sim/src/world/hearing.rs` |
 | `TriangleMesh.cs` | `crates/render/src/sprites.rs` |
 | `TriggeredEvent.cs` | `crates/assets/src/triggers.rs` |
 | `UtilityComparer.cs` | `crates/sim/src/creature/utility_comparer.rs` |
 | `VirtualMicrophone.cs` | `crates/audio/src/mic.rs`, `crates/audio/src/voice.rs`, `crates/sim/src/sound.rs` |
 | `VultureAbstractAI.cs` | `crates/sim/src/creature/ai_kinds.rs`, `crates/sim/src/world/abstract_ai_kinds.rs` |
+| `Wasp.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/insect/wasp.rs` |
 | `Water.cs` | `crates/render/src/water_sprites.rs`, `crates/sim/src/water.rs` |
 | `WaterDrip.cs` | `crates/graphics/src/water_drip.rs`, `crates/sim/src/game_player.rs`, `crates/sim/src/water_drip.rs` |
+| `WaterGlowworm.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/insect/water_glowworm.rs` |
 | `WaterLevelCycle.cs` | `crates/sim/src/world/rain_cycle.rs` |
 | `WaterTriangleMesh.cs` | `crates/render/src/water_sprites.rs` |
 | `Weapon.cs` | `crates/app/src/sprite_order.rs`, `crates/sim/src/game_hits.rs`, `crates/sim/src/game_lizard_hits.rs`, `crates/sim/src/game_weapons.rs`, `crates/sim/src/item/weapon.rs`, `crates/sim/src/world/weapons.rs` |

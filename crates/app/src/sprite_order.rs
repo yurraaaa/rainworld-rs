@@ -39,6 +39,8 @@ pub enum Drawable {
     Cosmetic(u64),
     HoloLight(u64),
     LightSource(u64),
+    /// A cosmetic insect, by its place in the update list.
+    Insect(u64),
     /// `ShortcutGraphics` (not a leaser: its sprites join the containers after the
     /// room's leasers).
     Shortcuts,

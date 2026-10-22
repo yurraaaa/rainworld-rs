@@ -57,6 +57,8 @@ pub struct RealizedRoom {
     pub holo_lights: Vec<crate::creature::overseer::HologramLight>,
     /// The `LightSource`s in the room's update list.
     pub light_sources: Vec<crate::LightSource>,
+    /// `insectCoordinator`, made by `Room.Loaded` for an insect effect or group.
+    pub insects: Option<crate::insect::InsectCoordinator>,
     /// `ceilingTiles` (`Room.Loaded`), where `ScreenMovement` shakes drips off.
     pub ceiling_tiles: Vec<(i32, i32)>,
 }
@@ -73,6 +75,7 @@ impl RealizedRoom {
         first_time_realized: bool,
     ) -> Self {
         let wait = Self::entry_delay(&loaded.settings, &data.name, story, timeline, mods);
+        let insects = crate::insect::InsectCoordinator::for_room(&loaded.settings, timeline, mods);
         let ceiling_tiles = Self::find_ceiling_tiles(&loaded.room);
         Self {
             room: Arc::new(loaded.room),
@@ -91,6 +94,7 @@ impl RealizedRoom {
             water_glitter: WaterGlitter::default(),
             holo_lights: Vec::new(),
             light_sources: Vec::new(),
+            insects,
             ceiling_tiles,
         }
     }

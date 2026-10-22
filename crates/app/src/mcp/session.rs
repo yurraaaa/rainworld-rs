@@ -513,6 +513,7 @@ impl Session {
             triggers: TriggerState::all(sim),
             sprite_order: Self::sprite_order(scene),
             holo_lights: Self::holo_lights(scene),
+            insects: super::reply::RoomInsects::all(sim.world()),
             holo_light_needed: sim.holo_light_needed(),
             dens: Self::dens(scene),
             quantified: Self::quantified(scene),
@@ -662,6 +663,7 @@ impl Session {
             Drawable::Cosmetic(i) => ("cosmetic", None, Some(i)),
             Drawable::HoloLight(i) => ("holo_light", None, Some(i)),
             Drawable::LightSource(i) => ("light_source", None, Some(i)),
+            Drawable::Insect(i) => ("insect", None, Some(i)),
             Drawable::Shortcuts => ("shortcuts", None, None),
             Drawable::FullScreenEffect => ("full_screen_effect", None, None),
         }

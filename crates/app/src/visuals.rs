@@ -253,6 +253,12 @@ impl Visuals {
         self.palette.room_palette()
     }
 
+    /// The camera's palette texture (`palette.texture`).
+    #[must_use]
+    pub fn palette_texture(&self) -> &PaletteTexture {
+        &self.palette
+    }
+
     /// The palette colours of the shortcut graphics.
     #[must_use]
     pub fn shortcut_palette(&self) -> rw_graphics::ShortcutPalette {
