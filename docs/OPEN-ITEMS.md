@@ -73,10 +73,6 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `../rainworld-re/surveys/lizards.md` (user decisions).
 
 ## To look into
-- **Dragging a dead green while standing stalls** (2026-10-22, grab-lizards review): Red
-  holding chunk 0, standing and holding right for 600 ticks in SU_S01 moved neither
-  itself nor the body; crawling drags it. No code difference found; the user is checking
-  the real game.
 - **Creatures at open room edges** (user, 2026-10-22, for when more creatures get
   bodies): room borders are not solid (`Room.GetTile` copies the edge tile outside the
   room, so open air edges extend forever; the room file's `Border:` field is unread).
