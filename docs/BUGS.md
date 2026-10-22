@@ -6,9 +6,3 @@ Seen in play, not yet investigated. Remove an entry once fixed.
   back and forth very quickly between two positions, its body stretching.
 - **Slugcat tail stretches out of a pipe** (2026-10-16): when the slugcat comes out of a
   shortcut, its tail teleports and stretches very far before snapping into place.
-- **Dead lizard's head and jaw move** (2026-10-22): a dead green lizard's jaw opens and
-  closes as the player moves around it (even jumping over it without touching). In the
-  game a dead lizard stays still (user). The jaw value stays fixed; the drawing changes.
-  Being traced.
-- **Threat music keeps playing after the lizard dies** (2026-10-22): the threat theme
-  stays loud with only a dead lizard around. Not the game's behaviour (user). Being traced.
