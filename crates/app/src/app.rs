@@ -13,6 +13,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
+use crate::window_identity::WindowIdentity;
 use rw_menu::{KeyboardKey, ProcessId, ScreenState};
 use rw_render::{PresentRect, Renderer, Resolution, RoomLayers, WgpuRenderer};
 use winit::application::ApplicationHandler;
@@ -120,7 +121,7 @@ impl App {
     fn create_view(&mut self, event_loop: &ActiveEventLoop) -> Result<View, Box<dyn Error>> {
         let [width, height] = self.screen.size.map(|v| v as u32);
         let attrs = Window::default_attributes()
-            .with_title("Rain World")
+            .with_identity()
             .with_inner_size(PhysicalSize::new(width, height))
             .with_resizable(false)
             .with_fullscreen(

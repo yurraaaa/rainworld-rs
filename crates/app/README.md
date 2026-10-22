@@ -20,6 +20,7 @@ Gameplay logic belongs in `rw-sim`, not here.
 | `game.rs` | `Game`: `RainWorldGame` + player graphics; `start`, `tick`, `*_draw_lists` (with `contain_in_jaws`: what lizards hold drawn in their containers), sound events |
 | `scene.rs` | `Scene`/`SceneRenderer`: what a frame shows (level, water, sprites, HUD), shared by window and screenshots |
 | `visuals.rs` | room settings, palettes, shown camera image |
+| `window_identity.rs` | window title "Rain World" and app id `rainworld-rs` (Wayland/X11) |
 | `sprites.rs` | atlas loading (`rainWorld`, `uiSprites`), overseer projection textures |
 | `shortcuts.rs` | camera-0 `ShortcutGraphics` fed from the game |
 | `sprite_order.rs` | `SpriteOrder`: sprites let out of a lizard's jaws (and later arrivals) drawn on top of their containers |

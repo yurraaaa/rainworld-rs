@@ -57,6 +57,7 @@ mod sprite_order;
 mod sprites;
 mod timestep;
 mod visuals;
+mod window_identity;
 
 use std::error::Error;
 use std::path::PathBuf;

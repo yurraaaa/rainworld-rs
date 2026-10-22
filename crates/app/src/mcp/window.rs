@@ -18,6 +18,7 @@ use super::{Server, Session};
 use crate::frontend::FrontendRenderer;
 use crate::input::Command;
 use crate::scene::{Framing, SceneRenderer, SceneView};
+use crate::window_identity::WindowIdentity;
 
 /// Serves MCP on a background thread and shows the session's scene until the window
 /// closes or the client disconnects.
@@ -67,7 +68,7 @@ impl Mirror {
         // Windowed, so a driven session never covers the screen.
         let resolution = Resolution::DEFAULT;
         let attrs = Window::default_attributes()
-            .with_title("Rain World")
+            .with_identity()
             .with_inner_size(PhysicalSize::new(resolution.width, resolution.height))
             .with_resizable(false);
         let window = Arc::new(event_loop.create_window(attrs)?);
