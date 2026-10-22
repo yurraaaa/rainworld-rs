@@ -13,12 +13,12 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | assets | 21 | 13 | 0 | 0 |
 | audio | 11 | 5 | 0 | 0 |
 | graphics | 29 | 4 | 0 | 0 |
-| hud | 22 | 0 | 0 | 0 |
+| hud | 24 | 0 | 0 | 0 |
 | menu | 27 | 2 | 0 | 0 |
 | random | 0 | 1 | 0 | 0 |
 | render | 6 | 18 | 0 | 0 |
 | save | 15 | 5 | 0 | 0 |
-| sim | 187 | 5 | 0 | 0 |
+| sim | 188 | 5 | 0 | 0 |
 
 ## Rust file to C# files
 
@@ -149,6 +149,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/hud/src/endgame_meter.rs` | mirrors | Menu/EndgameMeter.cs |
 | `crates/hud/src/endgame_tokens.rs` | mirrors | Menu/EndgameTokens.cs |
 | `crates/hud/src/food_meter.rs` | mirrors | HUD/FoodMeter.cs |
+| `crates/hud/src/icon_symbol.rs` | mirrors | CreatureSymbol.cs, IconSymbol.cs, ItemSymbol.cs |
 | `crates/hud/src/karma_ladder.rs` | mirrors | Menu/KarmaLadder.cs |
 | `crates/hud/src/karma_meter.rs` | mirrors | HUD/KarmaMeter.cs |
 | `crates/hud/src/lib.rs` | mirrors | HUD/HUD.cs |
@@ -156,6 +157,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/hud/src/map/data.rs` | mirrors | HUD/Map.cs |
 | `crates/hud/src/map/markers.rs` | mirrors | HUD/Map.cs |
 | `crates/hud/src/map/mod.rs` | mirrors | HUD/Map.cs |
+| `crates/hud/src/map/shelter_items.rs` | mirrors | HUD/Map.cs |
 | `crates/hud/src/pause_menu.rs` | mirrors | Menu/PauseMenu.cs |
 | `crates/hud/src/rain_meter.rs` | mirrors | HUD/RainMeter.cs |
 | `crates/hud/src/screen_package.rs` | mirrors | Menu/KarmaLadderScreen.cs, RainWorldGame.cs |
@@ -250,6 +252,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/sim/src/creature/agression_tracker.rs` | mirrors | AgressionTracker.cs |
 | `crates/sim/src/creature/ai.rs` | mirrors | AbstractCreatureAI.cs |
 | `crates/sim/src/creature/ai_kinds.rs` | mirrors | AbstractCreatureAI.cs, BigEelAbstractAI.cs, CicadaAbstractAI.cs, DeerAbstractAI.cs, MirosBirdAbstractAI.cs, NeedleWormAbstractAI.cs, VultureAbstractAI.cs |
+| `crates/sim/src/creature/centipede.rs` | mirrors | AbstractCreature.cs, Centipede.cs |
 | `crates/sim/src/creature/danger.rs` | mirrors | ArtificialIntelligence.cs, Creature.cs, Lizard.cs, ThreatDetermination.cs |
 | `crates/sim/src/creature/death.rs` | mirrors | AbstractCreature.cs, Creature.cs, SaveState.cs, SocialEventRecognizer.cs |
 | `crates/sim/src/creature/den_finder.rs` | mirrors | DenFinder.cs, NodeFinder.cs |
@@ -441,7 +444,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `AImap.cs` | `crates/sim/src/world/ai_map.rs` |
 | `AImapper.cs` | `crates/sim/src/world/ai_mapper.rs` |
 | `AItile.cs` | `crates/sim/src/world/ai_map.rs`, `crates/sim/src/world/movement.rs` |
-| `AbstractCreature.cs` | `crates/sim/src/creature/death.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/creature/grasp.rs`, `crates/sim/src/creature/mod.rs`, `crates/sim/src/game_carried.rs`, `crates/sim/src/world/abstract_ai.rs`, `crates/sim/src/world/creatures.rs`, `crates/sim/src/world/dens.rs`, `crates/sim/src/world/lizards.rs` |
+| `AbstractCreature.cs` | `crates/sim/src/creature/centipede.rs`, `crates/sim/src/creature/death.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/creature/grasp.rs`, `crates/sim/src/creature/mod.rs`, `crates/sim/src/game_carried.rs`, `crates/sim/src/world/abstract_ai.rs`, `crates/sim/src/world/creatures.rs`, `crates/sim/src/world/dens.rs`, `crates/sim/src/world/lizards.rs` |
 | `AbstractCreatureAI.cs` | `crates/sim/src/creature/ai.rs`, `crates/sim/src/creature/ai_kinds.rs`, `crates/sim/src/creature/mod.rs`, `crates/sim/src/world/abstract_ai.rs`, `crates/sim/src/world/creatures.rs`, `crates/sim/src/world/lizards.rs` |
 | `AbstractPhysicalObject.cs` | `crates/assets/src/objects.rs`, `crates/sim/src/creature/grasp.rs`, `crates/sim/src/game_carried.rs`, `crates/sim/src/item.rs`, `crates/sim/src/item/spear_stick.rs`, `crates/sim/src/world/dens.rs` |
 | `AbstractRoom.cs` | `crates/sim/src/world/creatures.rs`, `crates/sim/src/world/dens.rs`, `crates/sim/src/world/flies_world_ai.rs`, `crates/sim/src/world/mod.rs`, `crates/sim/src/world/objects.rs`, `crates/sim/src/world/quantified.rs`, `crates/sim/src/world/swarm_rooms.rs`, `crates/sim/src/world/weapons.rs` |
@@ -461,6 +464,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `BodyChunk.cs` | `crates/sim/src/chunk.rs`, `crates/sim/src/creature/vision.rs` |
 | `BodyPart.cs` | `crates/graphics/src/body_part.rs` |
 | `Bubble.cs` | `crates/graphics/src/cosmetic_graphics.rs`, `crates/sim/src/bubble.rs` |
+| `Centipede.cs` | `crates/sim/src/creature/centipede.rs` |
 | `CicadaAbstractAI.cs` | `crates/sim/src/creature/ai_kinds.rs`, `crates/sim/src/world/abstract_ai_kinds.rs` |
 | `CoralBrain/Mycelium.cs` | `crates/graphics/src/mycelium.rs` |
 | `CosmeticInsect.cs` | `crates/sim/src/insect/avoider.rs`, `crates/sim/src/insect/mod.rs` |
@@ -470,6 +474,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `CreatureLooker.cs` | `crates/sim/src/creature/looker.rs` |
 | `CreatureSpecificAImap.cs` | `crates/sim/src/world/creature_ai_map.rs` |
 | `CreatureState.cs` | `crates/sim/src/creature/state_save.rs` |
+| `CreatureSymbol.cs` | `crates/hud/src/icon_symbol.rs` |
 | `CreatureTemplate.cs` | `crates/assets/src/creatures.rs`, `crates/sim/src/creature/pathing.rs`, `crates/sim/src/creature/relationships.rs`, `crates/sim/src/creature/template.rs`, `crates/sim/src/creature/template_abstract.rs` |
 | `CreatureVoice.cs` | `crates/sim/src/creature/lizard/voice.rs` |
 | `DeathFallGraphic.cs` | `crates/app/src/death_fall.rs` |
@@ -513,15 +518,17 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `HUD/HUD.cs` | `crates/hud/src/lib.rs`, `crates/hud/src/sleep_hud.rs` |
 | `HUD/HUDCircle.cs` | `crates/hud/src/circle.rs` |
 | `HUD/KarmaMeter.cs` | `crates/hud/src/karma_meter.rs` |
-| `HUD/Map.cs` | `crates/app/src/hud_map.rs`, `crates/assets/src/region_map.rs`, `crates/hud/src/map/connection.rs`, `crates/hud/src/map/data.rs`, `crates/hud/src/map/markers.rs`, `crates/hud/src/map/mod.rs`, `crates/sim/src/game_map.rs`, `crates/sim/src/map_discovery.rs` |
+| `HUD/Map.cs` | `crates/app/src/hud_map.rs`, `crates/assets/src/region_map.rs`, `crates/hud/src/map/connection.rs`, `crates/hud/src/map/data.rs`, `crates/hud/src/map/markers.rs`, `crates/hud/src/map/mod.rs`, `crates/hud/src/map/shelter_items.rs`, `crates/sim/src/game_map.rs`, `crates/sim/src/map_discovery.rs` |
 | `HUD/RainMeter.cs` | `crates/hud/src/rain_meter.rs` |
 | `HUD/SubregionTracker.cs` | `crates/hud/src/text_prompt.rs` |
 | `HUD/TextPrompt.cs` | `crates/hud/src/text_prompt.rs` |
 | `HealthState.cs` | `crates/sim/src/creature/state_save.rs` |
 | `HologramLight.cs` | `crates/graphics/src/holo_light.rs`, `crates/sim/src/creature/overseer/holo_light.rs`, `crates/sim/src/game_holo_light.rs` |
+| `IconSymbol.cs` | `crates/hud/src/icon_symbol.rs` |
 | `InGameTranslator.cs` | `crates/assets/src/short_strings.rs`, `crates/menu/src/translator.rs` |
 | `InputInstructionTrigger.cs` | `crates/sim/src/game_instructions.rs` |
 | `InsectCoordinator.cs` | `crates/sim/src/insect/coordinator.rs` |
+| `ItemSymbol.cs` | `crates/hud/src/icon_symbol.rs` |
 | `LightSource.cs` | `crates/graphics/src/light_source.rs`, `crates/sim/src/game_lights.rs`, `crates/sim/src/light_source.rs` |
 | `Limb.cs` | `crates/graphics/src/limb.rs` |
 | `Lizard.cs` | `crates/sim/src/creature/danger.rs`, `crates/sim/src/creature/lizard/graphics_link.rs`, `crates/sim/src/creature/lizard/mod.rs`, `crates/sim/src/creature/lizard/movement.rs`, `crates/sim/src/creature/mod.rs`, `crates/sim/src/game_lizard_act.rs`, `crates/sim/src/game_lizard_fight.rs`, `crates/sim/src/game_lizard_hits.rs`, `crates/sim/src/game_lizard_perception.rs`, `crates/sim/src/game_lizard_voice.rs`, `crates/sim/src/game_lizards.rs` |
