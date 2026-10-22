@@ -19,8 +19,8 @@ use crate::creature::CreatureId;
 use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
 use crate::{
-    BodyChunk, CosmeticKind, ImpactNoises, LoopEmitter, PhysicalObject, PhysicsParams, SoundId,
-    Sounds, Spark, Vec2, Water,
+    BodyChunk, CosmeticKind, ImpactCall, ImpactCalls, LoopEmitter, PhysicalObject, PhysicsParams,
+    RoomCall, ScreenMovement, SoundId, Sounds, Spark, Vec2, Water,
 };
 
 /// A spark's colour (`new Color(1, 1, 1)`).
@@ -195,6 +195,9 @@ pub struct WeaponTick<'a> {
     pub shelter_door_moving: bool,
     /// The sparks this update adds to the room, with their places in its update list.
     pub cosmetics: &'a mut Vec<(u64, CosmeticKind)>,
+    /// The room calls the update makes (`HitWall`'s screen movement), for the game to
+    /// make in order after it.
+    pub calls: &'a mut Vec<RoomCall>,
 }
 
 /// `Weapon.Thrown`'s arguments.
@@ -772,11 +775,12 @@ impl Weapon {
     }
 
     /// `PhysicalObject.Update` at the start of `PlayerCarryableItem.Update`: the chunk
-    /// moves. Returns its terrain impacts' noises (where, how strong); the game makes
-    /// them as it meets the impacts, with nothing else drawn in between.
-    pub fn carryable_physics(&mut self, cx: &mut WeaponTick<'_>) -> Vec<(Vec2, f32)> {
+    /// moves. Returns its terrain impacts' screen movements and noises (where, how
+    /// strong) in order; the game makes them as it meets the impacts, with nothing else
+    /// drawn in between.
+    pub fn carryable_physics(&mut self, cx: &mut WeaponTick<'_>) -> Vec<ImpactCall> {
         // `WeatherInertia` draws only in blizzard rooms (Saint), none in the base game.
-        let mut log = ImpactNoises::default();
+        let mut log = ImpactCalls::default();
         self.body.update_with(cx.room, cx.water, &mut log);
         log.0
     }
@@ -929,9 +933,10 @@ impl Weapon {
             .play_on_object(SoundId::WeaponSkid, pos, false, 1.0, 1.0, cx.rng);
     }
 
-    /// `HitWall`: seven sparks when the room is viewed, the sound (a spear's bounce or
-    /// a rock's hit), a new spin and `Free`, out of the player's reach for 10 ticks.
-    /// The camera's `ScreenMovement` bump is not ported (docs/divergences/ D7).
+    /// `HitWall`: seven sparks when the room is viewed, the camera bumped 1.5 px along
+    /// the throw (`ScreenMovement`, made by the game after the update: it draws nothing
+    /// at that size), the sound (a spear's bounce or a rock's hit), a new spin and
+    /// `Free`, out of the player's reach for 10 ticks.
     pub fn hit_wall(&mut self, object: &mut AbstractObject, cx: &mut WeaponTick<'_>) {
         let dir = self.throw_dir_vec();
         let c = self.chunk();
@@ -943,6 +948,11 @@ impl Weapon {
                 cx.add_spark(pos + dir * (rad - 1.0), v, 2, 4);
             }
         }
+        cx.calls.push(RoomCall::ScreenMovement(ScreenMovement {
+            source: Some(pos),
+            bump: dir * 1.5,
+            shake: 0.0,
+        }));
         let sound = if self.spear().is_some() {
             SoundId::SpearBounceOffWall
         } else {

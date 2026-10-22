@@ -250,7 +250,10 @@ impl World {
         let Some(state) = &mut self.region_state else {
             return;
         };
-        let n = state.lineage_counter(den).unwrap_or(0);
+        let n = state.lineage_counter(den).unwrap_or_else(|| {
+            state.set_lineage_counter(den, 0);
+            0
+        });
         let len = i32::try_from(l.progression_chances.len()).unwrap_or(i32::MAX);
         if n >= 0
             && n < len - 1

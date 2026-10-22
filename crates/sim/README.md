@@ -45,7 +45,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `game_player.rs` | slugcat hands: bat-fly catch, eat, swallow, throw, hand switch; the heavy carry's rod and the body lent to the player's update | `Player.GrabUpdate`, `Collide` |
 | `game_player_grabbed.rs`, `game_player_grabbed_tests.rs` | the player held: `creature_grab` (`CanBeGrabbed`, `Player.Grabbed`), the `dangerGrasp` block, `ThrowToGetFree`, `DangerGraspPickup`, `GameOver(dangerGrasp)`, the release under the room | `Player.Update`, `Creature.Grab` |
 | `game_spear_on_back.rs`, `game_spear_on_back_tests.rs` | the Hunter's spear on the back: stash/retrieve by holding pick-up, `SpearToBack`, `SpearToHand`, `DropSpear` applied, carried on the back | `Player.SpearOnBack` |
-| `game_shelter.rs` | shelter door in the room, sleep/hibernate checks, `DoorClosed` | `ShelterDoor` hookup |
+| `game_shelter.rs` | shelter door in the room, sleep/hibernate checks, `KillAllHostiles`, `DoorClosed` | `ShelterDoor` hookup |
 | `game_tracker.rs` | realized AI `Tracker`/`RelationshipTracker` running | `Tracker.cs`, `RelationshipTracker.cs` |
 | `game_triggers.rs` | `ActiveTriggerChecker`s, `FireEvent`s | `Room.Loaded` triggers |
 | `game_weapons.rs` | rocks/spears in the update list, loops, sparks | - |
@@ -57,9 +57,10 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `item.rs` | abstract objects (`AbstractObject`, `Entity`, `ObjectData`, `AbstractSpear`), save strings | `AbstractPhysicalObject` |
 | `light_source.rs` | `LightSource` in the update list | `LightSource` |
 | `map_discovery.rs` | per-region discovery textures, base64 PNG form | `PlayerProgression` map textures |
-| `noise.rs` | `InGameNoise`, terrain-impact noise, `NoiseSink` | `Noise/InGameNoise.cs` |
+| `noise.rs` | `InGameNoise`, terrain-impact noise, `NoiseSink` (an updating object's noises and screen movements), `RoomCall`, `ImpactCalls` | `Noise/InGameNoise.cs` |
 | `room_ext.rs`, `color.rs`, `float_ext.rs`, `vec2.rs`, `vec3.rs` | position lookups on `Room`; `Custom` colour/scalar helpers; vectors | `RWCustom.Custom` |
 | `room_script.rs` | room-specific scripts (`RoomScript`, SU_C04 start) | `RoomSpecificScript` |
+| `screen_shake.rs`, `screen_shake_tests.rs`, `game_screen_shake_tests.rs` | camera 0's shake: `CameraShake` (`screenShake`, `microShake`, the per-tick jump at the head of the tick), `ScreenMovement` (camera side, `Room.ScreenMovement` with its ceiling drips), `TerrainImpact`'s bump, `ceilingTiles` | `RoomCamera.Update/ScreenMovement`, `Room.ScreenMovement` |
 | `shelter.rs` | `ShelterDoor` (intact, base game) | `ShelterDoor` |
 | `shortcut.rs` | `ShortcutHandler` divider, vessels, entrance blinking | `ShortcutHandler` |
 | `sound.rs` | `Room.PlaySound` events + `VirtualMicrophone` draws | `VirtualMicrophone.PlaySound` |
@@ -116,7 +117,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `ai.rs`, `ai_kinds.rs` | abstract AI state + constructors | `AbstractCreatureAI` subclasses |
 | `population.rs` | world creature generation | `WorldLoader.GeneratePopulation` |
 | `state_save.rs`, `social_memory.rs` | creature state save string; `SocialMemory` | `CreatureState`, `SocialMemory` |
-| `death.rs`, `grasp.rs`, `danger.rs` | kill tag/die; `Grasp` + grip sticks; threat/danger reads | `Creature.Die`, `Creature.Grab` |
+| `death.rs`, `grasp.rs`, `danger.rs` | kill tag/die, `Killing`, `AddCreatureToRespawn` and the lineage roll; `Grasp` + grip sticks; threat/danger reads | `Creature.Die`, `Creature.Grab` |
 | `tracker.rs`, `relationship_tracker.rs`, `looker.rs`, `vision.rs` | AI modules | `Tracker`, `RelationshipTracker`, `CreatureLooker`, `VisualScore` |
 | `noise_tracker.rs`, `stuck_tracker.rs` | `NoiseTracker`; `StuckTracker`, `DiscomfortTracker` | same |
 | `prey_tracker.rs`, `threat_tracker.rs`, `agression_tracker.rs`, `rain_tracker.rs`, `den_finder.rs`, `utility_comparer.rs`, `mission_tracker.rs` | AI modules' state (their world reads are `world/ai_modules.rs`, `world/missions.rs`); `UtilityComparer` with `FloatTweener`; missions | same |
@@ -148,6 +149,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 |---|---|
 | Shortcuts / pipes, vessels, lobby | `shortcut.rs`, `player/shortcut.rs`, `game.rs` (lobby), `game_lizards.rs`, `game_flies.rs`, `game_carried.rs` (what a vessel carries) |
 | Water, swimming, drowning | `water.rs`, `player/swim.rs`, `water_drip.rs` |
+| Camera shake, `ScreenMovement` | `screen_shake.rs` (sim side), `rw-render` `room_camera.rs`, app `scene.rs` |
 | Abstract creature AI (roam, migrate) | `world/abstract_ai.rs`, `abstract_path.rs`, `creature/ai.rs` |
 | Type-specific abstract AI | `world/abstract_ai_kinds.rs`, `creature/ai_kinds.rs`, `creature/overseer/abstract_ai.rs` |
 | Den logic | `world/dens.rs`, `world/abstract_ai.rs` (den counters), `world/creatures.rs` |

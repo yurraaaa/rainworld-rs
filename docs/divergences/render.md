@@ -101,8 +101,8 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   their uniforms keep the game's defaults; no base-game room uses them, they come with
   the DLCs)
   or modify effect colours (`ModifyEffectColorA/B`, unused in base-game rooms), ghost /
-  rot / mushroom palettes, screen shake (and the camera bump of a weapon hitting a
-  wall, `HitWall`'s `ScreenMovement`: skipped for now, a user decision of 2026-10-16), `_bkg` backgrounds, the heat / melt / ripple
+  rot / mushroom palettes, the rain's screen shake (and the sandstorm's, blizzard's,
+  flood rooms' `waterFlux.roomShake`, lightning's and `AntiGravity`'s), `_bkg` backgrounds, the heat / melt / ripple
   shader variants, swarm rooms, and the properties-file line preprocessing (no base-game
   `Room Setting Templates` line uses it).
 

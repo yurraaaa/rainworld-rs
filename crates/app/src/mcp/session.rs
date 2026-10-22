@@ -46,7 +46,9 @@ use super::reply::{
     NoiseTrackerInfo, PreyTrackerInfo, ThreatTrackerInfo, TrackedCreatureInfo, TrackedPreyInfo,
     UtilityInfo, VesselInfo,
 };
-use super::reply::{DangerInfo, HoloLightState, LightSourceState, MusicState, TriggerState};
+use super::reply::{
+    CameraShakeState, DangerInfo, HoloLightState, LightSourceState, MusicState, TriggerState,
+};
 use super::reply::{FleeInfo, HeavyAiInfo, HuntInfo, LoungeInfo};
 use super::reply::{
     FliesWorldInfo, GraspInfo, HeldInfo, QuantifiedInfo, RegionStateInfo, RelationshipInfo,
@@ -453,6 +455,7 @@ impl Session {
             world: world.name().to_owned(),
             room: game.room().name().to_owned(),
             camera: scene.visuals().map(|_| scene.camera().current()),
+            camera_shake: CameraShakeState::of(sim.camera_shake()),
             player_room: Self::room_name(scene, pos.room),
             player_node: pos.node,
             lobby: sim.lobby().map(|l| LobbyState {
@@ -595,6 +598,19 @@ impl Session {
             peaceful: deaths.peaceful,
             respawn: deaths.respawn_creatures.clone(),
             wait_respawn: deaths.wait_respawn_creatures.clone(),
+            saved_respawn: sim.story().respawn_creatures.clone(),
+            like_of_player: rw_save::CommunityId::ALL
+                .into_iter()
+                .map(|c| {
+                    let world = sim.world();
+                    let like = world.communities.like_of_player(
+                        c,
+                        world.region_name(),
+                        world.session_difficulty,
+                    );
+                    (c.value().to_owned(), like)
+                })
+                .collect(),
             guide_likes_player: sim.guide_state().likes_player,
             guide_increase_like_on_save: sim.guide_state().increase_like_on_save,
             influences: deaths
@@ -1682,6 +1698,9 @@ impl Session {
                     deaths: s.death_persistent.deaths,
                     quits: s.death_persistent.quits,
                     loaded: s.loaded,
+                    respawn_creatures: s.respawn_creatures.clone(),
+                    wait_respawn_creatures: s.wait_respawn_creatures.clone(),
+                    dragon_slayer: s.death_persistent.win_state.dragon_slayer(),
                 }),
             },
             story: game.map(|g| {

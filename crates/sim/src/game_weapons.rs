@@ -2,11 +2,12 @@
 //! sound loops' emitters, the sparks and spikes they and the throws make, and the room's
 //! collision pass after the update list.
 //!
-//! Mirrors: Weapon.cs, Rock.cs, Spear.cs, Room.cs (Update)
+//! Mirrors: Weapon.cs, Rock.cs, Spear.cs, Room.cs (Update, InGameNoise, ScreenMovement)
 
 use std::sync::Arc;
 
 use super::{RainWorldGame, RoomObject};
+use crate::RoomCall;
 use crate::item::ObjectId;
 use crate::world::{ItemTick, World};
 
@@ -54,7 +55,8 @@ impl RainWorldGame {
         });
     }
 
-    /// `f` with the world and what an item's turn in room `index` reads of the game.
+    /// `f` with the world and what an item's turn in room `index` reads of the game;
+    /// then the room calls `f` made (noises, screen movements).
     pub(super) fn with_item_tick<R>(
         &mut self,
         index: i32,
@@ -84,8 +86,21 @@ impl RainWorldGame {
             eu,
             player,
             shelter_door_moving,
-            noises: Vec::new(),
+            calls: Vec::new(),
         };
-        f(&mut self.world, &mut cx)
+        let r = f(&mut self.world, &mut cx);
+        let calls = std::mem::take(&mut cx.calls);
+        self.make_room_calls(index, calls);
+        r
+    }
+
+    /// The noises and screen movements an item's update made in room `index`, in order.
+    fn make_room_calls(&mut self, index: i32, calls: Vec<RoomCall>) {
+        for call in calls {
+            match call {
+                RoomCall::Noise(n) => self.room_noise(index, n),
+                RoomCall::ScreenMovement(m) => self.room_screen_movement(index, m),
+            }
+        }
     }
 }

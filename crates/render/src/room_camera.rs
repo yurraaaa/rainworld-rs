@@ -4,7 +4,8 @@
 //! Each camera position is the room point of its image's bottom-left corner. The game
 //! shows a [`RoomCamera::SCREEN_SIZE`] window resting at `cam + (17, 18)`; it leans
 //! up to 8 px toward a camera the creature is heading for and switches with a hard cut
-//! once the creature leaves the current camera's zone for another's.
+//! once the creature leaves the current camera's zone for another's. Shake (`rw_sim`'s
+//! `CameraShake`) moves `pos` between ticks and adds a per-frame micro shake offset.
 //!
 //! Mirrors: RoomCamera.cs (GetCameraBestIndex, Update, DrawUpdate)
 
@@ -33,6 +34,8 @@ pub struct RoomCamera {
     input_forward: Vec2,
     /// `mostLikelyNextCamPos`.
     next: usize,
+    /// `DrawUpdate`'s micro shake for the frame being drawn, added before the clamp.
+    frame_shake: Vec2,
 }
 
 impl RoomCamera {
@@ -54,6 +57,7 @@ impl RoomCamera {
             lean: Vec2::ZERO,
             input_forward: Vec2::ZERO,
             next: 0,
+            frame_shake: Vec2::ZERO,
         };
         camera.cut_to(0);
         camera
@@ -124,9 +128,10 @@ impl RoomCamera {
         })
     }
 
-    /// One tick of `RoomCamera.Update`: pick the camera for `follow`, then move the
-    /// window toward its rest position plus lean. Returns `true` when the camera was
-    /// switched (a hard cut: load that camera's image and palette fade).
+    /// One tick of `RoomCamera.Update` up to the shake: pick the camera for `follow`,
+    /// then move the window toward its rest position plus lean. Returns `true` when the
+    /// camera was switched (a hard cut: load that camera's image and palette fade). The
+    /// shake's jump and the rooms' bumps come after, through [`Self::displace`].
     pub fn update(&mut self, follow: Option<&Follow>) -> bool {
         let switched = follow.is_some_and(|f| self.choose_camera(f));
         self.last_pos = self.pos;
@@ -186,6 +191,23 @@ impl RoomCamera {
         false
     }
 
+    /// `pos`: the window's bottom-left in room pixels this tick.
+    #[must_use]
+    pub fn pos(&self) -> Vec2 {
+        self.pos
+    }
+
+    /// Moves `pos` (not `lastPos`) by `d`: the shake's jump and `ScreenMovement` bumps.
+    pub fn displace(&mut self, d: Vec2) {
+        self.pos += d;
+    }
+
+    /// Sets the frame's micro shake offset (`Custom.RNV() * 8 * microShake * value`, or
+    /// zero), drawn once per frame before anything reads [`Self::view_origin`].
+    pub fn set_frame_shake(&mut self, offset: Vec2) {
+        self.frame_shake = offset;
+    }
+
     /// `ApplyPositionChange`: show camera `i` with the window at rest and no lean.
     pub fn cut_to(&mut self, i: usize) {
         self.current = i;
@@ -206,10 +228,11 @@ impl RoomCamera {
     }
 
     /// Bottom-left of the visible window in room pixels at `alpha` between the last two
-    /// ticks: clamped, floored to whole pixels, minus 0.02 (`DrawUpdate`'s `targetPoint`).
+    /// ticks, plus the frame's micro shake: clamped, floored to whole pixels, minus 0.02
+    /// (`DrawUpdate`'s `targetPoint`).
     #[must_use]
     pub fn view_origin(&self, alpha: f32) -> [f32; 2] {
-        let p = self.clamp(self.last_pos.lerp(self.pos, alpha));
+        let p = self.clamp(self.last_pos.lerp(self.pos, alpha) + self.frame_shake);
         [p.x.floor() - 0.02, p.y.floor() - 0.02]
     }
 
@@ -304,6 +327,26 @@ mod tests {
             "slid right by 7-8 px: {x}"
         );
         assert!(!cam.update(None));
+    }
+
+    /// Rest (-203, -52) on a camera at (-220, -70); the clamp is x in -223..-183,
+    /// y in -69..-37. A bump moves `pos` only (drawn from `lastPos` to it), the frame's
+    /// micro shake is added before the clamp, and `Update` eases back by a tenth.
+    #[test]
+    fn shake_moves_the_window_within_the_clamp() {
+        let mut cam = RoomCamera::new(&[[-220.0, -70.0]], RoomCamera::SCREEN_SIZE);
+        cam.displace(Vec2::new(5.0, -3.0));
+        assert_eq!(cam.view_origin(0.0), [-203.02, -52.02]);
+        assert_eq!(cam.view_origin(1.0), [-198.02, -55.02]);
+        cam.set_frame_shake(Vec2::new(-2.5, 1.5));
+        assert_eq!(cam.view_origin(0.0), [-206.02, -51.02]);
+        cam.set_frame_shake(Vec2::ZERO);
+        cam.displace(Vec2::new(100.0, 100.0));
+        assert_eq!(cam.view_origin(1.0), [-183.02, -37.02]);
+        // `Update`: Lerp((-98, 45), rest, 0.1) = (-108.5, 35.3), clamped.
+        cam.update(None);
+        assert_eq!(cam.pos(), Vec2::new(-183.0, -37.0));
+        assert_eq!(cam.view_origin(0.0), [-183.02, -37.02]);
     }
 
     #[test]

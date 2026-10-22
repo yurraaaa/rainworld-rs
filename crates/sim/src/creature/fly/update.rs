@@ -42,6 +42,7 @@ pub(crate) struct FlyTick<'a> {
     pub sounds: &'a mut Sounds,
     pub observer: &'a mut dyn PlayerObserver,
     pub camera: CameraView,
+    pub camera_shake: &'a mut crate::CameraShake,
     /// The camera's room, for the graphics' culling.
     pub camera_room: Arc<Room>,
     pub player: Option<PlayerBody>,
@@ -53,8 +54,8 @@ pub(crate) struct FlyTick<'a> {
     pub eu: bool,
 }
 
-/// A fly's terrain impacts with where its chunk was at each (the drips start there) and
-/// the noise each makes (where, how strong).
+/// A fly's terrain impacts with where its chunk was at each (the drips start there),
+/// the screen movement and the noise each makes (where, how strong).
 #[derive(Default)]
 struct ImpactLog {
     impacts: Vec<LoggedImpact>,
@@ -65,6 +66,7 @@ struct LoggedImpact {
     pos: Vec2,
     rad: f32,
     mass: f32,
+    screen: Option<crate::ScreenMovement>,
     noise: Option<(Vec2, f32)>,
 }
 
@@ -76,6 +78,7 @@ impl crate::TerrainImpactHandler for ImpactLog {
             pos: c.pos,
             rad: c.rad,
             mass: c.mass,
+            screen: impact.screen_movement(c),
             noise: impact.noise_at(c),
         });
     }
@@ -314,7 +317,7 @@ impl FlyRun<'_, '_, '_> {
     }
 
     /// The base `Creature.TerrainImpact` of each impact: `PhysicalObject.TerrainImpact`'s
-    /// noise, then on a first contact drips off a wet ceiling.
+    /// screen movement and noise, then on a first contact drips off a wet ceiling.
     fn impact_drips(&mut self, log: &ImpactLog) {
         let index = self.cx.room_index;
         let ceiling_drips = self
@@ -326,9 +329,19 @@ impl FlyRun<'_, '_, '_> {
             pos,
             rad,
             mass,
+            screen,
             noise,
         } in &log.impacts
         {
+            if let Some(m) = *screen {
+                self.world.screen_movement(
+                    index,
+                    m,
+                    &self.cx.camera,
+                    self.cx.camera_shake,
+                    self.cx.rng,
+                );
+            }
             if let Some((at, strength)) = *noise {
                 let noise = crate::InGameNoise {
                     pos: at,

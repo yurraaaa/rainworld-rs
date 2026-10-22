@@ -129,9 +129,10 @@ the game would write in line and entry order and in the data it would drop.
 ## Not ported yet (not divergences, just absent)
 
 Passage triggers (`WinState.CycleCompleted` and `PlayerDied` are ported whole; these
-inputs to them are not): kills of anything but bat flies and overseers (both count 0
-and are no lizards, so the Outlaw only resets, the Saint never breaks its streak and
-the Dragon Slayer never fills); plant food, so the Monk only resets;
+inputs to them are not): kills of anything but bat flies, overseers and green lizards
+(a green counts 2, so it feeds the Outlaw, breaks the Saint's streak and marks the
+Dragon Slayer's first slot; no other lizard has a body yet); plant food, so the Monk
+only resets;
 pearls found (Scholar); a friend in the den (the Friend only resets); changes to the
 scavengers' like (Chieftain: the saved like is read); region gates, so the Wanderer
 (Traveller) can only mark SU. More Slugcats' Nomad, Pilgrim, Martyr, Mother and
