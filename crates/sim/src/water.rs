@@ -10,8 +10,8 @@
 //! and the decompiled `Water` class; base game with Remix off. Not ported (docs/
 //! divergences/ D11): `WaterCutoff` and `AirPocket` placed objects (no base-game room
 //! uses them), the unused `WaterViscosity` effect, rain rumble and flooding (no rain
-//! cycle yet), and the `Splash` objects (step A2: only the draws of their `Reset`
-//! arguments are made; their updates, sounds and surface pushes are not).
+//! cycle yet). The `Splash`es it makes are `splash.rs`'; they push the surface back
+//! through [`Water::waterfall_hit_surface`].
 //!
 //! Mirrors: Water.cs, Room.cs (FloatWaterLevel)
 
@@ -20,7 +20,7 @@ use rw_random::UnityRandom;
 
 use crate::float_ext::FloatExt;
 use crate::item::Entity;
-use crate::{BodyChunk, Bubble, SoundId, Sounds, Vec2};
+use crate::{BodyChunk, Bubble, SoundId, Sounds, Splash, Vec2};
 
 /// One point of the surface (`Water.SurfacePoint`).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -81,6 +81,13 @@ pub struct Water {
     roll_back_length: f32,
     roll_back_amp: f32,
     bubble_emitters: Vec<BubbleEmitter>,
+}
+
+/// An object `Water.Update` adds to the room.
+#[derive(Debug, Clone, PartialEq)]
+pub enum WaterObject {
+    Bubble(Bubble),
+    Splash(Splash),
 }
 
 /// Whose body a chunk the water reads belongs to.
@@ -294,6 +301,31 @@ impl Water {
         if da < db { i } else { i + 1 }
     }
 
+    /// `Water.WaterfallHitSurface(sourcePos, width, flow)` on the main surface (the only
+    /// one without `AirPocket`s): each front point from the one at or left of `x - width
+    /// / 2` to the one past `x + width / 2` gets a kick with chance `flow` (a draw), its
+    /// height by `1.9 * Lerp(-1, 0.5, value) * Lerp(0.6, 1, flow)` (down at the two end
+    /// points) and its offset `5` px in a random direction (two more draws).
+    pub fn waterfall_hit_surface(
+        &mut self,
+        source: Vec2,
+        width: f32,
+        flow: f32,
+        rng: &mut UnityRandom,
+    ) {
+        let first = self.previous_point(source.x - width / 2.0);
+        let last = (self.previous_point(source.x + width / 2.0) + 1).min(self.points.len() - 1);
+        for i in first..=last {
+            if rng.value() >= flow {
+                continue;
+            }
+            let edge = if i == first || i == last { -1.0 } else { 1.0 };
+            let kick = 1.9 * (-1.0_f32).lerp(0.5, rng.value()) * edge * 0.6_f32.lerp(1.0, flow);
+            self.points[i][0].height += kick;
+            self.points[i][0].pos += Vec2::from_degrees(rng.value() * 360.0) * 5.0;
+        }
+    }
+
     /// The live `BubbleEmitter`s, oldest first.
     #[must_use]
     pub fn bubble_emitters(&self) -> &[BubbleEmitter] {
@@ -304,16 +336,21 @@ impl Water {
     /// bottom-bubble roll, bodies crossing or moving in the surface push it (with the
     /// splash sound, splashes and bubbles), the bubble emitters, then the surface steps.
     /// `chunks` are the room's physical objects' in `physicalObjects` order (collision
-    /// layer, then joining order). Returns the bubbles it made, in `AddObject` order.
+    /// layer, then joining order). Returns the splashes and bubbles it made, in
+    /// `AddObject` order.
     pub fn update<'a>(
         &mut self,
         room: &Room,
         chunks: impl IntoIterator<Item = SurfaceChunk<'a>>,
         rng: &mut UnityRandom,
         sounds: &mut Sounds,
-    ) -> Vec<Bubble> {
+    ) -> Vec<WaterObject> {
         // `waterSounds.Update()` ran just before (`RainWorldGame::run_water_sound`).
-        let mut made: Vec<Bubble> = self.bottom_bubble(room, rng).into_iter().collect();
+        let mut made: Vec<WaterObject> = self
+            .bottom_bubble(room, rng)
+            .map(WaterObject::Bubble)
+            .into_iter()
+            .collect();
         let mut chunks: Vec<SurfaceChunk<'a>> = chunks.into_iter().collect();
         let mut splashes = 0;
         for chunk in &mut chunks {
@@ -326,7 +363,7 @@ impl Water {
                 continue;
             }
             e.follow(&chunks);
-            made.extend(e.update(rng));
+            made.extend(e.update(rng).map(WaterObject::Bubble));
         }
         self.step_surface(room, rng);
         made
@@ -357,7 +394,7 @@ impl Water {
         splashes: &mut i32,
         rng: &mut UnityRandom,
         sounds: &mut Sounds,
-        made: &mut Vec<Bubble>,
+        made: &mut Vec<WaterObject>,
     ) {
         let player_chunk = (surface.owner == ChunkOwner::Player).then_some(surface.index);
         let chunk = &mut *surface.chunk;
@@ -382,20 +419,33 @@ impl Water {
                 }
                 Self::through_surface_sound(player_chunk, chunk, rng, sounds);
             }
-            // The big `Splash` (no draws; the object is step A2's).
+            // `|vel.y| * rad * mass`, which sizes the splashes.
+            let weight = vel.y.abs() * rad * chunk.mass;
             if force.abs() > 5.0 {
+                let pos = Vec2::new(chunk.pos.x, level + if force > 0.0 { 20.0 } else { -20.0 });
+                let speed = force.abs().lerp_map(10.0, 40.0, 4.0, 14.0);
+                let amount = weight.lerp_map(4.0, 300.0, 7.0, 90.0);
+                let level = self.level_at(pos.x);
+                let splash = Splash::new(pos, Vec2::new(vel.x * 0.5, speed), amount, rad, level);
+                made.push(WaterObject::Splash(splash));
                 *splashes += 1;
             }
             if *splashes >= 10 {
                 return;
             }
-            // The small `Splash`es' `Reset` arguments: x, direction and speed (the
-            // objects are step A2's).
             let small = (force * if force < 0.0 { 0.25 } else { 0.55 }).abs() as i32;
             for _ in 0..small {
-                for _ in 0..3 {
-                    rng.value();
-                }
+                let x = chunk.pos.x + (-rad).lerp(rad, rng.value());
+                let dir = Vec2::from_degrees(-45.0 + 90.0 * rng.value());
+                let push = if force > 0.0 { 0.4 } else { 0.3 };
+                let speed = rng.value() * (vel.y.abs() * push + 10.0);
+                let pos = Vec2::new(x, level + 5.0);
+                let splash_vel = Vec2::new(vel.x, 0.0) + dir * speed;
+                let amount = weight.lerp_map(7.0, 200.0, 2.0, 10.0);
+                let level = self.level_at(pos.x);
+                made.push(WaterObject::Splash(Splash::new(
+                    pos, splash_vel, amount, rad, level,
+                )));
                 *splashes += 1;
             }
             if vel.y < 0.0 && self.bubble_emitters.len() < 10 {
@@ -415,7 +465,8 @@ impl Water {
                     let dir = Vec2::from_degrees(135.0 + 90.0 * rng.value());
                     let speed = rng.value() * ((force * 1.5).abs() + 10.0);
                     let pos = Vec2::new(x, level - 5.0);
-                    made.push(Bubble::new(pos, dir * speed, false, false, rng));
+                    let bubble = Bubble::new(pos, dir * speed, false, false, rng);
+                    made.push(WaterObject::Bubble(bubble));
                     *splashes += 1;
                 }
             }
@@ -571,9 +622,9 @@ mod tests {
     use rw_assets::{Room, RoomSettings};
     use rw_random::UnityRandom;
 
-    use super::SurfaceChunk;
-    use crate::FloatExt;
+    use super::{SurfaceChunk, WaterObject};
     use crate::tests::room_with_water;
+    use crate::{Bubble, FloatExt, Splash};
     use std::sync::Arc;
 
     use rw_assets::{ClipNames, SoundTable};
@@ -805,6 +856,20 @@ mod tests {
         assert_eq!(w.wave_height(16), before);
     }
 
+    fn bubble(o: &WaterObject) -> &Bubble {
+        match o {
+            WaterObject::Bubble(b) => b,
+            WaterObject::Splash(s) => panic!("expected a bubble, got {s:?}"),
+        }
+    }
+
+    fn splash(o: &WaterObject) -> &Splash {
+        match o {
+            WaterObject::Splash(s) => s,
+            WaterObject::Bubble(b) => panic!("expected a splash, got {b:?}"),
+        }
+    }
+
     /// `rng` after the surface step's jitter draw for each of `w`'s points.
     fn after_surface(rng: &mut UnityRandom, w: &Water) {
         for _ in 0..w.point_count() {
@@ -849,7 +914,7 @@ mod tests {
             seen[y as usize] = true;
             if y == 1 {
                 assert_eq!(made.len(), 1, "seed {seed}");
-                let b = &made[0];
+                let b = bubble(&made[0]);
                 let dx = (-10.0_f32).lerp(10.0, copy.value());
                 assert_eq!(b.pos, Vec2::middle_of_tile((x, 1)) + Vec2::new(dx, -10.0));
                 assert_eq!(b.mode, crate::BubbleMode::Growing);
@@ -866,8 +931,11 @@ mod tests {
     }
 
     /// A 0.35 mass, radius 9 chunk crossing down at -20: force -11.35 (see
-    /// `entering_chunk_splashes_once`). The big splash counts one, two small splashes
-    /// (`(int)|force * 0.25|`) draw three each, then a bubble emitter of `amount =
+    /// `entering_chunk_splashes_once`). The big splash (no draws) at `(x, level - 20)`
+    /// with `vel (vel.x / 2, LerpMap(11.35, 10, 40, 4, 14))`, `amount LerpMap(20 * 9 *
+    /// 0.35, 4, 300, 7, 90)`, `initRad 9`; two small splashes (`(int)|force * 0.25|`) at
+    /// `(x + Lerp(-9, 9, value), level + 5)` with `vel DegToVec(-45 + 90 value) * value *
+    /// (20 * 0.3 + 10)`, `amount LerpMap(63, 7, 200, 2, 10)`; then a bubble emitter of `amount =
     /// Clamp((1 + 20) * Lerp(11.35, 5, 0.75) * 0.2, 3, 25) = 25` and `(int)|force * 0.75|
     /// = 8` bubbles at `level - 5` (five draws each). The emitter updates the same tick:
     /// `amount` 24.6, a draw `value * 40 < 24.6` and on success a bubble in the chunk.
@@ -888,11 +956,26 @@ mod tests {
         );
         copy.range_i32(0, 20);
         copy.range_i32(0, 3);
-        for _ in 0..6 {
-            copy.value();
+        let big = splash(&made[0]);
+        assert_eq!(big.last_pos, Vec2::new(100.0, 50.0));
+        close(big.vel.y, 4.0 + 10.0 * 1.35 / 30.0, "big speed");
+        assert_eq!(big.vel.x, 0.0);
+        close(big.amount, 7.0 + 83.0 * 59.0 / 296.0, "big amount");
+        assert_eq!((big.rad, big.life_time), (9.0, 60.0));
+        assert_eq!(big.pos, Vec2::new(100.0, 59.0));
+        assert_eq!(big.linger_pos, Vec2::new(100.0, 70.0 - 30.0 - 9.0));
+        for s in &made[1..3] {
+            let s = splash(s);
+            let x = 100.0 + (-9.0_f32).lerp(9.0, copy.value());
+            let dir = Vec2::from_degrees(-45.0 + 90.0 * copy.value());
+            let speed = copy.value() * (20.0 * 0.3 + 10.0);
+            assert_eq!(s.last_pos, Vec2::new(x, 75.0));
+            close(s.vel.x, (dir * speed).x, "small vel x");
+            close(s.vel.y, (dir * speed).y, "small vel y");
+            close(s.amount, 2.0 + 8.0 * 56.0 / 193.0, "small amount");
         }
         let force: f32 = -11.35;
-        for b in &made[..8] {
+        for b in made[3..11].iter().map(bubble) {
             let x = 100.0 + (-9.0_f32).lerp(9.0, copy.value());
             let dir = Vec2::from_degrees(135.0 + 90.0 * copy.value());
             let speed = copy.value() * ((force * 1.5).abs() + 10.0);
@@ -910,22 +993,23 @@ mod tests {
         assert_eq!(e.owner, super::ChunkOwner::Player);
         close(e.amount, 24.6, "amount");
         if copy.value() * 40.0 < 24.6 {
-            assert_eq!(made.len(), 9);
+            assert_eq!(made.len(), 12);
             let dir = Vec2::from_degrees(copy.value() * 360.0);
             let pos = c.pos + dir * (copy.value() * 9.0);
-            assert_eq!(made[8].pos, pos);
-            assert_eq!(made[8].vel, c.vel);
+            assert_eq!(bubble(&made[11]).pos, pos);
+            assert_eq!(bubble(&made[11]).vel, c.vel);
             copy.value();
             copy.value();
         } else {
-            assert_eq!(made.len(), 8);
+            assert_eq!(made.len(), 11);
         }
         after_surface(&mut copy, &w);
         assert_eq!(rng.state(), copy.state());
     }
 
     /// The first crossing chunk counts 1 + 2 + 8 = 11 splashes and bubbles: a second
-    /// one in the same tick makes no small splashes, emitter or bubbles.
+    /// one in the same tick makes only its big splash, no small splashes, emitter or
+    /// bubbles.
     #[test]
     fn ten_splashes_stop_later_chunks() {
         let (room, mut w) = pool();
@@ -943,11 +1027,56 @@ mod tests {
             &mut Sounds::default(),
         );
         assert_eq!(w.bubble_emitters().len(), 1);
-        assert!(made.iter().all(|b| b.pos.x < 200.0));
+        let far: Vec<&WaterObject> = made
+            .iter()
+            .filter(|o| match o {
+                WaterObject::Bubble(b) => b.pos.x > 200.0,
+                WaterObject::Splash(s) => s.last_pos.x > 200.0,
+            })
+            .collect();
+        assert_eq!(far.len(), 1);
+        assert_eq!(splash(far[0]).last_pos, Vec2::new(300.0, 50.0));
         assert_eq!(
             chunks[1].splash_stop, 10,
             "the surface splash still happens"
         );
+    }
+
+    /// `WaterfallHitSurface((150, 70), 40, 0.5)`: points `PreviousPoint(130)` = 17 to
+    /// `PreviousPoint(170) + 1` = 20; each draws `value < 0.5`, a hit two more (height
+    /// `1.9 * Lerp(-1, 0.5, value) * Lerp(0.6, 1, 0.5)`, negated at 17 and 20; offset
+    /// `DegToVec(value * 360) * 5`). Flow 0 still draws once per point and changes nothing.
+    #[test]
+    fn waterfall_hit_surface_kicks_points_by_chance() {
+        let (_, mut w) = pool();
+        let mut rng = UnityRandom::new(21);
+        let mut copy = rng.clone();
+        w.waterfall_hit_surface(Vec2::new(150.0, 70.0), 40.0, 0.5, &mut rng);
+        let mut hits = 0;
+        for i in 17..=20 {
+            if copy.value() < 0.5 {
+                hits += 1;
+                let edge = if i == 17 || i == 20 { -1.0 } else { 1.0 };
+                let kick = 1.9 * (-1.0_f32).lerp(0.5, copy.value()) * edge * 0.8;
+                close(w.wave_height(i), kick, "height");
+                let off = Vec2::from_degrees(copy.value() * 360.0) * 5.0;
+                close(w.point(i).y, 70.0 + off.y, "offset");
+            } else {
+                assert_eq!(w.wave_height(i), 0.0);
+            }
+        }
+        assert!(hits > 0);
+        assert_eq!(rng.state(), copy.state());
+        assert_eq!((w.wave_height(16), w.wave_height(21)), (0.0, 0.0));
+        let (_, mut w) = pool();
+        let mut rng = UnityRandom::new(21);
+        w.waterfall_hit_surface(Vec2::new(150.0, 70.0), 40.0, 0.0, &mut rng);
+        let mut copy = UnityRandom::new(21);
+        for _ in 0..4 {
+            copy.value();
+        }
+        assert_eq!(rng.state(), copy.state());
+        assert!((0..w.point_count()).all(|i| w.wave_height(i) == 0.0));
     }
 
     /// An emitter loses 0.4 a tick and is dropped once at or below 0.

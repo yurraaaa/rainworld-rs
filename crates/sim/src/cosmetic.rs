@@ -2,7 +2,7 @@
 //! hits and the belly-slide throw add to their room's update list, and the
 //! `OverseerEffect` (232098) a dying overseer sheds, and a lizard's graphics'
 //! `LizardBubble`s and its head shield's sparks and `StationaryEffect` flash, and the
-//! water's air `Bubble`s (`bubble.rs`). Their constructors draw on the shared stream,
+//! water's air `Bubble`s (`bubble.rs`) and `Splash`es (`splash.rs`). Their constructors draw on the shared stream,
 //! and the overseer effect's and the bubbles' updates too. The sprites are `rw-graphics`' (the overseer effect's, on the
 //! `OverseerZip` shader, is not drawn).
 //!
@@ -14,7 +14,7 @@ use rw_random::UnityRandom;
 use crate::creature::CreatureId;
 use crate::creature::lizard::{BubbleHead, LizardBubble, LizardVoiceView};
 use crate::room_ext::RoomExt;
-use crate::{Bubble, FloatExt, Vec2, Water};
+use crate::{Bubble, FloatExt, Sounds, Splash, Vec2, Water, WaterDrip};
 
 /// A cosmetic sprite in a realized room's update list.
 #[derive(Debug, Clone, PartialEq)]
@@ -36,6 +36,7 @@ pub enum CosmeticKind {
     LizardBubble(Box<LizardBubble>),
     Flash(StationaryEffect),
     Bubble(Bubble),
+    Splash(Splash),
 }
 
 /// What a cosmetic tied to a lizard's graphics reads of them in its update.
@@ -310,14 +311,17 @@ impl ExplosionSpikes {
 }
 
 impl Cosmetic {
-    /// Its `Update`; true once destroyed.
+    /// Its `Update`, which sets `slated` once it is destroyed; a splash may shed a drip
+    /// into the room (returned).
     pub fn update(
         &mut self,
         room: &Room,
-        water: Option<&Water>,
+        water: Option<&mut Water>,
         tie: CosmeticTie,
         rng: &mut UnityRandom,
-    ) -> bool {
+        sounds: &mut Sounds,
+    ) -> Option<WaterDrip> {
+        let mut drip = None;
         self.slated = match &mut self.kind {
             CosmeticKind::Spark(s) => s.update(room, tie.white_flicker),
             CosmeticKind::Spikes(s) => s.update(),
@@ -326,9 +330,15 @@ impl Cosmetic {
                 b.update(room, tie.head, tie.voice, tie.water_level, rng)
             }
             CosmeticKind::Flash(f) => f.update(),
-            CosmeticKind::Bubble(b) => b.update(room, water, rng),
+            CosmeticKind::Bubble(b) => b.update(room, water.as_deref(), rng),
+            // Only `Water.Update` makes splashes, so their room has water.
+            CosmeticKind::Splash(s) => water.is_none_or(|w| {
+                let (destroyed, shed) = s.update(room, w, rng, sounds);
+                drip = shed;
+                destroyed
+            }),
         };
-        self.slated
+        drip
     }
 }
 

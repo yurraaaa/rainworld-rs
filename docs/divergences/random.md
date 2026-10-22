@@ -38,10 +38,7 @@ it (D13). What still differs is only the seed and the call order:
   rooms the camera is not in make no draws, as in the game (`Room.PlaySound` only
   reaches the microphone of a camera in that room). Draws of unported code in
   the same functions (the rain-warning look-up,
-  the zero-gravity corridor slide's `WaterDrip`s, the `Splash` objects (step A2:
-  only the draws of their `Reset` arguments in `Water.Update` are made; their updates,
-  with `WaterfallHitSurface`'s draws and height changes and the
-  `Splashing_Water_Into_Water_Surface` one-shots, are not), grasps of objects other than bat flies,
+  the zero-gravity corridor slide's `WaterDrip`s, grasps of objects other than bat flies,
   DLC, and the sounds of those) are missing, as is the draw-skipping of
   `AllowSound`'s crowd cap (D12); the rain-warning look-up short-circuits before drawing
   while rain is far off, as at the start of a cycle.

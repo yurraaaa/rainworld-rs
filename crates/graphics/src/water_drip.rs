@@ -1,5 +1,6 @@
-//! `WaterDrip.DrawSprites` (42328): a thin triangle trailing the drip and a glint.
-//! Mirrors: WaterDrip.cs (DrawSprites)
+//! `WaterDrip.DrawSprites` (42328): a thin triangle trailing the drip and a glint, in
+//! the palette's black or, for a water-coloured drip, its water colours (`ApplyPalette`).
+//! Mirrors: WaterDrip.cs (DrawSprites, ApplyPalette)
 
 use std::borrow::Cow;
 
@@ -9,15 +10,37 @@ use rw_sim::{Vec2, WaterDrip, WaterGlitter};
 use crate::draw::{Color, DrawItem, DrawList, Layer, Mesh, Shader, Sprite};
 use crate::math::Mathf;
 
+/// What a drip reads of the room palette.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DripPalette {
+    pub black: Color,
+    pub water_color1: Color,
+    pub water_color2: Color,
+    pub darkness: f32,
+}
+
+impl DripPalette {
+    /// `ApplyPalette`'s three colours: black, half white, white; a water-coloured drip's
+    /// `Lerp(waterColor2, waterColor1, 0.5)`, `waterColor1`, white.
+    #[must_use]
+    pub fn colors(self, water_color: bool) -> [Color; 3] {
+        if water_color {
+            let mid = self.water_color2.lerp(self.water_color1, 0.5);
+            [mid, self.water_color1, Color::WHITE]
+        } else {
+            let black = self.black;
+            [black, black.lerp(Color::WHITE, 0.5), Color::WHITE]
+        }
+    }
+}
+
 /// The drip's sprites, drawn by the camera of its room.
 pub trait WaterDripSprites {
-    /// `DrawSprites` at `t` (draws on the cosmetic stream): `black` and `darkness` are
-    /// the palette's `blackColor` and `darkness`.
+    /// `DrawSprites` at `t` (draws on the cosmetic stream).
     fn draw(
         &self,
         glitter: WaterGlitter,
-        black: Color,
-        darkness: f32,
+        palette: DripPalette,
         t: f32,
         rng: &mut UnityRandom,
     ) -> DrawList;
@@ -27,8 +50,7 @@ impl WaterDripSprites for WaterDrip {
     fn draw(
         &self,
         glitter: WaterGlitter,
-        black: Color,
-        darkness: f32,
+        palette: DripPalette,
         t: f32,
         rng: &mut UnityRandom,
     ) -> DrawList {
@@ -40,10 +62,9 @@ impl WaterDripSprites for WaterDrip {
         }
         let side = (head - tail).normalized().perpendicular();
         let lightness = self.last_random_lightness.lerp_to(self.random_lightness, t);
-        let num = glitter.shinyness(head, t) * lightness * darkness.inverse_lerp(1.0, 0.5);
+        let num = glitter.shinyness(head, t) * lightness * palette.darkness.inverse_lerp(1.0, 0.5);
         let mut items = Vec::new();
-        // The palette's water colours are not used: no ported caller makes a water drip.
-        let colors = [black, black.lerp(Color::WHITE, 0.5), Color::WHITE];
+        let colors = palette.colors(self.water_color);
         let num2 = num.inverse_lerp(0.0, 0.5);
         let color = if num2 < 0.5 {
             colors[0].lerp(colors[1], num2.inverse_lerp(0.0, 0.5))
@@ -75,5 +96,35 @@ impl WaterDripSprites for WaterDrip {
             }));
         }
         DrawList { items }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DripPalette;
+    use crate::draw::Color;
+
+    /// `ApplyPalette`: black, black half to white, white; a water-coloured drip's
+    /// `Lerp(waterColor2, waterColor1, 0.5)`, `waterColor1`, white.
+    #[test]
+    fn drip_colours_by_kind() {
+        let p = DripPalette {
+            black: Color::rgb(0.1, 0.1, 0.1),
+            water_color1: Color::rgb(0.2, 0.4, 0.6),
+            water_color2: Color::rgb(0.0, 0.2, 0.2),
+            darkness: 0.0,
+        };
+        assert_eq!(
+            p.colors(false),
+            [
+                Color::rgb(0.1, 0.1, 0.1),
+                Color::rgb(0.55, 0.55, 0.55),
+                Color::WHITE
+            ]
+        );
+        let [mid, one, white] = p.colors(true);
+        assert!((mid.r - 0.1).abs() < 1e-6 && (mid.g - 0.3).abs() < 1e-6);
+        assert!((mid.b - 0.4).abs() < 1e-6);
+        assert_eq!((one, white), (p.water_color1, Color::WHITE));
     }
 }

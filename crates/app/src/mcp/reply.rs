@@ -1156,6 +1156,9 @@ pub struct RealizedState {
     /// The live `Bubble`s' positions, oldest first (their count is the length).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub bubbles: Vec<[f32; 2]>,
+    /// The live `Splash`es' positions, oldest first (their count is the length).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub splashes: Vec<[f32; 2]>,
     /// The water's live `BubbleEmitter`s' amounts, oldest first.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub bubble_emitters: Vec<f32>,

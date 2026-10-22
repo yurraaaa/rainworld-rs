@@ -257,9 +257,10 @@ impl RainWorldGame {
             CosmeticKind::Spark(s) => (s.lizard, s.pos),
             CosmeticKind::LizardBubble(b) => (Some((b.lizard, b.module)), b.pos),
             CosmeticKind::Flash(f) => (f.lizard, f.pos),
-            CosmeticKind::Spikes(_) | CosmeticKind::OverseerEffect(_) | CosmeticKind::Bubble(_) => {
-                (None, Vec2::ZERO)
-            }
+            CosmeticKind::Spikes(_)
+            | CosmeticKind::OverseerEffect(_)
+            | CosmeticKind::Bubble(_)
+            | CosmeticKind::Splash(_) => (None, Vec2::ZERO),
         };
         let mut tie = CosmeticTie {
             water_level: self
@@ -281,6 +282,12 @@ impl RainWorldGame {
                 tie.voice = Some(g.voice);
             }
         }
-        self.world.update_cosmetic(index, id, tie, &mut self.rng);
+        let sounds = if index == self.camera_room {
+            &mut self.sounds
+        } else {
+            &mut self.silent
+        };
+        self.world
+            .update_cosmetic(index, id, tie, &mut self.rng, sounds);
     }
 }

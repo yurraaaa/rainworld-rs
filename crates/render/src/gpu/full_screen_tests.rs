@@ -1,5 +1,6 @@
-//! Headless GPU checks of the full-screen effect shaders (`full_screen.wgsl`) and the
-//! `DeathFall` shader (`death_fall.wgsl`, here over the whole screen) at the game's
+//! Headless GPU checks of the full-screen effect shaders (`full_screen.wgsl`), the
+//! `DeathFall` shader (`death_fall.wgsl`) and `WaterSplash` (`sprite.wgsl`), here over
+//! the whole screen, at the game's
 //! 1366x768: each frame is drawn without the effect, then with it, and pixels are
 //! compared with the game's shader maths applied to the frame without it (bilinear
 //! taps, as the grab is read) and with values worked out by hand from the shader
@@ -34,6 +35,8 @@ struct Scene {
     over: Vec<DrawItem>,
     rain: f32,
     water_level: f32,
+    /// Every `_NoiseTex` texel's red.
+    noise: u8,
 }
 
 /// A rectangle of frame pixels, y down: `[x0, y0, x1, y1)`.
@@ -156,13 +159,25 @@ impl Scene {
             over: Vec::new(),
             rain: 0.0,
             water_level: 1.0,
+            noise: 128,
         }
     }
 
     /// The frame with `effect` (shader, alpha) over it, if any.
     fn draw(&self, r: &mut WgpuRenderer, effect: Option<(Shader, f32)>) -> FrameImage {
+        let effect = effect.map(|(shader, alpha)| (shader, SpriteColor::WHITE.with_alpha(alpha)));
+        self.draw_coloured(r, effect)
+    }
+
+    /// The frame with `effect` (shader, sprite colour with alpha) over it, if any.
+    fn draw_coloured(
+        &self,
+        r: &mut WgpuRenderer,
+        effect: Option<(Shader, SpriteColor)>,
+    ) -> FrameImage {
+        let n = self.noise;
         let noise =
-            NoiseTexture::from_image(&PngImage::from_pixels(64, 64, vec![[128, 0, 0, 255]; 4096]))
+            NoiseTexture::from_image(&PngImage::from_pixels(64, 64, vec![[n, 0, 0, 255]; 4096]))
                 .unwrap();
         r.set_level(&LevelGraphics {
             camera_pos: [0.0, 0.0],
@@ -191,7 +206,7 @@ impl Scene {
             };
             r.draw_sprites(&list, Layer::Foreground, [0.0, 0.0]);
         }
-        if let Some((shader, alpha)) = effect {
+        if let Some((shader, color)) = effect {
             let layer = if shader == Shader::Fog {
                 Layer::Foreground
             } else {
@@ -205,12 +220,7 @@ impl Scene {
                     rotation: 0.0,
                     scale: Vec2::new(W as f32 / 16.0, H as f32 / 16.0),
                     anchor: Vec2::ZERO,
-                    color: SpriteColor {
-                        r: 1.0,
-                        g: 1.0,
-                        b: 1.0,
-                        a: alpha,
-                    },
+                    color,
                     shader,
                     layer,
                 })],
@@ -789,4 +799,92 @@ fn death_fall_darkens_far_layers_toward_the_bottom() {
         rgb(&before.0, 1100, 650),
         "creature"
     );
+}
+
+/// `lerp` of each channel.
+fn mix3(x: [f32; 3], y: [f32; 3], t: f32) -> [f32; 3] {
+    std::array::from_fn(|c| x[c] + (y[c] - x[c]) * t)
+}
+
+/// `WaterSplash.shader`'s colour at a pixel where the quad shows (`h` over its cut),
+/// with `dp` the level depth after the grab test, `grab` the pre-level frame there when
+/// something was drawn, `proximity` the water line's, `a` and `foam` the sprite's alpha
+/// and blue; `pal` the palette's fog, `waterColor1` and `waterColor2` (row 7, x 0, 4,
+/// 5). `glint` is left out: at these pixels `0.2 * pow(0.5 + 0.5 sin((tc.x - 2 tc.y) /
+/// 3), 7)` stays under 0.001.
+fn water_splash(
+    dp: f32,
+    grab: Option<[f32; 3]>,
+    proximity: f32,
+    alpha_and_foam: (f32, bool),
+    pal: [[f32; 3]; 3],
+) -> [f32; 3] {
+    let (a, foam) = alpha_and_foam;
+    let [pal0, pal4, pal5] = pal;
+    let mut col = mix3(pal5, pal4, dp);
+    col = mix3(col, pal0, (1.0 - a) * 0.5 * dp * (1.0 - proximity));
+    if foam {
+        col = mix3(col, [1.0; 3], (0.3 + 0.5 * dp) * (1.0 - proximity));
+    }
+    match grab {
+        Some(g) if dp >= 6.0 / 30.0 => mix3(col, g, 1.0 + (0.5 - 1.0) * proximity),
+        _ => col,
+    }
+}
+
+/// `WaterSplash` over the screen. Level: sky left of x 683, layer 2 (red 3) right of it.
+/// Before the level: a background bubble's `(0, 1/255, 0)` at (200..400, 100..250) and
+/// a red creature at (200..400, 450..650) and (800..1000, 450..650). `_waterLevel` 0.5:
+/// `waterProximity` 0 above frame row 338, 1 below row 492. Uniform noise: the
+/// distortion is one pixel down-left wherever the quad shows. Sprite 0 `(0, 0, 0, 1)`:
+/// sky is `dp` 1 (`waterColor1`), the bubble turns it into `waterColor1` too, the
+/// creature on sky gives `dp` 6/30 and its own colour (half by the water line), layer 2
+/// is `dp` 2/30 whatever was behind. Alpha 0.5 mixes in the fog colour by
+/// `0.25 * dp` away from the water line. Foam `(0, 0, 1, 1)` (noise 255 so its `h`
+/// passes) is whitened by `0.3 + 0.5 dp`.
+#[test]
+fn water_splash_colours_by_depth_and_the_pre_level_grab() {
+    let Some(mut r) = renderer() else { return };
+    let (pal0, pal4, pal5) = ([100u8, 100, 100], [40, 60, 80], [10, 20, 30]);
+    let mut scene = Scene::new(
+        level(|x, _| if x < 683 { [255, 255, 255] } else { [3, 0, 0] }),
+        palette([0, 0, 0], &[(0, 7, pal0), (4, 7, pal4), (5, 7, pal5)]),
+    );
+    scene.water_level = 0.5;
+    let bubble = Rect([200, 100, 400, 250]);
+    scene
+        .behind
+        .push(bubble.quad(SpriteColor::rgb(0.0, 1.0 / 255.0, 0.0), Layer::Items));
+    let red = SpriteColor::rgb(0.8, 0.0, 0.0);
+    for creature in [Rect([200, 450, 400, 650]), Rect([800, 450, 1000, 650])] {
+        scene.behind.push(creature.quad(red, Layer::Items));
+    }
+    let pal = [unit(pal0), unit(pal4), unit(pal5)];
+    let creature = Some([0.8, 0.0, 0.0]);
+    let splash = SpriteColor::rgb(0.0, 0.0, 0.0);
+    let after = scene.draw_coloured(&mut r, Some((Shader::WaterSplash, splash)));
+    for (x, y, dp, grab, proximity) in [
+        (300, 175, 1.0, None, 0.0),
+        (500, 300, 1.0, None, 0.0),
+        (300, 550, 6.0 / 30.0, creature, 1.0),
+        (900, 200, 2.0 / 30.0, None, 0.0),
+        (900, 550, 2.0 / 30.0, creature, 1.0),
+    ] {
+        let want = water_splash(dp, grab, proximity, (1.0, false), pal);
+        assert_near(rgb(&after, x, y), want, (x, y));
+    }
+    assert_eq!(rgb(&after, 300, 175), pal4, "lit water");
+    let half = splash.with_alpha(0.5);
+    let after = scene.draw_coloured(&mut r, Some((Shader::WaterSplash, half)));
+    for (x, y, dp) in [(500, 300, 1.0), (900, 300, 2.0 / 30.0)] {
+        let want = water_splash(dp, None, 0.0, (0.5, false), pal);
+        assert_near(rgb(&after, x, y), want, (x, y));
+    }
+    scene.noise = 255;
+    let foam = SpriteColor::rgb(0.0, 0.0, 1.0);
+    let after = scene.draw_coloured(&mut r, Some((Shader::WaterSplash, foam)));
+    for (x, y, dp) in [(500, 300, 1.0), (900, 300, 2.0 / 30.0)] {
+        let want = water_splash(dp, None, 0.0, (1.0, true), pal);
+        assert_near(rgb(&after, x, y), want, (x, y));
+    }
 }

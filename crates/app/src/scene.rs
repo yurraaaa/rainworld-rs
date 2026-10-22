@@ -655,7 +655,16 @@ impl Scene {
                     .map(|(e, l)| (Drawable::Entity(e), l)),
             );
             lists.extend(self.game.overseer_draw_lists(alpha, earth));
-            lists.extend(self.game.drip_draw_lists(alpha, face, darkness));
+            let drips = self.visuals.as_ref().map_or(
+                rw_graphics::DripPalette {
+                    black: face,
+                    water_color1: face,
+                    water_color2: face,
+                    darkness,
+                },
+                Visuals::drip_palette,
+            );
+            lists.extend(self.game.drip_draw_lists(alpha, drips));
             lists.extend(self.game.cosmetic_draw_lists(alpha, face));
             let cam_pos = rw_sim::Vec2::from(self.camera.view_origin(alpha));
             lists.extend(self.game.holo_light_draw_lists(alpha, cam_pos, darkness));
@@ -884,8 +893,9 @@ impl FrameDraw<'_> {
         }
         if let Some(level) = self.level {
             self.draw_layer(r, Layer::Water, level);
-            // `Bloom`, after `Water` (and the empty `GrabShaders`): the death fall, the
-            // full-screen effect, then the holograms (D7).
+            self.draw_layer(r, Layer::GrabShaders, level);
+            // `Bloom`, after `GrabShaders`: the death fall, the full-screen effect, then
+            // the holograms (D7).
             self.draw_layer(r, Layer::Bloom, level);
             for h in self.holograms {
                 r.draw_sprites(h, Layer::Bloom, level.origin);
@@ -990,6 +1000,7 @@ mod tests {
                 Layer::ForegroundLights => "foreground lights",
                 Layer::Shortcuts => "shortcuts",
                 Layer::Water => "water",
+                Layer::GrabShaders => "grab shaders",
                 Layer::Bloom => "bloom",
             });
         }

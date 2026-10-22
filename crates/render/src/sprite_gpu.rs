@@ -64,7 +64,7 @@ pub(crate) struct ScreenTextures<'a> {
 
 impl SpritePipeline {
     /// Each shader and its fragment entry point.
-    const SHADERS: [(Shader, &'static str); 17] = [
+    const SHADERS: [(Shader, &'static str); 18] = [
         (Shader::Basic, "fs_basic"),
         (Shader::FlatLight, "fs_flat_light"),
         (Shader::OverseerZip, "fs_overseer_zip"),
@@ -82,6 +82,7 @@ impl SpritePipeline {
         (Shader::LightAndSkyBloom, "fs_light_and_sky_bloom"),
         (Shader::Fog, "fs_fog"),
         (Shader::DeathFall, "fs_death_fall"),
+        (Shader::WaterSplash, "fs_water_splash"),
     ];
 
     /// `_hologramThreshold` at render scale 1 (`RainWorld`, decompile 110635: 0.5 when

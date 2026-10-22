@@ -95,8 +95,8 @@ pub use rw_assets::SlugcatName;
 ///
 /// Shadows, BackgroundShortcuts, Background, Midground, then Items, are drawn before
 /// the level image, so level pixels nearer than depth 5 cover them; Foreground sprites added
-/// after the level image draw over it, then ForegroundLights, Shortcuts, Water and
-/// Bloom.
+/// after the level image draw over it, then ForegroundLights, Shortcuts, Water,
+/// GrabShaders and Bloom.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Layer {
     Shadows,
@@ -108,6 +108,7 @@ pub enum Layer {
     ForegroundLights,
     Shortcuts,
     Water,
+    GrabShaders,
     Bloom,
 }
 
@@ -167,6 +168,11 @@ pub enum Shader {
     /// frame darkened (dark pixels to a faint inverse) over far level layers, more
     /// opaque toward the sprite's bottom edge.
     DeathFall,
+    /// `Futile/WaterSplash` (a `Splash`'s quads): noisy water in the palette's water
+    /// colours over a radial (or, with green, sideways) falloff, its blue the white foam
+    /// variant; over a creature drawn behind the level (the pre-level grab) that
+    /// creature's colour, and the background bubbles' `(0, 1/255, 0)` as lit water.
+    WaterSplash,
 }
 
 impl Shader {

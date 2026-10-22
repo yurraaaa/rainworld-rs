@@ -17,7 +17,7 @@ use rw_assets::{
 };
 use rw_audio::Follow as SoundFollow;
 use rw_graphics::{
-    Color, CosmeticSprites, DrawList, FlyGraphics, HologramFrame, HologramGraphics,
+    Color, CosmeticSprites, DrawList, DripPalette, FlyGraphics, HologramFrame, HologramGraphics,
     HologramLightSprites, InsectDraw, InsectSprites, Layer, LightSourceSprites, LightSourceView,
     LizardColors, LizardGraphics, LizardModule, LizardReading, OverseerGraphics, PlayerGraphics,
     ShelterDoorSprites, ShortcutPalette, WaterDripSprites, WeaponSprites,
@@ -157,7 +157,8 @@ impl Graphics {
                 CosmeticKind::Flash(f) => f.lizard.map(|(_, m)| m),
                 CosmeticKind::Spikes(_)
                 | CosmeticKind::OverseerEffect(_)
-                | CosmeticKind::Bubble(_) => None,
+                | CosmeticKind::Bubble(_)
+                | CosmeticKind::Splash(_) => None,
             })
             .collect();
         self.dropped_lizards.retain(|g| used.contains(&g.module));
@@ -1372,12 +1373,11 @@ impl Game {
     }
 
     /// The water drips in the camera's room at `alpha` between ticks, oldest first
-    /// (`WaterDrip.DrawSprites` on the cosmetic stream), in the palette's black.
+    /// (`WaterDrip.DrawSprites` on the cosmetic stream), in the room `palette`.
     pub fn drip_draw_lists(
         &mut self,
         alpha: f32,
-        black: Color,
-        darkness: f32,
+        palette: DripPalette,
     ) -> Vec<(Drawable, DrawList)> {
         let Some(room) = self.sim.world().realized(self.sim.camera_room()) else {
             return Vec::new();
@@ -1387,7 +1387,7 @@ impl Game {
             .iter()
             .filter(|d| !d.slated)
             .map(|d| {
-                let list = d.draw(glitter, black, darkness, alpha, &mut self.graphics.cosmetic);
+                let list = d.draw(glitter, palette, alpha, &mut self.graphics.cosmetic);
                 (Drawable::Drip(d.id), list)
             })
             .collect()

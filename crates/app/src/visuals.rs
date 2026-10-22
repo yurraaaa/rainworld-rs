@@ -253,6 +253,22 @@ impl Visuals {
         self.palette.room_palette()
     }
 
+    /// What the water drips read of the camera's palette (`WaterDrip.ApplyPalette`).
+    #[must_use]
+    pub fn drip_palette(&self) -> rw_graphics::DripPalette {
+        let p = self.room_palette();
+        let [r, g, b, a] = p.water_color1;
+        let water_color1 = rw_graphics::Color { r, g, b, a };
+        let [r, g, b, a] = p.water_color2;
+        let water_color2 = rw_graphics::Color { r, g, b, a };
+        rw_graphics::DripPalette {
+            black: self.black_color(),
+            water_color1,
+            water_color2,
+            darkness: p.darkness,
+        }
+    }
+
     /// The camera's palette texture (`palette.texture`).
     #[must_use]
     pub fn palette_texture(&self) -> &PaletteTexture {

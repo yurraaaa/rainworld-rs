@@ -149,6 +149,42 @@ fn water_bubbles_update_in_the_tick_they_are_made() {
     assert!(entry.iter().all(|b| b.age == 1));
 }
 
+/// The diving head's splashes join the room before its entry bubbles (`AddObject`
+/// order in `Water.Update`) and update in that tick too.
+#[test]
+fn water_splashes_join_before_the_bubbles_and_update_that_tick() {
+    let mut g = game();
+    let l = g.water_lizard();
+    g.dive(l);
+    let seq = g.world.update_seq();
+    g.tick(Input::NONE, &mut ());
+    let added: Vec<_> = g
+        .world
+        .room_cosmetics(0)
+        .iter()
+        .filter(|c| c.update_order > seq)
+        .collect();
+    let splashes: Vec<_> = added
+        .iter()
+        .filter_map(|c| match &c.kind {
+            CosmeticKind::Splash(s) => Some((c.update_order, s)),
+            _ => None,
+        })
+        .collect();
+    assert!(!splashes.is_empty());
+    assert!(
+        splashes
+            .iter()
+            .all(|(_, s)| s.life < 1.0 && s.last_life == 1.0)
+    );
+    let last_splash = splashes.iter().map(|(o, _)| *o).max().unwrap_or(0);
+    assert!(added.iter().all(|c| match &c.kind {
+        CosmeticKind::Bubble(b) if (b.last_pos.x - 200.0).abs() < 40.0 && b.age == 1 =>
+            c.update_order > last_splash,
+        _ => true,
+    }));
+}
+
 /// `AirBreatherCreature.Update` under water short of air: `value < Sin(InverseLerp(0.3,
 /// -0.3, lungs) * pi) * 0.5` lets out `Bubble(mainBodyChunk.pos, RNV() * (value * 6))`
 /// into the room.

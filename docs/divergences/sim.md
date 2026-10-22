@@ -347,9 +347,9 @@ restrictions (`rainworld-re/notes/water.md`), base game with Remix off, Survivor
 - **Not ported:** `WaterCutoff` and `AirPocket` placed objects (no base-game room
   uses them), `WaterViscosity` (unused in the base game), rain rumble, the rain's screen
   shake (`RainCycle.ScreenShake`/`MicroScreenShake` in the waves) and flooding, lethal water, ripple waves from explosions, the
-  analogue swim direction (digital input only). `Splash` objects are step A2: their
-  `Reset` arguments' draws in `Water.Update` (three per small splash) and their count
-  toward the ten-splash cap are made, the objects and their own draws are not. The
+  analogue swim direction (digital input only). The `Splash`es `Water.Update` makes
+  are ported (`splash.rs`); those of explosions (`Surface.Explosion`) and geysers
+  (`Geyser`) come with their owners, as do `JetWater`/`WaterJet` (JetFish). The
   owners' bubbles come with the owners (JetFish, eels, vultures, gates, waterfalls,
   `BubbleGrass`, ...); `backgroundBubble` (only More Slugcats' room scripts set it) is
   left out.
@@ -374,8 +374,10 @@ restrictions (`rainworld-re/notes/water.md`), base game with Remix off, Survivor
   keeps its own flat translucent water. Light sources screen onto the surface colour
   (`GetSurfaceColor`'s light loop) as they were before the frame's drawing, as in the
   game. Bubbles draw as `Bubble.DrawSprites` (`LizardBubble5` in `Midground`, colour
-  `(0, 1/255, 0)` that the `DeepWater` shader shows as lit water). Still differing:
-  splashes (step A2) are not drawn, the water gates' `cosmeticLowerBorder` / `cosmeticSurfaceDisplace` and the
+  `(0, 1/255, 0)` that the `DeepWater` shader shows as lit water). Splashes draw as
+  `Splash.DrawSprites` (two `WaterSplash` quads, `Water` and `GrabShaders`; the
+  shader's `_GrabTexture`, with no grab pass of its own, is the pre-level target as for
+  `Fog`, INFERRED), without the Watcher `RIPPLE` keyword. Still differing: the water gates' `cosmeticLowerBorder` / `cosmeticSurfaceDisplace` and the
   DLC branches (`WaterSlush`, air pockets, inverted water, `Gutter`, ripple, brain
   mold, `WaterDepth` effect) are left out. The `_GrabTexture` the shaders read is the
   pre-level target (what LevelColor's grab pass holds in the game, INFERRED), and

@@ -78,7 +78,7 @@ pub use shortcut_graphics::{
 };
 pub use sun_blocker::SunBlocker;
 pub use tail::{TailAnchor, TailSegment};
-pub use water_drip::WaterDripSprites;
+pub use water_drip::{DripPalette, WaterDripSprites};
 pub use weapon_graphics::{PEBBLES, PebbleElement, SMALL_SPEAR, WeaponSprites};
 
 #[cfg(test)]
