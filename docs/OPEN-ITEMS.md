@@ -110,9 +110,6 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `../rainworld-re/surveys/lizards.md` (user decisions).
 
 ## To look into
-- **SkyAndLightBloom brightness** (2026-10-22, full-screen effects review): SI_A20's sunlit
-  walls blow out to near white (the shader sums up to 24 taps without dividing by `div`;
-  the port matches the maths). Compare with the real game in play.
 - **Full-screen effects leftovers** (review, small): `DeathFall::camera_viewing_point`
   belongs on the room (`Room.CameraViewingPoint`); stale "not ported" rows for LightBurn,
   SkyAndLightBloom, SkyBloom and wet terrain in `../rainworld-re/surveys/room-effects/`
