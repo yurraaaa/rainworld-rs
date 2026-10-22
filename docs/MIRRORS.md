@@ -256,7 +256,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/sim/src/creature/lizard/voice.rs` | mirrors | CreatureVoice.cs, LizardVoice.cs |
 | `crates/sim/src/creature/looker.rs` | mirrors | CreatureLooker.cs |
 | `crates/sim/src/creature/mission_tracker.rs` | mirrors | MissionTracker.cs |
-| `crates/sim/src/creature/mod.rs` | mirrors | AbstractCreature.cs, AbstractCreatureAI.cs, AbstractWorldEntity.cs |
+| `crates/sim/src/creature/mod.rs` | mirrors | AbstractCreature.cs, AbstractCreatureAI.cs, AbstractWorldEntity.cs, Creature.cs, Lizard.cs |
 | `crates/sim/src/creature/noise_tracker.rs` | mirrors | NoiseTracker.cs |
 | `crates/sim/src/creature/overseer/abstract_ai.rs` | mirrors | OverseerAbstractAI.cs |
 | `crates/sim/src/creature/overseer/ai.rs` | mirrors | OverseerAI.cs |
@@ -415,7 +415,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `BodyPart.cs` | `crates/graphics/src/body_part.rs` |
 | `CicadaAbstractAI.cs` | `crates/sim/src/creature/ai_kinds.rs`, `crates/sim/src/world/abstract_ai_kinds.rs` |
 | `CoralBrain/Mycelium.cs` | `crates/graphics/src/mycelium.rs` |
-| `Creature.cs` | `crates/sim/src/creature/danger.rs`, `crates/sim/src/creature/death.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/creature/fly/update.rs`, `crates/sim/src/creature/grasp.rs`, `crates/sim/src/creature/lizard/mod.rs`, `crates/sim/src/creature/violence.rs`, `crates/sim/src/game_carried.rs`, `crates/sim/src/game_hits.rs`, `crates/sim/src/game_lizard_act.rs`, `crates/sim/src/game_lizard_hits.rs`, `crates/sim/src/game_lizards.rs`, `crates/sim/src/game_player_grabbed.rs`, `crates/sim/src/player/falls.rs`, `crates/sim/src/player/grabbed.rs`, `crates/sim/src/player/shortcut.rs`, `crates/sim/src/shortcut.rs`, `crates/sim/src/spawn.rs`, `crates/sim/src/world/hearing.rs`, `crates/sim/src/world/lizards.rs` |
+| `Creature.cs` | `crates/sim/src/creature/danger.rs`, `crates/sim/src/creature/death.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/creature/fly/update.rs`, `crates/sim/src/creature/grasp.rs`, `crates/sim/src/creature/lizard/mod.rs`, `crates/sim/src/creature/mod.rs`, `crates/sim/src/creature/violence.rs`, `crates/sim/src/game_carried.rs`, `crates/sim/src/game_hits.rs`, `crates/sim/src/game_lizard_act.rs`, `crates/sim/src/game_lizard_hits.rs`, `crates/sim/src/game_lizards.rs`, `crates/sim/src/game_player_grabbed.rs`, `crates/sim/src/player/falls.rs`, `crates/sim/src/player/grabbed.rs`, `crates/sim/src/player/shortcut.rs`, `crates/sim/src/shortcut.rs`, `crates/sim/src/spawn.rs`, `crates/sim/src/world/hearing.rs`, `crates/sim/src/world/lizards.rs` |
 | `CreatureCommunities.cs` | `crates/save/src/communities.rs` |
 | `CreatureLooker.cs` | `crates/sim/src/creature/looker.rs` |
 | `CreatureSpecificAImap.cs` | `crates/sim/src/world/creature_ai_map.rs` |
@@ -465,7 +465,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `InputInstructionTrigger.cs` | `crates/sim/src/game_instructions.rs` |
 | `LightSource.cs` | `crates/graphics/src/light_source.rs`, `crates/sim/src/light_source.rs` |
 | `Limb.cs` | `crates/graphics/src/limb.rs` |
-| `Lizard.cs` | `crates/sim/src/creature/danger.rs`, `crates/sim/src/creature/lizard/graphics_link.rs`, `crates/sim/src/creature/lizard/mod.rs`, `crates/sim/src/creature/lizard/movement.rs`, `crates/sim/src/game_lizard_act.rs`, `crates/sim/src/game_lizard_fight.rs`, `crates/sim/src/game_lizard_hits.rs`, `crates/sim/src/game_lizard_perception.rs`, `crates/sim/src/game_lizard_voice.rs`, `crates/sim/src/game_lizards.rs` |
+| `Lizard.cs` | `crates/sim/src/creature/danger.rs`, `crates/sim/src/creature/lizard/graphics_link.rs`, `crates/sim/src/creature/lizard/mod.rs`, `crates/sim/src/creature/lizard/movement.rs`, `crates/sim/src/creature/mod.rs`, `crates/sim/src/game_lizard_act.rs`, `crates/sim/src/game_lizard_fight.rs`, `crates/sim/src/game_lizard_hits.rs`, `crates/sim/src/game_lizard_perception.rs`, `crates/sim/src/game_lizard_voice.rs`, `crates/sim/src/game_lizards.rs` |
 | `LizardAI.cs` | `crates/sim/src/creature/lizard/ai.rs`, `crates/sim/src/creature/path_finder/lizard.rs`, `crates/sim/src/creature/vision.rs`, `crates/sim/src/game_lizard_ai.rs`, `crates/sim/src/game_lizard_fight.rs`, `crates/sim/src/game_lizard_hunt.rs`, `crates/sim/src/game_lizard_perception.rs`, `crates/sim/src/world/hearing.rs`, `crates/sim/src/world/social_events.rs`, `crates/sim/src/world/tracking.rs` |
 | `LizardBreeds.cs` | `crates/sim/src/creature/lizard/breed.rs`, `crates/sim/src/creature/pathing.rs`, `crates/sim/src/creature/violence.rs` |
 | `LizardBubble.cs` | `crates/graphics/src/cosmetic_graphics.rs`, `crates/sim/src/cosmetic.rs`, `crates/sim/src/creature/lizard/bubble.rs` |
