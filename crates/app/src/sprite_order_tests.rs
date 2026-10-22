@@ -32,8 +32,8 @@ impl Fixture {
     }
 }
 
-/// `ChangeRoom` makes leasers for `drawableObjects` in order: the `AddObject`ed
-/// drawables, then the modules `NowViewed` appends from `physicalObjects[0]` (flies,
+/// `ChangeRoom` makes leasers for `drawableObjects` in order: the death fall (alone in
+/// `Bloom`, so first), the `AddObject`ed drawables, then the modules `NowViewed` appends from `physicalObjects[0]` (flies,
 /// overseers) and `[1]` (lizards, a player without a module yet), then the shortcuts;
 /// `ApplyPositionChange` ends with `ApplyPalette`, which puts the full-screen effect on
 /// top.
@@ -68,6 +68,7 @@ fn a_new_room_makes_leasers_in_drawable_objects_order() {
     assert_eq!(
         Fixture::order(&o),
         [
+            Drawable::DeathFall,
             door,
             rock,
             spear,
@@ -99,7 +100,14 @@ fn objects_added_later_go_on_top_in_add_order() {
     );
     assert_eq!(
         Fixture::order(&o),
-        [a, Drawable::Shortcuts, Drawable::FullScreenEffect, b, c]
+        [
+            Drawable::DeathFall,
+            a,
+            Drawable::Shortcuts,
+            Drawable::FullScreenEffect,
+            b,
+            c
+        ]
     );
 }
 
@@ -151,6 +159,7 @@ fn released_sprites_go_on_top_in_release_order() {
     assert_eq!(
         Fixture::order(&o),
         [
+            Drawable::DeathFall,
             lizard,
             Drawable::Shortcuts,
             Drawable::FullScreenEffect,
@@ -281,7 +290,13 @@ fn change_overlap_re_adds_the_weapon() {
     assert!(o.behind(spear));
     assert_eq!(
         Fixture::order(&o),
-        [rock, Drawable::Shortcuts, Drawable::FullScreenEffect, spear]
+        [
+            Drawable::DeathFall,
+            rock,
+            Drawable::Shortcuts,
+            Drawable::FullScreenEffect,
+            spear
+        ]
     );
     o.update(
         1,
@@ -319,6 +334,7 @@ fn change_overlap_in_the_tick_of_the_add_object() {
     assert_eq!(
         Fixture::order(&o),
         [
+            Drawable::DeathFall,
             rock,
             Drawable::Shortcuts,
             Drawable::FullScreenEffect,
@@ -344,11 +360,23 @@ fn apply_palette_raises_the_full_screen_effect() {
     o.update(1, &[Present::added(a, 1), Present::added(b, 2)], &[], &[]);
     assert_eq!(
         Fixture::order(&o),
-        [a, Drawable::Shortcuts, Drawable::FullScreenEffect, b]
+        [
+            Drawable::DeathFall,
+            a,
+            Drawable::Shortcuts,
+            Drawable::FullScreenEffect,
+            b
+        ]
     );
     o.raise_full_screen_effect();
     assert_eq!(
         Fixture::order(&o),
-        [a, Drawable::Shortcuts, b, Drawable::FullScreenEffect]
+        [
+            Drawable::DeathFall,
+            a,
+            Drawable::Shortcuts,
+            b,
+            Drawable::FullScreenEffect
+        ]
     );
 }

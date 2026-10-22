@@ -1,10 +1,12 @@
-//! The camera's room's `DeathFallGraphic`: whether the room has one (an open bottom) and
-//! its height, which `RoomCamera.DrawUpdate` reads for `_waterLevel`. Its sprite (the
-//! `DeathFall` shader in `Bloom`) is not drawn yet.
+//! The camera's room's `DeathFallGraphic`: whether the room has one (an open bottom),
+//! its height, which `RoomCamera.DrawUpdate` reads for `_waterLevel`, and its sprite
+//! (the `DeathFall` shader in `Bloom`).
 //!
-//! Mirrors: DeathFallGraphic.cs (RoomRequiresDeathFall, InitiateSprites, Update), Room.cs (Loaded: DeathFallFocus)
+//! Mirrors: DeathFallGraphic.cs (RoomRequiresDeathFall, InitiateSprites, Update, DrawSprites, AddToContainer, ApplyPalette), Room.cs (Loaded: DeathFallFocus)
 
 use rw_assets::{PlacedObject, PlacedObjectType, Room};
+use rw_graphics::{Color, DrawItem, DrawList, Layer, Shader, Sprite};
+use rw_render::SpriteAtlas;
 use rw_sim::{CameraView, Vec2, Water};
 
 /// A room's `DeathFallGraphic`.
@@ -15,12 +17,16 @@ pub struct DeathFall {
     /// `room.deathFallFocalPoints`: the active `DeathFallFocus` objects' positions.
     focal_points: Vec<Vec2>,
     pub height: f32,
+    /// Ticks updated (`Update`), the phase of the sprite's alpha pulse.
+    pub counter: i32,
 }
 
 impl DeathFall {
     /// `Room.Loaded`'s `DeathFallGraphic`, when `RoomRequiresDeathFall`: not in an
     /// unbroken shelter, and some bottom-row tile open (no water) or under water below
     /// -1200 px. The `RoomWrap` (DLC) and terrain-curve checks are off in the base game.
+    /// The height is `InitiateSprites`' (made on each camera entry): the lowest camera's
+    /// bottom, focal points ignored until the next `Update`.
     #[must_use]
     pub fn new(
         room: &Room,
@@ -47,13 +53,15 @@ impl DeathFall {
                 .map(|o| Vec2::from(o.pos))
                 .collect(),
             height: default_height,
+            counter: 0,
         })
     }
 
-    /// `Update`: the default height, or the bottom of the first camera of the room
-    /// (`CameraViewingPoint`, 1366x768 rects) holding the first focal point camera 0
-    /// shows.
+    /// `Update`: one more tick of the counter; the height is the default, or the bottom
+    /// of the first camera of the room (`CameraViewingPoint`, 1366x768 rects) holding
+    /// the first focal point camera 0 shows.
     pub fn update(&mut self, room: &Room, index: i32, view: &CameraView) {
+        self.counter += 1;
         self.height = self.default_height;
         for &p in &self.focal_points {
             if view.viewed(index, room, p, 0.0)
@@ -62,6 +70,41 @@ impl DeathFall {
                 self.height = cam[1];
                 break;
             }
+        }
+    }
+
+    /// `DrawSprites`' alpha: `0.85 + 0.15 sin((counter + timeStacker) / 25)`.
+    #[must_use]
+    pub fn alpha(&self, time_stacker: f32) -> f32 {
+        0.85 + 0.15 * ((self.counter as f32 + time_stacker) / 25.0).sin()
+    }
+
+    /// The sprite (`InitiateSprites`, `DrawSprites`): `Futile_White` scaled to
+    /// `sSize.x + 20` by 180 px, anchored at its bottom centre on the screen's middle
+    /// column at `height`, white at [`Self::alpha`], with the `DeathFall` shader in
+    /// `Bloom`. The game takes the room's `RainMask_` element instead when the rain has
+    /// made one (with the rain); the shader reads only the quad's uv, 0..1 either way.
+    /// `DeathFallHeavy` is Remix's (`cfgClearerDeathGradients`). `ApplyPalette` is
+    /// empty.
+    #[must_use]
+    pub fn draw_list(&self, screen_width: f32, cam_pos: Vec2, time_stacker: f32) -> DrawList {
+        DrawList {
+            items: vec![DrawItem::Sprite(Sprite {
+                index: 0,
+                element: SpriteAtlas::FUTILE_WHITE,
+                pos: Vec2::new(cam_pos.x + screen_width / 2.0, self.height),
+                rotation: 0.0,
+                scale: Vec2::new((screen_width + 20.0) / 16.0, 180.0 / 16.0),
+                anchor: Vec2::new(0.5, 0.0),
+                color: Color {
+                    r: 1.0,
+                    g: 1.0,
+                    b: 1.0,
+                    a: self.alpha(time_stacker).clamp(0.0, 1.0),
+                },
+                shader: Shader::DeathFall,
+                layer: Layer::Bloom,
+            })],
         }
     }
 
@@ -114,7 +157,8 @@ mod tests {
     }
 
     /// `Update`: a focal point the camera shows sets the height to the bottom of the
-    /// first camera rect (1366x768) holding it; out of view, the default.
+    /// first camera rect (1366x768) holding it; out of view, the default. Before the first
+    /// `Update` the height is `InitiateSprites`' default, whatever the focal points.
     #[test]
     fn a_viewed_focal_point_moves_the_height() {
         let r = room(false);
@@ -124,9 +168,44 @@ mod tests {
             current: 0,
             next: 0,
         };
+        assert_eq!(
+            fall.height, -860.0,
+            "InitiateSprites: the default until Update"
+        );
+        assert_eq!(fall.counter, 0);
         fall.update(&r, 3, &view);
         assert_eq!(fall.height, -560.0);
         fall.update(&r, 4, &view);
         assert_eq!(fall.height, -860.0, "camera in another room");
+    }
+
+    /// `DrawSprites`: a 1386 x 180 quad (`(sSize.x + 20) / 16`, `180 / 16` of the 16 px
+    /// `Futile_White`) anchored at its bottom centre, x the screen's middle (stage
+    /// `sSize.x / 2`, room `camPos.x + 683`), y the height (stage `height - camPos.y`);
+    /// alpha `0.85 + 0.15 sin((counter + timeStacker) / 25)`.
+    #[test]
+    fn the_sprite_spans_the_screen_bottom_up_from_the_height() {
+        let r = room(false);
+        let mut fall = DeathFall::new(&r, None, false, &[]).unwrap();
+        let view = CameraView {
+            room: 3,
+            current: 0,
+            next: 0,
+        };
+        for _ in 0..30 {
+            fall.update(&r, 3, &view);
+        }
+        let list = fall.draw_list(1366.0, Vec2::new(-40.0, -900.0), 0.5);
+        let [DrawItem::Sprite(s)] = list.items.as_slice() else {
+            panic!("one sprite: {list:?}");
+        };
+        assert_eq!(s.element, SpriteAtlas::FUTILE_WHITE);
+        assert_eq!(s.pos, Vec2::new(643.0, -860.0));
+        assert_eq!(s.scale, Vec2::new(1386.0 / 16.0, 180.0 / 16.0));
+        assert_eq!(s.anchor, Vec2::new(0.5, 0.0));
+        assert_eq!((s.shader, s.layer), (Shader::DeathFall, Layer::Bloom));
+        let a = 0.85 + 0.15 * (30.5f32 / 25.0).sin();
+        assert!((s.color.a - a).abs() < 1e-6, "{} vs {a}", s.color.a);
+        assert_eq!([s.color.r, s.color.g, s.color.b], [1.0; 3]);
     }
 }

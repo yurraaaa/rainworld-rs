@@ -75,6 +75,9 @@ pub struct State {
     /// has a level graphic and an effect.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub full_screen_effect: Option<FullScreenEffectState>,
+    /// The camera room's `DeathFallGraphic`, when it has an open bottom.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub death_fall: Option<DeathFallState>,
     /// The camera room's level shader inputs, when it has a level graphic.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub level_params: Option<LevelParamsState>,
@@ -120,7 +123,8 @@ pub struct State {
 #[derive(Debug, Clone, Serialize)]
 pub struct SpriteLeaserState {
     /// `player`, `creature`, `object`, `shelter_door`, `drip`, `cosmetic`,
-    /// `holo_light`, `light_source`, `insect`, `shortcuts` or `full_screen_effect`.
+    /// `holo_light`, `light_source`, `insect`, `shortcuts`, `full_screen_effect` or
+    /// `death_fall` (the last three listed whether or not the room draws them).
     pub kind: &'static str,
     /// A creature's or object's EntityID.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -299,6 +303,26 @@ pub struct FullScreenEffectState {
     pub container: String,
     /// The sprite's alpha this frame.
     pub alpha: f32,
+}
+
+/// The camera room's `DeathFallGraphic`.
+#[derive(Debug, Clone, Serialize)]
+pub struct DeathFallState {
+    /// Room y of the sprite's bottom edge (180 px tall).
+    pub height: f32,
+    pub counter: i32,
+    /// The sprite's alpha at the end of the tick.
+    pub alpha: f32,
+}
+
+impl From<&crate::death_fall::DeathFall> for DeathFallState {
+    fn from(f: &crate::death_fall::DeathFall) -> Self {
+        Self {
+            height: f.height,
+            counter: f.counter,
+            alpha: f.alpha(1.0),
+        }
+    }
 }
 
 impl From<(crate::full_screen_effect::FullScreenEffect, f32)> for FullScreenEffectState {

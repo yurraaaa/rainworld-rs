@@ -17,6 +17,9 @@
 //!   player's `Foreground` sprites stay out, re-added on top); a holder whose leaser goes
 //!   takes them off the stage with its container.
 //!
+//! - the `DeathFallGraphic` (`Room.Loaded`'s `AddObject`: after the shelter door, before
+//!   the items and creatures) is put first; of its container, `Bloom`, nothing joins
+//!   before it, so its place among the other containers' leasers changes nothing;
 //! - `ApplyPalette` re-adds the camera's full-screen effect sprite on top: at the end of
 //!   a move to a room or camera (`ApplyPositionChange`, after the leasers and shortcut
 //!   graphics), and whenever `ApplyFade` rebuilds the palette.
@@ -47,6 +50,8 @@ pub enum Drawable {
     /// The room camera's `fullScreenEffect` sprite (not a leaser: re-added on top of
     /// its container by every `ApplyPalette`).
     FullScreenEffect,
+    /// The room's `DeathFallGraphic`, if it has one.
+    DeathFall,
 }
 
 /// Where a drawable's leaser goes when the camera moves to its room.
@@ -198,6 +203,13 @@ impl SpriteOrder {
             (group, p.seq)
         });
         self.leasers.clear();
+        self.leasers.push(Leaser {
+            drawable: Drawable::DeathFall,
+            seq: 0,
+            parent: Parent::Room,
+            behind: false,
+            overlap_moves: 0,
+        });
         for p in sorted {
             self.arrive(p);
         }
@@ -226,10 +238,12 @@ impl SpriteOrder {
             .leasers
             .iter()
             .filter(|l| {
-                !matches!(l.drawable, Drawable::Shortcuts | Drawable::FullScreenEffect)
-                    && !present
-                        .iter()
-                        .any(|p| p.drawable == l.drawable && p.seq == l.seq)
+                !matches!(
+                    l.drawable,
+                    Drawable::Shortcuts | Drawable::FullScreenEffect | Drawable::DeathFall
+                ) && !present
+                    .iter()
+                    .any(|p| p.drawable == l.drawable && p.seq == l.seq)
             })
             .map(|l| l.drawable)
             .collect();

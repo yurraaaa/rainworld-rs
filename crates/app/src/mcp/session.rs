@@ -49,12 +49,14 @@ use super::reply::{
 use super::reply::{
     CameraShakeState, DangerInfo, HoloLightState, LightSourceState, MusicState, TriggerState,
 };
+use super::reply::{
+    DeathFallState, FullScreenEffectState, LevelParamsState, SpearOnBackInfo, SpriteLeaserState,
+};
 use super::reply::{FleeInfo, HeavyAiInfo, HuntInfo, LoungeInfo};
 use super::reply::{
     FliesWorldInfo, GraspInfo, HeldInfo, QuantifiedInfo, RegionStateInfo, RelationshipInfo,
     RoomDens,
 };
-use super::reply::{FullScreenEffectState, LevelParamsState, SpearOnBackInfo, SpriteLeaserState};
 use super::tiles::TileDump;
 use crate::frontend::{AppContext, Frontend, FrontendRenderer, GameSetup};
 use crate::game::{Game, GameStart};
@@ -494,6 +496,7 @@ impl Session {
                 .level_state()
                 .and_then(|s| s.full_screen)
                 .map(FullScreenEffectState::from),
+            death_fall: scene.death_fall().map(DeathFallState::from),
             level_params: scene.level_state().map(LevelParamsState::from),
             shelter_door: sim
                 .shelter_door(sim.camera_room())
@@ -666,6 +669,7 @@ impl Session {
             Drawable::Insect(i) => ("insect", None, Some(i)),
             Drawable::Shortcuts => ("shortcuts", None, None),
             Drawable::FullScreenEffect => ("full_screen_effect", None, None),
+            Drawable::DeathFall => ("death_fall", None, None),
         }
     }
 
