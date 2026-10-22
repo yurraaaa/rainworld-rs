@@ -1087,6 +1087,20 @@ impl Game {
         self.sprite_order.update(room, &present, &moves, &late);
     }
 
+    /// A creature's graphics module in camera 0's room: one it kept from an earlier
+    /// room joined `drawableObjects` with its `AddObject`, not `NowViewed`.
+    fn creature_module(&self, d: Drawable, id: CreatureId, seq: u64, layer: u8) -> Present {
+        let module = Present::module(d, seq, layer);
+        if self.sprite_order.had_room() && !self.sim.now_viewed_modules().contains(&id) {
+            Present {
+                joined: Joined::AddObject,
+                ..module
+            }
+        } else {
+            module
+        }
+    }
+
     /// Every drawable in camera 0's room: what `AddObject` put in `drawableObjects`
     /// (the shelter door, rocks and spears, drips, cosmetics, lights, and the player once
     /// its graphics module outlived a room) and the creatures' graphics modules
@@ -1133,13 +1147,13 @@ impl Game {
                 && f.room == Some(room)
                 && f.graphics
             {
-                present.push(Present::module(d, f.update_order, 0));
+                present.push(self.creature_module(d, id, f.update_order, 0));
             } else if let Some(l) = c.lizard()
                 && l.room == Some(room)
                 && !l.in_shortcut
                 && l.graphics.is_some()
             {
-                present.push(Present::module(d, l.update_order, 1));
+                present.push(self.creature_module(d, id, l.update_order, 1));
             } else if let Some(b) = c.overseer_body()
                 && b.in_room
                 && c.pos.room == room

@@ -1423,7 +1423,7 @@ impl RainWorldGame {
                 Entity::Creature(o) => match &mut self.world.creature_mut(o).realized {
                     Some(crate::creature::RealizedCreature::Lizard(l)) => {
                         l.in_shortcut = true;
-                        l.room = None;
+                        l.leave_room();
                     }
                     Some(crate::creature::RealizedCreature::Fly(f)) => {
                         f.in_shortcut = true;

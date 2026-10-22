@@ -149,7 +149,7 @@ impl RainWorldGame {
     /// `CleanOutObjectNotInThisRoom` of a lizard slated for deletion.
     fn clean_out_lizard(&mut self, id: CreatureId) {
         if let Some(l) = self.world.creature_mut(id).lizard_mut() {
-            l.room = None;
+            l.leave_room();
         }
         self.world.creature_mut(id).slated_for_deletion = true;
         self.world.remove_entity(id);

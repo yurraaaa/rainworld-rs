@@ -352,7 +352,7 @@ impl World {
                 Entity::Object(o) => self.object_joins_room(o, room),
                 Entity::Creature(o) => match &mut self.creature_mut(o).realized {
                     Some(RealizedCreature::Fly(f)) => f.room = Some(room),
-                    Some(RealizedCreature::Lizard(l)) => l.room = Some(room),
+                    Some(RealizedCreature::Lizard(_)) => self.lizard_add_object(o, room, cx),
                     _ => continue,
                 },
             }

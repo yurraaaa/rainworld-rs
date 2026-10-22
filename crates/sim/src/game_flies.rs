@@ -1,9 +1,9 @@
 //! The game's parts for the bat flies: `FliesWorldAI.Update` among the world processes,
 //! `ReadyForAI`'s placement and realization, the realized flies' slots in a room's update
 //! list, `FliesRoomAI`, their shortcut vessels and lobby turns (shared with the
-//! lizards'), the camera's view of them.
+//! lizards'), the camera's view of them and of the other creatures' graphics modules.
 //!
-//! Mirrors: FliesWorldAI.cs (Update), FliesRoomAI.cs, Room.cs (ReadyForAI)
+//! Mirrors: FliesWorldAI.cs (Update), FliesRoomAI.cs, Room.cs (ReadyForAI, NowViewed, NoLongerViewed), RoomCamera.cs (ChangeRoom), PhysicalObject.cs (InitiateGraphicsModule, RemoveGraphicsModule)
 
 use std::sync::Arc;
 
@@ -545,8 +545,11 @@ impl RainWorldGame {
     }
 
     /// The camera left room `from` for room `to`: `NoLongerViewed` drops the graphics
-    /// of the flies in `from`, `NowViewed` builds them, with the overseers', in the
-    /// order the objects were added.
+    /// modules in `from`'s `drawableObjects` (those of the creatures still in it: one
+    /// that left took its module out with `CleanOutObjectNotInThisRoom` and keeps it),
+    /// then `NowViewed` runs `InitiateGraphicsModule` over `physicalObjects` layer by
+    /// layer, each in joining order: flies and overseers (layer 0), then lizards
+    /// (layer 1, whose `Reset` runs even on a module they kept).
     pub(super) fn camera_changed_room(
         &mut self,
         from: i32,
@@ -554,8 +557,9 @@ impl RainWorldGame {
         observer: &mut dyn PlayerObserver,
     ) {
         for &id in self.world.room_creatures(from) {
-            if let Some(crate::creature::RealizedCreature::Overseer(_)) =
-                self.world.creature(id).realized
+            if let Some(crate::creature::RealizedCreature::Overseer(b)) =
+                &self.world.creature(id).realized
+                && b.in_room
             {
                 observer.overseer_removed(self.world.creature(id).id);
             }
@@ -566,11 +570,9 @@ impl RainWorldGame {
             .filter(|(_, c)| c.fly().is_some_and(|f| f.room == Some(from) && f.graphics))
             .map(|(id, _)| id)
             .collect();
-        if !leaving.is_empty() {
-            for id in leaving {
-                self.world.fly_at(id).graphics = false;
-                observer.fly_removed(self.world.creature(id).id);
-            }
+        for id in leaving {
+            self.world.fly_at(id).graphics = false;
+            observer.fly_removed(self.world.creature(id).id);
         }
         let lizards_leaving: Vec<CreatureId> = self
             .world
@@ -589,6 +591,48 @@ impl RainWorldGame {
             }
             observer.lizard_removed(self.world.creature(id).id);
         }
+        self.now_viewed_modules.clear();
+        for (_, id, kind) in self.now_viewed_objects(to) {
+            match kind {
+                Viewed::Overseer => {
+                    if let Some(view) = self.world.overseer_view(id) {
+                        observer.overseer_added(&view, &mut self.rng);
+                    }
+                    self.now_viewed_modules.push(id);
+                }
+                Viewed::Fly => {
+                    if self.world.fly_ref(id).graphics {
+                        continue;
+                    }
+                    self.world.fly_at(id).graphics = true;
+                    let view = self.world.fly_view(id, None);
+                    observer.fly_added(&view, &mut self.rng);
+                    self.now_viewed_modules.push(id);
+                }
+                Viewed::Lizard => {
+                    let kept = self
+                        .world
+                        .creature(id)
+                        .lizard()
+                        .and_then(|l| l.graphics.as_ref())
+                        .is_some_and(|g| g.drawn_in.contains(&to));
+                    let mut cx = LizardRoomCx {
+                        rng: &mut self.rng,
+                        observer: &mut *observer,
+                        camera_room: self.camera_room,
+                    };
+                    self.world.lizard_initiate_graphics(id, &mut cx);
+                    if !kept {
+                        self.now_viewed_modules.push(id);
+                    }
+                }
+            }
+        }
+    }
+
+    /// Room `to`'s creatures with a graphics module of their own, as `NowViewed` visits
+    /// `physicalObjects`: by collision layer, then joining order.
+    fn now_viewed_objects(&self, to: i32) -> Vec<(u64, CreatureId, Viewed)> {
         let mut objects: Vec<(u64, CreatureId, Viewed)> = self
             .world
             .room_overseers(to)
@@ -606,37 +650,20 @@ impl RainWorldGame {
                 .into_iter()
                 .map(|(seq, id)| (seq, id, Viewed::Lizard)),
         );
-        objects.sort_by_key(|&(seq, _, _)| seq);
-        for (_, id, kind) in objects {
-            match kind {
-                Viewed::Overseer => {
-                    if let Some(view) = self.world.overseer_view(id) {
-                        observer.overseer_added(&view, &mut self.rng);
-                    }
-                    continue;
-                }
-                Viewed::Lizard => {
-                    let mut cx = LizardRoomCx {
-                        rng: &mut self.rng,
-                        observer: &mut *observer,
-                        camera_room: self.camera_room,
-                    };
-                    self.world.lizard_initiate_graphics(id, &mut cx);
-                    continue;
-                }
-                Viewed::Fly => {}
-            }
-            if self.world.fly_ref(id).graphics {
-                continue;
-            }
-            self.world.fly_at(id).graphics = true;
-            let view = self.world.fly_view(id, None);
-            observer.fly_added(&view, &mut self.rng);
-        }
+        objects.sort_by_key(|&(seq, _, kind)| (kind.layer(), seq));
+        objects
+    }
+
+    /// The creatures whose graphics modules the camera's last room change put in its
+    /// room's `drawableObjects` (`NowViewed`); the others there joined with `AddObject`.
+    /// Overseers are always listed.
+    #[must_use]
+    pub fn now_viewed_modules(&self) -> &[CreatureId] {
+        &self.now_viewed_modules
     }
 }
 
-/// What `Room.NowViewed` gives a graphics module, in update-list order.
+/// A creature whose graphics module `Room.NowViewed` initiates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Viewed {
     Overseer,
@@ -644,6 +671,20 @@ enum Viewed {
     Lizard,
 }
 
+impl Viewed {
+    /// Its `collisionLayer` (`Overseer`, `Fly`: 0; `Lizard`: 1).
+    fn layer(self) -> u8 {
+        match self {
+            Self::Overseer | Self::Fly => 0,
+            Self::Lizard => 1,
+        }
+    }
+}
+
 #[cfg(test)]
 #[path = "game_shortcut_color_tests.rs"]
 mod shortcut_color_tests;
+
+#[cfg(test)]
+#[path = "game_graphics_modules_tests.rs"]
+mod graphics_modules_tests;

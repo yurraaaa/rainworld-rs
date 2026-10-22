@@ -6,7 +6,8 @@
 //!
 //! - a camera moving to a room makes leasers for `room.drawableObjects` in order
 //!   (`ChangeRoom`): the drawables added with `AddObject` (items, cosmetics, lights, the
-//!   shelter door, a player whose `PlayerGraphics` outlived its last room), then the
+//!   shelter door, a player whose `PlayerGraphics` outlived its last room, a fly or
+//!   lizard that brought its module from another room), then the
 //!   creatures' graphics modules `NowViewed` builds, collision layer by layer, then the
 //!   shortcut graphics (`ShortcutGraphics.NewRoom`);
 //! - `AddObject` in the viewed room makes a leaser on top;

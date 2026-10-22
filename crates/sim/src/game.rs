@@ -432,6 +432,8 @@ pub struct RainWorldGame {
     player_id: CreatureId,
     /// `cameras[0].room`.
     camera_room: i32,
+    /// See [`RainWorldGame::now_viewed_modules`].
+    now_viewed_modules: Vec<CreatureId>,
     camera_move: Option<CameraMove>,
     /// Camera 0's positions as the app's room camera last reported them.
     camera_view: CameraView,
@@ -584,6 +586,7 @@ impl RainWorldGame {
             player: None,
             player_id,
             camera_room: start.room,
+            now_viewed_modules: Vec::new(),
             camera_move: Some(CameraMove {
                 room: start.room,
                 camera: 0,
