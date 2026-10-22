@@ -828,8 +828,7 @@ impl HologramUpdate<'_, '_> {
             if door < 0 {
                 continue;
             }
-            // `CycleStartUp` is 1: the cycle's start-up ticks are not ported.
-            let start_up = 1.0;
+            let start_up = world.rain_cycle.cycle_start_up();
             dist *= 1.0.lerp((flies as f32).lerp_map(1.0, 5.0, 10.0, 1.0), start_up);
             // `roomsVisited` of a new game holds no swarm room yet.
             let i = i32::try_from(i).unwrap_or(-1);

@@ -22,6 +22,7 @@ mod holo_light;
 mod hologram_draw;
 mod hologram_matrix;
 mod hologram_shape;
+mod insect_graphics;
 mod light_source;
 mod limb;
 mod lizard_cosmetics;
@@ -55,6 +56,7 @@ pub use holo_light::HologramLightSprites;
 pub use hologram_draw::{HologramFrame, HologramGraphics};
 pub use hologram_matrix::{HoloLine, HologramMatrix, LensFrame};
 pub use hologram_shape::{HologramLine, PartShape};
+pub use insect_graphics::{InsectDraw, InsectSprites};
 pub use light_source::{LightSourceSprites, LightSourceView};
 pub use limb::{GripSearch, Limb, LimbMode};
 pub use lizard_cosmetics::{

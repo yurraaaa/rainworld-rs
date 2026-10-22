@@ -58,6 +58,13 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   DLCs; arena non-story light and `startUpTicks` 600 with arena sessions; insect
   explosions with explosions; insect terrain curves when terrain curves are ported; the
   `SunBlocker`'s (empty) update-list entry skipped.
+  Step 3 (cosmetic insects, `rw_sim::insect`, `../rainworld-re/notes/cosmetic-insects.md`)
+  done; its omissions are among the decisions above. Draw order for later steps:
+  `Room.NowViewed` makes shared-stream draws for GreenSparks, ZeroGSpecks (`BlinkSpeck`),
+  CorruptionSpores and FairyParticles in its effect loop before the insect roll
+  (`Room.cs` ~2632-2700, then `insectCoordinator.NowViewed`); the steps porting those
+  effects place their draws before `apply_insect_view_change`'s roll. No base room has
+  both today.
 - **Code quality pass** (user, 2026-10-16; moved to M14 cleanup by the user 2026-10-22,
   not after the lizard steps): go over the workspace one crate at a time, a step per crate,
   finding code quality improvements (duplicated code to merge, and the like) and

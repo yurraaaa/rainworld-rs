@@ -117,3 +117,19 @@ colour layer and the five head sprites, in `AddToContainer`'s order, coloured as
   (`lizardLaserEyes` is a dev setup value), the debug visualization,
   `overrideHeadGraphic` (Saint timeline and Winterized), mud, and every More
   Slugcats, Watcher and Remix branch (rot, the DLC breeds' cosmetics and colours).
+
+## D23: The ant drawn without the `SpecificDepth` shader
+
+**What.** The cosmetic `Ant` (`Ant.InitiateSprites`) draws its one pixel sprite with the
+game's `SpecificDepth` shader in the `Foreground` container, its alpha `1 - dp` going to
+the shader (presumably as a depth against the level image, so ants deeper in the room
+hide behind nearer geometry; the shader is not surveyed). The port draws it with
+`Basic` in `Foreground` at that alpha (`rw_graphics::insect_graphics`): position,
+rotation, scale and colour are the game's, but the ant is never hidden by the level
+and fades with depth instead.
+
+**Why.** The shader is not in `rw-render` yet; the room shaders were another agent's
+work at the time (effects step 3).
+
+**Affects.** Ant swarms (`InsectGroup`s of type `Ant`, e.g. DS_A05, HI_B05) show
+through walls in front of them and look fainter than in the game.

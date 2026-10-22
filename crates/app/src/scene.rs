@@ -578,6 +578,15 @@ impl Scene {
             lists.extend(self.game.cosmetic_draw_lists(alpha, face));
             let cam_pos = rw_sim::Vec2::from(self.camera.view_origin(alpha));
             lists.extend(self.game.holo_light_draw_lists(alpha, cam_pos, darkness));
+            if let Some(visuals) = &self.visuals {
+                let screen = rw_sim::Vec2::from(self.camera.screen_size());
+                lists.extend(self.game.insect_draw_lists(
+                    alpha,
+                    visuals.palette_texture(),
+                    cam_pos,
+                    screen,
+                ));
+            }
             let level_view = self.visuals.is_some() && view.level;
             if let Some(list) = shortcuts.filter(|_| level_view) {
                 lists.push((Drawable::Shortcuts, list));

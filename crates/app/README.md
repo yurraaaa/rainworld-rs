@@ -36,6 +36,7 @@ Gameplay logic belongs in `rw-sim`, not here.
 | `mcp/session.rs` | `Session`: all tool logic as methods; `state()` builds `get_state` |
 | `mcp/params.rs`, `mcp/reply.rs` | tool parameter structs (schema docs) and JSON reply types |
 | `mcp/dev_tools.rs` | dev spawns, `screenshot`/`get_tiles` of another realized room |
+| `mcp/insect_reply.rs` | `get_state` `insects`: per-room cosmetic insects |
 | `mcp/music_reply.rs`, `mcp/tiles.rs`, `mcp/window.rs` | music/triggers replies, `get_tiles` text, `--mcp --window` mirror |
 | `mcp/*_tests.rs`, `mcp/tests.rs`, `mcp/shortcut_shots.rs` | MCP-level tests (installed game) |
 | `debug_ui/` | `mod.rs` (ImGui host, F1), `tabs.rs` (tabs), `actions.rs` (`DebugAction`s), `view.rs` (read model) |

@@ -12,14 +12,15 @@ use rw_assets::unity::AssetBundle;
 use rw_assets::world::AbstractRoomData;
 use rw_assets::world::{GameRooms, LineFilter, Regions, StoryConditions, WorldData, WorldRequest};
 use rw_assets::{
-    ActiveMods, Room, RoomEffectType, RoomSettings, SlugcatName, SoundTable, StreamingAssets,
+    ActiveMods, PaletteTexture, Room, RoomEffectType, RoomSettings, SlugcatName, SoundTable,
+    StreamingAssets,
 };
 use rw_audio::Follow as SoundFollow;
 use rw_graphics::{
     Color, CosmeticSprites, DrawList, FlyGraphics, HologramFrame, HologramGraphics,
-    HologramLightSprites, Layer, LightSourceSprites, LightSourceView, LizardColors, LizardGraphics,
-    LizardModule, LizardReading, OverseerGraphics, PlayerGraphics, ShelterDoorSprites,
-    ShortcutPalette, WaterDripSprites, WeaponSprites,
+    HologramLightSprites, InsectDraw, InsectSprites, Layer, LightSourceSprites, LightSourceView,
+    LizardColors, LizardGraphics, LizardModule, LizardReading, OverseerGraphics, PlayerGraphics,
+    ShelterDoorSprites, ShortcutPalette, WaterDripSprites, WeaponSprites,
 };
 use rw_hud::{HudSetup, OwnerTick, RainCycleView, StartCondition, Subregions};
 use rw_random::UnityRandom;
@@ -977,6 +978,40 @@ impl Game {
             .collect()
     }
 
+    /// The cosmetic insects' sprites in the camera's room at `alpha` between ticks, in
+    /// the camera's `palette` (`ApplyPalette`) seen from `cam_pos` on a `screen`-sized
+    /// view (their wings' jitter draws on the cosmetic stream).
+    pub fn insect_draw_lists(
+        &mut self,
+        alpha: f32,
+        palette: &PaletteTexture,
+        cam_pos: rw_sim::Vec2,
+        screen: rw_sim::Vec2,
+    ) -> Vec<(Drawable, DrawList)> {
+        let world = self.sim.world();
+        let Some(coord) = world
+            .realized(self.sim.camera_room())
+            .and_then(|r| r.insects.as_ref())
+        else {
+            return Vec::new();
+        };
+        let room_palette = palette.room_palette();
+        let mut cx = InsectDraw {
+            palette,
+            darkness: room_palette.darkness,
+            fog_amount: room_palette.fog_amount,
+            cam_pos,
+            screen,
+            rng: &mut self.graphics.cosmetic,
+        };
+        coord
+            .insects
+            .iter()
+            .filter(|i| !i.base.slated)
+            .map(|i| (Drawable::Insect(i.update_order), i.draw(alpha, &mut cx)))
+            .collect()
+    }
+
     /// The lizards' sprites in the camera's room at `alpha` between ticks, in the
     /// order their modules were built, in the palette's `black` (their draws come from
     /// the cosmetic stream).
@@ -1135,6 +1170,14 @@ impl Game {
                     .filter(|l| !l.slated)
                     .map(|l| Present::added(Drawable::LightSource(l.id), l.id)),
             );
+            if let Some(c) = &r.insects {
+                present.extend(
+                    c.insects
+                        .iter()
+                        .filter(|i| !i.base.slated)
+                        .map(|i| Present::added(Drawable::Insect(i.update_order), i.update_order)),
+                );
+            }
         }
         present
     }

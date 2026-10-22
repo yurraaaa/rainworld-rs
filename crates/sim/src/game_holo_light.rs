@@ -159,6 +159,7 @@ impl RainWorldGame {
                 .creature(c)
                 .lizard()
                 .is_some_and(|l| !l.slated && l.room == Some(index)),
+            Some(LightTie::Insect(order)) => self.insect_tie_gone(index, order),
             _ => false,
         };
         let Some(r) = self.world.realized_mut(index) else {
@@ -169,7 +170,7 @@ impl RainWorldGame {
         };
         let tie_gone = match light.tied_to {
             Some(LightTie::HoloLight(h)) => !r.holo_lights.iter().any(|l| l.id == h && !l.slated),
-            Some(LightTie::Lizard(_)) => lizard_tie_gone,
+            Some(LightTie::Lizard(_) | LightTie::Insect(_)) => lizard_tie_gone,
             None => false,
         };
         let level = r
