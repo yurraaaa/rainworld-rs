@@ -469,7 +469,8 @@ impl RainWorldGame {
     /// `ActAnimation`: the animation's run speed and its physics. Standard runs at the
     /// AI's `runSpeed`; the spotted and threat animations stop or slow and set the
     /// jaw (draws as the game's), the threat spotted pushing the head away from a seen
-    /// focus creature it fears; the fighting stance's lean is lizard step 7c; the
+    /// focus creature it fears, the fighting stance (unless a fall risks it) leaning the
+    /// head toward a seen focus and the body away; the
     /// tongue, spit and jump animations belong to breeds not entered yet and fall back
     /// to Standard; the lounge's crouch pushes at the focus and its leap propels the
     /// body along `loungeDir` (a breed that can exit lounges only while hunting a seen
@@ -479,6 +480,7 @@ impl RainWorldGame {
         let holding = self.lizard_holding(id);
         let focus = match self.world.lizard_ref(id).animation {
             LizardAnimation::ThreatSpotted
+            | LizardAnimation::FightingStance
             | LizardAnimation::PrepareToLounge
             | LizardAnimation::Lounge => self.lizard_focus(id),
             _ => None,
@@ -516,7 +518,25 @@ impl RainWorldGame {
                     l.body.chunks[1].vel -= dir * (6.0 * legs);
                 }
             }
-            LizardAnimation::FightingStance => l.set_jaw_open(1.0, holding),
+            LizardAnimation::FightingStance => {
+                l.set_jaw_open(1.0, holding);
+                let tile = l.head().pos.tile();
+                if let Some(f) = &focus
+                    && !self.lizard_unpleasant_fall_risk(id, tile)
+                    && f.visual
+                    && let Some(danger) = f.main()
+                {
+                    // `IsWallClimber`: Remix's zero-gravity clause is DLC.
+                    let l = self.world.lizard_at(id);
+                    let wall_climber = l.params.wall_climber();
+                    let legs = l.legs_gripping() as f32;
+                    let dir = l.head().pos.direction_to(danger);
+                    let tail = if wall_climber { 2.2 } else { 2.6 };
+                    l.body.chunks[0].vel += dir * (4.0 * legs);
+                    l.body.chunks[1].vel -= dir * (2.2 * legs);
+                    l.body.chunks[2].vel -= dir * (tail * legs);
+                }
+            }
             LizardAnimation::ThreatReSpotted => {
                 num = run * 0.8;
                 let jaw = l.read_jaw_open(holding);

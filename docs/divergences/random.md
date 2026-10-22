@@ -93,8 +93,7 @@ it (D13). What still differs is only the seed and the call order:
   1000 ticks into a cycle) every story run's stream has shifted from before, as the
   game's does. Missing: the draws a creature other than a bat fly, an overseer or a
   green lizard would make on being realized (`PlaceInRealizedRoom`, its body, AI and
-  graphics), as it stays abstract (D14), a green lizard AI's Fighting and
-  mission behaviours (lizard step 7c), and
+  graphics), as it stays abstract (D14), and
   per tick the scavengers' abstract AI and `ScavengersWorldAI` (one `Range` over the
   scavengers every tick once a world has any), which are not ported (D14).
   `LocalCoordinateOfNode` draws for bat hives, garbage holes and border exits (a border
@@ -117,11 +116,14 @@ it (D13). What still differs is only the seed and the call order:
   it is pulled into a shortcut) and makes the game's draws: culling's `Reset` (12),
   `showDominance`'s (1), the `CreatureLooker` focus roll (1, then 1 more and 1 or 2 for
   `LookAtNothing`; 1 per spotted animation), the eyes (4), the blink (1, or 2 during a
-  stun flicker), the tail direction (1, and 2 when it changes), each limb's health rolls
+  stun flicker), the tail direction (1, and 2 when it changes), the tail's dominance
+  shake (2 per segment while `showDominance` is above 0, unless a conscious lizard
+  swims), each limb's health rolls
   and foot sounds, and the bubbles (11 each: a lunge, a threat display, a jumping head,
   `bubble` ticks or a voice shown above 0.5, a hard landing's 1 + 12 each), a lunging
   green lizard's drips and the voice's body shake (3 while it shows above 0.2). Its
-  cosmetics draw only while `showDominance` is above 0 (never in the base game). Its
+  cosmetics draw only while `showDominance` is above 0 (after a lizard's dominance
+  signal, lizard step 7c). Its
   `LizardVoice` (lizard step 5b) draws the intensity of each `MakeSound` without one
   (1, whether or not it sounds) and, in the camera's room, the microphone's 7 each time
   its sound is made (again whenever the clip has played out while the emotion lasts);

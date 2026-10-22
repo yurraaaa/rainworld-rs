@@ -161,8 +161,8 @@ for older notes' line numbers; new notes cite file and member.
   `dlcsInstalled`).
 - Current phase: the player controller in a region whose behaving creatures
   are overseers, bat flies and green lizards (lizards at step 8 of 9:
-  decisions, calm behaviours, hunting and fleeing, the player's side of a bite
-  done), not the full game. Details
+  decisions, calm behaviours, hunting and fleeing, the player's side of a bite,
+  fights, communication and missions done), not the full game. Details
   live in `docs/` and `../rainworld-re`; in short:
   - A story starts at the campaign's start den; room-exit shortcuts carry the
     player between the region's rooms (synchronous loads, D14). The
@@ -176,8 +176,8 @@ for older notes' line numbers; new notes cite file and member.
     comparer, prey/threat/aggression/rain trackers, den finder) and they walk
     on their own (idle, travel, den-going, frustrated, investigating sounds),
     hunt (approach, lounge, bite and hold) and
-    flee (7b); the bodies of Fighting and missions (7c) are a stand-in that
-    stops the lizard.
+    flee (7b); rivals fight, signal dominance and submission, and a lizard
+    that submits leaves the room on a mission (7c).
   - Overseers: body, AI, graphics, guide tutorial text, Monk's guide light,
     holograms whose triggers are ported (D14). Bat flies: world process,
     realization, flocks, hives, chains, pipe travel, sounds, graphics.
@@ -256,8 +256,9 @@ prefer these over `--screenshot`/`--script`; briefs for such agents say so.
   its time, struggle buttons, `can_struggle`, `cant_be_grabbed_counter`, ...), the vessel in the
   lobby, realized rooms' entry waits, every abstract creature (kind, ID, room,
   node, tile, den, realized, alive, abstract AI; realized flies, lizards
-  with their movement, tracker, relationships, noise and, in a viewed room,
-  graphics and voice; overseers with AI and guide state; stun/kill tag,
+  with their movement, tracker, relationships, noise, decision (`social`:
+  fight target and anger, `submitted_to`, last signal, missions) and, in a
+  viewed room, graphics and voice; overseers with AI and guide state; stun/kill tag,
   `social`, `danger`, `carries`), every abstract object (and realized
   state), `orphan_emitters`, `triggers`, `music`, `holo_lights`, `session`,
   `dens`, `quantified`, `flies_world`, `region_state`, `heavy_ai`. Empty fields are left

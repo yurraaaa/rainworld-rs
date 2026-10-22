@@ -259,7 +259,8 @@ fn frustrated_wiggle() {
 }
 
 /// The other bodies make no draws: Travelling without a migration eases to 0.5,
-/// InvestigateSound without a sound eases to 0.6, the 7c stand-in eases to a stop.
+/// InvestigateSound without a sound eases to 0.6, ActingOutMission without a mission
+/// eases to 0.6 by a twentieth, Fighting without a target changes nothing.
 #[test]
 fn draw_free_bodies() {
     let mut g = game(&HALL, (3, 1));
@@ -273,8 +274,11 @@ fn draw_free_bodies() {
     g.lizard_behave(0, l, LizardBehavior::InvestigateSound);
     assert!((g.world.lizard_ref(l).ai.run_speed - 0.12).abs() < 1e-6);
     g.world.lizard_at(l).ai.run_speed = 1.0;
+    g.lizard_behave(0, l, LizardBehavior::ActingOutMission);
+    assert!((g.world.lizard_ref(l).ai.run_speed - 0.98).abs() < 1e-6);
+    g.world.lizard_at(l).ai.agression.highest_target = None;
     g.lizard_behave(0, l, LizardBehavior::Fighting);
-    assert_eq!(g.world.lizard_ref(l).ai.run_speed, 0.5);
+    assert!((g.world.lizard_ref(l).ai.run_speed - 0.98).abs() < 1e-6);
     assert_eq!(g.rng, probe);
 }
 

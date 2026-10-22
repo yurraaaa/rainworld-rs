@@ -45,8 +45,8 @@ Done: S1 AI map, S2 abstract AI for the other creatures, S3 body, violence and
 death, S4 path finder and movement, S5 graphics and voice, S6a tracker, vision and
 relationships, S6b hearing, noises and social influences, S7a decisions and calm
 behaviours, S7b hunting and fleeing, S8 the player grabbed by a lizard (death by bite,
-escape, game over on the grasp).
-Left: S7c lizard fights, communication and missions; the player picking up, carrying
+escape, game over on the grasp), S7c lizard fights, communication and missions.
+Left: the player picking up, carrying
 and eating dead or stunned lizards; S9 lineage plumbing and acceptance (respawn,
 lizards in shelters, saved lineage).
 Exit check: a green lizard hunts, bites and flees as in the game, and the player

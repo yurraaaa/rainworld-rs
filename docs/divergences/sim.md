@@ -551,13 +551,35 @@ second part, else a single-room world for arena levels). The campaign descriptio
   terms, `ThreatTracker.FleeTo` (with `EvaluateFlightDestThreat` and
   `QuickConnectivity.QuickPath`), the flee `lookPos` and `RainWorldGame.RequestHeavyAi`
   (a game field, not the game's statics; nothing else reads them). `GenerateRandomPath`
-  and `FindMostAttractiveExit` are ported but nothing on these paths calls them (in the
-  game `MissionTracker`, firecrackers and More Slugcats' yeeks do). A green lizard
-  fears no creature the port realizes, so Flee is reached only in tests. Not yet: the
-  bodies of Fighting and ActingOutMission and FightingStance's lean (7c, with
-  `LizardCommunication`'s dominance and submission voices and `MissionTracker`'s
-  missions, so its utility is 0); picked, they are a stand-in that eases `runSpeed` to
-  0 by half and keeps the destination, with no draws. The tongue branch of
+  is ported though nothing in the game calls it. A green lizard fears no creature the
+  port realizes, so Flee is reached only in tests. Lizards among themselves are the
+  game's (step 7c, `lizard-ai.md` section 11): the Fighting body (the aggression
+  target as the focus, the fighting stance and its lean toward the focus in
+  `ActAnimation`, the aggression signal, `AggressiveBehavior`), `SendCommunication`
+  and `RecieveCommunication` (the dominance display's draw, the dominance and
+  submission voices, the anger raised or settled, `submittedTo`), a rival's anger on
+  touch (`IncrementAnger` in `Collide`), `MissionTracker` with its `LeaveRoom` mission
+  and the ActingOutMission body (`LeaveRoom.Act` calls `FindMostAttractiveExit` while
+  the lizard fears something). Lizard bites and `DamageAttack` on a rival are the
+  shared ones (step 7b/8; a rival takes no damage from `DamageAttack`). Where the game
+  throws on these paths the port logs a warning, stops that call and goes on with the
+  tick (divergence; how to model it is the user's open decision): a submitting lizard
+  with no representation of the sender (`RecieveCommunication`'s
+  `rep.representedCreature`, a NullReferenceException), `LeaveRoom.Act` in a room
+  without connections (`connections[-1]`, an IndexOutOfRangeException) and its random
+  connection being -1 (`World.GetAbstractRoom(-1)` is null, then `.index`, a
+  NullReferenceException). In the game no try/catch stands between `RainWorld.Update`
+  and the throw (`ProcessManager.Update`, `RainWorldGame.RawUpdate`,
+  `MainLoopProcess.RawUpdate`, `RainWorldGame.Update`, `Room.Update`, `Lizard.Update`,
+  `Act`, `LizardAI.Update`), so the rest of that frame is lost: the rest of the
+  lizard's update with `base.Update`, the room's remaining objects, the other rooms, the
+  rest of `RainWorldGame.Update`, `myTimeStacker--` and `GrafUpdate`; Unity logs the
+  exception and the next frame catches up. The port keeps the mission that `AddMission`
+  replaced as the one acted on until the tracker's next update, as the game's
+  `mostRelevantMission` reference does. Left out with their DLCs: safari control in the
+  fighting stance's lean (`!safariControlled`) and in `ActAnimation`'s safari animation
+  exit, Watcher's ripple layer in `VisualContact(BodyChunk)`, Remix's zero-gravity
+  `IsWallClimber` and DLCShared's eel lizard as a wall climber. The tongue branch of
   `AggressiveBehavior` belongs to tongued breeds (none entered). Left out with their
   DLCs or features (step 7b): in `AggressiveBehavior`, Remix's friend bite
   (`AttemptBite(null)` on a liked friend), DLCShared's SpitLizard jaw clamp, the
@@ -576,8 +598,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   casual aggression that bites a target in reach. The relationship tracker sorts each
   relationship into the prey, threat or aggression tracker (step 7a). Left out of step 6a, each
   a question to the user: what blinds (`Blinded`, flashes) and the vision obscurers
-  (`VisionObscurer` objects), `useTrackedCreatures` (no base lizard sets it), the
-  aggression tracker's anger on touching a rival (`IncrementAnger`, step 7c), gifts and
+  (`VisionObscurer` objects), `useTrackedCreatures` (no base lizard sets it), gifts and
   taming (`FriendTracker`, skipped), the black lizard's `HeadLightsUpFromNoise` and the
   white lizard's camouflage in `VisibilityBonus` (with those breeds), and the Remix,
   Jolly (`friendlyLizards`), Expedition, More Slugcats and Watcher branches of
@@ -612,9 +633,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   and `BestRegionTransportationGoal`, which nothing calls yet. The tongue, spit and
   jump animations belong to breeds whose data is not entered; a green lizard never
   enters them, and the port goes back to Standard if one does. Not yet, with their
-  steps: the Fighting and mission behaviours (7c; taming is skipped for
-  now; the dominance and submission voices come with them), eating a dead
-  lizard (its own step after 7c, user 2026-10-21: the player cannot grab creatures
+  steps: eating a dead lizard (its own step after 7c, user 2026-10-21: the player cannot grab creatures
   yet), the drowning bubble (its draws
   are made, the object is not), lethal water and the rain's flood (no rain yet). The
   `kill_green_lizards` tutorial message is the game's: it marks the state dead without

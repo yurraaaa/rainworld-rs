@@ -148,6 +148,15 @@ pub struct LizardBreedParams {
 static GREEN: LizardBreedParams = LizardBreedParams::green();
 
 impl LizardBreedParams {
+    /// `WallClimber`: blue and white lizards (DLCShared's eel lizard is DLC).
+    #[must_use]
+    pub fn wall_climber(&self) -> bool {
+        matches!(
+            self.template,
+            CreatureType::BlueLizard | CreatureType::WhiteLizard
+        )
+    }
+
     /// The breed's parameters; `None` for the breeds not entered yet.
     #[must_use]
     pub fn of(kind: CreatureType) -> Option<&'static Self> {

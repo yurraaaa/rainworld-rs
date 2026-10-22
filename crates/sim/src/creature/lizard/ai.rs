@@ -1,17 +1,18 @@
 //! `LizardAI`'s state: its behaviour, its modules (path finder, tracker, noise, den
-//! finder, prey, threat and aggression trackers, utility comparer, relationship, stuck
-//! and discomfort trackers), the idle spot's counters and the moods the behaviours read.
+//! finder, prey, threat and aggression trackers, utility comparer, mission,
+//! relationship, stuck and discomfort trackers), the signals between lizards, the idle spot's counters and the moods the behaviours read.
 //! The update is `RainWorldGame::lizard_ai_update` (`game_lizard_ai.rs`); the modules
 //! that read the world are `world/ai_modules.rs`. Decompile: `LizardAI.cs`.
 //!
-//! Mirrors: LizardAI.cs (Behavior, LizardInjuryTracker, fields), ArtificialIntelligence.cs (fields)
+//! Mirrors: LizardAI.cs (Behavior, LizardCommunication, LizardInjuryTracker, fields), ArtificialIntelligence.cs (fields)
 
 use rw_assets::CreatureType;
 
 use crate::FloatExt;
 use crate::creature::{
-    AgressionTracker, DenFinder, DiscomfortTracker, NoiseTracker, PreyTracker, RelationshipTracker,
-    RepKey, StuckTracker, ThreatTracker, Tracker, UtilityComparer, WorldCoordinate,
+    AgressionTracker, CreatureId, DenFinder, DiscomfortTracker, MissionTracker, NoiseTracker,
+    PreyTracker, RelationshipTracker, RepKey, StuckTracker, ThreatTracker, Tracker,
+    UtilityComparer, WorldCoordinate,
 };
 use crate::float_ext::SCurve;
 
@@ -78,6 +79,30 @@ impl LizardBehavior {
     }
 }
 
+/// `LizardAI.LizardCommunication` (the game's spelling).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LizardCommunication {
+    Agression,
+    Submission,
+}
+
+impl LizardCommunication {
+    pub const ALL: [Self; 2] = [Self::Agression, Self::Submission];
+
+    #[must_use]
+    pub fn value(self) -> &'static str {
+        match self {
+            Self::Agression => "Agression",
+            Self::Submission => "Submission",
+        }
+    }
+
+    #[must_use]
+    pub fn from_value(value: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|c| c.value() == value)
+    }
+}
+
 /// `LizardAI`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LizardAi {
@@ -117,8 +142,13 @@ pub struct LizardAi {
     pub threat: ThreatTracker,
     pub agression: AgressionTracker,
     pub utility: UtilityComparer,
+    pub missions: MissionTracker,
     pub focus_creature: Option<RepKey>,
     pub casual_aggression_target: Option<RepKey>,
+    /// `submittedTo`: the lizard it last submitted to.
+    pub submitted_to: Option<CreatureId>,
+    /// The last signal it sent, to whom and at which game tick (port-only, for MCP).
+    pub last_signal: Option<(LizardCommunication, CreatureId, u64)>,
     /// `usedToVultureMask` (no vulture masks are ported, so it stays 0).
     pub used_to_vulture_mask: i32,
     pub attempt_bite_frames: i32,
@@ -165,8 +195,11 @@ impl LizardAi {
             threat: ThreatTracker::new(3),
             agression: AgressionTracker::new(0.001, 0.001),
             utility: UtilityComparer::lizard(kind),
+            missions: MissionTracker::default(),
             focus_creature: None,
             casual_aggression_target: None,
+            submitted_to: None,
+            last_signal: None,
             used_to_vulture_mask: 0,
             attempt_bite_frames: 0,
             heavy_ai_granted: None,
@@ -255,6 +288,9 @@ mod tests {
     fn behavior_names_round_trip() {
         for b in LizardBehavior::ALL {
             assert_eq!(LizardBehavior::from_value(b.value()), Some(b));
+        }
+        for c in LizardCommunication::ALL {
+            assert_eq!(LizardCommunication::from_value(c.value()), Some(c));
         }
     }
 }

@@ -572,7 +572,7 @@ impl RainWorldGame {
     /// damage): `Violence` for `biteDamage * value * fac` and 30 stun, the grab sound,
     /// the jaw shut, a recoil, the bite delay reset, a stun of `16 * fac`, a spray of
     /// drips in a viewed room, and every grasp let go.
-    fn lizard_damage_attack(&mut self, id: CreatureId, chunk: ChunkRef, fac: f32) {
+    pub(super) fn lizard_damage_attack(&mut self, id: CreatureId, chunk: ChunkRef, fac: f32) {
         let Entity::Creature(target) = chunk.owner else {
             return;
         };

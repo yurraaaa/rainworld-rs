@@ -127,7 +127,12 @@ impl RainWorldGame {
     }
 
     /// `VisualContact(chunk)`: at the chunk, with its `VisibilityBonus`.
-    fn ai_sees_chunk(&self, ai: CreatureId, chunk: &BodyChunk, owner_bonus: f32) -> bool {
+    pub(crate) fn ai_sees_chunk(
+        &self,
+        ai: CreatureId,
+        chunk: &BodyChunk,
+        owner_bonus: f32,
+    ) -> bool {
         let Some(eyes) = self.ai_eyes(ai) else {
             return false;
         };

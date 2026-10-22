@@ -73,7 +73,7 @@ fn abstract_room(
 }
 
 /// The test world, rain far off (a cycle of 100000 ticks).
-fn world() -> World {
+pub(crate) fn world() -> World {
     let base = WorldData::from_room(&room(&["#"]));
     let mut data = base.clone();
     let template = &base.rooms[0];
@@ -143,7 +143,7 @@ fn green(world: &mut World, pos: WorldCoordinate, rng: &mut UnityRandom) -> Crea
 }
 
 /// A green lizard standing at `pos`, out of any den.
-fn green_out(world: &mut World, pos: WorldCoordinate) -> CreatureId {
+pub(crate) fn green_out(world: &mut World, pos: WorldCoordinate) -> CreatureId {
     let mut rng = UnityRandom::new(0);
     let id = green(world, pos, &mut rng);
     world.add_entity(id);
