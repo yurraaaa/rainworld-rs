@@ -5,17 +5,22 @@
 
 use rw_random::UnityRandom;
 
+use super::drips::DripBurst;
 use super::{Animation, BodyMode, HEAD, HIPS, Player};
 use crate::float_ext::FloatExt;
 use crate::{EmitterPlace, LoopEmitter, NoiseSink, SoundId, Sounds, Vec2};
 
-/// A `room.PlaySound(id, bodyChunks[chunk], false, volume, pitch)` waiting for its draws.
+/// A `room.PlaySound(id, bodyChunks[chunk], false, volume, pitch)`, or a site's
+/// `WaterDrip`s, waiting for its draws.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(super) struct QueuedSound {
-    id: SoundId,
-    chunk: usize,
-    volume: f32,
-    pitch: f32,
+pub(super) enum QueuedSound {
+    Sound {
+        id: SoundId,
+        chunk: usize,
+        volume: f32,
+        pitch: f32,
+    },
+    Drips(DripBurst),
 }
 
 /// A `room.InGameNoise(new InGameNoise(pos, strength, this, interesting))` waiting for
@@ -56,7 +61,7 @@ impl Player {
             while let Some(n) = pending.next_if(|n| n.after_sounds <= k) {
                 noises.in_game_noise(n.pos, n.strength, n.interesting, rng);
             }
-            sounds.play_on_chunk(q.id, q.chunk, false, q.volume, q.pitch, rng);
+            self.play_queued(q, rng, sounds);
         }
         for n in pending {
             noises.in_game_noise(n.pos, n.strength, n.interesting, rng);
@@ -66,7 +71,7 @@ impl Player {
     /// A one-shot on a chunk. Its draws are made at the next [`Player::flush_sounds`],
     /// which runs before any other draw of the tick.
     pub(super) fn play_sound(&mut self, id: SoundId, chunk: usize, volume: f32, pitch: f32) {
-        self.sound_queue.push(QueuedSound {
+        self.sound_queue.push(QueuedSound::Sound {
             id,
             chunk,
             volume,
@@ -74,10 +79,29 @@ impl Player {
         });
     }
 
-    /// Plays the queued sounds in call order.
+    /// Queues a drip site's drips; their draws are made in turn with the sounds'.
+    pub(super) fn shed_drips(&mut self, burst: DripBurst) {
+        self.sound_queue.push(QueuedSound::Drips(burst));
+    }
+
+    fn play_queued(&mut self, q: QueuedSound, rng: &mut UnityRandom, sounds: &mut Sounds) {
+        match q {
+            QueuedSound::Sound {
+                id,
+                chunk,
+                volume,
+                pitch,
+            } => {
+                sounds.play_on_chunk(id, chunk, false, volume, pitch, rng);
+            }
+            QueuedSound::Drips(burst) => burst.make(self.ceiling_drips, rng, &mut self.drips),
+        }
+    }
+
+    /// Plays the queued sounds and makes the queued drips in call order.
     pub(crate) fn flush_sounds(&mut self, rng: &mut UnityRandom, sounds: &mut Sounds) {
         for q in std::mem::take(&mut self.sound_queue) {
-            sounds.play_on_chunk(q.id, q.chunk, false, q.volume, q.pitch, rng);
+            self.play_queued(q, rng, sounds);
         }
         for n in &mut self.noise_queue {
             n.after_sounds = 0;

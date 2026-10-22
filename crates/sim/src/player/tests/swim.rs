@@ -213,7 +213,7 @@ fn deep_swim_boost_costs_air_and_cools_down() {
     let (_, w) = pool();
     let mut p =
         Player::upright_under(100.0, JUMP).with_mode(BodyMode::Swimming, Animation::DeepSwim);
-    p.deep_swim(Some(&w), &mut test_rng());
+    p.deep_swim(Some(&w), &mut test_rng(), &mut Sounds::default());
     // Along the body (straight up) * 3; air 1 - 0.2; 20-tick cooldown; cycle 2.7 + 0.01.
     assert_vec(p.head().vel, 0.0, 3.0);
     assert_close(p.air_in_lungs, 0.8, "air");
@@ -224,7 +224,7 @@ fn deep_swim_boost_costs_air_and_cools_down() {
     assert!(p.body.chunks[HEAD].go_through_floors && !p.standing && p.can_jump == 0);
     // Pressed again during the cooldown: the stroke restarts, no push, no air.
     p.input[1] = Input::NONE;
-    p.deep_swim(Some(&w), &mut test_rng());
+    p.deep_swim(Some(&w), &mut test_rng(), &mut Sounds::default());
     assert_vec(p.head().vel, 0.0, 3.0);
     assert_close(p.air_in_lungs, 0.8, "air kept");
     assert_close(p.swim_cycle, 0.01, "cycle restarted");
@@ -233,7 +233,7 @@ fn deep_swim_boost_costs_air_and_cools_down() {
     let mut p =
         Player::upright_under(100.0, JUMP).with_mode(BodyMode::Swimming, Animation::DeepSwim);
     p.air_in_lungs = 0.5;
-    p.deep_swim(Some(&w), &mut test_rng());
+    p.deep_swim(Some(&w), &mut test_rng(), &mut Sounds::default());
     assert_vec(p.head().vel, 0.0, 0.0);
     assert_eq!(p.water_jump_delay, 0);
 }
@@ -243,7 +243,7 @@ fn deep_swim_stroke_pushes_toward_the_held_direction() {
     let (_, w) = pool();
     let mut p =
         Player::upright_under(100.0, RIGHT).with_mode(BodyMode::Swimming, Animation::DeepSwim);
-    p.deep_swim(Some(&w), &mut test_rng());
+    p.deep_swim(Some(&w), &mut test_rng(), &mut Sounds::default());
     // No turn: target 0.2, swim_force lerp(0, 0.2, 0.7) = 0.14. Alignment 0 (at rest).
     // Head += (1, 0) * 0.5 * 0.14 * lerp(0, 1, 0.5) = 0.035; the along-body push is
     // 0 (alignment 0); speed 0.035 < 1.5 adds the full assist 0.2. Hips -0.1 - 0.1.
@@ -256,7 +256,7 @@ fn deep_swim_stroke_pushes_toward_the_held_direction() {
     let mut p =
         Player::upright_under(100.0, RIGHT).with_mode(BodyMode::Swimming, Animation::DeepSwim);
     p.air_in_lungs = DROWN_THRESHOLD / 2.0;
-    p.deep_swim(Some(&w), &mut test_rng());
+    p.deep_swim(Some(&w), &mut test_rng(), &mut Sounds::default());
     let s = std::f32::consts::FRAC_1_SQRT_2;
     assert_vec(p.head().vel, 0.235 * s, 0.235 * s);
     // At the top of the cycle the stroke pulses along the body:
@@ -264,7 +264,7 @@ fn deep_swim_stroke_pushes_toward_the_held_direction() {
     let mut p =
         Player::upright_under(100.0, RIGHT).with_mode(BodyMode::Swimming, Animation::DeepSwim);
     p.swim_cycle = 3.0;
-    p.deep_swim(Some(&w), &mut test_rng());
+    p.deep_swim(Some(&w), &mut test_rng(), &mut Sounds::default());
     assert_vec(p.head().vel, 0.235, 0.399);
 }
 
@@ -544,7 +544,7 @@ fn deep_swim_boost_bubble_only_when_viewed() {
         Player::upright_under(100.0, JUMP).with_mode(BodyMode::Swimming, Animation::DeepSwim);
     let mut rng = UnityRandom::new(1);
     let copy = rng.clone();
-    p.deep_swim(Some(&w), &mut rng);
+    p.deep_swim(Some(&w), &mut rng, &mut Sounds::default());
     let bubbles = p.take_bubbles();
     assert_eq!(bubbles.len(), 1);
     assert_eq!(bubbles[0].1.pos, p.head().pos);
@@ -563,7 +563,7 @@ fn deep_swim_boost_bubble_only_when_viewed() {
         update_seq: 0,
     });
     let mut rng = UnityRandom::new(1);
-    p.deep_swim(Some(&w), &mut rng);
+    p.deep_swim(Some(&w), &mut rng, &mut Sounds::default());
     assert!(p.take_bubbles().is_empty());
     assert_eq!(rng.state(), copy.state());
 }

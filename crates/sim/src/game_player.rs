@@ -357,7 +357,8 @@ impl RainWorldGame {
         }
     }
 
-    /// The drips and bubbles the player made this tick, into its room in the order made.
+    /// The drips (impacts, skids, corridor shoots) and bubbles the player made this tick,
+    /// into its room in the order made.
     pub(super) fn add_player_drips(&mut self, index: i32) {
         let Some(p) = self.player.as_mut() else {
             return;

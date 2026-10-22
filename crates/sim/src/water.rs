@@ -311,7 +311,7 @@ impl Water {
         rng: &mut UnityRandom,
         sounds: &mut Sounds,
     ) -> Vec<Bubble> {
-        // `waterSounds.Update()` comes first in the game (its draws: step B's loop).
+        // `waterSounds.Update()` ran just before (`RainWorldGame::run_water_sound`).
         let mut made: Vec<Bubble> = self.bottom_bubble(room, rng).into_iter().collect();
         let mut chunks: Vec<SurfaceChunk<'a>> = chunks.into_iter().collect();
         let mut splashes = 0;

@@ -20,7 +20,7 @@ use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
 use crate::{
     BodyChunk, CosmeticKind, ImpactCall, ImpactCalls, LoopEmitter, PhysicalObject, PhysicsParams,
-    RoomCall, ScreenMovement, SoundId, Sounds, Spark, Vec2, Water,
+    RoomCall, ScreenMovement, SoundId, SoundRect, Sounds, Spark, Vec2, Water,
 };
 
 /// A spark's colour (`new Color(1, 1, 1)`).
@@ -1280,6 +1280,12 @@ impl ChunkDynamicSoundLoop {
         self.update_from(owner_room, LoopSource::Disembodied { pan }, cx);
     }
 
+    /// `RectangularDynamicSoundLoop`'s `DynamicSoundLoop.Update`: it starts through
+    /// `Room.PlayRectSound` on `rect`.
+    pub fn update_rect(&mut self, owner_room: Option<i32>, rect: SoundRect, cx: &mut LoopCx<'_>) {
+        self.update_from(owner_room, LoopSource::Rect(rect), cx);
+    }
+
     fn update_from(&mut self, owner_room: Option<i32>, source: LoopSource, cx: &mut LoopCx<'_>) {
         if self.emitter.is_some_and(|e| e.slated) {
             self.emitter = None;
@@ -1325,6 +1331,9 @@ impl ChunkDynamicSoundLoop {
             LoopSource::Disembodied { pan } => cx
                 .sounds
                 .play_disembodied_loop(sound, pan, self.v, self.p, cx.rng),
+            LoopSource::Rect(rect) => cx
+                .sounds
+                .play_rect(sound, rect, true, self.v, self.p, cx.rng),
         };
         let playing = cx.room_index == cx.camera_room && cx.sounds.events().len() > before;
         *cx.update_seq += 1;
@@ -1384,6 +1393,7 @@ enum LoopSource {
     Disembodied {
         pan: f32,
     },
+    Rect(SoundRect),
 }
 
 /// What a `DynamicSoundLoop` reads of its room and the game.

@@ -11,6 +11,7 @@ use rw_assets::ShortcutType;
 
 mod advanced;
 mod corridor;
+mod drips;
 mod exhaustion;
 mod grabbed;
 mod poles;

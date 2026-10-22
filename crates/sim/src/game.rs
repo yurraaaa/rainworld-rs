@@ -81,6 +81,8 @@ mod shelter_door;
 mod tracker;
 #[path = "game_triggers.rs"]
 mod triggers;
+#[path = "game_water_sound.rs"]
+mod water_sound;
 #[cfg(test)]
 #[path = "game_water_tests.rs"]
 mod water_tests;
@@ -334,6 +336,8 @@ enum RoomObject {
     DrippingSound,
     /// An emitter of the `DrippingSound`'s loop, by its place in the update list.
     DrippingSoundLoop(u64),
+    /// An emitter of the water's surface loop, by its place in the update list.
+    WaterSoundLoop(u64),
     /// A realized rock or spear.
     Weapon(ObjectId),
     /// A `Spark` or `ExplosionSpikes` by id.
@@ -1364,6 +1368,7 @@ impl RainWorldGame {
         objects.extend(self.room_lizard_objects(index));
         objects.extend(self.room_drip_objects(index));
         objects.extend(self.room_dripping_sound_objects(index));
+        objects.extend(self.room_water_sound_objects(index));
         objects.extend(self.room_weapon_objects(index));
         objects.extend(
             self.world
@@ -1389,6 +1394,8 @@ impl RainWorldGame {
             return;
         };
         realized.update_wait();
+        // `Water.Update` begins with its surface loop.
+        self.run_water_sound(index);
         let sounds = if index == self.camera_room {
             &mut self.sounds
         } else {
@@ -1458,6 +1465,7 @@ impl RainWorldGame {
                 RoomObject::DrippingSoundLoop(order) => {
                     self.run_dripping_sound_emitter(index, order);
                 }
+                RoomObject::WaterSoundLoop(order) => self.run_water_sound_emitter(index, order),
                 RoomObject::Weapon(id) => self.run_weapon(index, id, observer),
                 RoomObject::WeaponLoop { owner, order } => {
                     self.run_weapon_loop(index, owner, order);

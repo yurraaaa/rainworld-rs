@@ -141,7 +141,12 @@ impl Player {
     /// stroke); holding a direction builds `swim_force`, advances the stroke cycle with
     /// a pulse at its end, and pushes the head that way (bent upward when short of
     /// breath); water friction follows how well the motion lines up with the body.
-    pub(super) fn deep_swim(&mut self, water: Option<&Water>, rng: &mut UnityRandom) {
+    pub(super) fn deep_swim(
+        &mut self,
+        water: Option<&Water>,
+        rng: &mut UnityRandom,
+        sounds: &mut Sounds,
+    ) {
         self.dynamic_run_speed = [0.0, 0.0];
         self.can_jump = 0;
         self.standing = false;
@@ -160,6 +165,8 @@ impl Player {
                 // `room.BeingViewed`.
                 let place = self.emitter_place;
                 if place.room == place.camera_room {
+                    // Queued sounds' and drips' draws come first.
+                    self.flush_sounds(rng, sounds);
                     let main = &self.body.chunks[HEAD];
                     self.add_bubble(Bubble::new(main.pos, main.vel, false, false, rng));
                 }
