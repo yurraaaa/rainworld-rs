@@ -6,7 +6,7 @@
 //! Remix off: the objects a room holds are flies, overseers, rocks and spears. Picking
 //! items up, laying them down and swallowing them are in `game_items.rs`.
 //!
-//! Mirrors: Player.cs (Update, Collide, GrabUpdate, GraphicsModuleUpdated), WaterDrip.cs
+//! Mirrors: Player.cs (Update, Collide, GrabUpdate, GraphicsModuleUpdated, JumpOnChunk), WaterDrip.cs
 
 use std::sync::Arc;
 
@@ -20,7 +20,7 @@ use crate::creature::{
     CreatureId, EntityId, GrabRequest, RealizedCreature, Shareability, WorldCoordinate,
 };
 use crate::item::Entity;
-use crate::player::HeavyCarry;
+use crate::player::{HeavyCarry, JumpChunkBody};
 use crate::{Animation, CosmeticKind, FloatExt, Player, SoundId, Vec2, Water, WaterDrip};
 
 impl RainWorldGame {
@@ -900,6 +900,38 @@ impl RainWorldGame {
     }
 
     /// The lent object's chunks back from the player's update.
+    /// The masses `JumpOnChunk` reads of the player's jump chunk, when its owner is
+    /// realized in room `index` (`jumpChunk.owner.room`: a creature sucked into a
+    /// shortcut has none).
+    pub(super) fn jump_chunk_body(&self, index: i32) -> Option<JumpChunkBody> {
+        let c = self.player.as_ref()?.jump_chunk()?;
+        let room = match c.owner {
+            Entity::Creature(id) => self.world.physical_room(id),
+            Entity::Object(_) => Some(self.world.entity_pos(c.owner).room),
+        };
+        if room != Some(index) {
+            return None;
+        }
+        Some(JumpChunkBody {
+            total_mass: self.world.total_mass(c.owner),
+            mass: self.world.body_chunks(c.owner)?.get(c.index)?.mass,
+        })
+    }
+
+    /// `JumpOnChunk`'s push on the other object: the chunk's `vel.y` drop and, for a
+    /// creature, `Stun(1)`.
+    pub(super) fn apply_jump_chunk_push(&mut self) {
+        let Some(push) = self.player.as_mut().and_then(Player::take_jump_chunk_push) else {
+            return;
+        };
+        if let Some(c) = self.world.chunk_mut(push.chunk.owner, push.chunk.index) {
+            c.vel.y -= push.vel_y;
+        }
+        if let Entity::Creature(id) = push.chunk.owner {
+            self.creature_stun(id, 1);
+        }
+    }
+
     pub(super) fn return_heavy_carry(&mut self) {
         let Some(carry) = self.player.as_mut().and_then(Player::take_heavy_carry) else {
             return;
@@ -1129,3 +1161,7 @@ impl RainWorldGame {
 #[cfg(test)]
 #[path = "game_player_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "game_jump_chunk_tests.rs"]
+mod jump_chunk_tests;

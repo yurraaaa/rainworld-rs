@@ -1017,7 +1017,7 @@ produces them anyway: wall slide and wall jump (`WallClimb`, `canWallJump`, `jum
 only the wall-jump impulse has a test), `LedgeCrawl`, `CrawlTurn`, the crouch super-jump
 charge and dive force (untested).
 
-Physics: burrowing, terrain curves (`TerrainCurve`), the curved-terrain `TerrainImpact`
+Physics: burrowing, terrain curves (`TerrainCurve`, so also `Jump`'s curve push, `Player.cs` 13247), the curved-terrain `TerrainImpact`
 call, the room-range clamp's skip for grabbed objects, and `DefaultTile`.
 
 Room: the zero-gravity corridor slide's `WaterDrip`s (`Player.cs` 9423, with zero

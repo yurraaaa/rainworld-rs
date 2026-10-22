@@ -2057,6 +2057,8 @@ impl PlayerState {
             standing: player.is_standing(),
             stunned: player.is_stunned(),
             stun_ticks: player.stun_ticks(),
+            can_jump: player.can_jump(),
+            jump_chunk_counter: player.jump_chunk_counter(),
             dead: player.is_dead(),
             in_shortcut: player.in_shortcut(),
             vessel_tile: player.shortcut_vessel_tile().map(Into::into),

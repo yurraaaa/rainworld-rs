@@ -18,9 +18,6 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   region state's `STICKS` with the save work; the back spear's zero-gravity placement
   with zero gravity.
 
-- **`Jump`'s slope push** (user, 2026-10-22): the `terrainCurveNormal` branch
-  (Player.cs:13247-13251) was never ported in `crates/sim/src/player/jump.rs`. Small job.
-
 - **Async room loading** (user, 2026-10-22): plan and decisions in
   `../rainworld-re/surveys/async-room-loading.md`; later. `ShortcutHelper` its own job
   after it.

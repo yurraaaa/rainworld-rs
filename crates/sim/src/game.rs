@@ -1870,8 +1870,10 @@ impl RainWorldGame {
             self.player_shelter_step(index, room);
             let body = self.player_hearing_body(index);
             let carry = self.heavy_carry_loan(index);
+            let jump_chunk = self.jump_chunk_body(index);
             if let Some(player) = self.player.as_mut() {
                 player.lend_heavy_carry(carry);
+                player.lend_jump_chunk_body(jump_chunk);
             }
             let sounds = if index == self.camera_room {
                 &mut self.sounds
@@ -1898,6 +1900,7 @@ impl RainWorldGame {
                 );
             }
             self.return_heavy_carry();
+            self.apply_jump_chunk_push();
             // `PhysicalObject.Update`'s `grabbedBy` pruning, when physics ran (not the
             // pull into a shortcut).
             if self
