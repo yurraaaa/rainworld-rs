@@ -61,8 +61,7 @@ apply to `HeavyCarry` objects only, which no ported object is.
   next applies the slugcat's releases (the same tick). `CreaturePutItemOnGround`
   (laying it down, as in `ReleaseObject`) is not ported (no social event keeps owned
   items yet). The zero-gravity branch of `GraphicsModuleUpdated` is left out (no
-  zero-gravity rooms). The on-back sticks are kept apart from the grip and spear sticks
-  (`GetAllConnectedObjects` walks them last) and are not written to `STICKS` (D16): the
+  zero-gravity rooms). The on-back sticks are not written to `STICKS` (D16): the
   spear is saved as a shelter object and lies free next cycle, as the game's restored
   stick never puts it back. The Expedition back-spear unlock, the slugcat on the back
   (More Slugcats, Jolly Co-op) and the `VoidSeaScene` and garbage-worm uses are omitted.
@@ -915,8 +914,7 @@ range; `PhysicalObject.Update` prunes stale `grabbedBy` entries (the player and 
   (camouflage, one-way placement, final warp: always false here, so `VisualContact`'s
   hidden-player clause never fires) and its soft toys in `TossObject`.
 
-**Why.** Base-game scope; the other grabbers come with their creatures, the Hunter's
-spear with its own step.
+**Why.** Base-game scope; the other grabbers come with their creatures.
 
 **Affects.** Escapes and deaths in lizards' jaws in co-op, DLC and with other creatures;
 the draw order of objects that never went through a jaws release.

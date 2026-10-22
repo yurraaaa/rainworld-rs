@@ -7,7 +7,6 @@
 
 use super::ObjectId;
 use crate::creature::CreatureId;
-use crate::item::Entity;
 use crate::world::World;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,17 +37,5 @@ impl World {
     #[must_use]
     pub fn on_back_sticks(&self) -> &[OnBackStick] {
         &self.on_back_sticks
-    }
-
-    /// The other ends of `e`'s on-back sticks, for `GetAllConnectedObjects`.
-    pub(crate) fn on_back_partners(&self, e: Entity) -> Vec<Entity> {
-        self.on_back_sticks
-            .iter()
-            .filter_map(|s| match e {
-                Entity::Creature(id) if s.player == id => Some(Entity::Object(s.spear)),
-                Entity::Object(id) if s.spear == id => Some(Entity::Creature(s.player)),
-                _ => None,
-            })
-            .collect()
     }
 }

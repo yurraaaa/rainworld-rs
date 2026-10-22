@@ -182,6 +182,9 @@ impl RainWorldGame {
         let old = s.stick.take();
         self.world
             .change_weapon_mode(spear, WeaponMode::OnBack, &mut self.rng);
+        // A spear pulled out of a creature plays `Spear_Dislodged_From_Creature` inside
+        // `ChangeMode`.
+        self.flush_dislodged();
         if let Some(s) = self.spear_on_back_mut() {
             s.interaction_locked = true;
         }

@@ -64,7 +64,8 @@ fn game(
         g.tick(Input::NONE, &mut ());
     }
     let text = "Volume: 6\nVolume exponent: 1.8\nSlugcat_Stash_Spear_On_Back : clip\n\
-                Slugcat_Pick_Up_Spear : clip\nSlugcat_Switch_Hands_Init : clip\n";
+                Slugcat_Pick_Up_Spear : clip\nSlugcat_Switch_Hands_Init : clip\n\
+                Spear_Dislodged_From_Creature : clip\n";
     let names = ClipNames::new(["clip".to_owned()], None);
     g.sounds = Sounds::new(Arc::new(SoundTable::parse(text, &names).unwrap()));
     (g, ids)
@@ -333,4 +334,90 @@ fn the_back_spear_rides_between_hips_and_head() {
         to
     );
     assert_eq!(w.rotation_speed, 0.0);
+}
+
+#[test]
+fn holding_one_spear_another_in_reach_goes_straight_to_the_back() {
+    // `CanIPickThisUp`'s Hunter return: a free spear is a candidate while the back is
+    // empty, past the two-hand check (a held spear is `BigOneHand`); the pick-up branch
+    // then sends it to the back since a hand holds something `BigOneHand`.
+    let (mut g, ids) = game(
+        &SlugcatCampaign::HUNTER,
+        vec![spear(1, (4, 1)), spear(2, (5, 1))],
+    );
+    g.hold_spear(ids[0]);
+    for _ in 0..25 {
+        g.tick(Input::NONE, &mut ());
+    }
+    assert_eq!(
+        g.player_ref().grab_state().pick_up_candidate,
+        Some(Entity::Object(ids[1]))
+    );
+    g.tick(PICKUP, &mut ());
+    assert!(g.played(SoundId::SlugcatSwitchHandsInit));
+    assert_eq!(g.back_spear(), Some(ids[1]));
+    assert_eq!(g.player_grasps(), [Some(Entity::Object(ids[0])), None]);
+}
+
+#[test]
+fn the_survivor_holding_a_spear_cannot_take_a_second() {
+    // No back: the two-hand check refuses a second `BigOneHand`.
+    let (mut g, ids) = game(
+        &SlugcatCampaign::SURVIVOR,
+        vec![spear(1, (4, 1)), spear(2, (5, 1))],
+    );
+    g.hold_spear(ids[0]);
+    assert!(!g.can_i_pick_this_up(Entity::Object(ids[1])));
+}
+
+#[test]
+fn a_lodged_spear_dislodges_before_the_stash_sound() {
+    // `SpearToBack` -> `ChangeMode(OnBack)` out of `StuckInCreature` plays
+    // `Spear_Dislodged_From_Creature` inside `ChangeMode`, then
+    // `Slugcat_Stash_Spear_On_Back`.
+    let (mut g, ids) = game(&SlugcatCampaign::HUNTER, vec![spear(1, (6, 1))]);
+    g.world
+        .object_mut(ids[0])
+        .realized
+        .as_deref_mut()
+        .expect("spear")
+        .mode = WeaponMode::StuckInCreature;
+    g.sounds.take_events();
+    g.spear_to_back(0, ids[0]);
+    let played: Vec<SoundId> = g
+        .sounds
+        .take_events()
+        .into_iter()
+        .filter_map(|e| match e {
+            SoundEvent::Play(p) => Some(p.id),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        played,
+        vec![
+            SoundId::SpearDislodgedFromCreature,
+            SoundId::SlugcatStashSpearOnBack
+        ]
+    );
+}
+
+#[test]
+fn connected_objects_follow_stick_creation_order() {
+    // One `stuckObjects` list in creation order: a spear stashed, then a rock picked
+    // up, gives [player, spear, rock] (a shortcut spits them out in that order).
+    let (mut g, ids) = game(
+        &SlugcatCampaign::HUNTER,
+        vec![spear(1, (6, 1)), rock(2, (8, 1))],
+    );
+    g.stash(ids[0]);
+    g.slugcat_grab(Entity::Object(ids[1]), 0, &mut ());
+    assert_eq!(
+        g.world.connected_objects(Entity::Creature(g.player_id)),
+        vec![
+            Entity::Creature(g.player_id),
+            Entity::Object(ids[0]),
+            Entity::Object(ids[1])
+        ]
+    );
 }

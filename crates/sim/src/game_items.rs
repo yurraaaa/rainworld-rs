@@ -77,8 +77,9 @@ impl RainWorldGame {
     }
 
     /// `CanIPickThisUp` (Remix off: a spear stuck in a wall stays; a spear on a back
-    /// cannot be taken).
-    fn can_i_pick_this_up(&self, e: Entity) -> bool {
+    /// cannot be taken; with room on the Hunter's back a free or lodged spear always can,
+    /// past the two-hand and forbidden checks).
+    pub(super) fn can_i_pick_this_up(&self, e: Entity) -> bool {
         let g = self.grabability(e);
         if g == Grabability::CantGrab {
             return false;
@@ -87,8 +88,16 @@ impl RainWorldGame {
         let weapon = e
             .object()
             .and_then(|id| self.world.object(id).realized.as_deref());
-        if weapon.is_some_and(|w| w.spear().is_some() && w.mode == WeaponMode::OnBack) {
-            return false;
+        if let Some(w) = weapon.filter(|w| w.spear().is_some()) {
+            if w.mode == WeaponMode::OnBack {
+                return false;
+            }
+            // The Hunter can always take a free or lodged spear while its back is empty.
+            if matches!(w.mode, WeaponMode::Free | WeaponMode::StuckInCreature)
+                && self.can_put_spear_to_back()
+            {
+                return true;
+            }
         }
         if g == Grabability::BigOneHand
             && grasps
