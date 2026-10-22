@@ -12,3 +12,7 @@ Seen in play, not yet investigated. Remove an entry once fixed.
   (`EntranceColor`, `crates/sim/src/shortcut.rs`) and
   `ShortcutGraphics::creature_color` (`crates/graphics/src/shortcut_graphics.rs`) maps
   every non-slugcat to white.
+- **Panic after a lizard falls out of the room** (2026-10-22): with ~100 green lizards
+  spawned (F1 debug UI), about a minute later, right after `lizard ... fell out of
+  room!`: `range end index 28 out of range for slice of length 0` (core slice index).
+  Being traced.
