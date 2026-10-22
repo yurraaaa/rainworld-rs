@@ -5,7 +5,8 @@
 // fs_hologram `Hologram`, fs_light_source `LightSource`, fs_holo_grid `HoloGrid`,
 // fs_hologram_image `HologramImage`, fs_shortcut `ShortCut0`, fs_colored_sprite3
 // `ColoredSprite2` with `no_grab_tex` (the `ColoredSprite3` shader),
-// fs_under_water_light `UnderWaterLight`, fs_specific_depth `SpecificDepth`. The
+// fs_under_water_light `UnderWaterLight`, fs_specific_depth `SpecificDepth`,
+// fs_water_splash `WaterSplash`, fs_water_light `WaterLight`. The
 // full-screen effects are in
 // full_screen.wgsl, appended to this file.
 //
@@ -29,6 +30,8 @@ struct Room {
     fog_amount: f32,
     // `_waterLevel`: the water line's fraction of the screen from its top.
     water_level: f32,
+    // `_camInRoomRect`: the game's window in room uv (position, size).
+    cam_in_room_rect: vec4<f32>,
 };
 
 // Futile's `screenPixelOffset` (`Camera::SCREEN_PIXEL_OFFSET`): screen = stage + this.
@@ -50,6 +53,9 @@ const SCREEN_PIXEL_OFFSET: vec2<f32> = vec2(-0.5, 0.5);
 // `_NoiseTex` (`Palettes/noise`, bilinear, repeat).
 @group(2) @binding(4) var noise_tex: texture_2d<f32>;
 @group(2) @binding(5) var noise_sampler: sampler;
+// The room's `RainMask_<room>` (one texel per tile, v = 0 at the bottom), read with
+// the grab sampler (bilinear, clamped: the generated texture's settings).
+@group(2) @binding(7) var rain_mask: texture_2d<f32>;
 
 struct VertexOut {
     @builtin(position) position: vec4<f32>,
@@ -537,4 +543,49 @@ fn fs_water_splash(in: VertexOut) -> @location(0) vec4<f32> {
         col = mix(col, grab, mix(1.0, 0.5, proximity));
     }
     return col;
+}
+
+// `WaterLight` (the room camera's caustics over the water). Nothing on level layers
+// nearer than 2 (`_waterPosition` is never set: 0), over anything drawn behind a level
+// pixel deeper than 6/30 (the pre-level grab, any channel not 0) or on sky. Two
+// noise-driven sines (the literal `3.14 * 2`) drift with `_RAIN`; their max to the
+// 47th, times `1 - uv.y`, a squared noise read at the sprite's uv and the room mask's
+// blue at this pixel's room position (`_camInRoomRect`), shows as white at
+// `0.05 * alpha` where it reaches 0.1.
+@fragment
+fn fs_water_light(in: VertexOut) -> @location(0) vec4<f32> {
+    let tc = level_coord(in.scr);
+    let texcol = level_at(tc);
+    let dist = fmod_trunc(f32(byte(texcol.r) - 1), 30.0) / 30.0;
+    if dist < 2.0 / 30.0 {
+        return vec4(0.0);
+    }
+    if dist > 6.0 / 30.0 {
+        let grab = textureLoad(behind_tex, frame_px(in.scr), 0);
+        if any(grab.rgb != vec3(0.0)) {
+            return vec4(0.0);
+        }
+    }
+    if all(texcol.rgb == vec3(1.0)) {
+        return vec4(0.0);
+    }
+    let rain = room.rain;
+    let n1 = noise_at(vec2(
+        dist / 10.0 + mix(tc.x, 0.5, dist / 3.0) * 2.1,
+        rain * 0.1 + dist / 5.0 + mix(tc.y, 0.5, dist / 3.0) * 2.1,
+    ));
+    let col1 = sin((rain * 6.0 + n1 * 7.0) * 3.14 * 2.0) * 0.5 + 0.5;
+    let n2 = noise_at(vec2(
+        dist / 7.0 + mix(tc.x, 0.5, dist / 5.0) * 1.3,
+        rain * -0.21 + dist / 8.0 + mix(tc.y, 0.5, dist / 6.0) * 1.3,
+    ));
+    let col2 = sin((rain * 2.7 + n2 * 6.33) * 3.14 * 2.0) * 0.5 + 0.5;
+    let n3 = noise_at(vec2(in.tex.x, in.tex.y + rain + dist * 0.1));
+    var col = pow(max(col1, col2), 47.0) * (1.0 - in.tex.y) * n3 * n3;
+    let cam = room.cam_in_room_rect;
+    col *= textureSampleLevel(rain_mask, grab_sampler, cam.xy + cam.zw * in.scr, 0.0).z;
+    if col < 0.1 {
+        return vec4(0.0);
+    }
+    return vec4(1.0, 1.0, 1.0, 0.05 * in.color.a);
 }

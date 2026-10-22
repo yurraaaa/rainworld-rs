@@ -51,6 +51,7 @@ use super::reply::{
 };
 use super::reply::{
     DeathFallState, FullScreenEffectState, LevelParamsState, SpearOnBackInfo, SpriteLeaserState,
+    WaterLightState,
 };
 use super::reply::{FleeInfo, HeavyAiInfo, HuntInfo, LoungeInfo, WaterSoundState};
 use super::reply::{
@@ -535,6 +536,7 @@ impl Session {
                 .and_then(|s| s.full_screen)
                 .map(FullScreenEffectState::from),
             death_fall: scene.death_fall().map(DeathFallState::from),
+            water_light: scene.water_light().map(WaterLightState::from),
             level_params: scene.level_state().map(LevelParamsState::from),
             shelter_door: sim
                 .shelter_door(sim.camera_room())
@@ -709,6 +711,7 @@ impl Session {
             Drawable::Shortcuts => ("shortcuts", None, None),
             Drawable::FullScreenEffect => ("full_screen_effect", None, None),
             Drawable::DeathFall => ("death_fall", None, None),
+            Drawable::WaterLight => ("water_light", None, None),
         }
     }
 

@@ -173,6 +173,11 @@ pub enum Shader {
     /// variant; over a creature drawn behind the level (the pre-level grab) that
     /// creature's colour, and the background bubbles' `(0, 1/255, 0)` as lit water.
     WaterSplash,
+    /// `Futile/WaterLight` (the room camera's `WaterLight`): faint white caustics over
+    /// the level where the room's `RainMask` texture is blue (just above the water),
+    /// fading toward the sprite's top; none on near layers, sky or over what was drawn
+    /// behind far layers.
+    WaterLight,
 }
 
 impl Shader {

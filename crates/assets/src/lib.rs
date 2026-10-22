@@ -18,6 +18,7 @@ mod placed;
 mod placed_light;
 mod placed_types;
 mod png_image;
+mod rain_mask;
 pub mod region_map;
 pub mod region_properties;
 pub mod room;
@@ -51,6 +52,7 @@ pub use placed::{
 pub use placed_light::{LightBlinkType, LightColorType, LightSourceData};
 pub use placed_types::{MultiplayerItemType, PlacedObjectType, RoomEffectType};
 pub use png_image::PngImage;
+pub use rain_mask::RainMask;
 pub use region_map::{MapConnectionLine, RegionMapFiles};
 pub use region_properties::{RegionParams, RegionProperties, RoomAttractions};
 pub use room::{

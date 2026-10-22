@@ -78,6 +78,9 @@ pub struct State {
     /// The camera room's `DeathFallGraphic`, when it has an open bottom.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub death_fall: Option<DeathFallState>,
+    /// The room camera's `WaterLight`, in a room with water.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub water_light: Option<WaterLightState>,
     /// The camera room's level shader inputs, when it has a level graphic.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub level_params: Option<LevelParamsState>,
@@ -383,6 +386,24 @@ pub struct DeathFallState {
     pub counter: i32,
     /// The sprite's alpha at the end of the tick.
     pub alpha: f32,
+}
+
+/// The room camera's `WaterLight`.
+#[derive(Debug, Clone, Serialize)]
+pub struct WaterLightState {
+    /// `roomSettings.WaterReflectionAlpha`.
+    pub reflection_alpha: f32,
+    /// The sprite's alpha: `(1 - PaletteDarkness) * reflection_alpha`.
+    pub alpha: f32,
+}
+
+impl From<(&crate::water_light::WaterLight, f32)> for WaterLightState {
+    fn from((l, alpha): (&crate::water_light::WaterLight, f32)) -> Self {
+        Self {
+            reflection_alpha: l.reflection_alpha,
+            alpha,
+        }
+    }
 }
 
 impl From<&crate::death_fall::DeathFall> for DeathFallState {

@@ -16,7 +16,7 @@
 //!
 //! Mirrors: RoomCamera.cs (ApplyPalette, ChangeRoom, DrawUpdate shader globals), Room.cs (NowViewed)
 
-use rw_assets::{NoiseTexture, PaletteTexture, PngImage, RoomEffectType, RoomSettings};
+use rw_assets::{NoiseTexture, PaletteTexture, PngImage, RainMask, RoomEffectType, RoomSettings};
 
 /// Uniform inputs of the level shader that stay fixed while a room is shown (per-frame
 /// ones are in [`LevelView`]).
@@ -123,6 +123,8 @@ pub struct LevelGraphics<'a> {
     pub palette: &'a PaletteTexture,
     pub noise: &'a NoiseTexture,
     pub params: LevelParams,
+    /// The room's `RainMask_<room>` texture, made for a room with water (`WaterLight`).
+    pub rain_mask: Option<&'a RainMask>,
 }
 
 /// Per-frame inputs of the level: the game's visible window, shader time and light.

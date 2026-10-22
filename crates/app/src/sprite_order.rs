@@ -20,6 +20,10 @@
 //! - the `DeathFallGraphic` (`Room.Loaded`'s `AddObject`: after the shelter door, before
 //!   the items and creatures) is put first; of its container, `Bloom`, nothing joins
 //!   before it, so its place among the other containers' leasers changes nothing;
+//! - the `WaterLight` sprite joins `Foreground` when the camera first enters a room
+//!   with water (`ChangeRoom`, after the old room's leasers went, before the new
+//!   room's) and stays there while it moves between rooms with water, so it is put
+//!   first too;
 //! - `ApplyPalette` re-adds the camera's full-screen effect sprite on top: at the end of
 //!   a move to a room or camera (`ApplyPositionChange`, after the leasers and shortcut
 //!   graphics), and whenever `ApplyFade` rebuilds the palette.
@@ -52,6 +56,10 @@ pub enum Drawable {
     FullScreenEffect,
     /// The room's `DeathFallGraphic`, if it has one.
     DeathFall,
+    /// The room camera's `WaterLight` (not a leaser: its sprite joins `Foreground` once,
+    /// when the camera first enters a room with water, before any leaser of that room,
+    /// and stays while the camera moves between rooms with water).
+    WaterLight,
 }
 
 /// Where a drawable's leaser goes when the camera moves to its room.
@@ -203,13 +211,15 @@ impl SpriteOrder {
             (group, p.seq)
         });
         self.leasers.clear();
-        self.leasers.push(Leaser {
-            drawable: Drawable::DeathFall,
-            seq: 0,
-            parent: Parent::Room,
-            behind: false,
-            overlap_moves: 0,
-        });
+        for drawable in [Drawable::WaterLight, Drawable::DeathFall] {
+            self.leasers.push(Leaser {
+                drawable,
+                seq: 0,
+                parent: Parent::Room,
+                behind: false,
+                overlap_moves: 0,
+            });
+        }
         for p in sorted {
             self.arrive(p);
         }
@@ -240,7 +250,10 @@ impl SpriteOrder {
             .filter(|l| {
                 !matches!(
                     l.drawable,
-                    Drawable::Shortcuts | Drawable::FullScreenEffect | Drawable::DeathFall
+                    Drawable::Shortcuts
+                        | Drawable::FullScreenEffect
+                        | Drawable::DeathFall
+                        | Drawable::WaterLight
                 ) && !present
                     .iter()
                     .any(|p| p.drawable == l.drawable && p.seq == l.seq)

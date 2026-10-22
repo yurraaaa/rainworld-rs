@@ -1,7 +1,7 @@
 //! Room settings files (`<room>_settings.txt`) and their template inheritance, for the
 //! values the port uses: `Palette`, `FadePalette`, `EffectColorA/B`, `Clouds`, `Grime`,
 //! the water surface's `WaveSpeed`, `WaveLength`, `WaveAmplitude`, `SecondWaveLength`
-//! and `SecondWaveAmplitude`, `DangerType`, `CeilingDrips`, `RainIntensity`, `AmbientSounds`, `Effects`,
+//! and `SecondWaveAmplitude`, `WaterReflectionAlpha`, `DangerType`, `CeilingDrips`, `RainIntensity`, `AmbientSounds`, `Effects`,
 //! `PlacedObjects`, `BkgDroneVolume`, `BkgDroneNoThreatVolume` and `Triggers`
 //! (`triggers.rs`). Mirrors `RoomSettings` (constructor,
 //! `FindParent`, `Load`, `InheritAmbientSounds`) and
@@ -83,6 +83,7 @@ pub struct SettingsFile {
     pub wave_amplitude: Option<f32>,
     pub second_wave_length: Option<f32>,
     pub second_wave_amplitude: Option<f32>,
+    pub water_reflection_alpha: Option<f32>,
     /// `DangerType:`; the inner `None` is a value the game does not register.
     pub danger_type: Option<Option<DangerType>>,
     pub ceiling_drips: Option<f32>,
@@ -122,6 +123,8 @@ pub struct RoomSettings {
     pub wave_amplitude: f32,
     pub second_wave_length: f32,
     pub second_wave_amplitude: f32,
+    /// The `WaterLight` reflection's alpha factor.
+    pub water_reflection_alpha: f32,
     /// `None` for a value the game does not register (equal to none of its own).
     pub danger_type: Option<DangerType>,
     pub ceiling_drips: f32,
@@ -184,6 +187,9 @@ impl SettingsFile {
                 "WaveAmplitude" => file.wave_amplitude = Some(Self::float(value)?),
                 "SecondWaveLength" => file.second_wave_length = Some(Self::float(value)?),
                 "SecondWaveAmplitude" => file.second_wave_amplitude = Some(Self::float(value)?),
+                "WaterReflectionAlpha" => {
+                    file.water_reflection_alpha = Some(Self::float(value)?);
+                }
                 "DangerType" => {
                     file.danger_type = Some(DangerType::from_value(value, ActiveMods::NONE));
                 }
@@ -259,6 +265,9 @@ impl SettingsFile {
             second_wave_amplitude: self
                 .second_wave_amplitude
                 .unwrap_or(parent.second_wave_amplitude),
+            water_reflection_alpha: self
+                .water_reflection_alpha
+                .unwrap_or(parent.water_reflection_alpha),
             danger_type: self.danger_type.unwrap_or(parent.danger_type),
             ceiling_drips: self.ceiling_drips.unwrap_or(parent.ceiling_drips),
             rain_intensity: self.rain_intensity.unwrap_or(parent.rain_intensity),
@@ -305,6 +314,7 @@ impl RoomSettings {
         wave_amplitude: 0.0,
         second_wave_length: 1.0 / 6.0,
         second_wave_amplitude: 0.0,
+        water_reflection_alpha: 1.0,
         danger_type: Some(DangerType::Rain),
         ceiling_drips: 0.5,
         rain_intensity: 1.0,
@@ -530,6 +540,20 @@ mod tests {
         assert_eq!((s.wave_amplitude, s.second_wave_length), (0.032_608_7, 0.5));
         assert_eq!((s.wave_speed, s.wave_length), (0.75, 0.5));
         assert_eq!(s.second_wave_amplitude, 0.0);
+    }
+
+    /// `WaterReflectionAlpha` (`DefaultRoomSettings`: 1) inherits from the template.
+    #[test]
+    fn water_reflection_alpha_inherits() {
+        assert_eq!(RoomSettings::ANCESTOR.water_reflection_alpha, 1.0);
+        let template = SettingsFile::parse("WaterReflectionAlpha: 0.25\n")
+            .expect("parses")
+            .resolve(&RoomSettings::ANCESTOR);
+        assert_eq!(template.water_reflection_alpha, 0.25);
+        let room = SettingsFile::parse("Grime: 0.1\n").expect("parses");
+        assert_eq!(room.resolve(&template).water_reflection_alpha, 0.25);
+        let own = SettingsFile::parse("WaterReflectionAlpha: 0.2934783\n").expect("parses");
+        assert_eq!(own.resolve(&template).water_reflection_alpha, 0.293_478_3);
     }
 
     /// `RoomSettings.wetTerrain` starts true; a `WetTerrain` line in the room's own file

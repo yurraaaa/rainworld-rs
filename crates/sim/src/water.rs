@@ -224,6 +224,16 @@ impl Water {
         self.level
     }
 
+    /// `SurfaceLeftAndRightBoundries`: the first and last front points' still x.
+    #[must_use]
+    pub fn surface_bounds(&self) -> (f32, f32) {
+        let last = self.points.len() - 1;
+        (
+            self.points[0][0].default_pos.x,
+            self.points[last][0].default_pos.x,
+        )
+    }
+
     /// Number of surface points.
     #[must_use]
     pub fn point_count(&self) -> usize {
@@ -664,6 +674,7 @@ mod tests {
         assert_eq!(w.point_count(), 43);
         assert_eq!(w.point(0), Vec2::new(-220.0, 70.0));
         assert_eq!(w.point(42), Vec2::new(620.0, 70.0));
+        assert_eq!(w.surface_bounds(), (-220.0, 620.0));
         assert_eq!(w.level_at(-1000.0), 70.0);
         assert_eq!(w.level_at(133.0), 70.0);
     }

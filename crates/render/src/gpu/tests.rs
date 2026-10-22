@@ -146,6 +146,7 @@ fn background_shortcut_reads_the_level_behind_it() {
             fog_amount: 0.0,
             ..LevelParams::DEFAULT
         },
+        rain_mask: None,
     });
     let DrawItem::Sprite(mut pipe) =
         white_sprite(Shader::ShortCut0, SpriteColor::rgb(1.0, 0.0, 0.0))
@@ -223,6 +224,7 @@ fn colored_sprite3_colours_by_depth_from_the_palette() {
             fog_amount: palette.fog_amount(),
             ..LevelParams::DEFAULT
         },
+        rain_mask: None,
     });
     r.draw_level(LevelView {
         origin: [0.0, 0.0],
@@ -302,6 +304,7 @@ fn colored_sprite3_tests_the_level_texel_under_the_pixel() {
             fog_amount: palette.fog_amount(),
             ..LevelParams::DEFAULT
         },
+        rain_mask: None,
     });
     let window = [-0.02, -0.02];
     r.begin_frame(Camera::window(window, [64.0, 64.0], SIZE));
@@ -381,6 +384,7 @@ fn set_sunlit_level(r: &mut WgpuRenderer, light_dir: [f32; 2]) {
             light_dir,
             ..LevelParams::DEFAULT
         },
+        rain_mask: None,
     });
 }
 
@@ -481,6 +485,7 @@ fn palette_rewrite_refreshes_the_fog_amount() {
             fog_amount: clear.fog_amount(),
             ..LevelParams::DEFAULT
         },
+        rain_mask: None,
     });
     let view = LevelView {
         origin: [0.0, 0.0],
@@ -547,6 +552,7 @@ fn specific_depth_shows_on_its_own_layer() {
         palette: &palette,
         noise: &noise,
         params: LevelParams::DEFAULT,
+        rain_mask: None,
     });
     let behind = DrawList {
         items: vec![frame_quad(
@@ -668,6 +674,7 @@ fn wet_rows(r: &mut WgpuRenderer, wet: f32, water_level: f32) -> Vec<[u8; 64]> {
             wet_terrain: wet,
             ..LevelParams::DEFAULT
         },
+        rain_mask: None,
     });
     r.begin_frame(Camera::window([0.0, 0.0], [64.0, 64.0], SIZE));
     r.draw_level(LevelView {

@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-use rw_assets::{Room, Shortcut, ShortcutType, Terrain, Tile};
+use rw_assets::{RainMask, Room, Shortcut, ShortcutType, Terrain, Tile};
 
 const DEFAULT_RW_DIR: &str = "/home/yura/.local/share/Steam/steamapps/common/Rain World";
 
@@ -237,4 +237,40 @@ fn every_level_parses() {
     }
     eprintln!("parsed {parsed} level files");
     assert!(parsed > 0);
+}
+
+/// `RoomRain.GenerateShelterTex` over DS_A10 (48x35, water row 16), checked texel by
+/// texel against its rules: red while nothing solid lies at or above the tile in its
+/// column; blue on the surface row of a non-solid surface tile and on each row above
+/// it up to the first solid tile (included), at most 20 rows up.
+#[test]
+fn ds_a10_rain_mask_follows_the_generator_rules() {
+    let Some(sa) = streaming_assets() else { return };
+    let room = Room::load(sa.join("world/ds-rooms/ds_a10.txt")).expect("ds_a10 loads");
+    assert_eq!(room.water_level(), Some(16));
+    let mask = RainMask::generate(&room);
+    assert_eq!((mask.width(), mask.height()), (48, 35));
+    let mut blue = 0;
+    for x in 0..48 {
+        let mut run_end = None;
+        if !room.tile(x, 16).is_solid() {
+            let mut y = 16;
+            // The 20-row reach (row 36) lies past the top here.
+            while y < 35 && !room.tile(x, y).is_solid() {
+                y += 1;
+            }
+            run_end = Some(y);
+        }
+        for y in 0..35 {
+            let open = (y..35).all(|above| !room.tile(x, above).is_solid());
+            let water = run_end.is_some_and(|end| (16..=end).contains(&y));
+            let t = mask.texel(x, y);
+            assert_eq!(t[0] == 255, open, "red at ({x}, {y})");
+            assert_eq!(t[2] == 255, water, "blue at ({x}, {y})");
+            assert_eq!((t[1], t[3]), (0, 255));
+            blue += usize::from(water);
+        }
+    }
+    eprintln!("ds_a10: {blue} blue texels");
+    assert!(blue > 0, "the surface marks some texels");
 }

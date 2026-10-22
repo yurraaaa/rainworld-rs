@@ -12,12 +12,12 @@ lists and overlays.
 | File | Holds |
 |---|---|
 | `src/lib.rs` | `Renderer` trait, `RoomLayers`, re-exports |
-| `src/gpu.rs` | `WgpuRenderer` (`new`, `headless`, `render_image`, `present`), pipelines and frame orchestration; `gpu/tests.rs`, `gpu/full_screen_tests.rs` (full-screen effects, `DeathFall` and `WaterSplash` at 1366x768) |
+| `src/gpu.rs` | `WgpuRenderer` (`new`, `headless`, `render_image`, `present`), pipelines and frame orchestration; `gpu/tests.rs`, `gpu/full_screen_tests.rs` (full-screen effects, `DeathFall`, `WaterSplash` and `WaterLight` at 1366x768) |
 | `src/camera.rs` | `Camera`: room pixels (y up) to clip space |
 | `src/room_camera.rs` | `RoomCamera`, `Follow`: camera image choice and window position, moved by the shake (`displace`) and the frame's micro shake (`RoomCamera.GetCameraBestIndex/Update/DrawUpdate`) |
-| `src/level.rs`, `src/level_gpu.rs` | level graphic (`LevelGraphics`; `LevelParams`: the room's shader globals incl. `_rimFix` and light angle; `LevelView`: window, `_RAIN`, `_light`) and its GPU side (palette rewrites for `ApplyFade`) |
+| `src/level.rs`, `src/level_gpu.rs` | level graphic (`LevelGraphics`, with the room's `RainMask` texture; `LevelParams`: the room's shader globals incl. `_rimFix` and light angle; `LevelView`: window, `_RAIN`, `_light`) and its GPU side (palette rewrites for `ApplyFade`) |
 | `src/sprites.rs` | Futile sprites on CPU: atlas coords, `FSprite` quads, `TriangleMesh`es from `DrawList`s, draw queue |
-| `src/sprite_gpu.rs` | GPU side: one `sprite.wgsl` pipeline per game shader, atlas pages, `_NoiseTex2`, grab textures |
+| `src/sprite_gpu.rs` | GPU side: one `sprite.wgsl` pipeline per game shader, atlas pages, `_NoiseTex2`, grab textures, the rain mask (`_camInRoomRect`) |
 | `src/stage.rs`, `src/stage_gpu.rs` | Futile stage quads in screen pixels (menus, HUD) and their GPU side |
 | `src/water.rs`, `src/water_sprites.rs`, `src/water_gpu.rs` | debug flat water; `Water.InitiateSprites/DrawSprites` meshes; `WaterSurface`/`DeepWater` pipelines |
 | `src/present.rs`, `src/present_gpu.rs` | `Resolution`, `PresentRect`, `PresentFilter`: letterboxed window presentation |
@@ -25,7 +25,7 @@ lists and overlays.
 | `src/room_geometry.rs`, `src/mesh.rs`, `src/status.rs`, `src/body.rs` | debug view: tile geometry, tessellation (`Mesh`, `Color`), body style by condition, `ChunkInterpolation` |
 | `src/frame_image.rs`, `src/error.rs`, `src/test_room.rs` | `FrameImage` PNG readback, `RenderError`, ASCII test rooms |
 | `shaders/level.wgsl` | `LevelColor` (camera image through palette, object shadows from the pre-level grab, `SunBlock`, rimFix, wet terrain, grading) |
-| `shaders/sprite.wgsl` | room sprite shaders (`fs_basic`, `fs_flat_light`, `fs_hologram*`, `fs_light_source`, `fs_under_water_light`, `fs_shortcut`, `fs_water_splash`, ...) |
+| `shaders/sprite.wgsl` | room sprite shaders (`fs_basic`, `fs_flat_light`, `fs_hologram*`, `fs_light_source`, `fs_under_water_light`, `fs_shortcut`, `fs_water_splash`, `fs_water_light`, ...) |
 | `shaders/full_screen.wgsl` | the room's full-screen effects, appended to `sprite.wgsl` (`fs_bloom`, `fs_sky_bloom`, `fs_light_bloom`, `fs_light_and_sky_bloom`, `fs_fog`) |
 | `shaders/death_fall.wgsl` | `DeathFallGraphic`'s `DeathFall` shader (`fs_death_fall`), appended after `full_screen.wgsl` |
 | `shaders/stage.wgsl` | menu/HUD shaders (`fs_vector_circle`, `fs_menu_text`, `fs_local_bloom`, ...) |

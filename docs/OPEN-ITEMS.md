@@ -37,7 +37,7 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   draws a tick, creature chunks on the surface; done on its branch, 2026-10-22), B (calm
   surface sound; done on its branch, `water_sound.rs`) at 17:40; A2 (splashes: `Splash`,
   `WaterfallHitSurface`, the `WaterSplash` shader, `GrabShaders`; done on its branch);
-  then C (`WaterLight`).
+  C (`WaterLight` and the `RainMask_` texture; done on its branch).
   Plan in `../rainworld-re/surveys/room-effects/water-effects.md`.
   With the rain (M8): `Room.AddWater` makes a `Water`, so its surface loop, in rooms with
   no level water (rain flood, `WaterCycleTop`/`Bottom`, `BrokenShelterWaterLevel`).

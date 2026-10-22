@@ -630,6 +630,7 @@ impl WgpuRenderer {
         match (&self.level_view, &self.level) {
             (Some(view), Some(textures)) => RoomGlobals {
                 fog_amount: textures.fog_amount(),
+                cam_in_room_rect: textures.cam_in_room_rect(view),
                 ..RoomGlobals::new(view, textures.rect())
             },
             _ => RoomGlobals {
@@ -638,6 +639,7 @@ impl WgpuRenderer {
                 water_level: 0.0,
                 screen_size: [self.frame.size.0 as f32, self.frame.size.1 as f32],
                 rain: self.stage_pipeline.globals().rain,
+                cam_in_room_rect: [0.0; 4],
             },
         }
     }
@@ -1045,6 +1047,7 @@ impl Renderer for WgpuRenderer {
                         grab: &self.frame.grab_view,
                         palette: textures.views()[1],
                         noise: textures.views()[2],
+                        rain_mask: textures.rain_mask(),
                     },
                 );
                 Some((bind_group, self.scissor(view), split + 1, water, screen))

@@ -341,6 +341,9 @@ restrictions (`rainworld-re/notes/water.md`), base game with Remix off, Survivor
   in the update list (it does nothing and never leaves the room); its emitters are.
   The inverted-water band (DLCShared) and the More Slugcats `waterInverted` branch of
   `PositionedSound.Update` are omitted with the other inverted-water code.
+- **Caustics.** The room camera's `WaterLight` reflection is drawn by the app
+  (`water_light.rs`, D7); it has no sim state (`Water.SurfaceLeftAndRightBoundries` is
+  `Water::surface_bounds`).
 - **DLC omitted:** inverted water, the More Slugcats `PointSubmerged` `<` test (base
   uses `<=`), the Rivulet/Artificer/Saint/Watcher/energy-cell/jetfish branches and the
   More Slugcats flood.

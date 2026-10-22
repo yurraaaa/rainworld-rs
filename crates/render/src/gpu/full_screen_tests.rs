@@ -1,12 +1,13 @@
 //! Headless GPU checks of the full-screen effect shaders (`full_screen.wgsl`), the
-//! `DeathFall` shader (`death_fall.wgsl`) and `WaterSplash` (`sprite.wgsl`), here over
+//! `DeathFall` shader (`death_fall.wgsl`), `WaterSplash` and `WaterLight`
+//! (`sprite.wgsl`), here over
 //! the whole screen, at the game's
 //! 1366x768: each frame is drawn without the effect, then with it, and pixels are
 //! compared with the game's shader maths applied to the frame without it (bilinear
 //! taps, as the grab is read) and with values worked out by hand from the shader
 //! sources. Skipped without a Vulkan adapter.
 
-use rw_assets::{NoiseTexture, PaletteImage, PaletteTexture};
+use rw_assets::{NoiseTexture, PaletteImage, PaletteTexture, RainMask, Room};
 use rw_graphics::{Atlas, Color as SpriteColor, DrawItem, Shader, Sprite};
 
 use crate::LevelParams;
@@ -37,6 +38,7 @@ struct Scene {
     water_level: f32,
     /// Every `_NoiseTex` texel's red.
     noise: u8,
+    rain_mask: Option<RainMask>,
 }
 
 /// A rectangle of frame pixels, y down: `[x0, y0, x1, y1)`.
@@ -160,6 +162,7 @@ impl Scene {
             rain: 0.0,
             water_level: 1.0,
             noise: 128,
+            rain_mask: None,
         }
     }
 
@@ -185,6 +188,7 @@ impl Scene {
             palette: &self.palette,
             noise: &noise,
             params: LevelParams::DEFAULT,
+            rain_mask: self.rain_mask.as_ref(),
         });
         r.begin_frame(Camera::window([0.0, 0.0], [W as f32, H as f32], (W, H)));
         if !self.behind.is_empty() {
@@ -887,4 +891,148 @@ fn water_splash_colours_by_depth_and_the_pre_level_grab() {
         let want = water_splash(dp, None, 0.0, (1.0, true), pal);
         assert_near(rgb(&after, x, y), want, (x, y));
     }
+}
+
+/// A 69 x 39 tile room (1380 x 780 px) of air, water at row 10, a solid ledge at
+/// rows 20..=21 over tile columns 30..40: its mask is blue on rows 10..=30, and only
+/// up to row 20 under the ledge.
+fn water_light_room() -> Room {
+    let (w, h) = (69, 39);
+    let tiles: String = (0..w)
+        .flat_map(|x| (0..h).rev().map(move |y| (x, y)))
+        .map(|(x, y)| {
+            if (30..40).contains(&x) && (20..=21).contains(&y) {
+                "1|"
+            } else {
+                "0|"
+            }
+        })
+        .collect();
+    let text = format!(
+        "Test\n{w}*{h}|10|0\n1*1|0|0\n0,0\nBorder: Solid\n\n\n\n\n17|0|0|\nblob\n{tiles}\n"
+    );
+    Room::parse(&text).expect("test room parses")
+}
+
+/// `tex2D(_MainTex, ...)` of the mask, bilinear and clamped, at room pixel `p`: blue.
+fn mask_blue(mask: &RainMask, p: [f32; 2]) -> f32 {
+    let fx = p[0] / 20.0 - 0.5;
+    let fy = p[1] / 20.0 - 0.5;
+    let (x0, y0) = (fx.floor(), fy.floor());
+    let (tx, ty) = (fx - x0, fy - y0);
+    let [a, b, c, d] = [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)]
+        .map(|(dx, dy)| mask_texel_blue(mask, x0 + dx, y0 + dy));
+    let bottom = a + (b - a) * tx;
+    let top = c + (d - c) * tx;
+    bottom + (top - bottom) * ty
+}
+
+/// The mask's blue at texel `(x, y)`, clamped to its edges.
+fn mask_texel_blue(mask: &RainMask, x: f32, y: f32) -> f32 {
+    let x = (x as i32).clamp(0, mask.width() - 1);
+    let y = (y as i32).clamp(0, mask.height() - 1);
+    f32::from(mask.texel(x, y)[2]) / 255.0
+}
+
+/// `WaterLight.shader`'s `col` at frame pixel `(x, y)` under uniform noise of 1 (every
+/// noise tap is 1), or `None` where an early test leaves the pixel: the level depth
+/// under 2/30, a pixel deeper than 6/30 with something drawn behind it (`behind`), or
+/// sky. `uv_y` is the sprite's `i.uv.y` there.
+fn water_light_col(scene: &Scene, x: u32, y: u32, uv_y: f32, behind: bool) -> Option<f32> {
+    // `textCoord` floors the screen pixel: image column x, row H - y - 2 from the bottom.
+    let c = scene.level.pixel(x as usize, y as usize + 1);
+    let dist = ((f32::from(c[0]) - 1.0) % 30.0) / 30.0;
+    if dist < 2.0 / 30.0 || (dist > 6.0 / 30.0 && behind) || c[..3] == [255, 255, 255] {
+        return None;
+    }
+    let col1 = ((scene.rain * 6.0 + 7.0) * GAME_TAU).sin() * 0.5 + 0.5;
+    let col2 = ((scene.rain * 2.7 + 6.33) * GAME_TAU).sin() * 0.5 + 0.5;
+    let s = scr(x, y);
+    let mask = scene.rain_mask.as_ref().expect("mask");
+    let blue = mask_blue(mask, [s[0] * W as f32, s[1] * H as f32]);
+    Some(col1.max(col2).powf(47.0) * (1.0 - uv_y) * blue)
+}
+
+/// `WaterLight` over a level of layer 0 (red 1), layer 3 (red 4), layer 9 (red 10) and
+/// sky columns, with creatures drawn behind layers 3 and 9, the room mask of
+/// [`water_light_room`] and the sprite from stage y 100, 39 x 18.75 px tall. `_RAIN`
+/// 0.042283 puts the first sine at its peak (`(6 r + 7) * 6.28` = pi/2 + 14 pi), so
+/// `col = (1 - uv.y) * blue`: white at 0.05 where that reaches 0.1, on layers 3 and 9
+/// over the mask's water rows, not over the creature behind layer 9, never on layer 0
+/// or sky.
+#[test]
+fn water_light_shows_caustics_over_the_masked_water_rows() {
+    let Some(mut r) = renderer() else { return };
+    let mut scene = Scene::new(
+        level(|x, _| match x {
+            0..300 => [1, 0, 0],
+            300..700 => [4, 0, 0],
+            700..1000 => [10, 0, 0],
+            _ => [255, 255, 255],
+        }),
+        palette([30, 30, 30], &[]),
+    );
+    scene.noise = 255;
+    scene.rain = 0.042_283;
+    let mask = RainMask::generate(&water_light_room());
+    assert_eq!(mask.texel(5, 30)[2], 255);
+    assert_eq!(mask.texel(35, 25)[2], 0, "under the ledge");
+    scene.rain_mask = Some(mask);
+    let creatures = [Rect([400, 300, 600, 400]), Rect([750, 300, 950, 400])];
+    for c in creatures {
+        scene
+            .behind
+            .push(c.quad(SpriteColor::rgb(0.5, 0.0, 0.0), Layer::Items));
+    }
+    let before = Before(scene.draw(&mut r, None));
+    let (y0, height) = (100.0, 39.0 * 18.75);
+    scene.over.push(DrawItem::Sprite(Sprite {
+        index: 0,
+        element: SpriteAtlas::FUTILE_WHITE,
+        pos: Vec2::new(0.0, y0),
+        rotation: 0.0,
+        scale: Vec2::new(W as f32 / 16.0, height / 16.0),
+        anchor: Vec2::ZERO,
+        color: SpriteColor::WHITE,
+        shader: Shader::WaterLight,
+        layer: Layer::Foreground,
+    }));
+    let after = scene.draw(&mut r, None);
+    let (mut lit, mut dark) = (0, 0);
+    for y in (2..H - 2).step_by(7) {
+        for x in (3..W).step_by(11) {
+            if [300, 700, 1000].iter().any(|&e| (x as i64 - e).abs() < 3) {
+                continue;
+            }
+            let below = before.px(i64::from(x), i64::from(y));
+            let stage_y = H as f32 - y as f32 - 1.0;
+            if stage_y < y0 {
+                assert_eq!(rgb(&after, x, y), rgb(&before.0, x, y));
+                continue;
+            }
+            let uv_y = (stage_y - y0) / height;
+            let behind = creatures.iter().any(|c| c.contains(x, y));
+            let col = water_light_col(&scene, x, y, uv_y, behind);
+            if col.is_some_and(|c| (c - 0.1).abs() < 0.01) {
+                continue;
+            }
+            let shown = col.is_some_and(|c| c >= 0.1);
+            let want = if shown {
+                lit += 1;
+                std::array::from_fn(|i| 1.0 * 0.05 + below[i] * 0.95)
+            } else {
+                dark += 1;
+                [below[0], below[1], below[2]]
+            };
+            assert_near(rgb(&after, x, y), want, (x, y));
+        }
+    }
+    eprintln!("water light: {lit} lit, {dark} left");
+    assert!(lit > 100 && dark > 100, "{lit} lit, {dark} left");
+    // Layer 3 over a creature drawn behind it still shows; layer 9 over one does not.
+    let (x, y) = (500, 350);
+    assert!(water_light_col(&scene, x, y, 0.2, true).is_some());
+    assert_ne!(rgb(&after, x, y), rgb(&before.0, x, y));
+    assert!(water_light_col(&scene, 850, 350, 0.2, true).is_none());
+    assert_eq!(rgb(&after, 850, 350), rgb(&before.0, 850, 350));
 }

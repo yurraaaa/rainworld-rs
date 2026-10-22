@@ -1,7 +1,7 @@
 //! GPU side of the room sprites: a `sprite.wgsl` pipeline per game shader, a texture
 //! per atlas page, the room globals, `_NoiseTex2`, the screen-sized textures some
 //! shaders read (level image, what was drawn behind the level, the frame grab, the
-//! palette) and the per-frame sprite buffers.
+//! palette, the room's rain mask) and the per-frame sprite buffers.
 //!
 //! Mirrors: -
 
@@ -26,6 +26,7 @@ struct RoomUniform {
     frame: [f32; 2],
     fog_amount: f32,
     water_level: f32,
+    cam_in_room_rect: [f32; 4],
 }
 
 /// The sprite pipelines, the atlas pages' bind groups and the frame's buffers.
@@ -60,11 +61,13 @@ pub(crate) struct ScreenTextures<'a> {
     pub palette: &'a wgpu::TextureView,
     /// `_NoiseTex` (`Palettes/noise`).
     pub noise: &'a wgpu::TextureView,
+    /// The room's `RainMask_` texture (`WaterLight`'s `_MainTex`).
+    pub rain_mask: &'a wgpu::TextureView,
 }
 
 impl SpritePipeline {
     /// Each shader and its fragment entry point.
-    const SHADERS: [(Shader, &'static str); 18] = [
+    const SHADERS: [(Shader, &'static str); 19] = [
         (Shader::Basic, "fs_basic"),
         (Shader::FlatLight, "fs_flat_light"),
         (Shader::OverseerZip, "fs_overseer_zip"),
@@ -83,6 +86,7 @@ impl SpritePipeline {
         (Shader::Fog, "fs_fog"),
         (Shader::DeathFall, "fs_death_fall"),
         (Shader::WaterSplash, "fs_water_splash"),
+        (Shader::WaterLight, "fs_water_light"),
     ];
 
     /// `_hologramThreshold` at render scale 1 (`RainWorld`, decompile 110635: 0.5 when
@@ -163,6 +167,7 @@ impl SpritePipeline {
                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                     count: None,
                 },
+                Self::texture_entry(7, true),
             ],
         });
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -250,6 +255,7 @@ impl SpritePipeline {
                 grab: &blank,
                 palette: &blank,
                 noise: &blank,
+                rain_mask: &blank,
             },
         );
         Self {
@@ -405,6 +411,10 @@ impl SpritePipeline {
             textures.palette,
             textures.noise,
         ];
+        let rain_mask = wgpu::BindGroupEntry {
+            binding: 7,
+            resource: wgpu::BindingResource::TextureView(textures.rain_mask),
+        };
         let mut entries: Vec<wgpu::BindGroupEntry<'_>> = views
             .iter()
             .enumerate()
@@ -419,6 +429,7 @@ impl SpritePipeline {
                 resource: wgpu::BindingResource::Sampler(sampler),
             });
         }
+        entries.push(rain_mask);
         device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("sprite screen textures"),
             layout,
@@ -460,6 +471,7 @@ impl SpritePipeline {
                 grab: &self.blank,
                 palette,
                 noise,
+                rain_mask: &self.blank,
             },
         )
     }
@@ -496,6 +508,7 @@ impl SpritePipeline {
             frame: [frame_size.0 as f32, frame_size.1 as f32],
             fog_amount: globals.fog_amount,
             water_level: globals.water_level,
+            cam_in_room_rect: globals.cam_in_room_rect,
         };
         queue.write_buffer(&self.uniform, 0, bytemuck::bytes_of(&uniform));
         self.noise_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
