@@ -22,8 +22,8 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **Hunter follow-ups** (user, 2026-10-22, after the spear on the back): `HardmodeStart`
   (the Hunter's scripted LF_H01 first cycle, its spear, NSHSwarmer, `Red_stomach` pearl,
   Deer, scripted input/camera/map) as its own job later; `SocialEventRecognizer.
-  CreaturePutItemOnGround` in `ReleaseObject` and the back spear's lay-down drop (small
-  job); the `sprOnBackStick` in the region state's `STICKS` with the save work; the
+  CreaturePutItemOnGround` in `ReleaseObject`, the back spear's lay-down drop and a
+  dropped or tossed creature (small job; user 2026-10-22); the `sprOnBackStick` in the region state's `STICKS` with the save work; the
   back spear's zero-gravity placement with zero gravity; `EatMeatUpdate`'s back-spear lock
   with eating meat (the grab-lizards step).
 
