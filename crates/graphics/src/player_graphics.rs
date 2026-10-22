@@ -19,6 +19,7 @@ use rw_sim::{Animation, BodyMode, Player, PlayerHands, PlayerSurroundings, RoomE
 use crate::body_part::{BodyPart, PointConnection};
 use crate::draw::{Color, SlugcatName};
 use crate::hand::{HandContext, HandGrasp, SlugcatHand};
+use crate::limb::LimbMode;
 use crate::looker::ObjectLooker;
 use crate::math::{CustomVec, Mathf};
 use crate::tail::{TailAnchor, TailSegment};
@@ -328,6 +329,42 @@ impl PlayerGraphics {
         true
     }
 
+    /// The hands' spear-on-back branch: past 5 ticks of the stash/retrieve counter the
+    /// first empty hand (a spear on the back) or the first hand holding a spear reaches
+    /// over the shoulder, the body and head leaning away from it. True when the branch
+    /// runs (the counter is past 5), so the later branches do not.
+    fn spear_on_back_hands(&mut self, player: &Player, around: &PlayerSurroundings<'_>) -> bool {
+        let Some(s) = player.spear_on_back().filter(|s| s.counter > 5) else {
+            return false;
+        };
+        let has = s.has_a_spear();
+        let hand = (0..2).find(|&i| match around.grasps[i] {
+            None => has,
+            Some(e) => !has && around.world.is_spear(e),
+        });
+        let Some(i) = hand else { return true };
+        if around.grasps[i].is_some() {
+            self.overlap[i] = Some(false);
+        }
+        let side = if i == 0 { -1.0 } else { 1.0 };
+        let counter = s.counter as f32;
+        let limb = &mut self.hands[i].limb;
+        self.hands[i].reaching_for_object = true;
+        limb.mode = LimbMode::HuntRelativePosition;
+        limb.relative_hunt_pos = if has {
+            let t = counter.inverse_lerp(9.0, 20.0);
+            let reach = Vec2::new(side * 20.0, -30.0) * (t * PI).mathf_sin();
+            reach.slerp(Vec2::new(0.0, 1.0), t)
+        } else {
+            let reach = Vec2::new(side * 30.0, -20.0) * 1.0f32.lerp_to(0.2, s.flip.abs());
+            reach.slerp(Vec2::new(1.0, 1.0), counter.inverse_lerp(14.0, 20.0))
+        };
+        let at = limb.absolute_hunt_pos;
+        self.draw_positions[0][0] += at.direction_to(self.draw_positions[0][0]) * 0.7;
+        self.head.vel += at.direction_to(self.head.pos) * 1.5;
+        true
+    }
+
     /// `Regurgitate`'s push on the head.
     pub fn nudge_head(&mut self, dv: Vec2) {
         self.head.vel += dv;
@@ -346,7 +383,8 @@ impl PlayerGraphics {
     }
 
     /// What `Player.GraphicsModuleUpdated` reads: the hands' (pos, vel), `spearDir`,
-    /// the held weapons' overlap and the hands' push on the main chunk.
+    /// the held weapons' overlap, the hands' push on the main chunk, and the draw
+    /// positions and head the spear on the back sits between.
     #[must_use]
     pub fn hand_motion(&self) -> PlayerHands {
         PlayerHands {
@@ -357,6 +395,8 @@ impl PlayerGraphics {
             spear_dir: self.spear_dir,
             overlap: self.overlap,
             body_push: self.body_push,
+            draw_positions: [self.draw_positions[0][0], self.draw_positions[1][0]],
+            head: self.head.pos,
         }
     }
 
@@ -505,7 +545,10 @@ impl PlayerGraphics {
 
         self.update_head(player, room);
         self.update_legs(player, room);
-        if player.is_conscious() && !self.throw_hands(around) {
+        if player.is_conscious()
+            && !self.throw_hands(around)
+            && !self.spear_on_back_hands(player, around)
+        {
             self.reach_for_fly(player, around);
         }
         self.update_hands(player, room, water, around, rng);

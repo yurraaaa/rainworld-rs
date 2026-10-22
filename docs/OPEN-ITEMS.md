@@ -8,9 +8,6 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **Debug UI region switcher** (2026-10-19): the F1 debug UI's Region tab lists the
   regions on disk but its button does nothing; it needs region changes and gates,
   which are not ported.
-- **The Hunter's `SpearOnBack`**, and the LF_H01 spear; with it (user, 2026-10-22) its
-  use in `DangerGraspPickup` (`SpearToHand`) and `spearOnBack.DropSpear` in `Player.Die`
-  and `Player.Stun`.
 - **`ExplosiveSpear` behaviour.** The flag is ported; the explosion is not.
 
 - **Draw order by container add order** (user, 2026-10-22): objects that never went

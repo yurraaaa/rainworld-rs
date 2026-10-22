@@ -56,6 +56,8 @@ mod noise;
 mod over;
 #[path = "game_player_grabbed.rs"]
 mod player_grabbed;
+#[path = "game_spear_on_back.rs"]
+mod spear_on_back;
 
 pub use heavy_ai::HeavyAiThrottle;
 pub use items::Grabability;
@@ -258,6 +260,10 @@ pub struct PlayerHands {
     pub overlap: [Option<bool>; 2],
     /// What the hands added to the main chunk's velocity (the swallow's shake).
     pub body_push: Vec2,
+    /// `drawPositions[0, 0]` and `drawPositions[1, 0]` (the spear on the back's anchors).
+    pub draw_positions: [Vec2; 2],
+    /// `head.pos`.
+    pub head: Vec2,
 }
 
 /// What the player's graphics read of its room and hands.
@@ -727,6 +733,9 @@ impl RainWorldGame {
     fn spawn_player(&mut self, tile: (i32, i32), observer: &mut dyn PlayerObserver) {
         let mut player = Player::create(&mut self.rng);
         player.set_stats(self.character_stats);
+        if self.campaign.name == rw_assets::SlugcatName::Red {
+            player.give_spear_on_back();
+        }
         player.set_object_in_stomach(self.stomach_from_save());
         self.world.player_mass = player.total_mass();
         self.karma_flower_grow_pos = None;
@@ -2111,7 +2120,7 @@ impl RainWorldGame {
     /// `LoseAllGrasps`).
     pub fn kill_player(&mut self) {
         if let Some(p) = &mut self.player {
-            p.die();
+            p.die(&mut self.rng);
         }
         self.apply_player_releases();
         let room = self

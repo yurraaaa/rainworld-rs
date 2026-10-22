@@ -43,6 +43,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `game_over.rs` | `GameOver`, karma flower spot | `RainWorldGame.GameOver` |
 | `game_player.rs` | slugcat hands: bat-fly catch, eat, swallow, throw, hand switch | `Player.GrabUpdate`, `Collide` |
 | `game_player_grabbed.rs`, `game_player_grabbed_tests.rs` | the player held: `creature_grab` (`CanBeGrabbed`, `Player.Grabbed`), the `dangerGrasp` block, `ThrowToGetFree`, `DangerGraspPickup`, `GameOver(dangerGrasp)`, the release under the room | `Player.Update`, `Creature.Grab` |
+| `game_spear_on_back.rs`, `game_spear_on_back_tests.rs` | the Hunter's spear on the back: stash/retrieve by holding pick-up, `SpearToBack`, `SpearToHand`, `DropSpear` applied, carried on the back | `Player.SpearOnBack` |
 | `game_shelter.rs` | shelter door in the room, sleep/hibernate checks, `DoorClosed` | `ShelterDoor` hookup |
 | `game_tracker.rs` | realized AI `Tracker`/`RelationshipTracker` running | `Tracker.cs`, `RelationshipTracker.cs` |
 | `game_triggers.rs` | `ActiveTriggerChecker`s, `FireEvent`s | `Room.Loaded` triggers |
@@ -76,7 +77,8 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 `falls.rs` (impact, stun, die), `grabbed.rs` (held: `dangerGrasp` state and timers,
 `cantBeGrabbedCounter`, the pacifying stun, `WALLSTUCK`), `exhaustion.rs` (aerobic level, malnourishment),
 `grab.rs` (hand counters, `ThrowDirection`), `shortcut.rs` (enter/ride/leave tubes),
-`sleep.rs` (`SleepUpdate`), `sounds.rs` (slide loop, plays). `tests.rs`, `tests/`: tests.
+`sleep.rs` (`SleepUpdate`), `sounds.rs` (slide loop, plays), `spear_on_back.rs` (the Hunter's
+`SpearOnBack` state, `DropSpear`'s draws in `Stun` and `Die`). `tests.rs`, `tests/`: tests.
 
 ## `world/` (the loaded world and its abstract layer)
 
@@ -136,6 +138,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 ## `item/`
 
 `weapon.rs` (`Weapon`, `WeaponKind::{Rock, Spear}`), `spear_stick.rs` (`SpearStick`, `SpearStickKind`),
+`on_back_stick.rs` (`OnBackStick`, the Hunter's `AbstractOnBackStick`),
 `weapon_tests.rs`.
 
 ## Where is X?
@@ -167,6 +170,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | Room realization / loading | `world/realizer.rs`, `world/realized.rs`, `world/mod.rs` |
 | Rain cycle | `world/rain_cycle.rs` |
 | Eating, picking up, throwing | `game_player.rs`, `game_items.rs`, `player/grab.rs` |
+| The Hunter's spear on the back | `game_spear_on_back.rs`, `player/spear_on_back.rs`, `item/on_back_stick.rs` |
 | Body physics / collision | `chunk.rs`, `object.rs`, `player/mod.rs` |
 | Overseer / guide | `creature/overseer/`, `world/overseers_world_ai.rs`, `game_holo_light.rs` |
 | Bat flies | `creature/fly/`, `world/flies_world_ai.rs`, `game_flies.rs` |

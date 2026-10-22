@@ -1054,6 +1054,22 @@ pub struct PlayerState {
     pub can_struggle: bool,
     /// `cantBeGrabbedCounter`.
     pub cant_be_grabbed_counter: i32,
+    /// The Hunter's `spearOnBack`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub spear_on_back: Option<SpearOnBackInfo>,
+}
+
+/// `Player.SpearOnBack`.
+#[derive(Debug, Clone, Serialize)]
+pub struct SpearOnBackInfo {
+    /// The spear on the back.
+    pub spear: Option<HeldInfo>,
+    pub counter: i32,
+    pub increment: bool,
+    pub flip: f32,
+    pub interaction_locked: bool,
+    /// An `AbstractOnBackStick` joins it to the player.
+    pub stick: bool,
 }
 
 /// A creature's grasp on the player.

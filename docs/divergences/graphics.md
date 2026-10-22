@@ -39,7 +39,7 @@ in `PlayerGraphics` (they use the generic poses of their body mode, as in the ga
   grasp branch, `BiteFly`, `LookAtObject`); the swallow and regurgitation gulp, blink
   and heave of `PlayerGraphics.Update` are ported. The rain-warning look-up and
   the afraid-of-creature poses (and their blink and aerobic effects) are not ported.
-- **Not ported:** the spear on the back, heavy carry, two-handed objects, mauling and
+- **Not ported:** heavy carry, two-handed objects, mauling and
   its `Blink`s,
   the map-button stand-still blink,
   zero gravity (`ZeroGPoleGrab`, `ZeroGSwim`), antler and vine climbing,

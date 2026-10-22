@@ -77,22 +77,6 @@ impl World {
         }
     }
 
-    /// The ends of `e`'s `stuckObjects`: its grip sticks, then its spear sticks (the
-    /// game keeps one list in creation order; the port keeps the two apart).
-    fn stuck_ends(&self, e: Entity) -> Vec<(Entity, Entity)> {
-        let mut ends: Vec<(Entity, Entity)> = self
-            .sticks_of(e)
-            .iter()
-            .map(|s| (Entity::Creature(s.a), s.b))
-            .collect();
-        ends.extend(
-            self.spear_sticks_of(e)
-                .iter()
-                .map(|s| (Entity::Object(s.spear), Entity::Creature(s.creature))),
-        );
-        ends
-    }
-
     fn set_in_den(&mut self, e: Entity, in_den: bool) {
         match e {
             Entity::Creature(id) => self.creature_mut(id).in_den = in_den,
@@ -116,9 +100,9 @@ impl World {
             self.move_entity(e, den);
         }
         self.set_in_den(e, true);
-        let count = self.stuck_ends(e).len();
+        let count = self.stuck_objects(e).len();
         for num in (0..count).rev() {
-            let Some(&(a, b)) = self.stuck_ends(e).get(num) else {
+            let Some(&(a, b)) = self.stuck_objects(e).get(num) else {
                 continue;
             };
             for end in [a, b] {
@@ -191,9 +175,9 @@ impl World {
     /// still in the den come out with it.
     fn physical_is_exiting_den(&mut self, e: Entity, rng: &mut UnityRandom) {
         self.set_in_den(e, false);
-        let count = self.stuck_ends(e).len();
+        let count = self.stuck_objects(e).len();
         for i in 0..count {
-            let Some(&(a, b)) = self.stuck_ends(e).get(i) else {
+            let Some(&(a, b)) = self.stuck_objects(e).get(i) else {
                 continue;
             };
             for end in [a, b] {

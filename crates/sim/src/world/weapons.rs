@@ -261,6 +261,18 @@ impl World {
         mode: WeaponMode,
         rng: &mut UnityRandom,
     ) {
+        self.change_weapon_mode_spun(id, mode, None, rng);
+    }
+
+    /// [`Self::change_weapon_mode`]; a spear going `Free` with `spin` takes that spin
+    /// instead of drawing it (`SpearOnBack.DropSpear` drew it already).
+    pub(crate) fn change_weapon_mode_spun(
+        &mut self,
+        id: ObjectId,
+        mode: WeaponMode,
+        spin: Option<crate::item::SpearSpin>,
+        rng: &mut UnityRandom,
+    ) {
         let room = self.object(id).pos.room;
         let Some(room) = self.realized(room).map(|r| r.room.clone()) else {
             return;
@@ -273,7 +285,7 @@ impl World {
                 rng,
                 update_seq: &mut seq,
             };
-            weapon.change_mode(mode, object, &mut cx);
+            weapon.change_mode_spun(mode, object, &mut cx, spin);
             object.realized = Some(weapon);
         }
         self.update_seq = seq;

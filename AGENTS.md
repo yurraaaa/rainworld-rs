@@ -183,7 +183,8 @@ for older notes' line numbers; new notes cite file and member.
     realization, flocks, hives, chains, pipe travel, sounds, graphics.
   - Player: catches, holds, throws, eats flies (SU_A42's Eat lesson, then
     SU_A43's super-jump); picks up, carries, swaps, drops, swallows,
-    regurgitates and throws rocks and spears. Bitten by a lizard (step 8,
+    regurgitates and throws rocks and spears; the Hunter carries one spear on its
+    back (D3). Bitten by a lizard (step 8,
     D19): held in its jaws (stunned, `dangerGrasp`), struggles free with a
     throw (a weapon at the grabber) or grabs a weapon, dies of a hurting bite;
     60 ticks held is `GameOver(dangerGrasp)`, cancelled if it gets free.

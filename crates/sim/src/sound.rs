@@ -153,6 +153,7 @@ sound_ids! {
     SlugcatSwitchHandsComplete = "Slugcat_Switch_Hands_Complete",
     SlugcatPickUpRock = "Slugcat_Pick_Up_Rock",
     SlugcatPickUpSpear = "Slugcat_Pick_Up_Spear",
+    SlugcatStashSpearOnBack = "Slugcat_Stash_Spear_On_Back",
     SlugcatPickUpMiscInanimate = "Slugcat_Pick_Up_Misc_Inanimate",
     SlugcatThrowMiscInanimate = "Slugcat_Throw_Misc_Inanimate",
     SlugcatLayDownObject = "Slugcat_Lay_Down_Object",

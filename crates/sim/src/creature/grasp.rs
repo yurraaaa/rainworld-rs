@@ -426,20 +426,46 @@ impl World {
     }
 
     fn add_connected(&self, e: Entity, list: &mut Vec<Entity>) {
-        for s in self.sticks_of(e) {
-            for other in [Entity::Creature(s.a), s.b] {
+        for (a, b) in self.stuck_objects(e) {
+            for other in [a, b] {
                 if !list.contains(&other) {
                     list.push(other);
                     self.add_connected(other, list);
                 }
             }
         }
-        for other in self.spear_stick_partners(e) {
-            if !list.contains(&other) {
-                list.push(other);
-                self.add_connected(other, list);
-            }
-        }
+    }
+
+    /// `stuckObjects` of `e` as (A, B) pairs in creation order: its grip, spear and
+    /// on-back sticks, which the port keeps in three lists sharing one serial counter.
+    #[must_use]
+    pub fn stuck_objects(&self, e: Entity) -> Vec<(Entity, Entity)> {
+        let mut sticks: Vec<(u64, Entity, Entity)> = self
+            .sticks_of(e)
+            .iter()
+            .map(|s| (s.serial, Entity::Creature(s.a), s.b))
+            .collect();
+        sticks.extend(self.spear_sticks_of(e).iter().map(|s| {
+            (
+                s.serial,
+                Entity::Object(s.spear),
+                Entity::Creature(s.creature),
+            )
+        }));
+        sticks.extend(
+            self.on_back_sticks()
+                .iter()
+                .filter(|s| e == Entity::Creature(s.player) || e == Entity::Object(s.spear))
+                .map(|s| {
+                    (
+                        s.serial,
+                        Entity::Creature(s.player),
+                        Entity::Object(s.spear),
+                    )
+                }),
+        );
+        sticks.sort_unstable_by_key(|&(serial, _, _)| serial);
+        sticks.into_iter().map(|(_, a, b)| (a, b)).collect()
     }
 
     /// `PhysicalObject.Update`'s clean-up: grasps on it that their grabber no longer

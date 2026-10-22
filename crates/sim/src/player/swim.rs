@@ -408,7 +408,7 @@ impl Player {
             self.stun(10, rng, sounds);
             self.drown += 1.0 / DROWN_TICKS;
             if self.drown >= 1.0 {
-                self.die();
+                self.die(rng);
             }
         } else if self.air_in_lungs < DROWN_THRESHOLD {
             self.slow_movement_stun = self.slow_movement_stun.max(1);

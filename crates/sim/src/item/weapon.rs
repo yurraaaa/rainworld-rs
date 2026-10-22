@@ -210,6 +210,23 @@ pub struct Throw {
     pub eu: bool,
 }
 
+/// A spear's `SetRandomSpin` draws: the direction, then the speed.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SpearSpin {
+    sign: f32,
+    speed: f32,
+}
+
+impl SpearSpin {
+    pub fn draw(rng: &mut UnityRandom) -> Self {
+        let sign = rng.value();
+        Self {
+            sign,
+            speed: rng.value(),
+        }
+    }
+}
+
 /// What `ChangeMode` and `PlaceInRoom` read.
 pub struct ModeChange<'a> {
     pub room: &'a Room,
@@ -447,11 +464,17 @@ impl Weapon {
             WeaponKind::Rock => {
                 self.rotation_speed = (-100.0f32).lerp(100.0, rng.value()) * gravity;
             }
-            WeaponKind::Spear(s) => {
-                let sign = if rng.value() < 0.5 { -1.0 } else { 1.0 };
-                self.rotation_speed = sign * 50.0f32.lerp(150.0, rng.value()) * gravity;
-                s.spinning = true;
-            }
+            WeaponKind::Spear(_) => self.spin_spear(SpearSpin::draw(rng)),
+        }
+    }
+
+    /// A spear's `SetRandomSpin` from its two draws.
+    fn spin_spear(&mut self, spin: SpearSpin) {
+        let gravity = 0.05f32.lerp(1.0, ROOM_GRAVITY);
+        if let WeaponKind::Spear(s) = &mut self.kind {
+            let sign = if spin.sign < 0.5 { -1.0 } else { 1.0 };
+            self.rotation_speed = sign * 50.0f32.lerp(150.0, spin.speed) * gravity;
+            s.spinning = true;
         }
     }
 
@@ -461,6 +484,18 @@ impl Weapon {
         new: WeaponMode,
         object: &mut AbstractObject,
         cx: &mut ModeChange<'_>,
+    ) {
+        self.change_mode_spun(new, object, cx, None);
+    }
+
+    /// [`Self::change_mode`] with the spin of a spear going `Free` drawn earlier
+    /// (`SpearOnBack.DropSpear` draws where the game does; the world applies it after).
+    pub fn change_mode_spun(
+        &mut self,
+        new: WeaponMode,
+        object: &mut AbstractObject,
+        cx: &mut ModeChange<'_>,
+        spin: Option<SpearSpin>,
     ) {
         let mode = self.mode;
         let throw_y = self.throw_dir.1;
@@ -543,7 +578,10 @@ impl Weapon {
         c.collide_with_terrain = matches!(new, WeaponMode::Free | WeaponMode::Thrown);
         c.go_through_floors = true;
         if new == WeaponMode::Free {
-            self.set_random_spin(cx.rng);
+            match spin {
+                Some(spin) => self.spin_spear(spin),
+                None => self.set_random_spin(cx.rng),
+            }
         }
         // Leaving `Thrown` within 120 of a creature is a missed `WeaponAttack`.
         if self.closest_crit_dist < 120.0

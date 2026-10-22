@@ -131,6 +131,8 @@ pub struct World {
     loaded_creatures: Vec<CreatureId>,
     /// The spears' sticks into creatures (both ends' `stuckObjects`).
     pub(crate) spear_sticks: Vec<crate::item::SpearStick>,
+    /// The Hunter's `AbstractOnBackStick`s.
+    pub(crate) on_back_sticks: Vec<crate::item::OnBackStick>,
     /// Spears pulled out of creatures since the game last played their
     /// `Spear_Dislodged_From_Creature` (room, position).
     pub(crate) dislodged: Vec<(i32, Vec2)>,
@@ -187,6 +189,7 @@ impl World {
             player_mass: crate::slugcat::CHUNK_MASS * 2.0,
             loaded_creatures: Vec::new(),
             spear_sticks: Vec::new(),
+            on_back_sticks: Vec::new(),
             dislodged: Vec::new(),
             session: crate::creature::SessionDeaths::default(),
             communities: rw_save::CreatureCommunities::new(&[]),

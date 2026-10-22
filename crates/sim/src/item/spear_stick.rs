@@ -95,17 +95,6 @@ impl World {
         self.spear_sticks.retain(|s| s.serial != serial);
     }
 
-    /// The other ends of `e`'s spear sticks, for `GetAllConnectedObjects`.
-    pub(crate) fn spear_stick_partners(&self, e: Entity) -> Vec<Entity> {
-        self.spear_sticks_of(e)
-            .iter()
-            .map(|s| match e {
-                Entity::Object(_) => Entity::Creature(s.creature),
-                Entity::Creature(_) => Entity::Object(s.spear),
-            })
-            .collect()
-    }
-
     /// `TryImpaleSmallCreature` (Remix's vanilla-exploit rule off): with at most five
     /// creatures on the spear and the first free place below 5, `creature` is impaled
     /// there.

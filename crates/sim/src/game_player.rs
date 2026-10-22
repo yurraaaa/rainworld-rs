@@ -307,15 +307,16 @@ impl RainWorldGame {
         self.world.release_grasp(self.player_id, grasp);
     }
 
-    /// `Stun` or `Die` let go of everything (`LoseAllGrasps`), one record per grasp.
+    /// `Stun` or `Die` let go of everything (`LoseAllGrasps`), one record per grasp, and
+    /// dropped the spear on the back (`DropSpear`).
     pub(super) fn apply_player_releases(&mut self) {
         let Some(p) = self.player.as_mut() else {
             return;
         };
-        if !p.take_release_grasps() {
-            return;
+        if p.take_release_grasps() {
+            self.release_all_grasps();
         }
-        self.release_all_grasps();
+        self.apply_back_spear_drop();
     }
 
     /// Lets go of everything held.
@@ -338,8 +339,7 @@ impl RainWorldGame {
         }
     }
 
-    /// `Player.GrabUpdate` (base game, Remix off; the Hunter's spear on the back is not
-    /// ported).
+    /// `Player.GrabUpdate` (base game, Remix off), the Hunter's spear on the back first.
     pub(super) fn grab_update(
         &mut self,
         index: i32,
@@ -348,6 +348,7 @@ impl RainWorldGame {
         observer: &mut dyn PlayerObserver,
     ) {
         let eu = self.even_update();
+        self.spear_on_back_update(index, eu, observer);
         let Some(p) = self.player.as_ref() else {
             return;
         };
@@ -365,11 +366,22 @@ impl RainWorldGame {
             let edible = (0..2).find(|&i| grasps[i].is_some_and(|e| self.world.player_edible(e)));
             let stomach = self.player_ref().object_in_stomach().is_some();
             let full = self.food_in_stomach() >= self.max_food();
-            let swallowable = if (edible.is_none() || full) && !stomach {
-                (0..2).find(|&i| grasps[i].is_some_and(|e| self.world.can_be_swallowed(e)))
-            } else {
-                None
-            };
+            let can_put = self.can_put_spear_to_back();
+            // The first held spear to stash or object to swallow (`num5`, `num8`).
+            let (mut to_back, mut swallowable) = (None, None);
+            if (edible.is_none() || full) && (!stomach || can_put) {
+                for (i, held) in grasps.iter().enumerate() {
+                    let Some(e) = *held else { continue };
+                    if can_put && self.world.is_spear(e) {
+                        to_back = Some(i);
+                        break;
+                    }
+                    if self.world.can_be_swallowed(e) {
+                        swallowable = Some(i);
+                        break;
+                    }
+                }
+            }
             let g = *self.player_ref().grab_state();
             if edible.is_some() && g.no_pick_up_on_release < 1 {
                 if !input[0].pickup {
@@ -381,8 +393,12 @@ impl RainWorldGame {
             } else if input[0].pickup && !input[1].pickup {
                 self.pickup_pressed();
             }
-            if input[0].pickup && (swallowable.is_some() || stomach) {
-                swallowing = true;
+            if input[0].pickup {
+                if to_back.is_some() || self.can_retrieve_spear_from_back() {
+                    self.set_spear_increment(true);
+                } else if swallowable.is_some() || stomach {
+                    swallowing = true;
+                }
             }
             let g = *self.player_ref().grab_state();
             let p = self.player_ref();
@@ -397,6 +413,7 @@ impl RainWorldGame {
                 eating = true;
                 if self.food_in_stomach() < self.max_food() {
                     swallowing = false;
+                    self.set_spear_increment(false);
                     if g.eat_counter < 1 {
                         self.player_mut().grab_mut().eat_counter = 15;
                         self.bite_edible_object(index, eu, observer);
@@ -407,6 +424,16 @@ impl RainWorldGame {
             }
         } else if input[0].pickup && !input[1].pickup {
             self.pickup_pressed();
+        } else if input[0].pickup {
+            let held_spear = self.can_put_spear_to_back()
+                && self
+                    .player_grasps()
+                    .iter()
+                    .flatten()
+                    .any(|&e| self.world.is_spear(e));
+            if held_spear || self.can_retrieve_spear_from_back() {
+                self.set_spear_increment(true);
+            }
         }
         let g = self.player_mut().grab_mut();
         if eating && g.eat_counter > 0 {
@@ -605,6 +632,7 @@ impl RainWorldGame {
             self.food_in_stomach(),
             self.quarter_food_points()
         );
+        self.lock_spear_on_back();
         let holders = self.world.creature(fly).grabbed_by.clone();
         for g in holders.iter().rev() {
             if g.grabber == self.player_id {
@@ -751,6 +779,7 @@ impl RainWorldGame {
         if let Some(h) = hands {
             self.player_mut().body.chunks[0].vel += h.body_push;
         }
+        self.spear_on_back_graphics_updated(hands);
         let grasps = self.player_grasps();
         if grasps.iter().all(Option::is_none) {
             return;

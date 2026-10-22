@@ -116,7 +116,7 @@ impl RainWorldGame {
         if !in_den || player.carried_by().is_none() {
             return;
         }
-        player.die();
+        player.die(&mut self.rng);
         let sounds = if room == self.camera_room {
             &mut self.sounds
         } else {

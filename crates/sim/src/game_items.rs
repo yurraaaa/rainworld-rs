@@ -76,9 +76,10 @@ impl RainWorldGame {
         (0..2).find(|&i| grasps[i].is_none())
     }
 
-    /// `CanIPickThisUp` (Remix off: a spear stuck in a wall stays; the Hunter's spear on
-    /// the back is not ported).
-    fn can_i_pick_this_up(&self, e: Entity) -> bool {
+    /// `CanIPickThisUp` (Remix off: a spear stuck in a wall stays; a spear on a back
+    /// cannot be taken; with room on the Hunter's back a free or lodged spear always can,
+    /// past the two-hand and forbidden checks).
+    pub(super) fn can_i_pick_this_up(&self, e: Entity) -> bool {
         let g = self.grabability(e);
         if g == Grabability::CantGrab {
             return false;
@@ -87,8 +88,16 @@ impl RainWorldGame {
         let weapon = e
             .object()
             .and_then(|id| self.world.object(id).realized.as_deref());
-        if weapon.is_some_and(|w| w.spear().is_some() && w.mode == WeaponMode::OnBack) {
-            return false;
+        if let Some(w) = weapon.filter(|w| w.spear().is_some()) {
+            if w.mode == WeaponMode::OnBack {
+                return false;
+            }
+            // The Hunter can always take a free or lodged spear while its back is empty.
+            if matches!(w.mode, WeaponMode::Free | WeaponMode::StuckInCreature)
+                && self.can_put_spear_to_back()
+            {
+                return true;
+            }
         }
         if g == Grabability::BigOneHand
             && grasps
@@ -245,12 +254,37 @@ impl RainWorldGame {
             if let Some(i) = (0..2).find(|&i| grasps[i].is_some()) {
                 self.player_mut().grab_mut().want_to_pick_up = 0;
                 self.release_object(index, i);
+            } else if self.spear_on_back().is_some_and(|s| s.has_a_spear())
+                && self.player_ref().head().contact().y < 0
+            {
+                // `CreaturePutItemOnGround` is not ported (D3).
+                let vel = self.player_ref().head().vel;
+                if let Some(p) = self.player.as_mut() {
+                    p.drop_back_spear(vel, &mut self.rng);
+                }
+                self.apply_back_spear_drop();
             }
             return;
         }
         let Some(candidate) = self.player_ref().grab_state().pick_up_candidate else {
             return;
         };
+        let full = grasps.iter().all(Option::is_some)
+            || grasps
+                .iter()
+                .flatten()
+                .any(|&e| self.grabability(e) >= Grabability::BigOneHand);
+        if let Entity::Object(id) = candidate
+            && self.world.is_spear(candidate)
+            && self.can_put_spear_to_back()
+            && full
+        {
+            log::info!("spear straight to back");
+            self.play_on_player(index, SoundId::SlugcatSwitchHandsInit);
+            self.spear_to_back(index, id);
+            self.player_mut().grab_mut().want_to_pick_up = 0;
+            return;
+        }
         let free = grasps.iter().filter(|g| g.is_none()).count();
         if self.grabability(candidate) == Grabability::TwoHands {
             for i in 0..2 {
@@ -476,6 +510,7 @@ impl RainWorldGame {
         let stomach = self.player_ref().object_in_stomach().is_some();
         if stomach && counter > 110 {
             self.regurgitate(index, observer);
+            self.lock_spear_on_back();
             self.player_mut().grab_mut().swallow_and_regurgitate_counter = 0;
         } else if !stomach && counter > 90 {
             let grasps = self.player_grasps();
@@ -490,6 +525,7 @@ impl RainWorldGame {
             let head = &mut self.player_mut().body.chunks[0];
             head.pos += at.direction_to(head.pos) * 2.0;
             self.swallow_object(index, i);
+            self.lock_spear_on_back();
             self.player_mut().grab_mut().swallow_and_regurgitate_counter = 0;
             observer.player_swallowing();
         }

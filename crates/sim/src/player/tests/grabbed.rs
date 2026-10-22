@@ -106,14 +106,14 @@ fn a_pacifying_hold_keeps_the_stun_at_ten() {
     // `Creature.Update`: the stun counts down first, then under 10 a pacifying grasp
     // puts it back to 10.
     let mut p = held_player();
-    p.creature_update(None);
+    p.creature_update(None, &mut UnityRandom::new(0));
     assert_eq!(p.stun, 10);
     p.stun = 40;
-    p.creature_update(None);
+    p.creature_update(None, &mut UnityRandom::new(0));
     assert_eq!(p.stun, 39);
     p.set_held(true, false);
     p.stun = 5;
-    p.creature_update(None);
+    p.creature_update(None, &mut UnityRandom::new(0));
     assert_eq!(p.stun, 4);
 }
 
@@ -139,15 +139,15 @@ fn held_near_the_bottom_every_grasp_lets_go() {
     for c in &mut p.body.chunks {
         c.reset_at(Vec2::new(100.0, -489.5));
     }
-    p.creature_update(None);
+    p.creature_update(None, &mut UnityRandom::new(0));
     assert!(!p.take_release_grabbed_by());
     for c in &mut p.body.chunks {
         c.reset_at(Vec2::new(100.0, -490.5));
     }
-    p.creature_update(None);
+    p.creature_update(None, &mut UnityRandom::new(0));
     assert!(p.take_release_grabbed_by());
     p.set_held(false, false);
-    p.creature_update(None);
+    p.creature_update(None, &mut UnityRandom::new(0));
     assert!(!p.take_release_grabbed_by());
 }
 
