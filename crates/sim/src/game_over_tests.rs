@@ -189,3 +189,45 @@ fn the_hunter_out_of_cycles_goes_to_reds_game_over() {
     assert!(g.take_reds_game_over());
     assert!(!g.take_reds_game_over());
 }
+
+#[test]
+fn a_dev_start_death_calls_game_over_and_a_respawn_can_die_again() {
+    // The port's dev starts (not story sessions) game over as a story does (D4); the
+    // Survivor's new-game state places no flower.
+    let room = floor_room();
+    let data = WorldData::from_room(&room);
+    let rooms = Arc::new(FixedRoom(LoadedRoom {
+        room,
+        settings: RoomSettings::ANCESTOR.clone(),
+    }));
+    let survivor = &SlugcatCampaign::SURVIVOR;
+    let world = World::new(data, rooms, survivor.timeline, ActiveMods::NONE, false);
+    let start = Start {
+        room: 0,
+        tile: Some((4, 1)),
+    };
+    let mut g = RainWorldGame::new(
+        world,
+        survivor,
+        start,
+        UnityRandom::new(5),
+        Sounds::default(),
+        &mut (),
+    );
+    for _ in 0..40 {
+        g.tick(Input::NONE, &mut ());
+    }
+    assert!(!g.is_story_session());
+    let head = g.player().unwrap().body.chunks[HEAD].pos;
+    g.kill_player();
+    let over = g.take_game_over().expect("game over");
+    assert_eq!((over.death_pos, over.karma_flower), (head, None));
+    // R: a fresh player whose death games over again.
+    g.respawn(&mut ());
+    for _ in 0..10 {
+        g.tick(Input::NONE, &mut ());
+    }
+    assert_eq!(g.take_game_over(), None);
+    g.kill_player();
+    assert!(g.take_game_over().is_some());
+}

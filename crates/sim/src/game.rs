@@ -97,7 +97,8 @@ use crate::shortcut::{CreatureVessel, Transport};
 use crate::world::{AbstractTick, FollowCreature, RainCycle, RegionState, RoomRealizer, World};
 use crate::{
     EmitterPlace, EntranceColor, HudMapLink, Input, LobbyVessel, MapDiscovery, Player,
-    ShortcutHandler, Sounds, Vec2, VesselOwner, VesselStep, Water, determine_safe_spawn_tile,
+    ShortCutColor, ShortcutHandler, Sounds, Vec2, VesselOwner, VesselStep, Water,
+    determine_safe_spawn_tile,
 };
 
 /// What the app attaches to the player (its graphics module), called where the game
@@ -1222,7 +1223,7 @@ impl RainWorldGame {
             player.set_vessel_at(tile);
             self.shortcuts.transport.push(Transport::Player);
             if node.kind == NodeType::Exit {
-                self.blink_arrival(lobby, 2.5, CreatureType::Slugcat);
+                self.blink_arrival(lobby, 2.5, ShortCutColor::Slugcat);
             }
         }
         log::info!(
@@ -1259,8 +1260,8 @@ impl RainWorldGame {
 
     /// A vessel came out of the lobby into exit node `lobby.entrance_node`: the room
     /// blinks the entrance leading there by `fac` (2.5 for a slugcat, else 1.5), which
-    /// camera 0, if it already shows the room, colours as `creature`.
-    fn blink_arrival(&mut self, lobby: LobbyVessel, fac: f32, creature: CreatureType) {
+    /// camera 0, if it already shows the room, colours in the creature's `color`.
+    fn blink_arrival(&mut self, lobby: LobbyVessel, fac: f32, color: ShortCutColor) {
         let Some(node) = usize::try_from(lobby.entrance_node).ok() else {
             return;
         };
@@ -1281,7 +1282,7 @@ impl RainWorldGame {
             self.entrance_colors.push(EntranceColor {
                 room: lobby.room,
                 entrance,
-                creature,
+                color,
             });
         }
     }

@@ -1,6 +1,7 @@
 //! A dev start (a room on the command line) has its own save state in memory: a fed
-//! slugcat sleeping in a shelter and a starving one reach the sleep and starve screens,
-//! and the port's save directory is never written (D16). Skipped without the installed
+//! slugcat sleeping in a shelter, a starving one and a dead one reach the sleep, starve
+//! and death screens, and the port's save directory is never written (D16); R leaves a
+//! game over (D4). Skipped without the installed
 //! game.
 
 use std::path::{Path, PathBuf};
@@ -105,4 +106,73 @@ fn a_dev_start_starves_on_the_starve_screen_without_saving() {
     s.starve();
     assert!(s.frames(1, &[]).karma_screen.is_some());
     assert_eq!(DirSnapshot::of(port.path()), before, "the save dir changed");
+}
+
+#[test]
+fn a_dev_start_death_games_over_and_goes_to_the_death_screen_without_saving() {
+    // `GameOver` as in a story (D4): the prompt in game-over mode, its 40-tick lock, then
+    // the map press's `GoToDeathScreen` on the dev start's in-memory state (D16).
+    let Some((mut s, port, before)) = Session::dev_start() else {
+        return;
+    };
+    let game = s.frontend_mut().unwrap().game_mut().expect("the game");
+    game.scene.game_mut().sim_mut().kill_player();
+    s.frames(1, &[]);
+    assert!(s.hud_state().expect("hud").text_prompt.game_over);
+    // Space held through the 40-tick lock and the tick after it (`lastAnyKey` starts
+    // true) goes nowhere; a press after a release does.
+    let held = s.frames(41, &["Space"]);
+    assert_eq!(held.upcoming, None);
+    assert_eq!(s.frames(1, &[]).upcoming, None);
+    let pressed = s.frames(1, &["Space"]);
+    assert_eq!(pressed.upcoming.as_deref(), Some("DeathScreen"));
+    s.settle_on(ProcessId::DeathScreen);
+    assert!(s.frames(1, &[]).karma_screen.is_some());
+    assert!(s.frontend_mut().unwrap().ctx.menu.saves.path().is_none());
+    // CONTINUE, once the buttons come on: a new dev game, as after the sleep screen.
+    let mut on = false;
+    for _ in 0..1000 {
+        let state = s.frames(1, &[]).karma_screen.expect("the death screen");
+        if !state.buttons[0].ends_with("greyed") {
+            on = true;
+            break;
+        }
+    }
+    assert!(on, "the buttons came on");
+    s.tap("Return");
+    s.settle_on(ProcessId::Game);
+    let game = s.frontend_mut().unwrap().game_mut().expect("the game");
+    assert!(!game.scene.game().story_session());
+    assert!(!game.scene.game().sim().player().unwrap().is_dead());
+    assert_eq!(DirSnapshot::of(port.path()), before, "the save dir changed");
+}
+
+#[test]
+fn a_dev_start_respawn_leaves_game_over() {
+    // R in game-over mode: a fresh player, the prompt back to normal, and no death
+    // screen however long the map button is pressed.
+    let Some((mut s, _port, _before)) = Session::dev_start() else {
+        return;
+    };
+    let game = s.frontend_mut().unwrap().game_mut().expect("the game");
+    game.scene.game_mut().sim_mut().kill_player();
+    s.frames(5, &[]);
+    assert!(s.hud_state().expect("hud").text_prompt.game_over);
+    let game = s.frontend_mut().unwrap().game_mut().expect("the game");
+    assert!(game.scene.respawn());
+    assert!(
+        game.scene
+            .hud()
+            .unwrap()
+            .text_prompt
+            .dependent_on_grasp
+            .is_none()
+    );
+    assert!(!s.hud_state().expect("hud").text_prompt.game_over);
+    for _ in 0..30 {
+        assert_eq!(s.frames(1, &["Space"]).upcoming, None);
+        assert_eq!(s.frames(1, &[]).upcoming, None);
+    }
+    let game = s.frontend_mut().unwrap().game_mut().expect("the game");
+    assert!(!game.scene.game().sim().player().unwrap().is_dead());
 }

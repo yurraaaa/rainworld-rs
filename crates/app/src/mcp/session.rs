@@ -371,7 +371,7 @@ impl Session {
         match (params.seed, self.start.clone()) {
             (Some(seed), Some(start)) => self.start_game(start, seed)?,
             _ => {
-                if !self.scene_or_err()?.game_mut().respawn() {
+                if !self.scene_or_err()?.respawn() {
                     return Err("no respawn in a story session".to_owned());
                 }
             }

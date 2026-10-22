@@ -40,6 +40,8 @@ pub struct CreatureTemplate {
     pub water_relationship: WaterRelationship,
     /// `dangerousToPlayer`: the threat music's and the guide's weight of the type.
     pub dangerous_to_player: f32,
+    /// `shortcutColor` (RGB): white unless set; `Creature.ShortCutColor()`'s default.
+    pub shortcut_color: [f32; 3],
 }
 
 /// `CreatureTemplate.Relationship.Type`.
@@ -211,6 +213,7 @@ impl CreatureTemplate {
             side_highway: false,
             water_relationship: WaterRelationship::Amphibious,
             dangerous_to_player: 0.0,
+            shortcut_color: [1.0, 1.0, 1.0],
         }
     }
 
@@ -533,6 +536,7 @@ impl CreatureTemplate {
         ..Self::base(CreatureType::TubeWorm)
     };
     const DADDY_LONG_LEGS: Self = Self {
+        shortcut_color: [0.0, 0.0, 1.0],
         dangerous_to_player: 0.85,
         abstracted_laziness: 400,
         roam_between_rooms_chance: 0.05,
@@ -644,6 +648,7 @@ impl CreatureTemplate {
         ..Self::base(CreatureType::BigSpider)
     };
     const BIG_NEEDLE_WORM: Self = Self {
+        shortcut_color: [1.0, 0.5, 0.5],
         dangerous_to_player: 0.5,
         abstracted_laziness: 10,
         roam_between_rooms_chance: 0.07,
@@ -720,6 +725,7 @@ impl CreatureTemplate {
             body_size: 2.5,
             off_screen_speed: 0.1,
             dangerous_to_player: 0.75,
+            shortcut_color: [0.7, 0.7, 0.4],
             ..Self::child(CreatureType::BrotherLongLegs, &Self::DADDY_LONG_LEGS)
         },
         Self::TENTACLE_PLANT,
@@ -735,6 +741,7 @@ impl CreatureTemplate {
         Self {
             body_size: 8.5,
             dangerous_to_player: 0.9,
+            shortcut_color: [1.0, 0.0, 0.0],
             ..Self::child(CreatureType::RedCentipede, &Self::CENTIPEDE)
         },
         Self {

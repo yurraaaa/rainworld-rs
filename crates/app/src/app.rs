@@ -13,6 +13,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
+use crate::window_identity::WindowIdentity;
 use rw_menu::{KeyboardKey, ProcessId, ScreenState};
 use rw_render::{PresentRect, Renderer, Resolution, RoomLayers, WgpuRenderer};
 use winit::application::ApplicationHandler;
@@ -56,7 +57,6 @@ pub struct Options {
     pub screenshot: Option<PathBuf>,
     /// Start in the debug view.
     pub debug_view: bool,
-    pub title: String,
 }
 
 /// Window and renderer, created on `resumed`.
@@ -80,7 +80,6 @@ struct App {
     resolution: Resolution,
     /// The `Screen` and `Cursor` state the window has.
     screen: ScreenState,
-    title: String,
     /// The current process and the frames it has run, for `--screenshot` of a menu.
     process_frames: (Option<ProcessId>, u64),
     /// Quit after the current frame is presented.
@@ -109,7 +108,6 @@ impl App {
             resolution: frontend.ctx.resolution,
             screen: frontend.ctx.menu.screen,
             frontend,
-            title: options.title,
             process_frames: (None, 0),
             quit_after_frame: false,
             fatal: None,
@@ -123,7 +121,7 @@ impl App {
     fn create_view(&mut self, event_loop: &ActiveEventLoop) -> Result<View, Box<dyn Error>> {
         let [width, height] = self.screen.size.map(|v| v as u32);
         let attrs = Window::default_attributes()
-            .with_title(format!("rainworld-rs - {}", self.title))
+            .with_identity()
             .with_inner_size(PhysicalSize::new(width, height))
             .with_resizable(false)
             .with_fullscreen(
@@ -177,7 +175,7 @@ impl App {
         match Command::from_key(code) {
             Some(Command::Respawn) => {
                 if let Some(game) = self.frontend.game_mut() {
-                    let _ = game.scene.game_mut().respawn();
+                    let _ = game.scene.respawn();
                 }
             }
             Some(Command::ToggleView) => {
