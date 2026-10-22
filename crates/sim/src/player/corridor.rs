@@ -9,6 +9,7 @@
 use rw_assets::Room;
 use rw_random::UnityRandom;
 
+use super::drips::DripBurst;
 use super::{Animation, BodyMode, HEAD, HIPS, Player};
 use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
@@ -242,6 +243,8 @@ impl Player {
             hips.vel.y += 10.0;
             if self.can_corridor_jump > 0 {
                 self.shoot_up_counter = 30;
+                let pos = self.body.chunks[HIPS].pos.tile_middle() + Vec2::new(0.0, -9.0);
+                self.shed_drips(DripBurst::ShootUp { pos });
                 self.play_sound(SoundId::SlugcatVerticalChuteJumpSuccess, HEAD, 1.0, 1.0);
                 self.vertical_corridor_slide_counter = 22;
                 self.slow_movement_stun = 2;
@@ -263,6 +266,8 @@ impl Player {
         }
         let dir = flip as f32;
         if self.can_corridor_jump > 0 && x != 0 {
+            let pos = self.body.chunks[HIPS].pos.tile_middle() + Vec2::new(-9.0 * dir, 0.0);
+            self.shed_drips(DripBurst::SideShoot { pos, flip });
             self.play_sound(
                 SoundId::SlugcatCorridorHorizontalSlideSuccess,
                 HEAD,

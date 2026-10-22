@@ -38,7 +38,7 @@ it (D13). What still differs is only the seed and the call order:
   rooms the camera is not in make no draws, as in the game (`Room.PlaySound` only
   reaches the microphone of a camera in that room). Draws of unported code in
   the same functions (the rain-warning look-up,
-  the `WaterDrip`s of slides and corridor shoots, grasps of objects other than bat flies,
+  the zero-gravity corridor slide's `WaterDrip`s, grasps of objects other than bat flies,
   DLC, and the sounds of those) are missing, as is the draw-skipping of
   `AllowSound`'s crowd cap (D12); the rain-warning look-up short-circuits before drawing
   while rain is far off, as at the start of a cycle.
@@ -194,6 +194,11 @@ it (D13). What still differs is only the seed and the call order:
   on the cosmetic stream (D1). `DrippingSound`'s loop makes its sound draws once when
   it starts in the camera's room, and again whenever its unheard emitter died and the
   camera is back.
+- **Water surface loop.** `Water.Update` starts with `waterSounds.Update()`: in a
+  water room viewed by camera 0 the loop's start makes the sound draws once
+  (`Water_Surface_Calm_LOOP`: one sample, 7 draws), again whenever its unheard emitter
+  died and the camera is back, and never in an unviewed room. Fully `SilenceWater`ed
+  (no base-game room) it still starts once at volume 1.
 - **Weapons hitting creatures.** An overseer hearing of a flying weapon
   (`OverseerAI.FlyingWeapon`) draws once; a rock hitting a fly draws once (kill or
   stun), one hitting an overseer (no small creature) or a spear none; `Overseer.HitByWeapon` draws `Range(200, 1500)` when the

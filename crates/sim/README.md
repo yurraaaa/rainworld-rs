@@ -68,11 +68,13 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `screen_shake.rs`, `screen_shake_tests.rs`, `game_screen_shake_tests.rs` | camera 0's shake: `CameraShake` (`screenShake`, `microShake`, the per-tick jump at the head of the tick), `ScreenMovement` (camera side, `Room.ScreenMovement` with its ceiling drips), `TerrainImpact`'s bump, `ceilingTiles` | `RoomCamera.Update/ScreenMovement`, `Room.ScreenMovement` |
 | `shelter.rs` | `ShelterDoor` (intact, base game) | `ShelterDoor` |
 | `shortcut.rs` | `ShortcutHandler` divider, vessels, entrance blinking | `ShortcutHandler` |
-| `sound.rs` | `Room.PlaySound` events + `VirtualMicrophone` draws (disembodied loops too) | `VirtualMicrophone.PlaySound`, `PlayDisembodiedLoop` |
+| `sound.rs` | `Room.PlaySound` events + `VirtualMicrophone` draws (disembodied and rect loops too, `SoundRect`) | `VirtualMicrophone.PlaySound`, `PlayDisembodiedLoop`, `PlayRectSound` |
 | `spawn.rs` | safe spawn tile, placing an object | `DetermineSafeSpawnTile`, `PlaceInRoom` |
 | `trigger.rs` | triggers in a realized room, event-made room objects | `ActiveTriggerChecker` |
 | `water.rs` | wavy surface sim, `FloatWaterLevel` | `Water`, `DefaultSurface` |
 | `water_drip.rs` | `WaterDrip` droplets; `Room.Update`'s ambient ceiling drip roll | `WaterDrip`, `Room.Update` |
+| `water_sound.rs`, `water_sound_tests.rs` | `WaterSound`: the water's calm surface loop (`RectangularDynamicSoundLoop` on the band under the surface, `SilenceWater`) | `Water.waterSounds`, `RectangularDynamicSoundLoop` |
+| `game_water_sound.rs`, `game_water_sound_tests.rs` | the surface loop at the head of `Water.Update` and its emitters in the update list | `Room.Update` |
 | `dripping_sound.rs`, `dripping_sound_tests.rs` | `DrippingSound`: the cycle start's `Cycle_Start_Drips` loop (`DisembodiedDynamicSoundLoop`) | `DrippingSound` |
 | `cosmetic.rs` | `Spark`, `ExplosionSpikes`, `OverseerEffectSprite` sprites in update lists | `CosmeticSprite`s |
 
@@ -85,7 +87,8 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 `falls.rs` (impact, stun, die), `grabbed.rs` (held: `dangerGrasp` state and timers,
 `cantBeGrabbedCounter`, the pacifying stun, `WALLSTUCK`), `exhaustion.rs` (aerobic level, malnourishment),
 `grab.rs` (hand counters, `ThrowDirection`), `carry.rs` (`HeavyCarry`: run slowdown, drag through narrow spaces, pulled into a shortcut, jump power), `shortcut.rs` (enter/ride/leave tubes),
-`sleep.rs` (`SleepUpdate`), `sounds.rs` (slide loop, plays), `spear_on_back.rs` (the Hunter's
+`sleep.rs` (`SleepUpdate`), `sounds.rs` (slide loop, plays), `drips.rs` (the skid's and
+corridor shoots' `WaterDrip`s), `spear_on_back.rs` (the Hunter's
 `SpearOnBack` state, `DropSpear`'s draws in `Stun` and `Die`). `tests.rs`, `tests/`: tests.
 
 ## `world/` (the loaded world and its abstract layer)
@@ -164,6 +167,7 @@ sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `m
 |---|---|
 | Shortcuts / pipes, vessels, lobby | `shortcut.rs`, `player/shortcut.rs`, `game.rs` (lobby), `game_lizards.rs`, `game_flies.rs`, `game_carried.rs` (what a vessel carries) |
 | Water, swimming, drowning | `water.rs`, `player/swim.rs`, `water_drip.rs` |
+| The water's surface sound | `water_sound.rs`, `game_water_sound.rs` (audio mix: `rw-audio` `voice.rs`) |
 | Ceiling drips, the cycle start's dripping sound | `water_drip.rs`, `dripping_sound.rs`, `game_drips.rs`, `screen_shake.rs` (shaken drips) |
 | Camera shake, `ScreenMovement` | `screen_shake.rs` (sim side), `rw-render` `room_camera.rs`, app `scene.rs` |
 | Abstract creature AI (roam, migrate) | `world/abstract_ai.rs`, `abstract_path.rs`, `creature/ai.rs` |

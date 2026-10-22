@@ -16,7 +16,7 @@ Silent, tick-timed music sources keep headless runs deterministic.
 | `output.rs` | kira backend on cpal, stops and joins its thread on drop |
 | `clips.rs` | `ClipLoader`, `ClipKey`, `ClipSlot`: clips decoded on background threads (`CacheAllAudio`) |
 | `mic.rs` | `VirtualMicrophone` formulas: pan, volume, low-pass |
-| `voice.rs` | sound objects (`DisembodiedSound`, `StaticPositionSound`, `ObjectSound`, `DisembodiedLoop`) and their emitters |
+| `voice.rs` | sound objects (`DisembodiedSound`, `StaticPositionSound`, `ObjectSound`, `DisembodiedLoop`, `RectangularSound`) and their emitters |
 | `ambient.rs` | `AmbientSoundPlayer`: room `AmbientSounds:` loops |
 | `menu_mic.rs` | `MenuMicrophone` playback (`play`, `set_loop`, `stop`) |
 | `music/mod.rs` | module root |
@@ -37,6 +37,7 @@ Silent, tick-timed music sources keep headless runs deterministic.
 - Sim sound events to playback: `lib.rs` `Audio::play_events`.
 - Positional pan/volume/low-pass: `mic.rs`.
 - Emitters following body chunks (loops): `voice.rs`.
+- Rect sounds (the water's surface loop: nearest point of the rect to the listener): `voice.rs` `Voice::mix`.
 - Room ambient loops: `ambient.rs`, `Audio::set_ambients` / `new_room`.
 - Menu sounds: `menu_mic.rs`.
 - Music player and song switching: `music/player.rs`.

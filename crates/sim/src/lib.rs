@@ -51,6 +51,7 @@ mod vec2;
 mod vec3;
 mod water;
 mod water_drip;
+mod water_sound;
 pub mod world;
 
 pub use camera::CameraView;
@@ -85,14 +86,15 @@ pub use shortcut::{
     CreatureVessel, EntranceColor, LobbyVessel, ShortcutHandler, ShortcutsBlinking, VesselOwner,
 };
 pub use sound::{
-    EmitterId, EmitterPlace, LoopEmitter, PlayedSound, SoundEvent, SoundId, SoundSource, Sounds,
-    StaticSoundLoop,
+    EmitterId, EmitterPlace, LoopEmitter, PlayedSound, SoundEvent, SoundId, SoundRect, SoundSource,
+    Sounds, StaticSoundLoop,
 };
 pub use spawn::{determine_safe_spawn_tile, place_in_room};
 pub use vec2::{TileExt, Vec2};
 pub use vec3::Vec3;
 pub use water::{SurfaceChunk, Water};
 pub use water_drip::{WaterDrip, WaterGlitter};
+pub use water_sound::WaterSound;
 
 #[cfg(test)]
 mod tests;

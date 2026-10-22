@@ -36,12 +36,12 @@ fn solid_room(w: usize, h: usize) -> Grid {
 }
 
 /// A one-tile tunnel in row 5 from column 3 to 26, closed at both ends.
-fn tunnel_room() -> Room {
+pub(super) fn tunnel_room() -> Room {
     solid_room(30, 12).row(5, 3..=26, b'.').room()
 }
 
 /// A one-tile shaft in column 5 from row 2 (on the Solid floor) to row 27.
-fn shaft_room() -> Room {
+pub(super) fn shaft_room() -> Room {
     solid_room(12, 30).set(5, 2..=27, b'.').room()
 }
 
@@ -58,7 +58,7 @@ fn mouth_room() -> Room {
 impl Player {
     /// In `CorridorClimb` at rest: both chunks keep the end-of-tick `vel.y = 0.9` that the
     /// next physics step's gravity cancels exactly.
-    fn in_corridor_at(head: Vec2, hips: Vec2) -> Self {
+    pub(super) fn in_corridor_at(head: Vec2, hips: Vec2) -> Self {
         let mut p = Self::new();
         p.body.chunks[HEAD].reset_at(head);
         p.body.chunks[HIPS].reset_at(hips);
