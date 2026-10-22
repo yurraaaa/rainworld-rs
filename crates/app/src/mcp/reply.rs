@@ -1148,6 +1148,14 @@ pub struct RealizedState {
     pub room: String,
     pub wait_to_enter: i32,
     pub ready_for_player: bool,
+    /// The room's `CeilingDrips` (settings, inherited from the region's).
+    pub ceiling_drips: f32,
+    /// The live `WaterDrip`s' positions, oldest first (their count is the length).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub drips: Vec<[f32; 2]>,
+    /// The `DrippingSound`'s loop volume while it is in the update list.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dripping_sound: Option<f32>,
 }
 
 /// The camera room's exits (`get_exits`).

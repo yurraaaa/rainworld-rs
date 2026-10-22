@@ -119,7 +119,7 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   port's `camera_moves_to` sets the camera's room at once, where the game's
   `cameras[0].room` stays the old room until `ApplyPositionChange` at the next
   `RoomCamera.Update`. For the rest of that tick `ScreenMovement`s and the drips'
-  viewed check go to the new room.
+  viewed check go to the new room, as does `Room.Update`'s ceiling drip (`BeingViewed`).
 - **Creatures at open room edges** (user, 2026-10-22, for when more creatures get
   bodies): room borders are not solid (`Room.GetTile` copies the edge tile outside the
   room, so open air edges extend forever; the room file's `Border:` field is unread).

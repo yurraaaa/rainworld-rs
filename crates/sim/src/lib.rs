@@ -27,6 +27,7 @@ mod chunk;
 pub mod color;
 mod cosmetic;
 pub mod creature;
+mod dripping_sound;
 mod float_ext;
 mod game;
 pub mod insect;
@@ -58,6 +59,7 @@ pub use cosmetic::{
     StationaryEffect,
 };
 pub use creature::{ShortCutColor, WorldCoordinate};
+pub use dripping_sound::DrippingSound;
 pub use float_ext::FloatExt;
 pub use game::{
     CameraMove, GameOver, Grabability, HeavyAiThrottle, HudEvent, NewGameWorld, OverseerCall,

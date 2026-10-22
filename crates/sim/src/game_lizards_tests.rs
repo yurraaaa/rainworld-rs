@@ -39,6 +39,8 @@ fn game_with_sounds(
     let data = WorldData::from_room(&room);
     let settings = RoomSettings {
         random_item_density: 0.0,
+        // No rain danger: `Room.Update`'s ceiling-drip roll makes no draws here.
+        danger_type: Some(rw_assets::DangerType::None),
         ..RoomSettings::ANCESTOR
     };
     let rooms = Arc::new(FixedRoom(LoadedRoom { room, settings }));

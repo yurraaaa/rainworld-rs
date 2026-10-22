@@ -7,7 +7,7 @@
 //! that plays, and the random start when asked. An audio backend turns the
 //! [`SoundEvent`]s into sound; the sim never reads back from it.
 //!
-//! Mirrors: Room.cs (PlaySound), VirtualMicrophone.cs (PlaySound), SoundLoader.cs
+//! Mirrors: Room.cs (PlaySound, PlayDisembodiedLoop), VirtualMicrophone.cs (PlaySound, PlayDisembodiedLoop), SoundLoader.cs
 
 use std::sync::Arc;
 
@@ -228,6 +228,7 @@ sound_ids! {
     LizardVoicePinkE = "Lizard_Voice_Pink_E",
     LizardVoiceGreenA = "Lizard_Voice_Green_A",
     LizardVoiceBlueA = "Lizard_Voice_Blue_A",
+    CycleStartDrips = "Cycle_Start_Drips",
     // No `sounds.txt` line: it never plays.
     SpearHitSmallCreature = "Spear_Hit_Small_Creature",
 }
@@ -251,6 +252,8 @@ pub enum SoundSource {
     /// `ObjectSound` on a `ChunkSoundEmitter` of another body, at `pos` when made;
     /// [`SoundEvent::Moved`] follows it.
     Object { emitter: EmitterId, pos: Vec2 },
+    /// `DisembodiedLoop` on a `DisembodiedLoopEmitter`: no position, `pan` in -1..=1.
+    DisembodiedLoop { emitter: EmitterId, pan: f32 },
 }
 
 /// One sound object the game would create, with the outcome of its random draws
@@ -545,6 +548,23 @@ impl Sounds {
         self.next_emitter = self.next_emitter.wrapping_add(1);
         let source = SoundSource::Object { emitter, pos };
         self.play(id, source, looped, [volume, pitch], false, rng);
+        emitter
+    }
+
+    /// `Room.PlayDisembodiedLoop(id, vol, pitch, pan)`: the emitter exists even when
+    /// nothing plays.
+    pub fn play_disembodied_loop(
+        &mut self,
+        id: SoundId,
+        pan: f32,
+        volume: f32,
+        pitch: f32,
+        rng: &mut UnityRandom,
+    ) -> EmitterId {
+        let emitter = EmitterId(self.next_emitter);
+        self.next_emitter = self.next_emitter.wrapping_add(1);
+        let source = SoundSource::DisembodiedLoop { emitter, pan };
+        self.play(id, source, true, [volume, pitch], false, rng);
         emitter
     }
 

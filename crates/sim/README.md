@@ -49,6 +49,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `game_shelter.rs` | shelter door in the room, sleep/hibernate checks, `KillAllHostiles`, `DoorClosed` | `ShelterDoor` hookup |
 | `game_tracker.rs` | realized AI `Tracker`/`RelationshipTracker` running | `Tracker.cs`, `RelationshipTracker.cs` |
 | `game_triggers.rs` | `ActiveTriggerChecker`s, `FireEvent`s | `Room.Loaded` triggers |
+| `game_drips.rs`, `game_drips_tests.rs` | the ceiling drip in `Room.Update`, `Room.Loaded`'s `DrippingSound` and its turns (sound, emitters) in the update list | `Room.Update`, `Room.Loaded` |
 | `game_weapons.rs` | rocks/spears in the update list, loops, sparks | - |
 | `*_tests.rs`, `tests.rs` | tests for their `game_*`/`shelter` siblings; `tests.rs` is physics unit tests | - |
 | `camera.rs` | what the sim reads of camera 0, visibility tests | `RoomCamera` |
@@ -65,11 +66,12 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `screen_shake.rs`, `screen_shake_tests.rs`, `game_screen_shake_tests.rs` | camera 0's shake: `CameraShake` (`screenShake`, `microShake`, the per-tick jump at the head of the tick), `ScreenMovement` (camera side, `Room.ScreenMovement` with its ceiling drips), `TerrainImpact`'s bump, `ceilingTiles` | `RoomCamera.Update/ScreenMovement`, `Room.ScreenMovement` |
 | `shelter.rs` | `ShelterDoor` (intact, base game) | `ShelterDoor` |
 | `shortcut.rs` | `ShortcutHandler` divider, vessels, entrance blinking | `ShortcutHandler` |
-| `sound.rs` | `Room.PlaySound` events + `VirtualMicrophone` draws | `VirtualMicrophone.PlaySound` |
+| `sound.rs` | `Room.PlaySound` events + `VirtualMicrophone` draws (disembodied loops too) | `VirtualMicrophone.PlaySound`, `PlayDisembodiedLoop` |
 | `spawn.rs` | safe spawn tile, placing an object | `DetermineSafeSpawnTile`, `PlaceInRoom` |
 | `trigger.rs` | triggers in a realized room, event-made room objects | `ActiveTriggerChecker` |
 | `water.rs` | wavy surface sim, `FloatWaterLevel` | `Water`, `DefaultSurface` |
-| `water_drip.rs` | `WaterDrip` droplets | `WaterDrip` |
+| `water_drip.rs` | `WaterDrip` droplets; `Room.Update`'s ambient ceiling drip roll | `WaterDrip`, `Room.Update` |
+| `dripping_sound.rs`, `dripping_sound_tests.rs` | `DrippingSound`: the cycle start's `Cycle_Start_Drips` loop (`DisembodiedDynamicSoundLoop`) | `DrippingSound` |
 | `cosmetic.rs` | `Spark`, `ExplosionSpikes`, `OverseerEffectSprite` sprites in update lists | `CosmeticSprite`s |
 
 ## `player/` (slugcat; `Player.cs` split by topic)
@@ -160,6 +162,7 @@ sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `m
 |---|---|
 | Shortcuts / pipes, vessels, lobby | `shortcut.rs`, `player/shortcut.rs`, `game.rs` (lobby), `game_lizards.rs`, `game_flies.rs`, `game_carried.rs` (what a vessel carries) |
 | Water, swimming, drowning | `water.rs`, `player/swim.rs`, `water_drip.rs` |
+| Ceiling drips, the cycle start's dripping sound | `water_drip.rs`, `dripping_sound.rs`, `game_drips.rs`, `screen_shake.rs` (shaken drips) |
 | Camera shake, `ScreenMovement` | `screen_shake.rs` (sim side), `rw-render` `room_camera.rs`, app `scene.rs` |
 | Abstract creature AI (roam, migrate) | `world/abstract_ai.rs`, `abstract_path.rs`, `creature/ai.rs` |
 | Type-specific abstract AI | `world/abstract_ai_kinds.rs`, `creature/ai_kinds.rs`, `creature/overseer/abstract_ai.rs` |

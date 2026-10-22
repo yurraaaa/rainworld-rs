@@ -137,7 +137,8 @@ pub enum WeaponKind {
 }
 
 /// `ChunkDynamicSoundLoop` (138330): a loop on the item's chunk that starts when `sound`
-/// changes or the volume rises from 0, and stops when the volume falls to 0.
+/// changes or the volume rises from 0, and stops when the volume falls to 0. Its
+/// [`Self::update_disembodied`] is `DisembodiedDynamicSoundLoop`'s.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ChunkDynamicSoundLoop {
     /// `sound`; `None` is `SoundID.None`.
@@ -1244,6 +1245,11 @@ impl ChunkDynamicSoundLoop {
         self.v
     }
 
+    #[must_use]
+    pub fn pitch(&self) -> f32 {
+        self.p
+    }
+
     /// The `Pitch` setter.
     pub fn set_pitch(&mut self, p: f32) {
         self.p = p;
@@ -1265,13 +1271,23 @@ impl ChunkDynamicSoundLoop {
 
     /// `DynamicSoundLoop.Update` with what it reads of the room and game.
     pub fn update_in(&mut self, owner_room: Option<i32>, pos: Vec2, cx: &mut LoopCx<'_>) {
+        self.update_from(owner_room, LoopSource::Chunk(pos), cx);
+    }
+
+    /// `DisembodiedDynamicSoundLoop`'s `DynamicSoundLoop.Update`: it starts through
+    /// `Room.PlayDisembodiedLoop` at `pan`.
+    pub fn update_disembodied(&mut self, owner_room: Option<i32>, pan: f32, cx: &mut LoopCx<'_>) {
+        self.update_from(owner_room, LoopSource::Disembodied { pan }, cx);
+    }
+
+    fn update_from(&mut self, owner_room: Option<i32>, source: LoopSource, cx: &mut LoopCx<'_>) {
         if self.emitter.is_some_and(|e| e.slated) {
             self.emitter = None;
         }
         if self.sound != self.last_sound {
             self.stop();
             if self.sound.is_some() && self.v > 0.0 && owner_room.is_some() {
-                self.start(pos, cx);
+                self.start(source, cx);
             }
             self.last_sound = self.sound;
         }
@@ -1282,7 +1298,7 @@ impl ChunkDynamicSoundLoop {
             && self.sound.is_some()
             && owner_room.is_some()
         {
-            self.start(pos, cx);
+            self.start(source, cx);
         }
         match &mut self.emitter {
             Some(e) if owner_room == Some(e.room) => {
@@ -1294,16 +1310,22 @@ impl ChunkDynamicSoundLoop {
     }
 
     /// `Start`: a sound with a working trigger plays on the chunk as a loop
-    /// (`Room.PlaySound(sound, chunk, loop: true, v, p)`), its emitter a new room object.
-    fn start(&mut self, pos: Vec2, cx: &mut LoopCx<'_>) {
+    /// (`Room.PlaySound(sound, chunk, loop: true, v, p)`) or disembodied
+    /// (`Room.PlayDisembodiedLoop`), its emitter a new room object.
+    fn start(&mut self, source: LoopSource, cx: &mut LoopCx<'_>) {
         let Some(sound) = self.sound else { return };
         if cx.triggers.trigger(sound.name()).is_none() {
             return;
         }
         let before = cx.sounds.events().len();
-        let id = cx
-            .sounds
-            .play_on_object(sound, pos, true, self.v, self.p, cx.rng);
+        let id = match source {
+            LoopSource::Chunk(pos) => cx
+                .sounds
+                .play_on_object(sound, pos, true, self.v, self.p, cx.rng),
+            LoopSource::Disembodied { pan } => cx
+                .sounds
+                .play_disembodied_loop(sound, pan, self.v, self.p, cx.rng),
+        };
         let playing = cx.room_index == cx.camera_room && cx.sounds.events().len() > before;
         *cx.update_seq += 1;
         self.emitter = Some(LoopEmitter {
@@ -1352,6 +1374,16 @@ impl ChunkDynamicSoundLoop {
         all.retain(|e| !e.slated);
         all
     }
+}
+
+/// Where a `DynamicSoundLoop` plays.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum LoopSource {
+    /// On a chunk at this position.
+    Chunk(Vec2),
+    Disembodied {
+        pan: f32,
+    },
 }
 
 /// What a `DynamicSoundLoop` reads of its room and the game.

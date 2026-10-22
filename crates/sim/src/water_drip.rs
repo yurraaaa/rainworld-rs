@@ -1,13 +1,14 @@
 //! `WaterDrip` (42265): a falling droplet, thrown off a wet ceiling by a creature's hard
-//! terrain impact or shaken loose by the slugcat's bites. A `CosmeticSprite` in its
-//! room's update list whose `Update` draws on the shared stream; the sprites are
-//! `rw-graphics`'.
+//! terrain impact, shaken loose by the slugcat's bites, or dripping from a rain room's
+//! ceiling on its own (`Room.Update`). A `CosmeticSprite` in its room's update list
+//! whose `Update` draws on the shared stream; the sprites are `rw-graphics`'.
 //!
-//! Mirrors: WaterDrip.cs
+//! Mirrors: WaterDrip.cs, Room.cs (Update)
 
-use rw_assets::{Room, Terrain};
+use rw_assets::{DangerType, Room, Terrain};
 use rw_random::UnityRandom;
 
+use crate::world::RealizedRoom;
 use crate::{FloatExt, TerrainImpact, Vec2, Water};
 
 /// A realized room's `waterGlitterCycle` and its last value (`Room.Update` lowers it by
@@ -31,6 +32,45 @@ impl WaterGlitter {
         let phase = -self.last.lerp(self.cycle, time_stacker) + num / 800.0;
         let sin = f64::from(phase * std::f32::consts::PI * 2.0).sin() as f32;
         (0.5 + sin * 0.5).mathf_pow(7.0)
+    }
+}
+
+impl RealizedRoom {
+    /// `Room.Update`'s ambient ceiling drip, after the water's update: in a viewed,
+    /// non-shelter room with a rain danger type and ceiling tiles, `Random.value <
+    /// gravity` (always true at gravity 1, still a draw), then a second draw against the
+    /// chance that none of the ceiling tiles drips, then a drip at a random ceiling
+    /// tile (tile, x jitter, `WaterDrip`'s life). Without a drip it makes 0 to 2 draws.
+    pub fn ambient_ceiling_drip(
+        &self,
+        viewed: bool,
+        shelter: bool,
+        cycle_start_up: f32,
+        rng: &mut UnityRandom,
+    ) -> Option<WaterDrip> {
+        if !viewed
+            || shelter
+            || self.settings.danger_type == Some(DangerType::None)
+            || self.ceiling_tiles.is_empty()
+        {
+            return None;
+        }
+        if rng.value() >= crate::player::ROOM_GRAVITY {
+            return None;
+        }
+        let drips = self.settings.ceiling_drips;
+        let chance = ((1.0 - cycle_start_up) * drips.inverse_lerp(0.0, 0.5))
+            .max(drips.mathf_pow(7.0))
+            * 0.05;
+        let tiles = self.ceiling_tiles.len();
+        let none = f64::from(1.0 - chance).powf(tiles as f64);
+        if f64::from(rng.value()) <= none {
+            return None;
+        }
+        let len = i32::try_from(tiles).unwrap_or(i32::MAX);
+        let tile = self.ceiling_tiles[rng.range_i32(0, len) as usize];
+        let pos = Vec2::middle_of_tile(tile) + Vec2::new((-10.0).lerp(10.0, rng.value()), 9.0);
+        Some(WaterDrip::new(pos, Vec2::ZERO, false, rng))
     }
 }
 
