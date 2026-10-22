@@ -462,3 +462,58 @@ fn spine_spikes_follow_a_straight_spine() {
         }
     }
 }
+
+/// `UpdateTailSegment` of a lizard out of water: with `showDominance` above 0 each of
+/// the seven segments shakes by `DegToVec(value * 360) * (showDominance * value * 2)`,
+/// two draws a segment; at 0 the tail draws nothing.
+#[test]
+fn a_dominant_tail_shakes_with_two_draws_a_segment() {
+    let Some((mut s, id)) = Session::with_green_lizard(None) else {
+        return;
+    };
+    s.lizard_ticks(20);
+    let g = s.lizard_module(id);
+    let scene = s.scene_mut().expect("game");
+    let world = scene.game().sim().world();
+    let view = world.lizard_view(g.creature, None).expect("view");
+    assert!(view.lizard.swim <= 0.5);
+    let index = view.at.room;
+    let room = std::sync::Arc::clone(&world.realized(index).expect("room").room);
+    let camera = rw_sim::CameraView {
+        room: index,
+        current: 0,
+        next: 0,
+    };
+    let sounds = rw_sim::Sounds::default();
+    let table = std::sync::Arc::clone(sounds.table());
+    for (dominance, draws) in [(0.0, 0), (0.5, 14)] {
+        let mut g = g.clone();
+        g.show_dominance = dominance;
+        let mut rng = UnityRandom::new(3);
+        let start = rng.clone();
+        let mut silent = rw_sim::Sounds::default();
+        let mut cx = rw_sim::creature::lizard::LizardGraphicsTick {
+            room_index: index,
+            room: &room,
+            water: None,
+            cameras: room.cameras().len(),
+            camera_room: &room,
+            camera: &camera,
+            rng: &mut rng,
+            sounds: &mut silent,
+            triggers: &table,
+            tick: 0,
+            update_seq: 0,
+            darkness: 0.0,
+            light_slated: false,
+            added: Vec::new(),
+            light_upkeep: None,
+        };
+        g.update_tail(&view, &room, &mut cx);
+        let mut expected = start;
+        for _ in 0..draws {
+            expected.value();
+        }
+        assert_eq!(rng, expected, "dominance {dominance}");
+    }
+}

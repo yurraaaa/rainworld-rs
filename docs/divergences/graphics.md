@@ -77,8 +77,8 @@ colour layer and the five head sprites, in `AddToContainer`'s order, coloured as
 - **Cosmetics** (lizard step 5b). The green lizard's (`SpineSpikes`, `BumpHawk`,
   `LongShoulderScales`, `ShortBodyScales`, `TailTuft`, `LongHeadScales`) are ported
   whole: the choice, the constructors, `LongBodyScales.Update` (the scales trailing
-  their roots, their shake while `showDominance` is above 0, which no base-game lizard
-  shows), `DrawSprites`, the `ApplyPalette` colours (applied every frame, as nothing
+  their roots, their shake while `showDominance` is above 0, after a dominance
+  signal), `DrawSprites`, the `ApplyPalette` colours (applied every frame, as nothing
   changes them between palette changes for a green) and `AddToContainer`'s overlap
   places, over `SpinePosition` and `GetBackPos`. `graphicHeight` is the
   `LizardScaleA` element's height, kept as a table in `rw_graphics::elements` and

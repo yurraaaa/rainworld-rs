@@ -2,7 +2,7 @@
 //! roots; the others have none), `DrawSprites` and `ApplyPalette` colours, and where
 //! `AddToContainer` puts them among the body's sprites (decompile
 //! `LizardCosmetics/*.cs`). Their only draws are the scales' shake while
-//! `showDominance` is above 0, which no base-game lizard shows.
+//! `showDominance` is above 0 (after a dominance signal).
 //!
 //! Mirrors: LizardCosmetics/LongBodyScales.cs, LizardCosmetics/Template.cs
 

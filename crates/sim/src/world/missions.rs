@@ -45,8 +45,6 @@ impl World {
             return abandon;
         }
         let Some(exit) = self.leave_room_exit(ai, coord, rng) else {
-            // The game indexes `connections` out of range here (a room without
-            // exits, or an undefined node with no open exit): nothing is chosen.
             return false;
         };
         m.destination = self.leave_room_destination(ai, coord.room, exit);
@@ -115,6 +113,8 @@ impl World {
             }
         }
         if room.connections.is_empty() {
+            // D14: the game reads `connections[-1]` and throws (IndexOutOfRange).
+            log::warn!("LeaveRoom.Act in a room without connections: the game throws here");
             return None;
         }
         let n = i32::try_from(room.connections.len()).ok()?;
@@ -141,6 +141,12 @@ impl World {
     ) -> Option<WorldCoordinate> {
         let t = self.creature(ai).template;
         let next = *self.abstract_room(here)?.connections.get(exit)?;
+        if next < 0 {
+            // D14: the random connection is unconnected; the game's
+            // `GetAbstractRoom(-1)` is null and `.index` throws (NullReference).
+            log::warn!("LeaveRoom.Act chose connection -1: the game throws here");
+            return None;
+        }
         let other = self.abstract_room(next)?;
         let entrance = other.exit_index(here);
         let value = WorldCoordinate::new(next, -1, -1, entrance);

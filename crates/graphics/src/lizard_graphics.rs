@@ -483,7 +483,8 @@ impl LizardGraphics {
             self.tail_direction = Vec2::from_degrees(deg) * cx.rng.value();
         }
         self.update_limbs(view, cx);
-        self.update_tail(view, cx.room, cx);
+        let room = cx.room;
+        self.update_tail(view, room, cx);
         self.update_head(view, cx);
         if self.voice_visualization > 0.2 {
             let shake = 8.0
@@ -803,7 +804,12 @@ impl LizardGraphics {
     }
 
     /// The tail, from the tip unless swimming.
-    fn update_tail(&mut self, view: &LizardView<'_>, room: &Room, cx: &LizardGraphicsTick<'_>) {
+    pub fn update_tail(
+        &mut self,
+        view: &LizardView<'_>,
+        room: &Room,
+        cx: &mut LizardGraphicsTick<'_>,
+    ) {
         let lizard = view.lizard;
         let stiffness = lizard
             .params
@@ -821,13 +827,13 @@ impl LizardGraphics {
         }
     }
 
-    /// `UpdateTailSegment` (its dominance shake, the only draws, never runs: no base-game
-    /// lizard shows dominance).
+    /// `UpdateTailSegment`; unless a conscious lizard swims, a shown dominance shakes the
+    /// segment (two draws: a direction, then a strength).
     fn update_tail_segment(
         &mut self,
         view: &LizardView<'_>,
         room: &Room,
-        cx: &LizardGraphicsTick<'_>,
+        cx: &mut LizardGraphicsTick<'_>,
         i: usize,
         stiffness: f32,
     ) {
@@ -869,6 +875,10 @@ impl LizardGraphics {
                 ((self.breath * 5.0 - i as f32 / n as f32) * 0.3 * std::f32::consts::PI).sin();
             let push = dp1.direction_to(dp2) + (seg.pos - a).normalized().perpendicular() * wave;
             seg.vel += push * (w * 0.85f32.mathf_pow(i as f32) * 7.0);
+        } else if self.show_dominance > 0.0 {
+            let dir = Vec2::from_degrees(cx.rng.value() * 360.0);
+            let strength = self.show_dominance * cx.rng.value() * 2.0;
+            self.tail[i].part.vel += dir * strength;
         }
     }
 

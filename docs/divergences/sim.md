@@ -562,9 +562,19 @@ second part, else a single-room world for arena levels). The campaign descriptio
   and the ActingOutMission body (`LeaveRoom.Act` calls `FindMostAttractiveExit` while
   the lizard fears something). Lizard bites and `DamageAttack` on a rival are the
   shared ones (step 7b/8; a rival takes no damage from `DamageAttack`). Where the game
-  throws on these paths (a submitting lizard with no representation of the other,
-  `LeaveRoom.Act` in a room without exits or on an undefined node with no open exit)
-  the port stops that call and goes on. The port keeps the mission that `AddMission`
+  throws on these paths the port logs a warning, stops that call and goes on with the
+  tick (divergence; how to model it is the user's open decision): a submitting lizard
+  with no representation of the sender (`RecieveCommunication`'s
+  `rep.representedCreature`, a NullReferenceException), `LeaveRoom.Act` in a room
+  without connections (`connections[-1]`, an IndexOutOfRangeException) and its random
+  connection being -1 (`World.GetAbstractRoom(-1)` is null, then `.index`, a
+  NullReferenceException). In the game no try/catch stands between `RainWorld.Update`
+  and the throw (`ProcessManager.Update`, `RainWorldGame.RawUpdate`,
+  `MainLoopProcess.RawUpdate`, `RainWorldGame.Update`, `Room.Update`, `Lizard.Update`,
+  `Act`, `LizardAI.Update`), so the rest of that frame is lost: the rest of the
+  lizard's update with `base.Update`, the room's remaining objects, the other rooms, the
+  rest of `RainWorldGame.Update`, `myTimeStacker--` and `GrafUpdate`; Unity logs the
+  exception and the next frame catches up. The port keeps the mission that `AddMission`
   replaced as the one acted on until the tracker's next update, as the game's
   `mostRelevantMission` reference does. Left out with their DLCs: safari control in the
   fighting stance's lean (`!safariControlled`) and in `ActAnimation`'s safari animation

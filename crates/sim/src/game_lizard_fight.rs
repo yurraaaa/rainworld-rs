@@ -136,8 +136,11 @@ impl RainWorldGame {
                         .agression
                         .set_anger(rep, 0.0, 0.0);
                     if rep.is_none() {
-                        // The game reads `representedCreature` of a null
-                        // representation here and throws.
+                        // D14: the game reads `representedCreature` of a null
+                        // representation here and throws (NullReference).
+                        log::warn!(
+                            "RecieveCommunication: no representation of the sender, the game throws here"
+                        );
                         return;
                     }
                     let single = self.world.single_room();
