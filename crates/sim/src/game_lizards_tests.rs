@@ -39,6 +39,8 @@ fn game_with_sounds(
     let data = WorldData::from_room(&room);
     let settings = RoomSettings {
         random_item_density: 0.0,
+        // No rain danger: `Room.Update`'s ceiling-drip roll makes no draws here.
+        danger_type: Some(rw_assets::DangerType::None),
         ..RoomSettings::ANCESTOR
     };
     let rooms = Arc::new(FixedRoom(LoadedRoom { room, settings }));
@@ -220,8 +222,7 @@ fn a_placed_lizard_falls_and_rests_on_the_floor() {
     }
     let lizard = g.world.lizard_ref(l);
     for c in lizard.chunks() {
-        // The spine's rest bend depends on the stream: a chunk may lie up to ~2 px high.
-        assert!((c.pos.y - 29.6).abs() < 2.5, "on the floor: {:?}", c.pos);
+        assert!((c.pos.y - 29.6).abs() < 1.0, "on the floor: {:?}", c.pos);
     }
     assert!(!lizard.dead);
     assert_eq!(lizard.new_to_room_invinsibility, 0);

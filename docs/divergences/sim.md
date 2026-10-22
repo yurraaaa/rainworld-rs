@@ -959,7 +959,9 @@ Room: the `WaterDrip`s of skids, slides and corridor shoots; `WaterFall` (the fa
 water of waterfall tiles, with its water-coloured drips, bubbles and sound) and the
 `WaterGate`'s falls. `Room.Update`'s ambient ceiling drip and `Room.Loaded`'s
 `DrippingSound` are ported (`game_drips.rs`); its `Random.value < gravity` compares with
-the constant room gravity 1 (zero gravity is not ported).
+the constant room gravity 1 (zero gravity is not ported). More Slugcats omitted:
+`Room.SlugcatGamemodeUniqueRoomSettings` setting `CeilingDrips` to 0 (and `wetTerrain`
+off, the waves flattened) in the Saint's timeline.
 
 Cosmetic insects (`rw_sim::insect`, effects step 3): `InsectCoordinator.Explosion` (insects
 fleeing an explosion), `NowViewed`'s early-out in an echo's room
