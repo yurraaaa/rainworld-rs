@@ -136,3 +136,13 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `ChangeRoom`/`NowViewed` waits for its level texture (`RoomCamera.Update` →
   `ApplyPositionChange`). Whether the first room's creatures join the sprite order before
   or after depends on frame timing (`../rainworld-re/notes/creature-model/model.md` §4).
+- **Edible slime mold item** (user, 2026-10-22): `Room.Loaded`'s second placed-object
+  loop makes an `AbstractConsumable(SlimeMold)` for each plain `SlimeMold` (`GetNewID`,
+  `ItemConsumed` check). Only the cosmetic patch and its `SeededRandom` gate are ported.
+- **Collected-token stalks** (user, 2026-10-22): `GoldToken`/`BlueToken` placed objects
+  make a dead `TokenStalk` in a story session when
+  `miscProgressionData.GetTokenCollected(tokenString, isBlue)`; otherwise a live
+  `CollectToken`. Needs the collected-token data, which an imported save already carries
+  (`MISCPROG` `LEVELTOKENS`/`SANDBOXTOKENS`, kept untouched by `rw-save`).
+- **More Slugcats token stalk** (user, 2026-10-22): `TokenStalk`'s MSC branches
+  (satellite head, `SataFlasher` sprite, `forceSatellite`), with the DLC.
