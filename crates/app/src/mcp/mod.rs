@@ -211,13 +211,13 @@ impl Server {
         description = "Tick, world, camera room and camera, the player's room and node, \
         the vessel waiting to enter a room, realized rooms and their entry waits, and \
         player state: chunk positions, velocities, tiles and \
-        contacts, body mode, animation, facing, standing, stun, death, shortcut travel, \
-        this tick's terrain impacts, input and controller; the new game's fade delay and \
+        contacts, body mode, animation, facing, standing, stun, death, shortcut travel \
+        (its own vessel, or the creature whose vessel carries it), this tick's terrain impacts, input and controller; the new game's fade delay and \
         SU_C04 start script; the world's creatures (kind, ID, room, node, tile, den, \
         realized; roaming creatures' abstract AI: destination, path, migration destination, den, \
         time buffer, den counter and followed creature; overseers' destination, guide state, \
         last rooms and tiles; realized lizards' body, path finder, movement and shortcut \
-        travel, AI decision (behaviour, utilities, moods, idle spot, den, prey, threat and \
+        travel (the vessel in the tubes or the lobby, with what rides along), AI decision (behaviour, utilities, moods, idle spot, den, prey, threat and \
         aggression trackers, injury), tracker, relationships, casual aggression target and \
         their graphics' look creature; social memory; what grip sticks carry); the \
         world's rocks and spears (kind, ID, room, node, tile, a spear's \

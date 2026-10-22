@@ -79,9 +79,12 @@ impl Player {
         self.danger.cant_be_grabbed_counter <= 0
     }
 
+    /// `grabbedBy` as this update starts: whether anything holds the body (which also
+    /// lifts `BodyChunk.Update`'s room-range clamp) and whether a holder pacifies.
     pub(crate) fn set_held(&mut self, held: bool, pacified: bool) {
         self.danger.held = held;
         self.danger.pacified = pacified;
+        self.body.held = held;
     }
 
     pub(crate) fn set_cant_be_grabbed_after_spit_out(&mut self) {
@@ -142,6 +145,8 @@ impl Player {
     pub(super) fn release_under_room(&mut self, limit: f32) {
         if self.body.chunks[HEAD].pos.y < limit + 10.0 && self.danger.held {
             self.release_grabbed_by = true;
+            // The game lets go at once: the rest of the update sees an empty `grabbedBy`.
+            self.set_held(false, false);
         }
     }
 

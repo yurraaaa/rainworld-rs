@@ -40,6 +40,7 @@ use rw_sim::{
 };
 
 use crate::shortcuts::CameraShortcuts;
+use crate::sprite_order::SpriteOrder;
 
 /// How a game starts.
 #[derive(Debug, Clone, PartialEq)]
@@ -95,6 +96,7 @@ pub struct Game {
     /// The region's subregions, for the HUD; `None` in a world without a region.
     subregions: Option<Subregions>,
     shortcuts: CameraShortcuts,
+    sprite_order: SpriteOrder,
 }
 
 /// The player's graphics module, attached where the game attaches it, and the
@@ -645,6 +647,7 @@ impl Game {
             start_condition: StartCondition::Dev,
             subregions: None,
             shortcuts: CameraShortcuts::default(),
+            sprite_order: SpriteOrder::default(),
             entered_shortcut: false,
         }
     }
@@ -841,6 +844,8 @@ impl Game {
         self.sim.tick(input, &mut self.graphics);
         self.graphics.forget_dropped_lizards(self.sim.world());
         self.shortcuts.sync(&mut self.sim, self.graphics.slugcat);
+        let moved = self.sim.world_mut().take_sprites_to_front();
+        self.sprite_order.moved_to_front(moved);
         let in_shortcut = self.sim.player().is_some_and(Player::in_shortcut);
         self.entered_shortcut = in_shortcut && !was_in_shortcut;
         if in_shortcut != was_in_shortcut {
@@ -1002,7 +1007,7 @@ impl Game {
     /// between its lower and upper head sprites, in the order they were put there. The
     /// player's `Foreground` sprites stay where they are (`PlayerGraphics.AddToContainer`
     /// puts only its `Midground` ones in the given container). Once let go they draw
-    /// in their kind's usual place, not on top (D19).
+    /// on top ([`SpriteOrder`]).
     pub fn contain_in_jaws(
         &self,
         mut player: Option<&mut DrawList>,
@@ -1057,6 +1062,13 @@ impl Game {
                 objects[j].1 = other;
             }
         }
+    }
+
+    /// The objects of `now` (drawn this frame in the camera's room) whose sprites sit
+    /// above the kind order, bottom first ([`SpriteOrder`]).
+    pub fn sprites_on_top(&mut self, now: &[Entity]) -> Vec<Entity> {
+        let room = self.sim.camera_room();
+        self.sprite_order.update(room, now).to_vec()
     }
 
     /// The lizards' graphics modules (for MCP replies).
@@ -1453,7 +1465,8 @@ impl Game {
     /// The shortcut tile the player is travelling through in the camera's room, if any.
     #[must_use]
     pub fn vessel_tile(&self) -> Option<(i32, i32)> {
-        self.shown_player().and_then(Player::shortcut_vessel_tile)
+        self.shown_player()?;
+        self.sim.player_vessel_tile(self.sim.camera_room())
     }
 
     /// What the room camera follows: the player's first chunk and input, or the centre
@@ -1467,8 +1480,8 @@ impl Game {
             pos: chunk.pos.to_array(),
             vel: chunk.vel.to_array(),
             input: [input.x, input.y],
-            in_shortcut_at: player
-                .shortcut_vessel_tile()
+            in_shortcut_at: self
+                .vessel_tile()
                 .map(|(x, y)| rw_assets::tile_centre(x, y)),
         })
     }
@@ -1486,7 +1499,7 @@ impl Game {
         match self.shown_player() {
             None => SoundFollow::Abstract,
             Some(p) if p.in_shortcut() => SoundFollow::Shortcut(
-                p.shortcut_vessel_tile()
+                self.vessel_tile()
                     .map(|(x, y)| Vec2::from(rw_assets::tile_centre(x, y))),
             ),
             Some(p) => SoundFollow::Body(p.body.chunks[0].pos),

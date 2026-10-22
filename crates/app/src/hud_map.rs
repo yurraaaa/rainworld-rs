@@ -57,8 +57,8 @@ impl Game {
         };
         let room = sim.player_pos().room;
         // `OnScreenPositionOfInShortCutCreature`: the vessel's tile while inside.
-        let in_room_pos = player
-            .shortcut_vessel_tile()
+        let in_room_pos = sim
+            .player_vessel_tile(room)
             .map_or(player.chunks()[HEAD].pos, Vec2::middle_of_tile);
         let rooms_visited = sim
             .world()

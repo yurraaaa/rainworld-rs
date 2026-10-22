@@ -148,10 +148,14 @@ impl BodyChunk {
     }
 
     /// `HardSetPosition`: moves the chunk to `pos` with no history; the velocity stays.
+    /// A pending `setPos` (a move from outside the chunk's update) now lands on `pos`.
     pub fn hard_set_position(&mut self, pos: Vec2) {
         self.pos = pos;
         self.last_pos = pos;
         self.last_last_pos = pos;
+        if self.set_pos.is_some() {
+            self.set_pos = Some(pos);
+        }
     }
 
     /// `MoveFromOutsideMyUpdate`: an owner that already updated with this `eu` is moved

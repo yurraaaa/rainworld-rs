@@ -862,6 +862,13 @@ pub struct VesselInfo {
     /// `lastPositions`, newest first.
     pub last_positions: Vec<[i32; 2]>,
     pub wait: i32,
+    /// Waiting in `betweenRoomsWaitingLobby` to enter `room` (its tiles are the last
+    /// tube's).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub in_lobby: bool,
+    /// What rides with it (`GetAllConnectedObjects` but itself), the held player too.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub connected: Vec<HeldInfo>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -998,6 +1005,9 @@ pub struct PlayerState {
     pub dead: bool,
     pub in_shortcut: bool,
     pub vessel_tile: Option<[i32; 2]>,
+    /// The creature whose shortcut vessel carries the body (`inShortcutVessel`), by
+    /// `EntityID`.
+    pub carried_by: Option<[i32; 2]>,
     /// Terrain impacts of the last tick.
     pub impacts: Vec<ImpactState>,
     /// Input of the last tick.

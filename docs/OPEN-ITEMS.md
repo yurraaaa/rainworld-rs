@@ -11,13 +11,6 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **The Hunter's `SpearOnBack`**, and the LF_H01 spear; with it (user, 2026-10-22) its
   use in `DangerGraspPickup` (`SpearToHand`) and `spearOnBack.DropSpear` in `Player.Die`
   and `Player.Stun`.
-- **Held player follow-up** (user, 2026-10-22, after lizard step 8): a lizard carrying the
-  held player through a shortcut (the player travels with its grabber), `Creature`'s
-  release of grabbers that don't come along into a shortcut (~Creature.cs 1310), the
-  released sprites' re-add order (D19), `HardSetPosition`'s `setPos` while held, the
-  physics room-range clamp skipped for grabbed objects, `PhysicalObject.Update`'s pruning
-  of stale `grabbedBy` entries. Other grabber creatures come with their creatures, DLC
-  branches with the DLCs.
 - **`ExplosiveSpear` behaviour.** The flag is ported; the explosion is not.
 
 - **Draw order by container add order** (user, 2026-10-22): objects that never went

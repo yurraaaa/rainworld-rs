@@ -75,7 +75,7 @@ impl Player {
     }
 
     /// Plays the queued sounds in call order.
-    pub(super) fn flush_sounds(&mut self, rng: &mut UnityRandom, sounds: &mut Sounds) {
+    pub(crate) fn flush_sounds(&mut self, rng: &mut UnityRandom, sounds: &mut Sounds) {
         for q in std::mem::take(&mut self.sound_queue) {
             sounds.play_on_chunk(q.id, q.chunk, false, q.volume, q.pitch, rng);
         }

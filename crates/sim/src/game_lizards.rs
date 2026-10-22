@@ -630,8 +630,9 @@ impl RainWorldGame {
 
     /// `SpitOutCreature` of a lizard's vessel (the large NPC exit sound) and
     /// `Lizard.SpitOutOfShortCut`: the base's stuck objects out at the entrance (a draw
-    /// per chunk), then the three chunks out of the hole 15 px apart, moving 2 px a tick
-    /// out of it, and half the time an `OutOfShortcut` voice.
+    /// per chunk; a held player as `Player.SpitOutOfShortCut`, a fly as its own), then
+    /// the three chunks out of the hole 15 px apart, moving 2 px a tick out of it, and
+    /// half the time an `OutOfShortcut` voice.
     pub(super) fn spit_out_lizard(&mut self, v: CreatureVessel, observer: &mut dyn PlayerObserver) {
         let (room, pos) = (v.room, v.vessel.pos);
         let Some(map_room) = self.world.realized(room).map(|r| Arc::clone(&r.room)) else {
@@ -649,9 +650,17 @@ impl RainWorldGame {
         }
         l.shortcut_delay = 20;
         l.in_shortcut = false;
+        let (hx, hy) = map_room.shortcut_hole_direction(pos.0, pos.1);
+        let hole = Vec2::new(hx as f32, hy as f32);
         for o in self.world.connected_objects(Entity::Creature(me)) {
             match o {
                 Entity::Object(o) => self.world.spit_out_object(o, room, middle, &mut self.rng),
+                Entity::Creature(o) if o == self.player_id => {
+                    self.carried_player_spat_out(room, pos, &map_room, observer);
+                }
+                Entity::Creature(o) if self.world.creature(o).fly().is_some() => {
+                    self.stuck_fly_spat_out(o, room, middle, hole, observer);
+                }
                 Entity::Creature(o) if self.world.creature(o).lizard().is_some() => {
                     for c in &mut self.world.lizard_at(o).body.chunks {
                         c.hard_set_position(middle + Vec2::random_unit(&mut self.rng));

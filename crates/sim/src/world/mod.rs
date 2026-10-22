@@ -112,6 +112,12 @@ pub struct World {
     pub(crate) entering: Vec<(CreatureId, WorldCoordinate)>,
     /// The last grasp or stick serial handed out.
     pub(crate) grasp_serial: u64,
+    /// Objects whose sprites a graphics module let out of its internal container since
+    /// the last take, in the game's order: each `MoveObjectToContainer(obj, null)` puts
+    /// them back on top of their default containers.
+    pub(crate) sprites_to_front: Vec<crate::item::Entity>,
+    /// The realized player's `dead` flag (its body lives outside the world).
+    pub(crate) player_dead: bool,
     /// The flies' `FlockBehavior`s, shared by reference in the game, by creation order.
     pub flocks: Vec<FlockBehavior>,
     /// The last `WaterDrip` id handed out.
@@ -173,6 +179,8 @@ impl World {
             orphan_loops: Vec::new(),
             entering: Vec::new(),
             grasp_serial: 0,
+            sprites_to_front: Vec::new(),
+            player_dead: false,
             flocks: Vec::new(),
             drip_ids: 0,
             player_body: None,

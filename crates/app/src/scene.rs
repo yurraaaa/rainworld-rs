@@ -490,6 +490,7 @@ impl Scene {
         // The shelter door's (added with the room), the items' (realized before the
         // creatures), the flies', the lizards' and the drips' sprites join the
         // overseers', in sprite order.
+        let mut player_slot = 0;
         let overseers = if target.sprites.is_some() {
             let mut lists: Vec<_> = self.game.shelter_draw_list(alpha).into_iter().collect();
             let weapons = self.game.weapon_draw_lists(alpha, face);
@@ -500,11 +501,43 @@ impl Scene {
             let (nw, nf) = (weapons.len(), flies.len());
             let mut owned: Vec<_> = weapons.into_iter().chain(flies).chain(lizards).collect();
             self.game.contain_in_jaws(sprites.as_mut(), &mut owned);
-            let mut owned = owned.into_iter().map(|(_, l)| l);
-            lists.extend(owned.by_ref().take(nw));
+            // Sprites let out of a lizard's jaws, and what joined the room after them,
+            // draw on top (the slugcat's too).
+            let player = rw_sim::item::Entity::Creature(self.game.sim().player_creature());
+            let mut now: Vec<_> = sprites.iter().map(|_| player).collect();
+            now.extend(owned.iter().map(|(e, _)| *e));
+            let top = self.game.sprites_on_top(&now);
+            let mut above = Vec::new();
+            let mut kept = Vec::new();
+            for (i, (e, l)) in owned.into_iter().enumerate() {
+                let group = if i < nw {
+                    0
+                } else if i < nw + nf {
+                    1
+                } else {
+                    2
+                };
+                match top.iter().position(|t| *t == e) {
+                    Some(k) => above.push((k, Some(l))),
+                    None => kept.push((group, l)),
+                }
+            }
+            if let Some(k) = top.iter().position(|t| *t == player) {
+                above.push((k, None));
+            }
+            above.sort_by_key(|&(k, _)| k);
+            let mut kept = kept.into_iter().peekable();
+            while let Some((_, l)) = kept.next_if(|&(g, _)| g == 0) {
+                lists.push(l);
+            }
             lists.extend(overseers);
-            lists.extend(owned.by_ref().take(nf));
-            lists.extend(owned);
+            lists.extend(kept.map(|(_, l)| l));
+            for (_, l) in above {
+                match l {
+                    Some(l) => lists.push(l),
+                    None => player_slot = lists.len(),
+                }
+            }
             lists.extend(self.game.drip_draw_lists(alpha, face, darkness));
             lists.extend(self.game.cosmetic_draw_lists(alpha, face));
             let cam_pos = rw_sim::Vec2::from(self.camera.view_origin(alpha));
@@ -561,6 +594,7 @@ impl Scene {
             water_sprites,
             level,
             sprites: sprites.as_ref(),
+            player_slot,
             overseers: &overseers,
             holograms: &holograms,
             shortcuts: shortcuts.as_ref(),
@@ -638,8 +672,10 @@ struct FrameDraw<'a> {
     /// The slugcat's sprites, drawn only with the level graphic. Without it (the debug
     /// view, or no atlas) the physical body is drawn: chunks, rods and contacts.
     sprites: Option<&'a DrawList>,
-    /// The overseers' and flies' sprites (level view only), after the slugcat's in each
-    /// container.
+    /// The slugcat's sprites draw before `overseers[player_slot]` in the `Midground` and
+    /// `Foreground` containers (0: under all of them).
+    player_slot: usize,
+    /// The other objects' sprites (level view only), in container order.
     overseers: &'a [DrawList],
     /// The holograms' sprites (level view only), in the `Bloom` container.
     holograms: &'a [DrawList],
@@ -652,6 +688,23 @@ struct FrameDraw<'a> {
 }
 
 impl FrameDraw<'_> {
+    /// The objects' sprites in `layer`, the slugcat's at its slot.
+    fn draw_with_player(&self, r: &mut impl Renderer, layer: Layer, level: LevelView) {
+        for (i, o) in self.overseers.iter().enumerate() {
+            if i == self.player_slot
+                && let Some(list) = self.sprites
+            {
+                r.draw_sprites(list, layer, level.origin);
+            }
+            r.draw_sprites(o, layer, level.origin);
+        }
+        if self.player_slot >= self.overseers.len()
+            && let Some(list) = self.sprites
+        {
+            r.draw_sprites(list, layer, level.origin);
+        }
+    }
+
     fn queue(&self, r: &mut impl Renderer) {
         r.begin_frame(self.camera);
         r.draw_room(RoomLayers {
@@ -672,7 +725,7 @@ impl FrameDraw<'_> {
         }
         let sprites = self.level.as_ref().zip(self.sprites);
         match sprites {
-            Some((level, list)) => r.draw_sprites(list, Layer::Midground, level.origin),
+            Some(_) => {}
             None => {
                 for (body, status, kind) in self.game.debug_bodies() {
                     let style = status.style(self.time).tinted(kind.color(), status.dead);
@@ -684,23 +737,17 @@ impl FrameDraw<'_> {
             }
         }
         if let Some(level) = self.level {
-            for layer in [Layer::Midground, Layer::Items] {
-                for o in self.overseers {
-                    r.draw_sprites(o, layer, level.origin);
-                }
+            self.draw_with_player(r, Layer::Midground, level);
+            for o in self.overseers {
+                r.draw_sprites(o, Layer::Items, level.origin);
             }
             if let Some(list) = self.shortcuts {
                 r.draw_sprites(list, Layer::Items, level.origin);
             }
             r.draw_level(level);
         }
-        if let Some((level, list)) = sprites {
-            r.draw_sprites(list, Layer::Foreground, level.origin);
-        }
         if let Some(level) = self.level {
-            for o in self.overseers {
-                r.draw_sprites(o, Layer::Foreground, level.origin);
-            }
+            self.draw_with_player(r, Layer::Foreground, level);
             for o in self.overseers {
                 r.draw_sprites(o, Layer::ForegroundLights, level.origin);
             }
@@ -881,6 +928,7 @@ mod tests {
                 water_sprites,
                 level,
                 sprites: Some(sprites),
+                player_slot: 0,
                 overseers: &[],
                 holograms: &[],
                 shortcuts,

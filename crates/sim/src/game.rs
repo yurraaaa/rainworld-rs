@@ -10,6 +10,8 @@
 
 use std::sync::Arc;
 
+#[path = "game_carried.rs"]
+mod carried;
 #[path = "game_dev.rs"]
 mod dev;
 #[path = "game_exit.rs"]
@@ -858,6 +860,7 @@ impl RainWorldGame {
         if let Some(p) = &self.player {
             let dead = p.is_dead();
             self.world.creature_mut(self.player_id).state.alive = !dead;
+            self.world.player_dead = dead;
         }
     }
 
@@ -1122,7 +1125,7 @@ impl RainWorldGame {
             let done = match vessel.owner {
                 VesselOwner::Teleport(id) => self.teleport_vessel_step(id, vessel, observer),
                 VesselOwner::Player => self.player_vessel_step(i, vessel, observer),
-                VesselOwner::Shortcut(v) => self.creature_lobby_step(v, vessel),
+                VesselOwner::Shortcut(v) => self.creature_lobby_step(v, vessel, observer),
                 VesselOwner::BatHive(id) => self.bat_hive_lobby_step(id, vessel),
             };
             if done {
@@ -1220,20 +1223,29 @@ impl RainWorldGame {
                 .map_or("?", |r| r.name.as_str()),
             lobby.updates
         );
-        self.camera_changed_room(self.camera_room, lobby.room, observer);
-        self.camera_room = lobby.room;
-        let camera = usize::try_from(node.viewed_by_camera).unwrap_or(0);
-        self.camera_move = Some(CameraMove {
-            room: lobby.room,
-            camera,
-        });
+        self.camera_moves_to(lobby.room, node.viewed_by_camera, observer);
+        true
+    }
+
+    /// `cameras[0].MoveCamera(room, camera)` for a vessel camera 0 follows leaving the
+    /// lobby: the rooms' `NoLongerViewed`/`NowViewed`, the camera's position, and the
+    /// sounds whose owners the old room held stop following them.
+    pub(super) fn camera_moves_to(
+        &mut self,
+        room: i32,
+        viewed_by_camera: i32,
+        observer: &mut dyn PlayerObserver,
+    ) {
+        self.camera_changed_room(self.camera_room, room, observer);
+        self.camera_room = room;
+        let camera = usize::try_from(viewed_by_camera).unwrap_or(0);
+        self.camera_move = Some(CameraMove { room, camera });
         self.camera_view = CameraView {
-            room: lobby.room,
+            room,
             current: camera,
             next: camera,
         };
         self.sounds.owner_removed();
-        true
     }
 
     /// A vessel came out of the lobby into exit node `lobby.entrance_node`: the room
@@ -1767,6 +1779,16 @@ impl RainWorldGame {
                     &mut hearing,
                 );
             }
+            // `PhysicalObject.Update`'s `grabbedBy` pruning, when physics ran (not the
+            // pull into a shortcut).
+            if self
+                .player
+                .as_ref()
+                .is_some_and(|p| p.before_pull().is_none())
+            {
+                self.world
+                    .clean_grabbed_by(Entity::Creature(self.player_id));
+            }
         }
         self.apply_player_release_grabbed_by();
         self.game_over_on_death(room);
@@ -1964,6 +1986,34 @@ impl RainWorldGame {
             Transport::Player => None,
             Transport::Creature(v) => Some(*v),
         })
+    }
+
+    /// Creature `id`'s shortcut vessel, in the tubes or (with `true`) in the lobby.
+    #[must_use]
+    pub fn creature_vessel(&self, id: CreatureId) -> Option<(CreatureVessel, bool)> {
+        self.shortcuts.creature_vessel(id)
+    }
+
+    /// `OnScreenPositionOfInShortCutCreature` for the player: its own vessel's tile, or
+    /// the tile of the first vessel in room `room`'s tubes whose creature has a stick
+    /// with the player (its own `stuckObjects`, either end).
+    #[must_use]
+    pub fn player_vessel_tile(&self, room: i32) -> Option<(i32, i32)> {
+        let player = self.player.as_ref()?;
+        if let Some(tile) = player.shortcut_vessel_tile() {
+            return Some(tile);
+        }
+        let me = Entity::Creature(self.player_id);
+        self.transport_vessels()
+            .flatten()
+            .filter(|v| v.room == room)
+            .find(|v| {
+                self.world
+                    .sticks_of(Entity::Creature(v.creature))
+                    .iter()
+                    .any(|s| Entity::Creature(s.a) == me || s.b == me)
+            })
+            .map(|v| v.tiles().0)
     }
 
     /// The player, unless destroyed.

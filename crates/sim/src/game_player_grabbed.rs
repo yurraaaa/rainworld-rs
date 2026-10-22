@@ -2,7 +2,8 @@
 //! (`CanBeGrabbed`, `Player.Grabbed`), the `dangerGrasp` block of `Player.Update` with
 //! its escapes `ThrowToGetFree` and `DangerGraspPickup`, its tick-30 `LoseAllGrasps` and
 //! tick-60 `GameOver(dangerGrasp)`, and `Creature.Update`'s release under the room.
-//! Omitted branches (DLC, the shortcut carry): docs/divergences/ D19.
+//! Omitted branches (DLC): docs/divergences/ D19. Carried through shortcuts:
+//! `game_carried.rs`.
 //!
 //! Mirrors: Player.cs (Update, Grabbed, ThrowToGetFree, DangerGraspPickup), Creature.cs (Grab, Update)
 
