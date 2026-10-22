@@ -280,7 +280,7 @@ Ported:
 | `FAtlas` | `crates/graphics/src/atlas.rs` |
 | `FAtlasElement` | `crates/graphics/src/atlas.rs` |
 | `FAtlasManager` | `crates/menu/src/atlas.rs` |
-| `FContainer` | `crates/app/src/jaws.rs`, `crates/menu/src/stage.rs`, `crates/menu/src/tree.rs` |
+| `FContainer` | `crates/app/src/jaws.rs`, `crates/app/src/sprite_order.rs`, `crates/menu/src/stage.rs`, `crates/menu/src/tree.rs` |
 | `FFont` | `crates/assets/src/font_config.rs`, `crates/menu/src/font.rs` |
 | `FLabel` | `crates/menu/src/label.rs` |
 | `FliesRoomAI` | `crates/sim/src/creature/fly/mod.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/game_flies.rs` |
@@ -338,7 +338,7 @@ Ported:
 | `PlacedObject` | `crates/assets/src/placed.rs`, `crates/assets/src/placed_types.rs` |
 | `Player` | `crates/sim/src/creature/vision.rs`, `crates/sim/src/game_carried.rs`, `crates/sim/src/game_eat_meat.rs`, `crates/sim/src/game_holo_light.rs`, `crates/sim/src/game_items.rs`, `crates/sim/src/game_map.rs`, `crates/sim/src/game_over.rs`, `crates/sim/src/game_player.rs`, `crates/sim/src/game_player_grabbed.rs`, `crates/sim/src/game_shelter.rs`, `crates/sim/src/game_spear_on_back.rs`, `crates/sim/src/item/on_back_stick.rs`, `crates/sim/src/player/advanced.rs`, `crates/sim/src/player/animation.rs`, `crates/sim/src/player/body_mode.rs`, `crates/sim/src/player/carry.rs`, `crates/sim/src/player/corridor.rs`, `crates/sim/src/player/exhaustion.rs`, `crates/sim/src/player/falls.rs`, `crates/sim/src/player/grab.rs`, `crates/sim/src/player/grabbed.rs`, `crates/sim/src/player/input.rs`, `crates/sim/src/player/jump.rs`, `crates/sim/src/player/ledge.rs`, `crates/sim/src/player/mod.rs`, `crates/sim/src/player/movement.rs`, `crates/sim/src/player/poles.rs`, `crates/sim/src/player/shortcut.rs`, `crates/sim/src/player/sleep.rs`, `crates/sim/src/player/sounds.rs`, `crates/sim/src/player/spear_on_back.rs`, `crates/sim/src/player/swim.rs` |
 | `PlayerCarryableItem` | `crates/sim/src/game_items.rs`, `crates/sim/src/item/weapon.rs` |
-| `PlayerGraphics` | `crates/graphics/src/looker.rs`, `crates/graphics/src/player_draw.rs`, `crates/graphics/src/player_graphics.rs` |
+| `PlayerGraphics` | `crates/app/src/jaws.rs`, `crates/graphics/src/looker.rs`, `crates/graphics/src/player_draw.rs`, `crates/graphics/src/player_graphics.rs` |
 | `PlayerGuideState` | `crates/save/src/misc_world.rs`, `crates/sim/src/creature/overseer/guide_state.rs` |
 | `PlayerProgression` | `crates/app/src/saves.rs`, `crates/save/src/checksum.rs`, `crates/save/src/hibernation.rs`, `crates/save/src/misc.rs`, `crates/save/src/progression.rs`, `crates/sim/src/map_discovery.rs` |
 | `PlayerSessionRecord` | `crates/save/src/session.rs` |
@@ -355,7 +355,7 @@ Ported:
 | `RelationshipTracker` | `crates/sim/src/creature/relationship_tracker.rs`, `crates/sim/src/game_tracker.rs`, `crates/sim/src/world/ai_modules.rs` |
 | `ReliableIggyDirection` | `crates/sim/src/game_instructions.rs`, `crates/sim/src/trigger.rs` |
 | `Rock` | `crates/graphics/src/weapon_graphics.rs`, `crates/sim/src/game_lizard_hits.rs`, `crates/sim/src/game_weapons.rs`, `crates/sim/src/item/weapon.rs` |
-| `Room` | `crates/assets/src/room.rs`, `crates/sim/src/camera.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/game_flies.rs`, `crates/sim/src/game_instructions.rs`, `crates/sim/src/game_noise.rs`, `crates/sim/src/game_shelter.rs`, `crates/sim/src/game_triggers.rs`, `crates/sim/src/game_weapons.rs`, `crates/sim/src/noise.rs`, `crates/sim/src/room_script.rs`, `crates/sim/src/shortcut.rs`, `crates/sim/src/sound.rs`, `crates/sim/src/spawn.rs`, `crates/sim/src/water.rs`, `crates/sim/src/world/hearing.rs`, `crates/sim/src/world/objects.rs`, `crates/sim/src/world/quantified.rs`, `crates/sim/src/world/realized.rs`, `crates/sim/src/world/weapons.rs` |
+| `Room` | `crates/app/src/sprite_order.rs`, `crates/assets/src/room.rs`, `crates/sim/src/camera.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/game_flies.rs`, `crates/sim/src/game_instructions.rs`, `crates/sim/src/game_noise.rs`, `crates/sim/src/game_shelter.rs`, `crates/sim/src/game_triggers.rs`, `crates/sim/src/game_weapons.rs`, `crates/sim/src/noise.rs`, `crates/sim/src/room_script.rs`, `crates/sim/src/shortcut.rs`, `crates/sim/src/sound.rs`, `crates/sim/src/spawn.rs`, `crates/sim/src/water.rs`, `crates/sim/src/world/hearing.rs`, `crates/sim/src/world/objects.rs`, `crates/sim/src/world/quantified.rs`, `crates/sim/src/world/realized.rs`, `crates/sim/src/world/weapons.rs` |
 | `RoomBorderExit` | `crates/assets/src/border_exits.rs` |
 | `RoomCamera` | `crates/app/src/game.rs`, `crates/app/src/scene.rs`, `crates/app/src/sprite_order.rs`, `crates/app/src/visuals.rs`, `crates/assets/src/palette.rs`, `crates/render/src/level.rs`, `crates/render/src/room_camera.rs`, `crates/sim/src/camera.rs` |
 | `RoomPreparer` | `crates/sim/src/world/mod.rs` |
@@ -401,7 +401,7 @@ Ported:
 | `WaterDrip` | `crates/graphics/src/water_drip.rs`, `crates/sim/src/game_player.rs`, `crates/sim/src/water_drip.rs` |
 | `WaterLevelCycle` | `crates/sim/src/world/rain_cycle.rs` |
 | `WaterTriangleMesh` | `crates/render/src/water_sprites.rs` |
-| `Weapon` | `crates/sim/src/game_hits.rs`, `crates/sim/src/game_lizard_hits.rs`, `crates/sim/src/game_weapons.rs`, `crates/sim/src/item/weapon.rs`, `crates/sim/src/world/weapons.rs` |
+| `Weapon` | `crates/app/src/sprite_order.rs`, `crates/sim/src/game_hits.rs`, `crates/sim/src/game_lizard_hits.rs`, `crates/sim/src/game_weapons.rs`, `crates/sim/src/item/weapon.rs`, `crates/sim/src/world/weapons.rs` |
 | `WinState` | `crates/save/src/win_state.rs` |
 | `World` | `crates/assets/src/region_properties.rs`, `crates/assets/src/world.rs`, `crates/sim/src/world/flies_world_ai.rs`, `crates/sim/src/world/mod.rs`, `crates/sim/src/world/region_state.rs` |
 | `WorldCoordinate` | `crates/save/src/coordinate.rs` |
