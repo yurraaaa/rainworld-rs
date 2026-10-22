@@ -37,7 +37,7 @@ it (D13). What still differs is only the seed and the call order:
   water and the player, so its sequence is the game's only for those draws. Sounds of
   rooms the camera is not in make no draws, as in the game (`Room.PlaySound` only
   reaches the microphone of a camera in that room). Draws of unported code in
-  the same functions (the rain-warning look-up, `Room.Update`'s ambient ceiling drips,
+  the same functions (the rain-warning look-up,
   the `WaterDrip`s of slides and corridor shoots, grasps of objects other than bat flies,
   DLC, and the sounds of those) are missing, as is the draw-skipping of
   `AllowSound`'s crowd cap (D12); the rain-warning look-up short-circuits before drawing
@@ -187,6 +187,13 @@ it (D13). What still differs is only the seed and the call order:
   micro shake (2 per drawn frame while `microShake` is above 0) comes from the app's
   cosmetic stream, per frame; a paused frame repeats the last one's (the menus' pause
   divergence), where `PausedDrawUpdate` would draw a new offset each frame.
+- **Ambient drips.** `Room.Update`'s ceiling drip, after the water's update, in camera
+  0's room (not a shelter, danger type not `None`, with ceiling tiles): 2 draws a tick
+  (`value < gravity`, then the chance test), 5 with a drip (tile, x jitter,
+  `WaterDrip`'s life); each `WaterDrip` draws 1 a tick (`randomLightness`), its sprites
+  on the cosmetic stream (D1). `DrippingSound`'s loop makes its sound draws once when
+  it starts in the camera's room, and again whenever its unheard emitter died and the
+  camera is back.
 - **Weapons hitting creatures.** An overseer hearing of a flying weapon
   (`OverseerAI.FlyingWeapon`) draws once; a rock hitting a fly draws once (kill or
   stun), one hitting an overseer (no small creature) or a spear none; `Overseer.HitByWeapon` draws `Range(200, 1500)` when the

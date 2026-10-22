@@ -1,7 +1,7 @@
-//! Sound objects (`DisembodiedSound`, `StaticPositionSound`, `ObjectSound`) and the
-//! chunk emitters they follow.
+//! Sound objects (`DisembodiedSound`, `StaticPositionSound`, `ObjectSound`,
+//! `DisembodiedLoop`) and the emitters they follow.
 //!
-//! Mirrors: VirtualMicrophone.cs (DisembodiedSound, StaticPositionSound, ObjectSound), SoundLoader.cs
+//! Mirrors: VirtualMicrophone.cs (DisembodiedSound, StaticPositionSound, ObjectSound, DisembodiedLoop), SoundLoader.cs
 
 use rustc_hash::FxHashMap;
 use rw_sim::{BodyChunk, EmitterId, FloatExt, PlayedSound, SoundSource, Vec2, Water};
@@ -38,6 +38,7 @@ impl Emitters {
                 (emitter, Some(chunk), c.pos)
             }
             SoundSource::Object { emitter, pos } => (emitter, None, pos),
+            SoundSource::DisembodiedLoop { emitter, .. } => (emitter, None, Vec2::ZERO),
             _ => return,
         };
         self.0.entry(emitter).or_insert(Emitter {
@@ -77,7 +78,7 @@ impl Emitters {
         self.0.retain(|_, e| e.chunk.is_none());
     }
 
-    /// The emitters of bodies other than the player's die.
+    /// The emitters of bodies other than the player's, and disembodied loops', die.
     pub fn clear_objects(&mut self) {
         self.0.retain(|_, e| e.chunk.is_some());
     }
@@ -154,9 +155,9 @@ impl Voice {
     #[must_use]
     pub fn emitter(&self) -> Option<EmitterId> {
         match self.sound.source {
-            SoundSource::Chunk { emitter, .. } | SoundSource::Object { emitter, .. } => {
-                Some(emitter)
-            }
+            SoundSource::Chunk { emitter, .. }
+            | SoundSource::Object { emitter, .. }
+            | SoundSource::DisembodiedLoop { emitter, .. } => Some(emitter),
             _ => None,
         }
     }
@@ -178,6 +179,16 @@ impl Voice {
                     volume: self.fixed_volume,
                     pan,
                     pitch: s.emitter_pitch * s.pitch,
+                    cutoff: Microphone::low_pass_cutoff(mic.under_water, s.ignore_effects),
+                });
+            }
+            SoundSource::DisembodiedLoop { emitter, pan } => {
+                // `DisembodiedLoop.Update` reads the emitter's volume and pitch each frame.
+                let e = emitters.get(emitter)?;
+                return Some(SourceMix {
+                    volume: mic.source_volume(e.volume, s.volume, mic.volume_groups()[0]),
+                    pan,
+                    pitch: e.pitch * s.pitch,
                     cutoff: Microphone::low_pass_cutoff(mic.under_water, s.ignore_effects),
                 });
             }
@@ -262,5 +273,42 @@ mod tests {
         assert!(emitters.get(EmitterId(1)).is_some());
         emitters.prune(&[]);
         assert!(emitters.get(EmitterId(1)).is_none());
+    }
+
+    /// A `DisembodiedLoop` mixes at its pan with the emitter's current volume and pitch,
+    /// and ends with its emitter.
+    #[test]
+    fn a_disembodied_loop_follows_its_emitter() {
+        let sound = PlayedSound {
+            id: SoundId::CycleStartDrips,
+            clip: 0,
+            variation: 0,
+            volume: 0.5,
+            pitch: 1.0,
+            range: 1.0,
+            doppler_fac: 0.0,
+            ignore_effects: 0.0,
+            start_at: None,
+            source: SoundSource::DisembodiedLoop {
+                emitter: EmitterId(3),
+                pan: 0.0,
+            },
+            looped: true,
+            emitter_volume: 1.0,
+            emitter_pitch: 1.0,
+        };
+        let mut emitters = Emitters::default();
+        emitters.insert_for(&sound, None);
+        let mic = Microphone::new(1.8);
+        let mut voice = Voice::new(sound, &mic, 0.0);
+        assert_eq!(voice.emitter(), Some(EmitterId(3)));
+        emitters.set(EmitterId(3), 0.25, 1.2);
+        let mix = voice.mix(&mic, &emitters, 1.0, 0.0, None).expect("plays");
+        assert_eq!(mix.pan, 0.0);
+        assert!((mix.pitch - 1.2).abs() < 1e-6);
+        let want = mic.source_volume(0.25, 0.5, mic.volume_groups()[0]);
+        assert!((mix.volume - want).abs() < 1e-6);
+        emitters.remove(EmitterId(3));
+        assert!(voice.mix(&mic, &emitters, 1.0, 0.0, None).is_none());
     }
 }

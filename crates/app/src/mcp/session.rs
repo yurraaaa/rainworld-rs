@@ -472,6 +472,18 @@ impl Session {
                         room: Self::room_name(scene, i),
                         wait_to_enter: r.wait_to_enter(),
                         ready_for_player: r.ready_for_player(),
+                        ceiling_drips: r.settings.ceiling_drips,
+                        drips: r
+                            .drips
+                            .iter()
+                            .filter(|d| !d.slated)
+                            .map(|d| d.pos.to_array())
+                            .collect(),
+                        dripping_sound: r
+                            .dripping_sound
+                            .as_ref()
+                            .filter(|d| !d.slated)
+                            .map(|d| d.sound_loop.volume()),
                     })
                 })
                 .collect(),

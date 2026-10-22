@@ -176,7 +176,8 @@ impl GameSounds {
     }
 
     /// The camera left the room: `ObjectSound`s no longer refresh their emitters'
-    /// `soundStillPlaying`, so the old room's object emitters and their sounds die.
+    /// `soundStillPlaying` (nor `DisembodiedLoop`s theirs), so the old room's object and
+    /// disembodied-loop emitters and their sounds die.
     fn leave_room(&mut self) {
         self.emitters.clear_objects();
     }

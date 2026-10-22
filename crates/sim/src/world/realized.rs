@@ -61,6 +61,9 @@ pub struct RealizedRoom {
     pub insects: Option<crate::insect::InsectCoordinator>,
     /// `ceilingTiles` (`Room.Loaded`), where `ScreenMovement` shakes drips off.
     pub ceiling_tiles: Vec<(i32, i32)>,
+    /// The `DrippingSound` `Room.Loaded` added at a cycle's start, until it and its
+    /// emitters are gone.
+    pub dripping_sound: Option<crate::DrippingSound>,
 }
 
 impl RealizedRoom {
@@ -96,6 +99,7 @@ impl RealizedRoom {
             light_sources: Vec::new(),
             insects,
             ceiling_tiles,
+            dripping_sound: None,
         }
     }
 

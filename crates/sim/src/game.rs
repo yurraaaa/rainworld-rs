@@ -14,6 +14,8 @@ use std::sync::Arc;
 mod carried;
 #[path = "game_dev.rs"]
 mod dev;
+#[path = "game_drips.rs"]
+mod drips;
 #[path = "game_eat_meat.rs"]
 mod eat_meat;
 #[path = "game_exit.rs"]
@@ -325,6 +327,10 @@ enum RoomObject {
     Hover(CreatureId),
     /// A `WaterDrip` by id.
     Drip(u64),
+    /// The room's `DrippingSound`.
+    DrippingSound,
+    /// An emitter of the `DrippingSound`'s loop, by its place in the update list.
+    DrippingSoundLoop(u64),
     /// A realized rock or spear.
     Weapon(ObjectId),
     /// A `Spark` or `ExplosionSpikes` by id.
@@ -909,6 +915,7 @@ impl RainWorldGame {
         for index in self.world.finish_loading() {
             self.add_shelter_door(index);
             self.add_trigger_checkers(index);
+            self.add_dripping_sound(index);
             self.world.realize_room_objects(index, &mut self.rng);
             for id in self.world.room_creatures(index).to_vec() {
                 if id == self.player_id {
@@ -1355,6 +1362,7 @@ impl RainWorldGame {
         objects.extend(self.room_fly_objects(index));
         objects.extend(self.room_lizard_objects(index));
         objects.extend(self.room_drip_objects(index));
+        objects.extend(self.room_dripping_sound_objects(index));
         objects.extend(self.room_weapon_objects(index));
         objects.extend(
             self.world
@@ -1393,6 +1401,7 @@ impl RainWorldGame {
         };
         self.world
             .update_water(index, chunks, &mut self.rng, sounds);
+        self.ambient_ceiling_drip(index);
         let Some(realized) = self.world.realized_mut(index) else {
             return;
         };
@@ -1445,6 +1454,10 @@ impl RainWorldGame {
                 RoomObject::Lizard(id) => self.run_lizard(index, id, &room, observer),
                 RoomObject::Hover(id) => self.run_hover(index, id),
                 RoomObject::Drip(id) => self.run_drip(index, id, &room),
+                RoomObject::DrippingSound => self.run_dripping_sound(index),
+                RoomObject::DrippingSoundLoop(order) => {
+                    self.run_dripping_sound_emitter(index, order);
+                }
                 RoomObject::Weapon(id) => self.run_weapon(index, id, observer),
                 RoomObject::WeaponLoop { owner, order } => {
                     self.run_weapon_loop(index, owner, order);
