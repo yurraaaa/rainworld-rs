@@ -65,6 +65,8 @@ mod noise;
 mod over;
 #[path = "game_player_grabbed.rs"]
 mod player_grabbed;
+#[path = "game_social_events.rs"]
+mod social_events;
 #[path = "game_spear_on_back.rs"]
 mod spear_on_back;
 
@@ -1400,7 +1402,8 @@ impl RainWorldGame {
     }
 
     /// `Room.Update` of active room `index`: the entry delay, the water (pushed by the
-    /// room's bodies, adding its bubbles), then the update list with the player.
+    /// room's bodies, adding its bubbles), the social event recognizer, then the update
+    /// list with the player.
     fn update_room(&mut self, index: i32, input: Input, observer: &mut dyn PlayerObserver) {
         let player_room = self.pos().room;
         let Some(realized) = self.world.realized_mut(index) else {
@@ -1421,6 +1424,7 @@ impl RainWorldGame {
             .filter(|p| player_room == index && !p.in_shortcut())
             .map(|p| (player_seq, &mut p.body.chunks[..]));
         self.world.update_water(index, here, &mut self.rng, sounds);
+        self.social_event_recognizer_update(index);
         self.ambient_ceiling_drip(index);
         let Some(realized) = self.world.realized_mut(index) else {
             return;

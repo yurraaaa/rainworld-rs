@@ -270,7 +270,9 @@ impl RainWorldGame {
             } else if self.spear_on_back().is_some_and(|s| s.has_a_spear())
                 && self.player_ref().head().contact().y < 0
             {
-                // `CreaturePutItemOnGround` is not ported (D3).
+                if let Some(spear) = self.spear_on_back().and_then(|s| s.spear) {
+                    self.player_put_item_on_ground(Entity::Object(spear));
+                }
                 let vel = self.player_ref().head().vel;
                 if let Some(p) = self.player.as_mut() {
                     p.drop_back_spear(vel, &mut self.rng);
@@ -384,8 +386,9 @@ impl RainWorldGame {
         self.world.chunk_pos(g.grabbed, g.chunk_grabbed)
     }
 
-    /// `ReleaseObject`: `Slugcat_Lay_Down_Creature` or `_Object` on the held chunk, a
-    /// carryable item forbidden to the player for 40 ticks, let go.
+    /// `ReleaseObject`: `Slugcat_Lay_Down_Creature` or `_Object` on the held chunk, put
+    /// on the ground (`CreaturePutItemOnGround`), a carryable item forbidden to the
+    /// player for 40 ticks, let go.
     fn release_object(&mut self, index: i32, grasp: usize) {
         let Some(obj) = self.player_grasps()[grasp] else {
             return;
@@ -394,9 +397,11 @@ impl RainWorldGame {
         match obj {
             Entity::Creature(_) => {
                 self.play_on_object(index, SoundId::SlugcatLayDownCreature, pos);
+                self.player_put_item_on_ground(obj);
             }
             Entity::Object(id) => {
                 self.play_on_object(index, SoundId::SlugcatLayDownObject, pos);
+                self.player_put_item_on_ground(obj);
                 self.world.forbid(id);
             }
         }

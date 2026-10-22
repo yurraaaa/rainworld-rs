@@ -248,6 +248,8 @@ impl Lizard {
         rng.init_state(c.id.random_seed());
         let effect_color = params.effect_color(rng);
         rng.set_state(saved);
+        let taming_difficulty =
+            params.taming_difficulty * 0.9_f32.lerp(1.1, c.personality.dominance);
         Some(Self {
             params,
             body,
@@ -292,6 +294,7 @@ impl Lizard {
             ai: LizardAi::new(
                 c.kind(),
                 c.ai.as_ref().is_some_and(|a| a.den_position.is_some()),
+                taming_difficulty,
             ),
             short_cut_rad_add: 0.0,
             upcoming_connections: Vec::new(),

@@ -175,8 +175,8 @@ impl RainWorldGame {
     /// in sight it notes whether a spear is held (vulture masks are not ported, so the
     /// mask's fear never applies), then eats it with
     /// `Pow(InverseLerp(0.5, -1, like), aggressionCurveExponent)` while its like of the
-    /// player is under 0.5, else ignores it. Gifts (taming) and the Remix, Jolly and
-    /// Watcher branches are not ported.
+    /// player is under 0.5, else ignores it. An active gift offered to it is eaten
+    /// (1 dead, else 0.65). The Remix, Jolly and Watcher branches are not ported.
     pub(crate) fn ai_update_dynamic_relationship(
         &mut self,
         ai: CreatureId,
@@ -184,6 +184,20 @@ impl RainWorldGame {
         i: usize,
     ) -> Relationship {
         let c = t.reps[i].creature;
+        if let Some(gift) = self
+            .world
+            .creature(ai)
+            .lizard()
+            .and_then(|l| l.ai.friend.gift_offered_to_me)
+            && gift.item == Entity::Creature(c)
+            && self.world.gift_active(&gift)
+        {
+            let dead = !self.world.creature(c).state.alive;
+            return Relationship {
+                kind: RelationshipType::Eats,
+                intensity: if dead { 1.0 } else { 0.65 },
+            };
+        }
         if self.world.creature(c).kind() != CreatureType::Slugcat
             || self.world.creature(ai).lizard().is_none()
         {
