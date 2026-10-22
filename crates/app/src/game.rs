@@ -41,7 +41,7 @@ use rw_sim::{
 
 use crate::jaws::{JawHolder, Jaws};
 use crate::shortcuts::CameraShortcuts;
-use crate::sprite_order::{Drawable, Joined, Move, Present, SpriteOrder};
+use crate::sprite_order::{Drawable, Joined, Move, Overlap, Present, SpriteOrder};
 
 /// How a game starts.
 #[derive(Debug, Clone, PartialEq)]
@@ -1077,7 +1077,11 @@ impl Game {
                 continue;
             };
             present.push(Present {
-                overlap: Some((w.overlap_moves, w.in_front_of_objects != 0)),
+                overlap: Some(Overlap {
+                    moves: w.overlap_moves,
+                    in_front: w.in_front_of_objects != 0,
+                    seq: w.overlap_seq,
+                }),
                 ..Present::added(Drawable::Entity(Entity::Object(id)), seq)
             });
         }
@@ -1132,8 +1136,8 @@ impl Game {
     }
 
     /// The frame's sprites in camera 0's containers: a weapon in the container its last
-    /// re-add chose, what the lizards' jaws hold nested in them ([`Jaws`]), drawables
-    /// off the stage left out, the rest in [`SpriteOrder`]'s order.
+    /// re-add chose, what the lizards' jaws hold nested in them ([`Jaws`]), the sprites
+    /// of a jaw container off the stage left out, the rest in [`SpriteOrder`]'s order.
     pub fn in_container_order(&self, mut lists: Vec<(Drawable, DrawList)>) -> Vec<DrawList> {
         for (d, list) in &mut lists {
             if !matches!(d, Drawable::Entity(Entity::Object(_))) {
@@ -1155,14 +1159,27 @@ impl Game {
         Jaws::new(holders, player).contain(&mut lists);
         let mut ordered = Vec::with_capacity(lists.len());
         for d in self.sprite_order.order() {
-            if !self.sprite_order.shown(d) {
+            let Some(i) = lists.iter().position(|(o, _)| *o == d) else {
                 continue;
+            };
+            let mut list = lists.swap_remove(i).1;
+            if !self.sprite_order.shown(d) {
+                // Only what went into the jaw container left the stage with it: the
+                // player's `Foreground` sprites stay (`PlayerGraphics.AddToContainer`).
+                if d != player {
+                    continue;
+                }
+                list.items.retain(|item| item.layer() != Layer::Midground);
             }
-            if let Some(i) = lists.iter().position(|(o, _)| *o == d) {
-                ordered.push(lists.swap_remove(i).1);
-            }
+            ordered.push(list);
         }
         ordered
+    }
+
+    /// Camera 0's container record (for MCP replies).
+    #[must_use]
+    pub fn sprite_order(&self) -> &SpriteOrder {
+        &self.sprite_order
     }
 
     /// A drawn lizard's jaw container and what the camera has in it.

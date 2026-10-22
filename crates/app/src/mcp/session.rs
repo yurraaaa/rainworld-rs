@@ -30,7 +30,6 @@ use super::params::{
     SetDestinationParams, SetPlayerParams, StepParams, StepProcessParams, StepSequenceParams,
     TilesParams, ViewParam,
 };
-use super::reply::SpearOnBackInfo;
 use super::reply::{
     AbstractAiInfo, ChunkState, ControlsPageState, CreatureInfo, ExitInfo, ExitList, FlyInfo,
     FoodMeterState, HudState, ImpactState, ImportReply, KarmaMeterState, KarmaScreenState,
@@ -53,12 +52,14 @@ use super::reply::{
     FliesWorldInfo, GraspInfo, HeldInfo, QuantifiedInfo, RegionStateInfo, RelationshipInfo,
     RoomDens,
 };
+use super::reply::{SpearOnBackInfo, SpriteLeaserState};
 use super::tiles::TileDump;
 use crate::frontend::{AppContext, Frontend, FrontendRenderer, GameSetup};
 use crate::game::{Game, GameStart};
 use crate::room_catalog::RoomCatalog;
 use crate::saves::SaveConfig;
 use crate::scene::{Framing, Scene, SceneRenderer, SceneView, VisualsSource};
+use crate::sprite_order::Drawable;
 use crate::sprites::SpriteAssets;
 
 /// Most ticks one `step` or `step_sequence` call may run (10 minutes of game time).
@@ -502,6 +503,7 @@ impl Session {
                 s.music.as_ref().map(|m| MusicState::of(m, records))
             }),
             triggers: TriggerState::all(sim),
+            sprite_order: Self::sprite_order(scene),
             holo_lights: Self::holo_lights(scene),
             holo_light_needed: sim.holo_light_needed(),
             dens: Self::dens(scene),
@@ -599,6 +601,47 @@ impl Session {
                 .iter()
                 .map(|i| (i.community.value().to_owned(), i.influence))
                 .collect(),
+        }
+    }
+
+    fn sprite_order(scene: &Scene) -> Vec<SpriteLeaserState> {
+        let order = scene.game().sprite_order();
+        order
+            .order()
+            .map(|d| {
+                let (kind, id, index) = Self::drawable(scene, d);
+                SpriteLeaserState {
+                    kind,
+                    id,
+                    index,
+                    behind: order.behind(d),
+                    held_by: order.holder(d).and_then(|h| Self::drawable(scene, h).1),
+                    shown: order.shown(d),
+                }
+            })
+            .collect()
+    }
+
+    /// A drawable's kind, EntityID and port id.
+    fn drawable(scene: &Scene, d: Drawable) -> (&'static str, Option<[i32; 2]>, Option<u64>) {
+        let sim = scene.game().sim();
+        match d {
+            Drawable::Entity(Entity::Creature(c)) if c == sim.player_creature() => {
+                ("player", Some(Self::entity_id(scene, c)), None)
+            }
+            Drawable::Entity(Entity::Creature(c)) => {
+                ("creature", Some(Self::entity_id(scene, c)), None)
+            }
+            Drawable::Entity(Entity::Object(o)) => {
+                let e = sim.world().object(o).id;
+                ("object", Some([e.spawner, e.number]), None)
+            }
+            Drawable::ShelterDoor => ("shelter_door", None, None),
+            Drawable::Drip(i) => ("drip", None, Some(i)),
+            Drawable::Cosmetic(i) => ("cosmetic", None, Some(i)),
+            Drawable::HoloLight(i) => ("holo_light", None, Some(i)),
+            Drawable::LightSource(i) => ("light_source", None, Some(i)),
+            Drawable::Shortcuts => ("shortcuts", None, None),
         }
     }
 

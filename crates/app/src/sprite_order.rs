@@ -56,8 +56,17 @@ pub struct Present {
     /// Its place in the room's update list (`AddObject`); a new place is a new leaser.
     pub seq: u64,
     pub joined: Joined,
-    /// A weapon's `ChangeOverlap` moves so far and whether it is in front.
-    pub overlap: Option<(u32, bool)>,
+    pub overlap: Option<Overlap>,
+}
+
+/// A weapon's `ChangeOverlap` state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Overlap {
+    /// Moves so far (each changed `inFrontOfObjects`).
+    pub moves: u32,
+    pub in_front: bool,
+    /// The update-list counter at the last move.
+    pub seq: u64,
 }
 
 impl Present {
@@ -89,6 +98,8 @@ pub enum Move {
     ToDefault(Drawable),
     /// `MoveObjectToInternalContainer(obj, holder, 0)`.
     IntoJaws { obj: Drawable, holder: Drawable },
+    /// `Weapon.ChangeOverlap`: `MoveObjectToContainer(obj, Items or Background)`.
+    Overlap { obj: Drawable, in_front: bool },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -129,8 +140,10 @@ impl SpriteOrder {
 
     /// One tick's changes in camera 0's `room`: `present` is every drawable there now,
     /// `moves` the internal-container moves with the update-list counter at each, and
-    /// `late` re-adds placed after the tick's other changes. A new room makes its
-    /// leasers afresh (`ChangeRoom`) and drops the moves.
+    /// `late` re-adds placed after the tick's other changes; the weapons'
+    /// `ChangeOverlap`s come from `present`, placed by their counter too. A new room
+    /// makes its leasers afresh (`ChangeRoom`, all weapons in `Items`) and drops the
+    /// moves.
     pub fn update(&mut self, room: i32, present: &[Present], moves: &[(u64, Move)], late: &[Move]) {
         if self.room != Some(room) {
             self.room = Some(room);
@@ -143,8 +156,11 @@ impl SpriteOrder {
             .filter(|p| !self.leasers.iter().any(|l| l.drawable == p.drawable))
             .collect();
         arrivals.sort_by_key(|p| p.seq);
+        let mut moves = moves.to_vec();
+        moves.extend(self.overlap_moves(present));
+        moves.sort_by_key(|&(at, _)| at);
         let mut arrivals = arrivals.into_iter().peekable();
-        for &(at, m) in moves {
+        for (at, m) in moves {
             while let Some(p) = arrivals.next_if(|p| p.seq <= at) {
                 self.arrive(p);
             }
@@ -156,7 +172,11 @@ impl SpriteOrder {
         for &m in late {
             self.apply(m);
         }
-        self.change_overlaps(present);
+        for p in present {
+            if let (Some(o), Some(i)) = (p.overlap, self.position(p.drawable)) {
+                self.leasers[i].overlap_moves = o.moves;
+            }
+        }
     }
 
     fn change_room(&mut self, present: &[Present]) {
@@ -211,7 +231,7 @@ impl SpriteOrder {
             seq: p.seq,
             parent: Parent::Room,
             behind: false,
-            overlap_moves: p.overlap.map_or(0, |(n, _)| n),
+            overlap_moves: p.overlap.map_or(0, |o| o.moves),
         });
     }
 
@@ -243,28 +263,31 @@ impl SpriteOrder {
                     self.re_add(obj, Parent::Holder(holder, self.contained), false);
                 }
             }
+            Move::Overlap { obj, in_front } => self.re_add(obj, Parent::Room, !in_front),
         }
     }
 
-    /// `Weapon.ChangeOverlap` moved a weapon to the top of `Items` or `Background` when
-    /// its count of moves changed (more than one move in a tick ends the same way).
-    fn change_overlaps(&mut self, present: &[Present]) {
-        for p in present {
-            let Some((moves, in_front)) = p.overlap else {
-                continue;
-            };
-            let changed = self
-                .leasers
-                .iter()
-                .find(|l| l.drawable == p.drawable)
-                .is_some_and(|l| l.overlap_moves != moves);
-            if changed {
-                self.re_add(p.drawable, Parent::Room, !in_front);
-                if let Some(i) = self.position(p.drawable) {
-                    self.leasers[i].overlap_moves = moves;
-                }
-            }
-        }
+    /// The weapons' `ChangeOverlap`s since the last update: one whose count of moves
+    /// changed, or one that arrived (a new leaser in `Items`) and moved after its
+    /// `AddObject`. Several moves in a tick end as the last one does.
+    fn overlap_moves(&self, present: &[Present]) -> Vec<(u64, Move)> {
+        present
+            .iter()
+            .filter_map(|p| {
+                let o = p.overlap?;
+                let moved = match self.leasers.iter().find(|l| l.drawable == p.drawable) {
+                    Some(l) => l.overlap_moves != o.moves,
+                    None => o.moves > 0 && o.seq >= p.seq,
+                };
+                moved.then_some((
+                    o.seq,
+                    Move::Overlap {
+                        obj: p.drawable,
+                        in_front: o.in_front,
+                    },
+                ))
+            })
+            .collect()
     }
 
     /// The drawables in container order, bottom first.
@@ -285,6 +308,18 @@ impl SpriteOrder {
             .collect();
         held.sort_by_key(|&(n, _)| n);
         held.into_iter().map(|(_, d)| d).collect()
+    }
+
+    /// The jaw container `d`'s sprites are in, if any (`Detached` ones included).
+    #[must_use]
+    pub fn holder(&self, d: Drawable) -> Option<Drawable> {
+        self.leasers
+            .iter()
+            .find(|l| l.drawable == d)
+            .and_then(|l| match l.parent {
+                Parent::Holder(h, _) => Some(h),
+                Parent::Room | Parent::Detached => None,
+            })
     }
 
     /// Whether a weapon's sprites are in `Background` rather than `Items`.
