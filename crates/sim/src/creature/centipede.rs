@@ -1,7 +1,7 @@
 //! The centipede's size from its ID, which its icon reads while it has no body
 //! (`CreatureSymbol.SymbolDataFromCreature`).
 //!
-//! Mirrors: Centipede.cs (GenerateSize)
+//! Mirrors: Centipede.cs (GenerateSize), AbstractCreature.cs (setCustomFlags)
 
 use rw_assets::CreatureType;
 use rw_random::UnityRandom;
