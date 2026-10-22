@@ -704,6 +704,10 @@ impl Scene {
                     cam_pos,
                     screen,
                 ));
+                lists.extend(
+                    self.game
+                        .placed_cosmetic_draw_lists(alpha, &visuals.room_palette()),
+                );
             }
             let level_view = self.visuals.is_some() && view.level;
             if let Some(list) = shortcuts.filter(|_| level_view) {

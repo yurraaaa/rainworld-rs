@@ -49,6 +49,10 @@ pub enum Drawable {
     LightSource(u64),
     /// A cosmetic insect, by its place in the update list.
     Insect(u64),
+    /// A `CosmeticSlimeMold`, by its place in the update list.
+    SlimeMold(u64),
+    /// A dead `TokenStalk`, by its place in the update list.
+    TokenStalk(u64),
     /// `ShortcutGraphics` (not a leaser: its sprites join the containers after the
     /// room's leasers).
     Shortcuts,

@@ -8,6 +8,7 @@ use serde::Serialize;
 
 pub use super::insect_reply::RoomInsects;
 pub use super::music_reply::{MusicState, TriggerState};
+pub use super::placed_cosmetics_reply::{SlimeMoldState, TokenStalkState};
 
 use super::params::InputParam;
 
@@ -102,6 +103,12 @@ pub struct State {
     /// The realized rooms' cosmetic insects (rooms without a coordinator left out).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub insects: Vec<RoomInsects>,
+    /// The realized rooms' `CosmeticSlimeMold`s.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub slime_molds: Vec<SlimeMoldState>,
+    /// The realized rooms' dead `TokenStalk`s.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub token_stalks: Vec<TokenStalkState>,
     /// `HologramLight.Needed(player)` now.
     pub holo_light_needed: f32,
     /// What the session keeps of its deaths.

@@ -1,5 +1,6 @@
 //! The game's side of the guide's room objects: `Room.Loaded`'s placed objects (with the
 //! placed lights, made in [`super::lights`]),
+//! the cosmetic slime molds and dead token stalks (made in [`super::placed_cosmetics`]),
 //! `SuperJumpInstruction`, `ScavengerTradeInstructionTrigger` and `ReliableIggyDirection`,
 //! the `InputInstructionTrigger`s' updates (with the event-made
 //! `PickupObjectInstruction`), and what the guide's communication reads of them. Types:
@@ -9,10 +10,11 @@
 
 use rw_assets::{
     AbstractObjectType, CreatureType, IggyCondition, LightSourceData, PlacedObjectType, QuadData,
-    ReliableIggyDirectionData,
+    ReliableIggyDirectionData, ResizableData,
 };
 
 use super::RainWorldGame;
+use crate::CosmeticSlimeMold;
 use crate::FloatExt;
 use crate::Vec2;
 use crate::creature::overseer::CommunicationModule;
@@ -108,6 +110,18 @@ impl RainWorldGame {
                         ))
                     })
                 }
+                Some(PlacedObjectType::CosmeticSlimeMold) => ResizableData::parse(&o.data)
+                    .map(|d| PlacedRoomObject::SlimeMold(pos, d.rad(), false)),
+                Some(PlacedObjectType::CosmeticSlimeMold2) => ResizableData::parse(&o.data)
+                    .map(|d| PlacedRoomObject::SlimeMold(pos, d.rad(), true)),
+                Some(PlacedObjectType::SlimeMold) => {
+                    match CosmeticSlimeMold::placed_item_rad(pos, &mut self.rng) {
+                        Some(rad) => Some(PlacedRoomObject::SlimeMold(pos, rad, false)),
+                        None => continue,
+                    }
+                }
+                Some(PlacedObjectType::DeadTokenStalk) => ResizableData::parse(&o.data)
+                    .map(|d| PlacedRoomObject::TokenStalk(pos, pos + Vec2::from(d.handle))),
                 _ => continue,
             };
             match kind {
@@ -119,6 +133,12 @@ impl RainWorldGame {
             match object {
                 PlacedRoomObject::Trigger(kind) => self.add_trigger_object(index, kind),
                 PlacedRoomObject::Light(pos, data) => self.add_placed_light(index, pos, &data),
+                PlacedRoomObject::SlimeMold(pos, rad, through_walls) => {
+                    self.add_slime_mold(index, pos, rad, through_walls);
+                }
+                PlacedRoomObject::TokenStalk(hover, base) => {
+                    self.add_token_stalk(index, hover, base);
+                }
             }
         }
     }
@@ -462,4 +482,8 @@ mod tests;
 enum PlacedRoomObject {
     Trigger(TriggerObjectKind),
     Light(Vec2, LightSourceData),
+    /// `pos`, `rad`, `throughWalls`.
+    SlimeMold(Vec2, f32, bool),
+    /// Hover and base positions.
+    TokenStalk(Vec2, Vec2),
 }

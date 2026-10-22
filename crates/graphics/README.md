@@ -30,6 +30,7 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 | `lizard_draw.rs` | body, tail mesh, legs, head sprites, the jaws' container place | `LizardGraphics.DrawSprites`, `AddToContainer` |
 | `fly_graphics.rs` | bat fly body, wings | `FlyGraphics` |
 | `insect_graphics.rs` | cosmetic insects' sprites (all kinds) | each insect's `InitiateSprites`/`DrawSprites`/`ApplyPalette` |
+| `slime_mold.rs`, `token_stalk.rs` | cosmetic slime-mold dots (`Items`); the dead token stalk's arm, head, rope and lamp (`Midground`, lamp flicker on the cosmetic stream) | `SlimeMold.CosmeticSlimeMold`, `CollectToken.TokenStalk` |
 | `overseer_graphics.rs` | `OverseerGraphics` simulation | `OverseerGraphics` |
 | `overseer_draw.rs` | overseer sprites | `OverseerGraphics.DrawSprites` |
 | `mycelium.rs` | overseer hairs | `Mycelium` |
@@ -55,6 +56,7 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 - Overseer lens and holograms: `hologram_matrix.rs`, `hologram_shape.rs`, `hologram_draw.rs`.
 - Bat flies: `fly_graphics.rs`.
 - Cosmetic insects: `insect_graphics.rs` (simulation in `rw-sim` `insect/`).
+- Slime-mold patches, dead token stalks: `slime_mold.rs`, `token_stalk.rs` (simulation in `rw-sim`).
 - Rocks and spears: `weapon_graphics.rs`.
 - Shelter door, pipes: `shelter_door_graphics.rs`, `shortcut_graphics.rs`.
 - Light discs: `light_source.rs`, `holo_light.rs`.
