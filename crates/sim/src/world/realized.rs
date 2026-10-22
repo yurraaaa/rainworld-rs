@@ -57,6 +57,10 @@ pub struct RealizedRoom {
     pub holo_lights: Vec<crate::creature::overseer::HologramLight>,
     /// The `LightSource`s in the room's update list.
     pub light_sources: Vec<crate::LightSource>,
+    /// `Room.Loaded`'s `CosmeticSlimeMold`s (no update; drawn).
+    pub slime_molds: Vec<crate::CosmeticSlimeMold>,
+    /// `Room.Loaded`'s dead `TokenStalk`s in the room's update list.
+    pub token_stalks: Vec<crate::TokenStalk>,
     /// `insectCoordinator`, made by `Room.Loaded` for an insect effect or group.
     pub insects: Option<crate::insect::InsectCoordinator>,
     /// `ceilingTiles` (`Room.Loaded`), where `ScreenMovement` shakes drips off.
@@ -101,6 +105,8 @@ impl RealizedRoom {
             water_glitter: WaterGlitter::default(),
             holo_lights: Vec::new(),
             light_sources: Vec::new(),
+            slime_molds: Vec::new(),
+            token_stalks: Vec::new(),
             insects,
             ceiling_tiles,
             dripping_sound: None,

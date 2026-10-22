@@ -20,7 +20,8 @@ use rw_graphics::{
     Color, CosmeticSprites, DrawList, DripPalette, FlyGraphics, HologramFrame, HologramGraphics,
     HologramLightSprites, InsectDraw, InsectSprites, Layer, LightSourceSprites, LightSourceView,
     LizardColors, LizardGraphics, LizardModule, LizardReading, OverseerGraphics, PlayerGraphics,
-    ShelterDoorSprites, ShortcutPalette, WaterDripSprites, WeaponSprites,
+    ShelterDoorSprites, ShortcutPalette, SlimeMoldSprites, TokenStalkSprites, WaterDripSprites,
+    WeaponSprites,
 };
 use rw_hud::{HudSetup, OwnerTick, RainCycleView, StartCondition, Subregions};
 use rw_random::UnityRandom;
@@ -1017,6 +1018,32 @@ impl Game {
             .collect()
     }
 
+    /// The camera room's cosmetic slime molds and dead token stalks at `alpha` between
+    /// ticks in the camera's `palette` (the stalks' lamps draw on the cosmetic stream).
+    pub fn placed_cosmetic_draw_lists(
+        &mut self,
+        alpha: f32,
+        palette: &rw_assets::RoomPalette,
+    ) -> Vec<(Drawable, DrawList)> {
+        let Some(r) = self.sim.world().realized(self.sim.camera_room()) else {
+            return Vec::new();
+        };
+        let mut lists: Vec<(Drawable, DrawList)> = r
+            .slime_molds
+            .iter()
+            .map(|m| (Drawable::SlimeMold(m.update_order), m.draw(palette)))
+            .collect();
+        let black = Color::from(palette.black_color);
+        let rng = &mut self.graphics.cosmetic;
+        lists.extend(r.token_stalks.iter().map(|s| {
+            (
+                Drawable::TokenStalk(s.update_order),
+                s.draw(black, alpha, rng),
+            )
+        }));
+        lists
+    }
+
     /// The lizards' sprites in the camera's room at `alpha` between ticks, in the
     /// order their modules were built, in the palette's `black` (their draws come from
     /// the cosmetic stream).
@@ -1198,6 +1225,16 @@ impl Game {
                         .map(|i| Present::added(Drawable::Insect(i.update_order), i.update_order)),
                 );
             }
+            present.extend(
+                r.slime_molds
+                    .iter()
+                    .map(|m| Present::added(Drawable::SlimeMold(m.update_order), m.update_order)),
+            );
+            present.extend(
+                r.token_stalks
+                    .iter()
+                    .map(|s| Present::added(Drawable::TokenStalk(s.update_order), s.update_order)),
+            );
         }
         present
     }

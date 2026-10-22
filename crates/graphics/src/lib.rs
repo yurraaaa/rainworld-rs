@@ -39,8 +39,10 @@ mod player_draw;
 mod player_graphics;
 mod shelter_door_graphics;
 mod shortcut_graphics;
+mod slime_mold;
 mod sun_blocker;
 mod tail;
+mod token_stalk;
 mod water_drip;
 mod weapon_graphics;
 
@@ -76,8 +78,10 @@ pub use shelter_door_graphics::ShelterDoorSprites;
 pub use shortcut_graphics::{
     ExitBehind, ShortcutFrame, ShortcutGraphics, ShortcutPalette, ShortcutRoom, ShortcutVessel,
 };
+pub use slime_mold::SlimeMoldSprites;
 pub use sun_blocker::SunBlocker;
 pub use tail::{TailAnchor, TailSegment};
+pub use token_stalk::TokenStalkSprites;
 pub use water_drip::{DripPalette, WaterDripSprites};
 pub use weapon_graphics::{PEBBLES, PebbleElement, SMALL_SPEAR, WeaponSprites};
 

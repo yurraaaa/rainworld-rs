@@ -28,7 +28,8 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `game_hits.rs` | thrown rock/spear vs creatures | `Weapon.Update` Thrown branch |
 | `game_holo_light.rs` | Monk guide light in the update list | `HologramLight.TryCreate` |
 | `game_lights.rs`, `game_lights_tests.rs` | light sources in the update list: placed lights (`Room.Loaded`), the glowing player's light (`PlayerGlow`), camera 0's picture they read, `Darkness`, `LightSourceExposure`/`LightSourceColor`/`DarknessOfPoint` | `Room` light members, `LightSource.Update`, `PlayerGraphics.Update` light |
-| `game_instructions.rs` | `Room.Loaded`'s placed room objects (guide triggers, placed lights), input-instruction triggers | `SuperJumpInstruction`, `ReliableIggyDirection` |
+| `game_instructions.rs` | `Room.Loaded`'s placed room objects (guide triggers, placed lights, slime molds, dead token stalks), input-instruction triggers | `SuperJumpInstruction`, `ReliableIggyDirection` |
+| `game_placed_cosmetics.rs`, `game_placed_cosmetics_tests.rs` | cosmetic slime molds and dead token stalks joining the update list, the stalks' turns | `Room.Loaded` (`CosmeticSlimeMold`, `CosmeticSlimeMold2`, `SlimeMold`, `DeadTokenStalk`) |
 | `game_items.rs` | slugcat grabbing: `Grabability` (dead lizards: `Drag`), `CanIPickThisUp`, pick-up candidate | `Player` item rules |
 | `game_eat_meat.rs`, `game_eat_meat_tests.rs` | eating a held dead creature: `CanEatMeat`, `GrabUpdate`'s meat block, `EatMeatUpdate` (bites, drips, food) | `Player.EatMeatUpdate` |
 | `game_lizards.rs` | realized lizards in the update list, vessels, `SpitOutOfShortCut` | `Lizard.Update` |
@@ -80,6 +81,8 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `water_sound.rs`, `water_sound_tests.rs` | `WaterSound`: the water's calm surface loop (`RectangularDynamicSoundLoop` on the band under the surface, `SilenceWater`) | `Water.waterSounds`, `RectangularDynamicSoundLoop` |
 | `game_water_sound.rs`, `game_water_sound_tests.rs` | the surface loop at the head of `Water.Update` and its emitters in the update list | `Room.Update` |
 | `dripping_sound.rs`, `dripping_sound_tests.rs` | `DrippingSound`: the cycle start's `Cycle_Start_Drips` loop (`DisembodiedDynamicSoundLoop`) | `DrippingSound` |
+| `slime_mold.rs` | `CosmeticSlimeMold`: the seeded dots on the walls; the plain `SlimeMold`'s `SeededRandom` gate | `SlimeMold.CosmeticSlimeMold` |
+| `token_stalk.rs` | `TokenStalk` without a token: arm, head, rope, two shared draws a tick | `CollectToken.TokenStalk` |
 | `cosmetic.rs` | `Spark`, `ExplosionSpikes`, `OverseerEffectSprite` sprites, `Bubble`s and `Splash`es (`CosmeticKind`) in update lists | `CosmeticSprite`s |
 
 ## `player/` (slugcat; `Player.cs` split by topic)
@@ -208,6 +211,7 @@ sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `m
 | Bat flies | `creature/fly/`, `world/flies_world_ai.rs`, `game_flies.rs` |
 | Cosmetic insects (Flies, RockFlea, ... effects, `InsectGroup`) | `insect/`, `game_insects.rs`; sprites in `rw-graphics` `insect_graphics.rs` |
 | Dev spawns / teleport | `game_dev.rs`, `spawn.rs` |
+| Cosmetic slime molds, dead token stalks | `slime_mold.rs`, `token_stalk.rs`, `game_placed_cosmetics.rs`; sprites in `rw-graphics` |
 
 ## Cross-links
 
@@ -228,4 +232,4 @@ slide, D10 corridors, D11 water, D14 worlds/rooms/realizer (creatures, lizards, 
 overseers), D17 shelters, D19 the player held by a creature. Elsewhere: D1 `random.md`, D12 `audio.md`, D13 `menu.md`,
 D16 `save.md`, D18 `app.md`.
 
-Tests: `*_tests.rs` beside their module, `player/tests/`, and `tests/` (12 `installed_*.rs` integration tests that read the installed game, plus `data/`).
+Tests: `*_tests.rs` beside their module, `player/tests/`, and `tests/` (13 `installed_*.rs` integration tests that read the installed game, plus `data/`).

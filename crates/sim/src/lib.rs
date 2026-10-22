@@ -45,9 +45,11 @@ mod screen_shake;
 mod shared_physics;
 pub mod shelter;
 mod shortcut;
+mod slime_mold;
 mod sound;
 mod spawn;
 mod splash;
+mod token_stalk;
 pub mod trigger;
 mod vec2;
 mod vec3;
@@ -88,12 +90,14 @@ pub use shelter::SessionEnd;
 pub use shortcut::{
     CreatureVessel, EntranceColor, LobbyVessel, ShortcutHandler, ShortcutsBlinking, VesselOwner,
 };
+pub use slime_mold::CosmeticSlimeMold;
 pub use sound::{
     EmitterId, EmitterPlace, LoopEmitter, PlayedSound, SoundEvent, SoundId, SoundRect, SoundSource,
     Sounds, StaticSoundLoop,
 };
 pub use spawn::{determine_safe_spawn_tile, place_in_room};
 pub use splash::Splash;
+pub use token_stalk::{CurveLerp, StalkCoord, TokenStalk};
 pub use vec2::{TileExt, Vec2};
 pub use vec3::Vec3;
 pub use water::{BubbleEmitter, ChunkOwner, SurfaceChunk, Water, WaterObject};

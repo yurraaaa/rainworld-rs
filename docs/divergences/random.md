@@ -158,6 +158,12 @@ it (D13). What still differs is only the seed and the call order:
   (`musicVolume` 0). `ThreatDetermination` draws nothing. The Monk's `HologramLight`
   draws three to nine a tick in its slot of the room's update list (its `DrawSprites`
   draws come from the app's cosmetic stream, per frame).
+- **Slime molds and dead token stalks.** `Room.Loaded`'s `CosmeticSlimeMold`s, the
+  plain `SlimeMold`'s `SeededRandom` gate and the `DeadTokenStalk`'s constructor draw
+  under `InitState` with the global state restored, so none on the shared stream. Each
+  dead stalk draws 2 a tick in its slot of the room's update list (`sinCounter`, the
+  new-pose roll), 4 more on a new pose; its lamp's `DrawSprites` draw comes from the
+  app's cosmetic stream, per frame.
 - **Realized rocks and spears.** Realizing a room's rocks and spears (`ShortCutsReady`,
   in entity order) makes the game's draws: the `Weapon` constructor's rotation and the
   spear's needle `Range(0, 3)`, then `PlaceInRoom`'s `SetRandomSpin` (2 for a rock, 4
