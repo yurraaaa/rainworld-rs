@@ -29,6 +29,7 @@ pub(crate) fn test_map_data() -> MapData {
     data.shelters = vec![ShelterData {
         room: 2,
         marker_pos: Vec2::new(130.0, 70.0),
+        items: None,
     }];
     data.gates = vec![
         GateData {

@@ -10,6 +10,8 @@ use rw_save::SavedCoordinate;
 use rw_sim::world::World;
 use rw_sim::{MapRoom, Vec2, WorldCoordinate};
 
+use super::shelter_items::ItemInShelterData;
+
 /// `RegionGate.GateRequirement` (base game, More Slugcats' locks).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GateRequirement {
@@ -96,11 +98,13 @@ impl GateRequirement {
     }
 }
 
-/// `MapData.ShelterData` (its items are not ported).
-#[derive(Debug, Clone, Copy, PartialEq)]
+/// `MapData.ShelterData`.
+#[derive(Debug, Clone, PartialEq)]
 pub struct ShelterData {
     pub room: i32,
     pub marker_pos: Vec2,
+    /// `itemsData`: `None` until `UpdateData` puts the items in.
+    pub items: Option<Vec<ItemInShelterData>>,
 }
 
 /// `MapData.GateData`: `karma` is `None` for an unlocked gate.
@@ -218,6 +222,7 @@ impl MapData {
                     map.shelters.push(ShelterData {
                         room: room.index,
                         marker_pos: pos,
+                        items: None,
                     });
                 }
             } else if room.gate() {
@@ -231,17 +236,18 @@ impl MapData {
         Some(map)
     }
 
-    /// `UpdateData(world, foodTicks, currKarm, kfPos, putItemsInShelters)` (the
-    /// shelters' items are not ported): the karma the gate markers compare with, the
-    /// flower if in this region, and a swarm room active once its counter is within
-    /// `food_ticks` of 0. The game pairs the map's swarm rooms with the world's by
-    /// index.
+    /// `UpdateData(world, foodTicks, currKarm, kfPos, putItemsInShelters)`: the karma
+    /// the gate markers compare with, the flower if in this region, a swarm room active
+    /// once its counter is within `food_ticks` of 0 (the game pairs the map's swarm
+    /// rooms with the world's by index), and with `put_items_in_shelters` each
+    /// shelter's items as the world holds them now.
     pub fn update_data(
         &mut self,
         world: &World,
         food_ticks: i32,
         karma: i32,
         karma_flower: Option<&SavedCoordinate>,
+        put_items_in_shelters: bool,
     ) {
         self.current_karma = karma;
         self.karma_flower_pos = self.flower_in_region(karma_flower);
@@ -249,21 +255,41 @@ impl MapData {
             return;
         }
         let data = world.data();
-        let Some(state) = world.region_state.as_ref() else {
+        // Without a region state (where the game would throw on a swarm room) the
+        // swarm rooms are left as they are.
+        if let Some(state) = world.region_state.as_ref() {
+            let n = self.swarm_rooms.len().min(data.swarm_rooms.len());
+            for i in 0..n {
+                let name = data
+                    .room(data.swarm_rooms[i])
+                    .map_or("", |r| r.name.as_str());
+                let counter = state
+                    .swarm_room_counters
+                    .iter()
+                    .find(|(r, _)| r == name)
+                    .map_or(0, |(_, c)| *c);
+                self.swarm_rooms[i].active =
+                    state.swarm_room_active(data, i) || counter - food_ticks <= 0;
+            }
+        }
+        if !put_items_in_shelters {
             return;
-        };
-        let n = self.swarm_rooms.len().min(data.swarm_rooms.len());
-        for i in 0..n {
-            let name = data
-                .room(data.swarm_rooms[i])
-                .map_or("", |r| r.name.as_str());
-            let counter = state
-                .swarm_room_counters
-                .iter()
-                .find(|(r, _)| r == name)
-                .map_or(0, |(_, c)| *c);
-            self.swarm_rooms[i].active =
-                state.swarm_room_active(data, i) || counter - food_ticks <= 0;
+        }
+        for s in &mut self.shelters {
+            s.items = Some(Vec::new());
+        }
+        let first = world.first_room_index();
+        let rooms = i32::try_from(world.number_of_rooms()).unwrap_or(i32::MAX);
+        for k in first..first.saturating_add(rooms) {
+            if !world
+                .abstract_room(k)
+                .is_some_and(AbstractRoomData::shelter)
+            {
+                continue;
+            }
+            if let Some(s) = self.shelters.iter_mut().find(|s| s.room == k) {
+                s.items = Some(ItemInShelterData::list_from_world(world, k));
+            }
         }
     }
 

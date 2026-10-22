@@ -13,6 +13,7 @@ mod controls_page;
 mod endgame_meter;
 mod endgame_tokens;
 mod food_meter;
+mod icon_symbol;
 mod karma_ladder;
 mod karma_meter;
 mod map;
@@ -41,11 +42,13 @@ pub use controls_page::{ControlMap, ControlsPage, IllustrationSource, PageText};
 pub use endgame_meter::{EndgameMeter, MeterFrame, MeterKind, MeterSource, PearlColor};
 pub use endgame_tokens::{EndgameTokens, Token};
 pub use food_meter::{CIRCLE_DISTANCE, FoodMeter, MeterCircle, ScreenTick};
+pub use icon_symbol::{IconSymbol, IconSymbolData, SymbolWidths};
 pub use karma_ladder::{KarmaLadder, KarmaSymbol, LadderIo, LadderPhase};
 pub use karma_meter::{KarmaMeter, karma_symbol_sprite};
 pub use map::{
-    ConnectionView, CycleLabel, FadeInMarker, GateData, GateRequirement, Map, MapConnection,
-    MapData, MapDataRoom, MapOwner, MarkerKind, ShelterData, SwarmRoomData,
+    ConnectionView, CycleLabel, FadeInMarker, GateData, GateRequirement, ItemInShelterData,
+    ItemInShelterMarker, Map, MapConnection, MapData, MapDataRoom, MapOwner, MarkerKind,
+    ShelterData, ShelterItems, ShelterSymbols, SwarmRoomData,
 };
 pub use pause_menu::{PauseButton, PauseGame, PauseMenu, PauseRequest};
 pub use rain_meter::{RainCycleView, RainMeter};

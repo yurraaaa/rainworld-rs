@@ -22,14 +22,23 @@ story session.
   state's `DEATHPOSS`) and the karma flower marker. The same map, owned by a sleep or
   death screen (`SleepHud`, D13), fades in without the
   hold and, on a death screen, has no player marker. The player's exit discovery and
-  `ReportRoomVisited` run in `Player.Update` as in the game. Differences: shelters show
-  no stored items (the port has none); the flower marker reads the save's `FLOWERPOS`
+  `ReportRoomVisited` run in `Player.Update` as in the game. Shelter markers show the
+  icons of what lies in the shelter (`ItemInShelterMarker`), read from the room's
+  entities. Differences: a saved object of a kind the port keeps as text (D16: all but
+  rocks and spears) is not in the shelter's entities and shows no icon, which also
+  moves the icons after it; a dev-spawned untyped object reads with its constructor's
+  defaults (an ordinary vulture mask, unrotted fruit, pearl type/colour 0, a full
+  bubble grass); a data pearl's unique-type colours are not ported (unreachable); a
+  centipede's `Seed` spawn flag (alternative ID seed) is not applied to its size class
+  (the port does not set `altSeed`); the flower marker reads the save's `FLOWERPOS`
   (the karma flower is not spawned, so the world load's clearing of the position when
   the flower is gone is not ported); a saved coordinate in the old numeric-room form
   places no death marker or flower (the port does not resolve room indices from old
   saves); in a shortcut the owner's position is its vessel's tile
   even while the vessel waits for another room; the cycle label counts 19 cycles (no
-  Remix settings, no extra cycles). Not ported: the More Slugcats gate locks, Remix's
+  Remix settings, no extra cycles). Not ported: the DLC branches of the item and
+  creature icons (`ItemSymbol`'s More Slugcats, shared-DLC and Watcher sprites and
+  colours, the Watcher's rot-lizard and sky-whale symbol data), the More Slugcats gate locks, Remix's
   item and creature markers and fast reveal, Watcher warp and spinning-top markers, and
   the fast-travel and region-overview owners.
 - **Rain.** The rain meter reads the world's `RainCycle` (its drawn length and

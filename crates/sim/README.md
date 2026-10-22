@@ -130,6 +130,7 @@ corridor shoots' `WaterDrip`s), `spear_on_back.rs` (the Hunter's
 | `ai.rs`, `ai_kinds.rs` | abstract AI state + constructors | `AbstractCreatureAI` subclasses |
 | `population.rs` | world creature generation | `WorldLoader.GeneratePopulation` |
 | `state_save.rs`, `social_memory.rs` | creature state save string; `SocialMemory` | `CreatureState`, `SocialMemory` |
+| `centipede.rs` | `AbstractCreature::centipede_generate_size` (size from the ID, for its icon) | `Centipede.GenerateSize` |
 | `death.rs`, `grasp.rs`, `danger.rs` | kill tag/die, `Killing`, `AddCreatureToRespawn` and the lineage roll; `Grasp` + grip sticks; threat/danger reads | `Creature.Die`, `Creature.Grab` |
 | `tracker.rs`, `relationship_tracker.rs`, `looker.rs`, `vision.rs` | AI modules | `Tracker`, `RelationshipTracker`, `CreatureLooker`, `VisualScore` |
 | `noise_tracker.rs`, `stuck_tracker.rs` | `NoiseTracker`; `StuckTracker`, `DiscomfortTracker` | same |

@@ -5,7 +5,7 @@
 //! Mirrors: HUD/Map.cs
 
 use rw_assets::{SlugcatName, StreamingAssets};
-use rw_hud::{Hud, MapData, MapOwner};
+use rw_hud::{Hud, MapData, MapOwner, ShelterItems};
 use rw_menu::Translator;
 use rw_save::PlayerProgression;
 use rw_sim::{HEAD, HudMapLink, Vec2};
@@ -74,6 +74,9 @@ impl Game {
             input: player.map_input(),
             rooms_visited,
             now_ticks: MapOwner::now_ticks(),
+            // `GetItemInShelter` reads the world while the player has a room (not in a
+            // shortcut).
+            shelter_items: (!player.in_shortcut()).then(|| ShelterItems::of_world(sim.world())),
         }
     }
 

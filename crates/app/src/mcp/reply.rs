@@ -1675,6 +1675,19 @@ pub struct MapMarkerState {
     pub kind: String,
     pub room: i32,
     pub fade: f32,
+    /// A shelter marker's shown item icons (`ItemInShelterMarker`), in order.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub items: Vec<ShelterIconState>,
+}
+
+/// One icon under a shelter marker.
+#[derive(Debug, Clone, Serialize)]
+pub struct ShelterIconState {
+    pub sprite: String,
+    /// Offset from the shelter marker.
+    pub pos: [f32; 2],
+    /// 1 for a dead creature.
+    pub status: i32,
 }
 
 #[derive(Debug, Clone, Serialize)]

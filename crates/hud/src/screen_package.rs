@@ -115,6 +115,7 @@ impl SleepDeathScreenDataPackage {
                 1 + dp.food_replenish_bonus,
                 map_karma,
                 flower.as_ref(),
+                true,
             );
             map.reload_image(src.assets, src.slugcat.value());
         }

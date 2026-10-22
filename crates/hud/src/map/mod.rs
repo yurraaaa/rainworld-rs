@@ -2,8 +2,8 @@
 //! three depth layers through the `Map` shaders, revealed where the discovery texture
 //! says the player has been, panned with the directions and layered with jump and
 //! throw while the map button is held; the player marker, the gate, shelter, death and
-//! karma flower markers, the room connection lines, the swarm-room circles and the
-//! Hunter's cycle label. Owned by the player, or by the sleep and death screens (which
+//! karma flower markers (a shelter's with icons of what lies in it), the room
+//! connection lines, the swarm-room circles and the Hunter's cycle label. Owned by the player, or by the sleep and death screens (which
 //! show it at once, without discovery). Behaviour: `rainworld-re/notes/hud.md`
 //! section 5.
 //!
@@ -12,6 +12,7 @@
 mod connection;
 mod data;
 mod markers;
+mod shelter_items;
 
 #[cfg(test)]
 pub(crate) mod tests;
@@ -29,11 +30,15 @@ use rw_render::{MapGlobals, StageShader, StageTextureId, TextureFilter, TextureS
 use rw_sim::map_discovery::{DIAGONALS, DISCOVER_RESOLUTION};
 use rw_sim::{DiscoveryTexture, FloatExt, Input, MapDiscovery, MapRoom, UnityTexture, Vec2};
 
+use crate::icon_symbol::SymbolWidths;
 use crate::{CustomFloat, CustomInt, HudCircle, HudOwnerType, SnapGraphic};
 pub use connection::{ConnectionView, MapConnection};
 pub use data::{GateData, GateRequirement, MapData, MapDataRoom, ShelterData, SwarmRoomData};
 
 pub use markers::{FadeInMarker, MarkerKind, MarkerView};
+pub use shelter_items::{
+    ItemInShelterData, ItemInShelterMarker, ShelterDraw, ShelterItems, ShelterSymbols,
+};
 
 /// `Custom.eightDirectionsAndZero`.
 const EIGHT_DIRECTIONS_AND_ZERO: [(i32, i32); 9] = [
@@ -68,6 +73,9 @@ pub struct MapOwner {
     pub rooms_visited: Vec<String>,
     /// `DateTime.Now.Ticks`, stored as `mapLastUpdatedTime` when the map loads.
     pub now_ticks: i64,
+    /// The region's shelters as the world holds them, while the player is in a room
+    /// (`GetItemInShelter` reads the world then; otherwise the map data's items).
+    pub shelter_items: Option<Vec<ShelterItems>>,
 }
 
 impl MapOwner {
@@ -217,6 +225,9 @@ pub struct Map {
     /// The owner's position and room at the last update, for drawing.
     owner_pos: Vec2,
     owner_room: i32,
+    /// The owner's live shelter items at the last update (a player's map only).
+    owner_shelter_items: Option<Vec<ShelterItems>>,
+    symbol_widths: SymbolWidths,
 }
 
 impl Map {
@@ -271,6 +282,8 @@ impl Map {
             screen_size,
             owner_pos: Vec2::ZERO,
             owner_room: 0,
+            owner_shelter_items: None,
+            symbol_widths: SymbolWidths::of(atlases),
         };
         for gate in &map.data.gates {
             // A new game's save state: open when the karma suffices.
@@ -431,6 +444,11 @@ impl Map {
         self.counter += 1;
         self.owner_pos = owner.in_room_pos;
         self.owner_room = owner.room;
+        self.owner_shelter_items = if self.owner == HudOwnerType::Player {
+            owner.shelter_items.clone()
+        } else {
+            None
+        };
         if self.visible {
             self.invisible_counter = 0;
             self.visible_counter += 1;
@@ -461,8 +479,9 @@ impl Map {
                 self.update_swarm_circle(i);
             }
         }
+        let visible = self.visible;
         for m in self.markers.iter_mut().rev() {
-            m.update();
+            m.update(visible);
         }
         if self.view.is_some() && self.disc_loaded {
             self.update_loaded(owner, reveal_map, hide_general_hud, stage, discovery, rng);
@@ -1022,12 +1041,30 @@ impl Map {
             screen_pos: Vec2::ZERO,
             death_screen: self.owner == HudOwnerType::DeathScreen,
         };
-        for m in &self.markers {
+        for i in 0..self.markers.len() {
+            let m = &self.markers[i];
             let v = MarkerView {
                 screen_pos: self.room_to_map_pos(m.in_room_pos, m.room, t),
                 ..marker_view
             };
             m.draw(stage, &v, t);
+            let shelter = ShelterDraw {
+                shown: m.fade > 0.0 && m.last_fade > 0.0 && self.visible,
+                map_visible: self.visible,
+                alpha: marker_view.map_fade * m.last_fade.lerp(m.fade, t),
+                screen_pos: v.screen_pos,
+                counter: self.counter,
+                items: Self::items_in_shelter(
+                    &self.data,
+                    self.owner_shelter_items.as_deref(),
+                    m.room,
+                ),
+                widths: &self.symbol_widths,
+                container: view.in_front,
+            };
+            if let Some(s) = &mut self.markers[i].shelter {
+                s.draw(stage, &shelter, t);
+            }
         }
         if !self.visible {
             return;
@@ -1086,6 +1123,27 @@ impl Map {
         }
         if let Some(label) = &view.cycle_label {
             label.draw(stage, t, fade);
+        }
+    }
+
+    /// `GetItemInShelter(room, i)` for i up to 49: the world's items while a player's
+    /// map has them, else the map data's (none before `UpdateData` put them in).
+    fn items_in_shelter<'a>(
+        data: &'a MapData,
+        live: Option<&'a [ShelterItems]>,
+        room: i32,
+    ) -> &'a [ItemInShelterData] {
+        match live {
+            Some(live) => live
+                .iter()
+                .find(|s| s.room == room)
+                .map_or(&[], |s| s.items.as_slice()),
+            None => data
+                .shelters
+                .iter()
+                .find(|s| s.room == room)
+                .and_then(|s| s.items.as_deref())
+                .unwrap_or(&[]),
         }
     }
 
