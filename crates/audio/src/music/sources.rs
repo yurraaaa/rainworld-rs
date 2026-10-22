@@ -136,6 +136,11 @@ impl TimedSources {
         self.tracks.get(&track)
     }
 
+    /// Destroys every source, keeping the clip lengths already read.
+    pub fn destroy_all(&mut self) {
+        self.tracks.clear();
+    }
+
     /// One tick of playback (1/40 s).
     pub fn advance(&mut self) {
         for t in self.tracks.values_mut() {

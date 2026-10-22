@@ -11,7 +11,7 @@ use rw_audio::music::{MusicContext, SongKind};
 use rw_menu::ProcessId;
 
 use super::params::{
-    InputParam, ListRoomsParams, LoadProcessParams, LoadRoomParams, RespawnParams,
+    InputParam, ListRoomsParams, LoadProcessParams, LoadRoomParams, NewGameParams, RespawnParams,
     ScreenshotParams, SetPlayerParams, Step, StepParams, StepProcessParams, StepSequenceParams,
     TilesParams, ViewParam,
 };
@@ -1056,4 +1056,35 @@ fn a_game_in_su_builds_its_threat_layers() {
     assert!(piece.layers.iter().all(|l| l.stem.starts_with("TH_SU - ")));
     assert!(piece.layers.iter().all(|l| l.volume == 0.0));
     assert_eq!(music.current_procedural_region.as_deref(), Some("SU"));
+}
+
+impl Session {
+    /// `get_state` after `ticks` idle ticks, as JSON.
+    fn state_after(&mut self, ticks: u32) -> serde_json::Value {
+        serde_json::to_value(self.run(ticks, InputParam::default())).expect("state serializes")
+    }
+}
+
+/// Each `load_room`/`new_game` gets a fresh music player, so a repeated dev start
+/// matches the same start in a fresh session.
+#[test]
+fn dev_starts_repeat_within_a_session() {
+    let (Some(mut session), Some(mut fresh)) = (Session::installed(), Session::installed()) else {
+        return;
+    };
+    fresh.load("SU_A07", 1);
+    let reference = fresh.state_after(40);
+    for _ in 0..2 {
+        session.load("SU_A07", 1);
+        assert_eq!(session.state_after(40), reference);
+    }
+    let new_game = NewGameParams {
+        slugcat: "White".to_owned(),
+        seed: Some(1),
+        malnourished: None,
+    };
+    fresh.new_game(&new_game).expect("starts");
+    let reference = fresh.state_after(40);
+    session.new_game(&new_game).expect("starts");
+    assert_eq!(session.state_after(40), reference);
 }
