@@ -38,9 +38,7 @@ abstract AI, den logic), overseers with the guide's tutorial, bat flies with
 catching, carrying and eating, the Eat and super-jump lessons.
 Exit check: play the SU_A42 to SU_A43 tutorial through.
 
-## Current
-
-**M6 - Green lizards** (current; `surveys/lizards.md`, steps S1 to S9)
+**M6 - Green lizards** (done; `surveys/lizards.md`, steps S1 to S9)
 Done: S1 AI map, S2 abstract AI for the other creatures, S3 body, violence and
 death, S4 path finder and movement, S5 graphics and voice, S6a tracker, vision and
 relationships, S6b hearing, noises and social influences, S7a decisions and calm
@@ -53,40 +51,51 @@ shelters, the SU census 11/10/8 checked).
 Exit check: a green lizard hunts, bites and flees as in the game, and the player
 can be killed by one, across a cycle.
 
+## Current
+
+**M7 - Room visual effects, lights and camera shake** (current; `surveys/room-effects/`,
+`surveys/lights-camera-shake.md`)
+Every base-game room visual effect (level shader and palette machinery, full-screen
+effects, cosmetic insects, lightning, decals, particles, background scenes, then the
+gameplay effects: electric death, border push-back, zero gravity, the SS superstructure,
+the void), placed lights and light fixtures, and camera shake. Effects no base room uses
+and lights owned by unported things come later with their owners or DLCs.
+Exit check: rooms look and shake as in the game.
+
 ## Planned (order proposed, to decide)
 
-**M7 - Rain and the cycle's end**
+**M8 - Rain and the cycle's end**
 The rain cycle's rain, flood and rain death; waking up in the rain; the threat
 music layers' triggers.
 
-**M8 - Gates and region changes**
+**M9 - Gates and region changes**
 Region gates and the karma gate rules, moving between regions, per-region state
 across the world; the debug UI's Region tab.
 
-**M9 - Creature bodies, wave 1**
+**M10 - Creature bodies, wave 1**
 The creatures that matter next in the early regions, each as a body, AI, graphics
 and sound step like M6 (which first is a user decision): e.g. the other lizard
 colours, cicadas, centipedes, scavengers, vultures, needle worms, drop bugs.
 
-**M10 - Creature bodies, wave 2 and the rest of base game**
+**M11 - Creature bodies, wave 2 and the rest of base game**
 The remaining base-game creatures, items, plants and room objects, dreams and
 the PASSAGE screens, and the other starting slugcats' mechanics.
 
-**M11 - Whole base game playable**
+**M12 - Whole base game playable**
 The base-game campaigns playable start to finish with Remix off.
 
-**M12 - Remix and the DLCs**
+**M13 - Remix and the DLCs**
 Remix's menu and options, More Slugcats, Watcher and Jolly Co-op, each taking effect
 as in the game (omitted DLC branches are listed in `divergences/`).
 
-**M13 - Cleanup, review and optimisation**
+**M14 - Cleanup, review and optimisation**
 A code cleanliness and quality review across the workspace, one crate at a time,
 then an optimisation pass. Starts from the end-of-project items in `OPEN-ITEMS.md`
 (`rw-hud` screens, `cosmetic_graphics.rs`, the `rw-sim` file split).
 
-**M14 - Modding API**
+**M15 - Modding API**
 A built-in scripting language (Wren, Lua or another) replacing C# mod loading.
 
-**M15 - Android port**
+**M16 - Android port**
 Touch input, getting the game files onto the device, the platform seams already
 kept in the windowing, path and input code.
