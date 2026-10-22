@@ -18,7 +18,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | random | 0 | 1 | 0 | 0 |
 | render | 6 | 18 | 0 | 0 |
 | save | 15 | 5 | 0 | 0 |
-| sim | 179 | 5 | 0 | 0 |
+| sim | 181 | 5 | 0 | 0 |
 
 ## Rust file to C# files
 
@@ -110,7 +110,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/audio/src/voice.rs` | mirrors | SoundLoader.cs, VirtualMicrophone.cs |
 | `crates/graphics/src/atlas.rs` | mirrors | FAtlas.cs, FAtlasElement.cs |
 | `crates/graphics/src/body_part.rs` | mirrors | BodyPart.cs |
-| `crates/graphics/src/cosmetic_graphics.rs` | mirrors | ExplosionSpikes.cs, LizardBubble.cs, Spark.cs, StationaryEffect.cs |
+| `crates/graphics/src/cosmetic_graphics.rs` | mirrors | Bubble.cs, ExplosionSpikes.cs, LizardBubble.cs, Spark.cs, StationaryEffect.cs |
 | `crates/graphics/src/draw.rs` | port-only | - |
 | `crates/graphics/src/elements.rs` | port-only | - |
 | `crates/graphics/src/fly_graphics.rs` | mirrors | FlyGraphics.cs |
@@ -237,6 +237,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/save/src/songs.rs` | mirrors | DeathPersistentSaveData.cs |
 | `crates/save/src/user_data.rs` | port-only | - |
 | `crates/save/src/win_state.rs` | mirrors | WinState.cs |
+| `crates/sim/src/bubble.rs` | mirrors | Bubble.cs |
 | `crates/sim/src/camera.rs` | mirrors | Room.cs, RoomCamera.cs |
 | `crates/sim/src/campaign.rs` | mirrors | RainWorldGame.cs, SaveState.cs, SlugcatStats.cs |
 | `crates/sim/src/chunk.rs` | mirrors | BodyChunk.cs |
@@ -416,6 +417,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/sim/src/world/realizer.rs` | mirrors | RoomRealizer.cs |
 | `crates/sim/src/world/region_save.rs` | mirrors | RegionState.cs, SaveState.cs |
 | `crates/sim/src/world/region_state.rs` | mirrors | RegionState.cs, World.cs |
+| `crates/sim/src/world/room_water.rs` | mirrors | Room.cs, Water.cs |
 | `crates/sim/src/world/social_events.rs` | mirrors | LizardAI.cs, SocialEventRecognizer.cs |
 | `crates/sim/src/world/swarm_rooms.rs` | mirrors | AbstractRoom.cs, FliesWorldAI.cs, SwarmRoomMapper.cs, WorldLoader.cs |
 | `crates/sim/src/world/threat_flight.rs` | mirrors | ThreatTracker.cs |
@@ -449,6 +451,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `BigEelAbstractAI.cs` | `crates/sim/src/creature/ai_kinds.rs`, `crates/sim/src/world/abstract_ai_kinds.rs` |
 | `BodyChunk.cs` | `crates/sim/src/chunk.rs`, `crates/sim/src/creature/vision.rs` |
 | `BodyPart.cs` | `crates/graphics/src/body_part.rs` |
+| `Bubble.cs` | `crates/graphics/src/cosmetic_graphics.rs`, `crates/sim/src/bubble.rs` |
 | `CicadaAbstractAI.cs` | `crates/sim/src/creature/ai_kinds.rs`, `crates/sim/src/world/abstract_ai_kinds.rs` |
 | `CoralBrain/Mycelium.cs` | `crates/graphics/src/mycelium.rs` |
 | `CosmeticInsect.cs` | `crates/sim/src/insect/avoider.rs`, `crates/sim/src/insect/mod.rs` |
@@ -618,7 +621,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `ReliableIggyDirection.cs` | `crates/sim/src/game_instructions.rs`, `crates/sim/src/trigger.rs` |
 | `Rock.cs` | `crates/graphics/src/weapon_graphics.rs`, `crates/sim/src/game_lizard_hits.rs`, `crates/sim/src/game_weapons.rs`, `crates/sim/src/item/weapon.rs` |
 | `RockFlea.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/insect/rock_flea.rs` |
-| `Room.cs` | `crates/app/src/death_fall.rs`, `crates/app/src/sprite_order.rs`, `crates/assets/src/room.rs`, `crates/render/src/level.rs`, `crates/sim/src/camera.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/game_drips.rs`, `crates/sim/src/game_flies.rs`, `crates/sim/src/game_insects.rs`, `crates/sim/src/game_instructions.rs`, `crates/sim/src/game_noise.rs`, `crates/sim/src/game_shelter.rs`, `crates/sim/src/game_triggers.rs`, `crates/sim/src/game_water_sound.rs`, `crates/sim/src/game_weapons.rs`, `crates/sim/src/insect/coordinator.rs`, `crates/sim/src/noise.rs`, `crates/sim/src/room_script.rs`, `crates/sim/src/screen_shake.rs`, `crates/sim/src/shortcut.rs`, `crates/sim/src/sound.rs`, `crates/sim/src/spawn.rs`, `crates/sim/src/water.rs`, `crates/sim/src/water_drip.rs`, `crates/sim/src/world/hearing.rs`, `crates/sim/src/world/objects.rs`, `crates/sim/src/world/quantified.rs`, `crates/sim/src/world/realized.rs`, `crates/sim/src/world/weapons.rs` |
+| `Room.cs` | `crates/app/src/death_fall.rs`, `crates/app/src/sprite_order.rs`, `crates/assets/src/room.rs`, `crates/render/src/level.rs`, `crates/sim/src/camera.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/game_drips.rs`, `crates/sim/src/game_flies.rs`, `crates/sim/src/game_insects.rs`, `crates/sim/src/game_instructions.rs`, `crates/sim/src/game_noise.rs`, `crates/sim/src/game_shelter.rs`, `crates/sim/src/game_triggers.rs`, `crates/sim/src/game_water_sound.rs`, `crates/sim/src/game_weapons.rs`, `crates/sim/src/insect/coordinator.rs`, `crates/sim/src/noise.rs`, `crates/sim/src/room_script.rs`, `crates/sim/src/screen_shake.rs`, `crates/sim/src/shortcut.rs`, `crates/sim/src/sound.rs`, `crates/sim/src/spawn.rs`, `crates/sim/src/water.rs`, `crates/sim/src/water_drip.rs`, `crates/sim/src/world/hearing.rs`, `crates/sim/src/world/objects.rs`, `crates/sim/src/world/quantified.rs`, `crates/sim/src/world/realized.rs`, `crates/sim/src/world/room_water.rs`, `crates/sim/src/world/weapons.rs` |
 | `RoomBorderExit.cs` | `crates/assets/src/border_exits.rs` |
 | `RoomCamera.cs` | `crates/app/src/full_screen_effect.rs`, `crates/app/src/game.rs`, `crates/app/src/scene.rs`, `crates/app/src/sprite_order.rs`, `crates/app/src/visuals.rs`, `crates/assets/src/palette.rs`, `crates/render/src/level.rs`, `crates/render/src/room_camera.rs`, `crates/sim/src/camera.rs`, `crates/sim/src/game_insects.rs`, `crates/sim/src/screen_shake.rs` |
 | `RoomPreparer.cs` | `crates/sim/src/world/mod.rs` |
@@ -664,7 +667,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `VirtualMicrophone.cs` | `crates/audio/src/mic.rs`, `crates/audio/src/voice.rs`, `crates/sim/src/sound.rs` |
 | `VultureAbstractAI.cs` | `crates/sim/src/creature/ai_kinds.rs`, `crates/sim/src/world/abstract_ai_kinds.rs` |
 | `Wasp.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/insect/wasp.rs` |
-| `Water.cs` | `crates/render/src/water_sprites.rs`, `crates/sim/src/water.rs`, `crates/sim/src/water_sound.rs` |
+| `Water.cs` | `crates/render/src/water_sprites.rs`, `crates/sim/src/water.rs`, `crates/sim/src/water_sound.rs`, `crates/sim/src/world/room_water.rs` |
 | `WaterDrip.cs` | `crates/graphics/src/water_drip.rs`, `crates/sim/src/game_player.rs`, `crates/sim/src/water_drip.rs` |
 | `WaterGlowworm.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/insect/water_glowworm.rs` |
 | `WaterLevelCycle.cs` | `crates/sim/src/world/rain_cycle.rs` |
