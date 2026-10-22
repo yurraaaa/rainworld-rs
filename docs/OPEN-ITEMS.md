@@ -69,7 +69,7 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   agreed (user, 2026-10-21): 7b (done), step 8 (done; player side: grabbed, bitten,
   `GameOver(grasp)`), 7c (done), the player picking up, carrying and eating dead
   lizards (done; living and stunned ones cannot be grabbed in the base game), then
-  step 9. Details in
+  step 9 (done: lineages, respawn lists, shelters, census). Details in
   `../rainworld-re/surveys/lizards.md` (user decisions).
 
 ## To look into

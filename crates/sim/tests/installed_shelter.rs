@@ -14,9 +14,10 @@ use std::sync::Arc;
 use rw_assets::world::{
     GameRooms, LineFilter, Regions, RoomSource, StoryConditions, WorldData, WorldRequest,
 };
-use rw_assets::{ActiveMods, StreamingAssets, tile_centre};
+use rw_assets::{ActiveMods, CreatureType, StreamingAssets, tile_centre};
 use rw_random::UnityRandom;
 use rw_sim::campaign::SlugcatCampaign;
+use rw_sim::creature::EntityId;
 use rw_sim::shelter::{SessionEnd, ShelterDoor};
 use rw_sim::world::World;
 use rw_sim::{Input, RainWorldGame, Sounds, Start, Vec2};
@@ -198,4 +199,50 @@ fn a_fed_slugcat_coming_in_hibernates_and_wins() {
     assert_eq!(door_fac(&game, shelter), 1.0);
     assert!(game.player().expect("player").sleeping());
     assert_eq!(ShelterDoor::CLOSE_SPEED, 1.0 / 320.0);
+}
+
+/// `KillAllHostiles` on a shelter the slugcat starts in: a green lizard is not hostile
+/// (`IsThisHostileCreatureForShelter`) and stays alive; a big hostile (a daddy long
+/// legs, without a body) goes back to its spawner's den (`Move`); a small one without
+/// a body stays alive, so the check goes on.
+#[test]
+fn shelter_hostiles_leave_and_lizards_stay() {
+    let Some(installed) = Installed::open() else {
+        return;
+    };
+    let mut game = installed.game("SU_S01");
+    let shelter = game.world().room_index("SU_S01").expect("shelter");
+    assert!(game.shelter_door(shelter).expect("door").kill_hostiles);
+    let tile = game.shelter_door(shelter).expect("door").player_spawn_pos;
+    let lizard = game
+        .dev_spawn_creature(CreatureType::GreenLizard, shelter, tile, None, &mut ())
+        .expect("lizard");
+    let big = game
+        .dev_spawn_creature(CreatureType::DaddyLongLegs, shelter, tile, None, &mut ())
+        .expect("daddy");
+    // The region's first spawner (`SU_B11 : 4-CicadaB`).
+    let region = game.world().data().region.as_ref().unwrap().region_number;
+    game.world_mut().creature_mut(big).id = EntityId::new(region * 1000, 1);
+    let den = game.world().data().spawners[0].den();
+    let spider = game
+        .dev_spawn_creature(CreatureType::Spider, shelter, tile, None, &mut ())
+        .expect("spider");
+    game.tick(Input::default(), &mut ());
+    let w = game.world();
+    assert_eq!(w.creature(big).pos.room, den.room);
+    assert_eq!(w.creature(big).pos.node, den.node);
+    assert!(w.creature(big).state.alive);
+    assert_eq!(w.creature(lizard).pos.room, shelter);
+    assert!(w.creature(lizard).state.alive);
+    assert_eq!(w.creature(spider).pos.room, shelter);
+    assert!(w.creature(spider).state.alive);
+    assert!(game.shelter_door(shelter).expect("door").kill_hostiles);
+    assert!(game.session_deaths().respawn_creatures.is_empty());
+
+    // Without a hostile alive the check ends.
+    let mut game = installed.game("SU_S01");
+    game.dev_spawn_creature(CreatureType::GreenLizard, shelter, tile, None, &mut ())
+        .expect("lizard");
+    game.tick(Input::default(), &mut ());
+    assert!(!game.shelter_door(shelter).expect("door").kill_hostiles);
 }

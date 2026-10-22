@@ -189,11 +189,13 @@ impl World {
     /// creatures return to the saved lists, then the rooms' stuck spears and shelter
     /// objects, and every saved creature of the world's rooms
     /// (`CreatureToStringInDenPos`); loaded creatures not saved and dead are put up for
-    /// respawn. The saved sticks are kept as read. Returns `SaveToString()`.
+    /// respawn unless their spawner is on `respawn` or `wait` (`waitRespawnCreatures`)
+    /// already. The saved sticks are kept as read. Returns `SaveToString()`.
     pub fn adapt_region_state_to_world(
         &mut self,
         player_shelter: i32,
         respawn: &mut Vec<i32>,
+        wait: &[i32],
     ) -> Option<String> {
         let mut state = self.region_state.take()?;
         state.saved_objects = std::mem::take(&mut state.unrecognized_saved_objects);
@@ -225,7 +227,7 @@ impl World {
             if c.state.alive {
                 continue;
             }
-            if !respawn.contains(&c.id.spawner) {
+            if !respawn.contains(&c.id.spawner) && !wait.contains(&c.id.spawner) {
                 respawn.push(c.id.spawner);
             }
         }

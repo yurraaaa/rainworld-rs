@@ -47,8 +47,9 @@ relationships, S6b hearing, noises and social influences, S7a decisions and calm
 behaviours, S7b hunting and fleeing, S8 the player grabbed by a lizard (death by bite,
 escape, game over on the grasp), S7c lizard fights, communication and missions, the
 player dragging dead lizards (through shortcuts, into shelters) and the Hunter eating
-them.
-Left: S9 lineage plumbing and acceptance (respawn, lizards in shelters, saved lineage).
+them, S9 lineages and acceptance (every death path to `AddCreatureToRespawn`, the
+respawn lists across cycles and saves, a progressed lineage's next stage, lizards in
+shelters, the SU census 11/10/8 checked).
 Exit check: a green lizard hunts, bites and flees as in the game, and the player
 can be killed by one, across a cycle.
 
