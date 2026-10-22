@@ -152,9 +152,9 @@ vessels. `ShortcutGraphics` draws every vessel in the room in its creature's col
 - **The player's vessel lives on `Player`.** The game's vessel list holds a plain
   `ShortCutVessel` for the player too; the port keeps the player's on `Player` (with
   its slot in the list) or in the lobby, and its `wait` is always 0 (Jolly co-op).
-- **Not ported:** being pulled in by a grabber entering a shortcut (no ported
-  creature grabs the player; what the player holds goes through with it),
-  `cantBeGrabbedCounter`, MSC tongue release, the arena hooks of `SpitOutOfShortCut` and
+- **Not ported:** being pulled in by a grabber entering a shortcut (a lizard holding
+  the player enters alone, D19; what the player holds goes through with it), MSC
+  tongue release, the arena hooks of `SpitOutOfShortCut` and
   den entry (`PlayerTryingToEnterDen`), dens for creatures other than flies (a fly's
   `OpportunityToEnterDen` never takes it in), NPC transports
   (`NPCTransportationDestination`), border travel, region transportation, and Remix
@@ -614,7 +614,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
   enters them, and the port goes back to Standard if one does. Not yet, with their
   steps: the Fighting and mission behaviours (7c; taming is skipped for
   now; the dominance and submission voices come with them), eating a dead
-  lizard (step 8: the player cannot grab creatures yet), the drowning bubble (its draws
+  lizard (its own step after 7c, user 2026-10-21: the player cannot grab creatures
+  yet), the drowning bubble (its draws
   are made, the object is not), lethal water and the rain's flood (no rain yet). The
   `kill_green_lizards` tutorial message is the game's: it marks the state dead without
   touching a realized body. More Slugcats', Watcher's and Remix's lizard branches
@@ -820,11 +821,55 @@ Differences:
 flower in the next cycle, the Hunter's last cycle, and creatures caught in a closing
 shelter.
 
+## D19: The player held by a creature (lizard step 8)
+
+**What.** A green lizard's bite acts on the player as in the game
+(`rainworld-re/notes/lizard-ai.md` section 10): `Creature.Grab` checks
+`CanBeGrabbed` (`cantBeGrabbedCounter`, 30 after `SpitOutOfShortCut`), `Player.Grabbed`
+lets the body through floors and makes a lizard's grasp the `dangerGrasp`; the bite's
+`Violence` (1.5 damage, Bite) stuns 45 and kills (`instantDeathDamageLimit` 1) with the
+lizard's kill tag, the hands letting go at once; a pacifying grasp holds the stun at 10
+(`Creature.Update`). `Player.Update`'s `dangerGrasp` block counts `dangerGraspTime`: until
+30, alive and stunned under 30, a fresh throw press (read from the controls, not the
+stunned neutral input) runs `ThrowToGetFree` (a spear, or a rock half the time, thrown at
+the grabber's nearest chunk as `meleeHitChunk`) and a fresh pick-up press
+`DangerGraspPickup`; 30 drops what the hands hold; 60 calls `GameOver(dangerGrasp)`, whose
+prompt (`dependentOnGrasp`) ends if the living player gets free. `Player.Stun` keeps the
+hands' objects under a danger grasp; a held head near the room bottom makes every grasp
+let go; `WALLSTUCK`, the karma flower spot and map discovery need a free body. With
+graphics, what the jaws hold draws inside the lizard's head container
+(`AddObjectToInternalContainer`; released on `ReleaseGrasp`, `LoseAllGrasps`,
+`Grasp.Release`; re-added on `SpitOutOfShortCut`).
+
+**What differs:**
+- **Danger grabbers.** Only lizards realize; `Player.Grabbed`'s other base-game danger
+  grabbers (vulture, big spider, drop bug) have no bodies yet, and Watcher's sand grub is
+  DLC.
+- **Draw order after release.** The game moves released sprites to the top of their
+  default container (`MoveObjectToContainer(obj, null)`), so a slugcat let go draws over
+  creatures that joined the room after it; the port draws objects in a fixed order per
+  kind (the slugcat first in `Midground`) once out of the jaws.
+- **Not ported:** being carried into a shortcut by the lizard (the player stays in the
+  room, D5), the Hunter's spear on the back in `DangerGraspPickup` (`SpearToHand`, D3),
+  `HardSetPosition`'s `setPos` in `WALLSTUCK`.
+- **DLC branches omitted:** a player AI's (slugpup's) nervous struggle draws, the
+  Challenge module's player number, `slugOnBack.DropSlug` (More Slugcats, Jolly
+  Co-op); Remix's `cfgJetfishItemProtection` in `Stun`; Saint's and Expedition's spear in
+  `ThrowToGetFree`; Jolly Co-op's `JollyGameOverEvaluator`, the game-over sound and the
+  prompt's other players; More Slugcats' `ArtificerDreamEnd`; Watcher's `IsHidden`
+  (camouflage, one-way placement, final warp: always false here, so `VisualContact`'s
+  hidden-player clause never fires) and its soft toys in `TossObject`.
+
+**Why.** Base-game scope; the other grabbers and the shortcut carry come with their
+creatures and steps.
+
+**Affects.** Escapes and deaths in lizards' jaws in co-op, DLC and with other creatures;
+the slugcat's draw order after being dropped.
+
 ## Not ported yet (not divergences, just absent)
 
 Player (stage one leaves out): the zero-gravity `privSneak` and chunk `loudness` (no `ZeroG` body mode), zero gravity, grabbing and eating anything but bat flies, rocks and spears, thrown
-weapons hitting creatures other than bat flies and overseers (D3), adrenaline, Red's illness, the WALLSTUCK safety
-(needs `VisualContact`), vines, tube worm,
+weapons hitting creatures other than bat flies and overseers (D3), adrenaline, Red's illness, vines, tube worm,
 Jolly co-op, MSC / Watcher class mechanics. Ported because ground classification
 produces them anyway: wall slide and wall jump (`WallClimb`, `canWallJump`, `jumpStun`;
 only the wall-jump impulse has a test), `LedgeCrawl`, `CrawlTurn`, the crouch super-jump

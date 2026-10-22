@@ -659,6 +659,14 @@ impl World {
         Some(sound)
     }
 
+    /// `obj is Spear`: a realized spear.
+    #[must_use]
+    pub fn is_spear(&self, e: Entity) -> bool {
+        e.object()
+            .and_then(|id| self.object(id).realized.as_deref())
+            .is_some_and(|w| w.spear().is_some())
+    }
+
     /// The realized weapon `id`, mutable.
     pub(crate) fn weapon_mut(&mut self, id: ObjectId) -> Option<&mut Weapon> {
         self.object_mut(id).realized.as_deref_mut()

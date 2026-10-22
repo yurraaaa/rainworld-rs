@@ -217,6 +217,9 @@ pub struct TextPrompt {
     restart_not_allowed: i32,
     pub game_over_mode: bool,
     pub play_game_over_sound: bool,
+    /// `dependentOnGrasp`: the serial of the grasp holding the player that the game
+    /// over waits on; its release while the player lives ends game-over mode.
+    pub dependent_on_grasp: Option<u64>,
     /// `foodInStomach`, `deathRoom` and `deathPos`, set on entering game-over mode (0
     /// and zero before).
     pub food_in_stomach: i32,
@@ -246,6 +249,16 @@ pub struct TextPrompt {
     /// `GoToDeathScreen` was asked for.
     pub go_to_death_screen: bool,
     screen_size: [f32; 2],
+}
+
+/// What the game-over prompt reads of its owner, the player.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct PromptOwner<'a> {
+    /// The player is not dead.
+    pub alive: bool,
+    /// The serials of the grasps on the player (`grabbedBy`); a grasp not among them
+    /// is discontinued.
+    pub held_by: &'a [u64],
 }
 
 /// What the prompt reads of the food and karma meters.
@@ -295,6 +308,7 @@ impl TextPrompt {
             restart_not_allowed: 40,
             game_over_mode: false,
             play_game_over_sound: false,
+            dependent_on_grasp: None,
             food_in_stomach: 0,
             death_room: 0,
             death_pos: [0.0; 2],
@@ -342,14 +356,15 @@ impl TextPrompt {
         }
     }
 
-    /// `EnterGameOverMode` with no grasp to depend on (no creature grasps the player in
-    /// the port).
+    /// `EnterGameOverMode` (Jolly Co-op's silent prompt aside).
     pub fn enter_game_over_mode(
         &mut self,
+        dependent_on_grasp: Option<u64>,
         food_in_stomach: i32,
         death_room: i32,
         death_pos: [f32; 2],
     ) {
+        self.dependent_on_grasp = dependent_on_grasp;
         self.food_in_stomach = food_in_stomach;
         self.death_room = death_room;
         self.death_pos = death_pos;
@@ -369,10 +384,13 @@ impl TextPrompt {
         self.label.map_or("", |l| stage.label(l).text())
     }
 
-    /// `Update`. `map_button` is the map button as the game-over prompt reads it.
+    /// `Update`. `map_button` is the map button as the game-over prompt reads it. A
+    /// game over that waits on a grasp the living player escaped ends at once, and the
+    /// rest of the update is skipped that tick.
     #[allow(clippy::too_many_arguments)]
     pub fn update(
         &mut self,
+        owner: PromptOwner<'_>,
         n: &PromptNeighbours,
         room: Option<&str>,
         reveal_map: bool,
@@ -403,6 +421,13 @@ impl TextPrompt {
             {
                 fx.play_sound(SoundId::HudGameOverPrompt);
                 self.play_game_over_sound = false;
+            }
+            if let Some(g) = self.dependent_on_grasp
+                && owner.alive
+                && !owner.held_by.contains(&g)
+            {
+                self.game_over_mode = false;
+                return;
             }
             if self.restart_not_allowed > 0 {
                 self.restart_not_allowed -= 1;

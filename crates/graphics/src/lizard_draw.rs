@@ -13,7 +13,7 @@ use rw_sim::creature::LizardAnimation;
 use rw_sim::creature::lizard::LizardView;
 use rw_sim::{FloatExt, Vec2};
 
-use crate::draw::{Color, DrawItem, DrawList, Layer, Mesh, Shader, Sprite};
+use crate::draw::{Color, DrawItem, DrawList, InternalContainer, Layer, Mesh, Shader, Sprite};
 use crate::elements::{
     LIZARD_ARM, LIZARD_ARM_COLOR, LIZARD_EYES, LIZARD_HEAD, LIZARD_JAW, LIZARD_LOWER_TEETH,
     LIZARD_UPPER_TEETH,
@@ -267,6 +267,7 @@ impl LizardGraphics {
         rng: &mut UnityRandom,
     ) -> DrawList {
         if self.culled {
+            self.internal_container = None;
             return DrawList::default();
         }
         let mut slots: Vec<Option<DrawItem>> = vec![None; 20];
@@ -371,19 +372,25 @@ impl LizardGraphics {
         if rng.value() > 0.025 {
             self.every_second_draw = !self.every_second_draw;
         }
-        DrawList {
-            items: Self::container_order(slots, cosmetics),
-        }
+        let (items, at) = Self::container_order(slots, cosmetics);
+        self.internal_container = Some(InternalContainer {
+            at,
+            layer: Layer::Midground,
+        });
+        DrawList { items }
     }
 
     /// `AddToContainer`'s order: the cosmetics behind everything, then the far legs,
     /// body and tail, those on the body's surface, the near legs, those behind the head,
-    /// the head, those in front (and on the HUD, which no base-game cosmetic is).
+    /// the lower jaw and teeth, the internal container (returned: its index; no
+    /// tongue on a base-game breed with data), the rest of the head, those in front (and
+    /// on the HUD, which no base-game cosmetic is).
     fn container_order(
         mut slots: Vec<Option<DrawItem>>,
         cosmetics: Vec<(SpritesOverlap, Vec<DrawItem>)>,
-    ) -> Vec<DrawItem> {
+    ) -> (Vec<DrawItem>, usize) {
         let mut items = Vec::new();
+        let mut container = 0;
         SpritesOverlap::Behind.add_to_container(&cosmetics, &mut items);
         for &i in &CONTAINER_ORDER {
             items.extend(slots[i].take());
@@ -392,12 +399,13 @@ impl LizardGraphics {
                 LAST_NEAR_LIMB_COLOR => {
                     SpritesOverlap::BehindHead.add_to_container(&cosmetics, &mut items);
                 }
+                i if i == HEAD + 1 => container = items.len(),
                 _ => {}
             }
         }
         SpritesOverlap::InFront.add_to_container(&cosmetics, &mut items);
         SpritesOverlap::Hud.add_to_container(&cosmetics, &mut items);
-        items
+        (items, container)
     }
 
     /// The head sprites' `anchorY`: 0.55 for the green lizard, else 0.7; graphics 8,

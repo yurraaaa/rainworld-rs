@@ -50,6 +50,8 @@ mod map;
 mod noise;
 #[path = "game_over.rs"]
 mod over;
+#[path = "game_player_grabbed.rs"]
+mod player_grabbed;
 
 pub use heavy_ai::HeavyAiThrottle;
 pub use items::Grabability;
@@ -1712,6 +1714,7 @@ impl RainWorldGame {
             p.exhaustion_update(&mut self.rng, sounds);
         }
         self.update_karma_flower_grow_pos(index, room);
+        self.player_danger_grasp_update(index, room, input, observer);
         let water = self.world.realized_mut(index).and_then(|r| r.water.take());
         let ceiling_drips = self
             .world
@@ -1763,6 +1766,7 @@ impl RainWorldGame {
                 );
             }
         }
+        self.apply_player_release_grabbed_by();
         self.game_over_on_death(room);
         self.apply_player_releases();
         self.add_player_drips(index);
@@ -2049,11 +2053,14 @@ impl RainWorldGame {
         self.sync_player_realized();
     }
 
-    /// Kills the player (for tests and tools), as `Player.Die` from its room.
+    /// Kills the player (for tests and tools, and `Violence` from outside its update),
+    /// as `Player.Die` from its room: the hands let go at once (`Creature.Die`'s
+    /// `LoseAllGrasps`).
     pub fn kill_player(&mut self) {
         if let Some(p) = &mut self.player {
             p.die();
         }
+        self.apply_player_releases();
         let room = self
             .world
             .realized(self.pos().room)

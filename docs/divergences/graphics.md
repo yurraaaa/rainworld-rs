@@ -88,9 +88,10 @@ colour layer and the five head sprites, in `AddToContainer`'s order, coloured as
 - **The voice** (lizard step 5b) is the game's: `voiceVisualization` and its intensity
   pull the jaw open, light the head, blow bubbles and shake the body as the game's do;
   `voiceVisualization` itself is computed in the sim (D12).
-- **Left out until their step, breed or DLC** (user, 2026-10-16): objects held in the
-  jaws (`AddObjectToInternalContainer`, `ReleaseAllInternallyContainedSprites`; lizard
-  step 8), the AI's own `MakeSound` calls of the lizards' communication (step 7c;
+- **Objects held in the jaws** (lizard step 8) draw in the head's internal container,
+  between the lower and upper head sprites (`AddObjectToInternalContainer`, the
+  releases); their draw order once let go differs (D19).
+- **Left out until their step, breed or DLC** (user, 2026-10-16): the AI's own `MakeSound` calls of the lizards' communication (step 7c;
   boredom, pain, frustration, blood lust and the small noise are ported), the yellow pack's `PreyReSpotted`
   voice and other breeds' colour paths (white camouflage and so on; with those breeds),
   More Slugcats' rot voices, Remix's Love voice and safari-control voices (with those

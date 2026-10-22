@@ -68,7 +68,7 @@ impl RainWorldGame {
     }
 
     /// The chunks of a realized creature (the player's two, or the world's).
-    fn creature_chunk_refs(&self, id: CreatureId) -> Vec<ChunkRef> {
+    pub(super) fn creature_chunk_refs(&self, id: CreatureId) -> Vec<ChunkRef> {
         let owner = Entity::Creature(id);
         let n = if id == self.player_id {
             self.player.as_ref().map_or(0, |p| p.body.chunks.len())
@@ -124,10 +124,36 @@ impl RainWorldGame {
         self.world.creature_die(id, &mut self.rng);
     }
 
-    /// `Lizard.LoseAllGrasps` (its graphics' `ReleaseAllInternallyContainedSprites`:
-    /// the port draws no held object inside the jaws).
+    /// `Lizard.LoseAllGrasps` (its graphics' `ReleaseAllInternallyContainedSprites`
+    /// is in the world's).
     pub(super) fn lizard_lose_all_grasps(&mut self, id: CreatureId) {
         self.world.lose_all_grasps(id);
+    }
+
+    /// `AddObjectToInternalContainer(obj, 0)` of a lizard with graphics, for a drawable
+    /// object (a rock or spear) or one with a graphics module (the player, a fly, a
+    /// lizard).
+    pub(super) fn lizard_contain_in_jaws(&mut self, id: CreatureId, obj: Entity) {
+        let drawn = match obj {
+            Entity::Object(_) => true,
+            Entity::Creature(c) if c == self.player_id => self.player_graphics,
+            Entity::Creature(c) => match &self.world.creature(c).realized {
+                Some(RealizedCreature::Fly(f)) => f.graphics,
+                Some(RealizedCreature::Lizard(l)) => l.graphics.is_some(),
+                _ => false,
+            },
+        };
+        if !drawn {
+            return;
+        }
+        if let Some(link) = self
+            .world
+            .creature_mut(id)
+            .lizard_mut()
+            .and_then(|l| l.graphics.as_mut())
+        {
+            link.add_to_internal_container(obj);
+        }
     }
 
     /// The room a realized lizard is in, for its sounds.
@@ -295,7 +321,7 @@ impl RainWorldGame {
         }
     }
 
-    /// `Stun` of a realized creature.
+    /// `Stun` of a realized creature (the player's `LoseAllGrasps` at once).
     fn creature_stun(&mut self, id: CreatureId, st: i32) {
         if id == self.player_id {
             let room = self.pos().room;
@@ -307,6 +333,7 @@ impl RainWorldGame {
             if let Some(p) = self.player.as_mut() {
                 p.stun(st, &mut self.rng, sounds);
             }
+            self.apply_player_releases();
         } else if self.world.creature(id).lizard().is_some() {
             self.lizard_stun(id, st);
         } else {
@@ -393,8 +420,9 @@ impl RainWorldGame {
     /// (`biteDamageChance`; the player for 1.5, others for the breed's damage), with
     /// `Lizard_Jaws_Grab_Player` or `_NPC`; else half the time an attacked creature
     /// takes a `DamageAttack`, or the jaws shut on nothing and lizards holding it let
-    /// go. A grabbed creature goes through the AI's `BitCreature` before the damage roll;
-    /// the player's `Grabbed` is step 8.
+    /// go. A grabbed creature goes through the AI's `BitCreature` before the damage roll
+    /// (the player's `Grabbed` makes the grasp its danger grasp); with graphics the
+    /// jaws then hold it inside the head's container.
     pub fn lizard_bite(&mut self, id: CreatureId, chunk: Option<ChunkRef>) {
         let held = !self.world.creature(id).grabbed_by.is_empty();
         if self.lizard_holding(id) && !held {
@@ -449,7 +477,7 @@ impl RainWorldGame {
                 override_equally_dominant: true,
                 pacifying: true,
             };
-            grabbed = self.world.grab(request, &mut self.rng);
+            grabbed = self.creature_grab(request);
             self.flush_dislodged();
         }
         let player = chunk.owner == Entity::Creature(self.player_id);
@@ -485,6 +513,7 @@ impl RainWorldGame {
                     );
                 }
             }
+            self.lizard_contain_in_jaws(id, chunk.owner);
             let sound = if player {
                 SoundId::LizardJawsGrabPlayer
             } else {
@@ -708,7 +737,8 @@ impl RainWorldGame {
 
     /// The trace of thrown weapon `id` against collision layer 1 (the player, which
     /// threw it and is exempt, and the lizards in the order they joined the room): the
-    /// first chunk the move ahead crosses. A creature behind a wall is a `HitWall` that
+    /// first chunk the move ahead crosses, or the melee chunk (`ThrowToGetFree`'s
+    /// grabber) whatever it crossed. A creature behind a wall is a `HitWall` that
     /// ends the update (true). Else a hit creature gets the thrower's kill tag and
     /// `HitSomething`; the weapon is out of reach for 40 ticks and its thrower forgotten.
     pub(super) fn trace_layer_one(&mut self, index: i32, id: ObjectId) -> bool {
@@ -754,8 +784,17 @@ impl RainWorldGame {
                 }
             }
         }
-        if let Some(w) = self.world.weapon_mut(id) {
+        let melee = self.world.weapon_mut(id).and_then(|w| {
             w.first_frame_trace_from_pos = None;
+            w.melee_hit_chunk
+        });
+        if let Some((cid, ci)) = melee
+            && let Some(m) = self.chunk_of(ChunkRef {
+                owner: Entity::Creature(cid),
+                index: ci,
+            })
+        {
+            hit = Some((cid, ci, m.pos + m.pos.direction_to(c.pos) * m.rad));
         }
         let Some((lid, chunk, point)) = hit else {
             self.with_item_tick(index, |world, cx| {

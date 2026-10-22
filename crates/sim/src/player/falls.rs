@@ -66,14 +66,17 @@ impl Player {
 
     /// `Player.Stun`: keeps the longer of the current and the new stun (1.5 times as
     /// long malnourished, twice exhausted); a stun longer
-    /// than a random 5..=11 ticks also drops what the hands hold (`LoseAllGrasps`), stops
+    /// than a random 5..=11 ticks also drops what the hands hold (`LoseAllGrasps`) unless
+    /// a danger grasp holds the player, stops
     /// standing and releases the feet pin. A new
     /// longer stun above 10 plays `UI_Slugcat_Stunned_Init` (silent in the shipped game).
     pub fn stun(&mut self, ticks: i32, rng: &mut UnityRandom, sounds: &mut Sounds) {
         self.flush_sounds(rng, sounds);
         let ticks = self.stun_multiplied(ticks);
         if ticks > rng.range_i32(UNSTAND_STUN_DRAW.0, UNSTAND_STUN_DRAW.1) {
-            self.request_release_grasps();
+            if self.danger.grasp.is_none() {
+                self.request_release_grasps();
+            }
             self.standing = false;
             self.feet_stuck_pos = None;
         }
@@ -146,23 +149,26 @@ impl Player {
         self.destroyed
     }
 
-    /// The `Creature.Update` steps before physics: stun and shortcut-delay
-    /// countdowns, then death and destruction below the room.
+    /// The `Creature.Update` steps before physics: stun countdown (held at 10 by a
+    /// pacifying grasp), shortcut-delay countdown, a hold let go near the bottom, then
+    /// death and destruction below the room.
     pub(super) fn creature_update(&mut self, water: Option<&Water>) {
         if self.stun > 0 {
             self.stun -= 1;
         }
+        self.pacifying_stun();
         if self.shortcut_delay > 0 {
             self.shortcut_delay -= 1;
         }
+        self.release_under_room(self.out_of_room_limit());
         if self.fell_out_of_room(water) {
             self.die();
             self.destroyed = true;
         }
     }
 
-    /// Head below the out-of-room limit in a room whose water does not catch it.
-    fn fell_out_of_room(&self, water: Option<&Water>) -> bool {
+    /// The head's out-of-room limit (`num6`).
+    fn out_of_room_limit(&self) -> f32 {
         let head = &self.body.chunks[HEAD];
         let mut limit = -head.restrict_in_room_range + 1.0;
         if head.restrict_in_room_range == DEFAULT_RESTRICT_IN_ROOM_RANGE {
@@ -173,9 +179,14 @@ impl Player {
             };
             limit = limit.max(floor);
         }
+        limit
+    }
+
+    /// Head below the out-of-room limit in a room whose water does not catch it.
+    fn fell_out_of_room(&self, water: Option<&Water>) -> bool {
         // `!room.water || room.defaultWaterLevel < -10` (inverted water is DLC).
         let water_catches = water.is_some_and(|w| w.level_row() >= -10);
-        head.pos.y < limit && !water_catches
+        self.body.chunks[HEAD].pos.y < self.out_of_room_limit() && !water_catches
     }
 
     /// `PhysicalObject.Update` with the player as the owner that receives terrain

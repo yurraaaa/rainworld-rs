@@ -243,6 +243,9 @@ pub struct Weapon {
     pub thrown_by: Option<CreatureId>,
     pub thrown_pos: Vec2,
     pub first_frame_trace_from_pos: Option<Vec2>,
+    /// `meleeHitChunk`: a creature's chunk (`ThrowToGetFree`'s grabber) the next
+    /// thrown trace hits whatever it crosses.
+    pub melee_hit_chunk: Option<(CreatureId, usize)>,
     pub throw_dir: (i32, i32),
     pub change_dir_counter: i32,
     /// `doNotTumbleAtLowSpeed` (only Remix's upward bomb throw sets it).
@@ -325,6 +328,7 @@ impl Weapon {
             thrown_by: None,
             thrown_pos: Vec2::ZERO,
             first_frame_trace_from_pos: None,
+            melee_hit_chunk: None,
             throw_dir: (0, 0),
             change_dir_counter: 0,
             do_not_tumble_at_low_speed: false,
@@ -610,6 +614,7 @@ impl Weapon {
         self.change_mode(WeaponMode::Thrown, object, cx);
         self.set_rotation = Some(Vec2::new(dx as f32, dy as f32));
         self.rotation_speed = 0.0;
+        self.melee_hit_chunk = None;
         sound
     }
 

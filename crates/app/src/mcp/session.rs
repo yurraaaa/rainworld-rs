@@ -49,7 +49,8 @@ use super::reply::{
 use super::reply::{DangerInfo, HoloLightState, LightSourceState, MusicState, TriggerState};
 use super::reply::{FleeInfo, HeavyAiInfo, HuntInfo, LoungeInfo};
 use super::reply::{
-    FliesWorldInfo, HeldInfo, QuantifiedInfo, RegionStateInfo, RelationshipInfo, RoomDens,
+    FliesWorldInfo, GraspInfo, HeldInfo, QuantifiedInfo, RegionStateInfo, RelationshipInfo,
+    RoomDens,
 };
 use super::tiles::TileDump;
 use crate::frontend::{AppContext, Frontend, FrontendRenderer, GameSetup};
@@ -1910,6 +1911,7 @@ impl Scene {
 impl PlayerState {
     pub(super) fn of(player: &rw_sim::Player, sim: &rw_sim::RainWorldGame) -> Self {
         let input = player.input_history()[0];
+        let danger = player.danger_grasp();
         Self {
             chunks: player
                 .chunks()
@@ -1993,6 +1995,33 @@ impl PlayerState {
                 ready_for_win: player.ready_for_win(),
                 still_in_start_shelter: player.still_in_start_shelter(),
             },
+            held_by: sim
+                .player_grabbed_by()
+                .iter()
+                .map(|g| GraspInfo::of(sim.world(), g))
+                .collect(),
+            danger_grasp: danger.grasp.map(|g| GraspInfo::of(sim.world(), &g)),
+            danger_grasp_time: danger.time,
+            danger_grasp_throw_button: danger.last_throw_button,
+            danger_grasp_pickup_button: danger.pickup_button,
+            can_struggle: danger.grasp.is_some()
+                && danger.time < 30
+                && !player.is_dead()
+                && player.stun_ticks() < 30,
+            cant_be_grabbed_counter: danger.cant_be_grabbed_counter,
+        }
+    }
+}
+
+impl GraspInfo {
+    fn of(world: &rw_sim::world::World, g: &rw_sim::creature::Grasp) -> Self {
+        Self {
+            grabber: HeldInfo::of(world, Entity::Creature(g.grabber)),
+            grasp_used: g.grasp_used,
+            chunk: g.chunk_grabbed,
+            pacifying: g.pacifying,
+            dominance: g.dominance,
+            serial: g.serial,
         }
     }
 }
@@ -2125,6 +2154,7 @@ impl HudState {
                 text: hud.prompt_text().to_owned(),
                 queued: hud.text_prompt.messages.len(),
                 game_over: hud.text_prompt.game_over_mode,
+                dependent_on_grasp: hud.text_prompt.dependent_on_grasp,
             },
             controls_page: hud.controls_page.as_ref().map(|p| ControlsPageState {
                 counter: p.counter,

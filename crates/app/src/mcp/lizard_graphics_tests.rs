@@ -207,6 +207,16 @@ fn a_calm_lizards_draw_makes_one_draw() {
             7, 16, 9, 18, 5, 0, 1, 2, 3, 6, 8, 17, 10, 19, 11, 12, 13, 14, 15
         ]
     );
+    // `containers[0]` (what the jaws hold) sits after the lower jaw and teeth (11, 12),
+    // before the upper teeth, head and eyes.
+    let after_lower = order.iter().position(|&o| o == 12).expect("teeth") + 1;
+    assert_eq!(
+        g.internal_container,
+        Some(rw_graphics::InternalContainer {
+            at: after_lower,
+            layer: rw_graphics::Layer::Midground,
+        })
+    );
     // `AddToContainer`: the cosmetics behind the head go between the near legs and the
     // head, those in front after the head; each in sprite order.
     let place: Vec<usize> = (0..order.len().max(20) + 1)

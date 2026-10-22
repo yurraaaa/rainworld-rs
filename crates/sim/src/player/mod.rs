@@ -19,6 +19,7 @@ mod corridor;
 mod exhaustion;
 mod falls;
 mod grab;
+mod grabbed;
 mod input;
 mod jump;
 mod ledge;
@@ -35,6 +36,7 @@ use rw_assets::{Room, Terrain};
 use rw_random::UnityRandom;
 
 pub use grab::{GrabState, StomachObject};
+pub use grabbed::{DangerGraspState, DangerGraspStep};
 pub use input::{INPUT_HISTORY, Input, PlayerController};
 pub use shortcut::VesselStep;
 pub use sleep::ShelterCheck;
@@ -373,6 +375,10 @@ pub struct Player {
     stomach: Option<StomachObject>,
     /// `Stun` or `Die` let go of everything (`LoseAllGrasps`); the game applies it.
     release_grasps: bool,
+    /// Being held: `dangerGrasp`, its timers, `cantBeGrabbedCounter`.
+    danger: DangerGraspState,
+    /// `Creature.Update` let go of every grasp on the body (under the room).
+    release_grabbed_by: bool,
     /// `MovementUpdate` ran this tick (so `GrabUpdate`, its last step, is due).
     movement_ran: bool,
     /// The pull toward a shortcut this tick: target and snap radius, for the objects
@@ -503,6 +509,8 @@ impl Player {
             grab: GrabState::default(),
             stomach: None,
             release_grasps: false,
+            danger: DangerGraspState::default(),
+            release_grabbed_by: false,
             movement_ran: false,
             shortcut_pull: None,
             ceiling_drips: 0.0,
@@ -760,6 +768,7 @@ impl Player {
         }
         self.count_shoot_up();
         self.update_slide_loop(rng, sounds);
+        self.unstick_from_wall(room);
         if self.body_mode == BodyMode::CorridorClimb {
             self.time_since_in_corridor_mode = 0;
         } else {

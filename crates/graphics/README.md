@@ -12,7 +12,7 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 | File | Holds | Game class |
 |---|---|---|
 | `lib.rs` | module list, re-exports | |
-| `draw.rs` | `DrawList`, `Color`, sprite records | Futile sprites |
+| `draw.rs` | `DrawList`, `Color`, sprite records, `InternalContainer` (an object's sprites moved into another's container) | Futile sprites |
 | `atlas.rs` | `Atlas`, `AtlasFrame`: TexturePacker JSON frames | Futile atlas |
 | `elements.rs` | slugcat atlas element names | |
 | `math.rs` | `Mathf` / `Custom` helpers as traits | `Custom` |
@@ -27,7 +27,7 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 | `lizard_limb.rs` | lizard leg stepping and grip | `LizardLimb` |
 | `lizard_cosmetics.rs` | cosmetic kinds and the choice among them | `LizardCosmetics.*` |
 | `lizard_cosmetics_draw.rs` | cosmetics' update, draw, palette | `LizardCosmetics` |
-| `lizard_draw.rs` | body, tail mesh, legs, head sprites | `LizardGraphics.DrawSprites` |
+| `lizard_draw.rs` | body, tail mesh, legs, head sprites, the jaws' container place | `LizardGraphics.DrawSprites`, `AddToContainer` |
 | `fly_graphics.rs` | bat fly body, wings | `FlyGraphics` |
 | `overseer_graphics.rs` | `OverseerGraphics` simulation | `OverseerGraphics` |
 | `overseer_draw.rs` | overseer sprites | `OverseerGraphics.DrawSprites` |

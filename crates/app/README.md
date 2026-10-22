@@ -17,7 +17,7 @@ Gameplay logic belongs in `rw-sim`, not here.
 | `timestep.rs` | sim rate and Unity `Time.deltaTime` as the process manager sees it |
 | `input.rs` | keyboard to per-tick `Input` (`InputState`), Rewired-style key map |
 | `frontend.rs` | `Frontend`/`FrontendRenderer`: processes under `rw_menu::ProcessManager` (game, Initialization, menus), switch fade, `AppContext` |
-| `game.rs` | `Game`: `RainWorldGame` + player graphics; `start`, `tick`, `*_draw_lists`, sound events |
+| `game.rs` | `Game`: `RainWorldGame` + player graphics; `start`, `tick`, `*_draw_lists` (with `contain_in_jaws`: what lizards hold drawn in their containers), sound events |
 | `scene.rs` | `Scene`/`SceneRenderer`: what a frame shows (level, water, sprites, HUD), shared by window and screenshots |
 | `visuals.rs` | room settings, palettes, shown camera image |
 | `sprites.rs` | atlas loading (`rainWorld`, `uiSprites`), overseer projection textures |

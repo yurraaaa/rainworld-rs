@@ -125,6 +125,7 @@ fn the_first_death_calls_game_over_once() {
             food_in_stomach: 0,
             death_room: 0,
             death_pos: head,
+            dependent_on_grasp: None,
             karma_flower: Some(grow),
         })
     );

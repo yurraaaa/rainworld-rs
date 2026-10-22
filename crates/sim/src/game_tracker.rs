@@ -21,7 +21,7 @@ use crate::creature::{
     RelationshipType, RepKey, RepKind, Tracker, WorldCoordinate,
 };
 use crate::world::MovementConnection;
-use crate::{BodyChunk, FloatExt, TileExt, Vec2};
+use crate::{BodyChunk, FloatExt, Player, TileExt, Vec2};
 
 /// A realized creature's body as a tracker reads it.
 #[derive(Debug, Clone, PartialEq)]
@@ -154,9 +154,18 @@ impl RainWorldGame {
             .is_some_and(|r| r == self.ai_pos(ai).room)
     }
 
-    /// The `VisualContact` getter: false (and the field cleared) out of view.
+    /// The `VisualContact` getter: false (and the field cleared) out of view, or for a
+    /// hidden player whose `VisibilityBonus` is -1 or less.
     pub(crate) fn rep_visual_contact(&self, ai: CreatureId, rep: &mut CreatureRep) -> bool {
         if !self.rep_in_view(ai, rep.creature) {
+            rep.visual_contact = false;
+        }
+        if rep.creature == self.player_id
+            && self.player.as_ref().is_some_and(Player::is_hidden)
+            && self
+                .tracked_body(rep.creature)
+                .is_some_and(|b| b.visibility <= -1.0)
+        {
             rep.visual_contact = false;
         }
         rep.visual_contact

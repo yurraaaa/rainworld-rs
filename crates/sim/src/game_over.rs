@@ -19,6 +19,9 @@ pub struct GameOver {
     pub death_room: i32,
     /// The main chunk at the death, restricted to the room grown by 50 px.
     pub death_pos: Vec2,
+    /// `dependentOnGrasp`: the serial of the danger grasp a held player's game over
+    /// waits on (`None` for a death).
+    pub dependent_on_grasp: Option<u64>,
     /// `PlaceKarmaFlowerOnDeathSpot`: `Some` when the player places a flower
     /// (`PlaceKarmaFlower`), holding the `karmaFlowerGrowPos` the save's
     /// `karmaFlowerPosition` becomes (`None` if the player never stood on a spot).
@@ -77,7 +80,9 @@ impl RainWorldGame {
             .and_then(|r| r.ai_map.as_ref())
             .is_some_and(|m| m.narrow_space(x, y));
         let shelter = self.world.abstract_room(index).is_some_and(|r| r.shelter());
+        let held = !self.player_grabbed_by().is_empty();
         if !p.is_dead()
+            && !held
             && p.is_tile_solid(room, HIPS, 0, -1)
             && room.water_int(x, y) != 1
             && !p.is_tile_solid(room, HIPS, 0, 0)
@@ -96,12 +101,13 @@ impl RainWorldGame {
         let Some(main) = self.player.as_mut().and_then(crate::Player::take_died_at) else {
             return;
         };
-        self.game_over(main, room);
+        self.game_over(main, room, None);
     }
 
-    /// `RainWorldGame.GameOver(null)` for the player in `room`: story sessions only; the
-    /// Hunter out of cycles goes to `GoToRedsGameOver` (only its music is ported, D17).
-    fn game_over(&mut self, main: Vec2, room: &Room) {
+    /// `RainWorldGame.GameOver(dependentOnGrasp)` for the player in `room`: story
+    /// sessions only; the Hunter out of cycles goes to `GoToRedsGameOver` (only its
+    /// music is ported, D17).
+    pub(super) fn game_over(&mut self, main: Vec2, room: &Room, dependent_on_grasp: Option<u64>) {
         log::info!("Trying to game over...");
         if !self.is_story_session() {
             return;
@@ -118,6 +124,7 @@ impl RainWorldGame {
             food_in_stomach: self.food_in_stomach().cast_signed(),
             death_room: self.pos().room,
             death_pos,
+            dependent_on_grasp,
             karma_flower: self
                 .place_karma_flower()
                 .then_some(self.karma_flower_grow_pos),

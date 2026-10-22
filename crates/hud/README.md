@@ -14,7 +14,7 @@ directly.
 | File | Holds | Game class |
 |---|---|---|
 | `lib.rs` | `Hud` (assembly and per-tick update), `HudSetup`, `HudFx`, `OwnerTick` | `HUD.HUD.InitSinglePlayerHud` |
-| `text_prompt.rs` | `TextPrompt`, `Message`, `SubregionTracker` | `HUD.TextPrompt` |
+| `text_prompt.rs` | `TextPrompt` (game over waiting on a grasp: `PromptOwner`), `Message`, `SubregionTracker` | `HUD.TextPrompt` |
 | `food_meter.rs` | `FoodMeter`, `MeterCircle`, `QuarterPipShower` | `HUD.FoodMeter` |
 | `karma_meter.rs` | `KarmaMeter` | `HUD.KarmaMeter` |
 | `rain_meter.rs` | `RainMeter`, `RainCycleView` | `HUD.RainMeter` |
