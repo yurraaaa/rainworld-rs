@@ -37,6 +37,8 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   draws a tick, creature chunks on the surface), B (calm surface sound; done on its
   branch, `water_sound.rs`) at 17:40; then A2
   (splashes), C (`WaterLight`). Plan in `../rainworld-re/surveys/room-effects/water-effects.md`.
+  With the rain (M8): `Room.AddWater` makes a `Water`, so its surface loop, in rooms with
+  no level water (rain flood, `WaterCycleTop`/`Bottom`, `BrokenShelterWaterLevel`).
 
 ## Planned
 - **Room visual effects, lights and camera shake** (user, 2026-10-22): every non-DLC

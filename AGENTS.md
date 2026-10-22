@@ -260,7 +260,7 @@ prefer these over `--screenshot`/`--script`; briefs for such agents say so.
 - `get_state` reports the camera room, the player (food, grasps, pick-up
   candidate, stomach, counters, sneak/loudness, `held_by`, `danger_grasp` and
   its time, struggle buttons, `can_struggle`, `cant_be_grabbed_counter`, ...), the vessel in the
-  lobby, realized rooms' entry waits, ceiling drips and dripping sound, every abstract creature (kind, ID, room,
+  lobby, realized rooms' entry waits, ceiling drips, dripping sound and water surface sound, every abstract creature (kind, ID, room,
   node, tile, den, realized, alive, abstract AI; realized flies, lizards
   with their movement, tracker, relationships, noise, decision (`social`:
   fight target and anger, `submitted_to`, last signal, missions) and, in a
