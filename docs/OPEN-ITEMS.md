@@ -33,14 +33,9 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **Async room loading** (user, 2026-10-22): plan and decisions in
   `../rainworld-re/surveys/async-room-loading.md`; later. `ShortcutHelper` its own job
   after it.
-- **Water visual effects** (user, 2026-10-22): steps A1 (bubbles, `Water.Update`'s two
-  draws a tick, creature chunks on the surface; done on its branch, 2026-10-22), B (calm
-  surface sound; done on its branch, `water_sound.rs`) at 17:40; A2 (splashes: `Splash`,
-  `WaterfallHitSurface`, the `WaterSplash` shader, `GrabShaders`; done on its branch);
-  C (`WaterLight` and the `RainMask_` texture; done on its branch).
-  Plan in `../rainworld-re/surveys/room-effects/water-effects.md`.
-  With the rain (M8): `Room.AddWater` makes a `Water`, so its surface loop, in rooms with
-  no level water (rain flood, `WaterCycleTop`/`Bottom`, `BrokenShelterWaterLevel`).
+- **Water with the rain (M8)**: `Room.AddWater` makes a `Water` (so its surface loop and
+  `WaterLight`) in rooms with no level water (rain flood, `WaterCycleTop`/`Bottom`,
+  `BrokenShelterWaterLevel`). The other water effects are done (2026-10-22).
 
 ## Planned
 - **Room visual effects, lights and camera shake** (user, 2026-10-22): every non-DLC
