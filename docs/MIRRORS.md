@@ -18,7 +18,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | random | 0 | 1 | 0 | 0 |
 | render | 6 | 18 | 0 | 0 |
 | save | 15 | 5 | 0 | 0 |
-| sim | 183 | 5 | 0 | 0 |
+| sim | 184 | 5 | 0 | 0 |
 
 ## Rust file to C# files
 
@@ -111,7 +111,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/audio/src/voice.rs` | mirrors | SoundLoader.cs, VirtualMicrophone.cs |
 | `crates/graphics/src/atlas.rs` | mirrors | FAtlas.cs, FAtlasElement.cs |
 | `crates/graphics/src/body_part.rs` | mirrors | BodyPart.cs |
-| `crates/graphics/src/cosmetic_graphics.rs` | mirrors | Bubble.cs, ExplosionSpikes.cs, LizardBubble.cs, Spark.cs, StationaryEffect.cs |
+| `crates/graphics/src/cosmetic_graphics.rs` | mirrors | Bubble.cs, ExplosionSpikes.cs, LizardBubble.cs, Spark.cs, SplashWater/Splash.cs, StationaryEffect.cs |
 | `crates/graphics/src/draw.rs` | port-only | - |
 | `crates/graphics/src/elements.rs` | port-only | - |
 | `crates/graphics/src/fly_graphics.rs` | mirrors | FlyGraphics.cs |
@@ -389,6 +389,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/sim/src/shortcut.rs` | mirrors | Creature.cs, Room.cs, ShortcutHandler.cs |
 | `crates/sim/src/sound.rs` | mirrors | RectSoundEmitter.cs, Room.cs, SoundLoader.cs, VirtualMicrophone.cs |
 | `crates/sim/src/spawn.rs` | mirrors | Creature.cs, Room.cs |
+| `crates/sim/src/splash.rs` | mirrors | SplashWater/Splash.cs, SplashWater/WaterParticle.cs |
 | `crates/sim/src/trigger.rs` | mirrors | ActiveTriggerChecker.cs, PickupObjectInstruction.cs, ReliableIggyDirection.cs, RoomSpecificTextMessage.cs, ScavTradeInstruction/ScavengerTradeInstructionTrigger.cs, SuperJumpInstruction.cs |
 | `crates/sim/src/vec2.rs` | port-only | - |
 | `crates/sim/src/vec3.rs` | port-only | - |
@@ -649,6 +650,8 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `SoundLoader.cs` | `crates/assets/src/sound_table.rs`, `crates/audio/src/clips.rs`, `crates/audio/src/voice.rs`, `crates/sim/src/sound.rs` |
 | `Spark.cs` | `crates/graphics/src/cosmetic_graphics.rs`, `crates/sim/src/cosmetic.rs` |
 | `Spear.cs` | `crates/graphics/src/weapon_graphics.rs`, `crates/sim/src/game_hits.rs`, `crates/sim/src/game_lizard_hits.rs`, `crates/sim/src/game_weapons.rs`, `crates/sim/src/item/weapon.rs` |
+| `SplashWater/Splash.cs` | `crates/graphics/src/cosmetic_graphics.rs`, `crates/sim/src/splash.rs` |
+| `SplashWater/WaterParticle.cs` | `crates/sim/src/splash.rs` |
 | `SpotSound.cs` | `crates/assets/src/ambient.rs` |
 | `SpotTrigger.cs` | `crates/assets/src/triggers.rs` |
 | `StaticWorld.cs` | `crates/sim/src/creature/pathing.rs`, `crates/sim/src/creature/relationships.rs`, `crates/sim/src/creature/template.rs`, `crates/sim/src/creature/template_abstract.rs`, `crates/sim/src/creature/violence.rs` |

@@ -123,6 +123,10 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `../rainworld-re/surveys/lizards.md` (user decisions).
 
 ## To look into
+- **Dev-spawned lizard's first ticks** (2026-10-22, splash review; inferred): a green lizard
+  made by `spawn_creature` draws tall green blades and head-coloured `LizardBubble`s in its
+  first ticks (its head moves over 40 px in one tick, `LizardGraphics.Update` ~1272). Check
+  whether the graphics `Reset` on realization is missing, against the game's realization.
 - **Full-screen effects leftovers** (review, small): `DeathFall::camera_viewing_point`
   belongs on the room (`Room.CameraViewingPoint`); stale "not ported" rows for LightBurn,
   SkyAndLightBloom, SkyBloom and wet terrain in `../rainworld-re/surveys/room-effects/`

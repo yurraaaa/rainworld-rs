@@ -380,7 +380,10 @@ restrictions (`rainworld-re/notes/water.md`), base game with Remix off, Survivor
   `Fog`, INFERRED), without the Watcher `RIPPLE` keyword. Still differing: the water gates' `cosmeticLowerBorder` / `cosmeticSurfaceDisplace` and the
   DLC branches (`WaterSlush`, air pockets, inverted water, `Gutter`, ripple, brain
   mold, `WaterDepth` effect) are left out. The `_GrabTexture` the shaders read is the
-  pre-level target (what LevelColor's grab pass holds in the game, INFERRED), and
+  pre-level target (what LevelColor's grab pass holds in the game, INFERRED); in the
+  game it is the last unnamed grab of the frame, so once a sprite with an unnamed
+  `GrabPass` (`ShockWave`, `HeatDistortion`, ...) draws between the level and the
+  water, the port must track the last grab instead, and
   `room.waterGlitterCycle` starts at 0 when the room is loaded.
 
 **Why.** Remix and DLC are out of the base-game scope; the rest is cosmetic or needs
