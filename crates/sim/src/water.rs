@@ -10,7 +10,8 @@
 //! and the decompiled `Water` class; base game with Remix off. Not ported (docs/
 //! divergences/ D11): `WaterCutoff` and `AirPocket` placed objects (no base-game room
 //! uses them), the unused `WaterViscosity` effect, rain rumble and flooding (no rain
-//! cycle yet), and the `Splash` objects (their draws are made).
+//! cycle yet), and the `Splash` objects (step A2: only the draws of their `Reset`
+//! arguments are made; their updates, sounds and surface pushes are not).
 //!
 //! Mirrors: Water.cs, Room.cs (FloatWaterLevel)
 

@@ -567,3 +567,28 @@ fn deep_swim_boost_bubble_only_when_viewed() {
     assert!(p.take_bubbles().is_empty());
     assert_eq!(rng.state(), copy.state());
 }
+
+/// Drips queued earlier in the tick make their draws before the boost bubble's, and
+/// the bubble joins the room after them.
+#[test]
+fn deep_swim_boost_bubble_after_queued_drips() {
+    let (_, w) = pool();
+    let mut p =
+        Player::upright_under(100.0, JUMP).with_mode(BodyMode::Swimming, Animation::DeepSwim);
+    p.set_ceiling_drips(1.0);
+    p.shed_drips(crate::player::drips::DripBurst::ShootUp {
+        pos: Vec2::new(300.0, 300.0),
+    });
+    let mut rng = UnityRandom::new(4);
+    let mut copy = rng.clone();
+    p.deep_swim(Some(&w), &mut rng, &mut Sounds::default());
+    // Four drips, each: the gate (always passes at `CeilingDrips` 1), x speed, life.
+    for _ in 0..12 {
+        copy.value();
+    }
+    let bubbles = p.take_bubbles();
+    assert_eq!(p.take_drips().len(), 4);
+    assert_eq!(bubbles.len(), 1);
+    assert_eq!(bubbles[0].0, 4);
+    assert_eq!(bubbles[0].1.full_size, 0.5.lerp(1.5, copy.value()));
+}
