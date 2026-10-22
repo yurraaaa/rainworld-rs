@@ -115,6 +115,9 @@ impl RainWorldGame {
         }
         l.stun = l.stun.max(st);
         if l.stunned() {
+            // `WantsToBurrow = false` is the Watcher burrower's (not ported).
+            l.grip_point = None;
+            l.movement_animation = None;
             self.lizard_lose_all_grasps(id);
         }
     }

@@ -14,12 +14,13 @@ use rw_random::UnityRandom;
 use super::super::lizard_hits::{Hit, ViolenceSource};
 use crate::campaign::{SlugcatCampaign, StoryStart};
 use crate::cosmetic::CosmeticKind;
+use crate::creature::lizard::MovementAnimation;
 use crate::creature::{
     CreatureId, CreatureTemplate, DamageType, EntityId, Lizard, WorldCoordinate,
 };
 use crate::item::{AbstractObject, Entity, ObjectId, SpearStickKind, WeaponMode};
 use crate::tests::room;
-use crate::world::World;
+use crate::world::{MovementConnection, MovementType, World};
 use crate::{Input, RainWorldGame, Sounds, Start, Vec2};
 
 /// A Survivor story in a 20 x 8 walled room with `objects`, the player at (2, 1).
@@ -307,6 +308,51 @@ fn a_hurt_lizard_is_stunned_longer() {
     g.world.creature_mut(l).state.health = 0.25;
     g.lizard_stun(l, 30);
     assert_eq!(g.world.lizard_ref(l).stun, 60);
+}
+
+/// `Lizard.Stun` with a grip point and a movement animation set: stun, grip point,
+/// whether the animation is left.
+fn stun_gripping(st: i32) -> (i32, Option<Vec2>, bool) {
+    let (mut g, _) = game(vec![]);
+    let l = g.lying_lizard();
+    let lizard = g.world.lizard_at(l);
+    let chunks = [
+        lizard.body.chunks[0].pos,
+        lizard.body.chunks[1].pos,
+        lizard.body.chunks[2].pos,
+    ];
+    let conn = MovementConnection::new(
+        MovementType::ReachUp,
+        WorldCoordinate::new(0, 8, 1, -1),
+        WorldCoordinate::new(0, 8, 3, -1),
+        2,
+    );
+    lizard.movement_animation = Some(MovementAnimation::new(chunks, conn, 1, 0.99, 0.75));
+    lizard.grip_point = Some(Vec2::middle_of_tile((8, 3)));
+    let rng = g.rng.clone();
+    g.lizard_stun(l, st);
+    assert_eq!(g.rng, rng, "Stun draws nothing");
+    let lizard = g.world.lizard_ref(l);
+    (
+        lizard.stun,
+        lizard.grip_point,
+        lizard.movement_animation.is_some(),
+    )
+}
+
+#[test]
+fn a_stunned_lizard_lets_go_of_its_grip_point() {
+    // `if (Stunned) { gripPoint = null; movementAnimation = null; ... }`.
+    assert_eq!(stun_gripping(10), (10, None, false));
+}
+
+#[test]
+fn a_stun_below_ten_keeps_the_grip_point() {
+    // `Stunned` is `stun >= 10`.
+    assert_eq!(
+        stun_gripping(9),
+        (9, Some(Vec2::middle_of_tile((8, 3))), true)
+    );
 }
 
 #[test]

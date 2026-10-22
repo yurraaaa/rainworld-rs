@@ -713,8 +713,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
   yet), lethal water and the rain's flood (no rain yet). The
   `kill_green_lizards` tutorial message is the game's: it marks the state dead without
   touching a realized body. More Slugcats', Watcher's and Remix's lizard branches
-  (rot, the other DLC breeds, `LizardState.rotType` behaviour) are left out with their
-  DLCs.
+  (rot, the other DLC breeds, `LizardState.rotType` behaviour, Watcher's
+  `WantsToBurrow`, which `Stun` clears) are left out with their DLCs.
 - **Bat flies.** `FliesWorldAI` is ported whole (the constructor, `Update`
   with the migration, start-up and respawn, the behaviour re-roll, `MigrationDirection`,
   `ClosestSwarmRoom`), with `World.MoveQuantifiedCreatureFromAbstractRoom` and the
