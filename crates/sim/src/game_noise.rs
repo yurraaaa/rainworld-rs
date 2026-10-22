@@ -2,22 +2,26 @@
 //! `world/hearing.rs`): an object's where the game makes it in its update, and the
 //! player's from inside its update through a [`NoiseSink`].
 //!
-//! Mirrors: Room.cs (InGameNoise)
+//! Mirrors: Room.cs (InGameNoise, ScreenMovement)
 
 use rw_random::UnityRandom;
 
 use super::RainWorldGame;
+use crate::camera::CameraView;
 use crate::creature::fly::PlayerBody;
 use crate::item::Entity;
 use crate::world::World;
-use crate::{InGameNoise, NoiseSink, Vec2, Water};
+use crate::{CameraShake, InGameNoise, NoiseSink, ScreenMovement, Vec2, Water};
 
-/// The player's noises while it updates in `room` (whose water it holds).
+/// The player's noises and screen movements while it updates in `room` (whose water
+/// it holds).
 pub(super) struct PlayerHearing<'a> {
     pub world: &'a mut World,
     pub room: i32,
     pub water: Option<&'a Water>,
     pub player: PlayerBody,
+    pub camera: CameraView,
+    pub shake: &'a mut CameraShake,
 }
 
 impl NoiseSink for PlayerHearing<'_> {
@@ -30,6 +34,11 @@ impl NoiseSink for PlayerHearing<'_> {
         };
         self.world
             .in_game_noise(self.room, noise, self.water, Some(&self.player), rng);
+    }
+
+    fn screen_movement(&mut self, m: ScreenMovement, rng: &mut UnityRandom) {
+        self.world
+            .screen_movement(self.room, m, &self.camera, self.shake, rng);
     }
 }
 

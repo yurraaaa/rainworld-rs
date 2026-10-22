@@ -1,8 +1,8 @@
 //! `ShelterDoor` (262186) for an intact, non-ancient shelter, base game, Remix off: the
 //! door that opens at cycle start, closes when the slugcat sleeps and ends the cycle.
 //! Its graphics are `rw_graphics::ShelterDoorSprites`. Left out: the ancient (More
-//! Slugcats) doors, broken shelters, `PrecycleModule`, the tutorials and dream ghost,
-//! `GetStuffInWalls` and `ScreenMovement`.
+//! Slugcats) doors (with their `DoorGraphic` tracks and bolts), broken shelters,
+//! `PrecycleModule`, the tutorials and dream ghost, and `GetStuffInWalls`.
 //!
 //! Mirrors: ShelterDoor.cs
 
@@ -11,7 +11,7 @@ use rw_assets::{ActiveMods, PlacedObjectType, Room, RoomSettings, Terrain};
 use rw_random::UnityRandom;
 
 use crate::room_ext::RoomExt;
-use crate::{FloatExt, SoundId, Sounds, StaticSoundLoop, Vec2};
+use crate::{FloatExt, ScreenMovement, SoundId, Sounds, StaticSoundLoop, Vec2};
 
 /// How a story cycle ended, for the process the game switches to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -355,12 +355,15 @@ impl ShelterDoor {
 
     /// `Update` from `openTime` on: the timer-driven opening at cycle start (or the
     /// close speed), the bolt, hatch, segment, piston, cover and gasket sounds and loops,
-    /// and the parts' progress. `rain_timer` is `rainCycle.timer`.
+    /// and the parts' progress. `rain_timer` is `rainCycle.timer`. Its
+    /// `room.ScreenMovement` calls go to `moves` (none of them draws, so the game makes
+    /// them after the update).
     pub fn update(
         &mut self,
         rain_timer: i32,
         sounds: &mut Sounds,
         rng: &mut UnityRandom,
+        moves: &mut Vec<ScreenMovement>,
     ) -> DoorStep {
         let mut step = DoorStep::default();
         if self.closed() == 0.0 {
@@ -408,7 +411,7 @@ impl ShelterDoor {
         if (last >= 0.04 && self.closed_fac < 0.04) || (last < 0.04 && self.closed_fac >= 0.04) {
             sounds.play_at(SoundId::ShelterLittleHatchOpen, p_zero, 1.0, 1.0, rng);
         }
-        self.update_parts(sounds, rng);
+        self.update_parts(sounds, rng, moves);
         self.gasket_mover_loop.update(sounds, rng);
         let (enter, exit) = (self.pumps_enter(), self.pumps_exit());
         if (enter > 0.0 && enter < 1.0) || (exit > 0.0 && exit < 1.0) {
@@ -420,6 +423,13 @@ impl ShelterDoor {
             let l = &mut self.gasket_mover_loop;
             l.volume = (l.volume - 0.05).max(0.0);
         }
+        if enter > 0.0 && exit < 1.0 {
+            moves.push(ScreenMovement {
+                source: Some(p_zero),
+                bump: Vec2::ZERO,
+                shake: 0.1,
+            });
+        }
         let now_closed = self.closed() > 0.0;
         if now_closed != self.last_closed {
             self.reset(rng);
@@ -430,14 +440,25 @@ impl ShelterDoor {
     }
 
     /// The segment pairs, pistons, covers and pumps follow their phases, with their
-    /// sounds.
-    fn update_parts(&mut self, sounds: &mut Sounds, rng: &mut UnityRandom) {
+    /// sounds and screen movements (a pair meeting shakes 0.1, a hard piston bumps 3 px
+    /// along `dir`).
+    fn update_parts(
+        &mut self,
+        sounds: &mut Sounds,
+        rng: &mut UnityRandom,
+        moves: &mut Vec<ScreenMovement>,
+    ) {
         let p = self.p_zero;
         let segments = self.segments();
         for s in &mut self.segment_pairs {
             s[1] = s[0];
             s[0] = segments.inverse_lerp(s[2], s[2] + 0.5);
             if s[0] == 1.0 && s[1] < 1.0 {
+                moves.push(ScreenMovement {
+                    source: Some(p),
+                    bump: Vec2::ZERO,
+                    shake: 0.1,
+                });
                 sounds.play_at(SoundId::ShelterSegmentPairCollide, p, 1.0, 1.0, rng);
             }
             if s[1] <= 0.1 && s[0] > 0.1 {
@@ -448,11 +469,17 @@ impl ShelterDoor {
         }
         let pistons = self.pistons_fac().max(self.pistons_closed());
         let pistons_closed = self.pistons_closed();
+        let dir = self.dir;
         for s in &mut self.pistons {
             s[1] = s[0];
             s[0] = pistons.inverse_lerp(s[2], 1.0);
             if s[0] >= 0.95 && s[1] < 0.95 {
                 let id = if pistons_closed < 0.5 {
+                    moves.push(ScreenMovement {
+                        source: Some(p),
+                        bump: dir * 3.0,
+                        shake: 0.0,
+                    });
                     SoundId::ShelterPistonInHard
                 } else {
                     SoundId::ShelterPistonInSoft

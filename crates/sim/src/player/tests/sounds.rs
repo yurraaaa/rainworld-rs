@@ -126,6 +126,8 @@ impl crate::NoiseSink for NoiseLog {
     fn in_game_noise(&mut self, pos: Vec2, strength: f32, interesting: f32, rng: &mut UnityRandom) {
         self.0.push((pos, strength, interesting, rng.clone()));
     }
+
+    fn screen_movement(&mut self, _: crate::ScreenMovement, _: &mut UnityRandom) {}
 }
 
 /// `UpdateBodyMode`'s `Stand`: each footstep (every seventh frame walking) plays its

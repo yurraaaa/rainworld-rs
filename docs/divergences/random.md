@@ -177,6 +177,16 @@ it (D13). What still differs is only the seed and the call order:
   roll 1 (when the hit is in reach and not close) and `Spear_Stick_In_Wall`; a parried
   weapon's `WeaponDeflect` its spin and sparks. Each `Spark` and `ExplosionSpikes`
   updates in its own slot of the room's update list (`rw_sim::cosmetic`).
+- **Camera shake.** `RoomCamera.Update`'s jump draws 1 (`Random.value * 360`) each
+  tick while `screenShake` is above 0, at the head of the sim tick, before the room
+  realizer, as the game's cameras update before the rooms. `Room.ScreenMovement` draws
+  its ceiling drips where the caller moves the screen (a terrain impact before its
+  noise): 2 per drip (tile, x jitter) and, for a drip a camera sees within 300 px, 2
+  more (x speed, `WaterDrip`'s life), viewed or not; only a bump and shake above 2
+  (`|bump| / 4 + 3 shake`) drips, never a `HitWall` or a shelter door. `DrawUpdate`'s
+  micro shake (2 per drawn frame while `microShake` is above 0) comes from the app's
+  cosmetic stream, per frame; a paused frame repeats the last one's (the menus' pause
+  divergence), where `PausedDrawUpdate` would draw a new offset each frame.
 - **Weapons hitting creatures.** An overseer hearing of a flying weapon
   (`OverseerAI.FlyingWeapon`) draws once; a rock hitting a fly draws once (kill or
   stun), one hitting an overseer (no small creature) or a spear none; `Overseer.HitByWeapon` draws `Range(200, 1500)` when the

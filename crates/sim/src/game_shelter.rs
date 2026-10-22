@@ -166,7 +166,11 @@ impl RainWorldGame {
             &mut self.silent
         };
         self.shelter_doors[k].update_loop_emitters(sounds);
-        let step = self.shelter_doors[k].update(timer, sounds, &mut self.rng);
+        let mut moves = Vec::new();
+        let step = self.shelter_doors[k].update(timer, sounds, &mut self.rng, &mut moves);
+        for m in moves {
+            self.room_screen_movement(index, m);
+        }
         if step.stun_creatures {
             self.stun_shelter_creatures(index);
         }

@@ -220,10 +220,10 @@ impl Scene {
         self.hud.as_mut()
     }
 
-    /// One 40 Hz tick: the HUD (`RoomCamera.Update` comes before the rooms in
-    /// `RainWorldGame.Update`), the game, the controls page (a room object), then the
-    /// room camera's move; returns the sound events since the last tick. Without
-    /// `shared` (fonts, atlases, strings) there is no HUD.
+    /// One 40 Hz tick: the HUD and the room camera (`RoomCamera.Update` comes before the
+    /// rooms in `RainWorldGame.Update`), the game, the controls page (a room object),
+    /// then the tick's camera shake and room move; returns the sound events since the
+    /// last tick. Without `shared` (fonts, atlases, strings) there is no HUD.
     pub fn tick(&mut self, input: Input, shared: Option<&mut MenuShared>) -> Vec<SoundEvent> {
         match shared {
             Some(shared) => {
@@ -231,7 +231,7 @@ impl Scene {
                 self.update_rooms(input, shared, false)
             }
             None => {
-                self.set_camera_view();
+                self.update_room_camera();
                 self.game.tick(input);
                 self.game.sim_mut().take_game_over();
                 self.after_game_tick()
@@ -245,11 +245,27 @@ impl Scene {
             .set_camera_view(self.camera.current(), self.camera.most_likely_next());
     }
 
-    /// The unpaused tick's `cameras[i].Update()`: the HUD. `input` is this tick's
-    /// controls, whose map button the game-over prompt reads.
+    /// The unpaused tick's `cameras[i].Update()`: the HUD, then the room camera up to
+    /// its shake (which the sim's tick makes). `input` is this tick's controls, whose
+    /// map button the game-over prompt reads.
     pub fn update_cameras(&mut self, input: Input, shared: &mut MenuShared) {
         self.set_camera_view();
         self.update_hud(input.map, shared, false);
+        self.update_room_camera();
+    }
+
+    /// `RoomCamera.Update`'s camera choice and window lerp, handed to the sim with the
+    /// window position its shake and the rooms' `ScreenMovement`s start from.
+    fn update_room_camera(&mut self) {
+        if self.camera.update(self.game.camera_follow().as_ref()) {
+            log::info!("camera {}", self.camera.current() + 1);
+            if let Some(visuals) = &mut self.visuals {
+                visuals.show(self.camera.current());
+            }
+        }
+        self.set_camera_view();
+        let width = self.camera.screen_size()[0];
+        self.game.sim_mut().set_camera_pos(self.camera.pos(), width);
     }
 
     /// A paused tick (`RainWorldGame.Update` with `GamePaused`): only the HUD updates;
@@ -437,16 +453,27 @@ impl Scene {
         }
     }
 
-    /// The room camera after the game's tick; returns the sound events.
+    /// The room camera after the game's tick: the shake's jump and the rooms' bumps,
+    /// then a move to another room; returns the sound events.
     fn after_game_tick(&mut self) -> Vec<SoundEvent> {
+        let shake = self.game.sim_mut().take_camera_displacement();
+        self.camera.displace(shake);
         self.apply_camera_move();
-        if self.camera.update(self.game.camera_follow().as_ref()) {
-            log::info!("camera {}", self.camera.current() + 1);
-            if let Some(visuals) = &mut self.visuals {
-                visuals.show(self.camera.current());
-            }
-        }
         self.game.take_sound_events()
+    }
+
+    /// `DrawUpdate`'s micro shake for this frame, on the cosmetic stream (D1): a random
+    /// direction, then a random share of `8 * microShake` px.
+    fn draw_micro_shake(&mut self) {
+        let micro = self.game.sim().camera_shake().micro_shake;
+        let offset = if micro > 0.0 {
+            let rng = self.game.cosmetic_rng_mut();
+            let dir = rw_sim::Vec2::random_unit(rng);
+            dir * (8.0 * micro * rng.value())
+        } else {
+            rw_sim::Vec2::ZERO
+        };
+        self.camera.set_frame_shake(offset);
     }
 
     /// Size in room pixels that [`Framing::Auto`] shows: the game's screen, or the room
@@ -473,6 +500,7 @@ impl Scene {
     ) {
         target.sync(self);
         let alpha = self.frame_alpha(alpha);
+        self.draw_micro_shake();
         // The slugcat's sprites, eyes in the palette's black. Built every frame, as the
         // game runs `DrawSprites` whatever is shown; only the level view draws them.
         let face = self

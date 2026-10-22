@@ -18,7 +18,7 @@ Gameplay logic belongs in `rw-sim`, not here.
 | `input.rs` | keyboard to per-tick `Input` (`InputState`), Rewired-style key map |
 | `frontend.rs` | `Frontend`/`FrontendRenderer`: processes under `rw_menu::ProcessManager` (game, Initialization, menus), switch fade, `AppContext` |
 | `game.rs` | `Game`: `RainWorldGame` + player graphics; `start`, `tick`, `*_draw_lists`, `sync_sprite_order` (camera 0's container record after each tick) and `in_container_order` (the frame's lists in that order, jaws nested), sound events |
-| `scene.rs` | `Scene`/`SceneRenderer`: what a frame shows (level, water, sprites, HUD), shared by window and screenshots |
+| `scene.rs` | `Scene`/`SceneRenderer`: what a frame shows (level, water, sprites, HUD), shared by window and screenshots; the room camera's update before the sim tick and its shake after it, the frame's micro shake |
 | `visuals.rs` | room settings, palettes, shown camera image |
 | `window_identity.rs` | window title "Rain World" and app id `rainworld-rs` (Wayland/X11) |
 | `sprites.rs` | atlas loading (`rainWorld`, `uiSprites`), overseer projection textures |

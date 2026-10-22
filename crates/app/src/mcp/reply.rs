@@ -45,6 +45,9 @@ pub struct State {
     pub room: String,
     /// Shown camera (0-based), when the room has a level graphic.
     pub camera: Option<usize>,
+    /// Camera 0's shake, once anything moved the screen.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub camera_shake: Option<CameraShakeState>,
     /// The player's room (differs from `room` while its vessel waits to enter).
     pub player_room: String,
     /// The player's `abstractNode`: the exit node last passed, -1 if none.
@@ -978,6 +981,39 @@ pub struct StartUpState {
     pub show_controls_counter: i32,
     /// The game would show its controls page now (needs the HUD; not ported).
     pub controls_page_due: bool,
+}
+
+/// `RoomCamera`'s shake (`rw_sim::CameraShake`).
+#[derive(Debug, Clone, Serialize)]
+pub struct CameraShakeState {
+    pub screen_shake: f32,
+    pub micro_shake: f32,
+    /// The window's bottom-left (`pos`) after the last tick.
+    pub pos: [f32; 2],
+    /// The last `ScreenMovement` that reached the camera, as applied (divided by its
+    /// distance factor): source, bump, shake.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_source: Option<[f32; 2]>,
+    pub last_bump: Option<[f32; 2]>,
+    pub last_shake: Option<f32>,
+}
+
+impl CameraShakeState {
+    /// `None` until anything moved the screen.
+    #[must_use]
+    pub fn of(s: &rw_sim::CameraShake) -> Option<Self> {
+        if s.last.is_none() && s.screen_shake == 0.0 && s.micro_shake == 0.0 {
+            return None;
+        }
+        Some(Self {
+            screen_shake: s.screen_shake,
+            micro_shake: s.micro_shake,
+            pos: s.pos.to_array(),
+            last_source: s.last.and_then(|m| m.source).map(rw_sim::Vec2::to_array),
+            last_bump: s.last.map(|m| m.bump.to_array()),
+            last_shake: s.last.map(|m| m.shake),
+        })
+    }
 }
 
 /// `betweenRoomsWaitingLobby`'s vessel.

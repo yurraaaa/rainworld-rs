@@ -14,7 +14,7 @@ lists and overlays.
 | `src/lib.rs` | `Renderer` trait, `RoomLayers`, re-exports |
 | `src/gpu.rs` | `WgpuRenderer` (`new`, `headless`, `render_image`, `present`), pipelines and frame orchestration; `gpu/tests.rs` |
 | `src/camera.rs` | `Camera`: room pixels (y up) to clip space |
-| `src/room_camera.rs` | `RoomCamera`, `Follow`: camera image choice and window position (`RoomCamera.GetCameraBestIndex/Update/DrawUpdate`) |
+| `src/room_camera.rs` | `RoomCamera`, `Follow`: camera image choice and window position, moved by the shake (`displace`) and the frame's micro shake (`RoomCamera.GetCameraBestIndex/Update/DrawUpdate`) |
 | `src/level.rs`, `src/level_gpu.rs` | level graphic (`LevelGraphics`, `LevelParams`, `LevelView`) and its GPU side; `LevelColor` shader |
 | `src/sprites.rs` | Futile sprites on CPU: atlas coords, `FSprite` quads, `TriangleMesh`es from `DrawList`s, draw queue |
 | `src/sprite_gpu.rs` | GPU side: one `sprite.wgsl` pipeline per game shader, atlas pages, `_NoiseTex2`, grab textures |

@@ -329,8 +329,8 @@ restrictions (`rainworld-re/notes/water.md`), base game with Remix off, Survivor
   uses `<=`), the Rivulet/Artificer/Saint/Watcher/energy-cell/jetfish branches and the
   More Slugcats flood.
 - **Not ported:** `WaterCutoff` and `AirPocket` placed objects (no base-game room
-  uses them), `WaterViscosity` (unused in the base game), rain rumble, screen shake and
-  flooding, lethal water, splashes and bubbles, ripple waves from explosions, the
+  uses them), `WaterViscosity` (unused in the base game), rain rumble, the rain's screen
+  shake (`RainCycle.ScreenShake`/`MicroScreenShake` in the waves) and flooding, lethal water, splashes and bubbles, ripple waves from explosions, the
   analogue swim direction (digital input only).
 - **Slerp is reconstructed.** `Vector3.Slerp` is native code. `rw_sim::Vec3::slerp`
   follows Unity's known implementation: lerp below magnitude 1e-5 or when nearly
@@ -877,7 +877,7 @@ Differences:
   starve (without its `DeathEvent`) or a door closing on a dead Hunter out of cycles
   saves an ordinary death.
 - **Not ported:** More Slugcats' ancient and broken shelters, `PrecycleModule`, the
-  shelter tutorials, the dream ghost, `GetStuffInWalls`, the door's screen shake,
+  shelter tutorials, the dream ghost, `GetStuffInWalls`,
   and every Jolly Co-op and More Slugcats branch. `KillAllHostiles` is ported (a big
   hostile goes back to its spawner's den; none of the hostile kinds has a body in the
   port, so none is killed or destroyed there yet).
