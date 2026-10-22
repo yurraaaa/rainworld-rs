@@ -72,6 +72,18 @@ pub use swarm_rooms::{SwarmRoomMap, SwarmRoomMapper};
 pub use weapons::ItemTick;
 pub(crate) use weapons::{OrphanLoop, UpdatePart};
 
+/// One camera call a graphics module's internal container makes for `obj`'s sprites:
+/// `MoveObjectToInternalContainer` into lizard `into`'s jaws, or
+/// `MoveObjectToContainer(obj, null)` back on top of its default containers (`None`).
+/// `seq` is the update-list counter at the call, placing it among the room's
+/// `AddObject`s.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SpriteMove {
+    pub seq: u64,
+    pub obj: crate::item::Entity,
+    pub into: Option<crate::creature::CreatureId>,
+}
+
 /// A world and its realized rooms.
 pub struct World {
     pub(crate) data: WorldData,
@@ -112,10 +124,8 @@ pub struct World {
     pub(crate) entering: Vec<(CreatureId, WorldCoordinate)>,
     /// The last grasp or stick serial handed out.
     pub(crate) grasp_serial: u64,
-    /// Objects whose sprites a graphics module let out of its internal container since
-    /// the last take, in the game's order: each `MoveObjectToContainer(obj, null)` puts
-    /// them back on top of their default containers.
-    pub(crate) sprites_to_front: Vec<crate::item::Entity>,
+    /// The graphics modules' internal-container moves since the last take, in order.
+    pub(crate) sprite_moves: Vec<SpriteMove>,
     /// The realized player's `dead` flag (its body lives outside the world).
     pub(crate) player_dead: bool,
     /// The flies' `FlockBehavior`s, shared by reference in the game, by creation order.
@@ -181,7 +191,7 @@ impl World {
             orphan_loops: Vec::new(),
             entering: Vec::new(),
             grasp_serial: 0,
-            sprites_to_front: Vec::new(),
+            sprite_moves: Vec::new(),
             player_dead: false,
             flocks: Vec::new(),
             drip_ids: 0,

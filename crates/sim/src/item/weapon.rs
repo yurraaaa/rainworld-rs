@@ -281,6 +281,11 @@ pub struct Weapon {
     pub missed_attack: Option<(CreatureId, CreatureId)>,
     /// `inFrontOfObjects`: -1 unset, 1 in `Items`, 0 in `Background`.
     pub in_front_of_objects: i32,
+    /// How many times `ChangeOverlap` moved the sprites (each time it changed
+    /// `inFrontOfObjects`: `MoveObjectToContainer` to the top of `Items` or `Background`).
+    pub overlap_moves: u32,
+    /// The update-list counter at the last of those moves.
+    pub overlap_seq: u64,
     pub blink: i32,
     pub forbidden_to_player: i32,
     pub last_outside_terrain_pos: Option<Vec2>,
@@ -358,6 +363,8 @@ impl Weapon {
             thrown_closest_to_creature: None,
             missed_attack: None,
             in_front_of_objects: -1,
+            overlap_moves: 0,
+            overlap_seq: 0,
             blink: 0,
             forbidden_to_player: 0,
             last_outside_terrain_pos: None,
@@ -422,7 +429,12 @@ impl Weapon {
 
     /// `ChangeOverlap`: in front of the other objects (`Items`) or behind them
     /// (`Background`).
-    pub fn change_overlap(&mut self, overlap: bool) {
+    /// `seq` is the update-list counter now.
+    pub fn change_overlap(&mut self, overlap: bool, seq: u64) {
+        if self.in_front_of_objects != i32::from(overlap) {
+            self.overlap_moves = self.overlap_moves.wrapping_add(1);
+            self.overlap_seq = seq;
+        }
         self.in_front_of_objects = i32::from(overlap);
     }
 
@@ -554,7 +566,7 @@ impl Weapon {
             }
         }
         if let Some(o) = overlap {
-            self.change_overlap(o);
+            self.change_overlap(o, *cx.update_seq);
         }
         if new == mode {
             return;
@@ -616,7 +628,7 @@ impl Weapon {
         self.throw_dir = throw.dir;
         self.first_frame_trace_from_pos = throw.first_frame_trace_from_pos;
         self.change_dir_counter = 3;
-        self.change_overlap(true);
+        self.change_overlap(true, *cx.update_seq);
         let even = self.even_update;
         let spear = self.spear().is_some();
         self.chunk_mut()

@@ -17,7 +17,7 @@ use rw_assets::{
 use rw_audio::Follow as SoundFollow;
 use rw_graphics::{
     Color, CosmeticSprites, DrawList, FlyGraphics, HologramFrame, HologramGraphics,
-    HologramLightSprites, LightSourceSprites, LightSourceView, LizardColors, LizardGraphics,
+    HologramLightSprites, Layer, LightSourceSprites, LightSourceView, LizardColors, LizardGraphics,
     LizardModule, LizardReading, OverseerGraphics, PlayerGraphics, ShelterDoorSprites,
     ShortcutPalette, WaterDripSprites, WeaponSprites,
 };
@@ -41,7 +41,7 @@ use rw_sim::{
 
 use crate::jaws::{JawHolder, Jaws};
 use crate::shortcuts::CameraShortcuts;
-use crate::sprite_order::SpriteOrder;
+use crate::sprite_order::{Drawable, Joined, Move, Overlap, Present, SpriteOrder};
 
 /// How a game starts.
 #[derive(Debug, Clone, PartialEq)]
@@ -114,6 +114,9 @@ struct Graphics {
     holograms: Vec<HologramGraphics>,
     /// The flies' graphics modules, in sprite order (`MoveToFront` moves one last).
     flies: Vec<FlyGraphics>,
+    /// Flies whose sprites went on top of their container this tick (`Fly.Grabbed`,
+    /// `BringSpritesToFront`), in order.
+    flies_to_front: Vec<EntityId>,
     /// The lizards' graphics modules, in the order they were built.
     lizards: Vec<LizardGraphics>,
     /// Dropped lizard modules their bubbles, sparks and flashes still refer to.
@@ -351,6 +354,7 @@ impl PlayerObserver for Graphics {
         if let Some(i) = self.flies.iter().position(|g| g.id == id) {
             let g = self.flies.remove(i);
             self.flies.push(g);
+            self.flies_to_front.push(id);
         }
     }
 
@@ -633,6 +637,7 @@ impl Game {
             hologram_bases: Vec::new(),
             holograms: Vec::new(),
             flies: Vec::new(),
+            flies_to_front: Vec::new(),
             lizards: Vec::new(),
             dropped_lizards: Vec::new(),
             lizard_serial: 0,
@@ -845,8 +850,7 @@ impl Game {
         self.sim.tick(input, &mut self.graphics);
         self.graphics.forget_dropped_lizards(self.sim.world());
         self.shortcuts.sync(&mut self.sim, self.graphics.slugcat);
-        let moved = self.sim.world_mut().take_sprites_to_front();
-        self.sprite_order.moved_to_front(moved);
+        self.sync_sprite_order();
         let in_shortcut = self.sim.player().is_some_and(Player::in_shortcut);
         self.entered_shortcut = in_shortcut && !was_in_shortcut;
         if in_shortcut != was_in_shortcut {
@@ -888,7 +892,7 @@ impl Game {
     /// The overseers' sprites in the camera's room at `alpha` between ticks, oldest
     /// first (the order their sprites joined the containers), in the room palette's
     /// earth colour.
-    pub fn overseer_draw_lists(&mut self, alpha: f32, earth: Color) -> Vec<DrawList> {
+    pub fn overseer_draw_lists(&mut self, alpha: f32, earth: Color) -> Vec<(Drawable, DrawList)> {
         let world = self.sim.world();
         let mut shown: Vec<(u64, CreatureId)> = world
             .room_creatures(self.sim.camera_room())
@@ -906,7 +910,8 @@ impl Game {
             };
             let graphics = &mut self.graphics;
             if let Some(g) = graphics.overseers.iter_mut().find(|g| g.id == view.id) {
-                lists.push(g.draw(&view, earth, alpha, &mut graphics.cosmetic));
+                let list = g.draw(&view, earth, alpha, &mut graphics.cosmetic);
+                lists.push((Drawable::Entity(Entity::Creature(c)), list));
             }
         }
         lists
@@ -945,7 +950,7 @@ impl Game {
     /// The sparks, spikes and lizard bubbles and flashes in the camera's room at `alpha`
     /// between ticks, oldest first, in the palette's `black` (the flashes draw on the
     /// cosmetic stream).
-    pub fn cosmetic_draw_lists(&mut self, alpha: f32, black: Color) -> Vec<DrawList> {
+    pub fn cosmetic_draw_lists(&mut self, alpha: f32, black: Color) -> Vec<(Drawable, DrawList)> {
         let world = self.sim.world();
         let Some(room) = world.realized(self.sim.camera_room()) else {
             return Vec::new();
@@ -961,7 +966,10 @@ impl Game {
         let rng = &mut self.graphics.cosmetic;
         shown
             .iter()
-            .map(|c| c.draw(&room.room, alpha, &heads, rng))
+            .map(|c| {
+                let list = c.draw(&room.room, alpha, &heads, rng);
+                (Drawable::Cosmetic(c.id), list)
+            })
             .collect()
     }
 
@@ -1003,47 +1011,192 @@ impl Game {
         lists
     }
 
-    /// `AddObjectToInternalContainer` as drawn: the sprites of what each lizard's jaws
-    /// hold (`LizardGraphicsLink::internal_container`) move into the lizard's container
-    /// between its lower and upper head sprites, in the order they were put there, a
-    /// held lizard's with what it holds nested inside ([`Jaws`]). Once let go they draw
-    /// on top ([`SpriteOrder`]).
-    pub fn contain_in_jaws(
-        &self,
-        player: Option<&mut DrawList>,
-        objects: &mut [(Entity, DrawList)],
-    ) {
-        let holders = objects.iter().map(|(e, _)| self.jaw_holder(*e)).collect();
-        let player_id = Entity::Creature(self.sim.player_creature());
-        Jaws::new(holders, player_id).contain(player, objects);
+    /// Camera 0's record of its sprite containers after a tick ([`SpriteOrder`]): the
+    /// drawables now in its room, the tick's jaw moves (placed by the update-list
+    /// counter), then the flies' re-adds and the weapons' `ChangeOverlap`s.
+    pub fn sync_sprite_order(&mut self) {
+        let present = self.present_drawables();
+        let moves: Vec<(u64, Move)> = self
+            .sim
+            .world_mut()
+            .take_sprite_moves()
+            .into_iter()
+            .map(|m| {
+                let obj = Drawable::Entity(m.obj);
+                let mv = match m.into {
+                    Some(holder) => Move::IntoJaws {
+                        obj,
+                        holder: Drawable::Entity(Entity::Creature(holder)),
+                    },
+                    None => Move::ToDefault(obj),
+                };
+                (m.seq, mv)
+            })
+            .collect();
+        let world = self.sim.world();
+        let late: Vec<Move> = std::mem::take(&mut self.graphics.flies_to_front)
+            .into_iter()
+            .filter_map(|id| {
+                let (c, _) = world.creatures().find(|(_, c)| c.id == id)?;
+                Some(Move::ToDefault(Drawable::Entity(Entity::Creature(c))))
+            })
+            .collect();
+        let room = self.sim.camera_room();
+        self.sprite_order.update(room, &present, &moves, &late);
     }
 
-    /// A drawn lizard's jaw container and what it holds.
-    fn jaw_holder(&self, e: Entity) -> Option<JawHolder> {
-        let Entity::Creature(lizard) = e else {
+    /// Every drawable in camera 0's room: what `AddObject` put in `drawableObjects`
+    /// (the shelter door, rocks and spears, drips, cosmetics, lights, and the player once
+    /// its graphics module outlived a room) and the creatures' graphics modules
+    /// (`physicalObjects[0]`: flies, overseers; `[1]`: lizards, a first player).
+    fn present_drawables(&self) -> Vec<Present> {
+        let world = self.sim.world();
+        let room = self.sim.camera_room();
+        let mut present = Vec::new();
+        if let Some(p) = self.shown_player()
+            && !p.in_shortcut()
+            && !p.is_destroyed()
+            && self.graphics.module.is_some()
+        {
+            let joined = if self.sprite_order.had_room() {
+                Joined::AddObject
+            } else {
+                Joined::NowViewed { layer: 1 }
+            };
+            let player = Drawable::Entity(Entity::Creature(self.sim.player_creature()));
+            present.push(Present {
+                joined,
+                ..Present::added(player, self.sim.player_seq())
+            });
+        }
+        if let Some(door) = self.sim.shelter_door(room) {
+            present.push(Present::added(Drawable::ShelterDoor, door.update_order));
+        }
+        for (seq, id) in world.room_weapons(room) {
+            let Some(w) = world.object(id).realized.as_deref() else {
+                continue;
+            };
+            present.push(Present {
+                overlap: Some(Overlap {
+                    moves: w.overlap_moves,
+                    in_front: w.in_front_of_objects != 0,
+                    seq: w.overlap_seq,
+                }),
+                ..Present::added(Drawable::Entity(Entity::Object(id)), seq)
+            });
+        }
+        for (id, c) in world.creatures() {
+            let d = Drawable::Entity(Entity::Creature(id));
+            if let Some(f) = c.fly()
+                && f.room == Some(room)
+                && f.graphics
+            {
+                present.push(Present::module(d, f.update_order, 0));
+            } else if let Some(l) = c.lizard()
+                && l.room == Some(room)
+                && !l.in_shortcut
+                && l.graphics.is_some()
+            {
+                present.push(Present::module(d, l.update_order, 1));
+            } else if let Some(b) = c.overseer_body()
+                && b.in_room
+                && c.pos.room == room
+                && self.graphics.overseers.iter().any(|g| g.id == c.id)
+            {
+                present.push(Present::module(d, b.update_order, 0));
+            }
+        }
+        if let Some(r) = world.realized(room) {
+            present.extend(
+                r.drips
+                    .iter()
+                    .filter(|d| !d.slated)
+                    .map(|d| Present::added(Drawable::Drip(d.id), d.update_order)),
+            );
+            present.extend(
+                r.cosmetics
+                    .iter()
+                    .filter(|c| !c.slated)
+                    .map(|c| Present::added(Drawable::Cosmetic(c.id), c.update_order)),
+            );
+            present.extend(
+                r.holo_lights
+                    .iter()
+                    .filter(|l| !l.slated)
+                    .map(|l| Present::added(Drawable::HoloLight(l.id), l.id)),
+            );
+            present.extend(
+                r.light_sources
+                    .iter()
+                    .filter(|l| !l.slated)
+                    .map(|l| Present::added(Drawable::LightSource(l.id), l.id)),
+            );
+        }
+        present
+    }
+
+    /// The frame's sprites in camera 0's containers: a weapon in the container its last
+    /// re-add chose, what the lizards' jaws hold nested in them ([`Jaws`]), the sprites
+    /// of a jaw container off the stage left out, the rest in [`SpriteOrder`]'s order.
+    pub fn in_container_order(&self, mut lists: Vec<(Drawable, DrawList)>) -> Vec<DrawList> {
+        for (d, list) in &mut lists {
+            if !matches!(d, Drawable::Entity(Entity::Object(_))) {
+                continue;
+            }
+            let layer = if self.sprite_order.behind(*d) {
+                Layer::Background
+            } else {
+                Layer::Items
+            };
+            for item in &mut list.items {
+                if matches!(item.layer(), Layer::Items | Layer::Background) {
+                    item.set_layer(layer);
+                }
+            }
+        }
+        let holders = lists.iter().map(|(d, _)| self.jaw_holder(*d)).collect();
+        let player = Drawable::Entity(Entity::Creature(self.sim.player_creature()));
+        Jaws::new(holders, player).contain(&mut lists);
+        let mut ordered = Vec::with_capacity(lists.len());
+        for d in self.sprite_order.order() {
+            let Some(i) = lists.iter().position(|(o, _)| *o == d) else {
+                continue;
+            };
+            let mut list = lists.swap_remove(i).1;
+            if !self.sprite_order.shown(d) {
+                // Only what went into the jaw container left the stage with it: the
+                // player's `Foreground` sprites stay (`PlayerGraphics.AddToContainer`).
+                if d != player {
+                    continue;
+                }
+                list.items.retain(|item| item.layer() != Layer::Midground);
+            }
+            ordered.push(list);
+        }
+        ordered
+    }
+
+    /// Camera 0's container record (for MCP replies).
+    #[must_use]
+    pub fn sprite_order(&self) -> &SpriteOrder {
+        &self.sprite_order
+    }
+
+    /// A drawn lizard's jaw container and what the camera has in it.
+    fn jaw_holder(&self, d: Drawable) -> Option<JawHolder> {
+        let Drawable::Entity(Entity::Creature(lizard)) = d else {
             return None;
         };
-        let held = self
-            .sim
-            .world()
-            .creature(lizard)
-            .lizard()
-            .and_then(|l| l.graphics.as_ref())
-            .map(|link| link.internal_container.clone())?;
         let container = self
             .graphics
             .lizards
             .iter()
             .find(|g| g.creature == lizard)
             .and_then(|g| g.internal_container)?;
-        Some(JawHolder { container, held })
-    }
-
-    /// The objects of `now` (drawn this frame in the camera's room) whose sprites sit
-    /// above the kind order, bottom first ([`SpriteOrder`]).
-    pub fn sprites_on_top(&mut self, now: &[Entity]) -> Vec<Entity> {
-        let room = self.sim.camera_room();
-        self.sprite_order.update(room, now).to_vec()
+        Some(JawHolder {
+            container,
+            held: self.sprite_order.held_by(d),
+        })
     }
 
     /// The lizards' graphics modules (for MCP replies).
@@ -1061,7 +1214,7 @@ impl Game {
         alpha: f32,
         cam_pos: Vec2,
         darkness: f32,
-    ) -> Vec<DrawList> {
+    ) -> Vec<(Drawable, DrawList)> {
         let index = self.sim.camera_room();
         let Some(room) = self.sim.world().realized(index) else {
             return Vec::new();
@@ -1091,7 +1244,7 @@ impl Game {
             match drawable {
                 LightDrawable::Holo(id) => {
                     if let Some(list) = self.holo_light_frame(index, id, alpha) {
-                        lists.push(list);
+                        lists.push((Drawable::HoloLight(id), list));
                     }
                 }
                 LightDrawable::Source(id) => {
@@ -1101,7 +1254,7 @@ impl Game {
                         .realized(index)
                         .and_then(|r| r.light_sources.iter().find(|l| l.id == id));
                     if let Some(light) = light {
-                        lists.push(light.draw(&view, alpha));
+                        lists.push((Drawable::LightSource(id), light.draw(&view, alpha)));
                     }
                 }
             }
@@ -1166,7 +1319,12 @@ impl Game {
 
     /// The water drips in the camera's room at `alpha` between ticks, oldest first
     /// (`WaterDrip.DrawSprites` on the cosmetic stream), in the palette's black.
-    pub fn drip_draw_lists(&mut self, alpha: f32, black: Color, darkness: f32) -> Vec<DrawList> {
+    pub fn drip_draw_lists(
+        &mut self,
+        alpha: f32,
+        black: Color,
+        darkness: f32,
+    ) -> Vec<(Drawable, DrawList)> {
         let Some(room) = self.sim.world().realized(self.sim.camera_room()) else {
             return Vec::new();
         };
@@ -1174,7 +1332,10 @@ impl Game {
         room.drips
             .iter()
             .filter(|d| !d.slated)
-            .map(|d| d.draw(glitter, black, darkness, alpha, &mut self.graphics.cosmetic))
+            .map(|d| {
+                let list = d.draw(glitter, black, darkness, alpha, &mut self.graphics.cosmetic);
+                (Drawable::Drip(d.id), list)
+            })
             .collect()
     }
 

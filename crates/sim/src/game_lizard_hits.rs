@@ -21,7 +21,7 @@ use crate::creature::{
 };
 use crate::item::{Entity, ObjectId, SpearStickKind, StuckIn, WeaponMode};
 use crate::room_ext::RoomExt;
-use crate::world::UpdatePart;
+use crate::world::{SpriteMove, UpdatePart};
 use crate::{BodyChunk, FloatExt, SoundId, Vec2, WaterDrip};
 
 /// A body chunk of a realized object: the player's, or one the world holds.
@@ -153,6 +153,12 @@ impl RainWorldGame {
             .and_then(|l| l.graphics.as_mut())
         {
             link.add_to_internal_container(obj);
+            let seq = self.world.update_seq();
+            self.world.sprite_moves.push(SpriteMove {
+                seq,
+                obj,
+                into: Some(id),
+            });
         }
     }
 

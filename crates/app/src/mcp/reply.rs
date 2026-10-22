@@ -73,6 +73,9 @@ pub struct State {
     pub music: Option<MusicState>,
     /// The realized rooms' trigger checkers and the objects their events added.
     pub triggers: Vec<TriggerState>,
+    /// Camera 0's sprite leasers in container order, bottom first.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub sprite_order: Vec<SpriteLeaserState>,
     /// The guide's `HologramLight`s (the Monk's light in dark rooms).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub holo_lights: Vec<HoloLightState>,
@@ -97,6 +100,28 @@ pub struct State {
     pub region_state: Option<RegionStateInfo>,
     /// Loop emitters of swallowed items that the room still updates.
     pub orphan_emitters: usize,
+}
+
+/// One of camera 0's sprite leasers (`crates/app/src/sprite_order.rs`).
+#[derive(Debug, Clone, Serialize)]
+pub struct SpriteLeaserState {
+    /// `player`, `creature`, `object`, `shelter_door`, `drip`, `cosmetic`,
+    /// `holo_light`, `light_source` or `shortcuts`.
+    pub kind: &'static str,
+    /// A creature's or object's EntityID.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<[i32; 2]>,
+    /// A drip's, cosmetic's or light's port id.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub index: Option<u64>,
+    /// A weapon in `Background` (else `Items`).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub behind: bool,
+    /// The lizard (EntityID) whose jaw container holds its sprites.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub held_by: Option<[i32; 2]>,
+    /// False when its container left the stage with its holder's leaser.
+    pub shown: bool,
 }
 
 /// A `HologramLight`.

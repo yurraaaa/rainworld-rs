@@ -214,8 +214,9 @@ impl World {
 
     /// `Weapon.ChangeOverlap` of realized object `id`.
     pub(crate) fn change_overlap(&mut self, id: ObjectId, overlap: bool) {
+        let seq = self.update_seq();
         if let Some(w) = self.object_mut(id).realized.as_deref_mut() {
-            w.change_overlap(overlap);
+            w.change_overlap(overlap, seq);
         }
     }
 

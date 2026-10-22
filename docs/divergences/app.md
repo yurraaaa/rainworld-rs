@@ -32,10 +32,10 @@ game's own constructors do.
 ## D20: A hold cycle between lizards' jaws stays drawn
 
 **What.** When two lizards hold each other in their jaws (or a longer cycle forms),
-the port draws them: `Game::contain_in_jaws` (`crates/app/src/jaws.rs`) nests each
+the port draws them: `Jaws` (`crates/app/src/jaws.rs`) nests each
 held lizard's sprites into its holder's list and stops where the cycle comes round
-again, so the cycle draws nested inside the member that comes first in the frame's
-object list (A with B inside, B's own hold of A ignored). In the game none of the
+again, so the cycle draws nested inside the member that comes first in camera 0's
+container order (D21) (A with B inside, B's own hold of A ignored). In the game none of the
 cycle draws, nor anything nested in it, until one of them lets go.
 
 **The game (code reading, not observed in play).**
@@ -65,3 +65,25 @@ cycle draws, nor anything nested in it, until one of them lets go.
 
 **Affects.** Only the frames while a hold cycle lasts (a few ticks up to about a
 second).
+
+## D21: The flies' sprite re-adds placed at the end of their tick
+
+**What.** Camera 0's container order is the game's (`crates/app/src/sprite_order.rs`,
+`rainworld-re/notes/sprite-containers.md`): a room the camera moves to gets its
+leasers in `drawableObjects` order (`AddObject`ed drawables, then the graphics modules
+`NowViewed` builds by collision layer, then the shortcut graphics; weapons in `Items`),
+every later `AddObject` and re-add goes on top, a weapon's `ChangeOverlap` picks
+`Items` or `Background`, and what lizards' jaws hold follows the latest
+`AddObjectToInternalContainer`. The record is brought up to date after each tick. The
+jaw moves and the last `ChangeOverlap` of each weapon carry the update-list counter, so
+they fall between the tick's `AddObject`s as in the game (several `ChangeOverlap`s of
+one weapon in a tick end as the last one does). The flies' re-adds (`Fly.Grabbed`,
+`BringSpritesToFront` when picked up or joining a chain) do not, and are applied after
+everything else that tick, in order.
+
+**Why.** The sim reports them through the graphics observer without the update-list
+counter; carrying it there touches the player's grab code.
+
+**Affects.** Only a tick where a fly's re-add and an `AddObject` (or a jaw move or
+`ChangeOverlap`) of an overlapping `Midground` drawable both happen: their two sprites
+may stack the other way round until the next re-add.
