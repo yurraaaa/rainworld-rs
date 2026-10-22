@@ -1,6 +1,6 @@
 //! `OverseerAbstractAI` (base game: roaming between rooms by attraction, the player
 //! guide's comings and goings, leaving for the off-screen den before the rain).
-//! Behaviour: `rainworld-re/notes/creature-model.md`.
+//! Behaviour: `rainworld-re/notes/creature-model/overseers-and-flies.md`.
 //!
 //! Mirrors: OverseerAbstractAI.cs
 

@@ -5,7 +5,7 @@
 //! representations' `VisualContact` getter, `BestGuessForPosition`, `Ghost.Clone`).
 //! Decompile: `Room.cs` `InGameNoise`, `Creature.cs` `HeardNoise`, `NoiseTracker.cs`,
 //! `Tracker.cs`, `LizardAI.cs` (ReactToNoise). Behaviour:
-//! `rainworld-re/notes/creature-model.md` section 18.
+//! `rainworld-re/notes/creature-model/lizard-senses.md` section 18.
 //!
 //! Mirrors: Room.cs, Creature.cs, NoiseTracker.cs, Tracker.cs, LizardAI.cs (ReactToNoise)
 

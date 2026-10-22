@@ -3,7 +3,7 @@
 //! terrain impacts, and their shortcut vessels, lobby turns and `SpitOutOfShortCut`
 //! (`Act` and entering shortcuts are `game_lizard_act.rs`). Decompile: `Lizard.cs` 822-1062 and
 //! 1460-1711, `Creature.cs` 369-707, `AirBreatherCreature.cs`. Behaviour:
-//! `rainworld-re/notes/creature-model.md` section 13.
+//! `rainworld-re/notes/creature-model/lizard-body-and-movement.md` section 13.
 //!
 //! Mirrors: Lizard.cs (Update), AirBreatherCreature.cs, Creature.cs, PhysicalObject.cs
 

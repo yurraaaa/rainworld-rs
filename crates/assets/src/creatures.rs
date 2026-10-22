@@ -3,7 +3,7 @@
 //! `AddLineageFromString`) and room attractions (`Room_Attr` lines of a region's
 //! properties). The simulation decides what to make of them (`rw_sim::creature`).
 //!
-//! Behaviour: `rainworld-re/notes/creature-model.md`, `world-loading.md`.
+//! Behaviour: `rainworld-re/notes/creature-model/model.md`, `world-loading.md`.
 //!
 //! Mirrors: CreatureTemplate.cs, WorldLoader.cs (AddSpawnersFromString, AddLineageFromString)
 

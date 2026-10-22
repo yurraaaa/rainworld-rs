@@ -211,7 +211,7 @@ sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `m
 Notes (`../../../rainworld-re/notes/`): `physics-core.md`, `slope-collision.md`,
 `slugcat-movement.md`, `advanced-moves.md`, `falls.md`, `corridors.md`,
 `vertical-poles.md`, `horizontal-beams.md`, `ledge-grab.md`, `shortcuts.md`, `water.md`,
-`ai-map.md`, `creature-model.md`, `items.md`, `shelter.md`, `saves.md`, `sound.md`,
+`ai-map.md`, `creature-model/`, `items.md`, `shelter.md`, `saves.md`, `sound.md`,
 `unity-random.md`, `overseer.md`, `lizard-ai.md`, `room-realizer.md`, `world-format.md`,
 `world-loading.md`, `room-format.md`, `campaign-model.md`, `music.md`.
 Surveys (`../../../rainworld-re/surveys/`): `lizards.md`, `bat-flies.md`, `rocks-spears.md`,

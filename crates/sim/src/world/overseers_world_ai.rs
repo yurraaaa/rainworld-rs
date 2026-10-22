@@ -4,7 +4,7 @@
 //! (room, exit node) cells, one cell per update, on the fly's baked node connectivity.
 //! Neither draws a random number.
 //!
-//! Behaviour: `rainworld-re/notes/creature-model.md` §7.
+//! Behaviour: `rainworld-re/notes/creature-model/overseers-and-flies.md` §7.
 //!
 //! Mirrors: OverseersWorldAI.cs
 

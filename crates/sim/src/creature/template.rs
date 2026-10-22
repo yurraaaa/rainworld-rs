@@ -414,7 +414,7 @@ impl CreatureTemplate {
 }
 
 /// Field values from `InitStaticWorld` (line numbers of the 1.11.8 decompile in
-/// `rainworld-re/notes/creature-model.md`).
+/// `rainworld-re/notes/creature-model/model.md`).
 impl CreatureTemplate {
     const STANDARD: Self = Self {
         water_relationship: WaterRelationship::AirAndSurface,

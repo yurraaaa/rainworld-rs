@@ -4,7 +4,7 @@
 //! Creatures: the world's population and its overseers' abstract AI
 //! ([`crate::creature`]); the player is an `AbstractCreature` too. Behaviour:
 //! `rainworld-re/notes/world-loading.md`, `room-realizer.md`, `shortcuts.md` section 5,
-//! `creature-model.md`.
+//! `creature-model/`.
 //!
 //! Mirrors: RainWorldGame.cs
 
