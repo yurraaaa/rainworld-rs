@@ -128,6 +128,12 @@ impl Microphone {
         self.listener
     }
 
+    /// `lastListenerPoint`.
+    #[must_use]
+    pub fn last_listener(&self) -> Vec2 {
+        self.last_listener
+    }
+
     /// The listener between the last two ticks.
     #[must_use]
     pub fn listener_at(&self, time_stacker: f32) -> Vec2 {
@@ -240,7 +246,7 @@ mod tests {
 
     impl Microphone {
         /// A microphone that has followed a body at `listener` for two ticks.
-        fn following(listener: Vec2) -> Self {
+        pub(crate) fn following(listener: Vec2) -> Self {
             let mut mic = Self::new(1.8);
             let input = ListenerInput {
                 camera_pos: Vec2::ZERO,

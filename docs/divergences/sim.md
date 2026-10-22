@@ -325,6 +325,12 @@ restrictions (`rainworld-re/notes/water.md`), base game with Remix off, Survivor
 - **Remix (MMF) omitted:** `swimBoostCost` 0.18 (base 0.2), the `cfgSwimBreathLeniency`
   curve, `cfgFreeSwimBoosts`, `EffectiveRoomGravity` in the corridor buoyancy term and
   the submersion cap above the room.
+- **Surface loop.** `Water.waterSounds` (`Water_Surface_Calm_LOOP` on the one-tile band
+  under the still surface, `SilenceWater` volume) is ported (`rw_sim::WaterSound`,
+  `game_water_sound.rs`). The empty `WaterSoundObject` it belongs to is not an object
+  in the update list (it does nothing and never leaves the room); its emitters are.
+  The inverted-water band (DLCShared) and the More Slugcats `waterInverted` branch of
+  `PositionedSound.Update` are omitted with the other inverted-water code.
 - **DLC omitted:** inverted water, the More Slugcats `PointSubmerged` `<` test (base
   uses `<=`), the Rivulet/Artificer/Saint/Watcher/energy-cell/jetfish branches and the
   More Slugcats flood.

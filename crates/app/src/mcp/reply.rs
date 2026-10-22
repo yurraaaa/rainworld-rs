@@ -1156,6 +1156,18 @@ pub struct RealizedState {
     /// The `DrippingSound`'s loop volume while it is in the update list.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dripping_sound: Option<f32>,
+    /// The water's calm surface loop (`Water.waterSounds`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub water_sound: Option<WaterSoundState>,
+}
+
+/// `Water.waterSounds`: its rect (left, bottom, right, top), loop volume, and whether
+/// its emitter plays for the camera's microphone.
+#[derive(Debug, Clone, Serialize)]
+pub struct WaterSoundState {
+    pub rect: [f32; 4],
+    pub volume: f32,
+    pub playing: bool,
 }
 
 /// The camera room's exits (`get_exits`).

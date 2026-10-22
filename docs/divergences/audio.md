@@ -8,7 +8,8 @@ See [README](README.md) for the format. IDs are global; code and notes cite them
 on a body chunk; chunk loops with handles), `rw_assets::SoundTable` the `SoundLoader`,
 `rw_assets::unity::Fsb5` the clip decoder, and `rw_audio` the `VirtualMicrophone` with
 its `AmbientSoundPlayer`s, playing on kira (`rainworld-re/notes/sound.md`). Every base-game
-`Player` sound, the shortcut tick, the water-surface splashes and the bat flies' sounds
+`Player` sound, the shortcut tick, the water-surface splashes, the water's calm surface
+loop (a `RectangularSound`: heard from the point of its rect nearest the listener) and the bat flies' sounds
 (their wings, idle and afraid calls, the hover loop, burrowing, emerging, chaining and
 the NPC shortcut sounds) are ported. The menus'
 `MenuMicrophone` is `rw_menu::MenuMic` (what plays, the draws, the loops' fades) and

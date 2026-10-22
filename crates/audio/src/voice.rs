@@ -1,7 +1,7 @@
 //! Sound objects (`DisembodiedSound`, `StaticPositionSound`, `ObjectSound`,
-//! `DisembodiedLoop`) and the emitters they follow.
+//! `DisembodiedLoop`, `RectangularSound`) and the emitters they follow.
 //!
-//! Mirrors: VirtualMicrophone.cs (DisembodiedSound, StaticPositionSound, ObjectSound, DisembodiedLoop), SoundLoader.cs
+//! Mirrors: VirtualMicrophone.cs (DisembodiedSound, StaticPositionSound, ObjectSound, DisembodiedLoop, RectangularSound), SoundLoader.cs
 
 use rustc_hash::FxHashMap;
 use rw_sim::{BodyChunk, EmitterId, FloatExt, PlayedSound, SoundSource, Vec2, Water};
@@ -38,7 +38,9 @@ impl Emitters {
                 (emitter, Some(chunk), c.pos)
             }
             SoundSource::Object { emitter, pos } => (emitter, None, pos),
-            SoundSource::DisembodiedLoop { emitter, .. } => (emitter, None, Vec2::ZERO),
+            SoundSource::DisembodiedLoop { emitter, .. } | SoundSource::Rect { emitter, .. } => {
+                (emitter, None, Vec2::ZERO)
+            }
             _ => return,
         };
         self.0.entry(emitter).or_insert(Emitter {
@@ -157,7 +159,8 @@ impl Voice {
         match self.sound.source {
             SoundSource::Chunk { emitter, .. }
             | SoundSource::Object { emitter, .. }
-            | SoundSource::DisembodiedLoop { emitter, .. } => Some(emitter),
+            | SoundSource::DisembodiedLoop { emitter, .. }
+            | SoundSource::Rect { emitter, .. } => Some(emitter),
             _ => None,
         }
     }
@@ -196,6 +199,14 @@ impl Voice {
             SoundSource::Chunk { emitter, .. } | SoundSource::Object { emitter, .. } => {
                 let e = emitters.get(emitter)?;
                 (e.pos, e.last_pos, e.volume, e.pitch)
+            }
+            // `RectangularSound`: the rect's points nearest the listener's last two
+            // ticks, with the emitter's volume and pitch.
+            SoundSource::Rect { emitter, rect } => {
+                let e = emitters.get(emitter)?;
+                let pos = rect.restrict(mic.listener());
+                let last_pos = rect.restrict(mic.last_listener());
+                (pos, last_pos, e.volume, e.pitch)
             }
         };
         let ps = last_pos.lerp(pos, time_stacker);
@@ -309,6 +320,52 @@ mod tests {
         let want = mic.source_volume(0.25, 0.5, mic.volume_groups()[0]);
         assert!((mix.volume - want).abs() < 1e-6);
         emitters.remove(EmitterId(3));
+        assert!(voice.mix(&mic, &emitters, 1.0, 0.0, None).is_none());
+    }
+
+    /// A `RectangularSound` is heard from the point of its rect nearest the listener,
+    /// with its emitter's volume and pitch; it ends with the emitter.
+    #[test]
+    fn a_rect_sound_is_heard_from_its_nearest_point() {
+        let rect = rw_sim::SoundRect {
+            left: 0.0,
+            bottom: 40.0,
+            right: 600.0,
+            top: 60.0,
+        };
+        let sound = PlayedSound {
+            id: SoundId::WaterSurfaceCalmLoop,
+            clip: 0,
+            variation: 0,
+            volume: 0.6,
+            pitch: 1.0,
+            range: 0.8,
+            doppler_fac: 0.0,
+            ignore_effects: 0.0,
+            start_at: None,
+            source: SoundSource::Rect {
+                emitter: EmitterId(2),
+                rect,
+            },
+            looped: true,
+            emitter_volume: 1.0,
+            emitter_pitch: 1.0,
+        };
+        let mut emitters = Emitters::default();
+        emitters.insert_for(&sound, None);
+        let listener = Vec2::new(900.0, 300.0);
+        let mic = Microphone::following(listener);
+        let mut voice = Voice::new(sound, &mic, 0.0);
+        assert_eq!(voice.emitter(), Some(EmitterId(2)));
+        emitters.set(EmitterId(2), 0.5, 1.1);
+        let mix = voice.mix(&mic, &emitters, 1.0, 0.0, None).expect("plays");
+        let ps = Vec2::new(600.0, 60.0);
+        assert!((mix.pan - mic.pan_from_point(ps, 1.0)).abs() < 1e-6);
+        let factor = mic.vol_from_point(ps, 1.0, 0.8) * 0.5;
+        let want = mic.source_volume(factor, 0.6, mic.volume_groups()[0]);
+        assert!((mix.volume - want).abs() < 1e-6);
+        assert!((mix.pitch - 1.1).abs() < 1e-6);
+        emitters.remove(EmitterId(2));
         assert!(voice.mix(&mic, &emitters, 1.0, 0.0, None).is_none());
     }
 }
