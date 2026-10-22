@@ -260,13 +260,13 @@ prefer these over `--screenshot`/`--script`; briefs for such agents say so.
 - `get_state` reports the camera room, the player (food, grasps, pick-up
   candidate, stomach, counters, sneak/loudness, `held_by`, `danger_grasp` and
   its time, struggle buttons, `can_struggle`, `cant_be_grabbed_counter`, ...), the vessel in the
-  lobby, realized rooms' entry waits, every abstract creature (kind, ID, room,
+  lobby, realized rooms' entry waits, ceiling drips and dripping sound, every abstract creature (kind, ID, room,
   node, tile, den, realized, alive, abstract AI; realized flies, lizards
   with their movement, tracker, relationships, noise, decision (`social`:
   fight target and anger, `submitted_to`, last signal, missions) and, in a
   viewed room, graphics and voice; overseers with AI and guide state; stun/kill tag,
   `social`, `danger`, `carries`), every abstract object (and realized
-  state), `orphan_emitters`, `triggers`, `music`, `holo_lights`, `camera_shake`, `full_screen_effect`, `level_params`, `insects`, `session`,
+  state), `orphan_emitters`, `triggers`, `music`, `holo_lights`, `camera_shake`, `full_screen_effect`, `death_fall`, `level_params`, `insects`, `session`,
   `dens`, `quantified`, `flies_world`, `region_state`, `heavy_ai`. Empty fields are left
   out; the field list is in `crates/app/src/mcp/`. New sim state must be
   added there. `get_exits` lists the camera room's exits (entrance tile, the
