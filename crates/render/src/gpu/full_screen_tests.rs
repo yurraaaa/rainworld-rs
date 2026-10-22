@@ -1,5 +1,6 @@
-//! Headless GPU checks of the full-screen effect shaders (`full_screen.wgsl`) at the
-//! game's 1366x768: each frame is drawn without the effect, then with it, and pixels are
+//! Headless GPU checks of the full-screen effect shaders (`full_screen.wgsl`) and the
+//! `DeathFall` shader (`death_fall.wgsl`, here over the whole screen) at the game's
+//! 1366x768: each frame is drawn without the effect, then with it, and pixels are
 //! compared with the game's shader maths applied to the frame without it (bilinear
 //! taps, as the grab is read) and with values worked out by hand from the shader
 //! sources. Skipped without a Vulkan adapter.
@@ -696,5 +697,96 @@ fn fog_bands_over_sky_and_terrain() {
     assert!(
         patches > 0 && fogged > 0,
         "{patches} patches, {fogged} fogged"
+    );
+}
+
+/// `DeathFall.shader`'s fragment as (rgb, alpha) before blending; `behind` is whether
+/// something was drawn before the level at the pixel.
+fn death_fall(
+    scene: &Scene,
+    before: &Before,
+    x: u32,
+    y: u32,
+    alpha: f32,
+    behind: bool,
+) -> Option<([f32; 3], f32)> {
+    let red = scene.code(x, y, [0.0, 0.0])[0];
+    let depth = if red == 255 {
+        1.0
+    } else {
+        ((f32::from(red) - 1.0) % 30.0) / 30.0
+    };
+    if depth > 6.0 / 30.0 && behind {
+        return None;
+    }
+    let g = before.grab(scr(x, y));
+    let dist = ((depth - 0.1) / 0.2).clamp(0.0, 1.0);
+    let t = ((quad_uv(x, y)[1] - 1.0) / -1.5).clamp(0.0, 1.0);
+    let amount = dist.powf(0.3) * t * t * (3.0 - 2.0 * t);
+    let l = g[0].max(g[1]).max(g[2]);
+    let edge = 0.2 + (scene.rain * 10.0).sin() * 0.1;
+    let k = ((l - edge) / -edge).clamp(0.0, 1.0);
+    let rgb = std::array::from_fn(|c| {
+        let dark = g[c] * l * 0.2;
+        dark + ((1.0 - g[c]) * 0.1 * alpha - dark) * k
+    });
+    Some((rgb, amount / (1.0 - alpha * 0.1) * alpha))
+}
+
+/// `DeathFall` over columns of layer 0 (red 1: no effect), layer 6 (red 7: half the
+/// depth ramp), layer 9 (red 10) and sky, under a bright quad and over a creature drawn
+/// behind the sky (left alone): bright pixels go to `c * l * 0.2`, dark ones (palette
+/// 0.12, under `0.2 + 0.1 sin(10 _RAIN)`) toward `(1 - c) * 0.1 * a`, more opaque toward
+/// the bottom.
+#[test]
+fn death_fall_darkens_far_layers_toward_the_bottom() {
+    let Some(mut r) = renderer() else { return };
+    let mut scene = Scene::new(
+        level(|x, _| match x {
+            0..300 => [1, 0, 0],
+            300..600 => [7, 0, 0],
+            600..900 => [10, 0, 0],
+            _ => [255, 255, 255],
+        }),
+        palette([30, 30, 30], &[]),
+    );
+    scene.rain = 0.7;
+    let bright = Rect([650, 500, 850, 700]);
+    scene
+        .over
+        .push(bright.quad(SpriteColor::rgb(0.9, 0.6, 0.3), Layer::Foreground));
+    let creature = Rect([1000, 600, 1200, 700]);
+    scene
+        .behind
+        .push(creature.quad(SpriteColor::rgb(0.0, 0.5, 0.0), Layer::Items));
+    let before = Before(scene.draw(&mut r, None));
+    let after = scene.draw(&mut r, Some((Shader::DeathFall, 0.9)));
+    let mut drawn = 0;
+    for y in (3..H).step_by(23) {
+        for x in (5..W).step_by(31) {
+            if [300, 600, 900].iter().any(|&e| (x as i64 - e).abs() < 3) {
+                continue;
+            }
+            let below = before.px(i64::from(x), i64::from(y));
+            let behind = creature.contains(x, y);
+            let want = match death_fall(&scene, &before, x, y, 0.9, behind) {
+                Some((c, a)) => {
+                    let a = a.clamp(0.0, 1.0);
+                    if a > 0.0 {
+                        drawn += 1;
+                    }
+                    std::array::from_fn(|i| c[i] * a + below[i] * (1.0 - a))
+                }
+                None => [below[0], below[1], below[2]],
+            };
+            assert_near(rgb(&after, x, y), want, (x, y));
+        }
+    }
+    assert!(drawn > 0);
+    assert_eq!(rgb(&after, 100, 700), rgb(&before.0, 100, 700), "layer 0");
+    assert_eq!(
+        rgb(&after, 1100, 650),
+        rgb(&before.0, 1100, 650),
+        "creature"
     );
 }

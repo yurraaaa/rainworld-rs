@@ -45,11 +45,11 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   mode's `_light`/`_cloudsSpeed`/palette grey-out (with echoes), the sky scenes behind
   rimFix rooms.
   Effects step 2 (full-screen effects, post-level grab, wet terrain, the Ant's
-  `SpecificDepth`) done; left for later steps: `Lightning`'s flashes, `num4` and palette
+  `SpecificDepth`) and the `DeathFallGraphic` sprite done; left for later steps: `Lightning`'s flashes, `num4` and palette
   overrides (the alpha's seam is `Visuals::effect_alpha`), `VoidMelt`'s `LevelMelt2` and
-  the echo branch of `ApplyPalette` (no effect selected meanwhile), the
-  `DeathFallGraphic` sprite (its height already feeds `_waterLevel`), full-screen effects
-  in MCP screenshots of other rooms, and holograms drawn under a re-raised `Bloom`
+  the echo branch of `ApplyPalette` (no effect selected meanwhile), full-screen effects
+  and the death fall in MCP screenshots of other rooms, the death fall's counter from
+  `Room.Loaded` (it restarts when the camera enters; D7), and holograms drawn under a re-raised `Bloom`
   effect (D7).
   Camera shake core (S1) done: `rw_sim::CameraShake`, notes `camera-shake.md`. Left:
   the rain-derived shake (S2, with the rain: `RainCycle.ScreenShake`/`MicroScreenShake`,
@@ -110,9 +110,6 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `../rainworld-re/surveys/lizards.md` (user decisions).
 
 ## To look into
-- **SkyAndLightBloom brightness** (2026-10-22, full-screen effects review): SI_A20's sunlit
-  walls blow out to near white (the shader sums up to 24 taps without dividing by `div`;
-  the port matches the maths). Compare with the real game in play.
 - **Full-screen effects leftovers** (review, small): `DeathFall::camera_viewing_point`
   belongs on the room (`Room.CameraViewingPoint`); stale "not ported" rows for LightBurn,
   SkyAndLightBloom, SkyBloom and wet terrain in `../rainworld-re/surveys/room-effects/`

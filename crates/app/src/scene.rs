@@ -157,8 +157,8 @@ impl Scene {
         self.game.set_palette_earth(earth);
     }
 
-    /// The camera room's `DeathFallGraphic` (`Room.Loaded`), at its height for this
-    /// tick's camera.
+    /// The camera room's `DeathFallGraphic` (`Room.Loaded`), as `InitiateSprites` sets
+    /// it on the camera's entry.
     fn new_death_fall(&self) -> Option<DeathFall> {
         let sim = self.game.sim();
         let world = sim.world();
@@ -173,14 +173,12 @@ impl Scene {
         let placed = realized
             .settings
             .placed_objects_for(world.timeline(), world.mods());
-        let mut fall = DeathFall::new(
+        DeathFall::new(
             &realized.room,
             realized.water.as_ref(),
             unbroken_shelter,
             &placed,
-        )?;
-        fall.update(&realized.room, index, &sim.camera_view());
-        Some(fall)
+        )
     }
 
     /// `DeathFallGraphic.Update` for this tick.
@@ -257,6 +255,11 @@ impl Scene {
             self.camera.screen_size()[1],
         );
         Some(visuals.state(&self.game.sim().world().rain_cycle, water_level))
+    }
+
+    #[must_use]
+    pub fn death_fall(&self) -> Option<&DeathFall> {
+        self.death_fall.as_ref()
     }
 
     /// Whether the camera moved to another room since the last call.
@@ -672,6 +675,10 @@ impl Scene {
             if let Some(list) = self.full_screen_effect(alpha).filter(|_| level_view) {
                 lists.push((Drawable::FullScreenEffect, list));
             }
+            if let Some(fall) = self.death_fall.as_ref().filter(|_| level_view) {
+                let width = self.camera.screen_size()[0];
+                lists.push((Drawable::DeathFall, fall.draw_list(width, cam_pos, alpha)));
+            }
             self.game.in_container_order(lists)
         } else {
             Vec::new()
@@ -877,8 +884,8 @@ impl FrameDraw<'_> {
         }
         if let Some(level) = self.level {
             self.draw_layer(r, Layer::Water, level);
-            // `Bloom`, after `Water` (and the empty `GrabShaders`): the full-screen
-            // effect, then the holograms (D7).
+            // `Bloom`, after `Water` (and the empty `GrabShaders`): the death fall, the
+            // full-screen effect, then the holograms (D7).
             self.draw_layer(r, Layer::Bloom, level);
             for h in self.holograms {
                 r.draw_sprites(h, Layer::Bloom, level.origin);

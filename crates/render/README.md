@@ -12,7 +12,7 @@ lists and overlays.
 | File | Holds |
 |---|---|
 | `src/lib.rs` | `Renderer` trait, `RoomLayers`, re-exports |
-| `src/gpu.rs` | `WgpuRenderer` (`new`, `headless`, `render_image`, `present`), pipelines and frame orchestration; `gpu/tests.rs`, `gpu/full_screen_tests.rs` (full-screen effects at 1366x768) |
+| `src/gpu.rs` | `WgpuRenderer` (`new`, `headless`, `render_image`, `present`), pipelines and frame orchestration; `gpu/tests.rs`, `gpu/full_screen_tests.rs` (full-screen effects and `DeathFall` at 1366x768) |
 | `src/camera.rs` | `Camera`: room pixels (y up) to clip space |
 | `src/room_camera.rs` | `RoomCamera`, `Follow`: camera image choice and window position, moved by the shake (`displace`) and the frame's micro shake (`RoomCamera.GetCameraBestIndex/Update/DrawUpdate`) |
 | `src/level.rs`, `src/level_gpu.rs` | level graphic (`LevelGraphics`; `LevelParams`: the room's shader globals incl. `_rimFix` and light angle; `LevelView`: window, `_RAIN`, `_light`) and its GPU side (palette rewrites for `ApplyFade`) |
@@ -27,6 +27,7 @@ lists and overlays.
 | `shaders/level.wgsl` | `LevelColor` (camera image through palette, object shadows from the pre-level grab, `SunBlock`, rimFix, wet terrain, grading) |
 | `shaders/sprite.wgsl` | room sprite shaders (`fs_basic`, `fs_flat_light`, `fs_hologram*`, `fs_light_source`, `fs_under_water_light`, `fs_shortcut`, ...) |
 | `shaders/full_screen.wgsl` | the room's full-screen effects, appended to `sprite.wgsl` (`fs_bloom`, `fs_sky_bloom`, `fs_light_bloom`, `fs_light_and_sky_bloom`, `fs_fog`) |
+| `shaders/death_fall.wgsl` | `DeathFallGraphic`'s `DeathFall` shader (`fs_death_fall`), appended after `full_screen.wgsl` |
 | `shaders/stage.wgsl` | menu/HUD shaders (`fs_vector_circle`, `fs_menu_text`, `fs_local_bloom`, ...) |
 | `shaders/water.wgsl`, `shaders/map.wgsl` | water; region map (`fs_map`, `fs_map_aerial`, `fs_map_shortcut`) |
 | `shaders/debug.wgsl`, `shaders/overlay.wgsl`, `shaders/present.wgsl` | debug shapes, ImGui overlay, window blit |
@@ -39,8 +40,8 @@ lists and overlays.
 - Offscreen screenshots: `gpu.rs` `render_image` -> `frame_image.rs`.
 - Window presentation / letterbox: `present.rs`, `present_gpu.rs`, `present.wgsl`.
 - Level graphic and palette: `level.rs`, `level_gpu.rs`, `level.wgsl`; the palette's rain darkening is rebuilt by the app (`visuals.rs`) and re-uploaded with `Renderer::set_level_palette`.
-- Grabs for screen effects: the frame before the level is `FrameTargets::behind` in `gpu.rs` (the game's `_GrabTexture` / `_PreLevelColorGrab`, read by the level, water and sprite shaders, and by `Fog`); a later draw that grabs (`Shader::grabs_frame`: `HologramImage` and the bloom effects) gets the frame so far in `FrameTargets::grab` (`copy_to_grab` before each grabbing draw, found by `next_grab`), which `full_screen.wgsl` samples bilinear; the level image, palette and noise views are `LevelTextures::views`.
-- Full-screen effects: an ordinary room sprite (`Futile_White` over the screen with a `Shader::Bloom`/`SkyBloom`/`LightBloom`/`LightAndSkyBloom`/`Fog`), chosen and placed by the app (`full_screen_effect.rs`); shaders in `full_screen.wgsl`; `_waterLevel` is `LevelView::water_level`.
+- Grabs for screen effects: the frame before the level is `FrameTargets::behind` in `gpu.rs` (the game's `_GrabTexture` / `_PreLevelColorGrab`, read by the level, water and sprite shaders, and by `Fog`); a later draw that grabs (`Shader::grabs_frame`: `HologramImage`, the bloom effects and `DeathFall`) gets the frame so far in `FrameTargets::grab` (`copy_to_grab` before each grabbing draw, found by `next_grab`), which `full_screen.wgsl` samples bilinear; the level image, palette and noise views are `LevelTextures::views`.
+- Full-screen effects: an ordinary room sprite (`Futile_White` over the screen with a `Shader::Bloom`/`SkyBloom`/`LightBloom`/`LightAndSkyBloom`/`Fog`), chosen and placed by the app (`full_screen_effect.rs`); shaders in `full_screen.wgsl`; `_waterLevel` is `LevelView::water_level`. The death fall is one too (`Shader::DeathFall` in `Bloom`, placed by `death_fall.rs`; `death_fall.wgsl`).
 - Which camera image shows / scroll: `room_camera.rs`.
 - Sprite drawing from a `DrawList`: `sprites.rs`, then `sprite_gpu.rs` + `sprite.wgsl`, pipeline chosen by game shader.
 - Menu/HUD quads: `stage.rs`, `stage_gpu.rs`, `stage.wgsl`.
