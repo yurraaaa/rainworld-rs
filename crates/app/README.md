@@ -23,6 +23,7 @@ Gameplay logic belongs in `rw-sim`, not here.
 | `window_identity.rs` | window title "Rain World" and app id `rainworld-rs` (Wayland/X11) |
 | `sprites.rs` | atlas loading (`rainWorld`, `uiSprites`), overseer projection textures |
 | `shortcuts.rs` | camera-0 `ShortcutGraphics` fed from the game |
+| `jaws.rs`, `jaws_tests.rs` | `Jaws`: held objects' sprites nested into their holders' jaw containers (a held lizard's holds inside it; hold cycles D20) |
 | `sprite_order.rs` | `SpriteOrder`: sprites let out of a lizard's jaws (and later arrivals) drawn on top of their containers |
 | `hud_map.rs` | `MapData`/map owner the HUD map reads |
 | `game_music.rs` | game side of `MusicPlayer`: HUD state, song requests, threat tracker inputs |
@@ -58,6 +59,6 @@ Gameplay logic belongs in `rw-sim`, not here.
 
 ## Cross-links
 
-- Divergences: `../../docs/divergences/app.md` (D18 debug UI and dev spawns); the import button is D13 (`../../docs/divergences/menu.md`).
+- Divergences: `../../docs/divergences/app.md` (D18 debug UI and dev spawns, D20 jaw hold cycles); the import button is D13 (`../../docs/divergences/menu.md`).
 - Notes (`../../../rainworld-re/notes/`): `menu.md`, `saves.md`, `shelter.md`, `hud.md`, `music.md`, `sound.md`, `room-rendering.md`, `unity-assets.md`.
 - Surveys (`../../../rainworld-re/surveys/`): `menus.md`, `sleep-death-screens.md`, `campaign.md`.
