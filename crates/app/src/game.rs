@@ -39,6 +39,7 @@ use rw_sim::{
     PlayerObserver, PlayerSurroundings, RainWorldGame, SoundEvent, Sounds, Start, Vec2, Water,
 };
 
+use crate::jaws::{JawHolder, Jaws};
 use crate::shortcuts::CameraShortcuts;
 use crate::sprite_order::SpriteOrder;
 
@@ -1004,64 +1005,38 @@ impl Game {
 
     /// `AddObjectToInternalContainer` as drawn: the sprites of what each lizard's jaws
     /// hold (`LizardGraphicsLink::internal_container`) move into the lizard's container
-    /// between its lower and upper head sprites, in the order they were put there. The
-    /// player's `Foreground` sprites stay where they are (`PlayerGraphics.AddToContainer`
-    /// puts only its `Midground` ones in the given container). Once let go they draw
+    /// between its lower and upper head sprites, in the order they were put there, a
+    /// held lizard's with what it holds nested inside ([`Jaws`]). Once let go they draw
     /// on top ([`SpriteOrder`]).
     pub fn contain_in_jaws(
         &self,
-        mut player: Option<&mut DrawList>,
+        player: Option<&mut DrawList>,
         objects: &mut [(Entity, DrawList)],
     ) {
-        let world = self.sim.world();
-        let player_id = self.sim.player_creature();
-        for i in 0..objects.len() {
-            let Entity::Creature(lizard) = objects[i].0 else {
-                continue;
-            };
-            let Some(held) = world
-                .creature(lizard)
-                .lizard()
-                .and_then(|l| l.graphics.as_ref())
-                .map(|link| link.internal_container.clone())
-            else {
-                continue;
-            };
-            let Some(mut container) = self
-                .graphics
-                .lizards
-                .iter()
-                .find(|g| g.creature == lizard)
-                .and_then(|g| g.internal_container)
-            else {
-                continue;
-            };
-            for e in held {
-                if e == Entity::Creature(player_id) {
-                    if let Some(p) = player.as_deref_mut() {
-                        container = objects[i].1.take_into_container(
-                            container,
-                            p,
-                            &[rw_graphics::Layer::Midground],
-                        );
-                    }
-                    continue;
-                }
-                let Some(j) = objects.iter().position(|(o, _)| *o == e) else {
-                    continue;
-                };
-                let mut other = std::mem::take(&mut objects[j].1);
-                let layers: Vec<rw_graphics::Layer> = other
-                    .items
-                    .iter()
-                    .map(rw_graphics::DrawItem::layer)
-                    .collect();
-                container = objects[i]
-                    .1
-                    .take_into_container(container, &mut other, &layers);
-                objects[j].1 = other;
-            }
-        }
+        let holders = objects.iter().map(|(e, _)| self.jaw_holder(*e)).collect();
+        let player_id = Entity::Creature(self.sim.player_creature());
+        Jaws::new(holders, player_id).contain(player, objects);
+    }
+
+    /// A drawn lizard's jaw container and what it holds.
+    fn jaw_holder(&self, e: Entity) -> Option<JawHolder> {
+        let Entity::Creature(lizard) = e else {
+            return None;
+        };
+        let held = self
+            .sim
+            .world()
+            .creature(lizard)
+            .lizard()
+            .and_then(|l| l.graphics.as_ref())
+            .map(|link| link.internal_container.clone())?;
+        let container = self
+            .graphics
+            .lizards
+            .iter()
+            .find(|g| g.creature == lizard)
+            .and_then(|g| g.internal_container)?;
+        Some(JawHolder { container, held })
     }
 
     /// The objects of `now` (drawn this frame in the camera's room) whose sprites sit

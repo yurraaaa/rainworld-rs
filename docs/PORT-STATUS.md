@@ -280,7 +280,7 @@ Ported:
 | `FAtlas` | `crates/graphics/src/atlas.rs` |
 | `FAtlasElement` | `crates/graphics/src/atlas.rs` |
 | `FAtlasManager` | `crates/menu/src/atlas.rs` |
-| `FContainer` | `crates/menu/src/stage.rs`, `crates/menu/src/tree.rs` |
+| `FContainer` | `crates/app/src/jaws.rs`, `crates/menu/src/stage.rs`, `crates/menu/src/tree.rs` |
 | `FFont` | `crates/assets/src/font_config.rs`, `crates/menu/src/font.rs` |
 | `FLabel` | `crates/menu/src/label.rs` |
 | `FliesRoomAI` | `crates/sim/src/creature/fly/mod.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/game_flies.rs` |
@@ -294,7 +294,7 @@ Ported:
 | `FSprite` | `crates/render/src/sprites.rs` |
 | `FStage` | `crates/menu/src/stage.rs`, `crates/render/src/stage.rs` |
 | `Futile` | `crates/render/src/stage.rs` |
-| `GraphicsModule` | `crates/app/src/sprite_order.rs`, `crates/sim/src/creature/lizard/graphics_link.rs` |
+| `GraphicsModule` | `crates/app/src/jaws.rs`, `crates/app/src/sprite_order.rs`, `crates/sim/src/creature/lizard/graphics_link.rs` |
 | `HealthState` | `crates/sim/src/creature/state_save.rs` |
 | `HologramLight` | `crates/graphics/src/holo_light.rs`, `crates/sim/src/creature/overseer/holo_light.rs`, `crates/sim/src/game_holo_light.rs` |
 | `HSLColor` | `crates/menu/src/color.rs` |
@@ -306,7 +306,7 @@ Ported:
 | `LizardAI` | `crates/sim/src/creature/lizard/ai.rs`, `crates/sim/src/creature/path_finder/lizard.rs`, `crates/sim/src/creature/vision.rs`, `crates/sim/src/game_lizard_ai.rs`, `crates/sim/src/game_lizard_fight.rs`, `crates/sim/src/game_lizard_hunt.rs`, `crates/sim/src/game_lizard_perception.rs`, `crates/sim/src/world/hearing.rs`, `crates/sim/src/world/social_events.rs`, `crates/sim/src/world/tracking.rs` |
 | `LizardBreeds` | `crates/sim/src/creature/lizard/breed.rs`, `crates/sim/src/creature/pathing.rs`, `crates/sim/src/creature/violence.rs` |
 | `LizardBubble` | `crates/graphics/src/cosmetic_graphics.rs`, `crates/sim/src/cosmetic.rs`, `crates/sim/src/creature/lizard/bubble.rs` |
-| `LizardGraphics` | `crates/graphics/src/lizard_cosmetics.rs`, `crates/graphics/src/lizard_draw.rs`, `crates/graphics/src/lizard_graphics.rs`, `crates/sim/src/creature/lizard/graphics_link.rs`, `crates/sim/src/game_lizard_graphics.rs`, `crates/sim/src/game_lizard_perception.rs` |
+| `LizardGraphics` | `crates/app/src/jaws.rs`, `crates/graphics/src/lizard_cosmetics.rs`, `crates/graphics/src/lizard_draw.rs`, `crates/graphics/src/lizard_graphics.rs`, `crates/sim/src/creature/lizard/graphics_link.rs`, `crates/sim/src/game_lizard_graphics.rs`, `crates/sim/src/game_lizard_perception.rs` |
 | `LizardLimb` | `crates/graphics/src/lizard_limb.rs` |
 | `LizardPather` | `crates/sim/src/creature/path_finder/lizard.rs`, `crates/sim/src/creature/path_finder/mapper.rs` |
 | `LizardVoice` | `crates/sim/src/creature/lizard/voice.rs`, `crates/sim/src/game_lizard_voice.rs` |
