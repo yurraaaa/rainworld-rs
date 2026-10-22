@@ -751,7 +751,10 @@ second part, else a single-room world for arena levels). The campaign descriptio
   destination (activated when the player goes in) is always loaded by the time the
   vessel reaches the exit node, so the lobby only waits out the room's entry delay
   (`waitToEnterAfterFullyLoaded`, counting from the tick it loaded), and the
-  realizer's "currently loading" pause never spans ticks.
+  realizer's "currently loading" pause never spans ticks. `ShortcutGraphics.NewRoom`'s
+  wait for `shortCutsReady` (`waitingForRoomToGenerateShortcuts`) is skipped (user,
+  2026-10-22); it returns with the async loading plan
+  (`../rainworld-re/surveys/async-room-loading.md`).
 - **Re-preprocessing old room files.** The game re-preprocesses room files baked before
   generation 20 (and writes them back). Every room the vanilla worlds list is generation
   20 or later; for older files the port derives only the shortcut nodes (exits, dens,
