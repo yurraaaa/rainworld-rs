@@ -21,6 +21,7 @@ mod dens;
 mod flies_world_ai;
 mod hearing;
 mod lizards;
+mod missions;
 mod movement;
 mod objects;
 mod overseers_world_ai;

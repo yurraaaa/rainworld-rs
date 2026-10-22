@@ -31,6 +31,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `game_lizard_act.rs` | lizard movement (`Act`, `FollowPath`, animations) | `Lizard.Act` |
 | `game_lizard_ai.rs`, `game_lizard_ai_tests.rs` | lizard AI update: the flee heavy-AI gate, moods, `DetermineBehavior`, behaviours, `IdleSpotScore`, base AI module order | `LizardAI.Update`, `ArtificialIntelligence.Update` |
 | `game_lizard_hunt.rs`, `game_lizard_hunt_tests.rs` | Hunt and Flee bodies, `AggressiveBehavior` (lounge decision, bites), fall risks, `BitCreature` | `LizardAI` |
+| `game_lizard_fight.rs`, `game_lizard_fight_tests.rs` | Fighting and ActingOutMission bodies, the signals between lizards (`SendCommunication`, `RecieveCommunication`), a rival's anger on touch | `LizardAI`, `Lizard.Collide` |
 | `game_heavy_ai.rs` | `HeavyAiThrottle`: `RequestHeavyAi`'s three-a-tick limit | `RainWorldGame.RequestHeavyAi` |
 | `game_lizard_hits.rs` | lizard damage dealt/taken, bites (and the jaws' internal container), stun, spear stick | `Lizard.Violence`, `Bite` |
 | `game_lizard_perception.rs` | lizard eyes, tracker representation, relationships | `LizardAI` (tracker parts) |
@@ -96,6 +97,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `hearing.rs` | noise delivery to creatures and `NoiseTracker`; `LizardAI.ReactToNoise` | `Room.InGameNoise`, `HeardNoise` |
 | `ai_modules.rs` | prey/threat/aggression trackers' and den finder's updates, `SortCreatureIntoModule`, threat of a tile, threat travel cost, `NewArea` | `PreyTracker`, `ThreatTracker`, `AgressionTracker`, `DenFinder` |
 | `threat_flight.rs` | the threat tracker's flight: `FleeTo`, `EvaluateFlightDestThreat`, `GenerateRandomPath`, `FindMostAttractiveExit` | `ThreatTracker` |
+| `missions.rs`, `missions_tests.rs` | `LeaveRoom.Act`: the exit a submitted lizard leaves by and where it heads | `MissionTracker` |
 | `tracking.rs`, `social_events.rs` | tracker answers (relationships); `SocialEventId` and the recognizer's functions (with lizards' fear relief) | `DynamicRelationship`, `SocialEventRecognizer` |
 | `rain_cycle.rs` | `RainCycle`, `WaterLevelCycle` | `RainCycle` |
 | `region_state.rs`, `region_save.rs` | `RegionState` and adapting world to/from it | `RegionState` |
@@ -113,7 +115,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `death.rs`, `grasp.rs`, `danger.rs` | kill tag/die; `Grasp` + grip sticks; threat/danger reads | `Creature.Die`, `Creature.Grab` |
 | `tracker.rs`, `relationship_tracker.rs`, `looker.rs`, `vision.rs` | AI modules | `Tracker`, `RelationshipTracker`, `CreatureLooker`, `VisualScore` |
 | `noise_tracker.rs`, `stuck_tracker.rs` | `NoiseTracker`; `StuckTracker`, `DiscomfortTracker` | same |
-| `prey_tracker.rs`, `threat_tracker.rs`, `agression_tracker.rs`, `rain_tracker.rs`, `den_finder.rs`, `utility_comparer.rs` | AI modules' state (their world reads are `world/ai_modules.rs`); `UtilityComparer` with `FloatTweener` | same |
+| `prey_tracker.rs`, `threat_tracker.rs`, `agression_tracker.rs`, `rain_tracker.rs`, `den_finder.rs`, `utility_comparer.rs`, `mission_tracker.rs` | AI modules' state (their world reads are `world/ai_modules.rs`, `world/missions.rs`); `UtilityComparer` with `FloatTweener`; missions | same |
 
 - `lizard/`: `mod.rs` (`Lizard`), `breed.rs` (`LizardBreedParams`, green only), `ai.rs`
   (`LizardAi` state, `LizardBehavior`, injury utility), `movement.rs` (`MovementAnimation`), `voice.rs` (`LizardVoice`),
@@ -152,6 +154,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | Lizard movement / path following | `game_lizard_act.rs`, `creature/lizard/movement.rs`, `creature/path_finder/` |
 | Lizard decisions (behaviour, utilities, idle spot, den) | `game_lizard_ai.rs`, `creature/lizard/ai.rs`, `world/ai_modules.rs`, `creature/utility_comparer.rs` |
 | Lizard hunting, lounging, fleeing | `game_lizard_hunt.rs`, `world/threat_flight.rs`, `game_heavy_ai.rs` |
+| Lizards fighting, signalling, leaving on a mission | `game_lizard_fight.rs`, `creature/mission_tracker.rs`, `world/missions.rs` |
 | Room tile AI map | `world/ai_map.rs`, `ai_mapper.rs` |
 | Shelters, sleep, hibernation | `shelter.rs`, `game_shelter.rs`, `player/sleep.rs` |
 | Save-state writing (sim side) | `world/region_state.rs`, `region_save.rs`, `creature/state_save.rs`, `item.rs` (object strings), `creature/overseer/guide_state.rs`, `map_discovery.rs`; text format in `rw-save` |

@@ -3,9 +3,8 @@
 //! behaviours' bodies, `runSpeed`, the hearing skill, the casual aggression) and the
 //! base `ArtificialIntelligence.Update` with its modules in the constructor's order;
 //! `TravelUtility`, `RoomLike`, `IdleSpotScore` and `ComfortableIdlePosition`.
-//! Hunt and Flee are `game_lizard_hunt.rs`; the bodies of Fighting and
-//! ActingOutMission (lizard step 7c) are a stand-in: the lizard eases to a stop and
-//! keeps its destination, with no draws. Decompile: `LizardAI.cs` (Update, DetermineBehavior, TravelUtility,
+//! Hunt and Flee are `game_lizard_hunt.rs`; Fighting and ActingOutMission
+//! `game_lizard_fight.rs`. Decompile: `LizardAI.cs` (Update, DetermineBehavior, TravelUtility,
 //! RoomLike, IdleSpotScore, ComfortableIdlePosition), `ArtificialIntelligence.cs`
 //! (Update). Behaviour: `rainworld-re/notes/lizard-ai.md`.
 //!
@@ -175,13 +174,11 @@ impl RainWorldGame {
             }
             LizardBehavior::Hunt => self.lizard_hunt(id),
             LizardBehavior::Flee => self.lizard_flee(id),
-            // Lizard step 7c (Fighting, missions): a stand-in. Lurk, GoToSpitPos and
-            // FollowFriend are other breeds' and taming's.
-            LizardBehavior::Fighting
-            | LizardBehavior::ActingOutMission
-            | LizardBehavior::Lurk
-            | LizardBehavior::GoToSpitPos
-            | LizardBehavior::FollowFriend => {
+            LizardBehavior::Fighting => self.lizard_fighting(id),
+            LizardBehavior::ActingOutMission => self.lizard_acting_out_mission(id),
+            // Other breeds' (Lurk, GoToSpitPos) and taming's (FollowFriend): a
+            // stand-in no green lizard reaches.
+            LizardBehavior::Lurk | LizardBehavior::GoToSpitPos | LizardBehavior::FollowFriend => {
                 let ai = &mut self.world.lizard_at(id).ai;
                 ai.run_speed = ai.run_speed.lerp(0.0, 0.5);
             }
@@ -586,9 +583,8 @@ impl RainWorldGame {
         raw
     }
 
-    /// The compared modules' utilities: threat, prey, rain, injury, aggression, noise;
-    /// the mission tracker's and the friend tracker's are 0 (no missions yet, taming is
-    /// skipped).
+    /// The compared modules' utilities: threat, prey, rain, injury, aggression,
+    /// mission, noise; the friend tracker's is 0 (taming is skipped).
     fn lizard_utilities(&self, id: CreatureId, t: &mut Tracker) -> RawUtilities {
         let c = self.world.creature(id);
         let ai = &self.world.lizard_ref(id).ai;
@@ -608,14 +604,15 @@ impl RainWorldGame {
             crate::creature::lizard::LizardAi::injury_utility(c.state.health),
         );
         raw.set(UtilityModule::AgressionTracker, ai.agression.utility());
+        raw.set(UtilityModule::MissionTracker, ai.missions.utility());
         raw.set(UtilityModule::NoiseTracker, ai.noise.utility());
         raw
     }
 
     /// `ArtificialIntelligence.Update`: the room clock, then the modules in the
     /// constructor's order: path finder, tracker, noise tracker, den finder, (rain:
-    /// nothing), prey, threat and aggression trackers, utility comparer, (missions:
-    /// none), relationship tracker, stuck tracker (the discomfort tracker has nothing
+    /// nothing), prey, threat and aggression trackers, utility comparer, mission
+    /// tracker, relationship tracker, stuck tracker (the discomfort tracker has nothing
     /// to update; the friend tracker is taming's).
     fn lizard_base_ai_update(&mut self, id: CreatureId) {
         self.world.lizard_at(id).ai.time_in_room += 1;
@@ -633,6 +630,7 @@ impl RainWorldGame {
         self.world.agression_tracker_update(id, &mut t);
         let raw = self.lizard_utilities(id, &mut t);
         self.world.lizard_at(id).ai.utility.update(&raw);
+        self.world.lizard_at(id).ai.missions.update();
         self.relationships_update(id, &mut t, &mut rel);
         self.put_lizard_perception(id, t, rel);
         let pos = self.world.creature(id).pos;

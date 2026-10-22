@@ -23,6 +23,7 @@ pub mod fly;
 pub mod grasp;
 pub mod lizard;
 pub mod looker;
+pub mod mission_tracker;
 pub mod noise_tracker;
 pub mod overseer;
 pub mod path_finder;
@@ -60,6 +61,7 @@ pub use fly::{
 pub use grasp::{GrabRequest, Grasp, GripStick, Shareability};
 pub use lizard::{LUNG_CAPACITY, Lizard, LizardAnimation, LizardBreedParams};
 pub use looker::{CreatureLooker, LookCandidate, LookCandidateParts};
+pub use mission_tracker::{LeaveRoom, Mission, MissionData, MissionKind, MissionTracker};
 pub use noise_tracker::{HeardNoise, NoiseKind, NoiseTracker, TheorizedSource};
 pub use overseer::{OverseerAbstractAi, OverseerAi, OverseerBody, PlayerGuideState};
 pub use path_finder::{PathFinder, PathFinders, PatherKind};

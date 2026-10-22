@@ -407,6 +407,8 @@ impl LizardGraphics {
         self.update_sound_loop(view, link, cx);
         let lizard = view.lizard;
         let params = lizard.params;
+        // `SendCommunication` changed it in the lizard's update, before this one.
+        self.show_dominance += std::mem::take(&mut link.show_dominance_add);
         self.show_dominance =
             (self.show_dominance - 1.0 / 60.0f32.lerp(120.0, cx.rng.value())).clamp(0.0, 1.0);
         if !self.culled {

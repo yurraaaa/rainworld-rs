@@ -42,9 +42,9 @@ use super::reply::{
 use super::reply::{
     AgressionTrackerInfo, ConnectionInfo, CoordInfo, DynamicRelationshipInfo, GhostInfo,
     HeardNoiseInfo, LizardCosmeticInfo, LizardDecisionInfo, LizardGraphicsInfo, LizardLimbInfo,
-    LizardMoveInfo, LizardVoiceInfo, MovementAnimationInfo, NoiseSourceInfo, NoiseTrackerInfo,
-    PreyTrackerInfo, ThreatTrackerInfo, TrackedCreatureInfo, TrackedPreyInfo, UtilityInfo,
-    VesselInfo,
+    LizardMoveInfo, LizardSocialInfo, LizardVoiceInfo, MovementAnimationInfo, NoiseSourceInfo,
+    NoiseTrackerInfo, PreyTrackerInfo, ThreatTrackerInfo, TrackedCreatureInfo, TrackedPreyInfo,
+    UtilityInfo, VesselInfo,
 };
 use super::reply::{DangerInfo, HoloLightState, LightSourceState, MusicState, TriggerState};
 use super::reply::{FleeInfo, HeavyAiInfo, HuntInfo, LoungeInfo};
@@ -1298,6 +1298,7 @@ impl Session {
                 anti_flicker_counter: ai.threat.anti_flicker_counter,
             },
             heavy_ai_granted: ai.heavy_ai_granted,
+            social: LizardSocialInfo::of(world, l),
         }
     }
 

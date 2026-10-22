@@ -613,6 +613,101 @@ pub struct LizardDecisionInfo {
     /// This tick's `RequestHeavyAi` answer (asked only when it fled last update).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub heavy_ai_granted: Option<bool>,
+    /// Fights, signals between lizards and missions.
+    pub social: LizardSocialInfo,
+}
+
+/// The aggression target (`AgressionTarget`) and its anger, `submittedTo`, the last
+/// signal sent, and the mission tracker (utility, missions).
+#[derive(Debug, Clone, Serialize)]
+pub struct LizardSocialInfo {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fight_target: Option<[i32; 2]>,
+    pub fight_anger: f32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub submitted_to: Option<[i32; 2]>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_signal: Option<SignalInfo>,
+    pub mission_utility: f32,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub missions: Vec<MissionInfo>,
+}
+
+/// A `LizardCommunication` sent: its kind, the receiver and the game tick.
+#[derive(Debug, Clone, Serialize)]
+pub struct SignalInfo {
+    pub signal: String,
+    pub to: [i32; 2],
+    pub tick: u64,
+}
+
+/// A mission: kind, utility, `forgetCounter`, abandoned (`deleteMeNextFrame`), whether
+/// it is `mostRelevantMission`, and a `LeaveRoom`'s destination (room, node) and
+/// `destUnreachable`.
+#[derive(Debug, Clone, Serialize)]
+pub struct MissionInfo {
+    pub kind: String,
+    pub current_utility: f32,
+    pub forget_counter: i32,
+    pub abandoned: bool,
+    pub most_relevant: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub destination: Option<[String; 2]>,
+    pub dest_unreachable: i32,
+}
+
+impl LizardSocialInfo {
+    /// Lizard `l`'s state in `world`.
+    #[must_use]
+    pub fn of(world: &rw_sim::world::World, l: &rw_sim::creature::Lizard) -> Self {
+        let ai = &l.ai;
+        let target = ai.agression.target();
+        let most = ai.missions.most_relevant;
+        Self {
+            fight_target: target
+                .and_then(|k| ai.tracker.rep(k))
+                .map(|r| Self::entity(world, r.creature)),
+            fight_anger: ai.agression.highest_anger,
+            submitted_to: ai.submitted_to.map(|c| Self::entity(world, c)),
+            last_signal: ai.last_signal.map(|(s, to, tick)| SignalInfo {
+                signal: s.value().to_owned(),
+                to: Self::entity(world, to),
+                tick,
+            }),
+            mission_utility: ai.missions.utility(),
+            missions: ai
+                .missions
+                .missions
+                .iter()
+                .chain(ai.missions.detached.iter())
+                .map(|m| {
+                    let rw_sim::creature::MissionData::LeaveRoom(lr) = m.data;
+                    MissionInfo {
+                        kind: m.kind().value().to_owned(),
+                        current_utility: m.current_utility,
+                        forget_counter: m.forget_counter,
+                        abandoned: m.delete_me_next_frame,
+                        most_relevant: most == Some(m.serial),
+                        destination: lr
+                            .destination
+                            .map(|d| [Self::room(world, d.room), d.node.to_string()]),
+                        dest_unreachable: lr.dest_unreachable,
+                    }
+                })
+                .collect(),
+        }
+    }
+
+    fn entity(world: &rw_sim::world::World, c: rw_sim::creature::CreatureId) -> [i32; 2] {
+        let e = world.creature(c).id;
+        [e.spawner, e.number]
+    }
+
+    fn room(world: &rw_sim::world::World, r: i32) -> String {
+        world
+            .abstract_room(r)
+            .map_or_else(|| format!("#{r}"), |a| a.name.clone())
+    }
 }
 
 /// The hunted prey's representation: EntityID, `VisualContact` as last updated, age

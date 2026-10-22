@@ -37,16 +37,16 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   icons on the map are Remix's `cfgCreatureSense` and come with Remix.
 
 ## Waiting for the user's answer
-- **Lizard step 7c** (7a done: trackers, utility comparer, den finder,
+- **Lizard steps after 7c** (7a done: trackers, utility comparer, den finder,
   `DetermineBehavior`, the calm bodies; 7b done: Hunt and Flee, `AggressiveBehavior`,
   the lounge, `FleeTo`, `RequestHeavyAi`; step 8 done: the player grabbed, bitten,
-  struggling free, `GameOver(grasp)`, jaw-held sprites, D19;
-  `rainworld-re/notes/lizard-ai.md`): 7c
-  Fighting (and FightingStance's lean), rivalry, `LizardCommunication`,
-  `MissionTracker`. Go-ahead for each. Order agreed (user,
-  2026-10-21): 7b (done), step 8 (done; player side: grabbed, bitten, `GameOver(grasp)`), 7c, then
-  the player picking up, carrying and eating dead or stunned lizards as its own step,
-  then step 9. Details in `../rainworld-re/surveys/lizards.md` (user decisions).
+  struggling free, `GameOver(grasp)`, jaw-held sprites, D19; 7c done: Fighting (and
+  FightingStance's lean), rivalry, `LizardCommunication`, `MissionTracker` and
+  ActingOutMission; `rainworld-re/notes/lizard-ai.md`). Go-ahead for each. Order
+  agreed (user, 2026-10-21): 7b (done), step 8 (done; player side: grabbed, bitten,
+  `GameOver(grasp)`), 7c (done), then the player picking up, carrying and eating dead
+  or stunned lizards as its own step, then step 9. Details in
+  `../rainworld-re/surveys/lizards.md` (user decisions).
 
 ## To look into
 - **Loop emitters when a room abstractizes** (2026-10-17): a swallowed rock's loop now

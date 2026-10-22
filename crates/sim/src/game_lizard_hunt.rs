@@ -115,7 +115,12 @@ impl RainWorldGame {
     /// none of them ported. Tracked over 120 ticks
     /// with the jaw ready, it bites the target when a chunk of it is in reach; else
     /// more than five such frames end in a snap of the jaws.
-    fn lizard_aggressive_behavior(&mut self, id: CreatureId, target: RepKey, _tongue_chance: f32) {
+    pub(super) fn lizard_aggressive_behavior(
+        &mut self,
+        id: CreatureId,
+        target: RepKey,
+        _tongue_chance: f32,
+    ) {
         self.world.lizard_at(id).ai.casual_aggression_target = None;
         let (mut t, rel) = self.take_lizard_perception(id);
         let Some(rep) = t.rep_mut(target) else {

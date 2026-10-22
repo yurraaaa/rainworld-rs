@@ -890,4 +890,4 @@ impl World {
 
 #[cfg(test)]
 #[path = "abstract_ai_tests.rs"]
-mod tests;
+pub(crate) mod tests;

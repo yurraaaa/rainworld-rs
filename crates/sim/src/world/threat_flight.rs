@@ -1,9 +1,9 @@
 //! `ThreatTracker`'s flight: `FleeTo` (random tiles around the creature scored by the
 //! threat along the way there, the saved destination changed only for a clearly
 //! better one, or a room exit away from the threats), `EvaluateFlightDestThreat`,
-//! `ThreatOfPath`, and `GenerateRandomPath` and `FindMostAttractiveExit`, which no
-//! lizard calls (the first nothing in the game calls; the second the mission tracker,
-//! firecracker plants and the More Slugcats yeeks). Decompile: `ThreatTracker.cs`.
+//! `ThreatOfPath`, `GenerateRandomPath` (nothing in the game calls it) and
+//! `FindMostAttractiveExit` (the mission tracker's `LeaveRoom` calls it; in the game
+//! firecracker plants and More Slugcats' yeeks too). Decompile: `ThreatTracker.cs`.
 //! Behaviour: `rainworld-re/notes/lizard-ai.md` section 9.
 //!
 //! Mirrors: ThreatTracker.cs (FleeTo, GenerateRandomPath, EvaluateFlightDestThreat, ThreatOfPath, FindMostAttractiveExit)

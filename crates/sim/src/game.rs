@@ -32,6 +32,8 @@ mod items;
 mod lizard_act;
 #[path = "game_lizard_ai.rs"]
 mod lizard_ai;
+#[path = "game_lizard_fight.rs"]
+mod lizard_fight;
 #[path = "game_lizard_graphics.rs"]
 mod lizard_graphics;
 #[path = "game_lizard_hits.rs"]

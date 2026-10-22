@@ -35,6 +35,9 @@ pub struct LizardGraphicsLink {
     pub white_flicker_calls: u32,
     /// `flicker` (`Stun`).
     pub flicker: i32,
+    /// What the AI's signals added to `showDominance` since the module's last update
+    /// (`SendCommunication`), applied before its own decay.
+    pub show_dominance_add: f32,
     /// `lightSource`: the id of its light in the room.
     pub light: Option<u64>,
     /// `soundLoop` (`ChunkDynamicSoundLoop` on the main chunk).
