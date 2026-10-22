@@ -8,7 +8,18 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **Debug UI region switcher** (2026-10-19): the F1 debug UI's Region tab lists the
   regions on disk but its button does nothing; it needs region changes and gates,
   which are not ported.
-- **The Hunter's `SpearOnBack`**, and the LF_H01 spear.
+- **The Hunter's `SpearOnBack`**, and the LF_H01 spear; with it (user, 2026-10-22) its
+  use in `DangerGraspPickup` (`SpearToHand`) and `spearOnBack.DropSpear` in `Player.Die`
+  and `Player.Stun`.
+- **Held player follow-up** (user, 2026-10-22, after lizard step 8): a lizard carrying the
+  held player through a shortcut (the player travels with its grabber), `Creature`'s
+  release of grabbers that don't come along into a shortcut (~Creature.cs 1310), the
+  released sprites' re-add order (D19), `HardSetPosition`'s `setPos` while held, the
+  physics room-range clamp skipped for grabbed objects, `PhysicalObject.Update`'s pruning
+  of stale `grabbedBy` entries. Other grabber creatures come with their creatures, DLC
+  branches with the DLCs.
+- **MCP: fresh music player per `load_room`/`new_game`** (user, 2026-10-22), so the same
+  start, seed and inputs give the same run within one server process.
 - **`ExplosiveSpear` behaviour.** The flag is ported; the explosion is not.
 
 ## Planned
