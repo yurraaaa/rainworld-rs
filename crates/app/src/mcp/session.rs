@@ -46,7 +46,9 @@ use super::reply::{
     NoiseTrackerInfo, PreyTrackerInfo, ThreatTrackerInfo, TrackedCreatureInfo, TrackedPreyInfo,
     UtilityInfo, VesselInfo,
 };
-use super::reply::{DangerInfo, HoloLightState, LightSourceState, MusicState, TriggerState};
+use super::reply::{
+    CameraShakeState, DangerInfo, HoloLightState, LightSourceState, MusicState, TriggerState,
+};
 use super::reply::{FleeInfo, HeavyAiInfo, HuntInfo, LoungeInfo};
 use super::reply::{
     FliesWorldInfo, GraspInfo, HeldInfo, QuantifiedInfo, RegionStateInfo, RelationshipInfo,
@@ -453,6 +455,7 @@ impl Session {
             world: world.name().to_owned(),
             room: game.room().name().to_owned(),
             camera: scene.visuals().map(|_| scene.camera().current()),
+            camera_shake: CameraShakeState::of(sim.camera_shake()),
             player_room: Self::room_name(scene, pos.room),
             player_node: pos.node,
             lobby: sim.lobby().map(|l| LobbyState {

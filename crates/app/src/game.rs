@@ -823,6 +823,10 @@ impl Game {
         &self.graphics.cosmetic
     }
 
+    pub fn cosmetic_rng_mut(&mut self) -> &mut UnityRandom {
+        &mut self.graphics.cosmetic
+    }
+
     pub fn set_cosmetic_rng(&mut self, rng: UnityRandom) {
         self.graphics.cosmetic = rng;
     }

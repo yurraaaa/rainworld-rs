@@ -93,24 +93,24 @@ fn the_door_opens_with_the_cycle_timer() {
     // `InverseLerp(initialWait + openUpTicks, initialWait, timer)` = InverseLerp(430, 80, t).
     let mut d = door(0, &mut rng);
     assert_eq!(d.closed_fac, 1.0);
-    let step = d.update(80, &mut sounds, &mut rng);
+    let step = d.update(80, &mut sounds, &mut rng, &mut Vec::new());
     assert_eq!(d.closed_fac, 1.0);
     // Shut since construction: `lastClosed` turns true with a Reset, the tiles solid.
     assert_eq!(step.close_tiles, Some(true));
-    d.update(255, &mut sounds, &mut rng);
+    d.update(255, &mut sounds, &mut rng, &mut Vec::new());
     assert_eq!(d.closed_fac, 0.5);
-    d.update(429, &mut sounds, &mut rng);
+    d.update(429, &mut sounds, &mut rng, &mut Vec::new());
     assert!(d.closed_fac > 0.0);
     assert!(d.ai_mapper.is_none());
     // From 430 the close speed (-1) takes it: open, the tiles air again, and a new
     // `AImapper` starts (opening, `closedFac` from above 0 to 0).
-    let step = d.update(430, &mut sounds, &mut rng);
+    let step = d.update(430, &mut sounds, &mut rng, &mut Vec::new());
     assert_eq!(d.closed_fac, 0.0);
     assert_eq!(step.close_tiles, Some(false));
     assert_eq!(d.open_time, 0);
     assert_eq!(d.ai_mapper, Some(crate::world::AiMapper::default()));
     d.ai_mapper = None;
-    let step = d.update(431, &mut sounds, &mut rng);
+    let step = d.update(431, &mut sounds, &mut rng, &mut Vec::new());
     assert_eq!(d.open_time, 1);
     assert!(step.stun_creatures);
     assert!(d.ai_mapper.is_none(), "only once");
@@ -121,7 +121,7 @@ fn closing_takes_320_increments_and_marks_starving_and_sleep() {
     let mut rng = UnityRandom::new(1);
     let mut sounds = all_sounds();
     let mut d = door(1000, &mut rng);
-    d.update(1000, &mut sounds, &mut rng);
+    d.update(1000, &mut sounds, &mut rng, &mut Vec::new());
     one_shots(&mut sounds);
     assert!(!d.is_closing());
     d.close();
@@ -129,7 +129,7 @@ fn closing_takes_320_increments_and_marks_starving_and_sleep() {
     let mut marks = Vec::new();
     let mut closed_at = None;
     for t in 1..=400 {
-        let step: DoorStep = d.update(1000, &mut sounds, &mut rng);
+        let step: DoorStep = d.update(1000, &mut sounds, &mut rng, &mut Vec::new());
         if t == 1 {
             assert_eq!(step.close_tiles, Some(true));
         }
@@ -167,6 +167,40 @@ fn closing_takes_320_increments_and_marks_starving_and_sleep() {
     assert_eq!(one_shots(&mut sounds), expected);
 }
 
+/// The door's `room.ScreenMovement` calls while closing (all from `pZero`): a 0.1 shake
+/// as each of the 5 segment pairs meets, a 3 px bump along `dir` for each of the 2
+/// pistons going in hard, and a 0.1 shake every tick while `PumpsEnter > 0` and
+/// `PumpsExit < 1` (`Closed` in 0.59..1: the 189th to the 319th increment of 0.003125).
+#[test]
+fn closing_moves_the_screen() {
+    let mut rng = UnityRandom::new(1);
+    let mut sounds = all_sounds();
+    let mut d = door(1000, &mut rng);
+    d.update(1000, &mut sounds, &mut rng, &mut Vec::new());
+    d.close();
+    let (mut shakes, mut bumps, mut pump_ticks) = (0, 0, Vec::new());
+    for t in 1..=320 {
+        let mut moves = Vec::new();
+        d.update(1000, &mut sounds, &mut rng, &mut moves);
+        let pumps = d.pumps_enter() > 0.0 && d.pumps_exit() < 1.0;
+        if pumps {
+            pump_ticks.push(t);
+        }
+        for m in &moves {
+            assert_eq!(m.source, Some(Vec2::new(110.0, 90.0)));
+            match (m.bump, m.shake) {
+                (b, s) if b == Vec2::ZERO && s == 0.1 => shakes += 1,
+                (b, s) if b == Vec2::new(0.0, 3.0) && s == 0.0 => bumps += 1,
+                other => panic!("unexpected {other:?}"),
+            }
+        }
+    }
+    assert_eq!(pump_ticks.first(), Some(&189));
+    assert_eq!(pump_ticks.last(), Some(&319));
+    assert_eq!(shakes, 5 + 131);
+    assert_eq!(bumps, 2);
+}
+
 #[test]
 fn the_loops_play_while_the_door_moves() {
     let mut rng = UnityRandom::new(1);
@@ -174,7 +208,7 @@ fn the_loops_play_while_the_door_moves() {
     let mut d = door(1000, &mut rng);
     d.close();
     for _ in 0..40 {
-        d.update(1000, &mut sounds, &mut rng);
+        d.update(1000, &mut sounds, &mut rng, &mut Vec::new());
     }
     // Past 0.1 (tick 33) the working loop's volume eases to 1 by 0.1 per tick.
     assert!(d.working_loop.volume > 0.0);
@@ -203,7 +237,7 @@ impl ShelterDoor {
     fn turn(&mut self, sounds: &mut Sounds, rng: &mut UnityRandom) -> Vec<EmitterId> {
         sounds.take_events();
         self.update_loop_emitters(sounds);
-        self.update(1000, sounds, rng);
+        self.update(1000, sounds, rng, &mut Vec::new());
         sounds
             .take_events()
             .into_iter()

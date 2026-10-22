@@ -38,6 +38,13 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **Room visual effects, lights and camera shake** (user, 2026-10-22): every non-DLC
   room visual effect, rooms' lights and `RoomCamera` screen shake, as the step before the
   rain. Surveys: `../rainworld-re/surveys/room-effects.md`, `lights-camera-shake.md`.
+  Camera shake core (S1) done: `rw_sim::CameraShake`, notes `camera-shake.md`. Left:
+  the rain-derived shake (S2, with the rain: `RainCycle.ScreenShake`/`MicroScreenShake`,
+  `GlobalRain` modes, flood `waterFlux.roomShake`, the `Screen_Shake_LOOP` rumble, gamepad
+  rumble from `controllerShake`), the `Lightning` and `AntiGravity` callers (S3, with
+  their effects), callers that come with their objects (explosive spears' and scavenger
+  bombs' explosions, cicadas, leviathans, region gates, Moon's wake-up), and
+  `PausedDrawUpdate`'s micro shake (paused frames repeat; a question for the user).
 - **Code quality pass after the lizard steps** (user, 2026-10-16): once lizard steps
   6 to 9 are merged, go over the workspace one crate at a time, a step per crate,
   finding code quality improvements (duplicated code to merge, and the like) and

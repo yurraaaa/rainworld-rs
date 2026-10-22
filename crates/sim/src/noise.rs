@@ -1,5 +1,6 @@
 //! `Noise.InGameNoise` and where noises come from: `PhysicalObject.TerrainImpact`'s
-//! noise and the sink an updating object hands its `room.InGameNoise` calls to. Who hears
+//! noise and the sink an updating object hands its `room.InGameNoise` (and
+//! `room.ScreenMovement`) calls to. Who hears
 //! them is `world/hearing.rs`. Decompile: `Noise/InGameNoise.cs`, `PhysicalObject.cs`
 //! `TerrainImpact`, `Room.cs` `InGameNoise`.
 //!
@@ -8,7 +9,7 @@
 use rw_random::UnityRandom;
 
 use crate::item::Entity;
-use crate::{BodyChunk, FloatExt, TerrainImpact, TerrainImpactHandler, Vec2};
+use crate::{BodyChunk, FloatExt, ScreenMovement, TerrainImpact, TerrainImpactHandler, Vec2};
 
 /// `Noise.InGameNoise`.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -65,25 +66,52 @@ impl TerrainImpact {
     }
 }
 
-/// The noises of an object's terrain impacts in one physics update (where, how strong).
-#[derive(Debug, Default)]
-pub struct ImpactNoises(pub Vec<(Vec2, f32)>);
+/// What an object's update asks of its room, in the order it asks.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum RoomCall {
+    Noise(InGameNoise),
+    ScreenMovement(ScreenMovement),
+}
 
-impl TerrainImpactHandler for ImpactNoises {
+/// What an object's terrain impacts in one physics update ask of the room, in order:
+/// `PhysicalObject.TerrainImpact`'s screen movement, then its noise (where, how strong).
+#[derive(Debug, Default)]
+pub struct ImpactCalls(pub Vec<ImpactCall>);
+
+/// One of [`ImpactCalls`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ImpactCall {
+    ScreenMovement(ScreenMovement),
+    Noise(Vec2, f32),
+}
+
+impl TerrainImpactHandler for ImpactCalls {
     fn terrain_impact(&mut self, chunks: &mut [BodyChunk], impact: TerrainImpact) {
-        self.0.extend(impact.noise_at(&chunks[impact.chunk]));
+        let c = &chunks[impact.chunk];
+        self.0
+            .extend(impact.screen_movement(c).map(ImpactCall::ScreenMovement));
+        self.0.extend(
+            impact
+                .noise_at(c)
+                .map(|(pos, strength)| ImpactCall::Noise(pos, strength)),
+        );
     }
 }
 
-/// Where an updating object's noises go: `room.InGameNoise(new InGameNoise(pos,
-/// strength, this, interesting))` from inside its update, heard at once.
+/// Where an updating object's room calls go from inside its update: `room.InGameNoise(new
+/// InGameNoise(pos, strength, this, interesting))`, heard at once, and
+/// `room.ScreenMovement`.
 pub trait NoiseSink {
     fn in_game_noise(&mut self, pos: Vec2, strength: f32, interesting: f32, rng: &mut UnityRandom);
+
+    fn screen_movement(&mut self, m: ScreenMovement, rng: &mut UnityRandom);
 }
 
-/// Nobody hears (tests, and objects updated without a room).
+/// Nobody hears and no camera sees (tests, and objects updated without a room).
 impl NoiseSink for () {
     fn in_game_noise(&mut self, _: Vec2, _: f32, _: f32, _: &mut UnityRandom) {}
+
+    fn screen_movement(&mut self, _: ScreenMovement, _: &mut UnityRandom) {}
 }
 
 #[cfg(test)]

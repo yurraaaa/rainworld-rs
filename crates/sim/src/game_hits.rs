@@ -47,15 +47,12 @@ impl RainWorldGame {
         let part = if returned {
             UpdatePart::Own
         } else {
-            let noises = self.with_item_tick(index, |world, cx| {
+            // The impacts' noises and screen movements are made after the closure.
+            self.with_item_tick(index, |world, cx| {
                 world.weapon_part(index, id, cx, &rules, UpdatePart::Physics);
                 // `PhysicalObject.Update`'s `grabbedBy` pruning, after the chunks.
                 world.clean_grabbed_by(Entity::Object(id));
-                std::mem::take(&mut cx.noises)
             });
-            for n in noises {
-                self.room_noise(index, n);
-            }
             UpdatePart::Finish
         };
         self.with_item_tick(index, |world, cx| {

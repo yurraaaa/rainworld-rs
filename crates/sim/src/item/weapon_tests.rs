@@ -22,6 +22,8 @@ struct Bench {
     tick: u64,
     /// The sparks the updates added.
     cosmetics: Vec<(u64, CosmeticKind)>,
+    /// The room calls (screen movements) the updates made.
+    calls: Vec<crate::RoomCall>,
     stuck: Vec<(i32, i32)>,
     zones: Vec<(Vec2, f32)>,
     door_moving: bool,
@@ -40,6 +42,7 @@ impl Bench {
             seq: 0,
             tick: 0,
             cosmetics: Vec::new(),
+            calls: Vec::new(),
             stuck: Vec::new(),
             zones: Vec::new(),
             door_moving: false,
@@ -116,6 +119,7 @@ impl Bench {
             no_stick_zones: &self.zones,
             shelter_door_moving: self.door_moving,
             cosmetics: &mut self.cosmetics,
+            calls: &mut self.calls,
         };
         w.update(object, &mut cx);
         self.tick += 1;
@@ -363,6 +367,7 @@ fn poles_wait_for_ready_for_ai_and_reset_restores_the_tiles() {
         no_stick_zones: &[],
         shelter_door_moving: false,
         cosmetics: &mut b.cosmetics,
+        calls: &mut b.calls,
     };
     w.update(&mut o, &mut cx);
     assert!(!b.room.tile(3, 3).horizontal_pole());
@@ -512,7 +517,7 @@ fn a_rock_thrown_at_a_wall_hits_it_with_seven_sparks() {
     // a tick. The next tick it first tumbles under the exit speed (`SetRandomSpin`,
     // `ChangeMode(Free)`: two spins), then `HitWall`s: in a viewed room seven sparks
     // (DegToVec(value * 360) * 10 value each, then the spark's own draws),
-    // `Rock_Hit_Wall`, `SetRandomSpin` (`ChangeMode(Free)` is already done), 10 ticks
+    // the camera's bump (no draws), `Rock_Hit_Wall`, `SetRandomSpin` (`ChangeMode(Free)` is already done), 10 ticks
     // out of reach, counted down once in the same update.
     let mut b = Bench::new(&WALL, 4).with_sounds(&[SoundId::RockHitWall]);
     let mut o = rock((3, 2));
@@ -523,7 +528,14 @@ fn a_rock_thrown_at_a_wall_hits_it_with_seven_sparks() {
         assert!(b.tick < 10);
     }
     let mut expect = b.rng.clone();
+    b.calls.clear();
     b.step(&mut w, &mut o);
+    // `room.ScreenMovement(firstChunk.pos, throwDir * 1.5, 0)`, after the sparks.
+    let [crate::RoomCall::ScreenMovement(m)] = b.calls[..] else {
+        panic!("one screen movement: {:?}", b.calls);
+    };
+    assert_eq!((m.bump, m.shake), (Vec2::new(1.5, 0.0), 0.0));
+    assert!(m.source.is_some_and(|p| p.x > 60.0));
     expect.value();
     expect.value();
     for _ in 0..7 {

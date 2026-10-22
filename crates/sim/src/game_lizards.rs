@@ -19,18 +19,20 @@ use crate::room_ext::RoomExt;
 use crate::shortcut::CreatureVessel;
 use crate::world::LizardRoomCx;
 use crate::{
-    BodyChunk, FloatExt, InGameNoise, SoundId, Sounds, TerrainImpact, TerrainImpactHandler, Vec2,
-    WaterDrip,
+    BodyChunk, FloatExt, InGameNoise, ScreenMovement, SoundId, Sounds, TerrainImpact,
+    TerrainImpactHandler, Vec2, WaterDrip,
 };
 
 /// A lizard's terrain impact as `TerrainImpact` meets it: the impact, the chunk's
-/// position, radius and mass, the head's position, and the base's noise.
+/// position, radius and mass, the head's position, and the base's screen movement and
+/// noise.
 struct LizardImpact {
     impact: TerrainImpact,
     pos: Vec2,
     rad: f32,
     mass: f32,
     head: Vec2,
+    screen: Option<ScreenMovement>,
     noise: Option<InGameNoise>,
 }
 
@@ -49,6 +51,7 @@ impl TerrainImpactHandler for LizardImpacts {
             rad: c.rad,
             mass: c.mass,
             head: chunks[0].pos,
+            screen: impact.screen_movement(c),
             noise: impact.noise(c, self.source, 1.0),
         });
     }
@@ -456,7 +459,8 @@ impl RainWorldGame {
 
     /// `Lizard.TerrainImpact` of each impact: a first contact over 1.5 plays the light
     /// and the heavy impact by its share of 6 to 14 (pitched by body size); then the
-    /// base's noise and drips off a wet ceiling, after the graphics' bubbles.
+    /// base's screen movement, noise and drips off a wet ceiling, after the graphics'
+    /// bubbles.
     fn lizard_terrain_impacts(&mut self, index: i32, id: CreatureId, log: &LizardImpacts) {
         let ceiling_drips = self
             .world
@@ -490,6 +494,9 @@ impl RainWorldGame {
                         rng,
                     );
                 }
+            }
+            if let Some(m) = i.screen {
+                self.room_screen_movement(index, m);
             }
             if let Some(n) = i.noise {
                 self.room_noise(index, n);

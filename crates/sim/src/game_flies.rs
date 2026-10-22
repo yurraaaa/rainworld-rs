@@ -152,6 +152,7 @@ impl RainWorldGame {
             sounds,
             observer: &mut *observer,
             camera: self.camera_view,
+            camera_shake: &mut self.camera_shake,
             camera_room,
             player,
             shortcuts: &mut self.shortcuts,
