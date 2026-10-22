@@ -27,6 +27,19 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   back spear's zero-gravity placement with zero gravity; `EatMeatUpdate`'s back-spear lock
   with eating meat (the grab-lizards step).
 
+- **Graphics module order and lifetime** (user, 2026-10-22, found in the draw-order
+  review; inferred from code): `camera_changed_room` (`crates/sim/src/game_flies.rs`)
+  builds overseer, fly and lizard modules in one list by seq, where `Room.NowViewed`
+  builds layer 0 (flies, overseers) before layer 1 (lizards); both draw from the shared
+  stream. `LizardGraphicsLink.drawn_in` is never pruned, so a lizard that left a room
+  loses its module at that room's `NoLongerViewed` and is rebuilt (with draws); the game
+  removes it from the old room's `drawableObjects` in `CleanOutObjectNotInThisRoom` and
+  keeps it. Small job.
+
+- **Async room loading** (user, 2026-10-22): plan and decisions in
+  `../rainworld-re/surveys/async-room-loading.md`; later. `ShortcutHelper` its own job
+  after it.
+
 ## Planned
 - **Code quality pass after the lizard steps** (user, 2026-10-16): once lizard steps
   6 to 9 are merged, go over the workspace one crate at a time, a step per crate,
