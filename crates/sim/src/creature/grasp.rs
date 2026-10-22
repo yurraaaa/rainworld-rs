@@ -160,6 +160,35 @@ impl World {
         }
     }
 
+    /// `PhysicalObject.gravity` of a realized lizard, fly or weapon (0 otherwise).
+    #[must_use]
+    pub fn object_gravity(&self, e: Entity) -> f32 {
+        match e {
+            Entity::Creature(id) => match &self.creature(id).realized {
+                Some(RealizedCreature::Fly(f)) => f.body.params.gravity,
+                Some(RealizedCreature::Lizard(l)) => l.body.params.gravity,
+                _ => 0.0,
+            },
+            Entity::Object(id) => self
+                .object(id)
+                .realized
+                .as_ref()
+                .map_or(0.0, |w| w.body.params.gravity),
+        }
+    }
+
+    /// `bodyChunkConnections` of a realized lizard (none for the others ported).
+    #[must_use]
+    pub fn chunk_connections(&self, e: Entity) -> &[crate::object::BodyChunkConnection] {
+        match e {
+            Entity::Creature(id) => match &self.creature(id).realized {
+                Some(RealizedCreature::Lizard(l)) => &l.body.connections,
+                _ => &[],
+            },
+            Entity::Object(_) => &[],
+        }
+    }
+
     /// The grabbed object is slated for deletion (or, an item, not realized).
     fn grab_refused(&self, e: Entity) -> bool {
         match e {

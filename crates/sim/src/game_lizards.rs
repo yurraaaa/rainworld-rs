@@ -662,31 +662,47 @@ impl RainWorldGame {
                     self.stuck_fly_spat_out(o, room, middle, hole, observer);
                 }
                 Entity::Creature(o) if self.world.creature(o).lizard().is_some() => {
-                    for c in &mut self.world.lizard_at(o).body.chunks {
-                        c.hard_set_position(middle + Vec2::random_unit(&mut self.rng));
-                        c.vel = Vec2::ZERO;
-                    }
-                    let came_from = self.world.lizard_ref(o).room;
-                    let mut cx = LizardRoomCx {
-                        rng: &mut self.rng,
-                        observer: &mut *observer,
-                        camera_room: self.camera_room,
-                    };
-                    self.world.lizard_add_object(o, room, &mut cx);
-                    self.lizard_spat_out_body(o, middle, &map_room, pos);
-                    if came_from != Some(room) {
-                        let mut cx = LizardRoomCx {
-                            rng: &mut self.rng,
-                            observer: &mut *observer,
-                            camera_room: self.camera_room,
-                        };
-                        self.world.lizard_new_room(o, &mut cx);
-                    }
+                    self.stuck_lizard_spat_out(o, room, middle, pos, &map_room, observer);
                 }
                 Entity::Creature(_) => {}
             }
         }
         self.lizard_spat_out_body(me, middle, &map_room, pos);
+    }
+
+    /// A lizard stuck to a creature spat out of a shortcut (the base `SpitOutOfShortCut`
+    /// loop): its chunks at the entrance's `middle` (a draw each), added to `room`,
+    /// `Lizard.SpitOutOfShortCut(spitOutAllSticks: false)` and `NewRoom` when it comes
+    /// from elsewhere.
+    pub(super) fn stuck_lizard_spat_out(
+        &mut self,
+        o: CreatureId,
+        room: i32,
+        middle: Vec2,
+        pos: (i32, i32),
+        map_room: &Room,
+        observer: &mut dyn PlayerObserver,
+    ) {
+        for c in &mut self.world.lizard_at(o).body.chunks {
+            c.hard_set_position(middle + Vec2::random_unit(&mut self.rng));
+            c.vel = Vec2::ZERO;
+        }
+        let came_from = self.world.lizard_ref(o).room;
+        let mut cx = LizardRoomCx {
+            rng: &mut self.rng,
+            observer: &mut *observer,
+            camera_room: self.camera_room,
+        };
+        self.world.lizard_add_object(o, room, &mut cx);
+        self.lizard_spat_out_body(o, middle, map_room, pos);
+        if came_from != Some(room) {
+            let mut cx = LizardRoomCx {
+                rng: &mut self.rng,
+                observer: &mut *observer,
+                camera_room: self.camera_room,
+            };
+            self.world.lizard_new_room(o, &mut cx);
+        }
     }
 
     /// `Lizard.SpitOutOfShortCut` after the base's stuck objects; with graphics, what

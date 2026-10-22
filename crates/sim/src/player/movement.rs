@@ -78,6 +78,7 @@ impl Player {
         }
         self.count_roll();
         self.grab_beam(room, water);
+        self.heavy_carry_movement(room);
         self.apply_run_force(run_dir);
         self.dispatch_jump(room);
         self.enter_shortcut_by_input(room);

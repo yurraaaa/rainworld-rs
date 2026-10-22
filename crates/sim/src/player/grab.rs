@@ -23,6 +23,8 @@ pub struct GrabState {
     pub want_to_throw: i32,
     pub swallow_and_regurgitate_counter: i32,
     pub pick_up_candidate: Option<Entity>,
+    /// `eatMeat`: ticks of chewing on the creature hand 0 holds.
+    pub eat_meat: i32,
 }
 
 /// `objectInStomach`.

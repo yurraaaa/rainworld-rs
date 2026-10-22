@@ -1,4 +1,5 @@
-//! `Player.Jump` and `Player.WallJump` (Survivor values, no adrenaline or exhaustion).
+//! `Player.Jump` and `Player.WallJump` (Survivor values, no adrenaline or exhaustion;
+//! a heavy carry's `num` from `carry.rs`).
 //!
 //! Behaviour: `slugcat-movement.md` section 5, `slope-collision.md` section 5,
 //! `vertical-poles.md` section 6, `ledge-grab.md` section 3, `corridors.md` section 5,
@@ -30,10 +31,11 @@ impl Player {
             self.wall_jump(room, dir);
             return;
         }
+        let num = self.jump_power();
         if self.body_mode == BodyMode::CorridorClimb {
             let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
-            head.vel.y = 6.0;
-            hips.vel.y = 5.0;
+            head.vel.y = 6.0 * num;
+            hips.vel.y = 5.0 * num;
             self.standing = true;
             self.jump_boost = 8.0;
             return;
@@ -45,15 +47,15 @@ impl Player {
             return;
         }
         if self.animation == Animation::ClimbOnBeam {
-            self.jump_off_pole();
+            self.jump_off_pole(num);
             return;
         }
         if self.animation == Animation::Roll {
-            self.roll_jump();
+            self.roll_jump(num);
             return;
         }
         if self.animation == Animation::BellySlide {
-            self.belly_slide_jump(room);
+            self.belly_slide_jump(room, num);
             return;
         }
         if self.starts_belly_slide() {
@@ -62,10 +64,10 @@ impl Player {
         let mut x_dir = self.input_x();
         self.animation = Animation::None;
         if self.standing {
-            if !self.flip_jump() {
+            if !self.flip_jump(num) {
                 let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
-                head.vel.y = 4.0;
-                hips.vel.y = 3.0;
+                head.vel.y = 4.0 * num;
+                hips.vel.y = 3.0 * num;
                 self.jump_boost = 8.0;
                 let id = if self.body_mode == BodyMode::ClimbingOnBeam {
                     SoundId::SlugcatFromHorizontalPoleJump
@@ -86,15 +88,15 @@ impl Player {
             let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
             head.pos.y += 6.0;
             if head.contact().y == -1 {
-                head.vel.y += 3.0;
+                head.vel.y += 3.0 * num;
                 if x_dir == 0 {
-                    head.vel.y += 3.0;
+                    head.vel.y += 3.0 * num;
                 }
             }
-            hips.vel.y += 4.0;
+            hips.vel.y += 4.0 * num;
             self.jump_boost = 6.0;
             if x_dir != 0 && (head.pos.x > hips.pos.x) == (x_dir > 0) {
-                let push = x_dir as f32 * hop;
+                let push = x_dir as f32 * hop * num;
                 head.vel.x += push;
                 hips.vel.x += push;
                 let id = if hop >= 9.0 {
@@ -111,17 +113,17 @@ impl Player {
             let side = downhill as f32;
             let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
             if x_dir == -downhill {
-                hips.vel.x += side * 8.0;
+                hips.vel.x += side * 8.0 * num;
             } else {
-                head.vel.x += side * 1.8;
-                hips.vel.x += side * 1.2;
+                head.vel.x += side * 1.8 * num;
+                hips.vel.x += side * 1.2 * num;
             }
         }
     }
 
     /// From a vertical pole: sideways with x held, else the slide-up hop (up held) or a
     /// drop.
-    fn jump_off_pole(&mut self) {
+    fn jump_off_pole(&mut self, num: f32) {
         self.jump_boost = 0.0;
         let (x, y) = (self.input_x(), self.input_y());
         let flip = self.flip_direction as f32;
@@ -140,14 +142,14 @@ impl Player {
         self.animation = Animation::None;
         let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
         let volume = if x == 0 {
-            head.vel.y = 2.0;
+            head.vel.y = 2.0 * num;
             if y > -1 {
-                head.vel.x = 2.0 * flip;
+                head.vel.x = 2.0 * flip * num;
             }
             0.3
         } else {
-            head.vel = crate::Vec2::new(6.0 * flip, 8.0);
-            hips.vel = crate::Vec2::new(5.0 * flip, 7.0);
+            head.vel = crate::Vec2::new(6.0 * flip, 8.0) * num;
+            hips.vel = crate::Vec2::new(5.0 * flip, 7.0) * num;
             1.0
         };
         self.play_sound(SoundId::SlugcatFromVerticalPoleJump, HEAD, volume, 1.0);

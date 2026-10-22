@@ -121,8 +121,8 @@ impl RainWorldGame {
         let Some(num) = self.throw_to_get_free_hand() else {
             let grasps = self.player_grasps();
             if let Some(k) = (0..2).find(|&k| grasps[k].is_some()) {
-                if let Some(Entity::Creature(fly)) = grasps[k] {
-                    self.toss_object(index, fly);
+                if let Some(Entity::Creature(_)) = grasps[k] {
+                    self.toss_object(index, k);
                 }
                 self.player_release_grasp(k);
             }
