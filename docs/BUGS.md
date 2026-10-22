@@ -12,3 +12,4 @@ Seen in play, not yet investigated. Remove an entry once fixed.
   spawned higher up ended side by side on the horizontal pole at the bottom of the room,
   though green lizards cannot climb poles. The middle one keeps falling and is flung
   around once it goes off screen, presumably into the death pit.
+  The user suspects they hold each other in their jaws, though nothing shows it visually.
