@@ -58,7 +58,7 @@ it (D13). What still differs is only the seed and the call order:
   spawn condition, the region overseers) and `FliesWorldAI`'s constructor, then the
   start room's overseers realized (`PlaceInRealizedRoom`, `Overseer`, `PlaceInRoom`,
   the graphics module's mycelia in the viewed room) before the player
-  (`rainworld-re/notes/creature-model.md`). Every tick `FliesWorldAI.Update` makes its
+  (`rainworld-re/notes/creature-model/overseers-and-flies.md`). Every tick `FliesWorldAI.Update` makes its
   draws among the world processes, and a room that finishes loading with quantified
   flies places and realizes them with `PlaceQuantifiedCreaturesInRoom`'s draws. A
   realized fly makes the game's draws in its slot of the room's update list (the `Fly`,

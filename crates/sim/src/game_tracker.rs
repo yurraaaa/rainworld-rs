@@ -8,7 +8,7 @@
 //! on spotting a creature, its dynamic relationships) is in its own file
 //! (`game_lizard_perception.rs`). Decompile: `Tracker.cs`, `RelationshipTracker.cs`,
 //! `ArtificialIntelligence.cs` 159-231 and 363-407. Behaviour:
-//! `rainworld-re/notes/creature-model.md` section 17.
+//! `rainworld-re/notes/creature-model/lizard-senses.md` section 17.
 //!
 //! Mirrors: Tracker.cs, RelationshipTracker.cs, ArtificialIntelligence.cs
 

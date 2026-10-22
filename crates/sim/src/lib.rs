@@ -17,7 +17,7 @@
 //! population and the overseers' abstract AI ([`creature`]), the rocks and
 //! spears ([`item`]), and [`RainWorldGame`],
 //! which moves the player between rooms through room-exit shortcuts
-//! (`world-loading.md`, `room-realizer.md`, `creature-model.md`).
+//! (`world-loading.md`, `room-realizer.md`, `creature-model/`).
 //!
 //! Mirrors: -
 

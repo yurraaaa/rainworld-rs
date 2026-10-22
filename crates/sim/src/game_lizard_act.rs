@@ -4,7 +4,7 @@
 //! shake), `ActAnimation`, `EnterAnimation`, and entering shortcuts (`Creature.Update`'s
 //! `enteringShortCut` branch, `SuckedIntoShortCut`, `ShortcutHandler.SuckInCreature`).
 //! Decompile: `Lizard.cs` 497-666 and 1730-2985, `Creature.cs` 635-690 and 1022-1070,
-//! `ShortcutHandler.cs` 365-380. Behaviour: `rainworld-re/notes/creature-model.md`
+//! `ShortcutHandler.cs` 365-380. Behaviour: `rainworld-re/notes/creature-model/lizard-body-and-movement.md`
 //! section 14.
 //!
 //! Mirrors: Lizard.cs (Act), Creature.cs

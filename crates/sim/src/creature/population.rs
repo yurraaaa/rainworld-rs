@@ -1,7 +1,7 @@
 //! `WorldLoader.GeneratePopulation(fresh)`: the saved respawns or, fresh, every one of the `CREATURES`
 //! spawners in file order, the player guide (`OverseerSpawnConditions`), the region's
 //! overseers; then the `FliesWorldAI` constructor's bat flies. Every random draw is the
-//! game's, in its order (`rainworld-re/notes/creature-model.md`).
+//! game's, in its order (`rainworld-re/notes/creature-model/model.md`).
 //!
 //! Mirrors: WorldLoader.cs (GeneratePopulation), FliesWorldAI.cs
 
