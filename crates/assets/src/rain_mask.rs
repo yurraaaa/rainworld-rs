@@ -25,8 +25,9 @@ impl RainMask {
     /// How many rows above the surface the water's blue may reach.
     const WATER_REACH: i32 = 20;
 
-    /// `GenerateShelterTex(null, room)`. Base-game `HasAnySolid` is `Tile.Solid` (the
-    /// `terrain` curves are DLC).
+    /// `GenerateShelterTex(null, room)`. `HasAnySolid` is `Tile.Solid` here: its
+    /// `terrain.ObstructsTile` (a `TerrainHandle` placed object's curve) is not ported,
+    /// as no installed base room or level places one (D7).
     #[must_use]
     pub fn generate(room: &Room) -> Self {
         let (width, height) = (room.width(), room.height());

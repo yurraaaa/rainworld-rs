@@ -124,7 +124,10 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   rooms without water get none (only the rain would make theirs). `SetPixel` past the
   top row wraps to row 0 (INFERRED: Unity's default `Repeat` wrap, set to `Clamp` only
   after the fill). The mask is sampled bilinear at mip 0 (the game's has mips, but
-  WaterLight magnifies it); `half` maths runs in f32. Watcher's `rippleFade` branch of
+  WaterLight magnifies it); `half` maths runs in f32. The generator's `HasAnySolid`
+  reads `Tile.Solid` only: `Room.terrain.ObstructsTile` (the curve of a base-game
+  `TerrainHandle` placed object, no `ModManager` gate) is not ported, as no installed
+  base room or level places a `TerrainHandle`. Watcher's `rippleFade` branch of
   `PaletteDarkness` is omitted.
   Another room's MCP screenshot draws no full-screen effect, death fall or water light
   and takes `_waterLevel` from the water alone.
