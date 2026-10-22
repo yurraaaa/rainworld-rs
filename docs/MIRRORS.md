@@ -9,7 +9,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 
 | Crate | mirrors | port-only | fallback | unmapped |
 |---|---|---|---|---|
-| app | 12 | 20 | 0 | 0 |
+| app | 13 | 20 | 0 | 0 |
 | assets | 19 | 13 | 0 | 0 |
 | audio | 11 | 5 | 0 | 0 |
 | graphics | 27 | 4 | 0 | 0 |
@@ -36,6 +36,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/app/src/hibernation.rs` | mirrors | RainWorldGame.cs |
 | `crates/app/src/hud_map.rs` | mirrors | HUD/Map.cs |
 | `crates/app/src/input.rs` | port-only | - |
+| `crates/app/src/jaws.rs` | mirrors | FContainer.cs, GraphicsModule.cs, LizardGraphics.cs |
 | `crates/app/src/main.rs` | port-only | - |
 | `crates/app/src/mcp/dev_tools.rs` | port-only | - |
 | `crates/app/src/mcp/mod.rs` | port-only | - |
@@ -438,7 +439,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `FAtlas.cs` | `crates/graphics/src/atlas.rs` |
 | `FAtlasElement.cs` | `crates/graphics/src/atlas.rs` |
 | `FAtlasManager.cs` | `crates/menu/src/atlas.rs` |
-| `FContainer.cs` | `crates/menu/src/stage.rs`, `crates/menu/src/tree.rs` |
+| `FContainer.cs` | `crates/app/src/jaws.rs`, `crates/menu/src/stage.rs`, `crates/menu/src/tree.rs` |
 | `FFont.cs` | `crates/assets/src/font_config.rs`, `crates/menu/src/font.rs` |
 | `FLabel.cs` | `crates/menu/src/label.rs` |
 | `FMatrix.cs` | `crates/menu/src/geometry.rs`, `crates/render/src/sprites.rs` |
@@ -452,7 +453,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `FlyAI.cs` | `crates/sim/src/creature/fly/ai.rs`, `crates/sim/src/creature/fly/ai_update.rs`, `crates/sim/src/creature/fly/mod.rs` |
 | `FlyGraphics.cs` | `crates/graphics/src/fly_graphics.rs` |
 | `Futile.cs` | `crates/render/src/stage.rs` |
-| `GraphicsModule.cs` | `crates/app/src/sprite_order.rs`, `crates/sim/src/creature/lizard/graphics_link.rs` |
+| `GraphicsModule.cs` | `crates/app/src/jaws.rs`, `crates/app/src/sprite_order.rs`, `crates/sim/src/creature/lizard/graphics_link.rs` |
 | `HSLColor.cs` | `crates/menu/src/color.rs` |
 | `HUD/FadeCircle.cs` | `crates/hud/src/circle.rs` |
 | `HUD/FoodMeter.cs` | `crates/hud/src/food_meter.rs` |
@@ -481,7 +482,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `LizardCosmetics/SpineSpikes.cs` | `crates/graphics/src/lizard_cosmetics.rs` |
 | `LizardCosmetics/TailTuft.cs` | `crates/graphics/src/lizard_cosmetics.rs` |
 | `LizardCosmetics/Template.cs` | `crates/graphics/src/lizard_cosmetics_draw.rs` |
-| `LizardGraphics.cs` | `crates/graphics/src/lizard_cosmetics.rs`, `crates/graphics/src/lizard_draw.rs`, `crates/graphics/src/lizard_graphics.rs`, `crates/sim/src/creature/lizard/graphics_link.rs`, `crates/sim/src/game_lizard_graphics.rs`, `crates/sim/src/game_lizard_perception.rs` |
+| `LizardGraphics.cs` | `crates/app/src/jaws.rs`, `crates/graphics/src/lizard_cosmetics.rs`, `crates/graphics/src/lizard_draw.rs`, `crates/graphics/src/lizard_graphics.rs`, `crates/sim/src/creature/lizard/graphics_link.rs`, `crates/sim/src/game_lizard_graphics.rs`, `crates/sim/src/game_lizard_perception.rs` |
 | `LizardLimb.cs` | `crates/graphics/src/lizard_limb.rs` |
 | `LizardPather.cs` | `crates/sim/src/creature/path_finder/lizard.rs`, `crates/sim/src/creature/path_finder/mapper.rs` |
 | `LizardVoice.cs` | `crates/sim/src/creature/lizard/voice.rs`, `crates/sim/src/game_lizard_voice.rs` |
