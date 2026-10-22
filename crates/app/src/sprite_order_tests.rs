@@ -34,7 +34,9 @@ impl Fixture {
 
 /// `ChangeRoom` makes leasers for `drawableObjects` in order: the `AddObject`ed
 /// drawables, then the modules `NowViewed` appends from `physicalObjects[0]` (flies,
-/// overseers) and `[1]` (lizards, a player without a module yet), then the shortcuts.
+/// overseers) and `[1]` (lizards, a player without a module yet), then the shortcuts;
+/// `ApplyPositionChange` ends with `ApplyPalette`, which puts the full-screen effect on
+/// top.
 #[test]
 fn a_new_room_makes_leasers_in_drawable_objects_order() {
     let (door, rock, spear) = (
@@ -73,7 +75,8 @@ fn a_new_room_makes_leasers_in_drawable_objects_order() {
             fly,
             lizard,
             player,
-            Drawable::Shortcuts
+            Drawable::Shortcuts,
+            Drawable::FullScreenEffect,
         ]
     );
 }
@@ -94,7 +97,10 @@ fn objects_added_later_go_on_top_in_add_order() {
         &[],
         &[],
     );
-    assert_eq!(Fixture::order(&o), [a, Drawable::Shortcuts, b, c]);
+    assert_eq!(
+        Fixture::order(&o),
+        [a, Drawable::Shortcuts, Drawable::FullScreenEffect, b, c]
+    );
 }
 
 /// `ReleaseAllInternallyContainedSprites` re-adds from the last entry: each goes on
@@ -144,7 +150,14 @@ fn released_sprites_go_on_top_in_release_order() {
     assert!(o.held_by(lizard).is_empty());
     assert_eq!(
         Fixture::order(&o),
-        [lizard, Drawable::Shortcuts, rock, player, fly]
+        [
+            lizard,
+            Drawable::Shortcuts,
+            Drawable::FullScreenEffect,
+            rock,
+            player,
+            fly
+        ]
     );
 }
 
@@ -266,7 +279,10 @@ fn change_overlap_re_adds_the_weapon() {
         &[],
     );
     assert!(o.behind(spear));
-    assert_eq!(Fixture::order(&o), [rock, Drawable::Shortcuts, spear]);
+    assert_eq!(
+        Fixture::order(&o),
+        [rock, Drawable::Shortcuts, Drawable::FullScreenEffect, spear]
+    );
     o.update(
         1,
         &[Fixture::weapon(spear, 1, 6, false, 5), rock_now],
@@ -302,11 +318,37 @@ fn change_overlap_in_the_tick_of_the_add_object() {
     assert!(o.behind(spear));
     assert_eq!(
         Fixture::order(&o),
-        [rock, Drawable::Shortcuts, early, spear, late]
+        [
+            rock,
+            Drawable::Shortcuts,
+            Drawable::FullScreenEffect,
+            early,
+            spear,
+            late
+        ]
     );
     let other = Fixture::object(4);
     let mut next = tick.to_vec();
     next.push(Fixture::weapon(other, 12, 5, false, 11));
     o.update(1, &next, &[], &[]);
     assert!(!o.behind(other));
+}
+
+/// Every `ApplyPalette` re-adds the full-screen effect on top; leasers made after it
+/// go above it.
+#[test]
+fn apply_palette_raises_the_full_screen_effect() {
+    let (a, b) = (Fixture::object(0), Fixture::object(1));
+    let mut o = SpriteOrder::default();
+    o.update(1, &[Present::added(a, 1)], &[], &[]);
+    o.update(1, &[Present::added(a, 1), Present::added(b, 2)], &[], &[]);
+    assert_eq!(
+        Fixture::order(&o),
+        [a, Drawable::Shortcuts, Drawable::FullScreenEffect, b]
+    );
+    o.raise_full_screen_effect();
+    assert_eq!(
+        Fixture::order(&o),
+        [a, Drawable::Shortcuts, b, Drawable::FullScreenEffect]
+    );
 }

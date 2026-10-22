@@ -2,14 +2,17 @@
 //! scene's room camera chooses which), the palette's rain darkening (`DarkPalette`,
 //! `ApplyFade`) and the level shader's light (`_light`).
 //!
-//! Mirrors: RoomCamera.cs (DarkPalette, ApplyFade, ChangeRoom, MoveCamera2, DrawUpdate)
+//! Mirrors: RoomCamera.cs (DarkPalette, ApplyFade, ChangeRoom, MoveCamera2, DrawUpdate, ApplyPalette)
 
 use rw_assets::{
     AssetError, DangerType, NoiseTexture, PaletteTexture, PngImage, Room, RoomEffectType,
     RoomVisuals, StreamingAssets, UnityResources,
 };
 use rw_render::{LevelGraphics, LevelParams, LevelView, Renderer, RoomCamera};
+use rw_sim::FloatExt;
 use rw_sim::world::RainCycle;
+
+use crate::full_screen_effect::FullScreenEffect;
 
 /// Level graphic state of one room.
 pub struct Visuals {
@@ -28,6 +31,8 @@ pub struct Visuals {
     generation: u32,
     /// Counts palette rebuilds without a camera switch (`ApplyFade` on a new dark).
     palette_generation: u32,
+    /// The room camera's `fullScreenEffect` (`ApplyPalette`).
+    effect: Option<FullScreenEffect>,
 }
 
 /// The level shader's inputs for `get_state`.
@@ -44,6 +49,10 @@ pub struct LevelState {
     pub palette_blend: f32,
     /// `SunBlocker`s in the room.
     pub sun_blockers: usize,
+    /// The full-screen effect and its alpha this frame.
+    pub full_screen: Option<(FullScreenEffect, f32)>,
+    /// `_waterLevel` this frame.
+    pub water_level: f32,
 }
 
 impl Visuals {
@@ -76,6 +85,7 @@ impl Visuals {
             .map(|i| visuals.camera_image(i))
             .collect::<Result<_, _>>()?;
         Ok(Self {
+            effect: FullScreenEffect::select(visuals.settings()),
             noise: NoiseTexture::load(resources)?,
             light_angle: room.light_angle(),
             images,
@@ -160,9 +170,10 @@ impl Visuals {
             .count()
     }
 
-    /// The level shader's inputs under `rain`, for `get_state`.
+    /// The level shader's inputs under `rain` with `_waterLevel` `water_level`, for
+    /// `get_state`.
     #[must_use]
-    pub fn state(&self, rain: &RainCycle) -> LevelState {
+    pub fn state(&self, rain: &RainCycle, water_level: f32) -> LevelState {
         LevelState {
             params: self.params(),
             light: self.light(rain),
@@ -170,7 +181,29 @@ impl Visuals {
             dark_palette: self.dark,
             palette_blend: self.room.palette_blend(self.shown),
             sun_blockers: self.sun_blockers(),
+            full_screen: self.effect.map(|e| (e, self.effect_alpha(&e, rain))),
+            water_level,
         }
+    }
+
+    /// The room's full-screen effect.
+    #[must_use]
+    pub fn full_screen_effect(&self) -> Option<FullScreenEffect> {
+        self.effect
+    }
+
+    /// `DrawUpdate`'s `fullScreenEffect.alpha` under `rain` (`num4` without lightning).
+    #[must_use]
+    pub fn effect_alpha(&self, effect: &FullScreenEffect, rain: &RainCycle) -> f32 {
+        effect.alpha(self.room.settings(), self.shader_light(rain))
+    }
+
+    /// `_waterLevel` (`DrawUpdate`): `InverseLerp(sSize.y, 0, line - targetPoint.y)`
+    /// for the room's water line (`line`: water + 100, the death fall + 180, else 0);
+    /// `None` in gates and shelters, which set 0.
+    #[must_use]
+    pub fn water_level(line: Option<f32>, target_y: f32, screen_height: f32) -> f32 {
+        line.map_or(0.0, |h| (h - target_y).inverse_lerp(screen_height, 0.0))
     }
 
     #[must_use]
@@ -244,7 +277,7 @@ impl Visuals {
     }
 
     /// The game's window at `alpha` between ticks, `seconds` of shader time in, lit
-    /// under `rain`.
+    /// under `rain`, with the room's water line `water_line` ([`Self::water_level`]).
     #[must_use]
     pub fn view(
         &self,
@@ -252,12 +285,16 @@ impl Visuals {
         alpha: f32,
         seconds: f32,
         rain: &RainCycle,
+        water_line: Option<f32>,
     ) -> LevelView {
+        let origin = camera.view_origin(alpha);
+        let size = camera.screen_size();
         LevelView {
-            origin: camera.view_origin(alpha),
-            size: camera.screen_size(),
+            origin,
+            size,
             rain: seconds / 5.0,
             light: self.light(rain),
+            water_level: Self::water_level(water_line, origin[1], size[1]),
         }
     }
 }

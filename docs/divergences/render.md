@@ -93,9 +93,24 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   `PinkSky`; 11 base rooms) with the sky scenes' day `atmosphereColor` (41, 59, 81); the scenes
   themselves are not ported, so their sky shows only that colour, and `PinkSky`'s pink
   and the `DayNight` colour changes are not set (no base room uses either).
-- **Not drawn:** wet-terrain ripples (`_WetTerrain` is on by default in
-  the game, shifting level pixels by up to one row in thin bands above the water line),
-  the rain's `ShaderLight` after the rain hits (`GlobalRain` is not ported: it stays
+- **Full-screen effects** (`RoomCamera.ApplyPalette`'s one effect per room: `SkyBloom`,
+  `SkyAndLightBloom`, `LightBurn`/`Lightning` (`LightBloom`), `Fog`, `Bloom`; the
+  shaders in `full_screen.wgsl`, `rainworld-re/notes/room-rendering.md` section 12).
+  Differences: the grab of the `Bloom` shaders is sampled bilinear with clamped edges
+  (Unity's default, INFERRED as for the object shadows); `CreatureMask` tests only the
+  pre-level grab's red channel (INFERRED from HLSL's `bool4` to `bool` conversion);
+  `Fog` and `SpecificDepth` read `LevelColor`'s unnamed pre-level `GrabPass { }` as
+  their `_GrabTexture` (neither has a `GrabPass` of its own; INFERRED that no other
+  unnamed-grab sprite draws in `Foreground` between the level and them); holograms in `Bloom` are always drawn
+  after the effect, where the game puts the effect back on top of its container after
+  every `ApplyPalette`; `num4` is `ShaderLight` without lightning (`Lightning`'s flashes
+  and palette are not ported, so a `Lightning` room's alpha is its amount times
+  `InverseLerp(0, 0.2, amount)` with `num4` from the rain only). Not selected: the echo
+  branch (ghost mode) and `VoidMelt` (`LevelMelt2`), which leave the room with no
+  effect. `_waterLevel` uses the `DeathFallGraphic`'s height (focal points included),
+  but the death fall's own sprite is not drawn; another room's MCP screenshot draws no
+  full-screen effect and takes `_waterLevel` from the water alone.
+- **Not drawn:** the rain's `ShaderLight` after the rain hits (`GlobalRain` is not ported: it stays
   -1), `BrokenZeroG`'s dark palette (zero gravity is not ported), lightning, room
   effects that grade colours (Darkness, Brightness, Contrast, Desaturation, Hue, DayNight:
   their uniforms keep the game's defaults; no base-game room uses them, they come with

@@ -71,6 +71,10 @@ pub struct State {
     pub objects: Vec<ObjectInfo>,
     /// `world.rainCycle`.
     pub rain: RainState,
+    /// The camera room's full-screen effect (`RoomCamera.fullScreenEffect`), when it
+    /// has a level graphic and an effect.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub full_screen_effect: Option<FullScreenEffectState>,
     /// The camera room's level shader inputs, when it has a level graphic.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub level_params: Option<LevelParamsState>,
@@ -116,7 +120,7 @@ pub struct State {
 #[derive(Debug, Clone, Serialize)]
 pub struct SpriteLeaserState {
     /// `player`, `creature`, `object`, `shelter_door`, `drip`, `cosmetic`,
-    /// `holo_light`, `light_source` or `shortcuts`.
+    /// `holo_light`, `light_source`, `insect`, `shortcuts` or `full_screen_effect`.
     pub kind: &'static str,
     /// A creature's or object's EntityID.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -275,6 +279,37 @@ pub struct LevelParamsState {
     pub light_dir: [f32; 2],
     /// `SunBlocker`s drawn in the `Shadows` container.
     pub sun_blockers: usize,
+    /// `_WetTerrain`.
+    pub wet_terrain: f32,
+    /// `_waterLevel`: the water line's fraction of the screen from its top (0 in gates
+    /// and shelters).
+    pub water_level: f32,
+}
+
+/// The room camera's `fullScreenEffect`.
+#[derive(Debug, Clone, Serialize)]
+pub struct FullScreenEffectState {
+    /// `lightBloomAlphaEffect`: the room effect (`Bloom`, `SkyBloom`,
+    /// `SkyAndLightBloom`, `LightBurn`, `Lightning`, `Fog`) whose amount drives it.
+    pub kind: &'static str,
+    /// The game shader drawn (`Bloom`, `SkyBloom`, `LightAndSkyBloom`, `LightBloom`,
+    /// `Fog`).
+    pub shader: String,
+    /// `Bloom` or `Foreground`.
+    pub container: String,
+    /// The sprite's alpha this frame.
+    pub alpha: f32,
+}
+
+impl From<(crate::full_screen_effect::FullScreenEffect, f32)> for FullScreenEffectState {
+    fn from((e, alpha): (crate::full_screen_effect::FullScreenEffect, f32)) -> Self {
+        Self {
+            kind: e.effect.value(),
+            shader: format!("{:?}", e.shader),
+            container: format!("{:?}", e.layer),
+            alpha,
+        }
+    }
 }
 
 impl From<crate::visuals::LevelState> for LevelParamsState {
@@ -293,6 +328,8 @@ impl From<crate::visuals::LevelState> for LevelParamsState {
             atmosphere: p.atmosphere,
             light_dir: p.light_dir,
             sun_blockers: s.sun_blockers,
+            wet_terrain: p.wet_terrain,
+            water_level: s.water_level,
         }
     }
 }

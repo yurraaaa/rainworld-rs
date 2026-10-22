@@ -24,6 +24,8 @@ struct Level {
     atmosphere: vec4<f32>,
     // The game's window: xy origin in room pixels, zw size (sSize).
     view: vec4<f32>,
+    // x: _WetTerrain, y: _waterLevel (from the screen's top).
+    wet: vec4<f32>,
 };
 
 @group(0) @binding(0) var<uniform> level: Level;
@@ -109,15 +111,36 @@ fn object_shadow(uv: vec2<f32>, here: vec2<f32>, depth: i32) -> bool {
     return c.r != 0.0 || c.g != 0.0 || c.b != 0.0;
 }
 
+// `tex2D(levelTexture, uv)`: point filter, clamp.
+fn level_code(uv: vec2<f32>) -> vec4<f32> {
+    let size = vec2<i32>(textureDimensions(level_tex));
+    return textureLoad(level_tex, clamp(vec2<i32>(floor(uv * vec2<f32>(size))), vec2(0), size - 1), 0);
+}
+
+// Wet terrain: how far (0..1, in steps of 0.001 of the image) the colour lookup moves
+// up: thin bands where a noise sine peaks, offset per layer (`ugh`), only with
+// `_WetTerrain` and above the water line (`screenPos.y > _waterLevel`, y down, gives 0).
+fn wet_displace(uv: vec2<f32>, rain: f32) -> f32 {
+    let red = round(level_code(uv).x * 255.0);
+    let ugh = fmod_trunc(fmod_trunc(red, 90.0) - 1.0, 30.0) / 300.0;
+    var displace = noise(vec2(uv.x * 1.5 - ugh + rain * 0.01, uv.y * 0.25 - ugh + rain * 0.05));
+    displace = saturate((sin((displace + uv.x + uv.y + rain * 0.1) * 3.0 * 3.14) - 0.95) * 20.0);
+    if level.wet.x < 0.5 || screen_pos(uv).y > level.wet.y {
+        displace = 0.0;
+    }
+    return displace;
+}
+
 @fragment
 fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let size = vec2<i32>(textureDimensions(level_tex));
-    // `uv2`: rimFix moves the colour lookup half a texel down-left.
-    let shift = vec2(0.5 * level.extra.w);
-    let pixel = clamp(vec2<i32>(floor(in.uv * vec2<f32>(size) - shift)), vec2(0), size - 1);
-    let code = textureLoad(level_tex, pixel, 0);
-    let uv = in.uv;
     let rain = level.shading.x;
+    // `uv2`: rimFix moves the colour lookup half a texel down-left; wet terrain moves
+    // it up.
+    let texel = vec2(1.0) / vec2<f32>(size);
+    let uv2 = in.uv - texel * 0.5 * level.extra.w;
+    let code = level_code(vec2(uv2.x, uv2.y + wet_displace(in.uv, rain) * 0.001));
+    let uv = in.uv;
     let fog = palette(1, 7);
 
     var colour: vec4<f32>;

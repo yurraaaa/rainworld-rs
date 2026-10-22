@@ -10,7 +10,8 @@
 //! before [`Renderer::draw_level`] go to an offscreen "behind" target first, which the
 //! level shader reads to let them show through sky and far pixels. A third draws the
 //! atlas sprites and meshes (`sprite_gpu`: the room's sprite shaders, one draw per run
-//! of one shader and atlas page; a `HologramImage` draw first copies the frame drawn so
+//! of one shader and atlas page; a draw whose shader grabs (`HologramImage`, the room's
+//! bloom effects) first copies the frame drawn so
 //! far to a "grab" texture, its GrabPass), a fourth the game's water (`water_gpu`), which
 //! reads the level textures and the "behind" target too, and a fifth the stage quads
 //! (`stage_gpu`: the menu shaders, one texture per draw). The debug overlay
@@ -113,7 +114,8 @@ enum Capture {
 }
 
 /// The offscreen frame, the target the shapes behind the level are drawn to and the
-/// copy of the frame a `HologramImage` sprite reads, all of the frame's size.
+/// copy of the frame a grabbing sprite (`HologramImage`, a bloom effect) reads, all of
+/// the frame's size.
 struct FrameTargets {
     size: (u32, u32),
     texture: wgpu::Texture,
@@ -500,15 +502,14 @@ impl WgpuRenderer {
     }
 
     /// The index of the first draw at or after `from` that grabs the frame first (a
-    /// `HologramImage` sprite draw, a stage draw whose shader has a `GrabPass`), else
-    /// the end.
+    /// sprite or stage draw whose shader has a `GrabPass`), else the end.
     fn next_grab(batches: &[Batch], from: usize) -> usize {
         batches
             .iter()
             .enumerate()
             .skip(from)
             .find(|(_, b)| match b {
-                Batch::Sprites(d) => d.shader == rw_graphics::Shader::HologramImage,
+                Batch::Sprites(d) => d.shader.grabs_frame(),
                 Batch::Stage(d) => d.shader.grabs(),
                 _ => false,
             })
@@ -634,6 +635,7 @@ impl WgpuRenderer {
             _ => RoomGlobals {
                 sprite_rect: [0.0; 4],
                 fog_amount: 0.0,
+                water_level: 0.0,
                 screen_size: [self.frame.size.0 as f32, self.frame.size.1 as f32],
                 rain: self.stage_pipeline.globals().rain,
             },
@@ -1090,7 +1092,7 @@ impl Renderer for WgpuRenderer {
             self.draw_batches(&mut pass, &batches[first_batch..end], water, screen);
             first_batch = end;
         }
-        // Each `HologramImage` draw and grabbing stage draw grabs the frame drawn before it.
+        // Each grabbing sprite or stage draw grabs the frame drawn before it.
         while first_batch < batches.len() {
             self.frame.copy_to_grab(&mut encoder);
             let end = Self::next_grab(&batches, first_batch + 1);
@@ -1166,5 +1168,7 @@ impl Readback {
     }
 }
 
+#[cfg(test)]
+mod full_screen_tests;
 #[cfg(test)]
 mod tests;

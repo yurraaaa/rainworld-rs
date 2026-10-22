@@ -294,12 +294,30 @@ impl RoomShot {
         Some(WaterSurface::from_rows(front, back, water.still_level()))
     }
 
+    /// The room's `_waterLevel` line: its water + 100, else 0 (its death fall, which
+    /// the camera's room alone tracks, is left out); `None` in gates and shelters.
+    fn water_line(&self, game: &Game) -> Option<f32> {
+        let world = game.sim().world();
+        let data = world.abstract_room(self.room)?;
+        if data.gate() || data.shelter() {
+            return None;
+        }
+        let water = world.realized(self.room)?.water.as_ref();
+        Some(water.map_or(0.0, |w| w.still_level() + 100.0))
+    }
+
     fn draw(&self, game: &Game, r: &mut WgpuRenderer, view: SceneView, sprites: bool) {
         r.set_room(&self.map);
         let time = (game.ticks() as f32 + 1.0) / TICK_RATE as f32;
         let level: Option<LevelView> = self.visuals.as_ref().map(|v| {
             v.upload(r, &self.camera);
-            v.view(&self.camera, 1.0, time, &game.sim().world().rain_cycle)
+            v.view(
+                &self.camera,
+                1.0,
+                time,
+                &game.sim().world().rain_cycle,
+                self.water_line(game),
+            )
         });
         let camera = match (view.framing, &level) {
             (Framing::Rect { origin, size }, _) => Camera::window(origin, size, r.size()),

@@ -64,6 +64,8 @@ pub struct RoomGlobals {
     pub rain: f32,
     /// `_fogAmount` (`RoomCamera.ApplyPalette`).
     pub fog_amount: f32,
+    /// `_waterLevel` (see [`LevelView::water_level`]).
+    pub water_level: f32,
 }
 
 /// `FMatrix` as `FNode` sets it: scale, then rotate clockwise, then translate.
@@ -328,6 +330,7 @@ impl RoomGlobals {
             screen_size: view.size,
             rain: view.rain,
             fog_amount: 0.0,
+            water_level: view.water_level,
         }
     }
 }

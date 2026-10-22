@@ -97,6 +97,8 @@ pub struct SettingsFile {
     pub placed_objects: Vec<PlacedObject>,
     /// A `RoomSpecificScriptActive:` line (any value).
     pub room_specific_script: bool,
+    /// A `WetTerrain:` line (any value; the game writes `WetTerrain: OFF`).
+    pub wet_terrain_off: bool,
     pub bkg_drone_volume: Option<f32>,
     pub bkg_drone_no_threat_volume: Option<f32>,
     /// `Triggers:` entries (every such line adds).
@@ -136,6 +138,9 @@ pub struct RoomSettings {
     pub placed_objects: Vec<PlacedObject>,
     /// `roomSpecificScript`: the room's own file asks for its script (never inherited).
     pub room_specific_script: bool,
+    /// `wetTerrain`: true unless the room's own file has a `WetTerrain` line (never
+    /// inherited).
+    pub wet_terrain: bool,
     /// `BkgDroneVolume`: the threat tracker's drone level in this room.
     pub bkg_drone_volume: f32,
     /// `BkgDroneNoThreatVolume` (read only by the dev tools).
@@ -192,6 +197,7 @@ impl SettingsFile {
                 "Effects" => file.effects.extend(RoomEffect::parse_list(value)),
                 "PlacedObjects" => file.placed_objects.extend(PlacedObject::parse_list(value)),
                 "RoomSpecificScriptActive" => file.room_specific_script = true,
+                "WetTerrain" => file.wet_terrain_off = true,
                 "BkgDroneVolume" => file.bkg_drone_volume = Some(Self::float(value)?),
                 "BkgDroneNoThreatVolume" => {
                     file.bkg_drone_no_threat_volume = Some(Self::float(value)?);
@@ -266,6 +272,7 @@ impl SettingsFile {
             effects: RoomEffect::inherit(&self.effects, &parent.effects),
             placed_objects: self.placed_objects.clone(),
             room_specific_script: self.room_specific_script,
+            wet_terrain: !self.wet_terrain_off,
             bkg_drone_volume: self.bkg_drone_volume.unwrap_or(parent.bkg_drone_volume),
             bkg_drone_no_threat_volume: self
                 .bkg_drone_no_threat_volume
@@ -307,6 +314,7 @@ impl RoomSettings {
         effects: Vec::new(),
         placed_objects: Vec::new(),
         room_specific_script: false,
+        wet_terrain: true,
         bkg_drone_volume: 0.3,
         bkg_drone_no_threat_volume: 1.0,
         triggers: Vec::new(),
@@ -522,6 +530,19 @@ mod tests {
         assert_eq!((s.wave_amplitude, s.second_wave_length), (0.032_608_7, 0.5));
         assert_eq!((s.wave_speed, s.wave_length), (0.75, 0.5));
         assert_eq!(s.second_wave_amplitude, 0.0);
+    }
+
+    /// `RoomSettings.wetTerrain` starts true; a `WetTerrain` line in the room's own file
+    /// (the game writes `WetTerrain: OFF`) turns it off; a template's does not reach it.
+    #[test]
+    fn wet_terrain_is_on_unless_the_own_file_turns_it_off() {
+        let off = SettingsFile::parse("WetTerrain: OFF\n").expect("parses");
+        let template = off.resolve(&RoomSettings::ANCESTOR);
+        assert!(!template.wet_terrain);
+        let room = SettingsFile::parse("Grime: 0.1\n").expect("parses");
+        assert!(room.resolve(&template).wet_terrain);
+        let root = RoomSettings::ANCESTOR;
+        assert!(root.wet_terrain);
     }
 
     #[test]

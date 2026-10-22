@@ -40,9 +40,11 @@
 //! Mirrors: - (port-only: CLI entry point)
 
 mod app;
+mod death_fall;
 mod debug_ui;
 mod dev_spawn;
 mod frontend;
+mod full_screen_effect;
 mod game;
 mod hibernation;
 mod hud_map;
