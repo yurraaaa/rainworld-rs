@@ -32,7 +32,7 @@ pub enum Grabability {
 impl RainWorldGame {
     /// `Player.Grabability` of a realized object: a spear is held big in one hand, a
     /// rock in one hand, a fly in one hand when the player holds it or it is out of a
-    /// shortcut's delay; anything else cannot be grabbed.
+    /// shortcut's delay, a dead lizard dragged; anything else cannot be grabbed.
     #[must_use]
     pub fn grabability(&self, e: Entity) -> Grabability {
         match e {
@@ -43,6 +43,15 @@ impl RainWorldGame {
             },
             Entity::Creature(id) => {
                 let c = self.world.creature(id);
+                if let Some(l) = c.lizard() {
+                    // No base-game slugcat can maul: only a dead creature that is not
+                    // small is dragged.
+                    return if l.dead && !c.template.small_creature {
+                        Grabability::Drag
+                    } else {
+                        Grabability::CantGrab
+                    };
+                }
                 let Some(f) = c.fly() else {
                     return Grabability::CantGrab;
                 };
@@ -60,7 +69,7 @@ impl RainWorldGame {
     }
 
     /// `HeavyCarry`: dragged, two-handed, or heavier than 0.6 of the slugcat.
-    fn heavy_carry(&self, e: Entity) -> bool {
+    pub(super) fn heavy_carry(&self, e: Entity) -> bool {
         let g = self.grabability(e);
         g == Grabability::Drag
             || g == Grabability::TwoHands
@@ -68,7 +77,7 @@ impl RainWorldGame {
     }
 
     /// `FreeHand`: none while hand 0 carries something heavy, else the first empty one.
-    fn free_hand(&self) -> Option<usize> {
+    pub(super) fn free_hand(&self) -> Option<usize> {
         let grasps = self.player_grasps();
         if grasps[0].is_some_and(|e| self.heavy_carry(e)) {
             return None;
@@ -126,14 +135,18 @@ impl RainWorldGame {
     }
 
     /// Room `index`'s `physicalObjects` as `PickupCandidate` walks them: layer 0 (flies,
-    /// thrown and stuck weapons), then layer 2 (the other weapons), each in the order
-    /// they joined it. The player (layer 1) and the overseers (which cannot be grabbed)
-    /// are left out.
+    /// thrown and stuck weapons), layer 1 (lizards, alive or dead), then layer 2 (the
+    /// other weapons), each in the order they joined it. The player and the overseers
+    /// (which cannot be grabbed) are left out.
     fn pickup_order(&self, index: i32) -> Vec<Entity> {
         let mut objects: Vec<(i32, u64, Entity)> = self
             .world
             .creatures()
             .filter_map(|(id, c)| {
+                if let Some(l) = c.lizard() {
+                    let here = l.room == Some(index) && !l.slated;
+                    return here.then_some((1, l.update_order, Entity::Creature(id)));
+                }
                 let f = c.fly().filter(|f| f.room == Some(index))?;
                 Some((0, f.update_order, Entity::Creature(id)))
             })
@@ -304,18 +317,14 @@ impl RainWorldGame {
         }
         if let Some(k) = (0..2).find(|&k| self.player_grasps()[k].is_none()) {
             match candidate {
-                Entity::Creature(fly) => {
-                    let pos = self.world.fly_ref(fly).pos();
-                    self.play_in_room(index, SoundId::SlugcatPickUpCreature, pos);
+                Entity::Creature(_) => {
+                    let pos = self.world.chunk_pos(candidate, 0).unwrap_or_default();
+                    self.play_on_object(index, SoundId::SlugcatPickUpCreature, pos);
                 }
                 Entity::Object(id) => self.picked_up(index, id),
             }
             self.slugcat_grab(candidate, k, observer);
-            if let Entity::Creature(fly) = candidate
-                && self.world.fly_ref(fly).graphics
-            {
-                observer.fly_to_front(self.world.creature(fly).id);
-            }
+            self.bring_sprites_to_front(candidate, observer);
             log::info!("picked up {}", self.entity_name(candidate));
         }
         self.player_mut().grab_mut().want_to_pick_up = 0;
@@ -335,12 +344,39 @@ impl RainWorldGame {
         }
     }
 
+    /// The pick-up's `graphicsModule.BringSpritesToFront()` (a fly's or a lizard's).
+    fn bring_sprites_to_front(&mut self, e: Entity, observer: &mut dyn PlayerObserver) {
+        let Entity::Creature(id) = e else { return };
+        let c = self.world.creature(id);
+        if c.fly().is_some_and(|f| f.graphics) {
+            observer.fly_to_front(c.id);
+        } else if c.lizard().is_some_and(|l| l.graphics.is_some()) {
+            self.world.sprites_to_front.push(e);
+        }
+    }
+
     /// The object's kind, for the log.
     fn entity_name(&self, e: Entity) -> &'static str {
         match e {
-            Entity::Creature(_) => "a bat fly",
+            Entity::Creature(id) => self.world.creature(id).kind().value(),
             Entity::Object(id) => self.world.object(id).kind.value(),
         }
+    }
+
+    /// The player's grasp `grasp`: what it holds and its `grabbedChunk` index.
+    pub(super) fn player_grasp(&self, grasp: usize) -> Option<crate::creature::Grasp> {
+        self.world
+            .creature(self.player_id)
+            .grasps
+            .get(grasp)
+            .copied()
+            .flatten()
+    }
+
+    /// The position of the chunk grasp `grasp` of the player holds (`grabbedChunk`).
+    pub(super) fn grabbed_chunk_pos(&self, grasp: usize) -> Option<Vec2> {
+        let g = self.player_grasp(grasp)?;
+        self.world.chunk_pos(g.grabbed, g.chunk_grabbed)
     }
 
     /// `ReleaseObject`: `Slugcat_Lay_Down_Creature` or `_Object` on the held chunk, a
@@ -349,9 +385,11 @@ impl RainWorldGame {
         let Some(obj) = self.player_grasps()[grasp] else {
             return;
         };
-        let pos = self.world.chunk_pos(obj, 0).unwrap_or_default();
+        let pos = self.grabbed_chunk_pos(grasp).unwrap_or_default();
         match obj {
-            Entity::Creature(_) => self.play_in_room(index, SoundId::SlugcatLayDownCreature, pos),
+            Entity::Creature(_) => {
+                self.play_on_object(index, SoundId::SlugcatLayDownCreature, pos);
+            }
             Entity::Object(id) => {
                 self.play_on_object(index, SoundId::SlugcatLayDownObject, pos);
                 self.world.forbid(id);

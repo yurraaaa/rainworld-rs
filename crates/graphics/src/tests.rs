@@ -112,6 +112,7 @@ fn update_alone(g: &mut PlayerGraphics, p: &Player, r: &Room, rng: &mut UnityRan
         room: 0,
         objects: Vec::new(),
         hungry: true,
+        heavy_carry: None,
     };
     g.update(p, r, None, &around, rng);
 }

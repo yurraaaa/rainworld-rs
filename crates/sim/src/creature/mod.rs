@@ -293,6 +293,8 @@ pub struct CreatureState {
     pub social_memory: Option<SocialMemory>,
     /// The subclass's own saved fields.
     pub parts: StateParts,
+    /// `meatLeft`: the template's `meatPoints` until eaten.
+    pub meat_left: i32,
     /// Saved fields nothing in the port reads.
     pub save: StateSave,
 }
@@ -448,6 +450,7 @@ impl AbstractCreature {
             quarter_food_points: 0,
             social_memory: template.social_memory().then(SocialMemory::default),
             parts: StateParts::of(kind),
+            meat_left: template.meat_points(),
             save: StateSave::default(),
         }
     }

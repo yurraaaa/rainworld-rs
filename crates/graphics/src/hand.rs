@@ -38,12 +38,15 @@ pub(crate) struct HandGrasp {
     pub weapon: [bool; 2],
     /// `objectInStomach != null`.
     pub stomach: bool,
+    /// Hand 0's held chunk (position, radius) when it is a `HeavyCarry`.
+    pub heavy_carry: Option<(Vec2, f32)>,
 }
 
 impl HandGrasp {
     pub(crate) fn of(around: &PlayerSurroundings<'_>) -> Self {
         let mut out = Self {
             stomach: around.stomach,
+            heavy_carry: around.heavy_carry,
             ..Self::default()
         };
         for i in 0..2 {
@@ -135,8 +138,20 @@ impl SlugcatHand {
         } else {
             self.engage_in_movement(cx)
         };
-        // A fly is never a heavy carry.
-        if idle && cx.grasps.held[self.limb.limb_number].is_some() {
+        let limb = self.limb.limb_number;
+        if limb == 0 && cx.grasps.heavy_carry.is_some() {
+            idle = true;
+        }
+        if idle && let Some((pos, rad)) = cx.grasps.heavy_carry {
+            // Both free hands hold the heavy carry's chunk at its sides.
+            let side = if limb == 0 { -1.0 } else { 1.0 };
+            self.limb.mode = LimbMode::HuntAbsolutePosition;
+            let across = (head.pos - pos).normalized().perpendicular();
+            self.limb.absolute_hunt_pos = pos + across * (rad * 0.8 * side);
+            self.limb.hunt_speed = 20.0;
+            self.limb.quickness = 1.0;
+            idle = false;
+        } else if idle && cx.grasps.held[limb].is_some() {
             self.hold(cx);
             idle = false;
         }

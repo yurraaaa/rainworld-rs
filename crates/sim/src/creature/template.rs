@@ -360,6 +360,36 @@ impl CreatureTemplate {
             || self.maps_node(NodeType::SeaExit)
     }
 
+    /// `meatPoints` of the base-game templates (`InitStaticWorld`; the lizards'
+    /// `LizardBreeds.BreedTemplate`: 6, blue 5, green 8, red 9). Inherited values are
+    /// the ancestor's (cicada B 3, sea leech and pole mimic 0); the rest are 0.
+    #[must_use]
+    pub fn meat_points(&self) -> i32 {
+        use CreatureType as T;
+        match self.kind {
+            T::Slugcat | T::CicadaA | T::CicadaB | T::BigSpider | T::BigNeedleWorm | T::DropBug => {
+                3
+            }
+            T::Snail | T::TubeWorm | T::Centipede | T::RedCentipede | T::Centiwing | T::EggBug => 1,
+            T::Vulture => 14,
+            T::KingVulture => 16,
+            T::LanternMouse => 2,
+            T::JetFish | T::Scavenger | T::SpitterSpider => 4,
+            T::DaddyLongLegs => 10,
+            T::BrotherLongLegs | T::BlueLizard => 5,
+            T::MirosBird => 12,
+            T::GreenLizard => 8,
+            T::RedLizard => 9,
+            T::PinkLizard
+            | T::YellowLizard
+            | T::WhiteLizard
+            | T::BlackLizard
+            | T::Salamander
+            | T::CyanLizard => 6,
+            _ => 0,
+        }
+    }
+
     /// `RoomRealizer.GetCreaturePerformanceEstimation` (base game).
     #[must_use]
     pub fn performance_estimation(&self) -> f32 {

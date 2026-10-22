@@ -875,6 +875,7 @@ impl Session {
             health: c.state.health,
             throat_health,
             limb_health,
+            meat_left: c.state.meat_left,
             dead: l.dead,
             in_shortcut: l.in_shortcut,
             jaw_open: l.jaw_open(holding),
@@ -1976,6 +1977,15 @@ impl PlayerState {
             grasps: sim
                 .player_grasps()
                 .map(|g| g.map(|e| HeldInfo::of(sim.world(), e))),
+            grasp_chunks: [0, 1].map(|i| {
+                sim.world()
+                    .creature(sim.player_creature())
+                    .grasps
+                    .get(i)
+                    .copied()
+                    .flatten()
+                    .map(|g| g.chunk_grabbed)
+            }),
             stomach: player.object_in_stomach().map(|o| match o {
                 StomachObject::Object(id) => HeldInfo::of(sim.world(), Entity::Object(*id)),
                 StomachObject::Saved(s) => HeldInfo {
@@ -1990,6 +2000,7 @@ impl PlayerState {
                 .pick_up_candidate
                 .map(|e| HeldInfo::of(sim.world(), e)),
             eat_counter: player.grab_state().eat_counter,
+            eat_meat: player.grab_state().eat_meat,
             priv_sneak: player.priv_sneak(),
             sneak: player.sneak(
                 sim.world()
