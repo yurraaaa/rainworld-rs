@@ -24,7 +24,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `game_dev.rs` | dev spawns/teleports through the game's own paths (MCP, debug UI) | - (port dev tool, D18) |
 | `game_exit.rs` | what pause/`ExitGame` read | `RainWorldGame.ExitGame` |
 | `game_flies.rs` | bat flies in the tick: world process, `ReadyForAI`, vessels, lobby turns | `FliesWorldAI` hookup |
-| `game_insects.rs` | cosmetic insects in the update list: `NowViewed`/`NoLongerViewed` at the camera's room change, creatures for the avoiders, the firefly's light | `Room.NowViewed` insect branch |
+| `game_insects.rs`, `game_insects_tests.rs` | cosmetic insects in the update list: `NowViewed`/`NoLongerViewed` at the camera's room change, creatures for the avoiders, the firefly's light | `Room.NowViewed` insect branch |
 | `game_hits.rs` | thrown rock/spear vs creatures | `Weapon.Update` Thrown branch |
 | `game_holo_light.rs` | Monk guide light in the update list | `HologramLight.TryCreate` |
 | `game_instructions.rs` | guide's placed room objects, input-instruction triggers | `SuperJumpInstruction`, `ReliableIggyDirection` |

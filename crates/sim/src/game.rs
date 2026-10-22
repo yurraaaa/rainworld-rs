@@ -68,6 +68,9 @@ pub use items::Grabability;
 pub use lizard_ai::UtilityReadings;
 pub use over::GameOver;
 #[cfg(test)]
+#[path = "game_insects_tests.rs"]
+mod insects_tests;
+#[cfg(test)]
 #[path = "game_screen_shake_tests.rs"]
 mod screen_shake_tests;
 #[path = "game_shelter.rs"]
@@ -1334,6 +1337,41 @@ impl RainWorldGame {
 
     /// `Room.Update` of active room `index`: the entry delay, the water (pushed by the
     /// player's body when it is here), then the player and its graphics.
+    /// Room `index`'s update list besides the player, newest first (`Room.Update` walks
+    /// `updateList` from its end), each with its place in the list.
+    fn room_update_list(&self, index: i32) -> Vec<(u64, RoomObject)> {
+        let mut objects: Vec<(u64, RoomObject)> = self
+            .world
+            .room_overseers(index)
+            .into_iter()
+            .map(|(seq, id)| (seq, RoomObject::Overseer(id)))
+            .collect();
+        objects.extend(
+            self.world
+                .room_holograms(index)
+                .into_iter()
+                .map(|(seq, owner, id)| (seq, RoomObject::Hologram { owner, id })),
+        );
+        objects.extend(self.room_fly_objects(index));
+        objects.extend(self.room_lizard_objects(index));
+        objects.extend(self.room_drip_objects(index));
+        objects.extend(self.room_weapon_objects(index));
+        objects.extend(
+            self.world
+                .room_orphan_loops(index)
+                .into_iter()
+                .map(|order| (order, RoomObject::OrphanLoop(order))),
+        );
+        objects.extend(self.room_trigger_objects(index));
+        objects.extend(self.room_cosmetic_objects(index));
+        objects.extend(self.room_holo_light_objects(index));
+        objects.extend(self.room_light_source_objects(index));
+        objects.extend(self.room_slide_loop_objects(index));
+        objects.extend(self.room_insect_objects(index));
+        objects.sort_by_key(|&(seq, _)| std::cmp::Reverse(seq));
+        objects
+    }
+
     fn update_room(&mut self, index: i32, input: Input, observer: &mut dyn PlayerObserver) {
         let player_room = self.pos().room;
         let Some(realized) = self.world.realized_mut(index) else {
@@ -1364,35 +1402,7 @@ impl RainWorldGame {
             blinking.update(&room, &mut self.rng);
         }
         self.run_flies_room_ai(index, observer);
-        let mut objects: Vec<(u64, RoomObject)> = self
-            .world
-            .room_overseers(index)
-            .into_iter()
-            .map(|(seq, id)| (seq, RoomObject::Overseer(id)))
-            .collect();
-        objects.extend(
-            self.world
-                .room_holograms(index)
-                .into_iter()
-                .map(|(seq, owner, id)| (seq, RoomObject::Hologram { owner, id })),
-        );
-        objects.extend(self.room_fly_objects(index));
-        objects.extend(self.room_lizard_objects(index));
-        objects.extend(self.room_drip_objects(index));
-        objects.extend(self.room_weapon_objects(index));
-        objects.extend(
-            self.world
-                .room_orphan_loops(index)
-                .into_iter()
-                .map(|order| (order, RoomObject::OrphanLoop(order))),
-        );
-        objects.extend(self.room_trigger_objects(index));
-        objects.extend(self.room_cosmetic_objects(index));
-        objects.extend(self.room_holo_light_objects(index));
-        objects.extend(self.room_light_source_objects(index));
-        objects.extend(self.room_slide_loop_objects(index));
-        objects.extend(self.room_insect_objects(index));
-        objects.sort_by_key(|&(seq, _)| std::cmp::Reverse(seq));
+        let objects = self.room_update_list(index);
         let mut player_done = false;
         // What the insects read of the room's creatures, until anything else moves.
         let mut insect_creatures = None;

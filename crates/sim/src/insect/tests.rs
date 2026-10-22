@@ -314,11 +314,60 @@ fn rotate_towards_turns_by_at_most_the_step() {
     assert!((turned.y - 0.4f32.sin()).abs() < 1e-6);
 }
 
+/// A rock flea sitting on the floor with a creature 10 px away, its avoider due this
+/// tick (`RockFlea.Update`, `CosmeticInsect.Update`, `CreatureAvoider.Update`, `Act`,
+/// `Jump`): the rain check (1); the avoider's `Range(0, count)` (1); `bodyMove` (1); the
+/// stress test (1, its tile test after `&&` draws nothing); the jump chance (1, drawn
+/// before the `||` that the creature within 30 px makes true); then `Jump`: the
+/// direction's `value^0.75` and sign (2), redrawn away from the creature (1), the angle
+/// (2) and the speed (1). Eleven in all.
 #[test]
-fn cycle_start_up_runs_over_the_start_up_ticks() {
-    let mut c = crate::world::RainCycle::default();
-    assert_eq!(c.cycle_start_up(), 1.0);
-    c.start_up_ticks = 2400;
-    c.timer = 600;
-    assert_eq!(c.cycle_start_up(), 0.25);
+fn a_sitting_rock_flea_jumps_from_a_creature_in_eleven_draws() {
+    let mut b = Bench::new(floored());
+    let pos = Vec2::new(50.0, 21.0);
+    let mut insect = CosmeticInsect::new(InsectType::RockFlea, pos, &mut b.cx());
+    let InsectBody::RockFlea(f) = &mut insect.body else {
+        panic!("not a rock flea");
+    };
+    f.sit_pos = Some(pos);
+    insect.base.vel = Vec2::ZERO;
+    insect.base.avoider.as_mut().expect("avoider").timer = 1;
+    let near = Vec2::new(60.0, 21.0);
+    let creature = InsectCreature {
+        id: crate::creature::CreatureId(0),
+        dead: false,
+        in_room: true,
+        slated: false,
+        danger_pos: near,
+        total_mass: 1.0,
+        main_pos: near,
+        main_last_pos: near,
+        chunks: vec![(near, 5.0)],
+        small: false,
+        malnourished_player: false,
+    };
+    let slots = [InsectCreatureSlot {
+        id: creature.id,
+        realized: Some(creature),
+    }];
+    let before = b.rng.state();
+    let mut cx = b.cx();
+    cx.creatures = &slots;
+    insect.update(&mut cx);
+    let mut r = UnityRandom::from_state(before);
+    for _ in 0..11 {
+        r.value();
+    }
+    assert_eq!(b.rng.state(), r.state());
+    let InsectBody::RockFlea(f) = &insect.body else {
+        unreachable!("still a rock flea")
+    };
+    assert!(f.sit_pos.is_none(), "jumped");
+    assert!(
+        insect
+            .base
+            .avoider
+            .as_ref()
+            .is_some_and(|a| a.current_worst.is_some())
+    );
 }

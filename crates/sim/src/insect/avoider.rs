@@ -37,7 +37,7 @@ pub struct CreatureAvoider {
     /// `currentWorstCrit`, as last seen in the room's list (the game keeps the object).
     pub current_worst: Option<InsectCreature>,
     update_rate: i32,
-    timer: i32,
+    pub(super) timer: i32,
     visual_range: f32,
     min_size: f32,
 }
