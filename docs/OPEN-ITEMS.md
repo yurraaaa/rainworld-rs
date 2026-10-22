@@ -20,6 +20,12 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   branches with the DLCs.
 - **`ExplosiveSpear` behaviour.** The flag is ported; the explosion is not.
 
+- **Draw order by container add order** (user, 2026-10-22): objects that never went
+  through a jaws release keep the port's order by kind, standing in for the game's order
+  of adding sprites to the camera's containers (`drawableObjects`,
+  `RoomCamera.MoveObjectToContainer`); a newly realized room's camera order too (D19).
+  Its own small job; touches the draw path for every object.
+
 ## Planned
 - **Code quality pass after the lizard steps** (user, 2026-10-16): once lizard steps
   6 to 9 are merged, go over the workspace one crate at a time, a step per crate,
