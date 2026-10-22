@@ -65,6 +65,13 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `../rainworld-re/surveys/lizards.md` (user decisions).
 
 ## To look into
+- **Creatures at open room edges** (user, 2026-10-22, for when more creatures get
+  bodies): room borders are not solid (`Room.GetTile` copies the edge tile outside the
+  room, so open air edges extend forever; the room file's `Border:` field is unread).
+  Check how the game handles a creature flying or falling past an open edge (bat flies
+  now, flying creatures later): sky and side exits (`SkyExit`/`SideExit`, border exit
+  nodes), `RoomBorderPushBack` (unported; base game or not?), removal when too far out,
+  and compare with the port.
 - **Loop emitters when a room abstractizes** (2026-10-17): a swallowed rock's loop now
   lives one more update, as in the game, but an item whose room abstractizes (e.g. one
   held there) still drops its loop emitters at once. Check against the game which
