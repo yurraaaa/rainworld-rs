@@ -1180,6 +1180,11 @@ impl Game {
         ordered
     }
 
+    /// `ApplyPalette`: camera 0's full-screen effect sprite back on top of its container.
+    pub fn raise_full_screen_effect(&mut self) {
+        self.sprite_order.raise_full_screen_effect();
+    }
+
     /// Camera 0's container record (for MCP replies).
     #[must_use]
     pub fn sprite_order(&self) -> &SpriteOrder {

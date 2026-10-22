@@ -145,6 +145,36 @@ pub enum Shader {
     /// `Futile/UnderWaterLight`: a light source's glow under the water surface, faded by
     /// level depth and rippled by `_NoiseTex`.
     UnderWaterLight,
+    /// `Futile/Bloom` (a room's full-screen effect): the frame grabbed, a plus-shaped
+    /// blur of it brightening it (max, plus the blur to the power 1.5).
+    Bloom,
+    /// `Futile/SkyBloom` (full-screen): pixels of the palette's sky colour blurred over
+    /// their neighbours, strongest toward the screen's lower left.
+    SkyBloom,
+    /// `Futile/LightBloom` (full-screen, `LightBurn` and `Lightning` rooms): the frame at
+    /// sunlit level pixels around each pixel added on top.
+    LightBloom,
+    /// `Futile/LightAndSkyBloom` (full-screen, `SkyAndLightBloom` rooms): `SkyBloom`
+    /// plus a glow from sunlit level pixels.
+    LightAndSkyBloom,
+    /// `Futile/Fog` (full-screen, `Fog` rooms): banded translucent fog in the palette's
+    /// fog colours, thinner on near layers, with light patches in the sky.
+    Fog,
+}
+
+impl Shader {
+    /// The shaders with a `GrabPass {}`: each draw grabs the frame drawn so far.
+    #[must_use]
+    pub fn grabs_frame(self) -> bool {
+        matches!(
+            self,
+            Self::HologramImage
+                | Self::Bloom
+                | Self::SkyBloom
+                | Self::LightBloom
+                | Self::LightAndSkyBloom
+        )
+    }
 }
 
 /// One `FSprite`, placed as Futile does: the element's untrimmed source box is

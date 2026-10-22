@@ -5,7 +5,8 @@
 // fs_hologram `Hologram`, fs_light_source `LightSource`, fs_holo_grid `HoloGrid`,
 // fs_hologram_image `HologramImage`, fs_shortcut `ShortCut0`, fs_colored_sprite3
 // `ColoredSprite2` with `no_grab_tex` (the `ColoredSprite3` shader),
-// fs_under_water_light `UnderWaterLight`.
+// fs_under_water_light `UnderWaterLight`. The full-screen effects are in
+// full_screen.wgsl, appended to this file.
 //
 // `uv` is where the port's atlas is sampled; `tex` is the shader's `i.uv` (they differ
 // only for `Futile_White`, a texture of its own in the game).
@@ -25,7 +26,8 @@ struct Room {
     frame: vec2<f32>,
     // `_fogAmount`.
     fog_amount: f32,
-    pad: f32,
+    // `_waterLevel`: the water line's fraction of the screen from its top.
+    water_level: f32,
 };
 
 // Futile's `screenPixelOffset` (`Camera::SCREEN_PIXEL_OFFSET`): screen = stage + this.

@@ -21,6 +21,7 @@ struct LevelUniform {
     light_dir: [f32; 4],
     atmosphere: [f32; 4],
     view: [f32; 4],
+    wet: [f32; 4],
 }
 
 /// The level pipeline, its bind group layout, the noise sampler and the uniform buffer.
@@ -308,6 +309,7 @@ impl LevelPipeline {
             light_dir: [p.light_dir[0], p.light_dir[1], 1.0 / 1400.0, 1.0 / 800.0],
             atmosphere: [p.atmosphere[0], p.atmosphere[1], p.atmosphere[2], 1.0],
             view: [view.origin[0], view.origin[1], view.size[0], view.size[1]],
+            wet: [p.wet_terrain, view.water_level, 0.0, 0.0],
         };
         queue.write_buffer(&self.uniform, 0, bytemuck::bytes_of(&uniform));
         device.create_bind_group(&wgpu::BindGroupDescriptor {

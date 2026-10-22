@@ -1,0 +1,700 @@
+//! Headless GPU checks of the full-screen effect shaders (`full_screen.wgsl`) at the
+//! game's 1366x768: each frame is drawn without the effect, then with it, and pixels are
+//! compared with the game's shader maths applied to the frame without it (bilinear
+//! taps, as the grab is read) and with values worked out by hand from the shader
+//! sources. Skipped without a Vulkan adapter.
+
+use rw_assets::{NoiseTexture, PaletteImage, PaletteTexture};
+use rw_graphics::{Atlas, Color as SpriteColor, DrawItem, Shader, Sprite};
+
+use crate::LevelParams;
+
+use super::*;
+
+/// The shaders' `6.28`, not 2π.
+#[allow(clippy::approx_constant, reason = "the game's shader uses 6.28")]
+const GAME_TAU: f32 = 6.28;
+
+const W: u32 = 1366;
+const H: u32 = 768;
+
+const JSON: &str = r#"{"frames": {
+  "RainWorld_White.png": {"frame": {"x": 0, "y": 0, "w": 16, "h": 16}, "rotated": false,
+            "trimmed": false, "spriteSourceSize": {"x": 0, "y": 0, "w": 16, "h": 16},
+            "sourceSize": {"w": 16, "h": 16}}},
+  "meta": {"image": "t.png", "size": {"w": 16, "h": 16}}}"#;
+
+/// A frame scene: the level image (one code per pixel), palette texels by runtime row,
+/// sprites before the level and over it, and a full-screen effect.
+struct Scene {
+    level: PngImage,
+    palette: PaletteTexture,
+    behind: Vec<DrawItem>,
+    over: Vec<DrawItem>,
+    rain: f32,
+    water_level: f32,
+}
+
+/// A rectangle of frame pixels, y down: `[x0, y0, x1, y1)`.
+#[derive(Clone, Copy)]
+struct Rect([u32; 4]);
+
+impl Rect {
+    fn contains(self, x: u32, y: u32) -> bool {
+        let [x0, y0, x1, y1] = self.0;
+        x >= x0 && x < x1 && y >= y0 && y < y1
+    }
+
+    /// A `Futile_White` quad over these frame pixels (stage = frame + (1, 1) from the
+    /// bottom: screen pixel centre minus Futile's (-0.5, 0.5) offset).
+    fn quad(self, color: SpriteColor, layer: Layer) -> DrawItem {
+        let [x0, y0, x1, y1] = self.0.map(|v| v as f32);
+        DrawItem::Sprite(Sprite {
+            index: 0,
+            element: SpriteAtlas::FUTILE_WHITE,
+            pos: Vec2::new(x0 + 0.5, H as f32 - y1 + 0.5),
+            rotation: 0.0,
+            scale: Vec2::new((x1 - x0) / 16.0, (y1 - y0) / 16.0),
+            anchor: Vec2::ZERO,
+            color,
+            shader: Shader::Basic,
+            layer,
+        })
+    }
+}
+
+/// The frame before the effect, read the way the effect reads it.
+struct Before(FrameImage);
+
+impl Before {
+    fn px(&self, x: i64, y: i64) -> [f32; 4] {
+        let x = x.clamp(0, i64::from(W) - 1) as u32;
+        let y = y.clamp(0, i64::from(H) - 1) as u32;
+        let i = ((y * W + x) * 4) as usize;
+        let p = &self.0.rgba()[i..i + 4];
+        [p[0], p[1], p[2], 255].map(|c| f32::from(c) / 255.0)
+    }
+
+    /// `tex2D(_GrabTexture, scr)`: bilinear at screen uv `scr` (y up), clamped.
+    fn grab(&self, scr: [f32; 2]) -> [f32; 4] {
+        let fx = scr[0] * W as f32 - 0.5;
+        let fy = (1.0 - scr[1]) * H as f32 - 0.5;
+        let (x0, y0) = (fx.floor(), fy.floor());
+        let (tx, ty) = (fx - x0, fy - y0);
+        let (x0, y0) = (x0 as i64, y0 as i64);
+        let (a, b) = (self.px(x0, y0), self.px(x0 + 1, y0));
+        let (c, d) = (self.px(x0, y0 + 1), self.px(x0 + 1, y0 + 1));
+        std::array::from_fn(|i| {
+            let top = a[i] + (b[i] - a[i]) * tx;
+            let bottom = c[i] + (d[i] - c[i]) * tx;
+            top + (bottom - top) * ty
+        })
+    }
+}
+
+/// Frame pixel `(x, y)` (y down): its `scrPos` (y up) and the effect quad's `i.uv`.
+fn scr(x: u32, y: u32) -> [f32; 2] {
+    [
+        (x as f32 + 0.5) / W as f32,
+        (H as f32 - y as f32 - 0.5) / H as f32,
+    ]
+}
+
+fn quad_uv(x: u32, y: u32) -> [f32; 2] {
+    [
+        (x as f32 + 1.0) / W as f32,
+        (H as f32 - y as f32 - 1.0) / H as f32,
+    ]
+}
+
+fn hor() -> f32 {
+    H as f32 / W as f32
+}
+
+fn unit(c: [u8; 3]) -> [f32; 3] {
+    c.map(|v| f32::from(v) / 255.0)
+}
+
+fn byte(c: f32) -> u8 {
+    (c.clamp(0.0, 1.0) * 255.0).round() as u8
+}
+
+/// A palette with every texel `fill` and `(x, row, colour)` overrides (runtime rows).
+fn palette(fill: [u8; 3], texels: &[(usize, usize, [u8; 3])]) -> PaletteTexture {
+    let mut pixels = vec![[fill[0], fill[1], fill[2], 255]; 512];
+    for &(x, row, [r, g, b]) in texels {
+        pixels[(7 - row) * 32 + x] = [r, g, b, 255];
+    }
+    PaletteTexture::blend(
+        &PaletteImage::from_image(&PngImage::from_pixels(32, 16, pixels)).unwrap(),
+        None,
+        0.0,
+    )
+}
+
+/// A level image of the screen's size with code `f(x, png_row)`.
+fn level(f: impl Fn(u32, u32) -> [u8; 3]) -> PngImage {
+    PngImage::from_pixels(
+        W as usize,
+        H as usize,
+        (0..W * H)
+            .map(|i| {
+                let [r, g, b] = f(i % W, i / W);
+                [r, g, b, 255]
+            })
+            .collect(),
+    )
+}
+
+impl Scene {
+    fn new(level: PngImage, palette: PaletteTexture) -> Self {
+        Self {
+            level,
+            palette,
+            behind: Vec::new(),
+            over: Vec::new(),
+            rain: 0.0,
+            water_level: 1.0,
+        }
+    }
+
+    /// The frame with `effect` (shader, alpha) over it, if any.
+    fn draw(&self, r: &mut WgpuRenderer, effect: Option<(Shader, f32)>) -> FrameImage {
+        let noise =
+            NoiseTexture::from_image(&PngImage::from_pixels(64, 64, vec![[128, 0, 0, 255]; 4096]))
+                .unwrap();
+        r.set_level(&LevelGraphics {
+            camera_pos: [0.0, 0.0],
+            image: &self.level,
+            palette: &self.palette,
+            noise: &noise,
+            params: LevelParams::DEFAULT,
+        });
+        r.begin_frame(Camera::window([0.0, 0.0], [W as f32, H as f32], (W, H)));
+        if !self.behind.is_empty() {
+            let list = DrawList {
+                items: self.behind.clone(),
+            };
+            r.draw_sprites(&list, Layer::Items, [0.0, 0.0]);
+        }
+        r.draw_level(LevelView {
+            origin: [0.0, 0.0],
+            size: [W as f32, H as f32],
+            rain: self.rain,
+            light: 1.0,
+            water_level: self.water_level,
+        });
+        if !self.over.is_empty() {
+            let list = DrawList {
+                items: self.over.clone(),
+            };
+            r.draw_sprites(&list, Layer::Foreground, [0.0, 0.0]);
+        }
+        if let Some((shader, alpha)) = effect {
+            let layer = if shader == Shader::Fog {
+                Layer::Foreground
+            } else {
+                Layer::Bloom
+            };
+            let list = DrawList {
+                items: vec![DrawItem::Sprite(Sprite {
+                    index: 0,
+                    element: SpriteAtlas::FUTILE_WHITE,
+                    pos: Vec2::ZERO,
+                    rotation: 0.0,
+                    scale: Vec2::new(W as f32 / 16.0, H as f32 / 16.0),
+                    anchor: Vec2::ZERO,
+                    color: SpriteColor {
+                        r: 1.0,
+                        g: 1.0,
+                        b: 1.0,
+                        a: alpha,
+                    },
+                    shader,
+                    layer,
+                })],
+            };
+            r.draw_sprites(&list, layer, [0.0, 0.0]);
+        }
+        r.render_image().unwrap()
+    }
+
+    /// The level code under frame pixel `(x, y)` moved by `offset` in level uv
+    /// (`textCoord`): image column `x + 1`, row `y` at no offset. With the view at a
+    /// whole pixel (the game's is 0.02 px off one) an unmoved coordinate falls on a
+    /// texel edge, so tests keep such lookups off region edges.
+    fn code(&self, x: u32, y: u32, offset: [f32; 2]) -> [u8; 4] {
+        let s = scr(x, y);
+        let tc = [
+            (s[0] * W as f32 + 0.5) / W as f32 + offset[0],
+            (s[1] * H as f32 - 0.5) / H as f32 + offset[1],
+        ];
+        let tx = ((tc[0] * W as f32).floor() as i64).clamp(0, i64::from(W) - 1) as usize;
+        let ty = ((tc[1] * H as f32).floor() as i64).clamp(0, i64::from(H) - 1) as usize;
+        self.level.pixel(tx, H as usize - 1 - ty)
+    }
+
+    /// `IsLevelLit` at frame pixel `(x, y)` moved by `offset`; `behind` is whether
+    /// something was drawn before the level at `(x, y)` itself.
+    fn lit(&self, x: u32, y: u32, offset: [f32; 2], behind: bool) -> bool {
+        let red = i32::from(self.code(x, y, offset)[0]);
+        red > 90 && red < 255 && !((red - 1) % 30 > 5 && behind)
+    }
+}
+
+fn renderer() -> Option<WgpuRenderer> {
+    let mut r = match WgpuRenderer::headless((W, H)) {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("skipped: {e}");
+            return None;
+        }
+    };
+    let atlas = SpriteAtlas::new(Atlas::parse(JSON).unwrap()).unwrap();
+    r.set_atlas(
+        &atlas,
+        &[&PngImage::from_pixels(16, 16, vec![[255; 4]; 256])],
+    );
+    Some(r)
+}
+
+fn rgb(image: &FrameImage, x: u32, y: u32) -> [u8; 3] {
+    let i = ((y * image.width() + x) * 4) as usize;
+    let p = &image.rgba()[i..i + 3];
+    [p[0], p[1], p[2]]
+}
+
+/// Within one 8-bit step per channel (the GPU's bilinear weights are not exact).
+fn assert_near(got: [u8; 3], want: [f32; 3], at: (u32, u32)) {
+    for c in 0..3 {
+        let w = want[c].clamp(0.0, 1.0) * 255.0;
+        assert!(
+            (f32::from(got[c]) - w).abs() <= 1.0,
+            "pixel {at:?}: got {got:?}, want {:?}",
+            want.map(|v| v * 255.0)
+        );
+    }
+}
+
+/// `Bloom.shader`'s fragment on the frame without it.
+fn bloom(before: &Before, x: u32, y: u32, alpha: f32) -> [f32; 3] {
+    let s = scr(x, y);
+    let mut sum = [0.0, 0.0, 0.0, 1.0];
+    let mut div = 0.0;
+    let mut coef = 1.0;
+    for j in 1..=4 {
+        let d = j as f32 * 0.0012;
+        coef *= 0.92;
+        for o in [[0.0, d], [-d * hor(), 0.0], [d * hor(), 0.0], [0.0, -d]] {
+            let g = before.grab([s[0] + o[0], s[1] + o[1]]);
+            for c in 0..4 {
+                sum[c] += g[c] * coef;
+            }
+        }
+        div += 4.0 * coef;
+    }
+    let uv = quad_uv(x, y);
+    let vignette = 1.0 + (0.5 - 1.0) * ((uv[0] - 0.5).hypot(uv[1] - 0.5) * 2.0);
+    let k = alpha * vignette / div;
+    let g = before.grab(s);
+    std::array::from_fn(|c| g[c].max(sum[c] * k) + (sum[c] * k).powf(1.5))
+}
+
+/// `Bloom`: on a uniform frame of 0.4 at the screen's centre (vignette 1) every tap is
+/// 0.4, so `max(0.4, 0.4 * 0.6) + (0.24)^1.5` = 0.5176 (132); near a white quad the blur
+/// brightens the grey, and the quad stays white.
+#[test]
+fn bloom_adds_its_blur() {
+    let Some(mut r) = renderer() else { return };
+    let mut scene = Scene::new(level(|_, _| [255, 255, 255]), palette([102, 102, 102], &[]));
+    let quad = Rect([300, 300, 400, 400]);
+    scene
+        .over
+        .push(quad.quad(SpriteColor::rgb(1.0, 1.0, 1.0), Layer::Foreground));
+    let before = Before(scene.draw(&mut r, None));
+    assert_eq!(rgb(&before.0, 683, 200), [102, 102, 102]);
+    let after = scene.draw(&mut r, Some((Shader::Bloom, 0.6)));
+    assert_near(rgb(&after, 683, 384), [0.5176; 3], (683, 384));
+    for (x, y) in [
+        (683, 384),
+        (5, 5),
+        (1300, 700),
+        (298, 350),
+        (402, 350),
+        (350, 297),
+        (350, 340),
+    ] {
+        assert_near(rgb(&after, x, y), bloom(&before, x, y, 0.6), (x, y));
+    }
+}
+
+/// `SkyBloom.shader`'s fragment; `sky` is the palette's texel (0, 7).
+fn sky_bloom(before: &Before, x: u32, y: u32, alpha: f32, sky: [f32; 3]) -> [f32; 3] {
+    let s = scr(x, y);
+    let amount = (1.0 - (s[0] - 0.2).hypot(s[1] - 0.2))
+        .clamp(0.0, 1.0)
+        .sqrt()
+        * alpha;
+    let blur = 0.0018 * amount;
+    let mut texcol = [0.0, 0.0, 0.0, 1.0];
+    let mut div = 1.0;
+    let mut coef = 1.0;
+    for j in 1..=5 {
+        let d = j as f32 * blur;
+        coef *= 0.62;
+        for o in [[-1.0, 1.0], [1.0, 1.0], [1.0, -1.0], [-1.0, -1.0]] {
+            let g = before.grab([s[0] + o[0] * d * hor(), s[1] + o[1] * d]);
+            if (0..3).all(|c| byte(g[c]) == byte(sky[c])) {
+                for c in 0..4 {
+                    texcol[c] += g[c] * coef;
+                }
+                div += coef;
+            }
+        }
+    }
+    let mut g = before.grab(s);
+    div *= 0.75;
+    for c in 0..3 {
+        let t = (g[c] + texcol[c]) / div;
+        if t > g[c] {
+            g[c] += (t - g[c]) * amount;
+        }
+    }
+    [g[0], g[1], g[2]]
+}
+
+/// `SkyBloom`: all-sky taps give `texcol = sky / 0.75`, so at (0.2, 0.2) of the screen
+/// (amount = alpha = 1) the sky 0.4 becomes 0.5333 (136); at the far corner (amount 0)
+/// it stays. A pixel of another colour with no sky tap still rises to `b / 0.75` by the
+/// amount (the centre's own weight over `0.75`).
+#[test]
+fn sky_bloom_spreads_the_sky_colour() {
+    let Some(mut r) = renderer() else { return };
+    let sky = [102, 102, 102];
+    let mut scene = Scene::new(
+        level(|_, _| [255, 255, 255]),
+        palette([0, 0, 0], &[(0, 7, sky)]),
+    );
+    let quad = Rect([800, 100, 1000, 300]);
+    scene
+        .over
+        .push(quad.quad(SpriteColor::rgb(0.2, 0.3, 0.1), Layer::Foreground));
+    let before = Before(scene.draw(&mut r, None));
+    let after = scene.draw(&mut r, Some((Shader::SkyBloom, 1.0)));
+    let (x, y) = (273, 614);
+    assert_near(rgb(&after, x, y), [0.5333; 3], (x, y));
+    assert_eq!(rgb(&after, 1360, 5), sky);
+    let sky = [0.4; 3];
+    for (x, y) in [
+        (273, 614),
+        (683, 384),
+        (1300, 50),
+        (900, 200),
+        (798, 200),
+        (1002, 250),
+        (900, 98),
+    ] {
+        assert_near(
+            rgb(&after, x, y),
+            sky_bloom(&before, x, y, 1.0, sky),
+            (x, y),
+        );
+    }
+}
+
+/// `LightBloom.shader`'s fragment; `behind` is whether something was drawn before the
+/// level at the pixel.
+fn light_bloom(
+    scene: &Scene,
+    before: &Before,
+    x: u32,
+    y: u32,
+    alpha: f32,
+    behind: bool,
+) -> [f32; 3] {
+    let s = scr(x, y);
+    let mut texcol = [0.0, 0.0, 0.0, 1.0];
+    let mut div = 0.0;
+    let mut coef = 1.0;
+    for j in 1..=4 {
+        let d = j as f32 * 0.0012;
+        coef *= 0.82;
+        for o in [[0.0, d], [-d * hor(), 0.0], [d * hor(), 0.0], [0.0, -d]] {
+            if scene.lit(x, y, o, behind) {
+                let g = before.grab([s[0] + o[0], s[1] + o[1]]);
+                for c in 0..4 {
+                    texcol[c] += g[c] * coef;
+                }
+            }
+        }
+        div += 4.0 * coef;
+    }
+    let g = before.grab(s);
+    div *= 0.5;
+    std::array::from_fn(|c| g[c] + texcol[c] / div * alpha)
+}
+
+/// `LightBloom`: where every tap is a sunlit level pixel (red 101) of colour 0.4 the
+/// sum is `0.4 * div`, over `div / 2`, times alpha 0.25: 0.4 + 0.2 (153); unlit pixels
+/// (red 11) add nothing; a creature drawn behind the level at a deep (layer 10) pixel
+/// masks every tap of that pixel. `CreatureMask` compares the vector `deep * grab ==
+/// 0` and returns it as a `bool`: HLSL keeps its first component, the grab's red, so a
+/// creature without red masks nothing (INFERRED from HLSL's implicit truncation).
+#[test]
+fn light_bloom_adds_the_lit_level_around() {
+    let Some(mut r) = renderer() else { return };
+    let mut scene = Scene::new(
+        level(|x, _| if x < 683 { [101, 0, 0] } else { [11, 0, 0] }),
+        palette([102, 102, 102], &[]),
+    );
+    let creature = Rect([200, 200, 300, 300]);
+    scene
+        .behind
+        .push(creature.quad(SpriteColor::rgb(0.5, 0.25, 0.0), Layer::Items));
+    let green = Rect([200, 500, 300, 600]);
+    scene
+        .behind
+        .push(green.quad(SpriteColor::rgb(0.0, 0.5, 0.0), Layer::Items));
+    let before = Before(scene.draw(&mut r, None));
+    assert_eq!(
+        rgb(&before.0, 250, 250),
+        [127, 64, 0],
+        "the creature shows through"
+    );
+    let after = scene.draw(&mut r, Some((Shader::LightBloom, 0.25)));
+    assert_near(rgb(&after, 400, 500), [0.6; 3], (400, 500));
+    assert_eq!(rgb(&after, 1000, 500), [102, 102, 102]);
+    assert_eq!(rgb(&after, 250, 250), [127, 64, 0], "masked");
+    assert_ne!(rgb(&after, 250, 550), [0, 127, 0], "not masked");
+    for (x, y) in [
+        (400, 500),
+        (1000, 500),
+        (680, 400),
+        (681, 400),
+        (684, 400),
+        (690, 100),
+        (302, 250),
+        (250, 550),
+    ] {
+        let behind = creature.contains(x, y);
+        assert_near(
+            rgb(&after, x, y),
+            light_bloom(&scene, &before, x, y, 0.25, behind),
+            (x, y),
+        );
+    }
+}
+
+/// `LightAndSkyBloom.shader`'s fragment.
+fn light_and_sky_bloom(
+    scene: &Scene,
+    before: &Before,
+    x: u32,
+    y: u32,
+    alpha: f32,
+    sky: [f32; 3],
+) -> [f32; 3] {
+    let s = scr(x, y);
+    let amount = (1.0 - (s[0] - 0.2).hypot(s[1] - 0.2))
+        .clamp(0.0, 1.0)
+        .sqrt()
+        * alpha;
+    let mid = before.grab(s);
+    let mut texcol = [0.0, 0.0, 0.0, 1.0];
+    let mut add = [0.0; 4];
+    let mut div = 1.0;
+    let mut coef = 1.0;
+    let mut coef2 = 1.0;
+    for j in 1..=6 {
+        let d = j as f32 * 0.0018;
+        coef *= 0.62;
+        for o in [[-1.0, 1.0], [1.0, 1.0], [1.0, -1.0], [-1.0, -1.0]] {
+            let g = before.grab([s[0] + o[0] * d * hor(), s[1] + o[1] * d]);
+            if (0..3).all(|c| byte(g[c]) == byte(sky[c])) {
+                for c in 0..4 {
+                    texcol[c] += g[c] * coef;
+                }
+                div += coef;
+            }
+            if scene.lit(x, y, [o[0] * d * hor(), -o[1] * d], false) {
+                for c in 0..3 {
+                    add[c] += mid[c].max(g[c]) * coef2;
+                }
+                add[3] += coef2;
+            }
+        }
+        coef2 *= 0.9;
+    }
+    let mut g = before.grab(s);
+    for c in 0..4 {
+        g[c] += texcol[c] * 0.5;
+    }
+    div *= 0.75;
+    let cut = 0.7 + (0.35 - 0.7) * amount;
+    std::array::from_fn(|c| {
+        let t = (g[c] + texcol[c]) / div;
+        let mut out = g[c].max(t);
+        let a = (add[c] - cut).max(0.0) * 0.5;
+        if a > out {
+            out += (a - out) * amount;
+        }
+        out
+    })
+}
+
+/// `LightAndSkyBloom`: all-sky taps around a sky pixel give `texcol = sky * 6.1556`
+/// (`4 * sum(0.62^j)`, j = 1..6), half of it added to the grab: `sky * 4.0778`, so the
+/// sky (10, 20, 30) becomes (40.8, 81.6, 122.3) whatever the alpha. All-lit taps of 0.102 sum
+/// `4 * sum(0.9^k) = 18.742` times 0.102: at (0.2, 0.2) of the screen (amount 1) the
+/// cut is 0.35: `(1.9110 - 0.35) * 0.5` = 0.7805 (199); at the far corner (amount 0)
+/// the pixel is the grab over 0.75: 0.1359 (35).
+#[test]
+fn light_and_sky_bloom_brightens_sky_and_lit_level() {
+    let Some(mut r) = renderer() else { return };
+    let sky: [u8; 3] = [10, 20, 30];
+    let scene = Scene::new(
+        level(|x, _| {
+            if x < 683 {
+                [255, 255, 255]
+            } else {
+                [101, 0, 0]
+            }
+        }),
+        palette([26, 26, 26], &[(0, 7, sky)]),
+    );
+    let before = Before(scene.draw(&mut r, None));
+    let after = scene.draw(&mut r, Some((Shader::LightAndSkyBloom, 1.0)));
+    assert_near(
+        rgb(&after, 300, 384),
+        [0.15991, 0.31982, 0.47973],
+        (300, 384),
+    );
+    let lit = Scene::new(
+        level(|_, _| [101, 0, 0]),
+        palette([26, 26, 26], &[(0, 7, sky)]),
+    );
+    let lit_after = lit.draw(&mut r, Some((Shader::LightAndSkyBloom, 1.0)));
+    assert_near(rgb(&lit_after, 273, 614), [0.7805; 3], (273, 614));
+    assert_near(rgb(&lit_after, 1360, 5), [0.1359; 3], (1360, 5));
+    let sky = unit(sky);
+    for (x, y) in [
+        (300, 384),
+        (273, 614),
+        (676, 400),
+        (681, 400),
+        (686, 400),
+        (695, 600),
+        (1300, 100),
+    ] {
+        assert_near(
+            rgb(&after, x, y),
+            light_and_sky_bloom(&scene, &before, x, y, 1.0, sky),
+            (x, y),
+        );
+    }
+}
+
+/// `Fog.shader`'s fragment as (rgb, alpha) before blending; `noise` is the constant
+/// noise texel, `pal2`/`sky` the palette's texels (0, 2) and (0, 7).
+#[allow(clippy::too_many_arguments)]
+fn fog(
+    scene: &Scene,
+    x: u32,
+    y: u32,
+    alpha: f32,
+    behind: bool,
+    noise: f32,
+    pal2: [f32; 3],
+    sky: [f32; 3],
+) -> Option<([f32; 3], f32)> {
+    let s = scr(x, y);
+    let uv = quad_uv(x, y);
+    let rain = scene.rain;
+    let amount = ((s[1] - ((1.0 - scene.water_level) - 0.11)) * 3.0).clamp(0.0, 1.0);
+    let mut fog2 = 0.5 + 0.5 * ((noise + rain * 0.04 + uv[0]) * GAME_TAU).sin();
+    let mut fog1 = 0.5 + 0.5 * ((noise + rain * 0.05 + uv[1]) * GAME_TAU).sin();
+    fog1 += (fog2 - fog1) * 0.5;
+    let code = scene.code(x, y, [0.0, 0.0]);
+    let mut dp = ((f32::from(code[0]) - 1.0) % 30.0) / 30.0;
+    if code[..3] == [255, 255, 255] {
+        dp = 1.0;
+    }
+    if dp > 6.0 / 30.0 && behind {
+        dp = 6.0 / 30.0;
+    }
+    if dp >= 0.999_999_97 {
+        fog2 = 0.5 + 0.5 * ((noise + rain * 0.14 - uv[0]) * GAME_TAU).sin();
+        fog2 *= (1.0 - uv[0].hypot(uv[1] - 0.9)).clamp(0.0, 1.0);
+        fog2 = fog2.powf(0.2) * amount * (1.0 - fog1.powf(1.5)) * alpha;
+        if fog2 > 0.5 {
+            let t = if fog2 > 0.6 { 0.25 } else { 0.1 };
+            return Some((sky.map(|c| c + (1.0 - c) * t), 1.0));
+        }
+    }
+    fog1 = fog1.powf(3.0) * alpha;
+    fog1 = fog1.powf(1.0 + (1.0 - dp.powf(0.1)) * 30.0);
+    fog1 = (fog1 - (1.0 - amount)).max(0.0).powf(0.2);
+    if fog1 > 0.1 {
+        let t = 0.5 + 0.5 * dp;
+        let rgb = std::array::from_fn(|c| pal2[c] + (sky[c] - pal2[c]) * t);
+        return Some((rgb, if fog1 > 0.5 { 0.6 } else { 0.2 }));
+    }
+    None
+}
+
+/// `Fog` over sky (left) and layer-2 terrain (right, red 3), with noise 128: drawn with
+/// `SrcAlpha OneMinusSrcAlpha` over the frame; below the water line (`_waterLevel` 0.5:
+/// the lower half) it thins out. Light patches over the sky are opaque.
+#[test]
+fn fog_bands_over_sky_and_terrain() {
+    let Some(mut r) = renderer() else { return };
+    let (pal2, sky, base) = ([200, 40, 40], [40, 40, 200], [90, 90, 90]);
+    let mut scene = Scene::new(
+        level(|x, _| if x < 683 { [255, 255, 255] } else { [3, 0, 0] }),
+        palette(base, &[(0, 2, pal2), (0, 7, sky)]),
+    );
+    scene.rain = 1.3;
+    scene.water_level = 0.5;
+    let creature = Rect([100, 100, 200, 200]);
+    scene
+        .behind
+        .push(creature.quad(SpriteColor::rgb(0.0, 0.5, 0.0), Layer::Items));
+    let before = Before(scene.draw(&mut r, None));
+    let after = scene.draw(&mut r, Some((Shader::Fog, 0.9)));
+    let mut patches = 0;
+    let mut fogged = 0;
+    for y in (3..H).step_by(29) {
+        for x in (5..W).step_by(37) {
+            if (x as i64 - 683).abs() < 3 {
+                continue;
+            }
+            let behind = creature.contains(x, y);
+            let below = before.px(i64::from(x), i64::from(y));
+            let want = match fog(
+                &scene,
+                x,
+                y,
+                0.9,
+                behind,
+                128.0 / 255.0,
+                unit(pal2),
+                unit(sky),
+            ) {
+                Some((rgb, a)) => {
+                    if a == 1.0 {
+                        patches += 1;
+                    } else {
+                        fogged += 1;
+                    }
+                    std::array::from_fn(|c| rgb[c] * a + below[c] * (1.0 - a))
+                }
+                None => [below[0], below[1], below[2]],
+            };
+            assert_near(rgb(&after, x, y), want, (x, y));
+        }
+    }
+    assert!(
+        patches > 0 && fogged > 0,
+        "{patches} patches, {fogged} fogged"
+    );
+}

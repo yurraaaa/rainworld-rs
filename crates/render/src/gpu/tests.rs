@@ -162,6 +162,7 @@ fn background_shortcut_reads_the_level_behind_it() {
         size: [64.0, 64.0],
         rain: 0.0,
         light: 1.0,
+        water_level: 1.0,
     });
     let frame = r.render_image().unwrap();
     // The quad spans 16..48: lit over the dot texels, hidden over the others.
@@ -228,6 +229,7 @@ fn colored_sprite3_colours_by_depth_from_the_palette() {
         size: [64.0, 64.0],
         rain: 0.0,
         light: 1.0,
+        water_level: 1.0,
     });
     let list = DrawList {
         items: vec![white_sprite(
@@ -308,6 +310,7 @@ fn colored_sprite3_tests_the_level_texel_under_the_pixel() {
         size: [64.0, 64.0],
         rain: 0.0,
         light: 1.0,
+        water_level: 1.0,
     });
     let list = DrawList {
         items: vec![white_sprite(
@@ -402,6 +405,7 @@ fn sun_block_takes_the_sun_without_masking() {
         size: [64.0, 64.0],
         rain: 0.0,
         light: 1.0,
+        water_level: 1.0,
     });
     let frame = r.render_image().unwrap();
     // The quad spans 16..48.
@@ -433,6 +437,7 @@ fn object_shadow_reads_the_grab_toward_the_light() {
         size: [64.0, 64.0],
         rain: 0.0,
         light: 1.0,
+        water_level: 1.0,
     });
     let frame = r.render_image().unwrap();
     assert_eq!(pixel(&frame, 24, 32), [0, 0, 200]);
@@ -482,6 +487,7 @@ fn palette_rewrite_refreshes_the_fog_amount() {
         size: [64.0, 64.0],
         rain: 0.0,
         light: 1.0,
+        water_level: 1.0,
     };
     r.draw_level(view);
     assert_eq!(pixel(&r.render_image().unwrap(), 32, 32), [0, 0, 0]);
@@ -489,4 +495,89 @@ fn palette_rewrite_refreshes_the_fog_amount() {
     r.begin_frame(Camera::window([0.0, 0.0], [64.0, 64.0], SIZE));
     r.draw_level(view);
     assert_eq!(pixel(&r.render_image().unwrap(), 32, 32), [80, 0, 0]);
+}
+
+/// A 64 px wide, 4096 px tall level (only its bottom 64 rows show) whose row `n` from
+/// the bottom has depth `n % 30` (red `1 + n % 30`, unlit), coloured red `8 * depth`
+/// from palette row 0, under a constant noise of 128, drawn with `_WetTerrain` and
+/// `_waterLevel` as given; returns each frame pixel's image row modulo 30.
+fn wet_rows(r: &mut WgpuRenderer, wet: f32, water_level: f32) -> Vec<[u8; 64]> {
+    let image = PngImage::from_pixels(
+        64,
+        4096,
+        (0..64 * 4096)
+            .map(|i| [1 + ((4095 - i / 64) % 30) as u8, 0, 0, 255])
+            .collect(),
+    );
+    let mut pixels = vec![[0, 0, 0, 255]; 512];
+    for k in 0..30 {
+        pixels[7 * 32 + k] = [8 * k as u8, 0, 0, 255];
+    }
+    let palette = PaletteTexture::blend(
+        &PaletteImage::from_image(&PngImage::from_pixels(32, 16, pixels)).unwrap(),
+        None,
+        0.0,
+    );
+    let noise =
+        NoiseTexture::from_image(&PngImage::from_pixels(64, 64, vec![[128, 0, 0, 255]; 4096]))
+            .unwrap();
+    r.set_level(&LevelGraphics {
+        camera_pos: [0.0, 0.0],
+        image: &image,
+        palette: &palette,
+        noise: &noise,
+        params: LevelParams {
+            wet_terrain: wet,
+            ..LevelParams::DEFAULT
+        },
+    });
+    r.begin_frame(Camera::window([0.0, 0.0], [64.0, 64.0], SIZE));
+    r.draw_level(LevelView {
+        origin: [0.0, 0.0],
+        size: [64.0, 64.0],
+        rain: 4.909,
+        light: 1.0,
+        water_level,
+    });
+    let frame = r.render_image().unwrap();
+    (0..64)
+        .map(|y| std::array::from_fn(|x| pixel(&frame, x as u32, y)[0] / 8))
+        .collect()
+}
+
+/// How many image rows (modulo 30) `wet` reads above `dry`.
+fn row_shift(wet: u8, dry: u8) -> i32 {
+    (i32::from(wet) - i32::from(dry)).rem_euclid(30)
+}
+
+/// `LevelColor`'s wet terrain: `displace = saturate((sin((n + u + v + _RAIN * 0.1) * 3 *
+/// 3.14) - 0.95) * 20)` moves the colour lookup up by `displace * 0.001` of the image.
+/// With noise 0.502 and `_RAIN` 4.909 the sine peaks at `u + v` = 0.508, mid-screen:
+/// there the 4096-row image is read 3 to 4 rows higher (`4.096 * displace`), and
+/// nowhere a few pixels away; the band follows `u + v`. Off with `_WetTerrain` 0, and below the water
+/// line: with `_waterLevel` 0.5 only the top half of the screen is wet.
+#[test]
+fn wet_terrain_moves_the_lookup_up_in_bands() {
+    let Some(mut r) = renderer() else { return };
+    let dry = wet_rows(&mut r, 0.0, 1.0);
+    let wet = wet_rows(&mut r, 1.0, 1.0);
+    assert_eq!(wet_rows(&mut r, 1.0, 0.0), dry, "all below the water line");
+    // The bottom row lies on the water line's edge (`screenPos.y` just past 1): dry.
+    for y in 0..63 {
+        let shifts: Vec<i32> = (0..64).map(|x| row_shift(wet[y][x], dry[y][x])).collect();
+        let peak = shifts[28..=35].iter().copied().max().unwrap_or(0);
+        assert!((3..=5).contains(&peak), "row {y}: {shifts:?}");
+        assert!(
+            shifts
+                .iter()
+                .enumerate()
+                .all(|(x, &s)| s == 0 || (26..=37).contains(&x)),
+            "row {y}: {shifts:?}"
+        );
+    }
+    let half = wet_rows(&mut r, 1.0, 0.5);
+    for y in 0..64 {
+        let moved = (28..=35).any(|x| half[y][x] != dry[y][x]);
+        assert_eq!(moved, y < 32, "row {y}: wet only above the line");
+    }
 }

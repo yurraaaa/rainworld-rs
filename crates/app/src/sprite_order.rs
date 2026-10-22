@@ -17,10 +17,14 @@
 //!   player's `Foreground` sprites stay out, re-added on top); a holder whose leaser goes
 //!   takes them off the stage with its container.
 //!
+//! - `ApplyPalette` re-adds the camera's full-screen effect sprite on top: at the end of
+//!   a move to a room or camera (`ApplyPositionChange`, after the leasers and shortcut
+//!   graphics), and whenever `ApplyFade` rebuilds the palette.
+//!
 //! Every re-add here moves all of a drawable's sprites, so one order over the drawables
 //! stands for every container's.
 //!
-//! Mirrors: RoomCamera.cs (NewObjectInRoom, ChangeRoom, MoveObjectToContainer, MoveObjectToInternalContainer), Room.cs (AddObject, NowViewed), GraphicsModule.cs (AddObjectToInternalContainer, ReleaseAllInternallyContainedSprites, ReleaseSpecificInternallyContainedObjectSprites, BringSpritesToFront), Weapon.cs (ChangeOverlap, AddToContainer), FContainer.cs (AddChild)
+//! Mirrors: RoomCamera.cs (NewObjectInRoom, ChangeRoom, ApplyPositionChange, SetUpFullScreenEffect, MoveObjectToContainer, MoveObjectToInternalContainer), Room.cs (AddObject, NowViewed), GraphicsModule.cs (AddObjectToInternalContainer, ReleaseAllInternallyContainedSprites, ReleaseSpecificInternallyContainedObjectSprites, BringSpritesToFront), Weapon.cs (ChangeOverlap, AddToContainer), FContainer.cs (AddChild)
 
 use rw_sim::item::Entity;
 
@@ -38,6 +42,9 @@ pub enum Drawable {
     /// `ShortcutGraphics` (not a leaser: its sprites join the containers after the
     /// room's leasers).
     Shortcuts,
+    /// The room camera's `fullScreenEffect` sprite (not a leaser: re-added on top of
+    /// its container by every `ApplyPalette`).
+    FullScreenEffect,
 }
 
 /// Where a drawable's leaser goes when the camera moves to its room.
@@ -192,13 +199,22 @@ impl SpriteOrder {
         for p in sorted {
             self.arrive(p);
         }
-        self.leasers.push(Leaser {
-            drawable: Drawable::Shortcuts,
-            seq: 0,
-            parent: Parent::Room,
-            behind: false,
-            overlap_moves: 0,
-        });
+        for drawable in [Drawable::Shortcuts, Drawable::FullScreenEffect] {
+            self.leasers.push(Leaser {
+                drawable,
+                seq: 0,
+                parent: Parent::Room,
+                behind: false,
+                overlap_moves: 0,
+            });
+        }
+    }
+
+    /// `ApplyPalette`'s `SetUpFullScreenEffect`: the effect sprite on top.
+    pub fn raise_full_screen_effect(&mut self) {
+        if self.position(Drawable::FullScreenEffect).is_some() {
+            self.re_add(Drawable::FullScreenEffect, Parent::Room, false);
+        }
     }
 
     /// Leasers whose drawable left the room, or came back to it (a new `AddObject`),
@@ -208,7 +224,7 @@ impl SpriteOrder {
             .leasers
             .iter()
             .filter(|l| {
-                l.drawable != Drawable::Shortcuts
+                !matches!(l.drawable, Drawable::Shortcuts | Drawable::FullScreenEffect)
                     && !present
                         .iter()
                         .any(|p| p.drawable == l.drawable && p.seq == l.seq)

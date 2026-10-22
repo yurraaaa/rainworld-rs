@@ -25,7 +25,7 @@ struct RoomUniform {
     hologram_threshold: f32,
     frame: [f32; 2],
     fog_amount: f32,
-    pad: f32,
+    water_level: f32,
 }
 
 /// The sprite pipelines, the atlas pages' bind groups and the frame's buffers.
@@ -37,6 +37,8 @@ pub(crate) struct SpritePipeline {
     sampler: wgpu::Sampler,
     /// `_NoiseTex`'s import settings.
     noise_sampler: wgpu::Sampler,
+    /// The full-screen effects' frame grab: bilinear, clamped.
+    grab_sampler: wgpu::Sampler,
     uniform: wgpu::Buffer,
     /// One per atlas page, set by [`SpritePipeline::set_atlas`].
     pages: Vec<wgpu::BindGroup>,
@@ -62,7 +64,7 @@ pub(crate) struct ScreenTextures<'a> {
 
 impl SpritePipeline {
     /// Each shader and its fragment entry point.
-    const SHADERS: [(Shader, &'static str); 10] = [
+    const SHADERS: [(Shader, &'static str); 15] = [
         (Shader::Basic, "fs_basic"),
         (Shader::FlatLight, "fs_flat_light"),
         (Shader::OverseerZip, "fs_overseer_zip"),
@@ -73,6 +75,11 @@ impl SpritePipeline {
         (Shader::ShortCut0, "fs_shortcut"),
         (Shader::ColoredSprite3, "fs_colored_sprite3"),
         (Shader::UnderWaterLight, "fs_under_water_light"),
+        (Shader::Bloom, "fs_bloom"),
+        (Shader::SkyBloom, "fs_sky_bloom"),
+        (Shader::LightBloom, "fs_light_bloom"),
+        (Shader::LightAndSkyBloom, "fs_light_and_sky_bloom"),
+        (Shader::Fog, "fs_fog"),
     ];
 
     /// `_hologramThreshold` at render scale 1 (`RainWorld`, decompile 110635: 0.5 when
@@ -138,7 +145,7 @@ impl SpritePipeline {
             entries: &[
                 Self::texture_entry(0, false),
                 Self::texture_entry(1, false),
-                Self::texture_entry(2, false),
+                Self::texture_entry(2, true),
                 Self::texture_entry(3, false),
                 Self::texture_entry(4, true),
                 wgpu::BindGroupLayoutEntry {
@@ -147,11 +154,20 @@ impl SpritePipeline {
                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                     count: None,
                 },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 6,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
             ],
         });
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("sprite.wgsl"),
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("../shaders/sprite.wgsl"))),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(concat!(
+                include_str!("../shaders/sprite.wgsl"),
+                include_str!("../shaders/full_screen.wgsl"),
+            ))),
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("sprites"),
@@ -181,6 +197,14 @@ impl SpritePipeline {
             label: Some("sprite noise"),
             address_mode_u: wgpu::AddressMode::Repeat,
             address_mode_v: wgpu::AddressMode::Repeat,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            ..Default::default()
+        });
+        let grab_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("sprite grab"),
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
             ..Default::default()
@@ -215,7 +239,7 @@ impl SpritePipeline {
         let blank_screen = Self::screen_group(
             device,
             &screen_layout,
-            &noise_sampler,
+            [&noise_sampler, &grab_sampler],
             &ScreenTextures {
                 level: &blank,
                 behind: &blank,
@@ -231,6 +255,7 @@ impl SpritePipeline {
             screen_layout,
             sampler,
             noise_sampler,
+            grab_sampler,
             uniform,
             pages: Vec::new(),
             noise_group: None,
@@ -362,10 +387,11 @@ impl SpritePipeline {
         })
     }
 
+    /// `samplers`: `_NoiseTex`'s and the grab's.
     fn screen_group(
         device: &wgpu::Device,
         layout: &wgpu::BindGroupLayout,
-        noise_sampler: &wgpu::Sampler,
+        samplers: [&wgpu::Sampler; 2],
         textures: &ScreenTextures<'_>,
     ) -> wgpu::BindGroup {
         let views = [
@@ -383,10 +409,12 @@ impl SpritePipeline {
                 resource: wgpu::BindingResource::TextureView(view),
             })
             .collect();
-        entries.push(wgpu::BindGroupEntry {
-            binding: 5,
-            resource: wgpu::BindingResource::Sampler(noise_sampler),
-        });
+        for (i, sampler) in samplers.into_iter().enumerate() {
+            entries.push(wgpu::BindGroupEntry {
+                binding: 5 + i as u32,
+                resource: wgpu::BindingResource::Sampler(sampler),
+            });
+        }
         device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("sprite screen textures"),
             layout,
@@ -400,7 +428,12 @@ impl SpritePipeline {
         device: &wgpu::Device,
         textures: &ScreenTextures<'_>,
     ) -> wgpu::BindGroup {
-        Self::screen_group(device, &self.screen_layout, &self.noise_sampler, textures)
+        Self::screen_group(
+            device,
+            &self.screen_layout,
+            [&self.noise_sampler, &self.grab_sampler],
+            textures,
+        )
     }
 
     /// The screen textures for drawing into the "behind" target: the level image and
@@ -416,7 +449,7 @@ impl SpritePipeline {
         Self::screen_group(
             device,
             &self.screen_layout,
-            &self.noise_sampler,
+            [&self.noise_sampler, &self.grab_sampler],
             &ScreenTextures {
                 level,
                 behind: &self.blank,
@@ -458,7 +491,7 @@ impl SpritePipeline {
             hologram_threshold: Self::HOLOGRAM_THRESHOLD,
             frame: [frame_size.0 as f32, frame_size.1 as f32],
             fog_amount: globals.fog_amount,
-            pad: 0.0,
+            water_level: globals.water_level,
         };
         queue.write_buffer(&self.uniform, 0, bytemuck::bytes_of(&uniform));
         self.noise_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {

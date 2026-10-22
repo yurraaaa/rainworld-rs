@@ -10,7 +10,9 @@
 //! the level a little along the room's light angle (a `SunBlocker` fills the screen with
 //! `(1/255, 0, 0)`, which shadows everything and masks nothing).
 //!
-//! Not drawn yet: wet-terrain ripples and the heat/melt/ripple variants.
+//! Wet terrain moves the colour lookup up by under a row in thin moving bands above the
+//! water line (`_WetTerrain`, `_waterLevel`). Not drawn yet: the heat/melt/ripple
+//! variants.
 //!
 //! Mirrors: RoomCamera.cs (ApplyPalette, ChangeRoom, DrawUpdate shader globals), Room.cs (NowViewed)
 
@@ -37,6 +39,8 @@ pub struct LevelParams {
     pub atmosphere: [f32; 3],
     /// `room.lightAngle`, the object-shadow offset per depth step (`_lightDirAndPixelSize.xy`).
     pub light_dir: [f32; 2],
+    /// `_WetTerrain`: 1 unless the room's own settings say `WetTerrain` (off).
+    pub wet_terrain: f32,
 }
 
 impl LevelParams {
@@ -54,6 +58,7 @@ impl LevelParams {
         rim_fix: 0.0,
         atmosphere: [0.0; 3],
         light_dir: [0.0; 2],
+        wet_terrain: 0.0,
     };
 
     /// `atmosphereColor` of `AboveCloudsView` and `RoofTopView`, which their constructors
@@ -77,6 +82,7 @@ impl LevelParams {
                 [0.0; 3]
             },
             light_dir,
+            wet_terrain: if settings.wet_terrain { 1.0 } else { 0.0 },
             ..Self::DEFAULT
         }
     }
@@ -129,6 +135,10 @@ pub struct LevelView {
     pub rain: f32,
     /// `_light`: 1 = full sun, -1 = no sun ([`LevelParams::light`]).
     pub light: f32,
+    /// `_waterLevel`: the water line (water + 100 px, or the death fall + 180 px) as a
+    /// fraction of the screen from its top, 0 in gates and shelters, 1 (clamped) with
+    /// neither. Wet terrain is drawn only above it; the `Fog` effect fades out below.
+    pub water_level: f32,
 }
 
 #[cfg(test)]
