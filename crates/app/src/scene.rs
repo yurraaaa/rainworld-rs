@@ -386,6 +386,12 @@ impl Scene {
             .as_ref()
             .map_or(0.0, |v| v.room_palette().darkness);
         self.game.sim_mut().set_camera_darkness(darkness);
+        let camera_room = self.game.sim().camera_room();
+        let image = self
+            .visuals
+            .as_ref()
+            .map(|v| v.camera_image(camera_room, self.camera.position(self.camera.current())));
+        self.game.sim_mut().set_camera_image(image);
         self.link_trigger_hud();
         self.game.tick(input);
         self.apply_game_over(shared);

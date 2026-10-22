@@ -27,7 +27,8 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `game_insects.rs`, `game_insects_tests.rs` | cosmetic insects in the update list: `NowViewed`/`NoLongerViewed` at the camera's room change, creatures for the avoiders, the firefly's light | `Room.NowViewed` insect branch |
 | `game_hits.rs` | thrown rock/spear vs creatures | `Weapon.Update` Thrown branch |
 | `game_holo_light.rs` | Monk guide light in the update list | `HologramLight.TryCreate` |
-| `game_instructions.rs` | guide's placed room objects, input-instruction triggers | `SuperJumpInstruction`, `ReliableIggyDirection` |
+| `game_lights.rs`, `game_lights_tests.rs` | light sources in the update list: placed lights (`Room.Loaded`), the glowing player's light (`PlayerGlow`), camera 0's picture they read, `Darkness`, `LightSourceExposure`/`LightSourceColor`/`DarknessOfPoint` | `Room` light members, `LightSource.Update`, `PlayerGraphics.Update` light |
+| `game_instructions.rs` | `Room.Loaded`'s placed room objects (guide triggers, placed lights), input-instruction triggers | `SuperJumpInstruction`, `ReliableIggyDirection` |
 | `game_items.rs` | slugcat grabbing: `Grabability` (dead lizards: `Drag`), `CanIPickThisUp`, pick-up candidate | `Player` item rules |
 | `game_eat_meat.rs`, `game_eat_meat_tests.rs` | eating a held dead creature: `CanEatMeat`, `GrabUpdate`'s meat block, `EatMeatUpdate` (bites, drips, food) | `Player.EatMeatUpdate` |
 | `game_lizards.rs` | realized lizards in the update list, vessels, `SpitOutOfShortCut` | `Lizard.Update` |
@@ -57,7 +58,8 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `chunk.rs` | `BodyChunk` integration + tile collision | `BodyChunk.Update` |
 | `object.rs` | `PhysicalObject`: chunks + distance constraints | `PhysicalObject` |
 | `item.rs` | abstract objects (`AbstractObject`, `Entity`, `ObjectData`, `AbstractSpear`), save strings | `AbstractPhysicalObject` |
-| `light_source.rs` | `LightSource` in the update list | `LightSource` |
+| `light_source.rs` | `LightSource` (`Alpha`, `Lightness`, update) | `LightSource` |
+| `camera_image.rs` | `CameraImage`: camera 0's level image and palette (`PixelColorAtCoordinate`, effect colours) | `RoomCamera.PixelColorAtCoordinate` |
 | `map_discovery.rs` | per-region discovery textures, base64 PNG form | `PlayerProgression` map textures |
 | `shared_physics.rs` | point terrain collision, exact tile ray trace | `SharedPhysics`, `Custom.RectCollision` |
 | `noise.rs` | `InGameNoise`, terrain-impact noise, `NoiseSink` (an updating object's noises and screen movements), `RoomCall`, `ImpactCalls` | `Noise/InGameNoise.cs` |
@@ -198,6 +200,7 @@ sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `m
 | The Hunter's spear on the back | `game_spear_on_back.rs`, `player/spear_on_back.rs`, `item/on_back_stick.rs` |
 | Body physics / collision | `chunk.rs`, `object.rs`, `player/mod.rs` |
 | Overseer / guide | `creature/overseer/`, `world/overseers_world_ai.rs`, `game_holo_light.rs` |
+| Lights (placed, player glow, room light queries) | `light_source.rs`, `game_lights.rs`, `camera_image.rs`; sprites in `rw-graphics` `light_source.rs` |
 | Bat flies | `creature/fly/`, `world/flies_world_ai.rs`, `game_flies.rs` |
 | Cosmetic insects (Flies, RockFlea, ... effects, `InsectGroup`) | `insect/`, `game_insects.rs`; sprites in `rw-graphics` `insect_graphics.rs` |
 | Dev spawns / teleport | `game_dev.rs`, `spawn.rs` |

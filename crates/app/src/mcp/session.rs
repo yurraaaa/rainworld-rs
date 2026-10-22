@@ -554,6 +554,7 @@ impl Session {
             triggers: TriggerState::all(sim),
             sprite_order: Self::sprite_order(scene),
             holo_lights: Self::holo_lights(scene),
+            lights: super::reply::RoomLightState::all(sim),
             insects: super::reply::RoomInsects::all(sim.world()),
             holo_light_needed: sim.holo_light_needed(),
             dens: Self::dens(scene),
