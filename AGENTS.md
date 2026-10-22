@@ -245,6 +245,8 @@ prefer these over `--screenshot`/`--script`; briefs for such agents say so.
 
 - Headless and deterministic: the sim advances only in `step` /
   `step_sequence` (40 ticks/s); same start, seed and inputs give the same run.
+  `load_room` and `new_game` start a fresh music player (it draws from the game's
+  random stream), so runs repeat within one server process too.
 - `load_room` loads a room's region world with the player in it (arena
   levels: a single-room world) as `slugcat` (default `White`); `new_game`
   starts a campaign (`White`, `Yellow`, `Red`; `malnourished` option) at its
