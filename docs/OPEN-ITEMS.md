@@ -127,3 +127,12 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   den. Believed to be the game's behaviour; confirm once cicadas have bodies.
 - **`ShelterFinder` panics** (`ShelterFinder::update`, test `overseers_world_ai.rs`
   ~288) in test worlds without shelters. Real regions always have shelters.
+- **Held creature's double update** (user, 2026-10-22: later): a creature placed in a
+  room while held (`AddObject` twice) has two entries in the game's `updateList` and
+  `drawableObjects` and updates twice a tick; the port keeps one entry (D14 in
+  `docs/divergences/sim.md`).
+- **First room's sprite order at game start** (user, 2026-10-22: survey later): the
+  game realizes the first room in the `RainWorldGame` constructor, but the camera's first
+  `ChangeRoom`/`NowViewed` waits for its level texture (`RoomCamera.Update` →
+  `ApplyPositionChange`). Whether the first room's creatures join the sprite order before
+  or after depends on frame timing (`../rainworld-re/notes/creature-model/model.md` §4).
