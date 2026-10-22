@@ -28,6 +28,8 @@ mod heavy_ai;
 mod hits;
 #[path = "game_holo_light.rs"]
 mod holo_light;
+#[path = "game_insects.rs"]
+mod insects;
 #[path = "game_instructions.rs"]
 mod instructions;
 #[path = "game_items.rs"]
@@ -346,6 +348,8 @@ enum RoomObject {
     HoloLight(u64),
     /// A `LightSource` by id.
     LightSource(u64),
+    /// A cosmetic insect by its place in the update list.
+    Insect(u64),
     Lizard(CreatureId),
 }
 
@@ -449,6 +453,8 @@ pub struct RainWorldGame {
     hud_map: HudMapLink,
     /// Camera 0's `PaletteDarkness()`, as the app last reported it.
     camera_darkness: f32,
+    /// The camera's room change the insects have yet to follow.
+    insect_view: Option<insects::InsectViewChange>,
     /// Set when the cycle ends (the shelter closes, the player starves).
     session_end: Option<SessionEnd>,
     /// Food added this cycle (`saveState.totFood`'s share).
@@ -580,6 +586,10 @@ impl RainWorldGame {
             heavy_ai: HeavyAiThrottle::default(),
             hud_map: HudMapLink::default(),
             camera_darkness: 0.0,
+            insect_view: Some(insects::InsectViewChange {
+                from: None,
+                to: start.room,
+            }),
             session_end: None,
             session_food: 0,
             eaten: Vec::new(),
@@ -646,6 +656,9 @@ impl RainWorldGame {
         };
         let guide = &story.guide;
         world.rain_cycle = RainCycle::new_story(campaign.name, rng);
+        if story.cycle_number > 0 {
+            world.rain_cycle.start_up_ticks = 2400;
+        }
         let mut respawn = story.respawn_creatures.clone();
         let fresh = story.region_state.is_none() && story.live_region_state.is_none();
         // `World.LoadWorld`: the region state still in memory, else read from its load
@@ -780,6 +793,7 @@ impl RainWorldGame {
     /// delay, its water, and the player in it with its graphics), then the loading
     /// step.
     pub fn tick(&mut self, input: Input, observer: &mut dyn PlayerObserver) {
+        self.apply_insect_view_change();
         let follow = self.follow_creature();
         if let (Some(realizer), Some(follow)) = (&mut self.realizer, follow) {
             realizer.update(
@@ -1270,6 +1284,8 @@ impl RainWorldGame {
         observer: &mut dyn PlayerObserver,
     ) {
         self.camera_changed_room(self.camera_room, room, observer);
+        let from = self.insect_view.map_or(Some(self.camera_room), |v| v.from);
+        self.insect_view = Some(insects::InsectViewChange { from, to: room });
         self.camera_room = room;
         let camera = usize::try_from(viewed_by_camera).unwrap_or(0);
         self.camera_move = Some(CameraMove { room, camera });
@@ -1369,13 +1385,22 @@ impl RainWorldGame {
         objects.extend(self.room_holo_light_objects(index));
         objects.extend(self.room_light_source_objects(index));
         objects.extend(self.room_slide_loop_objects(index));
+        objects.extend(self.room_insect_objects(index));
         objects.sort_by_key(|&(seq, _)| std::cmp::Reverse(seq));
         let mut player_done = false;
+        // What the insects read of the room's creatures, until anything else moves.
+        let mut insect_creatures = None;
         for (seq, object) in objects {
             if !player_done && self.player_seq > seq {
                 self.update_room_player_now(index, input, observer);
                 player_done = true;
+                insect_creatures = None;
             }
+            if let RoomObject::Insect(order) = object {
+                self.run_insect(index, order, &mut insect_creatures);
+                continue;
+            }
+            insect_creatures = None;
             match object {
                 RoomObject::Overseer(id) => {
                     let in_room = self
@@ -1420,6 +1445,7 @@ impl RainWorldGame {
                 RoomObject::Cosmetic(id) => self.run_cosmetic(index, id),
                 RoomObject::HoloLight(id) => self.run_holo_light(index, id, observer),
                 RoomObject::LightSource(id) => self.run_light_source(index, id),
+                RoomObject::Insect(_) => {}
             }
         }
         self.remove_slated_trigger_objects();

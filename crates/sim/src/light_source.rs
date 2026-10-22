@@ -14,6 +14,8 @@ pub enum LightTie {
     HoloLight(u64),
     /// A lizard (its graphics' head light).
     Lizard(crate::creature::CreatureId),
+    /// A cosmetic insect (a firefly) by its place in the update list.
+    Insect(u64),
 }
 
 /// `LightSource`.

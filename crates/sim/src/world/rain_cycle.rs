@@ -91,6 +91,9 @@ pub struct RainCycle {
     pub day_night_counter: i32,
     pub rainbow_seed: i32,
     pub water_cycle: WaterLevelCycle,
+    /// `startUpTicks`: 2400 in a story past its first cycle (`cycleStartUp` is on and
+    /// no start is a dev start), else 0.
+    pub start_up_ticks: i32,
 }
 
 impl RainCycle {
@@ -121,6 +124,7 @@ impl RainCycle {
             day_night_counter: 0,
             rainbow_seed,
             water_cycle: WaterLevelCycle::new(rng),
+            start_up_ticks: 0,
         }
     }
 
@@ -128,6 +132,15 @@ impl RainCycle {
     #[must_use]
     pub fn time_until_rain(&self) -> i32 {
         self.cycle_length - self.timer
+    }
+
+    /// `CycleStartUp`: how far into its start-up ticks the cycle is (1 without them).
+    #[must_use]
+    pub fn cycle_start_up(&self) -> f32 {
+        if self.start_up_ticks <= 0 {
+            return 1.0;
+        }
+        (self.timer as f32).inverse_lerp(0.0, self.start_up_ticks as f32)
     }
 
     /// `AmountLeft`: the share of the cycle before the rain, below 0 after it.

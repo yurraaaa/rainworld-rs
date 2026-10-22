@@ -6,6 +6,7 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 
+pub use super::insect_reply::RoomInsects;
 pub use super::music_reply::{MusicState, TriggerState};
 
 use super::params::InputParam;
@@ -79,6 +80,9 @@ pub struct State {
     /// The guide's `HologramLight`s (the Monk's light in dark rooms).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub holo_lights: Vec<HoloLightState>,
+    /// The realized rooms' cosmetic insects (rooms without a coordinator left out).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub insects: Vec<RoomInsects>,
     /// `HologramLight.Needed(player)` now.
     pub holo_light_needed: f32,
     /// What the session keeps of its deaths.

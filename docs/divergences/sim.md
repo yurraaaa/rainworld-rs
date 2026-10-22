@@ -942,6 +942,12 @@ Physics: burrowing, terrain curves (`TerrainCurve`), the curved-terrain `Terrain
 call, the room-range clamp's skip for grabbed objects, and `DefaultTile`.
 
 Room: `Room.Update`'s ambient ceiling drips (`WaterDrip`s from the ceiling of a room with
-`CeilingDrips`), the `WaterDrip`s of skids, slides and corridor shoots, and the
-cosmetic insects (`InsectCoordinator`), among them the `MiniFly`s that buzz around
-corpses and a malnourished slugcat (the bat flies do not).
+`CeilingDrips`), and the `WaterDrip`s of skids, slides and corridor shoots.
+
+Cosmetic insects (`rw_sim::insect`, effects step 3): `InsectCoordinator.Explosion` (insects
+fleeing an explosion), `NowViewed`'s early-out in an echo's room
+(`worldGhost.CreaturesSleepInRoom`; no echoes yet) and terrain curves in their point
+collision. The coordinator's `NowViewed` runs at the head of the tick after the camera
+moved, as the game's `RoomCamera.ChangeRoom` does; a room's water surface is made only
+when it finishes loading (D14), so an insect rolled before that reads the still water
+level.

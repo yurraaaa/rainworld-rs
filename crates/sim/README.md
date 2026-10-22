@@ -24,6 +24,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `game_dev.rs` | dev spawns/teleports through the game's own paths (MCP, debug UI) | - (port dev tool, D18) |
 | `game_exit.rs` | what pause/`ExitGame` read | `RainWorldGame.ExitGame` |
 | `game_flies.rs` | bat flies in the tick: world process, `ReadyForAI`, vessels, lobby turns | `FliesWorldAI` hookup |
+| `game_insects.rs` | cosmetic insects in the update list: `NowViewed`/`NoLongerViewed` at the camera's room change, creatures for the avoiders, the firefly's light | `Room.NowViewed` insect branch |
 | `game_hits.rs` | thrown rock/spear vs creatures | `Weapon.Update` Thrown branch |
 | `game_holo_light.rs` | Monk guide light in the update list | `HologramLight.TryCreate` |
 | `game_instructions.rs` | guide's placed room objects, input-instruction triggers | `SuperJumpInstruction`, `ReliableIggyDirection` |
@@ -58,6 +59,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `light_source.rs` | `LightSource` in the update list | `LightSource` |
 | `map_discovery.rs` | per-region discovery textures, base64 PNG form | `PlayerProgression` map textures |
 | `noise.rs` | `InGameNoise`, terrain-impact noise, `NoiseSink` | `Noise/InGameNoise.cs` |
+| `shared_physics.rs` | point terrain collision, exact tile ray trace | `SharedPhysics`, `Custom.RectCollision` |
 | `room_ext.rs`, `color.rs`, `float_ext.rs`, `vec2.rs`, `vec3.rs` | position lookups on `Room`; `Custom` colour/scalar helpers; vectors | `RWCustom.Custom` |
 | `room_script.rs` | room-specific scripts (`RoomScript`, SU_C04 start) | `RoomSpecificScript` |
 | `shelter.rs` | `ShelterDoor` (intact, base game) | `ShelterDoor` |
@@ -136,6 +138,15 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 - `path_finder/`: `mod.rs` (`PathFinder`), `mapper.rs` (`AccessibilityMapper`, world path
   finders), `lizard.rs` (`PatherKind`, the lizard pather's cost functions).
 
+## `insect/` (cosmetic insects; shared-stream draws, so simulated here)
+
+`mod.rs` (`InsectType`, `InsectBase`, `CosmeticInsect`, `InsectCx`), `coordinator.rs`
+(`InsectCoordinator`, `InsectGroup` placed objects, spawning), `avoider.rs`
+(`CreatureAvoider`), one file per kind: `mini_fly.rs`, `fire_fly.rs`, `tiny_dragonfly.rs`,
+`rock_flea.rs`, `grass_hopper.rs`, `red_swarmer.rs`, `ant.rs`, `beetle.rs` (also the
+sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `moth.rs`;
+`tests.rs`.
+
 ## `item/`
 
 `weapon.rs` (`Weapon`, `WeaponKind::{Rock, Spear}`), `spear_stick.rs` (`SpearStick`, `SpearStickKind`),
@@ -175,6 +186,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | Body physics / collision | `chunk.rs`, `object.rs`, `player/mod.rs` |
 | Overseer / guide | `creature/overseer/`, `world/overseers_world_ai.rs`, `game_holo_light.rs` |
 | Bat flies | `creature/fly/`, `world/flies_world_ai.rs`, `game_flies.rs` |
+| Cosmetic insects (Flies, RockFlea, ... effects, `InsectGroup`) | `insect/`, `game_insects.rs`; sprites in `rw-graphics` `insect_graphics.rs` |
 | Dev spawns / teleport | `game_dev.rs`, `spawn.rs` |
 
 ## Cross-links
