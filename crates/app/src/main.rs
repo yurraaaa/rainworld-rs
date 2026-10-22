@@ -60,6 +60,7 @@ mod sprite_order;
 mod sprites;
 mod timestep;
 mod visuals;
+mod water_light;
 mod window_identity;
 
 use std::error::Error;

@@ -39,6 +39,10 @@ pub(crate) struct LevelTextures {
     palette_texture: wgpu::Texture,
     palette: wgpu::TextureView,
     noise: wgpu::TextureView,
+    /// The room's `RainMask_` texture (1x1 black without one).
+    rain_mask: wgpu::TextureView,
+    /// The room's pixel size (`PixelWidth`, `PixelHeight`) from the mask's tiles.
+    room_size: Option<[f32; 2]>,
     /// Room position and size of the image.
     rect: [f32; 4],
     params: LevelParams,
@@ -80,6 +84,23 @@ impl LevelTextures {
     /// The image, palette and noise views.
     pub(crate) fn views(&self) -> [&wgpu::TextureView; 3] {
         [&self.image, &self.palette, &self.noise]
+    }
+
+    pub(crate) fn rain_mask(&self) -> &wgpu::TextureView {
+        &self.rain_mask
+    }
+
+    /// `_camInRoomRect` (`RoomCamera.DrawUpdate`): the window `view` in room uv,
+    /// `(targetPoint / PixelSize, sSize / PixelSize)`; zero without a room mask.
+    pub(crate) fn cam_in_room_rect(&self, view: &LevelView) -> [f32; 4] {
+        self.room_size.map_or([0.0; 4], |[w, h]| {
+            [
+                view.origin[0] / w,
+                view.origin[1] / h,
+                view.size[0] / w,
+                view.size[1] / h,
+            ]
+        })
     }
 }
 
@@ -257,7 +278,26 @@ impl LevelPipeline {
             &level.palette.bytes(),
         );
         let view = wgpu::TextureViewDescriptor::default();
+        let (mask_size, mask_bytes): ((usize, usize), &[u8]) = match level.rain_mask {
+            Some(m) => ((m.width() as usize, m.height() as usize), m.bytes()),
+            None => ((1, 1), &[0, 0, 0, 255]),
+        };
         LevelTextures {
+            rain_mask: Self::texture(
+                device,
+                queue,
+                "rain mask",
+                mask_size,
+                wgpu::TextureFormat::Rgba8Unorm,
+                mask_bytes,
+            )
+            .create_view(&view),
+            room_size: level.rain_mask.map(|m| {
+                [
+                    m.width() as f32 * rw_assets::TILE_SIZE,
+                    m.height() as f32 * rw_assets::TILE_SIZE,
+                ]
+            }),
             palette: palette_texture.create_view(&view),
             palette_texture,
             image: Self::texture(

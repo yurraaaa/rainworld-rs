@@ -22,6 +22,7 @@ Gameplay logic belongs in `rw-sim`, not here.
 | `visuals.rs` | room settings, palettes, shown camera image; `DarkPalette`/`ApplyFade`, `_light` from the rain cycle, `_waterLevel`, `LevelState` for `get_state`'s `level_params` |
 | `full_screen_effect.rs`, `full_screen_effect_tests.rs` | `FullScreenEffect`: the room camera's `fullScreenEffect` (Bloom, SkyBloom, SkyAndLightBloom, LightBurn/Lightning, Fog): `ApplyPalette`'s choice, `DrawUpdate`'s alpha, the `Futile_White` sprite |
 | `death_fall.rs` | `DeathFall`: the camera room's `DeathFallGraphic`: height (also for `_waterLevel`), counter and its `DeathFall` sprite in `Bloom` |
+| `water_light.rs` | `WaterLight`: the room camera's water caustics sprite (`WaterLight` shader, first in `Foreground`), its alpha from `WaterReflectionAlpha` and the palette darkness |
 | `window_identity.rs` | window title "Rain World" and app id `rainworld-rs` (Wayland/X11) |
 | `sprites.rs` | atlas loading (`rainWorld`, `uiSprites`), overseer projection textures |
 | `shortcuts.rs` | camera-0 `ShortcutGraphics` fed from the game |
@@ -59,7 +60,7 @@ Gameplay logic belongs in `rw-sim`, not here.
 - `get_hud`, `hud_message`: `session.rs` `hud_state`, `hud_message`.
 - Sleep/death/starve screens' data: `screen_package.rs`, `hibernation.rs`.
 - Music requests from the sim: `game_music.rs`.
-- Room full-screen effects (which, strength, container order): `full_screen_effect.rs`, raised in `scene.rs` (`apply_palette`), drawn by `rw-render`'s `full_screen.wgsl`; `get_state`'s `full_screen_effect`. The death fall at an open bottom: `death_fall.rs` (drawn by `death_fall.wgsl`), `get_state`'s `death_fall`.
+- Room full-screen effects (which, strength, container order): `full_screen_effect.rs`, raised in `scene.rs` (`apply_palette`), drawn by `rw-render`'s `full_screen.wgsl`; `get_state`'s `full_screen_effect`. The death fall at an open bottom: `death_fall.rs` (drawn by `death_fall.wgsl`), `get_state`'s `death_fall`. The water's caustics: `water_light.rs` (its mask texture `rw_assets::RainMask`, made in `visuals.rs`; drawn by `sprite.wgsl`'s `fs_water_light`), `get_state`'s `water_light`.
 
 ## Cross-links
 

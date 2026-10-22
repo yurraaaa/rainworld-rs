@@ -21,6 +21,7 @@ not behaviour. Game assets are never committed.
 | `placed_light.rs` | a placed light's data: `LightSourceData`, `LightColorType`, `LightBlinkType` | `PlacedObject.LightSourceData` |
 | `triggers.rs` | `Triggers:` entries (event/spot triggers, music and image events) | `RoomSettings.LoadTriggers` |
 | `ambient.rs` | `AmbientSounds:` line | `RoomSettings.LoadAmbientSounds` |
+| `rain_mask.rs` | `RainMask`: a room's `RainMask_<room>` texture (sky columns, the water's run) | `RoomRain.GenerateShelterTex` |
 | `palette.rs` | `PaletteImage`, `EffectColors`, `PaletteTexture`, `RoomPalette` | `RoomCamera.LoadPalette` |
 | `png_image.rs` | PNG to raw RGBA (`PngImage`) | `Texture2D.LoadImage` |
 | `noise.rs` | the level shader's `_NoiseTex` from `resources.assets` | |
@@ -48,7 +49,8 @@ not behaviour. Game assets are never committed.
 ## Where is X?
 
 - Room tiles, water, cameras: `room.rs` (`Room`).
-- Room settings (palette, effects, grime, waves): `settings.rs`; placed objects: `placed.rs` (lights' data: `placed_light.rs`).
+- A room's rain/water mask texture: `rain_mask.rs`.
+- Room settings (palette, effects, grime, waves, water reflection): `settings.rs`; placed objects: `placed.rs` (lights' data: `placed_light.rs`).
 - Room palette blending: `palette.rs`; everything for one level graphic: `room_visuals.rs`.
 - World file, room list, connections: `world.rs` (`WorldData`); region list: `Regions`.
 - Region `properties.txt`: `region_properties.rs`.

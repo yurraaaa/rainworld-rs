@@ -92,6 +92,11 @@ fn settings_inherit_like_the_game() {
     );
     assert_eq!((a32.clouds, a32.grime), (0.141_304_3, 0.173_913));
 
+    // `WaterReflectionAlpha`: GW_C08's own value; SU_B04 the root's 1.
+    let c08 = RoomSettings::load(&sa, "GW_C08", Some("GW"), Some("white")).expect("gw_c08");
+    assert_eq!(c08.water_reflection_alpha, 0.293_478_3);
+    assert_eq!(b04.water_reflection_alpha, 1.0);
+
     assert_eq!(sa.region_of_room("su_b04").as_deref(), Some("su"));
     assert_eq!(sa.region_of_room("summit"), None);
 }

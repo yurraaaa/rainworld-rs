@@ -68,6 +68,7 @@ fn a_new_room_makes_leasers_in_drawable_objects_order() {
     assert_eq!(
         Fixture::order(&o),
         [
+            Drawable::WaterLight,
             Drawable::DeathFall,
             door,
             rock,
@@ -101,6 +102,7 @@ fn objects_added_later_go_on_top_in_add_order() {
     assert_eq!(
         Fixture::order(&o),
         [
+            Drawable::WaterLight,
             Drawable::DeathFall,
             a,
             Drawable::Shortcuts,
@@ -159,6 +161,7 @@ fn released_sprites_go_on_top_in_release_order() {
     assert_eq!(
         Fixture::order(&o),
         [
+            Drawable::WaterLight,
             Drawable::DeathFall,
             lizard,
             Drawable::Shortcuts,
@@ -291,6 +294,7 @@ fn change_overlap_re_adds_the_weapon() {
     assert_eq!(
         Fixture::order(&o),
         [
+            Drawable::WaterLight,
             Drawable::DeathFall,
             rock,
             Drawable::Shortcuts,
@@ -334,6 +338,7 @@ fn change_overlap_in_the_tick_of_the_add_object() {
     assert_eq!(
         Fixture::order(&o),
         [
+            Drawable::WaterLight,
             Drawable::DeathFall,
             rock,
             Drawable::Shortcuts,
@@ -361,6 +366,7 @@ fn apply_palette_raises_the_full_screen_effect() {
     assert_eq!(
         Fixture::order(&o),
         [
+            Drawable::WaterLight,
             Drawable::DeathFall,
             a,
             Drawable::Shortcuts,
@@ -372,6 +378,7 @@ fn apply_palette_raises_the_full_screen_effect() {
     assert_eq!(
         Fixture::order(&o),
         [
+            Drawable::WaterLight,
             Drawable::DeathFall,
             a,
             Drawable::Shortcuts,

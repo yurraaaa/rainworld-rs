@@ -24,6 +24,7 @@ use crate::sprite_order::Drawable;
 use crate::sprites::SpriteAssets;
 use crate::timestep::TICK_RATE;
 use crate::visuals::Visuals;
+use crate::water_light::WaterLight;
 
 #[path = "game_music.rs"]
 mod music;
@@ -52,6 +53,8 @@ pub struct Scene {
     water_sprites: Option<WaterSprites>,
     /// The camera room's `DeathFallGraphic`, if it has one.
     death_fall: Option<DeathFall>,
+    /// The room camera's `WaterLight`, in a room with water.
+    water_light: Option<WaterLight>,
     /// The camera moved to another room since the last [`Scene::take_entered_room`].
     entered_room: bool,
     /// Camera 0's HUD, once fired up.
@@ -117,6 +120,7 @@ impl Scene {
             visuals: None,
             water_sprites: None,
             death_fall: None,
+            water_light: None,
             entered_room: false,
             hud: None,
             last_unpaused_frame: None,
@@ -137,6 +141,7 @@ impl Scene {
     fn load_visuals(&mut self) {
         self.water_sprites = None;
         self.death_fall = self.new_death_fall();
+        self.water_light = self.new_water_light();
         self.visuals = self.source.as_ref().and_then(|source| {
             let room = self.game.room();
             let timeline = self.game.sim().campaign().timeline.value();
@@ -179,6 +184,13 @@ impl Scene {
             unbroken_shelter,
             &placed,
         )
+    }
+
+    /// `RoomCamera.ChangeRoom`'s `WaterLight` for the camera's new room.
+    fn new_water_light(&self) -> Option<WaterLight> {
+        let sim = self.game.sim();
+        let realized = sim.world().realized(sim.camera_room())?;
+        WaterLight::new(&realized.room, self.game.water(), &realized.settings)
     }
 
     /// `DeathFallGraphic.Update` for this tick.
@@ -260,6 +272,16 @@ impl Scene {
     #[must_use]
     pub fn death_fall(&self) -> Option<&DeathFall> {
         self.death_fall.as_ref()
+    }
+
+    /// The camera's `WaterLight` and its alpha at the palette's darkness.
+    #[must_use]
+    pub fn water_light(&self) -> Option<(&WaterLight, f32)> {
+        let darkness = self
+            .visuals
+            .as_ref()
+            .map_or(0.0, |v| v.room_palette().darkness);
+        self.water_light.as_ref().map(|l| (l, l.alpha(darkness)))
     }
 
     /// Whether the camera moved to another room since the last call.
@@ -689,6 +711,11 @@ impl Scene {
             }
             if let Some(list) = self.full_screen_effect(alpha).filter(|_| level_view) {
                 lists.push((Drawable::FullScreenEffect, list));
+            }
+            if let (Some(light), Some(water)) = (&self.water_light, self.game.water())
+                && level_view
+            {
+                lists.push((Drawable::WaterLight, light.draw_list(water, darkness)));
             }
             if let Some(fall) = self.death_fall.as_ref().filter(|_| level_view) {
                 let width = self.camera.screen_size()[0];

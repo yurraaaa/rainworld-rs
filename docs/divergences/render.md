@@ -113,9 +113,24 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   `Room.Loaded` while the room stays realized (the port keeps a death fall for the
   camera's room only), so the pulse's phase differs on re-entering a still-realized
   room. Its element is `Futile_White`, where the game takes the room's `RainMask_` once
-  the rain has made it (the shader reads only the quad's uv, the same either way).
-  Another room's MCP screenshot draws no full-screen effect or death fall and takes
-  `_waterLevel` from the water alone.
+  the rain or the `WaterLight` has made it (the shader reads only the quad's uv, the
+  same either way).
+  The room camera's `WaterLight` (`app/src/water_light.rs`, `fs_water_light`) is drawn
+  as the game's, first in `Foreground` after the level. Its `RainMask_<room>` texture
+  (`rw_assets::RainMask`, `GenerateShelterTex` without the rain's outputs) is made from
+  the realized room's tiles on each camera entry into a room with water, where the game
+  makes it once per room name per process (the first `RoomRain` or `WaterLight` to ask)
+  and keeps it, so a room whose tiles changed since (a shelter door) could differ;
+  rooms without water get none (only the rain would make theirs). `SetPixel` past the
+  top row wraps to row 0 (INFERRED: Unity's default `Repeat` wrap, set to `Clamp` only
+  after the fill). The mask is sampled bilinear at mip 0 (the game's has mips, but
+  WaterLight magnifies it); `half` maths runs in f32. The generator's `HasAnySolid`
+  reads `Tile.Solid` only: `Room.terrain.ObstructsTile` (the curve of a base-game
+  `TerrainHandle` placed object, no `ModManager` gate) is not ported, as no installed
+  base room or level places a `TerrainHandle`. Watcher's `rippleFade` branch of
+  `PaletteDarkness` is omitted.
+  Another room's MCP screenshot draws no full-screen effect, death fall or water light
+  and takes `_waterLevel` from the water alone.
 - **Not drawn:** the rain's `ShaderLight` after the rain hits (`GlobalRain` is not ported: it stays
   -1), `BrokenZeroG`'s dark palette (zero gravity is not ported), lightning, room
   effects that grade colours (Darkness, Brightness, Contrast, Desaturation, Hue, DayNight:

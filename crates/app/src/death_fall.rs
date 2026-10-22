@@ -82,8 +82,9 @@ impl DeathFall {
     /// The sprite (`InitiateSprites`, `DrawSprites`): `Futile_White` scaled to
     /// `sSize.x + 20` by 180 px, anchored at its bottom centre on the screen's middle
     /// column at `height`, white at [`Self::alpha`], with the `DeathFall` shader in
-    /// `Bloom`. The game takes the room's `RainMask_` element instead when the rain has
-    /// made one (with the rain); the shader reads only the quad's uv, 0..1 either way.
+    /// `Bloom`. The game takes the room's `RainMask_` element instead once the rain or
+    /// the `WaterLight` has made one; the shader reads only the quad's uv, 0..1 either
+    /// way.
     /// `DeathFallHeavy` is Remix's (`cfgClearerDeathGradients`). `ApplyPalette` is
     /// empty.
     #[must_use]
