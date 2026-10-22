@@ -6,7 +6,7 @@
 //! Remix off: the objects a room holds are flies, overseers, rocks and spears. Picking
 //! items up, laying them down and swallowing them are in `game_items.rs`.
 //!
-//! Mirrors: Player.cs (Update, Collide, GrabUpdate, GraphicsModuleUpdated), WaterDrip.cs
+//! Mirrors: Player.cs (Update, Collide, GrabUpdate, TossObject, GraphicsModuleUpdated), WaterDrip.cs
 
 use std::sync::Arc;
 
@@ -735,10 +735,20 @@ impl RainWorldGame {
         log::info!("threw a held object");
     }
 
-    /// `TossObject` of a held creature (`Slugcat_Throw_Creature` on the held chunk): a
-    /// fly is tossed light along `ThrowDirection`, kept outside the body at head height;
-    /// a dragged body only gets a push on the held chunk.
+    /// `TossObject` of a held creature, which ends put on the ground
+    /// (`CreaturePutItemOnGround`).
     pub(super) fn toss_object(&mut self, index: i32, grasp: usize) {
+        let Some(obj) = self.player_grasps()[grasp] else {
+            return;
+        };
+        self.toss_object_push(index, grasp);
+        self.player_put_item_on_ground(obj);
+    }
+
+    /// `TossObject`'s throw (`Slugcat_Throw_Creature` on the held chunk): a fly is
+    /// tossed light along `ThrowDirection`, kept outside the body at head height; a
+    /// dragged body only gets a push on the held chunk.
+    fn toss_object_push(&mut self, index: i32, grasp: usize) {
         let Some(g) = self.player_grasp(grasp) else {
             return;
         };

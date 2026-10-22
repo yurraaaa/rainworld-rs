@@ -313,6 +313,31 @@ fn down_and_pickup_on_the_ground_lays_the_back_spear_down() {
     );
     assert_eq!(g.back_spear(), None);
     assert_eq!(g.mode_of(ids[0]), WeaponMode::Free);
+    // `CreaturePutItemOnGround(spearOnBack.spear, this)` before `DropSpear`.
+    let owned = &g.world.realized(0).expect("room").social_events;
+    let o = owned.item_ownership(Entity::Object(ids[0])).expect("owned");
+    assert_eq!(o.owner, g.player_id);
+}
+
+#[test]
+fn a_held_rock_laid_down_is_owned() {
+    // `ReleaseObject`: `CreaturePutItemOnGround(grasps[grasp].grabbed, this)`.
+    let (mut g, ids) = game(&SlugcatCampaign::SURVIVOR, vec![rock(1, (5, 1))]);
+    g.slugcat_grab(Entity::Object(ids[0]), 0, &mut ());
+    for _ in 0..30 {
+        g.tick(Input::new(0, -1, false), &mut ());
+    }
+    g.tick(
+        Input {
+            pickup: true,
+            ..Input::new(0, -1, false)
+        },
+        &mut (),
+    );
+    assert_eq!(g.player_grasps(), [None, None]);
+    let owned = &g.world.realized(0).expect("room").social_events;
+    let o = owned.item_ownership(Entity::Object(ids[0])).expect("owned");
+    assert_eq!((o.owner, o.age), (g.player_id, 0));
 }
 
 #[test]

@@ -46,6 +46,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `game_over.rs` | `GameOver`, karma flower spot | `RainWorldGame.GameOver` |
 | `game_player.rs` | slugcat hands: bat-fly catch, eat, swallow, throw, hand switch; the heavy carry's rod and the body lent to the player's update | `Player.GrabUpdate`, `Collide` |
 | `game_player_grabbed.rs`, `game_player_grabbed_tests.rs` | the player held: `creature_grab` (`CanBeGrabbed`, `Player.Grabbed`), the `dangerGrasp` block, `ThrowToGetFree`, `DangerGraspPickup`, `GameOver(dangerGrasp)`, the release under the room | `Player.Update`, `Creature.Grab` |
+| `game_social_events.rs`, `game_social_events_tests.rs` | the slugcat putting items on the ground (`ReleaseObject`, `TossObject`, the back spear laid down) and the room's `SocialEventRecognizer.Update` (owned items offered, lapsing, a lizard's gift received) | `SocialEventRecognizer`, `OwnedItemOnGround` |
 | `game_spear_on_back.rs`, `game_spear_on_back_tests.rs` | the Hunter's spear on the back: stash/retrieve by holding pick-up, `SpearToBack`, `SpearToHand`, `DropSpear` applied, carried on the back | `Player.SpearOnBack` |
 | `game_shelter.rs` | shelter door in the room, sleep/hibernate checks, `KillAllHostiles`, `DoorClosed` | `ShelterDoor` hookup |
 | `game_tracker.rs` | realized AI `Tracker`/`RelationshipTracker` running | `Tracker.cs`, `RelationshipTracker.cs` |
@@ -116,7 +117,7 @@ corridor shoots' `WaterDrip`s), `spear_on_back.rs` (the Hunter's
 | `ai_modules.rs` | prey/threat/aggression trackers' and den finder's updates, `SortCreatureIntoModule`, threat of a tile, threat travel cost, `NewArea` | `PreyTracker`, `ThreatTracker`, `AgressionTracker`, `DenFinder` |
 | `threat_flight.rs` | the threat tracker's flight: `FleeTo`, `EvaluateFlightDestThreat`, `GenerateRandomPath`, `FindMostAttractiveExit` | `ThreatTracker` |
 | `missions.rs`, `missions_tests.rs` | `LeaveRoom.Act`: the exit a submitted lizard leaves by and where it heads | `MissionTracker` |
-| `tracking.rs`, `social_events.rs` | tracker answers (relationships); `SocialEventId` and the recognizer's functions (with lizards' fear relief) | `DynamicRelationship`, `SocialEventRecognizer` |
+| `tracking.rs`, `social_events.rs` | tracker answers (relationships); `SocialEventId`, the recognizer (`ownedItemsOnGround`, `ItemOffered`) and its events, lizards' reactions (fear relief, gifts: `FriendTracker.ItemOffered`, `GiftRecieved`) | `DynamicRelationship`, `SocialEventRecognizer` |
 | `rain_cycle.rs` | `RainCycle`, `WaterLevelCycle` | `RainCycle` |
 | `region_state.rs`, `region_save.rs` | `RegionState` and adapting world to/from it | `RegionState` |
 | `*_tests.rs` | tests of siblings | - |
@@ -133,6 +134,7 @@ corridor shoots' `WaterDrip`s), `spear_on_back.rs` (the Hunter's
 | `death.rs`, `grasp.rs`, `danger.rs` | kill tag/die, `Killing`, `AddCreatureToRespawn` and the lineage roll; `Grasp` + grip sticks; threat/danger reads | `Creature.Die`, `Creature.Grab` |
 | `tracker.rs`, `relationship_tracker.rs`, `looker.rs`, `vision.rs` | AI modules | `Tracker`, `RelationshipTracker`, `CreatureLooker`, `VisualScore` |
 | `noise_tracker.rs`, `stuck_tracker.rs` | `NoiseTracker`; `StuckTracker`, `DiscomfortTracker` | same |
+| `friend_tracker.rs` | `FriendTracker`'s gift half: `tamingDifficlty`, `giftOfferedToMe` (no friend: taming is not ported) | `FriendTracker` |
 | `prey_tracker.rs`, `threat_tracker.rs`, `agression_tracker.rs`, `rain_tracker.rs`, `den_finder.rs`, `utility_comparer.rs`, `mission_tracker.rs` | AI modules' state (their world reads are `world/ai_modules.rs`, `world/missions.rs`); `UtilityComparer` with `FloatTweener`; missions | same |
 
 - `lizard/`: `mod.rs` (`Lizard`), `breed.rs` (`LizardBreedParams`, green only), `ai.rs`

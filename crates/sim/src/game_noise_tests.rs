@@ -233,7 +233,7 @@ fn an_attack_changes_the_lizards_like() {
         .is_some();
     assert!(!before);
     g.world
-        .social_event(0, SocialEventId::NonLethalAttack, player, l);
+        .social_event(0, SocialEventId::NonLethalAttack, player, l, None);
     let m = g
         .world
         .creature(l)
@@ -258,7 +258,7 @@ fn an_unseen_attacker_changes_nothing() {
     let player = g.player_id;
     let n = g.world.session.influences.len();
     g.world
-        .social_event(0, SocialEventId::LethalAttack, player, l);
+        .social_event(0, SocialEventId::LethalAttack, player, l, None);
     assert_eq!(g.world.session.influences.len(), n);
     let subject = g.world.creature(player).id;
     let m = g.world.creature(l).state.social_memory.as_ref();

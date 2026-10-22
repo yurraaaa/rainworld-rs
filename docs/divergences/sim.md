@@ -62,14 +62,22 @@ bites, drips and food, `meatLeft` saved, the back spear locked while eating).
   (`GraphicsModuleUpdated`, the hands' reach in `PlayerGraphics`). Differences:
   `DropSpear` called from `Stun` or `Die` makes its four draws (velocity and the `Free`
   spin) where the game does, but the velocity and mode reach the spear when the game
-  next applies the slugcat's releases (the same tick). `CreaturePutItemOnGround`
-  (laying it down, as in `ReleaseObject`) is not ported (no social event keeps owned
-  items yet). The zero-gravity branch of `GraphicsModuleUpdated` is left out (no
+  next applies the slugcat's releases (the same tick). The zero-gravity branch of `GraphicsModuleUpdated` is left out (no
   zero-gravity rooms). The on-back sticks are not written to `STICKS` (D16): the
   spear is saved as a shelter object and lies free next cycle, as the game's restored
   stick never puts it back. The Expedition back-spear unlock, the slugcat on the back
   (More Slugcats, Jolly Co-op) and the `VoidSeaScene` and garbage-worm uses are omitted.
   The Hunter's `LF_H01` start spear belongs to `HardmodeStart` (D14), not ported.
+- **Items put on the ground** (`SocialEventRecognizer.CreaturePutItemOnGround`,
+  `OwnedItemOnGround`, `ItemOffered`) are ported: `ReleaseObject`, `TossObject` and the
+  back spear laid down register the item; the room's recognizer offers a slugcat's
+  item to the closest lizard watching once the slugcat is 50 px away, and the item
+  lapses with age, when picked up or when its owner leaves the room. Differences: an
+  item with no body in the world (destroyed or abstract) is not offered, where the
+  game measures the position its body last had. `stolenProperty` is left out (only
+  scavengers steal, and they are not realized). A gift `giftOfferedToMe` is kept as
+  the owned item's serial (the game keeps the reference). Of the receivers only lizards
+  are ported (scavengers, cicadas, jetfish and the oracle read the owned items too).
 - **Grabbing and eating creatures: DLC branches omitted.** `SlugcatCanMaul` (More
   Slugcats slugcats maul living creatures: `MaulingUpdate`), the More Slugcats
   `CanEatMeat` rules (Saint and Spearmaster eat no meat; Artificer, Gourmand and
@@ -663,7 +671,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
   clause; safari control in the Hunt body's blood-lust test (`!safariControlled`, the
   draw is still made; the Flee body has no safari test of its own); More Slugcats' `LickedByPlayer` sighting at
   the top of `Update`; Watcher's indigo lizard locust branch. The friend tracker
-  (taming, skipped) has utility 0 and `CareAboutRain` true.
+  keeps only gifts (below); without a friend (taming, skipped) it has utility 0 and
+  `CareAboutRain` true.
   It sees and tracks creatures (lizard step 6a, `creature-model/lizard-senses.md` section 17):
   the `Tracker` with simple and elaborate representations and their ghosts,
   `VisualContact` with `LizardAI.VisualScore` (the breed's vision, water, narrow
@@ -674,8 +683,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
   casual aggression that bites a target in reach. The relationship tracker sorts each
   relationship into the prey, threat or aggression tracker (step 7a). Left out of step 6a, each
   a question to the user: what blinds (`Blinded`, flashes) and the vision obscurers
-  (`VisionObscurer` objects), `useTrackedCreatures` (no base lizard sets it), gifts and
-  taming (`FriendTracker`, skipped), the black lizard's `HeadLightsUpFromNoise` and the
+  (`VisionObscurer` objects), `useTrackedCreatures` (no base lizard sets it), taming
+  (`FriendTracker`'s friend, skipped), the black lizard's `HeadLightsUpFromNoise` and the
   white lizard's camouflage in `VisibilityBonus` (with those breeds), and the Remix,
   Jolly (`friendlyLizards`), Expedition, More Slugcats and Watcher branches of
   `UpdateDynamicRelationship`, `VisualScore` and `LikeOfPlayer` (with those DLCs). A
@@ -687,7 +696,13 @@ second part, else a single-room world for arena levels). The campaign descriptio
   footsteps and the terrain impacts of the player, lizards, flies, rocks and spears
   (`BodyChunk.loudness`, the player's from `Sneak`); `SocialEventRecognizer`'s
   `Killing` and `WeaponAttack` (hits and near misses) change its and its community's
-  like of the player (`LizardPlayerRelationChange`); the path finder's
+  like of the player (`LizardPlayerRelationChange`); an item the slugcat leaves
+  near it (`ItemOffering`) that is a creature it eats becomes its gift (`FriendTracker
+  .ItemOffered`): eaten in `UpdateDynamicRelationship`, raising `LikeOfPlayer` while
+  waited for, and received when held (`GiftRecieved`: like, temporary like, the
+  community), with the Watcher rot check, the More Slugcats Challenge taming multiplier
+  and Remix's love sound left out (no ported creature is one a lizard eats, so no gift
+  happens in play yet; user 2026-10-22); the path finder's
   `TravelPreference` adds `DiscomfortOfTile`; `ReactToNoise` and `InvestigateSound`
   answer what it hears (step 7a). Left out of step 6b, each a question
   to the user: `Deaf` and `room.BackgroundNoise` (nothing ported sets them), the

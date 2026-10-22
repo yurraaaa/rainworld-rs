@@ -73,7 +73,8 @@ impl World {
     /// `LizardAI.LikeOfPlayer(player)`: 0 without a representation; the session's like
     /// of the player for the lizard's community in this region, pulled toward
     /// `-spawnDataEvil` by its size, then toward the social memory's temporary like of
-    /// the player by its size. The gift branch is taming (skipped).
+    /// the player by its size; while it holds a gift from the player,
+    /// `LerpMap(like, -0.5, 1, 0, 1, 0.8)`.
     #[must_use]
     pub fn lizard_like_of_player(&self, ai: CreatureId, player: Option<&CreatureRep>) -> f32 {
         let Some(rep) = player else {
@@ -96,7 +97,15 @@ impl World {
             .social_memory
             .as_ref()
             .map_or(0.0, |m| m.temp_like(subject));
-        like.lerp(temp, temp.abs())
+        like = like.lerp(temp, temp.abs());
+        let gift_owner = c
+            .lizard()
+            .and_then(|l| l.ai.friend.gift_offered_to_me)
+            .map(|g| g.owner);
+        if gift_owner == Some(rep.creature) {
+            like = like.lerp_map_pow(-0.5, 1.0, 0.0, 1.0, 0.8);
+        }
+        like
     }
 
     /// `RealAI.CurrentPlayerAggression(player)`: the base `ArtificialIntelligence`'s 1

@@ -53,7 +53,7 @@ use super::reply::{
     DeathFallState, FullScreenEffectState, LevelParamsState, SpearOnBackInfo, SpriteLeaserState,
     WaterLightState,
 };
-use super::reply::{FleeInfo, HeavyAiInfo, HuntInfo, LoungeInfo, WaterSoundState};
+use super::reply::{FleeInfo, HeavyAiInfo, HuntInfo, LoungeInfo, OwnedItemState, WaterSoundState};
 use super::reply::{
     FliesWorldInfo, GraspInfo, HeldInfo, QuantifiedInfo, RegionStateInfo, RelationshipInfo,
     RoomDens,
@@ -513,6 +513,12 @@ impl Session {
                             volume: w.sound_loop.volume(),
                             playing: w.playing(),
                         }),
+                        owned_items: r
+                            .social_events
+                            .owned_items_on_ground
+                            .iter()
+                            .map(|o| OwnedItemState::of(world, o))
+                            .collect(),
                     })
                 })
                 .collect(),

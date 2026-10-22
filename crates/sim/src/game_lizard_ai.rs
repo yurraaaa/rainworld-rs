@@ -613,7 +613,7 @@ impl RainWorldGame {
     /// constructor's order: path finder, tracker, noise tracker, den finder, (rain:
     /// nothing), prey, threat and aggression trackers, utility comparer, mission
     /// tracker, relationship tracker, stuck tracker (the discomfort tracker has nothing
-    /// to update; the friend tracker is taming's).
+    /// to update), the friend tracker's gift (following a friend is taming's).
     fn lizard_base_ai_update(&mut self, id: CreatureId) {
         self.world.lizard_at(id).ai.time_in_room += 1;
         let pf = self.world.path_finder_of(id);
@@ -644,6 +644,7 @@ impl RainWorldGame {
             .ai
             .stuck
             .update(pos, dest, effectual);
+        self.world.friend_tracker_update(id);
     }
 
     /// What lizard `id`'s utility comparer reads now (for MCP): each compared module
