@@ -187,9 +187,7 @@ impl RainWorldGame {
     /// `GameOverModeActive` as the checkers see it: the HUD's flag, or a `GameOver` this
     /// tick the HUD has not entered yet.
     fn trigger_hud_now(&self) -> TriggerHud {
-        let pending = self.game_over.is_some()
-            && self.is_story_session()
-            && self.script_tick.hud_with_control_preset;
+        let pending = self.game_over.is_some() && self.script_tick.hud_with_control_preset;
         TriggerHud {
             game_over_mode: self.trigger_hud.game_over_mode || pending,
             region_bumps: self.trigger_hud.region_bumps,

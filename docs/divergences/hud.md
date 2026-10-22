@@ -56,7 +56,7 @@ story session.
   dead player's input. A lizard holding the player 60 ticks calls `GameOver(dangerGrasp)`:
   the prompt keeps the grasp (`dependentOnGrasp`) and leaves game-over mode when the
   living player gets free (D19). Differences: the gamepad and rebound-map branches (the pause
-  button press and their strings) are not ported; dev starts have no game over (D4);
+  button press and their strings) are not ported; dev starts game over too, and R leaves game-over mode (D4);
   the Hunter out of cycles (`GoToRedsGameOver`) is not ported (D17).
 - **Not ported:** the prompt's symbol and music messages, the Hunter's
   cycle count-up, the karma meter's gate and scavenger blinking, the gamepad pictures of

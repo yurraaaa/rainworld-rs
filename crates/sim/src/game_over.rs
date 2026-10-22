@@ -104,14 +104,12 @@ impl RainWorldGame {
         self.game_over(main, room, None);
     }
 
-    /// `RainWorldGame.GameOver(dependentOnGrasp)` for the player in `room`: story
-    /// sessions only; the Hunter out of cycles goes to `GoToRedsGameOver` (only its
-    /// music is ported, D17).
+    /// `RainWorldGame.GameOver(dependentOnGrasp)` for the player in `room`, in story
+    /// sessions and, unlike the game's `IsStorySession` gate, the port's dev starts too
+    /// (D4); the Hunter out of cycles goes to `GoToRedsGameOver` (only its music is
+    /// ported, D17).
     pub(super) fn game_over(&mut self, main: Vec2, room: &Room, dependent_on_grasp: Option<u64>) {
         log::info!("Trying to game over...");
-        if !self.is_story_session() {
-            return;
-        }
         if self.red_is_out_of_cycles() {
             self.reds_game_over = true;
             return;

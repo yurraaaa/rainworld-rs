@@ -64,7 +64,7 @@ fn death_waits_for_a_map_press_then_saves_and_switches() {
     s.frames(10, &[]);
 
     let process = s.frontend_mut().unwrap().game_mut().expect("the game");
-    assert!(!process.scene.game_mut().respawn(), "no R in a story");
+    assert!(!process.scene.respawn(), "no R in a story");
     process.scene.game_mut().sim_mut().kill_player();
     // `GameOver` during the rooms' update: the prompt is in game-over mode from the next
     // HUD update.

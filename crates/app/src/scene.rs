@@ -187,6 +187,18 @@ impl Scene {
         &mut self.game
     }
 
+    /// R: a fresh player in a dev start, which also takes the HUD out of game-over
+    /// mode (D4); nothing in a story session. Returns whether it respawned.
+    pub fn respawn(&mut self) -> bool {
+        if !self.game.respawn() {
+            return false;
+        }
+        if let Some(hud) = &mut self.hud {
+            hud.text_prompt.leave_game_over_mode();
+        }
+        true
+    }
+
     /// Camera 0.
     #[must_use]
     pub fn camera(&self) -> &RoomCamera {
@@ -318,8 +330,9 @@ impl Scene {
         }
     }
 
-    /// `RainWorldGame.GameOver` as the player's first death called it, in story sessions:
-    /// `PlaceKarmaFlowerOnDeathSpot`, camera 0's HUD into game-over mode, then the
+    /// `RainWorldGame.GameOver` as the player's first death called it, in story sessions
+    /// and dev starts (D4): `PlaceKarmaFlowerOnDeathSpot` (a dev start's on its
+    /// in-memory save state, D16), camera 0's HUD into game-over mode, then the
     /// music's `DeathEvent`.
     fn apply_game_over(&mut self, shared: &mut MenuShared) {
         if self.game.sim_mut().take_reds_game_over() {
@@ -328,9 +341,6 @@ impl Scene {
         let Some(over) = self.game.sim_mut().take_game_over() else {
             return;
         };
-        if !self.game.story_session() {
-            return;
-        }
         log::info!("game over");
         if let Some(grow_pos) = over.karma_flower {
             let game = HibernatingGame {
