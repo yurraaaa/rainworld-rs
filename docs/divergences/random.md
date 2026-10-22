@@ -194,6 +194,11 @@ it (D13). What still differs is only the seed and the call order:
   on the cosmetic stream (D1). `DrippingSound`'s loop makes its sound draws once when
   it starts in the camera's room, and again whenever its unheard emitter died and the
   camera is back.
+- **Water surface loop.** `Water.Update` starts with `waterSounds.Update()`: in a
+  water room viewed by camera 0 the loop's start makes the sound draws once
+  (`Water_Surface_Calm_LOOP`: one sample, 7 draws), again whenever its unheard emitter
+  died and the camera is back, and never in an unviewed room. Fully `SilenceWater`ed
+  (no base-game room) it still starts once at volume 1.
 - **Weapons hitting creatures.** An overseer hearing of a flying weapon
   (`OverseerAI.FlyingWeapon`) draws once; a rock hitting a fly draws once (kill or
   stun), one hitting an overseer (no small creature) or a spear none; `Overseer.HitByWeapon` draws `Range(200, 1500)` when the

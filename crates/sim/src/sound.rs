@@ -7,7 +7,7 @@
 //! that plays, and the random start when asked. An audio backend turns the
 //! [`SoundEvent`]s into sound; the sim never reads back from it.
 //!
-//! Mirrors: Room.cs (PlaySound, PlayDisembodiedLoop), VirtualMicrophone.cs (PlaySound, PlayDisembodiedLoop), SoundLoader.cs
+//! Mirrors: Room.cs (PlaySound, PlayDisembodiedLoop, PlayRectSound), VirtualMicrophone.cs (PlaySound, PlayDisembodiedLoop), RectSoundEmitter.cs, SoundLoader.cs
 
 use std::sync::Arc;
 
@@ -229,6 +229,7 @@ sound_ids! {
     LizardVoiceGreenA = "Lizard_Voice_Green_A",
     LizardVoiceBlueA = "Lizard_Voice_Blue_A",
     CycleStartDrips = "Cycle_Start_Drips",
+    WaterSurfaceCalmLoop = "Water_Surface_Calm_LOOP",
     // No `sounds.txt` line: it never plays.
     SpearHitSmallCreature = "Spear_Hit_Small_Creature",
 }
@@ -254,6 +255,41 @@ pub enum SoundSource {
     Object { emitter: EmitterId, pos: Vec2 },
     /// `DisembodiedLoop` on a `DisembodiedLoopEmitter`: no position, `pan` in -1..=1.
     DisembodiedLoop { emitter: EmitterId, pan: f32 },
+    /// `RectangularSound` on a `RectSoundEmitter`: heard from the point of `rect`
+    /// nearest the listener.
+    Rect { emitter: EmitterId, rect: SoundRect },
+}
+
+/// A `FloatRect` a `RectSoundEmitter` covers, room pixels.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SoundRect {
+    pub left: f32,
+    pub bottom: f32,
+    pub right: f32,
+    pub top: f32,
+}
+
+impl SoundRect {
+    /// `Custom.RestrictInRect`: `Mathf.Clamp` per axis (the lower bound first, so an
+    /// inverted rect gives its left or bottom edge).
+    #[must_use]
+    pub fn restrict(&self, v: Vec2) -> Vec2 {
+        Vec2::new(
+            Self::clamp(v.x, self.left, self.right),
+            Self::clamp(v.y, self.bottom, self.top),
+        )
+    }
+
+    /// `Mathf.Clamp`.
+    fn clamp(v: f32, min: f32, max: f32) -> f32 {
+        if v < min {
+            min
+        } else if v > max {
+            max
+        } else {
+            v
+        }
+    }
 }
 
 /// One sound object the game would create, with the outcome of its random draws
@@ -565,6 +601,24 @@ impl Sounds {
         self.next_emitter = self.next_emitter.wrapping_add(1);
         let source = SoundSource::DisembodiedLoop { emitter, pan };
         self.play(id, source, true, [volume, pitch], false, rng);
+        emitter
+    }
+
+    /// `Room.PlayRectSound(id, rect, loop, vol, pitch)`: the emitter exists even when
+    /// nothing plays.
+    pub fn play_rect(
+        &mut self,
+        id: SoundId,
+        rect: SoundRect,
+        looped: bool,
+        volume: f32,
+        pitch: f32,
+        rng: &mut UnityRandom,
+    ) -> EmitterId {
+        let emitter = EmitterId(self.next_emitter);
+        self.next_emitter = self.next_emitter.wrapping_add(1);
+        let source = SoundSource::Rect { emitter, rect };
+        self.play(id, source, looped, [volume, pitch], false, rng);
         emitter
     }
 

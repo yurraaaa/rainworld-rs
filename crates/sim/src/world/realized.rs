@@ -64,6 +64,8 @@ pub struct RealizedRoom {
     /// The `DrippingSound` `Room.Loaded` added at a cycle's start, until it and its
     /// emitters are gone.
     pub dripping_sound: Option<crate::DrippingSound>,
+    /// The water's calm surface loop, made with the water.
+    pub water_sound: Option<crate::WaterSound>,
 }
 
 impl RealizedRoom {
@@ -100,6 +102,7 @@ impl RealizedRoom {
             insects,
             ceiling_tiles,
             dripping_sound: None,
+            water_sound: None,
         }
     }
 
@@ -145,6 +148,10 @@ impl RealizedRoom {
             self.room.shortcut_map().shortcuts().len(),
         ));
         self.water = Water::new(&self.room, &self.settings);
+        self.water_sound = self
+            .water
+            .as_ref()
+            .and_then(|_| crate::WaterSound::new(&self.room));
         let lethal_water = self.settings.effect_amount(RoomEffectType::LethalWater) > 0.0;
         self.ai_map = Some(Arc::new(AiMap::new(
             &self.room,
