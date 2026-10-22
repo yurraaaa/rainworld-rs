@@ -784,12 +784,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   rainWorld and uiSprites), and More Slugcats' projections and parts.
 - **Overseer graphics.** `OverseerGraphics.Emerge` restarts the mycelia from the eye's
   position of the last rendered frame in the game (`DrawSprites` caches it); the port
-  uses the last update's, as a headless run would. Sprites are drawn per container in
-  the game's container order, but within the Foreground container the overseers' come
-  after the player's; the game orders them by when the objects joined the room (the
-  guide, realized first, sits under the player). `NowViewed` builds graphics modules in
-  the abstract room's creature order, not in `physicalObjects`' (the order the bodies
-  were added); they differ only with several overseers in the room.
+  uses the last update's, as a headless run would.
 - **Overseers hit and killed** (D3). Hearing of a flying weapon, being stunned, the
   guide's lost like (`FlyingWeapon`, `HitByWeapon`), `Overseer.Die` with the guide's
   return in the off-screen den, the dead overseer's six ticks of dying and its graphics'
@@ -862,9 +857,23 @@ second part, else a single-room world for arena levels). The campaign descriptio
   den with nothing happening; the registry keeps its place. The other base-game scripts
   (`SS_E08`, `SU_A22`, `SL_C12`, `SB_A14`, `SB_D03`, `SU_A43`, `deathPit`, `LF_A03`,
   `SS_D02`) are not ported.
+- **A held creature placed twice.** `AbstractPhysicalObject.RealizeInRoom` calls
+  `PlaceInRoom` for every connected object, and `Creature.PlaceInRoom` also
+  `AddObject`s what each grasp holds; so a lizard or fly held by a creature realized
+  with it is `AddObject`ed twice: the game's `updateList`, `physicalObjects` and
+  `drawableObjects` hold it twice (two updates a tick, its module listed twice). The
+  port keeps one entry per object, at the later `AddObject`'s place; the draws (its
+  `PlaceInRoom`'s, a module built once) are the game's.
+- **Clean-out at once.** A creature leaving a room (`room = null`) is cleaned out of
+  that room (`CleanOutObjectNotInThisRoom`: its graphics module out of
+  `drawableObjects`) in the game at its own turn of that `Room.Update`, or at once when
+  it was already updated; the port takes the module out of the room's drawables when
+  it leaves (`Lizard::leave_room`). Both happen within the same room update, so no
+  camera move can fall between them.
 
 **Why.** Other creatures' AI, AI maps and the rain are later milestones; loading at once
-is simpler and loses nothing gameplay-visible beyond the shorter waits.
+is simpler and loses nothing gameplay-visible beyond the shorter waits. A list without
+duplicates is simpler, and the double update of a held creature is not ported.
 
 **Affects.** How long a vessel waits to enter a room, and anything creatures other than
 overseers and bat flies would do (the others roam, but never appear in a loaded room).

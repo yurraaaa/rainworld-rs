@@ -1061,7 +1061,7 @@ impl RainWorldGame {
                     }
                     Some(RealizedCreature::Lizard(l)) => {
                         l.in_shortcut = true;
-                        l.room = None;
+                        l.leave_room();
                     }
                     _ => {}
                 },

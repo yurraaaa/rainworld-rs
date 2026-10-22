@@ -280,6 +280,8 @@ impl LizardGraphics {
         for l in &mut self.limbs {
             l.reset(chunks[1].pos, rng);
         }
+        // `cosmetics[l].Reset()`: the `Template` one is empty, and of the overrides
+        // (`Whiskers`, `Antennae`, `WingScales`) the port has none yet.
         self.head.reset(chunks[0].pos, rng);
     }
 
