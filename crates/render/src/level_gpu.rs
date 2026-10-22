@@ -1,7 +1,7 @@
 //! GPU side of the level graphic: the `level.wgsl` pipeline and the uploaded textures
 //! of the current camera.
 //!
-//! Mirrors: -
+//! Mirrors: - (port-only: wgpu side of the level graphic)
 
 use std::borrow::Cow;
 
@@ -18,6 +18,9 @@ struct LevelUniform {
     shading: [f32; 4],
     grade: [f32; 4],
     extra: [f32; 4],
+    light_dir: [f32; 4],
+    atmosphere: [f32; 4],
+    view: [f32; 4],
 }
 
 /// The level pipeline, its bind group layout, the noise sampler and the uniform buffer.
@@ -25,12 +28,14 @@ pub(crate) struct LevelPipeline {
     pipeline: wgpu::RenderPipeline,
     layout: wgpu::BindGroupLayout,
     noise_sampler: wgpu::Sampler,
+    grab_sampler: wgpu::Sampler,
     uniform: wgpu::Buffer,
 }
 
 /// The current camera's level textures and placement.
 pub(crate) struct LevelTextures {
     image: wgpu::TextureView,
+    palette_texture: wgpu::Texture,
     palette: wgpu::TextureView,
     noise: wgpu::TextureView,
     /// Room position and size of the image.
@@ -47,6 +52,26 @@ impl LevelTextures {
     /// `_fogAmount` of the palette.
     pub(crate) fn fog_amount(&self) -> f32 {
         self.params.fog_amount
+    }
+
+    /// Rewrites the palette (`ApplyFade` after the fade coordinate changed).
+    pub(crate) fn set_palette(&self, queue: &wgpu::Queue, palette: &rw_assets::PaletteTexture) {
+        let width = rw_assets::PaletteTexture::WIDTH as u32;
+        let height = rw_assets::PaletteTexture::HEIGHT as u32;
+        queue.write_texture(
+            self.palette_texture.as_image_copy(),
+            &palette.bytes(),
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(4 * width),
+                rows_per_image: Some(height),
+            },
+            wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+        );
     }
 
     /// The image, palette and noise views.
@@ -83,7 +108,13 @@ impl LevelPipeline {
                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                     count: None,
                 },
-                Self::texture_entry(5, false),
+                Self::texture_entry(5, true),
+                wgpu::BindGroupLayoutEntry {
+                    binding: 6,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
             ],
         });
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -133,6 +164,12 @@ impl LevelPipeline {
             min_filter: wgpu::FilterMode::Linear,
             ..Default::default()
         });
+        let grab_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("level grab"),
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            ..Default::default()
+        });
         let uniform = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("level uniform"),
             size: std::mem::size_of::<LevelUniform>() as u64,
@@ -143,6 +180,7 @@ impl LevelPipeline {
             pipeline,
             layout,
             noise_sampler,
+            grab_sampler,
             uniform,
         }
     }
@@ -161,14 +199,14 @@ impl LevelPipeline {
     }
 
     /// A 2D texture with one mip holding `data`.
-    fn texture_view(
+    fn texture(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         label: &str,
         size: (usize, usize),
         format: wgpu::TextureFormat,
         data: &[u8],
-    ) -> wgpu::TextureView {
+    ) -> wgpu::Texture {
         let desc = wgpu::TextureDescriptor {
             label: Some(label),
             size: wgpu::Extent3d {
@@ -180,12 +218,15 @@ impl LevelPipeline {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         };
-        device
-            .create_texture_with_data(queue, &desc, wgpu::util::TextureDataOrder::LayerMajor, data)
-            .create_view(&wgpu::TextureViewDescriptor::default())
+        device.create_texture_with_data(
+            queue,
+            &desc,
+            wgpu::util::TextureDataOrder::LayerMajor,
+            data,
+        )
     }
 
     pub(crate) fn pipeline(&self) -> &wgpu::RenderPipeline {
@@ -201,34 +242,39 @@ impl LevelPipeline {
     ) -> LevelTextures {
         let image = level.image;
         let noise_size = rw_assets::NoiseTexture::SIZE;
+        let palette_texture = Self::texture(
+            device,
+            queue,
+            "palette",
+            (
+                rw_assets::PaletteTexture::WIDTH,
+                rw_assets::PaletteTexture::HEIGHT,
+            ),
+            wgpu::TextureFormat::Rgba8Unorm,
+            &level.palette.bytes(),
+        );
+        let view = wgpu::TextureViewDescriptor::default();
         LevelTextures {
-            image: Self::texture_view(
+            palette: palette_texture.create_view(&view),
+            palette_texture,
+            image: Self::texture(
                 device,
                 queue,
                 "level image",
                 (image.width(), image.height()),
                 wgpu::TextureFormat::Rgba8Unorm,
                 &image.rgba_bottom_up(),
-            ),
-            palette: Self::texture_view(
-                device,
-                queue,
-                "palette",
-                (
-                    rw_assets::PaletteTexture::WIDTH,
-                    rw_assets::PaletteTexture::HEIGHT,
-                ),
-                wgpu::TextureFormat::Rgba8Unorm,
-                &level.palette.bytes(),
-            ),
-            noise: Self::texture_view(
+            )
+            .create_view(&view),
+            noise: Self::texture(
                 device,
                 queue,
                 "noise",
                 (noise_size, noise_size),
                 wgpu::TextureFormat::R8Unorm,
                 level.noise.bytes(),
-            ),
+            )
+            .create_view(&view),
             rect: [
                 level.camera_pos[0],
                 level.camera_pos[1],
@@ -254,9 +300,12 @@ impl LevelPipeline {
         let uniform = LevelUniform {
             transform: camera.clip_transform(),
             image_rect: textures.rect,
-            shading: [view.rain, p.light, p.grime, p.fog_amount],
+            shading: [view.rain, view.light, p.grime, p.fog_amount],
             grade: [p.darkness, p.contrast, p.saturation, p.hue],
-            extra: [p.brightness, p.clouds_speed, p.swarm_room, 0.0],
+            extra: [p.brightness, p.clouds_speed, p.swarm_room, p.rim_fix],
+            light_dir: [p.light_dir[0], p.light_dir[1], 1.0 / 1400.0, 1.0 / 800.0],
+            atmosphere: [p.atmosphere[0], p.atmosphere[1], p.atmosphere[2], 1.0],
+            view: [view.origin[0], view.origin[1], view.size[0], view.size[1]],
         };
         queue.write_buffer(&self.uniform, 0, bytemuck::bytes_of(&uniform));
         device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -286,6 +335,10 @@ impl LevelPipeline {
                 wgpu::BindGroupEntry {
                     binding: 5,
                     resource: wgpu::BindingResource::TextureView(behind),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 6,
+                    resource: wgpu::BindingResource::Sampler(&self.grab_sampler),
                 },
             ],
         })

@@ -876,6 +876,12 @@ impl Renderer for WgpuRenderer {
         self.level = Some(LevelPipeline::upload(&self.device, &self.queue, level));
     }
 
+    fn set_level_palette(&mut self, palette: &rw_assets::PaletteTexture) {
+        if let Some(level) = &self.level {
+            level.set_palette(&self.queue, palette);
+        }
+    }
+
     fn draw_level(&mut self, view: LevelView) {
         self.level_view = Some(view);
         self.queue_draws.mark_level();

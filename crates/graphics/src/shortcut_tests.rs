@@ -48,7 +48,7 @@ impl TestRoom for Room {
             }
         }
         let (level, front) = water.map_or((-1, 0), |(l, f)| (l, i32::from(f)));
-        let text = format!("T\n{w}*{h}|{level}|{front}\n0\n0,0\n\n\n\n\n\n\n\n{grid}\n");
+        let text = format!("T\n{w}*{h}|{level}|{front}\n0*0|0|0\n0,0\n\n\n\n\n\n\n\n{grid}\n");
         Room::parse(&text).expect("test room parses")
     }
 }

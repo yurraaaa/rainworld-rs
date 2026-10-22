@@ -113,6 +113,10 @@ pub trait Renderer {
     /// Uploads the level graphic of one camera, replacing the previous one.
     fn set_level(&mut self, level: &LevelGraphics<'_>);
 
+    /// Replaces the uploaded level's palette (the game's `ApplyFade` when the dark or
+    /// fade blend changed); nothing without a level.
+    fn set_level_palette(&mut self, palette: &rw_assets::PaletteTexture);
+
     /// Draws the level set by [`set_level`](Renderer::set_level) over the shapes and
     /// sprites queued so far this frame (they show only through sky and depth >= 5, see
     /// the `level` module), then the room layers and later draws. The frame is clipped

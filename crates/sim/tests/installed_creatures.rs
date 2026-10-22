@@ -167,7 +167,7 @@ fn story_world_load_draws_match_the_model() {
             [3_107_752_595, 1_225_807_616, 4_076_950_273, 4_076_870_683]
         );
         assert_eq!(rng.range_i32(0, 10000), 9962);
-        RainCycle::new_story(campaign.name, &mut rng);
+        RainCycle::new_story(campaign.name, 0, &mut rng);
         assert_eq!(
             rng.state(),
             [1_864_723_394, 1_792_162_932, 3_150_331_535, 2_503_639_016]

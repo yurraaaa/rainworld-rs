@@ -93,12 +93,13 @@ pub use rw_assets::SlugcatName;
 
 /// The room camera's sprite containers an object draws into (`RoomCamera.ReturnFContainer`).
 ///
-/// BackgroundShortcuts, Background, Midground, then Items, are drawn before the level
-/// image, so level pixels nearer than depth 5 cover them; Foreground sprites added
+/// Shadows, BackgroundShortcuts, Background, Midground, then Items, are drawn before
+/// the level image, so level pixels nearer than depth 5 cover them; Foreground sprites added
 /// after the level image draw over it, then ForegroundLights, Shortcuts, Water and
 /// Bloom.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Layer {
+    Shadows,
     BackgroundShortcuts,
     Background,
     Midground,

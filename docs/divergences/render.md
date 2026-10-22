@@ -82,11 +82,24 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
 - **Fade quantisation.** The blended palette is stored as 8-bit texels like the game's
   ARGB32 palette texture; the rounding mode of Unity's `SetPixel` is assumed to be
   round-to-nearest.
-- **Not drawn:** object-cast shadows (needs the room's light angle and the edge-stretch
-  helper of the shader includes), wet-terrain ripples (`_WetTerrain` is on by default in
+- **Object shadows and `SunBlock`.** The object-shadow lookup reads the "behind" target
+  (the frame before the level, the game's `_GrabTexture`) with bilinear filtering and
+  clamped edges; Unity's grab texture filter and wrap are not in the game's code
+  (INFERRED: render textures default to bilinear). The lookup follows the D3D build's
+  coordinates (`UNITY_UV_STARTS_AT_TOP`, as the half-pixel offset above). The
+  `SunBlocker` is drawn (its sprite in `Shadows`); its `UpdatableAndDeletable` is not
+  added to the room's update list (its `Update` does nothing).
+- **`_rimFix`** is set from the room's effects (`AboveCloudsView`, `RoofTopView`,
+  `PinkSky`) with the sky scenes' day `atmosphereColor` (41, 59, 81); the scenes
+  themselves are not ported, so their sky shows only that colour, and `PinkSky`'s pink
+  and the `DayNight` colour changes are not set (no base room uses either).
+- **Not drawn:** wet-terrain ripples (`_WetTerrain` is on by default in
   the game, shifting level pixels by up to one row in thin bands above the water line),
-  rain-cycle darkening (`DarkPalette`, `ShaderLight` before rain), lightning, room
-  effects that grade colours (Darkness, Brightness, Contrast, Desaturation, Hue, DayNight)
+  the rain's `ShaderLight` after the rain hits (`GlobalRain` is not ported: it stays
+  -1), `BrokenZeroG`'s dark palette (zero gravity is not ported), lightning, room
+  effects that grade colours (Darkness, Brightness, Contrast, Desaturation, Hue, DayNight:
+  their uniforms keep the game's defaults; no base-game room uses them, they come with
+  the DLCs)
   or modify effect colours (`ModifyEffectColorA/B`, unused in base-game rooms), ghost /
   rot / mushroom palettes, screen shake (and the camera bump of a weapon hitting a
   wall, `HitWall`'s `ScreenMovement`: skipped for now, a user decision of 2026-10-16), `_bkg` backgrounds, the heat / melt / ripple
@@ -98,3 +111,27 @@ not ported yet (rain cycle, room effects, objects) or are invisible at this stag
 
 **Affects.** Exact pixel colours of cloud shadows (noise rounding) and rooms with the
 listed effects; the softness of the frame when scaled full screen.
+
+## D22: Room light and palette darkening without a rain cycle
+
+`_light` and `DarkPalette` follow the game (`RoomCamera.DrawUpdate`, `DarkPalette`,
+`ApplyFade`; `RainCycle.ShaderLight`, `RainDarkPalette`, `CycleStartUp` with its
+2400-tick start-up after a story's first cycle): in a room whose `DangerType` is not
+`None` the light is the rain cycle's, before `Clouds`, and the palette turns toward its
+rain-dark half by `RainDarkPalette * RainIntensity` in the last 60 seconds before the
+rain (story).
+
+**What differs:** a world without a rain cycle (`cycle_length` 0, the default the
+port's `World` starts with; every MCP start, dev starts and arena levels included, gets
+the story cycle of `RainCycle::new_story`, so this is only a guard) would read to the
+game's formulas as a cycle already over (full darkness); there the port keeps the light
+at 1 and the palette undarkened (user decision, 2026-10-22). Dev starts and arena
+levels use the story formulas because the port gives them a story cycle (D4, D16); in
+the game an arena session uses the non-story ones (`LerpMap(TimeUntilRain, 200, 880,
+-1, 1)`) on its own cycle. The palette is rebuilt at the start of the tick when
+`DarkPalette` changed, as the game's camera `Update` does before the rain cycle's.
+
+**Why.** Starts without a cycle are not a game situation.
+
+**Affects.** Lighting of cloudy rooms and the palette in dev starts and arena levels.
+

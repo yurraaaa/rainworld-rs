@@ -40,6 +40,7 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 | `water_drip.rs`, `cosmetic_graphics.rs` | drips; sparks, explosion spikes, bubbles | `WaterDrip`, `Spark`, `ExplosionSpikes`, `LizardBubble` |
 | `shortcut_graphics.rs` | pipe pixels, entrance symbols | `ShortcutGraphics` |
 | `shelter_door_graphics.rs` | shelter door sprites | `ShelterDoor` |
+| `sun_blocker.rs` | the `SunBlock` effect's screen-covering sprite in `Shadows` | `SunBlocker` |
 | `tests.rs`, `hologram_tests.rs`, `shortcut_tests.rs` | unit tests | |
 
 ## Where is X?

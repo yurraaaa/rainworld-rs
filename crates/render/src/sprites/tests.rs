@@ -433,6 +433,7 @@ fn room_globals_sprite_rect() {
         origin: [100.5, 200.25],
         size: [1366.0, 768.0],
         rain: 3.0,
+        light: 1.0,
     };
     let g = RoomGlobals::new(&view, [80.0, 190.0, 1400.0, 800.0]);
     assert_eq!(

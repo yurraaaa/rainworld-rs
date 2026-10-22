@@ -487,6 +487,7 @@ impl Session {
                 timer: world.rain_cycle.timer,
                 cycle_length: world.rain_cycle.cycle_length,
             },
+            level_params: scene.visuals().map(|v| v.state(&world.rain_cycle).into()),
             shelter_door: sim
                 .shelter_door(sim.camera_room())
                 .map(|d| ShelterDoorState {

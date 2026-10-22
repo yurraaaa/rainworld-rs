@@ -143,16 +143,8 @@ fn background_shortcut_reads_the_level_behind_it() {
         palette: &palette,
         noise: &noise,
         params: LevelParams {
-            light: 1.0,
-            grime: 0.0,
             fog_amount: 0.0,
-            clouds_speed: 1.0,
-            darkness: 1.0,
-            contrast: 1.0,
-            saturation: 1.0,
-            hue: 0.0,
-            brightness: 0.0,
-            swarm_room: 0.0,
+            ..LevelParams::DEFAULT
         },
     });
     let DrawItem::Sprite(mut pipe) =
@@ -169,6 +161,7 @@ fn background_shortcut_reads_the_level_behind_it() {
         origin: [0.0, 0.0],
         size: [64.0, 64.0],
         rain: 0.0,
+        light: 1.0,
     });
     let frame = r.render_image().unwrap();
     // The quad spans 16..48: lit over the dot texels, hidden over the others.
@@ -226,22 +219,15 @@ fn colored_sprite3_colours_by_depth_from_the_palette() {
         palette: &palette,
         noise: &noise,
         params: LevelParams {
-            light: 1.0,
-            grime: 0.0,
             fog_amount: palette.fog_amount(),
-            clouds_speed: 1.0,
-            darkness: 1.0,
-            contrast: 1.0,
-            saturation: 1.0,
-            hue: 0.0,
-            brightness: 0.0,
-            swarm_room: 0.0,
+            ..LevelParams::DEFAULT
         },
     });
     r.draw_level(LevelView {
         origin: [0.0, 0.0],
         size: [64.0, 64.0],
         rain: 0.0,
+        light: 1.0,
     });
     let list = DrawList {
         items: vec![white_sprite(
@@ -311,16 +297,8 @@ fn colored_sprite3_tests_the_level_texel_under_the_pixel() {
         palette: &palette,
         noise: &noise,
         params: LevelParams {
-            light: 1.0,
-            grime: 0.0,
             fog_amount: palette.fog_amount(),
-            clouds_speed: 1.0,
-            darkness: 1.0,
-            contrast: 1.0,
-            saturation: 1.0,
-            hue: 0.0,
-            brightness: 0.0,
-            swarm_room: 0.0,
+            ..LevelParams::DEFAULT
         },
     });
     let window = [-0.02, -0.02];
@@ -329,6 +307,7 @@ fn colored_sprite3_tests_the_level_texel_under_the_pixel() {
         origin: window,
         size: [64.0, 64.0],
         rain: 0.0,
+        light: 1.0,
     });
     let list = DrawList {
         items: vec![white_sprite(
@@ -372,4 +351,91 @@ fn overlay_draws_clipped_over_the_frame() {
     assert_eq!(pixel(&image, 4, 4), [255, 0, 0]);
     assert_eq!(pixel(&image, 20, 4), [0, 0, 0]);
     assert_eq!(pixel(&image, 4, 40), [0, 0, 0]);
+}
+
+/// A 64x64 level of sunlit depth-10 pixels (`R = 101`) under full sun: lit (200, 0, 0)
+/// from palette row 3, (0, 0, 200) from row 0 when shadowed; `light_dir` its angle.
+fn set_sunlit_level(r: &mut WgpuRenderer, light_dir: [f32; 2]) {
+    let image = PngImage::from_pixels(64, 64, vec![[101, 0, 0, 255]; 64 * 64]);
+    // PNG row `7 - row` holds the runtime palette's row `row`.
+    let mut pixels = vec![[90, 90, 90, 255]; 512];
+    pixels[4 * 32 + 10] = [200, 0, 0, 255];
+    pixels[7 * 32 + 10] = [0, 0, 200, 255];
+    let palette = PaletteTexture::blend(
+        &PaletteImage::from_image(&PngImage::from_pixels(32, 16, pixels)).unwrap(),
+        None,
+        0.0,
+    );
+    let noise =
+        NoiseTexture::from_image(&PngImage::from_pixels(64, 64, vec![[128, 0, 0, 255]; 4096]))
+            .unwrap();
+    r.set_level(&LevelGraphics {
+        camera_pos: [0.0, 0.0],
+        image: &image,
+        palette: &palette,
+        noise: &noise,
+        params: LevelParams {
+            light_dir,
+            ..LevelParams::DEFAULT
+        },
+    });
+}
+
+/// A `SunBlocker`'s `(1/255, 0, 0)` in the `Shadows` container shadows every sunlit
+/// pixel at depth >= 5 it lies behind, and shows through none.
+#[test]
+fn sun_block_takes_the_sun_without_masking() {
+    let Some(mut r) = renderer() else { return };
+    set_sunlit_level(&mut r, [0.0, 0.0]);
+    let DrawItem::Sprite(mut block) =
+        white_sprite(Shader::Basic, SpriteColor::rgb(1.0 / 255.0, 0.0, 0.0))
+    else {
+        unreachable!()
+    };
+    block.layer = Layer::Shadows;
+    let list = DrawList {
+        items: vec![DrawItem::Sprite(block)],
+    };
+    r.draw_sprites(&list, Layer::Shadows, [0.0, 0.0]);
+    r.draw_level(LevelView {
+        origin: [0.0, 0.0],
+        size: [64.0, 64.0],
+        rain: 0.0,
+        light: 1.0,
+    });
+    let frame = r.render_image().unwrap();
+    // The quad spans 16..48.
+    assert_eq!(
+        pixel(&frame, 32, 32),
+        [0, 0, 200],
+        "shadowed behind the blocker"
+    );
+    assert_eq!(pixel(&frame, 4, 4), [200, 0, 0], "lit elsewhere");
+}
+
+/// Object shadows look `-lightDir.x * (depth - 5) / 1400` of the screen to the side:
+/// with `lightDir.x = -70` a depth-10 pixel reads the grab 0.25 of the 64-pixel window
+/// (16 pixels) to its right, so pixel 24 is shadowed by the quad at 16..48 and pixel 40
+/// is lit.
+#[test]
+fn object_shadow_reads_the_grab_toward_the_light() {
+    let Some(mut r) = renderer() else { return };
+    set_sunlit_level(&mut r, [-70.0, 0.0]);
+    let list = DrawList {
+        items: vec![white_sprite(
+            Shader::Basic,
+            SpriteColor::rgb(1.0 / 255.0, 0.0, 0.0),
+        )],
+    };
+    r.draw_sprites(&list, Layer::Items, [0.0, 0.0]);
+    r.draw_level(LevelView {
+        origin: [0.0, 0.0],
+        size: [64.0, 64.0],
+        rain: 0.0,
+        light: 1.0,
+    });
+    let frame = r.render_image().unwrap();
+    assert_eq!(pixel(&frame, 24, 32), [0, 0, 200]);
+    assert_eq!(pixel(&frame, 40, 32), [200, 0, 0]);
+    assert_eq!(pixel(&frame, 56, 32), [200, 0, 0]);
 }

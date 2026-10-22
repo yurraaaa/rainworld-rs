@@ -97,6 +97,8 @@ pub struct SceneRenderer<R> {
     room_of: Option<(u64, i32)>,
     /// Scene, camera room and visuals generation whose level graphic is uploaded.
     level_of: Option<(u64, i32, u32)>,
+    /// The visuals' palette generation uploaded with it.
+    palette_of: u32,
 }
 
 impl Scene {
@@ -142,6 +144,7 @@ impl Scene {
                 })
                 .ok()
         });
+        self.apply_fade();
         let earth = self
             .visuals
             .as_ref()
@@ -171,6 +174,14 @@ impl Scene {
         self.camera.cut_to(i);
         if let Some(visuals) = &mut self.visuals {
             visuals.show(i);
+        }
+    }
+
+    /// `RoomCamera.Update`'s `ApplyFade` when `DarkPalette` changed (it runs before the
+    /// rain cycle's update in `RainWorldGame.Update`).
+    fn apply_fade(&mut self) {
+        if let Some(visuals) = &mut self.visuals {
+            visuals.fade(&self.game.sim().world().rain_cycle);
         }
     }
 
@@ -232,6 +243,7 @@ impl Scene {
             }
             None => {
                 self.set_camera_view();
+                self.apply_fade();
                 self.game.tick(input);
                 self.game.sim_mut().take_game_over();
                 self.after_game_tick()
@@ -249,6 +261,7 @@ impl Scene {
     /// controls, whose map button the game-over prompt reads.
     pub fn update_cameras(&mut self, input: Input, shared: &mut MenuShared) {
         self.set_camera_view();
+        self.apply_fade();
         self.update_hud(input.map, shared, false);
     }
 
@@ -549,9 +562,17 @@ impl Scene {
         let r = &mut target.renderer;
         let room = self.game.room();
         let time = (self.game.ticks() as f32 + alpha) / TICK_RATE as f32;
+        let rain = &self.game.sim().world().rain_cycle;
         let level = match &self.visuals {
-            Some(_) if view.level => Some(Visuals::view(&self.camera, alpha, time)),
+            Some(v) if view.level => Some(v.view(&self.camera, alpha, time, rain)),
             _ => None,
+        };
+        // `SunBlocker`s, alone in the `Shadows` container.
+        let shadows: Vec<DrawList> = match (&level, &self.visuals) {
+            (Some(level), Some(v)) if target.sprites.is_some() => (0..v.sun_blockers())
+                .map(|_| rw_graphics::SunBlocker::draw(rw_sim::Vec2::from(level.origin)))
+                .collect(),
+            _ => Vec::new(),
         };
         let camera = match (view.framing, &level) {
             (Framing::Rect { origin, size }, _) => Camera::window(origin, size, r.size()),
@@ -584,6 +605,7 @@ impl Scene {
             water_sprites,
             level,
             player_sprites: has_player_sprites,
+            shadows: &shadows,
             objects: &objects,
             holograms: &holograms,
             layers: view.layers,
@@ -661,6 +683,8 @@ struct FrameDraw<'a> {
     /// without it (the debug view, or no atlas) the physical body is drawn: chunks, rods
     /// and contacts.
     player_sprites: bool,
+    /// The `Shadows` container's sprites (level view only).
+    shadows: &'a [DrawList],
     /// Every drawable's sprites (level view only), the slugcat's and the shortcut
     /// graphics' among them, in the camera's container order.
     objects: &'a [DrawList],
@@ -690,6 +714,9 @@ impl FrameDraw<'_> {
         });
         // Sprites sit at `room - camPos`, the level view's origin.
         if let Some(level) = self.level {
+            for s in self.shadows {
+                r.draw_sprites(s, Layer::Shadows, level.origin);
+            }
             self.draw_layer(r, Layer::BackgroundShortcuts, level);
             self.draw_layer(r, Layer::Background, level);
         }
@@ -740,6 +767,7 @@ impl<R: Renderer> SceneRenderer<R> {
             sprites,
             room_of: None,
             level_of: None,
+            palette_of: 0,
         }
     }
 
@@ -754,6 +782,10 @@ impl<R: Renderer> SceneRenderer<R> {
             if self.level_of != Some(key) {
                 visuals.upload(&mut self.renderer, &scene.camera);
                 self.level_of = Some(key);
+                self.palette_of = visuals.palette_generation();
+            } else if self.palette_of != visuals.palette_generation() {
+                visuals.upload_palette(&mut self.renderer);
+                self.palette_of = visuals.palette_generation();
             }
         }
     }
@@ -791,6 +823,7 @@ mod tests {
         fn begin_frame(&mut self, _: Camera) {}
         fn draw_room(&mut self, _: RoomLayers) {}
         fn set_level(&mut self, _: &LevelGraphics<'_>) {}
+        fn set_level_palette(&mut self, _: &rw_assets::PaletteTexture) {}
         fn draw_level(&mut self, _: LevelView) {
             self.level = true;
             self.order.push("level");
@@ -810,6 +843,7 @@ mod tests {
         fn draw_sprites(&mut self, _: &DrawList, layer: Layer, _: [f32; 2]) {
             self.sprite_calls += 1;
             self.order.push(match layer {
+                Layer::Shadows => "shadows",
                 Layer::BackgroundShortcuts => "background shortcuts",
                 Layer::Background => "background",
                 Layer::Midground => "midground",
@@ -903,6 +937,7 @@ mod tests {
                 level,
                 player_sprites: true,
                 objects: &objects,
+                shadows: &[],
                 holograms: &[],
                 layers: RoomLayers::default(),
                 camera: Camera::fit([1.0, 1.0], (1366, 768), 0.0),
@@ -961,6 +996,7 @@ mod tests {
             origin: [-100.0, -50.0],
             size: [1366.0, 768.0],
             rain: 0.0,
+            light: 1.0,
         };
         let r = Recorder::record(&game, Some(level), &sprites);
         assert_eq!(r.sprite_calls, 2, "midground and foreground");
@@ -978,6 +1014,7 @@ mod tests {
             origin: [0.0, 0.0],
             size: [1366.0, 768.0],
             rain: 0.0,
+            light: 1.0,
         };
         let r = Recorder::record_with_water(
             &game,
@@ -1009,6 +1046,7 @@ mod tests {
             origin: [0.0, 0.0],
             size: [1366.0, 768.0],
             rain: 0.0,
+            light: 1.0,
         };
         let layers = [
             Layer::BackgroundShortcuts,
