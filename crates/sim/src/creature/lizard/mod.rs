@@ -215,8 +215,9 @@ const PARAMS: PhysicsParams = PhysicsParams {
 pub const LUNG_CAPACITY: f32 = 520.0;
 
 impl Lizard {
-    /// `room = null`, and its room's `CleanOutObjectNotInThisRoom` (in the same room
-    /// update): the graphics module leaves that room's `drawableObjects` and is kept.
+    /// `room = null`, and its room's `CleanOutObjectNotInThisRoom` (later in the same
+    /// room update in the game, D14): the graphics module leaves that room's
+    /// `drawableObjects` and is kept.
     pub fn leave_room(&mut self) {
         if let (Some(room), Some(g)) = (self.room, self.graphics.as_mut()) {
             g.drawn_in.retain(|&r| r != room);

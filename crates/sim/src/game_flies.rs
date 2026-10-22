@@ -549,7 +549,8 @@ impl RainWorldGame {
     /// that left took its module out with `CleanOutObjectNotInThisRoom` and keeps it),
     /// then `NowViewed` runs `InitiateGraphicsModule` over `physicalObjects` layer by
     /// layer, each in joining order: flies and overseers (layer 0), then lizards
-    /// (layer 1, whose `Reset` runs even on a module they kept).
+    /// (layer 1, whose `Reset` runs even on a module they kept). An overseer in a
+    /// teleport lobby keeps its module; a destroyed one's is dropped with it.
     pub(super) fn camera_changed_room(
         &mut self,
         from: i32,
@@ -559,7 +560,7 @@ impl RainWorldGame {
         for &id in self.world.room_creatures(from) {
             if let Some(crate::creature::RealizedCreature::Overseer(b)) =
                 &self.world.creature(id).realized
-                && b.in_room
+                && (b.in_room || b.slated)
             {
                 observer.overseer_removed(self.world.creature(id).id);
             }
@@ -595,10 +596,11 @@ impl RainWorldGame {
         for (_, id, kind) in self.now_viewed_objects(to) {
             match kind {
                 Viewed::Overseer => {
-                    if let Some(view) = self.world.overseer_view(id) {
-                        observer.overseer_added(&view, &mut self.rng);
+                    if let Some(view) = self.world.overseer_view(id)
+                        && observer.overseer_added(&view, &mut self.rng)
+                    {
+                        self.now_viewed_modules.push(id);
                     }
-                    self.now_viewed_modules.push(id);
                 }
                 Viewed::Fly => {
                     if self.world.fly_ref(id).graphics {
@@ -656,7 +658,6 @@ impl RainWorldGame {
 
     /// The creatures whose graphics modules the camera's last room change put in its
     /// room's `drawableObjects` (`NowViewed`); the others there joined with `AddObject`.
-    /// Overseers are always listed.
     #[must_use]
     pub fn now_viewed_modules(&self) -> &[CreatureId] {
         &self.now_viewed_modules

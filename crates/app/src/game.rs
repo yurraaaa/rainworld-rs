@@ -266,11 +266,13 @@ impl PlayerObserver for Graphics {
         }
     }
 
-    fn overseer_added(&mut self, view: &OverseerView<'_>, rng: &mut UnityRandom) {
-        if !self.overseers.iter().any(|g| g.id == view.id) {
+    fn overseer_added(&mut self, view: &OverseerView<'_>, rng: &mut UnityRandom) -> bool {
+        let built = !self.overseers.iter().any(|g| g.id == view.id);
+        if built {
             self.overseers.push(OverseerGraphics::new(view, rng));
         }
         self.set_hologram_base(view);
+        built
     }
 
     fn overseer_reset(&mut self, view: &OverseerView<'_>, rng: &mut UnityRandom) {
@@ -1088,7 +1090,8 @@ impl Game {
     }
 
     /// A creature's graphics module in camera 0's room: one it kept from an earlier
-    /// room joined `drawableObjects` with its `AddObject`, not `NowViewed`.
+    /// room (a fly, lizard or teleported overseer) joined `drawableObjects` with its
+    /// `AddObject`, not `NowViewed`.
     fn creature_module(&self, d: Drawable, id: CreatureId, seq: u64, layer: u8) -> Present {
         let module = Present::module(d, seq, layer);
         if self.sprite_order.had_room() && !self.sim.now_viewed_modules().contains(&id) {
@@ -1159,7 +1162,7 @@ impl Game {
                 && c.pos.room == room
                 && self.graphics.overseers.iter().any(|g| g.id == c.id)
             {
-                present.push(Present::module(d, b.update_order, 0));
+                present.push(self.creature_module(d, id, b.update_order, 0));
             }
         }
         if let Some(r) = world.realized(room) {
@@ -1786,6 +1789,11 @@ pub(crate) mod tests {
 
         fn head_y(&self) -> f32 {
             self.body().expect("body in room").chunks[0].pos.y
+        }
+
+        /// The graphics observer, with the sim it watches.
+        pub(crate) fn observer_and_sim(&mut self) -> (&mut dyn PlayerObserver, &RainWorldGame) {
+            (&mut self.graphics, &self.sim)
         }
 
         /// The observer's `lizard_removed` (`RemoveGraphicsModule`) for body `id`.

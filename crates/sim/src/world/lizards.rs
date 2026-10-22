@@ -26,6 +26,17 @@ pub(crate) struct LizardRoomCx<'a> {
     pub camera_room: i32,
 }
 
+impl LizardRoomCx<'_> {
+    /// The same context for a fly the lizard brings along.
+    pub(crate) fn fly_tick(&mut self) -> crate::creature::fly::FlyRoomTick<'_> {
+        crate::creature::fly::FlyRoomTick {
+            rng: self.rng,
+            observer: &mut *self.observer,
+            camera_room: self.camera_room,
+        }
+    }
+}
+
 impl World {
     /// Realized lizard `id`.
     ///
@@ -174,6 +185,8 @@ impl World {
                     self.creature_mut(o).pos = pos;
                     if self.creature(o).lizard().is_some() {
                         self.place_lizard(o, room, cx);
+                    } else if self.creature(o).fly().is_some() {
+                        self.place_fly(o, room, &mut cx.fly_tick());
                     }
                 }
                 Entity::Object(o) => {
@@ -327,8 +340,9 @@ impl World {
     }
 
     /// `Creature.PlaceInRoom` of a realized lizard: added to the room, each chunk on its
-    /// tile's middle a random degree off (a draw each), still; what it holds on its
-    /// head; then `NewRoom`.
+    /// tile's middle a random degree off (a draw each), still; what it holds added to
+    /// the room too (`AddObject`, a module in a viewed room; one entry kept when it is
+    /// placed itself as well, D14) and put on its head; then `NewRoom`.
     pub(crate) fn place_lizard(&mut self, id: CreatureId, room: i32, cx: &mut LizardRoomCx<'_>) {
         self.lizard_add_object(id, room, cx);
         let middle = Vec2::middle_of_tile(self.creature(id).pos.tile);
@@ -351,7 +365,9 @@ impl World {
             match e {
                 Entity::Object(o) => self.object_joins_room(o, room),
                 Entity::Creature(o) => match &mut self.creature_mut(o).realized {
-                    Some(RealizedCreature::Fly(f)) => f.room = Some(room),
+                    Some(RealizedCreature::Fly(_)) => {
+                        self.fly_add_object(o, room, &mut cx.fly_tick());
+                    }
                     Some(RealizedCreature::Lizard(_)) => self.lizard_add_object(o, room, cx),
                     _ => continue,
                 },

@@ -166,8 +166,10 @@ pub trait PlayerObserver {
     /// A room script adds `dvx` to every tail segment's x velocity.
     fn nudge_tail_x(&mut self, _dvx: f32) {}
     /// A realized overseer is in the camera's room (`AddObject` or `NowViewed`): its
-    /// `OverseerGraphics` is built unless it has one.
-    fn overseer_added(&mut self, _view: &OverseerView<'_>, _rng: &mut UnityRandom) {}
+    /// `OverseerGraphics` is built unless it has one. Returns whether it built one.
+    fn overseer_added(&mut self, _view: &OverseerView<'_>, _rng: &mut UnityRandom) -> bool {
+        false
+    }
     /// `OverseerGraphics.Reset`.
     fn overseer_reset(&mut self, _view: &OverseerView<'_>, _rng: &mut UnityRandom) {}
     /// Right after an overseer hologram's `Update` (the parts lerp their colours).

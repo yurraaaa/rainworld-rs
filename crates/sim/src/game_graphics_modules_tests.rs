@@ -14,7 +14,11 @@ use rw_random::UnityRandom;
 use crate::campaign::{SlugcatCampaign, StoryStart};
 use crate::creature::fly::{FlyRoomTick, FlyView};
 use crate::creature::lizard::{LizardGraphicsLink, LizardView};
-use crate::creature::{CreatureId, CreatureTemplate, EntityId, WorldCoordinate};
+use crate::creature::{
+    CreatureId, CreatureTemplate, EntityId, Grasp, RealizedCreature, Shareability, WorldCoordinate,
+};
+use crate::game::OverseerCall;
+use crate::item::Entity;
 use crate::tests::room;
 use crate::world::{LizardRoomCx, World};
 use crate::{
@@ -28,6 +32,7 @@ enum Call {
     /// The module's serial as the call left it.
     LizardAdded(EntityId, u64),
     LizardRemoved(EntityId),
+    OverseerRemoved(EntityId),
 }
 
 /// Records the module calls; a lizard link without a serial is a new module.
@@ -72,6 +77,9 @@ impl PlayerObserver for Recorder {
     }
     fn lizard_removed(&mut self, id: EntityId) {
         self.calls.push(Call::LizardRemoved(id));
+    }
+    fn overseer_removed(&mut self, id: EntityId) {
+        self.calls.push(Call::OverseerRemoved(id));
     }
 }
 
@@ -248,4 +256,64 @@ fn a_fly_keeps_its_module_into_another_room() {
     assert!(g.now_viewed_modules().is_empty());
     g.camera_changed_room(0, 1, &mut rec);
     assert_eq!(rec.calls[1..], [Call::FlyRemoved(fid)]);
+}
+
+/// `Creature.PlaceInRoom` in a viewed room: `AddObject` of the lizard (its module), its
+/// chunks' draws, then `AddObject` of the fly it holds: a later place in the update list
+/// and the fly's module.
+#[test]
+fn a_lizard_placed_holding_a_fly_adds_the_fly_after_it() {
+    let mut g = game();
+    let mut rec = Recorder::default();
+    let f = g.abstract_creature(CreatureType::Fly, (10, 3));
+    g.world.realize_fly(f, &mut g.rng);
+    let l = g.abstract_creature(CreatureType::GreenLizard, (10, 3));
+    assert!(g.world.realize_lizard(l, &mut g.rng));
+    g.world.creature_mut(l).grasps[0] = Some(Grasp {
+        serial: 0,
+        grabber: l,
+        grabbed: Entity::Creature(f),
+        grasp_used: 0,
+        chunk_grabbed: 0,
+        shareability: Shareability::CanNotShare,
+        dominance: 0.5,
+        pacifying: false,
+    });
+    let mut cx = LizardRoomCx {
+        rng: &mut g.rng,
+        observer: &mut rec,
+        camera_room: 0,
+    };
+    g.world.place_lizard(l, 0, &mut cx);
+    let (lid, fid) = (g.world.creature(l).id, g.world.creature(f).id);
+    assert_eq!(
+        rec.calls,
+        vec![Call::LizardAdded(lid, 1), Call::FlyAdded(fid)]
+    );
+    assert_eq!(g.world.fly_ref(f).room, Some(0));
+    assert!(g.world.fly_ref(f).update_order > g.world.lizard_ref(l).update_order);
+}
+
+/// An overseer out of its room in a teleport lobby has no place in `drawableObjects`
+/// and keeps its module at `NoLongerViewed`; a destroyed one's module goes with it.
+#[test]
+fn an_overseer_in_the_lobby_keeps_its_module_and_a_destroyed_one_does_not() {
+    let mut g = game();
+    let mut rec = Recorder::default();
+    let o = g.abstract_creature(CreatureType::Overseer, (10, 4));
+    assert!(g.world.realize_overseer(o, 0, &mut g.rng));
+    g.run_overseer(o, OverseerCall::Place, &mut ());
+    let oid = g.world.creature(o).id;
+    let Some(RealizedCreature::Overseer(b)) = &mut g.world.creature_mut(o).realized else {
+        panic!("realized");
+    };
+    b.in_room = false;
+    g.camera_changed_room(0, 1, &mut rec);
+    assert!(rec.calls.is_empty(), "in the lobby: kept");
+    let Some(RealizedCreature::Overseer(b)) = &mut g.world.creature_mut(o).realized else {
+        panic!("realized");
+    };
+    b.slated = true;
+    g.camera_changed_room(0, 1, &mut rec);
+    assert_eq!(rec.calls, vec![Call::OverseerRemoved(oid)]);
 }
