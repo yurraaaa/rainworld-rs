@@ -24,6 +24,7 @@ mod grab;
 mod grabbed;
 mod input;
 mod jump;
+mod jump_on_chunk;
 mod ledge;
 mod movement;
 mod poles;
@@ -42,6 +43,7 @@ pub use carry::HeavyCarry;
 pub use grab::{GrabState, StomachObject};
 pub use grabbed::{DangerGraspState, DangerGraspStep};
 pub use input::{INPUT_HISTORY, Input, PlayerController};
+pub use jump_on_chunk::{JumpChunk, JumpChunkBody, JumpChunkPush};
 pub use shortcut::VesselStep;
 pub use sleep::ShelterCheck;
 pub(crate) use spear_on_back::BackSpearDrop;
@@ -244,6 +246,14 @@ pub struct Player {
     jump_boost: f32,
     /// Wall-jump window; its sign is the jump direction.
     can_wall_jump: i32,
+    /// `jumpChunkCounter`: ticks left to jump off `jump_chunk`; negative after a jump
+    /// off one, while no new chunk is taken.
+    jump_chunk_counter: i32,
+    jump_chunk: Option<JumpChunk>,
+    /// The jump chunk's masses, lent for the update.
+    jump_chunk_body: Option<JumpChunkBody>,
+    /// `JumpOnChunk`'s push on the other object; the game applies it.
+    jump_chunk_push: Option<JumpChunkPush>,
     /// After a wall jump: forced horizontal direction, counting toward 0.
     jump_stun: i32,
     wall_slide_counter: i32,
@@ -445,6 +455,10 @@ impl Player {
             want_to_jump: 0,
             jump_boost: 0.0,
             can_wall_jump: 0,
+            jump_chunk_counter: 0,
+            jump_chunk: None,
+            jump_chunk_body: None,
+            jump_chunk_push: None,
             jump_stun: 0,
             wall_slide_counter: 0,
             no_grab_counter: 0,
@@ -807,6 +821,7 @@ impl Player {
             self.wall_slide_counter = 0;
         }
         self.can_wall_jump -= self.can_wall_jump.signum();
+        self.count_jump_chunk();
         if self.no_grab_counter > 0 {
             self.no_grab_counter -= 1;
         }

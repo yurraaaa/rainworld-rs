@@ -14,6 +14,7 @@ mod corridor;
 mod drips;
 mod exhaustion;
 mod grabbed;
+mod jump_on_chunk;
 mod poles;
 mod sleep;
 mod sounds;
