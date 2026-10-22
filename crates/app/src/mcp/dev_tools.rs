@@ -324,6 +324,12 @@ impl RoomShot {
             ..view.layers
         });
         if let Some(level) = level {
+            // The room's `SunBlocker`s, alone in `Shadows`.
+            let blockers = self.visuals.as_ref().map_or(0, Visuals::sun_blockers);
+            for _ in 0..blockers {
+                let list = rw_graphics::SunBlocker::draw(Vec2::from(level.origin));
+                r.draw_sprites(&list, Layer::Shadows, level.origin);
+            }
             for layer in [Layer::Background, Layer::Midground, Layer::Items] {
                 for list in &items {
                     r.draw_sprites(list, layer, level.origin);

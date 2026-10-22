@@ -877,7 +877,7 @@ impl Renderer for WgpuRenderer {
     }
 
     fn set_level_palette(&mut self, palette: &rw_assets::PaletteTexture) {
-        if let Some(level) = &self.level {
+        if let Some(level) = &mut self.level {
             level.set_palette(&self.queue, palette);
         }
     }

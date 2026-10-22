@@ -439,3 +439,54 @@ fn object_shadow_reads_the_grab_toward_the_light() {
     assert_eq!(pixel(&frame, 40, 32), [200, 0, 0]);
     assert_eq!(pixel(&frame, 56, 32), [200, 0, 0]);
 }
+
+/// `ApplyFade` ends with `ApplyPalette`, which takes `_fogAmount` from the new texture:
+/// a depth-10 unlit pixel (`R = 11`) over black base texels is fog-free under a palette
+/// whose texel (9, 7) has red 255 (amount 0), and a third of the way to the fog colour
+/// (240, 0, 0) after the palette is replaced by one whose texel (9, 7) is black (amount
+/// 1): `lerp(0, 240, 10 * 1 / 30)` = 80.
+#[test]
+fn palette_rewrite_refreshes_the_fog_amount() {
+    let Some(mut r) = renderer() else { return };
+    let image = PngImage::from_pixels(64, 64, vec![[11, 0, 0, 255]; 64 * 64]);
+    let mut pixels = vec![[0, 0, 0, 255]; 512];
+    pixels[1] = [240, 0, 0, 255];
+    pixels[9] = [255, 0, 0, 255];
+    let clear = PaletteTexture::blend(
+        &PaletteImage::from_image(&PngImage::from_pixels(32, 16, pixels.clone())).unwrap(),
+        None,
+        0.0,
+    );
+    pixels[9] = [0, 0, 0, 255];
+    let foggy = PaletteTexture::blend(
+        &PaletteImage::from_image(&PngImage::from_pixels(32, 16, pixels)).unwrap(),
+        None,
+        0.0,
+    );
+    assert_eq!((clear.fog_amount(), foggy.fog_amount()), (0.0, 1.0));
+    let noise =
+        NoiseTexture::from_image(&PngImage::from_pixels(64, 64, vec![[128, 0, 0, 255]; 4096]))
+            .unwrap();
+    r.set_level(&LevelGraphics {
+        camera_pos: [0.0, 0.0],
+        image: &image,
+        palette: &clear,
+        noise: &noise,
+        params: LevelParams {
+            fog_amount: clear.fog_amount(),
+            ..LevelParams::DEFAULT
+        },
+    });
+    let view = LevelView {
+        origin: [0.0, 0.0],
+        size: [64.0, 64.0],
+        rain: 0.0,
+        light: 1.0,
+    };
+    r.draw_level(view);
+    assert_eq!(pixel(&r.render_image().unwrap(), 32, 32), [0, 0, 0]);
+    r.set_level_palette(&foggy);
+    r.begin_frame(Camera::window([0.0, 0.0], [64.0, 64.0], SIZE));
+    r.draw_level(view);
+    assert_eq!(pixel(&r.render_image().unwrap(), 32, 32), [80, 0, 0]);
+}

@@ -113,8 +113,8 @@ pub trait Renderer {
     /// Uploads the level graphic of one camera, replacing the previous one.
     fn set_level(&mut self, level: &LevelGraphics<'_>);
 
-    /// Replaces the uploaded level's palette (the game's `ApplyFade` when the dark or
-    /// fade blend changed); nothing without a level.
+    /// Replaces the uploaded level's palette and its `_fogAmount` (the game's `ApplyFade`
+    /// and `ApplyPalette` when the dark or fade blend changed); nothing without a level.
     fn set_level_palette(&mut self, palette: &rw_assets::PaletteTexture);
 
     /// Draws the level set by [`set_level`](Renderer::set_level) over the shapes and

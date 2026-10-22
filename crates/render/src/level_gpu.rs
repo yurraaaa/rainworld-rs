@@ -54,8 +54,10 @@ impl LevelTextures {
         self.params.fog_amount
     }
 
-    /// Rewrites the palette (`ApplyFade` after the fade coordinate changed).
-    pub(crate) fn set_palette(&self, queue: &wgpu::Queue, palette: &rw_assets::PaletteTexture) {
+    /// Rewrites the palette (`ApplyFade` after the fade coordinate changed) and, as its
+    /// closing `ApplyPalette` does, `_fogAmount` from the new texture.
+    pub(crate) fn set_palette(&mut self, queue: &wgpu::Queue, palette: &rw_assets::PaletteTexture) {
+        self.params.fog_amount = palette.fog_amount();
         let width = rw_assets::PaletteTexture::WIDTH as u32;
         let height = rw_assets::PaletteTexture::HEIGHT as u32;
         queue.write_texture(

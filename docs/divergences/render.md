@@ -90,7 +90,7 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   `SunBlocker` is drawn (its sprite in `Shadows`); its `UpdatableAndDeletable` is not
   added to the room's update list (its `Update` does nothing).
 - **`_rimFix`** is set from the room's effects (`AboveCloudsView`, `RoofTopView`,
-  `PinkSky`) with the sky scenes' day `atmosphereColor` (41, 59, 81); the scenes
+  `PinkSky`; 11 base rooms) with the sky scenes' day `atmosphereColor` (41, 59, 81); the scenes
   themselves are not ported, so their sky shows only that colour, and `PinkSky`'s pink
   and the `DayNight` colour changes are not set (no base room uses either).
 - **Not drawn:** wet-terrain ripples (`_WetTerrain` is on by default in
@@ -107,7 +107,9 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   `Room Setting Templates` line uses it).
 
 **Why.** The port draws the camera's room with the player; these depend on systems
-not ported yet (rain cycle, room effects, objects) or are invisible at this stage.
+not ported yet (the rain itself and the global rain, lightning, zero gravity, echoes,
+the room effects' own objects and scenes) or are invisible at this stage. The rain
+cycle's light and palette darkening before the rain are ported (D22).
 
 **Affects.** Exact pixel colours of cloud shadows (noise rounding) and rooms with the
 listed effects; the softness of the frame when scaled full screen.
@@ -125,10 +127,12 @@ rain (story).
 port's `World` starts with; every MCP start, dev starts and arena levels included, gets
 the story cycle of `RainCycle::new_story`, so this is only a guard) would read to the
 game's formulas as a cycle already over (full darkness); there the port keeps the light
-at 1 and the palette undarkened (user decision, 2026-10-22). Dev starts and arena
-levels use the story formulas because the port gives them a story cycle (D4, D16); in
-the game an arena session uses the non-story ones (`LerpMap(TimeUntilRain, 200, 880,
--1, 1)`) on its own cycle. The palette is rebuilt at the start of the tick when
+at 1 and the palette undarkened: a port-only guard that no real start reaches. Dev
+starts and arena levels use the story formulas because the port gives them a story
+cycle (D4, D16); in the game an arena session uses the non-story ones
+(`LerpMap(TimeUntilRain, 200, 880, -1, 1)`, `RainDarkPalette` `InverseLerp(1000, 400,
+TimeUntilRain)`) on its own cycle, with `startUpTicks` 600 outside sandbox (the port
+gives arena levels none). The palette is rebuilt at the start of the tick when
 `DarkPalette` changed, as the game's camera `Update` does before the rain cycle's.
 
 **Why.** Starts without a cycle are not a game situation.
