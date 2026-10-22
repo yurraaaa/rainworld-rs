@@ -110,7 +110,8 @@ impl World {
             Some(RealizedCreature::Fly(f)) => f.dead,
             Some(RealizedCreature::Overseer(b)) => b.dead,
             Some(RealizedCreature::Lizard(l)) => l.dead,
-            Some(RealizedCreature::Player) | None => !c.state.alive,
+            Some(RealizedCreature::Player) => self.player_dead,
+            None => !c.state.alive,
         }
     }
 
@@ -128,7 +129,8 @@ impl World {
             Some(RealizedCreature::Fly(f)) => f.dead = true,
             Some(RealizedCreature::Overseer(b)) => b.dead = true,
             Some(RealizedCreature::Lizard(l)) => l.dead = true,
-            _ => {}
+            Some(RealizedCreature::Player) => self.player_dead = true,
+            None => {}
         }
         self.lose_all_grasps(id);
         self.abstract_die(id, rng);

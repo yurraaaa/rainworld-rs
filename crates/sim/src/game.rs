@@ -860,6 +860,7 @@ impl RainWorldGame {
         if let Some(p) = &self.player {
             let dead = p.is_dead();
             self.world.creature_mut(self.player_id).state.alive = !dead;
+            self.world.player_dead = dead;
         }
     }
 
@@ -1994,17 +1995,24 @@ impl RainWorldGame {
     }
 
     /// `OnScreenPositionOfInShortCutCreature` for the player: its own vessel's tile, or
-    /// the tile of the vessel carrying it while that vessel is in room `room`'s tubes.
+    /// the tile of the first vessel in room `room`'s tubes whose creature has a stick
+    /// with the player (its own `stuckObjects`, either end).
     #[must_use]
     pub fn player_vessel_tile(&self, room: i32) -> Option<(i32, i32)> {
         let player = self.player.as_ref()?;
         if let Some(tile) = player.shortcut_vessel_tile() {
             return Some(tile);
         }
-        let carrier = player.carried_by()?;
+        let me = Entity::Creature(self.player_id);
         self.transport_vessels()
             .flatten()
-            .find(|v| v.creature == carrier && v.room == room)
+            .filter(|v| v.room == room)
+            .find(|v| {
+                self.world
+                    .sticks_of(Entity::Creature(v.creature))
+                    .iter()
+                    .any(|s| Entity::Creature(s.a) == me || s.b == me)
+            })
             .map(|v| v.tiles().0)
     }
 

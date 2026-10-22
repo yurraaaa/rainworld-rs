@@ -122,7 +122,7 @@ impl RainWorldGame {
         } else {
             &mut self.silent
         };
-        player.flush_queued_sounds(&mut self.rng, sounds);
+        player.flush_sounds(&mut self.rng, sounds);
         log::info!("the player was dragged into a den and died");
         let Some(map_room) = self.world.realized(room).map(|r| Arc::clone(&r.room)) else {
             return;

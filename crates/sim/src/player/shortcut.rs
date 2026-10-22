@@ -214,7 +214,8 @@ impl Player {
     /// `Player.SpitOutOfShortCut` into `room`: head 2.5 px out of the entrance middle
     /// toward the room, hips 2.5 px into the tube, both moving `2 * hole`
     /// (`HardSetPosition`, so a pending `setPos` lands there too);
-    /// `shortcutDelay = 20`, `cantBeGrabbedCounter = 30`. Animation, body mode and
+    /// `shortcutDelay = 20`, `cantBeGrabbedCounter = 30`, `exitsToBeDiscovered`
+    /// forgotten (the map discovery lists the new room's). Animation, body mode and
     /// standing are kept. The base `Creature.SpitOutOfShortCut` loop (the player's own,
     /// or that of the creature carrying it) first puts each chunk at the middle plus
     /// `Custom.RNV()` (one draw each) with no velocity, which the player's positions
@@ -237,6 +238,7 @@ impl Player {
         self.shortcut_delay = SPIT_OUT_DELAY;
         self.vessel = None;
         self.carried_by = None;
+        self.exits_to_be_discovered = None;
         let (hx, hy) = room.shortcut_hole_direction(tile.0, tile.1);
         let hole = Vec2::new(hx as f32, hy as f32);
         for (i, c) in self.body.chunks.iter_mut().enumerate() {

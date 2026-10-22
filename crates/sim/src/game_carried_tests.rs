@@ -213,3 +213,42 @@ fn stale_holds_on_the_player_are_pruned() {
     g.world.clean_grabbed_by(Entity::Creature(g.player_id));
     assert!(g.player_grabbed_by().is_empty());
 }
+
+#[test]
+fn a_vessel_shows_the_player_only_while_its_creature_holds_it() {
+    // `OnScreenPositionOfInShortCutCreature` finds a carried creature through the vessel
+    // creature's own `stuckObjects`: once the lizard lets go (as in its den), its vessel
+    // no longer stands for the player, though the body stays in the tubes.
+    let mut g = game(&SPLIT, (4, 3));
+    let l = g.still_lizard((7, 3), -1.0, 40);
+    g.jaws_hold_player(l);
+    g.dev_set_lizard_destination(l, WorldCoordinate::new(0, 17, 3, -1), Some(0.5));
+    for _ in 0..1200 {
+        g.tick(Input::NONE, &mut ());
+        if g.player_ref().carried_by() == Some(l)
+            && let Some((v, _)) = g.creature_vessel(l)
+        {
+            assert_eq!(g.player_vessel_tile(0), Some(v.tiles().0));
+            g.world.lose_all_grasps(l);
+            assert_eq!(g.player_ref().carried_by(), Some(l));
+            assert_eq!(g.player_vessel_tile(0), None);
+            return;
+        }
+    }
+    panic!("never carried");
+}
+
+#[test]
+fn a_held_player_killed_in_a_den_is_still_alive_when_creature_die_checks() {
+    // `IsEnteringDen`: `AbstractCreature.Die()` first, then `realizedCreature.Die()`,
+    // whose `Creature.Die` reads the body's `dead` (still false) before its `Killing`.
+    let mut g = game(&DEN, (6, 2));
+    let l = g.still_lizard((8, 2), -1.0, 10);
+    g.jaws_hold_player(l);
+    let player = g.player_id;
+    g.world.abstract_die(player, &mut UnityRandom::new(1));
+    assert!(!g.world.creature(player).state.alive);
+    assert!(!g.world.realized_dead(player));
+    g.world.creature_die(player, &mut UnityRandom::new(1));
+    assert!(g.world.realized_dead(player));
+}

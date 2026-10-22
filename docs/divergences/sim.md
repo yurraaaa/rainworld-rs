@@ -158,8 +158,9 @@ spit-out puts the player out with the lizard (D19).
   `ShortCutVessel` for the player too; the port keeps the player's on `Player` (with
   its slot in the list) or in the lobby, and its `wait` is always 0 (Jolly co-op).
 - **Not ported:** MSC tongue release, the arena hooks of `SpitOutOfShortCut` and
-  den entry (`PlayerTryingToEnterDen`), dens for creatures other than flies (a fly's
-  `OpportunityToEnterDen` never takes it in), NPC transports
+  den entry (`PlayerTryingToEnterDen`), dens for creatures other than flies and
+  lizards (a fly's `OpportunityToEnterDen` never takes it in; a lizard's vessel at a den
+  node takes it in, with what it carries), NPC transports
   (`NPCTransportationDestination`), border travel, region transportation, and Remix
   falling into a shortcut (D4).
 
@@ -566,7 +567,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
   the lizard fears something). Lizard bites and `DamageAttack` on a rival are the
   shared ones (step 7b/8; a rival takes no damage from `DamageAttack`). Where the game
   throws on these paths the port logs a warning, stops that call and goes on with the
-  tick (divergence; how to model it is the user's open decision): a submitting lizard
+  tick (divergence; the user's decision, 2026-10-22: these throws stay modelled as
+  stop-that-call-and-go-on with a warning): a submitting lizard
   with no representation of the sender (`RecieveCommunication`'s
   `rep.representedCreature`, a NullReferenceException), `LeaveRoom.Act` in a room
   without connections (`connections[-1]`, an IndexOutOfRangeException) and its random
