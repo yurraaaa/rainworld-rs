@@ -9,7 +9,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 
 | Crate | mirrors | port-only | fallback | unmapped |
 |---|---|---|---|---|
-| app | 12 | 19 | 0 | 0 |
+| app | 12 | 20 | 0 | 0 |
 | assets | 19 | 13 | 0 | 0 |
 | audio | 11 | 5 | 0 | 0 |
 | graphics | 27 | 4 | 0 | 0 |
@@ -18,7 +18,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | random | 0 | 1 | 0 | 0 |
 | render | 6 | 18 | 0 | 0 |
 | save | 15 | 5 | 0 | 0 |
-| sim | 152 | 5 | 0 | 0 |
+| sim | 155 | 5 | 0 | 0 |
 
 ## Rust file to C# files
 
@@ -55,6 +55,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/app/src/sprites.rs` | port-only | - |
 | `crates/app/src/timestep.rs` | mirrors | MainLoopProcess.cs |
 | `crates/app/src/visuals.rs` | mirrors | RoomCamera.cs |
+| `crates/app/src/window_identity.rs` | port-only | - |
 | `crates/assets/src/ambient.rs` | mirrors | DirectionalSound.cs, OmniDirectionalSound.cs, RoomSettings.cs, SpotSound.cs |
 | `crates/assets/src/border_exits.rs` | mirrors | RoomBorderExit.cs, ShortcutMapper.cs |
 | `crates/assets/src/creatures.rs` | mirrors | CreatureTemplate.cs, WorldLoader.cs |
@@ -317,10 +318,12 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/sim/src/game_player.rs` | mirrors | Player.cs, WaterDrip.cs |
 | `crates/sim/src/game_player_grabbed.rs` | mirrors | Creature.cs, Player.cs |
 | `crates/sim/src/game_shelter.rs` | mirrors | Player.cs, Room.cs, ShelterDoor.cs |
+| `crates/sim/src/game_spear_on_back.rs` | mirrors | Player.cs |
 | `crates/sim/src/game_tracker.rs` | mirrors | ArtificialIntelligence.cs, RelationshipTracker.cs, Tracker.cs |
 | `crates/sim/src/game_triggers.rs` | mirrors | ActiveTriggerChecker.cs, RainCycle.cs, Room.cs |
 | `crates/sim/src/game_weapons.rs` | mirrors | Rock.cs, Room.cs, Spear.cs, Weapon.cs |
 | `crates/sim/src/item.rs` | mirrors | AbstractPhysicalObject.cs, AbstractSpear.cs |
+| `crates/sim/src/item/on_back_stick.rs` | mirrors | Player.cs |
 | `crates/sim/src/item/spear_stick.rs` | mirrors | AbstractPhysicalObject.cs |
 | `crates/sim/src/item/weapon.rs` | mirrors | PhysicalObject.cs, PlayerCarryableItem.cs, Rock.cs, Spear.cs, Weapon.cs |
 | `crates/sim/src/lib.rs` | port-only | - |
@@ -345,6 +348,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/sim/src/player/shortcut.rs` | mirrors | Creature.cs, Player.cs, ShortcutHandler.cs |
 | `crates/sim/src/player/sleep.rs` | mirrors | Player.cs |
 | `crates/sim/src/player/sounds.rs` | mirrors | Player.cs |
+| `crates/sim/src/player/spear_on_back.rs` | mirrors | Player.cs |
 | `crates/sim/src/player/swim.rs` | mirrors | Player.cs |
 | `crates/sim/src/room_ext.rs` | port-only | - |
 | `crates/sim/src/room_script.rs` | mirrors | Room.cs, RoomSpecificScript.cs |
@@ -545,7 +549,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `PhysicalObject.cs` | `crates/sim/src/creature/fly/update.rs`, `crates/sim/src/game_lizards.rs`, `crates/sim/src/item/weapon.rs`, `crates/sim/src/noise.rs`, `crates/sim/src/object.rs` |
 | `PickupObjectInstruction.cs` | `crates/sim/src/trigger.rs` |
 | `PlacedObject.cs` | `crates/assets/src/placed.rs`, `crates/assets/src/placed_types.rs` |
-| `Player.cs` | `crates/sim/src/creature/vision.rs`, `crates/sim/src/game_carried.rs`, `crates/sim/src/game_holo_light.rs`, `crates/sim/src/game_items.rs`, `crates/sim/src/game_map.rs`, `crates/sim/src/game_over.rs`, `crates/sim/src/game_player.rs`, `crates/sim/src/game_player_grabbed.rs`, `crates/sim/src/game_shelter.rs`, `crates/sim/src/player/advanced.rs`, `crates/sim/src/player/animation.rs`, `crates/sim/src/player/body_mode.rs`, `crates/sim/src/player/corridor.rs`, `crates/sim/src/player/exhaustion.rs`, `crates/sim/src/player/falls.rs`, `crates/sim/src/player/grab.rs`, `crates/sim/src/player/grabbed.rs`, `crates/sim/src/player/input.rs`, `crates/sim/src/player/jump.rs`, `crates/sim/src/player/ledge.rs`, `crates/sim/src/player/mod.rs`, `crates/sim/src/player/movement.rs`, `crates/sim/src/player/poles.rs`, `crates/sim/src/player/shortcut.rs`, `crates/sim/src/player/sleep.rs`, `crates/sim/src/player/sounds.rs`, `crates/sim/src/player/swim.rs` |
+| `Player.cs` | `crates/sim/src/creature/vision.rs`, `crates/sim/src/game_carried.rs`, `crates/sim/src/game_holo_light.rs`, `crates/sim/src/game_items.rs`, `crates/sim/src/game_map.rs`, `crates/sim/src/game_over.rs`, `crates/sim/src/game_player.rs`, `crates/sim/src/game_player_grabbed.rs`, `crates/sim/src/game_shelter.rs`, `crates/sim/src/game_spear_on_back.rs`, `crates/sim/src/item/on_back_stick.rs`, `crates/sim/src/player/advanced.rs`, `crates/sim/src/player/animation.rs`, `crates/sim/src/player/body_mode.rs`, `crates/sim/src/player/corridor.rs`, `crates/sim/src/player/exhaustion.rs`, `crates/sim/src/player/falls.rs`, `crates/sim/src/player/grab.rs`, `crates/sim/src/player/grabbed.rs`, `crates/sim/src/player/input.rs`, `crates/sim/src/player/jump.rs`, `crates/sim/src/player/ledge.rs`, `crates/sim/src/player/mod.rs`, `crates/sim/src/player/movement.rs`, `crates/sim/src/player/poles.rs`, `crates/sim/src/player/shortcut.rs`, `crates/sim/src/player/sleep.rs`, `crates/sim/src/player/sounds.rs`, `crates/sim/src/player/spear_on_back.rs`, `crates/sim/src/player/swim.rs` |
 | `PlayerCarryableItem.cs` | `crates/sim/src/game_items.rs`, `crates/sim/src/item/weapon.rs` |
 | `PlayerGraphics.cs` | `crates/graphics/src/looker.rs`, `crates/graphics/src/player_draw.rs`, `crates/graphics/src/player_graphics.rs` |
 | `PlayerGuideState.cs` | `crates/save/src/misc_world.rs`, `crates/sim/src/creature/overseer/guide_state.rs` |
