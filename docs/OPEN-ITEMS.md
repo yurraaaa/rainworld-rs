@@ -35,7 +35,7 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   first there (survey B1 marks most of it not examined). The coral system already builds
   in the order `PlaceSwarmers` slots into (D38).
 - **The rot (M12)** (user, 2026-10-23): step 10f (`DaddyCorruption`, its tubes and `Rope`,
-  survey B13-ish in `insects-and-superstructure.md`, `climbable-vines.md` 4.3) moves to M12;
+  survey B16 in `insects-and-superstructure.md`, `climbable-vines.md` 4.3) moves to M12;
   `StuckDaddy` with DaddyLongLegs.
 
 ## Planned
