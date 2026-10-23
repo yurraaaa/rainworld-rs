@@ -215,14 +215,10 @@ impl Scene {
     /// `DeathFallGraphic.InitiateSprites` for the camera room's, as the camera enters.
     fn initiate_death_fall(&mut self) {
         let index = self.game.sim().camera_room();
-        if let Some(fall) = self
-            .game
-            .sim_mut()
-            .world_mut()
-            .realized_mut(index)
-            .and_then(|r| r.death_fall.as_mut())
+        if let Some(r) = self.game.sim_mut().world_mut().realized_mut(index)
+            && let Some(fall) = &mut r.death_fall
         {
-            fall.initiate_sprites();
+            fall.initiate_sprites(&r.room);
         }
     }
 

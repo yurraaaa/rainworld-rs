@@ -15,14 +15,16 @@ const OPEN_BOTTOM: [&str; 6] = [
     "##########....................",
 ];
 
-fn counter(g: &RainWorldGame) -> i32 {
-    g.world()
-        .realized(0)
-        .unwrap()
-        .death_fall
-        .as_ref()
-        .unwrap()
-        .counter
+impl RainWorldGame {
+    fn death_fall_counter(&self) -> i32 {
+        self.world()
+            .realized(0)
+            .unwrap()
+            .death_fall
+            .as_ref()
+            .unwrap()
+            .counter
+    }
 }
 
 /// A solid bottom row needs no death fall; an open tile in it does.
@@ -45,10 +47,10 @@ fn only_a_room_with_an_open_bottom_gets_one() {
 #[test]
 fn the_counter_counts_one_per_tick() {
     let mut g = game(&OPEN_BOTTOM, (3, 1));
-    let before = counter(&g);
+    let before = g.death_fall_counter();
     assert!(before > 0);
     for _ in 0..10 {
         g.tick(Input::NONE, &mut ());
     }
-    assert_eq!(counter(&g), before + 10);
+    assert_eq!(g.death_fall_counter(), before + 10);
 }

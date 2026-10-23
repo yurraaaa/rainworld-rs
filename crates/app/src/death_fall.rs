@@ -79,6 +79,7 @@ mod tests {
             current: 0,
             next: 0,
         };
+        fall.initiate_sprites(&r);
         for _ in 0..30 {
             fall.update(&r, 3, &view);
         }

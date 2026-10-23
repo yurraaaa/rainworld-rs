@@ -1,7 +1,7 @@
 //! The death fall's `get_state` entries (one per realized room, counted since the room
 //! loaded) and the other-room screenshot's camera sprites, on `CC_A06` (camera room) and
 //! its realized neighbour `CC_H01` of the installed game (skipped without it). Both have an
-//! open bottom with `defaultHeight` -70 and the `Fog` effect (`cc_settingstemplate`).
+//! open bottom (`defaultHeight` -70 once drawn) and the `Fog` effect (`cc_settingstemplate`).
 
 use rw_graphics::{DrawItem, Layer, Shader};
 use rw_sim::Vec2;
@@ -38,11 +38,10 @@ fn every_realized_room_counts_its_own_death_fall() {
     let before = s.state().expect("state").death_fall;
     let rooms: Vec<_> = before.iter().map(|f| f.room.as_str()).collect();
     assert_eq!(rooms, ["CC_A06", "CC_H01"]);
-    assert!(
-        before
-            .iter()
-            .all(|f| f.counter > 0 && f.default_height == -70.0)
-    );
+    assert!(before.iter().all(|f| f.counter > 0));
+    // Only the room a camera has drawn has run `InitiateSprites`.
+    let defaults: Vec<_> = before.iter().map(|f| f.default_height).collect();
+    assert_eq!(defaults, [-70.0, 0.0]);
     s.step(&StepParams {
         ticks: Some(10),
         input: Some(InputParam::default()),

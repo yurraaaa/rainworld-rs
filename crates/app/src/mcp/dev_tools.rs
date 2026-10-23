@@ -358,7 +358,10 @@ impl RoomShot {
             current,
             next: current,
         };
-        Some((fall, fall.height_under(&self.map, self.room, &view)))
+        // A camera drawing the room runs `InitiateSprites` first.
+        let mut initiated = fall.clone();
+        initiated.initiate_sprites(&self.map);
+        Some((fall, initiated.height_under(&self.map, self.room, &view)))
     }
 
     /// The room's `_waterLevel` line: its water + 100, else its death fall's height +

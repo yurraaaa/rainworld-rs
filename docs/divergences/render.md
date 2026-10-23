@@ -112,8 +112,9 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   `counter` ticking in the room's update list viewed or not). Its element is
   `Futile_White`, where the game takes the room's `RainMask_` once the rain or the
   `WaterLight` has made it (the shader reads only the quad's uv, the same either way).
-  The `height` is `Update`'s for every realized room, as `InitiateSprites` resets it
-  when a camera starts drawing the room.
+  `defaultHeight` and `height` are 0 until a camera first draws the room
+  (`InitiateSprites`, which sets the lowest camera's bottom); `Update` keeps copying
+  `defaultHeight`. An other-room shot runs the same `InitiateSprites` on a copy.
   The room camera's `WaterLight` (`app/src/water_light.rs`, `fs_water_light`) is drawn
   as the game's, first in `Foreground` after the level. Its `RainMask_<room>` texture
   (`rw_assets::RainMask`, `GenerateShelterTex` without the rain's outputs) is made from

@@ -138,8 +138,7 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `screenshot` with `room` set (`crates/app/src/mcp/dev_tools.rs`) draws no light fixtures
   and none of the SS electric objects (D36), wall mycelia (D38), coral neurons, coral stems
   (D41), coral circuits (D42) or projected circles (D40); the debug view does not outline them either.
-- **Full-screen effects leftovers** (review, small): `DeathFall::camera_viewing_point`
-  belongs on the room (`Room.CameraViewingPoint`); stale "not ported" rows for LightBurn,
+- **Full-screen effects leftovers** (review, small): stale "not ported" rows for LightBurn,
   SkyAndLightBloom, SkyBloom and wet terrain in `../rainworld-re/surveys/room-effects/`
   (README, `screen-effects.md` §1.5 and the `_WetTerrain`/`_waterLevel` rows) and
   `notes/room-rendering.md` §9.
