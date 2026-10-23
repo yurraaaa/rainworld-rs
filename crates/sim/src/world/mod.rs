@@ -430,7 +430,7 @@ impl World {
         if let Some(room) = self.realized[i].take() {
             if let Some(system) = room.coral {
                 for wall in &system.wall_mycelia {
-                    self.mycelia.remove_owner(wall.owner);
+                    self.mycelia.release_owner(wall.owner);
                 }
                 self.mycelia.drop_registry(system.id);
             }

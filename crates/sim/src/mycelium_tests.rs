@@ -719,7 +719,7 @@ fn a_strand_moves_between_systems() {
     assert_eq!(pool.registry(second), []);
     assert_eq!(pool.get(id).unwrap().system, None);
     // A removed owner's strands are gone, and links to them read as absent.
-    pool.remove_owner(owner);
+    pool.release_owner(owner);
     assert!(pool.get(id).is_none());
 }
 
@@ -767,4 +767,72 @@ fn a_new_system_is_not_the_old_one() {
     pool.move_to_system(id, Some(new));
     assert_eq!(pool.registry(new), [id]);
     assert_eq!(pool.get(id).unwrap().system, Some(new));
+}
+
+/// Two strands linked, the wall's owner gone with its room: the wall strand stays while its
+/// live partner names it (the game's object is still alive and its `connection` still equal), so
+/// the partner's turn draws only `value < 0.005` and keeps the link; once it breaks, the strand
+/// is freed.
+#[test]
+fn a_linked_strand_outlives_its_owner_until_unlinked() {
+    let (mut pool, wall, other) = linked(
+        Vec2::new(0.0, 0.0),
+        Vec2::new(10.0, 0.0),
+        Vec2::new(5.0, 0.0),
+        Vec2::new(35.0, 0.0),
+    );
+    let wall_owner = pool.get(wall).unwrap().owner;
+    let system = pool.get(wall).unwrap().system.unwrap();
+    pool.release_owner(wall_owner);
+    pool.drop_registry(system);
+    assert!(pool.get(wall).is_some(), "kept for its partner");
+    let connection = pool.get(other).unwrap().connection.unwrap();
+    let seed = (0..100)
+        .find(|&s| UnityRandom::new(s).value() >= 0.005)
+        .unwrap();
+    let mut rng = UnityRandom::new(seed);
+    pool.update_connected(other, connection, &mut rng);
+    assert_eq!(pool.get(other).unwrap().connection, Some(connection));
+    let mut expect = UnityRandom::new(seed);
+    draw(&mut expect, 1);
+    assert_eq!(rng.state(), expect.state());
+    // The partner lets go by chance: the wall strand has nothing left to reach it.
+    let breaking = (0..100_000)
+        .find(|&s| UnityRandom::new(s).value() < 0.005)
+        .unwrap();
+    pool.update_connected(other, connection, &mut UnityRandom::new(breaking));
+    assert_eq!(pool.get(other).unwrap().connection, None);
+    assert!(pool.get(wall).is_none());
+}
+
+/// A dropped system keeps its last `Frozen` for the strands still pointing at it, a strand
+/// of a teleporting overseer in another room's update.
+#[test]
+fn a_dropped_systems_frozen_is_kept_for_its_strands() {
+    let r = walled();
+    let map = AiMap::new(&r, 0, false, false);
+    let base = Vec2::new(70.0, 70.0);
+    let (mut pool, id) = strand_pool(OwnerKey(7), base, 60.0);
+    pool.get_mut(id).unwrap().use_static_culling = false;
+    let roots = WallRoots {
+        root_positions: vec![base],
+        directions: vec![Vec2::new(1.0, 0.0)],
+    };
+    pool.update(
+        id,
+        &roots,
+        &env(&r, Some(&map), 3, Some(true)),
+        &mut UnityRandom::new(1),
+    );
+    assert!(pool.get(id).unwrap().culled);
+    pool.drop_registry(SYS);
+    let elsewhere = env(&r, Some(&map), 3, None);
+    pool.update(id, &roots, &elsewhere, &mut UnityRandom::new(1));
+    assert!(
+        pool.get(id).unwrap().culled,
+        "still frozen as the dead system was"
+    );
+    // Once nothing points at it the state is forgotten.
+    pool.release_owner(OwnerKey(7));
+    assert!(pool.get(id).is_none());
 }

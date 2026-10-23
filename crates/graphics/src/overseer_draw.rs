@@ -11,7 +11,7 @@ use rw_sim::{FloatExt, MyceliumPool, Vec2};
 
 use crate::draw::{Color, DrawItem, DrawList, Layer, Mesh, Shader, Sprite};
 use crate::hologram_matrix::LensFrame;
-use crate::math::{Mathf, Vec2Bezier};
+use crate::math::{Mathf, VecToDeg};
 use crate::mycelium::{LongMesh, MyceliumSprites};
 use crate::overseer_graphics::{DrawPositions, OverseerGraphics};
 

@@ -96,7 +96,7 @@ pub use lizard_draw::{LizardReading, LizardSpineData};
 pub use lizard_graphics::{IndividualVariations, LIZARD_BASE_SPRITES, LizardGraphics};
 pub use lizard_limb::LizardLimb;
 pub use looker::ObjectLooker;
-pub use math::{Custom, CustomVec, Mathf, UnityVector3, Vec2Bezier, Vec3};
+pub use math::{Custom, CustomVec, Mathf, UnityVector3, Vec3, VecToDeg};
 pub use mycelium::{LongMesh, MyceliumSprites};
 pub use overseer_graphics::{DrawPositions, OverseerGraphics};
 pub use player_draw::{SPRITE_COUNT, SPRITE_LAYERS, TAIL_TRIANGLES};

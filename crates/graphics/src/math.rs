@@ -192,14 +192,14 @@ impl Custom for f32 {
     }
 }
 
-impl Vec2Bezier for Vec2 {
+impl VecToDeg for Vec2 {
     fn vec_to_deg(self) -> f32 {
         (self.x.atan2(self.y) / (std::f32::consts::PI * 2.0)) * 360.0
     }
 }
 
 /// `Custom.VecToDeg`.
-pub trait Vec2Bezier: Sized {
+pub trait VecToDeg: Sized {
     /// `Custom.VecToDeg`.
     fn vec_to_deg(self) -> f32;
 }

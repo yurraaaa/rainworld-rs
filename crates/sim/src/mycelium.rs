@@ -209,6 +209,8 @@ impl Mycelium {
 pub struct MyceliumPool {
     items: Vec<Option<Box<Mycelium>>>,
     registries: HashMap<SystemId, Vec<MyceliumId>>,
+    /// Each system's last `Frozen`, kept after its room is gone while a strand points at it.
+    frozen: HashMap<SystemId, bool>,
     next_owner: u32,
     next_system: u32,
     /// The `NeuronSpark`s strands added to their room since the caller last took them.
@@ -258,6 +260,7 @@ impl MyceliumPool {
         self.next_system += 1;
         let id = SystemId(self.next_system);
         self.registries.insert(id, Vec::new());
+        self.frozen.insert(id, false);
         id
     }
 
@@ -269,17 +272,8 @@ impl MyceliumPool {
         self.sweep();
     }
 
-    /// The owner is gone: its strands are freed (others' links to them read as broken).
-    pub fn remove_owner(&mut self, owner: OwnerKey) {
-        for slot in &mut self.items {
-            if slot.as_ref().is_some_and(|m| m.owner == owner) {
-                *slot = None;
-            }
-        }
-    }
-
-    /// The owner (an overseer's module) is gone. Its strands stay while a live registry can
-    /// still pick them, as the game's do; the rest are freed.
+    /// The owner (a module, or a room's `WallMycelia`) is gone. Its strands stay while anything
+    /// can still reach them (see `sweep`); the rest are freed.
     pub fn release_owner(&mut self, owner: OwnerKey) {
         for m in self.items.iter_mut().flatten().filter(|m| m.owner == owner) {
             m.owner_gone = true;
@@ -287,16 +281,49 @@ impl MyceliumPool {
         self.sweep();
     }
 
-    /// Frees the strands of gone owners that no live registry holds.
+    /// Frees what nothing can reach, as the game's collector would: a strand lives while its
+    /// owner does, a live registry holds it, or a strand that lives has it as its `connection`
+    /// partner. A dropped system's last `Frozen` is kept while a strand still points at it.
     fn sweep(&mut self) {
-        let registries = &self.registries;
-        for slot in &mut self.items {
-            if slot.as_ref().is_some_and(|m| {
-                m.owner_gone && m.system.is_none_or(|s| !registries.contains_key(&s))
-            }) {
+        let mut reached: Vec<bool> = self
+            .items
+            .iter()
+            .map(|slot| {
+                slot.as_ref().is_some_and(|m| {
+                    !m.owner_gone || m.system.is_some_and(|s| self.registries.contains_key(&s))
+                })
+            })
+            .collect();
+        loop {
+            let mut grew = false;
+            for i in 0..self.items.len() {
+                if !reached[i] {
+                    continue;
+                }
+                let Some(c) = self.items[i].as_ref().and_then(|m| m.connection) else {
+                    continue;
+                };
+                for end in [c.a, c.b] {
+                    let k = end.0 as usize;
+                    if self.items.get(k).is_some_and(Option::is_some) && !reached[k] {
+                        reached[k] = true;
+                        grew = true;
+                    }
+                }
+            }
+            if !grew {
+                break;
+            }
+        }
+        for (slot, keep) in self.items.iter_mut().zip(reached) {
+            if !keep {
                 *slot = None;
             }
         }
+        let (items, registries) = (&self.items, &self.registries);
+        self.frozen.retain(|s, _| {
+            registries.contains_key(s) || items.iter().flatten().any(|m| m.system == Some(*s))
+        });
     }
 
     /// `system.mycelia.Remove(strand)`.
@@ -310,6 +337,9 @@ impl MyceliumPool {
     pub fn set_connection(&mut self, id: MyceliumId, connection: Option<MyceliaConnection>) {
         if let Some(m) = self.get_mut(id) {
             m.connection = connection;
+        }
+        if connection.is_none() {
+            self.sweep();
         }
     }
 
@@ -403,13 +433,16 @@ impl MyceliumPool {
         env: &MyceliumEnv<'_>,
         rng: &mut UnityRandom,
     ) {
+        if let Some(s) = env.system {
+            self.frozen.insert(s.id, s.frozen);
+        }
+        let frozen = self
+            .get(id)
+            .and_then(|m| m.system)
+            .is_some_and(|s| self.frozen.get(&s) == Some(&true));
         let Some(m) = self.get_mut(id) else {
             return;
         };
-        let frozen = m.system.is_some()
-            && env
-                .system
-                .is_some_and(|s| Some(s.id) == m.system && s.frozen);
         m.culled = if m.use_static_culling {
             frozen || !m.viewed_by_camera
         } else {
@@ -464,6 +497,7 @@ impl MyceliumPool {
                 m.connection = None;
                 m.rest = rng.range_i32(20, 200);
             }
+            self.sweep();
             return;
         }
         let (Some(me), Some(them)) = (self.get(id), self.get(other)) else {
@@ -501,16 +535,16 @@ impl MyceliumPool {
         let Some(m) = self.get(id) else {
             return;
         };
-        let Some(room) = m.system else {
+        let Some(system) = m.system else {
             return;
         };
-        let count = self.registry(room).len();
+        let count = self.registry(system).len();
         if m.rest >= 1 || count == 0 {
             return;
         }
         let pick =
             usize::try_from(rng.range_i32(0, i32::try_from(count).unwrap_or(0))).unwrap_or(0);
-        let candidate = self.registry(room)[pick];
+        let candidate = self.registry(system)[pick];
         let (Some(me), Some(other)) = (self.get(id), self.get(candidate)) else {
             return;
         };

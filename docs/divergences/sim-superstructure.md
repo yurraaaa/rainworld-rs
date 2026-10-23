@@ -191,7 +191,9 @@ Closes the missing `NeuronSpark` sound of `random.md`'s overseer item.
   not "in" the new). Strands of a dropped module stay registered while their system's registry lives and
   can still be picked and paired, as in the game; they are freed when the registry goes with its room
   (`World::abstractize`) or at once when their system is none, so the pool stays bounded; a room's wall
-  strands go with the room. The observer
+  strands go with the room. Reachability is the collector's: a strand also lives while a living strand's
+  `connection` names it (its partner keeps the link, drawing as the game does, until it breaks), and a
+  dropped system's last `Frozen` is kept while a strand still points at it. The observer
   hooks `overseer_added/reset/emerge/updated` take a `MyceliaCx` (the pool and the room's reads) and a new
   `overseer_new_room` runs `UpdateCoralNeuronSystem`.
 - **Timing.** `Room.Loaded` makes the system in the effects loop (`SSSwarmers`) or the placed-object loop

@@ -11,7 +11,7 @@ use rw_sim::{CameraView, FloatExt, Vec2};
 
 use crate::body_part::{BodyPart, PointConnection};
 use crate::draw::{Color, DrawItem, DrawList, Layer, Shader, Sprite};
-use crate::math::Vec2Bezier;
+use crate::math::VecToDeg;
 
 /// `GraphicsModule.cullRange`.
 const CULL_RANGE: f32 = 200.0;
