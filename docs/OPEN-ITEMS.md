@@ -12,7 +12,11 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   while no other branch is in flight. Takes over the `rw-sim` file-split part of the
   end-of-project cleanup items. Unit tests stay in `src`, in a `tests/` folder inside
   each topic folder (as `player/tests/`); `crates/sim/tests/` keeps the integration tests
-  (user, 2026-10-23).
+  (user, 2026-10-23). Layout: topic folders, each holding its types, their turn code
+  (the old `game_<topic>.rs` `impl RainWorldGame` blocks) and `tests/` (user chose
+  layout A, 2026-10-23: math, physics, game, player, creature, item, sound, water,
+  effects/{lights,sky,particles,gravity}, superstructure/{projections,electric,grab,coral},
+  vines, world). No folder-size rule (user).
 - **File layout cleanup of the other crates** (user, 2026-10-23, after rw-sim's): the same
   check per crate, a layout proposal to the user each time, moves only. Top-level `.rs` files
   today: rw-graphics 70 (no folders), rw-assets 30, app 27, rw-render 25, rw-save 20,
