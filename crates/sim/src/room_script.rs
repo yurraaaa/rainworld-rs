@@ -35,12 +35,13 @@ pub struct ScriptTick {
 #[derive(Debug, Clone, PartialEq)]
 pub enum RoomScript {
     SuC04StartUp(SuC04StartUp),
-    Ss08GradientGravity(Ss08GradientGravity),
+    SsE08GradientGravity(SsE08GradientGravity),
 }
 
 impl RoomScript {
     /// `RoomSpecificScript.AddRoomSpecificScript` for a room whose settings ask for a
-    /// script. SU_C04's and SS_E08's are ported; the others the base game adds are `SU_A22` (first-cycle message), `SL_C12` (jetfish), `SB_A14`
+    /// script. SU_C04's and SS_E08's are ported; the others the base game adds are
+    /// `SU_A22` (first-cycle message), `SL_C12` (jetfish), `SB_A14`
     /// (karma), `SB_D03` (shortcut lock), `SU_A43` (super-jump only), `deathPit`,
     /// `LF_H01` (the Hunter's `HardmodeStart`), `LF_A03` and `SS_D02`; More Slugcats and
     /// the Watcher add their own lists after these.
@@ -56,9 +57,7 @@ impl RoomScript {
                 s.cycle_number < 2 && !(mods.msc && s.character == SlugcatName::Spear)
             });
         match name {
-            n if n == Ss08GradientGravity::ROOM => {
-                vec![Self::Ss08GradientGravity(Ss08GradientGravity)]
-            }
+            "SS_E08" => vec![Self::SsE08GradientGravity(SsE08GradientGravity)],
             "SU_C04" if early_cycle => vec![Self::SuC04StartUp(SuC04StartUp::new())],
             // "LF_H01": `HardmodeStart` when the Hunter's first cycle starts in its den
             // and the room is realized for the first time (needs creatures, the spear,
@@ -81,7 +80,7 @@ impl RoomScript {
                 s.update(player, tick, observer);
                 None
             }
-            Self::Ss08GradientGravity(s) => s.update(player, pixel_height),
+            Self::SsE08GradientGravity(s) => s.update(player, pixel_height),
         }
     }
 }
@@ -89,12 +88,9 @@ impl RoomScript {
 /// `SS_E08GradientGravity`: the room's gravity follows the player's height, none below
 /// y 700 and full from 400 below the room's top.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Ss08GradientGravity;
+pub struct SsE08GradientGravity;
 
-impl Ss08GradientGravity {
-    /// The room `AddRoomSpecificScript` adds it to.
-    pub const ROOM: &'static str = "SS_E08";
-
+impl SsE08GradientGravity {
     /// The `Room.gravity` for a player whose first chunk is at height `y`.
     #[must_use]
     pub fn gravity_at(y: f32, pixel_height: f32) -> f32 {

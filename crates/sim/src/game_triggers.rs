@@ -99,13 +99,19 @@ impl RainWorldGame {
             .map(|r| r.name.clone())
             .unwrap_or_default();
         let mods = self.world.mods();
-        let order = self.world.next_update_seq();
         let Some(room) = self.world.realized_mut(index) else {
             return;
         };
-        if room.settings.room_specific_script {
-            room.scripts =
-                RoomScript::for_room(&name, Some(&session), mods, room.first_time_realized());
+        if !room.settings.room_specific_script {
+            return;
+        }
+        let scripts = RoomScript::for_room(&name, Some(&session), mods, room.first_time_realized());
+        if scripts.is_empty() {
+            return;
+        }
+        room.scripts = scripts;
+        let order = self.world.next_update_seq();
+        if let Some(room) = self.world.realized_mut(index) {
             room.script_order = order;
         }
     }

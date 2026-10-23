@@ -190,7 +190,7 @@ fn the_player_sees_the_gravity_the_anti_gravity_set() {
 /// y 700, 1 from 3380.
 #[test]
 fn the_gradient_follows_the_formula() {
-    use crate::room_script::Ss08GradientGravity as G;
+    use crate::room_script::SsE08GradientGravity as G;
     assert_eq!(G::gravity_at(0.0, 3780.0), 0.0);
     assert_eq!(G::gravity_at(700.0, 3780.0), 0.0);
     assert_eq!(G::gravity_at(3380.0, 3780.0), 1.0);

@@ -51,7 +51,7 @@ impl RoomGravityState {
                 let gradient_script = r
                     .scripts
                     .iter()
-                    .any(|s| matches!(s, RoomScript::Ss08GradientGravity(_)));
+                    .any(|s| matches!(s, RoomScript::SsE08GradientGravity(_)));
                 if zero_g <= 0.0 && broken_zero_g <= 0.0 && !gradient_script {
                     return None;
                 }

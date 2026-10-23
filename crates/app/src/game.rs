@@ -836,7 +836,7 @@ impl Game {
     pub fn start_up_script(&self) -> Option<&SuC04StartUp> {
         self.camera_room().scripts.iter().find_map(|s| match s {
             RoomScript::SuC04StartUp(s) => Some(s),
-            RoomScript::Ss08GradientGravity(_) => None,
+            RoomScript::SsE08GradientGravity(_) => None,
         })
     }
 

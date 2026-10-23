@@ -23,7 +23,7 @@ draw-count tests. Notes: `../../rainworld-re/notes/zero-gravity.md`; surveys
   of both chunks, the main chunk's extra push, the circuit jump, the meter's decay) are in
   `player/zero_g.rs`. They are 0 and none in a room with no circuit. With no direction held
   `CollideWithCoralCircuitBit` takes `DirVec(0, (0, 0))`, straight up.
-- **SS_E08's gradient gravity is ported** (`room_script.rs`, `Ss08GradientGravity`): each
+- **SS_E08's gradient gravity is ported** (`room_script.rs`, `SsE08GradientGravity`): each
   tick `room.gravity = InverseLerp(700, PixelHeight - 400, y)` of the player's first chunk when
   the player is in the room (none in a shortcut; the value stays when it is away). The script
   is an update-list member added after the effects and placed objects (so it runs after the
