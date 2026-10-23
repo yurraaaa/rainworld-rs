@@ -187,6 +187,9 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   - Zero gravity (D34): the shortcut pushers in `ShortcutHelper`, with it.
   - Zero gravity: the player's cloth (`PlayerGraphics` 1168), with the cloth.
   - Zero gravity: the vine grab and vine pull, with vines.
+  - Climbable vines (user, 2026-10-23; `../rainworld-re/surveys/climbable-vines.md`): the
+    corruption tubes (`ClimbableCorruptionTube`, `Rope`) with `DaddyCorruption`; `PoleMimic`
+    as a vine with the Pole Mimic creature.
   - Zero gravity: coral circuit swimming (`circuitSwimResistance`, `curcuitJumpMeter`,
     `swimBits`), with the coral circuit object.
   - Zero gravity: Five Pebbles' and Moon's oracle scenes switching `AntiGravity` off, with
