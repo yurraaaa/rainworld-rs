@@ -311,7 +311,7 @@ impl RealizedRoom {
             ai_map: self.ai_map.as_deref(),
             camera,
             cameras_changed_tick: self.cameras_changed_tick,
-            frozen: self.coral.as_ref().map(crate::CoralNeuronSystem::frozen),
+            system: self.coral.as_ref().map(crate::CoralNeuronSystem::state),
         }
     }
 

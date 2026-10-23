@@ -10,7 +10,7 @@ use rw_assets::Room;
 use rw_random::UnityRandom;
 
 use crate::float_ext::MathfSin;
-use crate::mycelium::{MyceliumEnv, MyceliumId, MyceliumOwner, MyceliumPool, OwnerKey};
+use crate::mycelium::{MyceliumEnv, MyceliumId, MyceliumOwner, MyceliumPool, OwnerKey, SystemId};
 use crate::room_ext::RoomExt;
 use crate::shared_physics::ExactRayTrace;
 use crate::{FloatExt, Vec2};
@@ -73,7 +73,7 @@ impl WallMycelia {
         update_order: u64,
         places: Vec<WallPlace>,
         room: &Room,
-        room_index: i32,
+        system: SystemId,
         pool: &mut MyceliumPool,
         rng: &mut UnityRandom,
     ) -> Self {
@@ -86,7 +86,7 @@ impl WallMycelia {
         let mut mycelia = Vec::with_capacity(roots.root_positions.len());
         for (n, &length) in lengths.iter().enumerate() {
             let id = pool.add(
-                Some(room_index),
+                Some(system),
                 (owner, &roots),
                 n,
                 length,
@@ -171,8 +171,7 @@ impl WallMycelia {
     /// `LerpMap(Distance(root, place), 0, Rad, 20 + LerpMap(Rad, 50, 500, 20, 180, 0.5) *
     /// Pow(value, 0.25), 20)`: one draw.
     fn strand_length(place: &WallPlace, root: Vec2, rng: &mut UnityRandom) -> f32 {
-        let fraction = place.rad.inverse_lerp(50.0, 500.0).mathf_pow(0.5);
-        let reach = 20.0 + (180.0 - 20.0) * fraction;
+        let reach = place.rad.lerp_map_pow(50.0, 500.0, 20.0, 180.0, 0.5);
         let from_b = 20.0 + reach * rng.value().mathf_pow(0.25);
         root.distance(place.pos)
             .lerp_map(0.0, place.rad, from_b, 20.0)

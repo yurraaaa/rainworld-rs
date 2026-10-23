@@ -5,7 +5,7 @@
 use rw_random::UnityRandom;
 
 use super::{WallMycelia, WallPlace};
-use crate::mycelium::{MyceliumEnv, MyceliumPool};
+use crate::mycelium::{MyceliumEnv, MyceliumPool, SystemId, SystemState};
 use crate::shared_physics::ExactRayTrace;
 use crate::tests::room;
 use crate::world::AiMap;
@@ -61,15 +61,15 @@ fn the_constructor_follows_its_seed() {
     let mut rng = UnityRandom::new(11);
     let before = rng.state();
     let mut pool = MyceliumPool::default();
-    pool.create_registry(0);
-    let wall = WallMycelia::new(1, vec![place()], &r, 0, &mut pool, &mut rng);
+    let sys = pool.create_registry();
+    let wall = WallMycelia::new(1, vec![place()], &r, sys, &mut pool, &mut rng);
     assert_eq!(rng.state(), before);
     let want = expected_strands(&r);
     assert!(want.len() >= 3, "{}", want.len());
     assert_eq!(wall.mycelia.len(), want.len());
     assert_eq!(wall.roots.root_positions.len(), want.len());
     assert_eq!(wall.random_movements.len(), want.len());
-    assert_eq!(pool.registry(0).len(), want.len());
+    assert_eq!(pool.registry(sys).len(), want.len());
     for (i, &id) in wall.mycelia.iter().enumerate() {
         assert_eq!(wall.roots.root_positions[i], want[i].0);
         assert_eq!(wall.roots.directions[i], want[i].1);
@@ -80,7 +80,7 @@ fn the_constructor_follows_its_seed() {
             m.length,
             want[i].2
         );
-        assert_eq!((m.system, m.index, m.owner), (Some(0), i, wall.owner));
+        assert_eq!((m.system, m.index, m.owner), (Some(sys), i, wall.owner));
         // A root is on a wall's edge: the floor (y 20) or ceiling (y 40) of the corridor.
         let y = wall.roots.root_positions[i].y;
         assert!((y - 20.0).abs() < 1e-3 || (y - 40.0).abs() < 1e-3, "{y}");
@@ -93,7 +93,15 @@ fn the_constructor_follows_its_seed() {
 fn a_place_among_walls_makes_nothing() {
     let r = room(&["#####", "#####", "#####"]);
     let mut pool = MyceliumPool::default();
-    let wall = WallMycelia::new(1, vec![place()], &r, 0, &mut pool, &mut UnityRandom::new(1));
+    let sys = pool.create_registry();
+    let wall = WallMycelia::new(
+        1,
+        vec![place()],
+        &r,
+        sys,
+        &mut pool,
+        &mut UnityRandom::new(1),
+    );
     assert!(wall.mycelia.is_empty());
 }
 
@@ -108,7 +116,10 @@ fn env<'a>(r: &'a rw_assets::Room, map: &'a AiMap, tick: i32) -> MyceliumEnv<'a>
             next: 0,
         },
         cameras_changed_tick: tick,
-        frozen: Some(false),
+        system: Some(SystemState {
+            id: SystemId(1),
+            frozen: false,
+        }),
     }
 }
 
@@ -119,8 +130,15 @@ fn culled_strands_draw_one_each() {
     let r = corridor();
     let map = AiMap::new(&r, 0, false, false);
     let mut pool = MyceliumPool::default();
-    pool.create_registry(0);
-    let mut wall = WallMycelia::new(1, vec![place()], &r, 0, &mut pool, &mut UnityRandom::new(1));
+    let sys = pool.create_registry();
+    let mut wall = WallMycelia::new(
+        1,
+        vec![place()],
+        &r,
+        sys,
+        &mut pool,
+        &mut UnityRandom::new(1),
+    );
     let mut rng = UnityRandom::new(5);
     let mut expect = UnityRandom::new(5);
     wall.update(&mut pool, &env(&r, &map, 4), &mut rng);
@@ -140,8 +158,15 @@ fn the_first_points_bend_along_the_direction() {
     let r = corridor();
     let map = AiMap::new(&r, 0, false, false);
     let mut pool = MyceliumPool::default();
-    pool.create_registry(0);
-    let mut wall = WallMycelia::new(1, vec![place()], &r, 0, &mut pool, &mut UnityRandom::new(1));
+    let sys = pool.create_registry();
+    let mut wall = WallMycelia::new(
+        1,
+        vec![place()],
+        &r,
+        sys,
+        &mut pool,
+        &mut UnityRandom::new(1),
+    );
     let id = wall.mycelia[0];
     // Four points a connection radius apart on a line from the root, at rest.
     let root = wall.roots.root_positions[0];
@@ -166,7 +191,7 @@ fn the_first_points_bend_along_the_direction() {
     let mut expect = UnityRandom::new(9);
     wall.update(&mut pool, &env(&r, &map, 4), &mut rng);
     // The strand's own draws first: the registry pick (`Range(0, Count)`), then its drift.
-    let count = i32::try_from(pool.registry(0).len()).unwrap();
+    let count = i32::try_from(pool.registry(sys).len()).unwrap();
     expect.range_i32(0, count);
     let drift = (Vec2::random_unit(&mut expect) * 0.1).clamp_magnitude(1.0);
     assert!(!pool.get(id).unwrap().culled);

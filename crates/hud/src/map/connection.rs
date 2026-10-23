@@ -4,7 +4,6 @@
 //! Mirrors: HUD/Map.cs (OnMapConnection)
 
 use rw_assets::shortcut::FOUR_DIRECTIONS;
-use rw_graphics::Vec2Bezier;
 use rw_menu::{AtlasManager, NodeId, Sprite, StageColor, StageTree, TriangleStrip};
 use rw_render::StageShader;
 use rw_sim::{FloatExt, Vec2};

@@ -6,7 +6,6 @@
 //! Mirrors: Menu/SlideShowMenuScene.cs
 
 use rw_assets::StreamingAssets;
-use rw_graphics::Vec2Bezier;
 use rw_sim::{FloatExt, Vec2, Vec3};
 
 use super::Menu;

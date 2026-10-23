@@ -10,6 +10,7 @@
 use rw_random::UnityRandom;
 
 use crate::Vec2;
+use crate::mycelium::{SystemId, SystemState};
 use crate::wall_mycelia::WallMycelia;
 
 /// The `CoralNeuronSystem` in a room's update list.
@@ -17,6 +18,8 @@ use crate::wall_mycelia::WallMycelia;
 pub struct CoralNeuronSystem {
     /// Its place in the room's update list.
     pub update_order: u64,
+    /// Its identity for the strands' registry.
+    pub id: SystemId,
     pub wind: Vec2,
     pub age: i32,
     pub not_viewed_counter: i32,
@@ -28,15 +31,25 @@ pub struct CoralNeuronSystem {
 
 impl CoralNeuronSystem {
     /// The constructor: `wind = RNV() * value` (two draws).
-    pub fn new(update_order: u64, rng: &mut UnityRandom) -> Self {
+    pub fn new(update_order: u64, id: SystemId, rng: &mut UnityRandom) -> Self {
         let direction = Vec2::random_unit(rng);
         Self {
             update_order,
+            id,
             wind: direction * rng.value(),
             age: 0,
             not_viewed_counter: 0,
             built: false,
             wall_mycelia: Vec::new(),
+        }
+    }
+
+    /// What a strand reads of it.
+    #[must_use]
+    pub fn state(&self) -> SystemState {
+        SystemState {
+            id: self.id,
+            frozen: self.frozen(),
         }
     }
 

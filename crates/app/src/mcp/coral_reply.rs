@@ -104,16 +104,20 @@ impl CoralSystemState {
                     not_viewed_counter: s.not_viewed_counter,
                     frozen: s.frozen(),
                     built: s.built,
-                    mycelia: pool.registry(i).len(),
-                    owners: Self::owners(pool, i, &walls),
+                    mycelia: pool.registry(s.id).len(),
+                    owners: Self::owners(pool, s.id, &walls),
                 })
             })
             .collect()
     }
 
-    fn owners(pool: &MyceliumPool, room: i32, walls: &[OwnerKey]) -> Vec<RegistryOwnerState> {
+    fn owners(
+        pool: &MyceliumPool,
+        system: rw_sim::SystemId,
+        walls: &[OwnerKey],
+    ) -> Vec<RegistryOwnerState> {
         let mut owners: Vec<RegistryOwnerState> = Vec::new();
-        for m in pool.registry(room).iter().filter_map(|&id| pool.get(id)) {
+        for m in pool.registry(system).iter().filter_map(|&id| pool.get(id)) {
             let i = match owners.iter().position(|o| o.owner == m.owner.0) {
                 Some(i) => i,
                 None => {

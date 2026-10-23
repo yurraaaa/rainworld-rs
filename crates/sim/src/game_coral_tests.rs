@@ -7,7 +7,7 @@
 use std::sync::Arc;
 
 use rw_assets::world::{FixedRoom, LoadedRoom, WorldData};
-use rw_assets::{ActiveMods, PlacedObject, Room, RoomEffect, RoomSettings};
+use rw_assets::{ActiveMods, CreatureType, PlacedObject, Room, RoomEffect, RoomSettings};
 use rw_random::UnityRandom;
 
 use super::super::lights::tests::WithGraphics;
@@ -15,11 +15,13 @@ use rw_assets::{ClipNames, SoundTable};
 
 use super::CoralRef;
 use crate::campaign::{SlugcatCampaign, StoryStart};
+use crate::game::OverseerView;
 use crate::tests::room_with_water;
 use crate::world::World;
 use crate::{
-    CosmeticKind, Input, NeuronSpark, PointOwner, RainWorldGame, SoundEvent, SoundId, Sounds,
-    Start, Vec2,
+    CosmeticKind, Input, MyceliaCx, MyceliumId, NeuronSpark, OwnerKey, Player, PlayerObserver,
+    PlayerSurroundings, PointOwner, RainWorldGame, SoundEvent, SoundId, Sounds, Start, SystemId,
+    Vec2, Water,
 };
 
 /// A 40 x 20 room with three rows of floor, the player standing on it at (2, 3).
@@ -33,6 +35,19 @@ fn coral_game_with(
     effects: &[(&str, f32)],
     ticks: usize,
     sounds: Sounds,
+) -> RainWorldGame {
+    coral_game_observed(placed, effects, ticks, sounds, false, &mut WithGraphics)
+}
+
+/// [`coral_game_with`] under an observer, with an overseer dev-spawned right after the game
+/// is made (the room is still loading, so it is realized when the room finishes loading).
+fn coral_game_observed(
+    placed: &str,
+    effects: &[(&str, f32)],
+    ticks: usize,
+    sounds: Sounds,
+    overseer: bool,
+    observer: &mut dyn PlayerObserver,
 ) -> RainWorldGame {
     let mut rows: Vec<String> = vec![".".repeat(40); 20];
     for row in &mut rows[17..] {
@@ -66,10 +81,14 @@ fn coral_game_with(
         },
         UnityRandom::new(5),
         sounds,
-        &mut WithGraphics,
+        observer,
     );
+    if overseer {
+        g.dev_spawn_creature(CreatureType::Overseer, 0, (10, 10), None, observer)
+            .expect("spawns");
+    }
     for _ in 0..ticks {
-        g.tick(Input::NONE, &mut WithGraphics);
+        g.tick(Input::NONE, observer);
     }
     g
 }
@@ -87,7 +106,7 @@ fn the_system_is_made_at_load_and_its_owners_at_ai_map_ready() {
     let r = g.world.realized(0).expect("room");
     let system = r.coral.as_ref().expect("system");
     assert!(!system.built && system.wall_mycelia.is_empty());
-    assert_eq!(g.world.mycelia().registry(0).len(), 0);
+    assert_eq!(g.world.mycelia().registry(SystemId(1)).len(), 0);
     let g = coral_game(WALL, &[], 1);
     let system = g.world.realized(0).unwrap().coral.as_ref().unwrap();
     assert!(system.built);
@@ -95,7 +114,10 @@ fn the_system_is_made_at_load_and_its_owners_at_ai_map_ready() {
     let wall = &system.wall_mycelia[0];
     assert!(system.update_order < wall.update_order);
     assert!(!wall.mycelia.is_empty());
-    assert_eq!(g.world.mycelia().registry(0).len(), wall.mycelia.len());
+    assert_eq!(
+        g.world.mycelia().registry(SystemId(1)).len(),
+        wall.mycelia.len()
+    );
     assert_eq!(wall.places.len(), 1);
     assert_eq!(wall.places[0].pos, Vec2::new(300.0, 100.0));
     assert_eq!(wall.places[0].rad, 150.0);
@@ -262,7 +284,7 @@ fn another_owners_strand_links_with_a_wall_strand() {
     let at = PointOwner(target + Vec2::new(0.0, 10.0));
     let foreign = g.world.mycelia.new_owner();
     let id = g.world.mycelia.add(
-        Some(0),
+        Some(SystemId(1)),
         (foreign, &at),
         0,
         60.0,
@@ -337,4 +359,143 @@ fn a_spark_joins_the_room_and_plays_its_sound() {
     }
     g.run_cosmetic(0, id);
     assert!(g.sounds.take_events().is_empty());
+}
+
+/// An observer whose overseers' modules are one strand each, made and moved as
+/// `OverseerGraphics` does (no system at the constructor, then `UpdateNeuronSystemForMycelia`).
+#[derive(Default)]
+struct StrandObserver {
+    owner: Option<OwnerKey>,
+    strands: Vec<MyceliumId>,
+    removed: usize,
+}
+
+impl PlayerObserver for StrandObserver {
+    fn created(&mut self, _player: &Player, _rng: &mut UnityRandom) {}
+    fn updated(
+        &mut self,
+        _player: &Player,
+        _room: &Room,
+        _water: Option<&Water>,
+        _around: &PlayerSurroundings<'_>,
+        _rng: &mut UnityRandom,
+    ) {
+    }
+    fn spat_out(&mut self, _player: &Player, _rng: &mut UnityRandom) {}
+    fn has_player_graphics(&self) -> bool {
+        true
+    }
+    fn overseer_added(
+        &mut self,
+        view: &OverseerView<'_>,
+        mx: &mut MyceliaCx<'_>,
+        rng: &mut UnityRandom,
+    ) -> bool {
+        let owner = mx.pool.new_owner();
+        let at = PointOwner(view.body.chunk().pos);
+        let id = mx
+            .pool
+            .add(view.neuron_system, (owner, &at), 0, 60.0, at.0, rng);
+        self.owner = Some(owner);
+        self.strands.push(id);
+        true
+    }
+    fn overseer_new_room(
+        &mut self,
+        _view: &OverseerView<'_>,
+        mx: &mut MyceliaCx<'_>,
+        new: Option<SystemId>,
+    ) {
+        for &id in &self.strands {
+            mx.pool.move_to_system(id, new);
+        }
+    }
+    fn overseer_removed(&mut self, _id: crate::creature::EntityId) -> Option<OwnerKey> {
+        self.removed += 1;
+        self.owner
+    }
+}
+
+/// The session's first room, whichever of the camera's first view (`NowViewed`, the head of
+/// the first tick) and the loading step (`ReadyForAI` realizing the overseer, then
+/// `AIMapReady`) comes first: the overseer's strand joins the system in `NewRoom` before
+/// the wall mycelia are made, so the registry is the overseer's strand, then the wall's.
+#[test]
+fn the_first_rooms_overseer_registers_before_the_wall() {
+    for view_first in [true, false] {
+        let mut observer = StrandObserver::default();
+        let mut g = coral_game_observed(WALL, &[], 0, Sounds::default(), true, &mut observer);
+        if view_first {
+            g.apply_insect_view_change();
+            g.finish_loading(&mut observer);
+        } else {
+            g.finish_loading(&mut observer);
+            assert!(
+                g.world
+                    .realized(0)
+                    .unwrap()
+                    .coral
+                    .as_ref()
+                    .unwrap()
+                    .wall_mycelia
+                    .is_empty()
+            );
+            g.apply_insect_view_change();
+        }
+        let system = g.world.realized(0).unwrap().coral.as_ref().unwrap();
+        let registry = g.world.mycelia().registry(system.id);
+        let wall = &system.wall_mycelia[0];
+        assert_eq!(registry.len(), 1 + wall.mycelia.len(), "{view_first}");
+        assert_eq!(registry[0], observer.strands[0]);
+        assert_eq!(&registry[1..], &wall.mycelia[..]);
+        let owner = g.world.mycelia().get(registry[0]).unwrap().owner;
+        assert_eq!(Some(owner), observer.owner);
+        assert_ne!(owner, wall.owner);
+    }
+}
+
+/// Overseers' modules made and dropped again and again (`AddObject`/`NowViewed`, then
+/// `NoLongerViewed`): in a room without a system their strands are freed with the module, so
+/// the pool stays as it was; in a room with one each stays as an entry of its registry (as the
+/// game's do), until the room goes.
+#[test]
+fn dropped_modules_do_not_pile_up_strands() {
+    for (placed, kept) in [("", false), (WALL, true)] {
+        let mut observer = StrandObserver::default();
+        let mut g = coral_game_observed(placed, &[], 0, Sounds::default(), true, &mut observer);
+        g.apply_insect_view_change();
+        g.finish_loading(&mut observer);
+        let cid = g
+            .world
+            .creatures()
+            .find(|(_, c)| c.kind() == CreatureType::Overseer)
+            .map(|(id, _)| id)
+            .expect("overseer");
+        let before = g.world.mycelia().live();
+        for _ in 0..50 {
+            assert!(g.overseer_module_added(cid, 0, &mut observer));
+            g.overseer_module_removed(cid, &mut observer);
+        }
+        assert_eq!(observer.removed, 50);
+        let grown = g.world.mycelia().live() - before;
+        assert_eq!(grown, if kept { 50 } else { 0 }, "{placed}");
+        if kept {
+            let system = g.world.realized(0).unwrap().coral.as_ref().unwrap().id;
+            g.world.mycelia.drop_registry(system);
+            assert_eq!(g.world.mycelia().live(), before);
+        }
+    }
+}
+
+/// Every camera move bumps `camerasChangedTick` of the room it shows: the app's cut to
+/// another camera position, also to the one it already shows (`camera_moved`).
+#[test]
+fn every_camera_move_bumps_the_tick() {
+    let mut g = coral_game(WALL, &[], 1);
+    let first = g.world.realized(0).unwrap().cameras_changed_tick;
+    g.camera_moved();
+    g.camera_moved();
+    assert_eq!(g.world.realized(0).unwrap().cameras_changed_tick, first + 2);
+    g.set_camera_view(0, 0);
+    assert_eq!(g.world.realized(0).unwrap().cameras_changed_tick, first + 2);
 }

@@ -81,7 +81,7 @@ impl FloatExt for f32 {
     }
 
     fn lerp_map_pow(self, from_a: f32, to_a: f32, from_b: f32, to_b: f32, exponent: f32) -> f32 {
-        let t = self.inverse_lerp(from_a, to_a).powf(exponent);
+        let t = self.inverse_lerp(from_a, to_a).mathf_pow(exponent);
         from_b + (to_b - from_b) * t
     }
 }

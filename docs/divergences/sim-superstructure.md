@@ -186,9 +186,12 @@ Closes the missing `NeuronSpark` sound of `random.md`'s overseer item.
   were in `rw-graphics` for the overseers, moved: `rw_sim::Mycelium`, the same maths; the sprites stay
   in `rw-graphics`). Each system's registry is the pool's, by room (so a module's strands change
   registry in `UpdateNeuronSystemForMycelia` with the module living on in another room). Owners are
-  compared by an `OwnerKey` (one per `WallMycelia`, one per module). Strands of a module the camera
-  left, and of dropped modules, stay registered and can still be picked and paired, as in the game; a
-  room's pool entries of its wall mycelia go with the room (`World::abstractize`). The observer
+  compared by an `OwnerKey` (one per `WallMycelia`, one per module). Each system has its own
+  `SystemId` (a re-created system is another object, as in the game, so a strand pointing at the old one is
+  not "in" the new). Strands of a dropped module stay registered while their system's registry lives and
+  can still be picked and paired, as in the game; they are freed when the registry goes with its room
+  (`World::abstractize`) or at once when their system is none, so the pool stays bounded; a room's wall
+  strands go with the room. The observer
   hooks `overseer_added/reset/emerge/updated` take a `MyceliaCx` (the pool and the room's reads) and a new
   `overseer_new_room` runs `UpdateCoralNeuronSystem`.
 - **Timing.** `Room.Loaded` makes the system in the effects loop (`SSSwarmers`) or the placed-object loop
@@ -200,10 +203,10 @@ Closes the missing `NeuronSpark` sound of `random.md`'s overseer item.
   built from the `WallMycelia` objects the slugcat's `Filter`s leave active (26 of the 29 rooms for
   the Survivor and the Monk, all for the Hunter); an unreadable `ResizableObjectData` (none installed) is
   skipped with a warning where the game throws at load.
-- **`camerasChangedTick`** is bumped on the room the camera shows when the camera's room or position
-  changes: `apply_insect_view_change` (a room move, the first room too) and `set_camera_view` (a
-  position change within the room). The game bumps it in `ApplyPositionChange` for any move, also one to
-  the same room and position (none in the port). A strand re-reads `ViewedByAnyCamera` only after a bump,
+- **`camerasChangedTick`** is bumped on the room the camera shows at every camera move, as the game's
+  `ApplyPositionChange` does: `apply_insect_view_change` (a room move, the first room too, also to the
+  same room and position) and `camera_moved` (the app's `RoomCamera` cutting to another position,
+  `Scene::update_room_camera`). A strand re-reads `ViewedByAnyCamera` only after a bump,
   so a room the camera left keeps its strands "viewed" until its system freezes (as the game).
 - **The camera's room is `BeingViewed`.** The system's `notViewedCounter` and a strand's camera test read the
   port's `camera_room`, which `camera_moves_to` sets at once (see OPEN-ITEMS, "Camera room switches
@@ -217,11 +220,16 @@ Closes the missing `NeuronSpark` sound of `random.md`'s overseer item.
   comes back into view `2 + 2 * points` more. `NeuronSpark`: 1 in the constructor, the
   `SS_Mycelia_Spark` sound's draws on its first update (the microphone's, `sound.rs`), and **5** a frame in
   `DrawSprites`, which the app makes on its cosmetic stream (D1). The survey's 8 was wrong.
+- **`float2.normalized` (`ExtraExtentions`, read with the existing `ilspycmd`)** returns zero at or
+  under length 1e-5, as the port's `Vec2::normalized`. **`LerpMap` with an exponent** uses `Mathf.Pow`
+  (double); `FloatExt::lerp_map_pow` now does, no expected value in any crate's tests moved.
 - **`Mycelium`'s Burst job is not a job.** `Phase1`/`Phase4` are plain loops in this build and the
   `JobHandle` is never scheduled (observed in `Mycelium.cs`); the port runs the same operations in the
   same order on `f32`.
 - **Wall mycelia are drawn with the `Basic` shader** (`RippleBasicBothSides` is a plain vertex-colour times
-  texture shader in the base game: `rippleClip` is a no-op without Watcher's keyword), in `Items`. They are not
+  texture shader in the base game: observed in `StreamingAssets/shaders/RippleMaskedBasic.shader`
+  (`tex2D * vertex colour`, `Blend SrcAlpha OneMinusSrcAlpha`, `Cull Off`, as `Basic.shader`) and
+  `_RippleClip.cginc` (`ripple_both_sides` returns before any discard)), in `Items`. They are not
   drawn in the debug view or in an other-room MCP screenshot (as D36's objects; OPEN-ITEMS).
 - **What the next steps add to `AIMapReady`** (not ported here): the `CoralNeuron`s made as the placed-object
   loop meets them (before the wall mycelia), then the `CoralCircuit` clusters (their `CircuitConnector`

@@ -10,7 +10,9 @@ use std::path::{Path, PathBuf};
 use rw_assets::{ActiveMods, PlacedObject, PlacedObjectType, ResizableData, Room, Timeline};
 use rw_random::UnityRandom;
 use rw_sim::world::AiMap;
-use rw_sim::{CameraView, MyceliumEnv, MyceliumPool, RoomExt, Vec2, WallMycelia, WallPlace};
+use rw_sim::{
+    CameraView, MyceliumEnv, MyceliumPool, RoomExt, SystemState, Vec2, WallMycelia, WallPlace,
+};
 
 const DEFAULT_RW_DIR: &str = "/home/yura/.local/share/Steam/steamapps/common/Rain World";
 
@@ -146,9 +148,9 @@ fn every_wall_mycelia_room_builds_and_runs() {
         );
         let room = Install::geometry(&path).expect("geometry");
         let mut pool = MyceliumPool::default();
-        pool.create_registry(0);
+        let system = pool.create_registry();
         let mut rng = UnityRandom::new(7);
-        let wall = WallMycelia::new(1, places, &room, 0, &mut pool, &mut rng);
+        let wall = WallMycelia::new(1, places, &room, system, &mut pool, &mut rng);
         assert!(!wall.mycelia.is_empty(), "{}", path.display());
         strands_total += wall.mycelia.len();
         for (i, root) in wall.roots.root_positions.iter().enumerate() {
@@ -169,7 +171,10 @@ fn every_wall_mycelia_room_builds_and_runs() {
                 next: 0,
             },
             cameras_changed_tick: 1,
-            frozen: Some(false),
+            system: Some(SystemState {
+                id: system,
+                frozen: false,
+            }),
         };
         let mut wall = wall;
         for _ in 0..100 {

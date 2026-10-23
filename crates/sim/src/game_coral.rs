@@ -41,9 +41,9 @@ impl RainWorldGame {
         if self.world.realized(index).is_none_or(|r| r.coral.is_some()) {
             return;
         }
-        let mut system = CoralNeuronSystem::new(0, &mut self.rng);
+        let id = self.world.mycelia.create_registry();
+        let mut system = CoralNeuronSystem::new(0, id, &mut self.rng);
         system.update_order = self.world.next_update_seq();
-        self.world.mycelia.create_registry(index);
         if let Some(r) = self.world.realized_mut(index) {
             r.coral = Some(system);
         }
@@ -55,7 +55,10 @@ impl RainWorldGame {
         let Some(r) = self.world.realized(index) else {
             return;
         };
-        if !r.ready_for_ai() || r.coral.as_ref().is_none_or(|s| s.built) {
+        let Some(system_id) = r.coral.as_ref().filter(|s| !s.built).map(|s| s.id) else {
+            return;
+        };
+        if !r.ready_for_ai() {
             return;
         }
         let room = Arc::clone(&r.room);
@@ -81,7 +84,7 @@ impl RainWorldGame {
                 0,
                 places,
                 &room,
-                index,
+                system_id,
                 &mut self.world.mycelia,
                 &mut self.rng,
             )
@@ -141,7 +144,7 @@ impl RainWorldGame {
                     ai_map: ai_map.as_deref(),
                     camera,
                     cameras_changed_tick: tick,
-                    frozen: Some(system.frozen()),
+                    system: Some(system.state()),
                 };
                 if let Some(wall) = system
                     .wall_mycelia
@@ -188,6 +191,18 @@ impl RainWorldGame {
         };
         self.world.mycelia = pool;
         built
+    }
+
+    /// Overseer `id`'s graphics module is dropped: its strands stay only as entries of a
+    /// live registry.
+    pub(super) fn overseer_module_removed(
+        &mut self,
+        id: CreatureId,
+        observer: &mut dyn PlayerObserver,
+    ) {
+        if let Some(owner) = observer.overseer_removed(self.world.creature(id).id) {
+            self.world.mycelia.release_owner(owner);
+        }
     }
 
     /// `RoomCamera.ApplyPositionChange`'s `camerasChangedTick++` for the room the camera

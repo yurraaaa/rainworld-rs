@@ -23,6 +23,19 @@ use crate::{CameraView, FloatExt, Vec2};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MyceliumId(pub u32);
 
+/// A `CoralNeuronSystem` object (the game's object identity: a room's re-created system is
+/// another one).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SystemId(pub u32);
+
+/// A room's system as a strand reads it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SystemState {
+    pub id: SystemId,
+    /// `Frozen`.
+    pub frozen: bool,
+}
+
 /// Which `IOwnMycelia` a strand belongs to (the game compares owner references): one per
 /// `WallMycelia`, one per `OverseerGraphics` module.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -77,16 +90,8 @@ pub struct MyceliumEnv<'a> {
     pub camera: CameraView,
     /// `OwnerRoom.camerasChangedTick`.
     pub cameras_changed_tick: i32,
-    /// The room's system, if it has one: its `Frozen`.
-    pub frozen: Option<bool>,
-}
-
-impl MyceliumEnv<'_> {
-    /// The room whose system the room has, if any.
-    #[must_use]
-    pub fn system(&self) -> Option<i32> {
-        self.frozen.map(|_| self.room_index)
-    }
+    /// The room's system, if it has one.
+    pub system: Option<SystemState>,
 }
 
 /// The pool and the room an owner's strands are made and updated in.
@@ -104,8 +109,8 @@ pub struct Mycelium {
     pub length: f32,
     pub index: usize,
     pub owner: OwnerKey,
-    /// `system`: the room whose `CoralNeuronSystem` registry it is in.
-    pub system: Option<i32>,
+    /// `system`.
+    pub system: Option<SystemId>,
     pub connection: Option<MyceliaConnection>,
     pub last_camera_cull_tick: i32,
     pub viewed_by_camera: bool,
@@ -114,6 +119,8 @@ pub struct Mycelium {
     pub last_culled: bool,
     pub move_away_from_walls: bool,
     pub rest: i32,
+    /// Its owner is gone: it lives on only as an entry of a live registry.
+    pub owner_gone: bool,
 }
 
 impl Mycelium {
@@ -138,7 +145,7 @@ impl Mycelium {
         let cb = end + (end.direction_to(at) + Vec2::random_unit(rng)).normalized() * half;
         let last = (self.points.len() - 1) as f32;
         for (i, p) in self.points.iter_mut().enumerate() {
-            let pos = bezier(at, ca, end, cb, i as f32 / last) + Vec2::random_unit(rng);
+            let pos = at.bezier(ca, end, cb, i as f32 / last) + Vec2::random_unit(rng);
             *p = [pos, pos, Vec2::random_unit(rng)];
         }
     }
@@ -196,23 +203,14 @@ impl Mycelium {
     }
 }
 
-/// `Custom.Bezier`.
-fn bezier(a: Vec2, ca: Vec2, b: Vec2, cb: Vec2, f: f32) -> Vec2 {
-    let mid = ca.lerp(cb, f);
-    let ca = a.lerp(ca, f);
-    let cb = cb.lerp(b, f);
-    let ca = ca.lerp(mid, f);
-    let cb = mid.lerp(cb, f);
-    ca.lerp(cb, f)
-}
-
 /// Every strand of a world, and each system's registry of them (`CoralNeuronSystem.mycelia`,
-/// by the system's room).
+/// by system). Ids are never reused; a freed strand leaves an empty slot.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct MyceliumPool {
-    items: Vec<Option<Mycelium>>,
-    registries: HashMap<i32, Vec<MyceliumId>>,
+    items: Vec<Option<Box<Mycelium>>>,
+    registries: HashMap<SystemId, Vec<MyceliumId>>,
     next_owner: u32,
+    next_system: u32,
     /// The `NeuronSpark`s strands added to their room since the caller last took them.
     pub sparks: Vec<NeuronSpark>,
 }
@@ -226,11 +224,17 @@ impl MyceliumPool {
 
     #[must_use]
     pub fn get(&self, id: MyceliumId) -> Option<&Mycelium> {
-        self.items.get(id.0 as usize)?.as_ref()
+        self.items.get(id.0 as usize)?.as_deref()
     }
 
     pub fn get_mut(&mut self, id: MyceliumId) -> Option<&mut Mycelium> {
-        self.items.get_mut(id.0 as usize)?.as_mut()
+        self.items.get_mut(id.0 as usize)?.as_deref_mut()
+    }
+
+    /// How many strands are alive.
+    #[must_use]
+    pub fn live(&self) -> usize {
+        self.items.iter().flatten().count()
     }
 
     /// Every live strand with its id.
@@ -238,26 +242,31 @@ impl MyceliumPool {
         self.items.iter().enumerate().filter_map(|(i, m)| {
             Some((
                 MyceliumId(u32::try_from(i).unwrap_or(u32::MAX)),
-                m.as_ref()?,
+                m.as_deref()?,
             ))
         })
     }
 
     /// A system's `mycelia`, in registration order.
     #[must_use]
-    pub fn registry(&self, room: i32) -> &[MyceliumId] {
-        self.registries.get(&room).map_or(&[], Vec::as_slice)
+    pub fn registry(&self, system: SystemId) -> &[MyceliumId] {
+        self.registries.get(&system).map_or(&[], Vec::as_slice)
     }
 
-    /// `new CoralNeuronSystem()`: its registry starts empty.
-    pub fn create_registry(&mut self, room: i32) {
-        self.registries.entry(room).or_default();
+    /// `new CoralNeuronSystem()`: a new system with an empty registry.
+    pub fn create_registry(&mut self) -> SystemId {
+        self.next_system += 1;
+        let id = SystemId(self.next_system);
+        self.registries.insert(id, Vec::new());
+        id
     }
 
-    /// A room is gone with its system: its registry goes (a strand left holding it keeps
-    /// pointing at nothing, as the game's keeps its dead system).
-    pub fn drop_registry(&mut self, room: i32) {
-        self.registries.remove(&room);
+    /// A room is gone with its system: its registry goes, and the strands only it reached
+    /// with it (a strand left holding it keeps pointing at nothing, as the game's keeps its
+    /// dead system).
+    pub fn drop_registry(&mut self, system: SystemId) {
+        self.registries.remove(&system);
+        self.sweep();
     }
 
     /// The owner is gone: its strands are freed (others' links to them read as broken).
@@ -269,9 +278,30 @@ impl MyceliumPool {
         }
     }
 
+    /// The owner (an overseer's module) is gone. Its strands stay while a live registry can
+    /// still pick them, as the game's do; the rest are freed.
+    pub fn release_owner(&mut self, owner: OwnerKey) {
+        for m in self.items.iter_mut().flatten().filter(|m| m.owner == owner) {
+            m.owner_gone = true;
+        }
+        self.sweep();
+    }
+
+    /// Frees the strands of gone owners that no live registry holds.
+    fn sweep(&mut self) {
+        let registries = &self.registries;
+        for slot in &mut self.items {
+            if slot.as_ref().is_some_and(|m| {
+                m.owner_gone && m.system.is_none_or(|s| !registries.contains_key(&s))
+            }) {
+                *slot = None;
+            }
+        }
+    }
+
     /// `system.mycelia.Remove(strand)`.
-    pub fn unregister(&mut self, room: i32, id: MyceliumId) {
-        if let Some(r) = self.registries.get_mut(&room) {
+    pub fn unregister(&mut self, system: SystemId, id: MyceliumId) {
+        if let Some(r) = self.registries.get_mut(&system) {
             r.retain(|&x| x != id);
         }
     }
@@ -284,24 +314,24 @@ impl MyceliumPool {
     }
 
     /// `ConnectSystem`.
-    pub fn connect_system(&mut self, id: MyceliumId, room: Option<i32>) {
-        if let Some(room) = room
-            && let Some(r) = self.registries.get_mut(&room)
+    pub fn connect_system(&mut self, id: MyceliumId, system: Option<SystemId>) {
+        if let Some(system) = system
+            && let Some(r) = self.registries.get_mut(&system)
         {
             r.push(id);
         }
         if let Some(m) = self.get_mut(id) {
-            m.system = room;
+            m.system = system;
         }
     }
 
     /// `OverseerGraphics.UpdateNeuronSystemForMycelia` for one strand: out of the registry
     /// it is in, into `room`'s.
-    pub fn move_to_system(&mut self, id: MyceliumId, room: Option<i32>) {
+    pub fn move_to_system(&mut self, id: MyceliumId, system: Option<SystemId>) {
         let Some(m) = self.get(id) else {
             return;
         };
-        if m.system == room {
+        if m.system == system {
             return;
         }
         if let Some(old) = m.system
@@ -309,14 +339,14 @@ impl MyceliumPool {
         {
             r.retain(|&x| x != id);
         }
-        self.connect_system(id, room);
+        self.connect_system(id, system);
     }
 
     /// The constructor: `Custom.IntClamp((int)(max(length, lerp(length, 40, 0.5)) / 15), 2,
     /// 20)` points, `Reset(init)`, and the registration in `system`'s registry.
     pub fn add(
         &mut self,
-        system: Option<i32>,
+        system: Option<SystemId>,
         owner: (OwnerKey, &dyn MyceliumOwner),
         index: usize,
         length: f32,
@@ -342,12 +372,13 @@ impl MyceliumPool {
             last_culled: false,
             move_away_from_walls: true,
             rest: 0,
+            owner_gone: false,
         };
         self.items.push(None);
         self.connect_system(id, system);
         m.system = system;
         m.reset(init, owner.1, rng);
-        self.items[id.0 as usize] = Some(m);
+        self.items[id.0 as usize] = Some(Box::new(m));
         id
     }
 
@@ -375,7 +406,10 @@ impl MyceliumPool {
         let Some(m) = self.get_mut(id) else {
             return;
         };
-        let frozen = m.system.is_some() && env.frozen == Some(true);
+        let frozen = m.system.is_some()
+            && env
+                .system
+                .is_some_and(|s| Some(s.id) == m.system && s.frozen);
         m.culled = if m.use_static_culling {
             frozen || !m.viewed_by_camera
         } else {

@@ -559,13 +559,20 @@ impl RainWorldGame {
         to: i32,
         observer: &mut dyn PlayerObserver,
     ) {
-        for &id in self.world.room_creatures(from) {
-            if let Some(crate::creature::RealizedCreature::Overseer(b)) =
-                &self.world.creature(id).realized
-                && (b.in_room || b.slated)
-            {
-                observer.overseer_removed(self.world.creature(id).id);
-            }
+        let overseers: Vec<CreatureId> = self
+            .world
+            .room_creatures(from)
+            .iter()
+            .copied()
+            .filter(|&id| {
+                matches!(
+                    &self.world.creature(id).realized,
+                    Some(crate::creature::RealizedCreature::Overseer(b)) if b.in_room || b.slated
+                )
+            })
+            .collect();
+        for id in overseers {
+            self.overseer_module_removed(id, observer);
         }
         let leaving: Vec<CreatureId> = self
             .world

@@ -432,8 +432,8 @@ impl World {
                 for wall in &system.wall_mycelia {
                     self.mycelia.remove_owner(wall.owner);
                 }
+                self.mycelia.drop_registry(system.id);
             }
-            self.mycelia.drop_registry(index);
             log::info!("abstracted room {}", self.data.rooms[i].name);
         }
         self.active.retain(|&a| a != i);

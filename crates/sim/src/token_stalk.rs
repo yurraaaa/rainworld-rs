@@ -238,8 +238,7 @@ impl TokenStalk {
         let half = self.coord_length * 0.5;
         for i in 0..n {
             let f = (i as f32).inverse_lerp(-1.0, n as f32);
-            let goal = Self::bezier(
-                self.arm_pos,
+            let goal = self.arm_pos.bezier(
                 self.arm_pos + arm_dir * half,
                 self.head,
                 self.head - self.head_dir * half,
@@ -297,17 +296,5 @@ impl TokenStalk {
         let pull = self.head.direction_to(end.pos) * (self.head.distance(end.pos) - COORD_SEG);
         end.vel -= pull;
         end.pos -= pull;
-    }
-
-    /// `Custom.Bezier(a, ca, b, cb, f)` (`Vector2.Lerp` clamps `f`).
-    #[must_use]
-    pub fn bezier(a: Vec2, ca: Vec2, b: Vec2, cb: Vec2, f: f32) -> Vec2 {
-        let f = f.clamp(0.0, 1.0);
-        let mid = ca.lerp(cb, f);
-        let ca = a.lerp(ca, f);
-        let cb = cb.lerp(b, f);
-        let ca = ca.lerp(mid, f);
-        let cb = mid.lerp(cb, f);
-        ca.lerp(cb, f)
     }
 }

@@ -42,9 +42,9 @@ use rw_sim::room_script::{RoomScript, SuC04StartUp};
 use rw_sim::shelter::ShelterDoor;
 use rw_sim::world::World;
 use rw_sim::{
-    CameraMove, CameraView, CosmeticKind, HudEvent, Input, MyceliaCx, PhysicalObject, Player,
-    PlayerHands, PlayerObserver, PlayerSurroundings, RainWorldGame, SoundEvent, Sounds, Start,
-    Vec2, Water,
+    CameraMove, CameraView, CosmeticKind, HudEvent, Input, MyceliaCx, OwnerKey, PhysicalObject,
+    Player, PlayerHands, PlayerObserver, PlayerSurroundings, RainWorldGame, SoundEvent, Sounds,
+    Start, SystemId, Vec2, Water,
 };
 
 use crate::jaws::{JawHolder, Jaws};
@@ -334,7 +334,7 @@ impl PlayerObserver for Graphics {
         &mut self,
         view: &OverseerView<'_>,
         mx: &mut MyceliaCx<'_>,
-        new: Option<i32>,
+        new: Option<SystemId>,
     ) {
         if let Some(g) = self.overseers.iter().find(|g| g.id == view.id) {
             g.new_room(mx.pool, view.neuron_system, new);
@@ -348,9 +348,11 @@ impl PlayerObserver for Graphics {
             .map(|g| g.eye(body, 1.0))
     }
 
-    fn overseer_removed(&mut self, id: EntityId) {
+    fn overseer_removed(&mut self, id: EntityId) -> Option<OwnerKey> {
+        let owner = self.overseers.iter().find(|g| g.id == id).map(|g| g.owner);
         self.overseers.retain(|g| g.id != id);
         self.hologram_bases.retain(|(o, _)| *o != id);
+        owner
     }
 
     /// The parts' colour lerps; `hologram.color` is white without a graphics module.

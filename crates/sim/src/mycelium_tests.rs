@@ -5,11 +5,17 @@
 
 use rw_random::UnityRandom;
 
-use super::{MyceliaConnection, MyceliumEnv, MyceliumId, MyceliumPool, OwnerKey, PointOwner};
+use super::{
+    MyceliaConnection, MyceliumEnv, MyceliumId, MyceliumPool, OwnerKey, PointOwner, SystemId,
+    SystemState,
+};
 use crate::tests::room;
 use crate::wall_mycelia::WallRoots;
 use crate::world::AiMap;
 use crate::{CameraView, FloatExt, Vec2};
+
+/// The first system a pool makes.
+const SYS: SystemId = SystemId(1);
 
 fn draw(rng: &mut UnityRandom, n: usize) {
     for _ in 0..n {
@@ -321,20 +327,15 @@ fn a_strand_far_from_the_walls_is_not_pushed() {
 
 /// A strand in a system: made in a registry; owned by `owner`; at (30, 70) in a room big
 /// enough for the camera to see it.
-fn strand_pool(
-    room_index: i32,
-    owner: OwnerKey,
-    base: Vec2,
-    length: f32,
-) -> (MyceliumPool, MyceliumId) {
+fn strand_pool(owner: OwnerKey, base: Vec2, length: f32) -> (MyceliumPool, MyceliumId) {
     let mut pool = MyceliumPool::default();
-    pool.create_registry(room_index);
+    pool.create_registry();
     let roots = WallRoots {
         root_positions: vec![base],
         directions: vec![Vec2::new(1.0, 0.0)],
     };
     let id = pool.add(
-        Some(room_index),
+        Some(SYS),
         (owner, &roots),
         0,
         length,
@@ -356,7 +357,7 @@ fn env<'a>(
         ai_map: map,
         camera: camera(),
         cameras_changed_tick: tick,
-        frozen,
+        system: frozen.map(|frozen| SystemState { id: SYS, frozen }),
     }
 }
 
@@ -368,7 +369,7 @@ fn a_strand_waits_for_the_camera_then_resets_and_looks_for_a_partner() {
     let r = walled();
     let map = AiMap::new(&r, 0, false, false);
     let base = Vec2::new(70.0, 70.0);
-    let (mut pool, id) = strand_pool(0, OwnerKey(7), base, 60.0);
+    let (mut pool, id) = strand_pool(OwnerKey(7), base, 60.0);
     let roots = WallRoots {
         root_positions: vec![base],
         directions: vec![Vec2::new(1.0, 0.0)],
@@ -401,7 +402,7 @@ fn a_frozen_system_culls_the_strands() {
     let r = walled();
     let map = AiMap::new(&r, 0, false, false);
     let base = Vec2::new(70.0, 70.0);
-    let (mut pool, id) = strand_pool(0, OwnerKey(7), base, 60.0);
+    let (mut pool, id) = strand_pool(OwnerKey(7), base, 60.0);
     let roots = WallRoots {
         root_positions: vec![base],
         directions: vec![Vec2::new(1.0, 0.0)],
@@ -431,7 +432,7 @@ fn a_frozen_system_culls_the_strands() {
 fn a_strand_does_not_move_without_an_aimap() {
     let r = walled();
     let base = Vec2::new(70.0, 70.0);
-    let (mut pool, id) = strand_pool(0, OwnerKey(7), base, 60.0);
+    let (mut pool, id) = strand_pool(OwnerKey(7), base, 60.0);
     pool.get_mut(id).unwrap().use_static_culling = false;
     let roots = WallRoots {
         root_positions: vec![base],
@@ -450,14 +451,14 @@ fn an_unlinked_strand_pairs_with_a_near_strand_of_another_owner() {
     let r = walled();
     let map = AiMap::new(&r, 0, false, false);
     let base = Vec2::new(70.0, 70.0);
-    let (mut pool, a) = strand_pool(0, OwnerKey(7), base, 60.0);
+    let (mut pool, a) = strand_pool(OwnerKey(7), base, 60.0);
     let roots = WallRoots {
         root_positions: vec![base],
         directions: vec![Vec2::new(1.0, 0.0)],
     };
     let other_owner = pool.new_owner();
     let other = pool.add(
-        Some(0),
+        Some(SYS),
         (other_owner, &PointOwner(base + Vec2::new(30.0, 0.0))),
         0,
         60.0,
@@ -489,14 +490,14 @@ fn pairing_is_refused_for_the_wrong_partner() {
     let r = walled();
     let map = AiMap::new(&r, 0, false, false);
     let base = Vec2::new(70.0, 70.0);
-    let (mut pool, a) = strand_pool(0, OwnerKey(7), base, 60.0);
+    let (mut pool, a) = strand_pool(OwnerKey(7), base, 60.0);
     let roots = WallRoots {
         root_positions: vec![base],
         directions: vec![Vec2::new(1.0, 0.0)],
     };
     // Same owner, near.
     let same = pool.add(
-        Some(0),
+        Some(SYS),
         (OwnerKey(7), &PointOwner(base)),
         0,
         60.0,
@@ -506,7 +507,7 @@ fn pairing_is_refused_for_the_wrong_partner() {
     // Another owner, far (the bases are 200 apart, more than `(60 + 60) * 0.75`).
     let far_owner = pool.new_owner();
     let far = pool.add(
-        Some(0),
+        Some(SYS),
         (far_owner, &PointOwner(base)),
         0,
         60.0,
@@ -540,9 +541,9 @@ fn linked(
     tip_a: Vec2,
     tip_b: Vec2,
 ) -> (MyceliumPool, MyceliumId, MyceliumId) {
-    let (mut pool, a) = strand_pool(0, OwnerKey(7), base_a, 20.0);
+    let (mut pool, a) = strand_pool(OwnerKey(7), base_a, 20.0);
     let b = pool.add(
-        Some(0),
+        Some(SYS),
         (OwnerKey(8), &PointOwner(base_b)),
         0,
         20.0,
@@ -697,28 +698,73 @@ fn a_link_breaks_by_chance() {
 #[test]
 fn a_strand_moves_between_systems() {
     let mut pool = MyceliumPool::default();
-    pool.create_registry(1);
-    pool.create_registry(2);
+    let (first, second) = (pool.create_registry(), pool.create_registry());
     let owner = pool.new_owner();
     let id = pool.add(
-        Some(1),
+        Some(first),
         (owner, &PointOwner(Vec2::ZERO)),
         0,
         20.0,
         Vec2::ZERO,
         &mut UnityRandom::new(1),
     );
-    assert_eq!(pool.registry(1), [id]);
-    pool.move_to_system(id, Some(2));
-    assert_eq!(pool.registry(1), []);
-    assert_eq!(pool.registry(2), [id]);
-    assert_eq!(pool.get(id).unwrap().system, Some(2));
-    pool.move_to_system(id, Some(2));
-    assert_eq!(pool.registry(2), [id]);
+    assert_eq!(pool.registry(first), [id]);
+    pool.move_to_system(id, Some(second));
+    assert_eq!(pool.registry(first), []);
+    assert_eq!(pool.registry(second), [id]);
+    assert_eq!(pool.get(id).unwrap().system, Some(second));
+    pool.move_to_system(id, Some(second));
+    assert_eq!(pool.registry(second), [id]);
     pool.move_to_system(id, None);
-    assert_eq!(pool.registry(2), []);
+    assert_eq!(pool.registry(second), []);
     assert_eq!(pool.get(id).unwrap().system, None);
     // A removed owner's strands are gone, and links to them read as absent.
     pool.remove_owner(owner);
     assert!(pool.get(id).is_none());
+}
+
+/// A strand of a gone owner lives on only while a live registry holds it: freed at once with
+/// no system, or when its registry is dropped; its owner's others are untouched.
+#[test]
+fn a_gone_owners_strands_are_freed_once_nothing_reaches_them() {
+    let mut pool = MyceliumPool::default();
+    let sys = pool.create_registry();
+    let (gone, kept) = (pool.new_owner(), pool.new_owner());
+    let at = PointOwner(Vec2::ZERO);
+    let rng = &mut UnityRandom::new(1);
+    let free = pool.add(None, (gone, &at), 0, 20.0, Vec2::ZERO, rng);
+    let listed = pool.add(Some(sys), (gone, &at), 0, 20.0, Vec2::ZERO, rng);
+    let other = pool.add(None, (kept, &at), 0, 20.0, Vec2::ZERO, rng);
+    pool.release_owner(gone);
+    assert!(pool.get(free).is_none());
+    assert!(pool.get(listed).is_some() && pool.get(other).is_some());
+    assert_eq!(pool.registry(sys), [listed]);
+    pool.drop_registry(sys);
+    assert!(pool.get(listed).is_none() && pool.get(other).is_some());
+    assert_eq!(pool.live(), 1);
+}
+
+/// A re-created system is another system: a strand still pointing at the old one is not
+/// "in" the new one, and joins it.
+#[test]
+fn a_new_system_is_not_the_old_one() {
+    let mut pool = MyceliumPool::default();
+    let old = pool.create_registry();
+    let owner = pool.new_owner();
+    let at = PointOwner(Vec2::ZERO);
+    let id = pool.add(
+        Some(old),
+        (owner, &at),
+        0,
+        20.0,
+        Vec2::ZERO,
+        &mut UnityRandom::new(1),
+    );
+    pool.drop_registry(old);
+    let new = pool.create_registry();
+    assert_ne!(old, new);
+    assert!(pool.registry(old).is_empty());
+    pool.move_to_system(id, Some(new));
+    assert_eq!(pool.registry(new), [id]);
+    assert_eq!(pool.get(id).unwrap().system, Some(new));
 }

@@ -77,7 +77,7 @@ pub struct OverseerView<'a> {
     /// The conversation partner's ID, when it has one.
     pub partner: Option<EntityId>,
     /// `neuronSystem`.
-    pub neuron_system: Option<i32>,
+    pub neuron_system: Option<crate::SystemId>,
 }
 
 impl<'a> OverseerView<'a> {
@@ -231,8 +231,8 @@ pub(crate) struct OverseerTick<'a> {
     pub pool: &'a mut MyceliumPool,
     /// `room.camerasChangedTick`.
     pub cameras_changed_tick: i32,
-    /// The room's `CoralNeuronSystem`'s `Frozen`, if it has one.
-    pub coral_frozen: Option<bool>,
+    /// The room's `CoralNeuronSystem`, if it has one.
+    pub coral: Option<crate::SystemState>,
 }
 
 impl<'a> OverseerTick<'a> {
@@ -244,7 +244,7 @@ impl<'a> OverseerTick<'a> {
             ai_map: Some(self.ai_map),
             camera: self.camera,
             cameras_changed_tick: self.cameras_changed_tick,
-            frozen: self.coral_frozen,
+            system: self.coral,
         }
     }
 }
@@ -882,7 +882,7 @@ impl OverseerUpdate<'_, '_> {
         let view = OverseerView::new(self.id, self.body, self.ai, color, partner);
         let cx = &mut *self.cx;
         let env = cx.mycelium_env();
-        let new = env.system();
+        let new = env.system.map(|s| s.id);
         let mut mx = MyceliaCx {
             pool: &mut *cx.pool,
             env,

@@ -9,12 +9,12 @@ use rw_sim::creature::EntityId;
 use rw_sim::creature::overseer::{OverseerBody, OverseerColor, OverseerMode, OverseerView};
 use rw_sim::{
     CameraView, FloatExt, MyceliaConnection, MyceliaCx, MyceliumId, MyceliumPool, OwnerKey,
-    PointOwner, Vec2,
+    PointOwner, SystemId, Vec2,
 };
 
 use crate::draw::Color;
 use crate::hologram_matrix::HologramMatrix;
-use crate::math::{Custom, Mathf, Vec2Bezier, Vec3};
+use crate::math::{Custom, Mathf, Vec3};
 
 /// An overseer's graphics module.
 #[derive(Debug, Clone, PartialEq)]
@@ -222,7 +222,7 @@ impl OverseerGraphics {
     /// `UpdateCoralNeuronSystem` (from `Overseer.NewRoom`): out of the registry of the
     /// system the overseer had (`old`) and, if the strand's own system is not `new`, into
     /// the new one's.
-    pub fn new_room(&self, pool: &mut MyceliumPool, old: Option<i32>, new: Option<i32>) {
+    pub fn new_room(&self, pool: &mut MyceliumPool, old: Option<SystemId>, new: Option<SystemId>) {
         if let Some(old) = old {
             for &id in &self.mycelia {
                 pool.unregister(old, id);

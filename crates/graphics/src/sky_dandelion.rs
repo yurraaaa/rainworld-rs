@@ -12,7 +12,6 @@ use std::borrow::Cow;
 use rw_sim::{DandelionStalk, FloatExt, SkyDandelion, Vec2};
 
 use crate::draw::{Color, DrawItem, DrawList, Layer, Mesh, Shader, Sprite};
-use crate::math::Vec2Bezier;
 use crate::mycelium::LongMesh;
 
 /// The dandelion's sprites.

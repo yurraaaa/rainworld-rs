@@ -73,8 +73,8 @@ pub struct OverseerBody {
     pub in_shortcut: bool,
     /// `room != null`: placed in its room (not in the shortcut handler's lobby).
     pub in_room: bool,
-    /// `neuronSystem`: the room whose `CoralNeuronSystem` it found at its last `NewRoom`.
-    pub neuron_system: Option<i32>,
+    /// `neuronSystem`: the `CoralNeuronSystem` it found at its last `NewRoom`.
+    pub neuron_system: Option<crate::SystemId>,
     /// `appendages[0].segments` as `AppendagePosition` gives them without a graphics
     /// module (with one the game reads its drawn tentacle; only weapons hit-test it).
     pub appendage: [Vec2; APPENDAGE_SEGMENTS],

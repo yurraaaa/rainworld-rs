@@ -4,14 +4,14 @@
 use rw_random::UnityRandom;
 
 use super::CoralNeuronSystem;
-use crate::Vec2;
+use crate::{SystemId, Vec2};
 
 /// `wind = RNV() * value`: the direction's draw, then the length's.
 #[test]
 fn the_constructor_draws_two_for_the_wind() {
     let mut rng = UnityRandom::new(3);
     let mut expect = UnityRandom::new(3);
-    let s = CoralNeuronSystem::new(5, &mut rng);
+    let s = CoralNeuronSystem::new(5, SystemId(1), &mut rng);
     let direction = Vec2::random_unit(&mut expect);
     let length = expect.value();
     assert_eq!(rng.state(), expect.state());
@@ -24,7 +24,7 @@ fn the_constructor_draws_two_for_the_wind() {
 #[test]
 fn update_draws_two_and_keeps_the_wind_within_one() {
     let mut rng = UnityRandom::new(3);
-    let mut s = CoralNeuronSystem::new(0, &mut rng);
+    let mut s = CoralNeuronSystem::new(0, SystemId(1), &mut rng);
     let mut expect = rng.clone();
     let wind = s.wind;
     s.update(true, &mut rng);
@@ -44,7 +44,7 @@ fn update_draws_two_and_keeps_the_wind_within_one() {
 #[test]
 fn the_counters_follow_the_camera() {
     let mut rng = UnityRandom::new(1);
-    let mut s = CoralNeuronSystem::new(0, &mut rng);
+    let mut s = CoralNeuronSystem::new(0, SystemId(1), &mut rng);
     for _ in 0..3 {
         s.update(false, &mut rng);
     }
@@ -57,7 +57,7 @@ fn the_counters_follow_the_camera() {
 #[test]
 fn frozen_needs_age_and_time_out_of_sight() {
     let mut rng = UnityRandom::new(1);
-    let mut s = CoralNeuronSystem::new(0, &mut rng);
+    let mut s = CoralNeuronSystem::new(0, SystemId(1), &mut rng);
     for (age, away, frozen) in [
         (300, 41, false),
         (301, 40, false),

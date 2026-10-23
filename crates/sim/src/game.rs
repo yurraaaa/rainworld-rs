@@ -162,8 +162,8 @@ use crate::shortcut::{CreatureVessel, Transport};
 use crate::world::{AbstractTick, FollowCreature, RainCycle, RegionState, RoomRealizer, World};
 use crate::{
     CameraShake, EmitterPlace, EntranceColor, HudMapLink, Input, LobbyVessel, MapDiscovery,
-    MyceliaCx, Player, ScreenMovement, ShortCutColor, ShortcutHandler, Sounds, Vec2, VesselOwner,
-    VesselStep, Water, determine_safe_spawn_tile,
+    MyceliaCx, OwnerKey, Player, ScreenMovement, ShortCutColor, ShortcutHandler, Sounds, Vec2,
+    VesselOwner, VesselStep, Water, determine_safe_spawn_tile,
 };
 
 /// What the app attaches to the player (its graphics module), called where the game
@@ -253,7 +253,7 @@ pub trait PlayerObserver {
         &mut self,
         _view: &OverseerView<'_>,
         _mx: &mut MyceliaCx<'_>,
-        _new: Option<i32>,
+        _new: Option<crate::SystemId>,
     ) {
     }
     /// `OverseerGraphics.DrawPosOfSegment(0, 1)`, the eye, while the overseer has a
@@ -261,8 +261,11 @@ pub trait PlayerObserver {
     fn overseer_eye(&self, _id: EntityId, _body: &OverseerBody) -> Option<Vec2> {
         None
     }
-    /// The overseer's graphics module is dropped (`NoLongerViewed`, or abstracted).
-    fn overseer_removed(&mut self, _id: EntityId) {}
+    /// The overseer's graphics module is dropped (`NoLongerViewed`, or abstracted); the
+    /// module's strand owner, if it had one.
+    fn overseer_removed(&mut self, _id: EntityId) -> Option<OwnerKey> {
+        None
+    }
     /// A realized fly is in the camera's room (`AddObject` or `NowViewed`): its
     /// `FlyGraphics` is built unless it has one.
     fn fly_added(&mut self, _view: &FlyView<'_>, _rng: &mut UnityRandom) {}
@@ -1329,7 +1332,7 @@ impl RainWorldGame {
         let coord = WorldCoordinate::new(vessel.room, -1, -1, vessel.entrance_node);
         match self.world.realized(vessel.room) {
             None => {
-                observer.overseer_removed(self.world.creature(id).id);
+                self.overseer_module_removed(id, observer);
                 self.world.abstractize_to(id, coord);
                 true
             }
@@ -1826,10 +1829,7 @@ impl RainWorldGame {
                 forced_directions,
                 pool: &mut pool,
                 cameras_changed_tick: realized.cameras_changed_tick,
-                coral_frozen: realized
-                    .coral
-                    .as_ref()
-                    .map(crate::CoralNeuronSystem::frozen),
+                coral: realized.coral.as_ref().map(crate::CoralNeuronSystem::state),
             };
             let mut run = OverseerUpdate {
                 me: id,
@@ -2207,15 +2207,17 @@ impl RainWorldGame {
     /// Camera 0's shown and most likely next camera positions, from the app's room
     /// camera (`RoomCamera` updates before the rooms).
     pub fn set_camera_view(&mut self, current: usize, next: usize) {
-        if current != self.camera_view.current {
-            // `ApplyPositionChange` within the room.
-            self.cameras_changed(self.camera_room);
-        }
         self.camera_view = CameraView {
             room: self.camera_room,
             current,
             next,
         };
+    }
+
+    /// The room camera cut to another camera position in the room (`MoveCamera`'s
+    /// `ApplyPositionChange`, including a cut to the position it already shows).
+    pub fn camera_moved(&mut self) {
+        self.cameras_changed(self.camera_room);
     }
 
     #[must_use]

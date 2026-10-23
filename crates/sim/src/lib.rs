@@ -131,7 +131,7 @@ pub use lightning::{
 pub use map_discovery::{DiscoveryTexture, HudMapLink, MapDiscovery, MapRoom, UnityTexture};
 pub use mycelium::{
     MyceliaConnection, MyceliaCx, Mycelium, MyceliumEnv, MyceliumId, MyceliumOwner, MyceliumPool,
-    OwnerKey, PointOwner,
+    OwnerKey, PointOwner, SystemId, SystemState,
 };
 pub use neuron_spark::NeuronSpark;
 pub use noise::{ImpactCall, ImpactCalls, InGameNoise, NoiseSink, RoomCall};
