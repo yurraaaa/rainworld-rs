@@ -7,5 +7,7 @@ pub(crate) mod anti_gravity;
 pub(crate) mod anti_gravity_turn;
 pub(crate) mod border_push_back;
 pub(crate) mod border_push_back_turn;
+pub(crate) mod death_fall;
+pub(crate) mod death_fall_turn;
 pub(crate) mod electric_death;
 pub(crate) mod electric_death_turn;

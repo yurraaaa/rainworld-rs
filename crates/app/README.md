@@ -21,7 +21,7 @@ Gameplay logic belongs in `rw-sim`, not here.
 | `scene.rs` | `Scene`/`SceneRenderer`: what a frame shows (level, water, sprites, HUD: the HUD's first container (the map) is queued between `Bloom` and the room's `HUD` container sprites, `prepare_hud`), shared by window and screenshots; uploads a room's decal images as atlas pages when first shown; the room camera's update before the sim tick and its shake after it, the frame's micro shake |
 | `visuals.rs` | room settings, palettes, shown camera image; `DarkPalette`/`ApplyFade`, `_light` from the rain cycle or the room's lightning (`num4`), the lightning's palette texels (0, 7) and (1, 7), `_waterLevel`, `LevelState` for `get_state`'s `level_params` |
 | `full_screen_effect.rs`, `full_screen_effect_tests.rs` | `FullScreenEffect`: the room camera's `fullScreenEffect` (Bloom, SkyBloom, SkyAndLightBloom, LightBurn/Lightning, Fog): `ApplyPalette`'s choice, `DrawUpdate`'s alpha, the `Futile_White` sprite |
-| `death_fall.rs` | `DeathFall`: the camera room's `DeathFallGraphic`: height (also for `_waterLevel`), counter and its `DeathFall` sprite in `Bloom` |
+| `death_fall.rs` | `DeathFallSprite`: a `DeathFallGraphic`'s `DeathFall` sprite in `Bloom` (the object, height and counter are `rw_sim::DeathFall`) |
 | `water_light.rs` | `WaterLight`: the room camera's water caustics sprite (`WaterLight` shader, first in `Foreground`), its alpha from `WaterReflectionAlpha` and the palette darkness |
 | `window_identity.rs` | window title "Rain World" and app id `rainworld-rs` (Wayland/X11) |
 | `sprites.rs` | atlas loading (`rainWorld`, `uiSprites`), overseer projection textures, the rainbow gradient, `LightMask0`, `glyphs`, `maze` |
@@ -39,7 +39,8 @@ Gameplay logic belongs in `rw-sim`, not here.
 | `mcp/mod.rs` | `#[tool]` handlers (thin) and server setup |
 | `mcp/session.rs` | `Session`: all tool logic as methods; `state()` builds `get_state` |
 | `mcp/params.rs`, `mcp/reply.rs` | tool parameter structs (schema docs) and JSON reply types |
-| `mcp/dev_tools.rs` | dev spawns, `set_rain_timer`, `screenshot`/`get_tiles` of another realized room |
+| `mcp/dev_tools.rs` | dev spawns, `set_rain_timer`, `screenshot`/`get_tiles` of another realized room (with its full-screen effect, death fall and water light) |
+| `mcp/tests/death_fall.rs` | `get_state` `death_fall` per realized room; an other-room shot's death fall, effect and water light (`CC_A06`/`CC_H01`, `GW_A07`/`GW_A06`) |
 | `mcp/background_scene_reply.rs` | `get_state` `background_scene`: per realized room's scene, its kind, elements, the camera's place on it (`camera_world`, `altitude`), each `DistantLightning`'s state, the dust puffs |
 | `mcp/insect_reply.rs` | `get_state` `insects`: per-room cosmetic insects |
 | `mcp/particles_reply.rs` | `get_state` `particles`: per realized room, counts of dandelions, stalks, sparks, specks and spores and the spawners' state |
@@ -75,7 +76,7 @@ Gameplay logic belongs in `rw-sim`, not here.
 - `get_hud`, `hud_message`: `session.rs` `hud_state`, `hud_message`.
 - Sleep/death/starve screens' data: `screen_package.rs`, `hibernation.rs`.
 - Music requests from the sim: `game_music.rs`.
-- Room full-screen effects (which, strength, container order): `full_screen_effect.rs`, raised in `scene.rs` (`apply_palette`), drawn by `rw-render`'s `full_screen.wgsl`; `get_state`'s `full_screen_effect`. The death fall at an open bottom: `death_fall.rs` (drawn by `death_fall.wgsl`), `get_state`'s `death_fall`. The water's caustics: `water_light.rs` (its mask texture `rw_assets::RainMask`, made in `visuals.rs`; drawn by `sprite.wgsl`'s `fs_water_light`), `get_state`'s `water_light`.
+- Room full-screen effects (which, strength, container order): `full_screen_effect.rs`, raised in `scene.rs` (`apply_palette`), drawn by `rw-render`'s `full_screen.wgsl`; `get_state`'s `full_screen_effect`. The death fall at an open bottom: `rw_sim` `effects/gameplay/death_fall.rs` (object, counter) and `death_fall_turn.rs` (made by `Room.Loaded`, ticks in the update list), sprite in `death_fall.rs` (drawn by `death_fall.wgsl`), `get_state`'s `death_fall`. The water's caustics: `water_light.rs` (its mask texture `rw_assets::RainMask`, made in `visuals.rs`; drawn by `sprite.wgsl`'s `fs_water_light`), `get_state`'s `water_light`.
 
 ## Cross-links
 

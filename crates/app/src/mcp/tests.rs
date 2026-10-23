@@ -10,6 +10,8 @@ use rw_assets::{StreamingAssets, UnityResources};
 use rw_audio::music::{MusicContext, SongKind};
 use rw_menu::ProcessId;
 
+mod death_fall;
+
 use super::params::{
     InputParam, ListRoomsParams, LoadProcessParams, LoadRoomParams, NewGameParams, RespawnParams,
     ScreenshotParams, SetPlayerParams, Step, StepParams, StepProcessParams, StepSequenceParams,

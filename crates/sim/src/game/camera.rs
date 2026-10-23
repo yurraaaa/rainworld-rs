@@ -3,7 +3,7 @@
 //! (`PositionCurrentlyVisible`, `PositionVisibleInNextScreen`, `Room.ViewedByAnyCamera`).
 //! The app's room camera chooses the cameras and hands them in every tick.
 //!
-//! Mirrors: RoomCamera.cs (PositionCurrentlyVisible, PositionVisibleInNextScreen), Room.cs (ViewedByAnyCamera)
+//! Mirrors: RoomCamera.cs (PositionCurrentlyVisible, PositionVisibleInNextScreen), Room.cs (ViewedByAnyCamera, CameraViewingPoint)
 
 use rw_assets::Room;
 
@@ -70,5 +70,19 @@ impl CameraView {
     #[must_use]
     pub fn viewed(&self, index: i32, room: &Room, pos: Vec2, margin: f32) -> bool {
         self.room == index && self.position_currently_visible(room, pos, margin, false)
+    }
+}
+
+/// Room methods the cameras define.
+pub trait RoomCameras {
+    /// `Room.CameraViewingPoint`: the first camera whose 1366x768 rect holds `p`.
+    fn camera_viewing_point(&self, p: Vec2) -> Option<usize>;
+}
+
+impl RoomCameras for Room {
+    fn camera_viewing_point(&self, p: Vec2) -> Option<usize> {
+        self.cameras()
+            .iter()
+            .position(|c| p.x > c[0] && p.x < c[0] + 1366.0 && p.y > c[1] && p.y < c[1] + 768.0)
     }
 }

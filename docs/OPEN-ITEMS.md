@@ -28,10 +28,6 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **Water with the rain (M8)**: `Room.AddWater` makes a `Water` (so its surface loop and
   `WaterLight`) in rooms with no level water (rain flood, `WaterCycleTop`/`Bottom`,
   `BrokenShelterWaterLevel`). The other water effects are done (2026-10-22).
-- **Death fall and other-room screenshots** (user, 2026-10-23, small jobs before async
-  loading): the death fall's `counter` counts from `Room.Loaded` while the room stays
-  realized (a `DeathFallGraphic` per realized room, not per camera entry; D7), and another
-  room's MCP screenshot draws its full-screen effect, death fall and water light (D7).
 - **`_NoiseTex2` mip selection** (user, 2026-10-23, after 10c): `FlatLight`,
   `OverseerZip`, `Hologram` (and ElectricDeath's taps) read `_NoiseTex2` at level 0; the
   game's derivative mip choice picks coarser levels (`tc.y * 8` over the 800 px image).
@@ -58,9 +54,7 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   mode's `_light`/`_cloudsSpeed`/palette grey-out (with echoes).
   Effects step 2 (full-screen effects, post-level grab, wet terrain, the Ant's
   `SpecificDepth`) and the `DeathFallGraphic` sprite done; left for later steps: `VoidMelt`'s `LevelMelt2` and
-  the echo branch of `ApplyPalette` (no effect selected meanwhile), full-screen effects
-  and the death fall in MCP screenshots of other rooms, the death fall's counter from
-  `Room.Loaded` (it restarts when the camera enters; D7), and holograms drawn under a re-raised `Bloom`
+  the echo branch of `ApplyPalette` (no effect selected meanwhile), and holograms drawn under a re-raised `Bloom`
   effect (D7).
   Effects step 4 (`Lightning`, `BkgOnlyLightning`, `ExtraLoudThunder`; D25, notes
   `lightning.md`) done: flashes, `num4`/`_light`, `LightBloom` alpha, sky and fog texels,
@@ -145,8 +139,7 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `screenshot` with `room` set (`crates/app/src/mcp/dev_tools.rs`) draws no light fixtures
   and none of the SS electric objects (D36), wall mycelia (D38), coral neurons, coral stems
   (D41), coral circuits (D42) or projected circles (D40); the debug view does not outline them either.
-- **Full-screen effects leftovers** (review, small): `DeathFall::camera_viewing_point`
-  belongs on the room (`Room.CameraViewingPoint`); stale "not ported" rows for LightBurn,
+- **Full-screen effects leftovers** (review, small): stale "not ported" rows for LightBurn,
   SkyAndLightBloom, SkyBloom and wet terrain in `../rainworld-re/surveys/room-effects/`
   (README, `screen-effects.md` §1.5 and the `_WetTerrain`/`_waterLevel` rows) and
   `notes/room-rendering.md` §9.
