@@ -1535,7 +1535,9 @@ impl Game {
         Jaws::new(holders, player).contain(&mut lists);
         let mut ordered = Vec::with_capacity(lists.len());
         let shown = self.sprite_order.shown_set();
+        let count = lists.len();
         let mut lists: HashMap<Drawable, DrawList> = lists.into_iter().collect();
+        debug_assert_eq!(lists.len(), count, "a drawable has two draw lists");
         for d in self.sprite_order.order() {
             let Some(mut list) = lists.remove(&d) else {
                 continue;

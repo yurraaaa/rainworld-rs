@@ -384,6 +384,7 @@ impl SpriteOrder {
     }
 
     /// The jaw container `d`'s sprites are in, if any (`Detached` ones included).
+    #[cfg(test)]
     #[must_use]
     pub fn holder(&self, d: Drawable) -> Option<Drawable> {
         self.leasers
@@ -396,6 +397,7 @@ impl SpriteOrder {
     }
 
     /// Whether a weapon's sprites are in `Background` rather than `Items`.
+    #[cfg(test)]
     #[must_use]
     pub fn behind(&self, d: Drawable) -> bool {
         self.leasers.iter().any(|l| l.drawable == d && l.behind)
@@ -403,9 +405,34 @@ impl SpriteOrder {
 
     /// Whether `d`'s sprites are on the stage: in the room's containers, or in a jaw
     /// container that is. A hold cycle counts as shown (D20).
+    #[cfg(test)]
     #[must_use]
     pub fn shown(&self, d: Drawable) -> bool {
-        self.shown_in(&self.index(), d)
+        let mut at = d;
+        for _ in 0..=self.leasers.len() {
+            let Some(l) = self.leasers.iter().find(|l| l.drawable == at) else {
+                return false;
+            };
+            match l.parent {
+                Parent::Room => return true,
+                Parent::Detached => return false,
+                Parent::Holder(h, _) => at = h,
+            }
+        }
+        true
+    }
+
+    /// Every drawable in a jaw container, with its holder, in one pass (see
+    /// [`Self::holder`]).
+    #[must_use]
+    pub fn holders(&self) -> HashMap<Drawable, Drawable> {
+        let mut holders = HashMap::new();
+        for l in &self.leasers {
+            if let Parent::Holder(h, _) = l.parent {
+                holders.entry(l.drawable).or_insert(h);
+            }
+        }
+        holders
     }
 
     /// Every shown drawable (see [`Self::shown`]), in one pass.

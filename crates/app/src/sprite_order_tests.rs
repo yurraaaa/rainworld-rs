@@ -426,23 +426,17 @@ fn thousands_of_leasers_keep_the_order() {
         },
     )];
     o.update(1, &present, &jaws, &[]);
-    let mut expected = vec![
-        Drawable::WaterLight,
-        Drawable::DeathFall,
+    let mut expected = vec![Drawable::WaterLight, Drawable::DeathFall];
+    expected.extend((0..N).filter(|i| i % 2 == 1).map(Drawable::Particle));
+    expected.extend([
+        player,
+        lizard,
         Drawable::Shortcuts,
         Drawable::FullScreenEffect,
-    ];
-    expected.extend([player, lizard]);
-    expected.extend(
-        (0..N + 100)
-            .filter(|i| i % 2 == 1 || *i >= N)
-            .map(Drawable::Particle),
-    );
+    ]);
+    expected.extend((N..N + 100).map(Drawable::Particle));
     expected.push(spear);
-    let mut got = Fixture::order(&o);
-    got.sort_by_key(|d| format!("{d:?}"));
-    expected.sort_by_key(|d| format!("{d:?}"));
-    assert_eq!(got, expected);
+    assert_eq!(Fixture::order(&o), expected);
     // The room's own leasers keep their relative order; the bitten spear went on top.
     let order = Fixture::order(&o);
     assert_eq!(order.last(), Some(&spear));
@@ -478,6 +472,6 @@ fn five_thousand_leasers_update_quickly() {
         let _ = o.behind_set();
     }
     if !cfg!(debug_assertions) {
-        assert!(start.elapsed() < std::time::Duration::from_secs(1));
+        assert!(start.elapsed() < std::time::Duration::from_millis(250));
     }
 }

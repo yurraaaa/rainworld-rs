@@ -710,6 +710,7 @@ impl Session {
 
     fn sprite_order(scene: &Scene) -> Vec<SpriteLeaserState> {
         let order = scene.game().sprite_order();
+        let (shown, behind, holders) = (order.shown_set(), order.behind_set(), order.holders());
         order
             .order()
             .map(|d| {
@@ -718,9 +719,9 @@ impl Session {
                     kind,
                     id,
                     index,
-                    behind: order.behind(d),
-                    held_by: order.holder(d).and_then(|h| Self::drawable(scene, h).1),
-                    shown: order.shown(d),
+                    behind: behind.contains(&d),
+                    held_by: holders.get(&d).and_then(|&h| Self::drawable(scene, h).1),
+                    shown: shown.contains(&d),
                 }
             })
             .collect()
