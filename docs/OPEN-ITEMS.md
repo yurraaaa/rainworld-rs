@@ -22,6 +22,10 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **Water with the rain (M8)**: `Room.AddWater` makes a `Water` (so its surface loop and
   `WaterLight`) in rooms with no level water (rain flood, `WaterCycleTop`/`Bottom`,
   `BrokenShelterWaterLevel`). The other water effects are done (2026-10-22).
+- **`_NoiseTex2` mip selection** (user, 2026-10-23, after 10c): `FlatLight`,
+  `OverseerZip`, `Hologram` (and ElectricDeath's taps) read `_NoiseTex2` at level 0; the
+  game's derivative mip choice picks coarser levels (`tc.y * 8` over the 800 px image).
+  Small follow-up, as `_NoiseTex` in D37.
 
 ## Planned
 - **Room visual effects, lights and camera shake** (user, 2026-10-22): every non-DLC
