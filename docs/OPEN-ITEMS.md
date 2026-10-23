@@ -26,6 +26,10 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `OverseerZip`, `Hologram` (and ElectricDeath's taps) read `_NoiseTex2` at level 0; the
   game's derivative mip choice picks coarser levels (`tc.y * 8` over the 800 px image).
   Small follow-up, as `_NoiseTex` in D37.
+- **Broken shelters** (user, 2026-10-23, with region changes): `properties.txt`'s
+  `Broken Shelters: <timeline>:` (Red: `HI_S03`, `LF_S07`; White and Red: `SL_S11`) are read
+  and used by DeathFall, the exit look and the overseers, but the shelter/win logic treats
+  every shelter as intact (`crates/app/src/game.rs` ~784, `in_intact_shelter`).
 
 ## Planned
 - **Room visual effects, lights and camera shake** (user, 2026-10-22): every non-DLC
