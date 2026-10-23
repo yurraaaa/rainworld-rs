@@ -12,7 +12,7 @@ lists and overlays.
 | File | Holds |
 |---|---|
 | `src/lib.rs` | `Renderer` trait, `RoomLayers`, re-exports |
-| `src/gpu.rs` | `WgpuRenderer` (`new`, `headless`, `render_image`, `present`), pipelines and frame orchestration; `gpu/tests.rs`, `gpu/full_screen_tests.rs` (full-screen effects, `DeathFall`, `WaterSplash` and `WaterLight` at 1366x768), `gpu/placed_visuals_tests.rs` (`Decal` and `Rainbow`) |
+| `src/gpu.rs` | `WgpuRenderer` (`new`, `headless`, `render_image`, `present`), pipelines and frame orchestration; `gpu/tests.rs`, `gpu/full_screen_tests.rs` (full-screen effects, `DeathFall`, `WaterSplash` and `WaterLight` at 1366x768), `gpu/placed_visuals_tests.rs` (`Decal` and `Rainbow`), `gpu/glyph_projection_tests.rs` (`GlyphProjection` against the shader's maths on the CPU) |
 | `src/camera.rs` | `Camera`: room pixels (y up) to clip space |
 | `src/room_camera.rs` | `RoomCamera`, `Follow`: camera image choice and window position, moved by the shake (`displace`) and the frame's micro shake (`RoomCamera.GetCameraBestIndex/Update/DrawUpdate`) |
 | `src/level.rs`, `src/level_gpu.rs` | level graphic (`LevelGraphics`, with the room's `RainMask` texture; `LevelParams`: the room's shader globals incl. `_rimFix` and light angle; `LevelView`: window, `_RAIN`, `_light`) and its GPU side (palette rewrites for `ApplyFade`) |
@@ -29,6 +29,7 @@ lists and overlays.
 | `shaders/sprite.wgsl` | room sprite shaders (`fs_basic`, `fs_flat_light`, `fs_hologram*`, `fs_light_source`, `fs_under_water_light`, `fs_shortcut`, `fs_water_splash`, `fs_water_light`, `fs_light_beam`, `fs_vector_circle`, ...) |
 | `shaders/full_screen.wgsl` | the room's full-screen effects, appended to `sprite.wgsl` (`fs_bloom`, `fs_sky_bloom`, `fs_light_bloom`, `fs_light_and_sky_bloom`, `fs_fog`) |
 | `shaders/background_scene.wgsl` | the background scenes' shaders (`fs_background`, `fs_cloud`, `fs_cloud_distant`, `fs_distant_bkg_object`, `fs_distant_bkg_object_repeat`, `fs_bkg_floor`, `fs_house`, `fs_dust`, `fs_spores`), appended after `placed_visuals.wgsl`; clipped by the level image and what was drawn behind it |
+| `shaders/glyph_projection.wgsl` | `GlyphProjection` (`fs_glyph_projection`, a `SuperStructureProjector`'s glyphs: cells of the screen grid shifted by `_gridOffset`, a hashed glyph column of the `glyphs` page), appended after `electric_death.wgsl` |
 | `shaders/electric_death.wgsl` | `ElectricDeath`'s shader (`fs_electric_death`) and `FlareBomb` (`fs_flare_bomb`, a `SparkFlash`'s flash; the `*BothSides` variants are these in the base game), appended after `water_fall.wgsl` |
 | `shaders/water_fall.wgsl` | `WaterFall`'s shader (`fs_water_fall`), appended after `placed_visuals.wgsl` |
 | `shaders/placed_visuals.wgsl` | `CustomDecal`'s `Decal` shader (`fs_decal`) and `Rainbow`'s (`fs_rainbow`), appended after `death_fall.wgsl` |
@@ -52,6 +53,7 @@ lists and overlays.
 - Background scene sprites (`Layer::Water`): shaders in `background_scene.wgsl`; a scene image is an atlas page of its own (`Renderer::add_atlas_page`), the global textures and values come with `Renderer::set_scene_textures` and `set_scene_globals` (bound with `_NoiseTex2` in group 1, the globals in the room uniform); `_rimFix` is the level shader's (`LevelParams::rim_fix`).
 - Atlas page sampling: `set_atlas` and `add_atlas_page` take each page's `TextureSampling` (`TextureSampling::from_import` from a Texture2D's filter mode and wrap; `POINT_CLAMP` for pages made from files, as `crispPixels`/`clampWrapMode` do). The app passes the import settings for `rainWorld`, `uiSprites` (point, clamp), `LightMask0` and `Rainbow` (bilinear), and point for `shelterGate`, the projections and decals; scene images get the flags of their `LoadGraphic` call (D31). Mips are not uploaded for atlas pages. The scene shaders' `_ApartmentsTex` and `_CityPalette` use a point sampler of their own (binding 6 of group 1).
 - Decal and rainbow textures: extra atlas pages added with `Renderer::add_atlas_page` (the app uploads a decal's PNG when its room is first shown; the gradient is a page loaded at start-up); shaders in `placed_visuals.wgsl`, which read `_light`, `_cloudsSpeed`, `_WetTerrain` and the light angle from `RoomGlobals`.
+- `_gridOffset` (`GlyphProjection`'s global, set by the projector's glyphs): `Renderer::set_grid_offset`, kept until set again (`SpritePipeline::grid_offset`, `Room.grid_offset` in `sprite.wgsl`; D35).
 - `ElectricDeath` and `FlareBomb` shaders: `electric_death.wgsl` (sprites in `rw-graphics` `electric_death.rs`, D33); a sprite with a non-finite scale or colour is not drawn (`SpriteAtlas::quad`).
 - Sprite drawing from a `DrawList`: `sprites.rs`, then `sprite_gpu.rs` + `sprite.wgsl`, pipeline chosen by game shader.
 - Menu/HUD quads: `stage.rs`, `stage_gpu.rs`, `stage.wgsl`.

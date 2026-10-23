@@ -38,6 +38,8 @@ mod placed_cosmetics_reply;
 mod placed_light_reply;
 mod placed_visuals_reply;
 mod projection_reply;
+#[cfg(test)]
+mod projection_tests;
 pub(crate) mod reply;
 #[cfg(test)]
 mod save_tests;

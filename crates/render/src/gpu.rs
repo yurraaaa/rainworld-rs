@@ -1215,6 +1215,8 @@ mod background_scene_tests;
 #[cfg(test)]
 mod full_screen_tests;
 #[cfg(test)]
+mod glyph_projection_tests;
+#[cfg(test)]
 mod placed_visuals_tests;
 #[cfg(test)]
 mod tests;

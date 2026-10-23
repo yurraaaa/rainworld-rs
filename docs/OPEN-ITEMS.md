@@ -185,8 +185,11 @@ plan is in `../rainworld-re/surveys/lizards.md`.
     the oracles.
   - `Room.ElectricPower` / gravity readers: `ZapCoil`, `GravityDisruptor`, `SpinningFan`,
     `SuperStructureFuses`, `MeltLights`, with the SS objects.
-  - `Room.ElectricPower` / gravity readers: `SSLightRod`, `ProjectedScanLines`,
-    `SuperStructureProjector`, `DeepProcessing`, `DeepProcessingLight`, with the SS objects.
+  - `Room.ElectricPower` / gravity readers: `SSLightRod`, `DeepProcessing`,
+    `DeepProcessingLight`, with the SS objects (`ProjectedScanLines` and
+    `SuperStructureProjector` read it since step 10a, D35).
+  - `ProjectedCircle` (D35): with its owners `CoralNeuron`, `CoralStem`, `SSOracleSwarmer`
+    (and `SpearMasterPearl`, `Inspector` in the DLC).
   - Zero gravity: `ExplosiveSpear` fragments, with explosive spears.
   - Zero gravity: `OverseerCarcass`, with it.
   - Zero gravity: `SegmentRope` and `Dangler`, with them.
