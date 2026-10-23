@@ -5,19 +5,6 @@ the user's go-ahead before it starts. Bugs seen in play are in `BUGS.md`; the li
 plan is in `../rainworld-re/surveys/lizards.md`.
 
 ## Approved, not started
-- **rw-sim file layout cleanup** (user, 2026-10-23, next after the SS_E08 gravity script,
-  before the small jobs): `crates/sim/src/` has ~124 source and ~75 test files at its top
-  level; group them into topic folders so the crate is friendly to human work. A layout
-  proposal goes to the user before anything moves; moves only, no behaviour change; run
-  while no other branch is in flight. Takes over the `rw-sim` file-split part of the
-  end-of-project cleanup items. Unit tests stay in `src`, in a `tests/` folder inside
-  each topic folder (as `player/tests/`); `crates/sim/tests/` keeps the integration tests
-  (user, 2026-10-23). Layout: topic folders, each holding its types, their turn code
-  (the old `game_<topic>.rs` `impl RainWorldGame` blocks) and `tests/` (user chose
-  layout A, 2026-10-23: math, physics, game, player, creature, item, sound, water,
-  effects/{lights,sky,particles,gravity}, superstructure/{projections,electric,grab,coral},
-  vines, world). No folder-size rule (user). The agent also merges very similar
-  files into one where that reads better (user), still with no behaviour change.
 - **File layout cleanup of the other crates** (user, 2026-10-23, after rw-sim's): the same
   check per crate, a layout proposal to the user each time, moves only. Top-level `.rs` files
   today: rw-graphics 70 (no folders), rw-assets 30, app 27, rw-render 25, rw-save 20,
@@ -119,11 +106,11 @@ plan is in `../rainworld-re/surveys/lizards.md`.
     in-game HUD; decide whether they move (e.g. into `rw-menu` or their own crate).
   - `rw-graphics`' `cosmetic_graphics.rs` is a catch-all (sparks, explosion spikes,
     bubbles); split or rename it.
-  - `rw-sim`'s file split: `game.rs` (2051 lines, sessions, lobby, tick order),
-    lizard and fly logic outside `creature/` (`world/lizards.rs`, `game_lizard_*.rs`,
-    `game_flies.rs`), weapons in `world/weapons.rs`, `item/weapon.rs` and
-    `game_weapons.rs`, save-state writing across about six files, `trigger.rs` vs
-    `game_triggers.rs`, `noise.rs` vs `world/hearing.rs`.
+  - `rw-sim`'s visibility after the layout cleanup (2026-10-23, done; `crates/sim/README.md`
+    Layout): about 80 of the items made `pub(crate)` are used only inside their own folder
+    (lizard `*_turn.rs` methods, `game/*_turn.rs` helpers, `abstract_ai/world.rs`) and
+    could be `pub(super)`; `creature/abstract_ai/path_finder.rs` sits beside
+    `creature/path_finder/` (rename one).
   - `rw-menu`'s `font_test.rs` (port-only screen) stays for now.
 - **Optimisation pass: rooms with many sprites** (user, 2026-10-23): SS_E05 now holds
   240 fps, but zero-g speck/spore rooms are worth profiling in M14. Measured 2026-10-23
