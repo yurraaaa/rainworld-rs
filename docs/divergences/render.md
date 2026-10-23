@@ -103,9 +103,7 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   their `_GrabTexture` (neither has a `GrabPass` of its own; INFERRED that no other
   unnamed-grab sprite draws in `Foreground` between the level and them); holograms in `Bloom` are always drawn
   after the effect, where the game puts the effect back on top of its container after
-  every `ApplyPalette`; `num4` is `ShaderLight` without lightning (`Lightning`'s flashes
-  and palette are not ported, so a `Lightning` room's alpha is its amount times
-  `InverseLerp(0, 0.2, amount)` with `num4` from the rain only). Not selected: the echo
+  every `ApplyPalette`; `num4` is `ShaderLight`, or the room's lightning level (D25). Not selected: the echo
   branch (ghost mode) and `VoidMelt` (`LevelMelt2`), which leave the room with no
   effect. `_waterLevel` uses the `DeathFallGraphic`'s height (focal points included).
   The death fall's sprite (`death_fall.wgsl`) is drawn as the game's; its alpha pulse's
@@ -132,18 +130,18 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   Another room's MCP screenshot draws no full-screen effect, death fall or water light
   and takes `_waterLevel` from the water alone.
 - **Not drawn:** the rain's `ShaderLight` after the rain hits (`GlobalRain` is not ported: it stays
-  -1), `BrokenZeroG`'s dark palette (zero gravity is not ported), lightning, room
+  -1), `BrokenZeroG`'s dark palette (zero gravity is not ported), room
   effects that grade colours (Darkness, Brightness, Contrast, Desaturation, Hue, DayNight:
   their uniforms keep the game's defaults; no base-game room uses them, they come with
   the DLCs)
   or modify effect colours (`ModifyEffectColorA/B`, unused in base-game rooms), ghost /
   rot / mushroom palettes, the rain's screen shake (and the sandstorm's, blizzard's,
-  flood rooms' `waterFlux.roomShake`, lightning's and `AntiGravity`'s), `_bkg` backgrounds, the heat / melt / ripple
+  flood rooms' `waterFlux.roomShake`, `AntiGravity`'s), `_bkg` backgrounds, the heat / melt / ripple
   shader variants, swarm rooms, and the properties-file line preprocessing (no base-game
   `Room Setting Templates` line uses it).
 
 **Why.** The port draws the camera's room with the player; these depend on systems
-not ported yet (the rain itself and the global rain, lightning, zero gravity, echoes,
+not ported yet (the rain itself and the global rain, zero gravity, echoes,
 the room effects' own objects and scenes) or are invisible at this stage. The rain
 cycle's light and palette darkening before the rain are ported (D22).
 

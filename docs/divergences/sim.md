@@ -711,10 +711,10 @@ second part, else a single-room world for arena levels). The campaign descriptio
   happens in play yet; user 2026-10-22); the path finder's
   `TravelPreference` adds `DiscomfortOfTile`; `ReactToNoise` and `InvestigateSound`
   answer what it hears (step 7a). Left out of step 6b, each a question
-  to the user: `Deaf` and `room.BackgroundNoise` (nothing ported sets them), the
+  to the user: `Deaf` (nothing ported sets it; `room.BackgroundNoise` is set by lightning, D25), the
   noise sources whose objects are not ported (explosions, firecrackers, scavenger
   bombs, egg bugs, Miros birds, snails, the explosive spear's blast, karmic armor,
-  vultures, lightning, other creatures' impacts), the item tracker's
+  vultures, other creatures' impacts), the item tracker's
   uncomfortable items in `DiscomfortOfTile`, and the player's zero-gravity loudness
   (the port has no `ZeroG` body mode). The MCP `noise.heard` log is the port's, not
   the game's. The Watcher ripple layer test, Remix's water splash noises and the More
@@ -1066,3 +1066,40 @@ collision. The coordinator's `NowViewed` runs at the head of the tick after the 
 moved, as the game's `RoomCamera.ChangeRoom` does; a room's water surface is made only
 when it finishes loading (D14), so an insect rolled before that reads the still water
 level.
+
+## D25: Lightning (omitted DLC branches and draw-time draws)
+
+`Lightning` (`Lightning` and `BkgOnlyLightning` room effects, effects step 4) follows
+`Lightning.cs`, `Room.Loaded` and `RoomCamera.DrawUpdate`: the two sources' draws and
+state, the thunder queue with its screen shake, `Thunder`, `Thunder_Close` and
+`Electricity_Loop`, `MakeBackgroundNoise` read by `NoiseTracker.HeardNoise`, the
+light level `num4`, `_light`, the `LightBloom` alpha and palette texels (0, 7) and
+(1, 7).
+
+**What differs.**
+- Omitted DLC branches, listed as such: Watcher's `WSK` regions (both `bkgGradient`
+  colours white, `Electricity_Loop` muted), `rippleFade` and ripple layers (the thunder
+  sound's `ActiveRippleLayer == 0` test, `LightIntensity`'s `* rippleFade`, the ripple
+  camera's three extra palette writes and the colour functions' extra calls), More
+  Slugcats' `RM` region exception in `CycleEndIntensityBoost` (it is 0 there except in
+  `GATE_UW_SS`). Base game: `rippleFade` is 1 and none applies.
+- `LightIntensity`, `CurrentLightLevel`, `CurrentBackgroundColor` and `CurrentFogColor`
+  are called by the camera each drawn frame and draw (a flicker, one to three draws
+  each) from the app's cosmetic stream, once per frame, as `DrawUpdate` calls them
+  (1 + 2 + 4 calls, one fewer for a background-only room, one more when the front
+  flash shows in the background); a paused frame repeats the last one's (D1). The
+  `get_state` fields read them from a copy of the stream.
+- A world without a rain cycle (`cycle_length` 0, D22) reads `CycleEndIntensityBoost`
+  from the game's formula as it is (0.33 at timer 0: extra draws, a shorter wait); the
+  game always has a cycle, so the port leaves it.
+- `Room.Update`'s pause branch of `backgroundNoise` (`game.pauseUpdate`) is not
+  ported: the sim has no paused update.
+- The sound loop's emitter is the game's `DisembodiedLoopEmitter`; `Pan` reaches the
+  audio as `SoundEvent::EmitterPan` and is read by the loop each frame as the game's
+  `DisembodiedLoop.Update` does (D12 for the rest).
+
+**Why.** DLC is not installed for now (AGENTS.md); the draw-time reads happen per
+drawn frame, which only the app knows.
+
+**Affects.** Lightning rooms (33 `Lightning`, 7 `BkgOnlyLightning`, 16
+`ExtraLoudThunder`): only in the DLC regions and the pause.

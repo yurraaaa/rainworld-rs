@@ -128,7 +128,8 @@ impl World {
     /// by how long it was unseen) is refreshed, a source unknown and older than 10 ticks
     /// making it mysterious; or a new source is guessed among the tracked creatures (no
     /// guess past 1000 down to 300 as more of them are out of sight: then mysterious).
-    /// Deafness and the room's background noise are not ported (nothing makes them).
+    /// The room's background noise (lightning's thunder) dulls it; deafness is not ported
+    /// (nothing makes it).
     fn noise_tracker_heard(
         &mut self,
         ai: CreatureId,
@@ -148,7 +149,14 @@ impl World {
             1.0
         };
         let noise = h.noise;
-        if !main.dist_less(noise.pos, noise.strength * n.hearing_skill * water_fac) {
+        let quiet = 1.0
+            - self
+                .realized(h.room)
+                .map_or(0.0, super::RealizedRoom::last_background_noise);
+        if !main.dist_less(
+            noise.pos,
+            noise.strength * n.hearing_skill * quiet * water_fac,
+        ) {
             return;
         }
         if n.ignore_seen_noises {

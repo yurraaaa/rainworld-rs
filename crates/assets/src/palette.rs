@@ -216,6 +216,17 @@ impl PaletteTexture {
         self.texels[y * Self::WIDTH + x]
     }
 
+    /// The texture after `SetPixel(x, y, color)` for each of `colors`, stored as 8-bit
+    /// texels (a camera writes the lightning's sky and fog colours this way).
+    #[must_use]
+    pub fn with_colors(&self, colors: &[(usize, usize, [f32; 4])]) -> Self {
+        let mut texels = self.texels.clone();
+        for &(x, y, color) in colors {
+            texels[y * Self::WIDTH + x] = color.quantise();
+        }
+        Self { texels }
+    }
+
     /// `RoomPalette.blackColor`: texel (2, 7), the top row's third texel (the colour of
     /// the slugcat's eyes, among others).
     #[must_use]
@@ -318,6 +329,19 @@ mod tests {
         );
         assert!((p.fog_amount - 0.8).abs() < 1e-6);
         assert!((p.darkness - 0.6).abs() < 1e-6);
+    }
+
+    /// `SetPixel(0, 7, c)` and `(1, 7, c)` change only those texels, rounded to 8 bits.
+    #[test]
+    fn set_pixel_overrides_texels() {
+        let pixels = vec![[9, 9, 9, 255]; PaletteImage::WIDTH * PaletteImage::HEIGHT];
+        let image = PaletteImage::from_image(&PngImage::from_pixels(32, 16, pixels)).unwrap();
+        let base = PaletteTexture::blend(&image, None, 0.0);
+        let lit = base.with_colors(&[(0, 7, [0.2, 0.4, 1.0, 1.0]), (1, 7, [0.0, 0.5, 0.25, 0.0])]);
+        assert_eq!(lit.texel(0, 7), [51, 102, 255, 255]);
+        assert_eq!(lit.texel(1, 7), [0, 128, 64, 0]);
+        assert_eq!(lit.texel(2, 7), base.texel(2, 7));
+        assert_eq!(lit.texel(0, 6), base.texel(0, 6));
     }
 
     trait FlatPalette {

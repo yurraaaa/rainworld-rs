@@ -341,8 +341,16 @@ pub struct RainState {
 pub struct LevelParamsState {
     /// `_light` (1 full sun, -1 none).
     pub light: f32,
-    /// `num4`: the rain cycle's `ShaderLight` in rooms with rain danger, else 1.
+    /// `num4`: the rain cycle's `ShaderLight` in rooms with rain danger, else 1; the
+    /// lightning's `CurrentLightLevel` in a room with one (-1 between flashes).
     pub shader_light: f32,
+    /// What `DrawUpdate` read of the room's `Lightning` this frame: the sky and fog
+    /// colours written to palette texels (0, 7) and (1, 7) (RGBA 0..1), sampled with a
+    /// copy of the cosmetic stream.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lightning_sky: Option<[f32; 4]>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lightning_fog: Option<[f32; 4]>,
     /// `DarkPalette`: the palette's blend toward its rain-dark half.
     pub dark_palette: f32,
     /// `paletteBlend`: the shown camera's `FadePalette` amount.
@@ -440,6 +448,8 @@ impl From<crate::visuals::LevelState> for LevelParamsState {
         Self {
             light: s.light,
             shader_light: s.shader_light,
+            lightning_sky: s.lightning.map(|l| l.background),
+            lightning_fog: s.lightning.map(|l| l.fog),
             dark_palette: s.dark_palette,
             palette_blend: s.palette_blend,
             grime: p.grime,
@@ -1285,9 +1295,79 @@ pub struct RealizedState {
     /// The water's calm surface loop (`Water.waterSounds`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub water_sound: Option<WaterSoundState>,
+    /// The room's `Lightning`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lightning: Option<LightningState>,
+    /// `Room.BackgroundNoise` (last tick's), when above 0.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub background_noise: Option<f32>,
     /// The social event recognizer's `ownedItemsOnGround`, oldest first.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub owned_items: Vec<OwnedItemState>,
+}
+
+/// A room's `Lightning` (`Room.lightning`).
+#[derive(Debug, Clone, Serialize)]
+pub struct LightningState {
+    /// The effect's amount (`intensity`).
+    pub intensity: f32,
+    pub bkg_only: bool,
+    /// The front source (`lightningSources[0]`), then the background one.
+    pub sources: Vec<LightningSourceState>,
+}
+
+/// A `LightningSource`.
+#[derive(Debug, Clone, Serialize)]
+pub struct LightningSourceState {
+    pub wait: i32,
+    pub thunder: i32,
+    pub thunder_length: i32,
+    pub intensity: f32,
+    pub last_intensity: f32,
+    pub random_level: f32,
+    pub distance: f32,
+    pub power: f32,
+    pub pan: f32,
+    pub front_lightning_show_in_bkg: bool,
+    pub loop_vol: f32,
+    pub noise_counter: f32,
+    pub noise_level: f32,
+    /// Queued `ThunderSound`s as (countDown, distance, power, pan).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub thunder_sounds: Vec<[f32; 4]>,
+}
+
+impl From<&rw_sim::Lightning> for LightningState {
+    fn from(l: &rw_sim::Lightning) -> Self {
+        Self {
+            intensity: l.intensity,
+            bkg_only: l.bkg_only,
+            sources: l
+                .sources
+                .iter()
+                .map(|s| LightningSourceState {
+                    wait: s.wait,
+                    thunder: s.thunder,
+                    thunder_length: s.thunder_length,
+                    intensity: s.intensity,
+                    last_intensity: s.last_intensity,
+                    random_level: s.random_level,
+                    distance: s.distance,
+                    power: s.power,
+                    pan: s.pan,
+                    front_lightning_show_in_bkg: s.front_lightning_show_in_bkg,
+                    loop_vol: s.loop_vol,
+                    noise_counter: s.noise_counter,
+                    noise_level: s.noise_level,
+                    thunder_sounds: s
+                        .thunder_sounds
+                        .iter()
+                        .map(|t| [t.count_down as f32, t.distance, t.power, t.pan])
+                        .collect(),
+                })
+                .collect(),
+        }
+    }
 }
 
 /// An `OwnedItemOnGround`: item and owner IDs, the creature it was offered to, age,

@@ -16,7 +16,7 @@ Silent, tick-timed music sources keep headless runs deterministic.
 | `output.rs` | kira backend on cpal, stops and joins its thread on drop |
 | `clips.rs` | `ClipLoader`, `ClipKey`, `ClipSlot`: clips decoded on background threads (`CacheAllAudio`) |
 | `mic.rs` | `VirtualMicrophone` formulas: pan, volume, low-pass |
-| `voice.rs` | sound objects (`DisembodiedSound`, `StaticPositionSound`, `ObjectSound`, `DisembodiedLoop`, `RectangularSound`) and their emitters |
+| `voice.rs` | sound objects (`DisembodiedSound`, `StaticPositionSound`, `ObjectSound`, `DisembodiedLoop`, `RectangularSound`) and their emitters (a disembodied loop's pan follows its emitter's) |
 | `ambient.rs` | `AmbientSoundPlayer`: room `AmbientSounds:` loops |
 | `menu_mic.rs` | `MenuMicrophone` playback (`play`, `set_loop`, `stop`) |
 | `music/mod.rs` | module root |

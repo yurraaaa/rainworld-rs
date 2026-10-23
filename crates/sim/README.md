@@ -27,6 +27,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `game_insects.rs`, `game_insects_tests.rs` | cosmetic insects in the update list: `NowViewed`/`NoLongerViewed` at the camera's room change, creatures for the avoiders, the firefly's light | `Room.NowViewed` insect branch |
 | `game_hits.rs` | thrown rock/spear vs creatures | `Weapon.Update` Thrown branch |
 | `game_holo_light.rs` | Monk guide light in the update list | `HologramLight.TryCreate` |
+| `game_lightning.rs`, `game_lightning_tests.rs` | a room's `Lightning` in the game: `Room.Loaded` making it, its turn and room calls (`MakeBackgroundNoise`, `ScreenMovement`, `PlaySound`), its loop emitters' turns, hearing dulled by the background noise | `Room.Loaded` lightning, `MakeBackgroundNoise` |
 | `game_lights.rs`, `game_lights_tests.rs` | light sources in the update list: placed lights (`Room.Loaded`), the glowing player's light (`PlayerGlow`), camera 0's picture they read, `Darkness`, `LightSourceExposure`/`LightSourceColor`/`DarknessOfPoint` | `Room` light members, `LightSource.Update`, `PlayerGraphics.Update` light |
 | `game_instructions.rs` | `Room.Loaded`'s placed room objects (guide triggers, placed lights, slime molds, dead token stalks), input-instruction triggers | `SuperJumpInstruction`, `ReliableIggyDirection` |
 | `game_placed_cosmetics.rs`, `game_placed_cosmetics_tests.rs` | cosmetic slime molds and dead token stalks joining the update list, the stalks' turns | `Room.Loaded` (`CosmeticSlimeMold`, `CosmeticSlimeMold2`, `SlimeMold`, `DeadTokenStalk`) |
@@ -60,6 +61,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `chunk.rs` | `BodyChunk` integration + tile collision | `BodyChunk.Update` |
 | `object.rs` | `PhysicalObject`: chunks + distance constraints | `PhysicalObject` |
 | `item.rs` | abstract objects (`AbstractObject`, `Entity`, `ObjectData`, `AbstractSpear`), save strings | `AbstractPhysicalObject` |
+| `lightning.rs`, `lightning_tests.rs` | `Lightning` (`Lightning`/`BkgOnlyLightning` effects): two `LightningSource`s (reset, flash curve, thunder queue, `Electricity_Loop`), the camera's reads (`CurrentLightLevel`, `CurrentBackgroundColor`, `CurrentFogColor`, `LightningFrame`) | `Lightning` |
 | `light_source.rs` | `LightSource` (`Alpha`, `Lightness`, update) | `LightSource` |
 | `camera_image.rs` | `CameraImage`: camera 0's level image and palette (`PixelColorAtCoordinate`, effect colours) | `RoomCamera.PixelColorAtCoordinate` |
 | `map_discovery.rs` | per-region discovery textures, base64 PNG form | `PlayerProgression` map textures |
