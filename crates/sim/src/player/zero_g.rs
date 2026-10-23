@@ -43,7 +43,7 @@ const EIGHT_DIRECTIONS_DIAGONALS_LAST: [(i32, i32); 8] = [
 
 impl Player {
     /// `input[i].ZeroGGamePadIntVec`.
-    fn zero_g_int_vec(&self, i: usize) -> (i32, i32) {
+    pub(super) fn zero_g_int_vec(&self, i: usize) -> (i32, i32) {
         (i32::from(self.input[i].x), i32::from(self.input[i].y))
     }
 
@@ -78,7 +78,10 @@ impl Player {
     /// the body mode is `ZeroG`, and the animation a pole grab on a beam tile, else a
     /// swim.
     pub(super) fn enter_zero_g(&mut self, room: &Room) {
-        if self.effective_room_gravity() == 0.0 && self.body_mode != BodyMode::CorridorClimb {
+        if self.effective_room_gravity() == 0.0
+            && self.body_mode != BodyMode::CorridorClimb
+            && self.animation != Animation::VineGrab
+        {
             self.body_mode = BodyMode::ZeroG;
             if !matches!(
                 self.animation,

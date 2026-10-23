@@ -7,7 +7,10 @@
 use rw_assets::{Room, Terrain};
 use rw_random::UnityRandom;
 use rw_sim::item::Entity;
-use rw_sim::{Animation, BodyMode, HEAD, HIPS, Player, PlayerSurroundings, Vec2, Water};
+use rw_sim::{
+    Animation, BodyMode, ClimbableVinesSystem, HEAD, HIPS, Player, PlayerSurroundings, Vec2,
+    VinePosition, Water,
+};
 
 use crate::body_part::{BodyPart, PointConnection};
 use crate::limb::{GripSearch, Limb, LimbMode};
@@ -81,6 +84,8 @@ pub(crate) struct HandContext<'a> {
     pub player: &'a Player,
     pub room: &'a Room,
     pub water: Option<&'a Water>,
+    /// The room's `climbableVines`.
+    pub vines: Option<&'a ClimbableVinesSystem>,
     pub balance_counter: f32,
     pub disbalance: &'a mut f32,
     /// `PlayerGraphics.flail`.
@@ -374,8 +379,31 @@ impl SlugcatHand {
                 target += Vec2::new(flip as f32 * 15.0, 10.0);
             }
             self.limb.absolute_hunt_pos = target;
+        } else if player.animation() == Animation::VineGrab
+            && let (Some(vines), Some(on)) = (cx.vines, player.vine_pos())
+            && vines.contains(on.vine)
+        {
+            free = false;
+            self.vine_target(vines, &on, player.animation_frame(), sign);
         }
         free
+    }
+
+    /// `VineGrab`: the hands swing along the vine, out of step, a vine radius to either side
+    /// of its line; the mode is set, the speeds are left as the earlier branches had them.
+    fn vine_target(
+        &mut self,
+        vines: &ClimbableVinesSystem,
+        on: &VinePosition,
+        frame: i32,
+        sign: f32,
+    ) {
+        let swing = 20.0 * sign * (frame as f32 / 30.0 * 2.0 * std::f32::consts::PI).mathf_sin()
+            / vines.total_length_of(on.vine);
+        let ahead = VinePosition::new(on.vine, on.float_pos + swing);
+        self.limb.mode = LimbMode::HuntAbsolutePosition;
+        self.limb.absolute_hunt_pos = vines.on_vine_pos(&ahead)
+            + vines.vine_dir(on).perpendicular() * (vines.vine_rad(on) * sign);
     }
 
     /// CorridorClimb, hand stretched 20 px from the head: grip the corridor wall about

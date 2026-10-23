@@ -214,6 +214,17 @@ impl Vec2 {
             / (dy.mathf_pow(2.0) + dx.mathf_pow(2.0)).sqrt()
     }
 
+    /// `Custom.ClosestPointOnLine(a, b, self)`: the point on the infinite line through `a`
+    /// and `b` nearest to `self` (NaN for coincident points).
+    #[must_use]
+    pub fn closest_point_on_line(self, a: Self, b: Self) -> Self {
+        let p = self - a;
+        let d = b - a;
+        let len_sq = d.x.mathf_pow(2.0) + d.y.mathf_pow(2.0);
+        let t = (p.x * d.x + p.y * d.y) / len_sq;
+        Self::new(a.x + d.x * t, a.y + d.y * t)
+    }
+
     /// `Custom.CirclesCollisionTime`: when, as a fraction of `vel`, a circle of radius
     /// `r1` moving from here first touches one of radius `r2` at `other` (NaN when it
     /// never does), with the game's 0.001 offsets.

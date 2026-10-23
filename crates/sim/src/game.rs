@@ -2055,6 +2055,11 @@ impl RainWorldGame {
             if let Some(player) = self.player.as_mut()
                 && let Some(body) = body
             {
+                player.lend_vines(
+                    self.world
+                        .realized_mut(index)
+                        .and_then(|r| r.climbable_vines.take()),
+                );
                 let mut hearing = noise::PlayerHearing {
                     world: &mut self.world,
                     room: index,
@@ -2070,6 +2075,9 @@ impl RainWorldGame {
                     sounds,
                     &mut hearing,
                 );
+                if let Some(r) = self.world.realized_mut(index) {
+                    r.climbable_vines = player.take_vines();
+                }
             }
             self.return_heavy_carry();
             self.apply_jump_chunk_push();

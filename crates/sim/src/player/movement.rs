@@ -60,6 +60,7 @@ impl Player {
         self.enter_corridor_mode(room);
         self.classify_swimming(room, water);
         self.enter_zero_g(room);
+        self.vine_grab();
 
         self.dynamic_run_speed = [3.6, 3.6];
         self.update_animation(room, water, rng, sounds);
@@ -272,6 +273,7 @@ impl Player {
     /// end above the head.
     pub(super) fn grab_beam(&mut self, room: &Room, water: Option<&Water>) {
         let want_to_grab = self.input_y() > 0 && self.body.submersion(water) <= 0.9;
+        self.want_to_grab = i32::from(want_to_grab);
         let (head, hips) = (&self.body.chunks[HEAD], &self.body.chunks[HIPS]);
         let can_grab = want_to_grab
             && self.no_grab_counter == 0
@@ -294,6 +296,7 @@ impl Player {
                     | Animation::DeepSwim
                     | Animation::HangUnderVerticalBeam
                     | Animation::GetUpToBeamTip
+                    | Animation::VineGrab
             );
         if !can_grab {
             return;

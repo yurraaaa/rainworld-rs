@@ -55,6 +55,7 @@ impl Player {
             Animation::SurfaceSwim => self.surface_swim(water),
             Animation::ZeroGSwim => self.zero_g_swim(room, rng, sounds),
             Animation::ZeroGPoleGrab => self.zero_g_pole_grab(room),
+            Animation::VineGrab => self.vine_grab_animation(),
             Animation::Dead => {}
         }
     }

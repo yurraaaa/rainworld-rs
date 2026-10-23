@@ -238,7 +238,7 @@ corridors (D10).
 **What differs:**
 - **Remix (MMF) branches omitted:** the climbing-grip throw recoil on a pole
   (`cfgClimbingGrip`), the vine grab's exclusion of
-  `ClimbOnBeam` (vines are not ported). The corridor exit onto a pole is in D10.
+  `ClimbOnBeam` (D39). The corridor exit onto a pole is in D10.
 - **More Slugcats / Watcher omitted:** the slugpup's smaller slide-up hop (2.25 px,
   +1 vy, 0.3x lift, 0.5x slide forces) and the slugpup, Rivulet and Gourmand
   (`PainJumps`) sideways pole jump values, Saint's `monkAscension` blocking the grab,
@@ -1049,7 +1049,7 @@ range; `PhysicalObject.Update` prunes stale `grabbedBy` entries (the player and 
 ## Not ported yet (not divergences, just absent)
 
 Player (stage one leaves out): grabbing and eating anything but bat flies, rocks and spears, thrown
-weapons hitting creatures other than bat flies and overseers (D3), adrenaline, Red's illness, vines, tube worm,
+weapons hitting creatures other than bat flies and overseers (D3), adrenaline, Red's illness, tube worm, (vines: D39),
 Jolly co-op, MSC / Watcher class mechanics. Ported because ground classification
 produces them anyway: wall slide and wall jump (`WallClimb`, `canWallJump`, `jumpStun`;
 only the wall-jump impulse has a test), `LedgeCrawl`, `CrawlTurn`, the crouch super-jump

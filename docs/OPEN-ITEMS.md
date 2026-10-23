@@ -186,10 +186,12 @@ plan is in `../rainworld-re/surveys/lizards.md`.
     base room has `DayNight`): with the DLCs that use `DayNight` (D32).
   - Zero gravity (D34): the shortcut pushers in `ShortcutHelper`, with it.
   - Zero gravity: the player's cloth (`PlayerGraphics` 1168), with the cloth.
-  - Zero gravity: the vine grab and vine pull, with vines.
-  - Climbable vines (user, 2026-10-23; `../rainworld-re/surveys/climbable-vines.md`): the
-    corruption tubes (`ClimbableCorruptionTube`, `Rope`) with `DaddyCorruption`; `PoleMimic`
-    as a vine with the Pole Mimic creature.
+  - Climbable vines (user, 2026-10-23; `../rainworld-re/surveys/climbable-vines.md`, D39):
+    the corruption tubes (`ClimbableCorruptionTube`, `Rope`) with `DaddyCorruption`; `PoleMimic`
+    as a vine with the Pole Mimic creature; More Slugcats' `ClimbableVine`, Watcher's whiskers
+    and the Remix branches with their DLC. The coral neurons and stems (10d3) are the first
+    vine owners: they refresh their snapshot in the room's system before the player's turn and
+    replay its `VineEvent`s (D39).
   - Zero gravity: coral circuit swimming (`circuitSwimResistance`, `curcuitJumpMeter`,
     `swimBits`), with the coral circuit object.
   - Zero gravity: Five Pebbles' and Moon's oracle scenes switching `AntiGravity` off, with

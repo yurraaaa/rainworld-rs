@@ -111,11 +111,22 @@ pub struct RealizedRoom {
     /// The room's `CoralNeuronSystem`, made by `Room.Loaded` for an `SSSwarmers` effect or
     /// a coral or wall mycelia object.
     pub coral: Option<crate::CoralNeuronSystem>,
+    /// `climbableVines`, made by the first vine to register (lent to the player for its
+    /// update).
+    pub climbable_vines: Option<crate::ClimbableVinesSystem>,
     /// `camerasChangedTick`: counts the camera's position changes in the room.
     pub cameras_changed_tick: i32,
 }
 
 impl RealizedRoom {
+    /// What a vine's constructor does with `room.climbableVines`: make it when the room has
+    /// none, then `vines.Add(this)`.
+    pub fn register_climbable_vine(&mut self, vine: Box<dyn crate::ClimbableVine>) {
+        self.climbable_vines
+            .get_or_insert_with(crate::ClimbableVinesSystem::new)
+            .register(vine);
+    }
+
     /// `darkenLightsFactor`: 0 until the room's first `Update`, then the `DarkenLights`
     /// amount (the DLC dust-storm blend is not ported, D24).
     #[must_use]
@@ -183,6 +194,7 @@ impl RealizedRoom {
             last_background_noise: 0.0,
             social_events: super::social_events::SocialEventRecognizer::default(),
             coral: None,
+            climbable_vines: None,
             cameras_changed_tick: 0,
         }
     }

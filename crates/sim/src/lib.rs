@@ -30,6 +30,7 @@ mod camera;
 mod camera_image;
 pub mod campaign;
 mod chunk;
+mod climbable_vines;
 pub mod color;
 mod coral_system;
 mod cosmetic;
@@ -102,6 +103,9 @@ pub use bubble::{Bubble, BubbleMode};
 pub use camera::CameraView;
 pub use camera_image::CameraImage;
 pub use chunk::{BodyChunk, Contact, DEFAULT_RESTRICT_IN_ROOM_RANGE, PhysicsParams, TerrainImpact};
+pub use climbable_vines::{
+    ClimbableVine, ClimbableVinesSystem, VineClimber, VineEvent, VineId, VineKind, VinePosition,
+};
 pub use coral_system::CoralNeuronSystem;
 pub use cosmetic::{
     Cosmetic, CosmeticKind, CosmeticTie, ExplosionSpikes, OverseerEffectSprite, Spark,

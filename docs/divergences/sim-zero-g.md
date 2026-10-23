@@ -41,5 +41,5 @@ draw-count tests. Notes: `../../rainworld-re/notes/zero-gravity.md`; surveys
   `SegmentRope`, `Dangler`; `MeltLights`; `SpinningFan` (the rest of the
   superstructure; `ZapCoil` and `SuperStructureFuses` are ported, D36, `GravityDisruptor`, D37); the shortcut pushers in
   `ShortcutHelper` (`player.gravity * room.gravity`, twice scaled); the player's cloth
-  (`PlayerGraphics` 1168); the zero-gravity vine grab and vine pull. They come with their
-  objects.
+  (`PlayerGraphics` 1168). They come with their objects. The zero-gravity vine grab and
+  vine pull are ported with the vines (D39).

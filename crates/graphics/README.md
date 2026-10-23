@@ -19,7 +19,7 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 | `body_part.rs` | `BodyPart` point mass pushed out of terrain | `BodyPart` |
 | `tail.rs` | `TailSegment` | `TailSegment` |
 | `limb.rs` | `Limb`, `LimbMode`, grip search | `Limb` |
-| `hand.rs` | `SlugcatHand` | `SlugcatHand` |
+| `hand.rs` | `SlugcatHand` (incl. the hands swinging along a vine in `VineGrab`) | `SlugcatHand` |
 | `looker.rs` | `ObjectLooker` | `PlayerGraphics.PlayerObjectLooker` |
 | `player_graphics.rs` | `PlayerGraphics` simulation | `PlayerGraphics` |
 | `player_draw.rs` | the 12 slugcat sprites into a `DrawList` | `PlayerGraphics.DrawSprites` |

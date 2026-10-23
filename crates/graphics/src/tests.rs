@@ -8,7 +8,10 @@ use rw_assets::world::{FixedRoom, LoadedRoom, WorldData};
 use rw_assets::{ActiveMods, Room, RoomSettings, Timeline};
 use rw_random::UnityRandom;
 use rw_sim::world::World;
-use rw_sim::{Animation, BodyMode, HEAD, HIPS, Input, Player, PlayerSurroundings, Sounds, Vec2};
+use rw_sim::{
+    Animation, BodyMode, ClimbableVine, ClimbableVinesSystem, HEAD, HIPS, Input, Player,
+    PlayerSurroundings, Sounds, Vec2, VineClimber, VineId, VineKind,
+};
 
 use crate::{
     Atlas, BodyPart, Color, DrawItem, Layer, PlayerGraphics, SPRITE_LAYERS, SlugcatName,
@@ -1438,6 +1441,7 @@ fn the_swallow_shakes_with_six_draws_from_halfway() {
             player: &p,
             room: &r,
             water: None,
+            vines: None,
             balance_counter: 0.0,
             disbalance: &mut disbalance,
             head_vel: &mut head_vel,
@@ -1644,4 +1648,121 @@ fn zero_g_face_is_the_default_one() {
     run(&mut p, &mut g, &r, Input::NONE, 1, &mut rng);
     let face = *g.draw(&p, 1.0, black, Color::BLACK).sprite(9).unwrap();
     assert_eq!(face.element, elements::FACE_DEAD);
+}
+
+/// A straight, heavy vine at x = 200 from y = 100 to 400 (points at 100, 250, 400, radius 2).
+#[derive(Debug, Clone)]
+struct StraightVine {
+    points: [Vec2; 3],
+}
+
+impl ClimbableVine for StraightVine {
+    fn id(&self) -> VineId {
+        VineId(1)
+    }
+
+    fn kind(&self) -> VineKind {
+        VineKind::CoralNeuron
+    }
+
+    fn total_positions(&self) -> i32 {
+        3
+    }
+
+    fn pos(&self, index: i32) -> Vec2 {
+        self.points[index as usize]
+    }
+
+    fn rad(&self, _: i32) -> f32 {
+        2.0
+    }
+
+    fn mass(&self, _: i32) -> f32 {
+        1.0e6
+    }
+
+    fn push(&mut self, index: i32, movement: Vec2) {
+        self.points[index as usize] += movement;
+    }
+
+    fn being_climbed_on(&mut self, _: &VineClimber) {}
+
+    fn currently_climbable(&self) -> bool {
+        true
+    }
+
+    fn clone_box(&self) -> Box<dyn ClimbableVine> {
+        Box::new(self.clone())
+    }
+}
+
+#[test]
+fn hands_swing_along_the_vine() {
+    // `SlugcatHand.EngageInMovement`, `VineGrab`: target = OnVinePos(float + 20 * side *
+    // sin(frame / 30 * 2 pi) / length) + PerpendicularVector(VineDir) * (VineRad * side),
+    // side -1 for hand 0, +1 for hand 1. The vine runs up, so its perpendicular is (-1, 0).
+    let row = ".".repeat(30);
+    let r = room(&[row.as_str(); 20]);
+    let mut vines = ClimbableVinesSystem::new();
+    vines.register(Box::new(StraightVine {
+        points: [
+            Vec2::new(200.0, 100.0),
+            Vec2::new(200.0, 250.0),
+            Vec2::new(200.0, 400.0),
+        ],
+    }));
+    let mut player = Player::new();
+    player.body.chunks[HIPS].reset_at(Vec2::new(200.0, 283.0));
+    player.body.chunks[HEAD].reset_at(Vec2::new(200.0, 300.0));
+    player.set_room_gravity(0.0);
+    player.lend_vines(Some(vines));
+    player.update(
+        &r,
+        None,
+        Input::new(0, 1, false),
+        &mut UnityRandom::new(0),
+        &mut Sounds::default(),
+    );
+    assert_eq!(player.animation(), Animation::VineGrab);
+    let on = player.vine_pos().unwrap();
+    let frame = player.animation_frame();
+    assert_eq!(frame, 1);
+    let vines = player.take_vines().unwrap();
+    for limb in 0..2 {
+        let side = if limb == 0 { -1.0_f32 } else { 1.0 };
+        let mut hand = crate::hand::SlugcatHand::new(limb);
+        let (mut disbalance, mut head_vel, mut draw_pos0) = (0.0, Vec2::ZERO, Vec2::ZERO);
+        let (mut blink, mut overlap, mut body_push) = (0, [None; 2], Vec2::ZERO);
+        let mut rng = UnityRandom::new(9);
+        let mut cx = crate::hand::HandContext {
+            flail: 0.0,
+            player: &player,
+            room: &r,
+            water: None,
+            vines: Some(&vines),
+            balance_counter: 0.0,
+            disbalance: &mut disbalance,
+            head_vel: &mut head_vel,
+            airborne_counter: 0.0,
+            hand0: (Vec2::ZERO, false),
+            rng: &mut rng,
+            grasps: crate::hand::HandGrasp::default(),
+            spear_dir: 0.0,
+            draw_pos0: &mut draw_pos0,
+            blink: &mut blink,
+            overlap: &mut overlap,
+            body_push: &mut body_push,
+        };
+        hand.update(&mut cx);
+        let swing =
+            20.0 * side * (1.0_f64 / 30.0 * 2.0 * std::f64::consts::PI).sin() as f32 / 300.0;
+        let along = on.float_pos + swing;
+        assert_vec(
+            hand.limb.absolute_hunt_pos,
+            200.0 - 2.0 * side,
+            100.0 + along * 300.0,
+            "hand",
+        );
+        assert_eq!(hand.limb.mode, crate::limb::LimbMode::HuntAbsolutePosition);
+    }
 }
