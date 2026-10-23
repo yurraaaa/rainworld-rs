@@ -3,7 +3,7 @@
 //! `PixelColorAtCoordinate` colours the placed lights; `ApplyPalette` gives the
 //! effect-coloured ones their colour (D24). No draws.
 //!
-//! Mirrors: RoomCamera.cs (PixelColorAtCoordinate)
+//! Mirrors: RoomCamera.cs (PixelColorAtCoordinate, DepthAtCoordinate)
 
 use std::sync::Arc;
 
@@ -71,6 +71,22 @@ impl CameraImage {
         Self::lerp(lit, self.palette_texel(1, 7), fog)
     }
 
+    /// `RoomCamera.DepthAtCoordinate(coord)`: 1 for sky white, else the pixel's layer
+    /// (red, above 90 the unlit half) over 30.
+    #[must_use]
+    pub fn depth_at_coordinate(&self, coord: Vec2) -> f32 {
+        let v = coord - self.cam_pos;
+        let pixel = self.level_texel(v.x.floor() as i32, v.y.floor() as i32);
+        if pixel[0] == 1.0 && pixel[1] == 1.0 && pixel[2] == 1.0 {
+            return 1.0;
+        }
+        let mut n = (pixel[0] * 255.0).floor() as i32;
+        if n > 90 {
+            n -= 90;
+        }
+        ((n - 1) % 30) as f32 / 30.0
+    }
+
     /// `ApplyPalette` of an effect-coloured light: `palette.texture.GetPixel(30, 5 -
     /// effectColor * 2)`.
     #[must_use]
@@ -134,6 +150,19 @@ mod tests {
         assert_eq!(at(&c, 0.0, 1.0), [24, 30, 0]);
         // Outside the image the edge texel is read (`Clamp`).
         assert_eq!(at(&c, -50.0, -50.0), [0, 210, 0]);
+    }
+
+    /// `DepthAtCoordinate`: sky white is 1; red 5 is (5 - 1) / 30; red 95 loses its 90 and
+    /// reads the same; red 34 is 33 % 30 = 3 over 30; red 0 is C#'s `-1 % 30` = -1 over 30.
+    #[test]
+    fn depth_at_coordinate_reads_the_layer() {
+        let c = image(false);
+        let d = |x: f32, y: f32| c.depth_at_coordinate(Vec2::new(100.0 + x, 200.0 + y));
+        assert_eq!(d(0.5, 0.5), 1.0);
+        assert_eq!(d(1.5, 0.0), 4.0 / 30.0);
+        assert_eq!(d(2.9, 0.9), 4.0 / 30.0);
+        assert_eq!(d(0.0, 1.0), 3.0 / 30.0);
+        assert_eq!(d(3.5, 0.5), -1.0 / 30.0);
     }
 
     /// Fog lerps toward (1, 7) by depth * (1 - red of (9, 7)) / 30: here depth 4 and

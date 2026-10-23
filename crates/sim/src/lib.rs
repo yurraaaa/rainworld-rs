@@ -67,6 +67,8 @@ mod sound;
 mod spawn;
 mod splash;
 mod spot_light;
+mod ss_fuses;
+mod ss_light_rod;
 mod token_stalk;
 pub mod trigger;
 mod vec2;
@@ -76,6 +78,7 @@ mod water_drip;
 mod water_sound;
 mod waterfall;
 pub mod world;
+mod zap_coil;
 mod zero_g_speck;
 
 pub use above_clouds_view::AboveCloudsContext;
@@ -134,6 +137,8 @@ pub use sky_dandelion::{
     ChunkView, DandelionPatch, DandelionStalk, MadeDandelion, SkyDandelion, SkyDandelions,
 };
 pub use slime_mold::CosmeticSlimeMold;
+pub use ss_fuses::{FuseSetup, SuperStructureFuses};
+pub use ss_light_rod::{LightVessel, RodCamera, SsLightRod};
 pub use sound::{
     EmitterId, EmitterPlace, LoopEmitter, PlayedSound, SoundEvent, SoundId, SoundRect, SoundSource,
     Sounds, StaticSoundLoop,
@@ -148,6 +153,7 @@ pub use water::{BubbleEmitter, ChunkOwner, SurfaceChunk, Water, WaterObject};
 pub use water_drip::{WaterDrip, WaterGlitter};
 pub use water_sound::WaterSound;
 pub use waterfall::{FallBubble, FallObject, FallSpec, WaterFall};
+pub use zap_coil::{CoilEnv, ZapCoil, ZapCoilLight, ZapFlash};
 pub use zero_g_speck::{BlinkState, SpeckCx, SpeckKind, SpeckType, SporeState, ZeroGSpeck};
 
 #[cfg(test)]

@@ -246,6 +246,9 @@ sound_ids! {
     SpearHitSmallCreature = "Spear_Hit_Small_Creature",
     // Commented out in `sounds.txt` too (`//Red_Light_On :`).
     RedLightOn = "Red_Light_On",
+    ZapperLoop = "Zapper_LOOP",
+    ZapperDisruptedLoop = "Zapper_Disrupted_LOOP",
+    ZapperZap = "Zapper_Zap",
 }
 
 /// A `ChunkSoundEmitter` handle: follows a body chunk; loops are updated and stopped

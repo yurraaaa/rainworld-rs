@@ -84,12 +84,13 @@ const SLIME: &str = "LightFixture><100><100><SlimeMoldLight~17.32051~-10~30";
 
 /// `Room.Loaded` makes each fixture where the settings list it: the red light's flat light
 /// first, then the fixture; the holy fire's three lights, its flat light, then the fixture;
-/// a slime mold light just itself. Unregistered types and the electric ones make nothing.
+/// a slime mold light just itself. Unregistered types and `DeepProcessing` make nothing
+/// (the `ZapCoilLight` is in `game_ss_electric_tests.rs`).
 #[test]
 fn fixtures_join_the_update_list_in_order() {
     let placed = format!(
         "{RED}, {FIRE}, {SLIME}, LightFixture><50><50><LightRod~1~2~30, \
-         LightFixture><60><50><ZapCoilLight~1~2~30"
+         LightFixture><60><50><DeepProcessing~1~2~30"
     );
     let g = fixture_game(&placed, -1, false, 0);
     let r = g.world.realized(0).expect("room");
