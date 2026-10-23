@@ -468,7 +468,7 @@ impl CoralStem {
         if k > 0 {
             for j in 0..2 {
                 let at = self.segments[k].body.chunks[j].pos.tile();
-                let push = StemTick::wall_push(tick.room, tick.ai_map, at);
+                let push = Self::wall_push(tick.room, tick.ai_map, at);
                 self.segments[k].body.chunks[j].vel += push.normalized() * 0.1 + tick.wind * 0.005;
             }
         }
@@ -502,11 +502,8 @@ impl CoralStem {
 
     /// The neuron block: segment 0 of the neuron is pulled to chunk 1 (and chunk 0 takes
     /// the share), segment 1 pushed by the previous segment's side.
-    fn pull_neuron(&mut self, k: usize, neuron: &mut CoralNeuron) {
-        let (c0, c1) = {
-            let s = &self.segments[k].body.chunks;
-            (s[0].pos, s[1].pos)
-        };
+    pub(crate) fn pull_neuron(&mut self, k: usize, neuron: &mut CoralNeuron) {
+        let c1 = self.segments[k].body.chunks[1].pos;
         let mass = self.segments[k].body.chunks[1].mass;
         let seg0 = neuron.geometry.segments[0][0];
         let dir = c1.direction_to(seg0);
@@ -520,6 +517,7 @@ impl CoralStem {
         neuron.geometry.segments[0][2] -= to_neuron;
         neuron.geometry.segments[0][0] -= to_neuron;
         if k > 0 {
+            let c0 = self.segments[k].body.chunks[0].pos;
             let prev0 = self.segments[k - 1].body.chunks[0].pos;
             let seg1 = neuron.geometry.segments[1][0];
             let mut dir = prev0.direction_to(seg1);
@@ -572,7 +570,7 @@ impl CoralStem {
     }
 }
 
-impl StemTick<'_> {
+impl CoralStem {
     /// The push off the walls around `tile`: each open, not narrow neighbour weighted by
     /// the terrain proximity (at most 4) around it.
     fn wall_push(room: &Room, map: &AiMap, tile: (i32, i32)) -> Vec2 {

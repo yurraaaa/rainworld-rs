@@ -216,7 +216,10 @@ plan is in `../rainworld-re/surveys/lizards.md`.
     walks the room's physical objects must include them when it is ported (`Explosion`,
     `RoomRain.ThrowAroundObjects`, `GameOverRain`, `WaterCurrent`, `FluxDrain`, `GeyserEruption`,
     `MeltLights`, `WindRect`, the shelter door's `PansarPush` / `GetStuffInWalls` /
-    `DestroyExcessiveObjects`, a lizard tongue's all-layer trace, `BigEel`, `TentaclePlant`).
+    `DestroyExcessiveObjects`, `ShortcutHelper`'s round-robin over every layer (the segments change
+    which other layer-0 object it checks each tick: for the planned ShortcutHelper job),
+    `SporeCloud`, `HarmfulSteam`, `TempleGuard`, `RegionGateGraphics`, `SLOracleWakeUpProcedure`, a
+    lizard tongue's all-layer trace, `BigEel`, `TentaclePlant`).
   - The other readers of `room.zapCoils` and `SuperStructureFuses` (D36): `TubeWorm`, the
     Saint tongue, `ElectricSpear`, the `Inspector`, Watcher's `ARZapper`/`WarpTear`, Moon's
     `SLOracleBehavior.fuses`: with them.

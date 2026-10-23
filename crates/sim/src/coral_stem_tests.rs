@@ -8,7 +8,7 @@
 use rw_random::UnityRandom;
 
 use super::{CoralStem, NewStem, SegmentHang, StemCx, StemSegment, StemTick};
-use crate::coral_neuron::NeuronCx;
+use crate::coral_neuron::{CoralNeuron, NeuronCx};
 use crate::creature::IdIssuer;
 use crate::mycelium::{MyceliumEnv, MyceliumPool, SystemId, SystemState};
 use crate::tests::room;
@@ -463,4 +463,68 @@ fn a_fast_landing_makes_the_objects_noise() {
             .iter()
             .all(|c| !matches!(c, crate::ImpactCall::ScreenMovement(_)))
     );
+}
+
+/// The neuron block: chunk 0 takes `(dist - 1) * (1 - share)` toward the neuron's segment 0 and
+/// the segment `share` toward chunk 1 (`share = mass / (0.5 + mass)`); then the previous
+/// segment's chunk 0 and the neuron's segment 1 are pushed along `DirVec(prev chunk 0, seg 1)`
+/// scaled by `InverseLerp(1, -1, Dot(DirVec(chunk 0, chunk 1), DirVec(chunk 1, seg 1)))`, read
+/// with chunk 0 **after** its move.
+#[test]
+fn the_neuron_block_reads_chunk_zero_after_its_move() {
+    let mut s = Setup::new();
+    let mut stem = s.stem(Vec2::new(610.0, 410.0), 300.0, false, 2).stem;
+    let mut rng = UnityRandom::new(1);
+    let mut neuron = {
+        let mut cx = s.cx(false);
+        CoralNeuron::build(
+            60.0,
+            None,
+            Some(Vec2::new(500.0, 500.0)),
+            &mut cx.neuron,
+            &mut rng,
+        )
+        .expect("a neuron")
+        .neuron
+    };
+    let at = stem.segments[3].body.chunks[1].pos;
+    neuron.geometry.segments[0][0] = at + Vec2::new(30.0, 4.0);
+    neuron.geometry.segments[1][0] = at + Vec2::new(-20.0, 25.0);
+    let (c0, mass) = (
+        stem.segments[3].body.chunks[0].pos,
+        stem.segments[3].body.chunks[1].mass,
+    );
+    let (seg0, seg1) = (
+        neuron.geometry.segments[0][0],
+        neuron.geometry.segments[1][0],
+    );
+    let (prev0, prev_vel) = (
+        stem.segments[2].body.chunks[0].pos,
+        stem.segments[2].body.chunks[0].vel,
+    );
+    let seg1_vel = neuron.geometry.segments[1][2];
+    let share = mass / (0.5 + mass);
+    let dir = at.direction_to(seg0);
+    let dist = at.distance(seg0);
+    let moved = c0 + dir * ((dist - 1.0) * (1.0 - share));
+    let new_seg0 = seg0 - dir * ((dist - 1.0) * share);
+    let scale = moved
+        .direction_to(at)
+        .dot(at.direction_to(seg1))
+        .inverse_lerp(1.0, -1.0);
+    let push = prev0.direction_to(seg1) * scale;
+    stem.pull_neuron(3, &mut neuron);
+    let c = &stem.segments[3].body.chunks[0];
+    assert!(near(c.pos.x, moved.x) && near(c.pos.y, moved.y));
+    let n0 = neuron.geometry.segments[0][0];
+    assert!(near(n0.x, new_seg0.x) && near(n0.y, new_seg0.y));
+    let prev = stem.segments[2].body.chunks[0].vel - prev_vel;
+    let want = push * -(0.2 * 1.8);
+    assert!(
+        near(prev.x, want.x) && near(prev.y, want.y),
+        "{prev:?} {want:?}"
+    );
+    let on_neuron = neuron.geometry.segments[1][2] - seg1_vel;
+    let want = push * (0.8 * 1.8);
+    assert!(near(on_neuron.x, want.x) && near(on_neuron.y, want.y));
 }

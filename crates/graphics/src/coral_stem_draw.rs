@@ -29,13 +29,11 @@ pub struct StemFrame {
     pub cam_pos: Vec2,
 }
 
-/// The segment's colours.
-pub struct StemLook;
-
-impl StemLook {
+impl StemFrame {
     /// `BaseColor`.
     #[must_use]
-    pub fn base_color(size: f32, darkness: f32) -> Color {
+    pub fn base_color(&self, size: f32) -> Color {
+        let darkness = self.darkness;
         Color::hsl(
             0.025,
             0.4f32.lerp_to(0.1, rw_sim::FloatExt::mathf_pow(size, 0.5)),
@@ -52,7 +50,8 @@ impl StemLook {
 
     /// `HighLightColor`.
     #[must_use]
-    pub fn highlight_color(size: f32, darkness: f32) -> Color {
+    pub fn highlight_color(&self, size: f32) -> Color {
+        let darkness = self.darkness;
         Color::hsl(
             0.025,
             0.5f32.lerp_to(0.1, rw_sim::FloatExt::mathf_pow(size, 0.5)),
@@ -160,7 +159,7 @@ impl StemSegmentSprites for CoralStem {
             vector5 = s.last_direction.lerp_clamped(s.direction, t).normalized();
             vector2 += vector5 * (distance * 0.15);
         }
-        items.push(StemLook::disc(
+        items.push(StemFrame::disc(
             m,
             bridge_pos,
             bridge_scale,
@@ -218,12 +217,8 @@ impl StemSegmentSprites for CoralStem {
         let triangles: Cow<'static, [[u16; 3]]> = Cow::Owned(LongMesh::triangles(segs));
         let uvs = LongMesh::uvs(segs);
         for (index, vertices, color) in [
-            (m + 1, base, StemLook::base_color(s.size, frame.darkness)),
-            (
-                m + 2,
-                high,
-                StemLook::highlight_color(s.size, frame.darkness),
-            ),
+            (m + 1, base, frame.base_color(s.size)),
+            (m + 2, high, frame.highlight_color(s.size)),
         ] {
             items.push(DrawItem::Mesh(Mesh {
                 index,
@@ -256,8 +251,8 @@ impl StemSegmentSprites for CoralStem {
                 Color::rgb(0.0, 0.0, 0.1)
             };
             for (n, color) in [
-                (0, StemLook::base_color(s.size, frame.darkness)),
-                (1, StemLook::highlight_color(s.size, frame.darkness)),
+                (0, frame.base_color(s.size)),
+                (1, frame.highlight_color(s.size)),
                 (2, glow),
             ] {
                 let (dx, dy) = match n {
@@ -271,7 +266,7 @@ impl StemSegmentSprites for CoralStem {
                 } else {
                     Layer::Items
                 };
-                items.push(StemLook::disc(
+                items.push(StemFrame::disc(
                     sprite + n,
                     p + Vec2::new(dx, dy),
                     Vec2::new(scale, scale),

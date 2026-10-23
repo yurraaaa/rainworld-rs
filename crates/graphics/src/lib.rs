@@ -72,7 +72,7 @@ pub use atlas::{Atlas, AtlasError, AtlasFrame, Rect, Size};
 pub use background_scene::{BackgroundSceneSprites, BackgroundSceneView, SceneImageSizes};
 pub use body_part::{BodyPart, PointConnection};
 pub use coral_neuron_draw::{CoralNeuronSprites, NeuronLook};
-pub use coral_stem_draw::{StemFrame, StemLook, StemSegmentSprites};
+pub use coral_stem_draw::{StemFrame, StemSegmentSprites};
 pub use cosmetic_graphics::{CosmeticSprites, LizardColors, LizardModule, NoLizards};
 pub use decal::DecalSprites;
 pub use draw::{

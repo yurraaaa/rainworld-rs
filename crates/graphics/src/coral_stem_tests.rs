@@ -9,7 +9,7 @@ use rw_sim::creature::IdIssuer;
 use rw_sim::world::AiMap;
 use rw_sim::{CoralStem, MyceliumPool, NeuronCx, StemCx, Vec2};
 
-use crate::coral_stem_draw::{StemFrame, StemLook, StemSegmentSprites};
+use crate::coral_stem_draw::{StemFrame, StemSegmentSprites};
 use crate::draw::{Color, DrawItem, Layer, Shader};
 use crate::tests::room;
 
@@ -72,21 +72,47 @@ fn near(a: Vec2, b: Vec2) -> bool {
 #[test]
 fn the_colours() {
     let k = 0.9f32.powf(0.9);
-    let base = StemLook::base_color(0.0, 0.0);
+    let base = StemFrame {
+        darkness: 0.0,
+        ..frame(false)
+    }
+    .base_color(0.0);
     let want = Color::hsl(0.025, 0.4, 0.05).lerp(Color::rgb(0.0, 0.0, 0.1), k * 0.5);
     assert_eq!(base, want);
-    let high = StemLook::highlight_color(0.0, 0.0);
+    let high = StemFrame {
+        darkness: 0.0,
+        ..frame(false)
+    }
+    .highlight_color(0.0);
     assert_eq!(
         high,
         Color::hsl(0.025, 0.5, 0.15).lerp(Color::rgb(0.0, 0.0, 0.15), k * 0.4)
     );
     // Size 1: `Lerp(0.4, 0.1, 1)`, `Lerp(0.05, 0.7, 1)`, no tint.
-    close(StemLook::base_color(1.0, 0.0), Color::hsl(0.025, 0.1, 0.7));
     close(
-        StemLook::highlight_color(1.0, 1.0),
+        StemFrame {
+            darkness: 0.0,
+            ..frame(false)
+        }
+        .base_color(1.0),
+        Color::hsl(0.025, 0.1, 0.7),
+    );
+    close(
+        StemFrame {
+            darkness: 1.0,
+            ..frame(false)
+        }
+        .highlight_color(1.0),
         Color::hsl(0.025, 0.1, 0.85 - 0.65),
     );
-    close(StemLook::base_color(1.0, 1.0), Color::hsl(0.025, 0.1, 0.2));
+    close(
+        StemFrame {
+            darkness: 1.0,
+            ..frame(false)
+        }
+        .base_color(1.0),
+        Color::hsl(0.025, 0.1, 0.2),
+    );
 }
 
 fn close(a: Color, b: Color) {
@@ -124,8 +150,22 @@ fn a_size_zero_segment_is_strands_a_bridge_two_meshes_and_a_dot() {
     assert_eq!(bridge.scale, Vec2::new(g.body.chunks[1].rad / 20.0, 1.0));
     assert_eq!(bridge.color, Color::hsl(0.025, 1.0, 0.1));
     for (i, color) in [
-        (21, StemLook::base_color(0.0, 0.0)),
-        (22, StemLook::highlight_color(0.0, 0.0)),
+        (
+            21,
+            StemFrame {
+                darkness: 0.0,
+                ..frame(false)
+            }
+            .base_color(0.0),
+        ),
+        (
+            22,
+            StemFrame {
+                darkness: 0.0,
+                ..frame(false)
+            }
+            .highlight_color(0.0),
+        ),
     ] {
         let DrawItem::Mesh(m) = &list.items[i] else {
             panic!("a body mesh")
