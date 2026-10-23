@@ -33,6 +33,7 @@ mod ledge;
 mod movement;
 mod poles;
 mod shortcut;
+mod shortcut_push;
 mod sleep;
 mod sounds;
 mod spear_on_back;

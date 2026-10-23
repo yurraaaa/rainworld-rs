@@ -12,6 +12,7 @@ use rw_menu::ProcessId;
 
 mod camera_move;
 mod death_fall;
+mod shortcut_helper;
 
 use super::params::{
     InputParam, ListRoomsParams, LoadProcessParams, LoadRoomParams, NewGameParams, RespawnParams,
@@ -499,8 +500,15 @@ fn boot_to_play_with_music_contexts() {
     s.settle_on(ProcessId::Game);
     assert_eq!(s.music().music_context, MusicContext::StoryMode);
     // SU_C04StartUp holds the player until it drops out of the tunnel.
+    // (The den at (5, 28) is a wrong hole and the game's `ShortcutHelper` shoves the
+    // player out of its box, which puts it about 8 ticks of the script's push ahead of
+    // where the delay alone leaves it: the controller may already be back.)
     let before = s.process_player();
-    assert_eq!(before.controller.as_deref(), Some("Null"));
+    assert!(
+        before.controller.as_deref() == Some("Null") || before.chunks[0].pos[1] < 550.0,
+        "{:?}",
+        before.controller
+    );
     let mut control = None;
     for frame in 0..400 {
         s.frames(1, &["RightArrow"]);
@@ -576,7 +584,7 @@ fn su_c04_start_up_ticks(slugcat: &str) {
         // The field is what the next tick reads.
         assert_eq!(st.fade_delay_in_progress, tick < 120, "tick {tick}");
         let middle = (p.chunks[0].pos[0] + p.chunks[1].pos[0]) / 2.0;
-        if (121..200).contains(&tick) {
+        if (121..197).contains(&tick) {
             assert!(su.push_right, "tick {tick}");
             assert_eq!(p.chunks[0].pos[0] - p.chunks[1].pos[0], 14.0, "tick {tick}");
             if tick > 121 {
@@ -586,8 +594,14 @@ fn su_c04_start_up_ticks(slugcat: &str) {
                 );
             }
         }
-        if tick <= 120 {
-            assert!(middle < 160.0, "no push during the delay (tick {tick})");
+        if (40..=119).contains(&tick) {
+            // Game behaviour, not a divergence: `PlaceInRoom`'s spread puts a chunk in
+            // the den's box (x 111..149 around `pushPos` (130, 570)), so `ShortcutHelper`
+            // moves the head to `pushPos.x + 10 + rad` = 149 and the rod leaves the middle
+            // near 166.7 with no key held (traced through `ShortcutHelper.Update`; a run
+            // confirms it); holding right (ignored by the Null controller but read for
+            // the first ticks) leaves 167.9 (Survivor) and 165.3 (Monk) at tick 40.
+            assert!((165.0..168.5).contains(&middle), "tick {tick}: {middle}");
         }
         last_x = p.chunks[0].pos[0];
         match push_ended {
@@ -618,7 +632,10 @@ fn su_c04_start_up_ticks(slugcat: &str) {
         }
     }
     let end = push_ended.expect("the push ended");
-    assert!((200..=210).contains(&end), "push ended at tick {end}");
+    // The script moves the middle 2 px a tick from 166.7 until the head is below y 550:
+    // tick 197 (8 ticks before the 205 the delay alone would give), traced as above.
+    // (Survivor 197, Monk 198: the start rod differs.)
+    assert!((197..=198).contains(&end), "push ended at tick {end}");
     assert!(
         stood.is_some_and(|t| t > end),
         "stood up after the push ({stood:?})"

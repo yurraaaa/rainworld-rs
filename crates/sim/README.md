@@ -51,9 +51,11 @@ integration tests.
 | File | Holds (key types) | Ports |
 |---|---|---|
 | `mod.rs` | `RainWorldGame`: world, player, shortcut handler, realizer, order of a tick, a room's update list, sessions | `RainWorldGame` |
-| `loading_turn.rs` | a room's loading on the game's side: `activate_room` with the end of `LoadFromDataString` and `Room.Loaded` on the realizing call, the loading step (`update_loading_rooms`; a preparer whose room was abstracted realizes nothing, D14), `ShortCutsReady` (objects, creatures without `AI`, the `ShortcutHelper` slot), `ReadyForAI` (creatures, quantified, the `AIMapReady` listeners in update-list order), `camera_room_ready` (dev starts step until it) | `Room.ShortCutsReady`, `Room.ReadyForAI`, `AllowedToExistInRoom` |
+| `loading_turn.rs` | a room's loading on the game's side: `activate_room` with the end of `LoadFromDataString` and `Room.Loaded` on the realizing call, the loading step (`update_loading_rooms`; a preparer whose room was abstracted realizes nothing, D14), `ShortCutsReady` (objects, creatures without `AI`, the `ShortcutHelper`), `ReadyForAI` (creatures, quantified, the `AIMapReady` listeners in update-list order), `camera_room_ready` (dev starts step until it) | `Room.ShortCutsReady`, `Room.ReadyForAI`, `AllowedToExistInRoom` |
 | `observer.rs` | `PlayerObserver`: the app's graphics-module hooks the game calls | - |
 | `shortcut_turn.rs` | `ShortcutHandler.Update`: vessels in the tubes, the between-rooms lobby, room exits, arrival and camera 0 following | `ShortcutHandler.Update`, `RoomCamera.MoveCamera` |
+| `shortcut_helper.rs` | `ShortcutHelper`, `ShortcutPusher`, `ObjectPusher`: the pushers at a room's entrances (wrong holes, valid neighbours, swell), the objects being pushed out, the round-robin's pick per layer | `ShortcutHelper` |
+| `shortcut_helper_turn.rs` | the helper's turn in the update list: the player push, the `checkObj` round-robin over `physicalObjects`, `ObjectPusher.Update`, `PopsOutOfDeadShortcuts`, `CanBePulledIntoShortcut` | `ShortcutHelper`, `Room.ShortCutsReady` |
 | `dev_turn.rs` | dev spawns/teleports through the game's own paths and the dev rain timer control (MCP, debug UI) | - (port dev tool, D18) |
 | `exit_turn.rs` | what pause/`ExitGame` read | `RainWorldGame.ExitGame` |
 | `instructions_turn.rs` | `Room.Loaded`'s placed room objects (guide triggers, placed lights, slime molds, dead token stalks, projected stars), input-instruction triggers | `SuperJumpInstruction`, `ReliableIggyDirection` |
@@ -98,7 +100,7 @@ the chunk under the hips, `JumpOnChunk`), `advanced.rs` (flip, roll, rocket jump
 `cantBeGrabbedCounter`, the pacifying stun, `WALLSTUCK`), `exhaustion.rs` (aerobic level, malnourishment),
 `grab.rs` (hand counters, `ThrowDirection`), `carry.rs` (`HeavyCarry`: run slowdown, drag through narrow spaces, pulled into a shortcut, jump power), `shortcut.rs` (enter/ride/leave tubes),
 `circuit.rs` (`CollideWithCoralCircuitBit`, `circuitSwimResistance`, `curcuitJumpMeter`, `swimBits`), `zero_g.rs` (the `ZeroG` body mode, `ZeroGSwim` and `ZeroGPoleGrab`, the entry and exit checks), `vines.rs` (the vine grab in `MovementUpdate` and the `VineGrab` animation; the room's vines come through `NoiseSink::vines()`), `sleep.rs` (`SleepUpdate`), `sounds.rs` (slide loop, plays), `drips.rs` (the skid's and
-corridor shoots' `WaterDrip`s), `spear_on_back.rs` (the Hunter's
+corridor shoots' `WaterDrip`s), `shortcut_push.rs` (a wrong hole pushing the player out: `ShortcutHelper.Update`'s player part, `PushPlayerTowardsValidNeighbor`), `spear_on_back.rs` (the Hunter's
 `SpearOnBack` state, `DropSpear`'s draws in `Stun` and `Die`).
 
 | File | Holds (key types) | Ports |
@@ -368,7 +370,7 @@ The world side of creatures, items and water lives with them: `creature/abstract
 
 | Question | Look in |
 |---|---|
-| Shortcuts / pipes, vessels, lobby | `game/shortcut.rs`, `player/shortcut.rs`, `game/shortcut_turn.rs` (lobby), `creature/lizard/turn.rs`, `creature/fly/turn.rs`, `player/carried_turn.rs` (what a vessel carries) |
+| Shortcuts / pipes, vessels, lobby | `game/shortcut.rs`, `player/shortcut.rs`, `game/shortcut_turn.rs` (lobby), `game/shortcut_helper.rs` + `shortcut_helper_turn.rs` + `player/shortcut_push.rs` (`ShortcutHelper`: wrong holes, objects pushed out of entrances), `creature/lizard/turn.rs`, `creature/fly/turn.rs`, `player/carried_turn.rs` (what a vessel carries) |
 | Water, swimming, drowning | `water/mod.rs`, `water/world.rs`, `water/bubble.rs`, `water/splash.rs`, `player/swim.rs`, `water/water_drip.rs` |
 | The water's surface sound | `sound/water_sound.rs`, `sound/water_sound_turn.rs` (audio mix: `rw-audio` `voice.rs`) |
 | Ceiling drips, the cycle start's dripping sound | `water/water_drip.rs`, `sound/dripping_sound.rs`, `water/drips_turn.rs`, `game/screen_shake.rs` (shaken drips) |
