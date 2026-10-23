@@ -155,7 +155,7 @@ impl SpriteAssets {
         sampling: &mut Vec<TextureSampling>,
     ) -> Result<(), String> {
         let (texture, image) = resources
-            .texture_with_settings(&format!("Atlases/{name}"))
+            .texture_with_mips(&format!("Atlases/{name}"))
             .map_err(|e| e.to_string())?;
         images.push(image);
         sampling.push(Self::import_sampling(&texture));

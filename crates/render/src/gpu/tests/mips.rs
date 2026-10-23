@@ -174,3 +174,51 @@ fn a_minified_maze_window_reads_a_smaller_level() {
     assert!(frames[0] == blank, "a smaller level was not read");
     assert!(frames[1] != blank, "the checker draws nothing");
 }
+
+/// `Rainbow`'s gradient read: a 16 px quad spans the ring's 64 rows in under 8 px, 8
+/// texels a pixel, level 3. A page whose smaller levels are 255 gives nearly the frame of
+/// a single-level 255 page, which differs much from a single-level 0 page.
+#[test]
+fn the_rainbow_gradient_reads_a_coarse_level_when_minified() {
+    let frame = |page: &PngImage| {
+        let Some(mut r) = renderer() else { return None };
+        r.add_atlas_page(
+            rw_graphics::Atlas::single("maze", 64, 64),
+            page,
+            BILINEAR_REPEAT,
+        );
+        begin(&mut r);
+        let quad = maze_quad([600, 300, 616, 316], [0.5, 1.0, 1.0, 1.0], Shader::Rainbow);
+        r.draw_sprites(
+            &DrawList { items: vec![quad] },
+            Layer::Foreground,
+            [0.0, 0.0],
+        );
+        Some(r.render_image().unwrap())
+    };
+    let (Some(with_mips), Some(coarse), Some(fine_only)) = (
+        frame(&chain(64, 0, 255)),
+        frame(&flat(64, 255)),
+        frame(&flat(64, 0)),
+    ) else {
+        return;
+    };
+    // The ring's edge blocks have a clamped `d`, so their derivatives (and levels) are
+    // finer: only the blocks inside the ring must agree.
+    let differing = |a: &FrameImage, b: &FrameImage| {
+        a.rgba()
+            .iter()
+            .zip(b.rgba())
+            .filter(|(x, y)| x != y)
+            .count()
+    };
+    let (mips_off, level_zero_off) = (
+        differing(&with_mips, &coarse),
+        differing(&fine_only, &coarse),
+    );
+    assert!(level_zero_off > 100, "the two values draw the same");
+    assert!(
+        mips_off * 4 < level_zero_off,
+        "{mips_off} of {level_zero_off} differ"
+    );
+}

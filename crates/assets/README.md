@@ -44,7 +44,7 @@ not behaviour. Game assets are never committed.
 | `unity/mod.rs` | Unity reader overview | |
 | `unity/serialized.rs` | serialized file header, `ObjectInfo` table, externals | |
 | `unity/bundle.rs` | UnityFS bundles (`AssetBundles/*`) | |
-| `unity/resources.rs` | `UnityResources`: `open`, `find`, `load`, `text`, `texture_image`, `texture_mips` (every mip level), `texture_with_mips` (level 0 carrying the rest, `PngImage::mips`; what the sprite atlases and menu textures load), `audio_data` | `Resources.Load` |
+| `unity/resources.rs` | `UnityResources`: `open`, `find`, `load`, `text`, `texture_image`, `texture_mips` (every mip level), `texture_with_mips` (level 0 carrying the rest, `PngImage::mips`; what every resource texture the port loads uses: the sprite atlases, the menu's atlases and textures), `audio_data` | `Resources.Load` |
 | `unity/objects.rs` | the object classes read (`StreamedResource`, clips, textures, text assets) | |
 | `unity/bcn.rs` | DXT1 / DXT5 decoding | |
 | `unity/fsb5.rs` | FMOD FSB5 banks (PCM / headerless Vorbis) | |
@@ -60,7 +60,7 @@ not behaviour. Game assets are never committed.
 - Region `properties.txt`: `region_properties.rs`.
 - Initial creature population as data: `creatures.rs`.
 - Shortcut and tube geometry: `shortcut.rs`; node connectivity: `nodes.rs`.
-- Atlas textures: `unity/resources.rs` (`texture_image`); frame JSON parsing is in `rw-graphics` `core/atlas.rs`, not here.
+- Atlas textures: `unity/resources.rs` (`texture_with_mips`; `texture_image` is level 0 only, for the point-sampled scene textures); frame JSON parsing is in `rw-graphics` `core/atlas.rs`, not here.
 - Fonts: glyph config `font_config.rs`; font atlas via `unity/resources.rs`.
 - Audio clips: `unity/fsb5.rs` + `UnityResources::audio_data`; which clip a sound plays: `sound_table.rs`.
 - Unity asset reader entry point: `unity::UnityResources::open`.
