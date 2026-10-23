@@ -358,6 +358,9 @@ Briefs must repeat these rules.
   `docs/PORT-STATUS.md`). The same script fails when a source file is not
   named in its crate's `README.md`; a change that makes a README line untrue
   corrects it in the same change.
+- Unit tests live in a `tests/` folder inside their topic folder (`player/tests/`), never
+  as `*_tests.rs` beside the sources; a crate's top-level `tests/` holds integration
+  tests only. (Existing `*_tests.rs` files move in the file layout cleanups.)
 - WGSL shaders live in `crates/render/shaders/`, loaded with
   `include_str!("../shaders/<name>.wgsl")`.
 - Don't over-document. A simple function or field needs no doc comment, or

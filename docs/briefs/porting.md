@@ -44,7 +44,9 @@ Rules for this task:
   helper functions for behaviour that belongs to a type. ExtEnums are Rust
   enums with value()/from_value(); never match on string literals. WGSL
   shaders live in crates/render/shaders/. Doc comments only for what the
-  name and signature do not say; none that restate the code.
+  name and signature do not say; none that restate the code. Unit tests go
+  in a tests/ folder inside their topic folder, never as *_tests.rs beside
+  the sources; a crate's top-level tests/ is for integration tests only.
 - No installs or downloads of any kind (cargo install, pip, npm -g,
   dotnet tool, curl/wget). Do not run ../rainworld-re/tools/decompile_types.sh
   unless ilspycmd already exists. Crates.io dependencies via cargo are fine;
