@@ -132,6 +132,13 @@ pub enum Shader {
     /// `Futile/LightSource`: a disc of the colour lighting the level image by its depth,
     /// shadowed by nearer level pixels and hidden on creatures drawn behind the level.
     LightSource,
+    /// `Futile/LightBeam` (a placed `LightBeam`'s mesh): the colour with alpha
+    /// `uv.y * sin(uv.x * pi)` in thirds of the vertex alpha, faded by level depth
+    /// (nothing over near layers in the third's lower part).
+    LightBeam,
+    /// `Futile/VectorCircle` (a `SpotLight`'s mesh): opaque vertex colour inside the
+    /// ellipse inscribed in the UV square, nothing outside.
+    VectorCircle,
     /// `Futile/HologramImage`: a cell of a 5x5 projection texture (the colour's blue
     /// picks it, red and green pan it), tinted, screened over the frame and cut by
     /// noisy scan lines.
@@ -183,6 +190,14 @@ pub enum Shader {
     /// alpha 0 shows against the sky only); deeper than layer 6 over what was drawn
     /// before the level it counts as layer 6.
     CustomDepth,
+    /// `Futile/Decal` (`CustomDecal`): the decal texture over the level image, tinted
+    /// by the palette's terrain colour at the level pixel's depth, in shadow where the
+    /// clouds shade the level, clipped to the depth range the vertex colour's red and
+    /// green name, and hidden behind what was drawn behind the level.
+    Decal,
+    /// `Futile/Rainbow` (`Rainbow`): a ring of the rainbow gradient, sparkling with
+    /// noise, stronger over far level layers, screened over the frame (its GrabPass).
+    Rainbow,
 }
 
 impl Shader {
@@ -197,6 +212,7 @@ impl Shader {
                 | Self::LightBloom
                 | Self::LightAndSkyBloom
                 | Self::DeathFall
+                | Self::Rainbow
         )
     }
 }
@@ -241,11 +257,22 @@ pub struct Mesh {
     pub layer: Layer,
 }
 
+/// A `TriangleMesh` or `CustomFSprite` over a whole atlas element other than
+/// `Futile_White` (a decal's image, the rainbow gradient).
+#[derive(Debug, Clone, PartialEq)]
+pub struct ElementMesh {
+    /// The atlas element the mesh's `uvs` address.
+    pub element: Cow<'static, str>,
+    /// `uvs` are fractions of the element's frame (0 to 1, `v` from the bottom).
+    pub mesh: Mesh,
+}
+
 /// One drawable.
 #[derive(Debug, Clone, PartialEq)]
 pub enum DrawItem {
     Sprite(Sprite),
     Mesh(Mesh),
+    ElementMesh(ElementMesh),
 }
 
 impl DrawItem {
@@ -254,6 +281,7 @@ impl DrawItem {
         match self {
             Self::Sprite(s) => s.layer,
             Self::Mesh(m) => m.layer,
+            Self::ElementMesh(e) => e.mesh.layer,
         }
     }
 
@@ -261,6 +289,7 @@ impl DrawItem {
         match self {
             Self::Sprite(s) => s.layer = layer,
             Self::Mesh(m) => m.layer = layer,
+            Self::ElementMesh(e) => e.mesh.layer = layer,
         }
     }
 
@@ -270,6 +299,7 @@ impl DrawItem {
         match self {
             Self::Sprite(s) => s.index,
             Self::Mesh(m) => m.index,
+            Self::ElementMesh(e) => e.mesh.index,
         }
     }
 }

@@ -14,6 +14,7 @@
 mod atlas;
 mod body_part;
 mod cosmetic_graphics;
+mod decal;
 mod draw;
 pub mod elements;
 mod fly_graphics;
@@ -24,6 +25,7 @@ mod hologram_draw;
 mod hologram_matrix;
 mod hologram_shape;
 mod insect_graphics;
+mod light_beam;
 mod light_source;
 mod limb;
 mod lizard_cosmetics;
@@ -38,10 +40,13 @@ mod overseer_draw;
 mod overseer_graphics;
 mod player_draw;
 mod player_graphics;
+mod quad_grid;
+mod rainbow;
 mod shelter_door_graphics;
 mod shortcut_graphics;
 mod sky_dandelion;
 mod slime_mold;
+mod spot_light;
 mod sun_blocker;
 mod tail;
 mod token_stalk;
@@ -52,8 +57,10 @@ mod zero_g_speck;
 pub use atlas::{Atlas, AtlasError, AtlasFrame, Rect, Size};
 pub use body_part::{BodyPart, PointConnection};
 pub use cosmetic_graphics::{CosmeticSprites, LizardColors, LizardModule, NoLizards};
+pub use decal::DecalSprites;
 pub use draw::{
-    Color, DrawItem, DrawList, InternalContainer, Layer, Mesh, Shader, SlugcatName, Sprite,
+    Color, DrawItem, DrawList, ElementMesh, InternalContainer, Layer, Mesh, Shader, SlugcatName,
+    Sprite,
 };
 pub use fly_graphics::FlyGraphics;
 pub use green_spark::GreenSparkSprites;
@@ -63,6 +70,7 @@ pub use hologram_draw::{HologramFrame, HologramGraphics};
 pub use hologram_matrix::{HoloLine, HologramMatrix, LensFrame};
 pub use hologram_shape::{HologramLine, PartShape};
 pub use insect_graphics::{InsectDraw, InsectSprites};
+pub use light_beam::{LightBeamSprites, LightBeamView};
 pub use light_source::{LightSourceSprites, LightSourceView};
 pub use limb::{GripSearch, Limb, LimbMode};
 pub use lizard_cosmetics::{
@@ -78,12 +86,15 @@ pub use mycelium::{Mycelium, MyceliumLink};
 pub use overseer_graphics::{DrawPositions, OverseerGraphics};
 pub use player_draw::{SPRITE_COUNT, SPRITE_LAYERS, TAIL_TRIANGLES};
 pub use player_graphics::PlayerGraphics;
+pub use quad_grid::QuadGrid;
+pub use rainbow::{RAINBOW_ELEMENT, RainbowSprites};
 pub use shelter_door_graphics::ShelterDoorSprites;
 pub use shortcut_graphics::{
     ExitBehind, ShortcutFrame, ShortcutGraphics, ShortcutPalette, ShortcutRoom, ShortcutVessel,
 };
 pub use sky_dandelion::{DandelionSprites, StalkSprites};
 pub use slime_mold::SlimeMoldSprites;
+pub use spot_light::SpotLightSprites;
 pub use sun_blocker::SunBlocker;
 pub use tail::{TailAnchor, TailSegment};
 pub use token_stalk::TokenStalkSprites;
@@ -93,6 +104,8 @@ pub use zero_g_speck::SpeckSprites;
 
 #[cfg(test)]
 mod hologram_tests;
+#[cfg(test)]
+mod placed_visuals_tests;
 #[cfg(test)]
 mod shortcut_tests;
 #[cfg(test)]

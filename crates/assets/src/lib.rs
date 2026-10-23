@@ -15,8 +15,10 @@ mod noise;
 mod objects;
 mod palette;
 mod placed;
+mod placed_beam;
 mod placed_light;
 mod placed_types;
+mod placed_visuals;
 mod png_image;
 mod rain_mask;
 pub mod region_map;
@@ -49,8 +51,10 @@ pub use placed::{
     IggyCondition, IggySymbol, MultiplayerItemData, PlacedObject, QuadData,
     ReliableIggyDirectionData, ResizableData, RoomEffect,
 };
+pub use placed_beam::{BeamBlinkType, LightBeamData};
 pub use placed_light::{LightBlinkType, LightColorType, LightSourceData};
 pub use placed_types::{MultiplayerItemType, PlacedObjectType, RoomEffectType};
+pub use placed_visuals::{CustomDecalData, RainbowData};
 pub use png_image::PngImage;
 pub use rain_mask::RainMask;
 pub use region_map::{MapConnectionLine, RegionMapFiles};

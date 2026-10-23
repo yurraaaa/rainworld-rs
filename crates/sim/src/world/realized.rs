@@ -59,12 +59,22 @@ pub struct RealizedRoom {
     pub light_sources: Vec<crate::LightSource>,
     /// `Room.Loaded`'s `CosmeticSlimeMold`s (no update; drawn).
     pub slime_molds: Vec<crate::CosmeticSlimeMold>,
+    /// `Room.Loaded`'s placed `LightBeam`s in the room's update list.
+    pub light_beams: Vec<crate::LightBeam>,
+    /// `Room.Loaded`'s placed `SpotLight`s (no update; drawn).
+    pub spot_lights: Vec<crate::SpotLight>,
+    /// `Room.Update` has run once (`darkenLightsFactor` is set at its end).
+    pub updated: bool,
     /// `Room.Loaded`'s dead `TokenStalk`s in the room's update list.
     pub token_stalks: Vec<crate::TokenStalk>,
     /// The dandelions, sparks, specks and spores of the room's effects.
     pub particles: crate::room_particles::RoomParticles,
     /// `Room.gravity`: 1 until `AntiGravity` (zero-gravity rooms) is ported.
     pub gravity: f32,
+    /// `Room.Loaded`'s `CustomDecal`s (no per-tick state; drawn in `Foreground`).
+    pub decals: Vec<crate::CustomDecal>,
+    /// `Room.Loaded`'s `Rainbow`s in the room's update list.
+    pub rainbows: Vec<crate::Rainbow>,
     /// `insectCoordinator`, made by `Room.Loaded` for an insect effect or group.
     pub insects: Option<crate::insect::InsectCoordinator>,
     /// `ceilingTiles` (`Room.Loaded`), where `ScreenMovement` shakes drips off.
@@ -74,11 +84,28 @@ pub struct RealizedRoom {
     pub dripping_sound: Option<crate::DrippingSound>,
     /// The water's calm surface loop, made with the water.
     pub water_sound: Option<crate::WaterSound>,
+    /// `lightning`, made by `Room.Loaded` for a `Lightning` or `BkgOnlyLightning` effect.
+    pub lightning: Option<crate::Lightning>,
+    /// `backgroundNoise`: what this tick's `MakeBackgroundNoise` calls raised it to.
+    background_noise: f32,
+    /// `lastBackgroundNoise` (`BackgroundNoise`): last tick's, what hearing reads.
+    last_background_noise: f32,
     /// `socialEventRecognizer`.
     pub social_events: super::social_events::SocialEventRecognizer,
 }
 
 impl RealizedRoom {
+    /// `darkenLightsFactor`: 0 until the room's first `Update`, then the `DarkenLights`
+    /// amount (the DLC dust-storm blend is not ported, D24).
+    #[must_use]
+    pub fn darken_lights_factor(&self) -> f32 {
+        if self.updated {
+            self.settings.effect_amount(RoomEffectType::DarkenLights)
+        } else {
+            0.0
+        }
+    }
+
     /// `new Room` plus the entry delay `Room.Loaded` and `ReadyForAI` set from the
     /// room's effects, placed objects and name.
     pub(crate) fn new(
@@ -110,13 +137,21 @@ impl RealizedRoom {
             holo_lights: Vec::new(),
             light_sources: Vec::new(),
             slime_molds: Vec::new(),
+            light_beams: Vec::new(),
+            spot_lights: Vec::new(),
+            updated: false,
             token_stalks: Vec::new(),
             particles: crate::room_particles::RoomParticles::default(),
             gravity: 1.0,
+            decals: Vec::new(),
+            rainbows: Vec::new(),
             insects,
             ceiling_tiles,
             dripping_sound: None,
             water_sound: None,
+            lightning: None,
+            background_noise: 0.0,
+            last_background_noise: 0.0,
             social_events: super::social_events::SocialEventRecognizer::default(),
         }
     }
@@ -206,11 +241,29 @@ impl RealizedRoom {
         self.wait_to_enter
     }
 
-    /// The start of `Room.Update`: the entry delay counts down once fully loaded.
+    /// The start of `Room.Update`: the entry delay counts down once fully loaded, and
+    /// the background noise of last tick is kept and drops by 0.05.
     pub(crate) fn update_wait(&mut self) {
         if self.wait_to_enter > 0 && self.fully_loaded() {
             self.wait_to_enter -= 1;
         }
+        self.last_background_noise = self.background_noise;
+        self.background_noise = (self.background_noise - 0.05).max(0.0);
+    }
+
+    /// `MakeBackgroundNoise`: raises this tick's noise to `noise` (up to 1).
+    pub(crate) fn make_background_noise(&mut self, noise: f32) {
+        self.background_noise = if noise < self.background_noise {
+            self.background_noise
+        } else {
+            noise.min(1.0)
+        };
+    }
+
+    /// `BackgroundNoise`: how much of the last tick's noise dulls what creatures hear.
+    #[must_use]
+    pub fn last_background_noise(&self) -> f32 {
+        self.last_background_noise
     }
 }
 

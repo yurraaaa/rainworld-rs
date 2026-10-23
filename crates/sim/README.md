@@ -27,9 +27,12 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `game_insects.rs`, `game_insects_tests.rs` | cosmetic insects in the update list: `NowViewed`/`NoLongerViewed` at the camera's room change, creatures for the avoiders, the firefly's light | `Room.NowViewed` insect branch |
 | `game_hits.rs` | thrown rock/spear vs creatures | `Weapon.Update` Thrown branch |
 | `game_holo_light.rs` | Monk guide light in the update list | `HologramLight.TryCreate` |
+| `game_light_beams.rs`, `game_light_beams_tests.rs` | placed `LightBeam`s and `SpotLight`s joining the update list, a beam's turn (environment colour), `ApplyPalette` | `Room.Loaded` (`LightBeam`, `SpotLight`), `LightBeam.Update` |
+| `game_lightning.rs`, `game_lightning_tests.rs` | a room's `Lightning` in the game: `Room.Loaded` making it, its turn and room calls (`MakeBackgroundNoise`, `ScreenMovement`, `PlaySound`), its loop emitters' turns, hearing dulled by the background noise | `Room.Loaded` lightning, `MakeBackgroundNoise` |
 | `game_lights.rs`, `game_lights_tests.rs` | light sources in the update list: placed lights (`Room.Loaded`), the glowing player's light (`PlayerGlow`), camera 0's picture they read, `Darkness`, `LightSourceExposure`/`LightSourceColor`/`DarknessOfPoint` | `Room` light members, `LightSource.Update`, `PlayerGraphics.Update` light |
 | `game_instructions.rs` | `Room.Loaded`'s placed room objects (guide triggers, placed lights, slime molds, dead token stalks), input-instruction triggers | `SuperJumpInstruction`, `ReliableIggyDirection` |
 | `game_particles.rs`, `game_particles_tests.rs` | the depth-faded particles in the game: `Room.Loaded`'s `SkyDandelions`/`GreenSparks` objects, `NowViewed`'s seeding of sparks, specks and spores, each one's turn in the update list, a spark's `LightSource`, the chunks the stalks read | `Room.Loaded`, `Room.NowViewed`, `GreenSparks` |
+| `game_decals.rs`, `game_decals_tests.rs` | custom decals and rainbows joining the update list (the rainbow's `SeededRandom` gate), the rainbows' turns | `Room.Loaded` (`CustomDecal`, `Rainbow`, `RainbowNoFade`) |
 | `game_placed_cosmetics.rs`, `game_placed_cosmetics_tests.rs` | cosmetic slime molds and dead token stalks joining the update list, the stalks' turns | `Room.Loaded` (`CosmeticSlimeMold`, `CosmeticSlimeMold2`, `SlimeMold`, `DeadTokenStalk`) |
 | `game_items.rs` | slugcat grabbing: `Grabability` (dead lizards: `Drag`), `CanIPickThisUp`, pick-up candidate | `Player` item rules |
 | `game_eat_meat.rs`, `game_eat_meat_tests.rs` | eating a held dead creature: `CanEatMeat`, `GrabUpdate`'s meat block, `EatMeatUpdate` (bites, drips, food) | `Player.EatMeatUpdate` |
@@ -61,6 +64,8 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `chunk.rs` | `BodyChunk` integration + tile collision | `BodyChunk.Update` |
 | `object.rs` | `PhysicalObject`: chunks + distance constraints | `PhysicalObject` |
 | `item.rs` | abstract objects (`AbstractObject`, `Entity`, `ObjectData`, `AbstractSpear`), save strings | `AbstractPhysicalObject` |
+| `light_beam.rs`, `spot_light.rs` | `LightBeam` (quad, environment and palette colours), `SpotLight` (quad) | `LightBeam`, `SpotLight` |
+| `lightning.rs`, `lightning_tests.rs` | `Lightning` (`Lightning`/`BkgOnlyLightning` effects): two `LightningSource`s (reset, flash curve, thunder queue, `Electricity_Loop`), the camera's reads (`CurrentLightLevel`, `CurrentBackgroundColor`, `CurrentFogColor`, `LightningFrame`) | `Lightning` |
 | `light_source.rs` | `LightSource` (`Alpha`, `Lightness`, update) | `LightSource` |
 | `camera_image.rs` | `CameraImage`: camera 0's level image and palette (`PixelColorAtCoordinate`, effect colours) | `RoomCamera.PixelColorAtCoordinate` |
 | `map_discovery.rs` | per-region discovery textures, base64 PNG form | `PlayerProgression` map textures |
@@ -82,6 +87,8 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `water_sound.rs`, `water_sound_tests.rs` | `WaterSound`: the water's calm surface loop (`RectangularDynamicSoundLoop` on the band under the surface, `SilenceWater`) | `Water.waterSounds`, `RectangularDynamicSoundLoop` |
 | `game_water_sound.rs`, `game_water_sound_tests.rs` | the surface loop at the head of `Water.Update` and its emitters in the update list | `Room.Update` |
 | `dripping_sound.rs`, `dripping_sound_tests.rs` | `DrippingSound`: the cycle start's `Cycle_Start_Drips` loop (`DisembodiedDynamicSoundLoop`) | `DrippingSound` |
+| `decal.rs`, `decal_tests.rs` | `CustomDecal`: grid division and the seeded grid mesh (positions, per-vertex colours) | `CustomDecal` |
+| `rainbow.rs`, `rainbow_tests.rs` | `Rainbow`/`RainbowNoFade`: position, radius, fade over the cycle's start-up, spawn condition | `Rainbow`, `RainbowNoFade` |
 | `slime_mold.rs` | `CosmeticSlimeMold`: the seeded dots on the walls; the plain `SlimeMold`'s `SeededRandom` gate | `SlimeMold.CosmeticSlimeMold` |
 | `token_stalk.rs` | `TokenStalk` without a token: arm, head, rope, two shared draws a tick | `CollectToken.TokenStalk` |
 | `sky_dandelion.rs` | `SkyDandelions` spawner, `SkyDandelion`, `DandelionStalk`, the `DandelionPatch` planting (seeded) | `SkyDandelions.cs` |
@@ -212,10 +219,12 @@ sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `m
 | The Hunter's spear on the back | `game_spear_on_back.rs`, `player/spear_on_back.rs`, `item/on_back_stick.rs` |
 | Body physics / collision | `chunk.rs`, `object.rs`, `player/mod.rs` |
 | Overseer / guide | `creature/overseer/`, `world/overseers_world_ai.rs`, `game_holo_light.rs` |
+| Placed light beams, spot lights | `light_beam.rs`, `spot_light.rs`, `game_light_beams.rs`; sprites in `rw-graphics` `light_beam.rs`, `spot_light.rs`, `quad_grid.rs` |
 | Lights (placed, player glow, room light queries) | `light_source.rs`, `game_lights.rs`, `camera_image.rs`; sprites in `rw-graphics` `light_source.rs` |
 | Bat flies | `creature/fly/`, `world/flies_world_ai.rs`, `game_flies.rs` |
 | Cosmetic insects (Flies, RockFlea, ... effects, `InsectGroup`) | `insect/`, `game_insects.rs`; sprites in `rw-graphics` `insect_graphics.rs` |
 | Dev spawns / teleport | `game_dev.rs`, `spawn.rs` |
+| Custom decals, rainbows | `decal.rs`, `rainbow.rs`, `game_decals.rs`; sprites in `rw-graphics`, shaders in `rw-render` |
 | Cosmetic slime molds, dead token stalks | `slime_mold.rs`, `token_stalk.rs`, `game_placed_cosmetics.rs`; sprites in `rw-graphics` |
 
 ## Cross-links

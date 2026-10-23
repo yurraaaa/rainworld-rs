@@ -18,12 +18,12 @@ use rw_assets::{
 };
 use rw_audio::Follow as SoundFollow;
 use rw_graphics::{
-    Color, CosmeticSprites, DandelionSprites, DrawList, DripPalette, FlyGraphics,
+    Color, CosmeticSprites, DandelionSprites, DecalSprites, DrawList, DripPalette, FlyGraphics,
     GreenSparkSprites, HologramFrame, HologramGraphics, HologramLightSprites, InsectDraw,
-    InsectSprites, Layer, LightSourceSprites, LightSourceView, LizardColors, LizardGraphics,
-    LizardModule, LizardReading, OverseerGraphics, PlayerGraphics, ShelterDoorSprites,
-    ShortcutPalette, SlimeMoldSprites, SpeckSprites, StalkSprites, TokenStalkSprites,
-    WaterDripSprites, WeaponSprites,
+    InsectSprites, Layer, LightBeamSprites, LightBeamView, LightSourceSprites, LightSourceView,
+    LizardColors, LizardGraphics, LizardModule, LizardReading, OverseerGraphics, PlayerGraphics,
+    RainbowSprites, ShelterDoorSprites, ShortcutPalette, SlimeMoldSprites, SpeckSprites,
+    SpotLightSprites, StalkSprites, TokenStalkSprites, WaterDripSprites, WeaponSprites,
 };
 use rw_hud::{HudSetup, OwnerTick, RainCycleView, StartCondition, Subregions};
 use rw_random::UnityRandom;
@@ -135,6 +135,10 @@ struct Graphics {
     /// Each corruption spore's `Pebble`, drawn on the cosmetic stream when its sprite is
     /// made (by its place in the update list).
     spore_pebbles: HashMap<u64, usize>,
+    /// The camera room's placed `LightBeam`s' drawing state (`lastAlpha`, `lastCamPos`,
+    /// ...) by their place in the update list, and the room it was made for.
+    beams: Vec<(u64, LightBeamSprites)>,
+    beams_room: i32,
 }
 
 impl Graphics {
@@ -656,6 +660,8 @@ impl Game {
             earth: Color::BLACK,
             cosmetic: UnityRandom::new(0),
             spore_pebbles: HashMap::new(),
+            beams: Vec::new(),
+            beams_room: -1,
         };
         let sim =
             RainWorldGame::new_story(world, campaign, story, start, rng, sounds, &mut graphics);
@@ -1119,6 +1125,81 @@ impl Game {
         lists
     }
 
+    /// The camera room's `CustomDecal`s and `Rainbow`s (the camera's `ghostMode` is 0).
+    #[must_use]
+    pub fn placed_visual_draw_lists(&self) -> Vec<(Drawable, DrawList)> {
+        let Some(r) = self.sim.world().realized(self.sim.camera_room()) else {
+            return Vec::new();
+        };
+        let mut lists: Vec<(Drawable, DrawList)> = r
+            .decals
+            .iter()
+            .map(|d| (Drawable::Decal(d.update_order), d.draw()))
+            .collect();
+        lists.extend(
+            r.rainbows
+                .iter()
+                .map(|b| (Drawable::Rainbow(b.update_order), b.draw(0.0))),
+        );
+        lists
+    }
+
+    /// The camera room's placed light beams and spot lights at
+    /// camera position `camera`. A beam's sprites are made again when the camera
+    /// enters the room (`InitiateSprites`).
+    pub fn placed_light_draw_lists(&mut self, camera: usize) -> Vec<(Drawable, DrawList)> {
+        let index = self.sim.camera_room();
+        let Some(r) = self.sim.world().realized(index) else {
+            return Vec::new();
+        };
+        let view = LightBeamView {
+            camera,
+            shader_light: self.sim.world().rain_cycle.shader_light(),
+            darken_lights: r.darken_lights_factor(),
+            water_lights: r.settings.effect_amount(RoomEffectType::WaterLights) > 0.0,
+        };
+        let g = &mut self.graphics;
+        let entered = g.beams_room != index;
+        g.beams_room = index;
+        g.beams
+            .retain(|(id, _)| r.light_beams.iter().any(|b| b.update_order == *id));
+        let mut lists = Vec::new();
+        for b in &r.light_beams {
+            let at = g.beams.iter().position(|(id, _)| *id == b.update_order);
+            let (_, sprites) = match at {
+                Some(at) => &mut g.beams[at],
+                None => {
+                    g.beams.push((b.update_order, LightBeamSprites::default()));
+                    g.beams.last_mut().expect("just pushed")
+                }
+            };
+            if entered {
+                sprites.initiate();
+            }
+            lists.push((Drawable::LightBeam(b.update_order), sprites.draw(b, &view)));
+        }
+        lists.extend(
+            r.spot_lights
+                .iter()
+                .map(|s| (Drawable::SpotLight(s.update_order), s.draw())),
+        );
+        lists
+    }
+
+    /// The image names of the camera room's decals.
+    #[must_use]
+    pub fn camera_room_decal_images(&self) -> Vec<&str> {
+        self.sim
+            .world()
+            .realized(self.sim.camera_room())
+            .map_or_else(Vec::new, |r| {
+                r.decals
+                    .iter()
+                    .map(|d| d.data.image_name.as_str())
+                    .collect()
+            })
+    }
+
     /// The lizards' sprites in the camera's room at `alpha` between ticks, in the
     /// order their modules were built, in the palette's `black` (their draws come from
     /// the cosmetic stream).
@@ -1315,6 +1396,26 @@ impl Game {
                     .present_orders()
                     .map(|o| Present::added(Drawable::Particle(o), o)),
             );
+            present.extend(
+                r.decals
+                    .iter()
+                    .map(|d| Present::added(Drawable::Decal(d.update_order), d.update_order)),
+            );
+            present.extend(
+                r.rainbows
+                    .iter()
+                    .map(|b| Present::added(Drawable::Rainbow(b.update_order), b.update_order)),
+            );
+            present.extend(
+                r.light_beams
+                    .iter()
+                    .map(|b| Present::added(Drawable::LightBeam(b.update_order), b.update_order)),
+            );
+            present.extend(
+                r.spot_lights
+                    .iter()
+                    .map(|s| Present::added(Drawable::SpotLight(s.update_order), s.update_order)),
+            );
         }
         present
     }
@@ -1411,7 +1512,7 @@ impl Game {
         let view = LightSourceView {
             cam_pos,
             darkness,
-            darken_lights: room.settings.effect_amount(RoomEffectType::DarkenLights),
+            darken_lights: room.darken_lights_factor(),
             water: room.room.water_level().is_some(),
             water_lights: room.settings.effect_amount(RoomEffectType::WaterLights) > 0.0,
             shader_light: self.sim.world().rain_cycle.shader_light(),

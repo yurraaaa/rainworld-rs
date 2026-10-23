@@ -54,6 +54,11 @@ impl LevelTextures {
         self.rect
     }
 
+    /// The room's shader globals.
+    pub(crate) fn params(&self) -> &LevelParams {
+        &self.params
+    }
+
     /// `_fogAmount` of the palette.
     pub(crate) fn fog_amount(&self) -> f32 {
         self.params.fog_amount

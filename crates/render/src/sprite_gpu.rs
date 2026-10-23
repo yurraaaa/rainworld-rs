@@ -27,6 +27,8 @@ struct RoomUniform {
     fog_amount: f32,
     water_level: f32,
     cam_in_room_rect: [f32; 4],
+    light: [f32; 4],
+    light_dir: [f32; 4],
 }
 
 /// The sprite pipelines, the atlas pages' bind groups and the frame's buffers.
@@ -67,12 +69,14 @@ pub(crate) struct ScreenTextures<'a> {
 
 impl SpritePipeline {
     /// Each shader and its fragment entry point.
-    const SHADERS: [(Shader, &'static str); 20] = [
+    const SHADERS: [(Shader, &'static str); 24] = [
         (Shader::Basic, "fs_basic"),
         (Shader::FlatLight, "fs_flat_light"),
         (Shader::OverseerZip, "fs_overseer_zip"),
         (Shader::Hologram, "fs_hologram"),
         (Shader::LightSource, "fs_light_source"),
+        (Shader::LightBeam, "fs_light_beam"),
+        (Shader::VectorCircle, "fs_vector_circle"),
         (Shader::HoloGrid, "fs_holo_grid"),
         (Shader::HologramImage, "fs_hologram_image"),
         (Shader::ShortCut0, "fs_shortcut"),
@@ -88,6 +92,8 @@ impl SpritePipeline {
         (Shader::WaterSplash, "fs_water_splash"),
         (Shader::WaterLight, "fs_water_light"),
         (Shader::CustomDepth, "fs_custom_depth"),
+        (Shader::Decal, "fs_decal"),
+        (Shader::Rainbow, "fs_rainbow"),
     ];
 
     /// `_hologramThreshold` at render scale 1 (`RainWorld`, decompile 110635: 0.5 when
@@ -177,6 +183,7 @@ impl SpritePipeline {
                 include_str!("../shaders/sprite.wgsl"),
                 include_str!("../shaders/full_screen.wgsl"),
                 include_str!("../shaders/death_fall.wgsl"),
+                include_str!("../shaders/placed_visuals.wgsl"),
             ))),
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -350,6 +357,17 @@ impl SpritePipeline {
             .collect();
     }
 
+    /// Uploads `image` as the next atlas page.
+    pub(crate) fn add_page(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        image: &PngImage,
+    ) {
+        let page = self.page_group(device, queue, image);
+        self.pages.push(page);
+    }
+
     fn page_group(
         &self,
         device: &wgpu::Device,
@@ -510,6 +528,18 @@ impl SpritePipeline {
             fog_amount: globals.fog_amount,
             water_level: globals.water_level,
             cam_in_room_rect: globals.cam_in_room_rect,
+            light: [
+                globals.light,
+                globals.clouds_speed,
+                globals.wet_terrain,
+                0.0,
+            ],
+            light_dir: [
+                globals.light_dir[0],
+                globals.light_dir[1],
+                1.0 / 1400.0,
+                1.0 / 800.0,
+            ],
         };
         queue.write_buffer(&self.uniform, 0, bytemuck::bytes_of(&uniform));
         self.noise_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {

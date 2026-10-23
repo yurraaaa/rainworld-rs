@@ -29,6 +29,8 @@ mod passage_tests;
 #[cfg(test)]
 mod pause_tests;
 mod placed_cosmetics_reply;
+mod placed_light_reply;
+mod placed_visuals_reply;
 mod reply;
 #[cfg(test)]
 mod save_tests;

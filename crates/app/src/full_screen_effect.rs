@@ -67,8 +67,8 @@ impl FullScreenEffect {
     /// `DrawUpdate`'s `fullScreenEffect.alpha`: the effect's amount re-read
     /// (`lightBloomAlpha`), faded with the room's light `num4` (`InverseLerp(-0.7, 0,
     /// num4)`) for the bloom shaders; `Lightning` uses `InverseLerp(0, 0.2, amount)` for
-    /// the amount. `num4` is the rain cycle's `ShaderLight` or 1; the lightning step
-    /// replaces it with the lightning's light level.
+    /// the amount. `num4` is the rain cycle's `ShaderLight` or 1, or the room's lightning
+    /// level (-1 between flashes).
     #[must_use]
     pub fn alpha(&self, settings: &RoomSettings, num4: f32) -> f32 {
         let amount = settings.effect_amount(self.effect);

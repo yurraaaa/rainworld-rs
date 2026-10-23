@@ -6,8 +6,8 @@
 // fs_hologram_image `HologramImage`, fs_shortcut `ShortCut0`, fs_colored_sprite3
 // `ColoredSprite2` with `no_grab_tex` (the `ColoredSprite3` shader),
 // fs_under_water_light `UnderWaterLight`, fs_specific_depth `SpecificDepth`,
-// fs_water_splash `WaterSplash`, fs_water_light `WaterLight`, fs_custom_depth
-// `CustomDepth`. The
+// fs_water_splash `WaterSplash`, fs_water_light `WaterLight`, fs_light_beam `LightBeam`,
+// fs_vector_circle `VectorCircle`, fs_custom_depth `CustomDepth`. The
 // full-screen effects are in
 // full_screen.wgsl, appended to this file.
 //
@@ -33,6 +33,10 @@ struct Room {
     water_level: f32,
     // `_camInRoomRect`: the game's window in room uv (position, size).
     cam_in_room_rect: vec4<f32>,
+    // x: `_light`, y: `_cloudsSpeed`, z: `_WetTerrain`.
+    light: vec4<f32>,
+    // `_lightDirAndPixelSize`: xy the room's light angle, zw 1/1400 and 1/800.
+    light_dir: vec4<f32>,
 };
 
 // Futile's `screenPixelOffset` (`Camera::SCREEN_PIXEL_OFFSET`): screen = stage + this.
@@ -610,4 +614,42 @@ fn fs_water_light(in: VertexOut) -> @location(0) vec4<f32> {
         return vec4(0.0);
     }
     return vec4(1.0, 1.0, 1.0, 0.05 * in.color.a);
+}
+
+// `LightBeam` (no snow, ripple or terrain mask: the base game's sloped-terrain mask
+// is black, so its depth 2 never wins): `uv.y * sin(uv.x * 3.14)` faded by the level
+// depth under the pixel (`(int)(r * 254) % 30` in 30ths, sky 1, 6/30 over a creature
+// drawn behind the level) in the third of the vertex alpha: third 1 by `(dp - 0.2) *
+// 10`, third 2 by `(dp - 0.5) * 20`; times the alpha's place inside its third.
+@fragment
+fn fs_light_beam(in: VertexOut) -> @location(0) vec4<f32> {
+    let texcol = level_at(level_coord(in.scr));
+    var dp = f32(i32(texcol.r * 254.0) % 30) / 30.0;
+    if all(texcol.rgb == vec3(1.0)) {
+        dp = 1.0;
+    }
+    dp = min(dp, 2.0);
+    if dp > 6.0 / 30.0 && drawn(textureLoad(behind_tex, frame_px(in.scr), 0)) {
+        dp = 6.0 / 30.0;
+    }
+    let tp = i32(floor(in.color.w * 3.0));
+    var alpha = in.tex.y * sin(in.tex.x * 3.14);
+    if tp == 1 {
+        alpha *= clamp((dp - 0.2) * 10.0, 0.0, 1.0);
+    } else if tp == 2 {
+        alpha *= clamp((dp - 0.5) * 20.0, 0.0, 1.0);
+    }
+    alpha *= in.color.w * 3.0 - f32(tp);
+    return vec4(in.color.rgb, alpha);
+}
+
+// `VectorCircle` (a `SpotLight`): the vertex colour, opaque, inside the ellipse
+// inscribed in the UV square; nothing where `centerDist < 1 - clr.w` or on the rim.
+@fragment
+fn fs_vector_circle(in: VertexOut) -> @location(0) vec4<f32> {
+    let center_dist = clamp(distance(in.tex, vec2(0.5)) * 2.0, 0.0, 1.0);
+    if center_dist < 1.0 - in.color.w || center_dist == 1.0 {
+        return vec4(0.0);
+    }
+    return vec4(in.color.rgb, 1.0);
 }

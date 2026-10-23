@@ -54,7 +54,8 @@ use super::reply::{
     WaterLightState,
 };
 use super::reply::{
-    FleeInfo, HeavyAiInfo, HuntInfo, LoungeInfo, OwnedItemState, ShelterIconState, WaterSoundState,
+    FleeInfo, HeavyAiInfo, HuntInfo, LightningState, LoungeInfo, OwnedItemState, ShelterIconState,
+    WaterSoundState,
 };
 use super::reply::{
     FliesWorldInfo, GraspInfo, HeldInfo, QuantifiedInfo, RegionStateInfo, RelationshipInfo,
@@ -510,6 +511,8 @@ impl Session {
                             .as_ref()
                             .filter(|d| !d.slated)
                             .map(|d| d.sound_loop.volume()),
+                        lightning: r.lightning.as_ref().map(LightningState::from),
+                        background_noise: Some(r.last_background_noise()).filter(|n| *n > 0.0),
                         water_sound: r.water_sound.as_ref().map(|w| WaterSoundState {
                             rect: [w.rect.left, w.rect.bottom, w.rect.right, w.rect.top],
                             volume: w.sound_loop.volume(),
@@ -569,6 +572,10 @@ impl Session {
             slime_molds: super::reply::SlimeMoldState::all(sim.world()),
             token_stalks: super::reply::TokenStalkState::all(sim.world()),
             particles: super::reply::RoomParticlesState::all(sim.world()),
+            decals: super::reply::DecalState::all(sim.world()),
+            rainbows: super::reply::RainbowState::all(sim.world()),
+            light_beams: super::reply::LightBeamState::all(sim.world()),
+            spot_lights: super::reply::SpotLightState::all(sim.world()),
             holo_light_needed: sim.holo_light_needed(),
             dens: Self::dens(scene),
             quantified: Self::quantified(scene),
@@ -722,6 +729,10 @@ impl Session {
             Drawable::SlimeMold(i) => ("slime_mold", None, Some(i)),
             Drawable::TokenStalk(i) => ("token_stalk", None, Some(i)),
             Drawable::Particle(i) => ("particle", None, Some(i)),
+            Drawable::Decal(i) => ("decal", None, Some(i)),
+            Drawable::Rainbow(i) => ("rainbow", None, Some(i)),
+            Drawable::LightBeam(i) => ("light_beam", None, Some(i)),
+            Drawable::SpotLight(i) => ("spot_light", None, Some(i)),
             Drawable::Shortcuts => ("shortcuts", None, None),
             Drawable::FullScreenEffect => ("full_screen_effect", None, None),
             Drawable::DeathFall => ("death_fall", None, None),

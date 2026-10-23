@@ -29,17 +29,21 @@ mod chunk;
 pub mod color;
 mod cosmetic;
 pub mod creature;
+mod decal;
 mod dripping_sound;
 mod float_ext;
 mod game;
 mod green_sparks;
 pub mod insect;
 pub mod item;
+mod light_beam;
 mod light_source;
+mod lightning;
 pub mod map_discovery;
 mod noise;
 mod object;
 mod player;
+mod rainbow;
 mod room_ext;
 mod room_particles;
 pub mod room_script;
@@ -52,6 +56,7 @@ mod slime_mold;
 mod sound;
 mod spawn;
 mod splash;
+mod spot_light;
 mod token_stalk;
 pub mod trigger;
 mod vec2;
@@ -71,6 +76,7 @@ pub use cosmetic::{
     StationaryEffect,
 };
 pub use creature::{ShortCutColor, WorldCoordinate};
+pub use decal::CustomDecal;
 pub use dripping_sound::DrippingSound;
 pub use float_ext::FloatExt;
 pub use game::{
@@ -79,7 +85,11 @@ pub use game::{
     UtilityReadings,
 };
 pub use green_sparks::{GreenSpark, GreenSparks, SparkCx};
+pub use light_beam::LightBeam;
 pub use light_source::{LightHardSet, LightSource, LightSourceTick, LightTie};
+pub use lightning::{
+    Lightning, LightningEnv, LightningFrame, LightningRoom, LightningSource, ThunderSound,
+};
 pub use map_discovery::{DiscoveryTexture, HudMapLink, MapDiscovery, MapRoom, UnityTexture};
 pub use noise::{ImpactCall, ImpactCalls, InGameNoise, NoiseSink, RoomCall};
 pub use object::{
@@ -89,6 +99,7 @@ pub use player::{
     Animation, BodyMode, DangerGraspState, DangerGraspStep, GrabState, HEAD, HIPS, INPUT_HISTORY,
     Input, Player, PlayerController, ShelterCheck, SpearOnBack, StomachObject, VesselStep,
 };
+pub use rainbow::Rainbow;
 pub use room_ext::RoomExt;
 pub use room_particles::RoomParticles;
 pub use screen_shake::{CameraShake, ScreenMovement};
@@ -106,6 +117,7 @@ pub use sound::{
 };
 pub use spawn::{determine_safe_spawn_tile, place_in_room};
 pub use splash::Splash;
+pub use spot_light::SpotLight;
 pub use token_stalk::{CurveLerp, StalkCoord, TokenStalk};
 pub use vec2::{TileExt, Vec2};
 pub use vec3::Vec3;

@@ -64,7 +64,7 @@ pub use water_sprites::{
 };
 
 use rw_assets::{PngImage, Room, TILE_SIZE};
-use rw_graphics::{DrawList, Layer};
+use rw_graphics::{Atlas, DrawList, Layer};
 use rw_sim::PhysicalObject;
 
 /// Which room layers [`Renderer::draw_room`] draws this frame.
@@ -126,6 +126,11 @@ pub trait Renderer {
     /// Uploads the sprite atlas (frame data and one RGBA image per page, in page order)
     /// for [`draw_sprites`](Renderer::draw_sprites), replacing the previous one.
     fn set_atlas(&mut self, atlas: &SpriteAtlas, images: &[&PngImage]);
+
+    /// Adds one more atlas page after the uploaded ones (a decal's image, loaded when a
+    /// room needs it): `atlas` names its elements, `image` is its texture. Nothing
+    /// without an atlas set.
+    fn add_atlas_page(&mut self, _atlas: Atlas, _image: &PngImage) {}
 
     /// Queues the items of `list` in `layer`, in order, as Futile draws them, each
     /// with its game shader (`rw_graphics::Shader`), at stage positions

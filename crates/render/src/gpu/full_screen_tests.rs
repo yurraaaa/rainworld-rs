@@ -18,8 +18,8 @@ use super::*;
 #[allow(clippy::approx_constant, reason = "the game's shader uses 6.28")]
 const GAME_TAU: f32 = 6.28;
 
-const W: u32 = 1366;
-const H: u32 = 768;
+pub(super) const W: u32 = 1366;
+pub(super) const H: u32 = 768;
 
 const JSON: &str = r#"{"frames": {
   "RainWorld_White.png": {"frame": {"x": 0, "y": 0, "w": 16, "h": 16}, "rotated": false,
@@ -117,7 +117,7 @@ fn hor() -> f32 {
     H as f32 / W as f32
 }
 
-fn unit(c: [u8; 3]) -> [f32; 3] {
+pub(super) fn unit(c: [u8; 3]) -> [f32; 3] {
     c.map(|v| f32::from(v) / 255.0)
 }
 
@@ -126,7 +126,7 @@ fn byte(c: f32) -> u8 {
 }
 
 /// A palette with every texel `fill` and `(x, row, colour)` overrides (runtime rows).
-fn palette(fill: [u8; 3], texels: &[(usize, usize, [u8; 3])]) -> PaletteTexture {
+pub(super) fn palette(fill: [u8; 3], texels: &[(usize, usize, [u8; 3])]) -> PaletteTexture {
     let mut pixels = vec![[fill[0], fill[1], fill[2], 255]; 512];
     for &(x, row, [r, g, b]) in texels {
         pixels[(7 - row) * 32 + x] = [r, g, b, 255];
@@ -139,7 +139,7 @@ fn palette(fill: [u8; 3], texels: &[(usize, usize, [u8; 3])]) -> PaletteTexture 
 }
 
 /// A level image of the screen's size with code `f(x, png_row)`.
-fn level(f: impl Fn(u32, u32) -> [u8; 3]) -> PngImage {
+pub(super) fn level(f: impl Fn(u32, u32) -> [u8; 3]) -> PngImage {
     PngImage::from_pixels(
         W as usize,
         H as usize,
@@ -257,7 +257,7 @@ impl Scene {
     }
 }
 
-fn renderer() -> Option<WgpuRenderer> {
+pub(super) fn renderer() -> Option<WgpuRenderer> {
     let mut r = match WgpuRenderer::headless((W, H)) {
         Ok(r) => r,
         Err(e) => {
@@ -273,7 +273,7 @@ fn renderer() -> Option<WgpuRenderer> {
     Some(r)
 }
 
-fn rgb(image: &FrameImage, x: u32, y: u32) -> [u8; 3] {
+pub(super) fn rgb(image: &FrameImage, x: u32, y: u32) -> [u8; 3] {
     let i = ((y * image.width() + x) * 4) as usize;
     let p = &image.rgba()[i..i + 3];
     [p[0], p[1], p[2]]

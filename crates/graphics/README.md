@@ -32,19 +32,22 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 | `insect_graphics.rs` | cosmetic insects' sprites (all kinds) | each insect's `InitiateSprites`/`DrawSprites`/`ApplyPalette` |
 | `slime_mold.rs`, `token_stalk.rs` | cosmetic slime-mold dots (`Items`); the dead token stalk's arm, head, rope and lamp (`Midground`, lamp flicker on the cosmetic stream) | `SlimeMold.CosmeticSlimeMold`, `CollectToken.TokenStalk` |
 | `sky_dandelion.rs`, `green_spark.rs`, `zero_g_speck.rs` | sky dandelions (`Items`/`Foreground`/`Shadows`) and their stalk mesh; green sparks; zero-gravity specks and corruption spores (`Midground`); depth ones use the `CustomDepth` shader | `SkyDandelions`, `GreenSparks`, `BlinkSpeck`, `CorruptionSpore` |
+| `decal.rs` | `CustomDecal`'s grid mesh over the decal's image in `Foreground` (`Decal` shader), `Unorm8` vertex colours | `CustomDecal.InitiateSprites`, `DrawSprites`, `TriangleMesh.MakeGridMesh` |
+| `rainbow.rs` | `Rainbow`'s square over the `rainbow` gradient in `GrabShaders` (`Rainbow` shader) | `Rainbow.InitiateSprites`, `DrawSprites`, `CustomFSprite` |
 | `overseer_graphics.rs` | `OverseerGraphics` simulation | `OverseerGraphics` |
 | `overseer_draw.rs` | overseer sprites | `OverseerGraphics.DrawSprites` |
 | `mycelium.rs` | overseer hairs | `Mycelium` |
 | `hologram_matrix.rs` | overseer lens wireframe | `OverseerGraphics.HologramMatrix` |
 | `hologram_shape.rs` | line geometry of hologram parts | `OverseerHolograms` |
 | `hologram_draw.rs` | hologram part sprites and lines | `OverseerHologram.DrawSprites` |
+| `light_beam.rs`, `spot_light.rs`, `quad_grid.rs` | placed light beam mesh and per-frame alpha (`ForegroundLights`), spot light mesh (`Shadows`), the grid mesh over a quad (`GetIdealGridDiv` 250/150 px, `MakeGridMesh`) | `LightBeam`, `SpotLight`, `TriangleMesh.MakeGridMesh` |
 | `holo_light.rs`, `light_source.rs` | guide light; light disc | `HologramLight`, `LightSource` |
 | `weapon_graphics.rs` | rock and spear sprites | `Rock`, `Spear` |
 | `water_drip.rs`, `cosmetic_graphics.rs` | drips (`DripPalette`, water-coloured too); sparks, explosion spikes, lizard and air bubbles, splashes | `WaterDrip`, `Spark`, `ExplosionSpikes`, `LizardBubble`, `Bubble`, `Splash` |
 | `shortcut_graphics.rs` | pipe pixels, entrance symbols | `ShortcutGraphics` |
 | `shelter_door_graphics.rs` | shelter door sprites | `ShelterDoor` |
 | `sun_blocker.rs` | the `SunBlock` effect's screen-covering sprite in `Shadows` | `SunBlocker` |
-| `tests.rs`, `hologram_tests.rs`, `shortcut_tests.rs` | unit tests | |
+| `tests.rs`, `hologram_tests.rs`, `shortcut_tests.rs`, `placed_visuals_tests.rs` | unit tests | |
 
 ## Where is X?
 
@@ -58,10 +61,11 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 - Bat flies: `fly_graphics.rs`.
 - Cosmetic insects: `insect_graphics.rs` (simulation in `rw-sim` `insect/`).
 - Sky dandelions, green sparks, zero-g specks and spores: `sky_dandelion.rs`, `green_spark.rs`, `zero_g_speck.rs` (simulation in `rw-sim`).
+- Custom decals, rainbows: `decal.rs`, `rainbow.rs` (simulation in `rw-sim` `decal.rs`, `rainbow.rs`; items other than `Futile_White` meshes are `DrawItem::ElementMesh`).
 - Slime-mold patches, dead token stalks: `slime_mold.rs`, `token_stalk.rs` (simulation in `rw-sim`).
 - Rocks and spears: `weapon_graphics.rs`.
 - Shelter door, pipes: `shelter_door_graphics.rs`, `shortcut_graphics.rs`.
-- Light discs: `light_source.rs`, `holo_light.rs`.
+- Light discs: `light_source.rs`, `holo_light.rs`; beams and spots: `light_beam.rs`, `spot_light.rs`, `quad_grid.rs`.
 - Atlas frame lookup: `atlas.rs`.
 - The draw list a renderer consumes: `draw.rs`.
 

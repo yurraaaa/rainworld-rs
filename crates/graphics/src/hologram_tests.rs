@@ -377,7 +377,7 @@ fn light_effect_sprites() {
         .iter()
         .filter_map(|i| match i {
             DrawItem::Sprite(s) => Some(*s),
-            DrawItem::Mesh(_) => None,
+            DrawItem::Mesh(_) | DrawItem::ElementMesh(_) => None,
         })
         .collect();
     assert_eq!(sprites.len(), 2);

@@ -103,9 +103,7 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   their `_GrabTexture` (neither has a `GrabPass` of its own; INFERRED that no other
   unnamed-grab sprite draws in `Foreground` between the level and them); holograms in `Bloom` are always drawn
   after the effect, where the game puts the effect back on top of its container after
-  every `ApplyPalette`; `num4` is `ShaderLight` without lightning (`Lightning`'s flashes
-  and palette are not ported, so a `Lightning` room's alpha is its amount times
-  `InverseLerp(0, 0.2, amount)` with `num4` from the rain only). Not selected: the echo
+  every `ApplyPalette`; `num4` is `ShaderLight`, or the room's lightning level (D25). Not selected: the echo
   branch (ghost mode) and `VoidMelt` (`LevelMelt2`), which leave the room with no
   effect. `_waterLevel` uses the `DeathFallGraphic`'s height (focal points included).
   The death fall's sprite (`death_fall.wgsl`) is drawn as the game's; its alpha pulse's
@@ -132,18 +130,18 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   Another room's MCP screenshot draws no full-screen effect, death fall or water light
   and takes `_waterLevel` from the water alone.
 - **Not drawn:** the rain's `ShaderLight` after the rain hits (`GlobalRain` is not ported: it stays
-  -1), `BrokenZeroG`'s dark palette (zero gravity is not ported), lightning, room
+  -1), `BrokenZeroG`'s dark palette (zero gravity is not ported), room
   effects that grade colours (Darkness, Brightness, Contrast, Desaturation, Hue, DayNight:
   their uniforms keep the game's defaults; no base-game room uses them, they come with
   the DLCs)
   or modify effect colours (`ModifyEffectColorA/B`, unused in base-game rooms), ghost /
   rot / mushroom palettes, the rain's screen shake (and the sandstorm's, blizzard's,
-  flood rooms' `waterFlux.roomShake`, lightning's and `AntiGravity`'s), `_bkg` backgrounds, the heat / melt / ripple
+  flood rooms' `waterFlux.roomShake`, `AntiGravity`'s), `_bkg` backgrounds, the heat / melt / ripple
   shader variants, swarm rooms, and the properties-file line preprocessing (no base-game
   `Room Setting Templates` line uses it).
 
 **Why.** The port draws the camera's room with the player; these depend on systems
-not ported yet (the rain itself and the global rain, lightning, zero gravity, echoes,
+not ported yet (the rain itself and the global rain, zero gravity, echoes,
 the room effects' own objects and scenes) or are invisible at this stage. The rain
 cycle's light and palette darkening before the rain are ported (D22).
 
@@ -175,3 +173,36 @@ gives arena levels none). The palette is rebuilt at the start of the tick when
 
 **Affects.** Lighting of cloudy rooms and the palette in dev starts and arena levels.
 
+
+## D26: Custom decals and rainbows (`Decal`, `Rainbow`)
+
+`CustomDecal` (`Decal` shader, `Foreground`) and `Rainbow` (`Rainbow` shader,
+`GrabShaders`, a `GrabPass`) follow the game's code and shader sources. What differs:
+
+- The decal's object-shadow lookup (a shadowed pixel from layer 5 on is lit again where
+  something was drawn behind the level toward the light) reads that grab at the nearest
+  pixel; the game's `tex2D(_GrabTexture, ...)` is bilinear. The level shader's own lookup
+  is bilinear (D7); only creature edges can differ, by one pixel.
+- Decal images are uploaded as atlas pages when a room with the decal is first shown,
+  and stay uploaded; the game unloads an image when its last room unloads
+  (`usersPerImage`, `RoomUnloaded`).
+- The grid mesh is built when the decal is made, not at the first `DrawSprites`; its
+  draws are on a stream of their own (`Random.InitState` with the state restored in the
+  game), so nothing observable differs.
+- Omitted branches (DLC, not installed): the shaders' `RIPPLE` (`smoothRippleClip`),
+  `COMBINEDLEVEL` (`dynamicLevelClip`) and `URBANLIFE` keywords; `Rainbow`'s
+  `PrecycleModule` spawn; `AetherRainbow` (Watcher). The camera's `ghostMode` (echoes)
+  is 0, so `Rainbow`'s `InverseLerp(0.2, 0, ghostMode)` is 1 and the spawn test needs no
+  ghost check, until echoes are ported.
+- Arena sessions: every port `World` is a story one (`story = true`, arena levels loaded
+  with `load_room` included; D4, D16, D22), so `Rainbow`'s `IsArenaSession` behaviour
+  (always made, fade 1, never destroyed) never fires and the arena cycle's 600-tick
+  start-up does not exist. The code tests `!world.story` and takes effect once arena
+  sessions are ported.
+- Decal image names were checked against the `rainWorld`, `uiSprites` and `shelterGate`
+  atlases and the projections: no clash (265 names), so the shared element lookup is safe.
+- `RainbowNoFade` is ported (same data, always shown) but no base room places one.
+
+**Why.** Unreachable in the base game, or the port's grab textures (D7).
+
+**Affects.** Pixels along creature edges under decals; memory after a long session.

@@ -30,21 +30,22 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   Effects step 1 (level shader and palette machinery) left for later steps: the rain's
   `GlobalRain.ShaderLight` after the cycle ends (the port keeps its initial -1; goes
   with the rain), `BrokenZeroG`'s `DarkPalette` (`1 - CurrentLightsOn`, with zero
-  gravity), lightning's `num4` and palette texel overrides (with Lightning), ghost
+  gravity), ghost
   mode's `_light`/`_cloudsSpeed`/palette grey-out (with echoes), the sky scenes behind
   rimFix rooms.
   Effects step 2 (full-screen effects, post-level grab, wet terrain, the Ant's
-  `SpecificDepth`) and the `DeathFallGraphic` sprite done; left for later steps: `Lightning`'s flashes, `num4` and palette
-  overrides (the alpha's seam is `Visuals::effect_alpha`), `VoidMelt`'s `LevelMelt2` and
+  `SpecificDepth`) and the `DeathFallGraphic` sprite done; left for later steps: `VoidMelt`'s `LevelMelt2` and
   the echo branch of `ApplyPalette` (no effect selected meanwhile), full-screen effects
   and the death fall in MCP screenshots of other rooms, the death fall's counter from
   `Room.Loaded` (it restarts when the camera enters; D7), and holograms drawn under a re-raised `Bloom`
   effect (D7).
+  Effects step 4 (`Lightning`, `BkgOnlyLightning`, `ExtraLoudThunder`; D25, notes
+  `lightning.md`) done: flashes, `num4`/`_light`, `LightBloom` alpha, sky and fog texels,
+  thunder sounds and shake, background noise in hearing.
   Camera shake core (S1) done: `rw_sim::CameraShake`, notes `camera-shake.md`. Left:
   the rain-derived shake (S2, with the rain: `RainCycle.ScreenShake`/`MicroScreenShake`,
   `GlobalRain` modes, flood `waterFlux.roomShake`, the `Screen_Shake_LOOP` rumble, gamepad
-  rumble from `controllerShake`), the `Lightning` and `AntiGravity` callers (S3, with
-  their effects), callers that come with their objects (explosive spears' and scavenger
+  rumble from `controllerShake`), the `AntiGravity` caller (S3; `Lightning`'s is done, effects step 4), callers that come with their objects (explosive spears' and scavenger
   bombs' explosions, cicadas, leviathans, region gates, Moon's wake-up), and
   `PausedDrawUpdate`'s micro shake (skipped for now, user 2026-10-22; paused frames repeat
   the last offset, D1), and the Remix clamps (with Remix).
@@ -57,7 +58,7 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   Placed lights (L1, D24, notes `lights.md`) done: placed `LightSource`s, `Alpha` with
   `fadeWithSun`, colour from the level image and effect colours, the glowing player's
   light, `LightSourceExposure`/`LightSourceColor`/`DarknessOfPoint`, `Needed` reading
-  `Alpha`. Left: fixtures (L2a, L2b), `LightBeam`/`SpotLight` (L3), owners' lights with
+  `Alpha`. `LightBeam`/`SpotLight` (L3) done (D24). Left: fixtures (L2a, L2b), owners' lights with
   their owners (L4); blinking and night lights with the DLCs.
   Step 3 (cosmetic insects, `rw_sim::insect`, `../rainworld-re/notes/cosmetic-insects.md`)
   done; its omissions are among the decisions above. Draw order for later steps:
