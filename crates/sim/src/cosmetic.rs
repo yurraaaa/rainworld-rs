@@ -37,6 +37,7 @@ pub enum CosmeticKind {
     Flash(StationaryEffect),
     Bubble(Bubble),
     Splash(Splash),
+    SparkFlash(crate::SparkFlash),
 }
 
 /// What a cosmetic tied to a lizard's graphics reads of them in its update.
@@ -331,6 +332,8 @@ impl Cosmetic {
             }
             CosmeticKind::Flash(f) => f.update(),
             CosmeticKind::Bubble(b) => b.update(room, water.as_deref(), rng),
+            // The game runs it: its spark needs the room (`run_spark_flash`).
+            CosmeticKind::SparkFlash(_) => false,
             // Only `Water.Update` makes splashes, so their room has water.
             CosmeticKind::Splash(s) => water.is_none_or(|w| {
                 let (destroyed, shed) = s.update(room, w, rng, sounds);

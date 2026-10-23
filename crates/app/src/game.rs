@@ -171,7 +171,8 @@ impl Graphics {
                 CosmeticKind::Spikes(_)
                 | CosmeticKind::OverseerEffect(_)
                 | CosmeticKind::Bubble(_)
-                | CosmeticKind::Splash(_) => None,
+                | CosmeticKind::Splash(_)
+                | CosmeticKind::SparkFlash(_) => None,
             })
             .collect();
         self.dropped_lizards.retain(|g| used.contains(&g.module));

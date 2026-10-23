@@ -12,6 +12,8 @@ use std::sync::Arc;
 
 #[path = "game_background_scene.rs"]
 mod background_scene;
+#[path = "game_border_push_back.rs"]
+mod border_push_back;
 #[path = "game_carried.rs"]
 mod carried;
 #[path = "game_decals.rs"]
@@ -22,6 +24,8 @@ mod dev;
 mod drips;
 #[path = "game_eat_meat.rs"]
 mod eat_meat;
+#[path = "game_electric_death.rs"]
+mod electric_death;
 #[path = "game_exit.rs"]
 mod exit;
 #[path = "game_flies.rs"]
@@ -375,6 +379,12 @@ enum RoomObject {
     Lightning,
     /// An emitter of the `Lightning`'s sound loops, by its place in the update list.
     LightningLoop(u64),
+    /// An `ElectricDeath` by its place in the update list.
+    ElectricDeath(u64),
+    /// An emitter of an `ElectricDeath`'s sound loops, by its place in the update list.
+    ElectricDeathLoop(u64),
+    /// A `RoomBorderPushBack` by its place in the update list.
+    BorderPushBack(u64),
     /// An emitter of the water's surface loop, by its place in the update list.
     WaterSoundLoop(u64),
     /// A realized rock or spear.
@@ -993,6 +1003,8 @@ impl RainWorldGame {
             self.add_waterfalls(index);
             self.add_shelter_door(index);
             self.add_lightning(index);
+            self.add_electric_deaths(index);
+            self.add_border_push_backs(index);
             self.add_trigger_checkers(index);
             self.add_dripping_sound(index);
             self.world.realize_room_objects(index, &mut self.rng);
@@ -1441,6 +1453,8 @@ impl RainWorldGame {
         objects.extend(self.room_drip_objects(index));
         objects.extend(self.room_dripping_sound_objects(index));
         objects.extend(self.room_lightning_objects(index));
+        objects.extend(self.room_electric_death_objects(index));
+        objects.extend(self.room_border_push_back_objects(index));
         objects.extend(self.room_water_sound_objects(index));
         objects.extend(self.room_weapon_objects(index));
         objects.extend(
@@ -1549,6 +1563,11 @@ impl RainWorldGame {
                 }
                 RoomObject::Lightning => self.run_lightning(index),
                 RoomObject::LightningLoop(order) => self.run_lightning_emitter(index, order),
+                RoomObject::ElectricDeath(order) => self.run_electric_death(index, order),
+                RoomObject::ElectricDeathLoop(order) => {
+                    self.run_electric_death_emitter(index, order);
+                }
+                RoomObject::BorderPushBack(order) => self.run_border_push_back(index, order),
                 RoomObject::WaterSoundLoop(order) => self.run_water_sound_emitter(index, order),
                 RoomObject::Weapon(id) => self.run_weapon(index, id, observer),
                 RoomObject::WeaponLoop { owner, order } => {

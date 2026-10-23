@@ -23,6 +23,7 @@
 
 mod above_clouds_view;
 mod background_scene;
+mod border_push_back;
 mod bubble;
 mod camera;
 mod camera_image;
@@ -35,6 +36,7 @@ mod decal;
 mod distant_lightning;
 mod dripping_sound;
 mod dust_puff;
+mod electric_death;
 mod float_ext;
 mod game;
 mod green_sparks;
@@ -80,6 +82,7 @@ pub use background_scene::{
     AboveCloudsParams, BackgroundScene, CloudData, ElementKind, SCREEN_SIZE, SceneElement,
     SceneImages, SceneKind, SceneParams, SkyTime,
 };
+pub use border_push_back::BorderPushBack;
 pub use bubble::{Bubble, BubbleMode};
 pub use camera::CameraView;
 pub use camera_image::CameraImage;
@@ -93,6 +96,7 @@ pub use decal::CustomDecal;
 pub use distant_lightning::DistantLightning;
 pub use dripping_sound::DrippingSound;
 pub use dust_puff::{DustPuff, DustpuffSpawner};
+pub use electric_death::{ElectricDeath, LightFlash, SparkFlash, Strike, WallSpark};
 pub use float_ext::FloatExt;
 pub use game::{
     CameraMove, GameOver, Grabability, HeavyAiThrottle, HudEvent, NewGameWorld, OverseerCall,

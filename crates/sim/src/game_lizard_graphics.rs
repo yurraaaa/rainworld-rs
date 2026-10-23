@@ -250,6 +250,15 @@ impl RainWorldGame {
     /// Cosmetic `id`'s `Update` in room `index`, reading the graphics of the lizard it
     /// belongs to.
     pub(super) fn run_cosmetic(&mut self, index: i32, id: u64) {
+        let spark_flash = self
+            .world
+            .room_cosmetics(index)
+            .iter()
+            .any(|c| c.id == id && matches!(c.kind, CosmeticKind::SparkFlash(_)));
+        if spark_flash {
+            self.run_spark_flash(index, id);
+            return;
+        }
         let Some(c) = self.world.room_cosmetics(index).iter().find(|c| c.id == id) else {
             return;
         };
@@ -260,7 +269,8 @@ impl RainWorldGame {
             CosmeticKind::Spikes(_)
             | CosmeticKind::OverseerEffect(_)
             | CosmeticKind::Bubble(_)
-            | CosmeticKind::Splash(_) => (None, Vec2::ZERO),
+            | CosmeticKind::Splash(_)
+            | CosmeticKind::SparkFlash(_) => (None, Vec2::ZERO),
         };
         let mut tie = CosmeticTie {
             water_level: self

@@ -94,6 +94,10 @@ pub struct RealizedRoom {
     pub dust_puffs: Vec<crate::DustPuff>,
     /// `lightning`, made by `Room.Loaded` for a `Lightning` or `BkgOnlyLightning` effect.
     pub lightning: Option<crate::Lightning>,
+    /// `Room.Loaded`'s `ElectricDeath`s in the room's update list.
+    pub electric_deaths: Vec<crate::ElectricDeath>,
+    /// `Room.Loaded`'s `RoomBorderPushBack`s in the room's update list.
+    pub border_push_backs: Vec<crate::BorderPushBack>,
     /// `backgroundNoise`: what this tick's `MakeBackgroundNoise` calls raised it to.
     background_noise: f32,
     /// `lastBackgroundNoise` (`BackgroundNoise`): last tick's, what hearing reads.
@@ -162,6 +166,8 @@ impl RealizedRoom {
             dripping_sound: None,
             water_sound: None,
             lightning: None,
+            electric_deaths: Vec::new(),
+            border_push_backs: Vec::new(),
             background_noise: 0.0,
             last_background_noise: 0.0,
             social_events: super::social_events::SocialEventRecognizer::default(),
