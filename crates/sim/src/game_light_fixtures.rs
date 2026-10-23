@@ -32,8 +32,8 @@ impl RealizedRoom {
 impl RainWorldGame {
     /// `Room.Loaded`'s `LightFixture` of room `index`: a `Redlight` (`RedSubmersible` too),
     /// a `HolyFire` or a `SlimeMoldLight`, with the lights their constructors add first.
-    /// The electric fixtures (`ZapCoilLight`, `DeepProcessing`) and the DLC's
-    /// `GlowWeedLight` are not made.
+    /// A `ZapCoilLight` is made as well (`game_ss_electric.rs`); `DeepProcessing` and the
+    /// DLC's `GlowWeedLight` are not made.
     pub(super) fn add_light_fixture(&mut self, index: i32, pos: Vec2, data: LightFixtureData) {
         match data.kind {
             Some(LightFixtureType::RedLight) => self.add_redlight(index, pos, data, false),
@@ -46,12 +46,10 @@ impl RainWorldGame {
                     r.fixtures.slime_lights.push(light);
                 }
             }
-            Some(
-                LightFixtureType::ZapCoilLight
-                | LightFixtureType::DeepProcessing
-                | LightFixtureType::GlowWeedLight,
-            )
-            | None => {}
+            Some(LightFixtureType::ZapCoilLight) => {
+                self.add_zap_coil_light(index, pos, data.random_seed);
+            }
+            Some(LightFixtureType::DeepProcessing | LightFixtureType::GlowWeedLight) | None => {}
         }
     }
 
@@ -155,6 +153,12 @@ impl RainWorldGame {
                 }
             }
             FixtureRef::WaterFall(order) => self.run_waterfall(index, order),
+            FixtureRef::LightRod(order) => self.run_light_rod(index, order),
+            FixtureRef::ZapCoil(order) => self.run_zap_coil(index, order),
+            FixtureRef::ZapCoilLoop(order) => self.run_zap_coil_emitter(index, order),
+            FixtureRef::ZapCoilLight(order) => self.run_zap_coil_light(index, order),
+            FixtureRef::ZapFlash(order) => self.run_zap_flash(index, order),
+            FixtureRef::Fuses(order) => self.run_fuses(index, order),
         }
     }
 

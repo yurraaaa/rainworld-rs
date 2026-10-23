@@ -67,6 +67,8 @@ mod sound;
 mod spawn;
 mod splash;
 mod spot_light;
+mod ss_fuses;
+mod ss_light_rod;
 mod token_stalk;
 pub mod trigger;
 mod vec2;
@@ -76,6 +78,7 @@ mod water_drip;
 mod water_sound;
 mod waterfall;
 pub mod world;
+mod zap_coil;
 mod zero_g_speck;
 
 pub use above_clouds_view::AboveCloudsContext;
@@ -141,6 +144,8 @@ pub use sound::{
 pub use spawn::{determine_safe_spawn_tile, place_in_room};
 pub use splash::Splash;
 pub use spot_light::SpotLight;
+pub use ss_fuses::{FuseSetup, SuperStructureFuses};
+pub use ss_light_rod::{LightVessel, ROD_COLOR, RodCamera, SsLightRod};
 pub use token_stalk::{CurveLerp, StalkCoord, TokenStalk};
 pub use vec2::{TileExt, Vec2};
 pub use vec3::Vec3;
@@ -148,6 +153,7 @@ pub use water::{BubbleEmitter, ChunkOwner, SurfaceChunk, Water, WaterObject};
 pub use water_drip::{WaterDrip, WaterGlitter};
 pub use water_sound::WaterSound;
 pub use waterfall::{FallBubble, FallObject, FallSpec, WaterFall};
+pub use zap_coil::{CoilEnv, ZapCoil, ZapCoilLight, ZapFlash};
 pub use zero_g_speck::{BlinkState, SpeckCx, SpeckKind, SpeckType, SporeState, ZeroGSpeck};
 
 #[cfg(test)]
