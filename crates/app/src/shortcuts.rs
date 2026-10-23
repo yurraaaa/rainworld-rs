@@ -136,10 +136,14 @@ impl CameraShortcuts {
     }
 
     /// The player's vessel when it is in the camera's room.
-    fn player_vessel(sim: &RainWorldGame, slugcat: SlugcatName) -> Option<ShortcutVessel> {
+    fn player_vessel(
+        sim: &RainWorldGame,
+        room: i32,
+        slugcat: SlugcatName,
+    ) -> Option<ShortcutVessel> {
         let p = sim
             .player()
-            .filter(|_| sim.player_in_camera_room() && sim.lobby().is_none())?;
+            .filter(|_| sim.player_in_room(room) && sim.lobby().is_none())?;
         Some(ShortcutVessel {
             pos: p.shortcut_vessel_tile()?,
             last_positions: p.shortcut_vessel_last_tile().into_iter().collect(),
@@ -172,7 +176,7 @@ impl CameraShortcuts {
         let vessels: Vec<ShortcutVessel> = sim
             .transport_vessels()
             .filter_map(|v| match v {
-                None => Self::player_vessel(sim, slugcat),
+                None => Self::player_vessel(sim, room, slugcat),
                 Some(v) if v.room == room => {
                     let c = world.creature(v.creature);
                     let (pos, last_positions) = v.positions();

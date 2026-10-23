@@ -20,7 +20,7 @@ impl Game {
         view: &BackgroundSceneView,
         sizes: &SceneImageSizes,
     ) -> Vec<(Drawable, DrawList)> {
-        let Some(r) = self.sim.world().realized(self.sim.camera_room()) else {
+        let Some(r) = self.sim.world().realized(self.shown_room) else {
             return Vec::new();
         };
         let rng = &mut self.graphics.cosmetic;
@@ -44,7 +44,7 @@ impl Game {
         alpha: f32,
         palette: &rw_assets::PaletteTexture,
     ) -> Vec<(Drawable, DrawList)> {
-        let Some(r) = self.sim.world().realized(self.sim.camera_room()) else {
+        let Some(r) = self.sim.world().realized(self.shown_room) else {
             return Vec::new();
         };
         let [red, green, blue, a] = palette.texel(9, 5);
@@ -79,7 +79,7 @@ impl Game {
     /// The images of the camera room's scenes' elements, with how each is sampled.
     #[must_use]
     pub fn camera_scene_images(&self) -> Vec<(&'static str, TextureSampling)> {
-        let Some(r) = self.sim.world().realized(self.sim.camera_room()) else {
+        let Some(r) = self.sim.world().realized(self.shown_room) else {
             return Vec::new();
         };
         let mut images: Vec<(&'static str, TextureSampling)> = Vec::new();
@@ -100,7 +100,7 @@ impl Game {
     /// `None` when the room has no scene (the globals keep what the last one left).
     #[must_use]
     pub fn background_scene_globals(&self, cam_pos: rw_sim::Vec2) -> Option<SceneGlobals> {
-        let r = self.sim.world().realized(self.sim.camera_room())?;
+        let r = self.sim.world().realized(self.shown_room)?;
         let scene = r.background_scenes.last()?;
         let world_cam = if scene.kind() == SceneKind::RoofTopView {
             cam_pos - scene.scene_origo

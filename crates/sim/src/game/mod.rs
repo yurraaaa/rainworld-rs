@@ -1534,7 +1534,13 @@ impl RainWorldGame {
     /// Whether the player is in the camera's room (its body or its vessel).
     #[must_use]
     pub fn player_in_camera_room(&self) -> bool {
-        self.player.is_some() && self.pos().room == self.camera_room
+        self.player_in_room(self.camera_room)
+    }
+
+    /// Whether the player's position is in room `room`.
+    #[must_use]
+    pub fn player_in_room(&self, room: i32) -> bool {
+        self.player.is_some() && self.pos().room == room
     }
 
     #[must_use]

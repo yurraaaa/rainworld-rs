@@ -105,6 +105,8 @@ pub struct Game {
     /// The region's subregions, for the HUD; `None` in a world without a region.
     subregions: Option<Subregions>,
     shortcuts: CameraShortcuts,
+    /// `camera.room`.
+    shown_room: i32,
     sprite_order: SpriteOrder,
 }
 
@@ -718,6 +720,7 @@ impl Game {
         let sim = RainWorldGame::new_story(world, campaign, story, start, rng, sounds);
         log::info!("spawned player");
         Self {
+            shown_room: sim.camera_room(),
             sim,
             graphics,
             start_condition: StartCondition::Dev,
@@ -871,16 +874,34 @@ impl Game {
         self.sim.sounds_mut().take_events()
     }
 
-    /// The camera's room's settings.
+    /// The settings of the room the sim's camera moved to (`VirtualMicrophone.NewRoom`
+    /// runs inside `MoveCamera`).
     #[must_use]
     pub fn settings(&self) -> &RoomSettings {
-        &self.camera_room().settings
+        &self
+            .sim
+            .world()
+            .realized(self.sim.camera_room())
+            .expect("the camera's room stays realized")
+            .settings
+    }
+
+    /// `camera.room`: the room the camera shows. The sim's `camera_room` is already the
+    /// new room while a move waits for `ApplyPositionChange`; the old room's leasers
+    /// draw until then.
+    pub fn set_shown_room(&mut self, room: i32) {
+        self.shown_room = room;
+        self.sync_sprite_order();
+    }
+
+    fn player_in_shown_room(&self) -> bool {
+        self.sim.player_in_room(self.shown_room)
     }
 
     fn camera_room(&self) -> &rw_sim::world::RealizedRoom {
         self.sim
             .world()
-            .realized(self.sim.camera_room())
+            .realized(self.shown_room)
             .expect("the camera's room stays realized")
     }
 
@@ -934,9 +955,7 @@ impl Game {
 
     /// The player while it is in the camera's room (body or vessel).
     fn shown_player(&self) -> Option<&Player> {
-        self.sim
-            .player()
-            .filter(|_| self.sim.player_in_camera_room())
+        self.sim.player().filter(|_| self.player_in_shown_room())
     }
 
     /// The slugcat's sprites at `alpha` between ticks, eyes in the room palette's
@@ -948,10 +967,7 @@ impl Game {
         black_color: Color,
         fog_color: Color,
     ) -> Option<DrawList> {
-        let player = self
-            .sim
-            .player()
-            .filter(|_| self.sim.player_in_camera_room())?;
+        let player = self.sim.player().filter(|_| self.player_in_shown_room())?;
         Some(
             self.graphics
                 .module
@@ -967,7 +983,7 @@ impl Game {
         let world = self.sim.world();
         let pool = world.mycelia();
         let mut shown: Vec<(u64, CreatureId)> = world
-            .room_creatures(self.sim.camera_room())
+            .room_creatures(self.shown_room)
             .iter()
             .filter_map(|&c| {
                 let body = world.creature(c).overseer_body()?;
@@ -993,7 +1009,7 @@ impl Game {
     #[must_use]
     pub fn shelter_draw_list(&self, alpha: f32) -> Option<DrawList> {
         self.sim
-            .shelter_door(self.sim.camera_room())
+            .shelter_door(self.shown_room)
             .map(|d| d.draw(alpha))
     }
 
@@ -1002,7 +1018,7 @@ impl Game {
     /// cosmetic stream), in the palette's black.
     pub fn weapon_draw_lists(&mut self, alpha: f32, black: Color) -> Vec<(Entity, DrawList)> {
         let world = self.sim.world();
-        let room = self.sim.camera_room();
+        let room = self.shown_room;
         let water = world.realized(room).and_then(|r| r.water.as_ref());
         let mut shown = world.room_weapons(room);
         shown.sort_unstable();
@@ -1024,7 +1040,7 @@ impl Game {
     /// cosmetic stream).
     pub fn cosmetic_draw_lists(&mut self, alpha: f32, black: Color) -> Vec<(Drawable, DrawList)> {
         let world = self.sim.world();
-        let Some(room) = world.realized(self.sim.camera_room()) else {
+        let Some(room) = world.realized(self.shown_room) else {
             return Vec::new();
         };
         let mut shown: Vec<_> = room.cosmetics.iter().filter(|c| !c.slated).collect();
@@ -1057,7 +1073,7 @@ impl Game {
     ) -> Vec<(Drawable, DrawList)> {
         let world = self.sim.world();
         let Some(coord) = world
-            .realized(self.sim.camera_room())
+            .realized(self.shown_room)
             .and_then(|r| r.insects.as_ref())
         else {
             return Vec::new();
@@ -1086,7 +1102,7 @@ impl Game {
         alpha: f32,
         palette: &rw_assets::RoomPalette,
     ) -> Vec<(Drawable, DrawList)> {
-        let Some(r) = self.sim.world().realized(self.sim.camera_room()) else {
+        let Some(r) = self.sim.world().realized(self.shown_room) else {
             return Vec::new();
         };
         let mut lists: Vec<(Drawable, DrawList)> = r
@@ -1114,7 +1130,7 @@ impl Game {
         palette: &rw_assets::RoomPalette,
     ) -> Vec<(Drawable, DrawList)> {
         use rw_graphics::{HolyFireSpriteDraw, SlimeMoldLightSprites, WaterFallSprites};
-        let Some(r) = self.sim.world().realized(self.sim.camera_room()) else {
+        let Some(r) = self.sim.world().realized(self.shown_room) else {
             return Vec::new();
         };
         let f = &r.fixtures;
@@ -1148,7 +1164,7 @@ impl Game {
         use rw_graphics::ElectricDeathSprites;
         let world = self.sim.world();
         let screen = world.screen_size();
-        let Some(r) = world.realized(self.sim.camera_room()) else {
+        let Some(r) = world.realized(self.shown_room) else {
             return Vec::new();
         };
         let rng = &mut self.graphics.cosmetic;
@@ -1175,9 +1191,9 @@ impl Game {
         use rw_graphics::{
             CircuitSprites, CoralNeuronSprites, StemFrame, StemSegmentSprites, WallMyceliaSprites,
         };
-        let darkness = self.sim.darkness(self.sim.camera_room());
+        let darkness = self.sim.darkness(self.shown_room);
         let world = self.sim.world();
-        let Some(r) = world.realized(self.sim.camera_room()) else {
+        let Some(r) = world.realized(self.shown_room) else {
             return Vec::new();
         };
         let Some(system) = r.coral.as_ref() else {
@@ -1257,7 +1273,7 @@ impl Game {
             ProjectorSprites, StarMatrixSprites,
         };
         self.sim.update_circle_depths();
-        let Some(r) = self.sim.world().realized(self.sim.camera_room()) else {
+        let Some(r) = self.sim.world().realized(self.shown_room) else {
             return Vec::new();
         };
         let view = ProjectionView {
@@ -1319,7 +1335,7 @@ impl Game {
         camera: rw_sim::Vec2,
     ) -> Vec<(Drawable, DrawList)> {
         use rw_graphics::{FuseSprites, LightRodSprites, ZapCoilSprites, ZapFlashSprites};
-        let index = self.sim.camera_room();
+        let index = self.shown_room;
         let world = self.sim.world();
         let Some(r) = world.realized(index) else {
             return Vec::new();
@@ -1371,7 +1387,7 @@ impl Game {
         camera: rw_sim::Vec2,
     ) -> Vec<(Drawable, DrawList)> {
         use rw_graphics::{DeepProcessingSprites, DisruptorSpeckSprites, GravityDisruptorSprites};
-        let Some(r) = self.sim.world().realized(self.sim.camera_room()) else {
+        let Some(r) = self.sim.world().realized(self.shown_room) else {
             return Vec::new();
         };
         let f = &r.fixtures;
@@ -1405,7 +1421,7 @@ impl Game {
         alpha: f32,
         palette: &PaletteTexture,
     ) -> Vec<(Drawable, DrawList)> {
-        let room = self.sim.camera_room();
+        let room = self.shown_room;
         let Some(r) = self.sim.world().realized(room) else {
             return Vec::new();
         };
@@ -1469,7 +1485,7 @@ impl Game {
     /// The camera room's `CustomDecal`s and `Rainbow`s (the camera's `ghostMode` is 0).
     #[must_use]
     pub fn placed_visual_draw_lists(&self) -> Vec<(Drawable, DrawList)> {
-        let Some(r) = self.sim.world().realized(self.sim.camera_room()) else {
+        let Some(r) = self.sim.world().realized(self.shown_room) else {
             return Vec::new();
         };
         let mut lists: Vec<(Drawable, DrawList)> = r
@@ -1489,7 +1505,7 @@ impl Game {
     /// camera position `camera`. A beam's sprites are made again when the camera
     /// enters the room (`InitiateSprites`).
     pub fn placed_light_draw_lists(&mut self, camera: usize) -> Vec<(Drawable, DrawList)> {
-        let index = self.sim.camera_room();
+        let index = self.shown_room;
         let Some(r) = self.sim.world().realized(index) else {
             return Vec::new();
         };
@@ -1532,7 +1548,7 @@ impl Game {
     pub fn camera_room_decal_images(&self) -> Vec<&str> {
         self.sim
             .world()
-            .realized(self.sim.camera_room())
+            .realized(self.shown_room)
             .map_or_else(Vec::new, |r| {
                 r.decals
                     .iter()
@@ -1546,7 +1562,7 @@ impl Game {
     /// the cosmetic stream).
     pub fn lizard_draw_lists(&mut self, alpha: f32, black: Color) -> Vec<(Entity, DrawList)> {
         let world = self.sim.world();
-        let camera_room = self.sim.camera_room();
+        let camera_room = self.shown_room;
         let realized: Vec<EntityId> = world
             .creatures()
             .filter(|(_, c)| c.lizard().is_some_and(|l| l.graphics.is_some()))
@@ -1609,7 +1625,7 @@ impl Game {
                 Some(Move::ToDefault(Drawable::Entity(Entity::Creature(c))))
             })
             .collect();
-        let room = self.sim.camera_room();
+        let room = self.shown_room;
         self.sprite_order.update(room, &present, &moves, &late);
     }
 
@@ -1634,7 +1650,7 @@ impl Game {
     /// (`physicalObjects[0]`: flies, overseers; `[1]`: lizards, a first player).
     fn present_drawables(&self) -> Vec<Present> {
         let world = self.sim.world();
-        let room = self.sim.camera_room();
+        let room = self.shown_room;
         let mut present = Vec::new();
         if let Some(p) = self.shown_player()
             && !p.in_shortcut()
@@ -1907,7 +1923,7 @@ impl Game {
         cam_pos: Vec2,
         darkness: f32,
     ) -> Vec<(Drawable, DrawList)> {
-        let index = self.sim.camera_room();
+        let index = self.shown_room;
         let Some(room) = self.sim.world().realized(index) else {
             return Vec::new();
         };
@@ -1961,7 +1977,7 @@ impl Game {
         let shader_light = self.sim.world().rain_cycle.shader_light();
         self.sim
             .world()
-            .realized(self.sim.camera_room())
+            .realized(self.shown_room)
             .map_or_else(Vec::new, |r| {
                 r.light_sources
                     .iter()
@@ -2018,7 +2034,7 @@ impl Game {
         alpha: f32,
         palette: DripPalette,
     ) -> Vec<(Drawable, DrawList)> {
-        let Some(room) = self.sim.world().realized(self.sim.camera_room()) else {
+        let Some(room) = self.sim.world().realized(self.shown_room) else {
             return Vec::new();
         };
         let glitter = room.water_glitter;
@@ -2037,7 +2053,7 @@ impl Game {
     /// realized.
     pub fn fly_draw_lists(&mut self, alpha: f32, black: Color) -> Vec<(Entity, DrawList)> {
         let world = self.sim.world();
-        let camera_room = self.sim.camera_room();
+        let camera_room = self.shown_room;
         let shown: Vec<CreatureId> = world
             .creatures()
             .filter(|(_, c)| {
@@ -2095,11 +2111,8 @@ impl Game {
 
     /// The shortcut graphics' room and `waitingForRoomToGenerateShortcuts`.
     #[must_use]
-    pub fn shortcut_wait(&self) -> Option<crate::mcp::reply::ShortcutGraphicsState> {
-        Some(crate::mcp::reply::ShortcutGraphicsState {
-            room: self.shortcuts.room()?,
-            waiting: self.shortcuts.waiting(),
-        })
+    pub fn shortcut_wait(&self) -> Option<(i32, bool)> {
+        Some((self.shortcuts.room()?, self.shortcuts.waiting()))
     }
 
     /// The camera room palette's earth colour, which the overseers' hologram colour
@@ -2118,7 +2131,7 @@ impl Game {
         screen_size: Vec2,
     ) -> Vec<DrawList> {
         let world = self.sim.world();
-        let camera_room = self.sim.camera_room();
+        let camera_room = self.shown_room;
         let live: Vec<u64> = world
             .creatures()
             .filter_map(|(_, c)| c.overseer_body())
@@ -2275,7 +2288,7 @@ impl Game {
     #[must_use]
     pub fn debug_bodies(&self) -> Vec<(&PhysicalObject, BodyStatus, DebugBody)> {
         use rw_sim::creature::RealizedCreature as R;
-        let room = self.sim.camera_room();
+        let room = self.shown_room;
         let world = self.sim.world();
         let mut list = Vec::new();
         for (_, c) in world.creatures() {
@@ -2309,7 +2322,7 @@ impl Game {
     #[must_use]
     pub fn vessel_tile(&self) -> Option<(i32, i32)> {
         self.shown_player()?;
-        self.sim.player_vessel_tile(self.sim.camera_room())
+        self.sim.player_vessel_tile(self.shown_room)
     }
 
     /// What the room camera follows: the player's first chunk and input, or the centre

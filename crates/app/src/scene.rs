@@ -219,7 +219,7 @@ impl Scene {
 
     /// `DeathFallGraphic.InitiateSprites` for the camera room's, as the camera enters.
     fn initiate_death_fall(&mut self) {
-        let index = self.game.sim().camera_room();
+        let index = self.camera_room;
         if let Some(r) = self.game.sim_mut().world_mut().realized_mut(index)
             && let Some(fall) = &mut r.death_fall
         {
@@ -230,7 +230,7 @@ impl Scene {
     /// `RoomCamera.ChangeRoom`'s `WaterLight` for the camera's new room.
     fn new_water_light(&self) -> Option<WaterLight> {
         let sim = self.game.sim();
-        let realized = sim.world().realized(sim.camera_room())?;
+        let realized = sim.world().realized(self.camera_room)?;
         WaterLight::new(&realized.room, self.game.water(), &realized.settings)
     }
 
@@ -238,7 +238,7 @@ impl Scene {
     /// else the death fall's height + 180, else 0; `None` in gates and shelters.
     fn water_line(&self) -> Option<f32> {
         let sim = self.game.sim();
-        let data = sim.world().abstract_room(sim.camera_room())?;
+        let data = sim.world().abstract_room(self.camera_room)?;
         if data.gate() || data.shelter() {
             return None;
         }
@@ -270,6 +270,8 @@ impl Scene {
     /// `loadingCameraPos`).
     fn queue_camera_move(&mut self) {
         if let Some(mv) = self.game.take_camera_move() {
+            // `MoveCamera` calls `virtualMicrophone.NewRoom` itself.
+            self.entered_room |= mv.room != self.camera_room;
             self.pending_move = Some(mv);
         }
     }
@@ -286,8 +288,8 @@ impl Scene {
         self.map_order.camera_moved();
         if mv.room != self.camera_room {
             self.camera_room = mv.room;
+            self.game.set_shown_room(mv.room);
             self.game.new_shortcut_room(mv.room);
-            self.entered_room = true;
             log::info!("camera in {}", self.game.room().name());
             self.camera = RoomCamera::new(
                 self.game.room().cameras(),
@@ -353,7 +355,7 @@ impl Scene {
     #[must_use]
     pub fn death_fall(&self) -> Option<&rw_sim::DeathFall> {
         let sim = self.game.sim();
-        sim.world().realized(sim.camera_room())?.death_fall.as_ref()
+        sim.world().realized(self.camera_room)?.death_fall.as_ref()
     }
 
     /// The camera's `WaterLight` and its alpha at the palette's darkness.
@@ -738,10 +740,7 @@ impl Scene {
             .visuals
             .as_ref()
             .map_or(rw_graphics::Color::BLACK, Visuals::fog_color);
-        // Until the camera applies its move the old room's image is up and the new room's
-        // drawables are not yet in it (`ChangeRoom` adds them), so they are left out.
-        let room_shown = self.pending_move.is_none();
-        let mut sprites = if target.sprites.is_some() && room_shown {
+        let mut sprites = if target.sprites.is_some() {
             self.game.draw_list(alpha, face, fog)
         } else {
             None
@@ -767,7 +766,7 @@ impl Scene {
         };
         // Every drawable's sprites, in camera 0's container order.
         let has_player_sprites = sprites.is_some();
-        let objects = if target.sprites.is_some() && room_shown {
+        let objects = if target.sprites.is_some() {
             self.game.sync_sprite_order();
             let player = Drawable::Entity(rw_sim::item::Entity::Creature(
                 self.game.sim().player_creature(),
@@ -911,7 +910,7 @@ impl Scene {
             }
         };
         let holograms = match &level {
-            Some(view) if target.sprites.is_some() && room_shown => self.game.hologram_draw_lists(
+            Some(view) if target.sprites.is_some() => self.game.hologram_draw_lists(
                 alpha,
                 rw_sim::Vec2::from(view.origin),
                 rw_sim::Vec2::from(self.camera.screen_size()),

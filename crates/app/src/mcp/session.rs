@@ -584,7 +584,10 @@ impl Session {
                 room: m.room,
                 camera: m.camera,
             }),
-            shortcut_graphics: scene.game().shortcut_wait(),
+            shortcut_graphics: scene
+                .game()
+                .shortcut_wait()
+                .map(|(room, waiting)| super::reply::ShortcutGraphicsState { room, waiting }),
             death_fall: DeathFallState::all(sim.world()),
             water_light: scene.water_light().map(WaterLightState::from),
             level_params: scene.level_state().map(LevelParamsState::from),

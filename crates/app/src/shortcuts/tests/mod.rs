@@ -9,37 +9,45 @@ use rw_sim::{Input, Vec2};
 use crate::game::Game;
 use crate::game::tests::pipe_room;
 
-fn palette() -> ShortcutPalette {
-    ShortcutPalette {
-        colors: [
-            Color::rgb(0.1, 0.0, 0.0),
-            Color::rgb(0.5, 0.0, 0.0),
-            Color::rgb(0.9, 0.0, 0.0),
-        ],
-        symbol: Color::rgb(0.0, 0.0, 1.0),
+/// What the tests ask of a game showing the test room.
+trait ShortcutTestGame {
+    /// The room before its first tick, shown by camera 0.
+    fn waiting_room() -> Game;
+    fn is_ready(&self) -> bool;
+    fn is_waiting(&self) -> bool;
+    /// One `ShortcutGraphics.Draw`; whether it made sprites.
+    fn draw_once(&mut self) -> bool;
+}
+
+impl ShortcutTestGame for Game {
+    fn waiting_room() -> Game {
+        let mut g = Game::new_unticked(pipe_room(), &RoomSettings::ANCESTOR, 1, Some((2, 1)));
+        g.new_shortcut_room(0);
+        g
     }
-}
 
-/// The room before its first tick, shown by camera 0.
-fn waiting_game() -> Game {
-    let mut g = Game::new_unticked(pipe_room(), &RoomSettings::ANCESTOR, 1, Some((2, 1)));
-    g.new_shortcut_room(0);
-    g
-}
+    fn is_ready(&self) -> bool {
+        self.sim()
+            .world()
+            .realized(0)
+            .is_some_and(|r| r.shortcuts_ready())
+    }
 
-fn ready(g: &Game) -> bool {
-    g.sim()
-        .world()
-        .realized(0)
-        .is_some_and(|r| r.shortcuts_ready())
-}
+    fn is_waiting(&self) -> bool {
+        self.shortcut_wait().is_some_and(|(_, waiting)| waiting)
+    }
 
-fn is_waiting(g: &Game) -> bool {
-    g.shortcut_wait().is_some_and(|s| s.waiting)
-}
-
-fn draw(g: &mut Game) -> bool {
-    g.shortcut_draw_list(palette(), Vec2::ZERO).is_some()
+    fn draw_once(&mut self) -> bool {
+        let palette = ShortcutPalette {
+            colors: [
+                Color::rgb(0.1, 0.0, 0.0),
+                Color::rgb(0.5, 0.0, 0.0),
+                Color::rgb(0.9, 0.0, 0.0),
+            ],
+            symbol: Color::rgb(0.0, 0.0, 1.0),
+        };
+        self.shortcut_draw_list(palette, Vec2::ZERO).is_some()
+    }
 }
 
 /// `Draw` polls while `waitingForRoomToGenerateShortcuts`: no sprites and no draws until
@@ -47,34 +55,34 @@ fn draw(g: &mut Game) -> bool {
 /// the next one draws.
 #[test]
 fn draw_waits_until_the_room_is_shortcuts_ready() {
-    let mut g = waiting_game();
-    assert!(!ready(&g));
-    assert!(is_waiting(&g));
+    let mut g = Game::waiting_room();
+    assert!(!g.is_ready());
+    assert!(g.is_waiting());
     assert!(g.shortcut_graphics().is_none());
-    while !ready(&g) {
+    while !g.is_ready() {
         let rng = g.cosmetic_rng().clone();
-        assert!(!draw(&mut g));
-        assert!(is_waiting(&g));
+        assert!(!g.draw_once());
+        assert!(g.is_waiting());
         assert_eq!(g.cosmetic_rng(), &rng);
         g.tick(Input::NONE);
     }
     let rng = g.cosmetic_rng().clone();
-    assert!(!draw(&mut g), "the poll that generates draws nothing");
-    assert!(!is_waiting(&g));
+    assert!(!g.draw_once(), "the poll that generates draws nothing");
+    assert!(!g.is_waiting());
     assert!(g.shortcut_graphics().is_some());
-    assert!(draw(&mut g));
+    assert!(g.draw_once());
     assert_eq!(g.cosmetic_rng(), &rng, "no pipe blinks: no draws");
 }
 
 /// A room that is `shortCutsReady` when `NewRoom` runs generates at once.
 #[test]
 fn new_room_of_a_ready_room_does_not_wait() {
-    let mut g = waiting_game();
-    while !ready(&g) {
+    let mut g = Game::waiting_room();
+    while !g.is_ready() {
         g.tick(Input::NONE);
     }
     g.new_shortcut_room(0);
-    assert!(!is_waiting(&g));
+    assert!(!g.is_waiting());
     assert!(g.shortcut_graphics().is_some());
 }
 
@@ -83,11 +91,11 @@ fn new_room_of_a_ready_room_does_not_wait() {
 /// flashing (`shortcutsBlinking[k, 3] < 0`) one for its glow's scale.
 #[test]
 fn blinking_draws_in_the_games_order() {
-    let mut g = waiting_game();
-    while !ready(&g) {
+    let mut g = Game::waiting_room();
+    while !g.is_ready() {
         g.tick(Input::NONE);
     }
-    draw(&mut g);
+    g.draw_once();
     g.sim_mut()
         .world_mut()
         .realized_mut(0)
@@ -95,7 +103,7 @@ fn blinking_draws_in_the_games_order() {
         .expect("blinking rows")
         .blink(None, Some(0), 1.0);
     let before = g.cosmetic_rng().clone();
-    assert!(draw(&mut g));
+    assert!(g.draw_once());
     let mut want: UnityRandom = before.clone();
     want.value();
     want.value();
@@ -111,11 +119,11 @@ fn blinking_draws_in_the_games_order() {
 /// A flashing entrance on a pipe that is not lit draws once and skips the pipe's three.
 #[test]
 fn a_flashing_entrance_alone_draws_once() {
-    let mut g = waiting_game();
-    while !ready(&g) {
+    let mut g = Game::waiting_room();
+    while !g.is_ready() {
         g.tick(Input::NONE);
     }
-    draw(&mut g);
+    g.draw_once();
     g.sim_mut()
         .world_mut()
         .realized_mut(0)
@@ -124,6 +132,6 @@ fn a_flashing_entrance_alone_draws_once() {
         .blink(Some(0), None, 1.0);
     let mut want = g.cosmetic_rng().clone();
     want.value();
-    assert!(draw(&mut g));
+    assert!(g.draw_once());
     assert_eq!(g.cosmetic_rng(), &want);
 }

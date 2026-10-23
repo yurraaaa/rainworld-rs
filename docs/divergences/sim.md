@@ -832,8 +832,10 @@ second part, else a single-room world for arena levels). The campaign descriptio
   `waitingForRoomToGenerateShortcuts` until the room is `shortCutsReady`. What stays: the
   sim's `camera_moves_to` still switches the camera room, `NoLongerViewed`/`NowViewed` and
   `camerasChangedTick` at the move, not at the apply (OPEN-ITEMS, "Camera room switches
-  mid-tick"); and while a room move waits, the frame draws the old room's image without
-  the new room's drawables (the game's `ChangeRoom` has not added them yet). A queued
+  mid-tick"); while a room move waits the frame keeps drawing the old room: its image
+  and, as the game's old leasers do, its creatures, items and holograms (the app's
+  `shown_room` is `camera.room`; the sprite order changes room at the apply). The player,
+  whose leaser left the old room when it went into the shortcut, is not drawn that frame. A queued
   image is always ready (decoding is at once), so only the cut to an unqueued camera and a
   room move wait; the game's `preLoadedBKG` case (a room with a `_N_bkg.png`) is not
   modelled.
