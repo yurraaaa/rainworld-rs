@@ -404,8 +404,11 @@ impl World {
         let first_time = !self.loaded_before[i];
         self.place_room_items(index, &loaded.room, &loaded.settings, first_time, ids, rng);
         self.loaded_before[i] = true;
+        let data = &self.data.rooms[i];
+        let shelter_or_gate = data.shelter() || data.gate();
         self.realized[i] = Some(RealizedRoom::new(
             loaded,
+            shelter_or_gate,
             self.timeline,
             self.mods,
             first_time,

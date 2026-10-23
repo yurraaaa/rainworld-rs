@@ -10,6 +10,7 @@
 use std::sync::Arc;
 
 use rw_assets::world::{FixedRoom, LoadedRoom, WorldData};
+use rw_assets::{AbstractRoomNode, NodeType};
 use rw_assets::{ActiveMods, CreatureType, PlacedObject, RoomSettings};
 use rw_random::UnityRandom;
 
@@ -45,6 +46,8 @@ struct Setup<'a> {
     placed: &'a str,
     rock: bool,
     counted_fly: bool,
+    /// A side exit node after the shortcut nodes (test rooms have no baked nodes).
+    side_exit: bool,
 }
 
 /// A Survivor story in `rows` under `schedule`, the player at (2, 3), no tick run: the
@@ -55,7 +58,17 @@ fn game(
     schedule: LoadingSchedule,
 ) -> (RainWorldGame, Option<ObjectId>) {
     let room = room(rows);
-    let data = WorldData::from_room(&room);
+    let mut data = WorldData::from_room(&room);
+    if setup.side_exit {
+        data.rooms[0].nodes.push(AbstractRoomNode {
+            kind: NodeType::SideExit,
+            shortcut_length: -1,
+            submerged: false,
+            viewed_by_camera: -1,
+            entrance_width: 1,
+            connectivity: Default::default(),
+        });
+    }
     let settings = RoomSettings {
         random_item_density: 0.0,
         placed_objects: PlacedObject::parse_list(setup.placed),
@@ -251,4 +264,33 @@ fn ai_map_ready_comes_after_the_creatures() {
     assert!(system.built);
     let lizard = g.world.lizard_ref(l).update_order;
     assert!(system.wall_mycelia.iter().all(|w| w.update_order > lizard));
+}
+
+/// A room open at its left edge from y 3 up: the `ShortcutMapper` constructor made its
+/// border exits at realization, so during stage 1 (no AI map yet) `LocalCoordinateOfNode`
+/// of the side exit node draws `Range(0, tiles)` and gives one of its edge tiles.
+#[test]
+fn a_border_exit_node_has_its_tiles_before_the_ai_map() {
+    let mut rows = rows();
+    for row in &mut rows[..17] {
+        row.replace_range(..1, ".");
+    }
+    let setup = Setup {
+        side_exit: true,
+        ..Setup::default()
+    };
+    let (mut g, _) = game(&refs(&rows), &setup, LoadingSchedule::GAME_MINIMUM);
+    g.update_loading_rooms(&mut ());
+    let r = g.world.realized(0).unwrap();
+    assert_eq!(r.loading_progress(), 1);
+    assert!(r.ai_map.is_none());
+    let tiles = r.border_exits[0].tiles.clone();
+    assert_eq!(r.border_exits[0].kind, NodeType::SideExit);
+    assert_eq!(tiles.len(), 17);
+    assert!(tiles.iter().all(|&(x, y)| x == 0 && y >= 3));
+    let mut expect = g.rng.clone();
+    let i = expect.range_i32(0, 17) as usize;
+    let at = g.world.local_coordinate_of_node(0, 0, &mut g.rng);
+    assert_eq!(at, tiles[i]);
+    assert_eq!(g.rng.state(), expect.state());
 }

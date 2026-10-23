@@ -795,17 +795,25 @@ second part, else a single-room world for arena levels). The campaign descriptio
   slugcat's; the game orders a container by when each graphics module joined it (flies
   realized before the player's body sit under it).
 - **Synchronous loading.** The game's `RoomPreparer` loads a room over several frames
-  (and `RoomCamera.MoveCamera` its images asynchronously); the port reads the room and
-  runs `Room.Loaded` on the realizing call, as the game does, but its preparer
-  (`world/room_preparer.rs`) runs under `LoadingSchedule::Immediate`: both stages
-  (`ShortCutsReady`, `ReadyForAI`, in their game order and content) come in the loading
-  step of the tick the room is activated (the start room's in the constructor), where
-  the game's thread delivers them one call apart at the earliest (`GAME_MINIMUM`, not
-  yet on). The room-side part of `Room.Loaded` after the items (shelter door, death fall,
-  effects, placed objects, scripts, triggers, dripping sound) runs after the items, where
-  the game makes the items between the scripts and the triggers. Abstracting a loading
-  room drops its preparer; the game's keeps handing stages to the dropped `Room`
-  (unreachable: `CanAbstractizeRoom` needs `fullyLoaded`). A room is therefore `fullyLoaded` sooner than in the game: a room exit's
+  (and `RoomCamera.MoveCamera` its images asynchronously). The port reads the room,
+  builds its border exits (the `ShortcutMapper` constructor) and runs `Room.Loaded` on
+  the realizing call, as the game does, so a room realized mid-tick has its `Loaded`
+  objects and water updated by that tick's active-room loop, as in the game's
+  `RainWorldGame.Update` order (a fix towards the game: before step A they were made at
+  the end of the tick, and runs where a neighbour realizes, e.g. `UW_A03`, `SS_D04`,
+  diverge from then on). Its preparer (`world/room_preparer.rs`) runs under
+  `LoadingSchedule::Immediate`: both stages (`ShortCutsReady`, `ReadyForAI`, in their
+  game order and content) come in the loading step of the tick the room is activated
+  (the start room's in the constructor), where the game's thread delivers them one call
+  apart at the earliest (`GAME_MINIMUM`, not yet on). The room-side part of
+  `Room.Loaded` after the items (shelter door, death fall, effects, placed objects,
+  scripts, triggers, dripping sound) runs after the items, where the game makes the
+  items between the scripts and the triggers. Abstracting a loading room drops its
+  preparer. The game's stays in `loadingRooms` (`Abstractize` does not remove it) and
+  hands its stages to the dropped `Room`; this is reachable with Remix off, as
+  `RoomRealizer.RemoveNotVisitedRooms` abstracts unvisited rooms without checking
+  `fullyLoaded`. Under Immediate a room cannot be abstracted while loading, so dropping
+  cannot matter; step B decides it. A room is therefore `fullyLoaded` sooner than in the game: a room exit's
   destination (activated when the player goes in) is always loaded by the time the
   vessel reaches the exit node, so the lobby only waits out the room's entry delay
   (`waitToEnterAfterFullyLoaded`, counting from the tick it loaded), and the
@@ -1079,9 +1087,8 @@ Cosmetic insects (`rw_sim::insect`, effects step 3): `InsectCoordinator.Explosio
 fleeing an explosion), `NowViewed`'s early-out in an echo's room
 (`worldGhost.CreaturesSleepInRoom`; no echoes yet) and terrain curves in their point
 collision. The coordinator's `NowViewed` runs at the head of the tick after the camera
-moved, as the game's `RoomCamera.ChangeRoom` does; a room's water surface is made only
-when it finishes loading (D14), so an insect rolled before that reads the still water
-level.
+moved, as the game's `RoomCamera.ChangeRoom` does; a room's water surface is made on
+the realizing call (`Room.Loaded`'s `AddWater`), before any `NowViewed` of the room.
 
 ## D25: Lightning (omitted DLC branches and draw-time draws)
 

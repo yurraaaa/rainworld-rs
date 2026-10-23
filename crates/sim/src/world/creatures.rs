@@ -1016,9 +1016,8 @@ impl World {
                 let exits = realized.room.shortcut_map().nodes().len();
                 let index = usize::try_from(node).unwrap_or(0).saturating_sub(exits);
                 let tiles = realized
-                    .ai_map
-                    .as_ref()
-                    .and_then(|m| m.border_exits().get(index))
+                    .border_exits
+                    .get(index)
                     .map(|e| e.tiles.as_slice())
                     .unwrap_or_default();
                 let len = i32::try_from(tiles.len()).unwrap_or(i32::MAX);

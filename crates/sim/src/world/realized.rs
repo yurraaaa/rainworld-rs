@@ -6,7 +6,9 @@
 use std::sync::Arc;
 
 use rw_assets::world::LoadedRoom;
-use rw_assets::{ActiveMods, CreatureType, Room, RoomEffectType, RoomSettings, Timeline};
+use rw_assets::{
+    ActiveMods, CreatureType, Room, RoomBorderExit, RoomEffectType, RoomSettings, Timeline,
+};
 
 use super::AiMap;
 use crate::creature::CreatureTemplate;
@@ -45,6 +47,8 @@ pub struct RealizedRoom {
     pub scripts: Vec<RoomScript>,
     /// The scripts' place in the update list.
     pub script_order: u64,
+    /// `borderExits`, made by the `ShortcutMapper` constructor at realization.
+    pub border_exits: Vec<RoomBorderExit>,
     /// `aimap`, made by the preparer's thread before `ReadyForAI`.
     pub ai_map: Option<Arc<AiMap>>,
     /// `fliesRoomAi`, made by the first fly that enters.
@@ -179,10 +183,11 @@ impl RealizedRoom {
         }
     }
 
-    /// `new Room` plus `Room.Loaded`'s water and entry delay (from the room's effects
+    /// `new Room`, the `ShortcutMapper` constructor's border exits, `Room.Loaded`'s water and entry delay (from the room's effects
     /// and placed objects).
     pub(crate) fn new(
         loaded: LoadedRoom,
+        shelter_or_gate: bool,
         timeline: Timeline,
         mods: ActiveMods,
         first_time_realized: bool,
@@ -190,6 +195,7 @@ impl RealizedRoom {
         let wait = Self::entry_delay(&loaded.settings, timeline, mods);
         let insects = crate::insect::InsectCoordinator::for_room(&loaded.settings, timeline, mods);
         let ceiling_tiles = Self::find_ceiling_tiles(&loaded.room);
+        let border_exits = loaded.room.border_exits(shelter_or_gate);
         let water = Water::new(&loaded.room, &loaded.settings);
         let water_sound = water
             .as_ref()
@@ -204,6 +210,7 @@ impl RealizedRoom {
             first_time_realized,
             scripts: Vec::new(),
             script_order: 0,
+            border_exits,
             ai_map: None,
             flies_room_ai: None,
             shortcuts_blinking: None,

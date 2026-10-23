@@ -33,8 +33,8 @@ and order tests. Notes: `../../rainworld-re/notes/lights.md` (fixtures) and
   `Creature` and `DiscomfortTracker` read.
 - Note, not a divergence: as in the game, a `WaterFall` is built while `waterObject` is
   null, so its first `strikeLevel` is -200 (`bottomPos` starts there and the terrain tiles
-  it drips off are every solid tile under it down to row -9); `Water` joins it when the
-  room finishes loading. Afterwards the strike level is the water's still level less 10
+  it drips off are every solid tile under it down to row -9); `Water` joins it in
+  `Room.Loaded`'s `AddWater`, on the realizing call. Afterwards the strike level is the water's still level less 10
   (Remix off), which does not move (no flooding, no `WaterCutoff`, D11).
 - **Omitted DLC and Remix branches:** `waterInverted` rooms (the inverted strike level,
   `WaterFallInverted` shader, the upward drips and bubbles), `PointSubmerged` and the
