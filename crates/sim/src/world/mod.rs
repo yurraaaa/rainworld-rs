@@ -438,6 +438,9 @@ impl World {
                 for segment in system.stems.iter().flat_map(|stem| &stem.segments) {
                     self.mycelia.release_owner(segment.owner);
                 }
+                for connector in system.circuits.iter().flat_map(|c| &c.connectors) {
+                    self.mycelia.release_owner(connector.owner);
+                }
                 self.mycelia.drop_registry(system.id);
             }
             log::info!("abstracted room {}", self.data.rooms[i].name);

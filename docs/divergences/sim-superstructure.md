@@ -448,6 +448,9 @@ Ported in `crates/sim/src/{coral_circuit,circuit_connector,circuit_crab,game_cor
 - **`graphicsModule != null`** (the condition of remembering a bit and its sound) is the observer's
   `has_player_graphics` (false with no graphics, as in the headless tests); the game's is "the room is
   being viewed by a camera when the player is added", true for the camera's room.
+- **The hands** (`SlugcatHand.Update`'s `ZeroGSwim` branch) reach for the
+  bit of their side's `swimBits` while the head is within 30 px of it (`rw-graphics` `hand.rs`); the
+  bit's position is the one the player last saw (refreshed at the start of its turn).
 - **The player's `analogueDir`** is the keys' (D34); with no direction held `DirVec(0, (0, 0))` is
   (0, 1) as the game's (up), so a collision with no input kicks the bit along `(0, 1)`.
 - **`maze` is sampled at its first mip.** The shaders' `tex2D(_MainTex, window)` reads the maze

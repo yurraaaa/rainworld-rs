@@ -557,10 +557,10 @@ impl SlugcatHand {
         free
     }
 
-    /// `BodyModeIndex.ZeroG`: on a beam the hands alternate along it; floating they grab a
-    /// wall within reach, flail with the body's turning, or paddle relative to it. Returns
-    /// whether the hand is free (nothing to do). The coral circuit's swim bits are not
-    /// ported (always none).
+    /// `BodyModeIndex.ZeroG`: on a beam the hands alternate along it; floating they reach for
+    /// the coral circuit bit their side swam through (within 30 px), grab a wall within
+    /// reach, flail with the body's turning, or paddle relative to it. Returns whether the
+    /// hand is free (nothing to do).
     fn zero_g_target(&mut self, cx: &mut HandContext<'_>, sign: f32) -> bool {
         let player = cx.player;
         let (head, hips) = (player.head(), player.hips());
@@ -593,7 +593,12 @@ impl SlugcatHand {
         let mut free = true;
         let speed = head.vel.length();
         let connection = head.pos;
-        if speed < 5.0 {
+        if let Some(bit) = player.swim_bits()[limb].filter(|b| head.pos.dist_less(b.pos, 30.0)) {
+            free = false;
+            self.limb.mode = LimbMode::HuntAbsolutePosition;
+            self.limb.absolute_hunt_pos = bit.pos;
+        }
+        if free && speed < 5.0 {
             self.limb.mode = LimbMode::Dangle;
             let goal = connection
                 + Vec2::new(

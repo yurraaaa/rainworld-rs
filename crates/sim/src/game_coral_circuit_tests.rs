@@ -83,12 +83,7 @@ fn ai_map_ready_builds_a_circuit_per_cluster_after_the_wall_mycelia() {
 #[test]
 fn the_circuit_updates_first_and_the_bits_last() {
     let g = coral_game(PLACED, &[], 1);
-    let list = g.room_update_list(0);
-    let at = |which: CircuitRef| {
-        list.iter()
-            .position(|(_, o)| *o == RoomObject::Circuit(which))
-            .expect("in the list")
-    };
+    let list = UpdateList(g.room_update_list(0));
     let c = &g
         .world
         .realized(0)
@@ -103,10 +98,23 @@ fn the_circuit_updates_first_and_the_bits_last() {
         c.connectors.len() as u32,
     );
     assert!(bits > 0 && crabs > 0 && conns > 0);
-    assert!(at(CircuitRef::Circuit(0)) < at(CircuitRef::Crab(0, crabs - 1)));
-    assert!(at(CircuitRef::Crab(0, 0)) < at(CircuitRef::Connector(0, conns - 1)));
-    assert!(at(CircuitRef::Connector(0, 0)) < at(CircuitRef::Bit(0, bits - 1)));
-    assert!(at(CircuitRef::Bit(0, bits - 1)) < at(CircuitRef::Bit(0, 0)));
+    assert!(list.at(CircuitRef::Circuit(0)) < list.at(CircuitRef::Crab(0, crabs - 1)));
+    assert!(list.at(CircuitRef::Crab(0, 0)) < list.at(CircuitRef::Connector(0, conns - 1)));
+    assert!(list.at(CircuitRef::Connector(0, 0)) < list.at(CircuitRef::Bit(0, bits - 1)));
+    assert!(list.at(CircuitRef::Bit(0, bits - 1)) < list.at(CircuitRef::Bit(0, 0)));
+}
+
+/// A room's update list, newest first.
+struct UpdateList(Vec<(u64, RoomObject)>);
+
+impl UpdateList {
+    /// The place of a circuit object in the walk.
+    fn at(&self, which: CircuitRef) -> usize {
+        self.0
+            .iter()
+            .position(|(_, o)| *o == RoomObject::Circuit(which))
+            .expect("in the list")
+    }
 }
 
 /// The sound lines the circuit and the player play.
@@ -270,4 +278,14 @@ fn a_body_far_from_the_places_is_left_alone() {
             })
             .is_some()
     );
+}
+
+/// A room that is abstractized takes its circuits' strands with it (the connectors' owners
+/// are let go with the system's registry).
+#[test]
+fn abstractizing_the_room_frees_the_connectors_strands() {
+    let mut g = coral_game(PLACED, &[], 1);
+    assert!(g.world.mycelia().live() > 0);
+    g.world.abstractize(0, &mut rw_random::UnityRandom::new(1));
+    assert_eq!(g.world.mycelia().live(), 0);
 }

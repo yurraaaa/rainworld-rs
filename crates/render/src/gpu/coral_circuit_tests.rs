@@ -62,8 +62,7 @@ fn reference(x: u32, y: u32, rain: f32, live: bool) -> Result<Option<f32>, ()> {
         WINDOW[0].lerp_to(WINDOW[0] + WINDOW[2], uv[0]) * MAZE as f32,
         WINDOW[1].lerp_to(WINDOW[1] + WINDOW[3], uv[1]) * MAZE as f32,
     ];
-    let near_texel_edge = |v: f32| (v - v.round()).abs() < 0.02;
-    if (radius - 0.65).abs() < 0.004 || near_texel_edge(window[0]) || near_texel_edge(window[1]) {
+    if (radius - 0.65).abs() < 0.004 || window.iter().any(|v| (v - v.round()).abs() < 0.02) {
         return Err(());
     }
     if radius > 0.65 || lit(window[0] as u32, window[1] as u32) {

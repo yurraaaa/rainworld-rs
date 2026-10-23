@@ -10,6 +10,7 @@ use rw_sim::world::AiMap;
 use rw_sim::{CircuitCx, CircuitPlace, CoralCircuit, MyceliumPool, SystemId, Vec2};
 
 use crate::circuit_draw::{CircuitSprites, MAZE_ELEMENT};
+use crate::decal::Unorm8;
 use crate::draw::{Color, DrawItem, Layer, Shader};
 use crate::tests::room;
 
@@ -72,11 +73,11 @@ fn a_bit_is_a_maze_sprite_with_its_window_in_the_colour() {
     );
     assert_eq!(s.shader, Shader::DeadCoralCircuit);
     // Lower left (324.7, 211.2): (int) 324 % 128 = 68, 211 % 128 = 83; sizes 12 and 8.
-    let byte = |v: f32| (v * 255.0).round() / 255.0;
-    assert!(near(s.color.r, byte(68.0 / 128.0)), "{:?}", s.color);
-    assert!(near(s.color.g, byte(83.0 / 128.0)));
-    assert!(near(s.color.b, byte(12.0 / 128.0)));
-    assert!(near(s.color.a, byte(8.0 / 128.0)));
+    let [r, g, b, a] = [68.0 / 128.0, 83.0 / 128.0, 12.0 / 128.0, 8.0 / 128.0].unorm8();
+    assert!(near(s.color.r, r), "{:?}", s.color);
+    assert!(near(s.color.g, g));
+    assert!(near(s.color.b, b));
+    assert!(near(s.color.a, a));
     assert!(near(s.scale.x, 12.0 / 128.0) && near(s.scale.y, 8.0 / 128.0));
     assert_eq!(
         (s.pos, s.rotation, s.anchor),
