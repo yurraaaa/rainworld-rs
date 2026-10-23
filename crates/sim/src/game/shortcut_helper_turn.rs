@@ -3,8 +3,8 @@
 //! `physicalObjects`, the `ObjectPusher`s' turns), `PopsOutOfDeadShortcuts` and
 //! `CanBePulledIntoShortcut`. Types: [`crate::game::shortcut_helper`].
 //!
-//! Omitted (Remix off, base game): `Room.lockedShortcuts`, the Challenge arena's closed
-//! exits.
+//! Omitted until the Five Pebbles oracle is ported (OPEN-ITEMS): `Room.lockedShortcuts`
+//! (`SSOracleBehavior.LockShortcuts`); also the Challenge arena's closed exits (DLC).
 //!
 //! Mirrors: ShortcutHelper.cs (Update, ObjectPusher.Update, GiveUpVerticalSpitOut,
 //!   PopsOutOfDeadShortcuts, CanBePulledIntoShortcut), Room.cs (ShortCutsReady)
@@ -245,6 +245,19 @@ impl RainWorldGame {
         (!chunks.is_empty()).then_some(chunks)
     }
 
+    /// `PhysicalObject.GoThroughFloors` of a pushed object: every chunk's
+    /// `goThroughFloors`, which reads true while the object can be pulled into a
+    /// shortcut (`grabsDisableFloors` is true outside slugpups).
+    fn pusher_goes_through_floors(&self, owner: ChunkOwner, chunks: &[BodyChunk]) -> bool {
+        let entity = match owner {
+            ChunkOwner::Player => Some(Entity::Creature(self.player_id)),
+            ChunkOwner::Entity(e) => Some(e),
+            ChunkOwner::Segment(_) => None,
+        };
+        entity.is_some_and(|e| self.world.can_be_pulled_into_shortcut(e))
+            || chunks.iter().all(|c| c.go_through_floors)
+    }
+
     /// `ObjectPusher.Update`.
     pub(crate) fn update_object_pusher(
         &mut self,
@@ -268,17 +281,17 @@ impl RainWorldGame {
         if is_creature && !self.pops_out_of_dead_shortcuts(op.owner) {
             op.slated_for_deletion = true;
         }
-        if op.wait_counter > 0 {
-            op.wait_counter -= 1;
-            return;
-        }
-        op.has_been_out_counter += 1;
         // D43: a body that is gone is dropped at once.
         let Some(mut chunks) = self.pusher_chunks(op.owner) else {
             op.slated_for_deletion = true;
             return;
         };
-        self.push_out_of_entrances(index, room, pushers, op, &mut chunks);
+        if op.wait_counter > 0 {
+            op.wait_counter -= 1;
+        } else {
+            op.has_been_out_counter += 1;
+            self.push_out_of_entrances(index, room, pushers, op, &mut chunks);
+        }
         self.sidestep_out_of_entrance(room, op, &mut chunks);
         for (i, c) in chunks.iter().enumerate() {
             if let Some(real) = self.electric_chunk_mut(op.owner, i) {
@@ -343,7 +356,7 @@ impl RainWorldGame {
                     15.0,
                     if up { 0.8 } else { 3.0 },
                 );
-                if up && chunks.iter().all(|c| c.go_through_floors) {
+                if up && self.pusher_goes_through_floors(op.owner, chunks) {
                     for c in chunks.iter_mut() {
                         c.go_through_floors = false;
                     }

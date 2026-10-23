@@ -41,6 +41,7 @@ Gameplay logic belongs in `rw-sim`, not here.
 | `mcp/params.rs`, `mcp/reply.rs` | tool parameter structs (schema docs) and JSON reply types |
 | `mcp/dev_tools.rs` | dev spawns, `set_rain_timer`, `screenshot`/`get_tiles` of another realized room (with its full-screen effect, death fall and water light) |
 | `mcp/tests/death_fall.rs` | `get_state` `death_fall` per realized room; an other-room shot's death fall, effect and water light (`CC_A06`/`CC_H01`, `GW_A07`/`GW_A06`) |
+| `mcp/tests/shortcut_helper.rs` | `get_state` `shortcut_helper` on `SU_C04`: the den as a wrong hole, the head shoved to x 149 |
 | `mcp/background_scene_reply.rs` | `get_state` `background_scene`: per realized room's scene, its kind, elements, the camera's place on it (`camera_world`, `altitude`), each `DistantLightning`'s state, the dust puffs |
 | `mcp/insect_reply.rs` | `get_state` `insects`: per-room cosmetic insects |
 | `mcp/particles_reply.rs` | `get_state` `particles`: per realized room, counts of dandelions, stalks, sparks, specks and spores and the spawners' state |

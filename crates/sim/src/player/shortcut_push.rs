@@ -1,9 +1,8 @@
 //! The player pressing into a wrong shortcut hole: `ShortcutHelper.Update`'s loop over
 //! the room's pushers and `ShortcutPusher.PushPlayerTowardsValidNeighbor`.
 //!
-//! Omitted (Remix off, base game): `Room.lockedShortcuts` (only the Remix-gated
-//! `SB_D03ShortcutLock` and the Five Pebbles oracle fill it) and the Challenge arena's
-//! closed exits.
+//! Omitted until the Five Pebbles oracle is ported (OPEN-ITEMS): `Room.lockedShortcuts`
+//! (`SSOracleBehavior.LockShortcuts`); also the Challenge arena's closed exits (DLC).
 //!
 //! Mirrors: ShortcutHelper.cs (Update, ShortcutPusher.PushPlayerTowardsValidNeighbor)
 

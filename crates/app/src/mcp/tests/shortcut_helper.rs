@@ -2,8 +2,8 @@
 //! absent). `su_c04.txt`: two shortcuts, the creature den at (5, 28) opening right
 //! (a wrong hole) and the pipe.
 
-use super::Session;
-use super::params::{InputParam, SetPlayerParams, StepParams};
+use crate::mcp::Session;
+use crate::mcp::params::{InputParam, SetPlayerParams, StepParams};
 
 #[test]
 fn a_den_is_a_wrong_hole_that_shoves_the_player_out_of_its_mouth() {
@@ -22,7 +22,8 @@ fn a_den_is_a_wrong_hole_that_shoves_the_player_out_of_its_mouth() {
     assert_eq!(den.dir, [1, 0]);
     assert_eq!(den.push_pos, [130.0, 570.0]);
     assert!(h.pushers.iter().filter(|p| !p.wrong_hole).count() == 1);
-    // On the den's push position the head is moved to `pushPos.x + 10 + rad` (19).
+    // The game's box push moves a head inside it to `pushPos.x + 10 + rad` = 130 + 19 = 149
+    // (`ShortcutHelper.Update`'s last block, with `vel.x` += 19); the helper runs before the player in this room's list, whose own update then moves it on to 157.5 (the sim test pins the 149).
     session
         .set_player(&SetPlayerParams {
             tile: Some([6, 28]),
@@ -37,5 +38,5 @@ fn a_den_is_a_wrong_hole_that_shoves_the_player_out_of_its_mouth() {
         .expect("steps");
     let state = session.state().expect("state");
     let head = state.player.as_ref().expect("player").chunks[0].pos;
-    assert!(head[0] > 145.0, "{head:?}");
+    assert_eq!(head[0], 157.5, "{head:?}");
 }

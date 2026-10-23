@@ -332,3 +332,50 @@ fn a_given_up_pusher_does_nothing() {
     g.update_object_pusher(0, &room, &pushers, &mut op);
     assert_eq!((op.counter, g.rng.clone()), (0, before));
 }
+
+fn waiting_rock() -> (
+    crate::RainWorldGame,
+    ChunkOwner,
+    std::sync::Arc<rw_assets::Room>,
+    Vec<ShortcutPusher>,
+) {
+    let (g, rock) = rock_in_the_stub();
+    let r = g.world().realized(0).unwrap();
+    let room = std::sync::Arc::clone(&r.room);
+    let pushers = r.shortcut_helper.as_ref().unwrap().pushers.clone();
+    (g, ChunkOwner::Entity(Entity::Object(rock)), room, pushers)
+}
+
+/// `waitCounter > 0` skips only the push loop: the sidestep block still runs (here the
+/// object is in its recorded shaft column, so it is nudged toward `searchTowardsSide` by
+/// `LerpMap(counter, 20, 180, 0, 0.1)` with `counter` 100 + 1), with no draws.
+#[test]
+fn the_sidestep_runs_while_the_pusher_waits() {
+    let (mut g, owner, room, pushers) = waiting_rock();
+    let before = g.electric_chunk(owner, 0).unwrap();
+    let mut op = ObjectPusher::new(owner);
+    op.wait_counter = 5;
+    op.counter = 100;
+    op.search_towards_side = 1;
+    op.search_towards_side_x_tile = before.pos.tile().0;
+    let rng = g.rng.clone();
+    g.update_object_pusher(0, &room, &pushers, &mut op);
+    let after = g.electric_chunk(owner, 0).unwrap();
+    let push = 101.0_f32.lerp_map(20.0, 180.0, 0.0, 0.1);
+    assert_eq!(after.vel.x, before.vel.x + push);
+    assert_eq!((op.wait_counter, op.has_been_out_counter), (4, 0));
+    assert_eq!(g.rng, rng);
+}
+
+/// The room check runs while waiting too: an object that left the room is slated.
+#[test]
+fn an_object_in_another_room_is_slated_while_it_waits() {
+    let (mut g, owner, room, pushers) = waiting_rock();
+    let mut op = ObjectPusher::new(owner);
+    op.wait_counter = 10;
+    let rng = g.rng.clone();
+    g.update_object_pusher(1, &room, &pushers, &mut op);
+    assert!(op.slated_for_deletion);
+    assert_eq!(op.wait_counter, 9);
+    assert_eq!(g.rng, rng);
+}

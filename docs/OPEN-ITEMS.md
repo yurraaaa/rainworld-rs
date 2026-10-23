@@ -31,6 +31,8 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   not there: the class is not ported). Left (user, 2026-10-23: port when something that uses
   them is reachable): `RoomTransition`'s palette read of a `shortCutsReady` room, and
   `MoveCamera2`'s `preLoadedBKG` case (rooms with a `_bkg` image take the deferred path).
+- `Room.lockedShortcuts` with the SS oracle (base game, 5 `LockShortcuts` calls): `ShortcutHelper`
+  treats a locked shortcut as a wrong hole (D43).
 - **Realizer guards** (user, 2026-10-23; `../rainworld-re/surveys/room-realizer-audit.md`):
   `RoomRealizer.Update`'s `rainCycle.RainGameOver` guard on the random neighbour step comes
   with the rain (M8); the off-screen-den guards are done.
