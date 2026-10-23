@@ -174,7 +174,7 @@ impl World {
         }
     }
 
-    fn surface_chunks_mut(&mut self, e: Entity) -> Option<&mut [BodyChunk]> {
+    pub(crate) fn surface_chunks_mut(&mut self, e: Entity) -> Option<&mut [BodyChunk]> {
         let overseer = matches!(e, Entity::Creature(id)
             if matches!(self.creature(id).realized, Some(RealizedCreature::Overseer(_))));
         if !overseer {

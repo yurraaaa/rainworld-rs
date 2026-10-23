@@ -46,6 +46,19 @@ fn assert_corners(quad: &[RoomVertex; 4], expected: [[f32; 2]; 4]) {
     }
 }
 
+/// A sprite with a NaN scale or colour makes no quad (Unity draws nothing for it).
+#[test]
+fn a_non_finite_sprite_is_not_drawn() {
+    let a = atlas();
+    let ok = sprite("A", [1.0, 1.0], 0.0, Layer::Items);
+    assert!(a.quad(&ok, CAM).is_some());
+    let nan_scale = sprite("A", [f32::NAN, 1.0], 0.0, Layer::Items);
+    assert!(a.quad(&nan_scale, CAM).is_none());
+    let mut nan_alpha = ok;
+    nan_alpha.color.a = f32::NAN;
+    assert!(a.quad(&nan_alpha, CAM).is_none());
+}
+
 #[test]
 fn local_corners_use_the_untrimmed_box_and_trim_offset() {
     let a = atlas();

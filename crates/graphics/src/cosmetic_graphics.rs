@@ -18,6 +18,7 @@ use rw_sim::{
 };
 
 use crate::draw::{Color, DrawItem, DrawList, Layer, Mesh, Shader, Sprite};
+use crate::electric_death::SparkFlashSprites;
 use crate::lizard_draw::LizardReading;
 use crate::lizard_graphics::LizardGraphics;
 use crate::math::{CustomVec, Mathf};
@@ -118,6 +119,11 @@ impl CosmeticSprites for Cosmetic {
             CosmeticKind::Splash(s) => {
                 return DrawList {
                     items: s.sprites(t),
+                };
+            }
+            CosmeticKind::SparkFlash(f) => {
+                return DrawList {
+                    items: f.sprites(t, rng),
                 };
             }
         };

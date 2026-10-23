@@ -171,7 +171,8 @@ impl Graphics {
                 CosmeticKind::Spikes(_)
                 | CosmeticKind::OverseerEffect(_)
                 | CosmeticKind::Bubble(_)
-                | CosmeticKind::Splash(_) => None,
+                | CosmeticKind::Splash(_)
+                | CosmeticKind::SparkFlash(_) => None,
             })
             .collect();
         self.dropped_lizards.retain(|g| used.contains(&g.module));
@@ -1092,6 +1093,31 @@ impl Game {
         lists
     }
 
+    /// The camera room's `ElectricDeath`s at `alpha` between ticks and the frame's camera
+    /// position `cam_pos` (their two draws a light on the cosmetic stream).
+    pub fn electric_death_draw_lists(
+        &mut self,
+        alpha: f32,
+        cam_pos: rw_sim::Vec2,
+    ) -> Vec<(Drawable, DrawList)> {
+        use rw_graphics::ElectricDeathSprites;
+        let world = self.sim.world();
+        let Some(r) = world.realized(self.sim.camera_room()) else {
+            return Vec::new();
+        };
+        let rng = &mut self.graphics.cosmetic;
+        r.electric_deaths
+            .iter()
+            .map(|d| {
+                let intensity = d.intensity(&world.rain_cycle);
+                (
+                    Drawable::ElectricDeath(d.update_order),
+                    d.draw(intensity, cam_pos, alpha, rng),
+                )
+            })
+            .collect()
+    }
+
     /// The camera room's dandelions, stalks, green sparks, specks and spores at `alpha`
     /// between ticks in the camera's `palette` (a new spore's pebble draws on the
     /// cosmetic stream).
@@ -1470,6 +1496,11 @@ impl Game {
                 r.fixtures
                     .drawn_orders()
                     .map(|o| Present::added(Drawable::Fixture(o), o)),
+            );
+            present.extend(
+                r.electric_deaths.iter().map(|d| {
+                    Present::added(Drawable::ElectricDeath(d.update_order), d.update_order)
+                }),
             );
         }
         present

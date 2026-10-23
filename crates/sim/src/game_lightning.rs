@@ -60,21 +60,19 @@ impl LightningRoom for LightningHost<'_> {
 }
 
 impl RainWorldGame {
-    /// `Room.Loaded`'s `lightning` (the first `Lightning` or `BkgOnlyLightning` effect
-    /// of the room), joining the update list.
-    pub(super) fn add_lightning(&mut self, index: i32) {
-        let Some(effect) = self.world.realized(index).and_then(|r| {
-            r.settings.effects.iter().find_map(|e| {
-                let bkg_only = e.kind == RoomEffectType::BkgOnlyLightning.value();
-                (bkg_only || e.kind == RoomEffectType::Lightning.value())
-                    .then_some((e.amount, bkg_only))
-            })
-        }) else {
+    /// `Room.Loaded`'s `lightning` for a `Lightning` or `BkgOnlyLightning` effect: only
+    /// the first of the room is made, joining the update list.
+    pub(super) fn add_lightning(&mut self, index: i32, amount: f32, bkg_only: bool) {
+        if self
+            .world
+            .realized(index)
+            .is_none_or(|r| r.lightning.is_some())
+        {
             return;
-        };
+        }
         let order = self.world.next_update_seq();
         if let Some(r) = self.world.realized_mut(index) {
-            r.lightning = Some(Lightning::new(order, effect.0, effect.1));
+            r.lightning = Some(Lightning::new(order, amount, bkg_only));
         }
     }
 
