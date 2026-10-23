@@ -66,7 +66,8 @@ integration tests.
 | `camera_image.rs` | `CameraImage`: camera 0's level image and palette (`PixelColorAtCoordinate`, effect colours) | `RoomCamera.PixelColorAtCoordinate` |
 | `map_discovery.rs` | per-region discovery textures, base64 PNG form | `PlayerProgression` map textures |
 | `room_script.rs` | room-specific scripts (`RoomScript`: SU_C04 start, SS_E08 gradient gravity), at their own place in the update list | `RoomSpecificScript` |
-| `screen_shake.rs` | camera 0's shake: `CameraShake` (`screenShake`, `microShake`, the per-tick jump at the head of the tick), `ScreenMovement` (camera side, `Room.ScreenMovement` with its ceiling drips), `TerrainImpact`'s bump, `ceilingTiles` | `RoomCamera.Update/ScreenMovement`, `Room.ScreenMovement` |
+| `rain_turn.rs` | the rain in `RainWorldGame.Update`: camera 0's shake step with the rain's terms (`RainShake`), `GlobalRain.Update` after it, `RainHit` after the timers, `Room.RainDrownOutSounds` | `RainWorldGame.Update`, `RoomCamera.Update`, `RainCycle.Update`, `Room.RainDrownOutSounds` |
+| `screen_shake.rs` | camera 0's shake: `CameraShake` (`screenShake`, `microShake`, the per-tick jump at the head of the tick, the rain's two terms from `RainShake`), `ScreenMovement` (camera side, `Room.ScreenMovement` with its ceiling drips), `TerrainImpact`'s bump, `ceilingTiles` | `RoomCamera.Update/ScreenMovement`, `Room.ScreenMovement` |
 | `shelter.rs` | `ShelterDoor` (intact, base game) | `ShelterDoor` |
 | `shortcut.rs` | `ShortcutHandler` divider, vessels, entrance blinking | `ShortcutHandler` |
 | `spawn.rs` | safe spawn tile, placing an object | `DetermineSafeSpawnTile`, `PlaceInRoom` |
@@ -351,7 +352,8 @@ sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `m
 | `objects.rs` | object arena, room items at the game's three places (file items, a story's `MultiplayerItem`s in the placed-object loop, the `firstTimeRealized` pass) | `Room.Loaded` objects |
 | `dens.rs` | into/out of dens with stuck items | `MoveEntityToDen` |
 | `quantified.rs` | quantified creatures placed in a room and counted back | `Room.PlaceQuantifiedCreaturesInRoom`, `AbstractRoom.CountQuantifiedCreatures` |
-| `rain_cycle.rs` | `RainCycle`, `WaterLevelCycle` | `RainCycle` |
+| `global_rain.rs` | `GlobalRain` (direction, `Intensity`, shakes, flood), `DeathRain`, `DeathRainMode` | `GlobalRain`, `GlobalRain.DeathRain` |
+| `rain_cycle.rs` | `RainCycle` (with `GlobalRain` as `global_rain`, `RainHit`, `ShaderLight`/`ScreenShake`/`MicroScreenShake`), `WaterLevelCycle` | `RainCycle` |
 | `region_state.rs` | `RegionState`, its save string, and adapting the world to and from it | `RegionState`, `SaveState` |
 
 - `ai_map/`: `mod.rs` (`AiMap`, `AiTile`), `ai_mapper.rs` (`AiMapper`), `creature_ai_map.rs`
@@ -397,6 +399,7 @@ The world side of creatures, items and water lives with them: `creature/abstract
 | Room triggers, guide instructions | `game/trigger.rs`, `game/trigger_turn.rs`, `game/instructions_turn.rs`, `game/room_script.rs` |
 | Room realization / loading | `world/realizer.rs`, `world/realized.rs`, `world/room_preparer.rs`, `world/mod.rs`, `game/loading_turn.rs` |
 | Rain cycle | `world/rain_cycle.rs` |
+| The global rain, the death rain's modes, the rain's shake and sky look | `world/global_rain.rs`, `game/rain_turn.rs`, `game/screen_shake.rs`, `water/mod.rs` (`SurfaceRumble`), `rw-graphics` `player/graphics.rs` (`sky_look`); D43 |
 | Eating, picking up, throwing | `player/turn.rs`, `item/turn.rs`, `player/grab.rs`; creatures' meat: `player/eat_meat_turn.rs`; carrying a heavy body: `player/carry.rs`, `player/turn.rs` |
 | The Hunter's spear on the back | `player/spear_on_back_turn.rs`, `player/spear_on_back.rs`, `item/on_back_stick.rs` |
 | Body physics / collision | `physics/chunk.rs`, `physics/object.rs`, `player/mod.rs` |

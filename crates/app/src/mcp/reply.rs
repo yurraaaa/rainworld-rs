@@ -477,6 +477,50 @@ pub struct RainState {
     pub dev_paused: bool,
     /// Dev control: timer ticks per tick.
     pub dev_speed: i32,
+    /// `RainCycle.ShaderLight`.
+    pub shader_light: f32,
+    /// `RainCycle.RainDarkPalette`.
+    pub rain_dark_palette: f32,
+    /// `RainCycle.ScreenShake` and `MicroScreenShake` (the camera and the water read these).
+    pub screen_shake: f32,
+    pub micro_screen_shake: f32,
+    /// `RainGameOver`.
+    pub rain_game_over: bool,
+    /// `deathRainHasHit`.
+    pub death_rain_has_hit: bool,
+    pub global: GlobalRainState,
+}
+
+/// `game.globalRain`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+pub struct GlobalRainState {
+    pub rain_direction: f32,
+    pub last_rain_direction: f32,
+    pub rain_direction_get_to: f32,
+    #[serde(rename = "Intensity")]
+    pub intensity: f32,
+    #[serde(rename = "ShaderLight")]
+    pub shader_light: f32,
+    #[serde(rename = "ScreenShake")]
+    pub screen_shake: f32,
+    #[serde(rename = "MicroScreenShake")]
+    pub micro_screen_shake: f32,
+    #[serde(rename = "RumbleSound")]
+    pub rumble_sound: f32,
+    pub bullet_rain_density: f32,
+    pub flood: f32,
+    pub flood_speed: f32,
+    pub flood_lerp_speed: f32,
+    pub water_flux_ticker: i32,
+    /// `deathRain.deathRainMode`, once the rain has hit.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub death_rain_mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time_in_this_mode: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub progression: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub calm_before_storm_sunlight: Option<f32>,
 }
 
 impl RainState {
@@ -497,6 +541,39 @@ impl RainState {
             pause: c.pause,
             dev_paused: dev.paused,
             dev_speed: dev.speed,
+            shader_light: c.shader_light(),
+            rain_dark_palette: c.rain_dark_palette(),
+            screen_shake: c.screen_shake(),
+            micro_screen_shake: c.micro_screen_shake(),
+            rain_game_over: c.rain_game_over(),
+            death_rain_has_hit: c.death_rain_has_hit,
+            global: GlobalRainState::of(&c.global_rain),
+        }
+    }
+}
+
+impl GlobalRainState {
+    #[must_use]
+    pub fn of(g: &rw_sim::world::GlobalRain) -> Self {
+        let d = g.death_rain;
+        Self {
+            rain_direction: g.rain_direction,
+            last_rain_direction: g.last_rain_direction,
+            rain_direction_get_to: g.rain_direction_get_to,
+            intensity: g.intensity,
+            shader_light: g.shader_light,
+            screen_shake: g.screen_shake,
+            micro_screen_shake: g.micro_screen_shake,
+            rumble_sound: g.rumble_sound,
+            bullet_rain_density: g.bullet_rain_density,
+            flood: g.flood,
+            flood_speed: g.flood_speed,
+            flood_lerp_speed: g.flood_lerp_speed,
+            water_flux_ticker: g.water_flux_ticker,
+            death_rain_mode: d.map(|d| d.mode.value().to_owned()),
+            time_in_this_mode: d.map(|d| d.time_in_this_mode),
+            progression: d.map(|d| d.progression),
+            calm_before_storm_sunlight: d.map(|d| d.calm_before_storm_sunlight),
         }
     }
 }
@@ -1499,6 +1576,8 @@ pub struct RealizedState {
     pub ready_for_player: bool,
     /// The room's `CeilingDrips` (settings, inherited from the region's).
     pub ceiling_drips: f32,
+    /// The room's `RumbleIntensity` (settings): scales the rain's shake and the water's rumble.
+    pub rumble_intensity: f32,
     /// The live `WaterDrip`s' positions, oldest first (their count is the length).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub drips: Vec<[f32; 2]>,

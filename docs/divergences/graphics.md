@@ -38,8 +38,9 @@ in `PlayerGraphics` (they use the generic poses of their body mode, as in the ga
   throwing hand of `ThrowObject`), reach
   for and bite bat flies and bring a rock to the mouth to swallow it (`SlugcatHand`
   grasp branch, `BiteFly`, `LookAtObject`); the swallow and regurgitation gulp, blink
-  and heave of `PlayerGraphics.Update` are ported. The rain-warning look-up and
-  the afraid-of-creature poses (and their blink and aerobic effects) are not ported.
+  and heave of `PlayerGraphics.Update` are ported, and so is the look up at the sky in the
+  cycle's last 2400 ticks of a rain room (`lookAtPoint`, D43). The afraid-of-creature
+  poses (and their blink and aerobic effects) are not ported.
 - **Not ported:** two-handed objects, mauling and
   its `Blink`s,
   the map-button stand-still blink,

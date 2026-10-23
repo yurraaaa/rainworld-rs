@@ -3,14 +3,14 @@
 //! Behaviour: `rainworld-re/notes/slugcat-graphics.md` sections 1-3 (base game,
 //! Remix off, Survivor stats), including the vertical-pole, ledge-grab, roll/flip,
 //! corridor and swimming (`water.md`) branches. Not ported (docs/divergences/ D8):
-//! fear (no creature the slugcat fears is ported), the rain look point, the throw
+//! fear (no creature the slugcat fears is ported), the throw
 //! reach (only weapons and frogs), zero gravity, pups, the Mark, DLC.
 //!
 //! Mirrors: PlayerGraphics.cs
 
 use std::f32::consts::{PI, TAU};
 
-use rw_assets::{Room, Terrain, tile_centre};
+use rw_assets::{DangerType, Room, Terrain, tile_centre};
 use rw_random::UnityRandom;
 use rw_sim::creature::CreatureId;
 use rw_sim::item::{Entity, ObjectId};
@@ -470,6 +470,7 @@ impl PlayerGraphics {
             self.malnourished = (self.malnourished - 0.005).max(0.0);
         }
         self.update_spear_dir(player);
+        self.sky_look(room, around, rng);
         if !player.is_conscious() {
             self.looker.look_at_nothing();
             self.blink = 10;
@@ -528,7 +529,7 @@ impl PlayerGraphics {
             self.looker.look_at_nothing();
         }
         self.last_look_dir = self.look_direction;
-        self.look_direction = if player.is_conscious() && self.looker.current.is_some() {
+        self.look_direction = if player.is_conscious() && self.looker.looking() {
             let point = self.look_point(around);
             self.head.pos.direction_to(point)
         } else {
@@ -629,6 +630,34 @@ impl PlayerGraphics {
             self.spear_dir = (self.spear_dir + 0.05).min(0.0);
         } else if self.spear_dir > 0.0 {
             self.spear_dir = (self.spear_dir - 0.05).max(0.0);
+        }
+    }
+
+    /// The look up at the sky in the cycle's last 2400 ticks (story; 400 otherwise) of a
+    /// room with rain: the draws are a value against `RainApproaching`, another against
+    /// 1/102 and, when both pass, the x of the point.
+    pub(crate) fn sky_look(
+        &mut self,
+        room: &Room,
+        around: &PlayerSurroundings<'_>,
+        rng: &mut UnityRandom,
+    ) {
+        let approaching = around.world.rain_cycle.rain_approaching();
+        if approaching < 1.0
+            && rng.value() > approaching
+            && rng.value() < 1.0 / 102.0
+            && around.world.realized(around.room).is_some_and(|r| {
+                matches!(
+                    r.settings.danger_type,
+                    Some(DangerType::Rain | DangerType::FloodAndRain)
+                )
+            })
+        {
+            let point = Vec2::new(
+                room.pixel_width() * rng.value(),
+                room.pixel_height() + 100.0,
+            );
+            self.looker.look_at_point(point, (1.0 - approaching) * 0.6);
         }
     }
 

@@ -27,9 +27,9 @@ settings-order loop as the other room-effect objects (`add_room_effect_particles
   (`MS`, `LM`, `DM` worlds); the Watcher's `ripple_both_sides` keyword on the `*BothSides`
   shaders `SparkFlash` uses (without `RIPPLE` it does nothing, so `LightSourceBothSides`,
   `FlatLightBothSides` and `FlareBombBothSides` are `LightSource`, `FlatLight` and `FlareBomb`).
-- **The rain is not ported, so the cycle just runs on.** `Intensity` reads `rainCycle.timer`,
+- **The rain's death is not ported, so the cycle just runs on.** `Intensity` reads `rainCycle.timer`,
   `cycleLength` and `TimeUntilRain` (`rw_sim::RainCycle`), which the port ticks; nothing ends
-  the cycle at the rain (the death of the slugcat at `cycleLength` is not there yet), so the
+  the cycle at the rain (`RoomRain`'s push and kill are not there yet, D43), so the
   effect reaches its full intensity 1200 ticks after the cycle's end and stays. `get_state`'s
   `rain.timer` shows it, and stepping `cycle_length + 1200` ticks (about 28 000, a few
   seconds headless) gets there without a cheat.

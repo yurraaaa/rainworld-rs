@@ -32,6 +32,7 @@ pub use crate::effects::lights::turn::PlayerGlow;
 mod game_over_turn;
 mod map_turn;
 mod observer;
+mod rain_turn;
 mod shortcut_turn;
 
 pub use crate::creature::ai_modules::heavy_ai_turn::HeavyAiThrottle;
@@ -686,7 +687,8 @@ impl RainWorldGame {
     pub fn tick(&mut self, input: Input, observer: &mut dyn PlayerObserver) {
         // `RoomCamera.Update`: the room change (`ApplyPositionChange`) before the shake.
         self.apply_insect_view_change();
-        self.camera_shake.update(&mut self.rng);
+        self.update_camera_shake();
+        self.update_global_rain();
         let follow = self.follow_creature();
         if let (Some(realizer), Some(follow)) = (&mut self.realizer, follow) {
             realizer.update(&mut self.world, follow, self.camera_room, &mut self.rng);
@@ -696,6 +698,7 @@ impl RainWorldGame {
         self.enter_from_abstract_rooms();
         self.update_world_processes(observer);
         self.dev_update_rain_timers();
+        self.update_rain_hit();
         self.update_broken_anti_gravity();
         self.world.rain_cycle.water_cycle.update(&mut self.rng);
         self.rain_request_stop_song();

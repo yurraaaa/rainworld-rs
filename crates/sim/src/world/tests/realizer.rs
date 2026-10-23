@@ -37,6 +37,7 @@ fn two_rooms() -> World {
     };
     let rooms = Arc::new(FixedRoom(LoadedRoom { room, settings }));
     let mut world = World::new(data, rooms, Timeline::White, ActiveMods::NONE, true);
+    world.rain_cycle.cycle_length = 9600;
     world.activate_room(0).expect("loads");
     world.finish_loading();
     world
@@ -144,4 +145,22 @@ fn the_off_screen_den_guards_hold() {
     let before = rng.state();
     realizer.update(&mut world, FOLLOW, 0, &mut rng);
     assert_ne!(rng.state(), before, "one draw in a normal room");
+}
+
+/// `RoomRealizer.Update`: `world.rainCycle.RainGameOver` ends the update before the random
+/// neighbour's `Random.Range`; one tick before the cycle's end it still draws.
+#[test]
+fn the_rain_game_over_guard_stops_the_neighbour_draw() {
+    let mut world = two_rooms();
+    let mut rng = UnityRandom::new(3);
+    let mut realizer = RoomRealizer::new();
+    world.rain_cycle.timer = world.rain_cycle.cycle_length - 1;
+    let before = rng.state();
+    realizer.update(&mut world, FOLLOW, 0, &mut rng);
+    assert_ne!(rng.state(), before, "one draw before the end");
+    world.loading_step();
+    world.rain_cycle.timer = world.rain_cycle.cycle_length;
+    let before = rng.state();
+    realizer.update(&mut world, FOLLOW, 0, &mut rng);
+    assert_eq!(rng.state(), before, "no draw once the rain is over");
 }

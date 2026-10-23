@@ -4,7 +4,9 @@
 //! `pos` in before each tick (after `Update`'s lerp and clamp) and takes the tick's
 //! jump and bumps back ([`CameraShake::take_displacement`]). The per-frame micro shake
 //! is drawn by the app (`DrawUpdate`, cosmetic stream). Base game: `rippleFade` is 1, no
-//! sandstorm or blizzard; the rain's shake waits for the rain (`docs/OPEN-ITEMS.md`).
+//! sandstorm or blizzard; the rain's two terms come from [`RainShake`]. Not ported: the
+//! `controllerShake` value (its sink is gamepad rumble, a user decision), `waterFlux.roomShake`
+//! (`WaterFlux` effects: no base room) and Remix's `cfgDisableScreenShake`.
 //!
 //! Mirrors: RoomCamera.cs (Update, ScreenMovement, DistanceFromViewedScreen), Room.cs (ScreenMovement, Loaded), PhysicalObject.cs (TerrainImpact)
 
@@ -22,6 +24,36 @@ pub struct ScreenMovement {
     pub source: Option<Vec2>,
     pub bump: Vec2,
     pub shake: f32,
+}
+
+/// What `RoomCamera.Update` reads for the rain's terms: the camera room's rain danger and
+/// shelter flag, its `RumbleIntensity`, and the cycle's `ScreenShake` and `MicroScreenShake`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RainShake {
+    /// `DangerType` is neither `None` nor (with a DLC) `Blizzard`.
+    pub rain_danger: bool,
+    /// `DangerType` is `AerieBlizzard`.
+    pub aerie_blizzard: bool,
+    /// `abstractRoom.shelter`.
+    pub shelter: bool,
+    /// `roomSettings.RumbleIntensity`.
+    pub rumble: f32,
+    /// `world.rainCycle.ScreenShake`.
+    pub screen_shake: f32,
+    /// `world.rainCycle.MicroScreenShake`.
+    pub micro_screen_shake: f32,
+}
+
+impl RainShake {
+    /// No camera room, or a room the rain does not shake.
+    pub const NONE: Self = Self {
+        rain_danger: false,
+        aerie_blizzard: false,
+        shelter: false,
+        rumble: 1.0,
+        screen_shake: 0.0,
+        micro_screen_shake: 0.0,
+    };
 }
 
 /// Camera 0's shake state (`RoomCamera.screenShake`, `microShake`,
@@ -83,17 +115,41 @@ impl CameraShake {
         self.displacement += d;
     }
 
-    /// `RoomCamera.Update` after the lerp and clamp: while `screenShake` is up, the window
-    /// jumps `8 * screenShake` px at a random angle (one draw) and `screenShake` decays
-    /// (by 0.7 down to 1, then by 0.025); `microShake` decays by 0.025 and is cut to 80 %
-    /// above 2. Base game outside the rain: no rain, sandstorm or flood term.
-    pub fn update(&mut self, rng: &mut UnityRandom) {
+    /// `RoomCamera.Update` after the lerp and clamp: the rain raises `screenShake` to the
+    /// cycle's times `RumbleIntensity` in a room with rain danger that is not a shelter
+    /// (an `AerieBlizzard` room follows the cycle's, a sheltered one fading); while
+    /// `screenShake` is up the window jumps `8 * screenShake` px at a random angle (one
+    /// draw) and it decays (by 0.7 down to 1, then by 0.025); `microShake` decays by 0.025
+    /// down to the rain's term and is cut to 80 % above 2.
+    pub fn update(&mut self, rain: &RainShake, rng: &mut UnityRandom) {
+        if rain.rain_danger && !rain.shelter && self.screen_shake < rain.screen_shake {
+            self.screen_shake = if rain.aerie_blizzard {
+                rain.screen_shake
+            } else {
+                rain.screen_shake * rain.rumble
+            };
+        }
+        if rain.aerie_blizzard {
+            if rain.shelter {
+                self.screen_shake = self.screen_shake.lerp(0.0, 0.1);
+                if self.screen_shake < 0.01 {
+                    self.screen_shake = 0.0;
+                }
+            } else {
+                self.screen_shake = rain.screen_shake;
+            }
+        }
         if self.screen_shake > 0.0 {
             let jump = Vec2::from_degrees(rng.value() * 360.0) * (8.0 * self.screen_shake);
             self.displace(jump);
             self.screen_shake = Self::decay(self.screen_shake);
         }
-        self.micro_shake = (self.micro_shake - 0.025).max(0.0);
+        let micro_term = if rain.rain_danger && !rain.shelter {
+            rain.micro_screen_shake * rain.rumble
+        } else {
+            0.0
+        };
+        self.micro_shake = (self.micro_shake - 0.025).max(micro_term);
         if self.micro_shake > 2.0 {
             self.micro_shake *= 0.8;
         }

@@ -39,6 +39,11 @@ pub(crate) const SPLIT: [&str; 7] = [
 
 /// A Survivor story in `rows` with the player at `player`, 20 ticks after its room loaded.
 pub(crate) fn game(rows: &[&str], player: (i32, i32)) -> RainWorldGame {
+    game_seeded(rows, player, 5)
+}
+
+/// [`game`] with the stream seeded `seed`.
+pub(crate) fn game_seeded(rows: &[&str], player: (i32, i32), seed: i32) -> RainWorldGame {
     let room = room(rows);
     let data = WorldData::from_room(&room);
     let settings = RoomSettings {
@@ -56,7 +61,7 @@ pub(crate) fn game(rows: &[&str], player: (i32, i32)) -> RainWorldGame {
             room: 0,
             tile: Some(player),
         },
-        UnityRandom::new(5),
+        UnityRandom::new(seed),
         Sounds::default(),
     );
     g.tick_until_ready(&mut ());

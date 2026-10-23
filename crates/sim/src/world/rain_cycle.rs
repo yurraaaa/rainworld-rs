@@ -1,6 +1,8 @@
 //! `RainCycle` and its `WaterLevelCycle` (base game, no precycles): built by the `World`
-//! constructor with its draws, the timer ticked by `RainWorldGame.Update`. The rain
-//! itself (`RainHit`, `GlobalRain`) is not ported.
+//! constructor with its draws, the timer ticked by `RainWorldGame.Update`, `RainHit` at the
+//! cycle's end. The game's `GlobalRain` (one per `RainWorldGame`, read through `world.game`)
+//! is the field `global_rain`; a world replaced by a gate (M9) has to carry it over. The
+//! rain's push, flood and sounds (`RoomRain`) are not ported yet.
 //!
 //! Mirrors: RainCycle.cs, WaterLevelCycle.cs
 
@@ -8,6 +10,7 @@ use rw_assets::SlugcatName;
 use rw_random::UnityRandom;
 
 use crate::FloatExt;
+use crate::world::global_rain::GlobalRain;
 
 /// `rainWorld.setup.cycleTimeMin` / `cycleTimeMax` (seconds; `setup.txt` defaults).
 pub const CYCLE_TIME_MIN: f32 = 400.0;
@@ -97,6 +100,10 @@ pub struct RainCycle {
     pub start_up_ticks: i32,
     /// `brokenAntiGrav`: made by the first loaded room with `BrokenZeroG`.
     pub broken_anti_grav: Option<crate::BrokenAntiGravity>,
+    /// `deathRainHasHit`: `RainHit` ran.
+    pub death_rain_has_hit: bool,
+    /// `game.globalRain`.
+    pub global_rain: GlobalRain,
 }
 
 impl RainCycle {
@@ -135,6 +142,8 @@ impl RainCycle {
             story_mode: false,
             start_up_ticks: 0,
             broken_anti_grav: None,
+            death_rain_has_hit: false,
+            global_rain: GlobalRain::default(),
         }
     }
 
@@ -192,12 +201,11 @@ impl RainCycle {
     }
 
     /// `ShaderLight`: the level shader's light before clouds (1 full sun, -1 none).
-    /// After the rain hits it is `GlobalRain.ShaderLight`, which stays at its initial
-    /// -1 until the rain is ported.
+    /// From the cycle's end it is `GlobalRain.ShaderLight`.
     #[must_use]
     pub fn shader_light(&self) -> f32 {
         if self.rain_game_over() {
-            return -1.0;
+            return self.global_rain.shader_light;
         }
         if self.story_mode {
             -1.0 + self
@@ -208,6 +216,26 @@ impl RainCycle {
         } else {
             (self.time_until_rain() as f32).lerp_map(200.0, 880.0, -1.0, 1.0)
         }
+    }
+
+    /// `ScreenShake`: from the cycle's end `GlobalRain.ScreenShake`; before it, up to 1
+    /// over the last fifth of the approach.
+    #[must_use]
+    pub fn screen_shake(&self) -> f32 {
+        if self.rain_game_over() {
+            return self.global_rain.screen_shake;
+        }
+        (1.0 - self.rain_approaching().inverse_lerp(0.0, 0.2)).mathf_pow(2.0)
+    }
+
+    /// `MicroScreenShake`: from the cycle's end `GlobalRain.MicroScreenShake`; before it,
+    /// up to 1 over the last 60 % of the approach.
+    #[must_use]
+    pub fn micro_screen_shake(&self) -> f32 {
+        if self.rain_game_over() {
+            return self.global_rain.micro_screen_shake;
+        }
+        (1.0 - self.rain_approaching().inverse_lerp(0.0, 0.6)).mathf_pow(1.5)
     }
 
     /// `RainDarkPalette`: how far the palette has turned to its rain-dark half.
@@ -226,10 +254,13 @@ impl RainCycle {
         (timer - self.sun_down_start_time + 1).max(0)
     }
 
-    /// `Update` (the counter always may tick: no gates, ghosts or dialogs ported).
-    pub fn update(&mut self, rng: &mut UnityRandom) {
-        self.update_timers();
-        self.water_cycle.update(rng);
+    /// `Update`'s `RainHit` (after the timers), once when the timer reaches the cycle's length: the global
+    /// rain starts its death rain, whose first mode draws.
+    pub fn rain_hit(&mut self, rng: &mut UnityRandom) {
+        if !self.death_rain_has_hit && self.timer >= self.cycle_length {
+            self.global_rain.init_death_rain(rng);
+            self.death_rain_has_hit = true;
+        }
     }
 
     /// `RainCycle.Update` up to `brokenAntiGrav.Update`; the water cycle follows it.

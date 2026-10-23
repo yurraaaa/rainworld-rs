@@ -137,19 +137,18 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   camera showing the asked camera position; the water light's `RainMask_` is generated
   for the shot, from the room's tiles), and `_waterLevel` takes the water's or the death
   fall's line.
-- **Not drawn:** the rain's `ShaderLight` after the rain hits (`GlobalRain` is not ported: it stays
-  -1), room
+- **Not drawn:** room
   effects that grade colours (Darkness, Brightness, Contrast, Desaturation, Hue, DayNight:
   their uniforms keep the game's defaults; no base-game room uses them, they come with
   the DLCs)
   or modify effect colours (`ModifyEffectColorA/B`, unused in base-game rooms), ghost /
-  rot / mushroom palettes, the rain's screen shake (and the sandstorm's, blizzard's,
-  flood rooms' `waterFlux.roomShake`), `_bkg` backgrounds, the heat / melt / ripple
+  rot / mushroom palettes, the sandstorm's and blizzard's screen shake (and flood rooms'
+  `waterFlux.roomShake`; the rain's shake is the camera's, D43), `_bkg` backgrounds, the heat / melt / ripple
   shader variants, swarm rooms, and the properties-file line preprocessing (no base-game
   `Room Setting Templates` line uses it).
 
 **Why.** The port draws the camera's room with the player; these depend on systems
-not ported yet (the rain itself and the global rain, echoes,
+not ported yet (the rain's room object, echoes,
 the room effects' own objects and scenes) or are invisible at this stage. The rain
 cycle's light and palette darkening before the rain are ported (D22).
 

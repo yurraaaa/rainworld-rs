@@ -102,8 +102,8 @@ pub struct Scene {
     /// Where the map's sprites sit in the `HUD` container against the room's.
     map_order: MapOrder,
     /// The time stacker and cosmetic stream of the last frame drawn unpaused: while the
-    /// game is paused nothing in the room redraws (`PausedDrawUpdate`), so frames repeat
-    /// that one.
+    /// game is paused nothing in the room redraws (`PausedDrawUpdate` only draws the
+    /// camera's micro shake), so frames repeat that one.
     last_unpaused_frame: Option<(f32, UnityRandom)>,
     /// The room's `Lightning` as the last frame drawn read it (`DrawUpdate`).
     lightning_frame: Option<LightningFrame>,
@@ -718,7 +718,7 @@ impl Scene {
         view: SceneView,
     ) {
         target.sync(self);
-        let alpha = self.frame_alpha(alpha);
+        let (alpha, live_rng) = self.frame_alpha(alpha);
         self.draw_micro_shake();
         let origin = rw_sim::Vec2::from(self.camera.view_origin(alpha));
         if let Some(globals) = self.game.background_scene_globals(origin) {
@@ -946,6 +946,10 @@ impl Scene {
         }
         .queue(r);
         self.hud_below = StageBatch::default();
+        if let Some(rng) = live_rng {
+            self.game.set_cosmetic_rng(rng);
+        }
+        self.paused_draw_update();
     }
 }
 
@@ -964,18 +968,33 @@ impl Scene {
     }
 
     /// The time stacker to draw at: `alpha`, or while paused the last unpaused frame's,
-    /// with the cosmetic stream as it was then so the frame repeats.
-    fn frame_alpha(&mut self, alpha: f32) -> f32 {
+    /// with the cosmetic stream as it was then so the frame repeats; the stream it
+    /// replaced comes back for [`Self::paused_draw_update`].
+    fn frame_alpha(&mut self, alpha: f32) -> (f32, Option<UnityRandom>) {
         match (&self.last_unpaused_frame, self.paused) {
             (Some((last, rng)), true) => {
                 let last = *last;
+                let live = self.game.cosmetic_rng().clone();
                 self.game.set_cosmetic_rng(rng.clone());
-                last
+                (last, Some(live))
             }
             _ => {
                 self.last_unpaused_frame = Some((alpha, self.game.cosmetic_rng().clone()));
-                alpha
+                (alpha, None)
             }
+        }
+    }
+
+    /// `RoomCamera.PausedDrawUpdate`, last in every drawn frame (paused or not): while
+    /// `microShake` is up it draws a random direction and a share of `8 * microShake` px
+    /// for the camera position it hands the cosmetic sprites, which use none of it. The
+    /// draws are on the cosmetic stream (D1).
+    fn paused_draw_update(&mut self) {
+        let micro = self.game.sim().camera_shake().micro_shake;
+        if micro > 0.0 {
+            let rng = self.game.cosmetic_rng_mut();
+            let dir = rw_sim::Vec2::random_unit(rng);
+            let _offset = dir * (8.0 * micro * rng.value());
         }
     }
 

@@ -80,7 +80,7 @@ pub use effects::sky::roof_top_view::{DustPuff, DustpuffSpawner};
 pub use game::camera::CameraView;
 pub use game::camera_image::CameraImage;
 pub use game::map_discovery::{DiscoveryTexture, HudMapLink, MapDiscovery, MapRoom, UnityTexture};
-pub use game::screen_shake::{CameraShake, ScreenMovement};
+pub use game::screen_shake::{CameraShake, RainShake, ScreenMovement};
 pub use game::shelter::SessionEnd;
 pub use game::shortcut::{
     CreatureVessel, EntranceColor, LobbyVessel, ShortcutHandler, ShortcutsBlinking, VesselOwner,
@@ -153,7 +153,7 @@ pub use water::bubble::{Bubble, BubbleMode};
 pub use water::splash::Splash;
 pub use water::water_drip::{WaterDrip, WaterGlitter};
 pub use water::waterfall::{FallBubble, FallObject, FallSpec, WaterFall};
-pub use water::{BubbleEmitter, ChunkOwner, SurfaceChunk, Water, WaterObject};
+pub use water::{BubbleEmitter, ChunkOwner, SurfaceChunk, SurfaceRumble, Water, WaterObject};
 
 #[cfg(test)]
 mod tests;

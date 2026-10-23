@@ -9,13 +9,18 @@ use rw_sim::creature::{Relationship, RelationshipType};
 use rw_sim::item::{Entity, WeaponMode};
 use rw_sim::{FloatExt, LookTarget, PlayerSurroundings, RoomExt, Vec2};
 
-/// The object looker (`lookAtPoint` is only set by DLC and tutorial callers).
+/// The object looker. `lookAtPoint` is set by the sky look in the cycle's last 2400 ticks;
+/// the other callers (the Hunter's echo and DLC objects) are not ported.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct ObjectLooker {
     /// `currentMostInteresting`.
     pub current: Option<LookTarget>,
     /// `timeLookingAtThis`.
     pub time: i32,
+    /// `lookAtPoint`.
+    pub look_at_point: Option<Vec2>,
+    /// `lookAtPointInterest`.
+    pub look_at_point_interest: f32,
 }
 
 /// A realized object as the looker reads it.
@@ -94,6 +99,12 @@ impl Seen {
 }
 
 impl ObjectLooker {
+    /// `looking`.
+    #[must_use]
+    pub fn looking(&self) -> bool {
+        self.current.is_some() || self.look_at_point.is_some()
+    }
+
     /// `mostInterestingLookPoint`.
     pub(crate) fn look_point(
         &self,
@@ -101,6 +112,9 @@ impl ObjectLooker {
         head: Vec2,
         look_direction: Vec2,
     ) -> Vec2 {
+        if let Some(point) = self.look_at_point {
+            return point;
+        }
         match self.current.and_then(|id| Seen::of(around, id)) {
             Some(s) => s.pos,
             None => head + look_direction * 100.0,
@@ -109,6 +123,14 @@ impl ObjectLooker {
 
     pub fn look_at_nothing(&mut self) {
         self.current = None;
+        self.time = 0;
+        self.look_at_point = None;
+    }
+
+    /// `LookAtPoint`.
+    pub fn look_at_point(&mut self, point: Vec2, interest: f32) {
+        self.look_at_point_interest = interest;
+        self.look_at_point = Some(point);
         self.time = 0;
     }
 
@@ -139,6 +161,9 @@ impl ObjectLooker {
         }
         let bonus = if self.time < 8 { 0.5 } else { -0.5 };
         let mut num = self.interest(around, self.current, player_pos) + bonus;
+        if self.look_at_point.is_some() {
+            num = self.look_at_point_interest + bonus;
+        }
         for &id in &around.objects {
             let interest = self.interest(around, Some(id), player_pos);
             if interest > num {

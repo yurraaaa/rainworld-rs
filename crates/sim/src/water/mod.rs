@@ -9,9 +9,10 @@
 //! `rainworld-re/notes/water.md` section 1, `surveys/room-effects/water-effects.md` W4-W6
 //! and the decompiled `Water` class; base game with Remix off. Not ported (docs/
 //! divergences/ D11): `WaterCutoff` and `AirPocket` placed objects (no base-game room
-//! uses them), the unused `WaterViscosity` effect, rain rumble and flooding (no rain
-//! cycle yet). The `Splash`es it makes are `splash.rs`'; they push the surface back
-//! through [`Water::waterfall_hit_surface`].
+//! uses them), the unused `WaterViscosity` effect and flooding (the rain's `RoomRain`
+//! is not ported yet). The surface's rumble terms are [`SurfaceRumble`]. The `Splash`es it
+//! makes are `splash.rs`'; they push the surface back through
+//! [`Water::waterfall_hit_surface`].
 //!
 //! Mirrors: Water.cs, Room.cs (FloatWaterLevel)
 
@@ -20,7 +21,7 @@ pub(crate) mod splash;
 pub(crate) mod water_drip;
 pub(crate) mod waterfall;
 
-use rw_assets::{Room, RoomSettings, TILE_SIZE, Terrain};
+use rw_assets::{DangerType, Room, RoomSettings, TILE_SIZE, Terrain};
 use rw_random::UnityRandom;
 
 use crate::item::Entity;
@@ -65,6 +66,22 @@ impl SurfacePoint {
     }
 }
 
+/// `Surface.Update`'s rain terms: in a room with `DangerType` other than `None` every
+/// surface point draws three values a tick whatever the shake values are, and the
+/// cycle's `ScreenShake` and `MicroScreenShake` times the room's `RumbleIntensity` move
+/// the surface.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct SurfaceRumble {
+    /// `DangerType` is neither `None` nor (with a DLC) `Blizzard`.
+    pub active: bool,
+    /// `roomSettings.RumbleIntensity`.
+    pub intensity: f32,
+    /// `world.rainCycle.ScreenShake`, set by the caller each tick.
+    pub screen_shake: f32,
+    /// `world.rainCycle.MicroScreenShake`, set by the caller each tick.
+    pub micro_screen_shake: f32,
+}
+
 /// The room's water body and its surface (`Water`).
 ///
 /// Points are 20 px apart from 220 px left of the room to 220 px right of it. Each has
@@ -85,6 +102,8 @@ pub struct Water {
     wave_length: f32,
     roll_back_length: f32,
     roll_back_amp: f32,
+    /// The rain's terms in the surface step.
+    pub rumble: SurfaceRumble,
     bubble_emitters: Vec<BubbleEmitter>,
 }
 
@@ -204,6 +223,7 @@ impl Water {
             wave_length: 0.0,
             roll_back_length: 0.0,
             roll_back_amp: 0.0,
+            rumble: SurfaceRumble::default(),
             bubble_emitters: Vec::new(),
         };
         water.apply_settings(settings);
@@ -217,6 +237,9 @@ impl Water {
         self.wave_length = 50.0_f32.lerp(750.0, s.wave_length);
         self.roll_back_length = 2.0_f32.lerp(0.0, s.second_wave_length);
         self.roll_back_amp = s.second_wave_amplitude;
+        self.rumble.active =
+            s.danger_type != Some(DangerType::None) && s.danger_type != Some(DangerType::Blizzard);
+        self.rumble.intensity = s.rumble_intensity;
     }
 
     /// Tile row of the surface (`Room.defaultWaterLevel`).
@@ -566,10 +589,15 @@ impl Water {
             };
             next += (-self.wave_amplitude).lerp(self.wave_amplitude, rng.value()) * 0.005;
             next *= 0.99;
+            if self.rumble.active {
+                next += (-1.0_f32).lerp(1.0, rng.value())
+                    * self.rumble.screen_shake
+                    * self.rumble.intensity;
+            }
             self.points[i][0].next_height = next;
             sum += h;
             for j in 0..2 {
-                self.place_point(i, j);
+                self.place_point(i, j, rng);
             }
         }
         let mean = sum / (total as f32 * 1.5);
@@ -590,7 +618,7 @@ impl Water {
     }
 
     /// The offset of point `[i][j]` this tick from the (not yet stepped) heights.
-    fn place_point(&mut self, i: usize, j: usize) {
+    fn place_point(&mut self, i: usize, j: usize, rng: &mut UnityRandom) {
         let total = self.points.len() as i32;
         let phase = -(i as f32) * Self::SPACING / self.wave_length;
         let h = self.points[i][j].height;
@@ -609,6 +637,12 @@ impl Water {
         let (front, back) = if j == 1 { (1.0, -1.0) } else { (-1.0, 1.0) };
         let wave =
             Vec2::from_degrees((phase + self.sin_counter * front) * 360.0) * self.wave_amplitude;
+        let rumble = if self.rumble.active {
+            Vec2::from_degrees(rng.value() * 360.0)
+                * (self.rumble.micro_screen_shake * 4.0 * self.rumble.intensity)
+        } else {
+            Vec2::ZERO
+        };
         let roll_back =
             Vec2::from_degrees((phase + self.sin_counter * back) * 360.0 * self.roll_back_length)
                 * (self.wave_amplitude * self.roll_back_amp);
@@ -616,7 +650,7 @@ impl Water {
         let p = &mut self.points[i][j];
         p.last_pos = p.pos;
         p.last_default_pos = p.default_pos;
-        p.pos = Vec2::new(0.0, sum / count) + wave + roll_back;
+        p.pos = Vec2::new(0.0, sum / count) + wave + rumble + roll_back;
         // `TargetWaterLevel`: flat without `WaterCutoff` objects.
         p.default_pos.y = level;
     }

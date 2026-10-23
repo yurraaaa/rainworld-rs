@@ -15,6 +15,7 @@ mod corridor;
 mod frames;
 mod malnourished;
 mod poles;
+mod sky_look;
 mod zero_g;
 
 /// A player lying on the flat room's ground, head to the right of the hips, with
@@ -47,29 +48,55 @@ pub(crate) fn run(
     }
 }
 
-/// `PlayerGraphics::update` with nothing else in the room and nothing held.
-pub(crate) fn update_alone(g: &mut PlayerGraphics, p: &Player, r: &Room, rng: &mut UnityRandom) {
+/// A world of `r` alone, its cycle a day from the rain (no sky look).
+pub(crate) fn alone_world(r: &Room) -> World {
+    world_with_settings(r, RoomSettings::ANCESTOR)
+}
+
+/// [`alone_world`] with the room's `settings`.
+pub(crate) fn world_with_settings(r: &Room, settings: RoomSettings) -> World {
     let source = FixedRoom(LoadedRoom {
         room: r.clone(),
-        settings: RoomSettings::ANCESTOR,
+        settings,
     });
-    let world = World::new(
+    let mut world = World::new(
         WorldData::from_room(r),
         Arc::new(source),
         Timeline::White,
         ActiveMods::NONE,
         false,
     );
-    let around = PlayerSurroundings {
-        world: &world,
+    world.rain_cycle.cycle_length = 100_000;
+    world
+}
+
+/// `PlayerGraphics::update` with nothing else in the room and nothing held.
+pub(crate) fn update_alone(g: &mut PlayerGraphics, p: &Player, r: &Room, rng: &mut UnityRandom) {
+    update_in(g, p, r, &alone_world(r), rng);
+}
+
+/// [`update_alone`] in `world`, whose room 0 is the player's.
+pub(crate) fn update_in(
+    g: &mut PlayerGraphics,
+    p: &Player,
+    r: &Room,
+    world: &World,
+    rng: &mut UnityRandom,
+) {
+    g.update(p, r, None, &surroundings(world), rng);
+}
+
+/// What the graphics read of room 0 of `world`: nothing held, nothing else in it.
+pub(crate) fn surroundings(world: &World) -> PlayerSurroundings<'_> {
+    PlayerSurroundings {
+        world,
         grasps: [None; 2],
         stomach: false,
         room: 0,
         objects: Vec::new(),
         hungry: true,
         heavy_carry: None,
-    };
-    g.update(p, r, None, &around, rng);
+    }
 }
 
 /// Moves the chunks back to `at` without updating the player.

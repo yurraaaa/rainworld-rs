@@ -55,7 +55,7 @@ only the `installed_scene_images.rs` integration test.
 | `graphics.rs` | `PlayerGraphics` simulation | `PlayerGraphics` |
 | `draw.rs` | the 12 slugcat sprites into a `DrawList` | `PlayerGraphics.DrawSprites` |
 | `hand.rs` | `SlugcatHand` (incl. the hands swinging along a vine in `VineGrab`) | `SlugcatHand` |
-| `looker.rs` | `ObjectLooker` | `PlayerGraphics.PlayerObjectLooker` |
+| `looker.rs` | `ObjectLooker` (with `lookAtPoint`, set by the sky look) | `PlayerGraphics.PlayerObjectLooker` |
 | `elements.rs` | slugcat atlas element names (the public `rw_graphics::elements`) | |
 
 ### `creature/`

@@ -4,6 +4,8 @@
 use rw_assets::{Room, RoomSettings};
 use rw_random::UnityRandom;
 
+mod rumble;
+
 use super::{SurfaceChunk, WaterObject};
 use crate::tests::room_with_water;
 use crate::{Bubble, FloatExt, Splash};
@@ -253,9 +255,11 @@ fn splash(o: &WaterObject) -> &Splash {
     }
 }
 
-/// `rng` after the surface step's jitter draw for each of `w`'s points.
+/// `rng` after the surface step's draws for each of `w`'s points: the jitter, and in a room
+/// with rain danger (the `ANCESTOR` settings' `Rain`) the rumble's three.
 fn after_surface(rng: &mut UnityRandom, w: &Water) {
-    for _ in 0..w.point_count() {
+    let per_point = if w.rumble.active { 4 } else { 1 };
+    for _ in 0..per_point * w.point_count() {
         rng.value();
     }
 }

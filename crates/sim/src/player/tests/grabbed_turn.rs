@@ -9,7 +9,7 @@ use rw_assets::AbstractObjectType;
 
 use crate::creature::lizard::LizardGraphicsLink;
 use crate::creature::lizard::hits_turn::ChunkRef;
-use crate::creature::lizard::perception_turn::tests::{HALL, game};
+use crate::creature::lizard::perception_turn::tests::{HALL, game, game_seeded};
 use crate::creature::{CreatureId, LizardAnimation};
 use crate::item::{Entity, ObjectId, WeaponMode};
 use crate::{HIPS, Input, RainWorldGame, SoundId, Sounds};
@@ -22,6 +22,8 @@ const THROW: Input = Input {
     pickup: false,
     throw: true,
 };
+
+const SEED: i32 = 6;
 
 const PICKUP: Input = Input {
     pickup: true,
@@ -199,7 +201,9 @@ fn a_throw_press_frees_the_player_when_the_rock_stuns_the_lizard() {
     // The press reaches `ThrowToGetFree` through the stun's neutral input; the rock
     // hits the head it was aimed at, the stunned lizard lets go (`LoseAllGrasps`), the
     // danger grasp is discontinued and forgotten the tick after.
-    let mut g = game(&HALL, (3, 1));
+    // The bitten body's motion is chaotic: whether the rock finds the head depends on the
+    // stream (seed 5 and 3 of 7 seeds miss, the rain's draws or not).
+    let mut g = game_seeded(&HALL, (3, 1), SEED);
     g.armed(AbstractObjectType::Rock, (3, 2));
     let l = g.bitten(0.0);
     g.tick(Input::NONE, &mut ());

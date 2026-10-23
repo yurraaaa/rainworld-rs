@@ -44,11 +44,9 @@ it (D13). What still differs is only the seed and the call order:
   water and the player, so its sequence is the game's only for those draws. Sounds of
   rooms the camera is not in make no draws, as in the game (`Room.PlaySound` only
   reaches the microphone of a camera in that room). Draws of unported code in
-  the same functions (the rain-warning look-up,
-  grasps of objects other than bat flies,
+  the same functions (grasps of objects other than bat flies,
   DLC, and the sounds of those) are missing, as is the draw-skipping of
-  `AllowSound`'s crowd cap (D12); the rain-warning look-up short-circuits before drawing
-  while rain is far off, as at the start of a cycle.
+  `AllowSound`'s crowd cap (D12).
 - **Spawn path.** A new story starts as the game does (start den, `TryGetPlayerStartPos`,
   the node drawn in `RealizeInRoom`). In the game only Remix key-item tracking and
   Watcher warps call `DetermineSafeSpawnTile`; the port's dev starts (`--room` without
@@ -190,16 +188,32 @@ it (D13). What still differs is only the seed and the call order:
   roll 1 (when the hit is in reach and not close) and `Spear_Stick_In_Wall`; a parried
   weapon's `WeaponDeflect` its spin and sparks. Each `Spark` and `ExplosionSpikes`
   updates in its own slot of the room's update list (`rw_sim::effects::cosmetic`).
+- **The rain** (D43). `GlobalRain.Update` draws `value < 0.025` every tick from the first
+  (and one more value when it passes), right after the camera's step and before the
+  realizer. `RainHit`, in `RainCycle.Update` after the world processes, makes the first
+  `DeathRain` mode's draws (`value < 0.7`; then `AlternateBuildUp` one more, or
+  `CalmBeforeStorm` two or three), and each mode change in `DeathRainUpdate` the next
+  mode's (`GradeAPlateu` 1, `GradeBBuildUp` and `GradeBPlateu` 1 or 2, `FinalBuildUp` 2,
+  none for `GradeABuildUp` and `Mayhem`). Every surface point of a water room whose
+  `DangerType` is not `None` draws three more values a tick (the rumble terms of
+  `Surface.Update`) whatever the shake is. In its last 2400 ticks (story; 400 otherwise)
+  `PlayerGraphics.Update` draws a value against `RainApproaching`, if that passes a second
+  against 1/102 and, in a `Rain` or `FloodAndRain` room, a third for the point it looks at.
+  `RoomRealizer` makes its random neighbour draw only until `RainGameOver`.
 - **Camera shake.** `RoomCamera.Update`'s jump draws 1 (`Random.value * 360`) each
-  tick while `screenShake` is above 0, at the head of the sim tick, before the room
-  realizer, as the game's cameras update before the rooms. `Room.ScreenMovement` draws
+  tick while `screenShake` is above 0 (from the rain's term too, D43), at the head of the
+  sim tick, before the room realizer, as the game's cameras update before the rooms. `Room.ScreenMovement` draws
   its ceiling drips where the caller moves the screen (a terrain impact before its
   noise): 2 per drip (tile, x jitter) and, for a drip a camera sees within 300 px, 2
   more (x speed, `WaterDrip`'s life), viewed or not; only a bump and shake above 2
   (`|bump| / 4 + 3 shake`) drips, never a `HitWall` or a shelter door. `DrawUpdate`'s
-  micro shake (2 per drawn frame while `microShake` is above 0) comes from the app's
-  cosmetic stream, per frame; a paused frame repeats the last one's (the menus' pause
-  divergence), where `PausedDrawUpdate` would draw a new offset each frame.
+  micro shake (`Custom.RNV()` and a value per drawn frame while `microShake` is above 0)
+  comes from the app's cosmetic stream, per frame, and so does `PausedDrawUpdate`'s,
+  which the game also calls after `DrawUpdate` in every unpaused frame: both are on the
+  game's single global stream there, and on the cosmetic one here because their number
+  depends on the frame rate. A paused frame repeats the last unpaused frame's sprites
+  (the menus' pause divergence) and only adds `PausedDrawUpdate`'s two draws on the live
+  cosmetic stream.
 - **Lightning.** `Lightning.Update` draws on the shared stream in the room's update
   list (7 per `Reset`, 2 per `randomLevelChange`, 1 at a background source's flash
   start, 1 per source with `CycleEndIntensityBoost`, 7 per sound played); the

@@ -15,7 +15,7 @@ Silent, tick-timed music sources keep headless runs deterministic.
 | `lib.rs` | `Audio`: `new`, `new_room`, `tick`, `play_events`, `set_pause_mix`, `frame`; sound-count limit `allowed` |
 | `output.rs` | kira backend on cpal, stops and joins its thread on drop |
 | `clips.rs` | `ClipLoader`, `ClipKey`, `ClipSlot`: clips decoded on background threads (`CacheAllAudio`) |
-| `mic.rs` | `VirtualMicrophone` formulas: pan, volume, low-pass |
+| `mic.rs` | `VirtualMicrophone` formulas: pan, volume, low-pass, the volume groups (the rain's drown-out of group 0) |
 | `voice.rs` | sound objects (`DisembodiedSound`, `StaticPositionSound`, `ObjectSound`, `DisembodiedLoop`, `RectangularSound`) and their emitters (a disembodied loop's pan follows its emitter's) |
 | `ambient.rs` | `AmbientSoundPlayer`: room `AmbientSounds:` loops |
 | `menu_mic.rs` | `MenuMicrophone` playback (`play`, `set_loop`, `stop`) |
