@@ -50,12 +50,25 @@ impl Noise {
         let (fx, fy) = (uv[0] * side as f32 - 0.5, uv[1] * side as f32 - 0.5);
         let (x0, y0) = (fx.floor(), fy.floor());
         let (tx, ty) = (fx - x0, fy - y0);
-        let wrap = |v: f32| (v as i64).rem_euclid(side as i64) as usize;
-        let texel =
-            |dx: f32, dy: f32| f32::from(texels[wrap(y0 + dy) * side + wrap(x0 + dx)]) / 255.0;
-        let top = texel(0.0, 0.0).lerp_to(texel(1.0, 0.0), tx);
-        let bottom = texel(0.0, 1.0).lerp_to(texel(1.0, 1.0), tx);
+        let (x0, y0) = (x0 as i64, y0 as i64);
+        let top =
+            Self::texel(texels, side, x0, y0).lerp_to(Self::texel(texels, side, x0 + 1, y0), tx);
+        let bottom = Self::texel(texels, side, x0, y0 + 1)
+            .lerp_to(Self::texel(texels, side, x0 + 1, y0 + 1), tx);
         top.lerp_to(bottom, ty)
+    }
+
+    /// The texel `(x, y)` of a level `side` wide, wrapping.
+    fn texel(texels: &[u8], side: usize, x: i64, y: i64) -> f32 {
+        let side_i = side as i64;
+        let (x, y) = (x.rem_euclid(side_i) as usize, y.rem_euclid(side_i) as usize);
+        f32::from(texels[y * side + x]) / 255.0
+    }
+
+    /// The length in texels of the step of tap `k`'s coordinate from `here` to pixel `q`'s.
+    fn step(k: usize, here: [f32; 2], q: FramePixel) -> f32 {
+        let other = DeepPixel::of(q).taps()[k];
+        ((other[0] - here[0]) * 64.0).hypot((other[1] - here[1]) * 64.0)
     }
 
     /// `tex2D(_NoiseTex, ...)` of tap `k` at pixel `p`: the level is the one the longer of
@@ -64,11 +77,11 @@ impl Noise {
     /// where that is too near a rounding edge for the GPU's own derivative to be trusted.
     fn tap(&self, k: usize, p: FramePixel) -> Option<f32> {
         let here = DeepPixel::of(p).taps()[k];
-        let step = |q: FramePixel| {
-            let other = DeepPixel::of(q).taps()[k];
-            ((other[0] - here[0]) * 64.0).hypot((other[1] - here[1]) * 64.0)
-        };
-        let len = step(FramePixel(p.0 ^ 1, p.1)).max(step(FramePixel(p.0, p.1 ^ 1)));
+        let len = Self::step(k, here, FramePixel(p.0 ^ 1, p.1)).max(Self::step(
+            k,
+            here,
+            FramePixel(p.0, p.1 ^ 1),
+        ));
         let lambda = len.log2();
         if lambda > -0.5 && (lambda - lambda.floor() - 0.5).abs() < 0.1 {
             return None;
@@ -105,6 +118,23 @@ impl GrabScene {
             stage: None,
             hud: Vec::new(),
         }
+    }
+
+    /// The frame of `over` = `[under, (the disc)]` without, then with `light` drawn after.
+    fn frames_with_light(
+        &mut self,
+        r: &mut WgpuRenderer,
+        under: &DrawItem,
+        with_disc: bool,
+        light: &DrawItem,
+    ) -> (FrameImage, FrameImage) {
+        self.over = vec![under.clone()];
+        if with_disc {
+            self.over.push(disc(CENTRE, 1.0, Layer::Foreground));
+        }
+        let without = self.draw(r);
+        self.over.push(light.clone());
+        (without, self.draw(r))
     }
 
     fn draw(&self, r: &mut WgpuRenderer) -> FrameImage {
@@ -146,6 +176,25 @@ impl GrabScene {
             r.draw_sprites(&list, Layer::Hud, [0.0, 0.0]);
         }
         r.render_image().unwrap()
+    }
+}
+
+/// Pixel tests on a frame.
+trait FramePixels {
+    /// Pixel `(x, y)` is mostly red.
+    fn is_red(&self, x: u32, y: u32) -> bool;
+    /// Pixel `(x, y)` differs from `other`'s.
+    fn differs(&self, other: &Self, x: u32, y: u32) -> bool;
+}
+
+impl FramePixels for FrameImage {
+    fn is_red(&self, x: u32, y: u32) -> bool {
+        let c = rgb(self, x, y);
+        c[0] > 200 && c[1] < 60 && c[2] < 60
+    }
+
+    fn differs(&self, other: &Self, x: u32, y: u32) -> bool {
+        rgb(self, x, y) != rgb(other, x, y)
     }
 }
 
@@ -278,35 +327,25 @@ fn the_disc_distorts_stage_quads_drawn_before_it() {
         TextureSampling::POINT_CLAMP,
     );
     let (x0, y0, x1, y1) = (560.0, 300.0, 760.0, 460.0);
-    let corner = |x: f32, y: f32| SpriteVertex {
-        pos: [x, y],
-        uv: [0.5, 0.5],
-        color: [1.0, 0.0, 0.0, 1.0],
-    };
     let mut batch = StageBatch::default();
     batch.push_quad(
         StageTextureId(1),
         StageShader::Basic,
-        [
-            corner(x0, y0),
-            corner(x1, y0),
-            corner(x1, y1),
-            corner(x0, y1),
-        ],
+        [(x0, y0), (x1, y0), (x1, y1), (x0, y1)].map(|(x, y)| SpriteVertex {
+            pos: [x, y],
+            uv: [0.5, 0.5],
+            color: [1.0, 0.0, 0.0, 1.0],
+        }),
     );
     let mut scene = GrabScene::new(level(|_, _| [255, 255, 255]));
     scene.stage = Some(batch);
     let before = scene.draw(&mut r);
     scene.hud.push(disc(CENTRE, 1.0, Layer::Hud));
     let after = scene.draw(&mut r);
-    let red = |image: &FrameImage, x: u32, y: u32| {
-        let c = rgb(image, x, y);
-        c[0] > 200 && c[1] < 60 && c[2] < 60
-    };
     let (mut quad, mut agree, mut inside) = (0, 0, 0);
     for y in 0..H {
         for x in 0..W {
-            quad += usize::from(red(&before, x, y));
+            quad += usize::from(before.is_red(x, y));
             if let Some((sx, sy)) = disruptor_source(FramePixel(x, y), 1.0) {
                 inside += 1;
                 agree += usize::from(rgb(&after, x, y) == rgb(&before, sx as u32, sy as u32));
@@ -320,7 +359,7 @@ fn the_disc_distorts_stage_quads_drawn_before_it() {
     );
     let moved = (0..H)
         .flat_map(|y| (0..W).map(move |x| (x, y)))
-        .filter(|&(x, y)| red(&before, x, y) != red(&after, x, y))
+        .filter(|&(x, y)| before.is_red(x, y) != after.is_red(x, y))
         .count();
     assert!(moved > 300, "the quad's outline moved at {moved} pixels");
 }
@@ -348,24 +387,14 @@ fn a_grab_reader_after_the_disc_reads_the_discs_grab() {
     });
     let mut scene = GrabScene::new(level(|_, _| [10, 0, 0]));
     scene.fill = [0, 0, 0];
-    let changed_by_light = |r: &mut WgpuRenderer, scene: &mut GrabScene, with_disc: bool| {
-        scene.over = vec![bright.clone()];
-        if with_disc {
-            scene.over.push(disc(CENTRE, 1.0, Layer::Foreground));
-        }
-        let without = scene.draw(r);
-        scene.over.push(light.clone());
-        let with = scene.draw(r);
-        (without, with)
-    };
-    let (without, with) = changed_by_light(&mut r, &mut scene, false);
-    let shows = |x: u32, y: u32| rgb(&with, x, y) != rgb(&without, x, y);
+    let (without, with) = scene.frames_with_light(&mut r, &bright, false, &light);
     let (mut over_rect, mut beside) = (0, 0);
     for y in 0..H {
         for x in 0..W {
-            if rect.contains(x, y) && shows(x, y) {
+            let shows = with.differs(&without, x, y);
+            if rect.contains(x, y) && shows {
                 over_rect += 1;
-            } else if !rect.contains(x, y) && shows(x, y) {
+            } else if !rect.contains(x, y) && shows {
                 beside += 1;
             }
         }
@@ -374,13 +403,13 @@ fn a_grab_reader_after_the_disc_reads_the_discs_grab() {
         over_rect > 1000 && beside > 1000,
         "{over_rect} over, {beside} beside"
     );
-    let (without, with) = changed_by_light(&mut r, &mut scene, true);
+    let (without, with) = scene.frames_with_light(&mut r, &bright, true, &light);
     // The rectangle's own edge pixels sit half a pixel off the grab's (`frame_px`).
     let inner = Rect([603, 333, 757, 447]);
     let (mut over_rect, mut beside) = (0, 0);
     for y in 0..H {
         for x in 0..W {
-            let changed = rgb(&with, x, y) != rgb(&without, x, y);
+            let changed = with.differs(&without, x, y);
             if inner.contains(x, y) {
                 over_rect += usize::from(changed);
             } else if !rect.contains(x, y) {
@@ -695,8 +724,7 @@ fn deep_processing_reads_a_varied_noise_at_the_mip_level_the_block_picks() {
         .flat_map(|y| (610..890).map(move |x| FramePixel(x, y)))
         .filter(|&p| {
             let here = DeepPixel::of(p).taps()[2];
-            let next = DeepPixel::of(FramePixel(p.0 ^ 1, p.1)).taps()[2];
-            ((next[0] - here[0]) * 64.0).hypot((next[1] - here[1]) * 64.0) > 1.5
+            Noise::step(2, here, FramePixel(p.0 ^ 1, p.1)) > 1.5
         })
         .count();
     assert!(minified > 5000, "{minified} pixels pick a coarser level");
