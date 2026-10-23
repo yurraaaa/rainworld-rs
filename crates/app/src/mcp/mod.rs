@@ -15,6 +15,9 @@ mod debug_action_tests;
 mod dev_start_tests;
 #[cfg(test)]
 mod dev_tools_tests;
+mod effects_reply;
+#[cfg(test)]
+mod effects_tests;
 mod fixtures_reply;
 #[cfg(test)]
 mod game_over_tests;

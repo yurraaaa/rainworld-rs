@@ -259,7 +259,7 @@ Surveys (`../../../rainworld-re/surveys/`): `lizards.md`, `bat-flies.md`, `rocks
 Divergences: `../../docs/divergences/` (IDs are global, `grep -n '^## D'`). In `sim.md`:
 D2 spawning, D3 movement, D4 falls, D5 shortcuts, D6 poles/ledges, D9 skid/roll/belly
 slide, D10 corridors, D11 water, D14 worlds/rooms/realizer (creatures, lizards, flies,
-overseers), D17 shelters, D19 the player held by a creature. Elsewhere: D1 `random.md`, D12 `audio.md`, D13 `menu.md`,
+overseers), D17 shelters, D19 the player held by a creature; D33 (`sim-gameplay-effects.md`) `ElectricDeath` and `BorderPushBack`. Elsewhere: D1 `random.md`, D12 `audio.md`, D13 `menu.md`,
 D16 `save.md`, D18 `app.md`.
 
-Tests: `*_tests.rs` beside their module, `player/tests/`, and `tests/` (13 `installed_*.rs` integration tests that read the installed game, plus `data/`).
+Tests: `*_tests.rs` beside their module, `player/tests/`, and `tests/` (14 `installed_*.rs` integration tests that read the installed game, plus `data/`).

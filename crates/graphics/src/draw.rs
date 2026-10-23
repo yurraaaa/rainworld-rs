@@ -230,6 +230,14 @@ pub enum Shader {
     /// shaped by noise and the level depth, with the vertex colour's red the density and
     /// green and blue the fade at its top and bottom.
     WaterFall,
+    /// `Futile/ElectricDeath` (`ElectricDeath`): a noisy green web over the level's
+    /// terrain (not its sky or the nearest layer), cut where a creature is drawn behind
+    /// the level; the colour's blue and the alpha steer the noise.
+    ElectricDeath,
+    /// `Futile/FlareBomb` (`SparkFlash`; the `FlareBombBothSides` variant is the same
+    /// without the Watcher): a bright flash whose alpha is sharpened and whitened,
+    /// shadowed by nearer level pixels.
+    FlareBomb,
 }
 
 impl Shader {

@@ -21,7 +21,7 @@ pub struct BorderPushBack {
 
 impl BorderPushBack {
     /// The constructor: `margin = (options.ScreenSize.x - 1400) / 2 - 100` (the port's
-    /// screen is 1366 wide, so -117) and the extremes of the room's camera positions.
+    /// screen is 1366 wide, so -117, D33) and the extremes of the room's camera positions.
     #[must_use]
     pub fn new(update_order: u64, camera_positions: &[[f32; 2]], players: usize) -> Self {
         let margin = (SCREEN_SIZE.x - 1400.0) / 2.0 - 100.0;

@@ -70,6 +70,8 @@ pub enum Drawable {
     DustPuff(u64),
     /// A `HolyFireSprite`, `SlimeMoldLight` or `WaterFall`, by its place in the update list.
     Fixture(u64),
+    /// An `ElectricDeath`, by its place in the update list.
+    ElectricDeath(u64),
     /// `ShortcutGraphics` (not a leaser: its sprites join the containers after the
     /// room's leasers).
     Shortcuts,

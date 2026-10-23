@@ -293,9 +293,16 @@ impl SpriteAtlas {
 
     /// The four vertices of `sprite` (TL, TR, BR, BL) at stage position
     /// `sprite.pos - cam_pos`, with the page they sample; `None` if its element is in no
-    /// page.
+    /// page, or its scale or colour is not finite (Unity draws nothing for a NaN mesh;
+    /// a newborn `SparkFlash`'s `Pow(Sin(PI), 0.5)` is one).
     #[must_use]
     pub fn quad(&self, sprite: &Sprite, cam_pos: Vec2) -> Option<(usize, [RoomVertex; 4])> {
+        let finite = sprite.scale.x.is_finite()
+            && sprite.scale.y.is_finite()
+            && sprite.color.to_array().iter().all(|c| c.is_finite());
+        if !finite {
+            return None;
+        }
         let (page, frame, uvs, tex_coords) = if sprite.element == Self::FUTILE_WHITE {
             let corners = Self::TEXTURE_CORNERS;
             (
