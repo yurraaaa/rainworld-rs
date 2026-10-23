@@ -273,7 +273,7 @@ impl RainWorldGame {
             p.dev_enter_vessel();
         }
         self.carried_sucked_in();
-        if let Err(e) = self.world.activate_room(room, &mut self.ids, &mut self.rng) {
+        if let Err(e) = self.activate_room(room) {
             log::warn!("cannot realize room {room}: {e}");
         }
         self.shortcuts.lobby.push(LobbyVessel {

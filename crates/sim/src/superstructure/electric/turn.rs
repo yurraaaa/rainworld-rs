@@ -110,12 +110,17 @@ impl RainWorldGame {
         }
     }
 
-    /// `AIMapReady` of every `ZapCoilLight` of room `index`: its coil is the first one in the
-    /// update list whose rectangle holds the light.
-    pub(crate) fn link_zap_coil_lights(&mut self, index: i32) {
+    /// `AIMapReady` of the `ZapCoilLight` at `order` in room `index`: its coil is the
+    /// first one in the update list whose rectangle holds the light.
+    pub(crate) fn zap_coil_light_ai_map_ready(&mut self, index: i32, order: u64) {
         if let Some(r) = self.world.realized_mut(index) {
             let coils = &r.fixtures.zap_coils;
-            for l in &mut r.fixtures.zap_coil_lights {
+            if let Some(l) = r
+                .fixtures
+                .zap_coil_lights
+                .iter_mut()
+                .find(|l| l.update_order == order)
+            {
                 l.find_coil(coils);
             }
         }

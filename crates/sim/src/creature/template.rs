@@ -246,6 +246,16 @@ impl CreatureTemplate {
             .unwrap_or_else(|| Self::base(CreatureType::StandardGroundCreature))
     }
 
+    /// `StaticWorld.quantifiedCreatures`: the quantified templates in template order.
+    #[must_use]
+    pub fn quantified_templates(_mods: ActiveMods) -> Vec<Self> {
+        Self::BASE
+            .iter()
+            .filter(|t| t.quantified)
+            .copied()
+            .collect()
+    }
+
     /// `TopAncestor().type`.
     #[must_use]
     pub fn top_ancestor(&self) -> CreatureType {

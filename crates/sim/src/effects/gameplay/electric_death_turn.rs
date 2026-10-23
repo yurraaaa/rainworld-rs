@@ -1,5 +1,5 @@
-//! The game's side of a room's `ElectricDeath`: `Room.Loaded` making it (and
-//! `AIMapReady` listing the wall tiles), its turn in the update list with the sounds,
+//! The game's side of a room's `ElectricDeath`: `Room.Loaded` making it, `AIMapReady`
+//! listing the wall tiles, its turn in the update list with the sounds,
 //! sparks and strikes it makes over the room's `physicalObjects`, the creatures' electric
 //! `Violence`, its loop emitters' turns and its `SparkFlash`es' turns. Types:
 //! [`crate::ElectricDeath`], [`crate::SparkFlash`].
@@ -17,10 +17,10 @@ use crate::physics::chunk::BodyChunk;
 use crate::{ChunkOwner, CosmeticKind, FloatExt, RoomExt, SoundId, Vec2};
 
 impl RainWorldGame {
-    /// `Room.Loaded`'s `ElectricDeath` for one such effect, joining the update list, and
-    /// `AIMapReady`'s `closeToWallTiles`: every tile with `getTerrainProximity == 1`.
-    pub(crate) fn add_electric_death(&mut self, index: i32, amount: f32) {
-        let Some(r) = self.world.realized(index) else {
+    /// `AIMapReady` of the `ElectricDeath` at `order` in room `index`:
+    /// `closeToWallTiles` is every tile with `getTerrainProximity == 1`.
+    pub(crate) fn electric_death_ai_map_ready(&mut self, index: i32, order: u64) {
+        let Some(r) = self.world.realized_mut(index) else {
             return;
         };
         let mut tiles = Vec::new();
@@ -33,9 +33,22 @@ impl RainWorldGame {
                 }
             }
         }
+        if let Some(death) = r
+            .electric_deaths
+            .iter_mut()
+            .find(|d| d.update_order == order)
+        {
+            death.close_to_wall_tiles = Some(tiles);
+        }
+    }
+
+    /// `Room.Loaded`'s `ElectricDeath` for one such effect, joining the update list.
+    pub(crate) fn add_electric_death(&mut self, index: i32, amount: f32) {
+        if self.world.realized(index).is_none() {
+            return;
+        }
         let order = self.world.next_update_seq();
-        let mut death = ElectricDeath::new(order, amount);
-        death.close_to_wall_tiles = Some(tiles);
+        let death = ElectricDeath::new(order, amount);
         if let Some(r) = self.world.realized_mut(index) {
             r.electric_deaths.push(death);
         }

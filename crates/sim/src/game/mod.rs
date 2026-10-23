@@ -27,6 +27,7 @@ use std::sync::Arc;
 mod dev_turn;
 mod exit_turn;
 mod instructions_turn;
+pub(crate) mod loading_turn;
 pub use crate::effects::lights::turn::PlayerGlow;
 mod game_over_turn;
 mod map_turn;
@@ -364,6 +365,9 @@ pub struct RainWorldGame {
     music_requests: Vec<crate::trigger::MusicRequest>,
     /// Camera 0's HUD as the checkers read it, set by the app.
     trigger_hud: crate::trigger::TriggerHud,
+    /// The start room's player waits for a loading stage to realize it (the game's
+    /// `realizedCreature == null` of the player made with the session).
+    start_player_pending: bool,
 }
 
 impl RainWorldGame {
@@ -493,14 +497,13 @@ impl RainWorldGame {
             trigger_objects: Vec::new(),
             music_requests: Vec::new(),
             trigger_hud: crate::trigger::TriggerHud::default(),
+            start_player_pending: true,
         };
-        if let Err(e) = game
-            .world
-            .activate_room(start.room, &mut game.ids, &mut game.rng)
-        {
+        if let Err(e) = game.activate_room(start.room) {
             log::error!("cannot realize the first room: {e}");
         }
-        game.finish_loading(observer);
+        // Port-only: the game's first `RoomPreparer.Update` is in the first tick (D14).
+        game.update_loading_rooms(observer);
         game
     }
 
@@ -683,7 +686,7 @@ impl RainWorldGame {
     /// abstract room (in turn, with the time of a whole round), the rain cycle, the
     /// path finders' budget, the shortcut handler on every third tick, every active room (newest first: the entry
     /// delay, its water, and the player in it with its graphics), then the loading
-    /// step.
+    /// step (`loadingRooms`' preparers).
     pub fn tick(&mut self, input: Input, observer: &mut dyn PlayerObserver) {
         // `RoomCamera.Update`: the room change (`ApplyPositionChange`) before the shake.
         self.apply_insect_view_change();
@@ -698,6 +701,7 @@ impl RainWorldGame {
                 &mut self.rng,
             );
         }
+        self.rooms_loaded();
         self.update_abstract_room();
         self.enter_from_abstract_rooms();
         self.update_world_processes(observer);
@@ -712,7 +716,7 @@ impl RainWorldGame {
         for room in self.world.active_rooms().into_iter().rev() {
             self.update_room(room, input, observer);
         }
-        self.finish_loading(observer);
+        self.update_loading_rooms(observer);
         self.sync_player_state();
         self.heavy_ai.end_of_tick();
         self.tick += 1;
@@ -785,45 +789,6 @@ impl RainWorldGame {
             let dead = p.is_dead();
             self.world.creature_mut(self.player_id).state.alive = !dead;
             self.world.player_dead = dead;
-        }
-    }
-
-    /// The loading step: for each room that finished loading, `ReadyForAI` realizes its
-    /// creatures in list order (the player only at the start).
-    pub(crate) fn finish_loading(&mut self, observer: &mut dyn PlayerObserver) {
-        for index in self.world.finish_loading() {
-            self.add_waterfalls(index);
-            self.add_shelter_door(index);
-            self.add_death_fall(index);
-            self.add_trigger_checkers(index);
-            self.add_dripping_sound(index);
-            self.world.realize_room_objects(index, &mut self.rng);
-            for id in self.world.room_creatures(index).to_vec() {
-                if id == self.player_id {
-                    if self.tick == 0 && self.player.is_none() {
-                        self.realize_player(observer);
-                    }
-                } else if self.world.creature(id).kind() == CreatureType::Fly {
-                    if self.world.held_by_abstract_creature(id) {
-                        continue;
-                    }
-                    self.realize_fly_in_room(index, id, observer);
-                } else if crate::creature::LizardBreedParams::of(self.world.creature(id).kind())
-                    .is_some()
-                {
-                    self.realize_lizard_in_room(index, id, observer);
-                } else {
-                    let _before = self.rng.state();
-                    let _creature = self.world.creature(id).clone();
-                    if self.world.realize_overseer(id, 0, &mut self.rng) {
-                        self.run_overseer(id, OverseerCall::Place, observer);
-                    }
-                }
-            }
-            self.place_quantified(index, observer);
-            if !self.awaiting_first_view(index) {
-                self.coral_ai_map_ready(index);
-            }
         }
     }
 
@@ -1383,7 +1348,7 @@ impl RainWorldGame {
             .abstract_room(self.pos().room)
             .and_then(|r| r.connections.get(data.dest_node?).copied());
         if let Some(dest) = dest.filter(|&d| d > -1)
-            && let Err(e) = self.world.activate_room(dest, &mut self.ids, &mut self.rng)
+            && let Err(e) = self.activate_room(dest)
         {
             log::warn!("cannot realize room {dest}: {e}");
         }

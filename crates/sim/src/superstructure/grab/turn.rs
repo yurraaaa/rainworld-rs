@@ -81,6 +81,22 @@ impl RainWorldGame {
             .is_some_and(|v| v.from.is_none() && v.to == index)
     }
 
+    /// `AIMapReady` of the `GravityDisruptor` at `order` in room `index`: `roomSpecks` is
+    /// every `GenericZeroGSpeck` in the update list now.
+    pub(crate) fn gravity_disruptor_ai_map_ready(&mut self, index: i32, order: u64) {
+        if let Some(r) = self.world.realized_mut(index) {
+            let specks: Vec<u64> = r.particles.specks.iter().map(|s| s.update_order).collect();
+            if let Some(d) = r
+                .fixtures
+                .gravity_disruptors
+                .iter_mut()
+                .find(|d| d.update_order == order)
+            {
+                d.room_specks = specks;
+            }
+        }
+    }
+
     /// `AIMapReady` of every `GravityDisruptor` of room `index`: `roomSpecks` is every
     /// `GenericZeroGSpeck` in the update list now.
     pub(crate) fn link_gravity_disruptors(&mut self, index: i32) {

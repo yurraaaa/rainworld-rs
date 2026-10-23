@@ -795,9 +795,17 @@ second part, else a single-room world for arena levels). The campaign descriptio
   slugcat's; the game orders a container by when each graphics module joined it (flies
   realized before the player's body sit under it).
 - **Synchronous loading.** The game's `RoomPreparer` loads a room over several frames
-  (and `RoomCamera.MoveCamera` its images asynchronously); the port loads a room's
-  files and builds its water in one call, finishing at the end of the tick the room is
-  activated. A room is therefore `fullyLoaded` sooner than in the game: a room exit's
+  (and `RoomCamera.MoveCamera` its images asynchronously); the port reads the room and
+  runs `Room.Loaded` on the realizing call, as the game does, but its preparer
+  (`world/room_preparer.rs`) runs under `LoadingSchedule::Immediate`: both stages
+  (`ShortCutsReady`, `ReadyForAI`, in their game order and content) come in the loading
+  step of the tick the room is activated (the start room's in the constructor), where
+  the game's thread delivers them one call apart at the earliest (`GAME_MINIMUM`, not
+  yet on). The room-side part of `Room.Loaded` after the items (shelter door, death fall,
+  effects, placed objects, scripts, triggers, dripping sound) runs after the items, where
+  the game makes the items between the scripts and the triggers. Abstracting a loading
+  room drops its preparer; the game's keeps handing stages to the dropped `Room`
+  (unreachable: `CanAbstractizeRoom` needs `fullyLoaded`). A room is therefore `fullyLoaded` sooner than in the game: a room exit's
   destination (activated when the player goes in) is always loaded by the time the
   vessel reaches the exit node, so the lobby only waits out the room's entry delay
   (`waitToEnterAfterFullyLoaded`, counting from the tick it loaded), and the

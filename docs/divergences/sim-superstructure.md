@@ -80,8 +80,9 @@ port's creature death paths (D33's route for `ElectricDeath`). Notes:
   branch in dev starts (`load_room`, `--room`) too, as `Rainbow` does (D26). A dev start in
   `SL_*` or `SI_*` therefore keeps the room's amount where a story run has 1.
 - **`AIMapReady` runs in the loading step.** A `ZapCoilLight` finds its coil (the first
-  `ZapCoil` in the update list whose rectangle holds the light) as the room finishes
-  loading, after every placed object exists.
+  `ZapCoil` in the update list whose rectangle holds the light) in `ReadyForAI`'s listener
+  pass, in update-list order with the other listeners, as in the game; when that stage
+  comes is D14's.
 - **An unpowered `ZapCoil` in a `BrokenZeroG` room needs the world's switch.** The
   condition reads `rainCycle.brokenAntiGrav`; a room with `BrokenZeroG` makes it, so the
   missing-switch case (a null reference in the game) reads as "not settled".

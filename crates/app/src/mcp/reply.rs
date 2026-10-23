@@ -1443,9 +1443,24 @@ pub struct LobbyState {
     pub updates: u32,
 }
 
+/// A loading room's `RoomPreparer`.
+#[derive(Debug, Clone, Serialize)]
+pub struct PreparerState {
+    /// The thread's `status` (0 shortcuts, 1 AI map, 4 AI map ready, 5 finishing).
+    pub status: u8,
+    /// `Update` calls so far.
+    pub calls: u32,
+    pub done: bool,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct RealizedState {
     pub room: String,
+    /// `loadingProgress`: 0 loading, 1 `shortCutsReady`, 2 in `ReadyForAI`, 3 fully loaded.
+    pub loading_progress: u8,
+    /// Its preparer while it is in `loadingRooms`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preparer: Option<PreparerState>,
     pub wait_to_enter: i32,
     pub ready_for_player: bool,
     /// The room's `CeilingDrips` (settings, inherited from the region's).

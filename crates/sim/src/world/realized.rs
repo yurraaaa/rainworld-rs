@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use rw_assets::world::{AbstractRoomData, LoadedRoom};
+use rw_assets::world::LoadedRoom;
 use rw_assets::{ActiveMods, CreatureType, Room, RoomEffectType, RoomSettings, Timeline};
 
 use super::AiMap;
@@ -31,9 +31,10 @@ const WAIT_80_OBJECTS: [&str; 8] = [
 pub struct RealizedRoom {
     pub room: Arc<Room>,
     pub settings: RoomSettings,
-    /// Made when the room finishes loading (`Room.Loaded`'s `AddWater`).
+    /// `Room.Loaded`'s `AddWater`.
     pub water: Option<Water>,
-    /// `loadingProgress`: 0 while loading, 3 once fully loaded.
+    /// `loadingProgress`: 0 while loading, 1 once `ShortCutsReady`, 2 during
+    /// `ReadyForAI`, 3 once fully loaded.
     loading_progress: u8,
     ready_for_non_ai_creatures: bool,
     /// `waitToEnterAfterFullyLoaded`.
@@ -44,7 +45,7 @@ pub struct RealizedRoom {
     pub scripts: Vec<RoomScript>,
     /// The scripts' place in the update list.
     pub script_order: u64,
-    /// `aimap`, made when the room finishes loading.
+    /// `aimap`, made by the preparer's thread before `ReadyForAI`.
     pub ai_map: Option<Arc<AiMap>>,
     /// `fliesRoomAi`, made by the first fly that enters.
     pub flies_room_ai: Option<FliesRoomAi>,
@@ -178,23 +179,25 @@ impl RealizedRoom {
         }
     }
 
-    /// `new Room` plus the entry delay `Room.Loaded` and `ReadyForAI` set from the
-    /// room's effects, placed objects and name.
+    /// `new Room` plus `Room.Loaded`'s water and entry delay (from the room's effects
+    /// and placed objects).
     pub(crate) fn new(
         loaded: LoadedRoom,
-        data: &AbstractRoomData,
-        story: bool,
         timeline: Timeline,
         mods: ActiveMods,
         first_time_realized: bool,
     ) -> Self {
-        let wait = Self::entry_delay(&loaded.settings, &data.name, story, timeline, mods);
+        let wait = Self::entry_delay(&loaded.settings, timeline, mods);
         let insects = crate::insect::InsectCoordinator::for_room(&loaded.settings, timeline, mods);
         let ceiling_tiles = Self::find_ceiling_tiles(&loaded.room);
+        let water = Water::new(&loaded.room, &loaded.settings);
+        let water_sound = water
+            .as_ref()
+            .and_then(|_| crate::WaterSound::new(&loaded.room));
         Self {
             room: Arc::new(loaded.room),
             settings: loaded.settings,
-            water: None,
+            water,
             loading_progress: 0,
             ready_for_non_ai_creatures: false,
             wait_to_enter: wait,
@@ -227,7 +230,7 @@ impl RealizedRoom {
             dust_puffs: Vec::new(),
             ceiling_tiles,
             dripping_sound: None,
-            water_sound: None,
+            water_sound,
             lightning: None,
             electric_deaths: Vec::new(),
             border_push_backs: Vec::new(),
@@ -248,18 +251,13 @@ impl RealizedRoom {
         self.first_time_realized
     }
 
-    /// `waitToEnterAfterFullyLoaded` after loading, base game: 40 for the `SSSwarmers`
-    /// effect; 80 for active coral, wall mycelia, corruption and vine objects, and for
-    /// Five Pebbles' and Moon's chambers (`SS_AI`, `SL_AI`) in a story; else -1. The
-    /// More Slugcats and Watcher branches are listed in `rainworld-re/notes/world-loading.md`.
+    /// `waitToEnterAfterFullyLoaded` after `Room.Loaded`, base game: 40 for the
+    /// `SSSwarmers` effect; 80 for active coral, wall mycelia, corruption and vine
+    /// objects; else -1 (`ReadyForAI` raises it for the oracle rooms,
+    /// [`Self::raise_oracle_wait`]). The More Slugcats and Watcher branches are listed in
+    /// `rainworld-re/notes/world-loading.md`.
     #[must_use]
-    pub fn entry_delay(
-        settings: &RoomSettings,
-        name: &str,
-        story: bool,
-        timeline: Timeline,
-        mods: ActiveMods,
-    ) -> i32 {
+    pub fn entry_delay(settings: &RoomSettings, timeline: Timeline, mods: ActiveMods) -> i32 {
         let mut wait = -1;
         if settings.has_effect("SSSwarmers") {
             wait = wait.max(40);
@@ -271,23 +269,34 @@ impl RealizedRoom {
         {
             wait = wait.max(80);
         }
-        if story && (name == "SS_AI" || name == "SL_AI") {
-            wait = wait.max(80);
-        }
         wait
     }
 
-    /// `ShortCutsReady` then `ReadyForAI`: fully loaded and open to the player once the
-    /// delay runs out. `index` is the room's global index.
-    pub(crate) fn finish_loading(&mut self, index: i32, shelter_or_gate: bool) {
+    /// `ReadyForAI`'s oracle rooms: Five Pebbles' and Moon's chambers (`SS_AI`, `SL_AI`)
+    /// in a story wait at least 80 ticks (the `Oracle` it makes there is not ported).
+    pub(crate) fn raise_oracle_wait(&mut self, name: &str, story: bool) {
+        if story && (name == "SS_AI" || name == "SL_AI") {
+            self.wait_to_enter = self.wait_to_enter.max(80);
+        }
+    }
+
+    /// `ShortCutsReady`'s first step: `shortcutsBlinking`.
+    pub(crate) fn make_shortcuts_blinking(&mut self) {
         self.shortcuts_blinking = Some(ShortcutsBlinking::new(
             self.room.shortcut_map().shortcuts().len(),
         ));
-        self.water = Water::new(&self.room, &self.settings);
-        self.water_sound = self
-            .water
-            .as_ref()
-            .and_then(|_| crate::WaterSound::new(&self.room));
+    }
+
+    /// `ShortCutsReady`'s `loadingProgress = 1`, open to creatures without `AI` when no
+    /// creature of the room needs the AI map.
+    pub(crate) fn set_shortcuts_ready(&mut self, ready_for_non_ai_creatures: bool) {
+        self.loading_progress = 1;
+        self.ready_for_non_ai_creatures |= ready_for_non_ai_creatures;
+    }
+
+    /// The thread's `room.aimap = aiMapper.ReturnAIMap()` (with the heat maps), before
+    /// `ReadyForAI`. `index` is the room's global index.
+    pub(crate) fn build_ai_map(&mut self, index: i32, shelter_or_gate: bool) {
         let lethal_water = self.settings.effect_amount(RoomEffectType::LethalWater) > 0.0;
         self.ai_map = Some(Arc::new(AiMap::new(
             &self.room,
@@ -295,8 +304,23 @@ impl RealizedRoom {
             shelter_or_gate,
             lethal_water,
         )));
+    }
+
+    /// `ReadyForAI`'s `loadingProgress = 2`.
+    pub(crate) fn begin_ready_for_ai(&mut self) {
+        self.loading_progress = 2;
+    }
+
+    /// `ReadyForAI`'s `loadingProgress = 3` and `readyForNonAICreaturesToEnter`.
+    pub(crate) fn end_ready_for_ai(&mut self) {
         self.loading_progress = 3;
         self.ready_for_non_ai_creatures = true;
+    }
+
+    /// `loadingProgress`.
+    #[must_use]
+    pub fn loading_progress(&self) -> u8 {
+        self.loading_progress
     }
 
     #[must_use]

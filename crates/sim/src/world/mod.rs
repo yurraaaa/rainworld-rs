@@ -2,12 +2,14 @@
 //! (`AbstractRoom.RealizeRoom` / `Abstractize`, `World.activeRooms`), and the rooms
 //! still loading.
 //!
-//! Loading is synchronous: a room realized during a tick finishes loading in that
-//! tick's loading step (`RainWorldGame.Update` runs the `RoomPreparer`s there), where the
-//! game spreads it over frames on a thread (docs/divergences/ D14). Behaviour:
-//! `rainworld-re/notes/world-loading.md`, `room-realizer.md`.
+//! A realized room joins `loadingRooms` with a [`RoomPreparer`], whose stages the
+//! loading step hands over (`RainWorldGame.Update` runs the preparers there). The
+//! schedule is [`LoadingSchedule::Immediate`] for now: both stages in the tick the room
+//! is activated, where the game spreads them over frames on a thread (docs/divergences/
+//! D14). Behaviour: `rainworld-re/notes/world-loading.md`, `room-realizer.md`,
+//! `rainworld-re/surveys/async-room-loading.md`.
 //!
-//! Mirrors: World.cs, AbstractRoom.cs, RoomPreparer.cs
+//! Mirrors: World.cs, AbstractRoom.cs
 
 pub(crate) mod ai_map;
 mod creatures;
@@ -18,6 +20,7 @@ mod rain_cycle;
 mod realized;
 mod realizer;
 mod region_state;
+mod room_preparer;
 
 use std::sync::Arc;
 
@@ -26,7 +29,9 @@ use rw_assets::world::{AbstractRoomData, RoomSource, WorldData};
 use rw_assets::{ActiveMods, AssetError, CreatureType, RoomAttraction, Timeline};
 
 use crate::Vec2;
-use crate::creature::{AbstractCreature, CreatureId, FlockBehavior, IdIssuer, WorldCoordinate};
+use crate::creature::{
+    AbstractCreature, CreatureId, CreatureTemplate, FlockBehavior, IdIssuer, WorldCoordinate,
+};
 use crate::item::AbstractObject;
 use rw_random::UnityRandom;
 
@@ -57,6 +62,7 @@ pub use rain_cycle::{CYCLE_TIME_MAX, CYCLE_TIME_MIN, RainCycle, WaterLevelCycle,
 pub use realized::RealizedRoom;
 pub use realizer::{FollowCreature, RoomRealizer};
 pub use region_state::{ConsumedItem, RegionState};
+pub use room_preparer::{LoadingSchedule, PreparerStage, PreparerStatus, RoomPreparer};
 
 /// One camera call a graphics module's internal container makes for `obj`'s sprites:
 /// `MoveObjectToInternalContainer` into lizard `into`'s jaws, or
@@ -77,8 +83,12 @@ pub struct World {
     pub(crate) realized: Vec<Option<RealizedRoom>>,
     /// `activeRooms`: local indices in realization order.
     active: Vec<usize>,
-    /// Realized this tick, loaded in the loading step.
-    loading: Vec<usize>,
+    /// `loadingRooms`, oldest first.
+    loading: Vec<RoomPreparer>,
+    /// How many loading-step calls each stage takes.
+    pub loading_schedule: LoadingSchedule,
+    /// Rooms realized since the game last ran their `Room.Loaded` tail (global indices).
+    pub(crate) pending_loaded: Vec<i32>,
     rooms: Arc<dyn RoomSource>,
     timeline: Timeline,
     pub(crate) mods: ActiveMods,
@@ -166,6 +176,8 @@ impl World {
             realized: (0..count).map(|_| None).collect(),
             active: Vec::new(),
             loading: Vec::new(),
+            loading_schedule: LoadingSchedule::default(),
+            pending_loaded: Vec::new(),
             rooms,
             timeline,
             mods,
@@ -392,17 +404,15 @@ impl World {
         let first_time = !self.loaded_before[i];
         self.place_room_items(index, &loaded.room, &loaded.settings, first_time, ids, rng);
         self.loaded_before[i] = true;
-        let data = &self.data.rooms[i];
         self.realized[i] = Some(RealizedRoom::new(
             loaded,
-            data,
-            self.story,
             self.timeline,
             self.mods,
             first_time,
         ));
         self.active.push(i);
-        self.loading.push(i);
+        self.loading.push(RoomPreparer::new(index));
+        self.pending_loaded.push(index);
         Ok(())
     }
 
@@ -434,20 +444,106 @@ impl World {
             log::info!("abstracted room {}", self.data.rooms[i].name);
         }
         self.active.retain(|&a| a != i);
-        self.loading.retain(|&a| a != i);
+        // The game's preparer outlives the room and hands its stages to the dropped
+        // `Room` (unreachable: `CanAbstractizeRoom` needs `fullyLoaded`); dropping it
+        // keeps them off a later realization of the same room.
+        self.loading.retain(|p| p.room != index);
+        self.pending_loaded.retain(|&r| r != index);
     }
 
-    /// The loading step: rooms realized this tick finish loading (`ShortCutsReady`,
-    /// `ReadyForAI`). Returns their global indices.
-    pub fn finish_loading(&mut self) -> Vec<i32> {
-        let mut done = Vec::new();
-        for i in std::mem::take(&mut self.loading) {
-            if let Some(room) = &mut self.realized[i] {
-                let data = &self.data.rooms[i];
-                room.finish_loading(data.index, data.shelter() || data.gate());
-                done.push(self.data.rooms[i].index);
+    /// The loading step's `loadingRooms` loop, newest first: a done preparer is removed,
+    /// every other one is updated once. Returns the stages handed over, in order (the
+    /// game runs each in its preparer's call; the calls do nothing else).
+    pub fn update_loading_rooms(&mut self) -> Vec<(i32, PreparerStage)> {
+        let schedule = self.loading_schedule;
+        let mut stages = Vec::new();
+        for k in (0..self.loading.len()).rev() {
+            if self.loading[k].done() {
+                self.loading.remove(k);
+                continue;
+            }
+            let room = self.loading[k].room;
+            stages.extend(
+                self.loading[k]
+                    .update(schedule)
+                    .into_iter()
+                    .map(|s| (room, s)),
+            );
+        }
+        if schedule == LoadingSchedule::Immediate {
+            self.loading.retain(|p| !p.done());
+        }
+        stages
+    }
+
+    /// `loadingRooms`, oldest first.
+    #[must_use]
+    pub fn loading_rooms(&self) -> &[RoomPreparer] {
+        &self.loading
+    }
+
+    /// The preparer of global room `index` while it loads.
+    #[must_use]
+    pub fn room_preparer(&self, index: i32) -> Option<&RoomPreparer> {
+        self.loading.iter().find(|p| p.room == index)
+    }
+
+    /// Both stages' room-side parts for every loading room, without the game's
+    /// creatures, objects and listeners (world-only tests).
+    #[cfg(test)]
+    pub(crate) fn finish_loading(&mut self) {
+        for (index, stage) in self.update_loading_rooms() {
+            match stage {
+                PreparerStage::ShortcutsReady => {
+                    if let Some(r) = self.realized_mut(index) {
+                        r.make_shortcuts_blinking();
+                        r.set_shortcuts_ready(false);
+                    }
+                }
+                PreparerStage::ReadyForAi => {
+                    self.build_ai_map(index);
+                    if let Some(r) = self.realized_mut(index) {
+                        r.begin_ready_for_ai();
+                        r.end_ready_for_ai();
+                    }
+                }
             }
         }
-        done
+    }
+
+    /// The thread's `AImapper` result for global room `index`, as `ReadyForAI` finds it.
+    pub(crate) fn build_ai_map(&mut self, index: i32) {
+        let Some(i) = self.local(index) else { return };
+        let data = &self.data.rooms[i];
+        let shelter_or_gate = data.shelter() || data.gate();
+        if let Some(r) = &mut self.realized[i] {
+            r.build_ai_map(index, shelter_or_gate);
+        }
+    }
+
+    /// `AllowedToExistInRoom` of creature `id` in global room `index`: `readyForAI`, or
+    /// `shortCutsReady` for a template without `AI`.
+    #[must_use]
+    pub fn allowed_to_exist_in_room(&self, id: CreatureId, index: i32) -> bool {
+        self.realized(index).is_some_and(|r| {
+            r.ready_for_ai() || (r.shortcuts_ready() && !self.creature(id).template.ai)
+        })
+    }
+
+    /// `ShortCutsReady`'s `flag2`: a creature of room `index` not in a den whose template
+    /// `requireAImap`, or a counted quantified type that does.
+    #[must_use]
+    pub fn room_creatures_require_ai_map(&self, index: i32) -> bool {
+        let creature = self.room_creatures(index).iter().any(|&id| {
+            let c = self.creature(id);
+            !c.in_den && c.template.require_ai_map
+        });
+        creature
+            || CreatureTemplate::quantified_templates(self.mods)
+                .iter()
+                .any(|t| {
+                    t.require_ai_map
+                        && self.number_of_quantified_creature_in_room(index, t.kind) > 0
+                })
     }
 }

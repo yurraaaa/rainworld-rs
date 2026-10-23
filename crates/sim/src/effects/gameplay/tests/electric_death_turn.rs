@@ -25,7 +25,9 @@ impl RainWorldGame {
             amount,
         }];
         self.add_room_effect_particles(0);
-        self.world().realized(0).unwrap().electric_deaths[0].update_order
+        let order = self.world().realized(0).unwrap().electric_deaths[0].update_order;
+        self.electric_death_ai_map_ready(0, order);
+        order
     }
 
     /// The rain cycle `ticks` past the end of the cycle.
