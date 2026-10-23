@@ -1,9 +1,10 @@
 //! The data of the superstructure's electric placed objects: a `ZapCoil`'s and
-//! `SuperStructureFuses`' `GridRectObjectData`, and an `SSLightRod`'s `SSLightRodData`.
+//! `SuperStructureFuses`' `GridRectObjectData`, an `SSLightRod`'s `SSLightRodData` and a
+//! `DeepProcessing`'s `DeepProcessingData`.
 //!
-//! Mirrors: PlacedObject.cs (GridRectObjectData, SSLightRodData)
+//! Mirrors: PlacedObject.cs (GridRectObjectData, SSLightRodData, DeepProcessingData)
 
-use crate::placed::DataFields;
+use crate::placed::{DataFields, QuadData};
 
 /// `PlacedObject.GridRectObjectData`: the second corner of a tile rectangle, relative to
 /// the object.
@@ -63,9 +64,36 @@ impl SsLightRodData {
     }
 }
 
+/// `PlacedObject.DeepProcessingData`: the quad (`QuadObjectData`'s three handles) and
+/// the depth window and strength the shader reads.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DeepProcessingData {
+    pub quad: QuadData,
+    pub panel_pos: [f32; 2],
+    pub from_depth: f32,
+    pub to_depth: f32,
+    pub intensity: f32,
+}
+
+impl DeepProcessingData {
+    /// `h0.x~h0.y~h1.x~h1.y~h2.x~h2.y~panel.x~panel.y~fromDepth~toDepth~intensity~...`;
+    /// `None` where the game's `float.Parse` or array access would throw.
+    #[must_use]
+    pub fn parse(data: &str) -> Option<Self> {
+        let f = DataFields(data.split('~').collect());
+        Some(Self {
+            quad: QuadData::parse(data)?,
+            panel_pos: [f.float(6)?, f.float(7)?],
+            from_depth: f.float(8)?,
+            to_depth: f.float(9)?,
+            intensity: f.float(10)?,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{GridRectData, SsLightRodData};
+    use super::{DeepProcessingData, GridRectData, SsLightRodData};
 
     /// The rectangle runs between the object and its handle, in either direction, the
     /// floor of each corner over 20.
@@ -89,5 +117,15 @@ mod tests {
             (0.2347674, 180.0, 110.5898, 0.5)
         );
         assert!(SsLightRodData::parse("1~2~3~4~5").is_none());
+    }
+
+    /// Every field of a `DeepProcessing`, in the game's order; fewer than eleven throw.
+    #[test]
+    fn deep_processing_fields() {
+        let d = DeepProcessingData::parse("0~100~200~100~200~0~-50.5~20~0.25~0.9~0.5").expect("d");
+        assert_eq!(d.quad.handles, [[0.0, 100.0], [200.0, 100.0], [200.0, 0.0]]);
+        assert_eq!(d.panel_pos, [-50.5, 20.0]);
+        assert_eq!((d.from_depth, d.to_depth, d.intensity), (0.25, 0.9, 0.5));
+        assert!(DeepProcessingData::parse("0~100~200~100~200~0~-50.5~20~0.25~0.9").is_none());
     }
 }

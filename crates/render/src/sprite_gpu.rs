@@ -94,7 +94,7 @@ pub(crate) struct ScreenTextures<'a> {
 
 impl SpritePipeline {
     /// Each shader and its fragment entry point.
-    const SHADERS: [(Shader, &'static str); 37] = [
+    const SHADERS: [(Shader, &'static str); 39] = [
         (Shader::Basic, "fs_basic"),
         (Shader::FlatLight, "fs_flat_light"),
         (Shader::OverseerZip, "fs_overseer_zip"),
@@ -135,6 +135,8 @@ impl SpritePipeline {
         (Shader::ElectricDeath, "fs_electric_death"),
         (Shader::FlareBomb, "fs_flare_bomb"),
         (Shader::GlyphProjection, "fs_glyph_projection"),
+        (Shader::DeepProcessing, "fs_deep_processing"),
+        (Shader::GravityDisruptor, "fs_gravity_disruptor"),
     ];
 
     /// `_hologramThreshold` at render scale 1 (`RainWorld`, decompile 110635: 0.5 when
@@ -247,6 +249,7 @@ impl SpritePipeline {
                 include_str!("../shaders/water_fall.wgsl"),
                 include_str!("../shaders/electric_death.wgsl"),
                 include_str!("../shaders/glyph_projection.wgsl"),
+                include_str!("../shaders/ss_grab.wgsl"),
             ))),
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {

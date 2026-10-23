@@ -43,17 +43,17 @@ struct Scene {
 
 /// A rectangle of frame pixels, y down: `[x0, y0, x1, y1)`.
 #[derive(Clone, Copy)]
-struct Rect([u32; 4]);
+pub(super) struct Rect(pub(super) [u32; 4]);
 
 impl Rect {
-    fn contains(self, x: u32, y: u32) -> bool {
+    pub(super) fn contains(self, x: u32, y: u32) -> bool {
         let [x0, y0, x1, y1] = self.0;
         x >= x0 && x < x1 && y >= y0 && y < y1
     }
 
     /// A `Futile_White` quad over these frame pixels (stage = frame + (1, 1) from the
     /// bottom: screen pixel centre minus Futile's (-0.5, 0.5) offset).
-    fn quad(self, color: SpriteColor, layer: Layer) -> DrawItem {
+    pub(super) fn quad(self, color: SpriteColor, layer: Layer) -> DrawItem {
         let [x0, y0, x1, y1] = self.0.map(|v| v as f32);
         DrawItem::Sprite(Sprite {
             index: 0,

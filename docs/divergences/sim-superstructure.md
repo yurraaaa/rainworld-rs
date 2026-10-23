@@ -1,7 +1,7 @@
-# rw-sim divergences: the superstructure (D35, D36)
+# rw-sim divergences: the superstructure (D35, D36, D37)
 
 Fifth file of the `rw-sim` divergences. IDs are global. D35 (the projector family) is step
-10a's; D36 (the electric fixtures) is step 10b's.
+10a's; D36 (the electric fixtures) is step 10b's; D37 (the screen-grab effects) is step 10c's.
 
 ## D35: Superstructure projections (`SuperStructureProjector`, `ProjectedScanLines`, `ProjectedStars`)
 
@@ -100,4 +100,55 @@ port's creature death paths (D33's route for `ElectricDeath`). Notes:
   changes (`UpdateLightAmount`), and a fuse grid's `debugMode` colours show when its object
   is moved: the data never changes in the port, the colours are drawn for `debugMode > 0`
   as the game does.
-- **Not here:** `DeepProcessing` and `DeepProcessingLight` (step 10c, with the screen grab).
+- **Not here:** `DeepProcessing` and `DeepProcessingLight` are D37's (step 10c).
+
+## D37: Screen-grab effects (`DeepProcessing`, `DeepProcessingLight`, `GravityDisruptor`)
+
+Ported in `crates/sim/src/{deep_processing,gravity_disruptor,game_ss_grab}.rs` (the objects,
+their placed-object creation in `Room.Loaded`'s order, the disruptor's push on the room's
+bodies), the sprites in `crates/graphics/src/ss_grab.rs`, the shaders in
+`crates/render/shaders/ss_grab.wgsl` with the grab changes in `crates/render/src/gpu.rs`,
+the data in `rw-assets` `placed_electric.rs`. Notes: `../rainworld-re/notes/superstructure-grab.md`.
+
+- **`_GrabTexture` is the last unnamed `GrabPass`.** `DeepProcessing.shader` has no
+  `GrabPass`; `GravityDisruptor.shader` has one. The port's grab texture now starts every
+  frame as the screen behind the level (`LevelColor`'s own `GrabPass { }`, copied from the
+  "behind" target) and each grabbing draw replaces it with the frame so far, so
+  `DeepProcessing` sees what the last grabbing draw before it saw. The other shaders that
+  read `_GrabTexture` without a grab of their own (`LightSource`, `UnderWaterLight`,
+  `ElectricDeath`, `FlareBomb`, `WaterSplash`, `Decal`, ...) still read the pre-level frame
+  directly, which is what the last grab holds unless a grabbing draw (`Rainbow`,
+  `HologramImage`, a bloom effect, a disruptor) came before them in the frame.
+- **`_NoiseTex` is read at mip 0.** `DeepProcessing` samples `_NoiseTex` (64x64, 7 mips)
+  at the grid cell's quantised coordinates, so the derivatives Unity picks the mip from
+  are zero inside a cell and a jump (about 4 texels a pixel for the `8.2` and `4.2` scaled
+  taps) in the 2x2 pixel blocks that straddle a cell edge: those blocks sample a coarser
+  mip in the game. The port uses mip 0 everywhere (as the other noise-reading shaders).
+- **The disc is drawn after the room, before the port's HUD.** `GravityDisruptor`'s disc is in
+  the room camera's `HUD` container (index 13), above `Bloom`. In the game the HUD's own
+  sprites in that container were added when the HUD was made, so they sit below the disc and
+  its ripple distorts them; the port draws the HUD's elements after the whole room, so the
+  disc never distorts them. `Layer::Hud` follows `Layer::Bloom`.
+- **`roomSpecks` is empty in play.** `GravityDisruptor.AIMapReady` collects the
+  `GenericZeroGSpeck`s in the update list when the room finishes loading; the specks are made
+  by `Room.NowViewed`, when the camera enters, which in the port (synchronous loads, D14) and
+  in the game (the camera waits for the room) comes after. The swirl over specks is ported
+  and tested with specks that existed before; none exist at `AIMapReady` in a played room.
+- **Draws:** `DeepProcessing`: 1 a tick, 3 on a tick that moves its power (1 in 14); no
+  constructor or draw-time draws. `DeepProcessingLight`: 1 a tick. `GravityDisruptor`:
+  98 in the constructor (20 specks times 4, 16 streaks, `pointDir`, `dirFac`), at least 34 a
+  tick (the two 0.0125 rolls and two a streak), a hit adding 1 or 2; a `DisruptorSpeck` 1 a
+  tick, 2 on a new orbit. The constructor's draws are in `Room.Loaded`'s placed-object
+  order with the other ported objects' (the unported placed objects' draws are missing, as
+  for every object ported so far).
+- **Only the bodies the port realizes are swirled:** the player, bat flies, lizards,
+  overseers, rocks and spears (the room's `physicalObjects` the port has); the rest comes with
+  their ports (as D36's zaps).
+- **Developer tools only:** `DeepProcessing`'s `meshDirty` (the quad's corners changing,
+  `UpdateVerts` and the re-made mesh when the ideal grid division changes) and the
+  disruptor's moved placed object (`debugMode`, whose colours are drawn as the game does)
+  never happen in the port: the quad is read once and `placedObject.pos` is constant.
+- **Omitted DLC branches:** none in these classes. The `GravityDisruptor` shader is also More
+  Slugcats' `EnergyCell`'s (not ported); `DeepProcessingLight` has no DLC code; Remix's
+  `ScreenSize` is not read by any of them (`_screenSize` is the chosen resolution, as
+  everywhere).

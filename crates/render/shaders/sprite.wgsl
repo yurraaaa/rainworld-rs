@@ -57,8 +57,9 @@ const SCREEN_PIXEL_OFFSET: vec2<f32> = vec2(-0.5, 0.5);
 @group(1) @binding(0) var noise2: texture_2d<f32>;
 @group(1) @binding(1) var noise2_sampler: sampler;
 // `_LevelTex` (v = 0 at the bottom), the `_GrabTexture` of the last unnamed GrabPass
-// before the level (what was drawn behind it), the frame as it was just before a
-// `HologramImage` sprite (its own GrabPass) and `_PalTex` (32x8, point, clamp).
+// before the level (what was drawn behind it), the frame as the last grabbing sprite
+// (`HologramImage`, a bloom effect, `GravityDisruptor`, ...: its own GrabPass) saw it,
+// which is the frame before the level until one draws, and `_PalTex` (32x8, point, clamp).
 @group(2) @binding(0) var level_tex: texture_2d<f32>;
 @group(2) @binding(1) var behind_tex: texture_2d<f32>;
 @group(2) @binding(2) var grab_tex: texture_2d<f32>;

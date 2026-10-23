@@ -2,7 +2,7 @@
 //! placed lights, made in [`super::lights`]),
 //! the cosmetic slime molds and dead token stalks (made in [`super::placed_cosmetics`]),
 //! the custom decals and rainbows (made in [`super::decals`]), the projected stars (made in
-//! [`super::projections`]),
+//! [`super::projections`]), the screen-grab effects (made in [`super::ss_grab`]),
 //! `SuperJumpInstruction`, `ScavengerTradeInstructionTrigger` and `ReliableIggyDirection`,
 //! the `InputInstructionTrigger`s' updates (with the event-made
 //! `PickupObjectInstruction`), and what the guide's communication reads of them. Types:
@@ -11,9 +11,9 @@
 //! Mirrors: Room.cs (Loaded), SuperJumpInstruction.cs, ScavengerTradeInstructionTrigger.cs, ReliableIggyDirection.cs, InputInstructionTrigger.cs
 
 use rw_assets::{
-    AbstractObjectType, CreatureType, CustomDecalData, GridRectData, IggyCondition, LightBeamData,
-    LightFixtureData, LightSourceData, PlacedObjectType, QuadData, RainbowData,
-    ReliableIggyDirectionData, ResizableData, SsLightRodData,
+    AbstractObjectType, CreatureType, CustomDecalData, DeepProcessingData, GridRectData,
+    IggyCondition, LightBeamData, LightFixtureData, LightSourceData, PlacedObjectType, QuadData,
+    RainbowData, ReliableIggyDirectionData, ResizableData, SsLightRodData,
 };
 
 use super::RainWorldGame;
@@ -111,6 +111,11 @@ impl RainWorldGame {
                 Some(PlacedObjectType::SuperStructureFuses) => {
                     GridRectData::parse(&o.data).map(|d| PlacedRoomObject::Fuses(pos, d))
                 }
+                Some(PlacedObjectType::DeepProcessing) => DeepProcessingData::parse(&o.data)
+                    .map(|d| PlacedRoomObject::DeepProcessing(pos, d)),
+                Some(PlacedObjectType::GravityDisruptor) => {
+                    Some(PlacedRoomObject::GravityDisruptor(pos))
+                }
                 Some(PlacedObjectType::SSLightRod) => {
                     SsLightRodData::parse(&o.data).map(|d| PlacedRoomObject::LightRod(pos, d))
                 }
@@ -172,6 +177,10 @@ impl RainWorldGame {
                 PlacedRoomObject::ZapCoil(pos, data) => self.add_zap_coil(index, pos, data),
                 PlacedRoomObject::Fuses(pos, data) => self.add_fuses(index, pos, data),
                 PlacedRoomObject::LightRod(pos, data) => self.add_light_rod(index, pos, data),
+                PlacedRoomObject::DeepProcessing(pos, data) => {
+                    self.add_deep_processing(index, pos, data);
+                }
+                PlacedRoomObject::GravityDisruptor(pos) => self.add_gravity_disruptor(index, pos),
                 PlacedRoomObject::SlimeMold(pos, rad, through_walls) => {
                     self.add_slime_mold(index, pos, rad, through_walls);
                 }
@@ -186,6 +195,7 @@ impl RainWorldGame {
             }
         }
         self.link_zap_coil_lights(index);
+        self.link_gravity_disruptors(index);
     }
 
     /// The input instruction objects, as the guide's communication reads them.
@@ -533,6 +543,8 @@ enum PlacedRoomObject {
     ZapCoil(Vec2, GridRectData),
     Fuses(Vec2, GridRectData),
     LightRod(Vec2, SsLightRodData),
+    DeepProcessing(Vec2, DeepProcessingData),
+    GravityDisruptor(Vec2),
     /// `pos`, `rad`, `throughWalls`.
     SlimeMold(Vec2, f32, bool),
     /// Hover and base positions.

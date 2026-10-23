@@ -11,8 +11,9 @@
 //! level shader reads to let them show through sky and far pixels. A third draws the
 //! atlas sprites and meshes (`sprite_gpu`: the room's sprite shaders, one draw per run
 //! of one shader and atlas page; a draw whose shader grabs (`HologramImage`, the room's
-//! bloom effects) first copies the frame drawn so
-//! far to a "grab" texture, its GrabPass), a fourth the game's water (`water_gpu`), which
+//! bloom effects, `GravityDisruptor`) first copies the frame drawn so
+//! far to a "grab" texture, its GrabPass, which starts each frame as the screen behind the
+//! level: the level's own GrabPass), a fourth the game's water (`water_gpu`), which
 //! reads the level textures and the "behind" target too, and a fifth the stage quads
 //! (`stage_gpu`: the menu shaders, one texture per draw). The debug overlay
 //! (`overlay_gpu`) goes over the window after the frame is shown, or over the frame
@@ -120,6 +121,7 @@ struct FrameTargets {
     size: (u32, u32),
     texture: wgpu::Texture,
     view: wgpu::TextureView,
+    behind_texture: wgpu::Texture,
     behind: wgpu::TextureView,
     grab: wgpu::Texture,
     grab_view: wgpu::TextureView,
@@ -776,7 +778,9 @@ impl FrameTargets {
             "behind level",
             format,
             size,
-            wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::COPY_SRC,
         );
         let grab = Self::texture(
             device,
@@ -790,6 +794,7 @@ impl FrameTargets {
             view: texture.create_view(&wgpu::TextureViewDescriptor::default()),
             texture,
             behind: behind.create_view(&wgpu::TextureViewDescriptor::default()),
+            behind_texture: behind,
             grab_view: grab.create_view(&wgpu::TextureViewDescriptor::default()),
             grab,
         }
@@ -797,8 +802,19 @@ impl FrameTargets {
 
     /// `GrabPass {}`: copies the frame drawn so far to the grab texture.
     fn copy_to_grab(&self, encoder: &mut wgpu::CommandEncoder) {
+        self.copy_to_grab_from(encoder, &self.texture);
+    }
+
+    /// `LevelColor`'s own `GrabPass { }`, taken as the level is drawn: the screen behind
+    /// it becomes the `_GrabTexture` that a shader without a grab of its own (and every
+    /// grab before the next grabbing draw) reads.
+    fn copy_behind_to_grab(&self, encoder: &mut wgpu::CommandEncoder) {
+        self.copy_to_grab_from(encoder, &self.behind_texture);
+    }
+
+    fn copy_to_grab_from(&self, encoder: &mut wgpu::CommandEncoder, source: &wgpu::Texture) {
         encoder.copy_texture_to_texture(
-            self.texture.as_image_copy(),
+            source.as_image_copy(),
             self.grab.as_image_copy(),
             wgpu::Extent3d {
                 width: self.size.0.max(1),
@@ -1104,6 +1120,9 @@ impl Renderer for WgpuRenderer {
         let scissor = level.as_ref().map(|l| l.1.unwrap_or_default());
         let water = level.as_ref().map(|l| &l.3);
         let mut first_batch = 0;
+        if level.is_some() {
+            self.frame.copy_behind_to_grab(&mut encoder);
+        }
         {
             let mut pass = self.frame_pass(&mut encoder, wgpu::LoadOp::Clear(clear), scissor);
             if let Some((bind_group, _, after_level, _, _)) = &level {
@@ -1218,5 +1237,7 @@ mod full_screen_tests;
 mod glyph_projection_tests;
 #[cfg(test)]
 mod placed_visuals_tests;
+#[cfg(test)]
+mod ss_grab_tests;
 #[cfg(test)]
 mod tests;

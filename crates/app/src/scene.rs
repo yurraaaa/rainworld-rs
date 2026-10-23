@@ -743,6 +743,10 @@ impl Scene {
                 alpha,
                 rw_sim::Vec2::from(self.camera.position(self.camera.current())),
             ));
+            lists.extend(self.game.ss_grab_draw_lists(
+                alpha,
+                rw_sim::Vec2::from(self.camera.position(self.camera.current())),
+            ));
             lists.extend(self.game.holo_light_draw_lists(alpha, cam_pos, darkness));
             lists.extend(self.game.placed_light_draw_lists(self.camera.current()));
             if let Some(visuals) = &self.visuals {
@@ -1031,6 +1035,8 @@ impl FrameDraw<'_> {
             for h in self.holograms {
                 r.draw_sprites(h, Layer::Bloom, level.origin);
             }
+            // `HUD`, the last container of the room camera: a `GravityDisruptor`'s disc.
+            self.draw_layer(r, Layer::Hud, level);
         }
     }
 }
@@ -1201,6 +1207,7 @@ mod tests {
                 Layer::Water => "water",
                 Layer::GrabShaders => "grab shaders",
                 Layer::Bloom => "bloom",
+                Layer::Hud => "hud",
             });
         }
         fn draw_circle(&mut self, _: [f32; 2], _: f32, _: Color) {

@@ -20,7 +20,7 @@ not behaviour. Game assets are never committed.
 | `placed.rs`, `placed_types.rs` | room effects and placed objects by type name; the `PlacedObject.Type` / `RoomEffect.Type` enums | `PlacedObject`, `RoomSettings.RoomEffect` |
 | `placed_visuals.rs` | `CustomDecalData`, `RainbowData`: the `CustomDecal` and `Rainbow` placed objects' data, and the decal PNG loader (`Decals/<name>.png`) | `PlacedObject.CustomDecalData`, `Rainbow.RainbowData`, `CustomDecal.LoadFile` |
 | `placed_beam.rs` | a placed `LightBeam`'s data: `LightBeamData`, `BeamBlinkType` (a `SpotLight` reads `QuadData`) | `LightBeam.LightBeamData` |
-| `placed_electric.rs` | the superstructure electric objects' data: `GridRectData` (a `ZapCoil`'s and `SuperStructureFuses`' tile rectangle), `SsLightRodData` | `PlacedObject.GridRectObjectData`, `SSLightRodData` |
+| `placed_electric.rs` | the superstructure electric objects' data: `GridRectData` (a `ZapCoil`'s and `SuperStructureFuses`' tile rectangle), `SsLightRodData`, `DeepProcessingData` | `PlacedObject.GridRectObjectData`, `SSLightRodData`, `DeepProcessingData` |
 | `placed_fixture.rs` | a placed `LightFixture`'s data: `LightFixtureData`, `LightFixtureType` | `PlacedObject.LightFixtureData` |
 | `placed_light.rs` | a placed light's data: `LightSourceData`, `LightColorType`, `LightBlinkType` | `PlacedObject.LightSourceData` |
 | `triggers.rs` | `Triggers:` entries (event/spot triggers, music and image events) | `RoomSettings.LoadTriggers` |

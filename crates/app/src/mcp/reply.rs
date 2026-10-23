@@ -20,6 +20,9 @@ pub use super::projection_reply::{ProjectedScanLinesState, ProjectorState, StarM
 pub use super::ss_electric_reply::{
     FuseState, LightRodState, ZapCoilLightState, ZapCoilState, ZapFlashState,
 };
+pub use super::ss_grab_reply::{
+    DeepProcessingLightState, DeepProcessingState, GravityDisruptorState,
+};
 
 use super::params::InputParam;
 
@@ -158,6 +161,15 @@ pub struct State {
     /// The realized rooms' `SuperStructureFuses`.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub fuses: Vec<FuseState>,
+    /// The realized rooms' `DeepProcessing` quads.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub deep_processing: Vec<DeepProcessingState>,
+    /// The realized rooms' `DeepProcessingLight`s.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub deep_processing_lights: Vec<DeepProcessingLightState>,
+    /// The realized rooms' `GravityDisruptor`s with their specks.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub gravity_disruptors: Vec<GravityDisruptorState>,
     /// The realized rooms' gravity and power (`ZeroG` / `BrokenZeroG` rooms).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub room_gravity: Vec<RoomGravityState>,

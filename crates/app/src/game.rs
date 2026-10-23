@@ -1228,6 +1228,41 @@ impl Game {
         lists
     }
 
+    /// The camera room's `DeepProcessing` quads, `GravityDisruptor`s and their
+    /// `DisruptorSpeck`s at `alpha` between ticks; `camera` is `CamPos(currentCameraPosition)`,
+    /// which the disruptors' depth pushes from.
+    pub fn ss_grab_draw_lists(
+        &self,
+        alpha: f32,
+        camera: rw_sim::Vec2,
+    ) -> Vec<(Drawable, DrawList)> {
+        use rw_graphics::{DeepProcessingSprites, DisruptorSpeckSprites, GravityDisruptorSprites};
+        let Some(r) = self.sim.world().realized(self.sim.camera_room()) else {
+            return Vec::new();
+        };
+        let f = &r.fixtures;
+        let mut lists: Vec<(Drawable, DrawList)> = Vec::new();
+        lists.extend(
+            f.deep_processing
+                .iter()
+                .map(|x| (Drawable::Fixture(x.update_order), x.draw())),
+        );
+        lists.extend(f.disruptor_specks.iter().filter_map(|x| {
+            let power = f
+                .gravity_disruptors
+                .iter()
+                .find(|d| d.update_order == x.disruptor)?
+                .power;
+            Some((Drawable::Fixture(x.update_order), x.draw(power, alpha)))
+        }));
+        lists.extend(
+            f.gravity_disruptors
+                .iter()
+                .map(|x| (Drawable::Fixture(x.update_order), x.draw(alpha, camera))),
+        );
+        lists
+    }
+
     /// The camera room's dandelions, stalks, green sparks, specks and spores at `alpha`
     /// between ticks in the camera's `palette` (a new spore's pebble draws on the
     /// cosmetic stream).

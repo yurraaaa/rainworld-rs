@@ -96,7 +96,8 @@ pub use rw_assets::SlugcatName;
 /// Shadows, BackgroundShortcuts, Background, Midground, then Items, are drawn before
 /// the level image, so level pixels nearer than depth 5 cover them; Foreground sprites added
 /// after the level image draw over it, then ForegroundLights, Shortcuts, Water,
-/// GrabShaders and Bloom.
+/// GrabShaders, Bloom and `HUD` (the room camera's last container before the HUD's own
+/// `HUD2`; a `GravityDisruptor`'s disc).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Layer {
     Shadows,
@@ -110,6 +111,7 @@ pub enum Layer {
     Water,
     GrabShaders,
     Bloom,
+    Hud,
 }
 
 /// The game shader (`FShader`) an item is drawn with (`StreamingAssets/shaders`).
@@ -242,6 +244,15 @@ pub enum Shader {
     /// `glyphs` texture on the 15 px grid of the screen shifted by `_gridOffset`, a cell
     /// kept by the vertex alpha, inverted unless the vertex red is 0.
     GlyphProjection,
+    /// `Futile/DeepProcessing` (a `DeepProcessing` quad): a depth-windowed "data rain" in
+    /// blue over the level, in grid cells of 6 to 10 px, hidden where something is drawn
+    /// in the last `_GrabTexture` behind deep pixels; the vertex colour is `(fromDepth,
+    /// toDepth, power, intensity)`.
+    DeepProcessing,
+    /// `Futile/GravityDisruptor` (a `GravityDisruptor`'s disc): the grabbed frame sampled
+    /// with a tangential ripple, rings spreading out from the centre; the colour's alpha is
+    /// the strength.
+    GravityDisruptor,
 }
 
 impl Shader {
@@ -257,6 +268,7 @@ impl Shader {
                 | Self::LightAndSkyBloom
                 | Self::DeathFall
                 | Self::Rainbow
+                | Self::GravityDisruptor
         )
     }
 }

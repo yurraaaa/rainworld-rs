@@ -93,6 +93,8 @@ mod social_events;
 mod spear_on_back;
 #[path = "game_ss_electric.rs"]
 mod ss_electric;
+#[path = "game_ss_grab.rs"]
+mod ss_grab;
 
 pub use dev::DevRainControl;
 pub use heavy_ai::HeavyAiThrottle;
