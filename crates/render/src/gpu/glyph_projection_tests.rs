@@ -5,7 +5,7 @@
 //! the GPU's `sin`, which is not the CPU's to the last bit, so a few cells may differ.
 //! Skipped without a Vulkan adapter.
 
-use rw_assets::NoiseTexture;
+use rw_assets::{NoiseTexture, PaletteTexture};
 use rw_graphics::{Atlas, Color as SpriteColor, DrawItem, ElementMesh, Mesh as SpriteMesh, Shader};
 use std::borrow::Cow;
 
@@ -102,6 +102,46 @@ fn reference(
     Some((!texel_set(tx, ty)) == (clr[0] == 0.0))
 }
 
+struct FrameScene {
+    level_image: PngImage,
+    pal: PaletteTexture,
+    noise: NoiseTexture,
+    quad: DrawItem,
+    grid: [f32; 2],
+}
+
+impl FrameScene {
+    fn draw(&self, r: &mut WgpuRenderer, with: bool) -> FrameImage {
+        r.set_level(&LevelGraphics {
+            camera_pos: [0.0, 0.0],
+            image: &self.level_image,
+            palette: &self.pal,
+            noise: &self.noise,
+            params: LevelParams::DEFAULT,
+            rain_mask: None,
+        });
+        r.begin_frame(Camera::window([0.0, 0.0], [W as f32, H as f32], (W, H)));
+        r.set_grid_offset(self.grid);
+        r.draw_level(LevelView {
+            origin: [0.0, 0.0],
+            size: [W as f32, H as f32],
+            rain: 0.0,
+            light: 1.0,
+            water_level: 1.0,
+        });
+        if with {
+            r.draw_sprites(
+                &DrawList {
+                    items: vec![self.quad.clone()],
+                },
+                Layer::Foreground,
+                [0.0, 0.0],
+            );
+        }
+        r.render_image().unwrap()
+    }
+}
+
 /// The frame without and with a `rect` quad of the shader and vertex colour `color`.
 fn frames(
     r: &mut WgpuRenderer,
@@ -135,44 +175,19 @@ fn frames(
             layer: Layer::Foreground,
         },
     });
-    let level_image = level(|_, _| [255, 255, 255]);
-    let pal = palette([10, 10, 10], &[]);
-    let noise = NoiseTexture::from_image(&PngImage::from_pixels(
-        64,
-        64,
-        vec![[NOISE, 0, 0, 255]; 4096],
-    ))
-    .unwrap();
-    let mut draw = |with: bool| {
-        r.set_level(&LevelGraphics {
-            camera_pos: [0.0, 0.0],
-            image: &level_image,
-            palette: &pal,
-            noise: &noise,
-            params: LevelParams::DEFAULT,
-            rain_mask: None,
-        });
-        r.begin_frame(Camera::window([0.0, 0.0], [W as f32, H as f32], (W, H)));
-        r.set_grid_offset(grid);
-        r.draw_level(LevelView {
-            origin: [0.0, 0.0],
-            size: [W as f32, H as f32],
-            rain: 0.0,
-            light: 1.0,
-            water_level: 1.0,
-        });
-        if with {
-            r.draw_sprites(
-                &DrawList {
-                    items: vec![quad.clone()],
-                },
-                Layer::Foreground,
-                [0.0, 0.0],
-            );
-        }
-        r.render_image().unwrap()
+    let scene = FrameScene {
+        level_image: level(|_, _| [255, 255, 255]),
+        pal: palette([10, 10, 10], &[]),
+        noise: NoiseTexture::from_image(&PngImage::from_pixels(
+            64,
+            64,
+            vec![[NOISE, 0, 0, 255]; 4096],
+        ))
+        .unwrap(),
+        quad,
+        grid,
     };
-    [draw(false), draw(true)]
+    [scene.draw(r, false), scene.draw(r, true)]
 }
 
 /// `_NoiseTex`'s every texel's red.

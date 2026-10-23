@@ -53,8 +53,8 @@ mod shortcut_graphics;
 mod sky_dandelion;
 mod slime_mold;
 mod spot_light;
-mod star_matrix_draw;
 mod ss_electric;
+mod star_matrix_draw;
 mod sun_blocker;
 mod tail;
 mod token_stalk;
@@ -110,10 +110,10 @@ pub use shortcut_graphics::{
 pub use sky_dandelion::{DandelionSprites, StalkSprites};
 pub use slime_mold::SlimeMoldSprites;
 pub use spot_light::SpotLightSprites;
-pub use star_matrix_draw::StarMatrixSprites;
 pub use ss_electric::{
     FuseSprites, LightRodSprites, ZapCoilSprites, ZapFlashLight, ZapFlashSprites,
 };
+pub use star_matrix_draw::StarMatrixSprites;
 pub use sun_blocker::SunBlocker;
 pub use tail::{TailAnchor, TailSegment};
 pub use token_stalk::TokenStalkSprites;
