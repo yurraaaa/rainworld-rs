@@ -16,8 +16,6 @@ mod coral_reply;
 #[cfg(test)]
 mod coral_tests;
 #[cfg(test)]
-mod death_fall_tests;
-#[cfg(test)]
 mod debug_action_tests;
 #[cfg(test)]
 mod dev_start_tests;

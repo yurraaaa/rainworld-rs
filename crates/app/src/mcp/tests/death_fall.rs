@@ -6,8 +6,8 @@
 use rw_graphics::{DrawItem, Layer, Shader};
 use rw_sim::Vec2;
 
-use super::Session;
-use super::params::{InputParam, LoadRoomParams, StepParams};
+use crate::mcp::Session;
+use crate::mcp::params::{InputParam, LoadRoomParams, StepParams, TeleportPlayerParams};
 
 impl Session {
     fn cc_a06() -> Option<Self> {
@@ -52,6 +52,69 @@ fn every_realized_room_counts_its_own_death_fall() {
     for (b, a) in before.iter().zip(&after) {
         assert_eq!(a.counter, b.counter + 10, "{}", a.room);
     }
+}
+
+impl Session {
+    /// Steps one tick at a time until the player is out of the shortcut in `room`;
+    /// returns the ticks stepped.
+    fn travel_to(&mut self, room: &str) -> u32 {
+        for ticks in 1..=200 {
+            let state = self
+                .step(&StepParams {
+                    ticks: Some(1),
+                    input: Some(InputParam::default()),
+                })
+                .expect("steps");
+            if state.room == room && state.player.as_ref().is_some_and(|p| !p.in_shortcut) {
+                return ticks;
+            }
+        }
+        panic!("no arrival in {room}");
+    }
+
+    fn fall_of(&mut self, room: &str) -> (u64, i32) {
+        let f = self
+            .state()
+            .expect("state")
+            .death_fall
+            .into_iter()
+            .find(|f| f.room == room)
+            .expect("death fall");
+        (f.id, f.counter)
+    }
+}
+
+/// The camera leaves CC_A06 for CC_H01 and comes back, the room staying realized: its
+/// death fall is the same object and its counter went up by every tick stepped.
+#[test]
+fn the_counter_survives_the_camera_leaving_and_returning() {
+    let Some(mut s) = Session::cc_a06() else {
+        return;
+    };
+    let (id, start) = s.fall_of("CC_A06");
+    let mut ticks = 0;
+    for (to, wait) in [("CC_H01", 30), ("CC_A06", 0)] {
+        s.teleport_player(&TeleportPlayerParams {
+            room: to.to_owned(),
+            node: None,
+        })
+        .expect("teleports");
+        ticks += s.travel_to(to);
+        let state = s.state().expect("state");
+        assert!(
+            state.realized_rooms.iter().any(|r| r.room == "CC_A06"),
+            "CC_A06 stays realized"
+        );
+        s.step(&StepParams {
+            ticks: Some(wait),
+            input: Some(InputParam::default()),
+        })
+        .expect("steps");
+        ticks += wait;
+    }
+    let (id_after, counter) = s.fall_of("CC_A06");
+    assert_eq!(id_after, id);
+    assert_eq!(counter, start + i32::try_from(ticks).unwrap());
 }
 
 /// An other-room shot draws what the camera viewing that room would: the death fall in
