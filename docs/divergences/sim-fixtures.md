@@ -23,8 +23,8 @@ and order tests. Notes: `../../rainworld-re/notes/lights.md` (fixtures) and
 - **The `Red_Light_On` sound plays nothing.** `room.PlaySound(SoundID.Red_Light_On, ...)`
   is called as the game does, but `sounds.txt` has the line commented out (`//Red_Light_On
   :`), so the sound loader has no working trigger: no clip and no draws.
-- **The fixtures that need electricity are not made:** `ZapCoilLight`, `DeepProcessing`
-  (SS, with `AntiGravity` and the zap coils; step L2b) and the DLC's `GlowWeedLight`. A
+- **The fixtures that need electricity are only partly made:** `ZapCoilLight` is (D36);
+  `DeepProcessing` (SS, step 10c) and the DLC's `GlowWeedLight` are not. A
   `LightFixture` whose type the game does not register (`ss_c01`'s `LightRod`) makes
   nothing, as in the game. `RedSubmersible` is made (no base room has one).
 - **`IProvideWarmth` (Downpour hypothermia) is omitted.** `LightFixture` implements it

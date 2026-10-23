@@ -142,7 +142,11 @@ fn a_coil_under_the_player_zaps_and_kills() {
     let r = g.world.realized(0).expect("room");
     let flash = &r.fixtures.zap_flashes[0];
     let light = flash.light.expect("made on the first update");
-    let l = r.light_sources.iter().find(|l| l.id == light).expect("light");
+    let l = r
+        .light_sources
+        .iter()
+        .find(|l| l.id == light)
+        .expect("light");
     assert_eq!(l.tied_to, Some(LightTie::Fixture(flash.update_order)));
     assert!(flash.update_order < light);
 }
@@ -152,7 +156,14 @@ fn a_coil_under_the_player_zaps_and_kills() {
 fn the_flash_and_its_light_burn_out() {
     let mut g = electric_game(COIL, &[], 0);
     let mut ticks = 0;
-    while g.world.realized(0).expect("room").fixtures.zap_flashes.is_empty() {
+    while g
+        .world
+        .realized(0)
+        .expect("room")
+        .fixtures
+        .zap_flashes
+        .is_empty()
+    {
         g.tick(Input::NONE, &mut WithGraphics);
         ticks += 1;
         assert!(ticks < 60);
@@ -179,7 +190,14 @@ fn a_far_coil_zaps_nothing() {
         g.tick(Input::NONE, &mut WithGraphics);
     }
     assert!(!g.player.as_ref().expect("player").is_dead());
-    assert!(g.world.realized(0).expect("room").fixtures.zap_flashes.is_empty());
+    assert!(
+        g.world
+            .realized(0)
+            .expect("room")
+            .fixtures
+            .zap_flashes
+            .is_empty()
+    );
 }
 
 /// The coil light follows its coil: its set alpha is `num^0.8` with `num` near the coil's

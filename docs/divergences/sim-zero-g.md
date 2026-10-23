@@ -38,8 +38,8 @@ draw-count tests. Notes: `../../rainworld-re/notes/zero-gravity.md`; surveys
   `LizardGraphics` tail snap, `LizardSpit`); `Room.cs` 2333 (random items in `ZeroG` rooms).
 - **Zero-gravity readers of objects that are not ported**: scavengers, centipedes and the
   other creatures' own code; `ExplosiveSpear`'s fragments and rag; `OverseerCarcass`;
-  `SegmentRope`, `Dangler`; `MeltLights`; `GravityDisruptor`, `ZapCoil`, `SpinningFan`,
-  `SuperStructureFuses` (the rest of the superstructure); the shortcut pushers in
+  `SegmentRope`, `Dangler`; `MeltLights`; `GravityDisruptor`, `SpinningFan` (the rest of the
+  superstructure; `ZapCoil` and `SuperStructureFuses` are ported, D36); the shortcut pushers in
   `ShortcutHelper` (`player.gravity * room.gravity`, twice scaled); the player's cloth
   (`PlayerGraphics` 1168); the zero-gravity vine grab and vine pull. They come with their
   objects.

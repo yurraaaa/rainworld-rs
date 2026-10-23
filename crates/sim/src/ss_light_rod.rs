@@ -165,9 +165,7 @@ impl SsLightRod {
             }
             b /= 7.0;
         }
-        v.visible = v
-            .visible
-            .lerp(b, 0.2f32.lerp(0.05, data.brightness));
+        v.visible = v.visible.lerp(b, 0.2f32.lerp(0.05, data.brightness));
         v.strength *= v.visible;
         if let Some(l) = LightSource::find_mut(lights, v.light) {
             l.set_alpha = Some(1.0f32.lerp(0.5, v.size) * v.strength * electric_power);

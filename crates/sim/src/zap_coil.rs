@@ -179,7 +179,12 @@ impl ZapCoil {
         rng: &mut UnityRandom,
         sounds: &mut Sounds,
     ) -> ZapFlash {
-        let flash = ZapFlash::new(flash_order, contact, mass_rad.inverse_lerp(-0.05, 15.0), rng);
+        let flash = ZapFlash::new(
+            flash_order,
+            contact,
+            mass_rad.inverse_lerp(-0.05, 15.0),
+            rng,
+        );
         self.disruption = self
             .disruption
             .max(mass_rad.inverse_lerp(-0.05, 9.0) + rng.value() * 0.5);
@@ -294,7 +299,13 @@ impl ZapCoilLight {
     /// The constructor's light: blue, tied to the fixture, rad from the seed, alpha 1,
     /// half affected by the palette's darkness.
     #[must_use]
-    pub fn light_source(id: u64, room: i32, order: u64, pos: Vec2, random_seed: i32) -> LightSource {
+    pub fn light_source(
+        id: u64,
+        room: i32,
+        order: u64,
+        pos: Vec2,
+        random_seed: i32,
+    ) -> LightSource {
         let mut l = LightSource::new(
             id,
             room,

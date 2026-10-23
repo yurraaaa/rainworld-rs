@@ -83,7 +83,9 @@ impl RainWorldGame {
             broken,
             gravity_dependent: r.settings.effect_amount(RoomEffectType::BrokenZeroG) > 0.0,
         };
-        r.fixtures.fuses.push(SuperStructureFuses::new(order, setup));
+        r.fixtures
+            .fuses
+            .push(SuperStructureFuses::new(order, setup));
     }
 
     /// `Room.Loaded`'s `new ZapCoilLight(room, placedObject, data)`: its light first.
@@ -343,11 +345,15 @@ impl RainWorldGame {
         };
         let gravity = r.gravity;
         let room = Arc::clone(&r.room);
-        let Some(fuses) = r.fixtures.fuses.iter_mut().find(|f| f.update_order == order) else {
+        let Some(fuses) = r
+            .fixtures
+            .fuses
+            .iter_mut()
+            .find(|f| f.update_order == order)
+        else {
             return;
         };
-        let viewed =
-            (0..4).any(|i| self.camera_view.viewed(index, &room, fuses.corner(i), 40.0));
+        let viewed = (0..4).any(|i| self.camera_view.viewed(index, &room, fuses.corner(i), 40.0));
         fuses.update(viewed, gravity, &mut self.rng);
     }
 }

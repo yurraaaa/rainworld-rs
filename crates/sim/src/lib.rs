@@ -137,8 +137,6 @@ pub use sky_dandelion::{
     ChunkView, DandelionPatch, DandelionStalk, MadeDandelion, SkyDandelion, SkyDandelions,
 };
 pub use slime_mold::CosmeticSlimeMold;
-pub use ss_fuses::{FuseSetup, SuperStructureFuses};
-pub use ss_light_rod::{LightVessel, RodCamera, SsLightRod};
 pub use sound::{
     EmitterId, EmitterPlace, LoopEmitter, PlayedSound, SoundEvent, SoundId, SoundRect, SoundSource,
     Sounds, StaticSoundLoop,
@@ -146,6 +144,8 @@ pub use sound::{
 pub use spawn::{determine_safe_spawn_tile, place_in_room};
 pub use splash::Splash;
 pub use spot_light::SpotLight;
+pub use ss_fuses::{FuseSetup, SuperStructureFuses};
+pub use ss_light_rod::{LightVessel, ROD_COLOR, RodCamera, SsLightRod};
 pub use token_stalk::{CurveLerp, StalkCoord, TokenStalk};
 pub use vec2::{TileExt, Vec2};
 pub use vec3::Vec3;

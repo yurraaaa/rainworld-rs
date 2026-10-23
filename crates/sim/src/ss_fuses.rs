@@ -114,7 +114,7 @@ impl SuperStructureFuses {
         self.lights[j * self.height + k]
     }
 
-    fn cell_mut(&mut self, j: usize, k: usize) -> &mut Cell {
+    pub fn cell_mut(&mut self, j: usize, k: usize) -> &mut Cell {
         &mut self.lights[j * self.height + k]
     }
 
@@ -145,14 +145,11 @@ impl SuperStructureFuses {
             let target = if gravity > 0.5 { 0.0 } else { 1.0 };
             self.power = self.power.lerp(target, 0.2 * rng.value());
             if rng.value() < 0.1 {
-                self.power_flicker = rng
-                    .value()
-                    .lerp(self.power, (self.power - 0.5).abs() * 2.0);
+                self.power_flicker = rng.value().lerp(self.power, (self.power - 0.5).abs() * 2.0);
             }
         }
         self.last_lightness = self.lightness;
-        self.lightness =
-            (self.lightness + (-1.0f32).lerp(1.0, rng.value()) / 40.0).clamp(0.0, 1.0);
+        self.lightness = (self.lightness + (-1.0f32).lerp(1.0, rng.value()) / 40.0).clamp(0.0, 1.0);
         self.lightness = self
             .lightness
             .min(self.smoothed_malfunction)

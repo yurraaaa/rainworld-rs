@@ -46,6 +46,7 @@ mod options_tests;
 mod session;
 #[cfg(test)]
 mod shortcut_shots;
+mod ss_electric_reply;
 #[cfg(test)]
 mod tests;
 mod tiles;

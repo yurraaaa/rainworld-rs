@@ -60,7 +60,11 @@ impl RainWorldGame {
     }
 
     /// `f` with what a sound loop in room `index` reads of the game.
-    pub(super) fn with_loop_cx<R>(&mut self, index: i32, f: impl FnOnce(&mut LoopCx<'_>) -> R) -> R {
+    pub(super) fn with_loop_cx<R>(
+        &mut self,
+        index: i32,
+        f: impl FnOnce(&mut LoopCx<'_>) -> R,
+    ) -> R {
         let triggers = Arc::clone(self.sounds.table());
         let mut seq = self.world.update_seq();
         let (camera_room, tick) = (self.camera_room, self.tick);
@@ -249,7 +253,11 @@ impl RainWorldGame {
         }
     }
 
-    pub(super) fn electric_chunk_mut(&mut self, owner: ChunkOwner, i: usize) -> Option<&mut BodyChunk> {
+    pub(super) fn electric_chunk_mut(
+        &mut self,
+        owner: ChunkOwner,
+        i: usize,
+    ) -> Option<&mut BodyChunk> {
         match owner {
             ChunkOwner::Player => self.player.as_mut()?.body.chunks.get_mut(i),
             ChunkOwner::Entity(e) => self.world.surface_chunks_mut(e)?.get_mut(i),

@@ -53,7 +53,13 @@ fn a_vessels_light_is_the_rods_colour_and_tied_to_it() {
 fn the_constructor_draws_three_a_light() {
     let mut rng = UnityRandom::new(7);
     let mut e = UnityRandom::new(7);
-    let rod = SsLightRod::new(5, Vec2::ZERO, data(0.0, 0.0, 200.0, 0.5), &[1, 2, 3], &mut rng);
+    let rod = SsLightRod::new(
+        5,
+        Vec2::ZERO,
+        data(0.0, 0.0, 200.0, 0.5),
+        &[1, 2, 3],
+        &mut rng,
+    );
     for v in &rod.lights {
         let (speed, size, progression) = (e.value(), e.value(), e.value());
         assert_eq!(v.speed, 0.5f32.lerp(2.0, speed));
@@ -61,7 +67,10 @@ fn the_constructor_draws_three_a_light() {
         assert_eq!(v.progression, progression);
         assert_eq!((v.strength, v.visible), (0.0, 0.0));
     }
-    assert_eq!(rod.lights.iter().map(|v| v.light).collect::<Vec<_>>(), [1, 2, 3]);
+    assert_eq!(
+        rod.lights.iter().map(|v| v.light).collect::<Vec<_>>(),
+        [1, 2, 3]
+    );
     assert_eq!(rng.state(), e.state());
 }
 
@@ -110,7 +119,10 @@ fn an_unseen_vessel_fades_toward_seven_tenths() {
     );
     // `DegToVec(90)` is (1, 0) up to the float sine.
     let at = l.set_pos.expect("set");
-    assert!((at.x - 100.0).abs() < 1e-3 && (at.y - 60.0).abs() < 1e-3, "{at:?}");
+    assert!(
+        (at.x - 100.0).abs() < 1e-3 && (at.y - 60.0).abs() < 1e-3,
+        "{at:?}"
+    );
     assert_eq!(v.progression, 0.5 + 1.0 / 100.0);
     assert_eq!(rng.state(), before);
 }
@@ -131,11 +143,20 @@ fn a_seen_vessel_counts_the_samples_at_its_depth() {
         image: None,
     };
     let d = data(0.6, 0.0, 100.0, 1.0);
-    let mut rod = SsLightRod::new(9, Vec2::new(50.0, 10.0), d, &[1, 2], &mut UnityRandom::new(1));
+    let mut rod = SsLightRod::new(
+        9,
+        Vec2::new(50.0, 10.0),
+        d,
+        &[1, 2],
+        &mut UnityRandom::new(1),
+    );
     let mut ls = lights(&[1, 2]);
     rod.lights[1].progression = 0.25;
     rod.update(&mut ls, 1.0, &cam, &mut UnityRandom::new(3));
-    assert_eq!(rod.lights[1].visible, 0.0f32.lerp(1.0, 0.2f32.lerp(0.05, 1.0)));
+    assert_eq!(
+        rod.lights[1].visible,
+        0.0f32.lerp(1.0, 0.2f32.lerp(0.05, 1.0))
+    );
 }
 
 /// A vessel that reaches the end resets: speed and size are two new draws and the

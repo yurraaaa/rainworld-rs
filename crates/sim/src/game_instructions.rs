@@ -10,8 +10,8 @@
 //! Mirrors: Room.cs (Loaded), SuperJumpInstruction.cs, ScavengerTradeInstructionTrigger.cs, ReliableIggyDirection.cs, InputInstructionTrigger.cs
 
 use rw_assets::{
-    AbstractObjectType, CreatureType, CustomDecalData, GridRectData, IggyCondition,
-    LightBeamData, LightFixtureData, LightSourceData, PlacedObjectType, QuadData, RainbowData,
+    AbstractObjectType, CreatureType, CustomDecalData, GridRectData, IggyCondition, LightBeamData,
+    LightFixtureData, LightSourceData, PlacedObjectType, QuadData, RainbowData,
     ReliableIggyDirectionData, ResizableData, SsLightRodData,
 };
 

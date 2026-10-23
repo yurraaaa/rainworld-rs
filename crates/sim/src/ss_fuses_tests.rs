@@ -85,7 +85,10 @@ fn a_quiet_cell_draws_four_and_wobbles() {
     let wobble = ((-1.0f32).lerp(1.0, draws[3]) / 10.0).clamp(0.0, 1.0);
     assert_eq!(f.cell(0, 0)[0], wobble.lerp(0.0, 0.5));
     assert_eq!(f.last_lightness, 0.0);
-    assert_eq!(f.lightness, 0.0, "no more than the smoothed malfunction (0)");
+    assert_eq!(
+        f.lightness, 0.0,
+        "no more than the smoothed malfunction (0)"
+    );
     assert_eq!(f.last_pos, Vec2::new(100.0, 40.0));
     assert_eq!(f.debug_mode, 0);
 }
@@ -251,8 +254,14 @@ fn gravity_fades_the_power() {
         }
         let v = e.value();
         f.update(true, 0.0, &mut UnityRandom::new(seed));
-        assert_eq!(f.power, 1.0f32.lerp(1.0, 0.2 * UnityRandom::new(seed).value()));
-        assert_eq!(f.power_flicker, v.lerp(f.power, (f.power - 0.5).abs() * 2.0));
+        assert_eq!(
+            f.power,
+            1.0f32.lerp(1.0, 0.2 * UnityRandom::new(seed).value())
+        );
+        assert_eq!(
+            f.power_flicker,
+            v.lerp(f.power, (f.power - 0.5).abs() * 2.0)
+        );
         return;
     }
     panic!("no seed re-draws the flicker");

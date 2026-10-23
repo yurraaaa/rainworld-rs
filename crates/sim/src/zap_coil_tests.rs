@@ -27,11 +27,17 @@ fn the_constructor_and_the_rectangle() {
     assert!(!ZapCoil::new(7, [2, 3, 3, 8]).horizontal);
     assert!(!ZapCoil::new(7, [2, 3, 4, 5]).horizontal);
     let r = c.float_rect();
-    assert_eq!((r.left, r.bottom, r.right, r.top), (38.0, 58.0, 122.0, 102.0));
+    assert_eq!(
+        (r.left, r.bottom, r.right, r.top),
+        (38.0, 58.0, 122.0, 102.0)
+    );
     assert!(c.inside(Vec2::new(60.0, 60.0)));
     assert!(!c.inside(Vec2::new(38.0, 60.0)));
     assert!(!c.inside(Vec2::new(60.0, 102.0)));
-    assert_eq!((c.disruption, c.turned_on, c.last_turned_on), (-1.0, 1.0, 1.0));
+    assert_eq!(
+        (c.disruption, c.turned_on, c.last_turned_on),
+        (-1.0, 1.0, 1.0)
+    );
     assert!(c.powered);
     assert_eq!(c.sound_loop.sound, Some(SoundId::ZapperLoop));
     assert_eq!(c.sound_loop.volume(), 1.0);
@@ -60,7 +66,10 @@ fn a_quiet_tick_draws_eight() {
     assert_eq!(c.turned_on, 1.0);
     // Edge 0: the wobble moves by `Lerp(-1, 1, v) / 10`; with no smooth disruption the
     // edge reads 0.5.
-    assert_eq!(c.flicker[0][3], ((-1.0f32).lerp(1.0, draws[2]) / 10.0).clamp(0.0, 1.0));
+    assert_eq!(
+        c.flicker[0][3],
+        ((-1.0f32).lerp(1.0, draws[2]) / 10.0).clamp(0.0, 1.0)
+    );
     assert_eq!(c.flicker[0][0], 0.5);
     assert_eq!(c.flicker[1][2], 1.0 / 70.0f32.lerp(20.0, c.flicker[1][3]));
 }
@@ -212,7 +221,10 @@ fn the_coil_light_follows_its_coil() {
         light: 3,
         coil: None,
     };
-    let coils = [ZapCoil::new(1, [20, 20, 25, 21]), ZapCoil::new(2, [2, 3, 5, 4])];
+    let coils = [
+        ZapCoil::new(1, [20, 20, 25, 21]),
+        ZapCoil::new(2, [2, 3, 5, 4]),
+    ];
     light.find_coil(&coils);
     assert_eq!(light.coil, Some(2));
     let mut lights = vec![l];
