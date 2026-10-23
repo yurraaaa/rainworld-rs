@@ -78,11 +78,12 @@ impl World {
 
 impl RainWorldGame {
     /// `Room.Loaded`'s placed objects that are ported room objects (the guide's
-    /// triggers and the placed lights), in the room settings' order (inactive ones
+    /// triggers, the placed lights, a story's `MultiplayerItem`s), in the room settings' order (inactive ones
     /// skipped), each joining the update list as it is made. Data the game could not
     /// parse (it throws) is skipped.
     pub(crate) fn add_placed_room_objects(&mut self, index: i32) {
         let (timeline, mods) = (self.world.timeline(), self.world.mods());
+        let story = self.is_story_session();
         let Some(realized) = self.world.realized(index) else {
             return;
         };
@@ -160,6 +161,9 @@ impl RainWorldGame {
                 Some(PlacedObjectType::RainbowNoFade) => {
                     RainbowData::parse(&o.data).map(|d| PlacedRoomObject::Rainbow(pos, d, true))
                 }
+                Some(PlacedObjectType::MultiplayerItem) if story => {
+                    Some(PlacedRoomObject::MultiplayerItem(o.clone()))
+                }
                 Some(
                     PlacedObjectType::CoralNeuron
                     | PlacedObjectType::CoralCircuit
@@ -200,6 +204,10 @@ impl RainWorldGame {
                     self.add_rainbow(index, pos, &data, no_fade);
                 }
                 PlacedRoomObject::Stars(pos, rad) => self.add_star_matrix(index, pos, rad),
+                PlacedRoomObject::MultiplayerItem(o) => {
+                    self.world
+                        .spawn_multiplayer_item(index, &o, &mut self.ids, &mut self.rng);
+                }
             }
         }
     }
@@ -562,4 +570,6 @@ enum PlacedRoomObject {
     Rainbow(Vec2, RainbowData, bool),
     /// A `ProjectedStars`: position and `Rad`.
     Stars(Vec2, f32),
+    /// A story's `SpawnMultiplayerItem`.
+    MultiplayerItem(rw_assets::PlacedObject),
 }

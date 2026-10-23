@@ -81,6 +81,10 @@ pub struct State {
     /// Realized rooms, with the ticks each still makes creatures wait to enter (-1 or
     /// 0: none).
     pub realized_rooms: Vec<RealizedState>,
+    /// The preparers of rooms abstracted while they loaded (they keep handing over
+    /// stages, which realize nothing: D14).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub orphaned_preparers: Vec<OrphanedPreparerState>,
     /// `None` once the body fell out of the room and was destroyed.
     pub player: Option<PlayerState>,
     /// `manager.FadeDelayInProgress` as the room scripts read it next tick (after
@@ -1451,6 +1455,14 @@ pub struct PreparerState {
     /// `Update` calls so far.
     pub calls: u32,
     pub done: bool,
+}
+
+/// A `RoomPreparer` whose room was abstracted while it loaded.
+#[derive(Debug, Clone, Serialize)]
+pub struct OrphanedPreparerState {
+    pub room: String,
+    #[serde(flatten)]
+    pub preparer: PreparerState,
 }
 
 #[derive(Debug, Clone, Serialize)]

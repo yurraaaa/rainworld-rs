@@ -34,9 +34,9 @@ use super::reply::{
     AbstractAiInfo, ChunkState, ControlsPageState, CreatureInfo, ExitInfo, ExitList, FlyInfo,
     FoodMeterState, HudState, ImpactState, ImportReply, KarmaMeterState, KarmaScreenState,
     KillsState, LizardChunk, LizardInfo, LobbyState, MapMarkerState, MapState, MeterState, NodeRef,
-    ObjectInfo, OptionsState, OverseerInfo, PauseMenuState, PlayerState, PreparerState,
-    ProcessState, RainMeterState, RainState, RealizedState, RoomInfo, RoomList, SaveInfo,
-    SaveStateInfo, Screenshot, SessionInfo, ShelterDoorState, SleepState, SlideShowState,
+    ObjectInfo, OptionsState, OrphanedPreparerState, OverseerInfo, PauseMenuState, PlayerState,
+    PreparerState, ProcessState, RainMeterState, RainState, RealizedState, RoomInfo, RoomList,
+    SaveInfo, SaveStateInfo, Screenshot, SessionInfo, ShelterDoorState, SleepState, SlideShowState,
     StartUpState, State, StepTrace, StoryInfo, TextPromptState, TokenState, WeaponInfo,
 };
 use super::reply::{
@@ -497,6 +497,13 @@ impl Session {
                 entrance_node: l.entrance_node,
                 updates: l.updates,
             }),
+            orphaned_preparers: world
+                .orphaned_preparers()
+                .map(|p| OrphanedPreparerState {
+                    room: Self::room_name(scene, p.room),
+                    preparer: PreparerState::of(p),
+                })
+                .collect(),
             realized_rooms: world
                 .active_rooms()
                 .into_iter()
@@ -505,11 +512,7 @@ impl Session {
                     Some(RealizedState {
                         room: Self::room_name(scene, i),
                         loading_progress: r.loading_progress(),
-                        preparer: world.room_preparer(i).map(|p| PreparerState {
-                            status: p.status().value(),
-                            calls: p.calls(),
-                            done: p.done(),
-                        }),
+                        preparer: world.room_preparer(i).map(PreparerState::of),
                         wait_to_enter: r.wait_to_enter(),
                         ready_for_player: r.ready_for_player(),
                         ceiling_drips: r.settings.ceiling_drips,
@@ -2491,6 +2494,16 @@ impl HeldInfo {
         Self {
             kind,
             id: [id.spawner, id.number],
+        }
+    }
+}
+
+impl PreparerState {
+    fn of(p: &rw_sim::world::RoomPreparer) -> Self {
+        Self {
+            status: p.status().value(),
+            calls: p.calls(),
+            done: p.done(),
         }
     }
 }

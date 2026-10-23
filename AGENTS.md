@@ -165,7 +165,8 @@ for older notes' line numbers; new notes cite file and member.
   bite, fights, communication, missions, carrying and eating, lineages), not the full game. Details
   live in `docs/` and `../rainworld-re`; in short:
   - A story starts at the campaign's start den; room-exit shortcuts carry the
-    player between the region's rooms (synchronous loads, D14). The
+    player between the region's rooms (loaded over the game's minimum two
+    stage ticks, D14). The
     population is generated with the game's draws; every creature but the
     scavengers leaves its den and runs the general or its type's abstract AI
     (D14), unrealized without a body. Green lizards, flies and overseers
@@ -256,11 +257,13 @@ prefer these over `--screenshot`/`--script`; briefs for such agents say so.
 - `load_room` loads a room's region world with the player in it (arena
   levels: a single-room world) as `slugcat` (default `White`); `new_game`
   starts a campaign (`White`, `Yellow`, `Red`; `malnourished` option) at its
-  start den.
+  start den. Both (and `respawn` with a seed) step the game without input
+  until the start room is `readyForAI` (three ticks) before replying, so a
+  reply's `tick` is 3.
 - `get_state` reports the camera room, the player (food, grasps, pick-up
   candidate, stomach, counters, sneak/loudness, `held_by`, `danger_grasp` and
   its time, struggle buttons, `can_struggle`, `cant_be_grabbed_counter`, ...), the vessel in the
-  lobby, realized rooms' entry waits, `loading_progress` and `preparer` (a loading room's `RoomPreparer`: status, calls, done), ceiling drips, dripping sound, water surface sound, bubbles and bubble emitters, splashes, the player's `owned_items` on the ground, every abstract creature (kind, ID, room,
+  lobby, realized rooms' entry waits, `loading_progress` and `preparer` (a loading room's `RoomPreparer`: status, calls, done), `orphaned_preparers` (rooms abstracted while loading), ceiling drips, dripping sound, water surface sound, bubbles and bubble emitters, splashes, the player's `owned_items` on the ground, every abstract creature (kind, ID, room,
   node, tile, den, realized, alive, abstract AI; realized flies, lizards
   with their movement, tracker, relationships, noise, decision (`social`:
   fight target and anger, `submitted_to`, last signal, missions, `taming_difficulty`, `gift`) and, in a

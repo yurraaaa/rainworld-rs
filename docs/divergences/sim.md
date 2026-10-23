@@ -794,33 +794,37 @@ second part, else a single-room world for arena levels). The campaign descriptio
 - **Fly graphics.** The flies' sprites go into the Midground container after the
   slugcat's; the game orders a container by when each graphics module joined it (flies
   realized before the player's body sit under it).
-- **Synchronous loading.** The game's `RoomPreparer` loads a room over several frames
-  (and `RoomCamera.MoveCamera` its images asynchronously). The port reads the room,
-  builds its border exits (the `ShortcutMapper` constructor) and runs `Room.Loaded` on
-  the realizing call, as the game does, so a room realized mid-tick has its `Loaded`
-  objects and water updated by that tick's active-room loop, as in the game's
-  `RainWorldGame.Update` order (a fix towards the game: before step A they were made at
-  the end of the tick, and runs where a neighbour realizes, e.g. `UW_A03`, `SS_D04`,
-  diverge from then on). Its preparer (`world/room_preparer.rs`) runs under
-  `LoadingSchedule::Immediate`: both stages (`ShortCutsReady`, `ReadyForAI`, in their
-  game order and content) come in the loading step of the tick the room is activated
-  (the start room's in the constructor), where the game's thread delivers them one call
-  apart at the earliest (`GAME_MINIMUM`, not yet on). The room-side part of
-  `Room.Loaded` after the items (shelter door, death fall, effects, placed objects,
-  scripts, triggers, dripping sound) runs after the items, where the game makes the
-  items between the scripts and the triggers. Abstracting a loading room drops its
-  preparer. The game's stays in `loadingRooms` (`Abstractize` does not remove it) and
-  hands its stages to the dropped `Room`; this is reachable with Remix off, as
-  `RoomRealizer.RemoveNotVisitedRooms` abstracts unvisited rooms without checking
-  `fullyLoaded`. Under Immediate a room cannot be abstracted while loading, so dropping
-  cannot matter; step B decides it. A room is therefore `fullyLoaded` sooner than in the game: a room exit's
-  destination (activated when the player goes in) is always loaded by the time the
-  vessel reaches the exit node, so the lobby only waits out the room's entry delay
-  (`waitToEnterAfterFullyLoaded`, counting from the tick it loaded), and the
-  realizer's "currently loading" pause never spans ticks. `ShortcutGraphics.NewRoom`'s
-  wait for `shortCutsReady` (`waitingForRoomToGenerateShortcuts`) is skipped (user,
-  2026-10-22); it returns with the async loading plan
-  (`../rainworld-re/surveys/async-room-loading.md`).
+- **Loading on a fixed schedule** (user, 2026-10-22). The game's `RoomPreparer` hands a
+  room's two loading stages (`ShortCutsReady`, `ReadyForAI`) from a background thread to
+  the main thread, polled once per `RainWorldGame.Update`; how many frames the thread
+  takes depends on the machine, so the game is not deterministic here. The port runs
+  the thread's work as a fixed schedule at the game's minimum
+  (`LoadingSchedule::GAME_MINIMUM`, `world/room_preparer.rs`): a room realized in tick N
+  (the realizer, the lobby, or the constructor before tick 0) has its preparer started
+  by tick N's loading step, `ShortCutsReady` at the end of tick N+1 and `ReadyForAI` at
+  the end of N+2, with their game content, order and draws. Everything else is the
+  game's: the room reads its files, builds its border exits and runs the end of
+  `LoadFromDataString` and `Room.Loaded` (with its items where the game makes them) on
+  the realizing call, updates while it loads, counts its entry delay from stage 2, and
+  the consumers of the flags behave as the game's at each stage (the lobby's
+  `CreatureAllowedInRoom`, `Abstractize` dropping a body in a room not `readyForAI`, the
+  realizer's `currentlyLoadingRoom` wait of three updates). MCP's `load_room`/`new_game`
+  step until the start room is `readyForAI` before replying (user, 2026-10-22).
+  `Immediate` (both stages on the first call) is kept for world-only tests.
+- **A room abstracted while it loads** (user, 2026-10-23). With Remix off,
+  `RoomRealizer.RemoveNotVisitedRooms` abstracts a room that may still be loading, and
+  `AbstractRoom.Abstractize` leaves its preparer in `loadingRooms`: the game hands the
+  remaining stages to the dropped `Room`. There `RealizeInRoom` runs each object's and
+  creature's constructor (with their draws) before finding no realized room, leaving
+  bodies with no room that a later realization skips, and `PlaceQuantifiedCreaturesInRoom`
+  places the counted creatures again as new abstract creatures (`GetNewID`, draws),
+  duplicating them (a vanilla bug; Remix's `fullyLoaded` check avoids it). The port keeps
+  the preparer and its stage ticks (so the realizer's wait on that room matches), but its
+  stages realize and place nothing.
+- **Camera and shortcut graphics.** `RoomCamera.MoveCamera` applies a room's image at
+  once, and `ShortcutGraphics.NewRoom`'s wait for `shortCutsReady`
+  (`waitingForRoomToGenerateShortcuts`) is skipped (user, 2026-10-22); both return with
+  step C of the async loading plan (`../rainworld-re/surveys/async-room-loading.md`).
 - **Re-preprocessing old room files.** The game re-preprocesses room files baked before
   generation 20 (and writes them back). Every room the vanilla worlds list is generation
   20 or later; for older files the port derives only the shortcut nodes (exits, dens,
@@ -838,7 +842,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   `RemoveNotVisitedRooms` branch.
 - **Room triggers.** A room's settings `Triggers` (`rw_assets::EventTrigger`, every
   base-game trigger and event type) become `ActiveTriggerChecker`s when it loads
-  (`Room.Loaded`, after the room script and before its items, filtered by the save's
+  (`Room.Loaded`, after the room script and its `firstTimeRealized` items, filtered by the save's
   cycle and slugcat), updating in the room's update list with their wait, delay,
   karma, `fireChance` (D1) and `multiUse` (a failed chance still removes a single-use
   checker). The events that fire are the game's: `MusicEvent` and `StopMusicEvent`
@@ -885,12 +889,15 @@ second part, else a single-room world for arena levels). The campaign descriptio
   it leaves (`Lizard::leave_room`). Both happen within the same room update, so no
   camera move can fall between them.
 
-**Why.** Other creatures' AI, AI maps and the rain are later milestones; loading at once
-is simpler and loses nothing gameplay-visible beyond the shorter waits. A list without
-duplicates is simpler, and the double update of a held creature is not ported.
+**Why.** Other creatures' AI, AI maps and the rain are later milestones. A deterministic
+loading schedule is needed for repeatable runs, and the game's minimum is the one its
+hand-offs allow. A list without duplicates is simpler, and the double update of a held
+creature is not ported.
 
-**Affects.** How long a vessel waits to enter a room, and anything creatures other than
-overseers and bat flies would do (the others roam, but never appear in a loaded room).
+**Affects.** Loading takes the game's shortest time: on a slow machine the game's rooms
+take longer (a longer creature-free window, longer lobby waits). Anything creatures
+other than overseers, bat flies and green lizards would do (the others roam, but never
+appear in a loaded room).
 
 ## D17: Shelters and hibernation
 

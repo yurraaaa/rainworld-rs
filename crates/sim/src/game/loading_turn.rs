@@ -74,9 +74,12 @@ impl RainWorldGame {
         }
     }
 
-    /// `Room.Loaded`, in its order (the items between the scripts and the trigger
-    /// checkers, in [`Self::add_trigger_checkers`]).
+    /// The end of `LoadFromDataString` (the file's items, the waterfalls), then
+    /// `Room.Loaded` in its order (its items in the placed-object loop and after the
+    /// scripts, [`Self::add_trigger_checkers`]).
     fn room_loaded(&mut self, index: i32) {
+        self.world
+            .place_loaded_file_items(index, &mut self.ids, &mut self.rng);
         self.add_waterfalls(index);
         self.add_shelter_door(index);
         self.add_death_fall(index);

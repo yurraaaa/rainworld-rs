@@ -55,7 +55,7 @@ impl World {
 
 impl RainWorldGame {
     /// `Room.Loaded` from its effects loop to its checkers: the effects, the placed
-    /// objects, the scripts, the items (`firstTimeRealized` pass), then the checkers
+    /// objects, the scripts, the `firstTimeRealized` items, then the checkers
     /// (in a story, only the triggers whose cycles and slugcats include this save).
     pub(crate) fn add_trigger_checkers(&mut self, index: i32) {
         let world = &self.world;
@@ -65,7 +65,7 @@ impl RainWorldGame {
         self.add_placed_room_objects(index);
         self.add_room_scripts(index);
         self.world
-            .place_loaded_room_items(index, &mut self.ids, &mut self.rng);
+            .place_first_time_items(index, &mut self.ids, &mut self.rng);
         let story = self.is_story_session();
         let cycle = self.story.cycle_number;
         let (timeline, mods) = (self.world.timeline(), self.world.mods());

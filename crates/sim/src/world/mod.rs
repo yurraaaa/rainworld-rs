@@ -4,9 +4,9 @@
 //!
 //! A realized room joins `loadingRooms` with a [`RoomPreparer`], whose stages the
 //! loading step hands over (`RainWorldGame.Update` runs the preparers there). The
-//! schedule is [`LoadingSchedule::Immediate`] for now: both stages in the tick the room
-//! is activated, where the game spreads them over frames on a thread (docs/divergences/
-//! D14). Behaviour: `rainworld-re/notes/world-loading.md`, `room-realizer.md`,
+//! schedule is the game's minimum ([`LoadingSchedule::GAME_MINIMUM`]): stage 1 a tick
+//! after the room is activated, stage 2 the tick after, where the game's thread may take
+//! longer (docs/divergences/ D14). Behaviour: `rainworld-re/notes/world-loading.md`, `room-realizer.md`,
 //! `rainworld-re/surveys/async-room-loading.md`.
 //!
 //! Mirrors: World.cs, AbstractRoom.cs
@@ -30,7 +30,7 @@ use rw_assets::{ActiveMods, AssetError, CreatureType, RoomAttraction, Timeline};
 
 use crate::Vec2;
 use crate::creature::{
-    AbstractCreature, CreatureId, CreatureTemplate, FlockBehavior, IdIssuer, WorldCoordinate,
+    AbstractCreature, CreatureId, CreatureTemplate, FlockBehavior, WorldCoordinate,
 };
 use crate::item::{AbstractObject, Entity};
 use rw_random::UnityRandom;
@@ -381,9 +381,9 @@ impl World {
     }
 
     /// `World.ActivateRoom` / `AbstractRoom.RealizeRoom`: reads the room, adds it to
-    /// the active rooms and gives it a preparer. The rest of `Room.Loaded` (with the
-    /// items, [`Self::place_loaded_room_items`]) is the game's
-    /// (`RainWorldGame::rooms_loaded`), run before anything else draws. The off-screen
+    /// the active rooms and gives it a preparer. The rest of `LoadFromDataString` and
+    /// `Room.Loaded` (with the items) is the game's (`RainWorldGame::rooms_loaded`), run
+    /// before anything else draws. The off-screen
     /// den and realized rooms are left alone.
     ///
     /// # Errors
@@ -417,25 +417,6 @@ impl World {
             .push(RoomPreparer::new(index, self.room_serial));
         self.pending_loaded.push(index);
         Ok(())
-    }
-
-    /// `Room.Loaded`'s items for realized room `index`, between its scripts and its
-    /// trigger checkers (see [`Self::place_room_items`]).
-    pub(crate) fn place_loaded_room_items(
-        &mut self,
-        index: i32,
-        ids: &mut IdIssuer,
-        rng: &mut UnityRandom,
-    ) {
-        let Some(r) = self.realized(index) else {
-            return;
-        };
-        let (room, settings, first_time) = (
-            Arc::clone(&r.room),
-            r.settings.clone(),
-            r.first_time_realized(),
-        );
-        self.place_room_items(index, &room, &settings, first_time, ids, rng);
     }
 
     /// `AbstractRoom.Abstractize`: its realized creatures and objects become abstract,
