@@ -7,11 +7,13 @@ use super::{ElectricDeath, LightFlash, SparkFlash};
 use crate::world::RainCycle;
 use crate::{FloatExt, Vec2};
 
-fn cycle(timer: i32) -> RainCycle {
-    RainCycle {
-        cycle_length: 4800,
-        timer,
-        ..RainCycle::default()
+impl RainCycle {
+    fn at_timer(timer: i32) -> Self {
+        Self {
+            cycle_length: 4800,
+            timer,
+            ..Self::default()
+        }
     }
 }
 
@@ -20,17 +22,17 @@ fn cycle(timer: i32) -> RainCycle {
 #[test]
 fn intensity_follows_the_cycle() {
     let d = ElectricDeath::new(1, 1.0);
-    assert_eq!(d.intensity(&cycle(0)), 0.0);
-    assert_eq!(d.intensity(&cycle(4400)), 0.0);
-    assert_eq!(d.intensity(&cycle(6000)), 1.0);
-    assert_eq!(d.intensity(&cycle(9000)), 1.0);
+    assert_eq!(d.intensity(&RainCycle::at_timer(0)), 0.0);
+    assert_eq!(d.intensity(&RainCycle::at_timer(4400)), 0.0);
+    assert_eq!(d.intensity(&RainCycle::at_timer(6000)), 1.0);
+    assert_eq!(d.intensity(&RainCycle::at_timer(9000)), 1.0);
     // Halfway (timer 5200): 0.5^2.2.
-    let half = d.intensity(&cycle(5200));
+    let half = d.intensity(&RainCycle::at_timer(5200));
     assert!((half - 0.5f32.powf(2.2)).abs() < 1e-6, "{half}");
     // The amount scales it: uw_c05's 0.88.
     let d = ElectricDeath::new(1, 0.88);
-    assert!((d.intensity(&cycle(6000)) - 0.88).abs() < 1e-6);
-    assert!((d.intensity(&cycle(5200)) - 0.88 * 0.5f32.powf(2.2)).abs() < 1e-6);
+    assert!((d.intensity(&RainCycle::at_timer(6000)) - 0.88).abs() < 1e-6);
+    assert!((d.intensity(&RainCycle::at_timer(5200)) - 0.88 * 0.5f32.powf(2.2)).abs() < 1e-6);
 }
 
 /// `Reset` draws four: x and y over the screen, the lifetime (3 to `Lerp(34, 12, I)`) and

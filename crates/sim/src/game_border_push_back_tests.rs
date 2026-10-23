@@ -20,7 +20,7 @@ impl RainWorldGame {
             kind: RoomEffectType::BorderPushBack.value().to_owned(),
             amount: 0.5,
         }];
-        self.add_border_push_backs(0);
+        self.add_room_effect_particles(0);
         self.world().realized(0).unwrap().border_push_backs[0].update_order
     }
 

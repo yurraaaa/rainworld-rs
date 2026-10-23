@@ -8,8 +8,6 @@
 
 use std::sync::Arc;
 
-use rw_assets::RoomEffectType;
-
 use super::lizard_hits::Hit;
 use super::{RainWorldGame, RoomObject};
 use crate::chunk::BodyChunk;
@@ -19,22 +17,12 @@ use crate::item::{Entity, LoopCx};
 use crate::{ChunkOwner, CosmeticKind, FloatExt, RoomExt, SoundId, Vec2};
 
 impl RainWorldGame {
-    /// `Room.Loaded`'s `ElectricDeath` for each such effect, joining the update list, and
+    /// `Room.Loaded`'s `ElectricDeath` for one such effect, joining the update list, and
     /// `AIMapReady`'s `closeToWallTiles`: every tile with `getTerrainProximity == 1`.
-    pub(super) fn add_electric_deaths(&mut self, index: i32) {
+    pub(super) fn add_electric_death(&mut self, index: i32, amount: f32) {
         let Some(r) = self.world.realized(index) else {
             return;
         };
-        let amounts: Vec<f32> = r
-            .settings
-            .effects
-            .iter()
-            .filter(|e| e.kind == RoomEffectType::ElectricDeath.value())
-            .map(|e| e.amount)
-            .collect();
-        if amounts.is_empty() {
-            return;
-        }
         let mut tiles = Vec::new();
         if let Some(map) = &r.ai_map {
             for x in 0..r.room.width() {
@@ -45,13 +33,11 @@ impl RainWorldGame {
                 }
             }
         }
-        for amount in amounts {
-            let order = self.world.next_update_seq();
-            let mut death = ElectricDeath::new(order, amount);
-            death.close_to_wall_tiles = Some(tiles.clone());
-            if let Some(r) = self.world.realized_mut(index) {
-                r.electric_deaths.push(death);
-            }
+        let order = self.world.next_update_seq();
+        let mut death = ElectricDeath::new(order, amount);
+        death.close_to_wall_tiles = Some(tiles);
+        if let Some(r) = self.world.realized_mut(index) {
+            r.electric_deaths.push(death);
         }
     }
 

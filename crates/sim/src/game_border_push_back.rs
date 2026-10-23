@@ -4,32 +4,22 @@
 //!
 //! Mirrors: Room.cs (Loaded: BorderPushBack), RoomBorderPushBack.cs (Update, PushAtCreature)
 
-use rw_assets::RoomEffectType;
-
 use super::{RainWorldGame, RoomObject};
 use crate::BorderPushBack;
 use crate::item::Entity;
 
 impl RainWorldGame {
-    /// `Room.Loaded`'s `RoomBorderPushBack` for each such effect, joining the update list
+    /// `Room.Loaded`'s `RoomBorderPushBack` for one such effect, joining the update list
     /// (one player).
-    pub(super) fn add_border_push_backs(&mut self, index: i32) {
+    pub(super) fn add_border_push_back(&mut self, index: i32) {
         let Some(r) = self.world.realized(index) else {
             return;
         };
-        let wanted = r
-            .settings
-            .effects
-            .iter()
-            .filter(|e| e.kind == RoomEffectType::BorderPushBack.value())
-            .count();
         let cameras = r.room.cameras().to_vec();
-        for _ in 0..wanted {
-            let order = self.world.next_update_seq();
-            if let Some(r) = self.world.realized_mut(index) {
-                r.border_push_backs
-                    .push(BorderPushBack::new(order, &cameras, 1));
-            }
+        let order = self.world.next_update_seq();
+        if let Some(r) = self.world.realized_mut(index) {
+            r.border_push_backs
+                .push(BorderPushBack::new(order, &cameras, 1));
         }
     }
 

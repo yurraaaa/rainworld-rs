@@ -14,6 +14,10 @@ The `ElectricDeath` room effect (28 Underhang rooms; `rw_sim::electric_death`,
 tests; the draws at draw time (two a light, six a flash) are on the cosmetic stream (D1).
 Notes: `../../rainworld-re/notes/electric-death-and-border-push-back.md`.
 
+Creation order: `ElectricDeath`, `RoomBorderPushBack` and `Lightning` (D25) are made in the same
+settings-order loop as the other room-effect objects (`add_room_effect_particles`), as
+`Room.Loaded` does, so their update-list slots follow the settings' order.
+
 - **DLC and Remix branches omitted:** `ElectricDeath.Intensity`'s Sofanthiel branch (More
   Slugcats: `InverseLerp(cycleLength - 400, cycleLength + 1200, timer)^2.2` is the same, so
   only the story character check differs) and `PrecycleModule`'s (`preTimer` rain: its

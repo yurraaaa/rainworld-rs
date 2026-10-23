@@ -1002,9 +1002,6 @@ impl RainWorldGame {
         for index in self.world.finish_loading() {
             self.add_waterfalls(index);
             self.add_shelter_door(index);
-            self.add_lightning(index);
-            self.add_electric_deaths(index);
-            self.add_border_push_backs(index);
             self.add_trigger_checkers(index);
             self.add_dripping_sound(index);
             self.world.realize_room_objects(index, &mut self.rng);

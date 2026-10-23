@@ -36,7 +36,7 @@ fn loaded_makes_the_first_lightning_effect() {
         effect(RoomEffectType::Lightning, 0.8),
     ]);
     let before = g.world().update_seq();
-    g.add_lightning(0);
+    g.add_room_effect_particles(0);
     let l = g.world().realized(0).and_then(|r| r.lightning.as_ref());
     let l = l.expect("made");
     assert!(l.bkg_only);
@@ -44,8 +44,48 @@ fn loaded_makes_the_first_lightning_effect() {
     assert_eq!(l.update_order, before + 1);
     g.set_effects(Vec::new());
     g.world_mut().realized_mut(0).unwrap().lightning = None;
-    g.add_lightning(0);
+    g.add_room_effect_particles(0);
     assert!(g.world().realized(0).unwrap().lightning.is_none());
+}
+
+impl RainWorldGame {
+    /// Update-list slots of room 0's `Lightning`, first `GreenSparks` and `ElectricDeath`.
+    fn effect_orders(&self) -> (u64, u64, u64) {
+        let r = self.world().realized(0).unwrap();
+        (
+            r.lightning.as_ref().unwrap().update_order,
+            r.particles.spark_spawners[0].update_order,
+            r.electric_deaths[0].update_order,
+        )
+    }
+}
+
+/// `Room.Loaded` creates the effects' objects in one loop in the settings' order (uw_a04:
+/// `Lightning, GreenSparks, ExtraLoudThunder, ElectricDeath`), so the update list holds
+/// them in that order.
+#[test]
+fn effect_objects_join_the_update_list_in_settings_order() {
+    let mut g = game(&HALL, (3, 1));
+    g.set_effects(vec![
+        effect(RoomEffectType::Lightning, 0.54),
+        effect(RoomEffectType::GreenSparks, 0.37),
+        effect(RoomEffectType::ExtraLoudThunder, 0.46),
+        effect(RoomEffectType::ElectricDeath, 1.0),
+    ]);
+    g.add_room_effect_particles(0);
+    let (lightning, sparks, death) = g.effect_orders();
+    assert!(lightning < sparks && sparks < death);
+
+    // uw_a10: `GreenSparks, Lightning, ElectricDeath`.
+    let mut g = game(&HALL, (3, 1));
+    g.set_effects(vec![
+        effect(RoomEffectType::GreenSparks, 0.09),
+        effect(RoomEffectType::Lightning, 0.57),
+        effect(RoomEffectType::ElectricDeath, 1.0),
+    ]);
+    g.add_room_effect_particles(0);
+    let (lightning, sparks, death) = g.effect_orders();
+    assert!(sparks < lightning && lightning < death);
 }
 
 /// Each tick the `Lightning` updates: both sources reset on the first, then the wait
@@ -54,7 +94,7 @@ fn loaded_makes_the_first_lightning_effect() {
 fn it_updates_each_tick() {
     let mut g = game(&HALL, (3, 1));
     g.set_effects(vec![effect(RoomEffectType::Lightning, 0.8)]);
-    g.add_lightning(0);
+    g.add_room_effect_particles(0);
     g.tick(Input::NONE, &mut ());
     let l = g.world().realized(0).unwrap().lightning.clone().unwrap();
     let waits = l.sources.clone().map(|s| s.wait);

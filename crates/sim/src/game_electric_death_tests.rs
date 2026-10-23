@@ -24,7 +24,7 @@ impl RainWorldGame {
             kind: RoomEffectType::ElectricDeath.value().to_owned(),
             amount,
         }];
-        self.add_electric_deaths(0);
+        self.add_room_effect_particles(0);
         self.world().realized(0).unwrap().electric_deaths[0].update_order
     }
 
@@ -56,6 +56,21 @@ impl RainWorldGame {
             chunks.extend(list.into_iter().map(|c| (creature, c)));
         }
         chunks
+    }
+
+    fn spark_count(&self) -> usize {
+        self.count_cosmetics(|k| matches!(k, CosmeticKind::Spark(_)))
+    }
+
+    fn played_sounds(&self, id: SoundId) -> Vec<crate::PlayedSound> {
+        self.sounds
+            .events()
+            .iter()
+            .filter_map(|e| match e {
+                SoundEvent::Play(p) if p.id == id => Some(p.clone()),
+                _ => None,
+            })
+            .collect()
     }
 
     fn count_cosmetics(&self, f: fn(&CosmeticKind) -> bool) -> usize {
@@ -385,11 +400,10 @@ fn a_spark_flash_in_the_room_sheds_sparks() {
     g.world_mut()
         .add_cosmetic(0, CosmeticKind::SparkFlash(flash));
     let id = g.world().realized(0).unwrap().cosmetics.last().unwrap().id;
-    let sparks = |g: &RainWorldGame| g.count_cosmetics(|k| matches!(k, CosmeticKind::Spark(_)));
-    assert_eq!(sparks(&g), 0);
+    assert_eq!(g.spark_count(), 0);
     let state = g.rng.state();
     g.run_cosmetic(0, id);
-    assert_eq!(sparks(&g), 1);
+    assert_eq!(g.spark_count(), 1);
     assert_ne!(g.rng.state(), state);
     let mut updates = 1;
     while g
@@ -407,7 +421,7 @@ fn a_spark_flash_in_the_room_sheds_sparks() {
     let want = flash.life_time.ceil() as i32 + 2;
     assert!((want - 1..=want).contains(&updates), "{updates} {want}");
     // A spark each update (the destroying one too).
-    assert_eq!(sparks(&g) as i32, updates);
+    assert_eq!(g.spark_count() as i32, updates);
 }
 
 /// A chunk's strike plays `Death_Lightning_Spark_Object` on it with the power as volume
@@ -440,17 +454,7 @@ fn sounds_make_their_draws_in_place() {
         g.sounds.take_events();
         g.run_electric_death(0, order);
         assert_eq!(g.rng.state(), m.e.state(), "seed {seed}");
-        let played = |id: SoundId| {
-            g.sounds
-                .events()
-                .iter()
-                .filter_map(|e| match e {
-                    SoundEvent::Play(p) if p.id == id => Some(p.clone()),
-                    _ => None,
-                })
-                .collect::<Vec<_>>()
-        };
-        let wall = played(SoundId::DeathLightningSparkSpontaneous);
+        let wall = g.played_sounds(SoundId::DeathLightningSparkSpontaneous);
         assert_eq!(wall.len(), usize::from(m.wall.is_some()), "seed {seed}");
         if let (Some((pos, size)), Some(p)) = (m.wall, wall.first()) {
             walls += 1;
@@ -462,7 +466,7 @@ fn sounds_make_their_draws_in_place() {
                 1 + m.strikes.len()
             );
         }
-        let object = played(SoundId::DeathLightningSparkObject);
+        let object = g.played_sounds(SoundId::DeathLightningSparkObject);
         assert_eq!(object.len(), m.strikes.len(), "seed {seed}");
         for (p, s) in object.iter().zip(&m.strikes) {
             objects += 1;

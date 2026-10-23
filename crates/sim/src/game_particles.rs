@@ -84,8 +84,9 @@ impl RainWorldGame {
         (self.world.rain_cycle.proximity_to_middle_of_cycle(), 0.0)
     }
 
-    /// `Room.Loaded`'s effects: a `SkyDandelions` (with the dandelions its constructor
-    /// scatters) or `GreenSparks` object for each such effect, in the settings' order.
+    /// `Room.Loaded`'s effects loop: each effect's object (the sky dandelions with the
+    /// dandelions their constructor scatters, the sparks, views, `Lightning`,
+    /// `ElectricDeath`, `RoomBorderPushBack`) joins the update list in the settings' order.
     pub(super) fn add_room_effect_particles(&mut self, index: i32) {
         for (kind, amount) in self.particle_effects(index) {
             match kind {
@@ -93,6 +94,10 @@ impl RainWorldGame {
                 RoomEffectType::GreenSparks => self.add_green_sparks(index, amount),
                 RoomEffectType::AboveCloudsView => self.add_above_clouds_view(index, amount),
                 RoomEffectType::RoofTopView => self.add_roof_top_view(index),
+                RoomEffectType::Lightning => self.add_lightning(index, amount, false),
+                RoomEffectType::BkgOnlyLightning => self.add_lightning(index, amount, true),
+                RoomEffectType::ElectricDeath => self.add_electric_death(index, amount),
+                RoomEffectType::BorderPushBack => self.add_border_push_back(index),
                 _ => {}
             }
         }
