@@ -5,6 +5,12 @@ the user's go-ahead before it starts. Bugs seen in play are in `BUGS.md`; the li
 plan is in `../rainworld-re/surveys/lizards.md`.
 
 ## Approved, not started
+- **rw-sim file layout cleanup** (user, 2026-10-23, next after the SS_E08 gravity script,
+  before the small jobs): `crates/sim/src/` has ~124 source and ~75 test files at its top
+  level; group them into topic folders so the crate is friendly to human work. A layout
+  proposal goes to the user before anything moves; moves only, no behaviour change; run
+  while no other branch is in flight. Takes over the `rw-sim` file-split part of the
+  end-of-project cleanup items.
 - **Debug UI region switcher** (2026-10-19): the F1 debug UI's Region tab lists the
   regions on disk but its button does nothing; it needs region changes and gates,
   which are not ported.
