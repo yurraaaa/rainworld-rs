@@ -253,6 +253,10 @@ pub enum Shader {
     /// with a tangential ripple, rings spreading out from the centre; the colour's alpha is
     /// the strength.
     GravityDisruptor,
+    /// `Futile/CoralNeuron` (a `CoralNeuron`'s second mesh): thin bright lines of two
+    /// scrolling `_NoiseTex` bands in the vertex colour, divided by the vertex alpha (the
+    /// segment count's reciprocal), half transparent by the palette.
+    CoralNeuron,
 }
 
 impl Shader {

@@ -137,14 +137,26 @@ impl RealizedRoom {
     pub fn vine_access(&mut self) -> Option<crate::VineAccess<'_>> {
         Some(crate::VineAccess {
             system: self.climbable_vines.as_ref()?,
-            host: &mut self.placed_vines,
+            host: crate::RoomVines {
+                placed: &mut self.placed_vines,
+                neurons: self
+                    .coral
+                    .as_mut()
+                    .map_or(&mut [], |c| c.neurons.as_mut_slice()),
+            },
         })
     }
 
     /// The same, read-only (the graphics).
     #[must_use]
-    pub fn vine_view(&self) -> Option<(&crate::ClimbableVinesSystem, &dyn crate::VineHost)> {
-        Some((self.climbable_vines.as_ref()?, &self.placed_vines))
+    pub fn vine_view(&self) -> Option<(&crate::ClimbableVinesSystem, crate::RoomVinesView<'_>)> {
+        Some((
+            self.climbable_vines.as_ref()?,
+            crate::RoomVinesView {
+                placed: &self.placed_vines,
+                neurons: self.coral.as_ref().map_or(&[], |c| c.neurons.as_slice()),
+            },
+        ))
     }
 
     /// `darkenLightsFactor`: 0 until the room's first `Update`, then the `DarkenLights`

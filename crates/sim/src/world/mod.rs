@@ -432,6 +432,9 @@ impl World {
                 for wall in &system.wall_mycelia {
                     self.mycelia.release_owner(wall.owner);
                 }
+                for neuron in &system.neurons {
+                    self.mycelia.release_owner(neuron.owner);
+                }
                 self.mycelia.drop_registry(system.id);
             }
             log::info!("abstracted room {}", self.data.rooms[i].name);

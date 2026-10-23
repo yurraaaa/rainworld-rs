@@ -39,6 +39,8 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 | `overseer_graphics.rs` | `OverseerGraphics` simulation | `OverseerGraphics` |
 | `overseer_draw.rs` | overseer sprites | `OverseerGraphics.DrawSprites` |
 | `mycelium.rs` | a strand's mesh (`MyceliumSprites`) and `TriangleMesh.MakeLongMesh`'s triangles and UVs (`LongMesh`); the strands are `rw-sim`'s | `Mycelium` (InitiateSprites, DrawSprites, UpdateColor) |
+| `coral_neuron_draw.rs` | a `CoralNeuron`'s two meshes (colour ramp; `CoralNeuron` shader lines), its strands and bumps in `Items` (ping dots in `Water` with `WaterLights`) | `CoralNeuron` (MeshColor, InitiateSprites, DrawSprites, AddToContainer) |
+| `projected_circle_draw.rs` | a `ProjectedCircle`'s two `VectorCircle` discs, spokes and lines in `BackgroundShortcuts` (`CircleSurroundings`: the owners and circles it reads) | `ProjectedCircle` |
 | `wall_mycelia_draw.rs` | a `WallMycelia`'s strands in `Items` (transparent black fading in, blue tip), culled ones left out | `WallMycelia` |
 | `hologram_matrix.rs` | overseer lens wireframe | `OverseerGraphics.HologramMatrix` |
 | `hologram_shape.rs` | line geometry of hologram parts | `OverseerHolograms` |
@@ -58,7 +60,7 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 | `shortcut_graphics.rs` | pipe pixels, entrance symbols | `ShortcutGraphics` |
 | `shelter_door_graphics.rs` | shelter door sprites | `ShelterDoor` |
 | `sun_blocker.rs` | the `SunBlock` effect's screen-covering sprite in `Shadows` | `SunBlocker` |
-| `tests.rs`, `coral_tests.rs`, `hologram_tests.rs`, `shortcut_tests.rs`, `placed_visuals_tests.rs`, `projection_tests.rs` | unit tests | |
+| `tests.rs`, `coral_tests.rs`, `coral_neuron_tests.rs`, `hologram_tests.rs`, `shortcut_tests.rs`, `placed_visuals_tests.rs`, `projection_tests.rs` | unit tests | |
 
 ## Where is X?
 
@@ -67,7 +69,7 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 - Slugcat gaze: `looker.rs`.
 - Lizard body, legs, head: `lizard_graphics.rs`, `lizard_limb.rs`, `lizard_draw.rs`.
 - Lizard scales, spikes, tufts: `lizard_cosmetics.rs`, `lizard_cosmetics_draw.rs`.
-- Overseer body and eye: `overseer_graphics.rs`, `overseer_draw.rs`; hairs: `mycelium.rs` (the strands in `rw-sim`'s `mycelium.rs`); wall mycelia: `wall_mycelia_draw.rs`.
+- Overseer body and eye: `overseer_graphics.rs`, `overseer_draw.rs`; hairs: `mycelium.rs` (the strands in `rw-sim`'s `mycelium.rs`); wall mycelia: `wall_mycelia_draw.rs`; coral neurons and their projected circles: `coral_neuron_draw.rs`, `projected_circle_draw.rs`.
 - Overseer lens and holograms: `hologram_matrix.rs`, `hologram_shape.rs`, `hologram_draw.rs`.
 - Bat flies: `fly_graphics.rs`.
 - Cosmetic insects: `insect_graphics.rs` (simulation in `rw-sim` `insect/`).

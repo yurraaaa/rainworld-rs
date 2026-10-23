@@ -61,7 +61,7 @@ impl ClimbableVinesState {
                 vines: system
                     .vines()
                     .iter()
-                    .map(|&v| Self::vine(system, host, v))
+                    .map(|&v| Self::vine(system, &host, v))
                     .collect(),
             })
             .collect()

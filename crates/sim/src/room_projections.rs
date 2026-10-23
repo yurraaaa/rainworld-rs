@@ -1,10 +1,11 @@
 //! A realized room's superstructure projections in its update list: the
 //! `SuperStructureProjector`s with their parts, the `ProjectedScanLines` with their lines
-//! and the `StarMatrix`es. Each list is kept in update-list order (an object's
+//! and the `StarMatrix`es, and the `ProjectedCircle`s of the coral. Each list is kept in update-list order (an object's
 //! `update_order` grows with `AddObject`).
 //!
-//! Mirrors: Room.cs (updateList: SuperStructureProjector, ProjectedScanLines, StarMatrix)
+//! Mirrors: Room.cs (updateList: SuperStructureProjector, ProjectedScanLines, StarMatrix, ProjectedCircle)
 
+use crate::projected_circle::ProjectedCircle;
 use crate::projected_scan_lines::ProjectedScanLines;
 use crate::projector::SuperStructureProjector;
 use crate::star_matrix::StarMatrix;
@@ -25,6 +26,7 @@ pub(crate) enum ProjectionRef {
         line: u64,
     },
     Stars(u64),
+    Circle(u64),
 }
 
 /// A realized room's projections.
@@ -33,6 +35,8 @@ pub struct RoomProjections {
     pub projectors: Vec<SuperStructureProjector>,
     pub scan_lines: Vec<ProjectedScanLines>,
     pub star_matrices: Vec<StarMatrix>,
+    /// Kept after they are slated: other circles' connections still read them.
+    pub circles: Vec<ProjectedCircle>,
 }
 
 impl RoomProjections {
@@ -76,6 +80,12 @@ impl RoomProjections {
         for s in &self.star_matrices {
             list.push((s.update_order, ProjectionRef::Stars(s.update_order)));
         }
+        list.extend(
+            self.circles
+                .iter()
+                .filter(|c| !c.slated)
+                .map(|c| (c.update_order, ProjectionRef::Circle(c.update_order))),
+        );
         list
     }
 
@@ -94,5 +104,11 @@ impl RoomProjections {
         parts
             .chain(lines)
             .chain(self.star_matrices.iter().map(|s| s.update_order))
+            .chain(
+                self.circles
+                    .iter()
+                    .filter(|c| !c.slated)
+                    .map(|c| c.update_order),
+            )
     }
 }

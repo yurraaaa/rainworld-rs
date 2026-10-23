@@ -589,6 +589,11 @@ impl Session {
             coral_systems: super::reply::CoralSystemState::all(sim.world()),
             climbable_vines: super::reply::ClimbableVinesState::all(sim.world()),
             wall_mycelia: super::reply::WallMyceliaState::all(sim.world()),
+            coral_neurons: super::reply::CoralNeuronState::all(
+                sim.world(),
+                sim.player().and_then(|p| p.vine_pos()).map(|v| v.vine),
+            ),
+            projected_circles: super::reply::ProjectedCircleState::all(sim.world()),
             neuron_sparks: super::reply::NeuronSparkState::all(sim.world()),
             particles: super::reply::RoomParticlesState::all(sim.world()),
             decals: super::reply::DecalState::all(sim.world()),

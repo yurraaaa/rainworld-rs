@@ -8,21 +8,21 @@
 //! `AIMapReady` runs in the loading step, after `ReadyForAI` realized the room's
 //! creatures; the session's first room waits for its `NowViewed` (the camera's first
 //! tick), as the game's `RoomPreparer` does (D37). What `CoralNeuronSystem.AIMapReady`
-//! builds besides the wall mycelia (their places below) is the later steps': the
-//! `CoralNeuron`s in the placed-object loop, then the `WallMycelia`, then the
-//! `CoralCircuit` clusters, then the `CoralStem`s, then `PlaceSwarmers`.
+//! builds: the `CoralNeuron`s in the placed-object loop (each with the
+//! `ProjectedCircle`s its constructor adds, then itself), then the `WallMycelia`; the
+//! `CoralCircuit` clusters, the `CoralStem`s and `PlaceSwarmers` are the later steps'.
 //!
-//! Mirrors: Room.cs (Loaded: CoralNeuronSystem; ReadyForAI), CoralNeuronSystem.cs (AIMapReady), WallMycelia.cs (Update), Overseer.cs (UpdateCoralNeuronSystem)
+//! Mirrors: Room.cs (Loaded: CoralNeuronSystem; ReadyForAI), CoralNeuronSystem.cs (AIMapReady), CoralNeuron.cs (Update), WallMycelia.cs (Update), Overseer.cs (UpdateCoralNeuronSystem)
 
 use std::sync::Arc;
 
-use rw_assets::{PlacedObjectType, ResizableData};
+use rw_assets::{PlacedObjectType, ResizableData, RoomEffectType};
 
 use super::{RainWorldGame, RoomObject};
 use crate::creature::CreatureId;
 use crate::{
-    CoralNeuronSystem, CosmeticKind, MyceliaCx, MyceliumEnv, PlayerObserver, Vec2, WallMycelia,
-    WallPlace,
+    ClimbableVinesSystem, CoralNeuron, CoralNeuronSystem, CosmeticKind, MyceliaCx, MyceliumEnv,
+    NeuronCx, PlayerObserver, Vec2, VineRef, WallMycelia, WallPlace,
 };
 
 /// A coral object in a room's update list.
@@ -32,6 +32,8 @@ pub(super) enum CoralRef {
     System,
     /// A `WallMycelia`, by its place in the update list.
     Wall(u64),
+    /// A `CoralNeuron`, by its place in the update list.
+    Neuron(u64),
 }
 
 impl RainWorldGame {
@@ -62,22 +64,46 @@ impl RainWorldGame {
             return;
         }
         let room = Arc::clone(&r.room);
+        let projector = r
+            .settings
+            .effect_amount(RoomEffectType::SuperStructureProjector)
+            > 0.0;
         let mut places = Vec::new();
+        let mut neurons = Vec::new();
         for o in r.settings.placed_objects_for(timeline, mods) {
             if !o.active {
                 continue;
             }
             // The later steps' owners join this loop in the game's order: a `CoralNeuron` is
-            // made and added as the loop meets it; the stems and circuits are collected.
-            if o.object_type(mods) == Some(PlacedObjectType::WallMycelia) {
-                match ResizableData::parse(&o.data) {
+            // made and added as the loop meets it (nothing else in the loop draws or adds,
+            // so they are made after it); the stems and circuits are collected.
+            match o.object_type(mods) {
+                Some(PlacedObjectType::WallMycelia) => match ResizableData::parse(&o.data) {
                     Some(d) => places.push(WallPlace {
                         pos: Vec2::from(o.pos),
                         rad: d.rad(),
                     }),
                     None => log::warn!("unreadable {} data {:?}", o.kind, o.data),
-                }
+                },
+                Some(PlacedObjectType::CoralNeuron) => match ResizableData::parse(&o.data) {
+                    Some(d) => {
+                        let (pos, handle) =
+                            (Vec2::from(o.pos), Vec2::new(d.handle[0], d.handle[1]));
+                        neurons.push((handle.length(), pos, pos + handle));
+                    }
+                    None => log::warn!("unreadable {} data {:?}", o.kind, o.data),
+                },
+                _ => {}
             }
+        }
+        for (length, pos_a, pos_b) in neurons {
+            self.add_coral_neuron(
+                index,
+                system_id,
+                projector,
+                length,
+                (Some(pos_a), Some(pos_b)),
+            );
         }
         let mut wall = (!places.is_empty()).then(|| {
             WallMycelia::new(
@@ -102,6 +128,48 @@ impl RainWorldGame {
         }
     }
 
+    /// `new CoralNeuron(system, room, length, posA, posB)`, `room.AddObject(neuron)` and the
+    /// vine registration, in room `index` (the placed loop's, and a stem's later).
+    /// Returns the neuron's place in the update list.
+    pub(super) fn add_coral_neuron(
+        &mut self,
+        index: i32,
+        system: crate::SystemId,
+        projector: bool,
+        length: f32,
+        ends: (Option<Vec2>, Option<Vec2>),
+    ) -> Option<u64> {
+        let r = self.world.realized(index)?;
+        let room = Arc::clone(&r.room);
+        let circles = r
+            .projections
+            .circles
+            .iter()
+            .filter(|c| !c.slated)
+            .map(|c| c.update_order)
+            .collect();
+        let mut seq = self.world.update_seq();
+        let mut cx = NeuronCx {
+            room: &room,
+            system,
+            pool: &mut self.world.mycelia,
+            projector,
+            circles,
+            seq: &mut seq,
+        };
+        let built = CoralNeuron::build(length, ends.0, ends.1, &mut cx, &mut self.rng);
+        self.world.set_update_seq(seq);
+        let built = built?;
+        let order = built.neuron.update_order;
+        let r = self.world.realized_mut(index)?;
+        r.projections.circles.extend(built.circles);
+        r.climbable_vines
+            .get_or_insert_with(ClimbableVinesSystem::new)
+            .register(VineRef::CoralNeuron { room: index, order });
+        r.coral.as_mut()?.neurons.push(built.neuron);
+        Some(order)
+    }
+
     /// Room `index`'s coral objects in its update list.
     pub(super) fn room_coral_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         self.world
@@ -110,6 +178,12 @@ impl RainWorldGame {
             .map_or_else(Vec::new, |s| {
                 let system = (s.update_order, RoomObject::Coral(CoralRef::System));
                 std::iter::once(system)
+                    .chain(s.neurons.iter().map(|n| {
+                        (
+                            n.update_order,
+                            RoomObject::Coral(CoralRef::Neuron(n.update_order)),
+                        )
+                    }))
                     .chain(s.wall_mycelia.iter().map(|w| {
                         (
                             w.update_order,
@@ -137,6 +211,20 @@ impl RainWorldGame {
         );
         match which {
             CoralRef::System => system.update(viewed, &mut self.rng),
+            CoralRef::Neuron(order) => {
+                let env = MyceliumEnv {
+                    room: &room,
+                    room_index: index,
+                    ai_map: ai_map.as_deref(),
+                    camera,
+                    cameras_changed_tick: tick,
+                    system: Some(system.state()),
+                };
+                let wind = system.wind;
+                if let Some(neuron) = system.neurons.iter_mut().find(|n| n.update_order == order) {
+                    neuron.update(wind, &mut self.world.mycelia, &env, &mut self.rng);
+                }
+            }
             CoralRef::Wall(order) => {
                 let env = MyceliumEnv {
                     room: &room,

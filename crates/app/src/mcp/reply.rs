@@ -7,7 +7,9 @@ use std::path::PathBuf;
 use serde::Serialize;
 
 pub use super::background_scene_reply::{BackgroundSceneState, CameraOnScene};
-pub use super::coral_reply::{CoralSystemState, NeuronSparkState, WallMyceliaState};
+pub use super::coral_reply::{
+    CoralNeuronState, CoralSystemState, NeuronSparkState, ProjectedCircleState, WallMyceliaState,
+};
 pub use super::effects_reply::{BorderPushBackState, ElectricDeathState};
 pub use super::fixtures_reply::{LightFixtureState, WaterFallState};
 pub use super::gravity_reply::{BrokenAntiGravityState, RoomGravityState};
@@ -139,6 +141,12 @@ pub struct State {
     /// The realized rooms' `WallMycelia`.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub wall_mycelia: Vec<WallMyceliaState>,
+    /// The realized rooms' `CoralNeuron`s.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub coral_neurons: Vec<CoralNeuronState>,
+    /// The realized rooms' `ProjectedCircle`s.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub projected_circles: Vec<ProjectedCircleState>,
     /// The realized rooms' `NeuronSpark`s.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub neuron_sparks: Vec<NeuronSparkState>,

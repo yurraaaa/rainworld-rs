@@ -32,6 +32,7 @@ pub mod campaign;
 mod chunk;
 mod climbable_vines;
 pub mod color;
+mod coral_neuron;
 mod coral_system;
 mod cosmetic;
 pub mod creature;
@@ -57,6 +58,7 @@ mod neuron_spark;
 mod noise;
 mod object;
 mod player;
+mod projected_circle;
 mod projected_scan_lines;
 mod projector;
 mod rainbow;
@@ -104,9 +106,10 @@ pub use camera::CameraView;
 pub use camera_image::CameraImage;
 pub use chunk::{BodyChunk, Contact, DEFAULT_RESTRICT_IN_ROOM_RANGE, PhysicsParams, TerrainImpact};
 pub use climbable_vines::{
-    ClimbableVine, ClimbableVinesSystem, PlacedVines, VineAccess, VineClimber, VineHost,
-    VineHostMut, VineKind, VinePosition, VineRef,
+    ClimbableVine, ClimbableVinesSystem, PlacedVines, RoomVines, RoomVinesView, VineAccess,
+    VineClimber, VineHost, VineHostMut, VineKind, VinePosition, VineRef,
 };
+pub use coral_neuron::{CoralNeuron, NeuronCx, NeuronGeometry, NewNeuron};
 pub use coral_system::CoralNeuronSystem;
 pub use cosmetic::{
     Cosmetic, CosmeticKind, CosmeticTie, ExplosionSpikes, OverseerEffectSprite, Spark,
@@ -147,6 +150,7 @@ pub use player::{
     Animation, BodyMode, DangerGraspState, DangerGraspStep, GrabState, HEAD, HIPS, INPUT_HISTORY,
     Input, Player, PlayerController, ShelterCheck, SpearOnBack, StomachObject, VesselStep,
 };
+pub use projected_circle::{CircleOwner, ProjectedCircle};
 pub use projected_scan_lines::{ProjectedScanLine, ProjectedScanLines};
 pub use projector::{
     Cursor, Glyph, GlyphMatrix, PartKind, ProjectorFrame, ProjectorPart, ScanLine, SingleGlyph,

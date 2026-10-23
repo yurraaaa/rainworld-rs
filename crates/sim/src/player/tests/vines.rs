@@ -26,7 +26,7 @@ impl NoiseSink for VineSink {
     fn vines(&mut self) -> Option<VineAccess<'_>> {
         Some(VineAccess {
             system: &self.0.system,
-            host: &mut self.0.host,
+            host: crate::RoomVines::placed_only(&mut self.0.host),
         })
     }
 }

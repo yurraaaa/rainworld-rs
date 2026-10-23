@@ -14,6 +14,7 @@
 mod atlas;
 mod background_scene;
 mod body_part;
+mod coral_neuron_draw;
 mod cosmetic_graphics;
 mod decal;
 mod draw;
@@ -44,6 +45,7 @@ mod overseer_draw;
 mod overseer_graphics;
 mod player_draw;
 mod player_graphics;
+mod projected_circle_draw;
 mod projected_scan_lines_draw;
 mod projector_draw;
 mod quad_grid;
@@ -68,6 +70,7 @@ mod zero_g_speck;
 pub use atlas::{Atlas, AtlasError, AtlasFrame, Rect, Size};
 pub use background_scene::{BackgroundSceneSprites, BackgroundSceneView, SceneImageSizes};
 pub use body_part::{BodyPart, PointConnection};
+pub use coral_neuron_draw::{CoralNeuronSprites, NeuronLook};
 pub use cosmetic_graphics::{CosmeticSprites, LizardColors, LizardModule, NoLizards};
 pub use decal::DecalSprites;
 pub use draw::{
@@ -101,6 +104,7 @@ pub use mycelium::{LongMesh, MyceliumSprites};
 pub use overseer_graphics::{DrawPositions, OverseerGraphics};
 pub use player_draw::{SPRITE_COUNT, SPRITE_LAYERS, TAIL_TRIANGLES};
 pub use player_graphics::PlayerGraphics;
+pub use projected_circle_draw::{CircleSurroundings, ProjectedCircleSprites};
 pub use projected_scan_lines_draw::ProjectedScanLinesSprites;
 pub use projector_draw::{ProjectionView, ProjectorSprites};
 pub use quad_grid::QuadGrid;
@@ -126,6 +130,8 @@ pub use water_fall::WaterFallSprites;
 pub use weapon_graphics::{PEBBLES, PebbleElement, SMALL_SPEAR, WeaponSprites};
 pub use zero_g_speck::SpeckSprites;
 
+#[cfg(test)]
+mod coral_neuron_tests;
 #[cfg(test)]
 mod coral_tests;
 #[cfg(test)]

@@ -189,9 +189,10 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   - Climbable vines (user, 2026-10-23; `../rainworld-re/surveys/climbable-vines.md`, D39):
     the corruption tubes (`ClimbableCorruptionTube`, `Rope`) with `DaddyCorruption`; `PoleMimic`
     as a vine with the Pole Mimic creature; More Slugcats' `ClimbableVine`, Watcher's whiskers
-    and the Remix branches with their DLC. The coral neurons and stems (10d3) are the first
-    vine owners: each adds a `VineRef` variant, registers it in the room's system and gets a
-    branch in the vine host the player's update and the hands read (D39).
+    and the Remix branches with their DLC. The coral neurons (10d3a, D40) are the first vine
+    owner; the stems (10d3b) are next: each adds a `VineRef` variant, registers it in the room's
+    system and gets a branch in the vine host (`RoomVines`) the player's update and the hands
+    read (D39).
   - Zero gravity: coral circuit swimming (`circuitSwimResistance`, `curcuitJumpMeter`,
     `swimBits`), with the coral circuit object.
   - Zero gravity: Five Pebbles' and Moon's oracle scenes switching `AntiGravity` off, with
@@ -199,12 +200,13 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   - `Room.ElectricPower` / gravity readers: `SpinningFan`, `MeltLights`, with the SS
     objects (`ZapCoil`, `SuperStructureFuses` and `SSLightRod` are ported, D36;
     `GravityDisruptor`, `DeepProcessing` and `DeepProcessingLight`, D37).
-  - `ProjectedCircle` (D35): with its owners `CoralNeuron`, `CoralStem`, `SSOracleSwarmer`
-    (and `SpearMasterPearl`, `Inspector` in the DLC).
-  - Coral (D38, step 10d1 done: the system, `WallMycelia`, the shared `Mycelium` pool,
-    `NeuronSpark`): what `CoralNeuronSystem.AIMapReady` also builds comes with 10d2-10e
-    (`CoralNeuron`, `CoralStem`/`StemSegment`, `CoralCircuit` and its connectors,
-    `PlaceSwarmers`, the climbable vines); More Slugcats' `Inspector` and
+  - `ProjectedCircle` (D35, D40): ported with `CoralNeuron`; owners left: `CoralStem` (10d3b),
+    `SSOracleSwarmer` (10e), `SpearMasterPearl` and `Inspector` (DLC); the MSC and MMF branches
+    of the circle itself with their DLC (D40).
+  - Coral (D38, D40; done: the system, `WallMycelia`, the shared `Mycelium` pool,
+    `NeuronSpark`, `CoralNeuron` with `ProjectedCircle`): what `CoralNeuronSystem.AIMapReady` also
+    builds comes with 10d3b-10e (`CoralStem`/`StemSegment`, `CoralCircuit` and its connectors,
+    `PlaceSwarmers`); More Slugcats' `Inspector` and
     `SingularityBomb` strands with the DLC.
   - The other readers of `room.zapCoils` and `SuperStructureFuses` (D36): `TubeWorm`, the
     Saint tongue, `ElectricSpear`, the `Inspector`, Watcher's `ARZapper`/`WarpTear`, Moon's

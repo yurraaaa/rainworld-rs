@@ -1152,43 +1152,56 @@ impl Game {
             .collect()
     }
 
-    /// The camera room's `WallMycelia` at `alpha` between ticks.
+    /// The camera room's `CoralNeuron`s and `WallMycelia` at `alpha` between ticks.
     #[must_use]
     pub fn coral_draw_lists(&self, alpha: f32) -> Vec<(Drawable, DrawList)> {
-        use rw_graphics::WallMyceliaSprites;
+        use rw_graphics::{CoralNeuronSprites, WallMyceliaSprites};
         let world = self.sim.world();
-        let Some(system) = world
-            .realized(self.sim.camera_room())
-            .and_then(|r| r.coral.as_ref())
-        else {
+        let Some(r) = world.realized(self.sim.camera_room()) else {
             return Vec::new();
         };
-        system
-            .wall_mycelia
+        let Some(system) = r.coral.as_ref() else {
+            return Vec::new();
+        };
+        let water_lights = r
+            .settings
+            .effect_amount(rw_assets::RoomEffectType::WaterLights)
+            > 0.0;
+        let mut lists: Vec<(Drawable, DrawList)> = system
+            .neurons
             .iter()
-            .map(|w| {
+            .map(|n| {
                 (
-                    Drawable::Coral(w.update_order),
-                    w.draw(world.mycelia(), alpha),
+                    Drawable::Coral(n.update_order),
+                    n.draw(world.mycelia(), alpha, water_lights),
                 )
             })
-            .collect()
+            .collect();
+        lists.extend(system.wall_mycelia.iter().map(|w| {
+            (
+                Drawable::Coral(w.update_order),
+                w.draw(world.mycelia(), alpha),
+            )
+        }));
+        lists
     }
 
     /// The camera room's superstructure projections at `alpha` between ticks: the
-    /// projector's parts, the scan lines of `ProjectedScanLines` and the star matrices.
+    /// projector's parts, the scan lines of `ProjectedScanLines`, the star matrices and the
+    /// coral's `ProjectedCircle`s (after their `UpdateDepth`, which the draw runs).
     /// `cam_pos` is the frame's camera position, `camera_position` the room's current
     /// camera (`room.cameraPositions[currentCameraPosition]`).
-    #[must_use]
     pub fn projection_draw_lists(
-        &self,
+        &mut self,
         alpha: f32,
         cam_pos: rw_sim::Vec2,
         camera_position: rw_sim::Vec2,
     ) -> Vec<(Drawable, DrawList)> {
         use rw_graphics::{
-            ProjectedScanLinesSprites, ProjectionView, ProjectorSprites, StarMatrixSprites,
+            CircleSurroundings, ProjectedCircleSprites, ProjectedScanLinesSprites, ProjectionView,
+            ProjectorSprites, StarMatrixSprites,
         };
+        self.sim.update_circle_depths();
         let Some(r) = self.sim.world().realized(self.sim.camera_room()) else {
             return Vec::new();
         };
@@ -1216,6 +1229,18 @@ impl Game {
         }
         for stars in &p.star_matrices {
             lists.push((Drawable::Projection(stars.update_order), stars.draw(alpha)));
+        }
+        let around = CircleSurroundings {
+            neurons: r.coral.as_ref().map_or(&[], |c| c.neurons.as_slice()),
+            circles: &p.circles,
+            light_angle: rw_sim::Vec2::from(r.room.light_angle()),
+        };
+        let rng = &mut self.graphics.cosmetic;
+        for circle in p.circles.iter().filter(|c| !c.slated) {
+            lists.push((
+                Drawable::Projection(circle.update_order),
+                circle.draw(&around, alpha, rng),
+            ));
         }
         lists
     }
@@ -1704,6 +1729,12 @@ impl Game {
                 r.projections
                     .drawn_orders()
                     .map(|o| Present::added(Drawable::Projection(o), o)),
+            );
+            present.extend(
+                r.coral
+                    .iter()
+                    .flat_map(|s| &s.neurons)
+                    .map(|n| Present::added(Drawable::Coral(n.update_order), n.update_order)),
             );
             present.extend(
                 r.coral
