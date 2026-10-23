@@ -12,13 +12,13 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | app | 17 | 34 | 0 | 0 |
 | assets | 25 | 13 | 0 | 0 |
 | audio | 11 | 5 | 0 | 0 |
-| graphics | 50 | 4 | 0 | 0 |
+| graphics | 52 | 4 | 0 | 0 |
 | hud | 24 | 0 | 0 | 0 |
 | menu | 27 | 2 | 0 | 0 |
 | random | 0 | 1 | 0 | 0 |
 | render | 7 | 19 | 0 | 0 |
 | save | 15 | 5 | 0 | 0 |
-| sim | 241 | 5 | 0 | 0 |
+| sim | 243 | 5 | 0 | 0 |
 
 ## Rust file to C# files
 
@@ -132,6 +132,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/graphics/src/atlas.rs` | mirrors | FAtlas.cs, FAtlasElement.cs |
 | `crates/graphics/src/background_scene.rs` | mirrors | AboveCloudsView.cs, BackgroundScene.cs, RoofTopView.cs |
 | `crates/graphics/src/body_part.rs` | mirrors | BodyPart.cs |
+| `crates/graphics/src/coral_neuron_draw.rs` | mirrors | CoralBrain/CoralNeuron.cs |
 | `crates/graphics/src/cosmetic_graphics.rs` | mirrors | Bubble.cs, ExplosionSpikes.cs, LizardBubble.cs, NeuronSpark.cs, Spark.cs, SplashWater/Splash.cs, StationaryEffect.cs |
 | `crates/graphics/src/decal.rs` | mirrors | CustomDecal.cs, TriangleMesh.cs |
 | `crates/graphics/src/draw.rs` | port-only | - |
@@ -163,6 +164,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/graphics/src/overseer_graphics.rs` | mirrors | OverseerGraphics.cs |
 | `crates/graphics/src/player_draw.rs` | mirrors | PlayerGraphics.cs |
 | `crates/graphics/src/player_graphics.rs` | mirrors | PlayerGraphics.cs |
+| `crates/graphics/src/projected_circle_draw.rs` | mirrors | CoralBrain/ProjectedCircle.cs |
 | `crates/graphics/src/projected_scan_lines_draw.rs` | mirrors | ProjectedScanLines.cs |
 | `crates/graphics/src/projector_draw.rs` | mirrors | SuperStructureProjector.cs |
 | `crates/graphics/src/quad_grid.rs` | mirrors | LightBeam.cs, SpotLight.cs, TriangleMesh.cs |
@@ -294,6 +296,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/sim/src/chunk.rs` | mirrors | BodyChunk.cs |
 | `crates/sim/src/climbable_vines.rs` | mirrors | ClimbableVinesSystem.cs, IClimbableVine.cs |
 | `crates/sim/src/color.rs` | mirrors | RWCustom/Custom.cs |
+| `crates/sim/src/coral_neuron.rs` | mirrors | CoralBrain/CoralNeuron.cs |
 | `crates/sim/src/coral_system.rs` | mirrors | CoralBrain/CoralNeuronSystem.cs |
 | `crates/sim/src/cosmetic.rs` | mirrors | ExplosionSpikes.cs, LizardBubble.cs, OverseerEffect.cs, Spark.cs, StationaryEffect.cs |
 | `crates/sim/src/creature/agression_tracker.rs` | mirrors | AgressionTracker.cs |
@@ -366,7 +369,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/sim/src/game_background_scene.rs` | mirrors | BackgroundScene.cs, Room.cs |
 | `crates/sim/src/game_border_push_back.rs` | mirrors | Room.cs, RoomBorderPushBack.cs |
 | `crates/sim/src/game_carried.rs` | mirrors | AbstractCreature.cs, AbstractPhysicalObject.cs, Creature.cs, Player.cs, ShortcutHandler.cs |
-| `crates/sim/src/game_coral.rs` | mirrors | CoralBrain/CoralNeuronSystem.cs, CoralBrain/WallMycelia.cs, Overseer.cs, Room.cs |
+| `crates/sim/src/game_coral.rs` | mirrors | CoralBrain/CoralNeuron.cs, CoralBrain/CoralNeuronSystem.cs, CoralBrain/WallMycelia.cs, Overseer.cs, Room.cs |
 | `crates/sim/src/game_decals.rs` | mirrors | Room.cs |
 | `crates/sim/src/game_dev.rs` | port-only | - |
 | `crates/sim/src/game_drips.rs` | mirrors | Room.cs |
@@ -465,6 +468,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/sim/src/player/swim.rs` | mirrors | Player.cs |
 | `crates/sim/src/player/vines.rs` | mirrors | Player.cs |
 | `crates/sim/src/player/zero_g.rs` | mirrors | Player.cs |
+| `crates/sim/src/projected_circle.rs` | mirrors | CoralBrain/ProjectedCircle.cs, IOwnProjectedCircles.cs |
 | `crates/sim/src/projected_scan_lines.rs` | mirrors | ProjectedScanLines.cs |
 | `crates/sim/src/projector.rs` | mirrors | SuperStructureProjector.cs |
 | `crates/sim/src/rainbow.rs` | mirrors | Rainbow.cs, RainbowNoFade.cs, Room.cs |
@@ -566,9 +570,11 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `CicadaAbstractAI.cs` | `crates/sim/src/creature/ai_kinds.rs`, `crates/sim/src/world/abstract_ai_kinds.rs` |
 | `ClimbableVinesSystem.cs` | `crates/sim/src/climbable_vines.rs` |
 | `CollectToken.cs` | `crates/graphics/src/token_stalk.rs`, `crates/sim/src/token_stalk.rs` |
+| `CoralBrain/CoralNeuron.cs` | `crates/graphics/src/coral_neuron_draw.rs`, `crates/sim/src/coral_neuron.rs`, `crates/sim/src/game_coral.rs` |
 | `CoralBrain/CoralNeuronSystem.cs` | `crates/sim/src/coral_system.rs`, `crates/sim/src/game_coral.rs` |
 | `CoralBrain/JobData.cs` | `crates/sim/src/mycelium.rs` |
 | `CoralBrain/Mycelium.cs` | `crates/graphics/src/mycelium.rs`, `crates/graphics/src/wall_mycelia_draw.rs`, `crates/sim/src/mycelium.rs` |
+| `CoralBrain/ProjectedCircle.cs` | `crates/graphics/src/projected_circle_draw.rs`, `crates/sim/src/projected_circle.rs` |
 | `CoralBrain/SSMusicTrigger.cs` | `crates/sim/src/game_triggers.rs`, `crates/sim/src/trigger.rs` |
 | `CoralBrain/WallMycelia.cs` | `crates/graphics/src/wall_mycelia_draw.rs`, `crates/sim/src/game_coral.rs`, `crates/sim/src/wall_mycelia.rs` |
 | `CorruptionSpore.cs` | `crates/graphics/src/zero_g_speck.rs`, `crates/sim/src/zero_g_speck.rs` |
@@ -639,6 +645,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `HologramLight.cs` | `crates/graphics/src/holo_light.rs`, `crates/sim/src/creature/overseer/holo_light.rs`, `crates/sim/src/game_holo_light.rs` |
 | `HolyFire.cs` | `crates/graphics/src/light_fixture.rs`, `crates/sim/src/light_fixture.rs` |
 | `IClimbableVine.cs` | `crates/sim/src/climbable_vines.rs` |
+| `IOwnProjectedCircles.cs` | `crates/sim/src/projected_circle.rs` |
 | `IconSymbol.cs` | `crates/hud/src/icon_symbol.rs` |
 | `InGameTranslator.cs` | `crates/assets/src/short_strings.rs`, `crates/menu/src/translator.rs` |
 | `InputInstructionTrigger.cs` | `crates/sim/src/game_instructions.rs` |
