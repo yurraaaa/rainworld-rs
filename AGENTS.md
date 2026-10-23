@@ -260,7 +260,7 @@ prefer these over `--screenshot`/`--script`; briefs for such agents say so.
   start den. Both (and `respawn` with a seed) step the game without input
   until the start room is `readyForAI` (three ticks) before replying, so a
   reply's `tick` is 3.
-- `get_state` reports the camera room, the player (food, grasps, pick-up
+- `get_state` reports the camera room (`room` is the room the camera shows; during a pending move `camera_move` names the room it is moving to), the player (food, grasps, pick-up
   candidate, stomach, counters, sneak/loudness, `held_by`, `danger_grasp` and
   its time, struggle buttons, `can_struggle`, `cant_be_grabbed_counter`, ...), the vessel in the
   lobby, realized rooms' entry waits, `loading_progress` and `preparer` (a loading room's `RoomPreparer`: status, calls, done), `orphaned_preparers` (rooms abstracted while loading), ceiling drips, dripping sound, water surface sound, bubbles and bubble emitters, splashes, the player's `owned_items` on the ground, every abstract creature (kind, ID, room,

@@ -898,11 +898,15 @@ impl Game {
         self.sim.player_in_room(self.shown_room)
     }
 
+    /// The shown room; when the realizer abstracted it while a move waits, the sim's
+    /// camera room (D14: the game's `Room` object outlives `Abstractize`, the port's
+    /// state does not). Every drawable reads `shown_room` itself and finds nothing then.
     fn camera_room(&self) -> &rw_sim::world::RealizedRoom {
-        self.sim
-            .world()
+        let world = self.sim.world();
+        world
             .realized(self.shown_room)
-            .expect("the camera's room stays realized")
+            .or_else(|| world.realized(self.sim.camera_room()))
+            .expect("the sim's camera room is realized")
     }
 
     /// The stream cosmetic draws (holograms, drips) use.

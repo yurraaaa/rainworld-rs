@@ -835,7 +835,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   mid-tick"); while a room move waits the frame keeps drawing the old room: its image
   and, as the game's old leasers do, its creatures, items and holograms (the app's
   `shown_room` is `camera.room`; the sprite order changes room at the apply). The player,
-  whose leaser left the old room when it went into the shortcut, is not drawn that frame. A queued
+  whose leaser left the old room when it went into the shortcut, is not drawn that frame. If the realizer abstracted the old room meanwhile, the port has dropped its state and that frame draws no room drawables (its geometry reads the new room); the game's `Room` object outlives `Abstractize`. A queued
   image is always ready (decoding is at once), so only the cut to an unqueued camera and a
   room move wait; the game's `preLoadedBKG` case (a room with a `_N_bkg.png`) is not
   modelled.
