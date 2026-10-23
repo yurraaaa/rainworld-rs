@@ -10,7 +10,9 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   level; group them into topic folders so the crate is friendly to human work. A layout
   proposal goes to the user before anything moves; moves only, no behaviour change; run
   while no other branch is in flight. Takes over the `rw-sim` file-split part of the
-  end-of-project cleanup items.
+  end-of-project cleanup items. Unit tests stay in `src`, in a `tests/` folder inside
+  each topic folder (as `player/tests/`); `crates/sim/tests/` keeps the integration tests
+  (user, 2026-10-23).
 - **Debug UI region switcher** (2026-10-19): the F1 debug UI's Region tab lists the
   regions on disk but its button does nothing; it needs region changes and gates,
   which are not ported.
