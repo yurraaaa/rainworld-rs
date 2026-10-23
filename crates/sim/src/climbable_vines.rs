@@ -6,7 +6,7 @@
 //! points, radii and masses are read, and its pushes and `BeingClimbedOn` made, on the live
 //! owner through a [`VineHost`] / [`VineHostMut`] the geometry methods take, at the moment the
 //! game reads or calls them. The room's host is [`PlacedVines`] (vines registered at run time:
-//! tests, the debug tools); each owner the port ports (coral neurons and stems, corruption
+//! tests); each owner the port ports (coral neurons and stems, corruption
 //! tubes, pole mimics) adds a [`VineRef`] variant and a branch of the host.
 //!
 //! Mirrors: ClimbableVinesSystem.cs, IClimbableVine.cs

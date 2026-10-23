@@ -22,7 +22,7 @@ are the usual one-shot's).
   host through `NoiseSink::vines()` (the update's `PlayerHearing` holds the world), the hands
   through `RealizedRoom::vine_view()`. `VineRef::Placed` is the only variant until the owners
   exist (10d3 adds `CoralNeuron`, `CoralStem`, then `CorruptionTube`, `PoleMimic`): vines
-  registered at run time (`RealizedRoom::register_climbable_vine`: tests and dev tools) live
+  registered at run time (`RealizedRoom::register_climbable_vine`: tests only) live
   in the room's `PlacedVines`, which is the host for them.
 - **A position on a vine that is not registered** (`VineGrab` with the vine gone) lets go in
   `MovementUpdate`, as the game; the graphics skip the hands' vine branch for it (the game
