@@ -4,11 +4,11 @@ Fourth file of the `rw-sim` divergences (`sim.md` is past 1000 lines). IDs are g
 
 ## D33: `ElectricDeath` and `BorderPushBack`
 
-The `ElectricDeath` room effect (28 Underhang rooms; `rw_sim::electric_death`,
-`game_electric_death`; sprites `rw_graphics::electric_death`; the `ElectricDeath` and
+The `ElectricDeath` room effect (28 Underhang rooms; `rw_sim::effects::gameplay::{electric_death,
+electric_death_turn}`; sprites `rw_graphics::electric_death`; the `ElectricDeath` and
 `FlareBomb` shaders in `rw-render`) and the `BorderPushBack` effect (20 Sunlit Lands rooms of
-`world_sl.txt`, from `sl_settingstemplate_fog.txt`; `rw_sim::border_push_back`,
-`game_border_push_back`). Every shared-stream draw is ported in the game's order (the flashes'
+`world_sl.txt`, from `sl_settingstemplate_fog.txt`; `rw_sim::effects::gameplay::{border_push_back,
+border_push_back_turn}`). Every shared-stream draw is ported in the game's order (the flashes'
 `Reset` 4, the colour chain, the spark gate 1 + 4, the strike gates per chunk, the strikes'
 7-draw sounds, `SparkFlash`'s and `Spark`'s constructors), with local draw-count and order
 tests; the draws at draw time (two a light, six a flash) are on the cosmetic stream (D1).

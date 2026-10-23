@@ -13,11 +13,11 @@ use rw_assets::{Room, Terrain, tile_centre};
 use rw_random::UnityRandom;
 
 use super::{Fly, FlyBehavior, FlyView, HoverEmitter, MovementMode};
-use crate::camera::CameraView;
 use crate::creature::{CreatureId, RealizedCreature, WorldCoordinate};
+use crate::game::camera::CameraView;
+use crate::game::shortcut::{CreatureVessel, ShortcutHandler, ShortcutVessel, Transport};
 use crate::item::Entity;
-use crate::room_ext::RoomExt;
-use crate::shortcut::{CreatureVessel, ShortcutHandler, ShortcutVessel, Transport};
+use crate::physics::room_ext::RoomExt;
 use crate::world::{AiMap, EIGHT_DIRECTIONS, World};
 use crate::{EntranceColor, FloatExt, PlayerObserver, SoundId, Sounds, Vec2, Water};
 

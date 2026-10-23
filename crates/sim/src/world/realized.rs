@@ -70,7 +70,7 @@ pub struct RealizedRoom {
     /// `Room.Loaded`'s dead `TokenStalk`s in the room's update list.
     pub token_stalks: Vec<crate::TokenStalk>,
     /// The dandelions, sparks, specks and spores of the room's effects.
-    pub particles: crate::room_particles::RoomParticles,
+    pub particles: crate::effects::particles::room_particles::RoomParticles,
     /// `Room.Loaded`'s light fixtures and the tile parse's waterfalls.
     pub fixtures: crate::RoomFixtures,
     /// The superstructure projectors, scan lines and star matrices.
@@ -110,7 +110,7 @@ pub struct RealizedRoom {
     /// `lastBackgroundNoise` (`BackgroundNoise`): last tick's, what hearing reads.
     last_background_noise: f32,
     /// `socialEventRecognizer`.
-    pub social_events: super::social_events::SocialEventRecognizer,
+    pub social_events: crate::creature::social::social_events::SocialEventRecognizer,
     /// The room's `CoralNeuronSystem`, made by `Room.Loaded` for an `SSSwarmers` effect or
     /// a coral or wall mycelia object.
     pub coral: Option<crate::CoralNeuronSystem>,
@@ -212,7 +212,7 @@ impl RealizedRoom {
             spot_lights: Vec::new(),
             updated: false,
             token_stalks: Vec::new(),
-            particles: crate::room_particles::RoomParticles::default(),
+            particles: crate::effects::particles::room_particles::RoomParticles::default(),
             fixtures: crate::RoomFixtures::default(),
             projections: crate::RoomProjections::default(),
             gravity: 1.0,
@@ -231,7 +231,7 @@ impl RealizedRoom {
             border_push_backs: Vec::new(),
             background_noise: 0.0,
             last_background_noise: 0.0,
-            social_events: super::social_events::SocialEventRecognizer::default(),
+            social_events: crate::creature::social::social_events::SocialEventRecognizer::default(),
             coral: None,
             climbable_vines: None,
             placed_vines: crate::PlacedVines::default(),

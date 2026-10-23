@@ -11,8 +11,8 @@ use rw_random::UnityRandom;
 
 use super::drips::DripBurst;
 use super::{Animation, BodyMode, HEAD, HIPS, Player};
-use crate::float_ext::FloatExt;
-use crate::room_ext::RoomExt;
+use crate::math::float_ext::FloatExt;
+use crate::physics::room_ext::RoomExt;
 use crate::{SoundId, Sounds, Vec2, Water};
 
 /// `Custom.eightDirections`: W, SW, S, SE, E, NE, N, NW; entry `i + 4` is opposite `i`.

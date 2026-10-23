@@ -5,8 +5,8 @@
 //!
 //! Ported: the constructors with all their random draws for every base-game type, the
 //! world-load population ([`population`]), the overseers' abstract AI ([`overseer`]),
-//! the plain `AbstractCreatureAI` (`world/abstract_ai.rs`) and the other subclasses
-//! ([`ai_kinds`], `world/abstract_ai_kinds.rs`) for every type but the scavenger (which
+//! the plain `AbstractCreatureAI` (`creature/abstract_ai/world.rs`) and the other subclasses
+//! ([`abstract_ai::kinds`], `creature/abstract_ai/kinds_world.rs`) for every type but the scavenger (which
 //! stays in its den, docs/divergences/ D14), the relationships, dens, `Move` and the
 //! realize/abstractize hooks. Design:
 //! `rainworld-re/notes/creature-model/model.md`.
@@ -14,83 +14,79 @@
 //! Mirrors: AbstractWorldEntity.cs, AbstractCreature.cs, AbstractCreatureAI.cs, Creature.cs
 //!   (ShortCutColor), Lizard.cs (ShortCutColor)
 
-pub mod agression_tracker;
-pub(crate) mod ai;
-pub mod ai_kinds;
+pub(crate) mod abstract_ai;
+pub mod ai_modules;
 mod centipede;
 pub mod danger;
 pub mod death;
-pub mod den_finder;
 pub mod fly;
-pub mod friend_tracker;
 pub mod grasp;
 pub mod lizard;
-pub mod looker;
-pub mod mission_tracker;
-pub mod noise_tracker;
 pub mod overseer;
 pub mod path_finder;
 pub mod pathing;
 pub(crate) mod population;
-pub mod prey_tracker;
-pub mod rain_tracker;
-mod relationship_tracker;
 mod relationships;
-pub mod social_memory;
+pub mod social;
 mod state_save;
-pub mod stuck_tracker;
 pub mod template;
 mod template_abstract;
-pub mod threat_tracker;
-pub mod tracker;
-pub mod utility_comparer;
 pub mod violence;
-pub mod vision;
 
 use rw_assets::CreatureType;
 use rw_random::UnityRandom;
 
 use crate::FloatExt;
 
-pub use agression_tracker::{AgressionTracker, AngerRelationship};
-pub use ai::{AbstractCreatureAi, AiKind, CarriedItem, ItemKind};
+pub use crate::creature::abstract_ai::{AbstractCreatureAi, AiKind, CarriedItem, ItemKind};
+pub use crate::creature::ai_modules::agression_tracker::{AgressionTracker, AngerRelationship};
+pub use crate::creature::ai_modules::den_finder::{DenFinder, DenSearch, NodeFinderStatus};
+pub use crate::creature::ai_modules::friend_tracker::{FriendTracker, GiftOffer};
+pub use crate::creature::ai_modules::looker::{CreatureLooker, LookCandidate, LookCandidateParts};
+pub use crate::creature::ai_modules::mission_tracker::{
+    LeaveRoom, Mission, MissionData, MissionKind, MissionTracker,
+};
+pub use crate::creature::ai_modules::noise_tracker::{
+    HeardNoise, NoiseKind, NoiseTracker, TheorizedSource,
+};
+pub use crate::creature::ai_modules::prey_tracker::{PreyTracker, TrackedPrey};
+pub use crate::creature::ai_modules::rain_tracker::RainTracker;
+pub use crate::creature::ai_modules::relationship_tracker::{
+    DynamicRelationship, LizardTrackState, RelationshipTracker, TrackedCreatureState,
+    TrackingModule,
+};
+pub use crate::creature::ai_modules::stuck_tracker::{
+    DiscomfortTracker, MoveBacklog, StuckTracker,
+};
+pub use crate::creature::ai_modules::threat_tracker::{ThreatCreature, ThreatPoint, ThreatTracker};
+pub use crate::creature::ai_modules::tracker::{
+    BestGhost, CreatureRep, ElaborateRep, Ghost, GhostCloneCx, GhostParams, RepKey, RepKind,
+    RepReading, Sighting, Tracker,
+};
+pub use crate::creature::ai_modules::utility_comparer::{
+    FloatTween, FloatTweenBasic, RawUtilities, TweenType, UtilityComparer, UtilityModule,
+    UtilityTracker,
+};
+pub use crate::creature::ai_modules::vision::{
+    ChunkVisibility, CreatureVision, Eyes, LizardSight, PlayerVisibility,
+};
+pub use crate::creature::social::social_memory::{
+    Relationship as SocialRelationship, SocialMemory,
+};
 pub use danger::{CreatureDanger, TrackedRep};
 pub use death::{CommunityInfluence, SessionDeaths, SessionKill};
-pub use den_finder::{DenFinder, DenSearch, NodeFinderStatus};
 pub use fly::{
     DropStatus, FlockBehavior, FlockId, Fly, FlyAi, FlyBehavior, FlyView, HoverEmitter,
     MovementMode, TrackedThreat,
 };
-pub use friend_tracker::{FriendTracker, GiftOffer};
 pub use grasp::{GrabRequest, Grasp, GripStick, Shareability};
 pub use lizard::{LUNG_CAPACITY, Lizard, LizardAnimation, LizardBreedParams};
-pub use looker::{CreatureLooker, LookCandidate, LookCandidateParts};
-pub use mission_tracker::{LeaveRoom, Mission, MissionData, MissionKind, MissionTracker};
-pub use noise_tracker::{HeardNoise, NoiseKind, NoiseTracker, TheorizedSource};
 pub use overseer::{OverseerAbstractAi, OverseerAi, OverseerBody, PlayerGuideState};
 pub use path_finder::{PathFinder, PathFinders, PatherKind};
-pub use prey_tracker::{PreyTracker, TrackedPrey};
-pub use rain_tracker::RainTracker;
-pub use relationship_tracker::{
-    DynamicRelationship, LizardTrackState, RelationshipTracker, TrackedCreatureState,
-    TrackingModule,
-};
-pub use social_memory::{Relationship as SocialRelationship, SocialMemory};
 pub use state_save::{StateParts, StateSave};
-pub use stuck_tracker::{DiscomfortTracker, MoveBacklog, StuckTracker};
 pub use template::{CreatureTemplate, Relationship, RelationshipType, WaterRelationship};
 pub use template_abstract::{AbstractCost, AbstractMovement};
-pub use threat_tracker::{ThreatCreature, ThreatPoint, ThreatTracker};
-pub use tracker::{
-    BestGhost, CreatureRep, ElaborateRep, Ghost, GhostCloneCx, GhostParams, RepKey, RepKind,
-    RepReading, Sighting, Tracker,
-};
-pub use utility_comparer::{
-    FloatTween, FloatTweenBasic, RawUtilities, TweenType, UtilityComparer, UtilityModule,
-    UtilityTracker,
-};
 pub use violence::{Community, DamageType, ViolenceTemplate};
-pub use vision::{ChunkVisibility, CreatureVision, Eyes, LizardSight, PlayerVisibility};
 
 /// `EntityID`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

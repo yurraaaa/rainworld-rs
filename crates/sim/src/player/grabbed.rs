@@ -2,7 +2,7 @@
 //! the pacifying hold's stun (`Creature.Update`), the release under the room, and the
 //! `WALLSTUCK` unsticking that only a free body does. The escapes (`ThrowToGetFree`,
 //! `DangerGraspPickup`) and `GameOver(dangerGrasp)` reach the world and live in
-//! `game_player_grabbed.rs`. Omitted branches: docs/divergences/ D19.
+//! `player/grabbed_turn.rs`. Omitted branches: docs/divergences/ D19.
 //!
 //! Mirrors: Player.cs (Grabbed, CanBeGrabbed, Update), Creature.cs (Update)
 
@@ -10,7 +10,7 @@ use rw_assets::Room;
 
 use super::{HEAD, HIPS, Player};
 use crate::creature::Grasp;
-use crate::room_ext::RoomExt;
+use crate::physics::room_ext::RoomExt;
 
 /// `Player.SpitOutOfShortCut` sets `cantBeGrabbedCounter` to this.
 pub(super) const CANT_BE_GRABBED_AFTER_SPIT_OUT: i32 = 30;

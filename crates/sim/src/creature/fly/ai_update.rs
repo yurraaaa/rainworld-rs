@@ -13,7 +13,7 @@ use super::update::FlyRun;
 use super::{DropStatus, FlockBehavior, FlyAi, FlyBehavior, MovementMode, TrackedThreat};
 use crate::creature::{CreatureId, CreatureTemplate, GrabRequest, RealizedCreature, Shareability};
 use crate::item::Entity;
-use crate::room_ext::RoomExt;
+use crate::physics::room_ext::RoomExt;
 use crate::world::{EIGHT_DIRECTIONS, MovementConnection, MovementType, World};
 use crate::{FloatExt, SoundId, Vec2};
 

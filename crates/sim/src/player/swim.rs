@@ -11,7 +11,7 @@ use rw_assets::Room;
 use rw_random::UnityRandom;
 
 use super::{Animation, BodyMode, HEAD, HIPS, Player};
-use crate::float_ext::FloatExt;
+use crate::math::float_ext::FloatExt;
 use crate::{Bubble, Sounds, Vec2, Water};
 
 /// `SlugcatStats.drownThreshold`: below this much air the slugcat struggles.

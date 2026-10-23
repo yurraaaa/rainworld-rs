@@ -1,8 +1,8 @@
 //! `LizardAI`'s state: its behaviour, its modules (path finder, tracker, noise, den
 //! finder, prey, threat and aggression trackers, utility comparer, mission,
 //! relationship, stuck and discomfort trackers), the signals between lizards, the idle spot's counters and the moods the behaviours read.
-//! The update is `RainWorldGame::lizard_ai_update` (`game_lizard_ai.rs`); the modules
-//! that read the world are `world/ai_modules.rs`. Decompile: `LizardAI.cs`.
+//! The update is `RainWorldGame::lizard_ai_update` (`creature/lizard/ai_turn.rs`); the modules
+//! that read the world are `creature/ai_modules/world.rs`. Decompile: `LizardAI.cs`.
 //!
 //! Mirrors: LizardAI.cs (Behavior, LizardCommunication, LizardInjuryTracker, fields), ArtificialIntelligence.cs (fields)
 
@@ -14,7 +14,7 @@ use crate::creature::{
     NoiseTracker, PreyTracker, RelationshipTracker, RepKey, StuckTracker, ThreatTracker, Tracker,
     UtilityComparer, WorldCoordinate,
 };
-use crate::float_ext::SCurve;
+use crate::math::float_ext::SCurve;
 
 /// `LizardAI.Behavior`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -272,29 +272,5 @@ impl Default for LizardAi {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// `LizardInjuryTracker.Utility`: `SCurve(InverseLerp(0.2, 0.9, 1 - health), 0.01)`,
-    /// 0 down to 80 % health, 1 at 10 %.
-    #[test]
-    fn injury_utility() {
-        assert_eq!(LizardAi::injury_utility(1.0), 0.0);
-        assert_eq!(LizardAi::injury_utility(0.8), 0.0);
-        assert_eq!(LizardAi::injury_utility(0.1), 1.0);
-        // 60 %: InverseLerp gives 2/7, the steep S-curve (k 0.01) keeps it near 0.
-        let x = (0.4f32 - 0.2) / 0.7 * 2.0;
-        let expect = 0.01 * x / (0.01 - x + 1.0) * 0.5;
-        assert!((LizardAi::injury_utility(0.6) - expect).abs() < 1e-6);
-    }
-
-    #[test]
-    fn behavior_names_round_trip() {
-        for b in LizardBehavior::ALL {
-            assert_eq!(LizardBehavior::from_value(b.value()), Some(b));
-        }
-        for c in LizardCommunication::ALL {
-            assert_eq!(LizardCommunication::from_value(c.value()), Some(c));
-        }
-    }
-}
+#[path = "tests/ai.rs"]
+mod tests;

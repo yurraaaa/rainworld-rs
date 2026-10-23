@@ -10,8 +10,8 @@ use rw_assets::{Room, ShortcutType, Terrain};
 use rw_random::UnityRandom;
 
 use super::{Animation, BodyMode, HEAD, HIPS, Player};
-use crate::float_ext::FloatExt;
-use crate::room_ext::RoomExt;
+use crate::math::float_ext::FloatExt;
+use crate::physics::room_ext::RoomExt;
 use crate::{NoiseSink, SoundId, Sounds, Vec2, Water};
 
 /// The four neighbour directions as `Custom.fourDirections`.

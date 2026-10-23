@@ -7,7 +7,7 @@
 //! Mirrors: Player.cs (CollideWithCoralCircuitBit, circuitSwimResistance, curcuitJumpMeter, swimBits)
 
 use super::{HEAD, HIPS, Player};
-use crate::float_ext::FloatExt;
+use crate::math::float_ext::FloatExt;
 use crate::{BitRef, Vec2};
 
 /// A bit in `swimBits`, with where it was last seen (its position is read when the player

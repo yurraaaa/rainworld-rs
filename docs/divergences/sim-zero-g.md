@@ -4,7 +4,7 @@ Fourth file of the `rw-sim` divergences (`sim.md` is past 1000 lines). IDs are g
 
 ## D34: Zero gravity (`ZeroG`, `BrokenZeroG`)
 
-`AntiGravity` and `BrokenAntiGravity` (`rw_sim::anti_gravity`, `game_anti_gravity`), the
+`AntiGravity` and `BrokenAntiGravity` (`rw_sim::effects::gameplay::{anti_gravity, anti_gravity_turn}`), the
 room's `gravity` and `Room.ElectricPower`, `PhysicsParams::room_gravity`
 (`PhysicalObject.gravity = g * room.gravity`, `EffectiveRoomGravity`), the player's `ZeroG`
 body mode with the `ZeroGSwim` and `ZeroGPoleGrab` animations (`player/zero_g.rs`), the
@@ -19,7 +19,7 @@ draw-count tests. Notes: `../../rainworld-re/notes/zero-gravity.md`; surveys
   analogue stick (partial deflection, the 0.1 dead zone) is not ported.
 - **Coral circuit swimming is ported (D42).** `circuitSwimResistance`, `curcuitJumpMeter` and
   `swimBits` come from `CollideWithCoralCircuitBit` (`player/circuit.rs`), called by the circuit's
-  push (`game_coral_circuit.rs`); the `ZeroGSwim` terms that read them (the speed factor, the slowing
+  push (`superstructure/coral/circuit_turn.rs`); the `ZeroGSwim` terms that read them (the speed factor, the slowing
   of both chunks, the main chunk's extra push, the circuit jump, the meter's decay) are in
   `player/zero_g.rs`. They are 0 and none in a room with no circuit. With no direction held
   `CollideWithCoralCircuitBit` takes `DirVec(0, (0, 0))`, straight up.

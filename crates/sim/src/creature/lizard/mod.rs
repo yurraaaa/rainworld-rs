@@ -9,18 +9,28 @@
 //! is `rw-graphics`' `LizardGraphics`; what it shares with the body is
 //! [`LizardGraphicsLink`] (docs/divergences/ D14).
 //!
-//! The updates that reach the rest of the game are `RainWorldGame`'s (`game_lizards.rs`,
-//! `game_lizard_act.rs`, `game_lizard_hits.rs`). Behaviour:
+//! The updates that reach the rest of the game are `RainWorldGame`'s (`creature/lizard/turn.rs`,
+//! `creature/lizard/act_turn.rs`, `creature/lizard/hits_turn.rs`). Behaviour:
 //! `rainworld-re/notes/creature-model/lizard-body-and-movement.md` sections 13 and 14, decompile `Lizard.cs`.
 //!
 //! Mirrors: Lizard.cs, Creature.cs, AirBreatherCreature.cs
 
+pub(crate) mod act_turn;
 mod ai;
+pub(crate) mod ai_turn;
 mod breed;
 mod bubble;
+pub(crate) mod fight_turn;
 mod graphics_link;
+pub(crate) mod graphics_turn;
+pub(crate) mod hits_turn;
+pub(crate) mod hunt_turn;
 mod movement;
+pub(crate) mod perception_turn;
+pub(crate) mod turn;
 mod voice;
+pub(crate) mod voice_turn;
+pub(crate) mod world;
 
 use rw_random::UnityRandom;
 
@@ -48,7 +58,7 @@ pub struct PendingSound {
     pub conscious: bool,
     pub holding: bool,
 }
-use crate::object::{BodyChunkConnection, ConnectionKind, PhysicalObject};
+use crate::physics::object::{BodyChunkConnection, ConnectionKind, PhysicalObject};
 use crate::world::MovementConnection;
 use crate::{BodyChunk, FloatExt, PhysicsParams, Vec2};
 

@@ -12,8 +12,8 @@ use rw_assets::{Room, Terrain};
 
 use super::drips::DripBurst;
 use super::{Animation, BodyMode, HEAD, HIPS, Player};
-use crate::float_ext::FloatExt;
-use crate::room_ext::RoomExt;
+use crate::math::float_ext::FloatExt;
+use crate::physics::room_ext::RoomExt;
 use crate::{ConnectionKind, SoundId, Vec2};
 
 /// Rod length while `roll_direction != 0` (roll, belly slide, whiplash flip).

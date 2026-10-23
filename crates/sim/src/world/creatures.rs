@@ -14,7 +14,7 @@ use rw_random::UnityRandom;
 
 use super::{FliesWorldAi, OverseersWorldAi, RealizedRoom, SwarmRoomMap, World};
 use crate::FloatExt;
-use crate::creature::ai::AiContext;
+use crate::creature::abstract_ai::AiContext;
 use crate::creature::overseer::{AbstractStep, GuideContext, OverseerView, Parent};
 use crate::creature::{
     AbstractCreature, AbstractCreatureAi, AiKind, CreatureId, CreatureTemplate, EntityId, IdIssuer,

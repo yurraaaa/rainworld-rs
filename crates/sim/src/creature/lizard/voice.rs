@@ -606,5 +606,5 @@ impl VoiceSpectrum {
 }
 
 #[cfg(test)]
-#[path = "voice_tests.rs"]
+#[path = "tests/voice.rs"]
 mod tests;

@@ -12,8 +12,8 @@
 use rw_random::UnityRandom;
 
 use super::{Animation, BodyMode, HEAD, HIPS, Player};
-use crate::climbable_vines::{VineClimber, VineHost, VineHostMut, VineKind, VinePosition};
-use crate::float_ext::FloatExt;
+use crate::math::float_ext::FloatExt;
+use crate::vines::{VineClimber, VineHost, VineHostMut, VineKind, VinePosition};
 use crate::{NoiseSink, SoundId, Sounds, Vec2};
 
 impl Player {

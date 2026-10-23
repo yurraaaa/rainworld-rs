@@ -16,8 +16,8 @@ use rw_random::UnityRandom;
 
 use super::{AbstractObject, AbstractSpear, ObjectData};
 use crate::creature::CreatureId;
-use crate::float_ext::FloatExt;
-use crate::room_ext::RoomExt;
+use crate::math::float_ext::FloatExt;
+use crate::physics::room_ext::RoomExt;
 use crate::{
     BodyChunk, CosmeticKind, ImpactCall, ImpactCalls, LoopEmitter, PhysicalObject, PhysicsParams,
     RoomCall, ScreenMovement, SoundId, SoundRect, Sounds, Spark, Vec2, Water,
@@ -1409,5 +1409,5 @@ pub struct LoopCx<'a> {
 }
 
 #[cfg(test)]
-#[path = "weapon_tests.rs"]
+#[path = "tests/weapon.rs"]
 mod tests;

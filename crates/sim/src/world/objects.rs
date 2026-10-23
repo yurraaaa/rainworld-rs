@@ -380,5 +380,5 @@ impl World {
 }
 
 #[cfg(test)]
-#[path = "objects_tests.rs"]
+#[path = "tests/objects.rs"]
 mod tests;

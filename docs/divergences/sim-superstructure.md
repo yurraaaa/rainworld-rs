@@ -5,7 +5,7 @@ Fifth file of the `rw-sim` divergences. IDs are global. D35 (the projector famil
 
 ## D35: Superstructure projections (`SuperStructureProjector`, `ProjectedScanLines`, `ProjectedStars`)
 
-Ported in `crates/sim/src/{projector,projected_scan_lines,star_matrix,room_projections,game_projections}.rs`,
+Ported in `crates/sim/src/superstructure/projections/{projector,scan_lines,star_matrix,room_projections,turn}.rs`,
 the sprites in `crates/graphics/src/{projector_draw,projected_scan_lines_draw,star_matrix_draw}.rs`,
 the `GlyphProjection` shader in `crates/render/shaders/glyph_projection.wgsl`. Notes:
 `../rainworld-re/notes/superstructure-projections.md`.
@@ -53,8 +53,8 @@ later (refills, new cursors) are newer and walked before it. `StarMatrix` is mad
 
 ## D36: Electric fixtures (`SSLightRod`, `ZapCoil`, `ZapCoilLight`, `SuperStructureFuses`)
 
-Five Pebbles' electric placed objects (`rw_sim::ss_light_rod`, `zap_coil`, `ss_fuses`,
-`game_ss_electric`; they live in `RoomFixtures`; sprites `rw_graphics::ss_electric`; the
+Five Pebbles' electric placed objects (`rw_sim::superstructure::electric::{light_rod,
+zap_coil, fuses, turn}`; they live in `RoomFixtures`; sprites `rw_graphics::ss_electric`; the
 `CustomDepth`, `FlareBomb` and `FlatLight` shaders already existed; MCP `light_rods`,
 `zap_coils`, `zap_coil_lights`, `zap_flashes`, `fuses`). Every shared-stream draw is
 ported in the game's order, with draw-count and order tests: a rod's vessels draw 3 each
@@ -105,7 +105,7 @@ port's creature death paths (D33's route for `ElectricDeath`). Notes:
 
 ## D37: Screen-grab effects (`DeepProcessing`, `DeepProcessingLight`, `GravityDisruptor`)
 
-Ported in `crates/sim/src/{deep_processing,gravity_disruptor,game_ss_grab}.rs` (the objects,
+Ported in `crates/sim/src/superstructure/grab/{deep_processing,gravity_disruptor,turn}.rs` (the objects,
 their placed-object creation in `Room.Loaded`'s order, the disruptor's push on the room's
 bodies), the sprites in `crates/graphics/src/ss_grab.rs`, the shaders in
 `crates/render/shaders/ss_grab.wgsl` with the grab changes in `crates/render/src/gpu.rs`,
@@ -174,7 +174,7 @@ the data in `rw-assets` `placed_electric.rs`. Notes: `../rainworld-re/notes/supe
 
 ## D38: Coral (`CoralNeuronSystem`, `WallMycelia`, `Mycelium`, `NeuronSpark`; step 10d1)
 
-Ported in `crates/sim/src/{coral_system,mycelium,wall_mycelia,neuron_spark,game_coral}.rs`
+Ported in `crates/sim/src/superstructure/coral/{system,mycelium,wall_mycelia,neuron_spark,turn}.rs`
 (the system, the strands, the wall object, the spark as a `CosmeticKind`), the sprites in
 `crates/graphics/src/{mycelium,wall_mycelia_draw,cosmetic_graphics}.rs`, MCP `coral_systems`,
 `wall_mycelia`, `neuron_sparks`. Notes: `../rainworld-re/notes/superstructure-coral.md`.
@@ -221,7 +221,7 @@ Closes the missing `NeuronSpark` sound of `random.md`'s overseer item.
   (`Range(0, Count)`); linked 1 (`value < 0.005`) or 2 when the tips meet (3 with a spark, whose
   constructor draws once); a broken link `Range(20, 200)` 1 (after the chance draw 2); the tick a strand
   comes back into view `2 + 2 * points` more. `NeuronSpark`: 1 in the constructor, the
-  `SS_Mycelia_Spark` sound's draws on its first update (the microphone's, `sound.rs`), and **5** a frame in
+  `SS_Mycelia_Spark` sound's draws on its first update (the microphone's, `sound/mod.rs`), and **5** a frame in
   `DrawSprites`, which the app makes on its cosmetic stream (D1). The survey's 8 was wrong.
 - **`float2.normalized` (`ExtraExtentions`, read with the existing `ilspycmd`)** returns zero at or
   under length 1e-5, as the port's `Vec2::normalized`. **`LerpMap` with an exponent** uses `Mathf.Pow`
@@ -246,8 +246,8 @@ Closes the missing `NeuronSpark` sound of `random.md`'s overseer item.
 
 ## D40: Coral neurons and projected circles (`CoralNeuron`, `ProjectedCircle`; step 10d3a)
 
-Ported in `crates/sim/src/{coral_neuron,projected_circle,game_coral,game_projections,
-climbable_vines}.rs` (the neuron, the circle, their turns, the room's vine host), the sprites in
+Ported in `crates/sim/src/superstructure/coral/{neuron,turn}.rs`,
+`superstructure/projections/{projected_circle,turn}.rs`, `vines/mod.rs` (the neuron, the circle, their turns, the room's vine host), the sprites in
 `crates/graphics/src/{coral_neuron_draw,projected_circle_draw}.rs`, the `CoralNeuron` shader in
 `crates/render/shaders/sprite.wgsl`, MCP `coral_neurons`, `projected_circles`. Notes:
 `../rainworld-re/notes/superstructure-coral.md`. 43 placed neurons in 15 `SS_*` rooms (the
@@ -310,7 +310,7 @@ them all (`crates/sim/tests/installed_coral_neurons.rs`: 43 parsed, 0 rejected, 
 
 ## D41: Coral stems (`CoralStem`, `StemSegment`; step 10d3b)
 
-Ported in `crates/sim/src/{coral_stem,game_coral,climbable_vines}.rs` (the stem, its segments
+Ported in `crates/sim/src/superstructure/coral/{stem,turn}.rs`, `vines/mod.rs` (the stem, its segments
 as physical objects, their turns, the vine host), the sprites in
 `crates/graphics/src/coral_stem_draw.rs`, MCP `coral_stems`. Notes:
 `../rainworld-re/notes/superstructure-coral.md`. Survey: `surveys/climbable-vines.md` 4.2,
@@ -407,7 +407,7 @@ as physical objects, their turns, the vine host), the sprites in
 
 ## D42: Coral circuits (`CoralCircuit`, `CircuitBit`, `CircuitConnector`, `CircuitCrab`; the player's circuit swimming; step 10d4)
 
-Ported in `crates/sim/src/{coral_circuit,circuit_connector,circuit_crab,game_coral_circuit}.rs`
+Ported in `crates/sim/src/superstructure/coral/{circuit,circuit_connector,circuit_crab,circuit_turn}.rs`
 (the circuit, its bits, connectors and crabs, the push and the cluster building),
 `crates/sim/src/player/{circuit,zero_g}.rs` (the player's side), the sprites in
 `crates/graphics/src/circuit_draw.rs`, the `CoralCircuit` and `DeadCoralCircuit` shaders in

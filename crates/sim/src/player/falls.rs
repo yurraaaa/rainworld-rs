@@ -11,7 +11,7 @@ use rw_assets::Room;
 use rw_random::UnityRandom;
 
 use super::{Animation, BodyMode, HEAD, HIPS, Player};
-use crate::float_ext::FloatExt;
+use crate::math::float_ext::FloatExt;
 use crate::{
     BodyChunk, DEFAULT_RESTRICT_IN_ROOM_RANGE, NoiseSink, PhysicalObject, SoundId, Sounds,
     TerrainImpact, TerrainImpactHandler, Vec2, Water,

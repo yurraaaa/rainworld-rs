@@ -1,0 +1,235 @@
+//! `RoomSpecificScript`: the objects `Room.Loaded` adds to particular rooms
+//! (`AddRoomSpecificScript`), of which the start of a new Survivor or Monk game in
+//! SU_C04 and SS_E08's gradient gravity are ported. Behaviour: `rainworld-re/notes/intro-overseer-survey.md` section
+//! 2.3 and `slideshow.md`.
+//!
+//! Mirrors: RoomSpecificScript.cs, Room.cs (AddRoomSpecificScript)
+
+use rw_assets::{ActiveMods, SlugcatName};
+
+use crate::game::PlayerObserver;
+use crate::math::float_ext::FloatExt;
+use crate::{Player, PlayerController, Vec2};
+
+/// What `AddRoomSpecificScript` reads of the story session.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StorySession {
+    /// `StoryCharacter`.
+    pub character: SlugcatName,
+    /// `saveState.cycleNumber`.
+    pub cycle_number: i32,
+    /// `saveState.denPosition`.
+    pub den_position: String,
+}
+
+/// What the scripts read of the game each tick.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ScriptTick {
+    /// `room.game.manager.FadeDelayInProgress`.
+    pub fade_delay_in_progress: bool,
+    /// `cameras[0].hud != null` with an active control preset (the keyboard's, always).
+    pub hud_with_control_preset: bool,
+}
+
+/// A room's script.
+#[derive(Debug, Clone, PartialEq)]
+pub enum RoomScript {
+    SuC04StartUp(SuC04StartUp),
+    SsE08GradientGravity(SsE08GradientGravity),
+}
+
+impl RoomScript {
+    /// `RoomSpecificScript.AddRoomSpecificScript` for a room whose settings ask for a
+    /// script. SU_C04's and SS_E08's are ported; the others the base game adds are
+    /// `SU_A22` (first-cycle message), `SL_C12` (jetfish), `SB_A14`
+    /// (karma), `SB_D03` (shortcut lock), `SU_A43` (super-jump only), `deathPit`,
+    /// `LF_H01` (the Hunter's `HardmodeStart`), `LF_A03` and `SS_D02`; More Slugcats and
+    /// the Watcher add their own lists after these.
+    #[must_use]
+    pub fn for_room(
+        name: &str,
+        session: Option<&StorySession>,
+        mods: ActiveMods,
+        _first_time_realized: bool,
+    ) -> Vec<Self> {
+        let early_cycle = !(mods.msc || mods.watcher)
+            || session.is_some_and(|s| {
+                s.cycle_number < 2 && !(mods.msc && s.character == SlugcatName::Spear)
+            });
+        match name {
+            "SS_E08" => vec![Self::SsE08GradientGravity(SsE08GradientGravity)],
+            "SU_C04" if early_cycle => vec![Self::SuC04StartUp(SuC04StartUp::new())],
+            // "LF_H01": `HardmodeStart` when the Hunter's first cycle starts in its den
+            // and the room is realized for the first time (needs creatures, the spear,
+            // the map and the Hunter's stats).
+            _ => Vec::new(),
+        }
+    }
+
+    /// `Update`; `player` is the player when its body is in the room, `pixel_height` the
+    /// room's `PixelHeight`. Returns the `room.gravity` the script set, if it set one.
+    pub fn update(
+        &mut self,
+        player: Option<&mut Player>,
+        pixel_height: f32,
+        tick: ScriptTick,
+        observer: &mut dyn PlayerObserver,
+    ) -> Option<f32> {
+        match self {
+            Self::SuC04StartUp(s) => {
+                s.update(player, tick, observer);
+                None
+            }
+            Self::SsE08GradientGravity(s) => s.update(player, pixel_height),
+        }
+    }
+}
+
+/// `SS_E08GradientGravity`: the room's gravity follows the player's height, none below
+/// y 700 and full from 400 below the room's top.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SsE08GradientGravity;
+
+impl SsE08GradientGravity {
+    /// The `Room.gravity` for a player whose first chunk is at height `y`.
+    #[must_use]
+    pub fn gravity_at(y: f32, pixel_height: f32) -> f32 {
+        y.inverse_lerp(700.0, pixel_height - 400.0)
+    }
+
+    /// `Update`: the gravity for the player in `physicalObjects` (none when it is in a
+    /// shortcut or gone).
+    fn update(&self, player: Option<&mut Player>, pixel_height: f32) -> Option<f32> {
+        let p = player?;
+        Some(Self::gravity_at(p.body.chunks[0].pos.y, pixel_height))
+    }
+}
+
+/// `SU_C04StartUp`: a new game's slugcat lies in the tunnel with no control and is
+/// pushed out to the right, then stands up when it drops below the tunnel.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SuC04StartUp {
+    /// Per player number: the furthest x the body's middle reached.
+    right_most: [f32; 4],
+    stood_up: bool,
+    push_right: [bool; 4],
+    counter: i32,
+    showed_controls: bool,
+    show_controls_counter: i32,
+    /// `tutCntrlPgOwner.controlsPage.wantToContinue`, set by this script.
+    controls_page_continue: bool,
+}
+
+impl Default for SuC04StartUp {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SuC04StartUp {
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            right_most: [0.0; 4],
+            stood_up: false,
+            push_right: [true; 4],
+            counter: 0,
+            showed_controls: false,
+            show_controls_counter: 0,
+            controls_page_continue: false,
+        }
+    }
+
+    #[must_use]
+    pub fn stood_up(&self) -> bool {
+        self.stood_up
+    }
+
+    /// `pushRight[0]`.
+    #[must_use]
+    pub fn push_right(&self) -> bool {
+        self.push_right[0]
+    }
+
+    #[must_use]
+    pub fn counter(&self) -> i32 {
+        self.counter
+    }
+
+    #[must_use]
+    pub fn show_controls_counter(&self) -> i32 {
+        self.show_controls_counter
+    }
+
+    /// Whether the `TutorialControlsPageOwner` is due but not made yet (it also needs
+    /// the HUD and a control preset).
+    #[must_use]
+    pub fn controls_page_due(&self) -> bool {
+        !self.showed_controls && self.show_controls_counter > 100
+    }
+
+    /// `showedControls`: the script made its `TutorialControlsPageOwner` (it keeps
+    /// `tutCntrlPgOwner` from then on).
+    #[must_use]
+    pub fn showed_controls(&self) -> bool {
+        self.showed_controls
+    }
+
+    /// `wantToContinue` of the controls page this script made: the player went past
+    /// x 800.
+    #[must_use]
+    pub fn controls_page_continue(&self) -> bool {
+        self.controls_page_continue
+    }
+
+    /// `Update` for player 0 (Jolly Co-op's other players, pushed from tick `5 * n`,
+    /// are not ported).
+    fn update(
+        &mut self,
+        mut player: Option<&mut Player>,
+        tick: ScriptTick,
+        observer: &mut dyn PlayerObserver,
+    ) {
+        self.counter += 1;
+        if let Some(p) = player.as_deref_mut() {
+            if self.push_right[0] && p.controller().is_none() {
+                p.set_controller(Some(PlayerController::Null));
+            }
+            if !self.push_right[0] && p.controller() == Some(PlayerController::Null) {
+                p.set_controller(None);
+            }
+        }
+        if tick.fade_delay_in_progress {
+            return;
+        }
+        if self.show_controls_counter > 0 {
+            self.show_controls_counter += 1;
+        }
+        let Some(p) = player else { return };
+        let head = p.head().pos;
+        if self.push_right[0] && head.y > 550.0 && head.x < 350.0 {
+            let [c0, c1] = &mut p.body.chunks[..] else {
+                return;
+            };
+            let mut middle = (c0.pos + c1.pos) / 2.0;
+            self.right_most[0] = middle.x.max(self.right_most[0]);
+            middle.x = self.right_most[0];
+            c0.hard_set_position(middle + Vec2::new(9.0, 0.0));
+            c1.hard_set_position(middle + Vec2::new(-5.0, 0.0));
+            observer.nudge_tail_x(-1.0);
+        } else {
+            self.push_right[0] = false;
+        }
+        if p.head().pos.y < 350.0 && !self.stood_up {
+            self.stood_up = true;
+            p.set_standing(true);
+            self.show_controls_counter = 1;
+        }
+        if self.controls_page_due() && tick.hud_with_control_preset {
+            self.showed_controls = true;
+        }
+        if self.showed_controls && p.head().pos.x > 800.0 {
+            self.controls_page_continue = true;
+        }
+    }
+}

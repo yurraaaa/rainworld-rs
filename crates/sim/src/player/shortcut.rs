@@ -13,7 +13,7 @@ use rw_random::UnityRandom;
 
 use super::{HEAD, HIPS, Player};
 use crate::creature::CreatureId;
-use crate::shortcut::ShortcutVessel;
+use crate::game::shortcut::ShortcutVessel;
 use crate::{SoundId, Sounds, Vec2};
 
 /// `shortcutDelay` after leaving a shortcut.

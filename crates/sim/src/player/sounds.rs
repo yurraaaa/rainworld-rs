@@ -7,7 +7,7 @@ use rw_random::UnityRandom;
 
 use super::drips::DripBurst;
 use super::{Animation, BodyMode, HEAD, HIPS, Player};
-use crate::float_ext::FloatExt;
+use crate::math::float_ext::FloatExt;
 use crate::{EmitterPlace, LoopEmitter, NoiseSink, SoundId, Sounds, Vec2};
 
 /// A `room.PlaySound(id, bodyChunks[chunk], false, volume, pitch)`, or a site's

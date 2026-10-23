@@ -15,14 +15,17 @@
 mod advanced;
 mod animation;
 mod body_mode;
+pub(crate) mod carried_turn;
 mod carry;
 mod circuit;
 mod corridor;
 mod drips;
+pub(crate) mod eat_meat_turn;
 mod exhaustion;
 mod falls;
 mod grab;
 mod grabbed;
+pub(crate) mod grabbed_turn;
 mod input;
 mod jump;
 mod jump_on_chunk;
@@ -33,9 +36,11 @@ mod shortcut;
 mod sleep;
 mod sounds;
 mod spear_on_back;
+pub(crate) mod spear_on_back_turn;
 mod swim;
 #[cfg(test)]
 mod tests;
+pub(crate) mod turn;
 mod vines;
 mod zero_g;
 
@@ -54,9 +59,9 @@ pub(crate) use spear_on_back::BackSpearDrop;
 pub use spear_on_back::SpearOnBack;
 
 use crate::campaign::{SlugcatCampaign, SlugcatStats};
-use crate::climbable_vines::VinePosition;
-use crate::room_ext::RoomExt;
-use crate::shortcut::ShortcutVessel;
+use crate::game::shortcut::ShortcutVessel;
+use crate::physics::room_ext::RoomExt;
+use crate::vines::VinePosition;
 use crate::{
     BodyChunk, EmitterPlace, LoopEmitter, NoiseSink, PhysicalObject, SoundId, Sounds, Vec2, Water,
     WaterDrip, place_in_room,
