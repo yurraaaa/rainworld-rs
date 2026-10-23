@@ -638,6 +638,7 @@ impl RainWorldGame {
         player.state.food_in_stomach = u32::try_from(story.food).unwrap_or(0);
         let player_id = world.insert_creature(player);
         world.add_entity(player_id);
+        let screen_width = world.screen_size().x;
         let realizer = (!world.single_room()).then(RoomRealizer::new);
         let character_stats = if story.malnourished {
             campaign.stats.malnourished()
@@ -664,7 +665,7 @@ impl RainWorldGame {
                 current: 0,
                 next: 0,
             },
-            camera_shake: CameraShake::default(),
+            camera_shake: CameraShake::with_screen_width(screen_width),
             player_seq: 0,
             hud_events: Vec::new(),
             rng,
@@ -2168,6 +2169,12 @@ impl RainWorldGame {
     /// `ScreenSize.x`) before the tick.
     pub fn set_camera_pos(&mut self, pos: Vec2, screen_width: f32) {
         self.camera_shake.set_pos(pos, screen_width);
+    }
+
+    /// `rainWorld.screenSize` (the chosen resolution).
+    #[must_use]
+    pub fn screen_size(&self) -> Vec2 {
+        self.world.screen_size()
     }
 
     /// What the tick's shake jump and `ScreenMovement` bumps moved the camera window by.

@@ -7,7 +7,7 @@ const CAMERAS: [[f32; 2]; 3] = [[1400.0, 0.0], [0.0, 0.0], [2800.0, 0.0]];
 
 #[test]
 fn the_constructor_reads_the_camera_span_and_margin() {
-    let b = BorderPushBack::new(4, &CAMERAS, 1);
+    let b = BorderPushBack::new(4, &CAMERAS, 1, 1366.0);
     assert_eq!(b.margin, -117.0);
     assert_eq!(
         (b.leftmost_camera_pos, b.rightmost_camera_pos),
@@ -23,7 +23,7 @@ fn the_constructor_reads_the_camera_span_and_margin() {
 /// toward the room on either side.
 #[test]
 fn the_push_ramps_up_outside_and_down_inside() {
-    let mut b = BorderPushBack::new(4, &CAMERAS, 1);
+    let mut b = BorderPushBack::new(4, &CAMERAS, 1, 1366.0);
     assert_eq!(b.update_player(0, Some(500.0)), None);
     assert_eq!(b.push_power[0], 0.0);
     // The first tick out pushes by the old power, 0.
@@ -59,10 +59,24 @@ fn the_push_ramps_up_outside_and_down_inside() {
 
 #[test]
 fn power_grows_to_the_player_count() {
-    let mut b = BorderPushBack::new(4, &CAMERAS, 1);
+    let mut b = BorderPushBack::new(4, &CAMERAS, 1, 1366.0);
     b.push_power[0] = 0.5;
     b.grow_to(1);
     assert_eq!(b.push_power, vec![0.5]);
     b.grow_to(2);
     assert_eq!(b.push_power, vec![0.0, 0.0]);
+}
+
+/// `margin = (ScreenSize.x - 1400) / 2 - 100` at the five resolutions.
+#[test]
+fn the_margin_follows_the_chosen_width() {
+    for (width, margin) in [
+        (1024.0, -288.0),
+        (1366.0, -117.0),
+        (1360.0, -120.0),
+        (1280.0, -160.0),
+        (1229.0, -185.5),
+    ] {
+        assert_eq!(BorderPushBack::new(4, &CAMERAS, 1, width).margin, margin);
+    }
 }

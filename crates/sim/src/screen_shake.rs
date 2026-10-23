@@ -58,6 +58,15 @@ impl Default for CameraShake {
 }
 
 impl CameraShake {
+    /// A shake whose window is `ScreenSize.x` wide until the app hands in the camera.
+    #[must_use]
+    pub fn with_screen_width(screen_width: f32) -> Self {
+        Self {
+            screen_width,
+            ..Self::default()
+        }
+    }
+
     /// The camera's window after `Update`'s lerp and clamp, before the jump.
     pub fn set_pos(&mut self, pos: Vec2, screen_width: f32) {
         self.pos = pos;

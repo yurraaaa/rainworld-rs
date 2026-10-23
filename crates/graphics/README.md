@@ -45,7 +45,7 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 | `light_beam.rs`, `spot_light.rs`, `quad_grid.rs` | placed light beam mesh and per-frame alpha (`ForegroundLights`), spot light mesh (`Shadows`), the grid mesh over a quad (`GetIdealGridDiv` 250/150 px, `MakeGridMesh`) | `LightBeam`, `SpotLight`, `TriangleMesh.MakeGridMesh` |
 | `holo_light.rs`, `light_source.rs` | guide light; light disc (`Futile_White`, or `LightMask0` for a `RedlightLight`) | `HologramLight`, `LightSource` |
 | `light_fixture.rs` | `HolyFire`'s embers (`deerEyeB`, `Midground`) and `SlimeMoldLight`'s five discs (`Foreground`, `LightSource` shader) | `HolyFire.HolyFireSprite`, `SlimeMoldLight` |
-| `electric_death.rs` | `ElectricDeath`'s ten sprites (the `ElectricDeath` web and nine green `LightSource` discs, `Water`) and a `SparkFlash`'s three (`LightSource`, `FlatLight`, `FlareBomb` discs); positions in screen pixels | `ElectricDeath`, `LightFlash.Draw`, `SparkFlash` |
+| `electric_death.rs` | `ElectricDeath`'s ten sprites (the `ElectricDeath` web and nine green `LightSource` discs, `Water`) and a `SparkFlash`'s three (`LightSource`, `FlatLight`, `FlareBomb` discs); positions in room pixels (`cam_pos` plus screen offsets) | `ElectricDeath`, `LightFlash.Draw`, `SparkFlash` |
 | `water_fall.rs` | `WaterFall`'s quad (`WaterFall` shader) and bubbles in `Background` | `WaterFall` |
 | `weapon_graphics.rs` | rock and spear sprites | `Rock`, `Spear` |
 | `water_drip.rs`, `cosmetic_graphics.rs` | drips (`DripPalette`, water-coloured too); sparks, explosion spikes, lizard and air bubbles, splashes | `WaterDrip`, `Spark`, `ExplosionSpikes`, `LizardBubble`, `Bubble`, `Splash` |

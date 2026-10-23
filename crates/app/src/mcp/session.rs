@@ -263,7 +263,13 @@ impl Session {
             }
         }
         let rng = UnityRandom::new(seed as i32);
-        let game = Game::start(&self.assets, &start, rng, Arc::clone(&self.sound_table))?;
+        let game = Game::start(
+            &self.assets,
+            &start,
+            rng,
+            Arc::clone(&self.sound_table),
+            rw_render::Resolution::DEFAULT.size_f32(),
+        )?;
         let source = VisualsSource {
             assets: self.assets.clone(),
             resources: Arc::clone(&self.resources),
@@ -461,6 +467,7 @@ impl Session {
             world: world.name().to_owned(),
             room: game.room().name().to_owned(),
             camera: scene.visuals().map(|_| scene.camera().current()),
+            screen_size: world.screen_size().to_array(),
             camera_shake: CameraShakeState::of(sim.camera_shake()),
             player_room: Self::room_name(scene, pos.room),
             player_node: pos.node,

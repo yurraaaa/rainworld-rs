@@ -54,6 +54,8 @@ pub struct State {
     pub room: String,
     /// Shown camera (0-based), when the room has a level graphic.
     pub camera: Option<usize>,
+    /// `rainWorld.screenSize` the sim reads (the chosen resolution).
+    pub screen_size: [f32; 2],
     /// Camera 0's shake, once anything moved the screen.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub camera_shake: Option<CameraShakeState>,

@@ -97,6 +97,8 @@ pub struct World {
     rooms: Arc<dyn RoomSource>,
     timeline: Timeline,
     pub(crate) mods: ActiveMods,
+    /// `rainWorld.screenSize`, set by the app from the chosen resolution.
+    screen_size: Vec2,
     /// A story session (`game.IsStorySession`), for the room rules that ask.
     pub(crate) story: bool,
     /// Per abstract room, whether it was realized before this cycle (`!firstTimeRealized`).
@@ -180,6 +182,7 @@ impl World {
             rooms,
             timeline,
             mods,
+            screen_size: crate::background_scene::SCREEN_SIZE,
             story,
             loaded_before: vec![false; count],
             creatures: Vec::new(),
@@ -212,6 +215,16 @@ impl World {
         };
         world.index_rooms();
         world
+    }
+
+    #[must_use]
+    pub fn screen_size(&self) -> Vec2 {
+        self.screen_size
+    }
+
+    /// Sets `options.ScreenSize` before the rooms that read it load.
+    pub fn set_screen_size(&mut self, size: Vec2) {
+        self.screen_size = size;
     }
 
     /// A position at the end of a room's `updateList` (`Room.AddObject`).

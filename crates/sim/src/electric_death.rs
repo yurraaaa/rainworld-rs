@@ -10,7 +10,6 @@
 
 use rw_random::UnityRandom;
 
-use crate::background_scene::SCREEN_SIZE;
 use crate::float_ext::MathfSin;
 use crate::item::{ChunkDynamicSoundLoop, LoopCx};
 use crate::world::RainCycle;
@@ -29,9 +28,9 @@ pub struct LightFlash {
 
 impl LightFlash {
     /// `Reset`: four draws (x, y, lifetime, radius).
-    pub fn reset(&mut self, intensity: f32, rng: &mut UnityRandom) {
-        self.pos.x = SCREEN_SIZE.x * rng.value();
-        self.pos.y = SCREEN_SIZE.y * rng.value();
+    pub fn reset(&mut self, intensity: f32, screen: Vec2, rng: &mut UnityRandom) {
+        self.pos.x = screen.x * rng.value();
+        self.pos.y = screen.y * rng.value();
         self.life_time = 3.0f32.lerp(34.0f32.lerp(12.0, intensity), rng.value());
         self.rad = 40.0f32.lerp(800.0, rng.value() * 0.5f32.lerp(1.0, intensity));
         self.life = 1.0;
@@ -39,9 +38,9 @@ impl LightFlash {
     }
 
     /// `Update`: a flash dead for two ticks resets, else its life runs down.
-    pub fn update(&mut self, intensity: f32, rng: &mut UnityRandom) {
+    pub fn update(&mut self, intensity: f32, screen: Vec2, rng: &mut UnityRandom) {
         if self.life <= 0.0 && self.last_life <= 0.0 {
-            self.reset(intensity, rng);
+            self.reset(intensity, screen, rng);
             return;
         }
         self.last_life = self.life;
@@ -271,9 +270,9 @@ impl ElectricDeath {
     }
 
     /// `flashes[1..]`' updates.
-    pub fn update_flashes(&mut self, intensity: f32, rng: &mut UnityRandom) {
+    pub fn update_flashes(&mut self, intensity: f32, screen: Vec2, rng: &mut UnityRandom) {
         for flash in &mut self.flashes[1..] {
-            flash.update(intensity, rng);
+            flash.update(intensity, screen, rng);
         }
     }
 

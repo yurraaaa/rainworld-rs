@@ -14,7 +14,8 @@ use crate::{FloatExt, Vec2};
 
 pub use crate::distant_lightning::DistantLightning;
 
-/// `rainWorld.screenSize`.
+/// The default `rainWorld.screenSize` (`Options.resolution` 1); a world starts with it
+/// until the app sets the chosen one.
 pub const SCREEN_SIZE: Vec2 = Vec2::new(1366.0, 768.0);
 
 /// Which scene a room has.
