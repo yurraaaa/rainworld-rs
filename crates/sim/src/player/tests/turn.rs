@@ -115,7 +115,7 @@ fn short_of_a_full_stomach_stays_malnourished() {
         ..StoryStart::new_game(survivor)
     };
     let mut g = story_game(survivor, story);
-    g.tick(crate::Input::NONE, &mut ());
+    g.tick_until_ready(&mut ());
     g.add_food(6);
     assert!(g.player().expect("player").malnourished());
     assert_eq!(g.character_stats().food_to_hibernate, 7);

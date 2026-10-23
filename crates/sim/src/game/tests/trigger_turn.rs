@@ -20,7 +20,8 @@ const SPOT: &str = "Spot<tA>event<tB>MusicEvent<eA>songName<eB>NA_01 - Proxima<e
 struct Setup;
 
 impl Setup {
-    /// A 10 x 8 room with `triggers`, the Survivor at cycle `cycle`.
+    /// A 10 x 8 room with `triggers`, the Survivor at cycle `cycle`, loaded by its loading
+    /// steps alone (no tick run).
     fn game(triggers: &str, cycle: i32) -> RainWorldGame {
         let mut rows = vec!["##########"];
         rows.extend(["#........#"; 6]);
@@ -51,6 +52,7 @@ impl Setup {
             Sounds::default(),
             &mut (),
         );
+        game.load_room_now(0, &mut ());
         if let Some(p) = game.player.as_mut() {
             p.leave_start_shelter();
         }

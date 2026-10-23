@@ -494,7 +494,7 @@ impl PlayerObserver for Graphics {
 impl Game {
     /// A single-room world of `room` (in memory), the player on `spawn_tile` or a safe
     /// spawn tile, drawing from `UnityRandom::new(seed)` (`Random.InitState`, low 32
-    /// bits).
+    /// bits), stepped until the room is ready as dev starts are (three ticks).
     #[cfg(test)]
     #[must_use]
     pub fn new(
@@ -514,14 +514,18 @@ impl Game {
             room: 0,
             tile: spawn_tile,
         };
-        Self::build(
+        let mut game = Self::build(
             world,
             campaign,
             StoryStart::new_game(campaign),
             start,
             UnityRandom::new(seed as i32),
             Sounds::default(),
-        )
+        );
+        while !game.sim.camera_room_ready() {
+            game.tick(Input::NONE);
+        }
+        game
     }
 
     /// The game `start` asks for, read from the installed game, drawing from `rng` (the
@@ -2478,11 +2482,11 @@ pub(crate) mod tests {
     fn player_starts_on_all_fours_and_falls() {
         let mut game = Game::new(open_room(), &RoomSettings::ANCESTOR, 1, None);
         assert!(!game.player().is_standing());
-        let before = game.head_y();
+        let (before, start) = (game.head_y(), game.ticks());
         for _ in 0..5 {
             game.tick(Input::NONE);
         }
-        assert_eq!(game.ticks(), 5);
+        assert_eq!(game.ticks(), start + 5);
         assert!(game.head_y() < before, "gravity pulls it down");
     }
 

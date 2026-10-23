@@ -10,7 +10,6 @@ use crate::creature::{CreatureId, WorldCoordinate};
 use crate::effects::particles::insect::turn::InsectViewChange;
 use crate::game::camera::CameraView;
 use crate::game::shortcut::Transport;
-use crate::item::Entity;
 use crate::{EntranceColor, LobbyVessel, Player, ShortCutColor, VesselOwner, VesselStep};
 
 impl RainWorldGame {
@@ -161,8 +160,8 @@ impl RainWorldGame {
         }
     }
 
-    /// An overseer's teleportation vessel: into its destination once that room is
-    /// `ReadyForPlayer` and `readyForAI` (`TeleportingIntoRoom`), or abstracted there if
+    /// An overseer's teleportation vessel: into its destination once
+    /// `VesselAllowedInRoom` (`TeleportingIntoRoom`), or abstracted there if
     /// the room is not realized. Returns whether it left the lobby.
     fn teleport_vessel_step(
         &mut self,
@@ -177,7 +176,7 @@ impl RainWorldGame {
                 self.world.abstractize_to(id, coord);
                 true
             }
-            Some(r) if r.ready_for_player() && r.ready_for_ai() => {
+            Some(_) if self.world.vessel_allowed_in_room(id, vessel.room) => {
                 self.world.move_creature(id, coord);
                 self.run_overseer(id, OverseerCall::TeleportIn, observer);
                 true
@@ -204,11 +203,13 @@ impl RainWorldGame {
             }
             return false;
         };
-        if !dest.ready_for_player() {
-            return false;
-        }
-        if !dest.ready_for_ai() && self.carried_creature_needs_ai_map() {
-            log::info!("denied room entrance because of carried creature");
+        if !self
+            .world
+            .vessel_allowed_in_room(self.player_id, lobby.room)
+        {
+            if dest.ready_for_player() {
+                log::info!("denied room entrance because of carried creature");
+            }
             return false;
         }
         let node_tile = usize::try_from(lobby.entrance_node)
@@ -253,21 +254,6 @@ impl RainWorldGame {
         );
         self.camera_moves_to(lobby.room, node.viewed_by_camera, observer);
         true
-    }
-
-    /// `VesselAllowedInRoom`'s `CreatureAllowedInRoom` of the creatures the player carries
-    /// in a room `ReadyForPlayer` but not `readyForAI`: one is refused when it
-    /// `RequiresAIMapToEnterRoom` (a template that needs the AI map anywhere among the
-    /// connected objects, which they all share).
-    fn carried_creature_needs_ai_map(&self) -> bool {
-        let connected = self
-            .world
-            .connected_objects(Entity::Creature(self.player_id));
-        let creatures: Vec<CreatureId> = connected.iter().filter_map(|e| e.creature()).collect();
-        creatures.len() > 1
-            && creatures
-                .iter()
-                .any(|&c| self.world.creature(c).template.require_ai_map)
     }
 
     /// `cameras[0].MoveCamera(room, camera)` for a vessel camera 0 follows leaving the

@@ -78,6 +78,8 @@ const MAX_IMAGE_SIDE: f32 = 4096.0;
 const MAX_TILES: i64 = 40_000;
 /// Seconds per `step_process` frame.
 const FRAME_SECONDS: f32 = 1.0 / 40.0;
+/// A cap on the ticks a dev start steps to load its room.
+const START_READY_TICKS: u32 = 40;
 
 pub struct Session {
     assets: StreamingAssets,
@@ -292,7 +294,25 @@ impl Session {
         self.scene = Some(Scene::new(game, Some(source)));
         self.start = Some(start);
         self.frontend = None;
+        self.step_until_start_room_ready();
         Ok(())
+    }
+
+    /// Ticks the new game without input until its start room is `readyForAI` (the
+    /// game's minimum loading schedule takes three ticks), so the reply and the first
+    /// `step` see a loaded room (D14).
+    fn step_until_start_room_ready(&mut self) {
+        for _ in 0..START_READY_TICKS {
+            if self
+                .scene
+                .as_ref()
+                .is_none_or(|s| s.game().sim().camera_room_ready())
+            {
+                return;
+            }
+            self.tick(Input::NONE);
+        }
+        log::warn!("the start room is not ready after {START_READY_TICKS} ticks");
     }
 
     fn room_info(&self) -> Result<RoomInfo, String> {

@@ -104,7 +104,8 @@ fn load_summit_reports_the_room() {
         [info.width as f32 * 20.0, info.height as f32 * 20.0]
     );
     assert!(!info.cameras.is_empty());
-    assert_eq!(info.state.tick, 0);
+    // Stepped until the room is ready for AI: three ticks.
+    assert_eq!(info.state.tick, 3);
     let player = info.state.player.expect("spawned");
     assert_eq!(player.chunks.len(), 2);
     assert!(!player.dead && !player.in_shortcut);
@@ -125,7 +126,7 @@ fn stepping_settles_then_walks_left() {
         })
         .expect("room loads");
     let settled = session.run(80, InputParam::default());
-    assert_eq!(settled.tick, 80);
+    assert_eq!(settled.tick, 83);
     let player = settled.player.as_ref().expect("player");
     assert!(
         player.chunks.iter().any(|c| c.contact[1] == -1),
@@ -140,7 +141,7 @@ fn stepping_settles_then_walks_left() {
         throw: false,
     };
     let walked = session.run(20, left);
-    assert_eq!(walked.tick, 100);
+    assert_eq!(walked.tick, 103);
     let player = walked.player.as_ref().expect("player");
     assert_eq!(player.flip_direction, -1);
     assert_eq!(player.input, left);
@@ -187,7 +188,8 @@ fn runs_are_deterministic() {
     let (state_a, trace_a) = a.step_sequence(&steps).expect("runs");
     let (state_b, trace_b) = b.step_sequence(&steps).expect("runs");
     assert_eq!(trace_a.len(), 3);
-    assert_eq!(trace_a.last().map(|t| t.tick), Some(65));
+    // Three loading ticks before the sequence's 65.
+    assert_eq!(trace_a.last().map(|t| t.tick), Some(68));
     let json = serde_json::to_string(&(state_a, trace_a)).expect("json");
     assert_eq!(
         json,
@@ -228,7 +230,7 @@ fn set_player_and_respawn() {
     let respawned = session
         .respawn(&RespawnParams { seed: Some(1) })
         .expect("respawns");
-    assert_eq!(respawned.tick, 0);
+    assert_eq!(respawned.tick, 3);
     assert_eq!(respawned.head(), spawn);
 }
 
@@ -348,7 +350,7 @@ fn tool_errors_are_results_not_panics() {
         .step(Parameters(StepParams::default()))
         .expect("steps");
     let state: serde_json::Value = serde_json::from_str(ok.text()).expect("json");
-    assert_eq!(state["tick"], 1);
+    assert_eq!(state["tick"], 4);
 }
 
 #[test]
@@ -557,12 +559,15 @@ fn su_c04_start_up_ticks(slugcat: &str) {
         malnourished: None,
     })
     .expect("new game");
+    // `new_game` stepped the start room's three loading ticks (the player came in with
+    // `ReadyForAI`, the guide needing the AI map); ticks below count from the start.
     let first = s.run(1, RIGHT);
+    assert_eq!(first.tick, 4);
     assert_eq!(first.player.as_ref().expect("player").input.x, 1);
     let mut last_x = first.head()[0];
     let mut push_ended = None;
     let mut stood = None;
-    for tick in 2..=260u32 {
+    for tick in 5..=260u32 {
         let st = s.run(1, RIGHT);
         let p = st.player.as_ref().expect("player");
         let su = st.start_up.as_ref().expect("SU_C04StartUp");
@@ -641,7 +646,7 @@ fn hunter_start_has_no_start_up_script() {
         malnourished: None,
     })
     .expect("new game");
-    let st = s.run(219, RIGHT);
+    let st = s.run(216, RIGHT);
     assert!(st.start_up.is_none());
     assert!(st.fade_delay_in_progress);
     let st = s.run(1, RIGHT);

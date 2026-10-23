@@ -17,7 +17,8 @@ use crate::tests::room_with_water;
 use crate::world::World;
 use crate::{Input, LightTie, RainWorldGame, Sounds, Start, Vec2};
 
-/// A 20 x 10 room with three rows of floor, the player standing on it at (2, 3).
+/// A 20 x 10 room with three rows of floor, the player standing on it at (2, 3), loaded
+/// by its loading steps alone (no tick), then `ticks` ticks.
 fn electric_game(placed: &str, effects: &[(&str, f32)], ticks: usize) -> RainWorldGame {
     let mut rows: Vec<String> = vec![".".repeat(20); 10];
     for row in &mut rows[7..] {
@@ -53,6 +54,7 @@ fn electric_game(placed: &str, effects: &[(&str, f32)], ticks: usize) -> RainWor
         Sounds::default(),
         &mut WithGraphics,
     );
+    g.load_room_now(0, &mut WithGraphics);
     for _ in 0..ticks {
         g.tick(Input::NONE, &mut WithGraphics);
     }

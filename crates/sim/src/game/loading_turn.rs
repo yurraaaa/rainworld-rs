@@ -29,11 +29,41 @@ impl RainWorldGame {
     /// # Errors
     /// When the room's files cannot be read.
     pub(crate) fn activate_room(&mut self, index: i32) -> Result<(), AssetError> {
-        let result = self
-            .world
-            .activate_room(index, &mut self.ids, &mut self.rng);
+        let result = self.world.activate_room(index);
         self.rooms_loaded();
         result
+    }
+
+    /// Whether the camera's room is `readyForAI` (dev starts step until it is).
+    #[must_use]
+    pub fn camera_room_ready(&self) -> bool {
+        self.world
+            .realized(self.camera_room)
+            .is_some_and(crate::world::RealizedRoom::ready_for_ai)
+    }
+
+    /// Ticks without input until the camera's room is ready, as dev starts do (tests).
+    #[cfg(test)]
+    pub(crate) fn tick_until_ready(&mut self, observer: &mut dyn PlayerObserver) {
+        for _ in 0..40 {
+            if self.camera_room_ready() {
+                return;
+            }
+            self.tick(crate::Input::NONE, observer);
+        }
+        panic!("the camera's room does not load");
+    }
+
+    /// Loading steps alone (no tick) until room `index` is `readyForAI` (tests).
+    #[cfg(test)]
+    pub(crate) fn load_room_now(&mut self, index: i32, observer: &mut dyn PlayerObserver) {
+        for _ in 0..8 {
+            if self.world.realized(index).is_none_or(|r| r.ready_for_ai()) {
+                return;
+            }
+            self.update_loading_rooms(observer);
+        }
+        panic!("room {index} does not load");
     }
 
     /// `Room.Loaded`'s tail for the rooms realized since the last call (the realizer
@@ -44,8 +74,8 @@ impl RainWorldGame {
         }
     }
 
-    /// The part of `Room.Loaded` made after the room's items (made in
-    /// `World::activate_room`), in the port's order.
+    /// `Room.Loaded`, in its order (the items between the scripts and the trigger
+    /// checkers, in [`Self::add_trigger_checkers`]).
     fn room_loaded(&mut self, index: i32) {
         self.add_waterfalls(index);
         self.add_shelter_door(index);
@@ -58,8 +88,12 @@ impl RainWorldGame {
     /// over run in that call.
     pub(crate) fn update_loading_rooms(&mut self, observer: &mut dyn PlayerObserver) {
         self.rooms_loaded();
-        for (index, stage) in self.world.update_loading_rooms() {
-            if self.world.realized(index).is_none() {
+        for (index, serial, stage) in self.world.update_loading_rooms() {
+            if !self.world.is_realization(index, serial) {
+                // D14 (orphaned preparer, user 2026-10-23): the stage of a room abstracted
+                // while loading realizes nothing (the game's vanilla bug leaves bodies
+                // with no room and duplicate counted creatures); its preparer keeps
+                // the stage ticks for the realizer's wait.
                 continue;
             }
             match stage {
@@ -143,11 +177,8 @@ impl RainWorldGame {
         }
     }
 
-    /// `ReadyForAI`'s `AIMapReady` on every listener in the update list, in its order. The
-    /// session's first room has its gravity disruptors and coral wait for the camera's
-    /// first view (`apply_insect_view_change`), which the game's comes before.
+    /// `ReadyForAI`'s `AIMapReady` on every listener in the update list, in its order.
     fn ai_map_ready(&mut self, index: i32) {
-        let deferred = self.awaiting_first_view(index);
         let Some(r) = self.world.realized(index) else {
             return;
         };
@@ -163,19 +194,17 @@ impl RainWorldGame {
                 .iter()
                 .map(|l| (l.update_order, AiMapListener::ZapCoilLight(l.update_order))),
         );
-        if !deferred {
-            listeners.extend(r.fixtures.gravity_disruptors.iter().map(|d| {
-                (
-                    d.update_order,
-                    AiMapListener::GravityDisruptor(d.update_order),
-                )
-            }));
-            listeners.extend(
-                r.coral
-                    .as_ref()
-                    .map(|c| (c.update_order, AiMapListener::CoralNeuronSystem)),
-            );
-        }
+        listeners.extend(r.fixtures.gravity_disruptors.iter().map(|d| {
+            (
+                d.update_order,
+                AiMapListener::GravityDisruptor(d.update_order),
+            )
+        }));
+        listeners.extend(
+            r.coral
+                .as_ref()
+                .map(|c| (c.update_order, AiMapListener::CoralNeuronSystem)),
+        );
         listeners.sort_by_key(|&(order, _)| order);
         for (_, listener) in listeners {
             match listener {

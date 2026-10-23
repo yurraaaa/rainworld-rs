@@ -71,9 +71,7 @@ impl RainWorldGame {
 
     /// Room 2 realized and loaded, and camera 0 moved there; no tick run.
     fn camera_to_second_room(&mut self) {
-        self.world
-            .activate_room(2, &mut self.ids, &mut self.rng)
-            .expect("loads");
+        self.activate_room(2).expect("loads");
         self.world.finish_loading();
         self.camera_moves_to(2, 0, &mut ());
     }

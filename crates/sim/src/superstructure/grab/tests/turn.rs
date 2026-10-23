@@ -18,7 +18,8 @@ use crate::tests::room_with_water;
 use crate::world::World;
 use crate::{ChunkOwner, FloatExt, Input, LightTie, RainWorldGame, Sounds, Start, Vec2};
 
-/// A 40 x 20 room with three rows of floor, the player standing on it at (2, 3).
+/// A 40 x 20 room with three rows of floor, the player standing on it at (2, 3). `ticks`
+/// counts from the tick whose loading step is `ReadyForAI` (the third): 0 runs none.
 fn grab_game(placed: &str, effects: &[(&str, f32)], ticks: usize) -> RainWorldGame {
     let mut rows: Vec<String> = vec![".".repeat(40); 20];
     for row in &mut rows[17..] {
@@ -54,7 +55,10 @@ fn grab_game(placed: &str, effects: &[(&str, f32)], ticks: usize) -> RainWorldGa
         Sounds::default(),
         &mut WithGraphics,
     );
-    for _ in 0..ticks {
+    if ticks > 0 {
+        g.tick_until_ready(&mut WithGraphics);
+    }
+    for _ in 1..ticks {
         g.tick(Input::NONE, &mut WithGraphics);
     }
     g
@@ -130,7 +134,7 @@ fn the_depth_is_read_from_the_tile() {
 /// velocity by the push, the velocity by the swirl as well.
 #[test]
 fn the_swirl_moves_the_players_chunks() {
-    let mut g = grab_game("GravityDisruptor><100><100><", &[], 0);
+    let mut g = grab_game("GravityDisruptor><100><100><", &[], 1);
     let order = g
         .world
         .realized(0)
@@ -170,7 +174,7 @@ fn the_swirl_moves_the_players_chunks() {
 /// Without power nothing is swirled, but the streaks still run (their draws).
 #[test]
 fn without_power_nothing_moves() {
-    let mut g = grab_game("GravityDisruptor><100><100><", &[], 0);
+    let mut g = grab_game("GravityDisruptor><100><100><", &[], 1);
     let order = g
         .world
         .realized(0)
@@ -193,7 +197,8 @@ fn without_power_nothing_moves() {
 }
 
 /// The session's first room runs `Loaded`, then `NowViewed` (the constructor's
-/// `MoveCamera`, which seeds the specks), then `AIMapReady`: `roomSpecks` holds the specks,
+/// `MoveCamera`, which seeds the specks, at the head of the first tick), then `AIMapReady`
+/// (the third tick's loading step): `roomSpecks` holds the specks,
 /// and the swirl moves them by the speck push. Nothing is linked before the first tick.
 #[test]
 fn the_swirl_moves_the_rooms_specks() {
@@ -316,8 +321,9 @@ fn the_quad_keeps_full_power_in_a_powered_room() {
 }
 
 /// A second camera move before the first tick replaces the first (`loadingRoom` is
-/// overwritten): one `NowViewed` (the room the last move named, here the same room), one
-/// `AIMapReady` link; the room an overwritten move named gets neither.
+/// overwritten): one `NowViewed` at the head of the first tick (the room the last move
+/// named, here the same room), then one `AIMapReady` link in the third tick's loading
+/// step; the room an overwritten move named gets neither.
 #[test]
 fn a_second_move_before_the_first_tick_replaces_the_first() {
     let mut g = grab_game("GravityDisruptor><100><100><", &[("ZeroGSpecks", 0.01)], 0);
@@ -331,5 +337,8 @@ fn a_second_move_before_the_first_tick_replaces_the_first() {
     g.tick(Input::NONE, &mut WithGraphics);
     let room = g.world.realized(0).expect("room");
     assert_eq!(room.particles.specks.len(), 10);
+    assert!(room.fixtures.gravity_disruptors[0].room_specks.is_empty());
+    g.tick_until_ready(&mut WithGraphics);
+    let room = g.world.realized(0).expect("room");
     assert_eq!(room.fixtures.gravity_disruptors[0].room_specks.len(), 10);
 }

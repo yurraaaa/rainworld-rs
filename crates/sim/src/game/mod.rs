@@ -396,7 +396,7 @@ impl RainWorldGame {
         start: Start,
         mut rng: UnityRandom,
         sounds: Sounds,
-        observer: &mut dyn PlayerObserver,
+        _observer: &mut dyn PlayerObserver,
     ) -> Self {
         let mut world = world;
         let NewGameWorld {
@@ -502,8 +502,6 @@ impl RainWorldGame {
         if let Err(e) = game.activate_room(start.room) {
             log::error!("cannot realize the first room: {e}");
         }
-        // Port-only: the game's first `RoomPreparer.Update` is in the first tick (D14).
-        game.update_loading_rooms(observer);
         game
     }
 
@@ -693,13 +691,7 @@ impl RainWorldGame {
         self.camera_shake.update(&mut self.rng);
         let follow = self.follow_creature();
         if let (Some(realizer), Some(follow)) = (&mut self.realizer, follow) {
-            realizer.update(
-                &mut self.world,
-                follow,
-                self.camera_room,
-                &mut self.ids,
-                &mut self.rng,
-            );
+            realizer.update(&mut self.world, follow, self.camera_room, &mut self.rng);
         }
         self.rooms_loaded();
         self.update_abstract_room();

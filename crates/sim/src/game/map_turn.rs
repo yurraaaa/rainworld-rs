@@ -79,10 +79,17 @@ impl RainWorldGame {
         if !moved || !self.map_discovery_active() {
             return;
         }
+        let shortcuts_ready = self
+            .world
+            .realized(index)
+            .is_some_and(crate::world::RealizedRoom::shortcuts_ready);
         let Some(player) = self.player.as_mut() else {
             return;
         };
         let Some(mut exits) = player.exits_to_be_discovered.take() else {
+            if !shortcuts_ready {
+                return;
+            }
             player.exits_to_be_discovered = Some(
                 room.shortcut_map()
                     .shortcuts()

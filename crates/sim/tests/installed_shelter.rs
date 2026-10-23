@@ -85,6 +85,11 @@ fn the_door_opens_with_the_cycle_and_the_slugcat_wakes_curled_up() {
     };
     let mut game = installed.game("SU_S01");
     let shelter = game.world().room_index("SU_S01").expect("shelter");
+    // The slugcat comes in with a loading stage, at the end of a tick, before its first
+    // update.
+    while game.player().is_none() {
+        game.tick(Input::default(), &mut ());
+    }
     let timer = game.world().rain_cycle.timer;
     assert!(timer < 80, "a new cycle starts at timer {timer}");
     assert_eq!(door_fac(&game, shelter), 1.0);

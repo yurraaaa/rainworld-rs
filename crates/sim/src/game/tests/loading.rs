@@ -1,5 +1,5 @@
-//! The loading stages of a Survivor story's start room under the game's minimum schedule:
-//! `ShortCutsReady` on the preparer's second call (objects, then the creatures without
+//! The loading stages of a Survivor story's start room under the game's minimum schedule
+//! (the default): `ShortCutsReady` on the preparer's second call (objects, then the creatures without
 //! `AI` when none needs the AI map), `ReadyForAI` on the third (creatures in list order,
 //! then the `AIMapReady` listeners). Expected values from `Room.cs` (`ShortCutsReady`,
 //! `ReadyForAI`), `RoomPreparer.cs` (`Update`, `UpdateThread`) and
@@ -50,8 +50,9 @@ struct Setup<'a> {
     side_exit: bool,
 }
 
-/// A Survivor story in `rows` under `schedule`, the player at (2, 3), no tick run: the
-/// constructor made the preparer's first call. Returns the rock's ID when there is one.
+/// A Survivor story in `rows` under `schedule`, the player at (2, 3), no tick run but the
+/// preparer's first call (the first tick's loading step) made. Returns the rock's ID when
+/// there is one.
 fn game(
     rows: &[&str],
     setup: &Setup<'_>,
@@ -87,7 +88,7 @@ fn game(
     if setup.counted_fly {
         world.add_quantified_at(0, 0, CreatureType::Fly);
     }
-    let g = RainWorldGame::new_story(
+    let mut g = RainWorldGame::new_story(
         world,
         campaign,
         StoryStart::new_game(campaign),
@@ -99,6 +100,8 @@ fn game(
         Sounds::default(),
         &mut (),
     );
+    assert!(g.world.room_preparer(0).is_some_and(|p| p.calls() == 0));
+    g.update_loading_rooms(&mut ());
     (g, rock)
 }
 
@@ -121,10 +124,9 @@ fn refs(rows: &[String]) -> Vec<&str> {
     rows.iter().map(String::as_str).collect()
 }
 
-/// Immediate (the port's synchronous loading until the schedule is switched on): the
-/// constructor's call runs both stages and drops the preparer.
+/// Immediate (world-only tests): the first call runs both stages and drops the preparer.
 #[test]
-fn the_immediate_schedule_loads_the_start_room_in_the_constructor() {
+fn the_immediate_schedule_loads_the_room_on_the_first_call() {
     let rows = rows();
     let (g, _) = game(&refs(&rows), &Setup::default(), LoadingSchedule::Immediate);
     assert_eq!(g.progress(), 3);
@@ -132,7 +134,7 @@ fn the_immediate_schedule_loads_the_start_room_in_the_constructor() {
     assert!(g.world.room_preparer(0).is_none());
 }
 
-/// The game's minimum: the constructor's call starts the thread; the first tick's call
+/// The game's minimum: the first call starts the thread; the next tick's call
 /// takes stage 1 (the player, which has no `AI`, comes in with it in a room where no
 /// creature needs the AI map), the second's stage 2; the third sees the thread done and
 /// the fourth removes the preparer.

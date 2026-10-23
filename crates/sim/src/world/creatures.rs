@@ -1048,15 +1048,18 @@ impl World {
         }
     }
 
-    /// `AbstractRoom.Abstractize` for the creatures of global room `room`, newest first:
+    /// `AbstractRoom.Abstractize` for the creatures of global room `room`, newest first
+    /// (in a room not `readyForAI` a body is just dropped, `AbstractCreature.Abstractize`):
     /// a realized overseer drops its body and keeps its node; its realized AI stays. A
     /// realized fly (in the room, a hive or a shortcut) drops its body and its grasps'
     /// flies with it. Rooms out of the camera's view have no graphics modules to drop.
     pub(crate) fn abstractize_creatures(&mut self, room: i32, rng: &mut UnityRandom) {
         let ids: Vec<CreatureId> = self.room_creatures(room).iter().rev().copied().collect();
+        let ready = self.realized(room).is_some_and(RealizedRoom::ready_for_ai);
         for id in ids {
             let c = self.creature_mut(id);
             match c.realized {
+                Some(RealizedCreature::Overseer(_)) if !ready => c.realized = None,
                 Some(RealizedCreature::Overseer(_)) => {
                     c.realized = None;
                     c.time_spent_here = 0;

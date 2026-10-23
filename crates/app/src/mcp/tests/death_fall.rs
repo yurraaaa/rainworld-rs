@@ -1,7 +1,8 @@
 //! The death fall's `get_state` entries (one per realized room, counted since the room
 //! loaded) and the other-room screenshot's camera sprites, on `CC_A06` (camera room) and
-//! its realized neighbour `CC_H01` of the installed game (skipped without it). Both have an
-//! open bottom (`defaultHeight` -70 once drawn) and the `Fog` effect (`cc_settingstemplate`).
+//! its realized neighbours `CC_C09` (first) and `CC_H01` of the installed game (skipped
+//! without it). `CC_A06` and `CC_H01` have an open bottom (`defaultHeight` -70 once drawn)
+//! and the `Fog` effect (`cc_settingstemplate`).
 
 use rw_graphics::{DrawItem, Layer, Shader};
 use rw_sim::Vec2;
@@ -37,7 +38,7 @@ fn every_realized_room_counts_its_own_death_fall() {
     };
     let before = s.state().expect("state").death_fall;
     let rooms: Vec<_> = before.iter().map(|f| f.room.as_str()).collect();
-    assert_eq!(rooms, ["CC_A06", "CC_H01"]);
+    assert_eq!(rooms, ["CC_A06", "CC_C09"]);
     assert!(before.iter().all(|f| f.counter > 0));
     // Only the room a camera has drawn has run `InitiateSprites`.
     let defaults: Vec<_> = before.iter().map(|f| f.default_height).collect();
@@ -83,7 +84,7 @@ impl Session {
     }
 }
 
-/// The camera leaves CC_A06 for CC_H01 and comes back, the room staying realized: its
+/// The camera leaves CC_A06 for CC_C09 and comes back, the room staying realized: its
 /// death fall is the same object and its counter went up by every tick stepped.
 #[test]
 fn the_counter_survives_the_camera_leaving_and_returning() {
@@ -92,7 +93,7 @@ fn the_counter_survives_the_camera_leaving_and_returning() {
     };
     let (id, start) = s.fall_of("CC_A06");
     let mut ticks = 0;
-    for (to, wait) in [("CC_H01", 30), ("CC_A06", 0)] {
+    for (to, wait) in [("CC_C09", 30), ("CC_A06", 0)] {
         s.teleport_player(&TeleportPlayerParams {
             room: to.to_owned(),
             node: None,
@@ -123,6 +124,18 @@ fn another_rooms_shot_has_its_death_fall_and_effect() {
     let Some(mut s) = Session::cc_a06() else {
         return;
     };
+    // The realizer brings CC_H01 in last of the neighbours (about 200 ticks with seed 1).
+    for _ in 0..400 {
+        let state = s.state().expect("state");
+        if state.realized_rooms.iter().any(|r| r.room == "CC_H01") {
+            break;
+        }
+        s.step(&StepParams {
+            ticks: Some(1),
+            input: Some(InputParam::default()),
+        })
+        .expect("steps");
+    }
     let room = s.room_named(Some("CC_H01")).expect("room");
     let shot = s.room_shot(room, 0, true).expect("shot");
     let game = s.scene_mut().expect("game").game();
@@ -155,8 +168,9 @@ fn another_rooms_shot_has_a_water_light_where_there_is_water() {
         slugcat: None,
     })
     .expect("room loads");
+    // The realizer brings GW_A06 in after GW_A10 (about 80 ticks with seed 1).
     s.step(&StepParams {
-        ticks: Some(40),
+        ticks: Some(90),
         input: Some(InputParam::default()),
     })
     .expect("steps");
