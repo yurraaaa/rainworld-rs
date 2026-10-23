@@ -12,10 +12,12 @@
 //! Mirrors: - (crate root)
 
 mod atlas;
+mod background_scene;
 mod body_part;
 mod cosmetic_graphics;
 mod decal;
 mod draw;
+mod dust_puff;
 pub mod elements;
 mod fly_graphics;
 mod green_spark;
@@ -57,6 +59,7 @@ mod weapon_graphics;
 mod zero_g_speck;
 
 pub use atlas::{Atlas, AtlasError, AtlasFrame, Rect, Size};
+pub use background_scene::{BackgroundSceneSprites, BackgroundSceneView, SceneImageSizes};
 pub use body_part::{BodyPart, PointConnection};
 pub use cosmetic_graphics::{CosmeticSprites, LizardColors, LizardModule, NoLizards};
 pub use decal::DecalSprites;
@@ -64,6 +67,7 @@ pub use draw::{
     Color, DrawItem, DrawList, ElementMesh, InternalContainer, Layer, Mesh, Shader, SlugcatName,
     Sprite,
 };
+pub use dust_puff::DustPuffSprites;
 pub use fly_graphics::FlyGraphics;
 pub use green_spark::GreenSparkSprites;
 pub use hand::SlugcatHand;

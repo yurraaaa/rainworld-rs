@@ -17,6 +17,9 @@ use rw_assets::{
     StreamingAssets,
 };
 use rw_audio::Follow as SoundFollow;
+#[path = "game_background_scene.rs"]
+mod background_scene;
+
 use rw_graphics::{
     Color, CosmeticSprites, DandelionSprites, DecalSprites, DrawList, DripPalette, FlyGraphics,
     GreenSparkSprites, HologramFrame, HologramGraphics, HologramLightSprites, InsectDraw,
@@ -1448,6 +1451,20 @@ impl Game {
                 r.spot_lights
                     .iter()
                     .map(|s| Present::added(Drawable::SpotLight(s.update_order), s.update_order)),
+            );
+            present.extend(
+                r.background_scenes
+                    .iter()
+                    .flat_map(|scene| &scene.elements)
+                    .filter(|e| e.update_order != 0)
+                    .map(|e| {
+                        Present::added(Drawable::SceneElement(e.update_order), e.update_order)
+                    }),
+            );
+            present.extend(
+                r.dust_puffs
+                    .iter()
+                    .map(|p| Present::added(Drawable::DustPuff(p.update_order), p.update_order)),
             );
             present.extend(
                 r.fixtures

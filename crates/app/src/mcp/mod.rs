@@ -8,6 +8,7 @@
 //!
 //! Mirrors: - (port-only: MCP server)
 
+mod background_scene_reply;
 #[cfg(test)]
 mod debug_action_tests;
 #[cfg(test)]

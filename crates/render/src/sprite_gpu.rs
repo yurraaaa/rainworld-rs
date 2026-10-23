@@ -12,7 +12,9 @@ use rw_assets::PngImage;
 use rw_graphics::Shader;
 use wgpu::util::DeviceExt;
 
-use crate::{Camera, RoomGlobals, RoomVertex, SpriteBatch, SpriteDraw};
+use crate::{
+    Camera, RoomGlobals, RoomVertex, SceneGlobals, SceneTextures, SpriteBatch, SpriteDraw,
+};
 
 /// `sprite.wgsl`'s `Room` uniform.
 #[repr(C)]
@@ -29,6 +31,11 @@ struct RoomUniform {
     cam_in_room_rect: [f32; 4],
     light: [f32; 4],
     light_dir: [f32; 4],
+    /// The background scenes' `_AboveCloudsAtmosphereColor`, `_MultiplyColor` and
+    /// `_WorldCamPos`.
+    scene_atmosphere: [f32; 4],
+    scene_multiply: [f32; 4],
+    scene_world_cam: [f32; 4],
 }
 
 /// The sprite pipelines, the atlas pages' bind groups and the frame's buffers.
@@ -53,6 +60,18 @@ pub(crate) struct SpritePipeline {
     blank: wgpu::TextureView,
     vertices: Option<wgpu::Buffer>,
     indices: Option<wgpu::Buffer>,
+    /// The background scene shaders' globals and textures.
+    scene_globals: SceneGlobals,
+    scene_views: SceneViews,
+    /// `_CloudsTex`: bilinear, repeat, the nearest mip.
+    clouds_sampler: wgpu::Sampler,
+}
+
+/// `_CloudsTex`, `_ApartmentsTex` and `_CityPalette`.
+struct SceneViews {
+    clouds: wgpu::TextureView,
+    apartments: wgpu::TextureView,
+    city_palette: wgpu::TextureView,
 }
 
 /// The screen-sized textures of one frame.
@@ -69,7 +88,7 @@ pub(crate) struct ScreenTextures<'a> {
 
 impl SpritePipeline {
     /// Each shader and its fragment entry point.
-    const SHADERS: [(Shader, &'static str); 25] = [
+    const SHADERS: [(Shader, &'static str); 34] = [
         (Shader::Basic, "fs_basic"),
         (Shader::FlatLight, "fs_flat_light"),
         (Shader::OverseerZip, "fs_overseer_zip"),
@@ -94,6 +113,18 @@ impl SpritePipeline {
         (Shader::CustomDepth, "fs_custom_depth"),
         (Shader::Decal, "fs_decal"),
         (Shader::Rainbow, "fs_rainbow"),
+        (Shader::Background, "fs_background"),
+        (Shader::Cloud, "fs_cloud"),
+        (Shader::CloudDistant, "fs_cloud_distant"),
+        (Shader::DistantBkgObject, "fs_distant_bkg_object"),
+        (
+            Shader::DistantBkgObjectRepeatHorizontal,
+            "fs_distant_bkg_object_repeat",
+        ),
+        (Shader::BkgFloor, "fs_bkg_floor"),
+        (Shader::House, "fs_house"),
+        (Shader::Dust, "fs_dust"),
+        (Shader::Spores, "fs_spores"),
         (Shader::WaterFall, "fs_water_fall"),
     ];
 
@@ -153,6 +184,17 @@ impl SpritePipeline {
                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                     count: None,
                 },
+                // The scene shaders' `_CloudsTex`, its sampler, `_ApartmentsTex` and
+                // `_CityPalette`.
+                Self::texture_entry(2, true),
+                wgpu::BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+                Self::texture_entry(4, false),
+                Self::texture_entry(5, false),
             ],
         });
         let screen_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -185,6 +227,7 @@ impl SpritePipeline {
                 include_str!("../shaders/full_screen.wgsl"),
                 include_str!("../shaders/death_fall.wgsl"),
                 include_str!("../shaders/placed_visuals.wgsl"),
+                include_str!("../shaders/background_scene.wgsl"),
                 include_str!("../shaders/water_fall.wgsl"),
             ))),
         });
@@ -280,6 +323,21 @@ impl SpritePipeline {
             pages: Vec::new(),
             noise_group: None,
             blank_screen,
+            scene_globals: SceneGlobals::default(),
+            scene_views: SceneViews {
+                clouds: blank.clone(),
+                apartments: blank.clone(),
+                city_palette: blank.clone(),
+            },
+            clouds_sampler: device.create_sampler(&wgpu::SamplerDescriptor {
+                label: Some("clouds texture"),
+                address_mode_u: wgpu::AddressMode::Repeat,
+                address_mode_v: wgpu::AddressMode::Repeat,
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Linear,
+                mipmap_filter: wgpu::MipmapFilterMode::Nearest,
+                ..Default::default()
+            }),
             blank,
             vertices: None,
             indices: None,
@@ -542,6 +600,24 @@ impl SpritePipeline {
                 1.0 / 1400.0,
                 1.0 / 800.0,
             ],
+            scene_atmosphere: [
+                self.scene_globals.atmosphere[0],
+                self.scene_globals.atmosphere[1],
+                self.scene_globals.atmosphere[2],
+                1.0,
+            ],
+            scene_multiply: [
+                self.scene_globals.multiply[0],
+                self.scene_globals.multiply[1],
+                self.scene_globals.multiply[2],
+                1.0,
+            ],
+            scene_world_cam: [
+                self.scene_globals.world_cam_pos[0],
+                self.scene_globals.world_cam_pos[1],
+                0.0,
+                0.0,
+            ],
         };
         queue.write_buffer(&self.uniform, 0, bytemuck::bytes_of(&uniform));
         self.noise_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -556,8 +632,109 @@ impl SpritePipeline {
                     binding: 1,
                     resource: wgpu::BindingResource::Sampler(noise2.1),
                 },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(&self.scene_views.clouds),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::Sampler(&self.clouds_sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: wgpu::BindingResource::TextureView(&self.scene_views.apartments),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 5,
+                    resource: wgpu::BindingResource::TextureView(&self.scene_views.city_palette),
+                },
             ],
         }));
+    }
+
+    /// The scene shaders' globals for the next frames.
+    pub(crate) fn set_scene_globals(&mut self, globals: SceneGlobals) {
+        self.scene_globals = globals;
+    }
+
+    /// Uploads the scene shaders' textures (RGBA8 unorm, gamma-space values as stored).
+    pub(crate) fn set_scene_textures(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        textures: &SceneTextures,
+    ) {
+        let mips: Vec<u8> = textures
+            .clouds
+            .iter()
+            .flat_map(PngImage::rgba_bottom_up)
+            .collect();
+        self.clouds_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("clouds texture"),
+            address_mode_u: wgpu::AddressMode::Repeat,
+            address_mode_v: wgpu::AddressMode::Repeat,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
+            anisotropy_clamp: textures.clouds_anisotropy_clamp(),
+            ..Default::default()
+        });
+        let first = &textures.clouds[0];
+        let clouds = device
+            .create_texture_with_data(
+                queue,
+                &wgpu::TextureDescriptor {
+                    label: Some("_CloudsTex"),
+                    size: wgpu::Extent3d {
+                        width: first.width() as u32,
+                        height: first.height() as u32,
+                        depth_or_array_layers: 1,
+                    },
+                    mip_level_count: textures.clouds.len() as u32,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: wgpu::TextureFormat::Rgba8Unorm,
+                    usage: wgpu::TextureUsages::TEXTURE_BINDING,
+                    view_formats: &[],
+                },
+                wgpu::util::TextureDataOrder::LayerMajor,
+                &mips,
+            )
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        self.scene_views = SceneViews {
+            clouds,
+            apartments: Self::scene_view(device, queue, "_ApartmentsTex", &textures.apartments),
+            city_palette: Self::scene_view(device, queue, "_CityPalette", &textures.city_palette),
+        };
+    }
+
+    fn scene_view(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        label: &str,
+        image: &PngImage,
+    ) -> wgpu::TextureView {
+        device
+            .create_texture_with_data(
+                queue,
+                &wgpu::TextureDescriptor {
+                    label: Some(label),
+                    size: wgpu::Extent3d {
+                        width: image.width() as u32,
+                        height: image.height() as u32,
+                        depth_or_array_layers: 1,
+                    },
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: wgpu::TextureFormat::Rgba8Unorm,
+                    usage: wgpu::TextureUsages::TEXTURE_BINDING,
+                    view_formats: &[],
+                },
+                wgpu::util::TextureDataOrder::LayerMajor,
+                &image.rgba_bottom_up(),
+            )
+            .create_view(&wgpu::TextureViewDescriptor::default())
     }
 
     /// Writes the frame's sprites.

@@ -43,7 +43,7 @@ not behaviour. Game assets are never committed.
 | `unity/mod.rs` | Unity reader overview | |
 | `unity/serialized.rs` | serialized file header, `ObjectInfo` table, externals | |
 | `unity/bundle.rs` | UnityFS bundles (`AssetBundles/*`) | |
-| `unity/resources.rs` | `UnityResources`: `open`, `find`, `load`, `text`, `texture_image`, `audio_data` | `Resources.Load` |
+| `unity/resources.rs` | `UnityResources`: `open`, `find`, `load`, `text`, `texture_image`, `texture_mips` (every mip level), `audio_data` | `Resources.Load` |
 | `unity/objects.rs` | the object classes read (`StreamedResource`, clips, textures, text assets) | |
 | `unity/bcn.rs` | DXT1 / DXT5 decoding | |
 | `unity/fsb5.rs` | FMOD FSB5 banks (PCM / headerless Vorbis) | |

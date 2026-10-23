@@ -1,5 +1,6 @@
 //! The game's side of the depth-faded particles: `Room.Loaded` adding the
-//! `SkyDandelions` and `GreenSparks` objects (with the dandelions the spawner makes in
+//! `SkyDandelions` and `GreenSparks` objects (and, in the same effect loop, the
+//! `AboveCloudsView` and `RoofTopView` scenes of [`super::background_scene`]) (with the dandelions the spawner makes in
 //! its constructor), `Room.NowViewed` seeding sparks, specks and spores when camera 0
 //! comes to the room, each particle's turn in its room's update list, a spark's
 //! `LightSource`, and what the dandelion stalks read of the room's bodies. Types:
@@ -90,6 +91,8 @@ impl RainWorldGame {
             match kind {
                 RoomEffectType::SkyDandelions => self.add_sky_dandelions(index, amount),
                 RoomEffectType::GreenSparks => self.add_green_sparks(index, amount),
+                RoomEffectType::AboveCloudsView => self.add_above_clouds_view(index, amount),
+                RoomEffectType::RoofTopView => self.add_roof_top_view(index),
                 _ => {}
             }
         }

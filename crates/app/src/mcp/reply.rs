@@ -6,6 +6,7 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 
+pub use super::background_scene_reply::{BackgroundSceneState, CameraOnScene};
 pub use super::fixtures_reply::{LightFixtureState, WaterFallState};
 pub use super::insect_reply::RoomInsects;
 pub use super::music_reply::{MusicState, TriggerState};
@@ -107,6 +108,9 @@ pub struct State {
     /// The realized rooms' cosmetic insects (rooms without a coordinator left out).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub insects: Vec<RoomInsects>,
+    /// The realized rooms' `AboveCloudsView`s and `RoofTopView`s.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub background_scene: Vec<BackgroundSceneState>,
     /// The realized rooms' `CosmeticSlimeMold`s.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub slime_molds: Vec<SlimeMoldState>,

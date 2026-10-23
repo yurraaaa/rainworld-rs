@@ -99,6 +99,12 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `zero_g_speck.rs` | `ZeroGSpeck` (`BlinkSpeck`, `CorruptionSpore`) on the `GenericZeroGSpeck` base; reads `Room.gravity` | `GenericZeroGSpeck.cs`, `BlinkSpeck.cs`, `CorruptionSpore.cs` |
 | `room_particles.rs` | `RoomParticles`: a realized room's dandelions, stalks, sparks, specks and their spawners | `Room.updateList` |
 | `cosmetic.rs` | `Spark`, `ExplosionSpikes`, `OverseerEffectSprite` sprites, `Bubble`s and `Splash`es (`CosmeticKind`) in update lists | `CosmeticSprite`s |
+| `background_scene.rs`, `background_scene_tests.rs` | `BackgroundScene`: a room's scene object and its elements (`ElementKind`: skies, fog, distant buildings, clouds, a roof's floor, buildings, rubble and smoke), `DrawPos`, `PosFromDrawPosAtNeutralCamPos`, the add order | `BackgroundScene`, `BackgroundSceneElement` and the element classes' fields |
+| `above_clouds_view.rs` | `AboveCloudsView`'s constructor: the 50 (Underhang) or 30 and 38 (Sky Islands) elements, altitudes, the clouds' draws under `InitState(12)` | `AboveCloudsView` |
+| `roof_top_view.rs` | `RoofTopView`'s constructor: sky, floor, 16 rubble strips, city, 4 smoke layers (4 shared draws) | `RoofTopView` |
+| `distant_lightning.rs` | `DistantLightning`: the bolt's timers (up to 3 shared draws a tick) and its brightness draw (cosmetic stream) | `AboveCloudsView.DistantLightning` |
+| `dust_puff.rs` | `DustpuffSpawner` (the player's chunks landing or running) and `DustPuff` | `RoofTopView.DustpuffSpawner`, `DustPuff` |
+| `game_background_scene.rs`, `game_background_scene_tests.rs` | scenes in the game: `Room.Loaded` making them, the first turn adding the elements far to near, the lightning's turns, the spawner's and puffs' turns | `Room.Loaded` (`AboveCloudsView`, `RoofTopView`), `BackgroundScene.Update` |
 
 ## `player/` (slugcat; `Player.cs` split by topic)
 
@@ -230,6 +236,7 @@ sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `m
 | Dev spawns / teleport | `game_dev.rs`, `spawn.rs` |
 | Custom decals, rainbows | `decal.rs`, `rainbow.rs`, `game_decals.rs`; sprites in `rw-graphics`, shaders in `rw-render` |
 | Cosmetic slime molds, dead token stalks | `slime_mold.rs`, `token_stalk.rs`, `game_placed_cosmetics.rs`; sprites in `rw-graphics` |
+| Background scenes (`AboveCloudsView`, `RoofTopView`), distant lightning, dust puffs | `background_scene.rs`, `above_clouds_view.rs`, `roof_top_view.rs`, `distant_lightning.rs`, `dust_puff.rs`, `game_background_scene.rs`; sprites in `rw-graphics` `background_scene.rs`, shaders in `rw-render` `background_scene.wgsl` |
 
 ## Cross-links
 

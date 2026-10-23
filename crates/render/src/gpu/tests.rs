@@ -15,7 +15,7 @@ const JSON: &str = r#"{"frames": {
 
 const SIZE: (u32, u32) = (64, 64);
 
-fn renderer() -> Option<WgpuRenderer> {
+pub(super) fn renderer() -> Option<WgpuRenderer> {
     let mut r = match WgpuRenderer::headless(SIZE) {
         Ok(r) => r,
         Err(e) => {
@@ -33,7 +33,7 @@ fn renderer() -> Option<WgpuRenderer> {
     Some(r)
 }
 
-fn pixel(image: &FrameImage, x: u32, y: u32) -> [u8; 3] {
+pub(super) fn pixel(image: &FrameImage, x: u32, y: u32) -> [u8; 3] {
     let i = ((y * image.width() + x) * 4) as usize;
     let p = &image.rgba()[i..i + 3];
     [p[0], p[1], p[2]]
@@ -504,7 +504,12 @@ fn palette_rewrite_refreshes_the_fog_amount() {
 
 /// A `Futile_White` quad over frame pixels `x0..x1`, `y0..y1` (y down) of the 64x64
 /// frame.
-fn frame_quad(rect: [f32; 4], shader: Shader, color: SpriteColor, layer: Layer) -> DrawItem {
+pub(super) fn frame_quad(
+    rect: [f32; 4],
+    shader: Shader,
+    color: SpriteColor,
+    layer: Layer,
+) -> DrawItem {
     let [x0, y0, x1, y1] = rect;
     DrawItem::Sprite(Sprite {
         index: 0,

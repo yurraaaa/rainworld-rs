@@ -6,7 +6,7 @@
 
 use std::path::{Path, PathBuf};
 
-use rw_assets::unity::{AssetBundle, AudioClip, Texture2D, UnityObject};
+use rw_assets::unity::{AnisotropicFiltering, AssetBundle, AudioClip, Texture2D, UnityObject};
 use rw_assets::{NoiseTexture, PngImage, UnityResources};
 
 const DEFAULT_RW_DIR: &str = "/home/yura/.local/share/Steam/steamapps/common/Rain World";
@@ -116,6 +116,23 @@ impl Fsb5<'_> {
         let total = 60 + self.u32(12) + self.u32(16) + self.u32(20);
         assert_eq!(total, self.0.len() as u64, "{what}: FSB5 sizes");
     }
+}
+
+#[test]
+fn clouds_texture_import_settings_and_the_games_quality_setting() {
+    let Some(game) = Installed::open() else {
+        return;
+    };
+    let texture: Texture2D = game.resources.load("Illustrations/cloudsTexture").unwrap();
+    assert_eq!(
+        (texture.width, texture.height, texture.mip_count),
+        (512, 256, 10)
+    );
+    assert_eq!(texture.filter_mode, 1, "bilinear");
+    assert_eq!(texture.aniso, 1);
+    assert_eq!(texture.mip_bias, 0.0);
+    assert_eq!(texture.wrap, [0; 3], "repeat");
+    assert_eq!(texture.effective_aniso(AnisotropicFiltering::GAME), 1);
 }
 
 #[test]

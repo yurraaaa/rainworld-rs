@@ -27,6 +27,7 @@ Gameplay logic belongs in `rw-sim`, not here.
 | `sprites.rs` | atlas loading (`rainWorld`, `uiSprites`), overseer projection textures, the rainbow gradient, `LightMask0` |
 | `shortcuts.rs` | camera-0 `ShortcutGraphics` fed from the game |
 | `jaws.rs`, `jaws_tests.rs` | `Jaws`: held objects' sprites nested into their holders' jaw containers (a held lizard's holds inside it; hold cycles D20) |
+| `game_background_scene.rs` | the camera room's background scenes on screen: each element's sprites (`BackgroundSceneSprites`), the images they need, the scene globals, the dust puffs |
 | `sprite_order.rs`, `sprite_order_tests.rs` | `SpriteOrder`: camera 0's sprite leasers in container order as the game adds and re-adds them (new room, `AddObject`, releases, `ChangeOverlap`, jaw containers, the full-screen effect raised by `ApplyPalette`, the death fall first; D21) |
 | `hud_map.rs` | `MapData`/map owner the HUD map reads |
 | `game_music.rs` | game side of `MusicPlayer`: HUD state, song requests, threat tracker inputs |
@@ -39,6 +40,7 @@ Gameplay logic belongs in `rw-sim`, not here.
 | `mcp/session.rs` | `Session`: all tool logic as methods; `state()` builds `get_state` |
 | `mcp/params.rs`, `mcp/reply.rs` | tool parameter structs (schema docs) and JSON reply types |
 | `mcp/dev_tools.rs` | dev spawns, `screenshot`/`get_tiles` of another realized room |
+| `mcp/background_scene_reply.rs` | `get_state` `background_scene`: per realized room's scene, its kind, elements, the camera's place on it (`camera_world`, `altitude`), each `DistantLightning`'s state, the dust puffs |
 | `mcp/insect_reply.rs` | `get_state` `insects`: per-room cosmetic insects |
 | `mcp/particles_reply.rs` | `get_state` `particles`: per realized room, counts of dandelions, stalks, sparks, specks and spores and the spawners' state |
 | `mcp/placed_visuals_reply.rs` | `get_state` `decals`, `rainbows`: the realized rooms' custom decals and rainbows |

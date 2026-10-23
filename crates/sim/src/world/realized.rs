@@ -86,6 +86,12 @@ pub struct RealizedRoom {
     pub dripping_sound: Option<crate::DrippingSound>,
     /// The water's calm surface loop, made with the water.
     pub water_sound: Option<crate::WaterSound>,
+    /// `Room.Loaded`'s `AboveCloudsView`s and `RoofTopView`s.
+    pub background_scenes: Vec<crate::BackgroundScene>,
+    /// The `DustpuffSpawner`s (a `RoofTopView`'s constructor makes one) and their
+    /// `DustPuff`s in the room's update list.
+    pub dust_spawners: Vec<crate::DustpuffSpawner>,
+    pub dust_puffs: Vec<crate::DustPuff>,
     /// `lightning`, made by `Room.Loaded` for a `Lightning` or `BkgOnlyLightning` effect.
     pub lightning: Option<crate::Lightning>,
     /// `backgroundNoise`: what this tick's `MakeBackgroundNoise` calls raised it to.
@@ -149,6 +155,9 @@ impl RealizedRoom {
             decals: Vec::new(),
             rainbows: Vec::new(),
             insects,
+            background_scenes: Vec::new(),
+            dust_spawners: Vec::new(),
+            dust_puffs: Vec::new(),
             ceiling_tiles,
             dripping_sound: None,
             water_sound: None,

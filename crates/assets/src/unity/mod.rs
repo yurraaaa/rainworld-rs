@@ -15,6 +15,9 @@ mod serialized;
 
 pub use bundle::{AssetBundle, BundleNode};
 pub use fsb5::{Fsb5, Fsb5Mode, Fsb5Stream, PcmAudio, VorbisSetups};
-pub use objects::{AudioClip, ImageData, StreamedResource, TextAsset, Texture2D, TextureFormat};
+pub use objects::{
+    AnisotropicFiltering, AudioClip, ImageData, StreamedResource, TextAsset, Texture2D,
+    TextureFormat,
+};
 pub use resources::UnityResources;
 pub use serialized::{ObjectInfo, SerializedFile, UnityObject};

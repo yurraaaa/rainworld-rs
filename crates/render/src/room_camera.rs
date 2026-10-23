@@ -88,7 +88,7 @@ impl RoomCamera {
     }
 
     /// `hDisplace`: centres the window horizontally in the 1400 px image, minus 8.
-    fn h_displace(&self) -> f32 {
+    pub fn h_displace(&self) -> f32 {
         (Self::IMAGE_SIZE[0] - self.screen.x) / 2.0 - 8.0
     }
 

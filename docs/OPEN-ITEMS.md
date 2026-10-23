@@ -31,8 +31,7 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `GlobalRain.ShaderLight` after the cycle ends (the port keeps its initial -1; goes
   with the rain), `BrokenZeroG`'s `DarkPalette` (`1 - CurrentLightsOn`, with zero
   gravity), ghost
-  mode's `_light`/`_cloudsSpeed`/palette grey-out (with echoes), the sky scenes behind
-  rimFix rooms.
+  mode's `_light`/`_cloudsSpeed`/palette grey-out (with echoes).
   Effects step 2 (full-screen effects, post-level grab, wet terrain, the Ant's
   `SpecificDepth`) and the `DeathFallGraphic` sprite done; left for later steps: `VoidMelt`'s `LevelMelt2` and
   the echo branch of `ApplyPalette` (no effect selected meanwhile), full-screen effects
@@ -165,6 +164,9 @@ plan is in `../rainworld-re/surveys/lizards.md`.
     sessions (D26).
   - SkyDandelions: `globalRain.Intensity` in `SpawnChance`, with the rain; dandelion
     stalks reaching the chunks of every physical object, as those objects are ported.
+  - Background scenes' `DayNight` blocks (sky alphas, `atmosphereColor`,
+    `_MultiplyColor`, the spire lights; needs the rain cycle's `dayNightCounter`; no
+    base room has `DayNight`): with the DLCs that use `DayNight` (D32).
   - ZeroGSpecks, CorruptionSpores: zero gravity (`AntiGravity`, the `ZeroG` and
     `BrokenZeroG` effects), which makes them visible and stops the pile-up of `reset`
     specks (D29).

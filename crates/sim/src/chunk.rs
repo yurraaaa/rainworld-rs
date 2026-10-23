@@ -404,6 +404,13 @@ impl BodyChunk {
         }
     }
 
+    /// A chunk's contacts as a test needs them.
+    #[cfg(test)]
+    pub(crate) fn set_contacts(&mut self, contact: Contact, last_contact: Contact) {
+        self.contact = contact;
+        self.last_contact = last_contact;
+    }
+
     /// Clears the contact of a chunk that does not collide with terrain.
     pub(crate) fn clear_contact(&mut self) {
         self.contact = Contact::default();

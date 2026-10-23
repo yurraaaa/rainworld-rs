@@ -10,22 +10,11 @@
 use rw_assets::Room;
 use rw_random::UnityRandom;
 
-use crate::float_ext::SCurve;
+use crate::float_ext::{MathfSin, SCurve};
 use crate::shared_physics::{ExactRayTrace, TerrainCollisionData};
 use crate::{FloatExt, Vec2};
 
 const COORD_SEG: f32 = 3.0;
-
-/// `Mathf.Sin`: `(float)Math.Sin` of the double.
-trait MathfSin {
-    fn mathf_sin(self) -> f32;
-}
-
-impl MathfSin for f32 {
-    fn mathf_sin(self) -> f32 {
-        f64::from(self).sin() as f32
-    }
-}
 
 /// One rope segment (`coord[i, 0..3]`).
 #[derive(Debug, Clone, Copy, PartialEq)]

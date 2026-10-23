@@ -70,12 +70,41 @@ pub struct Texture2D {
     pub mip_count: u32,
     /// 0 point, 1 bilinear, 2 trilinear.
     pub filter_mode: i32,
+    /// `m_TextureSettings.m_Aniso`: the texture's own anisotropic level.
+    pub aniso: i32,
+    /// `m_TextureSettings.m_MipBias`.
+    pub mip_bias: f32,
     /// U, V, W; 0 repeat, 1 clamp.
     pub wrap: [i32; 3],
     pub image: ImageData,
 }
 
+/// `QualitySettings.anisotropicFiltering` (`ForceEnable` is not modelled: the game never
+/// uses it).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AnisotropicFiltering {
+    Disable,
+    /// Each texture's own `m_Aniso` applies.
+    Enable,
+}
+
+impl AnisotropicFiltering {
+    /// The game's setting: its one quality level, "Sweet", has `anisotropicTextures` 0
+    /// in `globalgamemanagers`, and no code changes it.
+    pub const GAME: Self = Self::Disable;
+}
+
 impl Texture2D {
+    /// The anisotropy level Unity samples the texture with under `mode`.
+    #[must_use]
+    pub fn effective_aniso(&self, mode: AnisotropicFiltering) -> u16 {
+        let own = u16::try_from(self.aniso.clamp(1, 16)).unwrap_or(1);
+        match mode {
+            AnisotropicFiltering::Disable => 1,
+            AnisotropicFiltering::Enable => own,
+        }
+    }
+
     /// Decodes mip 0 of `data` (all of the texture's image bytes, mip 0 first) to RGBA8.
     ///
     /// # Errors
@@ -124,6 +153,36 @@ impl Texture2D {
         Ok(PngImage::from_pixels(w, h, top_first))
     }
 
+    /// Decodes every mip level of `data` (mip 0 first, each level half the size, to one
+    /// texel) to RGBA8; the levels a texture holds only (`mip_count`).
+    ///
+    /// # Errors
+    /// For an unsupported format or too little data.
+    pub fn decode_mips(&self, data: &[u8]) -> Result<Vec<PngImage>, String> {
+        let mut levels = Vec::new();
+        let mut offset = 0;
+        for level in 0..self.mip_count.max(1) {
+            let (w, h) = ((self.width >> level).max(1), (self.height >> level).max(1));
+            let size = self.format.image_size(w, h).ok_or_else(|| {
+                format!(
+                    "texture {}: unsupported format {:?}",
+                    self.name, self.format
+                )
+            })?;
+            let part = Self {
+                width: w,
+                height: h,
+                mip_count: 1,
+                image: ImageData::Inline(Vec::new()),
+                ..self.clone()
+            };
+            let bytes = data.get(offset..).unwrap_or(&[]);
+            levels.push(part.decode(bytes)?);
+            offset += size;
+        }
+        Ok(levels)
+    }
+
     /// Writes the 4x4 texels of block `index` (blocks in row order), clipped to the image.
     fn put_block(&self, pixels: &mut [[u8; 4]], index: usize, texels: &[[u8; 4]; 16]) {
         let per_row = self.width.div_ceil(4);
@@ -156,8 +215,8 @@ impl UnityObject for Texture2D {
         let _image_count = r.i32()?;
         let _dimension = r.i32()?;
         let filter_mode = r.i32()?;
-        let _aniso = r.i32()?;
-        let _mip_bias = r.f32()?;
+        let aniso = r.i32()?;
+        let mip_bias = r.f32()?;
         let wrap = [r.i32()?, r.i32()?, r.i32()?];
         let _lightmap_format = r.i32()?;
         let _color_space = r.i32()?;
@@ -183,6 +242,8 @@ impl UnityObject for Texture2D {
             format,
             mip_count,
             filter_mode,
+            aniso,
+            mip_bias,
             wrap,
             image,
         })
@@ -281,6 +342,8 @@ mod tests {
             format: TextureFormat::Rgb24,
             mip_count: 1,
             filter_mode: 0,
+            aniso: 1,
+            mip_bias: 0.0,
             wrap: [0; 3],
             image: ImageData::Inline(Vec::new()),
         };
@@ -301,6 +364,8 @@ mod tests {
             format: TextureFormat::Dxt1,
             mip_count: 1,
             filter_mode: 0,
+            aniso: 1,
+            mip_bias: 0.0,
             wrap: [0; 3],
             image: ImageData::Inline(Vec::new()),
         };
@@ -309,5 +374,50 @@ mod tests {
         let image = texture.decode(&data).unwrap();
         assert_eq!(image.unity_pixel(3, 3), [255, 0, 0, 255]);
         assert_eq!(image.unity_pixel(4, 0), [0, 0, 255, 255]);
+    }
+
+    #[test]
+    fn decodes_every_mip_level_after_the_first() {
+        let texture = Texture2D {
+            name: "t".into(),
+            width: 4,
+            height: 2,
+            format: TextureFormat::Rgba32,
+            mip_count: 3,
+            filter_mode: 1,
+            aniso: 1,
+            mip_bias: 0.0,
+            wrap: [0; 3],
+            image: ImageData::Inline(Vec::new()),
+        };
+        // 4x2 (32 bytes), 2x1 (8), 1x1 (4), each pixel's four bytes the level's number.
+        let mut data = vec![10; 32];
+        data.extend([11; 8]);
+        data.extend([12; 4]);
+        let levels = texture.decode_mips(&data).unwrap();
+        let sizes: Vec<(usize, usize)> = levels.iter().map(|l| (l.width(), l.height())).collect();
+        assert_eq!(sizes, [(4, 2), (2, 1), (1, 1)]);
+        assert_eq!(levels[1].unity_pixel(1, 0), [11; 4]);
+        assert_eq!(levels[2].unity_pixel(0, 0), [12; 4]);
+        assert!(texture.decode_mips(&data[..43]).is_err());
+    }
+
+    #[test]
+    fn a_textures_own_aniso_applies_only_when_filtering_is_enabled() {
+        let texture = Texture2D {
+            name: "t".into(),
+            width: 1,
+            height: 1,
+            format: TextureFormat::Rgba32,
+            mip_count: 1,
+            filter_mode: 1,
+            aniso: 4,
+            mip_bias: 0.0,
+            wrap: [0; 3],
+            image: ImageData::Inline(Vec::new()),
+        };
+        assert_eq!(texture.effective_aniso(AnisotropicFiltering::Enable), 4);
+        assert_eq!(texture.effective_aniso(AnisotropicFiltering::Disable), 1);
+        assert_eq!(texture.effective_aniso(AnisotropicFiltering::GAME), 1);
     }
 }
