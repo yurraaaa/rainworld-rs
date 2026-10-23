@@ -9,16 +9,16 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 
 | Crate | mirrors | port-only | fallback | unmapped |
 |---|---|---|---|---|
-| app | 17 | 31 | 0 | 0 |
+| app | 17 | 32 | 0 | 0 |
 | assets | 25 | 13 | 0 | 0 |
 | audio | 11 | 5 | 0 | 0 |
-| graphics | 48 | 4 | 0 | 0 |
+| graphics | 49 | 4 | 0 | 0 |
 | hud | 24 | 0 | 0 | 0 |
 | menu | 27 | 2 | 0 | 0 |
 | random | 0 | 1 | 0 | 0 |
-| render | 7 | 18 | 0 | 0 |
+| render | 7 | 19 | 0 | 0 |
 | save | 15 | 5 | 0 | 0 |
-| sim | 231 | 5 | 0 | 0 |
+| sim | 234 | 5 | 0 | 0 |
 
 ## Rust file to C# files
 
@@ -59,6 +59,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/app/src/mcp/session.rs` | port-only | - |
 | `crates/app/src/mcp/shortcut_shots.rs` | port-only | - |
 | `crates/app/src/mcp/ss_electric_reply.rs` | port-only | - |
+| `crates/app/src/mcp/ss_grab_reply.rs` | port-only | - |
 | `crates/app/src/mcp/tiles.rs` | port-only | - |
 | `crates/app/src/mcp/window.rs` | port-only | - |
 | `crates/app/src/room_catalog.rs` | port-only | - |
@@ -170,6 +171,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/graphics/src/slime_mold.rs` | mirrors | SlimeMold.cs |
 | `crates/graphics/src/spot_light.rs` | mirrors | SpotLight.cs |
 | `crates/graphics/src/ss_electric.rs` | mirrors | SSLightRod.cs, SuperStructureFuses.cs, ZapCoil.cs |
+| `crates/graphics/src/ss_grab.rs` | mirrors | DeepProcessing.cs, GravityDisruptor.cs |
 | `crates/graphics/src/star_matrix_draw.rs` | mirrors | StarMatrix.cs |
 | `crates/graphics/src/sun_blocker.rs` | mirrors | SunBlocker.cs |
 | `crates/graphics/src/tail.rs` | mirrors | TailSegment.cs |
@@ -238,6 +240,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/render/src/error.rs` | port-only | - |
 | `crates/render/src/frame_image.rs` | port-only | - |
 | `crates/render/src/gpu.rs` | port-only | - |
+| `crates/render/src/gpu/test_support.rs` | port-only | - |
 | `crates/render/src/level.rs` | mirrors | Room.cs, RoomCamera.cs |
 | `crates/render/src/level_gpu.rs` | port-only | - |
 | `crates/render/src/lib.rs` | port-only | - |
@@ -347,6 +350,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/sim/src/creature/violence.rs` | mirrors | Creature.cs, LizardBreeds.cs, StaticWorld.cs |
 | `crates/sim/src/creature/vision.rs` | mirrors | ArtificialIntelligence.cs, BodyChunk.cs, LizardAI.cs, Player.cs |
 | `crates/sim/src/decal.rs` | mirrors | CustomDecal.cs, Room.cs |
+| `crates/sim/src/deep_processing.rs` | mirrors | DeepProcessing.cs, DeepProcessingLight.cs |
 | `crates/sim/src/distant_lightning.rs` | mirrors | AboveCloudsView.cs |
 | `crates/sim/src/dripping_sound.rs` | mirrors | DisembodiedDynamicSoundLoop.cs, DisembodiedLoopEmitter.cs, DrippingSound.cs |
 | `crates/sim/src/dust_puff.rs` | mirrors | CosmeticSprite.cs, RoofTopView.cs |
@@ -395,11 +399,13 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/sim/src/game_social_events.rs` | mirrors | Player.cs, SocialEventRecognizer.cs |
 | `crates/sim/src/game_spear_on_back.rs` | mirrors | Player.cs |
 | `crates/sim/src/game_ss_electric.rs` | mirrors | Room.cs, SuperStructureFuses.cs, ZapCoil.cs, ZapCoilLight.cs |
+| `crates/sim/src/game_ss_grab.rs` | mirrors | DeepProcessingLight.cs, GravityDisruptor.cs, Room.cs |
 | `crates/sim/src/game_tracker.rs` | mirrors | ArtificialIntelligence.cs, RelationshipTracker.cs, Tracker.cs |
 | `crates/sim/src/game_triggers.rs` | mirrors | ActiveTriggerChecker.cs, CoralBrain/SSMusicTrigger.cs, RainCycle.cs, Room.cs |
 | `crates/sim/src/game_water_sound.rs` | mirrors | Room.cs |
 | `crates/sim/src/game_waterfalls.rs` | mirrors | WaterFall.cs |
 | `crates/sim/src/game_weapons.rs` | mirrors | Rock.cs, Room.cs, Spear.cs, Weapon.cs |
+| `crates/sim/src/gravity_disruptor.rs` | mirrors | GravityDisruptor.cs |
 | `crates/sim/src/green_sparks.rs` | mirrors | GreenSparks.cs, Room.cs |
 | `crates/sim/src/insect/ant.rs` | mirrors | Ant.cs |
 | `crates/sim/src/insect/avoider.rs` | mirrors | CosmeticInsect.cs |
@@ -566,6 +572,8 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `CustomFSprite.cs` | `crates/graphics/src/rainbow.rs` |
 | `DeathFallGraphic.cs` | `crates/app/src/death_fall.rs` |
 | `DeathPersistentSaveData.cs` | `crates/save/src/death_persistent.rs`, `crates/save/src/songs.rs` |
+| `DeepProcessing.cs` | `crates/graphics/src/ss_grab.rs`, `crates/sim/src/deep_processing.rs` |
+| `DeepProcessingLight.cs` | `crates/sim/src/deep_processing.rs`, `crates/sim/src/game_ss_grab.rs` |
 | `DeerAbstractAI.cs` | `crates/sim/src/creature/ai_kinds.rs`, `crates/sim/src/world/abstract_ai_kinds.rs` |
 | `DenFinder.cs` | `crates/sim/src/creature/den_finder.rs`, `crates/sim/src/world/ai_modules.rs` |
 | `DirectionalSound.cs` | `crates/assets/src/ambient.rs` |
@@ -601,6 +609,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `GenericZeroGSpeck.cs` | `crates/sim/src/zero_g_speck.rs` |
 | `GraphicsModule.cs` | `crates/app/src/jaws.rs`, `crates/app/src/sprite_order.rs`, `crates/sim/src/creature/lizard/graphics_link.rs` |
 | `GrassHopper.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/insect/grass_hopper.rs` |
+| `GravityDisruptor.cs` | `crates/graphics/src/ss_grab.rs`, `crates/sim/src/game_ss_grab.rs`, `crates/sim/src/gravity_disruptor.rs` |
 | `GreenSparks.cs` | `crates/graphics/src/green_spark.rs`, `crates/sim/src/game_particles.rs`, `crates/sim/src/green_sparks.rs` |
 | `HSLColor.cs` | `crates/menu/src/color.rs` |
 | `HUD/FadeCircle.cs` | `crates/hud/src/circle.rs` |
@@ -738,7 +747,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `Rock.cs` | `crates/graphics/src/weapon_graphics.rs`, `crates/sim/src/game_lizard_hits.rs`, `crates/sim/src/game_weapons.rs`, `crates/sim/src/item/weapon.rs` |
 | `RockFlea.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/insect/rock_flea.rs` |
 | `RoofTopView.cs` | `crates/app/src/game_background_scene.rs`, `crates/graphics/src/background_scene.rs`, `crates/graphics/src/dust_puff.rs`, `crates/sim/src/background_scene.rs`, `crates/sim/src/dust_puff.rs`, `crates/sim/src/roof_top_view.rs` |
-| `Room.cs` | `crates/app/src/death_fall.rs`, `crates/app/src/sprite_order.rs`, `crates/assets/src/room.rs`, `crates/render/src/level.rs`, `crates/sim/src/camera.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/decal.rs`, `crates/sim/src/game_anti_gravity.rs`, `crates/sim/src/game_background_scene.rs`, `crates/sim/src/game_border_push_back.rs`, `crates/sim/src/game_decals.rs`, `crates/sim/src/game_drips.rs`, `crates/sim/src/game_electric_death.rs`, `crates/sim/src/game_flies.rs`, `crates/sim/src/game_insects.rs`, `crates/sim/src/game_instructions.rs`, `crates/sim/src/game_light_beams.rs`, `crates/sim/src/game_light_fixtures.rs`, `crates/sim/src/game_lightning.rs`, `crates/sim/src/game_lights.rs`, `crates/sim/src/game_noise.rs`, `crates/sim/src/game_particles.rs`, `crates/sim/src/game_placed_cosmetics.rs`, `crates/sim/src/game_projections.rs`, `crates/sim/src/game_shelter.rs`, `crates/sim/src/game_ss_electric.rs`, `crates/sim/src/game_triggers.rs`, `crates/sim/src/game_water_sound.rs`, `crates/sim/src/game_weapons.rs`, `crates/sim/src/green_sparks.rs`, `crates/sim/src/insect/coordinator.rs`, `crates/sim/src/light_beam.rs`, `crates/sim/src/noise.rs`, `crates/sim/src/rainbow.rs`, `crates/sim/src/room_fixtures.rs`, `crates/sim/src/room_particles.rs`, `crates/sim/src/room_projections.rs`, `crates/sim/src/room_script.rs`, `crates/sim/src/screen_shake.rs`, `crates/sim/src/shortcut.rs`, `crates/sim/src/slime_mold.rs`, `crates/sim/src/sound.rs`, `crates/sim/src/spawn.rs`, `crates/sim/src/token_stalk.rs`, `crates/sim/src/water.rs`, `crates/sim/src/water_drip.rs`, `crates/sim/src/waterfall.rs`, `crates/sim/src/world/hearing.rs`, `crates/sim/src/world/objects.rs`, `crates/sim/src/world/quantified.rs`, `crates/sim/src/world/realized.rs`, `crates/sim/src/world/room_water.rs`, `crates/sim/src/world/weapons.rs`, `crates/sim/src/zero_g_speck.rs` |
+| `Room.cs` | `crates/app/src/death_fall.rs`, `crates/app/src/sprite_order.rs`, `crates/assets/src/room.rs`, `crates/render/src/level.rs`, `crates/sim/src/camera.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/decal.rs`, `crates/sim/src/game_anti_gravity.rs`, `crates/sim/src/game_background_scene.rs`, `crates/sim/src/game_border_push_back.rs`, `crates/sim/src/game_decals.rs`, `crates/sim/src/game_drips.rs`, `crates/sim/src/game_electric_death.rs`, `crates/sim/src/game_flies.rs`, `crates/sim/src/game_insects.rs`, `crates/sim/src/game_instructions.rs`, `crates/sim/src/game_light_beams.rs`, `crates/sim/src/game_light_fixtures.rs`, `crates/sim/src/game_lightning.rs`, `crates/sim/src/game_lights.rs`, `crates/sim/src/game_noise.rs`, `crates/sim/src/game_particles.rs`, `crates/sim/src/game_placed_cosmetics.rs`, `crates/sim/src/game_projections.rs`, `crates/sim/src/game_shelter.rs`, `crates/sim/src/game_ss_electric.rs`, `crates/sim/src/game_ss_grab.rs`, `crates/sim/src/game_triggers.rs`, `crates/sim/src/game_water_sound.rs`, `crates/sim/src/game_weapons.rs`, `crates/sim/src/green_sparks.rs`, `crates/sim/src/insect/coordinator.rs`, `crates/sim/src/light_beam.rs`, `crates/sim/src/noise.rs`, `crates/sim/src/rainbow.rs`, `crates/sim/src/room_fixtures.rs`, `crates/sim/src/room_particles.rs`, `crates/sim/src/room_projections.rs`, `crates/sim/src/room_script.rs`, `crates/sim/src/screen_shake.rs`, `crates/sim/src/shortcut.rs`, `crates/sim/src/slime_mold.rs`, `crates/sim/src/sound.rs`, `crates/sim/src/spawn.rs`, `crates/sim/src/token_stalk.rs`, `crates/sim/src/water.rs`, `crates/sim/src/water_drip.rs`, `crates/sim/src/waterfall.rs`, `crates/sim/src/world/hearing.rs`, `crates/sim/src/world/objects.rs`, `crates/sim/src/world/quantified.rs`, `crates/sim/src/world/realized.rs`, `crates/sim/src/world/room_water.rs`, `crates/sim/src/world/weapons.rs`, `crates/sim/src/zero_g_speck.rs` |
 | `RoomBorderExit.cs` | `crates/assets/src/border_exits.rs` |
 | `RoomBorderPushBack.cs` | `crates/sim/src/border_push_back.rs`, `crates/sim/src/game_border_push_back.rs` |
 | `RoomCamera.cs` | `crates/app/src/full_screen_effect.rs`, `crates/app/src/game.rs`, `crates/app/src/scene.rs`, `crates/app/src/sprite_order.rs`, `crates/app/src/visuals.rs`, `crates/app/src/water_light.rs`, `crates/assets/src/palette.rs`, `crates/render/src/level.rs`, `crates/render/src/room_camera.rs`, `crates/sim/src/camera.rs`, `crates/sim/src/camera_image.rs`, `crates/sim/src/game_flies.rs`, `crates/sim/src/game_insects.rs`, `crates/sim/src/screen_shake.rs` |
