@@ -18,7 +18,7 @@ lists and overlays.
 | `src/level.rs`, `src/level_gpu.rs` | level graphic (`LevelGraphics`, with the room's `RainMask` texture; `LevelParams`: the room's shader globals incl. `_rimFix` and light angle; `LevelView`: window, `_RAIN`, `_light`) and its GPU side (palette rewrites for `ApplyFade`) |
 | `src/background_scene.rs` | `SceneGlobals` (`_AboveCloudsAtmosphereColor`, `_MultiplyColor`, `_WorldCamPos`) and `SceneTextures` (`_CloudsTex` with its mips, `_ApartmentsTex`, `_CityPalette`) the scene shaders read |
 | `src/sprites.rs` | Futile sprites on CPU: atlas coords, `FSprite` quads, `TriangleMesh`es (and `ElementMesh`es over a decal or the rainbow gradient) from `DrawList`s, draw queue |
-| `src/sprite_gpu.rs` | GPU side: one `sprite.wgsl` pipeline per game shader, atlas pages, `_NoiseTex2`, grab textures, the rain mask (`_camInRoomRect`) |
+| `src/sprite_gpu.rs` | GPU side: one `sprite.wgsl` pipeline per game shader, atlas pages (each with its own sampler), `_NoiseTex2`, grab textures, the rain mask (`_camInRoomRect`) |
 | `src/stage.rs`, `src/stage_gpu.rs` | Futile stage quads in screen pixels (menus, HUD) and their GPU side |
 | `src/water.rs`, `src/water_sprites.rs`, `src/water_gpu.rs` | debug flat water; `Water.InitiateSprites/DrawSprites` meshes; `WaterSurface`/`DeepWater` pipelines |
 | `src/present.rs`, `src/present_gpu.rs` | `Resolution`, `PresentRect`, `PresentFilter`: letterboxed window presentation |
@@ -36,6 +36,7 @@ lists and overlays.
 | `shaders/water.wgsl`, `shaders/map.wgsl` | water; region map (`fs_map`, `fs_map_aerial`, `fs_map_shortcut`) |
 | `shaders/debug.wgsl`, `shaders/overlay.wgsl`, `shaders/present.wgsl` | debug shapes, ImGui overlay, window blit |
 | `tests/installed_rooms.rs` | render test on the installed game's rooms |
+| `tests/installed_atlas_sampling.rs` | render test: import settings of `LightMask0` and `rainWorld` from the installed game |
 
 ## Where is X?
 
@@ -48,6 +49,7 @@ lists and overlays.
 - Full-screen effects: an ordinary room sprite (`Futile_White` over the screen with a `Shader::Bloom`/`SkyBloom`/`LightBloom`/`LightAndSkyBloom`/`Fog`), chosen and placed by the app (`full_screen_effect.rs`); shaders in `full_screen.wgsl`; `_waterLevel` is `LevelView::water_level`. The death fall is one too (`Shader::DeathFall` in `Bloom`, placed by `death_fall.rs`; `death_fall.wgsl`).
 - Which camera image shows / scroll: `room_camera.rs`.
 - Background scene sprites (`Layer::Water`): shaders in `background_scene.wgsl`; a scene image is an atlas page of its own (`Renderer::add_atlas_page`), the global textures and values come with `Renderer::set_scene_textures` and `set_scene_globals` (bound with `_NoiseTex2` in group 1, the globals in the room uniform); `_rimFix` is the level shader's (`LevelParams::rim_fix`).
+- Atlas page sampling: `set_atlas` and `add_atlas_page` take each page's `TextureSampling` (`TextureSampling::from_import` from a Texture2D's filter mode and wrap; `POINT_CLAMP` for pages made from files, as `crispPixels`/`clampWrapMode` do). The app passes the import settings for `rainWorld`, `uiSprites` (point, clamp), `LightMask0` and `Rainbow` (bilinear), and point for `shelterGate`, the projections and decals; scene images get the flags of their `LoadGraphic` call (D31). Mips are not uploaded for atlas pages. The scene shaders' `_ApartmentsTex` and `_CityPalette` use a point sampler of their own (binding 6 of group 1).
 - Decal and rainbow textures: extra atlas pages added with `Renderer::add_atlas_page` (the app uploads a decal's PNG when its room is first shown; the gradient is a page loaded at start-up); shaders in `placed_visuals.wgsl`, which read `_light`, `_cloudsSpeed`, `_WetTerrain` and the light angle from `RoomGlobals`.
 - Sprite drawing from a `DrawList`: `sprites.rs`, then `sprite_gpu.rs` + `sprite.wgsl`, pipeline chosen by game shader.
 - Menu/HUD quads: `stage.rs`, `stage_gpu.rs`, `stage.wgsl`.

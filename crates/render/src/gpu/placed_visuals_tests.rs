@@ -131,6 +131,7 @@ fn add_page(r: &mut WgpuRenderer, name: &str, w: u32, h: u32, pixel: [u8; 4]) {
     r.add_atlas_page(
         Atlas::single(name, w, h),
         &PngImage::from_pixels(w as usize, h as usize, vec![pixel; (w * h) as usize]),
+        TextureSampling::POINT_CLAMP,
     );
 }
 
@@ -409,7 +410,11 @@ fn rainbow(before: [f32; 3], dx: f32, dp: f32) -> [f32; 3] {
 #[test]
 fn rainbow_screens_its_ring_by_level_depth() {
     let Some(mut r) = renderer() else { return };
-    r.add_atlas_page(Atlas::single("rainbow", 64, 64), &gradient());
+    r.add_atlas_page(
+        Atlas::single("rainbow", 64, 64),
+        &gradient(),
+        TextureSampling::POINT_CLAMP,
+    );
     let frame = rainbow_frame(1.0);
     let before = frame.draw(&mut r, false);
     let after = frame.draw(&mut r, true);
@@ -442,7 +447,11 @@ fn rainbow_screens_its_ring_by_level_depth() {
 #[test]
 fn rainbow_alpha_blends_it_over_the_frame() {
     let Some(mut r) = renderer() else { return };
-    r.add_atlas_page(Atlas::single("rainbow", 64, 64), &gradient());
+    r.add_atlas_page(
+        Atlas::single("rainbow", 64, 64),
+        &gradient(),
+        TextureSampling::POINT_CLAMP,
+    );
     let full = rainbow_frame(1.0);
     let half = rainbow_frame(0.5);
     let before = full.draw(&mut r, false);

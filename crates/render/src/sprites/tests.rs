@@ -449,3 +449,19 @@ fn room_globals_sprite_rect() {
     assert_eq!(g.screen_size, [1366.0, 768.0]);
     assert_eq!(g.rain, 3.0);
 }
+
+#[test]
+fn import_settings_choose_the_page_sampling() {
+    use crate::{TextureFilter, TextureSampling};
+    let bilinear_repeat = TextureSampling::from_import(1, [0, 0]);
+    assert_eq!(bilinear_repeat.filter, TextureFilter::Bilinear);
+    assert!(!bilinear_repeat.clamp);
+    assert_eq!(
+        TextureSampling::from_import(0, [1, 1]),
+        TextureSampling::POINT_CLAMP
+    );
+    assert_eq!(
+        TextureSampling::from_import(2, [1, 1]).filter,
+        TextureFilter::Bilinear
+    );
+}

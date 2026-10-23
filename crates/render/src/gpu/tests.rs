@@ -3,7 +3,7 @@
 use rw_assets::{NoiseTexture, PaletteImage, PaletteTexture};
 use rw_graphics::{Atlas, Color as SpriteColor, DrawItem, Mesh as SpriteMesh, Shader, Sprite};
 
-use crate::LevelParams;
+use crate::{LevelParams, TextureFilter};
 
 use super::*;
 
@@ -27,6 +27,7 @@ pub(super) fn renderer() -> Option<WgpuRenderer> {
     r.set_atlas(
         &atlas,
         &[&PngImage::from_pixels(16, 16, vec![[255; 4]; 256])],
+        &[],
     );
     r.begin_frame(Camera::window([0.0, 0.0], [64.0, 64.0], SIZE));
     r.set_background(Color::rgb(0.0, 0.0, 0.0));
@@ -189,6 +190,7 @@ fn colored_sprite3_colours_by_depth_from_the_palette() {
             16,
             vec![[102, 0, 255, 255]; 256],
         )],
+        &[],
     );
     let image = PngImage::from_pixels(
         64,
@@ -268,6 +270,7 @@ fn colored_sprite3_tests_the_level_texel_under_the_pixel() {
             16,
             vec![[102, 0, 255, 255]; 256],
         )],
+        &[],
     );
     // PNG rows top first: the bottom 16 rows are rows 48..64.
     let image = PngImage::from_pixels(
@@ -938,4 +941,52 @@ fn light_beam_alpha_is_uv_sine_in_its_third() {
     );
     // Outside the quad the level stays.
     assert_eq!(pixel(&frame, 4, 4), [200, 0, 0]);
+}
+
+/// A 2x1 black and white page drawn 16 times wider than the page: with `sampling`, the
+/// red channel of the pixel row through its centre at screen x 24, 28, 32, 36 and 40.
+fn ramp_row(sampling: TextureSampling) -> Option<[u8; 5]> {
+    let mut r = renderer()?;
+    r.add_atlas_page(
+        Atlas::single("ramp", 2, 1),
+        &PngImage::from_pixels(2, 1, vec![[0, 0, 0, 255], [255, 255, 255, 255]]),
+        sampling,
+    );
+    let list = DrawList {
+        items: vec![DrawItem::Sprite(Sprite {
+            index: 0,
+            element: "ramp",
+            pos: Vec2::new(32.0, 32.0),
+            rotation: 0.0,
+            scale: Vec2::new(16.0, 16.0),
+            anchor: Vec2::new(0.5, 0.5),
+            color: SpriteColor::rgb(1.0, 1.0, 1.0),
+            shader: Shader::Basic,
+            layer: Layer::Items,
+        })],
+    };
+    r.draw_sprites(&list, Layer::Items, [0.0, 0.0]);
+    let image = r.render_image().unwrap();
+    Some([24, 28, 32, 36, 40].map(|x| pixel(&image, x, 32)[0]))
+}
+
+/// The quad spans screen x 16..48 for u 0..1; texel centres are at u 0.25 and 0.75
+/// (x 24 and 40), so a bilinear read ramps from 0 to 255 between them (x 32 is the
+/// midpoint, x 28 and 36 a quarter in; the shaders' pixel offset moves it about a pixel,
+/// 16/80/143/207/255 as drawn), while a point read gives only 0 or 255.
+#[test]
+fn a_bilinear_page_interpolates_and_a_point_page_does_not() {
+    let (Some(linear), Some(point)) = (
+        ramp_row(TextureSampling {
+            filter: TextureFilter::Bilinear,
+            clamp: true,
+        }),
+        ramp_row(TextureSampling::POINT_CLAMP),
+    ) else {
+        return;
+    };
+    for (got, want) in linear.into_iter().zip([16u8, 80, 143, 207, 255]) {
+        assert!(got.abs_diff(want) <= 4, "{linear:?}");
+    }
+    assert!(point.iter().all(|&v| v == 0 || v == 255), "{point:?}");
 }

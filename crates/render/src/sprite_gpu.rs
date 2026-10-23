@@ -14,6 +14,7 @@ use wgpu::util::DeviceExt;
 
 use crate::{
     Camera, RoomGlobals, RoomVertex, SceneGlobals, SceneTextures, SpriteBatch, SpriteDraw,
+    TextureFilter, TextureSampling,
 };
 
 /// `sprite.wgsl`'s `Room` uniform.
@@ -44,7 +45,8 @@ pub(crate) struct SpritePipeline {
     layout: wgpu::BindGroupLayout,
     noise_layout: wgpu::BindGroupLayout,
     screen_layout: wgpu::BindGroupLayout,
-    sampler: wgpu::Sampler,
+    /// The atlas pages' samplers by [`SpritePipeline::sampler_index`].
+    samplers: [wgpu::Sampler; 4],
     /// `_NoiseTex`'s import settings.
     noise_sampler: wgpu::Sampler,
     /// The full-screen effects' frame grab: bilinear, clamped.
@@ -165,11 +167,11 @@ impl SpritePipeline {
                     },
                     count: None,
                 },
-                Self::texture_entry(1, false),
+                Self::texture_entry(1, true),
                 wgpu::BindGroupLayoutEntry {
                     binding: 2,
                     visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                     count: None,
                 },
             ],
@@ -195,6 +197,13 @@ impl SpritePipeline {
                 },
                 Self::texture_entry(4, false),
                 Self::texture_entry(5, false),
+                // Their sampler: point filtered (`RainWorld.LoadResources`), clamped.
+                wgpu::BindGroupLayoutEntry {
+                    binding: 6,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
+                    count: None,
+                },
             ],
         });
         let screen_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -244,16 +253,7 @@ impl SpritePipeline {
                 (id, pipeline)
             })
             .collect();
-        // Atlas import settings: point filter, clamp, no mips (the projections are
-        // loaded crisp and clamped too).
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: Some("atlas"),
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
-        });
+        let samplers = Self::SAMPLINGS.map(|sampling| Self::page_sampler(device, sampling));
         // `_NoiseTex` import settings: bilinear, repeat (mip 0 only).
         let noise_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("sprite noise"),
@@ -316,7 +316,7 @@ impl SpritePipeline {
             layout,
             noise_layout,
             screen_layout,
-            sampler,
+            samplers,
             noise_sampler,
             grab_sampler,
             uniform,
@@ -403,6 +403,53 @@ impl SpritePipeline {
         })
     }
 
+    /// Every filter and wrap a page can be sampled with.
+    const SAMPLINGS: [TextureSampling; 4] = [
+        TextureSampling {
+            filter: TextureFilter::Point,
+            clamp: true,
+        },
+        TextureSampling {
+            filter: TextureFilter::Point,
+            clamp: false,
+        },
+        TextureSampling {
+            filter: TextureFilter::Bilinear,
+            clamp: true,
+        },
+        TextureSampling {
+            filter: TextureFilter::Bilinear,
+            clamp: false,
+        },
+    ];
+
+    fn sampler_index(sampling: TextureSampling) -> usize {
+        Self::SAMPLINGS
+            .iter()
+            .position(|&s| s == sampling)
+            .unwrap_or(0)
+    }
+
+    fn page_sampler(device: &wgpu::Device, sampling: TextureSampling) -> wgpu::Sampler {
+        let filter = match sampling.filter {
+            TextureFilter::Point => wgpu::FilterMode::Nearest,
+            TextureFilter::Bilinear => wgpu::FilterMode::Linear,
+        };
+        let address = if sampling.clamp {
+            wgpu::AddressMode::ClampToEdge
+        } else {
+            wgpu::AddressMode::Repeat
+        };
+        device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("atlas page"),
+            address_mode_u: address,
+            address_mode_v: address,
+            mag_filter: filter,
+            min_filter: filter,
+            ..Default::default()
+        })
+    }
+
     /// Uploads each atlas page's image as RGBA8 unorm (gamma-space values used as
     /// stored), bottom row first so Futile's texture coordinates address it directly.
     pub(crate) fn set_atlas(
@@ -410,10 +457,20 @@ impl SpritePipeline {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         images: &[&PngImage],
+        sampling: &[TextureSampling],
     ) {
         self.pages = images
             .iter()
-            .map(|image| self.page_group(device, queue, image))
+            .enumerate()
+            .map(|(i, image)| {
+                let own = sampling.get(i).copied();
+                self.page_group(
+                    device,
+                    queue,
+                    image,
+                    own.unwrap_or(TextureSampling::POINT_CLAMP),
+                )
+            })
             .collect();
     }
 
@@ -423,8 +480,9 @@ impl SpritePipeline {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         image: &PngImage,
+        sampling: TextureSampling,
     ) {
-        let page = self.page_group(device, queue, image);
+        let page = self.page_group(device, queue, image, sampling);
         self.pages.push(page);
     }
 
@@ -433,6 +491,7 @@ impl SpritePipeline {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         image: &PngImage,
+        sampling: TextureSampling,
     ) -> wgpu::BindGroup {
         let desc = wgpu::TextureDescriptor {
             label: Some("atlas"),
@@ -470,7 +529,9 @@ impl SpritePipeline {
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
-                    resource: wgpu::BindingResource::Sampler(&self.sampler),
+                    resource: wgpu::BindingResource::Sampler(
+                        &self.samplers[Self::sampler_index(sampling)],
+                    ),
                 },
             ],
         })
@@ -647,6 +708,12 @@ impl SpritePipeline {
                 wgpu::BindGroupEntry {
                     binding: 5,
                     resource: wgpu::BindingResource::TextureView(&self.scene_views.city_palette),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 6,
+                    resource: wgpu::BindingResource::Sampler(
+                        &self.samplers[Self::sampler_index(TextureSampling::POINT_CLAMP)],
+                    ),
                 },
             ],
         }));

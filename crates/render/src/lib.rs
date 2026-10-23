@@ -126,13 +126,20 @@ pub trait Renderer {
     fn draw_level(&mut self, view: LevelView);
 
     /// Uploads the sprite atlas (frame data and one RGBA image per page, in page order)
-    /// for [`draw_sprites`](Renderer::draw_sprites), replacing the previous one.
-    fn set_atlas(&mut self, atlas: &SpriteAtlas, images: &[&PngImage]);
+    /// for [`draw_sprites`](Renderer::draw_sprites), replacing the previous one. `sampling`
+    /// is each page's filter and wrap; a page without an entry is point filtered and
+    /// clamped.
+    fn set_atlas(
+        &mut self,
+        atlas: &SpriteAtlas,
+        images: &[&PngImage],
+        sampling: &[TextureSampling],
+    );
 
     /// Adds one more atlas page after the uploaded ones (a decal's image, loaded when a
     /// room needs it): `atlas` names its elements, `image` is its texture. Nothing
     /// without an atlas set.
-    fn add_atlas_page(&mut self, _atlas: Atlas, _image: &PngImage) {}
+    fn add_atlas_page(&mut self, _atlas: Atlas, _image: &PngImage, _sampling: TextureSampling) {}
 
     /// Uploads the background scene shaders' global textures (`_CloudsTex`,
     /// `_ApartmentsTex`, `_CityPalette`).
