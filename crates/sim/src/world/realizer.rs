@@ -113,6 +113,12 @@ impl Ctx<'_> {
             .unwrap_or_default()
     }
 
+    fn off_screen_den(&self, room: i32) -> bool {
+        self.world
+            .abstract_room(room)
+            .is_some_and(|r| r.offscreen_den)
+    }
+
     /// `GetAbstractRoom`, as an index that exists.
     fn existing(&self, room: i32) -> Option<i32> {
         self.world.abstract_room(room).map(|r| r.index)
@@ -148,7 +154,10 @@ impl RoomRealizer {
             r.counter += 1;
         }
         self.recently_abstracted.retain(|r| r.counter <= 80);
-        if self.last_frame_follow_room != follow.room && !self.recently_abstracted(follow.room) {
+        if self.last_frame_follow_room != follow.room
+            && !cx.off_screen_den(follow.room)
+            && !self.recently_abstracted(follow.room)
+        {
             self.remove_not_visited_rooms(&mut cx);
             self.realize_and_track(&mut cx, follow.room, true);
             for t in &mut self.trackers {
@@ -268,7 +277,9 @@ impl RoomRealizer {
     /// 40 ticks in a row.
     fn maybe_realize_neighbour(&mut self, cx: &mut Ctx<'_>, performance: f32) {
         let connections = cx.connections(cx.follow.room);
+        // The game's `rainCycle.RainGameOver` guard comes with the rain (OPEN-ITEMS, "Realizer guards").
         if self.currently_loading.is_some()
+            || cx.off_screen_den(cx.follow.room)
             || performance >= PERFORMANCE_BUDGET / 2.0
             || connections.is_empty()
         {
