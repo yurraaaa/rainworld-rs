@@ -473,7 +473,7 @@ Ported in `crates/sim/src/{coral_circuit,circuit_connector,circuit_crab,game_cor
   `SS` rooms for each of the Survivor, the Monk and the Hunter, every one `ResizableObjectData`, none
   rejected; they form 9 clusters of 931 tiles, 1862 bits (12256 neighbour links), 60 connectors (408
   strands) and 29 crabs, and run 100 ticks in view with finite bits that all stay in place
-  (`crates/sim/tests/installed_coral_circuits.rs`). All six rooms have `ZeroG` 1.
+  (`crates/sim/tests/installed_coral_circuits.rs`). All six rooms have `ZeroG` 1. Every installed tile has two bits: the one-bit rule (`num < 0.5`, a tile middle within `Rad - 110` px of a place) never holds for the installed radii (max 117.9; SS_LAB1's nearest tile middle is 9.58 px from a place).
 - **MCP.** `coral_circuits` (room, id, places, tiles, bit counts, displaced and repairing bits, links
   and active links, `displaced_counter`, `disconnect_chance`, the connectors, the crabs and the first
   displaced bit) and the player's `circuit_swim_resistance`, `circuit_jump_meter`, `swim_bits`.

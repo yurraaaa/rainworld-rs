@@ -210,7 +210,7 @@ plan is in `../rainworld-re/surveys/lizards.md`.
     connectors, crabs and the player's circuit swimming): what
     `CoralNeuronSystem.AIMapReady` also builds comes with 10e (`PlaceSwarmers`); More Slugcats'
     `Inspector` (also skipped by the circuit's push) and `SingularityBomb` strands with the DLC.
-  - Coral circuits (D42): the `maze` texture's mips (the page has none, so a flipped bit is cut at
+  - Coral circuits (D42; user, 2026-10-23, after 10d4): the `maze` texture's mips (the page has none, so a flipped bit is cut at
     the first mip), with a mip chain for an atlas page.
   - Coral stems' segments are `physicalObjects[0]` objects (D41): each system of the game that
     walks the room's physical objects must include them when it is ported (`Explosion`,

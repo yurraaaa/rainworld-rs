@@ -133,22 +133,14 @@ fn the_circuits_are_drawn_red() {
             ..Default::default()
         })
         .expect("set");
-    let swim = std::env::var("RW_CIRCUIT_SWIM")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(2);
     session.step_with(
-        swim,
+        18,
         InputParam {
-            x: i8::from(swim > 2),
+            x: 1,
             ..Default::default()
         },
     );
     let shot = match session.screenshot(&ScreenshotParams {
-        save_path: std::env::var("RW_CIRCUIT_SHOT").ok(),
-        crop_radius: std::env::var("RW_CIRCUIT_CROP")
-            .ok()
-            .and_then(|v| v.parse().ok()),
         ..Default::default()
     }) {
         Ok(shot) => shot,
