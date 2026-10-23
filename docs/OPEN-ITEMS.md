@@ -24,7 +24,9 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 
 - **Async room loading** (user, 2026-10-22): plan and decisions in
   `../rainworld-re/surveys/async-room-loading.md`; next after the SS superstructure work
-  (user, 2026-10-23). `ShortcutHelper` its own job after it.
+  (user, 2026-10-23). `ShortcutHelper` its own job after it. Step A (stages, `RoomPreparer`,
+  Immediate schedule) done 2026-10-23; B (schedule on, consumers, starts) and C (camera,
+  shortcut graphics) left.
 - **Water with the rain (M8)**: `Room.AddWater` makes a `Water` (so its surface loop and
   `WaterLight`) in rooms with no level water (rain flood, `WaterCycleTop`/`Bottom`,
   `BrokenShelterWaterLevel`). The other water effects are done (2026-10-22).
