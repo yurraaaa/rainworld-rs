@@ -1,7 +1,7 @@
-# rw-sim divergences: the superstructure (D35, D36)
+# rw-sim divergences: the superstructure (D35, D36, D37)
 
 Fifth file of the `rw-sim` divergences. IDs are global. D35 (the projector family) is step
-10a's; D36 (the electric fixtures) is step 10b's.
+10a's; D36 (the electric fixtures) is step 10b's; D37 (the screen-grab effects) is step 10c's.
 
 ## D35: Superstructure projections (`SuperStructureProjector`, `ProjectedScanLines`, `ProjectedStars`)
 
@@ -100,4 +100,73 @@ port's creature death paths (D33's route for `ElectricDeath`). Notes:
   changes (`UpdateLightAmount`), and a fuse grid's `debugMode` colours show when its object
   is moved: the data never changes in the port, the colours are drawn for `debugMode > 0`
   as the game does.
-- **Not here:** `DeepProcessing` and `DeepProcessingLight` (step 10c, with the screen grab).
+- **Not here:** `DeepProcessing` and `DeepProcessingLight` are D37's (step 10c).
+
+## D37: Screen-grab effects (`DeepProcessing`, `DeepProcessingLight`, `GravityDisruptor`)
+
+Ported in `crates/sim/src/{deep_processing,gravity_disruptor,game_ss_grab}.rs` (the objects,
+their placed-object creation in `Room.Loaded`'s order, the disruptor's push on the room's
+bodies), the sprites in `crates/graphics/src/ss_grab.rs`, the shaders in
+`crates/render/shaders/ss_grab.wgsl` with the grab changes in `crates/render/src/gpu.rs`,
+the data in `rw-assets` `placed_electric.rs`. Notes: `../rainworld-re/notes/superstructure-grab.md`.
+
+- **`_GrabTexture` is the last unnamed `GrabPass`, for every reader (not a divergence).**
+  `DeepProcessing.shader` has no `GrabPass`; `GravityDisruptor.shader` has one. The grab
+  texture starts every frame as the screen behind the level (`LevelColor`'s own `GrabPass
+  { }`) and each grabbing draw replaces it with the frame it found; every shader without a
+  `GrabPass` that reads `_GrabTexture` (`LightSource`, `UnderWaterLight`, `HoloGrid`,
+  `ElectricDeath`, `FlareBomb`, `WaterSplash`, `WaterLight`, `LightBeam`, `SpecificDepth`,
+  `CustomDepth`, `Decal`, `Fog`,
+  the background scenes, `WaterSurface`/`DeepWater`, `DeepProcessing`) reads that texture.
+  `LevelColor`'s and `DeathFall`'s/the bloom effects' `_PreLevelColorGrab` stays the
+  pre-level frame. A reader drawn after a disruptor reads the frame the disruptor grabbed
+  (before its own draw), not the rippled result.
+- **`_NoiseTex` mips (not a divergence).** `Palettes/noise` has 7 mips, bilinear (the nearest
+  level), repeat, `m_MipBias` 0 (read with the port's `Texture2D` reader). Every shader
+  reading it (`DeepProcessing`, the level and water shaders, the background scenes, the
+  glyph projection, `WaterSplash`, `WaterLight`, `UnderWaterLight`, `ElectricDeath`, `Fog`,
+  `Decal`, `Rainbow`, `WaterFall`) samples it with the level the GPU's derivatives pick over
+  the 2x2 pixel block, taking its taps before any early return, as D3D does. (`_NoiseTex2`
+  is still read at level 0: D-notes in `docs/divergences/render.md`.)
+- **`HUD` container order (not a divergence).** Sprites draw in the order they were added to
+  their container. The disc is in the room camera's `HUD` container, above `Bloom`. The HUD's
+  first container (`fContainers[0]`, the region map; `HUD2` above everything) gets the map's
+  sprites on `Map.Update`'s first run (`!mapLoaded`), one `RoomCamera.Update` after the camera's
+  first `ChangeRoom` made the room's sprites: in the session's first room the map is above the
+  disc (not rippled); after any later camera move `ChangeRoom` adds the room's sprites after
+  the map's, so the disc ripples it. The app queues the map's quads (`Scene::prepare_hud`)
+  after the disc until a camera move comes after the map's first update (`MapOrder`), before
+  it from then on; the rest of the HUD after the room. Other `HUD` container occupants the game has (arena score labels, debug
+  sprites, MSC and Watcher sprites, a lizard cosmetic with `SpritesOverlap.HUD`) are not
+  ported.
+- **`roomSpecks`.** `GravityDisruptor.AIMapReady` collects the `GenericZeroGSpeck`s in the
+  update list. The session's first room is made by `RoomPreparer`'s constructor (`Loaded`),
+  then `RainWorldGame`'s constructor moves the camera to it (`NowViewed`: the specks), and
+  only later does `RoomPreparer.Update` run `AIMapReady`: its `roomSpecks` hold the room's
+  specks. The port links the first room after its `NowViewed` (the camera's first tick) and
+  any room realized ahead of the camera at its load, so before the camera enters it. That is
+  the game's order too: `ReadyForPlayer` needs the loading (`loadingProgress` 3, then
+  `AIMapReady`) done, so the camera's `NowViewed` comes after and `roomSpecks` is empty. The
+  port's loads are synchronous (D14), the same two cases come out; the game's thread can
+  only make `AIMapReady` later, never earlier than `Loaded`.
+- **Draws:** `DeepProcessing`: 1 a tick, 3 on a tick that moves its power (1 in 14); no
+  constructor or draw-time draws. `DeepProcessingLight`: 1 a tick. `GravityDisruptor`:
+  98 in the constructor (20 specks times 4, 16 streaks, `pointDir`, `dirFac`), at least 34 a
+  tick (the two 0.0125 rolls and two a streak), a hit adding 1 or 2; a `DisruptorSpeck` 1 a
+  tick, 2 on a new orbit. The constructor's draws are in `Room.Loaded`'s placed-object
+  order with the other ported objects' (the unported placed objects' draws are missing, as
+  for every object ported so far).
+- **Only the bodies the port realizes are swirled:** the player, bat flies, lizards,
+  overseers, rocks and spears (the room's `physicalObjects` the port has); the rest comes with
+  their ports (as D36's zaps).
+- **Skipped, a Rain World dev tool (user decision):** `DeepProcessing`'s `meshDirty` (the quad's
+  corners changing in the editor: `UpdateVerts` and the re-made mesh when the ideal grid
+  division changes) and the disruptor's moved placed object (`debugMode` is drawn as the
+  game does, but `placedObject.pos` is constant): the quad is read once.
+- **The disc's `normalize(0)`.** `GravityDisruptor.shader` normalises `uv - 0.5`, NaN at
+  the exact centre pixel (undefined on a GPU); the port uses a zero direction there (no
+  displacement). No pixel centre of an even-sized disc lies on its centre.
+- **Omitted DLC branches:** none in these classes. The `GravityDisruptor` shader is also More
+  Slugcats' `EnergyCell`'s (not ported); `DeepProcessingLight` has no DLC code; Remix's
+  `ScreenSize` is not read by any of them (`_screenSize` is the chosen resolution, as
+  everywhere).

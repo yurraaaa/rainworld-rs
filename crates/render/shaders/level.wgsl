@@ -68,7 +68,7 @@ fn palette(x: i32, row: i32) -> vec4<f32> {
 }
 
 fn noise(uv: vec2<f32>) -> f32 {
-    return textureSampleLevel(noise_tex, noise_sampler, uv, 0.0).r;
+    return textureSample(noise_tex, noise_sampler, uv).r;
 }
 
 // Remainder with the sign of x (HLSL fmod).
@@ -142,6 +142,15 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let code = level_code(vec2(uv2.x, uv2.y + wet_displace(in.uv, rain) * 0.001));
     let uv = in.uv;
     let fog = palette(1, 7);
+    // The noise taps come first, whatever the pixel is (the mip level is picked from the
+    // 2x2 block's derivatives, so every pixel of the block takes them): the cloud shadow's
+    // (offset by the layer, so a block over a layer's edge steps far in the texture) and
+    // the effect colour's ripple.
+    let raw_red = i32(round(code.r * 255.0));
+    let drift = rain * 0.1 * level.extra.y;
+    let layer = 0.003 * f32(raw_red % 30);
+    let shadow_noise = noise(vec2(uv.x * 0.5 + drift - layer, 1.0 - uv.y * 0.5 + rain * 0.2 * level.extra.y - layer));
+    let ripple_noise = noise(uv * 2.0);
 
     var colour: vec4<f32>;
     var shows_behind = false;
@@ -153,7 +162,6 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         }
         shows_behind = true;
     } else {
-        let raw_red = i32(round(code.r * 255.0));
         var green = i32(round(code.g * 255.0));
         var not_floor_dark = 1.0;
         if green >= 16 {
@@ -167,9 +175,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         }
 
         // Moving cloud shadow from the noise texture: 0 = lit, 1 = shadowed.
-        let drift = rain * 0.1 * level.extra.y;
-        let layer = 0.003 * f32(raw_red % 30);
-        var shadow = noise(vec2(uv.x * 0.5 + drift - layer, 1.0 - uv.y * 0.5 + rain * 0.2 * level.extra.y - layer));
+        var shadow = shadow_noise;
         shadow = 0.5 + sin(fmod_trunc(shadow + drift - uv.y, 1.0) * TAU_APPROX) * 0.5;
         shadow = saturate((shadow - 0.5) * 6.0 + 0.5 - level.shading.y * 4.0);
 
@@ -191,7 +197,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         colour = mix(palette(column, group + 3), palette(column, group), shadow);
 
         if green >= 4 {
-            let rb = sin((rain + noise(uv * 2.0) * 4.0 + depth_f / 12.0) * TAU_APPROX) * 0.5 + 0.5;
+            let rb = sin((rain + ripple_noise * 4.0 + depth_f / 12.0) * TAU_APPROX) * 0.5 + 0.5;
             colour = mix(colour, palette(i32(floor(5.5 + rb * 25.0)), 6), 0.2 * level.shading.z);
         }
 

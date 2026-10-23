@@ -1,5 +1,5 @@
 //! GPU side of the game's water: the `water.wgsl` pipelines (`WaterSurface` and
-//! `DeepWater`), reading the current camera's level textures and the "behind" target.
+//! `DeepWater`), reading the current camera's level textures and the last grab.
 //!
 //! Mirrors: -
 
@@ -31,7 +31,7 @@ pub(crate) struct WaterPipeline {
 
 /// This frame's inputs of the water shaders besides the level textures.
 pub(crate) struct WaterBinding<'a> {
-    pub behind: &'a wgpu::TextureView,
+    pub grab: &'a wgpu::TextureView,
     pub camera: &'a Camera,
     pub view: &'a LevelView,
     /// `_waterDepth`.
@@ -203,7 +203,7 @@ impl WaterPipeline {
         }
     }
 
-    /// Writes this frame's uniform and binds the level textures and `binding.behind`.
+    /// Writes this frame's uniform and binds the level textures and `binding.grab` (the last `GrabPass`).
     pub(crate) fn bind(
         &self,
         device: &wgpu::Device,
@@ -246,7 +246,7 @@ impl WaterPipeline {
                 },
                 wgpu::BindGroupEntry {
                     binding: 5,
-                    resource: wgpu::BindingResource::TextureView(binding.behind),
+                    resource: wgpu::BindingResource::TextureView(binding.grab),
                 },
             ],
         })

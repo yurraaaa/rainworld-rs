@@ -184,7 +184,8 @@ impl LevelPipeline {
             multiview_mask: None,
             cache: Some(cache),
         });
-        // `_NoiseTex` import settings: bilinear, repeat (mip 0 only; always magnified).
+        // `_NoiseTex` import settings: bilinear (the nearest mip level), repeat; the shaders
+        // pick the level by derivatives.
         let noise_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("noise"),
             address_mode_u: wgpu::AddressMode::Repeat,
@@ -236,6 +237,19 @@ impl LevelPipeline {
         format: wgpu::TextureFormat,
         data: &[u8],
     ) -> wgpu::Texture {
+        Self::texture_mips(device, queue, label, size, format, 1, data)
+    }
+
+    /// A 2D texture with `mips` mip levels, `data` holding them from the largest.
+    fn texture_mips(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        label: &str,
+        size: (usize, usize),
+        format: wgpu::TextureFormat,
+        mips: u32,
+        data: &[u8],
+    ) -> wgpu::Texture {
         let desc = wgpu::TextureDescriptor {
             label: Some(label),
             size: wgpu::Extent3d {
@@ -243,7 +257,7 @@ impl LevelPipeline {
                 height: size.1 as u32,
                 depth_or_array_layers: 1,
             },
-            mip_level_count: 1,
+            mip_level_count: mips,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format,
@@ -314,13 +328,19 @@ impl LevelPipeline {
                 &image.rgba_bottom_up(),
             )
             .create_view(&view),
-            noise: Self::texture(
+            noise: Self::texture_mips(
                 device,
                 queue,
                 "noise",
                 (noise_size, noise_size),
                 wgpu::TextureFormat::R8Unorm,
-                level.noise.bytes(),
+                level.noise.mip_bytes().count() as u32,
+                &level
+                    .noise
+                    .mip_bytes()
+                    .flatten()
+                    .copied()
+                    .collect::<Vec<u8>>(),
             )
             .create_view(&view),
             rect: [

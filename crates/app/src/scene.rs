@@ -33,6 +33,42 @@ mod music;
 /// Screen pixels kept free around the room in the debug view.
 pub const MARGIN: f32 = 16.0;
 
+/// The order of the region map's sprites and the room's in the room camera's `HUD`
+/// container. `Map.Update` adds the map's sprites on its first run, a `RoomCamera.Update`
+/// after the HUD was made; a `ChangeRoom` (every camera move) adds the room's sprites after
+/// whatever is in the container then. So the map is under the room's sprites (a
+/// `GravityDisruptor`'s disc, which ripples it) only if a camera move came after the map
+/// loaded; a move before that, the session's first included, leaves it above.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct MapOrder {
+    /// The map has had its first `Update`.
+    loaded: bool,
+    /// Its sprites were added after the room's.
+    over_disc: bool,
+}
+
+impl MapOrder {
+    /// A session: the first room's sprites come before the map's.
+    const fn new() -> Self {
+        Self {
+            loaded: false,
+            over_disc: true,
+        }
+    }
+
+    /// `Map.Update` ran (the HUD is updated from the tick after the one that made it).
+    fn map_updated(&mut self) {
+        self.loaded = true;
+    }
+
+    /// `ChangeRoom`: the room's sprites are added after the map's, if it is loaded.
+    fn camera_moved(&mut self) {
+        if self.loaded {
+            self.over_disc = false;
+        }
+    }
+}
+
 /// Gives every [`Scene`] its own id, so renderers notice a new room.
 static NEXT_SCENE_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -60,6 +96,11 @@ pub struct Scene {
     entered_room: bool,
     /// Camera 0's HUD, once fired up.
     hud: Option<Hud>,
+    /// The quads of the HUD's first container, drawn by the next frame before the room's
+    /// `HUD` container sprites ([`Scene::prepare_hud`]).
+    hud_below: StageBatch,
+    /// Where the map's sprites sit in the `HUD` container against the room's.
+    map_order: MapOrder,
     /// The time stacker and cosmetic stream of the last frame drawn unpaused: while the
     /// game is paused nothing in the room redraws (`PausedDrawUpdate`), so frames repeat
     /// that one.
@@ -132,6 +173,8 @@ impl Scene {
             water_light: None,
             entered_room: false,
             hud: None,
+            hud_below: StageBatch::default(),
+            map_order: MapOrder::new(),
             last_unpaused_frame: None,
             lightning_frame: None,
             paused: false,
@@ -238,6 +281,7 @@ impl Scene {
         let Some(mv) = self.game.take_camera_move() else {
             return;
         };
+        self.map_order.camera_moved();
         if mv.room != self.camera_room {
             self.camera_room = mv.room;
             self.entered_room = true;
@@ -474,6 +518,7 @@ impl Scene {
     fn update_hud(&mut self, map_button: bool, shared: &mut MenuShared, paused: bool) {
         match &mut self.hud {
             Some(hud) => {
+                self.map_order.map_updated();
                 hud.text_prompt.pause_menu = paused;
                 let owner = self.game.hud_owner();
                 let rain = self.game.rain_view();
@@ -600,11 +645,22 @@ impl Scene {
             .map_or_else(rw_render::MapGlobals::default, |h| h.map_globals(alpha))
     }
 
-    /// Sets the HUD's sprites for `alpha` between ticks and appends its quads.
-    pub fn draw_hud(&mut self, atlases: &AtlasManager, batch: &mut StageBatch, alpha: f32) {
+    /// Sets the HUD's sprites for `alpha` between ticks and keeps the quads of its first
+    /// container (`HUD`, the region map), which the next [`Self::draw`] queues before the
+    /// room's `HUD` container sprites (a `GravityDisruptor`'s disc, which distorts them).
+    /// Call it before `draw` whenever the HUD is drawn, then [`Self::draw_hud`].
+    pub fn prepare_hud(&mut self, atlases: &AtlasManager, alpha: f32) {
+        self.hud_below = StageBatch::default();
         if let Some(hud) = &mut self.hud {
             hud.draw(alpha);
-            hud.push_quads(atlases, batch);
+            hud.push_quads_split(atlases, &mut self.hud_below, &mut StageBatch::default());
+        }
+    }
+
+    /// Appends the rest of the HUD's quads (`HUD2`...), those [`Self::prepare_hud`] left.
+    pub fn draw_hud(&mut self, atlases: &AtlasManager, batch: &mut StageBatch) {
+        if let Some(hud) = &self.hud {
+            hud.push_quads_split(atlases, &mut StageBatch::default(), batch);
         }
     }
 
@@ -743,6 +799,10 @@ impl Scene {
                 alpha,
                 rw_sim::Vec2::from(self.camera.position(self.camera.current())),
             ));
+            lists.extend(self.game.ss_grab_draw_lists(
+                alpha,
+                rw_sim::Vec2::from(self.camera.position(self.camera.current())),
+            ));
             lists.extend(self.game.holo_light_draw_lists(alpha, cam_pos, darkness));
             lists.extend(self.game.placed_light_draw_lists(self.camera.current()));
             if let Some(visuals) = &self.visuals {
@@ -865,12 +925,16 @@ impl Scene {
             shadows: &shadows,
             objects: &objects,
             holograms: &holograms,
+            hud_below: &self.hud_below,
+            screen: self.camera.screen_size(),
+            map_over_disc: self.map_order.over_disc,
             layers: view.layers,
             camera,
             alpha,
             time,
         }
         .queue(r);
+        self.hud_below = StageBatch::default();
     }
 }
 
@@ -960,6 +1024,12 @@ struct FrameDraw<'a> {
     objects: &'a [DrawList],
     /// The holograms' sprites (level view only), in the `Bloom` container.
     holograms: &'a [DrawList],
+    /// The HUD's first container's quads (`HUD`, the region map) and the screen they are
+    /// in pixels of.
+    hud_below: &'a StageBatch,
+    screen: [f32; 2],
+    /// [`Scene`]'s `map_over_disc`.
+    map_over_disc: bool,
     layers: RoomLayers,
     camera: Camera,
     alpha: f32,
@@ -973,6 +1043,13 @@ impl FrameDraw<'_> {
             if o.layer(layer).next().is_some() {
                 r.draw_sprites(o, layer, level.origin);
             }
+        }
+    }
+
+    /// The HUD's first container's quads (the region map).
+    fn draw_map(&self, r: &mut impl Renderer) {
+        if !self.hud_below.draws.is_empty() {
+            r.draw_stage(self.hud_below, self.screen);
         }
     }
 
@@ -1030,6 +1107,16 @@ impl FrameDraw<'_> {
             self.draw_layer(r, Layer::Bloom, level);
             for h in self.holograms {
                 r.draw_sprites(h, Layer::Bloom, level.origin);
+            }
+            // `HUD`, the last container of the room camera: the HUD's own sprites in it (the
+            // region map, added when the HUD was made) under whatever the room added, a
+            // `GravityDisruptor`'s disc, which distorts them.
+            if !self.map_over_disc {
+                self.draw_map(r);
+            }
+            self.draw_layer(r, Layer::Hud, level);
+            if self.map_over_disc {
+                self.draw_map(r);
             }
         }
     }
@@ -1185,7 +1272,9 @@ mod tests {
         }
         fn remove_stage_texture(&mut self, _: rw_render::StageTextureId) {}
         fn set_stage_globals(&mut self, _: rw_render::StageGlobals) {}
-        fn draw_stage(&mut self, _: &rw_render::StageBatch, _: [f32; 2]) {}
+        fn draw_stage(&mut self, _: &rw_render::StageBatch, _: [f32; 2]) {
+            self.order.push("stage");
+        }
         fn set_background(&mut self, _: Color) {}
         fn draw_sprites(&mut self, _: &DrawList, layer: Layer, _: [f32; 2]) {
             self.sprite_calls += 1;
@@ -1201,6 +1290,7 @@ mod tests {
                 Layer::Water => "water",
                 Layer::GrabShaders => "grab shaders",
                 Layer::Bloom => "bloom",
+                Layer::Hud => "hud",
             });
         }
         fn draw_circle(&mut self, _: [f32; 2], _: f32, _: Color) {
@@ -1287,6 +1377,9 @@ mod tests {
                 objects: &objects,
                 shadows: &[],
                 holograms: &[],
+                hud_below: &StageBatch::default(),
+                screen: [1366.0, 768.0],
+                map_over_disc: false,
                 layers: RoomLayers::default(),
                 camera: Camera::fit([1.0, 1.0], (1366, 768), 0.0),
                 alpha: 1.0,
@@ -1294,6 +1387,75 @@ mod tests {
             }
             .queue(&mut r);
             r
+        }
+    }
+
+    /// The flag's lifecycle: above the disc at construction; a camera move before the map
+    /// loaded (the HUD's first update) leaves it; a move after puts it under, for good.
+    #[test]
+    fn the_map_order_follows_the_maps_first_update() {
+        let mut order = MapOrder::new();
+        assert!(order.over_disc);
+        order.camera_moved();
+        assert!(order.over_disc, "a move before the map loads");
+        order.map_updated();
+        assert!(order.over_disc, "loading adds no room sprites");
+        order.camera_moved();
+        assert!(!order.over_disc, "a move after it");
+        order.camera_moved();
+        order.map_updated();
+        assert!(!order.over_disc);
+    }
+
+    /// The region map's quads are queued before the room's `HUD` sprites (the disc ripples
+    /// them) once the order says so, and after them otherwise.
+    #[test]
+    fn the_map_is_under_the_disc_except_in_the_first_room() {
+        let game = Game::new(open_room(), &rw_assets::RoomSettings::ANCESTOR, 1, None);
+        let mut map = StageBatch::default();
+        map.push_quad(
+            rw_render::StageTextureId(1),
+            rw_render::StageShader::Basic,
+            [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)].map(|(x, y)| {
+                rw_render::SpriteVertex {
+                    pos: [x, y],
+                    uv: [0.0, 0.0],
+                    color: [1.0; 4],
+                }
+            }),
+        );
+        let disc = DrawList {
+            items: vec![Recorder::sprite(0, Layer::Hud)],
+        };
+        for (over, want) in [(false, ["stage", "hud"]), (true, ["hud", "stage"])] {
+            let mut r = Recorder::default();
+            let objects = [disc.clone(), Recorder::slugcat_sprites()];
+            FrameDraw {
+                game: &game,
+                water: None,
+                water_sprites: None,
+                level: Some(LevelView {
+                    origin: [0.0, 0.0],
+                    size: [1366.0, 768.0],
+                    rain: 0.0,
+                    light: 1.0,
+                    water_level: 1.0,
+                }),
+                player_sprites: true,
+                objects: &objects,
+                shadows: &[],
+                holograms: &[],
+                hud_below: &map,
+                screen: [1366.0, 768.0],
+                map_over_disc: over,
+                layers: RoomLayers::default(),
+                camera: Camera::fit([1.0, 1.0], (1366, 768), 0.0),
+                alpha: 1.0,
+                time: 0.0,
+            }
+            .queue(&mut r);
+            let tail: Vec<&str> = r.order.iter().rev().take(2).rev().copied().collect();
+            assert_eq!(tail, want, "map_over_disc {over}: {:?}", r.order);
         }
     }
 

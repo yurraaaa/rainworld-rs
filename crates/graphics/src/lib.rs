@@ -54,6 +54,7 @@ mod sky_dandelion;
 mod slime_mold;
 mod spot_light;
 mod ss_electric;
+mod ss_grab;
 mod star_matrix_draw;
 mod sun_blocker;
 mod tail;
@@ -113,6 +114,7 @@ pub use spot_light::SpotLightSprites;
 pub use ss_electric::{
     FuseSprites, LightRodSprites, ZapCoilSprites, ZapFlashLight, ZapFlashSprites,
 };
+pub use ss_grab::{DeepProcessingSprites, DisruptorSpeckSprites, GravityDisruptorSprites};
 pub use star_matrix_draw::StarMatrixSprites;
 pub use sun_blocker::SunBlocker;
 pub use tail::{TailAnchor, TailSegment};

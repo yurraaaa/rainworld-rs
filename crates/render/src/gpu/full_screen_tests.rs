@@ -12,6 +12,7 @@ use rw_graphics::{Atlas, Color as SpriteColor, DrawItem, Shader, Sprite};
 
 use crate::LevelParams;
 
+use super::test_support::FramePixel;
 use super::*;
 
 /// The shaders' `6.28`, not 2π.
@@ -43,17 +44,17 @@ struct Scene {
 
 /// A rectangle of frame pixels, y down: `[x0, y0, x1, y1)`.
 #[derive(Clone, Copy)]
-struct Rect([u32; 4]);
+pub(super) struct Rect(pub(super) [u32; 4]);
 
 impl Rect {
-    fn contains(self, x: u32, y: u32) -> bool {
+    pub(super) fn contains(self, x: u32, y: u32) -> bool {
         let [x0, y0, x1, y1] = self.0;
         x >= x0 && x < x1 && y >= y0 && y < y1
     }
 
     /// A `Futile_White` quad over these frame pixels (stage = frame + (1, 1) from the
     /// bottom: screen pixel centre minus Futile's (-0.5, 0.5) offset).
-    fn quad(self, color: SpriteColor, layer: Layer) -> DrawItem {
+    pub(super) fn quad(self, color: SpriteColor, layer: Layer) -> DrawItem {
         let [x0, y0, x1, y1] = self.0.map(|v| v as f32);
         DrawItem::Sprite(Sprite {
             index: 0,
@@ -98,14 +99,7 @@ impl Before {
     }
 }
 
-/// Frame pixel `(x, y)` (y down): its `scrPos` (y up) and the effect quad's `i.uv`.
-fn scr(x: u32, y: u32) -> [f32; 2] {
-    [
-        (x as f32 + 0.5) / W as f32,
-        (H as f32 - y as f32 - 0.5) / H as f32,
-    ]
-}
-
+/// Frame pixel `(x, y)` (y down): the effect quad's `i.uv`.
 fn quad_uv(x: u32, y: u32) -> [f32; 2] {
     [
         (x as f32 + 1.0) / W as f32,
@@ -239,7 +233,7 @@ impl Scene {
     /// whole pixel (the game's is 0.02 px off one) an unmoved coordinate falls on a
     /// texel edge, so tests keep such lookups off region edges.
     fn code(&self, x: u32, y: u32, offset: [f32; 2]) -> [u8; 4] {
-        let s = scr(x, y);
+        let s = FramePixel(x, y).scr();
         let tc = [
             (s[0] * W as f32 + 0.5) / W as f32 + offset[0],
             (s[1] * H as f32 - 0.5) / H as f32 + offset[1],
@@ -294,7 +288,7 @@ fn assert_near(got: [u8; 3], want: [f32; 3], at: (u32, u32)) {
 
 /// `Bloom.shader`'s fragment on the frame without it.
 fn bloom(before: &Before, x: u32, y: u32, alpha: f32) -> [f32; 3] {
-    let s = scr(x, y);
+    let s = FramePixel(x, y).scr();
     let mut sum = [0.0, 0.0, 0.0, 1.0];
     let mut div = 0.0;
     let mut coef = 1.0;
@@ -346,7 +340,7 @@ fn bloom_adds_its_blur() {
 
 /// `SkyBloom.shader`'s fragment; `sky` is the palette's texel (0, 7).
 fn sky_bloom(before: &Before, x: u32, y: u32, alpha: f32, sky: [f32; 3]) -> [f32; 3] {
-    let s = scr(x, y);
+    let s = FramePixel(x, y).scr();
     let amount = (1.0 - (s[0] - 0.2).hypot(s[1] - 0.2))
         .clamp(0.0, 1.0)
         .sqrt()
@@ -428,7 +422,7 @@ fn light_bloom(
     alpha: f32,
     behind: bool,
 ) -> [f32; 3] {
-    let s = scr(x, y);
+    let s = FramePixel(x, y).scr();
     let mut texcol = [0.0, 0.0, 0.0, 1.0];
     let mut div = 0.0;
     let mut coef = 1.0;
@@ -510,7 +504,7 @@ fn light_and_sky_bloom(
     alpha: f32,
     sky: [f32; 3],
 ) -> [f32; 3] {
-    let s = scr(x, y);
+    let s = FramePixel(x, y).scr();
     let amount = (1.0 - (s[0] - 0.2).hypot(s[1] - 0.2))
         .clamp(0.0, 1.0)
         .sqrt()
@@ -623,7 +617,7 @@ fn fog(
     pal2: [f32; 3],
     sky: [f32; 3],
 ) -> Option<([f32; 3], f32)> {
-    let s = scr(x, y);
+    let s = FramePixel(x, y).scr();
     let uv = quad_uv(x, y);
     let rain = scene.rain;
     let amount = ((s[1] - ((1.0 - scene.water_level) - 0.11)) * 3.0).clamp(0.0, 1.0);
@@ -734,7 +728,7 @@ fn death_fall(
     if depth > 6.0 / 30.0 && behind {
         return None;
     }
-    let g = before.grab(scr(x, y));
+    let g = before.grab(FramePixel(x, y).scr());
     let dist = ((depth - 0.1) / 0.2).clamp(0.0, 1.0);
     let t = ((quad_uv(x, y)[1] - 1.0) / -1.5).clamp(0.0, 1.0);
     let amount = dist.powf(0.3) * t * t * (3.0 - 2.0 * t);
@@ -952,7 +946,7 @@ impl Scene {
         }
         let col1 = ((self.rain * 6.0 + 7.0) * GAME_TAU).sin() * 0.5 + 0.5;
         let col2 = ((self.rain * 2.7 + 6.33) * GAME_TAU).sin() * 0.5 + 0.5;
-        let s = scr(x, y);
+        let s = FramePixel(x, y).scr();
         let blue = self.mask_blue([s[0] * W as f32, s[1] * H as f32]);
         Some(col1.max(col2).powf(47.0) * (1.0 - uv_y) * blue)
     }

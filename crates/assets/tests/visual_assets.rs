@@ -215,6 +215,10 @@ fn noise_texture_is_dxt1_copy_of_noise_png() {
     );
     let (_, flipped_mean) = noise_diff(&noise, &png, true);
     assert!(flipped_mean > 20.0, "orientation matters: {flipped_mean}");
+    // Import settings: 7 mips, bilinear, repeat, no mip bias.
+    let (texture, mips) = resources.texture_mips("Palettes/noise").expect("mips");
+    assert_eq!(mips.len(), 7);
+    assert_eq!((texture.mip_bias, texture.wrap), (0.0, [0, 0, 0]));
 }
 
 /// Max and mean absolute red difference, optionally with `b` flipped vertically.

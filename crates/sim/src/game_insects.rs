@@ -47,6 +47,9 @@ impl RainWorldGame {
         }
         self.particles_now_viewed(change.to);
         self.insects_now_viewed(change.to);
+        if change.from.is_none() {
+            self.link_gravity_disruptors(change.to);
+        }
     }
 
     /// `InsectCoordinator.NowViewed` of room `index` (no ghost presence in the port).

@@ -84,8 +84,8 @@ const SLIME: &str = "LightFixture><100><100><SlimeMoldLight~17.32051~-10~30";
 
 /// `Room.Loaded` makes each fixture where the settings list it: the red light's flat light
 /// first, then the fixture; the holy fire's three lights, its flat light, then the fixture;
-/// a slime mold light just itself. Unregistered types and `DeepProcessing` make nothing
-/// (the `ZapCoilLight` is in `game_ss_electric_tests.rs`).
+/// a slime mold light just itself, a `DeepProcessingLight` its light then itself. Unregistered
+/// types make nothing (the `ZapCoilLight` is in `game_ss_electric_tests.rs`).
 #[test]
 fn fixtures_join_the_update_list_in_order() {
     let placed = format!(
@@ -100,7 +100,7 @@ fn fixtures_join_the_update_list_in_order() {
         (1, 1, 1)
     );
     let (red, fire, slime) = (&f.redlights[0], &f.holy_fires[0], &f.slime_lights[0]);
-    assert_eq!(r.light_sources.len(), 1 + 4);
+    assert_eq!(r.light_sources.len(), 1 + 4 + 1);
     let ids: Vec<u64> = r.light_sources.iter().map(|l| l.id).collect();
     // flat, [fixture], 3 lights, flat, [fixture], [slime]
     assert_eq!(red.flat_light, ids[0]);
@@ -109,6 +109,10 @@ fn fixtures_join_the_update_list_in_order() {
     assert_eq!(fire.flat_light, ids[4]);
     assert_eq!(fire.update_order, ids[4] + 1);
     assert!(slime.update_order > fire.update_order);
+    let deep = &f.deep_processing_lights[0];
+    assert_eq!(deep.light, ids[5]);
+    assert_eq!(deep.update_order, ids[5] + 1);
+    assert!(deep.update_order > slime.update_order);
     assert!(r.light_sources.iter().all(|l| !l.environmental_light));
     assert_eq!(
         r.light_sources[0].tied_to,
@@ -119,7 +123,12 @@ fn fixtures_join_the_update_list_in_order() {
     let seqs: Vec<u64> = g.room_fixture_objects(0).iter().map(|&(s, _)| s).collect();
     assert_eq!(
         seqs,
-        [red.update_order, fire.update_order, slime.update_order]
+        [
+            red.update_order,
+            fire.update_order,
+            slime.update_order,
+            deep.update_order
+        ]
     );
 }
 

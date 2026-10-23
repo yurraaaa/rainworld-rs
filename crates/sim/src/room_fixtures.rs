@@ -2,10 +2,13 @@
 //! list is kept in update-list order (an object's `update_order` grows with `AddObject`).
 //!
 //! The superstructure's electric objects (`SSLightRod`, `ZapCoil` with its `ZapCoilLight`s and
-//! `ZapFlash`es, `SuperStructureFuses`) are kept here too.
+//! `ZapFlash`es, `SuperStructureFuses`) are kept here too, and the screen-grab effects
+//! (`DeepProcessing` with its light, `GravityDisruptor` with its `DisruptorSpeck`s).
 //!
-//! Mirrors: Room.cs (updateList: Redlight, HolyFire, SlimeMoldLight, WaterFall, SSLightRod, ZapCoil, ZapCoilLight, SuperStructureFuses)
+//! Mirrors: Room.cs (updateList: Redlight, HolyFire, SlimeMoldLight, WaterFall, SSLightRod, ZapCoil, ZapCoilLight, SuperStructureFuses, DeepProcessing, DeepProcessingLight, GravityDisruptor)
 
+use crate::deep_processing::{DeepProcessing, DeepProcessingLight};
+use crate::gravity_disruptor::{DisruptorSpeck, GravityDisruptor};
 use crate::light_fixture::{HolyFire, HolyFireSprite, Redlight, SlimeMoldLight};
 use crate::ss_fuses::SuperStructureFuses;
 use crate::ss_light_rod::SsLightRod;
@@ -27,6 +30,10 @@ pub(crate) enum FixtureRef {
     ZapCoilLight(u64),
     ZapFlash(u64),
     Fuses(u64),
+    DeepProcessing(u64),
+    DeepProcessingLight(u64),
+    GravityDisruptor(u64),
+    DisruptorSpeck(u64),
 }
 
 /// A realized room's `Redlight`s, `HolyFire`s (with their sprites), `SlimeMoldLight`s and
@@ -43,6 +50,10 @@ pub struct RoomFixtures {
     pub zap_coil_lights: Vec<ZapCoilLight>,
     pub zap_flashes: Vec<ZapFlash>,
     pub fuses: Vec<SuperStructureFuses>,
+    pub deep_processing: Vec<DeepProcessing>,
+    pub deep_processing_lights: Vec<DeepProcessingLight>,
+    pub gravity_disruptors: Vec<GravityDisruptor>,
+    pub disruptor_specks: Vec<DisruptorSpeck>,
 }
 
 impl RoomFixtures {
@@ -61,6 +72,10 @@ impl RoomFixtures {
             || self.holy_fires.iter().any(|h| h.update_order == order)
             || self.light_rods.iter().any(|r| r.update_order == order)
             || self.zap_coil_lights.iter().any(|l| l.update_order == order)
+            || self
+                .deep_processing_lights
+                .iter()
+                .any(|l| l.update_order == order)
             || self
                 .zap_flashes
                 .iter()
@@ -124,6 +139,27 @@ impl RoomFixtures {
                 .iter()
                 .map(|f| (f.update_order, FixtureRef::Fuses(f.update_order))),
         );
+        list.extend(
+            self.deep_processing
+                .iter()
+                .map(|d| (d.update_order, FixtureRef::DeepProcessing(d.update_order))),
+        );
+        list.extend(self.deep_processing_lights.iter().map(|l| {
+            (
+                l.update_order,
+                FixtureRef::DeepProcessingLight(l.update_order),
+            )
+        }));
+        list.extend(
+            self.gravity_disruptors
+                .iter()
+                .map(|g| (g.update_order, FixtureRef::GravityDisruptor(g.update_order))),
+        );
+        list.extend(
+            self.disruptor_specks
+                .iter()
+                .map(|k| (k.update_order, FixtureRef::DisruptorSpeck(k.update_order))),
+        );
         list
     }
 
@@ -144,5 +180,8 @@ impl RoomFixtures {
                     .map(|f| f.update_order),
             )
             .chain(self.fuses.iter().map(|f| f.update_order))
+            .chain(self.deep_processing.iter().map(|d| d.update_order))
+            .chain(self.gravity_disruptors.iter().map(|g| g.update_order))
+            .chain(self.disruptor_specks.iter().map(|k| k.update_order))
     }
 }

@@ -56,9 +56,11 @@ const SCREEN_PIXEL_OFFSET: vec2<f32> = vec2(-0.5, 0.5);
 // `_NoiseTex2` (`Palettes/noise2`).
 @group(1) @binding(0) var noise2: texture_2d<f32>;
 @group(1) @binding(1) var noise2_sampler: sampler;
-// `_LevelTex` (v = 0 at the bottom), the `_GrabTexture` of the last unnamed GrabPass
-// before the level (what was drawn behind it), the frame as it was just before a
-// `HologramImage` sprite (its own GrabPass) and `_PalTex` (32x8, point, clamp).
+// `_LevelTex` (v = 0 at the bottom), `_PreLevelColorGrab` (what was drawn behind the level:
+// `LevelColor`'s named GrabPass), `_GrabTexture` (the frame as the last unnamed GrabPass saw
+// it: the frame before the level until a grabbing sprite (`HologramImage`, a bloom effect,
+// `GravityDisruptor`, ...) draws; every shader without a GrabPass of its own reads this) and
+// `_PalTex` (32x8, point, clamp).
 @group(2) @binding(0) var level_tex: texture_2d<f32>;
 @group(2) @binding(1) var behind_tex: texture_2d<f32>;
 @group(2) @binding(2) var grab_tex: texture_2d<f32>;
@@ -221,10 +223,10 @@ fn fs_light_source(in: VertexOut) -> @location(0) vec4<f32> {
     let old_shadow_pos = in.scr - dir * pow(center_dist, 1.25) * pow(dist, 1.5) * 0.3;
     var shadow_dist = depth_of(level_at(shadow_pos));
     let highlight_dist = depth_of(level_at(highlight_pos));
-    if dist > 5.0 / 30.0 && drawn(textureLoad(behind_tex, frame_px(in.scr), 0)) {
+    if dist > 5.0 / 30.0 && drawn(textureLoad(grab_tex, frame_px(in.scr), 0)) {
         return vec4(0.0);
     }
-    if shadow_dist > 5.0 / 30.0 && drawn(textureLoad(behind_tex, frame_px(old_shadow_pos), 0)) {
+    if shadow_dist > 5.0 / 30.0 && drawn(textureLoad(grab_tex, frame_px(old_shadow_pos), 0)) {
         shadow_dist = 6.0 / 30.0;
     }
     var shadow = dist - shadow_dist - select(2.0 / 30.0, 0.0, palette_color == 1);
@@ -261,8 +263,11 @@ fn fs_light_source(in: VertexOut) -> @location(0) vec4<f32> {
     return vec4(in.color.rgb, dist * in.color.a * (0.65 + highlight * 0.35));
 }
 
+// `tex2D(_NoiseTex, uv)`: the red of the mip level the pixel block's derivatives of `uv` pick
+// (the nearest level, bilinear within it, repeat). Only in uniform control flow: a shader
+// takes its taps before any early return.
 fn noise_at(uv: vec2<f32>) -> f32 {
-    return textureSampleLevel(noise_tex, noise_sampler, uv, 0.0).x;
+    return textureSample(noise_tex, noise_sampler, uv).x;
 }
 
 // `UnderWaterLight` (not `VOIDSEA`, not `strong`; no brain mold or ripple): the level
@@ -279,7 +284,7 @@ fn fs_under_water_light(in: VertexOut) -> @location(0) vec4<f32> {
     );
     distortion = floor(distortion * room.screen) / room.screen;
     var dist = depth_of(level_at(tc + distortion));
-    if dist > 6.0 / 30.0 && drawn(textureLoad(behind_tex, frame_px(in.scr), 0)) {
+    if dist > 6.0 / 30.0 && drawn(textureLoad(grab_tex, frame_px(in.scr), 0)) {
         dist = 6.0 / 30.0;
     }
     let dir = normalize(in.tex - vec2(0.5));
@@ -315,7 +320,7 @@ fn fs_under_water_light(in: VertexOut) -> @location(0) vec4<f32> {
 // the level (deeper than layer 6).
 fn holo_grid_depth(tc: vec2<f32>, scr: vec2<f32>) -> f32 {
     let d = depth_of(level_at(tc));
-    if d > 6.0 / 30.0 && drawn(textureLoad(behind_tex, frame_px(scr), 0)) {
+    if d > 6.0 / 30.0 && drawn(textureLoad(grab_tex, frame_px(scr), 0)) {
         return 6.0 / 30.0;
     }
     return d;
@@ -447,7 +452,7 @@ fn fs_specific_depth(in: VertexOut) -> @location(0) vec4<f32> {
     if all(texcol.xyz == vec3(1.0)) {
         terrain = 1.0;
     }
-    if terrain > 6.0 / 30.0 && drawn(textureLoad(behind_tex, frame_px(in.scr), 0)) {
+    if terrain > 6.0 / 30.0 && drawn(textureLoad(grab_tex, frame_px(in.scr), 0)) {
         terrain = 6.0 / 30.0;
     }
     if floor(dpth * 30.0) == floor(terrain * 30.0) {
@@ -468,7 +473,7 @@ fn fs_custom_depth(in: VertexOut) -> @location(0) vec4<f32> {
     if all(texcol.xyz == vec3(1.0)) {
         terrain = 1.0;
     }
-    if terrain > 6.0 / 30.0 && drawn(textureLoad(behind_tex, frame_px(in.scr), 0)) {
+    if terrain > 6.0 / 30.0 && drawn(textureLoad(grab_tex, frame_px(in.scr), 0)) {
         terrain = 6.0 / 30.0;
     }
     if dpth > terrain {
@@ -546,7 +551,7 @@ fn fs_water_splash(in: VertexOut) -> @location(0) vec4<f32> {
     h *= noise_at(in.tex - vec2(room.rain * 23.0 * clr.x));
     h = max(0.0, mix(h, 1.0, clr.a * (1.0 - clr.z)) - dist);
     let texcol = level_at(tc + distortion);
-    var grab = textureLoad(behind_tex, frame_px(in.scr + distortion), 0);
+    var grab = textureLoad(grab_tex, frame_px(in.scr + distortion), 0);
     var dp = depth_of(texcol);
     if dp > 6.0 / 30.0 {
         if byte(grab.r) == 0 && byte(grab.g) == 1 && byte(grab.b) == 0 {
@@ -591,11 +596,23 @@ fn fs_water_light(in: VertexOut) -> @location(0) vec4<f32> {
     let tc = level_coord(in.scr);
     let texcol = level_at(tc);
     let dist = fmod_trunc(f32(byte(texcol.r) - 1), 30.0) / 30.0;
+    let rain = room.rain;
+    // The three `_NoiseTex` taps come before any return (mip level from the 2x2 block's
+    // derivatives).
+    let n1 = noise_at(vec2(
+        dist / 10.0 + mix(tc.x, 0.5, dist / 3.0) * 2.1,
+        rain * 0.1 + dist / 5.0 + mix(tc.y, 0.5, dist / 3.0) * 2.1,
+    ));
+    let n2 = noise_at(vec2(
+        dist / 7.0 + mix(tc.x, 0.5, dist / 5.0) * 1.3,
+        rain * -0.21 + dist / 8.0 + mix(tc.y, 0.5, dist / 6.0) * 1.3,
+    ));
+    let n3 = noise_at(vec2(in.tex.x, in.tex.y + rain + dist * 0.1));
     if dist < 2.0 / 30.0 {
         return vec4(0.0);
     }
     if dist > 6.0 / 30.0 {
-        let grab = textureLoad(behind_tex, frame_px(in.scr), 0);
+        let grab = textureLoad(grab_tex, frame_px(in.scr), 0);
         if any(grab.rgb != vec3(0.0)) {
             return vec4(0.0);
         }
@@ -603,18 +620,8 @@ fn fs_water_light(in: VertexOut) -> @location(0) vec4<f32> {
     if all(texcol.rgb == vec3(1.0)) {
         return vec4(0.0);
     }
-    let rain = room.rain;
-    let n1 = noise_at(vec2(
-        dist / 10.0 + mix(tc.x, 0.5, dist / 3.0) * 2.1,
-        rain * 0.1 + dist / 5.0 + mix(tc.y, 0.5, dist / 3.0) * 2.1,
-    ));
     let col1 = sin((rain * 6.0 + n1 * 7.0) * 3.14 * 2.0) * 0.5 + 0.5;
-    let n2 = noise_at(vec2(
-        dist / 7.0 + mix(tc.x, 0.5, dist / 5.0) * 1.3,
-        rain * -0.21 + dist / 8.0 + mix(tc.y, 0.5, dist / 6.0) * 1.3,
-    ));
     let col2 = sin((rain * 2.7 + n2 * 6.33) * 3.14 * 2.0) * 0.5 + 0.5;
-    let n3 = noise_at(vec2(in.tex.x, in.tex.y + rain + dist * 0.1));
     var col = pow(max(col1, col2), 47.0) * (1.0 - in.tex.y) * n3 * n3;
     let cam = room.cam_in_room_rect;
     col *= textureSampleLevel(rain_mask, grab_sampler, cam.xy + cam.zw * in.scr, 0.0).z;
@@ -637,7 +644,7 @@ fn fs_light_beam(in: VertexOut) -> @location(0) vec4<f32> {
         dp = 1.0;
     }
     dp = min(dp, 2.0);
-    if dp > 6.0 / 30.0 && drawn(textureLoad(behind_tex, frame_px(in.scr), 0)) {
+    if dp > 6.0 / 30.0 && drawn(textureLoad(grab_tex, frame_px(in.scr), 0)) {
         dp = 6.0 / 30.0;
     }
     let tp = i32(floor(in.color.w * 3.0));

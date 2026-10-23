@@ -93,6 +93,8 @@ mod social_events;
 mod spear_on_back;
 #[path = "game_ss_electric.rs"]
 mod ss_electric;
+#[path = "game_ss_grab.rs"]
+mod ss_grab;
 
 pub use dev::DevRainControl;
 pub use heavy_ai::HeavyAiThrottle;
@@ -1404,6 +1406,8 @@ impl RainWorldGame {
         observer: &mut dyn PlayerObserver,
     ) {
         self.camera_changed_room(self.camera_room, room, observer);
+        // A move before the last one's `ApplyPositionChange` replaces it (`loadingRoom` is
+        // overwritten): the room it named never gets its `NowViewed`.
         let from = self.insect_view.map_or(Some(self.camera_room), |v| v.from);
         self.insect_view = Some(insects::InsectViewChange { from, to: room });
         self.camera_room = room;

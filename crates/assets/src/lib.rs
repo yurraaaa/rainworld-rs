@@ -54,7 +54,7 @@ pub use placed::{
     ReliableIggyDirectionData, ResizableData, RoomEffect,
 };
 pub use placed_beam::{BeamBlinkType, LightBeamData};
-pub use placed_electric::{GridRectData, SsLightRodData};
+pub use placed_electric::{DeepProcessingData, GridRectData, SsLightRodData};
 pub use placed_fixture::{LightFixtureData, LightFixtureType};
 pub use placed_light::{LightBlinkType, LightColorType, LightSourceData};
 pub use placed_types::{MultiplayerItemType, PlacedObjectType, RoomEffectType};

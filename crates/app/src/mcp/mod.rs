@@ -43,6 +43,8 @@ mod projection_tests;
 pub(crate) mod reply;
 #[cfg(test)]
 mod save_tests;
+#[cfg(test)]
+mod ss_grab_tests;
 
 #[cfg(test)]
 mod options_tests;
@@ -50,6 +52,7 @@ mod session;
 #[cfg(test)]
 mod shortcut_shots;
 mod ss_electric_reply;
+mod ss_grab_reply;
 #[cfg(test)]
 mod tests;
 mod tiles;

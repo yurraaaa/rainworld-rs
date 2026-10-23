@@ -34,12 +34,14 @@ pub mod color;
 mod cosmetic;
 pub mod creature;
 mod decal;
+mod deep_processing;
 mod distant_lightning;
 mod dripping_sound;
 mod dust_puff;
 mod electric_death;
 mod float_ext;
 mod game;
+mod gravity_disruptor;
 mod green_sparks;
 pub mod insect;
 pub mod item;
@@ -102,6 +104,7 @@ pub use cosmetic::{
 };
 pub use creature::{ShortCutColor, WorldCoordinate};
 pub use decal::CustomDecal;
+pub use deep_processing::{DeepProcessing, DeepProcessingLight};
 pub use distant_lightning::DistantLightning;
 pub use dripping_sound::DrippingSound;
 pub use dust_puff::{DustPuff, DustpuffSpawner};
@@ -112,6 +115,7 @@ pub use game::{
     OverseerCall, PlayerGlow, PlayerHands, PlayerObserver, PlayerSurroundings, RainWorldGame,
     Start, UtilityReadings,
 };
+pub use gravity_disruptor::{DisruptorSpeck, GravityDisruptor, SPECKS, STREAKS};
 pub use green_sparks::{GreenSpark, GreenSparks, SparkCx};
 pub use light_beam::LightBeam;
 pub use light_fixture::{HolyFire, HolyFireSprite, Redlight, SlimeMoldLight};

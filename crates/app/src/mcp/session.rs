@@ -597,6 +597,9 @@ impl Session {
             zap_coil_lights: super::reply::ZapCoilLightState::all(sim.world()),
             zap_flashes: super::reply::ZapFlashState::all(sim.world()),
             fuses: super::reply::FuseState::all(sim.world()),
+            deep_processing: super::reply::DeepProcessingState::all(sim.world()),
+            deep_processing_lights: super::reply::DeepProcessingLightState::all(sim.world()),
+            gravity_disruptors: super::reply::GravityDisruptorState::all(sim.world()),
             room_gravity: super::reply::RoomGravityState::all(sim.world()),
             broken_anti_gravity: super::reply::BrokenAntiGravityState::of(sim.world()),
             waterfalls: super::reply::WaterFallState::all(sim.world()),
@@ -1582,9 +1585,13 @@ impl Session {
             return Err("no game loaded; call load_room or new_game first".to_owned());
         };
         target.scene.renderer.set_frame_size((pixels[0], pixels[1]));
+        let hud = level && framing == Framing::Auto;
+        if let (Some(shared), true) = (&self.hud_shared, hud) {
+            scene.prepare_hud(&shared.atlases, 1.0);
+        }
         scene.draw(&mut target.scene, 1.0, view);
         // The HUD is in screen pixels: drawn over the game's own camera window only.
-        if let (Some(shared), true) = (&mut self.hud_shared, level && framing == Framing::Auto) {
+        if let (Some(shared), true) = (&mut self.hud_shared, hud) {
             target.draw_scene_hud(shared, scene, 1.0);
         }
         Self::encode(target, params)

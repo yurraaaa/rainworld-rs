@@ -159,7 +159,8 @@ pub trait Renderer {
     /// [`Layer::Midground`] then [`Layer::Items`] before
     /// [`draw_level`](Renderer::draw_level) and [`Layer::Foreground`] then
     /// [`Layer::ForegroundLights`] after, as the game's containers order them, and
-    /// [`Layer::Water`], [`Layer::GrabShaders`] then [`Layer::Bloom`] after the water. The shaders' `_spriteRect`, `_screenSize`,
+    /// [`Layer::Water`], [`Layer::GrabShaders`], [`Layer::Bloom`] then [`Layer::Hud`] after the
+    /// water. The shaders' `_spriteRect`, `_screenSize`,
     /// `_RAIN` and `_NoiseTex` come from the frame's level, `_NoiseTex2` from the stage
     /// globals.
     /// Nothing is drawn before an atlas is set.

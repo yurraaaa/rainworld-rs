@@ -59,8 +59,8 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `Alpha`. `LightBeam`/`SpotLight` (L3) done (D24). Fixtures without electricity (L2a: `Redlight`,
   `HolyFire`, `SlimeMoldLight`) and the rooms' waterfalls done (D30; the emergency red
   lights follow `ElectricPower` since zero gravity, D34). The SS electric fixtures
-  (L2b: `ZapCoilLight`, with `SSLightRod`, `ZapCoil`, `SuperStructureFuses`) done (D36). Left:
-  `DeepProcessing`/`DeepProcessingLight` (step 10c), owners' lights with
+  (L2b: `ZapCoilLight`, with `SSLightRod`, `ZapCoil`, `SuperStructureFuses`) done (D36), and
+  `DeepProcessingLight` with `DeepProcessing` (step 10c, D37). Left: owners' lights with
   their owners (L4); blinking and night lights with the DLCs.
   Step 3 (cosmetic insects, `rw_sim::insect`, `../rainworld-re/notes/cosmetic-insects.md`)
   done; its omissions are among the decisions above. Draw order for later steps:
@@ -187,12 +187,9 @@ plan is in `../rainworld-re/surveys/lizards.md`.
     `swimBits`), with the coral circuit object.
   - Zero gravity: Five Pebbles' and Moon's oracle scenes switching `AntiGravity` off, with
     the oracles.
-  - `Room.ElectricPower` / gravity readers: `GravityDisruptor`, `SpinningFan`,
-    `MeltLights`, with the SS objects (`ZapCoil`, `SuperStructureFuses` and `SSLightRod` are
-    ported, D36).
-  - `Room.ElectricPower` / gravity readers: `DeepProcessing`, `DeepProcessingLight`, with
-    the SS objects (`ProjectedScanLines` and `SuperStructureProjector` read it since step 10a,
-    D35).
+  - `Room.ElectricPower` / gravity readers: `SpinningFan`, `MeltLights`, with the SS
+    objects (`ZapCoil`, `SuperStructureFuses` and `SSLightRod` are ported, D36;
+    `GravityDisruptor`, `DeepProcessing` and `DeepProcessingLight`, D37).
   - `ProjectedCircle` (D35): with its owners `CoralNeuron`, `CoralStem`, `SSOracleSwarmer`
     (and `SpearMasterPearl`, `Inspector` in the DLC).
   - The other readers of `room.zapCoils` and `SuperStructureFuses` (D36): `TubeWorm`, the

@@ -24,7 +24,7 @@ struct Water {
 @group(0) @binding(3) var noise_tex: texture_2d<f32>;
 @group(0) @binding(4) var noise_sampler: sampler;
 // The game's `_GrabTexture`: what was drawn before the level, frame-sized.
-@group(0) @binding(5) var behind_tex: texture_2d<f32>;
+@group(0) @binding(5) var grab_tex: texture_2d<f32>;
 
 const GAME_TAU: f32 = 6.28; // the shaders' 3.14 * 2
 // Futile's `screenPixelOffset` (`Camera::SCREEN_PIXEL_OFFSET`): screen = stage + this.
@@ -64,7 +64,7 @@ fn palette(x: i32, row: i32) -> vec4<f32> {
 }
 
 fn noise(uv: vec2<f32>) -> f32 {
-    return textureSampleLevel(noise_tex, noise_sampler, uv, 0.0).r;
+    return textureSample(noise_tex, noise_sampler, uv).r;
 }
 
 // The game's screen uv (`ComputeScreenPos`, y up) of the point at `stage`.
@@ -92,8 +92,8 @@ fn grab_at(scr: vec2<f32>) -> vec4<f32> {
     let room = scr * water.stage.zw - SCREEN_PIXEL_OFFSET + water.stage.xy;
     let clip = room * water.transform.xy + water.transform.zw;
     let px = vec2((clip.x + 1.0) * 0.5, (1.0 - clip.y) * 0.5) * water.frame.xy;
-    let size = vec2<i32>(textureDimensions(behind_tex));
-    return textureLoad(behind_tex, clamp(vec2<i32>(floor(px)), vec2(0), size - 1), 0);
+    let size = vec2<i32>(textureDimensions(grab_tex));
+    return textureLoad(grab_tex, clamp(vec2<i32>(floor(px)), vec2(0), size - 1), 0);
 }
 
 fn is_sky(c: vec4<f32>) -> bool {
