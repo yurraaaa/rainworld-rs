@@ -131,6 +131,12 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `../rainworld-re/surveys/lizards.md` (user decisions).
 
 ## To look into
+- **Hitch when nearby rooms realize or abstractize** (user, 2026-10-23, seen in play): the
+  realizer's automatic loading and unloading of neighbour rooms seems to cause a noticeable
+  frame hitch. Measure after async loading step B (which cost: room file and
+  `LoadFromDataString`, AI map and heat maps, which the game builds on its preparer thread,
+  level image and texture uploads, abstractize). Performance only; the result must stay the
+  game's.
 - **Other-room MCP screenshots without fixtures** (user, 2026-10-23: skip for now):
   `screenshot` with `room` set (`crates/app/src/mcp/dev_tools.rs`) draws no light fixtures
   and none of the SS electric objects (D36), wall mycelia (D38), coral neurons, coral stems
