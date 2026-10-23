@@ -16,6 +16,7 @@ mod objects;
 mod palette;
 mod placed;
 mod placed_beam;
+mod placed_electric;
 mod placed_fixture;
 mod placed_light;
 mod placed_types;
@@ -53,6 +54,7 @@ pub use placed::{
     ReliableIggyDirectionData, ResizableData, RoomEffect,
 };
 pub use placed_beam::{BeamBlinkType, LightBeamData};
+pub use placed_electric::{GridRectData, SsLightRodData};
 pub use placed_fixture::{LightFixtureData, LightFixtureType};
 pub use placed_light::{LightBlinkType, LightColorType, LightSourceData};
 pub use placed_types::{MultiplayerItemType, PlacedObjectType, RoomEffectType};

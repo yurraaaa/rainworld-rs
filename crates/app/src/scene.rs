@@ -739,6 +739,10 @@ impl Scene {
             lists.extend(self.game.drip_draw_lists(alpha, drips));
             lists.extend(self.game.cosmetic_draw_lists(alpha, face));
             let cam_pos = rw_sim::Vec2::from(self.camera.view_origin(alpha));
+            lists.extend(self.game.ss_electric_draw_lists(
+                alpha,
+                rw_sim::Vec2::from(self.camera.position(self.camera.current())),
+            ));
             lists.extend(self.game.holo_light_draw_lists(alpha, cam_pos, darkness));
             lists.extend(self.game.placed_light_draw_lists(self.camera.current()));
             if let Some(visuals) = &self.visuals {

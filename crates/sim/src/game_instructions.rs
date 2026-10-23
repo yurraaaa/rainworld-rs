@@ -11,9 +11,9 @@
 //! Mirrors: Room.cs (Loaded), SuperJumpInstruction.cs, ScavengerTradeInstructionTrigger.cs, ReliableIggyDirection.cs, InputInstructionTrigger.cs
 
 use rw_assets::{
-    AbstractObjectType, CreatureType, CustomDecalData, IggyCondition, LightBeamData,
+    AbstractObjectType, CreatureType, CustomDecalData, GridRectData, IggyCondition, LightBeamData,
     LightFixtureData, LightSourceData, PlacedObjectType, QuadData, RainbowData,
-    ReliableIggyDirectionData, ResizableData,
+    ReliableIggyDirectionData, ResizableData, SsLightRodData,
 };
 
 use super::RainWorldGame;
@@ -105,6 +105,15 @@ impl RainWorldGame {
                 Some(PlacedObjectType::SpotLight) => {
                     QuadData::parse(&o.data).map(|d| PlacedRoomObject::SpotLight(pos, d))
                 }
+                Some(PlacedObjectType::ZapCoil) => {
+                    GridRectData::parse(&o.data).map(|d| PlacedRoomObject::ZapCoil(pos, d))
+                }
+                Some(PlacedObjectType::SuperStructureFuses) => {
+                    GridRectData::parse(&o.data).map(|d| PlacedRoomObject::Fuses(pos, d))
+                }
+                Some(PlacedObjectType::SSLightRod) => {
+                    SsLightRodData::parse(&o.data).map(|d| PlacedRoomObject::LightRod(pos, d))
+                }
                 Some(PlacedObjectType::SuperJumpInstruction) => QuadData::parse(&o.data).map(|q| {
                     PlacedRoomObject::Trigger(TriggerObjectKind::SuperJumpInstruction(
                         SuperJumpInstruction::new(pos, q),
@@ -160,6 +169,9 @@ impl RainWorldGame {
                 PlacedRoomObject::Fixture(pos, data) => self.add_light_fixture(index, pos, data),
                 PlacedRoomObject::LightBeam(pos, data) => self.add_light_beam(index, pos, data),
                 PlacedRoomObject::SpotLight(pos, data) => self.add_spot_light(index, pos, &data),
+                PlacedRoomObject::ZapCoil(pos, data) => self.add_zap_coil(index, pos, data),
+                PlacedRoomObject::Fuses(pos, data) => self.add_fuses(index, pos, data),
+                PlacedRoomObject::LightRod(pos, data) => self.add_light_rod(index, pos, data),
                 PlacedRoomObject::SlimeMold(pos, rad, through_walls) => {
                     self.add_slime_mold(index, pos, rad, through_walls);
                 }
@@ -173,6 +185,7 @@ impl RainWorldGame {
                 PlacedRoomObject::Stars(pos, rad) => self.add_star_matrix(index, pos, rad),
             }
         }
+        self.link_zap_coil_lights(index);
     }
 
     /// The input instruction objects, as the guide's communication reads them.
@@ -517,6 +530,9 @@ enum PlacedRoomObject {
     Fixture(Vec2, LightFixtureData),
     LightBeam(Vec2, LightBeamData),
     SpotLight(Vec2, QuadData),
+    ZapCoil(Vec2, GridRectData),
+    Fuses(Vec2, GridRectData),
+    LightRod(Vec2, SsLightRodData),
     /// `pos`, `rad`, `throughWalls`.
     SlimeMold(Vec2, f32, bool),
     /// Hover and base positions.

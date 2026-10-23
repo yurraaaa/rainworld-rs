@@ -17,6 +17,9 @@ pub use super::placed_cosmetics_reply::{SlimeMoldState, TokenStalkState};
 pub use super::placed_light_reply::{LightBeamState, SpotLightState};
 pub use super::placed_visuals_reply::{DecalState, RainbowState};
 pub use super::projection_reply::{ProjectedScanLinesState, ProjectorState, StarMatrixState};
+pub use super::ss_electric_reply::{
+    FuseState, LightRodState, ZapCoilLightState, ZapCoilState, ZapFlashState,
+};
 
 use super::params::InputParam;
 
@@ -140,6 +143,21 @@ pub struct State {
     /// The realized rooms' `Redlight`s, `HolyFire`s and `SlimeMoldLight`s.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub light_fixtures: Vec<LightFixtureState>,
+    /// The realized rooms' `SSLightRod`s.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub light_rods: Vec<LightRodState>,
+    /// The realized rooms' `ZapCoil`s.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub zap_coils: Vec<ZapCoilState>,
+    /// The realized rooms' `ZapCoilLight`s.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub zap_coil_lights: Vec<ZapCoilLightState>,
+    /// The realized rooms' live `ZapFlash`es.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub zap_flashes: Vec<ZapFlashState>,
+    /// The realized rooms' `SuperStructureFuses`.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub fuses: Vec<FuseState>,
     /// The realized rooms' gravity and power (`ZeroG` / `BrokenZeroG` rooms).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub room_gravity: Vec<RoomGravityState>,

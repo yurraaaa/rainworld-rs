@@ -1175,6 +1175,59 @@ impl Game {
             .map(rw_sim::Vec2::to_array)
     }
 
+    /// The camera room's `SSLightRod`s, `ZapCoil`s, `ZapFlash`es and `SuperStructureFuses` at
+    /// `alpha` between ticks; `camera` is `CamPos(currentCameraPosition)`, which the fuses'
+    /// depth pushes from. A flash's seven cosmetic draws come first, and its draw sets its
+    /// light (`HardSetRad`, `HardSetAlpha`, `color`), so this runs before the lights draw.
+    pub fn ss_electric_draw_lists(
+        &mut self,
+        alpha: f32,
+        camera: rw_sim::Vec2,
+    ) -> Vec<(Drawable, DrawList)> {
+        use rw_graphics::{FuseSprites, LightRodSprites, ZapCoilSprites, ZapFlashSprites};
+        let index = self.sim.camera_room();
+        let world = self.sim.world();
+        let Some(r) = world.realized(index) else {
+            return Vec::new();
+        };
+        let power = r.electric_power(&world.rain_cycle);
+        let water_lights = r.settings.effect_amount(RoomEffectType::WaterLights) > 0.0;
+        let f = &r.fixtures;
+        let mut lists: Vec<(Drawable, DrawList)> = Vec::new();
+        lists.extend(
+            f.light_rods
+                .iter()
+                .map(|x| (Drawable::Fixture(x.update_order), x.draw(power))),
+        );
+        lists.extend(f.zap_coils.iter().map(|x| {
+            (
+                Drawable::Fixture(x.update_order),
+                x.draw(alpha, water_lights),
+            )
+        }));
+        lists.extend(
+            f.fuses
+                .iter()
+                .map(|x| (Drawable::Fixture(x.update_order), x.draw(alpha, camera))),
+        );
+        let mut lights = Vec::new();
+        for flash in f.zap_flashes.iter().filter(|x| !x.slated) {
+            let (list, set) = flash.draw(alpha, &mut self.graphics.cosmetic);
+            lists.push((Drawable::Fixture(flash.update_order), list));
+            lights.extend(flash.light.zip(set));
+        }
+        if let Some(r) = self.sim.world_mut().realized_mut(index) {
+            for (id, set) in lights {
+                if let Some(l) = r.light_sources.iter_mut().find(|l| l.id == id) {
+                    l.hard_set_rad(set.rad);
+                    l.hard_set_alpha(set.alpha);
+                    l.set_color(set.color);
+                }
+            }
+        }
+        lists
+    }
+
     /// The camera room's dandelions, stalks, green sparks, specks and spores at `alpha`
     /// between ticks in the camera's `palette` (a new spore's pebble draws on the
     /// cosmetic stream).

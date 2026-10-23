@@ -37,6 +37,8 @@ pub struct RegionParams {
     pub albinos: bool,
     pub black_salamander_chance: f32,
     pub locust_region: bool,
+    /// `fuseSize`: the side in pixels of a `SuperStructureFuses` light.
+    pub fuse_size: f32,
     /// `Subregion` lines in order, after the unnamed subregion 0.
     pub subregions: Vec<String>,
     /// `cloudsStart` and `cloudsEnd`: the altitudes of an `AboveCloudsView` in the region
@@ -74,6 +76,7 @@ impl Default for RegionParams {
             albinos: false,
             black_salamander_chance: 1.0 / 3.0,
             locust_region: false,
+            fuse_size: 10.0,
             subregions: Vec::new(),
             clouds_start: None,
             clouds_end: None,
@@ -248,6 +251,7 @@ impl RegionParams {
             "albinos" => self.albinos = bool_true,
             "locustRegion" => self.locust_region = bool_true,
             "blackSalamanderChance" => Self::put(&mut self.black_salamander_chance, float),
+            "fuseSize" => Self::put(&mut self.fuse_size, float),
             "cloudsStart" => Self::put(&mut self.clouds_start, float.map(Some)),
             "cloudsEnd" => Self::put(&mut self.clouds_end, float.map(Some)),
             _ => self.other.push((key.to_owned(), value.trim().to_owned())),

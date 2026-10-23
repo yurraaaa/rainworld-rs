@@ -49,6 +49,7 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 | `projector_draw.rs` | a `SuperStructureProjector`'s parts in `Shadows`: scan line bars, cursor box with a `glyphs` sprite, single glyph, matrix; `ProjectionView` (camera position and the room's camera) | `SuperStructureProjector` |
 | `projected_scan_lines_draw.rs` | a `ProjectedScanLines` line (one bar, `Shadows`) | `ProjectedScanLines` |
 | `star_matrix_draw.rs` | a `StarMatrix`'s squares, lines and `VectorCircle` rings in `BackgroundShortcuts` | `StarMatrix` |
+| `ss_electric.rs`, `ss_electric_tests.rs` | an `SSLightRod`'s bar (`Water`, `CustomDepth`), a `ZapCoil`'s eight-vertex flare mesh (`FlareBomb`), a `ZapFlash`'s two discs (`FlareBomb`, `FlatLight`, seven cosmetic draws a frame, setting its light) and `SuperStructureFuses`' cell lights (`Foreground`, `CustomDepth`, `ApplyDepth`) | `SSLightRod`, `ZapCoil`, `ZapCoil.ZapFlash`, `SuperStructureFuses` (InitiateSprites, DrawSprites) |
 | `water_fall.rs` | `WaterFall`'s quad (`WaterFall` shader) and bubbles in `Background` | `WaterFall` |
 | `weapon_graphics.rs` | rock and spear sprites | `Rock`, `Spear` |
 | `water_drip.rs`, `cosmetic_graphics.rs` | drips (`DripPalette`, water-coloured too); sparks, explosion spikes, lizard and air bubbles, splashes | `WaterDrip`, `Spark`, `ExplosionSpikes`, `LizardBubble`, `Bubble`, `Splash` |
@@ -76,6 +77,7 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 - Shelter door, pipes: `shelter_door_graphics.rs`, `shortcut_graphics.rs`.
 - `ElectricDeath` web and flashes, `SparkFlash`: `electric_death.rs` (simulation in `rw-sim` `electric_death.rs`, shaders in `rw-render` `electric_death.wgsl`).
 - Superstructure projections (glyph projector, scan lines, stars): `projector_draw.rs`, `projected_scan_lines_draw.rs`, `star_matrix_draw.rs` (simulation in `rw-sim`, `GlyphProjection` shader in `rw-render`, D35).
+- Superstructure rods, zap coils, flashes, fuses: `ss_electric.rs` (simulation in `rw-sim` `ss_light_rod.rs`, `zap_coil.rs`, `ss_fuses.rs`).
 - Light discs: `light_source.rs`, `holo_light.rs`; light fixtures' embers and discs: `light_fixture.rs`; waterfalls: `water_fall.rs`; beams and spots: `light_beam.rs`, `spot_light.rs`, `quad_grid.rs`.
 - Atlas frame lookup: `atlas.rs`.
 - The draw list a renderer consumes: `draw.rs`.

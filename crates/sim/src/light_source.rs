@@ -251,6 +251,20 @@ impl LightSource {
         self.set_alpha = None;
     }
 
+    /// `HardSetRad`.
+    pub fn hard_set_rad(&mut self, r: f32) {
+        self.last_rad = r;
+        self.rad = r;
+        self.set_rad = None;
+    }
+
+    /// `HardSetAlpha`.
+    pub fn hard_set_alpha(&mut self, a: f32) {
+        self.last_alpha = a;
+        self.alpha = a;
+        self.set_alpha = None;
+    }
+
     /// `Update`: the pending sets, then fading out (rad and alpha to 0) once the tied
     /// object is gone (slated or in another room), destroyed when dark; `lastAlpha`
     /// takes the `Alpha` property; the colour from the environment.

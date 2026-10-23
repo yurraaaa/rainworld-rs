@@ -58,8 +58,9 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   light, `LightSourceExposure`/`LightSourceColor`/`DarknessOfPoint`, `Needed` reading
   `Alpha`. `LightBeam`/`SpotLight` (L3) done (D24). Fixtures without electricity (L2a: `Redlight`,
   `HolyFire`, `SlimeMoldLight`) and the rooms' waterfalls done (D30; the emergency red
-  lights follow `ElectricPower` since zero gravity, D34). Left: the SS
-  electricity fixtures (L2b: `ZapCoilLight`, `DeepProcessing`, the superstructure), owners' lights with
+  lights follow `ElectricPower` since zero gravity, D34). The SS electric fixtures
+  (L2b: `ZapCoilLight`, with `SSLightRod`, `ZapCoil`, `SuperStructureFuses`) done (D36). Left:
+  `DeepProcessing`/`DeepProcessingLight` (step 10c), owners' lights with
   their owners (L4); blinking and night lights with the DLCs.
   Step 3 (cosmetic insects, `rw_sim::insect`, `../rainworld-re/notes/cosmetic-insects.md`)
   done; its omissions are among the decisions above. Draw order for later steps:
@@ -115,6 +116,9 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `../rainworld-re/surveys/lizards.md` (user decisions).
 
 ## To look into
+- **Other-room MCP screenshots without fixtures** (user, 2026-10-23: skip for now):
+  `screenshot` with `room` set (`crates/app/src/mcp/dev_tools.rs`) draws no light fixtures
+  and none of the SS electric objects (D36).
 - **Full-screen effects leftovers** (review, small): `DeathFall::camera_viewing_point`
   belongs on the room (`Room.CameraViewingPoint`); stale "not ported" rows for LightBurn,
   SkyAndLightBloom, SkyBloom and wet terrain in `../rainworld-re/surveys/room-effects/`
@@ -183,13 +187,17 @@ plan is in `../rainworld-re/surveys/lizards.md`.
     `swimBits`), with the coral circuit object.
   - Zero gravity: Five Pebbles' and Moon's oracle scenes switching `AntiGravity` off, with
     the oracles.
-  - `Room.ElectricPower` / gravity readers: `ZapCoil`, `GravityDisruptor`, `SpinningFan`,
-    `SuperStructureFuses`, `MeltLights`, with the SS objects.
-  - `Room.ElectricPower` / gravity readers: `SSLightRod`, `DeepProcessing`,
-    `DeepProcessingLight`, with the SS objects (`ProjectedScanLines` and
-    `SuperStructureProjector` read it since step 10a, D35).
+  - `Room.ElectricPower` / gravity readers: `GravityDisruptor`, `SpinningFan`,
+    `MeltLights`, with the SS objects (`ZapCoil`, `SuperStructureFuses` and `SSLightRod` are
+    ported, D36).
+  - `Room.ElectricPower` / gravity readers: `DeepProcessing`, `DeepProcessingLight`, with
+    the SS objects (`ProjectedScanLines` and `SuperStructureProjector` read it since step 10a,
+    D35).
   - `ProjectedCircle` (D35): with its owners `CoralNeuron`, `CoralStem`, `SSOracleSwarmer`
     (and `SpearMasterPearl`, `Inspector` in the DLC).
+  - The other readers of `room.zapCoils` and `SuperStructureFuses` (D36): `TubeWorm`, the
+    Saint tongue, `ElectricSpear`, the `Inspector`, Watcher's `ARZapper`/`WarpTear`, Moon's
+    `SLOracleBehavior.fuses`: with them.
   - Zero gravity: `ExplosiveSpear` fragments, with explosive spears.
   - Zero gravity: `OverseerCarcass`, with it.
   - Zero gravity: `SegmentRope` and `Dangler`, with them.
