@@ -3,7 +3,7 @@
 //! data: its per-vertex noise is drawn from `Random.InitState((int)corner sum)` with
 //! the global state restored, so it makes no shared-stream draws (D1); here that is a
 //! stream of its own. `Update` only checks that the corners moved (editor), so the
-//! decal has no per-tick state. Sprites: `rw-graphics` `decal.rs`.
+//! decal has no per-tick state. Sprites: `rw-graphics` `effects/particles/decal.rs`.
 //!
 //! Mirrors: CustomDecal.cs (constructor, GetIdealGridDiv, UpdateVerts), Room.cs (Loaded: CustomDecal)
 

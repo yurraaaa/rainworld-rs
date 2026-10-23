@@ -6,7 +6,7 @@
 //! shared stream except the `SlimeMoldLight`'s, made under `InitState` with the global
 //! state restored. A red light in a room with `BrokenZeroG` reads the room's electric
 //! power (`Room.ElectricPower`, which the world's `BrokenAntiGravity` moves: D34).
-//! Sprites: `rw-graphics` `light_fixture.rs`.
+//! Sprites: `rw-graphics` `effects/lights/light_fixture.rs`.
 //!
 //! Mirrors: LightFixture.cs, Redlight.cs, HolyFire.cs, SlimeMoldLight.cs
 

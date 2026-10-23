@@ -1,7 +1,7 @@
 //! `CircuitCrab` and its `CrabLeg`s: a small creature on the circuit's bits that walks from
 //! bit to bit (a hop of under 50 px, now and then) with four to seven legs that reach for
 //! spots on the bit under it. Cosmetic only; no one touches it. The sprites are
-//! `rw-graphics`' `circuit_draw.rs`.
+//! `rw-graphics`' `superstructure/coral/circuit.rs`.
 //!
 //! Mirrors: CoralBrain/CircuitCrab.cs (constructor, Update, OnCircuitPos, ConnectionPos), CoralBrain/CrabLeg.cs (constructor, Update)
 

@@ -60,7 +60,7 @@ not behaviour. Game assets are never committed.
 - Region `properties.txt`: `region_properties.rs`.
 - Initial creature population as data: `creatures.rs`.
 - Shortcut and tube geometry: `shortcut.rs`; node connectivity: `nodes.rs`.
-- Atlas textures: `unity/resources.rs` (`texture_image`); frame JSON parsing is in `rw-graphics` `atlas.rs`, not here.
+- Atlas textures: `unity/resources.rs` (`texture_image`); frame JSON parsing is in `rw-graphics` `core/atlas.rs`, not here.
 - Fonts: glyph config `font_config.rs`; font atlas via `unity/resources.rs`.
 - Audio clips: `unity/fsb5.rs` + `UnityResources::audio_data`; which clip a sound plays: `sound_table.rs`.
 - Unity asset reader entry point: `unity::UnityResources::open`.

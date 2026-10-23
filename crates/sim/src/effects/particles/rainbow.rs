@@ -2,7 +2,7 @@
 //! the cycle's start-up, drawn in `GrabShaders`. `Room.Loaded` makes a `Rainbow` only
 //! with a `SeededRandom` chance (no shared-stream draws) while the cycle is starting
 //! up; the object's `Update` sets its fade and destroys it when the start-up is over.
-//! Sprites: `rw-graphics` `rainbow.rs`.
+//! Sprites: `rw-graphics` `effects/particles/rainbow.rs`.
 //!
 //! Mirrors: Rainbow.cs, RainbowNoFade.cs, Room.cs (Loaded: Rainbow, RainbowNoFade)
 

@@ -2,7 +2,7 @@
 //! [`crate::superstructure::projections::projector`] alone, slower (speed 0.5 to 3.5), without the grid. Each line is an
 //! object of the room's update list, kept here in creation order (found by binary
 //! search); the game's side is `superstructure/projections/turn.rs`, the sprites `rw-graphics`'
-//! `projected_scan_lines_draw.rs`.
+//! `superstructure/projections/projector.rs`.
 //!
 //! Mirrors: ProjectedScanLines.cs
 

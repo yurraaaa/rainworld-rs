@@ -1,7 +1,7 @@
 //! `CircuitConnector`: a dot on one `CircuitBit` that five to nine black mycelia reach out
 //! from, in the coral system's registry. The dot rides its bit (position, flip and spin); each
 //! tick every strand updates and is nudged along its own spoke. The sprites are
-//! `rw-graphics`' `circuit_draw.rs`.
+//! `rw-graphics`' `superstructure/coral/circuit.rs`.
 //!
 //! Mirrors: CoralBrain/CircuitConnector.cs (constructor, Update, OnCircuitPos, ConnectionPos, ResetDir)
 

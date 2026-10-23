@@ -2,7 +2,7 @@
 //! `InsectCoordinator` spawns when the room becomes viewed. Every draw of their
 //! constructors and updates is a `UnityEngine.Random` call on the shared stream, so
 //! they live in the sim and update in the room's update list; their sprites are
-//! `rw-graphics`' (`insect_graphics.rs`). Nothing here touches gameplay but the
+//! `rw-graphics`' (`effects/particles/insect.rs`). Nothing here touches gameplay but the
 //! fireflies' lights.
 //!
 //! Mirrors: CosmeticInsect.cs, CosmeticSprite.cs (Update)

@@ -3,7 +3,7 @@
 //! player, with two mycelia a segment pair, bumps that ping now and then and, in a
 //! superstructure projector room, a `ProjectedCircle` at a free end. The constructor is
 //! seeded by `(int)length` (the shared stream untouched); the sprites are
-//! `rw-graphics`' `coral_neuron_draw.rs`. Behaviour:
+//! `rw-graphics`' `superstructure/coral/neuron.rs`. Behaviour:
 //! `rainworld-re/notes/superstructure-coral.md`.
 //!
 //! Mirrors: CoralBrain/CoralNeuron.cs (constructor, Update, ConnectToWalls, Connect, SegmentOfMycelium, MycLengthContour, IClimbableVine, IOwnMycelia, IOwnProjectedCircles)

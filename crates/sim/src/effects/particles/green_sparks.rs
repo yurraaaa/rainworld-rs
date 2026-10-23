@@ -2,7 +2,7 @@
 //! (a spark drifting through the room, in the play layer or on a depth, lighting dark
 //! rooms). Every draw is on the shared stream. Base game only: the More Slugcats branch
 //! (every x sign flipped, sparks entering at the right edge) is not ported (D29).
-//! Sprites: `rw-graphics` `green_spark.rs`.
+//! Sprites: `rw-graphics` `effects/particles/green_sparks.rs`.
 //!
 //! Mirrors: GreenSparks.cs (GreenSparks, GreenSpark), Room.cs (NowViewed: GreenSparks)
 

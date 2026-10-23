@@ -2,7 +2,7 @@
 //! mycelia rooted on wall surfaces within each object's radius. The constructor is seeded
 //! from the first object's place (the shared stream untouched); each tick every strand
 //! updates, drifts by its own random movement (one draw) and, unless culled, bends its
-//! first points. The sprites are `rw-graphics`' `wall_mycelia_draw.rs`.
+//! first points. The sprites are `rw-graphics`' `superstructure/coral/mycelium.rs`.
 //!
 //! Mirrors: CoralBrain/WallMycelia.cs (constructor, Update, ConnectionPos, ResetDir)
 

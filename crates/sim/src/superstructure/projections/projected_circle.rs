@@ -3,7 +3,7 @@
 //! other circles and a few points off the screen. It blinks, breathes and turns by chance
 //! (the draws of `Update`); its depth is read from the camera's picture when it is drawn
 //! (`UpdateDepth`, the app's `update_depth`). Only the base game's branches are ported,
-//! D40. The sprites are `rw-graphics`' `projected_circle_draw.rs`.
+//! D40. The sprites are `rw-graphics`' `superstructure/coral/projected_circle.rs`.
 //!
 //! Mirrors: CoralBrain/ProjectedCircle.cs (constructor, Update, UpdateDepth, Position, Rad), IOwnProjectedCircles.cs
 

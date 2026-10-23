@@ -3,7 +3,7 @@
 //! walls) and, past `SeededRandom`'s gate, the plain `SlimeMold` placed object. The dots
 //! are fixed at construction, whose draws run under `InitState` with the global state
 //! restored (no shared-stream draws, D1); `Update` does nothing. Sprites:
-//! `rw-graphics` `slime_mold.rs`.
+//! `rw-graphics` `effects/particles/slime_mold.rs`.
 //!
 //! Mirrors: SlimeMold.cs (CosmeticSlimeMold), Room.cs (Loaded: CosmeticSlimeMold, CosmeticSlimeMold2, SlimeMold)
 
