@@ -263,8 +263,11 @@ fn fs_light_source(in: VertexOut) -> @location(0) vec4<f32> {
     return vec4(in.color.rgb, dist * in.color.a * (0.65 + highlight * 0.35));
 }
 
+// `tex2D(_NoiseTex, uv)`: the red of the mip level the pixel block's derivatives of `uv` pick
+// (the nearest level, bilinear within it, repeat). Only in uniform control flow: a shader
+// takes its taps before any early return.
 fn noise_at(uv: vec2<f32>) -> f32 {
-    return textureSampleLevel(noise_tex, noise_sampler, uv, 0.0).x;
+    return textureSample(noise_tex, noise_sampler, uv).x;
 }
 
 // `UnderWaterLight` (not `VOIDSEA`, not `strong`; no brain mold or ripple): the level
@@ -593,6 +596,18 @@ fn fs_water_light(in: VertexOut) -> @location(0) vec4<f32> {
     let tc = level_coord(in.scr);
     let texcol = level_at(tc);
     let dist = fmod_trunc(f32(byte(texcol.r) - 1), 30.0) / 30.0;
+    let rain = room.rain;
+    // The three `_NoiseTex` taps come before any return (mip level from the 2x2 block's
+    // derivatives).
+    let n1 = noise_at(vec2(
+        dist / 10.0 + mix(tc.x, 0.5, dist / 3.0) * 2.1,
+        rain * 0.1 + dist / 5.0 + mix(tc.y, 0.5, dist / 3.0) * 2.1,
+    ));
+    let n2 = noise_at(vec2(
+        dist / 7.0 + mix(tc.x, 0.5, dist / 5.0) * 1.3,
+        rain * -0.21 + dist / 8.0 + mix(tc.y, 0.5, dist / 6.0) * 1.3,
+    ));
+    let n3 = noise_at(vec2(in.tex.x, in.tex.y + rain + dist * 0.1));
     if dist < 2.0 / 30.0 {
         return vec4(0.0);
     }
@@ -605,18 +620,8 @@ fn fs_water_light(in: VertexOut) -> @location(0) vec4<f32> {
     if all(texcol.rgb == vec3(1.0)) {
         return vec4(0.0);
     }
-    let rain = room.rain;
-    let n1 = noise_at(vec2(
-        dist / 10.0 + mix(tc.x, 0.5, dist / 3.0) * 2.1,
-        rain * 0.1 + dist / 5.0 + mix(tc.y, 0.5, dist / 3.0) * 2.1,
-    ));
     let col1 = sin((rain * 6.0 + n1 * 7.0) * 3.14 * 2.0) * 0.5 + 0.5;
-    let n2 = noise_at(vec2(
-        dist / 7.0 + mix(tc.x, 0.5, dist / 5.0) * 1.3,
-        rain * -0.21 + dist / 8.0 + mix(tc.y, 0.5, dist / 6.0) * 1.3,
-    ));
     let col2 = sin((rain * 2.7 + n2 * 6.33) * 3.14 * 2.0) * 0.5 + 0.5;
-    let n3 = noise_at(vec2(in.tex.x, in.tex.y + rain + dist * 0.1));
     var col = pow(max(col1, col2), 47.0) * (1.0 - in.tex.y) * n3 * n3;
     let cam = room.cam_in_room_rect;
     col *= textureSampleLevel(rain_mask, grab_sampler, cam.xy + cam.zw * in.scr, 0.0).z;

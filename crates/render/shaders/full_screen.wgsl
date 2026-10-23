@@ -217,6 +217,9 @@ fn fs_fog(in: VertexOut) -> @location(0) vec4<f32> {
     var fog2 = 0.5 + 0.5 * sin((noise_at(vec2(tc.x * 0.6 + rain * 0.08, tc.y * 1.0 - rain * 0.01)) + rain * 0.04 + in.tex.x) * 6.28);
     var fog1 = 0.5 + 0.5 * sin((noise_at(vec2(tc.x * 0.44 - rain * 0.113, tc.y * 1.2 - rain * 0.0032)) + rain * 0.05 + in.tex.y) * 6.28);
     fog1 = mix(fog1, fog2, 0.5);
+    // The sky patches' tap comes before the branch it is used in (mip level from the block's
+    // derivatives).
+    let patch_noise = noise_at(vec2(in.tex.x * 1.7 + rain * 0.113, in.tex.y * 2.82));
     let texcol = level_at(tc);
     var dp = fmod_trunc(f32(byte(texcol.x) - 1), 30.0) / 30.0;
     if all(texcol.xyz == vec3(1.0)) {
@@ -229,7 +232,7 @@ fn fs_fog(in: VertexOut) -> @location(0) vec4<f32> {
         }
     }
     if dp >= 0.99999997 {
-        fog2 = 0.5 + 0.5 * sin((noise_at(vec2(in.tex.x * 1.7 + rain * 0.113, in.tex.y * 2.82)) + rain * 0.14 - in.tex.x) * 6.28);
+        fog2 = 0.5 + 0.5 * sin((patch_noise + rain * 0.14 - in.tex.x) * 6.28);
         fog2 *= clamp(1.0 - distance(in.tex, vec2(0.0, 0.9)), 0.0, 1.0);
         fog2 = pow(fog2, 0.2);
         fog2 *= amount;

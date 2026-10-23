@@ -34,14 +34,15 @@ fn fs_decal(in: VertexOut) -> @location(0) vec4<f32> {
         displace = 0.0;
     }
     let texcol = level_at(vec2(tc.x, tc.y + displace * 0.001));
-    if all(texcol.rgb == vec3(1.0)) {
-        return vec4(0.0);
-    }
     var red = byte(texcol.r);
 
+    // The shadow's tap comes before the sky's return (mip level from the block's derivatives).
     var shadow = noise_at(vec2(
         tc.x * 0.5 + rain * 0.1 * clouds_speed - 0.003 * fmod_trunc(f32(red), 30.0),
         1.0 - tc.y * 0.5 + rain * 0.2 * clouds_speed - 0.003 * fmod_trunc(f32(red), 30.0)));
+    if all(texcol.rgb == vec3(1.0)) {
+        return vec4(0.0);
+    }
     shadow = 0.5 + sin(fmod_trunc(shadow + rain * 0.1 * clouds_speed - tc.y, 1.0) * 3.14 * 2.0) * 0.5;
     shadow = clamp((shadow - 0.5) * 6.0 + 0.5 - light * 4.0, 0.0, 1.0);
 
@@ -127,12 +128,13 @@ fn rainbow_gradient(uv: vec2<f32>) -> vec4<f32> {
 fn fs_rainbow(in: VertexOut) -> @location(0) vec4<f32> {
     let tc = level_coord(in.scr);
     let dst = distance(in.uv, vec2(0.5)) * 2.0;
+    let rain = room.rain;
+    let noise_tap = noise_at(vec2(tc.x * 4.0, tc.y * 2.0 + rain * 0.04));
     if dst > 1.0 || dst < in.color.x {
         return vec4(0.0);
     }
-    let rain = room.rain;
     var n = 0.5 + 0.5 * sin((noise2_at(vec2(tc.x * 30.0, tc.y * 15.0 + rain * 0.12)) * 3.0
-        + noise_at(vec2(tc.x * 4.0, tc.y * 2.0 + rain * 0.04))) * 6.28 * 2.5);
+        + noise_tap) * 6.28 * 2.5);
     n = n * 3.0 - floor(n * 3.0);
     n = 0.5 + 0.5 * n;
     let d = clamp((dst - in.color.x) / (1.0 - in.color.x), 0.0, 1.0);

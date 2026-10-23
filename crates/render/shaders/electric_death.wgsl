@@ -19,10 +19,21 @@ fn noise2_xy(uv: vec2<f32>) -> vec2<f32> {
 fn fs_electric_death(in: VertexOut) -> @location(0) vec4<f32> {
     let tc = level_coord(in.scr);
     let texcol = level_at(tc);
+    let depth = fmod_trunc(f32(byte(texcol.r) - 1), 30.0) / 30.0;
+    let rain = room.rain;
+    let alpha = in.color.a;
+    var gc = tc + (tc - vec2(0.5)) * 0.4 * depth;
+    gc += (noise2_xy(vec2(gc.x * 0.5, gc.y * 0.25 + rain * 124.12)) - vec2(0.5)) * 0.01;
+    // The five `_NoiseTex` taps come before any return: Unity picks the mip level from the
+    // 2x2 block's derivatives, so every pixel of the block takes them.
+    let n1 = noise_at(vec2(gc.x * 0.1 - rain * 0.012, gc.y * 0.15 + rain * 0.32));
+    let n2 = noise_at(vec2(gc.x * 0.1 - rain * 0.012, gc.y * 0.15 + 0.5 + rain * 0.32));
+    let n3 = noise_at(vec2(gc.x * 0.8 + rain * 0.0421, gc.y * 0.6 + rain * 0.091));
+    let n4 = noise_at(vec2(gc.x * 1.2 + rain * 0.0621, gc.y * 0.8 + rain * 0.16));
+    let n5 = noise_at(vec2(gc.x * 2.0 - rain * 0.0121, gc.y * 1.2 + rain * 0.182));
     if all(texcol.rgb == vec3(1.0)) {
         return vec4(0.0);
     }
-    let depth = fmod_trunc(f32(byte(texcol.r) - 1), 30.0) / 30.0;
     if depth < 1.0 / 30.0 {
         return vec4(0.0);
     }
@@ -32,17 +43,13 @@ fn fs_electric_death(in: VertexOut) -> @location(0) vec4<f32> {
             return vec4(0.0);
         }
     }
-    let rain = room.rain;
-    let alpha = in.color.a;
-    var gc = tc + (tc - vec2(0.5)) * 0.4 * depth;
-    gc += (noise2_xy(vec2(gc.x * 0.5, gc.y * 0.25 + rain * 124.12)) - vec2(0.5)) * 0.01;
     let h1 = noise2_at(vec2(depth * 0.055 + rain * 0.01, rain * 0.07));
-    var l = 0.5 - 0.5 * sin(noise_at(vec2(gc.x * 0.1 - rain * 0.012, gc.y * 0.15 + rain * 0.32)) * 3.14 * mix(4.0, 7.0, h1) - h1 * 2.0 + rain * 9.16);
-    let l2 = 0.5 + 0.5 * sin(noise_at(vec2(gc.x * 0.1 - rain * 0.012, gc.y * 0.15 + 0.5 + rain * 0.32)) * 3.14 * mix(7.0, 4.0, l) + h1 * 0.1 + rain * 9.16);
+    var l = 0.5 - 0.5 * sin(n1 * 3.14 * mix(4.0, 7.0, h1) - h1 * 2.0 + rain * 9.16);
+    let l2 = 0.5 + 0.5 * sin(n2 * 3.14 * mix(7.0, 4.0, l) + h1 * 0.1 + rain * 9.16);
     l = l * min(l2 + 0.5, 1.0);
-    var h2 = 0.5 - 0.5 * sin(noise_at(vec2(gc.x * 0.8 + rain * 0.0421, gc.y * 0.6 + rain * 0.091)) * 3.14 * mix(7.2, 5.4, h1) + l * mix(0.0, 4.0, h1) + rain * 14.6 + depth * 0.20);
-    var h3 = 0.5 + 0.5 * sin(noise_at(vec2(gc.x * 1.2 + rain * 0.0621, gc.y * 0.8 + rain * 0.16)) * 3.14 * (5.0 + h2) - l * mix(3.0, 0.0, h1) + rain * 11.6 - depth);
-    var h4 = 0.5 + 0.5 * sin(noise_at(vec2(gc.x * 2.0 - rain * 0.0121, gc.y * 1.2 + rain * 0.182)) * 3.14 * (6.0 - h3) + in.color.b * 2.21 + rain * 8.6 + depth * 0.95);
+    var h2 = 0.5 - 0.5 * sin(n3 * 3.14 * mix(7.2, 5.4, h1) + l * mix(0.0, 4.0, h1) + rain * 14.6 + depth * 0.20);
+    var h3 = 0.5 + 0.5 * sin(n4 * 3.14 * (5.0 + h2) - l * mix(3.0, 0.0, h1) + rain * 11.6 - depth);
+    var h4 = 0.5 + 0.5 * sin(n5 * 3.14 * (6.0 - h3) + in.color.b * 2.21 + rain * 8.6 + depth * 0.95);
     h4 *= mix(0.9999, 1.0, l * alpha);
     h2 = max(h2, mix(l * l, l2 * l2, h3) * alpha);
     h3 *= mix(0.9999, 1.0, alpha);

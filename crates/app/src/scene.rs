@@ -63,6 +63,11 @@ pub struct Scene {
     /// The quads of the HUD's first container, drawn by the next frame before the room's
     /// `HUD` container sprites ([`Scene::prepare_hud`]).
     hud_below: StageBatch,
+    /// The map's sprites were added to the `HUD` container after the room's: in the
+    /// session's first room, until the camera moves (`Map.Update` adds them on its first
+    /// update, after the camera's `ChangeRoom` made the room's sprites; every later
+    /// `ChangeRoom` adds the room's after the map's).
+    map_over_disc: bool,
     /// The time stacker and cosmetic stream of the last frame drawn unpaused: while the
     /// game is paused nothing in the room redraws (`PausedDrawUpdate`), so frames repeat
     /// that one.
@@ -136,12 +141,14 @@ impl Scene {
             entered_room: false,
             hud: None,
             hud_below: StageBatch::default(),
+            map_over_disc: false,
             last_unpaused_frame: None,
             lightning_frame: None,
             paused: false,
         };
         scene.load_visuals();
         scene.apply_camera_move();
+        scene.map_over_disc = true;
         scene.entered_room = false;
         scene
     }
@@ -242,6 +249,7 @@ impl Scene {
         let Some(mv) = self.game.take_camera_move() else {
             return;
         };
+        self.map_over_disc = false;
         if mv.room != self.camera_room {
             self.camera_room = mv.room;
             self.entered_room = true;
@@ -886,6 +894,7 @@ impl Scene {
             holograms: &holograms,
             hud_below: &self.hud_below,
             screen: self.camera.screen_size(),
+            map_over_disc: self.map_over_disc,
             layers: view.layers,
             camera,
             alpha,
@@ -986,6 +995,8 @@ struct FrameDraw<'a> {
     /// in pixels of.
     hud_below: &'a StageBatch,
     screen: [f32; 2],
+    /// [`Scene`]'s `map_over_disc`.
+    map_over_disc: bool,
     layers: RoomLayers,
     camera: Camera,
     alpha: f32,
@@ -999,6 +1010,13 @@ impl FrameDraw<'_> {
             if o.layer(layer).next().is_some() {
                 r.draw_sprites(o, layer, level.origin);
             }
+        }
+    }
+
+    /// The HUD's first container's quads (the region map).
+    fn draw_map(&self, r: &mut impl Renderer) {
+        if !self.hud_below.draws.is_empty() {
+            r.draw_stage(self.hud_below, self.screen);
         }
     }
 
@@ -1060,10 +1078,13 @@ impl FrameDraw<'_> {
             // `HUD`, the last container of the room camera: the HUD's own sprites in it (the
             // region map, added when the HUD was made) under whatever the room added, a
             // `GravityDisruptor`'s disc, which distorts them.
-            if !self.hud_below.draws.is_empty() {
-                r.draw_stage(self.hud_below, self.screen);
+            if !self.map_over_disc {
+                self.draw_map(r);
             }
             self.draw_layer(r, Layer::Hud, level);
+            if self.map_over_disc {
+                self.draw_map(r);
+            }
         }
     }
 }
@@ -1218,7 +1239,9 @@ mod tests {
         }
         fn remove_stage_texture(&mut self, _: rw_render::StageTextureId) {}
         fn set_stage_globals(&mut self, _: rw_render::StageGlobals) {}
-        fn draw_stage(&mut self, _: &rw_render::StageBatch, _: [f32; 2]) {}
+        fn draw_stage(&mut self, _: &rw_render::StageBatch, _: [f32; 2]) {
+            self.order.push("stage");
+        }
         fn set_background(&mut self, _: Color) {}
         fn draw_sprites(&mut self, _: &DrawList, layer: Layer, _: [f32; 2]) {
             self.sprite_calls += 1;
@@ -1323,6 +1346,7 @@ mod tests {
                 holograms: &[],
                 hud_below: &StageBatch::default(),
                 screen: [1366.0, 768.0],
+                map_over_disc: false,
                 layers: RoomLayers::default(),
                 camera: Camera::fit([1.0, 1.0], (1366, 768), 0.0),
                 alpha: 1.0,
@@ -1330,6 +1354,57 @@ mod tests {
             }
             .queue(&mut r);
             r
+        }
+    }
+
+    /// The region map's quads are queued before the room's `HUD` sprites (the disc rips
+    /// them) once the camera has moved, and after them in the session's first room.
+    #[test]
+    fn the_map_is_under_the_disc_except_in_the_first_room() {
+        let game = Game::new(open_room(), &rw_assets::RoomSettings::ANCESTOR, 1, None);
+        let mut map = StageBatch::default();
+        let v = |x: f32, y: f32| rw_render::SpriteVertex {
+            pos: [x, y],
+            uv: [0.0, 0.0],
+            color: [1.0; 4],
+        };
+        map.push_quad(
+            rw_render::StageTextureId(1),
+            rw_render::StageShader::Basic,
+            [v(0.0, 0.0), v(1.0, 0.0), v(1.0, 1.0), v(0.0, 1.0)],
+        );
+        let disc = DrawList {
+            items: vec![Recorder::sprite(0, Layer::Hud)],
+        };
+        for (over, want) in [(false, ["stage", "hud"]), (true, ["hud", "stage"])] {
+            let mut r = Recorder::default();
+            let objects = [disc.clone(), Recorder::slugcat_sprites()];
+            FrameDraw {
+                game: &game,
+                water: None,
+                water_sprites: None,
+                level: Some(LevelView {
+                    origin: [0.0, 0.0],
+                    size: [1366.0, 768.0],
+                    rain: 0.0,
+                    light: 1.0,
+                    water_level: 1.0,
+                }),
+                player_sprites: true,
+                objects: &objects,
+                shadows: &[],
+                holograms: &[],
+                hud_below: &map,
+                screen: [1366.0, 768.0],
+                map_over_disc: over,
+                layers: RoomLayers::default(),
+                camera: Camera::fit([1.0, 1.0], (1366, 768), 0.0),
+                alpha: 1.0,
+                time: 0.0,
+            }
+            .queue(&mut r);
+            let tail: Vec<&str> = r.order.iter().rev().take(2).rev().copied().collect();
+            assert_eq!(tail, want, "map_over_disc {over}: {:?}", r.order);
         }
     }
 

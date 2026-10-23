@@ -115,22 +115,29 @@ the data in `rw-assets` `placed_electric.rs`. Notes: `../rainworld-re/notes/supe
   texture starts every frame as the screen behind the level (`LevelColor`'s own `GrabPass
   { }`) and each grabbing draw replaces it with the frame it found; every shader without a
   `GrabPass` that reads `_GrabTexture` (`LightSource`, `UnderWaterLight`, `HoloGrid`,
-  `ElectricDeath`, `FlareBomb`, `WaterSplash`, `WaterLight`, `WaterFall`, `Decal`, `Fog`,
+  `ElectricDeath`, `FlareBomb`, `WaterSplash`, `WaterLight`, `LightBeam`, `SpecificDepth`, `CustomDepth`, `Decal`, `Fog`,
   the background scenes, `WaterSurface`/`DeepWater`, `DeepProcessing`) reads that texture.
   `LevelColor`'s and `DeathFall`'s/the bloom effects' `_PreLevelColorGrab` stays the
   pre-level frame. A reader drawn after a disruptor reads the frame the disruptor grabbed
   (before its own draw), not the rippled result.
-- **`_NoiseTex` mips (not a divergence).** `DeepProcessing`'s three taps are read with the
-  level the GPU's derivatives pick over the 2x2 pixel block, from the real mip chain
-  (`Palettes/noise`: 7 levels, bilinear: the nearest level; the other shaders still read
-  level 0).
-- **`HUD` container order (not a divergence).** The disc is in the room camera's `HUD`
-  container, above `Bloom`; the HUD's first container (`fContainers[0]`, the region map, made
-  when the HUD was) sits under what the room adds, the rest of the HUD (`HUD2`) above. The
-  app draws the map's quads between `Bloom` and the disc (`Scene::prepare_hud`) and the rest
-  after the room, so the disc distorts the map. Other `HUD` container occupants the game has
-  (arena score labels, debug sprites, MSC and Watcher sprites, a lizard cosmetic with
-  `SpritesOverlap.HUD`) are not ported.
+- **`_NoiseTex` mips (not a divergence).** `Palettes/noise` has 7 mips, bilinear (the nearest
+  level), repeat, `m_MipBias` 0 (read with the port's `Texture2D` reader). Every shader
+  reading it (`DeepProcessing`, the level and water shaders, the background scenes, the
+  glyph projection, `WaterSplash`, `WaterLight`, `UnderWaterLight`, `ElectricDeath`, `Fog`,
+  `Decal`, `Rainbow`, `WaterFall`) samples it with the level the GPU's derivatives pick over
+  the 2x2 pixel block, taking its taps before any early return, as D3D does. (`_NoiseTex2`
+  is still read at level 0: D-notes in `docs/divergences/render.md`.)
+- **`HUD` container order (not a divergence).** Sprites draw in the order they were added to
+  their container. The disc is in the room camera's `HUD` container, above `Bloom`. The HUD's
+  first container (`fContainers[0]`, the region map; `HUD2` above everything) gets the map's
+  sprites on `Map.Update`'s first run (`!mapLoaded`), one `RoomCamera.Update` after the camera's
+  first `ChangeRoom` made the room's sprites: in the session's first room the map is above the
+  disc (not rippled); after any later camera move `ChangeRoom` adds the room's sprites after
+  the map's, so the disc ripples it. The app queues the map's quads (`Scene::prepare_hud`)
+  after the disc until the camera first moves, before it afterwards; the rest of the HUD
+  after the room. Other `HUD` container occupants the game has (arena score labels, debug
+  sprites, MSC and Watcher sprites, a lizard cosmetic with `SpritesOverlap.HUD`) are not
+  ported.
 - **`roomSpecks`.** `GravityDisruptor.AIMapReady` collects the `GenericZeroGSpeck`s in the
   update list. The session's first room is made by `RoomPreparer`'s constructor (`Loaded`),
   then `RainWorldGame`'s constructor moves the camera to it (`NowViewed`: the specks), and

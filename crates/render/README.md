@@ -18,7 +18,7 @@ lists and overlays.
 | `src/level.rs`, `src/level_gpu.rs` | level graphic (`LevelGraphics`, with the room's `RainMask` texture; `LevelParams`: the room's shader globals incl. `_rimFix` and light angle; `LevelView`: window, `_RAIN`, `_light`) and its GPU side (palette rewrites for `ApplyFade`) |
 | `src/background_scene.rs` | `SceneGlobals` (`_AboveCloudsAtmosphereColor`, `_MultiplyColor`, `_WorldCamPos`) and `SceneTextures` (`_CloudsTex` with its mips, `_ApartmentsTex`, `_CityPalette`) the scene shaders read |
 | `src/sprites.rs` | Futile sprites on CPU: atlas coords, `FSprite` quads, `TriangleMesh`es (and `ElementMesh`es over a decal or the rainbow gradient) from `DrawList`s, draw queue |
-| `src/sprite_gpu.rs` | GPU side: one `sprite.wgsl` pipeline per game shader, atlas pages (each with its own sampler), `_NoiseTex2`, grab textures, `_NoiseTex` with its mip chain (`level_gpu.rs`; only `DeepProcessing` picks a level, by derivatives), the rain mask (`_camInRoomRect`) |
+| `src/sprite_gpu.rs` | GPU side: one `sprite.wgsl` pipeline per game shader, atlas pages (each with its own sampler), `_NoiseTex2`, grab textures, `_NoiseTex` with its mip chain (`level_gpu.rs`; every shader picks the level by derivatives, taps before any early return), the rain mask (`_camInRoomRect`) |
 | `src/stage.rs`, `src/stage_gpu.rs` | Futile stage quads in screen pixels (menus, HUD) and their GPU side |
 | `src/water.rs`, `src/water_sprites.rs`, `src/water_gpu.rs` | debug flat water; `Water.InitiateSprites/DrawSprites` meshes; `WaterSurface`/`DeepWater` pipelines |
 | `src/present.rs`, `src/present_gpu.rs` | `Resolution`, `PresentRect`, `PresentFilter`: letterboxed window presentation |

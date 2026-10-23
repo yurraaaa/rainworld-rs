@@ -68,9 +68,10 @@ fn page_bilinear(uv: vec2<f32>, repeat: bool) -> vec4<f32> {
     return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
 
-// `tex2D(_NoiseTex, uv)` where the texture is magnified.
+// `tex2D(_NoiseTex, uv)`: the mip level the pixel block's derivatives pick (uniform control
+// flow only).
 fn scene_noise(uv: vec2<f32>) -> vec4<f32> {
-    return textureSampleLevel(noise_tex, noise_sampler, uv, 0.0);
+    return textureSample(noise_tex, noise_sampler, uv);
 }
 
 // The cloud shaders' `half4(0, 0, 0, 0)` where cut, which a SrcAlpha blend leaves

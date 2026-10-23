@@ -65,20 +65,20 @@ impl Noise {
         f32::from(texels[y * side + x]) / 255.0
     }
 
-    /// The length in texels of the step of tap `k`'s coordinate from `here` to pixel `q`'s.
-    fn step(k: usize, here: [f32; 2], q: FramePixel) -> f32 {
-        let other = DeepPixel::of(q).taps()[k];
+    /// The length in texels of the step of a tap's coordinate from `here` to pixel `q`'s.
+    fn step(coord: &dyn Fn(FramePixel) -> [f32; 2], here: [f32; 2], q: FramePixel) -> f32 {
+        let other = coord(q);
         ((other[0] - here[0]) * 64.0).hypot((other[1] - here[1]) * 64.0)
     }
 
-    /// `tex2D(_NoiseTex, ...)` of tap `k` at pixel `p`: the level is the one the longer of
-    /// the coordinate's steps to the pixel's neighbours in its 2x2 block picks (`log2` of
-    /// its length in texels, rounded: bilinear filtering takes the nearest mip). `None`
-    /// where that is too near a rounding edge for the GPU's own derivative to be trusted.
-    fn tap(&self, k: usize, p: FramePixel) -> Option<f32> {
-        let here = DeepPixel::of(p).taps()[k];
-        let len = Self::step(k, here, FramePixel(p.0 ^ 1, p.1)).max(Self::step(
-            k,
+    /// The level the pixel block of `p` picks for a tap at `coord(p)`: `log2` of the longer
+    /// of the coordinate's steps to the block's other pixels in texels, rounded (bilinear
+    /// filtering takes the nearest mip). `None` where that is too near a rounding edge for
+    /// the GPU's own derivative to be trusted.
+    fn level_of(coord: &dyn Fn(FramePixel) -> [f32; 2], p: FramePixel) -> Option<usize> {
+        let here = coord(p);
+        let len = Self::step(coord, here, FramePixel(p.0 ^ 1, p.1)).max(Self::step(
+            coord,
             here,
             FramePixel(p.0, p.1 ^ 1),
         ));
@@ -86,12 +86,21 @@ impl Noise {
         if lambda > -0.5 && (lambda - lambda.floor() - 0.5).abs() < 0.1 {
             return None;
         }
-        let level = if lambda.is_finite() {
+        Some(if lambda.is_finite() {
             lambda.round().clamp(0.0, 6.0) as usize
         } else {
             0
-        };
-        Some(self.at(level, here))
+        })
+    }
+
+    /// `tex2D(_NoiseTex, coord(p))` at the level [`Self::level_of`] picks.
+    fn tap_with(&self, coord: &dyn Fn(FramePixel) -> [f32; 2], p: FramePixel) -> Option<f32> {
+        Some(self.at(Self::level_of(coord, p)?, coord(p)))
+    }
+
+    /// `DeepProcessing`'s tap `k` at pixel `p`.
+    fn tap(&self, k: usize, p: FramePixel) -> Option<f32> {
+        self.tap_with(&|q| DeepPixel::of(q).taps()[k], p)
     }
 }
 
@@ -101,6 +110,7 @@ struct GrabScene {
     level: PngImage,
     fill: [u8; 3],
     noise: Noise,
+    texels: Vec<(usize, usize, [u8; 3])>,
     behind: Vec<DrawItem>,
     over: Vec<DrawItem>,
     stage: Option<StageBatch>,
@@ -113,6 +123,7 @@ impl GrabScene {
             level,
             fill: [30, 30, 30],
             noise: Noise::uniform(),
+            texels: Vec::new(),
             behind: Vec::new(),
             over: Vec::new(),
             stage: None,
@@ -141,7 +152,7 @@ impl GrabScene {
         r.set_level(&LevelGraphics {
             camera_pos: [0.0, 0.0],
             image: &self.level,
-            palette: &palette(self.fill, &[]),
+            palette: &palette(self.fill, &self.texels),
             noise: &self.noise.0,
             params: LevelParams::DEFAULT,
             rain_mask: None,
@@ -724,7 +735,11 @@ fn deep_processing_reads_a_varied_noise_at_the_mip_level_the_block_picks() {
         .flat_map(|y| (610..890).map(move |x| FramePixel(x, y)))
         .filter(|&p| {
             let here = DeepPixel::of(p).taps()[2];
-            Noise::step(2, here, FramePixel(p.0 ^ 1, p.1)) > 1.5
+            Noise::step(
+                &|q| DeepPixel::of(q).taps()[2],
+                here,
+                FramePixel(p.0 ^ 1, p.1),
+            ) > 1.5
         })
         .count();
     assert!(minified > 5000, "{minified} pixels pick a coarser level");
@@ -774,5 +789,124 @@ fn deep_processing_reads_the_last_grab() {
         "{} of {} differ",
         t.wrong,
         t.compared
+    );
+}
+
+/// `WaterSplash.shader`'s `textCoord` of the pixel: its place in the level image.
+fn level_coord_of(p: FramePixel) -> [f32; 2] {
+    let (w, h) = (W as f32, H as f32);
+    let s = p.scr();
+    let rect = [-0.5 / w, 0.5 / h, (w - 0.5) / w, (h + 0.5) / h];
+    [
+        ((s[0] * w).floor() / w - rect[0]) / (rect[2] - rect[0]),
+        ((s[1] * h).floor() / h - rect[1]) / (rect[3] - rect[1]),
+    ]
+}
+
+/// The splash quad: 30 px square at frame (500..530, 400..430), the quad's `i.uv` at a pixel.
+fn splash_uv(p: FramePixel) -> [f32; 2] {
+    [
+        ((p.0 as f32 + 1.0) - 500.0) / 30.0,
+        ((H as f32 - p.1 as f32 - 1.0) - (H as f32 - 430.0)) / 30.0,
+    ]
+}
+
+/// `WaterSplash.shader` for the vertex colour `(0, 0, 0, 0.5)` over a noise.
+struct Splash<'a>(&'a Noise);
+
+impl Splash<'_> {
+    /// The distortion added to `textCoord`: a noise sine (the tap at level 0: its step is
+    /// 0.06 texels a pixel), quantised to pixels.
+    fn distortion(&self, q: FramePixel) -> [f32; 2] {
+        let c = level_coord_of(q);
+        let tap = self.0.at(0, [c[0] * 1.2, c[1] * 1.2]);
+        let dstrtn = ((RAIN + tap * 3.0) * GAME_PI * 2.0).sin() * 0.5 + 0.5;
+        let amount = (-0.002_f32).lerp_to(0.002, dstrtn) * (1.0 - dist_of(q));
+        [
+            (amount * W as f32).floor() / W as f32,
+            (amount * H as f32).floor() / H as f32,
+        ]
+    }
+
+    /// The coordinate of the `pattern` tap.
+    fn pattern_coord(&self, q: FramePixel) -> [f32; 2] {
+        let (c, d) = (level_coord_of(q), self.distortion(q));
+        [(c[0] + d[0]) * 18.2, RAIN * 2.4 + (c[1] + d[1]) * 12.2]
+    }
+
+    /// Whether the pixel shows, and by how much `h` is over the cut (`None` where a tap's
+    /// level is too near a rounding edge); `coarse` reads the `i.uv` tap at the block's
+    /// level, else at level 0.
+    fn visible(&self, p: FramePixel, coarse: bool) -> Option<(bool, f32)> {
+        let uv = splash_uv(p);
+        let dist = dist_of(p);
+        let pattern = self.0.tap_with(&|q| self.pattern_coord(q), p)?;
+        let uv_tap = if coarse {
+            self.0.tap_with(&splash_uv, p)?
+        } else {
+            self.0.at(0, uv)
+        };
+        let mut h = 0.5 + ((18.5 * RAIN + pattern * 3.0) * GAME_PI).sin() * 0.5;
+        h *= uv_tap;
+        h = (h.lerp_to(1.0, 0.5) - dist).max(0.0) * 0.5;
+        let threshold = 0.05_f32.lerp_to(0.01, 0.5);
+        Some((h >= threshold, h - threshold))
+    }
+}
+
+/// `dist` of the splash quad's pixel.
+fn dist_of(p: FramePixel) -> f32 {
+    let uv = splash_uv(p);
+    (((uv[0] - 0.5).powi(2) + (uv[1] - 0.5).powi(2)).sqrt() * 2.0).clamp(0.0, 1.0)
+}
+
+/// A small `WaterSplash` quad (30 px: its `i.uv` steps 2.1 texels a pixel across the
+/// texture, so the block picks mip 1) over a varied `_NoiseTex`: which pixels show matches
+/// the shader read at the block's level, and differs from the level-0 read.
+#[test]
+fn a_small_splash_reads_the_noise_at_a_coarser_level() {
+    let Some(mut r) = renderer() else { return };
+    let mut scene = GrabScene::new(level(|_, _| [10, 0, 0]));
+    scene.noise = Noise::varied();
+    scene.texels = vec![
+        (0, 7, [200, 0, 0]),
+        (4, 7, [200, 0, 0]),
+        (5, 7, [200, 0, 0]),
+    ];
+    let before = scene.draw(&mut r);
+    scene.over.push(DrawItem::Sprite(Sprite {
+        index: 0,
+        element: SpriteAtlas::FUTILE_WHITE,
+        pos: Vec2::new(500.0, H as f32 - 430.0),
+        rotation: 0.0,
+        scale: Vec2::new(30.0 / 16.0, 30.0 / 16.0),
+        anchor: Vec2::ZERO,
+        color: SpriteColor::rgb(0.0, 0.0, 0.0).with_alpha(0.5),
+        shader: Shader::WaterSplash,
+        layer: Layer::Foreground,
+    }));
+    let after = scene.draw(&mut r);
+    let (mut compared, mut wrong, mut level0_differs) = (0, 0, 0);
+    for y in 400..430 {
+        for x in 500..530 {
+            let p = FramePixel(x, y);
+            let Some((visible, margin)) = Splash(&scene.noise).visible(p, true) else {
+                continue;
+            };
+            if margin.abs() < 0.02 {
+                continue;
+            }
+            compared += 1;
+            wrong += usize::from(after.differs(&before, x, y) != visible);
+            if let Some((fine, _)) = Splash(&scene.noise).visible(p, false) {
+                level0_differs += usize::from(fine != visible);
+            }
+        }
+    }
+    assert!(compared > 500, "{compared} pixels compared");
+    assert!(wrong * 50 < compared, "{wrong} of {compared} differ");
+    assert!(
+        level0_differs > 8,
+        "level 0 would differ at {level0_differs} pixels"
     );
 }

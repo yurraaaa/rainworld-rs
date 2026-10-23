@@ -64,7 +64,7 @@ fn palette(x: i32, row: i32) -> vec4<f32> {
 }
 
 fn noise(uv: vec2<f32>) -> f32 {
-    return textureSampleLevel(noise_tex, noise_sampler, uv, 0.0).r;
+    return textureSample(noise_tex, noise_sampler, uv).r;
 }
 
 // The game's screen uv (`ComputeScreenPos`, y up) of the point at `stage`.
