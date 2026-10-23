@@ -27,6 +27,10 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   (user, 2026-10-23). `ShortcutHelper` its own job after it. Step A (stages, `RoomPreparer`,
   Immediate schedule) done 2026-10-23; B (schedule on, consumers, starts) and C (camera,
   shortcut graphics) left.
+- **Realizer guards** (user, 2026-10-23; `../rainworld-re/surveys/room-realizer-audit.md`):
+  `RoomRealizer.Update`'s `!followCreature.Room.offScreenDen` check on the room change and the
+  off-screen-den guard on the random neighbour step, small fix after async step B; the
+  `rainCycle.RainGameOver` guard on that step with the rain (M8).
 - **Water with the rain (M8)**: `Room.AddWater` makes a `Water` (so its surface loop and
   `WaterLight`) in rooms with no level water (rain flood, `WaterCycleTop`/`Bottom`,
   `BrokenShelterWaterLevel`). The other water effects are done (2026-10-22).
