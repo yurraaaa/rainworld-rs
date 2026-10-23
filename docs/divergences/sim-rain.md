@@ -28,8 +28,9 @@ Game bugs are kept (user decision, 2026-10-24).
   `deathRainHasHit`) while `globalRain` persists.
 - **Skipped by the user (2026-10-24), until their owners exist.** Arena sessions' rain
   (`IsArenaSession`: the forced 70 % path, progression 3.2 times faster, the second flood
-  arm up to 1.8, `ArenaEndSessionRain`, `NoRain`); every port start is a story session (D4), so none of those arms runs. The ghost-mode gate of
-  `AllowRainCounterToTick` (echoes). Gamepad rumble: `controllerShake` and
+  arm up to 1.8, `ArenaEndSessionRain`, `NoRain`); every port start is a story session
+  (D4), so none of those arms runs. The ghost-mode gate of `AllowRainCounterToTick`
+  (echoes). Gamepad rumble: `controllerShake` and
   `ControllerHandler.UpdateWarning`. The dev `ResetRain`: the dev rain timer control leaves
   a death rain that has started as it is when the timer is moved back.
 - **Branches of the DLCs and Remix (listed, not ported):** the precycle (`preTimer`, the pulse

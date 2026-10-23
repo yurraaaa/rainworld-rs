@@ -25,6 +25,25 @@ fn seed_with_first_draw(below_070: bool) -> i32 {
         .unwrap()
 }
 
+impl RainTick {
+    /// Seven hundred ticks before the rain (the ramp is off), with the camera room's effects.
+    fn passive(passive: PassiveRain) -> Self {
+        Self {
+            passive: Some(passive),
+            ..story(700)
+        }
+    }
+}
+
+impl GlobalRain {
+    fn at(intensity: f32) -> Self {
+        Self {
+            intensity,
+            ..Self::default()
+        }
+    }
+}
+
 fn assert_close(a: f32, b: f32) {
     assert!((a - b).abs() < 1e-5, "{a} vs {b}");
 }
@@ -339,12 +358,8 @@ fn before_the_hit_the_intensity_ramps_and_the_room_effects_override() {
     assert_eq!(g.intensity, 0.0);
     g.update(&story(100), &mut rng);
     assert_close(g.intensity, 0.24);
-    let tick = |passive| RainTick {
-        passive: Some(passive),
-        ..story(700)
-    };
     g.update(
-        &tick(PassiveRain {
+        &RainTick::passive(PassiveRain {
             heavy_rain: 0.5,
             ..PassiveRain::default()
         }),
@@ -354,7 +369,7 @@ fn before_the_hit_the_intensity_ramps_and_the_room_effects_override() {
     assert_close(g.rumble_sound, 0.1);
     assert_close(g.screen_shake, 0.5);
     g.update(
-        &tick(PassiveRain {
+        &RainTick::passive(PassiveRain {
             light_rain: 0.5,
             ..PassiveRain::default()
         }),
@@ -362,14 +377,14 @@ fn before_the_hit_the_intensity_ramps_and_the_room_effects_override() {
     );
     assert_close(g.intensity, 0.12);
     g.update(
-        &tick(PassiveRain {
+        &RainTick::passive(PassiveRain {
             bullet_rain: 0.3,
             ..PassiveRain::default()
         }),
         &mut rng,
     );
     assert_close(g.bullet_rain_density, 0.3);
-    g.update(&tick(PassiveRain::default()), &mut rng);
+    g.update(&RainTick::passive(PassiveRain::default()), &mut rng);
     assert_eq!(g.bullet_rain_density, 0.0);
 }
 
@@ -408,16 +423,12 @@ fn the_heavy_rain_flux_pulses() {
 /// `OutsidePushAround` starts at `Intensity` 0.35 and `InsidePushAround` at 0.63.
 #[test]
 fn the_push_starts_at_the_thresholds() {
-    let g = |intensity| GlobalRain {
-        intensity,
-        ..GlobalRain::default()
-    };
-    assert!(!g(0.35).any_push_around());
-    assert!(g(0.36).any_push_around());
-    assert_eq!(g(0.35).inside_push_around(), 0.0);
-    assert!(g(0.64).inside_push_around() > 0.0);
-    assert_close(g(0.7).outside_push_around(), 1.0);
-    assert_close(g(0.98).inside_push_around(), 1.0);
+    assert!(!GlobalRain::at(0.35).any_push_around());
+    assert!(GlobalRain::at(0.36).any_push_around());
+    assert_eq!(GlobalRain::at(0.35).inside_push_around(), 0.0);
+    assert!(GlobalRain::at(0.64).inside_push_around() > 0.0);
+    assert_close(GlobalRain::at(0.7).outside_push_around(), 1.0);
+    assert_close(GlobalRain::at(0.98).inside_push_around(), 1.0);
 }
 
 #[test]

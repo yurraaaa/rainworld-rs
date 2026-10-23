@@ -1,6 +1,7 @@
 //! The death fall's `get_state` entries (one per realized room, counted since the room
 //! loaded) and the other-room screenshot's camera sprites, on `CC_A06` (camera room) and
-//! its realized neighbours `CC_C12` (first, the realizer's pick with seed 1; it was `CC_C09` before the global rain drew) and `CC_H01` of the installed game (skipped
+//! its realized neighbours `CC_C12` (first; with seed 1 the realizer's pick was `CC_C09`
+//! until the global rain's draws moved the stream) and `CC_H01` of the installed game (skipped
 //! without it). `CC_A06` and `CC_H01` have an open bottom (`defaultHeight` -70 once drawn)
 //! and the `Fog` effect (`cc_settingstemplate`).
 
