@@ -1933,6 +1933,12 @@ impl RainWorldGame {
             .world
             .realized(index)
             .map_or(0.0, |r| r.settings.ceiling_drips);
+        let room_gravity = self.room_gravity(index);
+        let ai_map = self
+            .world
+            .realized(index)
+            .filter(|r| r.ready_for_ai())
+            .and_then(|r| r.ai_map.clone());
         let sounds = if index == self.camera_room {
             &mut self.sounds
         } else {
@@ -1943,6 +1949,8 @@ impl RainWorldGame {
         };
         let was_stunned = player.is_stunned();
         player.set_ceiling_drips(ceiling_drips);
+        player.set_room_gravity(room_gravity);
+        player.set_ai_map(ai_map);
         player.retain_released_slide_loops(|r| self.world.realized(r).is_some());
         player.set_emitter_place(EmitterPlace {
             room: index,

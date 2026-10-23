@@ -19,6 +19,7 @@ mod poles;
 mod sleep;
 mod sounds;
 mod swim;
+mod zero_g;
 
 use super::{Animation, BodyMode, HEAD, HIPS, INPUT_HISTORY, Input, Player};
 use crate::shortcut::ShortcutVessel;

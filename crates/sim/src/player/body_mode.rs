@@ -7,7 +7,7 @@
 
 use rw_assets::{Room, Terrain};
 
-use super::{Animation, BodyMode, HEAD, HIPS, Player, ROOM_GRAVITY};
+use super::{Animation, BodyMode, HEAD, HIPS, Player};
 use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
 use crate::{SoundId, Vec2, Water};
@@ -28,6 +28,7 @@ impl Player {
             BodyMode::ClimbingOnBeam => self.climbing_on_beam_mode(room),
             BodyMode::CorridorClimb => self.corridor_climb_mode(room, water),
             BodyMode::Swimming => self.swimming_mode(room),
+            BodyMode::ZeroG => self.zero_g_mode(room),
             // Set only while `movement_update` is skipped.
             BodyMode::Stunned | BodyMode::Dead => {}
         }
@@ -67,9 +68,10 @@ impl Player {
             }
         }
         if self.standing {
+            let eg = self.effective_room_gravity();
             let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
-            head.vel.y += 4.0 * ROOM_GRAVITY;
-            hips.vel.y -= 4.0 * ROOM_GRAVITY;
+            head.vel.y += 4.0 * eg;
+            hips.vel.y -= 4.0 * eg;
             self.dynamic_run_speed = [4.2 * self.stats.runspeed_fac, 4.0 * self.stats.runspeed_fac];
             if y != 0 {
                 self.dynamic_run_speed[1] = 2.0;
@@ -241,9 +243,10 @@ impl Player {
     fn stand_mode(&mut self, room: &Room) {
         let (x, y) = (self.input_x(), self.input_y());
         {
+            let eg = self.effective_room_gravity();
             let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
-            head.vel.y += 1.5 * ROOM_GRAVITY;
-            hips.vel.y -= 4.5 * ROOM_GRAVITY;
+            head.vel.y += 1.5 * eg;
+            hips.vel.y -= 4.5 * eg;
         }
         if !self.standing
             && self.lower_body_frames_on_ground >= 5
@@ -272,10 +275,11 @@ impl Player {
         }
         if x != 0 {
             if i32::from(self.body.chunks[HIPS].contact().x) == x {
+                let eg = self.effective_room_gravity();
                 let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
                 head.vel.x += x as f32;
-                head.vel.y += 2.0 * ROOM_GRAVITY;
-                hips.vel.y += 2.0 * ROOM_GRAVITY;
+                head.vel.y += 2.0 * eg;
+                hips.vel.y += 2.0 * eg;
             }
             self.animation_frame += 1;
         } else {
@@ -347,12 +351,14 @@ impl Player {
         }
         if x != 0 && self.is_tile_solid(room, HEAD, x, 0) && self.is_tile_solid(room, HIPS, x, 0) {
             let t = (self.wall_slide_counter as f32 / 30.0).clamp(0.0, 1.0);
-            let lift = self.body.params.gravity() * (0.8 + (0.0 - 0.8) * t) * ROOM_GRAVITY;
+            let lift = self.body.params.gravity()
+                * (0.8 + (0.0 - 0.8) * t)
+                * self.effective_room_gravity();
             for c in &mut self.body.chunks {
                 c.pos.y += lift;
             }
         }
-        let lift = self.body.chunks[HIPS].submersion(water) * ROOM_GRAVITY;
+        let lift = self.body.chunks[HIPS].submersion(water) * self.effective_room_gravity();
         self.body.chunks[HIPS].vel.y += lift;
     }
 

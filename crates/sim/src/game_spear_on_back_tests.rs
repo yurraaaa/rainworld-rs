@@ -361,6 +361,21 @@ fn the_back_spear_rides_between_hips_and_head() {
     assert_eq!(w.rotation_speed, 0.0);
 }
 
+/// Floating in a room without gravity the lean eases to 0 by `LerpAndTick(flip, 0, 0.15,
+/// 1/7)` whatever the body does (with gravity: `0.15`, `1/6` toward the body's lean).
+#[test]
+fn the_back_spear_lean_eases_off_in_zero_gravity() {
+    let (mut g, ids) = game(&SlugcatCampaign::HUNTER, vec![spear(1, (6, 1))]);
+    g.stash(ids[0]);
+    g.tick(Input::NONE, &mut ());
+    g.spear_on_back_mut().expect("hunter").flip = 0.5;
+    g.world.realized_mut(0).expect("room").gravity = 0.0;
+    g.tick(Input::NONE, &mut ());
+    assert_eq!(g.player_ref().body_mode(), crate::BodyMode::ZeroG);
+    let flip = g.spear_on_back().expect("hunter").flip;
+    assert!((flip - (0.5 * 0.85 - 1.0 / 7.0)).abs() < 1e-5, "{flip}");
+}
+
 #[test]
 fn holding_one_spear_another_in_reach_goes_straight_to_the_back() {
     // `CanIPickThisUp`'s Hunter return: a free spear is a candidate while the back is

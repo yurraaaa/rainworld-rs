@@ -128,7 +128,7 @@ impl Player {
             self.can_corridor_jump -= 1;
         }
         if self.jump_pressed() && self.slow_movement_stun < 1 {
-            self.corridor_jump(shaft, tunnel);
+            self.corridor_jump(room, shaft, tunnel);
         }
         if self.vertical_corridor_slide_counter == 1 || self.horizontal_corridor_slide_counter == 1
         {
@@ -193,8 +193,10 @@ impl Player {
         let (x, y) = (self.input_x(), self.input_y());
         let pressed = self.jump_pressed();
         let (head, hips) = (self.body.chunks[HEAD].pos, self.body.chunks[HIPS].pos);
+        let zero_g = self.effective_room_gravity() == 0.0;
         if pressed
             && y < 0
+            && self.effective_room_gravity() > 0.0
             && !self.is_tile_solid(room, HEAD, 0, -1)
             && !self.is_tile_solid(room, HIPS, 0, -1)
         {
@@ -206,10 +208,12 @@ impl Player {
             if head.y > hips.y {
                 return self.is_tile_solid(room, HIPS, 0, -1);
             }
+            // Without gravity the head-down end braces against the far wall too.
+            let braced = zero_g && self.is_tile_solid(room, HIPS, 0, 1);
             if pressed && head.y < hips.y && y > 0 {
                 self.start_corridor_turn((0, 1));
             }
-            return false;
+            return braced;
         }
         if tunnel {
             if pressed && x != 0 && (head.x < hips.x) == (x > 0) {
@@ -231,7 +235,11 @@ impl Player {
 
     /// The shaft shoot (head up) and the tunnel slide (head first); a "success" needs
     /// `can_corridor_jump`. A running vertical slide blocks both.
-    fn corridor_jump(&mut self, shaft: bool, tunnel: bool) {
+    fn corridor_jump(&mut self, room: &Room, shaft: bool, tunnel: bool) {
+        if self.effective_room_gravity() == 0.0 {
+            self.zero_g_corridor_kick(room, shaft, tunnel);
+            return;
+        }
         if self.vertical_corridor_slide_counter >= 1 {
             return;
         }
@@ -288,6 +296,54 @@ impl Player {
             let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
             head.vel.x += 6.0 * dir;
             hips.vel.x += 4.0 * dir;
+            self.horizontal_corridor_slide_counter = 15;
+            self.slow_movement_stun = 15;
+        }
+    }
+
+    /// A jump press in a corridor at gravity 0: a kick off the wall behind the body (the
+    /// hips' end of the shaft or tunnel) with four gated drips, else a weaker push along
+    /// the held direction. Each needs a 12-px slide counter or its fail counters.
+    fn zero_g_corridor_kick(&mut self, room: &Room, shaft: bool, tunnel: bool) {
+        let (x, y) = (self.input_x(), self.input_y());
+        let (head, hips) = (self.body.chunks[HEAD].pos, self.body.chunks[HIPS].pos);
+        let mut dir = Vec2::ZERO;
+        let behind_y = (hips.y - head.y).unity_sign() as i32;
+        let behind_x = (hips.x - head.x).unity_sign() as i32;
+        if shaft && self.is_tile_solid(room, HIPS, 0, behind_y) {
+            dir = Vec2::new(0.0, -(behind_y as f32));
+        } else if tunnel && self.is_tile_solid(room, HIPS, behind_x, 0) {
+            dir = Vec2::new(-(behind_x as f32), 0.0);
+        }
+        if dir.x != 0.0 || dir.y != 0.0 {
+            let pos = hips.tile_middle() - dir * 9.0;
+            self.shed_drips(DripBurst::ZeroGKick { pos, dir });
+            self.play_sound(
+                SoundId::SlugcatCorridorHorizontalSlideSuccess,
+                HEAD,
+                1.0,
+                1.0,
+            );
+            let step = dir * 12.0;
+            let push = dir * 7.0;
+            for c in &mut self.body.chunks {
+                c.pos += step;
+                c.vel += push;
+            }
+            self.horizontal_corridor_slide_counter = 25;
+            self.slow_movement_stun = 5;
+            return;
+        }
+        if tunnel && x != 0 && y == 0 {
+            dir.x = x as f32;
+        } else if shaft && y != 0 && x == 0 {
+            dir.y = y as f32;
+        }
+        if dir.x != 0.0 || dir.y != 0.0 {
+            self.play_sound(SoundId::SlugcatCorridorHorizontalSlideFail, HEAD, 1.0, 1.0);
+            let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
+            head.vel += dir * 6.0;
+            hips.vel += dir * 4.0;
             self.horizontal_corridor_slide_counter = 15;
             self.slow_movement_stun = 15;
         }

@@ -53,6 +53,8 @@ impl Player {
             Animation::CorridorTurn => self.corridor_turn(rng, sounds),
             Animation::DeepSwim => self.deep_swim(water, rng, sounds),
             Animation::SurfaceSwim => self.surface_swim(water),
+            Animation::ZeroGSwim => self.zero_g_swim(room, rng, sounds),
+            Animation::ZeroGPoleGrab => self.zero_g_pole_grab(room),
             Animation::Dead => {}
         }
     }

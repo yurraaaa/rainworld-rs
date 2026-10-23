@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use rw_assets::{Room, ShortcutType, Terrain};
 
-use super::{BodyMode, HEAD, Player, ROOM_GRAVITY};
+use super::{BodyMode, HEAD, Player};
 use crate::world::AiMap;
 use crate::{BodyChunk, Vec2};
 
@@ -111,13 +111,14 @@ impl Player {
             c.vel += input * (fac * 4.0) / mass.max(0.75);
         }
         let n = carry.chunks.len() as f32;
+        let eg = self.effective_room_gravity();
         for c in &mut carry.chunks {
             let (cx, cy) = c.pos.tile();
             if !map.narrow_space(cx, cy) {
                 continue;
             }
             c.vel *= 0.8;
-            c.vel.y += ROOM_GRAVITY * carry.gravity * 0.85;
+            c.vel.y += eg * carry.gravity * 0.85;
             c.vel += input * (fac * 1.5) / (n * ((mass + 1.0) / 2.0).max(1.0));
             c.pos += input * (fac * 1.1) / (n * ((mass + 2.0) / 3.0).max(1.0));
         }

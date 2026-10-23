@@ -118,7 +118,7 @@ the chunk under the hips, `JumpOnChunk`), `advanced.rs` (flip, roll, rocket jump
 `falls.rs` (impact, stun, die), `grabbed.rs` (held: `dangerGrasp` state and timers,
 `cantBeGrabbedCounter`, the pacifying stun, `WALLSTUCK`), `exhaustion.rs` (aerobic level, malnourishment),
 `grab.rs` (hand counters, `ThrowDirection`), `carry.rs` (`HeavyCarry`: run slowdown, drag through narrow spaces, pulled into a shortcut, jump power), `shortcut.rs` (enter/ride/leave tubes),
-`sleep.rs` (`SleepUpdate`), `sounds.rs` (slide loop, plays), `drips.rs` (the skid's and
+`zero_g.rs` (the `ZeroG` body mode, `ZeroGSwim` and `ZeroGPoleGrab`, the entry and exit checks), `sleep.rs` (`SleepUpdate`), `sounds.rs` (slide loop, plays), `drips.rs` (the skid's and
 corridor shoots' `WaterDrip`s), `spear_on_back.rs` (the Hunter's
 `SpearOnBack` state, `DropSpear`'s draws in `Stun` and `Die`). `tests.rs`, `tests/`: tests.
 
@@ -229,6 +229,7 @@ sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `m
 | Eating, picking up, throwing | `game_player.rs`, `game_items.rs`, `player/grab.rs`; creatures' meat: `game_eat_meat.rs`; carrying a heavy body: `player/carry.rs`, `game_player.rs` |
 | The Hunter's spear on the back | `game_spear_on_back.rs`, `player/spear_on_back.rs`, `item/on_back_stick.rs` |
 | Body physics / collision | `chunk.rs`, `object.rs`, `player/mod.rs` |
+| Zero gravity (room `gravity`, `ElectricPower`, the broken switch, the player floating) | `anti_gravity.rs`, `game_anti_gravity.rs`, `player/zero_g.rs`, `PhysicsParams::room_gravity` in `chunk.rs`; the SS song: `game_triggers.rs` (`SsMusic`) and `rw-audio` `music/song.rs` |
 | Overseer / guide | `creature/overseer/`, `world/overseers_world_ai.rs`, `game_holo_light.rs` |
 | Placed light beams, spot lights | `light_beam.rs`, `spot_light.rs`, `game_light_beams.rs`; sprites in `rw-graphics` `light_beam.rs`, `spot_light.rs`, `quad_grid.rs` |
 | Light fixtures (`Redlight`, `HolyFire`, `SlimeMoldLight`), waterfalls | `light_fixture.rs`, `waterfall.rs`, `room_fixtures.rs`, `game_light_fixtures.rs`, `game_waterfalls.rs`; sprites in `rw-graphics` `light_fixture.rs`, `water_fall.rs` |

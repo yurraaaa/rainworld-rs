@@ -23,6 +23,9 @@ pub(super) enum DripBurst {
     /// A successful tunnel slide: four gated drips from 9 px behind the hips' tile
     /// middle, at 5 the way it faces with a y speed of -3..3.
     SideShoot { pos: Vec2, flip: i32 },
+    /// The zero-gravity kick off the back of a corridor: four gated drips thrown 5 px
+    /// along `dir` plus a random direction at 3.
+    ZeroGKick { pos: Vec2, dir: Vec2 },
 }
 
 impl DripBurst {
@@ -58,6 +61,7 @@ impl DripBurst {
                 pos,
                 Vec2::new(flip as f32 * 5.0, (-3.0_f32).lerp(3.0, rng.value())),
             ),
+            Self::ZeroGKick { pos, dir } => (pos, dir * 5.0 + Vec2::random_unit(rng) * 3.0),
         };
         WaterDrip::new(pos, vel, false, rng)
     }
