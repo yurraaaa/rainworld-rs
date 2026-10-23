@@ -85,6 +85,8 @@ the PASSAGE screens, and the other starting slugcats' mechanics.
 
 **M12 - Whole base game playable**
 The base-game campaigns playable start to finish with Remix off.
+Includes the SS swarmers (`SSSwarmers` effect, `SSOracleSwarmer`: edible, carried, feeding on
+mycelia, leaving through exits; user, 2026-10-23, moved out of M7 step 10e).
 
 **M13 - Remix and the DLCs**
 Remix's menu and options, More Slugcats, Watcher and Jolly Co-op, each taking effect

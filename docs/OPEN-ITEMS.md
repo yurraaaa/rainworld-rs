@@ -30,6 +30,10 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `Broken Shelters: <timeline>:` (Red: `HI_S03`, `LF_S07`; White and Red: `SL_S11`) are read
   and used by DeathFall, the exit look and the overseers, but the shelter/win logic treats
   every shelter as intact (`crates/app/src/game.rs` ~784, `in_intact_shelter`).
+- **SS swarmers (M12)** (user, 2026-10-23): step 10e (`SSSwarmers` / `PlaceSwarmers`,
+  `SSOracleSwarmer`, `OracleSwarmer`) moves to M12 "Whole base game playable"; survey it
+  first there (survey B1 marks most of it not examined). The coral system already builds
+  in the order `PlaceSwarmers` slots into (D38).
 
 ## Planned
 - **Room visual effects, lights and camera shake** (user, 2026-10-22): every non-DLC
