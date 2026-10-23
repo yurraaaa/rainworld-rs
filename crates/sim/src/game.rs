@@ -10,6 +10,8 @@
 
 use std::sync::Arc;
 
+#[path = "game_anti_gravity.rs"]
+mod anti_gravity;
 #[path = "game_background_scene.rs"]
 mod background_scene;
 #[path = "game_border_push_back.rs"]
@@ -436,6 +438,8 @@ enum RoomObject {
     LightBeam(u64),
     /// A light fixture, its ember or a waterfall.
     Fixture(crate::room_fixtures::FixtureRef),
+    /// The room's `AntiGravity`.
+    AntiGravity,
     Lizard(CreatureId),
 }
 
@@ -909,7 +913,9 @@ impl RainWorldGame {
         self.update_abstract_room();
         self.enter_from_abstract_rooms();
         self.update_world_processes(observer);
-        self.world.rain_cycle.update(&mut self.rng);
+        self.world.rain_cycle.update_timers();
+        self.update_broken_anti_gravity();
+        self.world.rain_cycle.water_cycle.update(&mut self.rng);
         self.rain_request_stop_song();
         self.world.path_finders.divider.update();
         if self.shortcuts.divide() {
@@ -1472,6 +1478,7 @@ impl RainWorldGame {
         objects.extend(self.room_rainbow_objects(index));
         objects.extend(self.room_light_beam_objects(index));
         objects.extend(self.room_fixture_objects(index));
+        objects.extend(self.room_anti_gravity_objects(index));
         objects.sort_by_key(|&(seq, _)| std::cmp::Reverse(seq));
         objects
     }
@@ -1591,6 +1598,7 @@ impl RainWorldGame {
                 RoomObject::Rainbow(order) => self.run_rainbow(index, order),
                 RoomObject::LightBeam(order) => self.run_light_beam(index, order),
                 RoomObject::Fixture(f) => self.run_fixture(index, f),
+                RoomObject::AntiGravity => self.run_anti_gravity(index),
                 RoomObject::Insect(_) => {}
             }
         }
@@ -1941,6 +1949,12 @@ impl RainWorldGame {
             .world
             .realized(index)
             .map_or(0.0, |r| r.settings.ceiling_drips);
+        let room_gravity = self.room_gravity(index);
+        let ai_map = self
+            .world
+            .realized(index)
+            .filter(|r| r.ready_for_ai())
+            .and_then(|r| r.ai_map.clone());
         let sounds = if index == self.camera_room {
             &mut self.sounds
         } else {
@@ -1951,6 +1965,8 @@ impl RainWorldGame {
         };
         let was_stunned = player.is_stunned();
         player.set_ceiling_drips(ceiling_drips);
+        player.set_room_gravity(room_gravity);
+        player.set_ai_map(ai_map);
         player.retain_released_slide_loops(|r| self.world.realized(r).is_some());
         player.set_emitter_place(EmitterPlace {
             room: index,

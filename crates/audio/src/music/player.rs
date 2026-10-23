@@ -450,6 +450,25 @@ impl MusicPlayer {
         self.next_procedural = Some(String::new());
     }
 
+    /// `RequestSSSong` (base game): Five Pebbles' song unless one is playing or waiting.
+    pub fn request_ss_song(&mut self) {
+        let playing = self.song.as_ref().is_some_and(Song::is_ss_song);
+        let waiting = self.next_song.as_ref().is_some_and(Song::is_ss_song);
+        if !playing && !waiting && self.settings.play_music {
+            let id = self.track_id();
+            self.start_or_queue(Song::ss_song(id));
+        }
+    }
+
+    /// `SSMusicTrigger.Trigger` on a player with a song: asks for the song, or raises its
+    /// volume to `amount`.
+    pub fn ss_music_trigger(&mut self, amount: f32) {
+        match self.song.as_mut().filter(|s| s.is_ss_song()) {
+            Some(song) => song.ss_set_volume(amount),
+            None => self.request_ss_song(),
+        }
+    }
+
     /// `RainRequestStopSong` (base game: no siren song to spare).
     pub fn rain_request_stop_song(&mut self) {
         if let Some(song) = &mut self.song {

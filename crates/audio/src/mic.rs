@@ -59,6 +59,9 @@ pub struct Microphone {
     pub pause_volume: f32,
     /// The `timeSpeed` of `DrawUpdate`: 1, or `1 - 0.3 blackFade` under the pause menu.
     pub time_speed: f32,
+    /// The camera room's `gravity` in a `BrokenZeroG` room of region SS, which fades the
+    /// ambience (volume group 2) as gravity returns.
+    pub ambience_gravity: Option<f32>,
 }
 
 impl Microphone {
@@ -85,6 +88,7 @@ impl Microphone {
             exponent,
             pause_volume: 1.0,
             time_speed: 1.0,
+            ambience_gravity: None,
         }
     }
 
@@ -145,7 +149,10 @@ impl Microphone {
     #[must_use]
     pub fn volume_groups(&self) -> [f32; Self::GROUPS] {
         let v = self.in_world_volume * self.pause_volume;
-        [v, 1.0, v, v, self.pause_volume]
+        let ambience = self
+            .ambience_gravity
+            .map_or(1.0, |g| 1.0_f32.lerp(0.05, g.mathf_pow(0.5)));
+        [v, 1.0, v * ambience, v, self.pause_volume]
     }
 
     /// `PanFromPoint`: -1 at 1000 px left of the listener, 1 at 1000 px right.
@@ -301,6 +308,20 @@ mod tests {
         assert_eq!(mic.source_volume(3.0, 1.0, g), 1.0);
         assert_eq!(mic.listener(), Vec2::new(512.0, 384.0));
         assert_eq!(mic.doppler_block, 0.5);
+    }
+
+    /// `volumeGroups[2] = Lerp(1, 0.05, gravity^0.5)` in an SS `BrokenZeroG` room.
+    #[test]
+    fn ambience_fades_as_gravity_returns() {
+        let mut mic = Microphone::following(Vec2::new(100.0, 400.0));
+        let full = mic.volume_groups()[2];
+        mic.ambience_gravity = Some(0.0);
+        assert_eq!(mic.volume_groups()[2], full);
+        mic.ambience_gravity = Some(1.0);
+        assert!((mic.volume_groups()[2] - full * 0.05).abs() < 1e-6);
+        mic.ambience_gravity = Some(0.25);
+        assert!((mic.volume_groups()[2] - full * 0.525).abs() < 1e-6);
+        assert_eq!(mic.volume_groups()[0], full);
     }
 
     #[test]

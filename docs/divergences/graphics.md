@@ -43,7 +43,7 @@ in `PlayerGraphics` (they use the generic poses of their body mode, as in the ga
 - **Not ported:** two-handed objects, mauling and
   its `Blink`s,
   the map-button stand-still blink,
-  zero gravity (`ZeroGPoleGrab`, `ZeroGSwim`), antler and vine climbing,
+  antler and vine climbing,
   adrenaline jitter, hypothermia and poison tints, the Mark (sprites 10 and 11
   have alpha 0 and are left out of the draw list), the light source, and every More
   Slugcats, Watcher and Jolly Co-op branch (pups, Gourmand/Spear/Saint/Rivulet/Artificer

@@ -25,7 +25,8 @@ pub enum OverseerMode {
 
 /// The constructor's physics: no gravity, air friction 0.8, no terrain collision.
 const PARAMS: PhysicsParams = PhysicsParams {
-    gravity: 0.0,
+    g: 0.0,
+    room_gravity: 1.0,
     air_friction: 0.8,
     bounce: 0.0,
     surface_friction: 1.0,

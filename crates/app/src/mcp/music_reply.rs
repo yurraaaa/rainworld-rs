@@ -278,6 +278,13 @@ impl TriggerState {
                 counter: None,
                 wait: None,
             },
+            TriggerObjectKind::SsMusic { .. } => Self {
+                room,
+                kind: "ss_music",
+                event: None,
+                counter: None,
+                wait: None,
+            },
         }
     }
 }

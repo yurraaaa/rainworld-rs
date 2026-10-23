@@ -17,7 +17,7 @@ impl Player {
 }
 
 /// Every ported ID with one existing clip.
-fn all_sounds() -> Sounds {
+pub(super) fn all_sounds() -> Sounds {
     let mut text = "Volume: 6\nVolume exponent: 1.8\n".to_owned();
     for id in SoundId::ALL {
         text.push_str(&format!("{} : clip\n", id.name()));
@@ -27,7 +27,7 @@ fn all_sounds() -> Sounds {
 }
 
 /// The IDs played this tick with their chunk and emitter volume.
-fn played(sounds: &mut Sounds) -> Vec<(SoundId, usize, f32)> {
+pub(super) fn played(sounds: &mut Sounds) -> Vec<(SoundId, usize, f32)> {
     sounds
         .take_events()
         .into_iter()

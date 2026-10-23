@@ -143,6 +143,23 @@ impl Player {
         self.shortcut_pull = Some((target, radius));
     }
 
+    /// `EffectiveRoomGravity`: the room's `gravity` (0 without a room; the Saint's and
+    /// Watcher's custom gravity are DLC, D34).
+    #[must_use]
+    pub fn effective_room_gravity(&self) -> f32 {
+        self.room_gravity
+    }
+
+    /// The room's `aimap` for this tick's update (`None` until it is `readyForAI`).
+    pub fn set_ai_map(&mut self, map: Option<std::sync::Arc<crate::world::AiMap>>) {
+        self.ai_map = map;
+    }
+
+    /// The room's `gravity` for this tick's update.
+    pub fn set_room_gravity(&mut self, gravity: f32) {
+        self.room_gravity = gravity;
+    }
+
     pub(crate) fn set_ceiling_drips(&mut self, ceiling_drips: f32) {
         self.ceiling_drips = ceiling_drips;
     }

@@ -58,6 +58,12 @@ impl Player {
             self.belly_slide_jump(room, num);
             return;
         }
+        if matches!(
+            self.animation,
+            Animation::ZeroGSwim | Animation::ZeroGPoleGrab
+        ) {
+            return;
+        }
         if self.starts_belly_slide() {
             return;
         }

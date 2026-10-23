@@ -10,22 +10,18 @@ Second file of the `rw-sim` divergences (`sim.md` is past 1000 lines). IDs are g
 the `CustomDepth` shader in `rw-render`). Every shared-stream draw is ported in the
 game's order. Notes: `../../rainworld-re/notes/particles.md`.
 
-- **No zero gravity, so the specks fall.** `Room.gravity` is read from
-  `RealizedRoom::gravity`, which is 1 until `AntiGravity` (the `ZeroG` and
-  `BrokenZeroG` effects, a later gameplay step) sets it. In the Superstructure rooms
-  (all `ZeroGSpecks` and `CorruptionSpores` rooms) a speck made by `NowViewed` starts
-  at the origin; with gravity on its first update puts it out of the camera window or
-  inside a wall, so it is `reset` at once, hidden, and only comes back when the room's
-  gravity is 0. The zero-gravity branches (drift, wall push, window wrap, window
-  placement, replacing a fallen speck) are ported and tested with `gravity` 0 but not
-  reachable in play. The seeding's `2000 * amount` / `1600 * amount` draws still run.
+- **Zero gravity is ported (D34), so the specks drift where the game's do.**
+  `Room.gravity` is set every tick by the room's `AntiGravity` (`ZeroG` amount 1 makes it
+  0). In a room whose gravity is 0 a speck made by `NowViewed` is placed in the camera
+  window on its first update and drifts; in a `BrokenZeroG` room it falls as dust while the
+  switch is off and drifts when it is on. The zero-gravity branches are tested with
+  `gravity` 0.
 - **Reset specks are never destroyed here (F2).** `GenericZeroGSpeck.Update` returns in
-  its `reset` branch before the `!BeingViewed` destroy, so with the constant gravity 1 a
+  its `reset` branch before the `!BeingViewed` destroy, so in a room with gravity above 0
+  (the `BrokenZeroG` rooms while their switch is off; a `ZeroG` amount below 1) a
   `reset` speck or spore outlives its camera's visit, keeps making its per-tick draws
   (the blink's, the spore's two) and each camera entry adds `1000 * amount` or
-  `200 * amount` more. Game-exact for gravity other than 0; it matters only because
-  `AntiGravity` is not ported and all 40 speck and spore settings files carry `ZeroG`
-  or `BrokenZeroG`.
+  `200 * amount` more. Game-exact.
 - **No rain:** `globalRain.Intensity` is 0 in `SkyDandelions.SpawnChance`
   (`rw_sim::RainCycle` has no `GlobalRain`).
 - **Sprite-making draws on first draw.** A spore's `Pebble{n}` (`Random.Range(1, 15)`,

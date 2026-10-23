@@ -550,7 +550,7 @@ impl FlyRun<'_, '_, '_> {
         if !panic {
             self.steer();
         }
-        let gravity = self.fr().body.params.gravity;
+        let gravity = self.fr().body.params.gravity();
         let f = self.f();
         let dir = f.dir;
         let c = f.chunk_mut();
@@ -639,7 +639,7 @@ impl FlyRun<'_, '_, '_> {
         let phase = flock.sin_cycle + goal.y / flock.swarm_flight_vertical_displace;
         let sway = (f64::from(phase * 2.0 * std::f32::consts::PI)).sin() as f32
             * flock.swarm_flight_sin_ampl;
-        let gravity = self.fr().body.params.gravity;
+        let gravity = self.fr().body.params.gravity();
         let pos = self.pos();
         let f = self.f();
         f.dir = pos.direction_to(goal + Vec2::new(sway, 0.0));

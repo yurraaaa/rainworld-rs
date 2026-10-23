@@ -83,6 +83,8 @@ pub(crate) struct HandContext<'a> {
     pub water: Option<&'a Water>,
     pub balance_counter: f32,
     pub disbalance: &'a mut f32,
+    /// `PlayerGraphics.flail`.
+    pub flail: f32,
     pub head_vel: &'a mut Vec2,
     pub airborne_counter: f32,
     /// Hand 0's position and `reached_snap_position`, read by hand 1 while crawling.
@@ -340,6 +342,7 @@ impl SlugcatHand {
                 free = false;
                 self.swim_target(player, cx.water, sign);
             }
+            BodyMode::ZeroG => free = self.zero_g_target(cx, sign),
             BodyMode::Default
                 if cx.airborne_counter > 180.0 && head.vel.distance(Vec2::ZERO) >= 4.0 =>
             {
@@ -522,6 +525,93 @@ impl SlugcatHand {
         }
         self.limb.hunt_speed = 5.0;
         self.limb.quickness = 0.2;
+        free
+    }
+
+    /// `BodyModeIndex.ZeroG`: on a beam the hands alternate along it; floating they grab a
+    /// wall within reach, flail with the body's turning, or paddle relative to it. Returns
+    /// whether the hand is free (nothing to do). The coral circuit's swim bits are not
+    /// ported (always none).
+    fn zero_g_target(&mut self, cx: &mut HandContext<'_>, sign: f32) -> bool {
+        let player = cx.player;
+        let (head, hips) = (player.head(), player.hips());
+        let limb = self.limb.limb_number;
+        if player.animation() == Animation::ZeroGPoleGrab {
+            let dir = player.zero_g_pole_grab_dir();
+            let phase = player.animation_frame() as f32 / 20.0 * TAU;
+            let leading = (limb == 1) == (dir.0 == 1);
+            let wave = if leading { phase.sin() } else { phase.cos() };
+            let reach = (if leading { -3.0 } else { 3.0 }) + 6.0 * wave;
+            self.limb.mode = LimbMode::HuntAbsolutePosition;
+            let mid = head.pos.tile_middle();
+            if player.is_standing() {
+                let mut target = Vec2::new(mid.x, head.pos.y);
+                target.y += reach * (hips.pos.y - head.pos.y).unity_sign();
+                target.x += if leading { -1.0 } else { 1.0 } * dir.0 as f32;
+                self.limb.absolute_hunt_pos = target;
+            } else {
+                let mut target = Vec2::new(head.pos.x, mid.y);
+                target.x += reach * (hips.pos.x - head.pos.x).unity_sign();
+                target.y += if leading { -1.0 } else { 1.0 } * dir.1 as f32;
+                self.limb.absolute_hunt_pos = target;
+            }
+            self.retract_counter = 40;
+            return false;
+        }
+        if player.animation() != Animation::ZeroGSwim {
+            return false;
+        }
+        let mut free = true;
+        let speed = head.vel.length();
+        let connection = head.pos;
+        if speed < 5.0 {
+            self.limb.mode = LimbMode::Dangle;
+            let goal = connection
+                + Vec2::new(
+                    -10.0 + 20.0 * limb as f32,
+                    if (limb == 0) == (player.flip_direction() == -1) {
+                        0.0
+                    } else {
+                        -5.0
+                    },
+                );
+            let grabbed = self.limb.find_grip(
+                cx.room,
+                GripSearch {
+                    attached: connection,
+                    search_from: connection,
+                    max_radius: 100.0,
+                    goal,
+                    forbidden_x: if limb == 0 { 1 } else { -1 },
+                    forbidden_y: -2,
+                    behind_walls: false,
+                },
+            );
+            free = !grabbed;
+        }
+        let input = player.input_history()[0];
+        if free
+            && speed < 6.0
+            && head.vel.distance(hips.vel) > 2.0
+            && cx.flail > 0.1
+            && (input.x != 0 || input.y != 0)
+        {
+            free = false;
+            let stroke = 0.5 + 0.5 * (player.swim_cycle() / 4.0 * TAU).sin();
+            self.limb.mode = LimbMode::HuntRelativePosition;
+            self.limb.relative_hunt_pos = Vec2::from_degrees((20.0 + stroke * 140.0) * sign)
+                * (20.0 * cx.flail.inverse_lerp(0.1, 0.3));
+        }
+        if free && (speed < 4.0 || head.vel.normalized().dot(hips.pos.direction_to(head.pos)) < 0.6)
+        {
+            free = false;
+            let cycle = player.swim_cycle() / 4.0;
+            let sway =
+                (cx.balance_counter / 300.0 * TAU).sin() * (*cx.disbalance).inverse_lerp(0.0, 50.0);
+            self.limb.mode = LimbMode::HuntRelativePosition;
+            self.limb.relative_hunt_pos = Vec2::new(sign * 17.0 + 5.0 * sway, -5.0 * sway)
+                + Vec2::from_degrees(cycle * sign * 360.0) * 5.0;
+        }
         free
     }
 

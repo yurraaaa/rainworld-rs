@@ -201,7 +201,8 @@ pub struct Lizard {
 /// `Lizard`'s physics scalars as the constructor sets them (`Update` changes them
 /// every tick).
 const PARAMS: PhysicsParams = PhysicsParams {
-    gravity: 0.9,
+    g: 0.9,
+    room_gravity: 1.0,
     air_friction: 0.999,
     bounce: 0.1,
     surface_friction: 0.5,

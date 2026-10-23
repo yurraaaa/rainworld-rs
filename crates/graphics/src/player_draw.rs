@@ -295,6 +295,16 @@ impl PlayerGraphics {
             angle = angle.lerp_to(45.0 * side, f.curl);
             head += Vec2::new(side * 2.0 * f.curl, f.curl);
             look -= Vec2::new(4.0 * side * f.curl, 2.0 * f.curl);
+        } else if player.effective_room_gravity() == 0.0 {
+            head_frame = 0;
+            face_rotation = angle;
+            face_element = if player.is_conscious() {
+                faces[0]
+            } else if player.is_dead() {
+                FACE_DEAD
+            } else {
+                FACE_STUNNED
+            };
         } else if player.is_conscious() {
             let sideways =
                 player.body_mode() == BodyMode::Stand && player.input_history()[0].x != 0;
@@ -398,6 +408,9 @@ impl PlayerGraphics {
                 }
                 _ => {}
             },
+            BodyMode::ZeroG if player.animation() == Animation::ZeroGPoleGrab => {
+                self.sprites.hand_cap_element = [ON_TOP_OF_TERRAIN_HAND; 2];
+            }
             BodyMode::WallClimb => {
                 element = LEGS_A_WALL;
                 self.sprites.legs_scale_x = by_flip;
@@ -434,7 +447,7 @@ impl PlayerGraphics {
         let pos = hand.limb.part.last_pos.lerp_clamped(hand.limb.part.pos, t);
         let animation = player.animation();
         let mut arm = None;
-        let climbing = animation == Animation::ClimbOnBeam;
+        let climbing = matches!(animation, Animation::ClimbOnBeam | Animation::ZeroGPoleGrab);
         if hand.limb.mode != LimbMode::Retracted {
             let body_angle = f.hips.aim_to(f.body);
             let mut spread = 4.5 / (hand.retract_counter as f32 + 1.0);
@@ -486,7 +499,10 @@ impl PlayerGraphics {
         }
         let gripping = matches!(
             animation,
-            Animation::ClimbOnBeam | Animation::HangFromBeam | Animation::GetUpOnBeam
+            Animation::ClimbOnBeam
+                | Animation::HangFromBeam
+                | Animation::GetUpOnBeam
+                | Animation::ZeroGPoleGrab
         ) && self.hands[j].limb.reached_snap_position;
         let cap = gripping.then(|| Sprite {
             index: 7 + j,

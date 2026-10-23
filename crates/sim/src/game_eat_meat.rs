@@ -200,6 +200,7 @@ impl RainWorldGame {
     /// graphics' head halfway).
     fn eat_meat_drips(&mut self, index: i32, chunk: &crate::BodyChunk, centre: Vec2, mouth: Vec2) {
         let main = self.player_ref().head().pos;
+        let eg = self.player_ref().effective_room_gravity();
         let mut n = self.rng.range_i32(0, 3);
         while n >= 0 {
             let rng = &mut self.rng;
@@ -208,7 +209,7 @@ impl RainWorldGame {
             let out = Vec2::random_unit(rng) * (6.0 * rng.value());
             let toward = centre.direction_to(mouth) * (7.0 * rng.value());
             let side = Vec2::from_degrees((-90.0f32).lerp(90.0, rng.value()));
-            let vel = out + toward + side * (rng.value() * crate::player::ROOM_GRAVITY * 7.0);
+            let vel = out + toward + side * (rng.value() * eg * 7.0);
             let drip = WaterDrip::new(pos, vel, false, &mut self.rng);
             self.world.add_drip(index, drip);
             n -= 1;

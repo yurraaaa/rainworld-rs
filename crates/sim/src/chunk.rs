@@ -15,17 +15,17 @@ use crate::{Vec2, Water};
 /// Default `restrictInRoomRange`: how far outside the room (px) a chunk may go.
 pub const DEFAULT_RESTRICT_IN_ROOM_RANGE: f32 = 1200.0;
 
-/// `EffectiveRoomGravity`: no gravity effects are ported.
-const ROOM_GRAVITY: f32 = 1.0;
-
 /// The game's emergency limit on tile checks per collision sweep.
 const MAX_REPEATS: u32 = 100_000;
 
 /// Owner-level scalars a chunk update reads (`PhysicalObject.gravity` etc.).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PhysicsParams {
-    /// Subtracted from `vel.y` every tick (px/tick^2).
-    pub gravity: f32,
+    /// `PhysicalObject.g`: scaled by the room's gravity into `PhysicalObject.gravity`
+    /// ([`PhysicsParams::gravity`]), subtracted from `vel.y` every tick (px/tick^2).
+    pub g: f32,
+    /// `EffectiveRoomGravity`: the room's `gravity`, set by the owner before each update.
+    pub room_gravity: f32,
     /// Velocity multiplier per tick in air.
     pub air_friction: f32,
     /// Fraction of speed kept on a terrain bounce.
@@ -40,6 +40,14 @@ pub struct PhysicsParams {
     pub water_friction: f32,
     /// How much of the extra drag on fast chunks under water is avoided (0..=1).
     pub water_retardation_immunity: f32,
+}
+
+impl PhysicsParams {
+    /// `PhysicalObject.gravity`: `g * room.gravity`.
+    #[must_use]
+    pub fn gravity(&self) -> f32 {
+        self.g * self.room_gravity
+    }
 }
 
 /// A flat-tile hit reported to the owner (`PhysicalObject.TerrainImpact`).
@@ -199,7 +207,7 @@ impl BodyChunk {
         if self.vel.x.is_nan() {
             self.vel.x = 0.0;
         }
-        self.vel.y -= p.gravity;
+        self.vel.y -= p.gravity();
         // The base game's test: the chunk's bottom at or below the surface.
         match water {
             Some(w) if self.pos.y - self.rad <= w.level_at(self.pos.x) => {
@@ -227,7 +235,7 @@ impl BodyChunk {
             self.vel.x *= 0.75;
             return;
         }
-        self.vel.y += p.buoyancy * ROOM_GRAVITY * submersion;
+        self.vel.y += p.buoyancy * p.room_gravity * submersion;
         let fast = (1.0 / (self.vel.length() - 10.0).max(1.0)).powf(0.5);
         let water = (p.water_friction * p.water_retardation_immunity).lerp(p.water_friction, fast);
         self.vel *= p.air_friction.lerp(water, submersion);
@@ -386,7 +394,7 @@ impl BodyChunk {
             self.contact.y = side.y;
             self.vel.y = -f32::from(side.y) * self.vel.y.abs() * p.bounce;
             let small = if side.y < 0 {
-                self.vel.y < p.gravity || self.vel.y < threshold
+                self.vel.y < p.gravity() || self.vel.y < threshold
             } else {
                 self.vel.y.abs() < threshold
             };
