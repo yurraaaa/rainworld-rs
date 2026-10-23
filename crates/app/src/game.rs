@@ -1514,11 +1514,12 @@ impl Game {
     /// re-add chose, what the lizards' jaws hold nested in them ([`Jaws`]), the sprites
     /// of a jaw container off the stage left out, the rest in [`SpriteOrder`]'s order.
     pub fn in_container_order(&self, mut lists: Vec<(Drawable, DrawList)>) -> Vec<DrawList> {
+        let behind = self.sprite_order.behind_set();
         for (d, list) in &mut lists {
             if !matches!(d, Drawable::Entity(Entity::Object(_))) {
                 continue;
             }
-            let layer = if self.sprite_order.behind(*d) {
+            let layer = if behind.contains(d) {
                 Layer::Background
             } else {
                 Layer::Items
@@ -1533,12 +1534,15 @@ impl Game {
         let player = Drawable::Entity(Entity::Creature(self.sim.player_creature()));
         Jaws::new(holders, player).contain(&mut lists);
         let mut ordered = Vec::with_capacity(lists.len());
+        let shown = self.sprite_order.shown_set();
+        let count = lists.len();
+        let mut lists: HashMap<Drawable, DrawList> = lists.into_iter().collect();
+        debug_assert_eq!(lists.len(), count, "a drawable has two draw lists");
         for d in self.sprite_order.order() {
-            let Some(i) = lists.iter().position(|(o, _)| *o == d) else {
+            let Some(mut list) = lists.remove(&d) else {
                 continue;
             };
-            let mut list = lists.swap_remove(i).1;
-            if !self.sprite_order.shown(d) {
+            if !shown.contains(&d) {
                 // Only what went into the jaw container left the stage with it: the
                 // player's `Foreground` sprites stay (`PlayerGraphics.AddToContainer`).
                 if d != player {

@@ -387,3 +387,91 @@ fn apply_palette_raises_the_full_screen_effect() {
         ]
     );
 }
+
+/// Thousands of leasers (SS_E05's piled-up specks) with jaws and a weapon behind: the
+/// order is what the straightforward construction gives, and the update stays cheap.
+#[test]
+fn thousands_of_leasers_keep_the_order() {
+    const N: u64 = 5000;
+    let (lizard, spear, player) = (
+        Fixture::creature(1),
+        Fixture::object(0),
+        Fixture::creature(0),
+    );
+    let mut present = vec![
+        Present::module(player, 1, 1),
+        Present::module(lizard, 2, 1),
+        Present::added(spear, 3),
+    ];
+    present.extend((0..N).map(|i| Present::added(Drawable::Particle(i), 10 + i)));
+    let mut o = SpriteOrder::default();
+    o.update(1, &present, &[], &[]);
+    // Re-entry: the even specks are gone, new ones arrive, the lizard bites the spear.
+    let mut present = vec![
+        Present::module(player, 1, 1),
+        Present::module(lizard, 2, 1),
+        Present::added(spear, 3),
+    ];
+    present.extend(
+        (0..N)
+            .filter(|i| i % 2 == 1)
+            .map(|i| Present::added(Drawable::Particle(i), 10 + i)),
+    );
+    present.extend((N..N + 100).map(|i| Present::added(Drawable::Particle(i), 10 + i)));
+    let jaws = [(
+        1_000_000,
+        Move::IntoJaws {
+            obj: spear,
+            holder: lizard,
+        },
+    )];
+    o.update(1, &present, &jaws, &[]);
+    let mut expected = vec![Drawable::WaterLight, Drawable::DeathFall];
+    expected.extend((0..N).filter(|i| i % 2 == 1).map(Drawable::Particle));
+    expected.extend([
+        player,
+        lizard,
+        Drawable::Shortcuts,
+        Drawable::FullScreenEffect,
+    ]);
+    expected.extend((N..N + 100).map(Drawable::Particle));
+    expected.push(spear);
+    assert_eq!(Fixture::order(&o), expected);
+    // The room's own leasers keep their relative order; the bitten spear went on top.
+    let order = Fixture::order(&o);
+    assert_eq!(order.last(), Some(&spear));
+    assert_eq!(o.holder(spear), Some(lizard));
+    assert!(o.shown(spear));
+    assert_eq!(o.shown_set().len(), order.len());
+    let specks: Vec<_> = order
+        .iter()
+        .filter(|d| matches!(d, Drawable::Particle(_)))
+        .collect();
+    let ids: Vec<u64> = specks
+        .iter()
+        .map(|d| match d {
+            Drawable::Particle(i) => *i,
+            _ => 0,
+        })
+        .collect();
+    assert!(ids.windows(2).all(|w| w[0] < w[1]));
+}
+
+#[test]
+fn five_thousand_leasers_update_quickly() {
+    let mut o = SpriteOrder::default();
+    let mut present: Vec<Present> = (0..5000)
+        .map(|i| Present::added(Drawable::Particle(i), i))
+        .collect();
+    o.update(1, &present, &[], &[]);
+    let start = std::time::Instant::now();
+    for tick in 0..20 {
+        present.push(Present::added(Drawable::Particle(5000 + tick), 5000 + tick));
+        o.update(1, &present, &[], &[]);
+        let _ = o.shown_set();
+        let _ = o.behind_set();
+    }
+    if !cfg!(debug_assertions) {
+        assert!(start.elapsed() < std::time::Duration::from_millis(250));
+    }
+}
