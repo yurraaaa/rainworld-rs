@@ -54,6 +54,8 @@ mod light_fixtures;
 mod lightning;
 #[path = "game_lights.rs"]
 mod lights;
+#[path = "game_projections.rs"]
+mod projections;
 pub use lights::PlayerGlow;
 #[path = "game_lizard_act.rs"]
 mod lizard_act;
@@ -441,6 +443,8 @@ enum RoomObject {
     LightBeam(u64),
     /// A light fixture, its ember or a waterfall.
     Fixture(crate::room_fixtures::FixtureRef),
+    /// A superstructure projector, its part, a scan line set, its line or a star matrix.
+    Projection(crate::room_projections::ProjectionRef),
     /// The room's `AntiGravity`.
     AntiGravity,
     Lizard(CreatureId),
@@ -1484,6 +1488,7 @@ impl RainWorldGame {
         objects.extend(self.room_rainbow_objects(index));
         objects.extend(self.room_light_beam_objects(index));
         objects.extend(self.room_fixture_objects(index));
+        objects.extend(self.room_projection_objects(index));
         objects.extend(self.room_anti_gravity_objects(index));
         objects.sort_by_key(|&(seq, _)| std::cmp::Reverse(seq));
         objects
@@ -1604,6 +1609,7 @@ impl RainWorldGame {
                 RoomObject::Rainbow(order) => self.run_rainbow(index, order),
                 RoomObject::LightBeam(order) => self.run_light_beam(index, order),
                 RoomObject::Fixture(f) => self.run_fixture(index, f),
+                RoomObject::Projection(p) => self.run_projection(index, p),
                 RoomObject::AntiGravity => self.run_anti_gravity(index),
                 RoomObject::Insect(_) => {}
             }
@@ -1612,6 +1618,7 @@ impl RainWorldGame {
         self.remove_slated_holo_lights(index);
         self.remove_slated_particles(index);
         self.remove_slated_fixtures(index);
+        self.remove_slated_projections(index);
         if !player_done {
             self.update_room_player_now(index, input, observer);
         }

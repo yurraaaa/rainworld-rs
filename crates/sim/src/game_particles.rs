@@ -12,6 +12,9 @@ use rw_assets::{PlacedObjectType, ResizableData, RoomEffectType};
 
 use super::{RainWorldGame, RoomObject};
 use crate::insect::InsectWater;
+use crate::projected_scan_lines::ProjectedScanLines;
+use crate::projector::SuperStructureProjector;
+use crate::room_projections::RoomProjections;
 use crate::trigger::TriggerObjectKind;
 use crate::world::{RealizedRoom, World};
 use crate::{
@@ -32,12 +35,6 @@ pub(super) enum ParticleRef {
     Spark(u64),
     SparkSpawner(u64),
     Speck(u64),
-}
-
-/// What `Room.NowViewed` seeded, in `AddObject` order.
-enum Seeded {
-    Spark(GreenSpark),
-    Speck(ZeroGSpeck),
 }
 
 impl World {
@@ -174,49 +171,61 @@ impl RainWorldGame {
             return;
         };
         let ai_map = r.ai_map.as_deref().filter(|_| r.ready_for_ai());
-        let mut seeded = Vec::new();
+        let tile_size = (r.room.width(), r.room.height());
+        // Each object takes its place in the update list as it is made.
+        let mut seq = self.world.update_seq();
+        let (mut sparks, mut specks) = (Vec::new(), Vec::new());
+        let mut projections = RoomProjections::default();
         for (kind, amount) in effects {
             match kind {
-                RoomEffectType::GreenSparks => seeded.extend(
-                    GreenSpark::seed_room(&r.room, amount, ai_map, &mut self.rng)
-                        .into_iter()
-                        .map(Seeded::Spark),
-                ),
+                RoomEffectType::GreenSparks => {
+                    for mut s in GreenSpark::seed_room(&r.room, amount, ai_map, &mut self.rng) {
+                        seq += 1;
+                        s.update_order = seq;
+                        sparks.push(s);
+                    }
+                }
                 RoomEffectType::ZeroGSpecks => {
                     for _ in 0..SpeckType::Blink.count(amount) {
-                        seeded.push(Seeded::Speck(ZeroGSpeck::new(
-                            SpeckType::Blink,
-                            &mut self.rng,
-                        )));
+                        let mut s = ZeroGSpeck::new(SpeckType::Blink, &mut self.rng);
+                        seq += 1;
+                        s.update_order = seq;
+                        specks.push(s);
                     }
                 }
                 RoomEffectType::CorruptionSpores => {
                     for _ in 0..SpeckType::CorruptionSpore.count(amount) {
-                        seeded.push(Seeded::Speck(ZeroGSpeck::new(
-                            SpeckType::CorruptionSpore,
-                            &mut self.rng,
-                        )));
+                        let mut s = ZeroGSpeck::new(SpeckType::CorruptionSpore, &mut self.rng);
+                        seq += 1;
+                        s.update_order = seq;
+                        specks.push(s);
                     }
+                }
+                RoomEffectType::SuperStructureProjector => {
+                    projections.projectors.push(SuperStructureProjector::new(
+                        tile_size,
+                        amount,
+                        &mut seq,
+                        &mut self.rng,
+                    ));
+                }
+                RoomEffectType::ProjectedScanLines => {
+                    projections.scan_lines.push(ProjectedScanLines::new(
+                        tile_size,
+                        amount,
+                        &mut seq,
+                        &mut self.rng,
+                    ));
                 }
                 _ => {}
             }
         }
-        let (mut sparks, mut specks) = (Vec::new(), Vec::new());
-        for s in seeded {
-            match s {
-                Seeded::Spark(mut s) => {
-                    s.update_order = self.world.next_update_seq();
-                    sparks.push(s);
-                }
-                Seeded::Speck(mut s) => {
-                    s.update_order = self.world.next_update_seq();
-                    specks.push(s);
-                }
-            }
-        }
+        self.world.set_update_seq(seq);
         if let Some(r) = self.world.realized_mut(index) {
             r.particles.sparks.extend(sparks);
             r.particles.specks.extend(specks);
+            r.projections.projectors.extend(projections.projectors);
+            r.projections.scan_lines.extend(projections.scan_lines);
         }
     }
 

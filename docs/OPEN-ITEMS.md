@@ -190,8 +190,11 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   - `Room.ElectricPower` / gravity readers: `GravityDisruptor`, `SpinningFan`,
     `MeltLights`, with the SS objects (`ZapCoil`, `SuperStructureFuses` and `SSLightRod` are
     ported, D36).
-  - `Room.ElectricPower` / gravity readers: `ProjectedScanLines`,
-    `SuperStructureProjector`, `DeepProcessing`, `DeepProcessingLight`, with the SS objects.
+  - `Room.ElectricPower` / gravity readers: `DeepProcessing`, `DeepProcessingLight`, with
+    the SS objects (`ProjectedScanLines` and `SuperStructureProjector` read it since step 10a,
+    D35).
+  - `ProjectedCircle` (D35): with its owners `CoralNeuron`, `CoralStem`, `SSOracleSwarmer`
+    (and `SpearMasterPearl`, `Inspector` in the DLC).
   - The other readers of `room.zapCoils` and `SuperStructureFuses` (D36): `TubeWorm`, the
     Saint tongue, `ElectricSpear`, the `Inspector`, Watcher's `ARZapper`/`WarpTear`, Moon's
     `SLOracleBehavior.fuses`: with them.

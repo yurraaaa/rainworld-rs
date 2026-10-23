@@ -45,6 +45,7 @@ Gameplay logic belongs in `rw-sim`, not here.
 | `mcp/particles_reply.rs` | `get_state` `particles`: per realized room, counts of dandelions, stalks, sparks, specks and spores and the spawners' state |
 | `mcp/placed_visuals_reply.rs` | `get_state` `decals`, `rainbows`: the realized rooms' custom decals and rainbows |
 | `mcp/gravity_reply.rs` | `get_state` `room_gravity`, `broken_anti_gravity`: each `ZeroG`/`BrokenZeroG` room's gravity and electric power, the world's `BrokenAntiGravity` switch |
+| `mcp/projection_reply.rs`, `mcp/projection_tests.rs` | `get_state` `projectors`, `scan_lines`, `star_matrices`: the realized rooms' superstructure projections (ideal and actual glyph, scan line and cursor counts, grid state, cursors; each scan line; each star matrix's rotations and focus) |
 | `mcp/effects_reply.rs` | `get_state` `electric_death`, `border_push_back`: the realized rooms' `ElectricDeath`s (intensity, sin, colour, flashes, loop volumes, recent strikes) and `RoomBorderPushBack`s (edges, `pushPower`) |
 | `mcp/fixtures_reply.rs` | `get_state` `light_fixtures`, `waterfalls`: the realized rooms' `Redlight`s, `HolyFire`s, `SlimeMoldLight`s (lights, flicker state, embers, discs) and `WaterFall`s (tile, flow, ends, strike level, contact, bubbles) |
 | `mcp/ss_electric_reply.rs` | `get_state` `light_rods`, `zap_coils`, `zap_coil_lights`, `zap_flashes`, `fuses`: the realized rooms' superstructure rods (vessels, their lights), zap coils (disruption, power, spells, volumes), flashes, coil lights and fuse grids (modes, malfunction, power) |

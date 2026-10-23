@@ -16,6 +16,7 @@ pub use super::particles_reply::RoomParticlesState;
 pub use super::placed_cosmetics_reply::{SlimeMoldState, TokenStalkState};
 pub use super::placed_light_reply::{LightBeamState, SpotLightState};
 pub use super::placed_visuals_reply::{DecalState, RainbowState};
+pub use super::projection_reply::{ProjectedScanLinesState, ProjectorState, StarMatrixState};
 pub use super::ss_electric_reply::{
     FuseState, LightRodState, ZapCoilLightState, ZapCoilState, ZapFlashState,
 };
@@ -172,6 +173,15 @@ pub struct State {
     /// The realized rooms' `RoomBorderPushBack`s.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub border_push_back: Vec<BorderPushBackState>,
+    /// The realized rooms' `SuperStructureProjector`s.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub projectors: Vec<ProjectorState>,
+    /// The realized rooms' `ProjectedScanLines`.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub scan_lines: Vec<ProjectedScanLinesState>,
+    /// The realized rooms' `StarMatrix`es (`ProjectedStars`).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub star_matrices: Vec<StarMatrixState>,
     /// `HologramLight.Needed(player)` now.
     pub holo_light_needed: f32,
     /// What the session keeps of its deaths.

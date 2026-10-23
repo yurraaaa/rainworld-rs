@@ -1122,6 +1122,59 @@ impl Game {
             .collect()
     }
 
+    /// The camera room's superstructure projections at `alpha` between ticks: the
+    /// projector's parts, the scan lines of `ProjectedScanLines` and the star matrices.
+    /// `cam_pos` is the frame's camera position, `camera_position` the room's current
+    /// camera (`room.cameraPositions[currentCameraPosition]`).
+    #[must_use]
+    pub fn projection_draw_lists(
+        &self,
+        alpha: f32,
+        cam_pos: rw_sim::Vec2,
+        camera_position: rw_sim::Vec2,
+    ) -> Vec<(Drawable, DrawList)> {
+        use rw_graphics::{
+            ProjectedScanLinesSprites, ProjectionView, ProjectorSprites, StarMatrixSprites,
+        };
+        let Some(r) = self.sim.world().realized(self.sim.camera_room()) else {
+            return Vec::new();
+        };
+        let view = ProjectionView {
+            cam_pos,
+            camera_position,
+        };
+        let p = &r.projections;
+        let mut lists = Vec::new();
+        for projector in &p.projectors {
+            for part in projector.parts.iter().filter(|part| !part.slated) {
+                let list = projector.draw_part(part.update_order, alpha, &view);
+                if !list.items.is_empty() {
+                    lists.push((Drawable::Projection(part.update_order), list));
+                }
+            }
+        }
+        for lines in &p.scan_lines {
+            for line in lines.lines.iter().filter(|l| !l.slated) {
+                let list = lines.draw_line(line.update_order, alpha, cam_pos);
+                if !list.items.is_empty() {
+                    lists.push((Drawable::Projection(line.update_order), list));
+                }
+            }
+        }
+        for stars in &p.star_matrices {
+            lists.push((Drawable::Projection(stars.update_order), stars.draw(alpha)));
+        }
+        lists
+    }
+
+    /// The `_gridOffset` the camera room's projector leaves set at `alpha`.
+    #[must_use]
+    pub fn projection_grid_offset(&self, alpha: f32) -> Option<[f32; 2]> {
+        self.sim
+            .projection_grid_offset(alpha)
+            .map(rw_sim::Vec2::to_array)
+    }
+
     /// The camera room's `SSLightRod`s, `ZapCoil`s, `ZapFlash`es and `SuperStructureFuses` at
     /// `alpha` between ticks; `camera` is `CamPos(currentCameraPosition)`, which the fuses'
     /// depth pushes from. A flash's seven cosmetic draws come first, and its draw sets its
@@ -1558,6 +1611,11 @@ impl Game {
                 r.electric_deaths.iter().map(|d| {
                     Present::added(Drawable::ElectricDeath(d.update_order), d.update_order)
                 }),
+            );
+            present.extend(
+                r.projections
+                    .drawn_orders()
+                    .map(|o| Present::added(Drawable::Projection(o), o)),
             );
         }
         present

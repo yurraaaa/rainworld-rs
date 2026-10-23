@@ -148,6 +148,10 @@ pub trait Renderer {
     /// Sets the background scene shaders' globals for the next frames.
     fn set_scene_globals(&mut self, _globals: SceneGlobals) {}
 
+    /// Sets `_gridOffset`, the `GlyphProjection` shader's global (a Unity global: it keeps
+    /// its value until set again).
+    fn set_grid_offset(&mut self, _offset: [f32; 2]) {}
+
     /// Queues the items of `list` in `layer`, in order, as Futile draws them, each
     /// with its game shader (`rw_graphics::Shader`), at stage positions
     /// `pos - cam_pos`; `cam_pos` is the game's `floor(camera) - 0.02` (the level view

@@ -462,6 +462,7 @@ impl Session {
         let sim = game.sim();
         let world = sim.world();
         let pos = sim.player_pos();
+        let projections = super::projection_reply::ProjectionStates::all(world);
         Ok(State {
             tick: game.ticks(),
             world: world.name().to_owned(),
@@ -601,6 +602,9 @@ impl Session {
             waterfalls: super::reply::WaterFallState::all(sim.world()),
             electric_death: super::reply::ElectricDeathState::all(sim.world()),
             border_push_back: super::reply::BorderPushBackState::all(sim.world()),
+            projectors: projections.projectors,
+            scan_lines: projections.scan_lines,
+            star_matrices: projections.star_matrices,
             holo_light_needed: sim.holo_light_needed(),
             dens: Self::dens(scene),
             quantified: Self::quantified(scene),
@@ -763,6 +767,7 @@ impl Session {
             Drawable::DustPuff(i) => ("dust_puff", None, Some(i)),
             Drawable::Fixture(i) => ("fixture", None, Some(i)),
             Drawable::ElectricDeath(i) => ("electric_death", None, Some(i)),
+            Drawable::Projection(i) => ("projection", None, Some(i)),
             Drawable::Shortcuts => ("shortcuts", None, None),
             Drawable::FullScreenEffect => ("full_screen_effect", None, None),
             Drawable::DeathFall => ("death_fall", None, None),
