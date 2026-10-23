@@ -181,7 +181,7 @@ fn a_minified_maze_window_reads_a_smaller_level() {
 #[test]
 fn the_rainbow_gradient_reads_a_coarse_level_when_minified() {
     let frame = |page: &PngImage| {
-        let Some(mut r) = renderer() else { return None };
+        let mut r = renderer()?;
         r.add_atlas_page(
             rw_graphics::Atlas::single("maze", 64, 64),
             page,
