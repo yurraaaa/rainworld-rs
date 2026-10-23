@@ -28,7 +28,7 @@ impl Player {
             let dir = pushers[j].shortcut_dir;
             let dir_vec = Vec2::new(dir.0 as f32, dir.1 as f32);
             let push_pos = pushers[j].push_pos;
-            let goes_through_floors = self.body.chunks.iter().all(|c| c.go_through_floors);
+            let goes_through_floors = self.body.chunks.iter().all(|c| c.go_through_floors());
             if !pushers[j].wrong_hole
                 || (pushers[j].floor && !goes_through_floors)
                 || (dir.1 > 0

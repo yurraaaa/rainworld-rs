@@ -595,7 +595,7 @@ fn belly_slide_drops_through_a_one_tile_hole() {
     assert_vec(p.body.chunks[HEAD].vel, 0.0, -11.0);
     assert_vec(p.body.chunks[HIPS].vel, 0.0, -11.0);
     assert_eq!(p.animation(), Animation::None);
-    assert!(p.body.chunks.iter().all(|c| c.go_through_floors));
+    assert!(p.body.chunks.iter().all(|c| c.go_through_floors()));
     assert_eq!(p.roll_direction, 0);
 }
 

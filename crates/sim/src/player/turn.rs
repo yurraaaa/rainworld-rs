@@ -793,7 +793,7 @@ impl RainWorldGame {
         let count = chunks.len() as f32;
         for c in chunks.iter_mut() {
             if flip_down {
-                c.go_through_floors = true;
+                c.set_go_through_floors(true);
             }
         }
         if mass < total * 2.0 && dir != 0 {

@@ -73,7 +73,7 @@ impl crate::creature::Lizard {
         let (x, y) = self.body.chunks[i].pos.tile();
         match room.tile(x + dx, y + dy).terrain {
             Terrain::Solid => true,
-            Terrain::Floor => dy < 0 && !self.body.chunks[i].go_through_floors,
+            Terrain::Floor => dy < 0 && !self.body.chunks[i].go_through_floors(),
             _ => false,
         }
     }

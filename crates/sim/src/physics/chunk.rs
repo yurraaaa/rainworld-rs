@@ -89,7 +89,11 @@ pub struct BodyChunk {
     pub collide_with_terrain: bool,
     pub collide_with_slopes: bool,
     /// Ignore one-way `Floor` tiles.
-    pub go_through_floors: bool,
+    priv_go_through_floors: bool,
+    /// `grabsDisableFloors` (true unless a slugpup overrides it).
+    pub grabs_disable_floors: bool,
+    /// `ShortcutHelper.CanBePulledIntoShortcut(owner)`, kept by the world at every grasp change.
+    pub pulled_into_shortcut: bool,
     /// Pushed by other objects in the room's collision pass (`collideWithObjects`).
     pub collide_with_objects: bool,
     /// How far outside the room the chunk is allowed (px).
@@ -119,7 +123,9 @@ impl BodyChunk {
             terrain_squeeze: 1.0,
             collide_with_terrain: true,
             collide_with_slopes: true,
-            go_through_floors: false,
+            priv_go_through_floors: false,
+            grabs_disable_floors: true,
+            pulled_into_shortcut: false,
             collide_with_objects: true,
             restrict_in_room_range: DEFAULT_RESTRICT_IN_ROOM_RANGE,
             splash_stop: 0,
@@ -412,6 +418,24 @@ impl BodyChunk {
         }
     }
 
+    /// The `goThroughFloors` getter: true while the owner can be pulled into a shortcut
+    /// (and `grabsDisableFloors`), otherwise the raw field.
+    #[must_use]
+    pub fn go_through_floors(&self) -> bool {
+        (self.pulled_into_shortcut && self.grabs_disable_floors) || self.priv_go_through_floors
+    }
+
+    /// The raw `privGoThroughFloors` field.
+    #[must_use]
+    pub fn raw_go_through_floors(&self) -> bool {
+        self.priv_go_through_floors
+    }
+
+    /// The `goThroughFloors` setter (writes the raw field).
+    pub fn set_go_through_floors(&mut self, value: bool) {
+        self.priv_go_through_floors = value;
+    }
+
     /// A chunk's contacts as a test needs them.
     #[cfg(test)]
     pub(crate) fn set_contacts(&mut self, contact: Contact, last_contact: Contact) {
@@ -428,7 +452,7 @@ impl BodyChunk {
     fn is_solid_floor(&self, room: &Room, x: i32, y: i32, lowest_last_y: f32) -> bool {
         match room.tile(x, y).terrain {
             Terrain::Solid => true,
-            Terrain::Floor => !self.go_through_floors && tile_y(lowest_last_y) > y,
+            Terrain::Floor => !self.go_through_floors() && tile_y(lowest_last_y) > y,
             _ => false,
         }
     }

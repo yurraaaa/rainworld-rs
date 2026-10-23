@@ -255,7 +255,7 @@ impl RainWorldGame {
             ChunkOwner::Segment(_) => None,
         };
         entity.is_some_and(|e| self.world.can_be_pulled_into_shortcut(e))
-            || chunks.iter().all(|c| c.go_through_floors)
+            || chunks.iter().all(|c| c.go_through_floors())
     }
 
     /// `ObjectPusher.Update`.
@@ -297,7 +297,7 @@ impl RainWorldGame {
             if let Some(real) = self.electric_chunk_mut(op.owner, i) {
                 real.pos = c.pos;
                 real.vel = c.vel;
-                real.go_through_floors = c.go_through_floors;
+                real.set_go_through_floors(c.raw_go_through_floors());
             }
         }
         let limit = if object_room.is_none() { 400 } else { 120 };
@@ -358,7 +358,7 @@ impl RainWorldGame {
                 );
                 if up && self.pusher_goes_through_floors(op.owner, chunks) {
                     for c in chunks.iter_mut() {
-                        c.go_through_floors = false;
+                        c.set_go_through_floors(false);
                     }
                 }
                 let beside_walls = dir.1 >= 1

@@ -27,8 +27,10 @@ impl RainWorldGame {
         }
         if player && let Some(g) = self.world.creature(r.grabber).grasps[r.grasp_used] {
             let by_lizard = self.world.creature(r.grabber).lizard().is_some();
+            let pulled = self.world.can_be_pulled_into_shortcut(r.grabbed);
             if let Some(p) = self.player.as_mut() {
                 p.grabbed(g, by_lizard);
+                p.set_pulled_into_shortcut(pulled);
             }
         }
         true
@@ -60,6 +62,9 @@ impl RainWorldGame {
         input: Input,
         observer: &mut dyn PlayerObserver,
     ) {
+        let pulled = self
+            .world
+            .can_be_pulled_into_shortcut(Entity::Creature(self.player_id));
         let held = self.player_grabbed_by();
         let (any, pacified) = (!held.is_empty(), held.iter().any(|g| g.pacifying));
         let discontinued = self
@@ -71,6 +76,7 @@ impl RainWorldGame {
             return;
         };
         p.set_held(any, pacified);
+        p.set_pulled_into_shortcut(pulled);
         let step = p.danger_grasp_update(discontinued, input.throw, input.pickup);
         if step.throw_to_get_free {
             self.throw_to_get_free(index, observer);

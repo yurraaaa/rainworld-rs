@@ -264,17 +264,8 @@ impl World {
         };
         self.creature_mut(r.grabber).grasps[r.grasp_used] = Some(grasp);
         match r.grabbed {
-            Entity::Creature(id) => match &mut self.creature_mut(id).realized {
-                Some(RealizedCreature::Fly(f)) => f.body.set_go_through_floors(true),
-                Some(RealizedCreature::Lizard(l)) => l.body.set_go_through_floors(true),
-                _ => {}
-            },
-            Entity::Object(id) => {
-                self.change_weapon_mode(id, WeaponMode::Carried, rng);
-                if let Some(w) = self.object_mut(id).realized.as_deref_mut() {
-                    w.body.set_go_through_floors(true);
-                }
-            }
+            Entity::Creature(_) => {}
+            Entity::Object(id) => self.change_weapon_mode(id, WeaponMode::Carried, rng),
         }
         self.grabbed_by_mut(r.grabbed).push(grasp);
         self.sync_held(r.grabbed);
@@ -303,13 +294,24 @@ impl World {
         self.sticks_mut(b).push(stick);
     }
 
-    /// An object's realized body is `held` while something grasps it.
+    /// An object's realized body is `held` while something grasps it; the chunks of
+    /// every realized body read `CanBePulledIntoShortcut` in their `goThroughFloors`.
+    /// (The player's body is synced in its own update.)
     fn sync_held(&mut self, e: Entity) {
-        if let Entity::Object(id) = e {
-            let held = !self.object(id).grabbed_by.is_empty();
-            if let Some(w) = self.object_mut(id).realized.as_deref_mut() {
-                w.body.held = held;
+        let pulled = self.can_be_pulled_into_shortcut(e);
+        match e {
+            Entity::Object(id) => {
+                let held = !self.object(id).grabbed_by.is_empty();
+                if let Some(w) = self.object_mut(id).realized.as_deref_mut() {
+                    w.body.held = held;
+                    w.body.set_pulled_into_shortcut(pulled);
+                }
             }
+            Entity::Creature(id) => match &mut self.creature_mut(id).realized {
+                Some(RealizedCreature::Fly(f)) => f.body.set_pulled_into_shortcut(pulled),
+                Some(RealizedCreature::Lizard(l)) => l.body.set_pulled_into_shortcut(pulled),
+                _ => {}
+            },
         }
     }
 

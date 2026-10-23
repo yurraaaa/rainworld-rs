@@ -513,7 +513,7 @@ impl RainWorldGame {
                 w.floor_bounce_frames = 30;
                 w.set_always_stick_in_walls();
                 let c = w.chunk_mut();
-                c.go_through_floors = false;
+                c.set_go_through_floors(false);
                 c.vel.y -= 5.0;
             }
             w.change_dir_counter = 0;

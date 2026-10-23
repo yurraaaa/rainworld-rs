@@ -59,7 +59,6 @@ impl Player {
     /// `Player.Grabbed` after the base `PhysicalObject.Grabbed`: the body goes through
     /// floors, and a lizard's grasp becomes the danger grasp with its time reset.
     pub(crate) fn grabbed(&mut self, grasp: Grasp, by_lizard: bool) {
-        self.body.set_go_through_floors(true);
         if by_lizard {
             self.danger.time = 0;
             self.danger.grasp = Some(grasp);
@@ -85,6 +84,11 @@ impl Player {
         self.danger.held = held;
         self.danger.pacified = pacified;
         self.body.held = held;
+    }
+
+    /// `ShortcutHelper.CanBePulledIntoShortcut(player)`, read by the chunks' `goThroughFloors`.
+    pub(crate) fn set_pulled_into_shortcut(&mut self, pulled: bool) {
+        self.body.set_pulled_into_shortcut(pulled);
     }
 
     pub(crate) fn set_cant_be_grabbed_after_spit_out(&mut self) {
@@ -147,6 +151,7 @@ impl Player {
             self.release_grabbed_by = true;
             // The game lets go at once: the rest of the update sees an empty `grabbedBy`.
             self.set_held(false, false);
+            self.set_pulled_into_shortcut(false);
         }
     }
 

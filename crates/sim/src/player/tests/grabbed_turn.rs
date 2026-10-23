@@ -115,7 +115,7 @@ fn a_bite_that_does_not_hurt_holds_the_player_in_a_danger_grasp() {
             .body
             .chunks
             .iter()
-            .all(|c| c.go_through_floors)
+            .all(|c| c.go_through_floors())
     );
     assert_eq!(g.world.lizard_ref(l).animation, LizardAnimation::ShakePrey);
     assert!(!g.player_ref().is_dead());

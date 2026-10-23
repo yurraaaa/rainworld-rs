@@ -106,7 +106,7 @@ impl OverseerBody {
         }
         let mut chunk = BodyChunk::new(Vec2::ZERO, 3.0, 0.4);
         chunk.collide_with_terrain = false;
-        chunk.go_through_floors = true;
+        chunk.set_go_through_floors(true);
         Self {
             body: PhysicalObject::new(vec![chunk], PARAMS),
             hover_tile: (0, 0),

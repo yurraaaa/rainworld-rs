@@ -22,9 +22,11 @@ Fifth file of the `rw-sim` divergences (`sim.md` is past 1000 lines). IDs are gl
   port's overseer has no such state.
 - `CanPullIntoShortcut` is `grabber is not Frog`; the base game has no frog.
 
-`BodyChunk.goThroughFloors` is read through `CanBePulledIntoShortcut` in the helper's
-`GoThroughFloors` test; the chunk physics still read the raw flag, which `Grabbed` sets (not a
-divergence in the helper; the getter for the physics is not ported).
+`BodyChunk.goThroughFloors` is the game's getter everywhere: `BodyChunk::go_through_floors()` is
+true while `pulled_into_shortcut` (kept by the world at each grasp change, and by the player at its
+update and `Grabbed`) and `grabs_disable_floors`, else the raw field. The port's stand-in raw sets
+at `Grabbed` are gone. Only a slugpup's `grabsDisableFloors` toggle (`Player.Update`, MSC) is not
+ported: the field is true for every chunk.
 
 **Why.** No body, no state, or no DLC (AGENTS.md).
 

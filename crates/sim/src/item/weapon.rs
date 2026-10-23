@@ -590,7 +590,7 @@ impl Weapon {
         let c = self.chunk_mut();
         c.collide_with_objects = new != WeaponMode::Carried;
         c.collide_with_terrain = matches!(new, WeaponMode::Free | WeaponMode::Thrown);
-        c.go_through_floors = true;
+        c.set_go_through_floors(true);
         if new == WeaponMode::Free {
             match spin {
                 Some(spin) => self.spin_spear(spin),
