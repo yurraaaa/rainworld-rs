@@ -88,6 +88,7 @@ mod social_events;
 #[path = "game_spear_on_back.rs"]
 mod spear_on_back;
 
+pub use dev::DevRainControl;
 pub use heavy_ai::HeavyAiThrottle;
 pub use items::Grabability;
 pub use lizard_ai::UtilityReadings;
@@ -539,6 +540,7 @@ pub struct RainWorldGame {
     map_discovery: MapDiscovery,
     /// `RequestHeavyAi`'s state (the game's statics).
     heavy_ai: HeavyAiThrottle,
+    dev_rain: DevRainControl,
     /// Camera 0's HUD map, as the app last reported it.
     hud_map: HudMapLink,
     /// Camera 0's `PaletteDarkness()`, as the app last reported it.
@@ -680,6 +682,7 @@ impl RainWorldGame {
             player_graphics: false,
             map_discovery: MapDiscovery::default(),
             heavy_ai: HeavyAiThrottle::default(),
+            dev_rain: DevRainControl::default(),
             hud_map: HudMapLink::default(),
             camera_darkness: 0.0,
             camera_image: None,
@@ -909,7 +912,7 @@ impl RainWorldGame {
         self.update_abstract_room();
         self.enter_from_abstract_rooms();
         self.update_world_processes(observer);
-        self.world.rain_cycle.update(&mut self.rng);
+        self.dev_update_rain_cycle();
         self.rain_request_stop_song();
         self.world.path_finders.divider.update();
         if self.shortcuts.divide() {

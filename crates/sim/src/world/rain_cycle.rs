@@ -217,6 +217,12 @@ impl RainCycle {
         }
     }
 
+    /// `dayNightCounter` after ticking up to `timer` from the cycle start.
+    #[must_use]
+    pub fn day_night_counter_at(&self, timer: i32) -> i32 {
+        (timer - self.sun_down_start_time + 1).max(0)
+    }
+
     /// `Update` (the counter always may tick: no gates, ghosts or dialogs ported).
     pub fn update(&mut self, rng: &mut UnityRandom) {
         if self.pause > 0 {

@@ -99,9 +99,9 @@ pub use dust_puff::{DustPuff, DustpuffSpawner};
 pub use electric_death::{ElectricDeath, LightFlash, SparkFlash, Strike, WallSpark};
 pub use float_ext::FloatExt;
 pub use game::{
-    CameraMove, GameOver, Grabability, HeavyAiThrottle, HudEvent, NewGameWorld, OverseerCall,
-    PlayerGlow, PlayerHands, PlayerObserver, PlayerSurroundings, RainWorldGame, Start,
-    UtilityReadings,
+    CameraMove, DevRainControl, GameOver, Grabability, HeavyAiThrottle, HudEvent, NewGameWorld,
+    OverseerCall, PlayerGlow, PlayerHands, PlayerObserver, PlayerSurroundings, RainWorldGame,
+    Start, UtilityReadings,
 };
 pub use green_sparks::{GreenSpark, GreenSparks, SparkCx};
 pub use light_beam::LightBeam;

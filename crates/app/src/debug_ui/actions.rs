@@ -6,6 +6,7 @@
 use rw_assets::{AbstractObjectType, CreatureType};
 use rw_sim::Vec2;
 
+use crate::dev_spawn::RainTimerEdit;
 use crate::frontend::Frontend;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -19,6 +20,8 @@ pub enum DebugAction {
         room: String,
         tile: (i32, i32),
     },
+    /// `set_rain_timer`.
+    RainTimer(RainTimerEdit),
     SpawnObject {
         kind: AbstractObjectType,
         room: String,
@@ -55,6 +58,7 @@ impl DebugAction {
                 game.set_player(pos, Vec2::ZERO);
                 Ok(format!("player moved to [{x}, {y}]"))
             }
+            Self::RainTimer(edit) => Ok(game.edit_rain_timer(&edit)),
             Self::SpawnCreature { kind, room, tile } => {
                 let index = Self::room_index(game, &room)?;
                 game.spawn_creature(kind, index, tile, None)

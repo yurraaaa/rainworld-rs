@@ -36,7 +36,7 @@ mod pause_tests;
 mod placed_cosmetics_reply;
 mod placed_light_reply;
 mod placed_visuals_reply;
-mod reply;
+pub(crate) mod reply;
 #[cfg(test)]
 mod save_tests;
 
@@ -65,8 +65,8 @@ use crate::saves::SaveConfig;
 use params::{
     HudMessageParams, ImportSaveParams, ListRoomsParams, LoadProcessParams, LoadRoomParams,
     NewGameParams, RespawnParams, ScreenshotParams, SetDestinationParams, SetPlayerParams,
-    SpawnCreatureParams, SpawnObjectParams, StepParams, StepProcessParams, StepSequenceParams,
-    TeleportPlayerParams, TilesParams,
+    SetRainTimerParams, SpawnCreatureParams, SpawnObjectParams, StepParams, StepProcessParams,
+    StepSequenceParams, TeleportPlayerParams, TilesParams,
 };
 pub use session::Session;
 
@@ -297,6 +297,22 @@ impl Server {
         Parameters(p): Parameters<SpawnObjectParams>,
     ) -> Result<CallToolResult, String> {
         Self::json(&self.session()?.spawn_object(&p)?)
+    }
+
+    #[tool(
+        description = "Dev tool: edit the rain timer (RainCycle.timer, 40 ticks per second) \
+        without reloading. Applied in this order: cycle_length; restart (timer 0, running) or \
+        stop (timer 0, held); timer; shift (added to the timer); paused (true holds the \
+        timer while everything else keeps running; it is a dev flag, not the game's \
+        RainCycle.pause); speed (timer ticks per tick, 1..=20). Everything that reads the \
+        timer sees the new value on the next tick; past cycle_length is after the rain \
+        (ElectricDeath ramps over the following 1200 ticks). Returns get_state's rain."
+    )]
+    fn set_rain_timer(
+        &self,
+        Parameters(p): Parameters<SetRainTimerParams>,
+    ) -> Result<CallToolResult, String> {
+        Self::json(&self.session()?.set_rain_timer(&p)?)
     }
 
     #[tool(

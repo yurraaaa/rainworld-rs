@@ -368,10 +368,46 @@ pub struct ShelterDoorState {
     pub close_speed: f32,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
 pub struct RainState {
     pub timer: i32,
     pub cycle_length: i32,
+    pub base_cycle_length: i32,
+    pub time_until_rain: i32,
+    pub amount_left: f32,
+    pub rain_approaching: f32,
+    /// `startUpTicks`: the sunrise length the cycle starts with.
+    pub start_up_ticks: i32,
+    pub story_mode: bool,
+    pub day_night_counter: i32,
+    /// `RainCycle.pause` (the game's own countdown).
+    pub pause: i32,
+    /// Dev control (`set_rain_timer`): the timer is held.
+    pub dev_paused: bool,
+    /// Dev control: timer ticks per tick.
+    pub dev_speed: i32,
+}
+
+impl RainState {
+    #[must_use]
+    pub fn of(sim: &rw_sim::RainWorldGame) -> Self {
+        let c = &sim.world().rain_cycle;
+        let dev = sim.dev_rain_control();
+        Self {
+            timer: c.timer,
+            cycle_length: c.cycle_length,
+            base_cycle_length: c.base_cycle_length,
+            time_until_rain: c.time_until_rain(),
+            amount_left: c.amount_left(),
+            rain_approaching: c.rain_approaching(),
+            start_up_ticks: c.start_up_ticks,
+            story_mode: c.story_mode,
+            day_night_counter: c.day_night_counter,
+            pause: c.pause,
+            dev_paused: dev.paused,
+            dev_speed: dev.speed,
+        }
+    }
 }
 
 /// The level shader's uniforms (`RoomCamera`'s shader globals) and palette fade.

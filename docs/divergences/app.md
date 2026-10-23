@@ -7,7 +7,9 @@ See [README](README.md) for the format. IDs are global; code and notes cite them
 **What.** The windowed app has a debug UI the game does not have (Dear ImGui over the
 window, F1; `crates/app/src/debug_ui`): a region switcher (a stub until regions and
 gates are ported), a teleport to a room of the current world, the list of every
-abstract creature (with going to its room), and spawning creatures and items. The
+abstract creature (with going to its room), a rain timer tab (pause, stop, restart, set the time or cycle length, timer speed; MCP's
+`set_rain_timer`; the held timer is a dev flag in `RainWorldGame`, the game's own
+`RainCycle.pause` countdown untouched), and spawning creatures and items. The
 teleport (`dev_teleport_player`, also MCP's `teleport_player`) has no counterpart in
 the game: it puts the player and what it carries in a shortcut vessel where it stands
 (`SuckInCreature` without the pull into an entrance), activates the target room as a

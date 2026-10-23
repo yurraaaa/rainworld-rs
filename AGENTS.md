@@ -246,7 +246,7 @@ it serves the checkout's current code). Tools: `list_rooms`, `load_room`,
 `new_game`, `step`, `step_sequence`, `respawn`, `set_player`, `get_state`,
 `get_exits`, `get_tiles`, `get_hud`, `hud_message`, `screenshot`,
 `load_process`, `step_process`, `import_save`, `set_destination`,
-`spawn_creature`, `spawn_object`, `teleport_player`. To check behaviour,
+`spawn_creature`, `spawn_object`, `teleport_player`, `set_rain_timer`. To check behaviour,
 prefer these over `--screenshot`/`--script`; briefs for such agents say so.
 
 - Headless and deterministic: the sim advances only in `step` /
@@ -287,7 +287,12 @@ prefer these over `--screenshot`/`--script`; briefs for such agents say so.
   ready, or another loose item (`DEV_SPAWN_OBJECTS`) as a plain abstract
   object, with a note. `teleport_player` sends the player to exit `node`
   (default first) of another `room` through a vessel in the shortcut lobby,
-  keeping world and session; step until `room` changes.
+  keeping world and session; step until `room` changes. `set_rain_timer`
+  edits the rain timer: `cycle_length`, `restart`/`stop` (timer 0, running/held),
+  `timer`, `shift`, `paused` (a dev flag holding only the timer; not the game's
+  `RainCycle.pause`), `speed` (timer ticks per tick); `get_state.rain` reports
+  the cycle and the dev flags. Story starts with the overseer tutorial pin the
+  timer at 2000 as the game does.
 - `screenshot` returns a PNG from the window's draw path, offscreen. The
   debug view outlines every realized body's chunks and rods in the camera's
   room; `crop_radius` zooms on the player (or `crop_center`). With `room` it
@@ -325,7 +330,7 @@ prefer these over `--screenshot`/`--script`; briefs for such agents say so.
   The pause menu's Exit saves (death after 30 s, quit after 5).
 - `--mcp --window` also shows the driven scene (agents must not use it).
 - The windowed app (not MCP) has a debug UI (Dear ImGui via `rw-render`'s
-  overlay; D18), F1 toggles it. Tabs: Region (stub), Teleport, Creatures,
+  overlay; D18), F1 toggles it. Tabs: Region (stub), Teleport, Rain timer, Creatures,
   Spawn creature, Spawn object (the same actions as the MCP tools). Actions
   apply before the next frame's ticks; a focused text field takes key and
   mouse presses. A tool is a `DebugTab` in

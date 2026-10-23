@@ -9,12 +9,14 @@ use rw_assets::{AbstractObjectType, CreatureType};
 
 use super::view::{CreatureRow, GameView, RoomFilter, SPAWN_OBJECT_KINDS};
 use super::{DebugAction, DebugTab, TabCx};
+use crate::dev_spawn::RainTimerEdit;
 
 /// The tabs, in tab-bar order.
 pub fn all() -> Vec<Box<dyn DebugTab>> {
     vec![
         Box::new(RegionTab::default()),
         Box::new(TeleportTab::default()),
+        Box::new(RainTimerTab::default()),
         Box::new(CreaturesTab::default()),
         Box::new(SpawnCreatureTab::default()),
         Box::new(SpawnObjectTab::default()),
@@ -355,6 +357,151 @@ impl DebugTab for SpawnObjectTab {
         }
         if let Some(e) = &self.error {
             ui.text_colored([1.0, 0.45, 0.4, 1.0], e);
+        }
+    }
+}
+
+/// The rain cycle's timer (`set_rain_timer`): held, stopped, restarted, moved.
+#[derive(Default)]
+struct RainTimerTab {
+    timer: i32,
+    cycle_length: i32,
+    speed: i32,
+}
+
+impl RainTimerTab {
+    /// Past the cycle's end the slider reaches, beyond ElectricDeath's 1200-tick ramp.
+    const OVERRUN: i32 = 1500;
+
+    fn ticks_text(ticks: i32) -> String {
+        format!(
+            "{ticks} ticks ({:.1} s)",
+            ticks as f32 / RainTimerEdit::TICKS_PER_SECOND as f32
+        )
+    }
+
+    fn quick(ui: &Ui, cx: &mut TabCx<'_>, label: &str, edit: RainTimerEdit) {
+        if ui.button(label) {
+            cx.actions.push(DebugAction::RainTimer(edit));
+        }
+    }
+}
+
+impl DebugTab for RainTimerTab {
+    fn title(&self) -> &'static str {
+        "Rain timer"
+    }
+
+    fn draw(&mut self, ui: &Ui, cx: &mut TabCx<'_>) {
+        let Some(game) = &cx.view.game else {
+            ui.text_disabled("No game is running.");
+            return;
+        };
+        let rain = &game.rain;
+        ui.text(format!("Timer: {}", Self::ticks_text(rain.timer)));
+        ui.text(format!(
+            "Cycle length: {} (base {})",
+            Self::ticks_text(rain.cycle_length),
+            rain.base_cycle_length
+        ));
+        ui.text(format!(
+            "Until rain: {}, amount left {:.3}, approaching {:.3}",
+            Self::ticks_text(rain.time_until_rain),
+            rain.amount_left,
+            rain.rain_approaching
+        ));
+        ui.text(format!(
+            "{}, start-up {} ticks, day/night counter {}, game pause {}",
+            if rain.story_mode { "story" } else { "arena" },
+            rain.start_up_ticks,
+            rain.day_night_counter,
+            rain.pause
+        ));
+        ui.separator();
+        let held = rain.dev_paused;
+        if ui.button(if held { "Resume" } else { "Pause" }) {
+            cx.actions.push(DebugAction::RainTimer(RainTimerEdit {
+                paused: Some(!held),
+                ..RainTimerEdit::default()
+            }));
+        }
+        ui.same_line();
+        if ui.button("Stop (0, held)") {
+            cx.actions.push(DebugAction::RainTimer(RainTimerEdit {
+                stop: true,
+                ..RainTimerEdit::default()
+            }));
+        }
+        ui.same_line();
+        if ui.button("Restart (0, running)") {
+            cx.actions.push(DebugAction::RainTimer(RainTimerEdit {
+                restart: true,
+                ..RainTimerEdit::default()
+            }));
+        }
+        ui.text_disabled("Pause holds only the timer; the rest of the game keeps running.");
+        ui.separator();
+        let mut value = if ui.is_any_item_active() {
+            self.timer
+        } else {
+            rain.timer
+        };
+        if ui.slider("Timer", 0, rain.cycle_length + Self::OVERRUN, &mut value) {
+            cx.actions
+                .push(DebugAction::RainTimer(RainTimerEdit::at(value)));
+        }
+        self.timer = value;
+        let cl = rain.cycle_length;
+        Self::quick(
+            ui,
+            cx,
+            "Rain in 30 s",
+            RainTimerEdit::until_rain(cl, 30 * 40),
+        );
+        ui.same_line();
+        Self::quick(
+            ui,
+            cx,
+            "Rain in 60 s",
+            RainTimerEdit::until_rain(cl, 60 * 40),
+        );
+        ui.same_line();
+        Self::quick(ui, cx, "Cycle end", RainTimerEdit::at(cl));
+        ui.same_line();
+        Self::quick(ui, cx, "End + 1200", RainTimerEdit::at(cl + 1200));
+        Self::quick(ui, cx, "-60 s", RainTimerEdit::shift_seconds(-60));
+        ui.same_line();
+        Self::quick(ui, cx, "-10 s", RainTimerEdit::shift_seconds(-10));
+        ui.same_line();
+        Self::quick(ui, cx, "+10 s", RainTimerEdit::shift_seconds(10));
+        ui.same_line();
+        Self::quick(ui, cx, "+60 s", RainTimerEdit::shift_seconds(60));
+        ui.separator();
+        if self.cycle_length == 0 {
+            self.cycle_length = cl;
+        }
+        ui.input_int("Cycle length (ticks)", &mut self.cycle_length)
+            .step(400)
+            .step_fast(2400)
+            .build();
+        if ui.button("Set cycle length") {
+            cx.actions.push(DebugAction::RainTimer(RainTimerEdit {
+                cycle_length: Some(self.cycle_length),
+                ..RainTimerEdit::default()
+            }));
+        }
+        ui.same_line();
+        if ui.button("Use current") {
+            self.cycle_length = cl;
+        }
+        if self.speed == 0 {
+            self.speed = rain.dev_speed.max(1);
+        }
+        if ui.slider("Timer speed (x)", 1, 20, &mut self.speed) {
+            cx.actions.push(DebugAction::RainTimer(RainTimerEdit {
+                speed: Some(self.speed),
+                ..RainTimerEdit::default()
+            }));
         }
     }
 }

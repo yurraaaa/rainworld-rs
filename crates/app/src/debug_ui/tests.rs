@@ -1,6 +1,7 @@
 //! The debug UI's data (filters, spawn places, creature rows) and one UI frame drawn
 //! offscreen (skipped without a Vulkan adapter).
 
+use crate::mcp::reply::RainState;
 use rw_assets::CreatureType;
 use rw_render::{Camera, Color, Renderer, WgpuRenderer};
 
@@ -37,6 +38,7 @@ fn game_view() -> GameView {
             },
         ],
         creature_kinds: vec![CreatureType::GreenLizard, CreatureType::Fly],
+        rain: RainState::default(),
     }
 }
 

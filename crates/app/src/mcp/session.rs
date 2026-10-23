@@ -538,10 +538,7 @@ impl Session {
             }),
             creatures: Self::creatures(scene),
             objects: Self::objects(scene),
-            rain: RainState {
-                timer: world.rain_cycle.timer,
-                cycle_length: world.rain_cycle.cycle_length,
-            },
+            rain: RainState::of(sim),
             full_screen_effect: scene
                 .level_state()
                 .and_then(|s| s.full_screen)

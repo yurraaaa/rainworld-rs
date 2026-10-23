@@ -5,8 +5,8 @@ use rw_assets::{Room, Terrain};
 
 use super::Session;
 use super::params::{
-    InputParam, ScreenshotParams, SpawnCreatureParams, SpawnObjectParams, StepParams,
-    TeleportPlayerParams, TilesParams,
+    InputParam, ScreenshotParams, SetRainTimerParams, SpawnCreatureParams, SpawnObjectParams,
+    StepParams, TeleportPlayerParams, TilesParams,
 };
 
 /// The first air tile standing on solid ground, scanning from the bottom left.
@@ -32,6 +32,14 @@ impl FloorTile for Room {
 }
 
 impl Session {
+    fn idle(&mut self, ticks: u32) -> super::reply::State {
+        self.step(&StepParams {
+            ticks: Some(ticks),
+            input: Some(InputParam::default()),
+        })
+        .expect("steps")
+    }
+
     fn su_a07() -> Option<Self> {
         let mut s = Self::installed()?;
         s.load("SU_A07", 1);
@@ -297,4 +305,50 @@ fn teleport_keeps_the_world_and_comes_out_of_an_exit() {
             .map(|c| c.id)
             .eq(after.creatures.iter().map(|c| c.id))
     );
+}
+
+/// `set_rain_timer`: set, hold (the clock runs on, the timer does not), restart, and
+/// the state it reports; nothing is drawn from the random stream by the edit itself.
+#[test]
+fn set_rain_timer_sets_holds_and_restarts() {
+    let Some(mut s) = Session::su_a07() else {
+        return;
+    };
+    let length = s.state().expect("state").rain.cycle_length;
+    let rng = s.scene_mut().expect("game").game().sim().rng().clone();
+    let rain = s
+        .set_rain_timer(&SetRainTimerParams {
+            timer: Some(length - 1200),
+            paused: Some(true),
+            ..SetRainTimerParams::default()
+        })
+        .expect("sets");
+    assert_eq!(rain.timer, length - 1200);
+    assert_eq!(rain.time_until_rain, 1200);
+    assert!(rain.dev_paused);
+    assert_eq!(s.scene_mut().expect("game").game().sim().rng(), &rng);
+    let state = s.idle(20);
+    assert_eq!(state.rain.timer, length - 1200);
+    let rain = s
+        .set_rain_timer(&SetRainTimerParams {
+            paused: Some(false),
+            ..SetRainTimerParams::default()
+        })
+        .expect("resumes");
+    assert_eq!(s.idle(10).rain.timer, rain.timer + 10);
+    let rain = s
+        .set_rain_timer(&SetRainTimerParams {
+            restart: Some(true),
+            ..SetRainTimerParams::default()
+        })
+        .expect("restarts");
+    assert_eq!((rain.timer, rain.dev_paused), (0, false));
+    let rain = s
+        .set_rain_timer(&SetRainTimerParams {
+            stop: Some(true),
+            shift: Some(80),
+            ..SetRainTimerParams::default()
+        })
+        .expect("stops");
+    assert_eq!((rain.timer, rain.dev_paused), (80, true));
 }
