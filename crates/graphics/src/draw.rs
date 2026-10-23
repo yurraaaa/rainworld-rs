@@ -185,6 +185,11 @@ pub enum Shader {
     /// fading toward the sprite's top; none on near layers, sky or over what was drawn
     /// behind far layers.
     WaterLight,
+    /// `Futile/CustomDepth` (depth-faded particles): the colour with the texel's alpha
+    /// where the level depth under the pixel is at least the sprite's (`1 - alpha`, so
+    /// alpha 0 shows against the sky only); deeper than layer 6 over what was drawn
+    /// before the level it counts as layer 6.
+    CustomDepth,
     /// `Futile/Decal` (`CustomDecal`): the decal texture over the level image, tinted
     /// by the palette's terrain colour at the level pixel's depth, in shadow where the
     /// clouds shade the level, clipped to the depth range the vertex colour's red and

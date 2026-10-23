@@ -33,6 +33,7 @@ mod decal;
 mod dripping_sound;
 mod float_ext;
 mod game;
+mod green_sparks;
 pub mod insect;
 pub mod item;
 mod light_beam;
@@ -44,11 +45,13 @@ mod object;
 mod player;
 mod rainbow;
 mod room_ext;
+mod room_particles;
 pub mod room_script;
 mod screen_shake;
 mod shared_physics;
 pub mod shelter;
 mod shortcut;
+mod sky_dandelion;
 mod slime_mold;
 mod sound;
 mod spawn;
@@ -62,6 +65,7 @@ mod water;
 mod water_drip;
 mod water_sound;
 pub mod world;
+mod zero_g_speck;
 
 pub use bubble::{Bubble, BubbleMode};
 pub use camera::CameraView;
@@ -80,6 +84,7 @@ pub use game::{
     PlayerGlow, PlayerHands, PlayerObserver, PlayerSurroundings, RainWorldGame, Start,
     UtilityReadings,
 };
+pub use green_sparks::{GreenSpark, GreenSparks, SparkCx};
 pub use light_beam::LightBeam;
 pub use light_source::{LightHardSet, LightSource, LightSourceTick, LightTie};
 pub use lightning::{
@@ -96,10 +101,14 @@ pub use player::{
 };
 pub use rainbow::Rainbow;
 pub use room_ext::RoomExt;
+pub use room_particles::RoomParticles;
 pub use screen_shake::{CameraShake, ScreenMovement};
 pub use shelter::SessionEnd;
 pub use shortcut::{
     CreatureVessel, EntranceColor, LobbyVessel, ShortcutHandler, ShortcutsBlinking, VesselOwner,
+};
+pub use sky_dandelion::{
+    ChunkView, DandelionPatch, DandelionStalk, MadeDandelion, SkyDandelion, SkyDandelions,
 };
 pub use slime_mold::CosmeticSlimeMold;
 pub use sound::{
@@ -115,6 +124,7 @@ pub use vec3::Vec3;
 pub use water::{BubbleEmitter, ChunkOwner, SurfaceChunk, Water, WaterObject};
 pub use water_drip::{WaterDrip, WaterGlitter};
 pub use water_sound::WaterSound;
+pub use zero_g_speck::{BlinkState, SpeckCx, SpeckKind, SpeckType, SporeState, ZeroGSpeck};
 
 #[cfg(test)]
 mod tests;

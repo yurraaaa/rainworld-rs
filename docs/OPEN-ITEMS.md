@@ -66,7 +66,17 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   CorruptionSpores and FairyParticles in its effect loop before the insect roll
   (`Room.cs` ~2632-2700, then `insectCoordinator.NowViewed`); the steps porting those
   effects place their draws before `apply_insect_view_change`'s roll. No base room has
-  both today.
+  both today. Step 6 (SkyDandelions, GreenSparks, ZeroGSpecks, CorruptionSpores, D29,
+  notes `particles.md`) done that way (`particles_now_viewed`); specks stay `reset` until
+  zero gravity (`AntiGravity`) is ported.
+  Two ordering items (review of step 6): (F1) `Room.NowViewed` runs the effects loop
+  (sparks, specks, spores), then `InitiateGraphicsModule`, then the insect roll, but the
+  port makes the graphics-module draws at once in `camera_changed_room` and the particles
+  and insects at the next tick's head (`apply_insect_view_change`); moving the modules
+  there means feeding the observer at the tick head, left for later. (F4) `Room.Loaded`
+  adds effect objects (~863) and placed objects (~1055) before `AddRoomSpecificScript`
+  (~1873); the port adds them in `add_trigger_checkers`, after the scripts. No base room
+  is affected today.
 - **Code quality pass** (user, 2026-10-16; moved to M14 cleanup by the user 2026-10-22,
   not after the lizard steps): go over the workspace one crate at a time, a step per crate,
   finding code quality improvements (duplicated code to merge, and the like) and

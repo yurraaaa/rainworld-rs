@@ -105,7 +105,7 @@ impl World {
     }
 
     /// The chunks of a realized fly, lizard, overseer or item.
-    fn surface_chunks(&self, e: Entity) -> Option<&[BodyChunk]> {
+    pub(crate) fn surface_chunks(&self, e: Entity) -> Option<&[BodyChunk]> {
         match e {
             Entity::Creature(id) => match &self.creature(id).realized {
                 Some(RealizedCreature::Overseer(b)) => Some(&b.body.chunks[..]),

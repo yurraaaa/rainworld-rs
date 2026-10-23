@@ -31,6 +31,7 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 | `fly_graphics.rs` | bat fly body, wings | `FlyGraphics` |
 | `insect_graphics.rs` | cosmetic insects' sprites (all kinds) | each insect's `InitiateSprites`/`DrawSprites`/`ApplyPalette` |
 | `slime_mold.rs`, `token_stalk.rs` | cosmetic slime-mold dots (`Items`); the dead token stalk's arm, head, rope and lamp (`Midground`, lamp flicker on the cosmetic stream) | `SlimeMold.CosmeticSlimeMold`, `CollectToken.TokenStalk` |
+| `sky_dandelion.rs`, `green_spark.rs`, `zero_g_speck.rs` | sky dandelions (`Items`/`Foreground`/`Shadows`) and their stalk mesh; green sparks; zero-gravity specks and corruption spores (`Midground`); depth ones use the `CustomDepth` shader | `SkyDandelions`, `GreenSparks`, `BlinkSpeck`, `CorruptionSpore` |
 | `decal.rs` | `CustomDecal`'s grid mesh over the decal's image in `Foreground` (`Decal` shader), `Unorm8` vertex colours | `CustomDecal.InitiateSprites`, `DrawSprites`, `TriangleMesh.MakeGridMesh` |
 | `rainbow.rs` | `Rainbow`'s square over the `rainbow` gradient in `GrabShaders` (`Rainbow` shader) | `Rainbow.InitiateSprites`, `DrawSprites`, `CustomFSprite` |
 | `overseer_graphics.rs` | `OverseerGraphics` simulation | `OverseerGraphics` |
@@ -59,6 +60,7 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 - Overseer lens and holograms: `hologram_matrix.rs`, `hologram_shape.rs`, `hologram_draw.rs`.
 - Bat flies: `fly_graphics.rs`.
 - Cosmetic insects: `insect_graphics.rs` (simulation in `rw-sim` `insect/`).
+- Sky dandelions, green sparks, zero-g specks and spores: `sky_dandelion.rs`, `green_spark.rs`, `zero_g_speck.rs` (simulation in `rw-sim`).
 - Custom decals, rainbows: `decal.rs`, `rainbow.rs` (simulation in `rw-sim` `decal.rs`, `rainbow.rs`; items other than `Futile_White` meshes are `DrawItem::ElementMesh`).
 - Slime-mold patches, dead token stalks: `slime_mold.rs`, `token_stalk.rs` (simulation in `rw-sim`).
 - Rocks and spears: `weapon_graphics.rs`.

@@ -7,7 +7,7 @@
 // `ColoredSprite2` with `no_grab_tex` (the `ColoredSprite3` shader),
 // fs_under_water_light `UnderWaterLight`, fs_specific_depth `SpecificDepth`,
 // fs_water_splash `WaterSplash`, fs_water_light `WaterLight`, fs_light_beam `LightBeam`,
-// fs_vector_circle `VectorCircle`. The
+// fs_vector_circle `VectorCircle`, fs_custom_depth `CustomDepth`. The
 // full-screen effects are in
 // full_screen.wgsl, appended to this file.
 //
@@ -446,6 +446,27 @@ fn fs_specific_depth(in: VertexOut) -> @location(0) vec4<f32> {
         return vec4(in.color.rgb, textureSample(atlas, atlas_sampler, in.uv).a);
     }
     return vec4(0.0);
+}
+
+// `CustomDepth` (the sky dandelions' and green sparks' depth-faded sprites): the colour,
+// with the texel's alpha, where the sprite's depth (`1 - alpha`) is no deeper than the
+// level layer under the pixel (`(round(r * 255) - 1) % 30`, sky 30; a deep layer over
+// something drawn before the level counts as 6, the level's grab).
+@fragment
+fn fs_custom_depth(in: VertexOut) -> @location(0) vec4<f32> {
+    let texcol = level_at(level_coord(in.scr));
+    let dpth = 1.0 - in.color.a;
+    var terrain = f32((byte(texcol.x) - 1) % 30) / 30.0;
+    if all(texcol.xyz == vec3(1.0)) {
+        terrain = 1.0;
+    }
+    if terrain > 6.0 / 30.0 && drawn(textureLoad(behind_tex, frame_px(in.scr), 0)) {
+        terrain = 6.0 / 30.0;
+    }
+    if dpth > terrain {
+        return vec4(0.0);
+    }
+    return vec4(in.color.rgb, textureSample(atlas, atlas_sampler, in.uv).a);
 }
 
 // `tex2D(_PalTex, uv)`: point filter, clamp.

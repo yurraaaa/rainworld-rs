@@ -31,6 +31,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `game_lightning.rs`, `game_lightning_tests.rs` | a room's `Lightning` in the game: `Room.Loaded` making it, its turn and room calls (`MakeBackgroundNoise`, `ScreenMovement`, `PlaySound`), its loop emitters' turns, hearing dulled by the background noise | `Room.Loaded` lightning, `MakeBackgroundNoise` |
 | `game_lights.rs`, `game_lights_tests.rs` | light sources in the update list: placed lights (`Room.Loaded`), the glowing player's light (`PlayerGlow`), camera 0's picture they read, `Darkness`, `LightSourceExposure`/`LightSourceColor`/`DarknessOfPoint` | `Room` light members, `LightSource.Update`, `PlayerGraphics.Update` light |
 | `game_instructions.rs` | `Room.Loaded`'s placed room objects (guide triggers, placed lights, slime molds, dead token stalks), input-instruction triggers | `SuperJumpInstruction`, `ReliableIggyDirection` |
+| `game_particles.rs`, `game_particles_tests.rs` | the depth-faded particles in the game: `Room.Loaded`'s `SkyDandelions`/`GreenSparks` objects, `NowViewed`'s seeding of sparks, specks and spores, each one's turn in the update list, a spark's `LightSource`, the chunks the stalks read | `Room.Loaded`, `Room.NowViewed`, `GreenSparks` |
 | `game_decals.rs`, `game_decals_tests.rs` | custom decals and rainbows joining the update list (the rainbow's `SeededRandom` gate), the rainbows' turns | `Room.Loaded` (`CustomDecal`, `Rainbow`, `RainbowNoFade`) |
 | `game_placed_cosmetics.rs`, `game_placed_cosmetics_tests.rs` | cosmetic slime molds and dead token stalks joining the update list, the stalks' turns | `Room.Loaded` (`CosmeticSlimeMold`, `CosmeticSlimeMold2`, `SlimeMold`, `DeadTokenStalk`) |
 | `game_items.rs` | slugcat grabbing: `Grabability` (dead lizards: `Drag`), `CanIPickThisUp`, pick-up candidate | `Player` item rules |
@@ -90,6 +91,10 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `rainbow.rs`, `rainbow_tests.rs` | `Rainbow`/`RainbowNoFade`: position, radius, fade over the cycle's start-up, spawn condition | `Rainbow`, `RainbowNoFade` |
 | `slime_mold.rs` | `CosmeticSlimeMold`: the seeded dots on the walls; the plain `SlimeMold`'s `SeededRandom` gate | `SlimeMold.CosmeticSlimeMold` |
 | `token_stalk.rs` | `TokenStalk` without a token: arm, head, rope, two shared draws a tick | `CollectToken.TokenStalk` |
+| `sky_dandelion.rs` | `SkyDandelions` spawner, `SkyDandelion`, `DandelionStalk`, the `DandelionPatch` planting (seeded) | `SkyDandelions.cs` |
+| `green_sparks.rs` | `GreenSparks` spawner, `GreenSpark`, the `NowViewed` seeding | `GreenSparks.cs` |
+| `zero_g_speck.rs` | `ZeroGSpeck` (`BlinkSpeck`, `CorruptionSpore`) on the `GenericZeroGSpeck` base; reads `Room.gravity` | `GenericZeroGSpeck.cs`, `BlinkSpeck.cs`, `CorruptionSpore.cs` |
+| `room_particles.rs` | `RoomParticles`: a realized room's dandelions, stalks, sparks, specks and their spawners | `Room.updateList` |
 | `cosmetic.rs` | `Spark`, `ExplosionSpikes`, `OverseerEffectSprite` sprites, `Bubble`s and `Splash`es (`CosmeticKind`) in update lists | `CosmeticSprite`s |
 
 ## `player/` (slugcat; `Player.cs` split by topic)

@@ -53,6 +53,9 @@ pub enum Drawable {
     SlimeMold(u64),
     /// A dead `TokenStalk`, by its place in the update list.
     TokenStalk(u64),
+    /// A sky dandelion, its stalk, a green spark, speck or spore, by its place in the
+    /// update list.
+    Particle(u64),
     /// A `CustomDecal`, by its place in the update list.
     Decal(u64),
     /// A `Rainbow`, by its place in the update list.
