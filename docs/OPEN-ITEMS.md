@@ -28,7 +28,9 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   Immediate schedule) done 2026-10-23; B (the game's minimum schedule on, consumers,
   starts, the orphaned preparer as a no-op) done 2026-10-23; C (camera image apply one
   update later, `ShortcutGraphics` wait) done 2026-10-23 (`RoomTransition`'s palette read
-  not there: the class is not ported).
+  not there: the class is not ported). Left (user, 2026-10-23: port when something that uses
+  them is reachable): `RoomTransition`'s palette read of a `shortCutsReady` room, and
+  `MoveCamera2`'s `preLoadedBKG` case (rooms with a `_bkg` image take the deferred path).
 - **Realizer guards** (user, 2026-10-23; `../rainworld-re/surveys/room-realizer-audit.md`):
   `RoomRealizer.Update`'s `rainCycle.RainGameOver` guard on the random neighbour step comes
   with the rain (M8); the off-screen-den guards are done.
@@ -138,7 +140,7 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `../rainworld-re/surveys/lizards.md` (user decisions).
 
 ## To look into
-- **Hitch when nearby rooms realize or abstractize** (user, 2026-10-23, seen in play): the
+- **Hitch (M14 optimisation pass, user 2026-10-23) when nearby rooms realize or abstractize** (user, 2026-10-23, seen in play): the
   realizer's automatic loading and unloading of neighbour rooms seems to cause a noticeable
   frame hitch. Measure after async loading step B (which cost: room file and
   `LoadFromDataString`, AI map and heat maps, which the game builds on its preparer thread,
