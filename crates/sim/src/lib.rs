@@ -49,11 +49,11 @@ pub use effects::gravity::electric_death::{
     ElectricDeath, LightFlash, SparkFlash, Strike, WallSpark,
 };
 pub use effects::lights::light_beam::LightBeam;
+pub use effects::lights::light_beam::SpotLight;
 pub use effects::lights::light_fixture::{HolyFire, HolyFireSprite, Redlight, SlimeMoldLight};
 pub use effects::lights::light_source::{
     LightElement, LightHardSet, LightSource, LightSourceTick, LightTie,
 };
-pub use effects::lights::spot_light::SpotLight;
 pub use effects::particles::decal::CustomDecal;
 pub use effects::particles::green_sparks::{GreenSpark, GreenSparks, SparkCx};
 pub use effects::particles::rainbow::Rainbow;
@@ -67,15 +67,15 @@ pub use effects::particles::zero_g_speck::{
     BlinkState, SpeckCx, SpeckKind, SpeckType, SporeState, ZeroGSpeck,
 };
 pub use effects::sky::above_clouds_view::AboveCloudsContext;
+pub use effects::sky::above_clouds_view::DistantLightning;
 pub use effects::sky::background_scene::{
     AboveCloudsParams, BackgroundScene, CloudData, ElementKind, SCREEN_SIZE, SceneElement,
     SceneImages, SceneKind, SceneParams, SkyTime,
 };
-pub use effects::sky::distant_lightning::DistantLightning;
-pub use effects::sky::dust_puff::{DustPuff, DustpuffSpawner};
 pub use effects::sky::lightning::{
     Lightning, LightningEnv, LightningFrame, LightningRoom, LightningSource, ThunderSound,
 };
+pub use effects::sky::roof_top_view::{DustPuff, DustpuffSpawner};
 pub use game::camera::CameraView;
 pub use game::camera_image::CameraImage;
 pub use game::map_discovery::{DiscoveryTexture, HudMapLink, MapDiscovery, MapRoom, UnityTexture};

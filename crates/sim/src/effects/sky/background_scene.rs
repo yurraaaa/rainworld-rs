@@ -12,7 +12,7 @@
 
 use crate::{FloatExt, Vec2};
 
-pub use crate::effects::sky::distant_lightning::DistantLightning;
+pub use crate::effects::sky::above_clouds_view::DistantLightning;
 
 /// The default `rainWorld.screenSize` (`Options.resolution` 1); a world starts with it
 /// until the app sets the chosen one.

@@ -5,4 +5,3 @@
 pub(crate) mod light_beam;
 pub(crate) mod light_fixture;
 pub(crate) mod light_source;
-pub(crate) mod spot_light;

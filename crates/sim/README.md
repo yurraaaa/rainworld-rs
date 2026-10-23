@@ -190,7 +190,7 @@ corridor shoots' `WaterDrip`s), `spear_on_back.rs` (the Hunter's
 | `light_beam_turn.rs` | placed `LightBeam`s and `SpotLight`s joining the update list, a beam's turn (environment colour), `ApplyPalette` | `Room.Loaded` (`LightBeam`, `SpotLight`), `LightBeam.Update` |
 | `light_fixture_turn.rs` | placed `LightFixture`s (`Redlight`, `HolyFire`, `SlimeMoldLight`) and the tile parse's `WaterFall`s joining the update list, their turns in it (the `RedlightLight` made on the first update, the embers shed, a fall's drips, bubbles and push on bodies), `Room.ElectricPower` | `Room.Loaded` (`LightFixture`), `Room.LoadFromDataString` (waterfalls), `Redlight.Update`, `WaterFall.Update` |
 | `turn.rs` | light sources in the update list: placed lights (`Room.Loaded`), the glowing player's light (`PlayerGlow`), camera 0's picture they read, `Darkness`, `LightSourceExposure`/`LightSourceColor`/`DarknessOfPoint` | `Room` light members, `LightSource.Update`, `PlayerGraphics.Update` light |
-| `light_beam.rs`, `spot_light.rs` | `LightBeam` (quad, environment and palette colours), `SpotLight` (quad) | `LightBeam`, `SpotLight` |
+| `light_beam.rs` | `LightBeam` (quad, environment and palette colours), `SpotLight` (quad) | `LightBeam`, `SpotLight` |
 | `light_source.rs` | `LightSource` (`Alpha`, `Lightness`, update) | `LightSource` |
 | `light_fixture.rs` | `Redlight` (flicker, gravity-dependent power), `HolyFire` with `HolyFireSprite`, `SlimeMoldLight` (seeded discs) | `LightFixture`, `Redlight`, `HolyFire`, `SlimeMoldLight` |
 
@@ -201,10 +201,8 @@ corridor shoots' `WaterDrip`s), `spear_on_back.rs` (the Hunter's
 | `lightning_turn.rs` | a room's `Lightning` in the game: `Room.Loaded` making it, its turn and room calls (`MakeBackgroundNoise`, `ScreenMovement`, `PlaySound`), its loop emitters' turns, hearing dulled by the background noise | `Room.Loaded` lightning, `MakeBackgroundNoise` |
 | `lightning.rs` | `Lightning` (`Lightning`/`BkgOnlyLightning` effects): two `LightningSource`s (reset, flash curve, thunder queue, `Electricity_Loop`), the camera's reads (`CurrentLightLevel`, `CurrentBackgroundColor`, `CurrentFogColor`, `LightningFrame`) | `Lightning` |
 | `background_scene.rs` | `BackgroundScene`: a room's scene object and its elements (`ElementKind`: skies, fog, distant buildings, clouds, a roof's floor, buildings, rubble and smoke), `DrawPos`, `PosFromDrawPosAtNeutralCamPos`, the add order | `BackgroundScene`, `BackgroundSceneElement` and the element classes' fields |
-| `above_clouds_view.rs` | `AboveCloudsView`'s constructor: the 50 (Underhang) or 30 and 38 (Sky Islands) elements, altitudes, the clouds' draws under `InitState(12)` | `AboveCloudsView` |
-| `roof_top_view.rs` | `RoofTopView`'s constructor: sky, floor, 16 rubble strips, city, 4 smoke layers (4 shared draws) | `RoofTopView` |
-| `distant_lightning.rs` | `DistantLightning`: the bolt's timers (up to 3 shared draws a tick) and its brightness draw (cosmetic stream) | `AboveCloudsView.DistantLightning` |
-| `dust_puff.rs` | `DustpuffSpawner` (the player's chunks landing or running) and `DustPuff` | `RoofTopView.DustpuffSpawner`, `DustPuff` |
+| `above_clouds_view.rs` | `AboveCloudsView`'s constructor: the 50 (Underhang) or 30 and 38 (Sky Islands) elements, altitudes, the clouds' draws under `InitState(12)`; `DistantLightning`: the bolt's timers (up to 3 shared draws a tick) and its brightness draw (cosmetic stream) | `AboveCloudsView`, `AboveCloudsView.DistantLightning` |
+| `roof_top_view.rs` | `RoofTopView`'s constructor: sky, floor, 16 rubble strips, city, 4 smoke layers (4 shared draws); `DustpuffSpawner` (the player's chunks landing or running) and `DustPuff` | `RoofTopView`, `RoofTopView.DustpuffSpawner`, `DustPuff` |
 | `background_scene_turn.rs` | scenes in the game: `Room.Loaded` making them, the first turn adding the elements far to near, the lightning's turns, the spawner's and puffs' turns | `Room.Loaded` (`AboveCloudsView`, `RoofTopView`), `BackgroundScene.Update` |
 
 ### `effects/particles/`
@@ -360,7 +358,7 @@ sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `m
 | Climbable vines (the player climbing, the vine geometry) | `vines/mod.rs`, `player/vines.rs`; hands: `rw-graphics` `hand.rs` |
 | Zero gravity (room `gravity`, `ElectricPower`, the broken switch, the player floating) | `effects/gravity/anti_gravity.rs`, `effects/gravity/anti_gravity_turn.rs`, `player/zero_g.rs`, `PhysicsParams::room_gravity` in `physics/chunk.rs`; the SS song: `game/trigger_turn.rs` (`SsMusic`) and `rw-audio` `music/song.rs` |
 | Overseer / guide | `creature/overseer/`, `world/overseers_world_ai.rs`, `creature/overseer/holo_light_turn.rs` |
-| Placed light beams, spot lights | `effects/lights/light_beam.rs`, `effects/lights/spot_light.rs`, `effects/lights/light_beam_turn.rs`; sprites in `rw-graphics` `light_beam.rs`, `spot_light.rs`, `quad_grid.rs` |
+| Placed light beams, spot lights | `effects/lights/light_beam.rs`, `effects/lights/light_beam_turn.rs`; sprites in `rw-graphics` `light_beam.rs`, `spot_light.rs`, `quad_grid.rs` |
 | Superstructure rods, zap coils (and their lights, flashes), fuses | `superstructure/electric/light_rod.rs`, `superstructure/electric/zap_coil.rs`, `superstructure/electric/fuses.rs`, `superstructure/electric/turn.rs`; sprites in `rw-graphics` `ss_electric.rs` |
 | Coral (`CoralNeuronSystem`, `CoralNeuron`, `ProjectedCircle`, `WallMycelia`, `Mycelium`, `NeuronSpark`) | `superstructure/coral/system.rs`, `superstructure/coral/neuron.rs`, `superstructure/projections/projected_circle.rs`, `superstructure/coral/wall_mycelia.rs`, `superstructure/coral/mycelium.rs`, `superstructure/coral/neuron_spark.rs`, `superstructure/coral/turn.rs`, `superstructure/projections/turn.rs`; sprites in `rw-graphics` `coral_neuron_draw.rs`, `projected_circle_draw.rs`, `wall_mycelia_draw.rs`, `mycelium.rs`, `cosmetic_graphics.rs` |
 | Coral circuits (`CoralCircuit`, `CircuitBit`, `CircuitConnector`, `CircuitCrab`) and the player swimming through them | `superstructure/coral/circuit.rs`, `superstructure/coral/circuit_connector.rs`, `superstructure/coral/circuit_crab.rs`, `superstructure/coral/circuit_turn.rs`, `player/circuit.rs`, `player/zero_g.rs`; sprites in `rw-graphics` `circuit_draw.rs`, shaders in `rw-render` `sprite.wgsl` (`fs_coral_circuit`) |
@@ -372,7 +370,7 @@ sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `m
 | Dev spawns / teleport | `game/dev_turn.rs`, `game/spawn.rs` |
 | Custom decals, rainbows | `effects/particles/decal.rs`, `effects/particles/rainbow.rs`, `effects/particles/decal_turn.rs`; sprites in `rw-graphics`, shaders in `rw-render` |
 | Cosmetic slime molds, dead token stalks | `effects/particles/slime_mold.rs`, `effects/particles/token_stalk.rs`, `effects/particles/placed_cosmetics_turn.rs`; sprites in `rw-graphics` |
-| Background scenes (`AboveCloudsView`, `RoofTopView`), distant lightning, dust puffs | `effects/sky/background_scene.rs`, `effects/sky/above_clouds_view.rs`, `effects/sky/roof_top_view.rs`, `effects/sky/distant_lightning.rs`, `effects/sky/dust_puff.rs`, `effects/sky/background_scene_turn.rs`; sprites in `rw-graphics` `background_scene.rs`, shaders in `rw-render` `background_scene.wgsl` |
+| Background scenes (`AboveCloudsView`, `RoofTopView`), distant lightning, dust puffs | `effects/sky/background_scene.rs`, `effects/sky/above_clouds_view.rs` (distant lightning), `effects/sky/roof_top_view.rs` (dust puffs), `effects/sky/background_scene_turn.rs`; sprites in `rw-graphics` `background_scene.rs`, shaders in `rw-render` `background_scene.wgsl` |
 
 ## Cross-links
 
