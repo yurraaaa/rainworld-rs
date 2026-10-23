@@ -96,7 +96,12 @@ fn every_electric_object_parses() {
     );
     assert_eq!(rejected, 0);
     assert_eq!(
-        [rooms[0].len(), rooms[1].len(), rooms[2].len(), rooms[3].len()],
+        [
+            rooms[0].len(),
+            rooms[1].len(),
+            rooms[2].len(),
+            rooms[3].len()
+        ],
         [12, 13, 50, 19]
     );
 }
