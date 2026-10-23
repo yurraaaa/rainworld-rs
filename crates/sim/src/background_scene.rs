@@ -5,7 +5,8 @@
 //! positions and sprites are the graphics crate's (`rw-graphics` `background_scene.rs`);
 //! only [`DistantLightning`] has a turn of its own.
 //!
-//! The scenes are made by [`crate::above_clouds_view`] and [`crate::roof_top_view`].
+//! The scenes are made by [`crate::above_clouds_view`] and [`crate::roof_top_view`];
+//! omitted branches: D32.
 //!
 //! Mirrors: BackgroundScene.cs, AboveCloudsView.cs (Cloud, DistantBuilding, Fog fields), RoofTopView.cs (element fields)
 

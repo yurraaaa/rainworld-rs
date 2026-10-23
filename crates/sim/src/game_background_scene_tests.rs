@@ -105,7 +105,7 @@ fn the_lightnings_update_nearest_first_with_five_draws_on_their_first_turn() {
             assert!(l.restored_depth);
         }
     }
-    let _ = g.tick(Input::NONE, &mut ());
+    g.tick(Input::NONE, &mut ());
 }
 
 #[test]

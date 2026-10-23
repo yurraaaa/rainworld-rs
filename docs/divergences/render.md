@@ -206,3 +206,44 @@ gives arena levels none). The palette is rebuilt at the start of the tick when
 **Why.** Unreachable in the base game, or the port's grab textures (D7).
 
 **Affects.** Pixels along creature edges under decals; memory after a long session.
+
+
+## D31: Background scenes (`AboveCloudsView`, `RoofTopView`): the shaders and their inputs
+
+The scenes' elements draw in the `Water` container after the level image, each with the
+game's shader (`Background`, `Cloud`, `CloudDistant`, `DistantBkgObject`,
+`DistantBkgObjectRepeatHorizontal`, `BkgFloor`, `House`, `Dust`, `Spores`;
+`background_scene.wgsl`), clipped by the level image and by what was drawn behind the
+level as `BackgroundClipVanilla` does. What differs:
+
+- **Image sampling is in the shader.** Each scene image is an atlas page of its own
+  (`LoadGraphic` makes an atlas of one element); the page sampler is point and clamped,
+  so the shaders that need bilinear or repeating reads (`Cloud`, `CloudDistant`, `Dust`,
+  `House`, `BkgFloor`, `DistantBkgObjectRepeatHorizontal`) read the page's texels
+  themselves with the image's filter and wrap (`crispPixels` and `clampWrapMode` of its
+  `LoadGraphic` call: clouds, flying clouds and smoke bilinear and repeating, the city
+  maps bilinear and clamped, floor and rubble point and repeating). The result is
+  Unity's bilinear filter; sampling at a texel's centre is exact.
+- **`_CloudsTex`** is `resources.assets`' `Illustrations/cloudsTexture` (DXT5, 10 mips,
+  bilinear, repeat) read with every mip and sampled with the nearest mip by the screen
+  derivatives, as Unity's bilinear filter does. Its anisotropic level is not read from
+  the file (`Texture2D` import settings are read only up to filter and wrap).
+- **`_GrabTexture`** is the frame drawn before the level (D7), as for the other
+  shaders that read it.
+- **Vertex colours are 8 bits a channel** (Unity stores a mesh's `Color[]` so), which
+  the clouds' `randomOffset` and every haze value pass through.
+- **`2/3` in `Cloud.shader`** (`dpOffst = half2(0.5, 2/3) - scrPos`) is HLSL integer
+  division, 0; ported as 0 (INFERRED from the language, not from compiled output).
+- **Globals.** `_windDir` is 1 and `_MultiplyColor` white, as the base game leaves them
+  (`DayNight` changes the colour); `_AboveCloudsAtmosphereColor` and `_WorldCamPos` are
+  set for the frame from the camera room's scene (the game keeps the last constructed
+  scene's value after the room is left).
+- **Images load when a room with a scene is first shown** and stay uploaded, as the
+  decals' (D26).
+- Omitted branches: `RIPPLE` (`smoothRippleClip`, `rippleClip`) and the sloped-terrain
+  mask (black in the base game, so its tests never cut), Watcher's.
+
+**Why.** The port's atlas pages and samplers (D7); the rest unreachable in the base game.
+
+**Affects.** Cloud detail at glancing angles (anisotropy), one-pixel rounding where the
+game's own sampling differs from the shader's emulation.

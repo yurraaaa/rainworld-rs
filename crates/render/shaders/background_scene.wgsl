@@ -3,7 +3,7 @@
 // fs_cloud `Cloud`, fs_cloud_distant `CloudDistant`, fs_distant_bkg_object
 // `DistantBkgObject`, fs_distant_bkg_object_repeat `DistantBkgObjectRepeatHorizontal`,
 // fs_bkg_floor `BkgFloor`, fs_house `House`, fs_dust `Dust`, fs_spores `Spores`
-// (StreamingAssets/shaders/<Name>.shader).
+// (StreamingAssets/shaders/<Name>.shader). Differences from the game: D31.
 //
 // The scene sprites sit in the `Water` container, drawn after the level image; they stay
 // behind the level by reading it: nothing is drawn where the level image has no

@@ -8,6 +8,7 @@
 //!
 //! Mirrors: - (port-only: MCP server)
 
+mod background_scene_reply;
 #[cfg(test)]
 mod debug_action_tests;
 #[cfg(test)]
@@ -21,7 +22,6 @@ mod insect_reply;
 mod kills_tests;
 #[cfg(test)]
 mod lizard_graphics_tests;
-mod background_scene_reply;
 mod music_reply;
 mod params;
 mod particles_reply;

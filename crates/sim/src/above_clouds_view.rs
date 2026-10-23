@@ -5,7 +5,7 @@
 //!
 //! Base game only: `PinkSky` (Watcher), the More Slugcats regions (`OE`, `LM`, `SL`,
 //! the `SI_A07` clouds, the ending scroll `yShift`) and the Saint timeline's buildings
-//! are omitted (D31).
+//! are omitted (D32).
 //!
 //! Mirrors: AboveCloudsView.cs (constructor, CloudDepth, DistantCloudDepth)
 

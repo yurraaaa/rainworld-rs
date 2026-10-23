@@ -744,6 +744,7 @@ impl Session {
             Drawable::LightBeam(i) => ("light_beam", None, Some(i)),
             Drawable::SpotLight(i) => ("spot_light", None, Some(i)),
             Drawable::SceneElement(i) => ("scene_element", None, Some(i)),
+            Drawable::DustPuff(i) => ("dust_puff", None, Some(i)),
             Drawable::Shortcuts => ("shortcuts", None, None),
             Drawable::FullScreenEffect => ("full_screen_effect", None, None),
             Drawable::DeathFall => ("death_fall", None, None),

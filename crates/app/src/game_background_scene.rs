@@ -4,7 +4,9 @@
 //!
 //! Mirrors: BackgroundScene.cs (BackgroundSceneElement.DrawSprites), RoofTopView.cs (Floor.DrawSprites: `_WorldCamPos`)
 
-use rw_graphics::{BackgroundSceneSprites, BackgroundSceneView, DrawList, SceneImageSizes};
+use rw_graphics::{
+    BackgroundSceneSprites, BackgroundSceneView, Color, DrawList, DustPuffSprites, SceneImageSizes,
+};
 use rw_render::SceneGlobals;
 use rw_sim::{BackgroundScene, SceneKind};
 
@@ -32,6 +34,25 @@ impl Game {
             }
         }
         lists
+    }
+
+    /// The camera room's `DustPuff`s at `alpha` between ticks, in the palette's texel
+    /// (9, 5) (`ApplyPalette`).
+    #[must_use]
+    pub fn dust_puff_draw_lists(
+        &self,
+        alpha: f32,
+        palette: &rw_assets::PaletteTexture,
+    ) -> Vec<(Drawable, DrawList)> {
+        let Some(r) = self.sim.world().realized(self.sim.camera_room()) else {
+            return Vec::new();
+        };
+        let [red, green, blue, a] = palette.texel(9, 5);
+        let color = Color::from([red, green, blue, a].map(|c| f32::from(c) / 255.0));
+        r.dust_puffs
+            .iter()
+            .map(|p| (Drawable::DustPuff(p.update_order), p.draw(alpha, color)))
+            .collect()
     }
 
     /// The images of the camera room's scenes' elements.

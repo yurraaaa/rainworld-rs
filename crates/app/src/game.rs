@@ -1428,6 +1428,11 @@ impl Game {
                         Present::added(Drawable::SceneElement(e.update_order), e.update_order)
                     }),
             );
+            present.extend(
+                r.dust_puffs
+                    .iter()
+                    .map(|p| Present::added(Drawable::DustPuff(p.update_order), p.update_order)),
+            );
         }
         present
     }

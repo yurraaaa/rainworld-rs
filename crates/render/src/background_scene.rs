@@ -3,6 +3,8 @@
 //! `_WorldCamPos`) and the textures `RainWorld.SetGlobalTextures` sets (`_CloudsTex`,
 //! `_ApartmentsTex`, `_CityPalette`).
 //!
+//! Differences from the game: D31.
+//!
 //! Mirrors: RainWorld.cs (SetGlobalTextures)
 
 use rw_assets::PngImage;

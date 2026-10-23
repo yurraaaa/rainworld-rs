@@ -769,6 +769,10 @@ impl Scene {
                 );
                 lists.extend(
                     self.game
+                        .dust_puff_draw_lists(alpha, visuals.palette_texture()),
+                );
+                lists.extend(
+                    self.game
                         .particle_draw_lists(alpha, visuals.palette_texture()),
                 );
             }

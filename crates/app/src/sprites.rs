@@ -77,16 +77,19 @@ impl SpriteAssets {
     /// `_CityPalette` from `resources.assets`; none, with a warning, when one cannot be
     /// read.
     fn scene_textures(resources: &UnityResources) -> Option<SceneTextures> {
-        let read = || -> Result<SceneTextures, rw_assets::AssetError> {
-            Ok(SceneTextures {
-                clouds: resources.texture_mips("Illustrations/cloudsTexture")?.1,
-                apartments: resources.texture_image("Illustrations/apartments")?,
-                city_palette: resources.texture_image("Palettes/cityPalette")?,
-            })
-        };
-        read()
+        Self::read_scene_textures(resources)
             .inspect_err(|e| log::warn!("no scene textures ({e})"))
             .ok()
+    }
+
+    fn read_scene_textures(
+        resources: &UnityResources,
+    ) -> Result<SceneTextures, rw_assets::AssetError> {
+        Ok(SceneTextures {
+            clouds: resources.texture_mips("Illustrations/cloudsTexture")?.1,
+            apartments: resources.texture_image("Illustrations/apartments")?,
+            city_palette: resources.texture_image("Palettes/cityPalette")?,
+        })
     }
 
     fn texture(resources: &UnityResources, name: &str) -> Result<PngImage, String> {

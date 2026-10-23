@@ -1197,6 +1197,8 @@ impl Readback {
 }
 
 #[cfg(test)]
+mod background_scene_tests;
+#[cfg(test)]
 mod full_screen_tests;
 #[cfg(test)]
 mod placed_visuals_tests;

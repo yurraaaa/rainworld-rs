@@ -6,9 +6,9 @@
 //! Mirrors: Room.cs (Loaded: AboveCloudsView, RoofTopView), BackgroundScene.cs (Update)
 
 use super::{RainWorldGame, RoomObject};
-use crate::Vec2;
 use crate::above_clouds_view::AboveCloudsContext;
 use crate::background_scene::{BackgroundScene, ElementKind, SCREEN_SIZE};
+use crate::{DustpuffSpawner, Vec2};
 
 impl RainWorldGame {
     /// `AddObject(new AboveCloudsView(this, effect))` for room `index`'s effect of
@@ -43,6 +43,13 @@ impl RainWorldGame {
         };
         let size = data.size;
         let origin = self.world.room_to_world_pos(Vec2::ZERO, index);
+        // The constructor's `room.AddObject(new DustpuffSpawner())`, before the scene's own.
+        let spawner = DustpuffSpawner {
+            update_order: self.world.next_update_seq(),
+        };
+        if let Some(r) = self.world.realized_mut(index) {
+            r.dust_spawners.push(spawner);
+        }
         let mut scene = BackgroundScene::roof_top_view(origin, size, &mut self.rng);
         scene.update_order = self.world.next_update_seq();
         if let Some(r) = self.world.realized_mut(index) {
@@ -53,6 +60,18 @@ impl RainWorldGame {
     /// The scenes and their added `DistantLightning`s in room `index`'s update list.
     pub(super) fn room_background_scene_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         let mut objects = Vec::new();
+        if let Some(r) = self.world.realized(index) {
+            objects.extend(
+                r.dust_spawners
+                    .iter()
+                    .map(|s| (s.update_order, RoomObject::DustpuffSpawner(s.update_order))),
+            );
+            objects.extend(
+                r.dust_puffs
+                    .iter()
+                    .map(|p| (p.update_order, RoomObject::DustPuff(p.update_order))),
+            );
+        }
         for scene in self
             .world
             .realized(index)
@@ -121,5 +140,32 @@ impl RainWorldGame {
                 return;
             }
         }
+    }
+
+    /// `DustpuffSpawner.Update` in its slot of room `index`'s update list: the player's
+    /// chunks, if it is in the room, make `DustPuff`s at the end of the list.
+    pub(super) fn run_dustpuff_spawner(&mut self, index: i32, _order: u64) {
+        let in_room = self.pos().room == index;
+        let Some(player) = self.player.as_ref().filter(|p| in_room && !p.in_shortcut()) else {
+            return;
+        };
+        let puffs = DustpuffSpawner::update(&player.body.chunks, &mut self.rng);
+        for mut puff in puffs {
+            puff.update_order = self.world.next_update_seq();
+            if let Some(r) = self.world.realized_mut(index) {
+                r.dust_puffs.push(puff);
+            }
+        }
+    }
+
+    /// A `DustPuff`'s `Update`; a destroyed one leaves the room.
+    pub(super) fn run_dust_puff(&mut self, index: i32, order: u64) {
+        let Some(r) = self.world.realized_mut(index) else {
+            return;
+        };
+        if let Some(p) = r.dust_puffs.iter_mut().find(|p| p.update_order == order) {
+            p.update();
+        }
+        r.dust_puffs.retain(|p| !p.slated);
     }
 }

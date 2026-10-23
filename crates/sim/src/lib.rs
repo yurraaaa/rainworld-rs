@@ -34,6 +34,7 @@ pub mod creature;
 mod decal;
 mod distant_lightning;
 mod dripping_sound;
+mod dust_puff;
 mod float_ext;
 mod game;
 mod green_sparks;
@@ -88,6 +89,7 @@ pub use creature::{ShortCutColor, WorldCoordinate};
 pub use decal::CustomDecal;
 pub use distant_lightning::DistantLightning;
 pub use dripping_sound::DrippingSound;
+pub use dust_puff::{DustPuff, DustpuffSpawner};
 pub use float_ext::FloatExt;
 pub use game::{
     CameraMove, GameOver, Grabability, HeavyAiThrottle, HudEvent, NewGameWorld, OverseerCall,

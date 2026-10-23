@@ -2,7 +2,7 @@
 //! all in the `Water` container: where `DrawPos` puts each one for the frame's camera,
 //! its scale, colour and shader. Colours carry the shaders' inputs (a cloud's depth tint
 //! and random offset, a building's haze), quantised to 8 bits as Unity stores a mesh's
-//! `Color[]`. A [`rw_sim::DistantLightning`]'s brightness draws on the cosmetic stream
+//! `Color[]` (D31). A [`rw_sim::DistantLightning`]'s brightness draws on the cosmetic stream
 //! (3 draws when the first is under a third, else 1).
 //!
 //! Mirrors: BackgroundScene.cs (BackgroundSceneElement, Simple2DBackgroundIllustration, FullScreenSingleColor, AddToContainer), AboveCloudsView.cs (Cloud, CloseCloud, DistantCloud, FlyingCloud, DistantBuilding, Fog, DistantLightning: InitiateSprites, DrawSprites), RoofTopView.cs (Floor, Building, Rubble, DistantBuilding, Smoke: InitiateSprites, DrawSprites)

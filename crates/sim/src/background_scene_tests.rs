@@ -52,6 +52,33 @@ fn draws(before: &UnityRandom, after: &UnityRandom) -> usize {
         .expect("within 40 draws")
 }
 
+/// The first `AtC_Structure1`'s position.
+fn first_structure(s: &BackgroundScene) -> Vec2 {
+    s.elements
+        .iter()
+        .find(|e| {
+            matches!(
+                &e.kind,
+                ElementKind::DistantBuilding {
+                    asset: "AtC_Structure1",
+                    ..
+                }
+            )
+        })
+        .map(|e| e.pos)
+        .unwrap()
+}
+
+/// The depths of the elements `pick` takes, in element order.
+fn depths(scene: &BackgroundScene, pick: fn(&ElementKind) -> bool) -> Vec<f32> {
+    scene
+        .elements
+        .iter()
+        .filter(|e| pick(&e.kind))
+        .map(|e| e.depth)
+        .collect()
+}
+
 #[test]
 fn underground_city_room_has_the_constructors_fifty_elements() {
     // AboveCloudsView.cs: Fog, 3 skies, 22 DistantBuildings (Structure1-6, Spire1-9,
@@ -72,28 +99,13 @@ fn sky_islands_rooms_have_no_distant_or_flying_clouds() {
     // SI_A07 has the wide rows, shifted 200 to the right, and its Spire1@50 too.
     let a07 = clouds(Some("SI"), "SI_A07");
     assert_eq!(counts(&a07), [1, 3, 23, 4, 7, 0, 0]);
-    let first = |s: &BackgroundScene| {
-        s.elements
-            .iter()
-            .find(|e| {
-                matches!(
-                    &e.kind,
-                    ElementKind::DistantBuilding {
-                        asset: "AtC_Structure1",
-                        ..
-                    }
-                )
-            })
-            .map(|e| e.pos)
-            .unwrap()
-    };
     // PosFromDrawPos with the constructor's zero convergence point: input * depth.
     assert_eq!(
-        first(&clouds(Some("SI"), "SI_B02")),
+        first_structure(&clouds(Some("SI"), "SI_B02")),
         Vec2::new(-520.0 * 160.0, -85.0 * 160.0)
     );
     assert_eq!(
-        first(&a07),
+        first_structure(&a07),
         Vec2::new((-520.0 + 200.0) * 160.0, -85.0 * 160.0)
     );
 }
@@ -124,20 +136,12 @@ fn the_clouds_draw_their_offsets_from_the_seed_12_stream() {
 #[test]
 fn clouds_have_the_constructors_depths() {
     let scene = clouds(Some("UW"), "UW_A01");
-    let depths = |pick: fn(&ElementKind) -> bool| -> Vec<f32> {
-        scene
-            .elements
-            .iter()
-            .filter(|e| pick(&e.kind))
-            .map(|e| e.depth)
-            .collect()
-    };
     // CloudDepth(f) = Lerp(5, 40, f); DistantCloudDepth(f) = Lerp(40, 200, f^1.5).
-    let close = depths(|k| matches!(k, ElementKind::CloseCloud { .. }));
+    let close = depths(&scene, |k| matches!(k, ElementKind::CloseCloud { .. }));
     assert_eq!(close[0], 5.0);
     assert_eq!(close[6], 40.0);
     assert!((close[3] - 22.5).abs() < 1e-4);
-    let distant = depths(|k| matches!(k, ElementKind::DistantCloud { .. }));
+    let distant = depths(&scene, |k| matches!(k, ElementKind::DistantCloud { .. }));
     assert_eq!(distant[0], 40.0);
     assert!((distant[10] - 200.0).abs() < 1e-3);
     assert!((distant[5] - (40.0 + 160.0 * 0.5_f32.powf(1.5))).abs() < 1e-3);

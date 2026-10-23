@@ -17,6 +17,7 @@ mod body_part;
 mod cosmetic_graphics;
 mod decal;
 mod draw;
+mod dust_puff;
 pub mod elements;
 mod fly_graphics;
 mod green_spark;
@@ -64,6 +65,7 @@ pub use draw::{
     Color, DrawItem, DrawList, ElementMesh, InternalContainer, Layer, Mesh, Shader, SlugcatName,
     Sprite,
 };
+pub use dust_puff::DustPuffSprites;
 pub use fly_graphics::FlyGraphics;
 pub use green_spark::GreenSparkSprites;
 pub use hand::SlugcatHand;

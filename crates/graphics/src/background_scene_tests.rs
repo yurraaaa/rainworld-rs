@@ -45,7 +45,7 @@ fn view(scene: &BackgroundScene, camera_world_y: f32) -> BackgroundSceneView {
     }
 }
 
-fn element<'a>(s: &'a BackgroundScene, pick: impl Fn(&ElementKind) -> bool) -> &'a SceneElement {
+fn element(s: &BackgroundScene, pick: impl Fn(&ElementKind) -> bool) -> &SceneElement {
     s.elements.iter().find(|e| pick(&e.kind)).unwrap()
 }
 
@@ -233,4 +233,31 @@ fn the_roof_top_floor_spans_its_depths() {
         (f.color.r, f.color.g, f.color.b),
         (1.0, u8c(1.0 / 12.0), 0.0)
     );
+}
+
+/// Where a draw puts the `AtC_Structure1` on the screen.
+fn structure_screen_pos(s: &BackgroundScene, v: &BackgroundSceneView) -> Vec2 {
+    let e = element(s, |k| {
+        matches!(
+            k,
+            ElementKind::DistantBuilding {
+                asset: "AtC_Structure1",
+                ..
+            }
+        )
+    });
+    let list = BackgroundSceneSprites::draw(s, e, v, &sizes(), &mut UnityRandom::new(1));
+    list.sprite(0).unwrap().pos - v.cam_pos
+}
+
+#[test]
+fn a_building_moves_with_the_camera_by_one_over_its_depth() {
+    let s = scene("UW", "UW_A01");
+    let mut v = view(&s, 20000.0);
+    let before = structure_screen_pos(&s, &v);
+    v.cam_pos += Vec2::new(160.0, 80.0);
+    let after = structure_screen_pos(&s, &v);
+    // DrawPos divides the camera's displacement by the depth (160).
+    assert!((after.x - (before.x - 1.0)).abs() < 1e-3);
+    assert!((after.y - (before.y - 0.5)).abs() < 1e-3);
 }

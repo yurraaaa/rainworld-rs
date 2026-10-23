@@ -74,6 +74,16 @@ pub struct BackgroundSceneState {
     pub altitude: Option<f32>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub lightning: Vec<DistantLightningState>,
+    /// The room's `DustpuffSpawner`s and live `DustPuff`s (a `RoofTopView`'s).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dust: Option<DustState>,
+}
+
+/// A room's dust puffs.
+#[derive(Debug, Clone, Serialize)]
+pub struct DustState {
+    pub spawners: usize,
+    pub puffs: usize,
 }
 
 impl BackgroundSceneState {
@@ -90,7 +100,14 @@ impl BackgroundSceneState {
                 .map_or_else(|| format!("#{index}"), |a| a.name.clone());
             let here = camera.filter(|c| c.room == index);
             for scene in &r.background_scenes {
-                states.push(Self::of(name.clone(), scene, here));
+                let mut state = Self::of(name.clone(), scene, here);
+                if scene.kind() == SceneKind::RoofTopView {
+                    state.dust = Some(DustState {
+                        spawners: r.dust_spawners.len(),
+                        puffs: r.dust_puffs.len(),
+                    });
+                }
+                states.push(state);
             }
         }
         states
@@ -125,10 +142,13 @@ impl BackgroundSceneState {
                 .elements
                 .iter()
                 .filter_map(|e| match &e.kind {
-                    ElementKind::DistantLightning(l) => Some(Self::lightning(e.update_order, e.depth, l)),
+                    ElementKind::DistantLightning(l) => {
+                        Some(Self::lightning(e.update_order, e.depth, l))
+                    }
                     _ => None,
                 })
                 .collect(),
+            dust: None,
         }
     }
 

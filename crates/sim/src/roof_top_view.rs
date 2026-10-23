@@ -5,7 +5,7 @@
 //! constructor's `DustpuffSpawner` makes are in [`crate::dust_puff`].
 //!
 //! Base game only: the Lantern-at-the-Edge city (`isLC`), the Dust Storm waves
-//! (`room.dustStorm`) and the `_DM` images are omitted (D31).
+//! (`room.dustStorm`) and the `_DM` images are omitted (D32).
 //!
 //! Mirrors: RoofTopView.cs (constructor, AtmosphereColorAtDepth)
 

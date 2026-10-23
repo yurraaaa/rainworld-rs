@@ -410,6 +410,10 @@ enum RoomObject {
     BackgroundScene(u64),
     /// A scene's `DistantLightning` by its place in the update list.
     SceneElement(u64),
+    /// A `DustpuffSpawner` by its place in the update list.
+    DustpuffSpawner(u64),
+    /// A `DustPuff` by its place in the update list.
+    DustPuff(u64),
     /// A dandelion, spark, speck or one of their spawners.
     Particle(particles::ParticleRef),
     /// A `Rainbow` by its place in the update list.
@@ -1557,6 +1561,8 @@ impl RainWorldGame {
                 RoomObject::TokenStalk(order) => self.run_token_stalk(index, order),
                 RoomObject::BackgroundScene(order) => self.run_background_scene(index, order),
                 RoomObject::SceneElement(order) => self.run_scene_element(index, order),
+                RoomObject::DustpuffSpawner(order) => self.run_dustpuff_spawner(index, order),
+                RoomObject::DustPuff(order) => self.run_dust_puff(index, order),
                 RoomObject::Particle(p) => self.run_particle(index, p),
                 RoomObject::Rainbow(order) => self.run_rainbow(index, order),
                 RoomObject::LightBeam(order) => self.run_light_beam(index, order),
