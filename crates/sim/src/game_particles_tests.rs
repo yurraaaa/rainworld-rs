@@ -20,7 +20,7 @@ use crate::world::World;
 use crate::{
     ChunkView, DandelionPatch, DandelionStalk, FloatExt, GreenSpark, GreenSparks, Input,
     LightSource, MadeDandelion, RainWorldGame, RoomExt, SkyDandelion, SkyDandelions, Sounds,
-    SparkCx, SpeckCx, SpeckKind, SpeckType, Start, Vec2, ZeroGSpeck,
+    SparkCx, SpeckCx, SpeckKind, SpeckType, Start, SuperStructureProjector, Vec2, ZeroGSpeck,
 };
 
 /// `seed`'s stream after `n` values.
@@ -1002,4 +1002,52 @@ fn room_loaded_plants_the_patch() {
             .expect("its dandelion");
         assert!(s.update_order + 1 == d.update_order && d.stuck);
     }
+}
+
+/// `Room.NowViewed` runs the effects in the settings' order: the specks, then the
+/// projector with its parts (before it in the update list); the draws are the two
+/// objects' setup draws in that order.
+#[test]
+fn now_viewed_interleaves_specks_and_the_projector() {
+    let mut rows = vec!["#".repeat(20)];
+    rows.extend(vec![".".repeat(20); 8]);
+    rows.push("#".repeat(20));
+    let refs: Vec<&str> = rows.iter().map(String::as_str).collect();
+    let mut g = game_in(
+        room(&refs),
+        "ZeroGSpecks-0.01, SuperStructureProjector-1",
+        "",
+    );
+    assert!(
+        g.world
+            .realized(0)
+            .expect("room")
+            .projections
+            .projectors
+            .is_empty()
+    );
+    let mut replay = g.rng.clone();
+    let mut seq = g.world.update_seq();
+    let first = seq;
+    for _ in 0..SpeckType::Blink.count(0.01) {
+        let _ = ZeroGSpeck::new(SpeckType::Blink, &mut replay);
+        seq += 1;
+    }
+    let projector = SuperStructureProjector::new((20, 10), 1.0, &mut seq, &mut replay);
+    g.particles_now_viewed(0);
+    assert_eq!(g.rng.state(), replay.state());
+    let r = g.world.realized(0).expect("room");
+    let specks = &r.particles.specks;
+    let made = &r.projections.projectors[0];
+    assert_eq!(specks.len(), 10);
+    assert_eq!(specks[0].update_order, first + 1);
+    assert!(specks.iter().all(|s| s.update_order <= first + 10));
+    assert!(made.parts.iter().all(|q| q.update_order > first + 10));
+    assert!(
+        made.parts
+            .iter()
+            .all(|q| q.update_order < made.update_order)
+    );
+    assert_eq!(made.update_order, projector.update_order);
+    assert_eq!(g.world.update_seq(), seq);
 }

@@ -150,10 +150,18 @@ pub struct SuperStructureProjector {
     glyph_grid: Vec<Option<u64>>,
 }
 
-/// Where a new object takes its place in the room's update list: increments and returns.
-fn next_seq(seq: &mut u64) -> u64 {
-    *seq += 1;
-    *seq
+/// The room's update-list counter (`World::next_update_seq`'s value, threaded through
+/// constructors).
+pub(crate) trait UpdateSeq {
+    /// Where a new object takes its place in the update list: increments and returns.
+    fn next_seq(&mut self) -> u64;
+}
+
+impl UpdateSeq for u64 {
+    fn next_seq(&mut self) -> u64 {
+        *self += 1;
+        *self
+    }
 }
 
 impl Glyph {
@@ -265,7 +273,7 @@ impl SuperStructureProjector {
             p.add_random_glyph(seq, rng);
         }
         p.int_offset = (rng.range_i32(100, 1000), rng.range_i32(100, 1000));
-        p.update_order = next_seq(seq);
+        p.update_order = seq.next_seq();
         p
     }
 
@@ -301,7 +309,7 @@ impl SuperStructureProjector {
     }
 
     fn push_part(&mut self, kind: PartKind, seq: &mut u64) -> u64 {
-        let update_order = next_seq(seq);
+        let update_order = seq.next_seq();
         self.parts.push(ProjectorPart {
             update_order,
             slated: false,
@@ -374,7 +382,7 @@ impl SuperStructureProjector {
                 sprite_selected: false,
                 inactive: false,
             };
-            let order = next_seq(seq);
+            let order = seq.next_seq();
             self.glyphs_list.push(order);
             self.set_grid(ps, Some(order));
             single.reset_draws(rng);
@@ -538,20 +546,25 @@ impl SuperStructureProjector {
         self.parts.retain(|p| !p.slated);
         self.scan_lines.retain(|o| !slated.contains(o));
         self.cursors.retain(|o| !slated.contains(o));
-        let parts = &self.parts;
-        let inactive = |o: &u64| {
-            parts
-                .binary_search_by_key(o, |p| p.update_order)
-                .ok()
-                .is_some_and(|i| {
-                    matches!(
-                        parts[i].kind,
-                        PartKind::Single(SingleGlyph { inactive: true, .. })
-                    )
-                })
-        };
-        self.glyphs_list
-            .retain(|o| !slated.contains(o) && !inactive(o));
+        let gone: Vec<u64> = self
+            .glyphs_list
+            .iter()
+            .copied()
+            .filter(|&o| slated.contains(&o) || self.is_inactive_single(o))
+            .collect();
+        self.glyphs_list.retain(|o| !gone.contains(o));
+    }
+
+    fn is_inactive_single(&self, order: u64) -> bool {
+        self.parts
+            .binary_search_by_key(&order, |p| p.update_order)
+            .ok()
+            .is_some_and(|i| {
+                matches!(
+                    self.parts[i].kind,
+                    PartKind::Single(SingleGlyph { inactive: true, .. })
+                )
+            })
     }
 
     /// `ScrambleAllGlyphs` (two draws per glyph).

@@ -10,6 +10,7 @@ use rw_random::UnityRandom;
 
 use crate::FloatExt;
 use crate::Vec2;
+use crate::projector::UpdateSeq;
 
 /// `ProjectedScanLines.ScanLine`.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -93,8 +94,7 @@ impl ProjectedScanLines {
             let dir = if rng.value() < 0.5 { -1.0 } else { 1.0 };
             p.add_line(flag, pos, dir, seq, rng);
         }
-        *seq += 1;
-        p.update_order = *seq;
+        p.update_order = seq.next_seq();
         p
     }
 
@@ -106,8 +106,7 @@ impl ProjectedScanLines {
         seq: &mut u64,
         rng: &mut UnityRandom,
     ) {
-        let line = ProjectedScanLine::new(*seq + 1, alignment, pos, dir, rng);
-        *seq += 1;
+        let line = ProjectedScanLine::new(seq.next_seq(), alignment, pos, dir, rng);
         self.scan_lines.push(line.update_order);
         self.lines.push(line);
     }

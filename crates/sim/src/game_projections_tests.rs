@@ -14,7 +14,9 @@ use crate::campaign::{SlugcatCampaign, StoryStart};
 use crate::room_projections::ProjectionRef;
 use crate::tests::room_with_water;
 use crate::world::World;
-use crate::{Input, PartKind, RainWorldGame, Sounds, Start};
+use crate::{
+    Input, PartKind, ProjectorFrame, RainWorldGame, Sounds, Start, SuperStructureProjector,
+};
 
 use super::super::lights::tests::WithGraphics;
 
@@ -98,19 +100,30 @@ fn the_projector_is_made_when_the_room_is_first_viewed() {
     assert!(p.cursors.len() == 1);
     let objects = g.room_projection_objects(0);
     assert_eq!(objects.len(), p.parts.len() + 1);
-    // Newest first, as the room walks its update list: the projector is the newest of the
-    // constructor's objects, so its own turn comes before the parts it made.
-    let mut sorted = objects.clone();
-    sorted.sort_by_key(|&(seq, _)| std::cmp::Reverse(seq));
-    let first = sorted
-        .iter()
-        .position(|&(_, o)| matches!(o, RoomObject::Projection(ProjectionRef::Projector(_))))
-        .expect("projector");
-    let last_part = sorted
-        .iter()
-        .position(|&(_, o)| matches!(o, RoomObject::Projection(ProjectionRef::Part { .. })))
-        .expect("part");
-    assert!(first < last_part || sorted[first].0 < sorted[last_part].0);
+}
+
+/// The constructor makes its parts before the projector takes its own place; parts added
+/// by later updates are newer than the projector.
+#[test]
+fn projector_parts_are_older_or_newer_than_it() {
+    let mut rng = UnityRandom::new(3);
+    let mut seq = 10_u64;
+    let mut p = SuperStructureProjector::new((20, 10), 1.0, &mut seq, &mut rng);
+    assert!(!p.parts.is_empty());
+    assert!(p.parts.iter().all(|q| q.update_order < p.update_order));
+    assert_eq!(p.update_order, seq);
+    let made = p.parts.len();
+    let frame = ProjectorFrame {
+        electric_power: 1.0,
+        being_viewed: true,
+        camera_position: Some(0),
+    };
+    for _ in 0..400 {
+        p.update(&frame, &mut seq, &mut rng);
+    }
+    assert!(p.parts.iter().any(|q| q.update_order > p.update_order));
+    assert!(p.parts.iter().all(|q| q.update_order != p.update_order));
+    assert!(made > 0);
 }
 
 #[test]

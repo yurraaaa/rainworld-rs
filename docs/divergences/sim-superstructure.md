@@ -10,18 +10,14 @@ the `GlyphProjection` shader in `crates/render/shaders/glyph_projection.wgsl`. N
 Creation order: the projector and the scan lines are made by `Room.NowViewed`, in the same
 settings-order loop as the green sparks, specks and spores (`particles_now_viewed`), so their
 draws and update-list slots follow the settings' order; the parts take their slots in the
-constructor, before the projector (`AddObject` after the constructor), so each tick the room
-walks the projector first and its parts after it. `StarMatrix` is made by `Room.Loaded`
+constructor, before the projector (`AddObject` after the constructor), so the constructor's
+parts are older than the projector and the room walks the projector before them; parts added
+later (refills, new cursors) are newer and walked before it. `StarMatrix` is made by `Room.Loaded`
 (placed objects).
 
 - **DLC branch omitted:** `SuperStructureProjector`'s constructor hides the projector
   (`visible = false` until its first roll) in the More Slugcats region `MS` unless Moon's heart
   is active (`ModManager.MSC`, `IsMoonHeartActive`). Every DLC counts as not installed.
-- **No sprite leasers: a glyph's colour is kept from its constructor.** A `SingleGlyph`'s
-  sprite colour (red 1 when `selected`) is set once, in `InitiateSprites`, and a glyph reused
-  from the waiting room (`Reset`) keeps it while `selected` is rolled again. The port draws from
-  state each frame, so the glyph keeps `sprite_selected`, the value its constructor rolled (what
-  `InitiateSprites` reads, as the leaser is made right after `AddObject` in the viewed room).
 - **`_gridOffset` is a renderer global.** The game sets it (`Shader.SetGlobalVector`) in every
   visible active `SingleGlyph.DrawSprites`, the value the same for all of them, and the
   `GlyphProjection` shader of every glyph, cursor and matrix reads it. The port sets it once per
@@ -40,3 +36,13 @@ walks the projector first and its parts after it. `StarMatrix` is made by `Room.
   texture grid in the shader are the game's constants (not `ScreenSize`).
 - **Not drawn in the debug view** (no atlas): the objects are sprites of the `Shadows` and
   `BackgroundShortcuts` containers.
+- **Setup draw order across objects:** `Room.Loaded`'s placed-object loop in the port
+  collects first and adds after; `SlimeMold` (item radius) and `Rainbow` (seeded chance) draw
+  at collection time while `StarMatrix` draws in the later add pass, where the game draws in
+  object order. No installed room with `ProjectedStars` (`ss_c02`, `ss_f01`, `ss_f02`,
+  `ss_h01`) places a `SlimeMold` or `Rainbow`, so nothing differs today.
+- **Glyph colour note (matches the game):** a `SingleGlyph`'s sprite colour is set once in
+  `InitiateSprites` and a glyph reused from the waiting room (`Reset`) keeps it; the port
+  keeps `sprite_selected` from the constructor.
+- **`Atlases/glyphs` has one mip level** (750 x 15, point filter, repeat), so the shader's
+  `tex2D` has no lower mip to pick at cell seams; no mip support is needed.
