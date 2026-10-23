@@ -1390,8 +1390,6 @@ mod tests {
         }
     }
 
-    /// The region map's quads are queued before the room's `HUD` sprites (the disc rips
-    /// them) once the camera has moved, and after them in the session's first room.
     /// The flag's lifecycle: above the disc at construction; a camera move before the map
     /// loaded (the HUD's first update) leaves it; a move after puts it under, for good.
     #[test]
