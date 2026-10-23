@@ -18,6 +18,7 @@ not behaviour. Game assets are never committed.
 | `room_visuals.rs` | settings, palettes and per-camera images for one room's level graphic | `RoomCamera` |
 | `settings.rs` | `RoomSettings`, `SettingsFile`, template inheritance, `FadePalette`, `DangerType` | `RoomSettings` |
 | `placed.rs`, `placed_types.rs` | room effects and placed objects by type name; the `PlacedObject.Type` / `RoomEffect.Type` enums | `PlacedObject`, `RoomSettings.RoomEffect` |
+| `placed_beam.rs` | a placed `LightBeam`'s data: `LightBeamData`, `BeamBlinkType` (a `SpotLight` reads `QuadData`) | `LightBeam.LightBeamData` |
 | `placed_light.rs` | a placed light's data: `LightSourceData`, `LightColorType`, `LightBlinkType` | `PlacedObject.LightSourceData` |
 | `triggers.rs` | `Triggers:` entries (event/spot triggers, music and image events) | `RoomSettings.LoadTriggers` |
 | `ambient.rs` | `AmbientSounds:` line | `RoomSettings.LoadAmbientSounds` |

@@ -696,6 +696,7 @@ impl Scene {
             lists.extend(self.game.cosmetic_draw_lists(alpha, face));
             let cam_pos = rw_sim::Vec2::from(self.camera.view_origin(alpha));
             lists.extend(self.game.holo_light_draw_lists(alpha, cam_pos, darkness));
+            lists.extend(self.game.placed_light_draw_lists(self.camera.current()));
             if let Some(visuals) = &self.visuals {
                 let screen = rw_sim::Vec2::from(self.camera.screen_size());
                 lists.extend(self.game.insect_draw_lists(
@@ -740,7 +741,7 @@ impl Scene {
             }
             _ => None,
         };
-        // `SunBlocker`s, alone in the `Shadows` container.
+        // `SunBlocker`s, first in the `Shadows` container (spot lights follow).
         let shadows: Vec<DrawList> = match (&level, &self.visuals) {
             (Some(level), Some(v)) if target.sprites.is_some() => (0..v.sun_blockers())
                 .map(|_| rw_graphics::SunBlocker::draw(rw_sim::Vec2::from(level.origin)))
@@ -899,6 +900,7 @@ impl FrameDraw<'_> {
             for s in self.shadows {
                 r.draw_sprites(s, Layer::Shadows, level.origin);
             }
+            self.draw_layer(r, Layer::Shadows, level);
             self.draw_layer(r, Layer::BackgroundShortcuts, level);
             self.draw_layer(r, Layer::Background, level);
         }

@@ -132,6 +132,13 @@ pub enum Shader {
     /// `Futile/LightSource`: a disc of the colour lighting the level image by its depth,
     /// shadowed by nearer level pixels and hidden on creatures drawn behind the level.
     LightSource,
+    /// `Futile/LightBeam` (a placed `LightBeam`'s mesh): the colour with alpha
+    /// `uv.y * sin(uv.x * pi)` in thirds of the vertex alpha, faded by level depth
+    /// (nothing over near layers in the third's lower part).
+    LightBeam,
+    /// `Futile/VectorCircle` (a `SpotLight`'s mesh): opaque vertex colour inside the
+    /// ellipse inscribed in the UV square, nothing outside.
+    VectorCircle,
     /// `Futile/HologramImage`: a cell of a 5x5 projection texture (the colour's blue
     /// picks it, red and green pan it), tinted, screened over the frame and cut by
     /// noisy scan lines.

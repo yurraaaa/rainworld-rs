@@ -27,6 +27,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `game_insects.rs`, `game_insects_tests.rs` | cosmetic insects in the update list: `NowViewed`/`NoLongerViewed` at the camera's room change, creatures for the avoiders, the firefly's light | `Room.NowViewed` insect branch |
 | `game_hits.rs` | thrown rock/spear vs creatures | `Weapon.Update` Thrown branch |
 | `game_holo_light.rs` | Monk guide light in the update list | `HologramLight.TryCreate` |
+| `game_light_beams.rs`, `game_light_beams_tests.rs` | placed `LightBeam`s and `SpotLight`s joining the update list, a beam's turn (environment colour), `ApplyPalette` | `Room.Loaded` (`LightBeam`, `SpotLight`), `LightBeam.Update` |
 | `game_lights.rs`, `game_lights_tests.rs` | light sources in the update list: placed lights (`Room.Loaded`), the glowing player's light (`PlayerGlow`), camera 0's picture they read, `Darkness`, `LightSourceExposure`/`LightSourceColor`/`DarknessOfPoint` | `Room` light members, `LightSource.Update`, `PlayerGraphics.Update` light |
 | `game_instructions.rs` | `Room.Loaded`'s placed room objects (guide triggers, placed lights, slime molds, dead token stalks), input-instruction triggers | `SuperJumpInstruction`, `ReliableIggyDirection` |
 | `game_placed_cosmetics.rs`, `game_placed_cosmetics_tests.rs` | cosmetic slime molds and dead token stalks joining the update list, the stalks' turns | `Room.Loaded` (`CosmeticSlimeMold`, `CosmeticSlimeMold2`, `SlimeMold`, `DeadTokenStalk`) |
@@ -60,6 +61,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `chunk.rs` | `BodyChunk` integration + tile collision | `BodyChunk.Update` |
 | `object.rs` | `PhysicalObject`: chunks + distance constraints | `PhysicalObject` |
 | `item.rs` | abstract objects (`AbstractObject`, `Entity`, `ObjectData`, `AbstractSpear`), save strings | `AbstractPhysicalObject` |
+| `light_beam.rs`, `spot_light.rs` | `LightBeam` (quad, environment and palette colours), `SpotLight` (quad) | `LightBeam`, `SpotLight` |
 | `light_source.rs` | `LightSource` (`Alpha`, `Lightness`, update) | `LightSource` |
 | `camera_image.rs` | `CameraImage`: camera 0's level image and palette (`PixelColorAtCoordinate`, effect colours) | `RoomCamera.PixelColorAtCoordinate` |
 | `map_discovery.rs` | per-region discovery textures, base64 PNG form | `PlayerProgression` map textures |
@@ -207,6 +209,7 @@ sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `m
 | The Hunter's spear on the back | `game_spear_on_back.rs`, `player/spear_on_back.rs`, `item/on_back_stick.rs` |
 | Body physics / collision | `chunk.rs`, `object.rs`, `player/mod.rs` |
 | Overseer / guide | `creature/overseer/`, `world/overseers_world_ai.rs`, `game_holo_light.rs` |
+| Placed light beams, spot lights | `light_beam.rs`, `spot_light.rs`, `game_light_beams.rs`; sprites in `rw-graphics` `light_beam.rs`, `spot_light.rs`, `quad_grid.rs` |
 | Lights (placed, player glow, room light queries) | `light_source.rs`, `game_lights.rs`, `camera_image.rs`; sprites in `rw-graphics` `light_source.rs` |
 | Bat flies | `creature/fly/`, `world/flies_world_ai.rs`, `game_flies.rs` |
 | Cosmetic insects (Flies, RockFlea, ... effects, `InsectGroup`) | `insect/`, `game_insects.rs`; sprites in `rw-graphics` `insect_graphics.rs` |

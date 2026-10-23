@@ -37,6 +37,7 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 | `hologram_matrix.rs` | overseer lens wireframe | `OverseerGraphics.HologramMatrix` |
 | `hologram_shape.rs` | line geometry of hologram parts | `OverseerHolograms` |
 | `hologram_draw.rs` | hologram part sprites and lines | `OverseerHologram.DrawSprites` |
+| `light_beam.rs`, `spot_light.rs`, `quad_grid.rs` | placed light beam mesh and per-frame alpha (`ForegroundLights`), spot light mesh (`Shadows`), the grid mesh over a quad (`GetIdealGridDiv` 250/150 px, `MakeGridMesh`) | `LightBeam`, `SpotLight`, `TriangleMesh.MakeGridMesh` |
 | `holo_light.rs`, `light_source.rs` | guide light; light disc | `HologramLight`, `LightSource` |
 | `weapon_graphics.rs` | rock and spear sprites | `Rock`, `Spear` |
 | `water_drip.rs`, `cosmetic_graphics.rs` | drips (`DripPalette`, water-coloured too); sparks, explosion spikes, lizard and air bubbles, splashes | `WaterDrip`, `Spark`, `ExplosionSpikes`, `LizardBubble`, `Bubble`, `Splash` |
@@ -59,7 +60,7 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 - Slime-mold patches, dead token stalks: `slime_mold.rs`, `token_stalk.rs` (simulation in `rw-sim`).
 - Rocks and spears: `weapon_graphics.rs`.
 - Shelter door, pipes: `shelter_door_graphics.rs`, `shortcut_graphics.rs`.
-- Light discs: `light_source.rs`, `holo_light.rs`.
+- Light discs: `light_source.rs`, `holo_light.rs`; beams and spots: `light_beam.rs`, `spot_light.rs`, `quad_grid.rs`.
 - Atlas frame lookup: `atlas.rs`.
 - The draw list a renderer consumes: `draw.rs`.
 
