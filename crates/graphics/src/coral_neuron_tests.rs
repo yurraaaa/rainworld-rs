@@ -211,6 +211,7 @@ fn a_circle_is_two_discs_spokes_and_lines() {
     let neurons = [n];
     let around = CircleSurroundings {
         neurons: &neurons,
+        stems: &[],
         circles: std::slice::from_ref(&c),
         light_angle: Vec2::new(0.5, 0.25),
     };
@@ -274,6 +275,7 @@ fn a_blinking_line_draws_its_width() {
     let neurons = [n];
     let around = CircleSurroundings {
         neurons: &neurons,
+        stems: &[],
         circles: std::slice::from_ref(&c),
         light_angle: Vec2::new(0.0, 0.0),
     };
@@ -311,6 +313,7 @@ fn a_connected_circle_is_reached_rim_to_rim() {
     let circles = [a.clone(), b];
     let around = CircleSurroundings {
         neurons: &neurons,
+        stems: &[],
         circles: &circles,
         light_angle: Vec2::new(0.0, 0.0),
     };

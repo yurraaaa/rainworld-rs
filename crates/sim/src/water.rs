@@ -97,6 +97,8 @@ pub enum ChunkOwner {
     Player,
     /// A creature's or an item's.
     Entity(Entity),
+    /// A coral stem's segment.
+    Segment(crate::SegmentRef),
 }
 
 /// A body chunk the water's update reads: chunk `index` of `owner`.

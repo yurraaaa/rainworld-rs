@@ -33,6 +33,7 @@ mod chunk;
 mod climbable_vines;
 pub mod color;
 mod coral_neuron;
+mod coral_stem;
 mod coral_system;
 mod cosmetic;
 pub mod creature;
@@ -110,6 +111,7 @@ pub use climbable_vines::{
     VineClimber, VineHost, VineHostMut, VineKind, VinePosition, VineRef,
 };
 pub use coral_neuron::{CoralNeuron, NeuronCx, NeuronGeometry, NewNeuron};
+pub use coral_stem::{CoralStem, NewStem, SegmentHang, SegmentRef, StemCx, StemSegment, StemTick};
 pub use coral_system::CoralNeuronSystem;
 pub use cosmetic::{
     Cosmetic, CosmeticKind, CosmeticTie, ExplosionSpikes, OverseerEffectSprite, Spark,
@@ -124,9 +126,9 @@ pub use dust_puff::{DustPuff, DustpuffSpawner};
 pub use electric_death::{ElectricDeath, LightFlash, SparkFlash, Strike, WallSpark};
 pub use float_ext::FloatExt;
 pub use game::{
-    CameraMove, DevRainControl, GameOver, Grabability, HeavyAiThrottle, HudEvent, NewGameWorld,
-    OverseerCall, PlayerGlow, PlayerHands, PlayerObserver, PlayerSurroundings, RainWorldGame,
-    Start, UtilityReadings,
+    CameraMove, DevRainControl, GameOver, Grabability, HeavyAiThrottle, HudEvent, LookTarget,
+    NewGameWorld, OverseerCall, PlayerGlow, PlayerHands, PlayerObserver, PlayerSurroundings,
+    RainWorldGame, Start, UtilityReadings,
 };
 pub use gravity_disruptor::{DisruptorSpeck, GravityDisruptor, SPECKS, STREAKS};
 pub use green_sparks::{GreenSpark, GreenSparks, SparkCx};
@@ -142,7 +144,7 @@ pub use mycelium::{
     OwnerKey, PointOwner, SystemId, SystemState,
 };
 pub use neuron_spark::NeuronSpark;
-pub use noise::{ImpactCall, ImpactCalls, InGameNoise, NoiseSink, RoomCall};
+pub use noise::{ImpactCall, ImpactCalls, InGameNoise, NoiseSink, NoiseSource, RoomCall};
 pub use object::{
     BodyChunkConnection, ConnectionKind, PhysicalObject, TerrainImpactHandler, slugcat,
 };

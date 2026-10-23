@@ -37,6 +37,7 @@ impl World {
             let chunks = match owner {
                 ChunkOwner::Player => player.as_ref().map(|(_, c)| &c[..]),
                 ChunkOwner::Entity(e) => self.surface_chunks(e),
+                ChunkOwner::Segment(s) => self.segment_chunks(s),
             };
             for (i, c) in chunks.into_iter().flatten().enumerate() {
                 copies.push((owner, i, c.clone()));
@@ -61,6 +62,7 @@ impl World {
             let chunk = match owner {
                 ChunkOwner::Player => player.as_deref_mut().and_then(|c| c.get_mut(i)),
                 ChunkOwner::Entity(e) => self.surface_chunks_mut(e).and_then(|c| c.get_mut(i)),
+                ChunkOwner::Segment(s) => self.segment_chunks_mut(s).and_then(|c| c.get_mut(i)),
             };
             if let Some(c) = chunk {
                 c.splash_stop = copy.splash_stop;
@@ -91,6 +93,7 @@ impl World {
             let chunks = match owner {
                 ChunkOwner::Player => player.as_ref().map(|(_, c)| &c[..]),
                 ChunkOwner::Entity(e) => self.surface_chunks(e),
+                ChunkOwner::Segment(s) => self.segment_chunks(s),
             };
             for (i, c) in chunks.into_iter().flatten().enumerate() {
                 copies.push((owner, i, c.clone()));
@@ -118,6 +121,7 @@ impl World {
             let chunk = match owner {
                 ChunkOwner::Player => player.as_deref_mut().and_then(|c| c.get_mut(i)),
                 ChunkOwner::Entity(e) => self.surface_chunks_mut(e).and_then(|c| c.get_mut(i)),
+                ChunkOwner::Segment(s) => self.segment_chunks_mut(s).and_then(|c| c.get_mut(i)),
             };
             if let Some(c) = chunk {
                 c.vel = copy.vel;
@@ -159,8 +163,41 @@ impl World {
                 list.push((w.collision_layer, w.layer_order, owner));
             }
         }
+        if let Some(c) = self.realized(index).and_then(|r| r.coral.as_ref()) {
+            for (stem, s) in c.stems.iter().enumerate() {
+                for (segment, g) in s.segments.iter().enumerate() {
+                    let owner = ChunkOwner::Segment(crate::SegmentRef {
+                        room: index,
+                        stem: stem as u32,
+                        segment: segment as u32,
+                    });
+                    list.push((0, g.update_order, owner));
+                }
+            }
+        }
         list.sort_by_key(|&(layer, seq, _)| (layer, seq));
         list
+    }
+
+    /// The chunks of a coral stem's segment.
+    pub fn segment_chunks(&self, s: crate::SegmentRef) -> Option<&[BodyChunk]> {
+        let stem = self
+            .realized(s.room)?
+            .coral
+            .as_ref()?
+            .stems
+            .get(s.stem as usize)?;
+        Some(&stem.segments.get(s.segment as usize)?.body.chunks)
+    }
+
+    pub(crate) fn segment_chunks_mut(&mut self, s: crate::SegmentRef) -> Option<&mut [BodyChunk]> {
+        let stem = self
+            .realized_mut(s.room)?
+            .coral
+            .as_mut()?
+            .stems
+            .get_mut(s.stem as usize)?;
+        Some(&mut stem.segments.get_mut(s.segment as usize)?.body.chunks)
     }
 
     /// The chunks of a realized fly, lizard, overseer or item.

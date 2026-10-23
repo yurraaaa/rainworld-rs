@@ -45,6 +45,14 @@ pub struct ItemTick<'a> {
     pub calls: Vec<RoomCall>,
 }
 
+/// An object of `room.physicalObjects[0]` a thrown weapon's walk meets.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LayerZero {
+    Entity(Entity),
+    /// A coral stem's segment (two chunks).
+    Segment(crate::SegmentRef),
+}
+
 /// What a thrown spear sticks by: the abstract tiles of the room's stuck spears and
 /// its `NoSpearStickZone`s (position, radius).
 #[derive(Debug, Default)]
@@ -468,7 +476,7 @@ impl World {
                         ImpactCall::Noise(pos, strength) => RoomCall::Noise(InGameNoise {
                             pos,
                             strength,
-                            source: Some(Entity::Object(id)),
+                            source: Some(Entity::Object(id).into()),
                             interesting: 4.0,
                         }),
                     }));
@@ -535,26 +543,39 @@ impl World {
     }
 
     /// `room.physicalObjects[0]` of room `index` without weapon `me`: its flies,
-    /// overseers and thrown or wall-stuck weapons, in the order they joined the layer.
-    pub(crate) fn layer_zero(&self, index: i32, me: ObjectId) -> Vec<Entity> {
-        let mut layer: Vec<(u64, Entity)> = self
+    /// overseers, thrown or wall-stuck weapons and coral stems' segments, in the order
+    /// they joined the layer.
+    pub(crate) fn layer_zero(&self, index: i32, me: ObjectId) -> Vec<LayerZero> {
+        let mut layer: Vec<(u64, LayerZero)> = self
             .creatures()
             .filter_map(|(cid, cr)| {
                 let f = cr.fly().filter(|f| f.room == Some(index))?;
-                Some((f.update_order, Entity::Creature(cid)))
+                Some((f.update_order, LayerZero::Entity(Entity::Creature(cid))))
             })
             .collect();
         layer.extend(
             self.room_overseers(index)
                 .into_iter()
-                .map(|(seq, cid)| (seq, Entity::Creature(cid))),
+                .map(|(seq, cid)| (seq, LayerZero::Entity(Entity::Creature(cid)))),
         );
+        if let Some(c) = self.realized(index).and_then(|r| r.coral.as_ref()) {
+            for (stem, s) in c.stems.iter().enumerate() {
+                for (segment, g) in s.segments.iter().enumerate() {
+                    let at = crate::SegmentRef {
+                        room: index,
+                        stem: stem as u32,
+                        segment: segment as u32,
+                    };
+                    layer.push((g.update_order, LayerZero::Segment(at)));
+                }
+            }
+        }
         for (oid, o) in self.objects() {
             if let Some(w) = o.realized.as_deref().filter(|w| w.room == index)
                 && w.collision_layer == 0
                 && oid != me
             {
-                layer.push((w.layer_order, Entity::Object(oid)));
+                layer.push((w.layer_order, LayerZero::Entity(Entity::Object(oid))));
             }
         }
         layer.sort_unstable_by_key(|&(seq, _)| seq);

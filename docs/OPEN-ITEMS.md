@@ -126,8 +126,8 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 ## To look into
 - **Other-room MCP screenshots without fixtures** (user, 2026-10-23: skip for now):
   `screenshot` with `room` set (`crates/app/src/mcp/dev_tools.rs`) draws no light fixtures
-  and none of the SS electric objects (D36), wall mycelia (D38), coral neurons or projected
-  circles (D40); the debug view does not outline them either.
+  and none of the SS electric objects (D36), wall mycelia (D38), coral neurons, coral stems
+  (D41) or projected circles (D40); the debug view does not outline them either.
 - **Full-screen effects leftovers** (review, small): `DeathFall::camera_viewing_point`
   belongs on the room (`Room.CameraViewingPoint`); stale "not ported" rows for LightBurn,
   SkyAndLightBloom, SkyBloom and wet terrain in `../rainworld-re/surveys/room-effects/`
@@ -194,10 +194,9 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   - Climbable vines (user, 2026-10-23; `../rainworld-re/surveys/climbable-vines.md`, D39):
     the corruption tubes (`ClimbableCorruptionTube`, `Rope`) with `DaddyCorruption`; `PoleMimic`
     as a vine with the Pole Mimic creature; More Slugcats' `ClimbableVine`, Watcher's whiskers
-    and the Remix branches with their DLC. The coral neurons (10d3a, D40) are the first vine
-    owner; the stems (10d3b) are next: each adds a `VineRef` variant, registers it in the room's
-    system and gets a branch in the vine host (`RoomVines`) the player's update and the hands
-    read (D39).
+    and the Remix branches with their DLC. The coral neurons (10d3a, D40) and stems (10d3b,
+    D41) are done: each adds a `VineRef` variant, registers it in the room's system and gets a
+    branch in the vine host (`RoomVines`) the player's update and the hands read (D39).
   - Zero gravity: coral circuit swimming (`circuitSwimResistance`, `curcuitJumpMeter`,
     `swimBits`), with the coral circuit object.
   - Zero gravity: Five Pebbles' and Moon's oracle scenes switching `AntiGravity` off, with
@@ -205,14 +204,22 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   - `Room.ElectricPower` / gravity readers: `SpinningFan`, `MeltLights`, with the SS
     objects (`ZapCoil`, `SuperStructureFuses` and `SSLightRod` are ported, D36;
     `GravityDisruptor`, `DeepProcessing` and `DeepProcessingLight`, D37).
-  - `ProjectedCircle` (D35, D40): ported with `CoralNeuron`; owners left: `CoralStem` (10d3b),
+  - `ProjectedCircle` (D35, D40, D41): ported with `CoralNeuron` and `CoralStem`; owners left:
     `SSOracleSwarmer` (10e), `SpearMasterPearl` and `Inspector` (DLC); the MSC and MMF branches
     of the circle itself with their DLC (D40).
-  - Coral (D38, D40; done: the system, `WallMycelia`, the shared `Mycelium` pool,
-    `NeuronSpark`, `CoralNeuron` with `ProjectedCircle`): what `CoralNeuronSystem.AIMapReady` also
-    builds comes with 10d3b-10e (`CoralStem`/`StemSegment`, `CoralCircuit` and its connectors,
-    `PlaceSwarmers`); More Slugcats' `Inspector` and
+  - Coral (D38, D40, D41; done: the system, `WallMycelia`, the shared `Mycelium` pool,
+    `NeuronSpark`, `CoralNeuron` and `CoralStem` with `ProjectedCircle`): what
+    `CoralNeuronSystem.AIMapReady` also builds comes with 10d4-10e (`CoralCircuit` and its
+    connectors, `PlaceSwarmers`); More Slugcats' `Inspector` and
     `SingularityBomb` strands with the DLC.
+  - Coral stems' segments are `physicalObjects[0]` objects (D41): each system of the game that
+    walks the room's physical objects must include them when it is ported (`Explosion`,
+    `RoomRain.ThrowAroundObjects`, `GameOverRain`, `WaterCurrent`, `FluxDrain`, `GeyserEruption`,
+    `MeltLights`, `WindRect`, the shelter door's `PansarPush` / `GetStuffInWalls` /
+    `DestroyExcessiveObjects`, `ShortcutHelper`'s round-robin over every layer (the segments change
+    which other layer-0 object it checks each tick: for the planned ShortcutHelper job),
+    `SporeCloud`, `HarmfulSteam`, `TempleGuard`, `RegionGateGraphics`, `SLOracleWakeUpProcedure`, a
+    lizard tongue's all-layer trace, `BigEel`, `TentaclePlant`).
   - The other readers of `room.zapCoils` and `SuperStructureFuses` (D36): `TubeWorm`, the
     Saint tongue, `ElectricSpear`, the `Inspector`, Watcher's `ARZapper`/`WarpTear`, Moon's
     `SLOracleBehavior.fuses`: with them.

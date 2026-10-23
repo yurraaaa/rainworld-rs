@@ -16,7 +16,7 @@ impl RainWorldGame {
         let noise = InGameNoise {
             pos,
             strength,
-            source: Some(Entity::Creature(self.player_id)),
+            source: Some(Entity::Creature(self.player_id).into()),
             interesting: 1.0,
         };
         let player = self.player_body();

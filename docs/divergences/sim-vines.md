@@ -22,8 +22,9 @@ are the usual one-shot's).
   host through `NoiseSink::vines()` (the update's `PlayerHearing` holds the world), the hands
   through `RealizedRoom::vine_view()`. `VineRef::Placed` (vines registered at run time:
   `RealizedRoom::register_climbable_vine`, tests only, live in the room's `PlacedVines`) and
-  `VineRef::CoralNeuron` (10d3a, D40: the neurons live in the coral system) exist; 10d3b adds
-  `CoralStem`, later `CorruptionTube` and `PoleMimic`. The host is `RoomVines`, built from split
+  `VineRef::CoralNeuron` (10d3a, D40: the neurons live in the coral system) and
+  `VineRef::CoralStem` (10d3b, D41: the stems live there too, their segments as physical objects)
+  exist; later `CorruptionTube` and `PoleMimic`. The host is `RoomVines`, built from split
   borrows of the room for each call (`RealizedRoom::vine_access`; `vine_view` gives
   `RoomVinesView`); each owner adds a variant, a branch in it and its storage.
 - **A position on a vine that is not registered** (`VineGrab` with the vine gone) lets go in
@@ -50,7 +51,7 @@ are the usual one-shot's).
   (10554).
 - Watcher: `SkyWhale.SkyWhaleWhisker` (registers and unregisters per room,
   `CurrentlyClimbable` follows the ripple layer).
-- Base game, later steps: `CoralStem` (10d3b; `CoralNeuron` is done, D40), `ClimbableCorruptionTube`
+- Base game, later steps (`CoralNeuron` is done, D40; `CoralStem`, D41): `ClimbableCorruptionTube`
   with `DaddyCorruption` (`Grab_Corruption_Tube` is ported and reachable then), `PoleMimic`
   with its creature (`BeingClimbedOn` wakes it and plays `Player_Grab_Pole_Mimic`; the
   `VineKind` exists, the grab plays no sound for it yet).

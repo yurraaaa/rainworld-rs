@@ -174,7 +174,7 @@ impl RainWorldGame {
             let creature = match owner {
                 ChunkOwner::Player => Some(self.player_id),
                 ChunkOwner::Entity(Entity::Creature(id)) => Some(id),
-                ChunkOwner::Entity(Entity::Object(_)) => None,
+                ChunkOwner::Entity(Entity::Object(_)) | ChunkOwner::Segment(_) => None,
             };
             for i in 0.. {
                 let Some(chunk) = self.electric_chunk(owner, i) else {
@@ -250,6 +250,7 @@ impl RainWorldGame {
         match owner {
             ChunkOwner::Player => self.player.as_ref()?.body.chunks.get(i).cloned(),
             ChunkOwner::Entity(e) => self.world.surface_chunks(e)?.get(i).cloned(),
+            ChunkOwner::Segment(s) => self.world.segment_chunks(s)?.get(i).cloned(),
         }
     }
 
@@ -261,6 +262,7 @@ impl RainWorldGame {
         match owner {
             ChunkOwner::Player => self.player.as_mut()?.body.chunks.get_mut(i),
             ChunkOwner::Entity(e) => self.world.surface_chunks_mut(e)?.get_mut(i),
+            ChunkOwner::Segment(s) => self.world.segment_chunks_mut(s)?.get_mut(i),
         }
     }
 
@@ -278,7 +280,7 @@ impl RainWorldGame {
             ElectricSoundAt::Chunk(ChunkOwner::Player, chunk, _) => {
                 sounds.play_on_chunk(id, chunk, false, volume, 1.0, &mut self.rng);
             }
-            ElectricSoundAt::Chunk(ChunkOwner::Entity(_), _, pos) => {
+            ElectricSoundAt::Chunk(ChunkOwner::Entity(_) | ChunkOwner::Segment(_), _, pos) => {
                 sounds.play_on_object(id, pos, false, volume, 1.0, &mut self.rng);
             }
         }

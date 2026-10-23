@@ -362,6 +362,25 @@ pub struct PlayerHands {
     pub head: Vec2,
 }
 
+/// A physical object of the room the player's looker may look at: an item or creature, or
+/// a coral stem's segment (D41).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LookTarget {
+    Entity(Entity),
+    Segment(crate::SegmentRef),
+}
+
+impl LookTarget {
+    /// The creature or item, if it is one.
+    #[must_use]
+    pub fn entity(self) -> Option<Entity> {
+        match self {
+            Self::Entity(e) => Some(e),
+            Self::Segment(_) => None,
+        }
+    }
+}
+
 /// What the player's graphics read of its room and hands.
 pub struct PlayerSurroundings<'a> {
     pub world: &'a World,
@@ -371,7 +390,7 @@ pub struct PlayerSurroundings<'a> {
     pub stomach: bool,
     pub room: i32,
     /// The room's physical objects in its update list, oldest first, the player left out.
-    pub objects: Vec<Entity>,
+    pub objects: Vec<LookTarget>,
     /// `FoodInStomach < MaxFoodInStomach`.
     pub hungry: bool,
     /// Hand 0's `grabbedChunk` (position, radius) when it is a `HeavyCarry`.

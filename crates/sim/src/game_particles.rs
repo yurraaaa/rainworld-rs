@@ -52,6 +52,7 @@ impl World {
             let chunks = match owner {
                 ChunkOwner::Player => player.map(|(_, c)| c),
                 ChunkOwner::Entity(e) => self.surface_chunks(e),
+                ChunkOwner::Segment(s) => self.segment_chunks(s),
             };
             views.extend(chunks.into_iter().flatten().map(|c| ChunkView {
                 pos: c.pos,

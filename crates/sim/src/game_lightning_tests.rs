@@ -139,7 +139,7 @@ fn thunder_dulls_hearing() {
     let noise = InGameNoise {
         pos: at,
         strength: 100.0,
-        source: Some(Entity::Creature(player)),
+        source: Some(Entity::Creature(player).into()),
         interesting: 1.0,
     };
     let r = g.world_mut().realized_mut(0).unwrap();

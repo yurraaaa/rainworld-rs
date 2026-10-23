@@ -71,7 +71,7 @@ pub use region_state::{ConsumedItem, RegionState};
 pub use social_events::{OwnedItemOnGround, SocialEventId, SocialEventRecognizer};
 pub use swarm_rooms::{SwarmRoomMap, SwarmRoomMapper};
 pub use weapons::ItemTick;
-pub(crate) use weapons::{OrphanLoop, UpdatePart};
+pub(crate) use weapons::{LayerZero, OrphanLoop, UpdatePart};
 
 /// One camera call a graphics module's internal container makes for `obj`'s sprites:
 /// `MoveObjectToInternalContainer` into lizard `into`'s jaws, or
@@ -434,6 +434,9 @@ impl World {
                 }
                 for neuron in &system.neurons {
                     self.mycelia.release_owner(neuron.owner);
+                }
+                for segment in system.stems.iter().flat_map(|stem| &stem.segments) {
+                    self.mycelia.release_owner(segment.owner);
                 }
                 self.mycelia.drop_registry(system.id);
             }

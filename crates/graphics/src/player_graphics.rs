@@ -14,7 +14,9 @@ use rw_assets::{Room, Terrain, tile_centre};
 use rw_random::UnityRandom;
 use rw_sim::creature::CreatureId;
 use rw_sim::item::{Entity, ObjectId};
-use rw_sim::{Animation, BodyMode, Player, PlayerHands, PlayerSurroundings, RoomExt, Vec2, Water};
+use rw_sim::{
+    Animation, BodyMode, LookTarget, Player, PlayerHands, PlayerSurroundings, RoomExt, Vec2, Water,
+};
 
 use crate::body_part::{BodyPart, PointConnection};
 use crate::draw::{Color, SlugcatName};
@@ -678,7 +680,7 @@ impl PlayerGraphics {
     /// auto-grab and in sight, a hand whose other hand has reached its place reaches for
     /// it (not while moving away from it), the head and body leaning in.
     fn reach_for_fly(&mut self, player: &Player, around: &PlayerSurroundings<'_>) {
-        let Some(Entity::Creature(fly)) = self.looker.current else {
+        let Some(Entity::Creature(fly)) = self.looker.current.and_then(LookTarget::entity) else {
             return;
         };
         let climbing = player.body_mode() == BodyMode::ClimbingOnBeam

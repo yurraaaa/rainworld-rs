@@ -8,7 +8,8 @@ use serde::Serialize;
 
 pub use super::background_scene_reply::{BackgroundSceneState, CameraOnScene};
 pub use super::coral_reply::{
-    CoralNeuronState, CoralSystemState, NeuronSparkState, ProjectedCircleState, WallMyceliaState,
+    CoralNeuronState, CoralStemState, CoralSystemState, NeuronSparkState, ProjectedCircleState,
+    WallMyceliaState,
 };
 pub use super::effects_reply::{BorderPushBackState, ElectricDeathState};
 pub use super::fixtures_reply::{LightFixtureState, WaterFallState};
@@ -144,6 +145,9 @@ pub struct State {
     /// The realized rooms' `CoralNeuron`s.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub coral_neurons: Vec<CoralNeuronState>,
+    /// The realized rooms' `CoralStem`s with their segments.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub coral_stems: Vec<CoralStemState>,
     /// The realized rooms' `ProjectedCircle`s.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub projected_circles: Vec<ProjectedCircleState>,

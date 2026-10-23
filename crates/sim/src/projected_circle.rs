@@ -17,6 +17,8 @@ use crate::{FloatExt, Vec2};
 pub enum CircleOwner {
     /// A `CoralNeuron`, by its place in the update list.
     Neuron { order: u64 },
+    /// A `CoralStem`, by its place in its system's list.
+    Stem { stem: u32 },
 }
 
 /// The `ProjectedCircle` in a room's update list.

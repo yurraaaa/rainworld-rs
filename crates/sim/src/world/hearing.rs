@@ -20,7 +20,7 @@ use crate::creature::{
     NoiseKind, NoiseTracker, PathFinder, RepKey, RepKind, Tracker, WorldCoordinate,
 };
 use crate::item::Entity;
-use crate::{FloatExt, InGameNoise, Vec2, Water};
+use crate::{FloatExt, InGameNoise, NoiseSource, Vec2, Water};
 
 /// What every creature hearing one noise shares.
 #[derive(Debug, Clone, Copy)]
@@ -74,10 +74,11 @@ impl World {
     }
 
     /// `noise.sourceObject.room != null`.
-    fn noise_source_in_room(&self, e: Entity, player: Option<&PlayerBody>) -> bool {
+    fn noise_source_in_room(&self, e: NoiseSource, player: Option<&PlayerBody>) -> bool {
         match e {
-            Entity::Creature(c) => self.room_of(c, player).is_some(),
-            Entity::Object(o) => self.object(o).realized.is_some(),
+            NoiseSource::Entity(Entity::Creature(c)) => self.room_of(c, player).is_some(),
+            NoiseSource::Entity(Entity::Object(o)) => self.object(o).realized.is_some(),
+            NoiseSource::Segment(_) => true,
         }
     }
 
@@ -88,7 +89,9 @@ impl World {
         let Some(src) = h.noise.source else {
             return;
         };
-        if src == Entity::Creature(c) || !self.noise_source_in_room(src, h.player) {
+        if src == NoiseSource::Entity(Entity::Creature(c))
+            || !self.noise_source_in_room(src, h.player)
+        {
             return;
         }
         if !self.creature(c).lizard().is_some_and(|l| l.conscious()) {
@@ -298,7 +301,9 @@ impl World {
     /// The tracked creature that made a noise, or failing that the first holding its
     /// source that is tracked (`RepresentationForObject` without adding).
     fn noise_source_rep(&self, t: &Tracker, noise: InGameNoise) -> Option<usize> {
-        let src = noise.source?;
+        let NoiseSource::Entity(src) = noise.source? else {
+            return None;
+        };
         if let Entity::Creature(c) = src
             && let Some(i) = t.reps.iter().position(|r| r.creature == c)
         {
@@ -312,13 +317,15 @@ impl World {
     /// What kind of noise it is to AI `ai` (`HowInterestingIsThisNoiseToMe`).
     fn noise_kind(&self, ai: CreatureId, noise: InGameNoise) -> NoiseKind {
         match noise.source {
-            Some(Entity::Creature(c))
+            Some(NoiseSource::Entity(Entity::Creature(c)))
                 if self.creature(c).template.top_ancestor()
                     == self.creature(ai).template.top_ancestor() =>
             {
                 NoiseKind::Kin
             }
-            Some(Entity::Object(o)) if self.object(o).kind == AbstractObjectType::Rock => {
+            Some(NoiseSource::Entity(Entity::Object(o)))
+                if self.object(o).kind == AbstractObjectType::Rock =>
+            {
                 NoiseKind::Rock
             }
             _ => NoiseKind::Other,

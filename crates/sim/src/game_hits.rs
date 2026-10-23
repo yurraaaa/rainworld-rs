@@ -12,8 +12,8 @@ use rw_assets::CreatureType;
 use super::{OverseerCall, PlayerObserver, RainWorldGame};
 use crate::creature::{CreatureId, CreatureTemplate, EntityId, RealizedCreature, WorldCoordinate};
 use crate::item::{Entity, ObjectId, WeaponMode};
-use crate::world::UpdatePart;
-use crate::{FloatExt, SoundId, Vec2};
+use crate::world::{LayerZero, UpdatePart};
+use crate::{FloatExt, SegmentRef, SoundId, Vec2};
 
 impl RainWorldGame {
     /// Item `id`'s `Update` in room `index`'s update list: up to its `Thrown` branch;
@@ -168,7 +168,17 @@ impl RainWorldGame {
             0.0
         };
         let mut mass = 0.0f32;
-        for e in self.world.layer_zero(index, id) {
+        for item in self.world.layer_zero(index, id) {
+            let e = match item {
+                LayerZero::Entity(e) => e,
+                LayerZero::Segment(s) => {
+                    self.thrown_through_segment(index, id, s, rad_add, &mut mass);
+                    if mass > 0.6 {
+                        break;
+                    }
+                    continue;
+                }
+            };
             let held =
                 thrower.is_some_and(|t| self.world.grabbed_by(e).iter().any(|g| g.grabber == t));
             if !self.world.can_be_hit_by_weapons(e) || held {
@@ -212,27 +222,7 @@ impl RainWorldGame {
                 mass += other_mass;
                 if mass > 0.6 {
                     let at = self.world.layer_zero_chunk(e).map_or(opos, |c| c.pos);
-                    if let Some(w) = self.world.weapon_mut(id) {
-                        w.chunk_mut().pos = at;
-                    }
-                    self.world
-                        .change_weapon_mode(id, WeaponMode::Free, &mut self.rng);
-                    if let Some(w) = self.world.weapon_mut(id) {
-                        w.chunk_mut().vel *= 0.5;
-                    }
-                    let sounds = if index == self.camera_room {
-                        &mut self.sounds
-                    } else {
-                        &mut self.silent
-                    };
-                    sounds.play_on_object(
-                        SoundId::SpearHitSmallCreature,
-                        at,
-                        false,
-                        1.0,
-                        1.0,
-                        &mut self.rng,
-                    );
+                    self.weapon_stops_at(index, id, at);
                 }
             }
             if mass <= 0.6
@@ -242,6 +232,70 @@ impl RainWorldGame {
             }
             if mass > 0.6 {
                 break;
+            }
+        }
+    }
+
+    /// The weapon drops where it hit too much: at `at` (`Free`, half speed,
+    /// `Spear_Hit_Small_Creature`).
+    fn weapon_stops_at(&mut self, index: i32, id: ObjectId, at: Vec2) {
+        if let Some(w) = self.world.weapon_mut(id) {
+            w.chunk_mut().pos = at;
+        }
+        self.world
+            .change_weapon_mode(id, WeaponMode::Free, &mut self.rng);
+        if let Some(w) = self.world.weapon_mut(id) {
+            w.chunk_mut().vel *= 0.5;
+        }
+        let sounds = if index == self.camera_room {
+            &mut self.sounds
+        } else {
+            &mut self.silent
+        };
+        sounds.play_on_object(
+            SoundId::SpearHitSmallCreature,
+            at,
+            false,
+            1.0,
+            1.0,
+            &mut self.rng,
+        );
+    }
+
+    /// The walk's part for a coral stem's segment (never held, always hit-able): each of
+    /// its two chunks the weapon's last move crossed is pushed along; the hit does
+    /// nothing else (`HitByWeapon` is the base's) but weigh `mass` down toward 0.6.
+    fn thrown_through_segment(
+        &mut self,
+        index: i32,
+        id: ObjectId,
+        s: SegmentRef,
+        rad_add: f32,
+        mass: &mut f32,
+    ) {
+        for i in 0..2 {
+            let Some(me) = self.world.realized_weapon(id, index) else {
+                return;
+            };
+            let c = me.chunk();
+            let (last, pos, vel, rad) = (c.last_pos, c.pos, c.vel, c.rad + rad_add);
+            let Some(chunk) = self
+                .world
+                .segment_chunks_mut(s)
+                .and_then(|chunks| chunks.get_mut(i))
+            else {
+                return;
+            };
+            let t = last.circles_collision_time(chunk.pos, pos - last, rad, chunk.rad);
+            if !(t > 0.0 && t < 1.0) {
+                continue;
+            }
+            chunk.vel += vel;
+            *mass += chunk.mass;
+            if *mass > 0.6 {
+                let at = chunk.pos;
+                self.weapon_stops_at(index, id, at);
+                return;
             }
         }
     }

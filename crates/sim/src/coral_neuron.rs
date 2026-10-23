@@ -124,7 +124,7 @@ pub struct NeuronCx<'a> {
 }
 
 impl NeuronCx<'_> {
-    fn next_seq(&mut self) -> u64 {
+    pub(crate) fn next_seq(&mut self) -> u64 {
         *self.seq += 1;
         *self.seq
     }

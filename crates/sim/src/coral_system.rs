@@ -11,6 +11,7 @@ use rw_random::UnityRandom;
 
 use crate::Vec2;
 use crate::coral_neuron::CoralNeuron;
+use crate::coral_stem::CoralStem;
 use crate::mycelium::{SystemId, SystemState};
 use crate::projected_circle::CircleOwner;
 use crate::wall_mycelia::WallMycelia;
@@ -29,6 +30,8 @@ pub struct CoralNeuronSystem {
     pub built: bool,
     /// `neurons`, in the order `AIMapReady` made them (stems add theirs).
     pub neurons: Vec<CoralNeuron>,
+    /// `stems`, in the order `AIMapReady` made them.
+    pub stems: Vec<CoralStem>,
     /// `wallMycelia`.
     pub wall_mycelia: Vec<WallMycelia>,
 }
@@ -45,6 +48,7 @@ impl CoralNeuronSystem {
             not_viewed_counter: 0,
             built: false,
             neurons: Vec::new(),
+            stems: Vec::new(),
             wall_mycelia: Vec::new(),
         }
     }
@@ -67,6 +71,7 @@ impl CoralNeuronSystem {
                 .iter()
                 .find(|n| n.update_order == order)
                 .is_some_and(CoralNeuron::can_host_circle),
+            CircleOwner::Stem { stem } => self.stems.get(stem as usize).is_some(),
         }
     }
 
@@ -84,6 +89,10 @@ impl CoralNeuronSystem {
                 .iter()
                 .find(|n| n.update_order == order)
                 .map(|n| n.geometry.circle_center(index, time_stacker)),
+            CircleOwner::Stem { stem } => self
+                .stems
+                .get(stem as usize)
+                .and_then(|s| s.circle_center(time_stacker)),
         }
     }
 

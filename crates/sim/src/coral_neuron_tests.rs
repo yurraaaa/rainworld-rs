@@ -360,6 +360,7 @@ fn the_vine_members() {
     let view = RoomVinesView {
         placed: &placed,
         neurons,
+        stems: &[],
     };
     assert_eq!(view.kind(vine), VineKind::CoralNeuron);
     assert_eq!(view.total_positions(vine), 5);
@@ -459,6 +460,7 @@ fn a_push_through_the_host_moves_the_stored_neuron() {
     let mut host = RoomVines {
         placed: &mut placed,
         neurons: std::slice::from_mut(&mut made.neuron),
+        stems: &mut [],
     };
     host.push(
         VineRef::CoralNeuron { room: 0, order },
