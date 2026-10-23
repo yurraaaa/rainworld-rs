@@ -12,13 +12,13 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | app | 17 | 34 | 0 | 0 |
 | assets | 25 | 13 | 0 | 0 |
 | audio | 11 | 5 | 0 | 0 |
-| graphics | 52 | 4 | 0 | 0 |
+| graphics | 53 | 4 | 0 | 0 |
 | hud | 24 | 0 | 0 | 0 |
 | menu | 27 | 2 | 0 | 0 |
 | random | 0 | 1 | 0 | 0 |
 | render | 7 | 19 | 0 | 0 |
 | save | 15 | 5 | 0 | 0 |
-| sim | 243 | 5 | 0 | 0 |
+| sim | 244 | 5 | 0 | 0 |
 
 ## Rust file to C# files
 
@@ -133,6 +133,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/graphics/src/background_scene.rs` | mirrors | AboveCloudsView.cs, BackgroundScene.cs, RoofTopView.cs |
 | `crates/graphics/src/body_part.rs` | mirrors | BodyPart.cs |
 | `crates/graphics/src/coral_neuron_draw.rs` | mirrors | CoralBrain/CoralNeuron.cs |
+| `crates/graphics/src/coral_stem_draw.rs` | mirrors | CoralBrain/StemSegment.cs |
 | `crates/graphics/src/cosmetic_graphics.rs` | mirrors | Bubble.cs, ExplosionSpikes.cs, LizardBubble.cs, NeuronSpark.cs, Spark.cs, SplashWater/Splash.cs, StationaryEffect.cs |
 | `crates/graphics/src/decal.rs` | mirrors | CustomDecal.cs, TriangleMesh.cs |
 | `crates/graphics/src/draw.rs` | port-only | - |
@@ -297,6 +298,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/sim/src/climbable_vines.rs` | mirrors | ClimbableVinesSystem.cs, IClimbableVine.cs |
 | `crates/sim/src/color.rs` | mirrors | RWCustom/Custom.cs |
 | `crates/sim/src/coral_neuron.rs` | mirrors | CoralBrain/CoralNeuron.cs |
+| `crates/sim/src/coral_stem.rs` | mirrors | CoralBrain/CoralStem.cs, CoralBrain/StemSegment.cs, IClimbableVine.cs, IOwnProjectedCircles.cs, PhysicalObject.cs |
 | `crates/sim/src/coral_system.rs` | mirrors | CoralBrain/CoralNeuronSystem.cs |
 | `crates/sim/src/cosmetic.rs` | mirrors | ExplosionSpikes.cs, LizardBubble.cs, OverseerEffect.cs, Spark.cs, StationaryEffect.cs |
 | `crates/sim/src/creature/agression_tracker.rs` | mirrors | AgressionTracker.cs |
@@ -572,10 +574,12 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `CollectToken.cs` | `crates/graphics/src/token_stalk.rs`, `crates/sim/src/token_stalk.rs` |
 | `CoralBrain/CoralNeuron.cs` | `crates/graphics/src/coral_neuron_draw.rs`, `crates/sim/src/coral_neuron.rs`, `crates/sim/src/game_coral.rs` |
 | `CoralBrain/CoralNeuronSystem.cs` | `crates/sim/src/coral_system.rs`, `crates/sim/src/game_coral.rs` |
+| `CoralBrain/CoralStem.cs` | `crates/sim/src/coral_stem.rs` |
 | `CoralBrain/JobData.cs` | `crates/sim/src/mycelium.rs` |
 | `CoralBrain/Mycelium.cs` | `crates/graphics/src/mycelium.rs`, `crates/graphics/src/wall_mycelia_draw.rs`, `crates/sim/src/mycelium.rs` |
 | `CoralBrain/ProjectedCircle.cs` | `crates/graphics/src/projected_circle_draw.rs`, `crates/sim/src/projected_circle.rs` |
 | `CoralBrain/SSMusicTrigger.cs` | `crates/sim/src/game_triggers.rs`, `crates/sim/src/trigger.rs` |
+| `CoralBrain/StemSegment.cs` | `crates/graphics/src/coral_stem_draw.rs`, `crates/sim/src/coral_stem.rs` |
 | `CoralBrain/WallMycelia.cs` | `crates/graphics/src/wall_mycelia_draw.rs`, `crates/sim/src/game_coral.rs`, `crates/sim/src/wall_mycelia.rs` |
 | `CorruptionSpore.cs` | `crates/graphics/src/zero_g_speck.rs`, `crates/sim/src/zero_g_speck.rs` |
 | `CosmeticInsect.cs` | `crates/sim/src/insect/avoider.rs`, `crates/sim/src/insect/mod.rs` |
@@ -644,8 +648,8 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `HealthState.cs` | `crates/sim/src/creature/state_save.rs` |
 | `HologramLight.cs` | `crates/graphics/src/holo_light.rs`, `crates/sim/src/creature/overseer/holo_light.rs`, `crates/sim/src/game_holo_light.rs` |
 | `HolyFire.cs` | `crates/graphics/src/light_fixture.rs`, `crates/sim/src/light_fixture.rs` |
-| `IClimbableVine.cs` | `crates/sim/src/climbable_vines.rs` |
-| `IOwnProjectedCircles.cs` | `crates/sim/src/projected_circle.rs` |
+| `IClimbableVine.cs` | `crates/sim/src/climbable_vines.rs`, `crates/sim/src/coral_stem.rs` |
+| `IOwnProjectedCircles.cs` | `crates/sim/src/coral_stem.rs`, `crates/sim/src/projected_circle.rs` |
 | `IconSymbol.cs` | `crates/hud/src/icon_symbol.rs` |
 | `InGameTranslator.cs` | `crates/assets/src/short_strings.rs`, `crates/menu/src/translator.rs` |
 | `InputInstructionTrigger.cs` | `crates/sim/src/game_instructions.rs` |
@@ -737,7 +741,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `PathCost.cs` | `crates/sim/src/world/movement.rs` |
 | `PathFinder.cs` | `crates/sim/src/creature/path_finder/mapper.rs`, `crates/sim/src/creature/path_finder/mod.rs` |
 | `PathfinderResourceDivider.cs` | `crates/sim/src/creature/path_finder/mapper.rs` |
-| `PhysicalObject.cs` | `crates/sim/src/creature/fly/update.rs`, `crates/sim/src/game_flies.rs`, `crates/sim/src/game_lizards.rs`, `crates/sim/src/item/weapon.rs`, `crates/sim/src/noise.rs`, `crates/sim/src/object.rs`, `crates/sim/src/screen_shake.rs` |
+| `PhysicalObject.cs` | `crates/sim/src/coral_stem.rs`, `crates/sim/src/creature/fly/update.rs`, `crates/sim/src/game_flies.rs`, `crates/sim/src/game_lizards.rs`, `crates/sim/src/item/weapon.rs`, `crates/sim/src/noise.rs`, `crates/sim/src/object.rs`, `crates/sim/src/screen_shake.rs` |
 | `PickupObjectInstruction.cs` | `crates/sim/src/trigger.rs` |
 | `PlacedObject.cs` | `crates/assets/src/placed.rs`, `crates/assets/src/placed_beam.rs`, `crates/assets/src/placed_electric.rs`, `crates/assets/src/placed_fixture.rs`, `crates/assets/src/placed_light.rs`, `crates/assets/src/placed_types.rs`, `crates/assets/src/placed_visuals.rs`, `crates/sim/src/insect/coordinator.rs` |
 | `Player.cs` | `crates/sim/src/creature/vision.rs`, `crates/sim/src/game_carried.rs`, `crates/sim/src/game_eat_meat.rs`, `crates/sim/src/game_holo_light.rs`, `crates/sim/src/game_items.rs`, `crates/sim/src/game_lizard_hits.rs`, `crates/sim/src/game_map.rs`, `crates/sim/src/game_over.rs`, `crates/sim/src/game_player.rs`, `crates/sim/src/game_player_grabbed.rs`, `crates/sim/src/game_shelter.rs`, `crates/sim/src/game_social_events.rs`, `crates/sim/src/game_spear_on_back.rs`, `crates/sim/src/item/on_back_stick.rs`, `crates/sim/src/player/advanced.rs`, `crates/sim/src/player/animation.rs`, `crates/sim/src/player/body_mode.rs`, `crates/sim/src/player/carry.rs`, `crates/sim/src/player/corridor.rs`, `crates/sim/src/player/drips.rs`, `crates/sim/src/player/exhaustion.rs`, `crates/sim/src/player/falls.rs`, `crates/sim/src/player/grab.rs`, `crates/sim/src/player/grabbed.rs`, `crates/sim/src/player/input.rs`, `crates/sim/src/player/jump.rs`, `crates/sim/src/player/jump_on_chunk.rs`, `crates/sim/src/player/ledge.rs`, `crates/sim/src/player/mod.rs`, `crates/sim/src/player/movement.rs`, `crates/sim/src/player/poles.rs`, `crates/sim/src/player/shortcut.rs`, `crates/sim/src/player/sleep.rs`, `crates/sim/src/player/sounds.rs`, `crates/sim/src/player/spear_on_back.rs`, `crates/sim/src/player/swim.rs`, `crates/sim/src/player/vines.rs`, `crates/sim/src/player/zero_g.rs` |
