@@ -1104,8 +1104,9 @@ light level `num4`, `_light`, the `LightBloom` alpha and palette texels (0, 7) a
 - A world without a rain cycle (`cycle_length` 0, D22) reads `CycleEndIntensityBoost`
   from the game's formula as it is (0.33 at timer 0: extra draws, a shorter wait); the
   game always has a cycle, so the port leaves it.
-- `Room.Update`'s pause branch of `backgroundNoise` (`game.pauseUpdate`) is not
-  ported: the sim has no paused update.
+- `Room.Update`'s `game.pauseUpdate` branch of `backgroundNoise` is an omitted DLC
+  branch: only More Slugcats' `ChatLogDisplay` sets `pauseUpdate` true (the pause menu
+  does not), so in the base game it is always false.
 - The sound loop's emitter is the game's `DisembodiedLoopEmitter`; `Pan` reaches the
   audio as `SoundEvent::EmitterPan` and is read by the loop each frame as the game's
   `DisembodiedLoop.Update` does (D12 for the rest).

@@ -156,9 +156,8 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   (satellite head, `SataFlasher` sprite, `forceSatellite`), with the DLC.
 - **M7 effects: behaviour waiting on its dependency** (user, 2026-10-23: port each when
   its dependency is ported):
-  - Lightning: `Room.Update`'s `game.pauseUpdate` branch of `backgroundNoise`, with the
-    paused update; `DaddyLongLegs` closing its eyes above `BackgroundNoise` 0.35, with
-    that creature.
+  - Lightning: `DaddyLongLegs` closing its eyes above `BackgroundNoise` 0.35, with that
+    creature. (The `game.pauseUpdate` branch of `backgroundNoise` is MSC-only, D25.)
   - Rainbow: the camera's `ghostMode` hiding it, with echoes; the `IsArenaSession` branch
     (always made, fade 1, never destroyed) and arena's 600-tick start-up, with arena
     sessions (D26).
