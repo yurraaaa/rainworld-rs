@@ -97,6 +97,7 @@ impl RainWorldGame {
         gravity: f32,
         helper: &mut ShortcutHelper,
     ) {
+        self.sync_player_pulled();
         let player_entity = Entity::Creature(self.player_id);
         if self.player_here(index)
             && !self.world.can_be_pulled_into_shortcut(player_entity)
@@ -246,16 +247,9 @@ impl RainWorldGame {
     }
 
     /// `PhysicalObject.GoThroughFloors` of a pushed object: every chunk's
-    /// `goThroughFloors`, which reads true while the object can be pulled into a
-    /// shortcut (`grabsDisableFloors` is true outside slugpups).
-    fn pusher_goes_through_floors(&self, owner: ChunkOwner, chunks: &[BodyChunk]) -> bool {
-        let entity = match owner {
-            ChunkOwner::Player => Some(Entity::Creature(self.player_id)),
-            ChunkOwner::Entity(e) => Some(e),
-            ChunkOwner::Segment(_) => None,
-        };
-        entity.is_some_and(|e| self.world.can_be_pulled_into_shortcut(e))
-            || chunks.iter().all(|c| c.go_through_floors())
+    /// `goThroughFloors` (the getter).
+    fn pusher_goes_through_floors(chunks: &[BodyChunk]) -> bool {
+        chunks.iter().all(|c| c.go_through_floors())
     }
 
     /// `ObjectPusher.Update`.
@@ -356,7 +350,7 @@ impl RainWorldGame {
                     15.0,
                     if up { 0.8 } else { 3.0 },
                 );
-                if up && self.pusher_goes_through_floors(op.owner, chunks) {
+                if up && Self::pusher_goes_through_floors(chunks) {
                     for c in chunks.iter_mut() {
                         c.set_go_through_floors(false);
                     }

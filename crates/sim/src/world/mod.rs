@@ -128,6 +128,9 @@ pub struct World {
     room_serial: u64,
     /// The graphics modules' internal-container moves since the last take, in order.
     pub(crate) sprite_moves: Vec<SpriteMove>,
+    /// `CanBePulledIntoShortcut(player)` after the last grasp change on a slugcat, until
+    /// the game copies it into the player's chunks (`sync_player_pulled`).
+    pub(crate) player_pulled: Option<bool>,
     /// The realized player's `dead` flag (its body lives outside the world).
     pub(crate) player_dead: bool,
     /// The flies' `FlockBehavior`s, shared by reference in the game, by creation order.
@@ -201,6 +204,7 @@ impl World {
             owned_item_serial: 0,
             room_serial: 0,
             sprite_moves: Vec::new(),
+            player_pulled: None,
             player_dead: false,
             flocks: Vec::new(),
             drip_ids: 0,

@@ -1253,6 +1253,7 @@ impl RainWorldGame {
             {
                 self.world
                     .clean_grabbed_by(Entity::Creature(self.player_id));
+                self.sync_player_pulled();
             }
         }
         self.apply_player_release_grabbed_by();

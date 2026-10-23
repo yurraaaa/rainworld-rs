@@ -10,6 +10,7 @@
 //! Mirrors: Creature.cs (Grasp, Grab, ReleaseGrasp, LoseAllGrasps), AbstractPhysicalObject.cs (CreatureGripStick,
 //!   GetAllConnectedObjects), AbstractCreature.cs (DropCarriedObject)
 
+use rw_assets::CreatureType;
 use rw_random::UnityRandom;
 
 use super::{CreatureId, RealizedCreature};
@@ -307,11 +308,15 @@ impl World {
                     w.body.set_pulled_into_shortcut(pulled);
                 }
             }
-            Entity::Creature(id) => match &mut self.creature_mut(id).realized {
-                Some(RealizedCreature::Fly(f)) => f.body.set_pulled_into_shortcut(pulled),
-                Some(RealizedCreature::Lizard(l)) => l.body.set_pulled_into_shortcut(pulled),
-                _ => {}
-            },
+            Entity::Creature(id) => {
+                let player = self.creature(id).kind() == CreatureType::Slugcat;
+                match &mut self.creature_mut(id).realized {
+                    Some(RealizedCreature::Fly(f)) => f.body.set_pulled_into_shortcut(pulled),
+                    Some(RealizedCreature::Lizard(l)) => l.body.set_pulled_into_shortcut(pulled),
+                    _ if player => self.player_pulled = Some(pulled),
+                    _ => {}
+                }
+            }
         }
     }
 

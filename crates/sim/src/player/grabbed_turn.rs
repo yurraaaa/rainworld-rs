@@ -27,13 +27,22 @@ impl RainWorldGame {
         }
         if player && let Some(g) = self.world.creature(r.grabber).grasps[r.grasp_used] {
             let by_lizard = self.world.creature(r.grabber).lizard().is_some();
-            let pulled = self.world.can_be_pulled_into_shortcut(r.grabbed);
             if let Some(p) = self.player.as_mut() {
                 p.grabbed(g, by_lizard);
-                p.set_pulled_into_shortcut(pulled);
             }
         }
+        self.sync_player_pulled();
         true
+    }
+
+    /// Copies the world's `CanBePulledIntoShortcut(player)` into the player's chunks after
+    /// a grasp on the player changed.
+    pub(crate) fn sync_player_pulled(&mut self) {
+        if let Some(pulled) = self.world.player_pulled.take()
+            && let Some(p) = self.player.as_mut()
+        {
+            p.set_pulled_into_shortcut(pulled);
+        }
     }
 
     /// The grasps on the player (`grabbedBy`).
@@ -62,9 +71,7 @@ impl RainWorldGame {
         input: Input,
         observer: &mut dyn PlayerObserver,
     ) {
-        let pulled = self
-            .world
-            .can_be_pulled_into_shortcut(Entity::Creature(self.player_id));
+        self.sync_player_pulled();
         let held = self.player_grabbed_by();
         let (any, pacified) = (!held.is_empty(), held.iter().any(|g| g.pacifying));
         let discontinued = self
@@ -76,7 +83,6 @@ impl RainWorldGame {
             return;
         };
         p.set_held(any, pacified);
-        p.set_pulled_into_shortcut(pulled);
         let step = p.danger_grasp_update(discontinued, input.throw, input.pickup);
         if step.throw_to_get_free {
             self.throw_to_get_free(index, observer);
@@ -108,6 +114,7 @@ impl RainWorldGame {
         while let Some(g) = self.player_grabbed_by().first().copied() {
             self.world.release(g);
         }
+        self.sync_player_pulled();
     }
 
     /// The hand to fight back with: the first holding a spear, else the first holding a
