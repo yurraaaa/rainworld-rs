@@ -71,6 +71,8 @@ pub struct RealizedRoom {
     pub particles: crate::room_particles::RoomParticles,
     /// `Room.Loaded`'s light fixtures and the tile parse's waterfalls.
     pub fixtures: crate::RoomFixtures,
+    /// The superstructure projectors, scan lines and star matrices.
+    pub projections: crate::RoomProjections,
     /// `Room.gravity`: set every tick by the room's `AntiGravity`.
     pub gravity: f32,
     /// `Room.Loaded`'s `AntiGravity` (a `ZeroG` or `BrokenZeroG` effect).
@@ -157,6 +159,7 @@ impl RealizedRoom {
             token_stalks: Vec::new(),
             particles: crate::room_particles::RoomParticles::default(),
             fixtures: crate::RoomFixtures::default(),
+            projections: crate::RoomProjections::default(),
             gravity: 1.0,
             anti_gravity: None,
             decals: Vec::new(),

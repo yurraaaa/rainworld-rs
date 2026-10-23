@@ -37,6 +37,8 @@ struct RoomUniform {
     scene_atmosphere: [f32; 4],
     scene_multiply: [f32; 4],
     scene_world_cam: [f32; 4],
+    /// `_gridOffset` (xy).
+    grid_offset: [f32; 4],
 }
 
 /// The sprite pipelines, the atlas pages' bind groups and the frame's buffers.
@@ -64,6 +66,8 @@ pub(crate) struct SpritePipeline {
     indices: Option<wgpu::Buffer>,
     /// The background scene shaders' globals and textures.
     scene_globals: SceneGlobals,
+    /// `_gridOffset`, a global the last `SingleGlyph` to draw left set.
+    grid_offset: [f32; 2],
     scene_views: SceneViews,
     /// `_CloudsTex`: bilinear, repeat, the nearest mip.
     clouds_sampler: wgpu::Sampler,
@@ -90,7 +94,7 @@ pub(crate) struct ScreenTextures<'a> {
 
 impl SpritePipeline {
     /// Each shader and its fragment entry point.
-    const SHADERS: [(Shader, &'static str); 36] = [
+    const SHADERS: [(Shader, &'static str); 37] = [
         (Shader::Basic, "fs_basic"),
         (Shader::FlatLight, "fs_flat_light"),
         (Shader::OverseerZip, "fs_overseer_zip"),
@@ -130,6 +134,7 @@ impl SpritePipeline {
         (Shader::WaterFall, "fs_water_fall"),
         (Shader::ElectricDeath, "fs_electric_death"),
         (Shader::FlareBomb, "fs_flare_bomb"),
+        (Shader::GlyphProjection, "fs_glyph_projection"),
     ];
 
     /// `_hologramThreshold` at render scale 1 (`RainWorld`, decompile 110635: 0.5 when
@@ -241,6 +246,7 @@ impl SpritePipeline {
                 include_str!("../shaders/background_scene.wgsl"),
                 include_str!("../shaders/water_fall.wgsl"),
                 include_str!("../shaders/electric_death.wgsl"),
+                include_str!("../shaders/glyph_projection.wgsl"),
             ))),
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -327,6 +333,7 @@ impl SpritePipeline {
             noise_group: None,
             blank_screen,
             scene_globals: SceneGlobals::default(),
+            grid_offset: [0.0; 2],
             scene_views: SceneViews {
                 clouds: blank.clone(),
                 apartments: blank.clone(),
@@ -682,6 +689,7 @@ impl SpritePipeline {
                 0.0,
                 0.0,
             ],
+            grid_offset: [self.grid_offset[0], self.grid_offset[1], 0.0, 0.0],
         };
         queue.write_buffer(&self.uniform, 0, bytemuck::bytes_of(&uniform));
         self.noise_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -720,6 +728,11 @@ impl SpritePipeline {
                 },
             ],
         }));
+    }
+
+    /// `_gridOffset` for the next frames.
+    pub(crate) fn set_grid_offset(&mut self, offset: [f32; 2]) {
+        self.grid_offset = offset;
     }
 
     /// The scene shaders' globals for the next frames.

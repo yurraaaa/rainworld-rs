@@ -92,6 +92,17 @@ impl SpriteAssets {
             }
             Err(e) => log::warn!("no LightMask0 texture ({e})"),
         }
+        // `RainWorld.LoadResources` loads `Atlases/glyphs` as the atlas "glyphs" (the
+        // `GlyphProjection` shader's `_MainTex`).
+        match resources.texture_with_settings("Atlases/glyphs") {
+            Ok((texture, image)) => {
+                let (w, h) = (image.width() as u32, image.height() as u32);
+                atlas = atlas.with_page(Atlas::single("glyphs", w, h));
+                images.push(image);
+                sampling.push(Self::import_sampling(&texture));
+            }
+            Err(e) => log::warn!("no glyphs texture ({e})"),
+        }
         Ok(Self {
             atlas,
             images,

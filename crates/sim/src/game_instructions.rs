@@ -1,7 +1,8 @@
 //! The game's side of the guide's room objects: `Room.Loaded`'s placed objects (with the
 //! placed lights, made in [`super::lights`]),
 //! the cosmetic slime molds and dead token stalks (made in [`super::placed_cosmetics`]),
-//! the custom decals and rainbows (made in [`super::decals`]),
+//! the custom decals and rainbows (made in [`super::decals`]), the projected stars (made in
+//! [`super::projections`]),
 //! `SuperJumpInstruction`, `ScavengerTradeInstructionTrigger` and `ReliableIggyDirection`,
 //! the `InputInstructionTrigger`s' updates (with the event-made
 //! `PickupObjectInstruction`), and what the guide's communication reads of them. Types:
@@ -135,6 +136,9 @@ impl RainWorldGame {
                     .map(|d| PlacedRoomObject::TokenStalk(pos, pos + Vec2::from(d.handle))),
                 Some(PlacedObjectType::CustomDecal) => CustomDecalData::parse(&o.data)
                     .map(|d| PlacedRoomObject::Decal(pos, Box::new(d))),
+                Some(PlacedObjectType::ProjectedStars) => {
+                    ResizableData::parse(&o.data).map(|d| PlacedRoomObject::Stars(pos, d.rad()))
+                }
                 Some(PlacedObjectType::Rainbow) => match RainbowData::parse(&o.data) {
                     Some(d) if !self.rainbow_spawns(index, &d) => continue,
                     d => d.map(|d| PlacedRoomObject::Rainbow(pos, d, false)),
@@ -166,6 +170,7 @@ impl RainWorldGame {
                 PlacedRoomObject::Rainbow(pos, data, no_fade) => {
                     self.add_rainbow(index, pos, &data, no_fade);
                 }
+                PlacedRoomObject::Stars(pos, rad) => self.add_star_matrix(index, pos, rad),
             }
         }
     }
@@ -519,4 +524,6 @@ enum PlacedRoomObject {
     Decal(Vec2, Box<CustomDecalData>),
     /// Position, data, `RainbowNoFade`.
     Rainbow(Vec2, RainbowData, bool),
+    /// A `ProjectedStars`: position and `Rad`.
+    Stars(Vec2, f32),
 }

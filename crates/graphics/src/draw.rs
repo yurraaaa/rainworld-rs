@@ -238,6 +238,10 @@ pub enum Shader {
     /// without the Watcher): a bright flash whose alpha is sharpened and whitened,
     /// shadowed by nearer level pixels.
     FlareBomb,
+    /// `Futile/GlyphProjection` (a `SuperStructureProjector`'s glyphs): black glyphs of the
+    /// `glyphs` texture on the 15 px grid of the screen shifted by `_gridOffset`, a cell
+    /// kept by the vertex alpha, inverted unless the vertex red is 0.
+    GlyphProjection,
 }
 
 impl Shader {

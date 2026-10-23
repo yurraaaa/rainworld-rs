@@ -44,6 +44,8 @@ mod overseer_draw;
 mod overseer_graphics;
 mod player_draw;
 mod player_graphics;
+mod projected_scan_lines_draw;
+mod projector_draw;
 mod quad_grid;
 mod rainbow;
 mod shelter_door_graphics;
@@ -51,6 +53,7 @@ mod shortcut_graphics;
 mod sky_dandelion;
 mod slime_mold;
 mod spot_light;
+mod star_matrix_draw;
 mod sun_blocker;
 mod tail;
 mod token_stalk;
@@ -95,6 +98,8 @@ pub use mycelium::{Mycelium, MyceliumLink};
 pub use overseer_graphics::{DrawPositions, OverseerGraphics};
 pub use player_draw::{SPRITE_COUNT, SPRITE_LAYERS, TAIL_TRIANGLES};
 pub use player_graphics::PlayerGraphics;
+pub use projected_scan_lines_draw::ProjectedScanLinesSprites;
+pub use projector_draw::{ProjectionView, ProjectorSprites};
 pub use quad_grid::QuadGrid;
 pub use rainbow::{RAINBOW_ELEMENT, RainbowSprites};
 pub use shelter_door_graphics::ShelterDoorSprites;
@@ -104,6 +109,7 @@ pub use shortcut_graphics::{
 pub use sky_dandelion::{DandelionSprites, StalkSprites};
 pub use slime_mold::SlimeMoldSprites;
 pub use spot_light::SpotLightSprites;
+pub use star_matrix_draw::StarMatrixSprites;
 pub use sun_blocker::SunBlocker;
 pub use tail::{TailAnchor, TailSegment};
 pub use token_stalk::TokenStalkSprites;
@@ -116,6 +122,8 @@ pub use zero_g_speck::SpeckSprites;
 mod hologram_tests;
 #[cfg(test)]
 mod placed_visuals_tests;
+#[cfg(test)]
+mod projection_tests;
 #[cfg(test)]
 mod shortcut_tests;
 #[cfg(test)]

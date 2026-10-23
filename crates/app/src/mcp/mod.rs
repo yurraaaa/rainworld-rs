@@ -37,6 +37,7 @@ mod pause_tests;
 mod placed_cosmetics_reply;
 mod placed_light_reply;
 mod placed_visuals_reply;
+mod projection_reply;
 pub(crate) mod reply;
 #[cfg(test)]
 mod save_tests;

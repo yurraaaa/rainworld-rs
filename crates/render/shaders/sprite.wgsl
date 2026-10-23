@@ -43,6 +43,8 @@ struct Room {
     scene_atmosphere: vec4<f32>,
     scene_multiply: vec4<f32>,
     scene_world_cam: vec4<f32>,
+    // `_gridOffset` (xy).
+    grid_offset: vec4<f32>,
 };
 
 // Futile's `screenPixelOffset` (`Camera::SCREEN_PIXEL_OFFSET`): screen = stage + this.

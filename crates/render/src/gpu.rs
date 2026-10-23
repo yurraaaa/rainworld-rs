@@ -986,6 +986,10 @@ impl Renderer for WgpuRenderer {
         self.sprite_pipeline.set_scene_globals(globals);
     }
 
+    fn set_grid_offset(&mut self, offset: [f32; 2]) {
+        self.sprite_pipeline.set_grid_offset(offset);
+    }
+
     fn draw_sprites(&mut self, list: &DrawList, layer: Layer, cam_pos: [f32; 2]) {
         let Some(atlas) = &self.atlas else { return };
         self.stage_origin = cam_pos;

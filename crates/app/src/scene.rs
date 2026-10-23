@@ -779,6 +779,11 @@ impl Scene {
             }
             lists.extend(self.game.placed_visual_draw_lists());
             lists.extend(self.game.electric_death_draw_lists(alpha, cam_pos));
+            lists.extend(self.game.projection_draw_lists(
+                alpha,
+                cam_pos,
+                rw_sim::Vec2::from(self.camera.position(self.camera.current())),
+            ));
             let level_view = self.visuals.is_some() && view.level;
             if let Some(list) = shortcuts.filter(|_| level_view) {
                 lists.push((Drawable::Shortcuts, list));
@@ -969,6 +974,11 @@ impl FrameDraw<'_> {
 
     fn queue(&self, r: &mut impl Renderer) {
         r.begin_frame(self.camera);
+        if self.level.is_some()
+            && let Some(offset) = self.game.projection_grid_offset(self.alpha)
+        {
+            r.set_grid_offset(offset);
+        }
         r.draw_room(RoomLayers {
             tiles: self.layers.tiles && self.level.is_none(),
             ..self.layers

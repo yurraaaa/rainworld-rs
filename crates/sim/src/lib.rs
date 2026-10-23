@@ -51,11 +51,14 @@ pub mod map_discovery;
 mod noise;
 mod object;
 mod player;
+mod projected_scan_lines;
+mod projector;
 mod rainbow;
 mod roof_top_view;
 mod room_ext;
 mod room_fixtures;
 mod room_particles;
+mod room_projections;
 pub mod room_script;
 mod screen_shake;
 mod shared_physics;
@@ -67,6 +70,7 @@ mod sound;
 mod spawn;
 mod splash;
 mod spot_light;
+mod star_matrix;
 mod token_stalk;
 pub mod trigger;
 mod vec2;
@@ -121,10 +125,16 @@ pub use player::{
     Animation, BodyMode, DangerGraspState, DangerGraspStep, GrabState, HEAD, HIPS, INPUT_HISTORY,
     Input, Player, PlayerController, ShelterCheck, SpearOnBack, StomachObject, VesselStep,
 };
+pub use projected_scan_lines::{ProjectedScanLine, ProjectedScanLines};
+pub use projector::{
+    Cursor, Glyph, GlyphMatrix, PartKind, ProjectorFrame, ProjectorPart, ScanLine, SingleGlyph,
+    SuperStructureProjector,
+};
 pub use rainbow::Rainbow;
 pub use room_ext::RoomExt;
 pub use room_fixtures::RoomFixtures;
 pub use room_particles::RoomParticles;
+pub use room_projections::RoomProjections;
 pub use screen_shake::{CameraShake, ScreenMovement};
 pub use shelter::SessionEnd;
 pub use shortcut::{
@@ -141,6 +151,7 @@ pub use sound::{
 pub use spawn::{determine_safe_spawn_tile, place_in_room};
 pub use splash::Splash;
 pub use spot_light::SpotLight;
+pub use star_matrix::{Star, StarMatrix};
 pub use token_stalk::{CurveLerp, StalkCoord, TokenStalk};
 pub use vec2::{TileExt, Vec2};
 pub use vec3::Vec3;

@@ -134,3 +134,41 @@ impl std::ops::Add for Vec3 {
         Self::new(self.x + o.x, self.y + o.y, self.z + o.z)
     }
 }
+
+impl std::ops::Sub for Vec3 {
+    type Output = Self;
+
+    fn sub(self, o: Self) -> Self {
+        Self::new(self.x - o.x, self.y - o.y, self.z - o.z)
+    }
+}
+
+impl Vec3 {
+    /// `Vector3.Distance`.
+    #[must_use]
+    pub fn distance(self, o: Self) -> f32 {
+        (self - o).length()
+    }
+
+    /// `Vector3.Lerp` (`t` clamped).
+    #[must_use]
+    pub fn lerp(self, to: Self, t: f32) -> Self {
+        let t = t.clamp(0.0, 1.0);
+        Self::new(
+            self.x + (to.x - self.x) * t,
+            self.y + (to.y - self.y) * t,
+            self.z + (to.z - self.z) * t,
+        )
+    }
+
+    /// `Vector3.MoveTowards`.
+    #[must_use]
+    pub fn move_towards(self, target: Self, max_delta: f32) -> Self {
+        let d = target - self;
+        let magnitude = d.length();
+        if magnitude <= max_delta || magnitude == 0.0 {
+            return target;
+        }
+        self + d.div(magnitude).scale(max_delta)
+    }
+}

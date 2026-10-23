@@ -74,6 +74,9 @@ pub enum Drawable {
     Fixture(u64),
     /// An `ElectricDeath`, by its place in the update list.
     ElectricDeath(u64),
+    /// A projector's part, a `ProjectedScanLines` line or a `StarMatrix`, by its place in
+    /// the update list.
+    Projection(u64),
     /// `ShortcutGraphics` (not a leaser: its sprites join the containers after the
     /// room's leasers).
     Shortcuts,
