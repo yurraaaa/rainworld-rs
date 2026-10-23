@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use serde::Serialize;
 
 pub use super::background_scene_reply::{BackgroundSceneState, CameraOnScene};
+pub use super::fixtures_reply::{LightFixtureState, WaterFallState};
 pub use super::insect_reply::RoomInsects;
 pub use super::music_reply::{MusicState, TriggerState};
 pub use super::particles_reply::RoomParticlesState;
@@ -131,6 +132,12 @@ pub struct State {
     /// The realized rooms' placed `SpotLight`s.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub spot_lights: Vec<SpotLightState>,
+    /// The realized rooms' `Redlight`s, `HolyFire`s and `SlimeMoldLight`s.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub light_fixtures: Vec<LightFixtureState>,
+    /// The realized rooms' `WaterFall`s.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub waterfalls: Vec<WaterFallState>,
     /// `HologramLight.Needed(player)` now.
     pub holo_light_needed: f32,
     /// What the session keeps of its deaths.
@@ -271,6 +278,7 @@ impl RoomLightState {
                 Some(rw_sim::LightTie::Insect(_)) => "insect",
                 Some(rw_sim::LightTie::Player) => "player",
                 Some(rw_sim::LightTie::GreenSpark(_)) => "green_spark",
+                Some(rw_sim::LightTie::Fixture(_)) => "fixture",
             },
             slated: l.slated,
         }

@@ -28,6 +28,7 @@ mod hologram_matrix;
 mod hologram_shape;
 mod insect_graphics;
 mod light_beam;
+mod light_fixture;
 mod light_source;
 mod limb;
 mod lizard_cosmetics;
@@ -53,6 +54,7 @@ mod sun_blocker;
 mod tail;
 mod token_stalk;
 mod water_drip;
+mod water_fall;
 mod weapon_graphics;
 mod zero_g_speck;
 
@@ -75,6 +77,7 @@ pub use hologram_matrix::{HoloLine, HologramMatrix, LensFrame};
 pub use hologram_shape::{HologramLine, PartShape};
 pub use insect_graphics::{InsectDraw, InsectSprites};
 pub use light_beam::{LightBeamSprites, LightBeamView};
+pub use light_fixture::{HolyFireSpriteDraw, SlimeMoldLightSprites};
 pub use light_source::{LightSourceSprites, LightSourceView};
 pub use limb::{GripSearch, Limb, LimbMode};
 pub use lizard_cosmetics::{
@@ -103,6 +106,7 @@ pub use sun_blocker::SunBlocker;
 pub use tail::{TailAnchor, TailSegment};
 pub use token_stalk::TokenStalkSprites;
 pub use water_drip::{DripPalette, WaterDripSprites};
+pub use water_fall::WaterFallSprites;
 pub use weapon_graphics::{PEBBLES, PebbleElement, SMALL_SPEAR, WeaponSprites};
 pub use zero_g_speck::SpeckSprites;
 

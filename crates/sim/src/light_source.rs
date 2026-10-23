@@ -22,6 +22,27 @@ pub enum LightTie {
     Player,
     /// A `GreenSpark` by its place in the update list.
     GreenSpark(u64),
+    /// A `LightFixture` (a `Redlight` or `HolyFire`) by its place in the update list.
+    Fixture(u64),
+}
+
+/// `LightSource.ElementName`: the texture its sprite 0 is a `CircularSprite` of.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LightElement {
+    #[default]
+    FutileWhite,
+    /// `RedlightLight`'s: the 128 px `LightMask0` atlas.
+    LightMask0,
+}
+
+impl LightElement {
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::FutileWhite => "Futile_White",
+            Self::LightMask0 => "LightMask0",
+        }
+    }
 }
 
 /// What `LightSource.Update` reads of its room and camera.
@@ -78,6 +99,8 @@ pub struct LightSource {
     pub submersible: bool,
     /// `FlatLight` rather than `LightSource`.
     pub flat: bool,
+    /// `ElementName`.
+    pub element: LightElement,
     /// `Room.FloatWaterLevel(pos)` at the last update.
     pub water_surface_level: f32,
 }
@@ -127,10 +150,16 @@ impl LightSource {
             stay_alive: true,
             submersible: false,
             flat: false,
+            element: LightElement::FutileWhite,
             water_surface_level: 0.0,
         };
         light.set_color(color);
         light
+    }
+
+    /// The light `id` among a room's `lights`.
+    pub fn find_mut(lights: &mut [Self], id: u64) -> Option<&mut Self> {
+        lights.iter_mut().find(|l| l.id == id)
     }
 
     /// The `color` setter of an opaque `new Color(r, g, b)`.

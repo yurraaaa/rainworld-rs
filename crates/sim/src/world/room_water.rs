@@ -10,6 +10,7 @@ use rw_random::UnityRandom;
 use super::{RealizedRoom, World};
 use crate::creature::RealizedCreature;
 use crate::item::Entity;
+use crate::waterfall::FallObject;
 use crate::{BodyChunk, ChunkOwner, CosmeticKind, Sounds, SurfaceChunk, WaterObject};
 
 /// A physical object of a room: its collision layer, place in that layer, and owner.
@@ -71,6 +72,64 @@ impl World {
                 WaterObject::Splash(s) => CosmeticKind::Splash(s),
             };
             self.add_cosmetic(index, kind);
+        }
+    }
+
+    /// `WaterFall.Update` of the fall at `order` in room `index`. `player` is the player's
+    /// body in this room with its place in the update list (`None` when it is elsewhere,
+    /// in a shortcut or holding up); the fall's drips and bubbles join the room.
+    pub(crate) fn update_waterfall(
+        &mut self,
+        index: i32,
+        order: u64,
+        player: Option<(u64, &mut [BodyChunk])>,
+        rng: &mut UnityRandom,
+    ) {
+        let player_seq = player.as_ref().map(|(seq, _)| *seq);
+        let mut copies: Vec<(ChunkOwner, usize, BodyChunk)> = Vec::new();
+        for (_, _, owner) in self.physical_objects(index, player_seq) {
+            let chunks = match owner {
+                ChunkOwner::Player => player.as_ref().map(|(_, c)| &c[..]),
+                ChunkOwner::Entity(e) => self.surface_chunks(e),
+            };
+            for (i, c) in chunks.into_iter().flatten().enumerate() {
+                copies.push((owner, i, c.clone()));
+            }
+        }
+        let Some(RealizedRoom {
+            water, fixtures, ..
+        }) = self.realized_mut(index)
+        else {
+            return;
+        };
+        let Some(fall) = fixtures
+            .waterfalls
+            .iter_mut()
+            .find(|w| w.update_order == order)
+        else {
+            return;
+        };
+        let made = fall.update(water.as_mut(), rng);
+        if let Some(w) = water.as_ref() {
+            fall.push_chunks(w, copies.iter_mut().map(|(_, _, c)| c));
+        }
+        let mut player = player.map(|(_, c)| c);
+        for (owner, i, copy) in copies {
+            let chunk = match owner {
+                ChunkOwner::Player => player.as_deref_mut().and_then(|c| c.get_mut(i)),
+                ChunkOwner::Entity(e) => self.surface_chunks_mut(e).and_then(|c| c.get_mut(i)),
+            };
+            if let Some(c) = chunk {
+                c.vel = copy.vel;
+            }
+        }
+        for o in made {
+            match o {
+                FallObject::Drip(d) => {
+                    self.add_drip(index, d);
+                }
+                FallObject::Bubble(b) => self.add_cosmetic(index, CosmeticKind::Bubble(b)),
+            }
         }
     }
 

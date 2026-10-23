@@ -42,6 +42,8 @@ mod instructions;
 mod items;
 #[path = "game_light_beams.rs"]
 mod light_beams;
+#[path = "game_light_fixtures.rs"]
+mod light_fixtures;
 #[path = "game_lightning.rs"]
 mod lightning;
 #[path = "game_lights.rs"]
@@ -115,6 +117,8 @@ mod water_sound;
 #[cfg(test)]
 #[path = "game_water_tests.rs"]
 mod water_tests;
+#[path = "game_waterfalls.rs"]
+mod waterfalls;
 #[path = "game_weapons.rs"]
 mod weapons;
 
@@ -420,6 +424,8 @@ enum RoomObject {
     Rainbow(u64),
     /// A `LightBeam` by its place in the update list.
     LightBeam(u64),
+    /// A light fixture, its ember or a waterfall.
+    Fixture(crate::room_fixtures::FixtureRef),
     Lizard(CreatureId),
 }
 
@@ -984,6 +990,7 @@ impl RainWorldGame {
     fn finish_loading(&mut self, observer: &mut dyn PlayerObserver) {
         let session = self.story_session();
         for index in self.world.finish_loading() {
+            self.add_waterfalls(index);
             self.add_shelter_door(index);
             self.add_lightning(index);
             self.add_trigger_checkers(index);
@@ -1453,6 +1460,7 @@ impl RainWorldGame {
         objects.extend(self.room_particle_objects(index));
         objects.extend(self.room_rainbow_objects(index));
         objects.extend(self.room_light_beam_objects(index));
+        objects.extend(self.room_fixture_objects(index));
         objects.sort_by_key(|&(seq, _)| std::cmp::Reverse(seq));
         objects
     }
@@ -1566,12 +1574,14 @@ impl RainWorldGame {
                 RoomObject::Particle(p) => self.run_particle(index, p),
                 RoomObject::Rainbow(order) => self.run_rainbow(index, order),
                 RoomObject::LightBeam(order) => self.run_light_beam(index, order),
+                RoomObject::Fixture(f) => self.run_fixture(index, f),
                 RoomObject::Insect(_) => {}
             }
         }
         self.remove_slated_trigger_objects();
         self.remove_slated_holo_lights(index);
         self.remove_slated_particles(index);
+        self.remove_slated_fixtures(index);
         if !player_done {
             self.update_room_player_now(index, input, observer);
         }

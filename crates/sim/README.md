@@ -28,6 +28,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `game_hits.rs` | thrown rock/spear vs creatures | `Weapon.Update` Thrown branch |
 | `game_holo_light.rs` | Monk guide light in the update list | `HologramLight.TryCreate` |
 | `game_light_beams.rs`, `game_light_beams_tests.rs` | placed `LightBeam`s and `SpotLight`s joining the update list, a beam's turn (environment colour), `ApplyPalette` | `Room.Loaded` (`LightBeam`, `SpotLight`), `LightBeam.Update` |
+| `game_light_fixtures.rs`, `game_light_fixtures_tests.rs`, `game_waterfalls.rs` | placed `LightFixture`s (`Redlight`, `HolyFire`, `SlimeMoldLight`) and the tile parse's `WaterFall`s joining the update list, their turns in it (the `RedlightLight` made on the first update, the embers shed, a fall's drips, bubbles and push on bodies), `Room.ElectricPower` | `Room.Loaded` (`LightFixture`), `Room.LoadFromDataString` (waterfalls), `Redlight.Update`, `WaterFall.Update` |
 | `game_lightning.rs`, `game_lightning_tests.rs` | a room's `Lightning` in the game: `Room.Loaded` making it, its turn and room calls (`MakeBackgroundNoise`, `ScreenMovement`, `PlaySound`), its loop emitters' turns, hearing dulled by the background noise | `Room.Loaded` lightning, `MakeBackgroundNoise` |
 | `game_lights.rs`, `game_lights_tests.rs` | light sources in the update list: placed lights (`Room.Loaded`), the glowing player's light (`PlayerGlow`), camera 0's picture they read, `Darkness`, `LightSourceExposure`/`LightSourceColor`/`DarknessOfPoint` | `Room` light members, `LightSource.Update`, `PlayerGraphics.Update` light |
 | `game_instructions.rs` | `Room.Loaded`'s placed room objects (guide triggers, placed lights, slime molds, dead token stalks), input-instruction triggers | `SuperJumpInstruction`, `ReliableIggyDirection` |
@@ -67,6 +68,8 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `light_beam.rs`, `spot_light.rs` | `LightBeam` (quad, environment and palette colours), `SpotLight` (quad) | `LightBeam`, `SpotLight` |
 | `lightning.rs`, `lightning_tests.rs` | `Lightning` (`Lightning`/`BkgOnlyLightning` effects): two `LightningSource`s (reset, flash curve, thunder queue, `Electricity_Loop`), the camera's reads (`CurrentLightLevel`, `CurrentBackgroundColor`, `CurrentFogColor`, `LightningFrame`) | `Lightning` |
 | `light_source.rs` | `LightSource` (`Alpha`, `Lightness`, update) | `LightSource` |
+| `light_fixture.rs`, `light_fixture_tests.rs` | `Redlight` (flicker, gravity-dependent power), `HolyFire` with `HolyFireSprite`, `SlimeMoldLight` (seeded discs) | `LightFixture`, `Redlight`, `HolyFire`, `SlimeMoldLight` |
+| `waterfall.rs`, `waterfall_tests.rs`, `room_fixtures.rs` | `WaterFall` (the falls a room's tiles make, ends, drips, surface hit, bubbles, push) and a realized room's fixtures and falls | `WaterFall`, `Room.LoadFromDataString` |
 | `camera_image.rs` | `CameraImage`: camera 0's level image and palette (`PixelColorAtCoordinate`, effect colours) | `RoomCamera.PixelColorAtCoordinate` |
 | `map_discovery.rs` | per-region discovery textures, base64 PNG form | `PlayerProgression` map textures |
 | `shared_physics.rs` | point terrain collision, exact tile ray trace | `SharedPhysics`, `Custom.RectCollision` |
@@ -226,6 +229,7 @@ sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `m
 | Body physics / collision | `chunk.rs`, `object.rs`, `player/mod.rs` |
 | Overseer / guide | `creature/overseer/`, `world/overseers_world_ai.rs`, `game_holo_light.rs` |
 | Placed light beams, spot lights | `light_beam.rs`, `spot_light.rs`, `game_light_beams.rs`; sprites in `rw-graphics` `light_beam.rs`, `spot_light.rs`, `quad_grid.rs` |
+| Light fixtures (`Redlight`, `HolyFire`, `SlimeMoldLight`), waterfalls | `light_fixture.rs`, `waterfall.rs`, `room_fixtures.rs`, `game_light_fixtures.rs`, `game_waterfalls.rs`; sprites in `rw-graphics` `light_fixture.rs`, `water_fall.rs` |
 | Lights (placed, player glow, room light queries) | `light_source.rs`, `game_lights.rs`, `camera_image.rs`; sprites in `rw-graphics` `light_source.rs` |
 | Bat flies | `creature/fly/`, `world/flies_world_ai.rs`, `game_flies.rs` |
 | Cosmetic insects (Flies, RockFlea, ... effects, `InsectGroup`) | `insect/`, `game_insects.rs`; sprites in `rw-graphics` `insect_graphics.rs` |

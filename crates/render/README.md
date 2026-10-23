@@ -29,6 +29,7 @@ lists and overlays.
 | `shaders/sprite.wgsl` | room sprite shaders (`fs_basic`, `fs_flat_light`, `fs_hologram*`, `fs_light_source`, `fs_under_water_light`, `fs_shortcut`, `fs_water_splash`, `fs_water_light`, `fs_light_beam`, `fs_vector_circle`, ...) |
 | `shaders/full_screen.wgsl` | the room's full-screen effects, appended to `sprite.wgsl` (`fs_bloom`, `fs_sky_bloom`, `fs_light_bloom`, `fs_light_and_sky_bloom`, `fs_fog`) |
 | `shaders/background_scene.wgsl` | the background scenes' shaders (`fs_background`, `fs_cloud`, `fs_cloud_distant`, `fs_distant_bkg_object`, `fs_distant_bkg_object_repeat`, `fs_bkg_floor`, `fs_house`, `fs_dust`, `fs_spores`), appended after `placed_visuals.wgsl`; clipped by the level image and what was drawn behind it |
+| `shaders/water_fall.wgsl` | `WaterFall`'s shader (`fs_water_fall`), appended after `placed_visuals.wgsl` |
 | `shaders/placed_visuals.wgsl` | `CustomDecal`'s `Decal` shader (`fs_decal`) and `Rainbow`'s (`fs_rainbow`), appended after `death_fall.wgsl` |
 | `shaders/death_fall.wgsl` | `DeathFallGraphic`'s `DeathFall` shader (`fs_death_fall`), appended after `full_screen.wgsl` |
 | `shaders/stage.wgsl` | menu/HUD shaders (`fs_vector_circle`, `fs_menu_text`, `fs_local_bloom`, ...) |

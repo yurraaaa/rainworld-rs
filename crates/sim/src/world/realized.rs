@@ -69,6 +69,8 @@ pub struct RealizedRoom {
     pub token_stalks: Vec<crate::TokenStalk>,
     /// The dandelions, sparks, specks and spores of the room's effects.
     pub particles: crate::room_particles::RoomParticles,
+    /// `Room.Loaded`'s light fixtures and the tile parse's waterfalls.
+    pub fixtures: crate::RoomFixtures,
     /// `Room.gravity`: 1 until `AntiGravity` (zero-gravity rooms) is ported.
     pub gravity: f32,
     /// `Room.Loaded`'s `CustomDecal`s (no per-tick state; drawn in `Foreground`).
@@ -148,6 +150,7 @@ impl RealizedRoom {
             updated: false,
             token_stalks: Vec::new(),
             particles: crate::room_particles::RoomParticles::default(),
+            fixtures: crate::RoomFixtures::default(),
             gravity: 1.0,
             decals: Vec::new(),
             rainbows: Vec::new(),

@@ -39,6 +39,7 @@ fn room_file(rows: &[&str], water_level: i32, items: &str) -> Room {
         for row in rows {
             let cell = match row.as_bytes()[x] {
                 b'.' => "0",
+                b'w' => "0,8",
                 b'#' => "1",
                 b'/' => "2",
                 b'-' => "3",

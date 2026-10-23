@@ -226,6 +226,10 @@ pub enum Shader {
     Dust,
     /// `Futile/Spores` (`DustpuffSpawner.DustPuff`): a soft puff in the sprite's colour.
     Spores,
+    /// `Futile/WaterFall` (`WaterFall`): the room palette's water colours over the fall,
+    /// shaped by noise and the level depth, with the vertex colour's red the density and
+    /// green and blue the fade at its top and bottom.
+    WaterFall,
 }
 
 impl Shader {

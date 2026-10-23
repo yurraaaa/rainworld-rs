@@ -57,7 +57,9 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   Placed lights (L1, D24, notes `lights.md`) done: placed `LightSource`s, `Alpha` with
   `fadeWithSun`, colour from the level image and effect colours, the glowing player's
   light, `LightSourceExposure`/`LightSourceColor`/`DarknessOfPoint`, `Needed` reading
-  `Alpha`. `LightBeam`/`SpotLight` (L3) done (D24). Left: fixtures (L2a, L2b), owners' lights with
+  `Alpha`. `LightBeam`/`SpotLight` (L3) done (D24). Fixtures without electricity (L2a: `Redlight`,
+  `HolyFire`, `SlimeMoldLight`) and the rooms' waterfalls done (D30). Left: the SS
+  electricity fixtures (L2b) with `AntiGravity`/`ElectricPower`, owners' lights with
   their owners (L4); blinking and night lights with the DLCs.
   Step 3 (cosmetic insects, `rw_sim::insect`, `../rainworld-re/notes/cosmetic-insects.md`)
   done; its omissions are among the decisions above. Draw order for later steps:
@@ -168,3 +170,8 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   - ZeroGSpecks, CorruptionSpores: zero gravity (`AntiGravity`, the `ZeroG` and
     `BrokenZeroG` effects), which makes them visible and stops the pile-up of `reset`
     specks (D29).
+- **Room files `Room::load` rejects** (user, 2026-10-23: not real rooms, but look into
+  why): `su_a08`, `su_a09`, `su_a15_tiled`, `su_b01_tiled` in the installed game's
+  `su-rooms` fail the port's room parser (seen by the waterfall corpus test). Find what
+  in their files the parser rejects and whether the game's `Room.LoadFromDataString`
+  would read them.

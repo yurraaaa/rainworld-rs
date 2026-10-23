@@ -67,6 +67,15 @@ impl SpriteAssets {
             }
             Err(e) => log::warn!("no rainbow texture ({e})"),
         }
+        // `RainWorld.LoadResources` loads `Atlases/LightMask0` as the atlas "LightMask0".
+        match resources.texture_image("Atlases/LightMask0") {
+            Ok(image) => {
+                let (w, h) = (image.width() as u32, image.height() as u32);
+                atlas = atlas.with_page(Atlas::single("LightMask0", w, h));
+                images.push(image);
+            }
+            Err(e) => log::warn!("no LightMask0 texture ({e})"),
+        }
         Ok(Self {
             atlas,
             images,

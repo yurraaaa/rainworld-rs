@@ -124,7 +124,10 @@ fn clouds_texture_import_settings_and_the_games_quality_setting() {
         return;
     };
     let texture: Texture2D = game.resources.load("Illustrations/cloudsTexture").unwrap();
-    assert_eq!((texture.width, texture.height, texture.mip_count), (512, 256, 10));
+    assert_eq!(
+        (texture.width, texture.height, texture.mip_count),
+        (512, 256, 10)
+    );
     assert_eq!(texture.filter_mode, 1, "bilinear");
     assert_eq!(texture.aniso, 1);
     assert_eq!(texture.mip_bias, 0.0);
