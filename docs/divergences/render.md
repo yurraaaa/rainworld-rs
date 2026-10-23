@@ -16,13 +16,15 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   (DXT5) are decoded on the CPU from `resources.assets` by `rw_assets::unity` and
   uploaded as RGBA8; the game's GPU samples the compressed blocks and interpolates with
   its own rounding, so texels may differ by 1/255 from what the game shows (the CPU
-  decode truncates, matching AssetRipper's export of every texture exactly). The
-  atlases keep their one mip; `_NoiseTex` keeps its 7 mips (every
-  shader that reads it picks the level by derivatives, taps before any early return, D37).
-- **Room sprite shaders** (`FlatLight`, `OverseerZip`, `Hologram`). `_NoiseTex2`
-  (256x256 DXT1, 9 mips, bilinear, repeat) is sampled at mip 0 only; in the room the
-  game minifies it vertically (`tc.y * 8` over the 800 px level image, about 2.6 texels
-  per pixel) and so reads a lower mip, giving coarser noise than the port. `Futile_White`
+  decode truncates, matching AssetRipper's export of every texture exactly). Every texture from `resources.assets` is uploaded with its stored mip chain (`shelterGate` 9,
+  `Rainbow` 7, `LightMask0` 8, `maze` 8 (D42), `textGradient` 8, `_NoiseTex` 7, `_NoiseTex2` 9,
+  `cloudsTexture` 10; `rainWorld`, `uiSprites`, `glyphs`, `fontAtlas`, `cityPalette` and
+  `apartments` store one), and each shader that reads a mipped one picks the level by
+  derivatives, taps before any early return (D37). Two import settings are not honoured, as no
+  texture uses them: a non-zero `m_MipBias` (wgpu samplers have none) and trilinear filtering
+  (filter 2).
+- **Room sprite shaders** (`Hologram`). `_NoiseTex2` is read at the derivative-picked mip
+  level, taps before any early return, as in the game (not a divergence). `Futile_White`
   (its own 16x16 white texture in the game) is drawn from the atlas's `RainWorld_White`
   element; a `Hologram` sprite of `Futile_White` would read its sideways-shifted alpha
   from the atlas around that element instead of a white texture (the overseer's

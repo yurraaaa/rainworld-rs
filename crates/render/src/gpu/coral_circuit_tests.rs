@@ -86,6 +86,36 @@ fn reference(x: u32, y: u32, rain: f32, live: bool) -> Result<Option<f32>, ()> {
     Ok(Some(0.5 + 0.5 * rand))
 }
 
+/// A `maze` element quad over frame pixels `rect` (y down) whose vertex colour names `window`.
+pub(super) fn maze_quad(rect: [u32; 4], window: [f32; 4], shader: Shader) -> DrawItem {
+    let [x0, y0, x1, y1] = rect;
+    let (l, t) = (x0 as f32, H as f32 - y0 as f32);
+    let (rt, b) = (x1 as f32, H as f32 - y1 as f32);
+    DrawItem::ElementMesh(ElementMesh {
+        element: Cow::Borrowed("maze"),
+        mesh: SpriteMesh {
+            index: 0,
+            vertices: vec![
+                Vec2::new(l, b),
+                Vec2::new(l, t),
+                Vec2::new(rt, t),
+                Vec2::new(rt, b),
+            ],
+            uvs: vec![
+                Vec2::new(0.0, 0.0),
+                Vec2::new(0.0, 1.0),
+                Vec2::new(1.0, 1.0),
+                Vec2::new(1.0, 0.0),
+            ],
+            triangles: Cow::Borrowed(&[[0, 1, 2], [0, 2, 3]]),
+            color: SpriteColor::WHITE,
+            vertex_colors: vec![SpriteColor::from(window); 4],
+            shader,
+            layer: Layer::Foreground,
+        },
+    })
+}
+
 fn draw(r: &mut WgpuRenderer, rain: f32, shader: Option<Shader>) -> FrameImage {
     r.set_level(&LevelGraphics {
         camera_pos: [0.0, 0.0],
@@ -113,37 +143,10 @@ fn draw(r: &mut WgpuRenderer, rain: f32, shader: Option<Shader>) -> FrameImage {
         water_level: 1.0,
     });
     if let Some(shader) = shader {
-        let [x0, y0, x1, y1] = RECT;
-        let (l, t) = (x0 as f32, H as f32 - y0 as f32);
-        let (rt, b) = (x1 as f32, H as f32 - y1 as f32);
-        let quad = DrawItem::ElementMesh(ElementMesh {
-            element: Cow::Borrowed("maze"),
-            mesh: SpriteMesh {
-                index: 0,
-                vertices: vec![
-                    Vec2::new(l, b),
-                    Vec2::new(l, t),
-                    Vec2::new(rt, t),
-                    Vec2::new(rt, b),
-                ],
-                uvs: vec![
-                    Vec2::new(0.0, 0.0),
-                    Vec2::new(0.0, 1.0),
-                    Vec2::new(1.0, 1.0),
-                    Vec2::new(1.0, 0.0),
-                ],
-                triangles: Cow::Borrowed(&[[0, 1, 2], [0, 2, 3]]),
-                color: SpriteColor::WHITE,
-                vertex_colors: vec![SpriteColor::from(WINDOW); 4],
-                shader,
-                layer: Layer::Foreground,
-            },
-        });
-        r.draw_sprites(
-            &DrawList { items: vec![quad] },
-            Layer::Foreground,
-            [0.0, 0.0],
-        );
+        let list = DrawList {
+            items: vec![maze_quad(RECT, WINDOW, shader)],
+        };
+        r.draw_sprites(&list, Layer::Foreground, [0.0, 0.0]);
     }
     r.render_image().unwrap()
 }

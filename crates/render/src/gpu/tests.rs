@@ -7,6 +7,8 @@ use crate::{LevelParams, TextureFilter};
 
 use super::*;
 
+mod mips;
+
 const JSON: &str = r#"{"frames": {
   "RainWorld_White.png": {"frame": {"x": 0, "y": 0, "w": 16, "h": 16}, "rotated": false,
             "trimmed": false, "spriteSourceSize": {"x": 0, "y": 0, "w": 16, "h": 16},

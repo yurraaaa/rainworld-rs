@@ -40,20 +40,27 @@ fn fs_decal(in: VertexOut) -> @location(0) vec4<f32> {
     var shadow = noise_at(vec2(
         tc.x * 0.5 + rain * 0.1 * clouds_speed - 0.003 * fmod_trunc(f32(red), 30.0),
         1.0 - tc.y * 0.5 + rain * 0.2 * clouds_speed - 0.003 * fmod_trunc(f32(red), 30.0)));
+    let layered = red > 90;
+    if layered {
+        red -= 90;
+    }
+    let palette_color = clamp(i32(floor(f32(red - 1) / 30.0)), 0, 2);
+    red = i32(fmod_trunc(f32(red - 1), 30.0));
+    let depth = f32(red) / 30.0;
+    // The ridge's `_NoiseTex2` tap too (its coordinate needs only the layer, not the returns
+    // below; mip level from the block's derivatives).
+    var h = tc.x;
+    h = mix(floor(h * 700.0) / 700.0, h, 0.5);
+    let ridge_tap = noise2_at(vec2(h * 4.0, tc.y * 0.01 + f32(red) / 100.0));
     if all(texcol.rgb == vec3(1.0)) {
         return vec4(0.0);
     }
     shadow = 0.5 + sin(fmod_trunc(shadow + rain * 0.1 * clouds_speed - tc.y, 1.0) * 3.14 * 2.0) * 0.5;
     shadow = clamp((shadow - 0.5) * 6.0 + 0.5 - light * 4.0, 0.0, 1.0);
 
-    if red > 90 {
-        red -= 90;
-    } else {
+    if !layered {
         shadow = 1.0;
     }
-    let palette_color = clamp(i32(floor(f32(red - 1) / 30.0)), 0, 2);
-    red = i32(fmod_trunc(f32(red - 1), 30.0));
-    let depth = f32(red) / 30.0;
     if depth < in.color.x || depth > in.color.y {
         return vec4(0.0);
     }
@@ -89,9 +96,7 @@ fn fs_decal(in: VertexOut) -> @location(0) vec4<f32> {
     var uv = in.uv - vec2(0.5);
     uv *= mix(1.0, 1.5, f32(red) / 30.0);
     uv += vec2(0.5);
-    var h = tc.x;
-    h = mix(floor(h * 700.0) / 700.0, h, 0.5);
-    let ridge = max(0.0, noise2_at(vec2(h * 4.0, tc.y * 0.01 + f32(red) / 100.0)) - 0.5) * 2.0;
+    let ridge = max(0.0, ridge_tap - 0.5) * 2.0;
     uv.y += pow(ridge, 3.0 - in.color.z) * 0.3 * in.color.z;
 
     let mine = textureSampleLevel(atlas, atlas_sampler, uv, 0.0);
@@ -104,18 +109,10 @@ fn fs_decal(in: VertexOut) -> @location(0) vec4<f32> {
     return vec4(rgb, mine.a * mix(1.0, 0.25 + 0.25 * in.color.a, shadow) * in.color.a);
 }
 
-// `tex2D(_MainTex, uv)` of the 64-wide rainbow gradient: bilinear, repeating (the
-// texture's import settings).
+// `tex2D(_MainTex, uv)` of the rainbow gradient page: bilinear, repeating, the mip level
+// the block's derivatives pick (the page's import settings).
 fn rainbow_gradient(uv: vec2<f32>) -> vec4<f32> {
-    let size = vec2<i32>(textureDimensions(atlas));
-    let p = uv * vec2<f32>(size) - vec2(0.5);
-    let f = fract(p);
-    let i0 = vec2<i32>(floor(p));
-    let a = textureLoad(atlas, ((i0 % size) + size) % size, 0);
-    let b = textureLoad(atlas, (((i0 + vec2(1, 0)) % size) + size) % size, 0);
-    let c = textureLoad(atlas, (((i0 + vec2(0, 1)) % size) + size) % size, 0);
-    let d = textureLoad(atlas, (((i0 + vec2(1, 1)) % size) + size) % size, 0);
-    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+    return textureSample(atlas, atlas_sampler, uv);
 }
 
 // `Rainbow` (it has a `GrabPass {}`): a ring between the vertex colour's red (the inner
@@ -130,17 +127,20 @@ fn fs_rainbow(in: VertexOut) -> @location(0) vec4<f32> {
     let dst = distance(in.uv, vec2(0.5)) * 2.0;
     let rain = room.rain;
     let noise_tap = noise_at(vec2(tc.x * 4.0, tc.y * 2.0 + rain * 0.04));
+    // The three `_NoiseTex2` taps and the gradient's come before the return and the glint's branch too (mip
+    // level from the block's derivatives).
+    let sparkle = noise2_at(vec2(tc.x * 30.0, tc.y * 15.0 + rain * 0.12));
+    let glint = textureSample(noise2, noise2_sampler, vec2(tc.x * 30.0, tc.y * 15.0 + rain * 0.2812)).y;
+    let d = clamp((dst - in.color.x) / (1.0 - in.color.x), 0.0, 1.0);
+    var col = rainbow_gradient(vec2(0.5, d));
     if dst > 1.0 || dst < in.color.x {
         return vec4(0.0);
     }
-    var n = 0.5 + 0.5 * sin((noise2_at(vec2(tc.x * 30.0, tc.y * 15.0 + rain * 0.12)) * 3.0
-        + noise_tap) * 6.28 * 2.5);
+    var n = 0.5 + 0.5 * sin((sparkle * 3.0 + noise_tap) * 6.28 * 2.5);
     n = n * 3.0 - floor(n * 3.0);
     n = 0.5 + 0.5 * n;
-    let d = clamp((dst - in.color.x) / (1.0 - in.color.x), 0.0, 1.0);
-    var col = rainbow_gradient(vec2(0.5, d));
     if n > 0.99995 {
-        let add = textureSampleLevel(noise2, noise2_sampler, vec2(tc.x * 30.0, tc.y * 15.0 + rain * 0.2812), 0.0).y;
+        let add = glint;
         col = vec4(clamp(col.rgb * (1.0 + 3.0 * add), vec3(0.0), vec3(1.0)), 1.0);
         n *= 1.0 + add;
     }

@@ -146,6 +146,18 @@ impl UnityResources {
         Ok((texture, image))
     }
 
+    /// As [`Self::texture_with_settings`], the image carrying the texture's other mip
+    /// levels ([`PngImage::mips`]).
+    ///
+    /// # Errors
+    /// As [`Self::texture_mips`].
+    pub fn texture_with_mips(&self, path: &str) -> Result<(Texture2D, PngImage), AssetError> {
+        let (texture, mut levels) = self.texture_mips(path)?;
+        let rest = levels.split_off(1);
+        let base = levels.remove(0);
+        Ok((texture, base.with_mips(rest)))
+    }
+
     /// The Texture2D at `path` with every mip level decoded to RGBA8 (PNG row order),
     /// and its import settings.
     ///

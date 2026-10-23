@@ -268,7 +268,7 @@ impl AtlasManager {
                 },
                 clamp: texture.wrap[0] == 1,
             };
-            (resources.texture_image(path)?, sampling)
+            (resources.texture_with_mips(path)?.1, sampling)
         };
         let data = assets.resolve_file_path(&format!("{path}.txt"));
         let atlas = if data.is_file() {
@@ -308,7 +308,8 @@ impl AtlasManager {
     }
 
     /// A Texture2D resource kept as a texture with no atlas (`Resources.Load(path) as
-    /// Texture2D`, e.g. a shader's global texture), with its own filter and wrap.
+    /// Texture2D`, e.g. a shader's global texture), with its own filter and wrap and its
+    /// stored mip chain.
     ///
     /// # Errors
     /// When the resource cannot be read.
@@ -326,7 +327,7 @@ impl AtlasManager {
             },
             clamp: texture.wrap[0] == 1,
         };
-        let image = resources.texture_image(path)?;
+        let image = resources.texture_with_mips(path)?.1;
         Ok(self.new_texture(image, sampling))
     }
 

@@ -16,6 +16,9 @@ pub struct PngImage {
     width: usize,
     height: usize,
     pixels: Vec<[u8; 4]>,
+    /// The smaller mip levels of a Unity texture, the next level first (empty for a
+    /// PNG file).
+    mips: Vec<PngImage>,
 }
 
 impl PngImage {
@@ -60,6 +63,7 @@ impl PngImage {
             width,
             height,
             pixels,
+            mips: Vec::new(),
         })
     }
 
@@ -74,7 +78,39 @@ impl PngImage {
             width,
             height,
             pixels,
+            mips: Vec::new(),
         }
+    }
+
+    /// This image as level 0 of a texture whose smaller levels are `mips`.
+    #[must_use]
+    pub fn with_mips(mut self, mips: Vec<PngImage>) -> Self {
+        self.mips = mips;
+        self
+    }
+
+    /// The smaller mip levels, the next level first (empty unless the image came from a
+    /// texture read with its mips).
+    #[must_use]
+    pub fn mips(&self) -> &[PngImage] {
+        &self.mips
+    }
+
+    /// The number of mip levels, this one included.
+    #[must_use]
+    pub fn mip_level_count(&self) -> u32 {
+        1 + self.mips.len() as u32
+    }
+
+    /// [`Self::rgba_bottom_up`] of this level then each smaller one, in the order a GPU
+    /// upload of the whole chain takes.
+    #[must_use]
+    pub fn rgba_bottom_up_chain(&self) -> Vec<u8> {
+        let mut out = self.rgba_bottom_up();
+        for mip in &self.mips {
+            out.extend(mip.rgba_bottom_up());
+        }
+        out
     }
 
     #[must_use]
