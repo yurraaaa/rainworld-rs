@@ -130,7 +130,7 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   Another room's MCP screenshot draws no full-screen effect, death fall or water light
   and takes `_waterLevel` from the water alone.
 - **Not drawn:** the rain's `ShaderLight` after the rain hits (`GlobalRain` is not ported: it stays
-  -1), `BrokenZeroG`'s dark palette (zero gravity is not ported), room
+  -1), room
   effects that grade colours (Darkness, Brightness, Contrast, Desaturation, Hue, DayNight:
   their uniforms keep the game's defaults; no base-game room uses them, they come with
   the DLCs)

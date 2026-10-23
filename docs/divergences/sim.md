@@ -1062,11 +1062,10 @@ charge and dive force (untested).
 Physics: burrowing, terrain curves (`TerrainCurve`, so also `Jump`'s curve push, `Player.cs` 13247), the curved-terrain `TerrainImpact`
 call, the room-range clamp's skip for grabbed objects, and `DefaultTile`.
 
-Room: the zero-gravity corridor slide's `WaterDrip`s (`Player.cs` 9423, with zero
-gravity); the
+Room: the
 `WaterGate`'s falls (a room's own waterfalls are ported, D30). `Room.Update`'s ambient ceiling drip and `Room.Loaded`'s
 `DrippingSound` are ported (`game_drips.rs`); its `Random.value < gravity` compares with
-the constant room gravity 1 (zero gravity is not ported). More Slugcats omitted:
+the room's `gravity` (D34). More Slugcats omitted:
 `Room.SlugcatGamemodeUniqueRoomSettings` setting `CeilingDrips` to 0 (and `wetTerrain`
 off, the waves flattened) in the Saint's timeline.
 
