@@ -168,3 +168,8 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   - ZeroGSpecks, CorruptionSpores: zero gravity (`AntiGravity`, the `ZeroG` and
     `BrokenZeroG` effects), which makes them visible and stops the pile-up of `reset`
     specks (D29).
+- **Room files `Room::load` rejects** (user, 2026-10-23: not real rooms, but look into
+  why): `su_a08`, `su_a09`, `su_a15_tiled`, `su_b01_tiled` in the installed game's
+  `su-rooms` fail the port's room parser (seen by the waterfall corpus test). Find what
+  in their files the parser rejects and whether the game's `Room.LoadFromDataString`
+  would read them.
