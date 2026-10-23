@@ -167,6 +167,9 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   - Background scenes' `DayNight` blocks (sky alphas, `atmosphereColor`,
     `_MultiplyColor`, the spire lights; needs the rain cycle's `dayNightCounter`; no
     base room has `DayNight`): with the DLCs that use `DayNight` (D32).
+  - ElectricDeath: what it does once the rain ends the cycle (the port holds it at full
+    intensity from cycle end + 1200), with the rain (D33). Its DLC/Remix branches wait for
+    DLC.
   - ZeroGSpecks, CorruptionSpores: zero gravity (`AntiGravity`, the `ZeroG` and
     `BrokenZeroG` effects), which makes them visible and stops the pile-up of `reset`
     specks (D29).
