@@ -55,7 +55,7 @@ impl RealizedRoom {
         {
             return None;
         }
-        if rng.value() >= crate::player::ROOM_GRAVITY {
+        if rng.value() >= self.gravity {
             return None;
         }
         let drips = self.settings.ceiling_drips;
@@ -154,18 +154,19 @@ impl WaterDrip {
         drips
     }
 
-    /// `WaterDrip.Update` and `CosmeticSprite.Update` (room gravity 1): falls, fades, and
+    /// `WaterDrip.Update` and `CosmeticSprite.Update` (`gravity` is the room's): falls, fades, and
     /// is slated once its life is out, below the water or inside a Solid tile.
     pub fn update(
         &mut self,
         room: &Room,
         water: Option<&Water>,
         glitter: WaterGlitter,
+        gravity: f32,
         rng: &mut UnityRandom,
     ) {
         self.last_last_last_pos = self.last_last_pos;
         self.last_last_pos = self.last_pos;
-        self.vel.y -= 0.9;
+        self.vel.y -= 0.9 * gravity;
         self.last_life = self.life;
         self.life -= 1.0 / self.life_time as f32;
         let float_water_level = water.map_or(f32::MIN, |w| w.level_at(self.pos.x));

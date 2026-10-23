@@ -47,7 +47,7 @@ updates in) and the passage screen's `Passages` song are ported as hooks
   the same tick). Ripple layers (Watcher) are not read; any ghost
   mode counts as 1 (no world ghost is ported).
 - **Music not ported:** the echoes' `GhostSong` and ghost mode
-  (`ResumeProcedural` is there, unused), `SSSong`, gate and region-change songs (no
+  (`ResumeProcedural` is there, unused), gate and region-change songs (no
   gates yet), `VoidSeaMusic`, the ending songs, the arena `MultiplayerDJ` (its shuffle
   draws), the DLC songs and their branches (rot presence, the Watcher's spinning tops,
   Challenge threat music, the MSC credits songs), `ResetSongStream`, MMF stream resync,

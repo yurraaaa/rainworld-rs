@@ -137,6 +137,8 @@ impl RainWorldGame {
             .map_or_else(|| Arc::clone(room), |r| Arc::clone(&r.room));
         let player = self.player_body();
         self.world.player_body = player;
+        let room_gravity = self.room_gravity(index);
+        self.world.fly_at(id).body.params.room_gravity = room_gravity;
         let eu = self.even_update();
         let sounds = if index == self.camera_room {
             &mut self.sounds

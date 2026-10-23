@@ -95,6 +95,8 @@ pub struct RainCycle {
     pub story_mode: bool,
     /// `startUpTicks`: the cycle's sunrise length (2400 after a story's first cycle).
     pub start_up_ticks: i32,
+    /// `brokenAntiGrav`: made by the first loaded room with `BrokenZeroG`.
+    pub broken_anti_grav: Option<crate::BrokenAntiGravity>,
 }
 
 impl RainCycle {
@@ -132,6 +134,7 @@ impl RainCycle {
             water_cycle: WaterLevelCycle::new(rng),
             story_mode: false,
             start_up_ticks: 0,
+            broken_anti_grav: None,
         }
     }
 
@@ -225,6 +228,12 @@ impl RainCycle {
 
     /// `Update` (the counter always may tick: no gates, ghosts or dialogs ported).
     pub fn update(&mut self, rng: &mut UnityRandom) {
+        self.update_timers();
+        self.water_cycle.update(rng);
+    }
+
+    /// `RainCycle.Update` up to `brokenAntiGrav.Update`; the water cycle follows it.
+    pub fn update_timers(&mut self) {
         if self.pause > 0 {
             self.pause -= 1;
         } else {
@@ -233,7 +242,6 @@ impl RainCycle {
         if self.timer >= self.sun_down_start_time {
             self.day_night_counter += 1;
         }
-        self.water_cycle.update(rng);
     }
 }
 

@@ -62,8 +62,7 @@ bites, drips and food, `meatLeft` saved, the back spear locked while eating).
   (`GraphicsModuleUpdated`, the hands' reach in `PlayerGraphics`). Differences:
   `DropSpear` called from `Stun` or `Die` makes its four draws (velocity and the `Free`
   spin) where the game does, but the velocity and mode reach the spear when the game
-  next applies the slugcat's releases (the same tick). The zero-gravity branch of `GraphicsModuleUpdated` is left out (no
-  zero-gravity rooms). The on-back sticks are not written to `STICKS` (D16): the
+  next applies the slugcat's releases (the same tick). The on-back sticks are not written to `STICKS` (D16): the
   spear is saved as a shelter object and lies free next cycle, as the game's restored
   stick never puts it back. The Expedition back-spear unlock, the slugcat on the back
   (More Slugcats, Jolly Co-op) and the `VoidSeaScene` and garbage-worm uses are omitted.
@@ -246,7 +245,7 @@ corridors (D10).
   and the ripple-levitation freeze of the facing (`rippleActivating`), and the Rivulet's
   pole-skip `WaterDrip`s (`Player.cs` 5453: 7 when `animation != None`; the base
   game's pole skip needs `animation == None`, so it never makes them).
-- **Not ported entries to the pole:** `ZeroGPoleGrab` (zero gravity) and the deer antlers. The blink
+- **Not ported entries to the pole:** the deer antlers. The blink
   on the pole is not ported.
 - **Spears stuck in walls** make poles as `Spear.addPoles` does (a horizontal beam on the
   spear's tile and its non-solid neighbours along it, or vertical poles for a spear in a floor or
@@ -255,7 +254,7 @@ corridors (D10).
   writes `Room.Tile`), so every tile read sees them; the copy is dropped with the
   realized room, and a re-realized room gets them again from its stuck spears.
 
-**Why.** Remix and DLC are out of the base-game scope; the rest waits for zero gravity,
+**Why.** Remix and DLC are out of the base-game scope; the rest waits for
 grabbing and audio.
 
 **Affects.** Remix / DLC play on poles.
@@ -316,11 +315,9 @@ force (`rainworld-re/notes/corridors.md`), base game with Remix off, Survivor va
 - **More Slugcats / Watcher omitted:** the slugpup's halved shoot, slide and slide
   damping factor, the Rivulet (14) and slugpup (4) `jumpBoost` of the corridor `Jump`
   branch, Saint's `monkAscension` blocking the beam exits.
-- **Not ported:** the zero-gravity branches (shaft `canCorridorJump` with the head down,
-  the zero-G slides and their `WaterDrip`s), carried objects dragged through corridors and
-  adrenaline factors.
+- **Not ported:** carried objects dragged through corridors and adrenaline factors.
 
-**Why.** Remix, DLC, zero gravity and grabbing are out of scope.
+**Why.** Remix, DLC and grabbing are out of scope.
 
 **Affects.** Remix / DLC play in corridors.
 
@@ -715,8 +712,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   noise sources whose objects are not ported (explosions, firecrackers, scavenger
   bombs, egg bugs, Miros birds, snails, the explosive spear's blast, karmic armor,
   vultures, other creatures' impacts), the item tracker's
-  uncomfortable items in `DiscomfortOfTile`, and the player's zero-gravity loudness
-  (the port has no `ZeroG` body mode). The MCP `noise.heard` log is the port's, not
+  uncomfortable items in `DiscomfortOfTile`. The MCP `noise.heard` log is the port's, not
   the game's. The Watcher ripple layer test, Remix's water splash noises and the More
   Slugcats noise sources are left out with their DLCs.
   The MCP `set_destination` tool sets a destination and a run speed the AI keeps, the
@@ -1052,7 +1048,7 @@ range; `PhysicalObject.Update` prunes stale `grabbedBy` entries (the player and 
 
 ## Not ported yet (not divergences, just absent)
 
-Player (stage one leaves out): the zero-gravity `privSneak` and chunk `loudness` (no `ZeroG` body mode), zero gravity, grabbing and eating anything but bat flies, rocks and spears, thrown
+Player (stage one leaves out): grabbing and eating anything but bat flies, rocks and spears, thrown
 weapons hitting creatures other than bat flies and overseers (D3), adrenaline, Red's illness, vines, tube worm,
 Jolly co-op, MSC / Watcher class mechanics. Ported because ground classification
 produces them anyway: wall slide and wall jump (`WallClimb`, `canWallJump`, `jumpStun`;
@@ -1062,11 +1058,10 @@ charge and dive force (untested).
 Physics: burrowing, terrain curves (`TerrainCurve`, so also `Jump`'s curve push, `Player.cs` 13247), the curved-terrain `TerrainImpact`
 call, the room-range clamp's skip for grabbed objects, and `DefaultTile`.
 
-Room: the zero-gravity corridor slide's `WaterDrip`s (`Player.cs` 9423, with zero
-gravity); the
+Room: the
 `WaterGate`'s falls (a room's own waterfalls are ported, D30). `Room.Update`'s ambient ceiling drip and `Room.Loaded`'s
 `DrippingSound` are ported (`game_drips.rs`); its `Random.value < gravity` compares with
-the constant room gravity 1 (zero gravity is not ported). More Slugcats omitted:
+the room's `gravity` (D34). More Slugcats omitted:
 `Room.SlugcatGamemodeUniqueRoomSettings` setting `CeilingDrips` to 0 (and `wetTerrain`
 off, the waves flattened) in the Saint's timeline.
 

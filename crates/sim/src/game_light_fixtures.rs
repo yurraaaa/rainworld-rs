@@ -15,12 +15,17 @@ use crate::waterfall::WaterFall;
 use crate::world::RealizedRoom;
 
 impl RealizedRoom {
-    /// `Room.ElectricPower`: 1 without `BrokenZeroG`; with it the game reads
-    /// `brokenAntiGrav.CurrentLightsOn`, which moves with `AntiGravity` (not ported: the
-    /// switch starts on and stays on, D30).
+    /// `Room.ElectricPower` (base game): 1 without `BrokenZeroG`; with it the world's
+    /// `brokenAntiGrav.CurrentLightsOn` (the switch exists once such a room has loaded).
     #[must_use]
-    pub fn electric_power(&self) -> f32 {
-        1.0
+    pub fn electric_power(&self, cycle: &crate::world::RainCycle) -> f32 {
+        if self.settings.effect_amount(RoomEffectType::BrokenZeroG) > 0.0 {
+            cycle
+                .broken_anti_grav
+                .map_or(1.0, |b| b.current_lights_on())
+        } else {
+            1.0
+        }
     }
 }
 
@@ -183,10 +188,11 @@ impl RainWorldGame {
         } else {
             &mut self.silent
         };
+        let cycle = self.world.rain_cycle;
         let Some(r) = self.world.realized_mut(index) else {
             return;
         };
-        let power = r.electric_power();
+        let power = r.electric_power(&cycle);
         let RealizedRoom {
             fixtures,
             light_sources,

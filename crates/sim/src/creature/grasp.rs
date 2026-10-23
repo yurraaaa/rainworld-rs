@@ -165,15 +165,15 @@ impl World {
     pub fn object_gravity(&self, e: Entity) -> f32 {
         match e {
             Entity::Creature(id) => match &self.creature(id).realized {
-                Some(RealizedCreature::Fly(f)) => f.body.params.gravity,
-                Some(RealizedCreature::Lizard(l)) => l.body.params.gravity,
+                Some(RealizedCreature::Fly(f)) => f.body.params.gravity(),
+                Some(RealizedCreature::Lizard(l)) => l.body.params.gravity(),
                 _ => 0.0,
             },
             Entity::Object(id) => self
                 .object(id)
                 .realized
                 .as_ref()
-                .map_or(0.0, |w| w.body.params.gravity),
+                .map_or(0.0, |w| w.body.params.gravity()),
         }
     }
 

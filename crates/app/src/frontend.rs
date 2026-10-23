@@ -973,6 +973,7 @@ impl GameProcess {
             follow: Some(game.sound_follow()),
         };
         let chunks = game.sound_body().map(|b| &b.chunks[..]);
+        audio.set_ambience_gravity(game.sim().ambience_gravity());
         audio.tick(events, &listener, chunks, game.water());
     }
 }

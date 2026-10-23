@@ -21,6 +21,7 @@ mod effects_tests;
 mod fixtures_reply;
 #[cfg(test)]
 mod game_over_tests;
+mod gravity_reply;
 mod insect_reply;
 #[cfg(test)]
 mod kills_tests;

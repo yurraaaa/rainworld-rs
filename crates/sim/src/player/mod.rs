@@ -35,6 +35,7 @@ mod spear_on_back;
 mod swim;
 #[cfg(test)]
 mod tests;
+mod zero_g;
 
 use rw_assets::{Room, Terrain};
 use rw_random::UnityRandom;
@@ -67,9 +68,6 @@ pub const HIPS: usize = 1;
 const SURFACE_FRICTION: f32 = 0.5;
 /// Surface friction while stunned or dead.
 const UNCONSCIOUS_SURFACE_FRICTION: f32 = 0.3;
-/// `EffectiveRoomGravity`: room gravity 1 (no gravity effects are ported).
-pub(crate) const ROOM_GRAVITY: f32 = 1.0;
-
 /// Coarse movement state (`Player.BodyModeIndex`), recomputed every tick.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum BodyMode {
@@ -88,6 +86,8 @@ pub enum BodyMode {
     CorridorClimb,
     /// In water (`DeepSwim` or `SurfaceSwim`).
     Swimming,
+    /// Floating in a room with gravity 0.
+    ZeroG,
     /// Stun counter above 0.
     Stunned,
     Dead,
@@ -136,6 +136,10 @@ pub enum Animation {
     DeepSwim,
     /// Paddling at the surface, head held above it.
     SurfaceSwim,
+    /// Floating and thrusting in a room with gravity 0.
+    ZeroGSwim,
+    /// Holding a beam in a room with gravity 0.
+    ZeroGPoleGrab,
     Dead,
 }
 
@@ -163,6 +167,8 @@ impl Animation {
             Self::CorridorTurn => "CorridorTurn",
             Self::DeepSwim => "DeepSwim",
             Self::SurfaceSwim => "SurfaceSwim",
+            Self::ZeroGSwim => "ZeroGSwim",
+            Self::ZeroGPoleGrab => "ZeroGPoleGrab",
             Self::Dead => "Dead",
         }
     }
@@ -189,6 +195,8 @@ impl Animation {
             "CorridorTurn" => Self::CorridorTurn,
             "DeepSwim" => Self::DeepSwim,
             "SurfaceSwim" => Self::SurfaceSwim,
+            "ZeroGSwim" => Self::ZeroGSwim,
+            "ZeroGPoleGrab" => Self::ZeroGPoleGrab,
             "Dead" => Self::Dead,
             _ => return None,
         })
@@ -411,6 +419,13 @@ pub struct Player {
     shortcut_pull: Option<(Vec2, f32)>,
     /// `roomSettings.CeilingDrips` of the room it updates in.
     ceiling_drips: f32,
+    /// `Room.gravity` of the room it updates in (`EffectiveRoomGravity`), set by the game.
+    room_gravity: f32,
+    /// The room's `aimap` once `readyForAI`, set by the game.
+    ai_map: Option<std::sync::Arc<crate::world::AiMap>>,
+    /// `zeroGPoleGrabDir`: the last direction held on each axis while holding a zero-gravity
+    /// beam.
+    zero_g_pole_grab_dir: (i32, i32),
     /// `WaterDrip`s made this tick, for the room to add.
     drips: Vec<WaterDrip>,
     /// `Bubble`s made this tick, for the room to add, each after the first `.0` drips.
@@ -549,6 +564,9 @@ impl Player {
             movement_ran: false,
             shortcut_pull: None,
             ceiling_drips: 0.0,
+            room_gravity: 1.0,
+            ai_map: None,
+            zero_g_pole_grab_dir: (0, 0),
             drips: Vec::new(),
             bubbles: Vec::new(),
             before_pull: None,
@@ -636,6 +654,13 @@ impl Player {
     #[must_use]
     pub fn input_history(&self) -> &[Input; INPUT_HISTORY] {
         &self.input
+    }
+
+    /// `zeroGPoleGrabDir`: the last direction held on each axis while holding a zero-gravity
+    /// beam, read by the hands.
+    #[must_use]
+    pub fn zero_g_pole_grab_dir(&self) -> (i32, i32) {
+        self.zero_g_pole_grab_dir
     }
 
     /// Frame counter of the current gait or animation (`animationFrame`), read by the graphics.
@@ -726,6 +751,7 @@ impl Player {
             return false;
         }
         self.body.params = crate::slugcat::PARAMS;
+        self.body.params.room_gravity = self.room_gravity;
         self.body.params.surface_friction = if self.is_conscious() {
             SURFACE_FRICTION
         } else {
@@ -856,9 +882,16 @@ impl Player {
     /// `privSneak` rises while low (not standing, crawling, in a corridor, or still on a
     /// pole) and off the air, else falls; the head is then `1.5 * (1 - Sneak)` loud and
     /// the hips `0.7 * (1 - Sneak)`, times the slugcat's `loudnessFac`. The game's
-    /// `ClimbIntoShortCut` body mode is never set; there is no zero-gravity body mode
-    /// (`ZeroG`: `privSneak` 0.5, both chunks 0.5 loud).
+    /// `ClimbIntoShortCut` body mode is never set; in `ZeroG` `privSneak` is 0.5 and both
+    /// chunks are 0.5 loud.
     fn update_sneak(&mut self, water: Option<&Water>) {
+        if self.body_mode == BodyMode::ZeroG {
+            self.priv_sneak = 0.5;
+            let loud = 0.5 * self.stats.loudness_fac;
+            self.body.chunks[HEAD].loudness = loud;
+            self.body.chunks[HIPS].loudness = loud;
+            return;
+        }
         let low = !self.standing
             || matches!(self.body_mode, BodyMode::Crawl | BodyMode::CorridorClimb)
             || (self.animation == Animation::HangFromBeam && self.input[0].x == 0)

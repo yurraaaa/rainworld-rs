@@ -129,7 +129,8 @@ pub mod slugcat {
     pub const ROD_LENGTH: f32 = 17.0;
     /// Player physics scalars (conscious).
     pub const PARAMS: PhysicsParams = PhysicsParams {
-        gravity: 0.9,
+        g: 0.9,
+        room_gravity: 1.0,
         air_friction: 0.999,
         bounce: 0.1,
         surface_friction: 0.5,

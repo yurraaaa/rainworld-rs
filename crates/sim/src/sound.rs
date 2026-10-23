@@ -236,6 +236,8 @@ sound_ids! {
     Thunder = "Thunder",
     ThunderClose = "Thunder_Close",
     ElectricityLoop = "Electricity_Loop",
+    BrokenAntiGravitySwitchOn = "Broken_Anti_Gravity_Switch_On",
+    BrokenAntiGravitySwitchOff = "Broken_Anti_Gravity_Switch_Off",
     DeathLightningEarlySizzleLoop = "Death_Lightning_Early_Sizzle_LOOP",
     DeathLightningHeavyLightningLoop = "Death_Lightning_Heavy_Lightning_LOOP",
     DeathLightningSparkSpontaneous = "Death_Lightning_Spark_Spontaneous",

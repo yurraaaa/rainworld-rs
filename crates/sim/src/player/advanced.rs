@@ -125,7 +125,7 @@ impl Player {
         self.body_mode = BodyMode::Default;
         let dir = self.roll_direction;
         let d = dir as f32;
-        let gravity = self.body.params.gravity;
+        let gravity = self.body.params.gravity();
         // `AerobicIncrease(0.01)`, which the game makes after the push.
         self.aerobic_increase(0.01);
         let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);

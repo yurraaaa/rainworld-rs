@@ -369,6 +369,12 @@ impl Audio {
         self.game.mic.sfx_volume = volume;
     }
 
+    /// The camera room's gravity for the ambience fade of an SS `BrokenZeroG` room
+    /// (`VirtualMicrophone.volumeGroups[2]`).
+    pub fn set_ambience_gravity(&mut self, gravity: Option<f32>) {
+        self.game.mic.ambience_gravity = gravity;
+    }
+
     /// The pause menu's hold on the microphone: the volume of every group but 1 and the
     /// `timeSpeed` of positioned and ambient sounds' pitch (both 1 without it).
     pub fn set_pause_mix(&mut self, volume: f32, time_speed: f32) {

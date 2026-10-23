@@ -25,6 +25,9 @@ pub trait FloatExt: Sized {
     /// `Mathf.Pow`: `(float)Math.Pow(self, p)`, in double precision.
     fn mathf_pow(self, p: f32) -> f32;
 
+    /// `Mathf.Sign`: 1 for zero, -1 below it.
+    fn unity_sign(self) -> f32;
+
     /// `Custom.InRange`: between `a` and `b` inclusive, in either order.
     fn in_range(self, a: f32, b: f32) -> bool;
 
@@ -55,6 +58,10 @@ impl FloatExt for f32 {
 
     fn mathf_pow(self, p: f32) -> f32 {
         f64::from(self).powf(f64::from(p)) as f32
+    }
+
+    fn unity_sign(self) -> f32 {
+        if self >= 0.0 { 1.0 } else { -1.0 }
     }
 
     fn in_range(self, a: f32, b: f32) -> bool {

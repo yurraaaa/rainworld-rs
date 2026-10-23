@@ -2,7 +2,9 @@
 //! use (`MenuOrSlideShowSong`, `IntroRollMusic`). Behaviour: `rainworld-re/notes/music.md`
 //! section 4.
 //!
-//! Mirrors: Music/MusicPiece.cs, Music/Song.cs, Music/MenuOrSlideShowSong.cs, Music/IntroRollMusic.cs
+//! Mirrors: Music/MusicPiece.cs, Music/Song.cs, Music/MenuOrSlideShowSong.cs, Music/IntroRollMusic.cs, Music/SSSong.cs
+
+use rw_sim::FloatExt;
 
 use super::bank::MusicBundle;
 use super::player::{MusicContext, MusicSettings};
@@ -183,6 +185,15 @@ pub struct IntroRoll {
     pub music_track_started: bool,
 }
 
+/// `SSSong`: Five Pebbles' music, held up by the zero-gravity rooms that ask for it.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct SsSong {
+    /// `setVolume`: asked for since the last update.
+    pub set_volume: Option<f32>,
+    /// Updates since a room last asked.
+    pub destroy_counter: i32,
+}
+
 /// Which `Song` subclass a song is.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SongKind {
@@ -190,6 +201,7 @@ pub enum SongKind {
     Plain,
     MenuOrSlideShow,
     IntroRoll(IntroRoll),
+    Ss(SsSong),
 }
 
 /// `Music.Song` with its `MusicPiece`.
@@ -271,8 +283,34 @@ impl Song {
         song
     }
 
+    /// `new SSSong(musicPlayer)` (base game): `NA_41 - Random Gods`, looped, priority 1.1.
+    pub(crate) fn ss_song(id: TrackId) -> Self {
+        let mut song = Self::new(Self::SS_SONG, MusicContext::StoryMode, id);
+        song.kind = SongKind::Ss(SsSong::default());
+        song.priority = 1.1;
+        song.stop_at_gate = true;
+        song.stop_at_death = true;
+        song.fade_in_time = 200.0;
+        song.piece.looped = true;
+        song
+    }
+
+    pub const SS_SONG: &'static str = "NA_41 - Random Gods";
     pub const TITLE_ROLL_RAIN: &'static str = "TitleRollRain";
     pub const TITLE_ROLL_MUSIC: &'static str = "RW_8 - Sundown";
+
+    #[must_use]
+    pub fn is_ss_song(&self) -> bool {
+        matches!(self.kind, SongKind::Ss(_))
+    }
+
+    /// `(song as SSSong).setVolume` as `SSMusicTrigger.Trigger` sets it: the larger of
+    /// what rooms asked for this tick.
+    pub fn ss_set_volume(&mut self, amount: f32) {
+        if let SongKind::Ss(ss) = &mut self.kind {
+            ss.set_volume = Some(ss.set_volume.map_or(amount, |v| v.max(amount)));
+        }
+    }
 
     #[must_use]
     pub fn is_intro_roll(&self) -> bool {
@@ -343,6 +381,19 @@ impl Song {
                 intro.rain_vol = (intro.rain_vol - 0.02).max(0.0);
             }
             self.piece.sub_tracks[0].volume = intro.rain_vol;
+        }
+        if let SongKind::Ss(mut ss) = self.kind {
+            if let Some(volume) = ss.set_volume {
+                self.base_volume = self.base_volume.lerp_and_tick(volume, 0.005, 0.0025);
+                ss.destroy_counter = 0;
+            } else {
+                ss.destroy_counter += 1;
+                if ss.destroy_counter > 150 {
+                    self.fade_out(400.0);
+                }
+            }
+            ss.set_volume = None;
+            self.kind = SongKind::Ss(ss);
         }
     }
 

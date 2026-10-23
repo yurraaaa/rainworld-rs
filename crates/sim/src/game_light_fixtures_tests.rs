@@ -152,16 +152,33 @@ fn redlight_makes_its_light_on_the_first_update() {
     assert_eq!(flat.pos, Vec2::new(300.0, 100.0));
 }
 
+/// A `BrokenAntiGravity` that stays in one state: `on` with full lights, or off.
+fn steady_switch(on: bool) -> crate::BrokenAntiGravity {
+    let to = if on { 1.0 } else { 0.0 };
+    crate::BrokenAntiGravity {
+        counter: 100_000,
+        on,
+        from: to,
+        to,
+        progress: 1.0,
+        lights: to,
+        lights_get_to: to,
+        cycle_min: 8,
+        cycle_max: 18,
+    }
+}
+
 /// A red light in a room with `BrokenZeroG` and a positive seed is gravity-dependent and
-/// starts unpowered; with the electric power at 1 (D30) it stays dark, drawing nothing
-/// per tick. A seed of 0 is an ordinary red light.
+/// starts unpowered; with the electric power at 1 (the switch on) it stays dark. A seed
+/// of 0 is an ordinary red light.
 #[test]
 fn gravity_dependent_redlight_stays_dark_with_full_power() {
     let mut g = fixture_game_with(RED, &[("BrokenZeroG", 0.5)], -1, false, 0);
+    g.world.rain_cycle.broken_anti_grav = Some(steady_switch(true));
     let r = g.world.realized(0).expect("room");
     let red = &r.fixtures.redlights[0];
     assert!(red.gravity_dependent && !red.powered);
-    assert_eq!(r.electric_power(), 1.0);
+    assert_eq!(r.electric_power(&g.world.rain_cycle), 1.0);
     g.tick(Input::NONE, &mut WithGraphics);
     g.tick(Input::NONE, &mut WithGraphics);
     let r = g.world.realized(0).expect("room");
@@ -176,6 +193,36 @@ fn gravity_dependent_redlight_stays_dark_with_full_power() {
     let g = fixture_game_with(plain, &[("BrokenZeroG", 0.5)], -1, false, 0);
     let red = &g.world.realized(0).expect("room").fixtures.redlights[0];
     assert!(!red.gravity_dependent && red.powered);
+}
+
+/// With the power off (the switch off, lights 0) a gravity-dependent red light powers up
+/// by chance (`NoElectricity > Lerp(0.65, 0.95, seed / 100)` and `value < 1 / Lerp(20, 80,
+/// ..)`) and then shines at the lack of power.
+#[test]
+fn gravity_dependent_redlight_lights_when_power_is_off() {
+    let mut g = fixture_game_with(RED, &[("BrokenZeroG", 0.5)], -1, false, 0);
+    g.world.rain_cycle.broken_anti_grav = Some(steady_switch(false));
+    assert_eq!(
+        g.world
+            .realized(0)
+            .expect("room")
+            .electric_power(&g.world.rain_cycle),
+        0.0
+    );
+    let mut ticks = 0;
+    while !g.world.realized(0).expect("room").fixtures.redlights[0].powered {
+        g.tick(Input::NONE, &mut WithGraphics);
+        ticks += 1;
+        assert!(ticks < 3000, "never powered");
+    }
+    g.tick(Input::NONE, &mut WithGraphics);
+    let r = g.world.realized(0).expect("room");
+    let main = r
+        .light_sources
+        .iter()
+        .find(|l| Some(l.id) == r.fixtures.redlights[0].light)
+        .expect("light");
+    assert!(main.alpha > 0.0 || r.fixtures.redlights[0].flicker > 0);
 }
 
 /// A holy fire sheds one ember per tick, each at the fixture's position, in the room's

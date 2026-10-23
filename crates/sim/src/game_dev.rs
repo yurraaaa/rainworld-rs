@@ -30,13 +30,13 @@ impl Default for DevRainControl {
 }
 
 impl RainWorldGame {
-    /// `RainCycle.Update`, held back or sped up by the dev control. Unused, it is the
-    /// plain update with no extra work.
-    pub(super) fn dev_update_rain_cycle(&mut self) {
+    /// `RainCycle.Update`'s timers, held back or sped up by the dev control (the water
+    /// cycle and the broken antigravity switch run as usual). Unused, it is the plain update.
+    pub(super) fn dev_update_rain_timers(&mut self) {
         let control = self.dev_rain;
         let cycle = &mut self.world.rain_cycle;
         if !control.paused {
-            cycle.update(&mut self.rng);
+            cycle.update_timers();
             if control.speed > 1 {
                 cycle.timer += control.speed - 1;
                 cycle.day_night_counter = cycle.day_night_counter_at(cycle.timer);
@@ -44,7 +44,7 @@ impl RainWorldGame {
             return;
         }
         let (timer, counter, pause) = (cycle.timer, cycle.day_night_counter, cycle.pause);
-        cycle.update(&mut self.rng);
+        cycle.update_timers();
         cycle.timer = timer;
         cycle.day_night_counter = counter;
         cycle.pause = pause;
