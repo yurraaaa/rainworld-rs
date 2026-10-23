@@ -98,9 +98,9 @@ pub struct State {
     /// has a level graphic and an effect.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub full_screen_effect: Option<FullScreenEffectState>,
-    /// The camera room's `DeathFallGraphic`, when it has an open bottom.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub death_fall: Option<DeathFallState>,
+    /// Every realized room's `DeathFallGraphic` (a room with an open bottom).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub death_fall: Vec<DeathFallState>,
     /// The room camera's `WaterLight`, in a room with water.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub water_light: Option<WaterLightState>,
@@ -546,11 +546,17 @@ pub struct FullScreenEffectState {
     pub alpha: f32,
 }
 
-/// The camera room's `DeathFallGraphic`.
+/// A realized room's `DeathFallGraphic`.
 #[derive(Debug, Clone, Serialize)]
 pub struct DeathFallState {
+    pub room: String,
+    /// The update-list place.
+    pub id: u64,
     /// Room y of the sprite's bottom edge (180 px tall).
     pub height: f32,
+    /// `defaultHeight`: the lowest camera's bottom.
+    pub default_height: f32,
+    /// Ticks since the room loaded.
     pub counter: i32,
     /// The sprite's alpha at the end of the tick.
     pub alpha: f32,
@@ -574,13 +580,27 @@ impl From<(&crate::water_light::WaterLight, f32)> for WaterLightState {
     }
 }
 
-impl From<&crate::death_fall::DeathFall> for DeathFallState {
-    fn from(f: &crate::death_fall::DeathFall) -> Self {
-        Self {
-            height: f.height,
-            counter: f.counter,
-            alpha: f.alpha(1.0),
-        }
+impl DeathFallState {
+    /// Every realized room's death fall.
+    #[must_use]
+    pub fn all(world: &rw_sim::world::World) -> Vec<Self> {
+        world
+            .active_rooms()
+            .into_iter()
+            .filter_map(|i| {
+                let f = world.realized(i)?.death_fall.as_ref()?;
+                Some(Self {
+                    room: world
+                        .abstract_room(i)
+                        .map_or_else(|| format!("#{i}"), |r| r.name.clone()),
+                    id: f.update_order,
+                    height: f.height,
+                    default_height: f.default_height(),
+                    counter: f.counter,
+                    alpha: f.alpha(1.0),
+                })
+            })
+            .collect()
     }
 }
 

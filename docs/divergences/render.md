@@ -109,13 +109,14 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   every `ApplyPalette`; `num4` is `ShaderLight`, or the room's lightning level (D25). Not selected: the echo
   branch (ghost mode) and `VoidMelt` (`LevelMelt2`), which leave the room with no
   effect. `_waterLevel` uses the `DeathFallGraphic`'s height (focal points included).
-  The death fall's sprite (`death_fall.wgsl`) is drawn as the game's; its alpha pulse's
-  `counter` starts when the camera enters the room, where the game's counts from
-  `Room.Loaded` while the room stays realized (the port keeps a death fall for the
-  camera's room only), so the pulse's phase differs on re-entering a still-realized
-  room. Its element is `Futile_White`, where the game takes the room's `RainMask_` once
-  the rain or the `WaterLight` has made it (the shader reads only the quad's uv, the
-  same either way).
+  The death fall's sprite (`death_fall.wgsl`) is drawn as the game's; the object is one
+  per realized room (`rw_sim::DeathFall`, made where `Room.Loaded` makes it, its
+  `counter` ticking in the room's update list viewed or not). Its element is
+  `Futile_White`, where the game takes the room's `RainMask_` once the rain or the
+  `WaterLight` has made it (the shader reads only the quad's uv, the same either way).
+  `defaultHeight` and `height` are 0 until a camera first draws the room
+  (`InitiateSprites`, which sets the lowest camera's bottom); `Update` keeps copying
+  `defaultHeight`. An other-room shot runs the same `InitiateSprites` on a copy.
   The room camera's `WaterLight` (`app/src/water_light.rs`, `fs_water_light`) is drawn
   as the game's, first in `Foreground` after the level. Its `RainMask_<room>` texture
   (`rw_assets::RainMask`, `GenerateShelterTex` without the rain's outputs) is made from
@@ -130,8 +131,11 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   `TerrainHandle` placed object, no `ModManager` gate) is not ported, as no installed
   base room or level places a `TerrainHandle`. Watcher's `rippleFade` branch of
   `PaletteDarkness` is omitted.
-  Another room's MCP screenshot draws no full-screen effect, death fall or water light
-  and takes `_waterLevel` from the water alone.
+  Another room's MCP screenshot draws the room's full-screen effect, death fall and
+  water light as a camera 0 viewing that room would (the death fall's height under a
+  camera showing the asked camera position; the water light's `RainMask_` is generated
+  for the shot, from the room's tiles), and `_waterLevel` takes the water's or the death
+  fall's line.
 - **Not drawn:** the rain's `ShaderLight` after the rain hits (`GlobalRain` is not ported: it stays
   -1), room
   effects that grade colours (Darkness, Brightness, Contrast, Desaturation, Hue, DayNight:

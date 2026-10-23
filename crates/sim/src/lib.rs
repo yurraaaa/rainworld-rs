@@ -40,6 +40,7 @@ pub use math::color;
 
 pub use crate::effects::gameplay::anti_gravity::{AntiGravity, BrokenAntiGravity, BrokenTick};
 pub use crate::effects::gameplay::border_push_back::BorderPushBack;
+pub use crate::effects::gameplay::death_fall::DeathFall;
 pub use crate::effects::gameplay::electric_death::{
     ElectricDeath, LightFlash, SparkFlash, Strike, WallSpark,
 };
