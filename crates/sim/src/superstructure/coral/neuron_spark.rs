@@ -1,5 +1,5 @@
 //! `NeuronSpark`: the flash two linked mycelia make where their tips meet. Its sprites
-//! are `rw-graphics`' `cosmetic_graphics.rs`.
+//! are `rw-graphics`' `effects/cosmetic.rs`.
 //!
 //! Mirrors: NeuronSpark.cs (constructor, Update)
 

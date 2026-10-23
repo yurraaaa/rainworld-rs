@@ -1,7 +1,7 @@
 //! `StarMatrix` (the placed object `ProjectedStars`, 4 superstructure rooms): a cloud of
 //! stars in a unit sphere, joined to near neighbours, turned and refocused at random and
 //! projected on the plane. The game's side is `superstructure/projections/turn.rs`, the sprites
-//! `rw-graphics`' `star_matrix_draw.rs`.
+//! `rw-graphics`' `superstructure/projections/star_matrix.rs`.
 //!
 //! The z rotation never moves: the game adds `zRotatVelVel` to itself where it means
 //! `zRotatVel` (kept).

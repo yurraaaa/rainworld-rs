@@ -7,8 +7,8 @@ Third file of the `rw-sim` divergences (`sim.md` is past 1000 lines). IDs are gl
 `LightFixture` placed objects of the kinds that need no electricity (`Redlight`,
 `HolyFire`, `SlimeMoldLight`) and the `WaterFall`s `Room.LoadFromDataString` makes from a
 room's waterfall tiles (`rw_sim::effects::lights::{light_fixture, light_fixture_turn}`,
-`water::{waterfall, waterfall_turn}`, `superstructure::electric::room_fixtures`; sprites `rw_graphics::light_fixture`,
-`water_fall`; the `WaterFall` shader in `rw-render`, `LightMask0` in `rw-app`'s atlas
+`water::{waterfall, waterfall_turn}`, `superstructure::electric::room_fixtures`; sprites `rw-graphics` `effects/lights/light_fixture.rs`,
+`water/waterfall.rs`; the `WaterFall` shader in `rw-render`, `LightMask0` in `rw-app`'s atlas
 loading). Every shared-stream draw is ported in the game's order, with local draw-count
 and order tests. Notes: `../../rainworld-re/notes/lights.md` (fixtures) and
 `waterfalls.md`.

@@ -6,7 +6,7 @@ Second file of the `rw-sim` divergences (`sim.md` is past 1000 lines). IDs are g
 
 `SkyDandelions` (with `DandelionPatch`), `GreenSparks`, `ZeroGSpecks` and
 `CorruptionSpores` (`rw_sim::effects::particles::{sky_dandelion, green_sparks,
-zero_g_speck, turn}`; sprites `rw_graphics::sky_dandelion`, `green_spark`, `zero_g_speck`;
+zero_g_speck, turn}`; sprites `rw-graphics` `effects/particles/{sky_dandelion,green_sparks,zero_g_speck}.rs`;
 the `CustomDepth` shader in `rw-render`). Every shared-stream draw is ported in the
 game's order. Notes: `../../rainworld-re/notes/particles.md`.
 

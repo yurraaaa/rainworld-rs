@@ -104,8 +104,8 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **End-of-project cleanup items** (user, 2026-10-19), for the review pass in AGENTS.md:
   - `rw-hud` holds the sleep, death, pause and slugcat select screens beside the
     in-game HUD; decide whether they move (e.g. into `rw-menu` or their own crate).
-  - `rw-graphics`' `cosmetic_graphics.rs` is a catch-all (sparks, explosion spikes,
-    bubbles); split or rename it.
+  - `rw-graphics`' `cosmetic_graphics.rs` catch-all: split (2026-10-23, done in the rw-graphics
+    layout cleanup: `effects/cosmetic.rs`, `creature/lizard/bubble.rs`, `water/{bubble,splash}.rs`).
   - `rw-sim`'s visibility after the layout cleanup (2026-10-23, done; `crates/sim/README.md`
     Layout): about 80 of the items made `pub(crate)` are used only inside their own folder
     (lizard `*_turn.rs` methods, `game/*_turn.rs` helpers, `abstract_ai/world.rs`) and

@@ -6,7 +6,7 @@ Fifth file of the `rw-sim` divergences. IDs are global. D35 (the projector famil
 ## D35: Superstructure projections (`SuperStructureProjector`, `ProjectedScanLines`, `ProjectedStars`)
 
 Ported in `crates/sim/src/superstructure/projections/{projector,scan_lines,star_matrix,room_projections,turn}.rs`,
-the sprites in `crates/graphics/src/{projector_draw,projected_scan_lines_draw,star_matrix_draw}.rs`,
+the sprites in `crates/graphics/src/superstructure/projections/{projector,star_matrix}.rs`,
 the `GlyphProjection` shader in `crates/render/shaders/glyph_projection.wgsl`. Notes:
 `../rainworld-re/notes/superstructure-projections.md`.
 
@@ -54,7 +54,7 @@ later (refills, new cursors) are newer and walked before it. `StarMatrix` is mad
 ## D36: Electric fixtures (`SSLightRod`, `ZapCoil`, `ZapCoilLight`, `SuperStructureFuses`)
 
 Five Pebbles' electric placed objects (`rw_sim::superstructure::electric::{light_rod,
-zap_coil, fuses, turn}`; they live in `RoomFixtures`; sprites `rw_graphics::ss_electric`; the
+zap_coil, fuses, turn}`; they live in `RoomFixtures`; sprites in `rw-graphics` `superstructure/electric.rs`; the
 `CustomDepth`, `FlareBomb` and `FlatLight` shaders already existed; MCP `light_rods`,
 `zap_coils`, `zap_coil_lights`, `zap_flashes`, `fuses`). Every shared-stream draw is
 ported in the game's order, with draw-count and order tests: a rod's vessels draw 3 each
@@ -107,7 +107,7 @@ port's creature death paths (D33's route for `ElectricDeath`). Notes:
 
 Ported in `crates/sim/src/superstructure/grab/{deep_processing,gravity_disruptor,turn}.rs` (the objects,
 their placed-object creation in `Room.Loaded`'s order, the disruptor's push on the room's
-bodies), the sprites in `crates/graphics/src/ss_grab.rs`, the shaders in
+bodies), the sprites in `crates/graphics/src/superstructure/grab.rs`, the shaders in
 `crates/render/shaders/ss_grab.wgsl` with the grab changes in `crates/render/src/gpu.rs`,
 the data in `rw-assets` `placed_electric.rs`. Notes: `../rainworld-re/notes/superstructure-grab.md`.
 
@@ -176,7 +176,7 @@ the data in `rw-assets` `placed_electric.rs`. Notes: `../rainworld-re/notes/supe
 
 Ported in `crates/sim/src/superstructure/coral/{system,mycelium,wall_mycelia,neuron_spark,turn}.rs`
 (the system, the strands, the wall object, the spark as a `CosmeticKind`), the sprites in
-`crates/graphics/src/{mycelium,wall_mycelia_draw,cosmetic_graphics}.rs`, MCP `coral_systems`,
+`crates/graphics/src/superstructure/coral/mycelium.rs`, `crates/graphics/src/effects/cosmetic.rs`, MCP `coral_systems`,
 `wall_mycelia`, `neuron_sparks`. Notes: `../rainworld-re/notes/superstructure-coral.md`.
 Closes the missing `NeuronSpark` sound of `random.md`'s overseer item.
 
@@ -248,7 +248,7 @@ Closes the missing `NeuronSpark` sound of `random.md`'s overseer item.
 
 Ported in `crates/sim/src/superstructure/coral/{neuron,turn}.rs`,
 `superstructure/projections/{projected_circle,turn}.rs`, `vines/mod.rs` (the neuron, the circle, their turns, the room's vine host), the sprites in
-`crates/graphics/src/{coral_neuron_draw,projected_circle_draw}.rs`, the `CoralNeuron` shader in
+`crates/graphics/src/superstructure/coral/neuron.rs`, `crates/graphics/src/superstructure/projections/projected_circle.rs`, the `CoralNeuron` shader in
 `crates/render/shaders/sprite.wgsl`, MCP `coral_neurons`, `projected_circles`. Notes:
 `../rainworld-re/notes/superstructure-coral.md`. 43 placed neurons in 15 `SS_*` rooms (the
 Survivor and the Hunter all 43, the Monk 42), every one `ResizableObjectData`; the port builds
@@ -312,7 +312,7 @@ them all (`crates/sim/tests/installed_coral_neurons.rs`: 43 parsed, 0 rejected, 
 
 Ported in `crates/sim/src/superstructure/coral/{stem,turn}.rs`, `vines/mod.rs` (the stem, its segments
 as physical objects, their turns, the vine host), the sprites in
-`crates/graphics/src/coral_stem_draw.rs`, MCP `coral_stems`. Notes:
+`crates/graphics/src/superstructure/coral/stem.rs`, MCP `coral_stems`. Notes:
 `../rainworld-re/notes/superstructure-coral.md`. Survey: `surveys/climbable-vines.md` 4.2,
 `surveys/room-effects/insects-and-superstructure.md` B3.
 
@@ -410,7 +410,7 @@ as physical objects, their turns, the vine host), the sprites in
 Ported in `crates/sim/src/superstructure/coral/{circuit,circuit_connector,circuit_crab,circuit_turn}.rs`
 (the circuit, its bits, connectors and crabs, the push and the cluster building),
 `crates/sim/src/player/{circuit,zero_g}.rs` (the player's side), the sprites in
-`crates/graphics/src/circuit_draw.rs`, the `CoralCircuit` and `DeadCoralCircuit` shaders in
+`crates/graphics/src/superstructure/coral/circuit.rs`, the `CoralCircuit` and `DeadCoralCircuit` shaders in
 `crates/render/shaders/sprite.wgsl`, MCP `coral_circuits` and the player's
 `circuit_swim_resistance`, `circuit_jump_meter` and `swim_bits`. Notes:
 `../rainworld-re/notes/superstructure-coral.md`. Survey: `surveys/room-effects/insects-and-superstructure.md` B4.
@@ -449,7 +449,7 @@ Ported in `crates/sim/src/superstructure/coral/{circuit,circuit_connector,circui
   `has_player_graphics` (false with no graphics, as in the headless tests); the game's is "the room is
   being viewed by a camera when the player is added", true for the camera's room.
 - **The hands** (`SlugcatHand.Update`'s `ZeroGSwim` branch) reach for the
-  bit of their side's `swimBits` while the head is within 30 px of it (`rw-graphics` `hand.rs`); the
+  bit of their side's `swimBits` while the head is within 30 px of it (`rw-graphics` `player/hand.rs`); the
   bit's position is the one the player last saw (refreshed at the start of its turn).
 - **The player's `analogueDir`** is the keys' (D34); with no direction held `DirVec(0, (0, 0))` is
   (0, 1) as the game's (up), so a collision with no input kicks the bit along `(0, 1)`.

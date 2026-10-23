@@ -11,144 +11,88 @@
 //!
 //! Mirrors: - (crate root)
 
-mod atlas;
-mod background_scene;
-mod body_part;
-mod circuit_draw;
-mod coral_neuron_draw;
-mod coral_stem_draw;
-mod cosmetic_graphics;
-mod decal;
-mod draw;
-mod dust_puff;
-mod electric_death;
-pub mod elements;
-mod fly_graphics;
-mod green_spark;
-mod hand;
-mod holo_light;
-mod hologram_draw;
-mod hologram_matrix;
-mod hologram_shape;
-mod insect_graphics;
-mod light_beam;
-mod light_fixture;
-mod light_source;
-mod limb;
-mod lizard_cosmetics;
-mod lizard_cosmetics_draw;
-mod lizard_draw;
-mod lizard_graphics;
-mod lizard_limb;
-mod looker;
-mod math;
-mod mycelium;
-mod overseer_draw;
-mod overseer_graphics;
-mod player_draw;
-mod player_graphics;
-mod projected_circle_draw;
-mod projected_scan_lines_draw;
-mod projector_draw;
-mod quad_grid;
-mod rainbow;
-mod shelter_door_graphics;
-mod shortcut_graphics;
-mod sky_dandelion;
-mod slime_mold;
-mod spot_light;
-mod ss_electric;
-mod ss_grab;
-mod star_matrix_draw;
-mod sun_blocker;
-mod tail;
-mod token_stalk;
-mod wall_mycelia_draw;
-mod water_drip;
-mod water_fall;
-mod weapon_graphics;
-mod zero_g_speck;
+mod body;
+mod core;
+mod creature;
+mod effects;
+mod game;
+mod item;
+mod player;
+mod superstructure;
+mod water;
 
-pub use atlas::{Atlas, AtlasError, AtlasFrame, Rect, Size};
-pub use background_scene::{BackgroundSceneSprites, BackgroundSceneView, SceneImageSizes};
-pub use body_part::{BodyPart, PointConnection};
-pub use circuit_draw::{CircuitSprites, MAZE_ELEMENT, MAZE_SIZE};
-pub use coral_neuron_draw::{CoralNeuronSprites, NeuronLook};
-pub use coral_stem_draw::{StemFrame, StemSegmentSprites};
-pub use cosmetic_graphics::{CosmeticSprites, LizardColors, LizardModule, NoLizards};
-pub use decal::DecalSprites;
-pub use draw::{
+pub use player::elements;
+
+pub use crate::core::atlas::{Atlas, AtlasError, AtlasFrame, Rect, Size};
+pub use crate::core::draw::{
     Color, DrawItem, DrawList, ElementMesh, InternalContainer, Layer, Mesh, Shader, SlugcatName,
     Sprite,
 };
-pub use dust_puff::DustPuffSprites;
-pub use electric_death::{ElectricDeathSprites, SparkFlashSprites};
-pub use fly_graphics::FlyGraphics;
-pub use green_spark::GreenSparkSprites;
-pub use hand::SlugcatHand;
-pub use holo_light::HologramLightSprites;
-pub use hologram_draw::{HologramFrame, HologramGraphics};
-pub use hologram_matrix::{HoloLine, HologramMatrix, LensFrame};
-pub use hologram_shape::{HologramLine, PartShape};
-pub use insect_graphics::{InsectDraw, InsectSprites};
-pub use light_beam::{LightBeamSprites, LightBeamView};
-pub use light_fixture::{HolyFireSpriteDraw, SlimeMoldLightSprites};
-pub use light_source::{LightSourceSprites, LightSourceView};
-pub use limb::{GripSearch, Limb, LimbMode};
-pub use lizard_cosmetics::{
+pub use crate::core::math::{Custom, CustomVec, Mathf, UnityVector3, Vec3, VecToDeg};
+pub use body::body_part::{BodyPart, PointConnection};
+pub use body::limb::{GripSearch, Limb, LimbMode};
+pub use body::tail::{TailAnchor, TailSegment};
+pub use creature::fly::graphics::FlyGraphics;
+pub use creature::lizard::cosmetics::{
     CosmeticShape, LizardCosmetic, LizardScale, Scales, SpineBumps, SpritesOverlap,
 };
-pub use lizard_cosmetics_draw::CosmeticDraw;
-pub use lizard_draw::{LizardReading, LizardSpineData};
-pub use lizard_graphics::{IndividualVariations, LIZARD_BASE_SPRITES, LizardGraphics};
-pub use lizard_limb::LizardLimb;
-pub use looker::ObjectLooker;
-pub use math::{Custom, CustomVec, Mathf, UnityVector3, Vec3, VecToDeg};
-pub use mycelium::{LongMesh, MyceliumSprites};
-pub use overseer_graphics::{DrawPositions, OverseerGraphics};
-pub use player_draw::{SPRITE_COUNT, SPRITE_LAYERS, TAIL_TRIANGLES};
-pub use player_graphics::PlayerGraphics;
-pub use projected_circle_draw::{CircleSurroundings, ProjectedCircleSprites};
-pub use projected_scan_lines_draw::ProjectedScanLinesSprites;
-pub use projector_draw::{ProjectionView, ProjectorSprites};
-pub use quad_grid::QuadGrid;
-pub use rainbow::{RAINBOW_ELEMENT, RainbowSprites};
-pub use shelter_door_graphics::ShelterDoorSprites;
-pub use shortcut_graphics::{
+pub use creature::lizard::cosmetics_draw::CosmeticDraw;
+pub use creature::lizard::draw::{LizardReading, LizardSpineData};
+pub use creature::lizard::graphics::{IndividualVariations, LIZARD_BASE_SPRITES, LizardGraphics};
+pub use creature::lizard::limb::LizardLimb;
+pub use creature::overseer::graphics::{DrawPositions, OverseerGraphics};
+pub use creature::overseer::holo_light::HologramLightSprites;
+pub use creature::overseer::hologram_draw::{HologramFrame, HologramGraphics};
+pub use creature::overseer::hologram_matrix::{HoloLine, HologramMatrix, LensFrame};
+pub use creature::overseer::hologram_shape::{HologramLine, PartShape};
+pub use effects::cosmetic::{CosmeticSprites, LizardColors, LizardModule, NoLizards};
+pub use effects::gameplay::electric_death::{ElectricDeathSprites, SparkFlashSprites};
+pub use effects::lights::light_beam::SpotLightSprites;
+pub use effects::lights::light_beam::{LightBeamSprites, LightBeamView};
+pub use effects::lights::light_fixture::{HolyFireSpriteDraw, SlimeMoldLightSprites};
+pub use effects::lights::light_source::{LightSourceSprites, LightSourceView};
+pub use effects::lights::quad_grid::QuadGrid;
+pub use effects::lights::sun_blocker::SunBlocker;
+pub use effects::particles::decal::DecalSprites;
+pub use effects::particles::green_sparks::GreenSparkSprites;
+pub use effects::particles::insect::{InsectDraw, InsectSprites};
+pub use effects::particles::rainbow::{RAINBOW_ELEMENT, RainbowSprites};
+pub use effects::particles::sky_dandelion::{DandelionSprites, StalkSprites};
+pub use effects::particles::slime_mold::SlimeMoldSprites;
+pub use effects::particles::token_stalk::TokenStalkSprites;
+pub use effects::particles::zero_g_speck::SpeckSprites;
+pub use effects::sky::background_scene::DustPuffSprites;
+pub use effects::sky::background_scene::{
+    BackgroundSceneSprites, BackgroundSceneView, SceneImageSizes,
+};
+pub use game::shelter_door::ShelterDoorSprites;
+pub use game::shortcut::{
     ExitBehind, ShortcutFrame, ShortcutGraphics, ShortcutPalette, ShortcutRoom, ShortcutVessel,
 };
-pub use sky_dandelion::{DandelionSprites, StalkSprites};
-pub use slime_mold::SlimeMoldSprites;
-pub use spot_light::SpotLightSprites;
-pub use ss_electric::{
+pub use item::weapon::{PEBBLES, PebbleElement, SMALL_SPEAR, WeaponSprites};
+pub use player::draw::{SPRITE_COUNT, SPRITE_LAYERS, TAIL_TRIANGLES};
+pub use player::graphics::PlayerGraphics;
+pub use player::hand::SlugcatHand;
+pub use player::looker::ObjectLooker;
+pub use superstructure::coral::circuit::{CircuitSprites, MAZE_ELEMENT, MAZE_SIZE};
+pub use superstructure::coral::mycelium::WallMyceliaSprites;
+pub use superstructure::coral::mycelium::{LongMesh, MyceliumSprites};
+pub use superstructure::coral::neuron::{CoralNeuronSprites, NeuronLook};
+pub use superstructure::coral::stem::{StemFrame, StemSegmentSprites};
+pub use superstructure::electric::{
     FuseSprites, LightRodSprites, ZapCoilSprites, ZapFlashLight, ZapFlashSprites,
 };
-pub use ss_grab::{DeepProcessingSprites, DisruptorSpeckSprites, GravityDisruptorSprites};
-pub use star_matrix_draw::StarMatrixSprites;
-pub use sun_blocker::SunBlocker;
-pub use tail::{TailAnchor, TailSegment};
-pub use token_stalk::TokenStalkSprites;
-pub use wall_mycelia_draw::WallMyceliaSprites;
-pub use water_drip::{DripPalette, WaterDripSprites};
-pub use water_fall::WaterFallSprites;
-pub use weapon_graphics::{PEBBLES, PebbleElement, SMALL_SPEAR, WeaponSprites};
-pub use zero_g_speck::SpeckSprites;
+pub use superstructure::grab::{
+    DeepProcessingSprites, DisruptorSpeckSprites, GravityDisruptorSprites,
+};
+pub use superstructure::projections::projected_circle::{
+    CircleSurroundings, ProjectedCircleSprites,
+};
+pub use superstructure::projections::projector::ProjectedScanLinesSprites;
+pub use superstructure::projections::projector::{ProjectionView, ProjectorSprites};
+pub use superstructure::projections::star_matrix::StarMatrixSprites;
+pub use water::water_drip::{DripPalette, WaterDripSprites};
+pub use water::waterfall::WaterFallSprites;
 
-#[cfg(test)]
-mod circuit_tests;
-#[cfg(test)]
-mod coral_neuron_tests;
-#[cfg(test)]
-mod coral_stem_tests;
-#[cfg(test)]
-mod coral_tests;
-#[cfg(test)]
-mod hologram_tests;
-#[cfg(test)]
-mod placed_visuals_tests;
-#[cfg(test)]
-mod projection_tests;
-#[cfg(test)]
-mod shortcut_tests;
 #[cfg(test)]
 mod tests;

@@ -1030,7 +1030,7 @@ range; `PhysicalObject.Update` prunes stale `grabbedBy` entries (the player and 
   `colorAlpha` factor) by it, as Futile's vertex colour does (`color.a * alpha`); the
   factor cancels.
 - **Placed `LightBeam` and `SpotLight`** (`rw_sim::{LightBeam, SpotLight}`, graphics
-  `light_beam.rs`, `spot_light.rs`, `quad_grid.rs`, shaders `fs_light_beam`,
+  `effects/lights/light_beam.rs` (with the spot light), `quad_grid.rs`, shaders `fs_light_beam`,
   `fs_vector_circle`): a beam's `blinkType`/`blinkRate`/`nightLight` are parsed
   (`LightBeamData`) but `BlinkFade()` and `nightFade` are 1 (same user decision as the
   lights above: no base beam has either; `blinkTicker` and the `DayNight` fade-in with the

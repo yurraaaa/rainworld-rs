@@ -7,7 +7,7 @@
 //! scene element with a turn of its own: one pass of the bolt's timers per tick, with
 //! draws on the shared stream (D1): up to three, see [`DistantLightning::update`].
 //! Its picture, whose brightness [`DistantLightning::light_intensity`] draws for on the
-//! cosmetic stream, is in `rw-graphics` `background_scene.rs`.
+//! cosmetic stream, is in `rw-graphics` `effects/sky/background_scene.rs`.
 //!
 //! Base game only: `PinkSky` (Watcher), the More Slugcats regions (`OE`, `LM`, `SL`,
 //! the `SI_A07` clouds, the ending scroll `yShift`) and the Saint timeline's buildings

@@ -2,7 +2,7 @@
 //! objects of the room. The scene is in the room's update list from `Room.Loaded`; its
 //! first turn sorts its elements by depth, far to near, and adds them to the room (each
 //! one a place in the update list and a sprite leaser of its own). The elements'
-//! positions and sprites are the graphics crate's (`rw-graphics` `background_scene.rs`);
+//! positions and sprites are the graphics crate's (`rw-graphics` `effects/sky/background_scene.rs`);
 //! only [`DistantLightning`] has a turn of its own.
 //!
 //! The scenes are made by [`crate::effects::sky::above_clouds_view`] and [`crate::effects::sky::roof_top_view`];

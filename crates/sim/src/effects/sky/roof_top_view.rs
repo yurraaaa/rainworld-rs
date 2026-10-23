@@ -9,7 +9,7 @@
 //! base room has). Draws on the shared stream (D1): one for each chunk on the floor
 //! that is not landing (the 1-in-10 test), then, for the puff that test lets through,
 //! one for its size and one for its life time; one for a landing's life time.
-//! Sprites: `rw-graphics` `dust_puff.rs`.
+//! Sprites: `rw-graphics` `effects/sky/background_scene.rs`.
 //!
 //! Base game only: the Lantern-at-the-Edge city (`isLC`), the Dust Storm waves
 //! (`room.dustStorm`) and the `_DM` images are omitted (D32).

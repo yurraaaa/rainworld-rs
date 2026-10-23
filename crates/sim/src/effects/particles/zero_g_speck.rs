@@ -4,7 +4,7 @@
 //! with gravity they fall as dust and wait to be placed again on a solid tile's open
 //! side. The room's gravity is read from [`SpeckCx::gravity`] (`Room.gravity`, which
 //! `AntiGravity` sets and the port does not port yet: always 1). Every draw is on the
-//! shared stream; sprites are `rw-graphics`' `zero_g_speck.rs`. Watcher's calcified
+//! shared stream; sprites are `rw-graphics`' `effects/particles/zero_g_speck.rs`. Watcher's calcified
 //! and sentient spores are not ported (D29).
 //!
 //! Mirrors: GenericZeroGSpeck.cs, BlinkSpeck.cs, CorruptionSpore.cs, Room.cs (NowViewed: ZeroGSpecks, CorruptionSpores)
