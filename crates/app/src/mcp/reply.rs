@@ -24,6 +24,7 @@ pub use super::ss_electric_reply::{
 pub use super::ss_grab_reply::{
     DeepProcessingLightState, DeepProcessingState, GravityDisruptorState,
 };
+pub use super::vine_reply::{ClimbableVinesState, VinePosState};
 
 use super::params::InputParam;
 
@@ -132,6 +133,9 @@ pub struct State {
     /// The realized rooms' `CoralNeuronSystem`s.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub coral_systems: Vec<CoralSystemState>,
+    /// The realized rooms' `climbableVines`.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub climbable_vines: Vec<ClimbableVinesState>,
     /// The realized rooms' `WallMycelia`.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub wall_mycelia: Vec<WallMyceliaState>,
@@ -1647,6 +1651,13 @@ pub struct PlayerState {
     pub can_struggle: bool,
     /// `cantBeGrabbedCounter`.
     pub cant_be_grabbed_counter: i32,
+    /// `vinePos`: the vine the player last held and where along it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vine_pos: Option<VinePosState>,
+    /// `vineGrabDelay`, `vineClimbCursor` and `wantToGrab`.
+    pub vine_grab_delay: i32,
+    pub vine_climb_cursor: [f32; 2],
+    pub want_to_grab: i32,
     /// The Hunter's `spearOnBack`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub spear_on_back: Option<SpearOnBackInfo>,

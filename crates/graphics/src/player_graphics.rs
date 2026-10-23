@@ -1114,12 +1114,17 @@ impl PlayerGraphics {
         rng: &mut UnityRandom,
     ) {
         let grasps = HandGrasp::of(around);
+        let vines = around
+            .world
+            .realized(around.room)
+            .and_then(|r| r.vine_view());
         for i in 0..self.hands.len() {
             let hand0 = &self.hands[0].limb;
             let mut cx = HandContext {
                 player,
                 room,
                 water,
+                vines,
                 balance_counter: self.balance_counter,
                 disbalance: &mut self.disbalance_amount,
                 flail: self.flail,

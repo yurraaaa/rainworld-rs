@@ -12,7 +12,7 @@ use rw_random::UnityRandom;
 use super::{Animation, BodyMode, HEAD, HIPS, Player};
 use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
-use crate::{SoundId, Sounds, Vec2, Water};
+use crate::{NoiseSink, SoundId, Sounds, Vec2, Water};
 
 /// The four neighbour directions as `Custom.fourDirections`.
 const FOUR_DIRECTIONS: [(f32, f32); 4] = [(-1.0, 0.0), (0.0, -1.0), (1.0, 0.0), (0.0, 1.0)];
@@ -24,6 +24,7 @@ impl Player {
         water: Option<&Water>,
         rng: &mut UnityRandom,
         sounds: &mut Sounds,
+        noises: &mut dyn NoiseSink,
     ) {
         self.direct_into_holes(room);
         if self.animation != Animation::RocketJump {
@@ -60,9 +61,10 @@ impl Player {
         self.enter_corridor_mode(room);
         self.classify_swimming(room, water);
         self.enter_zero_g(room);
+        self.vine_grab(noises);
 
         self.dynamic_run_speed = [3.6, 3.6];
-        self.update_animation(room, water, rng, sounds);
+        self.update_animation(room, water, rng, sounds, noises);
         self.trigger_ledge_grab(room);
         if self.body_mode == BodyMode::Crawl {
             self.crawl_turn_delay += 1;
@@ -272,6 +274,7 @@ impl Player {
     /// end above the head.
     pub(super) fn grab_beam(&mut self, room: &Room, water: Option<&Water>) {
         let want_to_grab = self.input_y() > 0 && self.body.submersion(water) <= 0.9;
+        self.want_to_grab = i32::from(want_to_grab);
         let (head, hips) = (&self.body.chunks[HEAD], &self.body.chunks[HIPS]);
         let can_grab = want_to_grab
             && self.no_grab_counter == 0
@@ -294,6 +297,7 @@ impl Player {
                     | Animation::DeepSwim
                     | Animation::HangUnderVerticalBeam
                     | Animation::GetUpToBeamTip
+                    | Animation::VineGrab
             );
         if !can_grab {
             return;

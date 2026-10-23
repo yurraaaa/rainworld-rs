@@ -19,6 +19,7 @@ mod poles;
 mod sleep;
 mod sounds;
 mod swim;
+mod vines;
 mod zero_g;
 
 use super::{Animation, BodyMode, HEAD, HIPS, INPUT_HISTORY, Input, Player};

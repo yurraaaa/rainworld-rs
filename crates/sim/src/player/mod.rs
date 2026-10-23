@@ -35,6 +35,7 @@ mod spear_on_back;
 mod swim;
 #[cfg(test)]
 mod tests;
+mod vines;
 mod zero_g;
 
 use rw_assets::{Room, Terrain};
@@ -51,6 +52,7 @@ pub(crate) use spear_on_back::BackSpearDrop;
 pub use spear_on_back::SpearOnBack;
 
 use crate::campaign::{SlugcatCampaign, SlugcatStats};
+use crate::climbable_vines::VinePosition;
 use crate::room_ext::RoomExt;
 use crate::shortcut::ShortcutVessel;
 use crate::{
@@ -140,6 +142,8 @@ pub enum Animation {
     ZeroGSwim,
     /// Holding a beam in a room with gravity 0.
     ZeroGPoleGrab,
+    /// Climbing a vine (`ClimbableVinesSystem`).
+    VineGrab,
     Dead,
 }
 
@@ -169,6 +173,7 @@ impl Animation {
             Self::SurfaceSwim => "SurfaceSwim",
             Self::ZeroGSwim => "ZeroGSwim",
             Self::ZeroGPoleGrab => "ZeroGPoleGrab",
+            Self::VineGrab => "VineGrab",
             Self::Dead => "Dead",
         }
     }
@@ -197,6 +202,7 @@ impl Animation {
             "SurfaceSwim" => Self::SurfaceSwim,
             "ZeroGSwim" => Self::ZeroGSwim,
             "ZeroGPoleGrab" => Self::ZeroGPoleGrab,
+            "VineGrab" => Self::VineGrab,
             "Dead" => Self::Dead,
             _ => return None,
         })
@@ -426,6 +432,14 @@ pub struct Player {
     /// `zeroGPoleGrabDir`: the last direction held on each axis while holding a zero-gravity
     /// beam.
     zero_g_pole_grab_dir: (i32, i32),
+    /// `vinePos`.
+    vine_pos: Option<VinePosition>,
+    /// `vineClimbCursor`: never reset, only decayed.
+    vine_climb_cursor: Vec2,
+    /// `vineGrabDelay`.
+    vine_grab_delay: i32,
+    /// `wantToGrab`: last `MovementUpdate`'s up press.
+    want_to_grab: i32,
     /// `WaterDrip`s made this tick, for the room to add.
     drips: Vec<WaterDrip>,
     /// `Bubble`s made this tick, for the room to add, each after the first `.0` drips.
@@ -567,6 +581,10 @@ impl Player {
             room_gravity: 1.0,
             ai_map: None,
             zero_g_pole_grab_dir: (0, 0),
+            vine_pos: None,
+            vine_climb_cursor: Vec2::ZERO,
+            vine_grab_delay: 0,
+            want_to_grab: 0,
             drips: Vec::new(),
             bubbles: Vec::new(),
             before_pull: None,
@@ -811,7 +829,7 @@ impl Player {
         if self.stun < 1 && !self.dead && self.entering_shortcut.is_none() && self.vessel.is_none()
         {
             self.movement_ran = true;
-            self.movement_update(room, water, rng, sounds);
+            self.movement_update(room, water, rng, sounds, noises);
         }
         self.flush_sounds_and_noises(rng, sounds, noises);
     }

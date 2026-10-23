@@ -69,12 +69,7 @@ impl Vec2 {
     /// Scaled down to length `max` if longer (`Vector2.ClampMagnitude`).
     #[must_use]
     pub fn clamp_length(self, max: f32) -> Self {
-        let sq = self.x * self.x + self.y * self.y;
-        if sq > max * max {
-            self.normalized() * max
-        } else {
-            self
-        }
+        self.clamp_magnitude(max)
     }
 
     /// Unit direction from `self` to `to`; `(0, 1)` when the points coincide
@@ -184,7 +179,8 @@ impl Vec2 {
     pub fn clamp_magnitude(self, max: f32) -> Self {
         let sqr = self.x * self.x + self.y * self.y;
         if sqr > max * max {
-            self * (max / sqr.sqrt())
+            let len = sqr.sqrt();
+            Self::new(self.x / len * max, self.y / len * max)
         } else {
             self
         }
@@ -212,6 +208,17 @@ impl Vec2 {
         let dx = l2.x - l1.x;
         (dy * self.x - dx * self.y + l2.x * l1.y - l2.y * l1.x)
             / (dy.mathf_pow(2.0) + dx.mathf_pow(2.0)).sqrt()
+    }
+
+    /// `Custom.ClosestPointOnLine(a, b, self)`: the point on the infinite line through `a`
+    /// and `b` nearest to `self` (NaN for coincident points).
+    #[must_use]
+    pub fn closest_point_on_line(self, a: Self, b: Self) -> Self {
+        let p = self - a;
+        let d = b - a;
+        let len_sq = d.x.mathf_pow(2.0) + d.y.mathf_pow(2.0);
+        let t = (p.x * d.x + p.y * d.y) / len_sq;
+        Self::new(a.x + d.x * t, a.y + d.y * t)
     }
 
     /// `Custom.CirclesCollisionTime`: when, as a fraction of `vel`, a circle of radius
@@ -367,6 +374,18 @@ impl TileExt for (i32, i32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `Vector2.ClampMagnitude`: `(x / length * max, y / length * max)` above the maximum.
+    #[test]
+    fn clamp_magnitude_divides_then_scales() {
+        let v = Vec2::new(3.0, 4.0).clamp_magnitude(2.0);
+        assert_eq!((v.x, v.y), (3.0 / 5.0 * 2.0, 4.0 / 5.0 * 2.0));
+        assert_eq!(
+            Vec2::new(3.0, 4.0).clamp_magnitude(5.0),
+            Vec2::new(3.0, 4.0)
+        );
+        assert_eq!(Vec2::new(3.0, 4.0).clamp_length(2.0), v);
+    }
 
     #[test]
     fn direction_to_coincident_points_is_up() {

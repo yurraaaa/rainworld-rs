@@ -587,6 +587,7 @@ impl Session {
             slime_molds: super::reply::SlimeMoldState::all(sim.world()),
             token_stalks: super::reply::TokenStalkState::all(sim.world()),
             coral_systems: super::reply::CoralSystemState::all(sim.world()),
+            climbable_vines: super::reply::ClimbableVinesState::all(sim.world()),
             wall_mycelia: super::reply::WallMyceliaState::all(sim.world()),
             neuron_sparks: super::reply::NeuronSparkState::all(sim.world()),
             particles: super::reply::RoomParticlesState::all(sim.world()),
@@ -2219,6 +2220,10 @@ impl PlayerState {
                 && !player.is_dead()
                 && player.stun_ticks() < 30,
             cant_be_grabbed_counter: danger.cant_be_grabbed_counter,
+            vine_pos: player.vine_pos().map(super::reply::VinePosState::of),
+            vine_grab_delay: player.vine_grab_delay(),
+            vine_climb_cursor: player.vine_climb_cursor().to_array(),
+            want_to_grab: player.want_to_grab(),
             spear_on_back: player.spear_on_back().map(|s| SpearOnBackInfo {
                 spear: s
                     .spear

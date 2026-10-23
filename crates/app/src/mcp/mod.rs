@@ -48,6 +48,8 @@ pub(crate) mod reply;
 mod save_tests;
 #[cfg(test)]
 mod ss_grab_tests;
+#[cfg(test)]
+mod vine_tests;
 
 #[cfg(test)]
 mod options_tests;
@@ -59,6 +61,7 @@ mod ss_grab_reply;
 #[cfg(test)]
 mod tests;
 mod tiles;
+mod vine_reply;
 mod window;
 
 use std::error::Error;

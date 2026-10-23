@@ -105,6 +105,12 @@ pub trait NoiseSink {
     fn in_game_noise(&mut self, pos: Vec2, strength: f32, interesting: f32, rng: &mut UnityRandom);
 
     fn screen_movement(&mut self, m: ScreenMovement, rng: &mut UnityRandom);
+
+    /// The room's `climbableVines` and the live owners of its vines, for the player's
+    /// update (`None`: the room has none).
+    fn vines(&mut self) -> Option<crate::VineAccess<'_>> {
+        None
+    }
 }
 
 /// Nobody hears and no camera sees (tests, and objects updated without a room).
