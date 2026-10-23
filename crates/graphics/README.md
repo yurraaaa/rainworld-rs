@@ -81,7 +81,7 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 - Slime-mold patches, dead token stalks: `slime_mold.rs`, `token_stalk.rs` (simulation in `rw-sim`).
 - Rocks and spears: `weapon_graphics.rs`.
 - Shelter door, pipes: `shelter_door_graphics.rs`, `shortcut_graphics.rs`.
-- `ElectricDeath` web and flashes, `SparkFlash`: `electric_death.rs` (simulation in `rw-sim` `effects/gravity/electric_death.rs`, shaders in `rw-render` `electric_death.wgsl`).
+- `ElectricDeath` web and flashes, `SparkFlash`: `electric_death.rs` (simulation in `rw-sim` `effects/gameplay/electric_death.rs`, shaders in `rw-render` `electric_death.wgsl`).
 - Superstructure projections (glyph projector, scan lines, stars): `projector_draw.rs`, `projected_scan_lines_draw.rs`, `star_matrix_draw.rs` (simulation in `rw-sim`, `GlyphProjection` shader in `rw-render`, D35).
 - Superstructure rods, zap coils, flashes, fuses: `ss_electric.rs` (simulation in `rw-sim` `superstructure/electric/light_rod.rs`, `zap_coil.rs`, `fuses.rs`).
 - Superstructure `DeepProcessing` quads, `GravityDisruptor` discs and specks: `ss_grab.rs` (simulation in `rw-sim` `superstructure/grab/deep_processing.rs`, `gravity_disruptor.rs`).

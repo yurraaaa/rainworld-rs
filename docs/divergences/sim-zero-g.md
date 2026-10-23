@@ -4,7 +4,7 @@ Fourth file of the `rw-sim` divergences (`sim.md` is past 1000 lines). IDs are g
 
 ## D34: Zero gravity (`ZeroG`, `BrokenZeroG`)
 
-`AntiGravity` and `BrokenAntiGravity` (`rw_sim::anti_gravity`, `game_anti_gravity`), the
+`AntiGravity` and `BrokenAntiGravity` (`rw_sim::effects::gameplay::{anti_gravity, anti_gravity_turn}`), the
 room's `gravity` and `Room.ElectricPower`, `PhysicsParams::room_gravity`
 (`PhysicalObject.gravity = g * room.gravity`, `EffectiveRoomGravity`), the player's `ZeroG`
 body mode with the `ZeroGSwim` and `ZeroGPoleGrab` animations (`player/zero_g.rs`), the

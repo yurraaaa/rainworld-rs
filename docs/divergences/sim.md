@@ -500,7 +500,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   The `AbstractCreature` constructor's abstract AI switch (300531..300570) is ported
   for every base type but the scavenger (`CreatureTemplate::abstract_ai_ported`): the
   vultures', cicadas', big eels', deer's (Remix's deer behaviour off), Miros birds' and
-  needle worms' own `AbstractBehavior`s (`world/abstract_ai_kinds.rs`), and the plain
+  needle worms' own `AbstractBehavior`s (`creature/abstract_ai/kinds_world.rs`), and the plain
   `AbstractCreatureAI` for the drop bugs and every other type with an AI, on the
   templates' off-screen connection costs and `stowFoodInDen`
   (`creature/template_abstract.rs`) and the relationships (`creature/relationships.rs`,
@@ -529,7 +529,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   decision 2026-10-21): the realized `RainTracker` reads `TimeUntilRain` and the
   `EscapeRain` behaviour heads for the den in the cycle's last 4000 ticks; abstractly a
   lizard goes into a den it passes once the rain is within 60 s. Following through the social memory
-  (`CreatureState.socialMemory`, `creature/social_memory.rs`) is ported: with no
+  (`CreatureState.socialMemory`, `creature/social/social_memory.rs`) is ported: with no
   follow creature, `MigrationBehavior` draws one relationship and a like or hate above
   0.95 follows that creature (searched in the rooms' `creatures`, not dens); a followed
   creature is moved with (`MoveWithCreature`, `offscreenSpeedFac` 1) until the like is
@@ -1000,7 +1000,7 @@ range; `PhysicalObject.Update` prunes stale `grabbedBy` entries (the player and 
 
 ## D24: Light sources (placed lights, the player's glow)
 
-`Room.Loaded`'s placed `LightSource`s (`rw_sim::game_lights`, data `rw_assets::LightSourceData`),
+`Room.Loaded`'s placed `LightSource`s (`rw_sim::effects::lights::turn`, data `rw_assets::LightSourceData`),
 `LightSource`'s `Alpha` (`fadeWithSun`), `Lightness`, `colorFromEnvironment`
 (`RoomCamera.PixelColorAtCoordinate` on camera 0's picture, `rw_sim::CameraImage`) and
 `effectColor` (`ApplyPalette`), the glowing player's light (`PlayerGraphics.Update`),

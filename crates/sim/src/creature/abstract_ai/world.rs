@@ -5,7 +5,7 @@
 //! and `QuickConnectivity.DefineNodeOfLocalCoordinate`'s abstract branch, with every
 //! random draw in the game's order. Runs for the templates whose
 //! [`CreatureTemplate::abstract_ai_ported`]; the subclasses' own `AbstractBehavior`s are
-//! `abstract_ai_kinds.rs`.
+//! `creature/abstract_ai/kinds_world.rs`.
 //!
 //! Mirrors: AbstractCreatureAI.cs, AbstractCreature.cs, QuickConnectivity.cs
 

@@ -189,7 +189,7 @@ it (D13). What still differs is only the seed and the call order:
   its sound, a floor or slope skim 3 or 4 per spark and `Weapon_Skid`, a spear's stick
   roll 1 (when the hit is in reach and not close) and `Spear_Stick_In_Wall`; a parried
   weapon's `WeaponDeflect` its spin and sparks. Each `Spark` and `ExplosionSpikes`
-  updates in its own slot of the room's update list (`rw_sim::cosmetic`).
+  updates in its own slot of the room's update list (`rw_sim::effects::cosmetic`).
 - **Camera shake.** `RoomCamera.Update`'s jump draws 1 (`Random.value * 360`) each
   tick while `screenShake` is above 0, at the head of the sim tick, before the room
   realizer, as the game's cameras update before the rooms. `Room.ScreenMovement` draws

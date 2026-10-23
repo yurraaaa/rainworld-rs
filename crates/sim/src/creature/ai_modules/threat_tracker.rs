@@ -1,7 +1,7 @@
 //! `ThreatTracker`'s state and the threat of a tile or area from its threat points.
 //! The threat creatures' updates (they read the tracker and the world) are
-//! `world/ai_modules.rs`; `FleeTo`, `GenerateRandomPath`, `EvaluateFlightDestThreat`
-//! and `FindMostAttractiveExit` are `world/threat_flight.rs`. Decompile:
+//! `creature/ai_modules/world.rs`; `FleeTo`, `GenerateRandomPath`, `EvaluateFlightDestThreat`
+//! and `FindMostAttractiveExit` are `creature/ai_modules/threat_tracker_world.rs`. Decompile:
 //! `ThreatTracker.cs`.
 //!
 //! Mirrors: ThreatTracker.cs

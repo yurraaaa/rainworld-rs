@@ -3,7 +3,7 @@
 //! `AbstractSpaceNodeFinder` is run to the end when started, and the result is kept
 //! back for the number of `Update`s the game's one-node-a-tick search takes (the
 //! cost flood makes no draws, so only the timing is the game's to keep). The updates
-//! that read the world are `world/ai_modules.rs`. Decompile: `DenFinder.cs`,
+//! that read the world are `creature/ai_modules/world.rs`. Decompile: `DenFinder.cs`,
 //! `NodeFinder.cs`, `AbstractSpaceNodeFinder.cs` (Update).
 //!
 //! Mirrors: DenFinder.cs, NodeFinder.cs

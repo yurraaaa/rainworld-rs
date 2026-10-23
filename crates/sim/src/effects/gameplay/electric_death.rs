@@ -3,7 +3,7 @@
 //! `LightFlash`es, the two sound loops, the spontaneous sparks on the walls and the
 //! per-chunk strikes that kick bodies off a wall and give creatures an electric
 //! `Violence`. The game's side (the room's chunks, the kill, the sounds) is
-//! `effects/gravity/electric_death_turn.rs`. `PrecycleModule`'s and Sofanthiel's `Intensity` branches and
+//! `effects/gameplay/electric_death_turn.rs`. `PrecycleModule`'s and Sofanthiel's `Intensity` branches and
 //! `ElectricSpear` are DLC (D33).
 //!
 //! Mirrors: ElectricDeath.cs

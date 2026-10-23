@@ -53,8 +53,8 @@ later (refills, new cursors) are newer and walked before it. `StarMatrix` is mad
 
 ## D36: Electric fixtures (`SSLightRod`, `ZapCoil`, `ZapCoilLight`, `SuperStructureFuses`)
 
-Five Pebbles' electric placed objects (`rw_sim::ss_light_rod`, `zap_coil`, `ss_fuses`,
-`game_ss_electric`; they live in `RoomFixtures`; sprites `rw_graphics::ss_electric`; the
+Five Pebbles' electric placed objects (`rw_sim::superstructure::electric::{light_rod,
+zap_coil, fuses, turn}`; they live in `RoomFixtures`; sprites `rw_graphics::ss_electric`; the
 `CustomDepth`, `FlareBomb` and `FlatLight` shaders already existed; MCP `light_rods`,
 `zap_coils`, `zap_coil_lights`, `zap_flashes`, `fuses`). Every shared-stream draw is
 ported in the game's order, with draw-count and order tests: a rod's vessels draw 3 each

@@ -1,5 +1,5 @@
 //! Noises made in a room's update, heard at once by its creatures (`Room.InGameNoise`,
-//! `world/hearing.rs`): an object's where the game makes it in its update, and the
+//! `creature/ai_modules/noise_tracker_world.rs`): an object's where the game makes it in its update, and the
 //! player's from inside its update through a [`NoiseSink`].
 //!
 //! Mirrors: Room.cs (InGameNoise, ScreenMovement)

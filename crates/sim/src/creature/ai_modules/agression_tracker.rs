@@ -1,6 +1,6 @@
 //! `AgressionTracker`'s state (the game's spelling): an anger per tracked rival that
 //! drifts toward a target set by distance, the prey's nearness and the room's
-//! attraction. The relationship update that reads the world is `world/ai_modules.rs`.
+//! attraction. The relationship update that reads the world is `creature/ai_modules/world.rs`.
 //! Decompile: `AgressionTracker.cs`.
 //!
 //! Mirrors: AgressionTracker.cs

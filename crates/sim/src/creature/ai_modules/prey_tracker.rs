@@ -1,7 +1,7 @@
 //! `PreyTracker`'s state: the remembered prey (by representation), the current one,
 //! the frustration of a prey the path finder cannot get to. What reads the world
 //! (`Update`, `Attractiveness`, `Reachable`, `Utility`, `DistanceEstimation`) is
-//! `world/ai_modules.rs`. Decompile: `PreyTracker.cs`.
+//! `creature/ai_modules/world.rs`. Decompile: `PreyTracker.cs`.
 //!
 //! Mirrors: PreyTracker.cs
 

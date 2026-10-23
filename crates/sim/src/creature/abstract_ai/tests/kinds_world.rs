@@ -1,5 +1,5 @@
 //! The abstract AI subclasses on small test worlds. Expected values follow the game's
-//! code (line numbers in `abstract_ai_kinds.rs`); each test says which draws it expects.
+//! code (line numbers in `creature/abstract_ai/kinds_world.rs`); each test says which draws it expects.
 //!
 //! Every layer of a test room's node map gets the same costs, so every template sees
 //! the same connectivity. The off-screen den is the last room (its nodes: Den,

@@ -3,7 +3,7 @@
 //! scavenger's: `VultureAbstractAI` (286524), `CicadaAbstractAI` (150275),
 //! `BigEelAbstractAI` (139532), `DeerAbstractAI` (174999), `MirosBirdAbstractAI`
 //! (209826), `NeedleWormAbstractAI` (215520). Their behaviour is
-//! `world/abstract_ai_kinds.rs`.
+//! `creature/abstract_ai/kinds_world.rs`.
 //!
 //! Mirrors: AbstractCreatureAI.cs, VultureAbstractAI.cs, CicadaAbstractAI.cs, BigEelAbstractAI.cs, DeerAbstractAI.cs,
 //!   MirosBirdAbstractAI.cs, NeedleWormAbstractAI.cs

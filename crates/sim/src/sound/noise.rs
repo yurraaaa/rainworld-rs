@@ -1,7 +1,7 @@
 //! `Noise.InGameNoise` and where noises come from: `PhysicalObject.TerrainImpact`'s
 //! noise and the sink an updating object hands its `room.InGameNoise` (and
 //! `room.ScreenMovement`) calls to. Who hears
-//! them is `world/hearing.rs`. Decompile: `Noise/InGameNoise.cs`, `PhysicalObject.cs`
+//! them is `creature/ai_modules/noise_tracker_world.rs`. Decompile: `Noise/InGameNoise.cs`, `PhysicalObject.cs`
 //! `TerrainImpact`, `Room.cs` `InGameNoise`.
 //!
 //! Mirrors: Noise/InGameNoise.cs, PhysicalObject.cs (TerrainImpact), Room.cs (InGameNoise)

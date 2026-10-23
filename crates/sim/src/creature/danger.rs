@@ -9,7 +9,7 @@
 //! `Vulture.DangerPos` (284462, a king vulture's shooting or charging tusk), and
 //! `CurrentPlayerAggression` of `CicadaAI` (150153), `DropBugAI` (178192),
 //! `BigNeedleWormAI` (213919) and `ScavengerAI` (255506). `LizardAI`'s (202014) is in
-//! `world/tracking.rs`.
+//! `creature/ai_modules/tracker_world.rs`.
 //!
 //! Mirrors: ThreatDetermination.cs, Creature.cs, Lizard.cs, ArtificialIntelligence.cs
 

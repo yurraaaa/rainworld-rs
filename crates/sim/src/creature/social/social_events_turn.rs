@@ -2,7 +2,7 @@
 //! the ground (`ReleaseObject`, `TossObject`, the back spear laid down) and
 //! `SocialEventRecognizer.Update`, whose owned items read their owner (the player's
 //! body is the game's). The recognizer and the lizards' reactions are in
-//! `world/social_events.rs`.
+//! `creature/social/social_events.rs`.
 //!
 //! Mirrors: SocialEventRecognizer.cs (Update, OwnedItemOnGround.Update), Player.cs (ReleaseObject, TossObject, GrabUpdate)
 

@@ -1,7 +1,7 @@
 //! `MissionTracker`'s state: the missions an AI is acting out (the base game has one
 //! kind, `LeaveRoom`, given to a lizard that submits to another), each forgotten when
 //! its counter runs out; the most useful is the tracker's utility. `LeaveRoom.Act`,
-//! which reads the world, is `world/missions.rs`.
+//! which reads the world, is `creature/ai_modules/mission_tracker_world.rs`.
 //!
 //! Mirrors: MissionTracker.cs (Mission, LeaveRoom, Update, AddMission, Utility)
 

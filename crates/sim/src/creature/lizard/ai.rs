@@ -2,7 +2,7 @@
 //! finder, prey, threat and aggression trackers, utility comparer, mission,
 //! relationship, stuck and discomfort trackers), the signals between lizards, the idle spot's counters and the moods the behaviours read.
 //! The update is `RainWorldGame::lizard_ai_update` (`creature/lizard/ai_turn.rs`); the modules
-//! that read the world are `world/ai_modules.rs`. Decompile: `LizardAI.cs`.
+//! that read the world are `creature/ai_modules/world.rs`. Decompile: `LizardAI.cs`.
 //!
 //! Mirrors: LizardAI.cs (Behavior, LizardCommunication, LizardInjuryTracker, fields), ArtificialIntelligence.cs (fields)
 

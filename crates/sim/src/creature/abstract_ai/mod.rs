@@ -1,5 +1,5 @@
 //! `AbstractCreatureAI` and the per-type abstract AI constructors, with their random
-//! draws. The plain behaviour (lizards) is `world/abstract_ai.rs`, the overseer's
+//! draws. The plain behaviour (lizards) is `creature/abstract_ai/world.rs`, the overseer's
 //! `overseer/abstract_ai.rs`.
 //!
 //! Mirrors: AbstractCreatureAI.cs

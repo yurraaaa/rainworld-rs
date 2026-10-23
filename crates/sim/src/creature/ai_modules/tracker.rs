@@ -1,7 +1,7 @@
 //! `Tracker`, the `AIModule` that holds what a realized AI knows of other creatures:
 //! one `CreatureRepresentation` each, simple (the last tile seen) or elaborate (ghosts
 //! that guess where an unseen creature went). The data and its world-free parts are
-//! here; its `Update`, noticing, ghosts and forgetting run in `creature/tracker_turn.rs`.
+//! here; its `Update`, noticing, ghosts and forgetting run in `creature/ai_modules/tracker_turn.rs`.
 //! Decompile: `Tracker.cs`. Behaviour: `rainworld-re/notes/creature-model/lizard-senses.md` section 17.
 //!
 //! Mirrors: Tracker.cs

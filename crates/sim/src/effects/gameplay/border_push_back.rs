@@ -1,7 +1,7 @@
 //! `RoomBorderPushBack` (the `BorderPushBack` room effect, 20 Sunlit Lands rooms from
 //! `sl_settingstemplate_fog.txt`): a slugcat past the outermost cameras' span by more than
 //! the margin is pushed back sideways, harder the longer it stays out. The game's side
-//! (the player's chunks and what it holds) is `effects/gravity/border_push_back_turn.rs`.
+//! (the player's chunks and what it holds) is `effects/gameplay/border_push_back_turn.rs`.
 //!
 //! Mirrors: RoomBorderPushBack.cs
 

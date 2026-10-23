@@ -1,4 +1,4 @@
-//! `LeaveRoom.Act` on the three-room abstract test world of `abstract_ai_tests.rs`
+//! `LeaveRoom.Act` on the three-room abstract test world of `creature/abstract_ai/tests/world.rs`
 //! (A: exit 0 to B, den 1; B: exit 0 to A, exit 1 to C, den 2; C: exit 0 to B, den 1;
 //! the green's costs there). No room is realized, so the exit is the node it is at or
 //! the first connection it can go to and come back from. Expected values from

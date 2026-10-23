@@ -1,6 +1,6 @@
 //! `NoiseTracker`, the AI module that hears: the sources it believes its noises came
 //! from (`TheorizedSource`), the mysterious noises and the sound to examine. Hearing a
-//! noise and the module's update read the world and are `world/hearing.rs`. Decompile:
+//! noise and the module's update read the world and are `creature/ai_modules/noise_tracker_world.rs`. Decompile:
 //! `NoiseTracker.cs`.
 //!
 //! Mirrors: NoiseTracker.cs

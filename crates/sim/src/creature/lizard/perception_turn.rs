@@ -1,5 +1,5 @@
 //! What `LizardAI` adds to the shared tracker and relationship tracker
-//! (`creature/tracker_turn.rs`): its eyes (`VisualScore` with the angle off its head), the
+//! (`creature/ai_modules/tracker_turn.rs`): its eyes (`VisualScore` with the angle off its head), the
 //! representation it makes of a creature, `CreatureSpotted` (its graphics' looker and
 //! eyes, the spotted animations),
 //! `CreateTrackedCreatureState`, `UpdateDynamicRelationship`, the casual aggression of

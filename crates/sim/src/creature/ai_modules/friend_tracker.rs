@@ -1,6 +1,6 @@
 //! `FriendTracker`'s gift half: the taming difficulty and the gift offered to the AI
 //! (`giftOfferedToMe`). Choosing, following and caring for a friend (taming proper)
-//! are not ported; the world side is in `world/social_events.rs`.
+//! are not ported; the world side is in `creature/social/social_events.rs`.
 //!
 //! Mirrors: FriendTracker.cs (tamingDifficlty, giftOfferedToMe)
 

@@ -4,7 +4,7 @@ Fifth file of the `rw-sim` divergences (`sim.md` is past 1000 lines). IDs are gl
 
 ## D39: Climbable vines (`ClimbableVinesSystem`, the player's `VineGrab`)
 
-`ClimbableVinesSystem` and `IClimbableVine` (`rw_sim::climbable_vines`), the player's grab in
+`ClimbableVinesSystem` and `IClimbableVine` (`rw_sim::vines`), the player's grab in
 `MovementUpdate` and the `VineGrab` animation (`player/vines.rs`), the hands on the vine
 (`rw_graphics::hand`), the three grab sounds of the base-game implementers, and the
 zero-gravity vine grab and vine pull. Behaviour: `../rainworld-re/notes/climbable-vines.md`.
