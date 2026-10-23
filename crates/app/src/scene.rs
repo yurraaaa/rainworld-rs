@@ -18,7 +18,7 @@ use rw_render::{
 };
 use rw_sim::{HudEvent, Input, LightningFrame, SoundEvent};
 
-use crate::death_fall::DeathFall;
+use crate::death_fall::DeathFallSprite;
 use crate::game::Game;
 use crate::hibernation::HibernatingGame;
 use crate::sprite_order::Drawable;
@@ -88,8 +88,6 @@ pub struct Scene {
     visuals: Option<Visuals>,
     /// The water's sprites (`Water.InitiateSprites`), made on the first level frame.
     water_sprites: Option<WaterSprites>,
-    /// The camera room's `DeathFallGraphic`, if it has one.
-    death_fall: Option<DeathFall>,
     /// The room camera's `WaterLight`, in a room with water.
     water_light: Option<WaterLight>,
     /// The camera moved to another room since the last [`Scene::take_entered_room`].
@@ -169,7 +167,6 @@ impl Scene {
             source,
             visuals: None,
             water_sprites: None,
-            death_fall: None,
             water_light: None,
             entered_room: false,
             hud: None,
@@ -193,7 +190,7 @@ impl Scene {
     /// Loads the camera room's level graphic.
     fn load_visuals(&mut self) {
         self.water_sprites = None;
-        self.death_fall = self.new_death_fall();
+        self.initiate_death_fall();
         self.water_light = self.new_water_light();
         self.visuals = self.source.as_ref().and_then(|source| {
             let room = self.game.room();
@@ -215,28 +212,18 @@ impl Scene {
         self.game.set_palette_earth(earth);
     }
 
-    /// The camera room's `DeathFallGraphic` (`Room.Loaded`), as `InitiateSprites` sets
-    /// it on the camera's entry.
-    fn new_death_fall(&self) -> Option<DeathFall> {
-        let sim = self.game.sim();
-        let world = sim.world();
-        let index = sim.camera_room();
-        let data = world.abstract_room(index)?;
-        let unbroken_shelter = data.shelter()
-            && !usize::try_from(data.shelter_index)
-                .ok()
-                .and_then(|i| world.data().broken_shelters.get(i).copied())
-                .unwrap_or(false);
-        let realized = world.realized(index)?;
-        let placed = realized
-            .settings
-            .placed_objects_for(world.timeline(), world.mods());
-        DeathFall::new(
-            &realized.room,
-            realized.water.as_ref(),
-            unbroken_shelter,
-            &placed,
-        )
+    /// `DeathFallGraphic.InitiateSprites` for the camera room's, as the camera enters.
+    fn initiate_death_fall(&mut self) {
+        let index = self.game.sim().camera_room();
+        if let Some(fall) = self
+            .game
+            .sim_mut()
+            .world_mut()
+            .realized_mut(index)
+            .and_then(|r| r.death_fall.as_mut())
+        {
+            fall.initiate_sprites();
+        }
     }
 
     /// `RoomCamera.ChangeRoom`'s `WaterLight` for the camera's new room.
@@ -244,14 +231,6 @@ impl Scene {
         let sim = self.game.sim();
         let realized = sim.world().realized(sim.camera_room())?;
         WaterLight::new(&realized.room, self.game.water(), &realized.settings)
-    }
-
-    /// `DeathFallGraphic.Update` for this tick.
-    fn update_death_fall(&mut self) {
-        let sim = self.game.sim();
-        if let Some(fall) = &mut self.death_fall {
-            fall.update(self.game.room(), sim.camera_room(), &sim.camera_view());
-        }
     }
 
     /// The room's water line for `_waterLevel` (`DrawUpdate`): the water's level + 100,
@@ -262,7 +241,7 @@ impl Scene {
         if data.gate() || data.shelter() {
             return None;
         }
-        Some(match (self.game.water(), &self.death_fall) {
+        Some(match (self.game.water(), self.death_fall()) {
             (Some(water), _) => water.still_level() + 100.0,
             (None, Some(fall)) => fall.height + 180.0,
             (None, None) => 0.0,
@@ -348,8 +327,9 @@ impl Scene {
     }
 
     #[must_use]
-    pub fn death_fall(&self) -> Option<&DeathFall> {
-        self.death_fall.as_ref()
+    pub fn death_fall(&self) -> Option<&rw_sim::DeathFall> {
+        let sim = self.game.sim();
+        sim.world().realized(sim.camera_room())?.death_fall.as_ref()
     }
 
     /// The camera's `WaterLight` and its alpha at the palette's darkness.
@@ -670,7 +650,6 @@ impl Scene {
     fn after_game_tick(&mut self) -> Vec<SoundEvent> {
         let shake = self.game.sim_mut().take_camera_displacement();
         self.camera.displace(shake);
-        self.update_death_fall();
         self.apply_camera_move();
         self.game.take_sound_events()
     }
@@ -862,9 +841,12 @@ impl Scene {
             {
                 lists.push((Drawable::WaterLight, light.draw_list(water, darkness)));
             }
-            if let Some(fall) = self.death_fall.as_ref().filter(|_| level_view) {
+            if let Some(fall) = self.death_fall().filter(|_| level_view) {
                 let width = self.camera.screen_size()[0];
-                lists.push((Drawable::DeathFall, fall.draw_list(width, cam_pos, alpha)));
+                lists.push((
+                    Drawable::DeathFall,
+                    DeathFallSprite::draw_list(fall, fall.height, width, cam_pos, alpha),
+                ));
             }
             self.game.in_container_order(lists)
         } else {

@@ -177,6 +177,8 @@ pub(crate) enum RoomObject {
     ElectricDeathLoop(u64),
     /// A `RoomBorderPushBack` by its place in the update list.
     BorderPushBack(u64),
+    /// The room's `DeathFallGraphic`.
+    DeathFall,
     /// An emitter of the water's surface loop, by its place in the update list.
     WaterSoundLoop(u64),
     /// A realized rock or spear.
@@ -792,6 +794,7 @@ impl RainWorldGame {
         for index in self.world.finish_loading() {
             self.add_waterfalls(index);
             self.add_shelter_door(index);
+            self.add_death_fall(index);
             self.add_trigger_checkers(index);
             self.add_dripping_sound(index);
             self.world.realize_room_objects(index, &mut self.rng);
@@ -921,6 +924,7 @@ impl RainWorldGame {
         objects.extend(self.room_lightning_objects(index));
         objects.extend(self.room_electric_death_objects(index));
         objects.extend(self.room_border_push_back_objects(index));
+        objects.extend(self.room_death_fall_objects(index));
         objects.extend(self.room_water_sound_objects(index));
         objects.extend(self.room_weapon_objects(index));
         objects.extend(
@@ -1039,6 +1043,7 @@ impl RainWorldGame {
                     self.run_electric_death_emitter(index, order);
                 }
                 RoomObject::BorderPushBack(order) => self.run_border_push_back(index, order),
+                RoomObject::DeathFall => self.run_death_fall(index),
                 RoomObject::WaterSoundLoop(order) => self.run_water_sound_emitter(index, order),
                 RoomObject::Weapon(id) => self.run_weapon(index, id, observer),
                 RoomObject::WeaponLoop { owner, order } => {

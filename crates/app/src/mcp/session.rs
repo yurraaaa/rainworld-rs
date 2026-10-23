@@ -551,7 +551,7 @@ impl Session {
                 .level_state()
                 .and_then(|s| s.full_screen)
                 .map(FullScreenEffectState::from),
-            death_fall: scene.death_fall().map(DeathFallState::from),
+            death_fall: DeathFallState::all(sim.world()),
             water_light: scene.water_light().map(WaterLightState::from),
             level_params: scene.level_state().map(LevelParamsState::from),
             shelter_door: sim

@@ -105,6 +105,8 @@ pub struct RealizedRoom {
     pub electric_deaths: Vec<crate::ElectricDeath>,
     /// `Room.Loaded`'s `RoomBorderPushBack`s in the room's update list.
     pub border_push_backs: Vec<crate::BorderPushBack>,
+    /// `deathFallGraphic`, made by `Room.Loaded` for a room with an open bottom.
+    pub death_fall: Option<crate::DeathFall>,
     /// `backgroundNoise`: what this tick's `MakeBackgroundNoise` calls raised it to.
     background_noise: f32,
     /// `lastBackgroundNoise` (`BackgroundNoise`): last tick's, what hearing reads.
@@ -229,6 +231,7 @@ impl RealizedRoom {
             lightning: None,
             electric_deaths: Vec::new(),
             border_push_backs: Vec::new(),
+            death_fall: None,
             background_noise: 0.0,
             last_background_noise: 0.0,
             social_events: crate::creature::social::social_events::SocialEventRecognizer::default(),

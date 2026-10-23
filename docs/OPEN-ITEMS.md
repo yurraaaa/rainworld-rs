@@ -53,9 +53,7 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   mode's `_light`/`_cloudsSpeed`/palette grey-out (with echoes).
   Effects step 2 (full-screen effects, post-level grab, wet terrain, the Ant's
   `SpecificDepth`) and the `DeathFallGraphic` sprite done; left for later steps: `VoidMelt`'s `LevelMelt2` and
-  the echo branch of `ApplyPalette` (no effect selected meanwhile), full-screen effects
-  and the death fall in MCP screenshots of other rooms, the death fall's counter from
-  `Room.Loaded` (it restarts when the camera enters; D7), and holograms drawn under a re-raised `Bloom`
+  the echo branch of `ApplyPalette` (no effect selected meanwhile), and holograms drawn under a re-raised `Bloom`
   effect (D7).
   Effects step 4 (`Lightning`, `BkgOnlyLightning`, `ExtraLoudThunder`; D25, notes
   `lightning.md`) done: flashes, `num4`/`_light`, `LightBloom` alpha, sky and fog texels,
