@@ -46,6 +46,24 @@ fn set_timer_is_read_back_and_counts_the_night() {
 }
 
 #[test]
+fn setting_the_timer_keeps_the_games_pause_and_speed_waits_for_it() {
+    let mut g = game(&HALL, (3, 1));
+    g.world_mut().rain_cycle.pause = 3;
+    g.dev_set_rain_timer(100);
+    assert_eq!(g.world().rain_cycle.pause, 3);
+    g.dev_set_rain_speed(5);
+    g.tick(Input::NONE, &mut ());
+    assert_eq!(
+        (g.world().rain_cycle.timer, g.world().rain_cycle.pause),
+        (100, 2)
+    );
+    g.dev_clear_rain_pause();
+    assert_eq!(g.world().rain_cycle.pause, 0);
+    g.tick(Input::NONE, &mut ());
+    assert_eq!(g.world().rain_cycle.timer, 105);
+}
+
+#[test]
 fn speed_adds_ticks_and_the_cycle_length_is_set() {
     let mut g = game(&HALL, (3, 1));
     g.dev_set_rain_timer(100);

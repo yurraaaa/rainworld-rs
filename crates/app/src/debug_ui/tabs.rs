@@ -367,6 +367,12 @@ struct RainTimerTab {
     timer: i32,
     cycle_length: i32,
     speed: i32,
+    /// The timer slider was being dragged on the previous frame (it shows `timer`).
+    timer_dragged: bool,
+    /// The speed slider was being dragged on the previous frame (it shows `speed`).
+    speed_dragged: bool,
+    /// The cycle length input holds an edit not yet set (it shows `cycle_length`).
+    length_edited: bool,
 }
 
 impl RainTimerTab {
@@ -441,7 +447,7 @@ impl DebugTab for RainTimerTab {
         }
         ui.text_disabled("Pause holds only the timer; the rest of the game keeps running.");
         ui.separator();
-        let mut value = if ui.is_any_item_active() {
+        let mut value = if self.timer_dragged {
             self.timer
         } else {
             rain.timer
@@ -451,6 +457,7 @@ impl DebugTab for RainTimerTab {
                 .push(DebugAction::RainTimer(RainTimerEdit::at(value)));
         }
         self.timer = value;
+        self.timer_dragged = ui.is_item_active();
         let cl = rain.cycle_length;
         Self::quick(
             ui,
@@ -477,14 +484,19 @@ impl DebugTab for RainTimerTab {
         ui.same_line();
         Self::quick(ui, cx, "+60 s", RainTimerEdit::shift_seconds(60));
         ui.separator();
-        if self.cycle_length == 0 {
+        if !self.length_edited {
             self.cycle_length = cl;
         }
-        ui.input_int("Cycle length (ticks)", &mut self.cycle_length)
+        if ui
+            .input_int("Cycle length (ticks)", &mut self.cycle_length)
             .step(400)
             .step_fast(2400)
-            .build();
+            .build()
+        {
+            self.length_edited = true;
+        }
         if ui.button("Set cycle length") {
+            self.length_edited = false;
             cx.actions.push(DebugAction::RainTimer(RainTimerEdit {
                 cycle_length: Some(self.cycle_length),
                 ..RainTimerEdit::default()
@@ -492,9 +504,10 @@ impl DebugTab for RainTimerTab {
         }
         ui.same_line();
         if ui.button("Use current") {
+            self.length_edited = false;
             self.cycle_length = cl;
         }
-        if self.speed == 0 {
+        if !self.speed_dragged {
             self.speed = rain.dev_speed.max(1);
         }
         if ui.slider("Timer speed (x)", 1, 20, &mut self.speed) {
@@ -503,5 +516,6 @@ impl DebugTab for RainTimerTab {
                 ..RainTimerEdit::default()
             }));
         }
+        self.speed_dragged = ui.is_item_active();
     }
 }

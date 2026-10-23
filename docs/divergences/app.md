@@ -9,7 +9,9 @@ window, F1; `crates/app/src/debug_ui`): a region switcher (a stub until regions 
 gates are ported), a teleport to a room of the current world, the list of every
 abstract creature (with going to its room), a rain timer tab (pause, stop, restart, set the time or cycle length, timer speed; MCP's
 `set_rain_timer`; the held timer is a dev flag in `RainWorldGame`, the game's own
-`RainCycle.pause` countdown untouched), and spawning creatures and items. The
+`RainCycle.pause` countdown cleared only by restart and stop; the tutorial's
+`pauseRain` pin at 2000 stays, no override option (decided 2026-10-23); speeds above
+1x skip per-tick checks, fine for a dev tool), and spawning creatures and items. The
 teleport (`dev_teleport_player`, also MCP's `teleport_player`) has no counterpart in
 the game: it puts the player and what it carries in a shortcut vessel where it stands
 (`SuckInCreature` without the pull into an entrance), activates the target room as a

@@ -35,9 +35,9 @@ pub struct TeleportReply {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct RainTimerEdit {
     pub cycle_length: Option<i32>,
-    /// Timer to 0, resumed, as a fresh cycle.
+    /// Timer to 0, resumed, the game's `pause` countdown cleared, as a fresh cycle.
     pub restart: bool,
-    /// Timer to 0, held.
+    /// Timer to 0, held, the game's `pause` countdown cleared.
     pub stop: bool,
     pub timer: Option<i32>,
     /// Added to the timer (negative goes back), after `timer`.
@@ -85,6 +85,7 @@ impl Game {
         }
         if edit.restart || edit.stop {
             sim.dev_set_rain_timer(0);
+            sim.dev_clear_rain_pause();
             sim.dev_set_rain_paused(edit.stop);
         }
         if let Some(timer) = edit.timer {

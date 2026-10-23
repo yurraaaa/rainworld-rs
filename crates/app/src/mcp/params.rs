@@ -209,9 +209,9 @@ pub struct TeleportPlayerParams {
 pub struct SetRainTimerParams {
     /// Sets `cycleLength` (ticks, 40 per second), applied first.
     pub cycle_length: Option<i32>,
-    /// Timer to 0 and running, as a fresh cycle.
+    /// Timer to 0 and running, the game's `pause` countdown cleared, as a fresh cycle.
     pub restart: Option<bool>,
-    /// Timer to 0 and held.
+    /// Timer to 0 and held, the game's `pause` countdown cleared.
     pub stop: Option<bool>,
     /// Sets the timer (ticks; past `cycle_length` is after the rain, up to ElectricDeath's
     /// ramp at +1200).
@@ -220,7 +220,8 @@ pub struct SetRainTimerParams {
     pub shift: Option<i32>,
     /// Holds (true) or releases (false) the timer; the rest of the sim keeps running.
     pub paused: Option<bool>,
-    /// Timer ticks per game tick, 1..=20 (default 1).
+    /// Timer ticks per game tick (default 1); clamped to 1..=20. Not added on ticks the
+    /// game's own `pause` holds the timer.
     pub speed: Option<i32>,
 }
 

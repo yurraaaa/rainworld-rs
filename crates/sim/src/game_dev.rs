@@ -36,8 +36,9 @@ impl RainWorldGame {
         let control = self.dev_rain;
         let cycle = &mut self.world.rain_cycle;
         if !control.paused {
+            let held_by_game = cycle.pause > 0;
             cycle.update_timers();
-            if control.speed > 1 {
+            if control.speed > 1 && !held_by_game {
                 cycle.timer += control.speed - 1;
                 cycle.day_night_counter = cycle.day_night_counter_at(cycle.timer);
             }
@@ -65,12 +66,16 @@ impl RainWorldGame {
     }
 
     /// Puts the timer at `timer` (at least 0); `dayNightCounter` is what ticking there
-    /// would have counted. The pause countdown is cleared.
+    /// would have counted. The game's `pause` countdown is left alone.
     pub fn dev_set_rain_timer(&mut self, timer: i32) {
         let cycle = &mut self.world.rain_cycle;
         cycle.timer = timer.max(0);
         cycle.day_night_counter = cycle.day_night_counter_at(cycle.timer);
-        cycle.pause = 0;
+    }
+
+    /// Clears the game's `RainCycle.pause` countdown (a fresh cycle).
+    pub fn dev_clear_rain_pause(&mut self) {
+        self.world.rain_cycle.pause = 0;
     }
 
     /// Sets `cycleLength` (at least 1); `sunDownStartTime`, drawn at construction, stays.
