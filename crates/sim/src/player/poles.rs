@@ -99,7 +99,7 @@ impl Player {
         } else {
             self.flip_direction as f32 * 5.0
         };
-        let gravity = self.body.params.gravity;
+        let gravity = self.body.params.gravity();
         let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
         head.pos.x = (head.pos.x + head.pos.tile_middle().x + side) / 2.0;
         hips.pos.x = (hips.pos.x * 7.0 + head.pos.tile_middle().x + side) / 8.0;
@@ -192,7 +192,7 @@ impl Player {
         self.body_mode = BodyMode::ClimbingOnBeam;
         self.standing = true;
         self.can_jump = 5;
-        let gravity = self.body.params.gravity;
+        let gravity = self.body.params.gravity();
         for c in &mut self.body.chunks {
             c.vel.y += gravity;
         }

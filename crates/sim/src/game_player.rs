@@ -1136,13 +1136,13 @@ impl RainWorldGame {
         let Some(pos) = realized.drips.iter().position(|d| d.id == id) else {
             return;
         };
-        let glitter = realized.water_glitter;
+        let (glitter, gravity) = (realized.water_glitter, realized.gravity);
         let Some(realized) = self.world.realized_mut(index) else {
             return;
         };
         let water = realized.water.as_ref();
         let drip = &mut realized.drips[pos];
-        drip.update(room, water, glitter, &mut self.rng);
+        drip.update(room, water, glitter, gravity, &mut self.rng);
         let slated = drip.slated;
         if slated && let Some(r) = self.world.realized_mut(index) {
             r.drips.retain(|d| d.id != id);

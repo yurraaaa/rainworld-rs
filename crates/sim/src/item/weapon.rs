@@ -26,12 +26,10 @@ use crate::{
 /// A spark's colour (`new Color(1, 1, 1)`).
 const WHITE: [f32; 4] = [1.0; 4];
 
-/// `EffectiveRoomGravity`: no gravity effects are ported.
-const ROOM_GRAVITY: f32 = 1.0;
-
 /// The physics scalars `Rock` and `Spear` set in their constructors (the same for both).
 pub const WEAPON_PARAMS: PhysicsParams = PhysicsParams {
-    gravity: 0.9,
+    g: 0.9,
+    room_gravity: 1.0,
     air_friction: 0.999,
     bounce: 0.4,
     surface_friction: 0.4,
@@ -475,7 +473,7 @@ impl Weapon {
     /// `SetRandomSpin`: a rock spins at up to 100 degrees a tick either way (one draw);
     /// a spear at 50 to 150 in a random direction (two) and is `spinning`.
     pub fn set_random_spin(&mut self, rng: &mut UnityRandom) {
-        let gravity = 0.05f32.lerp(1.0, ROOM_GRAVITY);
+        let gravity = 0.05f32.lerp(1.0, self.body.params.room_gravity);
         match &mut self.kind {
             WeaponKind::Rock => {
                 self.rotation_speed = (-100.0f32).lerp(100.0, rng.value()) * gravity;
@@ -486,7 +484,7 @@ impl Weapon {
 
     /// A spear's `SetRandomSpin` from its two draws.
     fn spin_spear(&mut self, spin: SpearSpin) {
-        let gravity = 0.05f32.lerp(1.0, ROOM_GRAVITY);
+        let gravity = 0.05f32.lerp(1.0, self.body.params.room_gravity);
         if let WeaponKind::Spear(s) = &mut self.kind {
             let sign = if spin.sign < 0.5 { -1.0 } else { 1.0 };
             self.rotation_speed = sign * 50.0f32.lerp(150.0, spin.speed) * gravity;
@@ -1149,9 +1147,10 @@ impl Weapon {
     fn free_spear(&mut self, cx: &mut WeaponTick<'_>) {
         let c = self.chunk();
         let (pos, last, contact_y) = (c.pos, c.last_pos, c.contact().y);
+        let room_gravity = self.body.params.room_gravity;
         let Some(s) = self.spear_mut() else { return };
         if s.spinning {
-            if pos.dist_less(last, 4.0 * ROOM_GRAVITY) {
+            if pos.dist_less(last, 4.0 * room_gravity) {
                 s.still_counter += 1;
             } else {
                 s.still_counter = 0;

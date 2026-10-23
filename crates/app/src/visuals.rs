@@ -129,14 +129,24 @@ impl Visuals {
         true
     }
 
-    /// `DarkPalette`: 0 in rooms without rain danger, else the rain cycle's
-    /// `RainDarkPalette` times the room's `RainIntensity`. A start without a cycle
-    /// (`cycle_length` 0) keeps 0 (D22).
+    /// `DarkPalette`: in rooms without rain danger 0, or with `BrokenZeroG` the lack of
+    /// the broken anti-gravity's `CurrentLightsOn`; else the rain cycle's `RainDarkPalette`
+    /// times the room's `RainIntensity`. A start without a cycle (`cycle_length` 0) keeps 0
+    /// in rain rooms (D22).
     #[must_use]
     pub fn dark_palette(&self, rain: &RainCycle) -> f32 {
-        if rain.cycle_length == 0 || !self.rain_danger() {
-            // A `BrokenZeroG` room would take `1 - CurrentLightsOn` of the broken
-            // anti-gravity here; zero gravity is not ported.
+        if !self.rain_danger() {
+            let broken = self
+                .room
+                .settings()
+                .effect_amount(RoomEffectType::BrokenZeroG)
+                > 0.0;
+            return match rain.broken_anti_grav {
+                Some(b) if broken => 1.0 - b.current_lights_on(),
+                _ => 0.0,
+            };
+        }
+        if rain.cycle_length == 0 {
             return 0.0;
         }
         rain.rain_dark_palette() * self.room.settings().rain_intensity

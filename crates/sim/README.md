@@ -20,6 +20,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `lib.rs` | module list, re-exports | - |
 | `game.rs` | `RainWorldGame`: world, player, shortcut handler + lobby, realizer, order of a tick, sessions | `RainWorldGame` |
 | `game_*.rs` | `impl RainWorldGame` splits, below | - |
+| `game_anti_gravity.rs`, `game_anti_gravity_tests.rs` | zero gravity in the game: `Room.Loaded`'s `AntiGravity`, its turn (the room's `gravity`), `brokenAntiGrav.Update` from `RainCycle.Update` with the camera room's switch sound and screen movement, the ambience gravity the microphone fades by | `Room.Loaded`, `AntiGravity.Update`, `BrokenAntiGravity.Update` |
 | `game_carried.rs`, `game_carried_tests.rs` | what a creature's vessel carries: `FollowedByCamera`, stuck objects moving out of the lobby, the held player spat out with its grabber or killed in its den | `AbstractCreature.FollowedByCamera`, `Creature.SpitOutOfShortCut` |
 | `game_dev.rs` | dev spawns/teleports through the game's own paths (MCP, debug UI) | - (port dev tool, D18) |
 | `game_exit.rs` | what pause/`ExitGame` read | `RainWorldGame.ExitGame` |
@@ -60,6 +61,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `game_drips.rs`, `game_drips_tests.rs` | the ceiling drip in `Room.Update`, `Room.Loaded`'s `DrippingSound` and its turns (sound, emitters) in the update list | `Room.Update`, `Room.Loaded` |
 | `game_weapons.rs` | rocks/spears in the update list, loops, sparks | - |
 | `*_tests.rs`, `tests.rs` | tests for their `game_*`/`shelter` siblings; `tests.rs` is physics unit tests | - |
+| `anti_gravity.rs`, `anti_gravity_tests.rs` | `AntiGravity` (the room's gravity from `ZeroG`/`BrokenZeroG`), `BrokenAntiGravity` (the world's flickering switch: counter, 120-tick transition, lights) | `AntiGravity` |
 | `camera.rs` | what the sim reads of camera 0, visibility tests | `RoomCamera` |
 | `campaign.rs` | per-slugcat campaign data: food, start den, karma | `SlugcatStats`, `SaveState` |
 | `chunk.rs` | `BodyChunk` integration + tile collision | `BodyChunk.Update` |

@@ -10,6 +10,8 @@
 
 use std::sync::Arc;
 
+#[path = "game_anti_gravity.rs"]
+mod anti_gravity;
 #[path = "game_background_scene.rs"]
 mod background_scene;
 #[path = "game_carried.rs"]
@@ -426,6 +428,8 @@ enum RoomObject {
     LightBeam(u64),
     /// A light fixture, its ember or a waterfall.
     Fixture(crate::room_fixtures::FixtureRef),
+    /// The room's `AntiGravity`.
+    AntiGravity,
     Lizard(CreatureId),
 }
 
@@ -899,7 +903,9 @@ impl RainWorldGame {
         self.update_abstract_room();
         self.enter_from_abstract_rooms();
         self.update_world_processes(observer);
-        self.world.rain_cycle.update(&mut self.rng);
+        self.world.rain_cycle.update_timers();
+        self.update_broken_anti_gravity();
+        self.world.rain_cycle.water_cycle.update(&mut self.rng);
         self.rain_request_stop_song();
         self.world.path_finders.divider.update();
         if self.shortcuts.divide() {
@@ -1461,6 +1467,7 @@ impl RainWorldGame {
         objects.extend(self.room_rainbow_objects(index));
         objects.extend(self.room_light_beam_objects(index));
         objects.extend(self.room_fixture_objects(index));
+        objects.extend(self.room_anti_gravity_objects(index));
         objects.sort_by_key(|&(seq, _)| std::cmp::Reverse(seq));
         objects
     }
@@ -1575,6 +1582,7 @@ impl RainWorldGame {
                 RoomObject::Rainbow(order) => self.run_rainbow(index, order),
                 RoomObject::LightBeam(order) => self.run_light_beam(index, order),
                 RoomObject::Fixture(f) => self.run_fixture(index, f),
+                RoomObject::AntiGravity => self.run_anti_gravity(index),
                 RoomObject::Insect(_) => {}
             }
         }

@@ -12,6 +12,7 @@ use rw_assets::{PlacedObjectType, ResizableData, RoomEffectType};
 
 use super::{RainWorldGame, RoomObject};
 use crate::insect::InsectWater;
+use crate::trigger::TriggerObjectKind;
 use crate::world::{RealizedRoom, World};
 use crate::{
     BodyChunk, ChunkOwner, ChunkView, DandelionPatch, GreenSpark, GreenSparks, LightSource,
@@ -93,6 +94,10 @@ impl RainWorldGame {
                 RoomEffectType::GreenSparks => self.add_green_sparks(index, amount),
                 RoomEffectType::AboveCloudsView => self.add_above_clouds_view(index, amount),
                 RoomEffectType::RoofTopView => self.add_roof_top_view(index),
+                RoomEffectType::ZeroG | RoomEffectType::BrokenZeroG => self.add_anti_gravity(index),
+                RoomEffectType::SSMusic => {
+                    self.add_trigger_object(index, TriggerObjectKind::SsMusic { amount });
+                }
                 _ => {}
             }
         }

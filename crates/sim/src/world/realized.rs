@@ -71,8 +71,10 @@ pub struct RealizedRoom {
     pub particles: crate::room_particles::RoomParticles,
     /// `Room.Loaded`'s light fixtures and the tile parse's waterfalls.
     pub fixtures: crate::RoomFixtures,
-    /// `Room.gravity`: 1 until `AntiGravity` (zero-gravity rooms) is ported.
+    /// `Room.gravity`: set every tick by the room's `AntiGravity`.
     pub gravity: f32,
+    /// `Room.Loaded`'s `AntiGravity` (a `ZeroG` or `BrokenZeroG` effect).
+    pub anti_gravity: Option<crate::AntiGravity>,
     /// `Room.Loaded`'s `CustomDecal`s (no per-tick state; drawn in `Foreground`).
     pub decals: Vec<crate::CustomDecal>,
     /// `Room.Loaded`'s `Rainbow`s in the room's update list.
@@ -152,6 +154,7 @@ impl RealizedRoom {
             particles: crate::room_particles::RoomParticles::default(),
             fixtures: crate::RoomFixtures::default(),
             gravity: 1.0,
+            anti_gravity: None,
             decals: Vec::new(),
             rainbows: Vec::new(),
             insects,

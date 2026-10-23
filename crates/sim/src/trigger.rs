@@ -6,7 +6,7 @@
 //! sim hands the music player (`rw-audio`). Behaviour: `rainworld-re/notes/music.md`
 //! section 4.2; the game side is `game_triggers.rs`.
 //!
-//! Mirrors: ActiveTriggerChecker.cs, SuperJumpInstruction.cs, ScavengerTradeInstructionTrigger.cs, ReliableIggyDirection.cs, PickupObjectInstruction.cs, RoomSpecificTextMessage.cs
+//! Mirrors: ActiveTriggerChecker.cs, SuperJumpInstruction.cs, ScavengerTradeInstructionTrigger.cs, ReliableIggyDirection.cs, PickupObjectInstruction.cs, RoomSpecificTextMessage.cs, SSMusicTrigger.cs
 
 use rw_assets::{
     EventTrigger, IggySymbol, MusicEvent, QuadData, ReliableIggyDirectionData, StopMusicEvent,
@@ -28,6 +28,9 @@ pub enum MusicRequest {
     /// `RainCycle.Update`'s `RainRequestStopSong`: music is not allowed and camera 0's
     /// room has rain danger (the player only acts with a song or a next song).
     RainStop,
+    /// `SSMusicTrigger.Trigger` in a room whose gravity is 0: ask for Five Pebbles' song
+    /// or raise its volume to `amount`.
+    SsSong { amount: f32 },
 }
 
 /// What a checker reads of `Players[0]`.
@@ -285,6 +288,10 @@ pub enum TriggerObjectKind {
     ReliableIggyDirection(Box<ReliableIggyDirection>),
     /// `RoomSpecificTextMessage`.
     TextMessage,
+    /// `SSMusicTrigger` with its effect's `amount`.
+    SsMusic {
+        amount: f32,
+    },
 }
 
 /// A trigger room object in a realized room's update list.

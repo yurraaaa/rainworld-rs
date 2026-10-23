@@ -587,6 +587,8 @@ impl Session {
             light_beams: super::reply::LightBeamState::all(sim.world()),
             spot_lights: super::reply::SpotLightState::all(sim.world()),
             light_fixtures: super::reply::LightFixtureState::all(sim.world()),
+            room_gravity: super::reply::RoomGravityState::all(sim.world()),
+            broken_anti_gravity: super::reply::BrokenAntiGravityState::of(sim.world()),
             waterfalls: super::reply::WaterFallState::all(sim.world()),
             holo_light_needed: sim.holo_light_needed(),
             dens: Self::dens(scene),

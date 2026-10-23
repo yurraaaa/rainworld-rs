@@ -108,7 +108,7 @@ impl Player {
         self.body.set_go_through_floors(true);
         self.roll_direction = 0;
         if self.corridor_turn_dir.is_some() {
-            let gravity = self.body.params.gravity;
+            let gravity = self.body.params.gravity();
             for c in &mut self.body.chunks {
                 c.vel.y += gravity;
             }
@@ -297,7 +297,7 @@ impl Player {
     /// in a vertical slide) and cancelled buoyancy.
     fn corridor_damping(&mut self, water: Option<&Water>) {
         let friction = self.body.params.surface_friction;
-        let gravity = self.body.params.gravity;
+        let gravity = self.body.params.gravity();
         let slides = self
             .vertical_corridor_slide_counter
             .max(self.horizontal_corridor_slide_counter);

@@ -8,6 +8,7 @@ use serde::Serialize;
 
 pub use super::background_scene_reply::{BackgroundSceneState, CameraOnScene};
 pub use super::fixtures_reply::{LightFixtureState, WaterFallState};
+pub use super::gravity_reply::{BrokenAntiGravityState, RoomGravityState};
 pub use super::insect_reply::RoomInsects;
 pub use super::music_reply::{MusicState, TriggerState};
 pub use super::particles_reply::RoomParticlesState;
@@ -135,6 +136,12 @@ pub struct State {
     /// The realized rooms' `Redlight`s, `HolyFire`s and `SlimeMoldLight`s.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub light_fixtures: Vec<LightFixtureState>,
+    /// The realized rooms' gravity and power (`ZeroG` / `BrokenZeroG` rooms).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub room_gravity: Vec<RoomGravityState>,
+    /// The world's `BrokenAntiGravity` switch.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub broken_anti_gravity: Option<BrokenAntiGravityState>,
     /// The realized rooms' `WaterFall`s.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub waterfalls: Vec<WaterFallState>,

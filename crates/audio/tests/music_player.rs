@@ -265,3 +265,28 @@ fn no_player_when_music_is_off() {
     settings.play_music = false;
     assert!(MusicPlayer::new(settings, None).is_none());
 }
+
+/// `SSMusicTrigger` asking: `RequestSSSong` makes `NA_41 - Random Gods` (priority 1.1,
+/// looped, fade-in 200); `SSSong.Update` lerps the base volume toward what was asked while
+/// rooms keep asking and fades the song out 150 updates after they stop.
+#[test]
+fn ss_song_lasts_while_rooms_ask() {
+    let mut run = Run::new(&[("NA_41 - Random Gods", 4000)]);
+    run.player.ss_music_trigger(0.5);
+    let song = run.player.song.as_ref().expect("song");
+    assert_eq!(song.name, "NA_41 - Random Gods");
+    assert_eq!((song.priority, song.fade_in_time), (1.1, 200.0));
+    assert!(song.piece.looped && song.stop_at_gate && song.stop_at_death);
+    for _ in 0..100 {
+        run.player.ss_music_trigger(0.5);
+        run.tick();
+    }
+    let base = run.player.song.as_ref().expect("song").base_volume;
+    assert!(base > 0.3 && base <= 0.5, "{base}");
+    for _ in 0..150 {
+        run.tick();
+    }
+    assert!(!run.player.song.as_ref().expect("song").fading_out());
+    run.tick();
+    assert!(run.player.song.as_ref().expect("song").fading_out());
+}

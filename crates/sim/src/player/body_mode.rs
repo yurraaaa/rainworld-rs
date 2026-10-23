@@ -263,7 +263,7 @@ impl Player {
             if self.body.chunks[HEAD].contact().y == 1 {
                 self.standing = false;
             }
-            let gravity = self.body.params.gravity;
+            let gravity = self.body.params.gravity();
             let hips = &mut self.body.chunks[HIPS];
             if x == downhill {
                 hips.vel.y -= gravity;
@@ -347,7 +347,7 @@ impl Player {
         }
         if x != 0 && self.is_tile_solid(room, HEAD, x, 0) && self.is_tile_solid(room, HIPS, x, 0) {
             let t = (self.wall_slide_counter as f32 / 30.0).clamp(0.0, 1.0);
-            let lift = self.body.params.gravity * (0.8 + (0.0 - 0.8) * t) * ROOM_GRAVITY;
+            let lift = self.body.params.gravity() * (0.8 + (0.0 - 0.8) * t) * ROOM_GRAVITY;
             for c in &mut self.body.chunks {
                 c.pos.y += lift;
             }

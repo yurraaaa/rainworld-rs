@@ -423,6 +423,7 @@ impl World {
         let mut walk = false;
         if weapon.room == index {
             let ready_for_ai = room.ready_for_ai();
+            weapon.body.params.room_gravity = room.gravity;
             let water = room.water.take();
             let mut tick = WeaponTick {
                 room_index: index,

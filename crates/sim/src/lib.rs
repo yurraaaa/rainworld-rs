@@ -22,6 +22,7 @@
 //! Mirrors: -
 
 mod above_clouds_view;
+mod anti_gravity;
 mod background_scene;
 mod bubble;
 mod camera;
@@ -76,6 +77,7 @@ pub mod world;
 mod zero_g_speck;
 
 pub use above_clouds_view::AboveCloudsContext;
+pub use anti_gravity::{AntiGravity, BrokenAntiGravity, BrokenTick};
 pub use background_scene::{
     AboveCloudsParams, BackgroundScene, CloudData, ElementKind, SCREEN_SIZE, SceneElement,
     SceneImages, SceneKind, SceneParams, SkyTime,
