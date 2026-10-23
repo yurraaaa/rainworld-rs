@@ -198,6 +198,10 @@ pub enum Shader {
     /// `Futile/Rainbow` (`Rainbow`): a ring of the rainbow gradient, sparkling with
     /// noise, stronger over far level layers, screened over the frame (its GrabPass).
     Rainbow,
+    /// `Futile/WaterFall` (`WaterFall`): the room palette's water colours over the fall,
+    /// shaped by noise and the level depth, with the vertex colour's red the density and
+    /// green and blue the fade at its top and bottom.
+    WaterFall,
 }
 
 impl Shader {

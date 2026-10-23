@@ -14,6 +14,7 @@ mod debug_action_tests;
 mod dev_start_tests;
 #[cfg(test)]
 mod dev_tools_tests;
+mod fixtures_reply;
 #[cfg(test)]
 mod game_over_tests;
 mod insect_reply;

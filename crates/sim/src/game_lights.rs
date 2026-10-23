@@ -162,6 +162,7 @@ impl RainWorldGame {
                 .is_some_and(|l| !l.slated && l.room == Some(index)),
             LightTie::Insect(order) => self.insect_tie_gone(index, order),
             LightTie::GreenSpark(order) => self.green_spark_tie_gone(index, order),
+            LightTie::Fixture(order) => self.fixture_tie_gone(index, order),
             // In a shortcut the player has no room (`RemoveFromRoom`).
             LightTie::Player => !self
                 .player

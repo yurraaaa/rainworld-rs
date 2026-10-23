@@ -749,6 +749,7 @@ impl Scene {
                     self.game
                         .particle_draw_lists(alpha, visuals.palette_texture()),
                 );
+                lists.extend(self.game.fixture_draw_lists(alpha, &visuals.room_palette()));
             }
             lists.extend(self.game.placed_visual_draw_lists());
             let level_view = self.visuals.is_some() && view.level;

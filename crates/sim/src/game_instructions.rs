@@ -11,8 +11,8 @@
 
 use rw_assets::{
     AbstractObjectType, CreatureType, CustomDecalData, IggyCondition, LightBeamData,
-    LightSourceData, PlacedObjectType, QuadData, RainbowData, ReliableIggyDirectionData,
-    ResizableData,
+    LightFixtureData, LightSourceData, PlacedObjectType, QuadData, RainbowData,
+    ReliableIggyDirectionData, ResizableData,
 };
 
 use super::RainWorldGame;
@@ -95,6 +95,9 @@ impl RainWorldGame {
                 Some(PlacedObjectType::LightSource) => {
                     LightSourceData::parse(&o.data).map(|d| PlacedRoomObject::Light(pos, d))
                 }
+                Some(PlacedObjectType::LightFixture) => {
+                    LightFixtureData::parse(&o.data).map(|d| PlacedRoomObject::Fixture(pos, d))
+                }
                 Some(PlacedObjectType::LightBeam) => {
                     LightBeamData::parse(&o.data).map(|d| PlacedRoomObject::LightBeam(pos, d))
                 }
@@ -150,6 +153,7 @@ impl RainWorldGame {
             match object {
                 PlacedRoomObject::Trigger(kind) => self.add_trigger_object(index, kind),
                 PlacedRoomObject::Light(pos, data) => self.add_placed_light(index, pos, &data),
+                PlacedRoomObject::Fixture(pos, data) => self.add_light_fixture(index, pos, data),
                 PlacedRoomObject::LightBeam(pos, data) => self.add_light_beam(index, pos, data),
                 PlacedRoomObject::SpotLight(pos, data) => self.add_spot_light(index, pos, &data),
                 PlacedRoomObject::SlimeMold(pos, rad, through_walls) => {
@@ -505,6 +509,7 @@ mod tests;
 enum PlacedRoomObject {
     Trigger(TriggerObjectKind),
     Light(Vec2, LightSourceData),
+    Fixture(Vec2, LightFixtureData),
     LightBeam(Vec2, LightBeamData),
     SpotLight(Vec2, QuadData),
     /// `pos`, `rad`, `throughWalls`.

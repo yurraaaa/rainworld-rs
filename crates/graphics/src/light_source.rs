@@ -50,7 +50,7 @@ impl LightSourceSprites for LightSource {
         let submersible = self.submersible || view.water_lights;
         let mut items = vec![DrawItem::Sprite(Sprite {
             index: 0,
-            element: "Futile_White",
+            element: self.element.name(),
             pos: Vec2::new(x, view.snap(pos.y, view.cam_pos.y)),
             rotation: 0.0,
             scale: Vec2::new(rad / 8.0, rad / 8.0),
@@ -148,6 +148,23 @@ mod tests {
         assert_eq!(s.scale, Vec2::new(20.0, 20.0));
         assert!((s.color.a - 0.09).abs() < 1e-6);
         assert_eq!((s.color.r, s.color.g, s.color.b), (1.0, 0.8, 0.3));
+    }
+
+    /// A `RedlightLight` (the `LightMask0` element) draws the same disc over that element,
+    /// whose 128 px make it `16 * rad` wide.
+    #[test]
+    fn redlight_light_uses_its_own_element() {
+        let mut l = light();
+        l.element = rw_sim::LightElement::LightMask0;
+        let list = l.draw(&view(false), 1.0);
+        let DrawItem::Sprite(s) = &list.items[0] else {
+            panic!("a sprite");
+        };
+        assert_eq!((s.element, s.scale), ("LightMask0", Vec2::new(20.0, 20.0)));
+        assert_eq!(
+            light().draw(&view(false), 1.0).sprite(0).map(|s| s.element),
+            Some("Futile_White")
+        );
     }
 
     /// `Lerp(lastAlpha, Alpha, t)`: a light fading with the sun at `ShaderLight` -0.25

@@ -64,6 +64,8 @@ pub enum Drawable {
     LightBeam(u64),
     /// A placed `SpotLight`, by its place in the update list.
     SpotLight(u64),
+    /// A `HolyFireSprite`, `SlimeMoldLight` or `WaterFall`, by its place in the update list.
+    Fixture(u64),
     /// `ShortcutGraphics` (not a leaser: its sprites join the containers after the
     /// room's leasers).
     Shortcuts,

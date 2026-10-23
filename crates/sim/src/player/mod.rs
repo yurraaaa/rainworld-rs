@@ -1054,4 +1054,9 @@ impl Player {
     fn input_y(&self) -> i32 {
         i32::from(self.input[0].y)
     }
+
+    /// `input[0].y > 0`: the player holds up (a waterfall lets it climb through).
+    pub(crate) fn input_up(&self) -> bool {
+        self.input[0].y > 0
+    }
 }

@@ -58,7 +58,9 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   Placed lights (L1, D24, notes `lights.md`) done: placed `LightSource`s, `Alpha` with
   `fadeWithSun`, colour from the level image and effect colours, the glowing player's
   light, `LightSourceExposure`/`LightSourceColor`/`DarknessOfPoint`, `Needed` reading
-  `Alpha`. `LightBeam`/`SpotLight` (L3) done (D24). Left: fixtures (L2a, L2b), owners' lights with
+  `Alpha`. `LightBeam`/`SpotLight` (L3) done (D24). Fixtures without electricity (L2a: `Redlight`,
+  `HolyFire`, `SlimeMoldLight`) and the rooms' waterfalls done (D30). Left: the SS
+  electricity fixtures (L2b) with `AntiGravity`/`ElectricPower`, owners' lights with
   their owners (L4); blinking and night lights with the DLCs.
   Step 3 (cosmetic insects, `rw_sim::insect`, `../rainworld-re/notes/cosmetic-insects.md`)
   done; its omissions are among the decisions above. Draw order for later steps:

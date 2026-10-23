@@ -16,7 +16,7 @@ pub trait SlimeMoldSprites {
 }
 
 /// The colours `ApplyPalette` reads.
-trait SlimeMoldPalette {
+pub(crate) trait SlimeMoldPalette {
     /// `SlimeMoldColorFromPalette`.
     fn slime_mold_color(&self) -> Color;
     /// `Lerp(blackColor, fogColor, 0.15 + 0.1 * fogAmount)`.
