@@ -267,7 +267,7 @@ prefer these over `--screenshot`/`--script`; briefs for such agents say so.
   viewed room, graphics and voice; overseers with AI and guide state; stun/kill tag,
   `social`, `danger`, `carries`), every abstract object (and realized
   state), `orphan_emitters`, `lightning` (a room's two flash sources, thunder queue, `background_noise`; `level_params` shows `num4` and the sky/fog texels), `triggers`, `music`, `holo_lights`, `background_scene` (per scene: kind, elements, the camera's `camera_world`/`altitude`, each `DistantLightning`, dust puffs), `camera_shake`, `full_screen_effect`, `death_fall`, `water_light`, `lights`, `level_params`, `insects`, `slime_molds`, `token_stalks`, `light_beams`, `spot_lights`, `light_fixtures`, `waterfalls`, `electric_death` (per room: `Intensity`, `sin`, colour, the flashes, loop volumes, recent strikes), `border_push_back` (per room: the edges, `pushPower`), `decals`, `rainbows`, `particles`, `session`,
-  `dens`, `quantified`, `flies_world`, `region_state`, `heavy_ai`. Empty fields are left
+  `dens`, `quantified`, `flies_world`, `region_state`, `heavy_ai`, `screen_size` (the sim's `rainWorld.screenSize`). Empty fields are left
   out; the field list is in `crates/app/src/mcp/`. New sim state must be
   added there. `get_exits` lists the camera room's exits (entrance tile, the
   input that enters, destination room, arrival node, camera).
