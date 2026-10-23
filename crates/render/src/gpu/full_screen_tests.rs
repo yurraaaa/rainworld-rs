@@ -269,6 +269,7 @@ pub(super) fn renderer() -> Option<WgpuRenderer> {
     r.set_atlas(
         &atlas,
         &[&PngImage::from_pixels(16, 16, vec![[255; 4]; 256])],
+        &[],
     );
     Some(r)
 }

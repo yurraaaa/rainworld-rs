@@ -127,14 +127,23 @@ impl UnityResources {
     /// # Errors
     /// As [`Self::load`], or when its pixels cannot be read or decoded.
     pub fn texture_image(&self, path: &str) -> Result<PngImage, AssetError> {
+        self.texture_with_settings(path).map(|(_, image)| image)
+    }
+
+    /// As [`Self::texture_image`], with the texture's import settings.
+    ///
+    /// # Errors
+    /// As [`Self::texture_image`].
+    pub fn texture_with_settings(&self, path: &str) -> Result<(Texture2D, PngImage), AssetError> {
         let texture: Texture2D = self.load(path)?;
         let data = match &texture.image {
             ImageData::Inline(data) => data.clone(),
             ImageData::Streamed(stream) => self.streamed(stream)?,
         };
-        texture
+        let image = texture
             .decode(&data)
-            .map_err(|m| AssetError::format(self.resources.path(), m))
+            .map_err(|m| AssetError::format(self.resources.path(), m))?;
+        Ok((texture, image))
     }
 
     /// The Texture2D at `path` with every mip level decoded to RGBA8 (PNG row order),

@@ -127,6 +127,28 @@ pub struct TextureSampling {
     pub clamp: bool,
 }
 
+impl TextureSampling {
+    /// A crisp, clamped texture (`crispPixels`, `clampWrapMode`).
+    pub const POINT_CLAMP: Self = Self {
+        filter: TextureFilter::Point,
+        clamp: true,
+    };
+
+    /// A Texture2D's import settings: `filter_mode` 0 is point, 1 bilinear, 2 trilinear
+    /// (sampled bilinear: no mips are uploaded); `wrap` is U and V, 0 repeat, 1 clamp.
+    #[must_use]
+    pub fn from_import(filter_mode: i32, wrap: [i32; 2]) -> Self {
+        Self {
+            filter: if filter_mode == 0 {
+                TextureFilter::Point
+            } else {
+                TextureFilter::Bilinear
+            },
+            clamp: wrap == [1, 1],
+        }
+    }
+}
+
 /// One draw call: `indices` of the batch with one texture and shader.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StageDraw {

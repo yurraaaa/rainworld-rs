@@ -449,3 +449,44 @@ fn room_globals_sprite_rect() {
     assert_eq!(g.screen_size, [1366.0, 768.0]);
     assert_eq!(g.rain, 3.0);
 }
+
+#[test]
+fn import_settings_choose_the_page_sampling() {
+    use crate::{TextureFilter, TextureSampling};
+    let bilinear_repeat = TextureSampling::from_import(1, [0, 0]);
+    assert_eq!(bilinear_repeat.filter, TextureFilter::Bilinear);
+    assert!(!bilinear_repeat.clamp);
+    assert_eq!(
+        TextureSampling::from_import(0, [1, 1]),
+        TextureSampling::POINT_CLAMP
+    );
+    assert_eq!(
+        TextureSampling::from_import(2, [1, 1]).filter,
+        TextureFilter::Bilinear
+    );
+}
+
+/// `LightMask0` is filter 1 (bilinear), repeat, 8 mips; `rainWorld` point and clamped.
+#[test]
+fn installed_atlas_pages_import_settings() {
+    let game = std::env::var_os("RW_DIR").map_or_else(
+        || std::path::PathBuf::from("/home/yura/.local/share/Steam/steamapps/common/Rain World"),
+        std::path::PathBuf::from,
+    );
+    let Ok(resources) = rw_assets::UnityResources::open(game.join("RainWorld_Data")) else {
+        eprintln!("skipped: no game under {}", game.display());
+        return;
+    };
+    let (mask, _) = resources
+        .texture_with_settings("Atlases/LightMask0")
+        .unwrap();
+    assert_eq!((mask.filter_mode, mask.wrap[..2].to_vec()), (1, vec![0, 0]));
+    assert_eq!(mask.mip_count, 8);
+    let (main, _) = resources
+        .texture_with_settings("Atlases/rainWorld")
+        .unwrap();
+    assert_eq!(
+        crate::TextureSampling::from_import(main.filter_mode, [main.wrap[0], main.wrap[1]]),
+        crate::TextureSampling::POINT_CLAMP
+    );
+}

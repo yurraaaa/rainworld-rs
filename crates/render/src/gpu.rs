@@ -951,20 +951,30 @@ impl Renderer for WgpuRenderer {
         self.background = wgpu::Color { r, g, b, a };
     }
 
-    fn set_atlas(&mut self, atlas: &SpriteAtlas, images: &[&PngImage]) {
+    fn set_atlas(
+        &mut self,
+        atlas: &SpriteAtlas,
+        images: &[&PngImage],
+        sampling: &[TextureSampling],
+    ) {
         self.sprite_pipeline
-            .set_atlas(&self.device, &self.queue, images);
+            .set_atlas(&self.device, &self.queue, images, sampling);
         self.atlas = Some(atlas.clone());
         self.missing.clear();
     }
 
-    fn add_atlas_page(&mut self, atlas: rw_graphics::Atlas, image: &PngImage) {
+    fn add_atlas_page(
+        &mut self,
+        atlas: rw_graphics::Atlas,
+        image: &PngImage,
+        sampling: TextureSampling,
+    ) {
         let Some(sprite_atlas) = &mut self.atlas else {
             return;
         };
         sprite_atlas.push_page(atlas);
         self.sprite_pipeline
-            .add_page(&self.device, &self.queue, image);
+            .add_page(&self.device, &self.queue, image, sampling);
     }
 
     fn set_scene_textures(&mut self, textures: &crate::SceneTextures) {

@@ -24,6 +24,7 @@
 @group(1) @binding(3) var clouds_sampler: sampler;
 @group(1) @binding(4) var apartments_tex: texture_2d<f32>;
 @group(1) @binding(5) var city_palette_tex: texture_2d<f32>;
+@group(1) @binding(6) var point_sampler: sampler;
 
 const WIND_DIR: f32 = 1.0;
 
@@ -302,8 +303,8 @@ fn fs_house(in: VertexOut) -> @location(0) vec4<f32> {
     grab = vec2(floor(cell_colour.x * 5.0) / 5.0, floor(cell_colour.y * 5.0) / 5.0) + (grab - cell) * div / 5.0;
     let palette_row = floor(random2f(cell * vec2(mix(44.0, 60.0, cell_colour.z), 0.1232)).z * 32.0) / 32.0;
 
-    let apt = textureSampleLevel(apartments_tex, atlas_sampler, grab, 0.0).x;
-    var tex_col = textureSampleLevel(city_palette_tex, atlas_sampler, vec2(1.0 - apt, palette_row), 0.0);
+    let apt = textureSampleLevel(apartments_tex, point_sampler, grab, 0.0).x;
+    var tex_col = textureSampleLevel(city_palette_tex, point_sampler, vec2(1.0 - apt, palette_row), 0.0);
     let light = ((1.0 - tex_cell.z) * cell_colour.z * 2.0 + cell_colour.y) / 3.0;
     if light < 0.2 {
         tex_col = vec4(tex_col.xyz * 0.6, tex_col.w);

@@ -1058,8 +1058,12 @@ impl<R: Renderer> SceneRenderer<R> {
                     let (w, h) = (image.width() as u32, image.height() as u32);
                     self.scene_sizes
                         .insert(name, rw_sim::Vec2::new(w as f32, h as f32));
-                    self.renderer
-                        .add_atlas_page(rw_graphics::Atlas::single(name, w, h), &image);
+                    self.renderer.add_atlas_page(
+                        rw_graphics::Atlas::single(name, w, h),
+                        &image,
+                        // D31: the scene shaders filter and wrap in the shader.
+                        rw_render::TextureSampling::POINT_CLAMP,
+                    );
                 }
                 Err(e) => log::warn!("no scene image {name} ({e})"),
             }
@@ -1081,8 +1085,11 @@ impl<R: Renderer> SceneRenderer<R> {
             match CustomDecalData::load_image(&source.assets, name) {
                 Ok(image) => {
                     let (w, h) = (image.width() as u32, image.height() as u32);
-                    self.renderer
-                        .add_atlas_page(rw_graphics::Atlas::single(name, w, h), &image);
+                    self.renderer.add_atlas_page(
+                        rw_graphics::Atlas::single(name, w, h),
+                        &image,
+                        rw_render::TextureSampling::POINT_CLAMP,
+                    );
                 }
                 Err(e) => log::warn!("no decal image {name} ({e})"),
             }
@@ -1148,7 +1155,13 @@ mod tests {
             self.level = true;
             self.order.push("level");
         }
-        fn set_atlas(&mut self, _: &SpriteAtlas, _: &[&PngImage]) {}
+        fn set_atlas(
+            &mut self,
+            _: &SpriteAtlas,
+            _: &[&PngImage],
+            _: &[rw_render::TextureSampling],
+        ) {
+        }
         fn set_stage_texture(
             &mut self,
             _: rw_render::StageTextureId,
