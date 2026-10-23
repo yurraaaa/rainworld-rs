@@ -6,10 +6,10 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 
 ## Approved, not started
 - **File layout cleanup of the other crates** (user, 2026-10-23, after rw-sim's): the same
-  check per crate, a layout proposal to the user each time, moves only. Top-level `.rs` files
-  today: rw-graphics 70 (no folders), rw-assets 30, app 27, rw-render 25, rw-save 20,
-  rw-menu 20, rw-hud 19, rw-audio 7. Covers the `cosmetic_graphics.rs` and `rw-hud`
-  screens items of the end-of-project cleanup list.
+  check per crate, a layout proposal to the user each time, moves only. rw-sim and
+  rw-graphics done (2026-10-23). Left, top-level `.rs` files: rw-assets 30, app 27,
+  rw-render 25, rw-save 20, rw-menu 20, rw-hud 19, rw-audio 7. Covers the `rw-hud`
+  screens item of the end-of-project cleanup list.
 - **Debug UI region switcher** (2026-10-19): the F1 debug UI's Region tab lists the
   regions on disk but its button does nothing; it needs region changes and gates,
   which are not ported.
