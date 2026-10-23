@@ -19,7 +19,8 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **Hunter follow-ups** (user, 2026-10-22, after the spear on the back): `HardmodeStart`
   (the Hunter's scripted LF_H01 first cycle, its spear, NSHSwarmer, `Red_stomach` pearl,
   Deer, scripted input/camera/map) as its own job later; the `sprOnBackStick` in the
-  region state's `STICKS` with the save work.
+  region state's `STICKS` with the save work. Both in M12 "Whole base game playable" (user,
+  2026-10-23).
 
 - **Async room loading** (user, 2026-10-22): plan and decisions in
   `../rainworld-re/surveys/async-room-loading.md`; next after the SS superstructure work
@@ -27,6 +28,10 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **Water with the rain (M8)**: `Room.AddWater` makes a `Water` (so its surface loop and
   `WaterLight`) in rooms with no level water (rain flood, `WaterCycleTop`/`Bottom`,
   `BrokenShelterWaterLevel`). The other water effects are done (2026-10-22).
+- **Death fall and other-room screenshots** (user, 2026-10-23, small jobs before async
+  loading): the death fall's `counter` counts from `Room.Loaded` while the room stays
+  realized (a `DeathFallGraphic` per realized room, not per camera entry; D7), and another
+  room's MCP screenshot draws its full-screen effect, death fall and water light (D7).
 - **`_NoiseTex2` mip selection** (user, 2026-10-23, after 10c): `FlatLight`,
   `OverseerZip`, `Hologram` (and ElectricDeath's taps) read `_NoiseTex2` at level 0; the
   game's derivative mip choice picks coarser levels (`tc.y * 8` over the 800 px image).
