@@ -9,7 +9,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 
 | Crate | mirrors | port-only | fallback | unmapped |
 |---|---|---|---|---|
-| app | 17 | 35 | 0 | 0 |
+| app | 17 | 36 | 0 | 0 |
 | assets | 25 | 13 | 0 | 0 |
 | audio | 11 | 5 | 0 | 0 |
 | graphics | 53 | 22 | 0 | 0 |
@@ -18,7 +18,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | random | 0 | 1 | 0 | 0 |
 | render | 7 | 19 | 0 | 0 |
 | save | 15 | 5 | 0 | 0 |
-| sim | 251 | 20 | 0 | 0 |
+| sim | 254 | 20 | 0 | 0 |
 
 ## Rust file to C# files
 
@@ -59,6 +59,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/app/src/mcp/projection_reply.rs` | port-only | - |
 | `crates/app/src/mcp/reply.rs` | port-only | - |
 | `crates/app/src/mcp/session.rs` | port-only | - |
+| `crates/app/src/mcp/shortcut_helper_reply.rs` | port-only | - |
 | `crates/app/src/mcp/shortcut_shots.rs` | port-only | - |
 | `crates/app/src/mcp/ss_electric_reply.rs` | port-only | - |
 | `crates/app/src/mcp/ss_grab_reply.rs` | port-only | - |
@@ -462,6 +463,8 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/sim/src/game/shelter.rs` | mirrors | ShelterDoor.cs |
 | `crates/sim/src/game/shelter_turn.rs` | mirrors | Player.cs, Room.cs, ShelterDoor.cs |
 | `crates/sim/src/game/shortcut.rs` | mirrors | Creature.cs, Room.cs, ShortcutHandler.cs |
+| `crates/sim/src/game/shortcut_helper.rs` | mirrors | ShortcutHelper.cs |
+| `crates/sim/src/game/shortcut_helper_turn.rs` | mirrors | Room.cs, ShortcutHelper.cs |
 | `crates/sim/src/game/shortcut_turn.rs` | mirrors | RainWorldGame.cs, RoomCamera.cs, ShortcutHandler.cs |
 | `crates/sim/src/game/spawn.rs` | mirrors | Creature.cs, Room.cs |
 | `crates/sim/src/game/trigger.rs` | mirrors | ActiveTriggerChecker.cs, CoralBrain/SSMusicTrigger.cs, PickupObjectInstruction.cs, ReliableIggyDirection.cs, RoomSpecificTextMessage.cs, ScavTradeInstruction/ScavengerTradeInstructionTrigger.cs, SuperJumpInstruction.cs |
@@ -507,6 +510,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/sim/src/player/movement.rs` | mirrors | Player.cs |
 | `crates/sim/src/player/poles.rs` | mirrors | Player.cs |
 | `crates/sim/src/player/shortcut.rs` | mirrors | Creature.cs, Player.cs, ShortcutHandler.cs |
+| `crates/sim/src/player/shortcut_push.rs` | mirrors | ShortcutHelper.cs |
 | `crates/sim/src/player/sleep.rs` | mirrors | Player.cs |
 | `crates/sim/src/player/sounds.rs` | mirrors | Player.cs |
 | `crates/sim/src/player/spear_on_back.rs` | mirrors | Player.cs |
@@ -819,7 +823,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `Rock.cs` | `crates/graphics/src/item/weapon.rs`, `crates/sim/src/creature/lizard/hits_turn.rs`, `crates/sim/src/item/weapon.rs`, `crates/sim/src/item/weapon_turn.rs` |
 | `RockFlea.cs` | `crates/graphics/src/effects/particles/insect.rs`, `crates/sim/src/effects/particles/insect/rock_flea.rs` |
 | `RoofTopView.cs` | `crates/app/src/game_background_scene.rs`, `crates/graphics/src/effects/sky/background_scene.rs`, `crates/sim/src/effects/sky/background_scene.rs`, `crates/sim/src/effects/sky/roof_top_view.rs` |
-| `Room.cs` | `crates/app/src/sprite_order.rs`, `crates/assets/src/room.rs`, `crates/render/src/level.rs`, `crates/sim/src/creature/ai_modules/noise_tracker_world.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/creature/fly/turn.rs`, `crates/sim/src/effects/gameplay/anti_gravity_turn.rs`, `crates/sim/src/effects/gameplay/border_push_back_turn.rs`, `crates/sim/src/effects/gameplay/death_fall.rs`, `crates/sim/src/effects/gameplay/death_fall_turn.rs`, `crates/sim/src/effects/gameplay/electric_death_turn.rs`, `crates/sim/src/effects/lights/light_beam.rs`, `crates/sim/src/effects/lights/light_beam_turn.rs`, `crates/sim/src/effects/lights/light_fixture_turn.rs`, `crates/sim/src/effects/lights/turn.rs`, `crates/sim/src/effects/particles/decal.rs`, `crates/sim/src/effects/particles/decal_turn.rs`, `crates/sim/src/effects/particles/green_sparks.rs`, `crates/sim/src/effects/particles/insect/coordinator.rs`, `crates/sim/src/effects/particles/insect/turn.rs`, `crates/sim/src/effects/particles/placed_cosmetics_turn.rs`, `crates/sim/src/effects/particles/rainbow.rs`, `crates/sim/src/effects/particles/room_particles.rs`, `crates/sim/src/effects/particles/slime_mold.rs`, `crates/sim/src/effects/particles/token_stalk.rs`, `crates/sim/src/effects/particles/turn.rs`, `crates/sim/src/effects/particles/zero_g_speck.rs`, `crates/sim/src/effects/sky/background_scene_turn.rs`, `crates/sim/src/effects/sky/lightning_turn.rs`, `crates/sim/src/game/camera.rs`, `crates/sim/src/game/instructions_turn.rs`, `crates/sim/src/game/loading_turn.rs`, `crates/sim/src/game/room_script.rs`, `crates/sim/src/game/screen_shake.rs`, `crates/sim/src/game/shelter_turn.rs`, `crates/sim/src/game/shortcut.rs`, `crates/sim/src/game/spawn.rs`, `crates/sim/src/game/trigger_turn.rs`, `crates/sim/src/item/weapon_turn.rs`, `crates/sim/src/item/weapon_world.rs`, `crates/sim/src/sound/mod.rs`, `crates/sim/src/sound/noise.rs`, `crates/sim/src/sound/noise_turn.rs`, `crates/sim/src/sound/water_sound_turn.rs`, `crates/sim/src/superstructure/coral/turn.rs`, `crates/sim/src/superstructure/electric/room_fixtures.rs`, `crates/sim/src/superstructure/electric/turn.rs`, `crates/sim/src/superstructure/grab/turn.rs`, `crates/sim/src/superstructure/projections/room_projections.rs`, `crates/sim/src/superstructure/projections/turn.rs`, `crates/sim/src/water/drips_turn.rs`, `crates/sim/src/water/mod.rs`, `crates/sim/src/water/water_drip.rs`, `crates/sim/src/water/waterfall.rs`, `crates/sim/src/water/world.rs`, `crates/sim/src/world/objects.rs`, `crates/sim/src/world/quantified.rs`, `crates/sim/src/world/realized.rs` |
+| `Room.cs` | `crates/app/src/sprite_order.rs`, `crates/assets/src/room.rs`, `crates/render/src/level.rs`, `crates/sim/src/creature/ai_modules/noise_tracker_world.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/creature/fly/turn.rs`, `crates/sim/src/effects/gameplay/anti_gravity_turn.rs`, `crates/sim/src/effects/gameplay/border_push_back_turn.rs`, `crates/sim/src/effects/gameplay/death_fall.rs`, `crates/sim/src/effects/gameplay/death_fall_turn.rs`, `crates/sim/src/effects/gameplay/electric_death_turn.rs`, `crates/sim/src/effects/lights/light_beam.rs`, `crates/sim/src/effects/lights/light_beam_turn.rs`, `crates/sim/src/effects/lights/light_fixture_turn.rs`, `crates/sim/src/effects/lights/turn.rs`, `crates/sim/src/effects/particles/decal.rs`, `crates/sim/src/effects/particles/decal_turn.rs`, `crates/sim/src/effects/particles/green_sparks.rs`, `crates/sim/src/effects/particles/insect/coordinator.rs`, `crates/sim/src/effects/particles/insect/turn.rs`, `crates/sim/src/effects/particles/placed_cosmetics_turn.rs`, `crates/sim/src/effects/particles/rainbow.rs`, `crates/sim/src/effects/particles/room_particles.rs`, `crates/sim/src/effects/particles/slime_mold.rs`, `crates/sim/src/effects/particles/token_stalk.rs`, `crates/sim/src/effects/particles/turn.rs`, `crates/sim/src/effects/particles/zero_g_speck.rs`, `crates/sim/src/effects/sky/background_scene_turn.rs`, `crates/sim/src/effects/sky/lightning_turn.rs`, `crates/sim/src/game/camera.rs`, `crates/sim/src/game/instructions_turn.rs`, `crates/sim/src/game/loading_turn.rs`, `crates/sim/src/game/room_script.rs`, `crates/sim/src/game/screen_shake.rs`, `crates/sim/src/game/shelter_turn.rs`, `crates/sim/src/game/shortcut.rs`, `crates/sim/src/game/shortcut_helper_turn.rs`, `crates/sim/src/game/spawn.rs`, `crates/sim/src/game/trigger_turn.rs`, `crates/sim/src/item/weapon_turn.rs`, `crates/sim/src/item/weapon_world.rs`, `crates/sim/src/sound/mod.rs`, `crates/sim/src/sound/noise.rs`, `crates/sim/src/sound/noise_turn.rs`, `crates/sim/src/sound/water_sound_turn.rs`, `crates/sim/src/superstructure/coral/turn.rs`, `crates/sim/src/superstructure/electric/room_fixtures.rs`, `crates/sim/src/superstructure/electric/turn.rs`, `crates/sim/src/superstructure/grab/turn.rs`, `crates/sim/src/superstructure/projections/room_projections.rs`, `crates/sim/src/superstructure/projections/turn.rs`, `crates/sim/src/water/drips_turn.rs`, `crates/sim/src/water/mod.rs`, `crates/sim/src/water/water_drip.rs`, `crates/sim/src/water/waterfall.rs`, `crates/sim/src/water/world.rs`, `crates/sim/src/world/objects.rs`, `crates/sim/src/world/quantified.rs`, `crates/sim/src/world/realized.rs` |
 | `RoomBorderExit.cs` | `crates/assets/src/border_exits.rs` |
 | `RoomBorderPushBack.cs` | `crates/sim/src/effects/gameplay/border_push_back.rs`, `crates/sim/src/effects/gameplay/border_push_back_turn.rs` |
 | `RoomCamera.cs` | `crates/app/src/full_screen_effect.rs`, `crates/app/src/game.rs`, `crates/app/src/scene.rs`, `crates/app/src/sprite_order.rs`, `crates/app/src/visuals.rs`, `crates/app/src/water_light.rs`, `crates/assets/src/palette.rs`, `crates/render/src/level.rs`, `crates/render/src/room_camera.rs`, `crates/sim/src/creature/fly/turn.rs`, `crates/sim/src/effects/particles/insect/turn.rs`, `crates/sim/src/game/camera.rs`, `crates/sim/src/game/camera_image.rs`, `crates/sim/src/game/screen_shake.rs`, `crates/sim/src/game/shortcut_turn.rs` |
@@ -838,6 +842,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `ShelterDoor.cs` | `crates/graphics/src/game/shelter_door.rs`, `crates/sim/src/game/shelter.rs`, `crates/sim/src/game/shelter_turn.rs` |
 | `ShortcutGraphics.cs` | `crates/app/src/shortcuts.rs`, `crates/graphics/src/game/shortcut.rs` |
 | `ShortcutHandler.cs` | `crates/assets/src/shortcut.rs`, `crates/sim/src/game/shortcut.rs`, `crates/sim/src/game/shortcut_turn.rs`, `crates/sim/src/player/carried_turn.rs`, `crates/sim/src/player/shortcut.rs` |
+| `ShortcutHelper.cs` | `crates/sim/src/game/shortcut_helper.rs`, `crates/sim/src/game/shortcut_helper_turn.rs`, `crates/sim/src/player/shortcut_push.rs` |
 | `ShortcutMapper.cs` | `crates/assets/src/border_exits.rs`, `crates/assets/src/shortcut.rs` |
 | `ShowProjectedImageEvent.cs` | `crates/assets/src/triggers.rs` |
 | `SkyDandelions.cs` | `crates/graphics/src/effects/particles/sky_dandelion.rs`, `crates/sim/src/effects/particles/sky_dandelion.rs` |
