@@ -60,6 +60,9 @@ pub struct Scene {
     entered_room: bool,
     /// Camera 0's HUD, once fired up.
     hud: Option<Hud>,
+    /// The quads of the HUD's first container, drawn by the next frame before the room's
+    /// `HUD` container sprites ([`Scene::prepare_hud`]).
+    hud_below: StageBatch,
     /// The time stacker and cosmetic stream of the last frame drawn unpaused: while the
     /// game is paused nothing in the room redraws (`PausedDrawUpdate`), so frames repeat
     /// that one.
@@ -132,6 +135,7 @@ impl Scene {
             water_light: None,
             entered_room: false,
             hud: None,
+            hud_below: StageBatch::default(),
             last_unpaused_frame: None,
             lightning_frame: None,
             paused: false,
@@ -600,11 +604,22 @@ impl Scene {
             .map_or_else(rw_render::MapGlobals::default, |h| h.map_globals(alpha))
     }
 
-    /// Sets the HUD's sprites for `alpha` between ticks and appends its quads.
-    pub fn draw_hud(&mut self, atlases: &AtlasManager, batch: &mut StageBatch, alpha: f32) {
+    /// Sets the HUD's sprites for `alpha` between ticks and keeps the quads of its first
+    /// container (`HUD`, the region map), which the next [`Self::draw`] queues before the
+    /// room's `HUD` container sprites (a `GravityDisruptor`'s disc, which distorts them).
+    /// Call it before `draw` whenever the HUD is drawn, then [`Self::draw_hud`].
+    pub fn prepare_hud(&mut self, atlases: &AtlasManager, alpha: f32) {
+        self.hud_below = StageBatch::default();
         if let Some(hud) = &mut self.hud {
             hud.draw(alpha);
-            hud.push_quads(atlases, batch);
+            hud.push_quads_split(atlases, &mut self.hud_below, &mut StageBatch::default());
+        }
+    }
+
+    /// Appends the rest of the HUD's quads (`HUD2`...), those [`Self::prepare_hud`] left.
+    pub fn draw_hud(&mut self, atlases: &AtlasManager, batch: &mut StageBatch) {
+        if let Some(hud) = &self.hud {
+            hud.push_quads_split(atlases, &mut StageBatch::default(), batch);
         }
     }
 
@@ -869,12 +884,15 @@ impl Scene {
             shadows: &shadows,
             objects: &objects,
             holograms: &holograms,
+            hud_below: &self.hud_below,
+            screen: self.camera.screen_size(),
             layers: view.layers,
             camera,
             alpha,
             time,
         }
         .queue(r);
+        self.hud_below = StageBatch::default();
     }
 }
 
@@ -964,6 +982,10 @@ struct FrameDraw<'a> {
     objects: &'a [DrawList],
     /// The holograms' sprites (level view only), in the `Bloom` container.
     holograms: &'a [DrawList],
+    /// The HUD's first container's quads (`HUD`, the region map) and the screen they are
+    /// in pixels of.
+    hud_below: &'a StageBatch,
+    screen: [f32; 2],
     layers: RoomLayers,
     camera: Camera,
     alpha: f32,
@@ -1035,7 +1057,12 @@ impl FrameDraw<'_> {
             for h in self.holograms {
                 r.draw_sprites(h, Layer::Bloom, level.origin);
             }
-            // `HUD`, the last container of the room camera: a `GravityDisruptor`'s disc.
+            // `HUD`, the last container of the room camera: the HUD's own sprites in it (the
+            // region map, added when the HUD was made) under whatever the room added, a
+            // `GravityDisruptor`'s disc, which distorts them.
+            if !self.hud_below.draws.is_empty() {
+                r.draw_stage(self.hud_below, self.screen);
+            }
             self.draw_layer(r, Layer::Hud, level);
         }
     }
@@ -1294,6 +1321,8 @@ mod tests {
                 objects: &objects,
                 shadows: &[],
                 holograms: &[],
+                hud_below: &StageBatch::default(),
+                screen: [1366.0, 768.0],
                 layers: RoomLayers::default(),
                 camera: Camera::fit([1.0, 1.0], (1366, 768), 0.0),
                 alpha: 1.0,

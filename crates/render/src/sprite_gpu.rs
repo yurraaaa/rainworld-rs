@@ -266,7 +266,7 @@ impl SpritePipeline {
             })
             .collect();
         let samplers = Self::SAMPLINGS.map(|sampling| Self::page_sampler(device, sampling));
-        // `_NoiseTex` import settings: bilinear, repeat (mip 0 only).
+        // `_NoiseTex` import settings: bilinear (the nearest mip level), repeat.
         let noise_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("sprite noise"),
             address_mode_u: wgpu::AddressMode::Repeat,

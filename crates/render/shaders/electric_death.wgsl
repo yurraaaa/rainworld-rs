@@ -27,7 +27,7 @@ fn fs_electric_death(in: VertexOut) -> @location(0) vec4<f32> {
         return vec4(0.0);
     }
     if depth > 5.0 / 30.0 {
-        let grab = textureLoad(behind_tex, frame_px(in.scr), 0);
+        let grab = textureLoad(grab_tex, frame_px(in.scr), 0);
         if byte(grab.r) != 0 || byte(grab.g) != 0 || byte(grab.b) != 0 {
             return vec4(0.0);
         }
@@ -63,7 +63,7 @@ fn fs_flare_bomb(in: VertexOut) -> @location(0) vec4<f32> {
     let tc = level_coord(in.scr);
     var dist = depth_of(level_at(tc));
     dist = min(dist, 2.0 - 5.0 / 30.0);
-    if dist > 6.0 / 30.0 && drawn(textureLoad(behind_tex, frame_px(in.scr), 0)) {
+    if dist > 6.0 / 30.0 && drawn(textureLoad(grab_tex, frame_px(in.scr), 0)) {
         dist = 6.0 / 30.0;
     }
     if dist == 1.0 {
@@ -78,7 +78,7 @@ fn fs_flare_bomb(in: VertexOut) -> @location(0) vec4<f32> {
         let offset = dir * 0.02 * f32(j) * center_dist;
         var shadow_dist = depth_of(level_at(shadow_pos - offset));
         shadow_dist = min(shadow_dist, 2.0 - 5.0 / 30.0);
-        if shadow_dist > 6.0 / 30.0 && drawn(textureLoad(behind_tex, frame_px(old_shadow_pos - offset), 0)) {
+        if shadow_dist > 6.0 / 30.0 && drawn(textureLoad(grab_tex, frame_px(old_shadow_pos - offset), 0)) {
             shadow_dist = 6.0 / 30.0;
         }
         if dist > shadow_dist {

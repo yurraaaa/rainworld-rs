@@ -8,8 +8,6 @@
 // `GravityDisruptor` has a `GrabPass {}` of its own (the frame so far, drawn first);
 // `DeepProcessing` has none and reads what the last grab left. D37.
 //
-// Unity picks the `_NoiseTex` mip from the quad's derivatives, which across the grid
-// cells' edges of `DeepProcessing` are those of a jump: the taps here are all mip 0 (D37).
 
 // `DeepProcessing`: a depth-windowed screen-space data rain. `textCoord` is the pixel's
 // place in the level image; `dp` its layer depth (sky 1). Nothing outside the vertex
@@ -25,12 +23,6 @@ fn fs_deep_processing(in: VertexOut) -> @location(0) vec4<f32> {
     let text_coord = level_coord(in.scr);
     var dist = 1.0 - center_dist(in.tex);
     let dp = depth_of(level_at(text_coord));
-    if dp < clr.x || dp > clr.y {
-        return vec4(0.0);
-    }
-    if dp > 6.0 / 30.0 && drawn(textureLoad(grab_tex, frame_px(in.scr), 0)) {
-        return vec4(0.0);
-    }
     let dsplace = (vec2(in.scr.x, 1.0 - in.scr.y) - vec2(0.5)) * 0.06 * dp;
     let grid_size = mix(10.0, 6.0, dp);
     var sample_coord = text_coord * room.screen / grid_size;
@@ -38,21 +30,28 @@ fn fs_deep_processing(in: VertexOut) -> @location(0) vec4<f32> {
     sample_coord *= grid_size;
     sample_coord += dsplace;
     let rain = room.rain;
+    // The three `_NoiseTex` taps come first, every pixel of the quad taking them: Unity picks
+    // the mip level from the derivatives of each tap's coordinate over the 2x2 pixel block,
+    // so the block at a grid cell's edge (where the quantised coordinate jumps) reads a
+    // coarser level (D37).
+    let n0 = noise_sampled(vec2(mix(sample_coord.y, mix(0.265, 0.9455, sample_coord.x), 0.5), rain));
+    let n1 = noise_sampled(vec2(sample_coord.x * 1.2, sample_coord.y * 0.6));
+    let n2 = noise_sampled(vec2(sample_coord.x * 8.2, sample_coord.y * 4.2));
+    if dp < clr.x || dp > clr.y {
+        return vec4(0.0);
+    }
+    if dp > 6.0 / 30.0 && drawn(textureLoad(grab_tex, frame_px(in.scr), 0)) {
+        return vec4(0.0);
+    }
     let rand = fract(
-        sin(
-            sample_coord.x * 12.98232 * sample_coord.y * 0.23532 + rain
-                - noise_at(vec2(mix(sample_coord.y, mix(0.265, 0.9455, sample_coord.x), 0.5), rain))
-        ) * 43758.5453
+        sin(sample_coord.x * 12.98232 * sample_coord.y * 0.23532 + rain - n0) * 43758.5453
     );
     let speed = mix(0.5, 1.5, clr.w);
     let h2 = sin(
-        (dp * 1.2 + 0.75 * rain * speed
-            + noise_at(vec2(sample_coord.x * 1.2, sample_coord.y * 0.6)) * mix(1.0, 1.0, pow(dist, 0.5)))
-            * 3.14 * 2.0
+        (dp * 1.2 + 0.75 * rain * speed + n1 * mix(1.0, 1.0, pow(dist, 0.5))) * 3.14 * 2.0
     ) * 0.5 + 0.5;
     var h = sin(
-        (dp * mix(0.12, 2.2, h2) + 1.8 * rain * speed
-            + noise_at(vec2(sample_coord.x * 8.2, sample_coord.y * 4.2)) * mix(1.0, 4.0, pow(h2, 3.0)))
+        (dp * mix(0.12, 2.2, h2) + 1.8 * rain * speed + n2 * mix(1.0, 4.0, pow(h2, 3.0)))
             * 3.14 * 2.0
     ) * 0.5 + 0.5;
     if mix(h, 0.0, 1.0 - clr.z) < rand * (1.0 - clr.z) {
@@ -71,6 +70,12 @@ fn fs_deep_processing(in: VertexOut) -> @location(0) vec4<f32> {
         return vec4(0.0, 0.0, 0.5, 0.2);
     }
     return vec4(0.0, 0.0, 1.0, 0.4);
+}
+
+// `tex2D(_NoiseTex, uv)`: the red of the level the quad's derivatives pick (the nearest
+// mip, bilinear within it, repeat). Only in uniform control flow.
+fn noise_sampled(uv: vec2<f32>) -> f32 {
+    return textureSample(noise_tex, noise_sampler, uv).x;
 }
 
 // `GravityDisruptor`: the grabbed frame sampled at the pixel pushed round the disc's

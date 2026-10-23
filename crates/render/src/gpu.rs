@@ -1087,7 +1087,7 @@ impl Renderer for WgpuRenderer {
                     &self.queue,
                     textures,
                     &WaterBinding {
-                        behind: &self.frame.behind,
+                        grab: &self.frame.grab_view,
                         camera: &self.camera,
                         view,
                         depth: self.water_depth,
@@ -1239,5 +1239,7 @@ mod glyph_projection_tests;
 mod placed_visuals_tests;
 #[cfg(test)]
 mod ss_grab_tests;
+#[cfg(test)]
+mod test_support;
 #[cfg(test)]
 mod tests;

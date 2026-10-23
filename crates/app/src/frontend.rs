@@ -1311,8 +1311,9 @@ impl Frontend {
         let atlases = &self.ctx.menu.atlases;
         match self.manager.current_mut() {
             Some(AppProcess::Game(game)) => {
+                game.scene.prepare_hud(atlases, alpha);
                 game.scene.draw(&mut target.scene, alpha, view);
-                game.scene.draw_hud(atlases, &mut batch, alpha);
+                game.scene.draw_hud(atlases, &mut batch);
                 if let Some(menu) = game.pause_menu.as_ref().filter(|m| !m.shut_down) {
                     menu.menu().stage.push_quads(atlases, &mut batch);
                 }
@@ -1356,7 +1357,7 @@ impl<R: Renderer> FrontendRenderer<R> {
             menu_scene: MenuSceneGlobals::default(),
         });
         let mut batch = StageBatch::default();
-        scene.draw_hud(&shared.atlases, &mut batch, alpha);
+        scene.draw_hud(&shared.atlases, &mut batch);
         self.scene.renderer.draw_stage(&batch, shared.screen_size);
     }
 

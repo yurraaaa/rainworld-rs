@@ -35,7 +35,7 @@ fn background_clipped(scr: vec2<f32>) -> bool {
     if all(level.rgb != vec3(1.0)) {
         return true;
     }
-    return drawn(textureLoad(behind_tex, frame_px(scr), 0));
+    return drawn(textureLoad(grab_tex, frame_px(scr), 0));
 }
 
 // The page's texel `p` with `repeat` or clamped addressing.

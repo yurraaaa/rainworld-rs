@@ -65,7 +65,7 @@ fn fs_decal(in: VertexOut) -> @location(0) vec4<f32> {
         let d = f32(red - 5);
         var grab = vec2(in.scr.x - ld.x * ld.z * d * fix.x, in.scr.y + ld.y * ld.w * d * fix.y);
         grab = mix(grab, (grab - vec2(0.5, 0.3)) * (1.0 + d / 460.0) + vec2(0.5, 0.3), fix.zw);
-        let behind = textureLoad(behind_tex, frame_px(grab), 0);
+        let behind = textureLoad(grab_tex, frame_px(grab), 0);
         if behind.r != 0.0 || behind.g != 0.0 || behind.b != 0.0 {
             shadow = 1.0;
         }
@@ -81,7 +81,7 @@ fn fs_decal(in: VertexOut) -> @location(0) vec4<f32> {
         palette_at(vec2(1.5 / 32.0, 7.5 / 8.0)),
         clamp(f32(red) * room.fog_amount / 30.0, 0.0, 1.0));
 
-    if red >= 5 && drawn(textureLoad(behind_tex, frame_px(in.scr), 0)) {
+    if red >= 5 && drawn(textureLoad(grab_tex, frame_px(in.scr), 0)) {
         return vec4(0.0);
     }
 

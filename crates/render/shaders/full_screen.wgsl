@@ -223,7 +223,7 @@ fn fs_fog(in: VertexOut) -> @location(0) vec4<f32> {
         dp = 1.0;
     }
     if dp > 6.0 / 30.0 {
-        let g = textureLoad(behind_tex, frame_px(s), 0);
+        let g = textureLoad(grab_tex, frame_px(s), 0);
         if g.x > 1.0 / 255.0 || g.y != 0.0 || g.z != 0.0 {
             dp = 6.0 / 30.0;
         }

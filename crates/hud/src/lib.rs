@@ -536,6 +536,19 @@ impl Hud {
         self.stage.push_quads(atlases, batch);
     }
 
+    /// [`Self::push_quads`] with the first container (`fContainers[0]`, `HUD`: the region
+    /// map) in `below` and the rest (`HUD2` and the rest) in `above`; the room's `HUD`
+    /// container sprites go between them.
+    pub fn push_quads_split(
+        &self,
+        atlases: &AtlasManager,
+        below: &mut StageBatch,
+        above: &mut StageBatch,
+    ) {
+        self.stage
+            .push_quads_split(self.containers[0], atlases, below, above);
+    }
+
     /// `TextPrompt.AddMessage`.
     pub fn add_message(&mut self, text: &str, wait: i32, time: i32, darken: bool, hide_hud: bool) {
         self.text_prompt

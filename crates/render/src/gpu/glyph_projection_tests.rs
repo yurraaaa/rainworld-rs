@@ -10,6 +10,7 @@ use rw_graphics::{Atlas, Color as SpriteColor, DrawItem, ElementMesh, Mesh as Sp
 use std::borrow::Cow;
 
 use super::full_screen_tests::{H, W, level, palette, renderer, rgb};
+use super::test_support::Hlsl;
 use super::*;
 use crate::LevelParams;
 
@@ -36,15 +37,6 @@ fn glyphs_image() -> PngImage {
             })
             .collect(),
     )
-}
-
-fn fract(v: f32) -> f32 {
-    v - v.floor()
-}
-
-/// `mix(a, b, t)`.
-fn mix(a: f32, b: f32, t: f32) -> f32 {
-    a + (b - a) * t
 }
 
 /// The shader's fragment for frame pixel `(x, y)` (y down): whether it is drawn black, or
@@ -79,10 +71,10 @@ fn reference(
         (tc[0] * tex_size[0] / 15.0).floor() / tex_size[0],
         (tc[1] * tex_size[1] / 15.0).floor() / tex_size[1],
     ];
-    let rand = fract(
-        (cell[0] * 12.98232 * cell[1] * 0.23532 - noise).sin() * mix(43758.5453, 23746.232, clr[1]),
-    );
-    let keep = fract((cell[0] * 7.62232 * cell[1] * 0.19532 - noise).sin() * 102_438.543);
+    let rand = ((cell[0] * 12.98232 * cell[1] * 0.23532 - noise).sin()
+        * 43758.5453_f32.lerp_to(23746.232, clr[1]))
+    .frac();
+    let keep = ((cell[0] * 7.62232 * cell[1] * 0.19532 - noise).sin() * 102_438.543).frac();
     if (keep - clr[3]).abs() < 0.05 || (rand * 50.0 - (rand * 50.0).round()).abs() < margin {
         return None;
     }
@@ -90,8 +82,8 @@ fn reference(
         return Some(false);
     }
     let strt = [
-        fract(tc[0] * tex_size[0] / 15.0),
-        fract(tc[1] * tex_size[1] / 15.0),
+        (tc[0] * tex_size[0] / 15.0).frac(),
+        (tc[1] * tex_size[1] / 15.0).frac(),
     ];
     let glyph = (rand * 50.0).floor() / 50.0;
     let u = glyph + strt[0] / 50.0;
@@ -318,8 +310,8 @@ fn place(x: u32, y: u32, grid: [f32; 2]) -> ((i32, i32), u32, u32) {
     let g = [tc[0] * tex_size[0] / 15.0, tc[1] * tex_size[1] / 15.0];
     (
         (g[0].floor() as i32, g[1].floor() as i32),
-        (fract(g[0]) * 15.0).floor() as u32,
-        (fract(g[1]) * 15.0).floor() as u32,
+        (g[0].frac() * 15.0).floor() as u32,
+        (g[1].frac() * 15.0).floor() as u32,
     )
 }
 

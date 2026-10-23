@@ -190,9 +190,6 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   - `Room.ElectricPower` / gravity readers: `SpinningFan`, `MeltLights`, with the SS
     objects (`ZapCoil`, `SuperStructureFuses` and `SSLightRod` are ported, D36;
     `GravityDisruptor`, `DeepProcessing` and `DeepProcessingLight`, D37).
-  - Non-grabbing shaders reading `_GrabTexture` (`LightSource`, `UnderWaterLight`,
-    `ElectricDeath`, `FlareBomb`, `WaterSplash`, `Decal`, ...) read the pre-level frame, not
-    the last grab (D37): make them read `FrameTargets::grab`, which now holds it.
   - `ProjectedCircle` (D35): with its owners `CoralNeuron`, `CoralStem`, `SSOracleSwarmer`
     (and `SpearMasterPearl`, `Inspector` in the DLC).
   - The other readers of `room.zapCoils` and `SuperStructureFuses` (D36): `TubeWorm`, the

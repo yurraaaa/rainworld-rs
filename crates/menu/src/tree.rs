@@ -182,6 +182,33 @@ impl StageTree {
         self.push_node(Self::ROOT, atlases, batch, &Matrix::IDENTITY, 1.0);
     }
 
+    /// [`Self::push_quads`] with the root's child `split` (a container) going to `below`
+    /// and the others, in order, to `above`.
+    pub fn push_quads_split(
+        &self,
+        split: NodeId,
+        atlases: &AtlasManager,
+        below: &mut StageBatch,
+        above: &mut StageBatch,
+    ) {
+        let root = &self.nodes[Self::ROOT.0];
+        let TreeItem::Container(transform) = &root.item else {
+            return;
+        };
+        if !transform.visible {
+            return;
+        }
+        let (matrix, alpha) = transform.concat(&Matrix::IDENTITY, 1.0);
+        for &child in &root.children {
+            let batch = if child == split {
+                &mut *below
+            } else {
+                &mut *above
+            };
+            self.push_node(child, atlases, batch, &matrix, alpha);
+        }
+    }
+
     fn push_node(
         &self,
         id: NodeId,

@@ -1585,9 +1585,13 @@ impl Session {
             return Err("no game loaded; call load_room or new_game first".to_owned());
         };
         target.scene.renderer.set_frame_size((pixels[0], pixels[1]));
+        let hud = level && framing == Framing::Auto;
+        if let (Some(shared), true) = (&self.hud_shared, hud) {
+            scene.prepare_hud(&shared.atlases, 1.0);
+        }
         scene.draw(&mut target.scene, 1.0, view);
         // The HUD is in screen pixels: drawn over the game's own camera window only.
-        if let (Some(shared), true) = (&mut self.hud_shared, level && framing == Framing::Auto) {
+        if let (Some(shared), true) = (&mut self.hud_shared, hud) {
             target.draw_scene_hud(shared, scene, 1.0);
         }
         Self::encode(target, params)

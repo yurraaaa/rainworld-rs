@@ -1,7 +1,8 @@
 //! Headless GPU checks of the screen-grab shaders (`ss_grab.wgsl`: `DeepProcessing` and
 //! `GravityDisruptor`) at the game's 1366x768, against the fragments of
-//! `DeepProcessing.shader` and `GravityDisruptor.shader` worked out per pixel on the CPU.
-//! `_NoiseTex` is one grey, so every tap reads the same value. Skipped without a Vulkan
+//! `DeepProcessing.shader` and `GravityDisruptor.shader` worked out per pixel on the CPU
+//! (with `_NoiseTex` read at the mip level the 2x2 pixel block's derivatives pick), and of
+//! what a shader without a `GrabPass` reads after a grabbing draw. Skipped without a Vulkan
 //! adapter.
 
 use std::borrow::Cow;
@@ -10,40 +11,108 @@ use rw_assets::NoiseTexture;
 use rw_graphics::{Color as SpriteColor, DrawItem, Mesh as SpriteMesh, Shader, Sprite};
 
 use super::full_screen_tests::{H, Rect, W, level, palette, renderer, rgb};
+use super::test_support::{FramePixel, Hlsl};
 use super::*;
-use crate::LevelParams;
+use crate::{LevelParams, SpriteVertex, StageBatch, StageShader, StageTextureId};
 
 /// The shaders' `3.14`, not pi.
 #[allow(clippy::approx_constant, reason = "the game's shaders use 3.14")]
 const GAME_PI: f32 = 3.14;
 
-/// `_NoiseTex`'s every texel's red.
-const NOISE: u8 = 90;
-
 /// `_RAIN`.
 const RAIN: f32 = 0.7;
 
-/// The level image, sprites behind the level, over it in `Foreground` and in `HUD`.
+/// `_NoiseTex` with its mip levels, as the shaders read it.
+struct Noise(NoiseTexture);
+
+impl Noise {
+    /// Every texel's red 90.
+    fn uniform() -> Self {
+        Self::of(|_, _| 90)
+    }
+
+    /// A pattern of red values, so that taps and levels show.
+    fn varied() -> Self {
+        Self::of(|x, y| ((x * 37 + y * 91 + (x * y) % 13 * 7) % 251) as u8)
+    }
+
+    fn of(red: impl Fn(u32, u32) -> u8) -> Self {
+        let pixels = (0..64 * 64)
+            .map(|i| [red(i % 64, i / 64), 0, 0, 255])
+            .collect();
+        Self(NoiseTexture::from_image(&PngImage::from_pixels(64, 64, pixels)).unwrap())
+    }
+
+    /// Level `level` read bilinear, repeating, at `uv` (v up).
+    fn at(&self, level: usize, uv: [f32; 2]) -> f32 {
+        let texels = self.0.mip_bytes().nth(level).expect("a level");
+        let side = 64usize >> level;
+        let (fx, fy) = (uv[0] * side as f32 - 0.5, uv[1] * side as f32 - 0.5);
+        let (x0, y0) = (fx.floor(), fy.floor());
+        let (tx, ty) = (fx - x0, fy - y0);
+        let wrap = |v: f32| (v as i64).rem_euclid(side as i64) as usize;
+        let texel =
+            |dx: f32, dy: f32| f32::from(texels[wrap(y0 + dy) * side + wrap(x0 + dx)]) / 255.0;
+        let top = texel(0.0, 0.0).lerp_to(texel(1.0, 0.0), tx);
+        let bottom = texel(0.0, 1.0).lerp_to(texel(1.0, 1.0), tx);
+        top.lerp_to(bottom, ty)
+    }
+
+    /// `tex2D(_NoiseTex, ...)` of tap `k` at pixel `p`: the level is the one the longer of
+    /// the coordinate's steps to the pixel's neighbours in its 2x2 block picks (`log2` of
+    /// its length in texels, rounded: bilinear filtering takes the nearest mip). `None`
+    /// where that is too near a rounding edge for the GPU's own derivative to be trusted.
+    fn tap(&self, k: usize, p: FramePixel) -> Option<f32> {
+        let here = DeepPixel::of(p).taps()[k];
+        let step = |q: FramePixel| {
+            let other = DeepPixel::of(q).taps()[k];
+            ((other[0] - here[0]) * 64.0).hypot((other[1] - here[1]) * 64.0)
+        };
+        let len = step(FramePixel(p.0 ^ 1, p.1)).max(step(FramePixel(p.0, p.1 ^ 1)));
+        let lambda = len.log2();
+        if lambda > -0.5 && (lambda - lambda.floor() - 0.5).abs() < 0.1 {
+            return None;
+        }
+        let level = if lambda.is_finite() {
+            lambda.round().clamp(0.0, 6.0) as usize
+        } else {
+            0
+        };
+        Some(self.at(level, here))
+    }
+}
+
+/// The level image, a palette colour, the noise, sprites behind the level, over it and in
+/// `HUD`.
 struct GrabScene {
     level: PngImage,
+    fill: [u8; 3],
+    noise: Noise,
     behind: Vec<DrawItem>,
     over: Vec<DrawItem>,
+    stage: Option<StageBatch>,
     hud: Vec<DrawItem>,
 }
 
 impl GrabScene {
+    fn new(level: PngImage) -> Self {
+        Self {
+            level,
+            fill: [30, 30, 30],
+            noise: Noise::uniform(),
+            behind: Vec::new(),
+            over: Vec::new(),
+            stage: None,
+            hud: Vec::new(),
+        }
+    }
+
     fn draw(&self, r: &mut WgpuRenderer) -> FrameImage {
-        let noise = NoiseTexture::from_image(&PngImage::from_pixels(
-            64,
-            64,
-            vec![[NOISE, 0, 0, 255]; 4096],
-        ))
-        .unwrap();
         r.set_level(&LevelGraphics {
             camera_pos: [0.0, 0.0],
             image: &self.level,
-            palette: &palette([30, 30, 30], &[]),
-            noise: &noise,
+            palette: &palette(self.fill, &[]),
+            noise: &self.noise.0,
             params: LevelParams::DEFAULT,
             rain_mask: None,
         });
@@ -67,6 +136,9 @@ impl GrabScene {
             };
             r.draw_sprites(&list, item.layer(), [0.0, 0.0]);
         }
+        if let Some(batch) = &self.stage {
+            r.draw_stage(batch, [W as f32, H as f32]);
+        }
         for item in &self.hud {
             let list = DrawList {
                 items: vec![item.clone()],
@@ -77,23 +149,6 @@ impl GrabScene {
     }
 }
 
-fn fract(v: f32) -> f32 {
-    v - v.floor()
-}
-
-/// `lerp`.
-fn mix(a: f32, b: f32, t: f32) -> f32 {
-    a + (b - a) * t
-}
-
-/// Frame pixel `(x, y)` (y down): its `scrPos` (y up).
-fn scr(x: u32, y: u32) -> [f32; 2] {
-    [
-        (x as f32 + 0.5) / W as f32,
-        (H as f32 - y as f32 - 0.5) / H as f32,
-    ]
-}
-
 /// A 5 x 4 chequer of distinct colours in `Foreground`: a frame with structure to grab.
 fn chequer() -> Vec<DrawItem> {
     let (w, h) = (W / 5 + 1, H / 4 + 1);
@@ -102,9 +157,9 @@ fn chequer() -> Vec<DrawItem> {
         for i in 0..5 {
             let k = (j * 5 + i) as f32;
             let color = SpriteColor::rgb(
-                0.1 + 0.8 * fract(k * 0.37),
-                0.1 + 0.8 * fract(k * 0.61 + 0.2),
-                0.1 + 0.8 * fract(k * 0.83 + 0.5),
+                0.1 + 0.8 * (k * 0.37).frac(),
+                0.1 + 0.8 * (k * 0.61 + 0.2).frac(),
+                0.1 + 0.8 * (k * 0.83 + 0.5).frac(),
             );
             items.push(
                 Rect([i * w, j * h, (i + 1) * w, (j + 1) * h]).quad(color, Layer::Foreground),
@@ -131,13 +186,13 @@ fn disc(centre: [f32; 2], alpha: f32, layer: Layer) -> DrawItem {
 
 const CENTRE: [f32; 2] = [683.0, 384.0];
 
-/// `GravityDisruptor.shader`: the frame pixel the fragment at `(x, y)` copies, `None`
-/// outside the disc's 600 px quad. The quad's `i.uv` at a fragment is its stage position
-/// (frame x + 1, frame y from the bottom - 1... as the full-screen effects') over the quad.
-fn disruptor_source(x: u32, y: u32, alpha: f32) -> Option<(i64, i64)> {
+/// `GravityDisruptor.shader`: the frame pixel the fragment at `p` copies, `None` outside
+/// the disc's 600 px quad. The quad's `i.uv` at a fragment is its stage position (frame x
+/// + 1, frame y from the bottom - 1, as the full-screen effects') over the quad.
+fn disruptor_source(p: FramePixel, alpha: f32) -> Option<(i64, i64)> {
     let uv = [
-        ((x as f32 + 1.0) - (CENTRE[0] - 300.0)) / 600.0,
-        ((H as f32 - y as f32 - 1.0) - (CENTRE[1] - 300.0)) / 600.0,
+        ((p.0 as f32 + 1.0) - (CENTRE[0] - 300.0)) / 600.0,
+        ((H as f32 - p.1 as f32 - 1.0) - (CENTRE[1] - 300.0)) / 600.0,
     ];
     if !(0.0..=1.0).contains(&uv[0]) || !(0.0..=1.0).contains(&uv[1]) {
         return None;
@@ -153,7 +208,7 @@ fn disruptor_source(x: u32, y: u32, alpha: f32) -> Option<(i64, i64)> {
         effect = effect.max(((dist - 0.2) * 1.8).clamp(0.0, 1.0).powf(2.0));
     }
     let dir = [-d[1] / len, d[0] / len];
-    let s = scr(x, y);
+    let s = p.scr();
     let push = 0.05 * effect * (dist * 20.0 - RAIN * 3.1).sin() * alpha;
     let g = [s[0] + dir[0] * push, s[1] + dir[1] * push];
     let px = (g[0] * W as f32).floor() as i64;
@@ -169,12 +224,8 @@ fn disruptor_source(x: u32, y: u32, alpha: f32) -> Option<(i64, i64)> {
 #[test]
 fn the_disc_with_no_power_changes_nothing() {
     let Some(mut r) = renderer() else { return };
-    let mut scene = GrabScene {
-        level: level(|_, _| [255, 255, 255]),
-        behind: Vec::new(),
-        over: chequer(),
-        hud: Vec::new(),
-    };
+    let mut scene = GrabScene::new(level(|_, _| [255, 255, 255]));
+    scene.over = chequer();
     let before = scene.draw(&mut r);
     scene.hud.push(disc(CENTRE, 0.0, Layer::Hud));
     let after = scene.draw(&mut r);
@@ -191,19 +242,15 @@ fn the_disc_with_no_power_changes_nothing() {
 #[test]
 fn the_disc_ripples_the_grabbed_frame() {
     let Some(mut r) = renderer() else { return };
-    let mut scene = GrabScene {
-        level: level(|_, _| [255, 255, 255]),
-        behind: Vec::new(),
-        over: chequer(),
-        hud: Vec::new(),
-    };
+    let mut scene = GrabScene::new(level(|_, _| [255, 255, 255]));
+    scene.over = chequer();
     let before = scene.draw(&mut r);
     scene.hud.push(disc(CENTRE, 1.0, Layer::Hud));
     let after = scene.draw(&mut r);
     let (mut inside, mut moved, mut wrong) = (0, 0, 0);
     for y in 0..H {
         for x in 0..W {
-            match disruptor_source(x, y, 1.0) {
+            match disruptor_source(FramePixel(x, y), 1.0) {
                 None => assert_eq!(rgb(&after, x, y), rgb(&before, x, y), "outside {x},{y}"),
                 Some((sx, sy)) => {
                     inside += 1;
@@ -220,65 +267,238 @@ fn the_disc_ripples_the_grabbed_frame() {
     assert!(wrong * 200 < inside, "{wrong} of {inside} pixels differ");
 }
 
-/// `DeepProcessing.shader`'s class for the fragment: 0 nothing, 1 dim blue, 2 blue; `None`
-/// where a value lies too near a threshold for the GPU's `sin` to be trusted. `red` is the
-/// level code under the pixel (the level is uniform in bands, so its place is not
-/// needed), `behind` whether something was drawn behind the level there, `uv` the
-/// mesh's `i.uv`.
+/// A stage quad (the HUD's `HUD` container, drawn before the disc) is in the frame the
+/// disc grabs: it is rippled like the room's pixels.
+#[test]
+fn the_disc_distorts_stage_quads_drawn_before_it() {
+    let Some(mut r) = renderer() else { return };
+    r.set_stage_texture(
+        StageTextureId(1),
+        &PngImage::from_pixels(1, 1, vec![[255; 4]]),
+        TextureSampling::POINT_CLAMP,
+    );
+    let (x0, y0, x1, y1) = (560.0, 300.0, 760.0, 460.0);
+    let corner = |x: f32, y: f32| SpriteVertex {
+        pos: [x, y],
+        uv: [0.5, 0.5],
+        color: [1.0, 0.0, 0.0, 1.0],
+    };
+    let mut batch = StageBatch::default();
+    batch.push_quad(
+        StageTextureId(1),
+        StageShader::Basic,
+        [
+            corner(x0, y0),
+            corner(x1, y0),
+            corner(x1, y1),
+            corner(x0, y1),
+        ],
+    );
+    let mut scene = GrabScene::new(level(|_, _| [255, 255, 255]));
+    scene.stage = Some(batch);
+    let before = scene.draw(&mut r);
+    scene.hud.push(disc(CENTRE, 1.0, Layer::Hud));
+    let after = scene.draw(&mut r);
+    let red = |image: &FrameImage, x: u32, y: u32| {
+        let c = rgb(image, x, y);
+        c[0] > 200 && c[1] < 60 && c[2] < 60
+    };
+    let (mut quad, mut agree, mut inside) = (0, 0, 0);
+    for y in 0..H {
+        for x in 0..W {
+            quad += usize::from(red(&before, x, y));
+            if let Some((sx, sy)) = disruptor_source(FramePixel(x, y), 1.0) {
+                inside += 1;
+                agree += usize::from(rgb(&after, x, y) == rgb(&before, sx as u32, sy as u32));
+            }
+        }
+    }
+    assert!(quad > 20_000, "the stage quad shows ({quad} pixels)");
+    assert!(
+        agree * 200 > inside * 199,
+        "{agree} of {inside} pixels copy their source"
+    );
+    let moved = (0..H)
+        .flat_map(|y| (0..W).map(move |x| (x, y)))
+        .filter(|&(x, y)| red(&before, x, y) != red(&after, x, y))
+        .count();
+    assert!(moved > 300, "the quad's outline moved at {moved} pixels");
+}
+
+/// A `LightSource` (no `GrabPass`: it hides itself past layer 5 where `_GrabTexture` is not
+/// black) over a deep level: with nothing grabbing the grab is the pre-level frame, black
+/// everywhere, so it shows over the bright rectangle; after the disc (a grabbing draw) the
+/// grab is the frame the disc saw, rectangle included, so the light is hidden there, but not
+/// beside it. The grab is the frame as the disc found it: not the rippled one it drew.
+#[test]
+fn a_grab_reader_after_the_disc_reads_the_discs_grab() {
+    let Some(mut r) = renderer() else { return };
+    let rect = Rect([600, 330, 760, 450]);
+    let bright = rect.quad(SpriteColor::rgb(0.4, 0.4, 0.4), Layer::Foreground);
+    let light = DrawItem::Sprite(Sprite {
+        index: 0,
+        element: SpriteAtlas::FUTILE_WHITE,
+        pos: Vec2::new(CENTRE[0] - 150.0, CENTRE[1] - 150.0),
+        rotation: 0.0,
+        scale: Vec2::new(300.0 / 16.0, 300.0 / 16.0),
+        anchor: Vec2::ZERO,
+        color: SpriteColor::WHITE,
+        shader: Shader::LightSource,
+        layer: Layer::Foreground,
+    });
+    let mut scene = GrabScene::new(level(|_, _| [10, 0, 0]));
+    scene.fill = [0, 0, 0];
+    let changed_by_light = |r: &mut WgpuRenderer, scene: &mut GrabScene, with_disc: bool| {
+        scene.over = vec![bright.clone()];
+        if with_disc {
+            scene.over.push(disc(CENTRE, 1.0, Layer::Foreground));
+        }
+        let without = scene.draw(r);
+        scene.over.push(light.clone());
+        let with = scene.draw(r);
+        (without, with)
+    };
+    let (without, with) = changed_by_light(&mut r, &mut scene, false);
+    let shows = |x: u32, y: u32| rgb(&with, x, y) != rgb(&without, x, y);
+    let (mut over_rect, mut beside) = (0, 0);
+    for y in 0..H {
+        for x in 0..W {
+            if rect.contains(x, y) && shows(x, y) {
+                over_rect += 1;
+            } else if !rect.contains(x, y) && shows(x, y) {
+                beside += 1;
+            }
+        }
+    }
+    assert!(
+        over_rect > 1000 && beside > 1000,
+        "{over_rect} over, {beside} beside"
+    );
+    let (without, with) = changed_by_light(&mut r, &mut scene, true);
+    // The rectangle's own edge pixels sit half a pixel off the grab's (`frame_px`).
+    let inner = Rect([603, 333, 757, 447]);
+    let (mut over_rect, mut beside) = (0, 0);
+    for y in 0..H {
+        for x in 0..W {
+            let changed = rgb(&with, x, y) != rgb(&without, x, y);
+            if inner.contains(x, y) {
+                over_rect += usize::from(changed);
+            } else if !rect.contains(x, y) {
+                beside += usize::from(changed);
+            }
+        }
+    }
+    assert_eq!(over_rect, 0, "hidden where the disc's grab is bright");
+    assert!(beside > 1000, "{beside} pixels beside it still lit");
+}
+
+/// The state `DeepProcessing.shader` derives from a pixel before it reads `_NoiseTex`.
+struct DeepPixel {
+    dp: f32,
+    text_coord: [f32; 2],
+    dsplace: [f32; 2],
+    grid: f32,
+    sample: [f32; 2],
+}
+
+impl DeepPixel {
+    fn of(p: FramePixel) -> Self {
+        let (w, h) = (W as f32, H as f32);
+        let s = p.scr();
+        let red = band_red(p.0);
+        let dp = if red == 255 {
+            1.0
+        } else {
+            ((i32::from(red) - 1) % 30) as f32 / 30.0
+        };
+        let rect = [-0.5 / w, 0.5 / h, (w - 0.5) / w, (h + 0.5) / h];
+        let text_coord = [
+            ((s[0] * w).floor() / w - rect[0]) / (rect[2] - rect[0]),
+            ((s[1] * h).floor() / h - rect[1]) / (rect[3] - rect[1]),
+        ];
+        let dsplace = [(s[0] - 0.5) * 0.06 * dp, ((1.0 - s[1]) - 0.5) * 0.06 * dp];
+        let grid = 10.0_f32.lerp_to(6.0, dp);
+        let sample = [
+            (text_coord[0] * w / grid).floor() / w * grid + dsplace[0],
+            (text_coord[1] * h / grid).floor() / h * grid + dsplace[1],
+        ];
+        Self {
+            dp,
+            text_coord,
+            dsplace,
+            grid,
+            sample,
+        }
+    }
+
+    /// The three `_NoiseTex` coordinates.
+    fn taps(&self) -> [[f32; 2]; 3] {
+        let [x, y] = self.sample;
+        [
+            [y.lerp_to(0.265_f32.lerp_to(0.9455, x), 0.5), RAIN],
+            [x * 1.2, y * 0.6],
+            [x * 8.2, y * 4.2],
+        ]
+    }
+}
+
+/// `DeepProcessing.shader`'s class for the fragment at `p`: 0 nothing, 1 dim blue, 2 blue;
+/// `None` where a value lies too near a threshold or a mip rounding edge for the GPU's
+/// `sin` and derivatives to be trusted. `behind` is whether the last grab is not black
+/// there, `uv` the mesh's `i.uv`.
+#[allow(
+    clippy::excessive_precision,
+    reason = "the shader's literals, rounded to f32 as the GPU does"
+)]
 fn deep_class(
-    (x, y): (u32, u32),
+    p: FramePixel,
     uv: [f32; 2],
-    red: u8,
     behind: bool,
     clr: [f32; 4],
+    noise: &Noise,
 ) -> Option<u8> {
     let (w, h) = (W as f32, H as f32);
-    let s = scr(x, y);
-    let dp = if red == 255 {
-        1.0
-    } else {
-        ((i32::from(red) - 1) % 30) as f32 / 30.0
-    };
+    let px = DeepPixel::of(p);
     let d = ((uv[0] - 0.5).powi(2) + (uv[1] - 0.5).powi(2)).sqrt();
     let mut dist = 1.0 - (d * 2.0).clamp(0.0, 1.0);
-    if dp < clr[0] || dp > clr[1] || (dp > 6.0 / 30.0 && behind) {
+    if px.dp < clr[0] || px.dp > clr[1] || (px.dp > 6.0 / 30.0 && behind) {
         return Some(0);
     }
-    let rect = [-0.5 / w, 0.5 / h, (w - 0.5) / w, (h + 0.5) / h];
-    let text_coord = [
-        ((s[0] * w).floor() / w - rect[0]) / (rect[2] - rect[0]),
-        ((s[1] * h).floor() / h - rect[1]) / (rect[3] - rect[1]),
-    ];
-    let dsplace = [(s[0] - 0.5) * 0.06 * dp, ((1.0 - s[1]) - 0.5) * 0.06 * dp];
-    let grid = mix(10.0, 6.0, dp);
-    let sample = [
-        (text_coord[0] * w / grid).floor() / w * grid + dsplace[0],
-        (text_coord[1] * h / grid).floor() / h * grid + dsplace[1],
-    ];
-    let noise = f32::from(NOISE) / 255.0;
-    let speed = mix(0.5, 1.5, clr[3]);
-    let h2 = (((dp * 1.2 + 0.75 * RAIN * speed + noise * mix(1.0, 1.0, dist.powf(0.5)))
+    let (n0, n1, n2) = (noise.tap(0, p)?, noise.tap(1, p)?, noise.tap(2, p)?);
+    let [sx, sy] = px.sample;
+    let rand = ((sx * 12.98232 * sy * 0.23532 + RAIN - n0).sin() * 43758.5453).frac();
+    let speed = 0.5_f32.lerp_to(1.5, clr[3]);
+    let h2 = ((px.dp * 1.2 + 0.75 * RAIN * speed + n1 * 1.0_f32.lerp_to(1.0, dist.powf(0.5)))
         * GAME_PI
         * 2.0)
-        .sin())
+        .sin()
         * 0.5
         + 0.5;
-    let mut hh =
-        (((dp * mix(0.12, 2.2, h2) + 1.8 * RAIN * speed + noise * mix(1.0, 4.0, h2.powi(3)))
-            * GAME_PI
-            * 2.0)
-            .sin())
-            * 0.5
-            + 0.5;
-    // Full power draws no hash.
-    assert_eq!(clr[2], 1.0);
-    let cell_centre = [sample[0] + grid * 0.5 / w, sample[1] + grid * 0.5 / h];
-    let from = [text_coord[0] + dsplace[0], text_coord[1] + dsplace[1]];
+    let mut hh = ((px.dp * 0.12_f32.lerp_to(2.2, h2)
+        + 1.8 * RAIN * speed
+        + n2 * 1.0_f32.lerp_to(4.0, h2.powi(3)))
+        * GAME_PI
+        * 2.0)
+        .sin()
+        * 0.5
+        + 0.5;
+    let (lhs, rhs) = (hh.lerp_to(0.0, 1.0 - clr[2]), rand * (1.0 - clr[2]));
+    if clr[2] < 1.0 && (lhs - rhs).abs() < 0.03 {
+        return None;
+    }
+    if lhs < rhs {
+        return Some(0);
+    }
+    let cell_centre = [sx + px.grid * 0.5 / w, sy + px.grid * 0.5 / h];
+    let from = [
+        px.text_coord[0] + px.dsplace[0],
+        px.text_coord[1] + px.dsplace[1],
+    ];
     let away = ((from[0] - cell_centre[0]).powi(2) + (from[1] - cell_centre[1]).powi(2)).sqrt();
-    hh *= 1.0 - away * (w + h) / (grid * 2.0);
-    dist = dist.powf(mix(1.2, mix(0.199, 0.001, clr[3]), h2));
-    hh += mix(-1.0, 1.0, clr[3]) * 0.2;
-    let (low, high) = (hh * dist, hh * mix(dist, 1.0, 0.5));
+    hh *= 1.0 - away * (w + h) / (px.grid * 2.0);
+    dist = dist.powf(1.2_f32.lerp_to(0.199_f32.lerp_to(0.001, clr[3]), h2));
+    hh += (-1.0_f32).lerp_to(1.0, clr[3]) * 0.2;
+    let (low, high) = (hh * dist, hh * dist.lerp_to(1.0, 0.5));
     if (low - 0.33).abs() < 2e-3 || (high - 0.66).abs() < 2e-3 {
         return None;
     }
@@ -328,6 +548,14 @@ fn band_red(x: u32) -> u8 {
 
 const BAND_EDGES: [u32; 3] = [300, 600, 900];
 
+fn banded_level() -> PngImage {
+    level(|x, _| {
+        let red = band_red(x);
+        let sky = if red == 255 { 255 } else { 0 };
+        [red, sky, sky]
+    })
+}
+
 /// The share of the pixels drawn dim and bright, and of the ones compared.
 struct Tally {
     compared: usize,
@@ -342,6 +570,7 @@ fn compare_deep(
     clr: [f32; 4],
     behind: &[Rect],
     hidden: bool,
+    noise: &Noise,
 ) -> Tally {
     let mut t = Tally {
         compared: 0,
@@ -361,9 +590,8 @@ fn compare_deep(
                 ((x as f32 + 1.0) - l) / (rt - l),
                 ((H as f32 - y as f32 - 1.0) - b) / (top - b),
             ];
-            let red = band_red(x);
-            let behind = behind.iter().any(|r| r.contains(x, y)) || (hidden && red != 255);
-            let Some(class) = deep_class((x, y), uv, red, behind, clr) else {
+            let behind = behind.iter().any(|r| r.contains(x, y)) || (hidden && band_red(x) != 255);
+            let Some(class) = deep_class(FramePixel(x, y), uv, behind, clr, noise) else {
                 continue;
             };
             t.compared += 1;
@@ -371,15 +599,17 @@ fn compare_deep(
             let (got, was) = (rgb(after, x, y), rgb(before, x, y));
             let want = match class {
                 0 => was,
-                1 => was.map(|c| (f32::from(c) * 0.8).round() as u8),
-                _ => was.map(|c| (f32::from(c) * 0.6).round() as u8),
+                1 => [
+                    (f32::from(was[0]) * 0.8).round() as u8,
+                    (f32::from(was[1]) * 0.8).round() as u8,
+                    (f32::from(was[2]) * 0.8 + 0.5 * 255.0 * 0.2).round() as u8,
+                ],
+                _ => [
+                    (f32::from(was[0]) * 0.6).round() as u8,
+                    (f32::from(was[1]) * 0.6).round() as u8,
+                    (f32::from(was[2]) * 0.6 + 255.0 * 0.4).round() as u8,
+                ],
             };
-            let mut want = want;
-            match class {
-                1 => want[2] = (f32::from(was[2]) * 0.8 + 0.5 * 255.0 * 0.2).round() as u8,
-                2 => want[2] = (f32::from(was[2]) * 0.6 + 255.0 * 0.4).round() as u8,
-                _ => {}
-            }
             let off = got
                 .iter()
                 .zip(want)
@@ -390,6 +620,8 @@ fn compare_deep(
     t
 }
 
+const FULL_QUAD: [f32; 4] = [0.0, 0.0, W as f32 + 2.0, H as f32 + 2.0];
+
 /// `DeepProcessing` at full power over bands of the level: nothing over sky (depth 1) and
 /// layer 0 (below `fromDepth`), blue cells over layer 9, hidden there where a creature
 /// is drawn behind the level (past layer 6) but not at layer 4. The cells are dim
@@ -398,28 +630,24 @@ fn compare_deep(
 fn deep_processing_rains_over_the_deep_layers() {
     let Some(mut r) = renderer() else { return };
     let creatures = [Rect([650, 100, 850, 300]), Rect([1000, 400, 1200, 600])];
-    let mut scene = GrabScene {
-        level: level(|x, _| {
-            let red = band_red(x);
-            [
-                red,
-                if red == 255 { 255 } else { 0 },
-                if red == 255 { 255 } else { 0 },
-            ]
-        }),
-        behind: creatures
-            .iter()
-            .map(|c| c.quad(SpriteColor::rgb(0.0, 0.5, 0.0), Layer::Items))
-            .collect(),
-        over: Vec::new(),
-        hud: Vec::new(),
-    };
+    let mut scene = GrabScene::new(banded_level());
+    scene.behind = creatures
+        .iter()
+        .map(|c| c.quad(SpriteColor::rgb(0.0, 0.5, 0.0), Layer::Items))
+        .collect();
     let before = scene.draw(&mut r);
     let clr = [0.1, 0.9, 1.0, 0.5];
-    let quad = [0.0, 0.0, W as f32 + 2.0, H as f32 + 2.0];
-    scene.over.push(mesh(quad, clr));
+    scene.over.push(mesh(FULL_QUAD, clr));
     let after = scene.draw(&mut r);
-    let t = compare_deep(&after, &before, quad, clr, &creatures, false);
+    let t = compare_deep(
+        &after,
+        &before,
+        FULL_QUAD,
+        clr,
+        &creatures,
+        false,
+        &scene.noise,
+    );
     assert!(t.compared > 300_000, "{} pixels compared", t.compared);
     assert!(
         t.classes[1] > 1000 && t.classes[2] > 1000,
@@ -435,29 +663,53 @@ fn deep_processing_rains_over_the_deep_layers() {
     );
 }
 
+/// With a varied `_NoiseTex` (every tap a different value) and a power of 0.6 (the hash
+/// `rand` decides which cells show), the coordinates of the three taps, the mip level
+/// Unity picks from the 2x2 block's derivatives and the hash all matter: the GPU's classes
+/// match the CPU's, which reads the level the block's longer coordinate step names.
+#[test]
+fn deep_processing_reads_a_varied_noise_at_the_mip_level_the_block_picks() {
+    let Some(mut r) = renderer() else { return };
+    let mut scene = GrabScene::new(banded_level());
+    scene.noise = Noise::varied();
+    let before = scene.draw(&mut r);
+    let clr = [0.1, 0.9, 0.6, 0.5];
+    scene.over.push(mesh(FULL_QUAD, clr));
+    let after = scene.draw(&mut r);
+    let t = compare_deep(&after, &before, FULL_QUAD, clr, &[], false, &scene.noise);
+    assert!(t.compared > 150_000, "{} pixels compared", t.compared);
+    assert!(
+        t.classes[1] > 1000 && t.classes[2] > 1000,
+        "dim {} and blue {} pixels",
+        t.classes[1],
+        t.classes[2]
+    );
+    assert!(
+        t.wrong * 50 < t.compared,
+        "{} of {} differ",
+        t.wrong,
+        t.compared
+    );
+    // The test is about the mips: a block at a cell's edge has a step over one texel.
+    let minified = (4..H - 4)
+        .flat_map(|y| (610..890).map(move |x| FramePixel(x, y)))
+        .filter(|&p| {
+            let here = DeepPixel::of(p).taps()[2];
+            let next = DeepPixel::of(FramePixel(p.0 ^ 1, p.1)).taps()[2];
+            ((next[0] - here[0]) * 64.0).hypot((next[1] - here[1]) * 64.0) > 1.5
+        })
+        .count();
+    assert!(minified > 5000, "{minified} pixels pick a coarser level");
+}
+
 /// With no power (vertex blue 0) a cell shows only when `h` wins over a hash in `[0, 1)`
 /// that is `lerp(h, 0, 1) = 0 < rand`: almost none do.
 #[test]
 fn deep_processing_without_power_is_nearly_empty() {
     let Some(mut r) = renderer() else { return };
-    let mut scene = GrabScene {
-        level: level(|x, _| {
-            let red = band_red(x);
-            [
-                red,
-                if red == 255 { 255 } else { 0 },
-                if red == 255 { 255 } else { 0 },
-            ]
-        }),
-        behind: Vec::new(),
-        over: Vec::new(),
-        hud: Vec::new(),
-    };
+    let mut scene = GrabScene::new(banded_level());
     let before = scene.draw(&mut r);
-    scene.over.push(mesh(
-        [0.0, 0.0, W as f32 + 2.0, H as f32 + 2.0],
-        [0.1, 0.9, 0.0, 0.5],
-    ));
+    scene.over.push(mesh(FULL_QUAD, [0.1, 0.9, 0.0, 0.5]));
     let after = scene.draw(&mut r);
     let changed = (0..H)
         .flat_map(|y| (0..W).map(move |x| (x, y)))
@@ -475,26 +727,13 @@ fn deep_processing_without_power_is_nearly_empty() {
 #[test]
 fn deep_processing_reads_the_last_grab() {
     let Some(mut r) = renderer() else { return };
-    let mut scene = GrabScene {
-        level: level(|x, _| {
-            let red = band_red(x);
-            [
-                red,
-                if red == 255 { 255 } else { 0 },
-                if red == 255 { 255 } else { 0 },
-            ]
-        }),
-        behind: Vec::new(),
-        over: Vec::new(),
-        hud: Vec::new(),
-    };
+    let mut scene = GrabScene::new(banded_level());
     let before = scene.draw(&mut r);
     let clr = [0.1, 0.9, 1.0, 0.5];
-    let quad = [0.0, 0.0, W as f32 + 2.0, H as f32 + 2.0];
     scene.over.push(disc(CENTRE, 0.0, Layer::Foreground));
-    scene.over.push(mesh(quad, clr));
+    scene.over.push(mesh(FULL_QUAD, clr));
     let after = scene.draw(&mut r);
-    let t = compare_deep(&after, &before, quad, clr, &[], true);
+    let t = compare_deep(&after, &before, FULL_QUAD, clr, &[], true, &scene.noise);
     assert!(t.compared > 300_000, "{} pixels compared", t.compared);
     assert!(t.classes[1] > 500, "{:?}", t.classes);
     let layer_9_rained = (0..H)

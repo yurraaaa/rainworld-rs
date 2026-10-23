@@ -192,12 +192,21 @@ fn without_power_nothing_moves() {
     assert_ne!(g.rng.state(), draws_before.state());
 }
 
-/// `AIMapReady` collects the room's zero-gravity specks: here the ones `NowViewed` seeded
-/// before (the camera entered the room first), which the swirl then moves by the speck
-/// push. Loaded rooms in the port finish loading before the camera sees them, so in play
-/// the list is empty.
+/// The session's first room runs `Loaded`, then `NowViewed` (the constructor's
+/// `MoveCamera`, which seeds the specks), then `AIMapReady`: `roomSpecks` holds the specks,
+/// and the swirl moves them by the speck push. Nothing is linked before the first tick.
 #[test]
 fn the_swirl_moves_the_rooms_specks() {
+    let g0 = grab_game("GravityDisruptor><100><100><", &[("ZeroGSpecks", 0.01)], 0);
+    assert!(
+        g0.world
+            .realized(0)
+            .expect("room")
+            .fixtures
+            .gravity_disruptors[0]
+            .room_specks
+            .is_empty()
+    );
     let mut g = grab_game("GravityDisruptor><100><100><", &[("ZeroGSpecks", 0.01)], 1);
     let order = g
         .world
@@ -206,16 +215,6 @@ fn the_swirl_moves_the_rooms_specks() {
         .fixtures
         .gravity_disruptors[0]
         .update_order;
-    assert!(
-        g.world
-            .realized(0)
-            .expect("room")
-            .fixtures
-            .gravity_disruptors[0]
-            .room_specks
-            .is_empty()
-    );
-    g.link_gravity_disruptors(0);
     let r = g.world.realized(0).expect("room");
     let n = r.particles.specks.len();
     assert_eq!(n, 10);

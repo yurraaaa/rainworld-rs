@@ -73,6 +73,14 @@ impl RainWorldGame {
         }
     }
 
+    /// Whether room `index` is the session's first room, whose `NowViewed` (the constructor's
+    /// `MoveCamera`) comes before its `AIMapReady` (a later `RoomPreparer.Update`); a room
+    /// realized ahead of the camera has its `AIMapReady` before the camera enters.
+    pub(super) fn awaiting_first_view(&self, index: i32) -> bool {
+        self.insect_view
+            .is_some_and(|v| v.from.is_none() && v.to == index)
+    }
+
     /// `AIMapReady` of every `GravityDisruptor` of room `index`: `roomSpecks` is every
     /// `GenericZeroGSpeck` in the update list now.
     pub(super) fn link_gravity_disruptors(&mut self, index: i32) {
