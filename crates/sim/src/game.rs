@@ -12,6 +12,8 @@ use std::sync::Arc;
 
 #[path = "game_carried.rs"]
 mod carried;
+#[path = "game_decals.rs"]
+mod decals;
 #[path = "game_dev.rs"]
 mod dev;
 #[path = "game_drips.rs"]
@@ -76,6 +78,9 @@ pub use heavy_ai::HeavyAiThrottle;
 pub use items::Grabability;
 pub use lizard_ai::UtilityReadings;
 pub use over::GameOver;
+#[cfg(test)]
+#[path = "game_decals_tests.rs"]
+mod decals_tests;
 #[cfg(test)]
 #[path = "game_insects_tests.rs"]
 mod insects_tests;
@@ -383,6 +388,8 @@ enum RoomObject {
     Insect(u64),
     /// A dead `TokenStalk` by its place in the update list.
     TokenStalk(u64),
+    /// A `Rainbow` by its place in the update list.
+    Rainbow(u64),
     Lizard(CreatureId),
 }
 
@@ -1410,6 +1417,7 @@ impl RainWorldGame {
         objects.extend(self.room_slide_loop_objects(index));
         objects.extend(self.room_insect_objects(index));
         objects.extend(self.room_token_stalk_objects(index));
+        objects.extend(self.room_rainbow_objects(index));
         objects.sort_by_key(|&(seq, _)| std::cmp::Reverse(seq));
         objects
     }
@@ -1513,6 +1521,7 @@ impl RainWorldGame {
                 RoomObject::HoloLight(id) => self.run_holo_light(index, id, observer),
                 RoomObject::LightSource(id) => self.run_light_source(index, id),
                 RoomObject::TokenStalk(order) => self.run_token_stalk(index, order),
+                RoomObject::Rainbow(order) => self.run_rainbow(index, order),
                 RoomObject::Insect(_) => {}
             }
         }

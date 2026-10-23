@@ -175,3 +175,36 @@ gives arena levels none). The palette is rebuilt at the start of the tick when
 
 **Affects.** Lighting of cloudy rooms and the palette in dev starts and arena levels.
 
+
+## D26: Custom decals and rainbows (`Decal`, `Rainbow`)
+
+`CustomDecal` (`Decal` shader, `Foreground`) and `Rainbow` (`Rainbow` shader,
+`GrabShaders`, a `GrabPass`) follow the game's code and shader sources. What differs:
+
+- The decal's object-shadow lookup (a shadowed pixel from layer 5 on is lit again where
+  something was drawn behind the level toward the light) reads that grab at the nearest
+  pixel; the game's `tex2D(_GrabTexture, ...)` is bilinear. The level shader's own lookup
+  is bilinear (D7); only creature edges can differ, by one pixel.
+- Decal images are uploaded as atlas pages when a room with the decal is first shown,
+  and stay uploaded; the game unloads an image when its last room unloads
+  (`usersPerImage`, `RoomUnloaded`).
+- The grid mesh is built when the decal is made, not at the first `DrawSprites`; its
+  draws are on a stream of their own (`Random.InitState` with the state restored in the
+  game), so nothing observable differs.
+- Omitted branches (DLC, not installed): the shaders' `RIPPLE` (`smoothRippleClip`),
+  `COMBINEDLEVEL` (`dynamicLevelClip`) and `URBANLIFE` keywords; `Rainbow`'s
+  `PrecycleModule` spawn; `AetherRainbow` (Watcher). The camera's `ghostMode` (echoes)
+  is 0, so `Rainbow`'s `InverseLerp(0.2, 0, ghostMode)` is 1 and the spawn test needs no
+  ghost check, until echoes are ported.
+- Arena sessions: every port `World` is a story one (`story = true`, arena levels loaded
+  with `load_room` included; D4, D16, D22), so `Rainbow`'s `IsArenaSession` behaviour
+  (always made, fade 1, never destroyed) never fires and the arena cycle's 600-tick
+  start-up does not exist. The code tests `!world.story` and takes effect once arena
+  sessions are ported.
+- Decal image names were checked against the `rainWorld`, `uiSprites` and `shelterGate`
+  atlases and the projections: no clash (265 names), so the shared element lookup is safe.
+- `RainbowNoFade` is ported (same data, always shown) but no base room places one.
+
+**Why.** Unreachable in the base game, or the port's grab textures (D7).
+
+**Affects.** Pixels along creature edges under decals; memory after a long session.

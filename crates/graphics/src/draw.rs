@@ -178,6 +178,14 @@ pub enum Shader {
     /// fading toward the sprite's top; none on near layers, sky or over what was drawn
     /// behind far layers.
     WaterLight,
+    /// `Futile/Decal` (`CustomDecal`): the decal texture over the level image, tinted
+    /// by the palette's terrain colour at the level pixel's depth, in shadow where the
+    /// clouds shade the level, clipped to the depth range the vertex colour's red and
+    /// green name, and hidden behind what was drawn behind the level.
+    Decal,
+    /// `Futile/Rainbow` (`Rainbow`): a ring of the rainbow gradient, sparkling with
+    /// noise, stronger over far level layers, screened over the frame (its GrabPass).
+    Rainbow,
 }
 
 impl Shader {
@@ -192,6 +200,7 @@ impl Shader {
                 | Self::LightBloom
                 | Self::LightAndSkyBloom
                 | Self::DeathFall
+                | Self::Rainbow
         )
     }
 }
@@ -236,11 +245,22 @@ pub struct Mesh {
     pub layer: Layer,
 }
 
+/// A `TriangleMesh` or `CustomFSprite` over a whole atlas element other than
+/// `Futile_White` (a decal's image, the rainbow gradient).
+#[derive(Debug, Clone, PartialEq)]
+pub struct ElementMesh {
+    /// The atlas element the mesh's `uvs` address.
+    pub element: Cow<'static, str>,
+    /// `uvs` are fractions of the element's frame (0 to 1, `v` from the bottom).
+    pub mesh: Mesh,
+}
+
 /// One drawable.
 #[derive(Debug, Clone, PartialEq)]
 pub enum DrawItem {
     Sprite(Sprite),
     Mesh(Mesh),
+    ElementMesh(ElementMesh),
 }
 
 impl DrawItem {
@@ -249,6 +269,7 @@ impl DrawItem {
         match self {
             Self::Sprite(s) => s.layer,
             Self::Mesh(m) => m.layer,
+            Self::ElementMesh(e) => e.mesh.layer,
         }
     }
 
@@ -256,6 +277,7 @@ impl DrawItem {
         match self {
             Self::Sprite(s) => s.layer = layer,
             Self::Mesh(m) => m.layer = layer,
+            Self::ElementMesh(e) => e.mesh.layer = layer,
         }
     }
 
@@ -265,6 +287,7 @@ impl DrawItem {
         match self {
             Self::Sprite(s) => s.index,
             Self::Mesh(m) => m.index,
+            Self::ElementMesh(e) => e.mesh.index,
         }
     }
 }

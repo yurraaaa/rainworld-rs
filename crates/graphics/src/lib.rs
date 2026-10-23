@@ -14,6 +14,7 @@
 mod atlas;
 mod body_part;
 mod cosmetic_graphics;
+mod decal;
 mod draw;
 pub mod elements;
 mod fly_graphics;
@@ -37,6 +38,7 @@ mod overseer_draw;
 mod overseer_graphics;
 mod player_draw;
 mod player_graphics;
+mod rainbow;
 mod shelter_door_graphics;
 mod shortcut_graphics;
 mod slime_mold;
@@ -49,8 +51,10 @@ mod weapon_graphics;
 pub use atlas::{Atlas, AtlasError, AtlasFrame, Rect, Size};
 pub use body_part::{BodyPart, PointConnection};
 pub use cosmetic_graphics::{CosmeticSprites, LizardColors, LizardModule, NoLizards};
+pub use decal::DecalSprites;
 pub use draw::{
-    Color, DrawItem, DrawList, InternalContainer, Layer, Mesh, Shader, SlugcatName, Sprite,
+    Color, DrawItem, DrawList, ElementMesh, InternalContainer, Layer, Mesh, Shader, SlugcatName,
+    Sprite,
 };
 pub use fly_graphics::FlyGraphics;
 pub use hand::SlugcatHand;
@@ -74,6 +78,7 @@ pub use mycelium::{Mycelium, MyceliumLink};
 pub use overseer_graphics::{DrawPositions, OverseerGraphics};
 pub use player_draw::{SPRITE_COUNT, SPRITE_LAYERS, TAIL_TRIANGLES};
 pub use player_graphics::PlayerGraphics;
+pub use rainbow::{RAINBOW_ELEMENT, RainbowSprites};
 pub use shelter_door_graphics::ShelterDoorSprites;
 pub use shortcut_graphics::{
     ExitBehind, ShortcutFrame, ShortcutGraphics, ShortcutPalette, ShortcutRoom, ShortcutVessel,
@@ -87,6 +92,8 @@ pub use weapon_graphics::{PEBBLES, PebbleElement, SMALL_SPEAR, WeaponSprites};
 
 #[cfg(test)]
 mod hologram_tests;
+#[cfg(test)]
+mod placed_visuals_tests;
 #[cfg(test)]
 mod shortcut_tests;
 #[cfg(test)]

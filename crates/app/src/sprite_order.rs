@@ -53,6 +53,10 @@ pub enum Drawable {
     SlimeMold(u64),
     /// A dead `TokenStalk`, by its place in the update list.
     TokenStalk(u64),
+    /// A `CustomDecal`, by its place in the update list.
+    Decal(u64),
+    /// A `Rainbow`, by its place in the update list.
+    Rainbow(u64),
     /// `ShortcutGraphics` (not a leaser: its sprites join the containers after the
     /// room's leasers).
     Shortcuts,

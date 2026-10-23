@@ -32,6 +32,10 @@ struct Room {
     water_level: f32,
     // `_camInRoomRect`: the game's window in room uv (position, size).
     cam_in_room_rect: vec4<f32>,
+    // x: `_light`, y: `_cloudsSpeed`, z: `_WetTerrain`.
+    light: vec4<f32>,
+    // `_lightDirAndPixelSize`: xy the room's light angle, zw 1/1400 and 1/800.
+    light_dir: vec4<f32>,
 };
 
 // Futile's `screenPixelOffset` (`Camera::SCREEN_PIXEL_OFFSET`): screen = stage + this.

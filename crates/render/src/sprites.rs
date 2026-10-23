@@ -12,8 +12,8 @@ use std::ops::Range;
 
 use bytemuck::{Pod, Zeroable};
 use rw_graphics::{
-    Atlas, AtlasFrame, Color as SpriteColor, DrawItem, DrawList, Layer, Mesh as SpriteMesh, Rect,
-    Shader, Size, Sprite,
+    Atlas, AtlasFrame, Color as SpriteColor, DrawItem, DrawList, ElementMesh, Layer,
+    Mesh as SpriteMesh, Rect, Shader, Size, Sprite,
 };
 use rw_sim::Vec2;
 
@@ -68,6 +68,14 @@ pub struct RoomGlobals {
     pub water_level: f32,
     /// `_camInRoomRect`: the window in room uv (position, size).
     pub cam_in_room_rect: [f32; 4],
+    /// `_light` (see [`LevelView::light`]).
+    pub light: f32,
+    /// `_lightDirAndPixelSize.xy`: the room's light angle.
+    pub light_dir: [f32; 2],
+    /// `_cloudsSpeed`.
+    pub clouds_speed: f32,
+    /// `_WetTerrain`.
+    pub wet_terrain: f32,
 }
 
 /// `FMatrix` as `FNode` sets it: scale, then rotate clockwise, then translate.
@@ -217,6 +225,12 @@ impl SpriteAtlas {
         self
     }
 
+    /// Adds `atlas` as the next page (its texture is the next image uploaded after the
+    /// pages so far).
+    pub fn push_page(&mut self, atlas: Atlas) {
+        self.pages.push(atlas);
+    }
+
     /// Page 0.
     #[must_use]
     pub fn atlas(&self) -> &Atlas {
@@ -334,6 +348,10 @@ impl RoomGlobals {
             fog_amount: 0.0,
             water_level: view.water_level,
             cam_in_room_rect: [0.0; 4],
+            light: view.light,
+            light_dir: [0.0; 2],
+            clouds_speed: 1.0,
+            wet_terrain: 0.0,
         }
     }
 }
@@ -382,6 +400,38 @@ impl SpriteBatch {
         let start = self.indices.len() as u32;
         self.append_mesh(atlas, mesh, cam_pos);
         self.record(mesh.shader, 0, start, true);
+    }
+
+    /// Appends `mesh`'s vertices, each sampling its element at its `uvs` fraction of the
+    /// frame (the centre without `uvs`); returns the page, `None` (nothing added) if the
+    /// element is missing.
+    fn append_element_mesh(
+        &mut self,
+        atlas: &SpriteAtlas,
+        mesh: &ElementMesh,
+        cam_pos: Vec2,
+    ) -> Option<usize> {
+        let (page, frame) = atlas.find(&mesh.element)?;
+        let [min, max] = SpriteAtlas::uv_rect(&atlas.pages()[page], frame);
+        let base = self.vertices.len() as u32;
+        let m = &mesh.mesh;
+        self.vertices
+            .extend(m.vertices.iter().enumerate().map(|(i, &v)| {
+                let t = m.uvs.get(i).map_or([0.5, 0.5], |t| t.to_array());
+                let uv = [
+                    min[0] + (max[0] - min[0]) * t[0],
+                    min[1] + (max[1] - min[1]) * t[1],
+                ];
+                RoomVertex {
+                    pos: (v - cam_pos).to_array(),
+                    uv,
+                    tex_coord: uv,
+                    color: m.vertex_colors.get(i).unwrap_or(&m.color).to_array(),
+                }
+            }));
+        self.indices
+            .extend(m.triangles.iter().flatten().map(|&i| base + u32::from(i)));
+        Some(page)
     }
 
     /// Appends `sprite`'s quad; returns its page, `None` (nothing added) if its element
@@ -470,6 +520,10 @@ impl SpriteBatch {
                 DrawItem::Mesh(m) => {
                     self.append_mesh(atlas, m, cam_pos);
                     (m.shader, 0)
+                }
+                DrawItem::ElementMesh(e) => {
+                    let page = self.append_element_mesh(atlas, e, cam_pos);
+                    (e.mesh.shader, page.unwrap_or(0))
                 }
             };
             self.record(shader, page, start, self.draws.len() > first_draw);

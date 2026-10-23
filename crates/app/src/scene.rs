@@ -3,10 +3,11 @@
 //!
 //! Mirrors: RoomCamera.cs
 
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use rw_assets::{StreamingAssets, UnityResources};
+use rw_assets::{CustomDecalData, StreamingAssets, UnityResources};
 use rw_graphics::{DrawList, Layer};
 use rw_hud::{Hud, IllustrationSource, PageText};
 use rw_menu::{AtlasManager, Font, MenuShared};
@@ -105,6 +106,8 @@ pub struct SceneRenderer<R> {
     level_of: Option<(u64, i32, u32)>,
     /// The visuals' palette generation uploaded with it.
     palette_of: u32,
+    /// The decal images uploaded as atlas pages (`CustomDecal.LoadFile`'s loaded set).
+    decals: HashSet<String>,
 }
 
 impl Scene {
@@ -709,6 +712,7 @@ impl Scene {
                         .placed_cosmetic_draw_lists(alpha, &visuals.room_palette()),
                 );
             }
+            lists.extend(self.game.placed_visual_draw_lists());
             let level_view = self.visuals.is_some() && view.level;
             if let Some(list) = shortcuts.filter(|_| level_view) {
                 lists.push((Drawable::Shortcuts, list));
@@ -953,11 +957,36 @@ impl<R: Renderer> SceneRenderer<R> {
             room_of: None,
             level_of: None,
             palette_of: 0,
+            decals: HashSet::new(),
+        }
+    }
+
+    /// Uploads the images of the camera room's decals not yet uploaded, as
+    /// `CustomDecal.LoadFile` loads them when the object is made; one that cannot be read
+    /// only warns (its decal is not drawn).
+    fn sync_decals(&mut self, scene: &Scene) {
+        let Some(source) = &scene.source else { return };
+        if self.sprites.is_none() {
+            return;
+        }
+        for name in scene.game.camera_room_decal_images() {
+            if !self.decals.insert(name.to_owned()) {
+                continue;
+            }
+            match CustomDecalData::load_image(&source.assets, name) {
+                Ok(image) => {
+                    let (w, h) = (image.width() as u32, image.height() as u32);
+                    self.renderer
+                        .add_atlas_page(rw_graphics::Atlas::single(name, w, h), &image);
+                }
+                Err(e) => log::warn!("no decal image {name} ({e})"),
+            }
         }
     }
 
     /// Uploads `scene`'s room and shown camera graphic where they changed.
     fn sync(&mut self, scene: &Scene) {
+        self.sync_decals(scene);
         if self.room_of != Some((scene.id, scene.camera_room)) {
             self.renderer.set_room(scene.game.room());
             self.room_of = Some((scene.id, scene.camera_room));

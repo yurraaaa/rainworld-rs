@@ -611,6 +611,7 @@ fn sprites_stay_on_the_body_through_mixed_movement() {
                 let points = match item {
                     DrawItem::Sprite(s) => vec![s.pos],
                     DrawItem::Mesh(m) => m.vertices,
+                    DrawItem::ElementMesh(e) => e.mesh.vertices,
                 };
                 for v in points {
                     assert!(v.x.is_finite() && v.y.is_finite());

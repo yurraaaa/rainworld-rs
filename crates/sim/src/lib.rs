@@ -29,6 +29,7 @@ mod chunk;
 pub mod color;
 mod cosmetic;
 pub mod creature;
+mod decal;
 mod dripping_sound;
 mod float_ext;
 mod game;
@@ -39,6 +40,7 @@ pub mod map_discovery;
 mod noise;
 mod object;
 mod player;
+mod rainbow;
 mod room_ext;
 pub mod room_script;
 mod screen_shake;
@@ -67,6 +69,7 @@ pub use cosmetic::{
     StationaryEffect,
 };
 pub use creature::{ShortCutColor, WorldCoordinate};
+pub use decal::CustomDecal;
 pub use dripping_sound::DrippingSound;
 pub use float_ext::FloatExt;
 pub use game::{
@@ -84,6 +87,7 @@ pub use player::{
     Animation, BodyMode, DangerGraspState, DangerGraspStep, GrabState, HEAD, HIPS, INPUT_HISTORY,
     Input, Player, PlayerController, ShelterCheck, SpearOnBack, StomachObject, VesselStep,
 };
+pub use rainbow::Rainbow;
 pub use room_ext::RoomExt;
 pub use screen_shake::{CameraShake, ScreenMovement};
 pub use shelter::SessionEnd;
