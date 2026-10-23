@@ -102,6 +102,14 @@ pub struct State {
     /// has a level graphic and an effect.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub full_screen_effect: Option<FullScreenEffectState>,
+    /// The camera's unapplied move (`loadingRoom`, `loadingCameraPos` while
+    /// `applyPosChangeWhenTextureIsLoaded`), applied in its next update.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub camera_move: Option<CameraMoveState>,
+    /// Camera 0's `ShortcutGraphics`: the room they were made for and
+    /// `waitingForRoomToGenerateShortcuts`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shortcut_graphics: Option<ShortcutGraphicsState>,
     /// Every realized room's `DeathFallGraphic` (a room with an open bottom).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub death_fall: Vec<DeathFallState>,
@@ -533,6 +541,20 @@ pub struct LevelParamsState {
     /// `_waterLevel`: the water line's fraction of the screen from its top (0 in gates
     /// and shelters).
     pub water_level: f32,
+}
+
+/// `RoomCamera.MoveCamera`'s pending room and camera position.
+#[derive(Debug, Clone, Serialize)]
+pub struct CameraMoveState {
+    pub room: i32,
+    pub camera: usize,
+}
+
+/// `ShortcutGraphics` of camera 0.
+#[derive(Debug, Clone, Serialize)]
+pub struct ShortcutGraphicsState {
+    pub room: i32,
+    pub waiting: bool,
 }
 
 /// The room camera's `fullScreenEffect`.

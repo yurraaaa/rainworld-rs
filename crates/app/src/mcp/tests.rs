@@ -10,6 +10,7 @@ use rw_assets::{StreamingAssets, UnityResources};
 use rw_audio::music::{MusicContext, SongKind};
 use rw_menu::ProcessId;
 
+mod camera_move;
 mod death_fall;
 
 use super::params::{

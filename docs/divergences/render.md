@@ -59,10 +59,10 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   offset) and its render-scale > 1 offset (0, 1) are not modelled
   (rainworld-re/notes/sprite-atlases.md section 3).
 - **Camera switch timing.** The game loads the next camera's image asynchronously and
-  cuts when it has loaded (usually the next frame); the port decodes every camera's
-  image when the camera enters the room (`MoveCamera` at once: D14's "Camera and
-  shortcut graphics") and cuts in
-  the same tick.
+  cuts when it has loaded; the port decodes every camera's image when the camera enters
+  the room, so a loaded image is always ready, and cuts as the game does: at once to a
+  camera whose texture `PreLoadTexture` queued while the creature leaned toward it, else
+  in the camera's next update (`MoveCamera2`; D14's "Camera and shortcut graphics").
 - **Shortcut graphics** (`rw_graphics::ShortcutGraphics`, `rainworld-re/notes/shortcuts.md`
   section 10). The level view draws the game's pipe pixels (`ShortCut0`, masked to the
   level image's shortcut texels), entrance symbols and glows, the blink pulses and the

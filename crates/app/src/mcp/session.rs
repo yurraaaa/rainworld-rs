@@ -580,6 +580,14 @@ impl Session {
                 .level_state()
                 .and_then(|s| s.full_screen)
                 .map(FullScreenEffectState::from),
+            camera_move: scene.pending_move().map(|m| super::reply::CameraMoveState {
+                room: m.room,
+                camera: m.camera,
+            }),
+            shortcut_graphics: scene
+                .game()
+                .shortcut_wait()
+                .map(|(room, waiting)| super::reply::ShortcutGraphicsState { room, waiting }),
             death_fall: DeathFallState::all(sim.world()),
             water_light: scene.water_light().map(WaterLightState::from),
             level_params: scene.level_state().map(LevelParamsState::from),
