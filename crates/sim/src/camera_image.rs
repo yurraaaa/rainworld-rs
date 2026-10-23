@@ -112,6 +112,12 @@ mod tests {
 
     /// A 4x2 level image and a palette whose runtime texel (x, y) is (8x, 30y, 0) over
     /// 255, with (9, 7) red 255 (no fog) unless `fog`.
+    impl CameraImage {
+        fn depth_at(&self, x: f32, y: f32) -> f32 {
+            self.depth_at_coordinate(Vec2::new(100.0 + x, 200.0 + y))
+        }
+    }
+
     fn image(fog: bool) -> CameraImage {
         let white = [255, 255, 255, 255];
         // PNG rows top first: Unity row 1, then row 0.
@@ -157,12 +163,11 @@ mod tests {
     #[test]
     fn depth_at_coordinate_reads_the_layer() {
         let c = image(false);
-        let d = |x: f32, y: f32| c.depth_at_coordinate(Vec2::new(100.0 + x, 200.0 + y));
-        assert_eq!(d(0.5, 0.5), 1.0);
-        assert_eq!(d(1.5, 0.0), 4.0 / 30.0);
-        assert_eq!(d(2.9, 0.9), 4.0 / 30.0);
-        assert_eq!(d(0.0, 1.0), 3.0 / 30.0);
-        assert_eq!(d(3.5, 0.5), -1.0 / 30.0);
+        assert_eq!(c.depth_at(0.5, 0.5), 1.0);
+        assert_eq!(c.depth_at(1.5, 0.0), 4.0 / 30.0);
+        assert_eq!(c.depth_at(2.9, 0.9), 4.0 / 30.0);
+        assert_eq!(c.depth_at(0.0, 1.0), 3.0 / 30.0);
+        assert_eq!(c.depth_at(3.5, 0.5), -1.0 / 30.0);
     }
 
     /// Fog lerps toward (1, 7) by depth * (1 - red of (9, 7)) / 30: here depth 4 and

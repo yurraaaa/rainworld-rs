@@ -114,31 +114,36 @@ fn a_spell_switches_the_coil_off_and_no_power_fades_it() {
 /// on a roll under 0.025.
 #[test]
 fn the_broken_gravity_switch_powers_the_coil() {
-    let broken = |settled| CoilEnv {
-        broken_zero_g: true,
-        switch_settled_on: settled,
-        ..env(0.0)
-    };
     // The roll deciding comes after the 8 draws of a quiet tick (7 when unpowered).
     let mut e = UnityRandom::new(5);
     let draws: Vec<f32> = (0..9).map(|_| e.value()).collect();
     let mut c = ZapCoil::new(7, [2, 3, 5, 4]);
     let mut rng = UnityRandom::new(5);
-    c.step(&broken(false), &mut rng);
+    c.step(&CoilEnv::broken(false), &mut rng);
     assert_eq!(c.disruption, 1.0);
     assert_eq!(c.powered, draws[8] >= 0.2);
     assert_eq!(rng.state(), UnityRandom::new(5).tap(9).state());
     let mut c = ZapCoil::new(7, [2, 3, 5, 4]);
     c.powered = false;
     let mut rng = UnityRandom::new(5);
-    c.step(&broken(true), &mut rng);
+    c.step(&CoilEnv::broken(true), &mut rng);
     assert_eq!(c.powered, draws[7] < 0.025);
     assert_eq!(rng.state(), UnityRandom::new(5).tap(8).state());
     // Powered and settled on: no roll.
     let mut c = ZapCoil::new(7, [2, 3, 5, 4]);
     let mut rng = UnityRandom::new(5);
-    c.step(&broken(true), &mut rng);
+    c.step(&CoilEnv::broken(true), &mut rng);
     assert_eq!(rng.state(), UnityRandom::new(5).tap(8).state());
+}
+
+impl CoilEnv {
+    fn broken(settled: bool) -> Self {
+        Self {
+            broken_zero_g: true,
+            switch_settled_on: settled,
+            ..env(0.0)
+        }
+    }
 }
 
 trait Tap {

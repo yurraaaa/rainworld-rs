@@ -11,7 +11,9 @@ Five Pebbles' electric placed objects (`rw_sim::ss_light_rod`, `zap_coil`, `ss_f
 `zap_coils`, `zap_coil_lights`, `zap_flashes`, `fuses`). Every shared-stream draw is
 ported in the game's order, with draw-count and order tests: a rod's vessels draw 3 each
 when made and 2 on each wrap; a coil's quiet tick draws 8, a zap 3 or more plus its sound;
-a fuse grid draws one for the lightness, four or more for each cell and one for the
+a fuse grid draws one for the lightness, one to four or more for each cell (one when the
+`Pow(v, 0.5)` gate fails, two in modes 1/2/4/5, three in mode 3, four when the cell wobbles,
+more on a jump), 2 or 3 more per tick on a gravity-dependent grid, and one for the
 malfunction roll, while a camera sees it. The kill is the game's `Creature.Die` through the
 port's creature death paths (D33's route for `ElectricDeath`). Notes:
 `../../rainworld-re/notes/superstructure-electric.md`.

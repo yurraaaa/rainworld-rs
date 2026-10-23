@@ -42,7 +42,7 @@ fn settings_files() -> Option<Vec<PathBuf>> {
 }
 
 /// Every placed rod, coil, fuse grid and coil light parses; the rooms that hold them are
-/// counted (the survey: 12 rod rooms, 11 coil rooms, 44 fuse rooms).
+/// counted (rooms, gates and levels: 12 rod, 13 coil, 50 fuse, 19 coil-light).
 #[test]
 fn every_electric_object_parses() {
     let Some(files) = settings_files() else {
@@ -95,5 +95,8 @@ fn every_electric_object_parses() {
         rooms[3].len()
     );
     assert_eq!(rejected, 0);
-    assert!(rooms[0].len() >= 12 && rooms[1].len() >= 11 && rooms[2].len() >= 44);
+    assert_eq!(
+        [rooms[0].len(), rooms[1].len(), rooms[2].len(), rooms[3].len()],
+        [12, 13, 50, 19]
+    );
 }
