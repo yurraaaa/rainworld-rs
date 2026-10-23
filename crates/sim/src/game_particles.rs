@@ -100,6 +100,7 @@ impl RainWorldGame {
                 RoomEffectType::BkgOnlyLightning => self.add_lightning(index, amount, true),
                 RoomEffectType::ElectricDeath => self.add_electric_death(index, amount),
                 RoomEffectType::BorderPushBack => self.add_border_push_back(index),
+                RoomEffectType::SSSwarmers => self.add_coral_system(index),
                 _ => {}
             }
         }

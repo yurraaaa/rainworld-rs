@@ -212,6 +212,13 @@ impl AiMap {
         self.index(x, y).map_or(-1, |i| self.terrain_proximity[i])
     }
 
+    /// `terrainProximity[ind(x, y, height)]` for a tile inside the room (a tile the mapper
+    /// has not reached holds -1, as `getTerrainProximity` outside the room returns).
+    #[must_use]
+    pub fn terrain_proximity_inside(&self, x: i32, y: i32) -> Option<i32> {
+        self.index(x, y).map(|i| self.terrain_proximity[i])
+    }
+
     /// `getAItile(x, y).narrowSpace`.
     #[must_use]
     pub fn narrow_space(&self, x: i32, y: i32) -> bool {

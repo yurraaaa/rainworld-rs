@@ -161,6 +161,8 @@ pub struct World {
     /// The realized AIs' path finders, their accessibility mappers and the frame's
     /// `PathfinderResourceDivider` (the game's).
     pub(crate) path_finders: crate::creature::PathFinders,
+    /// Every `Mycelium` of the world's rooms (wall mycelia, overseers' lenses).
+    pub(crate) mycelia: crate::MyceliumPool,
 }
 
 impl World {
@@ -212,9 +214,16 @@ impl World {
             communities: rw_save::CreatureCommunities::new(&[]),
             session_difficulty: 0.0,
             path_finders: crate::creature::PathFinders::default(),
+            mycelia: crate::MyceliumPool::default(),
         };
         world.index_rooms();
         world
+    }
+
+    /// Every `Mycelium` of the world's rooms.
+    #[must_use]
+    pub fn mycelia(&self) -> &crate::MyceliumPool {
+        &self.mycelia
     }
 
     #[must_use]
@@ -418,7 +427,13 @@ impl World {
             self.abstractize_creatures(index, rng);
             self.count_quantified_creatures(index);
         }
-        if self.realized[i].take().is_some() {
+        if let Some(room) = self.realized[i].take() {
+            if let Some(system) = room.coral {
+                for wall in &system.wall_mycelia {
+                    self.mycelia.remove_owner(wall.owner);
+                }
+            }
+            self.mycelia.drop_registry(index);
             log::info!("abstracted room {}", self.data.rooms[i].name);
         }
         self.active.retain(|&a| a != i);

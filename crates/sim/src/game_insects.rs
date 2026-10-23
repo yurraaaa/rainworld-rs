@@ -34,6 +34,7 @@ impl RainWorldGame {
         let Some(change) = self.insect_view.take() else {
             return;
         };
+        self.cameras_changed(change.to);
         if change.from == Some(change.to) {
             return;
         }
@@ -49,6 +50,7 @@ impl RainWorldGame {
         self.insects_now_viewed(change.to);
         if change.from.is_none() {
             self.link_gravity_disruptors(change.to);
+            self.coral_ai_map_ready(change.to);
         }
     }
 

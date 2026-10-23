@@ -170,3 +170,65 @@ the data in `rw-assets` `placed_electric.rs`. Notes: `../rainworld-re/notes/supe
   Slugcats' `EnergyCell`'s (not ported); `DeepProcessingLight` has no DLC code; Remix's
   `ScreenSize` is not read by any of them (`_screenSize` is the chosen resolution, as
   everywhere).
+
+## D38: Coral (`CoralNeuronSystem`, `WallMycelia`, `Mycelium`, `NeuronSpark`; step 10d1)
+
+Ported in `crates/sim/src/{coral_system,mycelium,wall_mycelia,neuron_spark,game_coral}.rs`
+(the system, the strands, the wall object, the spark as a `CosmeticKind`), the sprites in
+`crates/graphics/src/{mycelium,wall_mycelia_draw,cosmetic_graphics}.rs`, MCP `coral_systems`,
+`wall_mycelia`, `neuron_sparks`. Notes: `../rainworld-re/notes/superstructure-coral.md`.
+Closes the missing `NeuronSpark` sound of `random.md`'s overseer item.
+
+- **One pool for every strand (design).** The game keeps a `Mycelium` in its owner and the
+  system's `mycelia` list of references; a strand pairs with another owner's by reading and
+  writing it. The port keeps every strand of the world in one `MyceliumPool` (sim) and an owner
+  holds `MyceliumId`s: the room's `WallMycelia`, and an `OverseerGraphics` module (the strands that
+  were in `rw-graphics` for the overseers, moved: `rw_sim::Mycelium`, the same maths; the sprites stay
+  in `rw-graphics`). Each system's registry is the pool's, by room (so a module's strands change
+  registry in `UpdateNeuronSystemForMycelia` with the module living on in another room). Owners are
+  compared by an `OwnerKey` (one per `WallMycelia`, one per module). Strands of a module the camera
+  left, and of dropped modules, stay registered and can still be picked and paired, as in the game; a
+  room's pool entries of its wall mycelia go with the room (`World::abstractize`). The observer
+  hooks `overseer_added/reset/emerge/updated` take a `MyceliaCx` (the pool and the room's reads) and a new
+  `overseer_new_room` runs `UpdateCoralNeuronSystem`.
+- **Timing.** `Room.Loaded` makes the system in the effects loop (`SSSwarmers`) or the placed-object loop
+  (the first active coral or wall mycelia object), with its two wind draws, in settings order; the
+  port's collect-then-add pass keeps that order. `CoralNeuronSystem.AIMapReady` runs in the loading
+  step after `ReadyForAI` realized the room's creatures (so an overseer's strands are registered before
+  the wall's); the session's first room waits for its `NowViewed` (the camera's first tick), as D37's
+  `roomSpecks` do, and the wall mycelia take their place in the update list then. The wall mycelia are
+  built from the `WallMycelia` objects the slugcat's `Filter`s leave active (26 of the 29 rooms for
+  the Survivor and the Monk, all for the Hunter); an unreadable `ResizableObjectData` (none installed) is
+  skipped with a warning where the game throws at load.
+- **`camerasChangedTick`** is bumped on the room the camera shows when the camera's room or position
+  changes: `apply_insect_view_change` (a room move, the first room too) and `set_camera_view` (a
+  position change within the room). The game bumps it in `ApplyPositionChange` for any move, also one to
+  the same room and position (none in the port). A strand re-reads `ViewedByAnyCamera` only after a bump,
+  so a room the camera left keeps its strands "viewed" until its system freezes (as the game).
+- **The camera's room is `BeingViewed`.** The system's `notViewedCounter` and a strand's camera test read the
+  port's `camera_room`, which `camera_moves_to` sets at once (see OPEN-ITEMS, "Camera room switches
+  mid-tick").
+- **Draws.** `CoralNeuronSystem`: 2 in the constructor, 2 a tick. `WallMycelia`: none in the constructor
+  (seeded `(int)x + (int)y` of the first place, the stream restored; 2 for a strand count a free tile with a
+  wall beside it, 2 for a strand's offset, 1 for its length when its ray hits), per tick 1 a strand plus its
+  `Mycelium`'s: culled 0; live and unlinked with the registry non-empty and `rest < 1` 1
+  (`Range(0, Count)`); linked 1 (`value < 0.005`) or 2 when the tips meet (3 with a spark, whose
+  constructor draws once); a broken link `Range(20, 200)` 1 (after the chance draw 2); the tick a strand
+  comes back into view `2 + 2 * points` more. `NeuronSpark`: 1 in the constructor, the
+  `SS_Mycelia_Spark` sound's draws on its first update (the microphone's, `sound.rs`), and **5** a frame in
+  `DrawSprites`, which the app makes on its cosmetic stream (D1). The survey's 8 was wrong.
+- **`Mycelium`'s Burst job is not a job.** `Phase1`/`Phase4` are plain loops in this build and the
+  `JobHandle` is never scheduled (observed in `Mycelium.cs`); the port runs the same operations in the
+  same order on `f32`.
+- **Wall mycelia are drawn with the `Basic` shader** (`RippleBasicBothSides` is a plain vertex-colour times
+  texture shader in the base game: `rippleClip` is a no-op without Watcher's keyword), in `Items`. They are not
+  drawn in the debug view or in an other-room MCP screenshot (as D36's objects; OPEN-ITEMS).
+- **What the next steps add to `AIMapReady`** (not ported here): the `CoralNeuron`s made as the placed-object
+  loop meets them (before the wall mycelia), then the `CoralCircuit` clusters (their `CircuitConnector`
+  owners), then the `CoralStem`s with their `StemSegment`s (each taking `GetNewID`), then `PlaceSwarmers`
+  (`SSOracleSwarmer`s, whose suckling strikes `NeuronSpark`s); `ClimbableVinesSystem` registration; the
+  `ProjectedCircle`s of D35. Every wall strand can only pair with another owner's strands, so in a room
+  with wall mycelia alone only an overseer's lens can link to them.
+- **Omitted DLC branches** (listed, not dropped): More Slugcats' `Inspector` and `SingularityBomb` own
+  strands and systems (`new CoralNeuronSystem` in their code); `ModManager.MSC`'s abstract-room add of
+  the swarmers (10e); nothing in the ported classes reads a DLC flag.

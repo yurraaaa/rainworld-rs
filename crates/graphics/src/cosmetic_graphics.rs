@@ -1,11 +1,12 @@
 //! `Spark.DrawSprites` (40745), `ExplosionSpikes.DrawSprites` (34935),
 //! `LizardBubble.DrawSprites`, `StationaryEffect.DrawSprites`, `Bubble.DrawSprites` and
-//! `Splash.DrawSprites`: a streak in `Midground` (in the lizard's head colour while its
+//! `Splash.DrawSprites` and `NeuronSpark.DrawSprites`: a streak in `Midground` (in the lizard's head colour while its
 //! graphics flicker white), a ring of fading spikes in `Foreground`, a lizard's bubble
 //! and its head shield's flash, an air bubble in the water, and a splash's two
-//! `WaterSplash` quads. The flash draws on the cosmetic stream (D1).
+//! `WaterSplash` quads, and a neuron spark's flickering disc and pixel in `Foreground`.
+//! The flash and the neuron spark draw on the cosmetic stream (D1).
 //!
-//! Mirrors: Spark.cs, ExplosionSpikes.cs, LizardBubble.cs, StationaryEffect.cs, Bubble.cs, SplashWater/Splash.cs (DrawSprites, InitiateSprites, AddToContainer)
+//! Mirrors: Spark.cs, ExplosionSpikes.cs, LizardBubble.cs, StationaryEffect.cs, Bubble.cs, SplashWater/Splash.cs (DrawSprites, InitiateSprites, AddToContainer), NeuronSpark.cs (InitiateSprites, DrawSprites)
 
 use std::borrow::Cow;
 
@@ -14,7 +15,8 @@ use rw_random::UnityRandom;
 use rw_sim::creature::CreatureId;
 use rw_sim::creature::lizard::LizardBubble;
 use rw_sim::{
-    Bubble, Cosmetic, CosmeticKind, ExplosionSpikes, RoomExt, Spark, Splash, StationaryEffect, Vec2,
+    Bubble, Cosmetic, CosmeticKind, ExplosionSpikes, NeuronSpark, RoomExt, Spark, Splash,
+    StationaryEffect, Vec2,
 };
 
 use crate::draw::{Color, DrawItem, DrawList, Layer, Mesh, Shader, Sprite};
@@ -126,8 +128,57 @@ impl CosmeticSprites for Cosmetic {
                     items: f.sprites(t, rng),
                 };
             }
+            CosmeticKind::NeuronSpark(s) => {
+                return DrawList {
+                    items: s.sprites(t, rng),
+                };
+            }
         };
         DrawList { items: vec![item] }
+    }
+}
+
+/// `NeuronSpark.InitiateSprites` and `DrawSprites`.
+trait NeuronSparkSprites {
+    /// A blue `FlatLight` disc and a rotated pixel at the spark, both flickering with
+    /// `life` and five cosmetic draws.
+    fn sprites(&self, t: f32, rng: &mut UnityRandom) -> Vec<DrawItem>;
+}
+
+impl NeuronSparkSprites for NeuronSpark {
+    fn sprites(&self, t: f32, rng: &mut UnityRandom) -> Vec<DrawItem> {
+        let pos = self.last_pos.lerp(self.pos, t);
+        let life = self.last_life.lerp_to(self.life, t);
+        let glow = rw_sim::FloatExt::mathf_pow(life, 3.0) * rng.value();
+        let pixel_scale = 4.0 * rng.value() * life;
+        let disc_alpha = rng.value() * life;
+        let wide = 15.0 * rng.value();
+        let disc_scale =
+            (wide + 15.0 * rw_sim::FloatExt::mathf_pow(rng.value(), 3.0)) * life / 10.0;
+        vec![
+            DrawItem::Sprite(Sprite {
+                index: 0,
+                element: "Futile_White",
+                pos,
+                rotation: 0.0,
+                scale: Vec2::new(disc_scale, disc_scale),
+                anchor: Vec2::new(0.5, 0.5),
+                color: Color::rgb(0.0, 0.0, 1.0).with_alpha(disc_alpha),
+                shader: Shader::FlatLight,
+                layer: Layer::Foreground,
+            }),
+            DrawItem::Sprite(Sprite {
+                index: 1,
+                element: "pixel",
+                pos,
+                rotation: 45.0,
+                scale: Vec2::new(pixel_scale, pixel_scale),
+                anchor: Vec2::new(0.5, 0.5),
+                color: Color::rgb(glow, glow, 1.0),
+                shader: Shader::default(),
+                layer: Layer::Foreground,
+            }),
+        ]
     }
 }
 

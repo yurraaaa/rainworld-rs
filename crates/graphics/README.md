@@ -38,7 +38,8 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 | `rainbow.rs` | `Rainbow`'s square over the `rainbow` gradient in `GrabShaders` (`Rainbow` shader) | `Rainbow.InitiateSprites`, `DrawSprites`, `CustomFSprite` |
 | `overseer_graphics.rs` | `OverseerGraphics` simulation | `OverseerGraphics` |
 | `overseer_draw.rs` | overseer sprites | `OverseerGraphics.DrawSprites` |
-| `mycelium.rs` | overseer hairs | `Mycelium` |
+| `mycelium.rs` | a strand's mesh (`MyceliumSprites`) and `TriangleMesh.MakeLongMesh`'s triangles and UVs (`LongMesh`); the strands are `rw-sim`'s | `Mycelium` (InitiateSprites, DrawSprites, UpdateColor) |
+| `wall_mycelia_draw.rs` | a `WallMycelia`'s strands in `Items` (transparent black fading in, blue tip), culled ones left out | `WallMycelia` |
 | `hologram_matrix.rs` | overseer lens wireframe | `OverseerGraphics.HologramMatrix` |
 | `hologram_shape.rs` | line geometry of hologram parts | `OverseerHolograms` |
 | `hologram_draw.rs` | hologram part sprites and lines | `OverseerHologram.DrawSprites` |
@@ -53,11 +54,11 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 | `ss_electric.rs`, `ss_electric_tests.rs` | an `SSLightRod`'s bar (`Water`, `CustomDepth`), a `ZapCoil`'s eight-vertex flare mesh (`FlareBomb`), a `ZapFlash`'s two discs (`FlareBomb`, `FlatLight`, seven cosmetic draws a frame, setting its light) and `SuperStructureFuses`' cell lights (`Foreground`, `CustomDepth`, `ApplyDepth`) | `SSLightRod`, `ZapCoil`, `ZapCoil.ZapFlash`, `SuperStructureFuses` (InitiateSprites, DrawSprites) |
 | `water_fall.rs` | `WaterFall`'s quad (`WaterFall` shader) and bubbles in `Background` | `WaterFall` |
 | `weapon_graphics.rs` | rock and spear sprites | `Rock`, `Spear` |
-| `water_drip.rs`, `cosmetic_graphics.rs` | drips (`DripPalette`, water-coloured too); sparks, explosion spikes, lizard and air bubbles, splashes | `WaterDrip`, `Spark`, `ExplosionSpikes`, `LizardBubble`, `Bubble`, `Splash` |
+| `water_drip.rs`, `cosmetic_graphics.rs` | drips (`DripPalette`, water-coloured too); sparks, explosion spikes, lizard and air bubbles, splashes, a `NeuronSpark`'s disc and pixel (`Foreground`, five cosmetic draws) | `WaterDrip`, `Spark`, `ExplosionSpikes`, `LizardBubble`, `Bubble`, `Splash` |
 | `shortcut_graphics.rs` | pipe pixels, entrance symbols | `ShortcutGraphics` |
 | `shelter_door_graphics.rs` | shelter door sprites | `ShelterDoor` |
 | `sun_blocker.rs` | the `SunBlock` effect's screen-covering sprite in `Shadows` | `SunBlocker` |
-| `tests.rs`, `hologram_tests.rs`, `shortcut_tests.rs`, `placed_visuals_tests.rs`, `projection_tests.rs` | unit tests | |
+| `tests.rs`, `coral_tests.rs`, `hologram_tests.rs`, `shortcut_tests.rs`, `placed_visuals_tests.rs`, `projection_tests.rs` | unit tests | |
 
 ## Where is X?
 
@@ -66,7 +67,7 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 - Slugcat gaze: `looker.rs`.
 - Lizard body, legs, head: `lizard_graphics.rs`, `lizard_limb.rs`, `lizard_draw.rs`.
 - Lizard scales, spikes, tufts: `lizard_cosmetics.rs`, `lizard_cosmetics_draw.rs`.
-- Overseer body and eye: `overseer_graphics.rs`, `overseer_draw.rs`; hairs: `mycelium.rs`.
+- Overseer body and eye: `overseer_graphics.rs`, `overseer_draw.rs`; hairs: `mycelium.rs` (the strands in `rw-sim`'s `mycelium.rs`); wall mycelia: `wall_mycelia_draw.rs`.
 - Overseer lens and holograms: `hologram_matrix.rs`, `hologram_shape.rs`, `hologram_draw.rs`.
 - Bat flies: `fly_graphics.rs`.
 - Cosmetic insects: `insect_graphics.rs` (simulation in `rw-sim` `insect/`).

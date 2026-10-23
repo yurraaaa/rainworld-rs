@@ -270,7 +270,8 @@ impl RainWorldGame {
             | CosmeticKind::OverseerEffect(_)
             | CosmeticKind::Bubble(_)
             | CosmeticKind::Splash(_)
-            | CosmeticKind::SparkFlash(_) => (None, Vec2::ZERO),
+            | CosmeticKind::SparkFlash(_)
+            | CosmeticKind::NeuronSpark(_) => (None, Vec2::ZERO),
         };
         let mut tie = CosmeticTie {
             water_level: self

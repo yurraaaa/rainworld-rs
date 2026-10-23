@@ -160,6 +160,13 @@ impl RainWorldGame {
                 Some(PlacedObjectType::RainbowNoFade) => {
                     RainbowData::parse(&o.data).map(|d| PlacedRoomObject::Rainbow(pos, d, true))
                 }
+                Some(
+                    PlacedObjectType::CoralNeuron
+                    | PlacedObjectType::CoralCircuit
+                    | PlacedObjectType::CoralStem
+                    | PlacedObjectType::CoralStemWithNeurons
+                    | PlacedObjectType::WallMycelia,
+                ) => Some(PlacedRoomObject::CoralSystem),
                 _ => continue,
             };
             match kind {
@@ -169,6 +176,7 @@ impl RainWorldGame {
         }
         for object in added {
             match object {
+                PlacedRoomObject::CoralSystem => self.add_coral_system(index),
                 PlacedRoomObject::Trigger(kind) => self.add_trigger_object(index, kind),
                 PlacedRoomObject::Light(pos, data) => self.add_placed_light(index, pos, &data),
                 PlacedRoomObject::Fixture(pos, data) => self.add_light_fixture(index, pos, data),
@@ -537,6 +545,8 @@ mod tests;
 
 /// A placed object `Room.Loaded` turns into a ported room object.
 enum PlacedRoomObject {
+    /// A coral object: the room gets its `CoralNeuronSystem` (once).
+    CoralSystem,
     Trigger(TriggerObjectKind),
     Light(Vec2, LightSourceData),
     Fixture(Vec2, LightFixtureData),

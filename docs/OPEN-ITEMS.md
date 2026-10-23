@@ -122,7 +122,7 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 ## To look into
 - **Other-room MCP screenshots without fixtures** (user, 2026-10-23: skip for now):
   `screenshot` with `room` set (`crates/app/src/mcp/dev_tools.rs`) draws no light fixtures
-  and none of the SS electric objects (D36).
+  and none of the SS electric objects (D36) or wall mycelia (D38).
 - **Full-screen effects leftovers** (review, small): `DeathFall::camera_viewing_point`
   belongs on the room (`Room.CameraViewingPoint`); stale "not ported" rows for LightBurn,
   SkyAndLightBloom, SkyBloom and wet terrain in `../rainworld-re/surveys/room-effects/`
@@ -196,6 +196,11 @@ plan is in `../rainworld-re/surveys/lizards.md`.
     `GravityDisruptor`, `DeepProcessing` and `DeepProcessingLight`, D37).
   - `ProjectedCircle` (D35): with its owners `CoralNeuron`, `CoralStem`, `SSOracleSwarmer`
     (and `SpearMasterPearl`, `Inspector` in the DLC).
+  - Coral (D38, step 10d1 done: the system, `WallMycelia`, the shared `Mycelium` pool,
+    `NeuronSpark`): what `CoralNeuronSystem.AIMapReady` also builds comes with 10d2-10e
+    (`CoralNeuron`, `CoralStem`/`StemSegment`, `CoralCircuit` and its connectors,
+    `PlaceSwarmers`, the climbable vines); More Slugcats' `Inspector` and
+    `SingularityBomb` strands with the DLC.
   - The other readers of `room.zapCoils` and `SuperStructureFuses` (D36): `TubeWorm`, the
     Saint tongue, `ElectricSpear`, the `Inspector`, Watcher's `ARZapper`/`WarpTear`, Moon's
     `SLOracleBehavior.fuses`: with them.

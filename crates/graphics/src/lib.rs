@@ -59,6 +59,7 @@ mod star_matrix_draw;
 mod sun_blocker;
 mod tail;
 mod token_stalk;
+mod wall_mycelia_draw;
 mod water_drip;
 mod water_fall;
 mod weapon_graphics;
@@ -96,7 +97,7 @@ pub use lizard_graphics::{IndividualVariations, LIZARD_BASE_SPRITES, LizardGraph
 pub use lizard_limb::LizardLimb;
 pub use looker::ObjectLooker;
 pub use math::{Custom, CustomVec, Mathf, UnityVector3, Vec2Bezier, Vec3};
-pub use mycelium::{Mycelium, MyceliumLink};
+pub use mycelium::{LongMesh, MyceliumSprites};
 pub use overseer_graphics::{DrawPositions, OverseerGraphics};
 pub use player_draw::{SPRITE_COUNT, SPRITE_LAYERS, TAIL_TRIANGLES};
 pub use player_graphics::PlayerGraphics;
@@ -119,11 +120,14 @@ pub use star_matrix_draw::StarMatrixSprites;
 pub use sun_blocker::SunBlocker;
 pub use tail::{TailAnchor, TailSegment};
 pub use token_stalk::TokenStalkSprites;
+pub use wall_mycelia_draw::WallMyceliaSprites;
 pub use water_drip::{DripPalette, WaterDripSprites};
 pub use water_fall::WaterFallSprites;
 pub use weapon_graphics::{PEBBLES, PebbleElement, SMALL_SPEAR, WeaponSprites};
 pub use zero_g_speck::SpeckSprites;
 
+#[cfg(test)]
+mod coral_tests;
 #[cfg(test)]
 mod hologram_tests;
 #[cfg(test)]

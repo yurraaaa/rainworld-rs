@@ -42,8 +42,9 @@ use rw_sim::room_script::{RoomScript, SuC04StartUp};
 use rw_sim::shelter::ShelterDoor;
 use rw_sim::world::World;
 use rw_sim::{
-    CameraMove, CameraView, CosmeticKind, HudEvent, Input, PhysicalObject, Player, PlayerHands,
-    PlayerObserver, PlayerSurroundings, RainWorldGame, SoundEvent, Sounds, Start, Vec2, Water,
+    CameraMove, CameraView, CosmeticKind, HudEvent, Input, MyceliaCx, PhysicalObject, Player,
+    PlayerHands, PlayerObserver, PlayerSurroundings, RainWorldGame, SoundEvent, Sounds, Start,
+    Vec2, Water,
 };
 
 use crate::jaws::{JawHolder, Jaws};
@@ -172,7 +173,8 @@ impl Graphics {
                 | CosmeticKind::OverseerEffect(_)
                 | CosmeticKind::Bubble(_)
                 | CosmeticKind::Splash(_)
-                | CosmeticKind::SparkFlash(_) => None,
+                | CosmeticKind::SparkFlash(_)
+                | CosmeticKind::NeuronSpark(_) => None,
             })
             .collect();
         self.dropped_lizards.retain(|g| used.contains(&g.module));
@@ -183,7 +185,7 @@ impl Graphics {
         &mut self,
         id: EntityId,
         partner: Option<EntityId>,
-    ) -> Option<(&mut OverseerGraphics, Option<&mut OverseerGraphics>)> {
+    ) -> Option<(&mut OverseerGraphics, Option<&OverseerGraphics>)> {
         let i = self.overseers.iter().position(|g| g.id == id)?;
         let j = partner.and_then(|p| self.overseers.iter().position(|g| g.id == p));
         match j {
@@ -194,7 +196,7 @@ impl Graphics {
                 } else {
                     (&mut hi[0], &mut lo[j])
                 };
-                Some((a, Some(b)))
+                Some((a, Some(&*b)))
             }
             _ => Some((&mut self.overseers[i], None)),
         }
@@ -280,37 +282,62 @@ impl PlayerObserver for Graphics {
         }
     }
 
-    fn overseer_added(&mut self, view: &OverseerView<'_>, rng: &mut UnityRandom) -> bool {
+    fn overseer_added(
+        &mut self,
+        view: &OverseerView<'_>,
+        mx: &mut MyceliaCx<'_>,
+        rng: &mut UnityRandom,
+    ) -> bool {
         let built = !self.overseers.iter().any(|g| g.id == view.id);
         if built {
-            self.overseers.push(OverseerGraphics::new(view, rng));
+            self.overseers.push(OverseerGraphics::new(view, mx, rng));
         }
         self.set_hologram_base(view);
         built
     }
 
-    fn overseer_reset(&mut self, view: &OverseerView<'_>, rng: &mut UnityRandom) {
+    fn overseer_reset(
+        &mut self,
+        view: &OverseerView<'_>,
+        mx: &mut MyceliaCx<'_>,
+        rng: &mut UnityRandom,
+    ) {
         if let Some(g) = self.overseers.iter_mut().find(|g| g.id == view.id) {
-            g.reset(view.body, rng);
+            g.reset(view.body, mx.pool, rng);
         }
     }
 
-    fn overseer_emerge(&mut self, view: &OverseerView<'_>, rng: &mut UnityRandom) {
+    fn overseer_emerge(
+        &mut self,
+        view: &OverseerView<'_>,
+        mx: &mut MyceliaCx<'_>,
+        rng: &mut UnityRandom,
+    ) {
         if let Some(g) = self.overseers.iter_mut().find(|g| g.id == view.id) {
-            g.emerge(view.body, rng);
+            g.emerge(view.body, mx.pool, rng);
         }
     }
 
     fn overseer_updated(
         &mut self,
         view: &OverseerView<'_>,
-        room: &Room,
-        camera: &CameraView,
+        mx: &mut MyceliaCx<'_>,
         rng: &mut UnityRandom,
     ) {
         if let Some((g, partner)) = self.overseer_pair(view.id, view.partner) {
-            g.update(view, room, camera, partner, rng);
+            g.update(view, mx, partner, rng);
             self.set_hologram_base(view);
+        }
+    }
+
+    fn overseer_new_room(
+        &mut self,
+        view: &OverseerView<'_>,
+        mx: &mut MyceliaCx<'_>,
+        new: Option<i32>,
+    ) {
+        if let Some(g) = self.overseers.iter().find(|g| g.id == view.id) {
+            g.new_room(mx.pool, view.neuron_system, new);
         }
     }
 
@@ -924,6 +951,7 @@ impl Game {
     /// earth colour.
     pub fn overseer_draw_lists(&mut self, alpha: f32, earth: Color) -> Vec<(Drawable, DrawList)> {
         let world = self.sim.world();
+        let pool = world.mycelia();
         let mut shown: Vec<(u64, CreatureId)> = world
             .room_creatures(self.sim.camera_room())
             .iter()
@@ -940,7 +968,7 @@ impl Game {
             };
             let graphics = &mut self.graphics;
             if let Some(g) = graphics.overseers.iter_mut().find(|g| g.id == view.id) {
-                let list = g.draw(&view, earth, alpha, &mut graphics.cosmetic);
+                let list = g.draw(&view, earth, alpha, pool, &mut graphics.cosmetic);
                 lists.push((Drawable::Entity(Entity::Creature(c)), list));
             }
         }
@@ -1117,6 +1145,29 @@ impl Game {
                 (
                     Drawable::ElectricDeath(d.update_order),
                     d.draw(intensity, cam_pos, screen, alpha, rng),
+                )
+            })
+            .collect()
+    }
+
+    /// The camera room's `WallMycelia` at `alpha` between ticks.
+    #[must_use]
+    pub fn coral_draw_lists(&self, alpha: f32) -> Vec<(Drawable, DrawList)> {
+        use rw_graphics::WallMyceliaSprites;
+        let world = self.sim.world();
+        let Some(system) = world
+            .realized(self.sim.camera_room())
+            .and_then(|r| r.coral.as_ref())
+        else {
+            return Vec::new();
+        };
+        system
+            .wall_mycelia
+            .iter()
+            .map(|w| {
+                (
+                    Drawable::Coral(w.update_order),
+                    w.draw(world.mycelia(), alpha),
                 )
             })
             .collect()
@@ -1651,6 +1702,12 @@ impl Game {
                 r.projections
                     .drawn_orders()
                     .map(|o| Present::added(Drawable::Projection(o), o)),
+            );
+            present.extend(
+                r.coral
+                    .iter()
+                    .flat_map(|s| &s.wall_mycelia)
+                    .map(|w| Present::added(Drawable::Coral(w.update_order), w.update_order)),
             );
         }
         present

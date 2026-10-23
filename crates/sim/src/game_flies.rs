@@ -598,9 +598,7 @@ impl RainWorldGame {
         for (_, id, kind) in self.now_viewed_objects(to) {
             match kind {
                 Viewed::Overseer => {
-                    if let Some(view) = self.world.overseer_view(id)
-                        && observer.overseer_added(&view, &mut self.rng)
-                    {
+                    if self.overseer_module_added(id, to, observer) {
                         self.now_viewed_modules.push(id);
                     }
                 }
