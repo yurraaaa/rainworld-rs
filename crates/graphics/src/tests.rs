@@ -9,8 +9,9 @@ use rw_assets::{ActiveMods, Room, RoomSettings, Timeline};
 use rw_random::UnityRandom;
 use rw_sim::world::World;
 use rw_sim::{
-    Animation, BodyMode, ClimbableVine, ClimbableVinesSystem, HEAD, HIPS, Input, Player,
-    PlayerSurroundings, Sounds, Vec2, VineClimber, VineId, VineKind,
+    Animation, BodyMode, ClimbableVine, ClimbableVinesSystem, HEAD, HIPS, Input, NoiseSink,
+    PlacedVines, Player, PlayerSurroundings, ScreenMovement, Sounds, Vec2, VineAccess, VineClimber,
+    VineKind, VineRef,
 };
 
 use crate::{
@@ -1657,8 +1658,8 @@ struct StraightVine {
 }
 
 impl ClimbableVine for StraightVine {
-    fn id(&self) -> VineId {
-        VineId(1)
+    fn id(&self) -> u64 {
+        1
     }
 
     fn kind(&self) -> VineKind {
@@ -1685,14 +1686,29 @@ impl ClimbableVine for StraightVine {
         self.points[index as usize] += movement;
     }
 
-    fn being_climbed_on(&mut self, _: &VineClimber) {}
+    fn being_climbed_on(&mut self, _: &VineClimber, _: &mut UnityRandom, _: &mut Sounds) {}
 
     fn currently_climbable(&self) -> bool {
         true
     }
+}
 
-    fn clone_box(&self) -> Box<dyn ClimbableVine> {
-        Box::new(self.clone())
+/// The room's vines as the player's update reaches them.
+struct VineSink {
+    system: ClimbableVinesSystem,
+    host: PlacedVines,
+}
+
+impl NoiseSink for VineSink {
+    fn in_game_noise(&mut self, _: Vec2, _: f32, _: f32, _: &mut UnityRandom) {}
+
+    fn screen_movement(&mut self, _: ScreenMovement, _: &mut UnityRandom) {}
+
+    fn vines(&mut self) -> Option<VineAccess<'_>> {
+        Some(VineAccess {
+            system: &self.system,
+            host: &mut self.host,
+        })
     }
 }
 
@@ -1703,8 +1719,12 @@ fn hands_swing_along_the_vine() {
     // side -1 for hand 0, +1 for hand 1. The vine runs up, so its perpendicular is (-1, 0).
     let row = ".".repeat(30);
     let r = room(&[row.as_str(); 20]);
-    let mut vines = ClimbableVinesSystem::new();
-    vines.register(Box::new(StraightVine {
+    let mut sink = VineSink {
+        system: ClimbableVinesSystem::new(),
+        host: PlacedVines::default(),
+    };
+    sink.system.register(VineRef::Placed { room: 0, id: 1 });
+    sink.host.add(Box::new(StraightVine {
         points: [
             Vec2::new(200.0, 100.0),
             Vec2::new(200.0, 250.0),
@@ -1715,19 +1735,13 @@ fn hands_swing_along_the_vine() {
     player.body.chunks[HIPS].reset_at(Vec2::new(200.0, 283.0));
     player.body.chunks[HEAD].reset_at(Vec2::new(200.0, 300.0));
     player.set_room_gravity(0.0);
-    player.lend_vines(Some(vines));
-    player.update(
-        &r,
-        None,
-        Input::new(0, 1, false),
-        &mut UnityRandom::new(0),
-        &mut Sounds::default(),
-    );
+    let (mut rng0, mut sounds) = (UnityRandom::new(0), Sounds::default());
+    player.update_before_catch(&r, None, Input::new(0, 1, false), &mut rng0, &mut sounds);
+    player.update_after_catch(&r, None, &mut rng0, &mut sounds, &mut sink);
     assert_eq!(player.animation(), Animation::VineGrab);
     let on = player.vine_pos().unwrap();
     let frame = player.animation_frame();
     assert_eq!(frame, 1);
-    let vines = player.take_vines().unwrap();
     for limb in 0..2 {
         let side = if limb == 0 { -1.0_f32 } else { 1.0 };
         let mut hand = crate::hand::SlugcatHand::new(limb);
@@ -1739,7 +1753,7 @@ fn hands_swing_along_the_vine() {
             player: &player,
             room: &r,
             water: None,
-            vines: Some(&vines),
+            vines: Some((&sink.system, &sink.host)),
             balance_counter: 0.0,
             disbalance: &mut disbalance,
             head_vel: &mut head_vel,

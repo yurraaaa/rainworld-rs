@@ -2,7 +2,8 @@
 //! own put into SU_A07 of the installed game (skipped without it): no base-game vine
 //! object exists in the port yet (the coral neurons and stems come with the next steps).
 
-use rw_sim::{ClimbableVine, Vec2, VineClimber, VineId, VineKind};
+use rw_random::UnityRandom;
+use rw_sim::{ClimbableVine, Sounds, Vec2, VineClimber, VineKind};
 
 use super::Session;
 use super::params::{InputParam, StepParams};
@@ -14,8 +15,8 @@ struct TestVine {
 }
 
 impl ClimbableVine for TestVine {
-    fn id(&self) -> VineId {
-        VineId(7)
+    fn id(&self) -> u64 {
+        7
     }
 
     fn kind(&self) -> VineKind {
@@ -42,14 +43,10 @@ impl ClimbableVine for TestVine {
         self.points[index as usize] += movement;
     }
 
-    fn being_climbed_on(&mut self, _: &VineClimber) {}
+    fn being_climbed_on(&mut self, _: &VineClimber, _: &mut UnityRandom, _: &mut Sounds) {}
 
     fn currently_climbable(&self) -> bool {
         true
-    }
-
-    fn clone_box(&self) -> Box<dyn ClimbableVine> {
-        Box::new(self.clone())
     }
 }
 
@@ -87,7 +84,7 @@ fn a_registered_vine_is_reported_and_grabbed() {
     game.world_mut()
         .realized_mut(room)
         .expect("realized")
-        .register_climbable_vine(Box::new(TestVine { points }));
+        .register_climbable_vine(room, Box::new(TestVine { points }));
 
     let state = s.step(&up()).expect("steps");
     let vines = &state.climbable_vines;
@@ -101,7 +98,7 @@ fn a_registered_vine_is_reported_and_grabbed() {
     let player = state.player.expect("player");
     assert_eq!(player.animation, "VineGrab");
     let on = player.vine_pos.expect("vine_pos");
-    assert_eq!(on.vine, 7);
+    assert_eq!(on.vine, format!("Placed {{ room: {room}, id: 7 }}"));
     assert!(on.float_pos > 0.0 && on.float_pos < 1.0, "{}", on.float_pos);
     assert_eq!(player.body_mode, "Default");
     assert!(player.vine_climb_cursor[1] > 0.0);

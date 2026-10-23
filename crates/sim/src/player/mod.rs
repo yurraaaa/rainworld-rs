@@ -52,7 +52,7 @@ pub(crate) use spear_on_back::BackSpearDrop;
 pub use spear_on_back::SpearOnBack;
 
 use crate::campaign::{SlugcatCampaign, SlugcatStats};
-use crate::climbable_vines::{ClimbableVinesSystem, VinePosition};
+use crate::climbable_vines::VinePosition;
 use crate::room_ext::RoomExt;
 use crate::shortcut::ShortcutVessel;
 use crate::{
@@ -440,8 +440,6 @@ pub struct Player {
     vine_grab_delay: i32,
     /// `wantToGrab`: last `MovementUpdate`'s up press.
     want_to_grab: i32,
-    /// The room's `climbableVines` while the update runs (`lend_vines`).
-    vines: Option<ClimbableVinesSystem>,
     /// `WaterDrip`s made this tick, for the room to add.
     drips: Vec<WaterDrip>,
     /// `Bubble`s made this tick, for the room to add, each after the first `.0` drips.
@@ -587,7 +585,6 @@ impl Player {
             vine_climb_cursor: Vec2::ZERO,
             vine_grab_delay: 0,
             want_to_grab: 0,
-            vines: None,
             drips: Vec::new(),
             bubbles: Vec::new(),
             before_pull: None,
@@ -832,7 +829,7 @@ impl Player {
         if self.stun < 1 && !self.dead && self.entering_shortcut.is_none() && self.vessel.is_none()
         {
             self.movement_ran = true;
-            self.movement_update(room, water, rng, sounds);
+            self.movement_update(room, water, rng, sounds, noises);
         }
         self.flush_sounds_and_noises(rng, sounds, noises);
     }

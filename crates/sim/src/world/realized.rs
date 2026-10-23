@@ -111,20 +111,40 @@ pub struct RealizedRoom {
     /// The room's `CoralNeuronSystem`, made by `Room.Loaded` for an `SSSwarmers` effect or
     /// a coral or wall mycelia object.
     pub coral: Option<crate::CoralNeuronSystem>,
-    /// `climbableVines`, made by the first vine to register (lent to the player for its
-    /// update).
+    /// `climbableVines`, made by the first vine to register.
     pub climbable_vines: Option<crate::ClimbableVinesSystem>,
+    /// The vines registered at run time, whose owners these are.
+    pub placed_vines: crate::PlacedVines,
     /// `camerasChangedTick`: counts the camera's position changes in the room.
     pub cameras_changed_tick: i32,
 }
 
 impl RealizedRoom {
-    /// What a vine's constructor does with `room.climbableVines`: make it when the room has
-    /// none, then `vines.Add(this)`.
-    pub fn register_climbable_vine(&mut self, vine: Box<dyn crate::ClimbableVine>) {
+    /// What a vine's constructor does with `room.climbableVines` (room `index`): make it
+    /// when the room has none, then `vines.Add(this)`.
+    pub fn register_climbable_vine(&mut self, index: i32, vine: Box<dyn crate::ClimbableVine>) {
+        let vine_ref = crate::VineRef::Placed {
+            room: index,
+            id: vine.id(),
+        };
+        self.placed_vines.add(vine);
         self.climbable_vines
             .get_or_insert_with(crate::ClimbableVinesSystem::new)
-            .register(vine);
+            .register(vine_ref);
+    }
+
+    /// The room's `climbableVines` with its vines' owners, for the player's update.
+    pub fn vine_access(&mut self) -> Option<crate::VineAccess<'_>> {
+        Some(crate::VineAccess {
+            system: self.climbable_vines.as_ref()?,
+            host: &mut self.placed_vines,
+        })
+    }
+
+    /// The same, read-only (the graphics).
+    #[must_use]
+    pub fn vine_view(&self) -> Option<(&crate::ClimbableVinesSystem, &dyn crate::VineHost)> {
+        Some((self.climbable_vines.as_ref()?, &self.placed_vines))
     }
 
     /// `darkenLightsFactor`: 0 until the room's first `Update`, then the `DarkenLights`
@@ -195,6 +215,7 @@ impl RealizedRoom {
             social_events: super::social_events::SocialEventRecognizer::default(),
             coral: None,
             climbable_vines: None,
+            placed_vines: crate::PlacedVines::default(),
             cameras_changed_tick: 0,
         }
     }

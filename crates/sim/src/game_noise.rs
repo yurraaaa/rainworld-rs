@@ -11,7 +11,7 @@ use crate::camera::CameraView;
 use crate::creature::fly::PlayerBody;
 use crate::item::Entity;
 use crate::world::World;
-use crate::{CameraShake, InGameNoise, NoiseSink, ScreenMovement, Vec2, Water};
+use crate::{CameraShake, InGameNoise, NoiseSink, ScreenMovement, Vec2, VineAccess, Water};
 
 /// The player's noises and screen movements while it updates in `room` (whose water
 /// it holds).
@@ -39,6 +39,10 @@ impl NoiseSink for PlayerHearing<'_> {
     fn screen_movement(&mut self, m: ScreenMovement, rng: &mut UnityRandom) {
         self.world
             .screen_movement(self.room, m, &self.camera, self.shake, rng);
+    }
+
+    fn vines(&mut self) -> Option<VineAccess<'_>> {
+        self.world.realized_mut(self.room)?.vine_access()
     }
 }
 

@@ -9,7 +9,7 @@ use rw_random::UnityRandom;
 use rw_sim::item::Entity;
 use rw_sim::{
     Animation, BodyMode, ClimbableVinesSystem, HEAD, HIPS, Player, PlayerSurroundings, Vec2,
-    VinePosition, Water,
+    VineHost, VinePosition, Water,
 };
 
 use crate::body_part::{BodyPart, PointConnection};
@@ -85,7 +85,7 @@ pub(crate) struct HandContext<'a> {
     pub room: &'a Room,
     pub water: Option<&'a Water>,
     /// The room's `climbableVines`.
-    pub vines: Option<&'a ClimbableVinesSystem>,
+    pub vines: Option<(&'a ClimbableVinesSystem, &'a dyn VineHost)>,
     pub balance_counter: f32,
     pub disbalance: &'a mut f32,
     /// `PlayerGraphics.flail`.
@@ -380,11 +380,11 @@ impl SlugcatHand {
             }
             self.limb.absolute_hunt_pos = target;
         } else if player.animation() == Animation::VineGrab
-            && let (Some(vines), Some(on)) = (cx.vines, player.vine_pos())
+            && let (Some((vines, host)), Some(on)) = (cx.vines, player.vine_pos())
             && vines.contains(on.vine)
         {
             free = false;
-            self.vine_target(vines, &on, player.animation_frame(), sign);
+            self.vine_target(vines, host, &on, player.animation_frame(), sign);
         }
         free
     }
@@ -394,16 +394,17 @@ impl SlugcatHand {
     fn vine_target(
         &mut self,
         vines: &ClimbableVinesSystem,
+        host: &dyn VineHost,
         on: &VinePosition,
         frame: i32,
         sign: f32,
     ) {
         let swing = 20.0 * sign * (frame as f32 / 30.0 * 2.0 * std::f32::consts::PI).mathf_sin()
-            / vines.total_length_of(on.vine);
+            / vines.total_length(host, on.vine);
         let ahead = VinePosition::new(on.vine, on.float_pos + swing);
         self.limb.mode = LimbMode::HuntAbsolutePosition;
-        self.limb.absolute_hunt_pos = vines.on_vine_pos(&ahead)
-            + vines.vine_dir(on).perpendicular() * (vines.vine_rad(on) * sign);
+        self.limb.absolute_hunt_pos = vines.on_vine_pos(host, &ahead)
+            + vines.vine_dir(host, on).perpendicular() * (vines.vine_rad(host, on) * sign);
     }
 
     /// CorridorClimb, hand stretched 20 px from the head: grip the corridor wall about

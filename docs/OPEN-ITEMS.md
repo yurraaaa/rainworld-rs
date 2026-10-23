@@ -190,8 +190,8 @@ plan is in `../rainworld-re/surveys/lizards.md`.
     the corruption tubes (`ClimbableCorruptionTube`, `Rope`) with `DaddyCorruption`; `PoleMimic`
     as a vine with the Pole Mimic creature; More Slugcats' `ClimbableVine`, Watcher's whiskers
     and the Remix branches with their DLC. The coral neurons and stems (10d3) are the first
-    vine owners: they refresh their snapshot in the room's system before the player's turn and
-    replay its `VineEvent`s (D39).
+    vine owners: each adds a `VineRef` variant, registers it in the room's system and gets a
+    branch in the vine host the player's update and the hands read (D39).
   - Zero gravity: coral circuit swimming (`circuitSwimResistance`, `curcuitJumpMeter`,
     `swimBits`), with the coral circuit object.
   - Zero gravity: Five Pebbles' and Moon's oracle scenes switching `AntiGravity` off, with

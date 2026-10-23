@@ -13,7 +13,7 @@ use rw_random::UnityRandom;
 use super::{Animation, BodyMode, HEAD, HIPS, Player};
 use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
-use crate::{SoundId, Sounds, Vec2, Water};
+use crate::{NoiseSink, SoundId, Sounds, Vec2, Water};
 
 impl Player {
     pub(super) fn update_animation(
@@ -22,6 +22,7 @@ impl Player {
         water: Option<&Water>,
         rng: &mut UnityRandom,
         sounds: &mut Sounds,
+        noises: &mut dyn NoiseSink,
     ) {
         if self.long_belly_slide && self.animation != Animation::BellySlide {
             self.long_belly_slide = false;
@@ -55,7 +56,7 @@ impl Player {
             Animation::SurfaceSwim => self.surface_swim(water),
             Animation::ZeroGSwim => self.zero_g_swim(room, rng, sounds),
             Animation::ZeroGPoleGrab => self.zero_g_pole_grab(room),
-            Animation::VineGrab => self.vine_grab_animation(),
+            Animation::VineGrab => self.vine_grab_animation(rng, sounds, noises),
             Animation::Dead => {}
         }
     }

@@ -1117,7 +1117,7 @@ impl PlayerGraphics {
         let vines = around
             .world
             .realized(around.room)
-            .and_then(|r| r.climbable_vines.as_ref());
+            .and_then(|r| r.vine_view());
         for i in 0..self.hands.len() {
             let hand0 = &self.hands[0].limb;
             let mut cx = HandContext {

@@ -12,23 +12,21 @@ No `UnityEngine.Random` call is made by the vine code of the base game (the soun
 are the usual one-shot's).
 
 **What differs:**
-- **The system holds snapshots, not the owners.** The game's list holds the live
-  `CoralNeuron`, `CoralStem`, ... objects and the player calls them directly. The port's
-  owners (10d3 onward) live in the room's update list, which the player's update cannot
-  borrow while the world is borrowed for noises, so the room's [`ClimbableVinesSystem`] holds
-  `Box<dyn ClimbableVine>` snapshots, is lent to the player for its update (as the heavy
-  carry's data is) and taken back. A `Push` or `BeingClimbedOn` the player makes is applied to
-  the snapshot at once, so later queries in the same tick see it as in the game, and logged as
-  a `VineEvent`; the owner replays the log on itself in its own update (its `Push`
-  differs per class: neuron and tube move position and velocity, a stem moves its chunk, the
-  pole mimic only its velocity). An owner refreshes its snapshot (`refresh`) before the
-  player's turn and drains the events; until the owners exist (10d3), a room has no system and
-  tests register a test-only vine.
-- **A vine is identified by a `VineId`**, not a reference: `vines.Contains` and
-  `vines[i] == vPos.vine` compare ids. A position on a vine that is not registered
-  (`VineGrab` with the vine gone) lets go in `MovementUpdate`, as the game; the graphics skip
-  the hands' vine branch for it (the game would still read the removed object). Nothing in
-  the base game removes a vine.
+- **The vines' owners are reached through a host, and only registered ones.** The game's
+  `vines` list holds the `CoralNeuron`, `CoralStem`, ... objects and the player calls them
+  directly. The port's system keeps the list as `VineRef`s (world-unique, compared by
+  identity, in registration order) and every read (`Pos`, `Rad`, `Mass`, `CurrentlyClimbable`)
+  and call (`Push`, `BeingClimbedOn`, with the random stream and sounds) goes to the live
+  owner through a `VineHost` / `VineHostMut` at the moment the game makes it, so a push is
+  seen by the next read and by the owners' own updates. The player gets the room's system and
+  host through `NoiseSink::vines()` (the update's `PlayerHearing` holds the world), the hands
+  through `RealizedRoom::vine_view()`. `VineRef::Placed` is the only variant until the owners
+  exist (10d3 adds `CoralNeuron`, `CoralStem`, then `CorruptionTube`, `PoleMimic`): vines
+  registered at run time (`RealizedRoom::register_climbable_vine`: tests and dev tools) live
+  in the room's `PlacedVines`, which is the host for them.
+- **A position on a vine that is not registered** (`VineGrab` with the vine gone) lets go in
+  `MovementUpdate`, as the game; the graphics skip the hands' vine branch for it (the game
+  would still read the removed object). Nothing in the base game removes a vine.
 - **Exceptions are panics.** A vine queried must have two or more points (`Pos(-1)` would
   throw in the game); NaN and out-of-range fractions behave as the game's floats (`PrevSegAtFloat`
   gives the last point, `FloatAtSegment` of coincident points is NaN).

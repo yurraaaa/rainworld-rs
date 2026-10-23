@@ -104,7 +104,8 @@ pub use camera::CameraView;
 pub use camera_image::CameraImage;
 pub use chunk::{BodyChunk, Contact, DEFAULT_RESTRICT_IN_ROOM_RANGE, PhysicsParams, TerrainImpact};
 pub use climbable_vines::{
-    ClimbableVine, ClimbableVinesSystem, VineClimber, VineEvent, VineId, VineKind, VinePosition,
+    ClimbableVine, ClimbableVinesSystem, PlacedVines, VineAccess, VineClimber, VineHost,
+    VineHostMut, VineKind, VinePosition, VineRef,
 };
 pub use coral_system::CoralNeuronSystem;
 pub use cosmetic::{
