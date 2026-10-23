@@ -1363,15 +1363,16 @@ mod tests {
     fn the_map_is_under_the_disc_except_in_the_first_room() {
         let game = Game::new(open_room(), &rw_assets::RoomSettings::ANCESTOR, 1, None);
         let mut map = StageBatch::default();
-        let v = |x: f32, y: f32| rw_render::SpriteVertex {
-            pos: [x, y],
-            uv: [0.0, 0.0],
-            color: [1.0; 4],
-        };
         map.push_quad(
             rw_render::StageTextureId(1),
             rw_render::StageShader::Basic,
-            [v(0.0, 0.0), v(1.0, 0.0), v(1.0, 1.0), v(0.0, 1.0)],
+            [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)].map(|(x, y)| {
+                rw_render::SpriteVertex {
+                    pos: [x, y],
+                    uv: [0.0, 0.0],
+                    color: [1.0; 4],
+                }
+            }),
         );
         let disc = DrawList {
             items: vec![Recorder::sprite(0, Layer::Hud)],
