@@ -7,7 +7,7 @@
 // black, so `TerrainAtLevelPos(...).r` is `2 - 0 * 3 = 2`, which never wins a `min`. D33.
 
 fn noise2_xy(uv: vec2<f32>) -> vec2<f32> {
-    return textureSampleLevel(noise2, noise2_sampler, uv, 0.0).xy;
+    return textureSample(noise2, noise2_sampler, uv).xy;
 }
 
 // Nothing over sky, depth under 1/30, or (past depth 5/30) a creature drawn behind the
@@ -31,6 +31,8 @@ fn fs_electric_death(in: VertexOut) -> @location(0) vec4<f32> {
     let n3 = noise_at(vec2(gc.x * 0.8 + rain * 0.0421, gc.y * 0.6 + rain * 0.091));
     let n4 = noise_at(vec2(gc.x * 1.2 + rain * 0.0621, gc.y * 0.8 + rain * 0.16));
     let n5 = noise_at(vec2(gc.x * 2.0 - rain * 0.0121, gc.y * 1.2 + rain * 0.182));
+    // So does the `_NoiseTex2` tap further down.
+    let h1 = noise2_at(vec2(depth * 0.055 + rain * 0.01, rain * 0.07));
     if all(texcol.rgb == vec3(1.0)) {
         return vec4(0.0);
     }
@@ -43,7 +45,6 @@ fn fs_electric_death(in: VertexOut) -> @location(0) vec4<f32> {
             return vec4(0.0);
         }
     }
-    let h1 = noise2_at(vec2(depth * 0.055 + rain * 0.01, rain * 0.07));
     var l = 0.5 - 0.5 * sin(n1 * 3.14 * mix(4.0, 7.0, h1) - h1 * 2.0 + rain * 9.16);
     let l2 = 0.5 + 0.5 * sin(n2 * 3.14 * mix(7.0, 4.0, l) + h1 * 0.1 + rain * 9.16);
     l = l * min(l2 + 0.5, 1.0);

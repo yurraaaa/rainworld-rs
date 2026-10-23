@@ -27,10 +27,6 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **Water with the rain (M8)**: `Room.AddWater` makes a `Water` (so its surface loop and
   `WaterLight`) in rooms with no level water (rain flood, `WaterCycleTop`/`Bottom`,
   `BrokenShelterWaterLevel`). The other water effects are done (2026-10-22).
-- **`_NoiseTex2` mip selection** (user, 2026-10-23, after 10c): `FlatLight`,
-  `OverseerZip`, `Hologram` (and ElectricDeath's taps) read `_NoiseTex2` at level 0; the
-  game's derivative mip choice picks coarser levels (`tc.y * 8` over the 800 px image).
-  Small follow-up, as `_NoiseTex` in D37.
 - **Broken shelters** (user, 2026-10-23, with region changes): `properties.txt`'s
   `Broken Shelters: <timeline>:` (Red: `HI_S03`, `LF_S07`; White and Red: `SL_S11`) are read
   and used by DeathFall, the exit look and the overseers, but the shelter/win logic treats
@@ -222,8 +218,6 @@ plan is in `../rainworld-re/surveys/lizards.md`.
     connectors, crabs and the player's circuit swimming): what
     `CoralNeuronSystem.AIMapReady` also builds comes with 10e (`PlaceSwarmers`); More Slugcats'
     `Inspector` (also skipped by the circuit's push) and `SingularityBomb` strands with the DLC.
-  - Coral circuits (D42; user, 2026-10-23, after 10d4): the `maze` texture's mips (the page has none, so a flipped bit is cut at
-    the first mip), with a mip chain for an atlas page.
   - Coral stems' segments are `physicalObjects[0]` objects (D41): each system of the game that
     walks the room's physical objects must include them when it is ported (`Explosion`,
     `RoomRain.ThrowAroundObjects`, `GameOverRain`, `WaterCurrent`, `FluxDrain`, `GeyserEruption`,

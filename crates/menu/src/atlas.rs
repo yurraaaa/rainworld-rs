@@ -317,6 +317,28 @@ impl AtlasManager {
         resources: &UnityResources,
         path: &str,
     ) -> Result<StageTextureId, AtlasLoadError> {
+        self.load_resource_texture_levels(resources, path, false)
+    }
+
+    /// As [`Self::load_resource_texture`], uploaded with the texture's whole mip chain
+    /// (a shader that reads it picks the level from the pixel block's derivatives).
+    ///
+    /// # Errors
+    /// As [`Self::load_resource_texture`].
+    pub fn load_resource_texture_with_mips(
+        &mut self,
+        resources: &UnityResources,
+        path: &str,
+    ) -> Result<StageTextureId, AtlasLoadError> {
+        self.load_resource_texture_levels(resources, path, true)
+    }
+
+    fn load_resource_texture_levels(
+        &mut self,
+        resources: &UnityResources,
+        path: &str,
+        mips: bool,
+    ) -> Result<StageTextureId, AtlasLoadError> {
         let texture: rw_assets::unity::Texture2D = resources.load(path)?;
         let sampling = TextureSampling {
             filter: if texture.filter_mode == 0 {
@@ -326,7 +348,11 @@ impl AtlasManager {
             },
             clamp: texture.wrap[0] == 1,
         };
-        let image = resources.texture_image(path)?;
+        let image = if mips {
+            resources.texture_with_mips(path)?.1
+        } else {
+            resources.texture_image(path)?
+        };
         Ok(self.new_texture(image, sampling))
     }
 

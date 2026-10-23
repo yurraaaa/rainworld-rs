@@ -27,7 +27,7 @@ not behaviour. Game assets are never committed.
 | `ambient.rs` | `AmbientSounds:` line | `RoomSettings.LoadAmbientSounds` |
 | `rain_mask.rs` | `RainMask`: a room's `RainMask_<room>` texture (sky columns, the water's run) | `RoomRain.GenerateShelterTex` |
 | `palette.rs` | `PaletteImage`, `EffectColors`, `PaletteTexture` (`with_colors`: `SetPixel` overrides), `RoomPalette` | `RoomCamera.LoadPalette` |
-| `png_image.rs` | PNG to raw RGBA (`PngImage`) | `Texture2D.LoadImage` |
+| `png_image.rs` | PNG to raw RGBA (`PngImage`, optionally carrying a texture's smaller mip levels) | `Texture2D.LoadImage` |
 | `noise.rs` | `_NoiseTex` from `resources.assets`: the red channel of its 7 mip levels | |
 | `shortcut.rs` | shortcut map and tube walk | `ShortcutMapper`, `ShortcutHandler` |
 | `border_exits.rs` | `RoomBorderExit`: open runs on the room edge | `ShortcutMapper.MapRoomBorders` |
@@ -44,7 +44,7 @@ not behaviour. Game assets are never committed.
 | `unity/mod.rs` | Unity reader overview | |
 | `unity/serialized.rs` | serialized file header, `ObjectInfo` table, externals | |
 | `unity/bundle.rs` | UnityFS bundles (`AssetBundles/*`) | |
-| `unity/resources.rs` | `UnityResources`: `open`, `find`, `load`, `text`, `texture_image`, `texture_mips` (every mip level), `audio_data` | `Resources.Load` |
+| `unity/resources.rs` | `UnityResources`: `open`, `find`, `load`, `text`, `texture_image`, `texture_mips` (every mip level), `texture_with_mips` (level 0 carrying the rest, `PngImage::mips`), `audio_data` | `Resources.Load` |
 | `unity/objects.rs` | the object classes read (`StreamedResource`, clips, textures, text assets) | |
 | `unity/bcn.rs` | DXT1 / DXT5 decoding | |
 | `unity/fsb5.rs` | FMOD FSB5 banks (PCM / headerless Vorbis) | |

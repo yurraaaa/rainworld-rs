@@ -147,7 +147,7 @@ fn fs_menu_text(in: VertexOut) -> @location(0) vec4<f32> {
 }
 
 // `FlatLight`'s disc with its falloff exponent bent by the noise: `h` is four `_NoiseTex2`
-// reads at the pixel's place within `_spriteRect`, nudged towards the quad's centre;
+// reads (mip level from the block's derivatives) at the pixel's place within `_spriteRect`, nudged towards the quad's centre;
 // `d = 0.25 * sqrt(1 - a)`, exponent `1 - d + 2 d h`. With `_spriteRect` unset (menus)
 // the place divides by zero, as in the game.
 @fragment
@@ -159,7 +159,7 @@ fn fs_flat_light_noisy(in: VertexOut) -> @location(0) vec4<f32> {
     var h = 0.0;
     for (var j = 0; j < 4; j++) {
         let at = vec2<f32>(tc.x * 6.0, tc.y * 3.0) + towards * 0.02 * f32(j);
-        h += textureSampleLevel(noise2, noise2_sampler, at, 0.0).x;
+        h += textureSample(noise2, noise2_sampler, at).x;
     }
     h /= 5.0;
     let d = 0.25 * pow(1.0 - in.color.a, 0.5);

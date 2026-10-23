@@ -269,10 +269,10 @@ fn fs_dust(in: VertexOut) -> @location(0) vec4<f32> {
     return scene_cut(clipped, out_col);
 }
 
-// `random2f`: two reads of `_NoiseTex2` multiplied.
+// `random2f`: two reads of `_NoiseTex2` multiplied (mip level from the block's derivatives).
 fn random2f(coord: vec2<f32>) -> vec3<f32> {
-    let a = textureSampleLevel(noise2, noise2_sampler, coord / 256.0, 0.0).xyz;
-    let b = textureSampleLevel(noise2, noise2_sampler, coord / 366.0, 0.0).xyz;
+    let a = textureSample(noise2, noise2_sampler, coord / 256.0).xyz;
+    let b = textureSample(noise2, noise2_sampler, coord / 366.0).xyz;
     return a * b;
 }
 

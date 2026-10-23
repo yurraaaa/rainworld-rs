@@ -127,8 +127,10 @@ the data in `rw-assets` `placed_electric.rs`. Notes: `../rainworld-re/notes/supe
   reading it (`DeepProcessing`, the level and water shaders, the background scenes, the
   glyph projection, `WaterSplash`, `WaterLight`, `UnderWaterLight`, `ElectricDeath`, `Fog`,
   `Decal`, `Rainbow`, `WaterFall`) samples it with the level the GPU's derivatives pick over
-  the 2x2 pixel block, taking its taps before any early return, as D3D does. (`_NoiseTex2`
-  is still read at level 0: D-notes in `docs/divergences/render.md`.)
+  the 2x2 pixel block, taking its taps before any early return, as D3D does. `Palettes/noise2`
+  (`_NoiseTex2`: 256x256, 9 mips, bilinear, repeat, `m_MipBias` 0) is read the same way by
+  `FlatLightNoisy`, `OverseerZip`, `Hologram`, `HoloGrid`, `HologramImage`, `Decal`, `Rainbow`,
+  `ElectricDeath` and the background scenes' `random2f`.
 - **`HUD` container order (not a divergence).** Sprites draw in the order they were added to
   their container. The disc is in the room camera's `HUD` container, above `Bloom`. The HUD's
   first container (`fContainers[0]`, the region map; `HUD2` above everything) gets the map's
@@ -453,10 +455,13 @@ Ported in `crates/sim/src/superstructure/coral/{circuit,circuit_connector,circui
   bit's position is the one the player last saw (refreshed at the start of its turn).
 - **The player's `analogueDir`** is the keys' (D34); with no direction held `DirVec(0, (0, 0))` is
   (0, 1) as the game's (up), so a collision with no input kicks the bit along `(0, 1)`.
-- **`maze` is sampled at its first mip.** The shaders' `tex2D(_MainTex, window)` reads the maze
-  texture with the mip the derivatives pick; atlas pages have no mips here, so a bit squeezed by its
-  flip (`|dRotat.y|` under about 0.5, so the window is minified more than 1.4 times) is cut by the
-  full-resolution texel rather than a blurrier mip. The bits' vertex colours are 8 bits a channel
+- **`maze` is sampled with its mips (not a divergence).** The shaders' `tex2D(_MainTex, window)`
+  reads the maze texture (`Atlases/maze`: 128x128 DXT1, 8 mips stored in `resources.assets`,
+  bilinear, repeat, `m_MipBias` 0) at the level the derivatives pick, so a bit squeezed by its
+  flip (`|dRotat.y|` under about 0.5, so the window is minified more than 1.4 times) blurs as in
+  the game. The page is uploaded with the stored chain (`UnityResources::texture_with_mips`,
+  `PngImage::mips`); `crates/app/src/sprites.rs` must load it with that call, not
+  `texture_with_settings`. The bits' vertex colours are 8 bits a channel
   (`Mesh.colors`), as in the game, so the window's left, bottom and size are multiples of 1/255.
 - **Pictures.** Bits are `maze` sprites in `Background`, the `CoralCircuit` shader while in place, the
   `DeadCoralCircuit` shader else (`CoralCircuitBothSides` and `DeadCoralCircuitBothSides` are the same

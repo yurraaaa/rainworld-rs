@@ -17,12 +17,15 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   uploaded as RGBA8; the game's GPU samples the compressed blocks and interpolates with
   its own rounding, so texels may differ by 1/255 from what the game shows (the CPU
   decode truncates, matching AssetRipper's export of every texture exactly). The
-  atlases keep their one mip; `_NoiseTex` keeps its 7 mips (every
-  shader that reads it picks the level by derivatives, taps before any early return, D37).
+  atlases keep their one mip, except `maze`, uploaded with the 8 mips it stores (D42);
+  `_NoiseTex` keeps its 7 mips and `_NoiseTex2` its 9 (every shader that reads them picks the
+  level by derivatives, taps before any early return, D37).
 - **Room sprite shaders** (`FlatLight`, `OverseerZip`, `Hologram`). `_NoiseTex2`
-  (256x256 DXT1, 9 mips, bilinear, repeat) is sampled at mip 0 only; in the room the
-  game minifies it vertically (`tc.y * 8` over the 800 px level image, about 2.6 texels
-  per pixel) and so reads a lower mip, giving coarser noise than the port. `Futile_White`
+  (256x256 DXT1, 9 mips, bilinear, repeat) is read at the level the 2x2 block's derivatives
+  pick, as `_NoiseTex` (in the room it minifies vertically, `tc.y * 8` over the 800 px level
+  image, about 2.6 texels per pixel), with every tap before any early return (the HoloGrid,
+  Hologram, Decal, Rainbow and ElectricDeath taps that follow a return in the source are taken
+  before it). `Futile_White`
   (its own 16x16 white texture in the game) is drawn from the atlas's `RainWorld_White`
   element; a `Hologram` sprite of `Futile_White` would read its sideways-shifted alpha
   from the atlas around that element instead of a white texture (the overseer's

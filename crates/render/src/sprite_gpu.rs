@@ -516,7 +516,7 @@ impl SpritePipeline {
                 height: image.height() as u32,
                 depth_or_array_layers: 1,
             },
-            mip_level_count: 1,
+            mip_level_count: image.mip_level_count(),
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8Unorm,
@@ -528,7 +528,7 @@ impl SpritePipeline {
                 queue,
                 &desc,
                 wgpu::util::TextureDataOrder::LayerMajor,
-                &image.rgba_bottom_up(),
+                &image.rgba_bottom_up_chain(),
             )
             .create_view(&wgpu::TextureViewDescriptor::default());
         device.create_bind_group(&wgpu::BindGroupDescriptor {

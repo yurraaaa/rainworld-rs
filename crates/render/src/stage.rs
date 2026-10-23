@@ -135,7 +135,7 @@ impl TextureSampling {
     };
 
     /// A Texture2D's import settings: `filter_mode` 0 is point, 1 bilinear, 2 trilinear
-    /// (sampled bilinear: no mips are uploaded); `wrap` is U and V, 0 repeat, 1 clamp.
+    /// (sampled bilinear, the nearest mip level of the image's chain); `wrap` is U and V, 0 repeat, 1 clamp.
     #[must_use]
     pub fn from_import(filter_mode: i32, wrap: [i32; 2]) -> Self {
         Self {

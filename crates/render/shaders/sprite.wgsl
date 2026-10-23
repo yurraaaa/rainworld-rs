@@ -116,8 +116,11 @@ fn level_coord(scr: vec2<f32>) -> vec2<f32> {
     return (tc - rect.xy) / (rect.zw - rect.xy);
 }
 
+// `tex2D(_NoiseTex2, uv)`: the red of the mip level the pixel block's derivatives of `uv`
+// pick (the nearest level, bilinear within it, repeat). Only in uniform control flow: a
+// shader takes its taps before any early return.
 fn noise2_at(uv: vec2<f32>) -> f32 {
-    return textureSampleLevel(noise2, noise2_sampler, uv, 0.0).x;
+    return textureSample(noise2, noise2_sampler, uv).x;
 }
 
 // `Combine texture * primary`.
@@ -158,6 +161,8 @@ fn fs_hologram(in: VertexOut) -> @location(0) vec4<f32> {
     let tc = level_coord(in.scr);
     let a = in.color.a;
     var h = noise2_at(vec2<f32>(tc.x * 4.0, tc.y * 8.0 - room.rain * 10.0)) * 2.0;
+    // The second tap comes before the return too (mip level from the block's derivatives).
+    let n2 = noise2_at(vec2<f32>(tc.x * 0.5 + room.rain * 0.002, tc.y * 0.4));
     h -= pow(a, 2.0);
     if (fmod_trunc(round((tc.y - room.rain * 0.15) * 400.0), 3.0) == 0.0) {
         h += 0.25;
@@ -165,8 +170,7 @@ fn fs_hologram(in: VertexOut) -> @location(0) vec4<f32> {
     if (h > room.hologram_threshold) {
         return vec4<f32>(0.0);
     }
-    var h2 = sin(noise2_at(vec2<f32>(tc.x * 0.5 + room.rain * 0.002, tc.y * 0.4)) * 16.0
-        + room.rain * 145.14);
+    var h2 = sin(n2 * 16.0 + room.rain * 145.14);
     h2 *= pow(abs(h2), mix(0.5, 40.0, a));
     let shift = h2 * mix(0.008 + 0.008 * h, 0.0, pow(a, 0.25));
     let texel = textureSampleLevel(atlas, atlas_sampler, in.uv + vec2<f32>(shift, 0.0), 0.0);
@@ -342,9 +346,7 @@ fn fs_holo_grid(in: VertexOut) -> @location(0) vec4<f32> {
     var light = 0.0;
     var cd = clamp(distance(vec2(0.5), uv) * 2.0 + (1.0 - a), 0.0, 1.0);
     var dpth = holo_grid_depth(tc, scr);
-    if dpth >= 0.999 {
-        return vec4(0.0);
-    }
+    let sky = dpth >= 0.999;
     uv += ((tc - vec2(0.5, 0.66)) * 0.4 + (uv - vec2(0.5)) * 0.4) * dpth;
     if dpth > 0.03 && (fmod_trunc(floor(uv.x * 300.0), 20.0) == 10.0
         || fmod_trunc(floor(uv.y * 300.0), 20.0) == 10.0) {
@@ -365,7 +367,11 @@ fn fs_holo_grid(in: VertexOut) -> @location(0) vec4<f32> {
         }
         cd = pow(cd, 2.0);
     }
+    // The tap comes before the sky's return (mip level from the block's derivatives).
     var h = noise2_at(vec2<f32>(tc.x * 4.0, tc.y * 8.0 - room.rain * 10.0)) * 2.0;
+    if sky {
+        return vec4(0.0);
+    }
     h -= pow(a, 2.0) * (1.0 - pow(cd, 2.0));
     if fmod_trunc(round((tc.y - room.rain * 0.15) * 400.0), 3.0) == 0.0 {
         h += mix(0.6, 0.15, light);
@@ -702,7 +708,8 @@ fn fs_coral_neuron(in: VertexOut) -> @location(0) vec4<f32> {
 // the sprite's `uv`) is lit (red above 0.5). What is left is red `0.5 + 0.5 * rand`, `rand`
 // a hash of the 2 px cell of the screen (in the level image's frame) and a `_NoiseTex` read
 // that moves with `_RAIN`. The noise tap comes before the early returns. The window is
-// read at the texture's first mip (the page has no others).
+// read at the mip level the block's derivatives pick (the page carries the texture's mips,
+// D42); the tap is taken before the returns.
 @fragment
 fn fs_coral_circuit(in: VertexOut) -> @location(0) vec4<f32> {
     let text_coord = level_coord(in.scr);
@@ -712,7 +719,7 @@ fn fs_coral_circuit(in: VertexOut) -> @location(0) vec4<f32> {
     let left_bottom = in.color.xy;
     let right_top = left_bottom + in.color.zw;
     let window = vec2(mix(left_bottom.x, right_top.x, in.tex.x), mix(left_bottom.y, right_top.y, in.tex.y));
-    let lit = textureSampleLevel(atlas, atlas_sampler, window, 0.0).x;
+    let lit = textureSample(atlas, atlas_sampler, window).x;
     if distance(in.tex, vec2(0.5)) > 0.65 || lit > 0.5 {
         return vec4(0.0);
     }
@@ -727,7 +734,7 @@ fn fs_dead_coral_circuit(in: VertexOut) -> @location(0) vec4<f32> {
     let left_bottom = in.color.xy;
     let right_top = left_bottom + in.color.zw;
     let window = vec2(mix(left_bottom.x, right_top.x, in.tex.x), mix(left_bottom.y, right_top.y, in.tex.y));
-    let lit = textureSampleLevel(atlas, atlas_sampler, window, 0.0).x;
+    let lit = textureSample(atlas, atlas_sampler, window).x;
     if distance(in.tex, vec2(0.5)) > 0.65 || lit > 0.5 {
         return vec4(0.0);
     }

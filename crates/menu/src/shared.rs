@@ -211,7 +211,7 @@ impl MenuShared {
             .inspect_err(|e| log::warn!("no text gradient ({e}); titles are drawn white"))
             .ok();
         let noise2 = atlases
-            .load_resource_texture(resources, "Palettes/noise2")
+            .load_resource_texture_with_mips(resources, "Palettes/noise2")
             .inspect_err(|e| log::warn!("no noise2 texture ({e})"))
             .ok();
         let translator = Translator::load(&assets).unwrap_or_else(|e| {
