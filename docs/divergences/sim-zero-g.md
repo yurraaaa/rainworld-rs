@@ -23,6 +23,15 @@ draw-count tests. Notes: `../../rainworld-re/notes/zero-gravity.md`; surveys
   of both chunks, the main chunk's extra push, the circuit jump, the meter's decay) are in
   `player/zero_g.rs`. They are 0 and none in a room with no circuit. With no direction held
   `CollideWithCoralCircuitBit` takes `DirVec(0, (0, 0))`, straight up.
+- **SS_E08's gradient gravity is ported** (`room_script.rs`, `Ss08GradientGravity`): each
+  tick `room.gravity = InverseLerp(700, PixelHeight - 400, y)` of the player's first chunk when
+  the player is in the room (none in a shortcut; the value stays when it is away). The script
+  is an update-list member added after the effects and placed objects (so it runs after the
+  player and the creatures, before the fuses and lights); the room has no `ZeroG` effect, so it
+  and `AntiGravity` never both write. Every reader of `Room.gravity` the port has takes the
+  fractional value (`PhysicsParams::room_gravity`, `effective_room_gravity`, weapons' spin and
+  stillness, drips, fuses' `> 0.5` test, the player's `== 0` / `> 0` tests); the Remix and MSC
+  readers stay in the omitted list below.
 - **The oracle scenes' `active = false` is not ported.** Five Pebbles' and Moon's rooms
   switch their `AntiGravity` off in `Oracle` scenes; the port's `AntiGravity.active` stays
   true.

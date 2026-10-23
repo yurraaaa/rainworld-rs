@@ -1,9 +1,10 @@
 //! What `get_state` reports of zero gravity: each realized room's `Room.gravity` and
-//! `ElectricPower`, and the world's `BrokenAntiGravity` switch.
+//! `ElectricPower` (and the gradient-gravity script), and the world's `BrokenAntiGravity` switch.
 //!
 //! Mirrors: - (port-only: MCP server)
 
 use rw_assets::RoomEffectType;
+use rw_sim::room_script::RoomScript;
 use rw_sim::world::World;
 use serde::Serialize;
 
@@ -18,6 +19,8 @@ pub struct RoomGravityState {
     /// The `ZeroG` and `BrokenZeroG` effect amounts.
     pub zero_g: f32,
     pub broken_zero_g: f32,
+    /// The room has SS_E08's gradient-gravity script (`Room.gravity` follows the player's height).
+    pub gradient_script: bool,
 }
 
 /// `rainCycle.brokenAntiGrav`.
@@ -35,7 +38,7 @@ pub struct BrokenAntiGravityState {
 }
 
 impl RoomGravityState {
-    /// Every realized room with a `ZeroG` or `BrokenZeroG` effect.
+    /// Every realized room with a `ZeroG` or `BrokenZeroG` effect or a gradient-gravity script.
     #[must_use]
     pub fn all(world: &World) -> Vec<Self> {
         world
@@ -45,7 +48,11 @@ impl RoomGravityState {
                 let r = world.realized(i)?;
                 let zero_g = r.settings.effect_amount(RoomEffectType::ZeroG);
                 let broken_zero_g = r.settings.effect_amount(RoomEffectType::BrokenZeroG);
-                if zero_g <= 0.0 && broken_zero_g <= 0.0 {
+                let gradient_script = r
+                    .scripts
+                    .iter()
+                    .any(|s| matches!(s, RoomScript::Ss08GradientGravity(_)));
+                if zero_g <= 0.0 && broken_zero_g <= 0.0 && !gradient_script {
                     return None;
                 }
                 let room = world
@@ -57,6 +64,7 @@ impl RoomGravityState {
                     electric_power: r.electric_power(&world.rain_cycle),
                     zero_g,
                     broken_zero_g,
+                    gradient_script,
                 })
             })
             .collect()

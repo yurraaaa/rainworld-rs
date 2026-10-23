@@ -158,7 +158,7 @@ use crate::creature::{
     WorldCoordinate,
 };
 use crate::item::{Entity, ObjectId};
-use crate::room_script::{RoomScript, ScriptTick, StorySession};
+use crate::room_script::{ScriptTick, StorySession};
 use crate::shelter::{SessionEnd, ShelterDoor};
 use crate::shortcut::{CreatureVessel, Transport};
 use crate::world::{AbstractTick, FollowCreature, RainCycle, RegionState, RoomRealizer, World};
@@ -505,6 +505,8 @@ enum RoomObject {
     Circuit(coral_circuit::CircuitRef),
     /// The room's `AntiGravity`.
     AntiGravity,
+    /// The room's `RoomSpecificScript`s.
+    Script,
     Lizard(CreatureId),
 }
 
@@ -1069,10 +1071,8 @@ impl RainWorldGame {
     }
 
     /// The loading step: for each room that finished loading, `ReadyForAI` realizes its
-    /// creatures in list order (the player only at the start), and `Room.Loaded`'s
-    /// `AddRoomSpecificScript` adds its scripts.
+    /// creatures in list order (the player only at the start).
     fn finish_loading(&mut self, observer: &mut dyn PlayerObserver) {
-        let session = self.story_session();
         for index in self.world.finish_loading() {
             self.add_waterfalls(index);
             self.add_shelter_door(index);
@@ -1104,19 +1104,6 @@ impl RainWorldGame {
             self.place_quantified(index, observer);
             if !self.awaiting_first_view(index) {
                 self.coral_ai_map_ready(index);
-            }
-            let name = self
-                .world
-                .abstract_room(index)
-                .map(|r| r.name.clone())
-                .unwrap_or_default();
-            let mods = self.world.mods();
-            let Some(room) = self.world.realized_mut(index) else {
-                continue;
-            };
-            if room.settings.room_specific_script {
-                room.scripts =
-                    RoomScript::for_room(&name, Some(&session), mods, room.first_time_realized());
             }
         }
     }
@@ -1553,6 +1540,7 @@ impl RainWorldGame {
         objects.extend(self.room_fixture_objects(index));
         objects.extend(self.room_projection_objects(index));
         objects.extend(self.room_anti_gravity_objects(index));
+        objects.extend(self.room_script_objects(index));
         objects.extend(self.room_coral_objects(index));
         objects.extend(self.room_circuit_objects(index));
         objects.sort_by_key(|&(seq, _)| std::cmp::Reverse(seq));
@@ -1676,6 +1664,7 @@ impl RainWorldGame {
                 RoomObject::Fixture(f) => self.run_fixture(index, f),
                 RoomObject::Projection(p) => self.run_projection(index, p),
                 RoomObject::AntiGravity => self.run_anti_gravity(index),
+                RoomObject::Script => self.update_room_scripts(index, observer),
                 RoomObject::Coral(c) => self.run_coral(index, c),
                 RoomObject::Circuit(c) => self.run_circuit_object(index, c),
                 RoomObject::Insect(_) => {}
@@ -1689,7 +1678,6 @@ impl RainWorldGame {
         if !player_done {
             self.update_room_player_now(index, input, observer);
         }
-        self.update_room_scripts(index, observer);
         // The door joined the update list in `Room.Loaded`, before everything else.
         self.update_shelter_door(index);
         self.apply_chunk_glue();
@@ -1976,20 +1964,37 @@ impl RainWorldGame {
         }
     }
 
-    /// The room's scripts, after the player (`updateList` runs newest first, and the
-    /// scripts are added when the room loads).
+    /// The room's scripts at their place in the update list: added by `Room.Loaded` after
+    /// its effects and placed objects, before its creatures (so after the player and
+    /// the creatures in a tick).
     fn update_room_scripts(&mut self, index: i32, observer: &mut dyn PlayerObserver) {
         let here = self.pos().room == index;
         let Some(realized) = self.world.realized_mut(index) else {
             return;
         };
+        let pixel_height = realized.room.pixel_height();
+        let mut gravity = None;
         for script in &mut realized.scripts {
             let player = self
                 .player
                 .as_mut()
                 .filter(|p| here && !p.in_shortcut() && !p.is_destroyed());
-            script.update(player, self.script_tick, observer);
+            let set = script.update(player, pixel_height, self.script_tick, observer);
+            gravity = set.or(gravity);
         }
+        if let Some(g) = gravity {
+            realized.gravity = g;
+        }
+    }
+
+    /// The room's scripts' place in its update list.
+    fn room_script_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
+        self.world
+            .realized(index)
+            .filter(|r| !r.scripts.is_empty())
+            .map(|r| (r.script_order, RoomObject::Script))
+            .into_iter()
+            .collect()
     }
 
     /// The player's slot in room `index`'s update list, when its body is there (alive

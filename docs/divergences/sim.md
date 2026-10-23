@@ -841,8 +841,10 @@ second part, else a single-room world for arena levels). The campaign descriptio
   Slugcats, Watcher and Challenge events are parsed and ignored.
 - **Room scripts.** `AddRoomSpecificScript` is `rw_sim::RoomScript::for_room`, called
   when a room with `RoomSpecificScriptActive` loads; only `SU_C04StartUp` is ported (the
-  new Survivor or Monk held in the tunnel, pushed out, standing up). It updates after
-  the player, as the game's reversed update list puts it. The
+  new Survivor or Monk held in the tunnel, pushed out, standing up) and `SS_E08GradientGravity`
+  (D34). Scripts have their own place in the room's update list, added after the effects and
+  placed objects and before the creatures, as the game's reversed list puts it: after the
+  player and the creatures, before the placed objects. The
   `TutorialControlsPageOwner` it makes 100 ticks after the slugcat stands is the app's
   (`rw_hud::ControlsPage`, D15): the script raises `showed_controls` when the HUD is
   there and `controls_page_continue` once the slugcat is past x 800, and the app opens
@@ -851,7 +853,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   1-3 (pushed from tick `5 * n`). The Hunter's `HardmodeStart` in `LF_H01` (the scripted
   first cycle with its creatures and spear) is not ported, so the Hunter starts in its
   den with nothing happening; the registry keeps its place. The other base-game scripts
-  (`SS_E08`, `SU_A22`, `SL_C12`, `SB_A14`, `SB_D03`, `SU_A43`, `deathPit`, `LF_A03`,
+  (`SU_A22`, `SL_C12`, `SB_A14`, `SB_D03`, `SU_A43`, `deathPit`, `LF_A03`,
   `SS_D02`) are not ported.
 - **A held creature placed twice.** `AbstractPhysicalObject.RealizeInRoom` calls
   `PlaceInRoom` for every connected object, and `Creature.PlaceInRoom` also

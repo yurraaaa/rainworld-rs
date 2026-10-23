@@ -1,12 +1,13 @@
 //! `RoomSpecificScript`: the objects `Room.Loaded` adds to particular rooms
 //! (`AddRoomSpecificScript`), of which the start of a new Survivor or Monk game in
-//! SU_C04 is ported. Behaviour: `rainworld-re/notes/intro-overseer-survey.md` section
+//! SU_C04 and SS_E08's gradient gravity are ported. Behaviour: `rainworld-re/notes/intro-overseer-survey.md` section
 //! 2.3 and `slideshow.md`.
 //!
 //! Mirrors: RoomSpecificScript.cs, Room.cs (AddRoomSpecificScript)
 
 use rw_assets::{ActiveMods, SlugcatName};
 
+use crate::float_ext::FloatExt;
 use crate::game::PlayerObserver;
 use crate::{Player, PlayerController, Vec2};
 
@@ -34,12 +35,12 @@ pub struct ScriptTick {
 #[derive(Debug, Clone, PartialEq)]
 pub enum RoomScript {
     SuC04StartUp(SuC04StartUp),
+    Ss08GradientGravity(Ss08GradientGravity),
 }
 
 impl RoomScript {
     /// `RoomSpecificScript.AddRoomSpecificScript` for a room whose settings ask for a
-    /// script. Only SU_C04's is ported; the others the base game adds are `SS_E08`
-    /// (gradient gravity), `SU_A22` (first-cycle message), `SL_C12` (jetfish), `SB_A14`
+    /// script. SU_C04's and SS_E08's are ported; the others the base game adds are `SU_A22` (first-cycle message), `SL_C12` (jetfish), `SB_A14`
     /// (karma), `SB_D03` (shortcut lock), `SU_A43` (super-jump only), `deathPit`,
     /// `LF_H01` (the Hunter's `HardmodeStart`), `LF_A03` and `SS_D02`; More Slugcats and
     /// the Watcher add their own lists after these.
@@ -55,6 +56,9 @@ impl RoomScript {
                 s.cycle_number < 2 && !(mods.msc && s.character == SlugcatName::Spear)
             });
         match name {
+            n if n == Ss08GradientGravity::ROOM => {
+                vec![Self::Ss08GradientGravity(Ss08GradientGravity)]
+            }
             "SU_C04" if early_cycle => vec![Self::SuC04StartUp(SuC04StartUp::new())],
             // "LF_H01": `HardmodeStart` when the Hunter's first cycle starts in its den
             // and the room is realized for the first time (needs creatures, the spear,
@@ -63,16 +67,45 @@ impl RoomScript {
         }
     }
 
-    /// `Update`; `player` is the player when its body is in the room.
+    /// `Update`; `player` is the player when its body is in the room, `pixel_height` the
+    /// room's `PixelHeight`. Returns the `room.gravity` the script set, if it set one.
     pub fn update(
         &mut self,
         player: Option<&mut Player>,
+        pixel_height: f32,
         tick: ScriptTick,
         observer: &mut dyn PlayerObserver,
-    ) {
+    ) -> Option<f32> {
         match self {
-            Self::SuC04StartUp(s) => s.update(player, tick, observer),
+            Self::SuC04StartUp(s) => {
+                s.update(player, tick, observer);
+                None
+            }
+            Self::Ss08GradientGravity(s) => s.update(player, pixel_height),
         }
+    }
+}
+
+/// `SS_E08GradientGravity`: the room's gravity follows the player's height, none below
+/// y 700 and full from 400 below the room's top.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Ss08GradientGravity;
+
+impl Ss08GradientGravity {
+    /// The room `AddRoomSpecificScript` adds it to.
+    pub const ROOM: &'static str = "SS_E08";
+
+    /// The `Room.gravity` for a player whose first chunk is at height `y`.
+    #[must_use]
+    pub fn gravity_at(y: f32, pixel_height: f32) -> f32 {
+        y.inverse_lerp(700.0, pixel_height - 400.0)
+    }
+
+    /// `Update`: the gravity for the player in `physicalObjects` (none when it is in a
+    /// shortcut or gone).
+    fn update(&self, player: Option<&mut Player>, pixel_height: f32) -> Option<f32> {
+        let p = player?;
+        Some(Self::gravity_at(p.body.chunks[0].pos.y, pixel_height))
     }
 }
 
