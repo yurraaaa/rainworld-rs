@@ -7,7 +7,7 @@ Third file of the `rw-sim` divergences (`sim.md` is past 1000 lines). IDs are gl
 `BackgroundScene`, `AboveCloudsView`, `RoofTopView`, `DistantLightning` and the roof's
 `DustpuffSpawner` (`rw_sim::effects::sky::{background_scene, above_clouds_view, roof_top_view,
 background_scene_turn}` (the distant lightning and dust puffs in the two views); sprites
-`rw_graphics::background_scene`, `dust_puff`; the shaders are D31). Every shared-stream
+`rw-graphics` `effects/sky/background_scene.rs` (with the dust puffs); the shaders are D31). Every shared-stream
 draw is ported in the game's order: the clouds' `randomOffset` under `InitState(12)`
 (no shared draws), a `Smoke`'s in `RoofTopView`'s constructor (4), a `DistantLightning`'s
 timers every tick, a dust puff's. Notes: `../../rainworld-re/notes/background-scenes.md`.

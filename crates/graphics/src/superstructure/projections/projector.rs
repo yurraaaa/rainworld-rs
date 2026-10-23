@@ -228,4 +228,4 @@ impl ProjectedScanLinesSprites for ProjectedScanLines {
 
 #[cfg(test)]
 #[path = "tests/projector.rs"]
-pub(crate) mod tests;
+mod tests;

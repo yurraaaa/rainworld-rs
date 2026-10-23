@@ -8,7 +8,8 @@ use rw_sim::{CircleOwner, ProjectedCircle, Vec2};
 
 use super::{CircleSurroundings, ProjectedCircleSprites};
 use crate::core::draw::{Color, DrawItem, Layer, Shader};
-use crate::superstructure::coral::neuron::tests::{near, open_room, straight_neuron};
+use crate::superstructure::coral::neuron::tests::straight_neuron;
+use crate::tests::{near, open_room};
 
 fn circle_with(owner: u64) -> ProjectedCircle {
     let mut rng = UnityRandom::new(3);

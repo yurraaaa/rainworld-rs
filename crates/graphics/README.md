@@ -21,7 +21,7 @@ beside it. The modules are private: `lib.rs` re-exports the crate's API at the r
 as `#[cfg(test)] #[path = "tests/x.rs"] mod tests;`. `PlayerGraphics`' tests are
 `player/tests/mod.rs` (the player helpers) with one child a subject (`frames.rs`,
 `poles.rs`, `corridor.rs`, `malnourished.rs`, `zero_g.rs`). `src/tests/mod.rs` holds the
-shared fixtures (test rooms, float asserts, a lizard-module stand-in). `../tests/` holds
+shared fixtures (test rooms, float asserts, a sprite filter, a lizard-module stand-in). `../tests/` holds
 only the `installed_scene_images.rs` integration test.
 
 ## Files by folder (`crates/graphics/src/`)
@@ -115,12 +115,12 @@ only the `installed_scene_images.rs` integration test.
 |---|---|---|
 | `projections/projector.rs` | a `SuperStructureProjector`'s parts in `Shadows`: scan line bars, cursor box with a `glyphs` sprite, single glyph, matrix; `ProjectionView` (camera position and the room's camera); a `ProjectedScanLines` line (one bar, `Shadows`) | `SuperStructureProjector`, `ProjectedScanLines` |
 | `projections/star_matrix.rs` | a `StarMatrix`'s squares, lines and `VectorCircle` rings in `BackgroundShortcuts` | `StarMatrix` |
+| `projections/projected_circle.rs` | a `ProjectedCircle`'s two `VectorCircle` discs, spokes and lines in `BackgroundShortcuts` (`CircleSurroundings`: the owners and circles it reads) | `ProjectedCircle` |
 | `electric.rs` | an `SSLightRod`'s bar (`Water`, `CustomDepth`), a `ZapCoil`'s eight-vertex flare mesh (`FlareBomb`), a `ZapFlash`'s two discs (`FlareBomb`, `FlatLight`, seven cosmetic draws a frame, setting its light) and `SuperStructureFuses`' cell lights (`Foreground`, `CustomDepth`, `ApplyDepth`) | `SSLightRod`, `ZapCoil`, `ZapCoil.ZapFlash`, `SuperStructureFuses` (InitiateSprites, DrawSprites) |
 | `grab.rs` | a `DeepProcessing`'s grid mesh (`Foreground`, `DeepProcessing` shader, vertex colour `(fromDepth, toDepth, power, intensity)`), a `GravityDisruptor`'s disc (`HUD`, `GravityDisruptor` shader) with its sixteen streaks (`Foreground`, `CustomDepth`, `ApplyDepth`) and a `DisruptorSpeck`'s pixel | `DeepProcessing`, `GravityDisruptor`, `GravityDisruptor.DisruptorSpeck` (InitiateSprites, DrawSprites) |
 | `coral/mycelium.rs` | a strand's mesh (`MyceliumSprites`) and `TriangleMesh.MakeLongMesh`'s triangles and UVs (`LongMesh`), the strands being `rw-sim`'s; a `WallMycelia`'s strands in `Items` (transparent black fading in, blue tip), culled ones left out | `Mycelium` (InitiateSprites, DrawSprites, UpdateColor), `WallMycelia` |
 | `coral/stem.rs` | a `StemSegment`'s sprites in `Items`: its strands, the bridge `Circle20` to the next segment, two meshes along a curve through the chunks (base colour and highlight from the camera's darkness) and three `Circle20` a dot (glow in `Water` with `WaterLights`; its blink draws from the cosmetic stream) | `StemSegment` (BaseColor, HighLightColor, InitiateSprites, DrawSprites, ApplyPalette, AddToContainer) |
 | `coral/neuron.rs` | a `CoralNeuron`'s two meshes (colour ramp; `CoralNeuron` shader lines), its strands and bumps in `Items` (ping dots in `Water` with `WaterLights`) | `CoralNeuron` (MeshColor, InitiateSprites, DrawSprites, AddToContainer) |
-| `coral/projected_circle.rs` | a `ProjectedCircle`'s two `VectorCircle` discs, spokes and lines in `BackgroundShortcuts` (`CircleSurroundings`: the owners and circles it reads) | `ProjectedCircle` |
 | `coral/circuit.rs` | a `CoralCircuit`'s sprites: each bit one `maze` sprite in `Background` (the window of the texture in the 8-bit vertex colour, the flip as `scaleX`, `CoralCircuit` or `DeadCoralCircuit` by `InPosition`), each connector's strands and four `Circle20` (the last one's colour from the cosmetic stream) and each crab's two `Circle20` and leg strips in `Midground` (`CircuitSprites`) | `CircuitBit`, `CircuitConnector`, `CircuitCrab`, `CrabLeg` (InitiateSprites, DrawSprites) |
 
 ### `game/`
@@ -137,7 +137,7 @@ only the `installed_scene_images.rs` integration test.
 - Slugcat gaze: `player/looker.rs`.
 - Lizard body, legs, head: `creature/lizard/graphics.rs`, `limb.rs`, `draw.rs`.
 - Lizard scales, spikes, tufts: `creature/lizard/cosmetics.rs`, `cosmetics_draw.rs`; bubbles and the head shield's flash: `creature/lizard/bubble.rs`.
-- Overseer body and eye: `creature/overseer/graphics.rs`, `draw.rs`; hairs: `superstructure/coral/mycelium.rs` (the strands in `rw-sim`'s `superstructure/coral/mycelium.rs`), which also draws wall mycelia; coral neurons, stem segments and their projected circles: `superstructure/coral/neuron.rs`, `stem.rs`, `projected_circle.rs`; coral circuits (bits, connectors, crabs): `superstructure/coral/circuit.rs`.
+- Overseer body and eye: `creature/overseer/graphics.rs`, `draw.rs`; hairs: `superstructure/coral/mycelium.rs` (the strands in `rw-sim`'s `superstructure/coral/mycelium.rs`), which also draws wall mycelia; coral neurons, stem segments and their projected circles: `superstructure/coral/neuron.rs`, `stem.rs`, `superstructure/projections/projected_circle.rs`; coral circuits (bits, connectors, crabs): `superstructure/coral/circuit.rs`.
 - Overseer lens and holograms: `creature/overseer/hologram_matrix.rs`, `hologram_shape.rs`, `hologram_draw.rs`.
 - Bat flies: `creature/fly/graphics.rs`.
 - Cosmetic insects: `effects/particles/insect.rs` (simulation in `rw-sim` `effects/particles/insect/`).

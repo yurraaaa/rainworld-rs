@@ -5,7 +5,7 @@
 //! constructor is seeded by `(int)rootPos.x + (int)rootPos.y` (the shared stream
 //! untouched). The segments are real physical objects of collision layer 0 and their
 //! abstract objects are in no room's entity list (D41). The sprites are `rw-graphics`'
-//! `coral_stem_draw.rs`. Behaviour: `rainworld-re/notes/superstructure-coral.md`.
+//! `superstructure/coral/stem.rs`. Behaviour: `rainworld-re/notes/superstructure-coral.md`.
 //!
 //! Mirrors: CoralBrain/CoralStem.cs, CoralBrain/StemSegment.cs (constructor, Update), PhysicalObject.cs (Update), IClimbableVine.cs, IOwnProjectedCircles.cs
 

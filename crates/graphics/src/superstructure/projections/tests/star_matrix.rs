@@ -8,7 +8,7 @@ use rw_sim::{StarMatrix, Vec2};
 
 use super::StarMatrixSprites;
 use crate::core::draw::{Layer, Shader};
-use crate::superstructure::projections::projector::tests::sprites;
+use crate::tests::sprites;
 
 /// Sprite indices run on star after star: the star, its lit connections, its rings.
 #[test]

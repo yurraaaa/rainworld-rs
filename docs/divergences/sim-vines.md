@@ -6,7 +6,7 @@ Fifth file of the `rw-sim` divergences (`sim.md` is past 1000 lines). IDs are gl
 
 `ClimbableVinesSystem` and `IClimbableVine` (`rw_sim::vines`), the player's grab in
 `MovementUpdate` and the `VineGrab` animation (`player/vines.rs`), the hands on the vine
-(`rw_graphics::hand`), the three grab sounds of the base-game implementers, and the
+(`rw-graphics` `player/hand.rs`), the three grab sounds of the base-game implementers, and the
 zero-gravity vine grab and vine pull. Behaviour: `../rainworld-re/notes/climbable-vines.md`.
 No `UnityEngine.Random` call is made by the vine code of the base game (the sounds' draws
 are the usual one-shot's).

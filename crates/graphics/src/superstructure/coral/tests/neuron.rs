@@ -8,13 +8,7 @@ use rw_sim::{CoralNeuron, MyceliumPool, NeuronCx, Vec2};
 
 use crate::core::draw::{Color, DrawItem, Layer, Shader};
 use crate::superstructure::coral::neuron::{CoralNeuronSprites, NeuronLook};
-use crate::tests::room;
-
-pub(crate) fn open_room() -> rw_assets::Room {
-    let rows: Vec<String> = (0..20).map(|_| ".".repeat(30)).collect();
-    let refs: Vec<&str> = rows.iter().map(String::as_str).collect();
-    room(&refs)
-}
+use crate::tests::{near, open_room};
 
 /// A neuron of 100 (5 segments, 3 strand pairs, 6 bumps) along y = 200 from x = 100 in 25 px
 /// steps, at rest.
@@ -41,10 +35,6 @@ pub(crate) fn straight_neuron() -> (CoralNeuron, MyceliumPool) {
         *s = [at, at, Vec2::ZERO];
     }
     (n, pool)
-}
-
-pub(crate) fn near(a: Vec2, x: f32, y: f32) -> bool {
-    (a.x - x).abs() < 1e-3 && (a.y - y).abs() < 1e-3
 }
 
 /// `MeshColor(f)`: at the middle `HSL(Decimal(Lerp(1.025, 0.9638889, 0.5)), 1, 0.5)`, at the

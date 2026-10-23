@@ -1,17 +1,15 @@
-//! Shared fixtures of the crate's unit tests: test rooms, float asserts and a lizard
-//! module stand-in. Expected values in the tests are derived by hand from the formulas in
+//! Shared fixtures of the crate's unit tests: test rooms, float asserts, a sprite filter
+//! and a lizard module stand-in. Expected values in the tests are derived by hand from the formulas in
 //! `rainworld-re/notes/slugcat-graphics.md` and `sprite-atlases.md` (derivations next
 //! to each assertion), not from another run of this code.
 //!
 //! Mirrors: - (port-only: test fixtures)
 
-use rw_sim::creature::CreatureId;
-
 use rw_assets::Room;
 use rw_sim::Vec2;
+use rw_sim::creature::CreatureId;
 
-use crate::Color;
-
+use crate::core::draw::{Color, DrawItem, Sprite};
 use crate::effects::cosmetic::{LizardColors, LizardModule};
 
 pub(crate) const EPS: f32 = 1e-4;
@@ -81,3 +79,23 @@ pub(crate) const MODULE: LizardModule = LizardModule {
     rotation: 90.0,
     white_flicker: 0,
 };
+
+pub(crate) fn open_room() -> Room {
+    let rows: Vec<String> = (0..20).map(|_| ".".repeat(30)).collect();
+    let refs: Vec<&str> = rows.iter().map(String::as_str).collect();
+    room(&refs)
+}
+
+pub(crate) fn near(a: Vec2, x: f32, y: f32) -> bool {
+    (a.x - x).abs() < 1e-3 && (a.y - y).abs() < 1e-3
+}
+
+pub(crate) fn sprites(items: &[DrawItem]) -> Vec<Sprite> {
+    items
+        .iter()
+        .map(|i| match i {
+            DrawItem::Sprite(s) => *s,
+            other => panic!("{other:?}"),
+        })
+        .collect()
+}

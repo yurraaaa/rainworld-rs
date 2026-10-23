@@ -4,7 +4,7 @@
 //! and each of its parts are objects of the room's update list; the parts are kept here
 //! in creation order (their `update_order`, so found by binary search) and the game's side
 //! (`superstructure/projections/turn.rs`) runs each one at its turn. Sprites are `rw-graphics`'
-//! `projector_draw.rs`.
+//! `superstructure/projections/projector.rs`.
 //!
 //! The More Slugcats region `MS` hides the projector unless Moon's heart is active (DLC,
 //! not ported, D35). Draws are the game's, in order; its quirks are kept (a reused glyph

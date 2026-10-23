@@ -248,7 +248,7 @@ Closes the missing `NeuronSpark` sound of `random.md`'s overseer item.
 
 Ported in `crates/sim/src/superstructure/coral/{neuron,turn}.rs`,
 `superstructure/projections/{projected_circle,turn}.rs`, `vines/mod.rs` (the neuron, the circle, their turns, the room's vine host), the sprites in
-`crates/graphics/src/superstructure/coral/{neuron,projected_circle}.rs`, the `CoralNeuron` shader in
+`crates/graphics/src/superstructure/coral/neuron.rs`, `crates/graphics/src/superstructure/projections/projected_circle.rs`, the `CoralNeuron` shader in
 `crates/render/shaders/sprite.wgsl`, MCP `coral_neurons`, `projected_circles`. Notes:
 `../rainworld-re/notes/superstructure-coral.md`. 43 placed neurons in 15 `SS_*` rooms (the
 Survivor and the Hunter all 43, the Monk 42), every one `ResizableObjectData`; the port builds

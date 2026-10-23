@@ -10,7 +10,8 @@ use rw_sim::{
     SuperStructureProjector, Vec2,
 };
 
-use crate::core::draw::{Color, DrawItem, Layer, Shader, Sprite};
+use crate::core::draw::{Color, Layer, Shader};
+use crate::tests::sprites;
 use crate::{ProjectedScanLinesSprites, ProjectionView, ProjectorSprites};
 
 const VIEW: ProjectionView = ProjectionView {
@@ -32,16 +33,6 @@ fn with_part(p: &mut SuperStructureProjector, kind: PartKind) -> u64 {
         kind,
     });
     update_order
-}
-
-pub(crate) fn sprites(items: &[DrawItem]) -> Vec<Sprite> {
-    items
-        .iter()
-        .map(|i| match i {
-            DrawItem::Sprite(s) => *s,
-            other => panic!("{other:?}"),
-        })
-        .collect()
 }
 
 /// Two `pixel` bars 15 px apart; the vertical line's y is the stage's bottom (0 in the

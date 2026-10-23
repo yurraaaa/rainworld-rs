@@ -78,13 +78,15 @@ pub use superstructure::coral::circuit::{CircuitSprites, MAZE_ELEMENT, MAZE_SIZE
 pub use superstructure::coral::mycelium::WallMyceliaSprites;
 pub use superstructure::coral::mycelium::{LongMesh, MyceliumSprites};
 pub use superstructure::coral::neuron::{CoralNeuronSprites, NeuronLook};
-pub use superstructure::coral::projected_circle::{CircleSurroundings, ProjectedCircleSprites};
 pub use superstructure::coral::stem::{StemFrame, StemSegmentSprites};
 pub use superstructure::electric::{
     FuseSprites, LightRodSprites, ZapCoilSprites, ZapFlashLight, ZapFlashSprites,
 };
 pub use superstructure::grab::{
     DeepProcessingSprites, DisruptorSpeckSprites, GravityDisruptorSprites,
+};
+pub use superstructure::projections::projected_circle::{
+    CircleSurroundings, ProjectedCircleSprites,
 };
 pub use superstructure::projections::projector::ProjectedScanLinesSprites;
 pub use superstructure::projections::projector::{ProjectionView, ProjectorSprites};
