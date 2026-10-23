@@ -91,6 +91,15 @@ plan is in `../rainworld-re/surveys/lizards.md`.
     `game_weapons.rs`, save-state writing across about six files, `trigger.rs` vs
     `game_triggers.rs`, `noise.rs` vs `world/hearing.rs`.
   - `rw-menu`'s `font_test.rs` (port-only screen) stays for now.
+- **Optimisation pass: rooms with many sprites** (user, 2026-10-23): SS_E05 now holds
+  240 fps, but zero-g speck/spore rooms are worth profiling in M14. Measured 2026-10-23
+  (`ss-e05-lag` investigation and the sprite-order review): ~3700 sprites after re-entries
+  cost ~1.4 ms/tick (0.6 ms speck updates, as the game does; 0.36 ms `SpriteOrder::update`);
+  the pile-up itself is game-exact (D29 F2). Leads: per-frame sprite-list building for
+  thousands of specks, `SpriteOrder::position`/`re_add`/`apply` and `run_light_source`'s
+  per-light `find` (linear, cheap today), `Scene::draw` calling `sync_sprite_order` twice,
+  the GPU cost of the `LightSource` shader when SS_E05's power fails (10 to 30 lit lights;
+  not measured), and headless screenshot readback/PNG encoding (~80 ms).
 
 ## Waiting for the user's answer
 - **Lizard steps after 7c** (7a done: trackers, utility comparer, den finder,

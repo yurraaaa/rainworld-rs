@@ -93,7 +93,8 @@ as in the game (omitted DLC branches are listed in `divergences/`).
 **M14 - Cleanup, review and optimisation**
 A code cleanliness and quality review across the workspace, one crate at a time,
 then an optimisation pass. Starts from the end-of-project items in `OPEN-ITEMS.md`
-(`rw-hud` screens, `cosmetic_graphics.rs`, the `rw-sim` file split).
+(`rw-hud` screens, `cosmetic_graphics.rs`, the `rw-sim` file split) and its
+optimisation leads (headless speed, rooms with many sprites such as SS_E05).
 
 **M15 - Modding API**
 A built-in scripting language (Wren, Lua or another) replacing C# mod loading.
