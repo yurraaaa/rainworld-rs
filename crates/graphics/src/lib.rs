@@ -12,6 +12,7 @@
 //! Mirrors: - (crate root)
 
 mod atlas;
+mod background_scene;
 mod body_part;
 mod cosmetic_graphics;
 mod decal;
@@ -55,6 +56,7 @@ mod weapon_graphics;
 mod zero_g_speck;
 
 pub use atlas::{Atlas, AtlasError, AtlasFrame, Rect, Size};
+pub use background_scene::{BackgroundSceneSprites, BackgroundSceneView, SceneImageSizes};
 pub use body_part::{BodyPart, PointConnection};
 pub use cosmetic_graphics::{CosmeticSprites, LizardColors, LizardModule, NoLizards};
 pub use decal::DecalSprites;

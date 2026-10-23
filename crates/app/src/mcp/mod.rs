@@ -21,6 +21,7 @@ mod insect_reply;
 mod kills_tests;
 #[cfg(test)]
 mod lizard_graphics_tests;
+mod background_scene_reply;
 mod music_reply;
 mod params;
 mod particles_reply;

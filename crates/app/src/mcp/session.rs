@@ -569,6 +569,16 @@ impl Session {
             holo_lights: Self::holo_lights(scene),
             lights: super::reply::RoomLightState::all(sim),
             insects: super::reply::RoomInsects::all(sim.world()),
+            background_scene: super::reply::BackgroundSceneState::all(
+                sim.world(),
+                Some(super::reply::CameraOnScene {
+                    room: sim.camera_room(),
+                    camera_position: rw_sim::Vec2::from(
+                        scene.camera().position(scene.camera().current()),
+                    ),
+                    window: rw_sim::Vec2::from(scene.camera().view_origin(1.0)),
+                }),
+            ),
             slime_molds: super::reply::SlimeMoldState::all(sim.world()),
             token_stalks: super::reply::TokenStalkState::all(sim.world()),
             particles: super::reply::RoomParticlesState::all(sim.world()),
@@ -733,6 +743,7 @@ impl Session {
             Drawable::Rainbow(i) => ("rainbow", None, Some(i)),
             Drawable::LightBeam(i) => ("light_beam", None, Some(i)),
             Drawable::SpotLight(i) => ("spot_light", None, Some(i)),
+            Drawable::SceneElement(i) => ("scene_element", None, Some(i)),
             Drawable::Shortcuts => ("shortcuts", None, None),
             Drawable::FullScreenEffect => ("full_screen_effect", None, None),
             Drawable::DeathFall => ("death_fall", None, None),

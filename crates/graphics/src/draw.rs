@@ -198,6 +198,34 @@ pub enum Shader {
     /// `Futile/Rainbow` (`Rainbow`): a ring of the rainbow gradient, sparkling with
     /// noise, stronger over far level layers, screened over the frame (its GrabPass).
     Rainbow,
+    /// `Futile/Background` (a background scene's pictures): the texel times the colour,
+    /// only where the level image is sky (or has a 255 channel) and nothing was drawn
+    /// behind the level.
+    Background,
+    /// `Futile/Cloud` (`AboveCloudsView.CloseCloud`): a cloud layer whose density the
+    /// image and the clouds texture shape, from the palette's sky to the atmosphere
+    /// colour by the colour's red, clipped as `Background`.
+    Cloud,
+    /// `Futile/CloudDistant` (`DistantCloud`, `FlyingCloud`, a roof's smoke): a flatter
+    /// cloud, fading by the colour's alpha, clipped as `Background`.
+    CloudDistant,
+    /// `Futile/DistantBkgObject` (`DistantBuilding`): the texel toward the atmosphere
+    /// colour by the colour's red, clipped as `Background`.
+    DistantBkgObject,
+    /// `Futile/DistantBkgObjectRepeatHorizontal` (`RoofTopView.Rubble`): the texel
+    /// repeated sideways with the camera, clipped as `Background`.
+    DistantBkgObjectRepeatHorizontal,
+    /// `Futile/BkgFloor` (`RoofTopView.Floor`): a perspective ground, fogged toward the
+    /// atmosphere colour, clipped as `Background`.
+    BkgFloor,
+    /// `Futile/House` (`RoofTopView.Building`): a city of lit windows, fogged toward
+    /// the atmosphere colour, clipped as `Background`.
+    House,
+    /// `Futile/Dust` (`RoofTopView.Smoke`): a drifting dust band, clipped as
+    /// `Background`.
+    Dust,
+    /// `Futile/Spores` (`DustpuffSpawner.DustPuff`): a soft puff in the sprite's colour.
+    Spores,
 }
 
 impl Shader {

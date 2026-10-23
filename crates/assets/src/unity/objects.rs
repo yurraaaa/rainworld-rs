@@ -340,4 +340,28 @@ mod tests {
         assert_eq!(image.unity_pixel(3, 3), [255, 0, 0, 255]);
         assert_eq!(image.unity_pixel(4, 0), [0, 0, 255, 255]);
     }
+
+    #[test]
+    fn decodes_every_mip_level_after_the_first() {
+        let texture = Texture2D {
+            name: "t".into(),
+            width: 4,
+            height: 2,
+            format: TextureFormat::Rgba32,
+            mip_count: 3,
+            filter_mode: 1,
+            wrap: [0; 3],
+            image: ImageData::Inline(Vec::new()),
+        };
+        // 4x2 (32 bytes), 2x1 (8), 1x1 (4), each pixel's four bytes the level's number.
+        let mut data = vec![10; 32];
+        data.extend([11; 8]);
+        data.extend([12; 4]);
+        let levels = texture.decode_mips(&data).unwrap();
+        let sizes: Vec<(usize, usize)> = levels.iter().map(|l| (l.width(), l.height())).collect();
+        assert_eq!(sizes, [(4, 2), (2, 1), (1, 1)]);
+        assert_eq!(levels[1].unity_pixel(1, 0), [11; 4]);
+        assert_eq!(levels[2].unity_pixel(0, 0), [12; 4]);
+        assert!(texture.decode_mips(&data[..43]).is_err());
+    }
 }

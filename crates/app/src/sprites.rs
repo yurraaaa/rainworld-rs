@@ -5,7 +5,7 @@
 
 use rw_assets::{PngImage, StreamingAssets, UnityResources};
 use rw_graphics::{Atlas, RAINBOW_ELEMENT};
-use rw_render::{Renderer, SpriteAtlas};
+use rw_render::{Renderer, SceneTextures, SpriteAtlas};
 
 /// Atlas name holding the slugcat's elements (and `Futile_White`'s stand-in).
 const ATLAS: &str = "rainWorld";
@@ -21,6 +21,8 @@ const PROJECTIONS: [&str; 2] = ["RND_PROJ", "STR_PROJ"];
 pub struct SpriteAssets {
     atlas: SpriteAtlas,
     images: Vec<PngImage>,
+    /// The background scene shaders' global textures.
+    scene: Option<SceneTextures>,
 }
 
 impl SpriteAssets {
@@ -64,7 +66,27 @@ impl SpriteAssets {
             }
             Err(e) => log::warn!("no rainbow texture ({e})"),
         }
-        Ok(Self { atlas, images })
+        Ok(Self {
+            atlas,
+            images,
+            scene: Self::scene_textures(resources),
+        })
+    }
+
+    /// `RainWorld.SetGlobalTextures`: `_CloudsTex` (with its mips), `_ApartmentsTex` and
+    /// `_CityPalette` from `resources.assets`; none, with a warning, when one cannot be
+    /// read.
+    fn scene_textures(resources: &UnityResources) -> Option<SceneTextures> {
+        let read = || -> Result<SceneTextures, rw_assets::AssetError> {
+            Ok(SceneTextures {
+                clouds: resources.texture_mips("Illustrations/cloudsTexture")?.1,
+                apartments: resources.texture_image("Illustrations/apartments")?,
+                city_palette: resources.texture_image("Palettes/cityPalette")?,
+            })
+        };
+        read()
+            .inspect_err(|e| log::warn!("no scene textures ({e})"))
+            .ok()
     }
 
     fn texture(resources: &UnityResources, name: &str) -> Result<PngImage, String> {
@@ -76,5 +98,8 @@ impl SpriteAssets {
     pub fn upload(&self, renderer: &mut impl Renderer) {
         let images: Vec<&PngImage> = self.images.iter().collect();
         renderer.set_atlas(&self.atlas, &images);
+        if let Some(scene) = &self.scene {
+            renderer.set_scene_textures(scene);
+        }
     }
 }

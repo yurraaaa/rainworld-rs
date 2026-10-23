@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use rw_assets::{CustomDecalData, StreamingAssets, UnityResources};
-use rw_graphics::{DrawList, Layer};
+use rw_graphics::{BackgroundSceneView, DrawList, Layer, SceneImageSizes};
 use rw_hud::{Hud, IllustrationSource, PageText};
 use rw_menu::{AtlasManager, Font, MenuShared};
 use rw_random::UnityRandom;
@@ -110,6 +110,10 @@ pub struct SceneRenderer<R> {
     palette_of: u32,
     /// The decal images uploaded as atlas pages (`CustomDecal.LoadFile`'s loaded set).
     decals: HashSet<String>,
+    /// The background scenes' images uploaded as atlas pages (`LoadGraphic`'s loaded set).
+    scene_images: HashSet<&'static str>,
+    /// Their sizes (`sourceSize` of each atlas element).
+    scene_sizes: SceneImageSizes,
 }
 
 impl Scene {
@@ -653,6 +657,10 @@ impl Scene {
         target.sync(self);
         let alpha = self.frame_alpha(alpha);
         self.draw_micro_shake();
+        let origin = rw_sim::Vec2::from(self.camera.view_origin(alpha));
+        if let Some(globals) = self.game.background_scene_globals(origin) {
+            target.renderer.set_scene_globals(globals);
+        }
         self.draw_lightning(alpha);
         if let (Some(v), Some(frame)) = (&self.visuals, &self.lightning_frame) {
             target
@@ -744,6 +752,20 @@ impl Scene {
                 lists.extend(
                     self.game
                         .placed_cosmetic_draw_lists(alpha, &visuals.room_palette()),
+                );
+                let scene_view = BackgroundSceneView {
+                    cam_pos,
+                    camera_position: rw_sim::Vec2::from(
+                        self.camera.position(self.camera.current()),
+                    ),
+                    h_displace: self.camera.h_displace(),
+                    screen: rw_sim::Vec2::from(self.camera.screen_size()),
+                    sky_color: rw_graphics::Color::from(visuals.room_palette().sky_color),
+                    time_stacker: alpha,
+                };
+                lists.extend(
+                    self.game
+                        .background_scene_draw_lists(&scene_view, &target.scene_sizes),
                 );
                 lists.extend(
                     self.game
@@ -1006,6 +1028,36 @@ impl<R: Renderer> SceneRenderer<R> {
             level_of: None,
             palette_of: 0,
             decals: HashSet::new(),
+            scene_images: HashSet::new(),
+            scene_sizes: SceneImageSizes::default(),
+        }
+    }
+
+    /// Uploads the images of the camera room's background scenes not yet uploaded, as
+    /// `LoadGraphic` loads them (`Illustrations/<name>.png`, as an atlas of one element);
+    /// one that cannot be read only warns (its element is not drawn).
+    fn sync_scene_images(&mut self, scene: &Scene) {
+        let Some(source) = &scene.source else { return };
+        if self.sprites.is_none() {
+            return;
+        }
+        for name in scene.game.camera_scene_images() {
+            if !self.scene_images.insert(name) {
+                continue;
+            }
+            let path = source
+                .assets
+                .resolve_file_path(&format!("Illustrations/{name}.png"));
+            match rw_assets::PngImage::load(&path) {
+                Ok(image) => {
+                    let (w, h) = (image.width() as u32, image.height() as u32);
+                    self.scene_sizes
+                        .insert(name, rw_sim::Vec2::new(w as f32, h as f32));
+                    self.renderer
+                        .add_atlas_page(rw_graphics::Atlas::single(name, w, h), &image);
+                }
+                Err(e) => log::warn!("no scene image {name} ({e})"),
+            }
         }
     }
 
@@ -1035,6 +1087,7 @@ impl<R: Renderer> SceneRenderer<R> {
     /// Uploads `scene`'s room and shown camera graphic where they changed.
     fn sync(&mut self, scene: &Scene) {
         self.sync_decals(scene);
+        self.sync_scene_images(scene);
         if self.room_of != Some((scene.id, scene.camera_room)) {
             self.renderer.set_room(scene.game.room());
             self.room_of = Some((scene.id, scene.camera_room));

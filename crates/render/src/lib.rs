@@ -13,6 +13,7 @@
 //!
 //! Mirrors: -
 
+mod background_scene;
 mod body;
 mod camera;
 mod error;
@@ -38,6 +39,7 @@ mod water;
 mod water_gpu;
 mod water_sprites;
 
+pub use background_scene::{SceneGlobals, SceneTextures};
 pub use body::ChunkInterpolation;
 pub use camera::Camera;
 pub use error::RenderError;
@@ -131,6 +133,13 @@ pub trait Renderer {
     /// room needs it): `atlas` names its elements, `image` is its texture. Nothing
     /// without an atlas set.
     fn add_atlas_page(&mut self, _atlas: Atlas, _image: &PngImage) {}
+
+    /// Uploads the background scene shaders' global textures (`_CloudsTex`,
+    /// `_ApartmentsTex`, `_CityPalette`).
+    fn set_scene_textures(&mut self, _textures: &SceneTextures) {}
+
+    /// Sets the background scene shaders' globals for the next frames.
+    fn set_scene_globals(&mut self, _globals: SceneGlobals) {}
 
     /// Queues the items of `list` in `layer`, in order, as Futile draws them, each
     /// with its game shader (`rw_graphics::Shader`), at stage positions

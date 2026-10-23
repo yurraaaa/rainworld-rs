@@ -967,6 +967,15 @@ impl Renderer for WgpuRenderer {
             .add_page(&self.device, &self.queue, image);
     }
 
+    fn set_scene_textures(&mut self, textures: &crate::SceneTextures) {
+        self.sprite_pipeline
+            .set_scene_textures(&self.device, &self.queue, textures);
+    }
+
+    fn set_scene_globals(&mut self, globals: crate::SceneGlobals) {
+        self.sprite_pipeline.set_scene_globals(globals);
+    }
+
     fn draw_sprites(&mut self, list: &DrawList, layer: Layer, cam_pos: [f32; 2]) {
         let Some(atlas) = &self.atlas else { return };
         self.stage_origin = cam_pos;

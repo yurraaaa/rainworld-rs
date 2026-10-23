@@ -79,7 +79,11 @@ fn the_lightnings_update_nearest_first_with_five_draws_on_their_first_turn() {
         .iter()
         .map(|&seq| {
             let scene = &g.world().realized(0).unwrap().background_scenes[0];
-            let e = scene.elements.iter().find(|e| e.update_order == seq).unwrap();
+            let e = scene
+                .elements
+                .iter()
+                .find(|e| e.update_order == seq)
+                .unwrap();
             e.depth
         })
         .collect();
@@ -115,7 +119,9 @@ fn the_roof_top_view_makes_four_smoke_draws_when_loaded() {
     }
     assert_eq!(g.rng().state(), probe.state());
     assert_eq!(
-        g.world().realized(0).unwrap().background_scenes[0].elements.len(),
+        g.world().realized(0).unwrap().background_scenes[0]
+            .elements
+            .len(),
         30
     );
 }

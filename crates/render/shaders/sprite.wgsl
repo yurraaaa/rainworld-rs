@@ -9,7 +9,8 @@
 // fs_water_splash `WaterSplash`, fs_water_light `WaterLight`, fs_light_beam `LightBeam`,
 // fs_vector_circle `VectorCircle`, fs_custom_depth `CustomDepth`. The
 // full-screen effects are in
-// full_screen.wgsl, appended to this file.
+// full_screen.wgsl, appended to this file, and the background scenes' in
+// background_scene.wgsl.
 //
 // `uv` is where the port's atlas is sampled; `tex` is the shader's `i.uv` (they differ
 // only for `Futile_White`, a texture of its own in the game).
@@ -37,6 +38,11 @@ struct Room {
     light: vec4<f32>,
     // `_lightDirAndPixelSize`: xy the room's light angle, zw 1/1400 and 1/800.
     light_dir: vec4<f32>,
+    // The background scenes' `_AboveCloudsAtmosphereColor`, `_MultiplyColor` and
+    // `_WorldCamPos` (xy).
+    scene_atmosphere: vec4<f32>,
+    scene_multiply: vec4<f32>,
+    scene_world_cam: vec4<f32>,
 };
 
 // Futile's `screenPixelOffset` (`Camera::SCREEN_PIXEL_OFFSET`): screen = stage + this.
