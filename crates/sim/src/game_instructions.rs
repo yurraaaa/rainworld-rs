@@ -1,6 +1,7 @@
 //! The game's side of the guide's room objects: `Room.Loaded`'s placed objects (with the
 //! placed lights, made in [`super::lights`]),
 //! the cosmetic slime molds and dead token stalks (made in [`super::placed_cosmetics`]),
+//! the custom decals and rainbows (made in [`super::decals`]),
 //! `SuperJumpInstruction`, `ScavengerTradeInstructionTrigger` and `ReliableIggyDirection`,
 //! the `InputInstructionTrigger`s' updates (with the event-made
 //! `PickupObjectInstruction`), and what the guide's communication reads of them. Types:
@@ -9,8 +10,9 @@
 //! Mirrors: Room.cs (Loaded), SuperJumpInstruction.cs, ScavengerTradeInstructionTrigger.cs, ReliableIggyDirection.cs, InputInstructionTrigger.cs
 
 use rw_assets::{
-    AbstractObjectType, CreatureType, IggyCondition, LightBeamData, LightSourceData,
-    PlacedObjectType, QuadData, ReliableIggyDirectionData, ResizableData,
+    AbstractObjectType, CreatureType, CustomDecalData, IggyCondition, LightBeamData,
+    LightSourceData, PlacedObjectType, QuadData, RainbowData, ReliableIggyDirectionData,
+    ResizableData,
 };
 
 use super::RainWorldGame;
@@ -128,6 +130,15 @@ impl RainWorldGame {
                 }
                 Some(PlacedObjectType::DeadTokenStalk) => ResizableData::parse(&o.data)
                     .map(|d| PlacedRoomObject::TokenStalk(pos, pos + Vec2::from(d.handle))),
+                Some(PlacedObjectType::CustomDecal) => CustomDecalData::parse(&o.data)
+                    .map(|d| PlacedRoomObject::Decal(pos, Box::new(d))),
+                Some(PlacedObjectType::Rainbow) => match RainbowData::parse(&o.data) {
+                    Some(d) if !self.rainbow_spawns(index, &d) => continue,
+                    d => d.map(|d| PlacedRoomObject::Rainbow(pos, d, false)),
+                },
+                Some(PlacedObjectType::RainbowNoFade) => {
+                    RainbowData::parse(&o.data).map(|d| PlacedRoomObject::Rainbow(pos, d, true))
+                }
                 _ => continue,
             };
             match kind {
@@ -146,6 +157,10 @@ impl RainWorldGame {
                 }
                 PlacedRoomObject::TokenStalk(hover, base) => {
                     self.add_token_stalk(index, hover, base);
+                }
+                PlacedRoomObject::Decal(pos, data) => self.add_custom_decal(index, pos, *data),
+                PlacedRoomObject::Rainbow(pos, data, no_fade) => {
+                    self.add_rainbow(index, pos, &data, no_fade);
                 }
             }
         }
@@ -496,4 +511,7 @@ enum PlacedRoomObject {
     SlimeMold(Vec2, f32, bool),
     /// Hover and base positions.
     TokenStalk(Vec2, Vec2),
+    Decal(Vec2, Box<CustomDecalData>),
+    /// Position, data, `RainbowNoFade`.
+    Rainbow(Vec2, RainbowData, bool),
 }

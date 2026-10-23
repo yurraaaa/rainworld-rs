@@ -17,11 +17,12 @@ use rw_assets::{
 };
 use rw_audio::Follow as SoundFollow;
 use rw_graphics::{
-    Color, CosmeticSprites, DrawList, DripPalette, FlyGraphics, HologramFrame, HologramGraphics,
-    HologramLightSprites, InsectDraw, InsectSprites, Layer, LightBeamSprites, LightBeamView,
-    LightSourceSprites, LightSourceView, LizardColors, LizardGraphics, LizardModule, LizardReading,
-    OverseerGraphics, PlayerGraphics, ShelterDoorSprites, ShortcutPalette, SlimeMoldSprites,
-    SpotLightSprites, TokenStalkSprites, WaterDripSprites, WeaponSprites,
+    Color, CosmeticSprites, DecalSprites, DrawList, DripPalette, FlyGraphics, HologramFrame,
+    HologramGraphics, HologramLightSprites, InsectDraw, InsectSprites, Layer, LightBeamSprites,
+    LightBeamView, LightSourceSprites, LightSourceView, LizardColors, LizardGraphics, LizardModule,
+    LizardReading, OverseerGraphics, PlayerGraphics, RainbowSprites, ShelterDoorSprites,
+    ShortcutPalette, SlimeMoldSprites, SpotLightSprites, TokenStalkSprites, WaterDripSprites,
+    WeaponSprites,
 };
 use rw_hud::{HudSetup, OwnerTick, RainCycleView, StartCondition, Subregions};
 use rw_random::UnityRandom;
@@ -1050,6 +1051,25 @@ impl Game {
         lists
     }
 
+    /// The camera room's `CustomDecal`s and `Rainbow`s (the camera's `ghostMode` is 0).
+    #[must_use]
+    pub fn placed_visual_draw_lists(&self) -> Vec<(Drawable, DrawList)> {
+        let Some(r) = self.sim.world().realized(self.sim.camera_room()) else {
+            return Vec::new();
+        };
+        let mut lists: Vec<(Drawable, DrawList)> = r
+            .decals
+            .iter()
+            .map(|d| (Drawable::Decal(d.update_order), d.draw()))
+            .collect();
+        lists.extend(
+            r.rainbows
+                .iter()
+                .map(|b| (Drawable::Rainbow(b.update_order), b.draw(0.0))),
+        );
+        lists
+    }
+
     /// The camera room's placed light beams and spot lights at
     /// camera position `camera`. A beam's sprites are made again when the camera
     /// enters the room (`InitiateSprites`).
@@ -1090,6 +1110,20 @@ impl Game {
                 .map(|s| (Drawable::SpotLight(s.update_order), s.draw())),
         );
         lists
+    }
+
+    /// The image names of the camera room's decals.
+    #[must_use]
+    pub fn camera_room_decal_images(&self) -> Vec<&str> {
+        self.sim
+            .world()
+            .realized(self.sim.camera_room())
+            .map_or_else(Vec::new, |r| {
+                r.decals
+                    .iter()
+                    .map(|d| d.data.image_name.as_str())
+                    .collect()
+            })
     }
 
     /// The lizards' sprites in the camera's room at `alpha` between ticks, in the
@@ -1282,6 +1316,16 @@ impl Game {
                 r.token_stalks
                     .iter()
                     .map(|s| Present::added(Drawable::TokenStalk(s.update_order), s.update_order)),
+            );
+            present.extend(
+                r.decals
+                    .iter()
+                    .map(|d| Present::added(Drawable::Decal(d.update_order), d.update_order)),
+            );
+            present.extend(
+                r.rainbows
+                    .iter()
+                    .map(|b| Present::added(Drawable::Rainbow(b.update_order), b.update_order)),
             );
             present.extend(
                 r.light_beams

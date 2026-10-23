@@ -631,6 +631,9 @@ impl WgpuRenderer {
             (Some(view), Some(textures)) => RoomGlobals {
                 fog_amount: textures.fog_amount(),
                 cam_in_room_rect: textures.cam_in_room_rect(view),
+                light_dir: textures.params().light_dir,
+                clouds_speed: textures.params().clouds_speed,
+                wet_terrain: textures.params().wet_terrain,
                 ..RoomGlobals::new(view, textures.rect())
             },
             _ => RoomGlobals {
@@ -640,6 +643,10 @@ impl WgpuRenderer {
                 screen_size: [self.frame.size.0 as f32, self.frame.size.1 as f32],
                 rain: self.stage_pipeline.globals().rain,
                 cam_in_room_rect: [0.0; 4],
+                light: 0.0,
+                light_dir: [0.0; 2],
+                clouds_speed: 0.0,
+                wet_terrain: 0.0,
             },
         }
     }
@@ -951,6 +958,15 @@ impl Renderer for WgpuRenderer {
         self.missing.clear();
     }
 
+    fn add_atlas_page(&mut self, atlas: rw_graphics::Atlas, image: &PngImage) {
+        let Some(sprite_atlas) = &mut self.atlas else {
+            return;
+        };
+        sprite_atlas.push_page(atlas);
+        self.sprite_pipeline
+            .add_page(&self.device, &self.queue, image);
+    }
+
     fn draw_sprites(&mut self, list: &DrawList, layer: Layer, cam_pos: [f32; 2]) {
         let Some(atlas) = &self.atlas else { return };
         self.stage_origin = cam_pos;
@@ -1173,5 +1189,7 @@ impl Readback {
 
 #[cfg(test)]
 mod full_screen_tests;
+#[cfg(test)]
+mod placed_visuals_tests;
 #[cfg(test)]
 mod tests;

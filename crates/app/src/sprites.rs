@@ -1,10 +1,10 @@
 //! The room sprites' atlases: `rainWorld` and `uiSprites` from the game's
-//! `resources.assets`, and the overseer images' projection textures.
+//! `resources.assets`, the overseer images' projection textures and the rainbow gradient.
 //!
 //! Mirrors: - (port-only: atlas loading)
 
 use rw_assets::{PngImage, StreamingAssets, UnityResources};
-use rw_graphics::Atlas;
+use rw_graphics::{Atlas, RAINBOW_ELEMENT};
 use rw_render::{Renderer, SpriteAtlas};
 
 /// Atlas name holding the slugcat's elements (and `Futile_White`'s stand-in).
@@ -54,6 +54,15 @@ impl SpriteAssets {
                 }
                 Err(e) => log::warn!("no projection {name} ({e})"),
             }
+        }
+        // `Rainbow`'s constructor loads `Atlases/Rainbow` as the atlas "rainbow".
+        match resources.texture_image("Atlases/Rainbow") {
+            Ok(image) => {
+                let (w, h) = (image.width() as u32, image.height() as u32);
+                atlas = atlas.with_page(Atlas::single(RAINBOW_ELEMENT, w, h));
+                images.push(image);
+            }
+            Err(e) => log::warn!("no rainbow texture ({e})"),
         }
         Ok(Self { atlas, images })
     }

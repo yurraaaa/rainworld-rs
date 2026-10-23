@@ -18,13 +18,13 @@ Gameplay logic belongs in `rw-sim`, not here.
 | `input.rs` | keyboard to per-tick `Input` (`InputState`), Rewired-style key map |
 | `frontend.rs` | `Frontend`/`FrontendRenderer`: processes under `rw_menu::ProcessManager` (game, Initialization, menus), switch fade, `AppContext` |
 | `game.rs` | `Game`: `RainWorldGame` + player graphics; `start`, `tick`, `*_draw_lists`, `sync_sprite_order` (camera 0's container record after each tick) and `in_container_order` (the frame's lists in that order, jaws nested), sound events |
-| `scene.rs` | `Scene`/`SceneRenderer`: what a frame shows (level, water, sprites, HUD), shared by window and screenshots; the room camera's update before the sim tick and its shake after it, the frame's micro shake |
+| `scene.rs` | `Scene`/`SceneRenderer`: what a frame shows (level, water, sprites, HUD), shared by window and screenshots; uploads a room's decal images as atlas pages when first shown; the room camera's update before the sim tick and its shake after it, the frame's micro shake |
 | `visuals.rs` | room settings, palettes, shown camera image; `DarkPalette`/`ApplyFade`, `_light` from the rain cycle or the room's lightning (`num4`), the lightning's palette texels (0, 7) and (1, 7), `_waterLevel`, `LevelState` for `get_state`'s `level_params` |
 | `full_screen_effect.rs`, `full_screen_effect_tests.rs` | `FullScreenEffect`: the room camera's `fullScreenEffect` (Bloom, SkyBloom, SkyAndLightBloom, LightBurn/Lightning, Fog): `ApplyPalette`'s choice, `DrawUpdate`'s alpha, the `Futile_White` sprite |
 | `death_fall.rs` | `DeathFall`: the camera room's `DeathFallGraphic`: height (also for `_waterLevel`), counter and its `DeathFall` sprite in `Bloom` |
 | `water_light.rs` | `WaterLight`: the room camera's water caustics sprite (`WaterLight` shader, first in `Foreground`), its alpha from `WaterReflectionAlpha` and the palette darkness |
 | `window_identity.rs` | window title "Rain World" and app id `rainworld-rs` (Wayland/X11) |
-| `sprites.rs` | atlas loading (`rainWorld`, `uiSprites`), overseer projection textures |
+| `sprites.rs` | atlas loading (`rainWorld`, `uiSprites`), overseer projection textures, the rainbow gradient |
 | `shortcuts.rs` | camera-0 `ShortcutGraphics` fed from the game |
 | `jaws.rs`, `jaws_tests.rs` | `Jaws`: held objects' sprites nested into their holders' jaw containers (a held lizard's holds inside it; hold cycles D20) |
 | `sprite_order.rs`, `sprite_order_tests.rs` | `SpriteOrder`: camera 0's sprite leasers in container order as the game adds and re-adds them (new room, `AddObject`, releases, `ChangeOverlap`, jaw containers, the full-screen effect raised by `ApplyPalette`, the death fall first; D21) |
@@ -40,6 +40,7 @@ Gameplay logic belongs in `rw-sim`, not here.
 | `mcp/params.rs`, `mcp/reply.rs` | tool parameter structs (schema docs) and JSON reply types |
 | `mcp/dev_tools.rs` | dev spawns, `screenshot`/`get_tiles` of another realized room |
 | `mcp/insect_reply.rs` | `get_state` `insects`: per-room cosmetic insects |
+| `mcp/placed_visuals_reply.rs` | `get_state` `decals`, `rainbows`: the realized rooms' custom decals and rainbows |
 | `mcp/placed_light_reply.rs` | `get_state` `light_beams`, `spot_lights`: the realized rooms' placed light beams (quad, data, sun factor, draw alpha, colours) and spot lights |
 | `mcp/placed_cosmetics_reply.rs` | `get_state` `slime_molds`, `token_stalks`: the realized rooms' cosmetic slime molds and dead token stalks |
 | `mcp/music_reply.rs`, `mcp/tiles.rs`, `mcp/window.rs` | music/triggers replies, `get_tiles` text, `--mcp --window` mirror |

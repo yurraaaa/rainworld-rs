@@ -67,6 +67,10 @@ pub struct RealizedRoom {
     pub updated: bool,
     /// `Room.Loaded`'s dead `TokenStalk`s in the room's update list.
     pub token_stalks: Vec<crate::TokenStalk>,
+    /// `Room.Loaded`'s `CustomDecal`s (no per-tick state; drawn in `Foreground`).
+    pub decals: Vec<crate::CustomDecal>,
+    /// `Room.Loaded`'s `Rainbow`s in the room's update list.
+    pub rainbows: Vec<crate::Rainbow>,
     /// `insectCoordinator`, made by `Room.Loaded` for an insect effect or group.
     pub insects: Option<crate::insect::InsectCoordinator>,
     /// `ceilingTiles` (`Room.Loaded`), where `ScreenMovement` shakes drips off.
@@ -133,6 +137,8 @@ impl RealizedRoom {
             spot_lights: Vec::new(),
             updated: false,
             token_stalks: Vec::new(),
+            decals: Vec::new(),
+            rainbows: Vec::new(),
             insects,
             ceiling_tiles,
             dripping_sound: None,

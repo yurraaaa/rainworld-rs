@@ -13,6 +13,6 @@ Retired IDs (never reused): D23 (the ant drawn without the `SpecificDepth` shade
 | `rw-hud` | [hud.md](hud.md) | D15 The in-game HUD |
 | `rw-menu` | [menu.md](menu.md) | D13 Front end (process manager, menus, menu input) |
 | `rw-random` | [random.md](random.md) | D1 Random number sequence |
-| `rw-render` | [render.md](render.md) | D7 Room graphics (level image and palette), D22 Room light and palette darkening without a rain cycle |
+| `rw-render` | [render.md](render.md) | D7 Room graphics (level image and palette), D22 Room light and palette darkening without a rain cycle, D26 Custom decals and rainbows |
 | `rw-save` | [save.md](save.md) | D16 Saves |
 | `rw-sim` | [sim.md](sim.md) | D25 Lightning (omitted DLC branches), D2 Spawning in rooms without shortcuts and in shelters, D3 Player movement (stage one), D4 Falls, stun and death, D5 Shortcuts, D6 Vertical poles and ledge grabs, D9 Skid, flip, roll, belly slide and rocket jump, D10 Corridors, D11 Water and swimming, D14 Worlds, rooms and the room realizer, D17 Shelters and hibernation, D19 The player held by a creature, D24 Light sources |

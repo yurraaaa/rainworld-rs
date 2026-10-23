@@ -10,6 +10,7 @@ pub use super::insect_reply::RoomInsects;
 pub use super::music_reply::{MusicState, TriggerState};
 pub use super::placed_cosmetics_reply::{SlimeMoldState, TokenStalkState};
 pub use super::placed_light_reply::{LightBeamState, SpotLightState};
+pub use super::placed_visuals_reply::{DecalState, RainbowState};
 
 use super::params::InputParam;
 
@@ -110,6 +111,12 @@ pub struct State {
     /// The realized rooms' dead `TokenStalk`s.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub token_stalks: Vec<TokenStalkState>,
+    /// The realized rooms' `CustomDecal`s.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub decals: Vec<DecalState>,
+    /// The realized rooms' `Rainbow`s.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub rainbows: Vec<RainbowState>,
     /// The realized rooms' placed `LightBeam`s.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub light_beams: Vec<LightBeamState>,
