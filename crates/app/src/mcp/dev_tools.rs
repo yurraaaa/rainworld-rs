@@ -311,11 +311,22 @@ impl RoomShot {
         let time = (game.ticks() as f32 + 1.0) / TICK_RATE as f32;
         let level: Option<LevelView> = self.visuals.as_ref().map(|v| {
             v.upload(r, &self.camera);
+            // The room's flash, flickering on a copy of the cosmetic stream.
+            let lightning = game
+                .sim()
+                .world()
+                .realized(self.room)
+                .and_then(|room| room.lightning.as_ref())
+                .map(|l| v.lightning_frame(l, 1.0, &mut game.cosmetic_rng().clone()));
+            if let Some(frame) = &lightning {
+                r.set_level_palette(&v.lightning_palette(frame));
+            }
             v.view(
                 &self.camera,
                 1.0,
                 time,
                 &game.sim().world().rain_cycle,
+                lightning.as_ref(),
                 self.water_line(game),
             )
         });

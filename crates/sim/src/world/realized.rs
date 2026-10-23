@@ -70,6 +70,12 @@ pub struct RealizedRoom {
     pub dripping_sound: Option<crate::DrippingSound>,
     /// The water's calm surface loop, made with the water.
     pub water_sound: Option<crate::WaterSound>,
+    /// `lightning`, made by `Room.Loaded` for a `Lightning` or `BkgOnlyLightning` effect.
+    pub lightning: Option<crate::Lightning>,
+    /// `backgroundNoise`: what this tick's `MakeBackgroundNoise` calls raised it to.
+    background_noise: f32,
+    /// `lastBackgroundNoise` (`BackgroundNoise`): last tick's, what hearing reads.
+    last_background_noise: f32,
     /// `socialEventRecognizer`.
     pub social_events: super::social_events::SocialEventRecognizer,
 }
@@ -111,6 +117,9 @@ impl RealizedRoom {
             ceiling_tiles,
             dripping_sound: None,
             water_sound: None,
+            lightning: None,
+            background_noise: 0.0,
+            last_background_noise: 0.0,
             social_events: super::social_events::SocialEventRecognizer::default(),
         }
     }
@@ -200,11 +209,29 @@ impl RealizedRoom {
         self.wait_to_enter
     }
 
-    /// The start of `Room.Update`: the entry delay counts down once fully loaded.
+    /// The start of `Room.Update`: the entry delay counts down once fully loaded, and
+    /// the background noise of last tick is kept and drops by 0.05.
     pub(crate) fn update_wait(&mut self) {
         if self.wait_to_enter > 0 && self.fully_loaded() {
             self.wait_to_enter -= 1;
         }
+        self.last_background_noise = self.background_noise;
+        self.background_noise = (self.background_noise - 0.05).max(0.0);
+    }
+
+    /// `MakeBackgroundNoise`: raises this tick's noise to `noise` (up to 1).
+    pub(crate) fn make_background_noise(&mut self, noise: f32) {
+        self.background_noise = if noise < self.background_noise {
+            self.background_noise
+        } else {
+            noise.min(1.0)
+        };
+    }
+
+    /// `BackgroundNoise`: how much of the last tick's noise dulls what creatures hear.
+    #[must_use]
+    pub fn last_background_noise(&self) -> f32 {
+        self.last_background_noise
     }
 }
 

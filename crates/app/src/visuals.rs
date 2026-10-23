@@ -1,8 +1,9 @@
 //! The room's level graphic: settings, palettes and the shown camera's image (the
 //! scene's room camera chooses which), the palette's rain darkening (`DarkPalette`,
-//! `ApplyFade`) and the level shader's light (`_light`).
+//! `ApplyFade`) and the level shader's light (`_light`), with the room's lightning
+//! (`DrawUpdate`: `num4`, palette texels (0, 7) and (1, 7)).
 //!
-//! Mirrors: RoomCamera.cs (DarkPalette, ApplyFade, ChangeRoom, MoveCamera2, DrawUpdate, ApplyPalette), WaterLight.cs (NewRoom: element)
+//! Mirrors: RoomCamera.cs (DarkPalette, ApplyFade, ChangeRoom, MoveCamera2, DrawUpdate, ApplyPalette), Lightning.cs (Current*), WaterLight.cs (NewRoom: element)
 
 use std::sync::Arc;
 
@@ -11,8 +12,8 @@ use rw_assets::{
     RoomVisuals, StreamingAssets, UnityResources,
 };
 use rw_render::{LevelGraphics, LevelParams, LevelView, Renderer, RoomCamera};
-use rw_sim::FloatExt;
 use rw_sim::world::RainCycle;
+use rw_sim::{FloatExt, Lightning, LightningFrame};
 
 use crate::full_screen_effect::FullScreenEffect;
 
@@ -46,8 +47,11 @@ pub struct LevelState {
     pub params: LevelParams,
     /// `_light`.
     pub light: f32,
-    /// `num4`: the room's light level before clouds.
+    /// `num4`: the room's light level before clouds (the lightning's when it has one).
     pub shader_light: f32,
+    /// The lightning's reads this frame (`CurrentLightLevel` as `light_level`, the sky and
+    /// fog colours written to palette texels (0, 7) and (1, 7)).
+    pub lightning: Option<LightningFrame>,
     /// `DarkPalette`.
     pub dark_palette: f32,
     /// `paletteBlend`.
@@ -139,13 +143,36 @@ impl Visuals {
     }
 
     /// `num4` of `DrawUpdate`: the rain cycle's `ShaderLight` in rooms with rain danger,
-    /// else 1 (lightning is not ported). A start without a cycle keeps 1 (D22).
+    /// else 1; the room's `Lightning` (not background-only) replaces it with its
+    /// `CurrentLightLevel`, -1 between flashes. A start without a cycle keeps 1 (D22).
     #[must_use]
-    pub fn shader_light(&self, rain: &RainCycle) -> f32 {
+    pub fn shader_light(&self, rain: &RainCycle, lightning: Option<&LightningFrame>) -> f32 {
+        if let Some(level) = lightning.and_then(|l| l.light_level) {
+            return level;
+        }
         if rain.cycle_length == 0 || !self.rain_danger() {
             return 1.0;
         }
         rain.shader_light()
+    }
+
+    /// The `Lightning`'s reads at `time_stacker` over this room's `skyColor` and
+    /// `fogColor` (`currentPalette`, which the texel writes leave as they were).
+    pub fn lightning_frame(
+        &self,
+        lightning: &Lightning,
+        time_stacker: f32,
+        rng: &mut rw_random::UnityRandom,
+    ) -> LightningFrame {
+        let p = self.room_palette();
+        lightning.frame(time_stacker, p.sky_color, p.fog_color, rng)
+    }
+
+    /// The palette texture after `DrawUpdate`'s `SetPixel(0, 7, ...)` and `(1, 7, ...)`.
+    #[must_use]
+    pub fn lightning_palette(&self, frame: &LightningFrame) -> PaletteTexture {
+        self.palette
+            .with_colors(&[(0, 7, frame.background), (1, 7, frame.fog)])
     }
 
     /// `DangerType != None` (an unregistered value counts as rain, as in the game).
@@ -155,8 +182,12 @@ impl Visuals {
 
     /// `_light` (no ghost).
     #[must_use]
-    pub fn light(&self, rain: &RainCycle) -> f32 {
-        LevelParams::light(self.room.settings().clouds, self.shader_light(rain), 0.0)
+    pub fn light(&self, rain: &RainCycle, lightning: Option<&LightningFrame>) -> f32 {
+        LevelParams::light(
+            self.room.settings().clouds,
+            self.shader_light(rain, lightning),
+            0.0,
+        )
     }
 
     /// The level shader's room-constant uniforms.
@@ -179,15 +210,22 @@ impl Visuals {
     /// The level shader's inputs under `rain` with `_waterLevel` `water_level`, for
     /// `get_state`.
     #[must_use]
-    pub fn state(&self, rain: &RainCycle, water_level: f32) -> LevelState {
+    pub fn state(
+        &self,
+        rain: &RainCycle,
+        water_level: f32,
+        lightning: Option<LightningFrame>,
+    ) -> LevelState {
+        let frame = lightning.as_ref();
         LevelState {
             params: self.params(),
-            light: self.light(rain),
-            shader_light: self.shader_light(rain),
+            light: self.light(rain, frame),
+            shader_light: self.shader_light(rain, frame),
+            lightning,
             dark_palette: self.dark,
             palette_blend: self.room.palette_blend(self.shown),
             sun_blockers: self.sun_blockers(),
-            full_screen: self.effect.map(|e| (e, self.effect_alpha(&e, rain))),
+            full_screen: self.effect.map(|e| (e, self.effect_alpha(&e, rain, frame))),
             water_level,
         }
     }
@@ -198,10 +236,15 @@ impl Visuals {
         self.effect
     }
 
-    /// `DrawUpdate`'s `fullScreenEffect.alpha` under `rain` (`num4` without lightning).
+    /// `DrawUpdate`'s `fullScreenEffect.alpha` under `rain` and the room's lightning.
     #[must_use]
-    pub fn effect_alpha(&self, effect: &FullScreenEffect, rain: &RainCycle) -> f32 {
-        effect.alpha(self.room.settings(), self.shader_light(rain))
+    pub fn effect_alpha(
+        &self,
+        effect: &FullScreenEffect,
+        rain: &RainCycle,
+        lightning: Option<&LightningFrame>,
+    ) -> f32 {
+        effect.alpha(self.room.settings(), self.shader_light(rain, lightning))
     }
 
     /// `_waterLevel` (`DrawUpdate`): `InverseLerp(sSize.y, 0, line - targetPoint.y)`
@@ -312,7 +355,7 @@ impl Visuals {
     }
 
     /// The game's window at `alpha` between ticks, `seconds` of shader time in, lit
-    /// under `rain`, with the room's water line `water_line` ([`Self::water_level`]).
+    /// under `rain` and `lightning`, with the room's water line `water_line` ([`Self::water_level`]).
     #[must_use]
     pub fn view(
         &self,
@@ -320,6 +363,7 @@ impl Visuals {
         alpha: f32,
         seconds: f32,
         rain: &RainCycle,
+        lightning: Option<&LightningFrame>,
         water_line: Option<f32>,
     ) -> LevelView {
         let origin = camera.view_origin(alpha);
@@ -328,7 +372,7 @@ impl Visuals {
             origin,
             size,
             rain: seconds / 5.0,
-            light: self.light(rain),
+            light: self.light(rain, lightning),
             water_level: Self::water_level(water_line, origin[1], size[1]),
         }
     }
