@@ -87,6 +87,9 @@ the PASSAGE screens, and the other starting slugcats' mechanics.
 The base-game campaigns playable start to finish with Remix off.
 Includes the SS swarmers (`SSSwarmers` effect, `SSOracleSwarmer`: edible, carried, feeding on
 mycelia, leaving through exits; user, 2026-10-23, moved out of M7 step 10e).
+Also the rot (`DaddyCorruption`: bulbs, eyes, darkness, grabbing and eating creatures,
+the corruption tubes as climbable vines with `Rope`; user, 2026-10-23, moved out of M7
+step 10f); its `StuckDaddy` with DaddyLongLegs.
 
 **M13 - Remix and the DLCs**
 Remix's menu and options, More Slugcats, Watcher and Jolly Co-op, each taking effect
