@@ -175,12 +175,11 @@ fn a_minified_maze_window_reads_a_smaller_level() {
     assert!(frames[1] != blank, "the checker draws nothing");
 }
 
-/// `Rainbow`'s gradient read: a 16 px quad spans the ring's 64 rows in under 8 px, 8
-/// texels a pixel, level 3. A page whose smaller levels are 255 gives nearly the frame of
-/// a single-level 255 page, which differs much from a single-level 0 page.
-#[test]
-fn the_rainbow_gradient_reads_a_coarse_level_when_minified() {
-    let frame = |page: &PngImage| {
+struct RainbowFrame;
+
+impl RainbowFrame {
+    /// The frame with a Rainbow quad over `page`; `None` without a GPU.
+    fn of(page: &PngImage) -> Option<FrameImage> {
         let mut r = renderer()?;
         r.add_atlas_page(
             rw_graphics::Atlas::single("maze", 64, 64),
@@ -195,26 +194,35 @@ fn the_rainbow_gradient_reads_a_coarse_level_when_minified() {
             [0.0, 0.0],
         );
         Some(r.render_image().unwrap())
-    };
-    let (Some(with_mips), Some(coarse), Some(fine_only)) = (
-        frame(&chain(64, 0, 255)),
-        frame(&flat(64, 255)),
-        frame(&flat(64, 0)),
-    ) else {
-        return;
-    };
-    // The ring's edge blocks have a clamped `d`, so their derivatives (and levels) are
-    // finer: only the blocks inside the ring must agree.
-    let differing = |a: &FrameImage, b: &FrameImage| {
+    }
+
+    /// The number of differing bytes.
+    fn differing(a: &FrameImage, b: &FrameImage) -> usize {
         a.rgba()
             .iter()
             .zip(b.rgba())
             .filter(|(x, y)| x != y)
             .count()
+    }
+}
+
+/// `Rainbow`'s gradient read: a 16 px quad spans the ring's 64 rows in under 8 px, 8
+/// texels a pixel, level 3. A page whose smaller levels are 255 gives nearly the frame of
+/// a single-level 255 page, which differs much from a single-level 0 page.
+#[test]
+fn the_rainbow_gradient_reads_a_coarse_level_when_minified() {
+    let (Some(with_mips), Some(coarse), Some(fine_only)) = (
+        RainbowFrame::of(&chain(64, 0, 255)),
+        RainbowFrame::of(&flat(64, 255)),
+        RainbowFrame::of(&flat(64, 0)),
+    ) else {
+        return;
     };
+    // The ring's edge blocks have a clamped `d`, so their derivatives (and levels) are
+    // finer: only the blocks inside the ring must agree.
     let (mips_off, level_zero_off) = (
-        differing(&with_mips, &coarse),
-        differing(&fine_only, &coarse),
+        RainbowFrame::differing(&with_mips, &coarse),
+        RainbowFrame::differing(&fine_only, &coarse),
     );
     assert!(level_zero_off > 100, "the two values draw the same");
     assert!(
