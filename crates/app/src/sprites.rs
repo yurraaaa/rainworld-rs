@@ -3,6 +3,7 @@
 //!
 //! Mirrors: - (port-only: atlas loading)
 
+use rw_assets::unity::AnisotropicFiltering;
 use rw_assets::{PngImage, StreamingAssets, UnityResources};
 use rw_graphics::{Atlas, RAINBOW_ELEMENT};
 use rw_render::{Renderer, SceneTextures, SpriteAtlas};
@@ -85,8 +86,10 @@ impl SpriteAssets {
     fn read_scene_textures(
         resources: &UnityResources,
     ) -> Result<SceneTextures, rw_assets::AssetError> {
+        let (clouds_texture, clouds) = resources.texture_mips("Illustrations/cloudsTexture")?;
         Ok(SceneTextures {
-            clouds: resources.texture_mips("Illustrations/cloudsTexture")?.1,
+            clouds,
+            clouds_aniso: clouds_texture.effective_aniso(AnisotropicFiltering::GAME),
             apartments: resources.texture_image("Illustrations/apartments")?,
             city_palette: resources.texture_image("Palettes/cityPalette")?,
         })

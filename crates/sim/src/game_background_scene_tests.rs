@@ -125,3 +125,30 @@ fn the_roof_top_view_makes_four_smoke_draws_when_loaded() {
         30
     );
 }
+
+#[test]
+fn the_elements_are_drawn_in_the_order_they_were_added() {
+    let mut g = RainWorldGame::with_scene_effect(RoomEffectType::AboveCloudsView);
+    g.add_room_effect_particles(0);
+    let order = g.world().realized(0).unwrap().background_scenes[0].update_order;
+    assert!(
+        g.world().realized(0).unwrap().background_scenes[0]
+            .added_order()
+            .is_empty()
+    );
+    g.run_background_scene(0, order);
+    let scene = &g.world().realized(0).unwrap().background_scenes[0];
+    let added = scene.added_order();
+    assert_eq!(added.len(), scene.elements.len());
+    let lights: Vec<&str> = added
+        .iter()
+        .filter_map(|&i| match &scene.elements[i].kind {
+            ElementKind::DistantLightning(l) => Some(l.asset_name),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        lights,
+        ["AtC_Light3", "AtC_Light1", "AtC_Light2", "AtC_Light1"]
+    );
+}

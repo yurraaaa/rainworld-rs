@@ -32,6 +32,13 @@ it (D13). What still differs is only the seed and the call order:
   save/restore sub-sequences). The app seeds with `UnityRandom::new(seed)` from
   `--seed` / the MCP `seed` (low 32 bits) once, when the process manager starts; a
   run that boots into the menus reaches the game with the stream already advanced.
+- **Background scenes** (D32): the shared stream gets a `DistantLightning`'s timers every
+  tick (per state: `randomLevelChange` `Range(1, 6)` and `value`; `Reset` 3; `tinyThunderWait`
+  `Range(10, 80)` then `Range(5, wait)`; tiny thunder 1 per tick), the 4 `Smoke` draws of
+  `RoofTopView`'s constructor, and the `DustpuffSpawner`'s and each `DustPuff`'s draws. The
+  clouds' `randomOffset` runs on the private `InitState(12)` stream (state restored) and the
+  roof's rubble on a `SeededRandom`; `LightIntensity` (1 or 3 draws) is on the cosmetic stream,
+  drawn in the sprite leaser's (add) order.
 - **Call order.** The game interleaves draws from every other object, sound, particle,
   rain, camera and AI in the room and world; the port has only the realized rooms'
   water and the player, so its sequence is the game's only for those draws. Sounds of

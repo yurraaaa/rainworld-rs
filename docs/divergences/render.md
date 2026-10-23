@@ -91,8 +91,8 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   added to the room's update list (its `Update` does nothing).
 - **`_rimFix`** is set from the room's effects (`AboveCloudsView`, `RoofTopView`,
   `PinkSky`; 11 base rooms) with the sky scenes' day `atmosphereColor` (41, 59, 81); the scenes
-  themselves are not ported, so their sky shows only that colour, and `PinkSky`'s pink
-  and the `DayNight` colour changes are not set (no base room uses either).
+  themselves are ported (D31, D32), and `PinkSky`'s pink and the `DayNight` colour
+  changes are not set (no base room uses either).
 - **Full-screen effects** (`RoomCamera.ApplyPalette`'s one effect per room: `SkyBloom`,
   `SkyAndLightBloom`, `LightBurn`/`Lightning` (`LightBloom`), `Fog`, `Bloom`; the
   shaders in `full_screen.wgsl`, `rainworld-re/notes/room-rendering.md` section 12).
@@ -226,14 +226,18 @@ level as `BackgroundClipVanilla` does. What differs:
   Unity's bilinear filter; sampling at a texel's centre is exact.
 - **`_CloudsTex`** is `resources.assets`' `Illustrations/cloudsTexture` (DXT5, 10 mips,
   bilinear, repeat) read with every mip and sampled with the nearest mip by the screen
-  derivatives, as Unity's bilinear filter does. Its anisotropic level is not read from
-  the file (`Texture2D` import settings are read only up to filter and wrap).
+  derivatives, as Unity's bilinear filter does. Its import settings are read
+  (`m_Aniso` 1, `m_MipBias` 0); the game's quality level ("Sweet", `globalgamemanagers`)
+  has `anisotropicTextures` 0 (Disable) and no code changes it, so the sampler uses no
+  anisotropy. wgpu has no sampler mip bias; the texture's is 0.
 - **`_GrabTexture`** is the frame drawn before the level (D7), as for the other
   shaders that read it.
 - **Vertex colours are 8 bits a channel** (Unity stores a mesh's `Color[]` so), which
   the clouds' `randomOffset` and every haze value pass through.
 - **`2/3` in `Cloud.shader`** (`dpOffst = half2(0.5, 2/3) - scrPos`) is HLSL integer
-  division, 0; ported as 0 (INFERRED from the language, not from compiled output).
+  division, 0; ported as 0 (observed: the compiled `Futile/Cloud` programs in
+  `resources.assets` have no 0.6666667 constant, only one 0.33333334, the same as
+  `CloudDistant`'s `/3.0`).
 - **Globals.** `_windDir` is 1 and `_MultiplyColor` white, as the base game leaves them
   (`DayNight` changes the colour); `_AboveCloudsAtmosphereColor` and `_WorldCamPos` are
   set for the frame from the camera room's scene (the game keeps the last constructed
@@ -245,5 +249,5 @@ level as `BackgroundClipVanilla` does. What differs:
 
 **Why.** The port's atlas pages and samplers (D7); the rest unreachable in the base game.
 
-**Affects.** Cloud detail at glancing angles (anisotropy), one-pixel rounding where the
+**Affects.** One-pixel rounding where the
 game's own sampling differs from the shader's emulation.

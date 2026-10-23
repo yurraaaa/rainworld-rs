@@ -70,12 +70,41 @@ pub struct Texture2D {
     pub mip_count: u32,
     /// 0 point, 1 bilinear, 2 trilinear.
     pub filter_mode: i32,
+    /// `m_TextureSettings.m_Aniso`: the texture's own anisotropic level.
+    pub aniso: i32,
+    /// `m_TextureSettings.m_MipBias`.
+    pub mip_bias: f32,
     /// U, V, W; 0 repeat, 1 clamp.
     pub wrap: [i32; 3],
     pub image: ImageData,
 }
 
+/// `QualitySettings.anisotropicFiltering` (`ForceEnable` is not modelled: the game never
+/// uses it).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AnisotropicFiltering {
+    Disable,
+    /// Each texture's own `m_Aniso` applies.
+    Enable,
+}
+
+impl AnisotropicFiltering {
+    /// The game's setting: its one quality level, "Sweet", has `anisotropicTextures` 0
+    /// in `globalgamemanagers`, and no code changes it.
+    pub const GAME: Self = Self::Disable;
+}
+
 impl Texture2D {
+    /// The anisotropy level Unity samples the texture with under `mode`.
+    #[must_use]
+    pub fn effective_aniso(&self, mode: AnisotropicFiltering) -> u16 {
+        let own = u16::try_from(self.aniso.clamp(1, 16)).unwrap_or(1);
+        match mode {
+            AnisotropicFiltering::Disable => 1,
+            AnisotropicFiltering::Enable => own,
+        }
+    }
+
     /// Decodes mip 0 of `data` (all of the texture's image bytes, mip 0 first) to RGBA8.
     ///
     /// # Errors
@@ -186,8 +215,8 @@ impl UnityObject for Texture2D {
         let _image_count = r.i32()?;
         let _dimension = r.i32()?;
         let filter_mode = r.i32()?;
-        let _aniso = r.i32()?;
-        let _mip_bias = r.f32()?;
+        let aniso = r.i32()?;
+        let mip_bias = r.f32()?;
         let wrap = [r.i32()?, r.i32()?, r.i32()?];
         let _lightmap_format = r.i32()?;
         let _color_space = r.i32()?;
@@ -213,6 +242,8 @@ impl UnityObject for Texture2D {
             format,
             mip_count,
             filter_mode,
+            aniso,
+            mip_bias,
             wrap,
             image,
         })
@@ -311,6 +342,8 @@ mod tests {
             format: TextureFormat::Rgb24,
             mip_count: 1,
             filter_mode: 0,
+            aniso: 1,
+            mip_bias: 0.0,
             wrap: [0; 3],
             image: ImageData::Inline(Vec::new()),
         };
@@ -331,6 +364,8 @@ mod tests {
             format: TextureFormat::Dxt1,
             mip_count: 1,
             filter_mode: 0,
+            aniso: 1,
+            mip_bias: 0.0,
             wrap: [0; 3],
             image: ImageData::Inline(Vec::new()),
         };
@@ -350,6 +385,8 @@ mod tests {
             format: TextureFormat::Rgba32,
             mip_count: 3,
             filter_mode: 1,
+            aniso: 1,
+            mip_bias: 0.0,
             wrap: [0; 3],
             image: ImageData::Inline(Vec::new()),
         };
@@ -363,5 +400,24 @@ mod tests {
         assert_eq!(levels[1].unity_pixel(1, 0), [11; 4]);
         assert_eq!(levels[2].unity_pixel(0, 0), [12; 4]);
         assert!(texture.decode_mips(&data[..43]).is_err());
+    }
+
+    #[test]
+    fn a_textures_own_aniso_applies_only_when_filtering_is_enabled() {
+        let texture = Texture2D {
+            name: "t".into(),
+            width: 1,
+            height: 1,
+            format: TextureFormat::Rgba32,
+            mip_count: 1,
+            filter_mode: 1,
+            aniso: 4,
+            mip_bias: 0.0,
+            wrap: [0; 3],
+            image: ImageData::Inline(Vec::new()),
+        };
+        assert_eq!(texture.effective_aniso(AnisotropicFiltering::Enable), 4);
+        assert_eq!(texture.effective_aniso(AnisotropicFiltering::Disable), 1);
+        assert_eq!(texture.effective_aniso(AnisotropicFiltering::GAME), 1);
     }
 }

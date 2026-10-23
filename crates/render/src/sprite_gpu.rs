@@ -667,6 +667,16 @@ impl SpritePipeline {
             .iter()
             .flat_map(PngImage::rgba_bottom_up)
             .collect();
+        self.clouds_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("clouds texture"),
+            address_mode_u: wgpu::AddressMode::Repeat,
+            address_mode_v: wgpu::AddressMode::Repeat,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
+            anisotropy_clamp: textures.clouds_anisotropy_clamp(),
+            ..Default::default()
+        });
         let first = &textures.clouds[0];
         let clouds = device
             .create_texture_with_data(

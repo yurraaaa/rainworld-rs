@@ -61,7 +61,7 @@ pub enum ElementKind {
     },
     /// `AboveCloudsView.DistantLightning`.
     DistantLightning(DistantLightning),
-    /// `AboveCloudsView.CloseCloud`; `depth` is mutated by every draw.
+    /// `AboveCloudsView.CloseCloud`; the game's draws mutate its `depth`; the port derives it per draw.
     CloseCloud { cloud: CloudData, cloud_depth: f32 },
     /// `AboveCloudsView.DistantCloud`.
     DistantCloud {
@@ -251,6 +251,17 @@ impl BackgroundScene {
     pub fn add_order(&self) -> Vec<usize> {
         let mut order: Vec<usize> = (0..self.elements.len()).collect();
         order.sort_by(|&a, &b| self.elements[b].depth.total_cmp(&self.elements[a].depth));
+        order
+    }
+
+    /// The indices of the elements that have joined the room, in the order they were
+    /// added (the sprite leaser's order, which `DrawSprites` runs in).
+    #[must_use]
+    pub fn added_order(&self) -> Vec<usize> {
+        let mut order: Vec<usize> = (0..self.elements.len())
+            .filter(|&i| self.elements[i].update_order != 0)
+            .collect();
+        order.sort_by_key(|&i| self.elements[i].update_order);
         order
     }
 

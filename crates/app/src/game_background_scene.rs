@@ -26,7 +26,7 @@ impl Game {
         let rng = &mut self.graphics.cosmetic;
         let mut lists = Vec::new();
         for scene in &r.background_scenes {
-            for e in scene.elements.iter().filter(|e| e.update_order != 0) {
+            for e in scene.added_order().into_iter().map(|i| &scene.elements[i]) {
                 lists.push((
                     Drawable::SceneElement(e.update_order),
                     BackgroundSceneSprites::draw(scene, e, view, sizes, rng),

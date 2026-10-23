@@ -17,6 +17,10 @@ timers every tick, a dust puff's. Notes: `../../rainworld-re/notes/background-sc
   room effect once the cycle is over, or in Expedition; no base room has the effect, so
   `daySky`, `duskSky` and `nightSky` stay at alpha 1 and the colours at their constructor
   values. The `RainCycle` has no `dayNightCounter` yet.
+- **`DustPuff`'s `room.snow` branch** (the `SporesSnow` shader) is left out: snow is
+  DLCShared/More Slugcats and no base room has it.
+- **`BackgroundSceneElement.blendColor`'s multiply** is left out: nothing in the decompile
+  assigns it, so it is unreachable.
 - **DLC branches omitted:** `PinkSky` (Watcher images), `OEClouds` and `OEshiftView`,
   the More Slugcats altitudes of `LM` and `SL`, the ending's `animateSMEndingScroll` and
   `yShift` (kept at 0), the Saint timeline's `SAINT` images without lightning, the
