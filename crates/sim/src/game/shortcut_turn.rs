@@ -199,10 +199,7 @@ impl RainWorldGame {
         lobby.updates += 1;
         self.shortcuts.lobby[index] = lobby;
         let Some(dest) = self.world.realized(lobby.room) else {
-            if let Err(e) = self
-                .world
-                .activate_room(lobby.room, &mut self.ids, &mut self.rng)
-            {
+            if let Err(e) = self.activate_room(lobby.room) {
                 log::warn!("cannot realize room {}: {e}", lobby.room);
             }
             return false;

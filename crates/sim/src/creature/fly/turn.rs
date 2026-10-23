@@ -452,10 +452,7 @@ impl RainWorldGame {
             .map(|r| r.ready_for_player() && r.ready_for_ai());
         match ready {
             None if followed && lobby.room != self.world.offscreen_den_index() => {
-                if let Err(e) = self
-                    .world
-                    .activate_room(lobby.room, &mut self.ids, &mut self.rng)
-                {
+                if let Err(e) = self.activate_room(lobby.room) {
                     log::warn!("cannot realize room {}: {e}", lobby.room);
                 }
                 false

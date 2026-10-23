@@ -202,10 +202,6 @@ impl RainWorldGame {
                 PlacedRoomObject::Stars(pos, rad) => self.add_star_matrix(index, pos, rad),
             }
         }
-        self.link_zap_coil_lights(index);
-        if !self.awaiting_first_view(index) {
-            self.link_gravity_disruptors(index);
-        }
     }
 
     /// The input instruction objects, as the guide's communication reads them.

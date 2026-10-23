@@ -51,6 +51,7 @@ integration tests.
 | File | Holds (key types) | Ports |
 |---|---|---|
 | `mod.rs` | `RainWorldGame`: world, player, shortcut handler, realizer, order of a tick, a room's update list, sessions | `RainWorldGame` |
+| `loading_turn.rs` | a room's loading on the game's side: `activate_room` with `Room.Loaded`'s tail on the realizing call, the loading step (`update_loading_rooms`), `ShortCutsReady` (objects, creatures without `AI`, the `ShortcutHelper` slot), `ReadyForAI` (creatures, quantified, the `AIMapReady` listeners in update-list order) | `Room.ShortCutsReady`, `Room.ReadyForAI`, `AllowedToExistInRoom` |
 | `observer.rs` | `PlayerObserver`: the app's graphics-module hooks the game calls | - |
 | `shortcut_turn.rs` | `ShortcutHandler.Update`: vessels in the tubes, the between-rooms lobby, room exits, arrival and camera 0 following | `ShortcutHandler.Update`, `RoomCamera.MoveCamera` |
 | `dev_turn.rs` | dev spawns/teleports through the game's own paths and the dev rain timer control (MCP, debug UI) | - (port dev tool, D18) |
@@ -344,7 +345,8 @@ sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `m
 | File | Holds | Ports |
 |---|---|---|
 | `mod.rs` | `World`: abstract rooms, realized set, arenas | `World`, `AbstractRoom` |
-| `realized.rs`, `realizer.rs` | realized room data + ready states; room realizer | `Room` bits, `RoomRealizer` |
+| `realized.rs`, `realizer.rs` | realized room data + ready states (`loadingProgress`, the stages' room-side steps); room realizer | `Room` bits, `RoomRealizer` |
+| `room_preparer.rs` | `RoomPreparer` (status, hand-off requests, `done`), `LoadingSchedule` (`Immediate`, `Deferred`, `GAME_MINIMUM`), `PreparerStage` | `RoomPreparer` |
 | `creatures.rs` | creature arena, room lists, attractions | `AbstractRoom` creature lists |
 | `objects.rs` | object arena, room items on first realization | `Room.Loaded` objects |
 | `dens.rs` | into/out of dens with stuck items | `MoveEntityToDen` |
@@ -393,7 +395,7 @@ The world side of creatures, items and water lives with them: `creature/abstract
 | Camera visibility | `game/camera.rs` |
 | `ElectricDeath` (Underhang), `BorderPushBack` (Sunlit Lands) | `effects/gameplay/electric_death.rs`, `effects/gameplay/electric_death_turn.rs`; `effects/gameplay/border_push_back.rs`, `effects/gameplay/border_push_back_turn.rs`; sprites in `rw-graphics` `effects/gameplay/electric_death.rs`, shaders in `rw-render` |
 | Room triggers, guide instructions | `game/trigger.rs`, `game/trigger_turn.rs`, `game/instructions_turn.rs`, `game/room_script.rs` |
-| Room realization / loading | `world/realizer.rs`, `world/realized.rs`, `world/mod.rs` |
+| Room realization / loading | `world/realizer.rs`, `world/realized.rs`, `world/room_preparer.rs`, `world/mod.rs`, `game/loading_turn.rs` |
 | Rain cycle | `world/rain_cycle.rs` |
 | Eating, picking up, throwing | `player/turn.rs`, `item/turn.rs`, `player/grab.rs`; creatures' meat: `player/eat_meat_turn.rs`; carrying a heavy body: `player/carry.rs`, `player/turn.rs` |
 | The Hunter's spear on the back | `player/spear_on_back_turn.rs`, `player/spear_on_back.rs`, `item/on_back_stick.rs` |

@@ -34,10 +34,10 @@ use super::reply::{
     AbstractAiInfo, ChunkState, ControlsPageState, CreatureInfo, ExitInfo, ExitList, FlyInfo,
     FoodMeterState, HudState, ImpactState, ImportReply, KarmaMeterState, KarmaScreenState,
     KillsState, LizardChunk, LizardInfo, LobbyState, MapMarkerState, MapState, MeterState, NodeRef,
-    ObjectInfo, OptionsState, OverseerInfo, PauseMenuState, PlayerState, ProcessState,
-    RainMeterState, RainState, RealizedState, RoomInfo, RoomList, SaveInfo, SaveStateInfo,
-    Screenshot, SessionInfo, ShelterDoorState, SleepState, SlideShowState, StartUpState, State,
-    StepTrace, StoryInfo, TextPromptState, TokenState, WeaponInfo,
+    ObjectInfo, OptionsState, OverseerInfo, PauseMenuState, PlayerState, PreparerState,
+    ProcessState, RainMeterState, RainState, RealizedState, RoomInfo, RoomList, SaveInfo,
+    SaveStateInfo, Screenshot, SessionInfo, ShelterDoorState, SleepState, SlideShowState,
+    StartUpState, State, StepTrace, StoryInfo, TextPromptState, TokenState, WeaponInfo,
 };
 use super::reply::{
     AgressionTrackerInfo, ConnectionInfo, CoordInfo, DynamicRelationshipInfo, GhostInfo,
@@ -484,6 +484,12 @@ impl Session {
                     let r = world.realized(i)?;
                     Some(RealizedState {
                         room: Self::room_name(scene, i),
+                        loading_progress: r.loading_progress(),
+                        preparer: world.room_preparer(i).map(|p| PreparerState {
+                            status: p.status().value(),
+                            calls: p.calls(),
+                            done: p.done(),
+                        }),
                         wait_to_enter: r.wait_to_enter(),
                         ready_for_player: r.ready_for_player(),
                         ceiling_drips: r.settings.ceiling_drips,

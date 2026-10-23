@@ -427,9 +427,9 @@ fn the_first_rooms_overseer_registers_before_the_wall() {
         let mut g = coral_game_observed(WALL, &[], 0, Sounds::default(), true, &mut observer);
         if view_first {
             g.apply_insect_view_change();
-            g.finish_loading(&mut observer);
+            g.update_loading_rooms(&mut observer);
         } else {
-            g.finish_loading(&mut observer);
+            g.update_loading_rooms(&mut observer);
             assert!(
                 g.world
                     .realized(0)
@@ -464,7 +464,7 @@ fn dropped_modules_do_not_pile_up_strands() {
         let mut observer = StrandObserver::default();
         let mut g = coral_game_observed(placed, &[], 0, Sounds::default(), true, &mut observer);
         g.apply_insect_view_change();
-        g.finish_loading(&mut observer);
+        g.update_loading_rooms(&mut observer);
         let cid = g
             .world
             .creatures()
