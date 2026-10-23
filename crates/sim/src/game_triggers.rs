@@ -3,7 +3,7 @@
 //! `PickupObjectInstruction`, `RoomSpecificTextMessage`, `BringGuideToPlayerEvent`),
 //! `RainCycle.MusicAllowed` and `RainRequestStopSong`. Types: [`crate::trigger`].
 //!
-//! Mirrors: ActiveTriggerChecker.cs, Room.cs (Loaded), RainCycle.cs (MusicAllowed)
+//! Mirrors: ActiveTriggerChecker.cs, Room.cs (Loaded), RainCycle.cs (MusicAllowed), SSMusicTrigger.cs
 
 use rw_assets::{
     CreatureType, DangerType, EventType, ShowProjectedImageEvent, Timeline, TriggeredEvent,
@@ -163,6 +163,7 @@ impl RainWorldGame {
             }
             TriggerObjectKind::ReliableIggyDirection(_) => self.run_iggy_direction(index, id),
             TriggerObjectKind::TextMessage => self.run_text_message(index),
+            TriggerObjectKind::SsMusic { amount } => self.run_ss_music(index, *amount),
         }
     }
 
@@ -342,6 +343,16 @@ impl RainWorldGame {
                 self.guide_brought_logged_room = Some(room);
                 log::info!("guide brought to {} for {counter}", self.room_name(room));
             }
+        }
+    }
+
+    /// `SSMusicTrigger.Update` (base game): with the slugcat realized in the room (not in a
+    /// shortcut) and the room's gravity 0, `Trigger` asks the music player for the song.
+    fn run_ss_music(&mut self, index: i32, amount: f32) {
+        let player = self.trigger_player(index);
+        let gravity = self.room_gravity(index);
+        if player.in_room && player.realized && !player.in_shortcut && gravity <= 0.0 {
+            self.music_requests.push(MusicRequest::SsSong { amount });
         }
     }
 

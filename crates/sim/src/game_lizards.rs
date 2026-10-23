@@ -111,6 +111,8 @@ impl RainWorldGame {
         if self.world.creature(id).in_den {
             return;
         }
+        let room_gravity = self.room_gravity(index);
+        self.world.lizard_at(id).body.params.room_gravity = room_gravity;
         self.lizard_update_start(index, id);
         if self.world.lizard_ref(id).conscious() {
             self.lizard_act(index, id);
@@ -296,7 +298,7 @@ impl RainWorldGame {
         let through_floors;
         if l.animation == crate::creature::LizardAnimation::Lounge || l.post_lounge_stun > 0 {
             p.air_friction = 0.999;
-            p.gravity = 0.9;
+            p.g = 0.9;
             p.bounce = 0.1;
             p.surface_friction = if l.animation == crate::creature::LizardAnimation::Lounge {
                 0.5
@@ -307,13 +309,13 @@ impl RainWorldGame {
             l.post_lounge_stun -= 1;
         } else if l.apply_gravity {
             p.air_friction = 0.999;
-            p.gravity = 0.9;
+            p.g = 0.9;
             p.bounce = 0.1;
             p.surface_friction = 0.3;
             through_floors = l.swim > 0.0;
         } else {
             p.air_friction = 0.8;
-            p.gravity = 0.0;
+            p.g = 0.0;
             p.bounce = 0.1;
             p.surface_friction = 0.5;
             through_floors = true;

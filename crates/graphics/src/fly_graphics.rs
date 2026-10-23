@@ -109,7 +109,7 @@ impl FlyGraphics {
         if view.submersion > 0.0 || dropping {
             self.lower_body.vel *= 0.9;
         } else {
-            self.lower_body.vel.y -= fly.body.params.gravity * 2.0;
+            self.lower_body.vel.y -= fly.body.params.gravity() * 2.0;
         }
         self.lower_body.push_out_of_terrain(room);
         self.lower_body.connect_to_point(PointConnection {

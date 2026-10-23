@@ -505,6 +505,9 @@ impl PlayerGraphics {
         {
             self.beam_balance(player, rng);
         }
+        if player.body_mode() == BodyMode::ZeroG {
+            self.zero_g_balance(player, rng);
+        }
         self.update_tail(player, room, water, fast, tail_drag);
         self.swallow_update(player, around, rng);
 
@@ -769,6 +772,11 @@ impl PlayerGraphics {
             }
             // Other Default animations: the tail hangs loose.
             BodyMode::Default => tail_drag = 0.0,
+            BodyMode::ZeroG => {
+                self.disbalance_amount = self
+                    .disbalance_amount
+                    .max(70.0 * self.flail.inverse_lerp(0.8, 1.0));
+            }
             BodyMode::Swimming
                 if player.animation() == Animation::DeepSwim
                     || player.input_history()[0].x != 0 =>
@@ -864,11 +872,28 @@ impl PlayerGraphics {
         self.tail[1].part.vel.x += wobble * (d + 20.0) * 0.04;
     }
 
+    /// Floating (`ZeroG`): the disbalance dies away by one a tick while the balance
+    /// counter wobbles the head sideways and throws the tail back along the body.
+    pub(crate) fn zero_g_balance(&mut self, player: &Player, rng: &mut UnityRandom) {
+        self.disbalance_amount = (self.disbalance_amount - 1.0).clamp(0.0, 120.0);
+        self.balance_counter += 1.0 + self.disbalance_amount / 40.0 * (1.0 + rng.value());
+        if self.balance_counter > 300.0 {
+            self.balance_counter -= 300.0;
+        }
+        let wobble = (self.balance_counter / 300.0 * TAU).sin();
+        let along = player.hips().pos.direction_to(player.head().pos);
+        let across = along.perpendicular();
+        let d = self.disbalance_amount;
+        self.draw_positions[0][0] += across * (wobble * (d + 20.0) * 0.08);
+        self.tail[0].part.vel -= across * (wobble * (d + 20.0) * 0.1) + along * (d * 0.1);
+        self.tail[1].part.vel -= across * (wobble * (d + 20.0) * 0.04) + along * (d * 0.04);
+    }
+
     /// The tail loop: each segment updates against its anchor, is damped and pulled
     /// down by `tail_drag` (both fading as the hips sink in water), kept within
     /// `9 * (l + 1)` px of the hips, and pushed away from the body by a force halving
     /// per segment.
-    fn update_tail(
+    pub(crate) fn update_tail(
         &mut self,
         player: &Player,
         room: &Room,
@@ -886,7 +911,7 @@ impl PlayerGraphics {
         let mut next_push_from = hips.pos;
         let mut push = 28.0;
         let dry = 1.0 - hips.submersion(water);
-        // Room gravity is 1.
+        let gravity = player.effective_room_gravity();
         for l in 0..self.tail.len() {
             let (before, rest) = self.tail.split_at_mut(l);
             let anchor = match before.last_mut() {
@@ -896,7 +921,7 @@ impl PlayerGraphics {
             rest[0].update(room, anchor);
             let p = &mut rest[0].part;
             p.vel *= 0.75_f32.lerp_to(0.95, tail_drag * dry);
-            p.vel.y -= 0.1_f32.lerp_to(0.5, tail_drag) * dry;
+            p.vel.y -= 0.1_f32.lerp_to(0.5, tail_drag) * dry * gravity;
             tail_drag = (tail_drag * 10.0 + 1.0) / 11.0;
             let reach = 9.0 * (l + 1) as f32;
             if p.pos.distance(hips.pos) >= reach {
@@ -993,6 +1018,19 @@ impl PlayerGraphics {
                 ..connection
             });
             self.legs_direction.y -= 1.0;
+        } else if matches!(animation, Animation::ZeroGSwim | Animation::ZeroGPoleGrab) {
+            let along = head.pos.direction_to(hips.pos);
+            self.legs.connect_to_point(PointConnection {
+                point: hips.pos + along * 4.0,
+                rad: 4.0,
+                elastic: 0.0,
+                host_vel: hips.vel,
+                adapt_vel: 0.2,
+                exaggerate_vel: 0.0,
+                ..connection
+            });
+            self.legs_direction = along;
+            self.legs.vel += along * 0.2;
         } else {
             let offset_y = if animation == Animation::HangFromBeam {
                 -5.0
@@ -1084,6 +1122,7 @@ impl PlayerGraphics {
                 water,
                 balance_counter: self.balance_counter,
                 disbalance: &mut self.disbalance_amount,
+                flail: self.flail,
                 head_vel: &mut self.head.vel,
                 airborne_counter: self.airborne_counter,
                 hand0: (hand0.part.pos, hand0.reached_snap_position),

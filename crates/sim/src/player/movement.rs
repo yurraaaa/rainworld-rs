@@ -9,7 +9,7 @@
 use rw_assets::{Room, ShortcutType, Terrain};
 use rw_random::UnityRandom;
 
-use super::{Animation, BodyMode, HEAD, HIPS, Player, ROOM_GRAVITY};
+use super::{Animation, BodyMode, HEAD, HIPS, Player};
 use crate::float_ext::FloatExt;
 use crate::room_ext::RoomExt;
 use crate::{SoundId, Sounds, Vec2, Water};
@@ -56,8 +56,10 @@ impl Player {
         }
         self.squeeze_up_through_gap(room);
         self.toggle_standing(room);
+        self.leave_zero_g_pole(room);
         self.enter_corridor_mode(room);
         self.classify_swimming(room, water);
+        self.enter_zero_g(room);
 
         self.dynamic_run_speed = [3.6, 3.6];
         self.update_animation(room, water, rng, sounds);
@@ -214,10 +216,11 @@ impl Player {
             && (self.is_tile_solid(room, HIPS, -1, 1) || self.is_tile_solid(room, HIPS, 1, 1))
         {
             self.animation = Animation::None;
+            let eg = self.effective_room_gravity();
             let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
-            hips.vel.y += 2.0 * ROOM_GRAVITY;
-            head.vel.x -= (head.pos.x - hips.pos.x) * 0.25 * ROOM_GRAVITY;
-            head.vel.y -= ROOM_GRAVITY;
+            hips.vel.y += 2.0 * eg;
+            head.vel.x -= (head.pos.x - hips.pos.x) * 0.25 * eg;
+            head.vel.y -= eg;
         }
     }
 
@@ -236,7 +239,8 @@ impl Player {
             && !self.is_tile_solid(room, HIPS, -1, 0)
             && !self.is_tile_solid(room, HIPS, 1, 0)
             && self.tile_pos(HEAD) == (hx, hy + 1)
-            && (head.pos.x - head.pos.tile_middle().x).abs() < 5.0;
+            && (head.pos.x - head.pos.tile_middle().x).abs() < 5.0
+            && self.effective_room_gravity() > 0.0;
         if !under_gap {
             return;
         }
@@ -340,7 +344,7 @@ impl Player {
             .iter()
             .all(|c| c.contact().x == 0 && c.contact().y == 0);
         if self.body_mode == BodyMode::Default && no_contact {
-            accel *= ROOM_GRAVITY;
+            accel *= self.effective_room_gravity();
         }
         let vertical_contact = self.body.chunks.iter().any(|c| c.contact().y != 0);
         let steering = self.input_x() != 0;

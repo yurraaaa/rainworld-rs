@@ -52,6 +52,7 @@ impl Scene {
                     music.game_requests_song(&event, songs);
                 }
                 MusicRequest::Stop(event) => music.game_requests_song_stop(&event),
+                MusicRequest::SsSong { amount } => music.ss_music_trigger(amount),
                 MusicRequest::RainStop => {
                     if music.song.is_some() || music.next_song.is_some() {
                         music.rain_request_stop_song();

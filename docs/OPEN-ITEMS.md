@@ -8,13 +8,13 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **Debug UI region switcher** (2026-10-19): the F1 debug UI's Region tab lists the
   regions on disk but its button does nothing; it needs region changes and gates,
   which are not ported.
-- **`ExplosiveSpear` behaviour.** The flag is ported; the explosion is not.
+- **`ExplosiveSpear` behaviour.** The flag is ported; the explosion is not (its
+  `SpearFragment` and rag read `room.gravity`, `ExplosiveSpear.cs` 39 and 203).
 
 - **Hunter follow-ups** (user, 2026-10-22, after the spear on the back): `HardmodeStart`
   (the Hunter's scripted LF_H01 first cycle, its spear, NSHSwarmer, `Red_stomach` pearl,
   Deer, scripted input/camera/map) as its own job later; the `sprOnBackStick` in the
-  region state's `STICKS` with the save work; the back spear's zero-gravity placement
-  with zero gravity.
+  region state's `STICKS` with the save work.
 
 - **Async room loading** (user, 2026-10-22): plan and decisions in
   `../rainworld-re/surveys/async-room-loading.md`; later. `ShortcutHelper` its own job
@@ -29,8 +29,7 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   rain. Surveys: `../rainworld-re/surveys/room-effects.md`, `lights-camera-shake.md`.
   Effects step 1 (level shader and palette machinery) left for later steps: the rain's
   `GlobalRain.ShaderLight` after the cycle ends (the port keeps its initial -1; goes
-  with the rain), `BrokenZeroG`'s `DarkPalette` (`1 - CurrentLightsOn`, with zero
-  gravity), ghost
+  with the rain), ghost
   mode's `_light`/`_cloudsSpeed`/palette grey-out (with echoes).
   Effects step 2 (full-screen effects, post-level grab, wet terrain, the Ant's
   `SpecificDepth`) and the `DeathFallGraphic` sprite done; left for later steps: `VoidMelt`'s `LevelMelt2` and
@@ -44,7 +43,7 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   Camera shake core (S1) done: `rw_sim::CameraShake`, notes `camera-shake.md`. Left:
   the rain-derived shake (S2, with the rain: `RainCycle.ScreenShake`/`MicroScreenShake`,
   `GlobalRain` modes, flood `waterFlux.roomShake`, the `Screen_Shake_LOOP` rumble, gamepad
-  rumble from `controllerShake`), the `AntiGravity` caller (S3; `Lightning`'s is done, effects step 4), callers that come with their objects (explosive spears' and scavenger
+  rumble from `controllerShake`), callers that come with their objects (explosive spears' and scavenger
   bombs' explosions, cicadas, leviathans, region gates, Moon's wake-up), and
   `PausedDrawUpdate`'s micro shake (skipped for now, user 2026-10-22; paused frames repeat
   the last offset, D1), and the Remix clamps (with Remix).
@@ -58,8 +57,9 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `fadeWithSun`, colour from the level image and effect colours, the glowing player's
   light, `LightSourceExposure`/`LightSourceColor`/`DarknessOfPoint`, `Needed` reading
   `Alpha`. `LightBeam`/`SpotLight` (L3) done (D24). Fixtures without electricity (L2a: `Redlight`,
-  `HolyFire`, `SlimeMoldLight`) and the rooms' waterfalls done (D30). Left: the SS
-  electricity fixtures (L2b) with `AntiGravity`/`ElectricPower`, owners' lights with
+  `HolyFire`, `SlimeMoldLight`) and the rooms' waterfalls done (D30; the emergency red
+  lights follow `ElectricPower` since zero gravity, D34). Left: the SS
+  electricity fixtures (L2b: `ZapCoilLight`, `DeepProcessing`, the superstructure), owners' lights with
   their owners (L4); blinking and night lights with the DLCs.
   Step 3 (cosmetic insects, `rw_sim::insect`, `../rainworld-re/notes/cosmetic-insects.md`)
   done; its omissions are among the decisions above. Draw order for later steps:
@@ -68,8 +68,8 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   (`Room.cs` ~2632-2700, then `insectCoordinator.NowViewed`); the steps porting those
   effects place their draws before `apply_insect_view_change`'s roll. No base room has
   both today. Step 6 (SkyDandelions, GreenSparks, ZeroGSpecks, CorruptionSpores, D29,
-  notes `particles.md`) done that way (`particles_now_viewed`); specks stay `reset` until
-  zero gravity (`AntiGravity`) is ported.
+  notes `particles.md`) done that way (`particles_now_viewed`); zero gravity is ported (D34), so the specks
+  drift in `ZeroG` rooms.
   Ordering item (review of step 6): (F4) `Room.Loaded`
   adds effect objects (~863) and placed objects (~1055) before `AddRoomSpecificScript`
   (~1873); the port adds them in `add_trigger_checkers`, after the scripts. No base room
@@ -167,14 +167,29 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   - Background scenes' `DayNight` blocks (sky alphas, `atmosphereColor`,
     `_MultiplyColor`, the spire lights; needs the rain cycle's `dayNightCounter`; no
     base room has `DayNight`): with the DLCs that use `DayNight` (D32).
+  - Zero gravity (D34): the shortcut pushers in `ShortcutHelper`, with it.
+  - Zero gravity: the player's cloth (`PlayerGraphics` 1168), with the cloth.
+  - Zero gravity: the vine grab and vine pull, with vines.
+  - Zero gravity: coral circuit swimming (`circuitSwimResistance`, `curcuitJumpMeter`,
+    `swimBits`), with the coral circuit object.
+  - Zero gravity: Five Pebbles' and Moon's oracle scenes switching `AntiGravity` off, with
+    the oracles.
+  - `Room.ElectricPower` / gravity readers: `ZapCoil`, `GravityDisruptor`, `SpinningFan`,
+    `SuperStructureFuses`, `MeltLights`, with the SS objects.
+  - `Room.ElectricPower` / gravity readers: `SSLightRod`, `ProjectedScanLines`,
+    `SuperStructureProjector`, `DeepProcessing`, `DeepProcessingLight`, with the SS objects.
+  - Zero gravity: `ExplosiveSpear` fragments, with explosive spears.
+  - Zero gravity: `OverseerCarcass`, with it.
+  - Zero gravity: `SegmentRope` and `Dangler`, with them.
+  - `Room.ElectricPower` / gravity readers in `HazerGraphics` and `ScavengerGraphics`, with
+    Hazers and scavengers.
+  - The analogue stick in zero gravity (`ZeroGGamePadIntVec`; user, 2026-10-23): waits until
+    the port has analogue gamepad input.
   - ElectricDeath: what it does once the rain ends the cycle (the port holds it at full
     intensity from cycle end + 1200), with the rain (D33). Its DLC/Remix branches wait for
     DLC.
   - `RoomRain`'s shelter sprite scale `ScreenSize.x / shelterTex.width` (the chosen
     resolution, `World::screen_size`), with the rain.
-  - ZeroGSpecks, CorruptionSpores: zero gravity (`AntiGravity`, the `ZeroG` and
-    `BrokenZeroG` effects), which makes them visible and stops the pile-up of `reset`
-    specks (D29).
 - **Room files `Room::load` rejects** (user, 2026-10-23: not real rooms, but look into
   why): `su_a08`, `su_a09`, `su_a15_tiled`, `su_b01_tiled` in the installed game's
   `su-rooms` fail the port's room parser (seen by the waterfall corpus test). Find what

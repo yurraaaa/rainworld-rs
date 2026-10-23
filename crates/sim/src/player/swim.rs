@@ -10,7 +10,7 @@
 use rw_assets::Room;
 use rw_random::UnityRandom;
 
-use super::{Animation, BodyMode, HEAD, HIPS, Player, ROOM_GRAVITY};
+use super::{Animation, BodyMode, HEAD, HIPS, Player};
 use crate::float_ext::FloatExt;
 use crate::{Bubble, Sounds, Vec2, Water};
 
@@ -231,7 +231,7 @@ impl Player {
     }
 
     /// `SwimDir(true)` for digital input: the held direction, normalised.
-    fn swim_dir(&self) -> Vec2 {
+    pub(super) fn swim_dir(&self) -> Vec2 {
         Vec2::new(self.input_x() as f32, self.input_y() as f32).normalized()
     }
 
@@ -299,7 +299,7 @@ impl Player {
     /// `GravitateToOpening`: pressing one axis toward a one-tile hole (solid on both
     /// sides of it, not on both sides of the head) pulls the nearer chunk toward the
     /// hole, centres both across it and halves any speed above 2.
-    fn gravitate_to_opening(&mut self, room: &Room) {
+    pub(super) fn gravitate_to_opening(&mut self, room: &Room) {
         let (x, y) = (self.input_x(), self.input_y());
         let (dx, dy) = if x != 0 && y == 0 {
             if self.is_tile_solid(room, HEAD, x, 0)
@@ -333,9 +333,10 @@ impl Player {
                 best = d;
             }
         }
+        let eg = self.effective_room_gravity();
         let c = &mut self.body.chunks[nearest];
-        c.vel += c.pos.direction_to(hole) * 0.5_f32.lerp(1.0, ROOM_GRAVITY);
-        let centring = 0.01_f32.lerp(0.1, ROOM_GRAVITY);
+        c.vel += c.pos.direction_to(hole) * 0.5_f32.lerp(1.0, eg);
+        let centring = 0.01_f32.lerp(0.1, eg);
         for c in &mut self.body.chunks {
             let mid = c.pos.tile_middle();
             if dx != 0 {

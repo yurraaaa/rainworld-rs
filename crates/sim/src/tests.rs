@@ -72,7 +72,8 @@ fn open_room(w: usize, h: usize) -> Room {
 /// No gravity, no drag: one tick moves exactly by `vel`.
 fn frictionless(bounce: f32, surface_friction: f32) -> PhysicsParams {
     PhysicsParams {
-        gravity: 0.0,
+        g: 0.0,
+        room_gravity: 1.0,
         air_friction: 1.0,
         bounce,
         surface_friction,
@@ -116,6 +117,21 @@ fn free_fall_applies_gravity_then_air_friction() {
     assert_vec(obj.chunks[0].last_pos, 50.0, 499.1009);
     assert_vec(obj.chunks[0].last_last_pos, 50.0, 500.0);
     assert_eq!(obj.chunks[0].contact().y, 0);
+}
+
+/// `PhysicalObject.gravity` is `g * room.gravity`: none at 0, half at 0.5.
+#[test]
+fn room_gravity_scales_the_fall() {
+    let r = open_room(5, 40);
+    let mut obj = single((50.0, 500.0), (0.0, 0.0), 9.0, slugcat::PARAMS);
+    obj.params.room_gravity = 0.0;
+    obj.update(&r);
+    assert_vec(obj.chunks[0].vel, 0.0, 0.0);
+    assert_vec(obj.chunks[0].pos, 50.0, 500.0);
+    obj.params.room_gravity = 0.5;
+    obj.update(&r);
+    // vel = (0 - 0.9 * 0.5) * 0.999
+    assert_vec(obj.chunks[0].vel, 0.0, -0.44955);
 }
 
 // ---- flat tiles ---------------------------------------------------------------------
@@ -172,7 +188,8 @@ fn floor_bounce_below_gravity_is_cancelled() {
     let r = room(&FLOOR_ROOM);
     // bounce 1 => threshold 1; gravity 12 makes the rebound (< 12) count as resting.
     let params = PhysicsParams {
-        gravity: 12.0,
+        g: 12.0,
+        room_gravity: 1.0,
         air_friction: 1.0,
         bounce: 1.0,
         surface_friction: 0.5,

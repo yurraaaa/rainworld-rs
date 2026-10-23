@@ -232,8 +232,8 @@ impl RainWorldGame {
     /// forgotten; otherwise it rides between the hips and the shoulders (the draw
     /// positions and head when there are graphics, else the chunks), leaning with
     /// `flip`, spun round while being retrieved or stashed with sideways input, in front
-    /// of the body when the body points down. Zero gravity is not ported (the base game's
-    /// rooms here all have gravity).
+    /// of the body when the body points down. Unconscious, or floating (`ZeroG`, gravity 0),
+    /// it eases `flip` to 0 and lies along the back.
     pub(super) fn spear_on_back_graphics_updated(&mut self, hands: Option<PlayerHands>) {
         let Some(s) = self.spear_on_back() else {
             return;
@@ -261,7 +261,8 @@ impl RainWorldGame {
         let mut flip = s.flip;
         let rotation;
         let overlap;
-        if p.is_conscious() {
+        if p.is_conscious() && p.body_mode() != BodyMode::ZeroG && p.effective_room_gravity() > 0.0
+        {
             flip = if p.body_mode() == BodyMode::Default
                 && p.animation() == Animation::None
                 && p.is_standing()

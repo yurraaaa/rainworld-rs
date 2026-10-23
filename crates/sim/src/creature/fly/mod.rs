@@ -112,7 +112,8 @@ pub struct Fly {
 
 /// The Fly's physics scalars (184589).
 const PARAMS: PhysicsParams = PhysicsParams {
-    gravity: 0.9,
+    g: 0.9,
+    room_gravity: 1.0,
     air_friction: 0.98,
     bounce: 0.1,
     surface_friction: 0.5,
