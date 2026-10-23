@@ -233,6 +233,9 @@ sound_ids! {
     LizardVoiceBlueA = "Lizard_Voice_Blue_A",
     CycleStartDrips = "Cycle_Start_Drips",
     WaterSurfaceCalmLoop = "Water_Surface_Calm_LOOP",
+    Thunder = "Thunder",
+    ThunderClose = "Thunder_Close",
+    ElectricityLoop = "Electricity_Loop",
     // No `sounds.txt` line: it never plays.
     SpearHitSmallCreature = "Spear_Hit_Small_Creature",
 }
@@ -333,6 +336,11 @@ pub enum SoundEvent {
     },
     /// `emitter.alive = false`.
     Stop(EmitterId),
+    /// A `DisembodiedLoopEmitter`'s `pan` was set.
+    EmitterPan {
+        id: EmitterId,
+        pan: f32,
+    },
     /// An object emitter's `ChunkSoundEmitter.Update` copied its chunk's position.
     Moved {
         id: EmitterId,
@@ -633,6 +641,11 @@ impl Sounds {
     /// Sets a loop emitter's volume and pitch and keeps it alive this tick.
     pub fn update_emitter(&mut self, id: EmitterId, volume: f32, pitch: f32) {
         self.events.push(SoundEvent::Emitter { id, volume, pitch });
+    }
+
+    /// Sets a `DisembodiedLoopEmitter`'s pan (`DisembodiedDynamicSoundLoop.Pan`).
+    pub fn set_emitter_pan(&mut self, id: EmitterId, pan: f32) {
+        self.events.push(SoundEvent::EmitterPan { id, pan });
     }
 
     pub fn stop_emitter(&mut self, id: EmitterId) {

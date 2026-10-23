@@ -75,6 +75,8 @@ impl SpritePipeline {
         (Shader::OverseerZip, "fs_overseer_zip"),
         (Shader::Hologram, "fs_hologram"),
         (Shader::LightSource, "fs_light_source"),
+        (Shader::LightBeam, "fs_light_beam"),
+        (Shader::VectorCircle, "fs_vector_circle"),
         (Shader::HoloGrid, "fs_holo_grid"),
         (Shader::HologramImage, "fs_hologram_image"),
         (Shader::ShortCut0, "fs_shortcut"),

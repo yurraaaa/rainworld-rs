@@ -84,6 +84,8 @@ fn alpha_per_frame() {
     assert!((effect.alpha(&lightning, -0.35) - 0.25).abs() < 1e-6);
     let strong = settings(&[(E::Lightning, 0.85)]);
     assert_eq!(effect.alpha(&strong, 1.0), 1.0);
+    // Between flashes the lightning's light level is -1: no bloom.
+    assert_eq!(effect.alpha(&strong, -1.0), 0.0);
 }
 
 /// `SetUpFullScreenEffect`: `Futile_White` (16 px) scaled `ScreenSize.x / 16` by 48,

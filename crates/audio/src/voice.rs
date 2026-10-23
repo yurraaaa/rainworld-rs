@@ -18,6 +18,8 @@ pub struct Emitter {
     pub volume: f32,
     pub pitch: f32,
     pub looped: bool,
+    /// A `DisembodiedLoopEmitter`'s `pan` once the sim set one.
+    pub pan: Option<f32>,
     /// Ticks ended since a loop's owner last set it (`requireActiveUpkeep`).
     pub unkept: u8,
 }
@@ -50,6 +52,7 @@ impl Emitters {
             volume: sound.emitter_volume,
             pitch: sound.emitter_pitch,
             looped: sound.looped,
+            pan: None,
             unkept: 0,
         });
     }
@@ -64,6 +67,12 @@ impl Emitters {
             e.volume = volume;
             e.pitch = pitch;
             e.unkept = 0;
+        }
+    }
+
+    pub fn set_pan(&mut self, id: EmitterId, pan: f32) {
+        if let Some(e) = self.0.get_mut(&id) {
+            e.pan = Some(pan);
         }
     }
 
@@ -190,7 +199,7 @@ impl Voice {
                 let e = emitters.get(emitter)?;
                 return Some(SourceMix {
                     volume: mic.source_volume(e.volume, s.volume, mic.volume_groups()[0]),
-                    pan,
+                    pan: e.pan.unwrap_or(pan),
                     pitch: e.pitch * s.pitch,
                     cutoff: Microphone::low_pass_cutoff(mic.under_water, s.ignore_effects),
                 });
@@ -319,6 +328,10 @@ mod tests {
         assert!((mix.pitch - 1.2).abs() < 1e-6);
         let want = mic.source_volume(0.25, 0.5, mic.volume_groups()[0]);
         assert!((mix.volume - want).abs() < 1e-6);
+        // `DisembodiedLoop.Update` reads the emitter's pan too (`DisembodiedDynamicSoundLoop.Pan`).
+        emitters.set_pan(EmitterId(3), -0.4);
+        let mix = voice.mix(&mic, &emitters, 1.0, 0.0, None).expect("plays");
+        assert_eq!(mix.pan, -0.4);
         emitters.remove(EmitterId(3));
         assert!(voice.mix(&mic, &emitters, 1.0, 0.0, None).is_none());
     }

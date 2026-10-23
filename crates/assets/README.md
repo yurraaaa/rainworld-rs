@@ -19,11 +19,12 @@ not behaviour. Game assets are never committed.
 | `settings.rs` | `RoomSettings`, `SettingsFile`, template inheritance, `FadePalette`, `DangerType` | `RoomSettings` |
 | `placed.rs`, `placed_types.rs` | room effects and placed objects by type name; the `PlacedObject.Type` / `RoomEffect.Type` enums | `PlacedObject`, `RoomSettings.RoomEffect` |
 | `placed_visuals.rs` | `CustomDecalData`, `RainbowData`: the `CustomDecal` and `Rainbow` placed objects' data, and the decal PNG loader (`Decals/<name>.png`) | `PlacedObject.CustomDecalData`, `Rainbow.RainbowData`, `CustomDecal.LoadFile` |
+| `placed_beam.rs` | a placed `LightBeam`'s data: `LightBeamData`, `BeamBlinkType` (a `SpotLight` reads `QuadData`) | `LightBeam.LightBeamData` |
 | `placed_light.rs` | a placed light's data: `LightSourceData`, `LightColorType`, `LightBlinkType` | `PlacedObject.LightSourceData` |
 | `triggers.rs` | `Triggers:` entries (event/spot triggers, music and image events) | `RoomSettings.LoadTriggers` |
 | `ambient.rs` | `AmbientSounds:` line | `RoomSettings.LoadAmbientSounds` |
 | `rain_mask.rs` | `RainMask`: a room's `RainMask_<room>` texture (sky columns, the water's run) | `RoomRain.GenerateShelterTex` |
-| `palette.rs` | `PaletteImage`, `EffectColors`, `PaletteTexture`, `RoomPalette` | `RoomCamera.LoadPalette` |
+| `palette.rs` | `PaletteImage`, `EffectColors`, `PaletteTexture` (`with_colors`: `SetPixel` overrides), `RoomPalette` | `RoomCamera.LoadPalette` |
 | `png_image.rs` | PNG to raw RGBA (`PngImage`) | `Texture2D.LoadImage` |
 | `noise.rs` | the level shader's `_NoiseTex` from `resources.assets` | |
 | `shortcut.rs` | shortcut map and tube walk | `ShortcutMapper`, `ShortcutHandler` |

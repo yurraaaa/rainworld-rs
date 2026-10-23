@@ -311,11 +311,22 @@ impl RoomShot {
         let time = (game.ticks() as f32 + 1.0) / TICK_RATE as f32;
         let level: Option<LevelView> = self.visuals.as_ref().map(|v| {
             v.upload(r, &self.camera);
+            // The room's flash, flickering on a copy of the cosmetic stream.
+            let lightning = game
+                .sim()
+                .world()
+                .realized(self.room)
+                .and_then(|room| room.lightning.as_ref())
+                .map(|l| v.lightning_frame(l, 1.0, &mut game.cosmetic_rng().clone()));
+            if let Some(frame) = &lightning {
+                r.set_level_palette(&v.lightning_palette(frame));
+            }
             v.view(
                 &self.camera,
                 1.0,
                 time,
                 &game.sim().world().rain_cycle,
+                lightning.as_ref(),
                 self.water_line(game),
             )
         });
@@ -342,11 +353,20 @@ impl RoomShot {
             ..view.layers
         });
         if let Some(level) = level {
-            // The room's `SunBlocker`s, alone in `Shadows`.
+            // The room's `SunBlocker`s, then its spot lights, in `Shadows`.
             let blockers = self.visuals.as_ref().map_or(0, Visuals::sun_blockers);
             for _ in 0..blockers {
                 let list = rw_graphics::SunBlocker::draw(Vec2::from(level.origin));
                 r.draw_sprites(&list, Layer::Shadows, level.origin);
+            }
+            if let Some(realized) = game.sim().world().realized(self.room) {
+                for spot in &realized.spot_lights {
+                    r.draw_sprites(
+                        &rw_graphics::SpotLightSprites::draw(spot),
+                        Layer::Shadows,
+                        level.origin,
+                    );
+                }
             }
             for layer in [Layer::Background, Layer::Midground, Layer::Items] {
                 for list in &items {

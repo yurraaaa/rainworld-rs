@@ -339,6 +339,7 @@ impl Audio {
                     self.game.emitters.set(id, volume, pitch)
                 }
                 SoundEvent::Stop(id) => self.game.emitters.remove(id),
+                SoundEvent::EmitterPan { id, pan } => self.game.emitters.set_pan(id, pan),
                 SoundEvent::Moved { id, pos } => self.game.emitters.moved(id, pos),
                 SoundEvent::OwnerRemoved => self.game.emitters.clear_chunks(),
             }

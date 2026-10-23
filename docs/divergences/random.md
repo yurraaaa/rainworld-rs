@@ -193,6 +193,11 @@ it (D13). What still differs is only the seed and the call order:
   micro shake (2 per drawn frame while `microShake` is above 0) comes from the app's
   cosmetic stream, per frame; a paused frame repeats the last one's (the menus' pause
   divergence), where `PausedDrawUpdate` would draw a new offset each frame.
+- **Lightning.** `Lightning.Update` draws on the shared stream in the room's update
+  list (7 per `Reset`, 2 per `randomLevelChange`, 1 at a background source's flash
+  start, 1 per source with `CycleEndIntensityBoost`, 7 per sound played); the
+  camera's `LightIntensity` flicker draws come from the app's cosmetic stream, per
+  frame (D25).
 - **Ambient drips.** `Room.Update`'s ceiling drip, after the water's update, in camera
   0's room (not a shelter, danger type not `None`, with ceiling tiles): 2 draws a tick
   (`value < gravity`, then the chance test), 5 with a drip (tile, x jitter,

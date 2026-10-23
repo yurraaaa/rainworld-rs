@@ -102,10 +102,10 @@ impl TokenStalkState {
 }
 
 /// A room's name for the replies.
-struct RoomName;
+pub(super) struct RoomName;
 
 impl RoomName {
-    fn of(world: &World, index: i32) -> String {
+    pub(super) fn of(world: &World, index: i32) -> String {
         world
             .abstract_room(index)
             .map_or_else(|| format!("#{index}"), |r| r.name.clone())
