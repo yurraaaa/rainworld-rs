@@ -19,148 +19,28 @@ pub(crate) mod shortcut;
 pub(crate) mod spawn;
 pub mod trigger;
 
+#[cfg(test)]
+mod tests;
+
 use std::sync::Arc;
 
-#[path = "../effects/gravity/anti_gravity_turn.rs"]
-mod anti_gravity;
-#[path = "../effects/sky/background_scene_turn.rs"]
-mod background_scene;
-#[path = "../effects/gravity/border_push_back_turn.rs"]
-mod border_push_back;
-#[path = "../player/carried_turn.rs"]
-mod carried;
-#[path = "../superstructure/coral/turn.rs"]
-mod coral;
-#[path = "../superstructure/coral/circuit_turn.rs"]
-mod coral_circuit;
-#[path = "../effects/particles/decal_turn.rs"]
-mod decals;
-#[path = "dev_turn.rs"]
-mod dev;
-#[path = "../water/drips_turn.rs"]
-mod drips;
-#[path = "../player/eat_meat_turn.rs"]
-mod eat_meat;
-#[path = "../effects/gravity/electric_death_turn.rs"]
-mod electric_death;
-#[path = "exit_turn.rs"]
-mod exit;
-#[path = "../creature/fly/turn.rs"]
-mod flies;
-#[path = "../player/turn.rs"]
-mod hands;
-#[path = "../creature/heavy_ai_turn.rs"]
-mod heavy_ai;
-#[path = "../item/hits_turn.rs"]
-mod hits;
-#[path = "../creature/overseer/holo_light_turn.rs"]
-mod holo_light;
-#[path = "../effects/particles/insect/turn.rs"]
-mod insects;
-#[path = "instructions_turn.rs"]
-mod instructions;
-#[path = "../item/turn.rs"]
-mod items;
-#[path = "../effects/lights/light_beam_turn.rs"]
-mod light_beams;
-#[path = "../effects/lights/light_fixture_turn.rs"]
-mod light_fixtures;
-#[path = "../effects/sky/lightning_turn.rs"]
-mod lightning;
-#[path = "../effects/lights/turn.rs"]
-mod lights;
-#[path = "../superstructure/projections/turn.rs"]
-mod projections;
-pub use lights::PlayerGlow;
-#[path = "../creature/lizard/act_turn.rs"]
-mod lizard_act;
-#[path = "../creature/lizard/ai_turn.rs"]
-mod lizard_ai;
-#[path = "../creature/lizard/fight_turn.rs"]
-mod lizard_fight;
-#[path = "../creature/lizard/graphics_turn.rs"]
-mod lizard_graphics;
-#[path = "../creature/lizard/hits_turn.rs"]
-mod lizard_hits;
-#[path = "../creature/lizard/hunt_turn.rs"]
-mod lizard_hunt;
-#[path = "../creature/lizard/perception_turn.rs"]
-mod lizard_perception;
-#[path = "../creature/lizard/voice_turn.rs"]
-mod lizard_voice;
-#[path = "../creature/lizard/turn.rs"]
-mod lizards;
-#[path = "map_turn.rs"]
-mod map;
-#[path = "../sound/noise_turn.rs"]
-mod noise;
+mod dev_turn;
+mod exit_turn;
+mod instructions_turn;
+pub use crate::effects::lights::turn::PlayerGlow;
+mod game_over_turn;
+mod map_turn;
 mod observer;
-#[path = "game_over_turn.rs"]
-mod over;
-#[path = "../creature/overseer/turn.rs"]
-mod overseers;
-#[path = "../effects/particles/turn.rs"]
-mod particles;
-#[path = "../effects/particles/placed_cosmetics_turn.rs"]
-mod placed_cosmetics;
-#[path = "../player/grabbed_turn.rs"]
-mod player_grabbed;
-#[path = "shortcut_turn.rs"]
-mod shortcuts;
-#[path = "../world/social_events_turn.rs"]
-mod social_events;
-#[path = "../player/spear_on_back_turn.rs"]
-mod spear_on_back;
-#[path = "../superstructure/electric/turn.rs"]
-mod ss_electric;
-#[path = "../superstructure/grab/turn.rs"]
-mod ss_grab;
+mod shortcut_turn;
 
-pub use dev::DevRainControl;
-pub use heavy_ai::HeavyAiThrottle;
-pub use items::Grabability;
-pub use lizard_ai::UtilityReadings;
+pub use crate::creature::ai_modules::heavy_ai_turn::HeavyAiThrottle;
+pub use crate::creature::lizard::ai_turn::UtilityReadings;
+pub use crate::item::turn::Grabability;
+pub use dev_turn::DevRainControl;
+pub use game_over_turn::GameOver;
 pub use observer::PlayerObserver;
-pub use over::GameOver;
-#[cfg(test)]
-#[path = "../effects/sky/tests/background_scene_turn.rs"]
-mod background_scene_tests;
-#[cfg(test)]
-#[path = "../effects/particles/tests/decal_turn.rs"]
-mod decals_tests;
-#[cfg(test)]
-#[path = "tests/game_graphics_modules.rs"]
-mod graphics_modules_tests;
-#[cfg(test)]
-#[path = "../effects/particles/insect/tests/turn.rs"]
-mod insects_tests;
-#[cfg(test)]
-#[path = "../effects/particles/tests/turn.rs"]
-mod particles_tests;
-#[cfg(test)]
-#[path = "../effects/particles/tests/placed_cosmetics_turn.rs"]
-mod placed_cosmetics_tests;
-#[cfg(test)]
-#[path = "tests/game_screen_shake.rs"]
-mod screen_shake_tests;
-#[path = "shelter_turn.rs"]
-mod shelter_door;
-#[cfg(test)]
-#[path = "tests/game_shortcut_color.rs"]
-mod shortcut_color_tests;
-#[path = "../creature/tracker_turn.rs"]
-mod tracker;
-#[path = "trigger_turn.rs"]
-mod triggers;
-#[path = "../sound/water_sound_turn.rs"]
-mod water_sound;
-#[cfg(test)]
-#[path = "../water/tests/game_water.rs"]
-mod water_tests;
-#[path = "../water/waterfall_turn.rs"]
-mod waterfalls;
-#[path = "../item/weapon_turn.rs"]
-mod weapons;
+mod shelter_turn;
+mod trigger_turn;
 
 use rustc_hash::FxHashMap;
 use rw_assets::{CreatureType, NodeType, Room, ShortcutType};
@@ -272,7 +152,7 @@ pub enum OverseerCall {
 
 /// An object in a room's update list the port runs besides the player.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum RoomObject {
+pub(crate) enum RoomObject {
     Overseer(CreatureId),
     Hologram {
         owner: CreatureId,
@@ -341,7 +221,7 @@ enum RoomObject {
     /// A `DustPuff` by its place in the update list.
     DustPuff(u64),
     /// A dandelion, spark, speck or one of their spawners.
-    Particle(particles::ParticleRef),
+    Particle(crate::effects::particles::turn::ParticleRef),
     /// A `Rainbow` by its place in the update list.
     Rainbow(u64),
     /// A `LightBeam` by its place in the update list.
@@ -351,9 +231,9 @@ enum RoomObject {
     /// A superstructure projector, its part, a scan line set, its line or a star matrix.
     Projection(crate::superstructure::projections::room_projections::ProjectionRef),
     /// The room's `CoralNeuronSystem` or a `WallMycelia`.
-    Coral(coral::CoralRef),
+    Coral(crate::superstructure::coral::turn::CoralRef),
     /// A `CircuitBit`, `CircuitConnector`, `CircuitCrab` or `CoralCircuit`.
-    Circuit(coral_circuit::CircuitRef),
+    Circuit(crate::superstructure::coral::circuit_turn::CircuitRef),
     /// The room's `AntiGravity`.
     AntiGravity,
     /// The room's `RoomSpecificScript`s.
@@ -388,92 +268,92 @@ pub struct NewGameWorld {
 
 /// A running game.
 pub struct RainWorldGame {
-    campaign: &'static SlugcatCampaign,
+    pub(crate) campaign: &'static SlugcatCampaign,
     /// The save state's start values.
-    story: StoryStart,
+    pub(crate) story: StoryStart,
     /// `session.characterStats`: `new SlugcatStats(name, saveState.malnourished)`,
     /// replaced by `SetMalnourished`.
-    character_stats: SlugcatStats,
-    world: World,
-    shortcuts: ShortcutHandler,
+    pub(crate) character_stats: SlugcatStats,
+    pub(crate) world: World,
+    pub(crate) shortcuts: ShortcutHandler,
     /// `None` in a single-room world.
     realizer: Option<RoomRealizer>,
-    player: Option<Player>,
+    pub(crate) player: Option<Player>,
     /// The player's `AbstractCreature` (`Players[0]`).
-    player_id: CreatureId,
+    pub(crate) player_id: CreatureId,
     /// `cameras[0].room`.
-    camera_room: i32,
+    pub(crate) camera_room: i32,
     /// See [`RainWorldGame::now_viewed_modules`].
-    now_viewed_modules: Vec<CreatureId>,
+    pub(crate) now_viewed_modules: Vec<CreatureId>,
     camera_move: Option<CameraMove>,
     /// Camera 0's positions as the app's room camera last reported them.
-    camera_view: CameraView,
+    pub(crate) camera_view: CameraView,
     /// Camera 0's shake and its window during the tick.
-    camera_shake: CameraShake,
+    pub(crate) camera_shake: CameraShake,
     /// The player's place in its room's `updateList`.
-    player_seq: u64,
-    hud_events: Vec<HudEvent>,
-    rng: UnityRandom,
-    sounds: Sounds,
+    pub(crate) player_seq: u64,
+    pub(crate) hud_events: Vec<HudEvent>,
+    pub(crate) rng: UnityRandom,
+    pub(crate) sounds: Sounds,
     /// Sounds of rooms the camera is not in: the game's microphone ignores them, so
     /// they make no draws.
-    silent: Sounds,
+    pub(crate) silent: Sounds,
     /// `nextIssuedId`.
-    ids: IdIssuer,
+    pub(crate) ids: IdIssuer,
     /// `saveState.seed` of the new game's `SaveState`.
     save_state_seed: i32,
     /// `saveState.miscWorldSaveData.playerGuideState`.
-    guide: PlayerGuideState,
+    pub(crate) guide: PlayerGuideState,
     /// `updateAbstractRoom`: the abstract room updated last.
     update_abstract_room: usize,
     /// The start tile, reused by respawns in the start room.
     start: Start,
-    tick: u64,
+    pub(crate) tick: u64,
     /// What the room scripts read of the process manager.
-    script_tick: ScriptTick,
+    pub(crate) script_tick: ScriptTick,
     /// The last hologram id issued.
-    hologram_ids: u64,
+    pub(crate) hologram_ids: u64,
     /// The player's room when the guide's being brought was last logged.
     guide_brought_logged_room: Option<i32>,
     /// Each realized creature's `Creature.lastCoord`; a new body starts at the default
     /// coordinate (room 0, tile (0, 0)).
-    last_coords: FxHashMap<CreatureId, WorldCoordinate>,
+    pub(crate) last_coords: FxHashMap<CreatureId, WorldCoordinate>,
     /// `ColorEntrance` calls on camera 0 since the last `take_entrance_colors`.
-    entrance_colors: Vec<EntranceColor>,
+    pub(crate) entrance_colors: Vec<EntranceColor>,
     /// Whether the player had a graphics module at its last update.
-    player_graphics: bool,
+    pub(crate) player_graphics: bool,
     /// `progression.mapDiscoveryTextures`.
     map_discovery: MapDiscovery,
     /// `RequestHeavyAi`'s state (the game's statics).
-    heavy_ai: HeavyAiThrottle,
+    pub(crate) heavy_ai: HeavyAiThrottle,
     dev_rain: DevRainControl,
     /// Camera 0's HUD map, as the app last reported it.
     hud_map: HudMapLink,
     /// Camera 0's `PaletteDarkness()`, as the app last reported it.
-    camera_darkness: f32,
+    pub(crate) camera_darkness: f32,
     /// Camera 0's level image and palette, as the app last reported them.
-    camera_image: Option<crate::CameraImage>,
+    pub(crate) camera_image: Option<crate::CameraImage>,
     /// `Player.glowing` and its graphics' light.
-    player_glow: lights::PlayerGlow,
+    pub(crate) player_glow: crate::effects::lights::turn::PlayerGlow,
     /// The camera's room change the insects have yet to follow.
-    insect_view: Option<insects::InsectViewChange>,
+    pub(crate) insect_view: Option<crate::effects::particles::insect::turn::InsectViewChange>,
     /// Set when the cycle ends (the shelter closes, the player starves).
     session_end: Option<SessionEnd>,
     /// Food added this cycle (`saveState.totFood`'s share).
-    session_food: i32,
+    pub(crate) session_food: i32,
     /// What the player ate this cycle (`SessionRecord.AddEat`), by entity ID.
-    eaten: Vec<EntityId>,
+    pub(crate) eaten: Vec<EntityId>,
     /// The realized shelters' doors.
-    shelter_doors: Vec<ShelterDoor>,
+    pub(crate) shelter_doors: Vec<ShelterDoor>,
     /// `Room.chunkGlue`: a spear's chunk moved onto another chunk after the update list.
-    chunk_glue: Vec<(ObjectId, lizard_hits::ChunkRef, Vec2)>,
+    pub(crate) chunk_glue: Vec<(ObjectId, crate::creature::lizard::hits_turn::ChunkRef, Vec2)>,
     closed_shelter_regions: Vec<String>,
     /// Shelters the player was spat out into (`TempDiscoverShelter`), until taken.
-    entered_shelters: Vec<String>,
+    pub(crate) entered_shelters: Vec<String>,
     /// The player's `karmaFlowerGrowPos`.
     karma_flower_grow_pos: Option<WorldCoordinate>,
     /// The player's death called `GameOver`; taken by the app.
-    game_over: Option<GameOver>,
+    pub(crate) game_over: Option<GameOver>,
     /// `GameOver` called `GoToRedsGameOver`; taken by the app.
     reds_game_over: bool,
     /// The realized rooms' trigger checkers and the objects their events added.
@@ -593,8 +473,8 @@ impl RainWorldGame {
             hud_map: HudMapLink::default(),
             camera_darkness: 0.0,
             camera_image: None,
-            player_glow: lights::PlayerGlow::default(),
-            insect_view: Some(insects::InsectViewChange {
+            player_glow: crate::effects::lights::turn::PlayerGlow::default(),
+            insect_view: Some(crate::effects::particles::insect::turn::InsectViewChange {
                 from: None,
                 to: start.room,
             }),
@@ -698,11 +578,11 @@ impl RainWorldGame {
     }
 
     /// The player's `AbstractCreature.pos`.
-    fn pos(&self) -> WorldCoordinate {
+    pub(crate) fn pos(&self) -> WorldCoordinate {
         self.world.creature(self.player_id).pos
     }
 
-    fn set_pos(&mut self, pos: WorldCoordinate) {
+    pub(crate) fn set_pos(&mut self, pos: WorldCoordinate) {
         self.world.place_creature(self.player_id, pos);
         self.move_carried(pos);
     }
@@ -763,7 +643,7 @@ impl RainWorldGame {
         self.karma_flower_grow_pos = None;
         self.player_wakes_in_shelter(&mut player);
         observer.created(&player, &mut self.rng);
-        self.player_glow = lights::PlayerGlow {
+        self.player_glow = crate::effects::lights::turn::PlayerGlow {
             glowing: self.is_story_session() && self.story.the_glow,
             light: None,
         };
@@ -908,7 +788,7 @@ impl RainWorldGame {
 
     /// The loading step: for each room that finished loading, `ReadyForAI` realizes its
     /// creatures in list order (the player only at the start).
-    fn finish_loading(&mut self, observer: &mut dyn PlayerObserver) {
+    pub(crate) fn finish_loading(&mut self, observer: &mut dyn PlayerObserver) {
         for index in self.world.finish_loading() {
             self.add_waterfalls(index);
             self.add_shelter_door(index);
@@ -1021,7 +901,7 @@ impl RainWorldGame {
 
     /// Room `index`'s update list besides the player, newest first (`Room.Update` walks
     /// `updateList` from its end), each with its place in the list.
-    fn room_update_list(&self, index: i32) -> Vec<(u64, RoomObject)> {
+    pub(crate) fn room_update_list(&self, index: i32) -> Vec<(u64, RoomObject)> {
         let mut objects: Vec<(u64, RoomObject)> = self
             .world
             .room_overseers(index)
@@ -1380,7 +1260,7 @@ impl RainWorldGame {
             if let Some(player) = self.player.as_mut()
                 && let Some(body) = body
             {
-                let mut hearing = noise::PlayerHearing {
+                let mut hearing = crate::sound::noise_turn::PlayerHearing {
                     world: &mut self.world,
                     room: index,
                     water: water.as_ref(),

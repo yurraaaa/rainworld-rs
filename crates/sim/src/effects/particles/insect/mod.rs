@@ -23,6 +23,7 @@ mod water_glowworm;
 
 #[cfg(test)]
 mod tests;
+pub(crate) mod turn;
 
 use rw_assets::{Room, RoomEffectType};
 use rw_random::UnityRandom;

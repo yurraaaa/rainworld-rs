@@ -11,7 +11,10 @@
 mod ai;
 mod ai_update;
 mod room_ai;
+pub(crate) mod swarm_rooms;
+pub(crate) mod turn;
 mod update;
+pub(crate) mod world_ai;
 
 use rw_random::UnityRandom;
 

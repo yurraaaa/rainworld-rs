@@ -9,16 +9,16 @@
 
 use rw_assets::CreatureType;
 
-use super::RainWorldGame;
 use crate::creature::lizard::LizardEmotion;
 use crate::creature::{CreatureId, LizardAnimation, RelationshipType, RepKey, WorldCoordinate};
+use crate::game::RainWorldGame;
 use crate::math::vec2::TileExt;
 use crate::physics::room_ext::RoomExt;
 use crate::{FloatExt, Vec2};
 
 /// The AI's `focusCreature` as the body reads it.
 #[derive(Debug, Clone, PartialEq)]
-pub(super) struct LizardFocus {
+pub(crate) struct LizardFocus {
     pub creature: CreatureId,
     /// `VisualContact`.
     pub visual: bool,
@@ -40,7 +40,7 @@ impl RainWorldGame {
     /// The Hunt body: `AggressiveBehavior` toward the most attractive prey (tongue
     /// chance 1), `runSpeed` toward `Max(hunger, 0.3)` by a tenth, the blood-lust voice
     /// on a 1/80 draw (not for black lizards).
-    pub(super) fn lizard_hunt(&mut self, id: CreatureId) {
+    pub(crate) fn lizard_hunt(&mut self, id: CreatureId) {
         if let Some(prey) = self.world.lizard_ref(id).ai.prey.most_attractive() {
             self.lizard_aggressive_behavior(id, prey, 1.0);
         }
@@ -57,7 +57,7 @@ impl RainWorldGame {
     /// with the most threatening creature guessed within 15 tiles, `ThreatSpotted`;
     /// `runSpeed` halfway to `CombinedFear^0.1`; the focus the most threatening
     /// creature; the graphics look at the path finder's destination.
-    pub(super) fn lizard_flee(&mut self, id: CreatureId) {
+    pub(crate) fn lizard_flee(&mut self, id: CreatureId) {
         let most = self.world.lizard_ref(id).ai.threat.most_threatening;
         let most_guess = most.map(|k| self.lizard_rep_guess(id, k));
         let pos = self.world.creature(id).pos;
@@ -115,7 +115,7 @@ impl RainWorldGame {
     /// none of them ported. Tracked over 120 ticks
     /// with the jaw ready, it bites the target when a chunk of it is in reach; else
     /// more than five such frames end in a snap of the jaws.
-    pub(super) fn lizard_aggressive_behavior(
+    pub(crate) fn lizard_aggressive_behavior(
         &mut self,
         id: CreatureId,
         target: RepKey,
@@ -238,7 +238,7 @@ impl RainWorldGame {
 
     /// `UnpleasantFallRisk(tile)`: the tile's fall would land in water, out of the room,
     /// more than 20 tiles down, or more than 10 down where it cannot get back from.
-    pub(super) fn lizard_unpleasant_fall_risk(&self, id: CreatureId, tile: (i32, i32)) -> bool {
+    pub(crate) fn lizard_unpleasant_fall_risk(&self, id: CreatureId, tile: (i32, i32)) -> bool {
         let room = self.lizard_room(id);
         let Some(map) = self.world.realized(room).and_then(|r| r.ai_map.as_deref()) else {
             return false;
@@ -269,7 +269,7 @@ impl RainWorldGame {
 
     /// `BitCreature(chunk)`: unless its tile risks an unpleasant fall, it shakes the
     /// prey (forced). The obstacle tracker is never made for lizards.
-    pub(super) fn lizard_bit_creature(&mut self, id: CreatureId) {
+    pub(crate) fn lizard_bit_creature(&mut self, id: CreatureId) {
         let tile = self.world.creature(id).pos.tile;
         if !self.lizard_unpleasant_fall_risk(id, tile) {
             self.lizard_enter_animation(id, LizardAnimation::ShakePrey, true);
@@ -278,7 +278,7 @@ impl RainWorldGame {
 
     /// The AI's `focusCreature` as the body reads it: its `VisualContact`, realized
     /// chunks and the template's relationship to it.
-    pub(super) fn lizard_focus(&mut self, id: CreatureId) -> Option<LizardFocus> {
+    pub(crate) fn lizard_focus(&mut self, id: CreatureId) -> Option<LizardFocus> {
         let k = self.world.lizard_ref(id).ai.focus_creature?;
         let (mut t, rel) = self.take_lizard_perception(id);
         let seen = t

@@ -32,7 +32,7 @@ impl Default for DevRainControl {
 impl RainWorldGame {
     /// `RainCycle.Update`'s timers, held back or sped up by the dev control (the water
     /// cycle and the broken antigravity switch run as usual). Unused, it is the plain update.
-    pub(super) fn dev_update_rain_timers(&mut self) {
+    pub(crate) fn dev_update_rain_timers(&mut self) {
         let control = self.dev_rain;
         let cycle = &mut self.world.rain_cycle;
         if !control.paused {

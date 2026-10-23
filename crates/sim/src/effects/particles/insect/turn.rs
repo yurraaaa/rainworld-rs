@@ -10,8 +10,12 @@
 //!
 //! Mirrors: RoomCamera.cs (ChangeRoom: the rooms' NowViewed and NoLongerViewed), Room.cs (Update: the insects' turns), FireFly.cs (Update: its light)
 
-use super::{RainWorldGame, RoomObject};
+#[cfg(test)]
+#[path = "tests/turn.rs"]
+mod tests;
+
 use crate::creature::{CreatureId, RealizedCreature};
+use crate::game::{RainWorldGame, RoomObject};
 use crate::insect::{
     CosmeticInsect, FireFlyLight, InsectBody, InsectCreature, InsectCreatureSlot, InsectCx,
     InsectWater,
@@ -20,7 +24,7 @@ use crate::{LightSource, LightTie, Vec2};
 
 /// Camera 0 moved between rooms; the insects follow on the next tick's camera update.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) struct InsectViewChange {
+pub(crate) struct InsectViewChange {
     /// The room the camera left (`None` for a session's first room).
     pub from: Option<i32>,
     pub to: i32,
@@ -30,7 +34,7 @@ impl RainWorldGame {
     /// `RoomCamera.ChangeRoom`'s insect part, pending since the camera moved: the old
     /// room's `NoLongerViewed`, then the new one's `NowViewed` (none for a move within
     /// one room).
-    pub(super) fn apply_insect_view_change(&mut self) {
+    pub(crate) fn apply_insect_view_change(&mut self) {
         let Some(change) = self.insect_view.take() else {
             return;
         };
@@ -94,7 +98,7 @@ impl RainWorldGame {
     }
 
     /// The insects in room `index`'s update list.
-    pub(super) fn room_insect_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
+    pub(crate) fn room_insect_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         self.world
             .realized(index)
             .and_then(|r| r.insects.as_ref())
@@ -110,7 +114,7 @@ impl RainWorldGame {
     /// The `Update` of the insect that joined room `index` at `order`, reading the room's
     /// creatures as `creatures` (made at its turn when `None`), then its firefly light's
     /// step; a destroyed insect leaves the room.
-    pub(super) fn run_insect(
+    pub(crate) fn run_insect(
         &mut self,
         index: i32,
         order: u64,
@@ -205,7 +209,7 @@ impl RainWorldGame {
     }
 
     /// Whether the insect a light is tied to has left room `index`'s update list.
-    pub(super) fn insect_tie_gone(&self, index: i32, order: u64) -> bool {
+    pub(crate) fn insect_tie_gone(&self, index: i32, order: u64) -> bool {
         !self
             .world
             .realized(index)
@@ -218,7 +222,7 @@ impl RainWorldGame {
     }
 
     /// `room.abstractRoom.creatures` of room `index` with the bodies the insects read.
-    pub(super) fn insect_creatures(&self, index: i32) -> Vec<InsectCreatureSlot> {
+    pub(crate) fn insect_creatures(&self, index: i32) -> Vec<InsectCreatureSlot> {
         self.world
             .room_creatures(index)
             .iter()

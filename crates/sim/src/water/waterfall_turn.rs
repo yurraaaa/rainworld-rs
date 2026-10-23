@@ -1,14 +1,14 @@
 //! A waterfall's turn in its room's update list: its drips and bubbles joining the room, and
 //! the bodies it pushes (every physical object of the room except a player holding up).
-//! Types: [`crate::water::waterfall`]. Made in [`super::light_fixtures`].
+//! Types: [`crate::water::waterfall`]. Made in [`crate::effects::lights::light_fixture_turn`].
 //!
 //! Mirrors: WaterFall.cs (Update)
 
-use super::RainWorldGame;
+use crate::game::RainWorldGame;
 
 impl RainWorldGame {
     /// `WaterFall.Update` of the fall at `order` in room `index`.
-    pub(super) fn run_waterfall(&mut self, index: i32, order: u64) {
+    pub(crate) fn run_waterfall(&mut self, index: i32, order: u64) {
         let player_room = self.pos().room;
         let player_seq = self.player_seq;
         let here = self

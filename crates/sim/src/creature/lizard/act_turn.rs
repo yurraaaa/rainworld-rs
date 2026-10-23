@@ -14,11 +14,11 @@ use std::sync::Arc;
 use rw_assets::shortcut::FOUR_DIRECTIONS;
 use rw_assets::{CreatureType, Room, ShortcutType, Terrain};
 
-use super::lizard_hunt::LizardFocus;
-use super::{PlayerObserver, RainWorldGame};
+use crate::creature::lizard::hunt_turn::LizardFocus;
 use crate::creature::lizard::{AnimationOutcome, LizardBehavior, LizardEmotion, MovementAnimation};
 use crate::creature::{CreatureId, LizardAnimation, RelationshipType, WorldCoordinate};
 use crate::game::shortcut::{CreatureVessel, ShortcutVessel, Transport};
+use crate::game::{PlayerObserver, RainWorldGame};
 use crate::item::Entity;
 use crate::physics::room_ext::RoomExt;
 use crate::world::{Accessibility, AiMap, MovementConnection, MovementType};
@@ -100,7 +100,7 @@ impl RainWorldGame {
     /// gripping a pole, the movement animation, swimming or following the connection;
     /// without a move, a random step onto accessible ground or a nudge of the middle.
     /// Last the desperate shove, the shake and the wiggle.
-    pub(super) fn lizard_act(&mut self, index: i32, id: CreatureId) {
+    pub(crate) fn lizard_act(&mut self, index: i32, id: CreatureId) {
         self.lizard_ai_update(index, id);
         if self
             .world
@@ -476,7 +476,7 @@ impl RainWorldGame {
     /// body along `loungeDir` (a breed that can exit lounges only while hunting a seen
     /// focus), ending in a snap of the jaws; the shake runs at 0.75. A post-lounge stun
     /// slows it to a tenth.
-    pub(super) fn lizard_act_animation(&mut self, id: CreatureId) -> f32 {
+    pub(crate) fn lizard_act_animation(&mut self, id: CreatureId) -> f32 {
         let holding = self.lizard_holding(id);
         let focus = match self.world.lizard_ref(id).animation {
             LizardAnimation::ThreatSpotted
@@ -629,7 +629,7 @@ impl RainWorldGame {
     /// voice. The lounge sets its delay (a draw), its direction (toward the realized
     /// focus creature), leaves at once when that points backward for a breed that can
     /// exit lounges, and plays its sounds.
-    pub(super) fn lizard_enter_animation(
+    pub(crate) fn lizard_enter_animation(
         &mut self,
         id: CreatureId,
         anim: LizardAnimation,
@@ -1309,7 +1309,7 @@ impl RainWorldGame {
     /// object's chunks are pulled into the entrance (4.5 px a tick, slowed to 6%),
     /// `SuckedIntoShortCut` once none of the lizard's own chunks still moves; a stun
     /// cancels. Returns false when it is not entering.
-    pub(super) fn lizard_pull_into_shortcut(
+    pub(crate) fn lizard_pull_into_shortcut(
         &mut self,
         index: i32,
         id: CreatureId,

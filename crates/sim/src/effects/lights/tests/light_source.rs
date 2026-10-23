@@ -1,4 +1,3 @@
-
 use super::{LightHardSet, LightSource, LightSourceTick, LightTie};
 use crate::Vec2;
 

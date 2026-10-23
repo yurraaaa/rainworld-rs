@@ -10,13 +10,13 @@ use rw_assets::world::{FixedRoom, LoadedRoom, WorldData};
 use rw_assets::{ActiveMods, CreatureType, RoomSettings};
 use rw_random::UnityRandom;
 
-use super::super::OverseerCall;
 use crate::campaign::{SlugcatCampaign, StoryStart};
 use crate::creature::fly::FlyRoomTick;
 use crate::creature::{
     Community, CreatureId, CreatureTemplate, DamageType, EntityId, RealizedCreature,
     ViolenceTemplate, WorldCoordinate,
 };
+use crate::game::OverseerCall;
 use crate::item::{AbstractObject, Entity, ObjectId, SpearStickKind, WeaponMode};
 use crate::tests::room;
 use crate::world::World;

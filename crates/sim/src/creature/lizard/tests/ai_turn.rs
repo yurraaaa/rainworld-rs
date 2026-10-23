@@ -7,10 +7,10 @@
 use rw_random::UnityRandom;
 
 use crate::creature::lizard::LizardBehavior;
+use crate::creature::lizard::perception_turn::tests::{HALL, game};
 use crate::creature::{
     CreatureId, NodeFinderStatus, RelationshipType, UtilityModule, WorldCoordinate,
 };
-use crate::game::lizard_perception::tests::{HALL, game};
 use crate::world::{Legality, MovementConnection, MovementType, PathCost};
 use crate::{Input, RainWorldGame};
 

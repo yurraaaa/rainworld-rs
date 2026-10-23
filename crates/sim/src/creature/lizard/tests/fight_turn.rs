@@ -7,10 +7,10 @@
 
 use rw_random::UnityRandom;
 
+use crate::creature::lizard::hits_turn::ChunkRef;
+use crate::creature::lizard::perception_turn::tests::{HALL, game};
 use crate::creature::lizard::{LizardBehavior, LizardCommunication, LizardGraphicsLink};
 use crate::creature::{CreatureId, LizardAnimation, MissionKind, RelationshipType, RepKey};
-use crate::game::lizard_hits::ChunkRef;
-use crate::game::lizard_perception::tests::{HALL, game};
 use crate::item::Entity;
 use crate::{FloatExt, RainWorldGame};
 

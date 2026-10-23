@@ -5,9 +5,9 @@
 
 use rw_assets::{CreatureType, SlugcatName};
 
-use super::{PlayerObserver, RainWorldGame, RoomObject};
 use crate::creature::CreatureId;
 use crate::creature::overseer::{HoloLightTick, HologramLight, LightSourceStep, OverseerMode};
+use crate::game::{PlayerObserver, RainWorldGame, RoomObject};
 use crate::{LightSource, LightTie};
 
 /// `HologramLight`'s light: `new Color(1, 0.8, 0.3)`.
@@ -17,7 +17,7 @@ impl RainWorldGame {
     /// `Player.Update` for the Monk in room `index`: in the dark (`Needed` above 0.5),
     /// without the glow, outside shelters and gates, in a story whose guide likes the
     /// player above -0.8 and is not angry, `HologramLight.TryCreate`.
-    pub(super) fn monk_hologram_light(&mut self, index: i32) {
+    pub(crate) fn monk_hologram_light(&mut self, index: i32) {
         if self.campaign.name != SlugcatName::Yellow
             || self.story.the_glow
             || self.holo_light_needed() <= 0.5
@@ -120,7 +120,7 @@ impl RainWorldGame {
             .and_then(|c| c.holo_light)
     }
 
-    pub(super) fn room_holo_light_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
+    pub(crate) fn room_holo_light_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         self.world.realized(index).map_or_else(Vec::new, |r| {
             r.holo_lights
                 .iter()
@@ -130,7 +130,7 @@ impl RainWorldGame {
         })
     }
 
-    pub(super) fn remove_slated_holo_lights(&mut self, index: i32) {
+    pub(crate) fn remove_slated_holo_lights(&mut self, index: i32) {
         if let Some(r) = self.world.realized_mut(index) {
             r.holo_lights.retain(|l| !l.slated);
             r.light_sources.retain(|l| !l.slated);
@@ -138,7 +138,7 @@ impl RainWorldGame {
     }
 
     /// The light `id`'s `Update` in its slot of room `index`'s update list.
-    pub(super) fn run_holo_light(
+    pub(crate) fn run_holo_light(
         &mut self,
         index: i32,
         id: u64,

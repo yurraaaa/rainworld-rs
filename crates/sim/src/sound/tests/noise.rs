@@ -1,4 +1,3 @@
-
 use super::*;
 use crate::Contact;
 use crate::creature::CreatureId;

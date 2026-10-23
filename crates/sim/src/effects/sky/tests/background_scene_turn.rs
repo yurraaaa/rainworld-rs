@@ -8,8 +8,8 @@
 use rw_assets::{RoomEffect, RoomEffectType};
 use rw_random::UnityRandom;
 
-use super::RoomObject;
-use crate::game::lizard_perception::tests::{HALL, game};
+use crate::creature::lizard::perception_turn::tests::{HALL, game};
+use crate::game::RoomObject;
 use crate::{ElementKind, Input, RainWorldGame, Vec2};
 
 impl RainWorldGame {

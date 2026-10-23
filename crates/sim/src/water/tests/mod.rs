@@ -1,4 +1,3 @@
-
 //! Expected values are derived by hand from `water.md` sections 1-2 and the
 //! `Water` / `BodyChunk.Update` formulas quoted in the comments.
 

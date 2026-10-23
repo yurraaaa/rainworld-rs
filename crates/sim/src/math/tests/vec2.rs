@@ -1,4 +1,3 @@
-
 use super::*;
 
 /// `Vector2.ClampMagnitude`: `(x / length * max, y / length * max)` above the maximum.

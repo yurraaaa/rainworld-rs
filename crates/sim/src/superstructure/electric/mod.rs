@@ -5,4 +5,5 @@
 pub(crate) mod fuses;
 pub(crate) mod light_rod;
 pub(crate) mod room_fixtures;
+pub(crate) mod turn;
 pub(crate) mod zap_coil;

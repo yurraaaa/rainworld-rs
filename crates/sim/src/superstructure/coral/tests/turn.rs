@@ -10,7 +10,7 @@ use rw_assets::world::{FixedRoom, LoadedRoom, WorldData};
 use rw_assets::{ActiveMods, CreatureType, PlacedObject, Room, RoomEffect, RoomSettings};
 use rw_random::UnityRandom;
 
-use super::super::lights::tests::WithGraphics;
+use crate::effects::lights::turn::tests::WithGraphics;
 use rw_assets::{ClipNames, SoundTable};
 
 use super::{CoralRef, RoomObject};
@@ -25,16 +25,12 @@ use crate::{
 };
 
 /// A 40 x 20 room with three rows of floor, the player standing on it at (2, 3).
-pub(in crate::game) fn coral_game(
-    placed: &str,
-    effects: &[(&str, f32)],
-    ticks: usize,
-) -> RainWorldGame {
+pub(crate) fn coral_game(placed: &str, effects: &[(&str, f32)], ticks: usize) -> RainWorldGame {
     coral_game_with(placed, effects, ticks, Sounds::default())
 }
 
 /// [`coral_game`] with the room's `Sounds`.
-pub(in crate::game) fn coral_game_with(
+pub(crate) fn coral_game_with(
     placed: &str,
     effects: &[(&str, f32)],
     ticks: usize,

@@ -7,8 +7,8 @@
 //!
 //! Mirrors: Player.cs (SpearOnBack, CanPutSpearToBack, CanRetrieveSpearFromBack)
 
-use super::items::Grabability;
-use super::{PlayerHands, PlayerObserver, RainWorldGame};
+use crate::game::{PlayerHands, PlayerObserver, RainWorldGame};
+use crate::item::turn::Grabability;
 use crate::item::{Entity, ObjectId, WeaponMode};
 use crate::player::BackSpearDrop;
 use crate::{Animation, BodyMode, FloatExt, SoundId, SpearOnBack, Vec2};
@@ -18,7 +18,7 @@ const SWAP_TICKS: i32 = 20;
 
 impl RainWorldGame {
     /// The player's `spearOnBack`, copied.
-    pub(super) fn spear_on_back(&self) -> Option<SpearOnBack> {
+    pub(crate) fn spear_on_back(&self) -> Option<SpearOnBack> {
         self.player
             .as_ref()
             .and_then(|p| p.spear_on_back().copied())
@@ -31,14 +31,14 @@ impl RainWorldGame {
     }
 
     /// `CanPutSpearToBack`.
-    pub(super) fn can_put_spear_to_back(&self) -> bool {
+    pub(crate) fn can_put_spear_to_back(&self) -> bool {
         self.spear_on_back()
             .is_some_and(|s| !s.interaction_locked && s.spear.is_none())
     }
 
     /// `CanRetrieveSpearFromBack`: a spear on the back, unlocked, a free hand and nothing
     /// big held.
-    pub(super) fn can_retrieve_spear_from_back(&self) -> bool {
+    pub(crate) fn can_retrieve_spear_from_back(&self) -> bool {
         let Some(s) = self.spear_on_back() else {
             return false;
         };
@@ -58,14 +58,14 @@ impl RainWorldGame {
     }
 
     /// `spearOnBack.increment = on`.
-    pub(super) fn set_spear_increment(&mut self, on: bool) {
+    pub(crate) fn set_spear_increment(&mut self, on: bool) {
         if let Some(s) = self.spear_on_back_mut() {
             s.increment = on;
         }
     }
 
     /// `spearOnBack.interactionLocked = true`.
-    pub(super) fn lock_spear_on_back(&mut self) {
+    pub(crate) fn lock_spear_on_back(&mut self) {
         if let Some(s) = self.spear_on_back_mut() {
             s.interaction_locked = true;
         }
@@ -74,7 +74,7 @@ impl RainWorldGame {
     /// `SpearOnBack.Update`, first in `GrabUpdate`: while `increment` holds the counter
     /// runs; past 20 the back spear goes to a hand, or else the first held spear goes
     /// on the back (the head pushed 2 px away from it). Letting go of pick-up unlocks.
-    pub(super) fn spear_on_back_update(
+    pub(crate) fn spear_on_back_update(
         &mut self,
         index: i32,
         eu: bool,
@@ -129,7 +129,7 @@ impl RainWorldGame {
     /// `SpearToHand`: with nothing big held, the back spear goes to the first free hand
     /// (moved to that hand when there are graphics), `Slugcat_Pick_Up_Spear`, the stick
     /// ends.
-    pub(super) fn spear_to_hand(
+    pub(crate) fn spear_to_hand(
         &mut self,
         index: i32,
         eu: bool,
@@ -168,7 +168,7 @@ impl RainWorldGame {
 
     /// `SpearToBack`: the hand holding the spear lets go, the spear goes `OnBack`,
     /// `Slugcat_Stash_Spear_On_Back`, and a new on-back stick replaces the old one.
-    pub(super) fn spear_to_back(&mut self, index: i32, spear: ObjectId) {
+    pub(crate) fn spear_to_back(&mut self, index: i32, spear: ObjectId) {
         if self.spear_on_back().is_none_or(|s| s.spear.is_some()) {
             return;
         }
@@ -203,7 +203,7 @@ impl RainWorldGame {
     /// The `DropSpear` the slugcat made (`Stun`, `Die`, or laying it down), applied to
     /// the spear: its velocity, `ChangeMode(Free)` with the spin drawn then, the stick
     /// ended.
-    pub(super) fn apply_back_spear_drop(&mut self) {
+    pub(crate) fn apply_back_spear_drop(&mut self) {
         let Some(drop) = self
             .player
             .as_mut()
@@ -234,7 +234,7 @@ impl RainWorldGame {
     /// `flip`, spun round while being retrieved or stashed with sideways input, in front
     /// of the body when the body points down. Unconscious, or floating (`ZeroG`, gravity 0),
     /// it eases `flip` to 0 and lies along the back.
-    pub(super) fn spear_on_back_graphics_updated(&mut self, hands: Option<PlayerHands>) {
+    pub(crate) fn spear_on_back_graphics_updated(&mut self, hands: Option<PlayerHands>) {
         let Some(s) = self.spear_on_back() else {
             return;
         };

@@ -12,7 +12,7 @@ use crate::{HEAD, Vec2};
 
 impl RainWorldGame {
     /// `RegionState.ReportRoomVisited` for global room `index`.
-    pub(super) fn report_room_visited(&mut self, index: i32) {
+    pub(crate) fn report_room_visited(&mut self, index: i32) {
         let Some(name) = self.world.abstract_room(index).map(|r| r.name.clone()) else {
             return;
         };
@@ -59,7 +59,7 @@ impl RainWorldGame {
     }
 
     /// `Player.Update`'s first report of the room it is in (`addedSpawnRoomToDiscovery`).
-    pub(super) fn report_spawn_room(&mut self, index: i32) {
+    pub(crate) fn report_spawn_room(&mut self, index: i32) {
         let Some(player) = self.player.as_mut() else {
             return;
         };
@@ -75,7 +75,7 @@ impl RainWorldGame {
     /// the player move it lists the room's exits; after that, while the HUD map exists
     /// and the room is not dark, each move picks an exit (a draw) and, if the camera
     /// sees it, discovers up to 20 steps of 50 px towards it.
-    pub(super) fn player_map_discovery(&mut self, index: i32, room: &Room, moved: bool) {
+    pub(crate) fn player_map_discovery(&mut self, index: i32, room: &Room, moved: bool) {
         if !moved || !self.map_discovery_active() {
             return;
         }

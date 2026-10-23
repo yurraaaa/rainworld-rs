@@ -1,6 +1,6 @@
 //! The game's side of the depth-faded particles: `Room.Loaded` adding the
 //! `SkyDandelions` and `GreenSparks` objects (and, in the same effect loop, the
-//! `AboveCloudsView` and `RoofTopView` scenes of [`super::background_scene`]) (with the dandelions the spawner makes in
+//! `AboveCloudsView` and `RoofTopView` scenes of [`crate::effects::sky::background_scene_turn`]) (with the dandelions the spawner makes in
 //! its constructor), `Room.NowViewed` seeding sparks, specks and spores when camera 0
 //! comes to the room, each particle's turn in its room's update list, a spark's
 //! `LightSource`, and what the dandelion stalks read of the room's bodies. Types:
@@ -8,9 +8,13 @@
 //!
 //! Mirrors: Room.cs (Loaded, NowViewed: SkyDandelions, GreenSparks, ZeroGSpecks, CorruptionSpores), GreenSparks.cs (GreenSpark.Update: its light)
 
+#[cfg(test)]
+#[path = "tests/turn.rs"]
+mod tests;
+
 use rw_assets::{PlacedObjectType, ResizableData, RoomEffectType};
 
-use super::{RainWorldGame, RoomObject};
+use crate::game::{RainWorldGame, RoomObject};
 use crate::insect::InsectWater;
 use crate::superstructure::projections::projector::SuperStructureProjector;
 use crate::superstructure::projections::room_projections::RoomProjections;
@@ -28,7 +32,7 @@ const SPARK_LIGHT_RAD: f32 = 80.0;
 
 /// A particle in a room's update list.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum ParticleRef {
+pub(crate) enum ParticleRef {
     Dandelion(u64),
     Stalk(u64),
     DandelionSpawner(u64),
@@ -86,7 +90,7 @@ impl RainWorldGame {
     /// `Room.Loaded`'s effects loop: each effect's object (the sky dandelions with the
     /// dandelions their constructor scatters, the sparks, views, `Lightning`,
     /// `ElectricDeath`, `RoomBorderPushBack`) joins the update list in the settings' order.
-    pub(super) fn add_room_effect_particles(&mut self, index: i32) {
+    pub(crate) fn add_room_effect_particles(&mut self, index: i32) {
         for (kind, amount) in self.particle_effects(index) {
             match kind {
                 RoomEffectType::SkyDandelions => self.add_sky_dandelions(index, amount),
@@ -167,7 +171,7 @@ impl RainWorldGame {
     /// `Room.NowViewed`'s particles: sparks seeded over the room, then the specks and
     /// spores, for each effect in the settings' order. Runs when camera 0 comes to
     /// room `index` (every time, so revisiting a room seeds it again).
-    pub(super) fn particles_now_viewed(&mut self, index: i32) {
+    pub(crate) fn particles_now_viewed(&mut self, index: i32) {
         let effects = self.particle_effects(index);
         let Some(r) = self.world.realized(index) else {
             return;
@@ -232,7 +236,7 @@ impl RainWorldGame {
     }
 
     /// The room's particles in its update list.
-    pub(super) fn room_particle_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
+    pub(crate) fn room_particle_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         let Some(r) = self.world.realized(index) else {
             return Vec::new();
         };
@@ -280,7 +284,7 @@ impl RainWorldGame {
     }
 
     /// The particle's `Update` in its slot of room `index`'s update list.
-    pub(super) fn run_particle(&mut self, index: i32, particle: ParticleRef) {
+    pub(crate) fn run_particle(&mut self, index: i32, particle: ParticleRef) {
         match particle {
             ParticleRef::Dandelion(order) => self.run_dandelion(index, order),
             ParticleRef::Stalk(order) => self.run_dandelion_stalk(index, order),
@@ -292,7 +296,7 @@ impl RainWorldGame {
     }
 
     /// Drops the particles destroyed during room `index`'s update.
-    pub(super) fn remove_slated_particles(&mut self, index: i32) {
+    pub(crate) fn remove_slated_particles(&mut self, index: i32) {
         if let Some(r) = self.world.realized_mut(index) {
             r.particles.remove_slated();
         }
@@ -480,7 +484,7 @@ impl RainWorldGame {
 
     /// `LightSource.Update`'s `tiedToObject.slatedForDeletetion || room != room`, for a
     /// green spark's light.
-    pub(super) fn green_spark_tie_gone(&self, index: i32, order: u64) -> bool {
+    pub(crate) fn green_spark_tie_gone(&self, index: i32, order: u64) -> bool {
         !self.world.realized(index).is_some_and(|r| {
             r.particles
                 .sparks

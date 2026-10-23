@@ -1,4 +1,3 @@
-
 use super::*;
 
 const A07: &str = "Spot<tA>event<tB>MusicEvent<eA>songName<eB>NA_01 - Proxima<eA>vol<eB>0.3108693<tA>multiUse<tB>0<tA>toCycle<tB>-1<tA>fromCycle<tB>0<tA>delay<tB>0<tA>fireChance<tB>1<tA>entrance<tB>-1<tA>karma<tB>0<tA>slugcats<tB><tA>pos<tB>710.0718<tB>289.2014<tA>handlePos<tB>-103.3553<tB>-215.3553";

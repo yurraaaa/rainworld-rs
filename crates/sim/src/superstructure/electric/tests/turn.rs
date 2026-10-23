@@ -10,8 +10,8 @@ use rw_assets::world::{FixedRoom, LoadedRoom, WorldData};
 use rw_assets::{ActiveMods, PlacedObject, Room, RoomEffect, RoomSettings};
 use rw_random::UnityRandom;
 
-use super::super::lights::tests::WithGraphics;
 use crate::campaign::{SlugcatCampaign, StoryStart};
+use crate::effects::lights::turn::tests::WithGraphics;
 use crate::superstructure::electric::room_fixtures::FixtureRef;
 use crate::tests::room_with_water;
 use crate::world::World;

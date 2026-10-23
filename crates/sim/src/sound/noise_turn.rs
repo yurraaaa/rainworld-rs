@@ -6,8 +6,8 @@
 
 use rw_random::UnityRandom;
 
-use super::RainWorldGame;
 use crate::creature::fly::PlayerBody;
+use crate::game::RainWorldGame;
 use crate::game::camera::CameraView;
 use crate::item::Entity;
 use crate::world::World;
@@ -15,7 +15,7 @@ use crate::{CameraShake, InGameNoise, NoiseSink, ScreenMovement, Vec2, VineAcces
 
 /// The player's noises and screen movements while it updates in `room` (whose water
 /// it holds).
-pub(super) struct PlayerHearing<'a> {
+pub(crate) struct PlayerHearing<'a> {
     pub world: &'a mut World,
     pub room: i32,
     pub water: Option<&'a Water>,
@@ -48,14 +48,14 @@ impl NoiseSink for PlayerHearing<'_> {
 
 impl RainWorldGame {
     /// `room.InGameNoise(noise)` in room `index`.
-    pub(super) fn room_noise(&mut self, index: i32, noise: InGameNoise) {
+    pub(crate) fn room_noise(&mut self, index: i32, noise: InGameNoise) {
         let player = self.player_body();
         self.world
             .in_game_noise(index, noise, None, player.as_ref(), &mut self.rng);
     }
 
     /// What hears the player's noises while it updates in room `index` (it is there).
-    pub(super) fn player_hearing_body(&self, index: i32) -> Option<PlayerBody> {
+    pub(crate) fn player_hearing_body(&self, index: i32) -> Option<PlayerBody> {
         self.player_body().map(|b| PlayerBody {
             room: Some(index),
             ..b

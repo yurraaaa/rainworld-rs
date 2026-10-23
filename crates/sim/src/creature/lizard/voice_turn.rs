@@ -5,9 +5,9 @@
 
 use std::sync::Arc;
 
-use super::{RainWorldGame, RoomObject};
 use crate::creature::CreatureId;
 use crate::creature::lizard::{LizardEmotion, LizardVoice, VoiceCx};
+use crate::game::{RainWorldGame, RoomObject};
 
 impl RainWorldGame {
     /// Lizard `id`'s voice, built from the game's sound table the first time.
@@ -29,7 +29,7 @@ impl RainWorldGame {
     }
 
     /// `voice.MakeSound(emotion)`: the intensity's draw, then the sound.
-    pub(super) fn lizard_voice(&mut self, id: CreatureId, emotion: LizardEmotion) {
+    pub(crate) fn lizard_voice(&mut self, id: CreatureId, emotion: LizardEmotion) {
         let holding = self.lizard_holding(id);
         let conscious = self.world.lizard_ref(id).conscious();
         self.lizard_voice_mut(id);
@@ -39,7 +39,7 @@ impl RainWorldGame {
     }
 
     /// `voice.MakeSound(emotion, intensity)`.
-    pub(super) fn lizard_voice_with(
+    pub(crate) fn lizard_voice_with(
         &mut self,
         id: CreatureId,
         emotion: LizardEmotion,
@@ -52,7 +52,7 @@ impl RainWorldGame {
     }
 
     /// `voice.Update()` of lizard `id` in room `index`.
-    pub(super) fn lizard_voice_update(&mut self, index: i32, id: CreatureId) {
+    pub(crate) fn lizard_voice_update(&mut self, index: i32, id: CreatureId) {
         let holding = self.lizard_holding(id);
         self.lizard_voice_mut(id);
         let table = Arc::clone(self.sounds.table());
@@ -86,7 +86,7 @@ impl RainWorldGame {
     }
 
     /// The lizards' voice emitters, held or released, in room `index`'s update list.
-    pub(super) fn room_lizard_voice_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
+    pub(crate) fn room_lizard_voice_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         self.world
             .creatures()
             .filter_map(|(id, c)| Some((id, c.lizard()?.voice.as_ref()?)))
@@ -102,7 +102,7 @@ impl RainWorldGame {
     /// The `ChunkSoundEmitter.Update` of lizard `owner`'s voice emitter that joined room
     /// `index` at `order`: it follows the head, and dies when its owner left the room or
     /// nothing kept it alive since its last update; its sound is cut then.
-    pub(super) fn run_lizard_voice_emitter(&mut self, index: i32, owner: CreatureId, order: u64) {
+    pub(crate) fn run_lizard_voice_emitter(&mut self, index: i32, owner: CreatureId, order: u64) {
         let Some(l) = self.world.creature_mut(owner).lizard_mut() else {
             return;
         };

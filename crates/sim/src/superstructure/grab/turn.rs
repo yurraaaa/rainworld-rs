@@ -9,15 +9,15 @@
 
 use rw_assets::{DeepProcessingData, RoomEffectType};
 
-use super::RainWorldGame;
 use crate::Vec2;
+use crate::game::RainWorldGame;
 use crate::superstructure::grab::deep_processing::{DeepProcessing, DeepProcessingLight};
 use crate::superstructure::grab::gravity_disruptor::{GravityDisruptor, SPECKS};
 use crate::world::RealizedRoom;
 
 impl RainWorldGame {
     /// `Room.Loaded`'s `new DeepProcessing(placedObject)`.
-    pub(super) fn add_deep_processing(&mut self, index: i32, pos: Vec2, data: DeepProcessingData) {
+    pub(crate) fn add_deep_processing(&mut self, index: i32, pos: Vec2, data: DeepProcessingData) {
         let order = self.world.next_update_seq();
         if let Some(r) = self.world.realized_mut(index) {
             r.fixtures
@@ -28,7 +28,7 @@ impl RainWorldGame {
 
     /// `Room.Loaded`'s `new DeepProcessingLight(room, placedObject, data)`: its light
     /// joins the room first.
-    pub(super) fn add_deep_processing_light(&mut self, index: i32, pos: Vec2, random_seed: i32) {
+    pub(crate) fn add_deep_processing_light(&mut self, index: i32, pos: Vec2, random_seed: i32) {
         let light = self.world.next_update_seq();
         let order = self.world.next_update_seq();
         if let Some(r) = self.world.realized_mut(index) {
@@ -46,7 +46,7 @@ impl RainWorldGame {
     /// `Room.Loaded`'s `new GravityDisruptor(placedObject, room)`: the depth from the tile
     /// it sits on (0 in a solid one, 1 with a wall behind, else 2), then the twenty specks
     /// (joining the room, with their draws), then the rest of its draws.
-    pub(super) fn add_gravity_disruptor(&mut self, index: i32, pos: Vec2) {
+    pub(crate) fn add_gravity_disruptor(&mut self, index: i32, pos: Vec2) {
         let Some(tile) = self.world.realized(index).map(|r| {
             let (x, y) = pos.tile();
             r.room.tile(x, y)
@@ -76,14 +76,14 @@ impl RainWorldGame {
     /// Whether room `index` is the session's first room, whose `NowViewed` (the constructor's
     /// `MoveCamera`) comes before its `AIMapReady` (a later `RoomPreparer.Update`); a room
     /// realized ahead of the camera has its `AIMapReady` before the camera enters.
-    pub(super) fn awaiting_first_view(&self, index: i32) -> bool {
+    pub(crate) fn awaiting_first_view(&self, index: i32) -> bool {
         self.insect_view
             .is_some_and(|v| v.from.is_none() && v.to == index)
     }
 
     /// `AIMapReady` of every `GravityDisruptor` of room `index`: `roomSpecks` is every
     /// `GenericZeroGSpeck` in the update list now.
-    pub(super) fn link_gravity_disruptors(&mut self, index: i32) {
+    pub(crate) fn link_gravity_disruptors(&mut self, index: i32) {
         if let Some(r) = self.world.realized_mut(index) {
             let specks: Vec<u64> = r.particles.specks.iter().map(|s| s.update_order).collect();
             for d in &mut r.fixtures.gravity_disruptors {
@@ -93,7 +93,7 @@ impl RainWorldGame {
     }
 
     /// `DeepProcessing.Update` of the quad at `order` in room `index`.
-    pub(super) fn run_deep_processing(&mut self, index: i32, order: u64) {
+    pub(crate) fn run_deep_processing(&mut self, index: i32, order: u64) {
         let cycle = self.world.rain_cycle;
         let Some(r) = self.world.realized_mut(index) else {
             return;
@@ -110,7 +110,7 @@ impl RainWorldGame {
     }
 
     /// `DeepProcessingLight.Update` of the light at `order` in room `index`.
-    pub(super) fn run_deep_processing_light(&mut self, index: i32, order: u64) {
+    pub(crate) fn run_deep_processing_light(&mut self, index: i32, order: u64) {
         let cycle = self.world.rain_cycle;
         let Some(r) = self.world.realized_mut(index) else {
             return;
@@ -133,7 +133,7 @@ impl RainWorldGame {
     /// `GravityDisruptor.Update` of the disruptor at `order` in room `index`: it follows
     /// its placed object, swirls the room's chunks and specks while it has power, then
     /// the streaks and the power.
-    pub(super) fn run_gravity_disruptor(&mut self, index: i32, order: u64) {
+    pub(crate) fn run_gravity_disruptor(&mut self, index: i32, order: u64) {
         let Some(mut d) = self.world.realized(index).and_then(|r| {
             r.fixtures
                 .gravity_disruptors
@@ -207,7 +207,7 @@ impl RainWorldGame {
     }
 
     /// `DisruptorSpeck.Update` of the speck at `order` in room `index`.
-    pub(super) fn run_disruptor_speck(&mut self, index: i32, order: u64) {
+    pub(crate) fn run_disruptor_speck(&mut self, index: i32, order: u64) {
         let Some(r) = self.world.realized_mut(index) else {
             return;
         };

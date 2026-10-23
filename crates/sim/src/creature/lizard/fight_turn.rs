@@ -7,12 +7,12 @@
 //!
 //! Mirrors: LizardAI.cs (Update's Fighting and ActingOutMission bodies, SendCommunication, RecieveCommunication), Lizard.cs (Collide's rival anger), MissionTracker.cs (ActOnMostImportantMission)
 
-use super::RainWorldGame;
 use crate::FloatExt;
 use crate::creature::lizard::{LizardCommunication, LizardEmotion};
 use crate::creature::{
     CreatureId, LizardAnimation, Mission, MissionData, RelationshipType, RepKey,
 };
+use crate::game::RainWorldGame;
 
 impl RainWorldGame {
     /// The Fighting body: the focus is the aggression target. Seen within 160 px and
@@ -21,7 +21,7 @@ impl RainWorldGame {
     /// stance. At a realized lizard a 1/20 draw, then one under the relationship's
     /// intensity, sends it the aggression signal; then `AggressiveBehavior` (tongue
     /// chance 0.025).
-    pub(super) fn lizard_fighting(&mut self, id: CreatureId) {
+    pub(crate) fn lizard_fighting(&mut self, id: CreatureId) {
         let target = self.world.lizard_ref(id).ai.agression.target();
         self.world.lizard_at(id).ai.focus_creature = target;
         let Some(k) = target else { return };
@@ -62,7 +62,7 @@ impl RainWorldGame {
     /// It looks at the other; with a graphics module its dominance display grows
     /// (aggression) or shrinks (submission) by a draw; it voices dominance or
     /// submission; the other receives the signal.
-    pub(super) fn lizard_send_communication(
+    pub(crate) fn lizard_send_communication(
         &mut self,
         id: CreatureId,
         other: CreatureId,
@@ -100,7 +100,7 @@ impl RainWorldGame {
     /// base anger 0, the sender remembered as the one submitted to, and a mission to
     /// leave the room (0.4, forgotten after 1000 ticks). Submission settles its anger
     /// at the sender to 0, the base kept.
-    pub(super) fn lizard_recieve_communication(
+    pub(crate) fn lizard_recieve_communication(
         &mut self,
         id: CreatureId,
         sender: CreatureId,
@@ -162,7 +162,7 @@ impl RainWorldGame {
 
     /// `Lizard.Collide`'s rivalry: touching an aggressive rival it has not submitted to
     /// angers it by `0.05 * intensity` (after it has seen it).
-    pub(super) fn lizard_rival_touch(&mut self, id: CreatureId, other: CreatureId) {
+    pub(crate) fn lizard_rival_touch(&mut self, id: CreatureId, other: CreatureId) {
         let rel = self.world.dynamic_relationship(id, other);
         if rel.kind != RelationshipType::AgressiveRival
             || self.world.lizard_ref(id).ai.submitted_to == Some(other)
@@ -179,7 +179,7 @@ impl RainWorldGame {
 
     /// The ActingOutMission body: the most relevant mission acts, and `runSpeed` eases
     /// toward 0.6 by a twentieth.
-    pub(super) fn lizard_acting_out_mission(&mut self, id: CreatureId) {
+    pub(crate) fn lizard_acting_out_mission(&mut self, id: CreatureId) {
         let current = self
             .world
             .lizard_ref(id)

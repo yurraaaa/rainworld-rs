@@ -1,8 +1,8 @@
 //! The game's side of the guide's room objects: `Room.Loaded`'s placed objects (with the
-//! placed lights, made in [`super::lights`]),
-//! the cosmetic slime molds and dead token stalks (made in [`super::placed_cosmetics`]),
-//! the custom decals and rainbows (made in [`super::decals`]), the projected stars (made in
-//! [`super::projections`]), the screen-grab effects (made in [`super::ss_grab`]),
+//! placed lights, made in [`crate::effects::lights::turn`]),
+//! the cosmetic slime molds and dead token stalks (made in [`crate::effects::particles::placed_cosmetics_turn`]),
+//! the custom decals and rainbows (made in [`crate::effects::particles::decal_turn`]), the projected stars (made in
+//! [`crate::superstructure::projections::turn`]), the screen-grab effects (made in [`crate::superstructure::grab::turn`]),
 //! `SuperJumpInstruction`, `ScavengerTradeInstructionTrigger` and `ReliableIggyDirection`,
 //! the `InputInstructionTrigger`s' updates (with the event-made
 //! `PickupObjectInstruction`), and what the guide's communication reads of them. Types:
@@ -81,7 +81,7 @@ impl RainWorldGame {
     /// triggers and the placed lights), in the room settings' order (inactive ones
     /// skipped), each joining the update list as it is made. Data the game could not
     /// parse (it throws) is skipped.
-    pub(super) fn add_placed_room_objects(&mut self, index: i32) {
+    pub(crate) fn add_placed_room_objects(&mut self, index: i32) {
         let (timeline, mods) = (self.world.timeline(), self.world.mods());
         let Some(realized) = self.world.realized(index) else {
             return;
@@ -209,7 +209,7 @@ impl RainWorldGame {
     }
 
     /// The input instruction objects, as the guide's communication reads them.
-    pub(super) fn input_instruction_views(&self) -> Vec<InputInstructionView> {
+    pub(crate) fn input_instruction_views(&self) -> Vec<InputInstructionView> {
         self.trigger_objects
             .iter()
             .filter_map(crate::trigger::TriggerObject::instruction_view)
@@ -217,7 +217,7 @@ impl RainWorldGame {
     }
 
     /// The `ReliableIggyDirection`s, as the guide reads them.
-    pub(super) fn forced_direction_views(&self) -> Vec<ForcedDirectionView> {
+    pub(crate) fn forced_direction_views(&self) -> Vec<ForcedDirectionView> {
         self.trigger_objects
             .iter()
             .filter_map(crate::trigger::TriggerObject::forced_direction_view)
@@ -225,7 +225,7 @@ impl RainWorldGame {
     }
 
     /// The overseer marked instruction `id` as followed and counted it.
-    pub(super) fn instruction_followed(&mut self, id: u64) {
+    pub(crate) fn instruction_followed(&mut self, id: u64) {
         if let Some(TriggerObjectKind::PickupInstruction(p)) = self
             .trigger_objects
             .iter_mut()
@@ -237,7 +237,7 @@ impl RainWorldGame {
     }
 
     /// The guide's controller set instruction `id`'s `completed`.
-    pub(super) fn instruction_completed(&mut self, id: u64) {
+    pub(crate) fn instruction_completed(&mut self, id: u64) {
         if let Some(t) = self
             .trigger_objects
             .iter_mut()
@@ -298,7 +298,7 @@ impl RainWorldGame {
     }
 
     /// `PickupObjectInstruction.Update` with its `InputInstructionTrigger` base.
-    pub(super) fn run_pickup_instruction(&mut self, index: i32, id: u64) {
+    pub(crate) fn run_pickup_instruction(&mut self, index: i32, id: u64) {
         let Some(TriggerObjectKind::PickupInstruction(mut state)) = self.trigger_kind(id) else {
             return;
         };
@@ -393,7 +393,7 @@ impl RainWorldGame {
 
     /// `SuperJumpInstruction.Update`: activated when the player's main chunk, not
     /// rising, crosses the trigger line; shown while `superJumpsShown <= 3`.
-    pub(super) fn run_super_jump_instruction(&mut self, index: i32, id: u64) {
+    pub(crate) fn run_super_jump_instruction(&mut self, index: i32, id: u64) {
         let Some(TriggerObjectKind::SuperJumpInstruction(mut s)) = self.trigger_kind(id) else {
             return;
         };
@@ -413,7 +413,7 @@ impl RainWorldGame {
     /// `ScavengerTradeInstructionTrigger.Update`: activated by a realized data pearl
     /// whose `originRoom` is this room (none is ever realized in the port), and
     /// deactivated while the first living player is realized in another room.
-    pub(super) fn run_scav_trade_instruction(&mut self, index: i32, id: u64) {
+    pub(crate) fn run_scav_trade_instruction(&mut self, index: i32, id: u64) {
         let Some(TriggerObjectKind::ScavTradeInstruction(mut s)) = self.trigger_kind(id) else {
             return;
         };
@@ -448,7 +448,7 @@ impl RainWorldGame {
     /// the radius (not standing at the exit unless `pointPlayerBack`): the guide in the
     /// room is activated once (counting the cycle), after that it is told to give this
     /// direction; without the guide in the room, the guide is brought to the player.
-    pub(super) fn run_iggy_direction(&mut self, index: i32, id: u64) {
+    pub(crate) fn run_iggy_direction(&mut self, index: i32, id: u64) {
         let Some(TriggerObjectKind::ReliableIggyDirection(mut d)) = self.trigger_kind(id) else {
             return;
         };

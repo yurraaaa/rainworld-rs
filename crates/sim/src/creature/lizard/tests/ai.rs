@@ -1,4 +1,3 @@
-
 use super::*;
 
 /// `LizardInjuryTracker.Utility`: `SCurve(InverseLerp(0.2, 0.9, 1 - health), 0.01)`,

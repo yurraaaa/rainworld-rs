@@ -17,7 +17,7 @@ use crate::{Input, Player, ShelterCheck, TileExt};
 impl RainWorldGame {
     /// `Room.Loaded`'s `new ShelterDoor(this)` for a shelter that finished loading (the
     /// ancient More Slugcats shelters are not ported).
-    pub(super) fn add_shelter_door(&mut self, index: i32) {
+    pub(crate) fn add_shelter_door(&mut self, index: i32) {
         self.shelter_doors
             .retain(|d| d.room != index && self.world.realized(d.room).is_some());
         let Some(data) = self.world.abstract_room(index) else {
@@ -69,7 +69,7 @@ impl RainWorldGame {
 
     /// The player constructor's `sleepCounter = 100` in a shelter whose room holds no
     /// creature but slugcats.
-    pub(super) fn player_wakes_in_shelter(&mut self, player: &mut Player) {
+    pub(crate) fn player_wakes_in_shelter(&mut self, player: &mut Player) {
         let room = self.pos().room;
         if !self.world.abstract_room(room).is_some_and(|r| r.shelter()) {
             return;
@@ -85,7 +85,7 @@ impl RainWorldGame {
     }
 
     /// `SleepUpdate` at the start of the player's update in room `index`.
-    pub(super) fn player_sleep_update(&mut self, room: &Room, input: Input) {
+    pub(crate) fn player_sleep_update(&mut self, room: &Room, input: Input) {
         let tile = self.pos().tile;
         if let Some(p) = self.player.as_mut() {
             p.sleep_update(room, input, tile, &mut self.rng);
@@ -95,7 +95,7 @@ impl RainWorldGame {
     /// The part of `Player.Update` between the bat-fly catch and the creature update:
     /// `touchedNoInputCounter`, the camera clamp, then the shelter block, which may
     /// close the door.
-    pub(super) fn player_shelter_step(&mut self, index: i32, room: &Room) {
+    pub(crate) fn player_shelter_step(&mut self, index: i32, room: &Room) {
         let check = self.shelter_check(index);
         let Some(p) = self.player.as_mut() else {
             return;
@@ -154,7 +154,7 @@ impl RainWorldGame {
     /// `ShelterDoor.Update` of room `index`'s door: the AI remap after opening, the stun
     /// of creatures in a closed or newly open shelter, `DoorClosed`, the sleep and
     /// starvation marks, the close tiles, and `KillAllHostiles`' check.
-    pub(super) fn update_shelter_door(&mut self, index: i32) {
+    pub(crate) fn update_shelter_door(&mut self, index: i32) {
         let Some(k) = self.shelter_doors.iter().position(|d| d.room == index) else {
             return;
         };
@@ -253,7 +253,7 @@ impl RainWorldGame {
     /// The door's `aiMapper`: 100 steps a tick; once done, in a room ready for AI, the
     /// room's AI map takes its tiles and every path finder in the room resets
     /// (`UpdatePathfindingCreatures`).
-    pub(super) fn run_shelter_ai_mapper(&mut self, index: i32, k: usize) {
+    pub(crate) fn run_shelter_ai_mapper(&mut self, index: i32, k: usize) {
         let Some(mapper) = self.shelter_doors[k].ai_mapper.as_mut() else {
             return;
         };

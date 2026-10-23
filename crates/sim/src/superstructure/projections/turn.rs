@@ -2,13 +2,13 @@
 //! (a `StarMatrix` joins the update list), each projection object's turn in the room's
 //! update list (the `SuperStructureProjector` and its parts, the `ProjectedScanLines` and
 //! its lines, the `StarMatrix`), and the shader's `_gridOffset`. The projectors and scan
-//! lines themselves are made by `Room.NowViewed` ([`super::particles`]). Types:
+//! lines themselves are made by `Room.NowViewed` ([`crate::effects::particles::turn`]). Types:
 //! [`crate::superstructure::projections::projector`], [`crate::superstructure::projections::scan_lines`], [`crate::superstructure::projections::star_matrix`].
 //!
 //! Mirrors: Room.cs (Loaded: ProjectedStars), SuperStructureProjector.cs (UpdateOffset), StarMatrix.cs (Update)
 
-use super::{RainWorldGame, RoomObject};
 use crate::Vec2;
+use crate::game::{RainWorldGame, RoomObject};
 use crate::superstructure::projections::projector::{PartKind, ProjectorFrame, SingleGlyph};
 use crate::superstructure::projections::room_projections::ProjectionRef;
 use crate::superstructure::projections::star_matrix::StarMatrix;
@@ -16,7 +16,7 @@ use crate::superstructure::projections::star_matrix::StarMatrix;
 impl RainWorldGame {
     /// `Room.Loaded`'s `new StarMatrix(placedObject)` for a `ProjectedStars` at `pos`
     /// whose handle makes `rad`.
-    pub(super) fn add_star_matrix(&mut self, index: i32, pos: Vec2, rad: f32) {
+    pub(crate) fn add_star_matrix(&mut self, index: i32, pos: Vec2, rad: f32) {
         let mut stars = StarMatrix::new(0, pos, rad, &mut self.rng);
         stars.update_order = self.world.next_update_seq();
         if let Some(r) = self.world.realized_mut(index) {
@@ -25,7 +25,7 @@ impl RainWorldGame {
     }
 
     /// Room `index`'s projections in its update list.
-    pub(super) fn room_projection_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
+    pub(crate) fn room_projection_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         self.world.realized(index).map_or_else(Vec::new, |r| {
             r.projections
                 .objects()
@@ -47,7 +47,7 @@ impl RainWorldGame {
     }
 
     /// The `Update` of projection object `p` in room `index`.
-    pub(super) fn run_projection(&mut self, index: i32, p: ProjectionRef) {
+    pub(crate) fn run_projection(&mut self, index: i32, p: ProjectionRef) {
         let Some(frame) = self.projector_frame(index) else {
             return;
         };
@@ -152,7 +152,7 @@ impl RainWorldGame {
     }
 
     /// Drops the projections destroyed during room `index`'s update.
-    pub(super) fn remove_slated_projections(&mut self, index: i32) {
+    pub(crate) fn remove_slated_projections(&mut self, index: i32) {
         if let Some(r) = self.world.realized_mut(index) {
             r.projections.remove_slated();
         }

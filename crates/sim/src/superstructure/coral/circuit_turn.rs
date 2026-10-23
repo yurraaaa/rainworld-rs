@@ -12,7 +12,7 @@
 
 use std::sync::Arc;
 
-use super::{RainWorldGame, RoomObject};
+use crate::game::{RainWorldGame, RoomObject};
 use crate::world::World;
 use crate::{
     BitCx, BitRef, CircuitBit, CircuitCx, CircuitPlace, CoralCircuit, MyceliumEnv, PushChunk,
@@ -21,7 +21,7 @@ use crate::{
 
 /// A circuit object in a room's update list.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum CircuitRef {
+pub(crate) enum CircuitRef {
     /// A `CircuitBit`: circuit and bit indices.
     Bit(u32, u32),
     /// A `CircuitConnector`: circuit and connector indices.
@@ -48,7 +48,7 @@ impl World {
 
 impl RainWorldGame {
     /// `new CoralCircuit(system, places)` and its `AddObject` in room `index`.
-    pub(super) fn add_coral_circuit(
+    pub(crate) fn add_coral_circuit(
         &mut self,
         index: i32,
         system: SystemId,
@@ -83,7 +83,7 @@ impl RainWorldGame {
     }
 
     /// Room `index`'s circuit objects in its update list.
-    pub(super) fn room_circuit_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
+    pub(crate) fn room_circuit_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         let Some(coral) = self.world.realized(index).and_then(|r| r.coral.as_ref()) else {
             return Vec::new();
         };
@@ -119,7 +119,7 @@ impl RainWorldGame {
     }
 
     /// The `Update` of a circuit object of room `index`.
-    pub(super) fn run_circuit_object(&mut self, index: i32, which: CircuitRef) {
+    pub(crate) fn run_circuit_object(&mut self, index: i32, which: CircuitRef) {
         match which {
             CircuitRef::Bit(c, b) => self.run_circuit_bit(index, c as usize, b as usize),
             CircuitRef::Connector(c, k) => {
@@ -321,7 +321,7 @@ impl RainWorldGame {
     }
 
     /// The positions the player's `swimBits` have now.
-    pub(super) fn refresh_player_swim_bits(&mut self) {
+    pub(crate) fn refresh_player_swim_bits(&mut self) {
         let Some(refs) = self.player.as_ref().map(|p| p.swim_bits()) else {
             return;
         };

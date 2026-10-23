@@ -6,7 +6,7 @@
 use rw_random::UnityRandom;
 
 use super::hologram::OverseerHologram;
-use crate::creature::ai::SeededRandom;
+use crate::creature::abstract_ai::SeededRandom;
 use crate::creature::{AbstractCreature, CreatureId};
 use crate::{BodyChunk, FloatExt, PhysicalObject, PhysicsParams, Vec2};
 

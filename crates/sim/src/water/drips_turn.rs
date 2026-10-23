@@ -6,13 +6,13 @@
 
 use std::sync::Arc;
 
-use super::{RainWorldGame, RoomObject};
 use crate::DrippingSound;
+use crate::game::{RainWorldGame, RoomObject};
 use crate::item::LoopCx;
 
 impl RainWorldGame {
     /// `Room.Update`'s ceiling drip in room `index`, viewed when camera 0 shows it.
-    pub(super) fn ambient_ceiling_drip(&mut self, index: i32) {
+    pub(crate) fn ambient_ceiling_drip(&mut self, index: i32) {
         let viewed = self.camera_room == index;
         let shelter = self.world.abstract_room(index).is_some_and(|r| r.shelter());
         let start_up = self.world.rain_cycle.cycle_start_up();
@@ -25,7 +25,7 @@ impl RainWorldGame {
     }
 
     /// `Room.Loaded`'s `DrippingSound`, after the trigger checkers.
-    pub(super) fn add_dripping_sound(&mut self, index: i32) {
+    pub(crate) fn add_dripping_sound(&mut self, index: i32) {
         let shelter = self.world.abstract_room(index).is_some_and(|r| r.shelter());
         let start_up = self.world.rain_cycle.cycle_start_up();
         let wanted = self
@@ -42,7 +42,7 @@ impl RainWorldGame {
     }
 
     /// Room `index`'s `DrippingSound` and its loop's emitters in its update list.
-    pub(super) fn room_dripping_sound_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
+    pub(crate) fn room_dripping_sound_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         let Some(d) = self
             .world
             .realized(index)
@@ -66,13 +66,13 @@ impl RainWorldGame {
     }
 
     /// The `DrippingSound`'s `Update` in room `index`.
-    pub(super) fn run_dripping_sound(&mut self, index: i32) {
+    pub(crate) fn run_dripping_sound(&mut self, index: i32) {
         let start_up = self.world.rain_cycle.cycle_start_up();
         self.with_dripping_sound(index, |d, cx| d.update(start_up, cx));
     }
 
     /// The `SoundEmitter.Update` of the `DrippingSound`'s emitter at `order`.
-    pub(super) fn run_dripping_sound_emitter(&mut self, index: i32, order: u64) {
+    pub(crate) fn run_dripping_sound_emitter(&mut self, index: i32, order: u64) {
         self.with_dripping_sound(index, |d, cx| d.update_emitter(order, cx));
     }
 

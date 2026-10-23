@@ -2,7 +2,7 @@
 //! back, and unused it changes nothing.
 
 use crate::Input;
-use crate::game::lizard_perception::tests::{HALL, game};
+use crate::creature::lizard::perception_turn::tests::{HALL, game};
 
 #[test]
 fn unused_the_timer_ticks_once_a_tick() {

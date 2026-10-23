@@ -8,9 +8,9 @@
 
 use rw_random::UnityRandom;
 
+use crate::creature::lizard::perception_turn::tests::{HALL, game};
 use crate::creature::lizard::{LizardBehavior, LizardGraphicsLink};
 use crate::creature::{CreatureId, LizardAnimation, RepKey, WorldCoordinate};
-use crate::game::lizard_perception::tests::{HALL, game};
 use crate::math::vec2::TileExt;
 use crate::world::{QuickConnectivity, SocialEventId};
 use crate::{FloatExt, RainWorldGame};

@@ -9,8 +9,8 @@
 
 use rw_assets::CreatureType;
 
-use super::{OverseerCall, PlayerObserver, RainWorldGame};
 use crate::creature::{CreatureId, CreatureTemplate, EntityId, RealizedCreature, WorldCoordinate};
+use crate::game::{OverseerCall, PlayerObserver, RainWorldGame};
 use crate::item::{Entity, ObjectId, WeaponMode};
 use crate::world::{LayerZero, UpdatePart};
 use crate::{FloatExt, SegmentRef, SoundId, Vec2};
@@ -20,7 +20,7 @@ impl RainWorldGame {
     /// when thrown, the room's creatures are told of it, the branch up to the layer-0
     /// walk, and the walk; then the physics and the rest, and a spear's impaled
     /// creatures held on it.
-    pub(super) fn run_weapon(
+    pub(crate) fn run_weapon(
         &mut self,
         index: i32,
         id: ObjectId,

@@ -10,9 +10,12 @@ mod ai;
 mod body;
 mod guide_state;
 mod holo_light;
+pub(crate) mod holo_light_turn;
 pub mod hologram;
+pub(crate) mod turn;
 mod tutorial;
 mod update;
+pub(crate) mod world_ai;
 
 pub(crate) use abstract_ai::{AbstractStep, GuideContext, Parent};
 pub use abstract_ai::{OverseerAbstractAi, TUTORIAL_ROOMS};

@@ -10,8 +10,8 @@
 
 use rw_assets::{CreatureType, SlugcatName};
 
-use super::{PlayerObserver, RainWorldGame};
 use crate::creature::CreatureId;
+use crate::game::{PlayerObserver, RainWorldGame};
 use crate::item::Entity;
 use crate::{FloatExt, SoundId, Vec2, WaterDrip};
 
@@ -26,7 +26,7 @@ impl RainWorldGame {
 
     /// `CanEatMeat`: a dead centipede, or for the Hunter any dead creature that is not
     /// an `IPlayerEdible` (a fly).
-    pub(super) fn can_eat_meat(&self, id: CreatureId) -> bool {
+    pub(crate) fn can_eat_meat(&self, id: CreatureId) -> bool {
         let c = self.world.creature(id);
         let dead = !c.state.alive || c.lizard().is_some_and(|l| l.dead);
         if Self::eat_meat_omnivore_green_list(c.kind()) && dead {
@@ -44,7 +44,7 @@ impl RainWorldGame {
     /// stomach) is tossed and let go. Let go of pick-up after 60 ticks of it, the body
     /// is tossed too. Otherwise `eatMeat` eases down, capped at 50. Returns whether
     /// `GrabUpdate` returns here.
-    pub(super) fn eat_meat_grab_update(
+    pub(crate) fn eat_meat_grab_update(
         &mut self,
         index: i32,
         pickup: bool,

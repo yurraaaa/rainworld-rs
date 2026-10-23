@@ -110,7 +110,7 @@ pub struct RealizedRoom {
     /// `lastBackgroundNoise` (`BackgroundNoise`): last tick's, what hearing reads.
     last_background_noise: f32,
     /// `socialEventRecognizer`.
-    pub social_events: super::social_events::SocialEventRecognizer,
+    pub social_events: crate::creature::social::social_events::SocialEventRecognizer,
     /// The room's `CoralNeuronSystem`, made by `Room.Loaded` for an `SSSwarmers` effect or
     /// a coral or wall mycelia object.
     pub coral: Option<crate::CoralNeuronSystem>,
@@ -231,7 +231,7 @@ impl RealizedRoom {
             border_push_backs: Vec::new(),
             background_noise: 0.0,
             last_background_noise: 0.0,
-            social_events: super::social_events::SocialEventRecognizer::default(),
+            social_events: crate::creature::social::social_events::SocialEventRecognizer::default(),
             coral: None,
             climbable_vines: None,
             placed_vines: crate::PlacedVines::default(),

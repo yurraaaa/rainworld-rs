@@ -10,7 +10,7 @@
 //! tick), as the game's `RoomPreparer` does (D37). What `CoralNeuronSystem.AIMapReady`
 //! builds: the `CoralNeuron`s in the placed-object loop (each with the
 //! `ProjectedCircle`s its constructor adds, then itself), then the `WallMycelia`, then the
-//! `CoralCircuit` clusters ([`super::coral_circuit`]), then the `CoralStem`s (each segment an
+//! `CoralCircuit` clusters ([`crate::superstructure::coral::circuit_turn`]), then the `CoralStem`s (each segment an
 //! object of the update list, the stems themselves not); `PlaceSwarmers` is a later step's.
 //!
 //! Mirrors: Room.cs (Loaded: CoralNeuronSystem; ReadyForAI), CoralNeuronSystem.cs (AIMapReady), CoralNeuron.cs (Update), WallMycelia.cs (Update), Overseer.cs (UpdateCoralNeuronSystem)
@@ -19,8 +19,8 @@ use std::sync::Arc;
 
 use rw_assets::{PlacedObjectType, ResizableData, RoomEffectType};
 
-use super::{RainWorldGame, RoomObject};
 use crate::creature::CreatureId;
+use crate::game::{RainWorldGame, RoomObject};
 use crate::{
     CircuitPlace, ClimbableVinesSystem, CoralCircuit, CoralNeuron, CoralNeuronSystem, CoralStem,
     CosmeticKind, ImpactCall, InGameNoise, MyceliaCx, MyceliumEnv, NeuronCx, NoiseSource,
@@ -29,7 +29,7 @@ use crate::{
 
 /// A coral object in a room's update list.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum CoralRef {
+pub(crate) enum CoralRef {
     /// The room's `CoralNeuronSystem`.
     System,
     /// A `WallMycelia`, by its place in the update list.
@@ -43,7 +43,7 @@ pub(super) enum CoralRef {
 impl RainWorldGame {
     /// `Room.Loaded`'s `AddObject(new CoralNeuronSystem())` unless the room has one: two
     /// draws for the wind, and an empty registry for the strands.
-    pub(super) fn add_coral_system(&mut self, index: i32) {
+    pub(crate) fn add_coral_system(&mut self, index: i32) {
         if self.world.realized(index).is_none_or(|r| r.coral.is_some()) {
             return;
         }
@@ -56,7 +56,7 @@ impl RainWorldGame {
     }
 
     /// `CoralNeuronSystem.AIMapReady` of room `index` (once, when the room is ready for AI).
-    pub(super) fn coral_ai_map_ready(&mut self, index: i32) {
+    pub(crate) fn coral_ai_map_ready(&mut self, index: i32) {
         let (timeline, mods) = (self.world.timeline(), self.world.mods());
         let Some(r) = self.world.realized(index) else {
             return;
@@ -160,7 +160,7 @@ impl RainWorldGame {
     /// `new CoralNeuron(system, room, length, posA, posB)`, `room.AddObject(neuron)` and the
     /// vine registration, in room `index` (the placed loop's, and a stem's later).
     /// Returns the neuron's place in the update list.
-    pub(super) fn add_coral_neuron(
+    pub(crate) fn add_coral_neuron(
         &mut self,
         index: i32,
         system: crate::SystemId,
@@ -209,7 +209,7 @@ impl RainWorldGame {
     /// climbable vines system when the room has none, the segments (each with the neuron
     /// it made and the neuron's circles first), the stem's circle; then the stem joins the
     /// system's list (it is not in the update list). Registered as a vine before its neurons.
-    pub(super) fn add_coral_stem(
+    pub(crate) fn add_coral_stem(
         &mut self,
         index: i32,
         system: crate::SystemId,
@@ -278,7 +278,7 @@ impl RainWorldGame {
     }
 
     /// Room `index`'s coral objects in its update list.
-    pub(super) fn room_coral_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
+    pub(crate) fn room_coral_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         self.world
             .realized(index)
             .and_then(|r| r.coral.as_ref())
@@ -308,7 +308,7 @@ impl RainWorldGame {
     }
 
     /// The `Update` of a coral object of room `index`.
-    pub(super) fn run_coral(&mut self, index: i32, which: CoralRef) {
+    pub(crate) fn run_coral(&mut self, index: i32, which: CoralRef) {
         if let CoralRef::Segment(order) = which {
             self.run_stem_segment(index, order);
             return;
@@ -371,7 +371,7 @@ impl RainWorldGame {
     /// system is frozen; else its physics (the terrain impacts' noises and screen movements
     /// are made at once, before the rest), then the strands, the neuron, the constraint to
     /// the segment before it, the root and the walls.
-    pub(super) fn run_stem_segment(&mut self, index: i32, order: u64) {
+    pub(crate) fn run_stem_segment(&mut self, index: i32, order: u64) {
         let camera = self.camera_view;
         let room_gravity = self.room_gravity(index);
         let Some(r) = self.world.realized_mut(index) else {
@@ -472,7 +472,7 @@ impl RainWorldGame {
     }
 
     /// The `NeuronSpark`s strands made since the last call join room `index`'s update list.
-    pub(super) fn flush_mycelium_sparks(&mut self, index: i32) {
+    pub(crate) fn flush_mycelium_sparks(&mut self, index: i32) {
         for spark in std::mem::take(&mut self.world.mycelia.sparks) {
             self.world
                 .add_cosmetic(index, CosmeticKind::NeuronSpark(spark));
@@ -482,7 +482,7 @@ impl RainWorldGame {
     /// `Room.AddObject`'s `InitiateGraphicsModule` (or `NowViewed`) of overseer `id` in
     /// room `room`: its strands are made and joins the room's system. Returns whether the
     /// observer built a module.
-    pub(super) fn overseer_module_added(
+    pub(crate) fn overseer_module_added(
         &mut self,
         id: CreatureId,
         room: i32,
@@ -505,7 +505,7 @@ impl RainWorldGame {
 
     /// Overseer `id`'s graphics module is dropped: its strands stay only as entries of a
     /// live registry.
-    pub(super) fn overseer_module_removed(
+    pub(crate) fn overseer_module_removed(
         &mut self,
         id: CreatureId,
         observer: &mut dyn PlayerObserver,
@@ -517,7 +517,7 @@ impl RainWorldGame {
 
     /// `RoomCamera.ApplyPositionChange`'s `camerasChangedTick++` for the room the camera
     /// now shows.
-    pub(super) fn cameras_changed(&mut self, room: i32) {
+    pub(crate) fn cameras_changed(&mut self, room: i32) {
         if let Some(r) = self.world.realized_mut(room) {
             r.cameras_changed_tick += 1;
         }
@@ -526,4 +526,4 @@ impl RainWorldGame {
 
 #[cfg(test)]
 #[path = "tests/turn.rs"]
-pub(super) mod tests;
+pub(crate) mod tests;

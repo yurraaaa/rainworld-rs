@@ -12,16 +12,16 @@ use std::sync::Arc;
 
 use rw_assets::Room;
 
-use super::{PlayerObserver, RainWorldGame};
 use crate::Vec2;
 use crate::creature::fly::FlyRoomTick;
 use crate::creature::{CreatureId, WorldCoordinate};
+use crate::game::{PlayerObserver, RainWorldGame};
 use crate::item::Entity;
 
 impl RainWorldGame {
     /// `FollowedByCamera(0)`: camera 0 follows the player, so a creature is followed
     /// when it is the player or carries it (any of its connected objects).
-    pub(super) fn followed_by_camera(&self, id: CreatureId) -> bool {
+    pub(crate) fn followed_by_camera(&self, id: CreatureId) -> bool {
         self.player.is_some()
             && (id == self.player_id
                 || self
@@ -33,7 +33,7 @@ impl RainWorldGame {
     /// The stick loop of `AbstractPhysicalObject.Move(coord)` after creature `id` moved:
     /// every object connected to it that is not already at `coord`'s room and node
     /// moves there too (the player with what it carries).
-    pub(super) fn move_stuck_objects(&mut self, id: CreatureId, coord: WorldCoordinate) {
+    pub(crate) fn move_stuck_objects(&mut self, id: CreatureId, coord: WorldCoordinate) {
         for e in self.world.connected_objects(Entity::Creature(id)) {
             if e == Entity::Creature(id) || self.world.entity_pos(e).same_room_and_node(coord) {
                 continue;
@@ -52,7 +52,7 @@ impl RainWorldGame {
     /// `Player.SpitOutOfShortCut(false)` (the hole positions, `cantBeGrabbedCounter`,
     /// `ReportRoomVisited`, a shelter discovered) and `NewRoom`, the graphics reset by
     /// both.
-    pub(super) fn carried_player_spat_out(
+    pub(crate) fn carried_player_spat_out(
         &mut self,
         room: i32,
         pos: (i32, i32),
@@ -77,7 +77,7 @@ impl RainWorldGame {
     /// loop): its chunks at the entrance's `middle` (a draw each), added to `room`,
     /// `Fly.SpitOutOfShortCut` out of the `hole`, and `NewRoom` when it comes from
     /// elsewhere.
-    pub(super) fn stuck_fly_spat_out(
+    pub(crate) fn stuck_fly_spat_out(
         &mut self,
         id: CreatureId,
         room: i32,
@@ -108,7 +108,7 @@ impl RainWorldGame {
     /// world part): `Player.Die` of the body out in the tubes, `GameOver(null)` and
     /// `UI_Slugcat_Die` at its main chunk in that room (played at once: the body no
     /// longer updates).
-    pub(super) fn player_killed_in_den(&mut self, room: i32) {
+    pub(crate) fn player_killed_in_den(&mut self, room: i32) {
         let in_den = self.world.creature(self.player_id).in_den;
         let Some(player) = self.player.as_mut().filter(|p| !p.is_dead()) else {
             return;

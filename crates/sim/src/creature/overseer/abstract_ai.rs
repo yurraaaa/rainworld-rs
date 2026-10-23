@@ -9,7 +9,7 @@ use rw_random::UnityRandom;
 
 use super::{OverseerAi, PlayerGuideState};
 use crate::FloatExt;
-use crate::creature::ai::{AbstractCreatureAi, AiContext, SeededRandom};
+use crate::creature::abstract_ai::{AbstractCreatureAi, AiContext, SeededRandom};
 use crate::creature::{AbstractCreature, CreatureId, WorldCoordinate};
 use crate::world::World;
 

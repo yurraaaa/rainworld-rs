@@ -13,12 +13,12 @@
 
 use rw_assets::{CreatureType, Terrain};
 
-use super::RainWorldGame;
 use crate::creature::lizard::LizardEmotion;
 use crate::creature::{
     CreatureId, DamageType, GrabRequest, RealizedCreature, RelationshipType, Shareability,
 };
 use crate::effects::cosmetic::{CosmeticKind, ExplosionSpikes, Spark, StationaryEffect};
+use crate::game::RainWorldGame;
 use crate::item::{Entity, ObjectId, SpearStickKind, StuckIn, WeaponMode};
 use crate::physics::room_ext::RoomExt;
 use crate::world::{SpriteMove, UpdatePart};
@@ -53,14 +53,14 @@ pub struct Hit {
 
 impl RainWorldGame {
     /// A copy of a chunk.
-    pub(super) fn chunk_of(&self, r: ChunkRef) -> Option<BodyChunk> {
+    pub(crate) fn chunk_of(&self, r: ChunkRef) -> Option<BodyChunk> {
         if r.owner == Entity::Creature(self.player_id) {
             return self.player.as_ref()?.body.chunks.get(r.index).cloned();
         }
         self.world.body_chunks(r.owner)?.get(r.index).cloned()
     }
 
-    pub(super) fn chunk_of_mut(&mut self, r: ChunkRef) -> Option<&mut BodyChunk> {
+    pub(crate) fn chunk_of_mut(&mut self, r: ChunkRef) -> Option<&mut BodyChunk> {
         if r.owner == Entity::Creature(self.player_id) {
             return self.player.as_mut()?.body.chunks.get_mut(r.index);
         }
@@ -68,7 +68,7 @@ impl RainWorldGame {
     }
 
     /// The chunks of a realized creature (the player's two, or the world's).
-    pub(super) fn creature_chunk_refs(&self, id: CreatureId) -> Vec<ChunkRef> {
+    pub(crate) fn creature_chunk_refs(&self, id: CreatureId) -> Vec<ChunkRef> {
         let owner = Entity::Creature(id);
         let n = if id == self.player_id {
             self.player.as_ref().map_or(0, |p| p.body.chunks.len())
@@ -99,7 +99,7 @@ impl RainWorldGame {
     /// `Lizard.Stun`: below half health longer (up to 2.5 times); over 5 the graphics'
     /// flicker on a lizard not yet stunned; the longer stun kept, and a stunned lizard
     /// lets go of all.
-    pub(super) fn lizard_stun(&mut self, id: CreatureId, st: i32) {
+    pub(crate) fn lizard_stun(&mut self, id: CreatureId, st: i32) {
         let health = self.world.creature(id).state.health;
         let mut st = st;
         if health < 0.5 {
@@ -123,20 +123,20 @@ impl RainWorldGame {
     }
 
     /// `Creature.Die` of a lizard (it has no override).
-    pub(super) fn lizard_die(&mut self, id: CreatureId) {
+    pub(crate) fn lizard_die(&mut self, id: CreatureId) {
         self.world.creature_die(id, &mut self.rng);
     }
 
     /// `Lizard.LoseAllGrasps` (its graphics' `ReleaseAllInternallyContainedSprites`
     /// is in the world's).
-    pub(super) fn lizard_lose_all_grasps(&mut self, id: CreatureId) {
+    pub(crate) fn lizard_lose_all_grasps(&mut self, id: CreatureId) {
         self.world.lose_all_grasps(id);
     }
 
     /// `AddObjectToInternalContainer(obj, 0)` of a lizard with graphics, for a drawable
     /// object (a rock or spear) or one with a graphics module (the player, a fly, a
     /// lizard).
-    pub(super) fn lizard_contain_in_jaws(&mut self, id: CreatureId, obj: Entity) {
+    pub(crate) fn lizard_contain_in_jaws(&mut self, id: CreatureId, obj: Entity) {
         let drawn = match obj {
             Entity::Object(_) => true,
             Entity::Creature(c) if c == self.player_id => self.player_graphics,
@@ -166,7 +166,7 @@ impl RainWorldGame {
     }
 
     /// The room a realized lizard is in, for its sounds.
-    pub(super) fn lizard_room(&self, id: CreatureId) -> i32 {
+    pub(crate) fn lizard_room(&self, id: CreatureId) -> i32 {
         self.world
             .creature(id)
             .lizard()
@@ -331,7 +331,7 @@ impl RainWorldGame {
     }
 
     /// `Stun` of a realized creature (the player's `LoseAllGrasps` at once).
-    pub(super) fn creature_stun(&mut self, id: CreatureId, st: i32) {
+    pub(crate) fn creature_stun(&mut self, id: CreatureId, st: i32) {
         if id == self.player_id {
             let room = self.pos().room;
             let sounds = if room == self.camera_room {
@@ -351,7 +351,7 @@ impl RainWorldGame {
     }
 
     /// `Die` of a realized creature (the type's override, then `Creature.Die`).
-    pub(super) fn realized_creature_die(&mut self, id: CreatureId) {
+    pub(crate) fn realized_creature_die(&mut self, id: CreatureId) {
         if id == self.player_id {
             self.kill_player();
             return;
@@ -557,7 +557,7 @@ impl RainWorldGame {
 
     /// `DamageAttackClosestChunk`: the holder's chunk nearest the head takes a full
     /// `DamageAttack`.
-    pub(super) fn lizard_damage_attack_closest_chunk(
+    pub(crate) fn lizard_damage_attack_closest_chunk(
         &mut self,
         id: CreatureId,
         target: CreatureId,
@@ -581,7 +581,7 @@ impl RainWorldGame {
     /// damage): `Violence` for `biteDamage * value * fac` and 30 stun, the grab sound,
     /// the jaw shut, a recoil, the bite delay reset, a stun of `16 * fac`, a spray of
     /// drips in a viewed room, and every grasp let go.
-    pub(super) fn lizard_damage_attack(&mut self, id: CreatureId, chunk: ChunkRef, fac: f32) {
+    pub(crate) fn lizard_damage_attack(&mut self, id: CreatureId, chunk: ChunkRef, fac: f32) {
         let Entity::Creature(target) = chunk.owner else {
             return;
         };
@@ -659,7 +659,7 @@ impl RainWorldGame {
     /// else the held chunk moves with the head, 25 px ahead, and comes loose if it
     /// pulls too hard or falls too far behind; the other chunks are pushed out of the
     /// lizard's head and middle.
-    pub(super) fn lizard_carry_object(&mut self, _index: i32, id: CreatureId) {
+    pub(crate) fn lizard_carry_object(&mut self, _index: i32, id: CreatureId) {
         let Some(g) = self.world.creature(id).grasps.first().copied().flatten() else {
             return;
         };
@@ -734,7 +734,7 @@ impl RainWorldGame {
     }
 
     /// The chunks of any realized object.
-    pub(super) fn chunk_refs_of(&self, e: Entity) -> Vec<ChunkRef> {
+    pub(crate) fn chunk_refs_of(&self, e: Entity) -> Vec<ChunkRef> {
         match e {
             Entity::Creature(c) => self.creature_chunk_refs(c),
             Entity::Object(_) => {
@@ -750,7 +750,7 @@ impl RainWorldGame {
     /// grabber) whatever it crossed. A creature behind a wall is a `HitWall` that
     /// ends the update (true). Else a hit creature gets the thrower's kill tag and
     /// `HitSomething`; the weapon is out of reach for 40 ticks and its thrower forgotten.
-    pub(super) fn trace_layer_one(&mut self, index: i32, id: ObjectId) -> bool {
+    pub(crate) fn trace_layer_one(&mut self, index: i32, id: ObjectId) -> bool {
         let Some(w) = self.world.realized_weapon(id, index) else {
             return false;
         };
@@ -1141,7 +1141,7 @@ impl RainWorldGame {
     }
 
     /// `Room.chunkGlue`, applied after the update list.
-    pub(super) fn apply_chunk_glue(&mut self) {
+    pub(crate) fn apply_chunk_glue(&mut self) {
         for (id, other, rel) in std::mem::take(&mut self.chunk_glue) {
             let Some(oc) = self.chunk_of(other) else {
                 continue;
@@ -1155,7 +1155,7 @@ impl RainWorldGame {
     /// `Spear.Update`'s `StuckInCreature` branch: moved with its chunk and turned with
     /// it; pinned to a wall, it holds the chunk there until it is pulled hard enough
     /// (one draw a tick under 160), the pin counting down; a slated creature drops it.
-    pub(super) fn spear_stuck_in_creature_update(&mut self, index: i32, id: ObjectId) {
+    pub(crate) fn spear_stuck_in_creature_update(&mut self, index: i32, id: ObjectId) {
         let Some(w) = self.world.realized_weapon(id, index) else {
             return;
         };
@@ -1375,7 +1375,7 @@ impl RainWorldGame {
 
     /// `Spear.RecreateSticksFromAbstract` in its first physics update (a spear realized
     /// with a lodged stick in a realized lizard): lodged again, `StuckInCreature`.
-    pub(super) fn recreate_spear_sticks(&mut self, index: i32, id: ObjectId) {
+    pub(crate) fn recreate_spear_sticks(&mut self, index: i32, id: ObjectId) {
         let Some(w) = self.world.realized_weapon(id, index) else {
             return;
         };
@@ -1410,7 +1410,7 @@ impl RainWorldGame {
     }
 
     /// The dislodge sounds `ChangeMode` asked for (`Spear_Dislodged_From_Creature`).
-    pub(super) fn flush_dislodged(&mut self) {
+    pub(crate) fn flush_dislodged(&mut self) {
         for (room, pos) in std::mem::take(&mut self.world.dislodged) {
             self.play_on_object(room, SoundId::SpearDislodgedFromCreature, pos);
         }
@@ -1421,7 +1421,7 @@ impl RainWorldGame {
     /// other push their overlapping chunks apart by mass (a nudge of two draws at the
     /// same x) and `Collide` once each way. `Player.Collide`'s belly slide stuns the
     /// other and its hips note a chunk to jump off; `Lizard.Collide` sees it (`SeeCreature`) and bites what it would kill.
-    pub(super) fn collide_creatures(&mut self, index: i32) {
+    pub(crate) fn collide_creatures(&mut self, index: i32) {
         let mut layer: Vec<(u64, CreatureId)> = self.world.room_lizards(index);
         if self
             .player

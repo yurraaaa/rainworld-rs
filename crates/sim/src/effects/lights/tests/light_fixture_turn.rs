@@ -10,14 +10,14 @@ use rw_assets::world::{FixedRoom, LoadedRoom, WorldData};
 use rw_assets::{ActiveMods, PlacedObject, Room, RoomEffect, RoomSettings};
 use rw_random::UnityRandom;
 
-use super::super::RoomObject;
 use crate::campaign::{SlugcatCampaign, StoryStart};
+use crate::game::RoomObject;
 use crate::superstructure::electric::room_fixtures::FixtureRef;
 use crate::tests::room_with_water;
 use crate::world::World;
 use crate::{Input, LightElement, LightTie, RainWorldGame, Sounds, Start, Vec2};
 
-use super::super::lights::tests::WithGraphics;
+use crate::effects::lights::turn::tests::WithGraphics;
 
 /// A 20 x 10 room with a floor, water at tile row `water` (-1 for none) and, when
 /// `fall`, a two-high waterfall of two tiles at x 8..10 from the top; the player at (2, 1).

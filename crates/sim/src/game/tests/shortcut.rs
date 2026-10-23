@@ -1,4 +1,3 @@
-
 use super::*;
 
 /// A pipe from (1, 3) (hole right) down, along and up to (4, 3) (hole left).

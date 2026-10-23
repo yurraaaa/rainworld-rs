@@ -56,7 +56,7 @@ impl World {
 impl RainWorldGame {
     /// `Room.Loaded`'s checkers, after the room's scripts and before its items: in a
     /// story, only the triggers whose cycles and slugcats include this save.
-    pub(super) fn add_trigger_checkers(&mut self, index: i32) {
+    pub(crate) fn add_trigger_checkers(&mut self, index: i32) {
         let world = &self.world;
         self.trigger_objects
             .retain(|o| o.room != index && world.realized(o.room).is_some());
@@ -117,7 +117,7 @@ impl RainWorldGame {
     }
 
     /// `room.AddObject`: the end of the update list.
-    pub(super) fn add_trigger_object(&mut self, room: i32, kind: TriggerObjectKind) {
+    pub(crate) fn add_trigger_object(&mut self, room: i32, kind: TriggerObjectKind) {
         let id = self.world.next_update_seq();
         self.trigger_objects.push(TriggerObject {
             id,
@@ -128,7 +128,7 @@ impl RainWorldGame {
     }
 
     /// Room `index`'s trigger objects by their place in its update list.
-    pub(super) fn room_trigger_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
+    pub(crate) fn room_trigger_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         self.trigger_objects
             .iter()
             .filter(|o| o.room == index && !o.slated)
@@ -137,7 +137,7 @@ impl RainWorldGame {
     }
 
     /// Drops the trigger objects destroyed during room `index`'s update.
-    pub(super) fn remove_slated_trigger_objects(&mut self) {
+    pub(crate) fn remove_slated_trigger_objects(&mut self) {
         self.trigger_objects.retain(|o| !o.slated);
     }
 
@@ -165,7 +165,7 @@ impl RainWorldGame {
 
     /// `RainCycle.Update`'s last step: with music not allowed and rain danger in camera
     /// 0's room, the music player is asked to stop its songs.
-    pub(super) fn rain_request_stop_song(&mut self) {
+    pub(crate) fn rain_request_stop_song(&mut self) {
         let danger = self
             .world
             .realized(self.camera_room)
@@ -176,7 +176,7 @@ impl RainWorldGame {
     }
 
     /// Trigger object `id`'s `Update` in room `index`.
-    pub(super) fn run_trigger_object(&mut self, index: i32, id: u64) {
+    pub(crate) fn run_trigger_object(&mut self, index: i32, id: u64) {
         let Some(at) = self.trigger_objects.iter().position(|o| o.id == id) else {
             return;
         };
@@ -354,7 +354,7 @@ impl RainWorldGame {
 
     /// `BringGuideToPlayerEvent.BringGuide(world, minLike)`: the guide heads for the
     /// player for 400 to 1800 ticks by how much it likes them.
-    pub(super) fn bring_guide(&mut self, min_like: f32) {
+    pub(crate) fn bring_guide(&mut self, min_like: f32) {
         let Some(guide) = self.world.overseers_world_ai().and_then(|o| o.player_guide) else {
             return;
         };

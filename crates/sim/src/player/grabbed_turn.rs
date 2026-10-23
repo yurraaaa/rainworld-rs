@@ -9,15 +9,15 @@
 
 use rw_assets::Room;
 
-use super::{PlayerObserver, RainWorldGame};
 use crate::creature::{GrabRequest, Grasp};
+use crate::game::{PlayerObserver, RainWorldGame};
 use crate::item::{Entity, Throw};
 use crate::{Input, Player};
 
 impl RainWorldGame {
     /// `Creature.Grab` through the world, with the player's side: a player that
     /// `cantBeGrabbedCounter` protects refuses, a grabbed one gets `Player.Grabbed`.
-    pub(super) fn creature_grab(&mut self, r: GrabRequest) -> bool {
+    pub(crate) fn creature_grab(&mut self, r: GrabRequest) -> bool {
         let player = r.grabbed == Entity::Creature(self.player_id);
         if player && !self.player.as_ref().is_some_and(Player::can_be_grabbed) {
             return false;
@@ -53,7 +53,7 @@ impl RainWorldGame {
 
     /// `Player.Update`'s `dangerGrasp` block (after `cantBeGrabbedCounter`, before the
     /// lungs and `checkInput`); `input` is this tick's controls (`RWInput.PlayerInput`).
-    pub(super) fn player_danger_grasp_update(
+    pub(crate) fn player_danger_grasp_update(
         &mut self,
         index: i32,
         room: &Room,
@@ -90,7 +90,7 @@ impl RainWorldGame {
 
     /// `Creature.Update`'s release under the room: every grasp on the player lets go,
     /// first to last.
-    pub(super) fn apply_player_release_grabbed_by(&mut self) {
+    pub(crate) fn apply_player_release_grabbed_by(&mut self) {
         if !self
             .player
             .as_mut()
@@ -117,7 +117,7 @@ impl RainWorldGame {
     /// spear, half the time (one draw); otherwise it is thrown from the main chunk at
     /// the grabber's nearest chunk, which it will hit (`meleeHitChunk`), a spear with
     /// `ThrownSpear`'s bonus, and let go.
-    pub(super) fn throw_to_get_free(&mut self, index: i32, observer: &mut dyn PlayerObserver) {
+    pub(crate) fn throw_to_get_free(&mut self, index: i32, observer: &mut dyn PlayerObserver) {
         let Some(num) = self.throw_to_get_free_hand() else {
             let grasps = self.player_grasps();
             if let Some(k) = (0..2).find(|&k| grasps[k].is_some()) {
@@ -181,7 +181,7 @@ impl RainWorldGame {
     /// `DangerGraspPickup`: with a free hand (the last) and no spear in hand, the
     /// nearest object in reach, favouring spears by 100 px, is grabbed and picked up
     /// (`PickedUp`'s sound); the Hunter takes the spear from its back instead (`SpearToHand`).
-    pub(super) fn danger_grasp_pickup(
+    pub(crate) fn danger_grasp_pickup(
         &mut self,
         index: i32,
         room: &Room,

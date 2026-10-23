@@ -10,7 +10,7 @@
 //! Mirrors: Player.cs (Grabability, HeavyCarry, FreeHand, CanIPickThisUp, PickupCandidate, GrabUpdate, ReleaseObject, SwallowObject, Regurgitate),
 //!   PlayerCarryableItem.cs (Blink)
 
-use super::{PlayerObserver, RainWorldGame};
+use crate::game::{PlayerObserver, RainWorldGame};
 use crate::item::{Entity, ObjectId, SavedObject, Throw, WeaponMode};
 use crate::physics::room_ext::RoomExt;
 use crate::player::StomachObject;
@@ -69,7 +69,7 @@ impl RainWorldGame {
     }
 
     /// `HeavyCarry`: dragged, two-handed, or heavier than 0.6 of the slugcat.
-    pub(super) fn heavy_carry(&self, e: Entity) -> bool {
+    pub(crate) fn heavy_carry(&self, e: Entity) -> bool {
         let g = self.grabability(e);
         g == Grabability::Drag
             || g == Grabability::TwoHands
@@ -77,7 +77,7 @@ impl RainWorldGame {
     }
 
     /// `FreeHand`: none while hand 0 carries something heavy, else the first empty one.
-    pub(super) fn free_hand(&self) -> Option<usize> {
+    pub(crate) fn free_hand(&self) -> Option<usize> {
         let grasps = self.player_grasps();
         if grasps[0].is_some_and(|e| self.heavy_carry(e)) {
             return None;
@@ -88,7 +88,7 @@ impl RainWorldGame {
     /// `CanIPickThisUp` (Remix off: a spear stuck in a wall stays; a spear on a back
     /// cannot be taken; with room on the Hunter's back a free or lodged spear always can,
     /// past the two-hand and forbidden checks).
-    pub(super) fn can_i_pick_this_up(&self, e: Entity) -> bool {
+    pub(crate) fn can_i_pick_this_up(&self, e: Entity) -> bool {
         let g = self.grabability(e);
         if g == Grabability::CantGrab {
             return false;
@@ -163,7 +163,7 @@ impl RainWorldGame {
     /// `PickupCandidate(favorSpears)`: the nearest object within reach (40 px beyond its
     /// radius, and in sight or within 20) the player can pick up; a spear counts
     /// `favor_spears` nearer and an object on the facing side 10 px nearer.
-    pub(super) fn pickup_candidate(
+    pub(crate) fn pickup_candidate(
         &self,
         index: i32,
         room: &rw_assets::Room,
@@ -209,7 +209,7 @@ impl RainWorldGame {
     /// `GrabUpdate`'s pick-up candidate: none while hand 0 holds something two-handed,
     /// else `PickupCandidate(20)` unless grabbing is held off; a new candidate that is a
     /// carryable item `Blink`s.
-    pub(super) fn update_pickup_candidate(&mut self, index: i32, room: &rw_assets::Room) {
+    pub(crate) fn update_pickup_candidate(&mut self, index: i32, room: &rw_assets::Room) {
         if self.player_grasps()[0].is_some_and(|e| self.grabability(e) == Grabability::TwoHands) {
             self.player_mut().grab_mut().pick_up_candidate = None;
             return;
@@ -247,7 +247,7 @@ impl RainWorldGame {
     /// object down; otherwise the pick-up candidate is picked up in the first free hand
     /// (a two-handed one empties both hands first; with both hands full a held fly is let
     /// go).
-    pub(super) fn drop_or_pick_up(
+    pub(crate) fn drop_or_pick_up(
         &mut self,
         index: i32,
         input: &[Input; crate::INPUT_HISTORY],
@@ -371,7 +371,7 @@ impl RainWorldGame {
     }
 
     /// The player's grasp `grasp`: what it holds and its `grabbedChunk` index.
-    pub(super) fn player_grasp(&self, grasp: usize) -> Option<crate::creature::Grasp> {
+    pub(crate) fn player_grasp(&self, grasp: usize) -> Option<crate::creature::Grasp> {
         self.world
             .creature(self.player_id)
             .grasps
@@ -381,7 +381,7 @@ impl RainWorldGame {
     }
 
     /// The position of the chunk grasp `grasp` of the player holds (`grabbedChunk`).
-    pub(super) fn grabbed_chunk_pos(&self, grasp: usize) -> Option<Vec2> {
+    pub(crate) fn grabbed_chunk_pos(&self, grasp: usize) -> Option<Vec2> {
         let g = self.player_grasp(grasp)?;
         self.world.chunk_pos(g.grabbed, g.chunk_grabbed)
     }
@@ -413,7 +413,7 @@ impl RainWorldGame {
     /// only down) from 10 px ahead of the head and 4 up (the head itself when that is
     /// Solid), with `frc` 1; `ThrownSpear`; the belly-slide throws; the recoil, the
     /// throwing hand's animation and `Blink(15)`.
-    pub(super) fn throw_weapon(
+    pub(crate) fn throw_weapon(
         &mut self,
         index: i32,
         grasp: usize,
@@ -470,7 +470,7 @@ impl RainWorldGame {
     /// `ThrownSpear` (93423): with no throwing skill (the Monk, a malnourished slugcat)
     /// 18 throw frames, a damage bonus of `0.6 + 0.3 value^4` (one draw) and 0.77 of the
     /// speed; the Hunter's skill 2 a bonus of 1.25 and 1.2 times the speed.
-    pub(super) fn thrown_spear(&mut self, id: ObjectId) {
+    pub(crate) fn thrown_spear(&mut self, id: ObjectId) {
         let skill = self.character_stats.throwing_skill;
         let bonus = match skill {
             0 => Some(0.6 + 0.3 * self.rng.value().mathf_pow(4.0)),
@@ -547,7 +547,7 @@ impl RainWorldGame {
     /// something in the stomach it comes back up, over 90 with an empty stomach the
     /// first swallowable object in hand goes down (the head pulled 2 px toward it,
     /// `swallowing` 20 on the graphics).
-    pub(super) fn swallow_and_regurgitate_update(
+    pub(crate) fn swallow_and_regurgitate_update(
         &mut self,
         index: i32,
         observer: &mut dyn PlayerObserver,
@@ -681,7 +681,7 @@ impl RainWorldGame {
     /// `GetHeldItemDirection(hand)` for a held weapon: across the line from the main
     /// chunk to it (along it while hanging from a beam), along the body toward it while
     /// crawling, upward along a climbed pole, and a spear swung forward with `spear_dir`.
-    pub(super) fn held_item_direction(&self, hand: usize, spear_dir: f32) -> Vec2 {
+    pub(crate) fn held_item_direction(&self, hand: usize, spear_dir: f32) -> Vec2 {
         let Some(obj) = self.player_grasps()[hand] else {
             return Vec2::ZERO;
         };
@@ -714,7 +714,7 @@ impl RainWorldGame {
     /// The player's `objectInStomach` read from the save state (`swallowedItems[0]`): an
     /// object the port types is put into the arena, in no room, at the player's
     /// position; anything else stays text.
-    pub(super) fn stomach_from_save(&mut self) -> Option<StomachObject> {
+    pub(crate) fn stomach_from_save(&mut self) -> Option<StomachObject> {
         let text = self
             .story
             .swallowed_item

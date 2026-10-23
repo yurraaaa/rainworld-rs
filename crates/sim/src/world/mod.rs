@@ -9,36 +9,15 @@
 //!
 //! Mirrors: World.cs, AbstractRoom.cs, RoomPreparer.cs
 
-mod abstract_ai;
-mod abstract_ai_kinds;
-mod abstract_path;
-mod ai_map;
-mod ai_mapper;
-mod ai_modules;
-mod creature_ai_map;
+pub(crate) mod ai_map;
 mod creatures;
 mod dens;
-mod flies_world_ai;
-mod hearing;
-mod lizards;
-mod missions;
-mod movement;
 mod objects;
-mod overseers_world_ai;
 mod quantified;
-mod quick_connectivity;
-mod quick_path;
 mod rain_cycle;
 mod realized;
 mod realizer;
-mod region_save;
 mod region_state;
-mod room_water;
-mod social_events;
-mod swarm_rooms;
-mod threat_flight;
-mod tracking;
-mod weapons;
 
 use std::sync::Arc;
 
@@ -51,27 +30,33 @@ use crate::creature::{AbstractCreature, CreatureId, FlockBehavior, IdIssuer, Wor
 use crate::item::AbstractObject;
 use rw_random::UnityRandom;
 
-pub use abstract_path::{FloodMethod, SearchingFor};
+pub use crate::creature::abstract_ai::path_finder::{FloodMethod, SearchingFor};
+pub use crate::creature::fly::swarm_rooms::{SwarmRoomMap, SwarmRoomMapper};
+pub use crate::creature::fly::world_ai::{FliesTick, FliesWorldAi, SwarmBehavior};
+pub(crate) use crate::creature::lizard::world::LizardRoomCx;
+pub use crate::creature::overseer::world_ai::{
+    DirectionFinder, OverseersWorldAi, ShelterFinder, StoryProgress,
+};
+pub use crate::creature::social::social_events::{
+    OwnedItemOnGround, SocialEventId, SocialEventRecognizer,
+};
+pub use crate::item::weapon_world::ItemTick;
+pub(crate) use crate::item::weapon_world::{LayerZero, OrphanLoop, UpdatePart};
+pub use crate::world::ai_map::ai_mapper::AiMapper;
+pub use crate::world::ai_map::creature_ai_map::CreatureSpecificAiMap;
+pub use crate::world::ai_map::movement::{
+    Accessibility, Legality, MovementConnection, MovementType, PathCost,
+};
+pub use crate::world::ai_map::quick_connectivity::QuickConnectivity;
+pub use crate::world::ai_map::quick_path::{QuickPath, QuickPathFinder};
 pub(crate) use ai_map::EIGHT_DIRECTIONS;
 pub use ai_map::{AiMap, AiTile};
-pub use ai_mapper::AiMapper;
-pub use creature_ai_map::CreatureSpecificAiMap;
 pub(crate) use creatures::RoomLists;
 pub use creatures::{AbstractTick, QuantifiedCount, WorldProcesses};
-pub use flies_world_ai::{FliesTick, FliesWorldAi, SwarmBehavior};
-pub(crate) use lizards::LizardRoomCx;
-pub use movement::{Accessibility, Legality, MovementConnection, MovementType, PathCost};
-pub use overseers_world_ai::{DirectionFinder, OverseersWorldAi, ShelterFinder, StoryProgress};
-pub use quick_connectivity::QuickConnectivity;
-pub use quick_path::{QuickPath, QuickPathFinder};
 pub use rain_cycle::{CYCLE_TIME_MAX, CYCLE_TIME_MIN, RainCycle, WaterLevelCycle, WaterStage};
 pub use realized::RealizedRoom;
 pub use realizer::{FollowCreature, RoomRealizer};
 pub use region_state::{ConsumedItem, RegionState};
-pub use social_events::{OwnedItemOnGround, SocialEventId, SocialEventRecognizer};
-pub use swarm_rooms::{SwarmRoomMap, SwarmRoomMapper};
-pub use weapons::ItemTick;
-pub(crate) use weapons::{LayerZero, OrphanLoop, UpdatePart};
 
 /// One camera call a graphics module's internal container makes for `obj`'s sprites:
 /// `MoveObjectToInternalContainer` into lizard `into`'s jaws, or
@@ -89,7 +74,7 @@ pub struct SpriteMove {
 pub struct World {
     pub(crate) data: WorldData,
     /// Per abstract room (local index), its realized room.
-    realized: Vec<Option<RealizedRoom>>,
+    pub(crate) realized: Vec<Option<RealizedRoom>>,
     /// `activeRooms`: local indices in realization order.
     active: Vec<usize>,
     /// Realized this tick, loaded in the loading step.
@@ -106,7 +91,7 @@ pub struct World {
     /// Every creature, the player's included (`AbstractCreature`s by `CreatureId`).
     creatures: Vec<AbstractCreature>,
     /// Every other physical object (`AbstractPhysicalObject`s by `ObjectId`).
-    objects: Vec<AbstractObject>,
+    pub(crate) objects: Vec<AbstractObject>,
     /// Per abstract room, its creature lists.
     pub(crate) lists: Vec<RoomLists>,
     /// Per abstract room, `roomAttractions` from `Room_Attr` lines.
@@ -119,7 +104,7 @@ pub struct World {
     /// `rainCycle` (built with the game, see [`crate::RainWorldGame::new`]).
     pub rain_cycle: RainCycle,
     /// The last `updateList` position handed out (`Room.AddObject` appends).
-    update_seq: u64,
+    pub(crate) update_seq: u64,
     /// Loop emitters whose item left the room (swallowed), until their next update.
     pub(crate) orphan_loops: Vec<OrphanLoop>,
     /// Creatures realized by `ChangeRooms` into a realized room, waiting to join the
@@ -136,7 +121,7 @@ pub struct World {
     /// The flies' `FlockBehavior`s, shared by reference in the game, by creation order.
     pub flocks: Vec<FlockBehavior>,
     /// The last `WaterDrip` id handed out.
-    drip_ids: u64,
+    pub(crate) drip_ids: u64,
     /// The slugcat's body as the flies' graphics read their grabber, kept current by the
     /// game.
     pub(crate) player_body: Option<crate::creature::fly::PlayerBody>,
@@ -343,7 +328,7 @@ impl World {
     }
 
     /// Local index of global room `index`.
-    fn local(&self, index: i32) -> Option<usize> {
+    pub(crate) fn local(&self, index: i32) -> Option<usize> {
         let i = usize::try_from(index.checked_sub(self.first_room_index())?).ok()?;
         (i < self.data.rooms.len()).then_some(i)
     }

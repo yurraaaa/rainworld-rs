@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use rw_assets::{GridRectData, RoomEffectType, SsLightRodData};
 
-use super::RainWorldGame;
+use crate::game::RainWorldGame;
 use crate::item::Entity;
 use crate::superstructure::electric::fuses::{FuseSetup, SuperStructureFuses};
 use crate::superstructure::electric::light_rod::{RodCamera, SsLightRod};
@@ -22,7 +22,7 @@ use crate::{ChunkOwner, LightSource, Vec2};
 impl RainWorldGame {
     /// `Room.Loaded`'s `new SSLightRod(placedObject, room)`: a light for every 45 px of
     /// it (each added to the room, with its three draws), then the rod.
-    pub(super) fn add_light_rod(&mut self, index: i32, pos: Vec2, data: SsLightRodData) {
+    pub(crate) fn add_light_rod(&mut self, index: i32, pos: Vec2, data: SsLightRodData) {
         let ids: Vec<u64> = (0..SsLightRod::light_count(data.length))
             .map(|_| self.world.next_update_seq())
             .collect();
@@ -38,7 +38,7 @@ impl RainWorldGame {
     }
 
     /// `Room.Loaded`'s `new ZapCoil(rect, room)`.
-    pub(super) fn add_zap_coil(&mut self, index: i32, pos: Vec2, data: GridRectData) {
+    pub(crate) fn add_zap_coil(&mut self, index: i32, pos: Vec2, data: GridRectData) {
         let order = self.world.next_update_seq();
         let coil = ZapCoil::new(order, data.rect(pos.to_array()));
         if let Some(r) = self.world.realized_mut(index) {
@@ -50,7 +50,7 @@ impl RainWorldGame {
     /// from the region, the depth from the free tiles in the rectangle, and how broken it
     /// is (the `CorruptionSpores` amount; outside Five Pebbles' and the Underhang's
     /// regions a story session makes it 1).
-    pub(super) fn add_fuses(&mut self, index: i32, pos: Vec2, data: GridRectData) {
+    pub(crate) fn add_fuses(&mut self, index: i32, pos: Vec2, data: GridRectData) {
         let region = self.world.region_name().map(str::to_owned);
         let size = region
             .as_ref()
@@ -89,7 +89,7 @@ impl RainWorldGame {
     }
 
     /// `Room.Loaded`'s `new ZapCoilLight(room, placedObject, data)`: its light first.
-    pub(super) fn add_zap_coil_light(&mut self, index: i32, pos: Vec2, random_seed: i32) {
+    pub(crate) fn add_zap_coil_light(&mut self, index: i32, pos: Vec2, random_seed: i32) {
         let light = self.world.next_update_seq();
         let order = self.world.next_update_seq();
         if let Some(r) = self.world.realized_mut(index) {
@@ -112,7 +112,7 @@ impl RainWorldGame {
 
     /// `AIMapReady` of every `ZapCoilLight` of room `index`: its coil is the first one in the
     /// update list whose rectangle holds the light.
-    pub(super) fn link_zap_coil_lights(&mut self, index: i32) {
+    pub(crate) fn link_zap_coil_lights(&mut self, index: i32) {
         if let Some(r) = self.world.realized_mut(index) {
             let coils = &r.fixtures.zap_coils;
             for l in &mut r.fixtures.zap_coil_lights {
@@ -122,7 +122,7 @@ impl RainWorldGame {
     }
 
     /// `SSLightRod.Update` of the rod at `order` in room `index`.
-    pub(super) fn run_light_rod(&mut self, index: i32, order: u64) {
+    pub(crate) fn run_light_rod(&mut self, index: i32, order: u64) {
         let cycle = self.world.rain_cycle;
         let Some(r) = self.world.realized_mut(index) else {
             return;
@@ -167,7 +167,7 @@ impl RainWorldGame {
 
     /// `ZapCoil.Update` of the coil at `order` in room `index`: its loops, the zaps while
     /// it is on, then the disruption and the rest.
-    pub(super) fn run_zap_coil(&mut self, index: i32, order: u64) {
+    pub(crate) fn run_zap_coil(&mut self, index: i32, order: u64) {
         let Some(mut coil) = self.world.realized(index).and_then(|r| {
             r.fixtures
                 .zap_coils
@@ -200,7 +200,7 @@ impl RainWorldGame {
     }
 
     /// The `SoundEmitter.Update` of the zap coil loop emitter at `order` in room `index`.
-    pub(super) fn run_zap_coil_emitter(&mut self, index: i32, order: u64) {
+    pub(crate) fn run_zap_coil_emitter(&mut self, index: i32, order: u64) {
         let Some(mut coil) = self.world.realized(index).and_then(|r| {
             r.fixtures
                 .zap_coils
@@ -281,7 +281,7 @@ impl RainWorldGame {
     }
 
     /// `ZapCoilLight.Update` of the light at `order` in room `index`.
-    pub(super) fn run_zap_coil_light(&mut self, index: i32, order: u64) {
+    pub(crate) fn run_zap_coil_light(&mut self, index: i32, order: u64) {
         let Some(r) = self.world.realized_mut(index) else {
             return;
         };
@@ -306,7 +306,7 @@ impl RainWorldGame {
 
     /// `ZapFlash.Update` of the flash at `order` in room `index`: the first one makes its
     /// light, and past its life the flash and its light are destroyed.
-    pub(super) fn run_zap_flash(&mut self, index: i32, order: u64) {
+    pub(crate) fn run_zap_flash(&mut self, index: i32, order: u64) {
         let needs_light = self.world.realized(index).is_some_and(|r| {
             r.fixtures
                 .zap_flashes
@@ -339,7 +339,7 @@ impl RainWorldGame {
     }
 
     /// `SuperStructureFuses.Update` of the grid at `order` in room `index`.
-    pub(super) fn run_fuses(&mut self, index: i32, order: u64) {
+    pub(crate) fn run_fuses(&mut self, index: i32, order: u64) {
         let Some(r) = self.world.realized_mut(index) else {
             return;
         };

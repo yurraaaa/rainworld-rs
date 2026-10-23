@@ -11,13 +11,13 @@
 
 use rw_assets::{AbstractObjectType, CreatureType};
 
-use super::RainWorldGame;
-use super::tracker::TrackedBody;
+use crate::creature::ai_modules::tracker_turn::TrackedBody;
 use crate::creature::lizard::SpottedEye;
 use crate::creature::{
     CreatureId, CreatureRep, ElaborateRep, Eyes, LizardAnimation, Relationship,
     RelationshipTracker, RelationshipType, RepKey, RepKind, TrackedCreatureState, Tracker,
 };
+use crate::game::RainWorldGame;
 use crate::item::Entity;
 use crate::{FloatExt, Vec2};
 
@@ -278,7 +278,7 @@ impl RainWorldGame {
     }
 
     /// The tracker and relationship tracker of lizard `id`, taken out.
-    pub(super) fn take_lizard_perception(
+    pub(crate) fn take_lizard_perception(
         &mut self,
         id: CreatureId,
     ) -> (Tracker, RelationshipTracker) {
@@ -290,7 +290,7 @@ impl RainWorldGame {
     }
 
     /// Puts them back, dropping the representations nothing holds any more.
-    pub(super) fn put_lizard_perception(
+    pub(crate) fn put_lizard_perception(
         &mut self,
         id: CreatureId,
         mut t: Tracker,
@@ -307,7 +307,7 @@ impl RainWorldGame {
     /// creature in sight it wants to bite (or, as health fails, any) becomes the target
     /// when closer than the last; then half the time a target in sight within
     /// `attemptBiteRadius` is bitten at (`AttemptBite`).
-    pub(super) fn lizard_casual_aggression(&mut self, id: CreatureId) {
+    pub(crate) fn lizard_casual_aggression(&mut self, id: CreatureId) {
         let holding = self.lizard_holding(id);
         let (mut t, rel) = self.take_lizard_perception(id);
         if !holding && !t.reps.is_empty() {
@@ -375,7 +375,7 @@ impl RainWorldGame {
     /// `Lizard.Collide`'s tracking: it sees the creature (`SeeCreature`), and touching a
     /// player it dislikes (and temporarily likes above -0.5) lowers its temporary like
     /// by 0.05; touching a rival angers it (`lizard_rival_touch`).
-    pub(super) fn lizard_collide_tracking(&mut self, me: CreatureId, other: CreatureId) {
+    pub(crate) fn lizard_collide_tracking(&mut self, me: CreatureId, other: CreatureId) {
         let (mut t, mut rel) = self.take_lizard_perception(me);
         self.tracker_see_creature(me, &mut t, &mut rel, other);
         self.put_lizard_perception(me, t, rel);
@@ -400,7 +400,7 @@ impl RainWorldGame {
 
     /// The looker's candidates of lizard `id` for its graphics' update, its forced look
     /// creature (`focusCreature`) and where it is.
-    pub(super) fn lizard_look_view(
+    pub(crate) fn lizard_look_view(
         &self,
         id: CreatureId,
     ) -> (Vec<crate::creature::LookCandidate>, Option<RepKey>) {
@@ -417,7 +417,7 @@ impl RainWorldGame {
     }
 
     /// Applies the graphics' reads of the tracker (`apply_look_reads`).
-    pub(super) fn lizard_apply_look_reads(
+    pub(crate) fn lizard_apply_look_reads(
         &mut self,
         id: CreatureId,
         candidates: &[crate::creature::LookCandidate],
@@ -430,4 +430,4 @@ impl RainWorldGame {
 
 #[cfg(test)]
 #[path = "tests/perception_turn.rs"]
-pub(super) mod tests;
+pub(crate) mod tests;

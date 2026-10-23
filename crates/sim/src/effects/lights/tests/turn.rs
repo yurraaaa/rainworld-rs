@@ -10,8 +10,8 @@ use rw_assets::{
 };
 use rw_random::UnityRandom;
 
-use super::super::RoomObject;
 use crate::campaign::{SlugcatCampaign, StoryStart};
+use crate::game::RoomObject;
 use crate::tests::room;
 use crate::world::World;
 use crate::{
@@ -27,7 +27,7 @@ const PLACED: &str = "LightSource><100><60><0.75~Environment~-40~-30~65~37.5~1~0
      LightSource><300><60><1~EffectColor1~0~100~0~0~0~1";
 
 /// A player observer with a graphics module and nothing else.
-pub(in crate::game) struct WithGraphics;
+pub(crate) struct WithGraphics;
 
 impl PlayerObserver for WithGraphics {
     fn created(&mut self, _player: &Player, _rng: &mut UnityRandom) {}
@@ -48,7 +48,7 @@ impl PlayerObserver for WithGraphics {
 
 /// A story of `campaign` in a 20 x 8 room with `placed` objects, the player at (2, 1),
 /// after `ticks` ticks.
-pub(in crate::game) fn game(
+pub(crate) fn game(
     placed: &str,
     campaign: &'static SlugcatCampaign,
     story: StoryStart,
@@ -86,7 +86,7 @@ pub(in crate::game) fn game(
 
 /// A 1400 x 800 level image of red `level_red` everywhere and a palette whose runtime
 /// texel (x, y) is (8x, 30y, 0) over 255.
-pub(in crate::game) fn camera_image(level_red: u8) -> CameraImage {
+pub(crate) fn camera_image(level_red: u8) -> CameraImage {
     let mut pal = Vec::with_capacity(32 * 16);
     for png_row in 0..16u8 {
         let y = (15 - png_row).saturating_sub(8);

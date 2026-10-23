@@ -65,7 +65,7 @@ impl RainWorldGame {
     /// places flowers marks the hips' tile when they stand on solid ground with two free
     /// tiles above, outside deep water, worm grass (none in the port), narrow spaces and
     /// shelters. The body has not moved yet this tick.
-    pub(super) fn update_karma_flower_grow_pos(&mut self, index: i32, room: &Room) {
+    pub(crate) fn update_karma_flower_grow_pos(&mut self, index: i32, room: &Room) {
         if !self.place_karma_flower() {
             return;
         }
@@ -97,7 +97,7 @@ impl RainWorldGame {
     /// `Player.Die`'s `GameOver` call after the player's first death, with the main
     /// chunk where it died. Later `Die` calls place the flower again, from the same
     /// `karmaFlowerGrowPos` (it no longer moves), which changes nothing.
-    pub(super) fn game_over_on_death(&mut self, room: &Room) {
+    pub(crate) fn game_over_on_death(&mut self, room: &Room) {
         let Some(main) = self.player.as_mut().and_then(crate::Player::take_died_at) else {
             return;
         };
@@ -108,7 +108,7 @@ impl RainWorldGame {
     /// sessions and, unlike the game's `IsStorySession` gate, the port's dev starts too
     /// (D4); the Hunter out of cycles goes to `GoToRedsGameOver` (only its music is
     /// ported, D17).
-    pub(super) fn game_over(&mut self, main: Vec2, room: &Room, dependent_on_grasp: Option<u64>) {
+    pub(crate) fn game_over(&mut self, main: Vec2, room: &Room, dependent_on_grasp: Option<u64>) {
         log::info!("Trying to game over...");
         if self.red_is_out_of_cycles() {
             self.reds_game_over = true;

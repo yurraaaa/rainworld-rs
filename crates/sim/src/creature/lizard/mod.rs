@@ -15,12 +15,22 @@
 //!
 //! Mirrors: Lizard.cs, Creature.cs, AirBreatherCreature.cs
 
+pub(crate) mod act_turn;
 mod ai;
+pub(crate) mod ai_turn;
 mod breed;
 mod bubble;
+pub(crate) mod fight_turn;
 mod graphics_link;
+pub(crate) mod graphics_turn;
+pub(crate) mod hits_turn;
+pub(crate) mod hunt_turn;
 mod movement;
+pub(crate) mod perception_turn;
+pub(crate) mod turn;
 mod voice;
+pub(crate) mod voice_turn;
+pub(crate) mod world;
 
 use rw_random::UnityRandom;
 

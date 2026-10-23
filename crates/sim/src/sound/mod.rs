@@ -772,5 +772,7 @@ struct SoundCall {
     random_start: bool,
 }
 
+pub(crate) mod noise_turn;
 #[cfg(test)]
 mod tests;
+pub(crate) mod water_sound_turn;

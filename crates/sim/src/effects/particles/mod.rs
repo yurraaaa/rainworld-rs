@@ -4,11 +4,14 @@
 //! Mirrors: - (port-only: module index)
 
 pub(crate) mod decal;
+pub(crate) mod decal_turn;
 pub(crate) mod green_sparks;
 pub mod insect;
+pub(crate) mod placed_cosmetics_turn;
 pub(crate) mod rainbow;
 pub(crate) mod room_particles;
 pub(crate) mod sky_dandelion;
 pub(crate) mod slime_mold;
 pub(crate) mod token_stalk;
+pub(crate) mod turn;
 pub(crate) mod zero_g_speck;

@@ -9,9 +9,9 @@ use rw_assets::world::{FixedRoom, LoadedRoom, WorldData};
 use rw_assets::{AbstractObjectType, ActiveMods, RoomEffect, RoomSettings};
 use rw_random::UnityRandom;
 
-use super::RoomObject;
 use crate::campaign::{SlugcatCampaign, StoryStart};
-use crate::game::lizard_perception::tests::HALL;
+use crate::creature::lizard::perception_turn::tests::HALL;
+use crate::game::RoomObject;
 
 use crate::tests::room;
 use crate::world::World;

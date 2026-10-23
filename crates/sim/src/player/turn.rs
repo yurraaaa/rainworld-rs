@@ -12,14 +12,14 @@ use std::sync::Arc;
 
 use rw_assets::{Room, SlugcatName};
 
-use super::items::Grabability;
-use super::{HudEvent, PlayerObserver, RainWorldGame, RoomObject};
 use crate::creature::fly::MovementMode;
 use crate::creature::overseer::EdibleView;
 use crate::creature::{
     CreatureId, EntityId, GrabRequest, RealizedCreature, Shareability, WorldCoordinate,
 };
+use crate::game::{HudEvent, PlayerObserver, RainWorldGame, RoomObject};
 use crate::item::Entity;
+use crate::item::turn::Grabability;
 use crate::player::{HeavyCarry, JumpChunkBody};
 use crate::{
     Animation, CosmeticKind, FloatExt, LookTarget, Player, SoundId, Vec2, Water, WaterDrip,
@@ -117,7 +117,7 @@ impl RainWorldGame {
 
     /// `SlugcatStats.NourishmentOfObjectEaten` of a bat fly (`FoodPoints` 1) in quarter
     /// points: the Hunter gets the bare food points, the others four times as many.
-    pub(super) fn fly_nourishment(&self) -> i32 {
+    pub(crate) fn fly_nourishment(&self) -> i32 {
         if self.campaign.name == SlugcatName::Red {
             1
         } else {
@@ -136,7 +136,7 @@ impl RainWorldGame {
     /// in the stomach, the first fly of the room's `FliesRoomAI` within 20 px (10 in a
     /// narrow space; half that outside an active swarm room in a story) that the player
     /// can grab one-handed and nobody holds is `Collide`d with.
-    pub(super) fn player_catch(&mut self, index: i32, observer: &mut dyn PlayerObserver) {
+    pub(crate) fn player_catch(&mut self, index: i32, observer: &mut dyn PlayerObserver) {
         let Some(flies) = self
             .world
             .realized(index)
@@ -230,7 +230,7 @@ impl RainWorldGame {
     }
 
     /// `room.PlaySound(id, pos)` in room `index` (silent off camera).
-    pub(super) fn play_in_room(&mut self, index: i32, id: SoundId, pos: Vec2) {
+    pub(crate) fn play_in_room(&mut self, index: i32, id: SoundId, pos: Vec2) {
         let sounds = if index == self.camera_room {
             &mut self.sounds
         } else {
@@ -240,7 +240,7 @@ impl RainWorldGame {
     }
 
     /// `room.PlaySound(id, chunk)` on an object's chunk at `pos` in room `index`.
-    pub(super) fn play_on_object(&mut self, index: i32, id: SoundId, pos: Vec2) {
+    pub(crate) fn play_on_object(&mut self, index: i32, id: SoundId, pos: Vec2) {
         let sounds = if index == self.camera_room {
             &mut self.sounds
         } else {
@@ -250,7 +250,7 @@ impl RainWorldGame {
     }
 
     /// `room.PlaySound(id, mainBodyChunk)` of the player in room `index`.
-    pub(super) fn play_on_player(&mut self, index: i32, id: SoundId) {
+    pub(crate) fn play_on_player(&mut self, index: i32, id: SoundId) {
         let sounds = if index == self.camera_room {
             &mut self.sounds
         } else {
@@ -265,7 +265,7 @@ impl RainWorldGame {
     /// chunk nearest the main chunk for a dragged object, else chunk 0. Not a cicada or
     /// a jet fish, so the regular grab pacifies. `Fly.Grabbed` brings its sprites to the
     /// front.
-    pub(super) fn slugcat_grab(
+    pub(crate) fn slugcat_grab(
         &mut self,
         obj: Entity,
         grasp: usize,
@@ -306,7 +306,7 @@ impl RainWorldGame {
     }
 
     /// The index of `obj`'s chunk nearest the player's main chunk (the first of equals).
-    pub(super) fn nearest_chunk_to_main(&self, obj: Entity) -> usize {
+    pub(crate) fn nearest_chunk_to_main(&self, obj: Entity) -> usize {
         let main = self.player_ref().head().pos;
         let mut best = (0, f32::MAX);
         for (i, c) in self
@@ -333,13 +333,13 @@ impl RainWorldGame {
     }
 
     /// `Player.ReleaseGrasp` (its `Slugcat_Lose_Grasp` draws nothing) then the base's.
-    pub(super) fn player_release_grasp(&mut self, grasp: usize) {
+    pub(crate) fn player_release_grasp(&mut self, grasp: usize) {
         self.world.release_grasp(self.player_id, grasp);
     }
 
     /// `Stun` or `Die` let go of everything (`LoseAllGrasps`), one record per grasp, and
     /// dropped the spear on the back (`DropSpear`).
-    pub(super) fn apply_player_releases(&mut self) {
+    pub(crate) fn apply_player_releases(&mut self) {
         let Some(p) = self.player.as_mut() else {
             return;
         };
@@ -350,7 +350,7 @@ impl RainWorldGame {
     }
 
     /// Lets go of everything held.
-    pub(super) fn release_all_grasps(&mut self) {
+    pub(crate) fn release_all_grasps(&mut self) {
         for grasp in 0..2 {
             if self.player_grasps()[grasp].is_none() {
                 continue;
@@ -361,7 +361,7 @@ impl RainWorldGame {
 
     /// The drips (impacts, skids, corridor shoots) and bubbles the player made this tick,
     /// into its room in the order made.
-    pub(super) fn add_player_drips(&mut self, index: i32) {
+    pub(crate) fn add_player_drips(&mut self, index: i32) {
         let Some(p) = self.player.as_mut() else {
             return;
         };
@@ -378,7 +378,7 @@ impl RainWorldGame {
     }
 
     /// `Player.GrabUpdate` (base game, Remix off), the Hunter's spear on the back first.
-    pub(super) fn grab_update(
+    pub(crate) fn grab_update(
         &mut self,
         index: i32,
         room: &Arc<Room>,
@@ -523,11 +523,11 @@ impl RainWorldGame {
         }
     }
 
-    pub(super) fn player_ref(&self) -> &Player {
+    pub(crate) fn player_ref(&self) -> &Player {
         self.player.as_ref().expect("the player updates")
     }
 
-    pub(super) fn player_mut(&mut self) -> &mut Player {
+    pub(crate) fn player_mut(&mut self) -> &mut Player {
         self.player.as_mut().expect("the player updates")
     }
 
@@ -652,7 +652,7 @@ impl RainWorldGame {
     }
 
     /// `SessionRecord.AddEat`.
-    pub(super) fn add_eat(&mut self, id: EntityId) {
+    pub(crate) fn add_eat(&mut self, id: EntityId) {
         if !self.eaten.contains(&id) {
             self.eaten.push(id);
         }
@@ -714,7 +714,7 @@ impl RainWorldGame {
 
     /// `ThrowObject`: `AerobicIncrease(0.75)`, a weapon thrown or anything else tossed,
     /// `dontGrabStuff` 15, a look at it, a carried item forbidden to the player, let go.
-    pub(super) fn throw_object(
+    pub(crate) fn throw_object(
         &mut self,
         index: i32,
         grasp: usize,
@@ -739,7 +739,7 @@ impl RainWorldGame {
 
     /// `TossObject` of a held creature, which ends put on the ground
     /// (`CreaturePutItemOnGround`).
-    pub(super) fn toss_object(&mut self, index: i32, grasp: usize) {
+    pub(crate) fn toss_object(&mut self, index: i32, grasp: usize) {
         let Some(obj) = self.player_grasps()[grasp] else {
             return;
         };
@@ -839,7 +839,7 @@ impl RainWorldGame {
     /// below), anything else follows its hand (`MoveFromOutsideMyUpdate` with the hand's
     /// velocity, a weapon turned the way it is held, `GetHeldItemDirection`) while the
     /// room is viewed, else sits on the head chunk.
-    pub(super) fn graphics_module_updated(&mut self, observer: &mut dyn PlayerObserver) {
+    pub(crate) fn graphics_module_updated(&mut self, observer: &mut dyn PlayerObserver) {
         let hands = observer.player_hands();
         if let Some(h) = hands {
             self.player_mut().body.chunks[0].vel += h.body_push;
@@ -886,7 +886,7 @@ impl RainWorldGame {
 
     /// What hand 0 carries heavily, lent to the player's update in room `index`
     /// ([`HeavyCarry`]): its mass, whether it is dragged, its gravity and chunks.
-    pub(super) fn heavy_carry_loan(&self, index: i32) -> Option<HeavyCarry> {
+    pub(crate) fn heavy_carry_loan(&self, index: i32) -> Option<HeavyCarry> {
         let g = self.player_grasp(0)?;
         if !self.heavy_carry(g.grabbed) {
             return None;
@@ -902,7 +902,7 @@ impl RainWorldGame {
     }
 
     /// Hand 0's held chunk (position, radius) when it is a heavy carry.
-    pub(super) fn heavy_carry_chunk(&self) -> Option<(Vec2, f32)> {
+    pub(crate) fn heavy_carry_chunk(&self) -> Option<(Vec2, f32)> {
         let g = self.player_grasp(0)?;
         if !self.heavy_carry(g.grabbed) {
             return None;
@@ -915,7 +915,7 @@ impl RainWorldGame {
     /// The masses `JumpOnChunk` reads of the player's jump chunk, when its owner is
     /// realized in room `index` (`jumpChunk.owner.room`: a creature sucked into a
     /// shortcut has none).
-    pub(super) fn jump_chunk_body(&self, index: i32) -> Option<JumpChunkBody> {
+    pub(crate) fn jump_chunk_body(&self, index: i32) -> Option<JumpChunkBody> {
         let c = self.player.as_ref()?.jump_chunk()?;
         let room = match c.owner {
             Entity::Creature(id) => self.world.physical_room(id),
@@ -932,7 +932,7 @@ impl RainWorldGame {
 
     /// `JumpOnChunk`'s push on the other object: the chunk's `vel.y` drop and, for a
     /// creature, `Stun(1)`.
-    pub(super) fn apply_jump_chunk_push(&mut self) {
+    pub(crate) fn apply_jump_chunk_push(&mut self) {
         let Some(push) = self.player.as_mut().and_then(Player::take_jump_chunk_push) else {
             return;
         };
@@ -944,7 +944,7 @@ impl RainWorldGame {
         }
     }
 
-    pub(super) fn return_heavy_carry(&mut self) {
+    pub(crate) fn return_heavy_carry(&mut self) {
         let Some(carry) = self.player.as_mut().and_then(Player::take_heavy_carry) else {
             return;
         };
@@ -1016,7 +1016,7 @@ impl RainWorldGame {
 
     /// The carried objects in the entering branch of the player's `Creature.Update`:
     /// pulled toward the tube like the player's own chunks.
-    pub(super) fn pull_carried(&mut self) {
+    pub(crate) fn pull_carried(&mut self) {
         let Some((target, radius)) = self.player.as_ref().and_then(Player::shortcut_pull) else {
             return;
         };
@@ -1053,7 +1053,7 @@ impl RainWorldGame {
     }
 
     /// `SuckedIntoShortCut` of the player: every connected object leaves the room with it.
-    pub(super) fn carried_sucked_in(&mut self) {
+    pub(crate) fn carried_sucked_in(&mut self) {
         for e in self.carried() {
             match e {
                 Entity::Creature(id) => match &mut self.world.creature_mut(id).realized {
@@ -1074,7 +1074,7 @@ impl RainWorldGame {
 
     /// `AbstractPhysicalObject.Move` through the player's sticks: what it carries moves
     /// to `to` with it.
-    pub(super) fn move_carried(&mut self, to: WorldCoordinate) {
+    pub(crate) fn move_carried(&mut self, to: WorldCoordinate) {
         let carried: Vec<Entity> = self
             .world
             .connected_objects(Entity::Creature(self.player_id))
@@ -1096,7 +1096,7 @@ impl RainWorldGame {
     /// The base `Creature.SpitOutOfShortCut`'s loop for what the player carries: each
     /// object's chunks at the entrance (a draw each), added to the room, a fly spat out
     /// itself (`Fly.SpitOutOfShortCut`) and `NewRoom`.
-    pub(super) fn spit_out_carried(&mut self, observer: &mut dyn PlayerObserver) {
+    pub(crate) fn spit_out_carried(&mut self, observer: &mut dyn PlayerObserver) {
         // The head stops 2.5 px out of the entrance's middle: still on its tile.
         let Some(entrance) = self.player.as_ref().map(|p| p.head().pos.tile()) else {
             return;
@@ -1120,7 +1120,7 @@ impl RainWorldGame {
     }
 
     /// The `WaterDrip`s in room `index`'s update list.
-    pub(super) fn room_drip_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
+    pub(crate) fn room_drip_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         self.world.realized(index).map_or_else(Vec::new, |r| {
             r.drips
                 .iter()
@@ -1131,7 +1131,7 @@ impl RainWorldGame {
     }
 
     /// A drip's slot in its room's update list; slated, it is cleaned out after.
-    pub(super) fn run_drip(&mut self, index: i32, id: u64, room: &Room) {
+    pub(crate) fn run_drip(&mut self, index: i32, id: u64, room: &Room) {
         let Some(realized) = self.world.realized(index) else {
             return;
         };
@@ -1152,7 +1152,7 @@ impl RainWorldGame {
     }
 
     /// The room's physical objects in its update list but the player, oldest first.
-    pub(super) fn room_physical_objects(&self, index: i32) -> Vec<LookTarget> {
+    pub(crate) fn room_physical_objects(&self, index: i32) -> Vec<LookTarget> {
         let mut objects: Vec<(u64, LookTarget)> = self
             .world
             .room_overseers(index)

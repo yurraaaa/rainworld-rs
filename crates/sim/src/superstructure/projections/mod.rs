@@ -7,3 +7,4 @@ pub(crate) mod projector;
 pub(crate) mod room_projections;
 pub(crate) mod scan_lines;
 pub(crate) mod star_matrix;
+pub(crate) mod turn;

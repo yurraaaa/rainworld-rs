@@ -16,23 +16,33 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 ## Layout
 
 `src/` is split by topic: `math/`, `physics/`, `game/`, `player/`, `creature/`, `item/`,
-`sound/`, `water/`, `effects/{lights,sky,particles,gravity}/`,
-`superstructure/{projections,electric,grab,coral}/`, `vines/`, `world/`. `lib.rs` declares
-them and re-exports the crate's API at the root (`rw_sim::Vec2`, ...); the public modules
-are `creature`, `item`, `world` and the re-exported `campaign`, `color`, `insect`,
-`map_discovery`, `room_script`, `shelter`, `trigger`.
+`sound/`, `water/`, `effects/{lights,sky,particles,gameplay}/`,
+`superstructure/{projections,electric,grab,coral}/`, `vines/`, `world/`. The module tree
+is the folder tree. `lib.rs` declares the topics and re-exports the crate's API at the
+root (`rw_sim::Vec2`, ...); the public modules are `creature`, `item`, `world` and the
+re-exported `campaign`, `color`, `insect`, `map_discovery`, `room_script`, `shelter`,
+`trigger`. `world/mod.rs` and `creature/mod.rs` re-export their topics' types
+(`rw_sim::world::FliesWorldAi`, `rw_sim::creature::Tracker`) wherever those now live.
 
-- **Turn files** (`turn.rs`, `<part>_turn.rs`): the `impl RainWorldGame` code of a topic
-  (making its objects in `Room.Loaded`, their turns in the update list), beside the
-  topic's types. They are child modules of `game` (declared in `game/mod.rs` with
-  `#[path]`), so they share `RainWorldGame`'s private fields; `turn.rs` is the folder's
-  own topic, `<part>_turn.rs` one part of it (`creature/lizard/act_turn.rs`).
-- **Tests**: unit tests of `x.rs` are `tests/x.rs` in the same folder, declared as
-  `#[cfg(test)] #[path = "tests/x.rs"] mod tests;` (a child module, so private items
-  stay reachable); a folder's `mod.rs` tests are `tests/mod.rs`; tests of `game/mod.rs`'s
-  own code on a topic are `tests/game_<topic>.rs`. `src/tests/mod.rs` holds the test
-  rooms the unit tests share. `../tests/` holds only the `installed_*.rs` integration
-  tests.
+A topic folder holds three kinds of file beside each other:
+
+- **Types** (`x.rs`): the decompiled classes the topic ports.
+- **Turn files** (`turn.rs`, `<part>_turn.rs`): the topic's `impl RainWorldGame` code
+  (making its objects in `Room.Loaded`, their turns in the update list). `turn.rs` is
+  the folder's own topic, `<part>_turn.rs` one part of it (`creature/lizard/act_turn.rs`).
+- **World files** (`world.rs`, `<part>_world.rs`, or a type's own file such as
+  `creature/fly/world_ai.rs`): the topic's `impl World` code (realizing, abstracting,
+  the world's update of an AI module).
+
+`RainWorldGame`'s and `World`'s fields and the helpers these files share are
+`pub(crate)`.
+
+**Tests**: unit tests of `x.rs` are `tests/x.rs` in the same folder, declared from `x.rs`
+as `#[cfg(test)] #[path = "tests/x.rs"] mod tests;` (a child module, so private items
+stay reachable); a folder's `mod.rs` tests are `tests/mod.rs` (`game/tests/mod.rs` has
+one child module per topic of `game/mod.rs`'s own code). `src/tests/mod.rs` holds the
+test rooms the unit tests share. `../tests/` holds only the `installed_*.rs`
+integration tests.
 
 ## Files by folder
 
@@ -104,27 +114,58 @@ corridor shoots' `WaterDrip`s), `spear_on_back.rs` (the Hunter's
 |---|---|---|
 | `mod.rs` | `AbstractCreature`, `EntityId`, `IdIssuer`, `WorldCoordinate`, `CreatureState`, `RealizedCreature` | `AbstractCreature` |
 | `template.rs`, `template_abstract.rs`, `pathing.rs`, `relationships.rs`, `violence.rs` | `CreatureTemplate` data, resistances, relationship tables, damage data | `StaticWorld.InitStaticWorld`, `LizardBreeds` |
-| `ai.rs`, `ai_kinds.rs` | abstract AI state + constructors | `AbstractCreatureAI` subclasses |
 | `population.rs` | world creature generation | `WorldLoader.GeneratePopulation` |
-| `state_save.rs`, `social_memory.rs` | creature state save string; `SocialMemory` | `CreatureState`, `SocialMemory` |
+| `state_save.rs` | creature state save string | `CreatureState` |
 | `centipede.rs` | `AbstractCreature::centipede_generate_size` (size from the ID, for its icon) | `Centipede.GenerateSize` |
 | `death.rs`, `grasp.rs`, `danger.rs` | kill tag/die, `Killing`, `AddCreatureToRespawn` and the lineage roll; `Grasp` + grip sticks; threat/danger reads | `Creature.Die`, `Creature.Grab` |
+
+#### `creature/abstract_ai/` (the abstract AI)
+
+| File | Holds | Ports |
+|---|---|---|
+| `mod.rs`, `kinds.rs` | abstract AI state + constructors | `AbstractCreatureAI` subclasses |
+| `world.rs` | plain abstract AI in the world (roam, migrate, den) | `AbstractCreatureAI`, `AbstractCreature` |
+| `kinds_world.rs` | vulture, cicada, big eel, deer, Miros bird, needle worm behaviours | `*AbstractAI` |
+| `path_finder.rs` | abstract pathfinders | `AbstractSpacePathFinder`, `AbstractSpaceNodeFinder` |
+
+#### `creature/ai_modules/` (a realized creature's `AIModule`s)
+
+| File | Holds | Ports |
+|---|---|---|
 | `tracker.rs`, `relationship_tracker.rs`, `looker.rs`, `vision.rs` | AI modules | `Tracker`, `RelationshipTracker`, `CreatureLooker`, `VisualScore` |
 | `noise_tracker.rs`, `stuck_tracker.rs` | `NoiseTracker`; `StuckTracker`, `DiscomfortTracker` | same |
 | `friend_tracker.rs` | `FriendTracker`'s gift half: `tamingDifficlty`, `giftOfferedToMe` (no friend: taming is not ported) | `FriendTracker` |
-| `prey_tracker.rs`, `threat_tracker.rs`, `agression_tracker.rs`, `rain_tracker.rs`, `den_finder.rs`, `utility_comparer.rs`, `mission_tracker.rs` | AI modules' state (their world reads are `world/ai_modules.rs`, `world/missions.rs`); `UtilityComparer` with `FloatTweener`; missions | same |
-| `heavy_ai_turn.rs` | `HeavyAiThrottle`: `RequestHeavyAi`'s three-a-tick limit | `RainWorldGame.RequestHeavyAi` |
+| `prey_tracker.rs`, `threat_tracker.rs`, `agression_tracker.rs`, `rain_tracker.rs`, `den_finder.rs`, `utility_comparer.rs`, `mission_tracker.rs` | AI modules' state; `UtilityComparer` with `FloatTweener`; missions | same |
+| `world.rs` | prey/threat/aggression trackers' and den finder's updates, `SortCreatureIntoModule`, threat of a tile, threat travel cost, `NewArea` | `PreyTracker`, `ThreatTracker`, `AgressionTracker`, `DenFinder` |
+| `threat_tracker_world.rs` | the threat tracker's flight: `FleeTo`, `EvaluateFlightDestThreat`, `GenerateRandomPath`, `FindMostAttractiveExit` | `ThreatTracker` |
+| `tracker_world.rs` | tracker answers (relationships) | `DynamicRelationship` |
+| `mission_tracker_world.rs` | `LeaveRoom.Act`: the exit a submitted lizard leaves by and where it heads | `MissionTracker` |
+| `noise_tracker_world.rs` | noise delivery to creatures and `NoiseTracker`; `LizardAI.ReactToNoise` | `Room.InGameNoise`, `HeardNoise` |
 | `tracker_turn.rs` | realized AI `Tracker`/`RelationshipTracker` running | `Tracker.cs`, `RelationshipTracker.cs` |
+| `heavy_ai_turn.rs` | `HeavyAiThrottle`: `RequestHeavyAi`'s three-a-tick limit | `RainWorldGame.RequestHeavyAi` |
+
+#### `creature/social/`
+
+| File | Holds | Ports |
+|---|---|---|
+| `social_events.rs` | `SocialEventId`, the recognizer (`ownedItemsOnGround`, `ItemOffered`) and its events, lizards' reactions (fear relief, gifts: `FriendTracker.ItemOffered`, `GiftRecieved`) | `SocialEventRecognizer` |
+| `social_events_turn.rs` | the slugcat putting items on the ground (`ReleaseObject`, `TossObject`, the back spear laid down) and the room's `SocialEventRecognizer.Update` (owned items offered, lapsing, a lizard's gift received) | `SocialEventRecognizer`, `OwnedItemOnGround` |
+| `social_memory.rs` | `SocialMemory` | `SocialMemory` |
+
+#### Creature kinds
 
 - `lizard/`: `mod.rs` (`Lizard`), `breed.rs` (`LizardBreedParams`, green only), `ai.rs`
   (`LizardAi` state, `LizardBehavior`, injury utility), `movement.rs` (`MovementAnimation`), `voice.rs` (`LizardVoice`),
   `bubble.rs` (`LizardBubble`), `graphics_link.rs` (state shared with `rw-graphics`, with the
-  jaws' `internalContainerObjects`); turn files in the table below.
+  jaws' `internalContainerObjects`), `world.rs` (lizard realize/abstractize, `RealizeInRoom`);
+  turn files in the table below.
 - `fly/`: `mod.rs` (`Fly`), `update.rs` (`Fly.Update`), `ai.rs` + `ai_update.rs`
-  (`FlyAi`, flocking), `room_ai.rs` (`FliesRoomAi`, hives), `turn.rs` (bat flies in the tick: world process, `ReadyForAI`, vessels, lobby turns; the creatures' graphics modules at the camera's room change (`NoLongerViewed`, `NowViewed` by collision layer)).
+  (`FlyAi`, flocking), `room_ai.rs` (`FliesRoomAi`, hives), `world_ai.rs` (`FliesWorldAI`:
+  the bat-fly world process), `swarm_rooms.rs` (`SwarmRoomMapper`), `turn.rs` (bat flies in the tick: world process, `ReadyForAI`, vessels, lobby turns; the creatures' graphics modules at the camera's room change (`NoLongerViewed`, `NowViewed` by collision layer)).
 - `overseer/`: `abstract_ai.rs` (`OverseerAbstractAi`), `ai.rs` (`OverseerAi` state,
   zip matrix), `body.rs` (`OverseerBody`), `update.rs` (the whole realized update),
   `tutorial.rs` (`TutorialBehavior`, `TutorialMessage`), `guide_state.rs` (`PlayerGuideState`),
+  `world_ai.rs` (`OverseersWorldAI`: shelter finder, guide direction),
   `holo_light.rs` (`HologramLight`), `holo_light_turn.rs` (Monk guide light in the update list), `turn.rs` (an overseer's turn in the game: what it reads of the player and story, the effects it hands back), `hologram/` (the projected pictures: `mod.rs`
   `OverseerHolograms`, `add.rs` `TryAddHologram`, `update.rs`, `parts.rs`, `instruction.rs`,
   `world_queries.rs`).
@@ -154,6 +195,7 @@ corridor shoots' `WaterDrip`s), `spear_on_back.rs` (the Hunter's
 | `hits_turn.rs` | thrown rock/spear vs creatures | `Weapon.Update` Thrown branch |
 | `turn.rs` | slugcat grabbing: `Grabability` (dead lizards: `Drag`), `CanIPickThisUp`, pick-up candidate | `Player` item rules |
 | `weapon_turn.rs` | rocks/spears in the update list, loops, sparks | - |
+| `weapon_world.rs` | the world's realized rocks/spears per room, `ShortCutsReady`, the collision pass, `Abstractize` | `Room.Update`, `AbstractRoom.Abstractize`, `Weapon` |
 | `mod.rs` | abstract objects (`AbstractObject`, `Entity`, `ObjectData`, `AbstractSpear`), save strings | `AbstractPhysicalObject` |
 
 ### `sound/`
@@ -178,6 +220,7 @@ corridor shoots' `WaterDrip`s), `spear_on_back.rs` (the Hunter's
 | `bubble.rs` | `Bubble` (`BubbleMode`): air bubbles in a room's update list | `Bubble` |
 | `splash.rs` | `Splash`: water thrown up by bodies crossing the surface (update, sounds, terrain drips, `WaterfallHitSurface`) | `SplashWater.Splash`, `WaterParticle` |
 | `water_drip.rs` | `WaterDrip` droplets; `Room.Update`'s ambient ceiling drip roll | `WaterDrip`, `Room.Update` |
+| `world.rs` | a room's `Water.Update` fed every physical object's chunks (`physicalObjects` order), its splashes and bubbles into the room | `Water.Update`, `Room.physicalObjects` |
 
 ### `effects/`
 
@@ -232,7 +275,7 @@ corridor shoots' `WaterDrip`s), `spear_on_back.rs` (the Hunter's
 sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `moth.rs`;
 `turn.rs` (cosmetic insects in the update list: `NowViewed`/`NoLongerViewed` at the camera's room change, creatures for the avoiders, the firefly's light); `tests/`.
 
-### `effects/gravity/`
+### `effects/gameplay/` (effects that act on play)
 
 | File | Holds (key types) | Ports |
 |---|---|---|
@@ -302,55 +345,51 @@ sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `m
 | `realized.rs`, `realizer.rs` | realized room data + ready states; room realizer | `Room` bits, `RoomRealizer` |
 | `creatures.rs` | creature arena, room lists, attractions | `AbstractRoom` creature lists |
 | `objects.rs` | object arena, room items on first realization | `Room.Loaded` objects |
-| `weapons.rs` | realized rocks/spears per room, `ShortCutsReady` | - |
-| `room_water.rs` | a room's `Water.Update` fed every physical object's chunks (`physicalObjects` order), its splashes and bubbles into the room | `Water.Update`, `Room.physicalObjects` |
 | `dens.rs` | into/out of dens with stuck items | `MoveEntityToDen` |
-| `abstract_ai.rs`, `abstract_path.rs` | plain abstract AI (roam, migrate, den); abstract pathfinders | `AbstractCreatureAI`, `AbstractSpacePathFinder` |
-| `abstract_ai_kinds.rs` | vulture, cicada, big eel, deer, Miros bird, needle worm behaviours | `*AbstractAI` |
-| `flies_world_ai.rs`, `swarm_rooms.rs`, `quantified.rs` | bat-fly world process, swarm map, quantified counts | `FliesWorldAI`, `SwarmRoomMapper` |
-| `overseers_world_ai.rs` | shelter finder, guide direction | `OverseersWorldAI` |
-| `lizards.rs` | lizard realize/abstractize, `RealizeInRoom` | `AbstractCreature.Realize` |
-| `ai_map.rs`, `ai_mapper.rs`, `creature_ai_map.rs`, `movement.rs` | `AiMap`, `AiMapper`, baked per-creature maps, accessibility/connection/cost vocabulary | `AImap`, `AImapper` |
-| `quick_path.rs`, `quick_connectivity.rs` | `QuickPathFinder`, `QuickConnectivity` (`Check`, `QuickPath`) | same |
-| `hearing.rs` | noise delivery to creatures and `NoiseTracker`; `LizardAI.ReactToNoise` | `Room.InGameNoise`, `HeardNoise` |
-| `ai_modules.rs` | prey/threat/aggression trackers' and den finder's updates, `SortCreatureIntoModule`, threat of a tile, threat travel cost, `NewArea` | `PreyTracker`, `ThreatTracker`, `AgressionTracker`, `DenFinder` |
-| `threat_flight.rs` | the threat tracker's flight: `FleeTo`, `EvaluateFlightDestThreat`, `GenerateRandomPath`, `FindMostAttractiveExit` | `ThreatTracker` |
-| `missions.rs` | `LeaveRoom.Act`: the exit a submitted lizard leaves by and where it heads | `MissionTracker` |
-| `tracking.rs`, `social_events.rs` | tracker answers (relationships); `SocialEventId`, the recognizer (`ownedItemsOnGround`, `ItemOffered`) and its events, lizards' reactions (fear relief, gifts: `FriendTracker.ItemOffered`, `GiftRecieved`) | `DynamicRelationship`, `SocialEventRecognizer` |
+| `quantified.rs` | quantified creatures placed in a room and counted back | `Room.PlaceQuantifiedCreaturesInRoom`, `AbstractRoom.CountQuantifiedCreatures` |
 | `rain_cycle.rs` | `RainCycle`, `WaterLevelCycle` | `RainCycle` |
-| `region_state.rs`, `region_save.rs` | `RegionState` and adapting world to/from it | `RegionState` |
-| `social_events_turn.rs` | the slugcat putting items on the ground (`ReleaseObject`, `TossObject`, the back spear laid down) and the room's `SocialEventRecognizer.Update` (owned items offered, lapsing, a lizard's gift received) | `SocialEventRecognizer`, `OwnedItemOnGround` |
+| `region_state.rs` | `RegionState`, its save string, and adapting the world to and from it | `RegionState`, `SaveState` |
+
+- `ai_map/`: `mod.rs` (`AiMap`, `AiTile`), `ai_mapper.rs` (`AiMapper`), `creature_ai_map.rs`
+  (baked per-creature maps), `movement.rs` (accessibility/connection/cost vocabulary),
+  `quick_path.rs` (`QuickPathFinder`), `quick_connectivity.rs` (`QuickConnectivity`:
+  `Check`, `QuickPath`). Ports `AImap`, `AImapper`, `CreatureSpecificAImap`,
+  `QuickPathFinder`, `QuickConnectivity`.
+
+The world side of creatures, items and water lives with them: `creature/abstract_ai/`,
+`creature/ai_modules/*_world.rs`, `creature/lizard/world.rs`, `creature/fly/world_ai.rs`,
+`creature/overseer/world_ai.rs`, `item/weapon_world.rs`, `water/world.rs`.
 
 ## Where is X?
 
 | Question | Look in |
 |---|---|
 | Shortcuts / pipes, vessels, lobby | `game/shortcut.rs`, `player/shortcut.rs`, `game/shortcut_turn.rs` (lobby), `creature/lizard/turn.rs`, `creature/fly/turn.rs`, `player/carried_turn.rs` (what a vessel carries) |
-| Water, swimming, drowning | `water/mod.rs`, `world/room_water.rs`, `water/bubble.rs`, `water/splash.rs`, `player/swim.rs`, `water/water_drip.rs` |
+| Water, swimming, drowning | `water/mod.rs`, `water/world.rs`, `water/bubble.rs`, `water/splash.rs`, `player/swim.rs`, `water/water_drip.rs` |
 | The water's surface sound | `sound/water_sound.rs`, `sound/water_sound_turn.rs` (audio mix: `rw-audio` `voice.rs`) |
 | Ceiling drips, the cycle start's dripping sound | `water/water_drip.rs`, `sound/dripping_sound.rs`, `water/drips_turn.rs`, `game/screen_shake.rs` (shaken drips) |
-| `rainWorld.screenSize` (the chosen resolution) | `World::screen_size`/`set_screen_size` (`world/mod.rs`; the app sets it before the first room loads), read by `effects/gravity/border_push_back.rs`, `effects/gravity/electric_death.rs` (`LightFlash`), `effects/sky/background_scene_turn.rs` (convergence point), `CameraShake` |
+| `rainWorld.screenSize` (the chosen resolution) | `World::screen_size`/`set_screen_size` (`world/mod.rs`; the app sets it before the first room loads), read by `effects/gameplay/border_push_back.rs`, `effects/gameplay/electric_death.rs` (`LightFlash`), `effects/sky/background_scene_turn.rs` (convergence point), `CameraShake` |
 | Camera shake, `ScreenMovement` | `game/screen_shake.rs` (sim side), `rw-render` `room_camera.rs`, app `scene.rs` |
-| Abstract creature AI (roam, migrate) | `world/abstract_ai.rs`, `abstract_path.rs`, `creature/ai.rs` |
-| Type-specific abstract AI | `world/abstract_ai_kinds.rs`, `creature/ai_kinds.rs`, `creature/overseer/abstract_ai.rs` |
-| Den logic | `world/dens.rs`, `world/abstract_ai.rs` (den counters), `world/creatures.rs` |
+| Abstract creature AI (roam, migrate) | `creature/abstract_ai/` (`world.rs`, `path_finder.rs`, `mod.rs`) |
+| Type-specific abstract AI | `creature/abstract_ai/kinds_world.rs`, `kinds.rs`, `creature/overseer/abstract_ai.rs` |
+| Den logic | `world/dens.rs`, `creature/abstract_ai/world.rs` (den counters), `world/creatures.rs` |
 | Population generation | `creature/population.rs` |
-| Tracker / relationships | `creature/tracker.rs`, `relationship_tracker.rs`, `creature/tracker_turn.rs`, `world/tracking.rs` |
-| Noise and hearing | `sound/noise.rs`, `sound/noise_turn.rs`, `world/hearing.rs`, `creature/noise_tracker.rs` |
+| Tracker / relationships | `creature/ai_modules/` (`tracker.rs`, `relationship_tracker.rs`, `tracker_turn.rs`, `tracker_world.rs`) |
+| Noise and hearing | `sound/noise.rs`, `sound/noise_turn.rs`, `creature/ai_modules/noise_tracker_world.rs`, `noise_tracker.rs` |
 | Spear sticking, lodged spears | `item/spear_stick.rs`, `item/weapon.rs`, `creature/lizard/hits_turn.rs`, `item/hits_turn.rs` |
 | Thrown weapon hits | `item/hits_turn.rs`, `item/weapon.rs` |
 | Lizard movement / path following | `creature/lizard/act_turn.rs`, `creature/lizard/movement.rs`, `creature/path_finder/` |
-| Lizard decisions (behaviour, utilities, idle spot, den) | `creature/lizard/ai_turn.rs`, `creature/lizard/ai.rs`, `world/ai_modules.rs`, `creature/utility_comparer.rs` |
-| Lizard hunting, lounging, fleeing | `creature/lizard/hunt_turn.rs`, `world/threat_flight.rs`, `creature/heavy_ai_turn.rs` |
-| Lizards fighting, signalling, leaving on a mission | `creature/lizard/fight_turn.rs`, `creature/mission_tracker.rs`, `world/missions.rs` |
-| Room tile AI map | `world/ai_map.rs`, `ai_mapper.rs` |
+| Lizard decisions (behaviour, utilities, idle spot, den) | `creature/lizard/ai_turn.rs`, `creature/lizard/ai.rs`, `creature/ai_modules/world.rs`, `creature/ai_modules/utility_comparer.rs` |
+| Lizard hunting, lounging, fleeing | `creature/lizard/hunt_turn.rs`, `creature/ai_modules/threat_tracker_world.rs`, `creature/ai_modules/heavy_ai_turn.rs` |
+| Lizards fighting, signalling, leaving on a mission | `creature/lizard/fight_turn.rs`, `creature/ai_modules/mission_tracker.rs`, `mission_tracker_world.rs` |
+| Room tile AI map | `world/ai_map/` |
 | Shelters, sleep, hibernation | `game/shelter.rs`, `game/shelter_turn.rs`, `player/sleep.rs` |
-| Save-state writing (sim side) | `world/region_state.rs`, `region_save.rs`, `creature/state_save.rs`, `item/mod.rs` (object strings), `creature/overseer/guide_state.rs`, `game/map_discovery.rs`; text format in `rw-save` |
+| Save-state writing (sim side) | `world/region_state.rs`, `creature/state_save.rs`, `item/mod.rs` (object strings), `creature/overseer/guide_state.rs`, `game/map_discovery.rs`; text format in `rw-save` |
 | Death, game over, karma flower | `game/game_over_turn.rs`, `creature/death.rs`, `player/falls.rs` |
 | The player bitten and held by a lizard, struggling free | `player/grabbed_turn.rs`, `player/grabbed.rs`, `creature/lizard/hits_turn.rs` (`Bite`, the melee throw's hit) |
 | Random draws / sounds | `sound/mod.rs`, `rw-random` crate; draws live beside each ported function |
 | Camera visibility | `game/camera.rs` |
-| `ElectricDeath` (Underhang), `BorderPushBack` (Sunlit Lands) | `effects/gravity/electric_death.rs`, `effects/gravity/electric_death_turn.rs`; `effects/gravity/border_push_back.rs`, `effects/gravity/border_push_back_turn.rs`; sprites in `rw-graphics` `electric_death.rs`, shaders in `rw-render` |
+| `ElectricDeath` (Underhang), `BorderPushBack` (Sunlit Lands) | `effects/gameplay/electric_death.rs`, `effects/gameplay/electric_death_turn.rs`; `effects/gameplay/border_push_back.rs`, `effects/gameplay/border_push_back_turn.rs`; sprites in `rw-graphics` `electric_death.rs`, shaders in `rw-render` |
 | Room triggers, guide instructions | `game/trigger.rs`, `game/trigger_turn.rs`, `game/instructions_turn.rs`, `game/room_script.rs` |
 | Room realization / loading | `world/realizer.rs`, `world/realized.rs`, `world/mod.rs` |
 | Rain cycle | `world/rain_cycle.rs` |
@@ -358,8 +397,8 @@ sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `m
 | The Hunter's spear on the back | `player/spear_on_back_turn.rs`, `player/spear_on_back.rs`, `item/on_back_stick.rs` |
 | Body physics / collision | `physics/chunk.rs`, `physics/object.rs`, `player/mod.rs` |
 | Climbable vines (the player climbing, the vine geometry) | `vines/mod.rs`, `player/vines.rs`; hands: `rw-graphics` `hand.rs` |
-| Zero gravity (room `gravity`, `ElectricPower`, the broken switch, the player floating) | `effects/gravity/anti_gravity.rs`, `effects/gravity/anti_gravity_turn.rs`, `player/zero_g.rs`, `PhysicsParams::room_gravity` in `physics/chunk.rs`; the SS song: `game/trigger_turn.rs` (`SsMusic`) and `rw-audio` `music/song.rs` |
-| Overseer / guide | `creature/overseer/` (`turn.rs`: in the game), `world/overseers_world_ai.rs`, `creature/overseer/holo_light_turn.rs` |
+| Zero gravity (room `gravity`, `ElectricPower`, the broken switch, the player floating) | `effects/gameplay/anti_gravity.rs`, `effects/gameplay/anti_gravity_turn.rs`, `player/zero_g.rs`, `PhysicsParams::room_gravity` in `physics/chunk.rs`; the SS song: `game/trigger_turn.rs` (`SsMusic`) and `rw-audio` `music/song.rs` |
+| Overseer / guide | `creature/overseer/` (`turn.rs`: in the game), `creature/overseer/world_ai.rs`, `creature/overseer/holo_light_turn.rs` |
 | Placed light beams, spot lights | `effects/lights/light_beam.rs`, `effects/lights/light_beam_turn.rs`; sprites in `rw-graphics` `light_beam.rs`, `spot_light.rs`, `quad_grid.rs` |
 | Superstructure rods, zap coils (and their lights, flashes), fuses | `superstructure/electric/light_rod.rs`, `superstructure/electric/zap_coil.rs`, `superstructure/electric/fuses.rs`, `superstructure/electric/turn.rs`; sprites in `rw-graphics` `ss_electric.rs` |
 | Coral (`CoralNeuronSystem`, `CoralNeuron`, `ProjectedCircle`, `WallMycelia`, `Mycelium`, `NeuronSpark`) | `superstructure/coral/system.rs`, `superstructure/coral/neuron.rs`, `superstructure/projections/projected_circle.rs`, `superstructure/coral/wall_mycelia.rs`, `superstructure/coral/mycelium.rs`, `superstructure/coral/neuron_spark.rs`, `superstructure/coral/turn.rs`, `superstructure/projections/turn.rs`; sprites in `rw-graphics` `coral_neuron_draw.rs`, `projected_circle_draw.rs`, `wall_mycelia_draw.rs`, `mycelium.rs`, `cosmetic_graphics.rs` |
@@ -367,7 +406,7 @@ sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `m
 | Superstructure screen-grab effects (`DeepProcessing`, `DeepProcessingLight`, `GravityDisruptor`) | `superstructure/grab/deep_processing.rs`, `superstructure/grab/gravity_disruptor.rs`, `superstructure/grab/turn.rs`; sprites in `rw-graphics` `ss_grab.rs`, shaders in `rw-render` `ss_grab.wgsl` |
 | Light fixtures (`Redlight`, `HolyFire`, `SlimeMoldLight`), waterfalls | `effects/lights/light_fixture.rs`, `water/waterfall.rs`, `superstructure/electric/room_fixtures.rs`, `effects/lights/light_fixture_turn.rs`, `water/waterfall_turn.rs`; sprites in `rw-graphics` `light_fixture.rs`, `water_fall.rs` |
 | Lights (placed, player glow, room light queries) | `effects/lights/light_source.rs`, `effects/lights/turn.rs`, `game/camera_image.rs`; sprites in `rw-graphics` `light_source.rs` |
-| Bat flies | `creature/fly/`, `world/flies_world_ai.rs`, `creature/fly/turn.rs` |
+| Bat flies | `creature/fly/`, `creature/fly/world_ai.rs`, `creature/fly/turn.rs` |
 | Cosmetic insects (Flies, RockFlea, ... effects, `InsectGroup`) | `effects/particles/insect/`, `effects/particles/insect/turn.rs`; sprites in `rw-graphics` `insect_graphics.rs` |
 | Dev spawns / teleport | `game/dev_turn.rs`, `game/spawn.rs` |
 | Custom decals, rainbows | `effects/particles/decal.rs`, `effects/particles/rainbow.rs`, `effects/particles/decal_turn.rs`; sprites in `rw-graphics`, shaders in `rw-render` |

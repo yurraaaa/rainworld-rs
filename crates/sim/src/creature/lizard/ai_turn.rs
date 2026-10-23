@@ -12,13 +12,13 @@
 
 use rw_assets::CreatureType;
 
-use super::RainWorldGame;
 use crate::creature::FloatTween;
 use crate::creature::lizard::{LizardBehavior, LizardEmotion};
 use crate::creature::{
     CreatureId, LizardAnimation, RainTracker, RawUtilities, RelationshipType, Tracker,
     UtilityModule, WorldCoordinate,
 };
+use crate::game::RainWorldGame;
 use crate::physics::room_ext::RoomExt;
 use crate::world::Accessibility;
 use crate::{FloatExt, Vec2};
@@ -38,7 +38,7 @@ impl RainWorldGame {
     /// `LizardAI.Update`. A lizard that fled last update runs it (the base AI's modules
     /// too) only when `RequestHeavyAi` grants it. A dev run speed (D18) replaces the
     /// behaviours' bodies.
-    pub(super) fn lizard_ai_update(&mut self, index: i32, id: CreatureId) {
+    pub(crate) fn lizard_ai_update(&mut self, index: i32, id: CreatureId) {
         let granted = (self.world.lizard_ref(id).ai.behavior == LizardBehavior::Flee)
             .then(|| self.heavy_ai.request(self.world.creature(id).id));
         self.world.lizard_at(id).ai.heavy_ai_granted = granted;

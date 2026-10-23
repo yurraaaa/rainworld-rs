@@ -286,5 +286,9 @@ impl<'a> SavedObject<'a> {
     }
 }
 
+pub(crate) mod hits_turn;
 #[cfg(test)]
 mod tests;
+pub(crate) mod turn;
+pub(crate) mod weapon_turn;
+pub(crate) mod weapon_world;

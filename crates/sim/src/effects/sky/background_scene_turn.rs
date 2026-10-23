@@ -5,15 +5,19 @@
 //!
 //! Mirrors: Room.cs (Loaded: AboveCloudsView, RoofTopView), BackgroundScene.cs (Update)
 
-use super::{RainWorldGame, RoomObject};
+#[cfg(test)]
+#[path = "tests/background_scene_turn.rs"]
+mod tests;
+
 use crate::effects::sky::above_clouds_view::AboveCloudsContext;
 use crate::effects::sky::background_scene::{BackgroundScene, ElementKind};
+use crate::game::{RainWorldGame, RoomObject};
 use crate::{DustpuffSpawner, Vec2};
 
 impl RainWorldGame {
     /// `AddObject(new AboveCloudsView(this, effect))` for room `index`'s effect of
     /// `amount`.
-    pub(super) fn add_above_clouds_view(&mut self, index: i32, amount: f32) {
+    pub(crate) fn add_above_clouds_view(&mut self, index: i32, amount: f32) {
         let Some(data) = self.world.abstract_room(index) else {
             return;
         };
@@ -37,7 +41,7 @@ impl RainWorldGame {
     }
 
     /// `AddObject(new RoofTopView(this, effect))` for room `index`.
-    pub(super) fn add_roof_top_view(&mut self, index: i32) {
+    pub(crate) fn add_roof_top_view(&mut self, index: i32) {
         let Some(data) = self.world.abstract_room(index) else {
             return;
         };
@@ -58,7 +62,7 @@ impl RainWorldGame {
     }
 
     /// The scenes and their added `DistantLightning`s in room `index`'s update list.
-    pub(super) fn room_background_scene_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
+    pub(crate) fn room_background_scene_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         let mut objects = Vec::new();
         if let Some(r) = self.world.realized(index) {
             objects.extend(
@@ -96,7 +100,7 @@ impl RainWorldGame {
 
     /// `BackgroundScene.Update`: on its first turn the elements, far to near, take
     /// their places at the end of the update list.
-    pub(super) fn run_background_scene(&mut self, index: i32, order: u64) {
+    pub(crate) fn run_background_scene(&mut self, index: i32, order: u64) {
         let Some(r) = self.world.realized(index) else {
             return;
         };
@@ -129,7 +133,7 @@ impl RainWorldGame {
     }
 
     /// A `DistantLightning`'s `Update` in its slot of room `index`'s update list.
-    pub(super) fn run_scene_element(&mut self, index: i32, order: u64) {
+    pub(crate) fn run_scene_element(&mut self, index: i32, order: u64) {
         let Some(r) = self.world.realized_mut(index) else {
             return;
         };
@@ -145,7 +149,7 @@ impl RainWorldGame {
 
     /// `DustpuffSpawner.Update` in its slot of room `index`'s update list: the player's
     /// chunks, if it is in the room, make `DustPuff`s at the end of the list.
-    pub(super) fn run_dustpuff_spawner(&mut self, index: i32, _order: u64) {
+    pub(crate) fn run_dustpuff_spawner(&mut self, index: i32, _order: u64) {
         let in_room = self.pos().room == index;
         let Some(player) = self.player.as_ref().filter(|p| in_room && !p.in_shortcut()) else {
             return;
@@ -160,7 +164,7 @@ impl RainWorldGame {
     }
 
     /// A `DustPuff`'s `Update`; a destroyed one leaves the room.
-    pub(super) fn run_dust_puff(&mut self, index: i32, order: u64) {
+    pub(crate) fn run_dust_puff(&mut self, index: i32, order: u64) {
         let Some(r) = self.world.realized_mut(index) else {
             return;
         };

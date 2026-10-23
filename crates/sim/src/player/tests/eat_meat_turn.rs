@@ -10,11 +10,11 @@ use rw_assets::world::{FixedRoom, LoadedRoom, WorldData};
 use rw_assets::{ActiveMods, CreatureType, Room, RoomSettings};
 use rw_random::UnityRandom;
 
-use super::super::items::Grabability;
-use super::super::{PlayerHands, PlayerSurroundings};
 use crate::campaign::{SlugcatCampaign, StoryStart};
 use crate::creature::{CreatureId, CreatureTemplate, WorldCoordinate};
+use crate::game::{PlayerHands, PlayerSurroundings};
 use crate::item::Entity;
+use crate::item::turn::Grabability;
 use crate::tests::room;
 use crate::world::World;
 use crate::{Input, Player, RainWorldGame, SoundEvent, SoundId, Sounds, Start, Vec2, Water};
@@ -36,7 +36,7 @@ struct Graphics {
     nudges: Vec<Vec2>,
 }
 
-impl super::super::PlayerObserver for Graphics {
+impl crate::game::PlayerObserver for Graphics {
     fn created(&mut self, _: &Player, _: &mut UnityRandom) {}
     fn updated(
         &mut self,
@@ -149,7 +149,7 @@ impl RainWorldGame {
     }
 
     /// The lizard picked up from beside its middle chunk.
-    fn pick_up_meat(&mut self, l: CreatureId, observer: &mut dyn super::super::PlayerObserver) {
+    fn pick_up_meat(&mut self, l: CreatureId, observer: &mut dyn crate::game::PlayerObserver) {
         self.stand_at(176.0);
         self.tick(Input::NONE, observer);
         assert_eq!(

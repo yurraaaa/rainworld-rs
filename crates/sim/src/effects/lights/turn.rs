@@ -8,8 +8,8 @@
 
 use rw_assets::{LightColorType, LightSourceData, SlugcatName};
 
-use super::{RainWorldGame, RoomObject};
 use crate::color::Hsl;
+use crate::game::{RainWorldGame, RoomObject};
 use crate::world::RealizedRoom;
 use crate::{CameraImage, FloatExt, LightSource, LightSourceTick, LightTie, Vec2};
 
@@ -88,7 +88,7 @@ impl RainWorldGame {
     /// `Room.Loaded`'s placed `LightSource` (`index` its room): environmental, white,
     /// rad and strength set for its first update, the data's flags and colour type
     /// (`SetLightSourceBlink`'s blink and night light come with the DLCs, D24).
-    pub(super) fn add_placed_light(&mut self, index: i32, pos: Vec2, data: &LightSourceData) {
+    pub(crate) fn add_placed_light(&mut self, index: i32, pos: Vec2, data: &LightSourceData) {
         let id = self.world.next_update_seq();
         let mut light = LightSource::new(id, index, pos, true, [1.0; 3], None);
         light.set_rad = Some(data.rad());
@@ -105,7 +105,7 @@ impl RainWorldGame {
         }
     }
 
-    pub(super) fn room_light_source_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
+    pub(crate) fn room_light_source_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         self.world.realized(index).map_or_else(Vec::new, |r| {
             r.light_sources
                 .iter()
@@ -116,7 +116,7 @@ impl RainWorldGame {
     }
 
     /// The light source `id`'s `Update` in its slot of room `index`'s update list.
-    pub(super) fn run_light_source(&mut self, index: i32, id: u64) {
+    pub(crate) fn run_light_source(&mut self, index: i32, id: u64) {
         let Some(light) = self
             .world
             .realized(index)
@@ -175,7 +175,7 @@ impl RainWorldGame {
     /// module: kept alive and moved to the main chunk while the room is dark, dropped
     /// (left to die without upkeep) when it is not, made when a glowing player is in a
     /// dark room.
-    pub(super) fn player_glow_update(&mut self, index: i32) {
+    pub(crate) fn player_glow_update(&mut self, index: i32) {
         let Some(p) = self.player.as_ref() else {
             return;
         };
@@ -229,4 +229,4 @@ impl RealizedRoom {
 
 #[cfg(test)]
 #[path = "tests/turn.rs"]
-pub(super) mod tests;
+pub(crate) mod tests;

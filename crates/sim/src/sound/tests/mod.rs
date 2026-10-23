@@ -1,4 +1,3 @@
-
 //! Draw order from `rainworld-re/notes/sound.md` 2.8 (`VirtualMicrophone.PlaySound`,
 //! `SoundTrigger.GetSoundData`, `SoundLoader.GetAudioClip`), replayed by hand on a
 //! second generator.

@@ -5,8 +5,9 @@
 
 use rw_assets::{NodeType, Shortcut};
 
-use super::{CameraMove, OverseerCall, PlayerObserver, RainWorldGame, insects};
+use super::{CameraMove, OverseerCall, PlayerObserver, RainWorldGame};
 use crate::creature::{CreatureId, WorldCoordinate};
+use crate::effects::particles::insect::turn::InsectViewChange;
 use crate::game::camera::CameraView;
 use crate::game::shortcut::Transport;
 use crate::item::Entity;
@@ -15,7 +16,7 @@ use crate::{EntranceColor, LobbyVessel, Player, ShortCutColor, VesselOwner, Vess
 impl RainWorldGame {
     /// `ShortcutHandler.Update`: the vessels in the tubes, newest first, then the lobby.
     /// A room exit leading nowhere returns from the whole update.
-    pub(super) fn update_shortcuts(&mut self, observer: &mut dyn PlayerObserver) {
+    pub(crate) fn update_shortcuts(&mut self, observer: &mut dyn PlayerObserver) {
         let mut i = self.shortcuts.transport.len();
         while i > 0 {
             i -= 1;
@@ -45,7 +46,7 @@ impl RainWorldGame {
     }
 
     /// Whether the player's vessel waits in the lobby.
-    pub(super) fn player_in_lobby(&self) -> bool {
+    pub(crate) fn player_in_lobby(&self) -> bool {
         self.shortcuts
             .lobby
             .iter()
@@ -275,7 +276,7 @@ impl RainWorldGame {
     /// `cameras[0].MoveCamera(room, camera)` for a vessel camera 0 follows leaving the
     /// lobby: the rooms' `NoLongerViewed`/`NowViewed`, the camera's position, and the
     /// sounds whose owners the old room held stop following them.
-    pub(super) fn camera_moves_to(
+    pub(crate) fn camera_moves_to(
         &mut self,
         room: i32,
         viewed_by_camera: i32,
@@ -285,7 +286,7 @@ impl RainWorldGame {
         // A move before the last one's `ApplyPositionChange` replaces it (`loadingRoom` is
         // overwritten): the room it named never gets its `NowViewed`.
         let from = self.insect_view.map_or(Some(self.camera_room), |v| v.from);
-        self.insect_view = Some(insects::InsectViewChange { from, to: room });
+        self.insect_view = Some(InsectViewChange { from, to: room });
         self.camera_room = room;
         let camera = usize::try_from(viewed_by_camera).unwrap_or(0);
         self.camera_move = Some(CameraMove { room, camera });
@@ -300,7 +301,7 @@ impl RainWorldGame {
     /// A vessel came out of the lobby into exit node `lobby.entrance_node`: the room
     /// blinks the entrance leading there by `fac` (2.5 for a slugcat, else 1.5), which
     /// camera 0, if it already shows the room, colours in the creature's `color`.
-    pub(super) fn blink_arrival(&mut self, lobby: LobbyVessel, fac: f32, color: ShortCutColor) {
+    pub(crate) fn blink_arrival(&mut self, lobby: LobbyVessel, fac: f32, color: ShortCutColor) {
         let Some(node) = usize::try_from(lobby.entrance_node).ok() else {
             return;
         };

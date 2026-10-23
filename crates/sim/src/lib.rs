@@ -38,15 +38,15 @@ pub use effects::particles::insect;
 pub use game::{campaign, map_discovery, room_script, shelter, trigger};
 pub use math::color;
 
+pub use crate::effects::gameplay::anti_gravity::{AntiGravity, BrokenAntiGravity, BrokenTick};
+pub use crate::effects::gameplay::border_push_back::BorderPushBack;
+pub use crate::effects::gameplay::electric_death::{
+    ElectricDeath, LightFlash, SparkFlash, Strike, WallSpark,
+};
 pub use creature::{ShortCutColor, WorldCoordinate};
 pub use effects::cosmetic::{
     Cosmetic, CosmeticKind, CosmeticTie, ExplosionSpikes, OverseerEffectSprite, Spark,
     StationaryEffect,
-};
-pub use effects::gravity::anti_gravity::{AntiGravity, BrokenAntiGravity, BrokenTick};
-pub use effects::gravity::border_push_back::BorderPushBack;
-pub use effects::gravity::electric_death::{
-    ElectricDeath, LightFlash, SparkFlash, Strike, WallSpark,
 };
 pub use effects::lights::light_beam::LightBeam;
 pub use effects::lights::light_beam::SpotLight;

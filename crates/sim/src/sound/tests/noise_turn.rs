@@ -4,8 +4,8 @@
 //! `LizardPlayerRelationChange`) and `DiscomfortTracker.DiscomfortOfTile`.
 
 use crate::creature::lizard::LizardBehavior;
+use crate::creature::lizard::perception_turn::tests::{HALL, SPLIT, game};
 use crate::creature::{CreatureId, LizardAnimation, RepKind, WorldCoordinate};
-use crate::game::lizard_perception::tests::{HALL, SPLIT, game};
 use crate::item::Entity;
 use crate::world::SocialEventId;
 use crate::{FloatExt, InGameNoise, Input, RainWorldGame, Vec2};

@@ -11,10 +11,10 @@ use std::sync::Arc;
 
 use rw_assets::{Room, Terrain};
 
-use super::{PlayerObserver, RainWorldGame, RoomObject};
 use crate::creature::lizard::LizardEmotion;
 use crate::creature::{CreatureId, LUNG_CAPACITY, WorldCoordinate};
 use crate::game::shortcut::CreatureVessel;
+use crate::game::{PlayerObserver, RainWorldGame, RoomObject};
 use crate::item::Entity;
 use crate::physics::room_ext::RoomExt;
 use crate::world::LizardRoomCx;
@@ -59,7 +59,7 @@ impl TerrainImpactHandler for LizardImpacts {
 
 impl RainWorldGame {
     /// The realized lizards in room `index`'s update list.
-    pub(super) fn room_lizard_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
+    pub(crate) fn room_lizard_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         let mut list: Vec<(u64, RoomObject)> = self
             .world
             .room_lizards(index)
@@ -80,7 +80,7 @@ impl RainWorldGame {
     }
 
     /// The sound sink of room `room` (the camera's, or a silent one) with the stream.
-    pub(super) fn room_sounds(&mut self, room: i32) -> (&mut Sounds, &mut rw_random::UnityRandom) {
+    pub(crate) fn room_sounds(&mut self, room: i32) -> (&mut Sounds, &mut rw_random::UnityRandom) {
         let sounds = if room == self.camera_room {
             &mut self.sounds
         } else {
@@ -91,7 +91,7 @@ impl RainWorldGame {
 
     /// Lizard `id`'s slot in room `index`'s update list: `Lizard.Update`. A lizard
     /// slated for deletion is cleaned out.
-    pub(super) fn run_lizard(
+    pub(crate) fn run_lizard(
         &mut self,
         index: i32,
         id: CreatureId,
@@ -215,7 +215,7 @@ impl RainWorldGame {
     }
 
     /// Whether the lizard's grasp 0 holds something (its jaw stays shut).
-    pub(super) fn lizard_holding(&self, id: CreatureId) -> bool {
+    pub(crate) fn lizard_holding(&self, id: CreatureId) -> bool {
         self.world
             .creature(id)
             .grasps
@@ -549,7 +549,7 @@ impl RainWorldGame {
     /// starts losing air under water (a draw every tick); out of water they refill;
     /// under water they empty, and below 0.3 it drowns: bubbles, letting go, struggling,
     /// stuns and at last death.
-    pub(super) fn lizard_lungs(&mut self, index: i32, id: CreatureId) {
+    pub(crate) fn lizard_lungs(&mut self, index: i32, id: CreatureId) {
         let l = self.world.lizard_ref(id);
         if l.dead {
             return;
@@ -611,7 +611,7 @@ impl RainWorldGame {
 
     /// `ReadyForAI`'s `RealizeInRoom` of abstract lizard `id` in its loaded room (a
     /// shelter's door gives its spawn tile).
-    pub(super) fn realize_lizard_in_room(
+    pub(crate) fn realize_lizard_in_room(
         &mut self,
         index: i32,
         id: CreatureId,
@@ -640,7 +640,7 @@ impl RainWorldGame {
     /// per chunk; a held player as `Player.SpitOutOfShortCut`, a fly as its own), then
     /// the three chunks out of the hole 15 px apart, moving 2 px a tick out of it, and
     /// half the time an `OutOfShortcut` voice.
-    pub(super) fn spit_out_lizard(&mut self, v: CreatureVessel, observer: &mut dyn PlayerObserver) {
+    pub(crate) fn spit_out_lizard(&mut self, v: CreatureVessel, observer: &mut dyn PlayerObserver) {
         let (room, pos) = (v.room, v.vessel.pos);
         let Some(map_room) = self.world.realized(room).map(|r| Arc::clone(&r.room)) else {
             return;
@@ -681,7 +681,7 @@ impl RainWorldGame {
     /// loop): its chunks at the entrance's `middle` (a draw each), added to `room`,
     /// `Lizard.SpitOutOfShortCut(spitOutAllSticks: false)` and `NewRoom` when it comes
     /// from elsewhere.
-    pub(super) fn stuck_lizard_spat_out(
+    pub(crate) fn stuck_lizard_spat_out(
         &mut self,
         o: CreatureId,
         room: i32,
@@ -735,12 +735,12 @@ impl RainWorldGame {
 
     /// A lizard vessel's lobby turn into a ready room puts it in the room's tubes at
     /// the node; `Abstractize` toward an unrealized one.
-    pub(super) fn abstractize_lizard_to(&mut self, id: CreatureId, coord: WorldCoordinate) {
+    pub(crate) fn abstractize_lizard_to(&mut self, id: CreatureId, coord: WorldCoordinate) {
         self.world.abstractize_lizard(id, coord, &mut self.rng);
     }
 
     /// The total mass of a creature's body (the player's two chunks, or the world's).
-    pub(super) fn creature_total_mass(&self, id: CreatureId) -> f32 {
+    pub(crate) fn creature_total_mass(&self, id: CreatureId) -> f32 {
         if id == self.player_id {
             return self
                 .player

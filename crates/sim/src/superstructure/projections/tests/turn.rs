@@ -9,8 +9,8 @@ use rw_assets::world::{FixedRoom, LoadedRoom, WorldData};
 use rw_assets::{ActiveMods, PlacedObject, RoomEffect, RoomSettings};
 use rw_random::UnityRandom;
 
-use super::super::RoomObject;
 use crate::campaign::{SlugcatCampaign, StoryStart};
+use crate::game::RoomObject;
 use crate::superstructure::projections::room_projections::ProjectionRef;
 use crate::tests::room_with_water;
 use crate::world::World;
@@ -18,7 +18,7 @@ use crate::{
     Input, PartKind, ProjectorFrame, RainWorldGame, Sounds, Start, SuperStructureProjector,
 };
 
-use super::super::lights::tests::WithGraphics;
+use crate::effects::lights::turn::tests::WithGraphics;
 
 /// A 20 x 10 room with a floor, the player at (2, 1), after `ticks` ticks.
 fn projection_game(placed: &str, effects: &[(&str, f32)], ticks: usize) -> RainWorldGame {

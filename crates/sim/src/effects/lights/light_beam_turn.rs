@@ -6,14 +6,14 @@
 
 use rw_assets::{LightBeamData, QuadData};
 
-use super::{RainWorldGame, RoomObject};
+use crate::game::{RainWorldGame, RoomObject};
 use crate::{LightBeam, SpotLight, Vec2};
 
 impl RainWorldGame {
     /// `AddObject(new LightBeam(placedObject))` in room `index`; the beam takes the
     /// camera's palette now if that room is shown (`InitiateSprites` calls
     /// `ApplyPalette`).
-    pub(super) fn add_light_beam(&mut self, index: i32, pos: Vec2, data: LightBeamData) {
+    pub(crate) fn add_light_beam(&mut self, index: i32, pos: Vec2, data: LightBeamData) {
         let id = self.world.next_update_seq();
         let mut beam = LightBeam::new(id, pos, data);
         if let Some(c) = self.camera_image.as_ref().filter(|c| c.room == index) {
@@ -25,14 +25,14 @@ impl RainWorldGame {
     }
 
     /// `AddObject(new SpotLight(placedObject))` in room `index`.
-    pub(super) fn add_spot_light(&mut self, index: i32, pos: Vec2, data: &QuadData) {
+    pub(crate) fn add_spot_light(&mut self, index: i32, pos: Vec2, data: &QuadData) {
         let id = self.world.next_update_seq();
         if let Some(r) = self.world.realized_mut(index) {
             r.spot_lights.push(SpotLight::new(id, pos, data));
         }
     }
 
-    pub(super) fn room_light_beam_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
+    pub(crate) fn room_light_beam_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         self.world.realized(index).map_or_else(Vec::new, |r| {
             r.light_beams
                 .iter()
@@ -42,7 +42,7 @@ impl RainWorldGame {
     }
 
     /// The beam's `Update` in its slot of room `index`'s update list.
-    pub(super) fn run_light_beam(&mut self, index: i32, order: u64) {
+    pub(crate) fn run_light_beam(&mut self, index: i32, order: u64) {
         let environment = self
             .camera_image
             .as_ref()
@@ -67,7 +67,7 @@ impl RainWorldGame {
     }
 
     /// `ApplyPalette` for the beams of the room camera 0 shows.
-    pub(super) fn apply_palette_to_light_beams(&mut self) {
+    pub(crate) fn apply_palette_to_light_beams(&mut self) {
         if let Some(c) = &self.camera_image
             && let Some(r) = self.world.realized_mut(c.room)
         {

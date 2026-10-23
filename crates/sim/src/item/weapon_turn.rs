@@ -6,14 +6,14 @@
 
 use std::sync::Arc;
 
-use super::{RainWorldGame, RoomObject};
 use crate::RoomCall;
+use crate::game::{RainWorldGame, RoomObject};
 use crate::item::ObjectId;
 use crate::world::{ItemTick, World};
 
 impl RainWorldGame {
     /// The realized items and their loop emitters in room `index`'s update list.
-    pub(super) fn room_weapon_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
+    pub(crate) fn room_weapon_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         let mut list: Vec<(u64, RoomObject)> = self
             .world
             .room_weapons(index)
@@ -30,7 +30,7 @@ impl RainWorldGame {
     }
 
     /// The sparks and spikes in room `index`'s update list.
-    pub(super) fn room_cosmetic_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
+    pub(crate) fn room_cosmetic_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         self.world
             .room_cosmetics(index)
             .iter()
@@ -41,7 +41,7 @@ impl RainWorldGame {
 
     /// The `ChunkSoundEmitter` of item `owner`'s sound loop that joined room `index` at
     /// `order`.
-    pub(super) fn run_weapon_loop(&mut self, index: i32, owner: ObjectId, order: u64) {
+    pub(crate) fn run_weapon_loop(&mut self, index: i32, owner: ObjectId, order: u64) {
         self.with_item_tick(index, |world, cx| {
             world.update_weapon_loop(index, owner, order, cx);
         });
@@ -49,7 +49,7 @@ impl RainWorldGame {
 
     /// The `ChunkSoundEmitter` of a swallowed item's loop that joined room `index` at
     /// `order`.
-    pub(super) fn run_orphan_loop(&mut self, index: i32, order: u64) {
+    pub(crate) fn run_orphan_loop(&mut self, index: i32, order: u64) {
         self.with_item_tick(index, |world, cx| {
             world.update_orphan_loop(index, order, cx);
         });
@@ -57,7 +57,7 @@ impl RainWorldGame {
 
     /// `f` with the world and what an item's turn in room `index` reads of the game;
     /// then the room calls `f` made (noises, screen movements).
-    pub(super) fn with_item_tick<R>(
+    pub(crate) fn with_item_tick<R>(
         &mut self,
         index: i32,
         f: impl FnOnce(&mut World, &mut ItemTick<'_>) -> R,

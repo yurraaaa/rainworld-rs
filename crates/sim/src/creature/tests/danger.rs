@@ -1,4 +1,3 @@
-
 use rw_assets::{ActiveMods, CreatureType as T};
 
 use crate::creature::CreatureTemplate;

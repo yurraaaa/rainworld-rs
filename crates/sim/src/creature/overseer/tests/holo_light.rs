@@ -1,4 +1,3 @@
-
 use rw_random::UnityRandom;
 
 use super::{HoloLightTick, HologramLight, LightSourceStep};

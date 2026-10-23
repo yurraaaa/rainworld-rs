@@ -3,15 +3,19 @@
 //!
 //! Mirrors: Room.cs (Loaded: CustomDecal, Rainbow, RainbowNoFade)
 
+#[cfg(test)]
+#[path = "tests/decal_turn.rs"]
+mod tests;
+
 use rw_assets::{CustomDecalData, RainbowData};
 
-use super::{RainWorldGame, RoomObject};
-use crate::creature::ai::SeededRandom;
+use crate::creature::abstract_ai::SeededRandom;
+use crate::game::{RainWorldGame, RoomObject};
 use crate::{CustomDecal, Rainbow, Vec2};
 
 impl RainWorldGame {
     /// `AddObject(new CustomDecal(placedObject))`.
-    pub(super) fn add_custom_decal(&mut self, index: i32, pos: Vec2, data: CustomDecalData) {
+    pub(crate) fn add_custom_decal(&mut self, index: i32, pos: Vec2, data: CustomDecalData) {
         let id = self.world.next_update_seq();
         if let Some(r) = self.world.realized_mut(index) {
             r.decals.push(CustomDecal::new(id, pos, data));
@@ -21,7 +25,7 @@ impl RainWorldGame {
     /// `Room.Loaded`'s condition for a placed `Rainbow` in room `index`:
     /// `SeededRandom(rainbowSeed + abstractRoom.index)` against the chance while the
     /// cycle starts up, or an arena session.
-    pub(super) fn rainbow_spawns(&mut self, index: i32, data: &RainbowData) -> bool {
+    pub(crate) fn rainbow_spawns(&mut self, index: i32, data: &RainbowData) -> bool {
         let cycle = &self.world.rain_cycle;
         let (start_up, seed) = (cycle.cycle_start_up(), cycle.rainbow_seed);
         let arena = !self.world.story;
@@ -35,14 +39,14 @@ impl RainWorldGame {
     }
 
     /// `AddObject(new Rainbow(room, placedObject))` (`RainbowNoFade` when `no_fade`).
-    pub(super) fn add_rainbow(&mut self, index: i32, pos: Vec2, data: &RainbowData, no_fade: bool) {
+    pub(crate) fn add_rainbow(&mut self, index: i32, pos: Vec2, data: &RainbowData, no_fade: bool) {
         let id = self.world.next_update_seq();
         if let Some(r) = self.world.realized_mut(index) {
             r.rainbows.push(Rainbow::new(id, pos, data, no_fade));
         }
     }
 
-    pub(super) fn room_rainbow_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
+    pub(crate) fn room_rainbow_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         self.world.realized(index).map_or_else(Vec::new, |r| {
             r.rainbows
                 .iter()
@@ -53,7 +57,7 @@ impl RainWorldGame {
 
     /// The rainbow's `Update` in its slot of room `index`'s update list; a destroyed one
     /// leaves the room.
-    pub(super) fn run_rainbow(&mut self, index: i32, order: u64) {
+    pub(crate) fn run_rainbow(&mut self, index: i32, order: u64) {
         let start_up = self.world.rain_cycle.cycle_start_up();
         let arena = !self.world.story;
         let Some(r) = self.world.realized_mut(index) else {

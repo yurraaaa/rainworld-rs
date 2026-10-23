@@ -3,12 +3,12 @@
 //!
 //! Mirrors: Overseer.cs (Update), RainWorldGame.cs
 
-use super::{HudEvent, OverseerCall, PlayerObserver, RainWorldGame};
 use crate::creature::overseer::hologram::ControlPreset;
 use crate::creature::overseer::{
     OverseerEffect, OverseerMode, OverseerTick, OverseerUpdate, PlayerView, StoryStats,
 };
 use crate::creature::{CreatureId, RealizedCreature};
+use crate::game::{HudEvent, OverseerCall, PlayerObserver, RainWorldGame};
 use crate::{LobbyVessel, VesselOwner};
 
 impl RainWorldGame {
@@ -54,7 +54,7 @@ impl RainWorldGame {
 
     /// One call into realized overseer `id` in its room, with what it reads of the game,
     /// then what it did to the rest of the game.
-    pub(super) fn run_overseer(
+    pub(crate) fn run_overseer(
         &mut self,
         id: CreatureId,
         call: OverseerCall,

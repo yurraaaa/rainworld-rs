@@ -7,9 +7,9 @@
 
 use rw_assets::{LightFixtureData, LightFixtureType, RoomEffectType};
 
-use super::{RainWorldGame, RoomObject};
 use crate::Vec2;
 use crate::effects::lights::light_fixture::{HolyFire, Redlight, SlimeMoldLight};
+use crate::game::{RainWorldGame, RoomObject};
 use crate::superstructure::electric::room_fixtures::FixtureRef;
 use crate::water::waterfall::WaterFall;
 use crate::world::RealizedRoom;
@@ -34,7 +34,7 @@ impl RainWorldGame {
     /// a `HolyFire` or a `SlimeMoldLight`, with the lights their constructors add first.
     /// A `ZapCoilLight` is made as well (`superstructure/electric/turn.rs`), and a `DeepProcessingLight`
     /// (`superstructure/grab/turn.rs`); the DLC's `GlowWeedLight` is not made.
-    pub(super) fn add_light_fixture(&mut self, index: i32, pos: Vec2, data: LightFixtureData) {
+    pub(crate) fn add_light_fixture(&mut self, index: i32, pos: Vec2, data: LightFixtureData) {
         match data.kind {
             Some(LightFixtureType::RedLight) => self.add_redlight(index, pos, data, false),
             Some(LightFixtureType::RedSubmersible) => self.add_redlight(index, pos, data, true),
@@ -104,7 +104,7 @@ impl RainWorldGame {
     }
 
     /// The tile parse's `WaterFall`s of room `index`, before anything else of `Room.Loaded`.
-    pub(super) fn add_waterfalls(&mut self, index: i32) {
+    pub(crate) fn add_waterfalls(&mut self, index: i32) {
         let Some(r) = self.world.realized(index) else {
             return;
         };
@@ -120,7 +120,7 @@ impl RainWorldGame {
     }
 
     /// Room `index`'s fixtures and waterfalls in its update list.
-    pub(super) fn room_fixture_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
+    pub(crate) fn room_fixture_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         self.world.realized(index).map_or_else(Vec::new, |r| {
             r.fixtures
                 .objects()
@@ -131,7 +131,7 @@ impl RainWorldGame {
     }
 
     /// The `Update` of fixture `f` in room `index`.
-    pub(super) fn run_fixture(&mut self, index: i32, f: FixtureRef) {
+    pub(crate) fn run_fixture(&mut self, index: i32, f: FixtureRef) {
         match f {
             FixtureRef::Redlight(order) => self.run_redlight(index, order),
             FixtureRef::HolyFire(order) => self.run_holy_fire(index, order),
@@ -243,7 +243,7 @@ impl RainWorldGame {
     }
 
     /// Drops the fixtures' sprites destroyed during room `index`'s update.
-    pub(super) fn remove_slated_fixtures(&mut self, index: i32) {
+    pub(crate) fn remove_slated_fixtures(&mut self, index: i32) {
         if let Some(r) = self.world.realized_mut(index) {
             r.fixtures.remove_slated();
         }
@@ -251,7 +251,7 @@ impl RainWorldGame {
 
     /// `LightSource.Update`'s `tiedToObject.slatedForDeletetion || room != room` for a
     /// light tied to the fixture at `order`.
-    pub(super) fn fixture_tie_gone(&self, index: i32, order: u64) -> bool {
+    pub(crate) fn fixture_tie_gone(&self, index: i32, order: u64) -> bool {
         !self
             .world
             .realized(index)

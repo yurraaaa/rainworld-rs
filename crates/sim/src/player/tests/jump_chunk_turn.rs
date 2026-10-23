@@ -4,7 +4,7 @@
 //! lizard 1 tick.
 
 use crate::creature::CreatureId;
-use crate::game::lizard_perception::tests::{HALL, game};
+use crate::creature::lizard::perception_turn::tests::{HALL, game};
 use crate::item::Entity;
 use crate::{HEAD, Input, RainWorldGame, Vec2, WorldCoordinate};
 

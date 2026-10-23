@@ -7,16 +7,16 @@
 
 use std::sync::Arc;
 
-use super::{PlayerObserver, RainWorldGame, RoomObject};
 use crate::creature::CreatureId;
 use crate::creature::lizard::{LizardBubble, LizardGraphicsTick, LizardSpawn};
 use crate::effects::cosmetic::{CosmeticKind, CosmeticTie};
 use crate::effects::lights::light_source::{LightSource, LightTie};
+use crate::game::{PlayerObserver, RainWorldGame, RoomObject};
 use crate::{FloatExt, TerrainImpact, Vec2};
 
 impl RainWorldGame {
     /// `graphicsModule.Update()` of lizard `id` in room `index`, when it has one.
-    pub(super) fn lizard_graphics_update(
+    pub(crate) fn lizard_graphics_update(
         &mut self,
         index: i32,
         id: CreatureId,
@@ -118,7 +118,7 @@ impl RainWorldGame {
     }
 
     /// `graphicsModule.SuckedIntoShortCut(pos)` while lizard `id` enters a shortcut.
-    pub(super) fn lizard_graphics_sucked(
+    pub(crate) fn lizard_graphics_sucked(
         &mut self,
         id: CreatureId,
         pos: Vec2,
@@ -139,7 +139,7 @@ impl RainWorldGame {
     fn lizard_grabbed_creature_pos(&self, id: CreatureId) -> Option<Vec2> {
         let g = self.world.creature(id).grasps.first().copied().flatten()?;
         g.grabbed.creature()?;
-        self.chunk_of(super::lizard_hits::ChunkRef {
+        self.chunk_of(crate::creature::lizard::hits_turn::ChunkRef {
             owner: g.grabbed,
             index: g.chunk_grabbed,
         })
@@ -149,7 +149,7 @@ impl RainWorldGame {
     /// `LizardGraphics.TerrainImpact` from `Lizard.TerrainImpact` (a first contact over
     /// 10 px a tick, with graphics): one roll, then on the head or 60% of the time
     /// `1 + InverseLerp(20, 90, speed) * 3` bubbles thrown off the surface.
-    pub(super) fn lizard_impact_bubbles(
+    pub(crate) fn lizard_impact_bubbles(
         &mut self,
         index: i32,
         id: CreatureId,
@@ -193,7 +193,7 @@ impl RainWorldGame {
 
     /// The lizards' graphics' loop emitters, held, let go or left by dropped graphics,
     /// in room `index`'s update list.
-    pub(super) fn room_lizard_loop_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
+    pub(crate) fn room_lizard_loop_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         self.world
             .creatures()
             .filter_map(|(id, c)| Some((id, c.lizard()?)))
@@ -213,7 +213,7 @@ impl RainWorldGame {
 
     /// The `ChunkSoundEmitter.Update` of lizard `owner`'s graphics' loop emitter that
     /// joined room `index` at `order`.
-    pub(super) fn run_lizard_loop(&mut self, index: i32, owner: CreatureId, order: u64) {
+    pub(crate) fn run_lizard_loop(&mut self, index: i32, owner: CreatureId, order: u64) {
         let Some(l) = self.world.creature_mut(owner).lizard_mut() else {
             return;
         };
@@ -249,7 +249,7 @@ impl RainWorldGame {
 
     /// Cosmetic `id`'s `Update` in room `index`, reading the graphics of the lizard it
     /// belongs to.
-    pub(super) fn run_cosmetic(&mut self, index: i32, id: u64) {
+    pub(crate) fn run_cosmetic(&mut self, index: i32, id: u64) {
         let spark_flash = self
             .world
             .room_cosmetics(index)

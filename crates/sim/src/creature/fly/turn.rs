@@ -9,10 +9,10 @@ use std::sync::Arc;
 
 use rw_assets::{CreatureType, NodeType, Room, Shortcut};
 
-use super::{PlayerObserver, RainWorldGame, RoomObject};
 use crate::creature::fly::{FlyRoomTick, FlyRun, FlyTick, PlayerBody};
 use crate::creature::{CreatureId, WorldCoordinate};
 use crate::game::shortcut::{CreatureVessel, ShortcutVessel, Transport};
+use crate::game::{PlayerObserver, RainWorldGame, RoomObject};
 use crate::item::Entity;
 use crate::world::{FliesTick, LizardRoomCx};
 use crate::{LobbyVessel, SoundId, Vec2, VesselOwner, VesselStep};
@@ -21,7 +21,7 @@ impl RainWorldGame {
     /// The world processes in `worldProcesses` order: `OverseersWorldAI` (made by the
     /// population's first overseer) before `FliesWorldAI` (made with the world after
     /// it). The overseers' update draws nothing, so their order does not matter.
-    pub(super) fn update_world_processes(&mut self, observer: &mut dyn PlayerObserver) {
+    pub(crate) fn update_world_processes(&mut self, observer: &mut dyn PlayerObserver) {
         let region = self.world.region_name().unwrap_or_default().to_owned();
         let story = crate::world::StoryProgress {
             woke_up_in_region: &region,
@@ -43,7 +43,7 @@ impl RainWorldGame {
     }
 
     /// `ReadyForAI`'s `PlaceQuantifiedCreaturesInRoom` for room `index`.
-    pub(super) fn place_quantified(&mut self, index: i32, observer: &mut dyn PlayerObserver) {
+    pub(crate) fn place_quantified(&mut self, index: i32, observer: &mut dyn PlayerObserver) {
         let session = self.story_session();
         let mut cx = FliesTick {
             rng: &mut self.rng,
@@ -61,7 +61,7 @@ impl RainWorldGame {
 
 impl RainWorldGame {
     /// `fliesRoomAi.Update` in `Room.Update`, after the shortcut blinking.
-    pub(super) fn run_flies_room_ai(&mut self, index: i32, observer: &mut dyn PlayerObserver) {
+    pub(crate) fn run_flies_room_ai(&mut self, index: i32, observer: &mut dyn PlayerObserver) {
         let has = self
             .world
             .realized(index)
@@ -83,7 +83,7 @@ impl RainWorldGame {
     }
 
     /// The realized flies and their hover emitters in room `index`'s update list.
-    pub(super) fn room_fly_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
+    pub(crate) fn room_fly_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         let mut list = Vec::new();
         for (id, c) in self.world.creatures() {
             let Some(fly) = c.fly() else { continue };
@@ -98,7 +98,7 @@ impl RainWorldGame {
     }
 
     /// The player's body as the flies read it.
-    pub(super) fn player_body(&self) -> Option<PlayerBody> {
+    pub(crate) fn player_body(&self) -> Option<PlayerBody> {
         let p = self.player.as_ref()?;
         let chunks = p.chunks();
         Some(PlayerBody {
@@ -110,7 +110,7 @@ impl RainWorldGame {
 
     /// Fly `id`'s slot in room `index`'s update list: `Fly.Update`, then its graphics
     /// module's if it is still here; a fly slated for deletion is cleaned out.
-    pub(super) fn run_fly(
+    pub(crate) fn run_fly(
         &mut self,
         index: i32,
         id: CreatureId,
@@ -190,7 +190,7 @@ impl RainWorldGame {
 
     /// The hover loop emitter of fly `id` in room `index`'s update list
     /// (`ChunkSoundEmitter.Update`: it follows the fly's chunk).
-    pub(super) fn run_hover(&mut self, index: i32, id: CreatureId) {
+    pub(crate) fn run_hover(&mut self, index: i32, id: CreatureId) {
         let Some(fly) = self.world.creature(id).fly() else {
             return;
         };
@@ -215,7 +215,7 @@ impl RainWorldGame {
     /// vessel at the entrance of its node (exits, dens, region transports) or a bat hive
     /// vessel; `None` for a node without either (the fly is left realized nowhere, as in
     /// the game; border exits are not ported).
-    pub(super) fn creature_enter_vessel(
+    pub(crate) fn creature_enter_vessel(
         &mut self,
         id: CreatureId,
         to: WorldCoordinate,
@@ -259,7 +259,7 @@ impl RainWorldGame {
     /// One `ShortcutHandler.Update` turn of the fly or lizard vessel at `transport[i]`
     /// (the tick sound by its template's size). Returns `false` where the game returns
     /// from the whole update.
-    pub(super) fn creature_vessel_step(
+    pub(crate) fn creature_vessel_step(
         &mut self,
         i: usize,
         mut v: CreatureVessel,
@@ -432,7 +432,7 @@ impl RainWorldGame {
     /// everything stuck to it, restarts at the entrance node's tile in the tubes, the
     /// entrance blinks (1.5, the creature's colour on camera 0), and a followed vessel
     /// takes the camera to the node's camera. Returns whether it left the lobby.
-    pub(super) fn creature_lobby_step(
+    pub(crate) fn creature_lobby_step(
         &mut self,
         mut v: CreatureVessel,
         lobby: LobbyVessel,
@@ -508,7 +508,7 @@ impl RainWorldGame {
     /// A bat hive vessel's lobby turn: once the room is ready the creature moves there
     /// and `PopOutOfBatHive` does nothing (the fly stays realized out of any room, as
     /// in the game).
-    pub(super) fn bat_hive_lobby_step(&mut self, id: CreatureId, lobby: LobbyVessel) -> bool {
+    pub(crate) fn bat_hive_lobby_step(&mut self, id: CreatureId, lobby: LobbyVessel) -> bool {
         let coord = WorldCoordinate::new(lobby.room, -1, -1, lobby.entrance_node);
         let ready = self
             .world
@@ -528,7 +528,7 @@ impl RainWorldGame {
     }
 
     /// `ReadyForAI`'s `RealizeInRoom` of abstract fly `id` in room `index`.
-    pub(super) fn realize_fly_in_room(
+    pub(crate) fn realize_fly_in_room(
         &mut self,
         index: i32,
         id: CreatureId,
@@ -553,7 +553,7 @@ impl RainWorldGame {
     /// layer, each in joining order: flies and overseers (layer 0), then lizards
     /// (layer 1, whose `Reset` runs even on a module they kept). An overseer in a
     /// teleport lobby keeps its module; a destroyed one's is dropped with it.
-    pub(super) fn camera_changed_room(
+    pub(crate) fn camera_changed_room(
         &mut self,
         from: i32,
         to: i32,

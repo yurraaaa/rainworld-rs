@@ -7,8 +7,8 @@
 
 use rw_random::UnityRandom;
 
+use crate::creature::lizard::perception_turn::tests::{HALL, game};
 use crate::creature::{CreatureId, GrabRequest, Shareability, WorldCoordinate};
-use crate::game::lizard_perception::tests::{HALL, game};
 use crate::item::Entity;
 use crate::{HEAD, HIPS, Input, RainWorldGame, Vec2};
 

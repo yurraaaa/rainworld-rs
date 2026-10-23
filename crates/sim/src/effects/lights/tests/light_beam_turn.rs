@@ -1,10 +1,11 @@
 //! Placed light beams and spot lights in one test room (`Room.Loaded`, `LightBeam.Update`,
 //! `ApplyPalette`).
 
-use super::super::lights::tests::{WithGraphics, camera_image, game};
-use super::super::{Input, RoomObject};
+use crate::Input;
 use crate::Vec2;
 use crate::campaign::{SlugcatCampaign, StoryStart};
+use crate::effects::lights::turn::tests::{WithGraphics, camera_image, game};
+use crate::game::RoomObject;
 
 /// A beam coloured by the environment (`colorB` 0.5) at (100, 60), a spot light at
 /// (200, 80), a beam with no environment colour at (300, 60) and a beam whose data the

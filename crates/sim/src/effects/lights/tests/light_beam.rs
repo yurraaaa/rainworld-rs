@@ -1,4 +1,3 @@
-
 use rw_assets::LightBeamData;
 
 use super::LightBeam;

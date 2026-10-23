@@ -1,4 +1,3 @@
-
 use super::*;
 
 fn rel(a: CreatureType, b: CreatureType) -> Relationship {

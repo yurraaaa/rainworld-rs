@@ -10,7 +10,7 @@
 use rw_assets::Room;
 use rw_random::UnityRandom;
 
-use crate::creature::ai::SeededRandom;
+use crate::creature::abstract_ai::SeededRandom;
 use crate::game::camera::CameraView;
 use crate::insect::InsectWater;
 use crate::{FloatExt, RoomExt, Vec2};

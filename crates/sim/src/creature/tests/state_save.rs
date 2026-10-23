@@ -1,4 +1,3 @@
-
 use rw_assets::{ActiveMods, CreatureType};
 
 use super::*;

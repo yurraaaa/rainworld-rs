@@ -11,8 +11,8 @@ use rw_assets::world::{FixedRoom, LoadedRoom, WorldData};
 use rw_assets::{ActiveMods, PlacedObject, Room, RoomSettings};
 use rw_random::UnityRandom;
 
-use super::RoomObject;
 use crate::campaign::{SlugcatCampaign, StoryStart};
+use crate::game::RoomObject;
 use crate::tests::room;
 use crate::world::World;
 use crate::{CosmeticSlimeMold, FloatExt, Input, RainWorldGame, Sounds, Start, TokenStalk, Vec2};

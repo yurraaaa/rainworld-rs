@@ -9,9 +9,9 @@ use std::sync::Arc;
 use rw_assets::{RoomEffectType, SoundTable};
 use rw_random::UnityRandom;
 
-use super::{RainWorldGame, RoomObject};
 use crate::effects::sky::lightning::{LightningEnv, LightningRoom};
 use crate::game::camera::CameraView;
+use crate::game::{RainWorldGame, RoomObject};
 use crate::item::LoopCx;
 use crate::world::World;
 use crate::{CameraShake, Lightning, ScreenMovement, Sounds};
@@ -62,7 +62,7 @@ impl LightningRoom for LightningHost<'_> {
 impl RainWorldGame {
     /// `Room.Loaded`'s `lightning` for a `Lightning` or `BkgOnlyLightning` effect: only
     /// the first of the room is made, joining the update list.
-    pub(super) fn add_lightning(&mut self, index: i32, amount: f32, bkg_only: bool) {
+    pub(crate) fn add_lightning(&mut self, index: i32, amount: f32, bkg_only: bool) {
         if self
             .world
             .realized(index)
@@ -77,7 +77,7 @@ impl RainWorldGame {
     }
 
     /// Room `index`'s `Lightning` and its loop emitters in its update list.
-    pub(super) fn room_lightning_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
+    pub(crate) fn room_lightning_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         let Some(l) = self
             .world
             .realized(index)
@@ -94,7 +94,7 @@ impl RainWorldGame {
     }
 
     /// The `Lightning`'s `Update` in room `index`.
-    pub(super) fn run_lightning(&mut self, index: i32) {
+    pub(crate) fn run_lightning(&mut self, index: i32) {
         let Some(r) = self.world.realized_mut(index) else {
             return;
         };
@@ -136,7 +136,7 @@ impl RainWorldGame {
     }
 
     /// The `SoundEmitter.Update` of the `Lightning`'s loop emitter at `order`.
-    pub(super) fn run_lightning_emitter(&mut self, index: i32, order: u64) {
+    pub(crate) fn run_lightning_emitter(&mut self, index: i32, order: u64) {
         let triggers = Arc::clone(self.sounds.table());
         let mut seq = self.world.update_seq();
         let (camera_room, tick) = (self.camera_room, self.tick);

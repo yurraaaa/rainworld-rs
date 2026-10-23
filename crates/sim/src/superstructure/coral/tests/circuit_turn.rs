@@ -11,7 +11,7 @@ use rw_assets::{ClipNames, SoundTable};
 
 use super::{CircuitRef, RainWorldGame};
 use crate::game::RoomObject;
-use crate::game::coral::tests::{coral_game, coral_game_with};
+use crate::superstructure::coral::turn::tests::{coral_game, coral_game_with};
 use crate::{BitRef, CircuitPlace, CoralCircuit, SoundEvent, SoundId, Sounds, SystemId, Vec2};
 
 /// Two overlapping circuits (distance 70 under 80 + 80) and one far off.

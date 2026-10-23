@@ -4,7 +4,7 @@
 
 use rw_assets::{RoomEffect, RoomEffectType};
 
-use crate::game::lizard_perception::tests::{HALL, game};
+use crate::creature::lizard::perception_turn::tests::{HALL, game};
 use crate::item::Entity;
 use crate::{InGameNoise, Input, RainWorldGame, Vec2};
 

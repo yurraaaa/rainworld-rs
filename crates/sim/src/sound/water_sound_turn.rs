@@ -5,12 +5,12 @@
 
 use std::sync::Arc;
 
-use super::{RainWorldGame, RoomObject};
+use crate::game::{RainWorldGame, RoomObject};
 use crate::item::LoopCx;
 
 impl RainWorldGame {
     /// Room `index`'s surface loop emitters in its update list.
-    pub(super) fn room_water_sound_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
+    pub(crate) fn room_water_sound_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         self.world
             .realized(index)
             .and_then(|r| r.water_sound.as_ref())
@@ -23,12 +23,12 @@ impl RainWorldGame {
     }
 
     /// `waterSounds` at the head of `Water.Update` in room `index`.
-    pub(super) fn run_water_sound(&mut self, index: i32) {
+    pub(crate) fn run_water_sound(&mut self, index: i32) {
         self.with_water_sound(index, WaterSoundCall::Update);
     }
 
     /// The `SoundEmitter.Update` of the surface loop's emitter at `order`.
-    pub(super) fn run_water_sound_emitter(&mut self, index: i32, order: u64) {
+    pub(crate) fn run_water_sound_emitter(&mut self, index: i32, order: u64) {
         self.with_water_sound(index, WaterSoundCall::Emitter(order));
     }
 

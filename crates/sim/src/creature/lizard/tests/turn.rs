@@ -11,9 +11,9 @@ use rw_assets::world::{FixedRoom, LoadedRoom, WorldData};
 use rw_assets::{ActiveMods, CreatureType, RoomSettings};
 use rw_random::UnityRandom;
 
-use super::super::lizard_hits::{Hit, ViolenceSource};
 use crate::campaign::{SlugcatCampaign, StoryStart};
 use crate::creature::lizard::MovementAnimation;
+use crate::creature::lizard::hits_turn::{Hit, ViolenceSource};
 use crate::creature::{
     CreatureId, CreatureTemplate, DamageType, EntityId, Lizard, WorldCoordinate,
 };
