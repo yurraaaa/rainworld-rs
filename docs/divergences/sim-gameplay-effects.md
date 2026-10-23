@@ -27,12 +27,6 @@ settings-order loop as the other room-effect objects (`add_room_effect_particles
   (`MS`, `LM`, `DM` worlds); the Watcher's `ripple_both_sides` keyword on the `*BothSides`
   shaders `SparkFlash` uses (without `RIPPLE` it does nothing, so `LightSourceBothSides`,
   `FlatLightBothSides` and `FlareBombBothSides` are `LightSource`, `FlatLight` and `FlareBomb`).
-- **`rainWorld.screenSize` and `options.ScreenSize` are 1366 x 768** (the game's default
-  resolution, and the port's screen, D7): `LightFlash.Reset` draws its position over that
-  screen and `RoomBorderPushBack`'s margin is `(1366 - 1400) / 2 - 100 = -117`. The game reads
-  the chosen resolution (1024, 1360, 1280 or 1229 wide too), so with another one the flashes
-  spread over its width and the margin is -120, -160, -185.5 or -288 px; the sim does not
-  know the app's `--resolution`.
 - **The rain is not ported, so the cycle just runs on.** `Intensity` reads `rainCycle.timer`,
   `cycleLength` and `TimeUntilRain` (`rw_sim::RainCycle`), which the port ticks; nothing ends
   the cycle at the rain (the death of the slugcat at `cycleLength` is not there yet), so the

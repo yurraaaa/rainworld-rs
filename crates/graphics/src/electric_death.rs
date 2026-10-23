@@ -10,7 +10,7 @@
 //! Mirrors: ElectricDeath.cs (InitiateSprites, DrawSprites, LightFlash.Draw, SparkFlash.InitiateSprites, SparkFlash.DrawSprites)
 
 use rw_random::UnityRandom;
-use rw_sim::{ElectricDeath, FloatExt, SCREEN_SIZE, SparkFlash, Vec2};
+use rw_sim::{ElectricDeath, FloatExt, SparkFlash, Vec2};
 
 use crate::draw::{Color, DrawItem, DrawList, Layer, Shader, Sprite};
 use crate::math::Mathf;
@@ -33,13 +33,27 @@ impl Sprite {
 }
 
 pub trait ElectricDeathSprites {
-    /// `DrawSprites` at `t` between ticks with the frame's `cam_pos`; `intensity` is
-    /// `Intensity` now.
-    fn draw(&self, intensity: f32, cam_pos: Vec2, t: f32, rng: &mut UnityRandom) -> DrawList;
+    /// `DrawSprites` at `t` between ticks with the frame's `cam_pos` and `screen`
+    /// (`rainWorld.screenSize`); `intensity` is `Intensity` now.
+    fn draw(
+        &self,
+        intensity: f32,
+        cam_pos: Vec2,
+        screen: Vec2,
+        t: f32,
+        rng: &mut UnityRandom,
+    ) -> DrawList;
 }
 
 impl ElectricDeathSprites for ElectricDeath {
-    fn draw(&self, intensity: f32, cam_pos: Vec2, t: f32, rng: &mut UnityRandom) -> DrawList {
+    fn draw(
+        &self,
+        intensity: f32,
+        cam_pos: Vec2,
+        screen: Vec2,
+        t: f32,
+        rng: &mut UnityRandom,
+    ) -> DrawList {
         let sin = self.last_sin.lerp(self.sin, t);
         let alpha = intensity.mathf_pow(0.5)
             * (0.5 + 0.5 * (sin * std::f32::consts::PI * 2.0).mathf_sin())
@@ -53,7 +67,7 @@ impl ElectricDeathSprites for ElectricDeath {
         let mut items = vec![DrawItem::Sprite(Sprite {
             index: 0,
             element: "Futile_White",
-            pos: cam_pos + SCREEN_SIZE * 0.5,
+            pos: cam_pos + screen * 0.5,
             rotation: 0.0,
             scale: Vec2::new(87.5, 50.0),
             anchor: Vec2::new(0.5, 0.5),
@@ -141,11 +155,17 @@ mod tests {
         d.flashes[2].last_life = 0.5;
         let mut rng = UnityRandom::new(3);
         let mut e = UnityRandom::new(3);
-        let list = d.draw(0.64, Vec2::new(1000.0, 200.0), 0.5, &mut rng);
+        let list = d.draw(
+            0.64,
+            Vec2::new(1000.0, 200.0),
+            Vec2::new(1024.0, 768.0),
+            0.5,
+            &mut rng,
+        );
         assert_eq!(list.items.len(), 10);
         let web = sprite(&list, 0);
         assert_eq!(web.shader, Shader::ElectricDeath);
-        assert_eq!(web.pos, Vec2::new(1683.0, 584.0));
+        assert_eq!(web.pos, Vec2::new(1512.0, 584.0));
         assert_eq!(web.scale, Vec2::new(87.5, 50.0));
         assert_eq!(web.layer, Layer::Water);
         assert!((web.color.r - 0.3).abs() < 1e-6 && (web.color.g - 0.6).abs() < 1e-6);

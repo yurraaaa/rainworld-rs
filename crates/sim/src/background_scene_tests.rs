@@ -328,3 +328,16 @@ fn scene_element_new_has_no_place_until_added() {
     let e = SceneElement::new(Vec2::ZERO, 3.0, ElementKind::Fog);
     assert_eq!(e.update_order, 0);
 }
+
+/// `convergencePoint = (ScreenSize.x / 2, ScreenSize.y * 2 / 3)`.
+#[test]
+fn the_convergence_point_follows_the_chosen_screen() {
+    assert_eq!(
+        BackgroundScene::convergence_for(Vec2::new(1280.0, 768.0)),
+        Vec2::new(640.0, 512.0)
+    );
+    assert_eq!(
+        BackgroundScene::convergence_for(Vec2::new(1229.0, 768.0)),
+        Vec2::new(614.5, 512.0)
+    );
+}

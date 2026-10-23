@@ -146,7 +146,7 @@ impl RainWorldGame {
                 spark.size,
             );
         }
-        death.update_flashes(intensity, &mut self.rng);
+        death.update_flashes(intensity, self.world.screen_size(), &mut self.rng);
         death.update_color(&mut self.rng);
         if let Some(chance) = ElectricDeath::strike_chance(intensity, &mut self.rng) {
             self.electric_death_strikes(index, &room, death, intensity, chance);

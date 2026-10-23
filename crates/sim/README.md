@@ -205,6 +205,7 @@ sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `m
 | Water, swimming, drowning | `water.rs`, `world/room_water.rs`, `bubble.rs`, `splash.rs`, `player/swim.rs`, `water_drip.rs` |
 | The water's surface sound | `water_sound.rs`, `game_water_sound.rs` (audio mix: `rw-audio` `voice.rs`) |
 | Ceiling drips, the cycle start's dripping sound | `water_drip.rs`, `dripping_sound.rs`, `game_drips.rs`, `screen_shake.rs` (shaken drips) |
+| `rainWorld.screenSize` (the chosen resolution) | `World::screen_size`/`set_screen_size` (`world/mod.rs`; the app sets it before the first room loads), read by `border_push_back.rs`, `electric_death.rs` (`LightFlash`), `game_background_scene.rs` (convergence point), `CameraShake` |
 | Camera shake, `ScreenMovement` | `screen_shake.rs` (sim side), `rw-render` `room_camera.rs`, app `scene.rs` |
 | Abstract creature AI (roam, migrate) | `world/abstract_ai.rs`, `abstract_path.rs`, `creature/ai.rs` |
 | Type-specific abstract AI | `world/abstract_ai_kinds.rs`, `creature/ai_kinds.rs`, `creature/overseer/abstract_ai.rs` |

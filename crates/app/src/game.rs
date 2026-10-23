@@ -496,7 +496,8 @@ impl Game {
     }
 
     /// The game `start` asks for, read from the installed game, drawing from `rng` (the
-    /// stream the menus drew from before, D1) and playing sounds from `table`.
+    /// stream the menus drew from before, D1) and playing sounds from `table`, with
+    /// `screen_size` the chosen resolution (`options.ScreenSize`) the rooms read as they load.
     ///
     /// # Errors
     /// When the world or the first room cannot be loaded.
@@ -505,6 +506,7 @@ impl Game {
         start: &GameStart,
         rng: UnityRandom,
         table: Arc<SoundTable>,
+        screen_size: [f32; 2],
     ) -> Result<Self, String> {
         let mods = ActiveMods::NONE;
         let (campaign, room, tile) = match start {
@@ -600,6 +602,7 @@ impl Game {
             campaign.name,
         );
         world.session_difficulty = story.difficulty;
+        world.set_screen_size(rw_sim::Vec2::from(screen_size));
         let start_at = Start { room: first, tile };
         let mut game = Self::build(world, campaign, story, start_at, rng, Sounds::new(table));
         game.subregions = subregions;
@@ -1102,6 +1105,7 @@ impl Game {
     ) -> Vec<(Drawable, DrawList)> {
         use rw_graphics::ElectricDeathSprites;
         let world = self.sim.world();
+        let screen = world.screen_size();
         let Some(r) = world.realized(self.sim.camera_room()) else {
             return Vec::new();
         };
@@ -1112,7 +1116,7 @@ impl Game {
                 let intensity = d.intensity(&world.rain_cycle);
                 (
                     Drawable::ElectricDeath(d.update_order),
-                    d.draw(intensity, cam_pos, alpha, rng),
+                    d.draw(intensity, cam_pos, screen, alpha, rng),
                 )
             })
             .collect()
