@@ -7,7 +7,8 @@
 // `ColoredSprite2` with `no_grab_tex` (the `ColoredSprite3` shader),
 // fs_under_water_light `UnderWaterLight`, fs_specific_depth `SpecificDepth`,
 // fs_water_splash `WaterSplash`, fs_water_light `WaterLight`, fs_light_beam `LightBeam`,
-// fs_vector_circle `VectorCircle`, fs_custom_depth `CustomDepth`. The
+// fs_vector_circle `VectorCircle`, fs_custom_depth `CustomDepth`, fs_coral_neuron
+// `CoralNeuron`. The
 // full-screen effects are in
 // full_screen.wgsl, appended to this file, and the background scenes' in
 // background_scene.wgsl.
@@ -667,4 +668,28 @@ fn fs_vector_circle(in: VertexOut) -> @location(0) vec4<f32> {
         return vec4(0.0);
     }
     return vec4(in.color.rgb, 1.0);
+}
+
+// `CoralNeuron` (a `CoralNeuron`'s second mesh, vertex alpha = 1 / segments): two scrolling
+// bands of `_NoiseTex` along the mesh (`uv.y` over the vertex alpha), multiplied, faded to
+// the edges, keeping only the thin bright lines (`h >= 0.75`); the vertex colour with the
+// alpha from the palette texel (30, 7). The taps come before the early return.
+@fragment
+fn fs_coral_neuron(in: VertexOut) -> @location(0) vec4<f32> {
+    let rain = room.rain;
+    let y = (in.tex.y + rain * 0.1) * (1.0 / in.color.w) * 0.1;
+    var h = noise_at(vec2(in.tex.x * 0.2 + rain * 2.1, y)) + y * 0.5;
+    h = 0.5 + sin((h + rain * 6.0) * 3.14 * 2.0);
+    h = 1.0 - abs(0.5 - h) * 2.0;
+    var h2 = noise_at(vec2(in.tex.x * 0.5341 + rain * 2.1242, -y)) - y * 0.5;
+    h2 = 0.5 + sin((h2 + rain * 6.21) * 3.14 * 2.0);
+    h2 = 1.0 - abs(0.5 - h2) * 2.0;
+    h = h * h2;
+    h = h * pow(1.0 - abs(0.5 - in.tex.x) * 2.0, 0.2);
+    h = 1.0 - abs(0.5 - h) * 2.0;
+    let pal = palette_at(vec2(30.5 / 32.0, 7.5 / 8.0)).x;
+    if h < 0.75 {
+        return vec4(0.0);
+    }
+    return vec4(in.color.rgb, mix(0.5, 0.25, pal));
 }

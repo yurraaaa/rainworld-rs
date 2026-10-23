@@ -12,7 +12,7 @@
 use rw_random::UnityRandom;
 
 use super::{Animation, BodyMode, HEAD, HIPS, Player};
-use crate::climbable_vines::{VineClimber, VineKind, VinePosition};
+use crate::climbable_vines::{VineClimber, VineHost, VineHostMut, VineKind, VinePosition};
 use crate::float_ext::FloatExt;
 use crate::{NoiseSink, SoundId, Sounds, Vec2};
 
@@ -69,13 +69,13 @@ impl Player {
                     };
                     found = vines
                         .system
-                        .vine_overlap(&*vines.host, last.lerp(now, t), rad);
+                        .vine_overlap(&vines.host, last.lerp(now, t), rad);
                     if found.is_some() {
                         break;
                     }
                 }
             } else if (x != 0 || y != 0) && gravity == 0.0 {
-                found = vines.system.vine_overlap(&*vines.host, now, rad);
+                found = vines.system.vine_overlap(&vines.host, now, rad);
             }
             if let Some(found) = found {
                 let kind = vines.host.kind(found.vine);
@@ -125,7 +125,8 @@ impl Player {
             self.animation = Animation::None;
             return;
         };
-        let (vines, host) = (access.system, access.host);
+        let (vines, mut host) = (access.system, access.host);
+        let host = &mut host;
         let dir = self.swim_dir();
         if host.draws_when_climbed(pos.vine) {
             self.flush_sounds(rng, sounds);

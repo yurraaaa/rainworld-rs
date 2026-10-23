@@ -5,7 +5,7 @@
 //! (two to six, `OverseerGraphics`' constructor).
 
 use super::Session;
-use super::params::{InputParam, SpawnCreatureParams, StepParams};
+use super::params::{InputParam, SetPlayerParams, SpawnCreatureParams, StepParams};
 
 impl Session {
     fn step_n(&mut self, ticks: u32) {
@@ -40,10 +40,19 @@ fn a_superstructure_room_reports_its_coral() {
         .expect("wall mycelia");
     assert_eq!(wall.places.len(), 7);
     assert!(wall.strands > 100, "{}", wall.strands);
-    assert_eq!(system.mycelia, wall.strands);
-    assert_eq!(system.owners.len(), 1);
-    assert_eq!(system.owners[0].kind, "wall_mycelia");
-    assert_eq!((wall.pairs_connected, wall.linked_to_others), (0, 0));
+    // The room's placed neurons hang their strands in the same registry.
+    let neurons: Vec<_> = state
+        .coral_neurons
+        .iter()
+        .filter(|n| n.room == "SS_D02")
+        .collect();
+    let neuron_strands: usize = neurons.iter().map(|n| n.mycelia.len()).sum();
+    assert_eq!(system.mycelia, wall.strands + neuron_strands);
+    assert_eq!(system.owners.len(), 1 + neurons.len());
+    // Registered in the order `AIMapReady` made them: the neurons, then the wall.
+    assert_eq!(system.owners.last().unwrap().kind, "wall_mycelia");
+    // A wall strand pairs with another owner's only (the neurons' strands).
+    assert_eq!(wall.pairs_connected, 0);
     assert!(wall.culled <= wall.strands);
 
     session
@@ -72,5 +81,95 @@ fn a_superstructure_room_reports_its_coral() {
         "{}",
         overseers[0].strands
     );
-    assert_eq!(system.mycelia, wall.strands + overseers[0].strands);
+    assert_eq!(
+        system.mycelia,
+        wall.strands + neuron_strands + overseers[0].strands
+    );
+}
+
+/// `SS_D02`'s placed neurons are reported with their ends and strands, registered as
+/// climbable vines of kind `CoralNeuron`, and the player put on one with an up press takes
+/// hold of it (`being_climbed`).
+#[test]
+fn neurons_are_reported_and_climbed() {
+    let Some(mut session) = Session::installed() else {
+        return;
+    };
+    session.load("SS_D02", 1);
+    session.step_n(3);
+    let state = session.state().expect("state");
+    let neurons: Vec<_> = state
+        .coral_neurons
+        .iter()
+        .filter(|n| n.room == "SS_D02")
+        .collect();
+    assert!(!neurons.is_empty());
+    let vines = state
+        .climbable_vines
+        .iter()
+        .find(|v| v.room == "SS_D02")
+        .expect("vines");
+    assert_eq!(
+        vines
+            .vines
+            .iter()
+            .filter(|v| v.kind == "CoralNeuron")
+            .count(),
+        neurons.len()
+    );
+    let system = state
+        .coral_systems
+        .iter()
+        .find(|s| s.room == "SS_D02")
+        .expect("system");
+    for n in &neurons {
+        assert!(n.segments >= 2 && n.bumps == (n.segments as f32 * 1.2) as usize);
+        assert_eq!(n.mycelia.len(), (n.segments - 2).min(20) * 2);
+        let owner = system
+            .owners
+            .iter()
+            .find(|o| o.owner == n.owner)
+            .expect("registry owner");
+        assert_eq!(
+            (owner.kind, owner.strands),
+            ("coral_neuron", n.mycelia.len())
+        );
+        assert!(!n.being_climbed && !n.frozen);
+    }
+    let n = neurons[0];
+    let middle = [
+        (n.first[0] + n.last[0]) / 2.0,
+        (n.first[1] + n.last[1]) / 2.0,
+    ];
+    session
+        .set_player(&SetPlayerParams {
+            pos: Some(middle),
+            ..Default::default()
+        })
+        .expect("moves");
+    let up = StepParams {
+        ticks: Some(2),
+        input: Some(InputParam {
+            y: 1,
+            ..Default::default()
+        }),
+    };
+    let state = session.step(&up).expect("steps");
+    let player = state.player.expect("player");
+    assert_eq!(player.animation, "VineGrab");
+    assert!(
+        player
+            .vine_pos
+            .expect("vine_pos")
+            .vine
+            .starts_with("CoralNeuron")
+    );
+    assert_eq!(
+        state
+            .coral_neurons
+            .iter()
+            .filter(|n| n.being_climbed)
+            .count(),
+        1
+    );
 }

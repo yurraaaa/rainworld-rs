@@ -5,14 +5,16 @@
 //! The system keeps the game's list of vines, as [`VineRef`]s in registration order. A vine's
 //! points, radii and masses are read, and its pushes and `BeingClimbedOn` made, on the live
 //! owner through a [`VineHost`] / [`VineHostMut`] the geometry methods take, at the moment the
-//! game reads or calls them. The room's host is [`PlacedVines`] (vines registered at run time:
-//! tests); each owner the port ports (coral neurons and stems, corruption
-//! tubes, pole mimics) adds a [`VineRef`] variant and a branch of the host.
+//! game reads or calls them. The room's host is [`RoomVines`]: the [`PlacedVines`] (vines
+//! registered at run time: tests) and the coral system's neurons; each owner the port ports
+//! (coral stems, corruption tubes, pole mimics) adds a [`VineRef`] variant and a branch of
+//! the host.
 //!
 //! Mirrors: ClimbableVinesSystem.cs, IClimbableVine.cs
 
 use rw_random::UnityRandom;
 
+use crate::CoralNeuron;
 use crate::float_ext::FloatExt;
 use crate::{BodyChunk, Sounds, Vec2};
 
@@ -22,6 +24,8 @@ use crate::{BodyChunk, Sounds, Vec2};
 pub enum VineRef {
     /// Vine `id` registered at run time in room `room` ([`PlacedVines`]).
     Placed { room: i32, id: u64 },
+    /// The `CoralNeuron` at place `order` in the update list of room `room`.
+    CoralNeuron { room: i32, order: u64 },
 }
 
 /// Which class a vine is (`GetVineObject(vPos) is CoralNeuron`, ...): picks the grab sound.
@@ -143,12 +147,16 @@ impl PlacedVines {
     }
 
     fn vine(&self, vine: VineRef) -> &dyn ClimbableVine {
-        let VineRef::Placed { id, .. } = vine;
+        let VineRef::Placed { id, .. } = vine else {
+            unreachable!("not a placed vine");
+        };
         self.get(id).expect("a placed vine is in its room's host")
     }
 
     fn vine_mut(&mut self, vine: VineRef) -> &mut dyn ClimbableVine {
-        let VineRef::Placed { id, .. } = vine;
+        let VineRef::Placed { id, .. } = vine else {
+            unreachable!("not a placed vine");
+        };
         self.vines
             .iter_mut()
             .find(|v| v.id() == id)
@@ -203,11 +211,159 @@ impl VineHostMut for PlacedVines {
     }
 }
 
+/// The room's live vine owners, read.
+#[derive(Clone, Copy)]
+pub struct RoomVinesView<'a> {
+    pub placed: &'a PlacedVines,
+    pub neurons: &'a [CoralNeuron],
+}
+
+impl RoomVinesView<'_> {
+    fn neuron(&self, vine: VineRef) -> &CoralNeuron {
+        let VineRef::CoralNeuron { order, .. } = vine else {
+            unreachable!("not a coral neuron");
+        };
+        self.neurons
+            .iter()
+            .find(|n| n.update_order == order)
+            .expect("a coral neuron is in its room's system")
+    }
+}
+
+impl VineHost for RoomVinesView<'_> {
+    fn kind(&self, vine: VineRef) -> VineKind {
+        match vine {
+            VineRef::Placed { .. } => self.placed.kind(vine),
+            VineRef::CoralNeuron { .. } => VineKind::CoralNeuron,
+        }
+    }
+
+    fn total_positions(&self, vine: VineRef) -> i32 {
+        match vine {
+            VineRef::Placed { .. } => self.placed.total_positions(vine),
+            VineRef::CoralNeuron { .. } => self.neuron(vine).geometry.segments.len() as i32,
+        }
+    }
+
+    fn pos(&self, vine: VineRef, index: i32) -> Vec2 {
+        match vine {
+            VineRef::Placed { .. } => self.placed.pos(vine, index),
+            VineRef::CoralNeuron { .. } => self.neuron(vine).vine_pos(index as usize),
+        }
+    }
+
+    fn rad(&self, vine: VineRef, index: i32) -> f32 {
+        match vine {
+            VineRef::Placed { .. } => self.placed.rad(vine, index),
+            VineRef::CoralNeuron { .. } => CoralNeuron::vine_rad(index as usize),
+        }
+    }
+
+    fn mass(&self, vine: VineRef, index: i32) -> f32 {
+        match vine {
+            VineRef::Placed { .. } => self.placed.mass(vine, index),
+            VineRef::CoralNeuron { .. } => CoralNeuron::vine_mass(index as usize),
+        }
+    }
+
+    fn currently_climbable(&self, vine: VineRef) -> bool {
+        match vine {
+            VineRef::Placed { .. } => self.placed.currently_climbable(vine),
+            VineRef::CoralNeuron { .. } => true,
+        }
+    }
+}
+
+/// The room's live vine owners, called: the host of every [`VineRef`] the room's
+/// [`ClimbableVinesSystem`] lists, built from split borrows of the room.
+pub struct RoomVines<'a> {
+    pub placed: &'a mut PlacedVines,
+    pub neurons: &'a mut [CoralNeuron],
+}
+
+impl<'a> RoomVines<'a> {
+    /// A host of run-time vines only.
+    pub fn placed_only(placed: &'a mut PlacedVines) -> Self {
+        Self {
+            placed,
+            neurons: &mut [],
+        }
+    }
+
+    #[must_use]
+    pub fn view(&self) -> RoomVinesView<'_> {
+        RoomVinesView {
+            placed: self.placed,
+            neurons: self.neurons,
+        }
+    }
+}
+
+impl VineHost for RoomVines<'_> {
+    fn kind(&self, vine: VineRef) -> VineKind {
+        self.view().kind(vine)
+    }
+
+    fn total_positions(&self, vine: VineRef) -> i32 {
+        self.view().total_positions(vine)
+    }
+
+    fn pos(&self, vine: VineRef, index: i32) -> Vec2 {
+        self.view().pos(vine, index)
+    }
+
+    fn rad(&self, vine: VineRef, index: i32) -> f32 {
+        self.view().rad(vine, index)
+    }
+
+    fn mass(&self, vine: VineRef, index: i32) -> f32 {
+        self.view().mass(vine, index)
+    }
+
+    fn currently_climbable(&self, vine: VineRef) -> bool {
+        self.view().currently_climbable(vine)
+    }
+}
+
+impl VineHostMut for RoomVines<'_> {
+    fn push(&mut self, vine: VineRef, index: i32, movement: Vec2) {
+        match vine {
+            VineRef::Placed { .. } => self.placed.push(vine, index, movement),
+            VineRef::CoralNeuron { order, .. } => {
+                if let Some(n) = self.neurons.iter_mut().find(|n| n.update_order == order) {
+                    n.push(index as usize, movement);
+                }
+            }
+        }
+    }
+
+    fn being_climbed_on(
+        &mut self,
+        vine: VineRef,
+        climber: &VineClimber,
+        rng: &mut UnityRandom,
+        sounds: &mut Sounds,
+    ) {
+        match vine {
+            VineRef::Placed { .. } => self.placed.being_climbed_on(vine, climber, rng, sounds),
+            // `CoralNeuron.BeingClimbedOn` does nothing.
+            VineRef::CoralNeuron { .. } => {}
+        }
+    }
+
+    fn draws_when_climbed(&self, vine: VineRef) -> bool {
+        match vine {
+            VineRef::Placed { .. } => self.placed.draws_when_climbed(vine),
+            VineRef::CoralNeuron { .. } => false,
+        }
+    }
+}
+
 /// `room.climbableVines` and the room's live vine owners, as the player's update reaches
 /// them (null `climbableVines` is no access).
 pub struct VineAccess<'a> {
     pub system: &'a ClimbableVinesSystem,
-    pub host: &'a mut dyn VineHostMut,
+    pub host: RoomVines<'a>,
 }
 
 /// `ClimbableVinesSystem.VinePosition`: a place along a vine, `float_pos` the fraction (0 to
@@ -237,6 +393,8 @@ struct VineSpan {
 /// vines on the `host` that holds their owners.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ClimbableVinesSystem {
+    /// Its place in the room's update list (0 for a system made without one: tests).
+    pub update_order: u64,
     vines: Vec<VineRef>,
 }
 

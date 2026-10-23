@@ -5,12 +5,14 @@
 //! builds from the room's placed objects is `game_coral.rs`'. Behaviour:
 //! `rainworld-re/notes/superstructure-coral.md`.
 //!
-//! Mirrors: CoralBrain/CoralNeuronSystem.cs (constructor, Update, Frozen)
+//! Mirrors: CoralBrain/CoralNeuronSystem.cs (constructor, Update, Frozen, neurons)
 
 use rw_random::UnityRandom;
 
 use crate::Vec2;
+use crate::coral_neuron::CoralNeuron;
 use crate::mycelium::{SystemId, SystemState};
+use crate::projected_circle::CircleOwner;
 use crate::wall_mycelia::WallMycelia;
 
 /// The `CoralNeuronSystem` in a room's update list.
@@ -25,6 +27,8 @@ pub struct CoralNeuronSystem {
     pub not_viewed_counter: i32,
     /// `AIMapReady` has built the owners.
     pub built: bool,
+    /// `neurons`, in the order `AIMapReady` made them (stems add theirs).
+    pub neurons: Vec<CoralNeuron>,
     /// `wallMycelia`.
     pub wall_mycelia: Vec<WallMycelia>,
 }
@@ -40,6 +44,7 @@ impl CoralNeuronSystem {
             age: 0,
             not_viewed_counter: 0,
             built: false,
+            neurons: Vec::new(),
             wall_mycelia: Vec::new(),
         }
     }
@@ -50,6 +55,35 @@ impl CoralNeuronSystem {
         SystemState {
             id: self.id,
             frozen: self.frozen(),
+        }
+    }
+
+    /// `owner.CanHostCircle()` of a circle's owner.
+    #[must_use]
+    pub fn circle_owner_can_host(&self, owner: CircleOwner) -> bool {
+        match owner {
+            CircleOwner::Neuron { order } => self
+                .neurons
+                .iter()
+                .find(|n| n.update_order == order)
+                .is_some_and(CoralNeuron::can_host_circle),
+        }
+    }
+
+    /// `owner.CircleCenter(index, timeStacker)`.
+    #[must_use]
+    pub fn circle_center(
+        &self,
+        owner: CircleOwner,
+        index: usize,
+        time_stacker: f32,
+    ) -> Option<Vec2> {
+        match owner {
+            CircleOwner::Neuron { order } => self
+                .neurons
+                .iter()
+                .find(|n| n.update_order == order)
+                .map(|n| n.geometry.circle_center(index, time_stacker)),
         }
     }
 

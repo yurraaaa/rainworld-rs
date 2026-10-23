@@ -26,9 +26,10 @@ later (refills, new cursors) are newer and walked before it. `StarMatrix` is mad
   `GlyphProjection` shader of every glyph, cursor and matrix reads it. The port sets it once per
   frame (`Renderer::set_grid_offset`) when the camera room has a visible projector with an active
   single glyph, and the renderer keeps it until it is set again, as a Unity global stays.
-- **`ProjectedCircle` is not ported here.** In the base game only `CoralNeuron`, `CoralStem`
+- **`ProjectedCircle` comes with its owners.** In the base game only `CoralNeuron`, `CoralStem`
   and `SSOracleSwarmer` make it (when the room has a `SuperStructureProjector` effect; the
-  DLC's `SpearMasterPearl` and `Inspector` too), none of which is ported. It comes with them.
+  DLC's `SpearMasterPearl` and `Inspector` too). It is ported with the first owner, `CoralNeuron`
+  (D40); the stems' and swarmers' circles come with them.
 - **The GPU's `sin` decides some glyphs.** `GlyphProjection` picks a cell's glyph from
   `frac(sin(x) * 43758.5453)`, which magnifies the last bits of `sin`; the same cell can show
   another glyph on another GPU (and in the port against the game). The picture is the same kind
@@ -191,7 +192,7 @@ Closes the missing `NeuronSpark` sound of `random.md`'s overseer item.
   not "in" the new). Strands of a dropped module stay registered while their system's registry lives and
   can still be picked and paired, as in the game; they are freed when the registry goes with its room
   (`World::abstractize`) or at once when their system is none, so the pool stays bounded; a room's wall
-  strands go with the room. Reachability is the collector's: a strand also lives while a living strand's
+  strands (and a room's neuron strands, D40) go with the room. Reachability is the collector's: a strand also lives while a living strand's
   `connection` names it (its partner keeps the link, drawing as the game does, until it breaks), and a
   dropped system's last `Frozen` is kept while a strand still points at it. The observer
   hooks `overseer_added/reset/emerge/updated` take a `MyceliaCx` (the pool and the room's reads) and a new
@@ -233,12 +234,76 @@ Closes the missing `NeuronSpark` sound of `random.md`'s overseer item.
   (`tex2D * vertex colour`, `Blend SrcAlpha OneMinusSrcAlpha`, `Cull Off`, as `Basic.shader`) and
   `_RippleClip.cginc` (`ripple_both_sides` returns before any discard)), in `Items`. They are not
   drawn in the debug view or in an other-room MCP screenshot (as D36's objects; OPEN-ITEMS).
-- **What the next steps add to `AIMapReady`** (not ported here): the `CoralNeuron`s made as the placed-object
-  loop meets them (before the wall mycelia), then the `CoralCircuit` clusters (their `CircuitConnector`
-  owners), then the `CoralStem`s with their `StemSegment`s (each taking `GetNewID`), then `PlaceSwarmers`
-  (`SSOracleSwarmer`s, whose suckling strikes `NeuronSpark`s); `ClimbableVinesSystem` registration; the
-  `ProjectedCircle`s of D35. Every wall strand can only pair with another owner's strands, so in a room
-  with wall mycelia alone only an overseer's lens can link to them.
+- **What the next steps add to `AIMapReady`** (not ported here): the `CoralCircuit` clusters (their
+  `CircuitConnector` owners), then the `CoralStem`s with their `StemSegment`s (each taking `GetNewID`),
+  then `PlaceSwarmers` (`SSOracleSwarmer`s, whose suckling strikes `NeuronSpark`s). The `CoralNeuron`s
+  (made as the placed-object loop meets them, before the wall mycelia) are D40. Every wall strand can
+  only pair with another owner's strands: in a room with wall mycelia alone only an overseer's lens can
+  link to them; a room with neurons has theirs (the strands of a neuron and of the walls pair).
 - **Omitted DLC branches** (listed, not dropped): More Slugcats' `Inspector` and `SingularityBomb` own
   strands and systems (`new CoralNeuronSystem` in their code); `ModManager.MSC`'s abstract-room add of
   the swarmers (10e); nothing in the ported classes reads a DLC flag.
+
+## D40: Coral neurons and projected circles (`CoralNeuron`, `ProjectedCircle`; step 10d3a)
+
+Ported in `crates/sim/src/{coral_neuron,projected_circle,game_coral,game_projections,
+climbable_vines}.rs` (the neuron, the circle, their turns, the room's vine host), the sprites in
+`crates/graphics/src/{coral_neuron_draw,projected_circle_draw}.rs`, the `CoralNeuron` shader in
+`crates/render/shaders/sprite.wgsl`, MCP `coral_neurons`, `projected_circles`. Notes:
+`../rainworld-re/notes/superstructure-coral.md`. 43 placed neurons in 15 `SS_*` rooms (the
+Survivor and the Hunter all 43, the Monk 42), every one `ResizableObjectData`; the port builds
+them all (`crates/sim/tests/installed_coral_neurons.rs`: 43 parsed, 0 rejected, the shortest
+119 px, so the game's throw for a neuron under 40 px never happens).
+
+- **Order.** `AIMapReady`'s placed loop makes each neuron as it meets it: the constructor
+  (seeded by `(int)length`, the shared stream restored; its strands `Mycelium` constructors, bumps
+  and the `ProjectedCircle`s it adds, in that order, each circle's constructor seeing the circles
+  already in the update list) and then the caller's `AddObject`, so the update-list places grow
+  circle 0, circle 1, neuron. The port makes the neurons after collecting the loop's other objects
+  (nothing else in that loop draws or adds), then the `WallMycelia`, as the game's order is.
+  A neuron's turn updates its strands one at a time with the chain's current geometry, as the
+  game (`ConnectionPos` read live). The constructor's wall snap writes back into its parameters
+  only: the fields `posA`/`posB` keep the placed positions (so `ConnectToWalls` holds a rooted end at
+  `placed - rootDir * 10`), and only the initial line of segments uses the snapped ones. The first
+  neuron in a room makes its `ClimbableVinesSystem`, which takes its update-list place just before
+  the neuron's circles. A neuron shorter than 40 px (one segment) is skipped where the
+  game throws (`new Mycelium[-1, 2]`); none exists installed.
+- **Storage (design).** A neuron lives in its room's `CoralNeuronSystem.neurons` and nowhere
+  else; the player's push, the hands' read, the neuron's own update and the draw all reach that one
+  copy. `VineRef::CoralNeuron { room, order }` names it (its place in the update list); the
+  room's host is `RoomVines` (`placed` vines and the system's neurons, split borrows of the room)
+  built for each call of the player's update, `RoomVinesView` for the hands and MCP. A circle
+  lives in the room's `projections.circles` with its owner as a `CircleOwner` (a neuron's
+  place in the update list), and stays there after it is slated (other circles' connections read
+  it); a slated circle leaves the update list and the draws.
+- **`UpdateDepth` runs when the circle is drawn.** The game reads `rCam.DepthAtCoordinate` of the
+  owner's centre in `DrawSprites`, once after each `Update` (`updateDepth`). The app calls
+  `RainWorldGame::update_circle_depths` before it builds the projections' draw lists, headless
+  runs without a screenshot keep the last drawn depth (0 at first); it is read only for drawing and
+  makes no draws. With no camera picture the depth is sky (1), as `SSLightRod`'s.
+- **Draws.** Per neuron constructor, from the seed: per segment 4 with two ends (the position's
+  and the velocity's `RNV() * value`), 2 otherwise (the velocity's), per strand `1 + (2 + 2 * points)`, per bump 2, and per circle
+  `1` for each circle already there (until five connect), 1 for the off-screen choice (then `Range(1,
+  4)` and 3 a line), 2 for the turn. Per tick a neuron makes one draw per bump whose ping is 0 and its strands'
+  (`Range(0, Count)` 1 each while unlinked and not resting; none while the system is frozen: the
+  whole `Update` is skipped). A circle's `Update`: 1 for `getToRad` (+1), 1 for the blink (+1,
+  `Range(7, 230)`), 1 for each connection not blinking (+1, `Range(10, 50)`). Draw time: 1 for a
+  blinking connection's width (`value < 0.7`), on the app's cosmetic stream (D1).
+- **Sprites.** Two meshes (`MakeLongMesh`, the first with the `MeshColor` ramp, the second with the
+  `CoralNeuron` shader and `alpha = 1 / segments`), a mesh a strand, three `deerEyeB` discs a bump; all
+  in `Items` except the ping dots with `WaterLights` (`Water`). `RippleBasicBothSides` is the `Basic`
+  shader and `CoralNeuronBothSides` the `CoralNeuron` shader (the `ripple_both_sides` keyword only
+  matters with Watcher's ripple, as D38). The shader's `sin` is the GPU's: at the large arguments of a
+  neuron of many segments (`uv.y / alpha` reaches the segment count) this GPU's `sin` drifts from the
+  CPU's, so the lines of a long neuron are not pixel-identical to the game's on another GPU; the GPU
+  test compares the maths up to arguments around 20 rad.
+- **MCP.** `coral_neurons` (room, id, length recovered from `conRad * segments / 1.5`, segments, ends,
+  rooted flags, frozen, bumps, strand ids, `being_climbed`) and `projected_circles`; the neurons are
+  also in `climbable_vines` with kind `CoralNeuron`.
+- **Omitted branches (listed, not dropped):** `ProjectedCircle`'s `ModManager.MSC` code (a `baseRad`
+  change moves `getToRad` to 0.8 or 1.2 of it, `lastBaseRad`; a circle whose owner left the room is
+  slated, `HostingCircleFromRoom`) and `ModManager.MMF` code (connected circles that were slated are
+  dropped from the list in `DrawSprites`; `Position` without a room reads the owner only); the
+  owners `SSOracleSwarmer`, `CoralStem` (10d3b, 10e), `SpearMasterPearl` and `Inspector` (DLC)
+  make circles with `SetBaseRad` and their own `HostingCircleFromRoom`. Nothing in `CoralNeuron.cs`
+  reads a DLC flag.

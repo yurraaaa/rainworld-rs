@@ -13,7 +13,7 @@ use rw_random::UnityRandom;
 use super::super::lights::tests::WithGraphics;
 use rw_assets::{ClipNames, SoundTable};
 
-use super::CoralRef;
+use super::{CoralRef, RoomObject};
 use crate::campaign::{SlugcatCampaign, StoryStart};
 use crate::game::OverseerView;
 use crate::tests::room_with_water;
@@ -498,4 +498,201 @@ fn every_camera_move_bumps_the_tick() {
     assert_eq!(g.world.realized(0).unwrap().cameras_changed_tick, first + 2);
     g.set_camera_view(0, 0);
     assert_eq!(g.world.realized(0).unwrap().cameras_changed_tick, first + 2);
+}
+
+/// Two neurons, one wall place: `AIMapReady` makes the neurons as the placed loop meets them
+/// (settings order), each with its vine registered, then the `WallMycelia`, so the
+/// update-list places grow neuron, neuron, wall; all draw from their own seeds.
+#[test]
+fn neurons_are_made_in_the_placed_loop_before_the_wall_mycelia() {
+    let placed = format!("CoralNeuron><200><120><0~100, {WALL}, CoralNeuron><500><120><0~160");
+    let g = coral_game(&placed, &[], 1);
+    let r = g.world.realized(0).unwrap();
+    let system = r.coral.as_ref().unwrap();
+    assert_eq!(system.neurons.len(), 2);
+    let (a, b) = (&system.neurons[0], &system.neurons[1]);
+    assert_eq!(a.geometry.segments.len(), 5);
+    assert_eq!(b.geometry.segments.len(), 8);
+    let wall = &system.wall_mycelia[0];
+    assert!(system.update_order < a.update_order);
+    assert!(a.update_order < b.update_order && b.update_order < wall.update_order);
+    // The vines are registered in order, the first making the room's system, which takes
+    // its place in the update list at that point (before the neuron's own).
+    let made = r.climbable_vines.as_ref().unwrap();
+    assert!(system.update_order < made.update_order && made.update_order < a.update_order);
+    let vines = made.vines();
+    assert_eq!(
+        vines,
+        [
+            crate::VineRef::CoralNeuron {
+                room: 0,
+                order: a.update_order
+            },
+            crate::VineRef::CoralNeuron {
+                room: 0,
+                order: b.update_order
+            },
+        ]
+    );
+    // Both neurons' strands (3 and 6 pairs) and the wall's are in the one registry.
+    assert_eq!(
+        g.world.mycelia().registry(SystemId(1)).len(),
+        6 + 12 + wall.mycelia.len()
+    );
+    // Update list, newest first: the wall, the neurons.
+    let list: Vec<RoomObject> = g
+        .room_update_list(0)
+        .into_iter()
+        .map(|(_, o)| o)
+        .filter(|o| matches!(o, RoomObject::Coral(_)))
+        .collect();
+    assert_eq!(
+        list,
+        [
+            RoomObject::Coral(CoralRef::Wall(wall.update_order)),
+            RoomObject::Coral(CoralRef::Neuron(b.update_order)),
+            RoomObject::Coral(CoralRef::Neuron(a.update_order)),
+            RoomObject::Coral(CoralRef::System),
+        ]
+    );
+}
+
+/// A neuron's turn in the update list: the drift of its first tick moves the segments and a
+/// frozen system stops it.
+#[test]
+fn a_neuron_updates_in_its_turn_until_the_system_freezes() {
+    let mut g = coral_game("CoralNeuron><200><120><0~100", &[], 1);
+    let order = g.world.realized(0).unwrap().coral.as_ref().unwrap().neurons[0].update_order;
+    let before = g.world.realized(0).unwrap().coral.as_ref().unwrap().neurons[0]
+        .geometry
+        .segments
+        .clone();
+    g.run_coral(0, CoralRef::Neuron(order));
+    let after = g.world.realized(0).unwrap().coral.as_ref().unwrap().neurons[0]
+        .geometry
+        .segments
+        .clone();
+    assert_ne!(after, before);
+    {
+        let s = g.world.realized_mut(0).unwrap().coral.as_mut().unwrap();
+        s.age = 400;
+        s.not_viewed_counter = 100;
+    }
+    let state = g.rng.state();
+    g.run_coral(0, CoralRef::Neuron(order));
+    assert_eq!(g.rng.state(), state);
+    let frozen = g.world.realized(0).unwrap().coral.as_ref().unwrap().neurons[0]
+        .geometry
+        .segments
+        .clone();
+    assert_eq!(frozen, after);
+}
+
+/// A room with the `SuperStructureProjector` effect gets the neuron's circles in its
+/// update list (before the neuron), turned by their own `Update`; one without gets none.
+#[test]
+fn a_projector_room_adds_circles_to_the_update_list() {
+    let g = coral_game(
+        "CoralNeuron><200><120><0~100",
+        &[("SuperStructureProjector", 0.5)],
+        1,
+    );
+    let r = g.world.realized(0).unwrap();
+    let neuron = &r.coral.as_ref().unwrap().neurons[0];
+    // Free ends, 100 long: circle 1 only.
+    assert_eq!(r.projections.circles.len(), 1);
+    let circle = &r.projections.circles[0];
+    assert_eq!(circle.index, 1);
+    assert!(circle.update_order < neuron.update_order);
+    assert_eq!(
+        circle.owner,
+        crate::CircleOwner::Neuron {
+            order: neuron.update_order
+        }
+    );
+    let without = coral_game("CoralNeuron><200><120><0~100", &[], 1);
+    assert!(
+        without
+            .world
+            .realized(0)
+            .unwrap()
+            .projections
+            .circles
+            .is_empty()
+    );
+}
+
+/// The circles' depth update runs at the first draw after each of their updates.
+#[test]
+fn circles_read_their_depth_when_drawn() {
+    let mut g = coral_game(
+        "CoralNeuron><200><120><0~100",
+        &[("SuperStructureProjector", 0.5)],
+        2,
+    );
+    assert!(g.world.realized(0).unwrap().projections.circles[0].update_depth);
+    g.update_circle_depths();
+    let c = &g.world.realized(0).unwrap().projections.circles[0];
+    assert!(!c.update_depth);
+    // No camera picture: sky (1), `Lerp(0, 1, 0.5)`.
+    assert_eq!(c.depth_offset, 0.5);
+}
+
+/// The grab: the player under a neuron holding up takes hold of it (the vine, the
+/// `Grab_Neuron` sound), and climbing pushes the neuron's segments live.
+#[test]
+fn the_player_climbs_a_neuron() {
+    let text = "Volume: 6\nVolume exponent: 1.8\nGrab_Neuron : clip\n";
+    let names = ClipNames::new(["clip".to_owned()], None);
+    let sounds = Sounds::new(Arc::new(SoundTable::parse(text, &names).unwrap()));
+    let mut g = coral_game_with("CoralNeuron><50><100><0~100", &[], 1, sounds);
+    // The neuron runs up from (50, 100) to (50, 200); the player stands right under it.
+    {
+        let p = g.player.as_mut().unwrap();
+        for c in &mut p.body.chunks {
+            c.pos = Vec2::new(50.0, 105.0);
+            c.last_pos = c.pos;
+            c.vel = Vec2::ZERO;
+        }
+    }
+    g.sounds.take_events();
+    let before: Vec<Vec2> = g.world.realized(0).unwrap().coral.as_ref().unwrap().neurons[0]
+        .geometry
+        .segments
+        .iter()
+        .map(|s| s[0])
+        .collect();
+    g.tick(Input::new(0, 1, false), &mut WithGraphics);
+    g.tick(Input::new(0, 1, false), &mut WithGraphics);
+    let p = g.player.as_ref().unwrap();
+    assert_eq!(p.animation(), crate::Animation::VineGrab);
+    let order = g.world.realized(0).unwrap().coral.as_ref().unwrap().neurons[0].update_order;
+    assert_eq!(
+        p.vine_pos().unwrap().vine,
+        crate::VineRef::CoralNeuron { room: 0, order }
+    );
+    let heard = g
+        .sounds
+        .take_events()
+        .into_iter()
+        .any(|e| matches!(e, SoundEvent::Play(p) if p.id == SoundId::GrabNeuron));
+    assert!(heard);
+    // The climber's weight reached the neuron (`ConnectChunkToVine` pushes the points).
+    let after: Vec<Vec2> = g.world.realized(0).unwrap().coral.as_ref().unwrap().neurons[0]
+        .geometry
+        .segments
+        .iter()
+        .map(|s| s[0])
+        .collect();
+    assert_ne!(after, before);
+}
+
+/// A room leaving realization takes its neurons' strands with it (their owners are released
+/// and the registry is dropped), as the wall mycelia's.
+#[test]
+fn abstracting_the_room_frees_the_neurons_strands() {
+    let mut g = coral_game(&format!("CoralNeuron><200><120><0~100, {WALL}"), &[], 1);
+    assert!(g.world.mycelia().live() > 12);
+    g.world.abstractize(0, &mut UnityRandom::new(1));
+    assert_eq!(g.world.mycelia().live(), 0);
 }

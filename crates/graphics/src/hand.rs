@@ -8,8 +8,8 @@ use rw_assets::{Room, Terrain};
 use rw_random::UnityRandom;
 use rw_sim::item::Entity;
 use rw_sim::{
-    Animation, BodyMode, ClimbableVinesSystem, HEAD, HIPS, Player, PlayerSurroundings, Vec2,
-    VineHost, VinePosition, Water,
+    Animation, BodyMode, ClimbableVinesSystem, HEAD, HIPS, Player, PlayerSurroundings,
+    RoomVinesView, Vec2, VineHost, VinePosition, Water,
 };
 
 use crate::body_part::{BodyPart, PointConnection};
@@ -85,7 +85,7 @@ pub(crate) struct HandContext<'a> {
     pub room: &'a Room,
     pub water: Option<&'a Water>,
     /// The room's `climbableVines`.
-    pub vines: Option<(&'a ClimbableVinesSystem, &'a dyn VineHost)>,
+    pub vines: Option<(&'a ClimbableVinesSystem, RoomVinesView<'a>)>,
     pub balance_counter: f32,
     pub disbalance: &'a mut f32,
     /// `PlayerGraphics.flail`.
@@ -384,7 +384,7 @@ impl SlugcatHand {
             && vines.contains(on.vine)
         {
             free = false;
-            self.vine_target(vines, host, &on, player.animation_frame(), sign);
+            self.vine_target(vines, &host, &on, player.animation_frame(), sign);
         }
         free
     }

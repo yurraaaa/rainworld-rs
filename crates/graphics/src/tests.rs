@@ -1707,7 +1707,7 @@ impl NoiseSink for VineSink {
     fn vines(&mut self) -> Option<VineAccess<'_>> {
         Some(VineAccess {
             system: &self.system,
-            host: &mut self.host,
+            host: rw_sim::RoomVines::placed_only(&mut self.host),
         })
     }
 }
@@ -1753,7 +1753,13 @@ fn hands_swing_along_the_vine() {
             player: &player,
             room: &r,
             water: None,
-            vines: Some((&sink.system, &sink.host)),
+            vines: Some((
+                &sink.system,
+                rw_sim::RoomVinesView {
+                    placed: &sink.host,
+                    neurons: &[],
+                },
+            )),
             balance_counter: 0.0,
             disbalance: &mut disbalance,
             head_vel: &mut head_vel,

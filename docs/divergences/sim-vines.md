@@ -20,10 +20,12 @@ are the usual one-shot's).
   owner through a `VineHost` / `VineHostMut` at the moment the game makes it, so a push is
   seen by the next read and by the owners' own updates. The player gets the room's system and
   host through `NoiseSink::vines()` (the update's `PlayerHearing` holds the world), the hands
-  through `RealizedRoom::vine_view()`. `VineRef::Placed` is the only variant until the owners
-  exist (10d3 adds `CoralNeuron`, `CoralStem`, then `CorruptionTube`, `PoleMimic`): vines
-  registered at run time (`RealizedRoom::register_climbable_vine`: tests only) live
-  in the room's `PlacedVines`, which is the host for them.
+  through `RealizedRoom::vine_view()`. `VineRef::Placed` (vines registered at run time:
+  `RealizedRoom::register_climbable_vine`, tests only, live in the room's `PlacedVines`) and
+  `VineRef::CoralNeuron` (10d3a, D40: the neurons live in the coral system) exist; 10d3b adds
+  `CoralStem`, later `CorruptionTube` and `PoleMimic`. The host is `RoomVines`, built from split
+  borrows of the room for each call (`RealizedRoom::vine_access`; `vine_view` gives
+  `RoomVinesView`); each owner adds a variant, a branch in it and its storage.
 - **A position on a vine that is not registered** (`VineGrab` with the vine gone) lets go in
   `MovementUpdate`, as the game; the graphics skip the hands' vine branch for it (the game
   would still read the removed object). Nothing in the base game removes a vine.
@@ -48,7 +50,7 @@ are the usual one-shot's).
   (10554).
 - Watcher: `SkyWhale.SkyWhaleWhisker` (registers and unregisters per room,
   `CurrentlyClimbable` follows the ripple layer).
-- Base game, later steps: `CoralNeuron` and `CoralStem` (10d3), `ClimbableCorruptionTube`
+- Base game, later steps: `CoralStem` (10d3b; `CoralNeuron` is done, D40), `ClimbableCorruptionTube`
   with `DaddyCorruption` (`Grab_Corruption_Tube` is ported and reachable then), `PoleMimic`
   with its creature (`BeingClimbedOn` wakes it and plays `Player_Grab_Pole_Mimic`; the
   `VineKind` exists, the grab plays no sound for it yet).

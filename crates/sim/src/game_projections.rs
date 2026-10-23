@@ -87,6 +87,19 @@ impl RainWorldGame {
                         lines.update_line(line);
                     }
                 }
+                ProjectionRef::Circle(order) => {
+                    let can_host = r.coral.as_ref().is_some_and(|c| {
+                        list.circles
+                            .iter()
+                            .find(|q| q.update_order == order)
+                            .is_some_and(|q| c.circle_owner_can_host(q.owner))
+                    });
+                    if let Some(circle) = list.circles.iter_mut().find(|q| q.update_order == order)
+                        && !circle.slated
+                    {
+                        circle.update(can_host, rng);
+                    }
+                }
                 ProjectionRef::Stars(order) => {
                     if let Some(stars) = list
                         .star_matrices
@@ -99,6 +112,43 @@ impl RainWorldGame {
             }
         }
         self.world.set_update_seq(seq);
+    }
+
+    /// The first draw after each `ProjectedCircle.Update` of the camera room runs its
+    /// `UpdateDepth`: `rCam.DepthAtCoordinate` at the owner's centre (sky, 1, without a
+    /// camera picture).
+    pub fn update_circle_depths(&mut self) {
+        let index = self.camera_room;
+        let image = self.camera_image.as_ref().filter(|c| c.room == index);
+        let Some(r) = self.world.realized_mut(index) else {
+            return;
+        };
+        let Some(coral) = r.coral.as_ref() else {
+            return;
+        };
+        let depths: Vec<(u64, f32)> = r
+            .projections
+            .circles
+            .iter()
+            .filter(|c| c.update_depth && !c.slated)
+            .map(|c| {
+                let centre = coral.circle_center(c.owner, c.index, 1.0);
+                (
+                    c.update_order,
+                    centre.map_or(1.0, |at| image.map_or(1.0, |i| i.depth_at_coordinate(at))),
+                )
+            })
+            .collect();
+        for (order, depth) in depths {
+            if let Some(c) = r
+                .projections
+                .circles
+                .iter_mut()
+                .find(|c| c.update_order == order)
+            {
+                c.apply_depth(depth);
+            }
+        }
     }
 
     /// Drops the projections destroyed during room `index`'s update.
