@@ -5,11 +5,12 @@
 use rw_random::UnityRandom;
 
 use super::poles::Grid;
+use super::sounds::{all_sounds, played};
 use super::{DRAG, assert_close, assert_vec};
-use crate::Sounds;
 use crate::Vec2;
 use crate::player::{Animation, BodyMode, HEAD, HIPS, Input, Player};
 use crate::tests::room;
+use crate::{SoundId, Sounds};
 
 const UP: Input = Input::new(0, 1, false);
 const RIGHT: Input = Input::new(1, 0, false);
@@ -322,4 +323,160 @@ fn corridor_drop_needs_gravity() {
     p.set_room_gravity(0.0);
     p.step(&r, Input::new(0, -1, true));
     assert!(!p.corridor_drop);
+}
+
+/// The generator after `ids` played as one-shots on the head from `rng` (`Room.PlaySound`'s
+/// draws, in order).
+fn after_sounds(mut rng: UnityRandom, ids: &[SoundId]) -> UnityRandom {
+    let mut sounds = all_sounds();
+    for &id in ids {
+        sounds.play_on_chunk(id, HEAD, false, 1.0, 1.0, &mut rng);
+    }
+    rng
+}
+
+/// One update with every sound playing; the generator and the IDs played.
+fn update_with_sounds(
+    p: &mut Player,
+    r: &rw_assets::Room,
+    input: Input,
+    rng: &mut UnityRandom,
+) -> Vec<SoundId> {
+    let mut s = all_sounds();
+    p.update(r, None, input, rng, &mut s);
+    played(&mut s).into_iter().map(|(id, ..)| id).collect()
+}
+
+/// A one-shot's draws are made at the end of the update, after the update's own: a
+/// `Regain_Footing` for each chunk whose contact changed (`Player.cs` 8561).
+#[test]
+fn zero_g_swim_regain_footing_draws_after_the_updates_own() {
+    let r = floor_room();
+    let mut p = Player::lying_at(Vec2::new(100.0, 48.5));
+    p.set_room_gravity(0.0);
+    for c in &mut p.body.chunks {
+        c.vel = Vec2::new(0.0, -1.0);
+    }
+    let mut rng = UnityRandom::new(4);
+    let ids = update_with_sounds(&mut p, &r, Input::NONE, &mut rng);
+    assert_eq!(ids, [SoundId::SlugcatRegainFooting; 2]);
+    assert_eq!(
+        rng,
+        after_sounds(UnityRandom::new(4), &[SoundId::SlugcatRegainFooting; 2])
+    );
+}
+
+/// The push-off plays `Normal_Jump` once (`Player.cs` 8628) after the thrust's one draw.
+#[test]
+fn zero_g_swim_push_off_plays_one_normal_jump() {
+    let r = floor_room();
+    let mut p = Player::lying_at(Vec2::new(100.0, 48.0));
+    p.set_room_gravity(0.0);
+    p.can_jump = 12;
+    p.want_to_jump = 3;
+    let mut rng = UnityRandom::new(6);
+    let ids = update_with_sounds(&mut p, &r, UP, &mut rng);
+    assert_eq!(ids, [SoundId::SlugcatNormalJump]);
+    let mut want = UnityRandom::new(6);
+    want.value();
+    assert_eq!(rng, after_sounds(want, &[SoundId::SlugcatNormalJump]));
+}
+
+/// Passing a vertical pole while thrusting up plays `Grab_Beam` (`Player.cs` 8651).
+#[test]
+fn zero_g_swim_grab_plays_grab_beam() {
+    let r = tall_pole();
+    let mut p = Player::floating_at(Vec2::new(98.0, 300.0));
+    p.animation = Animation::ZeroGSwim;
+    p.body.chunks[HEAD].pos = Vec2::new(98.0, 317.0);
+    p.body.chunks[HEAD].last_pos = Vec2::new(98.0, 317.0);
+    for c in &mut p.body.chunks {
+        c.vel = Vec2::new(3.0, 0.0);
+    }
+    let mut rng = UnityRandom::new(8);
+    let ids = update_with_sounds(&mut p, &r, UP, &mut rng);
+    assert_eq!(ids, [SoundId::SlugcatGrabBeam]);
+    let mut want = UnityRandom::new(8);
+    want.value();
+    assert_eq!(rng, after_sounds(want, &[SoundId::SlugcatGrabBeam]));
+}
+
+/// Climbing a pole in `ZeroGPoleGrab` plays `Climb_Up_Vertical_Beam` when the frame counter
+/// passes 20 (`Player.cs` 8735), and a let-go jump plays the horizontal-pole sounds (8800).
+#[test]
+fn zero_g_pole_grab_sounds() {
+    let r = tall_pole();
+    let mut p = Player::floating_at(Vec2::new(110.0, 300.0));
+    let mut rng = UnityRandom::new(2);
+    let mut climbs = 0;
+    for _ in 0..60 {
+        let ids = update_with_sounds(&mut p, &r, UP, &mut rng);
+        if !ids.is_empty() {
+            assert_eq!(ids, [SoundId::SlugcatClimbUpVerticalBeam]);
+            climbs += 1;
+        }
+    }
+    assert!((2..=3).contains(&climbs), "{climbs}");
+    let mut rng = UnityRandom::new(2);
+    let mut mirror = rng.clone();
+    let ids = update_with_sounds(&mut p, &r, Input::new(0, 1, true), &mut rng);
+    assert_eq!(ids.last(), Some(&SoundId::SlugcatFromHorizontalPoleJump));
+    for _ in 0..ids.len() - 1 {
+        mirror = after_sounds(mirror, &[SoundId::SlugcatClimbUpVerticalBeam]);
+    }
+    assert_eq!(
+        rng,
+        after_sounds(mirror, &[SoundId::SlugcatFromHorizontalPoleJump])
+    );
+    // Without a direction the let-go only plays `Climb_Along_Horizontal_Beam`.
+    let mut p = Player::floating_at(Vec2::new(110.0, 300.0));
+    p.step(&r, Input::NONE);
+    assert_eq!(p.animation(), Animation::ZeroGPoleGrab);
+    let mut rng = UnityRandom::new(2);
+    let ids = update_with_sounds(&mut p, &r, Input::new(0, 0, true), &mut rng);
+    assert_eq!(ids, [SoundId::SlugcatClimbAlongHorizontalBeam]);
+    assert_eq!(
+        rng,
+        after_sounds(
+            UnityRandom::new(2),
+            &[SoundId::SlugcatClimbAlongHorizontalBeam]
+        )
+    );
+}
+
+/// The corridor kick sheds its drips (queued first) and then plays the success sound; with
+/// no wall behind, the fail sound alone.
+#[test]
+fn zero_g_corridor_kick_sounds_follow_the_drips() {
+    use super::corridor::tunnel_room;
+    let r = tunnel_room();
+    let mut p = Player::in_corridor_at(Vec2::new(87.0, 112.0), Vec2::new(70.0, 112.0));
+    p.set_room_gravity(0.0);
+    p.set_ceiling_drips(0.5);
+    let mut rng = UnityRandom::new(9);
+    let ids = update_with_sounds(&mut p, &r, Input::new(0, 0, true), &mut rng);
+    assert_eq!(ids, [SoundId::SlugcatCorridorHorizontalSlideSuccess]);
+    let mut want = UnityRandom::new(9);
+    for _ in 0..4 {
+        want.value();
+        want.value();
+        want.range_i32(10, 120);
+    }
+    assert_eq!(
+        rng,
+        after_sounds(want, &[SoundId::SlugcatCorridorHorizontalSlideSuccess])
+    );
+    // Held sideways in the open tunnel (no solid tile behind the hips): the fail sound.
+    let mut p = Player::in_corridor_at(Vec2::new(150.0, 112.0), Vec2::new(133.0, 112.0));
+    p.set_room_gravity(0.0);
+    let mut rng = UnityRandom::new(9);
+    let ids = update_with_sounds(&mut p, &r, Input::new(1, 0, true), &mut rng);
+    assert_eq!(ids, [SoundId::SlugcatCorridorHorizontalSlideFail]);
+    assert_eq!(
+        rng,
+        after_sounds(
+            UnityRandom::new(9),
+            &[SoundId::SlugcatCorridorHorizontalSlideFail]
+        )
+    );
 }

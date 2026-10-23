@@ -27,9 +27,6 @@ draw-count tests. Notes: `../../rainworld-re/notes/zero-gravity.md`; surveys
   `game.cameras[i].room` for each camera; the port has one camera.
 - **`SSMusicTrigger` counts a player in a shortcut as out of the room.** The game compares
   `realizedCreature.room` with the room; a creature in a shortcut has no room.
-- **A body's `room_gravity` is the room's at its own update.** Lizards, flies and weapons
-  take the room's gravity when they update (the player and the game's other readers take
-  it each tick). An object's `SetRandomSpin` before its first update in a room reads 1.
 - **Omitted DLC and Remix branches** (listed, not dropped): `BrokenAntiGravity`'s
   constructor and update branches for Moon-heart (`MS`, `SL`), `pebblesEnergyTaken` (`RM`),
   the dream/wait-for-rain branches (`DM`, `LM`) and the story/arena coin flips; the

@@ -61,7 +61,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `game_drips.rs`, `game_drips_tests.rs` | the ceiling drip in `Room.Update`, `Room.Loaded`'s `DrippingSound` and its turns (sound, emitters) in the update list | `Room.Update`, `Room.Loaded` |
 | `game_weapons.rs` | rocks/spears in the update list, loops, sparks | - |
 | `*_tests.rs`, `tests.rs` | tests for their `game_*`/`shelter` siblings; `tests.rs` is physics unit tests | - |
-| `anti_gravity.rs`, `anti_gravity_tests.rs` | `AntiGravity` (the room's gravity from `ZeroG`/`BrokenZeroG`), `BrokenAntiGravity` (the world's flickering switch: counter, 120-tick transition, lights) | `AntiGravity` |
+| `anti_gravity.rs`, `anti_gravity_tests.rs` | `AntiGravity` (the room's gravity from `ZeroG`/`BrokenZeroG`), `BrokenAntiGravity` (the world's flickering switch: counter, 121-tick transition, lights) | `AntiGravity` |
 | `camera.rs` | what the sim reads of camera 0, visibility tests | `RoomCamera` |
 | `campaign.rs` | per-slugcat campaign data: food, start den, karma | `SlugcatStats`, `SaveState` |
 | `chunk.rs` | `BodyChunk` integration + tile collision | `BodyChunk.Update` |

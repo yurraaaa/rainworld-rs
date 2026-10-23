@@ -119,6 +119,11 @@ impl World {
         self.place_object(id, rng);
     }
 
+    /// `Room.gravity` of room `index` as it stands now (1 for an unrealized one).
+    pub(crate) fn room_gravity_at(&self, index: i32) -> f32 {
+        self.realized(index).map_or(1.0, |r| r.gravity)
+    }
+
     /// `AbstractPhysicalObject.Realize` of a rock or spear (others are not realized).
     pub(crate) fn realize_object(&mut self, id: ObjectId, rng: &mut UnityRandom) {
         let o = self.object(id);
@@ -138,6 +143,7 @@ impl World {
         let Some(room) = self.realized(index).map(|r| r.room.clone()) else {
             return;
         };
+        let gravity = self.room_gravity_at(index);
         let mut seq = self.update_seq;
         let object = &mut self.objects[id.0];
         if let Some(mut weapon) = object.realized.take() {
@@ -146,6 +152,7 @@ impl World {
                 rng,
                 update_seq: &mut seq,
             };
+            weapon.body.params.room_gravity = gravity;
             weapon.place_in_room(object, index, &mut cx);
             object.realized = Some(weapon);
         }
@@ -274,8 +281,9 @@ impl World {
         spin: Option<crate::item::SpearSpin>,
         rng: &mut UnityRandom,
     ) {
-        let room = self.object(id).pos.room;
-        let Some(room) = self.realized(room).map(|r| r.room.clone()) else {
+        let room_index = self.object(id).pos.room;
+        let gravity = self.room_gravity_at(room_index);
+        let Some(room) = self.realized(room_index).map(|r| r.room.clone()) else {
             return;
         };
         let mut seq = self.update_seq;
@@ -286,6 +294,7 @@ impl World {
                 rng,
                 update_seq: &mut seq,
             };
+            weapon.body.params.room_gravity = gravity;
             weapon.change_mode_spun(mode, object, &mut cx, spin);
             object.realized = Some(weapon);
         }
@@ -634,8 +643,9 @@ impl World {
         speed: f32,
         rng: &mut UnityRandom,
     ) {
-        let room = self.object(id).pos.room;
-        let Some(room) = self.realized(room).map(|r| r.room.clone()) else {
+        let room_index = self.object(id).pos.room;
+        let gravity = self.room_gravity_at(room_index);
+        let Some(room) = self.realized(room_index).map(|r| r.room.clone()) else {
             return;
         };
         let mut seq = self.update_seq;
@@ -646,6 +656,7 @@ impl World {
                 rng,
                 update_seq: &mut seq,
             };
+            w.body.params.room_gravity = gravity;
             w.weapon_deflect(between, dir, speed, object, &mut cx);
             object.realized = Some(w);
         }
@@ -660,8 +671,9 @@ impl World {
         throw: Throw,
         rng: &mut UnityRandom,
     ) -> Option<SoundId> {
-        let room = self.object(id).pos.room;
-        let room = self.realized(room).map(|r| r.room.clone())?;
+        let room_index = self.object(id).pos.room;
+        let gravity = self.room_gravity_at(room_index);
+        let room = self.realized(room_index).map(|r| r.room.clone())?;
         let mut seq = self.update_seq;
         let object = &mut self.objects[id.0];
         let mut w = object.realized.take()?;
@@ -670,6 +682,7 @@ impl World {
             rng,
             update_seq: &mut seq,
         };
+        w.body.params.room_gravity = gravity;
         let sound = w.thrown(throw, object, &mut cx);
         object.realized = Some(w);
         self.update_seq = seq;
@@ -686,7 +699,12 @@ impl World {
 
     /// The realized weapon `id`, mutable.
     pub(crate) fn weapon_mut(&mut self, id: ObjectId) -> Option<&mut Weapon> {
-        self.object_mut(id).realized.as_deref_mut()
+        let gravity = self.realized(self.object(id).pos.room).map(|r| r.gravity);
+        let w = self.object_mut(id).realized.as_deref_mut()?;
+        if let Some(g) = gravity {
+            w.body.params.room_gravity = g;
+        }
+        Some(w)
     }
 
     /// The cosmetic sprites in room `index`'s update list.

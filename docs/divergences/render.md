@@ -136,12 +136,12 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   the DLCs)
   or modify effect colours (`ModifyEffectColorA/B`, unused in base-game rooms), ghost /
   rot / mushroom palettes, the rain's screen shake (and the sandstorm's, blizzard's,
-  flood rooms' `waterFlux.roomShake`, `AntiGravity`'s), `_bkg` backgrounds, the heat / melt / ripple
+  flood rooms' `waterFlux.roomShake`), `_bkg` backgrounds, the heat / melt / ripple
   shader variants, swarm rooms, and the properties-file line preprocessing (no base-game
   `Room Setting Templates` line uses it).
 
 **Why.** The port draws the camera's room with the player; these depend on systems
-not ported yet (the rain itself and the global rain, zero gravity, echoes,
+not ported yet (the rain itself and the global rain, echoes,
 the room effects' own objects and scenes) or are invisible at this stage. The rain
 cycle's light and palette darkening before the rain are ported (D22).
 

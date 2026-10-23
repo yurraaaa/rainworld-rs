@@ -144,3 +144,32 @@ fn ss_music_asks_only_in_zero_gravity() {
     }
     assert!(g.take_music_requests().is_empty());
 }
+
+/// `PlaceInRoom`'s `SetRandomSpin` reads the room's gravity at that moment, before the
+/// object's first update: a spear placed in a zero-gravity room spins at 0.05 of its speed.
+#[test]
+fn a_spear_placed_in_a_zero_g_room_spins_with_its_gravity() {
+    use crate::creature::{EntityId, WorldCoordinate};
+    use crate::item::AbstractObject;
+    let mut g = zero_g_game(&[("ZeroG", 1.0)]);
+    g.tick(Input::NONE, &mut WithGraphics);
+    assert_eq!(g.world.realized(0).unwrap().gravity, 0.0);
+    let id = g.world.add_object(AbstractObject::new_spear(
+        EntityId::new(0, 77),
+        WorldCoordinate::new(0, 8, 1, -1),
+        false,
+    ));
+    g.world.realize_object_in_room(id, &mut g.rng);
+    let spin = g.world.weapon_mut(id).unwrap().rotation_speed.abs();
+    assert!((2.5..=7.5).contains(&spin), "{spin}");
+}
+
+/// The player reads the room's gravity as it is after the `AntiGravity` turn, not as of its
+/// own last update.
+#[test]
+fn the_player_sees_the_gravity_the_anti_gravity_set() {
+    let mut g = zero_g_game(&[("ZeroG", 1.0)]);
+    assert_eq!(g.player_ref().effective_room_gravity(), 1.0);
+    g.tick(Input::NONE, &mut WithGraphics);
+    assert_eq!(g.player_ref().effective_room_gravity(), 0.0);
+}

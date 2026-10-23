@@ -167,6 +167,24 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   - Background scenes' `DayNight` blocks (sky alphas, `atmosphereColor`,
     `_MultiplyColor`, the spire lights; needs the rain cycle's `dayNightCounter`; no
     base room has `DayNight`): with the DLCs that use `DayNight` (D32).
+  - Zero gravity (D34): the shortcut pushers in `ShortcutHelper`, with it.
+  - Zero gravity: the player's cloth (`PlayerGraphics` 1168), with the cloth.
+  - Zero gravity: the vine grab and vine pull, with vines.
+  - Zero gravity: coral circuit swimming (`circuitSwimResistance`, `curcuitJumpMeter`,
+    `swimBits`), with the coral circuit object.
+  - Zero gravity: Five Pebbles' and Moon's oracle scenes switching `AntiGravity` off, with
+    the oracles.
+  - `Room.ElectricPower` / gravity readers: `ZapCoil`, `GravityDisruptor`, `SpinningFan`,
+    `SuperStructureFuses`, `MeltLights`, with the SS objects.
+  - `Room.ElectricPower` / gravity readers: `SSLightRod`, `ProjectedScanLines`,
+    `SuperStructureProjector`, `DeepProcessing`, `DeepProcessingLight`, with the SS objects.
+  - Zero gravity: `ExplosiveSpear` fragments, with explosive spears.
+  - Zero gravity: `OverseerCarcass`, with it.
+  - Zero gravity: `SegmentRope` and `Dangler`, with them.
+  - `Room.ElectricPower` / gravity readers in `HazerGraphics` and `ScavengerGraphics`, with
+    Hazers and scavengers.
+  - The analogue stick in zero gravity (`ZeroGGamePadIntVec`; user, 2026-10-23): waits until
+    the port has analogue gamepad input.
 - **Room files `Room::load` rejects** (user, 2026-10-23: not real rooms, but look into
   why): `su_a08`, `su_a09`, `su_a15_tiled`, `su_b01_tiled` in the installed game's
   `su-rooms` fail the port's room parser (seen by the waterfall corpus test). Find what

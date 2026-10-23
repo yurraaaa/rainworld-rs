@@ -74,6 +74,12 @@ impl RainWorldGame {
             r.settings.effect_amount(RoomEffectType::BrokenZeroG),
             broken.as_ref(),
         );
+        let gravity = r.gravity;
+        if self.pos().room == index
+            && let Some(p) = self.player.as_mut()
+        {
+            p.set_room_gravity(gravity);
+        }
     }
 
     /// `brokenAntiGrav.Update` (from `RainCycle.Update`, after the timers): the switch
