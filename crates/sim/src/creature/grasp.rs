@@ -179,7 +179,7 @@ impl World {
 
     /// `bodyChunkConnections` of a realized lizard (none for the others ported).
     #[must_use]
-    pub fn chunk_connections(&self, e: Entity) -> &[crate::object::BodyChunkConnection] {
+    pub fn chunk_connections(&self, e: Entity) -> &[crate::physics::object::BodyChunkConnection] {
         match e {
             Entity::Creature(id) => match &self.creature(id).realized {
                 Some(RealizedCreature::Lizard(l)) => &l.body.connections,

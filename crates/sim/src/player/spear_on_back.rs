@@ -2,7 +2,7 @@
 //! counter, the lean (`flip`) and the interaction lock; `Stun` and `Die` drop the spear
 //! (`DropSpear`), drawing where the game draws, and [`crate::RainWorldGame`] applies the
 //! drop to the spear. The update, `SpearToBack`, `SpearToHand` and the placing on the
-//! back reach the world and live in `game_spear_on_back.rs`.
+//! back reach the world and live in `player/spear_on_back_turn.rs`.
 //!
 //! Mirrors: Player.cs (SpearOnBack, Stun, Die)
 

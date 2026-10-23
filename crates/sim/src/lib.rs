@@ -21,186 +21,138 @@
 //!
 //! Mirrors: -
 
-mod above_clouds_view;
-mod anti_gravity;
-mod background_scene;
-mod border_push_back;
-mod bubble;
-mod camera;
-mod camera_image;
-pub mod campaign;
-mod chunk;
-mod circuit_connector;
-mod circuit_crab;
-mod climbable_vines;
-pub mod color;
-mod coral_circuit;
-mod coral_neuron;
-mod coral_stem;
-mod coral_system;
-mod cosmetic;
 pub mod creature;
-mod decal;
-mod deep_processing;
-mod distant_lightning;
-mod dripping_sound;
-mod dust_puff;
-mod electric_death;
-mod float_ext;
+mod effects;
 mod game;
-mod gravity_disruptor;
-mod green_sparks;
-pub mod insect;
 pub mod item;
-mod light_beam;
-mod light_fixture;
-mod light_source;
-mod lightning;
-pub mod map_discovery;
-mod mycelium;
-mod neuron_spark;
-mod noise;
-mod object;
+mod math;
+mod physics;
 mod player;
-mod projected_circle;
-mod projected_scan_lines;
-mod projector;
-mod rainbow;
-mod roof_top_view;
-mod room_ext;
-mod room_fixtures;
-mod room_particles;
-mod room_projections;
-pub mod room_script;
-mod screen_shake;
-mod shared_physics;
-pub mod shelter;
-mod shortcut;
-mod sky_dandelion;
-mod slime_mold;
 mod sound;
-mod spawn;
-mod splash;
-mod spot_light;
-mod ss_fuses;
-mod ss_light_rod;
-mod star_matrix;
-mod token_stalk;
-pub mod trigger;
-mod vec2;
-mod vec3;
-mod wall_mycelia;
+mod superstructure;
+mod vines;
 mod water;
-mod water_drip;
-mod water_sound;
-mod waterfall;
 pub mod world;
-mod zap_coil;
-mod zero_g_speck;
 
-pub use above_clouds_view::AboveCloudsContext;
-pub use anti_gravity::{AntiGravity, BrokenAntiGravity, BrokenTick};
-pub use background_scene::{
-    AboveCloudsParams, BackgroundScene, CloudData, ElementKind, SCREEN_SIZE, SceneElement,
-    SceneImages, SceneKind, SceneParams, SkyTime,
-};
-pub use border_push_back::BorderPushBack;
-pub use bubble::{Bubble, BubbleMode};
-pub use camera::CameraView;
-pub use camera_image::CameraImage;
-pub use chunk::{BodyChunk, Contact, DEFAULT_RESTRICT_IN_ROOM_RANGE, PhysicsParams, TerrainImpact};
-pub use circuit_connector::{CircuitConnector, ConnectorAnchor};
-pub use circuit_crab::{CircuitCrab, CrabLeg};
-pub use climbable_vines::{
-    ClimbableVine, ClimbableVinesSystem, PlacedVines, RoomVines, RoomVinesView, VineAccess,
-    VineClimber, VineHost, VineHostMut, VineKind, VinePosition, VineRef,
-};
-pub use coral_circuit::{
-    BitCx, BitRef, CircuitBit, CircuitCx, CircuitPlace, CoralCircuit, PushChunk,
-};
-pub use coral_neuron::{CoralNeuron, NeuronCx, NeuronGeometry, NewNeuron};
-pub use coral_stem::{CoralStem, NewStem, SegmentHang, SegmentRef, StemCx, StemSegment, StemTick};
-pub use coral_system::CoralNeuronSystem;
-pub use cosmetic::{
+pub use effects::particles::insect;
+pub use game::{campaign, map_discovery, room_script, shelter, trigger};
+pub use math::color;
+
+pub use creature::{ShortCutColor, WorldCoordinate};
+pub use effects::cosmetic::{
     Cosmetic, CosmeticKind, CosmeticTie, ExplosionSpikes, OverseerEffectSprite, Spark,
     StationaryEffect,
 };
-pub use creature::{ShortCutColor, WorldCoordinate};
-pub use decal::CustomDecal;
-pub use deep_processing::{DeepProcessing, DeepProcessingLight};
-pub use distant_lightning::DistantLightning;
-pub use dripping_sound::DrippingSound;
-pub use dust_puff::{DustPuff, DustpuffSpawner};
-pub use electric_death::{ElectricDeath, LightFlash, SparkFlash, Strike, WallSpark};
-pub use float_ext::FloatExt;
+pub use effects::gravity::anti_gravity::{AntiGravity, BrokenAntiGravity, BrokenTick};
+pub use effects::gravity::border_push_back::BorderPushBack;
+pub use effects::gravity::electric_death::{
+    ElectricDeath, LightFlash, SparkFlash, Strike, WallSpark,
+};
+pub use effects::lights::light_beam::LightBeam;
+pub use effects::lights::light_fixture::{HolyFire, HolyFireSprite, Redlight, SlimeMoldLight};
+pub use effects::lights::light_source::{
+    LightElement, LightHardSet, LightSource, LightSourceTick, LightTie,
+};
+pub use effects::lights::spot_light::SpotLight;
+pub use effects::particles::decal::CustomDecal;
+pub use effects::particles::green_sparks::{GreenSpark, GreenSparks, SparkCx};
+pub use effects::particles::rainbow::Rainbow;
+pub use effects::particles::room_particles::RoomParticles;
+pub use effects::particles::sky_dandelion::{
+    ChunkView, DandelionPatch, DandelionStalk, MadeDandelion, SkyDandelion, SkyDandelions,
+};
+pub use effects::particles::slime_mold::CosmeticSlimeMold;
+pub use effects::particles::token_stalk::{CurveLerp, StalkCoord, TokenStalk};
+pub use effects::particles::zero_g_speck::{
+    BlinkState, SpeckCx, SpeckKind, SpeckType, SporeState, ZeroGSpeck,
+};
+pub use effects::sky::above_clouds_view::AboveCloudsContext;
+pub use effects::sky::background_scene::{
+    AboveCloudsParams, BackgroundScene, CloudData, ElementKind, SCREEN_SIZE, SceneElement,
+    SceneImages, SceneKind, SceneParams, SkyTime,
+};
+pub use effects::sky::distant_lightning::DistantLightning;
+pub use effects::sky::dust_puff::{DustPuff, DustpuffSpawner};
+pub use effects::sky::lightning::{
+    Lightning, LightningEnv, LightningFrame, LightningRoom, LightningSource, ThunderSound,
+};
+pub use game::camera::CameraView;
+pub use game::camera_image::CameraImage;
+pub use game::map_discovery::{DiscoveryTexture, HudMapLink, MapDiscovery, MapRoom, UnityTexture};
+pub use game::screen_shake::{CameraShake, ScreenMovement};
+pub use game::shelter::SessionEnd;
+pub use game::shortcut::{
+    CreatureVessel, EntranceColor, LobbyVessel, ShortcutHandler, ShortcutsBlinking, VesselOwner,
+};
+pub use game::spawn::{determine_safe_spawn_tile, place_in_room};
 pub use game::{
     CameraMove, DevRainControl, GameOver, Grabability, HeavyAiThrottle, HudEvent, LookTarget,
     NewGameWorld, OverseerCall, PlayerGlow, PlayerHands, PlayerObserver, PlayerSurroundings,
     RainWorldGame, Start, UtilityReadings,
 };
-pub use gravity_disruptor::{DisruptorSpeck, GravityDisruptor, SPECKS, STREAKS};
-pub use green_sparks::{GreenSpark, GreenSparks, SparkCx};
-pub use light_beam::LightBeam;
-pub use light_fixture::{HolyFire, HolyFireSprite, Redlight, SlimeMoldLight};
-pub use light_source::{LightElement, LightHardSet, LightSource, LightSourceTick, LightTie};
-pub use lightning::{
-    Lightning, LightningEnv, LightningFrame, LightningRoom, LightningSource, ThunderSound,
+pub use math::float_ext::FloatExt;
+pub use math::vec2::{TileExt, Vec2};
+pub use math::vec3::Vec3;
+pub use physics::chunk::{
+    BodyChunk, Contact, DEFAULT_RESTRICT_IN_ROOM_RANGE, PhysicsParams, TerrainImpact,
 };
-pub use map_discovery::{DiscoveryTexture, HudMapLink, MapDiscovery, MapRoom, UnityTexture};
-pub use mycelium::{
-    MyceliaConnection, MyceliaCx, Mycelium, MyceliumEnv, MyceliumId, MyceliumOwner, MyceliumPool,
-    OwnerKey, PointOwner, SystemId, SystemState,
-};
-pub use neuron_spark::NeuronSpark;
-pub use noise::{ImpactCall, ImpactCalls, InGameNoise, NoiseSink, NoiseSource, RoomCall};
-pub use object::{
+pub use physics::object::{
     BodyChunkConnection, ConnectionKind, PhysicalObject, TerrainImpactHandler, slugcat,
 };
+pub use physics::room_ext::RoomExt;
 pub use player::{
     Animation, BodyMode, CircuitCollision, CircuitExplosion, DangerGraspState, DangerGraspStep,
     GrabState, HEAD, HIPS, INPUT_HISTORY, Input, Player, PlayerController, ShelterCheck,
     SpearOnBack, StomachObject, SwimBit, VesselStep,
 };
-pub use projected_circle::{CircleOwner, ProjectedCircle};
-pub use projected_scan_lines::{ProjectedScanLine, ProjectedScanLines};
-pub use projector::{
-    Cursor, Glyph, GlyphMatrix, PartKind, ProjectorFrame, ProjectorPart, ScanLine, SingleGlyph,
-    SuperStructureProjector,
-};
-pub use rainbow::Rainbow;
-pub use room_ext::RoomExt;
-pub use room_fixtures::RoomFixtures;
-pub use room_particles::RoomParticles;
-pub use room_projections::RoomProjections;
-pub use screen_shake::{CameraShake, ScreenMovement};
-pub use shelter::SessionEnd;
-pub use shortcut::{
-    CreatureVessel, EntranceColor, LobbyVessel, ShortcutHandler, ShortcutsBlinking, VesselOwner,
-};
-pub use sky_dandelion::{
-    ChunkView, DandelionPatch, DandelionStalk, MadeDandelion, SkyDandelion, SkyDandelions,
-};
-pub use slime_mold::CosmeticSlimeMold;
+pub use sound::dripping_sound::DrippingSound;
+pub use sound::noise::{ImpactCall, ImpactCalls, InGameNoise, NoiseSink, NoiseSource, RoomCall};
+pub use sound::water_sound::WaterSound;
 pub use sound::{
     EmitterId, EmitterPlace, LoopEmitter, PlayedSound, SoundEvent, SoundId, SoundRect, SoundSource,
     Sounds, StaticSoundLoop,
 };
-pub use spawn::{determine_safe_spawn_tile, place_in_room};
-pub use splash::Splash;
-pub use spot_light::SpotLight;
-pub use ss_fuses::{FuseSetup, SuperStructureFuses};
-pub use ss_light_rod::{LightVessel, ROD_COLOR, RodCamera, SsLightRod};
-pub use star_matrix::{Star, StarMatrix};
-pub use token_stalk::{CurveLerp, StalkCoord, TokenStalk};
-pub use vec2::{TileExt, Vec2};
-pub use vec3::Vec3;
-pub use wall_mycelia::{WallMycelia, WallPlace, WallRoots};
+pub use superstructure::coral::circuit::{
+    BitCx, BitRef, CircuitBit, CircuitCx, CircuitPlace, CoralCircuit, PushChunk,
+};
+pub use superstructure::coral::circuit_connector::{CircuitConnector, ConnectorAnchor};
+pub use superstructure::coral::circuit_crab::{CircuitCrab, CrabLeg};
+pub use superstructure::coral::mycelium::{
+    MyceliaConnection, MyceliaCx, Mycelium, MyceliumEnv, MyceliumId, MyceliumOwner, MyceliumPool,
+    OwnerKey, PointOwner, SystemId, SystemState,
+};
+pub use superstructure::coral::neuron::{CoralNeuron, NeuronCx, NeuronGeometry, NewNeuron};
+pub use superstructure::coral::neuron_spark::NeuronSpark;
+pub use superstructure::coral::stem::{
+    CoralStem, NewStem, SegmentHang, SegmentRef, StemCx, StemSegment, StemTick,
+};
+pub use superstructure::coral::system::CoralNeuronSystem;
+pub use superstructure::coral::wall_mycelia::{WallMycelia, WallPlace, WallRoots};
+pub use superstructure::electric::fuses::{FuseSetup, SuperStructureFuses};
+pub use superstructure::electric::light_rod::{LightVessel, ROD_COLOR, RodCamera, SsLightRod};
+pub use superstructure::electric::room_fixtures::RoomFixtures;
+pub use superstructure::electric::zap_coil::{CoilEnv, ZapCoil, ZapCoilLight, ZapFlash};
+pub use superstructure::grab::deep_processing::{DeepProcessing, DeepProcessingLight};
+pub use superstructure::grab::gravity_disruptor::{
+    DisruptorSpeck, GravityDisruptor, SPECKS, STREAKS,
+};
+pub use superstructure::projections::projected_circle::{CircleOwner, ProjectedCircle};
+pub use superstructure::projections::projector::{
+    Cursor, Glyph, GlyphMatrix, PartKind, ProjectorFrame, ProjectorPart, ScanLine, SingleGlyph,
+    SuperStructureProjector,
+};
+pub use superstructure::projections::room_projections::RoomProjections;
+pub use superstructure::projections::scan_lines::{ProjectedScanLine, ProjectedScanLines};
+pub use superstructure::projections::star_matrix::{Star, StarMatrix};
+pub use vines::{
+    ClimbableVine, ClimbableVinesSystem, PlacedVines, RoomVines, RoomVinesView, VineAccess,
+    VineClimber, VineHost, VineHostMut, VineKind, VinePosition, VineRef,
+};
+pub use water::bubble::{Bubble, BubbleMode};
+pub use water::splash::Splash;
+pub use water::water_drip::{WaterDrip, WaterGlitter};
+pub use water::waterfall::{FallBubble, FallObject, FallSpec, WaterFall};
 pub use water::{BubbleEmitter, ChunkOwner, SurfaceChunk, Water, WaterObject};
-pub use water_drip::{WaterDrip, WaterGlitter};
-pub use water_sound::WaterSound;
-pub use waterfall::{FallBubble, FallObject, FallSpec, WaterFall};
-pub use zap_coil::{CoilEnv, ZapCoil, ZapCoilLight, ZapFlash};
-pub use zero_g_speck::{BlinkState, SpeckCx, SpeckKind, SpeckType, SporeState, ZeroGSpeck};
 
 #[cfg(test)]
 mod tests;

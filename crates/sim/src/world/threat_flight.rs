@@ -16,7 +16,7 @@ use super::{QuickConnectivity, World};
 use crate::FloatExt;
 use crate::RoomExt;
 use crate::creature::{CreatureId, CreatureTemplate, WorldCoordinate};
-use crate::vec2::TileExt;
+use crate::math::vec2::TileExt;
 
 impl World {
     /// `FleeTo(occupyTile, reevaluations, maximumDistance, considerLeavingRoom,

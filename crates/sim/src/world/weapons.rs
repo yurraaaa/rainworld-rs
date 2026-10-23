@@ -739,7 +739,7 @@ impl World {
         &mut self,
         index: i32,
         id: u64,
-        tie: crate::cosmetic::CosmeticTie,
+        tie: crate::effects::cosmetic::CosmeticTie,
         rng: &mut UnityRandom,
         sounds: &mut crate::Sounds,
     ) {

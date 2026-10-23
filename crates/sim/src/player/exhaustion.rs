@@ -11,7 +11,7 @@ use rw_random::UnityRandom;
 use super::{Animation, Player};
 use crate::Sounds;
 use crate::campaign::SlugcatStats;
-use crate::float_ext::FloatExt;
+use crate::math::float_ext::FloatExt;
 
 impl Player {
     /// `slugcatStats`.

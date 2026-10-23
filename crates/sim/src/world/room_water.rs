@@ -10,7 +10,7 @@ use rw_random::UnityRandom;
 use super::{RealizedRoom, World};
 use crate::creature::RealizedCreature;
 use crate::item::Entity;
-use crate::waterfall::FallObject;
+use crate::water::waterfall::FallObject;
 use crate::{BodyChunk, ChunkOwner, CosmeticKind, Sounds, SurfaceChunk, WaterObject};
 
 /// A physical object of a room: its collision layer, place in that layer, and owner.

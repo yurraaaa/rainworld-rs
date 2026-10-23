@@ -8,7 +8,7 @@
 
 use rw_random::UnityRandom;
 
-use crate::float_ext::FloatExt;
+use crate::math::float_ext::FloatExt;
 use crate::{Vec2, WaterDrip};
 
 /// One drip site's drips, positions fixed where the game computes them.

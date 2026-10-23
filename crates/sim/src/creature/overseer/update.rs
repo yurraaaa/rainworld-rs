@@ -15,10 +15,10 @@ use super::{
     CommunicationModule, OverseerAbstractAi, OverseerAi, OverseerBody, OverseerMode, PlayerConcern,
     PlayerGuideState, TutorialBehavior, TutorialMessage,
 };
-use crate::camera::CameraView;
 use crate::creature::{AbstractCreatureAi, CreatureId, EntityId, WorldCoordinate};
+use crate::game::camera::CameraView;
 use crate::item::{Entity, ObjectId, WeaponMode};
-use crate::room_ext::RoomExt;
+use crate::physics::room_ext::RoomExt;
 use crate::trigger::{ForcedDirectionView, InputInstructionView, InstructionViewKind};
 use crate::world::{AiMap, EIGHT_DIRECTIONS, RainCycle, World};
 use crate::{

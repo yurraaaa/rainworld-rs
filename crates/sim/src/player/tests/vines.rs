@@ -10,9 +10,9 @@ use rw_random::UnityRandom;
 use super::flat_room;
 use super::sounds::{all_sounds, played};
 use super::{assert_close, assert_vec};
-use crate::climbable_vines::tests::{TestVine, Vines};
-use crate::climbable_vines::{VineAccess, VineHost, VineKind, VinePosition};
 use crate::player::{Animation, BodyMode, HEAD, HIPS, Input, Player};
+use crate::vines::tests::{TestVine, Vines};
+use crate::vines::{VineAccess, VineHost, VineKind, VinePosition};
 use crate::{NoiseSink, ScreenMovement, SoundId, Sounds, Vec2};
 
 /// The room's vines as the player's update reaches them.

@@ -1,7 +1,7 @@
 //! `LizardAI`'s state: its behaviour, its modules (path finder, tracker, noise, den
 //! finder, prey, threat and aggression trackers, utility comparer, mission,
 //! relationship, stuck and discomfort trackers), the signals between lizards, the idle spot's counters and the moods the behaviours read.
-//! The update is `RainWorldGame::lizard_ai_update` (`game_lizard_ai.rs`); the modules
+//! The update is `RainWorldGame::lizard_ai_update` (`creature/lizard/ai_turn.rs`); the modules
 //! that read the world are `world/ai_modules.rs`. Decompile: `LizardAI.cs`.
 //!
 //! Mirrors: LizardAI.cs (Behavior, LizardCommunication, LizardInjuryTracker, fields), ArtificialIntelligence.cs (fields)
@@ -14,7 +14,7 @@ use crate::creature::{
     NoiseTracker, PreyTracker, RelationshipTracker, RepKey, StuckTracker, ThreatTracker, Tracker,
     UtilityComparer, WorldCoordinate,
 };
-use crate::float_ext::SCurve;
+use crate::math::float_ext::SCurve;
 
 /// `LizardAI.Behavior`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

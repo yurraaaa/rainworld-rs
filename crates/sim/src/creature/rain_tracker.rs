@@ -7,7 +7,7 @@
 //! Mirrors: RainTracker.cs
 
 use crate::FloatExt;
-use crate::float_ext::SCurve;
+use crate::math::float_ext::SCurve;
 
 /// `RainTracker` (no state of its own).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

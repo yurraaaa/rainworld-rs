@@ -347,7 +347,7 @@ restrictions (`rainworld-re/notes/water.md`), base game with Remix off, Survivor
   the submersion cap above the room.
 - **Surface loop.** `Water.waterSounds` (`Water_Surface_Calm_LOOP` on the one-tile band
   under the still surface, `SilenceWater` volume) is ported (`rw_sim::WaterSound`,
-  `game_water_sound.rs`). The empty `WaterSoundObject` it belongs to is not an object
+  `sound/water_sound_turn.rs`). The empty `WaterSoundObject` it belongs to is not an object
   in the update list (it does nothing and never leaves the room); its emitters are.
   The inverted-water band (DLCShared) and the More Slugcats `waterInverted` branch of
   `PositionedSound.Update` are omitted with the other inverted-water code.
@@ -1062,7 +1062,7 @@ call, the room-range clamp's skip for grabbed objects, and `DefaultTile`.
 
 Room: the
 `WaterGate`'s falls (a room's own waterfalls are ported, D30). `Room.Update`'s ambient ceiling drip and `Room.Loaded`'s
-`DrippingSound` are ported (`game_drips.rs`); its `Random.value < gravity` compares with
+`DrippingSound` are ported (`water/drips_turn.rs`); its `Random.value < gravity` compares with
 the room's `gravity` (D34). More Slugcats omitted:
 `Room.SlugcatGamemodeUniqueRoomSettings` setting `CeilingDrips` to 0 (and `wetTerrain`
 off, the waves flattened) in the Saint's timeline.

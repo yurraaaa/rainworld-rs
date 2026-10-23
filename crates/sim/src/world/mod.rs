@@ -184,7 +184,7 @@ impl World {
             rooms,
             timeline,
             mods,
-            screen_size: crate::background_scene::SCREEN_SIZE,
+            screen_size: crate::effects::sky::background_scene::SCREEN_SIZE,
             story,
             loaded_before: vec![false; count],
             creatures: Vec::new(),
@@ -278,7 +278,10 @@ impl World {
 
     /// Light source `id` in whichever realized room holds it.
     #[must_use]
-    pub(crate) fn light_source(&self, id: u64) -> Option<&crate::light_source::LightSource> {
+    pub(crate) fn light_source(
+        &self,
+        id: u64,
+    ) -> Option<&crate::effects::lights::light_source::LightSource> {
         self.realized
             .iter()
             .flatten()
@@ -288,7 +291,7 @@ impl World {
     pub(crate) fn light_source_mut(
         &mut self,
         id: u64,
-    ) -> Option<&mut crate::light_source::LightSource> {
+    ) -> Option<&mut crate::effects::lights::light_source::LightSource> {
         self.realized
             .iter_mut()
             .flatten()

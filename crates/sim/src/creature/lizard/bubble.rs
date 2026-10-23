@@ -11,7 +11,7 @@ use rw_random::UnityRandom;
 
 use super::{BubbleHead, LizardVoiceView};
 use crate::creature::CreatureId;
-use crate::room_ext::RoomExt;
+use crate::physics::room_ext::RoomExt;
 use crate::{FloatExt, Vec2};
 
 /// A `LizardBubble`.

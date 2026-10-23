@@ -54,9 +54,9 @@ pub(crate) use spear_on_back::BackSpearDrop;
 pub use spear_on_back::SpearOnBack;
 
 use crate::campaign::{SlugcatCampaign, SlugcatStats};
-use crate::climbable_vines::VinePosition;
-use crate::room_ext::RoomExt;
-use crate::shortcut::ShortcutVessel;
+use crate::game::shortcut::ShortcutVessel;
+use crate::physics::room_ext::RoomExt;
+use crate::vines::VinePosition;
 use crate::{
     BodyChunk, EmitterPlace, LoopEmitter, NoiseSink, PhysicalObject, SoundId, Sounds, Vec2, Water,
     WaterDrip, place_in_room,

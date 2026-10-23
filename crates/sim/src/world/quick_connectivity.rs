@@ -11,7 +11,7 @@ use rw_random::UnityRandom;
 use super::ai_map::FOUR_DIRECTIONS_AND_ZERO;
 use super::{AiMap, Legality, PathCost, RealizedRoom, World};
 use crate::creature::{CreatureTemplate, WorldCoordinate};
-use crate::vec2::TileExt;
+use crate::math::vec2::TileExt;
 
 /// `QuickConnectivity`.
 pub struct QuickConnectivity;

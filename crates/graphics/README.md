@@ -71,20 +71,20 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 - Slugcat gaze: `looker.rs`.
 - Lizard body, legs, head: `lizard_graphics.rs`, `lizard_limb.rs`, `lizard_draw.rs`.
 - Lizard scales, spikes, tufts: `lizard_cosmetics.rs`, `lizard_cosmetics_draw.rs`.
-- Overseer body and eye: `overseer_graphics.rs`, `overseer_draw.rs`; hairs: `mycelium.rs` (the strands in `rw-sim`'s `mycelium.rs`); wall mycelia: `wall_mycelia_draw.rs`; coral neurons, stem segments and their projected circles: `coral_neuron_draw.rs`, `coral_stem_draw.rs`, `projected_circle_draw.rs`; coral circuits (bits, connectors, crabs): `circuit_draw.rs`.
+- Overseer body and eye: `overseer_graphics.rs`, `overseer_draw.rs`; hairs: `mycelium.rs` (the strands in `rw-sim`'s `superstructure/coral/mycelium.rs`); wall mycelia: `wall_mycelia_draw.rs`; coral neurons, stem segments and their projected circles: `coral_neuron_draw.rs`, `coral_stem_draw.rs`, `projected_circle_draw.rs`; coral circuits (bits, connectors, crabs): `circuit_draw.rs`.
 - Overseer lens and holograms: `hologram_matrix.rs`, `hologram_shape.rs`, `hologram_draw.rs`.
 - Bat flies: `fly_graphics.rs`.
-- Cosmetic insects: `insect_graphics.rs` (simulation in `rw-sim` `insect/`).
+- Cosmetic insects: `insect_graphics.rs` (simulation in `rw-sim` `effects/particles/insect/`).
 - Sky dandelions, green sparks, zero-g specks and spores: `sky_dandelion.rs`, `green_spark.rs`, `zero_g_speck.rs` (simulation in `rw-sim`).
-- Background scenes (sky, clouds, distant buildings, a roof's city), dust puffs: `background_scene.rs`, `dust_puff.rs` (simulation in `rw-sim` `background_scene.rs`).
-- Custom decals, rainbows: `decal.rs`, `rainbow.rs` (simulation in `rw-sim` `decal.rs`, `rainbow.rs`; items other than `Futile_White` meshes are `DrawItem::ElementMesh`).
+- Background scenes (sky, clouds, distant buildings, a roof's city), dust puffs: `background_scene.rs`, `dust_puff.rs` (simulation in `rw-sim` `effects/sky/background_scene.rs`).
+- Custom decals, rainbows: `decal.rs`, `rainbow.rs` (simulation in `rw-sim` `effects/particles/decal.rs`, `rainbow.rs`; items other than `Futile_White` meshes are `DrawItem::ElementMesh`).
 - Slime-mold patches, dead token stalks: `slime_mold.rs`, `token_stalk.rs` (simulation in `rw-sim`).
 - Rocks and spears: `weapon_graphics.rs`.
 - Shelter door, pipes: `shelter_door_graphics.rs`, `shortcut_graphics.rs`.
-- `ElectricDeath` web and flashes, `SparkFlash`: `electric_death.rs` (simulation in `rw-sim` `electric_death.rs`, shaders in `rw-render` `electric_death.wgsl`).
+- `ElectricDeath` web and flashes, `SparkFlash`: `electric_death.rs` (simulation in `rw-sim` `effects/gravity/electric_death.rs`, shaders in `rw-render` `electric_death.wgsl`).
 - Superstructure projections (glyph projector, scan lines, stars): `projector_draw.rs`, `projected_scan_lines_draw.rs`, `star_matrix_draw.rs` (simulation in `rw-sim`, `GlyphProjection` shader in `rw-render`, D35).
-- Superstructure rods, zap coils, flashes, fuses: `ss_electric.rs` (simulation in `rw-sim` `ss_light_rod.rs`, `zap_coil.rs`, `ss_fuses.rs`).
-- Superstructure `DeepProcessing` quads, `GravityDisruptor` discs and specks: `ss_grab.rs` (simulation in `rw-sim` `deep_processing.rs`, `gravity_disruptor.rs`).
+- Superstructure rods, zap coils, flashes, fuses: `ss_electric.rs` (simulation in `rw-sim` `superstructure/electric/light_rod.rs`, `zap_coil.rs`, `fuses.rs`).
+- Superstructure `DeepProcessing` quads, `GravityDisruptor` discs and specks: `ss_grab.rs` (simulation in `rw-sim` `superstructure/grab/deep_processing.rs`, `gravity_disruptor.rs`).
 - Light discs: `light_source.rs`, `holo_light.rs`; light fixtures' embers and discs: `light_fixture.rs`; waterfalls: `water_fall.rs`; beams and spots: `light_beam.rs`, `spot_light.rs`, `quad_grid.rs`.
 - Atlas frame lookup: `atlas.rs`.
 - The draw list a renderer consumes: `draw.rs`.

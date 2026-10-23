@@ -1,7 +1,7 @@
 //! A room's `SocialEventRecognizer` and the AIs that react to it: `WeaponAttack`,
 //! `Killing`'s event, `SocialEvent`'s delivery to the room's living creatures, the items
 //! creatures put on the ground (`OwnedItemOnGround`, `ItemOffered`; their update reads
-//! the player and lives in `game_social_events.rs`), and `LizardAI.SocialEvent` with
+//! the player and lives in `world/social_events_turn.rs`), and `LizardAI.SocialEvent` with
 //! `LizardPlayerRelationChange` (the lizard's social memory of the player and its
 //! community's like of the player) and the gift half of taming (`FriendTracker.
 //! ItemOffered`, `GiftRecieved`). Decompile: `SocialEventRecognizer.cs`,

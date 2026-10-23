@@ -596,5 +596,5 @@ impl World {
 }
 
 #[cfg(test)]
-#[path = "abstract_ai_kinds_tests.rs"]
+#[path = "tests/abstract_ai_kinds.rs"]
 mod tests;

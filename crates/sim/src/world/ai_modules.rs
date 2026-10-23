@@ -23,8 +23,8 @@ use crate::creature::{
     RelationshipTracker, RelationshipType, RepKey, ThreatCreature, TrackedPrey, Tracker,
     TrackingModule, WorldCoordinate,
 };
-use crate::room_ext::RoomExt;
-use crate::vec2::TileExt;
+use crate::math::vec2::TileExt;
+use crate::physics::room_ext::RoomExt;
 use crate::world::ai_map::FOUR_DIRECTIONS;
 use crate::world::{Legality, MovementConnection, MovementType, PathCost};
 

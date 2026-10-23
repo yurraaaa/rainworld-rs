@@ -889,5 +889,5 @@ impl World {
 }
 
 #[cfg(test)]
-#[path = "abstract_ai_tests.rs"]
+#[path = "tests/abstract_ai.rs"]
 pub(crate) mod tests;

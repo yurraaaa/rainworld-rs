@@ -70,7 +70,7 @@ pub struct RealizedRoom {
     /// `Room.Loaded`'s dead `TokenStalk`s in the room's update list.
     pub token_stalks: Vec<crate::TokenStalk>,
     /// The dandelions, sparks, specks and spores of the room's effects.
-    pub particles: crate::room_particles::RoomParticles,
+    pub particles: crate::effects::particles::room_particles::RoomParticles,
     /// `Room.Loaded`'s light fixtures and the tile parse's waterfalls.
     pub fixtures: crate::RoomFixtures,
     /// The superstructure projectors, scan lines and star matrices.
@@ -212,7 +212,7 @@ impl RealizedRoom {
             spot_lights: Vec::new(),
             updated: false,
             token_stalks: Vec::new(),
-            particles: crate::room_particles::RoomParticles::default(),
+            particles: crate::effects::particles::room_particles::RoomParticles::default(),
             fixtures: crate::RoomFixtures::default(),
             projections: crate::RoomProjections::default(),
             gravity: 1.0,

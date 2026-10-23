@@ -8,8 +8,8 @@
 use rw_assets::Room;
 
 use super::{Animation, BodyMode, HEAD, HIPS, Player};
-use crate::float_ext::FloatExt;
-use crate::room_ext::RoomExt;
+use crate::math::float_ext::FloatExt;
+use crate::physics::room_ext::RoomExt;
 use crate::{SoundId, Vec2};
 
 impl Player {

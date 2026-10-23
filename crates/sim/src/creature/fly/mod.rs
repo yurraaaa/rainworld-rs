@@ -22,7 +22,7 @@ pub use update::PlayerBody;
 pub(crate) use update::{FlyRun, FlyTick};
 
 use super::{CreatureId, EntityId, WorldCoordinate};
-use crate::object::PhysicalObject;
+use crate::physics::object::PhysicalObject;
 use crate::{BodyChunk, PhysicsParams, Vec2};
 
 /// `Fly.MovementMode`.

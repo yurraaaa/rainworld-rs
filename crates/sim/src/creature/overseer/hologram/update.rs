@@ -16,7 +16,7 @@ use super::{
 use crate::creature::overseer::update::{OverseerTick, PlayerView};
 use crate::creature::overseer::{OverseerAbstractAi, OverseerAi, OverseerBody, OverseerMode};
 use crate::creature::{AbstractCreatureAi, WorldCoordinate};
-use crate::room_ext::RoomExt;
+use crate::physics::room_ext::RoomExt;
 use crate::{FloatExt, SoundId, TileExt, Vec2};
 
 /// A hologram's update, with its overseer's parts (taken out of the world).
