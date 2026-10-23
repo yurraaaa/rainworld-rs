@@ -19,7 +19,8 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **Hunter follow-ups** (user, 2026-10-22, after the spear on the back): `HardmodeStart`
   (the Hunter's scripted LF_H01 first cycle, its spear, NSHSwarmer, `Red_stomach` pearl,
   Deer, scripted input/camera/map) as its own job later; the `sprOnBackStick` in the
-  region state's `STICKS` with the save work.
+  region state's `STICKS` with the save work. Both in M12 "Whole base game playable" (user,
+  2026-10-23).
 
 - **Async room loading** (user, 2026-10-22): plan and decisions in
   `../rainworld-re/surveys/async-room-loading.md`; next after the SS superstructure work
