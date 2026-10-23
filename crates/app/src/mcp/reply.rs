@@ -22,6 +22,7 @@ pub use super::placed_cosmetics_reply::{SlimeMoldState, TokenStalkState};
 pub use super::placed_light_reply::{LightBeamState, SpotLightState};
 pub use super::placed_visuals_reply::{DecalState, RainbowState};
 pub use super::projection_reply::{ProjectedScanLinesState, ProjectorState, StarMatrixState};
+pub use super::shortcut_helper_reply::ShortcutHelperState;
 pub use super::ss_electric_reply::{
     FuseState, LightRodState, ZapCoilLightState, ZapCoilState, ZapFlashState,
 };
@@ -227,6 +228,9 @@ pub struct State {
     /// The realized rooms' `RoomBorderPushBack`s.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub border_push_back: Vec<BorderPushBackState>,
+    /// The realized rooms' `ShortcutHelper`s.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub shortcut_helper: Vec<ShortcutHelperState>,
     /// The realized rooms' `SuperStructureProjector`s.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub projectors: Vec<ProjectorState>,

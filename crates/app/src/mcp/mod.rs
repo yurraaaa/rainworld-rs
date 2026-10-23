@@ -49,6 +49,9 @@ mod projection_tests;
 pub(crate) mod reply;
 #[cfg(test)]
 mod save_tests;
+mod shortcut_helper_reply;
+#[cfg(test)]
+mod shortcut_helper_tests;
 #[cfg(test)]
 mod ss_grab_tests;
 #[cfg(test)]

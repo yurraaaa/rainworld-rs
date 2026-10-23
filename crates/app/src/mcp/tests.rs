@@ -499,8 +499,14 @@ fn boot_to_play_with_music_contexts() {
     s.settle_on(ProcessId::Game);
     assert_eq!(s.music().music_context, MusicContext::StoryMode);
     // SU_C04StartUp holds the player until it drops out of the tunnel.
+    // (The den's `ShortcutHelper` push, D43, puts the player about 8 ticks of the script's
+    // push ahead of where the delay alone leaves it: the controller may already be back.)
     let before = s.process_player();
-    assert_eq!(before.controller.as_deref(), Some("Null"));
+    assert!(
+        before.controller.as_deref() == Some("Null") || before.chunks[0].pos[1] < 550.0,
+        "{:?}",
+        before.controller
+    );
     let mut control = None;
     for frame in 0..400 {
         s.frames(1, &["RightArrow"]);
@@ -576,7 +582,7 @@ fn su_c04_start_up_ticks(slugcat: &str) {
         // The field is what the next tick reads.
         assert_eq!(st.fade_delay_in_progress, tick < 120, "tick {tick}");
         let middle = (p.chunks[0].pos[0] + p.chunks[1].pos[0]) / 2.0;
-        if (121..200).contains(&tick) {
+        if (121..190).contains(&tick) {
             assert!(su.push_right, "tick {tick}");
             assert_eq!(p.chunks[0].pos[0] - p.chunks[1].pos[0], 14.0, "tick {tick}");
             if tick > 121 {
@@ -587,7 +593,10 @@ fn su_c04_start_up_ticks(slugcat: &str) {
             }
         }
         if tick <= 120 {
-            assert!(middle < 160.0, "no push during the delay (tick {tick})");
+            // The script's push would carry it 2 px a tick; the den at (5, 28) is a wrong
+            // hole, so `ShortcutHelper` shoves the head to `pushPos.x + 19` (149) and the
+            // rod leaves the middle near 167 (D43).
+            assert!(middle < 180.0, "no push during the delay (tick {tick})");
         }
         last_x = p.chunks[0].pos[0];
         match push_ended {
@@ -618,7 +627,8 @@ fn su_c04_start_up_ticks(slugcat: &str) {
         }
     }
     let end = push_ended.expect("the push ended");
-    assert!((200..=210).contains(&end), "push ended at tick {end}");
+    // 8 ticks earlier than the script alone (D43): the den's push starts it 16 px on.
+    assert!((190..=210).contains(&end), "push ended at tick {end}");
     assert!(
         stood.is_some_and(|t| t > end),
         "stood up after the push ({stood:?})"

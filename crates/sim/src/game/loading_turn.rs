@@ -123,10 +123,6 @@ impl RainWorldGame {
         self.add_shortcut_helper(index);
     }
 
-    /// `ShortCutsReady`'s `AddObject(new ShortcutHelper(this))`: not ported yet (a later
-    /// job of the async loading plan).
-    fn add_shortcut_helper(&mut self, _index: i32) {}
-
     /// `Room.ReadyForAI`, after the thread made the AI map.
     fn ready_for_ai(&mut self, index: i32, observer: &mut dyn PlayerObserver) {
         self.world.build_ai_map(index);
