@@ -79,6 +79,17 @@ impl FloatExt for f32 {
     }
 }
 
+/// `Mathf.Sin`: `(float)Math.Sin` of the double.
+pub(crate) trait MathfSin {
+    fn mathf_sin(self) -> f32;
+}
+
+impl MathfSin for f32 {
+    fn mathf_sin(self) -> f32 {
+        f64::from(self).sin() as f32
+    }
+}
+
 /// `Custom.SCurve` (kept off [`FloatExt`], whose users have their own).
 pub(crate) trait SCurve {
     fn s_curve(self, k: f32) -> f32;

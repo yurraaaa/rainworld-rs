@@ -90,6 +90,8 @@ impl RainWorldGame {
             match kind {
                 RoomEffectType::SkyDandelions => self.add_sky_dandelions(index, amount),
                 RoomEffectType::GreenSparks => self.add_green_sparks(index, amount),
+                RoomEffectType::AboveCloudsView => self.add_above_clouds_view(index, amount),
+                RoomEffectType::RoofTopView => self.add_roof_top_view(index),
                 _ => {}
             }
         }

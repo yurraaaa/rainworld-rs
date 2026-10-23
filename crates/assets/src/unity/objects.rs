@@ -124,6 +124,36 @@ impl Texture2D {
         Ok(PngImage::from_pixels(w, h, top_first))
     }
 
+    /// Decodes every mip level of `data` (mip 0 first, each level half the size, to one
+    /// texel) to RGBA8; the levels a texture holds only (`mip_count`).
+    ///
+    /// # Errors
+    /// For an unsupported format or too little data.
+    pub fn decode_mips(&self, data: &[u8]) -> Result<Vec<PngImage>, String> {
+        let mut levels = Vec::new();
+        let mut offset = 0;
+        for level in 0..self.mip_count.max(1) {
+            let (w, h) = ((self.width >> level).max(1), (self.height >> level).max(1));
+            let size = self.format.image_size(w, h).ok_or_else(|| {
+                format!(
+                    "texture {}: unsupported format {:?}",
+                    self.name, self.format
+                )
+            })?;
+            let part = Self {
+                width: w,
+                height: h,
+                mip_count: 1,
+                image: ImageData::Inline(Vec::new()),
+                ..self.clone()
+            };
+            let bytes = data.get(offset..).unwrap_or(&[]);
+            levels.push(part.decode(bytes)?);
+            offset += size;
+        }
+        Ok(levels)
+    }
+
     /// Writes the 4x4 texels of block `index` (blocks in row order), clipped to the image.
     fn put_block(&self, pixels: &mut [[u8; 4]], index: usize, texels: &[[u8; 4]; 16]) {
         let per_row = self.width.div_ceil(4);

@@ -39,6 +39,10 @@ pub struct RegionParams {
     pub locust_region: bool,
     /// `Subregion` lines in order, after the unnamed subregion 0.
     pub subregions: Vec<String>,
+    /// `cloudsStart` and `cloudsEnd`: the altitudes of an `AboveCloudsView` in the region
+    /// (none in the base game's regions).
+    pub clouds_start: Option<f32>,
+    pub clouds_end: Option<f32>,
     /// Keys the base fields above do not cover, with their raw values (colours, music
     /// banks, `Palette`, ...).
     pub other: Vec<(String, String)>,
@@ -71,6 +75,8 @@ impl Default for RegionParams {
             black_salamander_chance: 1.0 / 3.0,
             locust_region: false,
             subregions: Vec::new(),
+            clouds_start: None,
+            clouds_end: None,
             other: Vec::new(),
         }
     }
@@ -242,6 +248,8 @@ impl RegionParams {
             "albinos" => self.albinos = bool_true,
             "locustRegion" => self.locust_region = bool_true,
             "blackSalamanderChance" => Self::put(&mut self.black_salamander_chance, float),
+            "cloudsStart" => Self::put(&mut self.clouds_start, float.map(Some)),
+            "cloudsEnd" => Self::put(&mut self.clouds_end, float.map(Some)),
             _ => self.other.push((key.to_owned(), value.trim().to_owned())),
         }
     }

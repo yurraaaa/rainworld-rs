@@ -21,6 +21,8 @@
 //!
 //! Mirrors: -
 
+mod above_clouds_view;
+mod background_scene;
 mod bubble;
 mod camera;
 mod camera_image;
@@ -30,6 +32,7 @@ pub mod color;
 mod cosmetic;
 pub mod creature;
 mod decal;
+mod distant_lightning;
 mod dripping_sound;
 mod float_ext;
 mod game;
@@ -44,6 +47,7 @@ mod noise;
 mod object;
 mod player;
 mod rainbow;
+mod roof_top_view;
 mod room_ext;
 mod room_particles;
 pub mod room_script;
@@ -67,6 +71,11 @@ mod water_sound;
 pub mod world;
 mod zero_g_speck;
 
+pub use above_clouds_view::AboveCloudsContext;
+pub use background_scene::{
+    AboveCloudsParams, BackgroundScene, CloudData, ElementKind, SCREEN_SIZE, SceneElement,
+    SceneImages, SceneKind, SceneParams, SkyTime,
+};
 pub use bubble::{Bubble, BubbleMode};
 pub use camera::CameraView;
 pub use camera_image::CameraImage;
@@ -77,6 +86,7 @@ pub use cosmetic::{
 };
 pub use creature::{ShortCutColor, WorldCoordinate};
 pub use decal::CustomDecal;
+pub use distant_lightning::DistantLightning;
 pub use dripping_sound::DrippingSound;
 pub use float_ext::FloatExt;
 pub use game::{

@@ -137,6 +137,23 @@ impl UnityResources {
             .map_err(|m| AssetError::format(self.resources.path(), m))
     }
 
+    /// The Texture2D at `path` with every mip level decoded to RGBA8 (PNG row order),
+    /// and its import settings.
+    ///
+    /// # Errors
+    /// As [`Self::texture_image`].
+    pub fn texture_mips(&self, path: &str) -> Result<(Texture2D, Vec<PngImage>), AssetError> {
+        let texture: Texture2D = self.load(path)?;
+        let data = match &texture.image {
+            ImageData::Inline(data) => data.clone(),
+            ImageData::Streamed(stream) => self.streamed(stream)?,
+        };
+        let levels = texture
+            .decode_mips(&data)
+            .map_err(|m| AssetError::format(self.resources.path(), m))?;
+        Ok((texture, levels))
+    }
+
     /// The FSB5 bank of a clip from [`Self::load`].
     ///
     /// # Errors

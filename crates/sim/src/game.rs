@@ -10,6 +10,8 @@
 
 use std::sync::Arc;
 
+#[path = "game_background_scene.rs"]
+mod background_scene;
 #[path = "game_carried.rs"]
 mod carried;
 #[path = "game_decals.rs"]
@@ -84,6 +86,9 @@ pub use heavy_ai::HeavyAiThrottle;
 pub use items::Grabability;
 pub use lizard_ai::UtilityReadings;
 pub use over::GameOver;
+#[cfg(test)]
+#[path = "game_background_scene_tests.rs"]
+mod background_scene_tests;
 #[cfg(test)]
 #[path = "game_decals_tests.rs"]
 mod decals_tests;
@@ -401,6 +406,10 @@ enum RoomObject {
     Insect(u64),
     /// A dead `TokenStalk` by its place in the update list.
     TokenStalk(u64),
+    /// A `BackgroundScene` by its place in the update list.
+    BackgroundScene(u64),
+    /// A scene's `DistantLightning` by its place in the update list.
+    SceneElement(u64),
     /// A dandelion, spark, speck or one of their spawners.
     Particle(particles::ParticleRef),
     /// A `Rainbow` by its place in the update list.
@@ -1436,6 +1445,7 @@ impl RainWorldGame {
         objects.extend(self.room_slide_loop_objects(index));
         objects.extend(self.room_insect_objects(index));
         objects.extend(self.room_token_stalk_objects(index));
+        objects.extend(self.room_background_scene_objects(index));
         objects.extend(self.room_particle_objects(index));
         objects.extend(self.room_rainbow_objects(index));
         objects.extend(self.room_light_beam_objects(index));
@@ -1545,6 +1555,8 @@ impl RainWorldGame {
                 RoomObject::HoloLight(id) => self.run_holo_light(index, id, observer),
                 RoomObject::LightSource(id) => self.run_light_source(index, id),
                 RoomObject::TokenStalk(order) => self.run_token_stalk(index, order),
+                RoomObject::BackgroundScene(order) => self.run_background_scene(index, order),
+                RoomObject::SceneElement(order) => self.run_scene_element(index, order),
                 RoomObject::Particle(p) => self.run_particle(index, p),
                 RoomObject::Rainbow(order) => self.run_rainbow(index, order),
                 RoomObject::LightBeam(order) => self.run_light_beam(index, order),
