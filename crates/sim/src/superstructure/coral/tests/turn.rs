@@ -15,7 +15,7 @@ use rw_assets::{ClipNames, SoundTable};
 
 use super::{CoralRef, RoomObject};
 use crate::campaign::{SlugcatCampaign, StoryStart};
-use crate::game::OverseerView;
+use crate::creature::overseer::OverseerView;
 use crate::tests::room_with_water;
 use crate::world::World;
 use crate::{

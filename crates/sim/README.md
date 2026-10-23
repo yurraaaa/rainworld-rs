@@ -40,7 +40,9 @@ are `creature`, `item`, `world` and the re-exported `campaign`, `color`, `insect
 
 | File | Holds (key types) | Ports |
 |---|---|---|
-| `mod.rs` | `RainWorldGame`: world, player, shortcut handler + lobby, realizer, order of a tick, sessions | `RainWorldGame` |
+| `mod.rs` | `RainWorldGame`: world, player, shortcut handler, realizer, order of a tick, a room's update list, sessions | `RainWorldGame` |
+| `observer.rs` | `PlayerObserver`: the app's graphics-module hooks the game calls | - |
+| `shortcut_turn.rs` | `ShortcutHandler.Update`: vessels in the tubes, the between-rooms lobby, room exits, arrival and camera 0 following | `ShortcutHandler.Update`, `RoomCamera.MoveCamera` |
 | `dev_turn.rs` | dev spawns/teleports through the game's own paths and the dev rain timer control (MCP, debug UI) | - (port dev tool, D18) |
 | `exit_turn.rs` | what pause/`ExitGame` read | `RainWorldGame.ExitGame` |
 | `instructions_turn.rs` | `Room.Loaded`'s placed room objects (guide triggers, placed lights, slime molds, dead token stalks, projected stars), input-instruction triggers | `SuperJumpInstruction`, `ReliableIggyDirection` |
@@ -123,7 +125,7 @@ corridor shoots' `WaterDrip`s), `spear_on_back.rs` (the Hunter's
 - `overseer/`: `abstract_ai.rs` (`OverseerAbstractAi`), `ai.rs` (`OverseerAi` state,
   zip matrix), `body.rs` (`OverseerBody`), `update.rs` (the whole realized update),
   `tutorial.rs` (`TutorialBehavior`, `TutorialMessage`), `guide_state.rs` (`PlayerGuideState`),
-  `holo_light.rs` (`HologramLight`), `holo_light_turn.rs` (Monk guide light in the update list), `hologram/` (the projected pictures: `mod.rs`
+  `holo_light.rs` (`HologramLight`), `holo_light_turn.rs` (Monk guide light in the update list), `turn.rs` (an overseer's turn in the game: what it reads of the player and story, the effects it hands back), `hologram/` (the projected pictures: `mod.rs`
   `OverseerHolograms`, `add.rs` `TryAddHologram`, `update.rs`, `parts.rs`, `instruction.rs`,
   `world_queries.rs`).
 - `path_finder/`: `mod.rs` (`PathFinder`), `mapper.rs` (`AccessibilityMapper`, world path
@@ -323,7 +325,7 @@ sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `m
 
 | Question | Look in |
 |---|---|
-| Shortcuts / pipes, vessels, lobby | `game/shortcut.rs`, `player/shortcut.rs`, `game/mod.rs` (lobby), `creature/lizard/turn.rs`, `creature/fly/turn.rs`, `player/carried_turn.rs` (what a vessel carries) |
+| Shortcuts / pipes, vessels, lobby | `game/shortcut.rs`, `player/shortcut.rs`, `game/shortcut_turn.rs` (lobby), `creature/lizard/turn.rs`, `creature/fly/turn.rs`, `player/carried_turn.rs` (what a vessel carries) |
 | Water, swimming, drowning | `water/mod.rs`, `world/room_water.rs`, `water/bubble.rs`, `water/splash.rs`, `player/swim.rs`, `water/water_drip.rs` |
 | The water's surface sound | `sound/water_sound.rs`, `sound/water_sound_turn.rs` (audio mix: `rw-audio` `voice.rs`) |
 | Ceiling drips, the cycle start's dripping sound | `water/water_drip.rs`, `sound/dripping_sound.rs`, `water/drips_turn.rs`, `game/screen_shake.rs` (shaken drips) |
@@ -357,7 +359,7 @@ sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `m
 | Body physics / collision | `physics/chunk.rs`, `physics/object.rs`, `player/mod.rs` |
 | Climbable vines (the player climbing, the vine geometry) | `vines/mod.rs`, `player/vines.rs`; hands: `rw-graphics` `hand.rs` |
 | Zero gravity (room `gravity`, `ElectricPower`, the broken switch, the player floating) | `effects/gravity/anti_gravity.rs`, `effects/gravity/anti_gravity_turn.rs`, `player/zero_g.rs`, `PhysicsParams::room_gravity` in `physics/chunk.rs`; the SS song: `game/trigger_turn.rs` (`SsMusic`) and `rw-audio` `music/song.rs` |
-| Overseer / guide | `creature/overseer/`, `world/overseers_world_ai.rs`, `creature/overseer/holo_light_turn.rs` |
+| Overseer / guide | `creature/overseer/` (`turn.rs`: in the game), `world/overseers_world_ai.rs`, `creature/overseer/holo_light_turn.rs` |
 | Placed light beams, spot lights | `effects/lights/light_beam.rs`, `effects/lights/light_beam_turn.rs`; sprites in `rw-graphics` `light_beam.rs`, `spot_light.rs`, `quad_grid.rs` |
 | Superstructure rods, zap coils (and their lights, flashes), fuses | `superstructure/electric/light_rod.rs`, `superstructure/electric/zap_coil.rs`, `superstructure/electric/fuses.rs`, `superstructure/electric/turn.rs`; sprites in `rw-graphics` `ss_electric.rs` |
 | Coral (`CoralNeuronSystem`, `CoralNeuron`, `ProjectedCircle`, `WallMycelia`, `Mycelium`, `NeuronSpark`) | `superstructure/coral/system.rs`, `superstructure/coral/neuron.rs`, `superstructure/projections/projected_circle.rs`, `superstructure/coral/wall_mycelia.rs`, `superstructure/coral/mycelium.rs`, `superstructure/coral/neuron_spark.rs`, `superstructure/coral/turn.rs`, `superstructure/projections/turn.rs`; sprites in `rw-graphics` `coral_neuron_draw.rs`, `projected_circle_draw.rs`, `wall_mycelia_draw.rs`, `mycelium.rs`, `cosmetic_graphics.rs` |
