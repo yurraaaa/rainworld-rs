@@ -271,7 +271,8 @@ impl HolyFire {
                 l.set_rad = Some(l.rad.lerp(self.get_to_rads[i], 0.2));
             }
         }
-        let sprite = HolyFireSprite::new(self.pos, rng);
+        let mut sprite = HolyFireSprite::new(self.pos, rng);
+        sprite.fire = self.update_order;
         let alpha = 0.2_f32.lerp(0.4, rng.value());
         let rad = 24.0_f32.lerp(33.0, rng.value());
         if let Some(l) = LightSource::find_mut(lights, self.flat_light) {
@@ -287,6 +288,8 @@ impl HolyFire {
 #[derive(Debug, Clone, PartialEq)]
 pub struct HolyFireSprite {
     pub update_order: u64,
+    /// The place in the update list of the `HolyFire` that shed it (port-only, for replies).
+    pub fire: u64,
     pub slated: bool,
     pub pos: Vec2,
     pub last_pos: Vec2,
@@ -303,6 +306,7 @@ impl HolyFireSprite {
         let vel = dir * (1.5 * rng.value());
         Self {
             update_order: 0,
+            fire: 0,
             slated: false,
             pos,
             last_pos: pos,

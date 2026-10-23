@@ -1,5 +1,5 @@
-//! The sprites of the light fixtures: the `HolyFire`'s embers (`deerEyeB` in `Midground`
-//! under `RippleBasic`) and the `SlimeMoldLight`'s five soft discs (`Futile_White` under
+//! The sprites of the light fixtures: the `HolyFire`'s embers (`deerEyeB` in `Midground`;
+//! the game's `RippleBasic` is texture times colour in the base game, so `Shader::Basic`) and the `SlimeMoldLight`'s five soft discs (`Futile_White` under
 //! `LightSource` in `Foreground`). The `Redlight`'s and `HolyFire`'s lights are
 //! [`rw_sim::LightSource`]s (`light_source.rs`). No draws.
 //!

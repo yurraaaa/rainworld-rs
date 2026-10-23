@@ -2,9 +2,9 @@
 //! waterfall tiles (code 8 of the geometry file). It falls from its top tile to the
 //! water, throws water-coloured drips off the terrain it passes and, in a room with
 //! water, hits the surface, rolls bubbles up from it and pushes the bodies under it.
-//! Made before the room has its water, so its first `strikeLevel` is -200 (D11). Base game
-//! with Remix off and no DLC: the inverted-water and `PointSubmerged` branches are left out
-//! (D11). The sprites are `rw-graphics`' (`water_fall.rs`).
+//! Made before the room has its water, so its first `strikeLevel` is -200 (the game's own
+//! order, D30). Base game with Remix off and no DLC: the inverted-water and `PointSubmerged`
+//! branches are left out (D30). The sprites are `rw-graphics`' (`water_fall.rs`).
 //!
 //! Mirrors: WaterFall.cs, Room.cs (LoadFromDataString: the waterfall tiles)
 

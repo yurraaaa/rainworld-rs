@@ -34,7 +34,7 @@ pub struct LightFixtureState {
     /// `gravityDependent`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub flicker: Option<([i32; 2], f32, bool, bool)>,
-    /// A holy fire's `getToPositions`, `getToRads` and the embers alive.
+    /// A holy fire's `getToPositions`, `getToRads` and the embers it shed that are alive.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fire: Option<([[f32; 2]; 3], [f32; 3], usize)>,
     /// A slime mold light's discs: offset, size and alpha.
@@ -126,7 +126,11 @@ impl LightFixtureState {
                     fire: Some((
                         f.get_to_positions.map(|p| p.to_array()),
                         f.get_to_rads,
-                        r.fixtures.holy_sprites.iter().filter(|s| !s.slated).count(),
+                        r.fixtures
+                            .holy_sprites
+                            .iter()
+                            .filter(|s| !s.slated && s.fire == f.update_order)
+                            .count(),
                     )),
                     discs: Vec::new(),
                 }

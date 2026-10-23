@@ -1,7 +1,7 @@
 //! `WaterFall`'s sprites: one `Futile_White` quad under the `WaterFall` shader over the
 //! fall (its colour carries the density and the two ends' fade), then a `LizardBubble5`
 //! per bubble coloured between the water colours; all in `Background`. The inverted-water
-//! variant is Remix/DLC (D11). No draws.
+//! variant is Remix/DLC (D30). No draws.
 //!
 //! Mirrors: WaterFall.cs (InitiateSprites, DrawSprites, ApplyPalette, AddToContainer)
 
