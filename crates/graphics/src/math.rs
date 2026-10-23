@@ -192,27 +192,14 @@ impl Custom for f32 {
     }
 }
 
-impl Vec2Bezier for Vec2 {
-    fn bezier(self, ca: Self, b: Self, cb: Self, f: f32) -> Self {
-        let f = f.clamp(0.0, 1.0);
-        let mid = ca.lerp(cb, f);
-        let ca = self.lerp(ca, f);
-        let cb = cb.lerp(b, f);
-        let ca = ca.lerp(mid, f);
-        let cb = mid.lerp(cb, f);
-        ca.lerp(cb, f)
-    }
-
+impl VecToDeg for Vec2 {
     fn vec_to_deg(self) -> f32 {
         (self.x.atan2(self.y) / (std::f32::consts::PI * 2.0)) * 360.0
     }
 }
 
-/// `Custom.Bezier` and `Custom.VecToDeg`.
-pub trait Vec2Bezier: Sized {
-    /// `Custom.Bezier(self, cA, B, cB, f)`: the cubic from `self` to `b` with control
-    /// points `ca` (at `self`) and `cb` (at `b`).
-    fn bezier(self, ca: Self, b: Self, cb: Self, f: f32) -> Self;
+/// `Custom.VecToDeg`.
+pub trait VecToDeg: Sized {
     /// `Custom.VecToDeg`.
     fn vec_to_deg(self) -> f32;
 }

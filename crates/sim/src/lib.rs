@@ -31,6 +31,7 @@ mod camera_image;
 pub mod campaign;
 mod chunk;
 pub mod color;
+mod coral_system;
 mod cosmetic;
 pub mod creature;
 mod decal;
@@ -50,6 +51,8 @@ mod light_fixture;
 mod light_source;
 mod lightning;
 pub mod map_discovery;
+mod mycelium;
+mod neuron_spark;
 mod noise;
 mod object;
 mod player;
@@ -79,6 +82,7 @@ mod token_stalk;
 pub mod trigger;
 mod vec2;
 mod vec3;
+mod wall_mycelia;
 mod water;
 mod water_drip;
 mod water_sound;
@@ -98,6 +102,7 @@ pub use bubble::{Bubble, BubbleMode};
 pub use camera::CameraView;
 pub use camera_image::CameraImage;
 pub use chunk::{BodyChunk, Contact, DEFAULT_RESTRICT_IN_ROOM_RANGE, PhysicsParams, TerrainImpact};
+pub use coral_system::CoralNeuronSystem;
 pub use cosmetic::{
     Cosmetic, CosmeticKind, CosmeticTie, ExplosionSpikes, OverseerEffectSprite, Spark,
     StationaryEffect,
@@ -124,6 +129,11 @@ pub use lightning::{
     Lightning, LightningEnv, LightningFrame, LightningRoom, LightningSource, ThunderSound,
 };
 pub use map_discovery::{DiscoveryTexture, HudMapLink, MapDiscovery, MapRoom, UnityTexture};
+pub use mycelium::{
+    MyceliaConnection, MyceliaCx, Mycelium, MyceliumEnv, MyceliumId, MyceliumOwner, MyceliumPool,
+    OwnerKey, PointOwner, SystemId, SystemState,
+};
+pub use neuron_spark::NeuronSpark;
 pub use noise::{ImpactCall, ImpactCalls, InGameNoise, NoiseSink, RoomCall};
 pub use object::{
     BodyChunkConnection, ConnectionKind, PhysicalObject, TerrainImpactHandler, slugcat,
@@ -164,6 +174,7 @@ pub use star_matrix::{Star, StarMatrix};
 pub use token_stalk::{CurveLerp, StalkCoord, TokenStalk};
 pub use vec2::{TileExt, Vec2};
 pub use vec3::Vec3;
+pub use wall_mycelia::{WallMycelia, WallPlace, WallRoots};
 pub use water::{BubbleEmitter, ChunkOwner, SurfaceChunk, Water, WaterObject};
 pub use water_drip::{WaterDrip, WaterGlitter};
 pub use water_sound::WaterSound;

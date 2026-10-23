@@ -141,6 +141,19 @@ impl Vec2 {
         Self::from(rw_assets::tile_centre(x, y))
     }
 
+    /// `Custom.Bezier(self, ca, b, cb, f)`: the cubic from `self` to `b` with control points
+    /// `ca` (at `self`) and `cb` (at `b`). Every step is a `Vector2.Lerp`, which clamps `f`.
+    #[must_use]
+    pub fn bezier(self, ca: Self, b: Self, cb: Self, f: f32) -> Self {
+        let f = f.clamp(0.0, 1.0);
+        let mid = ca.lerp(cb, f);
+        let ca = self.lerp(ca, f);
+        let cb = cb.lerp(b, f);
+        let ca = ca.lerp(mid, f);
+        let cb = mid.lerp(cb, f);
+        ca.lerp(cb, f)
+    }
+
     /// `Custom.DistLess`.
     #[must_use]
     pub fn dist_less(self, other: Self, dist: f32) -> bool {

@@ -12,8 +12,7 @@ use std::borrow::Cow;
 use rw_sim::{DandelionStalk, FloatExt, SkyDandelion, Vec2};
 
 use crate::draw::{Color, DrawItem, DrawList, Layer, Mesh, Shader, Sprite};
-use crate::math::Vec2Bezier;
-use crate::mycelium::Mycelium;
+use crate::mycelium::LongMesh;
 
 /// The dandelion's sprites.
 pub trait DandelionSprites {
@@ -106,8 +105,8 @@ impl StalkSprites for DandelionStalk {
             items: vec![DrawItem::Mesh(Mesh {
                 index: 0,
                 vertices,
-                uvs: Mycelium::long_mesh_uvs(segs),
-                triangles: Cow::Owned(Mycelium::long_mesh_triangles(segs)),
+                uvs: LongMesh::uvs(segs),
+                triangles: Cow::Owned(LongMesh::triangles(segs)),
                 color: Color::WHITE,
                 vertex_colors,
                 shader: Shader::Basic,

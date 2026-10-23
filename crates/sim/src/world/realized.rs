@@ -108,6 +108,11 @@ pub struct RealizedRoom {
     last_background_noise: f32,
     /// `socialEventRecognizer`.
     pub social_events: super::social_events::SocialEventRecognizer,
+    /// The room's `CoralNeuronSystem`, made by `Room.Loaded` for an `SSSwarmers` effect or
+    /// a coral or wall mycelia object.
+    pub coral: Option<crate::CoralNeuronSystem>,
+    /// `camerasChangedTick`: counts the camera's position changes in the room.
+    pub cameras_changed_tick: i32,
 }
 
 impl RealizedRoom {
@@ -177,6 +182,8 @@ impl RealizedRoom {
             background_noise: 0.0,
             last_background_noise: 0.0,
             social_events: super::social_events::SocialEventRecognizer::default(),
+            coral: None,
+            cameras_changed_tick: 0,
         }
     }
 
@@ -292,6 +299,22 @@ impl RealizedRoom {
 }
 
 impl RealizedRoom {
+    /// What a `Mycelium` of an owner in this room reads of it.
+    pub(crate) fn mycelium_env(
+        &self,
+        index: i32,
+        camera: crate::CameraView,
+    ) -> crate::MyceliumEnv<'_> {
+        crate::MyceliumEnv {
+            room: &self.room,
+            room_index: index,
+            ai_map: self.ai_map.as_deref(),
+            camera,
+            cameras_changed_tick: self.cameras_changed_tick,
+            system: self.coral.as_ref().map(crate::CoralNeuronSystem::state),
+        }
+    }
+
     /// `aimap.ExitDistanceForCreatureAndCheckNeighbours(tile, exit, Fly)` from the room
     /// file's baked Fly layer; -1 before the AI map exists.
     #[must_use]

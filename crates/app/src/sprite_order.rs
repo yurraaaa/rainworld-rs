@@ -77,6 +77,8 @@ pub enum Drawable {
     /// A projector's part, a `ProjectedScanLines` line or a `StarMatrix`, by its place in
     /// the update list.
     Projection(u64),
+    /// A `WallMycelia`, by its place in the update list.
+    Coral(u64),
     /// `ShortcutGraphics` (not a leaser: its sprites join the containers after the
     /// room's leasers).
     Shortcuts,

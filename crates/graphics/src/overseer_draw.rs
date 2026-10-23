@@ -7,12 +7,12 @@ use std::borrow::Cow;
 
 use rw_random::UnityRandom;
 use rw_sim::creature::overseer::{OverseerBody, OverseerColor, OverseerView};
-use rw_sim::{FloatExt, Vec2};
+use rw_sim::{FloatExt, MyceliumPool, Vec2};
 
 use crate::draw::{Color, DrawItem, DrawList, Layer, Mesh, Shader, Sprite};
 use crate::hologram_matrix::LensFrame;
-use crate::math::{Mathf, Vec2Bezier};
-use crate::mycelium::Mycelium;
+use crate::math::{Mathf, VecToDeg};
+use crate::mycelium::{LongMesh, MyceliumSprites};
 use crate::overseer_graphics::{DrawPositions, OverseerGraphics};
 
 /// `segments` of the body meshes.
@@ -108,6 +108,7 @@ impl OverseerGraphics {
         view: &OverseerView<'_>,
         earth: Color,
         t: f32,
+        pool: &MyceliumPool,
         rng: &mut UnityRandom,
     ) -> DrawList {
         let body = view.body;
@@ -129,7 +130,13 @@ impl OverseerGraphics {
         if ext > 0.0 {
             let from = fr.segment(self.mycelia_stuck_at);
             let color = fr.color_of_segment(self.mycelia_stuck_at);
-            for (l, m) in self.mycelia.iter().enumerate() {
+            for (l, m) in self
+                .mycelia
+                .iter()
+                .enumerate()
+                .filter_map(|(l, &id)| Some((l, pool.get(id)?)))
+                .filter(|(_, m)| !m.culled)
+            {
                 for index in [FIRST_MYCELIUM + l * 2, FIRST_MYCELIUM + l * 2 + 1] {
                     let layer = if index > FIRST_MYCELIUM && index % 2 == 1 {
                         Layer::Items
@@ -269,8 +276,8 @@ impl OverseerGraphics {
             items.push(DrawItem::Mesh(Mesh {
                 index,
                 vertices: vertices.clone(),
-                uvs: Mycelium::long_mesh_uvs(SEGMENTS),
-                triangles: Cow::Owned(Mycelium::long_mesh_triangles(SEGMENTS)),
+                uvs: LongMesh::uvs(SEGMENTS),
+                triangles: Cow::Owned(LongMesh::triangles(SEGMENTS)),
                 color: Color::WHITE,
                 vertex_colors: vertex_colors.clone(),
                 shader: Shader::OverseerZip,

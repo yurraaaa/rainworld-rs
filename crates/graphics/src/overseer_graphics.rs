@@ -7,18 +7,23 @@ use rw_assets::Room;
 use rw_random::UnityRandom;
 use rw_sim::creature::EntityId;
 use rw_sim::creature::overseer::{OverseerBody, OverseerColor, OverseerMode, OverseerView};
-use rw_sim::{CameraView, FloatExt, Vec2};
+use rw_sim::{
+    CameraView, FloatExt, MyceliaConnection, MyceliaCx, MyceliumId, MyceliumPool, OwnerKey,
+    PointOwner, SystemId, Vec2,
+};
 
 use crate::draw::Color;
 use crate::hologram_matrix::HologramMatrix;
-use crate::math::{Custom, Mathf, Vec2Bezier, Vec3};
-use crate::mycelium::{Mycelium, MyceliumLink};
+use crate::math::{Custom, Mathf, Vec3};
 
 /// An overseer's graphics module.
 #[derive(Debug, Clone, PartialEq)]
 pub struct OverseerGraphics {
     pub id: EntityId,
-    pub mycelia: Vec<Mycelium>,
+    /// The `IOwnMycelia` identity of this module (the pool compares owners by it).
+    pub owner: OwnerKey,
+    /// Its strands, in the world's pool.
+    pub mycelia: Vec<MyceliumId>,
     pub holo: HologramMatrix,
     /// Per movement: now, from, to, progress, speed.
     pub mycelia_movements: [[f32; 5]; 2],
@@ -132,7 +137,7 @@ impl OverseerGraphics {
     /// The constructor: from the ID's seed (the global state saved and restored) the
     /// mycelium count, the mycelia (each `Reset` once), the lens's shape and the mycelia
     /// movements; then the lens state and `Reset`.
-    pub fn new(view: &OverseerView<'_>, rng: &mut UnityRandom) -> Self {
+    pub fn new(view: &OverseerView<'_>, mx: &mut MyceliaCx<'_>, rng: &mut UnityRandom) -> Self {
         let size = view.body.size;
         let saved = rng.state();
         rng.init_state(view.id.random_seed());
@@ -142,8 +147,23 @@ impl OverseerGraphics {
         let count = inner.lerp(4.0, rng.value()) as usize;
         let length = size.lerp_map(0.5, 1.0, 55.0, 80.0);
         let start = view.body.chunk().pos;
-        let mycelia: Vec<Mycelium> = (0..count)
-            .map(|_| Mycelium::new(length, start, rng))
+        let owner = mx.pool.new_owner();
+        let mycelia: Vec<MyceliumId> = (0..count)
+            .map(|i| {
+                let id = mx.pool.add(
+                    view.neuron_system,
+                    (owner, &PointOwner(start)),
+                    i,
+                    length,
+                    start,
+                    rng,
+                );
+                if let Some(m) = mx.pool.get_mut(id) {
+                    m.move_away_from_walls = false;
+                    m.use_static_culling = false;
+                }
+                id
+            })
             .collect();
         let holo = HologramMatrix::new(mycelia.len(), size, rng);
         let mut mycelia_movements = [[0.0; 5]; 2];
@@ -153,9 +173,14 @@ impl OverseerGraphics {
         }
         rng.set_state(saved);
         let lens = if view.bring_up_lens < 0.5 { 0.0 } else { 1.0 };
+        let con_rad = mycelia
+            .first()
+            .and_then(|&id| mx.pool.get(id))
+            .map_or(0.0, |m| m.con_rad / 2.0);
         let mut g = Self {
             id: view.id,
-            mycelia_con_rad: mycelia.first().map_or(0.0, |m| m.con_rad / 2.0),
+            owner,
+            mycelia_con_rad: con_rad,
             mycelia,
             holo,
             mycelia_movements,
@@ -172,25 +197,39 @@ impl OverseerGraphics {
             total_length: 1.0,
             at: DrawPositions::default(),
         };
-        g.reset(view.body, rng);
+        g.reset(view.body, mx.pool, rng);
         g
     }
 
     /// `Reset`: every mycelium restarts at the eye (`3 + 2 * points` draws each).
-    pub fn reset(&mut self, body: &OverseerBody, rng: &mut UnityRandom) {
+    pub fn reset(&mut self, body: &OverseerBody, pool: &mut MyceliumPool, rng: &mut UnityRandom) {
         self.at = DrawPositions::new(self, body, 1.0);
         let eye = self.at.segment(body, 0.0, 1.0);
-        for m in &mut self.mycelia {
-            m.reset(eye, rng);
+        for &id in &self.mycelia {
+            pool.reset(id, eye, &PointOwner(eye), rng);
         }
     }
 
     /// `Emerge`: the mycelia restart at the eye as last placed. (The game uses the
     /// positions of the last drawn frame; the port the last update's.)
-    pub fn emerge(&mut self, body: &OverseerBody, rng: &mut UnityRandom) {
+    pub fn emerge(&mut self, body: &OverseerBody, pool: &mut MyceliumPool, rng: &mut UnityRandom) {
         let eye = self.at.segment(body, 0.0, 1.0);
-        for m in &mut self.mycelia {
-            m.reset(eye, rng);
+        for &id in &self.mycelia {
+            pool.reset(id, eye, &PointOwner(eye), rng);
+        }
+    }
+
+    /// `UpdateCoralNeuronSystem` (from `Overseer.NewRoom`): out of the registry of the
+    /// system the overseer had (`old`) and, if the strand's own system is not `new`, into
+    /// the new one's.
+    pub fn new_room(&self, pool: &mut MyceliumPool, old: Option<SystemId>, new: Option<SystemId>) {
+        if let Some(old) = old {
+            for &id in &self.mycelia {
+                pool.unregister(old, id);
+            }
+        }
+        for &id in &self.mycelia {
+            pool.move_to_system(id, new);
         }
     }
 
@@ -217,11 +256,11 @@ impl OverseerGraphics {
     pub fn update(
         &mut self,
         view: &OverseerView<'_>,
-        room: &Room,
-        camera: &CameraView,
-        mut partner: Option<&mut Self>,
+        mx: &mut MyceliaCx<'_>,
+        partner: Option<&Self>,
         rng: &mut UnityRandom,
     ) {
+        let (room, camera) = (mx.env.room, mx.env.camera);
         let body = view.body;
         self.at = DrawPositions::new(self, body, 1.0);
         self.last_cosmetic_look_at = self.cosmetic_look_at;
@@ -240,9 +279,9 @@ impl OverseerGraphics {
         }
         // `GraphicsModule.Update`: back in view, it resets; the lens moves only then.
         self.last_culled = self.culled;
-        self.culled = self.should_be_culled(body, room, camera);
+        self.culled = self.should_be_culled(body, room, &camera);
         if !self.culled && self.last_culled {
-            self.reset(body, rng);
+            self.reset(body, mx.pool, rng);
         }
         if !self.culled && (self.holo_lens_up != 0.0 || self.last_holo_lens_up != 0.0) {
             self.holo.update(rng);
@@ -253,9 +292,10 @@ impl OverseerGraphics {
         let ur_x = -self.at.use_dir.y / (pi * 2.0);
         let ur_y = self.at.use_dir.x / (pi * 2.0);
         for l in 0..self.mycelia.len() {
-            self.update_mycelium(l, body, partner.as_deref_mut(), rng);
-            self.pull_mycelium(l, body, ur_x, ur_y);
-            self.link_mycelium(l, body, partner.as_deref_mut(), rng);
+            let base = PointOwner(self.connection_pos(body, 1.0));
+            mx.pool.update(self.mycelia[l], &base, &mx.env, rng);
+            self.pull_mycelium(l, body, ur_x, ur_y, mx.pool);
+            self.link_mycelium(l, body, partner, mx.pool, rng);
         }
     }
 
@@ -304,71 +344,22 @@ impl OverseerGraphics {
         }
     }
 
-    /// `Mycelium.Update`: its physics, its base at the body, then its link to a
-    /// partner's mycelium (which breaks when stretched or by chance, and pulls the
-    /// tips together). The `NeuronSpark` at touching tips is not ported (its
-    /// `Random.value` is drawn).
-    fn update_mycelium(
+    /// The pull of each mycelium point toward its place around the eye.
+    fn pull_mycelium(
         &mut self,
         l: usize,
         body: &OverseerBody,
-        partner: Option<&mut Self>,
-        rng: &mut UnityRandom,
+        ur_x: f32,
+        ur_y: f32,
+        pool: &mut MyceliumPool,
     ) {
-        let base = self.connection_pos(body, 1.0);
-        let me = MyceliumLink {
-            owner: self.id,
-            index: l,
-        };
-        let m = &mut self.mycelia[l];
-        m.step();
-        m.points[0][0] = base;
-        m.points[0][2] = Vec2::ZERO;
-        if m.rest > 0 {
-            m.rest -= 1;
-        }
-        let Some(link) = m.connection else {
+        let Some(m) = pool.get_mut(self.mycelia[l]) else {
             return;
         };
-        let other = partner
-            .filter(|p| p.id == link.owner)
-            .and_then(|p| p.mycelia.get_mut(link.index));
-        let Some(other) = other.filter(|o| o.connection == Some(me)) else {
-            m.connection = None;
-            m.rest = rng.range_i32(20, 200);
-            return;
-        };
-        if !m.base().dist_less(other.base(), m.length + other.length) || rng.value() < 0.005 {
-            m.connection = None;
-            m.rest = rng.range_i32(20, 200);
-            return;
-        }
-        let (tip, other_tip) = (m.tip(), other.tip());
-        let last = m.points.len() - 1;
-        if other_tip.dist_less(tip, 10.0) {
-            let push = tip.direction_to(other_tip) * ((tip.distance(other_tip) - 1.0) * 0.5);
-            m.points[last][0] += push;
-            m.points[last][2] += push;
-            let other_last = other.points.len() - 1;
-            other.points[other_last][0] -= push;
-            other.points[other_last][2] -= push;
-            if rng.value() < 0.05 {
-                // `new NeuronSpark`: its `lifeTime` draw.
-                rng.value();
-            }
-        } else {
-            let pull = (other_tip - tip).clamp_length(5.0);
-            m.points[last][2] = m.points[last][2].lerp(pull, 0.5);
-        }
-    }
-
-    /// The pull of each mycelium point toward its place around the eye.
-    fn pull_mycelium(&mut self, l: usize, body: &OverseerBody, ur_x: f32, ur_y: f32) {
         let mm = self.mycelia_movements;
         let ext = body.extended;
         let count = self.mycelia.len() as f32;
-        self.mycelia[l].con_rad =
-            self.mycelia_con_rad * ext * 1.0.lerp(2.0 - body.size, self.convo_mode);
+        m.con_rad = self.mycelia_con_rad * ext * 1.0.lerp(2.0 - body.size, self.convo_mode);
         let around =
             Vec2::from_degrees(l as f32 / count * 360.0) * (25.0.lerp(15.0, mm[1][0]) * body.size);
         let depth = mm[1][0] * -25.0 * body.size - body.size.lerp_map(0.5, 1.0, 5.0, 0.0);
@@ -386,7 +377,6 @@ impl OverseerGraphics {
             .xy();
         let base = self.connection_pos(body, 1.0);
         let use_dir = self.at.use_dir.xy();
-        let m = &mut self.mycelia[l];
         let last = (m.points.len() - 1) as f32;
         for (i, p) in m.points.iter_mut().enumerate() {
             let num = i as f32 / last;
@@ -403,18 +393,19 @@ impl OverseerGraphics {
     /// While conversing, an unlinked mycelium may link to a random one of the
     /// partner's; out of the conversation, links break.
     fn link_mycelium(
-        &mut self,
+        &self,
         l: usize,
         body: &OverseerBody,
-        partner: Option<&mut Self>,
+        partner: Option<&Self>,
+        pool: &mut MyceliumPool,
         rng: &mut UnityRandom,
     ) {
-        let me = MyceliumLink {
-            owner: self.id,
-            index: l,
-        };
+        let id = self.mycelia[l];
         let conversing = body.mode == OverseerMode::Conversing;
-        match self.mycelia[l].connection {
+        let Some(me) = pool.get(id) else {
+            return;
+        };
+        match me.connection {
             None => {
                 let Some(p) = partner.filter(|_| conversing && body.conversation_partner.is_some())
                 else {
@@ -422,33 +413,35 @@ impl OverseerGraphics {
                 };
                 let len = i32::try_from(p.mycelia.len()).unwrap_or(0);
                 let k = usize::try_from(rng.range_i32(0, len)).unwrap_or(0);
-                let mine = &self.mycelia[l];
-                let Some(other) = p.mycelia.get_mut(k) else {
+                let Some(&candidate) = p.mycelia.get(k) else {
                     return;
                 };
-                if p.id != self.id
+                let Some(other) = pool.get(candidate) else {
+                    return;
+                };
+                if candidate != id
+                    && other.owner != me.owner
                     && other.connection.is_none()
-                    && mine
+                    && me
                         .base()
-                        .dist_less(other.base(), (mine.length + other.length) * 0.75)
+                        .dist_less(other.base(), (me.length + other.length) * 0.75)
                 {
-                    other.connection = Some(me);
-                    self.mycelia[l].connection = Some(MyceliumLink {
-                        owner: p.id,
-                        index: k,
-                    });
+                    let connection = MyceliaConnection {
+                        a: id,
+                        b: candidate,
+                    };
+                    pool.set_connection(id, Some(connection));
+                    pool.set_connection(candidate, Some(connection));
                 }
             }
-            Some(link) => {
-                let other = partner
-                    .filter(|p| p.id == link.owner)
-                    .and_then(|p| p.mycelia.get_mut(link.index));
-                let linked_back = other.as_ref().is_some_and(|o| o.connection == Some(me));
+            Some(connection) => {
+                let other = connection.other(id);
+                let linked_back = pool
+                    .get(other)
+                    .is_some_and(|o| o.connection == Some(connection));
                 if !conversing || !linked_back {
-                    if let Some(o) = other {
-                        o.connection = None;
-                    }
-                    self.mycelia[l].connection = None;
+                    pool.set_connection(other, None);
+                    pool.set_connection(id, None);
                 }
             }
         }

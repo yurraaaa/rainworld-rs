@@ -78,8 +78,9 @@ impl PlayerObserver for Recorder {
     fn lizard_removed(&mut self, id: EntityId) {
         self.calls.push(Call::LizardRemoved(id));
     }
-    fn overseer_removed(&mut self, id: EntityId) {
+    fn overseer_removed(&mut self, id: EntityId) -> Option<crate::OwnerKey> {
         self.calls.push(Call::OverseerRemoved(id));
+        None
     }
 }
 

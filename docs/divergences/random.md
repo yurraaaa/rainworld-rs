@@ -236,9 +236,8 @@ it (D13). What still differs is only the seed and the call order:
   room's abstract creatures and its object draw over the room's whole entity list in
   the game's order (creatures, then objects; `World::room_entities`), so a room with
   rocks or spears takes the game's draws.
-  Missing: the `NeuronSpark` a pair of linked
-  mycelia makes (its constructor's draw is made; its `SS_Mycelia_Spark` sound on its
-  first update is not), and `HologramMatrix.DrawSprites`'s per-frame draws (the lens's
+  A pair of linked mycelia makes a `NeuronSpark` with its constructor's draw and, on its
+  first update, `SS_Mycelia_Spark`'s (D38). Missing: `HologramMatrix.DrawSprites`'s per-frame draws (the lens's
   colour and line flicker) and the holograms' `DrawSprites` (line flicker, symbols, keys,
   the gamepad silhouette, the light effect), which the app takes from a cosmetic stream
   of its own: the game makes them on the global stream once per rendered frame, so their

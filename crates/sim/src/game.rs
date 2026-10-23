@@ -18,6 +18,8 @@ mod background_scene;
 mod border_push_back;
 #[path = "game_carried.rs"]
 mod carried;
+#[path = "game_coral.rs"]
+mod coral;
 #[path = "game_decals.rs"]
 mod decals;
 #[path = "game_dev.rs"]
@@ -159,9 +161,9 @@ use crate::shelter::{SessionEnd, ShelterDoor};
 use crate::shortcut::{CreatureVessel, Transport};
 use crate::world::{AbstractTick, FollowCreature, RainCycle, RegionState, RoomRealizer, World};
 use crate::{
-    CameraShake, EmitterPlace, EntranceColor, HudMapLink, Input, LobbyVessel, MapDiscovery, Player,
-    ScreenMovement, ShortCutColor, ShortcutHandler, Sounds, Vec2, VesselOwner, VesselStep, Water,
-    determine_safe_spawn_tile,
+    CameraShake, EmitterPlace, EntranceColor, HudMapLink, Input, LobbyVessel, MapDiscovery,
+    MyceliaCx, OwnerKey, Player, ScreenMovement, ShortCutColor, ShortcutHandler, Sounds, Vec2,
+    VesselOwner, VesselStep, Water, determine_safe_spawn_tile,
 };
 
 /// What the app attaches to the player (its graphics module), called where the game
@@ -210,22 +212,48 @@ pub trait PlayerObserver {
     fn nudge_tail_x(&mut self, _dvx: f32) {}
     /// A realized overseer is in the camera's room (`AddObject` or `NowViewed`): its
     /// `OverseerGraphics` is built unless it has one. Returns whether it built one.
-    fn overseer_added(&mut self, _view: &OverseerView<'_>, _rng: &mut UnityRandom) -> bool {
+    fn overseer_added(
+        &mut self,
+        _view: &OverseerView<'_>,
+        _mx: &mut MyceliaCx<'_>,
+        _rng: &mut UnityRandom,
+    ) -> bool {
         false
     }
     /// `OverseerGraphics.Reset`.
-    fn overseer_reset(&mut self, _view: &OverseerView<'_>, _rng: &mut UnityRandom) {}
+    fn overseer_reset(
+        &mut self,
+        _view: &OverseerView<'_>,
+        _mx: &mut MyceliaCx<'_>,
+        _rng: &mut UnityRandom,
+    ) {
+    }
     /// Right after an overseer hologram's `Update` (the parts lerp their colours).
     fn hologram_updated(&mut self, _owner: EntityId, _hologram: &OverseerHologram) {}
     /// `OverseerGraphics.Emerge`.
-    fn overseer_emerge(&mut self, _view: &OverseerView<'_>, _rng: &mut UnityRandom) {}
+    fn overseer_emerge(
+        &mut self,
+        _view: &OverseerView<'_>,
+        _mx: &mut MyceliaCx<'_>,
+        _rng: &mut UnityRandom,
+    ) {
+    }
     /// Right after `Overseer.Update`: the graphics module's update.
     fn overseer_updated(
         &mut self,
         _view: &OverseerView<'_>,
-        _room: &Room,
-        _camera: &CameraView,
+        _mx: &mut MyceliaCx<'_>,
         _rng: &mut UnityRandom,
+    ) {
+    }
+    /// `Overseer.NewRoom`'s `UpdateCoralNeuronSystem`: the overseer now has the system of
+    /// room `new` (`view.neuron_system` is the one it had); its graphics module, if any,
+    /// moves its strands.
+    fn overseer_new_room(
+        &mut self,
+        _view: &OverseerView<'_>,
+        _mx: &mut MyceliaCx<'_>,
+        _new: Option<crate::SystemId>,
     ) {
     }
     /// `OverseerGraphics.DrawPosOfSegment(0, 1)`, the eye, while the overseer has a
@@ -233,8 +261,11 @@ pub trait PlayerObserver {
     fn overseer_eye(&self, _id: EntityId, _body: &OverseerBody) -> Option<Vec2> {
         None
     }
-    /// The overseer's graphics module is dropped (`NoLongerViewed`, or abstracted).
-    fn overseer_removed(&mut self, _id: EntityId) {}
+    /// The overseer's graphics module is dropped (`NoLongerViewed`, or abstracted); the
+    /// module's strand owner, if it had one.
+    fn overseer_removed(&mut self, _id: EntityId) -> Option<OwnerKey> {
+        None
+    }
     /// A realized fly is in the camera's room (`AddObject` or `NowViewed`): its
     /// `FlyGraphics` is built unless it has one.
     fn fly_added(&mut self, _view: &FlyView<'_>, _rng: &mut UnityRandom) {}
@@ -447,6 +478,8 @@ enum RoomObject {
     Fixture(crate::room_fixtures::FixtureRef),
     /// A superstructure projector, its part, a scan line set, its line or a star matrix.
     Projection(crate::room_projections::ProjectionRef),
+    /// The room's `CoralNeuronSystem` or a `WallMycelia`.
+    Coral(coral::CoralRef),
     /// The room's `AntiGravity`.
     AntiGravity,
     Lizard(CreatureId),
@@ -1046,6 +1079,9 @@ impl RainWorldGame {
                 }
             }
             self.place_quantified(index, observer);
+            if !self.awaiting_first_view(index) {
+                self.coral_ai_map_ready(index);
+            }
             let name = self
                 .world
                 .abstract_room(index)
@@ -1296,7 +1332,7 @@ impl RainWorldGame {
         let coord = WorldCoordinate::new(vessel.room, -1, -1, vessel.entrance_node);
         match self.world.realized(vessel.room) {
             None => {
-                observer.overseer_removed(self.world.creature(id).id);
+                self.overseer_module_removed(id, observer);
                 self.world.abstractize_to(id, coord);
                 true
             }
@@ -1494,6 +1530,7 @@ impl RainWorldGame {
         objects.extend(self.room_fixture_objects(index));
         objects.extend(self.room_projection_objects(index));
         objects.extend(self.room_anti_gravity_objects(index));
+        objects.extend(self.room_coral_objects(index));
         objects.sort_by_key(|&(seq, _)| std::cmp::Reverse(seq));
         objects
     }
@@ -1615,6 +1652,7 @@ impl RainWorldGame {
                 RoomObject::Fixture(f) => self.run_fixture(index, f),
                 RoomObject::Projection(p) => self.run_projection(index, p),
                 RoomObject::AntiGravity => self.run_anti_gravity(index),
+                RoomObject::Coral(c) => self.run_coral(index, c),
                 RoomObject::Insect(_) => {}
             }
         }
@@ -1754,6 +1792,7 @@ impl RainWorldGame {
         let ignore_cycle = self.world.creature(id).ignore_cycle;
         let mut rain = self.world.rain_cycle;
         let mut effects = Vec::new();
+        let mut pool = std::mem::take(&mut self.world.mycelia);
         if matches!(call, OverseerCall::Place | OverseerCall::TeleportIn) {
             parts.body.update_order = self.world.next_update_seq();
         }
@@ -1788,6 +1827,9 @@ impl RainWorldGame {
                 effects: Vec::new(),
                 instructions,
                 forced_directions,
+                pool: &mut pool,
+                cameras_changed_tick: realized.cameras_changed_tick,
+                coral: realized.coral.as_ref().map(crate::CoralNeuronSystem::state),
             };
             let mut run = OverseerUpdate {
                 me: id,
@@ -1817,6 +1859,8 @@ impl RainWorldGame {
             rain = cx.rain;
             effects = cx.effects;
         }
+        self.world.mycelia = pool;
+        self.flush_mycelium_sparks(room_index);
         for h in &mut parts.body.holograms {
             if h.update_order == 0 {
                 h.update_order = self.world.next_update_seq();
@@ -2168,6 +2212,12 @@ impl RainWorldGame {
             current,
             next,
         };
+    }
+
+    /// The room camera cut to another camera position in the room (`MoveCamera`'s
+    /// `ApplyPositionChange`, including a cut to the position it already shows).
+    pub fn camera_moved(&mut self) {
+        self.cameras_changed(self.camera_room);
     }
 
     #[must_use]

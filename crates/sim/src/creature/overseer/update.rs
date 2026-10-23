@@ -22,7 +22,8 @@ use crate::room_ext::RoomExt;
 use crate::trigger::{ForcedDirectionView, InputInstructionView, InstructionViewKind};
 use crate::world::{AiMap, EIGHT_DIRECTIONS, RainCycle, World};
 use crate::{
-    CosmeticKind, FloatExt, OverseerEffectSprite, PlayerObserver, SoundId, Sounds, Spark, Vec2,
+    CosmeticKind, FloatExt, MyceliaCx, MyceliumEnv, MyceliumPool, OverseerEffectSprite,
+    PlayerObserver, SoundId, Sounds, Spark, Vec2,
 };
 
 /// `Custom.eightDirectionsAndZero`'s first eight (the zero offset first).
@@ -75,6 +76,8 @@ pub struct OverseerView<'a> {
     pub color: OverseerColor,
     /// The conversation partner's ID, when it has one.
     pub partner: Option<EntityId>,
+    /// `neuronSystem`.
+    pub neuron_system: Option<crate::SystemId>,
 }
 
 impl<'a> OverseerView<'a> {
@@ -93,6 +96,7 @@ impl<'a> OverseerView<'a> {
             bring_up_lens: ai.bring_up_lens,
             color,
             partner,
+            neuron_system: body.neuron_system,
         }
     }
 }
@@ -223,6 +227,26 @@ pub(crate) struct OverseerTick<'a> {
     pub instructions: Vec<InputInstructionView>,
     /// The rooms' `ReliableIggyDirection`s (`communication.forcedDirectionToGive`).
     pub forced_directions: Vec<ForcedDirectionView>,
+    /// The world's mycelia, lent to the graphics module's strands.
+    pub pool: &'a mut MyceliumPool,
+    /// `room.camerasChangedTick`.
+    pub cameras_changed_tick: i32,
+    /// The room's `CoralNeuronSystem`, if it has one.
+    pub coral: Option<crate::SystemState>,
+}
+
+impl<'a> OverseerTick<'a> {
+    /// What a strand reads of the room.
+    pub(crate) fn mycelium_env(&self) -> MyceliumEnv<'a> {
+        MyceliumEnv {
+            room: self.room,
+            room_index: self.room_index,
+            ai_map: Some(self.ai_map),
+            camera: self.camera,
+            cameras_changed_tick: self.cameras_changed_tick,
+            system: self.coral,
+        }
+    }
 }
 
 /// What `RealizedCreatureInterest`, `HoverScoreOfTile` and the mode checks read of a
@@ -282,7 +306,12 @@ impl OverseerUpdate<'_, '_> {
         let (color, partner) = (self.color(), self.partner_id());
         let view = OverseerView::new(self.id, self.body, self.ai, color, partner);
         let cx = &mut *self.cx;
-        cx.observer.overseer_reset(&view, cx.rng);
+        let env = cx.mycelium_env();
+        let mut mx = MyceliaCx {
+            pool: &mut *cx.pool,
+            env,
+        };
+        cx.observer.overseer_reset(&view, &mut mx, cx.rng);
     }
 
     /// The realized creature `id` in the game, as far as the overseer reads it.
@@ -535,8 +564,12 @@ impl OverseerUpdate<'_, '_> {
         let (color, partner) = (self.color(), self.partner_id());
         let view = OverseerView::new(self.id, self.body, self.ai, color, partner);
         let cx = &mut *self.cx;
-        cx.observer
-            .overseer_updated(&view, cx.room, &cx.camera, cx.rng);
+        let env = cx.mycelium_env();
+        let mut mx = MyceliaCx {
+            pool: &mut *cx.pool,
+            env,
+        };
+        cx.observer.overseer_updated(&view, &mut mx, cx.rng);
     }
 
     /// The conversation pull, or the turn toward `AI.lookAt`.
@@ -689,7 +722,12 @@ impl OverseerUpdate<'_, '_> {
                 let (color, partner) = (self.color(), self.partner_id());
                 let view = OverseerView::new(self.id, self.body, self.ai, color, partner);
                 let cx = &mut *self.cx;
-                cx.observer.overseer_emerge(&view, cx.rng);
+                let env = cx.mycelium_env();
+                let mut mx = MyceliaCx {
+                    pool: &mut *cx.pool,
+                    env,
+                };
+                cx.observer.overseer_emerge(&view, &mut mx, cx.rng);
             }
             OverseerMode::SittingInWall => b.zip_prog_speed = 0.0,
             _ => {}
@@ -796,12 +834,18 @@ impl OverseerUpdate<'_, '_> {
         let view = OverseerView::new(self.id, self.body, self.ai, color, partner);
         let cx = &mut *self.cx;
         if cx.viewed {
-            cx.observer.overseer_added(&view, cx.rng);
+            let env = cx.mycelium_env();
+            let mut mx = MyceliaCx {
+                pool: &mut *cx.pool,
+                env,
+            };
+            cx.observer.overseer_added(&view, &mut mx, cx.rng);
         }
         let start = Self::mid(self.pos.tile) + Vec2::random_unit(self.cx.rng);
         self.body.chunk_mut().reset_at(start);
         self.ai_new_room();
         self.graphics_reset();
+        self.update_coral_neuron_system();
         let (w, h) = self.room_size();
         let room = self.cx.room;
         for _ in 0..100 {
@@ -829,6 +873,22 @@ impl OverseerUpdate<'_, '_> {
         let t = (self.cx.rng.range_i32(0, w), self.cx.rng.range_i32(0, h));
         self.hard_set_tile(t, t);
         self.graphics_reset();
+    }
+
+    /// `Overseer.UpdateCoralNeuronSystem` (from `NewRoom`): the system of the room it is
+    /// in now, and its graphics module's strands moved to that system's registry.
+    fn update_coral_neuron_system(&mut self) {
+        let (color, partner) = (self.color(), self.partner_id());
+        let view = OverseerView::new(self.id, self.body, self.ai, color, partner);
+        let cx = &mut *self.cx;
+        let env = cx.mycelium_env();
+        let new = env.system.map(|s| s.id);
+        let mut mx = MyceliaCx {
+            pool: &mut *cx.pool,
+            env,
+        };
+        cx.observer.overseer_new_room(&view, &mut mx, new);
+        self.body.neuron_system = new;
     }
 
     /// `ArtificialIntelligence.NewRoom` and `OverseerAI.NewRoom`.

@@ -249,6 +249,7 @@ sound_ids! {
     ZapperLoop = "Zapper_LOOP",
     ZapperDisruptedLoop = "Zapper_Disrupted_LOOP",
     ZapperZap = "Zapper_Zap",
+    SsMyceliaSpark = "SS_Mycelia_Spark",
 }
 
 /// A `ChunkSoundEmitter` handle: follows a body chunk; loops are updated and stopped
