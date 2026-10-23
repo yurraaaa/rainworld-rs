@@ -7,6 +7,7 @@ use rw_menu::ProcessId;
 use super::Session;
 use super::params::{LoadProcessParams, ProcessParam};
 use crate::debug_ui::{DebugAction, DebugView, GameView};
+use crate::dev_spawn::RainTimerEdit;
 
 impl Session {
     fn game_process_at(room: &str) -> Option<Self> {
@@ -127,4 +128,35 @@ fn teleport_goes_to_a_creatures_room_in_the_same_world() {
         s.apply(DebugAction::Teleport("NO_ROOM".to_owned()))
             .is_err()
     );
+}
+
+#[test]
+fn rain_timer_actions_edit_the_timer_in_the_running_game() {
+    let Some(mut s) = Session::game_process_at("SU_A07") else {
+        return;
+    };
+    let length = s.debug_view().rain.cycle_length;
+    let reply = s
+        .apply(DebugAction::RainTimer(RainTimerEdit::until_rain(
+            length,
+            30 * 40,
+        )))
+        .expect("sets");
+    assert!(reply.contains("1200 until rain"), "{reply}");
+    assert_eq!(s.debug_view().rain.time_until_rain, 1200);
+    s.apply(DebugAction::RainTimer(RainTimerEdit {
+        paused: Some(true),
+        ..RainTimerEdit::default()
+    }))
+    .expect("holds");
+    let held = s.debug_view().rain.timer;
+    s.frames(10, &[]);
+    let rain = s.debug_view().rain;
+    assert_eq!((rain.timer, rain.dev_paused), (held, true));
+    s.apply(DebugAction::RainTimer(RainTimerEdit {
+        restart: true,
+        ..RainTimerEdit::default()
+    }))
+    .expect("restarts");
+    assert_eq!(s.debug_view().rain.timer, 0);
 }

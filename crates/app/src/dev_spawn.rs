@@ -1,5 +1,5 @@
 //! Dev spawns of creatures and objects and the dev teleport, shared by the MCP tools
-//! (`spawn_creature`, `spawn_object`, `teleport_player`) and the debug UI.
+//! (`spawn_creature`, `spawn_object`, `teleport_player`, `set_rain_timer`) and the debug UI.
 //!
 //! Mirrors: - (port-only: dev tools)
 
@@ -28,6 +28,94 @@ pub struct SpawnReply {
 pub struct TeleportReply {
     pub room: String,
     pub node: i32,
+}
+
+/// A dev edit of the rain timer (`set_rain_timer`, the debug UI's Rain timer tab),
+/// applied in the field order below.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct RainTimerEdit {
+    pub cycle_length: Option<i32>,
+    /// Timer to 0, resumed, the game's `pause` countdown cleared, as a fresh cycle.
+    pub restart: bool,
+    /// Timer to 0, held, the game's `pause` countdown cleared.
+    pub stop: bool,
+    pub timer: Option<i32>,
+    /// Added to the timer (negative goes back), after `timer`.
+    pub shift: Option<i32>,
+    pub paused: Option<bool>,
+    pub speed: Option<i32>,
+}
+
+impl RainTimerEdit {
+    pub const TICKS_PER_SECOND: i32 = 40;
+
+    /// The timer at `ticks` before the rain of a cycle `cycle_length` long.
+    #[must_use]
+    pub fn until_rain(cycle_length: i32, ticks: i32) -> Self {
+        Self {
+            timer: Some(cycle_length.saturating_sub(ticks)),
+            ..Self::default()
+        }
+    }
+
+    #[must_use]
+    pub fn at(timer: i32) -> Self {
+        Self {
+            timer: Some(timer),
+            ..Self::default()
+        }
+    }
+
+    #[must_use]
+    pub fn shift_seconds(seconds: i32) -> Self {
+        Self {
+            shift: Some(seconds.saturating_mul(Self::TICKS_PER_SECOND)),
+            ..Self::default()
+        }
+    }
+}
+
+impl Game {
+    /// Applies a dev rain timer edit; the timer-derived values are read live by the
+    /// next tick, so nothing else needs refreshing.
+    pub fn edit_rain_timer(&mut self, edit: &RainTimerEdit) -> String {
+        let sim = self.sim_mut();
+        if let Some(length) = edit.cycle_length {
+            sim.dev_set_rain_cycle_length(length);
+        }
+        if edit.restart || edit.stop {
+            sim.dev_set_rain_timer(0);
+            sim.dev_clear_rain_pause();
+            sim.dev_set_rain_paused(edit.stop);
+        }
+        if let Some(timer) = edit.timer {
+            sim.dev_set_rain_timer(timer);
+        }
+        if let Some(shift) = edit.shift {
+            let now = sim.world().rain_cycle.timer;
+            sim.dev_set_rain_timer(now.saturating_add(shift));
+        }
+        if let Some(paused) = edit.paused {
+            sim.dev_set_rain_paused(paused);
+        }
+        if let Some(speed) = edit.speed {
+            sim.dev_set_rain_speed(speed);
+        }
+        let c = &sim.world().rain_cycle;
+        let dev = sim.dev_rain_control();
+        format!(
+            "rain timer {} / {} ({} until rain){}{}",
+            c.timer,
+            c.cycle_length,
+            c.time_until_rain(),
+            if dev.paused { ", held" } else { "" },
+            if dev.speed > 1 {
+                format!(", x{}", dev.speed)
+            } else {
+                String::new()
+            }
+        )
+    }
 }
 
 impl Game {
@@ -141,5 +229,17 @@ impl Game {
             realized,
             note,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RainTimerEdit;
+
+    #[test]
+    fn quick_edits_name_the_stated_timer() {
+        assert_eq!(RainTimerEdit::until_rain(24000, 1200).timer, Some(22800));
+        assert_eq!(RainTimerEdit::at(24000 + 1200).timer, Some(25200));
+        assert_eq!(RainTimerEdit::shift_seconds(-10).shift, Some(-400));
     }
 }

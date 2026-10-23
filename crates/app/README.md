@@ -35,11 +35,11 @@ Gameplay logic belongs in `rw-sim`, not here.
 | `screen_package.rs` | `CommunicateWithUpcomingProcess` data for sleep/dream/death/starve screens |
 | `saves.rs` | save slot paths, load for menus, story save state, importer |
 | `room_catalog.rs` | rooms on disk (`list_rooms`, debug UI) |
-| `dev_spawn.rs` | `spawn_creature`, `spawn_object`, `teleport_player` shared by MCP and debug UI |
+| `dev_spawn.rs` | `spawn_creature`, `spawn_object`, `teleport_player`, the dev rain timer edit (`RainTimerEdit`) shared by MCP and debug UI |
 | `mcp/mod.rs` | `#[tool]` handlers (thin) and server setup |
 | `mcp/session.rs` | `Session`: all tool logic as methods; `state()` builds `get_state` |
 | `mcp/params.rs`, `mcp/reply.rs` | tool parameter structs (schema docs) and JSON reply types |
-| `mcp/dev_tools.rs` | dev spawns, `screenshot`/`get_tiles` of another realized room |
+| `mcp/dev_tools.rs` | dev spawns, `set_rain_timer`, `screenshot`/`get_tiles` of another realized room |
 | `mcp/background_scene_reply.rs` | `get_state` `background_scene`: per realized room's scene, its kind, elements, the camera's place on it (`camera_world`, `altitude`), each `DistantLightning`'s state, the dust puffs |
 | `mcp/insect_reply.rs` | `get_state` `insects`: per-room cosmetic insects |
 | `mcp/particles_reply.rs` | `get_state` `particles`: per realized room, counts of dandelions, stalks, sparks, specks and spores and the spawners' state |
@@ -65,7 +65,7 @@ Gameplay logic belongs in `rw-sim`, not here.
 - `load_process` / `step_process`: `session.rs` and `frontend.rs`.
 - `import_save`: `session.rs` `import_save`, logic in `saves.rs`.
 - `spawn_creature` / `spawn_object` / `teleport_player`: `mcp/dev_tools.rs` -> `dev_spawn.rs`.
-- Debug UI tabs (Region, Teleport, Creatures, Spawn creature, Spawn object): `debug_ui/tabs.rs`, one `DebugTab` impl each.
+- Debug UI tabs (Region, Teleport, Rain timer, Creatures, Spawn creature, Spawn object): `debug_ui/tabs.rs`, one `DebugTab` impl each.
 - `get_hud`, `hud_message`: `session.rs` `hud_state`, `hud_message`.
 - Sleep/death/starve screens' data: `screen_package.rs`, `hibernation.rs`.
 - Music requests from the sim: `game_music.rs`.

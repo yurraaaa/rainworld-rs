@@ -1,6 +1,7 @@
 //! The debug UI's data (filters, spawn places, creature rows) and one UI frame drawn
 //! offscreen (skipped without a Vulkan adapter).
 
+use crate::mcp::reply::RainState;
 use rw_assets::CreatureType;
 use rw_render::{Camera, Color, Renderer, WgpuRenderer};
 
@@ -37,6 +38,7 @@ fn game_view() -> GameView {
             },
         ],
         creature_kinds: vec![CreatureType::GreenLizard, CreatureType::Fly],
+        rain: RainState::default(),
     }
 }
 
@@ -83,6 +85,7 @@ fn an_open_frame_draws_the_window() {
     let view = DebugView {
         game: Some(game_view()),
     };
+    the_rain_timer_tab_draws_in_a_frame(&mut ui);
     ui.toggle();
     // The first frame lays the window out; the second draws it settled.
     let _ = ui.frame(&view, None, (640, 480), 1.0, 1.0 / 40.0);
@@ -128,4 +131,28 @@ fn an_open_frame_draws_the_window() {
         lit.iter()
             .all(|&(x, y)| (9..=531).contains(&x) && (9..=451).contains(&y))
     );
+}
+
+/// `RainTimerTab::draw` inside an imgui frame (no window needed): it asks for no action
+/// by itself.
+fn the_rain_timer_tab_draws_in_a_frame(ui: &mut DebugUi) {
+    let mut view = game_view();
+    view.rain.timer = 500;
+    view.rain.cycle_length = 2000;
+    let mut tab = tabs::all()
+        .into_iter()
+        .find(|t| t.title() == "Rain timer")
+        .expect("rain timer tab");
+    ui.imgui.io_mut().display_size = [640.0, 480.0];
+    let frame_ui = ui.imgui.new_frame();
+    let mut actions = Vec::new();
+    let view = DebugView { game: Some(view) };
+    let mut cx = TabCx {
+        view: &view,
+        catalog: None,
+        actions: &mut actions,
+    };
+    frame_ui.window("t").build(|| tab.draw(frame_ui, &mut cx));
+    assert!(actions.is_empty());
+    let _ = ui.imgui.render();
 }

@@ -5,6 +5,7 @@
 use rw_assets::{AbstractObjectType, CreatureType};
 
 use crate::game::Game;
+use crate::mcp::reply::RainState;
 
 /// The running game as the tabs see it; `None` outside the game process.
 #[derive(Debug, Clone, Default)]
@@ -23,6 +24,7 @@ pub struct GameView {
     pub rooms: Vec<String>,
     pub creatures: Vec<CreatureRow>,
     pub creature_kinds: Vec<CreatureType>,
+    pub rain: RainState,
 }
 
 /// One abstract creature, as `get_state.creatures` lists it.
@@ -72,6 +74,7 @@ impl GameView {
                 .collect(),
             creatures: CreatureRow::rows(game),
             creature_kinds: sim.dev_spawnable_creatures(),
+            rain: RainState::of(sim),
         }
     }
 }

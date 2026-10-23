@@ -17,13 +17,14 @@ use rw_render::{
 use rw_sim::Vec2;
 
 use super::Session;
-use crate::dev_spawn::{SpawnReply, TeleportReply};
+use crate::dev_spawn::{RainTimerEdit, SpawnReply, TeleportReply};
 use crate::frontend::FrontendRenderer;
 use crate::game::{DebugBody, Game};
 use crate::mcp::params::{
-    ScreenshotParams, SpawnCreatureParams, SpawnObjectParams, TeleportPlayerParams,
+    ScreenshotParams, SetRainTimerParams, SpawnCreatureParams, SpawnObjectParams,
+    TeleportPlayerParams,
 };
-use crate::mcp::reply::Screenshot;
+use crate::mcp::reply::{RainState, Screenshot};
 use crate::scene::{Framing, MARGIN, SceneRenderer, SceneView};
 use crate::timestep::TICK_RATE;
 use crate::visuals::Visuals;
@@ -58,6 +59,25 @@ impl Session {
         self.scene_or_err()?
             .game_mut()
             .spawn_creature(kind, room, (x, y), params.seed_id)
+    }
+
+    /// Edits the rain timer (`edit_rain_timer`).
+    ///
+    /// # Errors
+    /// Without a game.
+    pub fn set_rain_timer(&mut self, params: &SetRainTimerParams) -> Result<RainState, String> {
+        let edit = RainTimerEdit {
+            cycle_length: params.cycle_length,
+            restart: params.restart.unwrap_or(false),
+            stop: params.stop.unwrap_or(false),
+            timer: params.timer,
+            shift: params.shift,
+            paused: params.paused,
+            speed: params.speed,
+        };
+        let game = self.scene_or_err()?.game_mut();
+        game.edit_rain_timer(&edit);
+        Ok(RainState::of(game.sim()))
     }
 
     /// Sends the player through the shortcut lobby to an exit of a room of this world

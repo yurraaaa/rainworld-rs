@@ -10,7 +10,81 @@ use crate::item::{AbstractObject, Entity, ObjectId};
 use crate::world::LizardRoomCx;
 use crate::{LobbyVessel, Vec2, VesselOwner};
 
+/// Dev-only control of the rain timer (D18); the game's own `RainCycle.pause` is a
+/// countdown other code sets and reads, so it is left alone.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DevRainControl {
+    /// The timer (and what counts with it) does not advance; the water cycle still runs.
+    pub paused: bool,
+    /// Timer ticks per game tick (1 is the game's).
+    pub speed: i32,
+}
+
+impl Default for DevRainControl {
+    fn default() -> Self {
+        Self {
+            paused: false,
+            speed: 1,
+        }
+    }
+}
+
 impl RainWorldGame {
+    /// `RainCycle.Update`'s timers, held back or sped up by the dev control (the water
+    /// cycle and the broken antigravity switch run as usual). Unused, it is the plain update.
+    pub(super) fn dev_update_rain_timers(&mut self) {
+        let control = self.dev_rain;
+        let cycle = &mut self.world.rain_cycle;
+        if !control.paused {
+            let held_by_game = cycle.pause > 0;
+            cycle.update_timers();
+            if control.speed > 1 && !held_by_game {
+                cycle.timer += control.speed - 1;
+                cycle.day_night_counter = cycle.day_night_counter_at(cycle.timer);
+            }
+            return;
+        }
+        let (timer, counter, pause) = (cycle.timer, cycle.day_night_counter, cycle.pause);
+        cycle.update_timers();
+        cycle.timer = timer;
+        cycle.day_night_counter = counter;
+        cycle.pause = pause;
+    }
+
+    #[must_use]
+    pub fn dev_rain_control(&self) -> DevRainControl {
+        self.dev_rain
+    }
+
+    pub fn dev_set_rain_paused(&mut self, paused: bool) {
+        self.dev_rain.paused = paused;
+    }
+
+    /// Clamped to 1..=20.
+    pub fn dev_set_rain_speed(&mut self, speed: i32) {
+        self.dev_rain.speed = speed.clamp(1, 20);
+    }
+
+    /// Puts the timer at `timer` (at least 0); `dayNightCounter` is what ticking there
+    /// would have counted. The game's `pause` countdown is left alone.
+    pub fn dev_set_rain_timer(&mut self, timer: i32) {
+        let cycle = &mut self.world.rain_cycle;
+        cycle.timer = timer.max(0);
+        cycle.day_night_counter = cycle.day_night_counter_at(cycle.timer);
+    }
+
+    /// Clears the game's `RainCycle.pause` countdown (a fresh cycle).
+    pub fn dev_clear_rain_pause(&mut self) {
+        self.world.rain_cycle.pause = 0;
+    }
+
+    /// Sets `cycleLength` (at least 1); `sunDownStartTime`, drawn at construction, stays.
+    pub fn dev_set_rain_cycle_length(&mut self, length: i32) {
+        let cycle = &mut self.world.rain_cycle;
+        cycle.cycle_length = length.max(1);
+        cycle.day_night_counter = cycle.day_night_counter_at(cycle.timer);
+    }
+
     /// Whether `dev_spawn_creature` takes `kind`: not the slugcat or a template.
     #[must_use]
     pub fn dev_spawnable(kind: CreatureType) -> bool {
@@ -246,3 +320,7 @@ impl RainWorldGame {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "game_dev_tests.rs"]
+mod tests;
