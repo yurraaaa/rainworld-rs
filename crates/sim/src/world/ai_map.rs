@@ -212,6 +212,13 @@ impl AiMap {
         self.index(x, y).map_or(-1, |i| self.terrain_proximity[i])
     }
 
+    /// `getTerrainProximity(Vector2 pos)`.
+    #[must_use]
+    pub fn terrain_proximity_at(&self, pos: crate::Vec2) -> i32 {
+        let (x, y) = pos.tile();
+        self.terrain_proximity(x, y)
+    }
+
     /// `terrainProximity[ind(x, y, height)]` for a tile inside the room (a tile the mapper
     /// has not reached holds -1, as `getTerrainProximity` outside the room returns).
     #[must_use]

@@ -5,11 +5,12 @@
 //! builds from the room's placed objects is `game_coral.rs`'. Behaviour:
 //! `rainworld-re/notes/superstructure-coral.md`.
 //!
-//! Mirrors: CoralBrain/CoralNeuronSystem.cs (constructor, Update, Frozen, neurons)
+//! Mirrors: CoralBrain/CoralNeuronSystem.cs (constructor, Update, Frozen, neurons, circuits)
 
 use rw_random::UnityRandom;
 
 use crate::Vec2;
+use crate::coral_circuit::CoralCircuit;
 use crate::coral_neuron::CoralNeuron;
 use crate::coral_stem::CoralStem;
 use crate::mycelium::{SystemId, SystemState};
@@ -34,6 +35,8 @@ pub struct CoralNeuronSystem {
     pub stems: Vec<CoralStem>,
     /// `wallMycelia`.
     pub wall_mycelia: Vec<WallMycelia>,
+    /// `circuits`, in the order `AIMapReady` made them.
+    pub circuits: Vec<CoralCircuit>,
 }
 
 impl CoralNeuronSystem {
@@ -50,6 +53,7 @@ impl CoralNeuronSystem {
             neurons: Vec::new(),
             stems: Vec::new(),
             wall_mycelia: Vec::new(),
+            circuits: Vec::new(),
         }
     }
 

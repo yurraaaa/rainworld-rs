@@ -4,7 +4,7 @@
 //! Behaviour: `rainworld-re/surveys/zero-g-player.md` (Player.cs 8541-8815 and 12257,
 //! 12327). The keyboard's `analogueDir` is the direction keys clamped to length 1, so
 //! `ZeroGGamePadIntVec` is `x, y` and `SwimDir(false)` is `SwimDir(true)` (D34); the coral
-//! circuit's resistance and jump meter are 0 without circuits.
+//! circuit's resistance, jump meter and swim bits come from `circuit.rs`.
 //!
 //! Mirrors: Player.cs (MovementUpdate, UpdateAnimation, UpdateBodyMode: ZeroG)
 
@@ -113,7 +113,16 @@ impl Player {
         self.dynamic_run_speed = [0.0, 0.0];
         self.body_mode = BodyMode::ZeroG;
         self.standing = false;
+        let speeds = self.body.chunks[HEAD].vel.length() + self.body.chunks[HIPS].vel.length();
+        // `Mathf.InverseLerp(speeds, 15, 9)`.
+        self.circuit_swim_resistance *= 9.0f32.inverse_lerp(speeds, 15.0);
         for i in 0..2 {
+            if let Some(s) = self.swim_bits[i]
+                && !self.body.chunks[HEAD].pos.dist_less(s.pos, 50.0)
+            {
+                self.swim_bits[i] = None;
+            }
+            self.body.chunks[i].vel *= 1.0f32.lerp(0.9, self.circuit_swim_resistance);
             let c = &self.body.chunks[i];
             let touching = c.contact().x != 0 || c.contact().y != 0;
             let changed = c.last_contact() != c.contact();
@@ -144,9 +153,12 @@ impl Player {
             self.flush_sounds(rng, sounds);
             self.swim_cycle += 1.0 / 2.0_f32.lerp(6.0, rng.value());
             let dir = self.swim_dir();
+            self.body.chunks[HEAD].vel += dir * (self.circuit_swim_resistance * 0.5);
             self.zero_g_thrust(room, dir, braced);
             if self.can_jump > 0 && self.want_to_jump > 0 {
                 self.zero_g_push_off(room, dir);
+            } else if self.want_to_jump > 0 && self.circuit_jump_meter >= 3.0 {
+                self.zero_g_circuit_jump(dir);
             } else {
                 self.zero_g_grab_beam(room);
             }
@@ -154,6 +166,12 @@ impl Player {
         if self.swim_cycle > 4.0 {
             self.swim_cycle = 0.0;
         }
+        self.circuit_swim_resistance = 0.0;
+        self.circuit_jump_meter = if self.circuit_jump_meter >= 0.0 {
+            (self.circuit_jump_meter - 0.5).clamp(0.0, 4.0)
+        } else {
+            (self.circuit_jump_meter + 0.5).min(0.0)
+        };
     }
 
     /// The thrust of `ZeroGSwim`: the main chunk accelerates along `dir` (0.2 braced, else
@@ -174,6 +192,21 @@ impl Player {
             head.vel *= 0.8;
             head.vel += dir * 0.2;
         }
+    }
+
+    /// A jump press with the circuit's meter at 3 or more: the body is thrown along the held
+    /// direction and its own axis, harder the deeper in the circuit it is, and the meter
+    /// goes to -1 (the next collisions throw the circuit).
+    fn zero_g_circuit_jump(&mut self, dir: Vec2) {
+        let [head, hips] = self.body.chunk_pair_mut(HEAD, HIPS);
+        let thrust = dir.lerp(hips.pos.direction_to(head.pos), 0.5);
+        let depth = 0.5 + 0.5 * self.circuit_swim_resistance;
+        head.vel += thrust * (4.4 * depth);
+        hips.vel += thrust * (4.0 * depth);
+        self.play_sound(SoundId::SlugcatNormalJump, HEAD, 1.0, 1.0);
+        self.can_jump = 0;
+        self.want_to_jump = 0;
+        self.circuit_jump_meter = -1.0;
     }
 
     /// A jump press off a brace: the solid neighbour (chunk 1's tiles, then chunk 0's)

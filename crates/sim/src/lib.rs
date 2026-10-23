@@ -30,8 +30,11 @@ mod camera;
 mod camera_image;
 pub mod campaign;
 mod chunk;
+mod circuit_connector;
+mod circuit_crab;
 mod climbable_vines;
 pub mod color;
+mod coral_circuit;
 mod coral_neuron;
 mod coral_stem;
 mod coral_system;
@@ -106,9 +109,14 @@ pub use bubble::{Bubble, BubbleMode};
 pub use camera::CameraView;
 pub use camera_image::CameraImage;
 pub use chunk::{BodyChunk, Contact, DEFAULT_RESTRICT_IN_ROOM_RANGE, PhysicsParams, TerrainImpact};
+pub use circuit_connector::{CircuitConnector, ConnectorAnchor};
+pub use circuit_crab::{CircuitCrab, CrabLeg};
 pub use climbable_vines::{
     ClimbableVine, ClimbableVinesSystem, PlacedVines, RoomVines, RoomVinesView, VineAccess,
     VineClimber, VineHost, VineHostMut, VineKind, VinePosition, VineRef,
+};
+pub use coral_circuit::{
+    BitCx, BitRef, CircuitBit, CircuitCx, CircuitPlace, CoralCircuit, PushChunk,
 };
 pub use coral_neuron::{CoralNeuron, NeuronCx, NeuronGeometry, NewNeuron};
 pub use coral_stem::{CoralStem, NewStem, SegmentHang, SegmentRef, StemCx, StemSegment, StemTick};
@@ -149,8 +157,9 @@ pub use object::{
     BodyChunkConnection, ConnectionKind, PhysicalObject, TerrainImpactHandler, slugcat,
 };
 pub use player::{
-    Animation, BodyMode, DangerGraspState, DangerGraspStep, GrabState, HEAD, HIPS, INPUT_HISTORY,
-    Input, Player, PlayerController, ShelterCheck, SpearOnBack, StomachObject, VesselStep,
+    Animation, BodyMode, CircuitCollision, CircuitExplosion, DangerGraspState, DangerGraspStep,
+    GrabState, HEAD, HIPS, INPUT_HISTORY, Input, Player, PlayerController, ShelterCheck,
+    SpearOnBack, StomachObject, SwimBit, VesselStep,
 };
 pub use projected_circle::{CircleOwner, ProjectedCircle};
 pub use projected_scan_lines::{ProjectedScanLine, ProjectedScanLines};

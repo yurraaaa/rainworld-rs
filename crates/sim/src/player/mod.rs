@@ -16,6 +16,7 @@ mod advanced;
 mod animation;
 mod body_mode;
 mod carry;
+mod circuit;
 mod corridor;
 mod drips;
 mod exhaustion;
@@ -42,6 +43,7 @@ use rw_assets::{Room, Terrain};
 use rw_random::UnityRandom;
 
 pub use carry::HeavyCarry;
+pub use circuit::{CircuitCollision, CircuitExplosion, SwimBit};
 pub use grab::{GrabState, StomachObject};
 pub use grabbed::{DangerGraspState, DangerGraspStep};
 pub use input::{INPUT_HISTORY, Input, PlayerController};
@@ -362,6 +364,14 @@ pub struct Player {
     swim_force: f32,
     /// Stroke phase: 0..4 under water, also drives the swimming poses.
     swim_cycle: f32,
+    /// `circuitSwimResistance`: how much of a coral circuit the body is in, set by its
+    /// bits and cleared by the zero-gravity swim.
+    circuit_swim_resistance: f32,
+    /// `curcuitJumpMeter`: circuit collisions counted up, decaying in the zero-gravity swim;
+    /// below 0 right after the circuit jump.
+    circuit_jump_meter: f32,
+    /// `swimBits`: the bit each side of the body last swam through.
+    swim_bits: [Option<SwimBit>; 2],
     /// Ticks before the next surface jump or deep-swim boost.
     water_jump_delay: i32,
     /// `waterFriction`, set by the swim animations, used by next tick's physics.
@@ -547,6 +557,9 @@ impl Player {
             drown: 0.0,
             swim_force: 0.0,
             swim_cycle: 0.0,
+            circuit_swim_resistance: 0.0,
+            circuit_jump_meter: 0.0,
+            swim_bits: [None; 2],
             water_jump_delay: 0,
             water_friction: crate::slugcat::PARAMS.water_friction,
             water_retardation_immunity: 0.0,

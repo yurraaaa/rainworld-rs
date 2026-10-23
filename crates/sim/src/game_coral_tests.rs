@@ -25,12 +25,16 @@ use crate::{
 };
 
 /// A 40 x 20 room with three rows of floor, the player standing on it at (2, 3).
-fn coral_game(placed: &str, effects: &[(&str, f32)], ticks: usize) -> RainWorldGame {
+pub(in crate::game) fn coral_game(
+    placed: &str,
+    effects: &[(&str, f32)],
+    ticks: usize,
+) -> RainWorldGame {
     coral_game_with(placed, effects, ticks, Sounds::default())
 }
 
 /// [`coral_game`] with the room's `Sounds`.
-fn coral_game_with(
+pub(in crate::game) fn coral_game_with(
     placed: &str,
     effects: &[(&str, f32)],
     ticks: usize,
