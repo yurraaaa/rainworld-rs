@@ -33,13 +33,13 @@ fn held_player() -> Player {
 }
 
 #[test]
-fn a_lizard_grasp_is_dangerous() {
-    // `Player.Grabbed` (no `goThroughFloors` write: the getter reads the grasp): a Lizard's grasp is the danger grasp with
+fn a_lizard_grasp_is_dangerous_and_sets_the_raw_flag() {
+    // `Player.Grabbed` (base `PhysicalObject.Grabbed`: `GoThroughFloors = true`): a Lizard's grasp is the danger grasp with
     // its time at 0; another grabber's only the first.
     let p = held_player();
     assert_eq!(p.danger_grasp().grasp, Some(lizard_grasp()));
     assert_eq!(p.danger_grasp().time, 0);
-    assert!(!p.body.chunks[0].raw_go_through_floors());
+    assert!(p.body.chunks[0].raw_go_through_floors());
     let mut q = Player::new();
     q.grabbed(lizard_grasp(), false);
     assert_eq!(q.danger_grasp().grasp, None);

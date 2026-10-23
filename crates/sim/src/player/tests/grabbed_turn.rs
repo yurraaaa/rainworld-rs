@@ -319,11 +319,12 @@ const PLATFORM: [&str; 10] = [
 ];
 
 #[test]
-fn a_rock_in_the_players_hand_passes_through_a_platform_until_released() {
-    // `Grabbed` -> `Weapon.ChangeMode(Carried)` sets the raw `goThroughFloors`; the getter
-    // is also true while the player holds it (`CanBePulledIntoShortcut`). `Grasp.Release`
-    // writes no flag, so a rock whose raw flag is false (a heavy throw's
-    // `goThroughFloors = false`) lands on the platform once released.
+fn the_getter_alone_holds_a_carried_rock_through_a_platform() {
+    // Isolates the getter: `Weapon.Grabbed` (`ChangeMode(Carried)`, then base `Grabbed`)
+    // sets the raw flag, and in the game a released rock turns `Free` in `Weapon.Update`,
+    // whose `ChangeMode` sets it true again, so it falls through. Here the raw flag is
+    // forced false (a heavy throw's write) to show the held rock still reads true and
+    // lands on the platform once the grasp is gone.
     let mut g = game(&HALL, (3, 1));
     let rock = g.armed(AbstractObjectType::Rock, (3, 2));
     let room = crate::tests::room(&PLATFORM);
@@ -376,6 +377,10 @@ fn a_dead_lizard_dragged_by_the_player_passes_through_platforms() {
             .all(|c| c.go_through_floors())
     );
     g.world.release_grasp(g.player_id, 0);
+    // `Grabbed` set the raw flag: still true after the release, until the lizard's
+    // next `Update` overwrites it (`Lizard.cs` movement code).
+    assert!(g.world.lizard_at(l).body.chunks[0].go_through_floors());
+    g.world.lizard_at(l).body.set_go_through_floors(false);
     assert!(
         g.world
             .lizard_at(l)
@@ -397,6 +402,9 @@ fn the_players_chunks_follow_each_grasp_change_at_once() {
             .iter()
             .all(|c| c.go_through_floors())
     );
+    // `Grabbed` set the raw flag; clear it to read the pulled part alone.
+    g.player_mut().body.set_go_through_floors(false);
+    assert!(g.player_ref().body.chunks[0].go_through_floors());
     g.world.lose_all_grasps(l);
     g.sync_player_pulled();
     assert!(

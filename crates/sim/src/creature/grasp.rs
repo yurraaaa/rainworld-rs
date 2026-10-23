@@ -265,8 +265,17 @@ impl World {
         };
         self.creature_mut(r.grabber).grasps[r.grasp_used] = Some(grasp);
         match r.grabbed {
-            Entity::Creature(_) => {}
-            Entity::Object(id) => self.change_weapon_mode(id, WeaponMode::Carried, rng),
+            Entity::Creature(id) => match &mut self.creature_mut(id).realized {
+                Some(RealizedCreature::Fly(f)) => f.body.set_go_through_floors(true),
+                Some(RealizedCreature::Lizard(l)) => l.body.set_go_through_floors(true),
+                _ => {}
+            },
+            Entity::Object(id) => {
+                self.change_weapon_mode(id, WeaponMode::Carried, rng);
+                if let Some(w) = self.object_mut(id).realized.as_deref_mut() {
+                    w.body.set_go_through_floors(true);
+                }
+            }
         }
         self.grabbed_by_mut(r.grabbed).push(grasp);
         self.sync_held(r.grabbed);

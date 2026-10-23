@@ -373,7 +373,8 @@ fn the_recognizer_makes_no_draws() {
 #[test]
 fn a_held_body_reads_go_through_floors_until_released() {
     // `BodyChunk.goThroughFloors`: true while `CanBePulledIntoShortcut(owner)`, else the
-    // raw field. Grabbing sets no raw flag (`PhysicalObject.Grabbed` does not).
+    // raw field. `PhysicalObject.Grabbed` also sets the raw flag, so after a release the
+    // body still passes floors until its own update resets it.
     let mut g = game(&HALL, (3, 1));
     let l = g.held_lizard((10, 1));
     let f = g.dead_fly((6, 1));
@@ -396,7 +397,10 @@ fn a_held_body_reads_go_through_floors_until_released() {
     };
     assert!(g.world.grab(request, &mut g.rng));
     let c = &g.world.creature(f).fly().expect("fly").body.chunks[0];
-    assert!(c.go_through_floors() && !c.raw_go_through_floors());
+    assert!(c.go_through_floors() && c.raw_go_through_floors());
     g.world.release_grasp(l, 0);
-    assert!(!g.world.creature(f).fly().expect("fly").body.chunks[0].go_through_floors());
+    assert!(g.world.creature(f).fly().expect("fly").body.chunks[0].go_through_floors());
+    let body = &mut g.world.creature_mut(f).fly_mut().expect("fly").body;
+    body.set_go_through_floors(false);
+    assert!(!body.chunks[0].go_through_floors());
 }
