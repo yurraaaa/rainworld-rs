@@ -69,14 +69,11 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   both today. Step 6 (SkyDandelions, GreenSparks, ZeroGSpecks, CorruptionSpores, D29,
   notes `particles.md`) done that way (`particles_now_viewed`); specks stay `reset` until
   zero gravity (`AntiGravity`) is ported.
-  Two ordering items (review of step 6): (F1) `Room.NowViewed` runs the effects loop
-  (sparks, specks, spores), then `InitiateGraphicsModule`, then the insect roll, but the
-  port makes the graphics-module draws at once in `camera_changed_room` and the particles
-  and insects at the next tick's head (`apply_insect_view_change`); moving the modules
-  there means feeding the observer at the tick head, left for later. (F4) `Room.Loaded`
+  Ordering item (review of step 6): (F4) `Room.Loaded`
   adds effect objects (~863) and placed objects (~1055) before `AddRoomSpecificScript`
   (~1873); the port adds them in `add_trigger_checkers`, after the scripts. No base room
-  is affected today.
+  is affected today. The `NowViewed` order (F1) is a divergence (D29), by the user's
+  decision.
 - **Code quality pass** (user, 2026-10-16; moved to M14 cleanup by the user 2026-10-22,
   not after the lizard steps): go over the workspace one crate at a time, a step per crate,
   finding code quality improvements (duplicated code to merge, and the like) and
@@ -157,3 +154,16 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   (`MISCPROG` `LEVELTOKENS`/`SANDBOXTOKENS`, kept untouched by `rw-save`).
 - **More Slugcats token stalk** (user, 2026-10-22): `TokenStalk`'s MSC branches
   (satellite head, `SataFlasher` sprite, `forceSatellite`), with the DLC.
+- **M7 effects: behaviour waiting on its dependency** (user, 2026-10-23: port each when
+  its dependency is ported):
+  - Lightning: `Room.Update`'s `game.pauseUpdate` branch of `backgroundNoise`, with the
+    paused update; `DaddyLongLegs` closing its eyes above `BackgroundNoise` 0.35, with
+    that creature.
+  - Rainbow: the camera's `ghostMode` hiding it, with echoes; the `IsArenaSession` branch
+    (always made, fade 1, never destroyed) and arena's 600-tick start-up, with arena
+    sessions (D26).
+  - SkyDandelions: `globalRain.Intensity` in `SpawnChance`, with the rain; dandelion
+    stalks reaching the chunks of every physical object, as those objects are ported.
+  - ZeroGSpecks, CorruptionSpores: zero gravity (`AntiGravity`, the `ZeroG` and
+    `BrokenZeroG` effects), which makes them visible and stops the pile-up of `reset`
+    specks (D29).
