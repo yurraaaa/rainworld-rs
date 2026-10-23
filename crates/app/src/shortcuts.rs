@@ -1,7 +1,7 @@
 //! Camera 0's `ShortcutGraphics` (`rw_graphics::ShortcutGraphics`) fed from the game:
-//! made for the camera's room on `NewRoom`, faded each camera tick, coloured by the
-//! game's `ColorEntrance` calls and drawn with the room's blink state and the player's
-//! vessel.
+//! made for the camera's room on `NewRoom` (after the wait for `shortCutsReady`), faded
+//! each camera tick, coloured by the game's `ColorEntrance` calls and drawn with the
+//! room's blink state and the player's vessel.
 //!
 //! Mirrors: ShortcutGraphics.cs
 
@@ -11,13 +11,17 @@ use rw_graphics::{
     ShortcutVessel,
 };
 use rw_random::UnityRandom;
+use rw_sim::world::RealizedRoom;
 use rw_sim::{RainWorldGame, ShortCutColor, Vec2};
 
 /// The shortcut graphics of the room camera 0 shows.
 #[derive(Default)]
 pub struct CameraShortcuts {
-    /// The room they were made for, and them.
-    made: Option<(i32, ShortcutGraphics)>,
+    /// `camera.room`: the room they were made for (`NewRoom`).
+    room: Option<i32>,
+    graphics: Option<ShortcutGraphics>,
+    /// `waitingForRoomToGenerateShortcuts`.
+    waiting: bool,
 }
 
 impl CameraShortcuts {
@@ -26,17 +30,45 @@ impl CameraShortcuts {
 
     /// `ShortcutGraphics.Update`, from `RoomCamera.Update` before the rooms update.
     pub fn update(&mut self) {
-        if let Some((_, g)) = &mut self.made {
+        if let Some(g) = &mut self.graphics {
             g.update();
         }
     }
 
-    /// After the game's tick: new graphics when camera 0 moved to another room
-    /// (`NewRoom`), then the tick's `ColorEntrance` calls on that room.
+    /// `NewRoom` (from `RoomCamera.ChangeRoom`): the old sprites go; a room that is not
+    /// `shortCutsReady` makes the graphics wait for it in [`Self::draw`].
+    pub fn new_room(&mut self, sim: &RainWorldGame, room: i32) {
+        self.room = Some(room);
+        self.graphics = None;
+        self.waiting = false;
+        if sim
+            .world()
+            .realized(room)
+            .is_some_and(RealizedRoom::shortcuts_ready)
+        {
+            self.graphics = Self::generate(sim, room);
+        } else {
+            self.waiting = true;
+        }
+    }
+
+    /// `waitingForRoomToGenerateShortcuts`.
+    #[must_use]
+    pub fn waiting(&self) -> bool {
+        self.waiting
+    }
+
+    /// The room the graphics were made for.
+    #[must_use]
+    pub fn room(&self) -> Option<i32> {
+        self.room
+    }
+
+    /// After the game's tick: the tick's `ColorEntrance` calls on the room they show
+    /// (ignored while they wait, as the game's bounds check does).
     pub fn sync(&mut self, sim: &mut RainWorldGame, slugcat: SlugcatName) {
-        let room = sim.camera_room();
         let colors = sim.take_entrance_colors();
-        let Some(g) = self.graphics(sim) else {
+        let (Some(room), Some(g)) = (self.room, &mut self.graphics) else {
             return;
         };
         for c in colors.into_iter().filter(|c| c.room == room) {
@@ -47,25 +79,15 @@ impl CameraShortcuts {
         }
     }
 
-    /// The graphics of camera 0's room, made anew when it changed.
-    fn graphics(&mut self, sim: &RainWorldGame) -> Option<&mut ShortcutGraphics> {
-        let room = sim.camera_room();
-        if self.made.as_ref().is_none_or(|(r, _)| *r != room) {
-            self.made = Self::generate(sim).map(|g| (room, g));
-        }
-        self.made.as_mut().map(|(_, g)| g)
-    }
-
-    /// The graphics of camera 0's room.
+    /// The graphics, once made.
     #[cfg(test)]
-    pub fn current(&mut self, sim: &RainWorldGame) -> Option<&ShortcutGraphics> {
-        self.graphics(sim).map(|g| &*g)
+    pub fn current(&self) -> Option<&ShortcutGraphics> {
+        self.graphics.as_ref()
     }
 
-    /// `GenerateSprites` for camera 0's room.
-    fn generate(sim: &RainWorldGame) -> Option<ShortcutGraphics> {
+    /// `GenerateSprites` for room `index`.
+    fn generate(sim: &RainWorldGame, index: i32) -> Option<ShortcutGraphics> {
         let world = sim.world();
-        let index = sim.camera_room();
         let realized = world.realized(index)?;
         let data = world.abstract_room(index)?;
         let mods = world.mods();
@@ -136,9 +158,17 @@ impl CameraShortcuts {
         rng: &mut UnityRandom,
     ) -> Option<DrawList> {
         let world = sim.world();
-        let realized = world.realized(sim.camera_room())?;
+        let room = self.room?;
+        let realized = world.realized(room)?;
+        if self.waiting {
+            if !realized.shortcuts_ready() {
+                return None;
+            }
+            self.graphics = Self::generate(sim, room);
+            self.waiting = false;
+            return None;
+        }
         let blinking = realized.shortcuts_blinking.as_ref()?.rows();
-        let room = sim.camera_room();
         let vessels: Vec<ShortcutVessel> = sim
             .transport_vessels()
             .filter_map(|v| match v {
@@ -157,7 +187,7 @@ impl CameraShortcuts {
                 Some(_) => None,
             })
             .collect();
-        let g = self.graphics(sim)?;
+        let g = self.graphics.as_mut()?;
         Some(g.draw(
             &ShortcutFrame {
                 room: &realized.room,
@@ -171,3 +201,6 @@ impl CameraShortcuts {
         ))
     }
 }
+
+#[cfg(test)]
+mod tests;

@@ -26,8 +26,9 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `../rainworld-re/surveys/async-room-loading.md`; next after the SS superstructure work
   (user, 2026-10-23). `ShortcutHelper` its own job after it. Step A (stages, `RoomPreparer`,
   Immediate schedule) done 2026-10-23; B (the game's minimum schedule on, consumers,
-  starts, the orphaned preparer as a no-op) done 2026-10-23; C (camera, shortcut
-  graphics) left.
+  starts, the orphaned preparer as a no-op) done 2026-10-23; C (camera image apply one
+  update later, `ShortcutGraphics` wait) done 2026-10-23 (`RoomTransition`'s palette read
+  not there: the class is not ported).
 - **Realizer guards** (user, 2026-10-23; `../rainworld-re/surveys/room-realizer-audit.md`):
   `RoomRealizer.Update`'s `!followCreature.Room.offScreenDen` check on the room change and the
   off-screen-den guard on the random neighbour step, small fix after async step B; the
@@ -156,7 +157,8 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **Camera room switches mid-tick** (2026-10-22, camera-shake review; inferred): the
   port's `camera_moves_to` sets the camera's room at once, where the game's
   `cameras[0].room` stays the old room until `ApplyPositionChange` at the next
-  `RoomCamera.Update`. For the rest of that tick `ScreenMovement`s and the drips'
+  `RoomCamera.Update` (the app's camera and shortcut graphics now wait for it, step C;
+  the sim's switch is still at once). For the rest of that tick `ScreenMovement`s and the drips'
   viewed check go to the new room, as does `Room.Update`'s ceiling drip (`BeingViewed`).
 - **Creatures at open room edges** (user, 2026-10-22, for when more creatures get
   bodies): room borders are not solid (`Room.GetTile` copies the edge tile outside the

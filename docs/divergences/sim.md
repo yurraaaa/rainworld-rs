@@ -825,10 +825,18 @@ second part, else a single-room world for arena levels). The campaign descriptio
   (in a creature or AI constructor with no room) was not traced; if it does, the game's
   realizer would keep waiting on that room, where the port's stops after stage 2. Part of
   the user's decision.
-- **Camera and shortcut graphics.** `RoomCamera.MoveCamera` applies a room's image at
-  once, and `ShortcutGraphics.NewRoom`'s wait for `shortCutsReady`
-  (`waitingForRoomToGenerateShortcuts`) is skipped (user, 2026-10-22); both return with
-  step C of the async loading plan (`../rainworld-re/surveys/async-room-loading.md`).
+- **Camera and shortcut graphics** (async loading step C, done). `MoveCamera` to another
+  room, and an in-room cut to a camera whose image was not queued while leaning
+  (`PreLoadTexture`), apply in the camera's next update (`applyPosChangeWhenTextureIsLoaded`);
+  `ChangeRoom` then runs `ShortcutGraphics.NewRoom`, and `Draw` polls
+  `waitingForRoomToGenerateShortcuts` until the room is `shortCutsReady`. What stays: the
+  sim's `camera_moves_to` still switches the camera room, `NoLongerViewed`/`NowViewed` and
+  `camerasChangedTick` at the move, not at the apply (OPEN-ITEMS, "Camera room switches
+  mid-tick"); and while a room move waits, the frame draws the old room's image without
+  the new room's drawables (the game's `ChangeRoom` has not added them yet). A queued
+  image is always ready (decoding is at once), so only the cut to an unqueued camera and a
+  room move wait; the game's `preLoadedBKG` case (a room with a `_N_bkg.png`) is not
+  modelled.
 - **Re-preprocessing old room files.** The game re-preprocesses room files baked before
   generation 20 (and writes them back). Every room the vanilla worlds list is generation
   20 or later; for older files the port derives only the shortcut nodes (exits, dens,

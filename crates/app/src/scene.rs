@@ -92,6 +92,8 @@ pub struct Scene {
     water_light: Option<WaterLight>,
     /// The camera moved to another room since the last [`Scene::take_entered_room`].
     entered_room: bool,
+    /// `loadingRoom` and `loadingCameraPos` while `applyPosChangeWhenTextureIsLoaded`.
+    pending_move: Option<rw_sim::CameraMove>,
     /// Camera 0's HUD, once fired up.
     hud: Option<Hud>,
     /// The quads of the HUD's first container, drawn by the next frame before the room's
@@ -169,6 +171,7 @@ impl Scene {
             water_sprites: None,
             water_light: None,
             entered_room: false,
+            pending_move: None,
             hud: None,
             hud_below: StageBatch::default(),
             map_order: MapOrder::new(),
@@ -177,6 +180,8 @@ impl Scene {
             paused: false,
         };
         scene.load_visuals();
+        scene.game.new_shortcut_room(scene.camera_room);
+        scene.queue_camera_move();
         scene.apply_camera_move();
         scene.entered_room = false;
         scene
@@ -250,15 +255,38 @@ impl Scene {
         self.game.raise_full_screen_effect();
     }
 
-    /// `RoomCamera.MoveCamera`: on another room, its level graphic is loaded (at once:
-    /// D14); the camera cuts to the camera asked for.
+    /// The move `RoomCamera.Update` has yet to apply.
+    #[must_use]
+    pub fn pending_move(&self) -> Option<rw_sim::CameraMove> {
+        self.pending_move.or_else(|| {
+            Some(rw_sim::CameraMove {
+                room: self.camera_room,
+                camera: self.camera.pending()?,
+            })
+        })
+    }
+
+    /// `RoomCamera.MoveCamera`: a later move replaces an unapplied one (`loadingRoom`,
+    /// `loadingCameraPos`).
+    fn queue_camera_move(&mut self) {
+        if let Some(mv) = self.game.take_camera_move() {
+            self.pending_move = Some(mv);
+        }
+    }
+
+    /// `applyPosChangeWhenTextureIsLoaded` in `RoomCamera.Update`: the move queued in
+    /// the last tick takes effect (the texture was preloaded in `MoveCamera2`, so one
+    /// update later). On another room its level graphic is loaded (at once: D14),
+    /// `ChangeRoom` makes the shortcut graphics anew, and the camera cuts to the camera
+    /// asked for.
     fn apply_camera_move(&mut self) {
-        let Some(mv) = self.game.take_camera_move() else {
+        let Some(mv) = self.pending_move.take() else {
             return;
         };
         self.map_order.camera_moved();
         if mv.room != self.camera_room {
             self.camera_room = mv.room;
+            self.game.new_shortcut_room(mv.room);
             self.entered_room = true;
             log::info!("camera in {}", self.game.room().name());
             self.camera = RoomCamera::new(
@@ -421,6 +449,7 @@ impl Scene {
     /// `RoomCamera.Update`'s camera choice and window lerp, handed to the sim with the
     /// window position its shake and the rooms' `ScreenMovement`s start from.
     fn update_room_camera(&mut self) {
+        self.apply_camera_move();
         if self.camera.update(self.game.camera_follow().as_ref()) {
             log::info!("camera {}", self.camera.current() + 1);
             self.game.sim_mut().camera_moved();
@@ -463,7 +492,7 @@ impl Scene {
             .as_ref()
             .map_or(0.0, |v| v.room_palette().darkness);
         self.game.sim_mut().set_camera_darkness(darkness);
-        let camera_room = self.game.sim().camera_room();
+        let camera_room = self.camera_room;
         let image = self
             .visuals
             .as_ref()
@@ -646,7 +675,7 @@ impl Scene {
     fn after_game_tick(&mut self) -> Vec<SoundEvent> {
         let shake = self.game.sim_mut().take_camera_displacement();
         self.camera.displace(shake);
-        self.apply_camera_move();
+        self.queue_camera_move();
         self.game.take_sound_events()
     }
 
@@ -709,7 +738,10 @@ impl Scene {
             .visuals
             .as_ref()
             .map_or(rw_graphics::Color::BLACK, Visuals::fog_color);
-        let mut sprites = if target.sprites.is_some() {
+        // Until the camera applies its move the old room's image is up and the new room's
+        // drawables are not yet in it (`ChangeRoom` adds them), so they are left out.
+        let room_shown = self.pending_move.is_none();
+        let mut sprites = if target.sprites.is_some() && room_shown {
             self.game.draw_list(alpha, face, fog)
         } else {
             None
@@ -735,7 +767,7 @@ impl Scene {
         };
         // Every drawable's sprites, in camera 0's container order.
         let has_player_sprites = sprites.is_some();
-        let objects = if target.sprites.is_some() {
+        let objects = if target.sprites.is_some() && room_shown {
             self.game.sync_sprite_order();
             let player = Drawable::Entity(rw_sim::item::Entity::Creature(
                 self.game.sim().player_creature(),
@@ -879,7 +911,7 @@ impl Scene {
             }
         };
         let holograms = match &level {
-            Some(view) if target.sprites.is_some() => self.game.hologram_draw_lists(
+            Some(view) if target.sprites.is_some() && room_shown => self.game.hologram_draw_lists(
                 alpha,
                 rw_sim::Vec2::from(view.origin),
                 rw_sim::Vec2::from(self.camera.screen_size()),

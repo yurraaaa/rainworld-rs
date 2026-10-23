@@ -7,7 +7,7 @@
 //! once the creature leaves the current camera's zone for another's. Shake (`rw_sim`'s
 //! `CameraShake`) moves `pos` between ticks and adds a per-frame micro shake offset.
 //!
-//! Mirrors: RoomCamera.cs (GetCameraBestIndex, Update, DrawUpdate)
+//! Mirrors: RoomCamera.cs (GetCameraBestIndex, Update, DrawUpdate, MoveCamera, MoveCamera2, PreLoadTexture)
 
 use rw_sim::Vec2;
 
@@ -36,6 +36,10 @@ pub struct RoomCamera {
     next: usize,
     /// `DrawUpdate`'s micro shake for the frame being drawn, added before the clamp.
     frame_shake: Vec2,
+    /// `quenedTexture`: the camera whose image `PreLoadTexture` queued while leaning.
+    queued: Option<usize>,
+    /// `loadingCameraPos` while `applyPosChangeWhenTextureIsLoaded`.
+    pending: Option<usize>,
 }
 
 impl RoomCamera {
@@ -58,6 +62,8 @@ impl RoomCamera {
             input_forward: Vec2::ZERO,
             next: 0,
             frame_shake: Vec2::ZERO,
+            queued: None,
+            pending: None,
         };
         camera.cut_to(0);
         camera
@@ -128,12 +134,21 @@ impl RoomCamera {
         })
     }
 
-    /// One tick of `RoomCamera.Update` up to the shake: pick the camera for `follow`,
-    /// then move the window toward its rest position plus lean. Returns `true` when the
-    /// camera was switched (a hard cut: load that camera's image and palette fade). The
-    /// shake's jump and the rooms' bumps come after, through [`Self::displace`].
+    /// The camera a `MoveCamera` is waiting to cut to (`loadingCameraPos`).
+    #[must_use]
+    pub fn pending(&self) -> Option<usize> {
+        self.pending
+    }
+
+    /// One tick of `RoomCamera.Update` up to the shake: apply a move waiting for its
+    /// image, pick the camera for `follow`, then move the window toward its rest
+    /// position plus lean. Returns `true` when the camera was switched (a hard cut: load
+    /// that camera's image and palette fade). A cut to a camera whose image was not
+    /// queued while leaning waits for the next update (`MoveCamera2`). The shake's jump
+    /// and the rooms' bumps come after, through [`Self::displace`].
     pub fn update(&mut self, follow: Option<&Follow>) -> bool {
-        let switched = follow.is_some_and(|f| self.choose_camera(f));
+        let applied = self.pending.take().inspect(|&i| self.cut_to(i)).is_some();
+        let switched = follow.is_some_and(|f| self.choose_camera(f)) || applied;
         self.last_pos = self.pos;
         let seek = Vec2::from(self.rest_pos(self.current)) + self.lean * 8.0;
         self.pos = self.clamp(self.pos.lerp(seek, 0.1));
@@ -179,14 +194,22 @@ impl RoomCamera {
             .zone_distance(self.current, chunk.to_array(), false)
             .is_none()
         {
-            self.cut_to(best);
-            return true;
+            if self.queued == Some(best) {
+                self.cut_to(best);
+                return true;
+            }
+            self.pending = Some(best);
+            return false;
         }
         let (from, to) = (self.cam(self.current), self.cam(best));
         if (from.x - to.x).abs() > (from.y - to.y).abs() {
             self.lean.x = if from.x > to.x { -1.0 } else { 1.0 };
         } else {
             self.lean.y = if from.y > to.y { -1.0 } else { 1.0 };
+        }
+        // `PreLoadTexture(room, num2)`: the first one queued stays until a cut.
+        if self.queued.is_none() {
+            self.queued = Some(best);
         }
         false
     }
@@ -210,6 +233,8 @@ impl RoomCamera {
 
     /// `ApplyPositionChange`: show camera `i` with the window at rest and no lean.
     pub fn cut_to(&mut self, i: usize) {
+        self.queued = None;
+        self.pending = None;
         self.current = i;
         self.next = i;
         self.pos = Vec2::from(self.rest_pos(i));
@@ -301,13 +326,17 @@ mod tests {
         assert!(!c2.update(Some(&f)));
         assert_eq!(c2.current(), 0);
         assert_eq!(c2.lean, Vec2::new(1.0, 0.0));
-        // Past camera 0's zone: hard cut to camera 1, window at its rest position.
+        // Past camera 0's zone: hard cut to camera 1 (its image was queued while
+        // leaning), window at its rest position.
         assert!(c2.update(Some(&at([1060.0, 300.0]))));
         assert_eq!(c2.current(), 1);
         assert_eq!(c2.view_origin(0.0), [881.0 - 0.02, -42.0 - 0.02]);
-        // Back left beyond camera 1's zone (x <= 1052): cut back.
+        // Back left beyond camera 1's zone (x <= 1052): camera 0's image was not queued,
+        // so `MoveCamera2` loads it and the cut comes in the next update.
+        assert!(!c2.update(Some(&at([1000.0, 300.0]))));
+        assert_eq!((c2.current(), c2.pending()), (1, Some(0)));
         assert!(c2.update(Some(&at([1000.0, 300.0]))));
-        assert_eq!(c2.current(), 0);
+        assert_eq!((c2.current(), c2.pending()), (0, None));
     }
 
     #[test]

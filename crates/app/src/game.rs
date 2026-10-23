@@ -503,6 +503,22 @@ impl Game {
         seed: u64,
         spawn_tile: Option<(i32, i32)>,
     ) -> Self {
+        let mut game = Self::new_unticked(room, settings, seed, spawn_tile);
+        while !game.sim.camera_room_ready() {
+            game.tick(Input::NONE);
+        }
+        game
+    }
+
+    /// [`Self::new`] before its first tick: the room is not `shortCutsReady`.
+    #[cfg(test)]
+    #[must_use]
+    pub fn new_unticked(
+        room: Room,
+        settings: &RoomSettings,
+        seed: u64,
+        spawn_tile: Option<(i32, i32)>,
+    ) -> Self {
         let data = WorldData::from_room(&room);
         let rooms = Arc::new(rw_assets::world::FixedRoom(rw_assets::world::LoadedRoom {
             room,
@@ -514,18 +530,14 @@ impl Game {
             room: 0,
             tile: spawn_tile,
         };
-        let mut game = Self::build(
+        Self::build(
             world,
             campaign,
             StoryStart::new_game(campaign),
             start,
             UnityRandom::new(seed as i32),
             Sounds::default(),
-        );
-        while !game.sim.camera_room_ready() {
-            game.tick(Input::NONE);
-        }
-        game
+        )
     }
 
     /// The game `start` asks for, read from the installed game, drawing from `rng` (the
@@ -2072,8 +2084,22 @@ impl Game {
 
     /// Camera 0's shortcut graphics.
     #[cfg(test)]
-    pub fn shortcut_graphics(&mut self) -> Option<&rw_graphics::ShortcutGraphics> {
-        self.shortcuts.current(&self.sim)
+    pub fn shortcut_graphics(&self) -> Option<&rw_graphics::ShortcutGraphics> {
+        self.shortcuts.current()
+    }
+
+    /// `RoomCamera.ChangeRoom`'s `shortcutGraphics.NewRoom()` for camera room `room`.
+    pub fn new_shortcut_room(&mut self, room: i32) {
+        self.shortcuts.new_room(&self.sim, room);
+    }
+
+    /// The shortcut graphics' room and `waitingForRoomToGenerateShortcuts`.
+    #[must_use]
+    pub fn shortcut_wait(&self) -> Option<crate::mcp::reply::ShortcutGraphicsState> {
+        Some(crate::mcp::reply::ShortcutGraphicsState {
+            room: self.shortcuts.room()?,
+            waiting: self.shortcuts.waiting(),
+        })
     }
 
     /// The camera room palette's earth colour, which the overseers' hologram colour
@@ -2427,7 +2453,7 @@ pub(crate) mod tests {
     }
 
     /// A closed 11 x 5 room with a pipe entrance at (3, 1) and one at (5, 1).
-    fn pipe_room() -> Room {
+    pub(crate) fn pipe_room() -> Room {
         let rows = [
             "###########",
             "#...#.....#",

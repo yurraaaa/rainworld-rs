@@ -40,6 +40,9 @@ impl Session {
 
     /// The camera room's shortcut symbols, by shortcut.
     fn entrance_elements(&mut self) -> Vec<Option<&'static str>> {
+        // `Draw` makes the sprites once the room is `shortCutsReady`.
+        self.screenshot(&ScreenshotParams::default())
+            .expect("screenshot");
         let scene = self.scene_mut().expect("scene");
         let count = scene.game().room().shortcut_map().shortcuts().len();
         let g = scene
