@@ -117,6 +117,8 @@ pub struct NeuronCx<'a> {
     pub projector: bool,
     /// The `ProjectedCircle`s already in the room's update list, in its order.
     pub circles: Vec<u64>,
+    /// The room has no `climbableVines` yet: the constructor makes and adds it.
+    pub new_vine_system: bool,
     /// The room's update-list counter (`AddObject`).
     pub seq: &'a mut u64,
 }
@@ -131,6 +133,8 @@ impl NeuronCx<'_> {
 /// A neuron built by the constructor, with the circles it added to the room before it was
 /// added itself.
 pub struct NewNeuron {
+    /// The place in the update list of the `ClimbableVinesSystem` the constructor made.
+    pub vine_system_order: Option<u64>,
     pub neuron: CoralNeuron,
     pub circles: Vec<ProjectedCircle>,
 }
@@ -172,15 +176,18 @@ impl CoralNeuron {
         }
         let saved = rng.state();
         rng.init_state(length.to_int_cs());
-        let (pos_a, root_dir_a) = Self::snap_to_wall(cx.room, pos_a);
-        let (pos_b, root_dir_b) = Self::snap_to_wall(cx.room, pos_b);
+        // The snap writes back into the constructor's parameter only: the fields keep the
+        // placed positions, and only the first line of segments uses the snapped ones.
+        let (snap_a, root_dir_a) = Self::snap_to_wall(cx.room, pos_a);
+        let (snap_b, root_dir_b) = Self::snap_to_wall(cx.room, pos_b);
+        let vine_system_order = cx.new_vine_system.then(|| cx.next_seq());
         let mut segments = vec![[Vec2::ZERO; 3]; count];
         for (k, s) in segments.iter_mut().enumerate() {
             let t = k as f32 / (count - 1) as f32;
-            if let (Some(a), Some(b)) = (pos_a, pos_b) {
+            if let (Some(a), Some(b)) = (snap_a, snap_b) {
                 let jitter = Vec2::random_unit(rng) * rng.value();
                 s[0] = a.lerp(b, t.clamp(0.0, 1.0)) + jitter;
-            } else if let Some(b) = pos_b {
+            } else if let Some(b) = snap_b {
                 s[0] = b;
             }
             s[1] = s[0];
@@ -240,6 +247,7 @@ impl CoralNeuron {
             };
         }
         Some(NewNeuron {
+            vine_system_order,
             neuron: Self {
                 update_order,
                 system: cx.system,

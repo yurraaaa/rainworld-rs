@@ -122,7 +122,8 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 ## To look into
 - **Other-room MCP screenshots without fixtures** (user, 2026-10-23: skip for now):
   `screenshot` with `room` set (`crates/app/src/mcp/dev_tools.rs`) draws no light fixtures
-  and none of the SS electric objects (D36) or wall mycelia (D38).
+  and none of the SS electric objects (D36), wall mycelia (D38), coral neurons or projected
+  circles (D40); the debug view does not outline them either.
 - **Full-screen effects leftovers** (review, small): `DeathFall::camera_viewing_point`
   belongs on the room (`Room.CameraViewingPoint`); stale "not ported" rows for LightBurn,
   SkyAndLightBloom, SkyBloom and wet terrain in `../rainworld-re/surveys/room-effects/`

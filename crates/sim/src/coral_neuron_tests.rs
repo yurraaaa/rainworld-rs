@@ -64,6 +64,7 @@ impl Made {
                 pool: &mut pool,
                 projector,
                 circles: Vec::new(),
+                new_vine_system: false,
                 seq: &mut seq,
             };
             CoralNeuron::build(length, ends.0, ends.1, &mut cx, rng).expect("a neuron")
@@ -168,10 +169,13 @@ fn ends_snap_to_the_wall_behind_them() {
         false,
         &mut rng,
     );
-    assert_eq!(made.neuron.pos_a, Some(Vec2::new(70.0, 10.0)));
+    // The fields keep the placed positions; only the first line of segments used the snap.
+    assert_eq!(made.neuron.pos_a, Some(Vec2::new(70.0, 30.0)));
+    let first = made.neuron.geometry.segments[0][0];
+    assert!(first.distance(Vec2::new(70.0, 10.0)) <= 1.0, "{first:?}");
     assert_eq!(made.neuron.geometry.root_dir_a, Some(Vec2::new(0.0, 1.0)));
     // Tile (3, 4) beside the ceiling row: (3, 5) is Solid, rootDir = down, y = 90 + 20.
-    assert_eq!(made.neuron.pos_b, Some(Vec2::new(70.0, 110.0)));
+    assert_eq!(made.neuron.pos_b, Some(Vec2::new(70.0, 90.0)));
     assert_eq!(made.neuron.geometry.root_dir_b, Some(Vec2::new(0.0, -1.0)));
     // The corner tile (1, 1): -x Solid first (rootDir +x, x = 30 - 20 = 10), then -y
     // (rootDir +y, y = 30 - 20 = 10): the end is at (10, 10), rooted upward.
@@ -182,9 +186,19 @@ fn ends_snap_to_the_wall_behind_them() {
         false,
         &mut UnityRandom::new(3),
     );
-    assert_eq!(corner.neuron.pos_a, Some(Vec2::new(10.0, 10.0)));
+    assert_eq!(corner.neuron.pos_a, Some(Vec2::new(30.0, 30.0)));
     assert_eq!(corner.neuron.geometry.root_dir_a, Some(Vec2::new(0.0, 1.0)));
     assert_eq!(corner.neuron.pos_b, None);
+    // `ConnectToWalls` holds segment 0 at the placed position minus 10 along the root.
+    let map = AiMap::new(&r, 0, false, false);
+    let mut made = made;
+    made.neuron.update(
+        Vec2::ZERO,
+        &mut made.pool,
+        &env(&r, &map, false),
+        &mut UnityRandom::new(1),
+    );
+    assert_eq!(made.neuron.geometry.segments[0][0], Vec2::new(70.0, 20.0));
 }
 
 /// A tick of three segments 30 apart (`conRad` 30) with a wind of (1, 0), worked by hand:
@@ -390,6 +404,7 @@ fn the_segment_count_is_clamped() {
         pool: &mut pool,
         projector: false,
         circles: Vec::new(),
+        new_vine_system: false,
         seq: &mut seq,
     };
     assert!(CoralNeuron::build(39.0, None, None, &mut cx, &mut UnityRandom::new(1)).is_none());

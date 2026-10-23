@@ -516,8 +516,11 @@ fn neurons_are_made_in_the_placed_loop_before_the_wall_mycelia() {
     let wall = &system.wall_mycelia[0];
     assert!(system.update_order < a.update_order);
     assert!(a.update_order < b.update_order && b.update_order < wall.update_order);
-    // The vines are registered in order, the first making the room's system.
-    let vines = r.climbable_vines.as_ref().unwrap().vines();
+    // The vines are registered in order, the first making the room's system, which takes
+    // its place in the update list at that point (before the neuron's own).
+    let made = r.climbable_vines.as_ref().unwrap();
+    assert!(system.update_order < made.update_order && made.update_order < a.update_order);
+    let vines = made.vines();
     assert_eq!(
         vines,
         [

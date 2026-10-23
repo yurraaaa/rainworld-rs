@@ -192,7 +192,7 @@ Closes the missing `NeuronSpark` sound of `random.md`'s overseer item.
   not "in" the new). Strands of a dropped module stay registered while their system's registry lives and
   can still be picked and paired, as in the game; they are freed when the registry goes with its room
   (`World::abstractize`) or at once when their system is none, so the pool stays bounded; a room's wall
-  strands go with the room. Reachability is the collector's: a strand also lives while a living strand's
+  strands (and a room's neuron strands, D40) go with the room. Reachability is the collector's: a strand also lives while a living strand's
   `connection` names it (its partner keeps the link, drawing as the game does, until it breaks), and a
   dropped system's last `Frozen` is kept while a strand still points at it. The observer
   hooks `overseer_added/reset/emerge/updated` take a `MyceliaCx` (the pool and the room's reads) and a new
@@ -262,7 +262,11 @@ them all (`crates/sim/tests/installed_coral_neurons.rs`: 43 parsed, 0 rejected, 
   circle 0, circle 1, neuron. The port makes the neurons after collecting the loop's other objects
   (nothing else in that loop draws or adds), then the `WallMycelia`, as the game's order is.
   A neuron's turn updates its strands one at a time with the chain's current geometry, as the
-  game (`ConnectionPos` read live). A neuron shorter than 40 px (one segment) is skipped where the
+  game (`ConnectionPos` read live). The constructor's wall snap writes back into its parameters
+  only: the fields `posA`/`posB` keep the placed positions (so `ConnectToWalls` holds a rooted end at
+  `placed - rootDir * 10`), and only the initial line of segments uses the snapped ones. The first
+  neuron in a room makes its `ClimbableVinesSystem`, which takes its update-list place just before
+  the neuron's circles. A neuron shorter than 40 px (one segment) is skipped where the
   game throws (`new Mycelium[-1, 2]`); none exists installed.
 - **Storage (design).** A neuron lives in its room's `CoralNeuronSystem.neurons` and nowhere
   else; the player's push, the hands' read, the neuron's own update and the draw all reach that one
@@ -274,9 +278,9 @@ them all (`crates/sim/tests/installed_coral_neurons.rs`: 43 parsed, 0 rejected, 
   it); a slated circle leaves the update list and the draws.
 - **`UpdateDepth` runs when the circle is drawn.** The game reads `rCam.DepthAtCoordinate` of the
   owner's centre in `DrawSprites`, once after each `Update` (`updateDepth`). The app calls
-  `RainWorldGame::update_circle_depths` before it builds the projections' draw lists, so a frame
-  that is not drawn (headless steps without a screenshot) leaves the depth unread, as the game; with
-  no camera picture the depth is sky (1), as `SSLightRod`'s.
+  `RainWorldGame::update_circle_depths` before it builds the projections' draw lists, headless
+  runs without a screenshot keep the last drawn depth (0 at first); it is read only for drawing and
+  makes no draws. With no camera picture the depth is sky (1), as `SSLightRod`'s.
 - **Draws.** Per neuron constructor, from the seed: per segment 4 with two ends (the position's
   and the velocity's `RNV() * value`), 2 otherwise (the velocity's), per strand `1 + (2 + 2 * points)`, per bump 2, and per circle
   `1` for each circle already there (until five connect), 1 for the off-screen choice (then `Range(1,

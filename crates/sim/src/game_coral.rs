@@ -140,6 +140,7 @@ impl RainWorldGame {
         ends: (Option<Vec2>, Option<Vec2>),
     ) -> Option<u64> {
         let r = self.world.realized(index)?;
+        let new_vine_system = r.climbable_vines.is_none();
         let room = Arc::clone(&r.room);
         let circles = r
             .projections
@@ -155,6 +156,7 @@ impl RainWorldGame {
             pool: &mut self.world.mycelia,
             projector,
             circles,
+            new_vine_system,
             seq: &mut seq,
         };
         let built = CoralNeuron::build(length, ends.0, ends.1, &mut cx, &mut self.rng);
@@ -163,9 +165,13 @@ impl RainWorldGame {
         let order = built.neuron.update_order;
         let r = self.world.realized_mut(index)?;
         r.projections.circles.extend(built.circles);
-        r.climbable_vines
-            .get_or_insert_with(ClimbableVinesSystem::new)
-            .register(VineRef::CoralNeuron { room: index, order });
+        let vines = r
+            .climbable_vines
+            .get_or_insert_with(ClimbableVinesSystem::new);
+        if let Some(order) = built.vine_system_order {
+            vines.update_order = order;
+        }
+        vines.register(VineRef::CoralNeuron { room: index, order });
         r.coral.as_mut()?.neurons.push(built.neuron);
         Some(order)
     }

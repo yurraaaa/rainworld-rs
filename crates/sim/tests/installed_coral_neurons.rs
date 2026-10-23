@@ -168,6 +168,7 @@ fn every_neuron_builds_and_runs() {
                     .iter()
                     .map(|c: &rw_sim::ProjectedCircle| c.update_order)
                     .collect(),
+                new_vine_system: false,
                 seq: &mut seq,
             };
             match CoralNeuron::build(length, Some(pos), Some(pos + handle), &mut cx, &mut rng) {

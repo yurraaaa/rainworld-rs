@@ -31,6 +31,7 @@ fn straight_neuron() -> (CoralNeuron, MyceliumPool) {
         pool: &mut pool,
         projector: false,
         circles: Vec::new(),
+        new_vine_system: false,
         seq: &mut seq,
     };
     let ends = (Some(Vec2::new(100.0, 200.0)), Some(Vec2::new(200.0, 200.0)));

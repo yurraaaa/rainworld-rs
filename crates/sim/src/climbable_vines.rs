@@ -393,6 +393,8 @@ struct VineSpan {
 /// vines on the `host` that holds their owners.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ClimbableVinesSystem {
+    /// Its place in the room's update list (0 for a system made without one: tests).
+    pub update_order: u64,
     vines: Vec<VineRef>,
 }
 
