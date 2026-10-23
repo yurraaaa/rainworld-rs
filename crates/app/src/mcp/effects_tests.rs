@@ -53,7 +53,7 @@ impl Session {
 /// An `ElectricDeath` room reports the effect before it has any intensity (the amount, the
 /// wall tiles, no loops), then at 1200 ticks past the end of the cycle `Intensity` 1, the
 /// loops at their volumes with their two emitters, and the strikes; the screenshot has
-/// many more green pixels than before.
+/// many more green pixels than before in every one of a few frames.
 #[test]
 fn electric_death_state_and_picture() {
     let Some(mut session) = Session::installed() else {
@@ -82,10 +82,18 @@ fn electric_death_state_and_picture() {
     assert_eq!(ed.loop_emitters, 2);
     assert_eq!(ed.flashes.len(), 8);
     assert!(ed.flashes.iter().all(|f| f.rad >= 40.0 && f.rad <= 800.0));
-    let (Some(before), Some(after)) = (before, session.green_pixels()) else {
-        return;
-    };
-    assert!(after > before + 5000, "{before} -> {after}");
+    // The green flash glows come and go with the random draws, but the web tint on the
+    // wall tiles is there every frame: even the dimmest of several frames shows it.
+    let mut dimmest = usize::MAX;
+    for _ in 0..4 {
+        let Some(green) = session.green_pixels() else {
+            return;
+        };
+        dimmest = dimmest.min(green);
+        session.step_ticks(10);
+    }
+    let before = before.expect("rendered");
+    assert!(dimmest > before + 2000, "{before} -> {dimmest}");
 }
 
 /// `sl_c03` reports its edges and a `pushPower` of 0 per player; a slugcat put left of the
