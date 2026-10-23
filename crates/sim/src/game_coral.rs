@@ -10,8 +10,8 @@
 //! tick), as the game's `RoomPreparer` does (D37). What `CoralNeuronSystem.AIMapReady`
 //! builds: the `CoralNeuron`s in the placed-object loop (each with the
 //! `ProjectedCircle`s its constructor adds, then itself), then the `WallMycelia`, then the
-//! `CoralStem`s (each segment an object of the update list, the stems themselves not);
-//! the `CoralCircuit` clusters and `PlaceSwarmers` are the later steps'.
+//! `CoralCircuit` clusters ([`super::coral_circuit`]), then the `CoralStem`s (each segment an
+//! object of the update list, the stems themselves not); `PlaceSwarmers` is a later step's.
 //!
 //! Mirrors: Room.cs (Loaded: CoralNeuronSystem; ReadyForAI), CoralNeuronSystem.cs (AIMapReady), CoralNeuron.cs (Update), WallMycelia.cs (Update), Overseer.cs (UpdateCoralNeuronSystem)
 
@@ -22,9 +22,9 @@ use rw_assets::{PlacedObjectType, ResizableData, RoomEffectType};
 use super::{RainWorldGame, RoomObject};
 use crate::creature::CreatureId;
 use crate::{
-    ClimbableVinesSystem, CoralNeuron, CoralNeuronSystem, CoralStem, CosmeticKind, ImpactCall,
-    InGameNoise, MyceliaCx, MyceliumEnv, NeuronCx, NoiseSource, PlayerObserver, SegmentRef, StemCx,
-    StemTick, Vec2, VineRef, WallMycelia, WallPlace,
+    CircuitPlace, ClimbableVinesSystem, CoralCircuit, CoralNeuron, CoralNeuronSystem, CoralStem,
+    CosmeticKind, ImpactCall, InGameNoise, MyceliaCx, MyceliumEnv, NeuronCx, NoiseSource,
+    PlayerObserver, SegmentRef, StemCx, StemTick, Vec2, VineRef, WallMycelia, WallPlace,
 };
 
 /// A coral object in a room's update list.
@@ -74,6 +74,7 @@ impl RainWorldGame {
             > 0.0;
         let mut places = Vec::new();
         let mut neurons = Vec::new();
+        let mut circuits = Vec::new();
         let mut stems = Vec::new();
         for o in r.settings.placed_objects_for(timeline, mods) {
             if !o.active {
@@ -96,6 +97,13 @@ impl RainWorldGame {
                             (Vec2::from(o.pos), Vec2::new(d.handle[0], d.handle[1]));
                         neurons.push((handle.length(), pos, pos + handle));
                     }
+                    None => log::warn!("unreadable {} data {:?}", o.kind, o.data),
+                },
+                Some(PlacedObjectType::CoralCircuit) => match ResizableData::parse(&o.data) {
+                    Some(d) => circuits.push(CircuitPlace {
+                        pos: Vec2::from(o.pos),
+                        rad: d.rad(),
+                    }),
                     None => log::warn!("unreadable {} data {:?}", o.kind, o.data),
                 },
                 Some(
@@ -132,6 +140,9 @@ impl RainWorldGame {
         });
         if let Some(w) = &mut wall {
             w.update_order = self.world.next_update_seq();
+        }
+        for cluster in CoralCircuit::clusters(circuits) {
+            self.add_coral_circuit(index, system_id, cluster);
         }
         for (root, rad, with_neurons) in stems {
             self.add_coral_stem(index, system_id, projector, root, rad, with_neurons);
@@ -515,4 +526,4 @@ impl RainWorldGame {
 
 #[cfg(test)]
 #[path = "game_coral_tests.rs"]
-mod tests;
+pub(super) mod tests;

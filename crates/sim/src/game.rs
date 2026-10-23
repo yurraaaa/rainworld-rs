@@ -20,6 +20,8 @@ mod border_push_back;
 mod carried;
 #[path = "game_coral.rs"]
 mod coral;
+#[path = "game_coral_circuit.rs"]
+mod coral_circuit;
 #[path = "game_decals.rs"]
 mod decals;
 #[path = "game_dev.rs"]
@@ -499,6 +501,8 @@ enum RoomObject {
     Projection(crate::room_projections::ProjectionRef),
     /// The room's `CoralNeuronSystem` or a `WallMycelia`.
     Coral(coral::CoralRef),
+    /// A `CircuitBit`, `CircuitConnector`, `CircuitCrab` or `CoralCircuit`.
+    Circuit(coral_circuit::CircuitRef),
     /// The room's `AntiGravity`.
     AntiGravity,
     Lizard(CreatureId),
@@ -1550,6 +1554,7 @@ impl RainWorldGame {
         objects.extend(self.room_projection_objects(index));
         objects.extend(self.room_anti_gravity_objects(index));
         objects.extend(self.room_coral_objects(index));
+        objects.extend(self.room_circuit_objects(index));
         objects.sort_by_key(|&(seq, _)| std::cmp::Reverse(seq));
         objects
     }
@@ -1672,6 +1677,7 @@ impl RainWorldGame {
                 RoomObject::Projection(p) => self.run_projection(index, p),
                 RoomObject::AntiGravity => self.run_anti_gravity(index),
                 RoomObject::Coral(c) => self.run_coral(index, c),
+                RoomObject::Circuit(c) => self.run_circuit_object(index, c),
                 RoomObject::Insect(_) => {}
             }
         }
@@ -2035,6 +2041,7 @@ impl RainWorldGame {
             .realized(index)
             .filter(|r| r.ready_for_ai())
             .and_then(|r| r.ai_map.clone());
+        self.refresh_player_swim_bits();
         let sounds = if index == self.camera_room {
             &mut self.sounds
         } else {

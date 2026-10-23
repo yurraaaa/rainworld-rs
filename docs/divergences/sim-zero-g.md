@@ -17,9 +17,12 @@ draw-count tests. Notes: `../../rainworld-re/notes/zero-gravity.md`; surveys
   `analogueDir` as `(x, y)` clamped to length 1 (the game does the same for keys), so
   `ZeroGGamePadIntVec` is `(x, y)` and `SwimDir(false)` equals `SwimDir(true)`. A gamepad's
   analogue stick (partial deflection, the 0.1 dead zone) is not ported.
-- **Coral circuit swimming is off.** `circuitSwimResistance`, `curcuitJumpMeter` and
-  `swimBits` come from `CollideWithCoralCircuitBit`, a coral object that is not ported; they
-  are 0 and none, so the `ZeroGSwim` terms that use them vanish.
+- **Coral circuit swimming is ported (D42).** `circuitSwimResistance`, `curcuitJumpMeter` and
+  `swimBits` come from `CollideWithCoralCircuitBit` (`player/circuit.rs`), called by the circuit's
+  push (`game_coral_circuit.rs`); the `ZeroGSwim` terms that read them (the speed factor, the slowing
+  of both chunks, the main chunk's extra push, the circuit jump, the meter's decay) are in
+  `player/zero_g.rs`. They are 0 and none in a room with no circuit. With no direction held
+  `CollideWithCoralCircuitBit` takes `DirVec(0, (0, 0))`, straight up.
 - **The oracle scenes' `active = false` is not ported.** Five Pebbles' and Moon's rooms
   switch their `AntiGravity` off in `Oracle` scenes; the port's `AntiGravity.active` stays
   true.

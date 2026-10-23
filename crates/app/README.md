@@ -24,7 +24,7 @@ Gameplay logic belongs in `rw-sim`, not here.
 | `death_fall.rs` | `DeathFall`: the camera room's `DeathFallGraphic`: height (also for `_waterLevel`), counter and its `DeathFall` sprite in `Bloom` |
 | `water_light.rs` | `WaterLight`: the room camera's water caustics sprite (`WaterLight` shader, first in `Foreground`), its alpha from `WaterReflectionAlpha` and the palette darkness |
 | `window_identity.rs` | window title "Rain World" and app id `rainworld-rs` (Wayland/X11) |
-| `sprites.rs` | atlas loading (`rainWorld`, `uiSprites`), overseer projection textures, the rainbow gradient, `LightMask0` |
+| `sprites.rs` | atlas loading (`rainWorld`, `uiSprites`), overseer projection textures, the rainbow gradient, `LightMask0`, `glyphs`, `maze` |
 | `shortcuts.rs` | camera-0 `ShortcutGraphics` fed from the game |
 | `jaws.rs`, `jaws_tests.rs` | `Jaws`: held objects' sprites nested into their holders' jaw containers (a held lizard's holds inside it; hold cycles D20) |
 | `game_background_scene.rs` | the camera room's background scenes on screen: each element's sprites (`BackgroundSceneSprites`), the images they need, the scene globals, the dust puffs |
@@ -47,6 +47,7 @@ Gameplay logic belongs in `rw-sim`, not here.
 | `mcp/gravity_reply.rs` | `get_state` `room_gravity`, `broken_anti_gravity`: each `ZeroG`/`BrokenZeroG` room's gravity and electric power, the world's `BrokenAntiGravity` switch |
 | `mcp/projection_reply.rs`, `mcp/projection_tests.rs` | `get_state` `projectors`, `scan_lines`, `star_matrices`: the realized rooms' superstructure projections (ideal and actual glyph, scan line and cursor counts, grid state, cursors; each scan line; each star matrix's rotations and focus) |
 | `mcp/vine_reply.rs`, `mcp/vine_tests.rs` | `get_state` `climbable_vines` (per realized room: vines with kind, points, total length; pending events) and the player's `vine_pos`, `vine_grab_delay`, `vine_climb_cursor`, `want_to_grab` (tested with a vine of the test's own) |
+| `mcp/circuit_reply.rs`, `mcp/circuit_tests.rs` | `get_state` `coral_circuits` (per cluster: places, tile box, bits, displaced and repairing bits, links, connectors, crabs, the first displaced bit) and the player's `circuit_swim_resistance`, `circuit_jump_meter`, `swim_bits`; tested on `SS_D02` (state, swimming through a circuit, the picture) |
 | `mcp/coral_reply.rs` | `get_state` `coral_systems`, `coral_neurons`, `coral_stems`, `projected_circles`, `wall_mycelia`, `neuron_sparks`: the realized rooms' `CoralNeuronSystem`s (wind, age, frozen, registry and its owners), `CoralNeuron`s (ends, segments, strands, pings, climbed), `CoralStem`s (root, segments' chunks, neurons made, climbed), `ProjectedCircle`s, `WallMycelia` (strands, culled, pairs, first strand) and `NeuronSpark`s |
 | `mcp/effects_reply.rs` | `get_state` `electric_death`, `border_push_back`: the realized rooms' `ElectricDeath`s (intensity, sin, colour, flashes, loop volumes, recent strikes) and `RoomBorderPushBack`s (edges, `pushPower`) |
 | `mcp/fixtures_reply.rs` | `get_state` `light_fixtures`, `waterfalls`: the realized rooms' `Redlight`s, `HolyFire`s, `SlimeMoldLight`s (lights, flicker state, embers, discs) and `WaterFall`s (tile, flow, ends, strike level, contact, bubbles) |

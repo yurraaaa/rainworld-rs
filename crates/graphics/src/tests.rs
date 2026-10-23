@@ -1627,6 +1627,49 @@ fn zero_g_hands_alternate_along_a_pole() {
     assert_eq!(g.hands[0].retract_counter, 30);
 }
 
+/// Floating, a hand whose side swam through a coral circuit bit within 30 px of the head
+/// hunts that bit's position (`swimBits[limbNumber]`); a bit beyond 30 px or none leaves the
+/// hand to the rest of the swim.
+#[test]
+fn zero_g_hands_reach_for_the_swim_bits() {
+    let r = flat_room();
+    let mut rng = UnityRandom::new(4);
+    let (mut p, mut g) = floating_player(&mut rng);
+    run(&mut p, &mut g, &r, Input::NONE, 2, &mut rng);
+    let head = p.head().pos;
+    // The bit lies on side 1 of the body line (a positive distance to the line head-hips).
+    let bit = head + Vec2::new(12.0, -5.0);
+    let bit_ref = rw_sim::BitRef {
+        room: 0,
+        circuit: 0,
+        bit: 3,
+    };
+    p.collide_with_coral_circuit_bit(0, bit_ref, bit, 0.5, true);
+    let side = p
+        .swim_bits()
+        .iter()
+        .position(Option::is_some)
+        .expect("remembered");
+    update_alone(&mut g, &p, &r, &mut rng);
+    assert_eq!(
+        g.hands[side].limb.mode,
+        crate::LimbMode::HuntAbsolutePosition
+    );
+    assert_vec(
+        g.hands[side].limb.absolute_hunt_pos,
+        bit.x,
+        bit.y,
+        "hand on the bit",
+    );
+    // Out of reach (35 px from the head): the hand is not sent to it.
+    p.refresh_swim_bits([Some(head + Vec2::new(35.0, 0.0)); 2]);
+    update_alone(&mut g, &p, &r, &mut rng);
+    assert_ne!(
+        g.hands[side].limb.absolute_hunt_pos,
+        head + Vec2::new(35.0, 0.0)
+    );
+}
+
 /// The face in zero gravity is the default one (frame 0, by blink), the head frame 0, and
 /// it turns with the head; unconscious it is the dead or stunned one.
 #[test]

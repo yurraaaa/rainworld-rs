@@ -10,6 +10,7 @@ use rw_random::UnityRandom;
 use rw_assets::ShortcutType;
 
 mod advanced;
+mod circuit;
 mod corridor;
 mod drips;
 mod exhaustion;

@@ -42,6 +42,7 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 | `coral_stem_draw.rs` | a `StemSegment`'s sprites in `Items`: its strands, the bridge `Circle20` to the next segment, two meshes along a curve through the chunks (base colour and highlight from the camera's darkness) and three `Circle20` a dot (glow in `Water` with `WaterLights`; its blink draws from the cosmetic stream) | `StemSegment` (BaseColor, HighLightColor, InitiateSprites, DrawSprites, ApplyPalette, AddToContainer) |
 | `coral_neuron_draw.rs` | a `CoralNeuron`'s two meshes (colour ramp; `CoralNeuron` shader lines), its strands and bumps in `Items` (ping dots in `Water` with `WaterLights`) | `CoralNeuron` (MeshColor, InitiateSprites, DrawSprites, AddToContainer) |
 | `projected_circle_draw.rs` | a `ProjectedCircle`'s two `VectorCircle` discs, spokes and lines in `BackgroundShortcuts` (`CircleSurroundings`: the owners and circles it reads) | `ProjectedCircle` |
+| `circuit_draw.rs` | a `CoralCircuit`'s sprites: each bit one `maze` sprite in `Background` (the window of the texture in the 8-bit vertex colour, the flip as `scaleX`, `CoralCircuit` or `DeadCoralCircuit` by `InPosition`), each connector's strands and four `Circle20` (the last one's colour from the cosmetic stream) and each crab's two `Circle20` and leg strips in `Midground` (`CircuitSprites`) | `CircuitBit`, `CircuitConnector`, `CircuitCrab`, `CrabLeg` (InitiateSprites, DrawSprites) |
 | `wall_mycelia_draw.rs` | a `WallMycelia`'s strands in `Items` (transparent black fading in, blue tip), culled ones left out | `WallMycelia` |
 | `hologram_matrix.rs` | overseer lens wireframe | `OverseerGraphics.HologramMatrix` |
 | `hologram_shape.rs` | line geometry of hologram parts | `OverseerHolograms` |
@@ -61,7 +62,7 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 | `shortcut_graphics.rs` | pipe pixels, entrance symbols | `ShortcutGraphics` |
 | `shelter_door_graphics.rs` | shelter door sprites | `ShelterDoor` |
 | `sun_blocker.rs` | the `SunBlock` effect's screen-covering sprite in `Shadows` | `SunBlocker` |
-| `tests.rs`, `coral_tests.rs`, `coral_neuron_tests.rs`, `hologram_tests.rs`, `shortcut_tests.rs`, `placed_visuals_tests.rs`, `projection_tests.rs` | unit tests | |
+| `tests.rs`, `coral_tests.rs`, `circuit_tests.rs`, `coral_neuron_tests.rs`, `hologram_tests.rs`, `shortcut_tests.rs`, `placed_visuals_tests.rs`, `projection_tests.rs` | unit tests | |
 
 ## Where is X?
 
@@ -70,7 +71,7 @@ back through the body's `LegsGripping`. `rw-hud` depends on it.
 - Slugcat gaze: `looker.rs`.
 - Lizard body, legs, head: `lizard_graphics.rs`, `lizard_limb.rs`, `lizard_draw.rs`.
 - Lizard scales, spikes, tufts: `lizard_cosmetics.rs`, `lizard_cosmetics_draw.rs`.
-- Overseer body and eye: `overseer_graphics.rs`, `overseer_draw.rs`; hairs: `mycelium.rs` (the strands in `rw-sim`'s `mycelium.rs`); wall mycelia: `wall_mycelia_draw.rs`; coral neurons, stem segments and their projected circles: `coral_neuron_draw.rs`, `coral_stem_draw.rs`, `projected_circle_draw.rs`.
+- Overseer body and eye: `overseer_graphics.rs`, `overseer_draw.rs`; hairs: `mycelium.rs` (the strands in `rw-sim`'s `mycelium.rs`); wall mycelia: `wall_mycelia_draw.rs`; coral neurons, stem segments and their projected circles: `coral_neuron_draw.rs`, `coral_stem_draw.rs`, `projected_circle_draw.rs`; coral circuits (bits, connectors, crabs): `circuit_draw.rs`.
 - Overseer lens and holograms: `hologram_matrix.rs`, `hologram_shape.rs`, `hologram_draw.rs`.
 - Bat flies: `fly_graphics.rs`.
 - Cosmetic insects: `insect_graphics.rs` (simulation in `rw-sim` `insect/`).

@@ -9,6 +9,9 @@
 //! Mirrors: - (port-only: MCP server)
 
 mod background_scene_reply;
+mod circuit_reply;
+#[cfg(test)]
+mod circuit_tests;
 mod coral_reply;
 #[cfg(test)]
 mod coral_tests;

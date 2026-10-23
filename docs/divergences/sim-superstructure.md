@@ -1,7 +1,7 @@
-# rw-sim divergences: the superstructure (D35, D36, D37)
+# rw-sim divergences: the superstructure (D35 to D38, D40 to D42)
 
 Fifth file of the `rw-sim` divergences. IDs are global. D35 (the projector family) is step
-10a's; D36 (the electric fixtures) is step 10b's; D37 (the screen-grab effects) is step 10c's.
+10a's; D36 (the electric fixtures) is step 10b's; D37 (the screen-grab effects) is step 10c's; D38, D40, D41 and D42 (the coral) are steps 10d1, 10d3a, 10d3b and 10d4.
 
 ## D35: Superstructure projections (`SuperStructureProjector`, `ProjectedScanLines`, `ProjectedStars`)
 
@@ -235,8 +235,8 @@ Closes the missing `NeuronSpark` sound of `random.md`'s overseer item.
   `_RippleClip.cginc` (`ripple_both_sides` returns before any discard)), in `Items`. They are not
   drawn in the debug view or in an other-room MCP screenshot (as D36's objects; OPEN-ITEMS).
 - **What the next steps add to `AIMapReady`** (not ported here): the `CoralCircuit` clusters (their
-  `CircuitConnector` owners; the `CoralStem`s with their `StemSegment`s, each taking `GetNewID`,
-  are D41 and come after the circuits' place), then `PlaceSwarmers` (`SSOracleSwarmer`s, whose suckling strikes `NeuronSpark`s). The `CoralNeuron`s
+  `CircuitConnector` owners) are D42 and the `CoralStem`s with their `StemSegment`s, each taking `GetNewID`,
+  are D41; both come in the game's order (circuits, then stems, after the wall mycelia). Left: `PlaceSwarmers` (`SSOracleSwarmer`s, whose suckling strikes `NeuronSpark`s). The `CoralNeuron`s
   (made as the placed-object loop meets them, before the wall mycelia) are D40. Every wall strand can
   only pair with another owner's strands: in a room with wall mycelia alone only an overseer's lens can
   link to them; a room with neurons has theirs (the strands of a neuron and of the walls pair).
@@ -404,3 +404,76 @@ as physical objects, their turns, the vine host), the sprites in
 - **MCP.** `coral_stems` (room, id, root, size, `with_neurons`, frozen, `being_climbed`, the neurons its
   segments made and each segment's chunks, rod, `conRad`, mesh size, dots, entity ID, strands) and
   the stems in `climbable_vines` with kind `CoralStem`; `projected_circles` names the owner kind.
+
+## D42: Coral circuits (`CoralCircuit`, `CircuitBit`, `CircuitConnector`, `CircuitCrab`; the player's circuit swimming; step 10d4)
+
+Ported in `crates/sim/src/{coral_circuit,circuit_connector,circuit_crab,game_coral_circuit}.rs`
+(the circuit, its bits, connectors and crabs, the push and the cluster building),
+`crates/sim/src/player/{circuit,zero_g}.rs` (the player's side), the sprites in
+`crates/graphics/src/circuit_draw.rs`, the `CoralCircuit` and `DeadCoralCircuit` shaders in
+`crates/render/shaders/sprite.wgsl`, MCP `coral_circuits` and the player's
+`circuit_swim_resistance`, `circuit_jump_meter` and `swim_bits`. Notes:
+`../rainworld-re/notes/superstructure-coral.md`. Survey: `surveys/room-effects/insects-and-superstructure.md` B4.
+
+- **Where the objects live.** The circuits are a list of the room's `CoralNeuronSystem`
+  (`circuits`, as the game's); a circuit holds its bits (an arena, neighbours by index), connectors
+  and crabs. Each bit, connector, crab and the circuit has its own place in the update list (as the
+  game's `AddObject`s: the bits as the constructor makes them, then the connectors and crabs in the
+  order they are made, the circuit last), so `Room.Update` walking the list from its end runs the
+  circuit first, then the crabs, the connectors and the bits from the last to the first. A bit is
+  `CoralRef`-like `CircuitRef::Bit(circuit, bit)` (indices, not a search).
+- **`AIMapReady`'s order.** The clusters are built after the wall mycelia and before the stems (10d3b's
+  review). The cluster loop is the game's: the first object, then repeated scans from the end of the
+  rest for an object whose distance to one in the cluster is under the sum of the radii (one found per
+  member per pass), until a pass adds none (`CoralCircuit::clusters`). A circuit's constructor runs on
+  its own seed (`(int)x + (int)y` of its first object) and restores the shared stream; its draws, in
+  order: `RNV`, per tile one or two bits (two where `InverseLerp(Rad, Rad - 220, d) < 0.5` over every
+  place: four draws each, the stuck position's two then the size's two), then `Range(tiles / 15
+  clamped 1..40)` connectors (a tile, a layer, then `value * size.x`, `value * size.y`,
+  `Range(5, 10)`, six per strand: 30 px strands have two points and a zero `ResetDir`), then
+  `tiles / 30` clamped 1..20 crabs (a tile, a layer, two, `Range(4, 8)`, `2 * 3` per leg). A tile
+  with no bit on the layer drawn makes nothing and draws nothing more. With no tile at all the game's
+  grid is 2 x 2 x 2 (int wrap-around): kept, empty.
+- **A bit's turn is the game's** (`Update`, `TryRepair`, `InPosition`) with the break and repair
+  sounds drawn where they play. `lastInPosition` (never read), `shaderDirty` (a draw cache; the draw
+  uses `shader` itself) and the connector's `legBits` (unused) are not ported. `Coral_Circuit_Reactivate`
+  has no `sounds.txt` line (commented out), so it neither plays nor draws, as the game.
+- **The push is `CoralCircuit.Update`'s**, not gated by `Frozen`, over `room.physicalObjects[1..]` (the
+  player, lizards, the items of layer 1 and up: `World::physical_objects` entries with a layer of 1 or
+  more), the chunk's strength `InverseLerp(Rad + 100, Rad, d)` over the places, the tiles two beyond
+  the chunk's box, both bit layers; the stem segments (layer 0) and the overseers and bat flies
+  (layer 0) are left out, as the game's. The chunk is read again for every bit (the earlier pushes
+  moved it). **The player's collision** is called per touched bit, in the loop, with the bit's
+  `swimBits` positions refreshed first (a stored bit's position is read live by the game).
+- **`graphicsModule != null`** (the condition of remembering a bit and its sound) is the observer's
+  `has_player_graphics` (false with no graphics, as in the headless tests); the game's is "the room is
+  being viewed by a camera when the player is added", true for the camera's room.
+- **The hands** (`SlugcatHand.Update`'s `ZeroGSwim` branch) reach for the
+  bit of their side's `swimBits` while the head is within 30 px of it (`rw-graphics` `hand.rs`); the
+  bit's position is the one the player last saw (refreshed at the start of its turn).
+- **The player's `analogueDir`** is the keys' (D34); with no direction held `DirVec(0, (0, 0))` is
+  (0, 1) as the game's (up), so a collision with no input kicks the bit along `(0, 1)`.
+- **`maze` is sampled at its first mip.** The shaders' `tex2D(_MainTex, window)` reads the maze
+  texture with the mip the derivatives pick; atlas pages have no mips here, so a bit squeezed by its
+  flip (`|dRotat.y|` under about 0.5, so the window is minified more than 1.4 times) is cut by the
+  full-resolution texel rather than a blurrier mip. The bits' vertex colours are 8 bits a channel
+  (`Mesh.colors`), as in the game, so the window's left, bottom and size are multiples of 1/255.
+- **Pictures.** Bits are `maze` sprites in `Background`, the `CoralCircuit` shader while in place, the
+  `DeadCoralCircuit` shader else (`CoralCircuitBothSides` and `DeadCoralCircuitBothSides` are the same
+  in the base game: `rippleClip` is a Watcher call); connectors (the strands, then four `Circle20`) and
+  crabs (two `Circle20` and the leg strips) are `CosmeticSprite`s, so `Midground`, with the `Basic`
+  shader for `RippleBasicBothSides` (D38). The connector's last dot draws `Random.value` for its
+  colour each drawn frame, from the app's cosmetic stream (D1). A circuit is not drawn in the debug
+  view or in an other-room MCP screenshot (OPEN-ITEMS, as D36 and D38).
+- **Omitted branches (listed, not dropped):** `ModManager.DLCShared`'s `Inspector` skip in
+  `CoralCircuit.Update` (the Inspector is a More Slugcats creature, not in the base game);
+  `IRunDuringDialog` on the connectors and crabs (`Room.Update` runs them while `game.pauseUpdate`,
+  which only More Slugcats' `ChatLogDisplay` sets); Watcher's `rippleClip` in the shaders.
+- **Data** (the installed settings, the port's own `Filter` handling): 16 `CoralCircuit` objects in 6
+  `SS` rooms for each of the Survivor, the Monk and the Hunter, every one `ResizableObjectData`, none
+  rejected; they form 9 clusters of 931 tiles, 1862 bits (12256 neighbour links), 60 connectors (408
+  strands) and 29 crabs, and run 100 ticks in view with finite bits that all stay in place
+  (`crates/sim/tests/installed_coral_circuits.rs`). All six rooms have `ZeroG` 1. Every installed tile has two bits: the one-bit rule (`num < 0.5`, a tile middle within `Rad - 110` px of a place) never holds for the installed radii (max 117.9; SS_LAB1's nearest tile middle is 9.58 px from a place).
+- **MCP.** `coral_circuits` (room, id, places, tiles, bit counts, displaced and repairing bits, links
+  and active links, `displaced_counter`, `disconnect_chance`, the connectors, the crabs and the first
+  displaced bit) and the player's `circuit_swim_resistance`, `circuit_jump_meter`, `swim_bits`.

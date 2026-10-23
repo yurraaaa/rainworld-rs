@@ -245,6 +245,11 @@ sound_ids! {
     DeathLightningHeavyLightningLoop = "Death_Lightning_Heavy_Lightning_LOOP",
     DeathLightningSparkSpontaneous = "Death_Lightning_Spark_Spontaneous",
     DeathLightningSparkObject = "Death_Lightning_Spark_Object",
+    CoralCircuitBreak = "Coral_Circuit_Break",
+    // Commented out in `sounds.txt` too (`//Coral_Circuit_Reactivate :`).
+    CoralCircuitReactivate = "Coral_Circuit_Reactivate",
+    CoralCircuitJumpExplosion = "Coral_Circuit_Jump_Explosion",
+    PlayerCoralCircuitSwim = "Player_Coral_Circuit_Swim",
     // No `sounds.txt` line: it never plays.
     SpearHitSmallCreature = "Spear_Hit_Small_Creature",
     // Commented out in `sounds.txt` too (`//Red_Light_On :`).

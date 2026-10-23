@@ -8,7 +8,8 @@
 // fs_under_water_light `UnderWaterLight`, fs_specific_depth `SpecificDepth`,
 // fs_water_splash `WaterSplash`, fs_water_light `WaterLight`, fs_light_beam `LightBeam`,
 // fs_vector_circle `VectorCircle`, fs_custom_depth `CustomDepth`, fs_coral_neuron
-// `CoralNeuron`. The
+// `CoralNeuron`, fs_coral_circuit `CoralCircuit`, fs_dead_coral_circuit
+// `DeadCoralCircuit`. The
 // full-screen effects are in
 // full_screen.wgsl, appended to this file, and the background scenes' in
 // background_scene.wgsl.
@@ -692,4 +693,43 @@ fn fs_coral_neuron(in: VertexOut) -> @location(0) vec4<f32> {
         return vec4(0.0);
     }
     return vec4(in.color.rgb, mix(0.5, 0.25, pal));
+}
+
+// `CoralCircuit` / `CoralCircuitBothSides` (a `CircuitBit` in place; the sprite is the
+// `maze` element, so the page is the maze texture): nothing outside the circle of radius
+// 0.65 round the sprite's middle, nor where the texture's window the vertex colour names
+// (`x`, `y` its lower left and `z`, `w` its size, as fractions of the texture, lerped by
+// the sprite's `uv`) is lit (red above 0.5). What is left is red `0.5 + 0.5 * rand`, `rand`
+// a hash of the 2 px cell of the screen (in the level image's frame) and a `_NoiseTex` read
+// that moves with `_RAIN`. The noise tap comes before the early returns. The window is
+// read at the texture's first mip (the page has no others).
+@fragment
+fn fs_coral_circuit(in: VertexOut) -> @location(0) vec4<f32> {
+    let text_coord = level_coord(in.scr);
+    var cell = text_coord * room.screen / 2.0;
+    cell = floor(cell) / room.screen;
+    let noise = noise_at(vec2(mix(cell.y, mix(0.265, 0.9455, cell.x), 0.5), room.rain));
+    let left_bottom = in.color.xy;
+    let right_top = left_bottom + in.color.zw;
+    let window = vec2(mix(left_bottom.x, right_top.x, in.tex.x), mix(left_bottom.y, right_top.y, in.tex.y));
+    let lit = textureSampleLevel(atlas, atlas_sampler, window, 0.0).x;
+    if distance(in.tex, vec2(0.5)) > 0.65 || lit > 0.5 {
+        return vec4(0.0);
+    }
+    let rand = fract(sin(cell.x * 12.98232 * cell.y * 0.23532 + room.rain - noise) * 43758.5453);
+    return vec4(0.5 + 0.5 * rand, 0.0, 0.0, 1.0);
+}
+
+// `DeadCoralCircuit` / `DeadCoralCircuitBothSides` (a displaced `CircuitBit`): the same
+// cut-out, a flat `(0.5, 0, 0, 1)`.
+@fragment
+fn fs_dead_coral_circuit(in: VertexOut) -> @location(0) vec4<f32> {
+    let left_bottom = in.color.xy;
+    let right_top = left_bottom + in.color.zw;
+    let window = vec2(mix(left_bottom.x, right_top.x, in.tex.x), mix(left_bottom.y, right_top.y, in.tex.y));
+    let lit = textureSampleLevel(atlas, atlas_sampler, window, 0.0).x;
+    if distance(in.tex, vec2(0.5)) > 0.65 || lit > 0.5 {
+        return vec4(0.0);
+    }
+    return vec4(0.5, 0.0, 0.0, 1.0);
 }
