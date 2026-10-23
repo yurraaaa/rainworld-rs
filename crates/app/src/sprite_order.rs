@@ -34,10 +34,12 @@
 //!
 //! Mirrors: RoomCamera.cs (NewObjectInRoom, ChangeRoom, ApplyPositionChange, SetUpFullScreenEffect, MoveObjectToContainer, MoveObjectToInternalContainer), Room.cs (AddObject, NowViewed), GraphicsModule.cs (AddObjectToInternalContainer, ReleaseAllInternallyContainedSprites, ReleaseSpecificInternallyContainedObjectSprites, BringSpritesToFront), Weapon.cs (ChangeOverlap, AddToContainer), FContainer.cs (AddChild)
 
+use std::collections::{HashMap, HashSet};
+
 use rw_sim::item::Entity;
 
 /// A sprite leaser's `drawableObject` in camera 0's room.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Drawable {
     /// A creature's graphics module, the player's included, or a rock or spear.
     Entity(Entity),
@@ -197,9 +199,10 @@ impl SpriteOrder {
             return;
         }
         self.drop_gone(present);
+        let held: HashSet<Drawable> = self.leasers.iter().map(|l| l.drawable).collect();
         let mut arrivals: Vec<&Present> = present
             .iter()
-            .filter(|p| !self.leasers.iter().any(|l| l.drawable == p.drawable))
+            .filter(|p| !held.contains(&p.drawable))
             .collect();
         arrivals.sort_by_key(|p| p.seq);
         let mut moves = moves.to_vec();
@@ -219,7 +222,9 @@ impl SpriteOrder {
             self.apply(m);
         }
         for p in present {
-            if let (Some(o), Some(i)) = (p.overlap, self.position(p.drawable)) {
+            if let Some(o) = p.overlap
+                && let Some(i) = self.position(p.drawable)
+            {
                 self.leasers[i].overlap_moves = o.moves;
             }
         }
@@ -268,7 +273,8 @@ impl SpriteOrder {
     /// Leasers whose drawable left the room, or came back to it (a new `AddObject`),
     /// are dropped; what their jaw containers held leaves the stage with them.
     fn drop_gone(&mut self, present: &[Present]) {
-        let gone: Vec<Drawable> = self
+        let here: HashSet<(Drawable, u64)> = present.iter().map(|p| (p.drawable, p.seq)).collect();
+        let gone: HashSet<Drawable> = self
             .leasers
             .iter()
             .filter(|l| {
@@ -278,9 +284,7 @@ impl SpriteOrder {
                         | Drawable::FullScreenEffect
                         | Drawable::DeathFall
                         | Drawable::WaterLight
-                ) && !present
-                    .iter()
-                    .any(|p| p.drawable == l.drawable && p.seq == l.seq)
+                ) && !here.contains(&(l.drawable, l.seq))
             })
             .map(|l| l.drawable)
             .collect();
@@ -401,11 +405,45 @@ impl SpriteOrder {
     /// container that is. A hold cycle counts as shown (D20).
     #[must_use]
     pub fn shown(&self, d: Drawable) -> bool {
+        self.shown_in(&self.index(), d)
+    }
+
+    /// Every shown drawable (see [`Self::shown`]), in one pass.
+    #[must_use]
+    pub fn shown_set(&self) -> HashSet<Drawable> {
+        let index = self.index();
+        self.leasers
+            .iter()
+            .map(|l| l.drawable)
+            .filter(|&d| self.shown_in(&index, d))
+            .collect()
+    }
+
+    /// Every drawable whose weapon sprites are in `Background`.
+    #[must_use]
+    pub fn behind_set(&self) -> HashSet<Drawable> {
+        self.leasers
+            .iter()
+            .filter(|l| l.behind)
+            .map(|l| l.drawable)
+            .collect()
+    }
+
+    fn index(&self) -> HashMap<Drawable, usize> {
+        let mut index = HashMap::with_capacity(self.leasers.len());
+        for (i, l) in self.leasers.iter().enumerate() {
+            index.entry(l.drawable).or_insert(i);
+        }
+        index
+    }
+
+    fn shown_in(&self, index: &HashMap<Drawable, usize>, d: Drawable) -> bool {
         let mut at = d;
         for _ in 0..=self.leasers.len() {
-            let Some(l) = self.leasers.iter().find(|l| l.drawable == at) else {
+            let Some(&i) = index.get(&at) else {
                 return false;
             };
+            let l = &self.leasers[i];
             match l.parent {
                 Parent::Room => return true,
                 Parent::Detached => return false,
