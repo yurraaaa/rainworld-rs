@@ -67,8 +67,9 @@ Exit check: rooms look and shake as in the game.
 ## Planned (order proposed, to decide)
 
 **M8 - Rain and the cycle's end**
-The rain cycle's rain, flood and rain death; waking up in the rain; the threat
-music layers' triggers.
+The rain cycle's rain, flood and rain death, in steps R0+R1, R2-R5
+(`../rainworld-re/surveys/rain/`). The threat music's rain inputs are already ported.
+Waking up in the rain is More Slugcats' precycle: with the DLC work (user, 2026-10-24).
 
 **M9 - Gates and region changes**
 Region gates and the karma gate rules, moving between regions, per-region state
