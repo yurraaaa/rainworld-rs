@@ -268,7 +268,7 @@ impl AtlasManager {
                 },
                 clamp: texture.wrap[0] == 1,
             };
-            (resources.texture_image(path)?, sampling)
+            (resources.texture_with_mips(path)?.1, sampling)
         };
         let data = assets.resolve_file_path(&format!("{path}.txt"));
         let atlas = if data.is_file() {
@@ -308,7 +308,8 @@ impl AtlasManager {
     }
 
     /// A Texture2D resource kept as a texture with no atlas (`Resources.Load(path) as
-    /// Texture2D`, e.g. a shader's global texture), with its own filter and wrap.
+    /// Texture2D`, e.g. a shader's global texture), with its own filter and wrap and its
+    /// stored mip chain.
     ///
     /// # Errors
     /// When the resource cannot be read.
@@ -316,28 +317,6 @@ impl AtlasManager {
         &mut self,
         resources: &UnityResources,
         path: &str,
-    ) -> Result<StageTextureId, AtlasLoadError> {
-        self.load_resource_texture_levels(resources, path, false)
-    }
-
-    /// As [`Self::load_resource_texture`], uploaded with the texture's whole mip chain
-    /// (a shader that reads it picks the level from the pixel block's derivatives).
-    ///
-    /// # Errors
-    /// As [`Self::load_resource_texture`].
-    pub fn load_resource_texture_with_mips(
-        &mut self,
-        resources: &UnityResources,
-        path: &str,
-    ) -> Result<StageTextureId, AtlasLoadError> {
-        self.load_resource_texture_levels(resources, path, true)
-    }
-
-    fn load_resource_texture_levels(
-        &mut self,
-        resources: &UnityResources,
-        path: &str,
-        mips: bool,
     ) -> Result<StageTextureId, AtlasLoadError> {
         let texture: rw_assets::unity::Texture2D = resources.load(path)?;
         let sampling = TextureSampling {
@@ -348,11 +327,7 @@ impl AtlasManager {
             },
             clamp: texture.wrap[0] == 1,
         };
-        let image = if mips {
-            resources.texture_with_mips(path)?.1
-        } else {
-            resources.texture_image(path)?
-        };
+        let image = resources.texture_with_mips(path)?.1;
         Ok(self.new_texture(image, sampling))
     }
 

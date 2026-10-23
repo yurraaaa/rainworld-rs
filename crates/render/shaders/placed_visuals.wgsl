@@ -109,18 +109,10 @@ fn fs_decal(in: VertexOut) -> @location(0) vec4<f32> {
     return vec4(rgb, mine.a * mix(1.0, 0.25 + 0.25 * in.color.a, shadow) * in.color.a);
 }
 
-// `tex2D(_MainTex, uv)` of the 64-wide rainbow gradient: bilinear, repeating (the
-// texture's import settings).
+// `tex2D(_MainTex, uv)` of the rainbow gradient page: bilinear, repeating, the mip level
+// the block's derivatives pick (the page's import settings).
 fn rainbow_gradient(uv: vec2<f32>) -> vec4<f32> {
-    let size = vec2<i32>(textureDimensions(atlas));
-    let p = uv * vec2<f32>(size) - vec2(0.5);
-    let f = fract(p);
-    let i0 = vec2<i32>(floor(p));
-    let a = textureLoad(atlas, ((i0 % size) + size) % size, 0);
-    let b = textureLoad(atlas, (((i0 + vec2(1, 0)) % size) + size) % size, 0);
-    let c = textureLoad(atlas, (((i0 + vec2(0, 1)) % size) + size) % size, 0);
-    let d = textureLoad(atlas, (((i0 + vec2(1, 1)) % size) + size) % size, 0);
-    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+    return textureSample(atlas, atlas_sampler, uv);
 }
 
 // `Rainbow` (it has a `GrabPass {}`): a ring between the vertex colour's red (the inner
@@ -135,18 +127,18 @@ fn fs_rainbow(in: VertexOut) -> @location(0) vec4<f32> {
     let dst = distance(in.uv, vec2(0.5)) * 2.0;
     let rain = room.rain;
     let noise_tap = noise_at(vec2(tc.x * 4.0, tc.y * 2.0 + rain * 0.04));
-    // The three `_NoiseTex2` taps come before the return and the glint's branch too (mip
+    // The three `_NoiseTex2` taps and the gradient's come before the return and the glint's branch too (mip
     // level from the block's derivatives).
     let sparkle = noise2_at(vec2(tc.x * 30.0, tc.y * 15.0 + rain * 0.12));
     let glint = textureSample(noise2, noise2_sampler, vec2(tc.x * 30.0, tc.y * 15.0 + rain * 0.2812)).y;
+    let d = clamp((dst - in.color.x) / (1.0 - in.color.x), 0.0, 1.0);
+    var col = rainbow_gradient(vec2(0.5, d));
     if dst > 1.0 || dst < in.color.x {
         return vec4(0.0);
     }
     var n = 0.5 + 0.5 * sin((sparkle * 3.0 + noise_tap) * 6.28 * 2.5);
     n = n * 3.0 - floor(n * 3.0);
     n = 0.5 + 0.5 * n;
-    let d = clamp((dst - in.color.x) / (1.0 - in.color.x), 0.0, 1.0);
-    var col = rainbow_gradient(vec2(0.5, d));
     if n > 0.99995 {
         let add = glint;
         col = vec4(clamp(col.rgb * (1.0 + 3.0 * add), vec3(0.0), vec3(1.0)), 1.0);

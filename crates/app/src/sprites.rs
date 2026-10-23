@@ -73,7 +73,7 @@ impl SpriteAssets {
             }
         }
         // `Rainbow`'s constructor loads `Atlases/Rainbow` as the atlas "rainbow".
-        match resources.texture_with_settings("Atlases/Rainbow") {
+        match resources.texture_with_mips("Atlases/Rainbow") {
             Ok((texture, image)) => {
                 let (w, h) = (image.width() as u32, image.height() as u32);
                 atlas = atlas.with_page(Atlas::single(RAINBOW_ELEMENT, w, h));
@@ -83,7 +83,7 @@ impl SpriteAssets {
             Err(e) => log::warn!("no rainbow texture ({e})"),
         }
         // `RainWorld.LoadResources` loads `Atlases/LightMask0` as the atlas "LightMask0".
-        match resources.texture_with_settings("Atlases/LightMask0") {
+        match resources.texture_with_mips("Atlases/LightMask0") {
             Ok((texture, image)) => {
                 let (w, h) = (image.width() as u32, image.height() as u32);
                 atlas = atlas.with_page(Atlas::single("LightMask0", w, h));
@@ -94,7 +94,7 @@ impl SpriteAssets {
         }
         // `RainWorld.LoadResources` loads `Atlases/glyphs` as the atlas "glyphs" (the
         // `GlyphProjection` shader's `_MainTex`).
-        match resources.texture_with_settings("Atlases/glyphs") {
+        match resources.texture_with_mips("Atlases/glyphs") {
             Ok((texture, image)) => {
                 let (w, h) = (image.width() as u32, image.height() as u32);
                 atlas = atlas.with_page(Atlas::single("glyphs", w, h));
@@ -104,9 +104,8 @@ impl SpriteAssets {
             Err(e) => log::warn!("no glyphs texture ({e})"),
         }
         // `RainWorld.LoadResources` loads `Atlases/maze` as the atlas "maze" (the
-        // `CoralCircuit` shaders' `_MainTex`: bilinear, repeat; its mips are not uploaded,
-        // D42).
-        match resources.texture_with_settings("Atlases/maze") {
+        // `CoralCircuit` shaders' `_MainTex`: bilinear, repeat, with its stored mips, D42).
+        match resources.texture_with_mips("Atlases/maze") {
             Ok((texture, image)) => {
                 let (w, h) = (image.width() as u32, image.height() as u32);
                 atlas = atlas.with_page(Atlas::single(rw_graphics::MAZE_ELEMENT, w, h));

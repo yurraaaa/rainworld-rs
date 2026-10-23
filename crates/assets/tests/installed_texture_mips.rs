@@ -68,3 +68,45 @@ fn maze_has_eight_stored_levels() {
     assert_eq!(image.mips()[0].pixel(0, 0), [49, 52, 49, 255]);
     assert_eq!(image.mips()[6].pixel(0, 0), [162, 163, 162, 255]);
 }
+
+/// Every `resources.assets` texture the port loads: path, mip count, filter, wrap (U, V).
+const LOADED: [(&str, u32, i32, [i32; 2]); 14] = [
+    ("Atlases/rainWorld", 1, 0, [1, 1]),
+    ("Atlases/uiSprites", 1, 0, [1, 1]),
+    ("Atlases/shelterGate", 9, 0, [0, 0]),
+    ("Atlases/Rainbow", 7, 1, [0, 0]),
+    ("Atlases/LightMask0", 8, 1, [0, 0]),
+    ("Atlases/glyphs", 1, 0, [1, 1]),
+    ("Atlases/maze", 8, 1, [0, 0]),
+    ("Atlases/fontAtlas", 1, 0, [1, 1]),
+    ("Palettes/textGradient", 8, 1, [0, 0]),
+    ("Palettes/cityPalette", 1, 0, [1, 1]),
+    ("Palettes/noise2", 9, 1, [0, 0]),
+    ("Palettes/noise", 7, 1, [0, 0]),
+    ("Illustrations/cloudsTexture", 10, 1, [0, 0]),
+    ("Illustrations/apartments", 1, 0, [1, 1]),
+];
+
+/// Each texture's import settings, and `texture_with_mips` carries every stored level.
+#[test]
+fn every_loaded_texture_keeps_its_stored_chain() {
+    let Some(resources) = open() else { return };
+    for (path, mips, filter, wrap) in LOADED {
+        let (texture, image) = resources.texture_with_mips(path).expect(path);
+        assert_eq!(
+            (
+                texture.mip_count,
+                texture.filter_mode,
+                texture.wrap[..2].to_vec()
+            ),
+            (mips, filter, wrap.to_vec()),
+            "{path}"
+        );
+        assert_eq!(image.mip_level_count(), mips, "{path}");
+        assert_eq!(texture.mip_bias, 0.0, "{path}");
+        if mips > 1 {
+            let last = image.mips().last().unwrap();
+            assert_eq!((last.width(), last.height()), (1, 1), "{path}");
+        }
+    }
+}

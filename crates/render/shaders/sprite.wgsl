@@ -215,6 +215,8 @@ fn drawn(c: vec4<f32>) -> bool {
 // behind the level (deeper than layer 5), and shadows cut by them.
 @fragment
 fn fs_light_source(in: VertexOut) -> @location(0) vec4<f32> {
+    // The mask's tap comes before the returns (mip level from the block's derivatives).
+    let mask = textureSample(atlas, atlas_sampler, in.uv).x;
     let tc = level_coord(in.scr);
     let texcol = level_at(tc);
     var palette_color = i32(floor(f32(byte(texcol.r) % 90) / 30.0));
@@ -265,7 +267,7 @@ fn fs_light_source(in: VertexOut) -> @location(0) vec4<f32> {
         dist *= 0.2;
         highlight = 0.0;
     }
-    dist *= textureSampleLevel(atlas, atlas_sampler, in.uv, 0.0).x;
+    dist *= mask;
     return vec4(in.color.rgb, dist * in.color.a * (0.65 + highlight * 0.35));
 }
 

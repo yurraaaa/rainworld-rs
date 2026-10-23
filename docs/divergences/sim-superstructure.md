@@ -460,8 +460,7 @@ Ported in `crates/sim/src/superstructure/coral/{circuit,circuit_connector,circui
   bilinear, repeat, `m_MipBias` 0) at the level the derivatives pick, so a bit squeezed by its
   flip (`|dRotat.y|` under about 0.5, so the window is minified more than 1.4 times) blurs as in
   the game. The page is uploaded with the stored chain (`UnityResources::texture_with_mips`,
-  `PngImage::mips`); `crates/app/src/sprites.rs` must load it with that call, not
-  `texture_with_settings`. The bits' vertex colours are 8 bits a channel
+  `PngImage::mips`); `crates/app/src/sprites.rs` loads it with that call. The bits' vertex colours are 8 bits a channel
   (`Mesh.colors`), as in the game, so the window's left, bottom and size are multiples of 1/255.
 - **Pictures.** Bits are `maze` sprites in `Background`, the `CoralCircuit` shader while in place, the
   `DeadCoralCircuit` shader else (`CoralCircuitBothSides` and `DeadCoralCircuitBothSides` are the same

@@ -413,7 +413,10 @@ fn rainbow_screens_its_ring_by_level_depth() {
     r.add_atlas_page(
         Atlas::single("rainbow", 64, 64),
         &gradient(),
-        TextureSampling::POINT_CLAMP,
+        TextureSampling {
+            filter: crate::TextureFilter::Bilinear,
+            clamp: false,
+        },
     );
     let frame = rainbow_frame(1.0);
     let before = frame.draw(&mut r, false);
@@ -450,7 +453,10 @@ fn rainbow_alpha_blends_it_over_the_frame() {
     r.add_atlas_page(
         Atlas::single("rainbow", 64, 64),
         &gradient(),
-        TextureSampling::POINT_CLAMP,
+        TextureSampling {
+            filter: crate::TextureFilter::Bilinear,
+            clamp: false,
+        },
     );
     let full = rainbow_frame(1.0);
     let half = rainbow_frame(0.5);

@@ -17,9 +17,13 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   uploaded as RGBA8; the game's GPU samples the compressed blocks and interpolates with
   its own rounding, so texels may differ by 1/255 from what the game shows (the CPU
   decode truncates, matching AssetRipper's export of every texture exactly). The
-  atlases keep their one mip, except `maze`, uploaded with the 8 mips it stores (D42);
-  `_NoiseTex` keeps its 7 mips and `_NoiseTex2` its 9 (every shader that reads them picks the
-  level by derivatives, taps before any early return, D37).
+  every texture from `resources.assets` is uploaded with its stored mip chain (`shelterGate` 9,
+  `Rainbow` 7, `LightMask0` 8, `maze` 8 (D42), `textGradient` 8, `_NoiseTex` 7, `_NoiseTex2` 9,
+  `cloudsTexture` 10; `rainWorld`, `uiSprites`, `glyphs`, `fontAtlas`, `cityPalette` and
+  `apartments` store one), and each shader that reads a mipped one picks the level by
+  derivatives, taps before any early return (D37). Two import settings are not honoured, as no
+  texture uses them: a non-zero `m_MipBias` (wgpu samplers have none) and trilinear filtering
+  (filter 2).
 - **Room sprite shaders** (`FlatLight`, `OverseerZip`, `Hologram`). `_NoiseTex2`
   (256x256 DXT1, 9 mips, bilinear, repeat) is read at the level the 2x2 block's derivatives
   pick, as `_NoiseTex` (in the room it minifies vertically, `tc.y * 8` over the 800 px level
