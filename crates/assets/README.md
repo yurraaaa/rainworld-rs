@@ -20,6 +20,7 @@ not behaviour. Game assets are never committed.
 | `placed.rs`, `placed_types.rs` | room effects and placed objects by type name; the `PlacedObject.Type` / `RoomEffect.Type` enums | `PlacedObject`, `RoomSettings.RoomEffect` |
 | `placed_visuals.rs` | `CustomDecalData`, `RainbowData`: the `CustomDecal` and `Rainbow` placed objects' data, and the decal PNG loader (`Decals/<name>.png`) | `PlacedObject.CustomDecalData`, `Rainbow.RainbowData`, `CustomDecal.LoadFile` |
 | `placed_beam.rs` | a placed `LightBeam`'s data: `LightBeamData`, `BeamBlinkType` (a `SpotLight` reads `QuadData`) | `LightBeam.LightBeamData` |
+| `placed_fixture.rs` | a placed `LightFixture`'s data: `LightFixtureData`, `LightFixtureType` | `PlacedObject.LightFixtureData` |
 | `placed_light.rs` | a placed light's data: `LightSourceData`, `LightColorType`, `LightBlinkType` | `PlacedObject.LightSourceData` |
 | `triggers.rs` | `Triggers:` entries (event/spot triggers, music and image events) | `RoomSettings.LoadTriggers` |
 | `ambient.rs` | `AmbientSounds:` line | `RoomSettings.LoadAmbientSounds` |
@@ -52,7 +53,7 @@ not behaviour. Game assets are never committed.
 
 - Room tiles, water, cameras: `room.rs` (`Room`).
 - A room's rain/water mask texture: `rain_mask.rs`.
-- Room settings (palette, effects, grime, waves, water reflection): `settings.rs`; placed objects: `placed.rs` (lights' data: `placed_light.rs`).
+- Room settings (palette, effects, grime, waves, water reflection): `settings.rs`; placed objects: `placed.rs` (lights' data: `placed_light.rs`, `placed_fixture.rs`).
 - Room palette blending: `palette.rs`; everything for one level graphic: `room_visuals.rs`.
 - World file, room list, connections: `world.rs` (`WorldData`); region list: `Regions`.
 - Region `properties.txt`: `region_properties.rs`.

@@ -238,6 +238,8 @@ sound_ids! {
     ElectricityLoop = "Electricity_Loop",
     // No `sounds.txt` line: it never plays.
     SpearHitSmallCreature = "Spear_Hit_Small_Creature",
+    // Commented out in `sounds.txt` too (`//Red_Light_On :`).
+    RedLightOn = "Red_Light_On",
 }
 
 /// A `ChunkSoundEmitter` handle: follows a body chunk; loops are updated and stopped

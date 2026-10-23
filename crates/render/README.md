@@ -27,6 +27,7 @@ lists and overlays.
 | `shaders/level.wgsl` | `LevelColor` (camera image through palette, object shadows from the pre-level grab, `SunBlock`, rimFix, wet terrain, grading) |
 | `shaders/sprite.wgsl` | room sprite shaders (`fs_basic`, `fs_flat_light`, `fs_hologram*`, `fs_light_source`, `fs_under_water_light`, `fs_shortcut`, `fs_water_splash`, `fs_water_light`, `fs_light_beam`, `fs_vector_circle`, ...) |
 | `shaders/full_screen.wgsl` | the room's full-screen effects, appended to `sprite.wgsl` (`fs_bloom`, `fs_sky_bloom`, `fs_light_bloom`, `fs_light_and_sky_bloom`, `fs_fog`) |
+| `shaders/water_fall.wgsl` | `WaterFall`'s shader (`fs_water_fall`), appended after `placed_visuals.wgsl` |
 | `shaders/placed_visuals.wgsl` | `CustomDecal`'s `Decal` shader (`fs_decal`) and `Rainbow`'s (`fs_rainbow`), appended after `death_fall.wgsl` |
 | `shaders/death_fall.wgsl` | `DeathFallGraphic`'s `DeathFall` shader (`fs_death_fall`), appended after `full_screen.wgsl` |
 | `shaders/stage.wgsl` | menu/HUD shaders (`fs_vector_circle`, `fs_menu_text`, `fs_local_bloom`, ...) |

@@ -37,6 +37,7 @@ mod green_sparks;
 pub mod insect;
 pub mod item;
 mod light_beam;
+mod light_fixture;
 mod light_source;
 mod lightning;
 pub mod map_discovery;
@@ -45,6 +46,7 @@ mod object;
 mod player;
 mod rainbow;
 mod room_ext;
+mod room_fixtures;
 mod room_particles;
 pub mod room_script;
 mod screen_shake;
@@ -64,6 +66,7 @@ mod vec3;
 mod water;
 mod water_drip;
 mod water_sound;
+mod waterfall;
 pub mod world;
 mod zero_g_speck;
 
@@ -86,7 +89,8 @@ pub use game::{
 };
 pub use green_sparks::{GreenSpark, GreenSparks, SparkCx};
 pub use light_beam::LightBeam;
-pub use light_source::{LightHardSet, LightSource, LightSourceTick, LightTie};
+pub use light_fixture::{HolyFire, HolyFireSprite, Redlight, SlimeMoldLight};
+pub use light_source::{LightElement, LightHardSet, LightSource, LightSourceTick, LightTie};
 pub use lightning::{
     Lightning, LightningEnv, LightningFrame, LightningRoom, LightningSource, ThunderSound,
 };
@@ -101,6 +105,7 @@ pub use player::{
 };
 pub use rainbow::Rainbow;
 pub use room_ext::RoomExt;
+pub use room_fixtures::RoomFixtures;
 pub use room_particles::RoomParticles;
 pub use screen_shake::{CameraShake, ScreenMovement};
 pub use shelter::SessionEnd;
@@ -124,6 +129,7 @@ pub use vec3::Vec3;
 pub use water::{BubbleEmitter, ChunkOwner, SurfaceChunk, Water, WaterObject};
 pub use water_drip::{WaterDrip, WaterGlitter};
 pub use water_sound::WaterSound;
+pub use waterfall::{FallBubble, FallObject, FallSpec, WaterFall};
 pub use zero_g_speck::{BlinkState, SpeckCx, SpeckKind, SpeckType, SporeState, ZeroGSpeck};
 
 #[cfg(test)]

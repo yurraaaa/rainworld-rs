@@ -1056,6 +1056,39 @@ impl Game {
         lists
     }
 
+    /// The camera room's `HolyFireSprite`s, `SlimeMoldLight`s and `WaterFall`s at `alpha`
+    /// between ticks in the camera's `palette`.
+    #[must_use]
+    pub fn fixture_draw_lists(
+        &self,
+        alpha: f32,
+        palette: &rw_assets::RoomPalette,
+    ) -> Vec<(Drawable, DrawList)> {
+        use rw_graphics::{HolyFireSpriteDraw, SlimeMoldLightSprites, WaterFallSprites};
+        let Some(r) = self.sim.world().realized(self.sim.camera_room()) else {
+            return Vec::new();
+        };
+        let f = &r.fixtures;
+        let mut lists: Vec<(Drawable, DrawList)> = f
+            .holy_sprites
+            .iter()
+            .filter(|s| !s.slated)
+            .map(|s| (Drawable::Fixture(s.update_order), s.draw(alpha)))
+            .collect();
+        lists.extend(
+            f.slime_lights
+                .iter()
+                .map(|s| (Drawable::Fixture(s.update_order), s.draw(palette))),
+        );
+        lists.extend(f.waterfalls.iter().map(|w| {
+            (
+                Drawable::Fixture(w.update_order),
+                w.draw(r.water.as_ref(), palette, alpha),
+            )
+        }));
+        lists
+    }
+
     /// The camera room's dandelions, stalks, green sparks, specks and spores at `alpha`
     /// between ticks in the camera's `palette` (a new spore's pebble draws on the
     /// cosmetic stream).
@@ -1415,6 +1448,11 @@ impl Game {
                 r.spot_lights
                     .iter()
                     .map(|s| Present::added(Drawable::SpotLight(s.update_order), s.update_order)),
+            );
+            present.extend(
+                r.fixtures
+                    .drawn_orders()
+                    .map(|o| Present::added(Drawable::Fixture(o), o)),
             );
         }
         present

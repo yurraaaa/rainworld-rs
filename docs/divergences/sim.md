@@ -366,8 +366,8 @@ restrictions (`rainworld-re/notes/water.md`), base game with Remix off, Survivor
   analogue swim direction (digital input only). The `Splash`es `Water.Update` makes
   are ported (`splash.rs`); those of explosions (`Surface.Explosion`) and geysers
   (`Geyser`) come with their owners, as do `JetWater`/`WaterJet` (JetFish). The
-  owners' bubbles come with the owners (JetFish, eels, vultures, gates, waterfalls,
-  `BubbleGrass`, ...); `backgroundBubble` (only More Slugcats' room scripts set it) is
+  owners' bubbles come with the owners (JetFish, eels, vultures, gates, `BubbleGrass`,
+  ...; a room's waterfalls are ported, D30); `backgroundBubble` (only More Slugcats' room scripts set it) is
   left out.
 - **Bubble emitter's chunk.** `Water.BubbleEmitter` keeps a reference to its chunk and
   reads it for up to about 60 ticks, wherever its body has gone. The port reads the
@@ -1063,9 +1063,8 @@ Physics: burrowing, terrain curves (`TerrainCurve`, so also `Jump`'s curve push,
 call, the room-range clamp's skip for grabbed objects, and `DefaultTile`.
 
 Room: the zero-gravity corridor slide's `WaterDrip`s (`Player.cs` 9423, with zero
-gravity); `WaterFall` (the falling
-water of waterfall tiles, with its water-coloured drips, bubbles and sound) and the
-`WaterGate`'s falls. `Room.Update`'s ambient ceiling drip and `Room.Loaded`'s
+gravity); the
+`WaterGate`'s falls (a room's own waterfalls are ported, D30). `Room.Update`'s ambient ceiling drip and `Room.Loaded`'s
 `DrippingSound` are ported (`game_drips.rs`); its `Random.value < gravity` compares with
 the constant room gravity 1 (zero gravity is not ported). More Slugcats omitted:
 `Room.SlugcatGamemodeUniqueRoomSettings` setting `CeilingDrips` to 0 (and `wetTerrain`
