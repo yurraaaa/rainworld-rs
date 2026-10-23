@@ -56,17 +56,34 @@ fn a_superstructure_room_reports_its_coral() {
         .collect();
     let segment_strands: usize = segments.iter().map(|g| g.mycelia).sum();
     let segment_owners = segments.iter().filter(|g| g.mycelia > 0).count();
+    // And the circuits' connectors' (one owner each).
+    let connectors: Vec<_> = state
+        .coral_circuits
+        .iter()
+        .filter(|c| c.room == "SS_D02")
+        .flat_map(|c| &c.connectors)
+        .collect();
+    let connector_strands: usize = connectors.iter().map(|x| x.strands).sum();
     assert_eq!(
         system.mycelia,
-        wall.strands + neuron_strands + segment_strands
+        wall.strands + neuron_strands + segment_strands + connector_strands
     );
-    assert_eq!(system.owners.len(), 1 + neurons.len() + segment_owners);
+    assert_eq!(
+        system.owners.len(),
+        1 + neurons.len() + segment_owners + connectors.len()
+    );
     // Registered in the order `AIMapReady` made them: the neurons, then the wall, then the
-    // stems' segments.
+    // circuits' connectors, then the stems' segments.
     let kinds: Vec<_> = system.owners.iter().map(|o| o.kind).collect();
     let wall_at = kinds.iter().position(|&k| k == "wall_mycelia").unwrap();
     assert!(kinds[..wall_at].iter().all(|&k| k == "coral_neuron"));
-    assert!(kinds[wall_at + 1..].iter().all(|&k| k == "stem_segment"));
+    let segments_at = kinds.iter().position(|&k| k == "stem_segment").unwrap();
+    assert!(
+        kinds[wall_at + 1..segments_at]
+            .iter()
+            .all(|&k| k == "circuit_connector")
+    );
+    assert!(kinds[segments_at..].iter().all(|&k| k == "stem_segment"));
     // A wall strand pairs with another owner's only (the neurons' strands).
     assert_eq!(wall.pairs_connected, 0);
     assert!(wall.culled <= wall.strands);
@@ -99,7 +116,7 @@ fn a_superstructure_room_reports_its_coral() {
     );
     assert_eq!(
         system.mycelia,
-        wall.strands + neuron_strands + segment_strands + overseers[0].strands
+        wall.strands + neuron_strands + segment_strands + connector_strands + overseers[0].strands
     );
 }
 

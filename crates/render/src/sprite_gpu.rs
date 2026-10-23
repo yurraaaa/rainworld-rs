@@ -94,7 +94,7 @@ pub(crate) struct ScreenTextures<'a> {
 
 impl SpritePipeline {
     /// Each shader and its fragment entry point.
-    const SHADERS: [(Shader, &'static str); 40] = [
+    const SHADERS: [(Shader, &'static str); 42] = [
         (Shader::Basic, "fs_basic"),
         (Shader::FlatLight, "fs_flat_light"),
         (Shader::OverseerZip, "fs_overseer_zip"),
@@ -138,6 +138,8 @@ impl SpritePipeline {
         (Shader::DeepProcessing, "fs_deep_processing"),
         (Shader::GravityDisruptor, "fs_gravity_disruptor"),
         (Shader::CoralNeuron, "fs_coral_neuron"),
+        (Shader::CoralCircuit, "fs_coral_circuit"),
+        (Shader::DeadCoralCircuit, "fs_dead_coral_circuit"),
     ];
 
     /// `_hologramThreshold` at render scale 1 (`RainWorld`, decompile 110635: 0.5 when

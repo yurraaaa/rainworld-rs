@@ -289,10 +289,7 @@ impl CoralCircuit {
     }
 
     /// The free tiles within a place's radius, away from walls, with the box they span.
-    fn find_tiles(
-        places: &[CircuitPlace],
-        cx: &CircuitCx<'_>,
-    ) -> (Vec<Tile>, [Tile; 2]) {
+    fn find_tiles(places: &[CircuitPlace], cx: &CircuitCx<'_>) -> (Vec<Tile>, [Tile; 2]) {
         let mut tiles: Vec<(i32, i32)> = Vec::new();
         let mut bottom_left = (i32::MAX, i32::MAX);
         let mut top_right = (i32::MIN, i32::MIN);

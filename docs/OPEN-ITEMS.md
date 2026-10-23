@@ -127,7 +127,7 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **Other-room MCP screenshots without fixtures** (user, 2026-10-23: skip for now):
   `screenshot` with `room` set (`crates/app/src/mcp/dev_tools.rs`) draws no light fixtures
   and none of the SS electric objects (D36), wall mycelia (D38), coral neurons, coral stems
-  (D41) or projected circles (D40); the debug view does not outline them either.
+  (D41), coral circuits (D42) or projected circles (D40); the debug view does not outline them either.
 - **Full-screen effects leftovers** (review, small): `DeathFall::camera_viewing_point`
   belongs on the room (`Room.CameraViewingPoint`); stale "not ported" rows for LightBurn,
   SkyAndLightBloom, SkyBloom and wet terrain in `../rainworld-re/surveys/room-effects/`
@@ -197,8 +197,6 @@ plan is in `../rainworld-re/surveys/lizards.md`.
     and the Remix branches with their DLC. The coral neurons (10d3a, D40) and stems (10d3b,
     D41) are done: each adds a `VineRef` variant, registers it in the room's system and gets a
     branch in the vine host (`RoomVines`) the player's update and the hands read (D39).
-  - Zero gravity: coral circuit swimming (`circuitSwimResistance`, `curcuitJumpMeter`,
-    `swimBits`), with the coral circuit object.
   - Zero gravity: Five Pebbles' and Moon's oracle scenes switching `AntiGravity` off, with
     the oracles.
   - `Room.ElectricPower` / gravity readers: `SpinningFan`, `MeltLights`, with the SS
@@ -207,11 +205,13 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   - `ProjectedCircle` (D35, D40, D41): ported with `CoralNeuron` and `CoralStem`; owners left:
     `SSOracleSwarmer` (10e), `SpearMasterPearl` and `Inspector` (DLC); the MSC and MMF branches
     of the circle itself with their DLC (D40).
-  - Coral (D38, D40, D41; done: the system, `WallMycelia`, the shared `Mycelium` pool,
-    `NeuronSpark`, `CoralNeuron` and `CoralStem` with `ProjectedCircle`): what
-    `CoralNeuronSystem.AIMapReady` also builds comes with 10d4-10e (`CoralCircuit` and its
-    connectors, `PlaceSwarmers`); More Slugcats' `Inspector` and
-    `SingularityBomb` strands with the DLC.
+  - Coral (D38, D40, D41, D42; done: the system, `WallMycelia`, the shared `Mycelium` pool,
+    `NeuronSpark`, `CoralNeuron` and `CoralStem` with `ProjectedCircle`, `CoralCircuit` with its
+    connectors, crabs and the player's circuit swimming): what
+    `CoralNeuronSystem.AIMapReady` also builds comes with 10e (`PlaceSwarmers`); More Slugcats'
+    `Inspector` (also skipped by the circuit's push) and `SingularityBomb` strands with the DLC.
+  - Coral circuits (D42): the `maze` texture's mips (the page has none, so a flipped bit is cut at
+    the first mip), with a mip chain for an atlas page.
   - Coral stems' segments are `physicalObjects[0]` objects (D41): each system of the game that
     walks the room's physical objects must include them when it is ported (`Explosion`,
     `RoomRain.ThrowAroundObjects`, `GameOverRain`, `WaterCurrent`, `FluxDrain`, `GeyserEruption`,

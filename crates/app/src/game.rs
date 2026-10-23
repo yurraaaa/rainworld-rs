@@ -1152,14 +1152,17 @@ impl Game {
             .collect()
     }
 
-    /// The camera room's `CoralNeuron`s, `StemSegment`s and `WallMycelia` at `alpha`
+    /// The camera room's `CoralNeuron`s, `StemSegment`s, `WallMycelia` and circuit bits,
+    /// connectors and crabs at `alpha`
     /// between ticks (the segments' dots blink from the cosmetic stream, per frame).
     pub fn coral_draw_lists(
         &mut self,
         alpha: f32,
         cam_pos: rw_sim::Vec2,
     ) -> Vec<(Drawable, DrawList)> {
-        use rw_graphics::{CoralNeuronSprites, StemFrame, StemSegmentSprites, WallMyceliaSprites};
+        use rw_graphics::{
+            CircuitSprites, CoralNeuronSprites, StemFrame, StemSegmentSprites, WallMyceliaSprites,
+        };
         let darkness = self.sim.darkness(self.sim.camera_room());
         let world = self.sim.world();
         let Some(r) = world.realized(self.sim.camera_room()) else {
@@ -1203,6 +1206,26 @@ impl Game {
                 w.draw(world.mycelia(), alpha),
             )
         }));
+        for circuit in &system.circuits {
+            lists.extend(circuit.bits.iter().enumerate().map(|(i, bit)| {
+                (
+                    Drawable::Coral(bit.update_order),
+                    circuit.draw_bit(i, alpha),
+                )
+            }));
+            for (k, connector) in circuit.connectors.iter().enumerate() {
+                lists.push((
+                    Drawable::Coral(connector.update_order),
+                    circuit.draw_connector(k, world.mycelia(), alpha, rng),
+                ));
+            }
+            lists.extend(circuit.crabs.iter().enumerate().map(|(k, crab)| {
+                (
+                    Drawable::Coral(crab.update_order),
+                    circuit.draw_crab(k, alpha),
+                )
+            }));
+        }
         lists
     }
 
@@ -1770,6 +1793,15 @@ impl Game {
                     .flat_map(|s| &s.wall_mycelia)
                     .map(|w| Present::added(Drawable::Coral(w.update_order), w.update_order)),
             );
+            for circuit in r.coral.iter().flat_map(|s| &s.circuits) {
+                let orders = circuit
+                    .bits
+                    .iter()
+                    .map(|b| b.update_order)
+                    .chain(circuit.connectors.iter().map(|x| x.update_order))
+                    .chain(circuit.crabs.iter().map(|x| x.update_order));
+                present.extend(orders.map(|o| Present::added(Drawable::Coral(o), o)));
+            }
         }
         present
     }

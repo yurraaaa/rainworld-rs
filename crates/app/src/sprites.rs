@@ -103,6 +103,18 @@ impl SpriteAssets {
             }
             Err(e) => log::warn!("no glyphs texture ({e})"),
         }
+        // `RainWorld.LoadResources` loads `Atlases/maze` as the atlas "maze" (the
+        // `CoralCircuit` shaders' `_MainTex`: bilinear, repeat; its mips are not uploaded,
+        // D42).
+        match resources.texture_with_settings("Atlases/maze") {
+            Ok((texture, image)) => {
+                let (w, h) = (image.width() as u32, image.height() as u32);
+                atlas = atlas.with_page(Atlas::single(rw_graphics::MAZE_ELEMENT, w, h));
+                images.push(image);
+                sampling.push(Self::import_sampling(&texture));
+            }
+            Err(e) => log::warn!("no maze texture ({e})"),
+        }
         Ok(Self {
             atlas,
             images,

@@ -589,6 +589,7 @@ impl Session {
             coral_systems: super::reply::CoralSystemState::all(sim.world()),
             climbable_vines: super::reply::ClimbableVinesState::all(sim.world()),
             wall_mycelia: super::reply::WallMyceliaState::all(sim.world()),
+            coral_circuits: super::reply::CoralCircuitState::all(sim.world()),
             coral_neurons: super::reply::CoralNeuronState::all(
                 sim.world(),
                 sim.player().and_then(|p| p.vine_pos()).map(|v| v.vine),
@@ -2243,6 +2244,14 @@ impl PlayerState {
                 interaction_locked: s.interaction_locked,
                 stick: s.stick.is_some(),
             }),
+            circuit_swim_resistance: player.circuit_swim_resistance(),
+            circuit_jump_meter: player.circuit_jump_meter(),
+            swim_bits: player
+                .swim_bits()
+                .into_iter()
+                .flatten()
+                .map(super::reply::SwimBitState::of)
+                .collect(),
         }
     }
 }

@@ -257,6 +257,12 @@ pub enum Shader {
     /// scrolling `_NoiseTex` bands in the vertex colour, divided by the vertex alpha (the
     /// segment count's reciprocal), half transparent by the palette.
     CoralNeuron,
+    /// `Futile/CoralCircuit` (a `CircuitBit` in place; the `BothSides` variant is the same
+    /// in the base game): the `maze` texture's window the vertex colour names cuts a
+    /// rounded rectangle out, the rest red with a noisy brightness per 2 px of the screen.
+    CoralCircuit,
+    /// `Futile/DeadCoralCircuit` (a displaced `CircuitBit`): the same cut-out, flat dim red.
+    DeadCoralCircuit,
 }
 
 impl Shader {

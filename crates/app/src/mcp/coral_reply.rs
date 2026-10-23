@@ -18,8 +18,8 @@ use super::placed_cosmetics_reply::RoomName;
 pub struct RegistryOwnerState {
     pub owner: u32,
     /// `wall_mycelia` for the room's `WallMycelia`, `coral_neuron` for a `CoralNeuron`,
-    /// `stem_segment` for a `StemSegment`, else an overseer's graphics module (the other
-    /// owners are not ported yet).
+    /// `stem_segment` for a `StemSegment`, `circuit_connector` for a `CircuitConnector`, else an
+    /// overseer's graphics module (the other owners are not ported yet).
     pub kind: &'static str,
     pub strands: usize,
     /// How many of them are linked to another strand.
@@ -216,6 +216,12 @@ impl CoralSystemState {
                     .flat_map(|stem| &stem.segments)
                     .map(|g| g.owner)
                     .collect();
+                let connectors: Vec<OwnerKey> = s
+                    .circuits
+                    .iter()
+                    .flat_map(|c| &c.connectors)
+                    .map(|x| x.owner)
+                    .collect();
                 Some(Self {
                     room: RoomName::of(world, i),
                     id: s.update_order,
@@ -225,7 +231,7 @@ impl CoralSystemState {
                     frozen: s.frozen(),
                     built: s.built,
                     mycelia: pool.registry(s.id).len(),
-                    owners: Self::owners(pool, s.id, [&walls, &neurons, &segments]),
+                    owners: Self::owners(pool, s.id, [&walls, &neurons, &segments, &connectors]),
                 })
             })
             .collect()
@@ -234,7 +240,7 @@ impl CoralSystemState {
     fn owners(
         pool: &MyceliumPool,
         system: rw_sim::SystemId,
-        [walls, neurons, segments]: [&[OwnerKey]; 3],
+        [walls, neurons, segments, connectors]: [&[OwnerKey]; 4],
     ) -> Vec<RegistryOwnerState> {
         let mut owners: Vec<RegistryOwnerState> = Vec::new();
         for m in pool.registry(system).iter().filter_map(|&id| pool.get(id)) {
@@ -249,6 +255,8 @@ impl CoralSystemState {
                             "coral_neuron"
                         } else if segments.contains(&m.owner) {
                             "stem_segment"
+                        } else if connectors.contains(&m.owner) {
+                            "circuit_connector"
                         } else {
                             "overseer"
                         },

@@ -14,6 +14,7 @@
 mod atlas;
 mod background_scene;
 mod body_part;
+mod circuit_draw;
 mod coral_neuron_draw;
 mod coral_stem_draw;
 mod cosmetic_graphics;
@@ -71,6 +72,7 @@ mod zero_g_speck;
 pub use atlas::{Atlas, AtlasError, AtlasFrame, Rect, Size};
 pub use background_scene::{BackgroundSceneSprites, BackgroundSceneView, SceneImageSizes};
 pub use body_part::{BodyPart, PointConnection};
+pub use circuit_draw::{CircuitSprites, MAZE_ELEMENT, MAZE_SIZE};
 pub use coral_neuron_draw::{CoralNeuronSprites, NeuronLook};
 pub use coral_stem_draw::{StemFrame, StemSegmentSprites};
 pub use cosmetic_graphics::{CosmeticSprites, LizardColors, LizardModule, NoLizards};
@@ -132,6 +134,8 @@ pub use water_fall::WaterFallSprites;
 pub use weapon_graphics::{PEBBLES, PebbleElement, SMALL_SPEAR, WeaponSprites};
 pub use zero_g_speck::SpeckSprites;
 
+#[cfg(test)]
+mod circuit_tests;
 #[cfg(test)]
 mod coral_neuron_tests;
 #[cfg(test)]

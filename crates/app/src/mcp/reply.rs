@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use serde::Serialize;
 
 pub use super::background_scene_reply::{BackgroundSceneState, CameraOnScene};
+pub use super::circuit_reply::{CoralCircuitState, SwimBitState};
 pub use super::coral_reply::{
     CoralNeuronState, CoralStemState, CoralSystemState, NeuronSparkState, ProjectedCircleState,
     WallMyceliaState,
@@ -142,6 +143,9 @@ pub struct State {
     /// The realized rooms' `WallMycelia`.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub wall_mycelia: Vec<WallMyceliaState>,
+    /// The realized rooms' `CoralCircuit`s.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub coral_circuits: Vec<CoralCircuitState>,
     /// The realized rooms' `CoralNeuron`s.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub coral_neurons: Vec<CoralNeuronState>,
@@ -1673,6 +1677,12 @@ pub struct PlayerState {
     /// The Hunter's `spearOnBack`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub spear_on_back: Option<SpearOnBackInfo>,
+    /// `circuitSwimResistance` and `curcuitJumpMeter` (coral circuit swimming).
+    pub circuit_swim_resistance: f32,
+    pub circuit_jump_meter: f32,
+    /// `swimBits`: the circuit bit each side of the body last swam through.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub swim_bits: Vec<SwimBitState>,
 }
 
 /// `Player.SpearOnBack`.
