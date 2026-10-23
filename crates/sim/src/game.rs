@@ -1405,14 +1405,11 @@ impl RainWorldGame {
         viewed_by_camera: i32,
         observer: &mut dyn PlayerObserver,
     ) {
-        // A move still pending runs first: each `MoveCamera` is a `ChangeRoom` with its own
-        // `NowViewed`.
-        self.apply_insect_view_change();
         self.camera_changed_room(self.camera_room, room, observer);
-        self.insect_view = Some(insects::InsectViewChange {
-            from: Some(self.camera_room),
-            to: room,
-        });
+        // A move before the last one's `ApplyPositionChange` replaces it (`loadingRoom` is
+        // overwritten): the room it named never gets its `NowViewed`.
+        let from = self.insect_view.map_or(Some(self.camera_room), |v| v.from);
+        self.insect_view = Some(insects::InsectViewChange { from, to: room });
         self.camera_room = room;
         let camera = usize::try_from(viewed_by_camera).unwrap_or(0);
         self.camera_move = Some(CameraMove { room, camera });

@@ -792,36 +792,31 @@ fn deep_processing_reads_the_last_grab() {
     );
 }
 
-/// `WaterSplash.shader`'s `textCoord` of the pixel: its place in the level image.
-fn level_coord_of(p: FramePixel) -> [f32; 2] {
-    let (w, h) = (W as f32, H as f32);
-    let s = p.scr();
-    let rect = [-0.5 / w, 0.5 / h, (w - 0.5) / w, (h + 0.5) / h];
-    [
-        ((s[0] * w).floor() / w - rect[0]) / (rect[2] - rect[0]),
-        ((s[1] * h).floor() / h - rect[1]) / (rect[3] - rect[1]),
-    ]
-}
-
-/// The splash quad: 30 px square at frame (500..530, 400..430), the quad's `i.uv` at a pixel.
-fn splash_uv(p: FramePixel) -> [f32; 2] {
-    [
-        ((p.0 as f32 + 1.0) - 500.0) / 30.0,
-        ((H as f32 - p.1 as f32 - 1.0) - (H as f32 - 430.0)) / 30.0,
-    ]
-}
-
 /// `WaterSplash.shader` for the vertex colour `(0, 0, 0, 0.5)` over a noise.
 struct Splash<'a>(&'a Noise);
 
 impl Splash<'_> {
+    /// The 30 px square quad at frame (500..530, 400..430): its `i.uv` at a pixel.
+    fn uv(p: FramePixel) -> [f32; 2] {
+        [
+            ((p.0 as f32 + 1.0) - 500.0) / 30.0,
+            ((H as f32 - p.1 as f32 - 1.0) - (H as f32 - 430.0)) / 30.0,
+        ]
+    }
+
+    /// `dist` of the quad's pixel.
+    fn dist(p: FramePixel) -> f32 {
+        let uv = Self::uv(p);
+        (((uv[0] - 0.5).powi(2) + (uv[1] - 0.5).powi(2)).sqrt() * 2.0).clamp(0.0, 1.0)
+    }
+
     /// The distortion added to `textCoord`: a noise sine (the tap at level 0: its step is
     /// 0.06 texels a pixel), quantised to pixels.
     fn distortion(&self, q: FramePixel) -> [f32; 2] {
-        let c = level_coord_of(q);
+        let c = q.level_coord();
         let tap = self.0.at(0, [c[0] * 1.2, c[1] * 1.2]);
         let dstrtn = ((RAIN + tap * 3.0) * GAME_PI * 2.0).sin() * 0.5 + 0.5;
-        let amount = (-0.002_f32).lerp_to(0.002, dstrtn) * (1.0 - dist_of(q));
+        let amount = (-0.002_f32).lerp_to(0.002, dstrtn) * (1.0 - Self::dist(q));
         [
             (amount * W as f32).floor() / W as f32,
             (amount * H as f32).floor() / H as f32,
@@ -830,7 +825,7 @@ impl Splash<'_> {
 
     /// The coordinate of the `pattern` tap.
     fn pattern_coord(&self, q: FramePixel) -> [f32; 2] {
-        let (c, d) = (level_coord_of(q), self.distortion(q));
+        let (c, d) = (q.level_coord(), self.distortion(q));
         [(c[0] + d[0]) * 18.2, RAIN * 2.4 + (c[1] + d[1]) * 12.2]
     }
 
@@ -838,11 +833,11 @@ impl Splash<'_> {
     /// level is too near a rounding edge); `coarse` reads the `i.uv` tap at the block's
     /// level, else at level 0.
     fn visible(&self, p: FramePixel, coarse: bool) -> Option<(bool, f32)> {
-        let uv = splash_uv(p);
-        let dist = dist_of(p);
+        let uv = Self::uv(p);
+        let dist = Self::dist(p);
         let pattern = self.0.tap_with(&|q| self.pattern_coord(q), p)?;
         let uv_tap = if coarse {
-            self.0.tap_with(&splash_uv, p)?
+            self.0.tap_with(&Self::uv, p)?
         } else {
             self.0.at(0, uv)
         };
@@ -852,12 +847,6 @@ impl Splash<'_> {
         let threshold = 0.05_f32.lerp_to(0.01, 0.5);
         Some((h >= threshold, h - threshold))
     }
-}
-
-/// `dist` of the splash quad's pixel.
-fn dist_of(p: FramePixel) -> f32 {
-    let uv = splash_uv(p);
-    (((uv[0] - 0.5).powi(2) + (uv[1] - 0.5).powi(2)).sqrt() * 2.0).clamp(0.0, 1.0)
 }
 
 /// A small `WaterSplash` quad (30 px: its `i.uv` steps 2.1 texels a pixel across the

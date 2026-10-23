@@ -184,8 +184,8 @@ impl LevelPipeline {
             multiview_mask: None,
             cache: Some(cache),
         });
-        // `_NoiseTex` import settings: bilinear (the nearest mip level), repeat; the level shader
-        // reads mip 0.
+        // `_NoiseTex` import settings: bilinear (the nearest mip level), repeat; the shaders
+        // pick the level by derivatives.
         let noise_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("noise"),
             address_mode_u: wgpu::AddressMode::Repeat,

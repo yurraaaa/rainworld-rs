@@ -33,6 +33,42 @@ mod music;
 /// Screen pixels kept free around the room in the debug view.
 pub const MARGIN: f32 = 16.0;
 
+/// The order of the region map's sprites and the room's in the room camera's `HUD`
+/// container. `Map.Update` adds the map's sprites on its first run, a `RoomCamera.Update`
+/// after the HUD was made; a `ChangeRoom` (every camera move) adds the room's sprites after
+/// whatever is in the container then. So the map is under the room's sprites (a
+/// `GravityDisruptor`'s disc, which ripples it) only if a camera move came after the map
+/// loaded; a move before that, the session's first included, leaves it above.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct MapOrder {
+    /// The map has had its first `Update`.
+    loaded: bool,
+    /// Its sprites were added after the room's.
+    over_disc: bool,
+}
+
+impl MapOrder {
+    /// A session: the first room's sprites come before the map's.
+    const fn new() -> Self {
+        Self {
+            loaded: false,
+            over_disc: true,
+        }
+    }
+
+    /// `Map.Update` ran (the HUD is updated from the tick after the one that made it).
+    fn map_updated(&mut self) {
+        self.loaded = true;
+    }
+
+    /// `ChangeRoom`: the room's sprites are added after the map's, if it is loaded.
+    fn camera_moved(&mut self) {
+        if self.loaded {
+            self.over_disc = false;
+        }
+    }
+}
+
 /// Gives every [`Scene`] its own id, so renderers notice a new room.
 static NEXT_SCENE_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -63,11 +99,8 @@ pub struct Scene {
     /// The quads of the HUD's first container, drawn by the next frame before the room's
     /// `HUD` container sprites ([`Scene::prepare_hud`]).
     hud_below: StageBatch,
-    /// The map's sprites were added to the `HUD` container after the room's: in the
-    /// session's first room, until the camera moves (`Map.Update` adds them on its first
-    /// update, after the camera's `ChangeRoom` made the room's sprites; every later
-    /// `ChangeRoom` adds the room's after the map's).
-    map_over_disc: bool,
+    /// Where the map's sprites sit in the `HUD` container against the room's.
+    map_order: MapOrder,
     /// The time stacker and cosmetic stream of the last frame drawn unpaused: while the
     /// game is paused nothing in the room redraws (`PausedDrawUpdate`), so frames repeat
     /// that one.
@@ -141,14 +174,13 @@ impl Scene {
             entered_room: false,
             hud: None,
             hud_below: StageBatch::default(),
-            map_over_disc: false,
+            map_order: MapOrder::new(),
             last_unpaused_frame: None,
             lightning_frame: None,
             paused: false,
         };
         scene.load_visuals();
         scene.apply_camera_move();
-        scene.map_over_disc = true;
         scene.entered_room = false;
         scene
     }
@@ -249,7 +281,7 @@ impl Scene {
         let Some(mv) = self.game.take_camera_move() else {
             return;
         };
-        self.map_over_disc = false;
+        self.map_order.camera_moved();
         if mv.room != self.camera_room {
             self.camera_room = mv.room;
             self.entered_room = true;
@@ -486,6 +518,7 @@ impl Scene {
     fn update_hud(&mut self, map_button: bool, shared: &mut MenuShared, paused: bool) {
         match &mut self.hud {
             Some(hud) => {
+                self.map_order.map_updated();
                 hud.text_prompt.pause_menu = paused;
                 let owner = self.game.hud_owner();
                 let rain = self.game.rain_view();
@@ -894,7 +927,7 @@ impl Scene {
             holograms: &holograms,
             hud_below: &self.hud_below,
             screen: self.camera.screen_size(),
-            map_over_disc: self.map_over_disc,
+            map_over_disc: self.map_order.over_disc,
             layers: view.layers,
             camera,
             alpha,
@@ -1359,6 +1392,25 @@ mod tests {
 
     /// The region map's quads are queued before the room's `HUD` sprites (the disc rips
     /// them) once the camera has moved, and after them in the session's first room.
+    /// The flag's lifecycle: above the disc at construction; a camera move before the map
+    /// loaded (the HUD's first update) leaves it; a move after puts it under, for good.
+    #[test]
+    fn the_map_order_follows_the_maps_first_update() {
+        let mut order = MapOrder::new();
+        assert!(order.over_disc);
+        order.camera_moved();
+        assert!(order.over_disc, "a move before the map loads");
+        order.map_updated();
+        assert!(order.over_disc, "loading adds no room sprites");
+        order.camera_moved();
+        assert!(!order.over_disc, "a move after it");
+        order.camera_moved();
+        order.map_updated();
+        assert!(!order.over_disc);
+    }
+
+    /// The region map's quads are queued before the room's `HUD` sprites (the disc ripples
+    /// them) once the order says so, and after them otherwise.
     #[test]
     fn the_map_is_under_the_disc_except_in_the_first_room() {
         let game = Game::new(open_room(), &rw_assets::RoomSettings::ANCESTOR, 1, None);

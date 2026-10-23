@@ -32,4 +32,16 @@ impl FramePixel {
             (H as f32 - self.1 as f32 - 0.5) / H as f32,
         ]
     }
+
+    /// The pixel's place in the level image of a view at the window's origin
+    /// (`floor(scrPos * _screenSize) / _screenSize` through `_spriteRect`).
+    pub(super) fn level_coord(self) -> [f32; 2] {
+        let (w, h) = (W as f32, H as f32);
+        let s = self.scr();
+        let rect = [-0.5 / w, 0.5 / h, (w - 0.5) / w, (h + 0.5) / h];
+        [
+            ((s[0] * w).floor() / w - rect[0]) / (rect[2] - rect[0]),
+            ((s[1] * h).floor() / h - rect[1]) / (rect[3] - rect[1]),
+        ]
+    }
 }

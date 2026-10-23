@@ -315,18 +315,20 @@ fn the_quad_keeps_full_power_in_a_powered_room() {
     );
 }
 
-/// A second camera move before the first tick runs the first move's `NowViewed` (the specks)
-/// and its `AIMapReady` link, then the second's (a move within one room makes none).
+/// A second camera move before the first tick replaces the first (`loadingRoom` is
+/// overwritten): one `NowViewed` (the room the last move named, here the same room), one
+/// `AIMapReady` link; the room an overwritten move named gets neither.
 #[test]
-fn a_second_move_before_the_first_tick_links_the_first_room_once() {
+fn a_second_move_before_the_first_tick_replaces_the_first() {
     let mut g = grab_game("GravityDisruptor><100><100><", &[("ZeroGSpecks", 0.01)], 0);
-    let room = g.world.realized(0).expect("room");
-    assert!(room.fixtures.gravity_disruptors[0].room_specks.is_empty());
+    g.camera_moves_to(0, 0, &mut WithGraphics);
     g.camera_moves_to(0, 0, &mut WithGraphics);
     let room = g.world.realized(0).expect("room");
-    assert_eq!(room.fixtures.gravity_disruptors[0].room_specks.len(), 10);
-    g.camera_moves_to(0, 0, &mut WithGraphics);
-    g.apply_insect_view_change();
+    assert!(
+        room.particles.specks.is_empty(),
+        "nothing before the first tick"
+    );
+    g.tick(Input::NONE, &mut WithGraphics);
     let room = g.world.realized(0).expect("room");
     assert_eq!(room.particles.specks.len(), 10);
     assert_eq!(room.fixtures.gravity_disruptors[0].room_specks.len(), 10);

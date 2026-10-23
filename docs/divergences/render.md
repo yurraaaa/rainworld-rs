@@ -17,8 +17,8 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   uploaded as RGBA8; the game's GPU samples the compressed blocks and interpolates with
   its own rounding, so texels may differ by 1/255 from what the game shows (the CPU
   decode truncates, matching AssetRipper's export of every texture exactly). The
-  atlases keep their one mip; `_NoiseTex` keeps its 7 mips (the level shader always
-  magnifies and reads level 0; `DeepProcessing` picks a level by derivatives, D37).
+  atlases keep their one mip; `_NoiseTex` keeps its 7 mips (every
+  shader that reads it picks the level by derivatives, taps before any early return, D37).
 - **Room sprite shaders** (`FlatLight`, `OverseerZip`, `Hologram`). `_NoiseTex2`
   (256x256 DXT1, 9 mips, bilinear, repeat) is sampled at mip 0 only; in the room the
   game minifies it vertically (`tc.y * 8` over the 800 px level image, about 2.6 texels

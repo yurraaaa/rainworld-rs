@@ -115,7 +115,8 @@ the data in `rw-assets` `placed_electric.rs`. Notes: `../rainworld-re/notes/supe
   texture starts every frame as the screen behind the level (`LevelColor`'s own `GrabPass
   { }`) and each grabbing draw replaces it with the frame it found; every shader without a
   `GrabPass` that reads `_GrabTexture` (`LightSource`, `UnderWaterLight`, `HoloGrid`,
-  `ElectricDeath`, `FlareBomb`, `WaterSplash`, `WaterLight`, `LightBeam`, `SpecificDepth`, `CustomDepth`, `Decal`, `Fog`,
+  `ElectricDeath`, `FlareBomb`, `WaterSplash`, `WaterLight`, `LightBeam`, `SpecificDepth`,
+  `CustomDepth`, `Decal`, `Fog`,
   the background scenes, `WaterSurface`/`DeepWater`, `DeepProcessing`) reads that texture.
   `LevelColor`'s and `DeathFall`'s/the bloom effects' `_PreLevelColorGrab` stays the
   pre-level frame. A reader drawn after a disruptor reads the frame the disruptor grabbed
@@ -134,8 +135,8 @@ the data in `rw-assets` `placed_electric.rs`. Notes: `../rainworld-re/notes/supe
   first `ChangeRoom` made the room's sprites: in the session's first room the map is above the
   disc (not rippled); after any later camera move `ChangeRoom` adds the room's sprites after
   the map's, so the disc ripples it. The app queues the map's quads (`Scene::prepare_hud`)
-  after the disc until the camera first moves, before it afterwards; the rest of the HUD
-  after the room. Other `HUD` container occupants the game has (arena score labels, debug
+  after the disc until a camera move comes after the map's first update (`MapOrder`), before
+  it from then on; the rest of the HUD after the room. Other `HUD` container occupants the game has (arena score labels, debug
   sprites, MSC and Watcher sprites, a lizard cosmetic with `SpritesOverlap.HUD`) are not
   ported.
 - **`roomSpecks`.** `GravityDisruptor.AIMapReady` collects the `GenericZeroGSpeck`s in the
