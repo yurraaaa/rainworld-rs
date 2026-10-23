@@ -58,7 +58,6 @@ fn story(settings: RoomSettings) -> RainWorldGame {
         },
         UnityRandom::new(5),
         Sounds::default(),
-        &mut (),
     )
 }
 

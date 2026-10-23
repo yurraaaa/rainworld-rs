@@ -52,7 +52,6 @@ fn electric_game(placed: &str, effects: &[(&str, f32)], ticks: usize) -> RainWor
         },
         UnityRandom::new(5),
         Sounds::default(),
-        &mut WithGraphics,
     );
     g.load_room_now(0, &mut WithGraphics);
     for _ in 0..ticks {

@@ -64,7 +64,6 @@ fn game_in(room: rw_assets::Room, effects: &[(&str, f32)], script: bool) -> Rain
         },
         UnityRandom::new(5),
         Sounds::new(table),
-        &mut WithGraphics,
     );
     g.load_room_now(0, &mut WithGraphics);
     g

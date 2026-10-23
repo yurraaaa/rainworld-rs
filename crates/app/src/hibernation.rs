@@ -313,7 +313,6 @@ mod tests {
             start,
             UnityRandom::new(1),
             Sounds::default(),
-            &mut (),
         );
         while !game.camera_room_ready() {
             game.tick(Input::default(), &mut ());

@@ -77,7 +77,6 @@ impl Installed {
             start,
             UnityRandom::new(1),
             Sounds::default(),
-            &mut (),
         );
         assert_eq!(game.take_camera_move().map(|m| m.camera), Some(0));
         for _ in 0..settle {

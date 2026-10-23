@@ -820,7 +820,11 @@ second part, else a single-room world for arena levels). The campaign descriptio
   places the counted creatures again as new abstract creatures (`GetNewID`, draws),
   duplicating them (a vanilla bug; Remix's `fullyLoaded` check avoids it). The port keeps
   the preparer and its stage ticks (so the realizer's wait on that room matches), but its
-  stages realize and place nothing.
+  stages realize and place nothing; they complete, setting only the dropped room's flags.
+  Whether the game's `ReadyForAI` on the dropped room throws before `loadingProgress = 3`
+  (in a creature or AI constructor with no room) was not traced; if it does, the game's
+  realizer would keep waiting on that room, where the port's stops after stage 2. Part of
+  the user's decision.
 - **Camera and shortcut graphics.** `RoomCamera.MoveCamera` applies a room's image at
   once, and `ShortcutGraphics.NewRoom`'s wait for `shortCutsReady`
   (`waitingForRoomToGenerateShortcuts`) is skipped (user, 2026-10-22); both return with

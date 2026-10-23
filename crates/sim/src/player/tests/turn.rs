@@ -47,7 +47,6 @@ fn story_game_in(
         start,
         UnityRandom::new(5),
         Sounds::default(),
-        &mut (),
     )
 }
 

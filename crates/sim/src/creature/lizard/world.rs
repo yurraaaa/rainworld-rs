@@ -16,7 +16,7 @@ use crate::creature::{
     CreatureId, Lizard, PathFinders, PatherKind, RealizedCreature, WorldCoordinate,
 };
 use crate::item::Entity;
-use crate::world::{QuickPathFinder, RealizedRoom, World};
+use crate::world::{QuickPathFinder, World};
 
 /// What placing a lizard in a room reads of the game: the stream, the graphics
 /// observer and the viewed room (`Room.BeingViewed`).
@@ -533,17 +533,12 @@ impl World {
         if c.lizard().is_none() {
             return;
         }
-        let room = c.pos.room;
-        let path_finder = self.path_finder_of(id);
-        if !self.realized(room).is_some_and(RealizedRoom::ready_for_ai) {
-            self.creature_mut(id).realized = None;
-            if let Some(pf) = path_finder {
-                self.path_finders.release(pf);
-            }
+        let t = c.template;
+        if self.drop_body_in_unready_room(id) {
             return;
         }
-        let t = c.template;
-        let mut pos = c.pos;
+        let path_finder = self.path_finder_of(id);
+        let mut pos = self.creature(id).pos;
         let mut distance = 0;
         if coord == pos {
             pos = self.define_node(pos, &t, rng);

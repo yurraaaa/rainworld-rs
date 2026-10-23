@@ -932,7 +932,6 @@ fn game_in(room: Room, effects: &str, placed: &str) -> RainWorldGame {
         },
         UnityRandom::new(5),
         Sounds::default(),
-        &mut (),
     )
 }
 

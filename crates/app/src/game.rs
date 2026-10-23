@@ -686,7 +686,7 @@ impl Game {
         rng: UnityRandom,
         sounds: Sounds,
     ) -> Self {
-        let mut graphics = Graphics {
+        let graphics = Graphics {
             module: None,
             slugcat: campaign.name,
             overseers: Vec::new(),
@@ -703,8 +703,7 @@ impl Game {
             beams: Vec::new(),
             beams_room: -1,
         };
-        let sim =
-            RainWorldGame::new_story(world, campaign, story, start, rng, sounds, &mut graphics);
+        let sim = RainWorldGame::new_story(world, campaign, story, start, rng, sounds);
         log::info!("spawned player");
         Self {
             sim,

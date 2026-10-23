@@ -109,7 +109,6 @@ fn game() -> RainWorldGame {
         },
         UnityRandom::new(5),
         Sounds::default(),
-        &mut (),
     );
     for _ in 0..20 {
         g.tick(Input::NONE, &mut ());

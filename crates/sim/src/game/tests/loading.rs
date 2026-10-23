@@ -98,7 +98,6 @@ fn game(
         },
         UnityRandom::new(5),
         Sounds::default(),
-        &mut (),
     );
     assert!(g.world.room_preparer(0).is_some_and(|p| p.calls() == 0));
     g.update_loading_rooms(&mut ());

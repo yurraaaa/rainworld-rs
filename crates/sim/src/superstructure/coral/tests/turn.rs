@@ -83,7 +83,6 @@ fn coral_game_observed(
         },
         UnityRandom::new(5),
         sounds,
-        observer,
     );
     if overseer {
         g.dev_spawn_creature(CreatureType::Overseer, 0, (10, 10), None, observer)

@@ -53,7 +53,6 @@ fn grab_game(placed: &str, effects: &[(&str, f32)], ticks: usize) -> RainWorldGa
         },
         UnityRandom::new(5),
         Sounds::default(),
-        &mut WithGraphics,
     );
     if ticks > 0 {
         g.tick_until_ready(&mut WithGraphics);

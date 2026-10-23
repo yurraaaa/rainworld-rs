@@ -150,8 +150,12 @@ the data in `rw-assets` `placed_electric.rs`. Notes: `../rainworld-re/notes/supe
   specks. The port's first room has the same order with no special case: `NowViewed` at
   the head of the first tick, `AIMapReady` in the third tick's loading step (D14's minimum
   schedule). A room realized ahead of the camera has its `AIMapReady` before the camera
-  enters (`ReadyForPlayer` needs the loading done), so its `roomSpecks` is empty, as in
-  the game.
+  enters, so its `roomSpecks` is empty, as in the game: `ReadyForPlayer`
+  (`readyForNonAICreaturesToEnter && waitToEnterAfterFullyLoaded < 1`) can already hold
+  after stage 1, but a room the player's vessel realizes on reaching the lobby gets
+  `AIMapReady` at the end of N+2, while the lobby looks at the vessel every third tick and
+  the camera's `NowViewed` comes at the head of the tick after the move, N+3 at the
+  earliest.
 - **Draws:** `DeepProcessing`: 1 a tick, 3 on a tick that moves its power (1 in 14); no
   constructor or draw-time draws. `DeepProcessingLight`: 1 a tick. `GravityDisruptor`:
   98 in the constructor (20 specks times 4, 16 streaks, `pointDir`, `dirFac`), at least 34 a

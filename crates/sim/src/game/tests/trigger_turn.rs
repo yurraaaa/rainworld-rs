@@ -50,7 +50,6 @@ impl Setup {
             start,
             UnityRandom::new(5),
             Sounds::default(),
-            &mut (),
         );
         game.load_room_now(0, &mut ());
         if let Some(p) = game.player.as_mut() {

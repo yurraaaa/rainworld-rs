@@ -69,7 +69,6 @@ impl Installed {
             start,
             UnityRandom::new(1),
             Sounds::default(),
-            &mut (),
         )
     }
 }

@@ -264,7 +264,6 @@ fn room_loaded_adds_them_in_settings_order() {
         },
         UnityRandom::new(5),
         Sounds::default(),
-        &mut (),
     );
     for _ in 0..3 {
         g.tick(Input::NONE, &mut ());

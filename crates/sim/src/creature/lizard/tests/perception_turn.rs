@@ -58,7 +58,6 @@ pub(crate) fn game(rows: &[&str], player: (i32, i32)) -> RainWorldGame {
         },
         UnityRandom::new(5),
         Sounds::default(),
-        &mut (),
     );
     g.tick_until_ready(&mut ());
     for _ in 0..20 {

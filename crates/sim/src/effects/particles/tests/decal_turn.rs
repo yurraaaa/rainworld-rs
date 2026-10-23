@@ -47,7 +47,6 @@ fn game(placed: &str, cycle: i32, seed: i32) -> RainWorldGame {
         },
         UnityRandom::new(seed),
         Sounds::default(),
-        &mut (),
     )
 }
 

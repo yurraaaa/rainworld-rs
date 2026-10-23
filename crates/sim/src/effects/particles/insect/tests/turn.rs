@@ -51,7 +51,6 @@ fn flies_game() -> RainWorldGame {
         },
         UnityRandom::new(5),
         Sounds::default(),
-        &mut (),
     )
 }
 

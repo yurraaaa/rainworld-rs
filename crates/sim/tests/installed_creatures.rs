@@ -468,7 +468,6 @@ fn guide_is_realized_in_the_start_room() {
         start,
         UnityRandom::new(SEED),
         Sounds::default(),
-        &mut (),
     );
     while !game.camera_room_ready() {
         game.tick(Input::default(), &mut ());

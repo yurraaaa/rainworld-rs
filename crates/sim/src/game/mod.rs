@@ -374,18 +374,17 @@ impl RainWorldGame {
     /// The constructor's order for the parts ported: `nextIssuedId`, the new game's
     /// `SaveState` seed, the world (`World`'s rain cycle; in a region, the population and
     /// the overseers; `FliesWorldAI`), the player's `AbstractCreature`, the first room
-    /// activated and shown by camera 0, the realizer, then (the room loading at once) the
-    /// room's creatures realized in list order, the player among them.
+    /// activated and shown by camera 0, the realizer; the room's creatures, the player
+    /// among them, are realized in list order when its loading reaches `ReadyForAI`.
     pub fn new(
         world: World,
         campaign: &'static SlugcatCampaign,
         start: Start,
         rng: UnityRandom,
         sounds: Sounds,
-        observer: &mut dyn PlayerObserver,
     ) -> Self {
         let story = StoryStart::new_game(campaign);
-        Self::new_story(world, campaign, story, start, rng, sounds, observer)
+        Self::new_story(world, campaign, story, start, rng, sounds)
     }
 
     /// [`Self::new`] from `story`: a new game's or a saved one's.
@@ -396,7 +395,6 @@ impl RainWorldGame {
         start: Start,
         mut rng: UnityRandom,
         sounds: Sounds,
-        _observer: &mut dyn PlayerObserver,
     ) -> Self {
         let mut world = world;
         let NewGameWorld {
