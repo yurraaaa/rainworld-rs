@@ -66,7 +66,8 @@ fn random_items_make_two_draws_per_failed_attempt() {
             next_issued_id: 1000,
         };
         let mut rng = UnityRandom::new(3);
-        world.activate_room(0, &mut ids, &mut rng).expect("loads");
+        world.activate_room(0).expect("loads");
+        world.place_loaded_room_items(0, &mut ids, &mut rng);
         assert_eq!(rng.state(), after_draws(3, draws), "density {d}");
         assert_eq!(ids.next_issued_id, 1000);
         assert!(objects(&world).is_empty());
@@ -85,7 +86,8 @@ fn a_random_item_on_a_free_tile_takes_an_id_and_one_or_two_more_draws() {
             next_issued_id: 1000,
         };
         let mut rng = UnityRandom::new(seed);
-        world.activate_room(0, &mut ids, &mut rng).expect("loads");
+        world.activate_room(0).expect("loads");
+        world.place_loaded_room_items(0, &mut ids, &mut rng);
 
         let mut expect = UnityRandom::new(seed);
         assert_eq!(expect.range_i32(0, 1), 0);
@@ -125,7 +127,8 @@ fn file_items_draw_in_file_order_and_skip_the_last_part() {
         let mut world = world_of(room, density(0.0), false);
         let mut ids = IdIssuer { next_issued_id: 50 };
         let mut rng = UnityRandom::new(seed);
-        world.activate_room(0, &mut ids, &mut rng).expect("loads");
+        world.activate_room(0).expect("loads");
+        world.place_loaded_room_items(0, &mut ids, &mut rng);
 
         let mut expect = UnityRandom::new(seed);
         let mut next = 50;
@@ -153,11 +156,13 @@ fn items_come_only_on_the_first_realization() {
     let mut world = world_of(room(&[".", "#"]), density(1.0), false);
     let mut ids = IdIssuer { next_issued_id: 0 };
     let mut rng = UnityRandom::new(9);
-    world.activate_room(0, &mut ids, &mut rng).expect("loads");
+    world.activate_room(0).expect("loads");
+    world.place_loaded_room_items(0, &mut ids, &mut rng);
     let count = objects(&world).len();
     world.abstractize(0, &mut UnityRandom::new(1));
     let state = rng.state();
-    world.activate_room(0, &mut ids, &mut rng).expect("loads");
+    world.activate_room(0).expect("loads");
+    world.place_loaded_room_items(0, &mut ids, &mut rng);
     assert_eq!(rng.state(), state);
     assert_eq!(objects(&world).len(), count);
 }
@@ -168,7 +173,8 @@ fn shelters_make_file_items_but_no_random_ones() {
     let mut world = world_of(room, density(1.0), true);
     let mut ids = IdIssuer { next_issued_id: 0 };
     let mut rng = UnityRandom::new(1);
-    world.activate_room(0, &mut ids, &mut rng).expect("loads");
+    world.activate_room(0).expect("loads");
+    world.place_loaded_room_items(0, &mut ids, &mut rng);
     assert_eq!(rng.state(), after_draws(1, 1));
 }
 
@@ -229,7 +235,8 @@ fn shortcuts_ready_realizes_the_room_objects_in_entity_order() {
     ));
     let mut ids = IdIssuer { next_issued_id: 0 };
     let mut rng = UnityRandom::new(4);
-    world.activate_room(0, &mut ids, &mut rng).expect("loads");
+    world.activate_room(0).expect("loads");
+    world.place_loaded_room_items(0, &mut ids, &mut rng);
     world.finish_loading();
     world.realize_room_objects(0, &mut rng);
     assert_eq!(rng.state(), after_draws(4, 2 + 2 + 4));
@@ -255,7 +262,8 @@ fn the_collision_pass_pushes_two_items_apart_by_mass() {
     let b = add_rock(&mut world, 2, (1, 1));
     let mut ids = IdIssuer { next_issued_id: 0 };
     let mut rng = UnityRandom::new(8);
-    world.activate_room(0, &mut ids, &mut rng).expect("loads");
+    world.activate_room(0).expect("loads");
+    world.place_loaded_room_items(0, &mut ids, &mut rng);
     world.finish_loading();
     world.realize_room_objects(0, &mut rng);
     let mut expect = rng.clone();
@@ -301,7 +309,8 @@ fn reliable_spears_come_once_and_multiplayer_items_on_every_realization() {
             next_issued_id: 1000,
         };
         let mut rng = UnityRandom::new(seed);
-        world.activate_room(0, &mut ids, &mut rng).expect("loads");
+        world.activate_room(0).expect("loads");
+        world.place_loaded_room_items(0, &mut ids, &mut rng);
         let mut expect = UnityRandom::new(seed);
         let rock = expect.value() <= 0.5;
         let mut want = Vec::new();
@@ -325,7 +334,8 @@ fn reliable_spears_come_once_and_multiplayer_items_on_every_realization() {
         world.abstractize(0, &mut UnityRandom::new(1));
         let mut expect = rng.clone();
         expect.value();
-        world.activate_room(0, &mut ids, &mut rng).expect("loads");
+        world.activate_room(0).expect("loads");
+        world.place_loaded_room_items(0, &mut ids, &mut rng);
         assert_eq!(rng.state(), expect.state(), "seed {seed}");
         let spears = objects(&world)
             .iter()

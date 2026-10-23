@@ -156,37 +156,63 @@ impl World {
         self.object_mut(id).pos = to;
     }
 
-    /// The items a room makes when it is realized: on its first realization in a cycle
-    /// (`abstractRoom.firstTimeRealized`) the room file's list (`LoadFromDataString`);
-    /// on every one, in a story, `Room.Loaded`'s `MultiplayerItem`s (its first
-    /// placed-object loop); on the first, its `ReliableSpear`s (the second loop), then
-    /// the random items.
-    pub(crate) fn place_room_items(
+    /// `LoadFromDataString`'s items of realized room `index` on its first realization
+    /// in the cycle (`abstractRoom.firstTimeRealized`), before `Room.Loaded`.
+    pub(crate) fn place_loaded_file_items(
         &mut self,
         index: i32,
-        room: &Room,
-        settings: &RoomSettings,
-        first_time: bool,
         ids: &mut IdIssuer,
         rng: &mut UnityRandom,
     ) {
-        if first_time {
-            self.place_file_items(index, room, ids, rng);
-        }
-        let placed = settings.placed_objects_for(self.timeline, self.mods);
-        if self.story {
-            self.place_multiplayer_items(index, &placed, ids, rng);
-        }
-        if !first_time {
+        let Some(r) = self.realized(index).filter(|r| r.first_time_realized()) else {
             return;
-        }
+        };
+        let room = std::sync::Arc::clone(&r.room);
+        self.place_file_items(index, &room, ids, rng);
+    }
+
+    /// `Room.Loaded`'s `firstTimeRealized` pass of realized room `index` (after its
+    /// scripts): its `ReliableSpear`s, then the random items (not in a shelter or gate).
+    pub(crate) fn place_first_time_items(
+        &mut self,
+        index: i32,
+        ids: &mut IdIssuer,
+        rng: &mut UnityRandom,
+    ) {
+        let Some(r) = self.realized(index).filter(|r| r.first_time_realized()) else {
+            return;
+        };
+        let (room, settings) = (std::sync::Arc::clone(&r.room), r.settings.clone());
+        let placed = settings.placed_objects_for(self.timeline, self.mods);
         self.place_reliable_spears(index, &placed, ids);
         let Some(data) = self.abstract_room(index) else {
             return;
         };
         if !data.shelter() && !data.gate() {
-            self.place_random_items(index, room, settings, ids, rng);
+            self.place_random_items(index, &room, &settings, ids, rng);
         }
+    }
+
+    /// Every item realized room `index` makes when it loads, in the game's order without
+    /// what comes between (world-only tests): the file items, a story's
+    /// `MultiplayerItem`s, the `firstTimeRealized` pass.
+    #[cfg(test)]
+    pub(crate) fn place_loaded_room_items(
+        &mut self,
+        index: i32,
+        ids: &mut IdIssuer,
+        rng: &mut UnityRandom,
+    ) {
+        self.place_loaded_file_items(index, ids, rng);
+        let placed = self.realized(index).map_or_else(Vec::new, |r| {
+            r.settings.placed_objects_for(self.timeline, self.mods)
+        });
+        if self.story {
+            for o in placed.iter().filter(|o| o.active) {
+                self.spawn_multiplayer_item(index, o, ids, rng);
+            }
+        }
+        self.place_first_time_items(index, ids, rng);
     }
 
     /// `Room.GetWorldCoordinate(pos)`: the tile under a room position, no node.
@@ -195,45 +221,41 @@ impl World {
         WorldCoordinate::new(index, x, y, -1)
     }
 
-    /// `SpawnMultiplayerItem` (64969) for each active `MultiplayerItem`: one draw
-    /// against its chance; then an ID (`GetNewID()`) and a rock, a spear, an explosive
-    /// spear, a scavenger bomb or a spore plant. The last two are not realized by the
-    /// port, and the spore plant is a plain object without its consumable fields
-    /// (docs/divergences/ D14).
-    fn place_multiplayer_items(
+    /// `SpawnMultiplayerItem` (64969) of placed object `o` when it is a `MultiplayerItem`
+    /// (the placed-object loop of a story's `Room.Loaded`): one draw against its chance;
+    /// then an ID (`GetNewID()`) and a rock, a spear, an explosive spear, a scavenger bomb
+    /// or a spore plant. The last two are not realized by the port, and the spore plant is
+    /// a plain object without its consumable fields (docs/divergences/ D14).
+    pub(crate) fn spawn_multiplayer_item(
         &mut self,
         index: i32,
-        placed: &[PlacedObject],
+        o: &PlacedObject,
         ids: &mut IdIssuer,
         rng: &mut UnityRandom,
     ) {
-        for o in placed.iter().filter(|o| o.active) {
-            if o.object_type(self.mods) != Some(PlacedObjectType::MultiplayerItem) {
-                continue;
-            }
-            let Some(data) = MultiplayerItemData::parse(&o.data, self.mods) else {
-                continue;
-            };
-            if rng.value() > data.chance {
-                continue;
-            }
-            let pos = Self::placed_coordinate(index, o);
-            let id = ids.new_id(-1);
-            let object = match data.kind {
-                Some(MultiplayerItemType::Spear) => AbstractObject::new_spear(id, pos, false),
-                Some(MultiplayerItemType::ExplosiveSpear) => {
-                    AbstractObject::new_spear(id, pos, true)
-                }
-                Some(MultiplayerItemType::Bomb) => {
-                    AbstractObject::new_plain(AbstractObjectType::ScavengerBomb, id, pos)
-                }
-                Some(MultiplayerItemType::SporePlant) => {
-                    AbstractObject::new_plain(AbstractObjectType::SporePlant, id, pos)
-                }
-                Some(MultiplayerItemType::Rock) | None => AbstractObject::new_rock(id, pos),
-            };
-            self.add_object(object);
+        if o.object_type(self.mods) != Some(PlacedObjectType::MultiplayerItem) {
+            return;
         }
+        let Some(data) = MultiplayerItemData::parse(&o.data, self.mods) else {
+            return;
+        };
+        if rng.value() > data.chance {
+            return;
+        }
+        let pos = Self::placed_coordinate(index, o);
+        let id = ids.new_id(-1);
+        let object = match data.kind {
+            Some(MultiplayerItemType::Spear) => AbstractObject::new_spear(id, pos, false),
+            Some(MultiplayerItemType::ExplosiveSpear) => AbstractObject::new_spear(id, pos, true),
+            Some(MultiplayerItemType::Bomb) => {
+                AbstractObject::new_plain(AbstractObjectType::ScavengerBomb, id, pos)
+            }
+            Some(MultiplayerItemType::SporePlant) => {
+                AbstractObject::new_plain(AbstractObjectType::SporePlant, id, pos)
+            }
+            Some(MultiplayerItemType::Rock) | None => AbstractObject::new_rock(id, pos),
+        };
+        self.add_object(object);
     }
 
     /// `Room.Loaded`'s `ReliableSpear`s (60885): every active one is a spear (an ID

@@ -55,7 +55,6 @@ fn game(
         },
         UnityRandom::new(5),
         Sounds::default(),
-        &mut (),
     );
     for _ in 0..10 {
         g.tick(Input::new(0, 1, false), &mut ());

@@ -7,7 +7,7 @@ use super::*;
 
 /// The call numbers (from 1) at which `calls` calls hand over each stage.
 fn stage_calls(schedule: LoadingSchedule, calls: u32) -> Vec<(u32, PreparerStage)> {
-    let mut p = RoomPreparer::new(3);
+    let mut p = RoomPreparer::new(3, 0);
     let mut at = Vec::new();
     for call in 1..=calls {
         at.extend(p.update(schedule).into_iter().map(|s| (call, s)));
@@ -17,7 +17,7 @@ fn stage_calls(schedule: LoadingSchedule, calls: u32) -> Vec<(u32, PreparerStage
 
 #[test]
 fn the_game_minimum_hands_stage_one_on_call_two_and_stage_two_on_call_three() {
-    let mut p = RoomPreparer::new(3);
+    let mut p = RoomPreparer::new(3, 0);
     let s = LoadingSchedule::GAME_MINIMUM;
     assert!(p.update(s).is_empty());
     assert_eq!(p.status(), PreparerStatus::MappingShortcuts);
@@ -47,7 +47,7 @@ fn a_longer_schedule_waits_its_calls() {
 
 #[test]
 fn immediate_hands_both_stages_on_the_first_call() {
-    let mut p = RoomPreparer::new(3);
+    let mut p = RoomPreparer::new(3, 0);
     assert_eq!(
         p.update(LoadingSchedule::Immediate),
         vec![PreparerStage::ShortcutsReady, PreparerStage::ReadyForAi]

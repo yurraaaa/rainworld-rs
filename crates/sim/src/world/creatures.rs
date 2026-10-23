@@ -1048,13 +1048,17 @@ impl World {
         }
     }
 
-    /// `AbstractRoom.Abstractize` for the creatures of global room `room`, newest first:
+    /// `AbstractRoom.Abstractize` for the creatures of global room `room`, newest first
+    /// (in a room not `readyForAI` a body is just dropped, `AbstractCreature.Abstractize`):
     /// a realized overseer drops its body and keeps its node; its realized AI stays. A
     /// realized fly (in the room, a hive or a shortcut) drops its body and its grasps'
     /// flies with it. Rooms out of the camera's view have no graphics modules to drop.
     pub(crate) fn abstractize_creatures(&mut self, room: i32, rng: &mut UnityRandom) {
         let ids: Vec<CreatureId> = self.room_creatures(room).iter().rev().copied().collect();
         for id in ids {
+            if self.drop_body_in_unready_room(id) {
+                continue;
+            }
             let c = self.creature_mut(id);
             match c.realized {
                 Some(RealizedCreature::Overseer(_)) => {
@@ -1077,6 +1081,26 @@ impl World {
         }
     }
 
+    /// `AbstractCreature.Abstractize`'s first exit: a realized creature whose room is not
+    /// `readyForAI` just loses its body (and a lizard its path finder). Returns whether it
+    /// did.
+    pub(crate) fn drop_body_in_unready_room(&mut self, id: CreatureId) -> bool {
+        let c = self.creature(id);
+        if c.realized.is_none()
+            || self
+                .realized(c.pos.room)
+                .is_some_and(RealizedRoom::ready_for_ai)
+        {
+            return false;
+        }
+        let path_finder = self.path_finder_of(id);
+        self.creature_mut(id).realized = None;
+        if let Some(pf) = path_finder {
+            self.path_finders.release(pf);
+        }
+        true
+    }
+
     /// `AbstractCreature.Abstractize(coord)` of a realized fly: at its own position the
     /// node stays (it is always defined for a fly) and `distanceToMyNode` is its exit
     /// distance; then `Move(coord)`, the flies it holds abstracted to `coord` too.
@@ -1091,8 +1115,7 @@ impl World {
             return;
         }
         let room = c.pos.room;
-        if !self.realized(room).is_some_and(RealizedRoom::ready_for_ai) {
-            self.creature_mut(id).realized = None;
+        if self.drop_body_in_unready_room(id) {
             return;
         }
         let mut pos = self.creature(id).pos;

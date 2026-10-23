@@ -2,6 +2,7 @@
 
 mod graphics_modules;
 mod loading;
+mod neighbour_loading;
 mod screen_movement;
 mod shortcut_color;
 mod water;

@@ -428,7 +428,7 @@ impl RainWorldGame {
     /// A fly or lizard vessel's turn in the lobby. Toward an unrealized room it is
     /// abstracted there, unless camera 0 follows it or what it carries (the held player:
     /// `FollowedByCamera`), which realizes the room and waits (an off-screen den is
-    /// never realized). Into a room ready for the player and for AI it moves there with
+    /// never realized). Into a room `VesselAllowedInRoom` it moves there with
     /// everything stuck to it, restarts at the entrance node's tile in the tubes, the
     /// entrance blinks (1.5, the creature's colour on camera 0), and a followed vessel
     /// takes the camera to the node's camera. Returns whether it left the lobby.
@@ -449,7 +449,7 @@ impl RainWorldGame {
         let ready = self
             .world
             .realized(lobby.room)
-            .map(|r| r.ready_for_player() && r.ready_for_ai());
+            .map(|_| self.world.vessel_allowed_in_room(id, lobby.room));
         match ready {
             None if followed && lobby.room != self.world.offscreen_den_index() => {
                 if let Err(e) = self.activate_room(lobby.room) {
@@ -510,7 +510,7 @@ impl RainWorldGame {
         let ready = self
             .world
             .realized(lobby.room)
-            .map(|r| r.ready_for_player() && r.ready_for_ai());
+            .map(|_| self.world.vessel_allowed_in_room(id, lobby.room));
         match ready {
             None => {
                 self.world.abstractize_fly(id, coord, &mut self.rng);

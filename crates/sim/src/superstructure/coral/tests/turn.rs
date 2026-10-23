@@ -24,7 +24,9 @@ use crate::{
     Vec2, Water,
 };
 
-/// A 40 x 20 room with three rows of floor, the player standing on it at (2, 3).
+/// A 40 x 20 room with three rows of floor, the player standing on it at (2, 3). `ticks`
+/// counts from the tick whose loading step is `ReadyForAI` (the third, `AIMapReady`):
+/// 0 runs none.
 pub(crate) fn coral_game(placed: &str, effects: &[(&str, f32)], ticks: usize) -> RainWorldGame {
     coral_game_with(placed, effects, ticks, Sounds::default())
 }
@@ -81,13 +83,15 @@ fn coral_game_observed(
         },
         UnityRandom::new(5),
         sounds,
-        observer,
     );
     if overseer {
         g.dev_spawn_creature(CreatureType::Overseer, 0, (10, 10), None, observer)
             .expect("spawns");
     }
-    for _ in 0..ticks {
+    if ticks > 0 {
+        g.tick_until_ready(observer);
+    }
+    for _ in 1..ticks {
         g.tick(Input::NONE, observer);
     }
     g
@@ -121,8 +125,9 @@ fn the_system_is_made_at_load_and_its_owners_at_ai_map_ready() {
     assert_eq!(wall.places.len(), 1);
     assert_eq!(wall.places[0].pos, Vec2::new(300.0, 100.0));
     assert_eq!(wall.places[0].rad, 150.0);
-    // The system's own turn: `age` counts ticks (one a tick; the first room is viewed).
-    assert_eq!(system.age, 1);
+    // The system's own turn: `age` counts ticks (one a tick from the first, the room
+    // updating while it loads; the first room is viewed).
+    assert_eq!(system.age, 3);
     assert_eq!(system.not_viewed_counter, 0);
 }
 
@@ -134,7 +139,7 @@ fn the_ss_swarmers_effect_makes_a_system() {
     let system = g.world.realized(0).unwrap().coral.as_ref().expect("system");
     assert!(system.built);
     assert!(system.wall_mycelia.is_empty());
-    assert_eq!(system.age, 2);
+    assert_eq!(system.age, 4);
     let none = coral_game("", &[], 1);
     assert!(none.world.realized(0).unwrap().coral.is_none());
 }
@@ -167,11 +172,11 @@ fn a_second_coral_object_makes_no_second_system() {
 }
 
 /// The system's turn draws two (the wind); the wall mycelia's second turn, the camera having
-/// seen the strands in the first, resets each strand (`2 + 2 * points` draws), picks its
-/// registry partner (one) and drifts (one).
+/// seen the strands in the first (the tick after `AIMapReady`), resets each strand
+/// (`2 + 2 * points` draws), picks its registry partner (one) and drifts (one).
 #[test]
 fn the_turns_draw_as_the_game_does() {
-    let mut g = coral_game(WALL, &[], 1);
+    let mut g = coral_game(WALL, &[], 2);
     let mut expect = g.rng.clone();
     g.run_coral(0, CoralRef::System);
     expect.value();
@@ -416,42 +421,25 @@ impl PlayerObserver for StrandObserver {
     }
 }
 
-/// The session's first room, whichever of the camera's first view (`NowViewed`, the head of
-/// the first tick) and the loading step (`ReadyForAI` realizing the overseer, then
-/// `AIMapReady`) comes first: the overseer's strand joins the system in `NewRoom` before
-/// the wall mycelia are made, so the registry is the overseer's strand, then the wall's.
+/// The session's first room: the camera's first view (`NowViewed`, the head of the first
+/// tick) comes before the loading steps (`ReadyForAI` realizing the overseer, then
+/// `AIMapReady`): the overseer's strand joins the system in `NewRoom` before the wall
+/// mycelia are made, so the registry is the overseer's strand, then the wall's.
 #[test]
 fn the_first_rooms_overseer_registers_before_the_wall() {
-    for view_first in [true, false] {
-        let mut observer = StrandObserver::default();
-        let mut g = coral_game_observed(WALL, &[], 0, Sounds::default(), true, &mut observer);
-        if view_first {
-            g.apply_insect_view_change();
-            g.update_loading_rooms(&mut observer);
-        } else {
-            g.update_loading_rooms(&mut observer);
-            assert!(
-                g.world
-                    .realized(0)
-                    .unwrap()
-                    .coral
-                    .as_ref()
-                    .unwrap()
-                    .wall_mycelia
-                    .is_empty()
-            );
-            g.apply_insect_view_change();
-        }
-        let system = g.world.realized(0).unwrap().coral.as_ref().unwrap();
-        let registry = g.world.mycelia().registry(system.id);
-        let wall = &system.wall_mycelia[0];
-        assert_eq!(registry.len(), 1 + wall.mycelia.len(), "{view_first}");
-        assert_eq!(registry[0], observer.strands[0]);
-        assert_eq!(&registry[1..], &wall.mycelia[..]);
-        let owner = g.world.mycelia().get(registry[0]).unwrap().owner;
-        assert_eq!(Some(owner), observer.owner);
-        assert_ne!(owner, wall.owner);
-    }
+    let mut observer = StrandObserver::default();
+    let mut g = coral_game_observed(WALL, &[], 0, Sounds::default(), true, &mut observer);
+    g.apply_insect_view_change();
+    g.load_room_now(0, &mut observer);
+    let system = g.world.realized(0).unwrap().coral.as_ref().unwrap();
+    let registry = g.world.mycelia().registry(system.id);
+    let wall = &system.wall_mycelia[0];
+    assert_eq!(registry.len(), 1 + wall.mycelia.len());
+    assert_eq!(registry[0], observer.strands[0]);
+    assert_eq!(&registry[1..], &wall.mycelia[..]);
+    let owner = g.world.mycelia().get(registry[0]).unwrap().owner;
+    assert_eq!(Some(owner), observer.owner);
+    assert_ne!(owner, wall.owner);
 }
 
 /// Overseers' modules made and dropped again and again (`AddObject`/`NowViewed`, then
@@ -464,7 +452,7 @@ fn dropped_modules_do_not_pile_up_strands() {
         let mut observer = StrandObserver::default();
         let mut g = coral_game_observed(placed, &[], 0, Sounds::default(), true, &mut observer);
         g.apply_insect_view_change();
-        g.update_loading_rooms(&mut observer);
+        g.load_room_now(0, &mut observer);
         let cid = g
             .world
             .creatures()

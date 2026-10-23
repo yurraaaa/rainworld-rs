@@ -4,9 +4,9 @@
 //!
 //! A realized room joins `loadingRooms` with a [`RoomPreparer`], whose stages the
 //! loading step hands over (`RainWorldGame.Update` runs the preparers there). The
-//! schedule is [`LoadingSchedule::Immediate`] for now: both stages in the tick the room
-//! is activated, where the game spreads them over frames on a thread (docs/divergences/
-//! D14). Behaviour: `rainworld-re/notes/world-loading.md`, `room-realizer.md`,
+//! schedule is the game's minimum ([`LoadingSchedule::GAME_MINIMUM`]): stage 1 a tick
+//! after the room is activated, stage 2 the tick after, where the game's thread may take
+//! longer (docs/divergences/ D14). Behaviour: `rainworld-re/notes/world-loading.md`, `room-realizer.md`,
 //! `rainworld-re/surveys/async-room-loading.md`.
 //!
 //! Mirrors: World.cs, AbstractRoom.cs
@@ -30,9 +30,9 @@ use rw_assets::{ActiveMods, AssetError, CreatureType, RoomAttraction, Timeline};
 
 use crate::Vec2;
 use crate::creature::{
-    AbstractCreature, CreatureId, CreatureTemplate, FlockBehavior, IdIssuer, WorldCoordinate,
+    AbstractCreature, CreatureId, CreatureTemplate, FlockBehavior, WorldCoordinate,
 };
-use crate::item::AbstractObject;
+use crate::item::{AbstractObject, Entity};
 use rw_random::UnityRandom;
 
 pub use crate::creature::abstract_ai::path_finder::{FloodMethod, SearchingFor};
@@ -124,6 +124,8 @@ pub struct World {
     pub(crate) grasp_serial: u64,
     /// The last `OwnedItemOnGround` serial handed out.
     pub(crate) owned_item_serial: u64,
+    /// The last room realization serial handed out ([`RealizedRoom::serial`]).
+    room_serial: u64,
     /// The graphics modules' internal-container moves since the last take, in order.
     pub(crate) sprite_moves: Vec<SpriteMove>,
     /// The realized player's `dead` flag (its body lives outside the world).
@@ -197,6 +199,7 @@ impl World {
             entering: Vec::new(),
             grasp_serial: 0,
             owned_item_serial: 0,
+            room_serial: 0,
             sprite_moves: Vec::new(),
             player_dead: false,
             flocks: Vec::new(),
@@ -377,21 +380,15 @@ impl World {
             .collect()
     }
 
-    /// `World.ActivateRoom` / `AbstractRoom.RealizeRoom`: reads the room and adds it to
-    /// the active rooms, loading until this tick's loading step. On its first
-    /// realization in the cycle (`firstTimeRealized`, cleared at the end of
-    /// `Room.Loaded`) the room makes its items, with their IDs and draws (a story's
-    /// `MultiplayerItem`s on every realization). The off-screen
+    /// `World.ActivateRoom` / `AbstractRoom.RealizeRoom`: reads the room, adds it to
+    /// the active rooms and gives it a preparer. The rest of `LoadFromDataString` and
+    /// `Room.Loaded` (with the items) is the game's (`RainWorldGame::rooms_loaded`), run
+    /// before anything else draws. The off-screen
     /// den and realized rooms are left alone.
     ///
     /// # Errors
     /// When the room's files cannot be read.
-    pub fn activate_room(
-        &mut self,
-        index: i32,
-        ids: &mut IdIssuer,
-        rng: &mut UnityRandom,
-    ) -> Result<(), AssetError> {
+    pub fn activate_room(&mut self, index: i32) -> Result<(), AssetError> {
         let Some(i) = self.local(index) else {
             return Ok(());
         };
@@ -402,19 +399,22 @@ impl World {
         let loaded = self.rooms.load_room(data.file_name())?;
         log::info!("realized room {}", data.name);
         let first_time = !self.loaded_before[i];
-        self.place_room_items(index, &loaded.room, &loaded.settings, first_time, ids, rng);
         self.loaded_before[i] = true;
         let data = &self.data.rooms[i];
         let shelter_or_gate = data.shelter() || data.gate();
-        self.realized[i] = Some(RealizedRoom::new(
+        let mut realized = RealizedRoom::new(
             loaded,
             shelter_or_gate,
             self.timeline,
             self.mods,
             first_time,
-        ));
+        );
+        self.room_serial += 1;
+        realized.serial = self.room_serial;
+        self.realized[i] = Some(realized);
         self.active.push(i);
-        self.loading.push(RoomPreparer::new(index));
+        self.loading
+            .push(RoomPreparer::new(index, self.room_serial));
         self.pending_loaded.push(index);
         Ok(())
     }
@@ -447,17 +447,15 @@ impl World {
             log::info!("abstracted room {}", self.data.rooms[i].name);
         }
         self.active.retain(|&a| a != i);
-        // The game's preparer outlives the room and hands its stages to the dropped
-        // `Room` (unreachable: `CanAbstractizeRoom` needs `fullyLoaded`); dropping it
-        // keeps them off a later realization of the same room.
-        self.loading.retain(|p| p.room != index);
+        // The preparer stays in `loadingRooms` (`Abstractize` leaves it, D14), handing
+        // its stages to the dropped room.
         self.pending_loaded.retain(|&r| r != index);
     }
 
     /// The loading step's `loadingRooms` loop, newest first: a done preparer is removed,
     /// every other one is updated once. Returns the stages handed over, in order (the
     /// game runs each in its preparer's call; the calls do nothing else).
-    pub fn update_loading_rooms(&mut self) -> Vec<(i32, PreparerStage)> {
+    pub fn update_loading_rooms(&mut self) -> Vec<(i32, u64, PreparerStage)> {
         let schedule = self.loading_schedule;
         let mut stages = Vec::new();
         for k in (0..self.loading.len()).rev() {
@@ -465,12 +463,12 @@ impl World {
                 self.loading.remove(k);
                 continue;
             }
-            let room = self.loading[k].room;
+            let (room, serial) = (self.loading[k].room, self.loading[k].serial);
             stages.extend(
                 self.loading[k]
                     .update(schedule)
                     .into_iter()
-                    .map(|s| (room, s)),
+                    .map(|s| (room, serial, s)),
             );
         }
         if schedule == LoadingSchedule::Immediate {
@@ -485,17 +483,42 @@ impl World {
         &self.loading
     }
 
-    /// The preparer of global room `index` while it loads.
+    /// The preparer of global room `index`'s realization while it loads.
     #[must_use]
     pub fn room_preparer(&self, index: i32) -> Option<&RoomPreparer> {
-        self.loading.iter().find(|p| p.room == index)
+        let serial = self.realized(index)?.serial;
+        self.loading.iter().find(|p| p.serial == serial)
     }
 
-    /// Both stages' room-side parts for every loading room, without the game's
-    /// creatures, objects and listeners (world-only tests).
+    /// Whether `serial` is global room `index`'s live realization.
+    #[must_use]
+    pub fn is_realization(&self, index: i32, serial: u64) -> bool {
+        self.realized(index).is_some_and(|r| r.serial == serial)
+    }
+
+    /// The preparers whose room was abstracted while it loaded, oldest first.
+    pub fn orphaned_preparers(&self) -> impl Iterator<Item = &RoomPreparer> {
+        self.loading
+            .iter()
+            .filter(|p| !self.is_realization(p.room, p.serial))
+    }
+
+    /// Loading steps until no preparer is left ([`Self::loading_step`], world-only tests).
     #[cfg(test)]
     pub(crate) fn finish_loading(&mut self) {
-        for (index, stage) in self.update_loading_rooms() {
+        while !self.loading.is_empty() {
+            self.loading_step();
+        }
+    }
+
+    /// One loading step with the stages' room-side parts, without the game's creatures,
+    /// objects and listeners (world-only tests).
+    #[cfg(test)]
+    pub(crate) fn loading_step(&mut self) {
+        for (index, serial, stage) in self.update_loading_rooms() {
+            if !self.is_realization(index, serial) {
+                continue;
+            }
             match stage {
                 PreparerStage::ShortcutsReady => {
                     if let Some(r) = self.realized_mut(index) {
@@ -531,6 +554,53 @@ impl World {
         self.realized(index).is_some_and(|r| {
             r.ready_for_ai() || (r.shortcuts_ready() && !self.creature(id).template.ai)
         })
+    }
+
+    /// `ShortcutHandler.VesselAllowedInRoom` for a vessel carrying creature `id` into
+    /// global room `index`: the room is realized and `ReadyForPlayer`, and every
+    /// creature connected to `id` is `CreatureAllowedInRoom` (just `id` when nothing is
+    /// stuck to it).
+    #[must_use]
+    pub fn vessel_allowed_in_room(&self, id: CreatureId, index: i32) -> bool {
+        if !self
+            .realized(index)
+            .is_some_and(RealizedRoom::ready_for_player)
+        {
+            return false;
+        }
+        self.connected_objects(Entity::Creature(id))
+            .iter()
+            .filter_map(|e| e.creature())
+            .all(|c| self.creature_allowed_in_room(c, index))
+    }
+
+    /// `ShortcutHandler.CreatureAllowedInRoom`: the slugcat once the room is
+    /// `ReadyForPlayer`; another creature once it is `readyForAI`, or before that once it
+    /// is open to creatures without `AI` and it does not `RequiresAIMapToEnterRoom`.
+    #[must_use]
+    pub fn creature_allowed_in_room(&self, id: CreatureId, index: i32) -> bool {
+        let Some(r) = self.realized(index) else {
+            return false;
+        };
+        if self.creature(id).kind() == CreatureType::Slugcat {
+            return r.ready_for_player();
+        }
+        if !r.ready_for_ai() {
+            return r.ready_for_non_ai_creatures() && !self.requires_ai_map_to_enter_room(id);
+        }
+        true
+    }
+
+    /// `AbstractCreature.RequiresAIMapToEnterRoom`: its template or a creature connected
+    /// to it `requireAImap`.
+    #[must_use]
+    pub fn requires_ai_map_to_enter_room(&self, id: CreatureId) -> bool {
+        self.creature(id).template.require_ai_map
+            || self
+                .connected_objects(Entity::Creature(id))
+                .iter()
+                .filter_map(|e| e.creature())
+                .any(|c| self.creature(c).template.require_ai_map)
     }
 
     /// `ShortCutsReady`'s `flag2`: a creature of room `index` not in a den whose template

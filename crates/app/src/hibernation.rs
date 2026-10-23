@@ -283,7 +283,7 @@ mod tests {
     }
 
     /// A Survivor story from `story` with the player in `room` (on the shelter's spawn
-    /// position in a shelter).
+    /// position in a shelter), stepped until the room is ready.
     fn game(assets: &StreamingAssets, room: &str, story: StoryStart) -> RainWorldGame {
         let campaign = &SlugcatCampaign::SURVIVOR;
         let filter = LineFilter {
@@ -306,15 +306,18 @@ mod tests {
         });
         let world = World::new(data, rooms, campaign.timeline, ActiveMods::NONE, true);
         let start = Start { room: first, tile };
-        RainWorldGame::new_story(
+        let mut game = RainWorldGame::new_story(
             world,
             campaign,
             story,
             start,
             UnityRandom::new(1),
             Sounds::default(),
-            &mut (),
-        )
+        );
+        while !game.camera_room_ready() {
+            game.tick(Input::default(), &mut ());
+        }
+        game
     }
 
     /// Into SU_S01 from SU_A22, then still on the spawn position with 4 food until the

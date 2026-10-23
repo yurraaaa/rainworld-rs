@@ -25,8 +25,9 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **Async room loading** (user, 2026-10-22): plan and decisions in
   `../rainworld-re/surveys/async-room-loading.md`; next after the SS superstructure work
   (user, 2026-10-23). `ShortcutHelper` its own job after it. Step A (stages, `RoomPreparer`,
-  Immediate schedule) done 2026-10-23; B (schedule on, consumers, starts) and C (camera,
-  shortcut graphics) left.
+  Immediate schedule) done 2026-10-23; B (the game's minimum schedule on, consumers,
+  starts, the orphaned preparer as a no-op) done 2026-10-23; C (camera, shortcut
+  graphics) left.
 - **Realizer guards** (user, 2026-10-23; `../rainworld-re/surveys/room-realizer-audit.md`):
   `RoomRealizer.Update`'s `!followCreature.Room.offScreenDen` check on the room change and the
   off-screen-den guard on the random neighbour step, small fix after async step B; the

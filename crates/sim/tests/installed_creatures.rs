@@ -19,7 +19,7 @@ use rw_sim::campaign::SlugcatCampaign;
 use rw_sim::creature::{CreatureId, EntityId, PlayerGuideState};
 use rw_sim::room_script::StorySession;
 use rw_sim::world::{AbstractTick, RainCycle, World};
-use rw_sim::{RainWorldGame, Sounds, Start, WorldCoordinate};
+use rw_sim::{Input, RainWorldGame, Sounds, Start, WorldCoordinate};
 
 const DEFAULT_RW_DIR: &str = "/home/yura/.local/share/Steam/steamapps/common/Rain World";
 const SEED: i32 = 42;
@@ -451,7 +451,7 @@ fn su_fresh_census_of_green_lizards() {
     }
 }
 
-/// `Overseer.PlaceInRoom` when SU_C04 loads at the start: the guide is realized on an
+/// `Overseer.PlaceInRoom` when SU_C04 loads at the start (its `ReadyForAI`): the guide is realized on an
 /// open tile next to a solid one (`HardSetTile(tile, tile + eightDirectionsAndZero[j])`).
 #[test]
 fn guide_is_realized_in_the_start_room() {
@@ -462,14 +462,16 @@ fn guide_is_realized_in_the_start_room() {
     let world = installed.world("SU_C04", campaign);
     let room = world.room_index("SU_C04").expect("SU_C04");
     let start = Start { room, tile: None };
-    let game = RainWorldGame::new(
+    let mut game = RainWorldGame::new(
         world,
         campaign,
         start,
         UnityRandom::new(SEED),
         Sounds::default(),
-        &mut (),
     );
+    while !game.camera_room_ready() {
+        game.tick(Input::default(), &mut ());
+    }
     let world = game.world();
     let (_, guide) = world
         .creatures()

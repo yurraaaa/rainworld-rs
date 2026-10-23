@@ -33,6 +33,7 @@ fn gradient_game() -> RainWorldGame {
     game_in(named_room("SS_E08", &refs), &[], true)
 }
 
+/// A story in `room`, loaded by its loading steps alone (no tick run).
 fn game_in(room: rw_assets::Room, effects: &[(&str, f32)], script: bool) -> RainWorldGame {
     let data = WorldData::from_room(&room);
     let settings = RoomSettings {
@@ -53,7 +54,7 @@ fn game_in(room: rw_assets::Room, effects: &[(&str, f32)], script: bool) -> Rain
     let world = World::new(data, rooms, campaign.timeline, ActiveMods::NONE, true);
     let names = ClipNames::new(["clip".to_owned()], None);
     let table = Arc::new(SoundTable::parse(SOUNDS, &names).unwrap());
-    RainWorldGame::new_story(
+    let mut g = RainWorldGame::new_story(
         world,
         campaign,
         StoryStart::new_game(campaign),
@@ -63,8 +64,9 @@ fn game_in(room: rw_assets::Room, effects: &[(&str, f32)], script: bool) -> Rain
         },
         UnityRandom::new(5),
         Sounds::new(table),
-        &mut WithGraphics,
-    )
+    );
+    g.load_room_now(0, &mut WithGraphics);
+    g
 }
 
 /// A `ZeroG` amount of 1 makes the room's gravity 0 on the `AntiGravity`'s first turn; below

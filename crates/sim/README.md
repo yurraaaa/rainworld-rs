@@ -51,7 +51,7 @@ integration tests.
 | File | Holds (key types) | Ports |
 |---|---|---|
 | `mod.rs` | `RainWorldGame`: world, player, shortcut handler, realizer, order of a tick, a room's update list, sessions | `RainWorldGame` |
-| `loading_turn.rs` | a room's loading on the game's side: `activate_room` with `Room.Loaded`'s tail on the realizing call, the loading step (`update_loading_rooms`), `ShortCutsReady` (objects, creatures without `AI`, the `ShortcutHelper` slot), `ReadyForAI` (creatures, quantified, the `AIMapReady` listeners in update-list order) | `Room.ShortCutsReady`, `Room.ReadyForAI`, `AllowedToExistInRoom` |
+| `loading_turn.rs` | a room's loading on the game's side: `activate_room` with the end of `LoadFromDataString` and `Room.Loaded` on the realizing call, the loading step (`update_loading_rooms`; a preparer whose room was abstracted realizes nothing, D14), `ShortCutsReady` (objects, creatures without `AI`, the `ShortcutHelper` slot), `ReadyForAI` (creatures, quantified, the `AIMapReady` listeners in update-list order), `camera_room_ready` (dev starts step until it) | `Room.ShortCutsReady`, `Room.ReadyForAI`, `AllowedToExistInRoom` |
 | `observer.rs` | `PlayerObserver`: the app's graphics-module hooks the game calls | - |
 | `shortcut_turn.rs` | `ShortcutHandler.Update`: vessels in the tubes, the between-rooms lobby, room exits, arrival and camera 0 following | `ShortcutHandler.Update`, `RoomCamera.MoveCamera` |
 | `dev_turn.rs` | dev spawns/teleports through the game's own paths and the dev rain timer control (MCP, debug UI) | - (port dev tool, D18) |
@@ -345,10 +345,10 @@ sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `m
 | File | Holds | Ports |
 |---|---|---|
 | `mod.rs` | `World`: abstract rooms, realized set, arenas | `World`, `AbstractRoom` |
-| `realized.rs`, `realizer.rs` | realized room data + ready states (`loadingProgress`, the stages' room-side steps); room realizer | `Room` bits, `RoomRealizer` |
-| `room_preparer.rs` | `RoomPreparer` (status, hand-off requests, `done`), `LoadingSchedule` (`Immediate`, `Deferred`, `GAME_MINIMUM`), `PreparerStage` | `RoomPreparer` |
+| `realized.rs`, `realizer.rs` | realized room data + ready states (`loadingProgress`, `readyForNonAICreaturesToEnter`, the stages' room-side steps, the realization `serial`); room realizer (`currentlyLoadingRoom` as a realization, waited on after an abstract) | `Room` bits, `RoomRealizer` |
+| `room_preparer.rs` | `RoomPreparer` (status, hand-off requests, `done`, the realization `serial` it loads, outliving an abstracted room), `LoadingSchedule` (`GAME_MINIMUM`, the default; `Immediate` for world-only tests), `PreparerStage` | `RoomPreparer` |
 | `creatures.rs` | creature arena, room lists, attractions | `AbstractRoom` creature lists |
-| `objects.rs` | object arena, room items on first realization | `Room.Loaded` objects |
+| `objects.rs` | object arena, room items at the game's three places (file items, a story's `MultiplayerItem`s in the placed-object loop, the `firstTimeRealized` pass) | `Room.Loaded` objects |
 | `dens.rs` | into/out of dens with stuck items | `MoveEntityToDen` |
 | `quantified.rs` | quantified creatures placed in a room and counted back | `Room.PlaceQuantifiedCreaturesInRoom`, `AbstractRoom.CountQuantifiedCreatures` |
 | `rain_cycle.rs` | `RainCycle`, `WaterLevelCycle` | `RainCycle` |

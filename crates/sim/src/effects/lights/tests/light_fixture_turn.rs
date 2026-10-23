@@ -70,7 +70,6 @@ fn game_in(room: Room, placed: &str, effects: &[(&str, f32)], ticks: usize) -> R
         },
         UnityRandom::new(5),
         Sounds::default(),
-        &mut WithGraphics,
     );
     for _ in 0..ticks {
         g.tick(Input::NONE, &mut WithGraphics);

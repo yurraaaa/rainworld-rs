@@ -52,7 +52,6 @@ fn projection_game(placed: &str, effects: &[(&str, f32)], ticks: usize) -> RainW
         },
         UnityRandom::new(5),
         Sounds::default(),
-        &mut WithGraphics,
     );
     for _ in 0..ticks {
         g.tick(Input::NONE, &mut WithGraphics);

@@ -16,7 +16,8 @@ impl Session {
     }
 }
 
-/// The star matrices are made with the room, the scan lines when the camera comes to it.
+/// The star matrices are made with the room, the scan lines when the camera comes to it
+/// (the head of the first of the loading ticks `load` steps).
 #[test]
 fn star_matrices_and_scan_lines_are_reported() {
     let Some(mut session) = Session::installed() else {
@@ -25,8 +26,7 @@ fn star_matrices_and_scan_lines_are_reported() {
     session.load("SS_F02", 1);
     let state = session.state().expect("state");
     assert_eq!(state.star_matrices.len(), 2);
-    assert!(state.scan_lines.is_empty() && state.projectors.is_empty());
-    assert!(state.star_matrices.iter().all(|s| s.rotation[2] == 0.0));
+    assert!(state.projectors.is_empty());
     session.step_projection_ticks(2);
     let state = session.state().expect("state");
     let [lines] = &state.scan_lines[..] else {
@@ -55,6 +55,6 @@ fn a_projector_is_reported_with_its_glyphs() {
     assert_eq!(p.ideal_glyphs, 520);
     assert!(p.glyphs >= 260 && p.single_glyphs + p.glyph_matrices == p.glyphs);
     assert!(p.visible && p.parts >= p.glyphs);
-    // One cursor is added a tick up to the ideal 5.
-    assert_eq!((p.ideal_cursors, p.cursors.len()), (5, 2));
+    // One cursor is added a tick up to the ideal 5 (three loading ticks, then two).
+    assert_eq!((p.ideal_cursors, p.cursors.len()), (5, 5));
 }

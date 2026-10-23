@@ -37,7 +37,7 @@ pub(crate) const SPLIT: [&str; 7] = [
     "########################",
 ];
 
-/// A Survivor story in `rows` with the player at `player`, after 20 ticks.
+/// A Survivor story in `rows` with the player at `player`, 20 ticks after its room loaded.
 pub(crate) fn game(rows: &[&str], player: (i32, i32)) -> RainWorldGame {
     let room = room(rows);
     let data = WorldData::from_room(&room);
@@ -58,8 +58,8 @@ pub(crate) fn game(rows: &[&str], player: (i32, i32)) -> RainWorldGame {
         },
         UnityRandom::new(5),
         Sounds::default(),
-        &mut (),
     );
+    g.tick_until_ready(&mut ());
     for _ in 0..20 {
         g.tick(Input::NONE, &mut ());
     }

@@ -33,15 +33,7 @@ fn game(room: Room, campaign: &'static SlugcatCampaign, story: StoryStart) -> Ra
         tile: Some((4, 1)),
     };
     let rng = UnityRandom::new(5);
-    RainWorldGame::new_story(
-        world,
-        campaign,
-        story,
-        start,
-        rng,
-        Sounds::default(),
-        &mut (),
-    )
+    RainWorldGame::new_story(world, campaign, story, start, rng, Sounds::default())
 }
 
 fn settled(campaign: &'static SlugcatCampaign) -> RainWorldGame {
@@ -212,7 +204,6 @@ fn a_dev_start_death_calls_game_over_and_a_respawn_can_die_again() {
         start,
         UnityRandom::new(5),
         Sounds::default(),
-        &mut (),
     );
     for _ in 0..40 {
         g.tick(Input::NONE, &mut ());

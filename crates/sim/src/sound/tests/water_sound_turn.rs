@@ -50,7 +50,6 @@ fn game() -> RainWorldGame {
         },
         UnityRandom::new(5),
         sounds,
-        &mut (),
     )
 }
 

@@ -147,12 +147,15 @@ the data in `rw-assets` `placed_electric.rs`. Notes: `../rainworld-re/notes/supe
   update list. The session's first room is made by `RoomPreparer`'s constructor (`Loaded`),
   then `RainWorldGame`'s constructor moves the camera to it (`NowViewed`: the specks), and
   only later does `RoomPreparer.Update` run `AIMapReady`: its `roomSpecks` hold the room's
-  specks. The port links the first room after its `NowViewed` (the camera's first tick) and
-  any room realized ahead of the camera at its load, so before the camera enters it. That is
-  the game's order too: `ReadyForPlayer` needs the loading (`loadingProgress` 3, then
-  `AIMapReady`) done, so the camera's `NowViewed` comes after and `roomSpecks` is empty. The
-  port's loads are synchronous (D14), the same two cases come out; the game's thread can
-  only make `AIMapReady` later, never earlier than `Loaded`.
+  specks. The port's first room has the same order with no special case: `NowViewed` at
+  the head of the first tick, `AIMapReady` in the third tick's loading step (D14's minimum
+  schedule). A room realized ahead of the camera has its `AIMapReady` before the camera
+  enters, so its `roomSpecks` is empty, as in the game: `ReadyForPlayer`
+  (`readyForNonAICreaturesToEnter && waitToEnterAfterFullyLoaded < 1`) can already hold
+  after stage 1, but a room the player's vessel realizes on reaching the lobby gets
+  `AIMapReady` at the end of N+2, while the lobby looks at the vessel every third tick and
+  the camera's `NowViewed` comes at the head of the tick after the move, N+3 at the
+  earliest.
 - **Draws:** `DeepProcessing`: 1 a tick, 3 on a tick that moves its power (1 in 14); no
   constructor or draw-time draws. `DeepProcessingLight`: 1 a tick. `GravityDisruptor`:
   98 in the constructor (20 specks times 4, 16 streaks, `pointDir`, `dirFac`), at least 34 a
@@ -204,8 +207,8 @@ Closes the missing `NeuronSpark` sound of `random.md`'s overseer item.
   (the first active coral or wall mycelia object), with its two wind draws, in settings order; the
   port's collect-then-add pass keeps that order. `CoralNeuronSystem.AIMapReady` runs in the loading
   step after `ReadyForAI` realized the room's creatures (so an overseer's strands are registered before
-  the wall's); the session's first room waits for its `NowViewed` (the camera's first tick), as D37's
-  `roomSpecks` do, and the wall mycelia take their place in the update list then. The wall mycelia are
+  the wall's); in the session's first room that is the third tick's loading step, after its
+  `NowViewed` (D14's schedule), and the wall mycelia take their place in the update list then. The wall mycelia are
   built from the `WallMycelia` objects the slugcat's `Filter`s leave active (26 of the 29 rooms for
   the Survivor and the Monk, all for the Hunter); an unreadable `ResizableObjectData` (none installed) is
   skipped with a warning where the game throws at load.

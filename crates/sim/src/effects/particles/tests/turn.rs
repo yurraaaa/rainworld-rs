@@ -932,12 +932,11 @@ fn game_in(room: Room, effects: &str, placed: &str) -> RainWorldGame {
         },
         UnityRandom::new(5),
         Sounds::default(),
-        &mut (),
     )
 }
 
-/// `Room.Loaded` adds the effect objects in the settings' order, the spawner's
-/// dandelions before the spawner; `Room.NowViewed` seeds the specks (`1000 * amount`)
+/// `Room.Loaded` (on the realizing call) adds the effect objects in the settings' order,
+/// the spawner's dandelions before the spawner; `Room.NowViewed` seeds the specks (`1000 * amount`)
 /// and spores (`200 * amount`) when camera 0 first shows the room.
 #[test]
 fn room_loaded_and_viewed_make_the_particles() {
@@ -948,6 +947,12 @@ fn room_loaded_and_viewed_make_the_particles() {
         room(&rows),
         "SkyDandelions-1, GreenSparks-0.5, ZeroGSpecks-0.1, CorruptionSpores-0.2",
         "",
+    );
+    let p = &g.world.realized(0).expect("realized").particles;
+    assert!(
+        p.dandelions
+            .iter()
+            .all(|d| d.update_order < p.dandelion_spawners[0].update_order)
     );
     for _ in 0..3 {
         g.tick(Input::NONE, &mut ());
@@ -967,11 +972,6 @@ fn room_loaded_and_viewed_make_the_particles() {
         p.specks
             .windows(2)
             .all(|w| w[0].update_order < w[1].update_order)
-    );
-    assert!(
-        p.dandelions
-            .iter()
-            .all(|d| d.update_order < p.dandelion_spawners[0].update_order)
     );
     assert!(p.spark_spawners[0].update_order > p.dandelion_spawners[0].update_order);
     // The specks and spores come after the sparks `NowViewed` seeds, in effect order.

@@ -1,15 +1,15 @@
 //! A loading room's `RoomPreparer`: the hand-offs of its background thread to the main
 //! thread, one `Update` call per tick in the loading step. The thread's work (the
 //! shortcut and AI mapping, which draw nothing) is a fixed number of calls per stage
-//! (D14); the stages themselves run in [`crate::game::loading_turn`].
+//! (D14); the stages themselves run in [`crate::game::loading_turn`]. A preparer stays in
+//! `loadingRooms` when its room is abstracted, as in the game.
 //!
 //! Mirrors: RoomPreparer.cs (Update, UpdateThread's status and requests)
 
 /// How many loading-step calls the thread takes per stage.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LoadingSchedule {
-    /// Both stages and `done` on the first call (the port's synchronous loading, D14).
-    #[default]
+    /// Both stages and `done` on the first call (world-only tests).
     Immediate,
     /// The thread hands stage 1 over `shortcuts_calls` calls after the one that started
     /// it, and stage 2 `ai_calls` calls after stage 1.
@@ -22,6 +22,12 @@ impl LoadingSchedule {
         shortcuts_calls: 1,
         ai_calls: 1,
     };
+}
+
+impl Default for LoadingSchedule {
+    fn default() -> Self {
+        Self::GAME_MINIMUM
+    }
 }
 
 /// A stage `Update` hands to the room.
@@ -58,10 +64,13 @@ impl PreparerStatus {
     }
 }
 
-/// `RoomPreparer` of global room `room`.
+/// `RoomPreparer` of global room `room`'s realization `serial`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RoomPreparer {
     pub room: i32,
+    /// The realization it loads ([`crate::world::RealizedRoom::serial`]): it outlives an
+    /// `Abstractize` of that room, as the game's does.
+    pub serial: u64,
     status: PreparerStatus,
     /// `Update` calls so far.
     calls: u32,
@@ -76,9 +85,10 @@ pub struct RoomPreparer {
 
 impl RoomPreparer {
     #[must_use]
-    pub fn new(room: i32) -> Self {
+    pub fn new(room: i32, serial: u64) -> Self {
         Self {
             room,
+            serial,
             status: PreparerStatus::default(),
             calls: 0,
             work: 0,
@@ -103,6 +113,13 @@ impl RoomPreparer {
     #[must_use]
     pub fn done(&self) -> bool {
         self.done
+    }
+
+    /// Whether stage 2 has been handed over: the room it loads is `fullyLoaded`, even
+    /// one abstracted since (the game's `Room` object keeps loading).
+    #[must_use]
+    pub fn handed_over_ready_for_ai(&self) -> bool {
+        self.status == PreparerStatus::Finishing
     }
 
     /// `Update`: the thread's passes since the last call, then the main thread's part,

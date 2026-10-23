@@ -39,6 +39,9 @@ pub struct RealizedRoom {
     /// `ReadyForAI`, 3 once fully loaded.
     loading_progress: u8,
     ready_for_non_ai_creatures: bool,
+    /// Which realization of its room this is (port-only: the `Room` object's identity,
+    /// matching it to its preparer).
+    pub(crate) serial: u64,
     /// `waitToEnterAfterFullyLoaded`.
     wait_to_enter: i32,
     /// `abstractRoom.firstTimeRealized` while it loads.
@@ -206,6 +209,7 @@ impl RealizedRoom {
             water,
             loading_progress: 0,
             ready_for_non_ai_creatures: false,
+            serial: 0,
             wait_to_enter: wait,
             first_time_realized,
             scripts: Vec::new(),
@@ -324,6 +328,11 @@ impl RealizedRoom {
         self.ready_for_non_ai_creatures = true;
     }
 
+    #[must_use]
+    pub fn serial(&self) -> u64 {
+        self.serial
+    }
+
     /// `loadingProgress`.
     #[must_use]
     pub fn loading_progress(&self) -> u8 {
@@ -345,6 +354,12 @@ impl RealizedRoom {
     #[must_use]
     pub fn ready_for_ai(&self) -> bool {
         self.loading_progress >= 2
+    }
+
+    /// `readyForNonAICreaturesToEnter`.
+    #[must_use]
+    pub fn ready_for_non_ai_creatures(&self) -> bool {
+        self.ready_for_non_ai_creatures
     }
 
     /// `ReadyForPlayer`.

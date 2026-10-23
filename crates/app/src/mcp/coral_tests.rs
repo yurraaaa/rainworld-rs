@@ -32,7 +32,8 @@ fn a_superstructure_room_reports_its_coral() {
         .expect("system");
     assert!(system.built && !system.frozen);
     assert_eq!(system.not_viewed_counter, 0);
-    assert_eq!(system.age, 3);
+    // One a tick from the start: the three loading ticks `load` stepped, then three.
+    assert_eq!(system.age, 6);
     let wall = state
         .wall_mycelia
         .iter()

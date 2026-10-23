@@ -34,9 +34,9 @@ use super::reply::{
     AbstractAiInfo, ChunkState, ControlsPageState, CreatureInfo, ExitInfo, ExitList, FlyInfo,
     FoodMeterState, HudState, ImpactState, ImportReply, KarmaMeterState, KarmaScreenState,
     KillsState, LizardChunk, LizardInfo, LobbyState, MapMarkerState, MapState, MeterState, NodeRef,
-    ObjectInfo, OptionsState, OverseerInfo, PauseMenuState, PlayerState, PreparerState,
-    ProcessState, RainMeterState, RainState, RealizedState, RoomInfo, RoomList, SaveInfo,
-    SaveStateInfo, Screenshot, SessionInfo, ShelterDoorState, SleepState, SlideShowState,
+    ObjectInfo, OptionsState, OrphanedPreparerState, OverseerInfo, PauseMenuState, PlayerState,
+    PreparerState, ProcessState, RainMeterState, RainState, RealizedState, RoomInfo, RoomList,
+    SaveInfo, SaveStateInfo, Screenshot, SessionInfo, ShelterDoorState, SleepState, SlideShowState,
     StartUpState, State, StepTrace, StoryInfo, TextPromptState, TokenState, WeaponInfo,
 };
 use super::reply::{
@@ -78,6 +78,8 @@ const MAX_IMAGE_SIDE: f32 = 4096.0;
 const MAX_TILES: i64 = 40_000;
 /// Seconds per `step_process` frame.
 const FRAME_SECONDS: f32 = 1.0 / 40.0;
+/// A cap on the ticks a dev start steps to load its room.
+const START_READY_TICKS: u32 = 40;
 
 pub struct Session {
     assets: StreamingAssets,
@@ -292,7 +294,25 @@ impl Session {
         self.scene = Some(Scene::new(game, Some(source)));
         self.start = Some(start);
         self.frontend = None;
+        self.step_until_start_room_ready();
         Ok(())
+    }
+
+    /// Ticks the new game without input until its start room is `readyForAI` (the
+    /// game's minimum loading schedule takes three ticks), so the reply and the first
+    /// `step` see a loaded room (D14).
+    fn step_until_start_room_ready(&mut self) {
+        for _ in 0..START_READY_TICKS {
+            if self
+                .scene
+                .as_ref()
+                .is_none_or(|s| s.game().sim().camera_room_ready())
+            {
+                return;
+            }
+            self.tick(Input::NONE);
+        }
+        log::warn!("the start room is not ready after {START_READY_TICKS} ticks");
     }
 
     fn room_info(&self) -> Result<RoomInfo, String> {
@@ -477,6 +497,13 @@ impl Session {
                 entrance_node: l.entrance_node,
                 updates: l.updates,
             }),
+            orphaned_preparers: world
+                .orphaned_preparers()
+                .map(|p| OrphanedPreparerState {
+                    room: Self::room_name(scene, p.room),
+                    preparer: PreparerState::of(p),
+                })
+                .collect(),
             realized_rooms: world
                 .active_rooms()
                 .into_iter()
@@ -485,11 +512,7 @@ impl Session {
                     Some(RealizedState {
                         room: Self::room_name(scene, i),
                         loading_progress: r.loading_progress(),
-                        preparer: world.room_preparer(i).map(|p| PreparerState {
-                            status: p.status().value(),
-                            calls: p.calls(),
-                            done: p.done(),
-                        }),
+                        preparer: world.room_preparer(i).map(PreparerState::of),
                         wait_to_enter: r.wait_to_enter(),
                         ready_for_player: r.ready_for_player(),
                         ceiling_drips: r.settings.ceiling_drips,
@@ -2471,6 +2494,16 @@ impl HeldInfo {
         Self {
             kind,
             id: [id.spawner, id.number],
+        }
+    }
+}
+
+impl PreparerState {
+    fn of(p: &rw_sim::world::RoomPreparer) -> Self {
+        Self {
+            status: p.status().value(),
+            calls: p.calls(),
+            done: p.done(),
         }
     }
 }

@@ -9,7 +9,6 @@
 use rw_random::UnityRandom;
 
 use super::World;
-use crate::creature::IdIssuer;
 
 /// `performanceBudget`.
 const PERFORMANCE_BUDGET: f32 = 1500.0;
@@ -47,8 +46,10 @@ struct RoomAndInt {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct RoomRealizer {
     trackers: Vec<Tracker>,
-    /// The room realized last, until it has loaded.
-    currently_loading: Option<i32>,
+    /// The room realized last (its index and realization serial), until it has
+    /// loaded: `currentlyLoadingRoom` is the `Room` object, which keeps loading after an
+    /// `Abstractize`.
+    currently_loading: Option<(i32, u64)>,
     last_frame_follow_room: i32,
     probable_next: Option<i32>,
     improbable_next: Option<i32>,
@@ -79,8 +80,6 @@ struct Ctx<'a> {
     world: &'a mut World,
     follow: FollowCreature,
     camera_room: i32,
-    /// For the items a room makes when realized.
-    ids: &'a mut IdIssuer,
     rng: &'a mut UnityRandom,
 }
 
@@ -136,14 +135,12 @@ impl RoomRealizer {
         world: &mut World,
         follow: FollowCreature,
         camera_room: i32,
-        ids: &mut IdIssuer,
         rng: &mut UnityRandom,
     ) {
         let mut cx = Ctx {
             world,
             follow,
             camera_room,
-            ids,
             rng,
         };
         self.update_trackers(&cx);
@@ -164,8 +161,8 @@ impl RoomRealizer {
             self.neighbour_candidates.clear();
         }
         self.last_frame_follow_room = follow.room;
-        if let Some(loading) = self.currently_loading {
-            if cx.world.realized(loading).is_none_or(|r| r.fully_loaded()) {
+        if let Some((room, serial)) = self.currently_loading {
+            if Self::fully_loaded(cx.world, room, serial) {
                 self.currently_loading = None;
             }
             return;
@@ -199,6 +196,19 @@ impl RoomRealizer {
             }
         }
         self.maybe_realize_neighbour(&mut cx, performance);
+    }
+
+    /// `fullyLoaded` of realization `serial` of room `room`, the live one or one
+    /// abstracted while it loaded (its preparer has handed over `ReadyForAI`).
+    fn fully_loaded(world: &World, room: i32, serial: u64) -> bool {
+        match world.realized(room).filter(|r| r.serial() == serial) {
+            Some(r) => r.fully_loaded(),
+            None => world
+                .loading_rooms()
+                .iter()
+                .find(|p| p.serial == serial)
+                .is_none_or(super::RoomPreparer::handed_over_ready_for_ai),
+        }
     }
 
     /// The tracker loop at the top of `Update`.
@@ -360,10 +370,10 @@ impl RoomRealizer {
             t.has_been_visited |= entering;
             return;
         }
-        if let Err(e) = cx.world.activate_room(room, cx.ids, cx.rng) {
+        if let Err(e) = cx.world.activate_room(room) {
             log::warn!("cannot realize room {room}: {e}");
         }
-        self.currently_loading = cx.realized(room).then_some(room);
+        self.currently_loading = cx.world.realized(room).map(|r| (room, r.serial()));
         self.trackers.push(Tracker::new(room, entering));
     }
 
@@ -487,3 +497,7 @@ impl RoomRealizer {
         self.probable_next
     }
 }
+
+#[cfg(test)]
+#[path = "tests/realizer.rs"]
+mod tests;

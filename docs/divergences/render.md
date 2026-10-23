@@ -60,7 +60,8 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   (rainworld-re/notes/sprite-atlases.md section 3).
 - **Camera switch timing.** The game loads the next camera's image asynchronously and
   cuts when it has loaded (usually the next frame); the port decodes every camera's
-  image when the camera enters the room (`MoveCamera`, synchronous: D14) and cuts in
+  image when the camera enters the room (`MoveCamera` at once: D14's "Camera and
+  shortcut graphics") and cuts in
   the same tick.
 - **Shortcut graphics** (`rw_graphics::ShortcutGraphics`, `rainworld-re/notes/shortcuts.md`
   section 10). The level view draws the game's pipe pixels (`ShortCut0`, masked to the

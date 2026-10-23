@@ -73,14 +73,6 @@ impl RainWorldGame {
         }
     }
 
-    /// Whether room `index` is the session's first room, whose `NowViewed` (the constructor's
-    /// `MoveCamera`) comes before its `AIMapReady` (a later `RoomPreparer.Update`); a room
-    /// realized ahead of the camera has its `AIMapReady` before the camera enters.
-    pub(crate) fn awaiting_first_view(&self, index: i32) -> bool {
-        self.insect_view
-            .is_some_and(|v| v.from.is_none() && v.to == index)
-    }
-
     /// `AIMapReady` of the `GravityDisruptor` at `order` in room `index`: `roomSpecks` is
     /// every `GenericZeroGSpeck` in the update list now.
     pub(crate) fn gravity_disruptor_ai_map_ready(&mut self, index: i32, order: u64) {
@@ -93,17 +85,6 @@ impl RainWorldGame {
                 .find(|d| d.update_order == order)
             {
                 d.room_specks = specks;
-            }
-        }
-    }
-
-    /// `AIMapReady` of every `GravityDisruptor` of room `index`: `roomSpecks` is every
-    /// `GenericZeroGSpeck` in the update list now.
-    pub(crate) fn link_gravity_disruptors(&mut self, index: i32) {
-        if let Some(r) = self.world.realized_mut(index) {
-            let specks: Vec<u64> = r.particles.specks.iter().map(|s| s.update_order).collect();
-            for d in &mut r.fixtures.gravity_disruptors {
-                d.room_specks.clone_from(&specks);
             }
         }
     }
