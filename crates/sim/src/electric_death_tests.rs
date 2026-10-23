@@ -39,12 +39,13 @@ fn intensity_follows_the_cycle() {
 /// the radius (`Lerp(40, 800, v * Lerp(0.5, 1, I))`).
 #[test]
 fn a_light_flash_reset_draws_four() {
+    let screen = Vec2::new(1024.0, 768.0);
     for seed in 0..20 {
         let mut rng = UnityRandom::new(seed);
         let mut e = UnityRandom::new(seed);
         let mut f = LightFlash::default();
-        f.reset(0.6, &mut rng);
-        let (x, y) = (1366.0 * e.value(), 768.0 * e.value());
+        f.reset(0.6, screen, &mut rng);
+        let (x, y) = (screen.x * e.value(), screen.y * e.value());
         let life_time = 3.0f32.lerp(34.0f32.lerp(12.0, 0.6), e.value());
         let rad = 40.0f32.lerp(800.0, e.value() * 0.5f32.lerp(1.0, 0.6));
         assert_eq!(rng.state(), e.state());
@@ -62,26 +63,26 @@ fn a_light_flash_reset_draws_four() {
 fn a_light_flash_runs_down_and_resets() {
     let mut rng = UnityRandom::new(3);
     let mut f = LightFlash::default();
-    f.update(1.0, &mut rng);
+    f.update(1.0, Vec2::new(1366.0, 768.0), &mut rng);
     assert_eq!((f.life, f.last_life), (1.0, 1.0));
     let after_reset = rng.state();
     let life_time = f.life_time;
-    f.update(1.0, &mut rng);
+    f.update(1.0, Vec2::new(1366.0, 768.0), &mut rng);
     assert_eq!(rng.state(), after_reset, "a live flash draws nothing");
     assert_eq!((f.last_life, f.life), (1.0, 1.0 - 1.0 / life_time));
     let mut ticks = 1;
     while f.life > 0.0 {
-        f.update(1.0, &mut rng);
+        f.update(1.0, Vec2::new(1366.0, 768.0), &mut rng);
         ticks += 1;
     }
     assert_eq!(f.life, 0.0);
     assert!(ticks as f32 >= life_time - 1.0);
     // Dead, but `lastLife` is still above 0: one more tick without a reset.
     assert!(f.last_life > 0.0);
-    f.update(1.0, &mut rng);
+    f.update(1.0, Vec2::new(1366.0, 768.0), &mut rng);
     assert_eq!((f.last_life, f.life), (0.0, 0.0));
     assert_eq!(rng.state(), after_reset);
-    f.update(1.0, &mut rng);
+    f.update(1.0, Vec2::new(1366.0, 768.0), &mut rng);
     assert_eq!(f.life, 1.0);
     assert_ne!(rng.state(), after_reset);
 }
@@ -93,7 +94,7 @@ fn eight_flashes_update() {
     let mut d = ElectricDeath::new(1, 1.0);
     let mut rng = UnityRandom::new(8);
     let mut e = UnityRandom::new(8);
-    d.update_flashes(0.5, &mut rng);
+    d.update_flashes(0.5, Vec2::new(1366.0, 768.0), &mut rng);
     for _ in 0..32 {
         e.value();
     }

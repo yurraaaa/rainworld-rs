@@ -58,6 +58,19 @@ fn loaded_makes_one_per_effect() {
     assert_eq!(b.push_power, vec![0.0]);
 }
 
+/// The constructor reads the world's chosen screen: 1024 wide gives margin -288.
+#[test]
+fn loaded_reads_the_chosen_screen_width() {
+    let mut g = game(&HALL, (3, 1));
+    g.world_mut()
+        .set_screen_size(crate::Vec2::new(1024.0, 768.0));
+    g.with_border_push_back();
+    assert_eq!(
+        g.world().realized(0).unwrap().border_push_backs[0].margin,
+        -288.0
+    );
+}
+
 /// A slugcat left of `leftmost - margin` (x 117) is pushed by `3 * InverseLerp(0.3, 1,
 /// pushPower)` on every chunk, and `pushPower` climbs by `LerpAndTick(p, 1, 0.01,
 /// 1/600)`; at full power the push is the full 3.

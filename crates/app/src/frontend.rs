@@ -324,7 +324,7 @@ impl AppContext {
         }
         let rng = std::mem::replace(&mut self.menu.random, UnityRandom::new(0));
         let table = Arc::clone(&self.game.sound_table);
-        let game = Game::start(&self.menu.assets, &start, rng, table)
+        let game = Game::start(&self.menu.assets, &start, rng, table, self.menu.screen_size)
             .unwrap_or_else(|e| panic!("starting the game ({start:?}): {e}"));
         let source = VisualsSource {
             assets: self.menu.assets.clone(),

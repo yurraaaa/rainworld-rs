@@ -7,7 +7,7 @@
 
 use super::{RainWorldGame, RoomObject};
 use crate::above_clouds_view::AboveCloudsContext;
-use crate::background_scene::{BackgroundScene, ElementKind, SCREEN_SIZE};
+use crate::background_scene::{BackgroundScene, ElementKind};
 use crate::{DustpuffSpawner, Vec2};
 
 impl RainWorldGame {
@@ -107,6 +107,7 @@ impl RainWorldGame {
             return;
         }
         let add_order = scene.add_order();
+        let screen = self.world.screen_size();
         let places: Vec<u64> = add_order
             .iter()
             .map(|_| self.world.next_update_seq())
@@ -122,7 +123,7 @@ impl RainWorldGame {
             for (&element, place) in add_order.iter().zip(places) {
                 scene.elements[element].update_order = place;
             }
-            scene.convergence_point = BackgroundScene::convergence_for(SCREEN_SIZE);
+            scene.convergence_point = BackgroundScene::convergence_for(screen);
             scene.elements_added = true;
         }
     }

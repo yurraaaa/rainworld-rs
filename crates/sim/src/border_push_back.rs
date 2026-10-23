@@ -5,7 +5,6 @@
 //!
 //! Mirrors: RoomBorderPushBack.cs
 
-use crate::background_scene::SCREEN_SIZE;
 use crate::{FloatExt, Vec2};
 
 /// A `RoomBorderPushBack` in a realized room's update list.
@@ -20,11 +19,16 @@ pub struct BorderPushBack {
 }
 
 impl BorderPushBack {
-    /// The constructor: `margin = (options.ScreenSize.x - 1400) / 2 - 100` (the port's
-    /// screen is 1366 wide, so -117, D33) and the extremes of the room's camera positions.
+    /// The constructor: `margin = (options.ScreenSize.x - 1400) / 2 - 100` for the chosen
+    /// screen width and the extremes of the room's camera positions.
     #[must_use]
-    pub fn new(update_order: u64, camera_positions: &[[f32; 2]], players: usize) -> Self {
-        let margin = (SCREEN_SIZE.x - 1400.0) / 2.0 - 100.0;
+    pub fn new(
+        update_order: u64,
+        camera_positions: &[[f32; 2]],
+        players: usize,
+        screen_width: f32,
+    ) -> Self {
+        let margin = (screen_width - 1400.0) / 2.0 - 100.0;
         let mut leftmost = f32::MAX;
         let mut rightmost = f32::MIN;
         for p in camera_positions {

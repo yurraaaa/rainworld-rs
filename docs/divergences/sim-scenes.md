@@ -30,8 +30,6 @@ timers every tick, a dust puff's. Notes: `../../rainworld-re/notes/background-sc
 - **Arena sessions:** the constructor's arena branch (`sceneOrigo` and altitudes from the
   effect's amount, no `SIClouds`) and `Fog`'s zero alpha are ported from `!world.story`;
   every port `World` is a story one (D4, D16, D22), so they do not run.
-- **`rainWorld.screenSize` is 1366 x 768** where the first turn sets `convergencePoint`
-  (the port's screen has that size).
 - **The dev-tool keys** that move `DistantBuilding`s with the mouse are left out.
 - **`PosFromDrawPosAtNeutralCamPos` sees a zero `convergencePoint`** in the constructors,
   as the game's do (the first turn sets it later): positions are `input * depth`.

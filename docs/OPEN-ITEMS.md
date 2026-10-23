@@ -188,6 +188,8 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   - ElectricDeath: what it does once the rain ends the cycle (the port holds it at full
     intensity from cycle end + 1200), with the rain (D33). Its DLC/Remix branches wait for
     DLC.
+  - `RoomRain`'s shelter sprite scale `ScreenSize.x / shelterTex.width` (the chosen
+    resolution, `World::screen_size`), with the rain.
 - **Room files `Room::load` rejects** (user, 2026-10-23: not real rooms, but look into
   why): `su_a08`, `su_a09`, `su_a15_tiled`, `su_b01_tiled` in the installed game's
   `su-rooms` fail the port's room parser (seen by the waterfall corpus test). Find what

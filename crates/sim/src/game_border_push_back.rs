@@ -17,9 +17,10 @@ impl RainWorldGame {
         };
         let cameras = r.room.cameras().to_vec();
         let order = self.world.next_update_seq();
+        let width = self.world.screen_size().x;
         if let Some(r) = self.world.realized_mut(index) {
             r.border_push_backs
-                .push(BorderPushBack::new(order, &cameras, 1));
+                .push(BorderPushBack::new(order, &cameras, 1, width));
         }
     }
 
