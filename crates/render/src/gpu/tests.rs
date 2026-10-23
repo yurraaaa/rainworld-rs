@@ -985,9 +985,8 @@ fn a_bilinear_page_interpolates_and_a_point_page_does_not() {
     ) else {
         return;
     };
-    assert!(linear[0] < 40 && linear[4] > 215, "{linear:?}");
-    assert!((100..156).contains(&linear[2]), "{linear:?}");
-    assert!(linear[0] < linear[1] && linear[1] < linear[2], "{linear:?}");
-    assert!(linear[2] < linear[3] && linear[3] < linear[4], "{linear:?}");
+    for (got, want) in linear.into_iter().zip([16u8, 80, 143, 207, 255]) {
+        assert!(got.abs_diff(want) <= 4, "{linear:?}");
+    }
     assert!(point.iter().all(|&v| v == 0 || v == 255), "{point:?}");
 }

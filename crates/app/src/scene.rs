@@ -1046,7 +1046,7 @@ impl<R: Renderer> SceneRenderer<R> {
         if self.sprites.is_none() {
             return;
         }
-        for name in scene.game.camera_scene_images() {
+        for (name, sampling) in scene.game.camera_scene_images() {
             if !self.scene_images.insert(name) {
                 continue;
             }
@@ -1061,8 +1061,7 @@ impl<R: Renderer> SceneRenderer<R> {
                     self.renderer.add_atlas_page(
                         rw_graphics::Atlas::single(name, w, h),
                         &image,
-                        // D31: the scene shaders filter and wrap in the shader.
-                        rw_render::TextureSampling::POINT_CLAMP,
+                        sampling,
                     );
                 }
                 Err(e) => log::warn!("no scene image {name} ({e})"),

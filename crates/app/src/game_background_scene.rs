@@ -7,8 +7,8 @@
 use rw_graphics::{
     BackgroundSceneSprites, BackgroundSceneView, Color, DrawList, DustPuffSprites, SceneImageSizes,
 };
-use rw_render::SceneGlobals;
-use rw_sim::{BackgroundScene, SceneKind};
+use rw_render::{SceneGlobals, TextureFilter, TextureSampling};
+use rw_sim::{ElementKind, SceneKind};
 
 use super::{Drawable, Game};
 
@@ -55,23 +55,43 @@ impl Game {
             .collect()
     }
 
-    /// The images of the camera room's scenes' elements.
+    /// The sampling the element's `LoadGraphic` call gives its image (`crispPixels`: point,
+    /// else bilinear; `clampWrapMode`: clamp, else repeat).
     #[must_use]
-    pub fn camera_scene_images(&self) -> Vec<&'static str> {
+    pub fn scene_image_sampling(kind: &ElementKind) -> TextureSampling {
+        let (filter, clamp) = match kind {
+            ElementKind::Sky { .. } => (TextureFilter::Point, true),
+            ElementKind::Building { .. } => (TextureFilter::Bilinear, true),
+            ElementKind::CloseCloud { .. }
+            | ElementKind::DistantCloud { .. }
+            | ElementKind::FlyingCloud { .. }
+            | ElementKind::Smoke { .. } => (TextureFilter::Bilinear, false),
+            ElementKind::Fog
+            | ElementKind::DistantBuilding { .. }
+            | ElementKind::DistantLightning(_)
+            | ElementKind::Floor { .. }
+            | ElementKind::Rubble { .. }
+            | ElementKind::RoofDistantBuilding { .. } => (TextureFilter::Point, false),
+        };
+        TextureSampling { filter, clamp }
+    }
+
+    /// The images of the camera room's scenes' elements, with how each is sampled.
+    #[must_use]
+    pub fn camera_scene_images(&self) -> Vec<(&'static str, TextureSampling)> {
         let Some(r) = self.sim.world().realized(self.sim.camera_room()) else {
             return Vec::new();
         };
-        let mut names: Vec<&'static str> = Vec::new();
-        for name in r
-            .background_scenes
-            .iter()
-            .flat_map(BackgroundScene::image_names)
-        {
-            if !names.contains(&name) {
-                names.push(name);
+        let mut images: Vec<(&'static str, TextureSampling)> = Vec::new();
+        for element in r.background_scenes.iter().flat_map(|s| &s.elements) {
+            let Some(name) = element.asset() else {
+                continue;
+            };
+            if !images.iter().any(|&(n, _)| n == name) {
+                images.push((name, Self::scene_image_sampling(&element.kind)));
             }
         }
-        names
+        images
     }
 
     /// The scene shaders' globals for the camera room: the last scene's `atmosphereColor`

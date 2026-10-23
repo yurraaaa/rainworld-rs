@@ -216,14 +216,18 @@ game's shader (`Background`, `Cloud`, `CloudDistant`, `DistantBkgObject`,
 `background_scene.wgsl`), clipped by the level image and by what was drawn behind the
 level as `BackgroundClipVanilla` does. What differs:
 
-- **Image sampling is in the shader.** Each scene image is an atlas page of its own
-  (`LoadGraphic` makes an atlas of one element); the page sampler is point and clamped,
-  so the shaders that need bilinear or repeating reads (`Cloud`, `CloudDistant`, `Dust`,
-  `House`, `BkgFloor`, `DistantBkgObjectRepeatHorizontal`) read the page's texels
-  themselves with the image's filter and wrap (`crispPixels` and `clampWrapMode` of its
-  `LoadGraphic` call: clouds, flying clouds and smoke bilinear and repeating, the city
-  maps bilinear and clamped, floor and rubble point and repeating). The result is
-  Unity's bilinear filter; sampling at a texel's centre is exact.
+- **Image sampling is partly in the shader.** Each scene image is an atlas page of its
+  own (`LoadGraphic` makes an atlas of one element) and gets its sampler per page from
+  its `LoadGraphic` call (`crispPixels`: point, else bilinear; `clampWrapMode`: clamp,
+  else repeat): sky point/clamp; clouds, flying clouds and smoke bilinear/repeat; city
+  buildings bilinear/clamp; the other distant buildings, lightning, floor and rubble
+  point/repeat. `Background` and `DistantBkgObject` read the page through that sampler
+  (`textureSample`), so they filter once, as the game does. The shaders that need
+  bilinear or repeating reads of their own (`Cloud`, `CloudDistant`, `Dust`, `House`,
+  `BkgFloor`, `DistantBkgObjectRepeatHorizontal`) read the page's texels with
+  `textureLoad` and apply the image's filter and wrap themselves; the sampler is not
+  used there. The result is Unity's bilinear filter; sampling at a texel's centre is
+  exact. `_ApartmentsTex` and `_CityPalette` are read with a point, clamped sampler.
 - **`_CloudsTex`** is `resources.assets`' `Illustrations/cloudsTexture` (DXT5, 10 mips,
   bilinear, repeat) read with every mip and sampled with the nearest mip by the screen
   derivatives, as Unity's bilinear filter does. Its import settings are read
@@ -247,7 +251,7 @@ level as `BackgroundClipVanilla` does. What differs:
 - Omitted branches: `RIPPLE` (`smoothRippleClip`, `rippleClip`) and the sloped-terrain
   mask (black in the base game, so its tests never cut), Watcher's.
 
-**Why.** The port's atlas pages and samplers (D7); the rest unreachable in the base game.
+**Why.** The port's atlas pages and per-page samplers (D7); the rest unreachable in the base game.
 
 **Affects.** One-pixel rounding where the
 game's own sampling differs from the shader's emulation.
