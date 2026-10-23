@@ -10,7 +10,7 @@ use rw_assets::{ActiveMods, ClipNames, PlacedObject, RoomEffect, RoomSettings, S
 use rw_random::UnityRandom;
 
 use crate::campaign::{SlugcatCampaign, StoryStart};
-use crate::tests::room_with_water;
+use crate::tests::{named_room, room_with_water};
 use crate::world::World;
 use crate::{Input, RainWorldGame, SoundEvent, SoundId, Sounds, Start};
 
@@ -22,10 +22,22 @@ fn zero_g_game(effects: &[(&str, f32)]) -> RainWorldGame {
     let mut rows: Vec<String> = vec![".".repeat(20); 10];
     rows[9] = "#".repeat(20);
     let refs: Vec<&str> = rows.iter().map(String::as_str).collect();
-    let room = room_with_water(&refs, -1);
+    game_in(room_with_water(&refs, -1), effects, false)
+}
+
+/// SS_E08's size (960 x 3780 px) and name, with `RoomSpecificScriptActive: ON`.
+fn gradient_game() -> RainWorldGame {
+    let mut rows: Vec<String> = vec![".".repeat(48); 189];
+    rows[188] = "#".repeat(48);
+    let refs: Vec<&str> = rows.iter().map(String::as_str).collect();
+    game_in(named_room("SS_E08", &refs), &[], true)
+}
+
+fn game_in(room: rw_assets::Room, effects: &[(&str, f32)], script: bool) -> RainWorldGame {
     let data = WorldData::from_room(&room);
     let settings = RoomSettings {
         random_item_density: 0.0,
+        room_specific_script: script,
         placed_objects: PlacedObject::parse_list(""),
         effects: effects
             .iter()
@@ -172,4 +184,110 @@ fn the_player_sees_the_gravity_the_anti_gravity_set() {
     assert_eq!(g.player_ref().effective_room_gravity(), 1.0);
     g.tick(Input::NONE, &mut WithGraphics);
     assert_eq!(g.player_ref().effective_room_gravity(), 0.0);
+}
+
+/// `SS_E08GradientGravity`: `InverseLerp(700, PixelHeight - 400, y)` of 3780 px: 0 up to
+/// y 700, 1 from 3380.
+#[test]
+fn the_gradient_follows_the_formula() {
+    use crate::room_script::SsE08GradientGravity as G;
+    assert_eq!(G::gravity_at(0.0, 3780.0), 0.0);
+    assert_eq!(G::gravity_at(700.0, 3780.0), 0.0);
+    assert_eq!(G::gravity_at(3380.0, 3780.0), 1.0);
+    assert_eq!(G::gravity_at(3700.0, 3780.0), 1.0);
+    assert!((G::gravity_at(3000.0, 3780.0) - 2300.0 / 2680.0).abs() < 1e-6);
+}
+
+/// The script is added only to SS_E08 with the room setting on, and sets the room's gravity
+/// from the player's first chunk after the player's own turn; the player reads it on its
+/// next turn.
+#[test]
+fn the_script_sets_the_gravity_from_the_players_height() {
+    let mut g = gradient_game();
+    assert_eq!(g.world.realized(0).unwrap().scripts.len(), 1);
+    assert!(
+        zero_g_game(&[])
+            .world
+            .realized(0)
+            .unwrap()
+            .scripts
+            .is_empty()
+    );
+    g.set_player(
+        crate::Vec2::new(100.0, 2000.0),
+        crate::Vec2::ZERO,
+        &mut WithGraphics,
+    );
+    let mut last = 1.0;
+    for _ in 0..3 {
+        g.tick(Input::NONE, &mut WithGraphics);
+        let y = g.player_ref().body.chunks[0].pos.y;
+        let now = g.world.realized(0).unwrap().gravity;
+        assert_eq!(now, (y - 700.0) / (3380.0 - 700.0));
+        assert_eq!(g.player_ref().effective_room_gravity(), last);
+        last = now;
+    }
+    assert!(last > 0.0 && last < 1.0);
+}
+
+/// Below y 700 the room is weightless (the player floats in zero-g mode); above 3380 it is
+/// at full gravity.
+#[test]
+fn the_ends_of_the_gradient_are_zero_and_full_gravity() {
+    let mut g = gradient_game();
+    g.set_player(
+        crate::Vec2::new(100.0, 500.0),
+        crate::Vec2::ZERO,
+        &mut WithGraphics,
+    );
+    for _ in 0..4 {
+        g.tick(Input::NONE, &mut WithGraphics);
+    }
+    assert_eq!(g.world.realized(0).unwrap().gravity, 0.0);
+    assert_eq!(g.player_ref().effective_room_gravity(), 0.0);
+    assert_eq!(g.player_ref().body_mode(), crate::player::BodyMode::ZeroG);
+    g.set_player(
+        crate::Vec2::new(100.0, 3500.0),
+        crate::Vec2::ZERO,
+        &mut WithGraphics,
+    );
+    for _ in 0..3 {
+        g.tick(Input::NONE, &mut WithGraphics);
+    }
+    assert_eq!(g.world.realized(0).unwrap().gravity, 1.0);
+    assert_eq!(g.player_ref().effective_room_gravity(), 1.0);
+}
+
+/// A spear in the room is scaled by the same room gravity, from the turn after the script
+/// set it (the spear is newer than the script, so it updates first).
+#[test]
+fn a_spear_follows_the_gradient_gravity() {
+    use crate::creature::{EntityId, WorldCoordinate};
+    use crate::item::AbstractObject;
+    let mut g = gradient_game();
+    g.set_player(
+        crate::Vec2::new(100.0, 2000.0),
+        crate::Vec2::ZERO,
+        &mut WithGraphics,
+    );
+    let id = g.world.add_object(AbstractObject::new_spear(
+        EntityId::new(0, 77),
+        WorldCoordinate::new(0, 30, 100, -1),
+        false,
+    ));
+    g.world.realize_object_in_room(id, &mut g.rng);
+    g.tick(Input::NONE, &mut WithGraphics);
+    let set = g.world.realized(0).unwrap().gravity;
+    assert!(set > 0.0 && set < 1.0);
+    g.tick(Input::NONE, &mut WithGraphics);
+    let seen = g
+        .world
+        .object(id)
+        .realized
+        .as_deref()
+        .unwrap()
+        .body
+        .params
+        .room_gravity;
+    assert_eq!(seen, set);
 }

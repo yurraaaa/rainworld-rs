@@ -42,6 +42,8 @@ pub struct RealizedRoom {
     first_time_realized: bool,
     /// The room-specific scripts `Room.Loaded` added.
     pub scripts: Vec<RoomScript>,
+    /// The scripts' place in the update list.
+    pub script_order: u64,
     /// `aimap`, made when the room finishes loading.
     pub ai_map: Option<Arc<AiMap>>,
     /// `fliesRoomAi`, made by the first fly that enters.
@@ -73,7 +75,8 @@ pub struct RealizedRoom {
     pub fixtures: crate::RoomFixtures,
     /// The superstructure projectors, scan lines and star matrices.
     pub projections: crate::RoomProjections,
-    /// `Room.gravity`: set every tick by the room's `AntiGravity`.
+    /// `Room.gravity`: set every tick by the room's `AntiGravity` or its gradient-gravity
+    /// script.
     pub gravity: f32,
     /// `Room.Loaded`'s `AntiGravity` (a `ZeroG` or `BrokenZeroG` effect).
     pub anti_gravity: Option<crate::AntiGravity>,
@@ -195,6 +198,7 @@ impl RealizedRoom {
             wait_to_enter: wait,
             first_time_realized,
             scripts: Vec::new(),
+            script_order: 0,
             ai_map: None,
             flies_room_ai: None,
             shortcuts_blinking: None,

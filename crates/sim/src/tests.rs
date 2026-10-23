@@ -32,6 +32,15 @@ pub(crate) fn room_with_items(rows: &[&str], items: &str) -> Room {
 }
 
 fn room_file(rows: &[&str], water_level: i32, items: &str) -> Room {
+    room_file_named("Test", rows, water_level, items)
+}
+
+/// [`room_with_water`] under another room name.
+pub(crate) fn named_room(name: &str, rows: &[&str]) -> Room {
+    room_file_named(name, rows, -1, "")
+}
+
+fn room_file_named(name: &str, rows: &[&str], water_level: i32, items: &str) -> Room {
     let h = rows.len();
     let w = rows[0].len();
     let mut grid = String::new();
@@ -58,7 +67,7 @@ fn room_file(rows: &[&str], water_level: i32, items: &str) -> Room {
         }
     }
     let text = format!(
-        "Test\n{w}*{h}|{water_level}|0\n1*1|0|0\n0,0\nBorder: Solid\n{items}\n\n\n\n17|0|0|\nblob\n{grid}\n"
+        "{name}\n{w}*{h}|{water_level}|0\n1*1|0|0\n0,0\nBorder: Solid\n{items}\n\n\n\n17|0|0|\nblob\n{grid}\n"
     );
     Room::parse(&text).expect("test room parses")
 }

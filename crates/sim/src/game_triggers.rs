@@ -11,6 +11,7 @@ use rw_assets::{
 
 use super::{HudEvent, RainWorldGame, RoomObject};
 use crate::creature::overseer::{CommunicationModule, TutorialMessage};
+use crate::room_script::RoomScript;
 use crate::trigger::{
     ActiveTriggerChecker, MusicRequest, PickupObjectInstruction, TriggerHud, TriggerObject,
     TriggerObjectKind, TriggerPlayer,
@@ -61,6 +62,7 @@ impl RainWorldGame {
             .retain(|o| o.room != index && world.realized(o.room).is_some());
         self.add_room_effect_particles(index);
         self.add_placed_room_objects(index);
+        self.add_room_scripts(index);
         let story = self.is_story_session();
         let cycle = self.story.cycle_number;
         let (timeline, mods) = (self.world.timeline(), self.world.mods());
@@ -85,6 +87,32 @@ impl RainWorldGame {
                 index,
                 TriggerObjectKind::Checker(ActiveTriggerChecker::new(trigger)),
             );
+        }
+    }
+
+    /// `Room.Loaded`'s `AddRoomSpecificScript`, after the effects and placed objects.
+    fn add_room_scripts(&mut self, index: i32) {
+        let session = self.story_session();
+        let name = self
+            .world
+            .abstract_room(index)
+            .map(|r| r.name.clone())
+            .unwrap_or_default();
+        let mods = self.world.mods();
+        let Some(room) = self.world.realized_mut(index) else {
+            return;
+        };
+        if !room.settings.room_specific_script {
+            return;
+        }
+        let scripts = RoomScript::for_room(&name, Some(&session), mods, room.first_time_realized());
+        if scripts.is_empty() {
+            return;
+        }
+        room.scripts = scripts;
+        let order = self.world.next_update_seq();
+        if let Some(room) = self.world.realized_mut(index) {
+            room.script_order = order;
         }
     }
 

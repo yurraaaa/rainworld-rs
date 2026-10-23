@@ -44,7 +44,7 @@ Gameplay logic belongs in `rw-sim`, not here.
 | `mcp/insect_reply.rs` | `get_state` `insects`: per-room cosmetic insects |
 | `mcp/particles_reply.rs` | `get_state` `particles`: per realized room, counts of dandelions, stalks, sparks, specks and spores and the spawners' state |
 | `mcp/placed_visuals_reply.rs` | `get_state` `decals`, `rainbows`: the realized rooms' custom decals and rainbows |
-| `mcp/gravity_reply.rs` | `get_state` `room_gravity`, `broken_anti_gravity`: each `ZeroG`/`BrokenZeroG` room's gravity and electric power, the world's `BrokenAntiGravity` switch |
+| `mcp/gravity_reply.rs` | `get_state` `room_gravity`, `broken_anti_gravity`: each `ZeroG`/`BrokenZeroG` or gradient-gravity-script room's gravity and electric power, the world's `BrokenAntiGravity` switch |
 | `mcp/projection_reply.rs`, `mcp/projection_tests.rs` | `get_state` `projectors`, `scan_lines`, `star_matrices`: the realized rooms' superstructure projections (ideal and actual glyph, scan line and cursor counts, grid state, cursors; each scan line; each star matrix's rotations and focus) |
 | `mcp/vine_reply.rs`, `mcp/vine_tests.rs` | `get_state` `climbable_vines` (per realized room: vines with kind, points, total length; pending events) and the player's `vine_pos`, `vine_grab_delay`, `vine_climb_cursor`, `want_to_grab` (tested with a vine of the test's own) |
 | `mcp/circuit_reply.rs`, `mcp/circuit_tests.rs` | `get_state` `coral_circuits` (per cluster: places, tile box, bits, displaced and repairing bits, links, connectors, crabs, the first displaced bit) and the player's `circuit_swim_resistance`, `circuit_jump_meter`, `swim_bits`; tested on `SS_D02` (state, swimming through a circuit, the picture) |

@@ -106,8 +106,8 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   drift in `ZeroG` rooms.
   Ordering item (review of step 6): (F4) `Room.Loaded`
   adds effect objects (~863) and placed objects (~1055) before `AddRoomSpecificScript`
-  (~1873); the port adds them in `add_trigger_checkers`, after the scripts. No base room
-  is affected today. The `NowViewed` order (F1) is a divergence (D29), by the user's
+  (~1873); the port adds them in `add_trigger_checkers` before the scripts (fixed for the
+  room scripts; the order of effect objects against other effects is unchanged). The `NowViewed` order (F1) is a divergence (D29), by the user's
   decision.
 - **Code quality pass** (user, 2026-10-16; moved to M14 cleanup by the user 2026-10-22,
   not after the lizard steps): go over the workspace one crate at a time, a step per crate,

@@ -106,7 +106,7 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `shared_physics.rs` | point terrain collision, exact tile ray trace | `SharedPhysics`, `Custom.RectCollision` |
 | `noise.rs` | `InGameNoise`, terrain-impact noise, `NoiseSink` (an updating object's noises and screen movements), `RoomCall`, `ImpactCalls` | `Noise/InGameNoise.cs` |
 | `room_ext.rs`, `color.rs`, `float_ext.rs`, `vec2.rs`, `vec3.rs` | position lookups on `Room`; `Custom` colour/scalar helpers; vectors | `RWCustom.Custom` |
-| `room_script.rs` | room-specific scripts (`RoomScript`, SU_C04 start) | `RoomSpecificScript` |
+| `room_script.rs` | room-specific scripts (`RoomScript`: SU_C04 start, SS_E08 gradient gravity), at their own place in the update list | `RoomSpecificScript` |
 | `screen_shake.rs`, `screen_shake_tests.rs`, `game_screen_shake_tests.rs` | camera 0's shake: `CameraShake` (`screenShake`, `microShake`, the per-tick jump at the head of the tick), `ScreenMovement` (camera side, `Room.ScreenMovement` with its ceiling drips), `TerrainImpact`'s bump, `ceilingTiles` | `RoomCamera.Update/ScreenMovement`, `Room.ScreenMovement` |
 | `shelter.rs` | `ShelterDoor` (intact, base game) | `ShelterDoor` |
 | `shortcut.rs` | `ShortcutHandler` divider, vessels, entrance blinking | `ShortcutHandler` |

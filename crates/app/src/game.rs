@@ -834,13 +834,10 @@ impl Game {
     /// The camera room's start-up script, if it has one.
     #[must_use]
     pub fn start_up_script(&self) -> Option<&SuC04StartUp> {
-        self.camera_room()
-            .scripts
-            .iter()
-            .map(|s| match s {
-                RoomScript::SuC04StartUp(s) => s,
-            })
-            .next()
+        self.camera_room().scripts.iter().find_map(|s| match s {
+            RoomScript::SuC04StartUp(s) => Some(s),
+            RoomScript::SsE08GradientGravity(_) => None,
+        })
     }
 
     /// `sounds.txt` resolved against the `loadedsoundeffects` bundle, or an empty table
