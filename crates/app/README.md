@@ -45,6 +45,7 @@ Gameplay logic belongs in `rw-sim`, not here.
 | `mcp/particles_reply.rs` | `get_state` `particles`: per realized room, counts of dandelions, stalks, sparks, specks and spores and the spawners' state |
 | `mcp/placed_visuals_reply.rs` | `get_state` `decals`, `rainbows`: the realized rooms' custom decals and rainbows |
 | `mcp/gravity_reply.rs` | `get_state` `room_gravity`, `broken_anti_gravity`: each `ZeroG`/`BrokenZeroG` room's gravity and electric power, the world's `BrokenAntiGravity` switch |
+| `mcp/effects_reply.rs` | `get_state` `electric_death`, `border_push_back`: the realized rooms' `ElectricDeath`s (intensity, sin, colour, flashes, loop volumes, recent strikes) and `RoomBorderPushBack`s (edges, `pushPower`) |
 | `mcp/fixtures_reply.rs` | `get_state` `light_fixtures`, `waterfalls`: the realized rooms' `Redlight`s, `HolyFire`s, `SlimeMoldLight`s (lights, flicker state, embers, discs) and `WaterFall`s (tile, flow, ends, strike level, contact, bubbles) |
 | `mcp/placed_light_reply.rs` | `get_state` `light_beams`, `spot_lights`: the realized rooms' placed light beams (quad, data, sun factor, draw alpha, colours) and spot lights |
 | `mcp/placed_cosmetics_reply.rs` | `get_state` `slime_molds`, `token_stalks`: the realized rooms' cosmetic slime molds and dead token stalks |

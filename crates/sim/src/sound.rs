@@ -238,6 +238,10 @@ sound_ids! {
     ElectricityLoop = "Electricity_Loop",
     BrokenAntiGravitySwitchOn = "Broken_Anti_Gravity_Switch_On",
     BrokenAntiGravitySwitchOff = "Broken_Anti_Gravity_Switch_Off",
+    DeathLightningEarlySizzleLoop = "Death_Lightning_Early_Sizzle_LOOP",
+    DeathLightningHeavyLightningLoop = "Death_Lightning_Heavy_Lightning_LOOP",
+    DeathLightningSparkSpontaneous = "Death_Lightning_Spark_Spontaneous",
+    DeathLightningSparkObject = "Death_Lightning_Spark_Object",
     // No `sounds.txt` line: it never plays.
     SpearHitSmallCreature = "Spear_Hit_Small_Creature",
     // Commented out in `sounds.txt` too (`//Red_Light_On :`).

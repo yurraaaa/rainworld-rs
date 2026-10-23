@@ -121,7 +121,7 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   room, so open air edges extend forever; the room file's `Border:` field is unread).
   Check how the game handles a creature flying or falling past an open edge (bat flies
   now, flying creatures later): sky and side exits (`SkyExit`/`SideExit`, border exit
-  nodes), `RoomBorderPushBack` (unported; base game or not?), removal when too far out,
+  nodes), `RoomBorderPushBack` (ported, D33: base `Room.Loaded`, no `ModManager` guard), removal when too far out,
   and compare with the port.
 - **Loop emitters when a room abstractizes** (2026-10-17): a swallowed rock's loop now
   lives one more update, as in the game, but an item whose room abstractizes (e.g. one
@@ -185,6 +185,9 @@ plan is in `../rainworld-re/surveys/lizards.md`.
     Hazers and scavengers.
   - The analogue stick in zero gravity (`ZeroGGamePadIntVec`; user, 2026-10-23): waits until
     the port has analogue gamepad input.
+  - ElectricDeath: what it does once the rain ends the cycle (the port holds it at full
+    intensity from cycle end + 1200), with the rain (D33). Its DLC/Remix branches wait for
+    DLC.
 - **Room files `Room::load` rejects** (user, 2026-10-23: not real rooms, but look into
   why): `su_a08`, `su_a09`, `su_a15_tiled`, `su_b01_tiled` in the installed game's
   `su-rooms` fail the port's room parser (seen by the waterfall corpus test). Find what

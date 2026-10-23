@@ -778,6 +778,7 @@ impl Scene {
                 lists.extend(self.game.fixture_draw_lists(alpha, &visuals.room_palette()));
             }
             lists.extend(self.game.placed_visual_draw_lists());
+            lists.extend(self.game.electric_death_draw_lists(alpha, cam_pos));
             let level_view = self.visuals.is_some() && view.level;
             if let Some(list) = shortcuts.filter(|_| level_view) {
                 lists.push((Drawable::Shortcuts, list));

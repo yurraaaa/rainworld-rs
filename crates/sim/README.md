@@ -21,8 +21,10 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `game.rs` | `RainWorldGame`: world, player, shortcut handler + lobby, realizer, order of a tick, sessions | `RainWorldGame` |
 | `game_*.rs` | `impl RainWorldGame` splits, below | - |
 | `game_anti_gravity.rs`, `game_anti_gravity_tests.rs` | zero gravity in the game: `Room.Loaded`'s `AntiGravity`, its turn (the room's `gravity`), `brokenAntiGrav.Update` from `RainCycle.Update` with the camera room's switch sound and screen movement, the ambience gravity the microphone fades by | `Room.Loaded`, `AntiGravity.Update`, `BrokenAntiGravity.Update` |
+| `game_border_push_back.rs`, `game_border_push_back_tests.rs` | a room's `RoomBorderPushBack` in the game: `Room.Loaded` making it, its turn in the update list pushing the player's chunks and what it holds | `Room.Loaded` (`BorderPushBack`), `RoomBorderPushBack.Update`, `PushAtCreature` |
 | `game_carried.rs`, `game_carried_tests.rs` | what a creature's vessel carries: `FollowedByCamera`, stuck objects moving out of the lobby, the held player spat out with its grabber or killed in its den | `AbstractCreature.FollowedByCamera`, `Creature.SpitOutOfShortCut` |
 | `game_dev.rs` | dev spawns/teleports through the game's own paths (MCP, debug UI) | - (port dev tool, D18) |
+| `game_electric_death.rs`, `game_electric_death_tests.rs` | a room's `ElectricDeath` in the game: `Room.Loaded` making it and `AIMapReady`'s wall tiles, its turn (loops, wall sparks, flashes, colour, the strikes over the room's `physicalObjects` with the creatures' electric `Violence`), its loop emitters' turns and its `SparkFlash`es' turns | `Room.Loaded` (`ElectricDeath`), `ElectricDeath.Update`, `AIMapReady`, `SparkFlash.Update` |
 | `game_exit.rs` | what pause/`ExitGame` read | `RainWorldGame.ExitGame` |
 | `game_flies.rs`, `game_graphics_modules_tests.rs` | bat flies in the tick: world process, `ReadyForAI`, vessels, lobby turns; the creatures' graphics modules at the camera's room change (`NoLongerViewed`, `NowViewed` by collision layer) | `FliesWorldAI` hookup, `Room.NowViewed`/`NoLongerViewed` modules |
 | `game_insects.rs`, `game_insects_tests.rs` | cosmetic insects in the update list: `NowViewed`/`NoLongerViewed` at the camera's room change, creatures for the avoiders, the firefly's light | `Room.NowViewed` insect branch |
@@ -68,6 +70,8 @@ Notes/surveys are in `../../../rainworld-re/` (see the last section).
 | `object.rs` | `PhysicalObject`: chunks + distance constraints | `PhysicalObject` |
 | `item.rs` | abstract objects (`AbstractObject`, `Entity`, `ObjectData`, `AbstractSpear`), save strings | `AbstractPhysicalObject` |
 | `light_beam.rs`, `spot_light.rs` | `LightBeam` (quad, environment and palette colours), `SpotLight` (quad) | `LightBeam`, `SpotLight` |
+| `electric_death.rs`, `electric_death_tests.rs` | `ElectricDeath` (`Intensity` from the rain cycle, `LightFlash`es, the colour walk, the two sound loops, the wall-spark and strike rolls) and `SparkFlash` | `ElectricDeath`, `LightFlash`, `SparkFlash` |
+| `border_push_back.rs`, `border_push_back_tests.rs` | `BorderPushBack`: margin, camera span, `pushPower` per player and the push it gives | `RoomBorderPushBack` |
 | `lightning.rs`, `lightning_tests.rs` | `Lightning` (`Lightning`/`BkgOnlyLightning` effects): two `LightningSource`s (reset, flash curve, thunder queue, `Electricity_Loop`), the camera's reads (`CurrentLightLevel`, `CurrentBackgroundColor`, `CurrentFogColor`, `LightningFrame`) | `Lightning` |
 | `light_source.rs` | `LightSource` (`Alpha`, `Lightness`, update) | `LightSource` |
 | `light_fixture.rs`, `light_fixture_tests.rs` | `Redlight` (flicker, gravity-dependent power), `HolyFire` with `HolyFireSprite`, `SlimeMoldLight` (seeded discs) | `LightFixture`, `Redlight`, `HolyFire`, `SlimeMoldLight` |
@@ -223,6 +227,7 @@ sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `m
 | The player bitten and held by a lizard, struggling free | `game_player_grabbed.rs`, `player/grabbed.rs`, `game_lizard_hits.rs` (`Bite`, the melee throw's hit) |
 | Random draws / sounds | `sound.rs`, `rw-random` crate; draws live beside each ported function |
 | Camera visibility | `camera.rs` |
+| `ElectricDeath` (Underhang), `BorderPushBack` (Sunlit Lands) | `electric_death.rs`, `game_electric_death.rs`; `border_push_back.rs`, `game_border_push_back.rs`; sprites in `rw-graphics` `electric_death.rs`, shaders in `rw-render` |
 | Room triggers, guide instructions | `trigger.rs`, `game_triggers.rs`, `game_instructions.rs`, `room_script.rs` |
 | Room realization / loading | `world/realizer.rs`, `world/realized.rs`, `world/mod.rs` |
 | Rain cycle | `world/rain_cycle.rs` |
@@ -257,7 +262,7 @@ Surveys (`../../../rainworld-re/surveys/`): `lizards.md`, `bat-flies.md`, `rocks
 Divergences: `../../docs/divergences/` (IDs are global, `grep -n '^## D'`). In `sim.md`:
 D2 spawning, D3 movement, D4 falls, D5 shortcuts, D6 poles/ledges, D9 skid/roll/belly
 slide, D10 corridors, D11 water, D14 worlds/rooms/realizer (creatures, lizards, flies,
-overseers), D17 shelters, D19 the player held by a creature. Elsewhere: D1 `random.md`, D12 `audio.md`, D13 `menu.md`,
+overseers), D17 shelters, D19 the player held by a creature; D33 (`sim-gameplay-effects.md`) `ElectricDeath` and `BorderPushBack`. Elsewhere: D1 `random.md`, D12 `audio.md`, D13 `menu.md`,
 D16 `save.md`, D18 `app.md`.
 
-Tests: `*_tests.rs` beside their module, `player/tests/`, and `tests/` (13 `installed_*.rs` integration tests that read the installed game, plus `data/`).
+Tests: `*_tests.rs` beside their module, `player/tests/`, and `tests/` (14 `installed_*.rs` integration tests that read the installed game, plus `data/`).

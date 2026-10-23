@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use serde::Serialize;
 
 pub use super::background_scene_reply::{BackgroundSceneState, CameraOnScene};
+pub use super::effects_reply::{BorderPushBackState, ElectricDeathState};
 pub use super::fixtures_reply::{LightFixtureState, WaterFallState};
 pub use super::gravity_reply::{BrokenAntiGravityState, RoomGravityState};
 pub use super::insect_reply::RoomInsects;
@@ -145,6 +146,12 @@ pub struct State {
     /// The realized rooms' `WaterFall`s.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub waterfalls: Vec<WaterFallState>,
+    /// The realized rooms' `ElectricDeath`s.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub electric_death: Vec<ElectricDeathState>,
+    /// The realized rooms' `RoomBorderPushBack`s.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub border_push_back: Vec<BorderPushBackState>,
     /// `HologramLight.Needed(player)` now.
     pub holo_light_needed: f32,
     /// What the session keeps of its deaths.
