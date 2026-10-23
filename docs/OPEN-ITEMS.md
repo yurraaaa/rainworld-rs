@@ -30,9 +30,8 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   update later, `ShortcutGraphics` wait) done 2026-10-23 (`RoomTransition`'s palette read
   not there: the class is not ported).
 - **Realizer guards** (user, 2026-10-23; `../rainworld-re/surveys/room-realizer-audit.md`):
-  `RoomRealizer.Update`'s `!followCreature.Room.offScreenDen` check on the room change and the
-  off-screen-den guard on the random neighbour step, small fix after async step B; the
-  `rainCycle.RainGameOver` guard on that step with the rain (M8).
+  `RoomRealizer.Update`'s `rainCycle.RainGameOver` guard on the random neighbour step comes
+  with the rain (M8); the off-screen-den guards are done.
 - **Water with the rain (M8)**: `Room.AddWater` makes a `Water` (so its surface loop and
   `WaterLight`) in rooms with no level water (rain flood, `WaterCycleTop`/`Bottom`,
   `BrokenShelterWaterLevel`). The other water effects are done (2026-10-22).

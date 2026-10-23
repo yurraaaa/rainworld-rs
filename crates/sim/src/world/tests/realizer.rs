@@ -114,3 +114,34 @@ fn the_wait_outlives_an_abstracted_room() {
     assert_eq!(drew, [false, false, false, true]);
     assert!(RoomRealizer::fully_loaded(&world, 2, serial));
 }
+
+const DEN_FOLLOW: FollowCreature = FollowCreature {
+    room: 1,
+    tile: (0, 0),
+    in_room: false,
+    alive: true,
+};
+
+/// `RoomRealizer.Update`: `!followCreature.Room.offScreenDen` on the room change, and the
+/// off-screen-den guard before the random neighbour's `Random.Range`.
+#[test]
+fn the_off_screen_den_guards_hold() {
+    let mut world = two_rooms();
+    world.data.rooms[1].offscreen_den = true;
+    world.data.rooms[1].connections = vec![0];
+    let mut rng = UnityRandom::new(3);
+    let mut realizer = RoomRealizer::new();
+    realizer.update(&mut world, FOLLOW, 0, &mut rng);
+    let before = rng.state();
+    realizer.update(&mut world, DEN_FOLLOW, 0, &mut rng);
+    assert_eq!(rng.state(), before, "no draw in the den");
+    assert!(
+        realizer.tracked_rooms().iter().all(|&r| r != 1),
+        "den not tracked"
+    );
+    realizer.update(&mut world, FOLLOW, 0, &mut rng);
+    world.loading_step();
+    let before = rng.state();
+    realizer.update(&mut world, FOLLOW, 0, &mut rng);
+    assert_ne!(rng.state(), before, "one draw in a normal room");
+}
