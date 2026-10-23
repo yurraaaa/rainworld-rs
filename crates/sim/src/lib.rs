@@ -36,6 +36,7 @@ pub mod insect;
 pub mod item;
 mod light_beam;
 mod light_source;
+mod lightning;
 pub mod map_discovery;
 mod noise;
 mod object;
@@ -78,6 +79,9 @@ pub use game::{
 };
 pub use light_beam::LightBeam;
 pub use light_source::{LightHardSet, LightSource, LightSourceTick, LightTie};
+pub use lightning::{
+    Lightning, LightningEnv, LightningFrame, LightningRoom, LightningSource, ThunderSound,
+};
 pub use map_discovery::{DiscoveryTexture, HudMapLink, MapDiscovery, MapRoom, UnityTexture};
 pub use noise::{ImpactCall, ImpactCalls, InGameNoise, NoiseSink, RoomCall};
 pub use object::{

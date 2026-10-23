@@ -54,7 +54,8 @@ use super::reply::{
     WaterLightState,
 };
 use super::reply::{
-    FleeInfo, HeavyAiInfo, HuntInfo, LoungeInfo, OwnedItemState, ShelterIconState, WaterSoundState,
+    FleeInfo, HeavyAiInfo, HuntInfo, LightningState, LoungeInfo, OwnedItemState, ShelterIconState,
+    WaterSoundState,
 };
 use super::reply::{
     FliesWorldInfo, GraspInfo, HeldInfo, QuantifiedInfo, RegionStateInfo, RelationshipInfo,
@@ -510,6 +511,8 @@ impl Session {
                             .as_ref()
                             .filter(|d| !d.slated)
                             .map(|d| d.sound_loop.volume()),
+                        lightning: r.lightning.as_ref().map(LightningState::from),
+                        background_noise: Some(r.last_background_noise()).filter(|n| *n > 0.0),
                         water_sound: r.water_sound.as_ref().map(|w| WaterSoundState {
                             rect: [w.rect.left, w.rect.bottom, w.rect.right, w.rect.top],
                             volume: w.sound_loop.volume(),

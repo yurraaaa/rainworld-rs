@@ -38,6 +38,8 @@ mod instructions;
 mod items;
 #[path = "game_light_beams.rs"]
 mod light_beams;
+#[path = "game_lightning.rs"]
+mod lightning;
 #[path = "game_lights.rs"]
 mod lights;
 pub use lights::PlayerGlow;
@@ -350,6 +352,10 @@ enum RoomObject {
     DrippingSound,
     /// An emitter of the `DrippingSound`'s loop, by its place in the update list.
     DrippingSoundLoop(u64),
+    /// The room's `Lightning`.
+    Lightning,
+    /// An emitter of the `Lightning`'s sound loops, by its place in the update list.
+    LightningLoop(u64),
     /// An emitter of the water's surface loop, by its place in the update list.
     WaterSoundLoop(u64),
     /// A realized rock or spear.
@@ -952,6 +958,7 @@ impl RainWorldGame {
         let session = self.story_session();
         for index in self.world.finish_loading() {
             self.add_shelter_door(index);
+            self.add_lightning(index);
             self.add_trigger_checkers(index);
             self.add_dripping_sound(index);
             self.world.realize_room_objects(index, &mut self.rng);
@@ -1399,6 +1406,7 @@ impl RainWorldGame {
         objects.extend(self.room_lizard_objects(index));
         objects.extend(self.room_drip_objects(index));
         objects.extend(self.room_dripping_sound_objects(index));
+        objects.extend(self.room_lightning_objects(index));
         objects.extend(self.room_water_sound_objects(index));
         objects.extend(self.room_weapon_objects(index));
         objects.extend(
@@ -1501,6 +1509,8 @@ impl RainWorldGame {
                 RoomObject::DrippingSoundLoop(order) => {
                     self.run_dripping_sound_emitter(index, order);
                 }
+                RoomObject::Lightning => self.run_lightning(index),
+                RoomObject::LightningLoop(order) => self.run_lightning_emitter(index, order),
                 RoomObject::WaterSoundLoop(order) => self.run_water_sound_emitter(index, order),
                 RoomObject::Weapon(id) => self.run_weapon(index, id, observer),
                 RoomObject::WeaponLoop { owner, order } => {

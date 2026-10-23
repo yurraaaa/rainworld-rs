@@ -266,7 +266,7 @@ prefer these over `--screenshot`/`--script`; briefs for such agents say so.
   fight target and anger, `submitted_to`, last signal, missions, `taming_difficulty`, `gift`) and, in a
   viewed room, graphics and voice; overseers with AI and guide state; stun/kill tag,
   `social`, `danger`, `carries`), every abstract object (and realized
-  state), `orphan_emitters`, `triggers`, `music`, `holo_lights`, `camera_shake`, `full_screen_effect`, `death_fall`, `water_light`, `lights`, `level_params`, `insects`, `slime_molds`, `token_stalks`, `light_beams`, `spot_lights`, `session`,
+  state), `orphan_emitters`, `lightning` (a room's two flash sources, thunder queue, `background_noise`; `level_params` shows `num4` and the sky/fog texels), `triggers`, `music`, `holo_lights`, `camera_shake`, `full_screen_effect`, `death_fall`, `water_light`, `lights`, `level_params`, `insects`, `slime_molds`, `token_stalks`, `light_beams`, `spot_lights`, `session`,
   `dens`, `quantified`, `flies_world`, `region_state`, `heavy_ai`. Empty fields are left
   out; the field list is in `crates/app/src/mcp/`. New sim state must be
   added there. `get_exits` lists the camera room's exits (entrance tile, the

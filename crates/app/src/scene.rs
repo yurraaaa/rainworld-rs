@@ -15,7 +15,7 @@ use rw_render::{
     Camera, LevelView, Renderer, RoomCamera, RoomLayers, StageBatch, SurfaceLight, WaterFrame,
     WaterSprites, WaterSurface,
 };
-use rw_sim::{HudEvent, Input, SoundEvent};
+use rw_sim::{HudEvent, Input, LightningFrame, SoundEvent};
 
 use crate::death_fall::DeathFall;
 use crate::game::Game;
@@ -63,6 +63,8 @@ pub struct Scene {
     /// game is paused nothing in the room redraws (`PausedDrawUpdate`), so frames repeat
     /// that one.
     last_unpaused_frame: Option<(f32, UnityRandom)>,
+    /// The room's `Lightning` as the last frame drawn read it (`DrawUpdate`).
+    lightning_frame: Option<LightningFrame>,
     /// `GamePaused`: the room's frame repeats the last unpaused one.
     pub paused: bool,
 }
@@ -124,6 +126,7 @@ impl Scene {
             entered_room: false,
             hud: None,
             last_unpaused_frame: None,
+            lightning_frame: None,
             paused: false,
         };
         scene.load_visuals();
@@ -266,7 +269,31 @@ impl Scene {
             self.camera.view_origin(1.0)[1],
             self.camera.screen_size()[1],
         );
-        Some(visuals.state(&self.game.sim().world().rain_cycle, water_level))
+        // The flash is drawn from a copy of the cosmetic stream, so asking changes nothing.
+        let lightning = self.lightning_frame_at(1.0, &mut self.game.cosmetic_rng().clone());
+        Some(visuals.state(&self.game.sim().world().rain_cycle, water_level, lightning))
+    }
+
+    /// The camera room's `Lightning` as `DrawUpdate` reads it at `time_stacker`, with
+    /// the flicker on `rng`.
+    fn lightning_frame_at(
+        &self,
+        time_stacker: f32,
+        rng: &mut UnityRandom,
+    ) -> Option<LightningFrame> {
+        let visuals = self.visuals.as_ref()?;
+        let room = self.game.sim().world().realized(self.camera_room)?;
+        Some(visuals.lightning_frame(room.lightning.as_ref()?, time_stacker, rng))
+    }
+
+    /// `DrawUpdate`'s reads of the room's `Lightning` for this frame, on the cosmetic
+    /// stream (D1).
+    fn draw_lightning(&mut self, alpha: f32) {
+        let mut rng = self.game.cosmetic_rng().clone();
+        self.lightning_frame = self.lightning_frame_at(alpha, &mut rng);
+        if self.lightning_frame.is_some() {
+            self.game.set_cosmetic_rng(rng);
+        }
     }
 
     #[must_use]
@@ -623,6 +650,12 @@ impl Scene {
         target.sync(self);
         let alpha = self.frame_alpha(alpha);
         self.draw_micro_shake();
+        self.draw_lightning(alpha);
+        if let (Some(v), Some(frame)) = (&self.visuals, &self.lightning_frame) {
+            target
+                .renderer
+                .set_level_palette(&v.lightning_palette(frame));
+        }
         // The slugcat's sprites, eyes in the palette's black. Built every frame, as the
         // game runs `DrawSprites` whatever is shown; only the level view draws them.
         let face = self
@@ -736,9 +769,14 @@ impl Scene {
         let time = (self.game.ticks() as f32 + alpha) / TICK_RATE as f32;
         let rain = &self.game.sim().world().rain_cycle;
         let level = match &self.visuals {
-            Some(v) if view.level => {
-                Some(v.view(&self.camera, alpha, time, rain, self.water_line()))
-            }
+            Some(v) if view.level => Some(v.view(
+                &self.camera,
+                alpha,
+                time,
+                rain,
+                self.lightning_frame.as_ref(),
+                self.water_line(),
+            )),
             _ => None,
         };
         // `SunBlocker`s, first in the `Shadows` container (spot lights follow).
@@ -796,7 +834,11 @@ impl Scene {
     fn full_screen_effect(&self, alpha: f32) -> Option<DrawList> {
         let visuals = self.visuals.as_ref()?;
         let effect = visuals.full_screen_effect()?;
-        let strength = visuals.effect_alpha(&effect, &self.game.sim().world().rain_cycle);
+        let strength = visuals.effect_alpha(
+            &effect,
+            &self.game.sim().world().rain_cycle,
+            self.lightning_frame.as_ref(),
+        );
         let cam_pos = rw_sim::Vec2::from(self.camera.view_origin(alpha));
         Some(effect.draw_list(self.camera.screen_size()[0], cam_pos, strength))
     }

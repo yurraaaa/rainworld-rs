@@ -23,7 +23,7 @@ not behaviour. Game assets are never committed.
 | `triggers.rs` | `Triggers:` entries (event/spot triggers, music and image events) | `RoomSettings.LoadTriggers` |
 | `ambient.rs` | `AmbientSounds:` line | `RoomSettings.LoadAmbientSounds` |
 | `rain_mask.rs` | `RainMask`: a room's `RainMask_<room>` texture (sky columns, the water's run) | `RoomRain.GenerateShelterTex` |
-| `palette.rs` | `PaletteImage`, `EffectColors`, `PaletteTexture`, `RoomPalette` | `RoomCamera.LoadPalette` |
+| `palette.rs` | `PaletteImage`, `EffectColors`, `PaletteTexture` (`with_colors`: `SetPixel` overrides), `RoomPalette` | `RoomCamera.LoadPalette` |
 | `png_image.rs` | PNG to raw RGBA (`PngImage`) | `Texture2D.LoadImage` |
 | `noise.rs` | the level shader's `_NoiseTex` from `resources.assets` | |
 | `shortcut.rs` | shortcut map and tube walk | `ShortcutMapper`, `ShortcutHandler` |
