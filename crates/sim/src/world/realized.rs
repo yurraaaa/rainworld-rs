@@ -61,6 +61,10 @@ pub struct RealizedRoom {
     pub slime_molds: Vec<crate::CosmeticSlimeMold>,
     /// `Room.Loaded`'s dead `TokenStalk`s in the room's update list.
     pub token_stalks: Vec<crate::TokenStalk>,
+    /// The dandelions, sparks, specks and spores of the room's effects.
+    pub particles: crate::room_particles::RoomParticles,
+    /// `Room.gravity`: 1 until `AntiGravity` (zero-gravity rooms) is ported.
+    pub gravity: f32,
     /// `insectCoordinator`, made by `Room.Loaded` for an insect effect or group.
     pub insects: Option<crate::insect::InsectCoordinator>,
     /// `ceilingTiles` (`Room.Loaded`), where `ScreenMovement` shakes drips off.
@@ -107,6 +111,8 @@ impl RealizedRoom {
             light_sources: Vec::new(),
             slime_molds: Vec::new(),
             token_stalks: Vec::new(),
+            particles: crate::room_particles::RoomParticles::default(),
+            gravity: 1.0,
             insects,
             ceiling_tiles,
             dripping_sound: None,

@@ -8,6 +8,7 @@ use serde::Serialize;
 
 pub use super::insect_reply::RoomInsects;
 pub use super::music_reply::{MusicState, TriggerState};
+pub use super::particles_reply::RoomParticlesState;
 pub use super::placed_cosmetics_reply::{SlimeMoldState, TokenStalkState};
 
 use super::params::InputParam;
@@ -109,6 +110,9 @@ pub struct State {
     /// The realized rooms' dead `TokenStalk`s.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub token_stalks: Vec<TokenStalkState>,
+    /// The realized rooms' sky dandelions, green sparks, specks and spores.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub particles: Vec<RoomParticlesState>,
     /// `HologramLight.Needed(player)` now.
     pub holo_light_needed: f32,
     /// What the session keeps of its deaths.
@@ -248,6 +252,7 @@ impl RoomLightState {
                 Some(rw_sim::LightTie::Lizard(_)) => "lizard",
                 Some(rw_sim::LightTie::Insect(_)) => "insect",
                 Some(rw_sim::LightTie::Player) => "player",
+                Some(rw_sim::LightTie::GreenSpark(_)) => "green_spark",
             },
             slated: l.slated,
         }

@@ -17,6 +17,7 @@ mod cosmetic_graphics;
 mod draw;
 pub mod elements;
 mod fly_graphics;
+mod green_spark;
 mod hand;
 mod holo_light;
 mod hologram_draw;
@@ -39,12 +40,14 @@ mod player_draw;
 mod player_graphics;
 mod shelter_door_graphics;
 mod shortcut_graphics;
+mod sky_dandelion;
 mod slime_mold;
 mod sun_blocker;
 mod tail;
 mod token_stalk;
 mod water_drip;
 mod weapon_graphics;
+mod zero_g_speck;
 
 pub use atlas::{Atlas, AtlasError, AtlasFrame, Rect, Size};
 pub use body_part::{BodyPart, PointConnection};
@@ -53,6 +56,7 @@ pub use draw::{
     Color, DrawItem, DrawList, InternalContainer, Layer, Mesh, Shader, SlugcatName, Sprite,
 };
 pub use fly_graphics::FlyGraphics;
+pub use green_spark::GreenSparkSprites;
 pub use hand::SlugcatHand;
 pub use holo_light::HologramLightSprites;
 pub use hologram_draw::{HologramFrame, HologramGraphics};
@@ -78,12 +82,14 @@ pub use shelter_door_graphics::ShelterDoorSprites;
 pub use shortcut_graphics::{
     ExitBehind, ShortcutFrame, ShortcutGraphics, ShortcutPalette, ShortcutRoom, ShortcutVessel,
 };
+pub use sky_dandelion::{DandelionSprites, StalkSprites};
 pub use slime_mold::SlimeMoldSprites;
 pub use sun_blocker::SunBlocker;
 pub use tail::{TailAnchor, TailSegment};
 pub use token_stalk::TokenStalkSprites;
 pub use water_drip::{DripPalette, WaterDripSprites};
 pub use weapon_graphics::{PEBBLES, PebbleElement, SMALL_SPEAR, WeaponSprites};
+pub use zero_g_speck::SpeckSprites;
 
 #[cfg(test)]
 mod hologram_tests;

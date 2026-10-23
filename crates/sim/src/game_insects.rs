@@ -45,6 +45,7 @@ impl RainWorldGame {
         {
             c.no_longer_viewed();
         }
+        self.particles_now_viewed(change.to);
         self.insects_now_viewed(change.to);
     }
 

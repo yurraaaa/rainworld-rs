@@ -641,6 +641,106 @@ fn specific_depth_shows_on_its_own_layer() {
     assert_eq!(pixel(&frame, 44, 20), [0, 0, 90], "layer 20 beside it");
 }
 
+/// `CustomDepth` (the sky dandelions' and green sparks' depth-faded sprites): a quad
+/// shows its colour where its depth (`1 - alpha`) is no deeper than the level layer
+/// under the pixel: alpha 0 (depth 1) only over sky, alpha `1 - 15 / 30` over layer 20
+/// and sky but not layer 10, alpha `1 - 5 / 30` over all three.
+#[test]
+fn custom_depth_shows_in_front_of_the_level_layer() {
+    let Some(mut r) = renderer() else { return };
+    let image = PngImage::from_pixels(
+        64,
+        64,
+        (0..64 * 64)
+            .map(|i| match i % 64 {
+                0..21 => [11, 0, 0, 255],
+                21..42 => [255, 255, 255, 255],
+                _ => [21, 0, 0, 255],
+            })
+            .collect(),
+    );
+    let palette = PaletteTexture::blend(
+        &PaletteImage::from_image(&PngImage::from_pixels(32, 16, vec![[0, 0, 90, 255]; 512]))
+            .unwrap(),
+        None,
+        0.0,
+    );
+    let noise =
+        NoiseTexture::from_image(&PngImage::from_pixels(64, 64, vec![[128, 0, 0, 255]; 4096]))
+            .unwrap();
+    r.set_level(&LevelGraphics {
+        camera_pos: [0.0, 0.0],
+        image: &image,
+        palette: &palette,
+        noise: &noise,
+        params: LevelParams::DEFAULT,
+        rain_mask: None,
+    });
+    r.draw_level(LevelView {
+        origin: [0.0, 0.0],
+        size: [64.0, 64.0],
+        rain: 0.0,
+        light: 1.0,
+        water_level: 1.0,
+    });
+    let alphas = [0.0, 1.0 - 15.0 / 30.0, 1.0 - 5.0 / 30.0];
+    let quads = DrawList {
+        items: alphas
+            .iter()
+            .enumerate()
+            .map(|(i, &a)| {
+                let top = 21.0 * i as f32;
+                frame_quad(
+                    [0.0, top, 64.0, top + 20.0],
+                    Shader::CustomDepth,
+                    SpriteColor {
+                        r: 1.0,
+                        g: 0.0,
+                        b: 0.0,
+                        a,
+                    },
+                    Layer::Foreground,
+                )
+            })
+            .collect(),
+    };
+    r.draw_sprites(&quads, Layer::Foreground, [0.0, 0.0]);
+    let frame = r.render_image().unwrap();
+    let (layer10, sky, layer20) = (10, 30, 50);
+    assert_eq!(
+        pixel(&frame, layer10, 10),
+        [0, 0, 90],
+        "depth 1 over layer 10"
+    );
+    assert_eq!(pixel(&frame, sky, 10), [255, 0, 0], "depth 1 over sky");
+    assert_eq!(
+        pixel(&frame, layer20, 10),
+        [0, 0, 90],
+        "depth 1 over layer 20"
+    );
+    assert_eq!(
+        pixel(&frame, layer10, 31),
+        [0, 0, 90],
+        "depth 0.5 over layer 10"
+    );
+    assert_eq!(pixel(&frame, sky, 31), [255, 0, 0], "depth 0.5 over sky");
+    assert_eq!(
+        pixel(&frame, layer20, 31),
+        [255, 0, 0],
+        "depth 0.5 over layer 20"
+    );
+    assert_eq!(
+        pixel(&frame, layer10, 52),
+        [255, 0, 0],
+        "depth 1/6 over layer 10"
+    );
+    assert_eq!(
+        pixel(&frame, layer20, 52),
+        [255, 0, 0],
+        "depth 1/6 over layer 20"
+    );
+}
+
 /// A 64 px wide, 4096 px tall level (only its bottom 64 rows show) whose row `n` from
 /// the bottom has depth `n % 30` (red `1 + n % 30`, unlit), coloured red `8 * depth`
 /// from palette row 0, under a constant noise of 128, drawn with `_WetTerrain` and

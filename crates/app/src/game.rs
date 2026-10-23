@@ -6,6 +6,7 @@
 //!
 //! Mirrors: RainWorldGame.cs, RoomCamera.cs (MoveObjectToInternalContainer)
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use rw_assets::unity::AssetBundle;
@@ -17,11 +18,12 @@ use rw_assets::{
 };
 use rw_audio::Follow as SoundFollow;
 use rw_graphics::{
-    Color, CosmeticSprites, DrawList, DripPalette, FlyGraphics, HologramFrame, HologramGraphics,
-    HologramLightSprites, InsectDraw, InsectSprites, Layer, LightSourceSprites, LightSourceView,
-    LizardColors, LizardGraphics, LizardModule, LizardReading, OverseerGraphics, PlayerGraphics,
-    ShelterDoorSprites, ShortcutPalette, SlimeMoldSprites, TokenStalkSprites, WaterDripSprites,
-    WeaponSprites,
+    Color, CosmeticSprites, DandelionSprites, DrawList, DripPalette, FlyGraphics,
+    GreenSparkSprites, HologramFrame, HologramGraphics, HologramLightSprites, InsectDraw,
+    InsectSprites, Layer, LightSourceSprites, LightSourceView, LizardColors, LizardGraphics,
+    LizardModule, LizardReading, OverseerGraphics, PlayerGraphics, ShelterDoorSprites,
+    ShortcutPalette, SlimeMoldSprites, SpeckSprites, StalkSprites, TokenStalkSprites,
+    WaterDripSprites, WeaponSprites,
 };
 use rw_hud::{HudSetup, OwnerTick, RainCycleView, StartCondition, Subregions};
 use rw_random::UnityRandom;
@@ -130,6 +132,9 @@ struct Graphics {
     /// The lens's and holograms' per-frame draws (the game's come from the global
     /// stream: D1).
     cosmetic: UnityRandom,
+    /// Each corruption spore's `Pebble`, drawn on the cosmetic stream when its sprite is
+    /// made (by its place in the update list).
+    spore_pebbles: HashMap<u64, usize>,
 }
 
 impl Graphics {
@@ -650,6 +655,7 @@ impl Game {
             lizard_serial: 0,
             earth: Color::BLACK,
             cosmetic: UnityRandom::new(0),
+            spore_pebbles: HashMap::new(),
         };
         let sim =
             RainWorldGame::new_story(world, campaign, story, start, rng, sounds, &mut graphics);
@@ -1044,6 +1050,75 @@ impl Game {
         lists
     }
 
+    /// The camera room's dandelions, stalks, green sparks, specks and spores at `alpha`
+    /// between ticks in the camera's `palette` (a new spore's pebble draws on the
+    /// cosmetic stream).
+    pub fn particle_draw_lists(
+        &mut self,
+        alpha: f32,
+        palette: &PaletteTexture,
+    ) -> Vec<(Drawable, DrawList)> {
+        let room = self.sim.camera_room();
+        let Some(r) = self.sim.world().realized(room) else {
+            return Vec::new();
+        };
+        let p = &r.particles;
+        let colors = palette.room_palette();
+        let (fog, sky) = (Color::from(colors.fog_color), Color::from(colors.sky_color));
+        let [tr, tg, tb, ta] = palette.texel(5, 2).map(|c| f32::from(c) / 255.0);
+        let root = Color {
+            r: tr,
+            g: tg,
+            b: tb,
+            a: ta,
+        };
+        let light = rw_sim::Vec2::from(r.room.light_angle());
+        let mut lists = Vec::new();
+        for d in &p.dandelions {
+            lists.push((
+                Drawable::Particle(d.update_order),
+                d.draw(alpha, fog, light),
+            ));
+        }
+        for s in &p.stalks {
+            let head = s.dandelion.and_then(|o| {
+                let i = p
+                    .dandelions
+                    .binary_search_by_key(&o, |d| d.update_order)
+                    .ok()?;
+                Some(p.dandelions[i].last_pos.lerp(p.dandelions[i].pos, alpha))
+            });
+            lists.push((
+                Drawable::Particle(s.update_order),
+                s.draw(alpha, head, root),
+            ));
+        }
+        for s in &p.sparks {
+            lists.push((Drawable::Particle(s.update_order), s.draw(alpha, sky)));
+        }
+        let rng = &mut self.graphics.cosmetic;
+        let pebbles = &mut self.graphics.spore_pebbles;
+        for s in &p.specks {
+            let pebble = match pebbles.get(&s.update_order) {
+                Some(&n) => Some(n),
+                None => {
+                    let n = s.pick_pebble(rng);
+                    if let Some(n) = n {
+                        pebbles.insert(s.update_order, n);
+                    }
+                    n
+                }
+            };
+            lists.push((Drawable::Particle(s.update_order), s.draw(alpha, pebble)));
+        }
+        pebbles.retain(|order, _| {
+            p.specks
+                .binary_search_by_key(order, |s| s.update_order)
+                .is_ok()
+        });
+        lists
+    }
+
     /// The lizards' sprites in the camera's room at `alpha` between ticks, in the
     /// order their modules were built, in the palette's `black` (their draws come from
     /// the cosmetic stream).
@@ -1234,6 +1309,11 @@ impl Game {
                 r.token_stalks
                     .iter()
                     .map(|s| Present::added(Drawable::TokenStalk(s.update_order), s.update_order)),
+            );
+            present.extend(
+                r.particles
+                    .present_orders()
+                    .map(|o| Present::added(Drawable::Particle(o), o)),
             );
         }
         present

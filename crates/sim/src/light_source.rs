@@ -20,6 +20,8 @@ pub enum LightTie {
     Insect(u64),
     /// The player (its graphics' light when `glowing`).
     Player,
+    /// A `GreenSpark` by its place in the update list.
+    GreenSpark(u64),
 }
 
 /// What `LightSource.Update` reads of its room and camera.
@@ -191,6 +193,21 @@ impl LightSource {
                 .s_curve(0.5)
                 * self.lightness()
         })
+    }
+
+    /// `Room.LightSourceColor(pos)` over `lights`: per channel the largest of colour
+    /// times exposure.
+    #[must_use]
+    pub fn color_over(lights: &[Self], pos: Vec2) -> [f32; 3] {
+        let mut c = [0.0f32; 3];
+        for l in lights.iter().filter(|l| !l.slated) {
+            if let Some(e) = l.exposure_at(pos) {
+                for (out, channel) in c.iter_mut().zip(l.color) {
+                    *out = out.max(channel * e);
+                }
+            }
+        }
+        c
     }
 
     pub fn hard_set(&mut self, s: LightHardSet) {

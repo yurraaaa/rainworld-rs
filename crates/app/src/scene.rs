@@ -708,6 +708,10 @@ impl Scene {
                     self.game
                         .placed_cosmetic_draw_lists(alpha, &visuals.room_palette()),
                 );
+                lists.extend(
+                    self.game
+                        .particle_draw_lists(alpha, visuals.palette_texture()),
+                );
             }
             let level_view = self.visuals.is_some() && view.level;
             if let Some(list) = shortcuts.filter(|_| level_view) {

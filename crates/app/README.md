@@ -40,6 +40,7 @@ Gameplay logic belongs in `rw-sim`, not here.
 | `mcp/params.rs`, `mcp/reply.rs` | tool parameter structs (schema docs) and JSON reply types |
 | `mcp/dev_tools.rs` | dev spawns, `screenshot`/`get_tiles` of another realized room |
 | `mcp/insect_reply.rs` | `get_state` `insects`: per-room cosmetic insects |
+| `mcp/particles_reply.rs` | `get_state` `particles`: per realized room, counts of dandelions, stalks, sparks, specks and spores and the spawners' state |
 | `mcp/placed_cosmetics_reply.rs` | `get_state` `slime_molds`, `token_stalks`: the realized rooms' cosmetic slime molds and dead token stalks |
 | `mcp/music_reply.rs`, `mcp/tiles.rs`, `mcp/window.rs` | music/triggers replies, `get_tiles` text, `--mcp --window` mirror |
 | `mcp/*_tests.rs`, `mcp/tests.rs`, `mcp/shortcut_shots.rs` | MCP-level tests (installed game) |

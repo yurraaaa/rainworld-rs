@@ -23,6 +23,7 @@ mod kills_tests;
 mod lizard_graphics_tests;
 mod music_reply;
 mod params;
+mod particles_reply;
 #[cfg(test)]
 mod passage_tests;
 #[cfg(test)]

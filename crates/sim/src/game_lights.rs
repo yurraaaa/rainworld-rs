@@ -160,6 +160,7 @@ impl RainWorldGame {
                 .lizard()
                 .is_some_and(|l| !l.slated && l.room == Some(index)),
             LightTie::Insect(order) => self.insect_tie_gone(index, order),
+            LightTie::GreenSpark(order) => self.green_spark_tie_gone(index, order),
             // In a shortcut the player has no room (`RemoveFromRoom`).
             LightTie::Player => !self
                 .player
@@ -220,15 +221,7 @@ impl RealizedRoom {
     /// `Room.LightSourceColor(pos)`: per channel the largest of colour times exposure.
     #[must_use]
     pub fn light_source_color(&self, pos: Vec2) -> [f32; 3] {
-        let mut c = [0.0f32; 3];
-        for l in self.light_sources.iter().filter(|l| !l.slated) {
-            if let Some(e) = l.exposure_at(pos) {
-                for (out, channel) in c.iter_mut().zip(l.color) {
-                    *out = out.max(channel * e);
-                }
-            }
-        }
-        c
+        LightSource::color_over(&self.light_sources, pos)
     }
 }
 
