@@ -12,7 +12,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | app | 17 | 35 | 0 | 0 |
 | assets | 25 | 13 | 0 | 0 |
 | audio | 11 | 5 | 0 | 0 |
-| graphics | 54 | 4 | 0 | 0 |
+| graphics | 53 | 22 | 0 | 0 |
 | hud | 24 | 0 | 0 | 0 |
 | menu | 27 | 2 | 0 | 0 |
 | random | 0 | 1 | 0 | 0 |
@@ -130,64 +130,81 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/audio/src/music/threat.rs` | mirrors | Music/PlayerThreatTracker.cs, ThreatDetermination.cs |
 | `crates/audio/src/output.rs` | port-only | - |
 | `crates/audio/src/voice.rs` | mirrors | SoundLoader.cs, VirtualMicrophone.cs |
-| `crates/graphics/src/atlas.rs` | mirrors | FAtlas.cs, FAtlasElement.cs |
-| `crates/graphics/src/background_scene.rs` | mirrors | AboveCloudsView.cs, BackgroundScene.cs, RoofTopView.cs |
-| `crates/graphics/src/body_part.rs` | mirrors | BodyPart.cs |
-| `crates/graphics/src/circuit_draw.rs` | mirrors | CoralBrain/CircuitConnector.cs, CoralBrain/CircuitCrab.cs, CoralBrain/CoralCircuit.cs, CoralBrain/CrabLeg.cs |
-| `crates/graphics/src/coral_neuron_draw.rs` | mirrors | CoralBrain/CoralNeuron.cs |
-| `crates/graphics/src/coral_stem_draw.rs` | mirrors | CoralBrain/StemSegment.cs |
-| `crates/graphics/src/cosmetic_graphics.rs` | mirrors | Bubble.cs, ExplosionSpikes.cs, LizardBubble.cs, NeuronSpark.cs, Spark.cs, SplashWater/Splash.cs, StationaryEffect.cs |
-| `crates/graphics/src/decal.rs` | mirrors | CustomDecal.cs, TriangleMesh.cs |
-| `crates/graphics/src/draw.rs` | port-only | - |
-| `crates/graphics/src/dust_puff.rs` | mirrors | RoofTopView.cs |
-| `crates/graphics/src/electric_death.rs` | mirrors | ElectricDeath.cs |
-| `crates/graphics/src/elements.rs` | port-only | - |
-| `crates/graphics/src/fly_graphics.rs` | mirrors | FlyGraphics.cs |
-| `crates/graphics/src/green_spark.rs` | mirrors | GreenSparks.cs |
-| `crates/graphics/src/hand.rs` | mirrors | SlugcatHand.cs |
-| `crates/graphics/src/holo_light.rs` | mirrors | HologramLight.cs |
-| `crates/graphics/src/hologram_draw.rs` | mirrors | OverseerHolograms/OverseerHologram.cs |
-| `crates/graphics/src/hologram_matrix.rs` | mirrors | OverseerGraphics.cs |
-| `crates/graphics/src/hologram_shape.rs` | mirrors | OverseerHolograms/OverseerHologram.cs, OverseerTutorialBehavior.cs |
-| `crates/graphics/src/insect_graphics.rs` | mirrors | Ant.cs, Beetle.cs, FireFly.cs, GrassHopper.cs, MiniFly.cs, Moth.cs, RedSwarmer.cs, RockFlea.cs, TinyDragonfly.cs, Wasp.cs, WaterGlowworm.cs |
+| `crates/graphics/src/body/body_part.rs` | mirrors | BodyPart.cs |
+| `crates/graphics/src/body/limb.rs` | mirrors | Limb.cs |
+| `crates/graphics/src/body/mod.rs` | port-only | - |
+| `crates/graphics/src/body/tail.rs` | mirrors | TailSegment.cs |
+| `crates/graphics/src/core/atlas.rs` | mirrors | FAtlas.cs, FAtlasElement.cs |
+| `crates/graphics/src/core/draw.rs` | port-only | - |
+| `crates/graphics/src/core/math.rs` | port-only | - |
+| `crates/graphics/src/core/mod.rs` | port-only | - |
+| `crates/graphics/src/creature/fly/graphics.rs` | mirrors | FlyGraphics.cs |
+| `crates/graphics/src/creature/fly/mod.rs` | port-only | - |
+| `crates/graphics/src/creature/lizard/bubble.rs` | mirrors | LizardBubble.cs, StationaryEffect.cs |
+| `crates/graphics/src/creature/lizard/cosmetics.rs` | mirrors | LizardCosmetics/BumpHawk.cs, LizardCosmetics/LongHeadScales.cs, LizardCosmetics/LongShoulderScales.cs, LizardCosmetics/ShortBodyScales.cs, LizardCosmetics/SpineSpikes.cs, LizardCosmetics/TailTuft.cs, LizardGraphics.cs |
+| `crates/graphics/src/creature/lizard/cosmetics_draw.rs` | mirrors | LizardCosmetics/LongBodyScales.cs, LizardCosmetics/Template.cs |
+| `crates/graphics/src/creature/lizard/draw.rs` | mirrors | LizardGraphics.cs |
+| `crates/graphics/src/creature/lizard/graphics.rs` | mirrors | LizardGraphics.cs |
+| `crates/graphics/src/creature/lizard/limb.rs` | mirrors | LizardLimb.cs |
+| `crates/graphics/src/creature/lizard/mod.rs` | port-only | - |
+| `crates/graphics/src/creature/mod.rs` | port-only | - |
+| `crates/graphics/src/creature/overseer/draw.rs` | mirrors | OverseerGraphics.cs |
+| `crates/graphics/src/creature/overseer/graphics.rs` | mirrors | OverseerGraphics.cs |
+| `crates/graphics/src/creature/overseer/holo_light.rs` | mirrors | HologramLight.cs |
+| `crates/graphics/src/creature/overseer/hologram_draw.rs` | mirrors | OverseerHolograms/OverseerHologram.cs |
+| `crates/graphics/src/creature/overseer/hologram_matrix.rs` | mirrors | OverseerGraphics.cs |
+| `crates/graphics/src/creature/overseer/hologram_shape.rs` | mirrors | OverseerHolograms/OverseerHologram.cs, OverseerTutorialBehavior.cs |
+| `crates/graphics/src/creature/overseer/mod.rs` | port-only | - |
+| `crates/graphics/src/effects/cosmetic.rs` | mirrors | ExplosionSpikes.cs, NeuronSpark.cs, Spark.cs |
+| `crates/graphics/src/effects/gameplay/electric_death.rs` | mirrors | ElectricDeath.cs |
+| `crates/graphics/src/effects/gameplay/mod.rs` | port-only | - |
+| `crates/graphics/src/effects/lights/light_beam.rs` | mirrors | LightBeam.cs, SpotLight.cs |
+| `crates/graphics/src/effects/lights/light_fixture.rs` | mirrors | HolyFire.cs, SlimeMoldLight.cs |
+| `crates/graphics/src/effects/lights/light_source.rs` | mirrors | LightSource.cs |
+| `crates/graphics/src/effects/lights/mod.rs` | port-only | - |
+| `crates/graphics/src/effects/lights/quad_grid.rs` | mirrors | LightBeam.cs, SpotLight.cs, TriangleMesh.cs |
+| `crates/graphics/src/effects/lights/sun_blocker.rs` | mirrors | SunBlocker.cs |
+| `crates/graphics/src/effects/mod.rs` | port-only | - |
+| `crates/graphics/src/effects/particles/decal.rs` | mirrors | CustomDecal.cs, TriangleMesh.cs |
+| `crates/graphics/src/effects/particles/green_sparks.rs` | mirrors | GreenSparks.cs |
+| `crates/graphics/src/effects/particles/insect.rs` | mirrors | Ant.cs, Beetle.cs, FireFly.cs, GrassHopper.cs, MiniFly.cs, Moth.cs, RedSwarmer.cs, RockFlea.cs, TinyDragonfly.cs, Wasp.cs, WaterGlowworm.cs |
+| `crates/graphics/src/effects/particles/mod.rs` | port-only | - |
+| `crates/graphics/src/effects/particles/rainbow.rs` | mirrors | CustomFSprite.cs, Rainbow.cs, RainbowNoFade.cs |
+| `crates/graphics/src/effects/particles/sky_dandelion.rs` | mirrors | SkyDandelions.cs |
+| `crates/graphics/src/effects/particles/slime_mold.rs` | mirrors | SlimeMold.cs |
+| `crates/graphics/src/effects/particles/token_stalk.rs` | mirrors | CollectToken.cs, RainWorld.cs |
+| `crates/graphics/src/effects/particles/zero_g_speck.rs` | mirrors | BlinkSpeck.cs, CorruptionSpore.cs |
+| `crates/graphics/src/effects/sky/background_scene.rs` | mirrors | AboveCloudsView.cs, BackgroundScene.cs, RoofTopView.cs |
+| `crates/graphics/src/effects/sky/mod.rs` | port-only | - |
+| `crates/graphics/src/game/mod.rs` | port-only | - |
+| `crates/graphics/src/game/shelter_door.rs` | mirrors | ShelterDoor.cs |
+| `crates/graphics/src/game/shortcut.rs` | mirrors | ShortcutGraphics.cs |
+| `crates/graphics/src/item/mod.rs` | port-only | - |
+| `crates/graphics/src/item/weapon.rs` | mirrors | Rock.cs, Spear.cs |
 | `crates/graphics/src/lib.rs` | port-only | - |
-| `crates/graphics/src/light_beam.rs` | mirrors | LightBeam.cs |
-| `crates/graphics/src/light_fixture.rs` | mirrors | HolyFire.cs, SlimeMoldLight.cs |
-| `crates/graphics/src/light_source.rs` | mirrors | LightSource.cs |
-| `crates/graphics/src/limb.rs` | mirrors | Limb.cs |
-| `crates/graphics/src/lizard_cosmetics.rs` | mirrors | LizardCosmetics/BumpHawk.cs, LizardCosmetics/LongHeadScales.cs, LizardCosmetics/LongShoulderScales.cs, LizardCosmetics/ShortBodyScales.cs, LizardCosmetics/SpineSpikes.cs, LizardCosmetics/TailTuft.cs, LizardGraphics.cs |
-| `crates/graphics/src/lizard_cosmetics_draw.rs` | mirrors | LizardCosmetics/LongBodyScales.cs, LizardCosmetics/Template.cs |
-| `crates/graphics/src/lizard_draw.rs` | mirrors | LizardGraphics.cs |
-| `crates/graphics/src/lizard_graphics.rs` | mirrors | LizardGraphics.cs |
-| `crates/graphics/src/lizard_limb.rs` | mirrors | LizardLimb.cs |
-| `crates/graphics/src/looker.rs` | mirrors | PlayerGraphics.cs |
-| `crates/graphics/src/math.rs` | port-only | - |
-| `crates/graphics/src/mycelium.rs` | mirrors | CoralBrain/Mycelium.cs, TriangleMesh.cs |
-| `crates/graphics/src/overseer_draw.rs` | mirrors | OverseerGraphics.cs |
-| `crates/graphics/src/overseer_graphics.rs` | mirrors | OverseerGraphics.cs |
-| `crates/graphics/src/player_draw.rs` | mirrors | PlayerGraphics.cs |
-| `crates/graphics/src/player_graphics.rs` | mirrors | PlayerGraphics.cs |
-| `crates/graphics/src/projected_circle_draw.rs` | mirrors | CoralBrain/ProjectedCircle.cs |
-| `crates/graphics/src/projected_scan_lines_draw.rs` | mirrors | ProjectedScanLines.cs |
-| `crates/graphics/src/projector_draw.rs` | mirrors | SuperStructureProjector.cs |
-| `crates/graphics/src/quad_grid.rs` | mirrors | LightBeam.cs, SpotLight.cs, TriangleMesh.cs |
-| `crates/graphics/src/rainbow.rs` | mirrors | CustomFSprite.cs, Rainbow.cs, RainbowNoFade.cs |
-| `crates/graphics/src/shelter_door_graphics.rs` | mirrors | ShelterDoor.cs |
-| `crates/graphics/src/shortcut_graphics.rs` | mirrors | ShortcutGraphics.cs |
-| `crates/graphics/src/sky_dandelion.rs` | mirrors | SkyDandelions.cs |
-| `crates/graphics/src/slime_mold.rs` | mirrors | SlimeMold.cs |
-| `crates/graphics/src/spot_light.rs` | mirrors | SpotLight.cs |
-| `crates/graphics/src/ss_electric.rs` | mirrors | SSLightRod.cs, SuperStructureFuses.cs, ZapCoil.cs |
-| `crates/graphics/src/ss_grab.rs` | mirrors | DeepProcessing.cs, GravityDisruptor.cs |
-| `crates/graphics/src/star_matrix_draw.rs` | mirrors | StarMatrix.cs |
-| `crates/graphics/src/sun_blocker.rs` | mirrors | SunBlocker.cs |
-| `crates/graphics/src/tail.rs` | mirrors | TailSegment.cs |
-| `crates/graphics/src/token_stalk.rs` | mirrors | CollectToken.cs, RainWorld.cs |
-| `crates/graphics/src/wall_mycelia_draw.rs` | mirrors | CoralBrain/Mycelium.cs, CoralBrain/WallMycelia.cs |
-| `crates/graphics/src/water_drip.rs` | mirrors | WaterDrip.cs |
-| `crates/graphics/src/water_fall.rs` | mirrors | WaterFall.cs |
-| `crates/graphics/src/weapon_graphics.rs` | mirrors | Rock.cs, Spear.cs |
-| `crates/graphics/src/zero_g_speck.rs` | mirrors | BlinkSpeck.cs, CorruptionSpore.cs |
+| `crates/graphics/src/player/draw.rs` | mirrors | PlayerGraphics.cs |
+| `crates/graphics/src/player/elements.rs` | port-only | - |
+| `crates/graphics/src/player/graphics.rs` | mirrors | PlayerGraphics.cs |
+| `crates/graphics/src/player/hand.rs` | mirrors | SlugcatHand.cs |
+| `crates/graphics/src/player/looker.rs` | mirrors | PlayerGraphics.cs |
+| `crates/graphics/src/player/mod.rs` | port-only | - |
+| `crates/graphics/src/superstructure/coral/circuit.rs` | mirrors | CoralBrain/CircuitConnector.cs, CoralBrain/CircuitCrab.cs, CoralBrain/CoralCircuit.cs, CoralBrain/CrabLeg.cs |
+| `crates/graphics/src/superstructure/coral/mod.rs` | port-only | - |
+| `crates/graphics/src/superstructure/coral/mycelium.rs` | mirrors | CoralBrain/Mycelium.cs, CoralBrain/WallMycelia.cs, TriangleMesh.cs |
+| `crates/graphics/src/superstructure/coral/neuron.rs` | mirrors | CoralBrain/CoralNeuron.cs |
+| `crates/graphics/src/superstructure/coral/stem.rs` | mirrors | CoralBrain/StemSegment.cs |
+| `crates/graphics/src/superstructure/electric.rs` | mirrors | SSLightRod.cs, SuperStructureFuses.cs, ZapCoil.cs |
+| `crates/graphics/src/superstructure/grab.rs` | mirrors | DeepProcessing.cs, GravityDisruptor.cs |
+| `crates/graphics/src/superstructure/mod.rs` | port-only | - |
+| `crates/graphics/src/superstructure/projections/mod.rs` | port-only | - |
+| `crates/graphics/src/superstructure/projections/projected_circle.rs` | mirrors | CoralBrain/ProjectedCircle.cs |
+| `crates/graphics/src/superstructure/projections/projector.rs` | mirrors | ProjectedScanLines.cs, SuperStructureProjector.cs |
+| `crates/graphics/src/superstructure/projections/star_matrix.rs` | mirrors | StarMatrix.cs |
+| `crates/graphics/src/water/bubble.rs` | mirrors | Bubble.cs |
+| `crates/graphics/src/water/mod.rs` | port-only | - |
+| `crates/graphics/src/water/splash.rs` | mirrors | SplashWater/Splash.cs |
+| `crates/graphics/src/water/water_drip.rs` | mirrors | WaterDrip.cs |
+| `crates/graphics/src/water/waterfall.rs` | mirrors | WaterFall.cs |
 | `crates/hud/src/circle.rs` | mirrors | HUD/FadeCircle.cs, HUD/HUDCircle.cs |
 | `crates/hud/src/controls_page.rs` | mirrors | Menu/ControlMap.cs, Menu/TutorialControlsPage.cs |
 | `crates/hud/src/endgame_meter.rs` | mirrors | Menu/EndgameMeter.cs |
@@ -564,7 +581,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `AImap.cs` | `crates/sim/src/world/ai_map/mod.rs` |
 | `AImapper.cs` | `crates/sim/src/world/ai_map/ai_mapper.rs` |
 | `AItile.cs` | `crates/sim/src/world/ai_map/mod.rs`, `crates/sim/src/world/ai_map/movement.rs` |
-| `AboveCloudsView.cs` | `crates/graphics/src/background_scene.rs`, `crates/sim/src/effects/sky/above_clouds_view.rs`, `crates/sim/src/effects/sky/background_scene.rs` |
+| `AboveCloudsView.cs` | `crates/graphics/src/effects/sky/background_scene.rs`, `crates/sim/src/effects/sky/above_clouds_view.rs`, `crates/sim/src/effects/sky/background_scene.rs` |
 | `AbstractCreature.cs` | `crates/sim/src/creature/abstract_ai/world.rs`, `crates/sim/src/creature/centipede.rs`, `crates/sim/src/creature/death.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/creature/grasp.rs`, `crates/sim/src/creature/lizard/world.rs`, `crates/sim/src/creature/mod.rs`, `crates/sim/src/player/carried_turn.rs`, `crates/sim/src/world/creatures.rs`, `crates/sim/src/world/dens.rs` |
 | `AbstractCreatureAI.cs` | `crates/sim/src/creature/abstract_ai/kinds.rs`, `crates/sim/src/creature/abstract_ai/mod.rs`, `crates/sim/src/creature/abstract_ai/world.rs`, `crates/sim/src/creature/lizard/world.rs`, `crates/sim/src/creature/mod.rs`, `crates/sim/src/world/creatures.rs` |
 | `AbstractPhysicalObject.cs` | `crates/assets/src/objects.rs`, `crates/sim/src/creature/grasp.rs`, `crates/sim/src/item/mod.rs`, `crates/sim/src/item/spear_stick.rs`, `crates/sim/src/player/carried_turn.rs`, `crates/sim/src/world/dens.rs` |
@@ -578,34 +595,34 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `AgressionTracker.cs` | `crates/sim/src/creature/ai_modules/agression_tracker.rs`, `crates/sim/src/creature/ai_modules/world.rs` |
 | `AirBreatherCreature.cs` | `crates/sim/src/creature/lizard/mod.rs`, `crates/sim/src/creature/lizard/turn.rs` |
 | `AmbientSoundPlayer.cs` | `crates/audio/src/ambient.rs` |
-| `Ant.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/effects/particles/insect/ant.rs` |
+| `Ant.cs` | `crates/graphics/src/effects/particles/insect.rs`, `crates/sim/src/effects/particles/insect/ant.rs` |
 | `AntiGravity.cs` | `crates/sim/src/effects/gameplay/anti_gravity.rs`, `crates/sim/src/effects/gameplay/anti_gravity_turn.rs` |
 | `ArtificialIntelligence.cs` | `crates/sim/src/creature/ai_modules/tracker_turn.rs`, `crates/sim/src/creature/ai_modules/tracker_world.rs`, `crates/sim/src/creature/ai_modules/vision.rs`, `crates/sim/src/creature/ai_modules/world.rs`, `crates/sim/src/creature/danger.rs`, `crates/sim/src/creature/lizard/ai.rs`, `crates/sim/src/creature/lizard/ai_turn.rs` |
-| `BackgroundScene.cs` | `crates/app/src/game_background_scene.rs`, `crates/graphics/src/background_scene.rs`, `crates/sim/src/effects/sky/background_scene.rs`, `crates/sim/src/effects/sky/background_scene_turn.rs` |
-| `Beetle.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/effects/particles/insect/beetle.rs` |
+| `BackgroundScene.cs` | `crates/app/src/game_background_scene.rs`, `crates/graphics/src/effects/sky/background_scene.rs`, `crates/sim/src/effects/sky/background_scene.rs`, `crates/sim/src/effects/sky/background_scene_turn.rs` |
+| `Beetle.cs` | `crates/graphics/src/effects/particles/insect.rs`, `crates/sim/src/effects/particles/insect/beetle.rs` |
 | `BigEelAbstractAI.cs` | `crates/sim/src/creature/abstract_ai/kinds.rs`, `crates/sim/src/creature/abstract_ai/kinds_world.rs` |
-| `BlinkSpeck.cs` | `crates/graphics/src/zero_g_speck.rs`, `crates/sim/src/effects/particles/zero_g_speck.rs` |
+| `BlinkSpeck.cs` | `crates/graphics/src/effects/particles/zero_g_speck.rs`, `crates/sim/src/effects/particles/zero_g_speck.rs` |
 | `BodyChunk.cs` | `crates/sim/src/creature/ai_modules/vision.rs`, `crates/sim/src/physics/chunk.rs` |
-| `BodyPart.cs` | `crates/graphics/src/body_part.rs` |
-| `Bubble.cs` | `crates/graphics/src/cosmetic_graphics.rs`, `crates/sim/src/water/bubble.rs` |
+| `BodyPart.cs` | `crates/graphics/src/body/body_part.rs` |
+| `Bubble.cs` | `crates/graphics/src/water/bubble.rs`, `crates/sim/src/water/bubble.rs` |
 | `Centipede.cs` | `crates/sim/src/creature/centipede.rs` |
 | `CicadaAbstractAI.cs` | `crates/sim/src/creature/abstract_ai/kinds.rs`, `crates/sim/src/creature/abstract_ai/kinds_world.rs` |
 | `ClimbableVinesSystem.cs` | `crates/sim/src/vines/mod.rs` |
-| `CollectToken.cs` | `crates/graphics/src/token_stalk.rs`, `crates/sim/src/effects/particles/token_stalk.rs` |
-| `CoralBrain/CircuitConnector.cs` | `crates/graphics/src/circuit_draw.rs`, `crates/sim/src/superstructure/coral/circuit_connector.rs`, `crates/sim/src/superstructure/coral/circuit_turn.rs` |
-| `CoralBrain/CircuitCrab.cs` | `crates/graphics/src/circuit_draw.rs`, `crates/sim/src/superstructure/coral/circuit_crab.rs`, `crates/sim/src/superstructure/coral/circuit_turn.rs` |
-| `CoralBrain/CoralCircuit.cs` | `crates/graphics/src/circuit_draw.rs`, `crates/sim/src/superstructure/coral/circuit.rs`, `crates/sim/src/superstructure/coral/circuit_turn.rs` |
-| `CoralBrain/CoralNeuron.cs` | `crates/graphics/src/coral_neuron_draw.rs`, `crates/sim/src/superstructure/coral/neuron.rs`, `crates/sim/src/superstructure/coral/turn.rs` |
+| `CollectToken.cs` | `crates/graphics/src/effects/particles/token_stalk.rs`, `crates/sim/src/effects/particles/token_stalk.rs` |
+| `CoralBrain/CircuitConnector.cs` | `crates/graphics/src/superstructure/coral/circuit.rs`, `crates/sim/src/superstructure/coral/circuit_connector.rs`, `crates/sim/src/superstructure/coral/circuit_turn.rs` |
+| `CoralBrain/CircuitCrab.cs` | `crates/graphics/src/superstructure/coral/circuit.rs`, `crates/sim/src/superstructure/coral/circuit_crab.rs`, `crates/sim/src/superstructure/coral/circuit_turn.rs` |
+| `CoralBrain/CoralCircuit.cs` | `crates/graphics/src/superstructure/coral/circuit.rs`, `crates/sim/src/superstructure/coral/circuit.rs`, `crates/sim/src/superstructure/coral/circuit_turn.rs` |
+| `CoralBrain/CoralNeuron.cs` | `crates/graphics/src/superstructure/coral/neuron.rs`, `crates/sim/src/superstructure/coral/neuron.rs`, `crates/sim/src/superstructure/coral/turn.rs` |
 | `CoralBrain/CoralNeuronSystem.cs` | `crates/sim/src/superstructure/coral/circuit_turn.rs`, `crates/sim/src/superstructure/coral/system.rs`, `crates/sim/src/superstructure/coral/turn.rs` |
 | `CoralBrain/CoralStem.cs` | `crates/sim/src/superstructure/coral/stem.rs` |
-| `CoralBrain/CrabLeg.cs` | `crates/graphics/src/circuit_draw.rs`, `crates/sim/src/superstructure/coral/circuit_crab.rs` |
+| `CoralBrain/CrabLeg.cs` | `crates/graphics/src/superstructure/coral/circuit.rs`, `crates/sim/src/superstructure/coral/circuit_crab.rs` |
 | `CoralBrain/JobData.cs` | `crates/sim/src/superstructure/coral/mycelium.rs` |
-| `CoralBrain/Mycelium.cs` | `crates/graphics/src/mycelium.rs`, `crates/graphics/src/wall_mycelia_draw.rs`, `crates/sim/src/superstructure/coral/mycelium.rs` |
-| `CoralBrain/ProjectedCircle.cs` | `crates/graphics/src/projected_circle_draw.rs`, `crates/sim/src/superstructure/projections/projected_circle.rs` |
+| `CoralBrain/Mycelium.cs` | `crates/graphics/src/superstructure/coral/mycelium.rs`, `crates/sim/src/superstructure/coral/mycelium.rs` |
+| `CoralBrain/ProjectedCircle.cs` | `crates/graphics/src/superstructure/projections/projected_circle.rs`, `crates/sim/src/superstructure/projections/projected_circle.rs` |
 | `CoralBrain/SSMusicTrigger.cs` | `crates/sim/src/game/trigger.rs`, `crates/sim/src/game/trigger_turn.rs` |
-| `CoralBrain/StemSegment.cs` | `crates/graphics/src/coral_stem_draw.rs`, `crates/sim/src/superstructure/coral/stem.rs` |
-| `CoralBrain/WallMycelia.cs` | `crates/graphics/src/wall_mycelia_draw.rs`, `crates/sim/src/superstructure/coral/turn.rs`, `crates/sim/src/superstructure/coral/wall_mycelia.rs` |
-| `CorruptionSpore.cs` | `crates/graphics/src/zero_g_speck.rs`, `crates/sim/src/effects/particles/zero_g_speck.rs` |
+| `CoralBrain/StemSegment.cs` | `crates/graphics/src/superstructure/coral/stem.rs`, `crates/sim/src/superstructure/coral/stem.rs` |
+| `CoralBrain/WallMycelia.cs` | `crates/graphics/src/superstructure/coral/mycelium.rs`, `crates/sim/src/superstructure/coral/turn.rs`, `crates/sim/src/superstructure/coral/wall_mycelia.rs` |
+| `CorruptionSpore.cs` | `crates/graphics/src/effects/particles/zero_g_speck.rs`, `crates/sim/src/effects/particles/zero_g_speck.rs` |
 | `CosmeticInsect.cs` | `crates/sim/src/effects/particles/insect/avoider.rs`, `crates/sim/src/effects/particles/insect/mod.rs` |
 | `CosmeticSprite.cs` | `crates/sim/src/effects/particles/insect/mod.rs`, `crates/sim/src/effects/sky/roof_top_view.rs` |
 | `Creature.cs` | `crates/sim/src/creature/ai_modules/noise_tracker_world.rs`, `crates/sim/src/creature/danger.rs`, `crates/sim/src/creature/death.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/creature/fly/update.rs`, `crates/sim/src/creature/grasp.rs`, `crates/sim/src/creature/lizard/act_turn.rs`, `crates/sim/src/creature/lizard/hits_turn.rs`, `crates/sim/src/creature/lizard/mod.rs`, `crates/sim/src/creature/lizard/turn.rs`, `crates/sim/src/creature/lizard/world.rs`, `crates/sim/src/creature/mod.rs`, `crates/sim/src/creature/violence.rs`, `crates/sim/src/game/shortcut.rs`, `crates/sim/src/game/spawn.rs`, `crates/sim/src/item/hits_turn.rs`, `crates/sim/src/player/carried_turn.rs`, `crates/sim/src/player/falls.rs`, `crates/sim/src/player/grabbed.rs`, `crates/sim/src/player/grabbed_turn.rs`, `crates/sim/src/player/shortcut.rs` |
@@ -616,11 +633,11 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `CreatureSymbol.cs` | `crates/hud/src/icon_symbol.rs` |
 | `CreatureTemplate.cs` | `crates/assets/src/creatures.rs`, `crates/sim/src/creature/pathing.rs`, `crates/sim/src/creature/relationships.rs`, `crates/sim/src/creature/template.rs`, `crates/sim/src/creature/template_abstract.rs` |
 | `CreatureVoice.cs` | `crates/sim/src/creature/lizard/voice.rs` |
-| `CustomDecal.cs` | `crates/assets/src/placed_visuals.rs`, `crates/graphics/src/decal.rs`, `crates/sim/src/effects/particles/decal.rs` |
-| `CustomFSprite.cs` | `crates/graphics/src/rainbow.rs` |
+| `CustomDecal.cs` | `crates/assets/src/placed_visuals.rs`, `crates/graphics/src/effects/particles/decal.rs`, `crates/sim/src/effects/particles/decal.rs` |
+| `CustomFSprite.cs` | `crates/graphics/src/effects/particles/rainbow.rs` |
 | `DeathFallGraphic.cs` | `crates/app/src/death_fall.rs` |
 | `DeathPersistentSaveData.cs` | `crates/save/src/death_persistent.rs`, `crates/save/src/songs.rs` |
-| `DeepProcessing.cs` | `crates/graphics/src/ss_grab.rs`, `crates/sim/src/superstructure/grab/deep_processing.rs` |
+| `DeepProcessing.cs` | `crates/graphics/src/superstructure/grab.rs`, `crates/sim/src/superstructure/grab/deep_processing.rs` |
 | `DeepProcessingLight.cs` | `crates/sim/src/superstructure/grab/deep_processing.rs`, `crates/sim/src/superstructure/grab/turn.rs` |
 | `DeerAbstractAI.cs` | `crates/sim/src/creature/abstract_ai/kinds.rs`, `crates/sim/src/creature/abstract_ai/kinds_world.rs` |
 | `DenFinder.cs` | `crates/sim/src/creature/ai_modules/den_finder.rs`, `crates/sim/src/creature/ai_modules/world.rs` |
@@ -632,11 +649,11 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `DrippingSound.cs` | `crates/sim/src/sound/dripping_sound.rs` |
 | `DropBugAbstractAI.cs` | `crates/sim/src/creature/abstract_ai/kinds_world.rs` |
 | `DynamicSoundLoop.cs` | `crates/sim/src/sound/water_sound.rs` |
-| `ElectricDeath.cs` | `crates/graphics/src/electric_death.rs`, `crates/sim/src/effects/gameplay/electric_death.rs`, `crates/sim/src/effects/gameplay/electric_death_turn.rs` |
+| `ElectricDeath.cs` | `crates/graphics/src/effects/gameplay/electric_death.rs`, `crates/sim/src/effects/gameplay/electric_death.rs`, `crates/sim/src/effects/gameplay/electric_death_turn.rs` |
 | `EventTrigger.cs` | `crates/assets/src/triggers.rs` |
-| `ExplosionSpikes.cs` | `crates/graphics/src/cosmetic_graphics.rs`, `crates/sim/src/effects/cosmetic.rs` |
-| `FAtlas.cs` | `crates/graphics/src/atlas.rs` |
-| `FAtlasElement.cs` | `crates/graphics/src/atlas.rs` |
+| `ExplosionSpikes.cs` | `crates/graphics/src/effects/cosmetic.rs`, `crates/sim/src/effects/cosmetic.rs` |
+| `FAtlas.cs` | `crates/graphics/src/core/atlas.rs` |
+| `FAtlasElement.cs` | `crates/graphics/src/core/atlas.rs` |
 | `FAtlasManager.cs` | `crates/menu/src/atlas.rs` |
 | `FContainer.cs` | `crates/app/src/jaws.rs`, `crates/app/src/sprite_order.rs`, `crates/menu/src/stage.rs`, `crates/menu/src/tree.rs` |
 | `FFont.cs` | `crates/assets/src/font_config.rs`, `crates/menu/src/font.rs` |
@@ -645,20 +662,20 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `FScreen.cs` | `crates/render/src/present.rs` |
 | `FSprite.cs` | `crates/render/src/sprites.rs` |
 | `FStage.cs` | `crates/menu/src/stage.rs`, `crates/render/src/stage.rs` |
-| `FireFly.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/effects/particles/insect/fire_fly.rs`, `crates/sim/src/effects/particles/insect/turn.rs` |
+| `FireFly.cs` | `crates/graphics/src/effects/particles/insect.rs`, `crates/sim/src/effects/particles/insect/fire_fly.rs`, `crates/sim/src/effects/particles/insect/turn.rs` |
 | `FliesRoomAI.cs` | `crates/sim/src/creature/fly/mod.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/creature/fly/turn.rs` |
 | `FliesWorldAI.cs` | `crates/sim/src/creature/fly/swarm_rooms.rs`, `crates/sim/src/creature/fly/turn.rs`, `crates/sim/src/creature/fly/world_ai.rs`, `crates/sim/src/creature/overseer/hologram/world_queries.rs`, `crates/sim/src/creature/population.rs` |
 | `FloatTweener.cs` | `crates/sim/src/creature/ai_modules/utility_comparer.rs` |
 | `Fly.cs` | `crates/sim/src/creature/fly/mod.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/creature/fly/update.rs` |
 | `FlyAI.cs` | `crates/sim/src/creature/fly/ai.rs`, `crates/sim/src/creature/fly/ai_update.rs`, `crates/sim/src/creature/fly/mod.rs` |
-| `FlyGraphics.cs` | `crates/graphics/src/fly_graphics.rs` |
+| `FlyGraphics.cs` | `crates/graphics/src/creature/fly/graphics.rs` |
 | `FriendTracker.cs` | `crates/sim/src/creature/ai_modules/friend_tracker.rs`, `crates/sim/src/creature/social/social_events.rs` |
 | `Futile.cs` | `crates/render/src/stage.rs` |
 | `GenericZeroGSpeck.cs` | `crates/sim/src/effects/particles/zero_g_speck.rs` |
 | `GraphicsModule.cs` | `crates/app/src/jaws.rs`, `crates/app/src/sprite_order.rs`, `crates/sim/src/creature/lizard/graphics_link.rs` |
-| `GrassHopper.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/effects/particles/insect/grass_hopper.rs` |
-| `GravityDisruptor.cs` | `crates/graphics/src/ss_grab.rs`, `crates/sim/src/superstructure/grab/gravity_disruptor.rs`, `crates/sim/src/superstructure/grab/turn.rs` |
-| `GreenSparks.cs` | `crates/graphics/src/green_spark.rs`, `crates/sim/src/effects/particles/green_sparks.rs`, `crates/sim/src/effects/particles/turn.rs` |
+| `GrassHopper.cs` | `crates/graphics/src/effects/particles/insect.rs`, `crates/sim/src/effects/particles/insect/grass_hopper.rs` |
+| `GravityDisruptor.cs` | `crates/graphics/src/superstructure/grab.rs`, `crates/sim/src/superstructure/grab/gravity_disruptor.rs`, `crates/sim/src/superstructure/grab/turn.rs` |
+| `GreenSparks.cs` | `crates/graphics/src/effects/particles/green_sparks.rs`, `crates/sim/src/effects/particles/green_sparks.rs`, `crates/sim/src/effects/particles/turn.rs` |
 | `HSLColor.cs` | `crates/menu/src/color.rs` |
 | `HUD/FadeCircle.cs` | `crates/hud/src/circle.rs` |
 | `HUD/FoodMeter.cs` | `crates/hud/src/food_meter.rs` |
@@ -670,8 +687,8 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `HUD/SubregionTracker.cs` | `crates/hud/src/text_prompt.rs` |
 | `HUD/TextPrompt.cs` | `crates/hud/src/text_prompt.rs` |
 | `HealthState.cs` | `crates/sim/src/creature/state_save.rs` |
-| `HologramLight.cs` | `crates/graphics/src/holo_light.rs`, `crates/sim/src/creature/overseer/holo_light.rs`, `crates/sim/src/creature/overseer/holo_light_turn.rs` |
-| `HolyFire.cs` | `crates/graphics/src/light_fixture.rs`, `crates/sim/src/effects/lights/light_fixture.rs` |
+| `HologramLight.cs` | `crates/graphics/src/creature/overseer/holo_light.rs`, `crates/sim/src/creature/overseer/holo_light.rs`, `crates/sim/src/creature/overseer/holo_light_turn.rs` |
+| `HolyFire.cs` | `crates/graphics/src/effects/lights/light_fixture.rs`, `crates/sim/src/effects/lights/light_fixture.rs` |
 | `IClimbableVine.cs` | `crates/sim/src/superstructure/coral/stem.rs`, `crates/sim/src/vines/mod.rs` |
 | `IOwnProjectedCircles.cs` | `crates/sim/src/superstructure/coral/stem.rs`, `crates/sim/src/superstructure/projections/projected_circle.rs` |
 | `IconSymbol.cs` | `crates/hud/src/icon_symbol.rs` |
@@ -679,25 +696,25 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `InputInstructionTrigger.cs` | `crates/sim/src/game/instructions_turn.rs` |
 | `InsectCoordinator.cs` | `crates/sim/src/effects/particles/insect/coordinator.rs` |
 | `ItemSymbol.cs` | `crates/hud/src/icon_symbol.rs` |
-| `LightBeam.cs` | `crates/assets/src/placed_beam.rs`, `crates/graphics/src/light_beam.rs`, `crates/graphics/src/quad_grid.rs`, `crates/sim/src/effects/lights/light_beam.rs` |
+| `LightBeam.cs` | `crates/assets/src/placed_beam.rs`, `crates/graphics/src/effects/lights/light_beam.rs`, `crates/graphics/src/effects/lights/quad_grid.rs`, `crates/sim/src/effects/lights/light_beam.rs` |
 | `LightFixture.cs` | `crates/sim/src/effects/lights/light_fixture.rs` |
-| `LightSource.cs` | `crates/graphics/src/light_source.rs`, `crates/sim/src/effects/lights/light_source.rs`, `crates/sim/src/effects/lights/turn.rs` |
+| `LightSource.cs` | `crates/graphics/src/effects/lights/light_source.rs`, `crates/sim/src/effects/lights/light_source.rs`, `crates/sim/src/effects/lights/turn.rs` |
 | `Lightning.cs` | `crates/app/src/visuals.rs`, `crates/sim/src/effects/sky/lightning.rs` |
-| `Limb.cs` | `crates/graphics/src/limb.rs` |
+| `Limb.cs` | `crates/graphics/src/body/limb.rs` |
 | `Lizard.cs` | `crates/sim/src/creature/danger.rs`, `crates/sim/src/creature/lizard/act_turn.rs`, `crates/sim/src/creature/lizard/fight_turn.rs`, `crates/sim/src/creature/lizard/graphics_link.rs`, `crates/sim/src/creature/lizard/hits_turn.rs`, `crates/sim/src/creature/lizard/mod.rs`, `crates/sim/src/creature/lizard/movement.rs`, `crates/sim/src/creature/lizard/perception_turn.rs`, `crates/sim/src/creature/lizard/turn.rs`, `crates/sim/src/creature/lizard/voice_turn.rs`, `crates/sim/src/creature/mod.rs` |
 | `LizardAI.cs` | `crates/sim/src/creature/ai_modules/noise_tracker_world.rs`, `crates/sim/src/creature/ai_modules/tracker_world.rs`, `crates/sim/src/creature/ai_modules/vision.rs`, `crates/sim/src/creature/lizard/ai.rs`, `crates/sim/src/creature/lizard/ai_turn.rs`, `crates/sim/src/creature/lizard/fight_turn.rs`, `crates/sim/src/creature/lizard/hunt_turn.rs`, `crates/sim/src/creature/lizard/perception_turn.rs`, `crates/sim/src/creature/path_finder/lizard.rs`, `crates/sim/src/creature/social/social_events.rs` |
 | `LizardBreeds.cs` | `crates/sim/src/creature/lizard/breed.rs`, `crates/sim/src/creature/pathing.rs`, `crates/sim/src/creature/violence.rs` |
-| `LizardBubble.cs` | `crates/graphics/src/cosmetic_graphics.rs`, `crates/sim/src/creature/lizard/bubble.rs`, `crates/sim/src/effects/cosmetic.rs` |
-| `LizardCosmetics/BumpHawk.cs` | `crates/graphics/src/lizard_cosmetics.rs` |
-| `LizardCosmetics/LongBodyScales.cs` | `crates/graphics/src/lizard_cosmetics_draw.rs` |
-| `LizardCosmetics/LongHeadScales.cs` | `crates/graphics/src/lizard_cosmetics.rs` |
-| `LizardCosmetics/LongShoulderScales.cs` | `crates/graphics/src/lizard_cosmetics.rs` |
-| `LizardCosmetics/ShortBodyScales.cs` | `crates/graphics/src/lizard_cosmetics.rs` |
-| `LizardCosmetics/SpineSpikes.cs` | `crates/graphics/src/lizard_cosmetics.rs` |
-| `LizardCosmetics/TailTuft.cs` | `crates/graphics/src/lizard_cosmetics.rs` |
-| `LizardCosmetics/Template.cs` | `crates/graphics/src/lizard_cosmetics_draw.rs` |
-| `LizardGraphics.cs` | `crates/app/src/jaws.rs`, `crates/graphics/src/lizard_cosmetics.rs`, `crates/graphics/src/lizard_draw.rs`, `crates/graphics/src/lizard_graphics.rs`, `crates/sim/src/creature/lizard/graphics_link.rs`, `crates/sim/src/creature/lizard/graphics_turn.rs`, `crates/sim/src/creature/lizard/perception_turn.rs` |
-| `LizardLimb.cs` | `crates/graphics/src/lizard_limb.rs` |
+| `LizardBubble.cs` | `crates/graphics/src/creature/lizard/bubble.rs`, `crates/sim/src/creature/lizard/bubble.rs`, `crates/sim/src/effects/cosmetic.rs` |
+| `LizardCosmetics/BumpHawk.cs` | `crates/graphics/src/creature/lizard/cosmetics.rs` |
+| `LizardCosmetics/LongBodyScales.cs` | `crates/graphics/src/creature/lizard/cosmetics_draw.rs` |
+| `LizardCosmetics/LongHeadScales.cs` | `crates/graphics/src/creature/lizard/cosmetics.rs` |
+| `LizardCosmetics/LongShoulderScales.cs` | `crates/graphics/src/creature/lizard/cosmetics.rs` |
+| `LizardCosmetics/ShortBodyScales.cs` | `crates/graphics/src/creature/lizard/cosmetics.rs` |
+| `LizardCosmetics/SpineSpikes.cs` | `crates/graphics/src/creature/lizard/cosmetics.rs` |
+| `LizardCosmetics/TailTuft.cs` | `crates/graphics/src/creature/lizard/cosmetics.rs` |
+| `LizardCosmetics/Template.cs` | `crates/graphics/src/creature/lizard/cosmetics_draw.rs` |
+| `LizardGraphics.cs` | `crates/app/src/jaws.rs`, `crates/graphics/src/creature/lizard/cosmetics.rs`, `crates/graphics/src/creature/lizard/draw.rs`, `crates/graphics/src/creature/lizard/graphics.rs`, `crates/sim/src/creature/lizard/graphics_link.rs`, `crates/sim/src/creature/lizard/graphics_turn.rs`, `crates/sim/src/creature/lizard/perception_turn.rs` |
+| `LizardLimb.cs` | `crates/graphics/src/creature/lizard/limb.rs` |
 | `LizardPather.cs` | `crates/sim/src/creature/path_finder/lizard.rs`, `crates/sim/src/creature/path_finder/mapper.rs` |
 | `LizardVoice.cs` | `crates/sim/src/creature/lizard/voice.rs`, `crates/sim/src/creature/lizard/voice_turn.rs` |
 | `MainLoopProcess.cs` | `crates/app/src/timestep.rs`, `crates/menu/src/process.rs` |
@@ -729,12 +746,12 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `Menu/SlugcatSelectMenu.cs` | `crates/hud/src/select_hud.rs`, `crates/hud/src/slugcat_select.rs`, `crates/hud/src/slugcat_select/lights.rs` |
 | `Menu/TutorialControlsPage.cs` | `crates/hud/src/controls_page.rs` |
 | `MenuMicrophone.cs` | `crates/audio/src/menu_mic.rs`, `crates/menu/src/sound.rs` |
-| `MiniFly.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/effects/particles/insect/mini_fly.rs` |
+| `MiniFly.cs` | `crates/graphics/src/effects/particles/insect.rs`, `crates/sim/src/effects/particles/insect/mini_fly.rs` |
 | `MirosBirdAbstractAI.cs` | `crates/sim/src/creature/abstract_ai/kinds.rs`, `crates/sim/src/creature/abstract_ai/kinds_world.rs` |
 | `MiscWorldSaveData.cs` | `crates/save/src/misc_world.rs`, `crates/sim/src/creature/overseer/guide_state.rs` |
 | `MissionTracker.cs` | `crates/sim/src/creature/ai_modules/mission_tracker.rs`, `crates/sim/src/creature/ai_modules/mission_tracker_world.rs`, `crates/sim/src/creature/lizard/fight_turn.rs` |
 | `ModManager.cs` | `crates/assets/src/identity.rs` |
-| `Moth.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/effects/particles/insect/moth.rs` |
+| `Moth.cs` | `crates/graphics/src/effects/particles/insect.rs`, `crates/sim/src/effects/particles/insect/moth.rs` |
 | `MovementConnection.cs` | `crates/sim/src/world/ai_map/movement.rs` |
 | `Music/IntroRollMusic.cs` | `crates/audio/src/music/song.rs` |
 | `Music/MenuOrSlideShowSong.cs` | `crates/audio/src/music/song.rs` |
@@ -746,7 +763,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `Music/Song.cs` | `crates/audio/src/music/song.rs` |
 | `MusicEvent.cs` | `crates/assets/src/triggers.rs` |
 | `NeedleWormAbstractAI.cs` | `crates/sim/src/creature/abstract_ai/kinds.rs`, `crates/sim/src/creature/abstract_ai/kinds_world.rs` |
-| `NeuronSpark.cs` | `crates/graphics/src/cosmetic_graphics.rs`, `crates/sim/src/superstructure/coral/neuron_spark.rs` |
+| `NeuronSpark.cs` | `crates/graphics/src/effects/cosmetic.rs`, `crates/sim/src/superstructure/coral/neuron_spark.rs` |
 | `NodeFinder.cs` | `crates/sim/src/creature/ai_modules/den_finder.rs`, `crates/sim/src/creature/ai_modules/world.rs` |
 | `Noise/InGameNoise.cs` | `crates/sim/src/sound/noise.rs` |
 | `NoiseTracker.cs` | `crates/sim/src/creature/ai_modules/noise_tracker.rs`, `crates/sim/src/creature/ai_modules/noise_tracker_world.rs` |
@@ -756,11 +773,11 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `OverseerAI.cs` | `crates/sim/src/creature/overseer/ai.rs`, `crates/sim/src/creature/overseer/mod.rs`, `crates/sim/src/creature/overseer/update.rs` |
 | `OverseerAbstractAI.cs` | `crates/sim/src/creature/overseer/abstract_ai.rs` |
 | `OverseerEffect.cs` | `crates/sim/src/effects/cosmetic.rs` |
-| `OverseerGraphics.cs` | `crates/graphics/src/hologram_matrix.rs`, `crates/graphics/src/overseer_draw.rs`, `crates/graphics/src/overseer_graphics.rs` |
+| `OverseerGraphics.cs` | `crates/graphics/src/creature/overseer/draw.rs`, `crates/graphics/src/creature/overseer/graphics.rs`, `crates/graphics/src/creature/overseer/hologram_matrix.rs` |
 | `OverseerHolograms/AngryHologram.cs` | `crates/sim/src/creature/overseer/hologram/update.rs` |
-| `OverseerHolograms/OverseerHologram.cs` | `crates/graphics/src/hologram_draw.rs`, `crates/graphics/src/hologram_shape.rs`, `crates/sim/src/creature/overseer/hologram/add.rs`, `crates/sim/src/creature/overseer/hologram/mod.rs`, `crates/sim/src/creature/overseer/hologram/parts.rs`, `crates/sim/src/creature/overseer/hologram/update.rs` |
+| `OverseerHolograms/OverseerHologram.cs` | `crates/graphics/src/creature/overseer/hologram_draw.rs`, `crates/graphics/src/creature/overseer/hologram_shape.rs`, `crates/sim/src/creature/overseer/hologram/add.rs`, `crates/sim/src/creature/overseer/hologram/mod.rs`, `crates/sim/src/creature/overseer/hologram/parts.rs`, `crates/sim/src/creature/overseer/hologram/update.rs` |
 | `OverseerHolograms/OverseerImage.cs` | `crates/sim/src/creature/overseer/hologram/update.rs` |
-| `OverseerTutorialBehavior.cs` | `crates/graphics/src/hologram_shape.rs`, `crates/sim/src/creature/overseer/hologram/instruction.rs`, `crates/sim/src/creature/overseer/tutorial.rs`, `crates/sim/src/creature/overseer/update.rs` |
+| `OverseerTutorialBehavior.cs` | `crates/graphics/src/creature/overseer/hologram_shape.rs`, `crates/sim/src/creature/overseer/hologram/instruction.rs`, `crates/sim/src/creature/overseer/tutorial.rs`, `crates/sim/src/creature/overseer/update.rs` |
 | `OverseersWorldAI.cs` | `crates/sim/src/creature/overseer/hologram/world_queries.rs`, `crates/sim/src/creature/overseer/world_ai.rs` |
 | `PathCost.cs` | `crates/sim/src/world/ai_map/movement.rs` |
 | `PathFinder.cs` | `crates/sim/src/creature/path_finder/mapper.rs`, `crates/sim/src/creature/path_finder/mod.rs` |
@@ -770,34 +787,34 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `PlacedObject.cs` | `crates/assets/src/placed.rs`, `crates/assets/src/placed_beam.rs`, `crates/assets/src/placed_electric.rs`, `crates/assets/src/placed_fixture.rs`, `crates/assets/src/placed_light.rs`, `crates/assets/src/placed_types.rs`, `crates/assets/src/placed_visuals.rs`, `crates/sim/src/effects/particles/insect/coordinator.rs` |
 | `Player.cs` | `crates/sim/src/creature/ai_modules/vision.rs`, `crates/sim/src/creature/lizard/hits_turn.rs`, `crates/sim/src/creature/overseer/holo_light_turn.rs`, `crates/sim/src/creature/social/social_events_turn.rs`, `crates/sim/src/game/game_over_turn.rs`, `crates/sim/src/game/map_turn.rs`, `crates/sim/src/game/shelter_turn.rs`, `crates/sim/src/item/on_back_stick.rs`, `crates/sim/src/item/turn.rs`, `crates/sim/src/player/advanced.rs`, `crates/sim/src/player/animation.rs`, `crates/sim/src/player/body_mode.rs`, `crates/sim/src/player/carried_turn.rs`, `crates/sim/src/player/carry.rs`, `crates/sim/src/player/circuit.rs`, `crates/sim/src/player/corridor.rs`, `crates/sim/src/player/drips.rs`, `crates/sim/src/player/eat_meat_turn.rs`, `crates/sim/src/player/exhaustion.rs`, `crates/sim/src/player/falls.rs`, `crates/sim/src/player/grab.rs`, `crates/sim/src/player/grabbed.rs`, `crates/sim/src/player/grabbed_turn.rs`, `crates/sim/src/player/input.rs`, `crates/sim/src/player/jump.rs`, `crates/sim/src/player/jump_on_chunk.rs`, `crates/sim/src/player/ledge.rs`, `crates/sim/src/player/mod.rs`, `crates/sim/src/player/movement.rs`, `crates/sim/src/player/poles.rs`, `crates/sim/src/player/shortcut.rs`, `crates/sim/src/player/sleep.rs`, `crates/sim/src/player/sounds.rs`, `crates/sim/src/player/spear_on_back.rs`, `crates/sim/src/player/spear_on_back_turn.rs`, `crates/sim/src/player/swim.rs`, `crates/sim/src/player/turn.rs`, `crates/sim/src/player/vines.rs`, `crates/sim/src/player/zero_g.rs`, `crates/sim/src/superstructure/coral/circuit_turn.rs` |
 | `PlayerCarryableItem.cs` | `crates/sim/src/item/turn.rs`, `crates/sim/src/item/weapon.rs` |
-| `PlayerGraphics.cs` | `crates/app/src/jaws.rs`, `crates/graphics/src/looker.rs`, `crates/graphics/src/player_draw.rs`, `crates/graphics/src/player_graphics.rs`, `crates/sim/src/effects/lights/turn.rs` |
+| `PlayerGraphics.cs` | `crates/app/src/jaws.rs`, `crates/graphics/src/player/draw.rs`, `crates/graphics/src/player/graphics.rs`, `crates/graphics/src/player/looker.rs`, `crates/sim/src/effects/lights/turn.rs` |
 | `PlayerGuideState.cs` | `crates/save/src/misc_world.rs`, `crates/sim/src/creature/overseer/guide_state.rs` |
 | `PlayerProgression.cs` | `crates/app/src/saves.rs`, `crates/save/src/checksum.rs`, `crates/save/src/hibernation.rs`, `crates/save/src/misc.rs`, `crates/save/src/progression.rs`, `crates/sim/src/game/map_discovery.rs` |
 | `PlayerSessionRecord.cs` | `crates/save/src/session.rs` |
 | `PreyTracker.cs` | `crates/sim/src/creature/ai_modules/prey_tracker.rs`, `crates/sim/src/creature/ai_modules/world.rs` |
 | `ProcessManager.cs` | `crates/app/src/frontend.rs`, `crates/menu/src/dialog.rs`, `crates/menu/src/process.rs` |
-| `ProjectedScanLines.cs` | `crates/graphics/src/projected_scan_lines_draw.rs`, `crates/sim/src/superstructure/projections/scan_lines.rs` |
+| `ProjectedScanLines.cs` | `crates/graphics/src/superstructure/projections/projector.rs`, `crates/sim/src/superstructure/projections/scan_lines.rs` |
 | `QuickConnectivity.cs` | `crates/sim/src/creature/abstract_ai/world.rs`, `crates/sim/src/world/ai_map/quick_connectivity.rs` |
 | `QuickPathFinder.cs` | `crates/sim/src/world/ai_map/quick_path.rs` |
 | `RWCustom/Custom.cs` | `crates/menu/src/color.rs`, `crates/save/src/checksum.rs`, `crates/sim/src/effects/particles/token_stalk.rs`, `crates/sim/src/math/color.rs`, `crates/sim/src/math/float_ext.rs`, `crates/sim/src/physics/shared_physics.rs` |
 | `RWInput.cs` | `crates/menu/src/input.rs` |
 | `RainCycle.cs` | `crates/sim/src/game/trigger_turn.rs`, `crates/sim/src/world/rain_cycle.rs` |
 | `RainTracker.cs` | `crates/sim/src/creature/ai_modules/rain_tracker.rs` |
-| `RainWorld.cs` | `crates/app/src/frontend.rs`, `crates/graphics/src/token_stalk.rs`, `crates/render/src/background_scene.rs` |
+| `RainWorld.cs` | `crates/app/src/frontend.rs`, `crates/graphics/src/effects/particles/token_stalk.rs`, `crates/render/src/background_scene.rs` |
 | `RainWorldGame.cs` | `crates/app/src/game.rs`, `crates/app/src/game_music.rs`, `crates/app/src/hibernation.rs`, `crates/app/src/screen_package.rs`, `crates/hud/src/screen_package.rs`, `crates/save/src/hibernation.rs`, `crates/sim/src/creature/ai_modules/heavy_ai_turn.rs`, `crates/sim/src/creature/overseer/turn.rs`, `crates/sim/src/game/campaign.rs`, `crates/sim/src/game/exit_turn.rs`, `crates/sim/src/game/game_over_turn.rs`, `crates/sim/src/game/mod.rs`, `crates/sim/src/game/shortcut_turn.rs` |
-| `Rainbow.cs` | `crates/assets/src/placed_visuals.rs`, `crates/graphics/src/rainbow.rs`, `crates/sim/src/effects/particles/rainbow.rs` |
-| `RainbowNoFade.cs` | `crates/assets/src/placed_visuals.rs`, `crates/graphics/src/rainbow.rs`, `crates/sim/src/effects/particles/rainbow.rs` |
+| `Rainbow.cs` | `crates/assets/src/placed_visuals.rs`, `crates/graphics/src/effects/particles/rainbow.rs`, `crates/sim/src/effects/particles/rainbow.rs` |
+| `RainbowNoFade.cs` | `crates/assets/src/placed_visuals.rs`, `crates/graphics/src/effects/particles/rainbow.rs`, `crates/sim/src/effects/particles/rainbow.rs` |
 | `RectSoundEmitter.cs` | `crates/sim/src/sound/mod.rs` |
 | `RectangularDynamicSoundLoop.cs` | `crates/sim/src/sound/water_sound.rs` |
-| `RedSwarmer.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/effects/particles/insect/red_swarmer.rs` |
+| `RedSwarmer.cs` | `crates/graphics/src/effects/particles/insect.rs`, `crates/sim/src/effects/particles/insect/red_swarmer.rs` |
 | `Redlight.cs` | `crates/sim/src/effects/lights/light_fixture.rs`, `crates/sim/src/effects/lights/light_fixture_turn.rs` |
 | `Region.cs` | `crates/assets/src/region_properties.rs`, `crates/assets/src/settings.rs`, `crates/assets/src/world.rs` |
 | `RegionState.cs` | `crates/sim/src/world/objects.rs`, `crates/sim/src/world/region_state.rs` |
 | `RelationshipTracker.cs` | `crates/sim/src/creature/ai_modules/relationship_tracker.rs`, `crates/sim/src/creature/ai_modules/tracker_turn.rs`, `crates/sim/src/creature/ai_modules/world.rs` |
 | `ReliableIggyDirection.cs` | `crates/sim/src/game/instructions_turn.rs`, `crates/sim/src/game/trigger.rs` |
-| `Rock.cs` | `crates/graphics/src/weapon_graphics.rs`, `crates/sim/src/creature/lizard/hits_turn.rs`, `crates/sim/src/item/weapon.rs`, `crates/sim/src/item/weapon_turn.rs` |
-| `RockFlea.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/effects/particles/insect/rock_flea.rs` |
-| `RoofTopView.cs` | `crates/app/src/game_background_scene.rs`, `crates/graphics/src/background_scene.rs`, `crates/graphics/src/dust_puff.rs`, `crates/sim/src/effects/sky/background_scene.rs`, `crates/sim/src/effects/sky/roof_top_view.rs` |
+| `Rock.cs` | `crates/graphics/src/item/weapon.rs`, `crates/sim/src/creature/lizard/hits_turn.rs`, `crates/sim/src/item/weapon.rs`, `crates/sim/src/item/weapon_turn.rs` |
+| `RockFlea.cs` | `crates/graphics/src/effects/particles/insect.rs`, `crates/sim/src/effects/particles/insect/rock_flea.rs` |
+| `RoofTopView.cs` | `crates/app/src/game_background_scene.rs`, `crates/graphics/src/effects/sky/background_scene.rs`, `crates/sim/src/effects/sky/background_scene.rs`, `crates/sim/src/effects/sky/roof_top_view.rs` |
 | `Room.cs` | `crates/app/src/death_fall.rs`, `crates/app/src/sprite_order.rs`, `crates/assets/src/room.rs`, `crates/render/src/level.rs`, `crates/sim/src/creature/ai_modules/noise_tracker_world.rs`, `crates/sim/src/creature/fly/room_ai.rs`, `crates/sim/src/creature/fly/turn.rs`, `crates/sim/src/effects/gameplay/anti_gravity_turn.rs`, `crates/sim/src/effects/gameplay/border_push_back_turn.rs`, `crates/sim/src/effects/gameplay/electric_death_turn.rs`, `crates/sim/src/effects/lights/light_beam.rs`, `crates/sim/src/effects/lights/light_beam_turn.rs`, `crates/sim/src/effects/lights/light_fixture_turn.rs`, `crates/sim/src/effects/lights/turn.rs`, `crates/sim/src/effects/particles/decal.rs`, `crates/sim/src/effects/particles/decal_turn.rs`, `crates/sim/src/effects/particles/green_sparks.rs`, `crates/sim/src/effects/particles/insect/coordinator.rs`, `crates/sim/src/effects/particles/insect/turn.rs`, `crates/sim/src/effects/particles/placed_cosmetics_turn.rs`, `crates/sim/src/effects/particles/rainbow.rs`, `crates/sim/src/effects/particles/room_particles.rs`, `crates/sim/src/effects/particles/slime_mold.rs`, `crates/sim/src/effects/particles/token_stalk.rs`, `crates/sim/src/effects/particles/turn.rs`, `crates/sim/src/effects/particles/zero_g_speck.rs`, `crates/sim/src/effects/sky/background_scene_turn.rs`, `crates/sim/src/effects/sky/lightning_turn.rs`, `crates/sim/src/game/camera.rs`, `crates/sim/src/game/instructions_turn.rs`, `crates/sim/src/game/room_script.rs`, `crates/sim/src/game/screen_shake.rs`, `crates/sim/src/game/shelter_turn.rs`, `crates/sim/src/game/shortcut.rs`, `crates/sim/src/game/spawn.rs`, `crates/sim/src/game/trigger_turn.rs`, `crates/sim/src/item/weapon_turn.rs`, `crates/sim/src/item/weapon_world.rs`, `crates/sim/src/sound/mod.rs`, `crates/sim/src/sound/noise.rs`, `crates/sim/src/sound/noise_turn.rs`, `crates/sim/src/sound/water_sound_turn.rs`, `crates/sim/src/superstructure/coral/turn.rs`, `crates/sim/src/superstructure/electric/room_fixtures.rs`, `crates/sim/src/superstructure/electric/turn.rs`, `crates/sim/src/superstructure/grab/turn.rs`, `crates/sim/src/superstructure/projections/room_projections.rs`, `crates/sim/src/superstructure/projections/turn.rs`, `crates/sim/src/water/drips_turn.rs`, `crates/sim/src/water/mod.rs`, `crates/sim/src/water/water_drip.rs`, `crates/sim/src/water/waterfall.rs`, `crates/sim/src/water/world.rs`, `crates/sim/src/world/objects.rs`, `crates/sim/src/world/quantified.rs`, `crates/sim/src/world/realized.rs` |
 | `RoomBorderExit.cs` | `crates/assets/src/border_exits.rs` |
 | `RoomBorderPushBack.cs` | `crates/sim/src/effects/gameplay/border_push_back.rs`, `crates/sim/src/effects/gameplay/border_push_back_turn.rs` |
@@ -809,57 +826,57 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `RoomSettings.cs` | `crates/assets/src/ambient.rs`, `crates/assets/src/placed.rs`, `crates/assets/src/placed_types.rs`, `crates/assets/src/settings.rs`, `crates/assets/src/triggers.rs` |
 | `RoomSpecificScript.cs` | `crates/sim/src/game/room_script.rs` |
 | `RoomSpecificTextMessage.cs` | `crates/sim/src/game/trigger.rs` |
-| `SSLightRod.cs` | `crates/graphics/src/ss_electric.rs`, `crates/sim/src/superstructure/electric/light_rod.rs` |
+| `SSLightRod.cs` | `crates/graphics/src/superstructure/electric.rs`, `crates/sim/src/superstructure/electric/light_rod.rs` |
 | `SaveState.cs` | `crates/app/src/saves.rs`, `crates/save/src/hibernation.rs`, `crates/save/src/save_state.rs`, `crates/save/src/session.rs`, `crates/sim/src/creature/death.rs`, `crates/sim/src/game/campaign.rs`, `crates/sim/src/world/region_state.rs` |
 | `SaveStateMiner.cs` | `crates/save/src/miner.rs` |
 | `ScavTradeInstruction/ScavengerTradeInstructionTrigger.cs` | `crates/sim/src/game/instructions_turn.rs`, `crates/sim/src/game/trigger.rs` |
 | `SharedPhysics.cs` | `crates/sim/src/physics/shared_physics.rs` |
-| `ShelterDoor.cs` | `crates/graphics/src/shelter_door_graphics.rs`, `crates/sim/src/game/shelter.rs`, `crates/sim/src/game/shelter_turn.rs` |
-| `ShortcutGraphics.cs` | `crates/app/src/shortcuts.rs`, `crates/graphics/src/shortcut_graphics.rs` |
+| `ShelterDoor.cs` | `crates/graphics/src/game/shelter_door.rs`, `crates/sim/src/game/shelter.rs`, `crates/sim/src/game/shelter_turn.rs` |
+| `ShortcutGraphics.cs` | `crates/app/src/shortcuts.rs`, `crates/graphics/src/game/shortcut.rs` |
 | `ShortcutHandler.cs` | `crates/assets/src/shortcut.rs`, `crates/sim/src/game/shortcut.rs`, `crates/sim/src/game/shortcut_turn.rs`, `crates/sim/src/player/carried_turn.rs`, `crates/sim/src/player/shortcut.rs` |
 | `ShortcutMapper.cs` | `crates/assets/src/border_exits.rs`, `crates/assets/src/shortcut.rs` |
 | `ShowProjectedImageEvent.cs` | `crates/assets/src/triggers.rs` |
-| `SkyDandelions.cs` | `crates/graphics/src/sky_dandelion.rs`, `crates/sim/src/effects/particles/sky_dandelion.rs` |
-| `SlimeMold.cs` | `crates/graphics/src/slime_mold.rs`, `crates/sim/src/effects/particles/slime_mold.rs` |
-| `SlimeMoldLight.cs` | `crates/graphics/src/light_fixture.rs`, `crates/sim/src/effects/lights/light_fixture.rs` |
-| `SlugcatHand.cs` | `crates/graphics/src/hand.rs` |
+| `SkyDandelions.cs` | `crates/graphics/src/effects/particles/sky_dandelion.rs`, `crates/sim/src/effects/particles/sky_dandelion.rs` |
+| `SlimeMold.cs` | `crates/graphics/src/effects/particles/slime_mold.rs`, `crates/sim/src/effects/particles/slime_mold.rs` |
+| `SlimeMoldLight.cs` | `crates/graphics/src/effects/lights/light_fixture.rs`, `crates/sim/src/effects/lights/light_fixture.rs` |
+| `SlugcatHand.cs` | `crates/graphics/src/player/hand.rs` |
 | `SlugcatStats.cs` | `crates/assets/src/identity.rs`, `crates/sim/src/game/campaign.rs` |
 | `SocialEventRecognizer.cs` | `crates/sim/src/creature/death.rs`, `crates/sim/src/creature/social/social_events.rs`, `crates/sim/src/creature/social/social_events_turn.rs` |
 | `SocialMemory.cs` | `crates/sim/src/creature/social/social_memory.rs` |
 | `SoundLoader.cs` | `crates/assets/src/sound_table.rs`, `crates/audio/src/clips.rs`, `crates/audio/src/voice.rs`, `crates/sim/src/sound/mod.rs` |
-| `Spark.cs` | `crates/graphics/src/cosmetic_graphics.rs`, `crates/sim/src/effects/cosmetic.rs` |
-| `Spear.cs` | `crates/graphics/src/weapon_graphics.rs`, `crates/sim/src/creature/lizard/hits_turn.rs`, `crates/sim/src/item/hits_turn.rs`, `crates/sim/src/item/weapon.rs`, `crates/sim/src/item/weapon_turn.rs` |
-| `SplashWater/Splash.cs` | `crates/graphics/src/cosmetic_graphics.rs`, `crates/sim/src/water/splash.rs` |
+| `Spark.cs` | `crates/graphics/src/effects/cosmetic.rs`, `crates/sim/src/effects/cosmetic.rs` |
+| `Spear.cs` | `crates/graphics/src/item/weapon.rs`, `crates/sim/src/creature/lizard/hits_turn.rs`, `crates/sim/src/item/hits_turn.rs`, `crates/sim/src/item/weapon.rs`, `crates/sim/src/item/weapon_turn.rs` |
+| `SplashWater/Splash.cs` | `crates/graphics/src/water/splash.rs`, `crates/sim/src/water/splash.rs` |
 | `SplashWater/WaterParticle.cs` | `crates/sim/src/water/splash.rs` |
-| `SpotLight.cs` | `crates/graphics/src/quad_grid.rs`, `crates/graphics/src/spot_light.rs`, `crates/sim/src/effects/lights/light_beam.rs` |
+| `SpotLight.cs` | `crates/graphics/src/effects/lights/light_beam.rs`, `crates/graphics/src/effects/lights/quad_grid.rs`, `crates/sim/src/effects/lights/light_beam.rs` |
 | `SpotSound.cs` | `crates/assets/src/ambient.rs` |
 | `SpotTrigger.cs` | `crates/assets/src/triggers.rs` |
-| `StarMatrix.cs` | `crates/graphics/src/star_matrix_draw.rs`, `crates/sim/src/superstructure/projections/star_matrix.rs`, `crates/sim/src/superstructure/projections/turn.rs` |
+| `StarMatrix.cs` | `crates/graphics/src/superstructure/projections/star_matrix.rs`, `crates/sim/src/superstructure/projections/star_matrix.rs`, `crates/sim/src/superstructure/projections/turn.rs` |
 | `StaticWorld.cs` | `crates/sim/src/creature/pathing.rs`, `crates/sim/src/creature/relationships.rs`, `crates/sim/src/creature/template.rs`, `crates/sim/src/creature/template_abstract.rs`, `crates/sim/src/creature/violence.rs` |
-| `StationaryEffect.cs` | `crates/graphics/src/cosmetic_graphics.rs`, `crates/sim/src/effects/cosmetic.rs` |
+| `StationaryEffect.cs` | `crates/graphics/src/creature/lizard/bubble.rs`, `crates/sim/src/effects/cosmetic.rs` |
 | `StopMusicEvent.cs` | `crates/assets/src/triggers.rs` |
 | `StoryGameSession.cs` | `crates/sim/src/game/game_over_turn.rs` |
 | `StuckTracker.cs` | `crates/sim/src/creature/ai_modules/stuck_tracker.rs` |
-| `SunBlocker.cs` | `crates/graphics/src/sun_blocker.rs` |
+| `SunBlocker.cs` | `crates/graphics/src/effects/lights/sun_blocker.rs` |
 | `SuperJumpInstruction.cs` | `crates/sim/src/game/instructions_turn.rs`, `crates/sim/src/game/trigger.rs` |
-| `SuperStructureFuses.cs` | `crates/graphics/src/ss_electric.rs`, `crates/sim/src/superstructure/electric/fuses.rs`, `crates/sim/src/superstructure/electric/turn.rs` |
-| `SuperStructureProjector.cs` | `crates/graphics/src/projector_draw.rs`, `crates/sim/src/superstructure/projections/projector.rs`, `crates/sim/src/superstructure/projections/turn.rs` |
+| `SuperStructureFuses.cs` | `crates/graphics/src/superstructure/electric.rs`, `crates/sim/src/superstructure/electric/fuses.rs`, `crates/sim/src/superstructure/electric/turn.rs` |
+| `SuperStructureProjector.cs` | `crates/graphics/src/superstructure/projections/projector.rs`, `crates/sim/src/superstructure/projections/projector.rs`, `crates/sim/src/superstructure/projections/turn.rs` |
 | `SwarmRoomMapper.cs` | `crates/sim/src/creature/fly/swarm_rooms.rs` |
-| `TailSegment.cs` | `crates/graphics/src/tail.rs` |
+| `TailSegment.cs` | `crates/graphics/src/body/tail.rs` |
 | `ThreatDetermination.cs` | `crates/audio/src/music/threat.rs`, `crates/sim/src/creature/danger.rs` |
 | `ThreatTracker.cs` | `crates/sim/src/creature/ai_modules/threat_tracker.rs`, `crates/sim/src/creature/ai_modules/threat_tracker_world.rs`, `crates/sim/src/creature/ai_modules/world.rs` |
-| `TinyDragonfly.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/effects/particles/insect/tiny_dragonfly.rs` |
+| `TinyDragonfly.cs` | `crates/graphics/src/effects/particles/insect.rs`, `crates/sim/src/effects/particles/insect/tiny_dragonfly.rs` |
 | `Tracker.cs` | `crates/sim/src/creature/ai_modules/noise_tracker_world.rs`, `crates/sim/src/creature/ai_modules/tracker.rs`, `crates/sim/src/creature/ai_modules/tracker_turn.rs` |
-| `TriangleMesh.cs` | `crates/graphics/src/decal.rs`, `crates/graphics/src/mycelium.rs`, `crates/graphics/src/quad_grid.rs`, `crates/render/src/sprites.rs` |
+| `TriangleMesh.cs` | `crates/graphics/src/effects/lights/quad_grid.rs`, `crates/graphics/src/effects/particles/decal.rs`, `crates/graphics/src/superstructure/coral/mycelium.rs`, `crates/render/src/sprites.rs` |
 | `TriggeredEvent.cs` | `crates/assets/src/triggers.rs` |
 | `UtilityComparer.cs` | `crates/sim/src/creature/ai_modules/utility_comparer.rs` |
 | `VirtualMicrophone.cs` | `crates/audio/src/mic.rs`, `crates/audio/src/voice.rs`, `crates/sim/src/sound/mod.rs` |
 | `VultureAbstractAI.cs` | `crates/sim/src/creature/abstract_ai/kinds.rs`, `crates/sim/src/creature/abstract_ai/kinds_world.rs` |
-| `Wasp.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/effects/particles/insect/wasp.rs` |
+| `Wasp.cs` | `crates/graphics/src/effects/particles/insect.rs`, `crates/sim/src/effects/particles/insect/wasp.rs` |
 | `Water.cs` | `crates/render/src/water_sprites.rs`, `crates/sim/src/sound/water_sound.rs`, `crates/sim/src/water/mod.rs`, `crates/sim/src/water/world.rs` |
-| `WaterDrip.cs` | `crates/graphics/src/water_drip.rs`, `crates/sim/src/player/turn.rs`, `crates/sim/src/water/water_drip.rs` |
-| `WaterFall.cs` | `crates/graphics/src/water_fall.rs`, `crates/sim/src/water/waterfall.rs`, `crates/sim/src/water/waterfall_turn.rs` |
-| `WaterGlowworm.cs` | `crates/graphics/src/insect_graphics.rs`, `crates/sim/src/effects/particles/insect/water_glowworm.rs` |
+| `WaterDrip.cs` | `crates/graphics/src/water/water_drip.rs`, `crates/sim/src/player/turn.rs`, `crates/sim/src/water/water_drip.rs` |
+| `WaterFall.cs` | `crates/graphics/src/water/waterfall.rs`, `crates/sim/src/water/waterfall.rs`, `crates/sim/src/water/waterfall_turn.rs` |
+| `WaterGlowworm.cs` | `crates/graphics/src/effects/particles/insect.rs`, `crates/sim/src/effects/particles/insect/water_glowworm.rs` |
 | `WaterLevelCycle.cs` | `crates/sim/src/world/rain_cycle.rs` |
 | `WaterLight.cs` | `crates/app/src/visuals.rs`, `crates/app/src/water_light.rs` |
 | `WaterTriangleMesh.cs` | `crates/render/src/water_sprites.rs` |
@@ -868,7 +885,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `World.cs` | `crates/assets/src/region_properties.rs`, `crates/assets/src/world.rs`, `crates/sim/src/creature/fly/world_ai.rs`, `crates/sim/src/world/mod.rs`, `crates/sim/src/world/region_state.rs` |
 | `WorldCoordinate.cs` | `crates/save/src/coordinate.rs` |
 | `WorldLoader.cs` | `crates/assets/src/creatures.rs`, `crates/assets/src/world.rs`, `crates/sim/src/creature/fly/swarm_rooms.rs`, `crates/sim/src/creature/population.rs` |
-| `ZapCoil.cs` | `crates/graphics/src/ss_electric.rs`, `crates/sim/src/superstructure/electric/turn.rs`, `crates/sim/src/superstructure/electric/zap_coil.rs` |
+| `ZapCoil.cs` | `crates/graphics/src/superstructure/electric.rs`, `crates/sim/src/superstructure/electric/turn.rs`, `crates/sim/src/superstructure/electric/zap_coil.rs` |
 | `ZapCoilLight.cs` | `crates/sim/src/superstructure/electric/turn.rs`, `crates/sim/src/superstructure/electric/zap_coil.rs` |
 
 `*` = from a `Decompile:` mention, not a `Mirrors:` line.
