@@ -175,3 +175,7 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `su-rooms` fail the port's room parser (seen by the waterfall corpus test). Find what
   in their files the parser rejects and whether the game's `Room.LoadFromDataString`
   would read them.
+- **Void effects** (user, 2026-10-23: wait until the ascension ending can be reached in
+  the port): `VoidMelt` (with the level shader's `LevelMelt2`; 20 SB rooms), `VoidSpawn`
+  (17 SB rooms) and `VoidSea` (sb_l01, the ending). Survey:
+  `../rainworld-re/surveys/room-effects/` (step 11, `background-scenes.md` §3).

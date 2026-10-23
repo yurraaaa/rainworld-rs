@@ -57,9 +57,11 @@ can be killed by one, across a cycle.
 `surveys/lights-camera-shake.md`)
 Every base-game room visual effect (level shader and palette machinery, full-screen
 effects, cosmetic insects, lightning, decals, particles, background scenes, then the
-gameplay effects: electric death, border push-back, zero gravity, the SS superstructure,
-the void), placed lights and light fixtures, and camera shake. Effects no base room uses
-and lights owned by unported things come later with their owners or DLCs.
+gameplay effects: electric death, border push-back, zero gravity, the SS superstructure),
+placed lights and light fixtures, and camera shake. Effects no base room uses
+and lights owned by unported things come later with their owners or DLCs. The void
+effects (`VoidMelt`, `VoidSpawn`, `VoidSea`) wait until the ascension ending can be
+reached (user, 2026-10-23).
 Exit check: rooms look and shake as in the game.
 
 ## Planned (order proposed, to decide)
