@@ -232,7 +232,7 @@ impl RainWorldGame {
             let creature = match owner {
                 ChunkOwner::Player => Some(self.player_id),
                 ChunkOwner::Entity(Entity::Creature(id)) => Some(id),
-                ChunkOwner::Entity(Entity::Object(_)) => None,
+                ChunkOwner::Entity(Entity::Object(_)) | ChunkOwner::Segment(_) => None,
             };
             for i in 0.. {
                 let Some(chunk) = self.electric_chunk(owner, i) else {

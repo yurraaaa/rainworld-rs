@@ -6,7 +6,7 @@
 //! Mirrors: CoralBrain/ProjectedCircle.cs (InitiateSprites, DrawSprites, Position, Rad)
 
 use rw_random::UnityRandom;
-use rw_sim::{CoralNeuron, ProjectedCircle, Vec2};
+use rw_sim::{CircleOwner, CoralNeuron, CoralStem, ProjectedCircle, Vec2};
 
 use crate::draw::{Color, DrawItem, DrawList, Layer, Shader, Sprite};
 use crate::math::{CustomVec, Mathf};
@@ -14,6 +14,7 @@ use crate::math::{CustomVec, Mathf};
 /// What a circle reads of the room around it: where the circles and their owners are.
 pub struct CircleSurroundings<'a> {
     pub neurons: &'a [CoralNeuron],
+    pub stems: &'a [CoralStem],
     pub circles: &'a [ProjectedCircle],
     /// `room.lightAngle`.
     pub light_angle: Vec2,
@@ -24,12 +25,18 @@ impl CircleSurroundings<'_> {
     /// its depth.
     #[must_use]
     pub fn position(&self, circle: &ProjectedCircle, t: f32) -> Vec2 {
-        let rw_sim::CircleOwner::Neuron { order } = circle.owner;
-        let centre = self
-            .neurons
-            .iter()
-            .find(|n| n.update_order == order)
-            .map_or(Vec2::ZERO, |n| n.geometry.circle_center(circle.index, t));
+        let centre = match circle.owner {
+            CircleOwner::Neuron { order } => self
+                .neurons
+                .iter()
+                .find(|n| n.update_order == order)
+                .map_or(Vec2::ZERO, |n| n.geometry.circle_center(circle.index, t)),
+            CircleOwner::Stem { stem } => self
+                .stems
+                .get(stem as usize)
+                .and_then(|s| s.circle_center(t))
+                .unwrap_or(Vec2::ZERO),
+        };
         centre
             - Vec2::new(self.light_angle.x, -self.light_angle.y)
                 * (circle.last_depth_offset.lerp_to(circle.depth_offset, t) * 15.0)

@@ -593,6 +593,10 @@ impl Session {
                 sim.world(),
                 sim.player().and_then(|p| p.vine_pos()).map(|v| v.vine),
             ),
+            coral_stems: super::reply::CoralStemState::all(
+                sim.world(),
+                sim.player().and_then(|p| p.vine_pos()).map(|v| v.vine),
+            ),
             projected_circles: super::reply::ProjectedCircleState::all(sim.world()),
             neuron_sparks: super::reply::NeuronSparkState::all(sim.world()),
             particles: super::reply::RoomParticlesState::all(sim.world()),
@@ -1162,7 +1166,7 @@ impl Session {
                     pos: h.noise.pos.to_array(),
                     strength: h.noise.strength,
                     interesting: h.noise.interesting,
-                    source: h.noise.source.map(|e| HeldInfo::of(world, e)),
+                    source: h.noise.source.map(|e| HeldInfo::of_noise(world, e)),
                 })
                 .collect(),
         }
@@ -2418,6 +2422,25 @@ impl ConnectionInfo {
 }
 
 impl HeldInfo {
+    /// A noise's source: a creature or item, or a coral stem's segment.
+    fn of_noise(world: &rw_sim::world::World, source: rw_sim::NoiseSource) -> Self {
+        match source {
+            rw_sim::NoiseSource::Entity(e) => Self::of(world, e),
+            rw_sim::NoiseSource::Segment(s) => {
+                let id = world
+                    .realized(s.room)
+                    .and_then(|r| r.coral.as_ref())
+                    .and_then(|c| c.stems.get(s.stem as usize))
+                    .and_then(|stem| stem.segments.get(s.segment as usize))
+                    .map(|g| g.id);
+                Self {
+                    kind: "StemSegment".to_owned(),
+                    id: id.map_or([0, 0], |id| [id.spawner, id.number]),
+                }
+            }
+        }
+    }
+
     /// What a hand holds: its kind and EntityID.
     fn of(world: &rw_sim::world::World, e: Entity) -> Self {
         let (kind, id) = match e {

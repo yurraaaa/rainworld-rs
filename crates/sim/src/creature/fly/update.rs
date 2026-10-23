@@ -346,7 +346,7 @@ impl FlyRun<'_, '_, '_> {
                 let noise = crate::InGameNoise {
                     pos: at,
                     strength,
-                    source: Some(Entity::Creature(self.me)),
+                    source: Some(Entity::Creature(self.me).into()),
                     interesting: 1.0,
                 };
                 self.world.in_game_noise(

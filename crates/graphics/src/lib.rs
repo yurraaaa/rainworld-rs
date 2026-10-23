@@ -15,6 +15,7 @@ mod atlas;
 mod background_scene;
 mod body_part;
 mod coral_neuron_draw;
+mod coral_stem_draw;
 mod cosmetic_graphics;
 mod decal;
 mod draw;
@@ -71,6 +72,7 @@ pub use atlas::{Atlas, AtlasError, AtlasFrame, Rect, Size};
 pub use background_scene::{BackgroundSceneSprites, BackgroundSceneView, SceneImageSizes};
 pub use body_part::{BodyPart, PointConnection};
 pub use coral_neuron_draw::{CoralNeuronSprites, NeuronLook};
+pub use coral_stem_draw::{StemFrame, StemLook, StemSegmentSprites};
 pub use cosmetic_graphics::{CosmeticSprites, LizardColors, LizardModule, NoLizards};
 pub use decal::DecalSprites;
 pub use draw::{
@@ -132,6 +134,8 @@ pub use zero_g_speck::SpeckSprites;
 
 #[cfg(test)]
 mod coral_neuron_tests;
+#[cfg(test)]
+mod coral_stem_tests;
 #[cfg(test)]
 mod coral_tests;
 #[cfg(test)]

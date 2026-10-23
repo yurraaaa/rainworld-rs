@@ -696,3 +696,202 @@ fn abstracting_the_room_frees_the_neurons_strands() {
     g.world.abstractize(0, &mut UnityRandom::new(1));
     assert_eq!(g.world.mycelia().live(), 0);
 }
+
+/// A stem 120 px wide (size 0.2) in the open above the floor.
+const STEM: &str = "CoralStem><300><100><0~120";
+
+/// `AIMapReady` makes the stems after the wall mycelia (the neurons came in the placed loop):
+/// the climbable vines system is registered by the first vine, the stem next and its
+/// neurons after it; the segments take their places in the update list in the order they
+/// are made, the stem's circle after the last; the stem itself is not in the update list.
+#[test]
+fn stems_are_made_after_the_wall_and_neurons() {
+    let placed = format!("CoralNeuron><200><120><0~100, {WALL}, {STEM}");
+    let g = coral_game(&placed, &[("SuperStructureProjector", 0.5)], 1);
+    let r = g.world.realized(0).unwrap();
+    let system = r.coral.as_ref().unwrap();
+    assert_eq!(system.stems.len(), 1);
+    let stem = &system.stems[0];
+    assert!(stem.segments.len() > 3);
+    assert_eq!(stem.size, 0.2);
+    let wall = &system.wall_mycelia[0];
+    assert!(wall.update_order < stem.segments[0].update_order);
+    let orders: Vec<u64> = stem.segments.iter().map(|s| s.update_order).collect();
+    assert!(orders.windows(2).all(|w| w[0] < w[1]));
+    let vines = r.climbable_vines.as_ref().unwrap().vines();
+    assert_eq!(
+        vines,
+        [
+            crate::VineRef::CoralNeuron {
+                room: 0,
+                order: system.neurons[0].update_order
+            },
+            crate::VineRef::CoralStem { room: 0, stem: 0 },
+        ]
+    );
+    // The neuron's circle, then the stem's (after its last segment).
+    let circles = &r.projections.circles;
+    assert_eq!(circles.len(), 2);
+    assert_eq!(circles[1].owner, crate::CircleOwner::Stem { stem: 0 });
+    assert!(*orders.last().unwrap() < circles[1].update_order);
+    // One entity ID a segment, from the game's counter.
+    let first = stem.segments[0].id.number;
+    assert!(
+        stem.segments
+            .iter()
+            .enumerate()
+            .all(|(k, s)| s.id.number == first + k as i32)
+    );
+    let segments: Vec<RoomObject> = g
+        .room_update_list(0)
+        .into_iter()
+        .map(|(_, o)| o)
+        .filter(|o| matches!(o, RoomObject::Coral(CoralRef::Segment(_))))
+        .collect();
+    let newest_first: Vec<RoomObject> = orders
+        .iter()
+        .rev()
+        .map(|&o| RoomObject::Coral(CoralRef::Segment(o)))
+        .collect();
+    assert_eq!(segments, newest_first);
+}
+
+/// A `CoralStemWithNeurons` makes a neuron in some of its segments: each neuron is added to
+/// the system and the vines after the stem, and its place in the update list is before the
+/// segment that made it.
+#[test]
+fn a_stem_with_neurons_registers_its_neurons_after_itself() {
+    let g = coral_game("CoralStemWithNeurons><300><100><0~360", &[], 1);
+    let r = g.world.realized(0).unwrap();
+    let system = r.coral.as_ref().unwrap();
+    let stem = &system.stems[0];
+    let made: Vec<(u64, u64)> = stem
+        .segments
+        .iter()
+        .filter_map(|s| Some((s.neuron?, s.update_order)))
+        .collect();
+    assert!(!made.is_empty());
+    assert_eq!(system.neurons.len(), made.len());
+    for ((neuron, segment), n) in made.iter().zip(&system.neurons) {
+        assert_eq!(*neuron, n.update_order);
+        assert!(neuron < segment);
+    }
+    let vines = r.climbable_vines.as_ref().unwrap().vines();
+    assert_eq!(vines[0], crate::VineRef::CoralStem { room: 0, stem: 0 });
+    assert_eq!(vines.len(), 1 + made.len());
+    assert_eq!(
+        vines[1],
+        crate::VineRef::CoralNeuron {
+            room: 0,
+            order: made[0].0
+        }
+    );
+}
+
+/// The segments are in `physicalObjects[0]`: the water, the electric fixtures and the
+/// disruptor walk them with the other bodies, in the order they joined the layer.
+#[test]
+fn the_segments_are_layer_zero_physical_objects() {
+    let g = coral_game(STEM, &[], 1);
+    let stem = &g.world.realized(0).unwrap().coral.as_ref().unwrap().stems[0];
+    let list = g.world.physical_objects(0, Some(g.player_seq));
+    let segments: Vec<(i32, u64)> = list
+        .iter()
+        .filter(|(_, _, o)| matches!(o, crate::ChunkOwner::Segment(_)))
+        .map(|&(layer, seq, _)| (layer, seq))
+        .collect();
+    let expected: Vec<(i32, u64)> = stem.segments.iter().map(|s| (0, s.update_order)).collect();
+    assert_eq!(segments, expected);
+    let segment = list
+        .iter()
+        .find_map(|&(_, _, o)| match o {
+            crate::ChunkOwner::Segment(r) => Some(r),
+            _ => None,
+        })
+        .expect("a segment");
+    assert_eq!(g.world.segment_chunks(segment).unwrap().len(), 2);
+}
+
+/// A segment's turn in the update list moves its chunks (gravity and the rod); a frozen
+/// system stops it, with no draws.
+#[test]
+fn a_segment_updates_in_its_turn_until_the_system_freezes() {
+    let mut g = coral_game(STEM, &[], 1);
+    let order =
+        g.world.realized(0).unwrap().coral.as_ref().unwrap().stems[0].segments[2].update_order;
+    let before = g.world.realized(0).unwrap().coral.as_ref().unwrap().stems[0].segments[2]
+        .body
+        .chunks
+        .clone();
+    g.run_coral(0, CoralRef::Segment(order));
+    let after = g.world.realized(0).unwrap().coral.as_ref().unwrap().stems[0].segments[2]
+        .body
+        .chunks
+        .clone();
+    assert_ne!(after, before);
+    {
+        let s = g.world.realized_mut(0).unwrap().coral.as_mut().unwrap();
+        s.age = 400;
+        s.not_viewed_counter = 100;
+    }
+    let state = g.rng.state();
+    g.run_coral(0, CoralRef::Segment(order));
+    assert_eq!(g.rng.state(), state);
+    let frozen = g.world.realized(0).unwrap().coral.as_ref().unwrap().stems[0].segments[2]
+        .body
+        .chunks
+        .clone();
+    assert_eq!(frozen, after);
+}
+
+/// The grab: the player under a stem holding up takes hold of it (the vine, the
+/// `Grab_Coral_Stem` sound) and its weight reaches the chunks.
+#[test]
+fn the_player_climbs_a_stem() {
+    let text = "Volume: 6\nVolume exponent: 1.8\nGrab_Coral_Stem : clip\n";
+    let names = ClipNames::new(["clip".to_owned()], None);
+    let sounds = Sounds::new(Arc::new(SoundTable::parse(text, &names).unwrap()));
+    let mut g = coral_game_with(STEM, &[], 1, sounds);
+    let at = g.world.realized(0).unwrap().coral.as_ref().unwrap().stems[0].segments[2]
+        .body
+        .chunks[0]
+        .pos;
+    {
+        let p = g.player.as_mut().unwrap();
+        for c in &mut p.body.chunks {
+            c.pos = at - Vec2::new(0.0, 5.0);
+            c.last_pos = c.pos;
+            c.vel = Vec2::ZERO;
+        }
+    }
+    g.sounds.take_events();
+    let before = g.world.realized(0).unwrap().coral.as_ref().unwrap().stems[0].clone();
+    g.tick(Input::new(0, 1, false), &mut WithGraphics);
+    g.tick(Input::new(0, 1, false), &mut WithGraphics);
+    let p = g.player.as_ref().unwrap();
+    assert_eq!(p.animation(), crate::Animation::VineGrab);
+    assert_eq!(
+        p.vine_pos().unwrap().vine,
+        crate::VineRef::CoralStem { room: 0, stem: 0 }
+    );
+    let heard = g
+        .sounds
+        .take_events()
+        .into_iter()
+        .any(|e| matches!(e, SoundEvent::Play(p) if p.id == SoundId::GrabCoralStem));
+    assert!(heard);
+    let after = &g.world.realized(0).unwrap().coral.as_ref().unwrap().stems[0];
+    assert_ne!(
+        after.segments[2].body.chunks,
+        before.segments[2].body.chunks
+    );
+}
+
+/// A room leaving realization takes its segments' strands with it.
+#[test]
+fn abstracting_the_room_frees_the_segments_strands() {
+    let mut g = coral_game(STEM, &[], 1);
+    assert!(g.world.mycelia().live() > 0);
+    g.world.abstractize(0, &mut UnityRandom::new(1));
+    assert_eq!(g.world.mycelia().live(), 0);
+}

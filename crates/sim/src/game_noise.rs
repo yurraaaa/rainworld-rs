@@ -29,7 +29,7 @@ impl NoiseSink for PlayerHearing<'_> {
         let noise = InGameNoise {
             pos,
             strength,
-            source: Some(Entity::Creature(self.player.id)),
+            source: Some(Entity::Creature(self.player.id).into()),
             interesting,
         };
         self.world

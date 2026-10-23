@@ -6,7 +6,8 @@
 
 use rw_sim::world::World;
 use rw_sim::{
-    CoralNeuron, CosmeticKind, MyceliumPool, OwnerKey, ProjectedCircle, VineRef, WallMycelia,
+    BodyChunk, CircleOwner, CoralNeuron, CoralStem, CosmeticKind, MyceliumPool, OwnerKey,
+    ProjectedCircle, StemSegment, VineRef, WallMycelia,
 };
 use serde::Serialize;
 
@@ -17,7 +18,8 @@ use super::placed_cosmetics_reply::RoomName;
 pub struct RegistryOwnerState {
     pub owner: u32,
     /// `wall_mycelia` for the room's `WallMycelia`, `coral_neuron` for a `CoralNeuron`,
-    /// else an overseer's graphics module (the other owners are not ported yet).
+    /// `stem_segment` for a `StemSegment`, else an overseer's graphics module (the other
+    /// owners are not ported yet).
     pub kind: &'static str,
     pub strands: usize,
     /// How many of them are linked to another strand.
@@ -106,13 +108,70 @@ pub struct CoralNeuronState {
     pub being_climbed: bool,
 }
 
+/// A chunk of a `StemSegment`.
+#[derive(Debug, Clone, Serialize)]
+pub struct StemChunkState {
+    pub pos: [f32; 2],
+    pub last_pos: [f32; 2],
+    pub vel: [f32; 2],
+    pub rad: f32,
+    pub mass: f32,
+    pub collide_with_terrain: bool,
+}
+
+/// A `StemSegment`.
+#[derive(Debug, Clone, Serialize)]
+pub struct StemSegmentState {
+    /// Its place in the update list.
+    pub id: u64,
+    /// Its abstract object's `EntityID` (spawner, number).
+    pub entity_id: [i32; 2],
+    pub size: f32,
+    pub con_rad: f32,
+    pub rod: f32,
+    pub mesh_segs: usize,
+    pub dots: usize,
+    pub first: bool,
+    pub direction: [f32; 2],
+    pub chunks: [StemChunkState; 2],
+    /// The place in the update list of the `CoralNeuron` it made.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub neuron: Option<u64>,
+    pub owner: u32,
+    pub mycelia: usize,
+    pub culled_mycelia: usize,
+}
+
+/// One `CoralStem`.
+#[derive(Debug, Clone, Serialize)]
+pub struct CoralStemState {
+    pub room: String,
+    /// Its place in the system's list (its `VineRef`).
+    pub id: u32,
+    pub root_pos: [f32; 2],
+    pub root_direction: [f32; 2],
+    pub root_tile: [i32; 2],
+    pub size: f32,
+    pub with_neurons: bool,
+    /// Its system is frozen: its segments do not update.
+    pub frozen: bool,
+    /// The player holds it (`VineGrab` on it).
+    pub being_climbed: bool,
+    /// The neurons its segments made (their places in the update list).
+    pub neurons_made: Vec<u64>,
+    pub segments: Vec<StemSegmentState>,
+}
+
 /// One `ProjectedCircle`.
 #[derive(Debug, Clone, Serialize)]
 pub struct ProjectedCircleState {
     pub room: String,
     /// Its place in the update list.
     pub id: u64,
-    /// The owner's place in the update list (a `CoralNeuron`) and the circle's `index`.
+    /// `coral_neuron` or `coral_stem`.
+    pub owner_kind: &'static str,
+    /// The owner's place in the update list (a `CoralNeuron`) or in the system's list (a
+    /// `CoralStem`) and the circle's `index`.
     pub owner: u64,
     pub index: usize,
     pub rad: f32,
@@ -151,6 +210,12 @@ impl CoralSystemState {
                 let pool = world.mycelia();
                 let walls: Vec<OwnerKey> = s.wall_mycelia.iter().map(|w| w.owner).collect();
                 let neurons: Vec<OwnerKey> = s.neurons.iter().map(|n| n.owner).collect();
+                let segments: Vec<OwnerKey> = s
+                    .stems
+                    .iter()
+                    .flat_map(|stem| &stem.segments)
+                    .map(|g| g.owner)
+                    .collect();
                 Some(Self {
                     room: RoomName::of(world, i),
                     id: s.update_order,
@@ -160,7 +225,7 @@ impl CoralSystemState {
                     frozen: s.frozen(),
                     built: s.built,
                     mycelia: pool.registry(s.id).len(),
-                    owners: Self::owners(pool, s.id, &walls, &neurons),
+                    owners: Self::owners(pool, s.id, [&walls, &neurons, &segments]),
                 })
             })
             .collect()
@@ -169,8 +234,7 @@ impl CoralSystemState {
     fn owners(
         pool: &MyceliumPool,
         system: rw_sim::SystemId,
-        walls: &[OwnerKey],
-        neurons: &[OwnerKey],
+        [walls, neurons, segments]: [&[OwnerKey]; 3],
     ) -> Vec<RegistryOwnerState> {
         let mut owners: Vec<RegistryOwnerState> = Vec::new();
         for m in pool.registry(system).iter().filter_map(|&id| pool.get(id)) {
@@ -183,6 +247,8 @@ impl CoralSystemState {
                             "wall_mycelia"
                         } else if neurons.contains(&m.owner) {
                             "coral_neuron"
+                        } else if segments.contains(&m.owner) {
+                            "stem_segment"
                         } else {
                             "overseer"
                         },
@@ -318,6 +384,107 @@ impl CoralNeuronState {
     }
 }
 
+impl CoralStemState {
+    /// Every realized room's stems; `climbed` is the vine the player holds.
+    #[must_use]
+    pub fn all(world: &World, climbed: Option<VineRef>) -> Vec<Self> {
+        world
+            .active_rooms()
+            .into_iter()
+            .filter_map(|i| Some((i, world.realized(i)?)))
+            .flat_map(|(i, r)| {
+                let room = RoomName::of(world, i);
+                let frozen = r.coral.as_ref().is_some_and(|s| s.frozen());
+                r.coral
+                    .iter()
+                    .flat_map(|s| s.stems.iter().enumerate())
+                    .map(move |(k, stem)| {
+                        let held = climbed
+                            == Some(VineRef::CoralStem {
+                                room: i,
+                                stem: k as u32,
+                            });
+                        Self::of(
+                            room.clone(),
+                            stem,
+                            k as u32,
+                            (frozen, held),
+                            world.mycelia(),
+                        )
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect()
+    }
+
+    fn of(
+        room: String,
+        stem: &CoralStem,
+        id: u32,
+        (frozen, being_climbed): (bool, bool),
+        pool: &MyceliumPool,
+    ) -> Self {
+        Self {
+            room,
+            id,
+            root_pos: stem.root_pos.to_array(),
+            root_direction: stem.root_direction.to_array(),
+            root_tile: [stem.root_tile.0, stem.root_tile.1],
+            size: stem.size,
+            with_neurons: stem.with_neurons,
+            frozen,
+            being_climbed,
+            neurons_made: stem.segments.iter().filter_map(|g| g.neuron).collect(),
+            segments: stem
+                .segments
+                .iter()
+                .map(|g| StemSegmentState::of(g, pool))
+                .collect(),
+        }
+    }
+}
+
+impl StemChunkState {
+    fn of(c: &BodyChunk) -> Self {
+        Self {
+            pos: c.pos.to_array(),
+            last_pos: c.last_pos.to_array(),
+            vel: c.vel.to_array(),
+            rad: c.rad,
+            mass: c.mass,
+            collide_with_terrain: c.collide_with_terrain,
+        }
+    }
+}
+
+impl StemSegmentState {
+    fn of(g: &StemSegment, pool: &MyceliumPool) -> Self {
+        Self {
+            id: g.update_order,
+            entity_id: [g.id.spawner, g.id.number],
+            size: g.size,
+            con_rad: g.con_rad,
+            rod: g.body.connections[0].distance,
+            mesh_segs: g.mesh_segs,
+            dots: g.dots,
+            first: g.first,
+            direction: g.direction.to_array(),
+            chunks: [
+                StemChunkState::of(&g.body.chunks[0]),
+                StemChunkState::of(&g.body.chunks[1]),
+            ],
+            neuron: g.neuron,
+            owner: g.owner.0,
+            mycelia: g.mycelia.len(),
+            culled_mycelia: g
+                .mycelia
+                .iter()
+                .filter(|&&id| pool.get(id).is_some_and(|m| m.culled))
+                .count(),
+        }
+    }
+}
+
 impl ProjectedCircleState {
     /// Every realized room's circles.
     #[must_use]
@@ -337,11 +504,15 @@ impl ProjectedCircleState {
     }
 
     fn of(room: String, c: &ProjectedCircle) -> Self {
-        let rw_sim::CircleOwner::Neuron { order } = c.owner;
+        let (owner_kind, owner) = match c.owner {
+            CircleOwner::Neuron { order } => ("coral_neuron", order),
+            CircleOwner::Stem { stem } => ("coral_stem", u64::from(stem)),
+        };
         Self {
             room,
             id: c.update_order,
-            owner: order,
+            owner_kind,
+            owner,
             index: c.index,
             rad: c.rad,
             base_rad: c.base_rad,

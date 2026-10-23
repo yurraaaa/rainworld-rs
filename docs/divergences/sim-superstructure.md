@@ -29,7 +29,7 @@ later (refills, new cursors) are newer and walked before it. `StarMatrix` is mad
 - **`ProjectedCircle` comes with its owners.** In the base game only `CoralNeuron`, `CoralStem`
   and `SSOracleSwarmer` make it (when the room has a `SuperStructureProjector` effect; the
   DLC's `SpearMasterPearl` and `Inspector` too). It is ported with the first owner, `CoralNeuron`
-  (D40); the stems' and swarmers' circles come with them.
+  (D40); the stems' circle came with them (D41), the swarmers' comes with them.
 - **The GPU's `sin` decides some glyphs.** `GlyphProjection` picks a cell's glyph from
   `frac(sin(x) * 43758.5453)`, which magnifies the last bits of `sin`; the same cell can show
   another glyph on another GPU (and in the port against the game). The picture is the same kind
@@ -158,8 +158,8 @@ the data in `rw-assets` `placed_electric.rs`. Notes: `../rainworld-re/notes/supe
   order with the other ported objects' (the unported placed objects' draws are missing, as
   for every object ported so far).
 - **Only the bodies the port realizes are swirled:** the player, bat flies, lizards,
-  overseers, rocks and spears (the room's `physicalObjects` the port has); the rest comes with
-  their ports (as D36's zaps).
+  overseers, rocks and spears and coral stems' segments (D41; the room's `physicalObjects` the
+  port has); the rest comes with their ports (as D36's zaps).
 - **Skipped, a Rain World dev tool (user decision):** `DeepProcessing`'s `meshDirty` (the quad's
   corners changing in the editor: `UpdateVerts` and the re-made mesh when the ideal grid
   division changes) and the disruptor's moved placed object (`debugMode` is drawn as the
@@ -235,8 +235,8 @@ Closes the missing `NeuronSpark` sound of `random.md`'s overseer item.
   `_RippleClip.cginc` (`ripple_both_sides` returns before any discard)), in `Items`. They are not
   drawn in the debug view or in an other-room MCP screenshot (as D36's objects; OPEN-ITEMS).
 - **What the next steps add to `AIMapReady`** (not ported here): the `CoralCircuit` clusters (their
-  `CircuitConnector` owners), then the `CoralStem`s with their `StemSegment`s (each taking `GetNewID`),
-  then `PlaceSwarmers` (`SSOracleSwarmer`s, whose suckling strikes `NeuronSpark`s). The `CoralNeuron`s
+  `CircuitConnector` owners; the `CoralStem`s with their `StemSegment`s, each taking `GetNewID`,
+  are D41 and come after the circuits' place), then `PlaceSwarmers` (`SSOracleSwarmer`s, whose suckling strikes `NeuronSpark`s). The `CoralNeuron`s
   (made as the placed-object loop meets them, before the wall mycelia) are D40. Every wall strand can
   only pair with another owner's strands: in a room with wall mycelia alone only an overseer's lens can
   link to them; a room with neurons has theirs (the strands of a neuron and of the walls pair).
@@ -304,6 +304,100 @@ them all (`crates/sim/tests/installed_coral_neurons.rs`: 43 parsed, 0 rejected, 
   change moves `getToRad` to 0.8 or 1.2 of it, `lastBaseRad`; a circle whose owner left the room is
   slated, `HostingCircleFromRoom`) and `ModManager.MMF` code (connected circles that were slated are
   dropped from the list in `DrawSprites`; `Position` without a room reads the owner only); the
-  owners `SSOracleSwarmer`, `CoralStem` (10d3b, 10e), `SpearMasterPearl` and `Inspector` (DLC)
+  owners `SSOracleSwarmer` (10e), `SpearMasterPearl` and `Inspector` (DLC)
   make circles with `SetBaseRad` and their own `HostingCircleFromRoom`. Nothing in `CoralNeuron.cs`
   reads a DLC flag.
+
+## D41: Coral stems (`CoralStem`, `StemSegment`; step 10d3b)
+
+Ported in `crates/sim/src/{coral_stem,game_coral,climbable_vines}.rs` (the stem, its segments
+as physical objects, their turns, the vine host), the sprites in
+`crates/graphics/src/coral_stem_draw.rs`, MCP `coral_stems`. Notes:
+`../rainworld-re/notes/superstructure-coral.md`. Survey: `surveys/climbable-vines.md` 4.2,
+`surveys/room-effects/insects-and-superstructure.md` B3.
+
+- **Where a `StemSegment` lives (design).** Each segment is a `PhysicalObject` (two chunks and the
+  rod, the port's own type) held by its `CoralStem`, and the stems by the room's
+  `CoralNeuronSystem` (`stems`, in the order `AIMapReady` made them); a segment is one place in
+  the update list (`update_order`, `CoralRef::Segment`) and the vine host, the water, the
+  weapons and the electric fixtures reach the same storage, so a player's push lands live
+  (D39). The game's `AbstractPhysicalObject` of a segment (type `Creature`, `GetNewID()`,
+  a new ID for each, no draws) is never added to an abstract room's `entities`, so it is
+  not in any entity list, save or `Abstractize`: the port keeps only its `EntityId`. A room
+  leaving realization drops the stems with the system (the game's `Room` drops them), the
+  strands going with it. The `CoralStem` itself is not in the update list (`AIMapReady` does
+  `stems.Add(new CoralStem(...))` with no `AddObject`; its `Update` is the empty base one).
+- **Seeded construction, the game's order.** Seeded by `(int)rootPos.x + (int)rootPos.y` (the shared
+  stream untouched, tested); the root direction is the last Solid neighbour's opposite (the `rootPos`
+  snap writes the constructor's parameter only, as the neuron's). The path search draws `value` for
+  every open, not narrow neighbour at every step (4 a step in open air), the lean `* InverseLerp(10, 30, j)`
+  being added whatever it is (the survey said "after step 10"). A segment draws `RNV` (1 draw), then for a stem with
+  neurons and size above 0 `value > size`, `value < 0.33` (only when the first holds) and the
+  neuron's length `value`, then the strand count (`value < 0.5` makes two; the last segment, size 0,
+  makes 20 with no draw), then for each strand `Lerp(30, 40, value)` and its `Reset`
+  (`2 + 2n` draws). A neuron a segment makes is built inside the stem's seed (it saves and restores
+  the state in its own way, D40), added with its circles before the segment that made it, and
+  registered as a vine after the stem. The climbable vines system is made by the first vine, the
+  stem's first act. `GetNewID` is called before the segment's constructor body, so an ID per
+  segment in the order the segments are made.
+- **Segments are layer-0 objects.** `collisionLayer 0` puts them outside `Room.Update`'s collision pass
+  and `CoralCircuit`'s push (both start at layer 1): nothing pushes a segment out of the way and the
+  player cannot pick one up (`Grabability` `CantGrab`), but a thrown weapon walks layer 0
+  (`Weapon.Update`): it pushes a crossed chunk along by its velocity and stops where the hit chunks
+  weigh over 0.6 (the segments weigh `Lerp(0.015, 2.8, size)`). Every iteration over the room's
+  `physicalObjects` the port has includes them in `physicalObjects[0]` order: the water
+  (`ChunkOwner::Segment`), waterfalls, `ElectricDeath`'s strikes (the segment is struck, kicked and
+  sounds; no creature to kill), `ZapCoil`'s zaps, the dandelion stalks' view of the chunks,
+  `GravityDisruptor`'s swirl, a thrown weapon's walk (`LayerZero`), the player's look
+  (`PlayerObjectLooker`, `LookTarget`: a segment is interesting by its distance, as a bare
+  object) and the noises: a segment's terrain impact makes `PhysicalObject.TerrainImpact`'s
+  screen movement and `InGameNoise` (`NoiseSource::Segment`, interest 1; a lizard hears it as a noise
+  of another thing, `HowInterestingIsThisNoiseToMe` unchanged). **Not ported (the systems are not):**
+  `Explosion`, `RoomRain.ThrowAroundObjects` and `GameOverRain`, `WaterCurrent`, `FluxDrain`,
+  `GeyserEruption`, `MeltLights`, `WindRect`, `SmokeSystem`, `PlateTree`, the shelter door's
+  `PansarPush`, `GetStuffInWalls` and `DestroyExcessiveObjects` (which would count the segments
+  under the type `"Creature"` and destroy all but nine), `Player`'s burst (Player.cs 3899) and
+  pointing code, a lizard tongue's trace over all layers, `BigEel`, `TentaclePlant`'s collide over
+  layer 0, `HazerGraphics`' look: each touches the segments when it is ported (OPEN-ITEMS).
+- **`StemSegment.Update`.** Nothing at all while the system is frozen (before `base.Update`). Else the
+  chunks move and collide with the terrain (gravity 0.9, air friction 0.999, bounce 0.5, surface
+  friction 0.5, water friction 0.96, buoyancy 0.95, `collideWithObjects` unused), the rod
+  (`Lerp(6, 68, size)`, weight symmetry 0.5); each terrain impact's screen movement and noise are made
+  at once, before the rest; then the strands (aimed at the chunks, `points[1]` pulled and pushed), the
+  neuron's pull (chunk **0** takes the share of segment 0's pull, as the game's code reads), the
+  constraint to the previous segment and the bend of the two before, the root (the first
+  segment's chunk 0 `rad` inside the wall, still, terrain collision off), the push off the walls and
+  the wind. The update list runs newest first, so segment `k` is updated before `k - 1` and sees
+  the player's push of this tick (D39); a push on a frozen stem lands without a move.
+- **The vine.** `Pos(i)` is chunk `i % 2` of segment `i / 2`, `Rad` and `Mass` the chunk's, `Push` adds
+  to `pos` and `vel`; `BeingClimbedOn` does nothing; the grab sound is `Grab_Coral_Stem`
+  (`VineRef::CoralStem { room, stem }`, the stem's place in the system's list; the stems have no
+  place in the update list).
+- **Sprites** (in `Items`; a dot's glow in `Water` with `WaterLights`): the strands (colour `(0, 0, 0.1)`),
+  a `Circle20` bridging the segment to the next, two meshes along a curve through the chunks
+  and per dot three `Circle20`; `RippleBasicBothSides` is the `Basic` shader (D38). The last
+  segment's bridge is never moved by the game's draw: it stays at the sprite's default
+  position, the screen's corner, `scaleX = rad / 20` (the port draws it at the camera's position).
+  Colours are computed each frame from the camera's palette darkness; the game computes them in
+  `ApplyPalette` (when the palette is applied: on entering a room and on a palette fade), so the
+  two agree except between a fade's palette changes.
+  A dot's glow draws `value < 0.5` and, if so, `value`, per dot per drawn frame, from the app's
+  cosmetic stream (D1). The game reads the meshes' vertices back as `vertices + camPos`; the port
+  uses the world positions (the camera subtraction's float rounding is not reproduced).
+- **Circles.** In a `SuperStructureProjector` room the stem adds a `ProjectedCircle` (index 0, size
+  `Lerp(0.2, 0.8, size)`) after its segments, centred on the last segment's chunk 1
+  (`CircleOwner::Stem`); a stem without segments (the path starts in a closed pocket) would make
+  the game's `CircleCenter` throw every frame, the port leaves that circle uncentred (zero).
+- **Omitted branches (listed, not dropped):** `PhysicalObject.WeatherInertia`'s blizzard push
+  (Saint's `room.blizzard`, a DLC room property: no base room has one), Watcher's ripple layers
+  in `HitSomethingWithoutStopping`, `HitAnotherThrownWeapon`, the noise tracker and
+  `WeatherInertia` (every layer is 0), `Player` shelter code with MMF (7120). Nothing in
+  `CoralStem.cs` or `StemSegment.cs` reads a DLC flag.
+- **Data** (the installed settings, the port's own `Filter` handling): 30 `CoralStem` or
+  `CoralStemWithNeurons` objects in 12 rooms for the Survivor and the Hunter (4 of them with
+  neurons), 28 in 11 for the Monk; every one `ResizableObjectData`, none rejected; they build into
+  322 segments (all 30, run 100 ticks in view with finite chunks), 11 neurons and, in the projector
+  rooms, 8 circles (`crates/sim/tests/installed_coral_stems.rs`).
+- **MCP.** `coral_stems` (room, id, root, size, `with_neurons`, frozen, `being_climbed`, the neurons its
+  segments made and each segment's chunks, rod, `conRad`, mesh size, dots, entity ID, strands) and
+  the stems in `climbable_vines` with kind `CoralStem`; `projected_circles` names the owner kind.

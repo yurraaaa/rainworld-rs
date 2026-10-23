@@ -1,4 +1,4 @@
-//! `get_state`'s `coral_systems`, `wall_mycelia` and `neuron_sparks` on `SS_D02` of the
+//! `get_state`'s `coral_systems`, `wall_mycelia`, `coral_neurons`, `coral_stems` and `neuron_sparks` on `SS_D02` and `SS_A01` of the
 //! installed game (skipped when it is absent). Expected values: its settings place seven
 //! `WallMycelia` objects (`ss_d02_settings.txt`); a viewed room's system is neither frozen
 //! nor away; an overseer put in the room joins the system's registry with its own strands
@@ -47,10 +47,26 @@ fn a_superstructure_room_reports_its_coral() {
         .filter(|n| n.room == "SS_D02")
         .collect();
     let neuron_strands: usize = neurons.iter().map(|n| n.mycelia.len()).sum();
-    assert_eq!(system.mycelia, wall.strands + neuron_strands);
-    assert_eq!(system.owners.len(), 1 + neurons.len());
-    // Registered in the order `AIMapReady` made them: the neurons, then the wall.
-    assert_eq!(system.owners.last().unwrap().kind, "wall_mycelia");
+    // And the stems' segments' (the segments with strands are owners).
+    let segments: Vec<_> = state
+        .coral_stems
+        .iter()
+        .filter(|s| s.room == "SS_D02")
+        .flat_map(|s| &s.segments)
+        .collect();
+    let segment_strands: usize = segments.iter().map(|g| g.mycelia).sum();
+    let segment_owners = segments.iter().filter(|g| g.mycelia > 0).count();
+    assert_eq!(
+        system.mycelia,
+        wall.strands + neuron_strands + segment_strands
+    );
+    assert_eq!(system.owners.len(), 1 + neurons.len() + segment_owners);
+    // Registered in the order `AIMapReady` made them: the neurons, then the wall, then the
+    // stems' segments.
+    let kinds: Vec<_> = system.owners.iter().map(|o| o.kind).collect();
+    let wall_at = kinds.iter().position(|&k| k == "wall_mycelia").unwrap();
+    assert!(kinds[..wall_at].iter().all(|&k| k == "coral_neuron"));
+    assert!(kinds[wall_at + 1..].iter().all(|&k| k == "stem_segment"));
     // A wall strand pairs with another owner's only (the neurons' strands).
     assert_eq!(wall.pairs_connected, 0);
     assert!(wall.culled <= wall.strands);
@@ -83,7 +99,7 @@ fn a_superstructure_room_reports_its_coral() {
     );
     assert_eq!(
         system.mycelia,
-        wall.strands + neuron_strands + overseers[0].strands
+        wall.strands + neuron_strands + segment_strands + overseers[0].strands
     );
 }
 
@@ -170,6 +186,92 @@ fn neurons_are_reported_and_climbed() {
             .iter()
             .filter(|n| n.being_climbed)
             .count(),
+        1
+    );
+}
+
+/// `SS_A01`'s two placed stems (the first `CoralStemWithNeurons`, the second `CoralStem`;
+/// `ss_a01_settings.txt`) are reported with their segments, registered as climbable vines of
+/// kind `CoralStem` (two points a segment), their segments' strands in the registry as
+/// `stem_segment` owners, and the player put against a segment with an up press takes hold
+/// of it (`being_climbed`).
+#[test]
+fn stems_are_reported_and_climbed() {
+    let Some(mut session) = Session::installed() else {
+        return;
+    };
+    session.load("SS_A01", 1);
+    session.step_n(3);
+    let state = session.state().expect("state");
+    let stems: Vec<_> = state
+        .coral_stems
+        .iter()
+        .filter(|s| s.room == "SS_A01")
+        .collect();
+    assert_eq!(stems.len(), 2);
+    assert_eq!(
+        stems.iter().map(|s| s.with_neurons).collect::<Vec<_>>(),
+        [true, false]
+    );
+    assert!(stems[0].segments.len() > 3 && !stems[0].neurons_made.is_empty());
+    let vines = state
+        .climbable_vines
+        .iter()
+        .find(|v| v.room == "SS_A01")
+        .expect("vines");
+    let stem_vines: Vec<_> = vines
+        .vines
+        .iter()
+        .filter(|v| v.kind == "CoralStem")
+        .collect();
+    assert_eq!(stem_vines.len(), 2);
+    assert_eq!(stem_vines[0].points.len(), stems[0].segments.len() * 2);
+    let system = state
+        .coral_systems
+        .iter()
+        .find(|s| s.room == "SS_A01")
+        .expect("system");
+    let strands: usize = stems[0].segments.iter().map(|g| g.mycelia).sum();
+    let owned: usize = system
+        .owners
+        .iter()
+        .filter(|o| o.kind == "stem_segment")
+        .map(|o| o.strands)
+        .sum();
+    assert!(strands > 0 && owned >= strands);
+    for g in &stems[0].segments {
+        // `Lerp(4, 9, size)` and `Lerp(0.015, 2.8, size)`.
+        let (rad, mass) = (g.chunks[0].rad, g.chunks[0].mass);
+        assert!((rad - (4.0 + 5.0 * g.size)).abs() < 1e-4);
+        assert!((mass - (0.015 + (2.8 - 0.015) * g.size)).abs() < 1e-4);
+    }
+    let g = &stems[0].segments[stems[0].segments.len() / 2];
+    let at = g.chunks[0].pos;
+    session
+        .set_player(&SetPlayerParams {
+            pos: Some([at[0], at[1] - 8.0]),
+            ..Default::default()
+        })
+        .expect("moves");
+    let up = StepParams {
+        ticks: Some(2),
+        input: Some(InputParam {
+            y: 1,
+            ..Default::default()
+        }),
+    };
+    let state = session.step(&up).expect("steps");
+    let player = state.player.expect("player");
+    assert_eq!(player.animation, "VineGrab");
+    assert!(
+        player
+            .vine_pos
+            .expect("vine_pos")
+            .vine
+            .starts_with("CoralStem")
+    );
+    assert_eq!(
+        state.coral_stems.iter().filter(|s| s.being_climbed).count(),
         1
     );
 }

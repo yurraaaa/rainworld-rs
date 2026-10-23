@@ -1758,6 +1758,7 @@ fn hands_swing_along_the_vine() {
                 rw_sim::RoomVinesView {
                     placed: &sink.host,
                     neurons: &[],
+                    stems: &[],
                 },
             )),
             balance_counter: 0.0,

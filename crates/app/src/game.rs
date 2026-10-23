@@ -1152,10 +1152,15 @@ impl Game {
             .collect()
     }
 
-    /// The camera room's `CoralNeuron`s and `WallMycelia` at `alpha` between ticks.
-    #[must_use]
-    pub fn coral_draw_lists(&self, alpha: f32) -> Vec<(Drawable, DrawList)> {
-        use rw_graphics::{CoralNeuronSprites, WallMyceliaSprites};
+    /// The camera room's `CoralNeuron`s, `StemSegment`s and `WallMycelia` at `alpha`
+    /// between ticks (the segments' dots blink from the cosmetic stream, per frame).
+    pub fn coral_draw_lists(
+        &mut self,
+        alpha: f32,
+        cam_pos: rw_sim::Vec2,
+    ) -> Vec<(Drawable, DrawList)> {
+        use rw_graphics::{CoralNeuronSprites, StemFrame, StemSegmentSprites, WallMyceliaSprites};
+        let darkness = self.sim.darkness(self.sim.camera_room());
         let world = self.sim.world();
         let Some(r) = world.realized(self.sim.camera_room()) else {
             return Vec::new();
@@ -1177,6 +1182,21 @@ impl Game {
                 )
             })
             .collect();
+        let frame = StemFrame {
+            t: alpha,
+            darkness,
+            water_lights,
+            cam_pos,
+        };
+        let rng = &mut self.graphics.cosmetic;
+        for stem in &system.stems {
+            for (k, segment) in stem.segments.iter().enumerate() {
+                lists.push((
+                    Drawable::Coral(segment.update_order),
+                    stem.draw_segment(k, world.mycelia(), &frame, rng),
+                ));
+            }
+        }
         lists.extend(system.wall_mycelia.iter().map(|w| {
             (
                 Drawable::Coral(w.update_order),
@@ -1232,6 +1252,7 @@ impl Game {
         }
         let around = CircleSurroundings {
             neurons: r.coral.as_ref().map_or(&[], |c| c.neurons.as_slice()),
+            stems: r.coral.as_ref().map_or(&[], |c| c.stems.as_slice()),
             circles: &p.circles,
             light_angle: rw_sim::Vec2::from(r.room.light_angle()),
         };
@@ -1735,6 +1756,13 @@ impl Game {
                     .iter()
                     .flat_map(|s| &s.neurons)
                     .map(|n| Present::added(Drawable::Coral(n.update_order), n.update_order)),
+            );
+            present.extend(
+                r.coral
+                    .iter()
+                    .flat_map(|s| &s.stems)
+                    .flat_map(|stem| &stem.segments)
+                    .map(|g| Present::added(Drawable::Coral(g.update_order), g.update_order)),
             );
             present.extend(
                 r.coral

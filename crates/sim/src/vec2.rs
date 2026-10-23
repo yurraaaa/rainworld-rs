@@ -193,6 +193,12 @@ impl Vec2 {
         a / (std::f32::consts::PI * 2.0) * 360.0
     }
 
+    /// `Custom.AimFromOneVectorToAnother(self, to)`.
+    #[must_use]
+    pub fn to_aim(self, to: Self) -> f32 {
+        (to - self).to_degrees()
+    }
+
     /// `Custom.Angle(self, other)`: `Vector2.Angle` signed by the side of the line
     /// through `other` and `-other` that `self` lies on (`Mathf.Sign(0)` is 1).
     #[must_use]

@@ -7,13 +7,13 @@ use rw_assets::CreatureType;
 use rw_random::UnityRandom;
 use rw_sim::creature::{Relationship, RelationshipType};
 use rw_sim::item::{Entity, WeaponMode};
-use rw_sim::{FloatExt, PlayerSurroundings, RoomExt, Vec2};
+use rw_sim::{FloatExt, LookTarget, PlayerSurroundings, RoomExt, Vec2};
 
 /// The object looker (`lookAtPoint` is only set by DLC and tutorial callers).
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct ObjectLooker {
     /// `currentMostInteresting`.
-    pub current: Option<Entity>,
+    pub current: Option<LookTarget>,
     /// `timeLookingAtThis`.
     pub time: i32,
 }
@@ -35,7 +35,22 @@ struct Seen {
 }
 
 impl Seen {
-    fn of(around: &PlayerSurroundings<'_>, entity: Entity) -> Option<Self> {
+    fn of(around: &PlayerSurroundings<'_>, target: LookTarget) -> Option<Self> {
+        let entity = match target {
+            LookTarget::Entity(e) => e,
+            LookTarget::Segment(s) => {
+                let c = around.world.segment_chunks(s)?.first()?;
+                return Some(Self {
+                    kind: None,
+                    here: s.room == around.room,
+                    pos: c.pos,
+                    vel: c.vel,
+                    conscious: false,
+                    slated: false,
+                    on_back: false,
+                });
+            }
+        };
         let id = match entity {
             Entity::Creature(id) => id,
             Entity::Object(id) => {
@@ -98,7 +113,7 @@ impl ObjectLooker {
     }
 
     pub fn look_at_object(&mut self, id: Entity) {
-        self.current = Some(id);
+        self.current = Some(LookTarget::Entity(id));
         self.time = 0;
     }
 
@@ -144,7 +159,7 @@ impl ObjectLooker {
     fn interest(
         &self,
         around: &PlayerSurroundings<'_>,
-        id: Option<Entity>,
+        id: Option<LookTarget>,
         player_pos: Vec2,
     ) -> f32 {
         let Some(id) = id else { return 0.0 };
@@ -154,7 +169,10 @@ impl ObjectLooker {
         if !seen.here || seen.on_back {
             return 0.0;
         }
-        if around.grasps.iter().flatten().any(|&g| g == id) {
+        if id
+            .entity()
+            .is_some_and(|e| around.grasps.iter().flatten().any(|&g| g == e))
+        {
             return 0.0;
         }
         let mut num = 1.0;

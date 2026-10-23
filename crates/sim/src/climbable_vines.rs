@@ -14,9 +14,9 @@
 
 use rw_random::UnityRandom;
 
-use crate::CoralNeuron;
 use crate::float_ext::FloatExt;
 use crate::{BodyChunk, Sounds, Vec2};
+use crate::{CoralNeuron, CoralStem};
 
 /// A reference to a vine object, as the game's `IClimbableVine` reference: world-unique,
 /// compared by identity (`vines[i] == vPos.vine`).
@@ -26,6 +26,8 @@ pub enum VineRef {
     Placed { room: i32, id: u64 },
     /// The `CoralNeuron` at place `order` in the update list of room `room`.
     CoralNeuron { room: i32, order: u64 },
+    /// The `CoralStem` at place `stem` in the system's list of room `room`.
+    CoralStem { room: i32, stem: u32 },
 }
 
 /// Which class a vine is (`GetVineObject(vPos) is CoralNeuron`, ...): picks the grab sound.
@@ -216,9 +218,17 @@ impl VineHostMut for PlacedVines {
 pub struct RoomVinesView<'a> {
     pub placed: &'a PlacedVines,
     pub neurons: &'a [CoralNeuron],
+    pub stems: &'a [CoralStem],
 }
 
 impl RoomVinesView<'_> {
+    fn stem(&self, vine: VineRef) -> &CoralStem {
+        let VineRef::CoralStem { stem, .. } = vine else {
+            unreachable!("not a coral stem");
+        };
+        &self.stems[stem as usize]
+    }
+
     fn neuron(&self, vine: VineRef) -> &CoralNeuron {
         let VineRef::CoralNeuron { order, .. } = vine else {
             unreachable!("not a coral neuron");
@@ -235,6 +245,7 @@ impl VineHost for RoomVinesView<'_> {
         match vine {
             VineRef::Placed { .. } => self.placed.kind(vine),
             VineRef::CoralNeuron { .. } => VineKind::CoralNeuron,
+            VineRef::CoralStem { .. } => VineKind::CoralStem,
         }
     }
 
@@ -242,6 +253,7 @@ impl VineHost for RoomVinesView<'_> {
         match vine {
             VineRef::Placed { .. } => self.placed.total_positions(vine),
             VineRef::CoralNeuron { .. } => self.neuron(vine).geometry.segments.len() as i32,
+            VineRef::CoralStem { .. } => self.stem(vine).total_positions() as i32,
         }
     }
 
@@ -249,6 +261,7 @@ impl VineHost for RoomVinesView<'_> {
         match vine {
             VineRef::Placed { .. } => self.placed.pos(vine, index),
             VineRef::CoralNeuron { .. } => self.neuron(vine).vine_pos(index as usize),
+            VineRef::CoralStem { .. } => self.stem(vine).vine_pos(index as usize),
         }
     }
 
@@ -256,6 +269,7 @@ impl VineHost for RoomVinesView<'_> {
         match vine {
             VineRef::Placed { .. } => self.placed.rad(vine, index),
             VineRef::CoralNeuron { .. } => CoralNeuron::vine_rad(index as usize),
+            VineRef::CoralStem { .. } => self.stem(vine).vine_rad(index as usize),
         }
     }
 
@@ -263,13 +277,14 @@ impl VineHost for RoomVinesView<'_> {
         match vine {
             VineRef::Placed { .. } => self.placed.mass(vine, index),
             VineRef::CoralNeuron { .. } => CoralNeuron::vine_mass(index as usize),
+            VineRef::CoralStem { .. } => self.stem(vine).vine_mass(index as usize),
         }
     }
 
     fn currently_climbable(&self, vine: VineRef) -> bool {
         match vine {
             VineRef::Placed { .. } => self.placed.currently_climbable(vine),
-            VineRef::CoralNeuron { .. } => true,
+            VineRef::CoralNeuron { .. } | VineRef::CoralStem { .. } => true,
         }
     }
 }
@@ -279,6 +294,7 @@ impl VineHost for RoomVinesView<'_> {
 pub struct RoomVines<'a> {
     pub placed: &'a mut PlacedVines,
     pub neurons: &'a mut [CoralNeuron],
+    pub stems: &'a mut [CoralStem],
 }
 
 impl<'a> RoomVines<'a> {
@@ -287,6 +303,7 @@ impl<'a> RoomVines<'a> {
         Self {
             placed,
             neurons: &mut [],
+            stems: &mut [],
         }
     }
 
@@ -295,6 +312,7 @@ impl<'a> RoomVines<'a> {
         RoomVinesView {
             placed: self.placed,
             neurons: self.neurons,
+            stems: self.stems,
         }
     }
 }
@@ -334,6 +352,11 @@ impl VineHostMut for RoomVines<'_> {
                     n.push(index as usize, movement);
                 }
             }
+            VineRef::CoralStem { stem, .. } => {
+                if let Some(s) = self.stems.get_mut(stem as usize) {
+                    s.push(index as usize, movement);
+                }
+            }
         }
     }
 
@@ -346,15 +369,15 @@ impl VineHostMut for RoomVines<'_> {
     ) {
         match vine {
             VineRef::Placed { .. } => self.placed.being_climbed_on(vine, climber, rng, sounds),
-            // `CoralNeuron.BeingClimbedOn` does nothing.
-            VineRef::CoralNeuron { .. } => {}
+            // `CoralNeuron.BeingClimbedOn` and `CoralStem.BeingClimbedOn` do nothing.
+            VineRef::CoralNeuron { .. } | VineRef::CoralStem { .. } => {}
         }
     }
 
     fn draws_when_climbed(&self, vine: VineRef) -> bool {
         match vine {
             VineRef::Placed { .. } => self.placed.draws_when_climbed(vine),
-            VineRef::CoralNeuron { .. } => false,
+            VineRef::CoralNeuron { .. } | VineRef::CoralStem { .. } => false,
         }
     }
 }

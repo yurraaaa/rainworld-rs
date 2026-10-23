@@ -9,8 +9,9 @@
 //! creatures; the session's first room waits for its `NowViewed` (the camera's first
 //! tick), as the game's `RoomPreparer` does (D37). What `CoralNeuronSystem.AIMapReady`
 //! builds: the `CoralNeuron`s in the placed-object loop (each with the
-//! `ProjectedCircle`s its constructor adds, then itself), then the `WallMycelia`; the
-//! `CoralCircuit` clusters, the `CoralStem`s and `PlaceSwarmers` are the later steps'.
+//! `ProjectedCircle`s its constructor adds, then itself), then the `WallMycelia`, then the
+//! `CoralStem`s (each segment an object of the update list, the stems themselves not);
+//! the `CoralCircuit` clusters and `PlaceSwarmers` are the later steps'.
 //!
 //! Mirrors: Room.cs (Loaded: CoralNeuronSystem; ReadyForAI), CoralNeuronSystem.cs (AIMapReady), CoralNeuron.cs (Update), WallMycelia.cs (Update), Overseer.cs (UpdateCoralNeuronSystem)
 
@@ -21,8 +22,9 @@ use rw_assets::{PlacedObjectType, ResizableData, RoomEffectType};
 use super::{RainWorldGame, RoomObject};
 use crate::creature::CreatureId;
 use crate::{
-    ClimbableVinesSystem, CoralNeuron, CoralNeuronSystem, CosmeticKind, MyceliaCx, MyceliumEnv,
-    NeuronCx, PlayerObserver, Vec2, VineRef, WallMycelia, WallPlace,
+    ClimbableVinesSystem, CoralNeuron, CoralNeuronSystem, CoralStem, CosmeticKind, ImpactCall,
+    InGameNoise, MyceliaCx, MyceliumEnv, NeuronCx, NoiseSource, PlayerObserver, SegmentRef, StemCx,
+    StemTick, Vec2, VineRef, WallMycelia, WallPlace,
 };
 
 /// A coral object in a room's update list.
@@ -34,6 +36,8 @@ pub(super) enum CoralRef {
     Wall(u64),
     /// A `CoralNeuron`, by its place in the update list.
     Neuron(u64),
+    /// A `StemSegment`, by its place in the update list.
+    Segment(u64),
 }
 
 impl RainWorldGame {
@@ -70,6 +74,7 @@ impl RainWorldGame {
             > 0.0;
         let mut places = Vec::new();
         let mut neurons = Vec::new();
+        let mut stems = Vec::new();
         for o in r.settings.placed_objects_for(timeline, mods) {
             if !o.active {
                 continue;
@@ -91,6 +96,16 @@ impl RainWorldGame {
                             (Vec2::from(o.pos), Vec2::new(d.handle[0], d.handle[1]));
                         neurons.push((handle.length(), pos, pos + handle));
                     }
+                    None => log::warn!("unreadable {} data {:?}", o.kind, o.data),
+                },
+                Some(
+                    kind @ (PlacedObjectType::CoralStem | PlacedObjectType::CoralStemWithNeurons),
+                ) => match ResizableData::parse(&o.data) {
+                    Some(d) => stems.push((
+                        Vec2::from(o.pos),
+                        d.rad(),
+                        kind == PlacedObjectType::CoralStemWithNeurons,
+                    )),
                     None => log::warn!("unreadable {} data {:?}", o.kind, o.data),
                 },
                 _ => {}
@@ -117,6 +132,9 @@ impl RainWorldGame {
         });
         if let Some(w) = &mut wall {
             w.update_order = self.world.next_update_seq();
+        }
+        for (root, rad, with_neurons) in stems {
+            self.add_coral_stem(index, system_id, projector, root, rad, with_neurons);
         }
         if let Some(system) = self
             .world
@@ -176,6 +194,78 @@ impl RainWorldGame {
         Some(order)
     }
 
+    /// `new CoralStem(system, rootPos, rad, room, withNeurons)` in room `index`: the
+    /// climbable vines system when the room has none, the segments (each with the neuron
+    /// it made and the neuron's circles first), the stem's circle; then the stem joins the
+    /// system's list (it is not in the update list). Registered as a vine before its neurons.
+    pub(super) fn add_coral_stem(
+        &mut self,
+        index: i32,
+        system: crate::SystemId,
+        projector: bool,
+        root: Vec2,
+        rad: f32,
+        with_neurons: bool,
+    ) {
+        let Some(r) = self.world.realized(index) else {
+            return;
+        };
+        let (Some(ai_map), Some(coral)) = (r.ai_map.clone(), r.coral.as_ref()) else {
+            return;
+        };
+        let stem_index = coral.stems.len() as u32;
+        let room = Arc::clone(&r.room);
+        let new_vine_system = r.climbable_vines.is_none();
+        let circles = r
+            .projections
+            .circles
+            .iter()
+            .filter(|c| !c.slated)
+            .map(|c| c.update_order)
+            .collect();
+        let mut seq = self.world.update_seq();
+        let mut cx = StemCx {
+            neuron: NeuronCx {
+                room: &room,
+                system,
+                pool: &mut self.world.mycelia,
+                projector,
+                circles,
+                new_vine_system,
+                seq: &mut seq,
+            },
+            ai_map: &ai_map,
+            ids: &mut self.ids,
+            index: stem_index,
+        };
+        let built = CoralStem::build(root, rad, with_neurons, &mut cx, &mut self.rng);
+        self.world.set_update_seq(seq);
+        let Some(r) = self.world.realized_mut(index) else {
+            return;
+        };
+        r.projections.circles.extend(built.circles);
+        let vines = r
+            .climbable_vines
+            .get_or_insert_with(ClimbableVinesSystem::new);
+        if let Some(order) = built.vine_system_order {
+            vines.update_order = order;
+        }
+        vines.register(VineRef::CoralStem {
+            room: index,
+            stem: stem_index,
+        });
+        for n in &built.neurons {
+            vines.register(VineRef::CoralNeuron {
+                room: index,
+                order: n.update_order,
+            });
+        }
+        if let Some(c) = r.coral.as_mut() {
+            c.neurons.extend(built.neurons);
+            c.stems.push(built.stem);
+        }
+    }
+
     /// Room `index`'s coral objects in its update list.
     pub(super) fn room_coral_objects(&self, index: i32) -> Vec<(u64, RoomObject)> {
         self.world
@@ -190,6 +280,12 @@ impl RainWorldGame {
                             RoomObject::Coral(CoralRef::Neuron(n.update_order)),
                         )
                     }))
+                    .chain(s.stems.iter().flat_map(|stem| &stem.segments).map(|g| {
+                        (
+                            g.update_order,
+                            RoomObject::Coral(CoralRef::Segment(g.update_order)),
+                        )
+                    }))
                     .chain(s.wall_mycelia.iter().map(|w| {
                         (
                             w.update_order,
@@ -202,6 +298,10 @@ impl RainWorldGame {
 
     /// The `Update` of a coral object of room `index`.
     pub(super) fn run_coral(&mut self, index: i32, which: CoralRef) {
+        if let CoralRef::Segment(order) = which {
+            self.run_stem_segment(index, order);
+            return;
+        }
         let camera = self.camera_view;
         let viewed = index == self.camera_room;
         let Some(r) = self.world.realized_mut(index) else {
@@ -216,6 +316,7 @@ impl RainWorldGame {
             r.cameras_changed_tick,
         );
         match which {
+            CoralRef::Segment(_) => {}
             CoralRef::System => system.update(viewed, &mut self.rng),
             CoralRef::Neuron(order) => {
                 let env = MyceliumEnv {
@@ -250,6 +351,110 @@ impl RainWorldGame {
             }
         }
         if let Some(r) = self.world.realized_mut(index) {
+            r.coral = Some(system);
+        }
+        self.flush_mycelium_sparks(index);
+    }
+
+    /// `StemSegment.Update` of the segment at `order` in room `index`: nothing while the
+    /// system is frozen; else its physics (the terrain impacts' noises and screen movements
+    /// are made at once, before the rest), then the strands, the neuron, the constraint to
+    /// the segment before it, the root and the walls.
+    pub(super) fn run_stem_segment(&mut self, index: i32, order: u64) {
+        let camera = self.camera_view;
+        let room_gravity = self.room_gravity(index);
+        let Some(r) = self.world.realized_mut(index) else {
+            return;
+        };
+        let Some(mut system) = r.coral.take() else {
+            return;
+        };
+        let (room, ai_map, tick_no) = (
+            Arc::clone(&r.room),
+            r.ai_map.clone(),
+            r.cameras_changed_tick,
+        );
+        let water = r.water.take();
+        let found = system.stems.iter().enumerate().find_map(|(s, stem)| {
+            let k = stem.segments.iter().position(|g| g.update_order == order)?;
+            Some((s, k))
+        });
+        let (Some((s, k)), Some(ai_map)) = (found, ai_map) else {
+            if let Some(r) = self.world.realized_mut(index) {
+                r.water = water;
+                r.coral = Some(system);
+            }
+            return;
+        };
+        let frozen = system.frozen();
+        let state = system.state();
+        let wind = system.wind;
+        let tick = StemTick {
+            room: &room,
+            ai_map: &ai_map,
+            water: water.as_ref(),
+            wind,
+            room_gravity,
+        };
+        let calls = system.stems[s].segment_physics(k, frozen, &tick);
+        let source = NoiseSource::Segment(SegmentRef {
+            room: index,
+            stem: s as u32,
+            segment: k as u32,
+        });
+        if let Some(r) = self.world.realized_mut(index) {
+            r.water = water;
+            r.coral = Some(system);
+        }
+        for call in calls {
+            match call {
+                ImpactCall::ScreenMovement(m) => self.room_screen_movement(index, m),
+                ImpactCall::Noise(pos, strength) => self.room_noise(
+                    index,
+                    InGameNoise {
+                        pos,
+                        strength,
+                        source: Some(source),
+                        interesting: 1.0,
+                    },
+                ),
+            }
+        }
+        if frozen {
+            return;
+        }
+        let Some(mut system) = self.world.realized_mut(index).and_then(|r| r.coral.take()) else {
+            return;
+        };
+        let water = self.world.realized_mut(index).and_then(|r| r.water.take());
+        let tick = StemTick {
+            room: &room,
+            ai_map: &ai_map,
+            water: water.as_ref(),
+            wind,
+            room_gravity,
+        };
+        let env = MyceliumEnv {
+            room: &room,
+            room_index: index,
+            ai_map: Some(&ai_map),
+            camera,
+            cameras_changed_tick: tick_no,
+            system: Some(state),
+        };
+        let neuron = system.stems[s].segments[k].neuron;
+        let CoralNeuronSystem { stems, neurons, .. } = &mut system;
+        let neuron = neuron.and_then(|o| neurons.iter_mut().find(|n| n.update_order == o));
+        stems[s].segment_after_physics(
+            k,
+            neuron,
+            &mut self.world.mycelia,
+            &env,
+            &tick,
+            &mut self.rng,
+        );
+        if let Some(r) = self.world.realized_mut(index) {
+            r.water = water;
             r.coral = Some(system);
         }
         self.flush_mycelium_sparks(index);

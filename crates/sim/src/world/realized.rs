@@ -135,14 +135,16 @@ impl RealizedRoom {
 
     /// The room's `climbableVines` with its vines' owners, for the player's update.
     pub fn vine_access(&mut self) -> Option<crate::VineAccess<'_>> {
+        let (neurons, stems) = match self.coral.as_mut() {
+            Some(c) => (c.neurons.as_mut_slice(), c.stems.as_mut_slice()),
+            None => (&mut [][..], &mut [][..]),
+        };
         Some(crate::VineAccess {
             system: self.climbable_vines.as_ref()?,
             host: crate::RoomVines {
                 placed: &mut self.placed_vines,
-                neurons: self
-                    .coral
-                    .as_mut()
-                    .map_or(&mut [], |c| c.neurons.as_mut_slice()),
+                neurons,
+                stems,
             },
         })
     }
@@ -155,6 +157,7 @@ impl RealizedRoom {
             crate::RoomVinesView {
                 placed: &self.placed_vines,
                 neurons: self.coral.as_ref().map_or(&[], |c| c.neurons.as_slice()),
+                stems: self.coral.as_ref().map_or(&[], |c| c.stems.as_slice()),
             },
         ))
     }

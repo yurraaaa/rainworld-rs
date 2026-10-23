@@ -21,7 +21,9 @@ use crate::creature::{
 };
 use crate::item::Entity;
 use crate::player::{HeavyCarry, JumpChunkBody};
-use crate::{Animation, CosmeticKind, FloatExt, Player, SoundId, Vec2, Water, WaterDrip};
+use crate::{
+    Animation, CosmeticKind, FloatExt, LookTarget, Player, SoundId, Vec2, Water, WaterDrip,
+};
 
 impl RainWorldGame {
     /// `game.evenUpdate`: toggled before the rooms update, false at construction, so true
@@ -1150,19 +1152,36 @@ impl RainWorldGame {
     }
 
     /// The room's physical objects in its update list but the player, oldest first.
-    pub(super) fn room_physical_objects(&self, index: i32) -> Vec<Entity> {
-        let mut objects: Vec<(u64, Entity)> = self
+    pub(super) fn room_physical_objects(&self, index: i32) -> Vec<LookTarget> {
+        let mut objects: Vec<(u64, LookTarget)> = self
             .world
             .room_overseers(index)
             .into_iter()
-            .map(|(seq, id)| (seq, Entity::Creature(id)))
+            .map(|(seq, id)| (seq, LookTarget::Entity(Entity::Creature(id))))
             .collect();
         for (id, c) in self.world.creatures() {
             if let Some(f) = c.fly().filter(|f| f.room == Some(index)) {
-                objects.push((f.update_order, Entity::Creature(id)));
+                objects.push((f.update_order, LookTarget::Entity(Entity::Creature(id))));
             }
         }
-        objects.extend(self.world.room_weapon_entities(index));
+        objects.extend(
+            self.world
+                .room_weapon_entities(index)
+                .into_iter()
+                .map(|(seq, e)| (seq, LookTarget::Entity(e))),
+        );
+        if let Some(c) = self.world.realized(index).and_then(|r| r.coral.as_ref()) {
+            for (stem, s) in c.stems.iter().enumerate() {
+                for (segment, g) in s.segments.iter().enumerate() {
+                    let at = crate::SegmentRef {
+                        room: index,
+                        stem: stem as u32,
+                        segment: segment as u32,
+                    };
+                    objects.push((g.update_order, LookTarget::Segment(at)));
+                }
+            }
+        }
         objects.sort_unstable_by_key(|&(seq, _)| seq);
         objects.into_iter().map(|(_, id)| id).collect()
     }

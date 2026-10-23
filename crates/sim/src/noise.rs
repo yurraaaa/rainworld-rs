@@ -11,13 +11,27 @@ use rw_random::UnityRandom;
 use crate::item::Entity;
 use crate::{BodyChunk, FloatExt, ScreenMovement, TerrainImpact, TerrainImpactHandler, Vec2};
 
+/// A noise's `sourceObject`: a creature or item, or a coral stem's segment (a physical
+/// object that is neither, D41).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum NoiseSource {
+    Entity(Entity),
+    Segment(crate::SegmentRef),
+}
+
+impl From<Entity> for NoiseSource {
+    fn from(e: Entity) -> Self {
+        Self::Entity(e)
+    }
+}
+
 /// `Noise.InGameNoise`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct InGameNoise {
     pub pos: Vec2,
     pub strength: f32,
     /// `sourceObject`.
-    pub source: Option<Entity>,
+    pub source: Option<NoiseSource>,
     pub interesting: f32,
 }
 
@@ -41,14 +55,14 @@ impl TerrainImpact {
     pub fn noise(
         &self,
         chunk: &BodyChunk,
-        source: Entity,
+        source: impl Into<NoiseSource>,
         interesting: f32,
     ) -> Option<InGameNoise> {
         let (pos, strength) = self.noise_at(chunk)?;
         Some(InGameNoise {
             pos,
             strength,
-            source: Some(source),
+            source: Some(source.into()),
             interesting,
         })
     }
@@ -151,7 +165,7 @@ mod tests {
         let expected = (350.0 + (100.0 + 1400.0 * t)) / 2.0;
         assert!((n.strength - expected).abs() < 1e-3, "{}", n.strength);
         assert_eq!(n.pos, Vec2::new(100.0, 50.0 - 8.1));
-        assert_eq!(n.source, Some(Entity::Creature(CreatureId(3))));
+        assert_eq!(n.source, Some(Entity::Creature(CreatureId(3)).into()));
         assert_eq!(n.interesting, 1.0);
         assert!(
             impact(10.0, false)

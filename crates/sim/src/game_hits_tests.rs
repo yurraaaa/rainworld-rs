@@ -25,6 +25,11 @@ use crate::{Input, RainWorldGame, Sounds, Start, Vec2};
 /// A Survivor story in a 20 x 8 room with walls round it and `objects`, the player
 /// stood at (2, 1).
 fn game(objects: Vec<AbstractObject>) -> (RainWorldGame, Vec<ObjectId>) {
+    game_with_placed(objects, "")
+}
+
+/// [`game`] with the room's placed objects.
+fn game_with_placed(objects: Vec<AbstractObject>, placed: &str) -> (RainWorldGame, Vec<ObjectId>) {
     let mut rows = vec!["####################"];
     rows.extend(["#..................#"; 6]);
     rows.push("####################");
@@ -32,6 +37,7 @@ fn game(objects: Vec<AbstractObject>) -> (RainWorldGame, Vec<ObjectId>) {
     let data = WorldData::from_room(&room);
     let settings = RoomSettings {
         random_item_density: 0.0,
+        placed_objects: rw_assets::PlacedObject::parse_list(placed),
         ..RoomSettings::ANCESTOR
     };
     let rooms = Arc::new(FixedRoom(LoadedRoom { room, settings }));
@@ -484,4 +490,62 @@ fn a_rock_flying_by_the_moving_guide_is_only_looked_at() {
             .look_at_flying_weapon,
         Some(ids[0])
     );
+}
+
+/// A coral stem's segment is a layer-0 object that can be hit: a weapon whose last move
+/// crossed one of its chunks pushes it along by its velocity; the hit chunks' masses sum
+/// toward 0.6, a light one lets the weapon fly on, a heavy one stops it there (`Free`).
+/// No draws but the stop's sound.
+#[test]
+fn a_thrown_rock_hits_a_stem_segment() {
+    let (mut g, ids) = game_with_placed(vec![rock(1)], "CoralStem><200><60><0~40");
+    let at = g.world.realized(0).unwrap().coral.as_ref().unwrap().stems[0].segments[0]
+        .body
+        .chunks[1]
+        .pos;
+    let (from, to) = (at - Vec2::new(30.0, 0.0), at + Vec2::new(30.0, 0.0));
+    g.set_stem_chunk_mass(0.1);
+    let vel_before = g.stem_chunk().vel;
+    g.fly_through(ids[0], from, to);
+    let state = g.rng.clone();
+    g.thrown_through_layer_zero(0, ids[0], &mut ());
+    assert_eq!(g.stem_chunk().vel, vel_before + Vec2::new(60.0, 0.0));
+    assert_eq!(g.weapon_mode(ids[0]), WeaponMode::Thrown);
+    assert_eq!(g.rng, state, "no draws");
+    g.set_stem_chunk_mass(0.7);
+    g.fly_through(ids[0], from, to);
+    g.thrown_through_layer_zero(0, ids[0], &mut ());
+    assert_eq!(g.weapon_mode(ids[0]), WeaponMode::Free);
+    let w = g.world.weapon_mut(ids[0]).unwrap();
+    assert_eq!(w.chunk_mut().pos, at);
+}
+
+impl RainWorldGame {
+    fn stem_chunk(&self) -> crate::BodyChunk {
+        self.world
+            .realized(0)
+            .unwrap()
+            .coral
+            .as_ref()
+            .unwrap()
+            .stems[0]
+            .segments[0]
+            .body
+            .chunks[1]
+            .clone()
+    }
+
+    fn set_stem_chunk_mass(&mut self, mass: f32) {
+        self.world
+            .realized_mut(0)
+            .unwrap()
+            .coral
+            .as_mut()
+            .unwrap()
+            .stems[0]
+            .segments[0]
+            .body
+            .chunks[1]
+            .mass = mass;
+    }
 }

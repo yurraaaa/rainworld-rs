@@ -52,6 +52,9 @@ impl RainWorldGame {
                     matches!(e, crate::item::Entity::Creature(_)),
                     self.world().surface_chunks(e).unwrap().to_vec(),
                 ),
+                crate::ChunkOwner::Segment(s) => {
+                    (false, self.world().segment_chunks(s).unwrap().to_vec())
+                }
             };
             chunks.extend(list.into_iter().map(|c| (creature, c)));
         }
