@@ -34,6 +34,7 @@ mod float_ext;
 mod game;
 pub mod insect;
 pub mod item;
+mod light_beam;
 mod light_source;
 mod lightning;
 pub mod map_discovery;
@@ -50,6 +51,7 @@ mod slime_mold;
 mod sound;
 mod spawn;
 mod splash;
+mod spot_light;
 mod token_stalk;
 pub mod trigger;
 mod vec2;
@@ -75,6 +77,7 @@ pub use game::{
     PlayerGlow, PlayerHands, PlayerObserver, PlayerSurroundings, RainWorldGame, Start,
     UtilityReadings,
 };
+pub use light_beam::LightBeam;
 pub use light_source::{LightHardSet, LightSource, LightSourceTick, LightTie};
 pub use lightning::{
     Lightning, LightningEnv, LightningFrame, LightningRoom, LightningSource, ThunderSound,
@@ -101,6 +104,7 @@ pub use sound::{
 };
 pub use spawn::{determine_safe_spawn_tile, place_in_room};
 pub use splash::Splash;
+pub use spot_light::SpotLight;
 pub use token_stalk::{CurveLerp, StalkCoord, TokenStalk};
 pub use vec2::{TileExt, Vec2};
 pub use vec3::Vec3;

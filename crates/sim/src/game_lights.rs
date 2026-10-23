@@ -56,6 +56,7 @@ impl RainWorldGame {
                 l.apply_palette(c);
             }
         }
+        self.apply_palette_to_light_beams();
     }
 
     /// `Room.Darkness(pos)` of room `index`: camera 0's palette darkness in the room it
@@ -234,4 +235,4 @@ impl RealizedRoom {
 
 #[cfg(test)]
 #[path = "game_lights_tests.rs"]
-mod tests;
+pub(super) mod tests;

@@ -9,8 +9,8 @@
 //! Mirrors: Room.cs (Loaded), SuperJumpInstruction.cs, ScavengerTradeInstructionTrigger.cs, ReliableIggyDirection.cs, InputInstructionTrigger.cs
 
 use rw_assets::{
-    AbstractObjectType, CreatureType, IggyCondition, LightSourceData, PlacedObjectType, QuadData,
-    ReliableIggyDirectionData, ResizableData,
+    AbstractObjectType, CreatureType, IggyCondition, LightBeamData, LightSourceData,
+    PlacedObjectType, QuadData, ReliableIggyDirectionData, ResizableData,
 };
 
 use super::RainWorldGame;
@@ -93,6 +93,12 @@ impl RainWorldGame {
                 Some(PlacedObjectType::LightSource) => {
                     LightSourceData::parse(&o.data).map(|d| PlacedRoomObject::Light(pos, d))
                 }
+                Some(PlacedObjectType::LightBeam) => {
+                    LightBeamData::parse(&o.data).map(|d| PlacedRoomObject::LightBeam(pos, d))
+                }
+                Some(PlacedObjectType::SpotLight) => {
+                    QuadData::parse(&o.data).map(|d| PlacedRoomObject::SpotLight(pos, d))
+                }
                 Some(PlacedObjectType::SuperJumpInstruction) => QuadData::parse(&o.data).map(|q| {
                     PlacedRoomObject::Trigger(TriggerObjectKind::SuperJumpInstruction(
                         SuperJumpInstruction::new(pos, q),
@@ -133,6 +139,8 @@ impl RainWorldGame {
             match object {
                 PlacedRoomObject::Trigger(kind) => self.add_trigger_object(index, kind),
                 PlacedRoomObject::Light(pos, data) => self.add_placed_light(index, pos, &data),
+                PlacedRoomObject::LightBeam(pos, data) => self.add_light_beam(index, pos, data),
+                PlacedRoomObject::SpotLight(pos, data) => self.add_spot_light(index, pos, &data),
                 PlacedRoomObject::SlimeMold(pos, rad, through_walls) => {
                     self.add_slime_mold(index, pos, rad, through_walls);
                 }
@@ -482,6 +490,8 @@ mod tests;
 enum PlacedRoomObject {
     Trigger(TriggerObjectKind),
     Light(Vec2, LightSourceData),
+    LightBeam(Vec2, LightBeamData),
+    SpotLight(Vec2, QuadData),
     /// `pos`, `rad`, `throughWalls`.
     SlimeMold(Vec2, f32, bool),
     /// Hover and base positions.

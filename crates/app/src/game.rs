@@ -18,10 +18,10 @@ use rw_assets::{
 use rw_audio::Follow as SoundFollow;
 use rw_graphics::{
     Color, CosmeticSprites, DrawList, DripPalette, FlyGraphics, HologramFrame, HologramGraphics,
-    HologramLightSprites, InsectDraw, InsectSprites, Layer, LightSourceSprites, LightSourceView,
-    LizardColors, LizardGraphics, LizardModule, LizardReading, OverseerGraphics, PlayerGraphics,
-    ShelterDoorSprites, ShortcutPalette, SlimeMoldSprites, TokenStalkSprites, WaterDripSprites,
-    WeaponSprites,
+    HologramLightSprites, InsectDraw, InsectSprites, Layer, LightBeamSprites, LightBeamView,
+    LightSourceSprites, LightSourceView, LizardColors, LizardGraphics, LizardModule, LizardReading,
+    OverseerGraphics, PlayerGraphics, ShelterDoorSprites, ShortcutPalette, SlimeMoldSprites,
+    SpotLightSprites, TokenStalkSprites, WaterDripSprites, WeaponSprites,
 };
 use rw_hud::{HudSetup, OwnerTick, RainCycleView, StartCondition, Subregions};
 use rw_random::UnityRandom;
@@ -130,6 +130,10 @@ struct Graphics {
     /// The lens's and holograms' per-frame draws (the game's come from the global
     /// stream: D1).
     cosmetic: UnityRandom,
+    /// The camera room's placed `LightBeam`s' drawing state (`lastAlpha`, `lastCamPos`,
+    /// ...) by their place in the update list, and the room it was made for.
+    beams: Vec<(u64, LightBeamSprites)>,
+    beams_room: i32,
 }
 
 impl Graphics {
@@ -650,6 +654,8 @@ impl Game {
             lizard_serial: 0,
             earth: Color::BLACK,
             cosmetic: UnityRandom::new(0),
+            beams: Vec::new(),
+            beams_room: -1,
         };
         let sim =
             RainWorldGame::new_story(world, campaign, story, start, rng, sounds, &mut graphics);
@@ -1044,6 +1050,48 @@ impl Game {
         lists
     }
 
+    /// The camera room's placed light beams and spot lights at
+    /// camera position `camera`. A beam's sprites are made again when the camera
+    /// enters the room (`InitiateSprites`).
+    pub fn placed_light_draw_lists(&mut self, camera: usize) -> Vec<(Drawable, DrawList)> {
+        let index = self.sim.camera_room();
+        let Some(r) = self.sim.world().realized(index) else {
+            return Vec::new();
+        };
+        let view = LightBeamView {
+            camera,
+            shader_light: self.sim.world().rain_cycle.shader_light(),
+            darken_lights: r.darken_lights_factor(),
+            water_lights: r.settings.effect_amount(RoomEffectType::WaterLights) > 0.0,
+        };
+        let g = &mut self.graphics;
+        let entered = g.beams_room != index;
+        g.beams_room = index;
+        g.beams
+            .retain(|(id, _)| r.light_beams.iter().any(|b| b.update_order == *id));
+        let mut lists = Vec::new();
+        for b in &r.light_beams {
+            let at = g.beams.iter().position(|(id, _)| *id == b.update_order);
+            let (_, sprites) = match at {
+                Some(at) => &mut g.beams[at],
+                None => {
+                    g.beams.push((b.update_order, LightBeamSprites::default()));
+                    g.beams.last_mut().expect("just pushed")
+                }
+            };
+            if entered {
+                sprites.initiate();
+            }
+            lists.push((Drawable::LightBeam(b.update_order), sprites.draw(b, &view)));
+        }
+        lists.extend(
+            r.spot_lights
+                .iter()
+                .map(|s| (Drawable::SpotLight(s.update_order), s.draw())),
+        );
+        lists
+    }
+
     /// The lizards' sprites in the camera's room at `alpha` between ticks, in the
     /// order their modules were built, in the palette's `black` (their draws come from
     /// the cosmetic stream).
@@ -1235,6 +1283,16 @@ impl Game {
                     .iter()
                     .map(|s| Present::added(Drawable::TokenStalk(s.update_order), s.update_order)),
             );
+            present.extend(
+                r.light_beams
+                    .iter()
+                    .map(|b| Present::added(Drawable::LightBeam(b.update_order), b.update_order)),
+            );
+            present.extend(
+                r.spot_lights
+                    .iter()
+                    .map(|s| Present::added(Drawable::SpotLight(s.update_order), s.update_order)),
+            );
         }
         present
     }
@@ -1331,7 +1389,7 @@ impl Game {
         let view = LightSourceView {
             cam_pos,
             darkness,
-            darken_lights: room.settings.effect_amount(RoomEffectType::DarkenLights),
+            darken_lights: room.darken_lights_factor(),
             water: room.room.water_level().is_some(),
             water_lights: room.settings.effect_amount(RoomEffectType::WaterLights) > 0.0,
             shader_light: self.sim.world().rain_cycle.shader_light(),

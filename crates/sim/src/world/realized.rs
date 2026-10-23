@@ -59,6 +59,12 @@ pub struct RealizedRoom {
     pub light_sources: Vec<crate::LightSource>,
     /// `Room.Loaded`'s `CosmeticSlimeMold`s (no update; drawn).
     pub slime_molds: Vec<crate::CosmeticSlimeMold>,
+    /// `Room.Loaded`'s placed `LightBeam`s in the room's update list.
+    pub light_beams: Vec<crate::LightBeam>,
+    /// `Room.Loaded`'s placed `SpotLight`s (no update; drawn).
+    pub spot_lights: Vec<crate::SpotLight>,
+    /// `Room.Update` has run once (`darkenLightsFactor` is set at its end).
+    pub updated: bool,
     /// `Room.Loaded`'s dead `TokenStalk`s in the room's update list.
     pub token_stalks: Vec<crate::TokenStalk>,
     /// `insectCoordinator`, made by `Room.Loaded` for an insect effect or group.
@@ -81,6 +87,17 @@ pub struct RealizedRoom {
 }
 
 impl RealizedRoom {
+    /// `darkenLightsFactor`: 0 until the room's first `Update`, then the `DarkenLights`
+    /// amount (the DLC dust-storm blend is not ported, D24).
+    #[must_use]
+    pub fn darken_lights_factor(&self) -> f32 {
+        if self.updated {
+            self.settings.effect_amount(RoomEffectType::DarkenLights)
+        } else {
+            0.0
+        }
+    }
+
     /// `new Room` plus the entry delay `Room.Loaded` and `ReadyForAI` set from the
     /// room's effects, placed objects and name.
     pub(crate) fn new(
@@ -112,6 +129,9 @@ impl RealizedRoom {
             holo_lights: Vec::new(),
             light_sources: Vec::new(),
             slime_molds: Vec::new(),
+            light_beams: Vec::new(),
+            spot_lights: Vec::new(),
+            updated: false,
             token_stalks: Vec::new(),
             insects,
             ceiling_tiles,

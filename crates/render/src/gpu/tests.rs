@@ -726,3 +726,111 @@ fn wet_terrain_moves_the_lookup_up_in_bands() {
         assert_eq!(moved, y < 32, "row {y}: wet only above the line");
     }
 }
+
+/// A mesh over room pixels 16..48 (a quad, UVs 0 to 1) in `layer`.
+fn uv_quad_mesh(shader: Shader, color: SpriteColor, layer: Layer) -> DrawItem {
+    DrawItem::Mesh(SpriteMesh {
+        index: 0,
+        vertices: vec![
+            Vec2::new(16.0, 16.0),
+            Vec2::new(48.0, 16.0),
+            Vec2::new(16.0, 48.0),
+            Vec2::new(48.0, 48.0),
+        ],
+        uvs: vec![
+            Vec2::new(0.0, 0.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(0.0, 1.0),
+            Vec2::new(1.0, 1.0),
+        ],
+        triangles: std::borrow::Cow::Owned(vec![[0, 1, 2], [1, 2, 3]]),
+        color,
+        vertex_colors: Vec::new(),
+        shader,
+        layer,
+    })
+}
+
+/// A `SpotLight` (`VectorCircle`, black, `Shadows`) drawn after a `SunBlocker` puts the
+/// grab back to 0 inside the ellipse inscribed in its quad: the sun is back there (lit
+/// (200, 0, 0)) and the quad's corners keep the blocker's shadow (0, 0, 200).
+#[test]
+fn spot_light_lifts_the_sun_block_inside_its_ellipse() {
+    let Some(mut r) = renderer() else { return };
+    set_sunlit_level(&mut r, [0.0, 0.0]);
+    let DrawItem::Sprite(mut block) =
+        white_sprite(Shader::Basic, SpriteColor::rgb(1.0 / 255.0, 0.0, 0.0))
+    else {
+        unreachable!()
+    };
+    block.layer = Layer::Shadows;
+    let spot = uv_quad_mesh(Shader::VectorCircle, SpriteColor::BLACK, Layer::Shadows);
+    let list = DrawList {
+        items: vec![DrawItem::Sprite(block), spot],
+    };
+    r.draw_sprites(&list, Layer::Shadows, [0.0, 0.0]);
+    r.draw_level(LevelView {
+        origin: [0.0, 0.0],
+        size: [64.0, 64.0],
+        rain: 0.0,
+        light: 1.0,
+        water_level: 1.0,
+    });
+    let frame = r.render_image().unwrap();
+    assert_eq!(pixel(&frame, 32, 32), [200, 0, 0], "lit in the ellipse");
+    assert_eq!(pixel(&frame, 17, 17), [0, 0, 200], "blocked at the corner");
+    assert_eq!(
+        pixel(&frame, 4, 4),
+        [200, 0, 0],
+        "no blocker outside 16..48"
+    );
+}
+
+/// `LightBeam` over a depth-10 level (`dp = (int)(101/255 * 254) % 30 / 30 = 1/3`) with
+/// vertex alpha 0.5 (`(dp - 0.2) * 10` clamps to 1 in the alpha's second third, times
+/// `0.5 * 3 - 1`) draws `uv.y * sin(uv.x * 3.14) * 0.5` of its white over the lit level
+/// pixel (200, 0, 0).
+#[test]
+#[allow(clippy::approx_constant, reason = "the game's shader uses 3.14")]
+fn light_beam_alpha_is_uv_sine_in_its_third() {
+    let Some(mut r) = renderer() else { return };
+    set_sunlit_level(&mut r, [0.0, 0.0]);
+    r.draw_level(LevelView {
+        origin: [0.0, 0.0],
+        size: [64.0, 64.0],
+        rain: 0.0,
+        light: 1.0,
+        water_level: 1.0,
+    });
+    let list = DrawList {
+        items: vec![uv_quad_mesh(
+            Shader::LightBeam,
+            SpriteColor {
+                r: 1.0,
+                g: 1.0,
+                b: 1.0,
+                a: 0.5,
+            },
+            Layer::ForegroundLights,
+        )],
+    };
+    r.draw_sprites(&list, Layer::ForegroundLights, [0.0, 0.0]);
+    let frame = r.render_image().unwrap();
+    // Pixel (32, 32)'s centre sits at stage (32, 31): Futile's `SCREEN_PIXEL_OFFSET`
+    // moves it half a pixel.
+    let (ux, uy) = ((32.0 - 16.0) / 32.0, (64.0 - 32.0 - 1.0 - 16.0) / 32.0);
+    let alpha = uy * (ux * 3.14f32).sin() * 0.5;
+    let want_r = 255.0 * alpha + 200.0 * (1.0 - alpha);
+    let want_g = 255.0 * alpha;
+    let got = pixel(&frame, 32, 32);
+    assert!(
+        (f32::from(got[0]) - want_r).abs() <= 2.0,
+        "{got:?} {want_r}"
+    );
+    assert!(
+        (f32::from(got[1]) - want_g).abs() <= 2.0,
+        "{got:?} {want_g}"
+    );
+    // Outside the quad the level stays.
+    assert_eq!(pixel(&frame, 4, 4), [200, 0, 0]);
+}

@@ -1031,6 +1031,18 @@ range; `PhysicalObject.Update` prunes stale `grabbedBy` entries (the player and 
   is `a / colorAlpha`, and the draw multiplies the sprite alpha (which has the
   `colorAlpha` factor) by it, as Futile's vertex colour does (`color.a * alpha`); the
   factor cancels.
+- **Placed `LightBeam` and `SpotLight`** (`rw_sim::{LightBeam, SpotLight}`, graphics
+  `light_beam.rs`, `spot_light.rs`, `quad_grid.rs`, shaders `fs_light_beam`,
+  `fs_vector_circle`): a beam's `blinkType`/`blinkRate`/`nightLight` are parsed
+  (`LightBeamData`) but `BlinkFade()` and `nightFade` are 1 (same user decision as the
+  lights above: no base beam has either; `blinkTicker` and the `DayNight` fade-in with the
+  DLCs), `VoidWeaverActive` (Watcher) and the DLC dust-storm branch of `darkenLightsFactor` (`DustStormIntensity`, `ModManager.DLCShared && dustStorm`) are not ported (`darkenLightsFactor` is 0 until the room's first `Update`, as the game's), and `SpotLight.Update`'s dirty-mesh
+  check (the editor moving the quad) is not. The beam's drawing state (`lastAlpha`,
+  `lastCamPos`, `meshDirty`, the vertex colour `UpdateColor` last set) lives in the app's
+  `Graphics::beams`, not in the sim object, and `lastCamPos` is the port's camera index
+  (`RoomCamera::current`); `InitiateSprites` marks it dirty when the camera enters the
+  room. `paletteLitColor` is set when the app hands over camera 0's picture (as the
+  effect-colour lights'). Neither object makes a random draw.
 - **Not ported (no owner yet):** `setupValues.playerGlowing` (dev setting) and arena
   `playersGlowing` (no arena sessions); `theGlow` and the player's `glowing` set
   mid-cycle by eating a neuron fly (`OracleSwarmer.BitByPlayer`, `SLOracleSwarmer`) or
