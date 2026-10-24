@@ -24,7 +24,7 @@ Fast: use what is already in the conversation; run only the few commands below. 
       in review, review verdict), the exact fix list it was sent, what is left before merge. Agent IDs die
       with the session: say how to resume (a fresh agent on the same worktree with the list).
    3. **Next:** what is approved and in which order; what needs the user's go-ahead.
-   4. **Where the project stands:** milestones done/current, what this session merged (one line each).
+   4. **Where the project stands:** point to `docs/STATUS.md`; milestones done/current, what this session merged (one line each). If this session changed the phase, update and commit STATUS.md.
    5. **Plans and decisions:** the current milestone's step plan and the user's decisions (point to the
       survey files that hold them).
    6. **Unanswered questions:** every question asked of the user without an answer, with the

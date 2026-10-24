@@ -136,6 +136,15 @@ file. If missing, regenerate with `../rainworld-re/tools/decompile_split.sh`
 `/home/yura/.local/share/ilspy/full/Assembly-CSharp.decompiled.cs` remains
 for older notes' line numbers; new notes cite file and member.
 
+`rg` (ripgrep) is installed. Read the decompile with `../rainworld-re/tools/cs.py`
+instead of whole files (Player.cs is 474 KB); usage in `../rainworld-re/README.md`:
+
+- `cs.py outline <Type>`: member line ranges.
+- `cs.py show <Type.Member> [--n K]`: one member's source (overloads all, or the K-th).
+- `cs.py calls <Type.Member> [regex]`: matching lines in order, default `Random\.`;
+  a line with several matches shows `(xN)`, count those for draw-count pins.
+- `cs.py callers <Name> [--in Type]`, `cs.py find <Name>`.
+
 ## Decisions
 
 - Reimplement what the game does, in every situation. Diverge only where the
@@ -164,53 +173,9 @@ for older notes' line numbers; new notes cite file and member.
   to grow a modded variant. Until DLC support exists every DLC counts as not
   installed, even where the game checks files on disk (Downpour's
   `dlcsInstalled`).
-- Current phase: the player controller in a region whose behaving creatures
-  are overseers, bat flies and green lizards (all 9 lizard steps
-  done: decisions, calm behaviours, hunting and fleeing, the player's side of a
-  bite, fights, communication, missions, carrying and eating, lineages), not the full game. Details
-  live in `docs/` and `../rainworld-re`; in short:
-  - A story starts at the campaign's start den; room-exit shortcuts carry the
-    player between the region's rooms (loaded on each room's preparer thread,
-    handing its two stages to the main thread as the game's, D14). The
-    population is generated with the game's draws; every creature but the
-    scavengers leaves its den and runs the general or its type's abstract AI
-    (D14), unrealized without a body. Green lizards, flies and overseers
-    have bodies when their room is realized.
-  - Lizards: path finder and movement, tracker, vision, relationships,
-    noise hearing, social events, graphics, voice (D12), rock/spear hits,
-    death and kills. Their AI decides as the game's (step 7a: utility
-    comparer, prey/threat/aggression/rain trackers, den finder) and they walk
-    on their own (idle, travel, den-going, frustrated, investigating sounds),
-    hunt (approach, lounge, bite and hold) and
-    flee (7b); rivals fight, signal dominance and submission, and a lizard
-    that submits leaves the room on a mission (7c). Their deaths register with
-    their spawners (lineages progress on the slugcat's kills; respawn and wait
-    lists carried across cycles and saves); lizards stay in shelters and are
-    saved there (step 9).
-  - Overseers: body, AI, graphics, guide tutorial text, Monk's guide light,
-    holograms whose triggers are ported (D14). Bat flies: world process,
-    realization, flocks, hives, chains, pipe travel, sounds, graphics.
-  - Player: catches, holds, throws, eats flies (SU_A42's Eat lesson, then
-    SU_A43's super-jump); picks up, carries, swaps, drops, swallows,
-    regurgitates and throws rocks and spears; the Hunter carries one spear on its
-    back (D3); drags dead lizards (through shortcuts, into shelters), which
-    the Hunter eats (D3). Bitten by a lizard (step 8,
-    D19): held in its jaws (stunned, `dangerGrasp`), struggles free with a
-    throw (a weapon at the grabber) or grabs a weapon, dies of a hurting bite;
-    60 ticks held is `GameOver(dangerGrasp)`, cancelled if it gets free.
-  - Saves (`rw-save`, D16): Continue, New Game wipe, start's death-and-quit
-    save. Shelters (D17): door closes on a fed, still slugcat, `Win` writes
-    the save and region state, the sleep screen (D13) continues the next
-    cycle; too little food shows the starve screen. PASSAGE stays greyed out
-    (D13). Dreams are a black stand-in. The rain pushes, kills and floods (water rises in
-    flood rooms, D47); gates and region changes are not there yet.
-  - Death in a story session is the game's: the body keeps simulating,
-    `GameOver` puts the HUD prompt in game-over mode, the map button 40 ticks
-    later saves the death and shows the death screen, whose CONTINUE starts
-    the next cycle. Dev starts (`load_room`, `--room`, arena levels) game
-    over the same way on an unsaved state (D4, D16), and only there R
-    respawns, leaving game-over mode. A body that falls out of the room is destroyed.
-  - Water uses the game's full wavy surface simulation.
+- Current phase: the player controller in a region of overseers, bat flies and green
+  lizards (all 9 lizard steps done), not the full game. What exists, what does not:
+  `docs/STATUS.md`.
 - Game assets inside Unity files (atlases, noise texture, audio) are read
   natively at startup by `rw_assets::unity`
   (`../rainworld-re/notes/unity-assets.md`); no asset cache. AssetRipper
@@ -246,114 +211,14 @@ for older notes' line numbers; new notes cite file and member.
 
 ## Driving the app
 
-`rainworld-rs --mcp` is an MCP server on stdio (`crates/app/src/mcp/`),
-registered in `.mcp.json` as `rainworld-rs` (runs `cargo run --release`, so
-it serves the checkout's current code). Tools: `list_rooms`, `load_room`,
-`new_game`, `step`, `step_sequence`, `respawn`, `set_player`, `get_state`,
-`get_exits`, `get_tiles`, `get_hud`, `hud_message`, `screenshot`,
-`load_process`, `step_process`, `import_save`, `set_destination`,
-`spawn_creature`, `spawn_object`, `teleport_player`, `set_rain_timer`. To check behaviour,
-prefer these over `--screenshot`/`--script`; briefs for such agents say so.
-
-- Headless: the sim advances only in `step` / `step_sequence` (40 ticks/s).
-  Runs are not required to repeat exactly: loading is threaded as in the game
-  (user, 2026-10-24), so the tick a room or region becomes ready can differ
-  between runs. While a room loads, each tick (`step`, `step_process`) waits
-  until 25 ms have passed since the last (the game's 40 Hz frame; port-only,
-  D14); otherwise ticks run unpaced. `load_room` and `new_game` start a fresh music player (it draws
-  from the game's random stream).
-- `load_room` loads a room's region world with the player in it (arena
-  levels: a single-room world) as `slugcat` (default `White`); `new_game`
-  starts a campaign (`White`, `Yellow`, `Red`; `malnourished` option) at its
-  start den. Both (and `respawn` with a seed) step the game without input
-  until the start room is `readyForAI` before replying (at least 3 ticks; the
-  room loads on a thread, so the reply's `tick` can vary).
-- `get_state` reports the camera room (`room` is the room the camera shows; during a pending move `camera_move` names the room it is moving to), the player (food, grasps, pick-up
-  candidate, stomach, counters, sneak/loudness, `held_by`, `danger_grasp` and
-  its time, struggle buttons, `can_struggle`, `cant_be_grabbed_counter`, ...), the vessel in the
-  lobby, realized rooms' entry waits, `loading_progress` and `preparer` (a loading room's `RoomPreparer`: status, calls, `thread_started`, `thread_finished`, `requested_stage`, done), `orphaned_preparers` (rooms abstracted while loading), ceiling drips, each room's `rumble_intensity`, `water` (`default_water_level`, `original_water_level`, `f_water_level`, `last_f_water_level`, `flood_level`, `added_water`) and `room_rain` (intensity, push, splash counts, `sprite_count`, its five to seven sound loops' volume group, volume and whether playing, and `bullet_drips`: each drip's column, positions, `falling`, `fall_speed`, `delay`), `rain` (the cycle, its `ShaderLight`, `RainDarkPalette`, `ScreenShake`/`MicroScreenShake`, `death_rain_has_hit` and `global`: rain direction, `Intensity`, the shakes, `RumbleSound`, bullet density, flood and its speed, the death rain's mode, length, progression and sunlight), dripping sound, water surface sound, bubbles and bubble emitters, splashes, the player's `owned_items` on the ground, every abstract creature (kind, ID, room,
-  node, tile, den, realized, alive, abstract AI; realized flies, lizards
-  with their movement, tracker, relationships, noise, decision (`social`:
-  fight target and anger, `submitted_to`, last signal, missions, `taming_difficulty`, `gift`) and, in a
-  viewed room, graphics and voice; overseers with AI and guide state; stun/kill tag, `rain_death`,
-  `social`, `danger`, `carries`), every abstract object (and realized
-  state), `orphan_emitters`, `lightning` (a room's two flash sources, thunder queue, `background_noise`; `level_params` shows `num4` and the sky/fog texels), `triggers`, `music`, `holo_lights`, `background_scene` (per scene: kind, elements, the camera's `camera_world`/`altitude`, each `DistantLightning`, dust puffs), `camera_shake`, `full_screen_effect`, `death_fall` (per realized room: counter, height), `water_light`, `rain_masks` (per realized room: `rain_mask_made`), `lights`, `level_params`, `insects`, `slime_molds`, `token_stalks`, `light_beams`, `spot_lights`, `light_fixtures`, `waterfalls`, `light_rods`, `climbable_vines` (per room: each vine's kind, points, total length; and the player's `vine_pos`, `vine_grab_delay`, `vine_climb_cursor`, `want_to_grab`), `zap_coils` (with `zap_coil_lights`, `zap_flashes`), `fuses`, `deep_processing`, `deep_processing_lights`, `gravity_disruptors` (with their specks), `coral_neurons` (per room: each `CoralNeuron`'s length, segments, ends, strands, pings, `being_climbed`), `coral_stems` (per room: each `CoralStem`'s root, size, frozen, `being_climbed`, the neurons its segments made and each `StemSegment`'s chunks, rod, dots, entity ID, strands), `projected_circles` (each `ProjectedCircle`'s radius, blink, depth, connections), `projectors` (a room's `SuperStructureProjector`: ideal and actual glyph, scan line and cursor counts, grid state, cursors), `scan_lines` (`ProjectedScanLines`), `star_matrices` (`ProjectedStars`: rotations, focus), `coral_systems` (per room: wind, age, not-viewed counter, frozen, the registry's strands and owners), `wall_mycelia` (strands, culled, pairs linked, linked to other owners, the first strand), `neuron_sparks`, `coral_circuits` (per room cluster: places, tile box, bit counts, displaced and repairing bits, links, connectors, crabs, the first displaced bit; the player's `circuit_swim_resistance`, `circuit_jump_meter` and `swim_bits` are in `player`), `electric_death` (per room: `Intensity`, `sin`, colour, the flashes, loop volumes, recent strikes), `border_push_back` (per room: the edges, `pushPower`), `shortcut_helper` (per room: the pushers with tile, direction, wrong hole, floor, swell and neighbours, and the objects being pushed out of entrances), `camera_move` (the camera's unapplied move, applied in its next update), `shortcut_graphics` (camera 0's `ShortcutGraphics`: room, `waiting`), polled only when a frame is drawn, so headless `step`s leave `waiting` true until a `screenshot`, `decals`, `rainbows`, `particles`, `session`,
-  `dens`, `quantified`, `flies_world`, `region_state`, `heavy_ai`, `screen_size` (the sim's `rainWorld.screenSize`), `room_gravity` (a `ZeroG`/`BrokenZeroG` or SS_E08 gradient-script room's `gravity`, `electric_power`, `gradient_script`) and `broken_anti_gravity` (the world's switch: `on`, `counter`, `progress`, `lights`). Empty fields are left
-  out; the field list is in `crates/app/src/mcp/`. New sim state must be
-  added there. `get_exits` lists the camera room's exits (entrance tile, the
-  input that enters, destination room, arrival node, camera).
-- `set_player`, `get_tiles` and `screenshot` act on the camera's room, or
-  another realized room given as `room`. To test a transition, put the player
-  on an exit's entrance and hold its input.
-- Dev tools (not game behaviour): `set_destination` gives a realized lizard
-  (by EntityID) a destination tile through the abstract AI's
-  `SetDestination` and a run speed (default 0.5) its AI keeps, its
-  behaviours' bodies skipped, until `release: true` hands run speed and
-  destination back to them. `spawn_creature` adds a
-  base-game creature (`kind` in the game's spelling) at `tile` of `room` as
-  the game makes one (`GetNewID` or `EntityID(-1, seed_id)`, with their draws)
-  and realizes it (`RealizeInRoom`) when the room is ready and the port has
-  its body; it returns the ID and says why it stayed abstract. `spawn_object`
-  adds a `Rock`/`Spear` (`explosive`) realized once the room's shortcuts are
-  ready, or another loose item (`DEV_SPAWN_OBJECTS`) as a plain abstract
-  object, with a note. `teleport_player` sends the player to exit `node`
-  (default first) of another `room` through a vessel in the shortcut lobby,
-  keeping world and session; step until `room` changes. `set_rain_timer`
-  edits the rain timer: `cycle_length`, `restart`/`stop` (timer 0, running/held),
-  `timer`, `shift`, `paused` (a dev flag holding only the timer; not the game's
-  `RainCycle.pause`), `speed` (timer ticks per tick); `get_state.rain` reports
-  the cycle, the dev flags and the global rain (D44). An edit of `cycle_length`, `restart`,
-  `stop`, `timer` or `shift` that leaves the timer before the cycle's end also rewinds the rain
-  (global rain, rooms' rain intensity, flood level, added water, `rainDeath`, creatures the rain kept in dens released; port-only, not the
-  game's `ResetRain`, D44). While the overseer tutorial's `pauseRain` is set
-  (story starts) it pins the timer at 2000 each tick, as the game does.
-- `screenshot` returns a PNG from the window's draw path, offscreen. The
-  debug view outlines every realized body's chunks and rods in the camera's
-  room; `crop_radius` zooms on the player (or `crop_center`). With `room` it
-  draws another realized room from camera `camera` (default 0), reading the
-  world only; creatures there are debug bodies (no graphics modules), items
-  draw sprites, the room's full-screen effect, death fall and water light draw as
-  camera 0 viewing it would; water surface sprites and HUD are left out. `get_tiles` gives geometry as
-  text. In a region world the uncropped view includes the HUD; `get_hud`
-  reports meters, region map, text prompt (`game_over`) and the SU_C04
-  controls page; `hud_message` queues a prompt message. Input fields: `map`
-  (Space; map shows after 30 ticks; x/y pan, jump/throw change layers),
-  `pickup` (left Shift: pick up, drop with down, switch hands by double tap,
-  eat/swallow/regurgitate held), `throw` (X).
-- `load_process` boots the process manager as the game does into a process
-  (`intro_roll` default, `main_menu`, `slugcat_select`, `font_test`,
-  `game`); `step_process` runs 1/40 s frames holding Rewired key names,
-  released after the last frame. Keys feed the menus (Z/Return/Space submit,
-  Escape cancel/pause, arrows) and, once the game runs, the player (arrows
-  move, Z jumps, Space holds the map). Buttons see a press a tick late and
-  click on release: a tap is one frame held, two released. Boot to play: any
-  key after the intro roll's first second; tap Return on STORY; hold Z on
-  START (~40 frames): the intro slideshow plays (~95 s; Escape skips, or hold
-  S with Z on START to go straight to the game), then a new Survivor game at
-  `SU_C04`, black 3 s while the start script holds the slugcat. Music runs
-  silently (`TimedSources`), independent of the audio device. `step_process`
-  reports slideshow clock/scene, `music`, `triggers`, the pause menu, and in
-  game mode the fade delay, start script and player controller; `get_hud`
-  reads the game process's HUD; `screenshot` draws the frame with its fade.
-- Saves: `import_save` copies a game slot (`slot` 0-2, `game_saves` to
-  override the source) into the port's save directory (`--save-dir`, default
-  the platform data dir; tests use temporary directories, never the real
-  ones), backing up the port's copy. The process menus read the options'
-  slot (`options_menu` opens the options menu, whose import button does the
-  same), so START on a saved page continues. `step_process` reports
-  `options`, `save`, `story` and `karma_screen` (sleep/death/starve screen).
-  The pause menu's Exit saves (death after 30 s, quit after 5).
-- `--mcp --window` also shows the driven scene (agents must not use it).
-- The windowed app (not MCP) has a debug UI (Dear ImGui via `rw-render`'s
-  overlay; D18), F1 toggles it. Tabs: Region (stub), Teleport, Rain timer, Creatures,
-  Spawn creature, Spawn object (the same actions as the MCP tools). Actions
-  apply before the next frame's ticks; a focused text field takes key and
-  mouse presses. A tool is a `DebugTab` in
-  `crates/app/src/debug_ui/tabs.rs`.
+`rainworld-rs --mcp` is an MCP server (`crates/app/src/mcp/`) registered in `.mcp.json` as
+`rainworld-rs`. Agents check behaviour headless with its tools (not `--screenshot`/`--script`;
+briefs for such agents say so) and read `docs/mcp.md` before using them. Never `--window`.
 
 ## Code style
 
-Briefs must repeat these rules.
+Briefs do not repeat these rules: every subagent loads this file. A brief's standing-rules block
+carries only the rules this file does not state.
 
 - No local closures bound inside functions (`let at = |i| ...;`): write a
   method on the owning type. Closures passed straight to iterator adaptors
