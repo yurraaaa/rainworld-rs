@@ -694,7 +694,7 @@ impl RainWorldGame {
     /// step (`loadingRooms`' preparers).
     pub fn tick(&mut self, input: Input, observer: &mut dyn PlayerObserver) {
         // `RoomCamera.Update`: the room change (`ApplyPositionChange`) before the shake.
-        self.apply_insect_view_change();
+        self.apply_view_change(observer);
         self.update_camera_shake();
         self.update_global_rain();
         let follow = self.follow_creature();

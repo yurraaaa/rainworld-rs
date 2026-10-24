@@ -765,7 +765,6 @@ impl Scene {
             _ => None,
         };
         // Every drawable's sprites, in camera 0's container order.
-        let has_player_sprites = sprites.is_some();
         let objects = if target.sprites.is_some() {
             self.game.sync_sprite_order();
             let player = Drawable::Entity(rw_sim::item::Entity::Creature(
@@ -932,7 +931,7 @@ impl Scene {
             water: water.as_ref(),
             water_sprites,
             level,
-            player_sprites: has_player_sprites,
+            sprites: target.sprites.is_some(),
             shadows: &shadows,
             objects: &objects,
             holograms: &holograms,
@@ -1043,10 +1042,11 @@ struct FrameDraw<'a> {
     water_sprites: Option<(&'a WaterSprites, f32)>,
     /// The game's window into the level graphic; `None` in the debug view.
     level: Option<LevelView>,
-    /// The slugcat has sprites this frame. They draw only with the level graphic;
-    /// without it (the debug view, or no atlas) the physical body is drawn: chunks, rods
-    /// and contacts.
-    player_sprites: bool,
+    /// The target draws sprites (there is an atlas). Without them or the level graphic
+    /// the physical bodies are drawn: chunks, rods and contacts. A frame where only the
+    /// slugcat has none (it is in a shortcut while the camera still shows the room it
+    /// left) draws no outlines, as the game draws the room's sprites until `ChangeRoom`.
+    sprites: bool,
     /// The `Shadows` container's sprites (level view only).
     shadows: &'a [DrawList],
     /// Every drawable's sprites (level view only), the slugcat's and the shortcut
@@ -1103,7 +1103,7 @@ impl FrameDraw<'_> {
             self.draw_layer(r, Layer::BackgroundShortcuts, level);
             self.draw_layer(r, Layer::Background, level);
         }
-        if self.level.is_none() || !self.player_sprites {
+        if self.level.is_none() || !self.sprites {
             for (body, status, kind) in self.game.debug_bodies() {
                 let style = status.style(self.time).tinted(kind.color(), status.dead);
                 r.draw_object_styled(body, self.alpha, style);
@@ -1403,7 +1403,7 @@ mod tests {
                 water,
                 water_sprites,
                 level,
-                player_sprites: true,
+                sprites: true,
                 objects: &objects,
                 shadows: &[],
                 holograms: &[],
@@ -1471,7 +1471,7 @@ mod tests {
                     light: 1.0,
                     water_level: 1.0,
                 }),
-                player_sprites: true,
+                sprites: true,
                 objects: &objects,
                 shadows: &[],
                 holograms: &[],
@@ -1487,6 +1487,40 @@ mod tests {
             let tail: Vec<&str> = r.order.iter().rev().take(2).rev().copied().collect();
             assert_eq!(tail, want, "map_over_disc {over}: {:?}", r.order);
         }
+    }
+
+    /// The slugcat in a shortcut while the camera still shows the room it left: the level
+    /// view draws the room's sprites and no outlines.
+    #[test]
+    fn level_view_without_player_sprites_draws_no_colliders() {
+        let game = Game::new(open_room(), &rw_assets::RoomSettings::ANCESTOR, 1, None);
+        let mut r = Recorder::default();
+        FrameDraw {
+            game: &game,
+            water: None,
+            water_sprites: None,
+            level: Some(LevelView {
+                origin: [0.0, 0.0],
+                size: [1366.0, 768.0],
+                rain: 0.0,
+                light: 1.0,
+                water_level: 1.0,
+            }),
+            sprites: true,
+            objects: &[],
+            shadows: &[],
+            holograms: &[],
+            hud_below: &StageBatch::default(),
+            screen: [1366.0, 768.0],
+            map_over_disc: false,
+            layers: RoomLayers::default(),
+            camera: Camera::fit([1.0, 1.0], (1366, 768), 0.0),
+            alpha: 1.0,
+            time: 0.0,
+        }
+        .queue(&mut r);
+        assert!(r.level);
+        assert_eq!((r.circles, r.rings, r.lines), (0, 0, 0));
     }
 
     #[test]

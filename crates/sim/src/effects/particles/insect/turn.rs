@@ -8,14 +8,14 @@
 //! tick's rooms. A session's first room is shown the same way, on the first tick,
 //! before the room has finished loading (`readyForAI` false).
 //!
-//! Mirrors: RoomCamera.cs (ChangeRoom: the rooms' NowViewed and NoLongerViewed), Room.cs (Update: the insects' turns), FireFly.cs (Update: its light)
+//! Mirrors: RoomCamera.cs (ChangeRoom: the rooms' NowViewed and NoLongerViewed), Room.cs (NowViewed, NoLongerViewed, Update: the insects' turns), FireFly.cs (Update: its light)
 
 #[cfg(test)]
 #[path = "tests/turn.rs"]
 mod tests;
 
 use crate::creature::{CreatureId, RealizedCreature};
-use crate::game::{RainWorldGame, RoomObject};
+use crate::game::{PlayerObserver, RainWorldGame, RoomObject};
 use crate::insect::{
     CosmeticInsect, FireFlyLight, InsectBody, InsectCreature, InsectCreatureSlot, InsectCx,
     InsectWater,
@@ -31,10 +31,11 @@ pub(crate) struct InsectViewChange {
 }
 
 impl RainWorldGame {
-    /// `RoomCamera.ChangeRoom`'s insect part, pending since the camera moved: the old
-    /// room's `NoLongerViewed`, then the new one's `NowViewed` (none for a move within
-    /// one room).
-    pub(crate) fn apply_insect_view_change(&mut self) {
+    /// `RoomCamera.ChangeRoom`'s room effects, pending since the camera moved: the old
+    /// room's `NoLongerViewed` (graphics modules, then insects), then the new one's
+    /// `NowViewed` (particles, graphics modules, insects; none for a move within one room;
+    /// a session's first room makes its modules elsewhere).
+    pub(crate) fn apply_view_change(&mut self, observer: &mut dyn PlayerObserver) {
         let Some(change) = self.insect_view.take() else {
             return;
         };
@@ -42,15 +43,20 @@ impl RainWorldGame {
         if change.from == Some(change.to) {
             return;
         }
-        if let Some(from) = change.from
-            && let Some(c) = self
+        if let Some(from) = change.from {
+            self.modules_no_longer_viewed(from, observer);
+            if let Some(c) = self
                 .world
                 .realized_mut(from)
                 .and_then(|r| r.insects.as_mut())
-        {
-            c.no_longer_viewed();
+            {
+                c.no_longer_viewed();
+            }
         }
         self.particles_now_viewed(change.to);
+        if change.from.is_some() {
+            self.modules_now_viewed(change.to, observer);
+        }
         self.insects_now_viewed(change.to);
     }
 
