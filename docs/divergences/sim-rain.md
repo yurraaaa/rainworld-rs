@@ -95,10 +95,49 @@ sum is 0; the game's sign slip, ported as the game has it by the user's decision
   (`RainIntensity < 0.02`), More Slugcats' `OE` gate (`RainIntensity <= 0.2`), Watcher's
   `rippleLayer` skip and `WaterCycleBottom/Top` objects (which also make a `RoomRain`), the
   precycle intensity and flood arms, the Saint `Blizzard` type and `rippleFade`.
-- **Not yet:** the flood arm of `Update` (R4), the loops (R3), the drips (R5), `DrawSprites`
-  and the splash sprites (R3).
+- **Not yet:** the flood arm of `Update` (R4), the drips (R5); the loops, `DrawSprites` and
+  the splash sprites are D46.
 
 **Why.** Scope of step R2 (survey `rain/core.md`); the rest waits for R3-R5.
 
 **Affects.** The stream (each pushed chunk makes 3 to 7 draws a tick in a pushing room),
 the bodies' velocities and stuns in a death rain, the player's lungs and death.
+
+## D46: The room rain's sprites, shader and sounds (`RoomRain.DrawSprites`, the seven loops)
+
+`RoomRain`'s sprites are `rw_graphics::RoomRainSprites::draw` (`effects/gameplay/room_rain.rs`):
+sprite 0 is a `Futile_White` quad scaled to `options.ScreenSize.x` by 768 at the stage origin
+with the `DeathRain` shader in `GrabShaders`, and `splashes` splash sprites of `1 + splashes`
+(`90DegreeSplash` below `splashes / 2`, anchor y 0.2, then `TallSplash`, 0.1) in `Items`,
+placed on up to five random `splashTiles` a drawn frame with the game's order of draws on the
+cosmetic stream (D1). `DeathRain.shader` is `death_rain.wgsl` (a `GrabPass`; the room's
+`RainMask_` is the mask texture the `WaterLight` already reads, now generated for every room,
+not only those with water). `_rainDirection`, `_RainSpriteRect`, `_rainIntensity` and
+`_rainEverywhere` are set by `Renderer::set_rain_globals` from the camera room's `RoomRain`
+each drawn frame; `_waterLevel` is the camera's, as for the other shaders. The seven
+`DisembodiedDynamicSoundLoop`s are `RainLoops` (`world/room_rain_sound.rs`), updated at the
+end of `RoomRain.Update` through the shared `ChunkDynamicSoundLoop`, with their emitters in
+the room's update list; the rain loops' volume group (3, or 0 for the distant and screen
+shake loops and a non-`Flood` room's flood loop) reaches `rw-audio` as an emitter event.
+
+**Kept as the game has it (user, 2026-10-24):** the last splash sprite (index `splashes`)
+is created but never added to a container nor updated, so it is not drawn.
+
+**What differs:**
+- **Where the sprites are built.** In `rw-graphics`, as `ElectricDeath`'s, from the sim's
+  `RoomRain`; the app hands it the camera room's water, the camera position and the palette's
+  fog colour. A hidden sprite (intensity 0, or no splash tile in view) is simply not in the
+  draw list; the game's `isVisible` sprites at intensity 0 and the swap to the `Basic`
+  shader make no difference to the frame.
+- **Listed, not ported (DLC and Remix, base game with Remix off):** `smoothRippleClip`
+  (Watcher's ripple; a no-op in the base game), `rippleFade` (1 in the base game), Remix's
+  `_RainSpriteRect` width (`sSize.x` instead of the 1366 literal), the `Blizzard` type's
+  missing flood loop, the Watcher `Water_Machinery_*` sounds.
+- **Not here:** `Bullet_Drip_Strike` and the drips' sprites (`BulletDrip`, R5); the flood's
+  loop volume reads `floodSpeed`, which R4 moves.
+
+**Why.** Scope of step R3 (survey `rain/core.md` sections 8 and 9).
+
+**Affects.** The stream: a pushing or raining room makes the loops' 7 draws each time one
+starts (a loop that was at volume 0 the tick before starts twice, as `DynamicSoundLoop.Update`
+does) and, on the cosmetic stream, 5 to 8 draws per splash each drawn frame.

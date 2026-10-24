@@ -148,6 +148,10 @@ pub trait Renderer {
     /// Sets the background scene shaders' globals for the next frames.
     fn set_scene_globals(&mut self, _globals: SceneGlobals) {}
 
+    /// Sets the `DeathRain` shader's globals (`RoomRain.DrawSprites`; Unity globals keep
+    /// their value until set again).
+    fn set_rain_globals(&mut self, _globals: rw_graphics::RainShaderGlobals) {}
+
     /// Sets `_gridOffset`, the `GlyphProjection` shader's global (a Unity global: it keeps
     /// its value until set again).
     fn set_grid_offset(&mut self, _offset: [f32; 2]) {}

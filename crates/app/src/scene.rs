@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use rw_assets::{CustomDecalData, StreamingAssets, UnityResources};
-use rw_graphics::{BackgroundSceneView, DrawList, Layer, SceneImageSizes};
+use rw_graphics::{BackgroundSceneView, DrawList, Layer, RainShaderGlobals, SceneImageSizes};
 use rw_hud::{Hud, IllustrationSource, PageText};
 use rw_menu::{AtlasManager, Font, MenuShared};
 use rw_random::UnityRandom;
@@ -764,6 +764,7 @@ impl Scene {
             }
             _ => None,
         };
+        let mut rain_globals = None;
         // Every drawable's sprites, in camera 0's container order.
         let objects = if target.sprites.is_some() {
             self.game.sync_sprite_order();
@@ -874,6 +875,17 @@ impl Scene {
                     DeathFallSprite::draw_list(fall, fall.height, width, cam_pos, alpha),
                 ));
             }
+            if level_view
+                && let Some((drawable, globals, list)) = self.game.room_rain_draw(
+                    alpha,
+                    cam_pos,
+                    rw_sim::Vec2::from(self.camera.position(self.camera.current())),
+                    fog,
+                )
+            {
+                rain_globals = Some(globals);
+                lists.push((drawable, list));
+            }
             self.game.in_container_order(lists)
         } else {
             Vec::new()
@@ -942,6 +954,7 @@ impl Scene {
             camera,
             alpha,
             time,
+            rain: rain_globals,
         }
         .queue(r);
         self.hud_below = StageBatch::default();
@@ -1064,6 +1077,8 @@ struct FrameDraw<'a> {
     camera: Camera,
     alpha: f32,
     time: f32,
+    /// `RoomRain.DrawSprites`' shader globals, when the camera room has one.
+    rain: Option<RainShaderGlobals>,
 }
 
 impl FrameDraw<'_> {
@@ -1089,6 +1104,9 @@ impl FrameDraw<'_> {
             && let Some(offset) = self.game.projection_grid_offset(self.alpha)
         {
             r.set_grid_offset(offset);
+        }
+        if let Some(globals) = self.rain {
+            r.set_rain_globals(globals);
         }
         r.draw_room(RoomLayers {
             tiles: self.layers.tiles && self.level.is_none(),
@@ -1414,6 +1432,7 @@ mod tests {
                 camera: Camera::fit([1.0, 1.0], (1366, 768), 0.0),
                 alpha: 1.0,
                 time: 0.0,
+                rain: None,
             }
             .queue(&mut r);
             r
@@ -1482,6 +1501,7 @@ mod tests {
                 camera: Camera::fit([1.0, 1.0], (1366, 768), 0.0),
                 alpha: 1.0,
                 time: 0.0,
+                rain: None,
             }
             .queue(&mut r);
             let tail: Vec<&str> = r.order.iter().rev().take(2).rev().copied().collect();
@@ -1517,6 +1537,7 @@ mod tests {
             camera: Camera::fit([1.0, 1.0], (1366, 768), 0.0),
             alpha: 1.0,
             time: 0.0,
+            rain: None,
         }
         .queue(&mut r);
         assert!(r.level);

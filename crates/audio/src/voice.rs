@@ -20,6 +20,8 @@ pub struct Emitter {
     pub looped: bool,
     /// A `DisembodiedLoopEmitter`'s `pan` once the sim set one.
     pub pan: Option<f32>,
+    /// `volumeGroup`, the microphone's volume group the sound is heard through.
+    pub group: usize,
     /// Ticks ended since a loop's owner last set it (`requireActiveUpkeep`).
     pub unkept: u8,
 }
@@ -53,6 +55,7 @@ impl Emitters {
             pitch: sound.emitter_pitch,
             looped: sound.looped,
             pan: None,
+            group: 0,
             unkept: 0,
         });
     }
@@ -73,6 +76,12 @@ impl Emitters {
     pub fn set_pan(&mut self, id: EmitterId, pan: f32) {
         if let Some(e) = self.0.get_mut(&id) {
             e.pan = Some(pan);
+        }
+    }
+
+    pub fn set_group(&mut self, id: EmitterId, group: usize) {
+        if let Some(e) = self.0.get_mut(&id) {
+            e.group = group;
         }
     }
 
@@ -198,7 +207,7 @@ impl Voice {
                 // `DisembodiedLoop.Update` reads the emitter's volume and pitch each frame.
                 let e = emitters.get(emitter)?;
                 return Some(SourceMix {
-                    volume: mic.source_volume(e.volume, s.volume, mic.volume_groups()[0]),
+                    volume: mic.source_volume(e.volume, s.volume, mic.volume_groups()[e.group]),
                     pan: e.pan.unwrap_or(pan),
                     pitch: e.pitch * s.pitch,
                     cutoff: Microphone::low_pass_cutoff(mic.under_water, s.ignore_effects),
@@ -334,6 +343,42 @@ mod tests {
         assert_eq!(mix.pan, -0.4);
         emitters.remove(EmitterId(3));
         assert!(voice.mix(&mic, &emitters, 1.0, 0.0, None).is_none());
+    }
+
+    /// A `DisembodiedLoop` is heard through its emitter's `volumeGroup` (`DynamicSoundLoop.Start`
+    /// sets it): the rain loops' group 3 is not drowned out by the rain, group 0 is.
+    #[test]
+    fn a_disembodied_loop_is_heard_through_its_volume_group() {
+        let sound = PlayedSound {
+            id: SoundId::CycleStartDrips,
+            clip: 0,
+            variation: 0,
+            volume: 0.5,
+            pitch: 1.0,
+            range: 1.0,
+            doppler_fac: 0.0,
+            ignore_effects: 0.0,
+            start_at: None,
+            source: SoundSource::DisembodiedLoop {
+                emitter: EmitterId(3),
+                pan: 0.0,
+            },
+            looped: true,
+            emitter_volume: 1.0,
+            emitter_pitch: 1.0,
+        };
+        let mut emitters = Emitters::default();
+        emitters.insert_for(&sound, None);
+        let mut mic = Microphone::following(Vec2::new(100.0, 400.0));
+        mic.rain_drown_out = 0.5;
+        let mut voice = Voice::new(sound, &mic, 0.0);
+        emitters.set(EmitterId(3), 0.25, 1.0);
+        let quiet = voice.mix(&mic, &emitters, 1.0, 0.0, None).unwrap().volume;
+        emitters.set_group(EmitterId(3), 3);
+        let loud = voice.mix(&mic, &emitters, 1.0, 0.0, None).unwrap().volume;
+        assert_eq!(quiet, mic.source_volume(0.25, 0.5, mic.volume_groups()[0]));
+        assert_eq!(loud, mic.source_volume(0.25, 0.5, mic.volume_groups()[3]));
+        assert!(loud > quiet);
     }
 
     /// A `RectangularSound` is heard from the point of its rect nearest the listener,

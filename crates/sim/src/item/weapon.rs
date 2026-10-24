@@ -145,6 +145,8 @@ pub struct ChunkDynamicSoundLoop {
     v: f32,
     last_vol: f32,
     p: f32,
+    /// `VolumeGroup`: the microphone's volume group the emitter is heard through.
+    pub volume_group: usize,
     pub emitter: Option<LoopEmitter>,
     /// Emitters `Stop` let go, still in the room until their next update destroys them.
     pub released: Vec<LoopEmitter>,
@@ -158,6 +160,7 @@ impl Default for ChunkDynamicSoundLoop {
             v: 1.0,
             last_vol: 1.0,
             p: 1.0,
+            volume_group: 0,
             emitter: None,
             released: Vec::new(),
         }
@@ -1335,6 +1338,9 @@ impl ChunkDynamicSoundLoop {
                 .play_rect(sound, rect, true, self.v, self.p, cx.rng),
         };
         let playing = cx.room_index == cx.camera_room && cx.sounds.events().len() > before;
+        if self.volume_group != 0 {
+            cx.sounds.set_emitter_group(id, self.volume_group);
+        }
         *cx.update_seq += 1;
         self.emitter = Some(LoopEmitter {
             sound: id,

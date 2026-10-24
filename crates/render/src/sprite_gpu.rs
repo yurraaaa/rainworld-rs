@@ -9,7 +9,7 @@ use std::borrow::Cow;
 
 use rustc_hash::FxHashMap;
 use rw_assets::PngImage;
-use rw_graphics::Shader;
+use rw_graphics::{RainShaderGlobals, Shader};
 use wgpu::util::DeviceExt;
 
 use crate::{
@@ -39,6 +39,10 @@ struct RoomUniform {
     scene_world_cam: [f32; 4],
     /// `_gridOffset` (xy).
     grid_offset: [f32; 4],
+    /// `_rainDirection`, `_rainIntensity`, `_rainEverywhere`.
+    rain_a: [f32; 4],
+    /// `_RainSpriteRect`.
+    rain_rect: [f32; 4],
 }
 
 /// The sprite pipelines, the atlas pages' bind groups and the frame's buffers.
@@ -68,6 +72,8 @@ pub(crate) struct SpritePipeline {
     scene_globals: SceneGlobals,
     /// `_gridOffset`, a global the last `SingleGlyph` to draw left set.
     grid_offset: [f32; 2],
+    /// `RoomRain`'s shader globals, as the last `DrawSprites` set them.
+    rain: RainShaderGlobals,
     scene_views: SceneViews,
     /// `_CloudsTex`: bilinear, repeat, the nearest mip.
     clouds_sampler: wgpu::Sampler,
@@ -94,7 +100,7 @@ pub(crate) struct ScreenTextures<'a> {
 
 impl SpritePipeline {
     /// Each shader and its fragment entry point.
-    const SHADERS: [(Shader, &'static str); 42] = [
+    const SHADERS: [(Shader, &'static str); 43] = [
         (Shader::Basic, "fs_basic"),
         (Shader::FlatLight, "fs_flat_light"),
         (Shader::OverseerZip, "fs_overseer_zip"),
@@ -140,6 +146,7 @@ impl SpritePipeline {
         (Shader::CoralNeuron, "fs_coral_neuron"),
         (Shader::CoralCircuit, "fs_coral_circuit"),
         (Shader::DeadCoralCircuit, "fs_dead_coral_circuit"),
+        (Shader::DeathRain, "fs_death_rain"),
     ];
 
     /// `_hologramThreshold` at render scale 1 (`RainWorld`, decompile 110635: 0.5 when
@@ -253,6 +260,7 @@ impl SpritePipeline {
                 include_str!("../shaders/electric_death.wgsl"),
                 include_str!("../shaders/glyph_projection.wgsl"),
                 include_str!("../shaders/ss_grab.wgsl"),
+                include_str!("../shaders/death_rain.wgsl"),
             ))),
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -340,6 +348,7 @@ impl SpritePipeline {
             blank_screen,
             scene_globals: SceneGlobals::default(),
             grid_offset: [0.0; 2],
+            rain: RainShaderGlobals::default(),
             scene_views: SceneViews {
                 clouds: blank.clone(),
                 apartments: blank.clone(),
@@ -696,6 +705,13 @@ impl SpritePipeline {
                 0.0,
             ],
             grid_offset: [self.grid_offset[0], self.grid_offset[1], 0.0, 0.0],
+            rain_a: [
+                self.rain.direction,
+                self.rain.intensity,
+                self.rain.everywhere,
+                0.0,
+            ],
+            rain_rect: self.rain.sprite_rect,
         };
         queue.write_buffer(&self.uniform, 0, bytemuck::bytes_of(&uniform));
         self.noise_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -734,6 +750,11 @@ impl SpritePipeline {
                 },
             ],
         }));
+    }
+
+    /// `DeathRain`'s globals for the next frames.
+    pub(crate) fn set_rain_globals(&mut self, globals: RainShaderGlobals) {
+        self.rain = globals;
     }
 
     /// `_gridOffset` for the next frames.
