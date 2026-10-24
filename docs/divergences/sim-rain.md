@@ -38,7 +38,9 @@ Game bugs are kept (user decision, 2026-10-24).
   `RoomRain` intensity and `lastIntensity` to 0 (its loops fall silent on their next
   update), its water to `originalWaterLevel` (as realized with flood 0), water that
   `Room.AddWater` gave a dry room (the file's dry room returns; no `Water`, `WaterSound`
-  or `added_water`), and every creature's and the player's `rainDeath`; no draws. A timer
+  or `added_water`), every creature's and the player's `rainDeath`, and creatures the rain kept in their dens
+  (`remainInDenCounter` -1, not wanting to stay under the rewound timer) get counter 0 and
+  come out at their next `InDenUpdate`; no draws. A timer
   at or past the end changes nothing.
 - **Branches of the DLCs and Remix (listed, not ported):** the precycle (`preTimer`, the pulse
   waves, `drainWorldFlood`, `FloodHelpUp`, `forceSlowFlood`, the flood speed's second

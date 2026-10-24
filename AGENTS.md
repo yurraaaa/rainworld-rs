@@ -296,7 +296,7 @@ prefer these over `--screenshot`/`--script`; briefs for such agents say so.
   `RainCycle.pause`), `speed` (timer ticks per tick); `get_state.rain` reports
   the cycle, the dev flags and the global rain (D44). An edit of `cycle_length`, `restart`,
   `stop`, `timer` or `shift` that leaves the timer before the cycle's end also rewinds the rain
-  (global rain, rooms' rain intensity, flood level, added water, `rainDeath`; port-only, not the
+  (global rain, rooms' rain intensity, flood level, added water, `rainDeath`, creatures the rain kept in dens released; port-only, not the
   game's `ResetRain`, D44). While the overseer tutorial's `pauseRain` is set
   (story starts) it pins the timer at 2000 each tick, as the game does.
 - `screenshot` returns a PNG from the window's draw path, offscreen. The
