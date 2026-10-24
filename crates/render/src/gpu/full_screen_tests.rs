@@ -183,6 +183,12 @@ impl Scene {
             noise: &noise,
             params: LevelParams::DEFAULT,
             rain_mask: self.rain_mask.as_ref(),
+            room_size: self.rain_mask.as_ref().map(|m| {
+                [
+                    m.width() as f32 * rw_assets::TILE_SIZE,
+                    m.height() as f32 * rw_assets::TILE_SIZE,
+                ]
+            }),
         });
         r.begin_frame(Camera::window([0.0, 0.0], [W as f32, H as f32], (W, H)));
         if !self.behind.is_empty() {

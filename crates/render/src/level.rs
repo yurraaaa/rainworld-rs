@@ -123,8 +123,11 @@ pub struct LevelGraphics<'a> {
     pub palette: &'a PaletteTexture,
     pub noise: &'a NoiseTexture,
     pub params: LevelParams,
-    /// The room's `RainMask_<room>` texture, made for a room with water (`WaterLight`).
+    /// The room's `RainMask_<room>` texture, when its atlas exists (the rain or the
+    /// `WaterLight` asked).
     pub rain_mask: Option<&'a RainMask>,
+    /// `Room.PixelWidth` and `PixelHeight`, for `_camInRoomRect`; `None` leaves it zero.
+    pub room_size: Option<[f32; 2]>,
 }
 
 /// Per-frame inputs of the level: the game's visible window, shader time and light.

@@ -111,6 +111,7 @@ impl FrameScene {
             noise: &self.noise,
             params: LevelParams::DEFAULT,
             rain_mask: None,
+            room_size: None,
         });
         r.begin_frame(Camera::window([0.0, 0.0], [W as f32, H as f32], (W, H)));
         r.set_grid_offset(self.grid);

@@ -38,7 +38,9 @@ pub struct Visuals {
     effect: Option<FullScreenEffect>,
     /// The room's `RainMask_<room>` texture (`RoomRain.GetOrGenerateShelterTex`): the
     /// `DeathRain` sprite's and the `WaterLight` sprite's element.
-    rain_mask: Option<RainMask>,
+    rain_mask: Option<Arc<RainMask>>,
+    /// `Room.PixelWidth` and `PixelHeight`.
+    room_size: [f32; 2],
 }
 
 /// The level shader's inputs for `get_state`.
@@ -67,7 +69,8 @@ pub struct LevelState {
 impl Visuals {
     /// Loads the room's settings (the `timeline`'s `_settings-<timeline>.txt` variant
     /// where there is one), palettes and every camera's image, and the noise texture
-    /// from the game's Unity resources, showing camera 0.
+    /// from the game's Unity resources, showing camera 0. `rain_mask` is the realization's
+    /// `RainMask_` atlas when one was made.
     ///
     /// # Errors
     /// When any of those cannot be loaded.
@@ -76,6 +79,7 @@ impl Visuals {
         resources: &UnityResources,
         room: &Room,
         timeline: &str,
+        rain_mask: Option<Arc<RainMask>>,
     ) -> Result<Self, AssetError> {
         let timeline = timeline.to_lowercase();
         let visuals =
@@ -94,7 +98,11 @@ impl Visuals {
             .map(|i| visuals.camera_image(i).map(Arc::new))
             .collect::<Result<_, _>>()?;
         Ok(Self {
-            rain_mask: Some(RainMask::generate(room)),
+            rain_mask,
+            room_size: [
+                room.width() as f32 * rw_assets::TILE_SIZE,
+                room.height() as f32 * rw_assets::TILE_SIZE,
+            ],
             effect: FullScreenEffect::select(visuals.settings()),
             noise: NoiseTexture::load(resources)?,
             light_angle: room.light_angle(),
@@ -296,7 +304,8 @@ impl Visuals {
             palette: &self.palette,
             noise: &self.noise,
             params: self.params(),
-            rain_mask: self.rain_mask.as_ref(),
+            rain_mask: self.rain_mask.as_deref(),
+            room_size: Some(self.room_size),
         });
     }
 

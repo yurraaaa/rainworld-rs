@@ -41,6 +41,7 @@ impl Frame {
             noise: &noise,
             params: LevelParams::DEFAULT,
             rain_mask: None,
+            room_size: None,
         });
         r.begin_frame(Camera::window([0.0, 0.0], [W as f32, H as f32], (W, H)));
         if !self.behind.is_empty() {

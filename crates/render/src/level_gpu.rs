@@ -96,7 +96,7 @@ impl LevelTextures {
     }
 
     /// `_camInRoomRect` (`RoomCamera.DrawUpdate`): the window `view` in room uv,
-    /// `(targetPoint / PixelSize, sSize / PixelSize)`; zero without a room mask.
+    /// `(targetPoint / PixelSize, sSize / PixelSize)`; zero without a room size.
     pub(crate) fn cam_in_room_rect(&self, view: &LevelView) -> [f32; 4] {
         self.room_size.map_or([0.0; 4], |[w, h]| {
             [
@@ -311,12 +311,7 @@ impl LevelPipeline {
                 mask_bytes,
             )
             .create_view(&view),
-            room_size: level.rain_mask.map(|m| {
-                [
-                    m.width() as f32 * rw_assets::TILE_SIZE,
-                    m.height() as f32 * rw_assets::TILE_SIZE,
-                ]
-            }),
+            room_size: level.room_size,
             palette: palette_texture.create_view(&view),
             palette_texture,
             image: Self::texture(

@@ -423,3 +423,36 @@ fn the_flood_arm_runs_in_flooding_rooms_once_due() {
         assert!(!RoomRain::flood_arm_runs(danger, 0, 10.0, Some(3)));
     }
 }
+
+fn realized(rows: &[&str]) -> crate::world::RealizedRoom {
+    let loaded = rw_assets::world::LoadedRoom {
+        room: room(rows),
+        settings: rw_assets::RoomSettings::ANCESTOR,
+    };
+    crate::world::RealizedRoom::new(
+        loaded,
+        true,
+        crate::campaign::SlugcatCampaign::SURVIVOR.timeline,
+        rw_assets::ActiveMods::NONE,
+        true,
+    )
+}
+
+/// `GetOrGenerateShelterTex`: the atlas keeps the first texture, so a door closing
+/// afterwards (tiles turning solid) does not change what a later asker gets; a new
+/// realization of the room builds a fresh one (`Room.Unloaded` unloads the atlas).
+#[test]
+fn rain_mask_is_made_once_per_realization() {
+    let rows = ["....", "....", "...."];
+    let mut r = realized(&rows);
+    assert!(r.rain_mask_if_made().is_none());
+    let first = rw_assets::RainMask::generate(&r.room);
+    assert_eq!(**r.rain_mask(), first);
+    for y in 0..3 {
+        std::sync::Arc::make_mut(&mut r.room).set_terrain(1, y, rw_assets::Terrain::Solid);
+    }
+    assert_ne!(rw_assets::RainMask::generate(&r.room), first);
+    assert_eq!(**r.rain_mask(), first);
+    let again = realized(&rows);
+    assert!(again.rain_mask_if_made().is_none());
+}
