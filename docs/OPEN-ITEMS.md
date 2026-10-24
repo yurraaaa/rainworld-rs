@@ -143,6 +143,11 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 
 ## To look into
 
+- **Volume groups on chunk and rect loops** (user, 2026-10-24, R3 review): `rw-audio`
+  applies an emitter's `volumeGroup` only to disembodied loops (the rain's). Port it for
+  chunk and rect loops with the first loop that uses a nonzero group (`RedsIllness`,
+  `DeafLoopHolder`: group 1).
+
 - **Death rain intensity after `set_rain_timer`** (2026-10-24, R2 review; observed over
   MCP, not reproduced): after `set_rain_timer` brings on the death rain, `Intensity` stayed
   0 for ~700 ticks with `rain_game_over` before rising, and the same sequence gave
