@@ -19,6 +19,9 @@ use rw_sim::{RainWorldGame, ShortCutColor, Vec2};
 pub struct CameraShortcuts {
     /// `camera.room`: the room they were made for (`NewRoom`).
     room: Option<i32>,
+    /// The serial of the realization they were made from: a room abstracted and
+    /// realized again is another `Room`, whose shortcuts are made anew.
+    serial: u64,
     graphics: Option<ShortcutGraphics>,
     /// `waitingForRoomToGenerateShortcuts`.
     waiting: bool,
@@ -46,7 +49,7 @@ impl CameraShortcuts {
             .realized(room)
             .is_some_and(RealizedRoom::shortcuts_ready)
         {
-            self.graphics = Self::generate(sim, room);
+            self.generate(sim, room);
         } else {
             self.waiting = true;
         }
@@ -86,7 +89,12 @@ impl CameraShortcuts {
     }
 
     /// `GenerateSprites` for room `index`.
-    fn generate(sim: &RainWorldGame, index: i32) -> Option<ShortcutGraphics> {
+    fn generate(&mut self, sim: &RainWorldGame, index: i32) {
+        self.serial = sim.world().realized(index).map_or(0, RealizedRoom::serial);
+        self.graphics = Self::sprites(sim, index);
+    }
+
+    fn sprites(sim: &RainWorldGame, index: i32) -> Option<ShortcutGraphics> {
         let world = sim.world();
         let realized = world.realized(index)?;
         let data = world.abstract_room(index)?;
@@ -164,11 +172,16 @@ impl CameraShortcuts {
         let world = sim.world();
         let room = self.room?;
         let realized = world.realized(room)?;
+        if !self.waiting && realized.serial() != self.serial {
+            log::warn!("camera room {room} was realized again; its shortcut graphics are remade");
+            self.graphics = None;
+            self.waiting = true;
+        }
         if self.waiting {
             if !realized.shortcuts_ready() {
                 return None;
             }
-            self.graphics = Self::generate(sim, room);
+            self.generate(sim, room);
             self.waiting = false;
             return None;
         }

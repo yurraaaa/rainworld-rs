@@ -135,3 +135,27 @@ fn a_flashing_entrance_alone_draws_once() {
     assert!(g.draw_once());
     assert_eq!(g.cosmetic_rng(), &want);
 }
+
+/// The camera's room abstracted and realized again is a new room: the graphics made
+/// for the old one are dropped and wait for the new one to be `shortCutsReady`, instead
+/// of drawing the old entrances against the new room's unmapped shortcuts.
+#[test]
+fn a_room_realized_again_remakes_the_graphics() {
+    let mut g = Game::waiting_room();
+    while !g.is_ready() {
+        g.tick(Input::NONE);
+    }
+    g.draw_once();
+    assert!(g.draw_once());
+    let world = g.sim_mut().world_mut();
+    world.abstractize(0, &mut UnityRandom::new(0));
+    world.activate_room(0).unwrap();
+    assert!(!g.is_ready());
+    assert!(!g.draw_once());
+    assert!(g.is_waiting());
+    while !g.is_ready() {
+        g.tick(Input::NONE);
+    }
+    assert!(!g.draw_once(), "the poll that generates draws nothing");
+    assert!(g.draw_once());
+}
