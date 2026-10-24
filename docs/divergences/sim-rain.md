@@ -83,8 +83,7 @@ never touch terrain). `Room.RainDrownOutSounds` reads `roomRain.intensity`.
 `intensity`, so they are equal; `rainDeath` is added from the main chunk only while the
 kill test runs on any chunk; `CreatureSmashedInGround` adds `InverseLerp(-2.5, -15, speed)
 * ...`, and the impact speed is positive, so the value is always 0 (the draws are made, the
-sum is 0; probably the game's sign slip, ported as is, not a decision of the user's: to
-confirm).
+sum is 0; the game's sign slip, ported as the game has it by the user's decision, 2026-10-24).
 
 **What differs:**
 - **Where the creature hook runs.** The player's, lizards' and flies' impacts are handled

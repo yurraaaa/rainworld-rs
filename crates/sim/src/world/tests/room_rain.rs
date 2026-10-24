@@ -98,25 +98,30 @@ fn the_push_properties_by_danger_type() {
     };
     let (inside, outside) = (g.inside_push_around(), g.outside_push_around());
     assert!(inside > 0.0 && outside > 0.0);
-    let push = |d| rain(d).push_around(&g, 0.5);
     assert_eq!(
-        push(DangerType::Rain),
+        rain(DangerType::Rain).push_around(&g, 0.5),
         PushAround {
             inside: inside * 0.5,
             outside: outside * 0.5
         }
     );
     assert_eq!(
-        push(DangerType::FloodAndRain),
+        rain(DangerType::FloodAndRain).push_around(&g, 0.5),
         PushAround {
             inside: 0.0,
             outside: outside * 0.5
         }
     );
-    assert_eq!(push(DangerType::Flood), PushAround::default());
-    assert_eq!(push(DangerType::None), PushAround::default());
     assert_eq!(
-        push(DangerType::AerieBlizzard),
+        rain(DangerType::Flood).push_around(&g, 0.5),
+        PushAround::default()
+    );
+    assert_eq!(
+        rain(DangerType::None).push_around(&g, 0.5),
+        PushAround::default()
+    );
+    assert_eq!(
+        rain(DangerType::AerieBlizzard).push_around(&g, 0.5),
         PushAround { inside, outside }
     );
 }
