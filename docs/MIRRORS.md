@@ -18,7 +18,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | random | 0 | 1 | 0 | 0 |
 | render | 7 | 19 | 0 | 0 |
 | save | 15 | 5 | 0 | 0 |
-| sim | 261 | 20 | 0 | 0 |
+| sim | 261 | 21 | 0 | 0 |
 
 ## Rust file to C# files
 
@@ -579,6 +579,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/sim/src/world/creatures.rs` | mirrors | AbstractCreature.cs, AbstractCreatureAI.cs, AbstractRoom.cs |
 | `crates/sim/src/world/dens.rs` | mirrors | AbstractCreature.cs, AbstractPhysicalObject.cs, AbstractRoom.cs |
 | `crates/sim/src/world/global_rain.rs` | mirrors | GlobalRain.cs |
+| `crates/sim/src/world/loading_pace.rs` | port-only | - |
 | `crates/sim/src/world/mod.rs` | mirrors | AbstractRoom.cs, World.cs |
 | `crates/sim/src/world/objects.rs` | mirrors | AbstractRoom.cs, RegionState.cs, Room.cs |
 | `crates/sim/src/world/quantified.rs` | mirrors | AbstractRoom.cs, Room.cs |
