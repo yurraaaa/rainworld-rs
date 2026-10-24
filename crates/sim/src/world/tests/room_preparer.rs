@@ -54,7 +54,7 @@ fn the_thread_maps_what_the_synchronous_build_maps() {
     let mut maps = (None, None);
     while !p.done() {
         p.await_thread();
-        for stage in p.update() {
+        for stage in p.update(None) {
             match stage {
                 PreparerStage::ShortcutsReady(m) => maps.0 = Some(m),
                 PreparerStage::ReadyForAi(m) => maps.1 = Some(*m),
@@ -73,37 +73,86 @@ fn each_stage_comes_once_in_order_when_the_thread_requests_it() {
     let mut p = RoomPreparer::new(3, 0, job());
     assert!(!p.thread_started());
     // The first call starts the thread under the lock: nothing to take yet.
-    assert!(p.update().is_empty());
+    assert!(p.update(None).is_empty());
     assert!(p.thread_started());
     p.await_thread();
     assert_eq!(p.requested_stage(), Some(1));
     assert_eq!(p.status(), PreparerStatus::MappingShortcuts);
-    assert_eq!(numbers(&p.update()), [1]);
+    assert_eq!(numbers(&p.update(None)), [1]);
     assert_eq!(p.status(), PreparerStatus::MappingAi);
     p.await_thread();
     assert_eq!(p.requested_stage(), Some(2));
     assert_eq!(p.status(), PreparerStatus::AiReady);
-    assert_eq!(numbers(&p.update()), [2]);
+    assert_eq!(numbers(&p.update(None)), [2]);
     assert!(p.handed_over_ready_for_ai());
     assert!(!p.done());
     p.await_thread();
     assert!(p.thread_finished());
-    assert!(p.update().is_empty());
+    assert!(p.update(None).is_empty());
     assert!(p.done());
-    assert!(p.update().is_empty());
+    assert!(p.update(None).is_empty());
     assert_eq!(p.calls(), 5);
 }
 
 #[test]
 fn a_preparer_dropped_while_its_thread_waits_releases_it() {
     let mut p = RoomPreparer::new(3, 0, job());
-    p.update();
+    p.update(None);
     p.await_thread();
     drop(p);
     let mut q = RoomPreparer::new(3, 0, job());
-    q.update();
+    q.update(None);
     q.await_thread();
-    q.update();
+    q.update(None);
     q.await_thread();
     drop(q);
 }
+
+/// The thread maps the room as it stands when the first `Update` starts it, and builds
+/// the AI map from the room as it stands when stage 1 is taken (the game's thread reads
+/// the live room).
+#[test]
+fn the_thread_reads_the_room_at_its_start_and_at_stage_one() {
+    let started = Arc::new(room(&TUBE_RIGHT));
+    let at_stage_one = Arc::new(room(&OPEN));
+    let mut p = RoomPreparer::new(3, 0, job());
+    p.update(Some(&started));
+    p.await_thread();
+    let stages = p.update(Some(&at_stage_one));
+    let [PreparerStage::ShortcutsReady(shortcuts)] = &stages[..] else {
+        panic!("stage 1");
+    };
+    assert_eq!(shortcuts, &ShortcutMap::new(&started));
+    let shortcuts = shortcuts.clone();
+    p.await_thread();
+    let stages = p.update(Some(&at_stage_one));
+    let [PreparerStage::ReadyForAi(map)] = &stages[..] else {
+        panic!("stage 2");
+    };
+    let expect = AiMap::with_shortcuts(&at_stage_one, shortcuts.clone(), 3, false, false);
+    assert_eq!(**map, expect);
+    assert_ne!(
+        **map,
+        AiMap::with_shortcuts(&started, shortcuts, 3, false, false)
+    );
+}
+
+/// [`TUBE`] with its entrance one tile to the right.
+const TUBE_RIGHT: [&str; 6] = [
+    "#########",
+    "#.......#",
+    "#.......#",
+    "#.E.....#",
+    "##x######",
+    "##X######",
+];
+
+/// [`TUBE`]'s size with the tube's tiles open.
+const OPEN: [&str; 6] = [
+    "#########",
+    "#.......#",
+    "#.......#",
+    "#.......#",
+    "#.......#",
+    "#########",
+];

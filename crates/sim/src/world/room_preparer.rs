@@ -54,7 +54,9 @@ impl PreparerStatus {
     }
 }
 
-/// What the worker builds from: the room as the realizing call read it.
+/// What the worker builds from. `room` is the room as it stands when the thread starts
+/// (as realized, for a room abstracted before that), and the AI map reads it as it stands
+/// when stage 1 is taken: the game's thread reads the live room.
 #[derive(Debug, Clone)]
 pub struct PreparerJob {
     pub room: Arc<Room>,
@@ -97,6 +99,8 @@ struct HandOff {
     /// Port-only: the preparer was dropped, so the thread stops where it waits.
     cancelled: bool,
     shortcuts: Option<ShortcutMap>,
+    /// The room as the main thread took stage 1, for the AI map.
+    ai_room: Option<Arc<Room>>,
     ai_map: Option<AiMap>,
 }
 
@@ -125,7 +129,7 @@ struct PreparerThread {
 }
 
 impl PreparerThread {
-    fn run(self) {
+    fn run(mut self) {
         let shortcuts = self.job.map_shortcuts();
         {
             let mut s = self.shared.state.lock();
@@ -137,6 +141,9 @@ impl PreparerThread {
                 .wait_while(&mut s, PreparerStatus::MappingShortcuts)
             {
                 return;
+            }
+            if let Some(room) = s.ai_room.take() {
+                self.job.room = room;
             }
         }
         let ai_map = self.job.map_ai(shortcuts);
@@ -231,8 +238,12 @@ impl RoomPreparer {
     }
 
     /// `Update`: starts the thread on the first call, then takes the stage it requested
-    /// (at most one: the thread waits at each hand-off) and sees it finished.
-    pub fn update(&mut self) -> Vec<PreparerStage> {
+    /// (at most one: the thread waits at each hand-off) and sees it finished. `live` is
+    /// the room's current geometry while it is realized.
+    ///
+    /// # Panics
+    /// Resumes a panic of the thread (it would otherwise leave the room loading).
+    pub fn update(&mut self, live: Option<&Arc<Room>>) -> Vec<PreparerStage> {
         self.calls += 1;
         let mut stages = Vec::new();
         let mut finished = None;
@@ -241,8 +252,11 @@ impl RoomPreparer {
             // Started under the lock, as the game's, so its first request waits for the
             // next call.
             if !s.thread_finished
-                && let Some(job) = self.job.take()
+                && let Some(mut job) = self.job.take()
             {
+                if let Some(room) = live {
+                    job.room = Arc::clone(room);
+                }
                 let thread = PreparerThread {
                     job,
                     shared: Arc::clone(&self.shared),
@@ -257,6 +271,7 @@ impl RoomPreparer {
             if s.request_shortcuts_ready {
                 s.request_shortcuts_ready = false;
                 s.status = PreparerStatus::MappingAi;
+                s.ai_room = live.cloned();
                 if let Some(map) = s.shortcuts.take() {
                     stages.push(PreparerStage::ShortcutsReady(map));
                 }
@@ -268,14 +283,18 @@ impl RoomPreparer {
                     stages.push(PreparerStage::ReadyForAi(Box::new(map)));
                 }
             }
+            if s.thread_finished || self.thread.as_ref().is_some_and(JoinHandle::is_finished) {
+                finished = self.thread.take();
+            }
             if s.thread_finished {
                 self.done = true;
-                finished = self.thread.take();
             }
         }
         self.shared.changed.notify_all();
-        if let Some(thread) = finished {
-            let _ = thread.join();
+        if let Some(thread) = finished
+            && let Err(panic) = thread.join()
+        {
+            std::panic::resume_unwind(panic);
         }
         stages
     }
@@ -290,10 +309,16 @@ impl RoomPreparer {
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
         let mut s = self.shared.state.lock();
         while !(s.request_shortcuts_ready || s.request_ready_for_ai || s.thread_finished) {
+            if self.thread.as_ref().is_some_and(JoinHandle::is_finished) {
+                return;
+            }
             assert!(
-                !self.shared.changed.wait_until(&mut s, deadline).timed_out(),
+                std::time::Instant::now() < deadline,
                 "the room preparer's thread does not hand over"
             );
+            self.shared
+                .changed
+                .wait_for(&mut s, std::time::Duration::from_millis(10));
         }
     }
 }

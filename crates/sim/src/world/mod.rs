@@ -480,9 +480,13 @@ impl World {
                 continue;
             }
             let (room, serial) = (self.loading[k].room, self.loading[k].serial);
+            let live = self
+                .realized(room)
+                .filter(|r| r.serial == serial)
+                .map(|r| Arc::clone(&r.room));
             stages.extend(
                 self.loading[k]
-                    .update()
+                    .update(live.as_ref())
                     .into_iter()
                     .map(|s| (room, serial, s)),
             );

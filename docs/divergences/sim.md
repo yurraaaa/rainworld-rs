@@ -808,9 +808,17 @@ second part, else a single-room world for arena levels). The campaign descriptio
   placeholder), its AI map from `ReadyForAI`. What differs: the worker waits on a
   condition variable where the game's thread spins; the shortcut and AI maps are put on
   the room by the main thread as it takes each stage, where the game's thread writes
-  them just before raising the flag; the worker maps the room as realized, so water
-  `Room.AddWater` adds while it loads is not in its AI map (the game's thread reads the
-  live room); a preparer dropped with its world stops its thread (port-only). Headless
+  them just before raising the flag; the game's thread reads the live room while it
+  maps, the port's worker maps the room's tiles as they stand when the thread starts
+  (the shortcuts) and when `ShortCutsReady` is taken (the AI map), so a tile changed
+  during either pass (none in the base game; a shelter door's first update comes before
+  the thread starts, and `Room.AddWater` changes no tiles) is seen at the next stage; a
+  preparer dropped with its world stops its thread, and a panic of the thread is
+  resumed on the main thread (port-only). Not ported: the race in the game's
+  `UpdateThread` case 4, which can raise `requestReadyForAI` again after `Update` took it
+  (a second `ReadyForAI`); the port's hand-off raises each stage once. Skipped (user,
+  2026-10-24) until mods or edited rooms load: `AIdataPreprocessor` (status 3, with
+  `loadAiHeatMaps` false), which only bakes unbaked room files and writes them back. Headless
   pacing (user, 2026-10-24, port-only): an MCP session and the integration tests run
   ticks faster than real time, so while a room is loading each tick waits until 25 ms
   (the game's 40 Hz frame) have passed since the last (`LoadingPace`); otherwise they

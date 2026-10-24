@@ -25,7 +25,7 @@ pub struct LoadRoomParams {
     /// The slugcat to play: "White" (the Survivor, default), "Yellow" or "Red".
     pub slugcat: Option<String>,
     /// Seed of the game's random stream (`Random.InitState`, low 32 bits; default 1):
-    /// spawn and every later draw. Same seed and inputs give the same run.
+    /// spawn and every later draw (runs can still differ where room loading timing does).
     pub seed: Option<u64>,
     /// Spawn on this tile [x, y] (y up) instead of a seeded spawn tile.
     pub spawn_tile: Option<[i32; 2]>,

@@ -73,7 +73,8 @@ pub struct AppContext {
 }
 
 /// Where the music player's songs play: through the audio output, or silently in
-/// ticks (no audio: `--mute`, headless and MCP runs), which keeps runs deterministic.
+/// ticks (no audio: `--mute`, headless and MCP runs), so the music does not depend on
+/// the audio device.
 pub enum MusicSink {
     Timed(Box<TimedSources>),
     Output(MusicOutput),

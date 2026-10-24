@@ -18,6 +18,7 @@ use crate::campaign::{SlugcatCampaign, StoryStart};
 use crate::creature::{CreatureId, EntityId, WorldCoordinate};
 use crate::item::{AbstractObject, ObjectId};
 use crate::tests::room;
+use crate::world::ai_map::movement::Accessibility;
 use crate::world::{PreparerStatus, World};
 use crate::{Input, RainWorldGame, Sounds, Start};
 
@@ -280,4 +281,47 @@ fn a_border_exit_node_has_its_tiles_before_the_ai_map() {
     let at = g.world.local_coordinate_of_node(0, 0, &mut g.rng);
     assert_eq!(at, tiles[i]);
     assert_eq!(g.rng.state(), expect.state());
+}
+
+/// A shelter at the start of a cycle: the door's first update, in the tick whose loading
+/// step starts the thread, makes its close tiles Solid, and the thread maps the room as
+/// it stands then, so the AI map has them Solid (the game's `AImapper` reads the live
+/// room).
+#[test]
+fn a_shelters_ai_map_has_the_doors_close_tiles_solid() {
+    let mut rows = vec!["############"];
+    rows.extend(["#..........#"; 7]);
+    rows.extend(["#####E######", "#####X######"]);
+    let room = room(&rows);
+    let mut data = WorldData::from_room(&room);
+    data.rooms[0].shelter_index = 0;
+    let settings = RoomSettings {
+        random_item_density: 0.0,
+        ..RoomSettings::ANCESTOR
+    };
+    let rooms = Arc::new(FixedRoom(LoadedRoom { room, settings }));
+    let campaign = &SlugcatCampaign::SURVIVOR;
+    let world = World::new(data, rooms, campaign.timeline, ActiveMods::NONE, true);
+    let mut g = RainWorldGame::new_story(
+        world,
+        campaign,
+        StoryStart::new_game(campaign),
+        Start {
+            room: 0,
+            tile: Some((3, 3)),
+        },
+        UnityRandom::new(5),
+        Sounds::default(),
+    );
+    g.tick_until_ready(&mut ());
+    let tiles = g.shelter_door(0).expect("door").close_tiles;
+    let r = g.world.realized(0).unwrap();
+    for (x, y) in tiles {
+        assert!(r.room.tile(x, y).is_solid(), "({x}, {y}) closed");
+        assert_eq!(
+            r.ai_map.as_ref().unwrap().tile(x, y).acc,
+            Accessibility::Solid,
+            "({x}, {y})"
+        );
+    }
 }

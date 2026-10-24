@@ -271,7 +271,7 @@ prefer these over `--screenshot`/`--script`; briefs for such agents say so.
 - `get_state` reports the camera room (`room` is the room the camera shows; during a pending move `camera_move` names the room it is moving to), the player (food, grasps, pick-up
   candidate, stomach, counters, sneak/loudness, `held_by`, `danger_grasp` and
   its time, struggle buttons, `can_struggle`, `cant_be_grabbed_counter`, ...), the vessel in the
-  lobby, realized rooms' entry waits, `loading_progress` and `preparer` (a loading room's `RoomPreparer`: status, calls, done), `orphaned_preparers` (rooms abstracted while loading), ceiling drips, each room's `rumble_intensity`, `water` (`default_water_level`, `original_water_level`, `f_water_level`, `last_f_water_level`, `flood_level`, `added_water`) and `room_rain` (intensity, push, splash counts, `sprite_count`, its five to seven sound loops' volume group, volume and whether playing, and `bullet_drips`: each drip's column, positions, `falling`, `fall_speed`, `delay`), `rain` (the cycle, its `ShaderLight`, `RainDarkPalette`, `ScreenShake`/`MicroScreenShake`, `death_rain_has_hit` and `global`: rain direction, `Intensity`, the shakes, `RumbleSound`, bullet density, flood and its speed, the death rain's mode, length, progression and sunlight), dripping sound, water surface sound, bubbles and bubble emitters, splashes, the player's `owned_items` on the ground, every abstract creature (kind, ID, room,
+  lobby, realized rooms' entry waits, `loading_progress` and `preparer` (a loading room's `RoomPreparer`: status, calls, `thread_started`, `thread_finished`, `requested_stage`, done), `orphaned_preparers` (rooms abstracted while loading), ceiling drips, each room's `rumble_intensity`, `water` (`default_water_level`, `original_water_level`, `f_water_level`, `last_f_water_level`, `flood_level`, `added_water`) and `room_rain` (intensity, push, splash counts, `sprite_count`, its five to seven sound loops' volume group, volume and whether playing, and `bullet_drips`: each drip's column, positions, `falling`, `fall_speed`, `delay`), `rain` (the cycle, its `ShaderLight`, `RainDarkPalette`, `ScreenShake`/`MicroScreenShake`, `death_rain_has_hit` and `global`: rain direction, `Intensity`, the shakes, `RumbleSound`, bullet density, flood and its speed, the death rain's mode, length, progression and sunlight), dripping sound, water surface sound, bubbles and bubble emitters, splashes, the player's `owned_items` on the ground, every abstract creature (kind, ID, room,
   node, tile, den, realized, alive, abstract AI; realized flies, lizards
   with their movement, tracker, relationships, noise, decision (`social`:
   fight target and anger, `submitted_to`, last signal, missions, `taming_difficulty`, `gift`) and, in a
@@ -331,7 +331,7 @@ prefer these over `--screenshot`/`--script`; briefs for such agents say so.
   START (~40 frames): the intro slideshow plays (~95 s; Escape skips, or hold
   S with Z on START to go straight to the game), then a new Survivor game at
   `SU_C04`, black 3 s while the start script holds the slugcat. Music runs
-  silently (`TimedSources`) so runs stay deterministic. `step_process`
+  silently (`TimedSources`), independent of the audio device. `step_process`
   reports slideshow clock/scene, `music`, `triggers`, the pause menu, and in
   game mode the fade delay, start script and player controller; `get_hud`
   reads the game process's HUD; `screenshot` draws the frame with its fade.

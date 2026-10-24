@@ -2,8 +2,8 @@
 //! with given inputs, read the player's state and the tiles, and take screenshots, so
 //! an agent can drive the app over stdio.
 //!
-//! Headless and deterministic: the simulation only advances inside `step` calls, with
-//! no real-time clock, and screenshots render offscreen through the window's draw path
+//! Headless: the simulation only advances inside `step` calls (paced to the game's 40 Hz
+//! frame only while a room loads on its preparer thread, D14), and screenshots render offscreen through the window's draw path
 //! ([`crate::scene::Scene::draw`]). Logging goes to stderr; stdout carries only MCP.
 //!
 //! Mirrors: - (port-only: MCP server)
@@ -92,8 +92,9 @@ const INSTRUCTIONS: &str = "Drives rainworld-rs, a reimplementation of Rain Worl
 (one region at a time; of its creatures the overseers and bat flies behave, and the \
 others but scavengers roam abstractly without bodies). Call load_room (a room in its region's world) or \
 new_game (a campaign's start) first. The simulation runs at 40 ticks per second and only \
-advances in step / step_sequence, so runs are deterministic: the same start, seed and \
-inputs give the same result. Positions are room pixels, y up, 20 px per tile, in the \
+advances in step / step_sequence. Runs are not required to repeat exactly: rooms load on \
+threads as in the game (ticks are paced to 25 ms while a room loads), so the tick a room \
+becomes ready can differ between runs with the same start, seed and inputs. Positions are room pixels, y up, 20 px per tile, in the \
 room the camera shows (state.room); room-exit shortcuts carry the player to the next \
 room and the camera follows. get_exits lists the room's exits and where they lead. Use \
 get_tiles to read the geometry and screenshot to look at the scene. \

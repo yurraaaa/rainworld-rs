@@ -208,9 +208,9 @@ fn outskirts_start_to_shelter() {
             "{from} -> {to}: out at the entrance {:?}",
             t.entrance
         );
-        // Base Outskirts rooms make no one wait (the lobby may still hold the vessel
-        // while the destination's thread is loading it).
+        // Base Outskirts rooms make no one wait; the realizer had the room loaded.
         assert_eq!(t.wait_at_exit, -1);
+        assert_eq!(t.lobby_updates, 0);
     }
 }
 
