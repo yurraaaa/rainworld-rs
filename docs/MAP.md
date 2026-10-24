@@ -47,4 +47,6 @@ crate's `Cargo.toml` before adding a dependency.
 ## Keeping it current
 
 A new crate or top-level module updates this page and its crate README in the
-same change. Per-file detail belongs in the crate README, not here.
+same change. Per-file detail belongs in the crate README, not here. A big crate (`rw-sim`) keeps
+its file maps in `src/<topic>/README.md` (sub-READMEs for big topics); the crate README
+links them, and the checker accepts a file named in any ancestor folder's README.

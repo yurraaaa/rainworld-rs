@@ -63,8 +63,8 @@ Rules for this task:
 - Keep the navigation docs true: a file you add, rename or move gets a
   `//! Mirrors: <Type>.cs` header (or `Mirrors: - (port-only: reason)`);
   `python3 scripts/check_mirrors.py` must exit 0. Every file you add, rename,
-  move or delete is reflected in that crate's `README.md` file map (the
-  checker fails if a source file is not named there), and a README line you
+  move or delete is reflected in the README file map that covers it (crate or topic folder; the
+  checker fails if a source file is not named in its crate's README or an ancestor folder's), and a README line you
   made untrue (what a module holds, a "where is X?" entry, a type name) is
   corrected in the same change. A new crate or top-level module also updates
   `docs/MAP.md`. Do not
