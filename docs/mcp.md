@@ -3,13 +3,33 @@
 Moved from AGENTS.md. Read this before using the `rainworld-rs` MCP tools.
 
 `rainworld-rs --mcp` is an MCP server on stdio (`crates/app/src/mcp/`),
-registered in `.mcp.json` as `rainworld-rs` (runs `cargo run --release`, so
-it serves the checkout's current code). Tools: `list_rooms`, `load_room`,
+registered in `.mcp.json` as `rainworld-rs` (runs `cargo run --release` when the
+session starts, so it serves the main checkout's code of that moment). Tools: `list_rooms`, `load_room`,
 `new_game`, `step`, `step_sequence`, `respawn`, `set_player`, `get_state`,
 `get_exits`, `get_tiles`, `get_hud`, `hud_message`, `screenshot`,
 `load_process`, `step_process`, `import_save`, `set_destination`,
 `spawn_creature`, `spawn_object`, `teleport_player`, `set_rain_timer`. To check behaviour,
 prefer these over `--screenshot`/`--script`; briefs for such agents say so.
+
+## Agents in worktrees: `scripts/mcp.py`
+
+The session's `mcp__rainworld-rs__*` tools talk to the one server the main session started from
+the main checkout: main's code at session start, one game shared by every agent. An agent in a
+worktree uses `scripts/mcp.py` from its worktree root instead, which builds and runs that
+worktree's server (saves in `target/mcp-saves`, never the real save directory):
+
+```
+scripts/mcp.py serve                                  # build --release and start in the background
+scripts/mcp.py call load_room '{"name": "SU_A22", "seed": 1}'
+scripts/mcp.py --max 300 batch '[{"tool": "step", "args": {"ticks": 40}},
+  {"tool": "get_state", "args": {"fields": ["tick", "player"]}},
+  {"tool": "screenshot", "args": {"crop_radius": 200}}]'   # screenshot: prints a PNG path
+scripts/mcp.py stop                                   # before finishing
+```
+
+`load_room`, `new_game` and `step` reply with the full state (tens of KB): cut them with
+`--max N` and read what you need with `get_state`'s `fields`. Arguments are as in the tool
+schemas (`scripts/mcp.py tools` lists them).
 
 - Headless: the sim advances only in `step` / `step_sequence` (40 ticks/s).
   Runs are not required to repeat exactly: loading is threaded as in the game

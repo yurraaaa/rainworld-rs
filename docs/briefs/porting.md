@@ -10,7 +10,7 @@ into <crate/module>. Step <n of m>: <scope in one sentence>.
 - Design decisions that apply: <D-ids, AGENTS.md "Decisions" lines>.
   Design files to read: <paths>. No design file for <component>? Open
   decisions: <list>. Ask `main` instead of deciding.
-- Read first: `docs/MAP.md`, `docs/mcp.md` (if you use the MCP tools), <crate README>, <`../rainworld-re/notes/*.md`, survey>.
+- Read first: `docs/MAP.md`, `docs/mcp.md` (if you check behaviour: in a worktree use `scripts/mcp.py`, not the session's MCP tools), <crate README>, <`../rainworld-re/notes/*.md`, survey>.
 - Files not to touch (other work in flight): <shared files, other agents' crates>.
 - Ruled out, and by what evidence: <claim: evidence>.
 - Oracle: <decompiled member / installed data file>. A match is <criterion>.

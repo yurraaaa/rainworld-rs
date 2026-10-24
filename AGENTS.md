@@ -214,6 +214,8 @@ instead of whole files (Player.cs is 474 KB); usage in `../rainworld-re/README.m
 `rainworld-rs --mcp` is an MCP server (`crates/app/src/mcp/`) registered in `.mcp.json` as
 `rainworld-rs`. Agents check behaviour headless with its tools (not `--screenshot`/`--script`;
 briefs for such agents say so) and read `docs/mcp.md` before using them. Never `--window`.
+The session's `mcp__rainworld-rs__*` tools run main's code from session start, shared by all
+agents: an agent in a worktree drives its own build with `scripts/mcp.py` instead.
 
 ## Code style
 

@@ -28,7 +28,8 @@ Do, in order:
    crate README, `docs/divergences/`, BUGS, OPEN-ITEMS).
 7. Omissions: original behaviour the diff does not reach that the author
    did not list as "port or skip for now?".
-8. Behaviour, if relevant: headless MCP tools only, at <room, seed, tiles>.
+8. Behaviour, if relevant: headless, with `scripts/mcp.py` in the branch's worktree (the
+   session's MCP tools run main's code; `docs/mcp.md`), at <room, seed, tiles>.
 
 Standing rules: AGENTS.md (loaded with your instructions) applies (no
 installs, no windows, never touch the game/Steam, pidof not pgrep -f). Do not
