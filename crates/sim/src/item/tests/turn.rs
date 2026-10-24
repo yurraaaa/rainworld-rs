@@ -438,7 +438,7 @@ fn a_forward_belly_slide_throw_skims_the_spear_along_the_floor() {
     let w = g.world.weapon_mut(ids[0]).expect("spear");
     assert_eq!(w.floor_bounce_frames, 30);
     assert!(w.spear().expect("spear").always_stick_in_walls);
-    assert!(!w.chunk().go_through_floors);
+    assert!(!w.chunk().go_through_floors());
     assert!(w.chunk().vel.x > 54.0, "{:?}", w.chunk().vel);
     assert!(!g.player_ref().long_belly_slide());
 }

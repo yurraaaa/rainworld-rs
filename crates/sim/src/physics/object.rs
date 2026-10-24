@@ -199,7 +199,14 @@ impl PhysicalObject {
     /// Sets `go_through_floors` on every chunk (the game's `GoThroughFloors` setter).
     pub fn set_go_through_floors(&mut self, value: bool) {
         for c in &mut self.chunks {
-            c.go_through_floors = value;
+            c.set_go_through_floors(value);
+        }
+    }
+
+    /// Sets `pulled_into_shortcut` on every chunk.
+    pub fn set_pulled_into_shortcut(&mut self, value: bool) {
+        for c in &mut self.chunks {
+            c.pulled_into_shortcut = value;
         }
     }
 

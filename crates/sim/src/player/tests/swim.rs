@@ -221,7 +221,7 @@ fn deep_swim_boost_costs_air_and_cools_down() {
     assert_close(p.swim_cycle, 2.71, "cycle");
     // Alignment measured before the boost (both at rest): 0, so friction 0.92.
     assert_close(p.water_friction, 0.92, "friction");
-    assert!(p.body.chunks[HEAD].go_through_floors && !p.standing && p.can_jump == 0);
+    assert!(p.body.chunks[HEAD].go_through_floors() && !p.standing && p.can_jump == 0);
     // Pressed again during the cooldown: the stroke restarts, no push, no air.
     p.input[1] = Input::NONE;
     p.deep_swim(Some(&w), &mut test_rng(), &mut Sounds::default());
@@ -274,7 +274,7 @@ fn swimming_mode_drops_through_floors() {
     let mut p = Player::upright_under(100.0, Input::NONE)
         .with_mode(BodyMode::Swimming, Animation::DeepSwim);
     p.swimming_mode(&r);
-    assert!(p.body.chunks.iter().all(|c| c.go_through_floors));
+    assert!(p.body.chunks.iter().all(|c| c.go_through_floors()));
 }
 
 #[test]

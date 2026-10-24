@@ -248,7 +248,7 @@ impl Lizard {
             .map(|_| BodyChunk::new(at, params.chunk_rad(), params.chunk_mass()))
             .collect();
         for chunk in &mut chunks {
-            chunk.go_through_floors = true;
+            chunk.set_go_through_floors(true);
         }
         let rod = params.rod_length();
         let mut body = PhysicalObject::new(chunks, PARAMS);

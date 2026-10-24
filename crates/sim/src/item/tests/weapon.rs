@@ -185,7 +185,7 @@ fn a_rock_costs_two_draws_and_a_spear_four() {
     assert_eq!(w.rotation_speed, spin);
     assert_eq!(w.chunk().pos, Vec2::new(30.0, 70.0), "MiddleOfTile");
     assert_eq!((w.mode, w.collision_layer), (WeaponMode::Free, 2));
-    assert!(!w.chunk().go_through_floors, "no ChangeMode on placement");
+    assert!(!w.chunk().go_through_floors(), "no ChangeMode on placement");
 
     // `Spear()` adds `spearmasterNeedleType = Range(0, 3)`; its `SetRandomSpin` draws
     // the direction (value < 0.5) and Lerp(50, 150, value).
@@ -296,7 +296,7 @@ fn a_saved_stuck_spear_is_stuck_again_and_makes_poles() {
     assert_eq!(b.rng.state(), expect.state());
     assert_eq!(w.mode, WeaponMode::StuckInWall);
     assert_eq!(w.collision_layer, 0);
-    assert!(!w.chunk().collide_with_terrain && w.chunk().go_through_floors);
+    assert!(!w.chunk().collide_with_terrain && w.chunk().go_through_floors());
     assert_eq!(w.set_rotation, Some(Vec2::new(1.0, 0.0)));
     assert_eq!(
         w.spear().and_then(|s| s.stuck_in_wall),

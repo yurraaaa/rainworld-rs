@@ -115,7 +115,7 @@ fn a_bite_that_does_not_hurt_holds_the_player_in_a_danger_grasp() {
             .body
             .chunks
             .iter()
-            .all(|c| c.go_through_floors)
+            .all(|c| c.go_through_floors())
     );
     assert_eq!(g.world.lizard_ref(l).animation, LizardAnimation::ShakePrey);
     assert!(!g.player_ref().is_dead());
@@ -311,4 +311,107 @@ fn releasing_one_contained_object_skips_the_entry_after_it() {
     }
     link.release_internally_contained(a);
     assert_eq!(link.internal_container, vec![a, b]);
+}
+
+const PLATFORM: [&str; 10] = [
+    ".......", ".......", ".......", ".......", ".......", ".......", "-------", ".......",
+    ".......", "#######",
+];
+
+#[test]
+fn the_getter_alone_holds_a_carried_rock_through_a_platform() {
+    // Isolates the getter: `Weapon.Grabbed` (`ChangeMode(Carried)`, then base `Grabbed`)
+    // sets the raw flag, and in the game a released rock turns `Free` in `Weapon.Update`,
+    // whose `ChangeMode` sets it true again, so it falls through. Here the raw flag is
+    // forced false (a heavy throw's write) to show the held rock still reads true and
+    // lands on the platform once the grasp is gone.
+    let mut g = game(&HALL, (3, 1));
+    let rock = g.armed(AbstractObjectType::Rock, (3, 2));
+    let room = crate::tests::room(&PLATFORM);
+    let w = g.world.weapon_mut(rock).expect("rock");
+    assert!(w.chunk().raw_go_through_floors(), "ChangeMode(Carried)");
+    w.chunk_mut().set_go_through_floors(false);
+    assert!(w.chunk().go_through_floors(), "held: the getter");
+    w.body.chunks[0].hard_set_position(crate::Vec2::new(70.0, 150.0));
+    // Carried rocks do not collide with terrain at all (`ChangeMode`); the test turns
+    // that on to isolate the floor flag.
+    w.body.chunks[0].collide_with_terrain = true;
+    let mut held = w.body.clone();
+    for _ in 0..100 {
+        held.update(&room);
+    }
+    assert_eq!(held.chunks[0].pos.y, 25.0, "ground top 20 + rock radius 5");
+    g.world.release_grasp(g.player_id, 0);
+    let w = g.world.weapon_mut(rock).expect("rock");
+    assert!(!w.chunk().go_through_floors());
+    for _ in 0..100 {
+        w.body.update(&room);
+    }
+    assert_eq!(w.chunk().pos.y, 85.0, "platform top 80 + rock radius 5");
+}
+
+#[test]
+fn a_dead_lizard_dragged_by_the_player_passes_through_platforms() {
+    let mut g = game(&HALL, (3, 1));
+    let l = g.still_lizard((5, 1), -1.0, 40);
+    g.world.creature_die(l, &mut g.rng);
+    g.world.lizard_at(l).body.set_go_through_floors(false);
+    assert!(!g.world.lizard_at(l).body.chunks[0].go_through_floors());
+    let request = crate::creature::GrabRequest {
+        grabber: g.player_id,
+        grabbed: Entity::Creature(l),
+        grasp_used: 0,
+        chunk_grabbed: 0,
+        shareability: crate::creature::Shareability::CanOnlyShareWithNonExclusive,
+        dominance: 1.0,
+        override_equally_dominant: true,
+        pacifying: false,
+    };
+    assert!(g.world.grab(request, &mut g.rng));
+    assert!(
+        g.world
+            .lizard_at(l)
+            .body
+            .chunks
+            .iter()
+            .all(|c| c.go_through_floors())
+    );
+    g.world.release_grasp(g.player_id, 0);
+    // `Grabbed` set the raw flag: still true after the release, until the lizard's
+    // next `Update` overwrites it (`Lizard.cs` movement code).
+    assert!(g.world.lizard_at(l).body.chunks[0].go_through_floors());
+    g.world.lizard_at(l).body.set_go_through_floors(false);
+    assert!(
+        g.world
+            .lizard_at(l)
+            .body
+            .chunks
+            .iter()
+            .all(|c| !c.go_through_floors())
+    );
+}
+
+#[test]
+fn the_players_chunks_follow_each_grasp_change_at_once() {
+    let mut g = game(&HALL, (3, 1));
+    let l = g.bitten(0.0);
+    assert!(
+        g.player_ref()
+            .body
+            .chunks
+            .iter()
+            .all(|c| c.go_through_floors())
+    );
+    // `Grabbed` set the raw flag; clear it to read the pulled part alone.
+    g.player_mut().body.set_go_through_floors(false);
+    assert!(g.player_ref().body.chunks[0].go_through_floors());
+    g.world.lose_all_grasps(l);
+    g.sync_player_pulled();
+    assert!(
+        g.player_ref()
+            .body
+            .chunks
+            .iter()
+            .all(|c| !c.go_through_floors())
+    );
 }

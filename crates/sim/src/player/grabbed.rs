@@ -87,6 +87,11 @@ impl Player {
         self.body.held = held;
     }
 
+    /// `ShortcutHelper.CanBePulledIntoShortcut(player)`, read by the chunks' `goThroughFloors`.
+    pub(crate) fn set_pulled_into_shortcut(&mut self, pulled: bool) {
+        self.body.set_pulled_into_shortcut(pulled);
+    }
+
     pub(crate) fn set_cant_be_grabbed_after_spit_out(&mut self) {
         self.danger.cant_be_grabbed_counter = CANT_BE_GRABBED_AFTER_SPIT_OUT;
     }
@@ -147,6 +152,7 @@ impl Player {
             self.release_grabbed_by = true;
             // The game lets go at once: the rest of the update sees an empty `grabbedBy`.
             self.set_held(false, false);
+            self.set_pulled_into_shortcut(false);
         }
     }
 
