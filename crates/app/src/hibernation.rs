@@ -267,6 +267,20 @@ mod tests {
     use crate::saves::SaveStateStart;
 
     const DEFAULT_RW_DIR: &str = "/home/yura/.local/share/Steam/steamapps/common/Rain World";
+
+    /// Ticks after the loading threads have their stage ready, so rooms load in the same
+    /// ticks however busy the machine is (the rain timer runs on while they load).
+    trait Step {
+        fn step(&mut self, input: Input);
+    }
+
+    impl Step for RainWorldGame {
+        fn step(&mut self, input: Input) {
+            self.world().await_loading_threads();
+            self.tick(input, &mut ());
+        }
+    }
+
     const START: CampaignStart<'static> = CampaignStart {
         slugcat: rw_assets::SlugcatName::White,
         den: "SU_C04",
@@ -314,10 +328,8 @@ mod tests {
             UnityRandom::new(1),
             Sounds::default(),
         );
-        let mut pace = rw_sim::world::LoadingPace::default();
         while !game.camera_room_ready() {
-            pace.before_tick(game.world());
-            game.tick(Input::default(), &mut ());
+            game.step(Input::default());
         }
         game
     }
@@ -326,7 +338,7 @@ mod tests {
     /// door shuts (as `installed_shelter.rs`).
     fn hibernate(game: &mut RainWorldGame) -> SessionEnd {
         for _ in 0..450 {
-            game.tick(Input::default(), &mut ());
+            game.step(Input::default());
         }
         let world = game.world();
         let src = world.room_index("SU_A22").unwrap();
@@ -346,7 +358,7 @@ mod tests {
             &mut (),
         );
         while game.player_pos().room != shelter || game.player().unwrap().in_shortcut() {
-            game.tick(input, &mut ());
+            game.step(input);
         }
         let spawn = game.shelter_door(shelter).unwrap().player_spawn_pos;
         game.set_food_in_stomach(4);
@@ -356,7 +368,7 @@ mod tests {
             &mut (),
         );
         loop {
-            game.tick(Input::default(), &mut ());
+            game.step(Input::default());
             if let Some(end) = game.take_session_end() {
                 return end;
             }
@@ -587,7 +599,7 @@ mod tests {
             &mut (),
         );
         for _ in 0..40 {
-            sim.tick(Input::default(), &mut ());
+            sim.step(Input::default());
         }
         let grow = sim.karma_flower_grow_pos().expect("stands on the floor");
         sim.kill_player();

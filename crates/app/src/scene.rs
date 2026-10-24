@@ -1377,6 +1377,22 @@ mod tests {
     }
 
     impl Recorder {
+        /// The debug view's circles for `bodies`: one per chunk, plus a contact marker
+        /// per chunk touching terrain (whether items have landed depends on how many
+        /// ticks the threaded room load took).
+        fn debug_circles<'a>(
+            bodies: impl IntoIterator<Item = &'a rw_sim::PhysicalObject>,
+        ) -> usize {
+            bodies
+                .into_iter()
+                .flat_map(|b| &b.chunks)
+                .map(|c| {
+                    let contact = c.contact();
+                    1 + usize::from(contact.x != 0 || contact.y != 0)
+                })
+                .sum()
+        }
+
         fn sprite(index: usize, layer: Layer) -> rw_graphics::DrawItem {
             rw_graphics::DrawItem::Sprite(rw_graphics::Sprite {
                 index,
@@ -1559,10 +1575,15 @@ mod tests {
     fn debug_view_draws_colliders_and_no_sprites() {
         let game = Game::new(open_room(), &rw_assets::RoomSettings::ANCESTOR, 1, None);
         let sprites = Recorder::slugcat_sprites();
-        let chunks = game.body().expect("body").chunks.len();
+        let body = game.body().expect("body");
+        let chunks = body.chunks.len();
         let r = Recorder::record(&game, None, &sprites);
         assert_eq!(r.sprite_calls, 0);
-        assert_eq!(r.circles, chunks, "one circle per body chunk");
+        assert_eq!(
+            r.circles,
+            Recorder::debug_circles([body]),
+            "one circle per body chunk, one per contact"
+        );
         assert_eq!(r.rings, chunks, "one radius ring per body chunk");
         assert!(r.lines >= 1, "the connection rod");
         assert!(!r.level);
@@ -1587,10 +1608,18 @@ mod tests {
         let sprites = Recorder::slugcat_sprites();
         let bodies = game.debug_bodies();
         assert!(!bodies.is_empty(), "items in the room");
-        let others: usize = bodies.iter().map(|(b, _, _)| b.chunks.len()).sum();
-        let chunks = game.body().expect("body").chunks.len() + others;
+        let all = bodies
+            .iter()
+            .map(|(b, _, _)| *b)
+            .chain(game.body())
+            .collect::<Vec<_>>();
+        let chunks: usize = all.iter().map(|b| b.chunks.len()).sum();
         let r = Recorder::record(&game, None, &sprites);
-        assert_eq!(r.circles, chunks, "one circle per body chunk");
+        assert_eq!(
+            r.circles,
+            Recorder::debug_circles(all),
+            "one circle per body chunk, one per contact"
+        );
         assert_eq!(r.rings, chunks, "one radius ring per body chunk");
     }
 

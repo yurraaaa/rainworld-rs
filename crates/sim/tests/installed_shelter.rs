@@ -73,6 +73,19 @@ impl Installed {
     }
 }
 
+/// Ticks after the loading threads have their stage ready, so rooms load in the same
+/// ticks however busy the machine is (the rain timer runs on while they load).
+trait Step {
+    fn step(&mut self, input: Input, observer: &mut ());
+}
+
+impl Step for RainWorldGame {
+    fn step(&mut self, input: Input, observer: &mut ()) {
+        self.world().await_loading_threads();
+        self.tick(input, observer);
+    }
+}
+
 fn door_fac(game: &RainWorldGame, room: i32) -> f32 {
     game.shelter_door(room).expect("door").closed_fac
 }
@@ -87,7 +100,7 @@ fn the_door_opens_with_the_cycle_and_the_slugcat_wakes_curled_up() {
     // The slugcat comes in with a loading stage, at the end of a tick, before its first
     // update.
     while game.player().is_none() {
-        game.tick(Input::default(), &mut ());
+        game.step(Input::default(), &mut ());
     }
     let timer = game.world().rain_cycle.timer;
     assert!(timer < 80, "a new cycle starts at timer {timer}");
@@ -95,11 +108,11 @@ fn the_door_opens_with_the_cycle_and_the_slugcat_wakes_curled_up() {
     let player = game.player().expect("player");
     assert!(player.still_in_start_shelter());
     assert_eq!(player.sleep_counter(), 100);
-    game.tick(Input::default(), &mut ());
+    game.step(Input::default(), &mut ());
     // `sleepCounter` 100 lays the body down and waits at 99.
     assert_eq!(game.player().expect("player").sleep_counter(), 99);
     while game.world().rain_cycle.timer < 255 {
-        game.tick(Input::default(), &mut ());
+        game.step(Input::default(), &mut ());
     }
     // InverseLerp(430, 80, 255) = 0.5.
     assert!((door_fac(&game, shelter) - 0.5).abs() < 1e-6);
@@ -107,14 +120,14 @@ fn the_door_opens_with_the_cycle_and_the_slugcat_wakes_curled_up() {
     assert_eq!(player.sleep_counter(), 99);
     assert_eq!(player.sleep_curl_up(), 1.0);
     while game.world().rain_cycle.timer < 431 {
-        game.tick(Input::default(), &mut ());
+        game.step(Input::default(), &mut ());
     }
     assert_eq!(door_fac(&game, shelter), 0.0);
     // An input starts the 17-tick uncurl, standing up at 0.
-    game.tick(Input::new(1, 0, false), &mut ());
+    game.step(Input::new(1, 0, false), &mut ());
     assert_eq!(game.player().expect("player").sleep_counter(), 17);
     for _ in 0..17 {
-        game.tick(Input::default(), &mut ());
+        game.step(Input::default(), &mut ());
     }
     let player = game.player().expect("player");
     assert_eq!(player.sleep_counter(), 0);
@@ -130,7 +143,7 @@ fn a_fed_slugcat_coming_in_hibernates_and_wins() {
     };
     let mut game = installed.game("SU_A22");
     for _ in 0..450 {
-        game.tick(Input::default(), &mut ());
+        game.step(Input::default(), &mut ());
     }
     let world = game.world();
     let src = world.room_index("SU_A22").expect("SU_A22");
@@ -150,7 +163,7 @@ fn a_fed_slugcat_coming_in_hibernates_and_wins() {
         &mut (),
     );
     for _ in 0..600 {
-        game.tick(input, &mut ());
+        game.step(input, &mut ());
         let p = game.player().expect("player");
         if game.player_pos().room == shelter && !p.in_shortcut() {
             break;
@@ -175,7 +188,7 @@ fn a_fed_slugcat_coming_in_hibernates_and_wins() {
     let mut closing_at = None;
     let mut end = None;
     for t in 1..=800 {
-        game.tick(Input::default(), &mut ());
+        game.step(Input::default(), &mut ());
         let door = game.shelter_door(shelter).expect("door");
         if closing_at.is_none() && door.is_closing() {
             closing_at = Some(t);
@@ -231,7 +244,7 @@ fn shelter_hostiles_leave_and_lizards_stay() {
     let spider = game
         .dev_spawn_creature(CreatureType::Spider, shelter, tile, None, &mut ())
         .expect("spider");
-    game.tick(Input::default(), &mut ());
+    game.step(Input::default(), &mut ());
     let w = game.world();
     assert_eq!(w.creature(big).pos.room, den.room);
     assert_eq!(w.creature(big).pos.node, den.node);
@@ -247,6 +260,6 @@ fn shelter_hostiles_leave_and_lizards_stay() {
     let mut game = installed.game("SU_S01");
     game.dev_spawn_creature(CreatureType::GreenLizard, shelter, tile, None, &mut ())
         .expect("lizard");
-    game.tick(Input::default(), &mut ());
+    game.step(Input::default(), &mut ());
     assert!(!game.shelter_door(shelter).expect("door").kill_hostiles);
 }

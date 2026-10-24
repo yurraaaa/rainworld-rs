@@ -527,9 +527,9 @@ impl World {
     }
 
     /// Blocks until every started preparer thread has a stage to hand over or has
-    /// finished (tests that step stage by stage).
-    #[cfg(test)]
-    pub(crate) fn await_loading_threads(&self) {
+    /// finished (tests that step stage by stage, so loading takes the same ticks however
+    /// slow the threads are).
+    pub fn await_loading_threads(&self) {
         for p in &self.loading {
             p.await_thread();
         }

@@ -301,8 +301,10 @@ impl RoomPreparer {
 
     /// Blocks until the next `Update` has something to see: a requested stage or the
     /// thread finished (tests that step stage by stage).
-    #[cfg(test)]
-    pub(crate) fn await_thread(&self) {
+    ///
+    /// # Panics
+    /// When the thread hands nothing over within 60 s.
+    pub fn await_thread(&self) {
         if !self.thread_started() {
             return;
         }
