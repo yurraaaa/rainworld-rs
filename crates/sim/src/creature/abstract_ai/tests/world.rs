@@ -219,6 +219,38 @@ fn a_green_in_its_den_counts_down_then_comes_out_without_drawing() {
     assert_eq!(rng.state(), model.state(), "no draws in the den");
 }
 
+/// Port-only dev rewind (D44): a creature the rain kept in (counter -1) is released with
+/// counter 0 once the timer is back before the rain's margin, and comes out at the next
+/// room update; a dead one stays. No draws.
+#[test]
+fn the_dev_rewind_releases_creatures_the_rain_kept_in() {
+    let mut ticker = Ticker::new();
+    let mut world = world();
+    let mut rng = UnityRandom::new(5);
+    let id = green(&mut world, at(0, 1), &mut rng);
+    let dead = green(&mut world, at(0, 1), &mut rng);
+    world.move_entity_to_den(id, &mut rng);
+    world.move_entity_to_den(dead, &mut rng);
+    world.creature_mut(dead).state.alive = false;
+    world.rain_cycle.timer = 100_000 - 2399;
+    world.update_abstract_room(0, 4, &mut ticker.tick(&mut rng));
+    assert_eq!(world.creature(id).remain_in_den_counter, -1);
+    assert_eq!(world.creature(dead).remain_in_den_counter, -1);
+    world.rain_cycle.timer = 0;
+    let before = rng.state();
+    world.dev_release_dens();
+    assert_eq!(rng.state(), before, "no draws");
+    assert_eq!(world.creature(id).remain_in_den_counter, 0);
+    assert_eq!(
+        world.creature(dead).remain_in_den_counter,
+        -1,
+        "a dead one stays"
+    );
+    world.update_abstract_room(0, 4, &mut ticker.tick(&mut rng));
+    assert!(!world.creature(id).in_den);
+    assert!(world.creature(dead).in_den);
+}
+
 #[test]
 fn rain_pre_cycle_and_night_keep_a_green_in() {
     let mut ticker = Ticker::new();

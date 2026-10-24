@@ -433,7 +433,7 @@ Ported:
 | `RoomCamera` | `crates/app/src/full_screen_effect.rs`, `crates/app/src/game.rs`, `crates/app/src/scene.rs`, `crates/app/src/sprite_order.rs`, `crates/app/src/visuals.rs`, `crates/app/src/water_light.rs`, `crates/assets/src/palette.rs`, `crates/render/src/level.rs`, `crates/render/src/room_camera.rs`, `crates/sim/src/creature/fly/turn.rs`, `crates/sim/src/effects/particles/insect/turn.rs`, `crates/sim/src/game/camera.rs`, `crates/sim/src/game/camera_image.rs`, `crates/sim/src/game/rain_turn.rs`, `crates/sim/src/game/screen_shake.rs`, `crates/sim/src/game/shortcut_turn.rs` |
 | `RoomPreparer` | `crates/sim/src/world/room_preparer.rs` |
 | `RoomPreprocessor` | `crates/assets/src/nodes.rs`, `crates/sim/src/world/ai_map/creature_ai_map.rs` |
-| `RoomRain` | `crates/assets/src/rain_mask.rs`, `crates/graphics/src/effects/gameplay/room_rain.rs`, `crates/sim/src/game/room_rain_turn.rs`, `crates/sim/src/world/room_rain.rs`, `crates/sim/src/world/room_rain_sound.rs` |
+| `RoomRain` | `crates/assets/src/rain_mask.rs`, `crates/graphics/src/effects/gameplay/room_rain.rs`, `crates/sim/src/game/room_rain_turn.rs`, `crates/sim/src/world/realized.rs`, `crates/sim/src/world/room_rain.rs`, `crates/sim/src/world/room_rain_sound.rs` |
 | `RoomRealizer` | `crates/sim/src/world/realizer.rs` |
 | `RoomSettings` | `crates/assets/src/ambient.rs`, `crates/assets/src/placed.rs`, `crates/assets/src/placed_types.rs`, `crates/assets/src/settings.rs`, `crates/assets/src/triggers.rs` |
 | `RoomSpecificScript` | `crates/sim/src/game/room_script.rs` |

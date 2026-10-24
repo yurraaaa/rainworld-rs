@@ -88,8 +88,9 @@ impl RainWorldGame {
 
     /// Port-only dev rewind (D44): when the timer is before the cycle's end, everything the
     /// rain built up goes: the global rain, each realized room's `RoomRain` intensity, flood
-    /// level and added water, and every creature's and the player's `rainDeath`. Makes no
-    /// draws; leaves a timer at or past the end alone.
+    /// level and added water, every creature's and the player's `rainDeath`, and the den
+    /// latch of creatures that went home for the rain. Makes no draws; leaves a timer at or
+    /// past the end alone.
     pub fn dev_rewind_rain(&mut self) {
         if self.world.rain_cycle.time_until_rain() <= 0 {
             return;
@@ -99,6 +100,7 @@ impl RainWorldGame {
             room.dev_rewind_rain();
         }
         self.world.dev_clear_rain_death();
+        self.world.dev_release_dens();
         if let Some(p) = self.player.as_mut() {
             p.rain_death = 0.0;
         }

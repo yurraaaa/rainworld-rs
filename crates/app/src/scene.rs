@@ -200,7 +200,13 @@ impl Scene {
         self.visuals = self.source.as_ref().and_then(|source| {
             let room = self.game.room();
             let timeline = self.game.sim().campaign().timeline.value();
-            Visuals::load(&source.assets, &source.resources, room, timeline)
+            let mask = self
+                .game
+                .sim()
+                .world()
+                .realized(self.camera_room)
+                .and_then(|r| r.rain_mask_if_made().cloned());
+            Visuals::load(&source.assets, &source.resources, room, timeline, mask)
                 .inspect_err(|e| {
                     log::warn!(
                         "no level graphic for {} ({e}); showing the debug view",
@@ -231,6 +237,10 @@ impl Scene {
     fn new_water_light(&self) -> Option<WaterLight> {
         let sim = self.game.sim();
         let realized = sim.world().realized(self.camera_room)?;
+        if self.game.water().is_some() {
+            // `WaterLight.NewRoom`'s `GetOrGenerateShelterTex`.
+            realized.rain_mask();
+        }
         WaterLight::new(&realized.room, self.game.water(), &realized.settings)
     }
 

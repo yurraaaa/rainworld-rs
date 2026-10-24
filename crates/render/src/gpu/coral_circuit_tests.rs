@@ -129,6 +129,7 @@ fn draw(r: &mut WgpuRenderer, rain: f32, shader: Option<Shader>) -> FrameImage {
         .unwrap(),
         params: LevelParams::DEFAULT,
         rain_mask: None,
+        room_size: None,
     });
     r.set_stage_globals(StageGlobals {
         rain,

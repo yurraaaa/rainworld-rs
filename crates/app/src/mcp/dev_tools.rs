@@ -144,7 +144,12 @@ impl Session {
         cam.cut_to(camera);
         let visuals = if level {
             let timeline = game.sim().campaign().timeline.value();
-            let mut v = Visuals::load(&self.assets, &self.resources, &map, timeline)
+            let mask = game
+                .sim()
+                .world()
+                .realized(room)
+                .and_then(|r| r.rain_mask_if_made().cloned());
+            let mut v = Visuals::load(&self.assets, &self.resources, &map, timeline, mask)
                 .map_err(|e| format!("no level graphic for {}: {e}", map.name()))?;
             v.show(camera);
             v.fade(&game.sim().world().rain_cycle);

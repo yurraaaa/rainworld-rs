@@ -151,6 +151,21 @@ impl World {
         }
     }
 
+    /// Port-only (D44): after a dev rewind, a creature in its den that stopped counting for
+    /// the rain (`remainInDenCounter` -1) and would not want to stay under the rewound
+    /// timer gets counter 0, so it leaves at its next `InDenUpdate`. No draws.
+    pub fn dev_release_dens(&mut self) {
+        let release: Vec<CreatureId> = self
+            .creatures()
+            .filter(|(_, c)| c.in_den && c.remain_in_den_counter == -1 && !c.template.held_in_den())
+            .map(|(id, _)| id)
+            .filter(|&id| !self.wants_to_stay_in_den(id))
+            .collect();
+        for id in release {
+            self.creature_mut(id).remain_in_den_counter = 0;
+        }
+    }
+
     /// `AbstractRoom.creatures` of global room `room`.
     #[must_use]
     pub fn room_creatures(&self, room: i32) -> &[CreatureId] {

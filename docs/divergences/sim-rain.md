@@ -38,7 +38,9 @@ Game bugs are kept (user decision, 2026-10-24).
   `RoomRain` intensity and `lastIntensity` to 0 (its loops fall silent on their next
   update), its water to `originalWaterLevel` (as realized with flood 0), water that
   `Room.AddWater` gave a dry room (the file's dry room returns; no `Water`, `WaterSound`
-  or `added_water`), and every creature's and the player's `rainDeath`; no draws. A timer
+  or `added_water`), every creature's and the player's `rainDeath`, and creatures the rain kept in their dens
+  (`remainInDenCounter` -1, not wanting to stay under the rewound timer) get counter 0 and
+  come out at their next `InDenUpdate`; no draws. A timer
   at or past the end changes nothing.
 - **Branches of the DLCs and Remix (listed, not ported):** the precycle (`preTimer`, the pulse
   waves, `drainWorldFlood`, `FloodHelpUp`, `forceSlowFlood`, the flood speed's second
@@ -117,7 +119,7 @@ with the `DeathRain` shader in `GrabShaders`, and `splashes` splash sprites of `
 (`90DegreeSplash` below `splashes / 2`, anchor y 0.2, then `TallSplash`, 0.1) in `Items`,
 placed on up to five random `splashTiles` a drawn frame with the game's order of draws on the
 cosmetic stream (D1). `DeathRain.shader` is `death_rain.wgsl` (a `GrabPass`; the room's
-`RainMask_` is the mask texture the `WaterLight` already reads, now generated for every room,
+`RainMask_` is the mask texture the `WaterLight` already reads, now generated for every room with rain,
 not only those with water). `_rainDirection`, `_RainSpriteRect`, `_rainIntensity` and
 `_rainEverywhere` are set by `Renderer::set_rain_globals` from the camera room's `RoomRain`
 each drawn frame; `_waterLevel` is the camera's, as for the other shaders. The seven
