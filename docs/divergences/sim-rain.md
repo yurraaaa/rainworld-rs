@@ -111,7 +111,7 @@ with the `DeathRain` shader in `GrabShaders`, and `splashes` splash sprites of `
 (`90DegreeSplash` below `splashes / 2`, anchor y 0.2, then `TallSplash`, 0.1) in `Items`,
 placed on up to five random `splashTiles` a drawn frame with the game's order of draws on the
 cosmetic stream (D1). `DeathRain.shader` is `death_rain.wgsl` (a `GrabPass`; the room's
-`RainMask_` is the mask texture the `WaterLight` already reads, now generated for every room,
+`RainMask_` is the mask texture the `WaterLight` already reads, now generated for every room with rain (D49),
 not only those with water). `_rainDirection`, `_RainSpriteRect`, `_rainIntensity` and
 `_rainEverywhere` are set by `Renderer::set_rain_globals` from the camera room's `RoomRain`
 each drawn frame; `_waterLevel` is the camera's, as for the other shaders. The seven
