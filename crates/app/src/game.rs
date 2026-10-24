@@ -21,13 +21,13 @@ use rw_audio::Follow as SoundFollow;
 mod background_scene;
 
 use rw_graphics::{
-    Color, CosmeticSprites, DandelionSprites, DecalSprites, DrawList, DripPalette, FlyGraphics,
-    GreenSparkSprites, HologramFrame, HologramGraphics, HologramLightSprites, InsectDraw,
-    InsectSprites, Layer, LightBeamSprites, LightBeamView, LightSourceSprites, LightSourceView,
-    LizardColors, LizardGraphics, LizardModule, LizardReading, OverseerGraphics, PlayerGraphics,
-    RainDrawView, RainShaderGlobals, RainbowSprites, RoomRainSprites, ShelterDoorSprites,
-    ShortcutPalette, SlimeMoldSprites, SpeckSprites, SpotLightSprites, StalkSprites,
-    TokenStalkSprites, WaterDripSprites, WeaponSprites,
+    BulletDripSprites, Color, CosmeticSprites, DandelionSprites, DecalSprites, DrawList,
+    DripPalette, FlyGraphics, GreenSparkSprites, HologramFrame, HologramGraphics,
+    HologramLightSprites, InsectDraw, InsectSprites, Layer, LightBeamSprites, LightBeamView,
+    LightSourceSprites, LightSourceView, LizardColors, LizardGraphics, LizardModule, LizardReading,
+    OverseerGraphics, PlayerGraphics, RainDrawView, RainShaderGlobals, RainbowSprites,
+    RoomRainSprites, ShelterDoorSprites, ShortcutPalette, SlimeMoldSprites, SpeckSprites,
+    SpotLightSprites, StalkSprites, TokenStalkSprites, WaterDripSprites, WeaponSprites,
 };
 use rw_hud::{HudSetup, OwnerTick, RainCycleView, StartCondition, Subregions};
 use rw_random::UnityRandom;
@@ -1214,6 +1214,23 @@ impl Game {
         Some((Drawable::RoomRain(rain.update_order), globals, list))
     }
 
+    /// The camera room's `BulletDrip`s at `alpha` between ticks (a rotation draw each on the
+    /// cosmetic stream).
+    pub fn bullet_drip_draw_lists(&mut self, alpha: f32) -> Vec<(Drawable, DrawList)> {
+        let world = self.sim.world();
+        let Some(rain) = world
+            .realized(self.shown_room)
+            .and_then(|r| r.room_rain.as_ref())
+        else {
+            return Vec::new();
+        };
+        let rng = &mut self.graphics.cosmetic;
+        rain.bullet_drips
+            .iter()
+            .map(|d| (Drawable::BulletDrip(d.update_order), d.draw(alpha, rng)))
+            .collect()
+    }
+
     /// The camera room's `CoralNeuron`s, `StemSegment`s, `WallMycelia` and circuit bits,
     /// connectors and crabs at `alpha`
     /// between ticks (the segments' dots blink from the cosmetic stream, per frame).
@@ -1830,6 +1847,12 @@ impl Game {
                 r.room_rain
                     .iter()
                     .map(|d| Present::added(Drawable::RoomRain(d.update_order), d.update_order)),
+            );
+            present.extend(
+                r.room_rain
+                    .iter()
+                    .flat_map(|rain| &rain.bullet_drips)
+                    .map(|d| Present::added(Drawable::BulletDrip(d.update_order), d.update_order)),
             );
             present.extend(
                 r.electric_deaths.iter().map(|d| {

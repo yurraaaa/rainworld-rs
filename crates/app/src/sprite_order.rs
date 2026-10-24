@@ -76,6 +76,8 @@ pub enum Drawable {
     ElectricDeath(u64),
     /// A `RoomRain`, by its place in the update list.
     RoomRain(u64),
+    /// A `BulletDrip`, by its place in the update list.
+    BulletDrip(u64),
     /// A projector's part, a `ProjectedScanLines` line or a `StarMatrix`, by its place in
     /// the update list.
     Projection(u64),

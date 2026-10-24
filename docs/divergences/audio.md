@@ -78,7 +78,7 @@ updates in) and the passage screen's `Passages` song are ported as hooks
   `Spear_Stick_In_Wall`, skims `Weapon_Skid`, the backward belly-slide throw
   `Slugcat_Rocket_Jump`, the long slide's end `Slugcat_Normal_Jump`. A weapon stopped
   by a creature plays `Spear_Hit_Small_Creature`, a dying overseer `Overseer_Death`.
-- **Not ported:** the rain's one-shots (`Bullet_Drip_Strike`; the seven `RoomRain` loops are ported, D46, thunder and `Electricity_Loop` D25);
+- **Not ported:** thunder and `Electricity_Loop` (D25); the seven `RoomRain` loops (D46) and `Bullet_Drip_Strike` (D50) are ported;
   the drown-out of volume group 0 is ported (`Room.RainDrownOutSounds`, reading the room's
   `RoomRain.intensity`, D45), other creatures', item and object sounds, the sounds of
   unported menu screens and objects, `PlayCustomSound` / loose mod clips next to

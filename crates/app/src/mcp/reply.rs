@@ -636,6 +636,23 @@ pub struct RoomRainState {
     pub sprites_visible: bool,
     /// The sound loops that exist, in the constructor's order.
     pub loops: Vec<RainLoopState>,
+    /// `bulletDrips`, oldest first (empty outside bullet rain).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub bullet_drips: Vec<BulletDripState>,
+}
+
+/// A `BulletDrip`.
+#[derive(Debug, Clone, Serialize)]
+pub struct BulletDripState {
+    pub order: u64,
+    /// The tile column `Strike` chose (from `pos`; not meaningful before its first strike).
+    pub column: i32,
+    pub pos: [f32; 2],
+    pub sky_pos: [f32; 2],
+    pub falling: f32,
+    pub last_falling: f32,
+    pub fall_speed: f32,
+    pub delay: i32,
 }
 
 /// A `RoomRain` sound loop.
@@ -676,6 +693,20 @@ impl RoomRainState {
                     volume_group: l.volume_group,
                     volume: l.volume(),
                     playing: l.emitter.is_some(),
+                })
+                .collect(),
+            bullet_drips: rain
+                .bullet_drips
+                .iter()
+                .map(|d| BulletDripState {
+                    order: d.update_order,
+                    column: d.pos.tile().0,
+                    pos: d.pos.to_array(),
+                    sky_pos: d.sky_pos.to_array(),
+                    falling: d.falling,
+                    last_falling: d.last_falling,
+                    fall_speed: d.fall_speed,
+                    delay: d.delay,
                 })
                 .collect(),
         }

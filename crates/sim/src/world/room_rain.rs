@@ -9,10 +9,8 @@
 //! here; the arm itself (the water level, `GeneralUpsetSurface`, `AddWater`) is the game
 //! side's (D47).
 //!
-//! Not ported here: the bullet drips (R5), and the DLC and Remix branches (D45, D46, D47).
-//!
-//! Not ported here: the bullet drips (R5), the sound loops, the sprites and the shader
-//! (R3), and the DLC and Remix branches (D45, D47).
+//! The bullet drips it keeps are [`BulletDrip`] (`bullet_drip.rs`). Not ported here: the DLC
+//! and Remix branches (D45, D46, D47, D50).
 //!
 //! Mirrors: RoomRain.cs (RoomRain, GenerateShelterTex, Update, ThrowAroundObjects, CreatureSmashedInGround, InsidePushAround, OutsidePushAround, FloodLevel)
 
@@ -21,6 +19,7 @@ use std::sync::Arc;
 use rw_assets::{DangerType, Room};
 use rw_random::UnityRandom;
 
+use crate::world::bullet_drip::BulletDrip;
 use crate::world::room_rain_sound::RainLoops;
 use crate::world::{GlobalRain, World};
 use crate::{BodyChunk, FloatExt, Vec2, Water};
@@ -55,6 +54,8 @@ pub struct RoomRain {
     pub last_intensity: f32,
     pub intensity: f32,
     pub loops: RainLoops,
+    /// `bulletDrips`, oldest first.
+    pub bullet_drips: Vec<BulletDrip>,
 }
 
 impl RoomRain {
@@ -91,6 +92,7 @@ impl RoomRain {
             // `intensity` is 0 here, so the constructor's test picks 1.
             last_intensity: 1.0,
             intensity: 0.0,
+            bullet_drips: Vec::new(),
         }
     }
 

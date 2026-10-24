@@ -12,6 +12,7 @@
 //! Mirrors: World.cs, AbstractRoom.cs
 
 pub(crate) mod ai_map;
+mod bullet_drip;
 mod creatures;
 mod dens;
 mod global_rain;
@@ -59,6 +60,7 @@ pub use crate::world::ai_map::quick_connectivity::QuickConnectivity;
 pub use crate::world::ai_map::quick_path::{QuickPath, QuickPathFinder};
 pub(crate) use ai_map::EIGHT_DIRECTIONS;
 pub use ai_map::{AiMap, AiTile};
+pub use bullet_drip::BulletDrip;
 pub(crate) use creatures::RoomLists;
 pub use creatures::{AbstractTick, QuantifiedCount, WorldProcesses};
 pub use global_rain::{DeathRain, DeathRainMode, GlobalRain, PassiveRain, RainTick};

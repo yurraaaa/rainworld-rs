@@ -1104,3 +1104,34 @@ fn death_rain_copies_the_grab_at_rest_and_greys_it_under_heavy_rain() {
     eprintln!("death rain: channels {low}..={high}");
     assert!(low >= 90 && high <= 145, "{low}..={high}");
 }
+
+/// `BulletRain` over a flat frame (the palette's 30 grey): the grab shifted by `(1 - uv.y) *
+/// 0.05` is the same grey, so the streak shows only the white mix `pow(1 - uv.y, 10) *
+/// 0.5`: halfway to white at the foot (`uv.y` 0, the anchor, about (30 + 255) / 2), the
+/// frame itself a few tenths up.
+#[test]
+fn bullet_rain_glints_white_at_its_foot_only() {
+    let Some(mut r) = renderer() else { return };
+    let mut scene = Scene::new(level(|_, _| [0, 0, 0]), palette([30, 30, 30], &[]));
+    scene.over = vec![DrawItem::Sprite(Sprite {
+        index: 0,
+        element: SpriteAtlas::FUTILE_WHITE,
+        pos: Vec2::new(600.0, 100.0),
+        rotation: 0.0,
+        scale: Vec2::new(4.0, 25.0),
+        anchor: Vec2::new(0.5, 0.0),
+        color: SpriteColor::WHITE,
+        shader: Shader::BulletRain,
+        layer: Layer::Foreground,
+    })];
+    let image = scene.draw(&mut r, None);
+    // Room y 100 + 400 px of streak; the frame's row 0 is the top, so the foot is at row
+    // H - 100 and the head at H - 500.
+    let foot = rgb(&image, 600, H - 102);
+    let mid = rgb(&image, 600, H - 300);
+    let head = rgb(&image, 600, H - 498);
+    eprintln!("bullet rain: foot {foot:?} mid {mid:?} head {head:?}");
+    assert!(foot.iter().all(|&c| (132..=145).contains(&c)), "{foot:?}");
+    assert_eq!(mid, [30, 30, 30]);
+    assert_eq!(head, [30, 30, 30]);
+}
