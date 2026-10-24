@@ -144,6 +144,12 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `../rainworld-re/surveys/lizards.md` (user decisions).
 
 ## To look into
+
+- **Death rain intensity after `set_rain_timer`** (2026-10-24, R2 review; observed over
+  MCP, not reproduced): after `set_rain_timer` brings on the death rain, `Intensity` stayed
+  0 for ~700 ticks with `rain_game_over` before rising, and the same sequence gave
+  different curves in different runs. Check whether the pause is the game's (D44 modes)
+  and whether the runs really differed from the same start (determinism).
 - **`FluxWaterfall`, `FluxDrain`** (user, 2026-10-24: ignore until used): base-game objects reading
   `globalRain.floodSpeed`, made by `Room.Loaded` with no `ModManager` test; no installed room places them
   (D44).
