@@ -1,6 +1,6 @@
 //! The game's side of `BulletDrip`s: `RoomRain.Update`'s upkeep of their count and each
 //! drip's turn in the room's update list. A strike traces from the sky to the ground
-//! against the bodies of collision layer 1, then plays `Small_Object_Into_Water_Fast`
+//! against the bodies of collision layer 1 (the player and lizards) that can be hit by weapons, then plays `Small_Object_Into_Water_Fast`
 //! (after `WaterfallHitSurface`) when it lands under the water surface or
 //! `Bullet_Drip_Strike` otherwise, and pushes down (and stuns) what it hit. The Watcher's
 //! `rippleLayer` test and `rippleFade` (1) are the DLC's (D50).
@@ -109,6 +109,11 @@ impl RainWorldGame {
             if layer != 1 {
                 continue;
             }
+            if let ChunkOwner::Entity(e) = owner
+                && !self.world.can_be_hit_by_weapons(e)
+            {
+                continue;
+            }
             for i in 0.. {
                 let Some(chunk) = self.electric_chunk(owner, i) else {
                     break;
@@ -125,6 +130,7 @@ impl RainWorldGame {
                 }
             }
         }
+        let collision_point = hit.map(|(_, _, t)| drip.sky_pos.lerp(drip.pos, t));
         let submerged = self
             .world
             .realized(index)
@@ -150,10 +156,10 @@ impl RainWorldGame {
             SoundId::BulletDripStrike
         };
         sounds.play_at(sound, drip.pos, 1.0, 1.0, &mut self.rng);
-        let Some((owner, i, t)) = hit else {
+        let (Some((owner, i, _)), Some(point)) = (hit, collision_point) else {
             return;
         };
-        drip.pos = drip.sky_pos.lerp(drip.pos, t);
+        drip.pos = point;
         if let Some(chunk) = self.electric_chunk_mut(owner, i) {
             chunk.vel.y -= 2.0 / chunk.mass;
         }

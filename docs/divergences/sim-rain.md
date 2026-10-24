@@ -101,10 +101,10 @@ sum is 0; the game's sign slip, ported as the game has it by the user's decision
   (`RainIntensity < 0.02`), More Slugcats' `OE` gate (`RainIntensity <= 0.2`), Watcher's
   `rippleLayer` skip and `WaterCycleBottom/Top` objects (which also make a `RoomRain`), the
   precycle intensity and flood arms, the Saint `Blizzard` type and `rippleFade`.
-- **Not yet:** the drips (R5). The loops, `DrawSprites` and the splash sprites are D46;
-  the flood arm of `Update` is D47.
+- **Elsewhere:** the loops, `DrawSprites` and the splash sprites are D46; the flood arm
+  of `Update` is D47; the bullet drips are D50.
 
-**Why.** Scope of step R2 (survey `rain/core.md`); the rest waits for R3-R5.
+**Why.** Scope of step R2 (survey `rain/core.md`); the rain's sprites, the flood and the bullet rain are D46, D47 and D50.
 
 **Affects.** The stream (each pushed chunk makes 3 to 7 draws a tick in a pushing room),
 the bodies' velocities and stuns in a death rain, the player's lungs and death.
@@ -206,8 +206,9 @@ update list. The density is non-zero in the death rain's `CalmBeforeStorm` (`p^8
 `BulletRain` effects (D44). A drip counts its `delay` down once landed; `Strike` picks a
 column (`Range(0, TileWidth)`), places the tip above the first solid tile (row -10 in a
 column without one) and the sky end above the room, restarts the fall and redraws
-`delay`, traces the path against the collision-layer-1 chunks (the player, lizards and
-loose weapons; radius 0.5, the first `CirclesCollisionTime`), plays
+`delay`, traces the path against the collision-layer-1 chunks (the player and lizards;
+weapons are layer 2 at rest, 0 when thrown; radius 0.5, the first `CirclesCollisionTime`;
+objects that cannot be hit by weapons are skipped), plays
 `Small_Object_Into_Water_Fast` after `WaterfallHitSurface(pos, 0, 1)` when it ends below
 the water surface (`pos.y` set 30 under it) or `Bullet_Drip_Strike`, and pushes the hit
 chunk down by `2 / mass` and stuns a creature by `Range(0, 4)`. The streak (`BulletRain`
@@ -226,10 +227,15 @@ height, so the drip strikes again, and draws again, every tick until a column wo
 - **No reader in the base game:** `RoomCamera`'s `RoomHasWater` shader keyword is read
   only by `WarpTear` (Watcher); `RainCycle.RegionHidesTimer`'s readers (`RainMeter`) all
   test `ModManager.MMF` first (Remix). Neither is ported.
-- A drip the upkeep destroys is dropped from the room's list at once; the game removes it
-  at the end of the room's update (its `Update` is skipped in between either way).
-- The trace covers the objects the port has bodies for: the player, lizards and loose
-  weapons in layer 1 (flies and overseers are layer 0; the game's trace is layer 1 only).
+- A drip the upkeep destroys is dropped from the room's list at once. In the game
+  `Room.Update` walks the update list from its end and drips sit after the `RoomRain`, so
+  the destroyed drip has already updated that tick and the game removes it next tick when
+  the loop reaches it slated; nothing observable differs.
+- The trace covers layer 1 only, as the game's: the player and lizards (weapons are layer
+  2 at rest, 0 when thrown; flies and overseers are layer 0).
+- **The grab.** The game's anonymous `GrabPass {}` re-grabs the frame for each object, so
+  one streak can bend another drawn before it; the port grabs once for the `GrabShaders`
+  layer, as `DeathRain` does.
 
 **Why.** Step R5's scope (survey `rain/core.md` 5.3, 6, 7, 8, 9).
 

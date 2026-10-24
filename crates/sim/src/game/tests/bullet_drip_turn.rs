@@ -271,12 +271,7 @@ fn a_hit_pushes_the_chunk_down_and_stuns_the_creature() {
     );
 }
 
-/// A drop landing under the surface: `pos.y = FloatWaterLevel - 30`, then
-/// `WaterfallHitSurface(pos, 0, 1)` makes its draws (a `value < flow` roll per point from
-/// the one at or left of `x` to the one past it, and two more where it passes), and
-/// `Small_Object_Into_Water_Fast` plays.
-#[test]
-fn a_drop_under_the_surface_stirs_the_water() {
+fn water_game() -> RainWorldGame {
     let room = room_with_water(&OPEN, 3);
     let data = WorldData::from_room(&room);
     let settings = RoomSettings {
@@ -299,6 +294,16 @@ fn a_drop_under_the_surface_stirs_the_water() {
         Sounds::default(),
     );
     g.tick_until_ready(&mut ());
+    g
+}
+
+/// A drop landing under the surface: `pos.y = FloatWaterLevel - 30`, then
+/// `WaterfallHitSurface(pos, 0, 1)` makes its draws (a `value < flow` roll per point from
+/// the one at or left of `x` to the one past it, and two more where it passes), and
+/// `Small_Object_Into_Water_Fast` plays.
+#[test]
+fn a_drop_under_the_surface_stirs_the_water() {
+    let mut g = water_game();
     let order = add_ready_drip(&mut g);
     let seed = seed_with_column(false);
     g.rng = UnityRandom::new(seed);
@@ -326,4 +331,47 @@ fn a_drop_under_the_surface_stirs_the_water() {
             .point(3),
         water.point(3)
     );
+}
+
+/// A hit and a submerged landing in one strike: the collision point is
+/// `Lerp(skyPos, pos, t)` from the `pos` the setup made, taken before the water entry moves
+/// `pos.y` to the surface minus 30; the push still lands on the hit chunk.
+#[test]
+fn a_hit_point_is_taken_before_the_water_entry_moves_the_drop() {
+    let mut found = None;
+    for seed in 0..20_000 {
+        let mut g = water_game();
+        let order = add_ready_drip(&mut g);
+        g.rng = UnityRandom::new(seed);
+        let (room, reach) = {
+            let r = g.world().realized(0).unwrap();
+            (
+                r.room.clone(),
+                r.room_rain.as_ref().unwrap().rain_reach.clone(),
+            )
+        };
+        let mut probe = BulletDrip::new(0);
+        if !probe.strike_setup(&room, &reach, 0.0, 0.0, &mut UnityRandom::new(seed)) {
+            continue;
+        }
+        if let Some((i, t)) = first_hit(&g, &probe) {
+            found = Some((g, order, probe, i, t));
+            break;
+        }
+    }
+    let (mut g, order, probe, i, t) = found.expect("some seed hits the slugcat");
+    let level = g
+        .world()
+        .realized(0)
+        .unwrap()
+        .water
+        .as_ref()
+        .unwrap()
+        .level_at(probe.pos.x);
+    assert!(probe.pos.y < level, "the strike lands under the surface");
+    let before = g.electric_chunk(ChunkOwner::Player, i).unwrap();
+    g.run_bullet_drip(0, order);
+    assert_eq!(drip(&g, order).pos, probe.sky_pos.lerp(probe.pos, t));
+    let after = g.electric_chunk(ChunkOwner::Player, i).unwrap();
+    assert_eq!(after.vel.y, before.vel.y - 2.0 / before.mass);
 }
