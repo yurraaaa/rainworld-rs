@@ -33,6 +33,9 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `MoveCamera2`'s `preLoadedBKG` case (rooms with a `_bkg` image take the deferred path).
 - `Room.lockedShortcuts` with the SS oracle (base game, 5 `LockShortcuts` calls): `ShortcutHelper`
   treats a locked shortcut as a wrong hole (D43).
+- **Free gate passage dev option (M9)** (user, 2026-10-24): when karma gates are ported,
+  add a debug UI and MCP option that lets the player through any gate regardless of karma
+  (port-only dev tool, recorded as a divergence).
 - **The global rain at gates (M9)**: carry `globalRain` across the `RainCycle` swap
   (`RainCycle::global_rain`, `death_rain_has_hit`: the game's fresh `RainCycle` has its own
   `deathRainHasHit` while `globalRain` persists), and `OverWorld.SyncFloodLevels`' flood
