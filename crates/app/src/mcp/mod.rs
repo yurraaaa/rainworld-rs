@@ -82,10 +82,10 @@ use serde::Serialize;
 
 use crate::saves::SaveConfig;
 use params::{
-    HudMessageParams, ImportSaveParams, ListRoomsParams, LoadProcessParams, LoadRoomParams,
-    NewGameParams, RespawnParams, ScreenshotParams, SetDestinationParams, SetPlayerParams,
-    SetRainTimerParams, SpawnCreatureParams, SpawnObjectParams, StepParams, StepProcessParams,
-    StepSequenceParams, TeleportPlayerParams, TilesParams,
+    GetStateParams, HudMessageParams, ImportSaveParams, ListRoomsParams, LoadProcessParams,
+    LoadRoomParams, NewGameParams, RespawnParams, ScreenshotParams, SetDestinationParams,
+    SetPlayerParams, SetRainTimerParams, SpawnCreatureParams, SpawnObjectParams, StepParams,
+    StepProcessParams, StepSequenceParams, TeleportPlayerParams, TilesParams,
 };
 pub use session::Session;
 
@@ -255,10 +255,14 @@ impl Server {
         the session's kills, respawn lists (this cycle's and the save's left after the \
         population), influences and each community's like of the player; camera 0's sprite leasers in \
         container order (`sprite_order`: kind, ID, a weapon behind, the jaws holding it, \
-        shown). Empty fields are left out."
+        shown). Empty fields are left out. `fields` returns only the named top-level \
+        fields (much smaller), e.g. [\"tick\", \"player\"]."
     )]
-    fn get_state(&self) -> Result<CallToolResult, String> {
-        Self::json(&self.session()?.state()?)
+    fn get_state(
+        &self,
+        Parameters(p): Parameters<GetStateParams>,
+    ) -> Result<CallToolResult, String> {
+        Self::json(&p.select(&self.session()?.state()?)?)
     }
 
     #[tool(

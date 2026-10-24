@@ -71,6 +71,40 @@ pub struct HudMessageParams {
 }
 
 #[derive(Debug, Clone, Default, Deserialize, JsonSchema)]
+pub struct GetStateParams {
+    /// Only these top-level fields, e.g. ["tick", "room", "player", "rain"] (default all).
+    /// Requested fields that are empty or unknown are listed in `absent`.
+    pub fields: Option<Vec<String>>,
+}
+
+impl GetStateParams {
+    /// The state as JSON, cut down to `fields` when given.
+    ///
+    /// # Errors
+    /// When the state does not serialize.
+    pub fn select(&self, state: &impl Serialize) -> Result<serde_json::Value, String> {
+        let value = serde_json::to_value(state).map_err(|e| e.to_string())?;
+        let (Some(fields), serde_json::Value::Object(all)) = (&self.fields, &value) else {
+            return Ok(value);
+        };
+        let mut out = serde_json::Map::new();
+        let mut absent = Vec::new();
+        for name in fields {
+            match all.get(name) {
+                Some(v) => {
+                    out.insert(name.clone(), v.clone());
+                }
+                None => absent.push(serde_json::Value::from(name.as_str())),
+            }
+        }
+        if !absent.is_empty() {
+            out.insert("absent".to_owned(), serde_json::Value::Array(absent));
+        }
+        Ok(serde_json::Value::Object(out))
+    }
+}
+
+#[derive(Debug, Clone, Default, Deserialize, JsonSchema)]
 pub struct StepParams {
     /// Ticks to run at 40 Hz (default 1).
     pub ticks: Option<u32>,

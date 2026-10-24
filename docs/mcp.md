@@ -24,7 +24,9 @@ prefer these over `--screenshot`/`--script`; briefs for such agents say so.
   start den. Both (and `respawn` with a seed) step the game without input
   until the start room is `readyForAI` before replying (at least 3 ticks; the
   room loads on a thread, so the reply's `tick` can vary).
-- `get_state` reports the following. Empty fields are left
+- `get_state` reports the following. Pass `fields` (e.g. `["tick", "player"]`)
+  to get only those top-level fields; prefer it, the full reply is large.
+  Requested fields that are empty or unknown come back in `absent`. Empty fields are left
   out; the field list is in `crates/app/src/mcp/`. New sim state must be
   added there. `get_exits` lists the camera room's exits (entrance tile, the
   input that enters, destination room, arrival node, camera).

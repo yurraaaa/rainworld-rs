@@ -16,9 +16,9 @@ mod death_fall;
 mod shortcut_helper;
 
 use super::params::{
-    InputParam, ListRoomsParams, LoadProcessParams, LoadRoomParams, NewGameParams, RespawnParams,
-    ScreenshotParams, SetPlayerParams, Step, StepParams, StepProcessParams, StepSequenceParams,
-    TilesParams, ViewParam,
+    GetStateParams, InputParam, ListRoomsParams, LoadProcessParams, LoadRoomParams, NewGameParams,
+    RespawnParams, ScreenshotParams, SetPlayerParams, Step, StepParams, StepProcessParams,
+    StepSequenceParams, TilesParams, ViewParam,
 };
 use super::reply::State;
 use super::{Server, Session};
@@ -320,7 +320,9 @@ fn tool_errors_are_results_not_panics() {
         return;
     };
     let server = Server::new(Arc::new(Mutex::new(session)));
-    let result = server.get_state().expect_err("no room yet");
+    let result = server
+        .get_state(Parameters(GetStateParams::default()))
+        .expect_err("no room yet");
     assert!(result.contains("load_room"), "{result}");
     let missing = server.load_room(Parameters(LoadRoomParams {
         name: "no_such_room".to_owned(),
@@ -354,6 +356,21 @@ fn tool_errors_are_results_not_panics() {
         .expect("steps");
     let state: serde_json::Value = serde_json::from_str(ok.text()).expect("json");
     assert_eq!(state["tick"], 4);
+    let some = server
+        .get_state(Parameters(GetStateParams {
+            fields: Some(vec![
+                "tick".to_owned(),
+                "room".to_owned(),
+                "nonsense".to_owned(),
+            ]),
+        }))
+        .expect("state");
+    let some: serde_json::Value = serde_json::from_str(some.text()).expect("json");
+    let keys: Vec<&String> = some.as_object().expect("object").keys().collect();
+    assert_eq!(keys.len(), 3, "{some}");
+    assert_eq!(some["tick"], 4);
+    assert_eq!(some["room"], state["room"]);
+    assert_eq!(some["absent"], serde_json::json!(["nonsense"]));
 }
 
 #[test]
