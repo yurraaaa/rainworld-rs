@@ -1035,3 +1035,72 @@ fn water_light_shows_caustics_over_the_masked_water_rows() {
     assert!(scene.water_light_col(850, 350, 0.2, true).is_none());
     assert_eq!(rgb(&after, 850, 350), rgb(&before.0, 850, 350));
 }
+
+/// `DeathRain` over a white frame. With the globals at rest (intensity and everywhere 0)
+/// `fac` is 0 and the grab is copied unchanged; with `_rainEverywhere` 1 the grab is
+/// mixed `max(0, 1 - 0.8) * 3 = 0.6` toward `0.15 * rand` (rand under 1), then darkened
+/// 0.9 where `lightness < -0.3` or raised to the power 0.8 where it is over 0.5: every
+/// channel of white lands in `0.36..0.49^0.8`. (The white quad reaches past the frame, so
+/// the displaced grab never reads the clamped edge.)
+#[test]
+fn death_rain_copies_the_grab_at_rest_and_greys_it_under_heavy_rain() {
+    let Some(mut r) = renderer() else { return };
+    let mut scene = Scene::new(level(|_, _| [255, 255, 255]), palette([30, 30, 30], &[]));
+    scene.noise = 100;
+    scene.rain_mask = Some(RainMask::generate(&water_light_room()));
+    scene.over = vec![
+        DrawItem::Sprite(Sprite {
+            index: 0,
+            element: SpriteAtlas::FUTILE_WHITE,
+            pos: Vec2::new(-20.0, -20.0),
+            rotation: 0.0,
+            scale: Vec2::new((W as f32 + 40.0) / 16.0, (H as f32 + 40.0) / 16.0),
+            anchor: Vec2::ZERO,
+            color: SpriteColor::WHITE,
+            shader: Shader::Basic,
+            layer: Layer::Foreground,
+        }),
+        DrawItem::Sprite(Sprite {
+            index: 0,
+            element: SpriteAtlas::FUTILE_WHITE,
+            pos: Vec2::ZERO,
+            rotation: 0.0,
+            scale: Vec2::new(W as f32 / 16.0, H as f32 / 16.0),
+            anchor: Vec2::ZERO,
+            color: SpriteColor::WHITE,
+            shader: Shader::DeathRain,
+            layer: Layer::Foreground,
+        }),
+    ];
+    let rect = [0.0, 0.0, W as f32 / 800.0, H as f32 / 600.0];
+    r.set_rain_globals(rw_graphics::RainShaderGlobals {
+        direction: 0.0,
+        intensity: 0.0,
+        everywhere: 0.0,
+        sprite_rect: rect,
+    });
+    let rest = scene.draw(&mut r, None);
+    for (x, y) in [(3, 3), (600, 300), (1300, 700)] {
+        for c in rgb(&rest, x, y) {
+            assert!(c >= 254, "pixel {x},{y}: {:?}", rgb(&rest, x, y));
+        }
+    }
+    r.set_rain_globals(rw_graphics::RainShaderGlobals {
+        direction: 0.0,
+        intensity: 1.0,
+        everywhere: 1.0,
+        sprite_rect: rect,
+    });
+    let heavy = scene.draw(&mut r, None);
+    let (mut low, mut high) = (255u8, 0u8);
+    for y in 2..H - 2 {
+        for x in 2..W - 2 {
+            for c in rgb(&heavy, x, y) {
+                low = low.min(c);
+                high = high.max(c);
+            }
+        }
+    }
+    eprintln!("death rain: channels {low}..={high}");
+    assert!(low >= 90 && high <= 145, "{low}..={high}");
+}

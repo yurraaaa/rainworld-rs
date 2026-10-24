@@ -263,6 +263,10 @@ pub enum Shader {
     CoralCircuit,
     /// `Futile/DeadCoralCircuit` (a displaced `CircuitBit`): the same cut-out, flat dim red.
     DeadCoralCircuit,
+    /// `Futile/DeathRain` (a `RoomRain`'s sprite 0): the grabbed frame sampled with
+    /// noise-driven vertical streaks under the room's rain mask, mixed toward dark grey
+    /// in the open when the rain is heavy and faded near the water line.
+    DeathRain,
 }
 
 impl Shader {
@@ -279,6 +283,7 @@ impl Shader {
                 | Self::DeathFall
                 | Self::Rainbow
                 | Self::GravityDisruptor
+                | Self::DeathRain
         )
     }
 }

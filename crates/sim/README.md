@@ -69,7 +69,7 @@ integration tests.
 | `map_discovery.rs` | per-region discovery textures, base64 PNG form | `PlayerProgression` map textures |
 | `room_script.rs` | room-specific scripts (`RoomScript`: SU_C04 start, SS_E08 gradient gravity), at their own place in the update list | `RoomSpecificScript` |
 | `rain_turn.rs` | the rain in `RainWorldGame.Update`: camera 0's shake step with the rain's terms (`RainShake`), `GlobalRain.Update` after it, `RainHit` after the timers, `Room.RainDrownOutSounds` | `RainWorldGame.Update`, `RoomCamera.Update`, `RainCycle.Update`, `Room.RainDrownOutSounds` |
-| `room_rain_turn.rs` | `Room.Loaded`'s `RoomRain`, its turn in the update list (intensity, `ThrowAroundObjects` over the room's physical objects with stun, `rainDeath` and the kill), `Creature.rainDeath` reads | `Room.Loaded`, `RoomRain.Update/ThrowAroundObjects` |
+| `room_rain_turn.rs` | `Room.Loaded`'s `RoomRain`, its turn in the update list (intensity, `ThrowAroundObjects` over the room's physical objects with stun, `rainDeath` and the kill, the sound loops and their emitters), `Creature.rainDeath` reads | `Room.Loaded`, `RoomRain.Update/ThrowAroundObjects` |
 | `screen_shake.rs` | camera 0's shake: `CameraShake` (`screenShake`, `microShake`, the per-tick jump at the head of the tick, the rain's two terms from `RainShake`), `ScreenMovement` (camera side, `Room.ScreenMovement` with its ceiling drips), `TerrainImpact`'s bump, `ceilingTiles` | `RoomCamera.Update/ScreenMovement`, `Room.ScreenMovement` |
 | `shelter.rs` | `ShelterDoor` (intact, base game) | `ShelterDoor` |
 | `shortcut.rs` | `ShortcutHandler` divider, vessels, entrance blinking | `ShortcutHandler` |
@@ -357,6 +357,7 @@ sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `m
 | `quantified.rs` | quantified creatures placed in a room and counted back | `Room.PlaceQuantifiedCreaturesInRoom`, `AbstractRoom.CountQuantifiedCreatures` |
 | `global_rain.rs` | `GlobalRain` (direction, `Intensity`, shakes, flood), `DeathRain`, `DeathRainMode` | `GlobalRain`, `GlobalRain.DeathRain` |
 | `room_rain.rs` | `RoomRain` (`rainReach`, `splashTiles`, `intensity`, push properties, the per-chunk steps of `ThrowAroundObjects`), `SmashView` (`CreatureSmashedInGround`), `World::creature_smashed_in_ground` | `RoomRain` |
+| `room_rain_sound.rs` | `RainLoops`: the `RoomRain`'s seven `DisembodiedDynamicSoundLoop`s (which exist per `DangerType`, clip, volume group, the volume formulas of `Update`) | `RoomRain` (constructor, `Update`) |
 | `rain_cycle.rs` | `RainCycle` (with `GlobalRain` as `global_rain`, `RainHit`, `ShaderLight`/`ScreenShake`/`MicroScreenShake`), `WaterLevelCycle` | `RainCycle` |
 | `region_state.rs` | `RegionState`, its save string, and adapting the world to and from it | `RegionState`, `SaveState` |
 

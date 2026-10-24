@@ -3,18 +3,19 @@
 //! global rain pushes) and the `rainDeath` of the creatures it reaches. Type:
 //! [`crate::world::RoomRain`].
 //!
-//! Not ported yet: the flood arm of `Update` (R4), the bullet drips (R5), the sound loops
-//! (R3); the DLC branches are listed in D45.
+//! Its sound loops (`Update`'s last block) and their emitters in the update list are here
+//! too. Not ported yet: the flood arm of `Update` (R4) and the bullet drips (R5); the DLC
+//! branches are listed in D45 and D46.
 //!
 //! Mirrors: Room.cs (Loaded: RoomRain), RoomRain.cs (Update, ThrowAroundObjects)
 
-use rw_assets::DangerType;
+use rw_assets::{DangerType, RoomEffectType};
 
 use crate::ChunkOwner;
 use crate::creature::CreatureId;
 use crate::game::{RainWorldGame, RoomObject};
 use crate::item::Entity;
-use crate::world::RoomRain;
+use crate::world::{RainSoundInput, RoomRain};
 
 impl RainWorldGame {
     /// `Room.Loaded`'s `new RoomRain(game.globalRain, this)` and `AddObject`: a room that
@@ -59,9 +60,59 @@ impl RainWorldGame {
         self.world
             .realized(index)
             .and_then(|r| r.room_rain.as_ref())
-            .map(|r| (r.update_order, RoomObject::RoomRain(r.update_order)))
-            .into_iter()
-            .collect()
+            .map(|r| {
+                let mut objects: Vec<(u64, RoomObject)> = r
+                    .loops
+                    .emitters()
+                    .map(|e| (e.update_order, RoomObject::RoomRainLoop(e.update_order)))
+                    .collect();
+                objects.push((r.update_order, RoomObject::RoomRain(r.update_order)));
+                objects
+            })
+            .unwrap_or_default()
+    }
+
+    /// The `SoundEmitter.Update` of the `RoomRain` loop emitter at `order`.
+    pub(crate) fn run_room_rain_emitter(&mut self, index: i32, order: u64) {
+        let Some(mut rain) = self
+            .world
+            .realized_mut(index)
+            .and_then(|r| r.room_rain.take())
+        else {
+            return;
+        };
+        self.with_loop_cx(index, |cx| rain.loops.update_emitter(order, cx));
+        if let Some(r) = self.world.realized_mut(index) {
+            r.room_rain = Some(rain);
+        }
+    }
+
+    /// `RoomRain.Update`'s last block: the loops' volumes and `Update`s.
+    fn update_rain_loops(&mut self, index: i32) {
+        let global = &self.world.rain_cycle.global_rain;
+        let (rumble_sound, flood_speed) = (global.rumble_sound, global.flood_speed);
+        let time_until_rain = self.world.rain_cycle.time_until_rain();
+        let shake = (index == self.camera_room).then(|| self.camera_shake.shake_property());
+        let Some(r) = self.world.realized_mut(index) else {
+            return;
+        };
+        let Some(mut rain) = r.room_rain.take() else {
+            return;
+        };
+        let input = RainSoundInput {
+            intensity: rain.intensity,
+            rumble_sound,
+            rumble_intensity: r.settings.rumble_intensity,
+            rain_intensity: r.settings.rain_intensity,
+            time_until_rain,
+            flood_speed,
+            void_sea: r.settings.effect_amount(RoomEffectType::VoidSea) != 0.0,
+            camera_screen_shake: shake,
+        };
+        self.with_loop_cx(index, |cx| rain.loops.update(&input, cx));
+        if let Some(r) = self.world.realized_mut(index) {
+            r.room_rain = Some(rain);
+        }
     }
 
     /// `RoomRain.Update` (base arm) of the object at `order` in room `index`.
@@ -80,10 +131,11 @@ impl RainWorldGame {
             return;
         };
         rain.update_intensity(global_intensity, rain_intensity);
-        // The bullet drips (R5), the flood (R4) and the sound loops (R3) follow here.
         if pushes {
             self.throw_around_objects(index);
         }
+        // The bullet drips (R5) and the flood (R4) follow here.
+        self.update_rain_loops(index);
     }
 
     /// `ThrowAroundObjects`: every chunk of every physical object of the room, layer by

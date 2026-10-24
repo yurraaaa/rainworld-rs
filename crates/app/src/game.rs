@@ -25,8 +25,9 @@ use rw_graphics::{
     GreenSparkSprites, HologramFrame, HologramGraphics, HologramLightSprites, InsectDraw,
     InsectSprites, Layer, LightBeamSprites, LightBeamView, LightSourceSprites, LightSourceView,
     LizardColors, LizardGraphics, LizardModule, LizardReading, OverseerGraphics, PlayerGraphics,
-    RainbowSprites, ShelterDoorSprites, ShortcutPalette, SlimeMoldSprites, SpeckSprites,
-    SpotLightSprites, StalkSprites, TokenStalkSprites, WaterDripSprites, WeaponSprites,
+    RainDrawView, RainShaderGlobals, RainbowSprites, RoomRainSprites, ShelterDoorSprites,
+    ShortcutPalette, SlimeMoldSprites, SpeckSprites, SpotLightSprites, StalkSprites,
+    TokenStalkSprites, WaterDripSprites, WeaponSprites,
 };
 use rw_hud::{HudSetup, OwnerTick, RainCycleView, StartCondition, Subregions};
 use rw_random::UnityRandom;
@@ -1184,6 +1185,35 @@ impl Game {
             .collect()
     }
 
+    /// The camera room's `RoomRain` at `alpha` between ticks: its sprites (the splashes'
+    /// draws on the cosmetic stream) and the shader globals `DrawSprites` sets. `camera`
+    /// is `CamPos(currentCameraPosition)`.
+    pub fn room_rain_draw(
+        &mut self,
+        alpha: f32,
+        cam_pos: Vec2,
+        camera: Vec2,
+        fog_color: Color,
+    ) -> Option<(Drawable, RainShaderGlobals, DrawList)> {
+        let world = self.sim.world();
+        let r = world.realized(self.shown_room)?;
+        let rain = r.room_rain.as_ref()?;
+        let global = &world.rain_cycle.global_rain;
+        let view = RainDrawView {
+            cam_pos,
+            camera_position: camera,
+            screen_width: world.screen_size().x,
+            tiles: (r.room.width(), r.room.height()),
+            water: r.water.as_ref(),
+            fog_color,
+            arena: !self.sim.is_story_session(),
+            direction: (global.last_rain_direction, global.rain_direction),
+            time_stacker: alpha,
+        };
+        let (globals, list) = rain.draw(&view, &mut self.graphics.cosmetic);
+        Some((Drawable::RoomRain(rain.update_order), globals, list))
+    }
+
     /// The camera room's `CoralNeuron`s, `StemSegment`s, `WallMycelia` and circuit bits,
     /// connectors and crabs at `alpha`
     /// between ticks (the segments' dots blink from the cosmetic stream, per frame).
@@ -1795,6 +1825,11 @@ impl Game {
                 r.fixtures
                     .drawn_orders()
                     .map(|o| Present::added(Drawable::Fixture(o), o)),
+            );
+            present.extend(
+                r.room_rain
+                    .iter()
+                    .map(|d| Present::added(Drawable::RoomRain(d.update_order), d.update_order)),
             );
             present.extend(
                 r.electric_deaths.iter().map(|d| {

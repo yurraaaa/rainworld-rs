@@ -4,9 +4,12 @@
 //! side (making it in `Room.Loaded`, its turn in the update list, reaching the room's
 //! bodies and creatures) is `game/room_rain_turn.rs`.
 //!
+//! Its sound loops are [`RainLoops`] (`room_rain_sound.rs`); its sprites are drawn by
+//! `rw_graphics::RoomRainSprites`.
+//!
 //! Not ported here: the flood arm of `Update` (`fWaterLevel`, `FloodLevel`, `AddWater`,
-//! `GeneralUpsetSurface`: step R4), the bullet drips (R5), the sound loops, the sprites and
-//! the shader (R3), and the DLC and Remix branches (D45).
+//! `GeneralUpsetSurface`: step R4), the bullet drips (R5), and the DLC and Remix branches
+//! (D45, D46).
 //!
 //! Mirrors: RoomRain.cs (RoomRain, GenerateShelterTex, Update, ThrowAroundObjects, CreatureSmashedInGround, InsidePushAround, OutsidePushAround)
 
@@ -15,6 +18,7 @@ use std::sync::Arc;
 use rw_assets::{DangerType, Room};
 use rw_random::UnityRandom;
 
+use crate::world::room_rain_sound::RainLoops;
 use crate::world::{GlobalRain, World};
 use crate::{BodyChunk, FloatExt, Vec2};
 
@@ -47,6 +51,7 @@ pub struct RoomRain {
     pub splashes: i32,
     pub last_intensity: f32,
     pub intensity: f32,
+    pub loops: RainLoops,
 }
 
 impl RoomRain {
@@ -68,13 +73,15 @@ impl RoomRain {
             }
         }
         let cameras = room.cameras().len().max(1) as i32;
+        let danger_type = if shelter {
+            DangerType::Flood
+        } else {
+            settings_danger
+        };
         Self {
             update_order,
-            danger_type: if shelter {
-                DangerType::Flood
-            } else {
-                settings_danger
-            },
+            danger_type,
+            loops: RainLoops::new(danger_type),
             rain_reach: reach.into(),
             splashes: splash_tiles.len() as i32 * 2 / cameras,
             splash_tiles,
@@ -120,6 +127,18 @@ impl RoomRain {
         };
         self.intensity = self.intensity.min(cap);
         self.last_intensity = self.intensity;
+    }
+
+    /// `RainUnderCeilings`.
+    #[must_use]
+    pub fn rain_under_ceilings(&self) -> f32 {
+        self.intensity.inverse_lerp(0.5, 1.0)
+    }
+
+    /// `SplashSize`.
+    #[must_use]
+    pub fn splash_size(&self) -> f32 {
+        self.intensity.inverse_lerp(0.0, 0.5).mathf_pow(2.0)
     }
 
     /// `rainReach[Custom.IntClamp(x, 0, TileWidth - 1)]`.
