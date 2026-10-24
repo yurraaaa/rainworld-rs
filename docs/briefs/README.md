@@ -2,7 +2,7 @@
 
 The orchestrator copies a template, fills every `<...>` field, deletes what
 does not apply, and passes the result as the agent prompt. Pass `model`
-explicitly (AGENTS.md "Pick the model by the work"; never `fable`).
+explicitly (AGENTS.md "Models"; never `fable`).
 
 | Template | Agent | Model | Worktree |
 |---|---|---|---|
