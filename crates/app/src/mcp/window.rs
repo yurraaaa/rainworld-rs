@@ -3,8 +3,9 @@
 //!
 //! Mirrors: - (port-only: MCP window)
 
+use parking_lot::Mutex;
 use std::error::Error;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use rw_render::{Camera, Renderer, Resolution, RoomLayers, WgpuRenderer};
 use winit::application::ApplicationHandler;
@@ -75,7 +76,7 @@ impl Mirror {
         let size = window.inner_size();
         let renderer =
             WgpuRenderer::new(Arc::clone(&window), (size.width, size.height), resolution)?;
-        let sprites = self.session.lock().map_err(|e| e.to_string())?.sprites();
+        let sprites = self.session.lock().sprites();
         Ok((
             window,
             FrontendRenderer::new(SceneRenderer::new(renderer, sprites)),
@@ -86,7 +87,7 @@ impl Mirror {
         let Some((_, target)) = &mut self.view else {
             return Ok(());
         };
-        let mut session = self.session.lock().map_err(|e| e.to_string())?;
+        let mut session = self.session.lock();
         let view = SceneView {
             level: self.level,
             layers: self.layers,

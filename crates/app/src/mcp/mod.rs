@@ -68,8 +68,9 @@ mod tiles;
 mod vine_reply;
 mod window;
 
+use parking_lot::{Mutex, MutexGuard};
 use std::error::Error;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::Arc;
 
 use base64::Engine;
 use rmcp::handler::server::router::tool::ToolRouter;
@@ -156,9 +157,7 @@ impl Server {
     }
 
     fn session(&self) -> Result<MutexGuard<'_, Session>, String> {
-        self.session
-            .lock()
-            .map_err(|_| "session state was poisoned by an earlier failure".to_owned())
+        Ok(self.session.lock())
     }
 
     fn json(value: &impl Serialize) -> Result<CallToolResult, String> {

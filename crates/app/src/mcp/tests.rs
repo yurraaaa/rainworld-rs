@@ -1,7 +1,8 @@
 //! The tool handlers in-process, on rooms of the installed game (skipped when it is
 //! absent). Screenshots skip when no Vulkan adapter is available.
 
-use std::sync::{Arc, Mutex};
+use parking_lot::Mutex;
+use std::sync::Arc;
 
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{CallToolResult, ContentBlock};

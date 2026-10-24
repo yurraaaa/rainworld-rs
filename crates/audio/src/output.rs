@@ -8,8 +8,9 @@
 //!
 //! Mirrors: - (kira/cpal backend glue)
 
+use parking_lot::Mutex;
+use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
-use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
@@ -155,10 +156,10 @@ impl StreamThread {
     }
 
     fn start_stream(&mut self, device: &Device, config: StreamConfig) -> Result<(), String> {
-        if config.sample_rate != self.sample_rate
-            && let Ok(mut renderer) = self.renderer.lock()
-        {
-            renderer.on_change_sample_rate(config.sample_rate);
+        if config.sample_rate != self.sample_rate {
+            self.renderer
+                .lock()
+                .on_change_sample_rate(config.sample_rate);
         }
         self.device_id = Self::device_id(device);
         self.sample_rate = config.sample_rate;
@@ -170,7 +171,7 @@ impl StreamThread {
                 config,
                 move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
                     // Only this callback locks it while the stream plays.
-                    if let Ok(mut renderer) = renderer.try_lock() {
+                    if let Some(mut renderer) = renderer.try_lock() {
                         renderer.on_start_processing();
                         renderer.process(data, channels);
                     } else {
