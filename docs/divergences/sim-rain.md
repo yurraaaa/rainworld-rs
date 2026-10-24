@@ -32,7 +32,7 @@ Game bugs are kept (user decision, 2026-10-24).
   (D4), so none of those arms runs. The ghost-mode gate of `AllowRainCounterToTick`
   (echoes). Gamepad rumble: `controllerShake` and
   `ControllerHandler.UpdateWarning`. The game's dev `ResetRain` is not
-  ported; the dev rain timer's dev rain timer instead rewinds the rain (port-only, user, 2026-10-24): any edit of
+  ported; the dev rain timer's edits instead rewind the rain (port-only, user, 2026-10-24): any edit of
   `cycle_length`, `restart`, `stop`, `timer` or `shift` that leaves `TimeUntilRain > 0`
   resets the global rain (`GlobalRain` default, `deathRainHasHit`), each realized room's
   `RoomRain` intensity and `lastIntensity` to 0 (its loops fall silent on their next
