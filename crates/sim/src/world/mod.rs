@@ -22,6 +22,7 @@ mod realized;
 mod realizer;
 mod region_state;
 mod room_preparer;
+mod room_rain;
 
 use std::sync::Arc;
 
@@ -65,6 +66,7 @@ pub use realized::RealizedRoom;
 pub use realizer::{FollowCreature, RoomRealizer};
 pub use region_state::{ConsumedItem, RegionState};
 pub use room_preparer::{LoadingSchedule, PreparerStage, PreparerStatus, RoomPreparer};
+pub use room_rain::{ChunkPush, PushAround, RoomRain, SmashView};
 
 /// One camera call a graphics module's internal container makes for `obj`'s sprites:
 /// `MoveObjectToInternalContainer` into lizard `into`'s jaws, or

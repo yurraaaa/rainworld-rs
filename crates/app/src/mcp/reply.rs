@@ -582,6 +582,40 @@ impl GlobalRainState {
     }
 }
 
+/// A room's `RoomRain`.
+#[derive(Debug, Clone, Serialize)]
+pub struct RoomRainState {
+    pub danger_type: String,
+    pub intensity: f32,
+    pub last_intensity: f32,
+    /// `InsidePushAround` and `OutsidePushAround` of the room.
+    pub inside_push_around: f32,
+    pub outside_push_around: f32,
+    pub splashes: i32,
+    /// `splashTiles.Count`.
+    pub splash_tiles: usize,
+}
+
+impl RoomRainState {
+    #[must_use]
+    pub fn of(
+        rain: &rw_sim::world::RoomRain,
+        global: &rw_sim::world::GlobalRain,
+        rain_intensity: f32,
+    ) -> Self {
+        let push = rain.push_around(global, rain_intensity);
+        Self {
+            danger_type: rain.danger_type.value().to_owned(),
+            intensity: rain.intensity,
+            last_intensity: rain.last_intensity,
+            inside_push_around: push.inside,
+            outside_push_around: push.outside,
+            splashes: rain.splashes,
+            splash_tiles: rain.splash_tiles.len(),
+        }
+    }
+}
+
 /// The level shader's uniforms (`RoomCamera`'s shader globals) and palette fade.
 #[derive(Debug, Clone, Serialize)]
 pub struct LevelParamsState {
@@ -765,6 +799,9 @@ pub struct CreatureInfo {
     pub kill_tag_counter: i32,
     /// The realized creature's `stun`.
     pub stun: Option<i32>,
+    /// The realized creature's `rainDeath`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rain_death: Option<f32>,
     /// The spear it is impaled on (`ImpaledOnSpearStick`), by EntityID.
     pub impaled_on: Option<[i32; 2]>,
     /// The abstract AI's shared fields (every roaming type).
@@ -1582,6 +1619,9 @@ pub struct RealizedState {
     pub ceiling_drips: f32,
     /// The room's `RumbleIntensity` (settings): scales the rain's shake and the water's rumble.
     pub rumble_intensity: f32,
+    /// The room's `RoomRain`, when `Room.Loaded` made one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub room_rain: Option<RoomRainState>,
     /// The live `WaterDrip`s' positions, oldest first (their count is the length).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub drips: Vec<[f32; 2]>,
@@ -1759,6 +1799,8 @@ pub struct PlayerState {
     pub standing: bool,
     pub stunned: bool,
     pub stun_ticks: i32,
+    /// `rainDeath` (caps `airInLungs` at `1 - rainDeath`).
+    pub rain_death: f32,
     /// `canJump` (coyote time) and `jumpChunkCounter` (ticks left to jump off the
     /// chunk the hips rest on; negative after such a jump).
     pub can_jump: i32,

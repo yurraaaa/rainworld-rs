@@ -358,6 +358,12 @@ pub struct Player {
 
     /// Breath left: 1 full, 0 out of air (below 0 briefly while heading up).
     air_in_lungs: f32,
+    /// `Creature.rainDeath`: the rain's push adds to it, `Creature.Update` decays it and
+    /// `LungUpdate` caps the breath at `1 - rainDeath`.
+    pub rain_death: f32,
+    /// The room rain's view for this tick's terrain impacts (`Creature.TerrainImpact`'s
+    /// `CreatureSmashedInGround`), set by the game before the update.
+    pub rain_smash: Option<crate::world::SmashView>,
     /// `outOfBreathFac`: [shortness of breath, last tick's, pant phase, last tick's].
     out_of_breath: [f32; 4],
     /// Came up for air with less than a third left: slow recovery until full.
@@ -557,6 +563,8 @@ impl Player {
             exits_to_be_discovered: None,
             added_spawn_room_to_discovery: false,
             air_in_lungs: 1.0,
+            rain_death: 0.0,
+            rain_smash: None,
             out_of_breath: [0.0; 4],
             lungs_exhausted: false,
             submerged: false,

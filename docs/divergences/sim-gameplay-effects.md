@@ -29,7 +29,7 @@ settings-order loop as the other room-effect objects (`add_room_effect_particles
   `FlatLightBothSides` and `FlareBombBothSides` are `LightSource`, `FlatLight` and `FlareBomb`).
 - **The rain's death is not ported, so the cycle just runs on.** `Intensity` reads `rainCycle.timer`,
   `cycleLength` and `TimeUntilRain` (`rw_sim::RainCycle`), which the port ticks; nothing ends
-  the cycle at the rain (`RoomRain`'s push and kill are not there yet, D44), so the
+  the cycle at the rain (`RoomRain`'s push and kill are there, D45, but the cycle's end is not), so the
   effect reaches its full intensity 1200 ticks after the cycle's end and stays. `get_state`'s
   `rain.timer` shows it, and stepping `cycle_length + 1200` ticks (about 28 000, a few
   seconds headless) gets there without a cheat.

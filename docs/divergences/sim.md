@@ -847,8 +847,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
 - **Off-screen den and gates.** The off-screen den is never realized; gates are
   ordinary rooms (no gate mechanism, no region change), and a `RegionTransportation`
   node goes nowhere.
-- **Not ported:** the rain's room object and effects (`RoomRain`: the push, the kill, the
-  sprites and loops, the flood's water; the cycle's timer, day-night counter, water level
+- **Not ported:** the rain's room object's effects (`RoomRain`: the sprites and loops, the
+  flood's water; its intensity, push and kill are D45; the cycle's timer, day-night counter, water level
   stages and `GlobalRain` run, D44; the overseers' AI, the HUD's rain meter and
   `MusicAllowed` read them, and the guide's tutorial pins the timer; once fewer than 2400
   ticks are left, as after the SU_A43 tutorial's bring-in-rain jump, `MusicAllowed` stays

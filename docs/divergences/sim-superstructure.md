@@ -358,8 +358,9 @@ as physical objects, their turns, the vine host), the sprites in
   (`PlayerObjectLooker`, `LookTarget`: a segment is interesting by its distance, as a bare
   object) and the noises: a segment's terrain impact makes `PhysicalObject.TerrainImpact`'s
   screen movement and `InGameNoise` (`NoiseSource::Segment`, interest 1; a lizard hears it as a noise
-  of another thing, `HowInterestingIsThisNoiseToMe` unchanged). **Not ported (the systems are not):**
-  `Explosion`, `RoomRain.ThrowAroundObjects` and `GameOverRain`, `WaterCurrent`, `FluxDrain`,
+  of another thing, `HowInterestingIsThisNoiseToMe` unchanged); `RoomRain.ThrowAroundObjects` pushes
+  them (D45). **Not ported (the systems are not):**
+  `Explosion` and `GameOverRain`, `WaterCurrent`, `FluxDrain`,
   `GeyserEruption`, `MeltLights`, `WindRect`, `SmokeSystem`, `PlateTree`, the shelter door's
   `PansarPush`, `GetStuffInWalls` and `DestroyExcessiveObjects` (which would count the segments
   under the type `"Creature"` and destroy all but nine), `SporeCloud`, `HarmfulSteam`, `TempleGuard`,

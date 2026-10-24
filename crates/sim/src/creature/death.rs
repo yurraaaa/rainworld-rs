@@ -77,10 +77,11 @@ impl World {
         c.kill_tag = Some(killer);
     }
 
-    /// `Creature.Update`'s kill tag countdown: the tag is forgotten when it runs out
-    /// (it stays on a dead creature).
+    /// `Creature.Update`'s kill tag countdown (the tag is forgotten when it runs out; it
+    /// stays on a dead creature) and `rainDeath`'s decay.
     pub(crate) fn kill_tag_tick(&mut self, id: CreatureId) {
         let c = self.creature_mut(id);
+        c.rain_death = (c.rain_death - 0.0125).clamp(0.0, 1.0);
         if c.kill_tag_counter > 0
             && c.state.alive
             && (!c.state.has_health() || c.state.health > 0.0)

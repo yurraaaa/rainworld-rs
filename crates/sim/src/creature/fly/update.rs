@@ -66,6 +66,8 @@ struct LoggedImpact {
     pos: Vec2,
     rad: f32,
     mass: f32,
+    /// Every chunk's position and radius at the impact, for a floor first contact.
+    chunks: Vec<(Vec2, f32)>,
     screen: Option<crate::ScreenMovement>,
     noise: Option<(Vec2, f32)>,
 }
@@ -78,6 +80,11 @@ impl crate::TerrainImpactHandler for ImpactLog {
             pos: c.pos,
             rad: c.rad,
             mass: c.mass,
+            chunks: if impact.first_contact && impact.direction.y < 0 {
+                chunks.iter().map(|c| (c.pos, c.rad)).collect()
+            } else {
+                Vec::new()
+            },
             screen: impact.screen_movement(c),
             noise: impact.noise_at(c),
         });
@@ -329,6 +336,7 @@ impl FlyRun<'_, '_, '_> {
             pos,
             rad,
             mass,
+            chunks,
             screen,
             noise,
         } in &log.impacts
@@ -360,6 +368,8 @@ impl FlyRun<'_, '_, '_> {
             if !impact.first_contact {
                 continue;
             }
+            self.world
+                .creature_smashed_in_ground(index, self.me, impact, chunks, self.cx.rng);
             let drips = crate::WaterDrip::from_impact(
                 impact,
                 *pos,

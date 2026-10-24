@@ -68,12 +68,13 @@ impl RainWorldGame {
     }
 
     /// `Room.RainDrownOutSounds` of camera 0's room, which `VirtualMicrophone.Update` takes
-    /// from volume group 0. The port has no `RoomRain` yet, so no room has one.
+    /// from volume group 0.
     #[must_use]
     pub fn rain_drown_out_sounds(&self) -> f32 {
-        self.world
-            .realized(self.camera_room)
-            .map_or(0.0, |r| r.rain_drown_out_sounds(self.world.mods(), None))
+        self.world.realized(self.camera_room).map_or(0.0, |r| {
+            let rain = r.room_rain.as_ref().map(|rain| rain.intensity);
+            r.rain_drown_out_sounds(self.world.mods(), rain)
+        })
     }
 }
 

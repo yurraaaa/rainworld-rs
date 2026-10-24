@@ -105,6 +105,7 @@ impl World {
         c.realized = Some(RealizedCreature::Lizard(Box::new(lizard)));
         c.kill_tag = None;
         c.kill_tag_counter = 0;
+        c.rain_death = 0.0;
         c.grasps = vec![None; grasps];
         c.grabbed_by.clear();
         if let Some(ai) = self.ai_of_mut(id) {

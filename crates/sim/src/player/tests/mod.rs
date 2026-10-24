@@ -17,6 +17,7 @@ mod exhaustion;
 mod grabbed;
 mod jump_on_chunk;
 mod poles;
+mod rain;
 mod sleep;
 mod sounds;
 mod swim;

@@ -46,6 +46,7 @@ impl World {
         c.realized = Some(RealizedCreature::Fly(Box::new(fly)));
         c.kill_tag = None;
         c.kill_tag_counter = 0;
+        c.rain_death = 0.0;
         c.grasps = vec![None];
         c.grabbed_by.clear();
         for s in self.creature(id).sticks.clone() {

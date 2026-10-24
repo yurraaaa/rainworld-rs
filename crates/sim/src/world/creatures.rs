@@ -389,6 +389,7 @@ impl World {
             sticks: Vec::new(),
             kill_tag: None,
             kill_tag_counter: 0,
+            rain_death: 0.0,
         };
         let room = self.abstract_room(pos.room);
         if template.top_ancestor() == CreatureType::GarbageWorm {
@@ -802,6 +803,7 @@ impl World {
         c.realized = Some(RealizedCreature::Overseer(Box::new(body)));
         c.kill_tag = None;
         c.kill_tag_counter = 0;
+        c.rain_death = 0.0;
         if let Some(base) = &mut c.ai {
             base.real_ai = true;
             if let AiKind::Overseer(o) = &mut base.kind {

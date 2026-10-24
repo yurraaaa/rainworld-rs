@@ -32,6 +32,9 @@ struct LizardImpact {
     rad: f32,
     mass: f32,
     head: Vec2,
+    /// Every chunk's position and radius at the impact, for a floor first contact
+    /// (`CreatureSmashedInGround` picks one).
+    chunks: Vec<(Vec2, f32)>,
     screen: Option<ScreenMovement>,
     noise: Option<InGameNoise>,
 }
@@ -51,6 +54,11 @@ impl TerrainImpactHandler for LizardImpacts {
             rad: c.rad,
             mass: c.mass,
             head: chunks[0].pos,
+            chunks: if impact.first_contact && impact.direction.y < 0 {
+                chunks.iter().map(|c| (c.pos, c.rad)).collect()
+            } else {
+                Vec::new()
+            },
             screen: impact.screen_movement(c),
             noise: impact.noise(c, self.source, 1.0),
         });
@@ -503,6 +511,8 @@ impl RainWorldGame {
             if let Some(n) = i.noise {
                 self.room_noise(index, n);
             }
+            self.world
+                .creature_smashed_in_ground(index, id, impact, &i.chunks, &mut self.rng);
             if impact.first_contact {
                 let drips = WaterDrip::from_impact(
                     impact,
