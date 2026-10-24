@@ -8,7 +8,7 @@ Retired IDs (never reused): D23 (the ant drawn without the `SpecificDepth` shade
 | Crate | File | Entries |
 |---|---|---|
 | `rw-app` | [app.md](app.md) | D18 Debug UI and dev spawns (port-only dev tools), D20 A hold cycle between lizards' jaws stays drawn, D21 The flies' sprite re-adds placed at the end of their tick |
-| `rw-audio` | [audio.md](audio.md) | D12 Sound |
+| `rw-audio` | [audio.md](audio.md) | D12 Sound, D48 A dynamic sound loop starts once |
 | `rw-graphics` | [graphics.md](graphics.md) | D8 Slugcat graphics (`rw_graphics::PlayerGraphics`) |
 | `rw-hud` | [hud.md](hud.md) | D15 The in-game HUD |
 | `rw-menu` | [menu.md](menu.md) | D13 Front end (process manager, menus, menu input) |

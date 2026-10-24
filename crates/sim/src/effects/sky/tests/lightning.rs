@@ -481,7 +481,6 @@ fn the_electricity_loop_starts_with_volume() {
         id: emitter.sound,
         pan: -0.25
     }));
-    // `DynamicSoundLoop.Update` starts twice when the sound was unset and the volume
-    // rose from 0 (`lastSound` is cleared while there is no emitter): two emitters.
-    assert_eq!(r.seq, 2);
+    // One emitter: the game's second `Start` that tick is not ported (D48).
+    assert_eq!(r.seq, 1);
 }

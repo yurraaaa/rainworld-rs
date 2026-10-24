@@ -138,8 +138,7 @@ is created but never added to a container nor updated, so it is not drawn.
 **Why.** Scope of step R3 (survey `rain/core.md` sections 8 and 9).
 
 **Affects.** The stream: a pushing or raining room makes the loops' 7 draws each time one
-starts (a loop that was at volume 0 the tick before starts twice, as `DynamicSoundLoop.Update`
-does) and, on the cosmetic stream, 5 to 8 draws per splash each drawn frame.
+starts (once, D48) and, on the cosmetic stream, 5 to 8 draws per splash each drawn frame.
 
 ## D47: The flood's water (`RoomRain`'s flood arm, `Room.AddWater`, `fWaterLevel`)
 

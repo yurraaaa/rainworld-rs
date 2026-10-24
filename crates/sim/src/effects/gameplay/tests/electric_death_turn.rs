@@ -516,15 +516,11 @@ fn the_loops_start_and_follow_the_intensity() {
             _ => None,
         })
         .collect();
-    // `DynamicSoundLoop.Update` starts a loop whose volume rose from 0 twice in that tick
-    // (once for the changed `sound`, once for the rise: `lastSound` is cleared while it
-    // has no emitter), the first emitter forgotten.
+    // Each starts once (the game's second `Start` that tick is not ported, D48).
     assert_eq!(
         started,
         vec![
             SoundId::DeathLightningHeavyLightningLoop,
-            SoundId::DeathLightningHeavyLightningLoop,
-            SoundId::DeathLightningEarlySizzleLoop,
             SoundId::DeathLightningEarlySizzleLoop,
         ]
     );

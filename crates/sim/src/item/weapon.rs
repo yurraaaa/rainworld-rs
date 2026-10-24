@@ -1292,16 +1292,21 @@ impl ChunkDynamicSoundLoop {
         if self.emitter.is_some_and(|e| e.slated) {
             self.emitter = None;
         }
+        // The game's `lastVol == 0` arm starts the loop again the tick the `sound` arm did,
+        // its first emitter lost unheard; the port starts it once (D48).
+        let mut started = false;
         if self.sound != self.last_sound {
             self.stop();
             if self.sound.is_some() && self.v > 0.0 && owner_room.is_some() {
                 self.start(source, cx);
+                started = true;
             }
             self.last_sound = self.sound;
         }
         if self.v == 0.0 && self.last_vol > 0.0 {
             self.stop();
-        } else if self.v > 0.0
+        } else if !started
+            && self.v > 0.0
             && self.last_vol == 0.0
             && self.sound.is_some()
             && owner_room.is_some()

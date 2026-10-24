@@ -157,10 +157,8 @@ fn update_sets_the_volumes() {
 /// Loops start when their volume first passes 0 and make no draws before: with the
 /// intensity 0 no sound plays; at 0.4 the normal, heavy, death, rumble (a nonzero
 /// `RumbleSound`) and distant loops start, each with the game's seven draws
-/// (`startAtRandomTime` off), and the rain loops are set to volume group 3. A loop that
-/// was at volume 0 the tick before starts twice: `DynamicSoundLoop.Update`'s
-/// `sound != lastSound` and `lastVol == 0` arms both call `Start` (the first emitter is
-/// lost, its sound left to die unkept).
+/// (`startAtRandomTime` off), and the rain loops are set to volume group 3. Each starts
+/// once, where the game's `lastVol == 0` arm starts it a second time (D48).
 #[test]
 fn loops_start_with_seven_draws_and_their_group() {
     let mut rig = Rig::new();
@@ -177,7 +175,7 @@ fn loops_start_with_seven_draws_and_their_group() {
         .iter()
         .filter(|e| matches!(e, SoundEvent::Play(_)))
         .count();
-    assert_eq!(plays, 10);
+    assert_eq!(plays, 5);
     let groups: Vec<usize> = events
         .iter()
         .filter_map(|e| match e {
@@ -185,7 +183,7 @@ fn loops_start_with_seven_draws_and_their_group() {
             _ => None,
         })
         .collect();
-    assert_eq!(groups, vec![3; 8], "normal, heavy, death, rumble, twice");
+    assert_eq!(groups, vec![3; 4], "normal, heavy, death, rumble");
     let mut expect = before;
     for _ in 0..plays {
         let _ = expect.range_i32(0, 1);

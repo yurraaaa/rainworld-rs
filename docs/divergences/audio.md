@@ -133,3 +133,17 @@ updates in) and the passage screen's `Passages` song are ported as hooks
 real-time audio rather than the sim.
 
 **Affects.** What is heard, never the sim (its draws do not depend on the audio).
+
+## D48: A dynamic sound loop starts once
+
+`DynamicSoundLoop.Update` clears `lastSound` while the loop has no emitter, so the tick its
+volume rises from 0 both the `sound != lastSound` arm and the `lastVol == 0` arm call
+`Start`: the loop plays twice, the first emitter replaced without `Stop` and left silent
+for about two ticks. The port's `ChunkDynamicSoundLoop` (`item/weapon.rs`, every chunk,
+rect and disembodied loop: rain, `ElectricDeath`, `DrippingSound`, ...) starts it once.
+
+**Why.** User, 2026-10-24: the first sound cannot be heard, so it is not ported; the
+random-stream difference does not matter.
+
+**Affects.** The shared stream: one sound's draws (about 7) fewer each time a loop starts
+from volume 0.

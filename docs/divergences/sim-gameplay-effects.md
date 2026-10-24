@@ -40,11 +40,7 @@ settings-order loop as the other room-effect objects (`add_room_effect_particles
 - **`LightFlash` 0 is a unit disc at the screen's lower-left corner.** The game never
   updates or draws `flashes[0]` (sprite 1), so its `FSprite` keeps Futile's defaults
   (position 0, scale 1, alpha 1) with the `LightSource` shader and green: drawn as such.
-- **The sound loops start twice in one tick, the game's way:** `DynamicSoundLoop.Update`
-  clears `lastSound` while the loop has no emitter, so the tick a volume rises from 0 starts
-  the loop for the changed `sound` and again for the rise, the first emitter forgotten. The
-  port's `ChunkDynamicSoundLoop` does the same (as `DrippingSound`'s), so each loop plays
-  twice at its start.
+- **The sound loops start once** (D48, `docs/divergences/audio.md`).
 - **A `Violence` on a creature is the creature's existing port** (`creature_violence`:
   the base `Creature.Violence`, the lizard's own, the player's `Stun`), with `source` null (no
   kill tag), `directionAndMomentum` null (no push) and the chunk's index. The templates'
