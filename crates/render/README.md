@@ -35,6 +35,7 @@ lists and overlays.
 | `shaders/water_fall.wgsl` | `WaterFall`'s shader (`fs_water_fall`), appended after `placed_visuals.wgsl` |
 | `shaders/placed_visuals.wgsl` | `CustomDecal`'s `Decal` shader (`fs_decal`) and `Rainbow`'s (`fs_rainbow`), appended after `death_fall.wgsl` |
 | `shaders/death_fall.wgsl` | `DeathFallGraphic`'s `DeathFall` shader (`fs_death_fall`), appended after `full_screen.wgsl` |
+| `shaders/bullet_rain.wgsl` | `BulletDrip`'s `BulletRain` shader (`fs_bullet_rain`, a `GrabPass`: the grab shifted up by `(1 - uv.y) * 0.05`, white at the foot), appended after `death_rain.wgsl` |
 | `shaders/death_rain.wgsl` | `RoomRain`'s `DeathRain` shader (`fs_death_rain`, a `GrabPass`: streaks of the grab under the room's rain mask), appended after `ss_grab.wgsl`; its globals are `room.rain_a`/`rain_rect`, set by `Renderer::set_rain_globals` |
 | `shaders/stage.wgsl` | menu/HUD shaders (`fs_vector_circle`, `fs_menu_text`, `fs_local_bloom`, ...) |
 | `shaders/water.wgsl`, `shaders/map.wgsl` | water; region map (`fs_map`, `fs_map_aerial`, `fs_map_shortcut`) |

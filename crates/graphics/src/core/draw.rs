@@ -267,6 +267,9 @@ pub enum Shader {
     /// noise-driven vertical streaks under the room's rain mask, mixed toward dark grey
     /// in the open when the rain is heavy and faded near the water line.
     DeathRain,
+    /// `Futile/BulletRain` (a `BulletDrip`'s streak): the grabbed frame shifted up by
+    /// `(1 - uv.y) * 0.05` of the screen, mixed toward white at the foot.
+    BulletRain,
 }
 
 impl Shader {
@@ -284,6 +287,7 @@ impl Shader {
                 | Self::Rainbow
                 | Self::GravityDisruptor
                 | Self::DeathRain
+                | Self::BulletRain
         )
     }
 }

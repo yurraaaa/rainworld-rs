@@ -108,6 +108,7 @@ only the `installed_scene_images.rs` integration test.
 | `particles/decal.rs` | `CustomDecal`'s grid mesh over the decal's image in `Foreground` (`Decal` shader), `Unorm8` vertex colours | `CustomDecal.InitiateSprites`, `DrawSprites`, `TriangleMesh.MakeGridMesh` |
 | `particles/rainbow.rs` | `Rainbow`'s square over the `rainbow` gradient in `GrabShaders` (`Rainbow` shader) | `Rainbow.InitiateSprites`, `DrawSprites`, `CustomFSprite` |
 | `gameplay/electric_death.rs` | `ElectricDeath`'s ten sprites (the `ElectricDeath` web and nine green `LightSource` discs, `Water`) and a `SparkFlash`'s three (`LightSource`, `FlatLight`, `FlareBomb` discs); positions in room pixels (`cam_pos` plus screen offsets) | `ElectricDeath`, `LightFlash.Draw`, `SparkFlash` |
+| `gameplay/bullet_drip.rs` | `BulletDrip`'s two sprites: the streak (`Futile_White`, `BulletRain` shader, `GrabShaders`) and the `RainSplash` at the tip (`Items`, rotation drawn on the cosmetic stream) | `BulletDrip` (`InitiateSprites`, `DrawSprites`, `AddToContainer`) |
 | `gameplay/room_rain.rs` | `RoomRain`'s sprites: the `DeathRain` quad (`GrabShaders`) and the visible splash sprites (`Items`; the last is never added), the shader globals (`RainShaderGlobals`), the splash draws on the cosmetic stream | `RoomRain` (`InitiateSprites`, `DrawSprites`, `AddToContainer`) |
 
 ### `superstructure/`

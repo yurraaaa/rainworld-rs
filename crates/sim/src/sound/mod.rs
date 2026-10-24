@@ -108,6 +108,7 @@ sound_ids! {
     PlayerEnterShortcut = "Player_Enter_Shortcut",
     PlayerExitShortcut = "Player_Exit_Shortcut",
     PlayerTickAlongInShortcut = "Player_Tick_Along_In_Shortcut",
+    BulletDripStrike = "Bullet_Drip_Strike",
     SmallObjectIntoWaterFast = "Small_Object_Into_Water_Fast",
     SmallObjectIntoWaterSlow = "Small_Object_Into_Water_Slow",
     MediumObjectIntoWaterFast = "Medium_Object_Into_Water_Fast",

@@ -58,8 +58,8 @@ Game bugs are kept (user decision, 2026-10-24).
   without a `ModManager` test. No installed base room places one, and the port does not
   make them.
 - **`waterFlux.roomShake`** (the `WaterFlux` effects; no base room has one).
-- **Not yet (steps R3, R5):** the rain's loops, sprites and shader (R3), the bullet drips
-  (R5). The flood's water is D47. The room rain's push, `rainDeath` and
+- **Not here:** the room rain's loops, sprites and shader are D46, the bullet drips D50,
+  the flood's water D47. The room rain's push, `rainDeath` and
   `Room.RainDrownOutSounds` are D45.
 - **The paused camera's micro shake** is drawn on the cosmetic stream (D1) in every drawn
   frame, paused or not, as `PausedDrawUpdate` draws it in the game.
@@ -103,10 +103,10 @@ sum is 0; the game's sign slip, ported as the game has it by the user's decision
   (`RainIntensity < 0.02`), More Slugcats' `OE` gate (`RainIntensity <= 0.2`), Watcher's
   `rippleLayer` skip and `WaterCycleBottom/Top` objects (which also make a `RoomRain`), the
   precycle intensity and flood arms, the Saint `Blizzard` type and `rippleFade`.
-- **Not yet:** the drips (R5). The loops, `DrawSprites` and the splash sprites are D46;
-  the flood arm of `Update` is D47.
+- **Elsewhere:** the loops, `DrawSprites` and the splash sprites are D46; the flood arm
+  of `Update` is D47; the bullet drips are D50.
 
-**Why.** Scope of step R2 (survey `rain/core.md`); the rest waits for R3-R5.
+**Why.** Scope of step R2 (survey `rain/core.md`); the rain's sprites, the flood and the bullet rain are D46, D47 and D50.
 
 **Affects.** The stream (each pushed chunk makes 3 to 7 draws a tick in a pushing room),
 the bodies' velocities and stuns in a death rain, the player's lungs and death.
@@ -141,7 +141,7 @@ is created but never added to a container nor updated, so it is not drawn.
   (Watcher's ripple; a no-op in the base game), `rippleFade` (1 in the base game), Remix's
   `_RainSpriteRect` width (`sSize.x` instead of the 1366 literal), the `Blizzard` type's
   missing flood loop, the Watcher `Water_Machinery_*` sounds.
-- **Not here:** `Bullet_Drip_Strike` and the drips' sprites (`BulletDrip`, R5).
+- **Not here:** `Bullet_Drip_Strike` and the drips' sprites are D50.
 
 **Why.** Scope of step R3 (survey `rain/core.md` sections 8 and 9).
 
@@ -197,3 +197,51 @@ any `AddWater`, so flood water never marks it.
 
 **Affects.** The stream (three draws a tick per flooding room with water), drowning in
 flood rooms, the level shader's water line and every body's submersion there.
+
+## D50: The bullet rain (`BulletDrip`, `RoomRain`'s drip upkeep)
+
+`RoomRain.Update` keeps `(int)(TileWidth * globalRain.bulletRainDensity *
+roomSettings.RainIntensity)` `BulletDrip`s (one added or the oldest destroyed a tick,
+after `ThrowAroundObjects` and before the flood arm); each is an object in the room's
+update list. The density is non-zero in the death rain's `CalmBeforeStorm` (`p^8` over
+`InverseLerp(0.3, 1, p)`) and `GradeABuildUp` (`1 - p`) modes and in the passive
+`BulletRain` effects (D44). A drip counts its `delay` down once landed; `Strike` picks a
+column (`Range(0, TileWidth)`), places the tip above the first solid tile (row -10 in a
+column without one) and the sky end above the room, restarts the fall and redraws
+`delay`, traces the path against the collision-layer-1 chunks (the player and lizards;
+weapons are layer 2 at rest, 0 when thrown; radius 0.5, the first `CirclesCollisionTime`;
+objects that cannot be hit by weapons are skipped), plays
+`Small_Object_Into_Water_Fast` after `WaterfallHitSurface(pos, 0, 1)` when it ends below
+the water surface (`pos.y` set 30 under it) or `Bullet_Drip_Strike`, and pushes the hit
+chunk down by `2 / mass` and stuns a creature by `Range(0, 4)`. The streak (`BulletRain`
+shader, a `GrabPass`) and the `RainSplash` (scale `Sin(falling * pi) * 0.4`, a rotation
+draw per drawn frame on the cosmetic stream, D1) are drawn in the camera's room by
+`rw-graphics`.
+
+**Kept as the game has it (user, 2026-10-24):** `Strike` returns without resetting
+`delay` when the chosen column's top tile is solid or its `rainReach` is the room's
+height, so the drip strikes again, and draws again, every tick until a column works.
+
+**What differs:**
+- **Listed, not ported (DLC and Remix):** the Watcher's `rippleLayer == 0` test on the
+  hit chunk and `rippleFade` (1 in the base game) around the sounds; `rippleClip` in the
+  shader (a no-op in the base game).
+- **No reader in the base game:** `RoomCamera`'s `RoomHasWater` shader keyword is read
+  only by `WarpTear` (Watcher); `RainCycle.RegionHidesTimer`'s readers (`RainMeter`) all
+  test `ModManager.MMF` first (Remix). Neither is ported.
+- A drip the upkeep destroys is dropped from the room's list at once. In the game
+  `Room.Update` walks the update list from its end and drips sit after the `RoomRain`, so
+  the destroyed drip has already updated that tick and the game removes it next tick when
+  the loop reaches it slated; nothing observable differs.
+- The trace covers layer 1 only, as the game's: the player and lizards (weapons are layer
+  2 at rest, 0 when thrown; flies and overseers are layer 0).
+- **The grab.** The game's anonymous `GrabPass {}` re-grabs the frame for each object, so
+  one streak can bend another drawn before it; the port grabs once for the `GrabShaders`
+  layer, as `DeathRain` does.
+
+**Why.** Step R5's scope (survey `rain/core.md` 5.3, 6, 7, 8, 9).
+
+**Affects.** The stream: a bullet-rain room makes 1 (a failed strike) or 4 to 5 draws (plus the
+sound's, and `WaterfallHitSurface`'s in water, and 1 per creature hit) per landed drip each
+time its delay runs out, and 1 cosmetic draw per drip per drawn frame; what the drops hit
+is pushed down and stunned.

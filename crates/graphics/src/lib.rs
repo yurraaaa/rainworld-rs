@@ -46,6 +46,7 @@ pub use creature::overseer::hologram_draw::{HologramFrame, HologramGraphics};
 pub use creature::overseer::hologram_matrix::{HoloLine, HologramMatrix, LensFrame};
 pub use creature::overseer::hologram_shape::{HologramLine, PartShape};
 pub use effects::cosmetic::{CosmeticSprites, LizardColors, LizardModule, NoLizards};
+pub use effects::gameplay::bullet_drip::BulletDripSprites;
 pub use effects::gameplay::electric_death::{ElectricDeathSprites, SparkFlashSprites};
 pub use effects::gameplay::room_rain::{RainDrawView, RainShaderGlobals, RoomRainSprites};
 pub use effects::lights::light_beam::SpotLightSprites;

@@ -5,8 +5,8 @@
 //! `rainDeath` of the creatures it reaches. Type: [`crate::world::RoomRain`].
 //!
 //! Its sound loops (`Update`'s last block) and their emitters in the update list are here
-//! too, and its flood arm. Not ported yet: the bullet drips (R5); the DLC branches are
-//! listed in D45, D46 and D47.
+//! too, and its flood arm; the bullet drips' upkeep is `bullet_drip_turn.rs`. The DLC
+//! branches are listed in D45, D46, D47 and D50.
 //!
 //! Mirrors: Room.cs (Loaded: RoomRain, AddWater), RoomRain.cs (RoomRain, Update, ThrowAroundObjects)
 
@@ -143,7 +143,7 @@ impl RainWorldGame {
         if pushes {
             self.throw_around_objects(index);
         }
-        // The bullet drips (R5) come here.
+        self.update_bullet_drip_count(index);
         self.room_rain_flood(index);
         self.update_rain_loops(index);
     }
@@ -247,7 +247,7 @@ impl RainWorldGame {
     }
 
     /// The creature a physical object is, if any.
-    fn rain_creature(&self, owner: ChunkOwner) -> Option<CreatureId> {
+    pub(super) fn rain_creature(&self, owner: ChunkOwner) -> Option<CreatureId> {
         match owner {
             ChunkOwner::Player => Some(self.player_id),
             ChunkOwner::Entity(Entity::Creature(id)) => Some(id),

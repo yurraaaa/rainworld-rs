@@ -860,6 +860,7 @@ impl Scene {
             }
             lists.extend(self.game.placed_visual_draw_lists());
             lists.extend(self.game.electric_death_draw_lists(alpha, cam_pos));
+            lists.extend(self.game.bullet_drip_draw_lists(alpha));
             lists.extend(self.game.coral_draw_lists(alpha, cam_pos));
             lists.extend(self.game.projection_draw_lists(
                 alpha,
