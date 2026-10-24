@@ -1,4 +1,4 @@
-//! `SlugcatSelectMenu.MineForSaveData` (555228) and `SlugcatPage.AddImage` (553799).
+//! `SlugcatSelectMenu.MineForSaveData` and `SlugcatPage.AddImage`.
 
 use super::*;
 

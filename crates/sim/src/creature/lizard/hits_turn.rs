@@ -2,12 +2,11 @@
 //! mouth, a rock's turn), `Stun`, `SpearStick`, `Creature.Die`; its bites (`AttemptBite`,
 //! `Bite`, `DamageAttack`, `JawsSnapShut`, `CarryObject`), called by the AI's hunt and
 //! casual aggression (`creature/lizard/hunt_turn.rs`); the base `Creature.Violence` of what it bites; a thrown
-//! weapon's trace against collision layer 1 (`Weapon.Update` 81340) with
+//! weapon's trace against collision layer 1 (`Weapon.Update`) with
 //! `Rock.HitSomething` and `Spear.HitSomething`/`LodgeInCreature`, a spear stuck in a
 //! creature (`Spear.Update`'s `StuckInCreature` branch), the room's chunk glue and the
-//! layer-1 collisions. Decompile: `Lizard.cs` 1064-1712, `Creature.cs` 831-925,
-//! `Weapon.cs` 334-390, `Rock.cs` 50-95, `Spear.cs` 576-822 and 977-1160, `Room.cs`
-//! 4688-4760.
+//! layer-1 collisions. Decompile: `Lizard` (`AttemptBite` to `SpitOutOfShortCut`), `Creature`,
+//! `Weapon.Update`, `Rock.HitSomething`, `Spear` and `Room.Update`.
 //!
 //! Mirrors: Lizard.cs (Violence, Stun, SpearStick, AttemptBite, Bite), Creature.cs (Violence, Die), Weapon.cs (Update), Rock.cs (HitSomething), Spear.cs (HitSomething, LodgeInCreature, Update), Player.cs (Collide)
 

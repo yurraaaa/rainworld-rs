@@ -419,7 +419,7 @@ pub trait MenuContext {
 mod tests {
     use super::*;
 
-    /// `RainWorldGame.FadeInTime` / `InitialBlackSeconds` (56028, 56052) with no save
+    /// `RainWorldGame.FadeInTime` / `InitialBlackSeconds` with no save
     /// state; `Dev` falls to `MainLoopProcess`'s 0.45 / 0.
     #[test]
     fn game_fade_per_condition() {

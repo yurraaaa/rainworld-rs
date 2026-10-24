@@ -1,4 +1,4 @@
-//! `KarmaLadder` (537050-537967) and `KarmaSymbol` (536601-536888): phases, sounds'
+//! `KarmaLadder` and `KarmaSymbol`: phases, sounds'
 //! places and random draws, with expectations from the decompile.
 
 use super::*;

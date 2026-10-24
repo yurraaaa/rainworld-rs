@@ -735,8 +735,8 @@ mod tests {
         assert!(!l.iter().any(|x| x == "MAPUPDATE<progDivB>SU<progDivB>9"));
     }
 
-    /// `Revert` (106953) drops the current state and the maps but not the starved
-    /// state, which `GetOrInitiateSaveState` (107047) takes up with its trackers' shown
+    /// `Revert` drops the current state and the maps but not the starved
+    /// state, which `GetOrInitiateSaveState` takes up with its trackers' shown
     /// values reset.
     #[test]
     fn revert_keeps_only_the_starved_state() {
@@ -780,7 +780,7 @@ mod tests {
         assert_eq!(read.get("save__Backup"), read.get("save"));
     }
 
-    /// `WipeAll` (106810): only `MISCPROG` stays, its shelters and the Hunter-era
+    /// `WipeAll`: only `MISCPROG` stays, its shelters and the Hunter-era
     /// integers reset, the Hunter unlock kept; the old save is `save__WipeBackup`.
     #[test]
     fn wipe_all_keeps_only_the_wiped_misc_progression() {

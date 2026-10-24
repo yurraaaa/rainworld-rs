@@ -1,8 +1,8 @@
 //! The player in a room with gravity 0: the `ZeroG` body mode, the `ZeroGSwim` and
 //! `ZeroGPoleGrab` animations, and the entry and exit checks of `MovementUpdate`.
 //!
-//! Behaviour: `rainworld-re/surveys/zero-g-player.md` (Player.cs 8541-8815 and 12257,
-//! 12327). The keyboard's `analogueDir` is the direction keys clamped to length 1, so
+//! Behaviour: `rainworld-re/surveys/zero-g-player.md` (`Player.UpdateAnimation` and
+//! `Player.MovementUpdate`). The keyboard's `analogueDir` is the direction keys clamped to length 1, so
 //! `ZeroGGamePadIntVec` is `x, y` and `SwimDir(false)` is `SwimDir(true)` (D34); the coral
 //! circuit's resistance, jump meter and swim bits come from `circuit.rs`.
 //!

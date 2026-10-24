@@ -1,6 +1,6 @@
 //! The player in zero gravity: entry and exit, `ZeroGSwim`, `ZeroGPoleGrab`, the jump's
-//! early return. Expected values come from the formulas of `Player.cs` 8541-8815, 12257 and
-//! 12327 (`rainworld-re/surveys/zero-g-player.md`), written next to each assertion.
+//! early return. Expected values come from the formulas of `Player.UpdateAnimation` and
+//! `Player.MovementUpdate` (`rainworld-re/surveys/zero-g-player.md`), written next to each assertion.
 
 use rw_random::UnityRandom;
 
@@ -348,7 +348,7 @@ fn update_with_sounds(
 }
 
 /// A one-shot's draws are made at the end of the update, after the update's own: a
-/// `Regain_Footing` for each chunk whose contact changed (`Player.cs` 8561).
+/// `Regain_Footing` for each chunk whose contact changed (`Player.UpdateAnimation`).
 #[test]
 fn zero_g_swim_regain_footing_draws_after_the_updates_own() {
     let r = floor_room();
@@ -366,7 +366,7 @@ fn zero_g_swim_regain_footing_draws_after_the_updates_own() {
     );
 }
 
-/// The push-off plays `Normal_Jump` once (`Player.cs` 8628) after the thrust's one draw.
+/// The push-off plays `Normal_Jump` once (`Player.UpdateAnimation`) after the thrust's one draw.
 #[test]
 fn zero_g_swim_push_off_plays_one_normal_jump() {
     let r = floor_room();
@@ -382,7 +382,7 @@ fn zero_g_swim_push_off_plays_one_normal_jump() {
     assert_eq!(rng, after_sounds(want, &[SoundId::SlugcatNormalJump]));
 }
 
-/// Passing a vertical pole while thrusting up plays `Grab_Beam` (`Player.cs` 8651).
+/// Passing a vertical pole while thrusting up plays `Grab_Beam` (`Player.UpdateAnimation`).
 #[test]
 fn zero_g_swim_grab_plays_grab_beam() {
     let r = tall_pole();
@@ -402,7 +402,7 @@ fn zero_g_swim_grab_plays_grab_beam() {
 }
 
 /// Climbing a pole in `ZeroGPoleGrab` plays `Climb_Up_Vertical_Beam` when the frame counter
-/// passes 20 (`Player.cs` 8735), and a let-go jump plays the horizontal-pole sounds (8800).
+/// passes 20 (`Player.UpdateAnimation`), and a let-go jump plays the horizontal-pole sounds.
 #[test]
 fn zero_g_pole_grab_sounds() {
     let r = tall_pole();

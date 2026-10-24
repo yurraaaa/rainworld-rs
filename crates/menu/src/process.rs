@@ -731,7 +731,7 @@ mod tests {
         assert_eq!(id(&m), Some(ProcessId::MainMenu));
     }
 
-    /// `ProcessManager.Update`'s fade-in after a switch (108396): while `blackDelay > 0`
+    /// `ProcessManager.Update`'s fade-in after a switch: while `blackDelay > 0`
     /// it counts down by dt with `fadeToBlack` held at 1 (`FadeDelayInProgress`), then
     /// `fadeToBlack` falls by dt / `FadeInTime`.
     #[test]

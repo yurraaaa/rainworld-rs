@@ -1,4 +1,4 @@
-//! `FlyGraphics` (decompile 186207-186431): the bat fly's lower body, wing beats and its
+//! `FlyGraphics`: the bat fly's lower body, wing beats and its
 //! four sprites. Its `Update` draws from the game's shared random stream; `DrawSprites`
 //! makes no draws.
 //!

@@ -1,6 +1,7 @@
 //! The player's side of the coral circuit: `CollideWithCoralCircuitBit` (resistance, jump
 //! meter, the kick or the explosion, `swimBits` and their sound) and the `ZeroGSwim` terms
-//! that read the three. Expected values come from `Player.cs` 8541-8670 and 8936-8962,
+//! that read the three. Expected values come from `Player.UpdateAnimation` and
+//! `Player.CollideWithCoralCircuitBit`,
 //! worked in the comments.
 
 use rw_random::UnityRandom;

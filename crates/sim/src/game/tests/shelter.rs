@@ -1,4 +1,4 @@
-//! `ShelterDoor` against the decompiled constructor, `Reset` and `Update` (262186).
+//! `ShelterDoor` against the decompiled constructor, `Reset` and `Update`.
 
 use std::collections::HashMap;
 use std::sync::Arc;

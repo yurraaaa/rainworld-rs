@@ -1,7 +1,7 @@
 //! The options menu with the installed game's fonts and illustrations (read-only),
 //! reached from the main menu. Set `RW_DIR` to override the default install; tests skip
-//! when it is absent. Expected numbers come from `Menu.OptionsMenu` (548249-549535),
-//! `HorizontalSlider.Update` (553447) and `SelectOneButton` (540370) of 1.11.8.
+//! when it is absent. Expected numbers come from `Menu.OptionsMenu`,
+//! `HorizontalSlider.Update` and `SelectOneButton` of 1.11.8.
 
 use std::path::PathBuf;
 

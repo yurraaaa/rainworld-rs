@@ -1,4 +1,4 @@
-//! `SlugcatSelectMenu` (553691) in the base game (Remix, Jolly Co-op and More Slugcats
+//! `SlugcatSelectMenu` in the base game (Remix, Jolly Co-op and More Slugcats
 //! off): a page per slugcat that scrolls sideways, the hold-to-start button (new game,
 //! or continue a saved one), back, the arrows and the restart check box, which rises
 //! on a page with a save and makes the start a new game. A slugcat without a save gets

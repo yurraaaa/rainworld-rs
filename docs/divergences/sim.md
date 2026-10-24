@@ -243,7 +243,7 @@ corridors (D10).
   +1 vy, 0.3x lift, 0.5x slide forces) and the slugpup, Rivulet and Gourmand
   (`PainJumps`) sideways pole jump values, Saint's `monkAscension` blocking the grab,
   and the ripple-levitation freeze of the facing (`rippleActivating`), and the Rivulet's
-  pole-skip `WaterDrip`s (`Player.cs` 5453: 7 when `animation != None`; the base
+  pole-skip `WaterDrip`s (`Player.Update`: 7 when `animation != None`; the base
   game's pole skip needs `animation == None`, so it never makes them).
 - **Not ported entries to the pole:** the deer antlers. The blink
   on the pole is not ported.
@@ -273,7 +273,7 @@ direction.
 **What differs:**
 - **Remix (MMF) wall pounce omitted** (`cfgWallpounce`: a fast head-first wall hit with
   a buffered jump launches a `RocketJump` away from the wall, with its 7 `WaterDrip`s,
-  `Player.cs` 6636).
+  `Player.TerrainImpact`).
 - **Held items.** The belly-slide throws are ported: forward (with throwing skill) the
   weapon skims the floor; backward the long belly slide (`longBellySlide`: 39-tick
   push of 14, 34-tick jump window, exit after 16, a hop on its end, a 1.2x rocket
@@ -378,7 +378,7 @@ restrictions (`rainworld-re/notes/water.md`), base game with Remix off, Survivor
   the cross product (INFERRED: `rainworld-re/notes/overseer.md` §Slerp). Swimming
   straight down while drowning therefore turns about the x axis: the push shrinks,
   then points up, and the body rises to the surface. The game bends the swim
-  direction up as air runs out (`Player` swim, decompile line 90046); the user
+  direction up as air runs out (`Player` swim, `Player.UpdateAnimation`); the user
   checked the result by feel against the game (2026-10-15).
 - **Drawing.** The level view draws the water as `Water.DrawSprites` does
   (`rw_render::WaterSprites`, `shaders/water.wgsl`; `rainworld-re/notes/water-rendering.md`):
@@ -454,7 +454,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   and a pole mimic's mimicking, which hides it, is not read, pole mimics not
   being realized), the food pointer (no food
   item to the communication module is realized), the angry hologram (`angryWithPlayer` is set only when the
-  Moon's swarmer neuron is eaten or carried off, 217937, and is otherwise read from the
+  Moon's swarmer neuron is eaten or carried off, `Oracle.Update`, and is otherwise read from the
   save; no iterator is ported), the gate scene (`RegionGate` is not ported: in Moon's gates the concern is
   `None`, as the game's is with a closed gate), the
   scavenger-trade instruction (`ScavengerTradeInstructionTrigger` is ported and waits,
@@ -499,7 +499,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   like rising on save (`SLaiState`; no iterator is ported), and destroying an angry
   guide in the off-screen den (`OverseerAbstractAI.Moved`, until iterators are ported).
   Placed light sources are created and read by `Needed` and `CompleteDarkness` (D24).
-  The `AbstractCreature` constructor's abstract AI switch (300531..300570) is ported
+  The `AbstractCreature` constructor's abstract AI switch is ported
   for every base type but the scavenger (`CreatureTemplate::abstract_ai_ported`): the
   vultures', cicadas', big eels', deer's (Remix's deer behaviour off), Miros birds' and
   needle worms' own `AbstractBehavior`s (`creature/abstract_ai/kinds_world.rs`), and the plain
@@ -1110,7 +1110,7 @@ produces them anyway: wall slide and wall jump (`WallClimb`, `canWallJump`, `jum
 only the wall-jump impulse has a test), `LedgeCrawl`, `CrawlTurn`, the crouch super-jump
 charge and dive force (untested).
 
-Physics: burrowing, terrain curves (`TerrainCurve`, so also `Jump`'s curve push, `Player.cs` 13247), the curved-terrain `TerrainImpact`
+Physics: burrowing, terrain curves (`TerrainCurve`, so also `Player.Jump`'s curve push), the curved-terrain `TerrainImpact`
 call, the room-range clamp's skip for grabbed objects, and `DefaultTile`.
 
 Room: the

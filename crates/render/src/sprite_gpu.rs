@@ -150,7 +150,7 @@ impl SpritePipeline {
         (Shader::BulletRain, "fs_bullet_rain"),
     ];
 
-    /// `_hologramThreshold` at render scale 1 (`RainWorld`, decompile 110635: 0.5 when
+    /// `_hologramThreshold` at render scale 1 (`RainWorld`, `RainWorld.ProcessManagerInitializsation`: 0.5 when
     /// `Futile.screen.renderScale > 1`).
     const HOLOGRAM_THRESHOLD: f32 = 0.65;
 

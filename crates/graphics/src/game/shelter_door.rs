@@ -1,4 +1,4 @@
-//! `ShelterDoor.InitiateSprites` / `DrawSprites` (263972) of a regular shelter: 42
+//! `ShelterDoor.InitiateSprites` / `DrawSprites` of a regular shelter: 42
 //! `shelterGate` sprites in the `Items` container, all turned to face the entrance,
 //! drawn with `ColoredSprite3` (palette colours by the texels' depth).
 //!

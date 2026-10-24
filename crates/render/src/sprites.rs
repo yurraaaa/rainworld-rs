@@ -339,7 +339,7 @@ impl SpriteAtlas {
 
 impl RoomGlobals {
     /// The globals while the level image sits at room rect `image` (position, size) and
-    /// the game's window is `view`. `_spriteRect` (decompile 130393) is the image's
+    /// the game's window is `view`. `_spriteRect` is the image's
     /// offset from the window shifted by (-0.5, +0.5) px: the image's rect on screen
     /// (`Camera::SCREEN_PIXEL_OFFSET`), so the shaders' `floor(screen pixel)` reads the
     /// level texel shown at that pixel.

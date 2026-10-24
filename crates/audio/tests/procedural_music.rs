@@ -1,4 +1,4 @@
-//! `ProceduralMusic` (414974-415435) and `MusicPlayer.NewRegion` (414683) on silent
+//! `ProceduralMusic` and `MusicPlayer.NewRegion` on silent
 //! timed sources: the bank parse, `Reset`'s draws, the re-scramble timing and the layer
 //! volumes. Expected values are read off the decompiled code; the bank below has the
 //! shape of the installed `su.txt` (8 stems, 5 layers).

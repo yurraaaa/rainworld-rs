@@ -1,6 +1,6 @@
 //! The player on climbable vines: the grab in `MovementUpdate` and the `VineGrab` animation.
-//! Expected values come from the formulas of `Player.cs` (MovementUpdate 12362-12431,
-//! UpdateAnimation 8815-8928), written next to each assertion. Vines are test-only
+//! Expected values come from the formulas of `Player.MovementUpdate` and
+//! `Player.UpdateAnimation`, written next to each assertion. Vines are test-only
 //! (`climbable_vines_tests::TestVine`): a straight one at x = 200 from y = 100 to 400
 //! (points at 100, 250, 400, 300 px long) unless a test builds another. Heavy vines
 //! (mass 1000) hardly move when pushed, so the geometry stays put.
@@ -331,7 +331,7 @@ fn jumping_off_a_vine() {
     assert_eq!(p.animation(), Animation::VineGrab);
 }
 
-/// The generic jump block of `MovementUpdate` (Player.cs 12691) still runs after
+/// The generic jump block of `Player.MovementUpdate` still runs after
 /// `UpdateAnimation` in the tick the player lets go of a vine: with `canJump` and the press
 /// buffered, `Jump` is made on top of the vine's fling, as it is for a player not on a vine.
 #[test]

@@ -1,6 +1,6 @@
-//! `SlugcatPageContinue` (554289: its HUD's parts, `Update` placing them),
-//! `FoodMeter` (474428: the `CharacterSelect` constructor branch, `Update`'s plop-in,
-//! `CharSelectUpdate` 475424) and `KarmaMeter` (476308: `Show` for `CharacterSelect`,
+//! `SlugcatPageContinue` (its HUD's parts, `Update` placing them),
+//! `FoodMeter` (the `CharacterSelect` constructor branch, `Update`'s plop-in,
+//! `CharSelectUpdate`) and `KarmaMeter` (`Show` for `CharacterSelect`,
 //! `Radius`).
 
 use super::*;

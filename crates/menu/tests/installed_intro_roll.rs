@@ -4,9 +4,9 @@
 //! when it is absent.
 //!
 //! Expected numbers come from the decompiled game (`Assembly-CSharp`, 1.11.8):
-//! `IntroRoll` (536124: constructor, `Update` 536230, `RawUpdate` 536257, `GoToMenu`
-//! 536345, `CheckTimeStamp` 536370), `RainEffect` (536379), `Custom.SCurve` (468521),
-//! `MusicPlayer.UpdateMusicContext` (414132) and `ProcessManager.Update` (108108).
+//! `IntroRoll` (constructor, `Update`, `RawUpdate`, `GoToMenu`,
+//! `CheckTimeStamp`), `RainEffect`, `Custom.SCurve`,
+//! `MusicPlayer.UpdateMusicContext` and `ProcessManager.Update`.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -138,7 +138,7 @@ impl MainLoopProcess<Ctx> for Proc {
 struct Decompiled;
 
 impl Decompiled {
-    /// `Custom.SCurve` (468521).
+    /// `Custom.SCurve`.
     fn s_curve(x: f32, k: f32) -> f32 {
         let x = x * 2.0 - 1.0;
         if x < 0.0 {

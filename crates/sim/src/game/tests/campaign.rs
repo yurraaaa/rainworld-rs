@@ -15,7 +15,7 @@ fn base_campaigns() {
     assert_eq!(hunter.start_region(), "LF");
     assert_eq!(hunter.stats.malnourished().food_to_hibernate, 9);
     assert!(SlugcatCampaign::of(SlugcatName::Night, mods).is_none());
-    // The malnourished branch of the `SlugcatStats` constructor (242443-242479).
+    // The malnourished branch of the `SlugcatStats` constructor.
     for c in SlugcatCampaign::all(mods) {
         let s = c.stats.malnourished();
         assert_eq!(s.food_to_hibernate, s.max_food);

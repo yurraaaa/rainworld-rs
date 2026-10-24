@@ -1,4 +1,4 @@
-//! What `Creature.Violence` (77370) reads of a template, for every base-game
+//! What `Creature.Violence` reads of a template, for every base-game
 //! `CreatureTemplate.Type` as `StaticWorld.InitStaticWorld` and `LizardBreeds.BreedTemplate`
 //! leave it (More Slugcats, Remix and Watcher off): the resistances, the kill limit,
 //! `quickDeath`, `countsAsAKill` and the community `Killing` influences. Kept apart from

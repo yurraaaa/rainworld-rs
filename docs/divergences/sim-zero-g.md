@@ -47,7 +47,7 @@ draw-count tests. Notes: `../../rainworld-re/notes/zero-gravity.md`; surveys
   levitation); the Saint tongue's `isZeroGMode`; Artificer's zero-gravity pyro jump;
   Gourmand's slam; Remix's upward spear throw in zero gravity and `lastGroundY`; Remix's lizard
   branches (`IsWallClimber` and speed at `room.gravity <= 0.3`, `AImap` accessibility,
-  `LizardGraphics` tail snap, `LizardSpit`); `Room.cs` 2333 (random items in `ZeroG` rooms).
+  `LizardGraphics` tail snap, `LizardSpit`); `Room.Loaded` (random items in `ZeroG` rooms).
 - **Zero-gravity readers of objects that are not ported**: scavengers, centipedes and the
   other creatures' own code; `ExplosiveSpear`'s fragments and rag; `OverseerCarcass`;
   `SegmentRope`, `Dangler`; `MeltLights`; `SpinningFan` (the rest of the

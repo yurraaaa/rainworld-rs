@@ -3,10 +3,9 @@
 //! absent.
 //!
 //! Expected values from the decompiled game (`Assembly-CSharp`, 1.11.8):
-//! `MenuDepthIllustration` (541924: size `(w, h/2)`, `scaleY` 0.5, `DepthAtPosition`),
-//! `MenuScene.BuildScene` (542836 main menu, 543854 Landscape_SU), `RefreshPositions`
-//! (542656), `InteractiveMenuScene.Update` (536003: the idle focus, `Range` then
-//! `value`; 536014: the depth under a still mouse). Positions from the installed
+//! `MenuDepthIllustration` (size `(w, h/2)`, `scaleY` 0.5, `DepthAtPosition`),
+//! `MenuScene.BuildScene` (the main menu and Landscape_SU branches), `RefreshPositions`, `InteractiveMenuScene.Update` (the idle focus, `Range` then
+//! `value`; the depth under a still mouse). Positions from the installed
 //! `scenes/landscape - su/positions.txt` and `scenes/main menu/positions.txt`.
 
 use std::path::PathBuf;

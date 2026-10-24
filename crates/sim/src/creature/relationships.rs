@@ -1,8 +1,8 @@
 //! `CreatureTemplate.relationships` as `StaticWorld` builds them: each template starts
 //! from its root template's default relationship (the constructor's argument; a child
-//! clones its ancestor's array), then `InitStaticWorldRelationships` (126578) runs its
+//! clones its ancestor's array), then `InitStaticWorldRelationships` runs its
 //! `EstablishRelationship` calls in order, each reaching the descendants of both types
-//! (126962), then makes the egg bug afraid of every type by body size and every type
+//! (`StaticWorld.EstablishRelationship`), then makes the egg bug afraid of every type by body size and every type
 //! ignore overseers; last, the cyan lizard's Eats intensities are scaled by 0.3.
 //! Base game only (the DLC tables are not ported).
 //!

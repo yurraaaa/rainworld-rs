@@ -1,9 +1,8 @@
 //! `Fly.Update` with the `Creature` and `PhysicalObject` updates under it: the counters,
 //! the fell-out-of-room death, entering a shortcut, the body physics, drowning, the
 //! flight modes (`Act`, `BatFlight`, `SwarmFlight`, `Hanging`, `WaterBehavior`,
-//! burrowing) and the pull of a chain grasp. Decompile lines: `Fly` 184644-184928,
-//! `Creature.Update` (Creature.cs 369-707), `PhysicalObject.Update` (PhysicalObject.cs
-//! 478).
+//! burrowing) and the pull of a chain grasp. Decompile: `Fly`,
+//! `Creature.Update`, `PhysicalObject.Update`.
 //!
 //! Mirrors: Fly.cs, Creature.cs (Update), PhysicalObject.cs (Update)
 

@@ -1,5 +1,5 @@
-//! `RainWorldGame.CommunicateWithUpcomingProcess` (58013-58140) and
-//! `MapData.UpdateData` (478115) on the installed game's SU world (read-only). Set
+//! `RainWorldGame.CommunicateWithUpcomingProcess` and
+//! `MapData.UpdateData` on the installed game's SU world (read-only). Set
 //! `RW_DIR` to override the default install; tests skip when it is absent.
 
 use std::path::PathBuf;

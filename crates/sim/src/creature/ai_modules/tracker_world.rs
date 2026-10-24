@@ -1,8 +1,8 @@
 //! What a realized AI's tracker answers about one creature, as other code asks it:
 //! `ArtificialIntelligence.DynamicRelationship`, `StaticRelationship`, `LizardAI.
 //! LikeOfPlayer` and `CurrentPlayerAggression`; and how uncomfortable a tile is to it
-//! (`DiscomfortTracker.DiscomfortOfTile`). Decompile: `ArtificialIntelligence.cs`
-//! 368-398, `LizardAI.cs` 1463-1488, `DiscomfortTracker.cs`.
+//! (`DiscomfortTracker.DiscomfortOfTile`). Decompile: `ArtificialIntelligence`
+//! (`DynamicRelationship`, `StaticRelationship`), `LizardAI`, `DiscomfortTracker`.
 //!
 //! Mirrors: ArtificialIntelligence.cs, LizardAI.cs, DiscomfortTracker.cs
 

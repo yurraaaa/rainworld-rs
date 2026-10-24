@@ -1,4 +1,4 @@
-//! The plain `AbstractCreatureAI` (302062): what a creature in an unrealized room does
+//! The plain `AbstractCreatureAI`: what a creature in an unrealized room does
 //! without a body. `Update`, `AbstractBehavior`, `MigrationBehavior`, `FollowPath`,
 //! `SetDestination`/`FindPath`, `RandomMoveWithinRoom`, `RandomMoveToOtherRoom`,
 //! `MoveToMoreAttractiveNeighborRoom`, `GoToDen`, `AbstractCreature.OpportunityToEnterDen`

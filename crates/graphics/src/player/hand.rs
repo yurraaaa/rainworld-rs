@@ -181,7 +181,7 @@ impl SlugcatHand {
         }
     }
 
-    /// The grasp branch (241784-241872): the held object rides below the shoulder,
+    /// The grasp branch (`SlugcatHand.Update`): the held object rides below the shoulder,
     /// drawn in toward the mouth while eating or swallowing (then shaking, with six
     /// draws, once halfway), in the middle while switching hands, forward while walking
     /// (a weapon in front of or behind the body); a live fly twitches the hand, the body
@@ -226,7 +226,7 @@ impl SlugcatHand {
         }
     }
 
-    /// The swallow (241815-241850): the object brought to the mouth over the first half
+    /// The swallow (`SlugcatHand.Update`): the object brought to the mouth over the first half
     /// of the count to 90, then held there shaking: the eyes shut, and the hand, the head
     /// and the body's main chunk jitter (`RNV`, `value` each, in that order).
     pub(crate) fn swallow_reach(&mut self, cx: &mut HandContext<'_>, counter: i32) {
@@ -249,7 +249,7 @@ impl SlugcatHand {
         *cx.body_push += dir * (0.2 * rng.value() * shake);
     }
 
-    /// A live fly in the hand (241859-241866): nine draws in source order.
+    /// A live fly in the hand (`SlugcatHand.Update`): nine draws in source order.
     fn twitch(&mut self, cx: &mut HandContext<'_>) {
         let rng = &mut *cx.rng;
         self.limb.hunt_speed = rng.value() * 5.0;

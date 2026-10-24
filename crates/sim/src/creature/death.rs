@@ -1,8 +1,8 @@
 //! A creature's kill tag and death, the parts every creature shares: `SetKillTag` and
-//! the tag's countdown in `Creature.Update` (77079), `Creature.Die` (77465) with the
-//! room's `SocialEventRecognizer.Killing` (20500: the player's `AddKill` and the
-//! communities' like of the player), and `AbstractCreature.Die` (301418) with
-//! `SaveState.AddCreatureToRespawn` (48297: a lineage's `ChanceToProgress`). What the
+//! the tag's countdown in `Creature.Update`, `Creature.Die` with the
+//! room's `SocialEventRecognizer.Killing` (the player's `AddKill` and the
+//! communities' like of the player), and `AbstractCreature.Die` with
+//! `SaveState.AddCreatureToRespawn` (a lineage's `ChanceToProgress`). What the
 //! session keeps of it is [`SessionDeaths`]. Behaviour: `rainworld-re/notes/items.md`
 //! section 12.
 //!

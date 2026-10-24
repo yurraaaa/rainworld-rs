@@ -1,4 +1,4 @@
-//! `AbstractSpacePathFinder` and `AbstractSpaceNodeFinder` (16334, 15982): searches over
+//! `AbstractSpacePathFinder` and `AbstractSpaceNodeFinder`: searches over
 //! the abstract rooms' nodes, on the room files' baked connectivity, the shortcuts
 //! between rooms and the border highways.
 //!

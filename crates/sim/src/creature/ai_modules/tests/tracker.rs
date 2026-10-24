@@ -1,6 +1,6 @@
 use super::*;
 
-/// `EstimatedChanceOfFinding` (`Tracker.cs` 62-77): 1 in sight; a fresh simple
+/// `EstimatedChanceOfFinding` (`Tracker.CreatureRepresentation`): 1 in sight; a fresh simple
 /// representation (generation 1, 0 ticks) is `n = 2.5`; at `n = 45` the other branch.
 #[test]
 fn chance_of_finding() {

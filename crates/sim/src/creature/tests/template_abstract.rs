@@ -30,7 +30,7 @@ fn social_memory_per_template() {
     assert!(!sm(T::Fly) && !sm(T::Overseer) && !sm(T::LanternMouse));
 }
 
-/// The abstract lists of `InitStaticWorld` (125287..) for the roaming types.
+/// The abstract lists of `InitStaticWorld` for the roaming types.
 #[test]
 fn abstract_connection_costs_follow_init_static_world() {
     use AbstractMovement as M;

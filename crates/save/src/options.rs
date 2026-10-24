@@ -459,7 +459,7 @@ impl Options {
 mod tests {
     use super::*;
 
-    /// `Options()` (114166) and `ToString` (114524) with Remix and the DLCs off.
+    /// `Options.Options` and `Options.ToString` with Remix and the DLCs off.
     #[test]
     fn defaults_write_the_games_order() {
         let s = Options::default().to_options_string();

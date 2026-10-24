@@ -11,7 +11,7 @@ fn impact(speed: f32, first_contact: bool) -> TerrainImpact {
     }
 }
 
-/// `PhysicalObject.cs` 629-631: a chunk of mass 0.3 and loudness 0.7 landing at 10:
+/// `PhysicalObject.TerrainImpact`: a chunk of mass 0.3 and loudness 0.7 landing at 10:
 /// `10 * 0.7 * Lerp(0.3, 1, 0.5)` = 4.55, so
 /// `Lerp(350, Lerp(100, 1500, InverseLerp(0.5, 20, 4.55)), 0.5)` at 0.9 of the radius
 /// below the chunk.

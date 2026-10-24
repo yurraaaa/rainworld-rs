@@ -1,4 +1,4 @@
-//! `SleepAndDeathScreen` (550413-551237) on `KarmaLadderScreen` (537968-538356) with
+//! `SleepAndDeathScreen` on `KarmaLadderScreen` with
 //! the installed game's fonts, strings and scene images (skipped without it), from a
 //! constructed data package.
 
@@ -278,7 +278,7 @@ fn the_map_button_freezes_and_shows_the_map_once_moved() {
     // `fadeOutIllustration`: `LerpAndTick(0, 1, 0.02, 0.025)`.
     assert!((h.screen.fade_out_illustration() - 0.045).abs() < 1e-6);
     // In depth (no `flatmode.txt`) the death scene's layers 0, 2 and 3 dim with it
-    // (550839): `Lerp(1, 0.1 | 0.25 | 0.5, fadeOutIllustration)`, applied next tick.
+    // (`SleepAndDeathScreen.Update`): `Lerp(1, 0.1 | 0.25 | 0.5, fadeOutIllustration)`, applied next tick.
     let menu = h.screen.menu();
     let Kind::Scene(scene) = &menu.object(h.screen.scene()).kind else {
         panic!("not a scene");

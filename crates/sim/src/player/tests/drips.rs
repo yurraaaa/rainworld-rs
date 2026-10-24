@@ -1,5 +1,5 @@
-//! The `WaterDrip`s of the skid (`Player.cs` 9287) and the corridor shoots (9470,
-//! 9497): where they are queued, their gate, positions, velocities and draws. Tile
+//! The `WaterDrip`s of the skid (`Player.UpdateBodyMode`) and the corridor shoots: where they are queued,
+//! their gate, positions, velocities and draws. Tile
 //! `(x, y)` has its middle at `(20 x + 10, 20 y + 10)`; the hips' radius is 8.
 
 use rw_random::UnityRandom;

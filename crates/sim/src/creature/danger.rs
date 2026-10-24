@@ -1,14 +1,14 @@
-//! What the threat music (`ThreatDetermination.ThreatOfCreature`, 73996) and the
-//! guide's `CreatureDangerScore` (231884) read of a realized creature: its template's
+//! What the threat music (`ThreatDetermination.ThreatOfCreature`) and the
+//! guide's `CreatureDangerScore` read of a realized creature: its template's
 //! `dangerousToPlayer`, `DangerPos`, and its realized AI's view of the player
 //! (`CurrentPlayerAggression` and the tracker's representation).
 //!
 //! Every creature realized so far (the overseer, the bat fly and the green lizard)
 //! uses the base `DangerPos` (`mainBodyChunk.pos`). The base-game overrides arrive with
-//! their creatures: `Lizard.DangerPos` (197872, the tongue's tip while it lashes out),
-//! `Vulture.DangerPos` (284462, a king vulture's shooting or charging tusk), and
-//! `CurrentPlayerAggression` of `CicadaAI` (150153), `DropBugAI` (178192),
-//! `BigNeedleWormAI` (213919) and `ScavengerAI` (255506). `LizardAI`'s (202014) is in
+//! their creatures: `Lizard.DangerPos` (the tongue's tip while it lashes out),
+//! `Vulture.DangerPos` (a king vulture's shooting or charging tusk), and
+//! `CurrentPlayerAggression` of `CicadaAI`, `DropBugAI`,
+//! `BigNeedleWormAI` and `ScavengerAI`. `LizardAI`'s is in
 //! `creature/ai_modules/tracker_world.rs`.
 //!
 //! Mirrors: ThreatDetermination.cs, Creature.cs, Lizard.cs, ArtificialIntelligence.cs

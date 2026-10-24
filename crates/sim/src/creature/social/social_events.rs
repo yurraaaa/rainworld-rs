@@ -5,7 +5,7 @@
 //! `LizardPlayerRelationChange` (the lizard's social memory of the player and its
 //! community's like of the player) and the gift half of taming (`FriendTracker.
 //! ItemOffered`, `GiftRecieved`). Decompile: `SocialEventRecognizer.cs`,
-//! `LizardAI.cs` 1765-1906, `FriendTracker.cs`.
+//! `LizardAI`, `FriendTracker`.
 //!
 //! Mirrors: SocialEventRecognizer.cs, LizardAI.cs (SocialEvent, LizardPlayerRelationChange, GiftRecieved), FriendTracker.cs (ItemOffered, GiftRecieved)
 

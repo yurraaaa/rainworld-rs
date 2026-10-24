@@ -1,5 +1,5 @@
-//! `Player.Die` → `RainWorldGame.GameOver` (56840) and `karmaFlowerGrowPos` (86975),
-//! `PlaceKarmaFlowerOnDeathSpot` (54041), `PlaceKarmaFlower` (84018).
+//! `Player.Die` → `RainWorldGame.GameOver` and `karmaFlowerGrowPos`,
+//! `PlaceKarmaFlowerOnDeathSpot`, `PlaceKarmaFlower`.
 
 use std::sync::Arc;
 

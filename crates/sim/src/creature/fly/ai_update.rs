@@ -1,4 +1,4 @@
-//! `FlyAI`'s behaviour (185299-186205): its update, the behaviours, the flocking, the
+//! `FlyAI`'s behaviour: its update, the behaviours, the flocking, the
 //! path along the baked Fly layer and the threats. Base game: no lures (`luredCounter`
 //! stays 0), no safari control, no arena challenge limits, every creature on ripple
 //! layer 0, `RoomNotACycleHazard` only matters with Remix.

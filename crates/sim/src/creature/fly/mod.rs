@@ -113,7 +113,7 @@ pub struct Fly {
     pub graphics: bool,
 }
 
-/// The Fly's physics scalars (184589).
+/// The Fly's physics scalars (`Fly.ctor`).
 const PARAMS: PhysicsParams = PhysicsParams {
     g: 0.9,
     room_gravity: 1.0,
@@ -127,7 +127,7 @@ const PARAMS: PhysicsParams = PhysicsParams {
 };
 
 impl Fly {
-    /// The `Fly` constructor (184579): one chunk (rad 6, mass 0.05), `flap` and
+    /// The `Fly` constructor: one chunk (rad 6, mass 0.05), `flap` and
     /// `flapSpeed` draws, then `FlyAI`'s with its `FlockBehavior`. `flock` is the id the
     /// new flock will have.
     pub fn new(

@@ -174,7 +174,7 @@ fn test_room_maps_as_described() {
     );
 }
 
-/// `GenerateSprites` 132941-132996: `ShortcutArrow` for a pipe; nothing for a dead end
+/// `GenerateSprites`: `ShortcutArrow` for a pipe; nothing for a dead end
 /// or (without More Slugcats) a den; a room exit's dots.
 #[test]
 fn symbol_per_shortcut_type() {
@@ -193,7 +193,7 @@ fn symbol_per_shortcut_type() {
     );
 }
 
-/// The room-exit branch of `GenerateSprites` (132951-132995).
+/// The room-exit branch of `GenerateSprites`.
 #[test]
 fn room_exit_symbol_by_what_lies_behind() {
     let shelter = ExitBehind {
@@ -264,9 +264,9 @@ fn room_exit_symbol_by_what_lies_behind() {
     );
 }
 
-/// 133004-133006: the symbol turned to point into the hole
+/// `ShortcutGraphics.GenerateSprites`: the symbol turned to point into the hole
 /// (`AimFromOneVectorToAnother(0, -hole)`), 15 px out from the entrance's middle toward
-/// the hole, drawn at depth -5 (`ApplyDepth`, 132709).
+/// the hole, drawn at depth -5 (`ApplyDepth`, `ShortcutGraphics.Draw`).
 #[test]
 fn symbol_place_and_rotation() {
     let room = Room::test_room(None);
@@ -290,7 +290,7 @@ fn symbol_place_and_rotation() {
     assert!(symbols.iter().all(|s| s.layer == Layer::Shortcuts));
 }
 
-/// `GenerateSprites` 132849-132886: a `pixel` per pipe tile: 20 px on an entrance in
+/// `GenerateSprites`: a `pixel` per pipe tile: 20 px on an entrance in
 /// `Background`; 15 px `ShortCut0` in `Shortcuts` on solid pipe, in `Items` below a
 /// water line in front of the terrain, in `BackgroundShortcuts` on air. Room exit and
 /// den tiles (`shortCut` 2 and 3) get none.
@@ -325,7 +325,7 @@ fn pipe_sprites_and_containers() {
     assert_eq!(pixel_at(&list, (2, 1)).expect("pipe").layer, Layer::Items);
 }
 
-/// `Draw` 132644-132672 and 132770-132781: a pulse with brightness 1 (`[0] == 1`, so
+/// `Draw`: a pulse with brightness 1 (`[0] == 1`, so
 /// its flicker term is 0) at progress 0.25 (`num = Lerp(0, 2, 0.25) = 0.5`) lights pipe
 /// tile `j` of an `n`-step pipe `Clamp01(1 - |j / n - 0.5|)^5 * 0.5 + 0.5`.
 #[test]
@@ -358,7 +358,7 @@ fn pulse_lights_the_pipe_by_progress() {
     ));
 }
 
-/// 132790-132806: a vessel colours its tile and, with more than one segment, the tiles
+/// `ShortcutGraphics`: a vessel colours its tile and, with more than one segment, the tiles
 /// behind it; on a tile with no pipe sprite (a node) nothing is coloured.
 #[test]
 fn vessel_lights_its_tiles() {
@@ -399,11 +399,11 @@ fn vessel_lights_its_tiles() {
     );
 }
 
-/// 132728-132744: an entrance flashing at `[3] = -50` (a slugcat's arrival,
+/// `ShortcutGraphics.Draw`: an entrance flashing at `[3] = -50` (a slugcat's arrival,
 /// `BlinkShortCut(.., 2.5)`) shows its glow at alpha `0.35 + 0.35` and scale
 /// `2.5 + 1.6` (50 % 4 < 3) in `Water`, and the symbol colour; at `-51` (51 % 4 == 3)
 /// the symbol is dark (`ColorFromLightness(0)`). Not flashing, the symbol goes from
-/// the dark pipe colour toward `Lerp(lit, symbol, 0.75)` by `[2]` (132757).
+/// the dark pipe colour toward `Lerp(lit, symbol, 0.75)` by `[2]` (`ShortcutGraphics.Draw`).
 #[test]
 fn entrance_flash_and_symbol_colour() {
     let room = Room::test_room(None);
@@ -439,7 +439,7 @@ fn entrance_flash_and_symbol_colour() {
     assert!(!list.items.iter().any(|i| i.layer() == Layer::Water));
 }
 
-/// `ColorEntrance` and `Update` (132615-132631): the colour shows in full, then fades
+/// `ColorEntrance` and `Update`: the colour shows in full, then fades
 /// 0.025 a tick.
 #[test]
 fn entrance_colour_fades() {

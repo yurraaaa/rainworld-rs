@@ -1,6 +1,6 @@
-//! `FoodMeter` (474428: the constructor's sleep and death branches, `SleepUpdate`
-//! 475290, `DeathUpdate` 475390), `HUD.InitSleepHud` 475918 and
-//! `SleepAndDeathScreen.FoodMeterXPos` 550590.
+//! `FoodMeter` (the constructor's sleep and death branches, `SleepUpdate`,
+//! `DeathUpdate`), `HUD.InitSleepHud` and
+//! `SleepAndDeathScreen.FoodMeterXPos`.
 
 use super::*;
 

@@ -1,7 +1,7 @@
-//! `SlugcatSelectMenu` (553691) with a saved game: `SlugcatPageContinue` (554289) with
+//! `SlugcatSelectMenu` with a saved game: `SlugcatPageContinue` with
 //! the installed game's fonts, strings, region names and scene images (skipped without
 //! them), from a save state put in memory as the current one (`MineForSaveData`'s first
-//! branch, 555228).
+//! branch, `SlugcatSelectMenu.MineForSaveData`).
 
 use std::path::PathBuf;
 

@@ -1,8 +1,8 @@
 //! What an AI sees: `ArtificialIntelligence.VisualScore` and `VisualContact`, a lizard's
 //! `VisualScore` (the angle off its head), and what makes a body easier or harder to
 //! see (`BodyChunk.VisibilityBonus`, `Player.VisibilityBonus`, `Player.Sneak`).
-//! Decompile: `ArtificialIntelligence.cs` 159-231, `LizardAI.cs` 1184-1192,
-//! `BodyChunk.cs` 162-165, `Player.cs` 2162 and 2208-2233.
+//! Decompile: `ArtificialIntelligence.VisualContact` / `VisualScore`,
+//! `LizardAI.VisualScore`, `BodyChunk.VisibilityBonus`, `Player.Sneak` and `Player.VisibilityBonus`.
 //!
 //! Mirrors: ArtificialIntelligence.cs, LizardAI.cs, BodyChunk.cs, Player.cs
 

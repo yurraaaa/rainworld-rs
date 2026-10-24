@@ -2,8 +2,8 @@ use rw_assets::{ActiveMods, CreatureType as T};
 
 use crate::creature::CreatureTemplate;
 
-/// `dangerousToPlayer` as `InitStaticWorld` (125287-126484) and the lizard breeds'
-/// `danger` (305845-306552, set at 307309) leave it; children inherit (305458).
+/// `dangerousToPlayer` as `InitStaticWorld` and the lizard breeds'
+/// `danger` (`LizardBreeds.BreedTemplate`) leave it; children inherit (`CreatureTemplate.ctor`).
 #[test]
 fn dangerous_to_player_per_template() {
     let table = [

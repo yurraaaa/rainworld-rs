@@ -1,6 +1,6 @@
 use super::*;
 
-/// `NoiseTracker.cs` 32-42: a tick older, the strength `Max(10, 0.6x)`, destroyed
+/// `NoiseTracker.TheorizedSource.Update`: a tick older, the strength `Max(10, 0.6x)`, destroyed
 /// once older than the forget time, and the representation let go when deleted.
 #[test]
 fn source_update() {
@@ -27,7 +27,7 @@ fn source_update() {
     );
 }
 
-/// `Utility` (`NoiseTracker.cs` 155-162) and the fade at the end of `Update`.
+/// `Utility` (`NoiseTracker`) and the fade at the end of `Update`.
 #[test]
 fn utility_and_fade() {
     let mut t = NoiseTracker {
@@ -49,7 +49,7 @@ fn utility_and_fade() {
     assert!((t.mysterious_noises - (0.01 - 0.0125)).abs() < 1e-7);
 }
 
-/// `HowInterestingIsThisNoiseToMe` (`NoiseTracker.cs` 288-299).
+/// `HowInterestingIsThisNoiseToMe` (`NoiseTracker`).
 #[test]
 fn interest() {
     assert_eq!(NoiseKind::Kin.interest(4.0), 0.4);

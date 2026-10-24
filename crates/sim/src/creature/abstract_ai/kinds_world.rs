@@ -1,6 +1,6 @@
 //! The `AbstractBehavior`s of the `AbstractCreatureAI` subclasses (their state is
-//! `creature/abstract_ai/kinds.rs`): vultures (286569), cicadas (150292), big eels (139554),
-//! deer (175084), Miros birds (209900) and needle worms (215613). Drop bugs and every
+//! `creature/abstract_ai/kinds.rs`): vultures (`VultureAbstractAI.AbstractBehavior`), cicadas (`CicadaAbstractAI.AbstractBehavior`), big eels (`BigEelAbstractAI.AbstractBehavior`),
+//! deer (`DeerAbstractAI.AbstractBehavior`), Miros birds (`MirosBirdAbstractAI.AbstractBehavior`) and needle worms (`NeedleWormAbstractAI.AbstractBehavior`). Drop bugs and every
 //! other type with an AI run the plain behaviour (`abstract_ai.rs`); the overseer's is
 //! `creature/overseer`, the scavenger's is not ported (they stay in their dens).
 //! A creature is never realized here (D14), so each `realizedCreature == null` test

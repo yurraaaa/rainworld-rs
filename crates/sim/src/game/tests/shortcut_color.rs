@@ -1,6 +1,6 @@
 //! The colour an entrance flashes in (`ShortcutGraphics.ColorEntrance`): the
-//! creature's `ShortCutColor()`, from `Creature.NewTile` (`Creature.cs` 806) and the
-//! between-rooms lobby (`ShortcutHandler.cs` 278). `Lizard.ShortCutColor` is its
+//! creature's `ShortCutColor()`, from `Creature.NewTile` and the
+//! between-rooms lobby (`ShortcutHandler.Update`). `Lizard.ShortCutColor` is its
 //! `effectColor`; the default is the template's `shortcutColor` (`CreatureTemplate`
 //! constructor: white; `StaticWorld.InitStaticWorld` sets DaddyLongLegs blue,
 //! BrotherLongLegs (0.7, 0.7, 0.4), RedCentipede red, BigNeedleWorm (1, 0.5, 0.5),

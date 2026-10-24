@@ -1,4 +1,4 @@
-//! `Spark.DrawSprites` (40745), `ExplosionSpikes.DrawSprites` (34935) and
+//! `Spark.DrawSprites`, `ExplosionSpikes.DrawSprites` and
 //! `NeuronSpark.DrawSprites`: a streak in `Midground` (in the lizard's head colour while its
 //! graphics flicker white), a ring of fading spikes in `Foreground`, and a neuron spark's
 //! flickering disc and pixel in `Foreground`, and the dispatch of every cosmetic's draw (the

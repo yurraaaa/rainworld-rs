@@ -1,4 +1,4 @@
-//! `WaterDrip` (42265): a falling droplet, thrown off a wet ceiling by a creature's hard
+//! `WaterDrip`: a falling droplet, thrown off a wet ceiling by a creature's hard
 //! terrain impact, shaken loose by the slugcat's bites, or dripping from a rain room's
 //! ceiling on its own (`Room.Update`). A `CosmeticSprite` in its room's update list
 //! whose `Update` draws on the shared stream; the sprites are `rw-graphics`'.
@@ -121,7 +121,7 @@ impl WaterDrip {
         }
     }
 
-    /// The drips of `Creature.TerrainImpact` (77767-77795) for a first contact of a chunk
+    /// The drips of `Creature.TerrainImpact` for a first contact of a chunk
     /// at `pos` (radius `rad`, mass `mass`) in a room with `ceiling_drips`: up to five
     /// when `speed` weighted by the mass exceeds 10, thrown back off the surface.
     pub fn from_impact(

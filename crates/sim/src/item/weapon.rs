@@ -1,6 +1,6 @@
-//! Realized rocks and spears: `Weapon` (81224) over `PlayerCarryableItem` (79261) and
-//! `PhysicalObject` (78561), with `Rock` (246997) and `Spear` (270804) on top. Ported:
-//! the constructors, `PlaceInRoom`, `ChangeMode`, `Thrown` (81682), `HitWall` (81812),
+//! Realized rocks and spears: `Weapon` over `PlayerCarryableItem` and
+//! `PhysicalObject`, with `Rock` and `Spear` on top. Ported:
+//! the constructors, `PlaceInRoom`, `ChangeMode`, `Thrown`, `HitWall`,
 //! and `Update` in every mode but `StuckInCreature`: the floor bounce of a belly-slide
 //! throw, a thrown weapon's turn, tumble, slope bounce and wall hit, a thrown spear
 //! sticking in a wall with its poles, and the items' sound loops. Creature hits are
@@ -134,7 +134,7 @@ pub enum WeaponKind {
     Spear(Box<SpearParts>),
 }
 
-/// `ChunkDynamicSoundLoop` (138330): a loop on the item's chunk that starts when `sound`
+/// `ChunkDynamicSoundLoop`: a loop on the item's chunk that starts when `sound`
 /// changes or the volume rises from 0, and stops when the volume falls to 0. Its
 /// [`Self::update_disembodied`] is `DisembodiedDynamicSoundLoop`'s.
 #[derive(Debug, Clone, PartialEq)]

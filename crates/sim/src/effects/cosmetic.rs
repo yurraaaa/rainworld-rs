@@ -1,6 +1,6 @@
-//! `Spark` (40664) and `ExplosionSpikes` (34870): `CosmeticSprite`s a weapon's terrain
+//! `Spark` and `ExplosionSpikes`: `CosmeticSprite`s a weapon's terrain
 //! hits and the belly-slide throw add to their room's update list, and the
-//! `OverseerEffect` (232098) a dying overseer sheds, and a lizard's graphics'
+//! `OverseerEffect` a dying overseer sheds, and a lizard's graphics'
 //! `LizardBubble`s and its head shield's sparks and `StationaryEffect` flash, and the
 //! water's air `Bubble`s (`bubble.rs`) and `Splash`es (`splash.rs`). Their constructors draw on the shared stream,
 //! and the overseer effect's and the bubbles' updates too. The sprites are `rw-graphics`' (the overseer effect's, on the

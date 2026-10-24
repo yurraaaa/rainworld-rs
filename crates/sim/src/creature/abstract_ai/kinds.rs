@@ -1,8 +1,8 @@
 //! The fields and constructors of the `AbstractCreatureAI` subclasses the
-//! `AbstractCreature` constructor picks (300531..300570) besides the overseer's and the
-//! scavenger's: `VultureAbstractAI` (286524), `CicadaAbstractAI` (150275),
-//! `BigEelAbstractAI` (139532), `DeerAbstractAI` (174999), `MirosBirdAbstractAI`
-//! (209826), `NeedleWormAbstractAI` (215520). Their behaviour is
+//! `AbstractCreature` constructor picks besides the overseer's and the
+//! scavenger's: `VultureAbstractAI`, `CicadaAbstractAI`,
+//! `BigEelAbstractAI`, `DeerAbstractAI`, `MirosBirdAbstractAI`,
+//! `NeedleWormAbstractAI`. Their behaviour is
 //! `creature/abstract_ai/kinds_world.rs`.
 //!
 //! Mirrors: AbstractCreatureAI.cs, VultureAbstractAI.cs, CicadaAbstractAI.cs, BigEelAbstractAI.cs, DeerAbstractAI.cs,

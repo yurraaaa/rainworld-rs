@@ -1,6 +1,6 @@
-//! The music player in a story game: `GameRequestsSong`'s rules (414568) and the
+//! The music player in a story game: `GameRequestsSong`'s rules and the
 //! `PlayerThreatTracker`'s room switches and `Random.Range(80, 400)` delays
-//! (414790-414971), on silent timed sources. Expected values are read off the
+//! on silent timed sources. Expected values are read off the
 //! decompiled code.
 
 use rw_audio::music::{

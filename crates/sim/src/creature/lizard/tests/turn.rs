@@ -1,6 +1,6 @@
 //! One green lizard in one test room. Expected values from the `Lizard` constructor
-//! (`Lizard.cs` 1-200), `Lizard.Update`'s health rolls, `Violence` (1567),
-//! `HitHeadShield` (1539), `HitInMouth` (1557), `Stun`, `SpearStick`, `Rock.HitSomething`,
+//! (`Lizard.ctor`), `Lizard.Update`'s health rolls, `Violence`,
+//! `HitHeadShield`, `HitInMouth`, `Stun`, `SpearStick`, `Rock.HitSomething`,
 //! `Spear.HitSomething`/`LodgeInCreature`, `Creature.Update`'s health death roll and
 //! `LizardBreeds.BreedTemplate` (green: toughness 2.5, so damage resistance 5 and stun
 //! resistance 2.5; body size 1.2, mass 7.5).
