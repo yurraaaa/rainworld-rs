@@ -13,6 +13,7 @@ Gameplay logic belongs in `rw-sim`, not here.
 | File | Holds |
 |---|---|
 | `main.rs` | `Args::parse` (CLI), `GameDir::from_env` (`RW_DIR`), `run()` choosing MCP / window / screenshot |
+| `panics.rs` | `Panics`: panic hook (logged with a backtrace once per location) and `guard`, which the frame's update and draw run under so a panic skips the rest of it, as a Unity exception does |
 | `app.rs` | winit `ApplicationHandler` (`App`: `resumed`, `window_event`, `about_to_wait`), frame pacing |
 | `timestep.rs` | sim rate and Unity `Time.deltaTime` as the process manager sees it |
 | `input.rs` | keyboard to per-tick `Input` (`InputState`), Rewired-style key map |

@@ -51,6 +51,7 @@ mod hud_map;
 mod input;
 mod jaws;
 mod mcp;
+mod panics;
 mod room_catalog;
 mod saves;
 mod scene;
@@ -330,6 +331,7 @@ fn main() -> ExitCode {
         env_logger::Env::default().default_filter_or("info,wgpu_core=warn,wgpu_hal=warn,naga=warn"),
     )
     .init();
+    panics::Panics::install_hook();
     match run() {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {

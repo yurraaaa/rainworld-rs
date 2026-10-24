@@ -13,6 +13,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
+use crate::panics::Panics;
 use crate::window_identity::WindowIdentity;
 use rw_menu::{KeyboardKey, ProcessId, ScreenState};
 use rw_render::{PresentRect, Renderer, Resolution, RoomLayers, WgpuRenderer};
@@ -278,7 +279,7 @@ impl App {
             }
             self.debug_ui.set_status(status);
         }
-        self.frontend.update(dt);
+        Panics::guard(|| self.frontend.update(dt));
         self.sync_window();
         if self.frontend.quit_requested() {
             log::info!("quit (main menu Exit)");
@@ -301,7 +302,7 @@ impl App {
             layers: self.layers,
             framing: Framing::Auto,
         };
-        self.frontend.draw(&mut view.renderer, scene_view);
+        Panics::guard(|| self.frontend.draw(&mut view.renderer, scene_view));
         let r = &mut view.renderer.scene.renderer;
         if self.debug_ui.is_open() {
             let size = view.window.inner_size();

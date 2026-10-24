@@ -9,7 +9,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 
 | Crate | mirrors | port-only | fallback | unmapped |
 |---|---|---|---|---|
-| app | 17 | 36 | 0 | 0 |
+| app | 17 | 37 | 0 | 0 |
 | assets | 25 | 13 | 0 | 0 |
 | audio | 11 | 5 | 0 | 0 |
 | graphics | 55 | 22 | 0 | 0 |
@@ -66,6 +66,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/app/src/mcp/tiles.rs` | port-only | - |
 | `crates/app/src/mcp/vine_reply.rs` | port-only | - |
 | `crates/app/src/mcp/window.rs` | port-only | - |
+| `crates/app/src/panics.rs` | port-only | - |
 | `crates/app/src/room_catalog.rs` | port-only | - |
 | `crates/app/src/saves.rs` | mirrors | PlayerProgression.cs, SaveState.cs |
 | `crates/app/src/scene.rs` | mirrors | RoomCamera.cs |
