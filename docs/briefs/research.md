@@ -28,12 +28,12 @@ Find out: <question>. Why it matters: <the decision it feeds>.
 ## Standing rules
 
 ```
-- Read-only on the port. No installs or downloads (cargo install, pip,
-  npm -g, dotnet tool, curl/wget); do not run decompile_types.sh unless
-  ilspycmd already exists. Ask `main` if you need a tool.
-- Shared machine: never start, stop or kill the game or Steam; open no
-  windows; no cargo builds beyond what the brief names.
-- Never pkill -f / pgrep -f.
+- AGENTS.md (loaded with your instructions) applies: no installs, no
+  windows, never touch the game/Steam, pidof not pgrep -f.
+- Read-only on the port; no cargo builds beyond what the brief names. Use
+  ../rainworld-re/tools/cs.py (outline/show/calls/callers/find) for decompile
+  lookups before reading whole files. Ask `main` if you need a tool.
+- Send no progress updates or status pings; one final report.
 ```
 
 End with the report in [`report-format.md`](report-format.md) (read-only

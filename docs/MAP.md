@@ -34,7 +34,8 @@ crate's `Cargo.toml` before adding a dependency.
 - Bugs and open items: [`BUGS.md`](BUGS.md), [`OPEN-ITEMS.md`](OPEN-ITEMS.md).
 - Reverse-engineering notes (behaviour of the original): `../../rainworld-re/notes/`, surveys in `../../rainworld-re/surveys/`.
 - Decompiled game: `/home/yura/.local/share/ilspy/split/` (one file per type; see `AGENTS.md`).
-- Driving the app headless: the MCP server (`crates/app/src/mcp/`), see `AGENTS.md`.
+- Driving the app headless: the MCP server (`crates/app/src/mcp/`), tools and `get_state` fields in [`mcp.md`](mcp.md).
+- Where the port stands (phase, what exists): [`STATUS.md`](STATUS.md).
 
 ## Quick routing
 

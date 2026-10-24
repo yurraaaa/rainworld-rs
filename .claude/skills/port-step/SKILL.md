@@ -29,6 +29,7 @@ user's explicit go-ahead first.
    conclusion. Re-run the deciding command yourself.
 7. Bring each omission to the user as "port or skip for now?"; add
    approved leftovers to `docs/OPEN-ITEMS.md`, bugs to `docs/BUGS.md`.
-8. Merge with skill `merge-branch`. Report to the user exactly what was
+8. Merge with skill `merge-branch`, then update `docs/STATUS.md` for the new
+   behaviour. Report to the user exactly what was
    observed ("the tests pass" means the port agrees with the data those
    tests use, nothing more); their play is the acceptance test.

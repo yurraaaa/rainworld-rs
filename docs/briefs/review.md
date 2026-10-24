@@ -30,9 +30,10 @@ Do, in order:
    did not list as "port or skip for now?".
 8. Behaviour, if relevant: headless MCP tools only, at <room, seed, tiles>.
 
-Standing rules: no installs or downloads; never start, stop or kill the
-game or Steam; no windows; never `pkill -f`; do not edit the branch (put
-findings in the report); do not merge.
+Standing rules: AGENTS.md (loaded with your instructions) applies (no
+installs, no windows, never touch the game/Steam, pidof not pgrep -f). Do not
+edit the branch (put findings in the report); do not merge. Use
+`../rainworld-re/tools/cs.py` for decompile lookups. No progress pings.
 
 Report with a **Verdict** heading: `accept`, `accept after fixes` (list) or
 `reject` (why), each finding marked observed or inferred; then
