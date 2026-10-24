@@ -142,6 +142,11 @@ for older notes' line numbers; new notes cite file and member.
   user decided otherwise or it is impossible, and record each divergence in
   `docs/divergences/`. Don't ask whether to follow the game; ask only when
   its behaviour is unknown.
+- Loading is threaded as in the game (user, 2026-10-24): rooms (`RoomPreparer`) and
+  regions (`WorldLoader`) load on worker threads and hand over to the main thread
+  by flags, as the game's do; the main thread makes every random draw. Absolute
+  determinism is not a goal: don't add deterministic modes or schedules for it.
+  Tests stay small and local on seeded state.
 - Renderer: `wgpu` pinned to Vulkan behind a small trait. Custom engine on
   `winit` plus separate audio and asset crates; the simulation is an
   engine-agnostic crate.
@@ -250,10 +255,11 @@ it serves the checkout's current code). Tools: `list_rooms`, `load_room`,
 `spawn_creature`, `spawn_object`, `teleport_player`, `set_rain_timer`. To check behaviour,
 prefer these over `--screenshot`/`--script`; briefs for such agents say so.
 
-- Headless and deterministic: the sim advances only in `step` /
-  `step_sequence` (40 ticks/s); same start, seed and inputs give the same run.
-  `load_room` and `new_game` start a fresh music player (it draws from the game's
-  random stream), so runs repeat within one server process too.
+- Headless: the sim advances only in `step` / `step_sequence` (40 ticks/s).
+  Runs are not required to repeat exactly: loading is threaded as in the game
+  (user, 2026-10-24), so the tick a room or region becomes ready can differ
+  between runs. `load_room` and `new_game` start a fresh music player (it draws
+  from the game's random stream).
 - `load_room` loads a room's region world with the player in it (arena
   levels: a single-room world) as `slugcat` (default `White`); `new_game`
   starts a campaign (`White`, `Yellow`, `Red`; `malnourished` option) at its
