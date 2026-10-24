@@ -16,6 +16,7 @@ pub mod room_script;
 pub(crate) mod screen_shake;
 pub mod shelter;
 pub(crate) mod shortcut;
+pub(crate) mod shortcut_helper;
 pub(crate) mod spawn;
 pub mod trigger;
 
@@ -33,6 +34,7 @@ mod game_over_turn;
 mod map_turn;
 mod observer;
 mod rain_turn;
+mod shortcut_helper_turn;
 mod shortcut_turn;
 
 pub use crate::creature::ai_modules::heavy_ai_turn::HeavyAiThrottle;
@@ -238,6 +240,8 @@ pub(crate) enum RoomObject {
     Coral(crate::superstructure::coral::turn::CoralRef),
     /// A `CircuitBit`, `CircuitConnector`, `CircuitCrab` or `CoralCircuit`.
     Circuit(crate::superstructure::coral::circuit_turn::CircuitRef),
+    /// The room's `ShortcutHelper`.
+    ShortcutHelper,
     /// The room's `AntiGravity`.
     AntiGravity,
     /// The room's `RoomSpecificScript`s.
@@ -908,6 +912,7 @@ impl RainWorldGame {
         objects.extend(self.room_script_objects(index));
         objects.extend(self.room_coral_objects(index));
         objects.extend(self.room_circuit_objects(index));
+        objects.extend(self.room_shortcut_helper_objects(index));
         objects.sort_by_key(|&(seq, _)| std::cmp::Reverse(seq));
         objects
     }
@@ -1030,6 +1035,7 @@ impl RainWorldGame {
                 RoomObject::Fixture(f) => self.run_fixture(index, f),
                 RoomObject::Projection(p) => self.run_projection(index, p),
                 RoomObject::AntiGravity => self.run_anti_gravity(index),
+                RoomObject::ShortcutHelper => self.run_shortcut_helper(index),
                 RoomObject::Script => self.update_room_scripts(index, observer),
                 RoomObject::Coral(c) => self.run_coral(index, c),
                 RoomObject::Circuit(c) => self.run_circuit_object(index, c),
@@ -1250,6 +1256,7 @@ impl RainWorldGame {
             {
                 self.world
                     .clean_grabbed_by(Entity::Creature(self.player_id));
+                self.sync_player_pulled();
             }
         }
         self.apply_player_release_grabbed_by();

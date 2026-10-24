@@ -24,13 +24,15 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 
 - **Async room loading** (user, 2026-10-22): plan and decisions in
   `../rainworld-re/surveys/async-room-loading.md`; next after the SS superstructure work
-  (user, 2026-10-23). `ShortcutHelper` its own job after it. Step A (stages, `RoomPreparer`,
+  (user, 2026-10-23). `ShortcutHelper` done 2026-10-24 (D43). Step A (stages, `RoomPreparer`,
   Immediate schedule) done 2026-10-23; B (the game's minimum schedule on, consumers,
   starts, the orphaned preparer as a no-op) done 2026-10-23; C (camera image apply one
   update later, `ShortcutGraphics` wait) done 2026-10-23 (`RoomTransition`'s palette read
   not there: the class is not ported). Left (user, 2026-10-23: port when something that uses
   them is reachable): `RoomTransition`'s palette read of a `shortCutsReady` room, and
   `MoveCamera2`'s `preLoadedBKG` case (rooms with a `_bkg` image take the deferred path).
+- `Room.lockedShortcuts` with the SS oracle (base game, 5 `LockShortcuts` calls): `ShortcutHelper`
+  treats a locked shortcut as a wrong hole (D43).
 - **Water with the rain (M8)**: `Room.AddWater` makes a `Water` (so its surface loop and
   `WaterLight`) in rooms with no level water (rain flood, `WaterCycleTop`/`Bottom`,
   `BrokenShelterWaterLevel`). The other water effects are done (2026-10-22).
@@ -60,7 +62,7 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `lightning.md`) done: flashes, `num4`/`_light`, `LightBloom` alpha, sky and fog texels,
   thunder sounds and shake, background noise in hearing.
   Camera shake core (S1) done: `rw_sim::CameraShake`, notes `camera-shake.md`. The
-  rain-derived shake is done (M8 R0+R1, 2026-10-24, D43), as is `PausedDrawUpdate`'s micro
+  rain-derived shake is done (M8 R0+R1, 2026-10-24, D44), as is `PausedDrawUpdate`'s micro
   shake. Left: flood `waterFlux.roomShake`, the `Screen_Shake_LOOP` rumble (with the
   rain loops), gamepad rumble from `controllerShake` (skipped by the user until
   gamepads), callers that come with their objects (explosive spears' and scavenger
@@ -207,7 +209,6 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   - Background scenes' `DayNight` blocks (sky alphas, `atmosphereColor`,
     `_MultiplyColor`, the spire lights; needs the rain cycle's `dayNightCounter`; no
     base room has `DayNight`): with the DLCs that use `DayNight` (D32).
-  - Zero gravity (D34): the shortcut pushers in `ShortcutHelper`, with it.
   - Zero gravity: the player's cloth (`PlayerGraphics` 1168), with the cloth.
   - Climbable vines (user, 2026-10-23; `../rainworld-re/surveys/climbable-vines.md`, D39):
     the corruption tubes (`ClimbableCorruptionTube`, `Rope`) with `DaddyCorruption`; `PoleMimic`
@@ -232,10 +233,10 @@ plan is in `../rainworld-re/surveys/lizards.md`.
     walks the room's physical objects must include them when it is ported (`Explosion`,
     `RoomRain.ThrowAroundObjects`, `GameOverRain`, `WaterCurrent`, `FluxDrain`, `GeyserEruption`,
     `MeltLights`, `WindRect`, the shelter door's `PansarPush` / `GetStuffInWalls` /
-    `DestroyExcessiveObjects`, `ShortcutHelper`'s round-robin over every layer (the segments change
-    which other layer-0 object it checks each tick: for the planned ShortcutHelper job),
+    `DestroyExcessiveObjects`,
     `SporeCloud`, `HarmfulSteam`, `TempleGuard`, `RegionGateGraphics`, `SLOracleWakeUpProcedure`, a
-    lizard tongue's all-layer trace, `BigEel`, `TentaclePlant`).
+    lizard tongue's all-layer trace, `BigEel`, `TentaclePlant`; `ShortcutHelper`'s round-robin already
+    counts them, D43).
   - The other readers of `room.zapCoils` and `SuperStructureFuses` (D36): `TubeWorm`, the
     Saint tongue, `ElectricSpear`, the `Inspector`, Watcher's `ARZapper`/`WarpTear`, Moon's
     `SLOracleBehavior.fuses`: with them.

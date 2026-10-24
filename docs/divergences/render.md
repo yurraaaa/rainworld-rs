@@ -143,7 +143,7 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   the DLCs)
   or modify effect colours (`ModifyEffectColorA/B`, unused in base-game rooms), ghost /
   rot / mushroom palettes, the sandstorm's and blizzard's screen shake (and flood rooms'
-  `waterFlux.roomShake`; the rain's shake is the camera's, D43), `_bkg` backgrounds, the heat / melt / ripple
+  `waterFlux.roomShake`; the rain's shake is the camera's, D44), `_bkg` backgrounds, the heat / melt / ripple
   shader variants, swarm rooms, and the properties-file line preprocessing (no base-game
   `Room Setting Templates` line uses it).
 

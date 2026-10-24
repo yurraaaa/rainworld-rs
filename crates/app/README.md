@@ -41,6 +41,7 @@ Gameplay logic belongs in `rw-sim`, not here.
 | `mcp/params.rs`, `mcp/reply.rs` | tool parameter structs (schema docs) and JSON reply types |
 | `mcp/dev_tools.rs` | dev spawns, `set_rain_timer`, `screenshot`/`get_tiles` of another realized room (with its full-screen effect, death fall and water light) |
 | `mcp/tests/death_fall.rs` | `get_state` `death_fall` per realized room; an other-room shot's death fall, effect and water light (`CC_A06`/`CC_H01`, `GW_A07`/`GW_A06`) |
+| `mcp/tests/shortcut_helper.rs` | `get_state` `shortcut_helper` on `SU_C04`: the den as a wrong hole, the head shoved to x 149 |
 | `mcp/background_scene_reply.rs` | `get_state` `background_scene`: per realized room's scene, its kind, elements, the camera's place on it (`camera_world`, `altitude`), each `DistantLightning`'s state, the dust puffs |
 | `mcp/insect_reply.rs` | `get_state` `insects`: per-room cosmetic insects |
 | `mcp/particles_reply.rs` | `get_state` `particles`: per realized room, counts of dandelions, stalks, sparks, specks and spores and the spawners' state |
@@ -51,6 +52,7 @@ Gameplay logic belongs in `rw-sim`, not here.
 | `mcp/circuit_reply.rs`, `mcp/circuit_tests.rs` | `get_state` `coral_circuits` (per cluster: places, tile box, bits, displaced and repairing bits, links, connectors, crabs, the first displaced bit) and the player's `circuit_swim_resistance`, `circuit_jump_meter`, `swim_bits`; tested on `SS_D02` (state, swimming through a circuit, the picture) |
 | `mcp/coral_reply.rs` | `get_state` `coral_systems`, `coral_neurons`, `coral_stems`, `projected_circles`, `wall_mycelia`, `neuron_sparks`: the realized rooms' `CoralNeuronSystem`s (wind, age, frozen, registry and its owners), `CoralNeuron`s (ends, segments, strands, pings, climbed), `CoralStem`s (root, segments' chunks, neurons made, climbed), `ProjectedCircle`s, `WallMycelia` (strands, culled, pairs, first strand) and `NeuronSpark`s |
 | `mcp/effects_reply.rs` | `get_state` `electric_death`, `border_push_back`: the realized rooms' `ElectricDeath`s (intensity, sin, colour, flashes, loop volumes, recent strikes) and `RoomBorderPushBack`s (edges, `pushPower`) |
+| `mcp/shortcut_helper_reply.rs` | `get_state` `shortcut_helper`: each realized room's `ShortcutHelper` (pushers: tile, direction, wrong hole, floor, swell, valid neighbours; the objects being pushed out: counters, given up) |
 | `mcp/fixtures_reply.rs` | `get_state` `light_fixtures`, `waterfalls`: the realized rooms' `Redlight`s, `HolyFire`s, `SlimeMoldLight`s (lights, flicker state, embers, discs) and `WaterFall`s (tile, flow, ends, strike level, contact, bubbles) |
 | `mcp/ss_grab_reply.rs` | `get_state` `deep_processing`, `deep_processing_lights`, `gravity_disruptors`: the realized rooms' `DeepProcessing` quads (power), their lights (rad, alpha) and `GravityDisruptor`s (power, streaks, `roomSpecks`, their `DisruptorSpeck`s) |
 | `mcp/ss_electric_reply.rs` | `get_state` `light_rods`, `zap_coils`, `zap_coil_lights`, `zap_flashes`, `fuses`: the realized rooms' superstructure rods (vessels, their lights), zap coils (disruption, power, spells, volumes), flashes, coil lights and fuse grids (modes, malfunction, power) |

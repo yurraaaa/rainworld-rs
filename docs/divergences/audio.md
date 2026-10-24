@@ -80,7 +80,7 @@ updates in) and the passage screen's `Passages` song are ported as hooks
   by a creature plays `Spear_Hit_Small_Creature`, a dying overseer `Overseer_Death`.
 - **Not ported:** the rain loops and one-shots (thunder and `Electricity_Loop` are ported, D25);
   the drown-out of volume group 0 is ported (`Room.RainDrownOutSounds`) but reads the room's
-  `RoomRain`, which no room has yet (D43), other creatures', item and object sounds, the sounds of
+  `RoomRain`, which no room has yet (D44), other creatures', item and object sounds, the sounds of
   unported menu screens and objects, `PlayCustomSound` / loose mod clips next to
   `sounds.txt` (a name found only there counts
   as present for the draws but is not decoded), the Watcher ripple ambience and DLC

@@ -33,6 +33,7 @@ mod ledge;
 mod movement;
 mod poles;
 mod shortcut;
+mod shortcut_push;
 mod sleep;
 mod sounds;
 mod spear_on_back;
@@ -1111,7 +1112,7 @@ impl Player {
         let (x, y) = self.tile_pos(i);
         match room.tile(x + dx, y + dy).terrain {
             Terrain::Solid => true,
-            Terrain::Floor => dy < 0 && !self.body.chunks[i].go_through_floors,
+            Terrain::Floor => dy < 0 && !self.body.chunks[i].go_through_floors(),
             _ => false,
         }
     }

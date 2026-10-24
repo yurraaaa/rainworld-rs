@@ -128,6 +128,8 @@ pub struct RealizedRoom {
     pub climbable_vines: Option<crate::ClimbableVinesSystem>,
     /// The vines registered at run time, whose owners these are.
     pub placed_vines: crate::PlacedVines,
+    /// The `ShortcutHelper` `ShortCutsReady` added.
+    pub shortcut_helper: Option<crate::game::shortcut_helper::ShortcutHelper>,
     /// `camerasChangedTick`: counts the camera's position changes in the room.
     pub cameras_changed_tick: i32,
 }
@@ -252,6 +254,7 @@ impl RealizedRoom {
             coral: None,
             climbable_vines: None,
             placed_vines: crate::PlacedVines::default(),
+            shortcut_helper: None,
             cameras_changed_tick: 0,
         }
     }

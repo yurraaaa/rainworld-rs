@@ -657,6 +657,7 @@ impl Session {
             waterfalls: super::reply::WaterFallState::all(sim.world()),
             electric_death: super::reply::ElectricDeathState::all(sim.world()),
             border_push_back: super::reply::BorderPushBackState::all(sim.world()),
+            shortcut_helper: super::reply::ShortcutHelperState::all(sim.world()),
             projectors: projections.projectors,
             scan_lines: projections.scan_lines,
             star_matrices: projections.star_matrices,

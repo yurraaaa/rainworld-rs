@@ -705,6 +705,12 @@ impl PlayerGraphics {
         }
     }
 
+    /// The hand does not reach while the slugcat moves away from the fly (the fly's own x,
+    /// not the look point's).
+    pub(crate) fn reach_blocked(fly_x: f32, main_x: f32, input_x: i8) -> bool {
+        input_x != 0 && (fly_x < main_x) == (input_x > 0)
+    }
+
     /// The hands' block for food (239320-239348): hungry, close to a fly it could
     /// auto-grab and in sight, a hand whose other hand has reached its place reaches for
     /// it (not while moving away from it), the head and body leaning in.
@@ -733,7 +739,12 @@ impl PlayerGraphics {
             }
         }
         let x = player.input_history()[0].x;
-        if x != 0 && (point.x < main.x) == (x > 0) {
+        let fly_x = around
+            .world
+            .creature(fly)
+            .fly()
+            .map_or(point.x, |f| f.pos().x);
+        if Self::reach_blocked(fly_x, main.x, x) {
             hand = None;
         }
         let Some(i) = hand else { return };

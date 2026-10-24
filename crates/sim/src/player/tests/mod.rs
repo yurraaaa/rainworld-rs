@@ -396,7 +396,7 @@ fn one_way_floor_holds_until_down_is_held() {
     let down = Input::new(0, -1, false);
     p.step(&r, down);
     // Crawl + down sets GoThroughFloors after this tick's physics.
-    assert!(p.body.chunks.iter().all(|c| c.go_through_floors));
+    assert!(p.body.chunks.iter().all(|c| c.go_through_floors()));
     let rest: Vec<f32> = p.chunks().iter().map(|c| c.pos.y).collect();
     p.step(&r, down);
     for (c, y) in p.chunks().iter().zip(rest) {

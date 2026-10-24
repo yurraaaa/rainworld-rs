@@ -85,6 +85,7 @@ pub use game::shelter::SessionEnd;
 pub use game::shortcut::{
     CreatureVessel, EntranceColor, LobbyVessel, ShortcutHandler, ShortcutsBlinking, VesselOwner,
 };
+pub use game::shortcut_helper::{ObjectPusher, ShortcutHelper, ShortcutPusher};
 pub use game::spawn::{determine_safe_spawn_tile, place_in_room};
 pub use game::{
     CameraMove, DevRainControl, GameOver, Grabability, HeavyAiThrottle, HudEvent, LookTarget,

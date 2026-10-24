@@ -7,7 +7,7 @@
 //!
 //! Not ported: arena sessions (`IsArenaSession`: the forced 70 % path, the 3.2 times faster
 //! progression, the second flood arm), the precycle (More Slugcats, Watcher) arms and
-//! the `Pulses` mode, Watcher's passive-rain scaling, the dev `ResetRain`; see D43 in
+//! the `Pulses` mode, Watcher's passive-rain scaling, the dev `ResetRain`; see D44 in
 //! `docs/divergences/sim-rain.md`.
 //!
 //! Mirrors: GlobalRain.cs

@@ -389,6 +389,44 @@ fn go_through_floors_drops_through_platform() {
 }
 
 #[test]
+fn pulled_into_shortcut_overrides_a_false_raw_flag() {
+    // `goThroughFloors` reads true while CanBePulledIntoShortcut(owner), whatever the raw field.
+    let r = room(&PLATFORM_ROOM);
+    let mut obj = single((70.0, 150.0), (0.0, 0.0), 10.0, slugcat::PARAMS);
+    obj.set_go_through_floors(false);
+    obj.set_pulled_into_shortcut(true);
+    assert!(obj.chunks[0].go_through_floors());
+    assert!(!obj.chunks[0].raw_go_through_floors());
+    for _ in 0..100 {
+        obj.update(&r);
+    }
+    assert_eq!(obj.chunks[0].pos.y, 30.0);
+}
+
+#[test]
+fn released_body_with_false_raw_flag_lands_on_the_platform() {
+    let r = room(&PLATFORM_ROOM);
+    let mut obj = single((70.0, 150.0), (0.0, 0.0), 10.0, slugcat::PARAMS);
+    obj.set_pulled_into_shortcut(true);
+    obj.set_pulled_into_shortcut(false);
+    assert!(!obj.chunks[0].go_through_floors());
+    for _ in 0..100 {
+        obj.update(&r);
+    }
+    assert_eq!(obj.chunks[0].pos.y, 90.0);
+}
+
+#[test]
+fn grabs_disable_floors_false_keeps_the_raw_flag() {
+    let mut c = BodyChunk::new(Vec2::ZERO, 10.0, 1.0);
+    c.pulled_into_shortcut = true;
+    c.grabs_disable_floors = false;
+    assert!(!c.go_through_floors());
+    c.set_go_through_floors(true);
+    assert!(c.go_through_floors());
+}
+
+#[test]
 fn floor_is_passable_while_any_chunk_was_below_it() {
     let r = room(&PLATFORM_ROOM);
     // Chunk 1 sits under the platform (last_pos.y < 80 => its tile row <= 3), so the

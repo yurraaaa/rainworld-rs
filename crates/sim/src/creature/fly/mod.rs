@@ -137,7 +137,7 @@ impl Fly {
         rng: &mut UnityRandom,
     ) -> (Self, FlockBehavior) {
         let mut chunk = BodyChunk::new(Vec2::ZERO, 6.0, 0.05);
-        chunk.go_through_floors = true;
+        chunk.set_go_through_floors(true);
         let body = PhysicalObject::new(vec![chunk], PARAMS);
         let flap = rng.value();
         let flap_speed = rng.value() + 0.1;

@@ -2,7 +2,7 @@
 
 See [README](README.md) for the format. IDs are global; code and notes cite them.
 
-## D43: The global rain (`GlobalRain`, `DeathRain`) and what reads it
+## D44: The global rain (`GlobalRain`, `DeathRain`) and what reads it
 
 `rw_sim::GlobalRain` ports `GlobalRain` whole for the base game: the direction draws every
 tick from the start of the game (right after camera 0's `Update`, before the realizer),

@@ -10,6 +10,7 @@
 //! Mirrors: Creature.cs (Grasp, Grab, ReleaseGrasp, LoseAllGrasps), AbstractPhysicalObject.cs (CreatureGripStick,
 //!   GetAllConnectedObjects), AbstractCreature.cs (DropCarriedObject)
 
+use rw_assets::CreatureType;
 use rw_random::UnityRandom;
 
 use super::{CreatureId, RealizedCreature};
@@ -303,12 +304,27 @@ impl World {
         self.sticks_mut(b).push(stick);
     }
 
-    /// An object's realized body is `held` while something grasps it.
+    /// An object's realized body is `held` while something grasps it; the chunks of
+    /// every realized body read `CanBePulledIntoShortcut` in their `goThroughFloors`.
+    /// (The player's body is synced in its own update.)
     fn sync_held(&mut self, e: Entity) {
-        if let Entity::Object(id) = e {
-            let held = !self.object(id).grabbed_by.is_empty();
-            if let Some(w) = self.object_mut(id).realized.as_deref_mut() {
-                w.body.held = held;
+        let pulled = self.can_be_pulled_into_shortcut(e);
+        match e {
+            Entity::Object(id) => {
+                let held = !self.object(id).grabbed_by.is_empty();
+                if let Some(w) = self.object_mut(id).realized.as_deref_mut() {
+                    w.body.held = held;
+                    w.body.set_pulled_into_shortcut(pulled);
+                }
+            }
+            Entity::Creature(id) => {
+                let player = self.creature(id).kind() == CreatureType::Slugcat;
+                match &mut self.creature_mut(id).realized {
+                    Some(RealizedCreature::Fly(f)) => f.body.set_pulled_into_shortcut(pulled),
+                    Some(RealizedCreature::Lizard(l)) => l.body.set_pulled_into_shortcut(pulled),
+                    _ if player => self.player_pulled = Some(pulled),
+                    _ => {}
+                }
             }
         }
     }

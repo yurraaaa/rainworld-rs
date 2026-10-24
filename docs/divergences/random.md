@@ -188,7 +188,7 @@ it (D13). What still differs is only the seed and the call order:
   roll 1 (when the hit is in reach and not close) and `Spear_Stick_In_Wall`; a parried
   weapon's `WeaponDeflect` its spin and sparks. Each `Spark` and `ExplosionSpikes`
   updates in its own slot of the room's update list (`rw_sim::effects::cosmetic`).
-- **The rain** (D43). `GlobalRain.Update` draws `value < 0.025` every tick from the first
+- **The rain** (D44). `GlobalRain.Update` draws `value < 0.025` every tick from the first
   (and one more value when it passes), right after the camera's step and before the
   realizer. `RainHit`, in `RainCycle.Update` after the world processes, makes the first
   `DeathRain` mode's draws (`value < 0.7`; then `AlternateBuildUp` one more, or
@@ -201,7 +201,7 @@ it (D13). What still differs is only the seed and the call order:
   against 1/102 and, in a `Rain` or `FloodAndRain` room, a third for the point it looks at.
   `RoomRealizer` makes its random neighbour draw only until `RainGameOver`.
 - **Camera shake.** `RoomCamera.Update`'s jump draws 1 (`Random.value * 360`) each
-  tick while `screenShake` is above 0 (from the rain's term too, D43), at the head of the
+  tick while `screenShake` is above 0 (from the rain's term too, D44), at the head of the
   sim tick, before the room realizer, as the game's cameras update before the rooms. `Room.ScreenMovement` draws
   its ceiling drips where the caller moves the screen (a terrain impact before its
   noise): 2 per drip (tile, x jitter) and, for a drip a camera sees within 300 px, 2

@@ -172,3 +172,16 @@ fn the_sky_look_draws_one_to_three_values() {
         assert_eq!(rng, mirror, "seed {seed}: {draws} draws");
     }
 }
+
+/// `PlayerGraphics.Update`'s reach for a fly is held back by the side of the fly itself
+/// (`currentMostInteresting.bodyChunks[0].pos.x`), not of `mostInterestingLookPoint`, which
+/// the sky look can leave elsewhere.
+#[test]
+fn the_reach_is_blocked_by_the_flys_side() {
+    // Moving right (input 1) with the fly to the left: blocked; fly to the right: not.
+    assert!(PlayerGraphics::reach_blocked(90.0, 100.0, 1));
+    assert!(!PlayerGraphics::reach_blocked(110.0, 100.0, 1));
+    assert!(PlayerGraphics::reach_blocked(110.0, 100.0, -1));
+    assert!(!PlayerGraphics::reach_blocked(90.0, 100.0, -1));
+    assert!(!PlayerGraphics::reach_blocked(90.0, 100.0, 0));
+}

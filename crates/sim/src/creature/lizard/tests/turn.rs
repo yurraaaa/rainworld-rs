@@ -185,7 +185,7 @@ fn the_constructor_builds_the_green_body() {
         // 8 * bodySizeFac 1.2; bodyMass 7.5 / 3.
         assert!((c.rad - 9.6).abs() < 1e-5);
         assert!((c.mass - 2.5).abs() < 1e-5);
-        assert!(c.go_through_floors);
+        assert!(c.go_through_floors());
     }
     let rods = &lizard.body.connections;
     // 17 * 1 * (1.2 + 1) / 2, and the push at 1 + bodyStiffnes 0.5 times it with
