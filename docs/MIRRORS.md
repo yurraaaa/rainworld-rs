@@ -580,7 +580,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/sim/src/world/objects.rs` | mirrors | AbstractRoom.cs, RegionState.cs, Room.cs |
 | `crates/sim/src/world/quantified.rs` | mirrors | AbstractRoom.cs, Room.cs |
 | `crates/sim/src/world/rain_cycle.rs` | mirrors | RainCycle.cs, WaterLevelCycle.cs |
-| `crates/sim/src/world/realized.rs` | mirrors | Room.cs |
+| `crates/sim/src/world/realized.rs` | mirrors | Room.cs, RoomRain.cs |
 | `crates/sim/src/world/realizer.rs` | mirrors | RoomRealizer.cs |
 | `crates/sim/src/world/region_state.rs` | mirrors | RegionState.cs, SaveState.cs, World.cs |
 | `crates/sim/src/world/room_preparer.rs` | mirrors | RoomPreparer.cs |
@@ -836,7 +836,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `RoomCamera.cs` | `crates/app/src/full_screen_effect.rs`, `crates/app/src/game.rs`, `crates/app/src/scene.rs`, `crates/app/src/sprite_order.rs`, `crates/app/src/visuals.rs`, `crates/app/src/water_light.rs`, `crates/assets/src/palette.rs`, `crates/render/src/level.rs`, `crates/render/src/room_camera.rs`, `crates/sim/src/creature/fly/turn.rs`, `crates/sim/src/effects/particles/insect/turn.rs`, `crates/sim/src/game/camera.rs`, `crates/sim/src/game/camera_image.rs`, `crates/sim/src/game/rain_turn.rs`, `crates/sim/src/game/screen_shake.rs`, `crates/sim/src/game/shortcut_turn.rs` |
 | `RoomPreparer.cs` | `crates/sim/src/world/room_preparer.rs` |
 | `RoomPreprocessor.cs` | `crates/assets/src/nodes.rs`, `crates/sim/src/world/ai_map/creature_ai_map.rs` |
-| `RoomRain.cs` | `crates/assets/src/rain_mask.rs`, `crates/graphics/src/effects/gameplay/room_rain.rs`, `crates/sim/src/game/room_rain_turn.rs`, `crates/sim/src/world/room_rain.rs`, `crates/sim/src/world/room_rain_sound.rs` |
+| `RoomRain.cs` | `crates/assets/src/rain_mask.rs`, `crates/graphics/src/effects/gameplay/room_rain.rs`, `crates/sim/src/game/room_rain_turn.rs`, `crates/sim/src/world/realized.rs`, `crates/sim/src/world/room_rain.rs`, `crates/sim/src/world/room_rain_sound.rs` |
 | `RoomRealizer.cs` | `crates/sim/src/world/realizer.rs` |
 | `RoomSettings.cs` | `crates/assets/src/ambient.rs`, `crates/assets/src/placed.rs`, `crates/assets/src/placed_types.rs`, `crates/assets/src/settings.rs`, `crates/assets/src/triggers.rs` |
 | `RoomSpecificScript.cs` | `crates/sim/src/game/room_script.rs` |
