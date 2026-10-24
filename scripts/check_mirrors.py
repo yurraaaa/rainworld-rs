@@ -176,7 +176,7 @@ def readme_errors(files):
         for n in range(3, len(parts)):
             readmes.append("/".join(parts[:n]) + "/README.md")
         if not any(key in read(r) for r in readmes):
-            errs.append(f"{f}: not named in crates/{crate}/README.md (looked for `{key}`)")
+            errs.append(f"{f}: not named in crates/{crate}/README.md or a README.md of its folders (looked for `{key}`)")
     return errs
 
 
