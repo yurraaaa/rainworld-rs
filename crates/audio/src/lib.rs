@@ -375,6 +375,11 @@ impl Audio {
         self.game.mic.ambience_gravity = gravity;
     }
 
+    /// `Room.RainDrownOutSounds` of the camera room (`VirtualMicrophone.volumeGroups[0]`).
+    pub fn set_rain_drown_out(&mut self, drown_out: f32) {
+        self.game.mic.rain_drown_out = drown_out;
+    }
+
     /// The pause menu's hold on the microphone: the volume of every group but 1 and the
     /// `timeSpeed` of positioned and ambient sounds' pitch (both 1 without it).
     pub fn set_pause_mix(&mut self, volume: f32, time_speed: f32) {

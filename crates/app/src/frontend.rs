@@ -974,6 +974,7 @@ impl GameProcess {
         };
         let chunks = game.sound_body().map(|b| &b.chunks[..]);
         audio.set_ambience_gravity(game.sim().ambience_gravity());
+        audio.set_rain_drown_out(game.sim().rain_drown_out_sounds());
         audio.tick(events, &listener, chunks, game.water());
     }
 }

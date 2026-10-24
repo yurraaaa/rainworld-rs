@@ -358,8 +358,8 @@ restrictions (`rainworld-re/notes/water.md`), base game with Remix off, Survivor
   uses `<=`), the Rivulet/Artificer/Saint/Watcher/energy-cell/jetfish branches and the
   More Slugcats flood.
 - **Not ported:** `WaterCutoff` and `AirPocket` placed objects (no base-game room
-  uses them), `WaterViscosity` (unused in the base game), rain rumble, the rain's screen
-  shake (`RainCycle.ScreenShake`/`MicroScreenShake` in the waves) and flooding, lethal water, ripple waves from explosions, the
+  uses them), `WaterViscosity` (unused in the base game), flooding (the surface's rain
+  rumble is ported: three draws per point a tick in a room with rain danger, D44), lethal water, ripple waves from explosions, the
   analogue swim direction (digital input only). The `Splash`es `Water.Update` makes
   are ported (`splash.rs`); those of explosions (`Surface.Explosion`) and geysers
   (`Geyser`) come with their owners, as do `JetWater`/`WaterJet` (JetFish). The
@@ -847,11 +847,13 @@ second part, else a single-room world for arena levels). The campaign descriptio
 - **Off-screen den and gates.** The off-screen den is never realized; gates are
   ordinary rooms (no gate mechanism, no region change), and a `RegionTransportation`
   node goes nowhere.
-- **Not ported:** the rain (the cycle's timer, day-night counter and water level stages
-  run; the overseers' AI, the HUD's rain meter and `MusicAllowed` read them, and the
-  guide's tutorial pins the timer; once fewer than 2400 ticks are left, as after the
-  SU_A43 tutorial's bring-in-rain jump, `MusicAllowed` stays false for good because
-  no rain ends the cycle, so threat music is off in rooms whose `DangerType` isn't None),
+- **Not ported:** the rain's room object and effects (`RoomRain`: the push, the kill, the
+  sprites and loops, the flood's water; the cycle's timer, day-night counter, water level
+  stages and `GlobalRain` run, D44; the overseers' AI, the HUD's rain meter and
+  `MusicAllowed` read them, and the guide's tutorial pins the timer; once fewer than 2400
+  ticks are left, as after the SU_A43 tutorial's bring-in-rain jump, `MusicAllowed` stays
+  false for the rest of the cycle, so threat music is off in rooms whose `DangerType` isn't
+  None),
   karma gates, `DisabledMapRooms` beyond the tag drop, and Remix's
   `RemoveNotVisitedRooms` branch.
 - **Room triggers.** A room's settings `Triggers` (`rw_assets::EventTrigger`, every

@@ -277,8 +277,8 @@ impl RoomRealizer {
     /// 40 ticks in a row.
     fn maybe_realize_neighbour(&mut self, cx: &mut Ctx<'_>, performance: f32) {
         let connections = cx.connections(cx.follow.room);
-        // The game's `rainCycle.RainGameOver` guard comes with the rain (OPEN-ITEMS, "Realizer guards").
         if self.currently_loading.is_some()
+            || cx.world.rain_cycle.rain_game_over()
             || cx.off_screen_den(cx.follow.room)
             || performance >= PERFORMANCE_BUDGET / 2.0
             || connections.is_empty()

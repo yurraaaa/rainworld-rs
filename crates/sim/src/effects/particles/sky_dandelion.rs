@@ -247,8 +247,7 @@ pub struct SkyDandelions {
 }
 
 impl SkyDandelions {
-    /// `SpawnChance`: `ProximityToMiddleOfCycle` of the rain cycle and `globalRain.Intensity`
-    /// (0 until the rain is ported).
+    /// `SpawnChance`: `ProximityToMiddleOfCycle` of the rain cycle and `globalRain.Intensity`.
     #[must_use]
     pub fn spawn_chance(&self, proximity_to_middle: f32, rain_intensity: f32) -> f32 {
         self.amount

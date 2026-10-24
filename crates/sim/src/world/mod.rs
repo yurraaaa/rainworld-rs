@@ -14,6 +14,7 @@
 pub(crate) mod ai_map;
 mod creatures;
 mod dens;
+mod global_rain;
 mod objects;
 mod quantified;
 mod rain_cycle;
@@ -58,6 +59,7 @@ pub(crate) use ai_map::EIGHT_DIRECTIONS;
 pub use ai_map::{AiMap, AiTile};
 pub(crate) use creatures::RoomLists;
 pub use creatures::{AbstractTick, QuantifiedCount, WorldProcesses};
+pub use global_rain::{DeathRain, DeathRainMode, GlobalRain, PassiveRain, RainTick};
 pub use rain_cycle::{CYCLE_TIME_MAX, CYCLE_TIME_MIN, RainCycle, WaterLevelCycle, WaterStage};
 pub use realized::RealizedRoom;
 pub use realizer::{FollowCreature, RoomRealizer};

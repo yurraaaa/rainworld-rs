@@ -516,6 +516,7 @@ impl Session {
                         wait_to_enter: r.wait_to_enter(),
                         ready_for_player: r.ready_for_player(),
                         ceiling_drips: r.settings.ceiling_drips,
+                        rumble_intensity: r.settings.rumble_intensity,
                         drips: r
                             .drips
                             .iter()

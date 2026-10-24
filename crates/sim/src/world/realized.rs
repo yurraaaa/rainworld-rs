@@ -201,7 +201,10 @@ impl RealizedRoom {
         let insects = crate::insect::InsectCoordinator::for_room(&loaded.settings, timeline, mods);
         let ceiling_tiles = Self::find_ceiling_tiles(&loaded.room);
         let border_exits = loaded.room.border_exits(shelter_or_gate);
-        let water = Water::new(&loaded.room, &loaded.settings);
+        let mut water = Water::new(&loaded.room, &loaded.settings);
+        if let Some(w) = water.as_mut() {
+            w.rumble.active = loaded.settings.rain_danger(mods);
+        }
         let water_sound = water
             .as_ref()
             .and_then(|_| crate::WaterSound::new(&loaded.room));

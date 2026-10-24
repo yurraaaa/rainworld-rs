@@ -86,6 +86,7 @@ impl Game {
         if edit.restart || edit.stop {
             sim.dev_set_rain_timer(0);
             sim.dev_clear_rain_pause();
+            sim.dev_reset_global_rain();
             sim.dev_set_rain_paused(edit.stop);
         }
         if let Some(timer) = edit.timer {

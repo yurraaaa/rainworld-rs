@@ -1,7 +1,7 @@
 //! Room settings files (`<room>_settings.txt`) and their template inheritance, for the
 //! values the port uses: `Palette`, `FadePalette`, `EffectColorA/B`, `Clouds`, `Grime`,
 //! the water surface's `WaveSpeed`, `WaveLength`, `WaveAmplitude`, `SecondWaveLength`
-//! and `SecondWaveAmplitude`, `WaterReflectionAlpha`, `DangerType`, `CeilingDrips`, `RainIntensity`, `AmbientSounds`, `Effects`,
+//! and `SecondWaveAmplitude`, `WaterReflectionAlpha`, `DangerType`, `CeilingDrips`, `RainIntensity`, `RumbleIntensity`, `AmbientSounds`, `Effects`,
 //! `PlacedObjects`, `BkgDroneVolume`, `BkgDroneNoThreatVolume` and `Triggers`
 //! (`triggers.rs`). Mirrors `RoomSettings` (constructor,
 //! `FindParent`, `Load`, `InheritAmbientSounds`) and
@@ -88,6 +88,7 @@ pub struct SettingsFile {
     pub danger_type: Option<Option<DangerType>>,
     pub ceiling_drips: Option<f32>,
     pub rain_intensity: Option<f32>,
+    pub rumble_intensity: Option<f32>,
     pub random_item_density: Option<f32>,
     pub random_item_spear_chance: Option<f32>,
     /// The file's own `AmbientSounds:` entries (every such line adds).
@@ -129,6 +130,8 @@ pub struct RoomSettings {
     pub danger_type: Option<DangerType>,
     pub ceiling_drips: f32,
     pub rain_intensity: f32,
+    /// `RumbleIntensity`: scales the rain's screen shake and the water's rumble.
+    pub rumble_intensity: f32,
     /// `RandomItemDensity`: `Room.Loaded` makes `W*H*d^2/5 + 1` random item attempts.
     pub random_item_density: f32,
     pub random_item_spear_chance: f32,
@@ -195,6 +198,7 @@ impl SettingsFile {
                 }
                 "CeilingDrips" => file.ceiling_drips = Some(Self::float(value)?),
                 "RainIntensity" => file.rain_intensity = Some(Self::float(value)?),
+                "RumbleIntensity" => file.rumble_intensity = Some(Self::float(value)?),
                 "RandomItemDensity" => file.random_item_density = Some(Self::float(value)?),
                 "RandomItemSpearChance" => {
                     file.random_item_spear_chance = Some(Self::float(value)?);
@@ -271,6 +275,7 @@ impl SettingsFile {
             danger_type: self.danger_type.unwrap_or(parent.danger_type),
             ceiling_drips: self.ceiling_drips.unwrap_or(parent.ceiling_drips),
             rain_intensity: self.rain_intensity.unwrap_or(parent.rain_intensity),
+            rumble_intensity: self.rumble_intensity.unwrap_or(parent.rumble_intensity),
             random_item_density: self
                 .random_item_density
                 .unwrap_or(parent.random_item_density),
@@ -318,6 +323,7 @@ impl RoomSettings {
         danger_type: Some(DangerType::Rain),
         ceiling_drips: 0.5,
         rain_intensity: 1.0,
+        rumble_intensity: 1.0,
         random_item_density: 0.5,
         random_item_spear_chance: 0.2,
         ambient_sounds: Vec::new(),
@@ -329,6 +335,14 @@ impl RoomSettings {
         bkg_drone_no_threat_volume: 1.0,
         triggers: Vec::new(),
     };
+
+    /// `DangerType != None` and, with a DLC, not `Blizzard`: the rain's shake, rumble and
+    /// drown-out apply.
+    #[must_use]
+    pub fn rain_danger(&self, mods: ActiveMods) -> bool {
+        let blizzard = (mods.msc || mods.watcher) && self.danger_type == Some(DangerType::Blizzard);
+        self.danger_type != Some(DangerType::None) && !blizzard
+    }
 
     /// `FlyAI.RoomNotACycleHazard`: no rain danger (or a blizzard, with the DLCs), or
     /// rain too weak to matter.
@@ -554,6 +568,24 @@ mod tests {
         assert_eq!(room.resolve(&template).water_reflection_alpha, 0.25);
         let own = SettingsFile::parse("WaterReflectionAlpha: 0.2934783\n").expect("parses");
         assert_eq!(own.resolve(&template).water_reflection_alpha, 0.293_478_3);
+    }
+
+    /// `RumbleIntensity` (`DefaultRoomSettings`: 1) is read from the `RumbleIntensity:` line
+    /// and inherits from the template like `RainIntensity`.
+    #[test]
+    fn rumble_intensity_inherits() {
+        assert_eq!(RoomSettings::ANCESTOR.rumble_intensity, 1.0);
+        let template = SettingsFile::parse("RumbleIntensity: 0.5\nRainIntensity: 0.25\n")
+            .expect("parses")
+            .resolve(&RoomSettings::ANCESTOR);
+        assert_eq!(
+            (template.rumble_intensity, template.rain_intensity),
+            (0.5, 0.25)
+        );
+        let room = SettingsFile::parse("Grime: 0.1\n").expect("parses");
+        assert_eq!(room.resolve(&template).rumble_intensity, 0.5);
+        let own = SettingsFile::parse("RumbleIntensity: 0.97\n").expect("parses");
+        assert_eq!(own.resolve(&template).rumble_intensity, 0.97);
     }
 
     /// `RoomSettings.wetTerrain` starts true; a `WetTerrain` line in the room's own file

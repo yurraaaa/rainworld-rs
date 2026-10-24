@@ -197,7 +197,7 @@ for older notes' line numbers; new notes cite file and member.
     save. Shelters (D17): door closes on a fed, still slugcat, `Win` writes
     the save and region state, the sleep screen (D13) continues the next
     cycle; too little food shows the starve screen. PASSAGE stays greyed out
-    (D13). Dreams are a black stand-in. Gates, region changes and the rain
+    (D13). Dreams are a black stand-in. Gates, region changes and the rain's push, kill and flood
     are not there yet.
   - Death in a story session is the game's: the body keeps simulating,
     `GameOver` puts the HUD prompt in game-over mode, the map button 40 ticks
@@ -263,7 +263,7 @@ prefer these over `--screenshot`/`--script`; briefs for such agents say so.
 - `get_state` reports the camera room (`room` is the room the camera shows; during a pending move `camera_move` names the room it is moving to), the player (food, grasps, pick-up
   candidate, stomach, counters, sneak/loudness, `held_by`, `danger_grasp` and
   its time, struggle buttons, `can_struggle`, `cant_be_grabbed_counter`, ...), the vessel in the
-  lobby, realized rooms' entry waits, `loading_progress` and `preparer` (a loading room's `RoomPreparer`: status, calls, done), `orphaned_preparers` (rooms abstracted while loading), ceiling drips, dripping sound, water surface sound, bubbles and bubble emitters, splashes, the player's `owned_items` on the ground, every abstract creature (kind, ID, room,
+  lobby, realized rooms' entry waits, `loading_progress` and `preparer` (a loading room's `RoomPreparer`: status, calls, done), `orphaned_preparers` (rooms abstracted while loading), ceiling drips, each room's `rumble_intensity`, `rain` (the cycle, its `ShaderLight`, `RainDarkPalette`, `ScreenShake`/`MicroScreenShake`, `death_rain_has_hit` and `global`: rain direction, `Intensity`, the shakes, `RumbleSound`, bullet density, flood and its speed, the death rain's mode, length, progression and sunlight), dripping sound, water surface sound, bubbles and bubble emitters, splashes, the player's `owned_items` on the ground, every abstract creature (kind, ID, room,
   node, tile, den, realized, alive, abstract AI; realized flies, lizards
   with their movement, tracker, relationships, noise, decision (`social`:
   fight target and anger, `submitted_to`, last signal, missions, `taming_difficulty`, `gift`) and, in a
@@ -294,7 +294,9 @@ prefer these over `--screenshot`/`--script`; briefs for such agents say so.
   edits the rain timer: `cycle_length`, `restart`/`stop` (timer 0, running/held),
   `timer`, `shift`, `paused` (a dev flag holding only the timer; not the game's
   `RainCycle.pause`), `speed` (timer ticks per tick); `get_state.rain` reports
-  the cycle and the dev flags. While the overseer tutorial's `pauseRain` is set
+  the cycle, the dev flags and the global rain (D44). `restart` and `stop` also reset the
+  global rain (direction, death rain, flood; port-only, not the game's `ResetRain`, D44);
+  a timer set back otherwise leaves a started death rain running. While the overseer tutorial's `pauseRain` is set
   (story starts) it pins the timer at 2000 each tick, as the game does.
 - `screenshot` returns a PNG from the window's draw path, offscreen. The
   debug view outlines every realized body's chunks and rods in the camera's

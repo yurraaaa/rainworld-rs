@@ -76,3 +76,20 @@ fn speed_adds_ticks_and_the_cycle_length_is_set() {
     assert_eq!(g.world().rain_cycle.cycle_length, 2000);
     assert!(g.world().rain_cycle.base_cycle_length > 2000);
 }
+
+/// The dev reset (`restart`/`stop`) gives the cycle a fresh global rain.
+#[test]
+fn the_dev_reset_starts_the_global_rain_over() {
+    let mut g = game(&HALL, (3, 1));
+    let length = g.world().rain_cycle.cycle_length;
+    g.dev_set_rain_timer(length - 1);
+    for _ in 0..30 {
+        g.tick(Input::NONE, &mut ());
+    }
+    assert!(g.world().rain_cycle.death_rain_has_hit);
+    g.dev_set_rain_timer(0);
+    g.dev_reset_global_rain();
+    let c = &g.world().rain_cycle;
+    assert!(!c.death_rain_has_hit);
+    assert_eq!(c.global_rain, crate::world::GlobalRain::default());
+}

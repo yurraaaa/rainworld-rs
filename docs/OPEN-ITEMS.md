@@ -33,9 +33,12 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `MoveCamera2`'s `preLoadedBKG` case (rooms with a `_bkg` image take the deferred path).
 - `Room.lockedShortcuts` with the SS oracle (base game, 5 `LockShortcuts` calls): `ShortcutHelper`
   treats a locked shortcut as a wrong hole (D43).
-- **Realizer guards** (user, 2026-10-23; `../rainworld-re/surveys/room-realizer-audit.md`):
-  `RoomRealizer.Update`'s `rainCycle.RainGameOver` guard on the random neighbour step comes
-  with the rain (M8); the off-screen-den guards are done.
+- **The global rain at gates (M9)**: carry `globalRain` across the `RainCycle` swap
+  (`RainCycle::global_rain`, `death_rain_has_hit`: the game's fresh `RainCycle` has its own
+  `deathRainHasHit` while `globalRain` persists), and `OverWorld.SyncFloodLevels`' flood
+  rebase between the worlds (`OverWorld.cs` ~854-870; it is called only with the precycle
+  in the base code path, the `flood` rebase is the last lines). `FluxWaterfall`/`FluxDrain`
+  (read `floodSpeed`; base-registered, no installed room) when someone needs them (D44).
 - **Water with the rain (M8)**: `Room.AddWater` makes a `Water` (so its surface loop and
   `WaterLight`) in rooms with no level water (rain flood, `WaterCycleTop`/`Bottom`,
   `BrokenShelterWaterLevel`). The other water effects are done (2026-10-22).
@@ -55,9 +58,7 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 - **Room visual effects, lights and camera shake** (user, 2026-10-22): every non-DLC
   room visual effect, rooms' lights and `RoomCamera` screen shake, as the step before the
   rain. Surveys: `../rainworld-re/surveys/room-effects.md`, `lights-camera-shake.md`.
-  Effects step 1 (level shader and palette machinery) left for later steps: the rain's
-  `GlobalRain.ShaderLight` after the cycle ends (the port keeps its initial -1; goes
-  with the rain), ghost
+  Effects step 1 (level shader and palette machinery) left for later steps: ghost
   mode's `_light`/`_cloudsSpeed`/palette grey-out (with echoes).
   Effects step 2 (full-screen effects, post-level grab, wet terrain, the Ant's
   `SpecificDepth`) and the `DeathFallGraphic` sprite done; left for later steps: `VoidMelt`'s `LevelMelt2` and
@@ -66,13 +67,13 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   Effects step 4 (`Lightning`, `BkgOnlyLightning`, `ExtraLoudThunder`; D25, notes
   `lightning.md`) done: flashes, `num4`/`_light`, `LightBloom` alpha, sky and fog texels,
   thunder sounds and shake, background noise in hearing.
-  Camera shake core (S1) done: `rw_sim::CameraShake`, notes `camera-shake.md`. Left:
-  the rain-derived shake (S2, with the rain: `RainCycle.ScreenShake`/`MicroScreenShake`,
-  `GlobalRain` modes, flood `waterFlux.roomShake`, the `Screen_Shake_LOOP` rumble, gamepad
-  rumble from `controllerShake`), callers that come with their objects (explosive spears' and scavenger
-  bombs' explosions, cicadas, leviathans, region gates, Moon's wake-up), and
-  `PausedDrawUpdate`'s micro shake (skipped for now, user 2026-10-22; paused frames repeat
-  the last offset, D1), and the Remix clamps (with Remix).
+  Camera shake core (S1) done: `rw_sim::CameraShake`, notes `camera-shake.md`. The
+  rain-derived shake is done (M8 R0+R1, 2026-10-24, D44), as is `PausedDrawUpdate`'s micro
+  shake. Left: flood `waterFlux.roomShake`, the `Screen_Shake_LOOP` rumble (with the
+  rain loops), gamepad rumble from `controllerShake` (skipped by the user until
+  gamepads), callers that come with their objects (explosive spears' and scavenger
+  bombs' explosions, cicadas, leviathans, region gates, Moon's wake-up), and the Remix
+  clamps (with Remix).
   User 2026-10-22 on the wave 1 omissions: wet terrain and the Ant's `SpecificDepth`
   shader (D23) go with the full-screen effects step; the echo branches (ghost mode, the
   insects' `CreaturesSleepInRoom` early-out) with echoes; PinkSky and DayNight with the
@@ -209,8 +210,8 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   - Rainbow: the camera's `ghostMode` hiding it, with echoes; the `IsArenaSession` branch
     (always made, fade 1, never destroyed) and arena's 600-tick start-up, with arena
     sessions (D26).
-  - SkyDandelions: `globalRain.Intensity` in `SpawnChance`, with the rain; dandelion
-    stalks reaching the chunks of every physical object, as those objects are ported.
+  - SkyDandelions: dandelion stalks reaching the chunks of every physical object, as
+    those objects are ported.
   - Background scenes' `DayNight` blocks (sky alphas, `atmosphereColor`,
     `_MultiplyColor`, the spire lights; needs the rain cycle's `dayNightCounter`; no
     base room has `DayNight`): with the DLCs that use `DayNight` (D32).

@@ -62,6 +62,8 @@ pub struct Microphone {
     /// The camera room's `gravity` in a `BrokenZeroG` room of region SS, which fades the
     /// ambience (volume group 2) as gravity returns.
     pub ambience_gravity: Option<f32>,
+    /// `Room.RainDrownOutSounds` of the camera room: the rain drowns out volume group 0.
+    pub rain_drown_out: f32,
 }
 
 impl Microphone {
@@ -89,10 +91,11 @@ impl Microphone {
             pause_volume: 1.0,
             time_speed: 1.0,
             ambience_gravity: None,
+            rain_drown_out: 0.0,
         }
     }
 
-    /// `VirtualMicrophone.Update`, once per game tick. Rain, deafness, fade to black
+    /// `VirtualMicrophone.Update`, once per game tick. Deafness, fade to black
     /// and the global muffle are not ported and count as 0.
     pub fn tick(&mut self, input: &ListenerInput, water: Option<&Water>) {
         self.in_world_volume = self.in_world_volume.lerp_and_tick(1.0, 0.03, 1.0 / 60.0);
@@ -152,7 +155,13 @@ impl Microphone {
         let ambience = self
             .ambience_gravity
             .map_or(1.0, |g| 1.0_f32.lerp(0.05, g.mathf_pow(0.5)));
-        [v, 1.0, v * ambience, v, self.pause_volume]
+        [
+            (1.0 - self.rain_drown_out) * v,
+            1.0,
+            v * ambience,
+            v,
+            self.pause_volume,
+        ]
     }
 
     /// `PanFromPoint`: -1 at 1000 px left of the listener, 1 at 1000 px right.
@@ -322,6 +331,21 @@ mod tests {
         mic.ambience_gravity = Some(0.25);
         assert!((mic.volume_groups()[2] - full * 0.525).abs() < 1e-6);
         assert_eq!(mic.volume_groups()[0], full);
+    }
+
+    /// `volumeGroups[0] = 1 - room.RainDrownOutSounds` before the common factors: the rain
+    /// drowns out group 0 only.
+    #[test]
+    fn the_rain_drowns_out_volume_group_zero_only() {
+        let mut mic = Microphone::following(Vec2::new(100.0, 400.0));
+        let full = mic.volume_groups();
+        mic.rain_drown_out = 0.25;
+        let g = mic.volume_groups();
+        assert!((g[0] - full[0] * 0.75).abs() < 1e-6);
+        assert_eq!(g[2], full[2]);
+        assert_eq!(g[3], full[3]);
+        mic.rain_drown_out = 1.0;
+        assert_eq!(mic.volume_groups()[0], 0.0);
     }
 
     #[test]

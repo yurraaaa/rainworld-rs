@@ -22,8 +22,6 @@ game's order. Notes: `../../rainworld-re/notes/particles.md`.
   `reset` speck or spore outlives its camera's visit, keeps making its per-tick draws
   (the blink's, the spore's two) and each camera entry adds `1000 * amount` or
   `200 * amount` more. Game-exact.
-- **No rain:** `globalRain.Intensity` is 0 in `SkyDandelions.SpawnChance`
-  (`rw_sim::RainCycle` has no `GlobalRain`).
 - **Sprite-making draws on first draw.** A spore's `Pebble{n}` (`Random.Range(1, 15)`,
   the cosmetic stream, D1) is drawn the first time the app draws it, in update order,
   not when the camera's `ChangeRoom` makes the leasers in `drawableObjects` order.

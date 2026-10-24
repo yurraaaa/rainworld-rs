@@ -81,10 +81,13 @@ impl RainWorldGame {
         })
     }
 
-    /// `rainCycle.ProximityToMiddleOfCycle` and `globalRain.Intensity` (0: the rain is
-    /// not ported).
+    /// `rainCycle.ProximityToMiddleOfCycle` and `globalRain.Intensity`.
     fn dandelion_weather(&self) -> (f32, f32) {
-        (self.world.rain_cycle.proximity_to_middle_of_cycle(), 0.0)
+        let cycle = &self.world.rain_cycle;
+        (
+            cycle.proximity_to_middle_of_cycle(),
+            cycle.global_rain.intensity,
+        )
     }
 
     /// `Room.Loaded`'s effects loop: each effect's object (the sky dandelions with the

@@ -43,7 +43,7 @@ story session.
   the fast-travel and region-overview owners.
 - **Rain.** The rain meter reads the world's `RainCycle` (its drawn length and
   ticking timer, which the guide's `pauseRain` pins at 2000 in the tutorial rooms; D14).
-  The rain itself is not ported; only the bat flies read a room's rain `DangerType`
+  The rain's room object is not ported; only the bat flies read a room's rain `DangerType`
   (`RoomNotACycleHazard`, D14).
 - **Start state.** Food, karma, cap, reinforcement and the cycle number are the save
   state's (a new game's: food 0, karma 0, cap 4, the Hunter karma 2, cycle 0, so the

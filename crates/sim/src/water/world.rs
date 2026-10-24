@@ -43,6 +43,10 @@ impl World {
                 copies.push((owner, i, c.clone()));
             }
         }
+        let (screen_shake, micro_screen_shake) = (
+            self.rain_cycle.screen_shake(),
+            self.rain_cycle.micro_screen_shake(),
+        );
         let Some(RealizedRoom {
             room,
             water: Some(water),
@@ -51,6 +55,8 @@ impl World {
         else {
             return;
         };
+        water.rumble.screen_shake = screen_shake;
+        water.rumble.micro_screen_shake = micro_screen_shake;
         let chunks = copies.iter_mut().map(|(owner, index, chunk)| SurfaceChunk {
             owner: *owner,
             index: *index,

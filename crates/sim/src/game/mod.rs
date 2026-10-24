@@ -33,6 +33,7 @@ pub use crate::effects::lights::turn::PlayerGlow;
 mod game_over_turn;
 mod map_turn;
 mod observer;
+mod rain_turn;
 mod shortcut_helper_turn;
 mod shortcut_turn;
 
@@ -682,15 +683,17 @@ impl RainWorldGame {
     }
 
     /// One 40 Hz tick in `RainWorldGame.Update`'s order: camera 0's shake (the end of
-    /// `RoomCamera.Update`; the app ran its window's lerp before the tick), the room realizer, one
-    /// abstract room (in turn, with the time of a whole round), the rain cycle, the
+    /// `RoomCamera.Update`; the app ran its window's lerp before the tick), `GlobalRain.Update`,
+    /// the room realizer, one
+    /// abstract room (in turn, with the time of a whole round), the rain cycle (with `RainHit`), the
     /// path finders' budget, the shortcut handler on every third tick, every active room (newest first: the entry
     /// delay, its water, and the player in it with its graphics), then the loading
     /// step (`loadingRooms`' preparers).
     pub fn tick(&mut self, input: Input, observer: &mut dyn PlayerObserver) {
         // `RoomCamera.Update`: the room change (`ApplyPositionChange`) before the shake.
         self.apply_insect_view_change();
-        self.camera_shake.update(&mut self.rng);
+        self.update_camera_shake();
+        self.update_global_rain();
         let follow = self.follow_creature();
         if let (Some(realizer), Some(follow)) = (&mut self.realizer, follow) {
             realizer.update(&mut self.world, follow, self.camera_room, &mut self.rng);
@@ -700,6 +703,7 @@ impl RainWorldGame {
         self.enter_from_abstract_rooms();
         self.update_world_processes(observer);
         self.dev_update_rain_timers();
+        self.update_rain_hit();
         self.update_broken_anti_gravity();
         self.world.rain_cycle.water_cycle.update(&mut self.rng);
         self.rain_request_stop_song();

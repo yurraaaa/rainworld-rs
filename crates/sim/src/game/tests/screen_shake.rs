@@ -4,7 +4,7 @@
 
 use rw_random::UnityRandom;
 
-use super::{CameraShake, ScreenMovement};
+use super::{CameraShake, RainShake, ScreenMovement};
 use crate::tests::{room, room_with_water};
 use crate::world::RealizedRoom;
 use crate::{BodyChunk, Contact, TerrainImpact, Vec2};
@@ -38,18 +38,18 @@ fn the_jump_draws_once_and_decays() {
     let mut rng = UnityRandom::new(3);
     let mut expect = rng.clone();
     let jump = Vec2::from_degrees(expect.value() * 360.0) * 16.0;
-    s.update(&mut rng);
+    s.update(&RainShake::NONE, &mut rng);
     assert_eq!(rng, expect, "one draw");
     assert_close(s.take_displacement(), jump);
     assert_close(s.pos, jump);
     assert!((s.screen_shake - 1.3).abs() < 1e-6, "{}", s.screen_shake);
-    s.update(&mut rng);
+    s.update(&RainShake::NONE, &mut rng);
     assert_eq!(s.screen_shake, 1.0);
-    s.update(&mut rng);
+    s.update(&RainShake::NONE, &mut rng);
     assert!((s.screen_shake - 0.975).abs() < 1e-6);
     let mut still = shaking(0.0, 0.0);
     let before = rng.clone();
-    still.update(&mut rng);
+    still.update(&RainShake::NONE, &mut rng);
     assert_eq!(rng, before, "no draw without screenShake");
     assert_eq!(still.take_displacement(), Vec2::ZERO);
 }
@@ -59,15 +59,95 @@ fn the_jump_draws_once_and_decays() {
 fn micro_shake_decays() {
     let mut s = shaking(0.0, 3.0);
     let mut rng = UnityRandom::new(1);
-    s.update(&mut rng);
+    s.update(&RainShake::NONE, &mut rng);
     assert!(
         (s.micro_shake - 2.975 * 0.8).abs() < 1e-6,
         "{}",
         s.micro_shake
     );
     let mut s = shaking(0.0, 0.01);
-    s.update(&mut rng);
+    s.update(&RainShake::NONE, &mut rng);
     assert_eq!(s.micro_shake, 0.0);
+}
+
+fn rain(screen_shake: f32, micro_screen_shake: f32) -> RainShake {
+    RainShake {
+        rain_danger: true,
+        aerie_blizzard: false,
+        shelter: false,
+        rumble: 0.5,
+        screen_shake,
+        micro_screen_shake,
+    }
+}
+
+/// `screenShake` rises to the cycle's `ScreenShake * RumbleIntensity` only when it is
+/// below the cycle's own value (the comparison has no `RumbleIntensity`), then jumps and
+/// decays; `microShake` decays no lower than `MicroScreenShake * RumbleIntensity`.
+#[test]
+fn the_rain_raises_the_shake_in_a_rain_room() {
+    let mut rng = UnityRandom::new(3);
+    let mut s = shaking(0.0, 0.0);
+    let mut expect = rng.clone();
+    let jump = Vec2::from_degrees(expect.value() * 360.0) * (8.0 * 0.5);
+    s.update(&rain(1.0, 0.8), &mut rng);
+    assert_eq!(rng, expect, "one draw");
+    assert_close(s.take_displacement(), jump);
+    assert!((s.screen_shake - 0.475).abs() < 1e-6, "{}", s.screen_shake);
+    assert!((s.micro_shake - 0.4).abs() < 1e-6, "{}", s.micro_shake);
+    // A shake above the cycle's is left alone.
+    let mut s = shaking(1.5, 0.0);
+    s.update(&rain(1.0, 0.0), &mut rng);
+    assert_eq!(s.screen_shake, 1.0, "1.5 - 0.7 = 0.8, held at 1");
+    // Microshake decays from a higher value.
+    let mut s = shaking(0.0, 1.0);
+    s.update(&rain(0.0, 0.8), &mut rng);
+    assert!((s.micro_shake - 0.975).abs() < 1e-6);
+}
+
+/// No term in a room with no rain danger or a shelter; a sheltered `AerieBlizzard` room
+/// fades its shake by a tenth, an open one follows the cycle's value without
+/// `RumbleIntensity`.
+#[test]
+fn the_rain_leaves_rooms_without_danger_and_shelters_alone() {
+    let mut rng = UnityRandom::new(3);
+    for room in [
+        RainShake {
+            rain_danger: false,
+            ..rain(1.0, 1.0)
+        },
+        RainShake {
+            shelter: true,
+            ..rain(1.0, 1.0)
+        },
+    ] {
+        let mut s = shaking(0.0, 0.0);
+        let before = rng.clone();
+        s.update(&room, &mut rng);
+        assert_eq!(rng, before);
+        assert_eq!((s.screen_shake, s.micro_shake), (0.0, 0.0));
+    }
+    let open = RainShake {
+        aerie_blizzard: true,
+        ..rain(0.6, 0.0)
+    };
+    let mut s = shaking(0.0, 0.0);
+    s.update(&open, &mut rng);
+    assert!((s.screen_shake - 0.575).abs() < 1e-6, "0.6 decayed once");
+    let sheltered = RainShake {
+        shelter: true,
+        ..open
+    };
+    let mut s = shaking(0.5, 0.0);
+    s.update(&sheltered, &mut rng);
+    assert!(
+        (s.screen_shake - 0.425).abs() < 1e-6,
+        "0.45 decayed once: {}",
+        s.screen_shake
+    );
+    let mut s = shaking(0.005, 0.0);
+    s.update(&sheltered, &mut rng);
+    assert_eq!(s.screen_shake, 0.0, "below 0.01 it is cut");
 }
 
 /// A movement without a source acts in full; one inside the window is divided by
