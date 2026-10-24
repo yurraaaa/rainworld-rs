@@ -123,8 +123,9 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   (`rw_assets::RainMask`, `GenerateShelterTex` without the rain's outputs) is made from
   the realized room's tiles on each camera entry into a room (the `DeathRain` sprite reads
   it too, D46), where the game
-  makes it once per room name per process (the first `RoomRain` or `WaterLight` to ask)
-  and keeps it, so a room whose tiles changed since (a shelter door) could differ. `SetPixel` past the
+  makes it once per realization (the first `RoomRain` or `WaterLight` to ask; `Room.Unloaded`
+  unloads the atlas, survey `rain-mask-cache.md`), so a room whose tiles changed since
+  (a shelter door) could differ. `SetPixel` past the
   top row wraps to row 0 (INFERRED: Unity's default `Repeat` wrap, set to `Clamp` only
   after the fill). The mask is sampled bilinear at mip 0 (the game's has mips, but
   WaterLight magnifies it); `half` maths runs in f32. The generator's `HasAnySolid`
