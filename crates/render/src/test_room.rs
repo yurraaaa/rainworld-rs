@@ -32,6 +32,8 @@ impl FromAscii for Room {
             }
         }
         let text = format!("T\n{w}*{h}|-1|0\n0*0|0|0\n0,0\n\n\n\n\n\n\n\n{grid}\n");
-        Room::parse(&text).expect("test room parses")
+        let room = Room::parse(&text).expect("test room parses");
+        room.map_shortcuts();
+        room
     }
 }

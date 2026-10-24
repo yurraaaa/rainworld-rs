@@ -1,16 +1,18 @@
 //! The game's side of room loading: `Room.Loaded`'s tail on the realizing call, then the
-//! two stages the room's preparer hands over in the loading step, `ShortCutsReady`
+//! two stages the room's preparer thread hands over in the loading step on the tick it
+//! has them ready, `ShortCutsReady`
 //! (objects, and creatures without `AI` when none needs the AI map) and `ReadyForAI`
 //! (creatures, quantified creatures, the `AIMapReady` listeners). Behaviour:
 //! `rainworld-re/surveys/async-room-loading.md` 1.5, 1.6.
 //!
 //! Mirrors: Room.cs (Loaded, ShortCutsReady, ReadyForAI), AbstractRoom.cs (RealizeRoom), AbstractCreature.cs (AllowedToExistInRoom), RainWorldGame.cs (Update: loadingRooms)
 
-use rw_assets::{AssetError, CreatureType};
+use rw_assets::{AssetError, CreatureType, ShortcutMap};
 
 use crate::creature::CreatureId;
 use crate::game::OverseerCall;
 use crate::world::PreparerStage;
+use crate::world::ai_map::AiMap;
 use crate::{PlayerObserver, RainWorldGame};
 
 /// An `INotifyWhenRoomIsReady` of a room's update list that the port has.
@@ -42,13 +44,15 @@ impl RainWorldGame {
             .is_some_and(crate::world::RealizedRoom::ready_for_ai)
     }
 
-    /// Ticks without input until the camera's room is ready, as dev starts do (tests).
+    /// Ticks without input until the camera's room is ready, as dev starts do (tests),
+    /// each tick after the loading threads have their stage ready.
     #[cfg(test)]
     pub(crate) fn tick_until_ready(&mut self, observer: &mut dyn PlayerObserver) {
         for _ in 0..40 {
             if self.camera_room_ready() {
                 return;
             }
+            self.world.await_loading_threads();
             self.tick(crate::Input::NONE, observer);
         }
         panic!("the camera's room does not load");
@@ -61,9 +65,18 @@ impl RainWorldGame {
             if self.world.realized(index).is_none_or(|r| r.ready_for_ai()) {
                 return;
             }
+            self.world.await_loading_threads();
             self.update_loading_rooms(observer);
         }
         panic!("room {index} does not load");
+    }
+
+    /// The loading step after the loading threads have their stage ready (tests that
+    /// step stage by stage).
+    #[cfg(test)]
+    pub(crate) fn update_loading_rooms_when_ready(&mut self, observer: &mut dyn PlayerObserver) {
+        self.world.await_loading_threads();
+        self.update_loading_rooms(observer);
     }
 
     /// `Room.Loaded`'s tail for the rooms realized since the last call (the realizer
@@ -97,19 +110,25 @@ impl RainWorldGame {
                 // D14 (orphaned preparer, user 2026-10-23): the stage of a room abstracted
                 // while loading realizes nothing (the game's vanilla bug leaves bodies
                 // with no room and duplicate counted creatures); its preparer keeps
-                // the stage ticks for the realizer's wait.
+                // handing over its stages for the realizer's wait.
                 continue;
             }
             match stage {
-                PreparerStage::ShortcutsReady => self.shortcuts_ready(index, observer),
-                PreparerStage::ReadyForAi => self.ready_for_ai(index, observer),
+                PreparerStage::ShortcutsReady(map) => self.shortcuts_ready(index, map, observer),
+                PreparerStage::ReadyForAi(map) => self.ready_for_ai(index, *map, observer),
             }
         }
     }
 
-    /// `Room.ShortCutsReady`.
-    fn shortcuts_ready(&mut self, index: i32, observer: &mut dyn PlayerObserver) {
+    /// `Room.ShortCutsReady`, after the thread mapped the shortcuts.
+    fn shortcuts_ready(
+        &mut self,
+        index: i32,
+        shortcuts: ShortcutMap,
+        observer: &mut dyn PlayerObserver,
+    ) {
         if let Some(r) = self.world.realized_mut(index) {
+            r.install_shortcut_map(shortcuts);
             r.make_shortcuts_blinking();
         }
         self.world.realize_room_objects(index, &mut self.rng);
@@ -125,9 +144,9 @@ impl RainWorldGame {
     }
 
     /// `Room.ReadyForAI`, after the thread made the AI map.
-    fn ready_for_ai(&mut self, index: i32, observer: &mut dyn PlayerObserver) {
-        self.world.build_ai_map(index);
+    fn ready_for_ai(&mut self, index: i32, ai_map: AiMap, observer: &mut dyn PlayerObserver) {
         if let Some(r) = self.world.realized_mut(index) {
+            r.install_ai_map(ai_map);
             r.begin_ready_for_ai();
         }
         self.realize_creatures_allowed_in_room(index, observer);

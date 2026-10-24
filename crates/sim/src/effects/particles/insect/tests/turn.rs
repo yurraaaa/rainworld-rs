@@ -105,6 +105,7 @@ fn the_start_room_rolls_its_insects_at_the_head_of_the_first_tick() {
 #[test]
 fn a_camera_move_rolls_the_new_rooms_insects_at_the_head_of_the_next_tick() {
     let mut g = flies_game();
+    g.tick_until_ready(&mut ());
     for _ in 0..20 {
         g.tick(Input::NONE, &mut ());
     }
@@ -114,6 +115,7 @@ fn a_camera_move_rolls_the_new_rooms_insects_at_the_head_of_the_next_tick() {
     assert!(g.insect_places(2).is_empty());
 
     let mut alone = flies_game();
+    alone.tick_until_ready(&mut ());
     for _ in 0..20 {
         alone.tick(Input::NONE, &mut ());
     }
@@ -135,6 +137,7 @@ fn a_camera_move_rolls_the_new_rooms_insects_at_the_head_of_the_next_tick() {
 #[test]
 fn insects_take_their_places_in_the_update_list_newest_first() {
     let mut g = flies_game();
+    g.tick_until_ready(&mut ());
     for _ in 0..20 {
         g.tick(Input::NONE, &mut ());
     }

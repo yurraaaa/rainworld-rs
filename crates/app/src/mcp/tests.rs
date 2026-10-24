@@ -106,8 +106,8 @@ fn load_summit_reports_the_room() {
         [info.width as f32 * 20.0, info.height as f32 * 20.0]
     );
     assert!(!info.cameras.is_empty());
-    // Stepped until the room is ready for AI: three ticks.
-    assert_eq!(info.state.tick, 3);
+    // Stepped until the room is ready for AI: at least the game's three ticks.
+    assert!(info.state.tick >= 3);
     let player = info.state.player.expect("spawned");
     assert_eq!(player.chunks.len(), 2);
     assert!(!player.dead && !player.in_shortcut);
@@ -568,15 +568,18 @@ fn su_c04_start_up_ticks(slugcat: &str) {
         malnourished: None,
     })
     .expect("new game");
-    // `new_game` stepped the start room's three loading ticks (the player came in with
-    // `ReadyForAI`, the guide needing the AI map); ticks below count from the start.
+    // `new_game` stepped until the start room was ready (at least the game's three
+    // loading ticks; the player came in with `ReadyForAI`, the guide needing the AI
+    // map); ticks below count from the start.
+    let loaded = s.state().expect("state").tick;
+    assert!(loaded >= 3);
     let first = s.run(1, RIGHT);
-    assert_eq!(first.tick, 4);
+    assert_eq!(first.tick, loaded + 1);
     assert_eq!(first.player.as_ref().expect("player").input.x, 1);
     let mut last_x = first.head()[0];
     let mut push_ended = None;
     let mut stood = None;
-    for tick in 5..=260u32 {
+    for tick in u32::try_from(first.tick).expect("tick") + 1..=260u32 {
         let st = s.run(1, RIGHT);
         let p = st.player.as_ref().expect("player");
         let su = st.start_up.as_ref().expect("SU_C04StartUp");

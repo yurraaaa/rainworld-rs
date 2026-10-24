@@ -51,7 +51,7 @@ integration tests.
 | File | Holds (key types) | Ports |
 |---|---|---|
 | `mod.rs` | `RainWorldGame`: world, player, shortcut handler, realizer, order of a tick, a room's update list, sessions | `RainWorldGame` |
-| `loading_turn.rs` | a room's loading on the game's side: `activate_room` with the end of `LoadFromDataString` and `Room.Loaded` on the realizing call, the loading step (`update_loading_rooms`; a preparer whose room was abstracted realizes nothing, D14), `ShortCutsReady` (objects, creatures without `AI`, the `ShortcutHelper`), `ReadyForAI` (creatures, quantified, the `AIMapReady` listeners in update-list order), `camera_room_ready` (dev starts step until it) | `Room.ShortCutsReady`, `Room.ReadyForAI`, `AllowedToExistInRoom` |
+| `loading_turn.rs` | a room's loading on the game's side: `activate_room` with the end of `LoadFromDataString` and `Room.Loaded` on the realizing call, the loading step (`update_loading_rooms`; a preparer whose room was abstracted realizes nothing, D14), `ShortCutsReady` (the thread's shortcut map, objects, creatures without `AI`, the `ShortcutHelper`), `ReadyForAI` (the thread's AI map, creatures, quantified, the `AIMapReady` listeners in update-list order), `camera_room_ready` (dev starts step until it) | `Room.ShortCutsReady`, `Room.ReadyForAI`, `AllowedToExistInRoom` |
 | `observer.rs` | `PlayerObserver`: the app's graphics-module hooks the game calls | - |
 | `shortcut_turn.rs` | `ShortcutHandler.Update`: vessels in the tubes, the between-rooms lobby, room exits, arrival and camera 0 following | `ShortcutHandler.Update`, `RoomCamera.MoveCamera` |
 | `shortcut_helper.rs` | `ShortcutHelper`, `ShortcutPusher`, `ObjectPusher`: the pushers at a room's entrances (wrong holes, valid neighbours, swell), the objects being pushed out, the round-robin's pick per layer | `ShortcutHelper` |
@@ -351,7 +351,8 @@ sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `m
 |---|---|---|
 | `mod.rs` | `World`: abstract rooms, realized set, arenas | `World`, `AbstractRoom` |
 | `realized.rs`, `realizer.rs` | realized room data + ready states (`loadingProgress`, `readyForNonAICreaturesToEnter`, the stages' room-side steps, the realization `serial`); room realizer (`currentlyLoadingRoom` as a realization, waited on after an abstract) | `Room` bits, `RoomRealizer` |
-| `room_preparer.rs` | `RoomPreparer` (status, hand-off requests, `done`, the realization `serial` it loads, outliving an abstracted room), `LoadingSchedule` (`GAME_MINIMUM`, the default; `Immediate` for world-only tests), `PreparerStage` | `RoomPreparer` |
+| `room_preparer.rs` | `RoomPreparer`: its worker thread (`PreparerJob`: `ShortcutMapper`, `AImapper` and heat maps) and the hand-off to the main thread under a `parking_lot` lock (status, requests, `threadFinished`, `done`), the realization `serial` it loads, outliving an abstracted room; `PreparerStage` carries each stage's map (D14) | `RoomPreparer` |
+| `loading_pace.rs` | `LoadingPace`: headless ticks wait out a 40 Hz frame while a room loads (port-only, D14) | - |
 | `creatures.rs` | creature arena, room lists, attractions | `AbstractRoom` creature lists |
 | `objects.rs` | object arena, room items at the game's three places (file items, a story's `MultiplayerItem`s in the placed-object loop, the `firstTimeRealized` pass) | `Room.Loaded` objects |
 | `dens.rs` | into/out of dens with stuck items | `MoveEntityToDen` |
@@ -404,7 +405,7 @@ The world side of creatures, items and water lives with them: `creature/abstract
 | Camera visibility | `game/camera.rs` |
 | `ElectricDeath` (Underhang), `BorderPushBack` (Sunlit Lands) | `effects/gameplay/electric_death.rs`, `effects/gameplay/electric_death_turn.rs`; `effects/gameplay/border_push_back.rs`, `effects/gameplay/border_push_back_turn.rs`; sprites in `rw-graphics` `effects/gameplay/electric_death.rs`, shaders in `rw-render` |
 | Room triggers, guide instructions | `game/trigger.rs`, `game/trigger_turn.rs`, `game/instructions_turn.rs`, `game/room_script.rs` |
-| Room realization / loading | `world/realizer.rs`, `world/realized.rs`, `world/room_preparer.rs`, `world/mod.rs`, `game/loading_turn.rs` |
+| Room realization / loading | `world/realizer.rs`, `world/realized.rs`, `world/room_preparer.rs` (the loading thread), `world/loading_pace.rs`, `world/mod.rs`, `game/loading_turn.rs` |
 | Rain cycle | `world/rain_cycle.rs` |
 | The room rain (push, stun, rain death) | `world/room_rain.rs`, `game/room_rain_turn.rs`; `Creature.rainDeath` in `creature/mod.rs` / `player/mod.rs`, the lung cap in `player/swim.rs`; D45 |
 | The bullet rain (heavy drops before the slam) | `world/bullet_drip.rs`, `game/bullet_drip_turn.rs`; the density is `GlobalRain.bullet_rain_density`; D50 |

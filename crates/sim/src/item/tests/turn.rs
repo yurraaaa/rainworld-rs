@@ -73,6 +73,7 @@ fn game(
         UnityRandom::new(5),
         Sounds::default(),
     );
+    g.tick_until_ready(&mut ());
     for _ in 0..10 {
         g.tick(Input::new(0, 1, false), &mut ());
     }

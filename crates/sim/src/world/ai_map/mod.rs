@@ -120,6 +120,20 @@ impl AiMap {
     /// and the LethalWater effect.
     #[must_use]
     pub fn new(room: &Room, room_index: i32, shelter_or_gate: bool, lethal_water: bool) -> Self {
+        let shortcuts = room.map_shortcuts().clone();
+        Self::with_shortcuts(room, shortcuts, room_index, shelter_or_gate, lethal_water)
+    }
+
+    /// [`Self::new`] with the room's `ShortcutMapper` result `shortcuts` (the loading
+    /// thread's, before the room has it).
+    #[must_use]
+    pub fn with_shortcuts(
+        room: &Room,
+        shortcuts: ShortcutMap,
+        room_index: i32,
+        shelter_or_gate: bool,
+        lethal_water: bool,
+    ) -> Self {
         let (width, height) = (room.width(), room.height());
         let cells = usize::try_from(width * height).unwrap_or(0);
         let mut map = Self {
@@ -129,7 +143,7 @@ impl AiMap {
             tiles: Vec::with_capacity(cells),
             terrain_proximity: vec![-1; cells],
             standard: AiTile::new(Accessibility::Solid, 0),
-            shortcuts: room.shortcut_map().clone(),
+            shortcuts,
             border_exits: room.border_exits(shelter_or_gate),
             hives: room.hives().to_vec(),
             garbage_holes: !room.garbage_holes().is_empty(),

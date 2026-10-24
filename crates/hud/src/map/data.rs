@@ -366,7 +366,7 @@ impl MapData {
             return Some(Vec2::middle_of_tile(tile));
         }
         let r = Self::load_room(assets, room)?;
-        let start = r.shortcut_map().leading_to_node(0)?.start;
+        let start = r.map_shortcuts().leading_to_node(0)?.start;
         let dir = r.shortcut_hole_direction(start.0, start.1);
         Some(Vec2::middle_of_tile((
             start.0 + dir.0 * 6,

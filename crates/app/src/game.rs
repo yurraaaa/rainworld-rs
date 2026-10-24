@@ -497,7 +497,7 @@ impl PlayerObserver for Graphics {
 impl Game {
     /// A single-room world of `room` (in memory), the player on `spawn_tile` or a safe
     /// spawn tile, drawing from `UnityRandom::new(seed)` (`Random.InitState`, low 32
-    /// bits), stepped until the room is ready as dev starts are (three ticks).
+    /// bits), stepped until the room is ready as dev starts are (paced while it loads).
     #[cfg(test)]
     #[must_use]
     pub fn new(
@@ -507,7 +507,9 @@ impl Game {
         spawn_tile: Option<(i32, i32)>,
     ) -> Self {
         let mut game = Self::new_unticked(room, settings, seed, spawn_tile);
+        let mut pace = rw_sim::world::LoadingPace::default();
         while !game.sim.camera_room_ready() {
+            pace.before_tick(game.sim.world());
             game.tick(Input::NONE);
         }
         game

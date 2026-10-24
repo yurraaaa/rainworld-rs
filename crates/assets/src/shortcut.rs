@@ -156,8 +156,10 @@ impl ShortcutMap {
 }
 
 impl ShortcutData {
-    /// `ShortcutMapper.MapShortcut` from the entrance `start`.
-    fn walk(room: &Room, start: (i32, i32), nodes: &[(i32, i32)]) -> Self {
+    /// `ShortcutMapper.MapShortcut` from the entrance `start`; `nodes` give the
+    /// `dest_node` of an end at a node (the type does not depend on them).
+    #[must_use]
+    pub fn walk(room: &Room, start: (i32, i32), nodes: &[(i32, i32)]) -> Self {
         let mut path = vec![start];
         let (mut last, mut pos) = (start, start);
         let mut steps = 0;
@@ -202,11 +204,39 @@ impl ShortcutData {
     }
 }
 
+/// What an unmapped room reads: no nodes, no shortcuts.
+static UNMAPPED: ShortcutMap = ShortcutMap {
+    nodes: Vec::new(),
+    shortcuts: Vec::new(),
+};
+
 impl Room {
-    /// The shortcut map, built when the room is parsed.
+    /// The shortcut map, empty until [`Self::map_shortcuts`] has run (the game's
+    /// `shortcutData` gives its `DeadEnd` placeholder there).
     #[must_use]
     pub fn shortcut_map(&self) -> &ShortcutMap {
-        &self.shortcut_map
+        self.shortcut_map.get().unwrap_or(&UNMAPPED)
+    }
+
+    /// `ShortcutMapper.Update` run to its end: maps the room once, then gives the map.
+    pub fn map_shortcuts(&self) -> &ShortcutMap {
+        self.shortcut_map.get_or_init(|| ShortcutMap::new(self))
+    }
+
+    /// The mapper's result handed over from the loading thread; a room already mapped
+    /// keeps its map (the same, from the same tiles).
+    pub fn install_shortcut_map(&self, map: ShortcutMap) {
+        let _ = self.shortcut_map.set(map);
+    }
+
+    #[must_use]
+    pub fn shortcuts_mapped(&self) -> bool {
+        self.shortcut_map.get().is_some()
+    }
+
+    /// The room as `new Room` reads it, before its `ShortcutMapper` ran.
+    pub fn unmap_shortcuts(&mut self) {
+        self.shortcut_map.take();
     }
 
     /// Every tile coordinate, top row first, left to right (the mapper's scan order).
@@ -323,7 +353,7 @@ mod tests {
         // the reverse, down no, right no, up (3,2). Straight to (3,3), an entrance:
         // Normal after 6 steps.
         let r = ascii(&[".....", "#E#E#", "#x#x#", "#xxx#", "#####"]);
-        let map = r.shortcut_map();
+        let map = r.map_shortcuts();
         assert_eq!(map.shortcuts().len(), 2);
         let s = &map.shortcuts()[0];
         assert_eq!(s.kind, ShortcutType::Normal);
@@ -346,7 +376,7 @@ mod tests {
         // tile and comes first in the order, but straight on (1,2) wins; at (1,2)
         // straight (1,1) is the room exit.
         let r = ascii(&["..#", "#E#", "xx#", "#x#", "#R#", "###"]);
-        let s = &r.shortcut_map().shortcuts()[0];
+        let s = &r.map_shortcuts().shortcuts()[0];
         assert_eq!(s.path, vec![(1, 4), (1, 3), (1, 2), (1, 1)]);
         assert_eq!(
             (s.kind, s.dest_node, s.length),
@@ -359,11 +389,11 @@ mod tests {
         // From (2,2) down to (2,1); straight (2,0) has nothing, so left (1,1) beats
         // right (3,1). From (1,1) straight on (0,1) is the den.
         let r = ascii(&["#####", "##E##", "DxxxR", "#####"]);
-        let s = &r.shortcut_map().shortcuts()[0];
+        let s = &r.map_shortcuts().shortcuts()[0];
         assert_eq!(s.path, vec![(2, 2), (2, 1), (1, 1), (0, 1)]);
         assert_eq!(s.kind, ShortcutType::CreatureHole);
         // Nodes: room exits first, then dens. The exit (4,1) is node 0, the den node 1.
-        assert_eq!(r.shortcut_map().nodes(), &[(4, 1), (0, 1)]);
+        assert_eq!(r.map_shortcuts().nodes(), &[(4, 1), (0, 1)]);
         assert_eq!(s.dest_node, Some(1));
     }
 
@@ -372,20 +402,20 @@ mod tests {
         // No neighbour with a shortcut value: stalls on the first step, and the path
         // repeats the stalled tile.
         let r = ascii(&["...", "#E#", "###"]);
-        let s = &r.shortcut_map().shortcuts()[0];
+        let s = &r.map_shortcuts().shortcuts()[0];
         assert_eq!(s.kind, ShortcutType::DeadEnd);
         assert_eq!(s.path, vec![(1, 1), (1, 1)]);
         assert_eq!((s.dest, s.length), ((1, 1), 1));
         // A tube that stops at a plain path tile: stalls at (1,1) after one step.
         let r = ascii(&["...", "#E#", "#x#", "###"]);
-        let s = &r.shortcut_map().shortcuts()[0];
+        let s = &r.map_shortcuts().shortcuts()[0];
         assert_eq!(s.kind, ShortcutType::DeadEnd);
         assert_eq!(s.path, vec![(1, 2), (1, 1), (1, 1)]);
         assert_eq!(s.length, 2);
         // An entrance tile without a shortcut value is not a tube tile: the walk from
         // (1,2) does not step into the bare entrance (3,2).
         let r = ascii(&[".....", "#E#e#", "#xxx#", "#####"]);
-        let s = &r.shortcut_map().shortcuts()[0];
+        let s = &r.map_shortcuts().shortcuts()[0];
         assert_eq!(s.kind, ShortcutType::DeadEnd);
         assert_eq!(s.dest, (3, 1));
     }
@@ -393,7 +423,7 @@ mod tests {
     #[test]
     fn npc_and_region_transport_ends() {
         let r = ascii(&[".....", "#E#E#", "#N#T#", "#####"]);
-        let map = r.shortcut_map();
+        let map = r.map_shortcuts();
         let [npc, region] = map.shortcuts() else {
             panic!("two shortcuts");
         };
@@ -421,7 +451,7 @@ mod tests {
             "#R#D#..", // y=1
             "#######",
         ]);
-        let map = r.shortcut_map();
+        let map = r.map_shortcuts();
         assert_eq!(map.nodes(), &[(3, 3), (1, 1), (1, 3), (3, 1)]);
         let starts: Vec<_> = map.shortcuts().iter().map(|s| s.start).collect();
         assert_eq!(starts, vec![(1, 4), (3, 4), (1, 2), (3, 2)]);
@@ -437,7 +467,7 @@ mod tests {
         // A Normal pipe from (0,0) to (0,2): the game's `shortcutData` never finds the
         // entry at (0,0).
         let r = ascii(&["E", "x", "E"]);
-        let map = r.shortcut_map();
+        let map = r.map_shortcuts();
         assert_eq!(map.shortcuts()[1].start, (0, 0));
         assert_eq!(map.shortcuts()[1].kind, ShortcutType::Normal);
         assert_eq!(map.type_at((0, 0)), ShortcutType::DeadEnd);

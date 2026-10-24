@@ -9,17 +9,29 @@
 
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Instant;
 
 use rw_assets::world::{GameRooms, LineFilter, Regions, StoryConditions, WorldData, WorldRequest};
 use rw_assets::{ActiveMods, StreamingAssets, tile_centre};
 use rw_random::UnityRandom;
 use rw_sim::campaign::SlugcatCampaign;
-use rw_sim::world::World;
+use rw_sim::world::{LoadingPace, World};
 use rw_sim::{CameraMove, Input, RainWorldGame, Sounds, Start, Vec2};
 
 const DEFAULT_RW_DIR: &str = "/home/yura/.local/share/Steam/steamapps/common/Rain World";
 
 struct Installed(StreamingAssets);
+
+/// A game ticked at the game's 40 Hz while a room loads ([`LoadingPace`]).
+#[derive(Default)]
+struct Frames(LoadingPace);
+
+impl Frames {
+    fn tick(&mut self, game: &mut RainWorldGame, input: Input) {
+        self.0.before_tick(game.world());
+        game.tick(input, &mut ());
+    }
+}
 
 /// What one transition did.
 #[derive(Debug)]
@@ -49,7 +61,7 @@ impl Installed {
         }
     }
 
-    /// The region world of `room` with the player in it, its first `settle` ticks run.
+    /// The region world of `room` with the player in it, loaded, then `settle` ticks run.
     fn game(&self, room: &str, settle: u32) -> RainWorldGame {
         let campaign = &SlugcatCampaign::SURVIVOR;
         let filter = LineFilter {
@@ -79,8 +91,15 @@ impl Installed {
             Sounds::default(),
         );
         assert_eq!(game.take_camera_move().map(|m| m.camera), Some(0));
+        // The start room loads on its preparer's thread: tick until it is ready.
+        let started = Instant::now();
+        let mut frames = Frames::default();
+        while !game.camera_room_ready() {
+            assert!(started.elapsed().as_secs() < 30, "{room} does not load");
+            frames.tick(&mut game, Input::default());
+        }
         for _ in 0..settle {
-            game.tick(Input::default(), &mut ());
+            frames.tick(&mut game, Input::default());
         }
         game
     }
@@ -112,8 +131,9 @@ impl Installed {
         let mut lobby_updates = 0;
         let mut camera = None;
         let mut wait_at_exit = None;
+        let mut frames = Frames::default();
         for _ in 0..600 {
-            game.tick(input, &mut ());
+            frames.tick(&mut game, input);
             if let Some(lobby) = game.lobby() {
                 lobby_updates = lobby_updates.max(lobby.updates);
             }

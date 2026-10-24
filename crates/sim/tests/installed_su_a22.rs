@@ -28,7 +28,10 @@ fn su_a22() -> Option<Room> {
         eprintln!("skipping: no {}", path.display());
         return None;
     }
-    Some(Room::load(&path).expect("su_a22 loads"))
+    // Mapped, as a loaded room is from `ShortCutsReady` on.
+    let room = Room::load(&path).expect("su_a22 loads");
+    room.map_shortcuts();
+    Some(room)
 }
 
 #[test]

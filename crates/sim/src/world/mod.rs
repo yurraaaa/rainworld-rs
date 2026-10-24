@@ -2,11 +2,10 @@
 //! (`AbstractRoom.RealizeRoom` / `Abstractize`, `World.activeRooms`), and the rooms
 //! still loading.
 //!
-//! A realized room joins `loadingRooms` with a [`RoomPreparer`], whose stages the
-//! loading step hands over (`RainWorldGame.Update` runs the preparers there). The
-//! schedule is the game's minimum ([`LoadingSchedule::GAME_MINIMUM`]): stage 1 a tick
-//! after the room is activated, stage 2 the tick after, where the game's thread may take
-//! longer (docs/divergences/ D14). Behaviour: `rainworld-re/notes/world-loading.md`, `room-realizer.md`,
+//! A realized room joins `loadingRooms` with a [`RoomPreparer`], whose thread maps the
+//! room and whose stages the loading step hands over on the tick they are ready
+//! (`RainWorldGame.Update` runs the preparers there). Behaviour:
+//! `rainworld-re/notes/world-loading.md`, `room-realizer.md`,
 //! `rainworld-re/surveys/async-room-loading.md`.
 //!
 //! Mirrors: World.cs, AbstractRoom.cs
@@ -16,6 +15,7 @@ mod bullet_drip;
 mod creatures;
 mod dens;
 mod global_rain;
+mod loading_pace;
 mod objects;
 mod quantified;
 mod rain_cycle;
@@ -64,11 +64,12 @@ pub use bullet_drip::BulletDrip;
 pub(crate) use creatures::RoomLists;
 pub use creatures::{AbstractTick, QuantifiedCount, WorldProcesses};
 pub use global_rain::{DeathRain, DeathRainMode, GlobalRain, PassiveRain, RainTick};
+pub use loading_pace::LoadingPace;
 pub use rain_cycle::{CYCLE_TIME_MAX, CYCLE_TIME_MIN, RainCycle, WaterLevelCycle, WaterStage};
 pub use realized::RealizedRoom;
 pub use realizer::{FollowCreature, RoomRealizer};
 pub use region_state::{ConsumedItem, RegionState};
-pub use room_preparer::{LoadingSchedule, PreparerStage, PreparerStatus, RoomPreparer};
+pub use room_preparer::{PreparerJob, PreparerStage, PreparerStatus, RoomPreparer};
 pub use room_rain::{ChunkPush, PushAround, RoomRain, SmashView};
 pub use room_rain_sound::{RainLoops, RainSoundInput};
 
@@ -93,8 +94,6 @@ pub struct World {
     active: Vec<usize>,
     /// `loadingRooms`, oldest first.
     loading: Vec<RoomPreparer>,
-    /// How many loading-step calls each stage takes.
-    pub loading_schedule: LoadingSchedule,
     /// Rooms realized since the game last ran their `Room.Loaded` tail (global indices).
     pub(crate) pending_loaded: Vec<i32>,
     rooms: Arc<dyn RoomSource>,
@@ -189,7 +188,6 @@ impl World {
             realized: (0..count).map(|_| None).collect(),
             active: Vec::new(),
             loading: Vec::new(),
-            loading_schedule: LoadingSchedule::default(),
             pending_loaded: Vec::new(),
             rooms,
             timeline,
@@ -408,7 +406,8 @@ impl World {
         if self.realized[i].is_some() || data.offscreen_den {
             return Ok(());
         }
-        let loaded = self.rooms.load_room(data.file_name())?;
+        let mut loaded = self.rooms.load_room(data.file_name())?;
+        loaded.room.unmap_shortcuts();
         log::info!("realized room {}", data.name);
         let first_time = !self.loaded_before[i];
         self.loaded_before[i] = true;
@@ -423,10 +422,16 @@ impl World {
         );
         self.room_serial += 1;
         realized.serial = self.room_serial;
+        let job = PreparerJob {
+            room: Arc::clone(&realized.room),
+            index,
+            shelter_or_gate,
+            lethal_water: realized.lethal_water(),
+        };
         self.realized[i] = Some(realized);
         self.active.push(i);
         self.loading
-            .push(RoomPreparer::new(index, self.room_serial));
+            .push(RoomPreparer::new(index, self.room_serial, job));
         self.pending_loaded.push(index);
         Ok(())
     }
@@ -468,7 +473,6 @@ impl World {
     /// every other one is updated once. Returns the stages handed over, in order (the
     /// game runs each in its preparer's call; the calls do nothing else).
     pub fn update_loading_rooms(&mut self) -> Vec<(i32, u64, PreparerStage)> {
-        let schedule = self.loading_schedule;
         let mut stages = Vec::new();
         for k in (0..self.loading.len()).rev() {
             if self.loading[k].done() {
@@ -476,17 +480,24 @@ impl World {
                 continue;
             }
             let (room, serial) = (self.loading[k].room, self.loading[k].serial);
+            let live = self
+                .realized(room)
+                .filter(|r| r.serial == serial)
+                .map(|r| Arc::clone(&r.room));
             stages.extend(
                 self.loading[k]
-                    .update(schedule)
+                    .update(live.as_ref())
                     .into_iter()
                     .map(|s| (room, serial, s)),
             );
         }
-        if schedule == LoadingSchedule::Immediate {
-            self.loading.retain(|p| !p.done());
-        }
         stages
+    }
+
+    /// Whether a preparer in `loadingRooms` is not `done`.
+    #[must_use]
+    pub fn rooms_loading(&self) -> bool {
+        self.loading.iter().any(|p| !p.done())
     }
 
     /// `loadingRooms`, oldest first.
@@ -515,10 +526,20 @@ impl World {
             .filter(|p| !self.is_realization(p.room, p.serial))
     }
 
+    /// Blocks until every started preparer thread has a stage to hand over or has
+    /// finished (tests that step stage by stage).
+    #[cfg(test)]
+    pub(crate) fn await_loading_threads(&self) {
+        for p in &self.loading {
+            p.await_thread();
+        }
+    }
+
     /// Loading steps until no preparer is left ([`Self::loading_step`], world-only tests).
     #[cfg(test)]
     pub(crate) fn finish_loading(&mut self) {
         while !self.loading.is_empty() {
+            self.await_loading_threads();
             self.loading_step();
         }
     }
@@ -531,31 +552,21 @@ impl World {
             if !self.is_realization(index, serial) {
                 continue;
             }
+            let Some(r) = self.realized_mut(index) else {
+                continue;
+            };
             match stage {
-                PreparerStage::ShortcutsReady => {
-                    if let Some(r) = self.realized_mut(index) {
-                        r.make_shortcuts_blinking();
-                        r.set_shortcuts_ready(false);
-                    }
+                PreparerStage::ShortcutsReady(map) => {
+                    r.install_shortcut_map(map);
+                    r.make_shortcuts_blinking();
+                    r.set_shortcuts_ready(false);
                 }
-                PreparerStage::ReadyForAi => {
-                    self.build_ai_map(index);
-                    if let Some(r) = self.realized_mut(index) {
-                        r.begin_ready_for_ai();
-                        r.end_ready_for_ai();
-                    }
+                PreparerStage::ReadyForAi(map) => {
+                    r.install_ai_map(*map);
+                    r.begin_ready_for_ai();
+                    r.end_ready_for_ai();
                 }
             }
-        }
-    }
-
-    /// The thread's `AImapper` result for global room `index`, as `ReadyForAI` finds it.
-    pub(crate) fn build_ai_map(&mut self, index: i32) {
-        let Some(i) = self.local(index) else { return };
-        let data = &self.data.rooms[i];
-        let shelter_or_gate = data.shelter() || data.gate();
-        if let Some(r) = &mut self.realized[i] {
-            r.build_ai_map(index, shelter_or_gate);
         }
     }
 

@@ -170,8 +170,8 @@ for older notes' line numbers; new notes cite file and member.
   bite, fights, communication, missions, carrying and eating, lineages), not the full game. Details
   live in `docs/` and `../rainworld-re`; in short:
   - A story starts at the campaign's start den; room-exit shortcuts carry the
-    player between the region's rooms (loaded over the game's minimum two
-    stage ticks, D14). The
+    player between the region's rooms (loaded on each room's preparer thread,
+    handing its two stages to the main thread as the game's, D14). The
     population is generated with the game's draws; every creature but the
     scavengers leaves its den and runs the general or its type's abstract AI
     (D14), unrealized without a body. Green lizards, flies and overseers
@@ -258,18 +258,20 @@ prefer these over `--screenshot`/`--script`; briefs for such agents say so.
 - Headless: the sim advances only in `step` / `step_sequence` (40 ticks/s).
   Runs are not required to repeat exactly: loading is threaded as in the game
   (user, 2026-10-24), so the tick a room or region becomes ready can differ
-  between runs. `load_room` and `new_game` start a fresh music player (it draws
+  between runs. While a room loads, each tick (`step`, `step_process`) waits
+  until 25 ms have passed since the last (the game's 40 Hz frame; port-only,
+  D14); otherwise ticks run unpaced. `load_room` and `new_game` start a fresh music player (it draws
   from the game's random stream).
 - `load_room` loads a room's region world with the player in it (arena
   levels: a single-room world) as `slugcat` (default `White`); `new_game`
   starts a campaign (`White`, `Yellow`, `Red`; `malnourished` option) at its
   start den. Both (and `respawn` with a seed) step the game without input
-  until the start room is `readyForAI` (three ticks) before replying, so a
-  reply's `tick` is 3.
+  until the start room is `readyForAI` before replying (at least 3 ticks; the
+  room loads on a thread, so the reply's `tick` can vary).
 - `get_state` reports the camera room (`room` is the room the camera shows; during a pending move `camera_move` names the room it is moving to), the player (food, grasps, pick-up
   candidate, stomach, counters, sneak/loudness, `held_by`, `danger_grasp` and
   its time, struggle buttons, `can_struggle`, `cant_be_grabbed_counter`, ...), the vessel in the
-  lobby, realized rooms' entry waits, `loading_progress` and `preparer` (a loading room's `RoomPreparer`: status, calls, done), `orphaned_preparers` (rooms abstracted while loading), ceiling drips, each room's `rumble_intensity`, `water` (`default_water_level`, `original_water_level`, `f_water_level`, `last_f_water_level`, `flood_level`, `added_water`) and `room_rain` (intensity, push, splash counts, `sprite_count`, its five to seven sound loops' volume group, volume and whether playing, and `bullet_drips`: each drip's column, positions, `falling`, `fall_speed`, `delay`), `rain` (the cycle, its `ShaderLight`, `RainDarkPalette`, `ScreenShake`/`MicroScreenShake`, `death_rain_has_hit` and `global`: rain direction, `Intensity`, the shakes, `RumbleSound`, bullet density, flood and its speed, the death rain's mode, length, progression and sunlight), dripping sound, water surface sound, bubbles and bubble emitters, splashes, the player's `owned_items` on the ground, every abstract creature (kind, ID, room,
+  lobby, realized rooms' entry waits, `loading_progress` and `preparer` (a loading room's `RoomPreparer`: status, calls, `thread_started`, `thread_finished`, `requested_stage`, done), `orphaned_preparers` (rooms abstracted while loading), ceiling drips, each room's `rumble_intensity`, `water` (`default_water_level`, `original_water_level`, `f_water_level`, `last_f_water_level`, `flood_level`, `added_water`) and `room_rain` (intensity, push, splash counts, `sprite_count`, its five to seven sound loops' volume group, volume and whether playing, and `bullet_drips`: each drip's column, positions, `falling`, `fall_speed`, `delay`), `rain` (the cycle, its `ShaderLight`, `RainDarkPalette`, `ScreenShake`/`MicroScreenShake`, `death_rain_has_hit` and `global`: rain direction, `Intensity`, the shakes, `RumbleSound`, bullet density, flood and its speed, the death rain's mode, length, progression and sunlight), dripping sound, water surface sound, bubbles and bubble emitters, splashes, the player's `owned_items` on the ground, every abstract creature (kind, ID, room,
   node, tile, den, realized, alive, abstract AI; realized flies, lizards
   with their movement, tracker, relationships, noise, decision (`social`:
   fight target and anger, `submitted_to`, last signal, missions, `taming_difficulty`, `gift`) and, in a
@@ -329,7 +331,7 @@ prefer these over `--screenshot`/`--script`; briefs for such agents say so.
   START (~40 frames): the intro slideshow plays (~95 s; Escape skips, or hold
   S with Z on START to go straight to the game), then a new Survivor game at
   `SU_C04`, black 3 s while the start script holds the slugcat. Music runs
-  silently (`TimedSources`) so runs stay deterministic. `step_process`
+  silently (`TimedSources`), independent of the audio device. `step_process`
   reports slideshow clock/scene, `music`, `triggers`, the pause menu, and in
   game mode the fade delay, start script and player controller; `get_hud`
   reads the game process's HUD; `screenshot` draws the frame with its fade.

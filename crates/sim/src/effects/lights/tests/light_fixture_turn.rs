@@ -285,6 +285,7 @@ fn waterfall_is_first_in_the_update_list() {
 #[test]
 fn waterfall_runs_in_a_room_with_water() {
     let mut g = fixture_game("", 3, true, 0);
+    g.tick_until_ready(&mut ());
     for _ in 0..40 {
         g.tick(Input::NONE, &mut WithGraphics);
     }

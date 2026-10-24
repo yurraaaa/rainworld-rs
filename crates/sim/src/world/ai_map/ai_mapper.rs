@@ -464,12 +464,13 @@ impl AiMap {
                 self.tile_mut(x, y).incoming_paths.push(back);
             }
         }
-        let map = room.shortcut_map();
+        let map = &self.shortcuts;
         let Some(here) = map.data_at(p) else { return };
+        let mut pushes = Vec::new();
         match here.kind {
             ShortcutType::Normal => {
                 let length = i32::try_from(here.length).unwrap_or(i32::MAX);
-                self.push(MovementType::ShortCut, p, here.dest, length);
+                pushes.push((MovementType::ShortCut, here.dest, length));
             }
             ShortcutType::NpcTransportation => {
                 for other in map.shortcuts() {
@@ -481,15 +482,17 @@ impl AiMap {
                         (here.start.1 - other.start.1) as f32,
                     );
                     let length = i32::try_from(here.length + other.length).unwrap_or(i32::MAX);
-                    self.push(
+                    pushes.push((
                         MovementType::NpcTransportation,
-                        p,
                         other.start,
                         (dx * dx + dy * dy).sqrt() as i32 + length,
-                    );
+                    ));
                 }
             }
             _ => {}
+        }
+        for (kind, to, cost) in pushes {
+            self.push(kind, p, to, cost);
         }
     }
 

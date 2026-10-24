@@ -89,9 +89,7 @@ fn a_full_stomach_cures_malnourishment() {
         ..StoryStart::new_game(survivor)
     };
     let mut g = story_game(survivor, story);
-    for _ in 0..2 {
-        g.tick(crate::Input::NONE, &mut ());
-    }
+    g.tick_until_ready(&mut ());
     let p = g.player().expect("player");
     assert!(p.malnourished());
     assert!((p.total_mass() - 0.63).abs() < 1e-6);
@@ -148,6 +146,7 @@ fn a_let_go_slide_loop_dies_at_its_next_update() {
     let text = "Volume: 6\nVolume exponent: 1.8\nUI_Slugcat_Stunned_LOOP : clip\n";
     let names = ClipNames::new(["clip".to_owned()], None);
     g.sounds = Sounds::new(Arc::new(SoundTable::parse(text, &names).unwrap()));
+    g.tick_until_ready(&mut ());
     for _ in 0..20 {
         g.tick(Input::NONE, &mut ());
     }
@@ -198,6 +197,7 @@ fn the_slide_loop_emitter_dies_the_tick_after_the_player_enters_a_pipe() {
     let text = "Volume: 6\nVolume exponent: 1.8\nSlugcat_Slide_In_Narrow_Corridor_LOOP : clip\n";
     let names = ClipNames::new(["clip".to_owned()], None);
     g.sounds = Sounds::new(Arc::new(SoundTable::parse(text, &names).unwrap()));
+    g.tick_until_ready(&mut ());
     for _ in 0..30 {
         g.tick(Input::NONE, &mut ());
     }

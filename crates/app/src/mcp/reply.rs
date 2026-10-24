@@ -1720,6 +1720,14 @@ pub struct PreparerState {
     pub status: u8,
     /// `Update` calls so far.
     pub calls: u32,
+    /// Whether the first `Update` started its worker thread.
+    pub thread_started: bool,
+    /// `threadFinished`: the worker has ended.
+    pub thread_finished: bool,
+    /// The stage (1 `ShortCutsReady`, 2 `ReadyForAI`) the worker has ready for the next
+    /// `Update`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requested_stage: Option<u8>,
     pub done: bool,
 }
 

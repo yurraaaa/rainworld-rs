@@ -6,10 +6,6 @@ plan is in `../rainworld-re/surveys/lizards.md`.
 
 ## Approved, not started
 
-- **Threaded room loading (before M9)** (user, 2026-10-24): `RoomPreparer` on a worker
-  thread handing its stages to the main thread by flags, as the game's
-  (`RoomPreparer.Update`/`UpdateThread`), replacing the fixed `GAME_MINIMUM` schedule
-  (D14). M9's `WorldLoader` follows the same pattern. No deterministic mode.
 - **File layout cleanup of the other crates** (user, 2026-10-23, after rw-sim's): the same
   check per crate, a layout proposal to the user each time, moves only. rw-sim and
   rw-graphics done (2026-10-23). Left, top-level `.rs` files: rw-assets 30, app 27,

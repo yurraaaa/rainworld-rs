@@ -226,7 +226,7 @@ impl Room {
     /// the AI map) are not derived, nor is the connectivity (left -1: no path).
     #[must_use]
     pub fn shortcut_nodes(&self) -> Vec<AbstractRoomNode> {
-        let map: &ShortcutMap = self.shortcut_map();
+        let map: &ShortcutMap = self.map_shortcuts();
         map.nodes()
             .iter()
             .enumerate()
@@ -266,7 +266,7 @@ impl Room {
     /// the node tile's middle; 0 without cameras.
     #[must_use]
     pub fn camera_viewing_node(&self, node: usize) -> i32 {
-        let Some(&(x, y)) = self.shortcut_map().nodes().get(node) else {
+        let Some(&(x, y)) = self.map_shortcuts().nodes().get(node) else {
             return 0;
         };
         let [nx, ny] = tile_centre(x, y);

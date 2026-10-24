@@ -314,7 +314,9 @@ mod tests {
             UnityRandom::new(1),
             Sounds::default(),
         );
+        let mut pace = rw_sim::world::LoadingPace::default();
         while !game.camera_room_ready() {
+            pace.before_tick(game.world());
             game.tick(Input::default(), &mut ());
         }
         game
