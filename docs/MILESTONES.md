@@ -68,7 +68,7 @@ Exit check: rooms look and shake as in the game.
 
 **M8 - Rain and the cycle's end**
 The rain cycle's rain, flood and rain death, in steps R0+R1 (done), R2 (done: the room rain's push, stun and
-kill, `rainDeath`, D45), R4 (done: the flood's water, `AddWater`, D47), R3, R5
+kill, `rainDeath`, D45), R3 (done: the `DeathRain` shader, splash sprites and the seven rain loops, D46), R4 (done: the flood's water, `AddWater`, D47), R5
 (`../rainworld-re/surveys/rain/`). The threat music's rain inputs are already ported.
 Waking up in the rain is More Slugcats' precycle: with the DLC work (user, 2026-10-24).
 

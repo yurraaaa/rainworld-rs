@@ -1006,6 +1006,10 @@ impl Renderer for WgpuRenderer {
         self.sprite_pipeline.set_grid_offset(offset);
     }
 
+    fn set_rain_globals(&mut self, globals: rw_graphics::RainShaderGlobals) {
+        self.sprite_pipeline.set_rain_globals(globals);
+    }
+
     fn draw_sprites(&mut self, list: &DrawList, layer: Layer, cam_pos: [f32; 2]) {
         let Some(atlas) = &self.atlas else { return };
         self.stage_origin = cam_pos;

@@ -147,7 +147,8 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   MCP, not reproduced): after `set_rain_timer` brings on the death rain, `Intensity` stayed
   0 for ~700 ticks with `rain_game_over` before rising, and the same sequence gave
   different curves in different runs. Check whether the pause is the game's (D44 modes)
-  and whether the runs really differed from the same start (determinism).
+  and whether the runs really differed from the same start (determinism). R4 review: the
+  flood started ~450 ticks after `RainHit` in GW_A12 but at once in DS_A09.
 - **`FluxWaterfall`, `FluxDrain`** (user, 2026-10-24: ignore until used): base-game objects reading
   `globalRain.floodSpeed`, made by `Room.Loaded` with no `ModManager` test; no installed room places them
   (D44).
@@ -273,8 +274,6 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   - ElectricDeath: what it does once the rain ends the cycle (the port holds it at full
     intensity from cycle end + 1200), with the rain (D33). Its DLC/Remix branches wait for
     DLC.
-  - `RoomRain`'s shelter sprite scale `ScreenSize.x / shelterTex.width` (the chosen
-    resolution, `World::screen_size`), with the rain.
 - **Room files `Room::load` rejects** (user, 2026-10-23: not real rooms, but look into
   why): `su_a08`, `su_a09`, `su_a15_tiled`, `su_b01_tiled` in the installed game's
   `su-rooms` fail the port's room parser (seen by the waterfall corpus test). Find what

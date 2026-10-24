@@ -627,6 +627,25 @@ pub struct RoomRainState {
     pub splashes: i32,
     /// `splashTiles.Count`.
     pub splash_tiles: usize,
+    /// `SplashSize` and `RainUnderCeilings`.
+    pub splash_size: f32,
+    pub rain_under_ceilings: f32,
+    /// `InitiateSprites`' count (`1 + splashes`): the sprites are visible while the
+    /// intensity is above 0, and the last splash is never in a container.
+    pub sprite_count: usize,
+    pub sprites_visible: bool,
+    /// The sound loops that exist, in the constructor's order.
+    pub loops: Vec<RainLoopState>,
+}
+
+/// A `RoomRain` sound loop.
+#[derive(Debug, Clone, Serialize)]
+pub struct RainLoopState {
+    pub sound: String,
+    pub volume_group: usize,
+    pub volume: f32,
+    /// The loop has an emitter (`DynamicSoundLoop.emitter`).
+    pub playing: bool,
 }
 
 impl RoomRainState {
@@ -645,6 +664,20 @@ impl RoomRainState {
             outside_push_around: push.outside,
             splashes: rain.splashes,
             splash_tiles: rain.splash_tiles.len(),
+            splash_size: rain.splash_size(),
+            rain_under_ceilings: rain.rain_under_ceilings(),
+            sprite_count: rw_graphics::RoomRainSprites::sprite_count(rain),
+            sprites_visible: rain.intensity > 0.0,
+            loops: rain
+                .loops
+                .each()
+                .map(|l| RainLoopState {
+                    sound: l.sound.map(|s| s.name().to_owned()).unwrap_or_default(),
+                    volume_group: l.volume_group,
+                    volume: l.volume(),
+                    playing: l.emitter.is_some(),
+                })
+                .collect(),
         }
     }
 }

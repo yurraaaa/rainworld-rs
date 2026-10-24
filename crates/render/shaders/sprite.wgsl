@@ -47,6 +47,10 @@ struct Room {
     scene_world_cam: vec4<f32>,
     // `_gridOffset` (xy).
     grid_offset: vec4<f32>,
+    // `DeathRain`'s globals: x `_rainDirection`, y `_rainIntensity`, z `_rainEverywhere`.
+    rain_a: vec4<f32>,
+    // `_RainSpriteRect`.
+    rain_rect: vec4<f32>,
 };
 
 // Futile's `screenPixelOffset` (`Camera::SCREEN_PIXEL_OFFSET`): screen = stage + this.

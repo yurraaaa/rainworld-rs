@@ -239,6 +239,15 @@ sound_ids! {
     LizardVoiceGreenA = "Lizard_Voice_Green_A",
     LizardVoiceBlueA = "Lizard_Voice_Blue_A",
     CycleStartDrips = "Cycle_Start_Drips",
+    NormalRainLoop = "Normal_Rain_LOOP",
+    HeavyRainLoop = "Heavy_Rain_LOOP",
+    DeathRainLoop = "Death_Rain_LOOP",
+    DeathRainHeardFromUndergroundLoop = "Death_Rain_Heard_From_Underground_LOOP",
+    DeathRainRumbleLoop = "Death_Rain_Rumble_LOOP",
+    DeathRainApproachingLoop = "Death_Rain_Approaching_LOOP",
+    DeathRainApproachingHeardFromUndergroundLoop = "Death_Rain_Approaching_Heard_From_Underground_LOOP",
+    FlashFloodLoop = "Flash_Flood_LOOP",
+    ScreenShakeLoop = "Screen_Shake_LOOP",
     WaterSurfaceCalmLoop = "Water_Surface_Calm_LOOP",
     Thunder = "Thunder",
     ThunderClose = "Thunder_Close",
@@ -364,6 +373,11 @@ pub enum SoundEvent {
     EmitterPan {
         id: EmitterId,
         pan: f32,
+    },
+    /// An emitter's `volumeGroup` was set (`DynamicSoundLoop.Start`).
+    EmitterGroup {
+        id: EmitterId,
+        group: usize,
     },
     /// An object emitter's `ChunkSoundEmitter.Update` copied its chunk's position.
     Moved {
@@ -670,6 +684,11 @@ impl Sounds {
     /// Sets a `DisembodiedLoopEmitter`'s pan (`DisembodiedDynamicSoundLoop.Pan`).
     pub fn set_emitter_pan(&mut self, id: EmitterId, pan: f32) {
         self.events.push(SoundEvent::EmitterPan { id, pan });
+    }
+
+    /// Sets an emitter's `volumeGroup`.
+    pub fn set_emitter_group(&mut self, id: EmitterId, group: usize) {
+        self.events.push(SoundEvent::EmitterGroup { id, group });
     }
 
     pub fn stop_emitter(&mut self, id: EmitterId) {

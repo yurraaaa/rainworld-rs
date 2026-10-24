@@ -178,6 +178,8 @@ pub(crate) enum RoomObject {
     LightningLoop(u64),
     /// The room's `RoomRain` by its place in the update list.
     RoomRain(u64),
+    /// An emitter of the `RoomRain`'s sound loops, by its place in the update list.
+    RoomRainLoop(u64),
     /// An `ElectricDeath` by its place in the update list.
     ElectricDeath(u64),
     /// An emitter of an `ElectricDeath`'s sound loops, by its place in the update list.
@@ -1007,6 +1009,7 @@ impl RainWorldGame {
                 RoomObject::Lightning => self.run_lightning(index),
                 RoomObject::LightningLoop(order) => self.run_lightning_emitter(index, order),
                 RoomObject::RoomRain(order) => self.run_room_rain(index, order),
+                RoomObject::RoomRainLoop(order) => self.run_room_rain_emitter(index, order),
                 RoomObject::ElectricDeath(order) => self.run_electric_death(index, order),
                 RoomObject::ElectricDeathLoop(order) => {
                     self.run_electric_death_emitter(index, order);

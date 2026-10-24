@@ -832,6 +832,7 @@ impl Session {
             Drawable::DustPuff(i) => ("dust_puff", None, Some(i)),
             Drawable::Fixture(i) => ("fixture", None, Some(i)),
             Drawable::ElectricDeath(i) => ("electric_death", None, Some(i)),
+            Drawable::RoomRain(i) => ("room_rain", None, Some(i)),
             Drawable::Projection(i) => ("projection", None, Some(i)),
             Drawable::Coral(i) => ("coral", None, Some(i)),
             Drawable::Shortcuts => ("shortcuts", None, None),

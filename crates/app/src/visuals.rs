@@ -36,8 +36,8 @@ pub struct Visuals {
     palette_generation: u32,
     /// The room camera's `fullScreenEffect` (`ApplyPalette`).
     effect: Option<FullScreenEffect>,
-    /// The room's `RainMask_<room>` texture, made for a room with water (the
-    /// `WaterLight` sprite's element, `RoomRain.GetOrGenerateShelterTex`).
+    /// The room's `RainMask_<room>` texture (`RoomRain.GetOrGenerateShelterTex`): the
+    /// `DeathRain` sprite's and the `WaterLight` sprite's element.
     rain_mask: Option<RainMask>,
 }
 
@@ -94,7 +94,7 @@ impl Visuals {
             .map(|i| visuals.camera_image(i).map(Arc::new))
             .collect::<Result<_, _>>()?;
         Ok(Self {
-            rain_mask: room.water_level().map(|_| RainMask::generate(room)),
+            rain_mask: Some(RainMask::generate(room)),
             effect: FullScreenEffect::select(visuals.settings()),
             noise: NoiseTexture::load(resources)?,
             light_angle: room.light_angle(),
