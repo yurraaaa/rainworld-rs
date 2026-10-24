@@ -9,20 +9,18 @@ Run the checks in the agent's worktree (`<wt>` = `.claude/worktrees/<id>`,
 `<branch>` = its branch), then merge on main. Do not skip a step; report the
 real output of each.
 
-1. In `<wt>`: `git merge main`. Resolve conflicts; re-run what the conflict touched.
-   Then `python3 scripts/check_mirrors.py` must exit 0 (new files carry a
-   `//! Mirrors:` header); the script also fails when a file is missing from its
-   crate `README.md`; read the README lines for the names the diff touched
-   and send stale ones back; a new crate must be in `docs/MAP.md`. Send violations back to the agent.
-2. In `<wt>`: `cargo fmt --all -- --check` (must print nothing).
-3. In `<wt>`: `cargo clippy --workspace --all-targets` (0 warnings).
-4. In `<wt>`: `cargo test --release --workspace`; sum the `test result:` lines
-   (passed, failed, ignored). Installed-game tests skip silently without the
-   game; see `docs/checks.md`.
-5. In `<wt>`: grep the diff against main for bound closures (`let x = |`)
-   and string-literal match arms: pipe `git diff main...HEAD` into
-   `grep -nE '^\+.*let (mut )?[a-z_]+ = \|'` and into
-   `grep -nE '^\+\s*"[^"]+"\s*(\|.*)?=>'`. Violations go back to the agent.
+1-5. Run `scripts/merge_check.sh <wt>` (compact output, `--verbose` for
+   cargo's full output). It runs, in `<wt>`: `git merge main` (stops and lists
+   conflicts: resolve them and re-run what they touched), `check_mirrors.py`
+   (must exit 0: new files carry a `//! Mirrors:` header; it also fails when a
+   file is missing from its crate `README.md`), `cargo fmt --all -- --check`,
+   `cargo clippy --workspace --all-targets` (0 warnings), `cargo test --release
+   --workspace` (summed `test result:` lines; installed-game tests skip without
+   the game, see `docs/checks.md`) and the two greps of the diff against main
+   (bound closures `let x = |`, string-literal match arms). Also read the
+   README lines for the names the diff touched and send stale ones back; a new
+   crate must be in `docs/MAP.md`. Violations go back to the agent. Report the
+   script's real output.
 6. Look at the screenshots the agent produced (visual work only).
 7. Confirm the review (`docs/briefs/review.md`) verdict and that every
    "port or skip for now?" omission was brought to the user.
