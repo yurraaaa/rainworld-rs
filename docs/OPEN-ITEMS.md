@@ -73,8 +73,8 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   thunder sounds and shake, background noise in hearing.
   Camera shake core (S1) done: `rw_sim::CameraShake`, notes `camera-shake.md`. The
   rain-derived shake is done (M8 R0+R1, 2026-10-24, D44), as is `PausedDrawUpdate`'s micro
-  shake. Left: flood `waterFlux.roomShake`, the `Screen_Shake_LOOP` rumble (with the
-  rain loops), gamepad rumble from `controllerShake` (skipped by the user until
+  shake, and the `Screen_Shake_LOOP` rumble (M8 R3). Left: flood `waterFlux.roomShake`
+  (MSC Inv rooms only), gamepad rumble from `controllerShake` (skipped by the user until
   gamepads), callers that come with their objects (explosive spears' and scavenger
   bombs' explosions, cicadas, leviathans, region gates, Moon's wake-up), and the Remix
   clamps (with Remix).
