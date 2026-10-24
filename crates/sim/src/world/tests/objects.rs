@@ -1,5 +1,5 @@
-//! A room's items on its first realization (`LoadFromDataString` 64211, `Room.Loaded`
-//! 61149) and their draws, on small test rooms.
+//! A room's items on its first realization (`LoadFromDataString`, `Room.Loaded`
+//! `Room.Loaded`) and their draws, on small test rooms.
 
 use std::sync::Arc;
 
@@ -180,7 +180,7 @@ fn shelters_make_file_items_but_no_random_ones() {
 
 #[test]
 fn spear_chances_by_timeline() {
-    // `SpearSpawnModifier` (242612) and `SpearSpawnExplosiveRandomChance` (242558): the
+    // `SpearSpawnModifier` and `SpearSpawnExplosiveRandomChance`: the
     // timeline order is Spear, Artificer, Inv, Red, Gourmand, White, Yellow, ...
     assert_eq!(Timeline::White.spear_spawn_modifier(0.2), 0.2);
     assert_eq!(Timeline::Yellow.spear_spawn_modifier(0.2), 0.2);
@@ -224,7 +224,7 @@ fn add_rock(world: &mut World, n: i32, tile: (i32, i32)) -> crate::item::ObjectI
 
 #[test]
 fn shortcuts_ready_realizes_the_room_objects_in_entity_order() {
-    // `ShortCutsReady` (61622): `RealizeInRoom` per object, in `entities` order. The
+    // `ShortCutsReady`: `RealizeInRoom` per object, in `entities` order. The
     // rock makes 2 draws (rotation, spin), the spear 4 (rotation, needle, spin's two).
     let mut world = open_world();
     let rock = add_rock(&mut world, 1, (1, 1));

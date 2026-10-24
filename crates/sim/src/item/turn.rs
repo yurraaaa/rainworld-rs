@@ -1,10 +1,10 @@
 //! The slugcat and the objects it holds, base game with Remix off: `Grabability`
-//! (92773), `HeavyCarry` (93075), `FreeHand` (93092), `CanIPickThisUp` (92675),
-//! `PickupCandidate` (93393) with `PlayerCarryableItem.Blink` (79330), the pick-up and
-//! lay-down end of `GrabUpdate` (92399-92580) with `ReleaseObject` (93614) and
-//! `PickedUp`, swallowing and regurgitating (`GrabUpdate` 92210-92280, `SwallowObject`
-//! 93760, `Regurgitate` 93817), `GetHeldItemDirection` (87891), and the stomach's and
-//! hands' save strings (`BringUpToDate` 47383, the `Player` constructor 86588).
+//! (`Player.Grabability`), `HeavyCarry`, `FreeHand`, `CanIPickThisUp`,
+//! `PickupCandidate` with `PlayerCarryableItem.Blink`, the pick-up and
+//! lay-down end of `GrabUpdate` with `ReleaseObject` and
+//! `PickedUp`, swallowing and regurgitating (`GrabUpdate`, `SwallowObject`,
+//! `Regurgitate`), `GetHeldItemDirection`, and the stomach's and
+//! hands' save strings (`BringUpToDate`, the `Player` constructor).
 //! Behaviour: `rainworld-re/notes/items.md` section 10.
 //!
 //! Mirrors: Player.cs (Grabability, HeavyCarry, FreeHand, CanIPickThisUp, PickupCandidate, GrabUpdate, ReleaseObject, SwallowObject, Regurgitate),
@@ -408,7 +408,7 @@ impl RainWorldGame {
         self.player_release_grasp(grasp);
     }
 
-    /// `ThrowObject`'s weapon branch (93127-93222, Remix and More Slugcats off, no
+    /// `ThrowObject`'s weapon branch (Remix and More Slugcats off, no
     /// adrenaline): thrown along `ThrowDirection` (straight down from a flip holding
     /// only down) from 10 px ahead of the head and 4 up (the head itself when that is
     /// Solid), with `frc` 1; `ThrownSpear`; the belly-slide throws; the recoil, the
@@ -467,7 +467,7 @@ impl RainWorldGame {
         self.player_mut().blink(15);
     }
 
-    /// `ThrownSpear` (93423): with no throwing skill (the Monk, a malnourished slugcat)
+    /// `ThrownSpear`: with no throwing skill (the Monk, a malnourished slugcat)
     /// 18 throw frames, a damage bonus of `0.6 + 0.3 value^4` (one draw) and 0.77 of the
     /// speed; the Hunter's skill 2 a bonus of 1.25 and 1.2 times the speed.
     pub(crate) fn thrown_spear(&mut self, id: ObjectId) {

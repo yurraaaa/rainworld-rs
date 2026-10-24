@@ -11,7 +11,7 @@ use crate::tests::{assert_vec, flat_room, room};
 
 #[test]
 fn the_swallow_shakes_with_six_draws_from_halfway() {
-    // `SlugcatHand.Update` (241815): t = InverseLerp(10, 90, counter); below 0.5 the
+    // `SlugcatHand.Update`: t = InverseLerp(10, 90, counter); below 0.5 the
     // hand is drawn in without draws, from 0.5 the eyes shut and the hand, the head and
     // the main chunk each take an `RNV` and a `value`.
     let r = flat_room();

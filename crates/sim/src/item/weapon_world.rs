@@ -1,8 +1,8 @@
 //! The world's realized rocks and spears: `ShortCutsReady` realizes a room's objects
-//! (61622), each runs in its slot of the room's update list (a thrown one walks
-//! collision layer 0 in the middle, 81610), `Room.Update`'s collision pass pushes those
-//! of layers 1 and up apart (63520), and `AbstractRoom.Abstractize` drops them
-//! (304092). Behaviour: `rainworld-re/notes/items.md` sections 6-11.
+//! (`Room.ShortCutsReady`), each runs in its slot of the room's update list (a thrown one walks
+//! collision layer 0 in the middle, `Weapon.Update`), `Room.Update`'s collision pass pushes those
+//! of layers 1 and up apart (`Room.Update`), and `AbstractRoom.Abstractize` drops them
+//! (`AbstractRoom.Abstractize`). Behaviour: `rainworld-re/notes/items.md` sections 6-11.
 //!
 //! Mirrors: Room.cs, AbstractRoom.cs, Weapon.cs
 
@@ -607,7 +607,7 @@ impl World {
         }
     }
 
-    /// `HitAnotherThrownWeapon` (81710): two thrown weapons crossing in opposite
+    /// `HitAnotherThrownWeapon`: two thrown weapons crossing in opposite
     /// directions parry, with sparks (3, plus 2 for each spear) and a shared random
     /// direction they glance off along.
     pub(crate) fn hit_another_thrown_weapon(

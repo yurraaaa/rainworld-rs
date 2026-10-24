@@ -1,4 +1,4 @@
-//! The creature state's save string (`CreatureState.ToString`/`LoadFromString`, 51993..,
+//! The creature state's save string (`CreatureState.ToString`/`LoadFromString`,
 //! and the base subclasses' overrides) and its `CycleTick`. Entries are `key<cC>value`,
 //! split by `<cB>`; a plain `CreatureState` ends each with `<cB>`, a `HealthState`
 //! starts each of its own with it (so a base entry is followed by an empty one).

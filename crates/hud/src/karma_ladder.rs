@@ -1,4 +1,4 @@
-//! `Menu.KarmaLadder` (536573-537967) and its `KarmaSymbol`s, as the sleep, death and
+//! `Menu.KarmaLadder` and its `KarmaSymbol`s, as the sleep, death and
 //! starve screens build them: the base game's ladder of karma symbols up to the cap,
 //! its phases, sounds, sprites and random draws. The ripple ladder (Watcher), the
 //! ghost screen's cap increase and More Slugcats' vengeance and karma-to-minimum modes

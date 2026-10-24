@@ -1,7 +1,7 @@
-//! `HUD.Map` against the decompiled 1.11.8 `Assembly-CSharp` (`Map.Update` 479230,
-//! `CreateDiscoveryTextureFromVisitedRooms` 479614, `RevealRoutine` 479670,
-//! `InitiateMapView` 479812, `DiscoverMap` 480016, `RoomToMapPos` 480298,
-//! `GateMarker` 477289); excerpts in `rainworld-re/notes/hud.md`.
+//! `HUD.Map` against the decompiled 1.11.8 `Assembly-CSharp` (`Map.Update`,
+//! `CreateDiscoveryTextureFromVisitedRooms`, `RevealRoutine`,
+//! `InitiateMapView`, `DiscoverMap`, `RoomToMapPos`,
+//! `GateMarker`); excerpts in `rainworld-re/notes/hud.md`.
 
 use rw_assets::PngImage;
 use rw_menu::{AtlasManager, StageTree};
@@ -290,7 +290,7 @@ fn map_data_with_deaths() -> MapData {
 
 #[test]
 fn death_and_flower_markers_follow_the_shelters() {
-    // `Map` constructor 479151-479171: deaths in the region (`DeathMarker`, fade-in
+    // `Map` constructor: deaths in the region (`DeathMarker`, fade-in
     // radius 3, bones over a black shade), then the flower (`FlowerMarker`, radius 5).
     for owner in [
         HudOwnerType::Player,

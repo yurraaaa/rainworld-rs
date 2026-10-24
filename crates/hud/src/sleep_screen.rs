@@ -1,4 +1,4 @@
-//! `Menu.SleepAndDeathScreen` (550413) on `KarmaLadderScreen` (537968): the sleep,
+//! `Menu.SleepAndDeathScreen` on `KarmaLadderScreen`: the sleep,
 //! death and starve screens of the base game with Remix off. The scene, the karma
 //! ladder with its end-game meters, the passage tokens, the food meter and region map
 //! of its HUD ([`SleepHud`]), CONTINUE and EXIT, the starving warning, the

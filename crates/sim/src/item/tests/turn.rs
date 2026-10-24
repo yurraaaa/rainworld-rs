@@ -430,7 +430,7 @@ fn a_monk_spear_draws_once_for_its_damage_and_flies_slower() {
 
 #[test]
 fn a_forward_belly_slide_throw_skims_the_spear_along_the_floor() {
-    // `ThrowObject` (93175): rollCounter 9..14, thrown along the slide with skill: +15
+    // `ThrowObject`: rollCounter 9..14, thrown along the slide with skill: +15
     // px a tick, 30 floor bounce frames, always sticking, 5 down, not through floors.
     let (mut g, ids) = game(floor_room(), (2, 1), vec![spear(1, (3, 1))]);
     g.slugcat_grab(Entity::Object(ids[0]), 0, &mut ());

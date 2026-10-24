@@ -1,6 +1,6 @@
 //! The plain abstract AI on a three-room test world. Expected values follow the
-//! game's code (`AbstractCreatureAI` 302062, `AbstractSpacePathFinder` 16334,
-//! `AbstractCreature.InDenUpdate` 300649); each derivation is in the comments.
+//! game's code (`AbstractCreatureAI`, `AbstractSpacePathFinder`,
+//! `AbstractCreature.InDenUpdate`); each derivation is in the comments.
 //!
 //! The world, for the green lizard's layer (2), costs and lengths per node pair:
 //! - A (0), 40 x 30: node 0 Exit to B (tube 4), node 1 Den; 0-1 cost 10, length 8.
@@ -610,9 +610,9 @@ fn green_with_prey(world: &mut World) -> (CreatureId, CreatureId) {
 
 #[test]
 fn a_green_stows_its_prey_kills_it_and_drops_it_in_the_den() {
-    // `OpportunityToEnterDen` (301182) with a counter of -1 and no rain: the stow branch
-    // (a grip stick on a creature) sets 200 and goes in. `IsEnteringDen` (303528 then
-    // 301221): the mouse comes into the den first, then dies (`AbstractCreature.Die`:
+    // `OpportunityToEnterDen` with a counter of -1 and no rain: the stow branch
+    // (a grip stick on a creature) sets 200 and goes in. `AbstractPhysicalObject.IsEnteringDen` (then
+    // `AbstractCreature.IsEnteringDen`): the mouse comes into the den first, then dies (`AbstractCreature.Die`:
     // spawner -1, no respawn) and the plain AI drops it (`DoIwantToDropThisItemInDen`
     // true). No draws.
     let mut world = world();
@@ -700,7 +700,7 @@ fn befriend(world: &mut World, id: CreatureId, number: i32, like: f32) {
 
 #[test]
 fn a_strong_like_drawn_from_the_social_memory_starts_following() {
-    // `MigrationBehavior` (302457) with no follow creature: `Range(0, count)` picks a
+    // `MigrationBehavior` with no follow creature: `Range(0, count)` picks a
     // relationship; above 0.95 (either way) the first creature with that ID number in a
     // room's `creatures` is followed, true. A weaker one goes on to the laziness
     // `Range(0, 50)` against `timeSpentHere` 0, which never passes: false.
@@ -790,9 +790,9 @@ fn a_followed_creature_is_followed_until_the_like_fades_or_it_dies() {
 
 #[test]
 fn a_fly_entering_a_den_goes_back_to_the_swarm() {
-    // `OpportunityToEnterDen` (301182) of a fly: counter 0, rain far, nothing. With the
-    // counter above 0, `MoveEntityToDen` (304144) runs `IsEnteringDen`'s quantified-fly
-    // branch (301223): `RespawnOneFly` and `RemoveEntity`, never `InDen`; the room
+    // `OpportunityToEnterDen` of a fly: counter 0, rain far, nothing. With the
+    // counter above 0, `MoveEntityToDen` runs `IsEnteringDen`'s quantified-fly
+    // branch (`AbstractCreature.IsEnteringDen`): `RespawnOneFly` and `RemoveEntity`, never `InDen`; the room
     // still lists it in `entitiesInDens`. No draws.
     let mut world = world();
     world.processes.flies = Some(FliesWorldAi {

@@ -20,7 +20,7 @@ fn pipe_room() -> Room {
     Room::parse(&text).expect("test room parses")
 }
 
-/// `Room.BlinkShortCut` (61605-61620).
+/// `Room.BlinkShortCut`.
 #[test]
 fn blink_sends_a_pulse_and_flashes() {
     let mut b = ShortcutsBlinking::new(2);
@@ -36,7 +36,7 @@ fn blink_sends_a_pulse_and_flashes() {
     b.blink(Some(5), None, 1.0);
 }
 
-/// The `shortcutsBlinking` block of `Room.Update` (63403-63434): a pulse fades and
+/// The `shortcutsBlinking` block of `Room.Update`: a pulse fades and
 /// advances by `1 / Lerp(20, length, 0.3)`, a flash counts up to 0 without drawing,
 /// an idle entrance draws once (twice when it starts a flicker) and turns its symbol
 /// toward 1 by 0.04, a flicker draws twice and counts down.

@@ -1898,7 +1898,7 @@ impl OverseerUpdate<'_, '_> {
         self.realized(id).is_some_and(|r| !r.dead) && !slated
     }
 
-    /// `CreatureDangerScore` (231884). A creature whose type the player knows and that a
+    /// `CreatureDangerScore`. A creature whose type the player knows and that a
     /// camera shows scores 0; else its template's `dangerousToPlayer` (a scavenger's 1)
     /// times its AI's aggression to the player, fading from 20 to 1100 px from the
     /// player, 0 once talked about, raised to a power of the guide's hand-holding. A

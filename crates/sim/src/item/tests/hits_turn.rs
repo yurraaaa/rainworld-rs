@@ -1,8 +1,8 @@
 //! Thrown weapons meeting flies and overseers, in one test room. Expected values from
-//! `Weapon.Update`'s layer-0 walk (81606), `HitSomethingWithoutStopping` (81784),
-//! `Spear.TryImpaleSmallCreature` (271955), `Overseer.Die` (228937) and
-//! `HitByWeapon` (228965), `Creature.Die` (77465) and `SaveState.AddCreatureToRespawn`
-//! (48297).
+//! `Weapon.Update`'s layer-0 walk, `HitSomethingWithoutStopping`,
+//! `Spear.TryImpaleSmallCreature`, `Overseer.Die` and
+//! `HitByWeapon`, `Creature.Die` and `SaveState.AddCreatureToRespawn`
+//! (`SaveState.AddCreatureToRespawn`).
 
 use std::sync::Arc;
 

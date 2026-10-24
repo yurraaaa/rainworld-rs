@@ -1,4 +1,4 @@
-//! `HologramLight` (227621): the guide's projected light that follows the Monk through
+//! `HologramLight`: the guide's projected light that follows the Monk through
 //! dark rooms, made by `HologramLight.TryCreate` from `Player.Update`.
 //!
 //! Mirrors: HologramLight.cs

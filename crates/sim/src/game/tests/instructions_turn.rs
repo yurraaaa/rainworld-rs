@@ -1,9 +1,9 @@
 //! The guide's room objects and its communication in one test room: the concern's
-//! entity draw (`ReevaluateConcern`, 231543-231576), `SuperJumpInstruction` (228116)
-//! and its in-world hologram (`SuperJump.Update`, 233950-233967),
-//! `ReliableIggyDirection` (236584-236700) with `ForcedDirectionPointer` (323713), the
-//! `ScavengerTradeInstructionTrigger` (322560) and `OverseerImage`'s
-//! `ProjectedImagePosition` (325335).
+//! entity draw (`ReevaluateConcern`), `SuperJumpInstruction`
+//! and its in-world hologram (`SuperJump.Update`),
+//! `ReliableIggyDirection` with `ForcedDirectionPointer`, the
+//! `ScavengerTradeInstructionTrigger` and `OverseerImage`'s
+//! `ProjectedImagePosition`.
 
 use std::sync::Arc;
 

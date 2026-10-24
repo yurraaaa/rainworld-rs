@@ -1,5 +1,5 @@
-//! The food the player starts a cycle with (`LoadInitCondition`, 56526) and the
-//! session's `characterStats` (54006).
+//! The food the player starts a cycle with (`RainWorldGame.ctor`: `LoadInitCondition`) and the
+//! session's `characterStats`.
 
 use std::sync::Arc;
 

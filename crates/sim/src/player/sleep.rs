@@ -1,5 +1,5 @@
-//! Sleeping in a shelter: `Player.SleepUpdate` (88734), the hibernation checks of
-//! `Player.Update` (87518, 87603) and the counters the HUD's food meter reads.
+//! Sleeping in a shelter: `Player.SleepUpdate`, the hibernation checks of
+//! `Player.Update` and the counters the HUD's food meter reads.
 //!
 //! Mirrors: Player.cs (SleepUpdate, Update)
 

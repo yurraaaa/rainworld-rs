@@ -61,7 +61,7 @@ impl RainWorldGame {
         std::mem::take(&mut self.reds_game_over)
     }
 
-    /// `Player.Update`'s `karmaFlowerGrowPos` (86975): a living, ungrabbed player that
+    /// `Player.Update`'s `karmaFlowerGrowPos`: a living, ungrabbed player that
     /// places flowers marks the hips' tile when they stand on solid ground with two free
     /// tiles above, outside deep water, worm grass (none in the port), narrow spaces and
     /// shelters. The body has not moved yet this tick.

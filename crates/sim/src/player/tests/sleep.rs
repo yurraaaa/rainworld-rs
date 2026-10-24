@@ -1,4 +1,4 @@
-//! `Player.SleepUpdate` (88734) and the shelter block of `Player.Update` (87518, 87603).
+//! `Player.SleepUpdate` and the shelter block of `Player.Update`.
 
 use rw_random::UnityRandom;
 

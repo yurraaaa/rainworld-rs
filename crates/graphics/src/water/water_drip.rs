@@ -1,4 +1,4 @@
-//! `WaterDrip.DrawSprites` (42328): a thin triangle trailing the drip and a glint, in
+//! `WaterDrip.DrawSprites`: a thin triangle trailing the drip and a glint, in
 //! the palette's black or, for a water-coloured drip, its water colours (`ApplyPalette`).
 //! Mirrors: WaterDrip.cs (DrawSprites, ApplyPalette)
 

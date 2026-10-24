@@ -1,6 +1,6 @@
 use super::*;
 
-/// `BodyChunk.VisibilityBonus` (`BodyChunk.cs` 162-165) for a green lizard's
+/// `BodyChunk.VisibilityBonus` for a green lizard's
 /// `movementBasedVision` 0.7: a still chunk of a body without its own bonus is -0.49,
 /// one moving 10 px a tick 0.7, and the owner's bonus counts at 0.65.
 #[test]
@@ -23,8 +23,8 @@ fn chunk_visibility_bonus() {
     assert!((survivor_still.bonus(0.7) - (-0.49 + 0.2 * 0.65)).abs() < 1e-6);
 }
 
-/// `Player.VisibilityBonus` and `Sneak` (`Player.cs` 2162, 2208-2233; the Survivor's
-/// stats are 0 and 0.5, the Monk's -0.1 and 0.6, `SlugcatStats.cs` 87, 189-190).
+/// `Player.VisibilityBonus` and `Sneak` (the Survivor's
+/// stats are 0 and 0.5, the Monk's -0.1 and 0.6, `SlugcatStats.visualStealthInSneakMode` and its constructor).
 #[test]
 fn player_visibility() {
     let survivor = PlayerVisibility {

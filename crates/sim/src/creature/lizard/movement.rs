@@ -1,7 +1,7 @@
 //! A lizard's movement state: `Lizard.MovementAnimation` (the scripted reaches and the
 //! turn) and the body numbers `Act` steers by (`BodyForce`, `BodyDesperation`,
-//! `BodyWiggleFac`, `BodyDirection`, the legs' grip). Decompile `Lizard.cs` 47-190 and
-//! 1395-1530.
+//! `BodyWiggleFac`, `BodyDirection`, the legs' grip). Decompile `Lizard.MovementAnimation`,
+//! `Lizard.BodyStiff` and `Lizard.Collide`.
 //!
 //! Mirrors: Lizard.cs (MovementAnimation)
 

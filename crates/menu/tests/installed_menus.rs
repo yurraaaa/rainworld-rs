@@ -236,7 +236,7 @@ impl Harness {
     }
 }
 
-/// `MainMenu.AddMainMenuButton` (538889): with six buttons of 110 x 30, `num6 = 290 +
+/// `MainMenu.AddMainMenuButton`: with six buttons of 110 x 30, `num6 = 290 +
 /// 5 * 40 / 2 - (6 - 5) * 10 = 380`, `num7 = 683 - 110 / 2 = 628`, each button 40 lower;
 /// `nextSelectable[1]`/`[3]` are the previous/next with wrap, `[0]`/`[2]` itself.
 #[test]
@@ -291,10 +291,10 @@ fn main_menu_buttons_order_layout_and_links() {
     assert_eq!(titles, ["MainTitleShadow", "MainTitleBevel"]);
 }
 
-/// `MainLoopProcess.RawUpdate` (99247) calls `GrafUpdate` every rendered frame, ticks or
-/// not; `MouseCursor.GrafUpdate` (548126) puts the cursor at `Futile.mousePosition` +
-/// 0.01 and its shadow at + (3.01, -8.01), the frame's mouse, while `Update` (548104)
-/// and `Menu.Update` (539356) keep the tick's.
+/// `MainLoopProcess.RawUpdate` calls `GrafUpdate` every rendered frame, ticks or
+/// not; `MouseCursor.GrafUpdate` puts the cursor at `Futile.mousePosition` +
+/// 0.01 and its shadow at + (3.01, -8.01), the frame's mouse, while `Update`
+/// and `Menu.Update` keep the tick's.
 #[test]
 fn the_cursor_follows_the_mouse_between_ticks() {
     let Some(mut h) = Harness::boot() else { return };
@@ -320,9 +320,9 @@ fn the_cursor_follows_the_mouse_between_ticks() {
     assert_eq!((shadow.x, shadow.y), (m.x + 3.01, m.y - 8.01));
 }
 
-/// `Menu.Update` (539312): a new direction selects at once (`SelectNewObject`); held, it
+/// `Menu.Update`: a new direction selects at once (`SelectNewObject`); held, it
 /// repeats once `scrollInitDelay > 20` every time `scrollDelay > 6`. `SelectNewObject`
-/// (539661) plays `MENU_Button_Select_Gamepad_Or_Keyboard` (UIMetal3/vol=0.3) or, onto
+/// (`Menu.SelectNewObject`) plays `MENU_Button_Select_Gamepad_Or_Keyboard` (UIMetal3/vol=0.3) or, onto
 /// a greyed button, `MENU_Greyed_Out_Button_Select_Gamepad_Or_Keyboard`
 /// (UIMetal3/vol=0.2/pitch=0.3).
 #[test]
@@ -376,10 +376,10 @@ fn keyboard_selection_wraps_repeats_and_sounds() {
 
 /// The background loop starts on the menu's first update (`mySoundLoopID`
 /// MENU_Main_Menu_LOOP: MenuLOOP/vol=0.4) and the slugcat select menu, with the same
-/// loop, takes it over (`Menu.CommunicateWithUpcomingProcess`, 539621). STORY plays
-/// `MENU_Switch_Page_In` (UIArp/vol=0.4) and requests `SlugcatSelect` (538932); a press
+/// loop, takes it over (`Menu.CommunicateWithUpcomingProcess`). STORY plays
+/// `MENU_Switch_Page_In` (UIArp/vol=0.4) and requests `SlugcatSelect`; a press
 /// plays `MENU_Button_Press_Init` (UIMetal3/vol=0.1/pitch=0.5) and the click comes on
-/// release (`ButtonBehavior.Update`, 540463).
+/// release (`ButtonBehavior.Update`).
 #[test]
 fn story_goes_to_slugcat_select_keeping_the_loop() {
     let Some(mut h) = Harness::boot() else { return };
@@ -421,7 +421,7 @@ fn story_goes_to_slugcat_select_keeping_the_loop() {
             .any(|(f, e)| *f > from && matches!(e, MenuSoundEvent::StartLoop(..))),
         "no second loop"
     );
-    // `SlugcatSelectMenu.Init` (554926) selects the start button.
+    // `SlugcatSelectMenu.Init` selects the start button.
     assert_eq!(h.selected(), Some(h.select().screen().start_button));
 }
 
@@ -436,7 +436,7 @@ impl Harness {
     }
 }
 
-/// `SlugcatSelectMenu` constructor (554724) and `SlugcatPageNewGame` (554172): pages
+/// `SlugcatSelectMenu` constructor and `SlugcatPageNewGame`: pages
 /// Monk, Survivor, Hunter with the Survivor's shown; START a 55-radius hold button at
 /// (683, 85) filling in 40 ticks; BACK 110 x 30 at (200, 668); arrows 50 x 50 at
 /// (200, 50) and (1116, 50); the labels at `imagePos.y - 249` = 235 (200 x 30) and
@@ -474,11 +474,11 @@ fn slugcat_select_layout() {
     }
 }
 
-/// `HoldButton.Update` (540567): held, `filled = LerpAndTick(filled, 1, 0.007, 1 /
-/// fillTime)` (`Custom.LerpAndTick`, 467748) each tick, and the signal once `filled >= 1`;
+/// `HoldButton.Update`: held, `filled = LerpAndTick(filled, 1, 0.007, 1 /
+/// fillTime)` (`Custom.LerpAndTick`) each tick, and the signal once `filled >= 1`;
 /// the first held tick plays `MENU_Security_Button_Init` (UIMetal2/vol=0.3/pitch=0.5).
 /// START then plays `MENU_Start_New_Game` (UIImpact2/vol=0.4) for a new Survivor game
-/// and asks for the Survivor's intro slideshow (`StartGame`, 555445).
+/// and asks for the Survivor's intro slideshow (`StartGame`).
 #[test]
 fn hold_start_fills_then_starts_a_new_game() {
     let Some(mut h) = Harness::to_slugcat_select() else {
@@ -525,8 +525,8 @@ fn hold_start_fills_then_starts_a_new_game() {
     assert_eq!(h.ctx.shared.in_game_slugcat, Some(Slugcat::White));
 }
 
-/// NEXT (`Singal`, 555162) queues a side input and plays `MENU_Next_Slugcat`
-/// (PLAYALL: UIMetal1/vol=0.4/pitch=0.9 and UIArp/vol=0.2). The next `Update` (554932)
+/// NEXT (`Singal`) queues a side input and plays `MENU_Next_Slugcat`
+/// (PLAYALL: UIMetal1/vol=0.4/pitch=0.9 and UIArp/vol=0.2). The next `Update`
 /// moves to the next page with `scroll = -1`, which then follows `NextScroll =
 /// LerpAndTick(scroll, 0, 0.07, (|quedSideInput| + 1) / 30)` back to 0; a page sits
 /// `((index - slugcatPageIndex) - scroll)` pages (wrapped to -1..1) from the centre,
@@ -618,7 +618,7 @@ fn escape_goes_back_to_the_main_menu() {
     assert_eq!(h.id(), Some(ProcessId::MainMenu));
 }
 
-/// EXIT (`ExitButtonPressed`, 538972) calls `Application.Quit`.
+/// EXIT (`ExitButtonPressed`) calls `Application.Quit`.
 #[test]
 fn exit_quits() {
     let Some(mut h) = Harness::boot() else { return };
@@ -644,7 +644,7 @@ impl Harness {
     }
 }
 
-/// `StartGame` (555445): the Monk gets its own intro.
+/// `StartGame`: the Monk gets its own intro.
 #[test]
 fn the_monk_starts_with_its_intro() {
     let Some(mut h) = Harness::to_slugcat_select() else {

@@ -1,8 +1,8 @@
 //! The realized lizards in a room's update list: `Lizard.Update`'s body part with
 //! `AirBreatherCreature.Update`, `Creature.Update` and `PhysicalObject.Update` under it,
 //! terrain impacts, and their shortcut vessels, lobby turns and `SpitOutOfShortCut`
-//! (`Act` and entering shortcuts are `creature/lizard/act_turn.rs`). Decompile: `Lizard.cs` 822-1062 and
-//! 1460-1711, `Creature.cs` 369-707, `AirBreatherCreature.cs`. Behaviour:
+//! (`Act` and entering shortcuts are `creature/lizard/act_turn.rs`). Decompile: `Lizard.Update` and
+//! `Lizard.TerrainImpact` to `Lizard.SpitOutOfShortCut`, `Creature.Update`, `AirBreatherCreature`. Behaviour:
 //! `rainworld-re/notes/creature-model/lizard-body-and-movement.md` section 13.
 //!
 //! Mirrors: Lizard.cs (Update), AirBreatherCreature.cs, Creature.cs, PhysicalObject.cs

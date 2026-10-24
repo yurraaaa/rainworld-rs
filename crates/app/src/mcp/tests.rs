@@ -441,7 +441,7 @@ impl Session {
 /// goes to the main menu; Return on STORY (selected on `Init`) opens slugcat select;
 /// START held fills in 36 ticks and starts a new Survivor game at SU_C04 (7, 28), where
 /// held arrows now drive the player. The music player follows the processes
-/// (`MusicPlayer.UpdateMusicContext`, 414132): `Menu` in the intro roll and main menu,
+/// (`MusicPlayer.UpdateMusicContext`): `Menu` in the intro roll and main menu,
 /// `StoryMode` in slugcat select (the intro song's context is `Menu`, so it plays on),
 /// `StartGame`'s `FadeOut(20)` on the intro song, then the game's `FadeOut(2)` on
 /// `Menu`-context songs (`FadeOut` keeps the shorter), and the song ends.
@@ -552,7 +552,7 @@ fn start_with_s_held_skips_the_slideshow() {
     panic!("START never signalled");
 }
 
-/// `SU_C04StartUp` (67669) from a new game, tick by tick, holding right throughout:
+/// `SU_C04StartUp` from a new game, tick by tick, holding right throughout:
 /// the controller is `Null` from the script's first update (it runs after the player,
 /// so the first tick still reads the keys); nothing moves it during the 3 s black delay
 /// (`FadeDelayInProgress`); then `HardSetPosition` puts the chunks at the ratcheted
@@ -696,7 +696,7 @@ impl Session {
 
 /// The HUD from a new Survivor game: hidden at cycle 0 until the map button; the
 /// tutorial controls page `SU_C04StartUp` opens once `showControlsCounter > 100` after
-/// standing up (67766) and closes once the slugcat is past x 800 (67772), fading in at
+/// standing up and closes once the slugcat is past x 800 (`RoomSpecificScript.SU_C04StartUp.Update`), fading in at
 /// 1/16 and out at 1/8 a tick (`TutorialControlsPage.Update`).
 #[test]
 fn new_game_hud_and_controls_page() {
@@ -888,7 +888,7 @@ impl crate::scene::Scene {
     }
 }
 
-/// `SubregionTracker.Update` (482702) in a new Survivor game started through the menus
+/// `SubregionTracker.Update` in a new Survivor game started through the menus
 /// (`StoryGameInitCondition.New`): the start rooms have no subregion; the first
 /// Outskirts room (SU_A38, via SU_A41, A43, A22, A23, A25) is counted from the tick
 /// after the HUD first sees it (`lastRegion == num`), and on the tick the counter passes
@@ -935,7 +935,7 @@ fn subregion_name_in_a_new_game() {
     assert_eq!((t.counter, t.last_shown_region), (0, 1));
 }
 
-/// A Dev start (`load_room`) adopts the first room's subregion silently (482717): SU
+/// A Dev start (`load_room`) adopts the first room's subregion silently (`SubregionTracker.Update`): SU
 /// has one subregion, so no name is ever shown.
 #[test]
 fn subregion_name_not_shown_on_a_dev_start() {

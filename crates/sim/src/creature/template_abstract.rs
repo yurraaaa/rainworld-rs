@@ -1,5 +1,5 @@
 //! The template fields the abstract creature AI reads: the off-screen connection
-//! resistances (from [`super::pathing`]), `stowFoodInDen` (`InitStaticWorld`, 125287),
+//! resistances (from [`super::pathing`]), `stowFoodInDen` (`InitStaticWorld`),
 //! and which templates' abstract AI is ported.
 //!
 //! Mirrors: StaticWorld.cs (InitStaticWorld), CreatureTemplate.cs
@@ -95,7 +95,7 @@ impl CreatureTemplate {
 
     /// `socialMemory` (`InitStaticWorld`, copied by children): the lizards, vultures,
     /// cicadas, jet fish, scavengers and the big needle worm (the small one clears it);
-    /// of the DLC templates those the game sets (124013.., 123064..).
+    /// of the DLC templates those the game sets (`StaticWorld.InitBigMoth`, `StaticWorld.InitMirosVulture`).
     #[must_use]
     pub fn social_memory(&self) -> bool {
         use CreatureType as T;

@@ -4,9 +4,9 @@
 //! absent.
 //!
 //! Expected numbers come from the decompiled game (`Assembly-CSharp`, 1.11.8): the
-//! `SlideShow` constructor (551452), `ConvertTime` (552339), `RawUpdate` (552344),
-//! `SlideShowMenuScene.ApplySceneSpecificAlphas` (552967, the depth branch) and
-//! `RWInput.CheckPauseButton` (54624).
+//! `SlideShow` constructor, `ConvertTime`, `RawUpdate`,
+//! `SlideShowMenuScene.ApplySceneSpecificAlphas` (the depth branch) and
+//! `RWInput.CheckPauseButton`.
 
 use std::path::PathBuf;
 use std::sync::Arc;

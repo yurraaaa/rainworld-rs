@@ -1,5 +1,5 @@
 //! `PauseMenu` on the installed game's fonts and strings (skipped without it), with
-//! expectations from `Menu.PauseMenu` (Assembly-CSharp 528349..528745).
+//! expectations from `Menu.PauseMenu`.
 
 use std::path::PathBuf;
 

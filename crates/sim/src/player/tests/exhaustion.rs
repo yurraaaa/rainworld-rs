@@ -1,6 +1,6 @@
-//! Malnourished stats, `aerobicLevel` and exhaustion: `SetMalnourished` (86189),
-//! `AerobicIncrease` (86492), the exhaustion block of `Player.Update` (86884-86941),
-//! `Player.Stun` (88673) and `SleepUpdate`'s aerobic level (88788).
+//! Malnourished stats, `aerobicLevel` and exhaustion: `SetMalnourished`,
+//! `AerobicIncrease`, the exhaustion block of `Player.Update`,
+//! `Player.Stun` and `SleepUpdate`'s aerobic level.
 
 use rw_random::UnityRandom;
 

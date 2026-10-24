@@ -1,4 +1,4 @@
-//! `ThreatDetermination.Update` and `ThreatOfCreature` (73833-74032), with expected
+//! `ThreatDetermination.Update` and `ThreatOfCreature`, with expected
 //! values worked out from the decompiled formulas.
 
 use rw_assets::CreatureType;

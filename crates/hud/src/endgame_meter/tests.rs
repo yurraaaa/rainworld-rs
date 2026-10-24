@@ -1,4 +1,4 @@
-//! `EndgameMeter` (530838-531649): its kinds, fills, draws, sounds and geometry, with
+//! `EndgameMeter`: its kinds, fills, draws, sounds and geometry, with
 //! expectations from the decompile.
 
 use rw_menu::{MenuMic, MenuSoundEvent};

@@ -1,5 +1,5 @@
-//! `BuildScene`'s depth branches for the slugcat select pages (544245-544336,
-//! 544430-544499), Remix off: the slugcat layers are `LightEdges`.
+//! `BuildScene`'s depth branches for the slugcat select pages,
+//! Remix off: the slugcat layers are `LightEdges`.
 //!
 //! Mirrors: Menu/MenuScene.cs (BuildScene)
 

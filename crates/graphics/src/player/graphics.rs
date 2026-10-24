@@ -300,7 +300,7 @@ impl PlayerGraphics {
         self.hand_engaged_in_throwing = hand;
     }
 
-    /// The hands' throwing branch (239248): the throwing hand reaches for the thrown
+    /// The hands' throwing branch (`PlayerGraphics.Update`): the throwing hand reaches for the thrown
     /// object (on it within 40 px, else pushed 6 toward it), the other hand pulled 3
     /// back. Returns false when nothing is being thrown (the next branches run).
     fn throw_hands(&mut self, around: &PlayerSurroundings<'_>) -> bool {
@@ -558,7 +558,7 @@ impl PlayerGraphics {
         }
     }
 
-    /// Exhausted (239096): eyes shut at an `aerobicLevel` above 0.8, else now and then
+    /// Exhausted (`PlayerGraphics.Update`): eyes shut at an `aerobicLevel` above 0.8, else now and then
     /// for 10..19 ticks; short of breath (exhausted, or after a dive) the head bobs with
     /// the swim cycle and the eyes close.
     pub(crate) fn out_of_breath(&mut self, player: &Player, rng: &mut UnityRandom) {
@@ -583,7 +583,7 @@ impl PlayerGraphics {
         }
     }
 
-    /// Curled up asleep (239358): body and hips drawn together and up, the tail wrapped
+    /// Curled up asleep (`PlayerGraphics.Update`): body and hips drawn together and up, the tail wrapped
     /// round, the head tucked in, the eyes now and then shut (`PlayerBlink`), the hands
     /// in front.
     fn curl_up(&mut self, player: &Player, rng: &mut UnityRandom) {
@@ -667,7 +667,7 @@ impl PlayerGraphics {
             .look_point(around, self.head.pos, self.look_direction)
     }
 
-    /// The swallow and regurgitation block (239058-239086): a blink drawn every tenth
+    /// The swallow and regurgitation block (`PlayerGraphics.Update`): a blink drawn every tenth
     /// tick of a long hold, the gulp's 20 ticks pulling the head toward the hips, and a
     /// full stomach heaving the body while the count to regurgitation runs.
     fn swallow_update(
@@ -711,7 +711,7 @@ impl PlayerGraphics {
         input_x != 0 && (fly_x < main_x) == (input_x > 0)
     }
 
-    /// The hands' block for food (239320-239348): hungry, close to a fly it could
+    /// The hands' block for food (`PlayerGraphics.Update`): hungry, close to a fly it could
     /// auto-grab and in sight, a hand whose other hand has reached its place reaches for
     /// it (not while moving away from it), the head and body leaning in.
     fn reach_for_fly(&mut self, player: &Player, around: &PlayerSurroundings<'_>) {

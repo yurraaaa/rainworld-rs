@@ -1,6 +1,6 @@
 use super::*;
 
-/// `SocialEventRecognizer.cs` 128-149 and `LizardAI.cs` 1798-1818.
+/// `SocialEventRecognizer.WeaponAttack` and `LizardAI.SocialEvent`.
 #[test]
 fn weapon_attack_events() {
     assert_eq!(

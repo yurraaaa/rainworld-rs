@@ -364,7 +364,7 @@ as physical objects, their turns, the vine host), the sprites in
   `GeyserEruption`, `MeltLights`, `WindRect`, `SmokeSystem`, `PlateTree`, the shelter door's
   `PansarPush`, `GetStuffInWalls` and `DestroyExcessiveObjects` (which would count the segments
   under the type `"Creature"` and destroy all but nine), `SporeCloud`, `HarmfulSteam`, `TempleGuard`,
-  `RegionGateGraphics`, `SLOracleWakeUpProcedure`, `Player`'s burst (Player.cs 3899) and
+  `RegionGateGraphics`, `SLOracleWakeUpProcedure`, `Player`'s burst (`Player.ClassMechanicsSaint`) and
   pointing code, a lizard tongue's trace over all layers, `BigEel`, `TentaclePlant`'s collide over
   layer 0, `HazerGraphics`' look: each touches the segments when it is ported (OPEN-ITEMS).
 - **`StemSegment.Update`.** Nothing at all while the system is frozen (before `base.Update`). Else the

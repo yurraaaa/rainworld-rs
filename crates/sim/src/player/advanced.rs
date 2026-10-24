@@ -271,7 +271,7 @@ impl Player {
         }
     }
 
-    /// `ThrowObject`'s throw backwards out of a belly slide (93192), the slugcat's part:
+    /// `ThrowObject`'s throw backwards out of a belly slide, the slugcat's part:
     /// the slide starts over from tick 8 as a long one, the body kicked 6 px and 16 px
     /// a tick on along the slide, the hips 17 px up. The caller adds the spikes and the
     /// `Slugcat_Rocket_Jump`.

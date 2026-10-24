@@ -3,9 +3,9 @@
 //! tests skip when it is absent.
 //!
 //! Expected values from the decompiled game (`Assembly-CSharp`, 1.11.8):
-//! `MenuScene.BuildScene` (542857 sleep, 542963 starve, 544337 new death),
-//! `InteractiveMenuScene` (535848: its constructor's three draws, `Update`'s NewDeath
-//! alphas over `InverseLerp(0, 160, timer)` (535904) and `timer++` while >= 0; the idle
+//! `MenuScene.BuildScene` (the sleep, starve and new death branches),
+//! `InteractiveMenuScene` (its constructor's three draws, `Update`'s NewDeath
+//! alphas over `InverseLerp(0, 160, timer)` (`InteractiveMenuScene.Update`) and `timer++` while >= 0; the idle
 //! focus pick, `Range` over `idleDepths` then `value`). Positions from the installed
 //! `positions.txt` of `scenes/sleep screen - white|yellow|red`, `new death` and
 //! `starve screen`.

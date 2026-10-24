@@ -1,6 +1,6 @@
-//! The slugcat's hands in the game: the bat-fly catch in `Player.Update` (87506) with
-//! `Player.Collide` (88193), `GrabUpdate` (91722: eating, swallowing, picking up,
-//! dropping, throwing, switching hands), `GraphicsModuleUpdated` (87786) moving what the
+//! The slugcat's hands in the game: the bat-fly catch in `Player.Update` with
+//! `Player.Collide`, `GrabUpdate` (eating, swallowing, picking up,
+//! dropping, throwing, switching hands), `GraphicsModuleUpdated` moving what the
 //! hands hold, the grasps `Stun` and `Die` drop, the food the player eats, the objects
 //! carried through shortcuts, and the `WaterDrip`s in the rooms' update lists. Base game,
 //! Remix off: the objects a room holds are flies, overseers, rocks and spears. Picking
@@ -132,7 +132,7 @@ impl RainWorldGame {
         [0, 1].map(|i| grasps.get(i).copied().flatten().map(|g| g.grabbed))
     }
 
-    /// The auto-catch block of `Player.Update` (87506-87517): with a free hand and room
+    /// The auto-catch block of `Player.Update`: with a free hand and room
     /// in the stomach, the first fly of the room's `FliesRoomAI` within 20 px (10 in a
     /// narrow space; half that outside an active swarm room in a story) that the player
     /// can grab one-handed and nobody holds is `Collide`d with.
@@ -690,7 +690,7 @@ impl RainWorldGame {
     }
 
     /// The `IPlayerEdible`s of room `index`'s `physicalObjects` (only flies, in creation
-    /// order) as the tutorial's Eat instruction reads them (233759, 235452).
+    /// order) as the tutorial's Eat instruction reads them (`OverseerTutorialBehavior.Eat.Update`, `OverseerTutorialBehavior.EatInstructionRelevant`).
     pub(crate) fn room_edibles(&self, index: i32) -> Vec<EdibleView> {
         let mut flies: Vec<(u64, EdibleView)> = self
             .world

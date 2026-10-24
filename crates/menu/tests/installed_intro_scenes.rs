@@ -3,9 +3,9 @@
 //! install; tests skip when it is absent.
 //!
 //! Expected values from the decompiled game (`Assembly-CSharp`, 1.11.8):
-//! `SlideShowMenuScene` (552557: the constructor's `camPos = CameraPosition(0)` without
-//! `/ 300`; 552848 `Update`; 552967 `ApplySceneSpecificAlphas`), `MenuScene.BuildScene`
-//! (542985-543296 and 544388-544430, the intro tables) and the installed
+//! `SlideShowMenuScene` (the constructor's `camPos = CameraPosition(0)` without
+//! `/ 300`; `Update`; `ApplySceneSpecificAlphas`), `MenuScene.BuildScene`
+//! (the intro tables) and the installed
 //! `scenes/intro 1 - tree/camera.txt` (first point `-416, 170, 0.1415929`).
 
 use std::path::PathBuf;

@@ -41,14 +41,14 @@ are the usual one-shot's).
   check); `VineSwitch` is not gated by `GrabbedByDaddyCorruption`.
 
 **Omitted branches (listed, not dropped; each comes with its owner):**
-- Remix (MMF): the `ClimbOnBeam` exclusion of the grab (Player 12366), the `VineSwitch` gate
-  on `GrabbedByDaddyCorruption` (8834), the `TubeWorm` tongue check on the jump press (8863),
-  `TubeWorm.cs` 1197 (a jump press while `VineGrab` releases or shoots the tongue).
+- Remix (MMF): the `ClimbOnBeam` exclusion of the grab (`Player.MovementUpdate`), the `VineSwitch` gate
+  on `GrabbedByDaddyCorruption` (`Player.UpdateAnimation`), the `TubeWorm` tongue check on the jump press (`Player.UpdateAnimation`),
+  `TubeWorm.GrabbedByPlayer` (a jump press while `VineGrab` releases or shoots the tongue).
 - More Slugcats: `MoreSlugcats.ClimbableVine` (placed `Vine`, Outer Expanse): its `Leaves`
   grab sound (1 draw for the pitch) and the climbing rustle (1 draw per tick a direction is
   held, 1 more when it plays); the `animation != VineGrab` terms of the Artificer pyro jump
-  (Player 3041, 3224), the Saint tongue (3574), ascension (3713) and the `EnergyCell` check
-  (10554).
+  (`Player.ClassMechanicsArtificer`), the Saint tongue (`Player.SaintTongueCheck`), ascension (`Player.ClassMechanicsSaint`) and the `EnergyCell` check
+  (`Player.GrabUpdate`).
 - Watcher: `SkyWhale.SkyWhaleWhisker` (registers and unregisters per room,
   `CurrentlyClimbable` follows the ripple layer).
 - Base game, later steps (`CoralNeuron` is done, D40; `CoralStem`, D41): `ClimbableCorruptionTube`

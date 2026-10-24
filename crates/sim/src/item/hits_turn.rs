@@ -1,9 +1,9 @@
 //! A thrown rock or spear meeting the room's creatures: `Weapon.Update`'s `Thrown`
-//! branch telling them of it (`INotifyOfFlyingWeapons`, 81490), its walk over collision
-//! layer 0 (81606) with `HitSomethingWithoutStopping` (81784) and `Spear`'s
+//! branch telling them of it (`INotifyOfFlyingWeapons`, `Weapon.Update`), its walk over collision
+//! layer 0 (`Weapon.Update`) with `HitSomethingWithoutStopping` and `Spear`'s
 //! `TryImpaleSmallCreature`, the creatures' `Stun` and `Die` (`Overseer.Die`'s guide),
 //! `Overseer.HitByWeapon`, and the creatures impaled on a spear held on its shaft (the
-//! end of `Spear.Update`, 271475). Behaviour: `rainworld-re/notes/items.md` section 12.
+//! end of `Spear.Update`). Behaviour: `rainworld-re/notes/items.md` section 12.
 //!
 //! Mirrors: Weapon.cs (Update), Spear.cs (TryImpaleSmallCreature, Update), Overseer.cs (Die, HitByWeapon), Creature.cs (Stun, Die)
 

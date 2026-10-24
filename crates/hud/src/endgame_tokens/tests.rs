@@ -1,4 +1,4 @@
-//! `EndgameTokens` (531650-531908): which passages get a token, where, and when the
+//! `EndgameTokens`: which passages get a token, where, and when the
 //! PASSAGE button is due, with expectations from the decompile.
 
 use rw_menu::Translator;

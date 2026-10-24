@@ -25,7 +25,7 @@ impl LookCandidate {
     }
 }
 
-/// `ReevaluateLookObject` (`CreatureLooker.cs` 54-104) without a favourite draws its
+/// `ReevaluateLookObject` (`CreatureLooker`) without a favourite draws its
 /// coin, then one value per creature in the room when the coin lands under 0.5; with
 /// a favourite only the coin.
 #[test]

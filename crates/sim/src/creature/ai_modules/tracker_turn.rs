@@ -7,7 +7,7 @@
 //! what is particular to an AI (its eyes, the representation it makes, what it does
 //! on spotting a creature, its dynamic relationships) is in its own file
 //! (`creature/lizard/perception_turn.rs`). Decompile: `Tracker.cs`, `RelationshipTracker.cs`,
-//! `ArtificialIntelligence.cs` 159-231 and 363-407. Behaviour:
+//! `ArtificialIntelligence`. Behaviour:
 //! `rainworld-re/notes/creature-model/lizard-senses.md` section 17.
 //!
 //! Mirrors: Tracker.cs, RelationshipTracker.cs, ArtificialIntelligence.cs

@@ -323,7 +323,7 @@ impl SceneId {
     }
 }
 
-/// The sleep, starve and death scenes (542857, 542963, 544337); the More Slugcats and
+/// The sleep, starve and death scenes (`MenuScene.BuildScene`); the More Slugcats and
 /// Watcher branches are not ported.
 impl SceneId {
     /// The sleep scene of `slugcat` (`PlayingAsSlugcat`, as the flat branch).

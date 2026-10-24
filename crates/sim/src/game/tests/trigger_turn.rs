@@ -1,6 +1,6 @@
-//! Room triggers in a game: `Room.Loaded`'s cycle and slugcat filter (61310),
-//! `ActiveTriggerChecker.FireEvent`'s draw and `multiUse` rule (53510), and
-//! `RainCycle.Update`'s `RainRequestStopSong` (55474).
+//! Room triggers in a game: `Room.Loaded`'s cycle and slugcat filter,
+//! `ActiveTriggerChecker.FireEvent`'s draw and `multiUse` rule, and
+//! `RainCycle.Update`'s `RainRequestStopSong`.
 
 use std::sync::Arc;
 

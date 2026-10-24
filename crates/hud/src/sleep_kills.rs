@@ -1,4 +1,4 @@
-//! `SleepAndDeathScreen.SleepScreenKills` (551238): the sleep screen's row of kill
+//! `SleepAndDeathScreen.SleepScreenKills`: the sleep screen's row of kill
 //! trophies at the top left. After a wait the crossbones and "~" appear, then each
 //! creature that earns a trophy (`CreatureSymbol.DoesCreatureEarnATrophy`) shows every
 //! eighth tick with a tick sound, kills of the same kind collapsed behind each other

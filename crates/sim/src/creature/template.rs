@@ -120,7 +120,7 @@ impl Relationship {
     }
 
     /// The slugcat's relationship to `kind`, for the types a room holds so far: Fly
-    /// (Eats 0.5, 126784) and Overseer (Ignores 0, 126936).
+    /// (Eats 0.5) and Overseer (Ignores 0), `StaticWorld.InitStaticWorldRelationships`.
     #[must_use]
     pub fn of_slugcat_to(kind: CreatureType) -> Option<Self> {
         let (kind, intensity) = match kind {

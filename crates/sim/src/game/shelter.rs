@@ -1,4 +1,4 @@
-//! `ShelterDoor` (262186) for an intact, non-ancient shelter, base game, Remix off: the
+//! `ShelterDoor` for an intact, non-ancient shelter, base game, Remix off: the
 //! door that opens at cycle start, closes when the slugcat sleeps and ends the cycle.
 //! Its graphics are `rw_graphics::ShelterDoorSprites`. Left out: the ancient (More
 //! Slugcats) doors (with their `DoorGraphic` tracks and bolts), broken shelters,

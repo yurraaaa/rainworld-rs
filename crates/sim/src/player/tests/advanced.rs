@@ -685,7 +685,7 @@ fn reversing_and_jumping_during_the_skid_flips() {
 
 #[test]
 fn a_backward_throw_kicks_off_a_long_belly_slide() {
-    // `ThrowObject` (93192): rollCounter back to 8, both chunks 6 along the slide and
+    // `ThrowObject`: rollCounter back to 8, both chunks 6 along the slide and
     // 16 px a tick faster, the hips 17 up.
     let mut p = Player::sliding(11, LEFT);
     p.exit_belly_slide_counter = 3;

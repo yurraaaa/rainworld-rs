@@ -221,7 +221,7 @@ impl World {
         WorldCoordinate::new(index, x, y, -1)
     }
 
-    /// `SpawnMultiplayerItem` (64969) of placed object `o` when it is a `MultiplayerItem`
+    /// `SpawnMultiplayerItem` of placed object `o` when it is a `MultiplayerItem`
     /// (the placed-object loop of a story's `Room.Loaded`): one draw against its chance;
     /// then an ID (`GetNewID()`) and a rock, a spear, an explosive spear, a scavenger bomb
     /// or a spore plant. The last two are not realized by the port, and the spore plant is
@@ -258,7 +258,7 @@ impl World {
         self.add_object(object);
     }
 
-    /// `Room.Loaded`'s `ReliableSpear`s (60885): every active one is a spear (an ID
+    /// `Room.Loaded`'s `ReliableSpear`s: every active one is a spear (an ID
     /// from `GetNewID()`) at its tile, remembering the placed object it came from.
     fn place_reliable_spears(&mut self, index: i32, placed: &[PlacedObject], ids: &mut IdIssuer) {
         let name = self

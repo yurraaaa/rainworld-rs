@@ -1,4 +1,4 @@
-//! `Menu.EndgameMeter` (530838-531649): a passage's symbol on the karma ladder's arcs,
+//! `Menu.EndgameMeter`: a passage's symbol on the karma ladder's arcs,
 //! its label and glow, and its meter towards the ladder: a `FloatMeter` (a bar) or a
 //! `NotchMeter` (a notch per step), with the power-on flicker, the fill animation, the
 //! fulfilment and their sounds and random draws. Base game with Remix off: no custom

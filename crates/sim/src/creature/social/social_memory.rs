@@ -1,4 +1,4 @@
-//! `SocialMemory` (52354): what a creature feels about others it met, by their ID. It
+//! `SocialMemory`: what a creature feels about others it met, by their ID. It
 //! lives in the `CreatureState` of templates with `socialMemory` and is saved with it
 //! (`Social<cC>...`). The abstract AI follows a creature it likes or hates strongly
 //! (`MigrationBehavior`); the realized AIs' trackers read and change it.

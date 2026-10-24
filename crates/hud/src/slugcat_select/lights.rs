@@ -1,5 +1,5 @@
-//! `SlugcatPage`'s mark of communication and glow (`HasMark`, `HasGlow`; 553799,
-//! 553994, 554040, 554085): only continue pages in depth mode have them.
+//! `SlugcatPage`'s mark of communication and glow (`HasMark`, `HasGlow`; `SlugcatSelectMenu.SlugcatPage.AddImage`,
+//! `SlugcatSelectMenu.SlugcatPage.AddGlow`, `SlugcatSelectMenu.SlugcatPage.Update`, `SlugcatSelectMenu.SlugcatPage.GrafUpdate`): only continue pages in depth mode have them.
 //!
 //! Mirrors: Menu/SlugcatSelectMenu.cs (SlugcatPage)
 

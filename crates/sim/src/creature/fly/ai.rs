@@ -87,7 +87,7 @@ impl DropStatus {
 /// Index of a [`FlockBehavior`] in [`crate::world::World::flocks`].
 pub type FlockId = usize;
 
-/// `FlyAI.FlockBehavior` (185129): shared by the flies that adopt it; only its leader
+/// `FlyAI.FlockBehavior`: shared by the flies that adopt it; only its leader
 /// advances it.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FlockBehavior {
@@ -110,7 +110,7 @@ pub struct FlockBehavior {
 }
 
 impl FlockBehavior {
-    /// The constructor (185163): 14 draws, 15 when `collectiveMovement` is not 0.
+    /// The constructor (`FlyAI.FlockBehavior.ctor`): 14 draws, 15 when `collectiveMovement` is not 0.
     pub fn new(leader: CreatureId, rng: &mut UnityRandom) -> Self {
         let sin_cycle = rng.value();
         let drop = rng.value() < 0.5;
@@ -162,7 +162,7 @@ impl FlockBehavior {
     }
 }
 
-/// `FlyAI.TrackedThreat` (185067).
+/// `FlyAI.TrackedThreat`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TrackedThreat {
     pub crit: CreatureId,
@@ -201,7 +201,7 @@ impl TrackedThreat {
     }
 }
 
-/// `FlyAI`'s fields (185188).
+/// `FlyAI`'s fields.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FlyAi {
     pub local_goal: Vec2,
@@ -227,7 +227,7 @@ pub struct FlyAi {
 }
 
 impl FlyAi {
-    /// The constructor (185291) after its flock: `fleeFromRain` when the rain is near.
+    /// The constructor (`FlyAI.ctor`) after its flock: `fleeFromRain` when the rain is near.
     #[must_use]
     pub fn new(flock: FlockId, rain_approaching: f32) -> Self {
         Self {
@@ -251,7 +251,7 @@ impl FlyAi {
         }
     }
 
-    /// The Fly's `Afraid` relationship intensity to `kind` (126640-126646, passed on to
+    /// The Fly's `Afraid` relationship intensity to `kind` (passed on to
     /// descendant templates), 0 for the rest (Uncomfortable 0 by default).
     #[must_use]
     pub fn fear(kind: CreatureType) -> f32 {

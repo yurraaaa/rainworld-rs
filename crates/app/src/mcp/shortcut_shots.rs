@@ -154,7 +154,7 @@ fn shortcut_screenshots() {
     }
 }
 
-/// The room exits' symbols on the tutorial route (`GenerateSprites` 132951-132995, the
+/// The room exits' symbols on the tutorial route (`GenerateSprites`, the
 /// world file's connections and `SHELTER` tag, no `ExitSymbol` object in these rooms'
 /// settings): SU_A41's exits show dots; SU_A22's exit node 2, to the shelter SU_S01
 /// (`SU_A22 : SU_A43, SU_A23, SU_S01`), the shelter symbol, its others dots; pipes the
@@ -189,7 +189,7 @@ fn tutorial_rooms_entrance_symbols() {
     }
 }
 
-/// `Creature.NewTile` (77312-77358) then `Room.BlinkShortCut` (61605): the player two
+/// `Creature.NewTile` then `Room.BlinkShortCut`: the player two
 /// tiles out from a pipe's entrance (the first such pipe in SU's A rooms) blinks it: a
 /// pulse from that entrance (`[0] = 1`, `[1] = 0.01`, `[3] = -5`) and a flash at the
 /// far end (`[3] = -20`). The room's update runs before the player's, so the tick that

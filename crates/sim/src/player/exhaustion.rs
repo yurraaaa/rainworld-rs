@@ -1,6 +1,6 @@
 //! The slugcat's stats, `aerobicLevel` and malnourished exhaustion: the `Player`
-//! constructor's and `SetMalnourished`'s (86189) chunk masses, `AerobicIncrease`
-//! (86492) and the `Player.Update` block after the map discovery (86884-86941), base
+//! constructor's and `SetMalnourished`'s chunk masses, `AerobicIncrease`
+//! (`Player.AerobicIncrease`) and the `Player.Update` block after the map discovery, base
 //! game: More Slugcats' Saint, wounds and Gourmand and the Watcher's camouflage are
 //! not ported.
 //!

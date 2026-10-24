@@ -1,4 +1,4 @@
-//! `FliesRoomAI` (183857-183981): a realized room's flies and the ones resting in its
+//! `FliesRoomAI`: a realized room's flies and the ones resting in its
 //! hives, which emerge now and then. Also the realization and placing of a fly
 //! (`AbstractCreature.Realize`, `Creature.PlaceInRoom`, `Room.AddObject`, `Fly.NewRoom`).
 //!

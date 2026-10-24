@@ -9,9 +9,8 @@ module's state it keeps a small "link" struct (e.g. `creature/lizard/graphics_li
 Entry point: `RainWorldGame` in `game/mod.rs` (the app's `Game` wraps it). Draws come from the
 shared `UnityRandom` stream (`rw-random`); every sound makes its draws too (`sound/mod.rs`).
 
-Navigation aids: module headers (`grep -n '^//!' <file>`). Newer comments cite
-`Type.Member` (read them with `../rainworld-re/tools/cs.py show Type.Member`); some older
-ones still cite lines of `/home/yura/.local/share/ilspy/full/Assembly-CSharp.decompiled.cs`.
+Navigation aids: module headers (`grep -n '^//!' <file>`); comments name the decompiled
+`Type.Member` they port, readable with `../../../rainworld-re/tools/cs.py show Type.Member`.
 Notes/surveys are in `../../../rainworld-re/` (see Cross-links).
 
 ## Layout

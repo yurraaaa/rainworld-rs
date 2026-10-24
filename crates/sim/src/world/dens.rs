@@ -1,7 +1,7 @@
 //! Going into and out of dens with what is stuck to a creature: `AbstractRoom
-//! .MoveEntityToDen`/`MoveEntityOutOfDen` (304148..), `AbstractPhysicalObject
-//! .IsEnteringDen`/`IsExitingDen` (303528..: whatever is stuck comes along) and
-//! `AbstractCreature.IsEnteringDen` (301221: carried prey is killed, then dropped as the
+//! .MoveEntityToDen`/`MoveEntityOutOfDen`, `AbstractPhysicalObject
+//! .IsEnteringDen`/`IsExitingDen` (whatever is stuck comes along) and
+//! `AbstractCreature.IsEnteringDen` (carried prey is killed, then dropped as the
 //! AI's `DoIwantToDropThisItemInDen` says).
 //!
 //! Mirrors: AbstractRoom.cs, AbstractPhysicalObject.cs, AbstractCreature.cs
