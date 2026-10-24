@@ -107,6 +107,8 @@ pub struct RealizedRoom {
     pub water_sound: Option<crate::WaterSound>,
     /// The water was made by `Room.AddWater` during play (the rain's flood), not loaded.
     pub added_water: bool,
+    /// The file's dry room, kept while `added_water` so a dev rain rewind can restore it.
+    dry_room: Option<Arc<Room>>,
     /// `Room.Loaded`'s `AboveCloudsView`s and `RoofTopView`s.
     pub background_scenes: Vec<crate::BackgroundScene>,
     /// The `DustpuffSpawner`s (a `RoofTopView`'s constructor makes one) and their
@@ -264,6 +266,7 @@ impl RealizedRoom {
             dripping_sound: None,
             water_sound,
             added_water: false,
+            dry_room: None,
             lightning: None,
             electric_deaths: Vec::new(),
             room_rain: None,
@@ -304,11 +307,32 @@ impl RealizedRoom {
         if self.water.is_some() {
             return;
         }
+        self.dry_room = Some(self.room.clone());
         Arc::make_mut(&mut self.room).add_water();
         let (water, sound) = Self::make_water(&self.room, &self.settings, mods);
         self.water = water;
         self.water_sound = sound;
         self.added_water = self.water.is_some();
+    }
+
+    /// Port-only dev rewind of the rain (D44): the room as realized with flood 0 and no
+    /// rain. The water of `Room.AddWater` goes, the file's dry room returns, a loaded
+    /// water object is back at its own level, and the `RoomRain` is quiet (its loops fall
+    /// silent in their next update). No draws.
+    pub(crate) fn dev_rewind_rain(&mut self) {
+        if let Some(dry) = self.dry_room.take() {
+            self.room = dry;
+            self.water = None;
+            self.water_sound = None;
+            self.added_water = false;
+        }
+        if let Some(w) = self.water.as_mut() {
+            w.dev_reset_level();
+        }
+        if let Some(rain) = self.room_rain.as_mut() {
+            rain.intensity = 0.0;
+            rain.last_intensity = 0.0;
+        }
     }
 
     /// `abstractRoom.firstTimeRealized` as `Room.Loaded` sees it.
