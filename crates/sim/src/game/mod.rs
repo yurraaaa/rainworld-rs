@@ -683,8 +683,9 @@ impl RainWorldGame {
     }
 
     /// One 40 Hz tick in `RainWorldGame.Update`'s order: camera 0's shake (the end of
-    /// `RoomCamera.Update`; the app ran its window's lerp before the tick), the room realizer, one
-    /// abstract room (in turn, with the time of a whole round), the rain cycle, the
+    /// `RoomCamera.Update`; the app ran its window's lerp before the tick), `GlobalRain.Update`,
+    /// the room realizer, one
+    /// abstract room (in turn, with the time of a whole round), the rain cycle (with `RainHit`), the
     /// path finders' budget, the shortcut handler on every third tick, every active room (newest first: the entry
     /// delay, its water, and the player in it with its graphics), then the loading
     /// step (`loadingRooms`' preparers).

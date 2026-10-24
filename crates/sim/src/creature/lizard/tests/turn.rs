@@ -213,8 +213,8 @@ fn the_mean_spawn_flag_sets_spawn_data_evil() {
 #[test]
 fn a_placed_lizard_falls_and_rests_on_the_floor() {
     let (mut g, _) = game(vec![]);
-    // The idle lizard lifts its head or hops at some seeds (2, 3 and 6 of the first 8 do,
-    // with or without the rain's draws); seed 1 rests.
+    // The idle lizard lifts its head or hops at some seeds (3, 5 and 7 of the first 8, the
+    // same on main: the lizard's construction draws decide them); seed 1 rests.
     g.rng = UnityRandom::new(1);
     let l = g.placed_lizard();
     assert_eq!(g.world.lizard_ref(l).new_to_room_invinsibility, 40);

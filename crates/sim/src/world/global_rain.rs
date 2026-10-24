@@ -1,4 +1,4 @@
-//! `GlobalRain`: the rain's direction (two draws a tick from the start of the game) and,
+//! `GlobalRain`: the rain's direction (one draw a tick from the start of the game, a second when it is below 0.025) and,
 //! once the cycle's timer reaches its length, the `DeathRain` mode machine that fills
 //! `Intensity`, `ShaderLight`, `ScreenShake`, `MicroScreenShake`, `RumbleSound`,
 //! `bulletRainDensity`, `floodSpeed` and `flood`. The game keeps one per `RainWorldGame`

@@ -174,15 +174,15 @@ fn the_rain_shake_reads_the_room_and_the_cycle() {
 fn the_drown_out_follows_the_room_rain() {
     let g = game(rain_room(1.0), 4);
     let room = g.world.realized(g.camera_room).unwrap();
-    assert_eq!(room.rain_drown_out_sounds(None), 0.0);
-    assert!((room.rain_drown_out_sounds(Some(0.3)) - 0.5).abs() < 1e-6);
-    assert_eq!(room.rain_drown_out_sounds(Some(0.9)), 1.0);
+    assert_eq!(room.rain_drown_out_sounds(ActiveMods::NONE, None), 0.0);
+    assert!((room.rain_drown_out_sounds(ActiveMods::NONE, Some(0.3)) - 0.5).abs() < 1e-6);
+    assert_eq!(room.rain_drown_out_sounds(ActiveMods::NONE, Some(0.9)), 1.0);
     let settings = RoomSettings {
         danger_type: Some(DangerType::None),
         ..rain_room(1.0)
     };
     let g = game(settings, 4);
     let room = g.world.realized(g.camera_room).unwrap();
-    assert_eq!(room.rain_drown_out_sounds(Some(0.3)), 0.0);
+    assert_eq!(room.rain_drown_out_sounds(ActiveMods::NONE, Some(0.3)), 0.0);
     assert_eq!(g.rain_drown_out_sounds(), 0.0);
 }

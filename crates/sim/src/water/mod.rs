@@ -21,7 +21,7 @@ pub(crate) mod splash;
 pub(crate) mod water_drip;
 pub(crate) mod waterfall;
 
-use rw_assets::{DangerType, Room, RoomSettings, TILE_SIZE, Terrain};
+use rw_assets::{ActiveMods, Room, RoomSettings, TILE_SIZE, Terrain};
 use rw_random::UnityRandom;
 
 use crate::item::Entity;
@@ -237,8 +237,7 @@ impl Water {
         self.wave_length = 50.0_f32.lerp(750.0, s.wave_length);
         self.roll_back_length = 2.0_f32.lerp(0.0, s.second_wave_length);
         self.roll_back_amp = s.second_wave_amplitude;
-        self.rumble.active =
-            s.danger_type != Some(DangerType::None) && s.danger_type != Some(DangerType::Blizzard);
+        self.rumble.active = s.rain_danger(ActiveMods::NONE);
         self.rumble.intensity = s.rumble_intensity;
     }
 

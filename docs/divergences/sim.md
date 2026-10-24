@@ -852,7 +852,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   stages and `GlobalRain` run, D44; the overseers' AI, the HUD's rain meter and
   `MusicAllowed` read them, and the guide's tutorial pins the timer; once fewer than 2400
   ticks are left, as after the SU_A43 tutorial's bring-in-rain jump, `MusicAllowed` stays
-  false until the rain's end, so threat music is off in rooms whose `DangerType` isn't
+  false for the rest of the cycle, so threat music is off in rooms whose `DangerType` isn't
   None),
   karma gates, `DisabledMapRooms` beyond the tag drop, and Remix's
   `RemoveNotVisitedRooms` branch.

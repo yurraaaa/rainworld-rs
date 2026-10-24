@@ -78,6 +78,14 @@ impl RainWorldGame {
         self.world.rain_cycle.pause = 0;
     }
 
+    /// A fresh cycle's rain (port-only, not the game's `ResetRain`): the direction, the death
+    /// rain, its values and the flood start over, and `RainHit` may happen again.
+    pub fn dev_reset_global_rain(&mut self) {
+        let cycle = &mut self.world.rain_cycle;
+        cycle.global_rain = crate::world::GlobalRain::default();
+        cycle.death_rain_has_hit = false;
+    }
+
     /// Sets `cycleLength` (at least 1); `sunDownStartTime`, drawn at construction, stays.
     pub fn dev_set_rain_cycle_length(&mut self, length: i32) {
         let cycle = &mut self.world.rain_cycle;

@@ -31,8 +31,9 @@ Game bugs are kept (user decision, 2026-10-24).
   arm up to 1.8, `ArenaEndSessionRain`, `NoRain`); every port start is a story session
   (D4), so none of those arms runs. The ghost-mode gate of `AllowRainCounterToTick`
   (echoes). Gamepad rumble: `controllerShake` and
-  `ControllerHandler.UpdateWarning`. The dev `ResetRain`: the dev rain timer control leaves
-  a death rain that has started as it is when the timer is moved back.
+  `ControllerHandler.UpdateWarning`. The game's dev `ResetRain` is not
+  ported; the dev rain timer's `restart`/`stop` reset the global rain instead (port-only),
+  while setting the timer back leaves a started death rain running.
 - **Branches of the DLCs and Remix (listed, not ported):** the precycle (`preTimer`, the pulse
   waves, `drainWorldFlood`, `FloodHelpUp`, `forceSlowFlood`, the flood speed's second
   arm), More Slugcats' `DeathRainMode.Pulses` (the second 0.7 draw), the forced
@@ -40,6 +41,14 @@ Game bugs are kept (user decision, 2026-10-24).
   passive-rain scaling, `rippleFade`, the sandstorm and blizzard shake terms, the Saint
   `Blizzard` danger, Remix's `cfgDisableScreenShake` and the `RumbleIntensity > 0` test
   of `GeneralUpsetSurface`.
+- **Kept as the game has it (user, 2026-10-24):** `RoomCamera.Update` raises `screenShake`
+  when `screenShake < rainCycle.ScreenShake`, a comparison without `RumbleIntensity`, so
+  with a rumble below 1 the shake is reset to `ScreenShake * RumbleIntensity` every tick
+  while the cycle's value is above it.
+- **`FluxWaterfall` and `FluxDrain`** (the placed objects that read `floodSpeed`) are not
+  DLC-only: their types are registered in the base game and `Room.Loaded` makes them
+  without a `ModManager` test. No installed base room places one, and the port does not
+  make them.
 - **`waterFlux.roomShake`** (the `WaterFlux` effects; no base room has one).
 - **Not yet (steps R2-R5):** `RoomRain`, so `Room.RainDrownOutSounds` is 0 in every room
   (it reads `roomRain.intensity`), `Creature.rainDeath`, the push and the flood's water.

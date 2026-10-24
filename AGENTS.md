@@ -294,8 +294,9 @@ prefer these over `--screenshot`/`--script`; briefs for such agents say so.
   edits the rain timer: `cycle_length`, `restart`/`stop` (timer 0, running/held),
   `timer`, `shift`, `paused` (a dev flag holding only the timer; not the game's
   `RainCycle.pause`), `speed` (timer ticks per tick); `get_state.rain` reports
-  the cycle, the dev flags and the global rain (D44). Moving the timer back after the
-  rain hit leaves the death rain running (no dev `ResetRain`). While the overseer tutorial's `pauseRain` is set
+  the cycle, the dev flags and the global rain (D44). `restart` and `stop` also reset the
+  global rain (direction, death rain, flood; port-only, not the game's `ResetRain`, D44);
+  a timer set back otherwise leaves a started death rain running. While the overseer tutorial's `pauseRain` is set
   (story starts) it pins the timer at 2000 each tick, as the game does.
 - `screenshot` returns a PNG from the window's draw path, offscreen. The
   debug view outlines every realized body's chunks and rods in the camera's

@@ -4,7 +4,7 @@
 //!
 //! Mirrors: RainWorldGame.cs (Update), RoomCamera.cs (Update), RainCycle.cs (Update, RainHit), GlobalRain.cs (Update), Room.cs (RainDrownOutSounds)
 
-use rw_assets::{DangerType, RoomEffectType};
+use rw_assets::{ActiveMods, DangerType, RoomEffectType};
 
 use super::RainWorldGame;
 use super::screen_shake::RainShake;
@@ -22,7 +22,7 @@ impl RainWorldGame {
         let danger = room.settings.danger_type;
         let cycle = &self.world.rain_cycle;
         RainShake {
-            rain_danger: danger != Some(DangerType::None) && danger != Some(DangerType::Blizzard),
+            rain_danger: room.settings.rain_danger(self.world.mods()),
             aerie_blizzard: danger == Some(DangerType::AerieBlizzard),
             shelter: self
                 .world
@@ -73,7 +73,7 @@ impl RainWorldGame {
     pub fn rain_drown_out_sounds(&self) -> f32 {
         self.world
             .realized(self.camera_room)
-            .map_or(0.0, |r| r.rain_drown_out_sounds(None))
+            .map_or(0.0, |r| r.rain_drown_out_sounds(self.world.mods(), None))
     }
 }
 
@@ -81,9 +81,8 @@ impl RealizedRoom {
     /// `Room.RainDrownOutSounds`: 0 without rain danger or a `RoomRain`, else its
     /// `intensity` over 0 to 0.6 (the base game; `room_rain` is that intensity).
     #[must_use]
-    pub fn rain_drown_out_sounds(&self, room_rain: Option<f32>) -> f32 {
-        let danger = self.settings.danger_type;
-        if danger == Some(DangerType::None) || danger == Some(DangerType::Blizzard) {
+    pub fn rain_drown_out_sounds(&self, mods: ActiveMods, room_rain: Option<f32>) -> f32 {
+        if !self.settings.rain_danger(mods) {
             return 0.0;
         }
         room_rain.map_or(0.0, |intensity| intensity.inverse_lerp(0.0, 0.6))

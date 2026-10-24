@@ -1,7 +1,6 @@
 //! The death fall's `get_state` entries (one per realized room, counted since the room
 //! loaded) and the other-room screenshot's camera sprites, on `CC_A06` (camera room) and
-//! its realized neighbours `CC_C12` (first; with seed 1 the realizer's pick was `CC_C09`
-//! until the global rain's draws moved the stream) and `CC_H01` of the installed game (skipped
+//! its realized neighbours `CC_C09` (first) and `CC_H01` of the installed game (skipped
 //! without it). `CC_A06` and `CC_H01` have an open bottom (`defaultHeight` -70 once drawn)
 //! and the `Fog` effect (`cc_settingstemplate`).
 
@@ -39,7 +38,7 @@ fn every_realized_room_counts_its_own_death_fall() {
     };
     let before = s.state().expect("state").death_fall;
     let rooms: Vec<_> = before.iter().map(|f| f.room.as_str()).collect();
-    assert_eq!(rooms, ["CC_A06", "CC_C12"]);
+    assert_eq!(rooms, ["CC_A06", "CC_C09"]);
     assert!(before.iter().all(|f| f.counter > 0));
     // Only the room a camera has drawn has run `InitiateSprites`.
     let defaults: Vec<_> = before.iter().map(|f| f.default_height).collect();

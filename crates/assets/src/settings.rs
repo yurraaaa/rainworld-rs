@@ -336,6 +336,14 @@ impl RoomSettings {
         triggers: Vec::new(),
     };
 
+    /// `DangerType != None` and, with a DLC, not `Blizzard`: the rain's shake, rumble and
+    /// drown-out apply.
+    #[must_use]
+    pub fn rain_danger(&self, mods: ActiveMods) -> bool {
+        let blizzard = (mods.msc || mods.watcher) && self.danger_type == Some(DangerType::Blizzard);
+        self.danger_type != Some(DangerType::None) && !blizzard
+    }
+
     /// `FlyAI.RoomNotACycleHazard`: no rain danger (or a blizzard, with the DLCs), or
     /// rain too weak to matter.
     #[must_use]

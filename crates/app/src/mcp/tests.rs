@@ -584,7 +584,7 @@ fn su_c04_start_up_ticks(slugcat: &str) {
         // The field is what the next tick reads.
         assert_eq!(st.fade_delay_in_progress, tick < 120, "tick {tick}");
         let middle = (p.chunks[0].pos[0] + p.chunks[1].pos[0]) / 2.0;
-        if (121..197).contains(&tick) {
+        if (121..196).contains(&tick) {
             assert!(su.push_right, "tick {tick}");
             assert_eq!(p.chunks[0].pos[0] - p.chunks[1].pos[0], 14.0, "tick {tick}");
             if tick > 121 {
@@ -600,8 +600,9 @@ fn su_c04_start_up_ticks(slugcat: &str) {
             // moves the head to `pushPos.x + 10 + rad` = 149 and the rod leaves the middle
             // near 166.7 with no key held (traced through `ShortcutHelper.Update`; a run
             // confirms it); holding right (ignored by the Null controller but read for
-            // the first ticks) leaves 167.9 (Survivor) and 165.3 (Monk) at tick 40.
-            assert!((165.0..168.5).contains(&middle), "tick {tick}: {middle}");
+            // the first ticks) leaves 163.9 (Survivor) and 168.3 (Monk) at tick 40 (the
+            // global rain's draws moved the stream, and with it the spread: 167.9 and 165.3).
+            assert!((163.5..168.5).contains(&middle), "tick {tick}: {middle}");
         }
         last_x = p.chunks[0].pos[0];
         match push_ended {
@@ -632,10 +633,11 @@ fn su_c04_start_up_ticks(slugcat: &str) {
         }
     }
     let end = push_ended.expect("the push ended");
-    // The script moves the middle 2 px a tick from 166.7 until the head is below y 550:
-    // tick 197 (8 ticks before the 205 the delay alone would give), traced as above.
-    // (Survivor 197, Monk 198: the start rod differs.)
-    assert!((197..=198).contains(&end), "push ended at tick {end}");
+    // The script moves the middle 2 px a tick from the start rod's middle until the head
+    // is below y 550: about tick 197 (8 ticks before the 205 the delay alone would give),
+    // traced as above. (Survivor 199, Monk 196 with the global rain's draws; 197 and 198
+    // before: the start rod differs with the spread.)
+    assert!((196..=199).contains(&end), "push ended at tick {end}");
     assert!(
         stood.is_some_and(|t| t > end),
         "stood up after the push ({stood:?})"
