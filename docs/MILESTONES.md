@@ -51,14 +51,6 @@ shelters, the SU census 11/10/8 checked).
 Exit check: a green lizard hunts, bites and flees as in the game, and the player
 can be killed by one, across a cycle.
 
-**M8 - Rain and the cycle's end** (done, accepted in the user's play 2026-10-24)
-The rain cycle's rain, flood and rain death, in steps R0+R1 (done), R2 (done: the room rain's push, stun and
-kill, `rainDeath`, D45), R3 (done: the `DeathRain` shader, splash sprites and the seven rain loops, D46), R4 (done: the flood's water, `AddWater`, D47), R5 (done: the bullet rain, D50)
-(`../rainworld-re/surveys/rain/`). The threat music's rain inputs are already ported.
-Waking up in the rain is More Slugcats' precycle: with the DLC work (user, 2026-10-24).
-Exit check: after the cycle's end the rain falls, pushes, stuns and kills, rooms flood and
-the bullet rain comes in its cycles, as in the game.
-
 **M7 - Room visual effects, lights and camera shake** (done, accepted in the user's play 2026-10-24; `surveys/room-effects/`,
 `surveys/lights-camera-shake.md`)
 Every base-game room visual effect (level shader and palette machinery, full-screen
@@ -71,6 +63,14 @@ reached (user, 2026-10-23).
 Exit check: rooms look and shake as in the game.
 Left for later (OPEN-ITEMS, divergences): the effects skipped by the user's decisions,
 the DLC effects, and the Rot's (with its creatures).
+
+**M8 - Rain and the cycle's end** (done, accepted in the user's play 2026-10-24)
+The rain cycle's rain, flood and rain death, in steps R0+R1 (done), R2 (done: the room rain's push, stun and
+kill, `rainDeath`, D45), R3 (done: the `DeathRain` shader, splash sprites and the seven rain loops, D46), R4 (done: the flood's water, `AddWater`, D47), R5 (done: the bullet rain, D50)
+(`../rainworld-re/surveys/rain/`). The threat music's rain inputs are already ported.
+Waking up in the rain is More Slugcats' precycle: with the DLC work (user, 2026-10-24).
+Exit check: after the cycle's end the rain falls, pushes, stuns and kills, rooms flood and
+the bullet rain comes in its cycles, as in the game.
 
 ## Current
 
