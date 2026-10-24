@@ -143,6 +143,10 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `../rainworld-re/surveys/lizards.md` (user decisions).
 
 ## To look into
+- **SU_C04 start-up tests pin stream-dependent positions** (2026-10-24): `su_c04_start_up_survivor`/`_monk`
+  (`crates/app/src/mcp/tests.rs`) pin the start rod's spread and the push's end tick, which move whenever a
+  draw is added before the start (re-pinned from runs after ShortcutHelper and rain R0+R1). Rewrite them to
+  assert what the start script does independent of the stream, or derive the values from a seeded state.
 - **Hitch (M14 optimisation pass, user 2026-10-23) when nearby rooms realize or abstractize** (user, 2026-10-23, seen in play): the
   realizer's automatic loading and unloading of neighbour rooms seems to cause a noticeable
   frame hitch. Measure after async loading step B (which cost: room file and
