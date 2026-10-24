@@ -126,7 +126,7 @@ fn a_lizard_leaving_the_lobby_flashes_its_entrance_in_its_effect_colour() {
         updates: 0,
         owner: VesselOwner::Shortcut(v),
     };
-    assert!(g.creature_lobby_step(v, lobby, &mut ()));
+    assert!(g.creature_lobby_step(v, lobby));
     assert_eq!(
         g.take_entrance_colors(),
         [EntranceColor {

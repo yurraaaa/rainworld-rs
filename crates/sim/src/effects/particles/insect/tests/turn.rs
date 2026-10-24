@@ -72,7 +72,7 @@ impl RainWorldGame {
     fn camera_to_second_room(&mut self) {
         self.activate_room(2).expect("loads");
         self.world.finish_loading();
-        self.camera_moves_to(2, 0, &mut ());
+        self.camera_moves_to(2, 0);
     }
 }
 
@@ -94,7 +94,7 @@ fn the_start_room_rolls_its_insects_at_the_head_of_the_first_tick() {
     assert!(!ticked.is_empty());
 
     let mut alone = flies_game();
-    alone.apply_insect_view_change();
+    alone.apply_view_change(&mut ());
     let made: Vec<Vec2> = alone.insect_places(0).iter().map(|&(pos, _)| pos).collect();
     assert_eq!(spawned_at(&ticked), made);
 }
@@ -118,7 +118,7 @@ fn a_camera_move_rolls_the_new_rooms_insects_at_the_head_of_the_next_tick() {
         alone.tick(Input::NONE, &mut ());
     }
     alone.camera_to_second_room();
-    alone.apply_insect_view_change();
+    alone.apply_view_change(&mut ());
     assert!(alone.insect_places(0).is_empty());
     let made: Vec<Vec2> = alone.insect_places(2).iter().map(|&(pos, _)| pos).collect();
 

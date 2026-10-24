@@ -326,8 +326,8 @@ fn the_quad_keeps_full_power_in_a_powered_room() {
 #[test]
 fn a_second_move_before_the_first_tick_replaces_the_first() {
     let mut g = grab_game("GravityDisruptor><100><100><", &[("ZeroGSpecks", 0.01)], 0);
-    g.camera_moves_to(0, 0, &mut WithGraphics);
-    g.camera_moves_to(0, 0, &mut WithGraphics);
+    g.camera_moves_to(0, 0);
+    g.camera_moves_to(0, 0);
     let room = g.world.realized(0).expect("room");
     assert!(
         room.particles.specks.is_empty(),

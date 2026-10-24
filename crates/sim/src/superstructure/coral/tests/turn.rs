@@ -429,7 +429,7 @@ impl PlayerObserver for StrandObserver {
 fn the_first_rooms_overseer_registers_before_the_wall() {
     let mut observer = StrandObserver::default();
     let mut g = coral_game_observed(WALL, &[], 0, Sounds::default(), true, &mut observer);
-    g.apply_insect_view_change();
+    g.apply_view_change(&mut ());
     g.load_room_now(0, &mut observer);
     let system = g.world.realized(0).unwrap().coral.as_ref().unwrap();
     let registry = g.world.mycelia().registry(system.id);
@@ -451,7 +451,7 @@ fn dropped_modules_do_not_pile_up_strands() {
     for (placed, kept) in [("", false), (WALL, true)] {
         let mut observer = StrandObserver::default();
         let mut g = coral_game_observed(placed, &[], 0, Sounds::default(), true, &mut observer);
-        g.apply_insect_view_change();
+        g.apply_view_change(&mut ());
         g.load_room_now(0, &mut observer);
         let cid = g
             .world

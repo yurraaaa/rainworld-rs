@@ -94,7 +94,7 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `Room.NowViewed` makes shared-stream draws for GreenSparks, ZeroGSpecks (`BlinkSpeck`),
   CorruptionSpores and FairyParticles in its effect loop before the insect roll
   (`Room.cs` ~2632-2700, then `insectCoordinator.NowViewed`); the steps porting those
-  effects place their draws before `apply_insect_view_change`'s roll. No base room has
+  effects place their draws before `apply_view_change`'s roll (`NowViewed` runs the effects, then the creatures' graphics modules, then the insects, as the game). No base room has
   both today. Step 6 (SkyDandelions, GreenSparks, ZeroGSpecks, CorruptionSpores, D29,
   notes `particles.md`) done that way (`particles_now_viewed`); zero gravity is ported (D34), so the specks
   drift in `ZeroG` rooms.
@@ -169,7 +169,8 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   port's `camera_moves_to` sets the camera's room at once, where the game's
   `cameras[0].room` stays the old room until `ApplyPositionChange` at the next
   `RoomCamera.Update` (the app's camera and shortcut graphics now wait for it, step C;
-  the sim's switch is still at once). For the rest of that tick `ScreenMovement`s and the drips'
+  the sim's `camera_room` switch is still at once, but the rooms' `NoLongerViewed`/`NowViewed`,
+  creature modules included, wait for `apply_view_change` at the next tick's head). For the rest of that tick `ScreenMovement`s and the drips'
   viewed check go to the new room, as does `Room.Update`'s ceiling drip (`BeingViewed`).
 - **Creatures at open room edges** (user, 2026-10-22, for when more creatures get
   bodies): room borders are not solid (`Room.GetTile` copies the edge tile outside the

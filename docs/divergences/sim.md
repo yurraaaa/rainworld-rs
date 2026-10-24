@@ -830,8 +830,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
   (`PreLoadTexture`), apply in the camera's next update (`applyPosChangeWhenTextureIsLoaded`);
   `ChangeRoom` then runs `ShortcutGraphics.NewRoom`, and `Draw` polls
   `waitingForRoomToGenerateShortcuts` until the room is `shortCutsReady`. What stays: the
-  sim's `camera_moves_to` still switches the camera room, `NoLongerViewed`/`NowViewed` and
-  `camerasChangedTick` at the move, not at the apply (OPEN-ITEMS, "Camera room switches
+  sim's `camera_moves_to` still switches the camera room at the move, not at the apply (`NoLongerViewed`/`NowViewed` and
+  `camerasChangedTick` do wait for it: `apply_view_change`) (OPEN-ITEMS, "Camera room switches
   mid-tick"); while a room move waits the frame keeps drawing the old room: its image
   and, as the game's old leasers do, its creatures, items and holograms (the app's
   `shown_room` is `camera.room`; the sprite order changes room at the apply). The player,

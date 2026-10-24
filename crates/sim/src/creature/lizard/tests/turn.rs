@@ -627,7 +627,8 @@ fn a_dropped_graphics_loop_emitter_dies_at_its_second_update() {
     });
     g.world.lizard_at(l).graphics = Some(link);
     g.sounds.take_events();
-    g.camera_changed_room(0, 0, &mut ());
+    g.modules_no_longer_viewed(0, &mut ());
+    g.modules_now_viewed(0, &mut ());
     let stops = g.lizard_loop_stops();
     assert_eq!(stops, vec![], "the drop");
     assert_eq!(g.world.lizard_ref(l).dropped_loop_emitters.len(), 1);

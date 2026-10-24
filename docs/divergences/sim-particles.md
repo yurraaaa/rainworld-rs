@@ -25,13 +25,6 @@ game's order. Notes: `../../rainworld-re/notes/particles.md`.
 - **Sprite-making draws on first draw.** A spore's `Pebble{n}` (`Random.Range(1, 15)`,
   the cosmetic stream, D1) is drawn the first time the app draws it, in update order,
   not when the camera's `ChangeRoom` makes the leasers in `drawableObjects` order.
-- **`NowViewed` order (F1; user, 2026-10-23: the order of these draws does not matter,
-  keep it as a divergence).** The game's `Room.NowViewed` (inside `RoomCamera.ChangeRoom`)
-  runs the effects loop (sparks, specks, spores), then `InitiateGraphicsModule`, then
-  `insectCoordinator.NowViewed`. The port makes the graphics modules' draws at once in
-  `camera_changed_room` and the particles' and insects' at the next tick's head
-  (`apply_insect_view_change`). Same draws, in another order, when the camera enters a
-  particle room holding a fly, overseer or lizard.
 - **DLC and Remix branches omitted:** `ModManager.MSC` flips every x sign of a
   `GreenSpark` (`+0.11`, the heading's `0.6`, the wind's `0.1`) and lets sparks enter at
   the right edge; Remix (`MMF`) takes the specks' window width from
