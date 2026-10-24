@@ -5,8 +5,15 @@ Default inner loop, per crate, from the worktree root:
 ```
 cargo check -p <crate>
 cargo test --release -p <crate> <filter>      # filter = test or module name
-scripts/check.sh <crate> [filter]             # fmt, check, clippy -D warnings, release tests
+scripts/check.sh <crate> [filter...]         # fmt, check, clippy -D warnings, release tests, mirrors
 ```
+
+`check.sh` is compact: one `ok <stage> (<secs>s)` line per stage and a test
+summary summed over the `test result:` lines; a failing stage prints only its
+errors (fmt diff, compiler errors with spans, failing tests' output) and
+exits nonzero. Installed-game tests that skip are counted (`N skipped (game
+missing)`, from their `skipping:` lines, which `check.sh` sees by running the
+tests with `--nocapture`). `--verbose` gives cargo's full output.
 
 Packages: `rw-random`, `rw-assets`, `rw-save`, `rw-sim`, `rw-graphics`,
 `rw-audio`, `rw-render`, `rw-menu`, `rw-hud`, `rainworld-rs` (`crates/app`).
@@ -31,7 +38,8 @@ named `installed_*`; not checked individually whether any read the game.
   (and the crates that depend on it only if you changed a public item).
 - Full workspace (`cargo fmt --all -- --check`, `cargo clippy --workspace
   --all-targets`, `cargo test --release --workspace`): the orchestrator's
-  merge step only (skill `merge-branch`). Agents never run it.
+  merge step only (skill `merge-branch`), as `scripts/merge_check.sh <worktree>`
+  (same compact output; `-p <pkg>` limits the cargo stages). Agents never run it.
 
 ## Parallel worktrees and cargo's lock
 
