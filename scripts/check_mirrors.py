@@ -158,18 +158,25 @@ def write_doc(rows, counts):
 
 
 def readme_errors(files):
-    """Every source file must be named in its crate's README.md file map."""
+    """Every source file must be named in its crate's README.md or in a README.md of an ancestor folder inside the crate's src/."""
     texts = {}
     errs = []
+
+    def read(path):
+        if path not in texts:
+            full = os.path.join(ROOT, path)
+            texts[path] = open(full).read() if os.path.exists(full) else ""
+        return texts[path]
+
     for f in files:
-        crate = f.split("/")[1]
-        if crate not in texts:
-            with open(os.path.join(ROOT, "crates", crate, "README.md")) as fh:
-                texts[crate] = fh.read()
         parts = f.split("/")
+        crate = parts[1]
         key = parts[-2] + "/" if parts[-1] == "mod.rs" else parts[-1]
-        if key not in texts[crate]:
-            errs.append(f"{f}: not named in crates/{crate}/README.md (looked for `{key}`)")
+        readmes = [f"crates/{crate}/README.md"]
+        for n in range(3, len(parts)):
+            readmes.append("/".join(parts[:n]) + "/README.md")
+        if not any(key in read(r) for r in readmes):
+            errs.append(f"{f}: not named in crates/{crate}/README.md or a README.md of its folders (looked for `{key}`)")
     return errs
 
 

@@ -51,11 +51,11 @@ Rules for this task:
 - Keep the navigation docs true: a file you add, rename or move gets a
   `//! Mirrors: <Type>.cs` header (or `Mirrors: - (port-only: reason)`);
   `python3 scripts/check_mirrors.py` must exit 0. Every file you add, rename,
-  move or delete is reflected in that crate's `README.md` file map, and a
-  README line you made untrue is corrected in the same change. A new crate
-  or top-level module also updates `docs/MAP.md`. Do not commit the generated
-  `docs/MIRRORS.md` / `docs/PORT-STATUS.md` (the orchestrator regenerates
-  them at merge); `git checkout` them if changed.
+  move or delete is reflected in the README file map that covers it (crate
+  or topic folder), and a README line you made untrue is corrected in the
+  same change. A new crate or top-level module also updates `docs/MAP.md`.
+  Do not commit the generated `docs/MIRRORS.md` / `docs/PORT-STATUS.md` (the
+  orchestrator regenerates them at merge); `git checkout` them if changed.
 - Run only the per-crate commands in docs/checks.md, not the workspace suite.
 - Send no progress updates or status pings. One final report; a message to
   `main` (SendMessage) only when blocked on a decision you cannot make.
