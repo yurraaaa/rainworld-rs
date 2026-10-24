@@ -56,7 +56,7 @@ integration tests.
 | `shortcut_turn.rs` | `ShortcutHandler.Update`: vessels in the tubes, the between-rooms lobby, room exits, arrival and camera 0 following | `ShortcutHandler.Update`, `RoomCamera.MoveCamera` |
 | `shortcut_helper.rs` | `ShortcutHelper`, `ShortcutPusher`, `ObjectPusher`: the pushers at a room's entrances (wrong holes, valid neighbours, swell), the objects being pushed out, the round-robin's pick per layer | `ShortcutHelper` |
 | `shortcut_helper_turn.rs` | the helper's turn in the update list: the player push, the `checkObj` round-robin over `physicalObjects`, `ObjectPusher.Update`, `PopsOutOfDeadShortcuts`, `CanBePulledIntoShortcut` | `ShortcutHelper`, `Room.ShortCutsReady` |
-| `dev_turn.rs` | dev spawns/teleports through the game's own paths and the dev rain timer control (MCP, debug UI) | - (port dev tool, D18) |
+| `dev_turn.rs` | dev spawns/teleports through the game's own paths and the dev rain timer control and rain rewind (MCP, debug UI) | - (port dev tool, D18) |
 | `exit_turn.rs` | what pause/`ExitGame` read | `RainWorldGame.ExitGame` |
 | `instructions_turn.rs` | `Room.Loaded`'s placed room objects (guide triggers, placed lights, slime molds, dead token stalks, projected stars), input-instruction triggers | `SuperJumpInstruction`, `ReliableIggyDirection` |
 | `map_turn.rs` | map discovery from the player's position | `Player.Update` discovery |

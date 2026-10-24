@@ -86,6 +86,24 @@ impl RainWorldGame {
         cycle.death_rain_has_hit = false;
     }
 
+    /// Port-only dev rewind (D44): when the timer is before the cycle's end, everything the
+    /// rain built up goes: the global rain, each realized room's `RoomRain` intensity, flood
+    /// level and added water, and every creature's and the player's `rainDeath`. Makes no
+    /// draws; leaves a timer at or past the end alone.
+    pub fn dev_rewind_rain(&mut self) {
+        if self.world.rain_cycle.time_until_rain() <= 0 {
+            return;
+        }
+        self.dev_reset_global_rain();
+        for room in self.world.realized.iter_mut().flatten() {
+            room.dev_rewind_rain();
+        }
+        self.world.dev_clear_rain_death();
+        if let Some(p) = self.player.as_mut() {
+            p.rain_death = 0.0;
+        }
+    }
+
     /// Sets `cycleLength` (at least 1); `sunDownStartTime`, drawn at construction, stays.
     pub fn dev_set_rain_cycle_length(&mut self, length: i32) {
         let cycle = &mut self.world.rain_cycle;

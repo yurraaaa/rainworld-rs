@@ -32,8 +32,14 @@ Game bugs are kept (user decision, 2026-10-24).
   (D4), so none of those arms runs. The ghost-mode gate of `AllowRainCounterToTick`
   (echoes). Gamepad rumble: `controllerShake` and
   `ControllerHandler.UpdateWarning`. The game's dev `ResetRain` is not
-  ported; the dev rain timer's `restart`/`stop` reset the global rain instead (port-only),
-  while setting the timer back leaves a started death rain running.
+  ported; the dev rain timer's dev rain timer instead rewinds the rain (port-only, user, 2026-10-24): any edit of
+  `cycle_length`, `restart`, `stop`, `timer` or `shift` that leaves `TimeUntilRain > 0`
+  resets the global rain (`GlobalRain` default, `deathRainHasHit`), each realized room's
+  `RoomRain` intensity and `lastIntensity` to 0 (its loops fall silent on their next
+  update), its water to `originalWaterLevel` (as realized with flood 0), water that
+  `Room.AddWater` gave a dry room (the file's dry room returns; no `Water`, `WaterSound`
+  or `added_water`), and every creature's and the player's `rainDeath`; no draws. A timer
+  at or past the end changes nothing.
 - **Branches of the DLCs and Remix (listed, not ported):** the precycle (`preTimer`, the pulse
   waves, `drainWorldFlood`, `FloodHelpUp`, `forceSlowFlood`, the flood speed's second
   arm), More Slugcats' `DeathRainMode.Pulses` (the second 0.7 draw), the forced
