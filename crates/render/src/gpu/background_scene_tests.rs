@@ -44,6 +44,7 @@ fn frame(r: &mut WgpuRenderer, behind: Vec<DrawItem>, over: Vec<DrawItem>) -> Fr
         noise: &noise,
         params: LevelParams::DEFAULT,
         rain_mask: None,
+        room_size: None,
     });
     r.begin_frame(Camera::window([0.0, 0.0], [64.0, 64.0], (64, 64)));
     r.set_background(Color::rgb(0.0, 0.0, 0.0));

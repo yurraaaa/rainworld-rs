@@ -150,6 +150,7 @@ fn background_shortcut_reads_the_level_behind_it() {
             ..LevelParams::DEFAULT
         },
         rain_mask: None,
+        room_size: None,
     });
     let DrawItem::Sprite(mut pipe) =
         white_sprite(Shader::ShortCut0, SpriteColor::rgb(1.0, 0.0, 0.0))
@@ -229,6 +230,7 @@ fn colored_sprite3_colours_by_depth_from_the_palette() {
             ..LevelParams::DEFAULT
         },
         rain_mask: None,
+        room_size: None,
     });
     r.draw_level(LevelView {
         origin: [0.0, 0.0],
@@ -310,6 +312,7 @@ fn colored_sprite3_tests_the_level_texel_under_the_pixel() {
             ..LevelParams::DEFAULT
         },
         rain_mask: None,
+        room_size: None,
     });
     let window = [-0.02, -0.02];
     r.begin_frame(Camera::window(window, [64.0, 64.0], SIZE));
@@ -390,6 +393,7 @@ fn set_sunlit_level(r: &mut WgpuRenderer, light_dir: [f32; 2]) {
             ..LevelParams::DEFAULT
         },
         rain_mask: None,
+        room_size: None,
     });
 }
 
@@ -491,6 +495,7 @@ fn palette_rewrite_refreshes_the_fog_amount() {
             ..LevelParams::DEFAULT
         },
         rain_mask: None,
+        room_size: None,
     });
     let view = LevelView {
         origin: [0.0, 0.0],
@@ -563,6 +568,7 @@ fn specific_depth_shows_on_its_own_layer() {
         noise: &noise,
         params: LevelParams::DEFAULT,
         rain_mask: None,
+        room_size: None,
     });
     let behind = DrawList {
         items: vec![frame_quad(
@@ -685,6 +691,7 @@ fn custom_depth_shows_in_front_of_the_level_layer() {
         noise: &noise,
         params: LevelParams::DEFAULT,
         rain_mask: None,
+        room_size: None,
     });
     r.draw_level(LevelView {
         origin: [0.0, 0.0],
@@ -785,6 +792,7 @@ fn wet_rows(r: &mut WgpuRenderer, wet: f32, water_level: f32) -> Vec<[u8; 64]> {
             ..LevelParams::DEFAULT
         },
         rain_mask: None,
+        room_size: None,
     });
     r.begin_frame(Camera::window([0.0, 0.0], [64.0, 64.0], SIZE));
     r.draw_level(LevelView {

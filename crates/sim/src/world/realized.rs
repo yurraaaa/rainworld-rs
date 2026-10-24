@@ -37,7 +37,7 @@ pub struct RealizedRoom {
     /// `Room.Loaded`'s `AddWater`.
     pub water: Option<Water>,
     /// The `RainMask_<room>` atlas: made by the first asker of this realization
-    /// (`GetOrGenerateShelterTex`), dropped with the room (`Room.Unloaded`).
+    /// (`GenerateShelterTex`; the cache keeps the first), dropped with the room (`Room.Unloaded`).
     rain_mask: OnceLock<Arc<RainMask>>,
     /// `loadingProgress`: 0 while loading, 1 once `ShortCutsReady`, 2 during
     /// `ReadyForAI`, 3 once fully loaded.
@@ -145,8 +145,9 @@ pub struct RealizedRoom {
 }
 
 impl RealizedRoom {
-    /// `RoomRain.GetOrGenerateShelterTex`: the first call generates the mask from the room's
-    /// tiles as they are then; later calls get that one (the atlas keeps its first texture).
+    /// `RoomRain.GenerateShelterTex` as `WaterLight` reaches it through
+    /// `GetOrGenerateShelterTex`: the first call generates the mask from the room's tiles as
+    /// they are then; later calls get that one (the cache keeps the first texture).
     pub fn rain_mask(&self) -> &Arc<RainMask> {
         self.rain_mask
             .get_or_init(|| Arc::new(RainMask::generate(&self.room)))

@@ -51,8 +51,8 @@ use super::reply::{
     CameraShakeState, DangerInfo, HoloLightState, LightSourceState, MusicState, TriggerState,
 };
 use super::reply::{
-    DeathFallState, FullScreenEffectState, LevelParamsState, SpearOnBackInfo, SpriteLeaserState,
-    WaterLightState,
+    DeathFallState, FullScreenEffectState, LevelParamsState, RainMaskState, SpearOnBackInfo,
+    SpriteLeaserState, WaterLightState,
 };
 use super::reply::{
     FleeInfo, HeavyAiInfo, HuntInfo, LightningState, LoungeInfo, OwnedItemState, ShelterIconState,
@@ -599,6 +599,7 @@ impl Session {
                 .shortcut_wait()
                 .map(|(room, waiting)| super::reply::ShortcutGraphicsState { room, waiting }),
             death_fall: DeathFallState::all(sim.world()),
+            rain_masks: RainMaskState::all(sim.world()),
             water_light: scene.water_light().map(WaterLightState::from),
             level_params: scene.level_state().map(LevelParamsState::from),
             shelter_door: sim

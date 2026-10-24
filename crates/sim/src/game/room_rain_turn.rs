@@ -54,7 +54,7 @@ impl RainWorldGame {
         let flood = self.world.rain_cycle.global_rain.flood;
         if let Some(r) = self.world.realized_mut(index) {
             r.room_rain = Some(RoomRain::new(order, &r.room, danger, shelter));
-            // The constructor's `GenerateShelterTex` is the atlas's first asker.
+            // The constructor calls `GenerateShelterTex` directly (the cache keeps the first).
             r.rain_mask();
             // The constructor: every room with a water object starts at the flood's
             // offset (the precycle limits it to flooding rooms).

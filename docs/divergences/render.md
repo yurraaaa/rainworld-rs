@@ -121,12 +121,12 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   The room camera's `WaterLight` (`app/src/water_light.rs`, `fs_water_light`) is drawn
   as the game's, first in `Foreground` after the level. Its `RainMask_<room>` texture
   (`rw_assets::RainMask`, `GenerateShelterTex` without the rain's outputs) is made as the
-  game's `GetOrGenerateShelterTex`: once per realization of the room
-  (`RealizedRoom::rain_mask`), by its first asker (the `RoomRain` constructor at
-  `Room.Loaded`, else the camera's `WaterLight` in a room with water), and dropped with
-  the realized room (`Room.Unloaded` unloads the atlas, survey `rain-mask-cache.md`). A
-  room nobody asks (no rain, no water) gets a stand-in generated at camera entry, only
-  for the level view's room size and read by nothing (D49). `SetPixel` past the
+  game's cache: once per realization of the room
+  (`RealizedRoom::rain_mask`), by its first asker (the `RoomRain` constructor's
+  `GenerateShelterTex` at `Room.Loaded`, else `WaterLight`'s `GetOrGenerateShelterTex` at
+  the camera's `ChangeRoom` in a room with water), kept and dropped with the realized
+  room (`Room.Unloaded` unloads the atlas, survey `rain-mask-cache.md`). A room nobody
+  asks has no mask; the level view's `_camInRoomRect` takes the room's pixel size. `SetPixel` past the
   top row wraps to row 0 (INFERRED: Unity's default `Repeat` wrap, set to `Clamp` only
   after the fill). The mask is sampled bilinear at mip 0 (the game's has mips, but
   WaterLight magnifies it); `half` maths runs in f32. The generator's `HasAnySolid`
@@ -136,8 +136,8 @@ showing only through sky and depth >= 5, and the room camera's zone switching an
   `PaletteDarkness` is omitted.
   Another room's MCP screenshot draws the room's full-screen effect, death fall and
   water light as a camera 0 viewing that room would (the death fall's height under a
-  camera showing the asked camera position; the water light's `RainMask_` is generated
-  for the shot, from the room's tiles), and `_waterLevel` takes the water's or the death
+  camera showing the asked camera position; the water light's `RainMask_` is the
+  realization's cached one when made), and `_waterLevel` takes the water's or the death
   fall's line.
 - **Not drawn:** room
   effects that grade colours (Darkness, Brightness, Contrast, Desaturation, Hue, DayNight:
@@ -264,17 +264,3 @@ level as `BackgroundClipVanilla` does. What differs:
 
 **Affects.** One-pixel rounding where the
 game's own sampling differs from the shader's emulation.
-
-## D49: The `RainMask_` stand-in for a room nobody asks
-
-The game makes a room's `RainMask_<room>` atlas only when the `RoomRain` constructor or
-`WaterLight.NewRoom` asks (`GetOrGenerateShelterTex`); the port keeps that moment and
-lifetime (`RealizedRoom::rain_mask`: the first ask per realization, dropped with the
-realized room). A realized room with neither rain nor water (an intact shelter, a dry
-room) has no atlas in the game; the level view still needs the room's size, so the app
-generates an uncached mask at camera entry, read by nothing else.
-
-**Why.** The level graphic's `room_size` comes from the mask; a later first ask in a
-shelter would see the closed door's tiles, which the game never samples.
-
-**Affects.** Nothing visible.

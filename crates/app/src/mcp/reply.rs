@@ -114,6 +114,9 @@ pub struct State {
     /// Every realized room's `DeathFallGraphic` (a room with an open bottom).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub death_fall: Vec<DeathFallState>,
+    /// Every realized room's `RainMask_` atlas state.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub rain_masks: Vec<RainMaskState>,
     /// The room camera's `WaterLight`, in a room with water.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub water_light: Option<WaterLightState>,
@@ -767,6 +770,32 @@ pub struct DeathFallState {
     pub counter: i32,
     /// The sprite's alpha at the end of the tick.
     pub alpha: f32,
+}
+
+/// A realized room's `RainMask_` atlas: made by the first asker of the realization.
+#[derive(Debug, Clone, Serialize)]
+pub struct RainMaskState {
+    pub room: String,
+    pub rain_mask_made: bool,
+}
+
+impl RainMaskState {
+    /// Every realized room's.
+    #[must_use]
+    pub fn all(world: &rw_sim::world::World) -> Vec<Self> {
+        world
+            .active_rooms()
+            .into_iter()
+            .filter_map(|i| {
+                Some(Self {
+                    room: world
+                        .abstract_room(i)
+                        .map_or_else(|| format!("#{i}"), |r| r.name.clone()),
+                    rain_mask_made: world.realized(i)?.rain_mask_if_made().is_some(),
+                })
+            })
+            .collect()
+    }
 }
 
 /// The room camera's `WaterLight`.
