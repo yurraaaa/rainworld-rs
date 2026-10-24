@@ -143,6 +143,9 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `../rainworld-re/surveys/lizards.md` (user decisions).
 
 ## To look into
+- **`FluxWaterfall`, `FluxDrain`** (user, 2026-10-24: ignore until used): base-game objects reading
+  `globalRain.floodSpeed`, made by `Room.Loaded` with no `ModManager` test; no installed room places them
+  (D44).
 - **SU_C04 start-up tests pin stream-dependent positions** (2026-10-24): `su_c04_start_up_survivor`/`_monk`
   (`crates/app/src/mcp/tests.rs`) pin the start rod's spread and the push's end tick, which move whenever a
   draw is added before the start (re-pinned from runs after ShortcutHelper and rain R0+R1). Rewrite them to
