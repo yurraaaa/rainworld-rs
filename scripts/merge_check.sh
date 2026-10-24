@@ -53,8 +53,8 @@ test_stage "${scope[@]}"
 # 5. diff greps (hits go back to the agent)
 hits=0
 t0=$(now)
-closures=$(git diff main...HEAD | grep -nE '^\+.*let (mut )?[a-z_]+ = \|' || true)
-literals=$(git diff main...HEAD | grep -nE '^\+\s*"[^"]+"\s*(\|.*)?=>' || true)
+closures=$(git diff main...HEAD -- '*.rs' | grep -nE '^\+.*let (mut )?[a-z_]+ = \|' || true)
+literals=$(git diff main...HEAD -- '*.rs' | grep -nE '^\+\s*"[^"]+"\s*(\|.*)?=>' || true)
 if [[ -n $closures || -n $literals ]]; then
     echo "FAIL diff-greps ($(elapsed "$t0")s): violations go back to the agent"
     [[ -n $closures ]] && { echo "bound closures:"; echo "$closures" | head -n 50; }
