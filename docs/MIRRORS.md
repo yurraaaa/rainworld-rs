@@ -12,13 +12,13 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | app | 17 | 36 | 0 | 0 |
 | assets | 25 | 13 | 0 | 0 |
 | audio | 11 | 5 | 0 | 0 |
-| graphics | 54 | 22 | 0 | 0 |
+| graphics | 55 | 22 | 0 | 0 |
 | hud | 24 | 0 | 0 | 0 |
 | menu | 27 | 2 | 0 | 0 |
 | random | 0 | 1 | 0 | 0 |
 | render | 7 | 19 | 0 | 0 |
 | save | 15 | 5 | 0 | 0 |
-| sim | 259 | 20 | 0 | 0 |
+| sim | 261 | 20 | 0 | 0 |
 
 ## Rust file to C# files
 
@@ -157,6 +157,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/graphics/src/creature/overseer/hologram_shape.rs` | mirrors | OverseerHolograms/OverseerHologram.cs, OverseerTutorialBehavior.cs |
 | `crates/graphics/src/creature/overseer/mod.rs` | port-only | - |
 | `crates/graphics/src/effects/cosmetic.rs` | mirrors | ExplosionSpikes.cs, NeuronSpark.cs, Spark.cs |
+| `crates/graphics/src/effects/gameplay/bullet_drip.rs` | mirrors | BulletDrip.cs |
 | `crates/graphics/src/effects/gameplay/electric_death.rs` | mirrors | ElectricDeath.cs |
 | `crates/graphics/src/effects/gameplay/mod.rs` | port-only | - |
 | `crates/graphics/src/effects/gameplay/room_rain.rs` | mirrors | RoomRain.cs |
@@ -447,6 +448,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/sim/src/effects/sky/lightning_turn.rs` | mirrors | Room.cs |
 | `crates/sim/src/effects/sky/mod.rs` | port-only | - |
 | `crates/sim/src/effects/sky/roof_top_view.rs` | mirrors | CosmeticSprite.cs, RoofTopView.cs |
+| `crates/sim/src/game/bullet_drip_turn.rs` | mirrors | BulletDrip.cs, RoomRain.cs |
 | `crates/sim/src/game/camera.rs` | mirrors | Room.cs, RoomCamera.cs |
 | `crates/sim/src/game/camera_image.rs` | mirrors | RoomCamera.cs |
 | `crates/sim/src/game/campaign.rs` | mirrors | RainWorldGame.cs, SaveState.cs, SlugcatStats.cs |
@@ -573,6 +575,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/sim/src/world/ai_map/movement.rs` | mirrors | AItile.cs, MovementConnection.cs, PathCost.cs |
 | `crates/sim/src/world/ai_map/quick_connectivity.rs` | mirrors | QuickConnectivity.cs |
 | `crates/sim/src/world/ai_map/quick_path.rs` | mirrors | QuickPathFinder.cs |
+| `crates/sim/src/world/bullet_drip.rs` | mirrors | BulletDrip.cs |
 | `crates/sim/src/world/creatures.rs` | mirrors | AbstractCreature.cs, AbstractCreatureAI.cs, AbstractRoom.cs |
 | `crates/sim/src/world/dens.rs` | mirrors | AbstractCreature.cs, AbstractPhysicalObject.cs, AbstractRoom.cs |
 | `crates/sim/src/world/global_rain.rs` | mirrors | GlobalRain.cs |
@@ -619,6 +622,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `BodyChunk.cs` | `crates/sim/src/creature/ai_modules/vision.rs`, `crates/sim/src/physics/chunk.rs` |
 | `BodyPart.cs` | `crates/graphics/src/body/body_part.rs` |
 | `Bubble.cs` | `crates/graphics/src/water/bubble.rs`, `crates/sim/src/water/bubble.rs` |
+| `BulletDrip.cs` | `crates/graphics/src/effects/gameplay/bullet_drip.rs`, `crates/sim/src/game/bullet_drip_turn.rs`, `crates/sim/src/world/bullet_drip.rs` |
 | `Centipede.cs` | `crates/sim/src/creature/centipede.rs` |
 | `CicadaAbstractAI.cs` | `crates/sim/src/creature/abstract_ai/kinds.rs`, `crates/sim/src/creature/abstract_ai/kinds_world.rs` |
 | `ClimbableVinesSystem.cs` | `crates/sim/src/vines/mod.rs` |
@@ -836,7 +840,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `RoomCamera.cs` | `crates/app/src/full_screen_effect.rs`, `crates/app/src/game.rs`, `crates/app/src/scene.rs`, `crates/app/src/sprite_order.rs`, `crates/app/src/visuals.rs`, `crates/app/src/water_light.rs`, `crates/assets/src/palette.rs`, `crates/render/src/level.rs`, `crates/render/src/room_camera.rs`, `crates/sim/src/creature/fly/turn.rs`, `crates/sim/src/effects/particles/insect/turn.rs`, `crates/sim/src/game/camera.rs`, `crates/sim/src/game/camera_image.rs`, `crates/sim/src/game/rain_turn.rs`, `crates/sim/src/game/screen_shake.rs`, `crates/sim/src/game/shortcut_turn.rs` |
 | `RoomPreparer.cs` | `crates/sim/src/world/room_preparer.rs` |
 | `RoomPreprocessor.cs` | `crates/assets/src/nodes.rs`, `crates/sim/src/world/ai_map/creature_ai_map.rs` |
-| `RoomRain.cs` | `crates/assets/src/rain_mask.rs`, `crates/graphics/src/effects/gameplay/room_rain.rs`, `crates/sim/src/game/room_rain_turn.rs`, `crates/sim/src/world/realized.rs`, `crates/sim/src/world/room_rain.rs`, `crates/sim/src/world/room_rain_sound.rs` |
+| `RoomRain.cs` | `crates/assets/src/rain_mask.rs`, `crates/graphics/src/effects/gameplay/room_rain.rs`, `crates/sim/src/game/bullet_drip_turn.rs`, `crates/sim/src/game/room_rain_turn.rs`, `crates/sim/src/world/realized.rs`, `crates/sim/src/world/room_rain.rs`, `crates/sim/src/world/room_rain_sound.rs` |
 | `RoomRealizer.cs` | `crates/sim/src/world/realizer.rs` |
 | `RoomSettings.cs` | `crates/assets/src/ambient.rs`, `crates/assets/src/placed.rs`, `crates/assets/src/placed_types.rs`, `crates/assets/src/settings.rs`, `crates/assets/src/triggers.rs` |
 | `RoomSpecificScript.cs` | `crates/sim/src/game/room_script.rs` |
