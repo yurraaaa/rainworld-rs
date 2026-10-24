@@ -340,7 +340,7 @@ impl RoomShot {
         let water = game.sim().world().realized(self.room)?.water.as_ref()?;
         let front = water.draw_points(1.0).map(Vec2::to_array).collect();
         let back = water.back_draw_points(1.0).map(Vec2::to_array).collect();
-        Some(WaterSurface::from_rows(front, back, water.still_level()))
+        Some(WaterSurface::from_rows(front, back, water.draw_level(1.0)))
     }
 
     /// The room's `DeathFallGraphic`, as the viewing camera's `Update` leaves it: its
@@ -374,7 +374,7 @@ impl RoomShot {
         }
         let water = world.realized(self.room)?.water.as_ref();
         Some(match (water, self.death_fall(game)) {
-            (Some(w), _) => w.still_level() + 100.0,
+            (Some(w), _) => w.f_water_level + 100.0,
             (None, Some((_, height))) => height + 180.0,
             (None, None) => 0.0,
         })

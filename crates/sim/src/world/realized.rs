@@ -101,6 +101,8 @@ pub struct RealizedRoom {
     pub dripping_sound: Option<crate::DrippingSound>,
     /// The water's calm surface loop, made with the water.
     pub water_sound: Option<crate::WaterSound>,
+    /// The water was made by `Room.AddWater` during play (the rain's flood), not loaded.
+    pub added_water: bool,
     /// `Room.Loaded`'s `AboveCloudsView`s and `RoofTopView`s.
     pub background_scenes: Vec<crate::BackgroundScene>,
     /// The `DustpuffSpawner`s (a `RoofTopView`'s constructor makes one) and their
@@ -203,13 +205,7 @@ impl RealizedRoom {
         let insects = crate::insect::InsectCoordinator::for_room(&loaded.settings, timeline, mods);
         let ceiling_tiles = Self::find_ceiling_tiles(&loaded.room);
         let border_exits = loaded.room.border_exits(shelter_or_gate);
-        let mut water = Water::new(&loaded.room, &loaded.settings);
-        if let Some(w) = water.as_mut() {
-            w.rumble.active = loaded.settings.rain_danger(mods);
-        }
-        let water_sound = water
-            .as_ref()
-            .and_then(|_| crate::WaterSound::new(&loaded.room));
+        let (water, water_sound) = Self::make_water(&loaded.room, &loaded.settings, mods);
         Self {
             room: Arc::new(loaded.room),
             settings: loaded.settings,
@@ -249,6 +245,7 @@ impl RealizedRoom {
             ceiling_tiles,
             dripping_sound: None,
             water_sound,
+            added_water: false,
             lightning: None,
             electric_deaths: Vec::new(),
             room_rain: None,
@@ -263,6 +260,37 @@ impl RealizedRoom {
             shortcut_helper: None,
             cameras_changed_tick: 0,
         }
+    }
+
+    /// `new Water(room, defaultWaterLevel)`: the water with its surface rumble flag, and
+    /// its `waterSounds` loop.
+    fn make_water(
+        room: &Room,
+        settings: &RoomSettings,
+        mods: ActiveMods,
+    ) -> (Option<Water>, Option<crate::WaterSound>) {
+        let mut water = Water::new(room, settings);
+        if let Some(w) = water.as_mut() {
+            w.rumble.active = settings.rain_danger(mods);
+        }
+        let sound = water.as_ref().and_then(|_| crate::WaterSound::new(room));
+        (water, sound)
+    }
+
+    /// `Room.AddWater` in a room without a water object: `defaultWaterLevel` -10 when
+    /// it had none (so `floatWaterLevel`, read only without a water object, no longer
+    /// matters), then the `Water` and its loop. The camera's `NewObjectInRoom` is the
+    /// app's (it makes the surface sprites once the room has water); the waterfalls
+    /// read the room's water each tick, so `ConnectToWaterObject` has nothing to do.
+    pub(crate) fn add_water(&mut self, mods: ActiveMods) {
+        if self.water.is_some() {
+            return;
+        }
+        Arc::make_mut(&mut self.room).add_water();
+        let (water, sound) = Self::make_water(&self.room, &self.settings, mods);
+        self.water = water;
+        self.water_sound = sound;
+        self.added_water = self.water.is_some();
     }
 
     /// `abstractRoom.firstTimeRealized` as `Room.Loaded` sees it.

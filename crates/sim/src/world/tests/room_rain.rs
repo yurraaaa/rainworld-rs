@@ -375,3 +375,51 @@ fn a_smash_draws_a_chunk_and_a_jitter_and_adds_nothing() {
     e.value();
     assert_eq!(rng.value(), e.value());
 }
+
+/// `FloodLevel` (base arm): -100 without a water object; `originalWaterLevel` where the
+/// rain's `dangerType` does not flood; `originalWaterLevel + flood` in `Flood`,
+/// `FloodAndRain` and shelter rains (whose `dangerType` is `Flood`).
+#[test]
+fn flood_level_per_room_type() {
+    let wet = crate::tests::room_with_water(&["....", "....", "....", "####"], 2);
+    let water = crate::Water::new(&wet, &rw_assets::RoomSettings::ANCESTOR).unwrap();
+    assert_eq!(water.original_level(), 50.0);
+    let flood = 33.5;
+    for (danger, shelter, expected) in [
+        (DangerType::Rain, false, 50.0),
+        (DangerType::AerieBlizzard, false, 50.0),
+        (DangerType::Flood, false, 83.5),
+        (DangerType::FloodAndRain, false, 83.5),
+        (DangerType::Rain, true, 83.5),
+    ] {
+        let rain = RoomRain::new(1, &wet, danger, shelter);
+        assert_eq!(
+            rain.flood_level(Some(&water), flood),
+            expected,
+            "{danger:?}"
+        );
+        assert_eq!(rain.flood_level(None, flood), -100.0, "{danger:?}");
+    }
+}
+
+/// The flood arm's test reads the settings' `DangerType` (not the rain's) and then
+/// `TimeUntilRain <= 0 || flood > 0 || defaultWaterLevel > -1`.
+#[test]
+fn the_flood_arm_runs_in_flooding_rooms_once_due() {
+    for danger in [DangerType::Flood, DangerType::FloodAndRain] {
+        assert!(RoomRain::flood_arm_runs(Some(danger), 0, 0.0, None));
+        assert!(RoomRain::flood_arm_runs(Some(danger), 100, 0.5, None));
+        assert!(RoomRain::flood_arm_runs(Some(danger), 100, 0.0, Some(0)));
+        assert!(!RoomRain::flood_arm_runs(Some(danger), 1, 0.0, None));
+        // `AddWater`'s row -10 is not level water.
+        assert!(!RoomRain::flood_arm_runs(Some(danger), 1, 0.0, Some(-10)));
+        assert!(RoomRain::flood_arm_runs(Some(danger), -5, 0.0, Some(-10)));
+    }
+    for danger in [
+        None,
+        Some(DangerType::Rain),
+        Some(DangerType::AerieBlizzard),
+    ] {
+        assert!(!RoomRain::flood_arm_runs(danger, 0, 10.0, Some(3)));
+    }
+}

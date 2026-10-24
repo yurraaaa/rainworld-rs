@@ -1,6 +1,6 @@
 //! The room camera's `WaterLight`: in a room with water, one sprite with the
 //! `WaterLight` shader in `Foreground` (added once, just after the level graphic), from
-//! the surface's left end to its right end and from the still water level up, drawing
+//! the surface's left end to its right end and from `fWaterLevel` up, drawing
 //! faint caustics where the room's `RainMask_` texture is blue.
 //!
 //! Mirrors: WaterLight.cs, RoomCamera.cs (ChangeRoom: waterLight, DrawUpdate: waterLight)
@@ -53,7 +53,7 @@ impl WaterLight {
             items: vec![DrawItem::Sprite(Sprite {
                 index: 0,
                 element: SpriteAtlas::FUTILE_WHITE,
-                pos: Vec2::new(left, water.still_level()),
+                pos: Vec2::new(left, water.f_water_level),
                 rotation: 0.0,
                 scale: Vec2::new(
                     (right - left) / Self::WHITE_SIZE,
@@ -101,7 +101,7 @@ mod tests {
     /// 20 px apart), the still level is 70; 12 tiles high, so 12 * 18.75 = 225 px.
     /// GW_C08's `WaterReflectionAlpha` 0.2934783 under a palette darkness of 0.25.
     #[test]
-    fn sprite_spans_the_surface_from_the_still_level() {
+    fn sprite_spans_the_surface_from_f_water_level() {
         let r = room(3);
         let water = Water::new(&r, &RoomSettings::ANCESTOR).expect("water");
         let settings = RoomSettings {
@@ -118,5 +118,19 @@ mod tests {
         assert_eq!(s.scale * 16.0, Vec2::new(840.0, 225.0));
         assert!((s.color.a - 0.75 * 0.293_478_3).abs() < 1e-6);
         assert_eq!((s.shader, s.layer), (Shader::WaterLight, Layer::Foreground));
+    }
+
+    /// `DrawUpdate` puts the sprite at `fWaterLevel`, which the flood raises.
+    #[test]
+    fn sprite_follows_the_flooded_level() {
+        let r = room(3);
+        let mut water = Water::new(&r, &RoomSettings::ANCESTOR).expect("water");
+        water.f_water_level = 170.0;
+        let light = WaterLight::new(&r, Some(&water), &RoomSettings::ANCESTOR).unwrap();
+        let list = light.draw_list(&water, 0.0);
+        let [DrawItem::Sprite(s)] = list.items.as_slice() else {
+            panic!("one sprite");
+        };
+        assert_eq!(s.pos, Vec2::new(-220.0, 170.0));
     }
 }

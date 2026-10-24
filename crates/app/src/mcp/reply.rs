@@ -582,6 +582,39 @@ impl GlobalRainState {
     }
 }
 
+/// A room's `Water` level and the flood (`RoomRain.FloodLevel`).
+#[derive(Debug, Clone, Serialize)]
+pub struct WaterLevelState {
+    /// `defaultWaterLevel`: the surface's tile row (-10 after `AddWater`).
+    pub default_water_level: i32,
+    pub original_water_level: f32,
+    pub f_water_level: f32,
+    pub last_f_water_level: f32,
+    /// `FloodLevel`, in a room with a `RoomRain`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub flood_level: Option<f32>,
+    /// Made by `Room.AddWater` during play (the flood), not loaded with the room.
+    pub added_water: bool,
+}
+
+impl WaterLevelState {
+    #[must_use]
+    pub fn of(r: &rw_sim::world::RealizedRoom, flood: f32) -> Option<Self> {
+        let w = r.water.as_ref()?;
+        Some(Self {
+            default_water_level: w.level_row(),
+            original_water_level: w.original_level(),
+            f_water_level: w.f_water_level,
+            last_f_water_level: w.last_f_water_level(),
+            flood_level: r
+                .room_rain
+                .as_ref()
+                .map(|rain| rain.flood_level(Some(w), flood)),
+            added_water: r.added_water,
+        })
+    }
+}
+
 /// A room's `RoomRain`.
 #[derive(Debug, Clone, Serialize)]
 pub struct RoomRainState {
@@ -1655,6 +1688,9 @@ pub struct RealizedState {
     /// The room's `RoomRain`, when `Room.Loaded` made one.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub room_rain: Option<RoomRainState>,
+    /// The room's water object's level, when it has one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub water: Option<WaterLevelState>,
     /// The live `WaterDrip`s' positions, oldest first (their count is the length).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub drips: Vec<[f32; 2]>,

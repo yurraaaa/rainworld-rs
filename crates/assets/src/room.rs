@@ -672,6 +672,14 @@ impl Room {
         self.water_level
     }
 
+    /// `Room.AddWater`'s room fields: a room without level water (`defaultWaterLevel < 0`)
+    /// takes row -10, below the room, so no tile's `waterInt` changes.
+    pub fn add_water(&mut self) {
+        if self.water_level.is_none_or(|row| row < 0) {
+            self.water_level = Some(-10);
+        }
+    }
+
     /// Water drawn in front of terrain; always false without water.
     #[must_use]
     pub fn water_in_front(&self) -> bool {
@@ -975,6 +983,20 @@ mod tests {
         assert_eq!(room.water_level(), None);
         let room = Room::parse(&file("2*3|-1|1", "0,0", GRID)).expect("parses");
         assert!(!room.water_in_front());
+    }
+
+    /// `AddWater`: a room without water takes row -10, which marks no tile; a room with
+    /// level water keeps its row.
+    #[test]
+    fn add_water_gives_a_dry_room_row_minus_ten() {
+        let mut room = Room::parse(&file("2*3", "0,0", GRID)).expect("parses");
+        room.add_water();
+        assert_eq!(room.water_level(), Some(-10));
+        assert!(!room.water_in_front());
+        assert!((0..2).all(|x| (0..3).all(|y| room.water_int(x, y) == 0)));
+        let mut wet = Room::parse(&file("2*3|1|1", "0,0", GRID)).expect("parses");
+        wet.add_water();
+        assert_eq!(wet.water_level(), Some(1));
     }
 
     #[test]

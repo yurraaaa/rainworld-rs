@@ -351,6 +351,9 @@ restrictions (`rainworld-re/notes/water.md`), base game with Remix off, Survivor
   in the update list (it does nothing and never leaves the room); its emitters are.
   The inverted-water band (DLCShared) and the More Slugcats `waterInverted` branch of
   `PositionedSound.Update` are omitted with the other inverted-water code.
+- **The level follows the flood.** `fWaterLevel` (`Water::f_water_level`) is set by the
+  rain's flood and the surface moves to it each `Surface.Update`; the surface's rain rumble
+  is ported (three draws per point a tick in a room with rain danger, D44). D47.
 - **Caustics.** The room camera's `WaterLight` reflection is drawn by the app
   (`water_light.rs`, D7); it has no sim state (`Water.SurfaceLeftAndRightBoundries` is
   `Water::surface_bounds`).
@@ -358,8 +361,7 @@ restrictions (`rainworld-re/notes/water.md`), base game with Remix off, Survivor
   uses `<=`), the Rivulet/Artificer/Saint/Watcher/energy-cell/jetfish branches and the
   More Slugcats flood.
 - **Not ported:** `WaterCutoff` and `AirPocket` placed objects (no base-game room
-  uses them), `WaterViscosity` (unused in the base game), flooding (the surface's rain
-  rumble is ported: three draws per point a tick in a room with rain danger, D44), lethal water, ripple waves from explosions, the
+  uses them), `WaterViscosity` (unused in the base game), lethal water, ripple waves from explosions, the
   analogue swim direction (digital input only). The `Splash`es `Water.Update` makes
   are ported (`splash.rs`); those of explosions (`Surface.Explosion`) and geysers
   (`Geyser`) come with their owners, as do `JetWater`/`WaterJet` (JetFish). The
@@ -727,7 +729,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   jump animations belong to breeds whose data is not entered; a green lizard never
   enters them, and the port goes back to Standard if one does. Not yet, with their
   steps: eating a dead lizard (its own step after 7c, user 2026-10-21: the player cannot grab creatures
-  yet), lethal water and the rain's flood (no rain yet). The
+  yet) and lethal water. The
   `kill_green_lizards` tutorial message is the game's: it marks the state dead without
   touching a realized body. More Slugcats', Watcher's and Remix's lizard branches
   (rot, the other DLC breeds, `LizardState.rotType` behaviour, Watcher's
@@ -847,8 +849,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
 - **Off-screen den and gates.** The off-screen den is never realized; gates are
   ordinary rooms (no gate mechanism, no region change), and a `RegionTransportation`
   node goes nowhere.
-- **Not ported:** the rain's room object's effects (`RoomRain`: the sprites and loops, the
-  flood's water; its intensity, push and kill are D45; the cycle's timer, day-night counter, water level
+- **Not ported:** the rain's room object's effects (`RoomRain`: the sprites and loops; its
+  intensity, push and kill are D45, the flood's water D47; the cycle's timer, day-night counter, water level
   stages and `GlobalRain` run, D44; the overseers' AI, the HUD's rain meter and
   `MusicAllowed` read them, and the guide's tutorial pins the timer; once fewer than 2400
   ticks are left, as after the SU_A43 tutorial's bring-in-rain jump, `MusicAllowed` stays

@@ -45,7 +45,9 @@ impl RainMask {
                 mask.set(x, y, if open { Self::SKY } else { Self::BLACK });
             }
         }
-        match room.water_level() {
+        // The game keeps the room's first mask, made at `Room.Loaded` before the flood's
+        // `AddWater` could give it row -10, so that water never reaches it (D47).
+        match room.water_level().filter(|&l| l >= 0) {
             Some(level) => {
                 for x in 0..width {
                     if room.tile(x, level).is_solid() {
@@ -182,5 +184,15 @@ mod tests {
         assert_eq!(column(&mask, 0), "rrr");
         assert_eq!(column(&mask, 1), "rrb");
         assert_eq!(column(&mask, 2), "r.b");
+    }
+
+    /// Water added by the flood (`AddWater`'s row -10) leaves the loaded room's mask.
+    #[test]
+    fn added_water_keeps_the_dry_mask() {
+        let mut r = room(&["...", "..#", ".##"], -1);
+        let dry = RainMask::generate(&r);
+        r.add_water();
+        assert_eq!(r.water_level(), Some(-10));
+        assert_eq!(RainMask::generate(&r), dry);
     }
 }

@@ -9,12 +9,13 @@
 //! `rainworld-re/notes/water.md` section 1, `surveys/room-effects/water-effects.md` W4-W6
 //! and the decompiled `Water` class; base game with Remix off. Not ported (docs/
 //! divergences/ D11): `WaterCutoff` and `AirPocket` placed objects (no base-game room
-//! uses them), the unused `WaterViscosity` effect and flooding (the rain's `RoomRain`
-//! is not ported yet). The surface's rumble terms are [`SurfaceRumble`]. The `Splash`es it
+//! uses them) and the unused `WaterViscosity` effect. `fWaterLevel` moves with the rain's
+//! flood (`RoomRain`'s flood arm, D47); the surface follows it through
+//! `TargetWaterLevel`. The surface's rumble terms are [`SurfaceRumble`]. The `Splash`es it
 //! makes are `splash.rs`'; they push the surface back through
 //! [`Water::waterfall_hit_surface`].
 //!
-//! Mirrors: Water.cs, Room.cs (FloatWaterLevel)
+//! Mirrors: Water.cs, Room.cs (FloatWaterLevel, DetailedWaterLevel)
 
 pub(crate) mod bubble;
 pub(crate) mod splash;
@@ -90,8 +91,12 @@ pub struct SurfaceRumble {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Water {
     points: Vec<[SurfacePoint; 2]>,
-    /// `fWaterLevel`: still water level in px (constant without floods).
-    level: f32,
+    /// `originalWaterLevel`: `MiddleOfTile(0, row).y`, px.
+    original_level: f32,
+    /// `fWaterLevel`: the still level the surface moves toward, px.
+    pub f_water_level: f32,
+    /// `lastFWaterLevel`: `fWaterLevel` at the end of the last `Water.Update`.
+    last_f_water_level: f32,
     /// `Room.defaultWaterLevel`: tile row of the surface.
     level_row: i32,
     /// `Room.waterInFrontOfTerrain`.
@@ -214,7 +219,9 @@ impl Water {
             .collect();
         let mut water = Self {
             points,
-            level,
+            original_level: level,
+            f_water_level: level,
+            last_f_water_level: 0.0,
             level_row: row,
             in_front: room.water_in_front(),
             sin_counter: 0.0,
@@ -247,10 +254,34 @@ impl Water {
         self.level_row
     }
 
-    /// Still water level in px (`fWaterLevel`, `20 * row + 10`).
+    /// `originalWaterLevel` (`20 * row + 10`), px.
     #[must_use]
-    pub fn still_level(&self) -> f32 {
-        self.level
+    pub fn original_level(&self) -> f32 {
+        self.original_level
+    }
+
+    /// `lastFWaterLevel`.
+    #[must_use]
+    pub fn last_f_water_level(&self) -> f32 {
+        self.last_f_water_level
+    }
+
+    /// `DrawSprites`' level: `Lerp(lastFWaterLevel, fWaterLevel, timeStacker)`.
+    #[must_use]
+    pub fn draw_level(&self, time_stacker: f32) -> f32 {
+        self.last_f_water_level
+            .lerp(self.f_water_level, time_stacker)
+    }
+
+    /// `Water.GeneralUpsetSurface` on the main surface (the only one without
+    /// `AirPocket`s; viscosity 0): a random front point (`Range(0, totalPoints)`) moves
+    /// `2 * intensity` px in a random direction and its height changes by
+    /// `Lerp(-1, 1, value) * 4 * intensity` (three draws).
+    pub fn general_upset_surface(&mut self, intensity: f32, rng: &mut UnityRandom) {
+        let i = rng.range_i32(0, self.points.len() as i32) as usize;
+        let p = &mut self.points[i][0];
+        p.pos += Vec2::from_degrees(rng.value() * 360.0) * (2.0 * intensity);
+        p.height += (-1.0_f32).lerp(1.0, rng.value()) * 4.0 * intensity;
     }
 
     /// `SurfaceLeftAndRightBoundries`: the first and last front points' still x.
@@ -405,6 +436,7 @@ impl Water {
             made.extend(e.update(rng).map(WaterObject::Bubble));
         }
         self.step_surface(room, rng);
+        self.last_f_water_level = self.f_water_level;
         made
     }
 
@@ -645,12 +677,12 @@ impl Water {
         let roll_back =
             Vec2::from_degrees((phase + self.sin_counter * back) * 360.0 * self.roll_back_length)
                 * (self.wave_amplitude * self.roll_back_amp);
-        let level = self.level;
+        let level = self.f_water_level;
         let p = &mut self.points[i][j];
         p.last_pos = p.pos;
         p.last_default_pos = p.default_pos;
         p.pos = Vec2::new(0.0, sum / count) + wave + rumble + roll_back;
-        // `TargetWaterLevel`: flat without `WaterCutoff` objects.
+        // `TargetWaterLevel`: `fWaterLevel` without `WaterCutoff` objects.
         p.default_pos.y = level;
     }
 }
