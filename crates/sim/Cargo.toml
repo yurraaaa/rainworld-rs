@@ -11,6 +11,7 @@ rw-save.workspace = true
 log.workspace = true
 rustc-hash.workspace = true
 base64 = "0.23"
+parking_lot = "0.12"
 
 [dev-dependencies]
 serde_json.workspace = true

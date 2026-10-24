@@ -55,6 +55,7 @@ fn game_with_placed(objects: Vec<AbstractObject>, placed: &str) -> (RainWorldGam
         UnityRandom::new(5),
         Sounds::default(),
     );
+    g.tick_until_ready(&mut ());
     for _ in 0..20 {
         g.tick(Input::NONE, &mut ());
     }

@@ -38,6 +38,7 @@ fn game(room: Room, campaign: &'static SlugcatCampaign, story: StoryStart) -> Ra
 
 fn settled(campaign: &'static SlugcatCampaign) -> RainWorldGame {
     let mut g = game(floor_room(), campaign, StoryStart::new_game(campaign));
+    g.tick_until_ready(&mut ());
     for _ in 0..40 {
         g.tick(Input::NONE, &mut ());
     }
@@ -94,6 +95,7 @@ fn no_grow_pos_in_deep_water() {
     rows.push("##########");
     let monk = &SlugcatCampaign::MONK;
     let mut g = game(room_with_water(&rows, 5), monk, StoryStart::new_game(monk));
+    g.tick_until_ready(&mut ());
     for _ in 0..40 {
         g.tick(Input::NONE, &mut ());
     }
@@ -141,6 +143,7 @@ fn a_falling_death_restricts_the_position_and_skips_the_flower() {
         survivor,
         StoryStart::new_game(survivor),
     );
+    g.tick_until_ready(&mut ());
     let mut over = None;
     for _ in 0..400 {
         g.tick(Input::NONE, &mut ());
@@ -173,6 +176,7 @@ fn the_hunter_out_of_cycles_goes_to_reds_game_over() {
         ..StoryStart::new_game(hunter)
     };
     let mut g = game(floor_room(), hunter, story);
+    g.tick_until_ready(&mut ());
     for _ in 0..40 {
         g.tick(Input::NONE, &mut ());
     }
@@ -205,6 +209,7 @@ fn a_dev_start_death_calls_game_over_and_a_respawn_can_die_again() {
         UnityRandom::new(5),
         Sounds::default(),
     );
+    g.tick_until_ready(&mut ());
     for _ in 0..40 {
         g.tick(Input::NONE, &mut ());
     }

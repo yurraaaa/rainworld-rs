@@ -95,6 +95,7 @@ fn game_in(room: Room, campaign: &'static SlugcatCampaign) -> RainWorldGame {
         UnityRandom::new(5),
         Sounds::default(),
     );
+    g.tick_until_ready(&mut ());
     for _ in 0..20 {
         g.tick(Input::NONE, &mut ());
     }

@@ -796,23 +796,27 @@ second part, else a single-room world for arena levels). The campaign descriptio
 - **Fly graphics.** The flies' sprites go into the Midground container after the
   slugcat's; the game orders a container by when each graphics module joined it (flies
   realized before the player's body sit under it).
-- **Loading on a fixed schedule** (user, 2026-10-22). The game's `RoomPreparer` hands a
-  room's two loading stages (`ShortCutsReady`, `ReadyForAI`) from a background thread to
-  the main thread, polled once per `RainWorldGame.Update`; how many frames the thread
-  takes depends on the machine, so the game is not deterministic here. The port runs
-  the thread's work as a fixed schedule at the game's minimum
-  (`LoadingSchedule::GAME_MINIMUM`, `world/room_preparer.rs`): a room realized in tick N
-  (the realizer, the lobby, or the constructor before tick 0) has its preparer started
-  by tick N's loading step, `ShortCutsReady` at the end of tick N+1 and `ReadyForAI` at
-  the end of N+2, with their game content, order and draws. Everything else is the
-  game's: the room reads its files, builds its border exits and runs the end of
-  `LoadFromDataString` and `Room.Loaded` (with its items where the game makes them) on
-  the realizing call, updates while it loads, counts its entry delay from stage 2, and
-  the consumers of the flags behave as the game's at each stage (the lobby's
-  `CreatureAllowedInRoom`, `Abstractize` dropping a body in a room not `readyForAI`, the
-  realizer's `currentlyLoadingRoom` wait of three updates). MCP's `load_room`/`new_game`
-  step until the start room is `readyForAI` before replying (user, 2026-10-22).
-  `Immediate` (both stages on the first call) is kept for world-only tests.
+- **Threaded loading** (user, 2026-10-24; replaces the fixed schedule of 2026-10-22).
+  As in the game, a realized room's `RoomPreparer` (`world/room_preparer.rs`) runs its
+  `ShortcutMapper` and `AImapper` (with the heat maps) on a worker thread started by its
+  first `Update`, and hands `ShortCutsReady` and `ReadyForAI` to the main thread through
+  flags under a lock; the loading step takes a stage on whichever tick it is set, so how
+  many ticks loading takes depends on the machine, as in the game (no deterministic mode).
+  The room reads its files, builds its border exits and runs `LoadFromDataString` and
+  `Room.Loaded` on the realizing call; its shortcut map exists from `ShortCutsReady`
+  (before it a room reads no shortcuts, as the game's `shortcutData` gives its `DeadEnd`
+  placeholder), its AI map from `ReadyForAI`. What differs: the worker waits on a
+  condition variable where the game's thread spins; the shortcut and AI maps are put on
+  the room by the main thread as it takes each stage, where the game's thread writes
+  them just before raising the flag; the worker maps the room as realized, so water
+  `Room.AddWater` adds while it loads is not in its AI map (the game's thread reads the
+  live room); a preparer dropped with its world stops its thread (port-only). Headless
+  pacing (user, 2026-10-24, port-only): an MCP session and the integration tests run
+  ticks faster than real time, so while a room is loading each tick waits until 25 ms
+  (the game's 40 Hz frame) have passed since the last (`LoadingPace`); otherwise they
+  run unpaced. MCP's `load_room`/`new_game` step until the start room is `readyForAI`
+  before replying (user, 2026-10-22). Unit tests that step a stage at a time wait for
+  the thread before each step (`await_loading_threads`, test-only).
 - **A room abstracted while it loads** (user, 2026-10-23). With Remix off,
   `RoomRealizer.RemoveNotVisitedRooms` abstracts a room that may still be loading, and
   `AbstractRoom.Abstractize` leaves its preparer in `loadingRooms`: the game hands the
@@ -821,7 +825,7 @@ second part, else a single-room world for arena levels). The campaign descriptio
   bodies with no room that a later realization skips, and `PlaceQuantifiedCreaturesInRoom`
   places the counted creatures again as new abstract creatures (`GetNewID`, draws),
   duplicating them (a vanilla bug; Remix's `fullyLoaded` check avoids it). The port keeps
-  the preparer and its stage ticks (so the realizer's wait on that room matches), but its
+  the preparer and its thread (so the realizer's wait on that room matches), but its
   stages realize and place nothing; they complete, setting only the dropped room's flags.
   Whether the game's `ReadyForAI` on the dropped room throws before `loadingProgress = 3`
   (in a creature or AI constructor with no room) was not traced; if it does, the game's
@@ -907,13 +911,13 @@ second part, else a single-room world for arena levels). The campaign descriptio
   it leaves (`Lizard::leave_room`). Both happen within the same room update, so no
   camera move can fall between them.
 
-**Why.** Other creatures' AI, AI maps and the rain are later milestones. A deterministic
-loading schedule is needed for repeatable runs, and the game's minimum is the one its
-hand-offs allow. A list without duplicates is simpler, and the double update of a held
+**Why.** Other creatures' AI, AI maps and the rain are later milestones. Headless runs
+are paced while loading so a room takes about as many ticks as in the game's frames. A
+list without duplicates is simpler, and the double update of a held
 creature is not ported.
 
-**Affects.** Loading takes the game's shortest time: on a slow machine the game's rooms
-take longer (a longer creature-free window, longer lobby waits). Anything creatures
+**Affects.** Runs that realize rooms are not repeatable tick for tick (as the game's are
+not); a run whose rooms load within a frame matches the game's on a fast machine. Anything creatures
 other than overseers, bat flies and green lizards would do (the others roam, but never
 appear in a loaded room).
 

@@ -29,7 +29,7 @@ not behaviour. Game assets are never committed.
 | `palette.rs` | `PaletteImage`, `EffectColors`, `PaletteTexture` (`with_colors`: `SetPixel` overrides), `RoomPalette` | `RoomCamera.LoadPalette` |
 | `png_image.rs` | PNG to raw RGBA (`PngImage`, optionally carrying a texture's smaller mip levels) | `Texture2D.LoadImage` |
 | `noise.rs` | `_NoiseTex` from `resources.assets`: the red channel of its 7 mip levels | |
-| `shortcut.rs` | shortcut map and tube walk | `ShortcutMapper`, `ShortcutHandler` |
+| `shortcut.rs` | shortcut map (mapped by `Room::map_shortcuts` or put on a room from the loading thread, not on parse) and tube walk | `ShortcutMapper`, `ShortcutHandler` |
 | `border_exits.rs` | `RoomBorderExit`: open runs on the room edge | `ShortcutMapper.MapRoomBorders` |
 | `nodes.rs` | abstract room nodes from the baked connectivity line | `AbstractRoomNode`, `RoomPreprocessor` |
 | `world.rs` | `Regions`, `RegionInfo`, `WorldData`, `AbstractRoomData`, line filters (timelines, `EXCLUSIVEROOM`) | `Region.LoadAllRegions`, `WorldLoader` |

@@ -6,7 +6,7 @@
 //!
 //! Mirrors: ShelterDoor.cs
 
-use rw_assets::shortcut::{FOUR_DIRECTIONS, ShortcutType};
+use rw_assets::shortcut::{FOUR_DIRECTIONS, ShortcutData, ShortcutType};
 use rw_assets::{ActiveMods, PlacedObjectType, Room, RoomSettings, Terrain};
 use rw_random::UnityRandom;
 
@@ -163,7 +163,7 @@ impl ShelterDoor {
         for l in 0..room.width() {
             for m in 0..room.height() {
                 if room.tile(l, m).terrain != Terrain::ShortcutEntrance
-                    || room.shortcut_map().type_at((l, m)) != ShortcutType::RoomExit
+                    || ShortcutData::walk(room, (l, m), &[]).kind != ShortcutType::RoomExit
                 {
                     continue;
                 }

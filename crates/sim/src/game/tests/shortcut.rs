@@ -43,7 +43,7 @@ fn blink_sends_a_pulse_and_flashes() {
 #[test]
 fn update_steps_rows_with_the_games_draws() {
     let room = pipe_room();
-    let length = room.shortcut_map().shortcuts()[0].length as f32;
+    let length = room.map_shortcuts().shortcuts()[0].length as f32;
     let span = 20.0 + (length - 20.0) * 0.3;
     let mut b = ShortcutsBlinking::new(2);
     b.blink(None, Some(0), 1.0);

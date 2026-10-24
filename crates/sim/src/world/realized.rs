@@ -385,16 +385,21 @@ impl RealizedRoom {
         self.ready_for_non_ai_creatures |= ready_for_non_ai_creatures;
     }
 
-    /// The thread's `room.aimap = aiMapper.ReturnAIMap()` (with the heat maps), before
-    /// `ReadyForAI`. `index` is the room's global index.
-    pub(crate) fn build_ai_map(&mut self, index: i32, shelter_or_gate: bool) {
-        let lethal_water = self.settings.effect_amount(RoomEffectType::LethalWater) > 0.0;
-        self.ai_map = Some(Arc::new(AiMap::new(
-            &self.room,
-            index,
-            shelter_or_gate,
-            lethal_water,
-        )));
+    /// The LethalWater effect, which the loading thread's AI map reads.
+    pub(crate) fn lethal_water(&self) -> bool {
+        self.settings.effect_amount(RoomEffectType::LethalWater) > 0.0
+    }
+
+    /// The thread's `room.shortcuts` (its `ShortcutMapper`), as `ShortCutsReady` finds
+    /// them.
+    pub(crate) fn install_shortcut_map(&mut self, map: rw_assets::ShortcutMap) {
+        self.room.install_shortcut_map(map);
+    }
+
+    /// The thread's `room.aimap = aiMapper.ReturnAIMap()` (with the heat maps), as
+    /// `ReadyForAI` finds it.
+    pub(crate) fn install_ai_map(&mut self, map: AiMap) {
+        self.ai_map = Some(Arc::new(map));
     }
 
     /// `ReadyForAI`'s `loadingProgress = 2`.

@@ -51,6 +51,7 @@ fn game_with_sounds(rows: &[&str], player: (i32, i32), sounds: Sounds) -> RainWo
         UnityRandom::new(5),
         sounds,
     );
+    g.tick_until_ready(&mut ());
     for _ in 0..20 {
         g.tick(Input::NONE, &mut ());
     }

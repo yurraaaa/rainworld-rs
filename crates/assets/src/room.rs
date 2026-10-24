@@ -4,7 +4,8 @@
 //! first realization), 9 (the node map), 10 (the baked AI data's visibility and creature
 //! int grids) and 11 are read; the light angle, the baked float grids and the
 //! `_settings.txt` file are skipped.
-//! The shortcut map ([`crate::ShortcutMap`]) is derived from the grid on parse.
+//! The shortcut map ([`crate::ShortcutMap`]) is derived from the grid when the room's
+//! `ShortcutMapper` runs ([`Room::map_shortcuts`]), not on parse.
 //!
 //! Mirrors: Room.cs
 
@@ -13,6 +14,7 @@ use std::fmt;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use crate::{ConnMap, ShortcutMap};
 
@@ -339,7 +341,9 @@ pub struct Room {
     cameras: Vec<[f32; 2]>,
     /// Column-major as in the file: x outer, y from the top row down.
     tiles: Box<[Tile]>,
-    pub(crate) shortcut_map: ShortcutMap,
+    /// `shortcuts`, `shortcutsIndex`, `exitAndDenIndex`: set once the `ShortcutMapper`
+    /// has run ([`Room::map_shortcuts`]), on the loading thread for a realized room.
+    pub(crate) shortcut_map: OnceLock<ShortcutMap>,
     /// Line 9, or why it does not parse.
     conn_map: Result<ConnMap, String>,
     /// The AI map's `visibility` of each non-Solid tile, x-major (line 10's first part,
@@ -442,7 +446,7 @@ impl Room {
         let visibility = Self::parse_visibility(ai_line);
         let baked_layers = Self::parse_baked_layers(ai_line);
         let hives = Self::group_hives(width, height, &tiles);
-        let mut room = Self {
+        let room = Self {
             items,
             conn_map,
             visibility,
@@ -456,9 +460,8 @@ impl Room {
             light_angle,
             cameras,
             tiles,
-            shortcut_map: ShortcutMap::default(),
+            shortcut_map: OnceLock::new(),
         };
-        room.shortcut_map = ShortcutMap::new(&room);
         Ok(room)
     }
 

@@ -1,6 +1,7 @@
-//! The realizer's `currentlyLoadingRoom` wait under the game's minimum loading schedule:
-//! a neighbour realized in update N pauses updates N+1 to N+3 (cleared on N+3, once the
-//! room is `fullyLoaded` from N+2's loading step), the per-tick neighbour draw coming back
+//! The realizer's `currentlyLoadingRoom` wait with a loading thread that has each stage
+//! ready by the next loading step (the fastest its hand-offs allow): a neighbour
+//! realized in update N pauses updates N+1 to N+3 (cleared on N+3, once the room is
+//! `fullyLoaded` from N+2's loading step), the per-tick neighbour draw coming back
 //! on N+4; and the wait on a room abstracted while it loads. Expected values from
 //! `RoomRealizer.Update`, `RealizeAndTrackRoom` and `RoomPreparer.Update`.
 //!
@@ -56,6 +57,7 @@ impl RoomRealizer {
         let before = rng.state();
         self.update(world, FOLLOW, 0, rng);
         let drew = rng.state() != before;
+        world.await_loading_threads();
         world.loading_step();
         drew
     }

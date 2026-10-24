@@ -4,7 +4,8 @@
 
 use rw_assets::Room;
 
-/// Builds a room from ASCII rows, top row first.
+/// Builds a room from ASCII rows, top row first, its shortcuts mapped (a realized room
+/// starts unmapped again).
 /// `.` Air, `#` Solid, `/` Slope, `-` Floor, `=` Air with a horizontal beam, `|` Air
 /// with a vertical pole, `+` Air with both,
 /// `E` shortcut entrance, `x` Solid shortcut path, `X` Solid room exit, `D` Solid den,
@@ -61,7 +62,9 @@ fn room_file_named(name: &str, rows: &[&str], water_level: i32, items: &str) -> 
     let text = format!(
         "{name}\n{w}*{h}|{water_level}|0\n1*1|0|0\n0,0\nBorder: Solid\n{items}\n\n\n\n17|0|0|\nblob\n{grid}\n"
     );
-    Room::parse(&text).expect("test room parses")
+    let room = Room::parse(&text).expect("test room parses");
+    room.map_shortcuts();
+    room
 }
 
 impl crate::TerrainImpact {

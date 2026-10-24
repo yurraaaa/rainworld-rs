@@ -59,6 +59,7 @@ fn game_with_sounds(
         UnityRandom::new(5),
         sounds,
     );
+    g.tick_until_ready(&mut ());
     for _ in 0..20 {
         g.tick(Input::NONE, &mut ());
     }

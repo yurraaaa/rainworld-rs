@@ -1,40 +1,30 @@
-//! A loading room's `RoomPreparer`: the hand-offs of its background thread to the main
-//! thread, one `Update` call per tick in the loading step. The thread's work (the
-//! shortcut and AI mapping, which draw nothing) is a fixed number of calls per stage
-//! (D14); the stages themselves run in [`crate::game::loading_turn`]. A preparer stays in
-//! `loadingRooms` when its room is abstracted, as in the game.
+//! A loading room's `RoomPreparer`: a worker thread maps the room's shortcuts and builds
+//! its AI map (`UpdateThread`), handing each stage to the main thread through flags under
+//! a lock, which the main thread's `Update` (once a tick, in the loading step) takes on
+//! whichever tick they are set. The worker reads only the realized room's geometry and draws
+//! nothing; it waits on a condition variable where the game's thread spins, and the
+//! main thread puts its maps on the room as it takes each stage (D14). The stages
+//! themselves run on the main thread in
+//! [`crate::game::loading_turn`]. A preparer stays in `loadingRooms` when its room is
+//! abstracted, as in the game.
 //!
-//! Mirrors: RoomPreparer.cs (Update, UpdateThread's status and requests)
+//! Mirrors: RoomPreparer.cs (Update, UpdateThread)
 
-/// How many loading-step calls the thread takes per stage.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LoadingSchedule {
-    /// Both stages and `done` on the first call (world-only tests).
-    Immediate,
-    /// The thread hands stage 1 over `shortcuts_calls` calls after the one that started
-    /// it, and stage 2 `ai_calls` calls after stage 1.
-    Deferred { shortcuts_calls: u32, ai_calls: u32 },
-}
+use std::sync::Arc;
+use std::thread::JoinHandle;
 
-impl LoadingSchedule {
-    /// The game's minimum: `ShortCutsReady` on the second call, `ReadyForAI` on the third.
-    pub const GAME_MINIMUM: Self = Self::Deferred {
-        shortcuts_calls: 1,
-        ai_calls: 1,
-    };
-}
+use parking_lot::{Condvar, Mutex, MutexGuard};
+use rw_assets::{Room, ShortcutMap};
 
-impl Default for LoadingSchedule {
-    fn default() -> Self {
-        Self::GAME_MINIMUM
-    }
-}
+use super::ai_map::AiMap;
 
-/// A stage `Update` hands to the room.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// A stage `Update` hands to the room, with what the worker made for it.
+#[derive(Debug)]
 pub enum PreparerStage {
-    ShortcutsReady,
-    ReadyForAi,
+    /// `ShortcutMapper`'s `shortcuts`, `shortcutsIndex` and `exitAndDenIndex`.
+    ShortcutsReady(ShortcutMap),
+    /// `AImapper`'s map with the decoded heat maps (`room.aimap`).
+    ReadyForAi(Box<AiMap>),
 }
 
 /// The thread's `status`: what it works on or waits for.
@@ -64,45 +54,138 @@ impl PreparerStatus {
     }
 }
 
+/// What the worker builds from: the room as the realizing call read it.
+#[derive(Debug, Clone)]
+pub struct PreparerJob {
+    pub room: Arc<Room>,
+    /// The room's global index.
+    pub index: i32,
+    /// Shelters and gates have no border exits.
+    pub shelter_or_gate: bool,
+    /// A room with the LethalWater effect.
+    pub lethal_water: bool,
+}
+
+impl PreparerJob {
+    /// `UpdateThread`'s status 0: the `ShortcutMapper` over every tile.
+    #[must_use]
+    pub fn map_shortcuts(&self) -> ShortcutMap {
+        ShortcutMap::new(&self.room)
+    }
+
+    /// Statuses 1 and 2: `AImapper`, then `DecompressStringToAImaps` (`loadAiHeatMaps`
+    /// is true for every `RealizeRoom`).
+    #[must_use]
+    pub fn map_ai(&self, shortcuts: ShortcutMap) -> AiMap {
+        AiMap::with_shortcuts(
+            &self.room,
+            shortcuts,
+            self.index,
+            self.shelter_or_gate,
+            self.lethal_water,
+        )
+    }
+}
+
+/// The fields `RoomPreparer` shares with its thread under `lock (this)`.
+#[derive(Debug, Default)]
+struct HandOff {
+    status: PreparerStatus,
+    request_shortcuts_ready: bool,
+    request_ready_for_ai: bool,
+    thread_finished: bool,
+    /// Port-only: the preparer was dropped, so the thread stops where it waits.
+    cancelled: bool,
+    shortcuts: Option<ShortcutMap>,
+    ai_map: Option<AiMap>,
+}
+
+/// The lock and the wake-up the worker waits on where the game's thread spins.
+#[derive(Debug, Default)]
+struct Shared {
+    state: Mutex<HandOff>,
+    changed: Condvar,
+}
+
+impl Shared {
+    /// Blocks while the thread waits at a hand-off in `status` that the main thread has
+    /// not taken; `false` when the preparer was dropped meanwhile.
+    fn wait_while(&self, guard: &mut MutexGuard<'_, HandOff>, status: PreparerStatus) -> bool {
+        while guard.status == status && !guard.cancelled {
+            self.changed.wait(guard);
+        }
+        !guard.cancelled
+    }
+}
+
+/// The worker thread's side (`UpdateThread`).
+struct PreparerThread {
+    job: PreparerJob,
+    shared: Arc<Shared>,
+}
+
+impl PreparerThread {
+    fn run(self) {
+        let shortcuts = self.job.map_shortcuts();
+        {
+            let mut s = self.shared.state.lock();
+            s.shortcuts = Some(shortcuts.clone());
+            s.request_shortcuts_ready = true;
+            self.shared.changed.notify_all();
+            if !self
+                .shared
+                .wait_while(&mut s, PreparerStatus::MappingShortcuts)
+            {
+                return;
+            }
+        }
+        let ai_map = self.job.map_ai(shortcuts);
+        let mut s = self.shared.state.lock();
+        s.status = PreparerStatus::AiReady;
+        s.ai_map = Some(ai_map);
+        s.request_ready_for_ai = true;
+        self.shared.changed.notify_all();
+        if !self.shared.wait_while(&mut s, PreparerStatus::AiReady) {
+            return;
+        }
+        s.thread_finished = true;
+        self.shared.changed.notify_all();
+    }
+}
+
 /// `RoomPreparer` of global room `room`'s realization `serial`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct RoomPreparer {
     pub room: i32,
     /// The realization it loads ([`crate::world::RealizedRoom::serial`]): it outlives an
     /// `Abstractize` of that room, as the game's does.
     pub serial: u64,
-    status: PreparerStatus,
+    /// What the thread takes when the first `Update` starts it.
+    job: Option<PreparerJob>,
+    shared: Arc<Shared>,
+    thread: Option<JoinHandle<()>>,
     /// `Update` calls so far.
     calls: u32,
-    /// Calls the thread has worked on its current stage.
-    work: u32,
-    thread_started: bool,
-    request_shortcuts_ready: bool,
-    request_ready_for_ai: bool,
-    thread_finished: bool,
     done: bool,
 }
 
 impl RoomPreparer {
     #[must_use]
-    pub fn new(room: i32, serial: u64) -> Self {
+    pub fn new(room: i32, serial: u64, job: PreparerJob) -> Self {
         Self {
             room,
             serial,
-            status: PreparerStatus::default(),
+            job: Some(job),
+            shared: Arc::default(),
+            thread: None,
             calls: 0,
-            work: 0,
-            thread_started: false,
-            request_shortcuts_ready: false,
-            request_ready_for_ai: false,
-            thread_finished: false,
             done: false,
         }
     }
 
     #[must_use]
     pub fn status(&self) -> PreparerStatus {
-        self.status
+        self.shared.state.lock().status
     }
 
     #[must_use]
@@ -115,71 +198,113 @@ impl RoomPreparer {
         self.done
     }
 
+    /// Whether the first `Update` has started the thread.
+    #[must_use]
+    pub fn thread_started(&self) -> bool {
+        self.job.is_none()
+    }
+
+    /// `threadFinished`.
+    #[must_use]
+    pub fn thread_finished(&self) -> bool {
+        self.shared.state.lock().thread_finished
+    }
+
+    /// The stage the thread has requested and the next `Update` will take.
+    #[must_use]
+    pub fn requested_stage(&self) -> Option<u8> {
+        let s = self.shared.state.lock();
+        if s.request_shortcuts_ready {
+            Some(1)
+        } else if s.request_ready_for_ai {
+            Some(2)
+        } else {
+            None
+        }
+    }
+
     /// Whether stage 2 has been handed over: the room it loads is `fullyLoaded`, even
     /// one abstracted since (the game's `Room` object keeps loading).
     #[must_use]
     pub fn handed_over_ready_for_ai(&self) -> bool {
-        self.status == PreparerStatus::Finishing
+        self.status() == PreparerStatus::Finishing
     }
 
-    /// `Update`: the thread's passes since the last call, then the main thread's part,
-    /// which takes at most one stage (the thread waits at each hand-off).
-    pub fn update(&mut self, schedule: LoadingSchedule) -> Vec<PreparerStage> {
+    /// `Update`: starts the thread on the first call, then takes the stage it requested
+    /// (at most one: the thread waits at each hand-off) and sees it finished.
+    pub fn update(&mut self) -> Vec<PreparerStage> {
         self.calls += 1;
-        let LoadingSchedule::Deferred {
-            shortcuts_calls,
-            ai_calls,
-        } = schedule
-        else {
-            self.status = PreparerStatus::Finishing;
-            self.thread_finished = true;
-            self.done = true;
-            return vec![PreparerStage::ShortcutsReady, PreparerStage::ReadyForAi];
-        };
-        if self.thread_started {
-            self.run_thread(shortcuts_calls, ai_calls);
-        } else if !self.thread_finished {
-            self.thread_started = true;
-        }
         let mut stages = Vec::new();
-        if self.request_shortcuts_ready {
-            self.request_shortcuts_ready = false;
-            self.status = PreparerStatus::MappingAi;
-            stages.push(PreparerStage::ShortcutsReady);
+        let mut finished = None;
+        {
+            let mut s = self.shared.state.lock();
+            // Started under the lock, as the game's, so its first request waits for the
+            // next call.
+            if !s.thread_finished
+                && let Some(job) = self.job.take()
+            {
+                let thread = PreparerThread {
+                    job,
+                    shared: Arc::clone(&self.shared),
+                };
+                self.thread = Some(
+                    std::thread::Builder::new()
+                        .name("RoomPreparer".to_owned())
+                        .spawn(move || thread.run())
+                        .expect("the room preparer's thread starts"),
+                );
+            }
+            if s.request_shortcuts_ready {
+                s.request_shortcuts_ready = false;
+                s.status = PreparerStatus::MappingAi;
+                if let Some(map) = s.shortcuts.take() {
+                    stages.push(PreparerStage::ShortcutsReady(map));
+                }
+            }
+            if s.request_ready_for_ai {
+                s.request_ready_for_ai = false;
+                s.status = PreparerStatus::Finishing;
+                if let Some(map) = s.ai_map.take() {
+                    stages.push(PreparerStage::ReadyForAi(Box::new(map)));
+                }
+            }
+            if s.thread_finished {
+                self.done = true;
+                finished = self.thread.take();
+            }
         }
-        if self.request_ready_for_ai {
-            self.request_ready_for_ai = false;
-            self.status = PreparerStatus::Finishing;
-            stages.push(PreparerStage::ReadyForAi);
-        }
-        if self.thread_finished {
-            self.done = true;
-            self.thread_started = false;
+        self.shared.changed.notify_all();
+        if let Some(thread) = finished {
+            let _ = thread.join();
         }
         stages
     }
 
-    /// `UpdateThread` between two calls: it runs flat out, so a stage whose work is done
-    /// is requested, and a taken stage 2 ends the thread.
-    fn run_thread(&mut self, shortcuts_calls: u32, ai_calls: u32) {
-        match self.status {
-            PreparerStatus::MappingShortcuts if !self.request_shortcuts_ready => {
-                self.work += 1;
-                if self.work >= shortcuts_calls {
-                    self.work = 0;
-                    self.request_shortcuts_ready = true;
-                }
-            }
-            PreparerStatus::MappingAi => {
-                self.work += 1;
-                if self.work >= ai_calls {
-                    self.work = 0;
-                    self.status = PreparerStatus::AiReady;
-                    self.request_ready_for_ai = true;
-                }
-            }
-            PreparerStatus::Finishing => self.thread_finished = true,
-            _ => {}
+    /// Blocks until the next `Update` has something to see: a requested stage or the
+    /// thread finished (tests that step stage by stage).
+    #[cfg(test)]
+    pub(crate) fn await_thread(&self) {
+        if !self.thread_started() {
+            return;
+        }
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+        let mut s = self.shared.state.lock();
+        while !(s.request_shortcuts_ready || s.request_ready_for_ai || s.thread_finished) {
+            assert!(
+                !self.shared.changed.wait_until(&mut s, deadline).timed_out(),
+                "the room preparer's thread does not hand over"
+            );
+        }
+    }
+}
+
+impl Drop for RoomPreparer {
+    /// Port-only: a preparer dropped mid-load (its world gone) releases its thread.
+    fn drop(&mut self) {
+        self.shared.state.lock().cancelled = true;
+        self.shared.changed.notify_all();
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
         }
     }
 }

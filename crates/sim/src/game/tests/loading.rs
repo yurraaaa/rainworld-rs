@@ -1,7 +1,7 @@
-//! The loading stages of a Survivor story's start room under the game's minimum schedule
-//! (the default): `ShortCutsReady` on the preparer's second call (objects, then the creatures without
-//! `AI` when none needs the AI map), `ReadyForAI` on the third (creatures in list order,
-//! then the `AIMapReady` listeners). Expected values from `Room.cs` (`ShortCutsReady`,
+//! The loading stages of a Survivor story's start room, each test waiting for the
+//! preparer's thread before a step: `ShortCutsReady` (objects, then the creatures without
+//! `AI` when none needs the AI map), `ReadyForAI` (creatures in list order, then the
+//! `AIMapReady` listeners). Expected values from `Room.cs` (`ShortCutsReady`,
 //! `ReadyForAI`), `RoomPreparer.cs` (`Update`, `UpdateThread`) and
 //! `AbstractCreature.cs` (`AllowedToExistInRoom`).
 //!
@@ -18,7 +18,7 @@ use crate::campaign::{SlugcatCampaign, StoryStart};
 use crate::creature::{CreatureId, EntityId, WorldCoordinate};
 use crate::item::{AbstractObject, ObjectId};
 use crate::tests::room;
-use crate::world::{LoadingSchedule, PreparerStatus, World};
+use crate::world::{PreparerStatus, World};
 use crate::{Input, RainWorldGame, Sounds, Start};
 
 /// A 40 x 20 room with three rows of floor (top at y 3).
@@ -50,14 +50,10 @@ struct Setup<'a> {
     side_exit: bool,
 }
 
-/// A Survivor story in `rows` under `schedule`, the player at (2, 3), no tick run but the
-/// preparer's first call (the first tick's loading step) made. Returns the rock's ID when
+/// A Survivor story in `rows`, the player at (2, 3), no tick run but the preparer's first
+/// call (the first tick's loading step, which starts its thread) made. Returns the rock's ID when
 /// there is one.
-fn game(
-    rows: &[&str],
-    setup: &Setup<'_>,
-    schedule: LoadingSchedule,
-) -> (RainWorldGame, Option<ObjectId>) {
+fn game(rows: &[&str], setup: &Setup<'_>) -> (RainWorldGame, Option<ObjectId>) {
     let room = room(rows);
     let mut data = WorldData::from_room(&room);
     if setup.side_exit {
@@ -78,7 +74,6 @@ fn game(
     let rooms = Arc::new(FixedRoom(LoadedRoom { room, settings }));
     let campaign = &SlugcatCampaign::SURVIVOR;
     let mut world = World::new(data, rooms, campaign.timeline, ActiveMods::NONE, true);
-    world.loading_schedule = schedule;
     let rock = setup.rock.then(|| {
         world.add_object(AbstractObject::new_rock(
             EntityId::new(0, 1),
@@ -123,28 +118,14 @@ fn refs(rows: &[String]) -> Vec<&str> {
     rows.iter().map(String::as_str).collect()
 }
 
-/// Immediate (world-only tests): the first call runs both stages and drops the preparer.
+/// The first call starts the thread; the call after it mapped the shortcuts takes stage 1
+/// (the player, which has no `AI`, comes in with it in a room where no creature needs
+/// the AI map), the call after the AI map stage 2; the next sees the thread done and the
+/// one after removes the preparer. Each tick here waits for the thread first.
 #[test]
-fn the_immediate_schedule_loads_the_room_on_the_first_call() {
+fn each_stage_comes_on_the_call_after_the_thread_has_it() {
     let rows = rows();
-    let (g, _) = game(&refs(&rows), &Setup::default(), LoadingSchedule::Immediate);
-    assert_eq!(g.progress(), 3);
-    assert!(g.player.is_some());
-    assert!(g.world.room_preparer(0).is_none());
-}
-
-/// The game's minimum: the first call starts the thread; the next tick's call
-/// takes stage 1 (the player, which has no `AI`, comes in with it in a room where no
-/// creature needs the AI map), the second's stage 2; the third sees the thread done and
-/// the fourth removes the preparer.
-#[test]
-fn stage_one_comes_on_the_second_call_and_stage_two_on_the_third() {
-    let rows = rows();
-    let (mut g, _) = game(
-        &refs(&rows),
-        &Setup::default(),
-        LoadingSchedule::GAME_MINIMUM,
-    );
+    let (mut g, _) = game(&refs(&rows), &Setup::default());
     let p = g.world.room_preparer(0).expect("loading");
     assert_eq!(
         (p.calls(), p.status()),
@@ -153,6 +134,7 @@ fn stage_one_comes_on_the_second_call_and_stage_two_on_the_third() {
     assert_eq!(g.progress(), 0);
     assert!(g.player.is_none());
     assert!(g.world.realized(0).unwrap().shortcuts_blinking.is_none());
+    g.world.await_loading_threads();
     g.tick(Input::NONE, &mut ());
     assert_eq!(g.progress(), 1);
     assert!(g.player.is_some());
@@ -163,13 +145,16 @@ fn stage_one_comes_on_the_second_call_and_stage_two_on_the_third() {
         g.world.room_preparer(0).unwrap().status(),
         PreparerStatus::MappingAi
     );
+    g.world.await_loading_threads();
     g.tick(Input::NONE, &mut ());
     assert_eq!(g.progress(), 3);
     assert!(g.world.realized(0).unwrap().ai_map.is_some());
     let p = g.world.room_preparer(0).expect("still listed");
     assert_eq!((p.status(), p.done()), (PreparerStatus::Finishing, false));
+    g.world.await_loading_threads();
     g.tick(Input::NONE, &mut ());
     assert!(g.world.room_preparer(0).unwrap().done());
+    g.world.await_loading_threads();
     g.tick(Input::NONE, &mut ());
     assert!(g.world.room_preparer(0).is_none());
 }
@@ -183,9 +168,9 @@ fn stage_one_realizes_the_objects_before_the_player() {
         rock: true,
         ..Setup::default()
     };
-    let (mut g, rock) = game(&refs(&rows), &setup, LoadingSchedule::GAME_MINIMUM);
+    let (mut g, rock) = game(&refs(&rows), &setup);
     let rock = rock.unwrap();
-    g.update_loading_rooms(&mut ());
+    g.update_loading_rooms_when_ready(&mut ());
     let order = g.world.realized_weapon(rock, 0).expect("rock").update_order;
     assert!(g.player.is_some());
     assert!(order < g.player_seq);
@@ -201,18 +186,18 @@ fn an_ai_creature_keeps_every_creature_for_stage_two() {
         rock: true,
         ..Setup::default()
     };
-    let (mut g, rock) = game(&refs(&rows), &setup, LoadingSchedule::GAME_MINIMUM);
+    let (mut g, rock) = game(&refs(&rows), &setup);
     let l = g.loading_lizard();
     let mut expect = g.rng.clone();
     expect.value();
     expect.value();
-    g.update_loading_rooms(&mut ());
+    g.update_loading_rooms_when_ready(&mut ());
     assert_eq!(g.rng.state(), expect.state());
     assert!(g.world.realized_weapon(rock.unwrap(), 0).is_some());
     assert!(g.player.is_none() && !g.world.creature(l).is_realized());
     assert_eq!(g.progress(), 1);
     assert!(!g.world.realized(0).unwrap().ready_for_player());
-    g.update_loading_rooms(&mut ());
+    g.update_loading_rooms_when_ready(&mut ());
     assert_eq!(g.progress(), 3);
     assert!(g.player.is_some() && g.world.creature(l).is_realized());
     assert!(g.player_seq < g.world.lizard_ref(l).update_order);
@@ -227,13 +212,12 @@ fn a_counted_fly_keeps_the_player_for_stage_two() {
             counted_fly: true,
             ..Setup::default()
         },
-        LoadingSchedule::GAME_MINIMUM,
     );
     assert!(g.world.room_creatures_require_ai_map(0));
-    g.update_loading_rooms(&mut ());
+    g.update_loading_rooms_when_ready(&mut ());
     assert_eq!(g.progress(), 1);
     assert!(g.player.is_none());
-    g.update_loading_rooms(&mut ());
+    g.update_loading_rooms_when_ready(&mut ());
     assert!(g.player.is_some());
 }
 
@@ -247,8 +231,9 @@ fn ai_map_ready_comes_after_the_creatures() {
         placed: "WallMycelia><300><100><0~150",
         ..Setup::default()
     };
-    let (mut g, _) = game(&refs(&rows), &setup, LoadingSchedule::GAME_MINIMUM);
+    let (mut g, _) = game(&refs(&rows), &setup);
     let l = g.loading_lizard();
+    g.world.await_loading_threads();
     g.tick(Input::NONE, &mut ());
     assert!(
         g.world
@@ -260,6 +245,7 @@ fn ai_map_ready_comes_after_the_creatures() {
             .wall_mycelia
             .is_empty()
     );
+    g.world.await_loading_threads();
     g.tick(Input::NONE, &mut ());
     let system = g.world.realized(0).unwrap().coral.as_ref().unwrap();
     assert!(system.built);
@@ -280,8 +266,8 @@ fn a_border_exit_node_has_its_tiles_before_the_ai_map() {
         side_exit: true,
         ..Setup::default()
     };
-    let (mut g, _) = game(&refs(&rows), &setup, LoadingSchedule::GAME_MINIMUM);
-    g.update_loading_rooms(&mut ());
+    let (mut g, _) = game(&refs(&rows), &setup);
+    g.update_loading_rooms_when_ready(&mut ());
     let r = g.world.realized(0).unwrap();
     assert_eq!(r.loading_progress(), 1);
     assert!(r.ai_map.is_none());

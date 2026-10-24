@@ -88,7 +88,7 @@ fn smallroom_matches_reference() {
 fn summit_shortcut_map() {
     let Some(sa) = streaming_assets() else { return };
     let room = Room::load_level(&sa, "Summit").expect("summit loads");
-    let map = room.shortcut_map();
+    let map = room.map_shortcuts();
     // Room exits (13,16) and (34,16), each under its entrance; no dens.
     assert_eq!(map.nodes(), &[(13, 16), (34, 16)]);
     let table: Vec<_> = map
@@ -124,7 +124,7 @@ fn summit_shortcut_map() {
 fn smallroom_shortcut_map() {
     let Some(sa) = streaming_assets() else { return };
     let room = Room::load_level(&sa, "SmallRoom").expect("smallroom loads");
-    let map = room.shortcut_map();
+    let map = room.map_shortcuts();
     // Exits (33,25), (35,25); dens top row first: (14,25), (29,8), (21,2), (26,2).
     assert_eq!(
         map.nodes(),

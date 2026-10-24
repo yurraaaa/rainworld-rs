@@ -1,5 +1,5 @@
-//! A second room realized during a tick under the game's minimum loading schedule: its
-//! stages at the end of the next two ticks, its creatures with `ReadyForAI`, the lobby's
+//! A second room realized during a tick, each tick waiting for the loading threads: its
+//! stages on the ticks after its thread has them, its creatures with `ReadyForAI`, the lobby's
 //! `CreatureAllowedInRoom` at each stage, `AbstractCreature.Abstractize` in a room not
 //! `readyForAI`, a room abstracted while it loads, and `Room.Loaded`'s items after its
 //! effects. Expected values from `Room.cs` (`ShortCutsReady`, `ReadyForAI`, `Loaded`),
@@ -127,7 +127,8 @@ fn dandelions(item: bool) -> RoomSettings {
 }
 
 /// Room 2 realized before tick N's loading step (as the realizer or the lobby does
-/// mid-tick): that step starts its thread, N+1's hands over `ShortCutsReady`, N+2's
+/// mid-tick): that step starts its thread, the next tick's (once the shortcuts are
+/// mapped) hands over `ShortCutsReady`, the one after (once the AI map is built)
 /// `ReadyForAI`, which realizes the lizard waiting there.
 #[test]
 fn a_neighbour_loads_a_stage_a_tick_and_its_creatures_come_with_stage_two() {
@@ -136,6 +137,7 @@ fn a_neighbour_loads_a_stage_a_tick_and_its_creatures_come_with_stage_two() {
     g.activate_room(2).expect("loads");
     let mut seen = Vec::new();
     for _ in 0..3 {
+        g.world.await_loading_threads();
         g.tick(Input::NONE, &mut ());
         seen.push((g.progress_of(2), g.world.creature(lizard).is_realized()));
     }
@@ -157,11 +159,14 @@ fn the_lobby_holds_a_creature_needing_the_ai_map_until_ready_for_ai() {
     let ids = [g.player_id, lizard, grub];
     assert_eq!(g.allowed_into_second_room(ids), [false; 3]);
     g.activate_room(2).expect("loads");
+    g.world.await_loading_threads();
     g.tick(Input::NONE, &mut ());
     assert_eq!(g.allowed_into_second_room(ids), [false; 3]);
+    g.world.await_loading_threads();
     g.tick(Input::NONE, &mut ());
     assert_eq!(g.progress_of(2), 1);
     assert_eq!(g.allowed_into_second_room(ids), [true, false, true]);
+    g.world.await_loading_threads();
     g.tick(Input::NONE, &mut ());
     assert_eq!(g.allowed_into_second_room(ids), [true; 3]);
 }
@@ -173,7 +178,9 @@ fn abstractizing_a_room_not_ready_for_ai_drops_the_bodies() {
     let mut g = loaded_story();
     let lizard = g.creature_in_second_room(CreatureType::GreenLizard);
     g.activate_room(2).expect("loads");
+    g.world.await_loading_threads();
     g.tick(Input::NONE, &mut ());
+    g.world.await_loading_threads();
     g.tick(Input::NONE, &mut ());
     assert_eq!(g.progress_of(2), 1);
     assert!(g.world.realize_lizard(lizard, &mut g.rng));
@@ -196,14 +203,18 @@ fn a_room_abstracted_while_it_loads_realizes_nothing() {
     let lizard = g.creature_in_second_room(CreatureType::GreenLizard);
     never.creature_in_second_room(CreatureType::GreenLizard);
     g.activate_room(2).expect("loads");
+    g.world.await_loading_threads();
     g.tick(Input::NONE, &mut ());
+    never.world.await_loading_threads();
     never.tick(Input::NONE, &mut ());
     g.world.abstractize(2, &mut g.rng);
     assert_eq!(g.world.orphaned_preparers().count(), 1);
     // From here the two games differ only by the orphaned preparer.
     never.rng = g.rng.clone();
     for _ in 0..4 {
+        g.world.await_loading_threads();
         g.tick(Input::NONE, &mut ());
+        never.world.await_loading_threads();
         never.tick(Input::NONE, &mut ());
         assert_eq!(g.rng.state(), never.rng.state());
     }

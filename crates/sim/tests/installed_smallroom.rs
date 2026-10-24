@@ -26,7 +26,10 @@ fn smallroom() -> Option<Room> {
         eprintln!("skipping: no levels dir under {}", sa.display());
         return None;
     }
-    Some(Room::load_level(&sa, "SmallRoom").expect("smallroom loads"))
+    // Mapped, as a loaded room is from `ShortCutsReady` on.
+    let room = Room::load_level(&sa, "SmallRoom").expect("smallroom loads");
+    room.map_shortcuts();
+    Some(room)
 }
 
 #[test]

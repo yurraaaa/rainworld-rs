@@ -22,6 +22,7 @@ use rw_sim::campaign::SlugcatCampaign;
 use rw_sim::creature::lizard::LizardVoice;
 use rw_sim::creature::{AbstractCreature, CreatureId, Lizard, RepReading, TrackedCreatureState};
 use rw_sim::item::{Entity, ObjectId, SpearStickKind, Weapon};
+use rw_sim::world::LoadingPace;
 use rw_sim::{CosmeticKind, Input, StomachObject, Vec2, WorldCoordinate};
 
 use super::params::{
@@ -79,8 +80,8 @@ const MAX_IMAGE_SIDE: f32 = 4096.0;
 const MAX_TILES: i64 = 40_000;
 /// Seconds per `step_process` frame.
 const FRAME_SECONDS: f32 = 1.0 / 40.0;
-/// A cap on the ticks a dev start steps to load its room.
-const START_READY_TICKS: u32 = 40;
+/// A cap on the wall time a dev start steps to load its room.
+const START_READY_TIME: std::time::Duration = std::time::Duration::from_secs(20);
 
 pub struct Session {
     assets: StreamingAssets,
@@ -107,6 +108,8 @@ pub struct Session {
     saves: SaveConfig,
     /// Game mode's music player's silent sources (its player is `hud_shared.music`).
     music_sources: TimedSources,
+    /// Headless ticks wait out a frame while a room loads (D14).
+    pace: LoadingPace,
 }
 
 impl Session {
@@ -132,6 +135,7 @@ impl Session {
             room_renderer: None,
             hud_shared: None,
             saves,
+            pace: LoadingPace::default(),
         }
     }
 
@@ -299,11 +303,12 @@ impl Session {
         Ok(())
     }
 
-    /// Ticks the new game without input until its start room is `readyForAI` (the
-    /// game's minimum loading schedule takes three ticks), so the reply and the first
-    /// `step` see a loaded room (D14).
+    /// Ticks the new game without input until its start room is `readyForAI` (its
+    /// preparer's thread hands the stages over, the ticks paced while it loads), so the
+    /// reply and the first `step` see a loaded room (D14).
     fn step_until_start_room_ready(&mut self) {
-        for _ in 0..START_READY_TICKS {
+        let started = std::time::Instant::now();
+        while started.elapsed() < START_READY_TIME {
             if self
                 .scene
                 .as_ref()
@@ -313,7 +318,7 @@ impl Session {
             }
             self.tick(Input::NONE);
         }
-        log::warn!("the start room is not ready after {START_READY_TICKS} ticks");
+        log::warn!("the start room is not ready after {START_READY_TIME:?}");
     }
 
     fn room_info(&self) -> Result<RoomInfo, String> {
@@ -357,6 +362,7 @@ impl Session {
         let Some(scene) = self.scene.as_mut() else {
             return;
         };
+        self.pace.before_tick(scene.game().sim().world());
         scene.game_mut().set_fade_delay_in_progress(delay > 0.0);
         scene.tick(input, self.hud_shared.as_mut());
         if let Some(music) = self.hud_shared.as_mut().and_then(|s| s.music.as_mut()) {
@@ -1846,6 +1852,9 @@ impl Session {
             frontend.ctx.set_key(key, true);
         }
         for _ in 0..frames {
+            if let Some(g) = frontend.game() {
+                self.pace.before_tick(g.scene.game().sim().world());
+            }
             frontend.update(FRAME_SECONDS);
             *count += 1;
         }
@@ -2527,6 +2536,9 @@ impl PreparerState {
         Self {
             status: p.status().value(),
             calls: p.calls(),
+            thread_started: p.thread_started(),
+            thread_finished: p.thread_finished(),
+            requested_stage: p.requested_stage(),
             done: p.done(),
         }
     }
