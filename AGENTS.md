@@ -197,8 +197,8 @@ for older notes' line numbers; new notes cite file and member.
     save. Shelters (D17): door closes on a fed, still slugcat, `Win` writes
     the save and region state, the sleep screen (D13) continues the next
     cycle; too little food shows the starve screen. PASSAGE stays greyed out
-    (D13). Dreams are a black stand-in. Gates, region changes and the rain's push, kill and flood
-    are not there yet.
+    (D13). Dreams are a black stand-in. The rain pushes, kills and floods (water rises in
+    flood rooms, D47); gates and region changes are not there yet.
   - Death in a story session is the game's: the body keeps simulating,
     `GameOver` puts the HUD prompt in game-over mode, the map button 40 ticks
     later saves the death and shows the death screen, whose CONTINUE starts
@@ -263,7 +263,7 @@ prefer these over `--screenshot`/`--script`; briefs for such agents say so.
 - `get_state` reports the camera room (`room` is the room the camera shows; during a pending move `camera_move` names the room it is moving to), the player (food, grasps, pick-up
   candidate, stomach, counters, sneak/loudness, `held_by`, `danger_grasp` and
   its time, struggle buttons, `can_struggle`, `cant_be_grabbed_counter`, ...), the vessel in the
-  lobby, realized rooms' entry waits, `loading_progress` and `preparer` (a loading room's `RoomPreparer`: status, calls, done), `orphaned_preparers` (rooms abstracted while loading), ceiling drips, each room's `rumble_intensity`, `rain` (the cycle, its `ShaderLight`, `RainDarkPalette`, `ScreenShake`/`MicroScreenShake`, `death_rain_has_hit` and `global`: rain direction, `Intensity`, the shakes, `RumbleSound`, bullet density, flood and its speed, the death rain's mode, length, progression and sunlight), each realized room's `room_rain` (intensity, pushes, splashes), dripping sound, water surface sound, bubbles and bubble emitters, splashes, the player's `owned_items` on the ground, every abstract creature (kind, ID, room,
+  lobby, realized rooms' entry waits, `loading_progress` and `preparer` (a loading room's `RoomPreparer`: status, calls, done), `orphaned_preparers` (rooms abstracted while loading), ceiling drips, each room's `rumble_intensity` and `water` (`default_water_level`, `original_water_level`, `f_water_level`, `last_f_water_level`, `flood_level`, `added_water`), `rain` (the cycle, its `ShaderLight`, `RainDarkPalette`, `ScreenShake`/`MicroScreenShake`, `death_rain_has_hit` and `global`: rain direction, `Intensity`, the shakes, `RumbleSound`, bullet density, flood and its speed, the death rain's mode, length, progression and sunlight), each realized room's `room_rain` (intensity, pushes, splashes), dripping sound, water surface sound, bubbles and bubble emitters, splashes, the player's `owned_items` on the ground, every abstract creature (kind, ID, room,
   node, tile, den, realized, alive, abstract AI; realized flies, lizards
   with their movement, tracker, relationships, noise, decision (`social`:
   fight target and anger, `submitted_to`, last signal, missions, `taming_difficulty`, `gift`) and, in a

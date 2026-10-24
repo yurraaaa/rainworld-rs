@@ -2200,7 +2200,11 @@ impl Game {
         let water = self.water()?;
         let front = water.draw_points(alpha).map(Vec2::to_array).collect();
         let back = water.back_draw_points(alpha).map(Vec2::to_array).collect();
-        Some(WaterSurface::from_rows(front, back, water.still_level()))
+        Some(WaterSurface::from_rows(
+            front,
+            back,
+            water.draw_level(alpha),
+        ))
     }
 
     /// `PreviousPoint(x)` on the water's front points this tick.

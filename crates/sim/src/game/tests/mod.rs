@@ -3,6 +3,7 @@
 mod graphics_modules;
 mod loading;
 mod neighbour_loading;
+mod room_rain_flood;
 mod screen_movement;
 mod shortcut_color;
 mod water;

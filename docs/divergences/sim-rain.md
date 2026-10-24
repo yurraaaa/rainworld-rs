@@ -9,7 +9,7 @@ tick from the start of the game (right after camera 0's `Update`, before the rea
 the pre-rain `Intensity` ramp with the camera room's `LightRain`, `HeavyRain(Flux)` and
 `BulletRain(Flux)` effects, and `DeathRain` with every mode, its draws at each entry on
 both paths (`RainHit` runs in `RainCycle.Update`, so the first `DeathRainUpdate` is the
-tick after), the flood's speed and offset (the value; the water does not follow yet) and
+tick after), the flood's speed and offset (the water follows it, D47) and
 the game's index comparison (`AlternateBuildUp` counts as after `GradeABuildUp`).
 `RainCycle`'s `ShaderLight`, `ScreenShake` and `MicroScreenShake` return its values from
 `RainGameOver`; camera 0's `Update` takes the cycle's shake times the room's
@@ -50,8 +50,8 @@ Game bugs are kept (user decision, 2026-10-24).
   without a `ModManager` test. No installed base room places one, and the port does not
   make them.
 - **`waterFlux.roomShake`** (the `WaterFlux` effects; no base room has one).
-- **Not yet (steps R3-R5):** the flood's water and `RoomRain`'s flood arm (R4), its loops,
-  sprites and shader (R3), the bullet drips (R5). The room rain's push, `rainDeath` and
+- **Not yet (steps R3, R5):** the rain's loops, sprites and shader (R3), the bullet drips
+  (R5). The flood's water is D47. The room rain's push, `rainDeath` and
   `Room.RainDrownOutSounds` are D45.
 - **The paused camera's micro shake** is drawn on the cosmetic stream (D1) in every drawn
   frame, paused or not, as `PausedDrawUpdate` draws it in the game.
@@ -95,10 +95,60 @@ sum is 0; the game's sign slip, ported as the game has it by the user's decision
   (`RainIntensity < 0.02`), More Slugcats' `OE` gate (`RainIntensity <= 0.2`), Watcher's
   `rippleLayer` skip and `WaterCycleBottom/Top` objects (which also make a `RoomRain`), the
   precycle intensity and flood arms, the Saint `Blizzard` type and `rippleFade`.
-- **Not yet:** the flood arm of `Update` (R4), the loops (R3), the drips (R5), `DrawSprites`
-  and the splash sprites (R3).
+- **Not yet:** the loops (R3), the drips (R5), `DrawSprites` and the splash sprites (R3).
+  The flood arm of `Update` is D47.
 
 **Why.** Scope of step R2 (survey `rain/core.md`); the rest waits for R3-R5.
 
 **Affects.** The stream (each pushed chunk makes 3 to 7 draws a tick in a pushing room),
 the bodies' velocities and stuns in a death rain, the player's lungs and death.
+
+## D47: The flood's water (`RoomRain`'s flood arm, `Room.AddWater`, `fWaterLevel`)
+
+`rw_sim::Water` keeps `originalWaterLevel`, `fWaterLevel` and `lastFWaterLevel`: the surface
+moves to `fWaterLevel` in each `Surface.Update` (`DefaultSurface.TargetWaterLevel`), so
+every `FloatWaterLevel`/`DetailedWaterLevel` reader (submersion, buoyancy, swimming,
+lungs, `ThrowAroundObjects`, drips, splashes, bubbles, lizards, flies, lights) follows it a
+tick later, as in the game; `Water.Update` ends with `lastFWaterLevel = fWaterLevel`. The
+waterfalls' `strikeLevel`, `RoomCamera`'s `_waterLevel` (`fWaterLevel + 100`), the
+`WaterLight` sprite and `DrawSprites`' edge level (`Lerp(lastFWaterLevel, fWaterLevel,
+timeStacker)`) read it directly. Readers of `defaultWaterLevel` and `room.water` keep the
+room's row, which the flood does not move in the game either. The `RoomRain`
+constructor sets `fWaterLevel = originalWaterLevel + flood`. `Update`'s flood arm runs
+after `ThrowAroundObjects` in a room whose settings' `DangerType` is `Flood` or
+`FloodAndRain` once `TimeUntilRain <= 0`, `flood > 0` or the room has level water
+(`defaultWaterLevel > -1`). With a water object, `fWaterLevel` lerps 0.2 toward `FloodLevel`
+(`originalWaterLevel + flood`, or `originalWaterLevel` where the rain's `dangerType` does
+not flood, -100 without water) and `GeneralUpsetSurface(InverseLerp(0, 0.5, Intensity) * 4)`
+makes its three draws (`Range(0, totalPoints)`, two values). Without one, once the death
+rain is on, `Room.AddWater` gives the room `defaultWaterLevel` -10 (`Arc::make_mut` on the
+realized room's `Room`, so a later realization reads the file again, as the game reloads
+it) and a `Water` at -190 with its `waterSounds` loop on the band at rows -11 to -10, as
+the game's constructor places it. The camera's surface sprites appear with it; the
+`WaterLight` only on the camera's next room change, as `ChangeRoom` makes it.
+
+**Kept as the game has it (user, 2026-10-24):** the constructor raises every room with
+a water object by the flood, flooding or not, and a `Rain` room's water then never comes
+back down (only flooding rooms run the arm). The flood moves no tile water flags and no
+AI map (`UpdateWaterAccessibility` is Watcher's), and it is the same pixel offset in every
+flooding room. The `RainMask_` texture is the room's first, made at `Room.Loaded` before
+any `AddWater`, so flood water never marks it.
+
+**What differs:**
+- **Listed, not ported (DLC and Remix):** the precycle arms (`floodLerpSpeed`,
+  `drainWorldFlood`, the world-position flood, `RoomRainFloodShake`, `AddWater` at -2000
+  and `Room.Update`'s -2000 snap, `fWaterLevel = FloodLevel` after `AddWater`, the
+  constructor limited to flooding rooms), Watcher's `waterFlux` (`WaterFlux`,
+  `WaterFluxMaxLevel`, the flux branch of `FloodLevel`), `waterLevelMin`/`Max`
+  (`WaterCycleTop`/`Bottom`) and their machinery sounds, `UpdateWaterAccessibility`,
+  inverted water (`waterInverted`), More Slugcats' constructor branch in `Water` (which
+  the next line overwrites), `AlternateSurfaceFloodLevel` (`WaterCutoff`/`AirPocket`
+  objects, D11) and Remix's `RumbleIntensity > 0` test.
+- **Not yet (M9):** a broken shelter's water (`ShelterDoor`'s `BrokenShelterWaterLevel`
+  and its `FloodLevel` copy) and `OverWorld.SyncFloodLevels`' rebase of the flood across
+  regions. `FluxWaterfall`/`FluxDrain` are D44.
+
+**Why.** Step R4's scope (surveys `rain/core.md` 4.2, 5.3, 5.5, `rain/consumers.md` 4).
+
+**Affects.** The stream (three draws a tick per flooding room with water), drowning in
+flood rooms, the level shader's water line and every body's submersion there.

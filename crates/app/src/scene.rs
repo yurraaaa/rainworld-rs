@@ -243,7 +243,7 @@ impl Scene {
             return None;
         }
         Some(match (self.game.water(), self.death_fall()) {
-            (Some(water), _) => water.still_level() + 100.0,
+            (Some(water), _) => water.f_water_level + 100.0,
             (None, Some(fall)) => fall.height + 180.0,
             (None, None) => 0.0,
         })

@@ -166,11 +166,11 @@ impl WaterFall {
         self.pos.y
     }
 
-    /// `strikeLevel`: the still water level less 10 px (Remix off), under the fall's
+    /// `strikeLevel`: `fWaterLevel` less 10 px (Remix off), under the fall's
     /// middle; -200 without a water object.
     #[must_use]
     pub fn strike_level(water: Option<&Water>) -> f32 {
-        water.map_or(Self::NO_WATER_STRIKE_LEVEL, |w| w.still_level() - 10.0)
+        water.map_or(Self::NO_WATER_STRIKE_LEVEL, |w| w.f_water_level - 10.0)
     }
 
     /// `floatLength`.

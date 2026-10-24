@@ -1,20 +1,21 @@
 //! The game's side of a room's `RoomRain`: `Room.Loaded` making it (not in an intact
-//! shelter), its turn in the update list (the intensity, then `ThrowAroundObjects` while the
-//! global rain pushes) and the `rainDeath` of the creatures it reaches. Type:
-//! [`crate::world::RoomRain`].
+//! shelter) with the constructor's water level, its turn in the update list (the
+//! intensity, `ThrowAroundObjects` while the global rain pushes, then the flood arm: the
+//! water level toward `FloodLevel`, or `Room.AddWater` in a dry flood room) and the
+//! `rainDeath` of the creatures it reaches. Type: [`crate::world::RoomRain`].
 //!
-//! Not ported yet: the flood arm of `Update` (R4), the bullet drips (R5), the sound loops
-//! (R3); the DLC branches are listed in D45.
+//! Not ported yet: the bullet drips (R5), the sound loops (R3); the DLC branches are
+//! listed in D45 and D47.
 //!
-//! Mirrors: Room.cs (Loaded: RoomRain), RoomRain.cs (Update, ThrowAroundObjects)
+//! Mirrors: Room.cs (Loaded: RoomRain, AddWater), RoomRain.cs (RoomRain, Update, ThrowAroundObjects)
 
 use rw_assets::DangerType;
 
-use crate::ChunkOwner;
 use crate::creature::CreatureId;
 use crate::game::{RainWorldGame, RoomObject};
 use crate::item::Entity;
 use crate::world::RoomRain;
+use crate::{ChunkOwner, FloatExt};
 
 impl RainWorldGame {
     /// `Room.Loaded`'s `new RoomRain(game.globalRain, this)` and `AddObject`: a room that
@@ -49,8 +50,14 @@ impl RainWorldGame {
             return;
         };
         let order = self.world.next_update_seq();
+        let flood = self.world.rain_cycle.global_rain.flood;
         if let Some(r) = self.world.realized_mut(index) {
             r.room_rain = Some(RoomRain::new(order, &r.room, danger, shelter));
+            // The constructor: every room with a water object starts at the flood's
+            // offset (the precycle limits it to flooding rooms).
+            if let Some(w) = r.water.as_mut() {
+                w.f_water_level = w.original_level() + flood;
+            }
         }
     }
 
@@ -80,9 +87,44 @@ impl RainWorldGame {
             return;
         };
         rain.update_intensity(global_intensity, rain_intensity);
-        // The bullet drips (R5), the flood (R4) and the sound loops (R3) follow here.
         if pushes {
             self.throw_around_objects(index);
+        }
+        // The bullet drips (R5) come here, the sound loops (R3) after the flood.
+        self.room_rain_flood(index);
+    }
+
+    /// `Update`'s flood arm (base game): in a room whose settings flood, once the rain
+    /// has come, the flood has started or the room has level water, the water level
+    /// moves a fifth of the way to `FloodLevel` and `GeneralUpsetSurface` stirs the
+    /// surface (three draws; the `RumbleIntensity > 0` test is Remix's); a room without
+    /// a water object gets one from `Room.AddWater` once the death rain is on.
+    fn room_rain_flood(&mut self, index: i32) {
+        let cycle = &self.world.rain_cycle;
+        let (time_until_rain, global) = (cycle.time_until_rain(), &cycle.global_rain);
+        let (flood, intensity, death_rain) =
+            (global.flood, global.intensity, global.death_rain.is_some());
+        let mods = self.world.mods();
+        let Some(r) = self.world.realized_mut(index) else {
+            return;
+        };
+        if !RoomRain::flood_arm_runs(
+            r.settings.danger_type,
+            time_until_rain,
+            flood,
+            r.room.water_level(),
+        ) {
+            return;
+        }
+        let Some(rain) = r.room_rain.as_ref() else {
+            return;
+        };
+        let target = rain.flood_level(r.water.as_ref(), flood);
+        if let Some(w) = r.water.as_mut() {
+            w.f_water_level = w.f_water_level.lerp(target, 0.2);
+            w.general_upset_surface(intensity.inverse_lerp(0.0, 0.5) * 4.0, &mut self.rng);
+        } else if death_rain {
+            r.add_water(mods);
         }
     }
 

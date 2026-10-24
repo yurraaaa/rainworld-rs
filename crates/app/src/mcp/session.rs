@@ -38,7 +38,7 @@ use super::reply::{
     PreparerState, ProcessState, RainMeterState, RainState, RealizedState, RoomInfo, RoomList,
     RoomRainState, SaveInfo, SaveStateInfo, Screenshot, SessionInfo, ShelterDoorState, SleepState,
     SlideShowState, StartUpState, State, StepTrace, StoryInfo, TextPromptState, TokenState,
-    WeaponInfo,
+    WaterLevelState, WeaponInfo,
 };
 use super::reply::{
     AgressionTrackerInfo, ConnectionInfo, CoordInfo, DynamicRelationshipInfo, GhostInfo,
@@ -525,6 +525,7 @@ impl Session {
                                 r.settings.rain_intensity,
                             )
                         }),
+                        water: WaterLevelState::of(r, world.rain_cycle.global_rain.flood),
                         drips: r
                             .drips
                             .iter()

@@ -14,7 +14,7 @@ not behaviour. Game assets are never committed.
 |---|---|---|
 | `lib.rs` | module list | |
 | `files.rs` | `StreamingAssets` (path lookup), `AssetError` | |
-| `room.rs` | room geometry file: `Room`, `Tile`, `Terrain`, `Shortcut`, `Slope`, `RoomItem` | room txt, `Room.Loaded` |
+| `room.rs` | room geometry file: `Room`, `Tile`, `Terrain`, `Shortcut`, `Slope`, `RoomItem`; `add_water` (`AddWater`'s row -10) | room txt, `Room.Loaded`, `Room.AddWater` |
 | `room_visuals.rs` | settings, palettes and per-camera images for one room's level graphic | `RoomCamera` |
 | `settings.rs` | `RoomSettings`, `SettingsFile`, template inheritance, `FadePalette`, `DangerType` | `RoomSettings` |
 | `placed.rs`, `placed_types.rs` | room effects and placed objects by type name; the `PlacedObject.Type` / `RoomEffect.Type` enums | `PlacedObject`, `RoomSettings.RoomEffect` |

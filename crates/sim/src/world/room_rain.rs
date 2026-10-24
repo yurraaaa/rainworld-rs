@@ -4,11 +4,13 @@
 //! side (making it in `Room.Loaded`, its turn in the update list, reaching the room's
 //! bodies and creatures) is `game/room_rain_turn.rs`.
 //!
-//! Not ported here: the flood arm of `Update` (`fWaterLevel`, `FloodLevel`, `AddWater`,
-//! `GeneralUpsetSurface`: step R4), the bullet drips (R5), the sound loops, the sprites and
-//! the shader (R3), and the DLC and Remix branches (D45).
+//! `FloodLevel` and the tests of `Update`'s flood arm are here; the arm itself (the water
+//! level, `GeneralUpsetSurface`, `AddWater`) is the game side's (D47).
 //!
-//! Mirrors: RoomRain.cs (RoomRain, GenerateShelterTex, Update, ThrowAroundObjects, CreatureSmashedInGround, InsidePushAround, OutsidePushAround)
+//! Not ported here: the bullet drips (R5), the sound loops, the sprites and the shader
+//! (R3), and the DLC and Remix branches (D45, D47).
+//!
+//! Mirrors: RoomRain.cs (RoomRain, GenerateShelterTex, Update, ThrowAroundObjects, CreatureSmashedInGround, InsidePushAround, OutsidePushAround, FloodLevel)
 
 use std::sync::Arc;
 
@@ -16,7 +18,7 @@ use rw_assets::{DangerType, Room};
 use rw_random::UnityRandom;
 
 use crate::world::{GlobalRain, World};
-use crate::{BodyChunk, FloatExt, Vec2};
+use crate::{BodyChunk, FloatExt, Vec2, Water};
 
 /// `RoomRain.InsidePushAround` and `OutsidePushAround`.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
@@ -120,6 +122,41 @@ impl RoomRain {
         };
         self.intensity = self.intensity.min(cap);
         self.last_intensity = self.intensity;
+    }
+
+    /// `FloodLevel` (base arm; this rain's `dangerType`, a shelter's being `Flood`): -100
+    /// without a water object, `originalWaterLevel` in a room that does not flood, else
+    /// `originalWaterLevel + globalRain.flood`.
+    #[must_use]
+    pub fn flood_level(&self, water: Option<&Water>, flood: f32) -> f32 {
+        let Some(water) = water else {
+            return -100.0;
+        };
+        if Self::floods(self.danger_type) {
+            water.original_level() + flood
+        } else {
+            water.original_level()
+        }
+    }
+
+    /// `Flood` or `FloodAndRain`.
+    #[must_use]
+    pub fn floods(danger: DangerType) -> bool {
+        matches!(danger, DangerType::Flood | DangerType::FloodAndRain)
+    }
+
+    /// The test of `Update`'s flood arm (base): the room's settings flood and the rain
+    /// has come (`TimeUntilRain <= 0`), the flood has started, or the room has level
+    /// water (`defaultWaterLevel > -1`).
+    #[must_use]
+    pub fn flood_arm_runs(
+        settings_danger: Option<DangerType>,
+        time_until_rain: i32,
+        flood: f32,
+        default_water_level: Option<i32>,
+    ) -> bool {
+        settings_danger.is_some_and(Self::floods)
+            && (time_until_rain <= 0 || flood > 0.0 || default_water_level.is_some_and(|l| l > -1))
     }
 
     /// `rainReach[Custom.IntClamp(x, 0, TileWidth - 1)]`.

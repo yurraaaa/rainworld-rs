@@ -193,7 +193,7 @@ fn another_rooms_shot_has_a_water_light_where_there_is_water() {
         .world()
         .realized(other)
         .and_then(|r| r.water.as_ref())
-        .map(rw_sim::Water::still_level)
+        .map(|w| w.f_water_level)
         .unwrap();
     assert_eq!(sprite.pos.y, still);
 }

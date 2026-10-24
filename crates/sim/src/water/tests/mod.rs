@@ -4,6 +4,7 @@
 use rw_assets::{Room, RoomSettings};
 use rw_random::UnityRandom;
 
+mod flood;
 mod rumble;
 
 use super::{SurfaceChunk, WaterObject};

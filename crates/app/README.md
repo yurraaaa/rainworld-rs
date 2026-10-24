@@ -22,7 +22,7 @@ Gameplay logic belongs in `rw-sim`, not here.
 | `visuals.rs` | room settings, palettes, shown camera image; `DarkPalette`/`ApplyFade`, `_light` from the rain cycle or the room's lightning (`num4`), the lightning's palette texels (0, 7) and (1, 7), `_waterLevel`, `LevelState` for `get_state`'s `level_params` |
 | `full_screen_effect.rs`, `full_screen_effect_tests.rs` | `FullScreenEffect`: the room camera's `fullScreenEffect` (Bloom, SkyBloom, SkyAndLightBloom, LightBurn/Lightning, Fog): `ApplyPalette`'s choice, `DrawUpdate`'s alpha, the `Futile_White` sprite |
 | `death_fall.rs` | `DeathFallSprite`: a `DeathFallGraphic`'s `DeathFall` sprite in `Bloom` (the object, height and counter are `rw_sim::DeathFall`) |
-| `water_light.rs` | `WaterLight`: the room camera's water caustics sprite (`WaterLight` shader, first in `Foreground`), its alpha from `WaterReflectionAlpha` and the palette darkness |
+| `water_light.rs` | `WaterLight`: the room camera's water caustics sprite (`WaterLight` shader, first in `Foreground`) at `fWaterLevel`, its alpha from `WaterReflectionAlpha` and the palette darkness |
 | `window_identity.rs` | window title "Rain World" and app id `rainworld-rs` (Wayland/X11) |
 | `sprites.rs` | atlas loading (`rainWorld`, `uiSprites`), overseer projection textures, the rainbow gradient, `LightMask0`, `glyphs`, `maze` |
 | `shortcuts.rs`, `shortcuts/tests/` | camera-0 `ShortcutGraphics` fed from the game: made by `NewRoom` when the camera applies a room move, waiting for `shortCutsReady` in `Draw` (tests: the wait, the blink draws) |

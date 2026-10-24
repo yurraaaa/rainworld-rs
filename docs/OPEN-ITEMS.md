@@ -39,11 +39,9 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   rebase between the worlds (`OverWorld.cs` ~854-870; it is called only with the precycle
   in the base code path, the `flood` rebase is the last lines). `FluxWaterfall`/`FluxDrain`
   (read `floodSpeed`; base-registered, no installed room) when someone needs them (D44).
-- **Water with the rain (M8)**: `Room.AddWater` makes a `Water` (so its surface loop and
-  `WaterLight`) in rooms with no level water (rain flood, `WaterCycleTop`/`Bottom`,
-  `BrokenShelterWaterLevel`). The other water effects are done (2026-10-22). R4 also
-  sets `fWaterLevel = originalWaterLevel + globalRain.flood` in the `RoomRain` constructor
-  (a water room realized after the flood started).
+- **Water with the rain (M8)**: done in R4 for the rain's flood (D47). Left: `AddWater`
+  for `BrokenShelterWaterLevel` (M9, with broken shelters) and `WaterCycleTop`/`Bottom`
+  (Watcher).
 - **Broken shelters** (user, 2026-10-23, with region changes): `properties.txt`'s
   `Broken Shelters: <timeline>:` (Red: `HI_S03`, `LF_S07`; White and Red: `SL_S11`) are read
   and used by DeathFall, the exit look and the overseers, but the shelter/win logic treats
