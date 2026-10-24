@@ -59,9 +59,7 @@ Waking up in the rain is More Slugcats' precycle: with the DLC work (user, 2026-
 Exit check: after the cycle's end the rain falls, pushes, stuns and kills, rooms flood and
 the bullet rain comes in its cycles, as in the game.
 
-## Current
-
-**M7 - Room visual effects, lights and camera shake** (current; `surveys/room-effects/`,
+**M7 - Room visual effects, lights and camera shake** (done, accepted in the user's play 2026-10-24; `surveys/room-effects/`,
 `surveys/lights-camera-shake.md`)
 Every base-game room visual effect (level shader and palette machinery, full-screen
 effects, cosmetic insects, lightning, decals, particles, background scenes, then the
@@ -71,6 +69,10 @@ and lights owned by unported things come later with their owners or DLCs. The vo
 effects (`VoidMelt`, `VoidSpawn`, `VoidSea`) wait until the ascension ending can be
 reached (user, 2026-10-23).
 Exit check: rooms look and shake as in the game.
+Left for later (OPEN-ITEMS, divergences): the effects skipped by the user's decisions,
+the DLC effects, and the Rot's (with its creatures).
+
+## Current
 
 **M9 - Gates and region changes** (current; survey `surveys/m9/` in progress)
 Region gates and the karma gate rules, moving between regions, per-region state
