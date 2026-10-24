@@ -244,7 +244,7 @@ plan is in `../rainworld-re/surveys/lizards.md`.
     `Inspector` (also skipped by the circuit's push) and `SingularityBomb` strands with the DLC.
   - Coral stems' segments are `physicalObjects[0]` objects (D41): each system of the game that
     walks the room's physical objects must include them when it is ported (`Explosion`,
-    `RoomRain.ThrowAroundObjects`, `GameOverRain`, `WaterCurrent`, `FluxDrain`, `GeyserEruption`,
+    `GameOverRain`, `WaterCurrent`, `FluxDrain`, `GeyserEruption`,
     `MeltLights`, `WindRect`, the shelter door's `PansarPush` / `GetStuffInWalls` /
     `DestroyExcessiveObjects`,
     `SporeCloud`, `HarmfulSteam`, `TempleGuard`, `RegionGateGraphics`, `SLOracleWakeUpProcedure`, a

@@ -31,6 +31,7 @@ fn centipede(kind: CreatureType, number: i32, spawn_data: Option<&str>) -> Abstr
         sticks: Vec::new(),
         kill_tag: None,
         kill_tag_counter: 0,
+        rain_death: 0.0,
     }
 }
 

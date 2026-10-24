@@ -388,6 +388,8 @@ pub struct AbstractCreature {
     /// `killTagCounter`.
     pub kill_tag: Option<CreatureId>,
     pub kill_tag_counter: i32,
+    /// The realized creature's `rainDeath` (the player's is `Player::rain_death`).
+    pub rain_death: f32,
 }
 
 /// A creature's `ShortCutColor()`.

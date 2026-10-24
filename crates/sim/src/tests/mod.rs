@@ -63,3 +63,15 @@ fn room_file_named(name: &str, rows: &[&str], water_level: i32, items: &str) -> 
     );
     Room::parse(&text).expect("test room parses")
 }
+
+impl crate::TerrainImpact {
+    /// An impact of `chunk` against the side `(0, y)`.
+    pub(crate) fn floor(chunk: usize, speed: f32, first_contact: bool, y: i8) -> Self {
+        Self {
+            chunk,
+            direction: crate::Contact { x: 0, y },
+            speed,
+            first_contact,
+        }
+    }
+}

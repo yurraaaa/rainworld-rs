@@ -170,6 +170,7 @@ impl Player {
     /// pacifying grasp), shortcut-delay countdown, a hold let go near the bottom, then
     /// death and destruction below the room.
     pub(super) fn creature_update(&mut self, water: Option<&Water>, rng: &mut UnityRandom) {
+        self.rain_death = (self.rain_death - 0.0125).clamp(0.0, 1.0);
         if self.stun > 0 {
             self.stun -= 1;
         }
@@ -300,6 +301,14 @@ impl Player {
         if let Some((pos, strength)) = impact.noise_at(c) {
             noises.in_game_noise(pos, strength, 1.0, rng);
         }
+        if impact.first_contact
+            && impact.direction.y < 0
+            && let Some(view) = &self.rain_smash
+        {
+            let at: Vec<(Vec2, f32)> = chunks.iter().map(|c| (c.pos, c.rad)).collect();
+            self.rain_death += view.smashed_in_ground(&at, impact.speed, rng);
+        }
+        let c = &chunks[impact.chunk];
         self.impact_drips(c.pos, c.rad, c.mass, impact, rng);
     }
 

@@ -36,8 +36,9 @@ use super::reply::{
     KillsState, LizardChunk, LizardInfo, LobbyState, MapMarkerState, MapState, MeterState, NodeRef,
     ObjectInfo, OptionsState, OrphanedPreparerState, OverseerInfo, PauseMenuState, PlayerState,
     PreparerState, ProcessState, RainMeterState, RainState, RealizedState, RoomInfo, RoomList,
-    SaveInfo, SaveStateInfo, Screenshot, SessionInfo, ShelterDoorState, SleepState, SlideShowState,
-    StartUpState, State, StepTrace, StoryInfo, TextPromptState, TokenState, WeaponInfo,
+    RoomRainState, SaveInfo, SaveStateInfo, Screenshot, SessionInfo, ShelterDoorState, SleepState,
+    SlideShowState, StartUpState, State, StepTrace, StoryInfo, TextPromptState, TokenState,
+    WeaponInfo,
 };
 use super::reply::{
     AgressionTrackerInfo, ConnectionInfo, CoordInfo, DynamicRelationshipInfo, GhostInfo,
@@ -517,6 +518,13 @@ impl Session {
                         ready_for_player: r.ready_for_player(),
                         ceiling_drips: r.settings.ceiling_drips,
                         rumble_intensity: r.settings.rumble_intensity,
+                        room_rain: r.room_rain.as_ref().map(|rain| {
+                            RoomRainState::of(
+                                rain,
+                                &world.rain_cycle.global_rain,
+                                r.settings.rain_intensity,
+                            )
+                        }),
                         drips: r
                             .drips
                             .iter()
@@ -895,6 +903,7 @@ impl Session {
                     .map(|f| f.stun)
                     .or_else(|| c.overseer_body().map(|b| b.stun))
                     .or_else(|| c.lizard().map(|l| l.stun)),
+                rain_death: c.is_realized().then_some(c.rain_death),
                 impaled_on: world
                     .spear_sticks_of(Entity::Creature(id))
                     .iter()
@@ -2178,6 +2187,7 @@ impl PlayerState {
             standing: player.is_standing(),
             stunned: player.is_stunned(),
             stun_ticks: player.stun_ticks(),
+            rain_death: player.rain_death,
             can_jump: player.can_jump(),
             jump_chunk_counter: player.jump_chunk_counter(),
             dead: player.is_dead(),

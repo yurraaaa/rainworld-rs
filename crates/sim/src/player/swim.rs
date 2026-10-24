@@ -362,7 +362,7 @@ impl Player {
         sounds: &mut Sounds,
     ) {
         self.flush_sounds(rng, sounds);
-        // `airInLungs = min(airInLungs, 1 - rainDeath)`: no rain.
+        self.air_in_lungs = self.air_in_lungs.min(1.0 - self.rain_death);
         if self.sub(HEAD, water) > 0.9 {
             self.breathe_under_water(room, water, rng, sounds);
         } else {

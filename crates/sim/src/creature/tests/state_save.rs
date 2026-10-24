@@ -33,6 +33,7 @@ fn creature(kind: CreatureType) -> AbstractCreature {
         sticks: Vec::new(),
         kill_tag: None,
         kill_tag_counter: 0,
+        rain_death: 0.0,
     }
 }
 

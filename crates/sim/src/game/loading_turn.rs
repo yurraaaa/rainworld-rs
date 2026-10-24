@@ -82,6 +82,7 @@ impl RainWorldGame {
             .place_loaded_file_items(index, &mut self.ids, &mut self.rng);
         self.add_waterfalls(index);
         self.add_shelter_door(index);
+        self.add_room_rain(index);
         self.add_death_fall(index);
         self.add_trigger_checkers(index);
         self.add_dripping_sound(index);

@@ -34,6 +34,7 @@ mod game_over_turn;
 mod map_turn;
 mod observer;
 mod rain_turn;
+mod room_rain_turn;
 mod shortcut_helper_turn;
 mod shortcut_turn;
 
@@ -175,6 +176,8 @@ pub(crate) enum RoomObject {
     Lightning,
     /// An emitter of the `Lightning`'s sound loops, by its place in the update list.
     LightningLoop(u64),
+    /// The room's `RoomRain` by its place in the update list.
+    RoomRain(u64),
     /// An `ElectricDeath` by its place in the update list.
     ElectricDeath(u64),
     /// An emitter of an `ElectricDeath`'s sound loops, by its place in the update list.
@@ -885,6 +888,7 @@ impl RainWorldGame {
         objects.extend(self.room_drip_objects(index));
         objects.extend(self.room_dripping_sound_objects(index));
         objects.extend(self.room_lightning_objects(index));
+        objects.extend(self.room_rain_objects(index));
         objects.extend(self.room_electric_death_objects(index));
         objects.extend(self.room_border_push_back_objects(index));
         objects.extend(self.room_death_fall_objects(index));
@@ -1002,6 +1006,7 @@ impl RainWorldGame {
                 }
                 RoomObject::Lightning => self.run_lightning(index),
                 RoomObject::LightningLoop(order) => self.run_lightning_emitter(index, order),
+                RoomObject::RoomRain(order) => self.run_room_rain(index, order),
                 RoomObject::ElectricDeath(order) => self.run_electric_death(index, order),
                 RoomObject::ElectricDeathLoop(order) => {
                     self.run_electric_death_emitter(index, order);
@@ -1185,6 +1190,7 @@ impl RainWorldGame {
             .realized(index)
             .map_or(0.0, |r| r.settings.ceiling_drips);
         let room_gravity = self.room_gravity(index);
+        let rain_smash = self.world.room_rain_smash(index);
         let ai_map = self
             .world
             .realized(index)
@@ -1202,6 +1208,7 @@ impl RainWorldGame {
         let was_stunned = player.is_stunned();
         player.set_ceiling_drips(ceiling_drips);
         player.set_room_gravity(room_gravity);
+        player.rain_smash = rain_smash;
         player.set_ai_map(ai_map);
         player.retain_released_slide_loops(|r| self.world.realized(r).is_some());
         player.set_emitter_place(EmitterPlace {
