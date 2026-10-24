@@ -213,7 +213,7 @@ Closes the missing `NeuronSpark` sound of `random.md`'s overseer item.
   the Survivor and the Monk, all for the Hunter); an unreadable `ResizableObjectData` (none installed) is
   skipped with a warning where the game throws at load.
 - **`camerasChangedTick`** is bumped on the room the camera shows at every camera move, as the game's
-  `ApplyPositionChange` does: `apply_insect_view_change` (a room move, the first room too, also to the
+  `ApplyPositionChange` does: `apply_view_change` (a room move, the first room too, also to the
   same room and position) and `camera_moved` (the app's `RoomCamera` cutting to another position,
   `Scene::update_room_camera`). A strand re-reads `ViewedByAnyCamera` only after a bump,
   so a room the camera left keeps its strands "viewed" until its system freezes (as the game).

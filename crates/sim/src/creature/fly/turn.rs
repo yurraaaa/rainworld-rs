@@ -436,7 +436,6 @@ impl RainWorldGame {
         &mut self,
         mut v: CreatureVessel,
         lobby: LobbyVessel,
-        observer: &mut dyn PlayerObserver,
     ) -> bool {
         let id = v.creature;
         let lizard = self.world.creature(id).lizard().is_some();
@@ -494,7 +493,7 @@ impl RainWorldGame {
                     }
                 }
                 if followed && let Some(node) = node {
-                    self.camera_moves_to(lobby.room, node.viewed_by_camera, observer);
+                    self.camera_moves_to(lobby.room, node.viewed_by_camera);
                 }
                 true
             }
@@ -543,17 +542,14 @@ impl RainWorldGame {
         self.world.realize_fly_in_room(id, index, &mut cx);
     }
 
-    /// The camera left room `from` for room `to`: `NoLongerViewed` drops the graphics
+    /// `Room.NoLongerViewed` of room `from`, which camera 0 left: it drops the graphics
     /// modules in `from`'s `drawableObjects` (those of the creatures still in it: one
-    /// that left took its module out with `CleanOutObjectNotInThisRoom` and keeps it),
-    /// then `NowViewed` runs `InitiateGraphicsModule` over `physicalObjects` layer by
-    /// layer, each in joining order: flies and overseers (layer 0), then lizards
-    /// (layer 1, whose `Reset` runs even on a module they kept). An overseer in a
-    /// teleport lobby keeps its module; a destroyed one's is dropped with it.
-    pub(crate) fn camera_changed_room(
+    /// that left took its module out with `CleanOutObjectNotInThisRoom` and keeps it).
+    /// An overseer in a teleport lobby keeps its module; a destroyed one's is dropped
+    /// with it.
+    pub(crate) fn modules_no_longer_viewed(
         &mut self,
         from: i32,
-        to: i32,
         observer: &mut dyn PlayerObserver,
     ) {
         let overseers: Vec<CreatureId> = self
@@ -598,6 +594,12 @@ impl RainWorldGame {
             }
             observer.lizard_removed(self.world.creature(id).id);
         }
+    }
+
+    /// `Room.NowViewed`'s `InitiateGraphicsModule` over room `to`'s `physicalObjects` layer
+    /// by layer, each in joining order: flies and overseers (layer 0), then lizards (layer
+    /// 1, whose `Reset` runs even on a module they kept).
+    pub(crate) fn modules_now_viewed(&mut self, to: i32, observer: &mut dyn PlayerObserver) {
         self.now_viewed_modules.clear();
         for (_, id, kind) in self.now_viewed_objects(to) {
             match kind {

@@ -165,7 +165,7 @@ corridor shoots' `WaterDrip`s), `shortcut_push.rs` (a wrong hole pushing the pla
   turn files in the table below.
 - `fly/`: `mod.rs` (`Fly`), `update.rs` (`Fly.Update`), `ai.rs` + `ai_update.rs`
   (`FlyAi`, flocking), `room_ai.rs` (`FliesRoomAi`, hives), `world_ai.rs` (`FliesWorldAI`:
-  the bat-fly world process), `swarm_rooms.rs` (`SwarmRoomMapper`), `turn.rs` (bat flies in the tick: world process, `ReadyForAI`, vessels, lobby turns; the creatures' graphics modules at the camera's room change (`NoLongerViewed`, `NowViewed` by collision layer)).
+  the bat-fly world process), `swarm_rooms.rs` (`SwarmRoomMapper`), `turn.rs` (bat flies in the tick: world process, `ReadyForAI`, vessels, lobby turns; the creatures' graphics modules, `modules_no_longer_viewed`/`modules_now_viewed`, run by the camera's deferred room change).
 - `overseer/`: `abstract_ai.rs` (`OverseerAbstractAi`), `ai.rs` (`OverseerAi` state,
   zip matrix), `body.rs` (`OverseerBody`), `update.rs` (the whole realized update),
   `tutorial.rs` (`TutorialBehavior`, `TutorialMessage`), `guide_state.rs` (`PlayerGuideState`),
@@ -277,7 +277,7 @@ corridor shoots' `WaterDrip`s), `shortcut_push.rs` (a wrong hole pushing the pla
 (`CreatureAvoider`), one file per kind: `mini_fly.rs`, `fire_fly.rs`, `tiny_dragonfly.rs`,
 `rock_flea.rs`, `grass_hopper.rs`, `red_swarmer.rs`, `ant.rs`, `beetle.rs` (also the
 sitting/landing helpers Wasp and Moth share), `water_glowworm.rs`, `wasp.rs`, `moth.rs`;
-`turn.rs` (cosmetic insects in the update list: `NowViewed`/`NoLongerViewed` at the camera's room change, creatures for the avoiders, the firefly's light); `tests/`.
+`turn.rs` (the camera's deferred room change `apply_view_change`: `NoLongerViewed`/`NowViewed` of modules, particles and insects; cosmetic insects in the update list, creatures for the avoiders, the firefly's light); `tests/`.
 
 ### `effects/gameplay/` (effects that act on play)
 

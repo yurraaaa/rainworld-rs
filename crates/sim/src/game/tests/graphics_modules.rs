@@ -169,7 +169,8 @@ fn now_viewed_builds_layer_0_before_layer_1() {
         "the lizard joined first"
     );
     assert!(rec.calls.is_empty(), "no module in a room not viewed");
-    g.camera_changed_room(1, 0, &mut rec);
+    g.modules_no_longer_viewed(1, &mut rec);
+    g.modules_now_viewed(0, &mut rec);
     let (lid, fid) = (g.world.creature(l).id, g.world.creature(f).id);
     assert_eq!(
         rec.calls,
@@ -211,7 +212,8 @@ fn a_lizard_keeps_its_module_into_another_room() {
     };
     g.world.lizard_add_object(l, 0, &mut cx);
     assert!(rec.calls.is_empty(), "AddObject keeps the module");
-    g.camera_changed_room(1, 0, &mut rec);
+    g.modules_no_longer_viewed(1, &mut rec);
+    g.modules_now_viewed(0, &mut rec);
     assert_eq!(rec.calls, vec![Call::LizardAdded(lid, 7)]);
     assert_eq!(
         g.world.lizard_ref(l).graphics.as_ref().unwrap().drawn_in,
@@ -233,9 +235,11 @@ fn a_lizard_in_the_left_room_loses_its_module() {
         vec![Call::LizardAdded(lid, 1)],
         "AddObject in a viewed room"
     );
-    g.camera_changed_room(0, 1, &mut rec);
+    g.modules_no_longer_viewed(0, &mut rec);
+    g.modules_now_viewed(1, &mut rec);
     assert!(g.world.lizard_ref(l).graphics.is_none());
-    g.camera_changed_room(1, 0, &mut rec);
+    g.modules_no_longer_viewed(1, &mut rec);
+    g.modules_now_viewed(0, &mut rec);
     assert_eq!(
         rec.calls[1..],
         [Call::LizardRemoved(lid), Call::LizardAdded(lid, 2)]
@@ -251,10 +255,12 @@ fn a_fly_keeps_its_module_into_another_room() {
     let f = g.module_test_fly(0, &mut rec);
     let fid = g.world.creature(f).id;
     assert_eq!(rec.calls, vec![Call::FlyAdded(fid)]);
-    g.camera_changed_room(1, 0, &mut rec);
+    g.modules_no_longer_viewed(1, &mut rec);
+    g.modules_now_viewed(0, &mut rec);
     assert_eq!(rec.calls.len(), 1, "kept: neither dropped nor rebuilt");
     assert!(g.now_viewed_modules().is_empty());
-    g.camera_changed_room(0, 1, &mut rec);
+    g.modules_no_longer_viewed(0, &mut rec);
+    g.modules_now_viewed(1, &mut rec);
     assert_eq!(rec.calls[1..], [Call::FlyRemoved(fid)]);
 }
 
@@ -308,12 +314,42 @@ fn an_overseer_in_the_lobby_keeps_its_module_and_a_destroyed_one_does_not() {
         panic!("realized");
     };
     b.in_room = false;
-    g.camera_changed_room(0, 1, &mut rec);
+    g.modules_no_longer_viewed(0, &mut rec);
+    g.modules_now_viewed(1, &mut rec);
     assert!(rec.calls.is_empty(), "in the lobby: kept");
     let Some(RealizedCreature::Overseer(b)) = &mut g.world.creature_mut(o).realized else {
         panic!("realized");
     };
     b.slated = true;
-    g.camera_changed_room(0, 1, &mut rec);
+    g.modules_no_longer_viewed(0, &mut rec);
+    g.modules_now_viewed(1, &mut rec);
     assert_eq!(rec.calls, vec![Call::OverseerRemoved(oid)]);
+}
+
+/// `MoveCamera` only queues the move (`loadingRoom`); `ChangeRoom`, so `NoLongerViewed`,
+/// runs from `ApplyPositionChange` in the camera's next update, the head of the next tick.
+/// Until then the old room's creatures keep their modules.
+#[test]
+fn a_camera_move_drops_the_old_rooms_modules_at_the_next_tick() {
+    let mut g = game();
+    let mut rec = Recorder::default();
+    let l = g.module_test_lizard(0, &mut rec);
+    let f = g.module_test_fly(0, &mut rec);
+    let (lid, fid) = (g.world.creature(l).id, g.world.creature(f).id);
+    assert_eq!(
+        rec.calls,
+        vec![Call::LizardAdded(lid, 1), Call::FlyAdded(fid)]
+    );
+    g.camera_moves_to(1, 0);
+    assert!(
+        g.world.lizard_ref(l).graphics.is_some(),
+        "still drawn the move's tick"
+    );
+    assert!(g.world.fly_ref(f).graphics);
+    assert_eq!(rec.calls.len(), 2, "nothing dropped yet");
+    g.tick(Input::NONE, &mut rec);
+    assert!(g.world.lizard_ref(l).graphics.is_none());
+    assert!(!g.world.fly_ref(f).graphics);
+    assert!(rec.calls.contains(&Call::LizardRemoved(lid)));
+    assert!(rec.calls.contains(&Call::FlyRemoved(fid)));
 }

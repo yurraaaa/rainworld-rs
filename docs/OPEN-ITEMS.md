@@ -94,15 +94,14 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   `Room.NowViewed` makes shared-stream draws for GreenSparks, ZeroGSpecks (`BlinkSpeck`),
   CorruptionSpores and FairyParticles in its effect loop before the insect roll
   (`Room.cs` ~2632-2700, then `insectCoordinator.NowViewed`); the steps porting those
-  effects place their draws before `apply_insect_view_change`'s roll. No base room has
+  effects place their draws before `apply_view_change`'s roll (`NowViewed` runs the effects, then the creatures' graphics modules, then the insects, as the game). No base room has
   both today. Step 6 (SkyDandelions, GreenSparks, ZeroGSpecks, CorruptionSpores, D29,
   notes `particles.md`) done that way (`particles_now_viewed`); zero gravity is ported (D34), so the specks
   drift in `ZeroG` rooms.
   Ordering item (review of step 6): (F4) `Room.Loaded`
   adds effect objects (~863) and placed objects (~1055) before `AddRoomSpecificScript`
   (~1873); the port adds them in `add_trigger_checkers` before the scripts (fixed for the
-  room scripts; the order of effect objects against other effects is unchanged). The `NowViewed` order (F1) is a divergence (D29), by the user's
-  decision.
+  room scripts; the order of effect objects against other effects is unchanged). The `NowViewed` order (F1) now follows the game (`apply_view_change`).
 - **Code quality pass** (user, 2026-10-16; moved to M14 cleanup by the user 2026-10-22,
   not after the lizard steps): go over the workspace one crate at a time, a step per crate,
   finding code quality improvements (duplicated code to merge, and the like) and
@@ -169,8 +168,13 @@ plan is in `../rainworld-re/surveys/lizards.md`.
   port's `camera_moves_to` sets the camera's room at once, where the game's
   `cameras[0].room` stays the old room until `ApplyPositionChange` at the next
   `RoomCamera.Update` (the app's camera and shortcut graphics now wait for it, step C;
-  the sim's switch is still at once). For the rest of that tick `ScreenMovement`s and the drips'
-  viewed check go to the new room, as does `Room.Update`'s ceiling drip (`BeingViewed`).
+  the sim's `camera_room` switch is still at once, but the rooms' `NoLongerViewed`/`NowViewed`,
+  creature modules included, wait for `apply_view_change` at the next tick's head). For the rest of that tick `ScreenMovement`s and the drips'
+  viewed check go to the new room, as does `Room.Update`'s ceiling drip (`BeingViewed`), and `AddObject`'s viewed check:
+  a creature joining the new room that tick gets its module there (a fly's `FlyGraphics`
+  draws a tick early, a lizard a second `Reset`), one joining the old room gets none.
+  `NoLongerViewed` also drops by kind (overseers, flies, lizards), not backwards over
+  `drawableObjects` (no draws; only the observer callbacks' order).
 - **Creatures at open room edges** (user, 2026-10-22, for when more creatures get
   bodies): room borders are not solid (`Room.GetTile` copies the edge tile outside the
   room, so open air edges extend forever; the room file's `Border:` field is unread).

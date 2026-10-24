@@ -150,8 +150,8 @@ impl RainWorldGame {
             };
             let done = match vessel.owner {
                 VesselOwner::Teleport(id) => self.teleport_vessel_step(id, vessel, observer),
-                VesselOwner::Player => self.player_vessel_step(i, vessel, observer),
-                VesselOwner::Shortcut(v) => self.creature_lobby_step(v, vessel, observer),
+                VesselOwner::Player => self.player_vessel_step(i, vessel),
+                VesselOwner::Shortcut(v) => self.creature_lobby_step(v, vessel),
                 VesselOwner::BatHive(id) => self.bat_hive_lobby_step(id, vessel),
             };
             if done {
@@ -189,12 +189,7 @@ impl RainWorldGame {
     /// `ReadyForPlayer` the player moves there, its vessel restarts at the entrance node
     /// and the camera moves to the node's camera (the rooms' `NoLongerViewed` and
     /// `NowViewed` for the overseers' graphics). Returns whether it left the lobby.
-    fn player_vessel_step(
-        &mut self,
-        index: usize,
-        mut lobby: LobbyVessel,
-        observer: &mut dyn PlayerObserver,
-    ) -> bool {
+    fn player_vessel_step(&mut self, index: usize, mut lobby: LobbyVessel) -> bool {
         lobby.updates += 1;
         self.shortcuts.lobby[index] = lobby;
         let Some(dest) = self.world.realized(lobby.room) else {
@@ -252,20 +247,15 @@ impl RainWorldGame {
                 .map_or("?", |r| r.name.as_str()),
             lobby.updates
         );
-        self.camera_moves_to(lobby.room, node.viewed_by_camera, observer);
+        self.camera_moves_to(lobby.room, node.viewed_by_camera);
         true
     }
 
     /// `cameras[0].MoveCamera(room, camera)` for a vessel camera 0 follows leaving the
-    /// lobby: the rooms' `NoLongerViewed`/`NowViewed`, the camera's position, and the
+    /// lobby: the camera's position (the rooms' `NoLongerViewed`/`NowViewed` wait for
+    /// `ApplyPositionChange`, `apply_view_change`), and the
     /// sounds whose owners the old room held stop following them.
-    pub(crate) fn camera_moves_to(
-        &mut self,
-        room: i32,
-        viewed_by_camera: i32,
-        observer: &mut dyn PlayerObserver,
-    ) {
-        self.camera_changed_room(self.camera_room, room, observer);
+    pub(crate) fn camera_moves_to(&mut self, room: i32, viewed_by_camera: i32) {
         // A move before the last one's `ApplyPositionChange` replaces it (`loadingRoom` is
         // overwritten): the room it named never gets its `NowViewed`.
         let from = self.insect_view.map_or(Some(self.camera_room), |v| v.from);
