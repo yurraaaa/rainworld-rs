@@ -282,17 +282,15 @@ impl RealizedRoom {
     /// matters), then the `Water` and its loop. The camera's `NewObjectInRoom` is the
     /// app's (it makes the surface sprites once the room has water); the waterfalls
     /// read the room's water each tick, so `ConnectToWaterObject` has nothing to do.
-    /// Returns whether it made the water.
-    pub(crate) fn add_water(&mut self, mods: ActiveMods) -> bool {
+    pub(crate) fn add_water(&mut self, mods: ActiveMods) {
         if self.water.is_some() {
-            return false;
+            return;
         }
         Arc::make_mut(&mut self.room).add_water();
         let (water, sound) = Self::make_water(&self.room, &self.settings, mods);
         self.water = water;
         self.water_sound = sound;
         self.added_water = self.water.is_some();
-        self.added_water
     }
 
     /// `abstractRoom.firstTimeRealized` as `Room.Loaded` sees it.

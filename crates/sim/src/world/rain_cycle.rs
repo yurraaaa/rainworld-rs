@@ -2,7 +2,7 @@
 //! constructor with its draws, the timer ticked by `RainWorldGame.Update`, `RainHit` at the
 //! cycle's end. The game's `GlobalRain` (one per `RainWorldGame`, read through `world.game`)
 //! is the field `global_rain`; a world replaced by a gate (M9) has to carry it over. The
-//! rain's push, flood and sounds (`RoomRain`) are not ported yet.
+//! rooms' rain (`RoomRain`) is `world/room_rain.rs`.
 //!
 //! Mirrors: RainCycle.cs, WaterLevelCycle.cs
 
