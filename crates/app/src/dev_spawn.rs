@@ -86,7 +86,6 @@ impl Game {
         if edit.restart || edit.stop {
             sim.dev_set_rain_timer(0);
             sim.dev_clear_rain_pause();
-            sim.dev_reset_global_rain();
             sim.dev_set_rain_paused(edit.stop);
         }
         if let Some(timer) = edit.timer {
@@ -101,6 +100,14 @@ impl Game {
         }
         if let Some(speed) = edit.speed {
             sim.dev_set_rain_speed(speed);
+        }
+        if edit.cycle_length.is_some()
+            || edit.restart
+            || edit.stop
+            || edit.timer.is_some()
+            || edit.shift.is_some()
+        {
+            sim.dev_rewind_rain();
         }
         let c = &sim.world().rain_cycle;
         let dev = sim.dev_rain_control();

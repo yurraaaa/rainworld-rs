@@ -184,3 +184,60 @@ fn the_player_goes_under_the_risen_water() {
     assert!(w.f_water_level > 150.0, "{}", w.f_water_level);
     assert!(main_submersion(&g) > 0.9);
 }
+
+/// The dev rewind (D44) after a death rain with flood in a dry room and in a water room:
+/// the global rain, the rooms' intensity, levels, added water and `rainDeath` start over,
+/// with no draws.
+#[test]
+fn the_dev_rewind_resets_what_the_rain_built() {
+    let mut g = game(-1, DangerType::Flood);
+    set_rain(&mut g, 20.0, true);
+    g.world_mut().rain_cycle.death_rain_has_hit = true;
+    let first = order(&g);
+    g.run_room_rain(0, first);
+    assert!(g.world().realized(0).unwrap().added_water);
+    g.world_mut()
+        .realized_mut(0)
+        .unwrap()
+        .room_rain
+        .as_mut()
+        .unwrap()
+        .intensity = 0.7;
+    g.player.as_mut().unwrap().rain_death = 0.4;
+    let before = g.rng.state();
+    g.dev_rewind_rain();
+    assert_eq!(g.rng.state(), before);
+    let c = &g.world().rain_cycle;
+    assert!(!c.death_rain_has_hit);
+    assert_eq!(c.global_rain, crate::world::GlobalRain::default());
+    let r = g.world().realized(0).unwrap();
+    assert!(!r.added_water && r.water.is_none() && r.water_sound.is_none());
+    assert_eq!(r.room.water_level(), None);
+    let rain = r.room_rain.as_ref().unwrap();
+    assert_eq!((rain.intensity, rain.last_intensity), (0.0, 0.0));
+    assert_eq!(g.player().unwrap().rain_death, 0.0);
+
+    let mut g = game(3, DangerType::Flood);
+    set_rain(&mut g, 40.0, true);
+    let second = order(&g);
+    g.run_room_rain(0, second);
+    assert!(water(&g).unwrap().f_water_level > 70.0);
+    g.dev_rewind_rain();
+    let w = water(&g).unwrap();
+    assert_eq!((w.f_water_level, w.last_f_water_level()), (70.0, 70.0));
+}
+
+/// A timer at or past the cycle's end leaves everything alone.
+#[test]
+fn the_dev_rewind_leaves_a_timer_past_the_end() {
+    let mut g = game(-1, DangerType::Flood);
+    set_rain(&mut g, 20.0, true);
+    let length = g.world().rain_cycle.cycle_length;
+    g.dev_set_rain_timer(length + 5);
+    let global = g.world().rain_cycle.global_rain;
+    let order = order(&g);
+    g.run_room_rain(0, order);
+    g.dev_rewind_rain();
+    assert_eq!(g.world().rain_cycle.global_rain, global);
+    assert!(g.world().realized(0).unwrap().added_water);
+}

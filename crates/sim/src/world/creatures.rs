@@ -144,6 +144,13 @@ impl World {
             .map(|(i, c)| (CreatureId(i), c))
     }
 
+    /// Port-only dev rewind of the rain (D44): every creature's `rainDeath` back to 0.
+    pub fn dev_clear_rain_death(&mut self) {
+        for c in &mut self.creatures {
+            c.rain_death = 0.0;
+        }
+    }
+
     /// `AbstractRoom.creatures` of global room `room`.
     #[must_use]
     pub fn room_creatures(&self, room: i32) -> &[CreatureId] {

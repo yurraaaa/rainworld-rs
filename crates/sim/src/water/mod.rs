@@ -260,6 +260,12 @@ impl Water {
         self.original_level
     }
 
+    /// Port-only dev rewind of the flood (D44): both levels back to `originalWaterLevel`.
+    pub fn dev_reset_level(&mut self) {
+        self.f_water_level = self.original_level;
+        self.last_f_water_level = self.original_level;
+    }
+
     /// `lastFWaterLevel`.
     #[must_use]
     pub fn last_f_water_level(&self) -> f32 {
