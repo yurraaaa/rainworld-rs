@@ -12,13 +12,13 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | app | 17 | 36 | 0 | 0 |
 | assets | 25 | 13 | 0 | 0 |
 | audio | 11 | 5 | 0 | 0 |
-| graphics | 53 | 22 | 0 | 0 |
+| graphics | 54 | 22 | 0 | 0 |
 | hud | 24 | 0 | 0 | 0 |
 | menu | 27 | 2 | 0 | 0 |
 | random | 0 | 1 | 0 | 0 |
 | render | 7 | 19 | 0 | 0 |
 | save | 15 | 5 | 0 | 0 |
-| sim | 258 | 20 | 0 | 0 |
+| sim | 259 | 20 | 0 | 0 |
 
 ## Rust file to C# files
 
@@ -159,6 +159,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/graphics/src/effects/cosmetic.rs` | mirrors | ExplosionSpikes.cs, NeuronSpark.cs, Spark.cs |
 | `crates/graphics/src/effects/gameplay/electric_death.rs` | mirrors | ElectricDeath.cs |
 | `crates/graphics/src/effects/gameplay/mod.rs` | port-only | - |
+| `crates/graphics/src/effects/gameplay/room_rain.rs` | mirrors | RoomRain.cs |
 | `crates/graphics/src/effects/lights/light_beam.rs` | mirrors | LightBeam.cs, SpotLight.cs |
 | `crates/graphics/src/effects/lights/light_fixture.rs` | mirrors | HolyFire.cs, SlimeMoldLight.cs |
 | `crates/graphics/src/effects/lights/light_source.rs` | mirrors | LightSource.cs |
@@ -584,6 +585,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `crates/sim/src/world/region_state.rs` | mirrors | RegionState.cs, SaveState.cs, World.cs |
 | `crates/sim/src/world/room_preparer.rs` | mirrors | RoomPreparer.cs |
 | `crates/sim/src/world/room_rain.rs` | mirrors | RoomRain.cs |
+| `crates/sim/src/world/room_rain_sound.rs` | mirrors | DisembodiedDynamicSoundLoop.cs, DynamicSoundLoop.cs, RoomRain.cs |
 
 ## C# file to Rust files
 
@@ -655,12 +657,12 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `DenFinder.cs` | `crates/sim/src/creature/ai_modules/den_finder.rs`, `crates/sim/src/creature/ai_modules/world.rs` |
 | `DirectionalSound.cs` | `crates/assets/src/ambient.rs` |
 | `DiscomfortTracker.cs` | `crates/sim/src/creature/ai_modules/stuck_tracker.rs`, `crates/sim/src/creature/ai_modules/tracker_world.rs` |
-| `DisembodiedDynamicSoundLoop.cs` | `crates/sim/src/sound/dripping_sound.rs` |
+| `DisembodiedDynamicSoundLoop.cs` | `crates/sim/src/sound/dripping_sound.rs`, `crates/sim/src/world/room_rain_sound.rs` |
 | `DisembodiedLoopEmitter.cs` | `crates/sim/src/sound/dripping_sound.rs` |
 | `DreamsState.cs` | `crates/save/src/dreams.rs` |
 | `DrippingSound.cs` | `crates/sim/src/sound/dripping_sound.rs` |
 | `DropBugAbstractAI.cs` | `crates/sim/src/creature/abstract_ai/kinds_world.rs` |
-| `DynamicSoundLoop.cs` | `crates/sim/src/sound/water_sound.rs` |
+| `DynamicSoundLoop.cs` | `crates/sim/src/sound/water_sound.rs`, `crates/sim/src/world/room_rain_sound.rs` |
 | `ElectricDeath.cs` | `crates/graphics/src/effects/gameplay/electric_death.rs`, `crates/sim/src/effects/gameplay/electric_death.rs`, `crates/sim/src/effects/gameplay/electric_death_turn.rs` |
 | `EventTrigger.cs` | `crates/assets/src/triggers.rs` |
 | `ExplosionSpikes.cs` | `crates/graphics/src/effects/cosmetic.rs`, `crates/sim/src/effects/cosmetic.rs` |
@@ -834,7 +836,7 @@ Convention: every `crates/*/src` file (tests excluded) has a module header line
 | `RoomCamera.cs` | `crates/app/src/full_screen_effect.rs`, `crates/app/src/game.rs`, `crates/app/src/scene.rs`, `crates/app/src/sprite_order.rs`, `crates/app/src/visuals.rs`, `crates/app/src/water_light.rs`, `crates/assets/src/palette.rs`, `crates/render/src/level.rs`, `crates/render/src/room_camera.rs`, `crates/sim/src/creature/fly/turn.rs`, `crates/sim/src/effects/particles/insect/turn.rs`, `crates/sim/src/game/camera.rs`, `crates/sim/src/game/camera_image.rs`, `crates/sim/src/game/rain_turn.rs`, `crates/sim/src/game/screen_shake.rs`, `crates/sim/src/game/shortcut_turn.rs` |
 | `RoomPreparer.cs` | `crates/sim/src/world/room_preparer.rs` |
 | `RoomPreprocessor.cs` | `crates/assets/src/nodes.rs`, `crates/sim/src/world/ai_map/creature_ai_map.rs` |
-| `RoomRain.cs` | `crates/assets/src/rain_mask.rs`, `crates/sim/src/game/room_rain_turn.rs`, `crates/sim/src/world/room_rain.rs` |
+| `RoomRain.cs` | `crates/assets/src/rain_mask.rs`, `crates/graphics/src/effects/gameplay/room_rain.rs`, `crates/sim/src/game/room_rain_turn.rs`, `crates/sim/src/world/room_rain.rs`, `crates/sim/src/world/room_rain_sound.rs` |
 | `RoomRealizer.cs` | `crates/sim/src/world/realizer.rs` |
 | `RoomSettings.cs` | `crates/assets/src/ambient.rs`, `crates/assets/src/placed.rs`, `crates/assets/src/placed_types.rs`, `crates/assets/src/settings.rs`, `crates/assets/src/triggers.rs` |
 | `RoomSpecificScript.cs` | `crates/sim/src/game/room_script.rs` |

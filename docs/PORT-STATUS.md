@@ -312,12 +312,12 @@ Ported:
 | `DenFinder` | `crates/sim/src/creature/ai_modules/den_finder.rs`, `crates/sim/src/creature/ai_modules/world.rs` |
 | `DirectionalSound` | `crates/assets/src/ambient.rs` |
 | `DiscomfortTracker` | `crates/sim/src/creature/ai_modules/stuck_tracker.rs`, `crates/sim/src/creature/ai_modules/tracker_world.rs` |
-| `DisembodiedDynamicSoundLoop` | `crates/sim/src/sound/dripping_sound.rs` |
+| `DisembodiedDynamicSoundLoop` | `crates/sim/src/sound/dripping_sound.rs`, `crates/sim/src/world/room_rain_sound.rs` |
 | `DisembodiedLoopEmitter` | `crates/sim/src/sound/dripping_sound.rs` |
 | `DreamsState` | `crates/save/src/dreams.rs` |
 | `DrippingSound` | `crates/sim/src/sound/dripping_sound.rs` |
 | `DropBugAbstractAI` | `crates/sim/src/creature/abstract_ai/kinds_world.rs` |
-| `DynamicSoundLoop` | `crates/sim/src/sound/water_sound.rs` |
+| `DynamicSoundLoop` | `crates/sim/src/sound/water_sound.rs`, `crates/sim/src/world/room_rain_sound.rs` |
 | `ElectricDeath` | `crates/graphics/src/effects/gameplay/electric_death.rs`, `crates/sim/src/effects/gameplay/electric_death.rs`, `crates/sim/src/effects/gameplay/electric_death_turn.rs` |
 | `EventTrigger` | `crates/assets/src/triggers.rs` |
 | `ExplosionSpikes` | `crates/graphics/src/effects/cosmetic.rs`, `crates/sim/src/effects/cosmetic.rs` |
@@ -433,7 +433,7 @@ Ported:
 | `RoomCamera` | `crates/app/src/full_screen_effect.rs`, `crates/app/src/game.rs`, `crates/app/src/scene.rs`, `crates/app/src/sprite_order.rs`, `crates/app/src/visuals.rs`, `crates/app/src/water_light.rs`, `crates/assets/src/palette.rs`, `crates/render/src/level.rs`, `crates/render/src/room_camera.rs`, `crates/sim/src/creature/fly/turn.rs`, `crates/sim/src/effects/particles/insect/turn.rs`, `crates/sim/src/game/camera.rs`, `crates/sim/src/game/camera_image.rs`, `crates/sim/src/game/rain_turn.rs`, `crates/sim/src/game/screen_shake.rs`, `crates/sim/src/game/shortcut_turn.rs` |
 | `RoomPreparer` | `crates/sim/src/world/room_preparer.rs` |
 | `RoomPreprocessor` | `crates/assets/src/nodes.rs`, `crates/sim/src/world/ai_map/creature_ai_map.rs` |
-| `RoomRain` | `crates/assets/src/rain_mask.rs`, `crates/sim/src/game/room_rain_turn.rs`, `crates/sim/src/world/room_rain.rs` |
+| `RoomRain` | `crates/assets/src/rain_mask.rs`, `crates/graphics/src/effects/gameplay/room_rain.rs`, `crates/sim/src/game/room_rain_turn.rs`, `crates/sim/src/world/room_rain.rs`, `crates/sim/src/world/room_rain_sound.rs` |
 | `RoomRealizer` | `crates/sim/src/world/realizer.rs` |
 | `RoomSettings` | `crates/assets/src/ambient.rs`, `crates/assets/src/placed.rs`, `crates/assets/src/placed_types.rs`, `crates/assets/src/settings.rs`, `crates/assets/src/triggers.rs` |
 | `RoomSpecificScript` | `crates/sim/src/game/room_script.rs` |
