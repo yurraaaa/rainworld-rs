@@ -376,6 +376,8 @@ Briefs must repeat these rules.
 - Unit tests live in a `tests/` folder inside their topic folder (`player/tests/`), never
   as `*_tests.rs` beside the sources; a crate's top-level `tests/` holds integration
   tests only. (Existing `*_tests.rs` files move in the file layout cleanups.)
+- Locks: `parking_lot`'s `Mutex`, `RwLock` and `Condvar`, not `std::sync`'s (user,
+  2026-10-24: lighter and faster). `std::thread` and `Arc` are fine.
 - WGSL shaders live in `crates/render/shaders/`, loaded with
   `include_str!("../shaders/<name>.wgsl")`.
 - Don't over-document. A simple function or field needs no doc comment, or
