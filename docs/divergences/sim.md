@@ -748,9 +748,8 @@ second part, else a single-room world for arena levels). The campaign descriptio
   leave-room behaviours, `FliesRoomAI` with the hives, the hover loop, the shortcut
   travel (D5), `Abstractize` when its room is abstracted, and `FlyGraphics` in a viewed
   room (`rw_graphics`). The player catches, holds, throws, carries and eats flies (D1,
-  D8); the quantifying of a fly held while its room is abstracted is not exercised. Not
-  ported: the rain's
-  `CreatureSmashedInGround`, which needs the rain. The fly's `RoomNotACycleHazard` reads the room settings'
+  D8); the quantifying of a fly held while its room is abstracted is not exercised. The
+  rain's `CreatureSmashedInGround` for flies is in `sim-rain.md`. The fly's `RoomNotACycleHazard` reads the room settings'
   `DangerType` as registered with no DLC (a DLC value such as `Blizzard` counts as
   unregistered).
   The other quantified types (leeches, sea leeches, spiders) are counted but not
