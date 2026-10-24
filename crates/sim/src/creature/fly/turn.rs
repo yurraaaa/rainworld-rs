@@ -544,7 +544,7 @@ impl RainWorldGame {
 
     /// `Room.NoLongerViewed` of room `from`, which camera 0 left: it drops the graphics
     /// modules in `from`'s `drawableObjects` (those of the creatures still in it: one
-    /// that left took its module out with `CleanOutObjectNotInThisRoom` and keeps it),
+    /// that left took its module out with `CleanOutObjectNotInThisRoom` and keeps it).
     /// An overseer in a teleport lobby keeps its module; a destroyed one's is dropped
     /// with it.
     pub(crate) fn modules_no_longer_viewed(

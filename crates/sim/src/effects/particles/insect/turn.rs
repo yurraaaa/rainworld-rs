@@ -8,7 +8,7 @@
 //! tick's rooms. A session's first room is shown the same way, on the first tick,
 //! before the room has finished loading (`readyForAI` false).
 //!
-//! Mirrors: RoomCamera.cs (ChangeRoom: the rooms' NowViewed and NoLongerViewed), Room.cs (NowViewed, NoLongerViewed), Room.cs (Update: the insects' turns), FireFly.cs (Update: its light)
+//! Mirrors: RoomCamera.cs (ChangeRoom: the rooms' NowViewed and NoLongerViewed), Room.cs (NowViewed, NoLongerViewed, Update: the insects' turns), FireFly.cs (Update: its light)
 
 #[cfg(test)]
 #[path = "tests/turn.rs"]
